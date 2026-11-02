@@ -86,13 +86,14 @@ import {
   getSessionOwner,
   isExecutionAbortedError,
   resolveMessageOwnership,
+  waitForOwnership,
+  type OwnershipDecision,
 } from '@openliri/service/execution';
 // PR2（2026-10-09）：两段式取消灰度开关（默认关 = 保留既有"超时即释放"行为）
 import { feature } from '@openliri/kernel';
 // ── C3-S3（2026-10-09）：自本文件迁出的契约 / 助手 / 帧验证 / 内容去重 / 出站 / 流式消费 ──
 import {
   CANCEL_GRACE_MS,
-  SESSION_ADMISSION_WAIT_MS,
   ADMISSION_POLL_MS,
   resolveLlmFailure,
   resolveSuspendedOutboundContent,
@@ -591,16 +592,18 @@ async function routeChannelMessageInner(
         message.messageId,
         ownershipOwner?.ticketId
       );
+      /** P36-b-4：本条消息的归属判定（无持有者信息 ⇒ undefined = 不参与行为判定） */
+      let ownershipDecision: OwnershipDecision | undefined;
       if (ownershipOwner) {
         // `isCurrent()` 才是权威的"是否被占"：领取失败 ⇒ 本条以 QUEUED 排队（既有语义）
-        const decision = resolveMessageOwnership({
+        ownershipDecision = resolveMessageOwnership({
           occupied: !lease.isCurrent(),
           ownerKind: ownershipOwner.kind,
         });
         emitOwnershipDecision({
           sessionId: safeSessionId,
           executionId: lease.executionId,
-          decision,
+          decision: ownershipDecision,
           ownerKind: ownershipOwner.kind,
           ...(ownershipOwner.ticketId
             ? { ownerTicketId: ownershipOwner.ticketId }
@@ -611,18 +614,26 @@ async function routeChannelMessageInner(
       // PR2 遗留-2（2026-10-09）：**Router 级准入** —— 本执行以 QUEUED 创建（会话仍被"未确认
       // 取消"的上一执行占用）⇒ 有界等待所有权；超时 ⇒ 放弃本次执行（不启动 LLM）。
       // 由 `EXECUTION_TWO_PHASE_CANCEL` 门控（默认关 ⇒ 行为不变）。
-      if (feature('EXECUTION_TWO_PHASE_CANCEL') && !lease.isCurrent()) {
-        const admissionDeadline = Date.now() + resolveAdmissionWaitMs();
-        while (!lease.isCurrent() && Date.now() < admissionDeadline) {
-          lease.release(); // 释放本次 QUEUED 尝试（避免堆积记录）
-          await sleep(ADMISSION_POLL_MS);
-          lease = executionManager.acquire(
-            safeSessionId,
-            message.messageId,
-            ownershipOwner?.ticketId
-          );
-        }
-        if (!lease.isCurrent()) {
+      // P36-b-4（2026-11-02）：归属判定为 `queue`（自主执行持有会话）时**同样**走该有界等待 ——
+      // 让判定真正驱动行为（此前只落审计）。等待语义与两段式取消同源（`waitForOwnership`）。
+      if (
+        (feature('EXECUTION_TWO_PHASE_CANCEL') ||
+          ownershipDecision?.action === 'queue') &&
+        !lease.isCurrent()
+      ) {
+        const admissionWaitMs = resolveAdmissionWaitMs();
+        const waited = await waitForOwnership(
+          () =>
+            executionManager.acquire(
+              safeSessionId,
+              message.messageId,
+              ownershipOwner?.ticketId
+            ),
+          { waitMs: admissionWaitMs, pollMs: ADMISSION_POLL_MS },
+          lease
+        );
+        lease = waited.lease;
+        if (!waited.admitted) {
           lease.release();
           logger.warning(
             `[TRACE] ${traceId} 会话占用超等待上限，放弃本次执行（不启动 LLM）`,
@@ -630,7 +641,7 @@ async function routeChannelMessageInner(
               messageId: message.messageId,
               channelName,
               sessionId: safeSessionId,
-              waitMs: SESSION_ADMISSION_WAIT_MS,
+              waitMs: admissionWaitMs,
             }
           );
           recordMessageRejected('SESSION_BUSY');

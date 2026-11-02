@@ -86,6 +86,10 @@ export {
   getSessionOwner,
   resolveMessageOwnership,
   setSessionOwnerLoader,
+  // P36-b-4（2026-11-02）：queue 判定的有界等待（让判定驱动行为；唯一实现）
+  waitForOwnership,
+  OWNERSHIP_WAIT_MS,
+  OWNERSHIP_POLL_MS,
 } from './ownership';
 export type {
   MainLoopAction,
@@ -93,6 +97,8 @@ export type {
   OwnershipEventInput,
   OwnershipInput,
   OwnershipReason,
+  OwnershipWaitOptions,
+  OwnershipWaitResult,
   SessionOwner,
   SessionOwnerKind,
   SessionOwnerLoader,

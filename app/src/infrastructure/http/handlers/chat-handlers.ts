@@ -61,6 +61,10 @@ import {
   emitOwnershipDecision,
   getSessionOwner,
   resolveMessageOwnership,
+  // P36-b-4（2026-11-02）：queue 判定的有界等待（与渠道路径同一实现）
+  waitForOwnership,
+  OWNERSHIP_POLL_MS,
+  OWNERSHIP_WAIT_MS,
   type ExecutionLease,
 } from '@openliri/service/execution';
 import { feature } from '@openliri/kernel';
@@ -742,7 +746,7 @@ async function handleStreamingChat(
       feature('MESSAGE_OWNERSHIP') && clientSessionId
         ? await getSessionOwner(clientSessionId)
         : undefined;
-    const executionLease: ExecutionLease | undefined =
+    let executionLease: ExecutionLease | undefined =
       executionManager && clientSessionId
         ? executionManager.acquire(
             clientSessionId,
@@ -751,22 +755,63 @@ async function handleStreamingChat(
             request.workspace_path
           )
         : undefined;
+    /** P36-b-4：本条消息的归属判定（无持有者信息 ⇒ undefined = 不参与行为判定） */
+    let ownershipDecision:
+      | ReturnType<typeof resolveMessageOwnership>
+      | undefined;
     if (ownershipOwner && executionLease && clientSessionId) {
       // `isCurrent()` 才是权威的"是否被占"：领取失败 ⇒ 本条以 QUEUED 排队（既有语义）
-      const decision = resolveMessageOwnership({
+      ownershipDecision = resolveMessageOwnership({
         occupied: !executionLease.isCurrent(),
         ownerKind: ownershipOwner.kind,
       });
       emitOwnershipDecision({
         sessionId: clientSessionId,
         executionId: executionLease.executionId,
-        decision,
+        decision: ownershipDecision,
         ownerKind: ownershipOwner.kind,
         ...(ownershipOwner.ticketId
           ? { ownerTicketId: ownershipOwner.ticketId }
           : {}),
         ...(request.message_id ? { messageId: request.message_id } : {}),
       });
+    }
+    // P36-b-4（2026-11-02）：`queue` 判定 ⇒ **有界等待**所有权（与渠道路径同一实现）；
+    // 超时仍拿不到 ⇒ 如实拒绝（409 / `SESSION_BUSY`），**不静默并发**启动第二个执行。
+    // 灰度：仅在 `MESSAGE_OWNERSHIP` 开（决定存在）且 `CLIENT_STREAM_EXECUTION` 开（有租约）时生效。
+    if (
+      ownershipDecision?.action === 'queue' &&
+      executionManager &&
+      clientSessionId &&
+      executionLease &&
+      !executionLease.isCurrent()
+    ) {
+      const waited = await waitForOwnership(
+        () =>
+          executionManager.acquire(
+            clientSessionId,
+            request.message_id,
+            ownershipOwner?.ticketId,
+            request.workspace_path
+          ),
+        { waitMs: OWNERSHIP_WAIT_MS, pollMs: OWNERSHIP_POLL_MS },
+        executionLease
+      );
+      executionLease = waited.lease;
+      if (!waited.admitted) {
+        executionLease.release();
+        res.writeHead(409, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            error: {
+              message: '会话正被自主执行占用（已等待超时），请稍后重试',
+              type: 'session_busy',
+              code: 'SESSION_BUSY',
+            },
+          })
+        );
+        return;
+      }
     }
     let executionSettled = false;
     /** 结算本次执行（幂等；fencing：被顶替/已终结 ⇒ 忽略，绝不改写新执行） */

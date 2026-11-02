@@ -16,6 +16,7 @@
  * "谁是持有者"由宿主经 `setSessionOwnerLoader` 注入（与 `setExecutionEventSink` 同法）。
  */
 import { emitExecutionEvent } from './eventSink';
+import type { ExecutionLease } from './ExecutionLease';
 
 /** 会话当前的持有者类别（由宿主 loader 从 `ticket_assignments` 派生） */
 export type SessionOwnerKind = 'none' | 'autonomous' | 'manual';
@@ -123,4 +124,71 @@ export function emitOwnershipDecision(input: OwnershipEventInput): void {
     ...(input.ownerTicketId ? { ownerTicketId: input.ownerTicketId } : {}),
     ...(input.messageId ? { messageId: input.messageId } : {}),
   });
+}
+
+// ─── P36-b-4（2026-11-02）：queue 判定的**有界等待**（让判定真正驱动行为） ───
+
+/** 默认等待上限（ms）：与渠道准入等待同量级 —— 超过即如实拒绝，不无限挂起 */
+export const OWNERSHIP_WAIT_MS = 30_000;
+/** 默认轮询间隔（ms） */
+export const OWNERSHIP_POLL_MS = 100;
+
+export interface OwnershipWaitOptions {
+  /** 总等待上限（ms；≤0 ⇒ 只尝试一次） */
+  waitMs: number;
+  /** 轮询间隔（ms；≤0 按 1 处理） */
+  pollMs: number;
+  /** 等待函数（测试注入；缺省 `setTimeout`） */
+  sleep?: (ms: number) => Promise<void>;
+}
+
+export interface OwnershipWaitResult {
+  /** 最终租约（`admitted=false` 时调用方应先 `release()` 再拒绝） */
+  lease: ExecutionLease;
+  /** 是否拿到所有权（true ⇒ 可以启动本轮执行） */
+  admitted: boolean;
+  /** 轮询次数（0 = 首次即拿到 / 首次就被别的执行持有且不等待） */
+  attempts: number;
+}
+
+const defaultSleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+/**
+ * **queue 判定的落地**（唯一实现）：有界等待会话所有权。
+ *
+ * 语义（与渠道 `EXECUTION_TWO_PHASE_CANCEL` 的准入等待**同一口径**，复用同一组参数）：
+ * - 首次 `acquire()` 即 `isCurrent()` ⇒ 立即 `admitted=true`（无持有者时零开销）；
+ * - 否则按 `pollMs` 轮询：每轮先 `release()` 掉排队尝试（避免堆积记录），再重新 `acquire()`；
+ * - 超时仍拿不到 ⇒ `admitted=false`（调用方按既有 `SESSION_BUSY` 路径**可见地**拒绝，不静默并发）。
+ *
+ * 为什么放在 service 层：租约语义（`QUEUED` / `release` / `isCurrent`）归本包，两个入口
+ * （HTTP 流式 / 渠道路由）**不得各写一套**等待循环（CS01）。
+ *
+ * @param acquire 取得租约的工厂（调用方决定 messageId / workItemId / workspaceDir）
+ * @param options 等待参数（`waitMs ≤ 0` ⇒ 只尝试一次）
+ * @param initial 已取得的租约（调用方通常先 `acquire()` 做判定，再交给本函数继续等待）
+ */
+export async function waitForOwnership(
+  acquire: () => ExecutionLease,
+  options: OwnershipWaitOptions,
+  initial?: ExecutionLease
+): Promise<OwnershipWaitResult> {
+  const sleep = options.sleep ?? defaultSleep;
+  const pollMs = options.pollMs > 0 ? options.pollMs : 1;
+  let lease = initial ?? acquire();
+  if (lease.isCurrent()) return { lease, admitted: true, attempts: 0 };
+
+  const deadline = Date.now() + Math.max(0, options.waitMs);
+  let attempts = 0;
+  while (Date.now() < deadline) {
+    lease.release(); // 释放本次 QUEUED 尝试（避免记录堆积）
+    await sleep(pollMs);
+    lease = acquire();
+    attempts += 1;
+    if (lease.isCurrent()) return { lease, admitted: true, attempts };
+  }
+  return { lease, admitted: false, attempts };
 }

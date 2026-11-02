@@ -7,18 +7,22 @@
  */
 export { EffectQueue, EFFECT_QUEUE_TABLE } from './EffectQueue';
 export {
+  EFFECT_CLAIM_STALE_MS,
   EFFECT_DEFAULT_LATER_MS,
   EFFECT_FAILURES_BEFORE_ERROR,
+  EFFECT_KIND_MAX_ATTEMPTS,
   EFFECT_KINDS,
   EFFECT_MAX_RETRY_MS,
   EFFECT_RETRY_BASE_MS,
   EFFECT_STATUSES,
+  EFFECT_STATUS_ATTEMPTING,
   EFFECT_STATUS_FAILED,
   EFFECT_STATUS_PENDING,
   EFFECT_STATUS_SETTLED,
   effectRetryDelay,
 } from './types';
 export type {
+  ClaimEffectResult,
   ClaimedEffect,
   EffectEntry,
   EffectKind,

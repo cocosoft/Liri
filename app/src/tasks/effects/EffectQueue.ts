@@ -18,12 +18,17 @@ import { resolveDbPath } from '@openliri/infra/environment';
 import { getLogger } from '@openliri/infra/monitoring';
 
 import {
+  EFFECT_CLAIM_STALE_MS,
   EFFECT_FAILURES_BEFORE_ERROR,
   EFFECT_DEFAULT_LATER_MS,
+  EFFECT_KIND_MAX_ATTEMPTS,
+  EFFECT_STATUS_ATTEMPTING,
   EFFECT_STATUS_FAILED,
   EFFECT_STATUS_PENDING,
   EFFECT_STATUS_SETTLED,
+  EFFECT_STATUSES,
   effectRetryDelay,
+  type ClaimEffectResult,
   type ClaimedEffect,
   type EffectEntry,
   type EffectKind,
@@ -45,6 +50,8 @@ const EFFECT_DDL = [
     status       TEXT NOT NULL DEFAULT '${EFFECT_STATUS_PENDING}',
     attempts     INTEGER NOT NULL DEFAULT 0,
     due_at       INTEGER NOT NULL,
+    claimed_at   INTEGER,
+    restored     INTEGER NOT NULL DEFAULT 0,
     last_error   TEXT,
     created_at   INTEGER NOT NULL,
     updated_at   INTEGER NOT NULL,
@@ -62,6 +69,8 @@ interface EffectRow {
   status: string;
   attempts: number;
   due_at: number;
+  claimed_at: number | null;
+  restored: number;
   last_error: string | null;
   created_at: number;
   updated_at: number;
@@ -85,6 +94,10 @@ function toEntry(row: EffectRow): EffectEntry {
     status: row.status as EffectStatus,
     attempts: Number(row.attempts ?? 0),
     dueAt: Number(row.due_at ?? 0),
+    ...(row.claimed_at !== null && row.claimed_at !== undefined
+      ? { claimedAt: Number(row.claimed_at) }
+      : {}),
+    ...(row.restored ? { restored: true } : {}),
     ...(row.last_error ? { lastError: row.last_error } : {}),
     createdAt: Number(row.created_at ?? 0),
     updatedAt: Number(row.updated_at ?? 0),
@@ -117,6 +130,7 @@ export class EffectQueue {
           db.run(sql, (err) => (err ? reject(err) : resolve()));
         });
       }
+      await this.ensureColumns(db);
     } catch (err) {
       db.close(() => {
         // @ignore-catch: 建表失败路径下尽力释放连接
@@ -126,6 +140,36 @@ export class EffectQueue {
     }
     this.db = db;
     return db;
+  }
+
+  /**
+   * 存量库幂等补列（P38-b）：`CREATE TABLE IF NOT EXISTS` 不会给旧表加列。
+   *
+   * 只增不改；旧行 `claimed_at=NULL` / `restored=0`（等价"从未领取"）。
+   */
+  private async ensureColumns(db: Database): Promise<void> {
+    const rows = await new Promise<Array<{ name: string }>>(
+      (resolve, reject) => {
+        db.all(`PRAGMA table_info(${EFFECT_QUEUE_TABLE})`, (err, result) => {
+          if (err) reject(err);
+          else resolve((result as Array<{ name: string }> | undefined) ?? []);
+        });
+      }
+    );
+    const existing = new Set(rows.map((r) => r.name));
+    const additions: Array<[string, string]> = [
+      ['claimed_at', 'INTEGER'],
+      ['restored', 'INTEGER NOT NULL DEFAULT 0'],
+    ];
+    for (const [name, type] of additions) {
+      if (existing.has(name)) continue;
+      await new Promise<void>((resolve, reject) => {
+        db.run(
+          `ALTER TABLE ${EFFECT_QUEUE_TABLE} ADD COLUMN ${name} ${type}`,
+          (err) => (err ? reject(err) : resolve())
+        );
+      });
+    }
   }
 
   private async run(sql: string, params: unknown[] = []): Promise<number> {
@@ -189,6 +233,8 @@ export class EffectQueue {
            status = '${EFFECT_STATUS_PENDING}',
            attempts = 0,
            due_at = MIN(${EFFECT_QUEUE_TABLE}.due_at, excluded.due_at),
+           claimed_at = NULL,
+           restored = 0,
            last_error = NULL,
            updated_at = excluded.updated_at`,
         [kind, key, JSON.stringify(payload ?? {}), dueAt, now, now]
@@ -213,7 +259,65 @@ export class EffectQueue {
   }
 
   /**
+   * **原子领取**（P38-b）：`effect_pending`（到期）或"陈旧 `effect_attempting`" → `effect_attempting`。
+   *
+   * - 单胜者：`UPDATE … WHERE … AND generation/status`，命中 0 行即领取失败（并发不双投）；
+   * - 陈旧窗口：`claimed_at + EFFECT_CLAIM_STALE_MS <= now` 才允许重领（崩溃自愈）；
+   * - `restored=true` ⇒ 调用方必须带**可见标记**重投（对端可能已收到过）。
+   * - 领取**不增加** attempts（只有失败结算才累计；`later` 仍不计失败）。
+   */
+  async claimOne(
+    kind: EffectKind,
+    key: string,
+    now: number = Date.now()
+  ): Promise<ClaimEffectResult> {
+    return this.enqueueWrite(async () => {
+      const rows = await this.allRows(
+        `SELECT * FROM ${EFFECT_QUEUE_TABLE} WHERE kind = ? AND key = ?`,
+        [kind, key]
+      );
+      const row = rows[0];
+      if (!row) return { claimed: false };
+
+      const due =
+        row.status === EFFECT_STATUS_PENDING && Number(row.due_at) <= now;
+      const stale =
+        row.status === EFFECT_STATUS_ATTEMPTING &&
+        Number(row.claimed_at ?? 0) + EFFECT_CLAIM_STALE_MS <= now;
+      if (!due && !stale) return { claimed: false };
+
+      const updated = await this.run(
+        `UPDATE ${EFFECT_QUEUE_TABLE}
+            SET status = ?, claimed_at = ?, restored = ?, updated_at = ?
+          WHERE kind = ? AND key = ? AND generation = ? AND status = ?`,
+        [
+          EFFECT_STATUS_ATTEMPTING,
+          now,
+          stale ? 1 : 0,
+          now,
+          kind,
+          key,
+          Number(row.generation),
+          row.status,
+        ]
+      );
+      if (updated === 0) return { claimed: false };
+
+      return {
+        claimed: true,
+        generation: Number(row.generation),
+        restored: stale,
+        payload: toEntry(row).payload,
+        attempts: Number(row.attempts ?? 0),
+      };
+    });
+  }
+
+  /**
    * 结算一次派发（**必须带领取时的 generation**）。
+   *
+   * P38-b：只有 `effect_attempting` 才能结算 —— 未领取就结算视为编程错误
+   * （返回 `false` 并 warn），避免"跳过领取直接标记完成"绕过崩溃语义。
    *
    * @returns `true` = 本次结算生效；`false` = 代次已过期（新载荷已在队列里，**不得改写**）
    */
@@ -242,40 +346,56 @@ export class EffectQueue {
         });
         return false;
       }
+      if (row.status !== EFFECT_STATUS_ATTEMPTING) {
+        logger.warn('effect settle 忽略：条目未被领取', {
+          kind,
+          key,
+          status: row.status,
+        });
+        return false;
+      }
 
       if (outcome.kind === 'done') {
         return (
           (await this.run(
             `UPDATE ${EFFECT_QUEUE_TABLE}
-                SET status = '${EFFECT_STATUS_SETTLED}', last_error = NULL, updated_at = ?
-              WHERE kind = ? AND key = ? AND generation = ?`,
+                SET status = '${EFFECT_STATUS_SETTLED}', last_error = NULL,
+                    claimed_at = NULL, restored = 0, updated_at = ?
+              WHERE kind = ? AND key = ? AND generation = ?
+                AND status = '${EFFECT_STATUS_ATTEMPTING}'`,
             [now, kind, key, generation]
           )) > 0
         );
       }
 
       if (outcome.kind === 'later') {
-        // 「推迟」不是失败：attempts 不变，只前移 due（暂停 / 槽位满）
+        // 「推迟」不是失败：attempts 不变，回到 pending 并前移 due（暂停 / 槽位满）
         const retryAt = outcome.retryAt ?? now + EFFECT_DEFAULT_LATER_MS;
         return (
           (await this.run(
             `UPDATE ${EFFECT_QUEUE_TABLE}
-                SET due_at = ?, updated_at = ?
+                SET status = '${EFFECT_STATUS_PENDING}', due_at = ?,
+                    claimed_at = NULL, restored = 0, updated_at = ?
               WHERE kind = ? AND key = ? AND generation = ?
-                AND status = '${EFFECT_STATUS_PENDING}'`,
+                AND status = '${EFFECT_STATUS_ATTEMPTING}'`,
             [retryAt, now, kind, key, generation]
           )) > 0
         );
       }
 
       const attempts = Number(row.attempts ?? 0) + 1;
-      if (attempts >= EFFECT_FAILURES_BEFORE_ERROR) {
+      // 每类上限（`reply` 取 8，其余沿用统一阈值）
+      const maxAttempts =
+        EFFECT_KIND_MAX_ATTEMPTS[kind] ?? EFFECT_FAILURES_BEFORE_ERROR;
+      if (attempts >= maxAttempts) {
         // 连续失败达阈值 ⇒ 升级为系统问题（此前的每次失败都报错）
         return (
           (await this.run(
             `UPDATE ${EFFECT_QUEUE_TABLE}
-                SET status = '${EFFECT_STATUS_FAILED}', attempts = ?, last_error = ?, updated_at = ?
-              WHERE kind = ? AND key = ? AND generation = ?`,
+                SET status = '${EFFECT_STATUS_FAILED}', attempts = ?, last_error = ?,
+                    claimed_at = NULL, restored = 0, updated_at = ?
+              WHERE kind = ? AND key = ? AND generation = ?
+                AND status = '${EFFECT_STATUS_ATTEMPTING}'`,
             [attempts, outcome.error ?? null, now, kind, key, generation]
           )) > 0
         );
@@ -283,8 +403,10 @@ export class EffectQueue {
       return (
         (await this.run(
           `UPDATE ${EFFECT_QUEUE_TABLE}
-              SET attempts = ?, due_at = ?, last_error = ?, updated_at = ?
-            WHERE kind = ? AND key = ? AND generation = ?`,
+              SET status = '${EFFECT_STATUS_PENDING}', attempts = ?, due_at = ?,
+                  last_error = ?, claimed_at = NULL, restored = 0, updated_at = ?
+            WHERE kind = ? AND key = ? AND generation = ?
+              AND status = '${EFFECT_STATUS_ATTEMPTING}'`,
           [
             attempts,
             now + effectRetryDelay(attempts),
@@ -313,11 +435,9 @@ export class EffectQueue {
     const rows = await this.allRows(
       `SELECT status, COUNT(*) AS n FROM ${EFFECT_QUEUE_TABLE} GROUP BY status`
     );
-    const result: Record<EffectStatus, number> = {
-      [EFFECT_STATUS_PENDING]: 0,
-      [EFFECT_STATUS_SETTLED]: 0,
-      [EFFECT_STATUS_FAILED]: 0,
-    };
+    const result = Object.fromEntries(
+      EFFECT_STATUSES.map((status) => [status, 0])
+    ) as Record<EffectStatus, number>;
     for (const row of rows) {
       const status = row.status as EffectStatus;
       // 计数查询额外带 `n` 列（与 `EffectRow` 的公共列取交集）

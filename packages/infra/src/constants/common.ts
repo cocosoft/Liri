@@ -118,6 +118,11 @@ export const EFFECT_DEFAULT_LATER_MS = MS_PER_MINUTE;
 export const EFFECT_RETRY_BASE_MS = 30_000;
 /** P38：effects 失败退避封顶 @kind A */
 export const EFFECT_MAX_RETRY_MS = 30 * MS_PER_MINUTE;
+/**
+ * P38-b：`effect_attempting` 的陈旧窗口 —— 超过该时长才允许被再次领取（崩溃自愈）。
+ * 与 `SettlementOutbox.CLAIM_STALE_MS` 同值，保持两套投递台账的语义一致。 @kind A
+ */
+export const EFFECT_CLAIM_STALE_MS = MS_PER_MINUTE;
 
 /**
  * 产品默认语言 / 时区（**唯一真源**）。

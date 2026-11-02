@@ -234,10 +234,15 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
   },
   {
     id: 'effectQueue',
-    title: '统一 effects 队列条目状态（3 值）',
+    title: '统一 effects 队列条目状态（4 值）',
     kind: 'persistent',
     sourceFile: 'app/src/tasks/effects/types.ts',
-    states: ['effect_pending', 'effect_settled', 'effect_failed'],
+    states: [
+      'effect_pending',
+      'effect_attempting',
+      'effect_settled',
+      'effect_failed',
+    ],
     verification: 'runtime-import',
     verifyRef: {
       module: 'app/src/tasks/effects/types.ts',
@@ -245,7 +250,7 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
       anchor: 'array',
     },
     hasTransitionFn: false,
-    note: 'P38（2026-11-02）：`effect_pending → effect_settled | effect_failed`。`later` **不是状态**（只前移 due，仍 pending）；连续失败达 `FAILURES_BEFORE_ERROR` 才进入 failed。取值带 `effect_` 前缀：`pending/settled/failed` 是跨域通用词，直接登记会把 chat/query/utils 既有 `settled` 出现点一并划入词汇表（与 P33 的 `step_` 同款教训）。',
+    note: 'P38（2026-11-02）：`effect_pending → effect_attempting → effect_settled | effect_failed`。`effect_attempting` 只在原子领取后出现（崩溃后由陈旧窗口重领，`restored=1` 标记"可能已发出"）；`later` **不是状态**（只前移 due，回 pending）；连续失败达每类上限（`reply` 8，其余 `FAILURES_BEFORE_ERROR`=3）才进入 failed。取值带 `effect_` 前缀：`pending/settled/failed` 是跨域通用词，直接登记会把 chat/query/utils 既有 `settled` 出现点一并划入词汇表（与 P33 的 `step_` 同款教训）。',
   },
 ];
 

@@ -1,10 +1,11 @@
 /**
- * P38 · 统一 effects 队列（三语义）
+ * P38 · 统一 effects 队列（三语义 + P38-b 领取/自愈）
  *
  * 覆盖方案 §5 P38 的验收口径：
  * ① `later`：只前移 due，**attempts 不增**（暂停/槽位满不是失败）；
  * ② `generation`：运行中更新载荷 ⇒ 旧代次结算**不得**删除/改写新载荷；
- * ③ `FAILURES_BEFORE_ERROR=3`：前两次失败只退避重排，第 3 次才置 `failed`。
+ * ③ `FAILURES_BEFORE_ERROR=3`：前两次失败只退避重排，第 3 次才置 `failed`；
+ * ④ P38-b：原子领取（单胜者）、陈旧窗口 `restored`、未领取不得结算、每类上限（reply=8）。
  */
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -13,8 +14,10 @@ import { join } from 'node:path';
 
 import {
   EffectQueue,
+  EFFECT_CLAIM_STALE_MS,
   EFFECT_DEFAULT_LATER_MS,
   EFFECT_FAILURES_BEFORE_ERROR,
+  EFFECT_STATUS_ATTEMPTING,
   EFFECT_STATUS_FAILED,
   EFFECT_STATUS_PENDING,
   EFFECT_STATUS_SETTLED,
@@ -74,8 +77,9 @@ describe('generation 语义（防旧覆盖新）', () => {
   it('旧代次结算返回 false，且不删除新载荷', async () => {
     const q = queue!;
     await q.enqueue('delivery', 'k', { v: 1 }, { now: NOW });
-    const claimed = await q.claimDue(NOW, 10);
-    expect(claimed[0].generation).toBe(1);
+    const first = await q.claimOne('delivery', 'k', NOW);
+    expect(first.claimed).toBe(true);
+    expect(first.generation).toBe(1);
 
     // 派发进行中，新载荷到达（同键）
     await q.enqueue('delivery', 'k', { v: 2 }, { now: NOW + 10 });
@@ -89,8 +93,11 @@ describe('generation 语义（防旧覆盖新）', () => {
     expect(after?.payload).toEqual({ v: 2 });
     expect(after?.generation).toBe(2);
 
-    // 新代次结算才生效
-    expect(await q.settle('delivery', 'k', 2, { kind: 'done' }, NOW + 30)).toBe(
+    // 新代次领取后结算才生效
+    const second = await q.claimOne('delivery', 'k', NOW + 30);
+    expect(second.claimed).toBe(true);
+    expect(second.generation).toBe(2);
+    expect(await q.settle('delivery', 'k', 2, { kind: 'done' }, NOW + 31)).toBe(
       true
     );
     expect((await q.get('delivery', 'k'))?.status).toBe(EFFECT_STATUS_SETTLED);
@@ -101,17 +108,12 @@ describe('later 语义（不计失败）', () => {
   it('due 前移、attempts 不增、状态仍 pending', async () => {
     const q = queue!;
     await q.enqueue('notice', 'k', {}, { now: NOW });
-    const [claimed] = await q.claimDue(NOW, 10);
+    const first = await q.claimOne('notice', 'k', NOW);
+    expect(first.claimed).toBe(true);
 
     const retryAt = NOW + 5 * 60_000;
     expect(
-      await q.settle(
-        'notice',
-        'k',
-        claimed.generation,
-        { kind: 'later', retryAt },
-        NOW
-      )
+      await q.settle('notice', 'k', 1, { kind: 'later', retryAt }, NOW)
     ).toBe(true);
 
     const entry = await q.get('notice', 'k');
@@ -119,10 +121,12 @@ describe('later 语义（不计失败）', () => {
     expect(entry?.status).toBe(EFFECT_STATUS_PENDING);
     expect(entry?.dueAt).toBe(retryAt);
 
-    // 缺省推迟时长
-    await q.settle('notice', 'k', entry!.generation, { kind: 'later' }, NOW);
+    // 缺省推迟时长（需先重新领取）
+    const second = await q.claimOne('notice', 'k', retryAt);
+    expect(second.claimed).toBe(true);
+    await q.settle('notice', 'k', 1, { kind: 'later' }, retryAt);
     expect((await q.get('notice', 'k'))?.dueAt).toBe(
-      NOW + EFFECT_DEFAULT_LATER_MS
+      retryAt + EFFECT_DEFAULT_LATER_MS
     );
   });
 });
@@ -133,35 +137,32 @@ describe('FAILURES_BEFORE_ERROR 语义', () => {
     await q.enqueue('relay', 'k', {}, { now: NOW });
     const gen = 1;
 
+    let t = NOW;
+    let claimed = await q.claimOne('relay', 'k', t);
+    expect(claimed.claimed).toBe(true);
     expect(
-      await q.settle('relay', 'k', gen, { kind: 'failed', error: 'e1' }, NOW)
+      await q.settle('relay', 'k', gen, { kind: 'failed', error: 'e1' }, t)
     ).toBe(true);
     let entry = await q.get('relay', 'k');
     expect(entry?.status).toBe(EFFECT_STATUS_PENDING);
     expect(entry?.attempts).toBe(1);
-    expect(entry?.dueAt).toBe(NOW + effectRetryDelay(1));
+    expect(entry?.dueAt).toBe(t + effectRetryDelay(1));
 
+    t = entry!.dueAt;
+    claimed = await q.claimOne('relay', 'k', t);
+    expect(claimed.claimed).toBe(true);
     expect(
-      await q.settle(
-        'relay',
-        'k',
-        gen,
-        { kind: 'failed', error: 'e2' },
-        NOW + 1
-      )
+      await q.settle('relay', 'k', gen, { kind: 'failed', error: 'e2' }, t)
     ).toBe(true);
     entry = await q.get('relay', 'k');
     expect(entry?.status).toBe(EFFECT_STATUS_PENDING);
     expect(entry?.attempts).toBe(2);
 
+    t = entry!.dueAt;
+    claimed = await q.claimOne('relay', 'k', t);
+    expect(claimed.claimed).toBe(true);
     expect(
-      await q.settle(
-        'relay',
-        'k',
-        gen,
-        { kind: 'failed', error: 'e3' },
-        NOW + 2
-      )
+      await q.settle('relay', 'k', gen, { kind: 'failed', error: 'e3' }, t)
     ).toBe(true);
     entry = await q.get('relay', 'k');
     expect(entry?.status).toBe(EFFECT_STATUS_FAILED);
@@ -177,18 +178,95 @@ describe('FAILURES_BEFORE_ERROR 语义', () => {
   });
 });
 
+describe('原子领取与崩溃自愈（P38-b）', () => {
+  it('并发领取只有一个胜者；超陈旧窗口才可重领且 restored=true', async () => {
+    const q = queue!;
+    await q.enqueue('reply', 'k', { text: 'x' }, { now: NOW });
+
+    const winner = await q.claimOne('reply', 'k', NOW);
+    expect(winner.claimed).toBe(true);
+    expect(winner.restored).toBe(false);
+    expect(winner.payload).toEqual({ text: 'x' });
+    expect(winner.attempts).toBe(0);
+
+    // 窗口内重复领取 ⇒ 失败（不双投）
+    expect((await q.claimOne('reply', 'k', NOW + 1)).claimed).toBe(false);
+    expect(
+      (await q.claimOne('reply', 'k', NOW + EFFECT_CLAIM_STALE_MS - 1)).claimed
+    ).toBe(false);
+
+    // 超过陈旧窗口 ⇒ 允许重领，并标记为"可能已发出"的重投
+    const restored = await q.claimOne(
+      'reply',
+      'k',
+      NOW + EFFECT_CLAIM_STALE_MS
+    );
+    expect(restored.claimed).toBe(true);
+    expect(restored.restored).toBe(true);
+
+    const entry = await q.get('reply', 'k');
+    expect(entry?.status).toBe(EFFECT_STATUS_ATTEMPTING);
+    expect(entry?.restored).toBe(true);
+  });
+
+  it('未领取直接结算返回 false，且不改状态', async () => {
+    const q = queue!;
+    await q.enqueue('delivery', 'k', {}, { now: NOW });
+
+    expect(await q.settle('delivery', 'k', 1, { kind: 'done' }, NOW)).toBe(
+      false
+    );
+    const entry = await q.get('delivery', 'k');
+    expect(entry?.status).toBe(EFFECT_STATUS_PENDING);
+    expect(entry?.attempts).toBe(0);
+  });
+
+  it('reply 上限为 8：第 8 次失败才置 failed', async () => {
+    const q = queue!;
+    await q.enqueue('reply', 'k', {}, { now: NOW });
+
+    let t = NOW;
+    for (let i = 1; i <= 8; i += 1) {
+      const claimed = await q.claimOne('reply', 'k', t);
+      expect(claimed.claimed).toBe(true);
+      expect(await q.settle('reply', 'k', 1, { kind: 'failed' }, t)).toBe(true);
+
+      const entry = await q.get('reply', 'k');
+      expect(entry?.attempts).toBe(i);
+      if (i < 8) {
+        expect(entry?.status).toBe(EFFECT_STATUS_PENDING);
+        t = entry!.dueAt;
+      } else {
+        expect(entry?.status).toBe(EFFECT_STATUS_FAILED);
+      }
+    }
+  });
+});
+
 describe('计数（DB 可复算）', () => {
-  it('按状态计数', async () => {
+  it('按状态计数（含 attempting）', async () => {
     const q = queue!;
     await q.enqueue('assessment', 'a', {}, { now: NOW });
     await q.enqueue('assessment', 'b', {}, { now: NOW });
+    await q.enqueue('assessment', 'c', {}, { now: NOW });
+
+    expect((await q.claimOne('assessment', 'a', NOW)).claimed).toBe(true);
     await q.settle('assessment', 'a', 1, { kind: 'done' }, NOW);
-    await q.settle('assessment', 'b', 1, { kind: 'failed' }, NOW);
-    await q.settle('assessment', 'b', 1, { kind: 'failed' }, NOW);
-    await q.settle('assessment', 'b', 1, { kind: 'failed' }, NOW);
+
+    let t = NOW;
+    for (let i = 0; i < 3; i += 1) {
+      expect((await q.claimOne('assessment', 'b', t)).claimed).toBe(true);
+      await q.settle('assessment', 'b', 1, { kind: 'failed' }, t);
+      const entry = await q.get('assessment', 'b');
+      if (i < 2) t = entry!.dueAt;
+    }
+
+    // c 保持"已领取未结算"
+    expect((await q.claimOne('assessment', 'c', NOW)).claimed).toBe(true);
 
     expect(await q.counts()).toEqual({
       [EFFECT_STATUS_PENDING]: 0,
+      [EFFECT_STATUS_ATTEMPTING]: 1,
       [EFFECT_STATUS_SETTLED]: 1,
       [EFFECT_STATUS_FAILED]: 1,
     });

@@ -42,6 +42,8 @@ export type EffectKind = (typeof EFFECT_KINDS)[number];
  */
 export const EFFECT_STATUSES = [
   'effect_pending',
+  /** P38-b：已发出、结果未知（崩溃后**不得**当作"未发出"重投） */
+  'effect_attempting',
   'effect_settled',
   'effect_failed',
 ] as const;
@@ -54,8 +56,20 @@ export type EffectStatus = (typeof EFFECT_STATUSES)[number];
  * `Record<EffectStatus, number>` 才能被 TS 认定为完整键集。
  */
 export const EFFECT_STATUS_PENDING = 'effect_pending' satisfies EffectStatus;
+export const EFFECT_STATUS_ATTEMPTING =
+  'effect_attempting' satisfies EffectStatus;
 export const EFFECT_STATUS_SETTLED = 'effect_settled' satisfies EffectStatus;
 export const EFFECT_STATUS_FAILED = 'effect_failed' satisfies EffectStatus;
+
+/**
+ * 每类 effect 的失败上限（缺省 `EFFECT_FAILURES_BEFORE_ERROR` = 3）。
+ *
+ * `reply` 取 8：与渠道回传现状一致（外部瞬时故障多见，收紧到 3 会显著提高未送达率）。
+ * 显式登记，不做隐性例外。
+ */
+export const EFFECT_KIND_MAX_ATTEMPTS: Readonly<
+  Partial<Record<EffectKind, number>>
+> = { reply: 8 };
 
 /** 一次派发的结论（由消费方返回） */
 export type EffectOutcome =
@@ -78,9 +92,24 @@ export interface EffectEntry {
   attempts: number;
   /** 最早可派发时刻（epoch ms） */
   dueAt: number;
+  /** 最近一次领取时刻（`effect_attempting` 的陈旧判定输入；未领取过 ⇒ 缺省） */
+  claimedAt?: number;
+  /** 本次是"崩溃后重投"（对端据此带可见标记，避免重复副作用） */
+  restored?: boolean;
   lastError?: string;
   createdAt: number;
   updatedAt: number;
+}
+
+/** `claimOne()` 的结果（并发下只有一个胜者） */
+export interface ClaimEffectResult {
+  claimed: boolean;
+  generation?: number;
+  /** 是否为"崩溃后重投"（此前已是 `effect_attempting` 且超过陈旧窗口） */
+  restored?: boolean;
+  payload?: Record<string, unknown>;
+  /** 当前已累计的失败次数（领取不增加） */
+  attempts?: number;
 }
 
 /** 领取到的一条待派发任务（携带 `generation` 供结算时比对） */
@@ -96,6 +125,7 @@ import {
 } from '@openliri/infra/constants';
 
 export {
+  EFFECT_CLAIM_STALE_MS,
   EFFECT_DEFAULT_LATER_MS,
   EFFECT_FAILURES_BEFORE_ERROR,
   EFFECT_MAX_RETRY_MS,

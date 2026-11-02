@@ -249,6 +249,8 @@ export function parseAutonomyPolicy(raw: unknown): {
     }
   }
 
+  const budget = parseBudget(raw.budget, errors);
+
   if (errors.length > 0) {
     return {
       config: { ...DEFAULT_AUTONOMY_POLICY, enabled: false, acceptMode: 'off' },
@@ -265,8 +267,61 @@ export function parseAutonomyPolicy(raw: unknown): {
       rules,
       ...(allowlist ? { allowlist } : {}),
       ...(filters ? { filters } : {}),
+      ...(budget ? { budget } : {}),
     },
     errors: [],
+  };
+}
+
+/**
+ * 解析单个 Ticket 的预算上限（P34 收尾）。
+ *
+ * 只接受**正有限数**；非法 ⇒ 记错误（整份配置 fail-closed）。缺省 ⇒ 不设上限。
+ */
+function parseBudget(
+  value: unknown,
+  errors: string[]
+): AutonomyPolicyConfig['budget'] | undefined {
+  if (value === undefined) return undefined;
+  if (!isRecord(value)) {
+    errors.push('budget 必须是对象');
+    return undefined;
+  }
+  const read = (field: string): number | undefined => {
+    const raw = value[field];
+    if (raw === undefined) return undefined;
+    if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) {
+      errors.push(`budget.${field} 必须是正数`);
+      return undefined;
+    }
+    return raw;
+  };
+  const maxTokensPerTicket = read('maxTokensPerTicket');
+  const maxUsdPerTicket = read('maxUsdPerTicket');
+  return {
+    ...(maxTokensPerTicket !== undefined ? { maxTokensPerTicket } : {}),
+    ...(maxUsdPerTicket !== undefined ? { maxUsdPerTicket } : {}),
+  };
+}
+
+/**
+ * 由策略配置解析 Ticket 的预算上限（唯一映射点；`undefined` = 该维度不设上限）。
+ *
+ * 供 Ticket sink 建单时写入 `budget_max_*`；**不做闸门判定**（见 `AutonomyPolicyConfig.budget`）。
+ */
+export function resolveTicketBudgetLimits(config: AutonomyPolicyConfig): {
+  maxTokens?: number;
+  maxUsd?: number;
+} {
+  const budget = config.budget;
+  if (!budget) return {};
+  return {
+    ...(budget.maxTokensPerTicket !== undefined
+      ? { maxTokens: budget.maxTokensPerTicket }
+      : {}),
+    ...(budget.maxUsdPerTicket !== undefined
+      ? { maxUsd: budget.maxUsdPerTicket }
+      : {}),
   };
 }
 
@@ -289,6 +344,8 @@ export function computeAutonomyPolicyId(config: AutonomyPolicyConfig): string {
     `bots:${(config.allowlist?.bots ?? []).join(',')}`,
     `threads:${(config.filters?.threadPrefixes ?? []).join(',')}`,
     `workspaces:${(config.filters?.workspaceIds ?? []).join(',')}`,
+    `budgetTokens:${config.budget?.maxTokensPerTicket ?? ''}`,
+    `budgetUsd:${config.budget?.maxUsdPerTicket ?? ''}`,
   ]);
 }
 

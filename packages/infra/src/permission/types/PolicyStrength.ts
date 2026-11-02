@@ -206,4 +206,11 @@ export interface AutonomyPolicyConfig {
   allowlist?: { senders?: string[]; bots?: string[] };
   /** 预留：线程前缀 / 工作区过滤 */
   filters?: { threadPrefixes?: string[]; workspaceIds?: string[] };
+  /**
+   * P34 收尾：单个 Ticket 的预算上限（缺省 = 不设上限）。
+   *
+   * 只**记录**到 `workitems.budget_max_*` 供面板/审计；token 轨按 2026-10-15 裁定
+   * **不参与闸门**（硬闸门是 `DailyBudgetManager` 的 USD 轨）。
+   */
+  budget?: { maxTokensPerTicket?: number; maxUsdPerTicket?: number };
 }

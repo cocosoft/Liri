@@ -20,6 +20,7 @@ import {
   writePdcaWorkItem,
 } from '../PdcaWorkItemBridge';
 import { loadAutonomyPolicy, type LoadedAutonomyPolicy } from './policyConfig';
+import { accumulateTicketUsage } from './ticketBudget';
 
 const logger = getLogger('tasks:ticket-run-consumer');
 
@@ -102,16 +103,15 @@ export function createTicketRunConsumer(
         try {
           const result = await execute(row);
           const latest = (await read(ticketId)) ?? row;
-          const tokens = result.tokens ?? 0;
+          // P34 收尾：同一 Ticket 多次执行 ⇒ 累计（不覆盖上一轮用量）
+          const usage = accumulateTicketUsage(latest, result.tokens ?? 0);
           await write({
             ...latest,
             id: ticketId,
             status: result.success ? 'completed' : 'failed',
             execution: 'ticket',
             ...(result.sessionId ? { sessionId: result.sessionId } : {}),
-            ...(tokens > 0
-              ? { budgetUsedTokens: tokens, costTokens: tokens }
-              : {}),
+            ...(usage ?? {}),
             ...(result.output ? { output: result.output.slice(0, 2000) } : {}),
             ...(result.error ? { lastError: result.error } : {}),
             lastAction: 'ticket_executed',
@@ -121,7 +121,7 @@ export function createTicketRunConsumer(
           logger.info('Ticket 执行完成', {
             ticketId,
             success: result.success,
-            tokens,
+            tokens: result.tokens ?? 0,
           });
         } catch (error) {
           const latest = (await read(ticketId)) ?? row;

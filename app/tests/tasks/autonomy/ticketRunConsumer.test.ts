@@ -132,4 +132,16 @@ describe('TicketRunConsumer', () => {
     expect(await consumer.runOnce()).toBe(0);
     expect(executed).toEqual([]);
   });
+
+  it('跨执行累计：已有用量 ⇒ 累加而非覆盖', async () => {
+    const { consumer, rowsMap } = setup([
+      ticket({ budgetUsedTokens: 100, costTokens: 100 }),
+    ]);
+
+    expect(await consumer.runOnce()).toBe(1);
+    expect(rowsMap.get('t-1')).toMatchObject({
+      budgetUsedTokens: 105,
+      costTokens: 105,
+    });
+  });
 });

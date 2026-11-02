@@ -376,6 +376,11 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
   // 执行消费另有闸门：策略 `enabled=true && acceptMode='auto'`（见 ticketRunConsumer）。
   const autonomyPolicy = loadAutonomyPolicy();
   if (autonomyPolicy.config.sources.fs === true) {
+    /**
+     * fs 执行会话复用（按**目录**）：同一工作目录的多次文件变更共用一条会话，
+     * 避免"每个事件都新建会话"把历史切碎。映射只在进程内（重启后首轮新建）。
+     */
+    const fsSessionByWorkspace = new Map<string, string>();
     const watchPaths = projects
       .map((project) => project.path)
       .filter((path): path is string => !!path);
@@ -402,22 +407,35 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
                 workspacePath = dirname(path);
               }
             }
-            const session = await chatManager.createSession({
-              title: `触发 · ${path ? (path.split(/[\\/]/).pop() ?? 'fs') : 'fs'}`,
-              description: '文件变更触发的只读检查会话',
-              tags: ['trigger', 'fs'],
-              ...(workspacePath
-                ? {
-                    metadata: {
-                      workspacePath,
-                      workspaceStrict: true,
-                    },
-                  }
-                : {}),
-            });
+            const sessionKey = workspacePath ?? '__fs__';
+            let sessionId = fsSessionByWorkspace.get(sessionKey);
+            if (sessionId) {
+              // 会话可能已被用户删除 ⇒ 内存 Map 与持久层都不存在时才新建
+              const alive =
+                (await chatManager.loadSession(sessionId)) ??
+                (await chatManager.getSessionGateway().getSession(sessionId));
+              if (!alive) sessionId = undefined;
+            }
+            if (!sessionId) {
+              const session = await chatManager.createSession({
+                title: `触发 · ${path ? (path.split(/[\\/]/).pop() ?? 'fs') : 'fs'}`,
+                description: '文件变更触发的只读检查会话',
+                tags: ['trigger', 'fs'],
+                ...(workspacePath
+                  ? {
+                      metadata: {
+                        workspacePath,
+                        workspaceStrict: true,
+                      },
+                    }
+                  : {}),
+              });
+              sessionId = session.id;
+              fsSessionByWorkspace.set(sessionKey, sessionId);
+            }
             let tokens = 0;
             const output = await sendPrompt(
-              session.id,
+              sessionId,
               `文件变更：${path}（${kind}）。只做只读检查并给出结论与建议；不要修改任何文件。`,
               {
                 onUsage: (usage) => {
@@ -426,7 +444,7 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
               },
               { taskType: 'alwayson_discovery' }
             );
-            return { success: true, output, tokens, sessionId: session.id };
+            return { success: true, output, tokens, sessionId };
           },
         });
         logger.info('FS Source 注册完成', {

@@ -25,6 +25,12 @@ export interface TicketSinkDeps {
   /** 执行归属（缺省 `external`；fs 等无外部执行器的来源传 `ticket`） */
   execution?: TicketExecutionMode | ((trigger: Trigger) => TicketExecutionMode);
   /**
+   * P34 收尾：单个 Ticket 的预算上限（缺省 `{}` = 不设上限）。
+   *
+   * 在**建单时求值**（配置可热更新）；只写 `budget_max_*` 供面板/审计，不做闸门。
+   */
+  budget?: () => { maxTokens?: number; maxUsd?: number };
+  /**
    * P33-a：按 Trigger 追加字段（如 `policyId` / `mandate`）。
    *
    * 返回 `undefined` ⇒ 不追加；追加字段参与同一次写入，避免"先建后补"的可见空窗。
@@ -75,6 +81,7 @@ export function createTriggerTicketSink(
 
       const createdAt = new Date(trigger.receivedAt).toISOString();
       const extra = deps.annotate?.(trigger);
+      const budget = deps.budget?.() ?? {};
       await deps.write({
         id,
         title: ticketTitle(trigger),
@@ -102,6 +109,11 @@ export function createTriggerTicketSink(
         subscriptions: [
           { source: trigger.sourceId, threadId: trigger.threadKey },
         ],
+        // P34 收尾：预算上限随建单落列（缺省不写，保持"无上限"语义）
+        ...(budget.maxTokens !== undefined
+          ? { budgetMaxTokens: budget.maxTokens }
+          : {}),
+        ...(budget.maxUsd !== undefined ? { budgetMaxUsd: budget.maxUsd } : {}),
         createdAt,
         updatedAt: new Date(now()).toISOString(),
         lastAction: 'trigger_received',

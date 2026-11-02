@@ -43,12 +43,14 @@ import {
   type Trigger,
 } from '../sources/types';
 import { readPdcaWorkItem, writePdcaWorkItem } from '../PdcaWorkItemBridge';
+import { accumulateTicketUsage } from '../autonomy/ticketBudget';
 import {
   evaluateAutonomyTrigger,
   toAutonomyDecisionLog,
 } from '../autonomy/gate';
 import {
   loadAutonomyPolicy,
+  resolveTicketBudgetLimits,
   type LoadedAutonomyPolicy,
 } from '../autonomy/policyConfig';
 import {
@@ -145,6 +147,8 @@ export async function startCronTriggerPipeline(
     write,
     now,
     annotate: (trigger) => policyMeta.get(trigger.triggerId),
+    // P34 收尾：预算上限来自 `autonomy.policy.budget`（缺省 = 不设上限；只记录不闸门）
+    budget: () => resolveTicketBudgetLimits(loadPolicy().config),
   });
 
   /** Ticket 写入串行链：sink 的 create-if-absent 与 onJobEnd 的终态推进互不覆盖 */
@@ -247,13 +251,13 @@ export async function startCronTriggerPipeline(
             return;
           }
           const tokens = (result.inputTokens ?? 0) + (result.outputTokens ?? 0);
+          // P34 收尾：同一 Ticket 可能多次执行 ⇒ 累计而非覆盖
+          const usage = accumulateTicketUsage(existing, tokens);
           await write({
             ...existing,
             id,
             status: result.success ? 'completed' : 'failed',
-            ...(tokens > 0
-              ? { costTokens: tokens, budgetUsedTokens: tokens }
-              : {}),
+            ...(usage ?? {}),
             ...(job.workdir ? { workspaceDir: job.workdir } : {}),
             ...(result.error ? { lastError: result.error } : {}),
             updatedAt: new Date(now()).toISOString(),

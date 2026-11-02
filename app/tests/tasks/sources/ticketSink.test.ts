@@ -112,6 +112,32 @@ describe('Trigger→Ticket sink', () => {
     );
   });
 
+  it('budget 选项 ⇒ 建单时写 budget_max_*（缺省不写）', async () => {
+    const store = makeStore();
+    const sink = createTriggerTicketSink({
+      read: store.read,
+      write: store.write,
+      budget: () => ({ maxTokens: 5000, maxUsd: 0.5 }),
+    });
+
+    await sink('cron:job-1' as Trigger['threadKey'], [trigger()]);
+
+    expect(store.rows.get(triggerTicketId('tg1-abc'))).toMatchObject({
+      budgetMaxTokens: 5000,
+      budgetMaxUsd: 0.5,
+    });
+
+    const bare = makeStore();
+    const noBudget = createTriggerTicketSink({
+      read: bare.read,
+      write: bare.write,
+    });
+    await noBudget('cron:job-1' as Trigger['threadKey'], [trigger()]);
+    const row = bare.rows.get(triggerTicketId('tg1-abc'));
+    expect(row?.budgetMaxTokens).toBeUndefined();
+    expect(row?.budgetMaxUsd).toBeUndefined();
+  });
+
   it('同批次多条 ⇒ 各建一条', async () => {
     const store = makeStore();
     const sink = createTriggerTicketSink({

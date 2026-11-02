@@ -21,6 +21,7 @@ import { getLogger } from '@openliri/infra/monitoring';
 
 import {
   loadAutonomyPolicy,
+  resolveTicketBudgetLimits,
   type LoadedAutonomyPolicy,
 } from '../autonomy/policyConfig';
 import type { PolicyChangeDelivery } from '../autonomy/policyChange';
@@ -80,11 +81,14 @@ export async function startFsSignalPipeline(
   const store = options.store ?? new SourceCursorStore();
   const read = options.readTicket ?? readPdcaWorkItem;
   const write = options.writeTicket ?? writePdcaWorkItem;
+  const loadPolicy = options.loadPolicy ?? loadAutonomyPolicy;
   const sink = createTriggerTicketSink({
     read,
     write,
     // fs 无外部执行器 ⇒ Ticket 交给消费者
     execution: 'ticket',
+    // P34 收尾：预算上限来自 `autonomy.policy.budget`（缺省 = 不设上限）
+    budget: () => resolveTicketBudgetLimits(loadPolicy().config),
     annotate: (trigger) => {
       const policyId = trigger.payload.policyId;
       if (typeof policyId !== 'string' || !policyId) return undefined;

@@ -14,6 +14,7 @@ import {
   computeAutonomyPolicyId,
   loadAutonomyPolicy,
   parseAutonomyPolicy,
+  resolveTicketBudgetLimits,
 } from '../../../src/tasks/autonomy/policyConfig';
 
 const VALID = {
@@ -95,6 +96,39 @@ describe('parseAutonomyPolicy', () => {
     expect(computeAutonomyPolicyId(a)).not.toBe(
       computeAutonomyPolicyId(changed)
     );
+  });
+
+  it('budget ⇒ 解析为单 Ticket 上限；缺省不设上限', () => {
+    const { config, errors } = parseAutonomyPolicy({
+      ...VALID,
+      budget: { maxTokensPerTicket: 5000, maxUsdPerTicket: 0.5 },
+    });
+    expect(errors).toEqual([]);
+    expect(resolveTicketBudgetLimits(config)).toEqual({
+      maxTokens: 5000,
+      maxUsd: 0.5,
+    });
+    // 预算属于 Policy 版本：改上限 ⇒ 版本变化（在途工单可感知）
+    const base = computeAutonomyPolicyId(parseAutonomyPolicy(VALID).config);
+    expect(computeAutonomyPolicyId(config)).not.toBe(base);
+
+    expect(
+      resolveTicketBudgetLimits(parseAutonomyPolicy(VALID).config)
+    ).toEqual({});
+  });
+
+  it('非法 budget（非正数 / 非对象）⇒ fail-closed', () => {
+    const negative = parseAutonomyPolicy({
+      ...VALID,
+      budget: { maxTokensPerTicket: -1 },
+    });
+    expect(negative.errors.length).toBeGreaterThan(0);
+    expect(negative.config.enabled).toBe(false);
+    expect(negative.config.acceptMode).toBe('off');
+
+    const notObject = parseAutonomyPolicy({ ...VALID, budget: 100 });
+    expect(notObject.config.enabled).toBe(false);
+    expect(notObject.errors.length).toBeGreaterThan(0);
   });
 });
 

@@ -12,6 +12,7 @@ import { describe, it, expect } from 'bun:test';
 import {
   MAX_TICKET_INTERRUPTIONS,
   isActionableAttention,
+  isPanelActionable,
   isTicketBudgetExhausted,
   readInboxAttention,
   resolveAttentionTier,
@@ -247,5 +248,25 @@ describe('Inbox 结构化字段（禁止从文本判定）', () => {
     expect(
       readInboxAttention({ attentionKind: 'nope', attentionQuestion: 'x' })
     ).toBeUndefined();
+  });
+});
+
+describe('P37 · 面板四条件（isPanelActionable）', () => {
+  const ok = {
+    unresolved: true,
+    notDismissed: true,
+    latest: true,
+    threadIdle: true,
+  };
+
+  it('四条件同时满足 ⇒ 提示', () => {
+    expect(isPanelActionable(ok)).toBe(true);
+  });
+
+  it('任一不满足 ⇒ 不提示', () => {
+    expect(isPanelActionable({ ...ok, unresolved: false })).toBe(false);
+    expect(isPanelActionable({ ...ok, notDismissed: false })).toBe(false);
+    expect(isPanelActionable({ ...ok, latest: false })).toBe(false);
+    expect(isPanelActionable({ ...ok, threadIdle: false })).toBe(false);
   });
 });

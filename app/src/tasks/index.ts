@@ -320,6 +320,7 @@ export type {
 } from './ticketStage';
 export {
   ASSIGNMENT_STATE_RUNNING,
+  isActiveAssignmentState,
   closeTicketAssignmentStore,
   findWorkItemIdBySession,
   latestTicketAssignment,
@@ -348,7 +349,7 @@ export type {
   CockpitMetrics,
   CockpitSnapshot,
 } from './cockpit';
-export { loadCockpitItems } from './cockpit';
+export { loadCockpitItems, markActionableAttention } from './cockpit';
 export type { CockpitSourceDeps } from './cockpit';
 // P39-b-2：完整历史 / 一键接管判定（纯函数）
 export { buildCockpitHistory, pickTakeoverSessionId } from './cockpit';

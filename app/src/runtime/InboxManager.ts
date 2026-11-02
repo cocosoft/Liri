@@ -30,7 +30,7 @@ import { getSessionOwner } from '@openliri/service/execution';
 import { randomUUID } from 'crypto';
 import { broadcastEvent } from '@modules/infrastructure';
 import type { FrontendMessageBlock } from '@modules/session/types/UnifiedMessage.js';
-import { toInboxMetadata } from '@openliri/infra/attention';
+import { isPanelActionable, toInboxMetadata } from '@openliri/infra/attention';
 
 const logger = getLogger('runtime:inbox');
 
@@ -989,6 +989,60 @@ export class InboxManager {
       );
     });
     return row.cnt;
+  }
+
+  /**
+   * P37（2026-11-02）：**面板四条件**下真正需要提示人的工作项。
+   *
+   * 条件：未解决（pending/processing）、未 dismiss、仍是最新（每工作项取最新一条）、
+   * Thread 不在排队/评估中（`busyTicketIds` 由调用方按派工状态给出）。
+   *
+   * 只返回 `ticketId`（面板按工作项聚合）；与工单无关的审批不参与。
+   */
+  async listActionableTicketIds(
+    busyTicketIds: readonly string[] = []
+  ): Promise<string[]> {
+    const db = await this.getDb();
+    const rows = await new Promise<Array<Record<string, unknown>>>(
+      (resolve, reject) => {
+        db.all(
+          `SELECT id, status, created_at,
+                  json_extract(metadata, '$.ticketId') AS ticket_id
+             FROM inbox_items
+            WHERE owner_key = ? AND status IN ('pending', 'processing')
+            ORDER BY created_at DESC`,
+          [this.owner()],
+          (err: Error | null, result: Array<Record<string, unknown>>) => {
+            if (err) reject(err);
+            else resolve(result ?? []);
+          }
+        );
+      }
+    );
+
+    // 时间倒序 ⇒ 每个 ticket 的第一条即"最新"
+    const latest = new Map<string, { status: string }>();
+    for (const row of rows) {
+      const ticketId = typeof row.ticket_id === 'string' ? row.ticket_id : '';
+      if (!ticketId || latest.has(ticketId)) continue;
+      latest.set(ticketId, { status: String(row.status ?? '') });
+    }
+
+    const busy = new Set(busyTicketIds);
+    const actionable: string[] = [];
+    for (const [ticketId, item] of latest) {
+      if (
+        isPanelActionable({
+          unresolved: item.status === 'pending' || item.status === 'processing',
+          notDismissed: item.status !== 'dismissed',
+          latest: true,
+          threadIdle: !busy.has(ticketId),
+        })
+      ) {
+        actionable.push(ticketId);
+      }
+    }
+    return actionable;
   }
 
   /** 清除过期项（当前身份库） */

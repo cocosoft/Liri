@@ -36,6 +36,15 @@ export type AssignmentState = 'pending' | 'running' | 'ended';
  */
 export const ASSIGNMENT_STATE_RUNNING: AssignmentState = 'running';
 
+/**
+ * P37（2026-11-02）：该派工是否仍在「排队 / 评估中」（未结束）。
+ *
+ * 供面板四条件的 `threadIdle` 判定：有 pending/running 派工 ⇒ Thread 忙，不提示人。
+ */
+export function isActiveAssignmentState(state: AssignmentState): boolean {
+  return state !== 'ended';
+}
+
 /** 最新一次汇报的状态（6 态；未知一律不猜） */
 export type ReportState =
   | 'progress'

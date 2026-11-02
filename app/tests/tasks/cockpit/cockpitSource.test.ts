@@ -13,6 +13,8 @@ import {
   buildCockpitSnapshot,
   checkCockpitInvariants,
   loadCockpitItems,
+  markActionableAttention,
+  type CockpitItem,
   type CockpitSourceDeps,
 } from '../../../src/tasks/cockpit';
 import type { TicketAssignmentRecord } from '../../../src/tasks/ticketAssignmentStore';
@@ -143,5 +145,33 @@ describe('loadCockpitItems', () => {
     expect(snapshot.metrics.humanInterventionRate).toBeCloseTo(1 / 3);
     // 缺 succeeded 结构化来源 ⇒ 完成率如实为 undefined（不臆造）
     expect(snapshot.metrics.completionRate).toBeUndefined();
+  });
+});
+
+describe('P37 · 面板四条件标记', () => {
+  it('命中集合 ⇒ facts.attention=true；不修改入参', () => {
+    const items: CockpitItem[] = [
+      { id: 'w1', facts: {} },
+      {
+        id: 'w2',
+        facts: { latestAssignment: { state: 'running' } },
+      },
+    ];
+
+    const marked = markActionableAttention(items, new Set(['w1']));
+
+    expect(marked[0]!.facts.attention).toBe(true);
+    expect(marked[1]!.facts.attention).toBeUndefined();
+    // 原数组不被修改（纯函数）
+    expect(items[0]!.facts.attention).toBeUndefined();
+  });
+
+  it('标记后进入 person:answer 分组', () => {
+    const items: CockpitItem[] = [{ id: 'w1', facts: {} }];
+    const marked = markActionableAttention(items, new Set(['w1']));
+    const snapshot = buildCockpitSnapshot(marked, 1);
+
+    expect(snapshot.groups[0]).toMatchObject({ key: 'person:answer' });
+    expect(snapshot.groups[0]!.items.map((item) => item.id)).toEqual(['w1']);
   });
 });

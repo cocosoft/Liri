@@ -80,3 +80,41 @@ describe('InboxManager.countByTicket：DB 复算', () => {
     expect(await manager.countByTicket('')).toBe(0);
   });
 });
+
+describe('InboxManager.listActionableTicketIds：面板四条件', () => {
+  it('未解决 / 未 dismiss / 最新 / Thread 空闲 ⇒ 返回 ticketId（每项一条）', async () => {
+    const manager = new InboxManager(':memory:');
+    await manager.submit(base({ attention: { ticketId: 'w-1' } }));
+    await manager.submit(base({ attention: { ticketId: 'w-1' } }));
+    await manager.submit(base({ attention: { ticketId: 'w-2' } }));
+    await manager.submit(base());
+
+    const ids = await manager.listActionableTicketIds();
+    expect(ids.sort()).toEqual(['w-1', 'w-2']);
+    expect(ids.filter((id) => id === 'w-1')).toHaveLength(1);
+  });
+
+  it('Thread 排队/评估中（busy）⇒ 不提示该工作项', async () => {
+    const manager = new InboxManager(':memory:');
+    await manager.submit(base({ attention: { ticketId: 'w-1' } }));
+    await manager.submit(base({ attention: { ticketId: 'w-2' } }));
+
+    expect(await manager.listActionableTicketIds(['w-1'])).toEqual(['w-2']);
+    expect(await manager.listActionableTicketIds(['w-1', 'w-2'])).toEqual([]);
+  });
+
+  it('已回复 / 已 dismiss / 无 ticketId ⇒ 不提示', async () => {
+    const manager = new InboxManager(':memory:');
+    const replied = await manager.submit(
+      base({ attention: { ticketId: 'w-1' } })
+    );
+    await manager.submit(base({ attention: { ticketId: 'w-2' } }));
+    await manager.submit(base());
+
+    await manager.reply(replied.id, 'approve');
+    expect(await manager.listActionableTicketIds()).toEqual(['w-2']);
+
+    await manager.dismissBySession('sess-attention');
+    expect(await manager.listActionableTicketIds()).toEqual([]);
+  });
+});

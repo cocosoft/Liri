@@ -13,6 +13,9 @@ import type {
   CockpitTakeoverCandidateDto,
 } from './taskOpsPorts';
 import { getExecutionStore } from '@openliri/service/execution';
+import { getLogger } from '@openliri/infra/monitoring';
+
+const logger = getLogger('runtime:cockpit');
 
 /** 驾驶舱端口（并入 `TaskOpsPort`） */
 export interface CockpitOpsPort {
@@ -43,7 +46,33 @@ export function createCockpitOps(): CockpitOpsPort {
         listAssignments: (id) => tasks.listTicketAssignments(id),
         isEndedStatus: (status) => tasks.PDCA_TERMINAL_STATUSES.has(status),
       });
-      const snapshot = tasks.buildCockpitSnapshot(items, Date.now());
+
+      // P37（2026-11-02）：面板四条件 —— 只有「未解决 + 仍是最新 + 未 dismiss +
+      // Thread 不在排队/评估中」的工作项才进入 `person:answer`。
+      // busy = 最新派工处于 pending/running（排队或执行中，不打断人）。
+      const busyTicketIds = items
+        .filter((item) => {
+          const state = item.facts.latestAssignment?.state;
+          return state ? tasks.isActiveAssignmentState(state) : false;
+        })
+        .map((item) => item.id);
+      let actionable = new Set<string>();
+      try {
+        const { inboxManager } = await import('../InboxManager.js');
+        actionable = new Set(
+          await inboxManager.listActionableTicketIds(busyTicketIds)
+        );
+      } catch (error) {
+        // 观测面失败 ⇒ 按"无待答提示"降级，不影响其余分组
+        logger.warn('驾驶舱读取 Inbox attention 失败（按无提示处理）', {
+          error: String(error),
+        });
+      }
+
+      const snapshot = tasks.buildCockpitSnapshot(
+        tasks.markActionableAttention(items, actionable),
+        Date.now()
+      );
       const effects = tasks.toEffectCountsSummary(
         await tasks.getEffectCounts()
       );

@@ -17,7 +17,7 @@ export type {
   CockpitMetrics,
   CockpitSnapshot,
 } from './cockpitSnapshot';
-export { loadCockpitItems } from './cockpitSource';
+export { loadCockpitItems, markActionableAttention } from './cockpitSource';
 export type { CockpitSourceDeps } from './cockpitSource';
 export { buildCockpitHistory, pickTakeoverSessionId } from './cockpitHistory';
 export type {

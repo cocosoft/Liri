@@ -76,3 +76,21 @@ export async function loadCockpitItems(
 
   return items;
 }
+
+/**
+ * P37（2026-11-02）：把「面板四条件下可提示」的工作项标到 `facts.attention`。
+ *
+ * 纯函数、不修改入参：由调用方先跑 Inbox 四条件查询，再把结果标进来；
+ * `deriveTicketStage()` 会据此把这些项置顶为 `person:answer`。
+ */
+export function markActionableAttention(
+  items: readonly CockpitItem[],
+  actionableTicketIds: ReadonlySet<string>
+): CockpitItem[] {
+  if (actionableTicketIds.size === 0) return [...items];
+  return items.map((item) =>
+    actionableTicketIds.has(item.id)
+      ? { ...item, facts: { ...item.facts, attention: true } }
+      : item
+  );
+}

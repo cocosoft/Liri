@@ -81,6 +81,33 @@ export function isTicketBudgetExhausted(
 }
 
 /**
+ * 面板提示的四条件（P37，2026-11-02）。
+ *
+ * 参考实现 `docs/002:155`：「只在四个条件**同时**满足时提示人」。
+ * 本结构只承载**事实**，状态词映射由调用方负责（避免把 Inbox 状态词汇下沉到 infra）。
+ */
+export interface AttentionPanelFacts {
+  /** 未解决（调用方按 Inbox 状态映射：pending / processing ⇒ true） */
+  unresolved: boolean;
+  /** 未 dismiss（dismissed ⇒ false） */
+  notDismissed: boolean;
+  /** 仍是最新（该工作项/线程的最新一条） */
+  latest: boolean;
+  /** Thread 不在排队 / 评估中（有 pending/running 派工 ⇒ false） */
+  threadIdle: boolean;
+}
+
+/** 四条件**同时**满足 ⇒ 面板才提示人 */
+export function isPanelActionable(facts: AttentionPanelFacts): boolean {
+  return (
+    facts.unresolved &&
+    facts.notDismissed &&
+    facts.latest &&
+    facts.threadIdle
+  );
+}
+
+/**
  * Inbox 条目的**结构化**注意力载荷（P37 第 1 条）。
  *
  * 写入 `inbox_items.metadata` 后，面板/审计可直接读 `kind / question / ticketId /

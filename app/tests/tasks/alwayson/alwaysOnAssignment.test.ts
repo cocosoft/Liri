@@ -109,6 +109,23 @@ describe('P34 · 一轮流水线记录两次派工', () => {
     expect(records[1]!.endedAt).toBeGreaterThanOrEqual(records[0]!.startedAt);
   });
 
+  it('传入项目级 workItemId ⇒ 多轮运行共享同一 Ticket，plan.id 仅作 assignmentId', async () => {
+    const records: AlwaysOnAssignmentRecord[] = [];
+    const bridge = createAlwaysOnBridge(
+      makeDeps(records, { workItemId: 'alwayson:p-1' })
+    );
+
+    const plan = await bridge.discovery();
+    await bridge.workspace(plan!);
+    const result = await bridge.execution('/repo/demo-wt');
+    await bridge.report(result);
+
+    expect(records).toHaveLength(2);
+    expect(records.every((r) => r.workItemId === 'alwayson:p-1')).toBe(true);
+    expect(records[0]!.assignmentId).toBe(records[1]!.assignmentId);
+    expect(records[0]!.assignmentId).not.toBe(records[0]!.workItemId);
+  });
+
   it('未注入 recordAssignment ⇒ 流水线照常完成（零影响）', async () => {
     const bridge = createAlwaysOnBridge(
       makeDeps([], { recordAssignment: undefined })

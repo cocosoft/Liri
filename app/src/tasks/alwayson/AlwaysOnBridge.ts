@@ -79,6 +79,13 @@ export interface AlwaysOnBridgeDeps {
   projectId: string;
   projectName: string;
   projectPath: string;
+  /**
+   * P34（2026-11-02）：项目级**工作项 id**（同一项目的多轮运行共享一个 Ticket）。
+   *
+   * 缺省 ⇒ 回退 `plan.id`（保持既有测试/嵌入方的行为）；接入方传稳定 id 后，
+   * 多轮运行成为同一 Ticket 下的多次 Assignment，驾驶舱可把它们聚合为一条。
+   */
+  workItemId?: string;
   /** 预算上限（来自 `AlwaysOnConfig.execution`） */
   limits: { maxToolCalls: number; timeoutMinutes: number };
   /** 建一条专用会话（幂等由宿主保证） */
@@ -403,7 +410,7 @@ export function createAlwaysOnBridge(deps: AlwaysOnBridgeDeps): AlwaysOnBridge {
     try {
       await sink({
         assignmentId: plan.id,
-        workItemId: plan.id,
+        workItemId: deps.workItemId ?? plan.id,
         executor: 'alwayson',
         state,
         startedAt: assignmentStartedAt || Date.now(),

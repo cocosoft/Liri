@@ -620,6 +620,18 @@ export function writePdcaWorkItem(
 }
 
 /**
+ * 读取单个工作项（`data` 视图；不存在 ⇒ `null`）。
+ *
+ * P34（2026-11-02）：供 AlwaysOn 的「项目 → 会话」映射复用（`workitems.session_id`），
+ * 取代原先的 `alwayson/sessions.json` 旁路台账。
+ */
+export function readPdcaWorkItem(
+  workItemId: string
+): Promise<Record<string, unknown> | null> {
+  return getStore().readWorkItem(workItemId);
+}
+
+/**
  * 列出工作项（P34）：`data` 与语义列（来源/归属/目录/授权/产物）合并后的视图。
  *
  * @param status 可选状态过滤（`undefined` = 全部）

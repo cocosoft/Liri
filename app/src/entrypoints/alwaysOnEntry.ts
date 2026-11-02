@@ -6,15 +6,16 @@
  * `tasks` 层不直接依赖 `chat` / `workspace` / `proactive` 的实现细节。
  *
  * v1.1（处理方案 §9 偏差）：
- * - 会话**跨重启复用**（`alwayson/sessions.json` projectId → sessionId）；
+ * - 会话**跨重启复用**（P34 起落在 `workitems.session_id`；原 `alwayson/sessions.json`
+ *   旁路台账已移除，同一项目多轮运行共享一个 Ticket、每轮一条 Assignment）；
  * - 超时**真正中止**（`streamMessage` + `AbortSignal`，不再只记失败）；
  * - 工具面收窄（discovery `taskType='messaging'` 只读面 / execution `taskType='coding'`）；
  * - 报告**主动通知**（复用主动队列 + 同一门禁与去重口径）；
  * - 项目来源覆盖**所有工作空间**（`listAll()` + `default`，按项目 id 去重）。
  */
 import { randomUUID } from 'node:crypto';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { DEFAULT_TIMEZONE, MS_PER_DAY } from '@openliri/infra/constants';
 import { configManager } from '@openliri/infra/config';
@@ -42,7 +43,9 @@ import {
   buildGoalEvaluationPrompt,
   createAlwaysOnBridge,
   parseGoalEvaluation,
+  readPdcaWorkItem,
   unverifiedGoal,
+  writePdcaWorkItem,
   type AlwaysOnBridgeDeps,
   type AlwaysOnProject,
 } from '@modules/tasks';
@@ -71,16 +74,15 @@ export interface AlwaysOnStartResult {
   teardown: () => void;
 }
 
-/** 读取 `alwayson/sessions.json`（损坏/缺失 ⇒ 空表，不阻断启动） */
-function readSessionMap(file: string): Record<string, string> {
-  try {
-    const raw = JSON.parse(readFileSync(file, 'utf8')) as unknown;
-    return raw !== null && typeof raw === 'object'
-      ? (raw as Record<string, string>)
-      : {};
-  } catch {
-    return {};
-  }
+/**
+ * P34（2026-11-02）：项目级工作项 id（同一项目的多轮运行共享一个 Ticket）。
+ *
+ * 会话映射与派工都挂在它下面 —— 不再维护 `alwayson/sessions.json` 旁路台账，
+ * 驾驶舱也能把该项目的历史聚合成一条工作项。
+ */
+const ALWAYSON_WORK_ITEM_PREFIX = 'alwayson:';
+function workItemIdFor(projectId: string): string {
+  return `${ALWAYSON_WORK_ITEM_PREFIX}${projectId}`;
 }
 
 /** 汇总所有工作空间的项目（`default` + 注册表；按项目 id 去重，只取有 sandboxPath 者） */
@@ -153,7 +155,6 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
   const reportDir = (): string => join(alwaysOnRoot(), 'reports');
   /** snapshot-copy 回退的快照根目录（非 git / 脏仓项目的兜底隔离区） */
   const snapshotDir = (): string => join(alwaysOnRoot(), 'snapshots');
-  const sessionFile = (): string => join(alwaysOnRoot(), 'sessions.json');
   const manager = new AlwaysOnManager();
   /** 本轮隔离区句柄（runId → provider + handle）；worktree 的 Map 在 provider 内部，必须复用同一实例 */
   const activeRuns = new Map<
@@ -494,6 +495,8 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
         projectId: project.id,
         projectName: project.name,
         projectPath: project.path,
+        // P34：项目级 Ticket（多轮运行共享）
+        workItemId: workItemIdFor(project.id),
         limits,
         createSession: async ({ id, name }) => {
           const session = await chatManager.createSession({
@@ -515,19 +518,22 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
         prepareWorkspace,
         finishWorkspace,
         setSessionWorkspace,
-        loadSession: async (projectId) =>
-          readSessionMap(sessionFile())[projectId],
+        // P34：会话映射落在 `workitems.session_id`（Ticket 持有会话），
+        // 不再维护 `sessions.json`；重启后从工作项读回同一会话。
+        loadSession: async (projectId) => {
+          const row = await readPdcaWorkItem(workItemIdFor(projectId));
+          return typeof row?.sessionId === 'string' ? row.sessionId : undefined;
+        },
         saveSession: async (projectId, sessionId) => {
-          mkdirSync(dirname(sessionFile()), { recursive: true });
-          writeFileSync(
-            sessionFile(),
-            `${JSON.stringify(
-              { ...readSessionMap(sessionFile()), [projectId]: sessionId },
-              null,
-              2
-            )}\n`,
-            'utf8'
-          );
+          await writePdcaWorkItem({
+            id: workItemIdFor(projectId),
+            title: `AlwaysOn · ${project.name}`,
+            // 项目级 Ticket 常驻 active（每次运行的结果由最新 Assignment 的 reportState 表达）
+            status: 'active',
+            workspaceDir: project.path,
+            sessionId,
+            updatedAt: new Date().toISOString(),
+          });
         },
         sendPrompt,
         // 目标达成自评（默认开）：关掉即回到 `unverified（未做模型自评）` 的 v2 口径。

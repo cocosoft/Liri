@@ -47,6 +47,7 @@
       "app/src/components/ui/Wizard.tsx",
       "app/src/context/LifecycleManager.ts",
       "app/src/docs/DocumentVersionService.ts",
+      "app/src/entrypoints/alwaysOnEntry.ts",
       "app/src/infrastructure/http/handlers/routes/goal-routes.ts",
       "app/src/infrastructure/http/handlers/video-task-handlers.ts",
       "app/src/infrastructure/http/handlers/voice-handlers.ts",

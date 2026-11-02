@@ -11,7 +11,7 @@
 | 消息通道 | **27** | `app/src/channels/ChannelCatalog.ts` | `CHANNEL_CATALOG` 登记的通道（含编译期可裁剪者） |
 | 模块定义 | **71** | `app/src/modules/ModuleDefinitions.ts` | `MODULE_DEFINITIONS` 顶层条目 |
 | 文档语料 | **145** | `app/docs/**/*.md` | 与 `docs/FileDocsProvider` 同口径（递归 `.md`，跳过隐藏目录与 `raw/`） |
-| 评测基线题目 | **38** | `app/src/evals/baseline.json` | `tasks` 键数（逐题登记地板） |
+| 评测基线题目 | **50** | `app/src/evals/baseline.json` | `tasks` 键数（逐题登记地板） |
 
 ## 说明
 

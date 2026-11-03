@@ -5,7 +5,7 @@
 
 import { handleError } from '@openliri/infra/error';
 import { DANGEROUS_TOOL_KEYWORDS } from './dangerous-tool-keywords';
-import { DANGEROUS_COMMAND_PATTERNS } from './dangerous-command-patterns';
+import { AUTO_MODE_DANGER_TOKENS } from './dangerous-command-patterns';
 import { SENSITIVE_PATH_PATTERNS } from './sensitive-path-patterns';
 import { ENV_POLLUTION_PATTERNS } from './env-pollution-patterns';
 import { ZERO_WIDTH_PATTERNS } from './zero-width-patterns';
@@ -206,7 +206,7 @@ export class AutoModeClassifier implements IAutoModeClassifier {
     }
 
     // 检查危险命令模式
-    for (const pattern of DANGEROUS_COMMAND_PATTERNS) {
+    for (const pattern of AUTO_MODE_DANGER_TOKENS) {
       if (inputString.includes(pattern)) {
         return {
           shouldBlock: true,

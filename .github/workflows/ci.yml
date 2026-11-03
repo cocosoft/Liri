@@ -385,6 +385,7 @@ jobs:
         bun run scripts/lint-no-module-mock.ts
         bun run scripts/lint-legacy-env.ts
         bun run scripts/lint-models.ts
+        bun run scripts/lint-permission-single-source.ts
 
     # ══════════════════════════════════════════════
     # 台账漂移 + 本地专属门禁补登 CI（2026-10-31，元门禁 `lint:gate-parity` 的修因段）

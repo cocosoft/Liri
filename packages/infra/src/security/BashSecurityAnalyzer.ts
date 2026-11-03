@@ -150,6 +150,8 @@ import {
   PRIVILEGE_ESCALATION_COMMANDS,
   SPECIAL_CHAR_PATTERNS,
 } from './patterns';
+// P2-3（2026-11-03）：快速只读命令清单收敛到 `security/readOnlyCommands.ts`（单一来源）
+import { BASH_QUICK_READ_ONLY_COMMANDS } from './readOnlyCommands';
 import { parseCommand, type IParsedCommand } from './bash/ParsedCommand';
 import { analyzeBashCommand, type BashAnalysisResult } from './bash/BashAST';
 import {
@@ -928,41 +930,8 @@ export class BashSecurityAnalyzer {
    * 快速安全检查（用于只读命令）
    */
   isReadOnlyCommand(command: string): boolean {
-    const readOnlyCommands = new Set([
-      'ls',
-      'cat',
-      'head',
-      'tail',
-      'less',
-      'more',
-      'wc',
-      'grep',
-      'find',
-      'which',
-      'whereis',
-      'type',
-      'echo',
-      'printf',
-      'pwd',
-      'whoami',
-      'id',
-      'date',
-      'uname',
-      'hostname',
-      'df',
-      'du',
-      'git',
-      'npm',
-      'yarn',
-      'pnpm',
-      'bun',
-      'node',
-      'python',
-      'python3',
-    ]);
-
     const baseCommand = this.extractBaseCommand(command);
-    return readOnlyCommands.has(baseCommand);
+    return BASH_QUICK_READ_ONLY_COMMANDS.has(baseCommand);
   }
 
   /**

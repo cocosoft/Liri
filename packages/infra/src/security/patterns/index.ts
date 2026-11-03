@@ -28,6 +28,8 @@ export {
   // U-21（D-3-c 批次⑤，2026-10-17）：统一规则集原仅可从叶子导入 ⇒ 补 barrel 导出
   DELETION_RULES,
   ALL_UNIFIED_RULES,
+  // P2-2（2026-11-03）：PowerShell 删除别名单一来源
+  POWERSHELL_DELETION_ALIASES,
 } from './dangerousCommands';
 export type { UnifiedRulePlatform } from './dangerousCommands';
 export {

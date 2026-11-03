@@ -66,6 +66,11 @@ import type {
   ConvertFileParams,
 } from './CoreAPI';
 import type { SessionMessagesRead } from './sessionMessagesRead';
+// P1（2026-11-03）：工具授权**唯一入口**（Agent 主链与 HTTP 路径共用）
+import {
+  authorizeToolCall,
+  type ToolPermissionPort,
+} from '@openliri/infra/permission';
 // B2（2026-10-30）：按轮摘要（供轮次导航补齐未加载轮次）
 import type { SessionRoundSummariesResult } from './roundSummaries';
 import type { MessageMutation } from './messageMutation';
@@ -101,6 +106,14 @@ export interface SessionAgentOpsDeps {
   getCoordinator(): Coordinator;
   getConverterEngine(): ReturnType<typeof getConverterEngine>;
   getFileTypeDetector(): FileTypeDetector;
+  /**
+   * P1（2026-11-03）：权限管理器（可选注入）。
+   *
+   * HTTP/CoreAPI 路径此前**没有权限门**（方案 §2 B2：`ToolManager.executeTool` 只做
+   * shield + policy，而 `DefaultToolPolicy` 恒 allow）⇒ 本依赖用于把该入口接到
+   * **唯一授权入口** `authorizeToolCall`。缺省 ⇒ HTTP 路径 **fail-closed**（不执行）。
+   */
+  getPermissionManager?: () => unknown;
 }
 
 export class SessionAgentOps {
@@ -228,6 +241,82 @@ export class SessionAgentOps {
     });
 
     try {
+      // ── P1（2026-11-03）：HTTP/CoreAPI 路径的**权限门** ──
+      // 此前本路径直呼 `ToolManager.executeTool`，不经过任何规则/审批（方案 §2 B2）。
+      // 现与 Agent 主链共用**唯一授权入口** `authorizeToolCall`：
+      // · 无权限管理器 ⇒ **fail-closed**（不执行，也不伪造审批通道）；
+      // · `ask` ⇒ 审批卡已由权限层提交，本次**不执行**，如实回传「等待批准」；
+      // · `deny` ⇒ 拒绝，附结构化依据（LRO-07 口径）。
+      const permissionManager = this.deps.getPermissionManager?.();
+      if (!permissionManager) {
+        logger.warn(
+          'CoreAPIImpl.executeTool(): 权限管理器未注入 ⇒ fail-closed 拒绝执行',
+          { toolName: toolCall.name, sessionId }
+        );
+        return {
+          toolCallId: toolCall.id,
+          toolName: toolCall.name,
+          result: null,
+          error:
+            '权限检查不可用（权限管理器未注入）：本次调用未执行。' +
+            '请先初始化权限子系统后重试。',
+          executionTime: Date.now() - startTime,
+        };
+      }
+
+      const authorization = await authorizeToolCall(
+        permissionManager as ToolPermissionPort,
+        {
+          toolName: toolCall.name,
+          args: (toolCall.arguments as Record<string, unknown>) ?? {},
+          // HTTP 路径无会话审批模式/工作区上下文 ⇒ 权限层按 `ask` 判定（fail-closed）
+          context: { sessionId },
+        }
+      );
+      if (!authorization.allowed) {
+        if (authorization.kind === 'ask') {
+          logger.warn('CoreAPIImpl.executeTool(): 需要审批 ⇒ 本次不执行', {
+            toolName: toolCall.name,
+            sessionId,
+            submittedToInbox: authorization.submittedToInbox,
+            inboxItemId: authorization.inboxItemId,
+          });
+          return {
+            toolCallId: toolCall.id,
+            toolName: toolCall.name,
+            result: {
+              pendingApproval: true,
+              ...(authorization.inboxItemId
+                ? { inboxItemId: authorization.inboxItemId }
+                : {}),
+              ...(authorization.submittedToInbox
+                ? {}
+                : { approvalChannelDown: true }),
+            },
+            error:
+              `工具「${toolCall.name}」需要用户批准，本次调用未执行：${authorization.reason}` +
+              (authorization.submittedToInbox
+                ? '（审批卡已提交，批准后请重新发起调用）'
+                : '（审批通道不可用，本次调用未排队）'),
+            executionTime: Date.now() - startTime,
+          };
+        }
+        logger.warn('CoreAPIImpl.executeTool(): 权限拒绝 ⇒ 本次不执行', {
+          toolName: toolCall.name,
+          sessionId,
+          reason: authorization.reason,
+        });
+        return {
+          toolCallId: toolCall.id,
+          toolName: toolCall.name,
+          result: authorization.denyInfo
+            ? { permissionDeny: authorization.denyInfo }
+            : null,
+          error: `Permission denied: ${authorization.reason}`,
+          executionTime: Date.now() - startTime,
+        };
+      }
+
       const rawResult = await this.deps
         .getToolManager()
         .executeTool(

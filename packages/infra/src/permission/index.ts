@@ -231,12 +231,44 @@ export {
 } from './PermissionManager';
 // D2（2026-10-11）：权限管理器注入断言（生产 fail-fast，G9）
 export { assertPermissionManagerInjected } from './assertPermissionInjected';
+// P1（2026-11-03）：工具授权**单一入口**（Agent 主链 + HTTP/CoreAPI 路径共用）
+export { authorizeToolCall } from './authorizeToolCall';
+export type {
+  AuthorizeOutcome,
+  AuthorizeToolCallRequest,
+  ToolAuthorizeContext,
+  ToolPermissionPort,
+  ToolPermissionPortResult,
+} from './authorizeToolCall';
 export {
   FineGrainedPermissionManager,
   createFineGrainedPermissionManager,
 } from './FineGrainedPermissionManager';
 export { RuleManager, deduplicateRules } from './RuleManager';
 export type { RuleContext } from './RuleManager';
+// P2-1（2026-11-03）：统一 Rule 模型（A / settings / B-command / StandingRule 只读投影）
+export {
+  permissionRulesToUnified,
+  settingsToUnified,
+  commandRulesToUnified,
+  standingRulesToUnified,
+  mergeUnifiedRules,
+  diffUnifiedRules,
+  groupBySource,
+  parseSettingsRuleText,
+} from './unifiedRule';
+export type {
+  UnifiedRule,
+  UnifiedRuleScope,
+  UnifiedRuleBehavior,
+  UnifiedRuleSourceKey,
+  UnifiedRuleMatcher,
+  UnifiedRuleDiff,
+  SettingsRulesInput,
+  CommandRulesInput,
+} from './unifiedRule';
+// P2-1：StandingRule 类型已由统一模型消费，补 barrel 出口（值类型仍走原模块单例）
+export type { StandingRule } from './StandingRuleEngine';
 export {
   ResourceType,
   OperationType,

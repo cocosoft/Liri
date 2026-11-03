@@ -33,6 +33,15 @@ const BASH_TOOL_SRC = readFileSync(
   new URL('../../src/tools/bash/BashTool.ts', import.meta.url),
   'utf8'
 );
+// P1（2026-11-03）：权限判定的**唯一入口**（主链与 HTTP 路径共用）；
+// `denyInfo` 的结构化类型声明随判定收敛搬到这里（不再散落在各调用方）。
+const AUTHORIZE_SRC = readFileSync(
+  new URL(
+    '../../../packages/infra/src/permission/authorizeToolCall.ts',
+    import.meta.url
+  ),
+  'utf8'
+);
 
 function makeCall(id = 'tc1', name = 'file_write'): ToolCallEntry {
   return { id, name, input: { file_path: 'a.txt' } };
@@ -91,7 +100,8 @@ describe('failureKind 生产者接线（LRO-09 步骤 1b）', () => {
     expect(EXEC_SERVICE_SRC).toContain(
       'metadata: { permissionDeny: permissionResult.denyInfo }'
     );
-    expect(EXEC_SERVICE_SRC).toContain('denyInfo?: PermissionDenyInfo');
+    // P1（2026-11-03）：类型声明已随判定收敛到唯一入口 `authorizeToolCall`
+    expect(AUTHORIZE_SRC).toContain('denyInfo?: PermissionDenyInfo');
   });
 
   it('安全生产者：PathGuard 跳过标 safety_blocked', () => {

@@ -16,61 +16,15 @@
  * （`checkBashDangerousCommand` / 路径检查仍在其之前执行）。
  */
 
-/** 只读基命令（两平台常用者；不含任何可写/可执行/可交互命令） */
-const READ_ONLY_BASES = new Set([
-  'dir',
-  'ls',
-  'findstr',
-  'type',
-  'cat',
-  'head',
-  'tail',
-  'more',
-  'less',
-  'grep',
-  'rg',
-  'where',
-  'which',
-  'find',
-  'tree',
-  'echo',
-  'whoami',
-  'hostname',
-  'ver',
-  'uname',
-  'pwd',
-  'cd',
-  'chcp',
-  'systeminfo',
-  'tasklist',
-  'ps',
-  'df',
-  'du',
-  'wc',
-  'sort',
-  'uniq',
-  'cut',
-  'tr',
-  'stat',
-  'file',
-  'md5sum',
-  'sha256sum',
-  'date',
-]);
+// P2-3（2026-11-03）：清单收敛到 `security/readOnlyCommands.ts`（单一来源）
+import {
+  READ_ONLY_BASE_COMMANDS,
+  VERSION_ONLY_QUERY_PATTERN,
+  GIT_READ_ONLY_PATTERN,
+} from './readOnlyCommands';
 
-/** 解释器/构建器的只读版本查询（与 `BashAllowlistMatcher` 同口径） */
-const VERSION_ONLY =
-  /^(node|npm|npx|pnpm|yarn|bun|deno|python|python3|pip|pip3|go|cargo|rustc|java|mvn|gradle|dotnet|git|tsc)\s+(--version|-v|-V)$/i;
-
-/**
- * git 只读子命令（不含 `git diff --output` 之类写操作：重定向已被上层拒绝）。
- *
- * FIX-16c（2026-10-27）：允许只读的**全局选项**出现在子命令之前 —— 真机
- * `git -C <repo> log --oneline -12` 因 `^git\s+(log|…)` 不匹配而被判"非只读"⇒ ask
- * （`-C` / `--no-pager` / `--no-optional-locks` 均不改变子命令的只读语义）。
- */
-const GIT_READ_ONLY =
-  /^git(?:\s+(?:-C\s+(?:"[^"]*"|'[^']*'|[^\s]+)|--no-pager|--no-optional-locks))*\s+(status|log|diff|show|rev-parse|branch\s+--list|--version)(\s|$)/i;
+// P2-3（2026-11-03）：只读基命令 / 版本查询 / git 只读清单收敛到 `readOnlyCommands.ts`
+// （FIX-16c：`git -C … log` 等只读全局选项由 `GIT_READ_ONLY_PATTERN` 覆盖）
 
 export interface CompoundReadOnlyVerdict {
   allowed: boolean;
@@ -253,12 +207,15 @@ export function checkCompoundReadOnly(
       return { allowed: false, reason: `非常规命令名（${first}）`, segments };
     }
 
-    if (VERSION_ONLY.test(seg) || GIT_READ_ONLY.test(seg)) {
+    if (
+      VERSION_ONLY_QUERY_PATTERN.test(seg) ||
+      GIT_READ_ONLY_PATTERN.test(seg)
+    ) {
       cleaned.push(seg);
       continue;
     }
 
-    if (!READ_ONLY_BASES.has(first.toLowerCase())) {
+    if (!READ_ONLY_BASE_COMMANDS.has(first.toLowerCase())) {
       return { allowed: false, reason: `非只读命令（${first}）`, segments };
     }
     cleaned.push(seg);

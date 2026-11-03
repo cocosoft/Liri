@@ -319,7 +319,6 @@ export class CoreAPIImpl implements CoreAPI {
     getDeriveSessionMessagesFromEvents: () => (sid) =>
       this.sessionMessagesRead._deriveSessionMessagesFromEvents(sid),
   });
-
   /** B4（2026-10-05）：标题 / 元数据 / 执行阶段追踪实现（外迁 `sessionTitling.ts`） */
   private readonly sessionTitling: SessionTitling = new SessionTitling({
     getChatManager: () => this.chatManager,
@@ -336,8 +335,9 @@ export class CoreAPIImpl implements CoreAPI {
     getCoordinator: () => this.coordinator,
     getConverterEngine: () => this.converterEngine,
     getFileTypeDetector: () => this.fileTypeDetector,
+    // P1（2026-11-03）：HTTP/CoreAPI 工具执行的权限门（唯一入口 `authorizeToolCall`）
+    getPermissionManager: () => this.chatManager.getPermissionManager(),
   });
-
   /** C3-S3（2026-10-09）：LLM 懒初始化 / 模型解析 / 非流式 chat（外迁 `llmChatOps.ts`） */
   private readonly llmChatOps: LlmChatOps = new LlmChatOps({
     getChatManager: () => this.chatManager,

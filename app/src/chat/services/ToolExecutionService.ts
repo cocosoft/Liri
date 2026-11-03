@@ -62,7 +62,7 @@ import {
   resolveFileIoToolModeHint,
   resolveSandboxExecutionSignal,
 } from '@modules/sandbox';
-import type { Tool, SandboxExecutionSignal } from '../../tools/types/Tool';
+import type { Tool } from '../../tools/types/Tool';
 import { estimateTokens } from '@modules/ai';
 import { configManager } from '@openliri/infra/config';
 import { withToolTimeout } from './ToolTimeoutWrapper.js';
@@ -87,12 +87,13 @@ import type {
 import type {
   ApprovalScope,
   ApprovalSnapshot,
-  PermissionDenyInfo,
 } from '@openliri/infra/permission';
 // D2（2026-10-11）：权限管理器注入断言（生产 fail-fast，G9）
 import {
   assertPermissionManagerInjected,
+  authorizeToolCall,
   resolveApprovalFingerprint,
+  type ToolPermissionPort,
 } from '@openliri/infra/permission';
 
 /**
@@ -936,35 +937,10 @@ export class ToolExecutionService {
       );
     }
     if (this.deps.getPermissionManager()) {
-      const pm = this.deps.getPermissionManager() as {
-        checkPermissionForTool: (
-          name: string,
-          args: Record<string, unknown>,
-          context?: {
-            sessionId?: string;
-            /** 多租户 P0 阶段 2：请求级角色（缺省 ⇒ 权限层回退进程级角色） */
-            userRole?: string;
-            forceAskReason?: string;
-            /** 语义护栏「便宜版」（2026-10-21）：意图文本（最近一条用户消息） */
-            metadata?: { goalText?: string };
-            /** PR-3：会话级审批模式（`auto-local` = 只读 + 工作区内本地写自动执行） */
-            approvalMode?: 'ask' | 'auto-local';
-            /** PR-3：会话工作区路径（自动执行的写边界） */
-            workspacePath?: string;
-            /** PR-3a：本次执行的沙箱上下文（审批卡留证；不改判定） */
-            sandbox?: SandboxExecutionSignal;
-          }
-        ) => Promise<{
-          allowed: boolean;
-          reason?: string;
-          decision?: { behavior: string; reason?: string };
-          submittedToInbox?: boolean;
-          /** U-06-5：已提交的 Inbox 项 id（前端就地审批） */
-          inboxItemId?: string;
-          /** LRO-07：规则拒绝的结构化依据（缺省 = 非规则拒绝或无依据） */
-          denyInfo?: PermissionDenyInfo;
-        }>;
-      };
+      // P1（2026-11-03）：权限判定的**唯一入口**（与 HTTP/CoreAPI 路径共用，见
+      // `packages/infra/src/permission/authorizeToolCall.ts`）—— 此前这里内联构造
+      // 上下文并自行解构 `checkPermissionForTool` 返回值，两套入口各写一份口径。
+      const pm = this.deps.getPermissionManager() as ToolPermissionPort;
       // R07-3（2026-10-07）：非幂等工具的「重试」⇒ 执行前**主动分流**为审批
       // （原实现仅把 `[重试注意]` 写进 tool 结果回传模型，属**被动**提示）。
       // 多租户 P0 阶段 2：把**请求作用域**里的角色带进权限判定 ——
@@ -977,10 +953,10 @@ export class ToolExecutionService {
       const permissionTool = this._resolveRegisteredTool(
         normalizedToolCall.name
       );
-      const permissionResult = await pm.checkPermissionForTool(
-        normalizedToolCall.name,
-        normalizedToolCall.arguments,
-        {
+      const permissionResult = await authorizeToolCall(pm, {
+        toolName: normalizedToolCall.name,
+        args: normalizedToolCall.arguments,
+        context: {
           sessionId: toolCall.sessionId,
           ...(requestRole ? { userRole: requestRole } : {}),
           ...(permissionTool ? { tool: permissionTool } : {}),
@@ -1005,11 +981,11 @@ export class ToolExecutionService {
           metadata: {
             goalText: this._resolveIntentText(toolCall.sessionId),
           },
-        }
-      );
+        },
+      });
 
       if (!permissionResult.allowed) {
-        if (permissionResult.decision?.behavior === 'ask') {
+        if (permissionResult.kind === 'ask') {
           const approvedHit = await this.deps.isCommandApproved(
             normalizedToolCall.name,
             normalizedToolCall.arguments,

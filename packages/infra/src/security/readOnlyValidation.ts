@@ -1,5 +1,7 @@
 import { configManager } from '@openliri/infra/config';
 import type { SecurityAnalysisResult, RiskLevel } from './types';
+// P2-3（2026-11-03）：git 只读子命令收敛到 `readOnlyCommands.ts`（单一来源）
+import { GIT_READ_ONLY_SUBCOMMANDS } from './readOnlyCommands';
 
 export interface ReadOnlyValidationOptions {
   enforceReadOnly: boolean;
@@ -89,35 +91,7 @@ export const DEFAULT_READONLY_CONFIG: ReadOnlyValidationOptions = {
   ],
 };
 
-const GIT_READ_ONLY_SUBCOMMANDS = new Set([
-  'status',
-  'log',
-  'diff',
-  'show',
-  'branch',
-  'tag',
-  'ls-tree',
-  'rev-list',
-  'rev-parse',
-  'remote',
-  'config',
-  'describe',
-  'name-rev',
-  'shortlog',
-  'stash list',
-  'blame',
-  'grep',
-  'bisect',
-  'bisect log',
-  'bisect visualize',
-  'reflog',
-  'notes',
-  'archive',
-  'bundle',
-  'cat-file',
-  'for-each-ref',
-  'var',
-]);
+// P2-3：`GIT_READ_ONLY_SUBCOMMANDS` 由 `./readOnlyCommands` 统一提供
 
 export class ReadOnlyValidator {
   private config: ReadOnlyValidationOptions;

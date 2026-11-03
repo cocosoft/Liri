@@ -4,7 +4,11 @@
  */
 
 import { SandboxExecuteOptions, SandboxConfig } from './SandboxTypes';
-import { DELETION_RULES } from '@openliri/infra/security';
+import {
+  DELETION_RULES,
+  // P2-2（2026-11-03）：PowerShell 删除别名单一来源（禁止本文件手抄）
+  POWERSHELL_DELETION_ALIASES,
+} from '@openliri/infra/security';
 
 /**
  * 沙箱安全检查器安全检查结果
@@ -52,14 +56,8 @@ export class SandboxSecurityChecker {
    * 危险命令模式列表
    */
   private readonly dangerousCommands = new Set([
-    // P1 统一来源：DELETION_RULES（dangerousCommands.ts）PowerShell 删除别名
-    'remove-item',
-    'ri',
-    'rm',
-    'del',
-    'erase',
-    'rd',
-    'rrmdir',
+    // P1/P2 统一来源：POWERSHELL_DELETION_ALIASES（dangerousCommands.ts）PowerShell 删除别名
+    ...POWERSHELL_DELETION_ALIASES,
     // 文件系统破坏命令
     'rm -rf',
     'rm -fr',

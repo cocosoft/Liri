@@ -275,8 +275,25 @@ export type {
   PatternLibraryConfig,
 } from './patterns';
 // U-21（批次⑤，2026-10-17）：统一危险规则集入桶（原只有叶子直连）
-export { DELETION_RULES, ALL_UNIFIED_RULES } from './patterns';
+export {
+  DELETION_RULES,
+  ALL_UNIFIED_RULES,
+  // P2-2（2026-11-03）：PowerShell 删除别名单一来源（PowerShellTool / SandboxSecurityChecker 共用）
+  POWERSHELL_DELETION_ALIASES,
+} from './patterns';
 export type { UnifiedRulePlatform } from './patterns';
+// P2-3（2026-11-03）：只读命令目录单一来源（bash / cmd / PowerShell 按 shell 引用）
+export {
+  READ_ONLY_BASE_COMMANDS,
+  BASH_READ_ONLY_PREFIX_PATTERNS,
+  POWERSHELL_READ_ONLY_PREFIX_PATTERNS,
+  VERSION_ONLY_QUERY_PATTERN,
+  GIT_READ_ONLY_PATTERN,
+  GIT_READ_ONLY_SUBCOMMANDS,
+  BASH_QUICK_READ_ONLY_COMMANDS,
+  POWERSHELL_ALLOWED_COMMAND_PREFIXES,
+  POWERSHELL_READ_ONLY_COMMAND_PATTERNS,
+} from './readOnlyCommands';
 export { getRedactMiddleware } from './redact';
 // U-21（批次⑦，2026-10-17）：scanners/validators/bash/files 子入口入桶
 export { createSecurityScanner } from './scanners/SecurityScanner';

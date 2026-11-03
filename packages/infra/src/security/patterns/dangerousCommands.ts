@@ -372,83 +372,59 @@ export const ALL_UNIFIED_RULES: UnifiedSecurityRule[] = [
   ...COMPOSITE_COMMAND_RULES,
 ];
 
-// ─── 向后兼容 ──────────────────────────────────────────────
+// ─── 向后兼容（P2：改为从统一规则集投影，不再手抄第二份） ──────────
 
 /**
- * 向后兼容：原有 DANGEROUS_COMMAND_PATTERNS（仅 Bash 规则子集）
- * P2 删除：所有模块迁移完成后移除
+ * `DANGEROUS_COMMAND_PATTERNS` 原先的 10 条 bash 规则名。
+ *
+ * P2（`dev_docs/20261027/工具权限体系归一化方案-20261027.md` §5 P2-2）：
+ * 这份"第二份危险模式表"只保留**规则名**，pattern / message / riskLevel / behavior
+ * 一律从 `ALL_UNIFIED_RULES` 投影 ⇒ 修改规则只需改统一表，不会再出现"两份表漂移"。
  */
-export const DANGEROUS_COMMAND_PATTERNS: SecurityPattern[] = [
-  {
-    name: 'rm_root',
-    pattern: /\brm\s+(-[rf]+\s+)*\//i,
-    message: '尝试删除根目录或系统目录',
-    riskLevel: 'high',
-    behavior: 'deny',
-  },
-  {
-    name: 'rm_force_recursive',
-    pattern: /\brm\s+(-[rf]+\s+)*\*(\s|$)/i,
-    message: '尝试强制递归删除所有文件',
-    riskLevel: 'high',
-    behavior: 'deny',
-  },
-  {
-    name: 'mkfs',
-    pattern: /\bmkfs\./i,
-    message: '尝试格式化文件系统',
-    riskLevel: 'high',
-    behavior: 'deny',
-  },
-  {
-    name: 'dd_device',
-    pattern: /\bdd\s+.*of=\/dev\//i,
-    message: '尝试直接写入设备文件',
-    riskLevel: 'high',
-    behavior: 'deny',
-  },
-  {
-    name: 'fork_bomb',
-    pattern: /:\(\)\s*\{\s*:\|:\s*&\s*\}\s*;?\s*:/,
-    message: '检测到 Fork 炸弹',
-    riskLevel: 'high',
-    behavior: 'deny',
-  },
-  {
-    name: 'chmod_777',
-    pattern: /\bchmod\s+(-R\s+)?777\s+\//i,
-    message: '尝试设置危险的文件权限',
-    riskLevel: 'high',
-    behavior: 'ask',
-  },
-  {
-    name: 'chown_recursive',
-    pattern: /\bchown\s+.*-R.*\//i,
-    message: '尝试递归修改文件所有者',
-    riskLevel: 'medium',
-    behavior: 'ask',
-  },
-  {
-    name: 'shutdown',
-    pattern: /\b(shutdown|poweroff|reboot|halt)\b/i,
-    message: '尝试执行系统关机/重启命令',
-    riskLevel: 'high',
-    behavior: 'ask',
-  },
-  {
-    name: 'iptables',
-    pattern: /\biptables\b/i,
-    message: '尝试修改防火墙规则',
-    riskLevel: 'high',
-    behavior: 'ask',
-  },
-  {
-    name: 'userdel',
-    pattern: /\buserdel\b/i,
-    message: '尝试删除用户',
-    riskLevel: 'high',
-    behavior: 'ask',
-  },
+const LEGACY_BASH_RULE_NAMES = new Set([
+  'rm_root',
+  'rm_force_recursive',
+  'mkfs',
+  'dd_device',
+  'fork_bomb',
+  'chmod_777',
+  'chown_recursive',
+  'shutdown',
+  'iptables',
+  'userdel',
+]);
+
+/**
+ * 向后兼容视图：BashSecurityAnalyzer 的"私有危险模式层"。
+ *
+ * 语义与 P2 之前**逐条等价**（仅由逐字手抄改为从统一表派生）。
+ */
+export const DANGEROUS_COMMAND_PATTERNS: SecurityPattern[] =
+  ALL_UNIFIED_RULES.filter((rule) => LEGACY_BASH_RULE_NAMES.has(rule.name)).map(
+    (rule) => ({
+      name: rule.name,
+      pattern: rule.patterns[0]!,
+      message: rule.message,
+      riskLevel: rule.riskLevel === 'critical' ? 'high' : rule.riskLevel,
+      behavior: rule.defaultBehavior,
+    })
+  );
+
+/**
+ * PowerShell 删除命令别名（**单一来源**）。
+ *
+ * 消费方：`PowerShellTool`（危险模式构造）、`SandboxSecurityChecker`（危险命令集合）。
+ * 原先两处各手抄一份（且含 `rrmdir` 拼写），改为统一引用本常量。
+ */
+export const POWERSHELL_DELETION_ALIASES: readonly string[] = [
+  'remove-item',
+  'ri',
+  'rm',
+  'del',
+  'erase',
+  'rd',
+  'rmdir',
+  'rrmdir',
 ];
 
 export const DANGEROUS_BASE_COMMANDS = new Set([

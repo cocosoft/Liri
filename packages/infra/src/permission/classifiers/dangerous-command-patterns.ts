@@ -25,9 +25,13 @@
  */
 
 /**
- * 危险命令模式列表
+ * 危险命令模式列表（**auto 模式分类器的启发式评分词表**，非硬拦截库）
+ *
+ * P2-2（2026-11-03）：改名以消除与 `security/patterns/dangerousCommands.ts`
+ * `DANGEROUS_COMMAND_PATTERNS` 的**同名异义**。真正的危险命令规则只有一份，
+ * 位置见 `security/patterns/dangerousCommands.ts`。
  */
-export const DANGEROUS_COMMAND_PATTERNS = [
+export const AUTO_MODE_DANGER_TOKENS = [
   // P0 紧急新增：Remove-Item 别名全覆盖
   'remove-item',
   'ri ',

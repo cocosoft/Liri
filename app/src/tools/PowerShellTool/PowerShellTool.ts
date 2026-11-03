@@ -33,6 +33,10 @@ import * as path from 'path';
 import { realpathSync, existsSync } from 'fs';
 import {
   DELETION_RULES,
+  // P2-2/P2-3（2026-11-03）：删除别名 / 只读目录统一由 infra 提供（禁止本地再写一份）
+  POWERSHELL_DELETION_ALIASES,
+  POWERSHELL_ALLOWED_COMMAND_PREFIXES,
+  POWERSHELL_READ_ONLY_COMMAND_PATTERNS,
   securityIntegrationService,
 } from '@openliri/infra/security';
 import { SandboxSecurityChecker } from '@modules/sandbox';
@@ -43,106 +47,13 @@ import type { PermissionConfig } from '@openliri/infra/config/types';
 import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:PowerShellTool:PowerShellTool');
 
-/** PowerShell 删除命令别名（来源：dangerousCommands.ts DELETION_RULES） */
-const POWERSHELL_DELETION_ALIASES = [
-  'remove-item',
-  'ri',
-  'rm',
-  'del',
-  'erase',
-  'rd',
-  'rrmdir',
-];
-
 /**
  * PowerShell 安全命令白名单（F3 修复）
  * 仅允许以这些 PowerShell 动词/命令开头的命令执行
+ * P2-3：清单已收敛到 `@openliri/infra/security`（`POWERSHELL_ALLOWED_COMMAND_PREFIXES`）
  */
-const ALLOWED_POWERSHELL_COMMANDS = new Set([
-  // 查询类（只读）
-  'get-',
-  'test-',
-  'resolve-',
-  'measure-',
-  'compare-',
-  'select-',
-  'where-',
-  'group-',
-  'sort-',
-  'format-',
-  'out-',
-  'export-',
-  'write-',
-  'read-',
-  'convertto-',
-  'convertfrom-',
-  // 诊断类
-  'debug-',
-  'trace-',
-  // 安全辅助
-  'checkpoint-',
-  'diff-',
-  // G4（2026-11-03）：纯只读路径拼接（无 I/O 副作用）。真机 seq 1519
-  // `Join-Path $x 'y'` 被拒为「join-path 不在允许列表」，模型只能改用字符串拼路径。
-  'join-path',
-  // 允许的文件操作
-  'new-item',
-  'mkdir',
-  'md',
-  'copy-item',
-  'copy',
-  'cpi',
-  'move-item',
-  'move',
-  'mi',
-  'mv',
-  'rename-item',
-  'rename',
-  'ren',
-  'rni',
-  // 解压类（zip/tar，低危文件操作；用于 skill/插件包安装解压）
-  'expand-archive',
-  'tar',
-  // 环境变量
-  'get-variable',
-  'set-variable',
-  // 进程信息（只读）
-  'get-process',
-  'get-service',
-  // 帮助
-  'get-help',
-  'help',
-  'man',
-  // 构建工具相关
-  'npm',
-  'node',
-  'bun',
-  'yarn',
-  'pnpm',
-  // 包执行器（与已允许的 npm/bun 同能力面；2026-10-19 修复 `npx` 被误拒）
-  'npx',
-  'bunx',
-  'pnpx',
-  'git',
-  'python',
-  'python3',
-  'pip',
-  'cargo',
-  'rustc',
-  // 目录导航（每次 PowerShellTool 调用都是新进程 ⇒ 无持久副作用）
-  'cd',
-  'set-location',
-  'push-location',
-  'pop-location',
-  'get-location',
-  'pwd',
-  // 基本命令
-  'echo',
-  'write-host',
-  'write-output',
-  // 方案八 8b：只读文本搜索放行（findstr 是 cmd.exe 只读工具）
-  'findstr',
-]);
+const ALLOWED_POWERSHELL_COMMANDS: ReadonlySet<string> =
+  POWERSHELL_ALLOWED_COMMAND_PREFIXES;
 
 /** 沙箱安全检查器实例（F2 修复：二次校验） */
 const psSandboxChecker = new SandboxSecurityChecker();
@@ -869,14 +780,9 @@ export class PowerShellTool extends BaseTool {
 
   override isReadOnly(input?: Record<string, unknown>): boolean {
     const command = (input?.command as string)?.toLowerCase() || '';
-    const readOnlyPatterns = [
-      /^get-/,
-      /^test-/,
-      /^resolve-/,
-      /^get-.*-readonly/i,
-      /^out-/i,
-    ];
-    return readOnlyPatterns.some((pattern) => pattern.test(command));
+    return POWERSHELL_READ_ONLY_COMMAND_PATTERNS.some((pattern) =>
+      pattern.test(command)
+    );
   }
 
   override isConcurrencySafe(input?: Record<string, unknown>): boolean {

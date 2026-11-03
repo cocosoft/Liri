@@ -50,6 +50,8 @@ export interface DerivedMessage {
   timestamp: number;
   startedAt?: number;
   finishReason?: string;
+  /** 主循环终止判定（`turn/end.terminationReason`，2026-11-03 回放可见化） */
+  terminationReason?: string;
   tool_calls?: Array<Record<string, unknown>>;
   toolCallId?: string;
   blocks?: Array<Record<string, unknown>>;
@@ -757,6 +759,10 @@ export function deriveMessagesFromEvents(
   // 供该 turn 内消息派生补 finishReason（中断 turn 的消息在回放时显示中断提示）
   let currentTurnNo = 0;
   const finishReasonByTurn = new Map<number, string>();
+  // 2026-11-03 P1 回放补齐：终止判定（`turn/end.terminationReason`）同样按 turn 记录——
+  // 实时流走 `metadata.terminationReason` 能看到徽标，历史回放此前丢失该字段
+  // ⇒ 打开会话后徽标消失（真机实证：circuit_breaker 只以正文原始字符串出现）。
+  const terminationReasonByTurn = new Map<number, string>();
   for (const ev of events) {
     // A-3：跳过被压缩区间内的事件（旧消息不回放）
     if (isCompactedSeq(ev.seq)) continue;
@@ -801,6 +807,12 @@ export function deriveMessagesFromEvents(
         if (!existing || existing === 'canceled' || fr !== 'canceled') {
           finishReasonByTurn.set(turnNo, fr);
         }
+      }
+      // 2026-11-03 P1：终止判定随 turn 记录（崩溃恢复合成的 closers 不带该字段，
+      // 因此"后写覆盖"不会把真实的非 completed 原因抹成缺失）。
+      const tr = data.terminationReason;
+      if (typeof tr === 'string' && tr) {
+        terminationReasonByTurn.set(turnNo, tr);
       }
       continue;
     }
@@ -936,6 +948,8 @@ export function deriveMessagesFromEvents(
     // "已让出、等待子代理结算"，而不是看起来像一次普通结束。
     // 与 canceled 的"中断提示"不同：yield 不是异常，仅作语义标记。
     const yieldTurnFinish = turnFinish === 'yielded' ? 'yielded' : undefined;
+    // 2026-11-03 P1：该消息所属 turn 的终止判定（无则 undefined ⇒ 前端不显示徽标）
+    const turnTerminationReason = terminationReasonByTurn.get(agg.turnNo);
     if (
       proj &&
       typeof proj.lastEventSeq === 'number' &&
@@ -962,6 +976,10 @@ export function deriveMessagesFromEvents(
         // 阶段 A（A1-f）：yield 让出语义同样按 turn 补充
         finishReason:
           proj.finishReason ?? interruptedTurnFinish ?? yieldTurnFinish,
+        // 2026-11-03 P1：终止判定按 turn 回填（`completed` 由前端忽略，不显示徽标）
+        ...(turnTerminationReason
+          ? { terminationReason: turnTerminationReason }
+          : {}),
         // FIX(2026-08-23)：读时归一化——投影 blocks 可能按流式 chunk 碎片化
         //（每 token 一个 text block），合并相邻 text/thinking 防前端渲染卡死
         // D15/D16：投影覆盖路径同样做工作流中断合成（重放期，与工具中断同型）
@@ -980,6 +998,10 @@ export function deriveMessagesFromEvents(
         // 2026-08-24 中断提示链路（3.5）：中断 turn 的消息补 finishReason
         // 阶段 A（A1-f）：yield 让出语义同样按 turn 补充
         finishReason: interruptedTurnFinish ?? yieldTurnFinish,
+        // 2026-11-03 P1：终止判定按 turn 回填（同上）
+        ...(turnTerminationReason
+          ? { terminationReason: turnTerminationReason }
+          : {}),
         blocks: markOrphanWorkflowBlocks(markOrphanToolBlocks(agg.blocks)),
         tool_calls: agg.tool_calls.length > 0 ? agg.tool_calls : undefined,
         // 2026-10-27（BUG-G）：投影"版本戳不够新"时（`proj.lastEventSeq < maxChunkSeq`）

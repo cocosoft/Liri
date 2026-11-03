@@ -542,6 +542,7 @@ export class SessionMessagesRead {
     timestamp: number;
     startedAt?: number;
     finishReason?: string;
+    terminationReason?: string;
     tool_calls?: Array<Record<string, unknown>>;
     toolCallId?: string;
     blocks?: Array<Record<string, unknown>>;
@@ -599,6 +600,8 @@ export class SessionMessagesRead {
       timestamp: m.timestamp,
       startedAt: m.startedAt,
       finishReason: m.finishReason,
+      // 2026-11-03 P1：终止判定随消息回传——否则历史回放时徽标消失（仅实时流可见）
+      terminationReason: m.terminationReason,
       tool_calls: m.tool_calls,
       toolCallId: m.toolCallId,
       blocks: m.blocks,

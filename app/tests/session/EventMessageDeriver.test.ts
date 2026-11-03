@@ -203,6 +203,43 @@ describe('deriveMessagesFromEvents', () => {
       '完整正文（投影侧更全）'
     );
   });
+
+  // 2026-11-03 P1：终止判定（turn/end.terminationReason）随派生消息回传。
+  // 真机实证：仅实时流可见，历史回放丢失该字段 ⇒ 打开会话后终止徽标消失。
+  it('turn/end 带 terminationReason ⇒ 该 turn 的助手消息带上（回放可见）', () => {
+    const events: LiriEvent[] = [
+      ev(1, 'user/message', { content: 'hi', messageId: 'msg-1' }),
+      ev(2, 'turn/start', { turn: 1 }),
+      ev(3, 'assistant/text', { content: '作答', messageId: 'msg-2' }),
+      ev(4, 'turn/end', {
+        turn: 1,
+        finishReason: 'tool_use',
+        terminationReason: 'circuit_breaker',
+      }),
+    ];
+
+    const messages = deriveMessagesFromEvents(events, []);
+    expect(messages.find((m) => m.id === 'msg-2')?.terminationReason).toBe(
+      'circuit_breaker'
+    );
+    // 用户消息不属于该 turn 的收尾语义 ⇒ 不带
+    expect(
+      messages.find((m) => m.id === 'msg-1')?.terminationReason
+    ).toBeUndefined();
+  });
+
+  it('turn/end 无 terminationReason ⇒ 不伪造该字段', () => {
+    const events: LiriEvent[] = [
+      ev(1, 'turn/start', { turn: 1 }),
+      ev(2, 'assistant/text', { content: '作答', messageId: 'msg-2' }),
+      ev(3, 'turn/end', { turn: 1, finishReason: 'stop' }),
+    ];
+
+    const messages = deriveMessagesFromEvents(events, []);
+    expect(
+      messages.find((m) => m.id === 'msg-2')?.terminationReason
+    ).toBeUndefined();
+  });
 });
 
 /**

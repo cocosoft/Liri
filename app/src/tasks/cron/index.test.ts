@@ -162,6 +162,25 @@ describe('CronJobStore', () => {
     expect(loaded!.lastError).toBeUndefined();
   });
 
+  it('标记完成时应清空下次运行时间（避免过期作业反复被追赶）', async () => {
+    store = await createStore('complete_clear_test.db');
+    const job = makeTestJob({
+      id: 'complete-clear',
+      schedule: {
+        kind: 'once',
+        runAt: '2020-01-01T00:00:00.000Z',
+        display: '一次性',
+      },
+      nextRunAt: '2020-01-01T00:00:00.000Z',
+    });
+    await store.upsertJob(job);
+
+    await store.updateJobState('complete-clear', 'completed');
+    const loaded = await store.getJob('complete-clear');
+    expect(loaded!.state).toBe('completed');
+    expect(loaded!.nextRunAt).toBeUndefined();
+  });
+
   it('应该能记录运行错误', async () => {
     store = await createStore('fail_test.db');
     const job = makeTestJob({ id: 'mark-fail' });
@@ -362,6 +381,32 @@ describe('CronScheduler', () => {
 
     const loaded = await store.getJob('repeat-limit');
     expect(loaded!.state).toBe('completed');
+  });
+
+  it('启动追赶时应跳过已完成作业并清理残留的下次运行时间', async () => {
+    store = await createStore('sched_completed_catchup.db');
+    const job = makeTestJob({
+      id: 'done-once',
+      state: 'completed',
+      schedule: {
+        kind: 'once',
+        runAt: '2020-01-01T00:00:00.000Z',
+        display: '一次性',
+      },
+      nextRunAt: '2020-01-01T00:00:00.000Z',
+    });
+    await store.upsertJob(job);
+
+    scheduler = new CronScheduler(store, createExecutor(), {
+      checkIntervalMs: 60000,
+      enableLock: false,
+    });
+    await scheduler.start();
+
+    const loaded = await store.getJob('done-once');
+    expect(loaded!.state).toBe('completed');
+    expect(loaded!.nextRunAt).toBeUndefined();
+    expect(executedJobs).not.toContain('done-once');
   });
 
   it('tick 在调度器停止时应返回 0', async () => {

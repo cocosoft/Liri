@@ -361,12 +361,25 @@ export class CronJobStore {
     }
 
     // 相同状态无需转移，直接返回（处理 catchUpMissedJobs 与 tick 竞跑场景）
-    if (job.state === newState) return;
+    if (job.state === newState) {
+      // 终止态不允许再有 next_run_at：历史数据可能残留（旧版本完成任务时未清空），
+      // 这里顺带自愈，避免被 catchUpMissedJobs 误判为"过期作业"而反复处理。
+      if (isTerminalCronState(newState) && job.nextRunAt) {
+        await this.updateNextRun(jobId, null);
+      }
+      return;
+    }
 
     validateCronTransition(job.state, newState);
 
     const db = this.ensureDb();
-    const sql = `UPDATE ${TABLE_CRON_JOBS}
+    // 进入终止态时同批清空 next_run_at —— 否则 completed 的一次性作业仍带着
+    // 过去的 nextRunAt，每次调度器启动都会被当成"过期作业"重复标记并刷日志。
+    const sql = isTerminalCronState(newState)
+      ? `UPDATE ${TABLE_CRON_JOBS}
+      SET state = ?, next_run_at = NULL, updated_at = ?
+      WHERE id = ? AND state = ?`
+      : `UPDATE ${TABLE_CRON_JOBS}
       SET state = ?, updated_at = ?
       WHERE id = ? AND state = ?`;
 

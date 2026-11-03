@@ -12,7 +12,7 @@ import type {
   CronSchedulerConfig,
   CronSchedulerStatus,
 } from './types';
-import { validateCronTransition } from './types';
+import { validateCronTransition, isTerminalCronState } from './types';
 import { CronJobStore } from './CronJobStore';
 import {
   getCalendarEventBus,
@@ -300,6 +300,16 @@ export class CronScheduler implements SchedulerLifecycle {
       const missed: { job: CronJob; shouldRun: boolean }[] = [];
 
       for (const job of enabledJobs) {
+        // 终止态（已完成）不参与追赶：listEnabledJobs 只按 enabled 过滤，
+        // completed 的一次性作业仍会在这里被反复"标记完成"（实为 no-op），
+        // 每次调度器启动都要刷一遍日志（2026-11-03：361 个过期提醒反复刷屏）。
+        // 历史数据可能残留 next_run_at，顺带清理一次，避免拖住下一次唤醒时间。
+        if (isTerminalCronState(job.state)) {
+          if (job.nextRunAt) {
+            await this.store.updateNextRun(job.id, null);
+          }
+          continue;
+        }
         if (!job.nextRunAt) continue;
         const nextRunMs = new Date(job.nextRunAt).getTime();
 
@@ -369,6 +379,9 @@ export class CronScheduler implements SchedulerLifecycle {
       let earliest: number | undefined;
 
       for (const job of enabledJobs) {
+        // 终止态作业不再产生唤醒时间（历史数据可能残留 next_run_at，
+        // 若沿用会让定时器反复以"过去时间"唤醒）
+        if (isTerminalCronState(job.state)) continue;
         if (!job.nextRunAt) continue;
         const ms = new Date(job.nextRunAt).getTime();
         if (Number.isFinite(ms) && (earliest === undefined || ms < earliest)) {

@@ -14,11 +14,11 @@ const enMisc = {
     tabPatterns: "Patterns",
     patternsTitle: "Orchestration Patterns",
     patternsDesc:
-      'Orchestration patterns available in this app (registry + assembly status + trigger reachability); "Driven by existing chain", "Not wired" and "Unreachable" are stated honestly, not omissions.',
+      'Orchestration patterns available in this app (registry + assembly status + trigger reachability); "Wired · driven by existing chain", "Not wired" and "Unreachable" are stated honestly, not omissions.',
     patternsReady: "Wired",
     patternsUnavailable: "Not wired",
     // 2026-11-03: capability delivered by an existing chain (PDL→fast path / parallel→OrchEngine)
-    patternsExternallyDriven: "Driven by existing chain",
+    patternsExternallyDriven: "Wired · driven by existing chain",
     patternsWhen: "When to use",
     patternsRoles: "Roles",
     patternsBindings: "Assembly bindings",

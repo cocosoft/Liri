@@ -84,13 +84,13 @@ function PatternCard({ pattern }: { pattern: OrchestrationPattern }) {
           </div>
 
           {!wired && pattern.reason && (
-            <div className="mt-1 text-xs text-amber-600 dark:text-amber-400 leading-5">
+            <div className="mt-1 text-xs text-amber-600 dark:text-amber-400 leading-5 break-words">
               {pattern.reason}
             </div>
           )}
 
           {!pattern.reachable && pattern.unreachableReason && (
-            <div className="mt-1 text-xs text-amber-600 dark:text-amber-400 leading-5">
+            <div className="mt-1 text-xs text-amber-600 dark:text-amber-400 leading-5 break-words">
               {pattern.unreachableReason}
             </div>
           )}

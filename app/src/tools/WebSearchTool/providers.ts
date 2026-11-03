@@ -6,10 +6,12 @@
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { buildUserAgent } from '@openliri/infra/constants';
+import { outboundFetch } from '@openliri/infra/utils/outboundFetch';
 
 import { getLogger } from '@openliri/infra/monitoring';
 import {
   BING_SEARCH_BASE_URL,
+  DUCKDUCKGO_HTML_SEARCH_BASE_URL,
   GOOGLE_SEARCH_BASE_URL,
 } from '../searchSites.js';
 const logger = getLogger('tools\WebSearchTool\providers');
@@ -79,7 +81,7 @@ const PROVIDER_CONFIGS: Record<SearchProvider, ProviderConfig> = {
   duckduckgo: {
     name: 'duckduckgo',
     displayName: 'DuckDuckGo',
-    baseUrl: 'https://html.duckduckgo.com/html',
+    baseUrl: DUCKDUCKGO_HTML_SEARCH_BASE_URL,
     apiType: 'html',
     defaultParams: {},
     requiresApiKey: false,
@@ -243,7 +245,7 @@ export class SearchProviderManager {
     options?: { maxResults?: number; language?: string; safeSearch?: boolean }
   ): Promise<SearchResult[]> {
     const encoded = encodeURIComponent(query);
-    const url = `https://html.duckduckgo.com/html?q=${encoded}`;
+    const url = `${DUCKDUCKGO_HTML_SEARCH_BASE_URL}?q=${encoded}`;
 
     const html = await this.fetchHtml(url);
     return this.parseDuckDuckGoResults(html);
@@ -271,7 +273,7 @@ export class SearchProviderManager {
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
     try {
-      const response = await fetch(url, {
+      const response = await outboundFetch(url, {
         headers: { 'User-Agent': buildUserAgent('SearchProvider') },
         signal: controller.signal,
       });
@@ -296,7 +298,8 @@ export class SearchProviderManager {
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
     try {
-      const response = await fetch(url, {
+      // 2026-11-03：走统一出站层（继承 env / Windows 系统代理）
+      const response = await outboundFetch(url, {
         headers: {
           'User-Agent':
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -307,11 +310,20 @@ export class SearchProviderManager {
       });
       clearTimeout(timeoutId);
 
-      if (!response.ok) return '';
+      // 2026-11-03（CS06）：HTTP 非 2xx **不再吞成空串** —— 否则"被拒/被劫持"
+      // 与"真的没有结果"完全不可区分，正是导出会话里"零命中"误判的成因之一。
+      if (!response.ok) {
+        throw new AppError(
+          `搜索通道返回 HTTP ${response.status}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.MEDIUM,
+          'SEARCH_HTTP_ERROR',
+          { url, status: response.status }
+        );
+      }
       return await response.text();
-    } catch {
+    } finally {
       clearTimeout(timeoutId);
-      return '';
     }
   }
 

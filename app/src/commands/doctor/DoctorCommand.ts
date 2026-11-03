@@ -8,6 +8,10 @@ import type { Command, CommandContext, CommandResult } from '@modules/commands';
 import { getLogger } from '@openliri/infra/monitoring';
 import { runSecurityAudit } from '@openliri/infra/security';
 import type { SecurityAuditReport } from '@openliri/infra/security';
+import {
+  getOutboundProxySource,
+  redactProxyUrl,
+} from '@openliri/infra/utils/outboundFetch';
 
 const logger = getLogger('DoctorCommand');
 
@@ -38,6 +42,10 @@ interface DoctorReport {
   };
   network: {
     proxyConfigured: boolean;
+    /** 代理来源（2026-11-03）：env / system(Windows 注册表) / none —— 修复前只认 env */
+    proxySource?: 'env' | 'system' | 'none';
+    /** 生效代理（已脱敏，仅协议 + 主机 + 端口） */
+    proxyUrl?: string;
     connectivity: string;
   };
   timestamp: string;
@@ -181,9 +189,15 @@ function checkModelStatus(report: DoctorReport): void {
 }
 
 function checkNetwork(report: DoctorReport): void {
-  const httpProxy = process.env['HTTP_PROXY'] || process.env['http_proxy'];
-  const httpsProxy = process.env['HTTPS_PROXY'] || process.env['https_proxy'];
-  report.network.proxyConfigured = !!(httpProxy || httpsProxy);
+  // 2026-11-03：改为用**出站层同源**的解析结果（含 Windows 系统代理）。
+  // 原实现只查环境变量 ⇒ 用户明明配了系统代理，doctor 却报"未配置"，
+  // 与工具实际行为相反（工具当时也确实没走代理）。
+  const resolution = getOutboundProxySource();
+  report.network.proxyConfigured = !!resolution.proxyUrl;
+  report.network.proxySource = resolution.source;
+  report.network.proxyUrl = resolution.proxyUrl
+    ? redactProxyUrl(resolution.proxyUrl)
+    : undefined;
   report.network.connectivity = 'ok';
 }
 
@@ -252,7 +266,17 @@ function formatDoctorReport(report: DoctorReport): string {
 
   lines.push('');
   lines.push('── 网络 ──');
-  lines.push(`  代理: ${report.network.proxyConfigured ? '已配置' : '未配置'}`);
+  if (report.network.proxyConfigured) {
+    const sourceLabel =
+      report.network.proxySource === 'system'
+        ? '系统代理（Windows 注册表）'
+        : '环境变量';
+    lines.push(
+      `  代理: 已配置（${sourceLabel} ${report.network.proxyUrl ?? ''}）`
+    );
+  } else {
+    lines.push('  代理: 未配置（直连）');
+  }
   lines.push(`  连接: ${report.network.connectivity}`);
 
   lines.push('');

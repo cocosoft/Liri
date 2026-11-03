@@ -10,3 +10,8 @@ export const GOOGLE_SEARCH_BASE_URL = `${GOOGLE_HOME_URL}/search`;
 
 export const BING_HOME_URL = 'https://www.bing.com';
 export const BING_SEARCH_BASE_URL = `${BING_HOME_URL}/search`;
+
+// 2026-11-03：Bing 的 `/search` 已改为 JS 渲染（静态页零 `b_algo`），
+// 主通道改用 DuckDuckGo 的无 JS HTML 端点（`result__a` / `result__snippet` 可静态解析）。
+export const DUCKDUCKGO_HTML_SEARCH_BASE_URL =
+  'https://html.duckduckgo.com/html';

@@ -31,6 +31,10 @@ import { v4 as uuidv4 } from 'uuid';
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { checkSsrf, describeSsrfBlock } from './ssrf.js';
+import {
+  describeOutboundFailure,
+  outboundFetch,
+} from '@openliri/infra/utils/outboundFetch';
 const logger = getLogger('tools:WebFetchTool:WebFetchTool');
 
 /** 手动重定向最多跳数（对标 RemoteSkillHubAdapter httpGetText 的 3 跳限制） */
@@ -397,7 +401,10 @@ export class WebFetchTool extends BaseTool {
       }
 
       // 报告执行错误
-      const msg = error instanceof Error ? error.message : String(error);
+      // 2026-11-03：通道不可达时附上生效代理来源，避免把"代理没生效"读成"站点不存在"
+      const msg =
+        describeOutboundFailure(error) ??
+        (error instanceof Error ? error.message : String(error));
       onProgress?.({
         toolUseID: context.toolUseId || 'web-fetch-tool',
         data: {
@@ -455,7 +462,8 @@ export class WebFetchTool extends BaseTool {
     try {
       let currentUrl = url;
       for (let hop = 0; hop <= MAX_REDIRECT_HOPS; hop++) {
-        const response = await fetch(currentUrl, {
+        // 2026-11-03：经统一出站层（继承 env / Windows 系统代理），不再裸调 fetch
+        const response = await outboundFetch(currentUrl, {
           ...options,
           signal,
           redirect: 'manual',

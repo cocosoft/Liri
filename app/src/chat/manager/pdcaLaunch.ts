@@ -88,6 +88,11 @@ export interface PdcaLaunchDeps {
   shouldUseCodeMode: (message: string) => boolean;
   /** 取/建该会话的 TAORLoop（self_verify 配方落点） */
   getOrCreateTAORLoop: (sessionId: string) => VerifierConfigSink;
+  /**
+   * 2026-11-03：撤销该会话**已存在**的 TAORLoop 上的验证器配方（门控关闭时）。
+   * 实例不存在 ⇒ no-op（**不得**为此新建循环）。
+   */
+  resetVerifierConfigIfActive: (sessionId: string) => void;
   /** 事件 seq 分配（宿主唯一入口） */
   getStreamTailSeq: (sessionId: string) => Promise<number>;
   /** 事件写入（宿主唯一入口） */
@@ -290,6 +295,17 @@ export class PdcaLaunchCoordinator {
         verifyPolicy: researchInstantiation.recipe.verifyPolicy,
         budgetPolicy: researchInstantiation.recipe.budgetPolicy,
         verifier: recipeVerifierConfig,
+      });
+    } else if (
+      researchInstantiation?.status === 'ready' &&
+      researchInstantiation.route === 'verify'
+    ) {
+      // 2026-11-03：门控关闭 ⇒ **撤销**此前应用的配方。
+      // 只停止写入是不够的（configure 是合并式长期生效）⇒ 会话会继续按旧档位判定。
+      this.deps.resetVerifierConfigIfActive(session.id);
+      logger.info('pattern 门控已关闭，撤销验证器配方', {
+        sessionId: session.id,
+        pattern: researchPattern?.name,
       });
     }
     const researchMode =

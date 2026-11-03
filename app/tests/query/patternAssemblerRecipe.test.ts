@@ -154,4 +154,14 @@ describe('VerifierAgent.configure（运行期配方应用；行为可观测）',
     const after = await agent.verify(input, signal);
     expect(after.passed).toBe(true); // 旧 fail-open 行为
   });
+
+  // 2026-11-03（缺口 #1）：门控关闭必须能**撤销**已知应用的配方（否则"关"不生效）
+  it('resetConfig() ⇒ 撤销运行期配方，回到构造期配置', async () => {
+    const agent = new VerifierAgent({ failClosed: true });
+    agent.configure({ failClosed: false }); // 模拟门控开启时应用的配方
+    expect((await agent.verify(input, signal)).passed).toBe(true);
+
+    agent.resetConfig(); // 门控关闭 ⇒ 撤销
+    expect((await agent.verify(input, signal)).passed).toBe(false);
+  });
 });

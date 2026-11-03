@@ -254,6 +254,11 @@ function buildVerificationPrompt(input: VerificationInput): string {
 
 export class VerifierAgent {
   private config: VerifierAgentConfig;
+  /**
+   * 2026-11-03：**构造期配置**（`resetConfig()` 的还原目标）。
+   * 运行期 `configure()` 只改 `config`，不动本字段 ⇒ 撤销后能回到构造时的形态。
+   */
+  private readonly initialConfig: VerifierAgentConfig;
   /** 当前修复-验证循环计数 */
   private cycleCount: number = 0;
   /** 制造者模型调用（由 TAORLoopDeps 注入） */
@@ -265,7 +270,8 @@ export class VerifierAgent {
     | null = null;
 
   constructor(config?: Partial<VerifierAgentConfig>) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
+    this.initialConfig = { ...DEFAULT_CONFIG, ...config };
+    this.config = { ...this.initialConfig };
   }
 
   /**
@@ -285,6 +291,17 @@ export class VerifierAgent {
    */
   configure(partial: Partial<VerifierAgentConfig>): void {
     this.config = { ...this.config, ...partial };
+  }
+
+  /**
+   * 2026-11-03：**撤销运行期配方**，回到构造期配置。
+   *
+   * 为什么需要：`configure()` 是**合并式长期生效** ⇒ pattern 门控关闭时若只停止写入，
+   * 已应用的 `failClosed / maxCycles` 会在本会话长期残留（"关"不生效）。
+   * 与 `reset()`（只清 `cycleCount`）正交：本方法不动计数，只还原配置。
+   */
+  resetConfig(): void {
+    this.config = { ...this.initialConfig };
   }
 
   /**

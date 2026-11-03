@@ -122,6 +122,11 @@ export interface FacadeWiringHost {
   _pendingPersistPromises: Set<Promise<void>>;
   _toolCallSeqMap: Map<string, number>;
   _pdcaLaunchingSessions: Set<string>;
+  /**
+   * 2026-11-03：会话级 TAORLoop 缓存（**非创建式**取值 —— 撤销验证器配方时不得新建循环）。
+   * 结构化声明（只需 `resetVerifierConfig`）免得本文件引入 query 的重依赖类型。
+   */
+  _taorLoops: SessionScopedRegistry<{ resetVerifierConfig(): void }>;
   compactService: CompactServiceImpl;
   _checkpointService: SessionCheckpointService;
   unifiedTracker: UnifiedTokenTracker;
@@ -234,6 +239,7 @@ const FACADE_HOST_REQUIRED_KEYS = [
   '_pendingPersistPromises',
   '_toolCallSeqMap',
   '_pdcaLaunchingSessions',
+  '_taorLoops',
   'compactService',
   '_checkpointService',
   'unifiedTracker',
@@ -460,6 +466,9 @@ export function wireChatFacades(host: FacadeWiringHost): void {
     shouldUsePlanDrivenLoop: (msg) => shouldUsePlanDrivenLoop(msg),
     shouldUseCodeMode: (msg) => shouldUseCodeMode(msg),
     getOrCreateTAORLoop: (sid) => host._getOrCreateTAORLoop(sid),
+    // 2026-11-03（缺口 #1）：门控关闭时撤销配方 —— 只对**已存在**的循环生效（不新建）
+    resetVerifierConfigIfActive: (sid) =>
+      host._taorLoops.get(sid)?.resetVerifierConfig(),
     getStreamTailSeq: (sid) => host.getStreamTailSeq(sid),
     appendStreamEvent: (sid, event) => host.appendStreamEvent(sid, event),
     persistSessionMetadata: (session) => host.persistSessionMetadata(session),

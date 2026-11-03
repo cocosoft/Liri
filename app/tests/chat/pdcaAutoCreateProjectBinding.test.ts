@@ -35,6 +35,8 @@ function makeCoordinator() {
     shouldUseCodeMode: () => false,
     getOrCreateTAORLoop: () =>
       ({ applyVerifierConfig: () => {} }) as unknown as never,
+    // 2026-11-03（缺口 #1）：门控关闭时撤销配方（本用例不涉及 ⇒ no-op）
+    resetVerifierConfigIfActive: () => {},
     getStreamTailSeq: async () => 1,
     appendStreamEvent: async () => undefined,
     persistSessionMetadata: async (session) => {

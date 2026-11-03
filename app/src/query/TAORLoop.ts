@@ -321,6 +321,11 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
     this.verifier.configure(partial);
   }
 
+  /** 2026-11-03：撤销 Pattern 配方（门控关闭时）⇒ 回到构造期验证器配置。 */
+  resetVerifierConfig(): void {
+    this.verifier.resetConfig();
+  }
+
   private registerDefaultStopHooks(): void {
     // spec §42：注册逻辑外迁 `./taor/stopHooks`；仅注入两处宿主状态
     //（`turnCount` / `startTime` 读；三守卫 reset 写）⇒ 钩子名、优先级、日志文案

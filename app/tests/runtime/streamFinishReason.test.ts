@@ -14,6 +14,7 @@
 import { describe, it, expect } from 'bun:test';
 
 import { resolveStreamFinishReason } from '../../src/runtime/api/CoreAPIImpl';
+import { terminationReasonField } from '../../src/runtime/api/streamTermination';
 
 describe('resolveStreamFinishReason：终止原因不得被降级成 stop', () => {
   it('★ 顶层无值 + metadata.finishReason=budget_exhausted ⇒ 原样透出（本片修复的正是这条）', () => {
@@ -62,5 +63,36 @@ describe('resolveStreamFinishReason：终止原因不得被降级成 stop', () =
         metadata: { finishReason: 'budget_exhausted' },
       })
     ).toBe('error');
+  });
+});
+
+// 2026-11-03 P1：`terminationReason`（主循环为何停下）与 `finishReason`（provider 末次响应）
+// 是**两个事实**。前者由 `streamFinalize` 挂到出口消息 metadata，经本函数带到 done chunk
+// ⇒ 进入 SSE ⇒ 前端当轮显示徽标（不必等刷新后的事件回放）。
+describe('terminationReasonField：出口消息 → done chunk 字段', () => {
+  it('metadata.terminationReason 存在 ⇒ 原样带出', () => {
+    expect(
+      terminationReasonField({ metadata: { terminationReason: 'no_progress' } })
+    ).toEqual({ terminationReason: 'no_progress' });
+  });
+
+  it('缺失 / 非字符串 ⇒ 空对象（不臆造、不下发 undefined 字段）', () => {
+    expect(terminationReasonField(undefined)).toEqual({});
+    expect(terminationReasonField({})).toEqual({});
+    expect(terminationReasonField({ metadata: {} })).toEqual({});
+    expect(
+      terminationReasonField({ metadata: { terminationReason: 42 } })
+    ).toEqual({});
+    expect(
+      terminationReasonField({ metadata: { terminationReason: '' } })
+    ).toEqual({});
+  });
+
+  it('与 finishReason 并存时不互相覆盖（长程轮常见：finishReason=tool_use）', () => {
+    const field = terminationReasonField({
+      finishReason: 'tool_use',
+      metadata: { finishReason: 'max_turns', terminationReason: 'max_turns' },
+    });
+    expect(field).toEqual({ terminationReason: 'max_turns' });
   });
 });

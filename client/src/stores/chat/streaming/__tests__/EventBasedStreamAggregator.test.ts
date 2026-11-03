@@ -201,6 +201,9 @@ describe("EventBasedStreamAggregator — M3-1", () => {
     expect(
       (end!.data as { terminationReason?: string }).terminationReason,
     ).toBe("no_progress");
+    // 用户可见面：派生出的 assistant 消息必须带上该字段（ChatMessage 据此渲染徽标）
+    const asst = agg.deriveMessages().find((m) => m.role === "assistant");
+    expect(asst?.terminationReason).toBe("no_progress");
   });
 
   it("done 块自带 terminationReason 时优先于 usage 暂存值", () => {

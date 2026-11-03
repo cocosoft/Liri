@@ -276,6 +276,10 @@ describe('NotebookToolImpl.executeCell (P0-1 REPL 会话修复)', () => {
   let execSpy: ReturnType<typeof spyOn>;
 
   beforeEach(() => {
+    // 前置条件（用例自身断言的就是「无会话时新建」）：`replSessionManager` 是**进程级单例**，
+    // 别的文件（如 `repl.integration.test.ts`）留下的 STOPPED 会话会随文件执行顺序带进来，
+    // 使「新建 1 个」变成 2 个（ubuntu 增量选择下必现）。
+    replSessionManager.clearSessions();
     tool = new NotebookToolImpl();
     // mock REPL：startREPL 创建 RUNNING 会话；executeCode 直接成功
     startSpy = spyOn(REPLToolImpl.prototype, 'startREPL').mockImplementation(

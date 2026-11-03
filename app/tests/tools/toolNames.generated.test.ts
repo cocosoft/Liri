@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'bun:test';
+import { afterAll, describe, expect, it } from 'bun:test';
 import { ToolFactory } from '../../src/tools/ToolFactory';
 import {
   getAllBuiltinToolLoaders,
@@ -9,7 +9,7 @@ import {
   TOOL_NAMES_COUNT,
 } from '@openliri/infra/constants/toolNames.generated';
 import { BUILD_VARIANT_FLAGS } from '../../src/bootstrap/generatedVariantFlags';
-import { setBuildVariantFlags } from '@openliri/kernel';
+import { resetBuildVariantFlags, setBuildVariantFlags } from '@openliri/kernel';
 import { resetToolFlags } from '../../src/tools/utils/ToolFeatureFlags';
 
 /**
@@ -25,6 +25,17 @@ import { resetToolFlags } from '../../src/tools/utils/ToolFeatureFlags';
  */
 setBuildVariantFlags(BUILD_VARIANT_FLAGS);
 resetToolFlags();
+
+/**
+ * 污染治理（与 `tests/config/featureFlagContract.test.ts` 同口径）：变体层与开关层都是
+ * **进程级**状态。`coding` 矩阵里 `AGENT_TRIGGERS=false` —— 不还原就会让**后续文件**
+ * 按变体层取 flag（实证：`tests/tools/toolFamilies.test.ts` 的 `cron` 族被判「未注册」，
+ * 仅在测试文件执行顺序变化时出现，ubuntu 增量选择下必现）。
+ */
+afterAll(() => {
+  resetBuildVariantFlags();
+  resetToolFlags();
+});
 
 /**
  * P2-3 门禁②：**新注册的工具必须进入生成物**（`src/constants/toolNames.generated.ts`）

@@ -8,6 +8,7 @@
 import { describe, expect, test, beforeAll, afterAll } from 'bun:test';
 import { spawnSync } from 'child_process';
 import { REPLToolImpl } from '../../src/tools/repl/REPLToolImpl.js';
+import { replSessionManager } from '../../src/tools/repl/REPLSessionManager';
 import type { REPLSession } from '../../src/tools/repl/types/REPLTool.js';
 
 /** 探测 python 可用性 */
@@ -40,6 +41,9 @@ describe('REPLToolImpl 真实 spawn（P3-1 完成标记协议）', () => {
 
   afterAll(async () => {
     if (session) await tool.stopREPL(session);
+    // `stopREPL` 只把会话置 STOPPED（保留在进程级单例里），不在本文件清理 ⇒ 后续文件的
+    // 会话计数会被带偏（`notebook.test.ts` 的「无会话时新建」实测 1 → 2）。
+    replSessionManager.clearSessions();
   });
 
   test.skipIf(!pythonAvailable)(

@@ -1711,6 +1711,10 @@ const zhWorkspace = {
     relocateSave: "重新定位",
     relocating: "处理中…",
     relocatePartial: "项目已重新定位，但有 {{count}} 个会话未能同步更新工作区（详见服务端日志）",
+    // 2026-11-03：按项目的「自主执行」开关（暂停后不再 5 分钟 tick）
+    pauseAutonomy: "暂停自主执行",
+    resumeAutonomy: "恢复自主执行",
+    autonomyPaused: "自主执行已暂停",
     markComplete: "标记完成",
     uncomplete: "取消完成",
     pin: "📌 置顶",

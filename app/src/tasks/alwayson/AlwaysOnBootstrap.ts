@@ -6,6 +6,7 @@
  */
 import { existsSync } from 'node:fs';
 import { AlwaysOnManager } from './AlwaysOnManager';
+import type { AlwaysOnRuntime } from './AlwaysOnRuntime';
 import type { AlwaysOnBridge } from './AlwaysOnBridge';
 import { DEFAULT_ALWAYSON_CONFIG } from './types';
 import { cg3Log } from '../cg3Env';
@@ -20,6 +21,12 @@ export interface AlwaysOnProject {
    * 缺失 ⇒ 本地项目（不查归属配额、不加身份作用域），与改造前一致。
    */
   ownerKey?: string;
+  /**
+   * 该项目的自主执行开关（2026-11-03）：显式 `false` ⇒ 注册但**不启动**调度
+   * （运行期可经 `AlwaysOnManager.getRuntime(id).start()` 恢复）。
+   * 缺省 / `true` ⇒ 正常运行。
+   */
+  enabled?: boolean;
 }
 
 export interface AlwaysOnBootstrapDeps {
@@ -59,6 +66,8 @@ export function bootstrapAlwaysOn(
     timeoutMinutes: DEFAULT_ALWAYSON_CONFIG.execution.timeoutMinutes,
   };
   const registered: string[] = [];
+  /** 显式暂停的项目：仍注册（便于运行期恢复），但 `manager.start()` 后立即停掉调度 */
+  const paused: AlwaysOnRuntime[] = [];
 
   for (const project of deps.projects) {
     if (!project.path || !pathExists(project.path)) {
@@ -75,7 +84,9 @@ export function bootstrapAlwaysOn(
       project.path,
       project.ownerKey
     );
-    runtime.gates.setEnabled(true);
+    const projectEnabled = project.enabled !== false;
+    runtime.gates.setEnabled(projectEnabled);
+    if (!projectEnabled) paused.push(runtime);
 
     const bridge = deps.createBridge(project, limits);
     runtime.setDiscoveryFn(bridge.discovery);
@@ -92,8 +103,12 @@ export function bootstrapAlwaysOn(
   }
 
   deps.manager.start();
+  // 2026-11-03：`start()` 会启动全部已注册运行时 ⇒ 显式暂停的项目随后停掉调度
+  // （运行期在设置里恢复时再 `runtime.start()`，见 `alwaysOnEntry` 的 config:changed 订阅）
+  for (const runtime of paused) runtime.stop();
   cg3Log('tasks:alwayson:bootstrap', 'info', 'started', {
     projects: registered.length,
+    paused: paused.length,
   });
 
   return {

@@ -1748,6 +1748,10 @@ const enWorkspace = {
     relocating: "Working…",
     relocatePartial:
       "Project relocated, but {{count}} session(s) could not be updated (see server logs)",
+    // 2026-11-03: per-project autonomous execution switch (paused ⇒ no 5-minute tick)
+    pauseAutonomy: "Pause autonomous run",
+    resumeAutonomy: "Resume autonomous run",
+    autonomyPaused: "Autonomy paused",
     markComplete: "Mark complete",
     uncomplete: "Unmark complete",
     pin: "📌 Pin",

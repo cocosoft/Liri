@@ -44,6 +44,7 @@ import {
   handleMigrateFiles,
   handleMigrateProjects,
   handleRelocateProject,
+  handleSetProjectAutonomy,
   handleUpdateProject,
 } from '../project-handlers';
 import {
@@ -194,6 +195,14 @@ export async function dispatchProjectRoutes(
     const match = url.match(/^\/v1\/projects\/(.+)\/relocate$/)!;
     if (!isSafeProjectId(match[1])) return rejectBadProjectId(res);
     await handleRelocateProject(req, res, match[1]);
+    return true;
+  }
+
+  // 2026-11-03：按项目的「自主执行」开关（持久化到 `autonomy.projects` + 运行期即时生效）
+  if (method === 'PUT' && url.match(/^\/v1\/projects\/(.+)\/autonomy$/)) {
+    const match = url.match(/^\/v1\/projects\/(.+)\/autonomy$/)!;
+    if (!isSafeProjectId(match[1])) return rejectBadProjectId(res);
+    await handleSetProjectAutonomy(req, res, match[1]);
     return true;
   }
 

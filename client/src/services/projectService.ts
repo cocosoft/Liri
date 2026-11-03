@@ -23,6 +23,11 @@ export interface ProjectListItem {
   phase?: string;
   /** 项目沙箱目录（工具默认 cwd 依赖它） */
   sandboxPath?: string;
+  /**
+   * 该项目的「自主执行」开关（2026-11-03）：缺省 `true`；
+   * `false` ⇒ 项目已暂停自主执行（右键菜单显示「恢复」）。
+   */
+  autonomyEnabled?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -74,4 +79,31 @@ export async function relocateProject(
     throw new Error(data?.error || `重新定位失败（HTTP ${res.status}）`);
   }
   return data as RelocateProjectResult;
+}
+
+/**
+ * 按项目暂停/恢复**自主执行**（2026-11-03）。
+ *
+ * 后端持久化到配置 `autonomy.projects.<id>.enabled` 并即时生效（不用重启）：
+ * 暂停 = 停掉该项目的 5 分钟 tick；恢复 = 重新开始（会话仍复用同一个）。
+ */
+export async function setProjectAutonomy(
+  projectId: string,
+  enabled: boolean
+): Promise<void> {
+  const res = await fetch(
+    `${ENDPOINTS.project.base}/${encodeURIComponent(projectId)}/autonomy`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled }),
+    }
+  );
+  const data = (await res.json().catch(() => null)) as {
+    success?: boolean;
+    error?: string;
+  } | null;
+  if (!res.ok || !data?.success) {
+    throw new Error(data?.error || `更新自主执行开关失败（HTTP ${res.status}）`);
+  }
 }

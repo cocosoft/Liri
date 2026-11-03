@@ -17,7 +17,13 @@ import { handleError } from '@openliri/infra/error';
 // C1（2026-09-30 D-117，`project` 域静态面）：迁移服务改经服务层端口
 // （原相对导入**不在此处复写** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
 import { readBody, json } from './handler-utils';
-import { LOCAL_SERVICE_HOST } from '@openliri/kernel';
+import { LOCAL_SERVICE_HOST, globalEventBus } from '@openliri/kernel';
+// 2026-11-03：按项目的「自主执行」开关（infra 侧配置读写；service 层不得依赖 app/tasks）
+import {
+  PROJECT_AUTONOMY_CONFIG_KEY,
+  isProjectAutonomyEnabled,
+  setProjectAutonomyEnabled,
+} from '@openliri/infra/config';
 
 const logger = getLogger('project:handlers');
 
@@ -44,7 +50,13 @@ export async function handleListProjects(
     );
     const workspaceId = url.searchParams.get('workspaceId') || 'default';
     const store = await getProjectStore();
-    const projects = store.list(workspaceId);
+    // 2026-11-03：附带按项目的「自主执行」开关（前端右键菜单据此显示暂停/恢复）
+    // 端口 `list()` 的返回是 `unknown`（跨层最小投影）⇒ 这里只声明用到的 `id`
+    const rows = store.list(workspaceId) as Array<{ id: string }>;
+    const projects = rows.map((p) => ({
+      ...p,
+      autonomyEnabled: isProjectAutonomyEnabled(p.id),
+    }));
     span.setStatus({ code: SpanStatusCode.OK });
     json(res, 200, projects);
   } catch (e) {
@@ -155,6 +167,53 @@ export async function handleGetProject(
     json(res, 500, { error: '获取项目失败' });
   } finally {
     span.end();
+  }
+}
+
+// ─── PUT /v1/projects/:projectId/autonomy — 按项目暂停/恢复自主执行 ───
+//
+// 口径（2026-11-03）：
+// - 持久化到配置 `autonomy.projects.<id>.enabled`（跨重启有效；缺省 = 开）；
+// - 运行期生效：写完后进程内广播 `config:changed`，由 `alwaysOnEntry` 立即
+//   `runtime.stop()` / `runtime.start()`（不重启应用、不重建会话）；
+// - 项目必须存在（否则 404）—— 避免给不存在的 id 写脏配置。
+export async function handleSetProjectAutonomy(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  projectId: string
+): Promise<void> {
+  try {
+    const body = await readBody(req);
+    const raw = JSON.parse(body || '{}') as { enabled?: unknown };
+    if (typeof raw.enabled !== 'boolean') {
+      json(res, 400, { error: 'enabled 必须是布尔值' });
+      return;
+    }
+    const store = await getProjectStore();
+    if (!store.get(projectId)) {
+      json(res, 404, { error: '项目不存在' });
+      return;
+    }
+    const map = setProjectAutonomyEnabled(projectId, raw.enabled);
+    globalEventBus.publish('config:changed', {
+      key: PROJECT_AUTONOMY_CONFIG_KEY,
+      value: map,
+    });
+    logger.info('项目自主执行开关已更新', {
+      projectId,
+      enabled: raw.enabled,
+    });
+    json(res, 200, {
+      success: true,
+      projectId,
+      enabled: isProjectAutonomyEnabled(projectId),
+    });
+  } catch (e) {
+    await handleError(e, {
+      module: 'project:handlers',
+      action: 'setProjectAutonomy',
+    });
+    json(res, 500, { error: '更新自主执行开关失败' });
   }
 }
 

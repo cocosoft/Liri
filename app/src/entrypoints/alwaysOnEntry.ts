@@ -19,6 +19,12 @@ import { dirname, join } from 'node:path';
 
 import { DEFAULT_TIMEZONE, MS_PER_DAY } from '@openliri/infra/constants';
 import { configManager } from '@openliri/infra/config';
+// 2026-11-03：按项目的「自主执行」开关（放 infra/config：handler 属 service 层，不能依赖 app/tasks）
+import {
+  PROJECT_AUTONOMY_CONFIG_KEY,
+  isProjectAutonomyEnabled,
+  readProjectAutonomyMap,
+} from '@openliri/infra/config';
 import {
   resolveDataDir,
   resolveScopedDataDir,
@@ -92,6 +98,9 @@ const FEATURES_CONFIG_KEY = 'features';
 /** 当前已启动的 AlwaysOn 句柄（用于运行期按用户设置停止/重启；`null` ⇒ 未启动） */
 let active: AlwaysOnStartResult | null = null;
 
+/** 当前管理器（按项目暂停/恢复时需要 `getRuntime(projectId)`；`null` ⇒ 未启动） */
+let activeManager: AlwaysOnManager | null = null;
+
 /** 配置变更订阅是否已挂（`startAlwaysOn` 可能被多次调用 ⇒ 只挂一次） */
 let settingsSubscribed = false;
 
@@ -135,6 +144,7 @@ async function applyAlwaysOnEnabled(enabled: boolean): Promise<void> {
       logger.info('AlwaysOn 已按用户设置停止（定时器已释放）');
     }
     active = null;
+    activeManager = null;
     return;
   }
   if (active?.started) return;
@@ -154,17 +164,43 @@ function subscribeSettingsChanges(): void {
   globalEventBus.subscribe(
     'config:changed',
     (payload: { key?: string; value?: unknown } | undefined) => {
-      if (payload?.key !== FEATURES_CONFIG_KEY) return;
-      const preference = (payload.value as { alwaysOn?: unknown } | undefined)
-        ?.alwaysOn;
-      if (typeof preference !== 'boolean') return;
-      void applyAlwaysOnEnabled(preference).catch((error: unknown) => {
-        logger.warn('应用 AlwaysOn 开关失败', {
-          error: error instanceof Error ? error.message : String(error),
+      if (payload?.key === FEATURES_CONFIG_KEY) {
+        const preference = (payload.value as { alwaysOn?: unknown } | undefined)
+          ?.alwaysOn;
+        if (typeof preference !== 'boolean') return;
+        void applyAlwaysOnEnabled(preference).catch((error: unknown) => {
+          logger.warn('应用 AlwaysOn 开关失败', {
+            error: error instanceof Error ? error.message : String(error),
+          });
         });
-      });
+        return;
+      }
+      if (payload?.key === PROJECT_AUTONOMY_CONFIG_KEY) {
+        applyProjectAutonomy();
+      }
     }
   );
+}
+
+/**
+ * 按 `autonomy.projects` 把**每个已注册项目**的调度对齐到配置（幂等）。
+ *
+ * - 暂停：`runtime.stop()`（停 5 分钟 tick 与文件信号监听；在飞这一轮不强行中止）；
+ * - 恢复：`gates.setEnabled(true)` + `runtime.start()`；
+ * - 未注册（全局已关 / 项目无 sandboxPath）⇒ 跳过，下次 `startAlwaysOn()` 按配置生效。
+ */
+function applyProjectAutonomy(): void {
+  if (!activeManager) return;
+  const map = readProjectAutonomyMap();
+  for (const projectId of Object.keys(map)) {
+    const runtime = activeManager.getRuntime(projectId);
+    if (!runtime) continue;
+    const enabled = map[projectId]?.enabled !== false;
+    runtime.gates.setEnabled(enabled);
+    if (enabled) runtime.start();
+    else runtime.stop();
+    logger.info('按项目开关应用自主执行', { projectId, enabled });
+  }
 }
 
 /** 汇总所有工作空间的项目（`default` + 注册表；按项目 id 去重，只取有 sandboxPath 者） */
@@ -189,6 +225,8 @@ async function collectProjects(
         // 多租户 P3：项目归属（创建时由请求身份写入；本地项目无此字段 ⇒ 不查配额）
         ownerKey:
           typeof project.ownerKey === 'string' ? project.ownerKey : undefined,
+        // 2026-11-03：按项目的「自主执行」开关（缺省开；显式 false ⇒ 注册但不调度）
+        enabled: isProjectAutonomyEnabled(project.id),
       });
     }
   }
@@ -404,15 +442,21 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
    *
    * 工具执行侧读的是**内存会话**的 `metadata.workspacePath`
    * （`ChatManager.getSessionWorkspacePath`），存储侧用于跨重启 ⇒ 两处都更新。
+   *
+   * 2026-11-03：顺带补齐项目归属（`projectId` / `moduleType`）——
+   * 存量自主会话只有 `workspaceId`，按 `projectId` 过滤的列表会漏掉它们；
+   * 每轮 discovery 都会走到这里 ⇒ 存量会话自然回填，无需一次性迁移脚本。
    */
-  const setSessionWorkspace: AlwaysOnBridgeDeps['setSessionWorkspace'] = async (
-    sessionId,
-    cwd
-  ) => {
+  const setSessionWorkspace = async (
+    sessionId: string,
+    cwd: string,
+    projectId?: string
+  ): Promise<void> => {
     // P3：存量会话（本次升级前创建）没有 `workspaceStrict` ⇒ 一并补上，避免严格边界失效
     const patch: Record<string, unknown> = {
       workspacePath: cwd,
       workspaceStrict: true,
+      ...(projectId ? { projectId, moduleType: 'project' } : {}),
     };
     const cached = await chatManager.loadSession(sessionId);
     if (cached) {
@@ -681,6 +725,10 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
             metadata: {
               workspacePath: project.path,
               workspaceId: id,
+              // 2026-11-03：补齐项目归属 —— 此前只有 workspaceId，缺 projectId/moduleType
+              // ⇒ 按 `projectId` / `moduleType=project` 过滤的列表与接口会漏掉自主会话
+              projectId: project.id,
+              moduleType: 'project',
               // P3：工具路径入参必须落在会话工作区内（绝对路径 / `../` 直接拒绝）
               workspaceStrict: true,
               alwayson: true,
@@ -690,7 +738,8 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
         },
         prepareWorkspace,
         finishWorkspace,
-        setSessionWorkspace,
+        setSessionWorkspace: (sessionId, cwd) =>
+          setSessionWorkspace(sessionId, cwd, project.id),
         // P34：会话映射落在 `workitems.session_id`（Ticket 持有会话），
         // 不再维护 `sessions.json`；重启后从工作项读回同一会话。
         loadSession: async (projectId) => {
@@ -742,6 +791,7 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
 
   // 记下句柄：设置页关闭开关时据此 teardown（未启动 ⇒ 不留陈句柄）
   active = result.started ? result : null;
+  activeManager = result.started ? manager : null;
 
   logger.info('AlwaysOn 接线完成', {
     registered: result.registered.length,

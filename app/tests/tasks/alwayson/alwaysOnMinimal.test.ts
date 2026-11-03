@@ -511,16 +511,27 @@ describe('U-02 AlwaysOnBridge 四阶段', () => {
 
 describe('U-02 bootstrapAlwaysOn（开关语义）', () => {
   function makeManager() {
-    const calls = { registered: [] as string[], started: 0, stopped: 0 };
+    const calls = {
+      registered: [] as string[],
+      started: 0,
+      stopped: 0,
+      /** 2026-11-03：项目级暂停的证据（gate 初值 + 运行时被停掉的项目） */
+      gateStates: [] as boolean[],
+      runtimeStopped: [] as string[],
+    };
     const manager = {
       registerProject: (id: string) => {
         calls.registered.push(id);
         return {
-          gates: { setEnabled: () => {} },
+          gates: {
+            setEnabled: (v: boolean) => calls.gateStates.push(v),
+          },
           setDiscoveryFn: () => {},
           setWorkspaceFn: () => {},
           setExecutionFn: () => {},
           setReportFn: () => {},
+          start: () => {},
+          stop: () => calls.runtimeStopped.push(id),
         };
       },
       start: () => {
@@ -594,5 +605,25 @@ describe('U-02 bootstrapAlwaysOn（开关语义）', () => {
     expect(result.registered).toEqual([]);
     expect(result.started).toBe(false);
     expect(calls.started).toBe(0);
+  });
+
+  it('项目显式暂停（enabled:false）⇒ 仍注册但停掉调度；其余项目照常运行', () => {
+    const { manager, calls } = makeManager();
+    const result = bootstrapAlwaysOn({
+      enabled: true,
+      projects: [
+        { id: 'p1', name: 'n', path: '/tmp/demo' },
+        { id: 'p2', name: 'm', path: '/tmp/demo2', enabled: false },
+      ],
+      manager,
+      createBridge: () => bridge,
+      pathExists: () => true,
+    });
+    // 仍注册（运行期可经 getRuntime(id).start() 恢复），但调度被停掉
+    expect(result.registered).toEqual(['p1', 'p2']);
+    expect(result.started).toBe(true);
+    expect(calls.gateStates).toEqual([true, false]);
+    expect(calls.runtimeStopped).toEqual(['p2']);
+    expect(calls.started).toBe(1);
   });
 });

@@ -25,6 +25,7 @@ import {
 import {
   listProjects,
   relocateProject,
+  setProjectAutonomy,
   type ProjectListItem,
 } from "@/services/projectService";
 import CreateProjectModal from "@/components/Workspace/CreateProjectModal";
@@ -869,6 +870,22 @@ export default function ProjectsPage() {
     }
   };
 
+  /* ---- 按项目暂停/恢复自主执行（2026-11-03） ---- */
+  const handleToggleAutonomy = async (projectId: string, enabled: boolean) => {
+    setContextMenuId(null);
+    try {
+      await setProjectAutonomy(projectId, enabled);
+      // 后端为事实源（列表接口带 `autonomyEnabled`）⇒ 重拉后再刷新菜单文案
+      void refreshBackendProjects();
+    } catch (e) {
+      handleClientError(e, {
+        module: "components:projectsPage",
+        action: "setProjectAutonomy",
+      });
+      alert(e instanceof Error ? e.message : String(e));
+    }
+  };
+
   /* ---- 删除项目 ---- */
   const handleDelete = async () => {
     if (!selectedProjectId) return;
@@ -969,6 +986,9 @@ export default function ProjectsPage() {
     const badge = getActivityBadge(p.id);
     const isCompleted = p.status === "completed";
     const isEditing = editingId === p.id;
+    // 2026-11-03：自主执行开关以后端为准（缺省开）；暂停时条目上给可见提示
+    const autonomyEnabled =
+      backendProjects.find((b) => b.id === p.id)?.autonomyEnabled !== false;
     const canUndo =
       Date.now() - (p.autoCreatedAt ?? p.createdAt) < 30 * 60 * 1000;
 
@@ -1066,6 +1086,11 @@ export default function ProjectsPage() {
                   {t(badge.labelKey)}
                 </span>
               )}
+              {!autonomyEnabled && !isCompleted && (
+                <span className="text-[10px] text-amber-500 dark:text-amber-400">
+                  {t("projects.autonomyPaused")}
+                </span>
+              )}
             </div>
           </button>
         )}
@@ -1096,6 +1121,16 @@ export default function ProjectsPage() {
                 className="w-full text-left px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
               >
                 {t("projects.relocate")}
+              </button>
+              <button
+                onClick={() =>
+                  void handleToggleAutonomy(p.id, !autonomyEnabled)
+                }
+                className="w-full text-left px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                {autonomyEnabled
+                  ? t("projects.pauseAutonomy")
+                  : t("projects.resumeAutonomy")}
               </button>
               <button
                 onClick={handleComplete}

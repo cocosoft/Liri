@@ -100,7 +100,9 @@ export {
   type PermissionUpdateOperation,
 } from './PermissionUpdateSchema';
 
-export * from './EnhancedPermissionEngine.js';
+// P3（2026-11-03）：`EnhancedPermissionEngine`（未接线旧轨）已摘除 barrel 出口。
+// 六步核查（CD01-CD04）：全仓零 import / 零动态导入 / 零配置注册 / 零测试引用；
+// 该类与 `permission/PermissionManager` 的规则引擎重复，保留只会形成第三套语义。
 
 // P0-2（2026-10-27，权限归一化）：命令级黑白名单（B 体系）判定单点。
 // 工具侧（`tools/bash/bashSecurityGate`）经本 barrel 取用 ⇒ 满足 R03-002 子入口约束。

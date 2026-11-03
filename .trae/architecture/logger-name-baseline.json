@@ -509,9 +509,6 @@
     "oauth\\types\\OAuthTypes": [
       "packages/infra/src/oauth/types/OAuthTypes.ts"
     ],
-    "permission\\EnhancedPermissionEngine": [
-      "packages/infra/src/permission/EnhancedPermissionEngine.ts"
-    ],
     "permissionsLoader": [
       "packages/infra/src/permission/permissionsLoader.ts"
     ],

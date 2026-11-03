@@ -591,10 +591,6 @@ export const ENDPOINTS = {
   permissions: {
     rules: "/v1/permissions/rules",
     ruleById: (ruleId: string) => `/v1/permissions/rules/${ruleId}`,
-    roles: "/v1/permissions/roles",
-    users: "/v1/permissions/users",
-    userById: (userId: string) => `/v1/permissions/users/${userId}`,
-    resources: "/v1/permissions/resources",
   },
   plugins: {
     marketplaceSearch: "/v1/plugins/marketplace/search",

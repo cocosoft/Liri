@@ -44,26 +44,6 @@ export interface PermissionRulesResponse {
   };
 }
 
-/** D 体系（细粒度权限）角色（P2-7 桥接） */
-export interface PermissionRole {
-  id: string;
-  name: string;
-  description?: string;
-  permissionCount: number;
-  createdAt: number;
-  updatedAt: number;
-}
-
-/** D 体系（细粒度权限）用户（P2-7 桥接） */
-export interface PermissionUser {
-  id: string;
-  name: string;
-  roles: string[];
-  permissionCount: number;
-  createdAt: number;
-  updatedAt: number;
-}
-
 /** 工具权限规则管理（P1-5：对应后端 /v1/permissions/rules） */
 export const permissionService = {
   async listRules(): Promise<PermissionRulesResponse> {
@@ -84,25 +64,5 @@ export const permissionService = {
 
   async deleteRule(ruleId: string): Promise<void> {
     return http.delete(ENDPOINTS.permissions.ruleById(ruleId));
-  },
-
-  /** D 体系（细粒度权限）角色列表（P2-7） */
-  async listRoles(): Promise<PermissionRole[]> {
-    return http.get<PermissionRole[]>(ENDPOINTS.permissions.roles);
-  },
-
-  /** D 体系（细粒度权限）用户列表（P2-7） */
-  async listUsers(): Promise<PermissionUser[]> {
-    return http.get<PermissionUser[]>(ENDPOINTS.permissions.users);
-  },
-
-  /** D 体系（细粒度权限）更新用户角色（M0e：PUT /v1/permissions/users/{id}） */
-  async updateUserRoles(userId: string, roles: string[]): Promise<void> {
-    return http.put(ENDPOINTS.permissions.userById(userId), { roles });
-  },
-
-  /** D 体系（细粒度权限）资源列表（P2-7） */
-  async listResources(): Promise<unknown[]> {
-    return http.get<unknown[]>(ENDPOINTS.permissions.resources);
   },
 };

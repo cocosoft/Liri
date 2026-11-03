@@ -45,21 +45,9 @@ import {
 import { handleGetDataDirectory } from '../chat-handlers';
 import {
   handleAddPermissionRule,
-  handleCreatePermissionGrant,
-  handleCreatePermissionResource,
-  handleCreatePermissionRole,
-  handleCreatePermissionUser,
-  handleDeletePermissionGrant,
-  handleDeletePermissionResource,
-  handleDeletePermissionRole,
   handleDeletePermissionRule,
-  handleDeletePermissionUser,
   handleGetPermissionMetrics,
-  handleListPermissionResources,
-  handleListPermissionRoles,
   handleListPermissionRules,
-  handleListPermissionUsers,
-  handleUpdatePermissionUser,
 } from '../permission-handlers';
 import {
   handleGetSandboxConfig,
@@ -220,82 +208,8 @@ export async function dispatchConfigSkillsRoutes(
     );
     return true;
   }
-  // D 体系（细粒度权限）只读 API（P2-7 桥接）
-  if (method === 'GET' && url === '/v1/permissions/roles') {
-    await handleListPermissionRoles(req, res);
-    return true;
-  }
-  if (method === 'GET' && url === '/v1/permissions/users') {
-    await handleListPermissionUsers(req, res);
-    return true;
-  }
-  if (method === 'POST' && url === '/v1/permissions/users') {
-    await handleCreatePermissionUser(req, res);
-    return true;
-  }
-  if (method === 'DELETE' && url.match(/^\/v1\/permissions\/users\/(.+)$/)) {
-    await handleDeletePermissionUser(
-      req,
-      res,
-      url.match(/^\/v1\/permissions\/users\/(.+)$/)![1]
-    );
-    return true;
-  }
-  if (method === 'PUT' && url.match(/^\/v1\/permissions\/users\/(.+)$/)) {
-    await handleUpdatePermissionUser(
-      req,
-      res,
-      url.match(/^\/v1\/permissions\/users\/(.+)$/)![1]
-    );
-    return true;
-  }
-  if (method === 'GET' && url === '/v1/permissions/resources') {
-    await handleListPermissionResources(req, res);
-    return true;
-  }
-  if (method === 'POST' && url === '/v1/permissions/resources') {
-    await handleCreatePermissionResource(req, res);
-    return true;
-  }
-  if (
-    method === 'DELETE' &&
-    url.match(/^\/v1\/permissions\/resources\/(.+)$/)
-  ) {
-    await handleDeletePermissionResource(
-      req,
-      res,
-      url.match(/^\/v1\/permissions\/resources\/(.+)$/)![1]
-    );
-    return true;
-  }
-  if (method === 'GET' && url === '/v1/permissions/roles') {
-    await handleListPermissionRoles(req, res);
-    return true;
-  }
-  if (method === 'POST' && url === '/v1/permissions/roles') {
-    await handleCreatePermissionRole(req, res);
-    return true;
-  }
-  if (method === 'DELETE' && url.match(/^\/v1\/permissions\/roles\/(.+)$/)) {
-    await handleDeletePermissionRole(
-      req,
-      res,
-      url.match(/^\/v1\/permissions\/roles\/(.+)$/)![1]
-    );
-    return true;
-  }
-  if (method === 'POST' && url === '/v1/permissions/grants') {
-    await handleCreatePermissionGrant(req, res);
-    return true;
-  }
-  if (method === 'DELETE' && url.match(/^\/v1\/permissions\/grants\/(.+)$/)) {
-    await handleDeletePermissionGrant(
-      req,
-      res,
-      url.match(/^\/v1\/permissions\/grants\/(.+)$/)![1]
-    );
-    return true;
-  }
+  // P3-3 第二步（2026-11-03）：D 体系（细粒度用户/角色/资源/grant）HTTP 入口已摘除。
+  // 存储与决策桥接（PermissionManager 的角色 deny）仍保留，待观察期后再按 CD01-CD06 处理。
 
   // ---- Sandbox（沙箱配置与状态，S1）----
   if (method === 'GET' && url === '/v1/sandbox/config') {

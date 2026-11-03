@@ -27,7 +27,6 @@ import {
   handleAuthRegister,
 } from '../../src/infrastructure/http/handlers/auth-handlers.js';
 import { resolveRequestPrincipal } from '../../src/infrastructure/http/requestIdentity.js';
-import { PermissionManager } from '@openliri/infra/permission';
 
 let root: string;
 let store: AuthUserStore;
@@ -95,8 +94,6 @@ beforeEach(() => {
 afterEach(() => {
   for (const token of createdTokens.splice(0)) authTokens.delete(token);
   delete process.env['LIRI_TENANT_SELF_REGISTER'];
-  // 注册/登录会写进程级角色（E↔A 打通），用例后复位，避免影响同进程其他文件
-  PermissionManager.getInstance().setCurrentUserRole(null);
   try {
     rmSync(root, { recursive: true, force: true, maxRetries: 3 });
   } catch {

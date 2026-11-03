@@ -179,13 +179,6 @@ export class PermissionManager {
   private defaultBehavior: 'allow' | 'deny' = 'allow';
 
   /**
-   * 当前认证用户角色（E↔A 打通，演进项）
-   * 由 auth 层登录时注入（setCurrentUserRole）；为 null 时行为与以往完全一致。
-   * 非 null 时，D 体系（FineGrained）中该角色的 deny 规则优先于工具决策（角色 deny 优先）。
-   */
-  private currentUserRole: string | null = null;
-
-  /**
    * 权限检查器
    */
   private permissionChecker: PermissionChecker;
@@ -761,13 +754,10 @@ export class PermissionManager {
       return this._denyByRule(toolName, denyRule);
     }
 
-    // E↔A 打通（演进项）：当前认证角色存在时，D 体系角色 deny 规则优先（角色 deny 优先）
-    // 多租户 P0 阶段 1：**请求级角色优先**（context.userRole），缺失才回退进程级 currentUserRole
-    // ⇒ 未传请求级角色的调用方行为与改造前完全一致（桌面端零变更）
-    const effectiveRole = resolveEffectiveRole(
-      context.userRole,
-      this.currentUserRole
-    );
+    // D 体系角色 deny 优先（E↔A 打通）：角色**只来自请求级** `context.userRole`。
+    // 2026-11-03 收敛：进程级角色字段已删除（登录不再写全局角色，避免并发污染）；
+    // 无请求作用域的后台执行（CLI / cron）不带角色 ⇒ 角色 deny 不参与。
+    const effectiveRole = resolveEffectiveRole(context.userRole);
     if (effectiveRole) {
       const roleDeny = await this.checkFineGrainedRoleDeny(
         toolName,
@@ -1098,30 +1088,14 @@ export class PermissionManager {
   }
 
   /**
-   * 设置当前认证用户角色（E↔A 打通，演进项）
-   * 由 auth 层登录/登出时调用；传 null 清除（恢复默认行为）。
-   */
-  setCurrentUserRole(role: string | null): void {
-    this.currentUserRole = role;
-    logger.info('permission:currentUserRole', { role });
-  }
-
-  /**
-   * 获取当前认证用户角色
-   */
-  getCurrentUserRole(): string | null {
-    return this.currentUserRole;
-  }
-
-  /**
    * E↔A 打通：查询 D 体系（FineGrained）中**本次请求生效角色**的 deny 规则
    * 工具以 Tool 类型资源参与决策（resourceId = toolName, operation = execute）。
    * 直接按角色查询 storage（D 的 checkPermission 依赖 userId→roles，无 userId 时恒按 guest，
    * 故此处按 effectiveRole 精确匹配角色规则）。
    * 返回 deny 决策或 null（未配置/未命中 → 继续走 A 规则）。
    *
-   * 多租户 P0 阶段 1：角色由**调用方显式传入**（`context.userRole ?? currentUserRole`），
-   * 方法内不再读进程级字段 ⇒ 并发请求各自判定、互不覆盖。
+   * 多租户 P0：角色由**调用方显式传入**（`context.userRole`），
+   * 方法内不读任何进程级字段 ⇒ 并发请求各自判定、互不覆盖（2026-11-03 收敛）。
    */
   private async checkFineGrainedRoleDeny(
     toolName: string,
@@ -1451,7 +1425,7 @@ export class PermissionManager {
       input,
       sessionId: context?.sessionId,
       userId: context?.userId,
-      // 多租户 P0 阶段 2：请求级角色透传（缺失 ⇒ handleDefault 回退进程级 currentUserRole）
+      // 多租户 P0 阶段 2：请求级角色透传（缺失 ⇒ 本次判定无角色，角色 deny 不参与）
       userRole: context?.userRole,
       metadata: context?.metadata,
       // PR-3：会话级审批模式与工作区边界（缺失 ⇒ 与改造前一致：ask + 无自动放行）

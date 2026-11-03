@@ -31,7 +31,10 @@
 
 import * as fs from 'fs';
 // 多租户 P1：会话归属判定（本地身份恒放行 ⇒ 桌面零行为变更）
-import { getRequestPrincipal } from '@openliri/kernel/identity/requestScope.js';
+import {
+  getRequestPermissionRole,
+  getRequestPrincipal,
+} from '@openliri/kernel/identity/requestScope.js';
 import {
   canAccessSession,
   type SessionOwner,
@@ -270,7 +273,11 @@ export class SessionAgentOps {
           toolName: toolCall.name,
           args: (toolCall.arguments as Record<string, unknown>) ?? {},
           // HTTP 路径无会话审批模式/工作区上下文 ⇒ 权限层按 `ask` 判定（fail-closed）
-          context: { sessionId },
+          // 多租户 P0（2026-11-03 收敛）：角色显式取自请求作用域，无作用域 ⇒ 无角色
+          context: {
+            sessionId,
+            userRole: getRequestPermissionRole() ?? undefined,
+          },
         }
       );
       if (!authorization.allowed) {

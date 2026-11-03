@@ -10,8 +10,10 @@
  * 阶段 1 的口径（对 PC **零行为变更**）：
  *   - 本文件只提供**纯类型与纯函数**，不读请求、不碰存储；
  *   - `LOCAL_PRINCIPAL` 是桌面端默认身份（`tenantId='local'`、`userId='local'`）；
- *   - 权限判定侧只增加「请求级角色优先、缺失则回退进程级」这一条规则
- *     （`resolveEffectiveRole`）—— 既有调用方**不传**请求级角色 ⇒ 行为与改造前一致。
+ *   - 权限判定侧只认**请求级角色**（`resolveEffectiveRole`）。
+ *
+ * 2026-11-03 收敛：删除 `PermissionManager` 的进程级角色字段（登录不再写全局角色），
+ * `resolveEffectiveRole` 只接受请求级角色；无作用域（CLI / cron）⇒ 无角色，属显式语义。
  *
  * 阶段 2（已完成，2026-10-21）：HTTP 鉴权结果 → `Principal` → 会话/工具执行链路。
  * 请求作用域实现见 `./requestScope.ts`（`AsyncLocalStorage`），HTTP 解析见
@@ -80,19 +82,16 @@ export function normalizePrincipal(
 }
 
 /**
- * 请求级角色优先，缺失则回退进程级角色。
- *
- * 这是阶段 1 **唯一**的语义变更点：`PermissionManager` 从「只读进程级 `currentUserRole`」
- * 改为「先看本次请求带来的角色，没有才看进程级」。
- * - 既有调用方不传请求级角色 ⇒ 结果与改造前**完全相同**（零行为变更）；
- * - 服务端并发请求各自带角色 ⇒ 不再互相覆盖（这正是「单例钉子」的问题）。
+ * 权限判定的**唯一**角色来源：请求级角色（`PermissionContext.userRole`）。
+ * 2026-11-03 收敛：删除"缺失即回退进程级角色"的第二入参（进程级角色由登录改写 ⇒
+ * 并发请求互相污染）。无作用域的后台执行（CLI / cron）携带**无角色**，角色 deny 不参与；
+ * 这是**显式**语义：调用方需要角色就必须自己传入。
  */
 export function resolveEffectiveRole(
-  requestRole: string | null | undefined,
-  processRole: string | null
+  requestRole: string | null | undefined
 ): string | null {
   const trimmed = requestRole?.trim();
-  return trimmed ? trimmed : processRole;
+  return trimmed ? trimmed : null;
 }
 
 /** 把 Principal 映射到权限上下文（`PermissionContext` 只有 userId / userRole 两个身份位） */

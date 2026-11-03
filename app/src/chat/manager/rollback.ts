@@ -28,7 +28,11 @@ import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { resolveProjectRoot } from '@openliri/infra/environment';
 // 多租户 P3：交互条目按归属校验（与 `canAccessOwnerKey` 同口径）
-import { canAccessOwnerKey } from '@openliri/kernel/identity/requestScope';
+// 多租户 P0（2026-11-03 收敛）：角色显式传入，不再由进程级角色兜底
+import {
+  canAccessOwnerKey,
+  getRequestPermissionRole,
+} from '@openliri/kernel/identity/requestScope';
 import {
   RollbackIntegration,
   FileOperationTracker,
@@ -193,13 +197,15 @@ export class ChatRollback {
         const pm = permissionManager as {
           checkPermissionForTool: (
             name: string,
-            args: Record<string, unknown>
+            args: Record<string, unknown>,
+            context?: { userRole?: string }
           ) => Promise<{ allowed: boolean; reason?: string }>;
         };
         integration.setPermissionChecker(async (action, roundId) => {
           const result = await pm.checkPermissionForTool(
             action === 'undo' ? 'undo_round' : 'redo_round',
-            { sessionId, roundId }
+            { sessionId, roundId },
+            { userRole: getRequestPermissionRole() ?? undefined }
           );
           return { allowed: result.allowed, reason: result.reason };
         });

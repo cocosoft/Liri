@@ -50,7 +50,7 @@ describe('resolveRequestPrincipal：身份解析', () => {
     ).toEqual(LOCAL_PRINCIPAL);
   });
 
-  it('有效 token ⇒ 用户名 + 由权限映射的角色（与进程级同源）', async () => {
+  it('有效 token ⇒ 用户名 + 由权限映射的角色（与登录口径同源）', async () => {
     authTokens.set('tok-alice', {
       username: 'alice',
       permissions: ['read', 'write'],
@@ -65,7 +65,7 @@ describe('resolveRequestPrincipal：身份解析', () => {
     });
   });
 
-  it('admin 权限 ⇒ roles[0] 为 admin（与 applyAuthRoleToPermissionManager 一致）', async () => {
+  it('admin 权限 ⇒ roles[0] 为 admin（与登录口径 `resolveRoleFromPermissions` 一致）', async () => {
     authTokens.set('tok-root', {
       username: 'root',
       permissions: ['admin', 'read', 'write'],

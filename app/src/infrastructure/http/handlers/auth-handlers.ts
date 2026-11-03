@@ -24,7 +24,7 @@ import { sendError, readRequestBody, json } from './handler-utils';
 // C1（2026-10-09）：认证令牌属安全凭据 ⇒ 熵源改用 crypto（并提升到 32 位十六进制 ≈128bit）
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { AuthUserStore } from '../auth/AuthUserStore';
-import { PermissionManager, RoleType } from '@openliri/infra/permission';
+import { RoleType } from '@openliri/infra/permission';
 // 多租户 P3：租户是**账号属性**，注册时按开关绑定，登录后随 token 传递
 import {
   LOCAL_TENANT_ID,
@@ -78,8 +78,8 @@ export function isTenantSelfRegistrationEnabled(): boolean {
 }
 
 /**
- * 权限 → 角色映射（**唯一实现**）。登录写进程级角色与请求级身份解析共用，
- * 避免"进程级用一套映射、请求级用另一套"的口径漂移。
+ * 权限 → 角色映射（**唯一实现**）。请求级身份解析（`requestIdentity`）用它把 token 的
+ * permissions 映射成 `Principal.roles[0]`；登录**不再**单独写进程级角色（2026-11-03）。
  */
 export function resolveRoleFromPermissions(
   permissions: readonly string[]
@@ -89,18 +89,6 @@ export function resolveRoleFromPermissions(
     : permissions.includes('write')
       ? RoleType.USER
       : RoleType.GUEST;
-}
-
-/** E↔A 打通：将认证权限映射为角色并注入工具权限决策（登录时调用） */
-function applyAuthRoleToPermissionManager(permissions: string[]): void {
-  PermissionManager.getInstance().setCurrentUserRole(
-    resolveRoleFromPermissions(permissions)
-  );
-}
-
-/** 清除认证角色（登出时调用） */
-function clearAuthRoleFromPermissionManager(): void {
-  PermissionManager.getInstance().setCurrentUserRole(null);
 }
 
 // ========== Auth Handlers ==========
@@ -167,8 +155,7 @@ export async function handleAuthLogin(
       // 租户取自**账号属性**（老用户无该字段 ⇒ 空 ⇒ 解析时回落 `'local'`）
       tenantId: storedUser.tenantId,
     });
-    // E↔A 打通：登录成功注入认证角色到工具权限决策
-    applyAuthRoleToPermissionManager(permissions);
+    // 权限只随 Bearer 进入请求级身份（`requestIdentity`）；不写进程级角色（2026-11-03）。
 
     const now = Date.now();
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -279,8 +266,7 @@ export async function handleAuthRegister(
       permissions: ['read', 'write'],
       tenantId,
     });
-    // E↔A 打通：注册成功注入认证角色到工具权限决策
-    applyAuthRoleToPermissionManager(['read', 'write']);
+    // 权限只随 Bearer 进入请求级身份；不写进程级角色（2026-11-03）。
 
     const now = Date.now();
     res.writeHead(201, { 'Content-Type': 'application/json' });
@@ -317,8 +303,6 @@ export async function handleAuthLogout(
     if (token) {
       authTokens.delete(token);
     }
-    // E↔A 打通：登出清除认证角色，恢复默认工具权限行为
-    clearAuthRoleFromPermissionManager();
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({}));

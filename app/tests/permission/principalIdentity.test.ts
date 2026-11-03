@@ -46,29 +46,22 @@ describe('Principal：规范化', () => {
   });
 });
 
-describe('Principal：生效角色解析', () => {
-  it('请求级角色优先于进程级', () => {
-    expect(resolveEffectiveRole('request-admin', 'process-guest')).toBe(
-      'request-admin'
-    );
+describe('Principal：生效角色解析（2026-11-03 收敛：只认请求级）', () => {
+  it('请求级角色生效（两端空白被 trim）', () => {
+    expect(resolveEffectiveRole('request-admin')).toBe('request-admin');
+    expect(resolveEffectiveRole('  admin  ')).toBe('admin');
   });
 
-  it('请求级缺失 / 空白 ⇒ 回退进程级（桌面端零行为变更）', () => {
-    expect(resolveEffectiveRole(undefined, 'process-guest')).toBe(
-      'process-guest'
-    );
-    expect(resolveEffectiveRole(null, 'process-guest')).toBe('process-guest');
-    expect(resolveEffectiveRole('   ', 'process-guest')).toBe('process-guest');
-  });
-
-  it('两者皆空 ⇒ null（继续走 A 规则，不臆造角色）', () => {
-    expect(resolveEffectiveRole(undefined, null)).toBeNull();
-    expect(resolveEffectiveRole('', null)).toBeNull();
+  it('请求级缺失 / 空白 ⇒ null（**不再**回退进程级角色）', () => {
+    expect(resolveEffectiveRole(undefined)).toBeNull();
+    expect(resolveEffectiveRole(null)).toBeNull();
+    expect(resolveEffectiveRole('')).toBeNull();
+    expect(resolveEffectiveRole('   ')).toBeNull();
   });
 
   it('两个请求各自带角色 ⇒ 互不污染（并发隔离的纯函数前提）', () => {
-    const a = resolveEffectiveRole('admin', 'process-role');
-    const b = resolveEffectiveRole('guest', 'process-role');
+    const a = resolveEffectiveRole('admin');
+    const b = resolveEffectiveRole('guest');
     expect(a).toBe('admin');
     expect(b).toBe('guest');
   });

@@ -40,7 +40,7 @@ export function principalKeyOf(principal: Principal): string {
  *
  * 只按**第一个**冒号切分（userId 可以含冒号；租户标识在认证链中不带冒号）。
  * 缺任一侧 / 键为空 ⇒ `null`（**不编造身份**，调用方按"无归属"处理）。
- * 角色留空：这类后台执行不属于任何登录会话，权限判定回退进程级角色（与改造前一致）。
+ * 角色留空：这类后台执行不属于任何登录会话，**没有权限角色**（角色 deny 不参与）。
  */
 export function principalFromKey(key?: string | null): Principal | null {
   if (!key) return null;
@@ -109,8 +109,8 @@ export function isLocalPrincipal(
 /**
  * 请求级权限角色。
  *
- * - 本地身份 ⇒ `null`：**不把 `'local'` 这个伪角色当权限角色回灌** —— 桌面端与改造前
- *   完全一致（此前 `PermissionContext.userRole` 就是缺省的，由进程级角色兜底）；
+ * - 本地身份 ⇒ `null`：**不把 `'local'` 这个伪角色当权限角色回灌** —— 桌面端未登录时
+ *   与无请求作用域的后台执行一样**没有权限角色**（不再有进程级角色兜底，2026-11-03）；
  * - 已认证身份 ⇒ `roles[0]`（`Principal` 约定的主角色）。
  */
 export function getRequestPermissionRole(): string | null {

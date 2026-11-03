@@ -8,15 +8,7 @@
  * 用 bob 的 Bearer 打 `POST /v1/commands/execute` ⇒ 404 且命令不执行；
  * 用 alice 自己的 token ⇒ 200。
  */
-import {
-  afterAll,
-  afterEach,
-  beforeAll,
-  describe,
-  expect,
-  spyOn,
-  test,
-} from 'bun:test';
+import { afterAll, beforeAll, describe, expect, spyOn, test } from 'bun:test';
 import type http from 'http';
 import { Readable } from 'node:stream';
 import { mkdtempSync, rmSync } from 'fs';
@@ -30,7 +22,6 @@ import {
   handleAuthRegister,
 } from '../../src/infrastructure/http/handlers/auth-handlers.js';
 import { withRequestIdentity } from '../../src/infrastructure/http/requestIdentity.js';
-import { PermissionManager } from '@openliri/infra/permission';
 
 import type { ChatSession } from '../../src/session/types/session';
 import { DataSessionStatus } from '@openliri/kernel';
@@ -192,10 +183,6 @@ beforeAll(async () => {
 
   aliceToken = await registerUser('alice', 'acme');
   bobToken = await registerUser('bob', 'acme');
-});
-
-afterEach(() => {
-  PermissionManager.getInstance().setCurrentUserRole(null);
 });
 
 afterAll(() => {

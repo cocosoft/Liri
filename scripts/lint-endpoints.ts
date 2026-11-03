@@ -34,6 +34,7 @@ const TRUTH_SOURCE_FRAGMENTS = [
   'core/ports.ts', // 后端端口真源
   'core/endpoints.ts', // 后端端点真源
   'constants/defaults.ts', // B 类可调参数默认值真源（D-1：LIRI_DEFAULT_HOST 等）
+  'constants/network.ts', // 网络常量真源（2026-11-03：回环主机名集合 LOOPBACK_HOSTS）
   'client/src/services/endpoints.ts', // 前端端点真源
   'client/src/constants/locale.ts', // 前端 locale 真源
   'client/src/constants/events.ts', // 前端事件名真源

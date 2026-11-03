@@ -15,7 +15,8 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { SYSTEM_PROXY_CACHE_TTL_MS } from '@openliri/infra/constants/network';
+import { SYSTEM_PROXY_CACHE_TTL_MS, WILDCARD_BIND_HOST } from '@openliri/infra/constants/network';
+import { LOCAL_HTTP_HOST, LOCAL_SERVICE_HOST } from '@openliri/kernel';
 import { readUtilEnv } from './envAccess';
 import { getLogger } from '@openliri/kernel/loggerFacade';
 import { handleError } from '@openliri/kernel/errorHandler';
@@ -286,10 +287,11 @@ function matchesNoProxyPattern(host: string, pattern: string): boolean {
 function isLoopbackHost(host: string): boolean {
   const normalized = host.toLowerCase();
   return (
-    normalized === 'localhost' ||
+    normalized === LOCAL_SERVICE_HOST ||
+    normalized === LOCAL_HTTP_HOST ||
+    normalized === WILDCARD_BIND_HOST ||
     normalized === '::1' ||
     normalized === '[::1]' ||
-    normalized === '0.0.0.0' ||
     normalized.startsWith('127.')
   );
 }

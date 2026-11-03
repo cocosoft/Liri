@@ -6,6 +6,16 @@
  */
 
 /**
+ * 通配绑定地址（对外暴露部署，如 Docker 的 `LIRI_HTTP_HOST=0.0.0.0`）。
+ *
+ * 与 `kernel/core/endpoints.ts#LOCAL_HTTP_HOST` 的语义边界一致：通配绑定 ≠ 本机自连，
+ * 故按域分立，不复用回环常量。
+ *
+ * @kind A
+ */
+export const WILDCARD_BIND_HOST = '0.0.0.0';
+
+/**
  * 系统代理设置（Windows 注册表）的缓存失效时间。
  *
  * 代理设置不会秒级变化；缓存可避免每个出站请求都起一次 `reg query` 子进程。

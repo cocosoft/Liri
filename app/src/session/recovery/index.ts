@@ -19,6 +19,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 export { CrashRecoveryManager } from './CrashRecoveryManager';
+// 2026-11-03 实时巡检：清除崩溃恢复遗留标记（调用方传 `SessionGateway.getStorage()`）
+export { clearStaleRecoveryMarkers } from './CrashRecoveryManager';
 export type {
   CrashRecoveryConfig,
   CrashRecoveryResult,

@@ -41,7 +41,7 @@ import {
 } from '@openliri/infra/error';
 import { SimpleMutex } from '@openliri/kernel';
 import { resolveDataDir } from '@openliri/infra/environment';
-import { SessionGateway } from '@modules/session';
+import { SessionGateway, clearStaleRecoveryMarkers } from '@modules/session';
 import { HookChainManager } from '@modules/hooks';
 import { SessionAccessFacade } from './SessionAccessFacade';
 import { resolveChannelSourceOnce } from './channelSourceOnce.js';
@@ -354,6 +354,47 @@ export class SessionLifecycleManager {
   }
 
   /**
+   * 2026-11-03 实时巡检：会话**真正被使用**时清除崩溃恢复遗留标记。
+   *
+   * 背景：启动期 `failed_stale` 会把会话置为 ERROR 并写 `crashRecovery/crashedAt`；
+   * 后来该会话被 AlwaysOn 重新跑起来，但没人清除这些标记 ⇒ 前端一直显示"失败/崩溃"，
+   * 而事件流仍在持续产出（实测同一时刻 status=error + 连续 `assistant/status`）。
+   *
+   * 只在**内存里已有标记**时落一次盘（无标记 ⇒ 零 IO）。
+   * 失败不影响本轮对话（标记下次请求再清）。
+   */
+  private async _clearStaleRecoveryMarkers(
+    session: ChatSession
+  ): Promise<void> {
+    const metadata = session.metadata as Record<string, unknown> | undefined;
+    const marker = metadata?.crashRecovery;
+    if (marker === undefined) return;
+    try {
+      await clearStaleRecoveryMarkers(
+        this.sessionGateway.getStorage(),
+        session.id
+      );
+      const next: Record<string, unknown> = { ...metadata };
+      delete next.crashRecovery;
+      delete next.crashedAt;
+      delete next.lastActivityBeforeCrash;
+      session.metadata = next as unknown as ChatSession['metadata'];
+      // 仅复位"因恢复失败而置 ERROR"的会话；真实业务失败不动
+      if (
+        marker === 'failed_stale' &&
+        session.state === DataSessionStatus.ERROR
+      ) {
+        session.state = DataSessionStatus.ACTIVE;
+      }
+    } catch (e) {
+      logger.warn('清除崩溃恢复遗留标记失败（不影响本轮对话）', {
+        sessionId: session.id,
+        error: String(e),
+      });
+    }
+  }
+
+  /**
    * BUG-B（2026-10-27 真机长程任务）：把**请求体** `workspace_path` 落到会话 metadata。
    *
    * 背景：`getOrLoadSession` 的 metadata 参数只在新会话创建时生效（见上 `_applyChannelSourceOnce`
@@ -452,6 +493,7 @@ export class SessionLifecycleManager {
       await this._applyChannelSourceOnce(cached, metadata);
       // BUG-B（2026-10-27）：请求体 workspace_path 落到既有会话（缓存命中分支）
       await this._applyRequestWorkspacePath(cached, metadata);
+      await this._clearStaleRecoveryMarkers(cached);
       return cached;
     }
 
@@ -533,6 +575,7 @@ export class SessionLifecycleManager {
         await this._applyChannelSourceOnce(chatSession, metadata);
         // BUG-B（2026-10-27）：请求体 workspace_path 落到既有会话（存储加载分支）
         await this._applyRequestWorkspacePath(chatSession, metadata);
+        await this._clearStaleRecoveryMarkers(chatSession);
         return chatSession;
       }
     } catch (e) {

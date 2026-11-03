@@ -61,6 +61,13 @@ import type { APIProvider } from '../models/ModelConfigs';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import type { TransportStreamEvent } from '../transports/types';
 import { configManager } from '@openliri/infra/config/ConfigManager';
+// 2026-11-03 实时巡检：余额/配额不足的跨调用熔断（402 本就不重试，但批量链路会逐条再撞）
+import {
+  isInsufficientBalanceError,
+  providerBalanceCircuitRemaining,
+  tripProviderBalanceCircuit,
+  ProviderBalanceCircuitOpenError,
+} from './providerCircuitBreaker';
 import { repairModelJson } from '@openliri/infra/utils/json';
 import {
   getCACertificates,
@@ -708,6 +715,11 @@ export abstract class BaseAIProvider implements AIProvider {
     const start = Date.now();
     let chunkCount = 0;
     try {
+      // 余额熔断：直接失败，不发请求（与 measureChat 同口径）
+      const remainingMs = providerBalanceCircuitRemaining(label);
+      if (remainingMs > 0) {
+        throw new ProviderBalanceCircuitOpenError(label, remainingMs);
+      }
       // 必须手动 next() 迭代：for await 会丢弃内部生成器的 return 值，
       // 导致上游 result.value 变 undefined（finalResponse.tool_calls 丢失 → 工具调用不执行）。
       let result = await stream.next();
@@ -723,6 +735,14 @@ export abstract class BaseAIProvider implements AIProvider {
       });
       return result.value;
     } catch (error) {
+      // 余额/配额不足 ⇒ 打开短期熔断，后续调用立即失败（不再逐条撞 402）
+      if (isInsufficientBalanceError(error)) {
+        tripProviderBalanceCircuit(label);
+        logger.warning('provider 余额熔断已开启', {
+          provider: label,
+          ttlMs: 5 * 60_000,
+        });
+      }
       logger.warn('provider 流式失败', {
         provider: label,
         elapsedMs: Date.now() - start,
@@ -745,6 +765,11 @@ export abstract class BaseAIProvider implements AIProvider {
   ): Promise<T> {
     const start = Date.now();
     try {
+      // 余额熔断：直接失败，不发请求（避免批量链路逐条撞 402）
+      const remainingMs = providerBalanceCircuitRemaining(label);
+      if (remainingMs > 0) {
+        throw new ProviderBalanceCircuitOpenError(label, remainingMs);
+      }
       const result = await fn();
       logger.info('provider 聊天完成', {
         provider: label,
@@ -752,6 +777,14 @@ export abstract class BaseAIProvider implements AIProvider {
       });
       return result;
     } catch (error) {
+      // 余额/配额不足 ⇒ 打开短期熔断（熔断期内的调用在上方直接失败，不再产生网络请求）
+      if (isInsufficientBalanceError(error)) {
+        tripProviderBalanceCircuit(label);
+        logger.warning('provider 余额熔断已开启', {
+          provider: label,
+          ttlMs: 5 * 60_000,
+        });
+      }
       logger.warn('provider 聊天失败', {
         provider: label,
         elapsedMs: Date.now() - start,

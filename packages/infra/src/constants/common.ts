@@ -80,6 +80,16 @@ export const MINUTES_PER_DAY = 24 * 60;
 export const MS_PER_DAY = 24 * MS_PER_HOUR;
 
 /**
+ * 供应商「余额/配额不足」（402）短期熔断窗口。
+ *
+ * 语义：窗口内对同一 provider 直接 fail-fast，不再发注定 402 的请求；
+ * 充值/换 key 后最迟本窗口结束自动恢复，无需重启。
+ *
+ * @kind A
+ */
+export const PROVIDER_BALANCE_CIRCUIT_MS = 5 * MS_PER_MINUTE;
+
+/**
  * G-10（2026-10-19）：主动消息**默认冷却**（毫秒）。
  *
  * 仅在用户未配置 `proactive.cooldownMs[kind]` 时生效（配置优先）；不写进判定逻辑的隐藏默认。

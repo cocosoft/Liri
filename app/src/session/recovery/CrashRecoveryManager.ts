@@ -261,3 +261,47 @@ export class CrashRecoveryManager {
     return this.initialized;
   }
 }
+
+/**
+ * 清除**崩溃恢复遗留标记**（2026-11-03 实时巡检）。
+ *
+ * 现场：启动期被判 `failed_stale` 的会话（`status = ERROR` + `crashRecovery/crashedAt`）
+ * 后来被 AlwaysOn 重新跑起来，但**没人清除这些标记** ⇒ 前端长期显示"失败/崩溃"，
+ * 而事件流仍在持续产出（实测同一时刻 status=error + `assistant/status` 连续输出）。
+ *
+ * 独立函数（而非 `CrashRecoveryManager` 方法）：调用方（`chat` 层）经
+ * `SessionGateway.getStorage()` 拿到**同一份**存储实例即可，无需在 2000 行上限边缘的
+ * `SessionGateway.ts` 里再加一层薄转发。
+ *
+ * 口径：
+ * - 只清 `crashRecovery` / `crashedAt` / `lastActivityBeforeCrash` 三个**恢复期**字段；
+ * - **仅当**标记就是 `failed_stale` 且当前状态仍是 ERROR 时，才把状态复位为 ACTIVE
+ *   —— 真实业务失败（非恢复造成的 ERROR）不得被本函数抹掉；
+ * - 无标记 ⇒ 不写盘（避免每次请求多一次 IO）。
+ *
+ * @returns 是否实际清除了标记
+ */
+export async function clearStaleRecoveryMarkers(
+  storage: Pick<UnifiedSessionStorage, 'getSession' | 'updateSession'>,
+  sessionId: string
+): Promise<boolean> {
+  const session = await storage.getSession(sessionId);
+  if (!session) return false;
+  const metadata = session.metadata ?? {};
+  const marker = metadata.crashRecovery;
+  if (marker === undefined) return false;
+
+  const nextMetadata = { ...metadata };
+  delete nextMetadata.crashRecovery;
+  delete nextMetadata.crashedAt;
+  delete nextMetadata.lastActivityBeforeCrash;
+
+  const resetStatus =
+    marker === 'failed_stale' && session.status === SessionStatus.ERROR;
+  if (resetStatus) session.status = SessionStatus.ACTIVE;
+
+  session.metadata = nextMetadata;
+  await storage.updateSession(session);
+  logger.info('已清除崩溃恢复遗留标记', { sessionId, marker, resetStatus });
+  return true;
+}

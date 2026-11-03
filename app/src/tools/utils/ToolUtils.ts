@@ -32,6 +32,32 @@ export function normalizeToolPath(inputPath: string): string {
 }
 
 /**
+ * 展开路径中的环境变量（2026-11-03 实时巡检）
+ *
+ * 现场：某会话产物里出现**字面量** `%TEMP%` 目录
+ * （`<项目>\%TEMP%\k08_metrics.js`）—— 模型按 Windows 习惯写 `%TEMP%\x.js`，
+ * 而路径解析不展开环境变量 ⇒ 被当成普通目录名落在工作区里，污染产物并被后续 glob 反复抓出。
+ *
+ * 口径：
+ * - 只展开 `%NAME%`（Windows）与 `${NAME}`（花括号形式）—— **不**展开裸 `$NAME`，
+ *   避免误伤含 `$` 的合法文件名；
+ * - 只展开**已定义**的变量；未定义的保持原样 ⇒ 由后续路径校验给出可操作错误，
+ *   而不是静默拼出一个"看起来成功"的错误目录。
+ */
+export function expandEnvVarsInPath(inputPath: string): string {
+  if (!inputPath.includes('%') && !inputPath.includes('${')) return inputPath;
+  return inputPath
+    .replace(/%([A-Za-z_][A-Za-z0-9_]*)%/g, (matched, name: string) => {
+      const value = process.env[name];
+      return value === undefined ? matched : value;
+    })
+    .replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (matched, name: string) => {
+      const value = process.env[name];
+      return value === undefined ? matched : value;
+    });
+}
+
+/**
  * 解析文件工具路径
  *
  * 将反斜杠归一化后，若为绝对路径则直接 resolve；相对路径优先解析到 baseDir
@@ -43,7 +69,8 @@ export function normalizeToolPath(inputPath: string): string {
  * @returns 归一化后的绝对路径
  */
 export function resolveFilePath(filePath: string, baseDir?: string): string {
-  const normalized = filePath.replace(/\\/g, '/');
+  // 先展开环境变量：`%TEMP%\x` / `${HOME}/x` 不得被当作目录名
+  const normalized = expandEnvVarsInPath(filePath).replace(/\\/g, '/');
   if (path.isAbsolute(normalized)) {
     return path.resolve(normalized);
   }

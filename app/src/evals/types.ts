@@ -30,9 +30,8 @@
  * 指标：`pass^1`（单次通过率）与 `pass^k`（k 次全通过才算通过）—— 后者才是可用性门槛。
  */
 
-// P39（2026-11-02）：两次运行 ±10% 报告的类型与判定同源（`import type` ⇒ 运行期无依赖）
-import type { RunVarianceReport } from './runVariance.js';
-
+// P39（2026-11-02）：两次运行 ±10% 报告的类型放在本文件（契约层），
+// 判定实现留在 `runVariance.ts`（R00-003：types ↔ 实现互引会成环）
 /** 断言结果（L1/L2 均为确定性判据） */
 export interface AssertResult {
   /** 是否通过 */
@@ -512,4 +511,42 @@ export interface SourceTaskMaterialization {
   build: SourceTaskBuild;
   /** 仅 `build.status === 'ready'` 时给出 */
   task?: EvalTask;
+}
+
+/** P39（2026-11-02）：单题两次运行的对比结果（实现见 `runVariance.ts`） */
+export interface TaskVariance {
+  taskId: string;
+  firstPass1: number;
+  secondPass1: number;
+  /** 第二轮 − 第一轮（正 = 第二轮更好） */
+  delta: number;
+  /** 两轮的环境噪声 attempt 数（缺省视为 0），供解释差异用 */
+  firstNoise: number;
+  secondNoise: number;
+  status: 'stable' | 'within_tolerance' | 'drift';
+}
+
+/** P39（2026-11-02）：两次运行对比报告（实现见 `runVariance.ts`） */
+export interface RunVarianceReport {
+  tolerance: number;
+  /** 两轮都有、参与比对的任务数 */
+  compared: number;
+  /** 仅在第一轮出现（题集应相同 ⇒ 出现即异常） */
+  onlyFirst: string[];
+  /** 仅在第二轮出现 */
+  onlySecond: string[];
+  /** 第一轮 pass^1 均值（仅参与比对的任务） */
+  firstMean: number;
+  /** 第二轮 pass^1 均值（同一批任务） */
+  secondMean: number;
+  /** 第二轮 − 第一轮（绝对值口径，单位 = 通过率） */
+  meanDelta: number;
+  /** `|meanDelta| / firstMean`；第一轮均值为 0 ⇒ `undefined`（不臆造） */
+  relativeDelta?: number;
+  tasks: TaskVariance[];
+  /** 超出容差的题（供人解释；**不**单独否决结论） */
+  drifted: string[];
+  stable: number;
+  /** 题集一致 ∧ 有可比对任务 ∧ 相对差在容差内 */
+  withinTolerance: boolean;
 }

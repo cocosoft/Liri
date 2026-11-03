@@ -4,8 +4,8 @@
 
 MCP (Model Context Protocol) 允许 Agent 与外部 MCP 服务器通信，扩展能力边界。Liri 的 MCP 体系分两层：
 
-- **标准层**（`app/src/services/mcp/`）：实现（连接管理、市场、工具桥接、认证、缓存、安全过滤）
-- **增强层入口**（`app/src/mcp/`）：统一导出面（`@modules/mcp`），供插件 SDK / HTTP handler 消费
+- **标准层**（`packages/service/src/services/mcp/`）：实现（连接管理、市场、工具桥接、认证、缓存、安全过滤）
+- **增强层入口**（`packages/service/src/mcp/index.ts`）：统一导出面，供插件 SDK / HTTP handler 消费
 
 ## 配置文件（双源职责边界）
 

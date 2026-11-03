@@ -95,7 +95,10 @@ export function projectIdFromWorkspacePath(
 ): string | undefined {
   const trimmed = str(workspacePath);
   if (!trimmed) return undefined;
-  const name = basename(trimmed.replace(/[\\/]+$/, ''));
+  // 分隔符无关：会话可由其它平台写入（Windows 路径在 macOS/Linux 上 `basename()`
+  // 不认识 `\` ⇒ 整个串被当成文件名，规则 A/B 全线失效）。
+  const segments = trimmed.split(/[\\/]+/).filter((s) => s.length > 0);
+  const name = segments[segments.length - 1] ?? '';
   return isProjectEntityId(name) ? name.trim() : undefined;
 }
 

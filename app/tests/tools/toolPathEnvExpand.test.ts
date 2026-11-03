@@ -8,7 +8,7 @@
  * `resolveFilePath()` 是 FileRead/FileWrite/FileEdit/Grep/Glob 的**共同入口**
  * ⇒ 在它这里展开一次，全链路生效。
  */
-import { describe, it, expect, afterEach } from 'bun:test';
+import { describe, it, expect, afterEach, beforeEach } from 'bun:test';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -18,6 +18,12 @@ import {
 } from '../../src/tools/utils/ToolUtils';
 
 const ORIGINAL_TEMP = process.env.TEMP;
+/** 跨平台确定值：`TEMP` 在 Linux/macOS 上缺省不存在（原用例直接读它 ⇒ 期望值成了 "undefined/x"） */
+const TEST_TEMP = join(tmpdir(), 'liri-env-expand');
+
+beforeEach(() => {
+  process.env.TEMP = TEST_TEMP;
+});
 
 afterEach(() => {
   if (ORIGINAL_TEMP === undefined) delete process.env.TEMP;
@@ -27,13 +33,12 @@ afterEach(() => {
 describe('expandEnvVarsInPath', () => {
   it('展开 %NAME%（Windows 形态）', () => {
     expect(expandEnvVarsInPath('%TEMP%\\k08_metrics.js')).toBe(
-      `${process.env.TEMP}\\k08_metrics.js`
+      `${TEST_TEMP}\\k08_metrics.js`
     );
   });
 
   it('展开 ${NAME}（花括号形态）', () => {
-    // 用平台必有的 TEMP（Windows 下 HOME 可能未设置）
-    expect(expandEnvVarsInPath('${TEMP}/x')).toBe(`${process.env.TEMP}/x`);
+    expect(expandEnvVarsInPath('${TEMP}/x')).toBe(`${TEST_TEMP}/x`);
   });
 
   it('未定义的变量保持原样（不猜、不拼错目录）', () => {

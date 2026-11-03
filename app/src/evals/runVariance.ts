@@ -39,48 +39,17 @@
  * 面板要的是"总体差异可解释"；`drifted` 只用于把差异摆到台面上（由人解释）。
  */
 
-import type { EvalTaskResult } from './types.js';
+import type {
+  EvalTaskResult,
+  RunVarianceReport,
+  TaskVariance,
+} from './types.js';
+
+// 契约层（`types.ts`）持有类型；本文件只保留判定实现（R00-003：types ↔ 实现互引会成环）
+export type { RunVarianceReport, TaskVariance } from './types.js';
 
 /** 默认容差（10%，与 P39 验收口径一致） */
 export const DEFAULT_VARIANCE_TOLERANCE = 0.1;
-
-/** 单题对比结果 */
-export interface TaskVariance {
-  taskId: string;
-  firstPass1: number;
-  secondPass1: number;
-  /** 第二轮 − 第一轮（正 = 第二轮更好） */
-  delta: number;
-  /** 两轮的环境噪声 attempt 数（缺省视为 0），供解释差异用 */
-  firstNoise: number;
-  secondNoise: number;
-  status: 'stable' | 'within_tolerance' | 'drift';
-}
-
-/** 两次运行对比报告 */
-export interface RunVarianceReport {
-  tolerance: number;
-  /** 两轮都有、参与比对的任务数 */
-  compared: number;
-  /** 仅在第一轮出现（题集应相同 ⇒ 出现即异常） */
-  onlyFirst: string[];
-  /** 仅在第二轮出现 */
-  onlySecond: string[];
-  /** 第一轮 pass^1 均值（仅参与比对的任务） */
-  firstMean: number;
-  /** 第二轮 pass^1 均值（同一批任务） */
-  secondMean: number;
-  /** 第二轮 − 第一轮（绝对值口径，单位 = 通过率） */
-  meanDelta: number;
-  /** `|meanDelta| / firstMean`；第一轮均值为 0 ⇒ `undefined`（不臆造） */
-  relativeDelta?: number;
-  tasks: TaskVariance[];
-  /** 超出容差的题（供人解释；**不**单独否决结论） */
-  drifted: string[];
-  stable: number;
-  /** 题集一致 ∧ 有可比对任务 ∧ 相对差在容差内 */
-  withinTolerance: boolean;
-}
 
 function noiseOf(result: EvalTaskResult): number {
   return result.environmentNoiseAttempts ?? 0;

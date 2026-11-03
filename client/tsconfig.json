@@ -20,7 +20,7 @@
     "paths": {
       "@/*": ["src/*"],
       "@shared/*": ["../shared/*"],
-      "@mcp-types": ["../app/src/services/mcp/marketplace/types.ts"]
+      "@mcp-types": ["../packages/service/src/services/mcp/marketplace/types.ts"]
     }
   },
   "include": ["src"],

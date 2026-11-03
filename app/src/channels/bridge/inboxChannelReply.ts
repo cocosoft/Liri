@@ -37,7 +37,7 @@ import type { InboxItem } from '@modules/runtime/InboxManager.js';
 import type { Database } from '@openliri/infra/external';
 import { channelRegistry } from '../registry/ChannelRegistry';
 import { channelBootstrapper } from '../bootstrap/ChannelBootstrapper';
-import { isReplyEnabled } from '../setupChannels';
+import { isReplyEnabled } from '../replyEnabled';
 
 const logger = getLogger('channels:inboxReply');
 

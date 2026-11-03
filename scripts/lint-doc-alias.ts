@@ -138,12 +138,14 @@ for (const abs of files) {
       return;
     }
     if (inFence) return;
+    // 历史 / 订正行整行豁免（**别名与路径都跳过**）：文件头声明的豁免若只覆盖路径，
+    // 「原为 `@modules/x`，已更名」这种正当存证仍会被判违规，等于逼人改写历史。
+    if (HISTORY_RE.test(line)) return;
     for (const m of line.matchAll(ALIAS_RE)) {
       const alias = m[0].replace(/[.,;:）)]+$/, '');
       const reason = checkAlias(alias, keys);
       if (reason) hits.push({ file, alias, reason, line: i + 1 });
     }
-    if (HISTORY_RE.test(line)) return;
     for (const m of line.matchAll(PATH_RE)) {
       const ref = m[1] as string;
       if (!existsSync(join(repoRoot, ref))) {

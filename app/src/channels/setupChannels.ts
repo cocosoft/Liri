@@ -37,10 +37,9 @@ const logger = getLogger('channels:setup');
 // ─── Feature Flag: Inbox ↔ 渠道桥接开关 ───
 // `isBridgeEnabled` 已下沉到叶子模块 `./bridgeEnabled`（2026-10-19 断环：textApproval/messageRouter
 // 曾反向 import 本文件，与 `setupChannels → messageRouter` 构成静态环）。
-/** 渠道 ← Inbox 回复回传开关（默认开启，显式设为 'false' 时关闭） */
-export function isReplyEnabled(): boolean {
-  return configManager.env('INBOX_CHANNEL_REPLY_ENABLED') !== 'false';
-}
+// `isReplyEnabled` 已下沉到叶子模块 `./replyEnabled`（2026-11-04 断环：inboxChannelReply 反向
+// import 本文件，经 CoreAPIImpl → InboxManager 构成静态环）；此处保留再导出以维持既有引用。
+export { isReplyEnabled } from './replyEnabled';
 /** DeliveryRouter 统一出站开关（默认开启，显式设为 '0' 时切回旧 onOutbound 路径） */
 export function useDeliveryRouterOutbound(): boolean {
   return configManager.env('DELIVERY_ROUTER_OUTBOUND') !== '0';

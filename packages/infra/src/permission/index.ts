@@ -258,6 +258,8 @@ export {
   diffUnifiedRules,
   groupBySource,
   parseSettingsRuleText,
+  renderRuleSourceDocRows,
+  RULE_SOURCE_DOC_ROWS,
 } from './unifiedRule';
 export type {
   UnifiedRule,

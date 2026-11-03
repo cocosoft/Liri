@@ -142,6 +142,42 @@ const REMOVABLE_VIA: Record<UnifiedRuleSourceKey, string> = {
   standingRule: '任务作用域批准（删除任务或等待过期）',
 };
 
+/**
+ * A/B 体系速查表的表格行（P3-4，2026-11-03）。
+ *
+ * 唯一事实来源：内置技能 `update-config` 的「Liri 权限体系速查表」直接内插
+ * `renderRuleSourceDocRows()` 的输出，避免文档再抄一份入口与规则形态
+ * （此前 A 体系路径与 B 体系配置键是两处独立维护，已发生过漂移）。
+ * 「审批放行缓存」不属于 Rule 来源（属 `ApprovedCommandRegistry`），仍由调用方列出。
+ */
+export const RULE_SOURCE_DOC_ROWS: ReadonlyArray<{
+  system: string;
+  entry: string;
+  shape: string;
+  timing: string;
+}> = [
+  {
+    system: 'A 工具级规则',
+    entry: '`~/.pyapp/data/permissions/tool_rules.json`',
+    shape: '`{behavior: allow|deny|ask, toolName, contentPattern?}`',
+    timing: '每次工具调用（决策主链路）',
+  },
+  {
+    system: 'B 命令级黑白名单',
+    entry: '设置→自定义规则（配置 `permission.customRules.commandRules`）',
+    shape: '`{blacklist[], whitelist[], mode: blacklist|whitelist}`',
+    timing:
+      'bash/shell/command 命令内容级；黑名单命中 deny；whitelist 模式命中 allow（免审批）、未命中 deny',
+  },
+];
+
+/** 渲染为 Markdown 表格行（不含表头），供内置技能文档内插 */
+export function renderRuleSourceDocRows(): string {
+  return RULE_SOURCE_DOC_ROWS.map(
+    (row) => `| ${row.system} | ${row.entry} | ${row.shape} | ${row.timing} |`
+  ).join('\n');
+}
+
 /** 规则 id（确定性） */
 function ruleId(
   source: UnifiedRuleSourceKey,

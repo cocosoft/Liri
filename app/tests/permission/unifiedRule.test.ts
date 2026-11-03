@@ -4,6 +4,8 @@
  * 钉死：四来源投影 → 统一规则；去重/优先级；B 体系 whitelist 兜底；dry-run diff。
  */
 import { describe, it, expect } from 'bun:test';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   permissionRulesToUnified,
   settingsToUnified,
@@ -13,12 +15,15 @@ import {
   diffUnifiedRules,
   groupBySource,
   parseSettingsRuleText,
+  renderRuleSourceDocRows,
 } from '@openliri/infra/permission';
 import {
   PermissionBehavior,
   PermissionRuleSource,
 } from '@openliri/infra/permission';
 import type { PermissionRule, StandingRule } from '@openliri/infra/permission';
+
+const REPO_ROOT = join(process.cwd(), '..');
 
 function rule(over: Partial<PermissionRule>): PermissionRule {
   const now = new Date();
@@ -126,5 +131,33 @@ describe('unifiedRule：合并 / 差异 / 分组', () => {
     expect(diff.removed).toHaveLength(1);
     expect(diff.changed).toHaveLength(1);
     expect(diff.added).toHaveLength(0);
+  });
+});
+
+describe('P3-4：权限速查表由统一 Rule 模型生成', () => {
+  it('渲染出 A / B 两行，且入口与配置键来自模型', () => {
+    const rows = renderRuleSourceDocRows().split('\n');
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toContain('A 工具级规则');
+    expect(rows[0]).toContain('tool_rules.json');
+    expect(rows[1]).toContain('B 命令级黑白名单');
+    expect(rows[1]).toContain('permission.customRules.commandRules');
+  });
+
+  it('内置技能 update-config 不再手抄 A/B 行（只内插生成结果）', () => {
+    const src = readFileSync(
+      join(
+        REPO_ROOT,
+        'app',
+        'src',
+        'skills',
+        'loaders',
+        'sources',
+        'BundledSkillLoader.ts'
+      ),
+      'utf8'
+    );
+    expect(src).toContain('${renderRuleSourceDocRows()}');
+    expect(src).not.toContain('| A 工具级规则 |');
   });
 });

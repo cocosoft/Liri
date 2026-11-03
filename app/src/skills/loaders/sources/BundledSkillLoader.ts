@@ -12,6 +12,8 @@ import {
   toCandidates,
 } from '../SkillProvider';
 import { getLogger } from '@openliri/infra/monitoring';
+// P3-4（2026-11-03）：权限速查表的 A/B 行由统一 Rule 模型生成，避免文档再抄一份
+import { renderRuleSourceDocRows } from '@openliri/infra/permission';
 
 const logger = getLogger('skills:bundledLoader');
 
@@ -308,8 +310,7 @@ Liri 的权限体系有三个来源，按层级参与决策：
 
 | 体系 | 文件/入口 | 规则形态 | 生效时机 |
 |------|-----------|---------|---------|
-| A 工具级规则 | \`~/.pyapp/data/permissions/tool_rules.json\` | \`{behavior: allow\|deny\|ask, toolName, contentPattern?}\` | 每次工具调用（决策主链路） |
-| B 命令级黑白名单 | 设置→自定义规则（配置 \`permission.customRules.commandRules\`） | \`{blacklist[], whitelist[], mode: blacklist\|whitelist}\` | bash/shell/command 命令内容级；黑名单命中 deny；whitelist 模式命中 allow（免审批）、未命中 deny |
+${renderRuleSourceDocRows()}
 | 审批放行缓存 | ApprovedCommandRegistry（内存，session 隔离） | 批准时写入 \`{sessionId, commandHash, baseCommand}\`，TTL 默认 5 分钟（\`PERMISSION_APPROVAL_TTL_MS\`） | 批准后同命令重发不再弹审批；危险命令（rm/del/format/sudo 等）必须精确 hash 匹配 |
 
 #### 常见权限排障路径

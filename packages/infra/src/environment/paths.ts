@@ -268,6 +268,31 @@ export function resolveSessionWorkspaceDir(sessionId: string): string {
 }
 
 /**
+ * 默认**项目工作区根**（P1，2026-11-03）：`~/Documents/LiriProjects`
+ *
+ * 为什么收敛到本注册表：该默认值原先硬编码在 `workspace/ProjectStore.create()`
+ *（`join(homedir(), 'Documents', 'LiriProjects', id)`）—— 属路径注册表之外的**第二处事实源**，
+ * 换盘 / 多环境无法覆盖，也无法被"数据目录"相关设置感知。
+ *
+ * 语义边界（刻意不与 `resolveDataDir()` 合并）：
+ * - **项目工作区**是用户可见的代码/产物目录（本函数）；
+ * - **数据目录**是配置、会话库、附件等运行数据（`resolveDataDir()`）。
+ * 二者生命周期不同（项目目录可被用户移动/删除/放别的盘），混用会让"改数据目录"误搬项目。
+ *
+ * 优先级：`LIRI_PROJECTS_DIR` 环境变量 > 默认 `~/Documents/LiriProjects`。
+ * 子目录仍由调用方拼 `<root>/<projectId>`（沿用既有命名，不迁移存量项目）。
+ */
+export function resolveDefaultProjectWorkspaceRoot(
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  const override = env[envKey('PROJECTS_DIR')]?.trim();
+  if (override) {
+    return resolve(override);
+  }
+  return join(os.homedir(), 'Documents', 'LiriProjects');
+}
+
+/**
  * 获取项目数据目录（第二层）
  * 可通过 LIRI_DATA_DIR 环境变量覆盖
  * 默认：用户目录下的 .pyapp/data/（部署安全：Program Files 安装也具备写入权限）

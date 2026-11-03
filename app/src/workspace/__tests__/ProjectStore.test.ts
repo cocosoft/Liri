@@ -7,7 +7,7 @@
  * - save() 幂等补写不破坏已有 content（P0-2）
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
+import { describe, it, expect, beforeAll, afterAll, afterEach } from 'bun:test';
 import {
   mkdtempSync,
   rmSync,
@@ -206,5 +206,52 @@ describe('ProjectStore sandboxPath 写入期校验（P0，2026-11-03）', () => 
       sandboxPath: fresh,
     });
     expect(p2.sandboxPath).toBe(fresh);
+  });
+});
+
+/**
+ * P1（2026-11-03）：默认项目工作区根由路径注册表提供（`LIRI_PROJECTS_DIR` 可覆盖），
+ * 不再在 `ProjectStore.create()` 硬编码 `~/Documents/LiriProjects`。
+ */
+describe('ProjectStore 默认 sandboxPath 走注册表（P1，2026-11-03）', () => {
+  const originalProjectsDir = process.env.LIRI_PROJECTS_DIR;
+
+  afterEach(() => {
+    if (originalProjectsDir === undefined) delete process.env.LIRI_PROJECTS_DIR;
+    else process.env.LIRI_PROJECTS_DIR = originalProjectsDir;
+  });
+
+  it('未显式指定 ⇒ <LIRI_PROJECTS_DIR>/<projectId>（且延迟创建不落地）', () => {
+    const root = mkdtempSync(join(tmpdir(), 'projects-root-'));
+    tmpDirs.push(root);
+    process.env.LIRI_PROJECTS_DIR = root;
+
+    const { store } = createIsolatedStore();
+    const project = store.create({
+      workspaceId: 'default',
+      name: '默认路径',
+      delaySandbox: true,
+    });
+
+    expect(project.sandboxPath).toBe(join(root, project.id));
+    // delaySandbox 契约：元数据已落盘，但目录尚未创建
+    expect(existsSync(project.sandboxPath)).toBe(false);
+  });
+
+  it('显式 sandboxPath 优先于 LIRI_PROJECTS_DIR（用户选择不被覆盖）', () => {
+    const root = mkdtempSync(join(tmpdir(), 'projects-root-'));
+    tmpDirs.push(root);
+    process.env.LIRI_PROJECTS_DIR = root;
+
+    const { store, liriDir } = createIsolatedStore();
+    const explicit = join(liriDir, 'explicit-sandbox');
+    const project = store.create({
+      workspaceId: 'default',
+      name: '显式路径',
+      sandboxPath: explicit,
+      delaySandbox: true,
+    });
+
+    expect(project.sandboxPath).toBe(explicit);
   });
 });

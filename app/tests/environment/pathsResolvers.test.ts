@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs';
 import { join, resolve } from 'path';
-import { tmpdir } from 'os';
+import { tmpdir, homedir } from 'os';
 import {
   setUserDataDirOverride,
   getUserDataDirOverride,
@@ -21,6 +21,7 @@ import {
   resolveUserSettingsPath,
   resolveSoulPath,
   resolveDataSubDir,
+  resolveDefaultProjectWorkspaceRoot,
   resolveTranscriptFilePath,
   ensureDir,
   ensureDataDirectories,
@@ -234,5 +235,47 @@ describe('constants', () => {
   it('should export PROJECT_ROOT as a string', () => {
     expect(typeof PROJECT_ROOT).toBe('string');
     expect(PROJECT_ROOT.length).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * P1（2026-11-03）：默认项目工作区根从 `ProjectStore` 硬编码收敛到路径注册表。
+ * 语义边界：项目工作区（用户可见的代码/产物目录）**不等于**数据目录（运行数据）。
+ */
+describe('resolveDefaultProjectWorkspaceRoot', () => {
+  const ENV_KEY = 'LIRI_PROJECTS_DIR';
+
+  afterEach(() => {
+    delete process.env[ENV_KEY];
+    setUserDataDirOverride(null);
+  });
+
+  it('未设 LIRI_PROJECTS_DIR ⇒ ~/Documents/LiriProjects', () => {
+    expect(resolveDefaultProjectWorkspaceRoot({})).toBe(
+      join(homedir(), 'Documents', 'LiriProjects')
+    );
+  });
+
+  it('LIRI_PROJECTS_DIR 覆盖（相对值亦归一化为绝对路径）', () => {
+    expect(
+      resolveDefaultProjectWorkspaceRoot({ [ENV_KEY]: '/x/projects' })
+    ).toBe(resolve('/x/projects'));
+    const relative = resolveDefaultProjectWorkspaceRoot({ [ENV_KEY]: 'rel' });
+    expect(relative).toBe(resolve('rel'));
+  });
+
+  it('空白值不算覆盖（回落默认）', () => {
+    expect(resolveDefaultProjectWorkspaceRoot({ [ENV_KEY]: '   ' })).toBe(
+      join(homedir(), 'Documents', 'LiriProjects')
+    );
+  });
+
+  it('与数据目录解耦：改 setUserDataDirOverride / LIRI_DATA_DIR 不影响项目工作区根', () => {
+    const before = resolveDefaultProjectWorkspaceRoot({});
+    setUserDataDirOverride('/some/other/data-dir');
+    expect(resolveDefaultProjectWorkspaceRoot({})).toBe(before);
+    expect(
+      resolveDefaultProjectWorkspaceRoot({ LIRI_DATA_DIR: '/x/data' })
+    ).toBe(before);
   });
 });

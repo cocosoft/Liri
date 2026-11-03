@@ -69,8 +69,15 @@ describe('审批过期清理（P3）', () => {
     expect(aliceExpired.items.length).toBe(1);
     expect(aliceExpired.items[0].sessionId).toBe('s-alice');
 
-    // 本地库：本进程内从未以本地身份打开过 ⇒ 不应被凭空创建
-    expect(existsSync(join(dataDir, 'app.db'))).toBe(false);
+    // 本地库：**不得被写入任何审批**。
+    //
+    // 为什么判"无数据"而不是"文件不存在"（2026-11-03 全量失败根因）：
+    // 宿主装配（`ChatManager` 构造时的 `installHostWiring`）会**进程级**注入
+    // `setSessionOwnerLoader`；其读路径 `listTicketAssignmentsBySession` 会打开
+    // `<dataDir>/app.db`（该文件可能只有派工表）。那是"有连接"，不是"本地库受影响"。
+    // 故断言收敛到真正的口径：以**本地身份**读本地库，其中没有任何 inbox 行。
+    const localItems = await manager.list({});
+    expect(localItems.items.length).toBe(0);
   });
 
   it('本地与租户各自清理，互不串库', async () => {

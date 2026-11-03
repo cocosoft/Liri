@@ -101,7 +101,10 @@ function PatternCard({ pattern }: { pattern: OrchestrationPattern }) {
                 {t("chatInspector.patternsFeatureGate")}：
               </span>
               <code className="text-[10px]">{pattern.featureGate.flag}</code>
+              {/* 2026-11-03：键名与状态之间补分隔符（此前仅靠 CSS 间距，DOM 文本读作
+                  「FLAG已开启」） */}
               <span className="ml-1 opacity-70">
+                ·{" "}
                 {pattern.featureGate.enabled
                   ? t("chatInspector.patternsGateOn")
                   : t("chatInspector.patternsGateOff")}

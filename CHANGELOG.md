@@ -196,6 +196,15 @@
 - ✅ **macOS 假红** - `mobilePairing` 用例不再用 1ms TTL 与 runner 时钟赛跑
 <!-- EVIDENCE-VIEWS:END -->
 
+#### v0.5.25 (2026-11-04)  权限体系收敛、自主执行接线与可观测补齐
+
+- ✅ **权限体系收敛（P2/P3）**：工具授权收敛为单一入口 + P2 规则归一；进程级角色第二真源收敛（多租户 P0 收尾）；D 体系（细粒度用户/角色）的 UI 与 HTTP 入口按 P3-3 摘除，`EnhancedPermissionEngine` 未接线实现按「先摘 barrel 出口、再删实现」两步删除。
+- ✅ **自主执行接线**：项目级开关改由 `project_disabled` 门控（原为死枚举）+ 自主会话补齐项目归属；新建项目运行期接入自主执行、删除项目注销其运行时；长程任务 cwd 自愈 + 预算放宽可调。
+- ✅ **可观测补齐**：终止原因随流下发（当轮即可见）并在历史回放补回 `terminationReason`；自主执行运行态前端可见；`SELF_VERIFY_PATTERN` 开关桥接到用户设置（不再是死开关）。
+- ✅ **网络与调度**：工具出站继承系统代理、搜索通道改为可静态解析；一次性 cron 作业完成后清空 `next_run_at` 并跳过终止态追赶（修复过期提醒被反复标记完成）；日历提醒时间已过不再生成 cron 任务。
+- ✅ **结构与门禁**：`workspace` 的 `office` 子命名空间拆出以满足 R04-001 行数上限；回环/通配 host 归一化到 `constants/network.ts` 真源并纳入 `lint:endpoints` 白名单；`sameNameConstsB2` 断言随 P2-3 真源迁移。
+- ✅ **验证**：全量 CI 绿（typecheck + 55 个门禁 + 10255 用例 0 fail），`version:check` 全一致。
+
 #### v0.5.24 (2026-11-02)  长程任务正确性：PDCA 终态、重试链路与工单归属
 
 - ✅ **PDCA 不再「流程走完 = 目标达成」**：新增 `[STEP_STATUS: step_done|step_blocked|step_partial]` 结构化步骤结论（缺失/非法 ⇒ `unverified`），受阻或部分完成即记失败且不重试；连续 2 步受阻熔断剩余步；计划终态与 `PdcaLauncher` 播报均由步骤事实派生（只有全部达成且零失败/零取消才说「执行完成」）。

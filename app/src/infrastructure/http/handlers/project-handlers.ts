@@ -7,7 +7,7 @@
 
 import type http from 'http';
 import { existsSync, statSync } from 'fs';
-import { isAbsolute } from 'path';
+import { isAbsolute, resolve } from 'path';
 // C1（2026-09-30 D-116，`workspace` 域 P4）：项目存储改经服务层端口
 // （原具名/相对导入**不在此处复写** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
@@ -206,6 +206,201 @@ export async function handleUpdateProject(
     });
     span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
     json(res, 500, { error: '更新项目失败' });
+  } finally {
+    span.end();
+  }
+}
+
+// ─── POST /v1/projects/:projectId/relocate — 重新定位项目目录 ───
+//
+// 口径：`dev_docs/20261103/工具cwd无效根因与修复方案-20261103.md §九`
+// - **只改指向**：不复制 / 不移动 / 不删除任何文件；
+// - 目标必须**已存在且是目录**（不自动建目录，避免"指针修好、产物不在"的假修复）；
+// - 与会话联动：把 `metadata.workspacePath === 旧路径` 的同项目会话改到新路径；
+// - 刻意**不**放宽 PATCH 的字段白名单（那里排除 sandboxPath 是 BUG-4 防注入）。
+
+/** 路径等价比较（Windows 大小写不敏感） */
+function samePath(a: string, b: string): boolean {
+  const norm = (p: string): string =>
+    process.platform === 'win32' ? resolve(p).toLowerCase() : resolve(p);
+  return norm(a) === norm(b);
+}
+
+/** 会话跟随所需的最小 API 面（便于单测注入替身；生产用 `getCoreAPI()`） */
+export interface RelocateSessionApi {
+  listSessions: () => Promise<
+    Array<{ id: string; metadata?: Record<string, unknown> }>
+  >;
+  updateSessionMeta: (
+    sessionId: string,
+    meta: { workspacePath?: string }
+  ) => Promise<void>;
+}
+
+/**
+ * 会话跟随：把该项目的、工作区仍指向**旧路径**的会话改写到新路径。
+ *
+ * 注意：`updateSessionMeta` 内部对**持久化失败**是 `handleError` 后吞掉（不抛），
+ * 因此 `failed` 只统计"调用本身抛错"的硬失败；落盘错误以会话层日志为准。
+ */
+export async function followSessionsToRelocatedPath(
+  projectId: string,
+  from: string,
+  to: string,
+  api: RelocateSessionApi = getCoreAPI() as unknown as RelocateSessionApi
+): Promise<{ updated: number; failed: number; warnings: string[] }> {
+  const sessions = await api.listSessions();
+  const targets = sessions.filter((s) => {
+    const metadata = s.metadata as Record<string, unknown> | undefined;
+    const workspacePath = metadata?.workspacePath;
+    return (
+      metadata?.projectId === projectId &&
+      typeof workspacePath === 'string' &&
+      isAbsolute(workspacePath) &&
+      samePath(workspacePath, from)
+    );
+  });
+
+  let updated = 0;
+  const warnings: string[] = [];
+  for (const session of targets) {
+    try {
+      await api.updateSessionMeta(session.id, { workspacePath: to });
+      updated += 1;
+    } catch (e) {
+      warnings.push(`${session.id}: ${String(e)}`);
+    }
+  }
+  return { updated, failed: warnings.length, warnings };
+}
+
+export async function handleRelocateProject(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  projectId: string
+): Promise<void> {
+  const otel = getOTelTracing();
+  const span = otel.startSpan('project:handlers:relocateProject');
+  span.setAttribute('projectId', projectId);
+  try {
+    const body = await readBody(req);
+    const raw = JSON.parse(body || '{}') as { sandboxPath?: unknown };
+    const requested = raw.sandboxPath;
+
+    // ── 1. 入参校验（写盘前，任一不过即 400）──
+    if (typeof requested !== 'string' || !requested.trim()) {
+      json(res, 400, { error: 'sandboxPath 不能为空' });
+      return;
+    }
+    const next = resolve(requested.trim());
+    if (!isAbsolute(requested.trim())) {
+      json(res, 400, { error: 'sandboxPath 必须是绝对路径' });
+      return;
+    }
+
+    const store = await getProjectStore();
+    const existing = store.get(projectId);
+    if (!existing) {
+      span.setStatus({ code: SpanStatusCode.OK });
+      json(res, 404, { error: '项目不存在' });
+      return;
+    }
+
+    // ── 2. 多租户边界：目标必须落在该身份的工作区根内（本地身份不限制）──
+    {
+      const { getRequestPrincipal, isLocalPrincipal } =
+        await import('@openliri/kernel/identity/requestScope');
+      const principal = getRequestPrincipal();
+      if (!isLocalPrincipal(principal)) {
+        const { resolveScopedWorkspaceRoot, isPathWithin } =
+          await import('@openliri/infra/environment');
+        const root = resolveScopedWorkspaceRoot(principal);
+        if (!isPathWithin(root, next)) {
+          span.setStatus({ code: SpanStatusCode.OK });
+          json(res, 403, {
+            error: `目标目录必须位于当前身份的工作区根内: ${root}`,
+          });
+          return;
+        }
+      }
+    }
+
+    // ── 3. 旧路径是否仍可用（供界面区分"修复位置"与"更换位置"）──
+    const previousPath = existing.sandboxPath ?? '';
+    const oldPathValid =
+      previousPath !== '' &&
+      existsSync(previousPath) &&
+      statSync(previousPath).isDirectory();
+
+    // ── 4. 改指向（store 内部再校验一次：存在 / 是目录 / 幂等）──
+    let result;
+    try {
+      result = store.relocate(projectId, next);
+    } catch (e) {
+      span.setStatus({ code: SpanStatusCode.OK });
+      json(res, 400, { error: e instanceof Error ? e.message : String(e) });
+      return;
+    }
+    if (!result) {
+      span.setStatus({ code: SpanStatusCode.OK });
+      json(res, 404, { error: '项目不存在' });
+      return;
+    }
+
+    if (result.noop) {
+      span.setStatus({ code: SpanStatusCode.OK });
+      json(res, 200, {
+        success: true,
+        noop: true,
+        sandboxPath: result.sandboxPath,
+        previousPath: result.previousPath,
+        oldPathValid,
+        sessionsUpdated: 0,
+        sessionsFailed: 0,
+        warnings: [],
+      });
+      return;
+    }
+
+    // ── 5. 会话跟随（部分失败不回滚元数据，见 §9.6）──
+    // 旧路径为空（项目此前没有 sandboxPath）时**没有可跟随的会话**：
+    // 空串经 `resolve('')` 会等于 cwd，若不跳过可能误改到恰好指向 cwd 的会话。
+    const follow =
+      result.previousPath === ''
+        ? { updated: 0, failed: 0, warnings: [] as string[] }
+        : await followSessionsToRelocatedPath(
+            projectId,
+            result.previousPath,
+            result.sandboxPath
+          );
+
+    logger.info('project_relocated', {
+      projectId,
+      from: result.previousPath,
+      to: result.sandboxPath,
+      oldPathValid,
+      sessionsUpdated: follow.updated,
+      sessionsFailed: follow.failed,
+    });
+
+    span.setStatus({ code: SpanStatusCode.OK });
+    json(res, 200, {
+      success: true,
+      noop: false,
+      sandboxPath: result.sandboxPath,
+      previousPath: result.previousPath,
+      oldPathValid,
+      sessionsUpdated: follow.updated,
+      sessionsFailed: follow.failed,
+      warnings: follow.warnings,
+    });
+  } catch (e) {
+    await handleError(e, {
+      module: 'project:handlers',
+      action: 'relocateProject',
+    });
+    span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
+    json(res, 500, { error: '重新定位失败' });
   } finally {
     span.end();
   }

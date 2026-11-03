@@ -120,6 +120,15 @@ const BUILTIN_TEMPLATES: WorkItemTemplate[] = [
 ];
 
 /**
+ * 「重新定位」结果（§九口径）：`noop` = 目标与当前相同（幂等，未写盘）。
+ */
+export interface RelocateProjectResult {
+  project: Project;
+  previousPath: string;
+  noop: boolean;
+}
+
+/**
  * 项目文件存储
  * 每个项目存储为 .liri/projects/<id>.json
  */
@@ -419,6 +428,48 @@ export class ProjectStore {
     } finally {
       span.end();
     }
+  }
+
+  /**
+   * 「重新定位」：**只改项目指向的目录**，不复制、不移动、不删除任何文件。
+   *
+   * 口径见 `dev_docs/20261103/工具cwd无效根因与修复方案-20261103.md §九`：
+   * - 目标必须**已存在且是目录**（不自动建目录 —— 否则是"指针修好了、产物不在"的假修复）；
+   * - 与当前路径相同 ⇒ `noop`（幂等，不写盘、不动会话）；
+   * - 刻意**不**复用 `update()`：那条链路是字段白名单（BUG-4 防注入），路径必须走独立入口。
+   *
+   * @throws 目标不合法（非绝对路径 / 不存在 / 不是目录）—— 由调用方转 400
+   */
+  relocate(id: string, nextSandboxPath: string): RelocateProjectResult | null {
+    const project = this.get(id);
+    if (!project) return null;
+
+    if (!isAbsolute(nextSandboxPath)) {
+      throw new Error(
+        `项目 sandboxPath 必须是绝对路径，收到: ${JSON.stringify(nextSandboxPath)}`
+      );
+    }
+    const previousPath = project.sandboxPath ?? '';
+    if (nextSandboxPath === previousPath) {
+      return { project, previousPath, noop: true };
+    }
+    if (!existsSync(nextSandboxPath)) {
+      throw new Error(
+        `目标目录不存在: ${nextSandboxPath}（请先把目录搬好/恢复到该位置；本操作不会创建或复制文件）`
+      );
+    }
+    if (!statSync(nextSandboxPath).isDirectory()) {
+      throw new Error(`目标路径不是目录: ${nextSandboxPath}`);
+    }
+
+    const merged: Project = {
+      ...project,
+      sandboxPath: nextSandboxPath,
+      updatedAt: new Date().toISOString(),
+    };
+    // save() 会幂等重写 project-context.md（含「**文件夹**: <path>」）
+    this.save(merged);
+    return { project: merged, previousPath, noop: false };
   }
 
   /**

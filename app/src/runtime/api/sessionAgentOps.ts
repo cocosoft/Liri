@@ -763,6 +763,8 @@ export class SessionAgentOps {
       toolProfile?: string[];
       /** PR-3（2026-10-23）：会话级审批模式（`auto-local` = 只读 + 工作区内本地写自动执行） */
       approvalMode?: 'ask' | 'auto-local';
+      /** §九（2026-11-03）：项目重新定位时同步会话工作区（绝对路径） */
+      workspacePath?: string;
     }
   ): Promise<void> {
     return this.deps.getSessionTitling().updateSessionMeta(sessionId, meta);

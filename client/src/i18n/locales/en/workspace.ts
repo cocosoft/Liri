@@ -1735,6 +1735,19 @@ const enWorkspace = {
     archived: "Archived",
     moreActions: "More actions",
     rename: "Rename",
+    // §9 (2026-11-03): project relocation (repoint only, no file moves)
+    relocate: "Relocate…",
+    relocateTitle: "Relocate project folder",
+    relocateDesc:
+      "Only changes which folder the project points to. No files are copied, moved or deleted. Move or restore the folder yourself first; the target must already exist.",
+    relocateCurrent: "Current path: ",
+    relocateUnset: "(not set)",
+    relocatePlaceholder: "Enter an existing absolute path, e.g. E:\\Projects\\my-project",
+    relocatePathRequired: "Please enter the new folder path",
+    relocateSave: "Relocate",
+    relocating: "Working…",
+    relocatePartial:
+      "Project relocated, but {{count}} session(s) could not be updated (see server logs)",
     markComplete: "Mark complete",
     uncomplete: "Unmark complete",
     pin: "📌 Pin",

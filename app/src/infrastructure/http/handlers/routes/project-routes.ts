@@ -43,6 +43,7 @@ import {
   handleListProjects,
   handleMigrateFiles,
   handleMigrateProjects,
+  handleRelocateProject,
   handleUpdateProject,
 } from '../project-handlers';
 import {
@@ -184,6 +185,15 @@ export async function dispatchProjectRoutes(
   }
   if (method === 'POST' && url === '/v1/projects/migrate-files') {
     await handleMigrateFiles(req, res);
+    return true;
+  }
+
+  // §九（2026-11-03）：项目「重新定位」—— 只改指向，不搬文件（专用端点；
+  // 刻意不放宽 PATCH 的字段白名单，见 project-handlers 注释）
+  if (method === 'POST' && url.match(/^\/v1\/projects\/(.+)\/relocate$/)) {
+    const match = url.match(/^\/v1\/projects\/(.+)\/relocate$/)!;
+    if (!isSafeProjectId(match[1])) return rejectBadProjectId(res);
+    await handleRelocateProject(req, res, match[1]);
     return true;
   }
 

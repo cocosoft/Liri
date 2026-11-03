@@ -1541,6 +1541,16 @@ export class DomainSnapshotOps {
           update: (projectId: string, updates: Record<string, unknown>) =>
             store.update(projectId, updates as never),
           delete: (projectId: string) => store.delete(projectId),
+          // §九（2026-11-03）：只改指向，不搬文件；最小投影供 handler 用
+          relocate: (projectId: string, sandboxPath: string) => {
+            const result = store.relocate(projectId, sandboxPath);
+            if (!result) return null;
+            return {
+              sandboxPath: result.project.sandboxPath ?? sandboxPath,
+              previousPath: result.previousPath,
+              noop: result.noop,
+            };
+          },
         };
       },
 

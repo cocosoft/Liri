@@ -55,6 +55,14 @@ export interface ProjectStorePort {
   create(data: Record<string, unknown>): { id: string };
   update(projectId: string, updates: Record<string, unknown>): unknown;
   delete(projectId: string): boolean;
+  /**
+   * §九（2026-11-03）：项目「重新定位」—— 只改指向，不搬文件。
+   * 目标必须已存在且是目录（由 `ProjectStore.relocate` 校验）；`null` = 项目不存在。
+   */
+  relocate(
+    projectId: string,
+    sandboxPath: string
+  ): { sandboxPath: string; previousPath: string; noop: boolean } | null;
 }
 
 /** 项目条目类型（逐字镜像 `ProjectItemStore` 的 `ItemKind`） */

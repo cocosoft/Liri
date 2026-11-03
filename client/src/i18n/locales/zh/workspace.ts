@@ -1699,6 +1699,18 @@ const zhWorkspace = {
     archived: "归档",
     moreActions: "更多操作",
     rename: "重命名",
+    // §九（2026-11-03）：项目「重新定位」（只改指向，不搬文件）
+    relocate: "重新定位…",
+    relocateTitle: "重新定位项目目录",
+    relocateDesc:
+      "只改变项目指向的目录，不会复制、移动或删除任何文件。请先把目录搬好或恢复到目标位置；目标必须已存在。",
+    relocateCurrent: "当前路径：",
+    relocateUnset: "（未设置）",
+    relocatePlaceholder: "输入已存在的绝对路径，例如 E:\\Projects\\my-project",
+    relocatePathRequired: "请输入新的目录路径",
+    relocateSave: "重新定位",
+    relocating: "处理中…",
+    relocatePartial: "项目已重新定位，但有 {{count}} 个会话未能同步更新工作区（详见服务端日志）",
     markComplete: "标记完成",
     uncomplete: "取消完成",
     pin: "📌 置顶",

@@ -869,6 +869,13 @@ export interface CoreAPI {
        * （受 `FEATURE_SESSION_AUTO_LOCAL` 开关约束；缺省 `ask`）。
        */
       approvalMode?: 'ask' | 'auto-local';
+      /**
+       * §九（2026-11-03）：会话工作区（绝对路径）。
+       *
+       * 仅用于"项目重新定位"时把 `metadata.workspacePath === 旧路径` 的会话**同步跟随**到新路径；
+       * 常规客户端切换工作区仍走请求体 `workspace_path`（见 `resolveRequestWorkspaceUpdate`）。
+       */
+      workspacePath?: string;
     }
   ): Promise<void>;
 

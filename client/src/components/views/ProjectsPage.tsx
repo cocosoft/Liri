@@ -8,7 +8,7 @@
  *  │           │                                     │ 生成操作按钮      │
  *  └───────────┴─────────────────────────────────────┴───────────────────┘
  */
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { sessionBelongsToProject } from "@/stores/selectors";
@@ -22,7 +22,11 @@ import {
   triggerEngineHook,
   deleteProject,
 } from "@/services/projectArtifactService";
-import { listProjects, type ProjectListItem } from "@/services/projectService";
+import {
+  listProjects,
+  relocateProject,
+  type ProjectListItem,
+} from "@/services/projectService";
 import CreateProjectModal from "@/components/Workspace/CreateProjectModal";
 import ChatArea from "@/components/ChatArea/ChatArea";
 import SessionHistorySidebar from "@/components/ChatArea/SessionHistorySidebar";
@@ -242,6 +246,14 @@ export default function ProjectsPage() {
     routeProjectId ?? openParam ?? null,
   );
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  // §九（2026-11-03）：项目「重新定位」—— 只改指向，不搬文件
+  const [relocateTarget, setRelocateTarget] = useState<{
+    id: string;
+    oldPath: string;
+  } | null>(null);
+  const [relocatePath, setRelocatePath] = useState("");
+  const [relocating, setRelocating] = useState(false);
+  const [relocateError, setRelocateError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [showSmartMenu, setShowSmartMenu] = useState(false);
   const [rightPanelTab, setRightPanelTab] = useState<string>("materials");
@@ -325,22 +337,21 @@ export default function ProjectsPage() {
   // F-17（2026-10-28）：项目列表的事实源是 `GET /v1/projects`（`<data>/projects`）。
   // 旧 `/v1/workspaces` 扫描的 `<data>/workspaces` 在本机不存在 ⇒ 恒返回 []，
   // 只靠它 + localStorage 的 worktrees 会导致「后端项目不可见、历史会话不可达」。
-  useEffect(() => {
-    let cancelled = false;
-    listProjects()
-      .then((list) => {
-        if (!cancelled) setBackendProjects(list);
-      })
-      .catch((e) => {
-        handleClientError(e, {
-          module: "views:ProjectsPage",
-          action: "list_projects",
-        });
+  const refreshBackendProjects = useCallback(async () => {
+    try {
+      const list = await listProjects();
+      setBackendProjects(list);
+    } catch (e) {
+      handleClientError(e, {
+        module: "views:ProjectsPage",
+        action: "list_projects",
       });
-    return () => {
-      cancelled = true;
-    };
+    }
   }, []);
+
+  useEffect(() => {
+    void refreshBackendProjects();
+  }, [refreshBackendProjects]);
 
   // 将后端 workspaceList 中尚未进入 worktrees 的项目补全（create_project 工具创建的项目在此可见）
   useEffect(() => {
@@ -822,6 +833,42 @@ export default function ProjectsPage() {
     }
   };
 
+  /* ---- 项目重新定位（§九：只改指向，不搬文件） ---- */
+  const openRelocate = (projectId: string, oldPath: string) => {
+    setRelocateTarget({ id: projectId, oldPath });
+    setRelocatePath(oldPath);
+    setRelocateError(null);
+    setContextMenuId(null);
+  };
+
+  const submitRelocate = async () => {
+    if (!relocateTarget) return;
+    const next = relocatePath.trim();
+    if (!next) {
+      setRelocateError(t("projects.relocatePathRequired"));
+      return;
+    }
+    setRelocating(true);
+    setRelocateError(null);
+    try {
+      const result = await relocateProject(relocateTarget.id, next);
+      // 本地 worktree 路径与后端保持一致（工具默认 cwd 读的就是它）
+      updateWorkspace(relocateTarget.id, { path: result.sandboxPath });
+      setRelocateTarget(null);
+      void refreshBackendProjects();
+      if (result.sessionsFailed > 0) {
+        // §9.6：元数据已改、会话部分失败 —— 明确告知而不静默
+        alert(
+          t("projects.relocatePartial", { count: result.sessionsFailed }),
+        );
+      }
+    } catch (e) {
+      setRelocateError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRelocating(false);
+    }
+  };
+
   /* ---- 删除项目 ---- */
   const handleDelete = async () => {
     if (!selectedProjectId) return;
@@ -1036,6 +1083,19 @@ export default function ProjectsPage() {
                 className="w-full text-left px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
               >
                 {t("projects.rename")}
+              </button>
+              <button
+                onClick={() =>
+                  openRelocate(
+                    p.id,
+                    backendProjects.find((b) => b.id === p.id)?.sandboxPath ??
+                      p.path ??
+                      "",
+                  )
+                }
+                className="w-full text-left px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                {t("projects.relocate")}
               </button>
               <button
                 onClick={handleComplete}
@@ -1543,6 +1603,64 @@ export default function ProjectsPage() {
       {/* ---------- 新建项目弹窗 ---------- */}
       {showCreate && (
         <CreateProjectModal onClose={() => setShowCreate(false)} />
+      )}
+
+      {/* ---------- 重新定位弹窗（§九：只改指向，不搬文件） ---------- */}
+      {relocateTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !relocating) {
+              setRelocateTarget(null);
+            }
+          }}
+        >
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-gray-100">
+              {t("projects.relocateTitle")}
+            </h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-3 leading-relaxed">
+              {t("projects.relocateDesc")}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+              {t("projects.relocateCurrent")}{" "}
+              <code className="break-all">
+                {relocateTarget.oldPath || t("projects.relocateUnset")}
+              </code>
+            </p>
+            <input
+              type="text"
+              value={relocatePath}
+              onChange={(e) => setRelocatePath(e.target.value)}
+              placeholder={t("projects.relocatePlaceholder")}
+              className="w-full px-3 py-2 text-sm border rounded bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200"
+              autoFocus
+            />
+            {relocateError && (
+              <p className="text-xs text-red-500 mt-2 break-all">
+                {relocateError}
+              </p>
+            )}
+            <div className="flex justify-end gap-2 mt-5">
+              <button
+                onClick={() => setRelocateTarget(null)}
+                disabled={relocating}
+                className="px-4 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium disabled:opacity-50"
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                onClick={() => void submitRelocate()}
+                disabled={relocating}
+                className="px-4 py-2 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors font-medium"
+              >
+                {relocating
+                  ? t("projects.relocating")
+                  : t("projects.relocateSave")}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ---------- 删除确认弹窗 ---------- */}

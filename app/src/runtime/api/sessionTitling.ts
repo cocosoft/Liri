@@ -382,6 +382,8 @@ export class SessionTitling {
       toolProfile?: string[];
       /** PR-3（2026-10-23）：会话级审批模式（`auto-local` = 只读 + 工作区内本地写自动执行） */
       approvalMode?: 'ask' | 'auto-local';
+      /** §九（2026-11-03）：项目重新定位时同步会话工作区（绝对路径） */
+      workspacePath?: string;
     }
   ): Promise<void> {
     // M1-T1.3（2026-08-31）：pinned 仅改列表分组标记，**不 touch updatedAt**——
@@ -421,6 +423,10 @@ export class SessionTitling {
         session.metadata.toolProfile = meta.toolProfile;
       if (meta.approvalMode !== undefined)
         session.metadata.approvalMode = meta.approvalMode;
+      // §九（2026-11-03）：项目重新定位 ⇒ 会话跟随新路径（**不**计入 hasMetaField，
+      // 避免一次批量修复把几十个会话的 updatedAt 全部顶到列表最前）
+      if (meta.workspacePath !== undefined)
+        session.metadata.workspacePath = meta.workspacePath;
       if (shouldTouchUpdatedAt) session.updatedAt = new Date();
     }
 
@@ -446,6 +452,9 @@ export class SessionTitling {
             storedSession.metadata.toolProfile = meta.toolProfile;
           if (meta.approvalMode !== undefined)
             storedSession.metadata.approvalMode = meta.approvalMode;
+          // §九（2026-11-03）：与内存同口径（项目重新定位 ⇒ 会话工作区跟随）
+          if (meta.workspacePath !== undefined)
+            storedSession.metadata.workspacePath = meta.workspacePath;
           await gateway.updateSession(storedSession);
         }
       }

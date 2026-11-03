@@ -4,9 +4,11 @@
  * GET  /v1/cockpit
  * GET  /v1/cockpit/:id/history
  * POST /v1/cockpit/:id/takeover
+ * GET  /v1/autonomy/status          （2026-11-03 P1：自主执行运行态）
  */
 import type { RouteDispatchArgs } from './route-dispatch-types';
 import {
+  handleGetAutonomyStatus,
   handleGetCockpit,
   handleGetCockpitHistory,
   handleTakeoverCockpitItem,
@@ -19,6 +21,12 @@ export async function dispatchCockpitRoutes(
 
   if (method === 'GET' && url === '/v1/cockpit') {
     await handleGetCockpit(res);
+    return true;
+  }
+
+  // 2026-11-03 P1：自主执行运行态（与驾驶舱同属"运行状况"观测面）
+  if (method === 'GET' && url === '/v1/autonomy/status') {
+    await handleGetAutonomyStatus(res);
     return true;
   }
 

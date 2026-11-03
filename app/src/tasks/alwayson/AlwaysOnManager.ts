@@ -102,6 +102,22 @@ export class AlwaysOnManager {
     return this.runtimes.size;
   }
 
+  /**
+   * 2026-11-03 P1：全部已注册项目的运行态快照（`/v1/autonomy/status` 的唯一数据源）。
+   *
+   * 只读、无副作用；项目名/路径由调用方（entry）补全（manager 不持有项目元数据）。
+   */
+  runtimeSnapshots(): Array<{
+    projectId: string;
+    running: boolean;
+    gates: ReturnType<AlwaysOnRuntime['snapshot']>['gates'];
+  }> {
+    return [...this.runtimes.entries()].map(([projectId, runtime]) => {
+      const snap = runtime.snapshot();
+      return { projectId, running: snap.running, gates: snap.gates };
+    });
+  }
+
   /** 是否启用 */
   isEnabled(): boolean {
     return this.enabled;

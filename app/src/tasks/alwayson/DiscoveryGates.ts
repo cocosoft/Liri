@@ -74,8 +74,54 @@ export class DiscoveryGates {
     this.projectPath = p;
   }
 
-  /** 完整的 9 门控检查 */
+  /** 完整门控检查 */
   evaluate(): GateResult {
+    const result = this.evaluateRules();
+    // 2026-11-03 P1：记录最近一次门控结论（前端"为什么没在跑"的唯一来源）
+    this.lastGate = {
+      passed: result.passed,
+      reason: result.reason,
+      detail: result.detail,
+      at: Date.now(),
+    };
+    return result;
+  }
+
+  /** 最近一次门控结论（未评估过 ⇒ `null`） */
+  private lastGate: {
+    passed: boolean;
+    reason?: GateReason;
+    detail?: string;
+    at: number;
+  } | null = null;
+
+  /** 2026-11-03 P1：只读快照（供 `/v1/autonomy/status`；不暴露内部可变状态） */
+  snapshot(): {
+    enabled: boolean;
+    projectPaused: boolean;
+    lastRunAt: number;
+    todayCount: number;
+    dailyBudget: number;
+    cooldownMinutes: number;
+    lastGate: {
+      passed: boolean;
+      reason?: GateReason;
+      detail?: string;
+      at: number;
+    } | null;
+  } {
+    return {
+      enabled: this.enabled,
+      projectPaused: this.projectPaused,
+      lastRunAt: this.lastRun,
+      todayCount: this.todayCount,
+      dailyBudget: this.config.dailyBudget,
+      cooldownMinutes: this.config.cooldownMinutes,
+      lastGate: this.lastGate,
+    };
+  }
+
+  private evaluateRules(): GateResult {
     // 1. 全局禁用
     if (!this.enabled)
       return this.fail('disabled', 'AlwaysOn is globally disabled');

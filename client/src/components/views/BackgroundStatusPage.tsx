@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import StateMachinePanel from "../common/StateMachinePanel";
 import WorkItemCockpit from "./background/WorkItemCockpit";
+// 2026-11-03 P1：自主执行运行态（谁在跑 / 为什么没跑 / 下次何时）
+import AutonomyStatusPanel from "./background/AutonomyStatusPanel";
 import {
   backgroundStatusService,
   type BackgroundStatus,
@@ -119,6 +121,11 @@ function BackgroundStatusPage() {
             ))}
           </div>
         )}
+
+        {/* 2026-11-03 P1：自主执行运行态（与驾驶舱同页，跟随页面刷新令牌） */}
+        <div className="mb-6">
+          <AutonomyStatusPanel refreshToken={cockpitRefreshToken} />
+        </div>
 
         {/* P39-b-2：工作项驾驶舱（嵌入本页，不新增页面） */}
         <div className="mb-6">

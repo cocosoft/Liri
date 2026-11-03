@@ -33,6 +33,8 @@ import {
   resolveScopedDataDir,
 } from '@openliri/infra/environment';
 import { feature, globalEventBus } from '@openliri/kernel';
+// 2026-11-03 P1：把自主执行运行态提供给 service 层 HTTP handler（DI 端口，避免反向依赖）
+import { dependencyRegistry } from '@openliri/kernel/DependencyRegistry.js';
 import { getLogger } from '@openliri/infra/monitoring';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { WorkItemStore, createProjectStore } from '@modules/workspace';
@@ -106,6 +108,90 @@ let activeManager: AlwaysOnManager | null = null;
 
 /** 配置变更订阅是否已挂（`startAlwaysOn` 可能被多次调用 ⇒ 只挂一次） */
 let settingsSubscribed = false;
+
+/** 2026-11-03 P1：已注册项目的元数据（`getAlwaysOnStatus` 用它补全名字/路径） */
+const projectMeta = new Map<string, { name: string; path: string }>();
+
+/** DI 端口键（`/v1/autonomy/status` 由 handler 侧注入；未提供 ⇒ 前端显示"未启动"） */
+const AUTONOMY_STATUS_PORT_KEY = 'autonomy:status';
+let statusPortProvided = false;
+
+/** 2026-11-03 P1：单个项目的自主执行运行态（前端「运行状况」直接渲染） */
+export interface AlwaysOnProjectStatus {
+  projectId: string;
+  name: string;
+  path: string;
+  /** 用户开关（`autonomy.projects`，缺省开） */
+  enabled: boolean;
+  /** 是否已在运行时注册（项目路径存在且已注册） */
+  registered: boolean;
+  /** 调度是否在跑（tick 定时器） */
+  running: boolean;
+  todayCount: number;
+  dailyBudget: number;
+  lastRunAt: number | null;
+  /** `lastRunAt + cooldown`（粗略的"下次可跑"时刻） */
+  nextEligibleAt: number | null;
+  /** 最近一次门控结论（"为什么没在跑"） */
+  lastGate: {
+    passed: boolean;
+    reason?: string;
+    detail?: string;
+    at: number;
+  } | null;
+}
+
+/**
+ * 2026-11-03 P1：自主执行运行态快照（`/v1/autonomy/status` 的唯一实现）。
+ *
+ * 只读：不触发 tick、不改门控状态；未启动时返回 `running:false` + 空项目表。
+ */
+export function getAlwaysOnStatus(): {
+  enabled: boolean;
+  running: boolean;
+  projects: AlwaysOnProjectStatus[];
+} {
+  const limits = readAutonomyLimits();
+  const snapshots = activeManager?.runtimeSnapshots() ?? [];
+  const byId = new Map(snapshots.map((s) => [s.projectId, s]));
+
+  const projects = [...projectMeta.entries()].map(([projectId, meta]) => {
+    const snap = byId.get(projectId);
+    const gates = snap?.gates;
+    const lastRunAt = gates && gates.lastRunAt > 0 ? gates.lastRunAt : null;
+    return {
+      projectId,
+      name: meta.name,
+      path: meta.path,
+      enabled: isProjectAutonomyEnabled(projectId),
+      registered: !!snap,
+      running: !!snap?.running,
+      todayCount: gates?.todayCount ?? 0,
+      dailyBudget: gates?.dailyBudget ?? limits.dailyBudget,
+      lastRunAt,
+      nextEligibleAt:
+        lastRunAt !== null && gates
+          ? lastRunAt + gates.cooldownMinutes * 60_000
+          : null,
+      lastGate: gates?.lastGate ?? null,
+    };
+  });
+
+  return {
+    enabled: resolveAlwaysOnEnabled(),
+    running: !!active?.started,
+    projects,
+  };
+}
+
+/** 注册 DI 端口（幂等；即使 AlwaysOn 关闭也注册，前端可据 `enabled:false` 显示） */
+function ensureStatusPort(): void {
+  if (statusPortProvided) return;
+  statusPortProvided = true;
+  dependencyRegistry.provide(AUTONOMY_STATUS_PORT_KEY, () =>
+    getAlwaysOnStatus()
+  );
+}
 
 /**
  * 读取用户设置里的 `alwaysOn`。
@@ -265,6 +351,7 @@ async function collectProjects(
  */
 export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
   subscribeSettingsChanges();
+  ensureStatusPort();
   if (!resolveAlwaysOnEnabled()) {
     logger.info('AlwaysOn 未启用（用户设置关闭 或 FEATURE_ALWAYSON=false）');
     return { registered: [], started: false, teardown: () => {} };
@@ -274,6 +361,11 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
   const dataDir = resolveDataDir();
   const projectStore = createProjectStore(dataDir, new WorkItemStore(dataDir));
   const projects = await collectProjects(projectStore);
+
+  // 2026-11-03 P1：登记项目元数据（`/v1/autonomy/status` 用它补全名字/路径）
+  for (const project of projects) {
+    projectMeta.set(project.id, { name: project.name, path: project.path });
+  }
 
   // P4（2026-10-20）：回收上次进程崩溃/异常退出残留的 `alwayson-*` worktree。
   // 这类是**已注册**的 worktree，`pruneOrphanWorktrees()` 不会清 ⇒ 按命名空间单独回收。

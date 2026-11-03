@@ -216,6 +216,17 @@ export class AlwaysOnRuntime {
     this.gates.setBusy(busy);
   }
 
+  /** 2026-11-03 P1：只读运行态快照（供 `/v1/autonomy/status`，不做副作用） */
+  snapshot(): {
+    running: boolean;
+    gates: ReturnType<DiscoveryGates['snapshot']>;
+  } {
+    return {
+      running: this.scheduler.isRunning(),
+      gates: this.gates.snapshot(),
+    };
+  }
+
   start(): void {
     this.scheduler.start();
     this.signalWatcher.start();

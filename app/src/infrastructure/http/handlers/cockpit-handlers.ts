@@ -12,6 +12,8 @@ import type http from 'http';
 import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@openliri/infra/monitoring';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+// 2026-11-03 P1：自主执行运行态由 entry 经 DI 端口提供（service 不得反向依赖 entry）
+import { dependencyRegistry } from '@openliri/kernel/DependencyRegistry.js';
 
 const logger = getLogger('http:cockpit');
 
@@ -33,6 +35,43 @@ export async function handleGetCockpit(
     sendJSON(res, 200, await taskOps.getCockpitSnapshot());
   } catch (e) {
     await handleError(e, { module: 'http:cockpit', action: 'snapshot' });
+    if (!res.headersSent)
+      sendJSON(res, 500, { error: { message: 'internal_error' } });
+  }
+}
+
+/**
+ * GET /v1/autonomy/status —— 自主执行运行态（2026-11-03 P1）
+ *
+ * 数据由 entry 侧 `getAlwaysOnStatus()` 通过 DI 端口提供（`autonomy:status`）；
+ * 未注册（AlwaysOn 未接线 / 测试环境）⇒ `available:false`，前端据此显示"未启动"而不是空表。
+ */
+export async function handleGetAutonomyStatus(
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    // 端口键是跨层契约（写入端：`entrypoints/alwaysOnEntry.ts`），此处按字面量消费，
+    // 与 `model:${taskType}` / `channel:<name>:status` 的既有约定一致。
+    const provider =
+      dependencyRegistry.inject<() => unknown>('autonomy:status');
+    if (typeof provider !== 'function') {
+      sendJSON(res, 200, {
+        available: false,
+        enabled: false,
+        running: false,
+        projects: [],
+        generatedAt: Date.now(),
+      });
+      return;
+    }
+    const snapshot = provider() as Record<string, unknown>;
+    sendJSON(res, 200, {
+      available: true,
+      ...snapshot,
+      generatedAt: Date.now(),
+    });
+  } catch (e) {
+    await handleError(e, { module: 'http:cockpit', action: 'autonomyStatus' });
     if (!res.headersSent)
       sendJSON(res, 500, { error: { message: 'internal_error' } });
   }

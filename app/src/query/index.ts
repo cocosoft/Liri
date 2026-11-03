@@ -193,6 +193,9 @@ export type {
   PatternCatalogEntry,
   PatternCatalogSnapshot,
 } from './patternAssembler.js';
+// 2026-11-03：用户可配门控的唯一解析入口（env > 用户设置 > feature()）
+export { resolveFeatureGate } from './featureGate.js';
+export type { UserFeatureReader } from './featureGate.js';
 export {
   CompetitiveStrategyOrchestrator,
   // A7（2026-10-01）：研究编排装配点——生产代码中该编排器只在此函数内构造

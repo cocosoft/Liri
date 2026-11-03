@@ -25,8 +25,11 @@ import { join } from 'node:path';
 
 import { getLogger } from '@openliri/infra/monitoring';
 import { patternFeatureFlag, selectPattern } from '@modules/query/patterns';
-import { feature as coreFeature } from '@openliri/kernel';
-import { instantiatePattern, verifierConfigForRecipe } from '@modules/query';
+import {
+  instantiatePattern,
+  resolveFeatureGate,
+  verifierConfigForRecipe,
+} from '@modules/query';
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { LiriEvent, LiriEventData } from '@modules/session/types/events';
 
@@ -262,8 +265,10 @@ export class PdcaLaunchCoordinator {
     const patternFeature = researchPattern
       ? patternFeatureFlag(researchPattern.name)
       : undefined;
+    // 2026-11-03：门控读用户设置（env 优先）—— `coreFeature` 只看 env/变体/默认，
+    // 设置页写入的 `features.selfVerifyPattern` 会被忽略（死开关）。
     const patternGateEnabled = patternFeature
-      ? coreFeature(patternFeature)
+      ? resolveFeatureGate(patternFeature)
       : true;
     let verifyApplied = false;
     if (

@@ -252,5 +252,14 @@ PATTERN_SELECTION_RULES = [
 `patternCatalog.test.ts`（④/⑥ 实况与门控）· `PatternSelector.test.ts`（规则顺序 / 可达 / 门控）·
 `taskIntent.test.ts`（`hasRefineIntent`）· `patternAssemblerRecipe.test.ts`（`maxCycles` 2 vs 4）。
 
+**门控可配（同批，2026-11-03）**：`SELF_VERIFY_PATTERN` 此前**只能**由 env / 构建变体开启 ⇒
+桌面版即便接线也无法启用（与 AlwaysOn 死开关同源）。新增 `query/featureGate.ts#resolveFeatureGate`
+作为**用户可配门控的唯一解析入口**（`FEATURE_<name>` env > `config.features.<key>` > `feature()`；
+未登记开关逐字走 `feature()`，零行为变化），三个消费点统一改用它：`instantiatePattern`、
+`listPatternCatalog`（`/v1/patterns` 门控行）、`chat/manager/pdcaLaunch`（实际生效判定）；
+设置页「功能开关」新增「自校验 / 多轮精修线路」（**默认关**，与 `FEATURE_FLAGS` 一致）。
+真机实测：`PUT /v1/config/features {selfVerifyPattern:true}` ⇒ `/v1/patterns` 的
+`self_verify.featureGate.enabled=true`；恢复配置后回到 `false`。
+
 
 

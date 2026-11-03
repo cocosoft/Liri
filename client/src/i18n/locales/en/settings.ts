@@ -136,6 +136,10 @@ const enSettings = {
     featuresAlwaysOn: "Autonomous Mode (CG3)",
     featuresAlwaysOnDesc:
       "AI discovers and executes tasks autonomously when idle (Always-On + SelfWake)",
+    // 2026-11-03: verification-line gate (backend SELF_VERIFY_PATTERN; env wins over this toggle)
+    featuresSelfVerifyPattern: "Self-verify / multi-round refine",
+    featuresSelfVerifyPatternDesc:
+      "When on, tasks that ask for self-checking or multi-round polishing go through the verification line (stricter turn-quality verdicts, more retries). Off by default; behavior is unchanged while off.",
     // 2026-11-03 P0: autonomous run budget (relaxed defaults, user-tunable)
     autonomyLimitsTitle: "Autonomous run budget",
     autonomyLimitsDesc:

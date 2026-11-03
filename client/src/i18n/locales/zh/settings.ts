@@ -133,6 +133,10 @@ const zhSettings = {
     featuresAlwaysOn: "自主执行模式 (CG3)",
     featuresAlwaysOnDesc:
       "启用后 AI 可在闲置时自主发现并执行任务（Always-On + SelfWake）",
+    // 2026-11-03：验证线路总门控（后端 SELF_VERIFY_PATTERN；env 优先于本开关）
+    featuresSelfVerifyPattern: "自校验 / 多轮精修线路",
+    featuresSelfVerifyPatternDesc:
+      "开启后，要求自检或需要多轮打磨的任务会走验证线路（更严的回合质量判定、更多重试）。默认关闭，关闭时行为与之前一致。",
     // 2026-11-03 P0：自主执行运行预算（默认放宽，可按需调整）
     autonomyLimitsTitle: "自主执行运行预算",
     autonomyLimitsDesc:

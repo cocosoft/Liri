@@ -44,7 +44,7 @@ import {
   patternUnreachableReason,
   resolvePattern,
 } from './patterns';
-import { feature } from '@openliri/kernel';
+import { resolveFeatureGate } from './featureGate';
 import { resolveDataSubDir } from '@openliri/infra/environment';
 import { mkdir, writeFile } from 'fs/promises';
 import { dirname, join } from 'path';
@@ -167,7 +167,10 @@ export function instantiatePattern(
     route: spec.route,
     recipe: spec.recipe,
     reachable: isPatternReachable(name),
-    ...(flag ? { featureGate: { flag, enabled: feature(flag) } } : {}),
+    // 2026-11-03：与目录同源 —— 门控读用户设置（env 优先），否则设置页开关无效
+    ...(flag
+      ? { featureGate: { flag, enabled: resolveFeatureGate(flag) } }
+      : {}),
   };
 }
 
@@ -250,7 +253,10 @@ export function listPatternCatalog(): PatternCatalogEntry[] {
       status: instantiation.status,
       reachable,
       // CS02：可达性与门控都是**结构化字段**；`flag` 名非空才给门控
-      ...(flag ? { featureGate: { flag, enabled: feature(flag) } } : {}),
+      // 2026-11-03：门控走用户可配解析（env > 设置页 > feature()），否则桌面版永远打不开
+      ...(flag
+        ? { featureGate: { flag, enabled: resolveFeatureGate(flag) } }
+        : {}),
       ...(reachable
         ? {}
         : { unreachableReason: patternUnreachableReason(descriptor.name) }),

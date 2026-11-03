@@ -12,6 +12,8 @@ interface FeatureFlags {
   todoEnabled: boolean;
   showExpandedTodos: boolean;
   alwaysOn: boolean;
+  /** 2026-11-03：自校验 / 多轮精修线路的总门控（后端 `SELF_VERIFY_PATTERN`） */
+  selfVerifyPattern: boolean;
 }
 
 interface FeatureFlagsPanelProps {
@@ -83,6 +85,12 @@ function FeatureFlagsPanel({
       key: "alwaysOn",
       labelKey: "settings.featuresAlwaysOn",
       descriptionKey: "settings.featuresAlwaysOnDesc",
+    },
+    // 2026-11-03：验证线路门控（后端 env `FEATURE_SELF_VERIFY_PATTERN` 优先于本开关）
+    {
+      key: "selfVerifyPattern",
+      labelKey: "settings.featuresSelfVerifyPattern",
+      descriptionKey: "settings.featuresSelfVerifyPatternDesc",
     },
   ];
 

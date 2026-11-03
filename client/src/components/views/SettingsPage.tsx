@@ -790,6 +790,9 @@ function SettingsPage() {
                       // 与后端 `FEATURE_FLAGS.ALWAYSON`（默认开）一致：
                       // 未写过该键时不得显示"关"，否则"显示关、实际在跑"（2026-11-03）
                       alwaysOn: true,
+                      // 2026-11-03：与后端 `FEATURE_FLAGS.SELF_VERIFY_PATTERN`（默认关）一致；
+                      // 开启后验证线路（自校验 / 多轮精修）才会真正生效
+                      selfVerifyPattern: false,
                       // 合并而非整体替换：`config.features` 缺键时保留上述默认
                       ...((config.features as Record<string, unknown>) || {}),
                     }) as unknown as Parameters<

@@ -312,6 +312,21 @@ function toRecord(row: Record<string, unknown>): TicketAssignmentRecord {
 let store: TicketAssignmentStore | null = null;
 let storePath: string | null = null;
 
+/**
+ * ⚠️ **作用域决策（2026-11-03 复核，勿"顺手"改成按租户分区）**
+ *
+ * 本表固定落在**设备级**库（`resolveDbPath()`），不按请求身份分区。原因是**写入侧**：
+ * 唯一的写入方是 AlwaysOn 后台的 `recordAssignment`（`entrypoints/alwaysOnEntry.ts`）——
+ * 该链路**没有请求身份**（无 `runWithPrincipal`），拿到的只能是本地身份。
+ *
+ * 若改成 `TaskGoalStore` 那种「租户 ⇒ `resolveTenantDbPath(principal)`」：
+ * 后台写入仍会进本地库，而租户请求里的读（`getSessionOwner` → 本模块）会去**空的**租户库
+ * ⇒ owner 恒为 `none` ⇒ P36-b 的"自主持有时消息排队"对租户**静默失效**（比现状更糟）。
+ *
+ * 结论：派工记录是**设备级事实源**（与 `resolveDbPath()` 的 tasks/cron 同域），
+ * 不做租户分区；跨租户可见性由"该表只存 sessionId/workItemId/执行器名"这一数据面约束兜住。
+ * 对照：`TaskGoalStore` 按租户分区（见其 `getInstance`）—— 两者取舍不同，不可互相套用。
+ */
 function getStore(): TicketAssignmentStore {
   const path = resolveDbPath();
   if (store && storePath === path) return store;

@@ -25,6 +25,9 @@ import { broadcastEvent } from './handler-utils';
 import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@openliri/infra/monitoring';
 import { refreshCheckpointLogConfig } from '@openliri/infra/config';
+// 2026-11-03：配置写入后通知**进程内**订阅方（此前只有 SSE 的 `config:updated`，
+// 后端自己的运行时（如 AlwaysOn）收不到 ⇒ `features.alwaysOn` 是死开关）。
+import { globalEventBus } from '@openliri/kernel';
 
 const logger = getLogger('http:config');
 
@@ -87,6 +90,8 @@ export async function handleSetConfig(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, key, value }));
     broadcastEvent('config:updated', { key, value });
+    // 进程内广播（后端运行时按用户设置即时生效；与上面 SSE 广播互不替代）
+    globalEventBus.publish('config:changed', { key, value });
   } catch (err) {
     await handleError(err, { module: 'infra:http', action: 'handler_error' });
     if (!res.headersSent) {

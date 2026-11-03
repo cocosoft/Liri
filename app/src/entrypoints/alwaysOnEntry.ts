@@ -23,7 +23,7 @@ import {
   resolveDataDir,
   resolveScopedDataDir,
 } from '@openliri/infra/environment';
-import { feature } from '@openliri/kernel';
+import { feature, globalEventBus } from '@openliri/kernel';
 import { getLogger } from '@openliri/infra/monitoring';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { WorkItemStore, createProjectStore } from '@modules/workspace';
@@ -86,6 +86,87 @@ function workItemIdFor(projectId: string): string {
   return `${ALWAYSON_WORK_ITEM_PREFIX}${projectId}`;
 }
 
+/** 设置页「功能开关」在配置里的键（`PUT /v1/config/features` ⇒ `settings.features`） */
+const FEATURES_CONFIG_KEY = 'features';
+
+/** 当前已启动的 AlwaysOn 句柄（用于运行期按用户设置停止/重启；`null` ⇒ 未启动） */
+let active: AlwaysOnStartResult | null = null;
+
+/** 配置变更订阅是否已挂（`startAlwaysOn` 可能被多次调用 ⇒ 只挂一次） */
+let settingsSubscribed = false;
+
+/**
+ * 读取用户设置里的 `alwaysOn`。
+ *
+ * 缺失 / 非布尔 ⇒ `undefined`（不干预，回落静态默认 `FEATURE_FLAGS.ALWAYSON`）。
+ * 2026-11-03 前该值只被前端写、无人读 ⇒ 设置页开关是死开关。
+ */
+export function readAlwaysOnPreference(): boolean | undefined {
+  const features = configManager.getConfigValue(FEATURES_CONFIG_KEY) as
+    | { alwaysOn?: unknown }
+    | undefined;
+  return typeof features?.alwaysOn === 'boolean'
+    ? features.alwaysOn
+    : undefined;
+}
+
+/**
+ * 当前**生效**的 AlwaysOn 开关值（设置页开关 → 后端运行时）。
+ *
+ * 优先级：`FEATURE_<name>` env（运维/灰度，最高）> 用户设置 > `feature()`（变体层 / 静态默认）。
+ * 为什么不像其它开关那样只调 `feature()`：`feature()` 不看用户设置（只认 env / 变体 / 默认），
+ * 而设置页的开关写的是配置（`features.alwaysOn`）⇒ 必须在此显式合并，否则又是死开关。
+ */
+export function resolveAlwaysOnEnabled(): boolean {
+  if (process.env['FEATURE_ALWAYSON'] !== undefined) return feature('ALWAYSON');
+  return readAlwaysOnPreference() ?? feature('ALWAYSON');
+}
+
+/**
+ * 按用户设置**运行期**启停 AlwaysOn（幂等）。
+ *
+ * - 关：立即 `teardown()`（停掉各项目 5 分钟 tick 定时器）；
+ * - 开：未启动才 `startAlwaysOn()`（env `FEATURE_ALWAYSON=false` 仍优先 ⇒ 只记警告不启动）。
+ */
+async function applyAlwaysOnEnabled(enabled: boolean): Promise<void> {
+  if (!enabled) {
+    if (active?.started) {
+      active.teardown();
+      logger.info('AlwaysOn 已按用户设置停止（定时器已释放）');
+    }
+    active = null;
+    return;
+  }
+  if (active?.started) return;
+  if (!resolveAlwaysOnEnabled()) {
+    logger.warn(
+      '用户设置要求启动 AlwaysOn，但 FEATURE_ALWAYSON=false（env 优先），未启动'
+    );
+    return;
+  }
+  active = await startAlwaysOn();
+}
+
+/** 订阅配置变更（设置页开关写入后立刻生效）；幂等 */
+function subscribeSettingsChanges(): void {
+  if (settingsSubscribed) return;
+  settingsSubscribed = true;
+  globalEventBus.subscribe(
+    'config:changed',
+    (payload: { key?: string; value?: unknown } | undefined) => {
+      if (payload?.key !== FEATURES_CONFIG_KEY) return;
+      const preference = (payload.value as { alwaysOn?: unknown } | undefined)
+        ?.alwaysOn;
+      if (typeof preference !== 'boolean') return;
+      void applyAlwaysOnEnabled(preference).catch((error: unknown) => {
+        logger.warn('应用 AlwaysOn 开关失败', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+    }
+  );
+}
+
 /** 汇总所有工作空间的项目（`default` + 注册表；按项目 id 去重，只取有 sandboxPath 者） */
 async function collectProjects(
   projectStore: ReturnType<typeof createProjectStore>
@@ -119,10 +200,14 @@ async function collectProjects(
  *
  * - `feature('ALWAYSON')` 关闭 ⇒ 直接返回，**不建 manager、不读项目、不启动定时器**；
  * - 开启 ⇒ 从 `ProjectStore` 读取项目（仅取有 `sandboxPath` 者），逐项目注册并注入实现。
+ *
+ * 2026-11-03：用户设置（设置页「自主执行模式」）优先于静态默认 —— 见 {@link resolveAlwaysOnEnabled}，
+ * 运行期改开关经 {@link applyAlwaysOnEnabled} 即时启停。
  */
 export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
-  if (!feature('ALWAYSON')) {
-    logger.info('AlwaysOn 未启用（FEATURE_ALWAYSON=false）');
+  subscribeSettingsChanges();
+  if (!resolveAlwaysOnEnabled()) {
+    logger.info('AlwaysOn 未启用（用户设置关闭 或 FEATURE_ALWAYSON=false）');
     return { registered: [], started: false, teardown: () => {} };
   }
 
@@ -654,6 +739,9 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
         },
       }),
   });
+
+  // 记下句柄：设置页关闭开关时据此 teardown（未启动 ⇒ 不留陈句柄）
+  active = result.started ? result : null;
 
   logger.info('AlwaysOn 接线完成', {
     registered: result.registered.length,

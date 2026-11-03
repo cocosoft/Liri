@@ -461,4 +461,37 @@ describe('FIX-3/4：PS 方法/静态调用与键值行的白名单边界', () =>
     const verbWhy = explainPowerShellNotAllowed('Invoke-Mystery -X 1');
     expect(verbWhy!.reason).toContain('等价单条写法');
   });
+
+  // G3（2026-11-03，真机 seq 1420）：引号开头的**格式化表达式**曾被解析成
+  // 「命令「{0} | {1}」不在允许列表」—— 把字符串内容当命令名，模型无法自纠。
+  it('G3：只读格式化表达式放行；重定向/管道/命令替换/裸字符串仍拦', () => {
+    // 放行：引号字符串 + `-f`，引号内的 `|` 不算管道
+    expect(explainPowerShellNotAllowed("'{0} | {1}' -f $a,$b")).toBeNull();
+    expect(explainPowerShellNotAllowed("'{0}' -f $a")).toBeNull();
+
+    // 反向（不得因本修复放宽写文件/命令执行面）
+    expect(explainPowerShellNotAllowed("'{0}' -f $a > out.txt")).not.toBeNull();
+    expect(
+      explainPowerShellNotAllowed("'{0}' -f $a | Out-File out.txt")
+    ).not.toBeNull();
+    expect(explainPowerShellNotAllowed('"$(Remove-Item x)"')).not.toBeNull();
+    expect(explainPowerShellNotAllowed("'abc'")).not.toBeNull();
+  });
+
+  it('G3：调用运算符 `&` 仍取被调用程序名（零回归）', () => {
+    expect(
+      explainPowerShellNotAllowed("& 'C:\\Program Files\\nodejs\\node.exe' -v")
+    ).toBeNull();
+    expect(explainPowerShellNotAllowed('& node -v')).toBeNull();
+    // `&` 后接格式化字符串 ⇒ 动词仍是该字符串 ⇒ 仍拒（不因 G3 放宽调用面）
+    expect(explainPowerShellNotAllowed("& '{0}' -f $a")).not.toBeNull();
+  });
+
+  // G4（2026-11-03，真机 seq 1519）：`Join-Path` 是纯只读路径拼接，无 I/O 副作用。
+  it('G4：Join-Path 已加入白名单（位置/命名参数两种写法）', () => {
+    expect(explainPowerShellNotAllowed("Join-Path $x 'y'")).toBeNull();
+    expect(
+      explainPowerShellNotAllowed('Join-Path -Path a -ChildPath b')
+    ).toBeNull();
+  });
 });

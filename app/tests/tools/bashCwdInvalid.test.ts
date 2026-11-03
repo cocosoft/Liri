@@ -90,4 +90,55 @@ describe('BashTool cwd 先验（P0，2026-11-03）', () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  // G2（2026-11-03）：显式 cwd 缺省时 spawn 用的是**进程工作目录**。
+  // 导出记录里「未指定 cwd ⇒ 也 ENOENT」的对照实验即此形态 —— 该分支此前被
+  // `if (effectiveCwd)` 整体跳过，等于完全不校验。
+  it('G2：显式 cwd 缺省 + 进程工作目录不存在 ⇒ 仍在 spawn 前拦下', async () => {
+    const { tool, dispose } = makeTool();
+    const original = process.cwd;
+    const missing = join(tmpdir(), `liri-no-such-process-cwd-${Date.now()}`);
+    try {
+      process.cwd = () => missing;
+      const result = await tool.execute(
+        { command: 'echo probe' },
+        makeContext('session-cwd-g2-a')
+      );
+
+      expect(result.status).toBe(ToolExecutionStatus.FAILURE);
+      expect(result.failureKind).toBe('tool_error');
+      const message = String(result.error ?? '');
+      expect(message).toContain('Bash 进程工作目录');
+      expect(message).toContain('不是 cmd.exe 缺失');
+      expect(message).toContain('重启服务');
+      expect(message).not.toContain('uv_spawn');
+    } finally {
+      process.cwd = original;
+      dispose();
+    }
+  });
+
+  it('G2：进程工作目录连读取都失败 ⇒ 给出"无法确定工作目录"而非裸异常', async () => {
+    const { tool, dispose } = makeTool();
+    const original = process.cwd;
+    try {
+      process.cwd = () => {
+        throw new Error('ENOENT: uv_cwd');
+      };
+      const result = await tool.execute(
+        { command: 'echo probe' },
+        makeContext('session-cwd-g2-b')
+      );
+
+      expect(result.status).toBe(ToolExecutionStatus.FAILURE);
+      expect(result.failureKind).toBe('tool_error');
+      const message = String(result.error ?? '');
+      expect(message).toContain('无法确定工作目录');
+      expect(message).toContain('不是 cmd.exe 缺失');
+      expect(message).not.toContain('uv_spawn');
+    } finally {
+      process.cwd = original;
+      dispose();
+    }
+  });
 });

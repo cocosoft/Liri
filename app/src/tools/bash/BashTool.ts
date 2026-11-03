@@ -122,6 +122,23 @@ export function resetGraySwitchWarningForTest(): void {
 }
 
 /**
+ * G2（2026-11-03）：安全读取进程工作目录。
+ *
+ * 进程启动目录被删除/移走后，`process.cwd()` 在部分平台直接抛 `ENOENT`（并非返回旧路径）。
+ * spawn 时若不显式给 cwd，实际使用的就是它 ⇒ 读取失败与"cwd 不存在"是同一类失败，
+ * 必须由调用方统一按"不可用"处理，而不是让异常从别处冒出去污染报文。
+ *
+ * @returns 读取成功返回路径；失败返回 `undefined`（调用方决定失败或降级）
+ */
+export function safeProcessCwd(): string | undefined {
+  try {
+    return process.cwd();
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * BashTool 输入模式 - 对标CC Zod校验
  * 安全审计修复：移除 skipSecurityCheck 参数，安全检查强制运行，不可绕过
  */
@@ -341,8 +358,10 @@ export class BashTool extends BaseTool {
       // `analyze(command, trustLevel)` 的信任分级（development/work 下非危险命令不硬拒）
       // 此前在工具路径上恒为 `undefined`（本门只传 command）⇒ 该分支是死代码，
       // 导致受信任工作区里的 `node --version` 等只读命令仍被 allowlist 硬拒。
+      // G2（2026-11-03）：进程 cwd 不可读时不得让异常从此处冒出（会掩盖后文真正的
+      // "工作目录不可用"报文）；按空路径降级，信任级别回落到默认（保守）。
       const trustLevel = securityIntegrationService.getTrustLevelForPath(
-        cwd ?? context?.options?.cwd ?? process.cwd()
+        cwd ?? context?.options?.cwd ?? safeProcessCwd() ?? ''
       );
 
       // 报告开始执行
@@ -611,10 +630,40 @@ export class BashTool extends BaseTool {
     // （含"盘符不一致 / 上级目录缺失"诊断），在 spawn 之前给出**可操作**的失败。
     // **不**静默降级到别的目录执行：那会在错误目录产生副作用（LRO-06 的同类事故）。
     // `ExecOptions.cwd` 的类型是 `string | URL`；本工具只写字符串 ⇒ 这里收窄
-    const effectiveCwd =
+    //
+    // G2（2026-11-03）：**显式 cwd 缺省时不可跳过校验**。此时 spawn 实际使用进程工作目录
+    // （`process.cwd()`）；进程启动目录被移走/删除后它仍返回旧路径，spawn 同样抛
+    // `ENOENT … uv_spawn`（导出记录里「未指定 cwd ⇒ 也 ENOENT」的对照实验即此形态）。
+    // ⇒ 两种情况一并先验；连 `process.cwd()` 都读不到时按不可用处理（不猜默认目录）。
+    const explicitCwd =
       typeof execOptions.cwd === 'string' ? execOptions.cwd : undefined;
-    if (effectiveCwd) {
-      const cwdCheck = checkPathAccessibility(effectiveCwd, 'Bash 工作目录');
+    // 显式 cwd 缺省 ⇒ 实际生效的是进程工作目录（读不到时 `safeProcessCwd` 返回 undefined，
+    // 交给下方失败分支，不猜默认目录）
+    const effectiveCwd = explicitCwd ?? safeProcessCwd();
+    const cwdLabel = explicitCwd ? 'Bash 工作目录' : 'Bash 进程工作目录';
+    const cwdRetryHint = explicitCwd
+      ? '可用 cwd 参数指定真实存在的目录后重试'
+      : '当前进程的工作目录已失效，请显式传 cwd 参数或重启服务';
+
+    if (!effectiveCwd) {
+      const message =
+        'Bash 无法确定工作目录：显式 cwd 为空且进程工作目录不可读（原目录可能已被删除或移走）' +
+        `\n（这不是 cmd.exe 缺失：${cwdRetryHint}）`;
+      logger.warn('bash: cwd_inaccessible', {
+        sessionId: context.sessionId,
+        cwd: '',
+        reason: 'process cwd unreadable',
+      });
+      return createToolResult(message, {
+        status: ToolExecutionStatus.FAILURE,
+        error: message,
+        failureKind: 'tool_error',
+        newMessages: [{ role: 'system', content: `Error: ${message}` }],
+      });
+    }
+
+    {
+      const cwdCheck = checkPathAccessibility(effectiveCwd, cwdLabel);
       // 存在性（checkPathAccessibility）+ **可作 cwd**（必须是目录）两道；缺任一道都会让
       // spawn 抛 ENOENT / ENOTDIR，且报错指向 shell 而不是路径。
       const exists = cwdCheck.accessible;
@@ -625,10 +674,11 @@ export class BashTool extends BaseTool {
           : '';
         const message =
           (exists
-            ? `Bash 工作目录不是目录: ${cwdCheck.resolvedPath}`
-            : (cwdCheck.reason ?? '工作目录不可访问')) +
+            ? `${cwdLabel}不是目录: ${cwdCheck.resolvedPath}`
+            : (cwdCheck.reason ??
+              (explicitCwd ? '工作目录不可访问' : '进程工作目录不可访问'))) +
           suggestions +
-          '\n（这不是 cmd.exe 缺失：可用 cwd 参数指定真实存在的目录后重试）';
+          `\n（这不是 cmd.exe 缺失：${cwdRetryHint}）`;
         logger.warn('bash: cwd_inaccessible', {
           sessionId: context.sessionId,
           cwd: effectiveCwd,

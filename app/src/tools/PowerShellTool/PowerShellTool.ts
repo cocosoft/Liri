@@ -82,6 +82,9 @@ const ALLOWED_POWERSHELL_COMMANDS = new Set([
   // 安全辅助
   'checkpoint-',
   'diff-',
+  // G4（2026-11-03）：纯只读路径拼接（无 I/O 副作用）。真机 seq 1519
+  // `Join-Path $x 'y'` 被拒为「join-path 不在允许列表」，模型只能改用字符串拼路径。
+  'join-path',
   // 允许的文件操作
   'new-item',
   'mkdir',
@@ -208,6 +211,7 @@ function extractPowerShellStatementVerb(statement: string): string | null {
   if (/^[A-Za-z_][\w.-]*\s*[=:]/.test(rest)) return null;
 
   // 调用运算符：剥离 `&`（点源 `.` 不剥离 ⇒ 保守拒绝脚本）
+  const hadCallOperator = /^&\s*/.test(rest);
   rest = rest.replace(/^&\s*/, '');
   if (!rest) return null;
 
@@ -215,6 +219,11 @@ function extractPowerShellStatementVerb(statement: string): string | null {
   // **不**去 .ps1 —— 避免把 `node.ps1` 误认成 `node`）
   const quotedExe = /^(['"])([^'"]+)\1/.exec(rest);
   if (quotedExe) {
+    // G3（2026-11-03）：**没有调用运算符**的引号开头语句是**表达式**，不是命令。
+    // 真机 `'{0} | {1}' -f $a,$b` 曾被解析成「命令「{0} | {1}」不在允许列表」——
+    // 把格式化字符串当命令名，模型无法据此自纠。表达式改由 `isReadOnlyFormatExpression`
+    // 在零动词分支放行，含重定向/管道时仍交回命令判定（不因本修复放宽写文件）。
+    if (!hadCallOperator) return null;
     return quotedExe[2]
       .replace(/^.*[/\\]/, '')
       .replace(/\.(exe|cmd|bat|com)$/i, '')
@@ -227,6 +236,53 @@ function extractPowerShellStatementVerb(statement: string): string | null {
   return verb
     ? verb[0].toLowerCase().replace(/\.(exe|cmd|bat|com)$/i, '')
     : null;
+}
+
+/**
+ * 引号外是否出现指定字符（`chars` 为单字符集合）。
+ *
+ * 引号感知：`'{0} | {1}'` 里的 `|` 在引号内 ⇒ 不算管道。
+ * 不处理转义（单引号 `''` / 双引号反引号）—— 那会让配对提前结束、把引号内内容判成
+ * 引号外 ⇒ **更严格**（可能误拒，不会误放），安全方向正确。
+ */
+function hasUnquotedChar(statement: string, chars: string): boolean {
+  let quote: '"' | "'" | null = null;
+  for (const ch of statement) {
+    if (quote) {
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      continue;
+    }
+    if (chars.includes(ch)) return true;
+  }
+  return false;
+}
+
+/**
+ * G3（2026-11-03）：**只读格式化表达式**放行判定。
+ *
+ * `'{0} | {1}' -f $a,$b` 是纯内存文本拼接（无 I/O 副作用），但安全门此前把它解析成
+ * 「命令「{0} | {1}」不在允许列表」（真机 seq 1420）—— 模型无法据此自纠。
+ *
+ * 放行条件（**全部**满足；任一不满足 ⇒ 交回命令判定，不放宽写文件/执行面）：
+ *  1. 语句以引号字符串开头，且引号闭合后紧跟 `-f` 格式化运算符；
+ *  2. **引号外**无 `> < | &`（重定向 / 管道 / 调用运算符）；
+ *  3. 全文无 `$(`（命令替换，双引号内也会执行 ⇒ 不分引号内外一律排除）。
+ */
+function isReadOnlyFormatExpression(statement: string): boolean {
+  const trimmed = statement.trim();
+  const quote = trimmed[0];
+  if (quote !== "'" && quote !== '"') return false;
+  if (trimmed.includes('$(')) return false;
+
+  const closeAt = trimmed.indexOf(quote, 1);
+  if (closeAt < 0) return false; // 引号未闭合 ⇒ 不判定
+  if (!/^-f\b/i.test(trimmed.slice(closeAt + 1).trim())) return false;
+
+  return !hasUnquotedChar(trimmed, '><|&');
 }
 
 /** 拒绝原因（F4，2026-10-27） */
@@ -437,7 +493,10 @@ export function explainPowerShellNotAllowed(
   if (verbs.filter((v): v is string => v !== null).length === 0) {
     const hasReadOnlyExpression =
       /\.[A-Za-z_]\w*\s*\(/.test(command) ||
-      /\[\s*[A-Za-z_][\w.]*\s*\]\s*::/.test(command);
+      /\[\s*[A-Za-z_][\w.]*\s*\]\s*::/.test(command) ||
+      // G3（2026-11-03）：`'{0} | {1}' -f $a,$b` 一类纯格式化表达式（逐语句判定，
+      // 引号外的重定向/管道/命令替换已在 `isReadOnlyFormatExpression` 内排除）
+      statements.some(isReadOnlyFormatExpression);
     if (hasReadOnlyExpression) return null;
     return {
       reason:

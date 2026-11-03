@@ -35,7 +35,7 @@ import type {
   TaskNodeDto,
   TaskStatusDto,
 } from '@modules/runtime/api/workspaceOpsPorts';
-import { LOCAL_REQUEST_BASE_URL } from '@openliri/kernel';
+import { LOCAL_REQUEST_BASE_URL, globalEventBus } from '@openliri/kernel';
 
 const logger = getLogger('http:workspaces');
 
@@ -1225,6 +1225,9 @@ export async function handleDeleteProject(
       res.end(JSON.stringify({ error: { message: 'Project not found' } }));
       return;
     }
+
+    // 2026-11-03：与 `DELETE /v1/projects/:id` 同口径 —— 通知进程内订阅者注销自主执行运行时
+    globalEventBus.publish('project:deleted', { projectId });
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true }));

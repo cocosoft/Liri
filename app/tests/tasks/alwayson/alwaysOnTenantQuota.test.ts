@@ -206,6 +206,28 @@ describe('AlwaysOnRuntime：归属配额与身份作用域', () => {
   });
 });
 
+// 2026-11-03：项目删除接线的语义底座（`project:deleted` → `unregisterProject`）。
+// 取证：两个 DELETE 入口此前只删实体、不通知 AlwaysOn ⇒ 运行时继续 tick 已删项目。
+describe('AlwaysOnManager：项目注销', () => {
+  it('unregisterProject ⇒ 停调度并移除运行时；重复注销无副作用', () => {
+    const manager = new AlwaysOnManager();
+    const runtime = manager.registerProject('p1', projectDir);
+    let stopped = 0;
+    runtime.stop = () => {
+      stopped += 1;
+    };
+
+    manager.unregisterProject('p1');
+
+    expect(stopped).toBe(1);
+    expect(manager.getProjectCount()).toBe(0);
+    expect(manager.getRuntime('p1')).toBeUndefined();
+    // 删除入口可能被重复触发（或项目本就不在运行时表里）⇒ 幂等
+    expect(() => manager.unregisterProject('p1')).not.toThrow();
+    expect(manager.getProjectCount()).toBe(0);
+  });
+});
+
 describe('bootstrapAlwaysOn：归属随项目注册', () => {
   it('项目 ownerKey 传给运行时；本地项目保持空', () => {
     const manager = new AlwaysOnManager();

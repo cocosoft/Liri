@@ -109,6 +109,9 @@ let activeManager: AlwaysOnManager | null = null;
 /** 配置变更订阅是否已挂（`startAlwaysOn` 可能被多次调用 ⇒ 只挂一次） */
 let settingsSubscribed = false;
 
+/** 项目删除订阅是否已挂（同上，幂等） */
+let projectRemovalSubscribed = false;
+
 /** 2026-11-03 P1：已注册项目的元数据（`getAlwaysOnStatus` 用它补全名字/路径） */
 const projectMeta = new Map<string, { name: string; path: string }>();
 
@@ -246,6 +249,30 @@ async function applyAlwaysOnEnabled(enabled: boolean): Promise<void> {
   active = await startAlwaysOn();
 }
 
+/**
+ * 订阅「项目已删除」⇒ 注销该项目的自主执行运行时（2026-11-03）。
+ *
+ * 取证：两个删除入口（`DELETE /v1/projects/:id` · `/v1/workspaces/:id/projects/:projectId`）
+ * 此前只删实体、不通知 AlwaysOn ⇒ 运行时继续每 5 分钟 tick 一个已删项目
+ * （照常上报工作项 / 生成报告；路径缺失时还会被 cwd 自愈重建）。
+ * 事件由两处 handler 发布（service 层不反向依赖 entry）；幂等挂载。
+ */
+function subscribeProjectRemoval(): void {
+  if (projectRemovalSubscribed) return;
+  projectRemovalSubscribed = true;
+  globalEventBus.subscribe(
+    'project:deleted',
+    (payload: { projectId?: unknown } | undefined) => {
+      const projectId = payload?.projectId;
+      if (typeof projectId !== 'string' || !projectId) return;
+      // 运行态快照以 `projectMeta` 为准 ⇒ 一并移除，前端「运行状况」不再显示已删项目
+      projectMeta.delete(projectId);
+      activeManager?.unregisterProject(projectId);
+      logger.info('项目已删除，已注销自主执行运行时', { projectId });
+    }
+  );
+}
+
 /** 订阅配置变更（设置页开关写入后立刻生效）；幂等 */
 function subscribeSettingsChanges(): void {
   if (settingsSubscribed) return;
@@ -351,6 +378,8 @@ async function collectProjects(
  */
 export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
   subscribeSettingsChanges();
+  // 项目删除订阅与开关无关：关闭态下也要清掉 `projectMeta`（避免「运行状况」显示已删项目）
+  subscribeProjectRemoval();
   ensureStatusPort();
   if (!resolveAlwaysOnEnabled()) {
     logger.info('AlwaysOn 未启用（用户设置关闭 或 FEATURE_ALWAYSON=false）');

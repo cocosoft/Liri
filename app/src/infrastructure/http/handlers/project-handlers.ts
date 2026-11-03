@@ -477,6 +477,9 @@ export async function handleDeleteProject(
   try {
     const store = await getProjectStore();
     const deleted = store.delete(projectId);
+    // 2026-11-03：删项目必须通知进程内订阅者（`alwaysOnEntry` 据此注销该项目的自主执行运行时）。
+    // 此前只删实体 ⇒ 运行时继续每 5 分钟 tick 一个已删项目（工作项/报告仍产出）。
+    if (deleted) globalEventBus.publish('project:deleted', { projectId });
     span.setStatus({ code: SpanStatusCode.OK });
     json(
       res,

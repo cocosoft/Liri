@@ -1,5 +1,10 @@
 # Spec：三个 pattern 的触发面（iterative_refine / parallel_distributed / self_verify）
 
+> ⚠️ **部分内容已被取代**（2026-11-03）：`iterative_refine` 已按
+> [`pattern-wiring-closure.md`](./pattern-wiring-closure.md) **§13** 并入验证线路的 `deep` 档位
+> （触发信号 `hasRefineIntent` + 选择规则 `refine`），本文中「未做/不接线」的表述以 §13 为准；
+> `parallel_distributed` / `long_task_pdl` 仍按「由既有链驱动」口径（`drivenBy`）。
+
 > 版本 1.0 ｜ 创建 2026-10-04 ｜ 状态：✅ **已实施（D1=A · 2026-10-04）**
 > 来源：[`pattern-assembly-runtime.md`](./pattern-assembly-runtime.md) **N4**（"3 个无触发场景的 pattern 是否要实际触发，属**产品需求**，不在本 spec"）
 > ＋ `dev_docs/20260928/architecture-benchmark-20260928.md` §7.1 附注 / §7.3 遗留

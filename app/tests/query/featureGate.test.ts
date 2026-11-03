@@ -17,6 +17,7 @@ const FLAG = 'SELF_VERIFY_PATTERN' as const;
 
 afterEach(() => {
   delete process.env['FEATURE_SELF_VERIFY_PATTERN'];
+  delete process.env['FEATURE_COMPETITIVE_STRATEGY'];
 });
 
 describe('resolveFeatureGate：env > 用户设置 > feature()', () => {
@@ -41,5 +42,13 @@ describe('resolveFeatureGate：env > 用户设置 > feature()', () => {
   it('未登记开关 ⇒ 不读用户设置（零行为变化）', () => {
     // `PRO_SECURITY_SUITE` 未登记 ⇒ 即使读取器返回 true 也不采纳，仍取静态默认 false
     expect(resolveFeatureGate('PRO_SECURITY_SUITE', () => true)).toBe(false);
+  });
+
+  // 2026-11-03（缺口 #3）：研究编排门控同属"桌面默认不可达"，一并登记
+  it('COMPETITIVE_STRATEGY 已登记 ⇒ 用户设置可开启；未设置回落默认 false', () => {
+    expect(resolveFeatureGate('COMPETITIVE_STRATEGY', () => true)).toBe(true);
+    expect(resolveFeatureGate('COMPETITIVE_STRATEGY', () => undefined)).toBe(
+      false
+    );
   });
 });

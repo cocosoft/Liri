@@ -122,7 +122,8 @@ export function hasVerifyIntent(text: string): boolean {
  */
 export function hasRefineIntent(text: string): boolean {
   if (!text) return false;
-  return /(?:多轮|反复(?:修改|打磨|调整|优化)|迭代(?:修改|打磨|优化|改进)|打磨|精修|逐轮(?:优化|改进)|润色)/.test(
+  // 2026-11-03（缺口 #6）：`多轮` 必须后接动作词才命中（否则「多轮对话」会误判为多轮打磨）
+  return /(?:多轮(?:修改|打磨|优化|迭代)|反复(?:修改|打磨|调整|优化)|迭代(?:修改|打磨|优化|改进)|精修|逐轮(?:优化|改进)|润色)/.test(
     text
   );
 }

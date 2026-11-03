@@ -137,6 +137,10 @@ const zhSettings = {
     featuresSelfVerifyPattern: "自校验 / 多轮精修线路",
     featuresSelfVerifyPatternDesc:
       "开启后，要求自检或需要多轮打磨的任务会走验证线路（更严的回合质量判定、更多重试）。默认关闭，关闭时行为与之前一致。",
+    // 2026-11-03（缺口 #3）：研究编排门控（后端 COMPETITIVE_STRATEGY；env 优先于本开关）
+    featuresCompetitiveStrategy: "研究编排（候选生成 + 对抗评审）",
+    featuresCompetitiveStrategyDesc:
+      "开启后，研究型复杂任务会先做候选方案生成与对抗评审（成本更高）。默认关闭。",
     // 2026-11-03 P0：自主执行运行预算（默认放宽，可按需调整）
     autonomyLimitsTitle: "自主执行运行预算",
     autonomyLimitsDesc:

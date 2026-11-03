@@ -77,4 +77,10 @@ describe('hasRefineIntent — 多轮精修意图判定（deep 档位信号，202
     expect(hasRefineIntent('什么是依赖注入？')).toBe(false);
     expect(hasRefineIntent('')).toBe(false);
   });
+
+  // 2026-11-03（缺口 #6）：`多轮` 必须后接动作词，避免「多轮对话」误判为多轮打磨
+  it('「多轮对话」不命中；「多轮打磨」命中', () => {
+    expect(hasRefineIntent('我们继续保持多轮对话')).toBe(false);
+    expect(hasRefineIntent('请多轮打磨这份方案')).toBe(true);
+  });
 });

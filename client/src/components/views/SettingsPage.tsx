@@ -793,6 +793,8 @@ function SettingsPage() {
                       // 2026-11-03：与后端 `FEATURE_FLAGS.SELF_VERIFY_PATTERN`（默认关）一致；
                       // 开启后验证线路（自校验 / 多轮精修）才会真正生效
                       selfVerifyPattern: false,
+                      // 2026-11-03：与后端 `FEATURE_FLAGS.COMPETITIVE_STRATEGY`（默认关）一致
+                      competitiveStrategy: false,
                       // 合并而非整体替换：`config.features` 缺键时保留上述默认
                       ...((config.features as Record<string, unknown>) || {}),
                     }) as unknown as Parameters<

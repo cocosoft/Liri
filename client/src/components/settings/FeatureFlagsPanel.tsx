@@ -14,6 +14,8 @@ interface FeatureFlags {
   alwaysOn: boolean;
   /** 2026-11-03：自校验 / 多轮精修线路的总门控（后端 `SELF_VERIFY_PATTERN`） */
   selfVerifyPattern: boolean;
+  /** 2026-11-03：研究编排（候选生成 + 对抗评审）门控（后端 `COMPETITIVE_STRATEGY`） */
+  competitiveStrategy: boolean;
 }
 
 interface FeatureFlagsPanelProps {
@@ -91,6 +93,12 @@ function FeatureFlagsPanel({
       key: "selfVerifyPattern",
       labelKey: "settings.featuresSelfVerifyPattern",
       descriptionKey: "settings.featuresSelfVerifyPatternDesc",
+    },
+    // 2026-11-03（缺口 #3）：研究编排门控（env `FEATURE_COMPETITIVE_STRATEGY` 优先）
+    {
+      key: "competitiveStrategy",
+      labelKey: "settings.featuresCompetitiveStrategy",
+      descriptionKey: "settings.featuresCompetitiveStrategyDesc",
     },
   ];
 

@@ -140,6 +140,10 @@ const enSettings = {
     featuresSelfVerifyPattern: "Self-verify / multi-round refine",
     featuresSelfVerifyPatternDesc:
       "When on, tasks that ask for self-checking or multi-round polishing go through the verification line (stricter turn-quality verdicts, more retries). Off by default; behavior is unchanged while off.",
+    // 2026-11-03 (#3): research orchestration gate (backend COMPETITIVE_STRATEGY; env wins)
+    featuresCompetitiveStrategy: "Research orchestration (candidates + review)",
+    featuresCompetitiveStrategyDesc:
+      "When on, research-type complex tasks first generate candidate approaches and run an adversarial review (higher cost). Off by default.",
     // 2026-11-03 P0: autonomous run budget (relaxed defaults, user-tunable)
     autonomyLimitsTitle: "Autonomous run budget",
     autonomyLimitsDesc:

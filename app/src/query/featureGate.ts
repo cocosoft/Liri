@@ -30,6 +30,8 @@ const USER_FEATURE_CONFIG_SECTION = 'features';
  */
 const USER_CONFIG_KEYS: Readonly<Partial<Record<FeatureFlag, string>>> = {
   SELF_VERIFY_PATTERN: 'selfVerifyPattern',
+  // 2026-11-03（缺口 #3）：研究编排（competitive_strategy）同属"桌面默认不可达"的门控
+  COMPETITIVE_STRATEGY: 'competitiveStrategy',
 };
 
 /** 用户设置的读取器（测试可注入） */

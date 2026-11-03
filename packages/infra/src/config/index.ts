@@ -128,6 +128,7 @@ export {
   updateUserSettings,
   deleteUserSetting,
   getUserSettingsPath,
+  PROJECTS_DIRECTORY_SETTING_KEY,
 } from './settings/userSettings.js';
 
 export {

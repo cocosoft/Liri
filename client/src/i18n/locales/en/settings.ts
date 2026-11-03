@@ -855,6 +855,15 @@ const enSettings = {
     dataDirPlaceholder: "Enter a data directory path",
     dataDirCustomConfigured: "A custom directory is currently configured",
     dataDefaultDir: "Default directory: {{dir}}",
+    // P2 (2026-11-03): where new projects are stored (project workspace root, separate from data directory)
+    projectsDirTitle: "Project location",
+    projectsDirDesc:
+      "Where new projects live by default (one subfolder per project). Separate from the data directory: the data directory holds settings, sessions and attachments; this one holds your code and outputs.",
+    projectsDirEnv:
+      "Environment variable LIRI_PROJECTS_DIR is set → {{dir}} (takes precedence over this setting)",
+    projectsDirHint:
+      "Only affects projects created from now on; existing project paths are left untouched. Clear the field and apply to restore the default.",
+    projectsDirSaveFailed: "Failed to save",
     dataMigrateExisting: "Migrate existing data",
     dataMigrating: "Migrating data, please wait...",
     dataApply: "Apply",

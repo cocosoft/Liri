@@ -270,6 +270,14 @@ interface SetDataDirectoryResponse {
   };
 }
 
+/** 项目存放位置 API 响应（P2，2026-11-03） */
+interface ProjectsDirectoryResponse {
+  currentDirectory: string;
+  configuredDirectory: string | null;
+  defaultDirectory: string;
+  envProjectsDir?: string | null;
+}
+
 /** 侧边栏选中项持久化 */
 const SETTINGS_PAGE_ACTIVE_NAV_KEY = "liri-settings-active-nav";
 
@@ -366,6 +374,14 @@ function SettingsPage() {
   } | null>(null);
   const [envLiriHome, setEnvLiriHome] = useState<string | null>(null);
   const [envLiriDataDir, setEnvLiriDataDir] = useState<string | null>(null);
+  // P2（2026-11-03）：项目存放位置（项目工作区根）—— 与数据目录各自独立
+  const [projectsDirectory, setProjectsDirectory] = useState("");
+  const [projectsConfiguredDirectory, setProjectsConfiguredDirectory] =
+    useState<string | null>(null);
+  const [projectsDefaultDirectory, setProjectsDefaultDirectory] = useState("");
+  const [envProjectsDir, setEnvProjectsDir] = useState<string | null>(null);
+  const [projectsSaved, setProjectsSaved] = useState(false);
+  const [projectsError, setProjectsError] = useState<string | null>(null);
   const isDark = config.theme === "dark";
 
   /** 导航切换（D-f：同步 ?nav= URL，支持深链与浏览器前进后退） */
@@ -383,6 +399,7 @@ function SettingsPage() {
   useEffect(() => {
     loadPersistedPort();
     loadDataDirectory();
+    loadProjectsDirectory();
     checkBackendStatus();
     const iv = setInterval(checkBackendStatus, 5000);
     return () => clearInterval(iv);
@@ -449,6 +466,61 @@ function SettingsPage() {
       setConfiguredDirectory(null);
       setDataDirSaved(true);
       setTimeout(() => setDataDirSaved(false), 3000);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  // ── 项目存放位置（P2，2026-11-03）──
+  const loadProjectsDirectory = async () => {
+    try {
+      const r = await http.get<ProjectsDirectoryResponse>(
+        "/v1/settings/projects-directory",
+      );
+      if (r) {
+        setProjectsDirectory(r.configuredDirectory || "");
+        setProjectsConfiguredDirectory(r.configuredDirectory || null);
+        setProjectsDefaultDirectory(r.defaultDirectory || "");
+        setEnvProjectsDir(r.envProjectsDir ?? null);
+      }
+    } catch {
+      /* ignore */
+    }
+  };
+  const handleSaveProjectsDirectory = async () => {
+    setProjectsSaved(false);
+    setProjectsError(null);
+    try {
+      // 空串 ⇒ 后端按"恢复默认"处理（删除设置键，不删文件）
+      const r = await http.put<{
+        success?: boolean;
+        configuredDirectory?: string | null;
+      }>("/v1/settings/projects-directory", {
+        directory: projectsDirectory.trim(),
+      });
+      if (r) {
+        setProjectsConfiguredDirectory(r.configuredDirectory ?? null);
+        if (!r.configuredDirectory) setProjectsDirectory("");
+        setProjectsSaved(true);
+        setTimeout(() => setProjectsSaved(false), 8000);
+      }
+    } catch (e) {
+      const err = e as {
+        response?: { data?: { error?: { message?: string } } };
+      };
+      setProjectsError(
+        err.response?.data?.error?.message ||
+          t("settings.projectsDirSaveFailed"),
+      );
+    }
+  };
+  const handleResetProjectsDirectory = async () => {
+    try {
+      await http.put("/v1/settings/projects-directory", { directory: "" });
+      setProjectsDirectory("");
+      setProjectsConfiguredDirectory(null);
+      setProjectsSaved(true);
+      setTimeout(() => setProjectsSaved(false), 3000);
     } catch {
       /* ignore */
     }
@@ -861,6 +933,15 @@ function SettingsPage() {
             migrationResult={migrationResult}
             handleSaveDataDirectory={handleSaveDataDirectory}
             handleResetDataDirectory={handleResetDataDirectory}
+            projectsDirectory={projectsDirectory}
+            projectsConfiguredDirectory={projectsConfiguredDirectory}
+            projectsDefaultDirectory={projectsDefaultDirectory}
+            envProjectsDir={envProjectsDir}
+            setProjectsDirectory={setProjectsDirectory}
+            projectsError={projectsError}
+            projectsSaved={projectsSaved}
+            handleSaveProjectsDirectory={handleSaveProjectsDirectory}
+            handleResetProjectsDirectory={handleResetProjectsDirectory}
           />
         );
       case "ingest":

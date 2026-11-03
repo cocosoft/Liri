@@ -22,6 +22,7 @@ import {
   resolveSoulPath,
   resolveDataSubDir,
   resolveDefaultProjectWorkspaceRoot,
+  getProjectWorkspaceEnvOverride,
   resolveTranscriptFilePath,
   ensureDir,
   ensureDataDirectories,
@@ -267,6 +268,31 @@ describe('resolveDefaultProjectWorkspaceRoot', () => {
   it('空白值不算覆盖（回落默认）', () => {
     expect(resolveDefaultProjectWorkspaceRoot({ [ENV_KEY]: '   ' })).toBe(
       join(homedir(), 'Documents', 'LiriProjects')
+    );
+  });
+
+  it('用户设置（configuredDir）生效；环境变量优先于它', () => {
+    expect(
+      resolveDefaultProjectWorkspaceRoot({}, { configuredDir: '/set/projects' })
+    ).toBe(resolve('/set/projects'));
+    // 环境变量最高（与数据目录同口径）
+    expect(
+      resolveDefaultProjectWorkspaceRoot(
+        { [ENV_KEY]: '/env/projects' },
+        { configuredDir: '/set/projects' }
+      )
+    ).toBe(resolve('/env/projects'));
+    // 空白设置不算配置
+    expect(
+      resolveDefaultProjectWorkspaceRoot({}, { configuredDir: '  ' })
+    ).toBe(join(homedir(), 'Documents', 'LiriProjects'));
+  });
+
+  it('getProjectWorkspaceEnvOverride 只反映环境变量', () => {
+    expect(getProjectWorkspaceEnvOverride({})).toBeNull();
+    expect(getProjectWorkspaceEnvOverride({ [ENV_KEY]: '   ' })).toBeNull();
+    expect(getProjectWorkspaceEnvOverride({ [ENV_KEY]: '/env/projects' })).toBe(
+      resolve('/env/projects')
     );
   });
 

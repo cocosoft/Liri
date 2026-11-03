@@ -32,12 +32,14 @@ import {
   handleDeleteConfig,
   handleFavicon,
   handleGetConfig,
+  handleGetProjectsDirectory,
   handleGetSettings,
   handleListConfig,
   handleRouterGetConfig,
   handleRouterUpdateConfig,
   handleSetConfig,
   handleSetDataDirectory,
+  handleSetProjectsDirectory,
   handleSetSettings,
 } from '../config-handlers';
 import { handleGetDataDirectory } from '../chat-handlers';
@@ -145,6 +147,28 @@ export async function dispatchConfigSkillsRoutes(
     );
     return true;
   }
+  // ---- Settings（具体端点**必须**排在通用 `/v1/settings/{namespace}` 之前）----
+  //
+  // P2（2026-11-03 修正）：原先这两条排在通用分支之后 ⇒ 被 `/^\/v1\/settings\/(.+)$/`
+  // 抢先匹配 ⇒ 设置页的"数据目录"读写实际落到通用 `handleGet/SetSettings`（写的是
+  // `settings.data-directory` 配置键，而非 `settings.json#dataDirectory`）⇒ 保存后不生效。
+  if (method === 'GET' && url === '/v1/settings/data-directory') {
+    await handleGetDataDirectory(handlerCtx, req, res);
+    return true;
+  }
+  if (method === 'PUT' && url === '/v1/settings/data-directory') {
+    await handleSetDataDirectory(handlerCtx, req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/settings/projects-directory') {
+    await handleGetProjectsDirectory(handlerCtx, req, res);
+    return true;
+  }
+  if (method === 'PUT' && url === '/v1/settings/projects-directory') {
+    await handleSetProjectsDirectory(handlerCtx, req, res);
+    return true;
+  }
+
   // 统一设置端点
   if (method === 'GET' && url.match(/^\/v1\/settings\/(.+)$/)) {
     await handleGetSettings(
@@ -172,16 +196,6 @@ export async function dispatchConfigSkillsRoutes(
   }
   if (method === 'PUT' && url === '/v1/router/config') {
     await handleRouterUpdateConfig(handlerCtx, req, res);
-    return true;
-  }
-
-  // ---- Settings ----
-  if (method === 'GET' && url === '/v1/settings/data-directory') {
-    await handleGetDataDirectory(handlerCtx, req, res);
-    return true;
-  }
-  if (method === 'PUT' && url === '/v1/settings/data-directory') {
-    await handleSetDataDirectory(handlerCtx, req, res);
     return true;
   }
 

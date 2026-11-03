@@ -28,11 +28,9 @@ import type {
   WorkItemStatus,
 } from './types';
 import { WorkItemStore } from './WorkItemStore';
-import {
-  resolveDataDir,
-  resolveDataSubDir,
-  resolveDefaultProjectWorkspaceRoot,
-} from '@openliri/infra/environment';
+import { resolveDataDir, resolveDataSubDir } from '@openliri/infra/environment';
+// P2（2026-11-03）：项目工作区根的唯一解析入口（env > 用户设置 > 默认）
+import { resolveProjectWorkspaceRoot } from './projectWorkspaceRoot';
 // 多租户 P3：项目归属（创建请求的身份；本地身份不写字段、也不做过滤）
 import {
   canAccessOwnerKey,
@@ -363,11 +361,11 @@ export class ProjectStore {
       const id = params.id ?? `proj_${Date.now()}_${randomIdSuffix(6)}`;
 
       // 解析 sandboxPath：用户指定 > 默认路径（`<项目工作区根>/<projectId>`）
-      // P1（2026-11-03）：默认根改由 `resolveDefaultProjectWorkspaceRoot()` 提供
-      // （`LIRI_PROJECTS_DIR` 可覆盖）—— 原先在此处硬编码 `~/Documents/LiriProjects`，
-      // 属路径注册表之外的第二处事实源。
+      // P1/P2（2026-11-03）：默认根由 `resolveProjectWorkspaceRoot()` 提供
+      //（`LIRI_PROJECTS_DIR` > 设置 `projectsDirectory` > `~/Documents/LiriProjects`）——
+      // 原先在此处硬编码 `~/Documents/LiriProjects`，属路径注册表之外的第二处事实源。
       const sandboxPath =
-        params.sandboxPath ?? join(resolveDefaultProjectWorkspaceRoot(), id);
+        params.sandboxPath ?? join(resolveProjectWorkspaceRoot(), id);
 
       // P0（2026-11-03，cwd 方案 §六.3）：sandboxPath **写入期校验** —— 元数据一旦
       // 指向不可用路径，工具链要到 spawn 期才炸（libuv 把 chdir 失败误报成 cmd.exe 缺失）。

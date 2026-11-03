@@ -573,3 +573,162 @@ export async function handleSetDataDirectory(
     ctx.sendError(res, error);
   }
 }
+
+// ========== 项目存放位置（P2，2026-11-03）==========
+//
+// 与"数据目录"刻意分开：数据目录是配置/会话库/附件；项目存放位置是用户可见的
+// 代码/产物目录（`<root>/<projectId>`）。语义与优先级见
+// `packages/infra/src/environment/paths.ts#resolveDefaultProjectWorkspaceRoot`。
+
+/** GET /v1/settings/projects-directory — 项目存放位置信息（生效值 / 已配置 / 默认 / env 覆盖） */
+export async function handleGetProjectsDirectory(
+  _ctx: HandlerCtx,
+  _req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const {
+      resolveDefaultProjectWorkspaceRoot,
+      getProjectWorkspaceEnvOverride,
+    } = await import('@openliri/infra/environment');
+    const { loadUserSettings, PROJECTS_DIRECTORY_SETTING_KEY } =
+      await import('@openliri/infra/config');
+
+    const configured = loadUserSettings()[PROJECTS_DIRECTORY_SETTING_KEY];
+    const configuredDirectory =
+      typeof configured === 'string' && configured.trim()
+        ? configured.trim()
+        : null;
+    // 空 env ⇒ 纯默认值（忽略 LIRI_PROJECTS_DIR 覆盖），供页面显示"默认目录"
+    const defaultDirectory = resolveDefaultProjectWorkspaceRoot({}, {});
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        currentDirectory:
+          getProjectWorkspaceEnvOverride() ??
+          configuredDirectory ??
+          defaultDirectory,
+        configuredDirectory,
+        defaultDirectory,
+        envProjectsDir: getProjectWorkspaceEnvOverride(),
+      })
+    );
+  } catch (error) {
+    await handleError(error, {
+      module: 'http:config',
+      action: 'get_projects_directory',
+    });
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: String(error) }));
+  }
+}
+
+/**
+ * PUT /v1/settings/projects-directory — 保存项目存放位置。
+ *
+ * - `directory` 为空 / 缺省 ⇒ **恢复默认**（删除设置键，不删文件）；
+ * - 否则必须可解析为绝对路径；已存在必须是目录；不存在则创建（并做一次写探针）；
+ * - **只影响此后新建的项目**：存量 `project.json#sandboxPath` 是绝对路径，不会被改写
+ *  （迁移用户已有项目是另一个动作，未在本接口里做）。
+ */
+export async function handleSetProjectsDirectory(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const body = await ctx.readRequestBody(req);
+    const payload = JSON.parse(body || '{}') as { directory?: unknown };
+    const raw = payload?.directory;
+
+    const {
+      updateUserSettings,
+      deleteUserSetting,
+      PROJECTS_DIRECTORY_SETTING_KEY,
+    } = await import('@openliri/infra/config');
+    const { resolveDefaultProjectWorkspaceRoot } =
+      await import('@openliri/infra/environment');
+    const fs = await import('fs');
+    const path = await import('path');
+
+    const reset =
+      raw === undefined ||
+      raw === null ||
+      (typeof raw === 'string' && raw.trim().length === 0);
+    if (reset) {
+      deleteUserSetting(PROJECTS_DIRECTORY_SETTING_KEY);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          success: true,
+          configuredDirectory: null,
+          currentDirectory: resolveDefaultProjectWorkspaceRoot({}, {}),
+          message: '已恢复默认项目存放位置',
+        })
+      );
+      return;
+    }
+
+    if (typeof raw !== 'string') {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: {
+            message: '目录路径必须为字符串',
+            type: 'invalid_request_error',
+          },
+        })
+      );
+      return;
+    }
+
+    const resolvedDir = path.resolve(raw.trim());
+    if (fs.existsSync(resolvedDir) && !fs.statSync(resolvedDir).isDirectory()) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: {
+            message: `路径已存在但不是目录: ${resolvedDir}（请换一个路径或先移走该文件）`,
+            type: 'invalid_request_error',
+          },
+        })
+      );
+      return;
+    }
+
+    try {
+      if (!fs.existsSync(resolvedDir)) {
+        fs.mkdirSync(resolvedDir, { recursive: true });
+      }
+      const probe = path.join(resolvedDir, '.liri_write_test');
+      fs.writeFileSync(probe, '');
+      fs.unlinkSync(probe);
+    } catch (err) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: {
+            message: `无法创建或写入目录: ${(err as Error).message}`,
+            type: 'invalid_request_error',
+          },
+        })
+      );
+      return;
+    }
+
+    updateUserSettings({ [PROJECTS_DIRECTORY_SETTING_KEY]: resolvedDir });
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        success: true,
+        configuredDirectory: resolvedDir,
+        currentDirectory: resolvedDir,
+        message: '项目存放位置已更新（仅影响此后新建的项目）',
+      })
+    );
+  } catch (error) {
+    ctx.sendError(res, error);
+  }
+}

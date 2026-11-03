@@ -19,6 +19,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ProjectStore } from '../ProjectStore';
 import { WorkItemStore } from '../WorkItemStore';
+import { setUserDataDirOverride } from '@openliri/infra/environment';
 
 /** 临时目录（afterAll 清理） */
 let tmpDirs: string[] = [];
@@ -253,5 +254,31 @@ describe('ProjectStore 默认 sandboxPath 走注册表（P1，2026-11-03）', ()
     });
 
     expect(project.sandboxPath).toBe(explicit);
+  });
+
+  it('用户设置 projectsDirectory 生效（P2：环境变量未设时用它）', () => {
+    const home = mkdtempSync(join(tmpdir(), 'projects-home-'));
+    tmpDirs.push(home);
+    const configured = mkdtempSync(join(tmpdir(), 'projects-configured-'));
+    tmpDirs.push(configured);
+    writeFileSync(
+      join(home, 'settings.json'),
+      JSON.stringify({ projectsDirectory: configured }),
+      'utf-8'
+    );
+    delete process.env.LIRI_PROJECTS_DIR;
+    setUserDataDirOverride(home);
+
+    try {
+      const { store } = createIsolatedStore();
+      const project = store.create({
+        workspaceId: 'default',
+        name: '走设置',
+        delaySandbox: true,
+      });
+      expect(project.sandboxPath).toBe(join(configured, project.id));
+    } finally {
+      setUserDataDirOverride(null);
+    }
   });
 });

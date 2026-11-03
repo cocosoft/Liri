@@ -25,6 +25,16 @@ interface DataStoragePanelProps {
   migrationResult: MigrationResultData | null;
   handleSaveDataDirectory: () => void;
   handleResetDataDirectory: () => void;
+  // P2（2026-11-03）：项目存放位置（项目工作区根）—— 与数据目录分开的一组状态
+  projectsDirectory: string;
+  projectsConfiguredDirectory: string | null;
+  projectsDefaultDirectory: string;
+  envProjectsDir: string | null;
+  setProjectsDirectory: (dir: string) => void;
+  projectsError: string | null;
+  projectsSaved: boolean;
+  handleSaveProjectsDirectory: () => void;
+  handleResetProjectsDirectory: () => void;
 }
 
 function MigrationResult({ result }: { result: MigrationResultData }) {
@@ -92,6 +102,15 @@ function DataStoragePanel({
   migrationResult,
   handleSaveDataDirectory,
   handleResetDataDirectory,
+  projectsDirectory,
+  projectsConfiguredDirectory,
+  projectsDefaultDirectory,
+  envProjectsDir,
+  setProjectsDirectory,
+  projectsError,
+  projectsSaved,
+  handleSaveProjectsDirectory,
+  handleResetProjectsDirectory,
 }: DataStoragePanelProps) {
   const { t } = useTranslation();
   const effectiveDir = configuredDirectory || defaultDirectory || dataDirectory;
@@ -108,7 +127,11 @@ function DataStoragePanel({
     envInfo = t("settings.dataEnvLiriDataDir", { dir: envLiriDataDir });
   }
 
+  const projectsEffectiveDir =
+    envProjectsDir || projectsConfiguredDirectory || projectsDefaultDirectory;
+
   return (
+    <>
     <ConfigSection isDark={isDark}>
       <div className="mb-3 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded text-xs">
         <p className="text-blue-700 dark:text-blue-300">
@@ -194,6 +217,72 @@ function DataStoragePanel({
         )}
       </div>
     </ConfigSection>
+
+    {/* P2（2026-11-03）：项目存放位置 —— 项目工作区根，与运行数据目录分开 */}
+    <ConfigSection
+      title={t("settings.projectsDirTitle")}
+      description={t("settings.projectsDirDesc")}
+      isDark={isDark}
+    >
+      <div className="mb-3 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded text-xs">
+        <p className="text-blue-700 dark:text-blue-300">
+          <span className="font-medium">{t("settings.dataEffectiveDir")}</span>
+          <code className="ml-1">{projectsEffectiveDir}</code>
+        </p>
+        {envProjectsDir && (
+          <p className="text-yellow-600 dark:text-yellow-400 mt-1">
+            ⚠️ {t("settings.projectsDirEnv", { dir: envProjectsDir })}
+          </p>
+        )}
+      </div>
+
+      <input
+        type="text"
+        value={projectsDirectory}
+        onChange={(e) => setProjectsDirectory(e.target.value)}
+        placeholder={projectsDefaultDirectory}
+        className="w-full px-3 py-2 text-sm border rounded bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+      />
+      {projectsConfiguredDirectory && (
+        <p className="text-xs text-gray-500 mt-2">
+          {t("settings.dataDirCustomConfigured")}
+        </p>
+      )}
+      {!projectsConfiguredDirectory && projectsDefaultDirectory && (
+        <p className="text-xs text-gray-500 mt-2">
+          {t("settings.dataDefaultDir", { dir: projectsDefaultDirectory })}
+        </p>
+      )}
+      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+        {t("settings.projectsDirHint")}
+      </p>
+      {projectsError && (
+        <p className="text-xs text-red-500 mt-2">{projectsError}</p>
+      )}
+
+      <div className="flex gap-2 mt-3">
+        <button
+          onClick={handleSaveProjectsDirectory}
+          className="px-3 py-1.5 text-sm rounded bg-blue-600 hover:bg-blue-700 text-white"
+        >
+          {t("settings.dataApply")}
+        </button>
+        {projectsConfiguredDirectory && (
+          <button
+            onClick={handleResetProjectsDirectory}
+            className="px-3 py-1.5 text-sm rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300"
+          >
+            {t("settings.restoreDefault")}
+          </button>
+        )}
+        {projectsSaved && (
+          <span className="text-xs text-green-500 self-center">
+            {t("settings.saved")}
+          </span>
+        )}
+      </div>
+    </ConfigSection>
+    </>
   );
 }
 

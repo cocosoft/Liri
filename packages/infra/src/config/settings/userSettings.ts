@@ -18,6 +18,15 @@ import { resolvePyappHome } from '@openliri/infra/environment';
 const USER_SETTINGS_FILE = 'settings.json';
 
 /**
+ * 项目存放位置（`settings.json` 顶层键）—— 项目**工作区根**的用户设置项。
+ *
+ * P2（2026-11-03）：与 `dataDirectory`（运行数据目录）刻意分开：
+ * 前者是用户可见的代码/产物目录，后者是配置/会话库/附件。
+ * 单一事实源：解析侧 `workspace/projectWorkspaceRoot.ts`、设置页 API 都读本常量。
+ */
+export const PROJECTS_DIRECTORY_SETTING_KEY = 'projectsDirectory';
+
+/**
  * 获取用户设置文件路径
  */
 export function getUserSettingsPath(): string {

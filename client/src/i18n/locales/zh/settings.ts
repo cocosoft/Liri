@@ -813,6 +813,13 @@ const zhSettings = {
     dataDirPlaceholder: "请输入数据目录路径",
     dataDirCustomConfigured: "当前已配置自定义目录",
     dataDefaultDir: "默认目录: {{dir}}",
+    // P2（2026-11-03）：项目存放位置（项目工作区根，与数据目录分开）
+    projectsDirTitle: "项目存放位置",
+    projectsDirDesc:
+      "新建项目时默认把工作目录放在这里（每个项目一个子目录）。与「数据目录」分开：数据目录存配置、会话和附件，这里存你的代码和产物。",
+    projectsDirEnv: "环境变量 LIRI_PROJECTS_DIR 已设置 → {{dir}}（优先于本设置）",
+    projectsDirHint: "仅影响此后新建的项目；已有项目的路径不会被改动。留空并应用即恢复默认。",
+    projectsDirSaveFailed: "保存失败",
     dataMigrateExisting: "迁移现有数据",
     dataMigrating: "正在迁移数据，请稍候...",
     dataApply: "应用",

@@ -24,6 +24,8 @@ import {
   ErrorSeverity,
   handleError,
 } from '@openliri/infra/error';
+// G1（2026-11-03）：spawn 前 cwd 判定（infra 层，避免 lsp → tools 的反向依赖）
+import { describeUnusableSpawnCwd } from '@openliri/infra/utils/cwd';
 
 import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('lsp:LSPClient');
@@ -280,6 +282,16 @@ export function createLSPClient(
     ): Promise<void> {
       return new Promise<void>((resolve, reject) => {
         try {
+          // G1（2026-11-03）：cwd 无效 ⇒ 在 spawn 前拒绝（否则 libuv 报成可执行文件缺失）
+          const cwdError = describeUnusableSpawnCwd(
+            options?.cwd,
+            'LSP 工作目录'
+          );
+          if (cwdError) {
+            reject(new Error(cwdError));
+            return;
+          }
+
           const child = spawn(command, args, {
             stdio: ['pipe', 'pipe', 'pipe'],
             env: { ...process.env, ...options?.env },

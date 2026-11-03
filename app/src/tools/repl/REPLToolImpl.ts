@@ -12,6 +12,8 @@ import type {
   REPLExecution,
 } from './types/REPLTool.js';
 import { replSessionManager } from './REPLSessionManager';
+// G1（2026-11-03）：spawn 前 cwd 判定
+import { describeUnusableSpawnCwd } from '@openliri/infra/utils/cwd';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
@@ -299,6 +301,17 @@ export class REPLToolImpl implements REPLTool {
 
     if (options.extraArgs) {
       args = [...args, ...options.extraArgs];
+    }
+
+    // G1（2026-11-03）：显式 cwd 无效 ⇒ 在 spawn 前抛出可操作错误
+    const cwdError = describeUnusableSpawnCwd(options.cwd, 'REPL 工作目录');
+    if (cwdError) {
+      throw new AppError(
+        cwdError,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const childProcess = spawn(command, args, {

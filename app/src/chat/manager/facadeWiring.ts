@@ -412,6 +412,8 @@ export function wireChatFacades(host: FacadeWiringHost): void {
     // 故"用户点停止"从此能传导到工具内部（并行批次短路未投递 worker）。
     getSessionAbortController: (sessionId) =>
       sessionId ? host._sessionAbortControllers.get(sessionId) : undefined,
+    // G8（2026-11-03）：会话工作区不可用 ⇒ 投影一次系统提示（持久化 + 界面可见）
+    appendStreamEvent: (sid, event) => host.appendStreamEvent(sid, event),
   });
 
   // 会话生命周期门面：与会话状态共享 Map 引用 + currentSessionId 端口

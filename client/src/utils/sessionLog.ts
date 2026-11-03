@@ -9,6 +9,8 @@
 
 import type { LiriEvent, Message, ToolCall } from "../types";
 import { getToolDisplayName, getToolHumanSummary } from "./toolHumanSummary";
+// G6（2026-11-03）：审批等待信号复用 U-06-5 的**唯一**结构化解析（CS01，禁止另写字符串匹配）
+import { parseApprovalSignal } from "../stores/chat/chat-message-shared";
 import { createLogger } from "./logger";
 import i18n from "../i18n";
 
@@ -25,6 +27,17 @@ export interface ToolCallRecord {
   messageId?: string;
   error?: string;
   _hasFullResult?: boolean;
+  /**
+   * G6（2026-11-03）：工具结果为 `awaiting_approval`（等待人审批）。
+   *
+   * 修复前该结果按普通成功结果投影 ⇒ 面板显示"已完成/进行中"，用户无从得知它在等审批。
+   * 结构化信号由 `parseApprovalSignal` 解析（不按字符串匹配，CS02）。
+   */
+  pendingApproval?: boolean;
+  /** G6：审批收件箱 id（就地批准用；无则退回收件箱） */
+  inboxId?: string;
+  /** G7（2026-11-03）：本卡合并了多少条原始 `tool/result`（面板卡片是合并视图） */
+  rawResultCount?: number;
 }
 
 /**
@@ -329,10 +342,19 @@ export function buildLogEventsFromEvents(events: LiriEvent[]): LogEvent[] {
           ...prev.record,
           result: d.result,
           status: d.isError ? "failed" : "completed",
+          // G7：同一 toolCallId 的多次结果被合并成一张卡，卡片据此自述"N 条原始记录"
+          rawResultCount: (prev.record.rawResultCount ?? 0) + 1,
         };
         merged.error = d.isError
           ? (extractError(merged) ?? undefined)
           : undefined;
+        // G6：审批等待结果是**结构化信号**（`{ pendingApproval: true, inboxId }`），
+        // 不是"已完成"——投影为待审批态，避免面板把它当成成功执行。
+        const approval = parseApprovalSignal(d.result);
+        if (approval) {
+          merged.pendingApproval = true;
+          if (approval.inboxId) merged.inboxId = approval.inboxId;
+        }
         logEvents[idx] = {
           ...prev,
           status: merged.status,

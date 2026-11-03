@@ -133,21 +133,28 @@ function ToolRowImpl({
   // 语义（协议契约，非执行中）——不显示"进行中"，避免误导为挂起的运行任务
   const isWaitingAnswer =
     record.name === "ask_user_question" && record.status === "running";
+  // G6（2026-11-03）：审批等待（`awaiting_approval` 结果）——不是"进行中"也不是"已完成"，
+  // 必须单独显示，否则用户不知道卡在等自己批准。
+  const isPendingApproval = record.pendingApproval === true;
+  // G7（2026-11-03）：本卡合并了多条原始 `tool/result` ⇒ 卡片自述条数（与横幅的"原始错误数"互补）
+  const rawResultCount = record.rawResultCount ?? 0;
   // 全链路修复②（2026-08-23）：无 result 的工具调用是"已中断"（非"进行中"）——
   // canceled 事件终态（B-3）或历史回放中无完成事件（running 且非流式）
   const isInterrupted =
     record.status === "canceled" ||
     (record.status === "running" && !isWaitingAnswer && !isStreaming);
   const errorText = extractError(record);
-  const icon = isWaitingAnswer
-    ? "🗣"
-    : isInterrupted
-      ? "⏸"
-      : record.status === "running"
-        ? "🔄"
-        : isFailed
-          ? "❌"
-          : "✅";
+  const icon = isPendingApproval
+    ? "⏳"
+    : isWaitingAnswer
+      ? "🗣"
+      : isInterrupted
+        ? "⏸"
+        : record.status === "running"
+          ? "🔄"
+          : isFailed
+            ? "❌"
+            : "✅";
 
   const handleCopy = useCallback(() => {
     let text: string;
@@ -177,7 +184,20 @@ function ToolRowImpl({
         <span className="font-medium text-gray-700 dark:text-gray-300 break-all">
           {displayName}
         </span>
-        {record.status === "running" && !isWaitingAnswer && !isInterrupted && (
+        {rawResultCount > 1 && (
+          <span className="text-gray-500 dark:text-gray-400 shrink-0 text-[10px]">
+            {t("chatInspector.cardRawCount", { count: rawResultCount })}
+          </span>
+        )}
+        {isPendingApproval && (
+          <span className="ml-auto text-amber-500 shrink-0 text-[10px]">
+            {t("chat.pendingApproval")}
+          </span>
+        )}
+        {record.status === "running" &&
+          !isWaitingAnswer &&
+          !isPendingApproval &&
+          !isInterrupted && (
           <span className="ml-auto text-blue-500 animate-pulse shrink-0 text-[10px]">
             {t("chatInspector.statusRunning")}
           </span>
@@ -204,7 +224,12 @@ function ToolRowImpl({
           text={JSON.stringify(record.arguments, null, 2)}
         />
       )}
-      {record.status === "completed" && hasResult && (
+      {isPendingApproval && (
+        <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+          {t("chatInspector.pendingApprovalHint")}
+        </p>
+      )}
+      {record.status === "completed" && hasResult && !isPendingApproval && (
         <ClampedBody
           label={t("chatInspector.resultLabel")}
           text={summarizeResult(record.result)}

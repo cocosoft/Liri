@@ -174,3 +174,31 @@ describe('BashSecurityAnalyzer：复合只读放行', () => {
     expect(r.message).toContain('重定向');
   });
 });
+
+describe('G5（2026-11-03）：Bash 侧拒绝必须自带「等价单条写法」', () => {
+  const analyzer = new BashSecurityAnalyzer();
+
+  it('非只读段 ⇒ 点名该命令并给出拆分写法（真机 seq 1279 / 3221）', () => {
+    const r = analyzer.analyze('cd X && if exist x dir /b');
+    expect(r.behavior).toBe('deny');
+    expect(r.message ?? '').toContain('等价单条写法');
+    expect(r.message ?? '').toContain('「if」');
+  });
+
+  it('重定向 ⇒ 指向 file_write 而不是让模型反复重试', () => {
+    const r = analyzer.analyze('dir > out.txt');
+    expect(r.message ?? '').toContain('等价单条写法');
+    expect(r.message ?? '').toContain('file_write');
+  });
+
+  it('变量/命令替换 ⇒ 给出展开写法', () => {
+    const r = analyzer.analyze('echo $(whoami) | findstr a');
+    expect(r.message ?? '').toContain('等价单条写法');
+    expect(r.message ?? '').toContain('字面值');
+  });
+
+  it('非常规命令名（路径前缀）⇒ 给出裸命令名写法', () => {
+    const r = analyzer.analyze('C:\\Windows\\System32\\cmd.exe /c dir; dir');
+    expect(r.message ?? '').toContain('裸命令名');
+  });
+});

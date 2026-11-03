@@ -93,7 +93,7 @@ export function preprocessWindowsCommand(command: string): PreprocessResult {
   // 检测仅包含 Unix 路径的命令（禁止执行）
   if (/\bcd\s+\/[a-z]/.test(processed)) {
     warnings.push(
-      '禁止: cd 到 Unix 根路径（如 /tmp、/usr）。请使用 Windows 路径或 %TEMP%。'
+      '禁止: cd 到 Unix 根路径（如 /tmp、/usr）。请使用 Windows 路径或 %TEMP%；等价单条写法：改用 bash 的 cwd 参数指定真实目录，或写 `cd /d "E:\\真实目录"` 后另起一条命令（真机 seq 2744 即此形态）'
     );
   }
 

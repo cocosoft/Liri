@@ -65,6 +65,11 @@ const zhMisc = {
     completedCount: "完成 {{count}}",
     failedTools: "{{count}} 个工具失败，点击查看",
     failedRawCount: "（含 {{count}} 条原始错误记录）",
+    // G7（2026-11-03）：单卡自述合并条数
+    cardRawCount: "本卡含 {{count}} 条原始记录",
+    // G6（2026-11-03）：审批等待态说明
+    pendingApprovalHint:
+      "该工具调用已发起审批请求，等待你批准后才会执行（可在会话内批准，或到收件箱处理）",
     viewToggleTitle: "分组视图按 Turn 归组，平铺视图保留精确事件顺序",
     flatView: "平铺视图",
     groupView: "分组视图",

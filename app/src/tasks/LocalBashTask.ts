@@ -16,6 +16,8 @@ import { TaskType, TaskStatus } from './types';
 import type { TaskState } from './types';
 import type { BashTaskOptions } from './types';
 import { taskRegistry } from './TaskRegistry';
+// G1（2026-11-03）：spawn 前 cwd 判定（避免把"cwd 无效"误报成 cmd.exe 缺失）
+import { describeUnusableSpawnCwd } from '@openliri/infra/utils/cwd';
 
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
@@ -250,6 +252,20 @@ export class LocalBashTask extends BaseTask {
           this.subprocess.kill('SIGTERM');
         }
       });
+
+      // G1（2026-11-03）：cwd 无效 ⇒ 在 spawn 前失败（否则 libuv 会把它报成
+      // `ENOENT … uv_spawn '<shell>'`，与本方案 §二 的误导性归因同源）
+      const cwdError = describeUnusableSpawnCwd(
+        this.options.cwd,
+        '任务工作目录'
+      );
+      if (cwdError) {
+        this.outputStream?.end();
+        this.outputStream = undefined;
+        this.setStatus(TaskStatus.FAILED, cwdError);
+        reject(new Error(cwdError));
+        return;
+      }
 
       this.subprocess = spawn(this.options.command, [], {
         cwd: this.options.cwd,

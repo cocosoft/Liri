@@ -214,6 +214,33 @@ const DELEGATED_SINGLE_PS_ALLOW: SecurityAnalysisResult = Object.freeze({
   readOnly: true,
 } as SecurityAnalysisResult);
 
+/**
+ * G5（2026-11-03）：复合命令被拒时给出**可照抄的单条等价写法**。
+ *
+ * 真机（导出记录 seq 1279 / 3221）：模型反复重试 `if …` / `node …` 串联，报文只说
+ * 「非只读命令（if）」却不给"该拆成单条再单独执行"。与 PowerShell 侧
+ * `explainPowerShellNotAllowed` 的五分支等价写法同口径 —— **拒绝必须自带下一步**。
+ */
+function compoundRejectHint(reason: string): string {
+  const notReadOnly = /非只读命令（([^）]+)）/i.exec(reason);
+  if (notReadOnly) {
+    return `等价单条写法：把「${notReadOnly[1]}」单独作为一条命令执行；只读查询也单独执行（如「dir /b」），两次调用不要用 && / | 串联`;
+  }
+  if (/重定向（/.test(reason)) {
+    return '等价单条写法：执行命令时去掉 > 重定向；写文件改用 file_write 工具';
+  }
+  if (/变量|命令替换|反引号/.test(reason)) {
+    return '等价单条写法：把变量/命令替换展开成字面值后，作为一条单一命令重试';
+  }
+  if (/后台执行/.test(reason)) {
+    return '等价单条写法：去掉 &，改为逐条单独执行';
+  }
+  if (/非常规命令名/.test(reason)) {
+    return '等价单条写法：只用裸命令名（不带路径前缀/通配），例如「dir /b」';
+  }
+  return '等价单条写法：改为一条只读的单一命令（不带 && || | ; 与重定向）';
+}
+
 /** FIX-16（2026-10-27）：单条只读命令的放行结论（与 `compoundReadOnly` 同一只读族）。 */
 const SINGLE_READONLY_ALLOW: SecurityAnalysisResult = Object.freeze({
   safe: true,
@@ -402,7 +429,7 @@ export class BashSecurityAnalyzer {
             behavior: 'deny',
             riskLevel: 'high',
             // F1：给出**可执行的原因**，让模型改命令而不是反复重试同一条
-            message: `复合命令被拒绝：${compoundVerdict.reason}。仅允许「全段只读」的串联（&& || | ;），且不得含重定向/命令替换/变量/后台执行`,
+            message: `复合命令被拒绝：${compoundVerdict.reason}。仅允许「全段只读」的串联（&& || | ;），且不得含重定向/命令替换/变量/后台执行。${compoundRejectHint(compoundVerdict.reason)}`,
             matchedPatterns: [
               `Bash allowlist rejected: ${allowlistCheck.reason}`,
               `compound-readonly denied: ${compoundVerdict.reason}`,

@@ -38,6 +38,15 @@ export interface ToolCwdDecision {
   cwd: string;
   /** 会话工作区被拒（越出该身份根）⇒ 调用方可据此留痕 */
   rejectedSessionWorkspace: boolean;
+  /**
+   * G8（2026-11-03）：会话工作区不可用（不存在 / 不是目录）。
+   *
+   * 原实现只写 `logger.warning` ⇒ 用户看不到「项目路径失效」才是根因（导出记录里模型与用户
+   * 都在猜 `cmd.exe`）。调用方据此**向会话事件流投影一条提示**（界面可见，去重见下）。
+   */
+  invalidSessionWorkspace?: string;
+  /** G8：本次是否**首次**为（会话, 路径）告警 ⇒ 调用方只投影一次，避免刷屏 */
+  shouldNotifyInvalidWorkspace?: boolean;
 }
 
 /**
@@ -122,14 +131,41 @@ function isUsableDirectory(dir: string): boolean {
 /** 已告警过的无效工作区（避免每次工具调用都刷同一条 warn；上限 100 条防无界增长） */
 const warnedInvalidWorkspaces = new Set<string>();
 
-function warnInvalidWorkspaceOnce(dir: string): void {
-  if (warnedInvalidWorkspaces.has(dir)) return;
+/**
+ * G8（2026-11-03）：告警**并按（会话, 路径）去重**。
+ *
+ * @returns `true` = 本次首次告警（调用方可据此向界面投影一次提示）
+ */
+function warnInvalidWorkspaceOnce(dir: string, sessionId?: string): boolean {
+  // 去重键含 sessionId：同一失效路径在不同会话各自提示一次，进程级只保留 100 条
+  const key = sessionId ? `${sessionId}::${dir}` : dir;
+  if (warnedInvalidWorkspaces.has(key)) return false;
   if (warnedInvalidWorkspaces.size >= 100) warnedInvalidWorkspaces.clear();
-  warnedInvalidWorkspaces.add(dir);
+  warnedInvalidWorkspaces.add(key);
   logger.warning(
     '会话工作区不存在或不是目录：工具将以该无效 cwd 启动 ⇒ 子进程会失败（请修正项目 sandboxPath / 会话 metadata.workspacePath）',
-    { sessionWorkspacePath: dir }
+    { sessionWorkspacePath: dir, sessionId }
   );
+  return true;
+}
+
+/**
+ * G8：显式会话工作区的**唯一返回点** —— 有效原样返回；无效也原样返回（读侧不猜、不改写
+ * 用户选择），但附带"界面需提示一次"的标记，由调用方投影到事件流。
+ */
+function decideSessionWorkspace(
+  dir: string,
+  sessionId?: string
+): ToolCwdDecision {
+  if (isUsableDirectory(dir)) {
+    return { cwd: dir, rejectedSessionWorkspace: false };
+  }
+  return {
+    cwd: dir,
+    rejectedSessionWorkspace: false,
+    invalidSessionWorkspace: dir,
+    shouldNotifyInvalidWorkspace: warnInvalidWorkspaceOnce(dir, sessionId),
+  };
 }
 
 /**
@@ -155,10 +191,7 @@ export function resolveToolCwd(
 ): ToolCwdDecision {
   if (isLocalPrincipal(principal)) {
     if (sessionWorkspacePath) {
-      if (!isUsableDirectory(sessionWorkspacePath)) {
-        warnInvalidWorkspaceOnce(sessionWorkspacePath);
-      }
-      return { cwd: sessionWorkspacePath, rejectedSessionWorkspace: false };
+      return decideSessionWorkspace(sessionWorkspacePath, options.sessionId);
     }
     const compiled = options.compiled ?? isCompiledRuntime();
     if (compiled && options.sessionId) {
@@ -175,10 +208,7 @@ export function resolveToolCwd(
 
   const root = resolveScopedWorkspaceRoot(principal);
   if (sessionWorkspacePath && isPathWithin(root, sessionWorkspacePath)) {
-    if (!isUsableDirectory(sessionWorkspacePath)) {
-      warnInvalidWorkspaceOnce(sessionWorkspacePath);
-    }
-    return { cwd: sessionWorkspacePath, rejectedSessionWorkspace: false };
+    return decideSessionWorkspace(sessionWorkspacePath, options.sessionId);
   }
 
   // 租户根按需创建：bash / grep / glob 都以 cwd 启动，目录不存在会直接失败。

@@ -164,3 +164,41 @@ describe('P2-4 裸会话 cwd 按运行形态分流', () => {
     expect(decision.cwd).toContain(join('workspace', 'sessions'));
   });
 });
+
+/**
+ * G8（2026-11-03，cwd 方案 §7.2）：会话工作区无效时，**不再只写日志** —— 决策对象
+ * 带出「需向界面投影一次」的标记，由 `ToolExecutionService` 落成 `assistant/status` 事件。
+ */
+describe('G8：无效会话工作区 ⇒ 界面提示标记（按「会话 + 路径」去重）', () => {
+  const LOCAL: Principal = { tenantId: 'local', userId: 'local', roles: [] };
+
+  it('路径不存在 ⇒ 带出 invalidSessionWorkspace，且首轮才要求提示', () => {
+    const missing = join(dataDir, 'g8-no-such-workspace');
+    const first = resolveToolCwd(missing, LOCAL, { sessionId: 'sess-g8-a' });
+    expect(first.cwd).toBe(missing);
+    expect(first.invalidSessionWorkspace).toBe(missing);
+    expect(first.shouldNotifyInvalidWorkspace).toBe(true);
+
+    const second = resolveToolCwd(missing, LOCAL, { sessionId: 'sess-g8-a' });
+    expect(second.shouldNotifyInvalidWorkspace).toBe(false);
+  });
+
+  it('同一路径的不同会话各自提示一次（会话级去重，不是全局静音）', () => {
+    const missing = join(dataDir, 'g8-shared-missing');
+    const a = resolveToolCwd(missing, LOCAL, { sessionId: 'sess-g8-b' });
+    const b = resolveToolCwd(missing, LOCAL, { sessionId: 'sess-g8-c' });
+    expect(a.shouldNotifyInvalidWorkspace).toBe(true);
+    expect(b.shouldNotifyInvalidWorkspace).toBe(true);
+  });
+
+  it('有效目录 ⇒ 无提示标记（零回归）', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'g8-valid-'));
+    try {
+      const decision = resolveToolCwd(dir, LOCAL, { sessionId: 'sess-g8-d' });
+      expect(decision.invalidSessionWorkspace).toBeUndefined();
+      expect(decision.shouldNotifyInvalidWorkspace).toBeUndefined();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});

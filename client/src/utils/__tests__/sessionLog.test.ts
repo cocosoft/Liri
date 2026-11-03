@@ -225,3 +225,65 @@ describe("countRawToolErrorRecords — 原始错误记录计数（P0，2026-11-0
     expect(countRawToolErrorRecords([])).toBe(0);
   });
 });
+
+// G6/G7（2026-11-03，cwd 方案 §7.2）：审批等待态投影 + 单卡合并条数
+describe("buildLogEventsFromEvents — 审批等待与合并条数（G6/G7）", () => {
+  it("G6：awaiting_approval 结果 ⇒ pendingApproval + inboxId（不再当普通成功）", () => {
+    const events: LiriEvent[] = [
+      ev(1, "assistant/tool_call", {
+        toolCallId: "tc-1",
+        name: "bash",
+        args: { cmd: "rm -rf x" },
+      }),
+      ev(2, "tool/result", {
+        toolCallId: "tc-1",
+        result: JSON.stringify({
+          status: "awaiting_approval",
+          pendingApproval: true,
+          inboxId: "inbox-1",
+        }),
+      }),
+    ];
+    const logs = buildLogEventsFromEvents(events);
+    expect(logs[0].record?.pendingApproval).toBe(true);
+    expect(logs[0].record?.inboxId).toBe("inbox-1");
+  });
+
+  it("G6：普通结果 / 非 JSON ⇒ 无审批标记（不误判）", () => {
+    const events: LiriEvent[] = [
+      ev(1, "assistant/tool_call", {
+        toolCallId: "tc-1",
+        name: "bash",
+        args: { cmd: "echo hi" },
+      }),
+      ev(2, "tool/result", { toolCallId: "tc-1", result: "plain text" }),
+      ev(3, "assistant/tool_call", {
+        toolCallId: "tc-2",
+        name: "glob",
+        args: {},
+      }),
+      ev(4, "tool/result", {
+        toolCallId: "tc-2",
+        result: JSON.stringify({ ok: true }),
+      }),
+    ];
+    const logs = buildLogEventsFromEvents(events);
+    expect(logs.every((l) => l.record?.pendingApproval !== true)).toBe(true);
+  });
+
+  it("G7：同一 toolCallId 多次结果合并成 1 张卡 ⇒ rawResultCount=N", () => {
+    const events: LiriEvent[] = [
+      ev(1, "assistant/tool_call", {
+        toolCallId: "tc-1",
+        name: "bash",
+        args: { cmd: "ls" },
+      }),
+      ev(2, "tool/result", { toolCallId: "tc-1", isError: true }),
+      ev(3, "tool/result", { toolCallId: "tc-1", isError: true }),
+      ev(4, "tool/result", { toolCallId: "tc-1", isError: true }),
+    ];
+    const logs = buildLogEventsFromEvents(events);
+    expect(logs).toHaveLength(1);
+    expect(logs[0].record?.rawResultCount).toBe(3);
+  });
+});

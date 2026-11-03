@@ -65,6 +65,11 @@ const enMisc = {
     completedCount: "{{count}} completed",
     failedTools: "{{count}} tools failed, click to view",
     failedRawCount: " ({{count}} raw error records)",
+    // G7 (2026-11-03): per-card merged record count
+    cardRawCount: "{{count}} raw records in this card",
+    // G6 (2026-11-03): awaiting-approval explanation
+    pendingApprovalHint:
+      "This tool call is awaiting your approval before it runs (approve inline or handle it in the inbox).",
     viewToggleTitle:
       "Grouped view groups by Turn; flat view keeps the exact event order",
     flatView: "Flat view",

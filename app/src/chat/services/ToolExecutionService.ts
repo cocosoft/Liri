@@ -29,6 +29,8 @@ import { eventNotificationService } from '../services/EventNotificationService.j
 import { toolResultRegistry } from '../../tool/ToolResultRegistry.js';
 import { resolveDataDir } from '@openliri/infra/environment';
 import { resolveToolCwd } from './toolCwdScope';
+// G8（2026-11-03）：会话工作区不可用时向事件流投影一次提示（界面可见）
+import type { LiriEvent } from '@modules/session/types/events';
 // 多租户 P0 阶段 2：请求级权限角色（桌面/后台无请求作用域 ⇒ null ⇒ 保持既有回退语义）
 import {
   getRequestPermissionRole,
@@ -313,6 +315,12 @@ export interface ToolExecutionDeps {
     sessionId?: string
   ) => AbortController | undefined;
   /**
+   * G8（2026-11-03）：把「会话工作区不可用」投影到会话事件流（持久化 + 界面可见）。
+   *
+   * 缺省（未注入）⇒ 只保留日志、不投影（不伪造观测面，与 `emitSuspensionSettled` 同口径）。
+   */
+  appendStreamEvent?: (sessionId: string, event: LiriEvent) => Promise<unknown>;
+  /**
    * C 阶段（2026-09-02，P1）：session_lookup 取回执行回调（ChatManager 拥有事件日志
    * 与派生器，负责实现；本服务仅转发）。返回按页格式化原文与下一页起点。
    */
@@ -374,6 +382,43 @@ export function formatWorkspaceEscapeError(params: {
 
 export class ToolExecutionService {
   constructor(public readonly deps: ToolExecutionDeps) {}
+
+  /**
+   * G8（2026-11-03）：把「会话工作区不可用」投影为 `assistant/status`（`statusType=workspace_invalid`）。
+   *
+   * 为什么走事件流：该提示需要**持久化 + 重载可见**（用户下次打开会话仍能看到根因），
+   * 而 `logger.warning` 只在服务端日志里。投影失败**不影响**工具执行（如实记日志，不静默吞）。
+   */
+  private async notifyInvalidSessionWorkspace(
+    sessionId: string,
+    workspacePath: string
+  ): Promise<void> {
+    const appendStreamEvent = this.deps.appendStreamEvent;
+    if (!appendStreamEvent) return;
+    const event: LiriEvent<'assistant/status'> = {
+      type: 'assistant/status',
+      schemaVersion: 1,
+      seq: 0,
+      time: Date.now(),
+      sessionId,
+      data: {
+        content:
+          `会话工作区不可用：${workspacePath}\n` +
+          '工具会以该无效目录启动子进程并失败（这不是 cmd.exe 缺失）。' +
+          '请修正项目 sandboxPath，或为该会话指定一个真实存在的 workspacePath。',
+        statusType: 'workspace_invalid',
+      },
+    };
+    try {
+      await appendStreamEvent(sessionId, event);
+    } catch (err) {
+      logger.warning('会话工作区无效提示投影失败', {
+        sessionId,
+        workspacePath,
+        error: String(err),
+      });
+    }
+  }
 
   /** B1：按会话维护的文件状态快照缓存（read-before-edit 的基础） */
   private readonly _readFileStateCaches = new Map<string, FileStateCache>();
@@ -1235,6 +1280,19 @@ export class ToolExecutionService {
         const cwdDecision = resolveToolCwd(sessionWorkspacePath, undefined, {
           sessionId: toolCall.sessionId,
         });
+        // G8（2026-11-03）：会话工作区不可用 ⇒ 首次向事件流投影一条系统提示。
+        // 修复前只写 `logger.warning`，用户看不到「项目路径失效」才是根因（导出记录里
+        // 用户与模型都在猜 `cmd.exe` 缺失）。去重由 `toolCwdScope` 按（会话, 路径）完成。
+        if (
+          toolCall.sessionId &&
+          cwdDecision.shouldNotifyInvalidWorkspace &&
+          cwdDecision.invalidSessionWorkspace
+        ) {
+          await this.notifyInvalidSessionWorkspace(
+            toolCall.sessionId,
+            cwdDecision.invalidSessionWorkspace
+          );
+        }
         const context = {
           toolUseId: normalizedToolCall.id,
           sessionId: toolCall.sessionId,

@@ -27,6 +27,8 @@
 import { exec, spawn, type ChildProcess } from 'child_process';
 import { promisify } from 'util';
 import { configManager } from '@openliri/infra/config';
+// G1（2026-11-03）：spawn 前 cwd 判定
+import { describeUnusableSpawnCwd } from '@openliri/infra/utils/cwd';
 
 import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('agent:cli-runner:index');
@@ -99,6 +101,16 @@ export class CliRunner {
     const startTime = Date.now();
 
     this.stats.totalExecutions++;
+
+    // G1（2026-11-03）：cwd 无效 ⇒ 直接给出可操作错误（不再让 exec 把 ENOENT 归因到 shell）
+    const cwdError = describeUnusableSpawnCwd(opts.cwd, '子进程工作目录');
+    if (cwdError) {
+      const duration = Date.now() - startTime;
+      this.stats.failedExecutions++;
+      this.updateAvgDuration(duration);
+      logger.warn('cli-runner: cwd_inaccessible', { cwd: opts.cwd, command });
+      return { stdout: '', stderr: cwdError, exitCode: -1, duration, command };
+    }
 
     try {
       const shellPath = opts.shell

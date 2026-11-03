@@ -76,6 +76,13 @@ describe('S1-5 命令规范化：三类改写一次完成', () => {
     expect(std.warnings.some((w) => w.includes('禁止'))).toBe(true);
   });
 
+  it('G5：`cd /x` 的阻断告警带「等价单条写法」（真机 seq 2744）', () => {
+    const std = standardizeCommand('cd /usr', { isWindows: true });
+    const blocked = std.warnings.find((w) => w.includes('禁止'));
+    expect(blocked).toContain('等价单条写法');
+    expect(blocked).toContain('cwd 参数');
+  });
+
   it('非 Windows：preprocessWindowsCommand 不触发 ⇒ preprocessed === raw', () => {
     const raw = 'cat /tmp/a';
     const std = standardizeCommand(raw, { isWindows: false });

@@ -64,6 +64,7 @@ const enMisc = {
     runningCount: "{{count}} running",
     completedCount: "{{count}} completed",
     failedTools: "{{count}} tools failed, click to view",
+    failedRawCount: " ({{count}} raw error records)",
     viewToggleTitle:
       "Grouped view groups by Turn; flat view keeps the exact event order",
     flatView: "Flat view",

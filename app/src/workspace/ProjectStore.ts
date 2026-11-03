@@ -11,13 +11,14 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  statSync,
   writeFileSync,
   readdirSync,
   unlinkSync,
   rmSync,
   renameSync,
 } from 'fs';
-import { join } from 'path';
+import { isAbsolute, join } from 'path';
 import { homedir } from 'os';
 import type {
   Project,
@@ -361,6 +362,21 @@ export class ProjectStore {
       // 解析 sandboxPath：用户指定 > 默认路径（~/Documents/LiriProjects/<projectId>）
       const sandboxPath =
         params.sandboxPath ?? join(homedir(), 'Documents', 'LiriProjects', id);
+
+      // P0（2026-11-03，cwd 方案 §六.3）：sandboxPath **写入期校验** —— 元数据一旦
+      // 指向不可用路径，工具链要到 spawn 期才炸（libuv 把 chdir 失败误报成 cmd.exe 缺失）。
+      // 显式指定时：必须绝对路径；已存在则必须是目录（存在为文件 ⇒ 拒绝写入）。
+      // `delaySandbox`（自动建项目/迁移）允许目录尚不存在（延迟创建契约），但同样要绝对。
+      if (!isAbsolute(sandboxPath)) {
+        throw new Error(
+          `项目 sandboxPath 必须是绝对路径，收到: ${JSON.stringify(sandboxPath)}`
+        );
+      }
+      if (existsSync(sandboxPath) && !statSync(sandboxPath).isDirectory()) {
+        throw new Error(
+          `项目 sandboxPath 已存在但不是目录: ${sandboxPath}（请换一个路径或先移走该文件）`
+        );
+      }
       if (!params.delaySandbox && !existsSync(sandboxPath)) {
         mkdirSync(sandboxPath, { recursive: true });
       }

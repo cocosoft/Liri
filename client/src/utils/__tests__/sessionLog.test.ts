@@ -21,7 +21,10 @@
 
 import { describe, expect, it } from "vitest";
 import type { LiriEvent } from "@/types";
-import { buildLogEventsFromEvents } from "../sessionLog";
+import {
+  buildLogEventsFromEvents,
+  countRawToolErrorRecords,
+} from "../sessionLog";
 
 const SID = "sid-log";
 
@@ -182,5 +185,43 @@ describe("buildLogEventsFromEvents — thinking/text chunk 合并（P0-A/P0-B，
     expect(logs[1].kind).toBe("tool");
     expect(logs[1].status).toBe("completed");
     expect(logs[2].kind).toBe("thinking");
+  });
+});
+
+// P0（2026-11-03，cwd 方案 §六.2）：「合并卡片数」与「原始错误记录数」是两种口径 ——
+// 同一 toolCallId 的多次 tool/result 错误只合成一张卡，面板需要并列展示两者。
+describe("countRawToolErrorRecords — 原始错误记录计数（P0，2026-11-03）", () => {
+  it("同一 toolCallId 多条 isError 结果 ⇒ 卡片 1 张 / 原始 N 条", () => {
+    const events: LiriEvent[] = [
+      ev(1, "assistant/tool_call", {
+        toolCallId: "tc-1",
+        name: "bash",
+        args: { cmd: "ls" },
+      }),
+      ev(2, "tool/result", { toolCallId: "tc-1", isError: true }),
+      ev(3, "tool/result", { toolCallId: "tc-1", isError: true }),
+      ev(4, "tool/result", { toolCallId: "tc-1", isError: true }),
+    ];
+    const logs = buildLogEventsFromEvents(events);
+    expect(logs.filter((l) => l.status === "failed")).toHaveLength(1);
+    expect(countRawToolErrorRecords(events)).toBe(3);
+  });
+
+  it("非 tool/result 事件与 isError:false/缺省不计入", () => {
+    const events: LiriEvent[] = [
+      ev(1, "assistant/tool_call", {
+        toolCallId: "tc-1",
+        name: "glob",
+        args: {},
+      }),
+      ev(2, "tool/result", { toolCallId: "tc-1", result: "ok" }),
+      ev(3, "tool/canceled", { toolCallId: "tc-1", reason: "用户中止" }),
+      ev(4, "assistant/text", { content: "文本" }),
+    ];
+    expect(countRawToolErrorRecords(events)).toBe(0);
+  });
+
+  it("空事件流 ⇒ 0", () => {
+    expect(countRawToolErrorRecords([])).toBe(0);
   });
 });

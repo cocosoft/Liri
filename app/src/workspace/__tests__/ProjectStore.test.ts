@@ -8,7 +8,13 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
-import { mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs';
+import {
+  mkdtempSync,
+  rmSync,
+  existsSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ProjectStore } from '../ProjectStore';
@@ -134,5 +140,71 @@ describe('ProjectStore project-context.md（P2-3）', () => {
     const content = readFileSync(contextPath, 'utf-8');
     expect(content).toContain(`**名称**: 存量项目`);
     expect(content).toContain(`**文件夹**: ${sandboxPath}`);
+  });
+});
+
+/**
+ * P0（2026-11-03，cwd 方案 §六.3）：sandboxPath **写入期校验**。
+ * 背景：会话/项目元数据一旦指向不可用路径，工具链要到 spawn 期才炸
+ *（libuv 把 chdir 失败误报成 cmd.exe 缺失）。校验必须在元数据落盘前拦截。
+ */
+describe('ProjectStore sandboxPath 写入期校验（P0，2026-11-03）', () => {
+  it('拒绝相对路径 sandboxPath', () => {
+    const { store } = createIsolatedStore();
+    expect(() =>
+      store.create({
+        workspaceId: 'default',
+        name: 'x',
+        sandboxPath: 'relative/path',
+      })
+    ).toThrow(/绝对路径/);
+  });
+
+  it('拒绝已存在但不是目录的 sandboxPath', () => {
+    const { store, liriDir } = createIsolatedStore();
+    const filePath = join(liriDir, 'a-file.txt');
+    writeFileSync(filePath, 'x', 'utf-8');
+    expect(() =>
+      store.create({ workspaceId: 'default', name: 'x', sandboxPath: filePath })
+    ).toThrow(/不是目录/);
+  });
+
+  it('delaySandbox 允许目录尚不存在（延迟创建契约），但同样拒绝相对路径', () => {
+    const { store, liriDir } = createIsolatedStore();
+    const missing = join(liriDir, 'not-yet-created');
+    const project = store.create({
+      workspaceId: 'default',
+      name: 'x',
+      sandboxPath: missing,
+      delaySandbox: true,
+    });
+    expect(project.sandboxPath).toBe(missing);
+    expect(() =>
+      store.create({
+        workspaceId: 'default',
+        name: 'y',
+        sandboxPath: 'rel',
+        delaySandbox: true,
+      })
+    ).toThrow(/绝对路径/);
+  });
+
+  it('有效绝对路径（不存在⇒自动创建 / 已存在目录）正常创建', () => {
+    const { store, liriDir } = createIsolatedStore();
+    const fresh = join(liriDir, 'fresh-sandbox');
+    const p1 = store.create({
+      workspaceId: 'default',
+      name: 'a',
+      sandboxPath: fresh,
+    });
+    expect(p1.sandboxPath).toBe(fresh);
+    expect(existsSync(fresh)).toBe(true);
+    // 已存在的目录作为另一个项目的显式路径同样合法
+    const p2 = store.create({
+      workspaceId: 'default',
+      name: 'b',
+      sandboxPath: fresh,
+    });
+    expect(p2.sandboxPath).toBe(fresh);
   });
 });

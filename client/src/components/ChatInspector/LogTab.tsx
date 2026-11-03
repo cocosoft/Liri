@@ -26,6 +26,7 @@ import { useSessionStore } from "../../stores/sessionStore";
 import { useTrajectoryStore } from "../../stores/chat/trajectoryStore";
 import {
   buildLogEventsFromEvents,
+  countRawToolErrorRecords,
   extractError,
   summarizeResult,
   type LogEvent,
@@ -534,6 +535,13 @@ function LogTab() {
     { id: "system", labelKey: "chatInspector.filterSystem" },
   ];
   const failedCount = countOf("failed");
+  // P0（2026-11-03，cwd 方案 §六.2）：failed 是「合并卡片数」——同一 toolCallId 的
+  // 多条 tool/result 错误被合并成一张卡。这里数原始错误记录数，两者并列展示，
+  // 消除「面板 17 卡 vs 导出 36 条」的口径困惑（仅当两者不一致时附加显示）。
+  const rawErrorCount = useMemo(
+    () => countRawToolErrorRecords(trajEvents),
+    [trajEvents],
+  );
 
   return (
     <div className="flex flex-col h-full">
@@ -571,6 +579,8 @@ function LogTab() {
             <span>✗</span>
             <span>
               {t("chatInspector.failedTools", { count: failedCount })}
+              {rawErrorCount > failedCount &&
+                t("chatInspector.failedRawCount", { count: rawErrorCount })}
             </span>
           </button>
         )}

@@ -356,6 +356,39 @@ function isAllowedPowerShellVerb(verb: string): boolean {
 }
 
 /**
+ * P0（2026-11-03，cwd 方案 §六.1）：控制流拒绝的**单条等价写法**提示。
+ *
+ * 口径：每条提示自身必须过本白名单（否则模型照抄又被拒——真机已实测这类死循环）。
+ * - 循环族（foreach/for/while/do）→ 管道投影；确需逐条处理 ⇒ 拆成多次工具调用；
+ * - 条件族（if/switch）→ 判断留给模型：先跑只读命令拿事实，再按结果发下一条；
+ * - try/catch → 去掉包裹直接执行，失败文本由工具原样返回；
+ * - function/param → 不定义函数，改写为一条内联命令。
+ */
+function controlFlowSingleCommandHint(verb: string): string {
+  if (
+    verb === 'foreach' ||
+    verb === 'for' ||
+    verb === 'while' ||
+    verb === 'do'
+  ) {
+    return '等价单条写法：用一条管道投影代替循环，如「Get-ChildItem <目录> | Select-Object -ExpandProperty Name」；确需逐条处理请拆成多次工具调用（每次一条命令）';
+  }
+  if (
+    verb === 'if' ||
+    verb === 'elseif' ||
+    verb === 'else' ||
+    verb === 'switch'
+  ) {
+    return '等价单条写法：先跑一条只读命令拿事实（如「Test-Path <路径>」），再按结果发下一条命令（判断留给模型，不写进脚本）';
+  }
+  if (verb === 'try' || verb === 'catch' || verb === 'finally') {
+    return '等价单条写法：去掉 try/catch 直接执行单条命令——失败时工具会原样返回错误文本供你处理';
+  }
+  // function / param / begin / process / end
+  return '等价单条写法：不定义函数，把函数体改写成一条内联命令直接执行';
+}
+
+/**
  * F4（2026-10-27）：**给出拒绝原因**而非只回布尔值。
  *
  * 真机实测（会话 `session_mvoqs1ho875ea6b95e`，Liri 报告 R2）：83 次拒绝报文都写成
@@ -377,16 +410,20 @@ export function explainPowerShellNotAllowed(
   const disallowedMethod = findDisallowedMethodCall(command);
   if (disallowedMethod) {
     return {
-      reason: `检测到方法调用「.${disallowedMethod}(…)」不在只读白名单；允许的纯内存方法：Substring/Trim/Split/Replace/ToLower/ToUpper/StartsWith/EndsWith/Contains/IndexOf/PadLeft/PadRight/ToString/Join/ContainsKey/GetEnumerator/ToLocalTime（其余请去掉方法链）`,
+      reason:
+        `检测到方法调用「.${disallowedMethod}(…)」不在只读白名单；允许的纯内存方法：Substring/Trim/Split/Replace/ToLower/ToUpper/StartsWith/EndsWith/Contains/IndexOf/PadLeft/PadRight/ToString/Join/ContainsKey/GetEnumerator/ToLocalTime（其余请去掉方法链）` +
+        `｜等价单条写法：文本检索用「Select-String -Path <文件> -Pattern '<词>'」或「findstr /C:"词" <文件>」；取文件属性用「Get-Item <路径> | Select-Object Length,LastWriteTime」`,
     };
   }
   // ② 静态方法调用（FIX-4：只读类型白名单；其余仍 fail-closed）
   const disallowedStatic = findDisallowedStaticCall(command);
   if (disallowedStatic) {
     return {
-      reason: `检测到静态方法调用「${disallowedStatic}(…)」不在只读类型白名单（仅 ${[
-        ...ALLOWED_STATIC_TYPES,
-      ].join('/')}）；请改写为单一命令`,
+      reason:
+        `检测到静态方法调用「${disallowedStatic}(…)」不在只读类型白名单（仅 ${[
+          ...ALLOWED_STATIC_TYPES,
+        ].join('/')}）；请改写为单一命令` +
+        `｜等价单条写法：读文件用「Get-Content <路径>」；列目录用「Get-ChildItem <路径>」；存在性判断用「Test-Path <路径>」`,
     };
   }
 
@@ -402,7 +439,11 @@ export function explainPowerShellNotAllowed(
       /\.[A-Za-z_]\w*\s*\(/.test(command) ||
       /\[\s*[A-Za-z_][\w.]*\s*\]\s*::/.test(command);
     if (hasReadOnlyExpression) return null;
-    return { reason: '脚本没有可执行命令（纯赋值/注释），不在允许列表' };
+    return {
+      reason:
+        '脚本没有可执行命令（纯赋值/注释），不在允许列表' +
+        '｜等价单条写法：去掉赋值直接执行，如「Get-ChildItem <目录> | Select-Object Name,Length」',
+    };
   }
 
   // ④ 逐语句取动词：报**第一处未命中**的语句与动词（不再拿首词背锅）
@@ -411,7 +452,9 @@ export function explainPowerShellNotAllowed(
     if (verb === null) continue;
     if (POWERSHELL_CONTROL_KEYWORDS.has(verb)) {
       return {
-        reason: `控制流「${verb}」不在支持范围（安全门只判定单条命令）；请改用管道 / Where-Object，或拆成多次工具调用`,
+        reason:
+          `控制流「${verb}」不在支持范围（安全门只判定单条命令）；请改用管道 / Where-Object，或拆成多次工具调用` +
+          `｜${controlFlowSingleCommandHint(verb)}`,
         statement: statements[i].trim().slice(0, 120),
         verb,
       };
@@ -422,7 +465,8 @@ export function explainPowerShellNotAllowed(
       // 反推边界（信息熵黑洞）。给一句"允许哪几族"，一次拒绝即可自纠。
       reason:
         `命令「${verb}」不在允许列表｜允许的常用族：Get-/Test-/Select-/Where-/Format-/Out-/ConvertTo-/ConvertFrom-/Write-；` +
-        `执行器：node/npm/bun/git/python；文件：New-Item/Copy-Item/Move-Item/Rename-Item/Expand-Archive；导航：cd/Set-Location`,
+        `执行器：node/npm/bun/git/python；文件：New-Item/Copy-Item/Move-Item/Rename-Item/Expand-Archive；导航：cd/Set-Location` +
+        `｜等价单条写法示例：列目录「Get-ChildItem <目录>」；搜文本「Select-String -Path <文件> -Pattern '<词>'」`,
       statement: statements[i].trim().slice(0, 120),
       verb,
     };

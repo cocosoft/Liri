@@ -64,6 +64,7 @@ const zhMisc = {
     runningCount: "进行中 {{count}}",
     completedCount: "完成 {{count}}",
     failedTools: "{{count}} 个工具失败，点击查看",
+    failedRawCount: "（含 {{count}} 条原始错误记录）",
     viewToggleTitle: "分组视图按 Turn 归组，平铺视图保留精确事件顺序",
     flatView: "平铺视图",
     groupView: "分组视图",

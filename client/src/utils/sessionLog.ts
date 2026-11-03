@@ -385,6 +385,24 @@ export function buildLogEventsFromEvents(events: LiriEvent[]): LogEvent[] {
   return logEvents;
 }
 
+/**
+ * P0（2026-11-03，cwd 方案 §六.2）：原始 `tool/result` 错误记录数。
+ *
+ * `buildLogEventsFromEvents` 把同一 toolCallId 的多次结果**合并成一张卡**
+ *（后到的 result 覆盖前者），面板的 failed 计数是「合并卡片数」；
+ * 本函数数的是「原始错误记录数」。两者并列展示（卡片 N / 原始 M 条），
+ * 消除「面板 17 卡 vs 导出 36 条」的口径困惑。
+ */
+export function countRawToolErrorRecords(events: LiriEvent[]): number {
+  let count = 0;
+  for (const event of events) {
+    if (event.type !== "tool/result") continue;
+    const d = event.data as { isError?: boolean } | undefined;
+    if (d?.isError === true) count++;
+  }
+  return count;
+}
+
 // ─── 结果/错误辅助 ───────────────────────────────
 
 /** 结果人性化摘要：结构化 {success, data} 取 data 主体，避免整段 JSON 刷屏 */

@@ -417,4 +417,48 @@ describe('FIX-3/4：PS 方法/静态调用与键值行的白名单边界', () =>
     expect(methodWhy).not.toBeNull();
     expect(methodWhy!.reason).toContain('ContainsKey/GetEnumerator');
   });
+
+  // P0（2026-11-03，cwd 方案 §六.1）：每个拒绝分支都必须附**自身过白名单**的
+  // 「等价单条写法」—— 真机实测模型反复重试同一被拒形态（信息熵黑洞）。
+  it('P0：所有拒绝分支统一给「等价单条写法」（且示例自身过白名单）', () => {
+    // ① 方法调用
+    const methodWhy = explainPowerShellNotAllowed(
+      '$x = (Get-Item a).OpenText()'
+    );
+    expect(methodWhy!.reason).toContain('等价单条写法');
+    expect(methodWhy!.reason).toContain('Select-String');
+
+    // ② 静态调用
+    const staticWhy = explainPowerShellNotAllowed(
+      '[System.IO.File]::ReadAllText("a.txt")'
+    );
+    expect(staticWhy).not.toBeNull();
+    expect(staticWhy!.reason).toContain('等价单条写法');
+    expect(staticWhy!.reason).toContain('Get-Content');
+
+    // ③ 纯赋值
+    const assignWhy = explainPowerShellNotAllowed("$x = 'abc'");
+    expect(assignWhy).not.toBeNull();
+    expect(assignWhy!.reason).toContain('等价单条写法');
+
+    // ④ 控制流：循环族给管道投影；条件族给「判断留给模型」；try/catch 给直跑
+    const loopWhy = explainPowerShellNotAllowed(
+      'foreach ($p in $pat) { Get-Item $p }'
+    );
+    expect(loopWhy!.reason).toContain('等价单条写法');
+    expect(loopWhy!.reason).toContain('Get-ChildItem');
+
+    const ifWhy = explainPowerShellNotAllowed(
+      'if (Test-Path a) { Get-Item a }'
+    );
+    expect(ifWhy!.reason).toContain('等价单条写法');
+    expect(ifWhy!.reason).toContain('Test-Path');
+
+    const tryWhy = explainPowerShellNotAllowed('try { Get-Item a } catch { }');
+    expect(tryWhy!.reason).toContain('等价单条写法');
+
+    // ⑤ 白名单未命中
+    const verbWhy = explainPowerShellNotAllowed('Invoke-Mystery -X 1');
+    expect(verbWhy!.reason).toContain('等价单条写法');
+  });
 });

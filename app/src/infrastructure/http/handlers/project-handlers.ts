@@ -6,6 +6,8 @@
  */
 
 import type http from 'http';
+import { existsSync, statSync } from 'fs';
+import { isAbsolute } from 'path';
 // C1（2026-09-30 D-116，`workspace` 域 P4）：项目存储改经服务层端口
 // （原具名/相对导入**不在此处复写** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
@@ -81,6 +83,24 @@ export async function handleCreateProject(
       span.setStatus({ code: SpanStatusCode.OK });
       json(res, 400, { error: 'tags 必须是数组' });
       return;
+    }
+
+    // P0（2026-11-03，cwd 方案 §六.3）：sandboxPath **写入期校验**（API 边界 400，
+    // 与 ProjectStore.create 的 fail-fast 同口径）——无效路径一旦落盘成元数据，
+    // 工具链要到 spawn 期才以「cmd.exe 缺失」的误导性错误炸开。
+    if (sandboxPath !== undefined) {
+      if (typeof sandboxPath !== 'string' || !isAbsolute(sandboxPath)) {
+        span.setStatus({ code: SpanStatusCode.OK });
+        json(res, 400, { error: 'sandboxPath 必须是绝对路径' });
+        return;
+      }
+      if (existsSync(sandboxPath) && !statSync(sandboxPath).isDirectory()) {
+        span.setStatus({ code: SpanStatusCode.OK });
+        json(res, 400, {
+          error: `sandboxPath 已存在但不是目录: ${sandboxPath}`,
+        });
+        return;
+      }
     }
 
     const store = await getProjectStore();

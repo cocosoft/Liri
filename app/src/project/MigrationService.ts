@@ -148,6 +148,18 @@ export function migrateWorktrees(
         !wt.id.includes('..')
           ? wt.id
           : undefined;
+      // P0（2026-11-03，cwd 方案 §六.3）：迁移写入期可见性 —— worktree 路径已不存在
+      // 时仍迁移（delaySandbox 延迟创建契约），但留痕；相对路径/路径是文件会被
+      // ProjectStore.create 的写入期校验直接拒绝（走下方 catch 记 warn）。
+      if (wt.path && !existsSync(wt.path)) {
+        logger.warn(
+          '迁移的 worktree 路径当前不存在（将按延迟创建落盘元数据）',
+          {
+            oldId: wt.id,
+            path: wt.path,
+          }
+        );
+      }
       store.create({
         id,
         workspaceId,

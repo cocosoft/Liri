@@ -138,11 +138,25 @@ export class ScheduleHook {
       // 创建 Cron 提醒任务
       const minutes = reminderMinutes ?? [15];
       const reminderCronJobIds: string[] = [];
+      // 提醒时间已过 ⇒ 不再建任务。补建/改期到过去时会命中：
+      // `completed` 的一次性作业不会被调度器回收，且 API 把它映射为 idle，
+      // 残留会永久出现在「定时任务」列表里（2026-11-03 实测 5 条）。
+      const nowMs = Date.now();
 
       for (const minsBefore of minutes) {
         const reminderTime = new Date(
           new Date(event.start).getTime() - minsBefore * 60 * 1000
         );
+
+        if (reminderTime.getTime() <= nowMs) {
+          logger.info('跳过已过期的日程提醒', {
+            eventId: event.id,
+            minsBefore,
+            reminderTime: reminderTime.toISOString(),
+          });
+          continue;
+        }
+
         const jobId = `cal-reminder-${event.id}-${minsBefore}m`;
 
         try {

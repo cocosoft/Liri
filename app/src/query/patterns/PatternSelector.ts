@@ -1,11 +1,13 @@
 /**
  * PatternSelector — 编排模式选择器（Teamwork P2a，2026-09-06）
  *
- * 输入 = 任务特征（复杂度 + 研究型标志），输出 = pattern 选择结果或 null。
+ * 输入 = 任务特征（复杂度 + 研究型 / 自校验 / 多轮精修标志），输出 = pattern 选择结果或 null。
  * 规则（简单判定表，描述层）：
  *   1. simple 复杂度 → 走快速路径，不套 pattern（null）
- *   2. 研究型复杂任务 → competitive_strategy（P0-3 门控同信号；当前**唯一**已接线运行时的 pattern）
- *   3. 其余（含 complex 非研究）→ **null** —— 如实"无 pattern 适用"
+ *   2. 研究型复杂任务 → competitive_strategy（P0-3 门控同信号）
+ *   3. 多轮精修复杂任务 → iterative_refine（验证线路 `deep` 档位，2026-11-03）
+ *   4. 自校验复杂任务 → self_verify（验证线路 `standard` 档）
+ *   5. 其余（含 complex 非上述意图）→ **null** —— 如实"无 pattern 适用"
  *
  * D2/D4（2026-10-04，[`pattern-trigger-surfaces.md`](../../../../.trae/specs/pattern-trigger-surfaces.md) §4.1/§5 裁定「A 选择层一致化」）：
  *   · 原规则 3「其余 complex → long_task_pdl」与**描述层**（`matches = { complexity: 'simple' }`，D2 运行时对齐）
@@ -90,6 +92,16 @@ export const PATTERN_SELECTION_RULES = [
     research: true,
     feature: 'COMPETITIVE_STRATEGY',
   },
+  // 2026-11-03（`.trae/specs/pattern-wiring-closure.md` §13）：`iterative_refine` 由「未接线」
+  // 并入**验证线路的 `deep` 档位** —— 与 `self_verify` 同一 `route='verify'`，仅配方
+  // `intensity='deep'`（更宽 `maxCycles`）⇒ 不新增 route/运行时（CS01）。
+  // 顺序在 `self_verify` **之前**：`refine` 是比 `verify` 更具体的意图（要打磨，不只是要校验）。
+  {
+    name: 'iterative_refine',
+    complexity: 'complex',
+    refine: true,
+    feature: 'SELF_VERIFY_PATTERN',
+  },
   // 2026-10-07（`.trae/specs/pattern-wiring-closure.md` §4「P1 触发面补齐」）：`self_verify`
   // 原为「接线在、触发永不产出」⇒ 面板只能标「已接线 · 不可达」。现补触发面：`verify` 信号
   // 命中即产出（**顺序在后** ⇒ 研究意图命中的既有行为逐字不变）。
@@ -114,7 +126,6 @@ type ReachablePatternName = (typeof PATTERN_SELECTION_RULES)[number]['name'];
 const PATTERN_TRIGGER_ABSENCE_REASON: Readonly<
   Record<Exclude<PatternName, ReachablePatternName>, string>
 > = {
-  iterative_refine: '选择层无触发规则（无触发场景，N4）',
   parallel_distributed: '选择层无触发规则（无触发场景，N4）',
   long_task_pdl:
     '选择层无触发规则（其运行时由 ChatManager 快速路径策略独立驱动，不经 pattern 选择与装配）',
@@ -156,7 +167,8 @@ export function selectPattern(spec: PatternMatchSpec): PatternSelection | null {
     (r) =>
       r.complexity === spec.complexity &&
       (r.research === undefined || spec.research === r.research) &&
-      (r.verify === undefined || spec.verify === r.verify)
+      (r.verify === undefined || spec.verify === r.verify) &&
+      (r.refine === undefined || spec.refine === r.refine)
   );
   if (!rule) {
     logger.debug('pattern.none', { ...spec });

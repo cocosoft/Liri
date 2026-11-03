@@ -14,10 +14,12 @@
  * - `long_task_pdl` 的运行时（PlanDrivenLoop）存在，但由 ChatManager 快速路径策略
  *   （`_shouldUsePlanDrivenLoop`）**独立驱动**，不经 pattern 装配
  *   （D2 = 以运行时为准）⇒ 本层如实返回 `unavailable`（不静默空转）。
- * - `iterative_refine` / `parallel_distributed` 的**承担方均已存在实现**（见
- *   `patternAssembly.ts#PATTERN_PROVIDER_BINDINGS`），缺的是 **pattern 级装配入口与触发面**
- *   ⇒ 同 `unavailable`，**不臆造运行时/占位 stub**（CS04）。装配评估（含终局裁定与触发条件）
- *   见 `.trae/specs/pattern-wiring-closure.md` §5/§6。
+ * - `parallel_distributed` 的**承担方均已存在实现**（见 `patternAssembly.ts#PATTERN_PROVIDER_BINDINGS`），
+ *   且「任务级依赖图分治」已由 **OrchEngine**（`scheduleTopoBatches` + 批内 `Promise.all`）承接 ⇒
+ *   按 §6 裁定**扩既有链而非新增 route**，本层同样如实返回 `unavailable`。
+ * - 2026-11-03（§13）：`iterative_refine` 由「未接线」**并入验证线路 `deep` 档位** ——
+ *   与 `self_verify` 同一 `route='verify'`，配方 `intensity='deep'`（更宽 `maxCycles`）⇒
+ *   升为 `ready` 且**不新增 route/运行时**（CS01）。
  * - 13-P1-3（2026-10-05）：`self_verify` 升为 **ready** —— 复用**既有** `VerifierAgent`
  *   （配方 `verifyPolicy:'blocking'`），并返回执行配方供消费方配置该运行时。
  *   2026-10-07（`pattern-wiring-closure.md` §4）：**触发面已补齐**（选择规则新增 `verify`）
@@ -92,6 +94,16 @@ const VERIFY_RECIPE: PatternRecipe = {
 };
 
 /**
+ * 多轮精修线路配方（2026-11-03，§13）：**同一 `verify` route 的 `deep` 档位** ——
+ * 与 `VERIFY_RECIPE` 仅 `intensity` 不同（`verifierConfigForRecipe` 据此放宽 `maxCycles`）。
+ * 原 `iterative_refine` 的语义并入此处，**不新增 route/运行时**。
+ */
+const VERIFY_DEEP_RECIPE: PatternRecipe = {
+  ...VERIFY_RECIPE,
+  intensity: 'deep',
+};
+
+/**
  * assembler → 装配规格（**闭集全覆盖**；`Record` 形态编译期保证无漏配）。
  * 新增 `PatternAssemblerId` 而漏登记 ⇒ 编译失败。
  */
@@ -103,15 +115,12 @@ const ASSEMBLER_SPECS: Readonly<Record<PatternAssemblerId, AssemblerSpec>> = {
   // ⇒ 统一改**三段式**：承担方 / 装配入口 / 触发面（各段如实，缺哪段说哪段）。
   long_task_pdl: {
     reason:
-      '承担方已就绪（plan_driven_loop=PlanDrivenLoop、task_decomposer=TaskDecomposer）／装配入口缺：运行时由 ChatManager 快速路径策略（_shouldUsePlanDrivenLoop）独立驱动，不经 pattern 装配（D2 = 以运行时为准）／触发面缺：选择层无规则',
+      '承担方已就绪（plan_driven_loop=PlanDrivenLoop、task_decomposer=TaskDecomposer）／装配入口：不设 —— 由 ChatManager 快速路径（_shouldUsePlanDrivenLoop）独立驱动 PlanDrivenLoop（D2 = 以运行时为准）／触发面缺：选择层无规则（其触发由快速路径判定）',
   },
-  iterative_refine: {
-    reason:
-      '承担方已就绪（generator=TAORLoop、reviewer=VerifierAgent；VerifierAgent 且已内建于 TAORLoop）／装配入口缺：无 pattern 级组合与消费方（装配评估见 spec `pattern-wiring-closure.md` §5，暂不实施）／触发面缺：选择层无规则（N4）',
-  },
+  iterative_refine: { route: 'verify', recipe: VERIFY_DEEP_RECIPE },
   parallel_distributed: {
     reason:
-      '承担方已就绪（planner=TaskDecomposer、worker=ParallelAgentScheduler、aggregator=ResultAggregator）／装配入口缺：未裁定装配到哪条既有链（装配评估见 spec `pattern-wiring-closure.md` §6，暂不实施）／触发面缺：选择层无规则（N4）',
+      '承担方已就绪（planner=TaskDecomposer、worker=ParallelAgentScheduler、aggregator=ResultAggregator）／装配入口：不设 —— 任务级依赖图分治已由 OrchEngine 承接（scheduleTopoBatches + 批内 Promise.all）⇒ 扩既有链而非新增第三套并行（§6）／触发面缺：选择层无规则（N4）',
   },
   // 13-P1-3（2026-10-05）：`self_verify` 由 unavailable 升为 **ready** —— 复用既有 VerifierAgent
   // （配方 verifyPolicy:'blocking'）。
@@ -120,6 +129,21 @@ const ASSEMBLER_SPECS: Readonly<Record<PatternAssemblerId, AssemblerSpec>> = {
   // 「已接线 **且可达**」（此前"接线在、触发缺"的如实标注到此收口）；
   // 生效仍受门控 `SELF_VERIFY_PATTERN`（**默认 false**）约束。
   self_verify: { route: 'verify', recipe: VERIFY_RECIPE },
+};
+
+/**
+ * 「由既有链独立驱动」的承接方（2026-11-03，§6/§13 收口）。
+ *
+ * 与 `status`（装配层）**正交**：这些模式的能力**确已在运行**，但由别处承接、本层不设
+ * pattern 级 route ⇒ 面板据此标「由既有链驱动」，不再被读成「未接线＝没实现」。
+ * - `chat_fast_path`：`long_task_pdl` 由 `ChatManager._shouldUsePlanDrivenLoop` 启动 PDL；
+ * - `orch_engine`：`parallel_distributed` 由 `OrchEngine`（拓扑分批 + 批内并发）承接。
+ */
+const EXTERNALLY_DRIVEN: Partial<
+  Record<PatternAssemblerId, NonNullable<PatternCatalogEntry['drivenBy']>>
+> = {
+  long_task_pdl: 'chat_fast_path',
+  parallel_distributed: 'orch_engine',
 };
 
 /**
@@ -169,6 +193,14 @@ export interface PatternCatalogEntry {
   /** 未接线原因（仅 `unavailable`） */
   reason?: string;
   /**
+   * 该模式的**能力**由既有链独立驱动时的承接方（仅 `unavailable` 且能力确实在运行）。
+   *
+   * 2026-11-03：`long_task_pdl` = `chat_fast_path`（PlanDrivenLoop）·
+   * `parallel_distributed` = `orch_engine`（任务级依赖图分治）。
+   * 面板据此显示「由既有链驱动」，而非笼统的「未接线」（结构字段，不靠文案匹配）。
+   */
+  drivenBy?: 'chat_fast_path' | 'orch_engine';
+  /**
    * **触发可达性**（2026-10-07 新增）：选择层是否会产出本模式。
    *
    * 与 `status`（装配层）是**两件事**：`status==='ready' && !reachable` 表示
@@ -204,6 +236,7 @@ export function listPatternCatalog(): PatternCatalogEntry[] {
     );
     const reachable = isPatternReachable(descriptor.name);
     const flag = patternFeatureFlag(descriptor.name);
+    const drivenBy = EXTERNALLY_DRIVEN[descriptor.assembly.assembler];
     const base: PatternCatalogEntry = {
       name: descriptor.name,
       displayName: descriptor.displayName,
@@ -224,6 +257,8 @@ export function listPatternCatalog(): PatternCatalogEntry[] {
       ...(instantiation.status === 'ready'
         ? { route: instantiation.route }
         : { reason: instantiation.reason }),
+      // 2026-11-03：能力由既有链承接时如实标注承接方（与 `status` 正交，面板据此换徽标）
+      ...(drivenBy ? { drivenBy } : {}),
     };
     return base;
   });
@@ -282,7 +317,14 @@ export function verifierConfigForRecipe(recipe: PatternRecipe): {
       return {
         enabled: true,
         failClosed: true,
-        maxCycles: recipe.budgetPolicy === 'strict' ? 2 : undefined,
+        // 2026-11-03（§13）：`deep` = 多轮打磨档（原 iterative_refine 语义）⇒ 更宽循环上限；
+        // `standard` 维持既有的 2（self_verify 现状，行为不变）。
+        maxCycles:
+          recipe.budgetPolicy === 'strict'
+            ? recipe.intensity === 'deep'
+              ? 4
+              : 2
+            : undefined,
       };
   }
 }

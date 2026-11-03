@@ -30,7 +30,11 @@ import { instantiatePattern, verifierConfigForRecipe } from '@modules/query';
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { LiriEvent, LiriEventData } from '@modules/session/types/events';
 
-import { hasResearchIntent, hasVerifyIntent } from '../taskIntent';
+import {
+  hasRefineIntent,
+  hasResearchIntent,
+  hasVerifyIntent,
+} from '../taskIntent';
 import { shouldEscalateLongTask } from '../longTaskEscalation';
 import { createProjectStore } from '../../workspace/ProjectStore.js';
 import { WorkItemStore } from '../../workspace/WorkItemStore.js';
@@ -240,10 +244,14 @@ export class PdcaLaunchCoordinator {
     // ① 用任务特征构造 spec ② 读装配入口标识决定去向。
     const researchIntent = hasResearchIntent(lastUserContent || '');
     const verifyIntent = hasVerifyIntent(lastUserContent || '');
+    // 2026-11-03（`pattern-wiring-closure.md` §13）：多轮精修意图 = 验证线路的 `deep` 档位信号
+    // （与 verify 同一 route，仅配方 intensity 不同）⇒ 必须一并传入选择层，否则该档位不可达。
+    const refineIntent = hasRefineIntent(lastUserContent || '');
     const researchPattern = selectPattern({
       complexity: 'complex',
       research: researchIntent,
       verify: verifyIntent,
+      refine: refineIntent,
     });
     // A8 最后一公里（2026-10-04，`.trae/specs/pattern-assembly-runtime.md` §4.1）：
     // 装配描述不再由本层**裸读 assembler 字符串比较**，改经装配入口 `instantiatePattern`
@@ -270,8 +278,10 @@ export class PdcaLaunchCoordinator {
         .getOrCreateTAORLoop(session.id)
         .applyVerifierConfig(recipeVerifierConfig);
       verifyApplied = true;
-      logger.info('pattern 配方应用（self_verify ⇒ 验证器配置）', {
+      logger.info('pattern 配方应用（验证线路 ⇒ 验证器配置）', {
         sessionId: session.id,
+        pattern: researchPattern?.name,
+        intensity: researchInstantiation.recipe.intensity ?? 'standard',
         verifyPolicy: researchInstantiation.recipe.verifyPolicy,
         budgetPolicy: researchInstantiation.recipe.budgetPolicy,
         verifier: recipeVerifierConfig,
@@ -281,7 +291,7 @@ export class PdcaLaunchCoordinator {
       patternGateEnabled &&
       researchInstantiation?.status === 'ready' &&
       researchInstantiation.route === 'research';
-    if (researchIntent || verifyIntent) {
+    if (researchIntent || verifyIntent || refineIntent) {
       this.persistPatternDecision(session.id, {
         site: 'research_dispatch',
         selected: researchPattern?.name ?? null,

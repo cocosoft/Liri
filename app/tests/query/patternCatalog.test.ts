@@ -63,9 +63,12 @@ describe('listPatternCatalog（PC-6 编排模式目录）', () => {
     expect(byName.competitive_strategy.route).toBe('research');
     expect(byName.self_verify.status).toBe('ready');
     expect(byName.self_verify.route).toBe('verify');
+    // 2026-11-03（`.trae/specs/pattern-wiring-closure.md` §13）：精修并入验证线路 `deep` 档
+    // ⇒ 复用**同一** `verify` route（不新增 route）
+    expect(byName.iterative_refine.status).toBe('ready');
+    expect(byName.iterative_refine.route).toBe('verify');
     // 未接线（如实登记，含原因）
     expect(byName.long_task_pdl.status).toBe('unavailable');
-    expect(byName.iterative_refine.status).toBe('unavailable');
     expect(byName.parallel_distributed.status).toBe('unavailable');
   });
 
@@ -111,16 +114,23 @@ describe('listPatternCatalog 可达性（2026-10-07 收口）', () => {
     expect(byName.self_verify.status).toBe('ready');
     expect(byName.self_verify.reachable).toBe(true);
     expect(byName.self_verify.featureGate?.flag).toBe('SELF_VERIFY_PATTERN');
-    // 其余三条同样无触发面（`long_task_pdl` 的运行时由快速路径独立驱动）
-    for (const n of [
-      'long_task_pdl',
-      'iterative_refine',
-      'parallel_distributed',
-    ]) {
+    // 2026-11-03（§13）：`iterative_refine` 触发面补齐（`refine` 规则）且与 self_verify
+    // 共用同一门控（同一 `verify` route 的 deep 档）
+    expect(byName.iterative_refine.status).toBe('ready');
+    expect(byName.iterative_refine.reachable).toBe(true);
+    expect(byName.iterative_refine.featureGate?.flag).toBe(
+      'SELF_VERIFY_PATTERN'
+    );
+    // 其余两条同样无触发面（`long_task_pdl` 的运行时由快速路径独立驱动）
+    for (const n of ['long_task_pdl', 'parallel_distributed']) {
       expect(byName[n].reachable).toBe(false);
     }
     // 门控只出现在声明了门控的模式上
-    const gated = new Set(['competitive_strategy', 'self_verify']);
+    const gated = new Set([
+      'competitive_strategy',
+      'iterative_refine',
+      'self_verify',
+    ]);
     for (const c of listPatternCatalog()) {
       expect(typeof c.featureGate?.enabled).toBe(
         gated.has(c.name) ? 'boolean' : 'undefined'

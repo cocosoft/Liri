@@ -25,11 +25,16 @@ function PatternCard({ pattern }: { pattern: OrchestrationPattern }) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const wired = pattern.status === "ready";
+  // 2026-11-03：能力由既有链承接（PDL→快速路径 / 并行分治→OrchEngine）时，不再笼统标「未接线」，
+  // 否则会被读成"没实现"（结构字段 `drivenBy`，不靠文案匹配）。
+  const externallyDriven = !wired && !!pattern.drivenBy;
   // 2026-10-07（可达性收口）：徽标三态 —— 已接线·可达 / 已接线·**不可达** / 未接线。
   // 修复前只有二元 `status` ⇒ `self_verify`（接线在、触发永不产出）被谎报为可用。
   const badgeGreen = wired && pattern.reachable;
   const badgeText = !wired
-    ? t("chatInspector.patternsUnavailable")
+    ? externallyDriven
+      ? t("chatInspector.patternsExternallyDriven")
+      : t("chatInspector.patternsUnavailable")
     : pattern.reachable
       ? t("chatInspector.patternsReady")
       : t("chatInspector.patternsWiredUnreachable");
@@ -38,7 +43,7 @@ function PatternCard({ pattern }: { pattern: OrchestrationPattern }) {
     <div className="border-b border-gray-100 dark:border-gray-800 px-4 py-3">
       <div className="flex items-start gap-2">
         <span className="text-sm shrink-0 leading-5">
-          {badgeGreen ? "✅" : "🚧"}
+          {badgeGreen ? "✅" : externallyDriven ? "🔗" : "🚧"}
         </span>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -52,7 +57,9 @@ function PatternCard({ pattern }: { pattern: OrchestrationPattern }) {
               className={`text-[10px] px-1.5 py-0.5 rounded border ${
                 badgeGreen
                   ? "bg-green-50 dark:bg-green-950/40 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400"
-                  : "bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400"
+                  : externallyDriven
+                    ? "bg-sky-50 dark:bg-sky-950/40 border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-400"
+                    : "bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400"
               }`}
             >
               {badgeText}
@@ -60,6 +67,11 @@ function PatternCard({ pattern }: { pattern: OrchestrationPattern }) {
             {wired && pattern.route && (
               <code className="text-[10px] text-gray-400 dark:text-gray-500">
                 route: {pattern.route}
+              </code>
+            )}
+            {externallyDriven && pattern.drivenBy && (
+              <code className="text-[10px] text-gray-400 dark:text-gray-500">
+                driven by: {pattern.drivenBy}
               </code>
             )}
           </div>

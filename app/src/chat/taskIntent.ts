@@ -110,3 +110,19 @@ export function hasVerifyIntent(text: string): boolean {
     text
   );
 }
+
+/**
+ * 多轮精修意图判定（2026-11-03，`.trae/specs/pattern-wiring-closure.md` §13）
+ *
+ * 用途：验证线路的**强度档位**信号 —— 命中 ⇒ `iterative_refine` 选中**同一 `verify` route**
+ * 的 `deep` 档（更宽 `maxCycles`），即原「迭代精修」并入 `self_verify` 的档位，不新增 route。
+ *
+ * 词表聚焦"要求**多轮打磨**"（区别于 `hasVerifyIntent` 的"要校验"）：多轮 / 反复修改 / 迭代
+ * 优化 / 精修 / 润色。命中**不改变**默认行为 —— 生效仍受 `SELF_VERIFY_PATTERN`（默认 false）门控。
+ */
+export function hasRefineIntent(text: string): boolean {
+  if (!text) return false;
+  return /(?:多轮|反复(?:修改|打磨|调整|优化)|迭代(?:修改|打磨|优化|改进)|打磨|精修|逐轮(?:优化|改进)|润色)/.test(
+    text
+  );
+}

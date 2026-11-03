@@ -225,5 +225,32 @@ PATTERN_SELECTION_RULES = [
 3. **状态冻结**：`2 ready + 3 unavailable` 集合**逐项断言** ⇒ 任何状态变化（接线 / 下线）**必须显式修改该断言**（= 一次显式裁定，防"静默接线"）；
 4. `unavailable` 分支**不得**带 `route`/`recipe`（防臆造占位 stub，CS04）。
 
+> ⚠️ **本节的冻结实况已被 §13（2026-11-03）取代**（用户裁定「按 spec 推荐路径收口」）：
+> `iterative_refine` 升为 `ready`（验证线路 `deep` 档），其余两项标 `drivenBy`。
+
+---
+
+## 13. 追加（2026-11-03）：按「spec 推荐路径」收口三项未接线（用户裁定）
+
+> 触发：用户提问「模式面板三项为何未接线」→ 选择 **「按 spec 推荐路径（并入/扩既有链，不新增 route）」**。
+> 本节**取代 §12 的冻结实况**，不改 §5/§6 的「不新增 route」结论。
+
+| 模式 | 处置 | 落点 |
+|---|---|---|
+| 迭代精修 `iterative_refine` | **并入验证线路 `deep` 档位**：同一 `route='verify'`，配方 `intensity='deep'` ⇒ `maxCycles=4`（`self_verify` 维持 2） | `patternAssembler.ts`（`VERIFY_DEEP_RECIPE` / `verifierConfigForRecipe`）· `patterns/types.ts`（`PatternRecipe.intensity`、`Matches.refine`）· `PatternSelector.ts`（`refine` 规则，排在 `verify` 前）· `chat/taskIntent.ts`（`hasRefineIntent`）· `chat/manager/pdcaLaunch.ts`（透传 refine + 落 `pattern/decision`） |
+| 并行分治 `parallel_distributed` | **确认由既有链承接**：`OrchEngine` 的 `scheduleTopoBatches` + 批内 `Promise.all`（批宽上限 = `TaskDecomposer.MAX_SUBTASKS`）⇒ 不新增 route；目录标 `drivenBy='orch_engine'` | `ai/router/OrchEngine.ts`（既有实现）· `patternAssembler.ts`（`EXTERNALLY_DRIVEN`）· `ChatInspector/PatternsTab.tsx` |
+| 长任务依赖图 `long_task_pdl` | **口径修正**：运行时由 `ChatManager._shouldUsePlanDrivenLoop` 独立驱动（D2），目录标 `drivenBy='chat_fast_path'`，面板显示「由既有链驱动」而非「未接线」 | 同上 |
+
+**行为边界（如实）**：三者均受**既有**约束 —— 验证线路仍受 `SELF_VERIFY_PATTERN`（默认 `false`）门控，
+`long_task_pdl` 仍由快速路径判定 ⇒ **默认路径零变化**；`maxCycles=4` 仅在门控开启且命中精修意图时生效。
+
+**状态**：`3 ready`（`competitive_strategy` / `iterative_refine` / `self_verify`）+ `2 unavailable`
+（`long_task_pdl` / `parallel_distributed`，均带**结构字段** `drivenBy`）。`drivenBy` 与 `status` **正交**，
+面板据此换徽标（结构判定，非文案匹配，CS02）。
+
+**守卫更新（显式裁定）**：`patternAssemblerClosure.test.ts`（3 ready + 2 unavailable + deep 档断言）·
+`patternCatalog.test.ts`（④/⑥ 实况与门控）· `PatternSelector.test.ts`（规则顺序 / 可达 / 门控）·
+`taskIntent.test.ts`（`hasRefineIntent`）· `patternAssemblerRecipe.test.ts`（`maxCycles` 2 vs 4）。
+
 
 

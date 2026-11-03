@@ -1,10 +1,11 @@
 /**
  * P2-7 —— **模式装配闭环复核断言**（`.trae/specs/pattern-wiring-closure.md` §12 复核）。
  *
- * 背景：外部核验项 M-6（21 模式 A8）。2026-10-10 复核结论：
- * 装配状态为 **2/5 ready**（`competitive_strategy` / `self_verify`）、**3/5 unavailable**
- * （`long_task_pdl` 有意不经装配；`iterative_refine` / `parallel_distributed` **缺触发面**）
- * —— 触发条件**已可操作化**（spec §11，含阈值 + 季度复评），按 **CS03** 维持 **不接线**。
+ * 背景：外部核验项 M-6（21 模式 A8）。2026-10-10 复核结论为 2/5 ready + 3/5 unavailable；
+ * **2026-11-03 追加裁定**（`pattern-wiring-closure.md` §13，用户选择「spec 推荐路径」）：
+ * `iterative_refine` 并入**验证线路 `deep` 档位**（同一 `route='verify'`，不新增 route）⇒ 升为
+ * `ready`；`parallel_distributed`（由 OrchEngine 承接，不新增 route）与 `long_task_pdl`
+ * （由快速路径独立驱动）维持 `unavailable` ⇒ 当前 **3/5 ready + 2/5 unavailable**。
  *
  * 本文件的职责是**把"登记"变成"机器守卫"**：
  * - `unavailable` 的**三段式原因**（承担方 / 装配入口 / 触发面）必须齐备（防措辞退回"无运行时"式误导）；
@@ -19,18 +20,17 @@ import { instantiatePattern } from '../../src/query/patternAssembler.js';
 const selectionFor = (assembler: string): never =>
   ({ descriptor: { assembly: { assembler } } }) as never;
 
-const UNAVAILABLE = [
-  'long_task_pdl',
-  'iterative_refine',
-  'parallel_distributed',
-] as const;
+const UNAVAILABLE = ['long_task_pdl', 'parallel_distributed'] as const;
 
 describe('P2-7 模式装配闭环 · 复核断言', () => {
-  it('已接线且可达 ⇒ `ready`（competitive_strategy / self_verify）', () => {
+  it('已接线且可达 ⇒ `ready`（competitive_strategy / iterative_refine / self_verify）', () => {
     expect(
       instantiatePattern(selectionFor('competitive_strategy')).status
     ).toBe('ready');
     expect(instantiatePattern(selectionFor('self_verify')).status).toBe(
+      'ready'
+    );
+    expect(instantiatePattern(selectionFor('iterative_refine')).status).toBe(
       'ready'
     );
   });
@@ -43,6 +43,17 @@ describe('P2-7 模式装配闭环 · 复核断言', () => {
       expect(r.recipe.loopKind).toBe('verify');
       expect(r.recipe.verifyPolicy).toBe('blocking');
       expect(r.recipe.budgetPolicy).toBe('strict');
+      // 2026-11-03：self_verify = standard 档（行为不变）
+      expect(r.recipe.intensity ?? 'standard').toBe('standard');
+    }
+  });
+
+  it('§13：iterative_refine 复用**同一 verify route** 的 deep 档（不新增 route）', () => {
+    const r = instantiatePattern(selectionFor('iterative_refine'));
+    expect(r.status).toBe('ready');
+    if (r.status === 'ready') {
+      expect(r.route).toBe('verify');
+      expect(r.recipe.intensity).toBe('deep');
     }
   });
 
@@ -58,15 +69,18 @@ describe('P2-7 模式装配闭环 · 复核断言', () => {
     }
   });
 
-  it('【状态冻结】装配状态集合 = 2 ready + 3 unavailable（**改状态必须显式修改本断言**）', () => {
-    const actual = ['competitive_strategy', ...UNAVAILABLE, 'self_verify'].map(
-      (a) => `${a}:${instantiatePattern(selectionFor(a)).status}`
-    );
+  it('【状态冻结】装配状态集合 = 3 ready + 2 unavailable（**改状态必须显式修改本断言**）', () => {
+    const actual = [
+      'competitive_strategy',
+      ...UNAVAILABLE,
+      'iterative_refine',
+      'self_verify',
+    ].map((a) => `${a}:${instantiatePattern(selectionFor(a)).status}`);
     expect(actual).toEqual([
       'competitive_strategy:ready',
       'long_task_pdl:unavailable',
-      'iterative_refine:unavailable',
       'parallel_distributed:unavailable',
+      'iterative_refine:ready',
       'self_verify:ready',
     ]);
   });

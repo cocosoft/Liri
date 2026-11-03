@@ -144,6 +144,11 @@ export interface OrchestrationPatternDto {
   reachable: boolean;
   /** 无触发面原因（仅 `reachable === false`） */
   unreachableReason?: string;
+  /**
+   * 能力由**既有链独立驱动**时的承接方（2026-11-03；与 `status` 正交）。
+   * `chat_fast_path` = PDL 由快速路径驱动；`orch_engine` = 任务级依赖图分治由 OrchEngine 承接。
+   */
+  drivenBy?: 'chat_fast_path' | 'orch_engine';
   /** 命中后仍需开启的功能开关（仅出现在有门控的模式上） */
   featureGate?: { flag: string; enabled: boolean };
 }

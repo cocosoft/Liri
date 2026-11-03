@@ -14,9 +14,11 @@ const zhMisc = {
     tabPatterns: "模式",
     patternsTitle: "编排模式",
     patternsDesc:
-      "本应用可用的编排模式（模式注册表 + 装配状态 + 触发可达性）；「未接线」「不可达」均为如实标注，非缺漏。",
+      "本应用可用的编排模式（模式注册表 + 装配状态 + 触发可达性）；「由既有链驱动」「未接线」「不可达」均为如实标注，非缺漏。",
     patternsReady: "已接线",
     patternsUnavailable: "未接线",
+    // 2026-11-03：能力由既有链承接（PDL→快速路径 / 并行分治→OrchEngine），非"没实现"
+    patternsExternallyDriven: "由既有链驱动",
     patternsWhen: "适用场景",
     patternsRoles: "角色",
     patternsBindings: "装配绑定",

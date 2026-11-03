@@ -101,6 +101,14 @@ export interface PatternRecipe {
   verifyPolicy: 'off' | 'advisory' | 'blocking';
   /** 预算策略：`strict` 收紧重试与循环上限 / `default` 运行时默认 */
   budgetPolicy: 'default' | 'strict';
+  /**
+   * 验证线路的**强度档位**（2026-11-03，`pattern-wiring-closure.md` §13）。
+   *
+   * `deep` = **多轮打磨**（原 `iterative_refine` 的语义，已并入本档位 ⇒ 同一 `verify` route
+   * 的更宽 `maxCycles`，**不新增 route/运行时**）；缺省 = `standard`（单轮校验）。
+   * 只有 `verifyPolicy: 'blocking'` 时生效（`verifierConfigForRecipe` 据此取 `maxCycles`）。
+   */
+  intensity?: 'standard' | 'deep';
 }
 
 /** 声明式 pattern 描述 */
@@ -130,6 +138,13 @@ export interface PatternMatchSpec {
    * 供 `self_verify` 模式的触发规则消费。
    */
   verify?: boolean;
+  /**
+   * 多轮精修意图标志（2026-11-03，`pattern-wiring-closure.md` §13）：来自 `hasRefineIntent`。
+   *
+   * 供 `iterative_refine` 规则消费 —— 它不再是独立 route，而是**验证线路的 `deep` 档位**
+   * （同一 `verify` route，更宽 `maxCycles`）。
+   */
+  refine?: boolean;
 }
 
 /**
@@ -149,6 +164,13 @@ export interface PatternSelectionRule {
   research?: true;
   /** 声明 `true` ⇒ 要求 `spec.verify === true`（缺省 = 不约束；2026-10-07 新增） */
   verify?: true;
+  /**
+   * 声明 `true` ⇒ 要求 `spec.refine === true`（缺省 = 不约束；2026-11-03 新增）。
+   *
+   * 与 `verify` 的区别：`verify` = "产出后要校验"，`refine` = "要**多轮打磨**" ⇒ 后者选
+   * `iterative_refine`（验证线路 `deep` 档位）。规则顺序上 `refine` 在 `verify` 之前。
+   */
+  refine?: true;
   /** 命中后**仍需**开启的功能开关（缺省 = 无门控）；只声明名，解析走 `core#feature` */
   feature?: FeatureFlag;
 }

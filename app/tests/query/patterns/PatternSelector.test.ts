@@ -64,13 +64,16 @@ describe('PatternSelector（Teamwork P2a）', () => {
  * 且与 `selectPattern` **同源**（本组用例即断言该同源关系）。
  */
 describe('PatternSelector 可达性（2026-10-07）', () => {
-  test('触发规则表：research → competitive_strategy；verify → self_verify（顺序即优先级）', () => {
+  test('触发规则表：research → competitive_strategy；refine → iterative_refine；verify → self_verify（顺序即优先级）', () => {
     expect(PATTERN_SELECTION_RULES.map((r) => r.name)).toEqual([
       'competitive_strategy',
+      'iterative_refine',
       'self_verify',
     ]);
     expect(PATTERN_SELECTION_RULES[0].feature).toBe('COMPETITIVE_STRATEGY');
+    // 2026-11-03（§13）：精修并入验证线路的 deep 档位 ⇒ 与 self_verify 共用同一门控
     expect(PATTERN_SELECTION_RULES[1].feature).toBe('SELF_VERIFY_PATTERN');
+    expect(PATTERN_SELECTION_RULES[2].feature).toBe('SELF_VERIFY_PATTERN');
   });
 
   test('可达 ⇔ 选择层能产出（派生自规则表，不另建第二张表）', () => {
@@ -78,10 +81,13 @@ describe('PatternSelector 可达性（2026-10-07）', () => {
       { complexity: 'simple' as const },
       { complexity: 'simple' as const, research: true },
       { complexity: 'simple' as const, verify: true },
+      { complexity: 'simple' as const, refine: true },
       { complexity: 'complex' as const },
       { complexity: 'complex' as const, research: true },
       { complexity: 'complex' as const, verify: true },
+      { complexity: 'complex' as const, refine: true },
       { complexity: 'complex' as const, research: true, verify: true },
+      { complexity: 'complex' as const, refine: true, verify: true },
     ];
     for (const p of listPatterns()) {
       const producible = specs.some((s) => selectPattern(s)?.name === p.name);
@@ -118,18 +124,30 @@ describe('PatternSelector 可达性（2026-10-07）', () => {
     ).toBe('competitive_strategy');
   });
 
-  test('门控声明单点：两条规则各带一门控，其余无', () => {
+  test('门控声明单点：三条规则各带一门控，其余无', () => {
     expect(patternFeatureFlag('competitive_strategy')).toBe(
       'COMPETITIVE_STRATEGY'
     );
     expect(patternFeatureFlag('self_verify')).toBe('SELF_VERIFY_PATTERN');
-    for (const n of [
-      'iterative_refine',
-      'parallel_distributed',
-      'long_task_pdl',
-    ] as const) {
+    // 2026-11-03（§13）：精修是验证线路的 deep 档位 ⇒ 同一门控
+    expect(patternFeatureFlag('iterative_refine')).toBe('SELF_VERIFY_PATTERN');
+    for (const n of ['parallel_distributed', 'long_task_pdl'] as const) {
       expect(patternFeatureFlag(n)).toBeUndefined();
     }
+  });
+
+  // 2026-11-03（§13）：`refine` 比 `verify` 更具体 ⇒ 规则顺序上优先；research 仍在最前
+  test('§13：refine → iterative_refine（deep 档），且研究意图仍优先', () => {
+    expect(selectPattern({ complexity: 'complex', refine: true })?.name).toBe(
+      'iterative_refine'
+    );
+    expect(
+      selectPattern({ complexity: 'complex', refine: true, verify: true })?.name
+    ).toBe('iterative_refine');
+    expect(
+      selectPattern({ complexity: 'complex', research: true, refine: true })
+        ?.name
+    ).toBe('competitive_strategy');
   });
 });
 

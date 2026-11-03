@@ -42,13 +42,24 @@ describe('instantiatePattern 携带执行配方（13-P1-3）', () => {
     expect(r.recipe.budgetPolicy).toBe('strict');
   });
 
-  it('无运行时者仍如实 unavailable（不臆造）', () => {
-    for (const id of ['iterative_refine', 'parallel_distributed'] as const) {
+  // 2026-11-03（§13）：iterative_refine 并入验证线路 deep 档 ⇒ 不再是 unavailable
+  it('仍未接线者如实 unavailable（不臆造）：parallel_distributed', () => {
+    for (const id of ['parallel_distributed'] as const) {
       const r = instantiatePattern(selection(id));
       expect(r.status).toBe('unavailable');
       if (r.status !== 'unavailable') continue;
       expect(r.reason.length).toBeGreaterThan(0);
     }
+  });
+
+  it('iterative_refine ⇒ ready/verify + deep 档（复用同一 route）', () => {
+    const r = instantiatePattern(
+      selection('iterative_refine', 'iterative_refine')
+    );
+    expect(r.status).toBe('ready');
+    if (r.status !== 'ready') return;
+    expect(r.route).toBe('verify');
+    expect(r.recipe.intensity).toBe('deep');
   });
 
   it('ready 分支自描述**可达性 + 门控**（外部报告 G2 收口）', () => {
@@ -99,6 +110,29 @@ describe('verifierConfigForRecipe（配方 → 既有验证器配置）', () => 
         budgetPolicy: 'strict',
       })
     ).toEqual({ enabled: true, failClosed: true, maxCycles: 2 });
+  });
+
+  // 2026-11-03（§13）：deep = 多轮打磨档（原 iterative_refine）⇒ 更宽循环上限
+  it('blocking + strict + deep ⇒ 放宽循环上限（多轮精修档），其余与 standard 相同', () => {
+    expect(
+      verifierConfigForRecipe({
+        ...base,
+        verifyPolicy: 'blocking',
+        budgetPolicy: 'strict',
+        intensity: 'deep',
+      })
+    ).toEqual({ enabled: true, failClosed: true, maxCycles: 4 });
+  });
+
+  it('intensity 只在 blocking 生效（off / advisory 不受影响）', () => {
+    expect(
+      verifierConfigForRecipe({
+        ...base,
+        verifyPolicy: 'advisory',
+        budgetPolicy: 'strict',
+        intensity: 'deep',
+      })
+    ).toEqual({ enabled: true, failClosed: false });
   });
 });
 

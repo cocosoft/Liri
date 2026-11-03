@@ -10,7 +10,11 @@
  * （`self_verify` 模式的触发信号）同文件覆盖 —— 命中/不命中边界与"防误伤"口径同上。
  */
 import { describe, expect, it } from 'bun:test';
-import { hasResearchIntent, hasVerifyIntent } from '../../src/chat/taskIntent';
+import {
+  hasRefineIntent,
+  hasResearchIntent,
+  hasVerifyIntent,
+} from '../../src/chat/taskIntent';
 
 describe('hasResearchIntent — 研究型意图判定（P0-3 触发信号）', () => {
   it('多方案/权衡/选型/可行性类任务命中', () => {
@@ -55,5 +59,22 @@ describe('hasVerifyIntent — 自校验意图判定（P1 触发信号，2026-10-
     expect(hasVerifyIntent('帮我研究两种方案怎么选，给出选型建议')).toBe(false);
     // 自校验表述不含研究词 ⇒ research 信号为假
     expect(hasResearchIntent('产出后请做质量把关')).toBe(false);
+  });
+});
+
+// 2026-11-03（§13）：多轮精修意图 —— 验证线路 deep 档位的触发信号
+describe('hasRefineIntent — 多轮精修意图判定（deep 档位信号，2026-11-03）', () => {
+  it('要求多轮打磨/反复迭代类命中', () => {
+    expect(hasRefineIntent('请多轮打磨这份方案')).toBe(true);
+    expect(hasRefineIntent('反复修改到满意为止')).toBe(true);
+    expect(hasRefineIntent('迭代优化三轮再给我')).toBe(true);
+    expect(hasRefineIntent('先出草稿，再精修两版')).toBe(true);
+  });
+
+  it('单轮执行/普通校验类不命中（防误伤）', () => {
+    expect(hasRefineIntent('帮我实现一个分页组件')).toBe(false);
+    expect(hasRefineIntent('产出后请做质量把关')).toBe(false);
+    expect(hasRefineIntent('什么是依赖注入？')).toBe(false);
+    expect(hasRefineIntent('')).toBe(false);
   });
 });

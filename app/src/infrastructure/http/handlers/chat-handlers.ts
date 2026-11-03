@@ -895,6 +895,8 @@ async function handleStreamingChat(
         }
       | undefined;
     let chunkFinishReason: string | undefined;
+    // 2026-11-03 P1：主循环终止判定（随 done chunk 下发，前端当轮显示「为什么停下」）
+    let chunkTerminationReason: string | undefined;
 
     while (!result.done) {
       // P1-2: 客户端断开时立即停止流式输出，避免后续 res.write() 抛出 EPIPE
@@ -1108,6 +1110,9 @@ async function handleStreamingChat(
           if (chunk.finishReason) {
             chunkFinishReason = chunk.finishReason;
           }
+          if (chunk.terminationReason) {
+            chunkTerminationReason = chunk.terminationReason;
+          }
           if (chunk.usage) {
             streamUsage = chunk.usage;
           }
@@ -1196,6 +1201,11 @@ async function handleStreamingChat(
       if (autoCreatedProjectMeta) {
         usageData.__pyapp_meta = autoCreatedProjectMeta;
       }
+      // 2026-11-03 P1：终止判定（与 `turn/end.terminationReason` 同源）——
+      // 前端据此在当轮消息内显示「为什么停下」，不再只存在于事件日志。
+      if (chunkTerminationReason) {
+        usageData.__pyapp_termination_reason = chunkTerminationReason;
+      }
       res.write(`data: ${JSON.stringify(usageData)}\n\n`);
       safeFlush(res);
     } else {
@@ -1208,6 +1218,9 @@ async function handleStreamingChat(
       };
       if (autoCreatedProjectMeta) {
         doneData.__pyapp_meta = autoCreatedProjectMeta;
+      }
+      if (chunkTerminationReason) {
+        doneData.__pyapp_termination_reason = chunkTerminationReason;
       }
       res.write(`data: ${JSON.stringify(doneData)}\n\n`);
       safeFlush(res);

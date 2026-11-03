@@ -125,6 +125,16 @@ export class ChatStreamFinalize {
   ): Promise<Message> {
     const deps = this.deps;
 
+    // 2026-11-03 P1：把主循环终止判定挂到**出口消息**的 metadata —— `CoreAPIImpl.chatStream`
+    // 据此把 `terminationReason` 写进 SSE 终块，前端当轮即可显示「为什么停下」，
+    // 不必等刷新后的事件回放。与 `turn/end.terminationReason` 同源（同一入参），不另造判据。
+    if (terminationReason) {
+      const withMeta = assistantMessage as {
+        metadata?: Record<string, unknown>;
+      };
+      withMeta.metadata = { ...withMeta.metadata, terminationReason };
+    }
+
     // P0-fix: 确保助手消息已持久化（非工具调用路径在此处落盘，工具调用路径已由 _buildToolRoundMessages 处理）
     const lastMsg = session.messages[session.messages.length - 1];
     if (!lastMsg || lastMsg.id !== assistantMessage.id) {

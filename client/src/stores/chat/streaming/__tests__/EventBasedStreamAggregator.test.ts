@@ -188,6 +188,38 @@ describe("EventBasedStreamAggregator — M3-1", () => {
     );
   });
 
+  // P1（2026-11-03）：终止判定随流末 usage 块先到、done 块后到 ⇒ 必须并入同一个 turn/end，
+  // 使当轮流式视图与刷新后的事件回放同口径（用户不必重载才看到"为什么停下"）。
+  it("usage 块的 terminationReason 并入 turn/end（done 块自身未携带时）", () => {
+    agg.init([], SID);
+    agg.appendChunk(chunk("text", "回复"));
+    agg.appendChunk(chunk("usage", "", { terminationReason: "no_progress" }));
+    agg.appendChunk(chunk("done", "", { finishReason: "tool_use" }));
+    const events = agg.getEvents();
+    const end = events.find((e) => e.type === "turn/end");
+    expect(end).toBeDefined();
+    expect(
+      (end!.data as { terminationReason?: string }).terminationReason,
+    ).toBe("no_progress");
+  });
+
+  it("done 块自带 terminationReason 时优先于 usage 暂存值", () => {
+    agg.init([], SID);
+    agg.appendChunk(chunk("text", "回复"));
+    agg.appendChunk(chunk("usage", "", { terminationReason: "timeout" }));
+    agg.appendChunk(
+      chunk("done", "", {
+        finishReason: "stop",
+        terminationReason: "max_turns",
+      }),
+    );
+    const events = agg.getEvents();
+    const end = events.find((e) => e.type === "turn/end");
+    expect(
+      (end!.data as { terminationReason?: string }).terminationReason,
+    ).toBe("max_turns");
+  });
+
   it("init 从已有 events 加载 → tailSeq 正确", () => {
     const existing = [
       {

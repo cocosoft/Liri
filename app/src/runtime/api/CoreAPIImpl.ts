@@ -52,6 +52,7 @@ import type { SessionCheckpointRefPort } from './sessionCheckpointPorts';
 // —— `FileCheckpointStorage` 已下沉 `session/storage/`(service)，`session/**` 回归同模块直连
 // ⇒ 本文件不再需要静态导入 `@modules/query`（该「文件 × 模块」对随之消失）。
 import { DomainSnapshotOps } from './domainSnapshotOps';
+import { terminationReasonField } from './streamTermination';
 import { SessionMessagesRead } from './sessionMessagesRead';
 import { MessageMutation } from './messageMutation';
 import { SessionTitling } from './sessionTitling';
@@ -1278,6 +1279,7 @@ export class CoreAPIImpl implements CoreAPI {
         sessionId: finalSessionId,
         usage: capturedUsage,
         finishReason: actualFinishReason,
+        ...terminationReasonField(finalMessage),
       } as ChatStreamChunk;
 
       if (fullContent && finalSessionId) {

@@ -206,6 +206,12 @@ export interface StreamChunk {
     | (string & {});
   /** 后端注入的前端导航/提示元数据（如 create_project 后建议跳转） */
   _meta?: Record<string, unknown>;
+  /**
+   * P1（2026-11-03）：**主循环终止判定**（后端 `__pyapp_termination_reason`，
+   * 与 `turn/end.terminationReason` 同源）。随流末 usage/finish 块下发；
+   * 与 `finishReason`（provider 末次响应）分开 —— 长程轮正常收尾常报 `tool_use`。
+   */
+  terminationReason?: string;
 }
 
 /**
@@ -317,6 +323,8 @@ function parseSseChunk(chunk: Record<string, unknown>): StreamChunk | null {
       },
       finishReason: choices?.[0]?.finish_reason || undefined,
       _meta: chunk.__pyapp_meta as Record<string, unknown> | undefined,
+      terminationReason:
+        (chunk.__pyapp_termination_reason as string | undefined) || undefined,
     };
   }
   if (choices?.[0]?.finish_reason === "error") {
@@ -331,6 +339,8 @@ function parseSseChunk(chunk: Record<string, unknown>): StreamChunk | null {
       content: "",
       finishReason: choices[0].finish_reason,
       _meta: chunk.__pyapp_meta as Record<string, unknown> | undefined,
+      terminationReason:
+        (chunk.__pyapp_termination_reason as string | undefined) || undefined,
     };
   }
   if (pyappType === "question" && chunk.__pyapp_question) {
@@ -1085,6 +1095,9 @@ export const chatService = {
                 // 转发后端 _meta（如自动建项目的导航建议）
                 _meta: chunk.__pyapp_meta as
                   Record<string, unknown> | undefined,
+                terminationReason:
+                  (chunk.__pyapp_termination_reason as string | undefined) ||
+                  undefined,
               };
             } else if (chunk.choices?.[0]?.finish_reason === "error") {
               // error 必须在通用 finish_reason 之前检测，否则被通用分支拦截
@@ -1101,6 +1114,9 @@ export const chatService = {
                 // 转发后端 _meta（如自动建项目的导航建议）
                 _meta: chunk.__pyapp_meta as
                   Record<string, unknown> | undefined,
+                terminationReason:
+                  (chunk.__pyapp_termination_reason as string | undefined) ||
+                  undefined,
               };
             } else if (pyappType === "question" && chunk.__pyapp_question) {
               logger.debug("解析到 question chunk", {

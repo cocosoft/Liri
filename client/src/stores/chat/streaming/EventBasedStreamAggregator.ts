@@ -59,6 +59,13 @@ export class EventBasedStreamAggregator {
   private assistantMessageId: string | undefined;
   /** P2-1：增量派生器（懒创建，init 重置基线后丢弃旧实例） */
   private deriver: IncrementalDeriver | null = null;
+  /**
+   * P1（2026-11-03）：流末 usage 块带来的主循环终止判定（后端 `__pyapp_termination_reason`）。
+   *
+   * 终止判定随 usage/finish 块先到、`[DONE]` 的 done 块后到 ⇒ 先暂存，收尾时并入 `turn/end`，
+   * 使当轮流式视图与刷新后的事件回放**同一口径**（不必等重载才看到"为什么停下"）。
+   */
+  private pendingTerminationReason: string | undefined;
 
   /**
    * 初始化：从后端拉取已有 events 作为基线
@@ -78,6 +85,7 @@ export class EventBasedStreamAggregator {
     this.deriver = null;
     this.turnStarted = false;
     this.turn = 0;
+    this.pendingTerminationReason = undefined;
     // 重建 toolCallSeqMap 和 turn 状态
     for (const event of events) {
       if (event.type === "assistant/tool_call") {
@@ -453,6 +461,10 @@ export class EventBasedStreamAggregator {
       }
 
       case "usage": {
+        // P1（2026-11-03）：终止判定随 usage/finish 块先到 ⇒ 暂存，待 done 块收尾并入 turn/end
+        if (chunk.terminationReason) {
+          this.pendingTerminationReason = chunk.terminationReason;
+        }
         // finishReason=length → assistant/truncation 事件
         if (chunk.finishReason === "length") {
           if (!this.turnStarted) this.startTurn();
@@ -499,8 +511,12 @@ export class EventBasedStreamAggregator {
       case "done": {
         // 结束 turn
         if (this.turnStarted) {
-          this.endTurn(chunk.finishReason);
+          this.endTurn(
+            chunk.finishReason,
+            chunk.terminationReason ?? this.pendingTerminationReason,
+          );
         }
+        this.pendingTerminationReason = undefined;
         break;
       }
 
@@ -546,13 +562,15 @@ export class EventBasedStreamAggregator {
   }
 
   /** 结束当前 turn */
-  private endTurn(finishReason?: string): void {
+  private endTurn(finishReason?: string, terminationReason?: string): void {
     this.appendEvent({
       type: "turn/end",
       data: {
         turn: this.turn,
         finishReason: finishReason as
           "stop" | "length" | "tool_use" | "error" | "canceled" | undefined,
+        // P1（2026-11-03）：主循环终止判定（与刷新后回放的 turn/end 同字段）
+        ...(terminationReason ? { terminationReason } : {}),
       },
     });
     this.turnStarted = false;

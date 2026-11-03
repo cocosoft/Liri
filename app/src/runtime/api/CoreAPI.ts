@@ -241,6 +241,13 @@ export interface ChatStreamChunk {
   mode?: 'plan' | 'do';
   /** 仅当 type='done' 时存在：模型的终止原因 */
   finishReason?: string;
+  /**
+   * 仅当 type='done' 时存在：**主循环终止判定**（`turn/end.terminationReason` 同源）。
+   *
+   * 与 `finishReason`（provider 末次响应）分开：长程轮正常收尾常报 `tool_use`，
+   * 「这轮为什么停下」只看本字段。前端据此在消息内显示徽标，无需等刷新后的事件回放。
+   */
+  terminationReason?: string;
   /** 仅当 type='context_state' 时存在：上下文水位 */
   watermarkState?: {
     currentTokens: number;

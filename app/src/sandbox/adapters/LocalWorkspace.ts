@@ -20,6 +20,8 @@ import {
 } from '../SandboxTypes';
 
 import { handleError } from '@openliri/infra/error';
+// G1-沙箱（2026-11-03）：宿主 spawn 前的 cwd 判定（与 BashTool / 各工具链同一实现）
+import { describeUnusableSpawnCwd } from '@openliri/infra/utils/cwd';
 
 import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('sandbox:adapters:LocalWorkspace');
@@ -105,10 +107,27 @@ export class LocalWorkspace extends WorkspaceBase {
     options?: Partial<SandboxExecuteOptions>
   ): Promise<SandboxExecuteResult> {
     const startTime = Date.now();
+    const cwd = options?.cwd || this.workingDir;
+
+    // G1-沙箱（2026-11-03）：**只读**本地适配器走宿主 `exec`，cwd 无效时 libuv 会把
+    // `chdir` 失败报成 `ENOENT … uv_spawn 'cmd.exe'`（把排查带偏到"缺可执行文件"）。
+    // 这里只做**执行前判定**（fail-closed），不改权限位、不降级到别的目录。
+    // 注：Docker / SSH 适配器的 cwd 是**容器内/远端**路径，宿主不存在是正常的 ⇒ 不在此处判定。
+    const cwdError = describeUnusableSpawnCwd(cwd, '沙箱工作目录');
+    if (cwdError) {
+      return {
+        success: false,
+        exitCode: 1,
+        stdout: '',
+        stderr: cwdError,
+        executionTime: Date.now() - startTime,
+        error: cwdError,
+      };
+    }
 
     try {
       const { stdout, stderr } = await execAsync(command, {
-        cwd: options?.cwd || this.workingDir,
+        cwd,
         timeout: options?.timeout || 30000,
         env: options?.env as Record<string, string>,
       });

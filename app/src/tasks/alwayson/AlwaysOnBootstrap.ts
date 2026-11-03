@@ -53,6 +53,13 @@ export interface AlwaysOnBootstrapResult {
   registered: string[];
   started: boolean;
   teardown: () => void;
+  /**
+   * 2026-11-03（缺口 #2）：**运行期注册单个项目**（新建项目接线用）。
+   *
+   * 与启动期批量注册**同一实现**（`registerOne`）⇒ 不产生第二套注册逻辑。
+   * 未启动 / 路径不存在 / 已注册 ⇒ 返回 `undefined`（幂等，不抛）。
+   */
+  registerProject: (project: AlwaysOnProject) => AlwaysOnRuntime | undefined;
 }
 
 /**
@@ -62,8 +69,15 @@ export function bootstrapAlwaysOn(
   deps: AlwaysOnBootstrapDeps
 ): AlwaysOnBootstrapResult {
   const pathExists = deps.pathExists ?? existsSync;
+  /** 未启动时的空结果（形状一致 ⇒ 调用方无需分支；注册器为 no-op） */
+  const empty = (): AlwaysOnBootstrapResult => ({
+    registered: [],
+    started: false,
+    teardown: () => {},
+    registerProject: () => undefined,
+  });
   if (!deps.enabled) {
-    return { registered: [], started: false, teardown: () => {} };
+    return empty();
   }
 
   const limits = deps.limits ?? {
@@ -74,13 +88,19 @@ export function bootstrapAlwaysOn(
   /** 显式暂停的项目：仍注册（便于运行期恢复），但 `manager.start()` 后立即停掉调度 */
   const paused: AlwaysOnRuntime[] = [];
 
-  for (const project of deps.projects) {
+  /**
+   * 注册单个项目 —— **启动期批量与运行期新增共用同一实现**（2026-11-03 缺口 #2）。
+   * 路径缺失 / 已注册 ⇒ `undefined`（幂等，不抛）。
+   */
+  const registerOne = (
+    project: AlwaysOnProject
+  ): AlwaysOnRuntime | undefined => {
     if (!project.path || !pathExists(project.path)) {
       cg3Log('tasks:alwayson:bootstrap', 'warn', 'project:skipped', {
         projectId: project.id,
         reason: project.path ? 'path-missing' : 'path-empty',
       });
-      continue;
+      return undefined;
     }
 
     // 多租户 P3：归属随项目带进运行时（缺失 ⇒ 本地项目，行为与改造前一致）
@@ -102,11 +122,14 @@ export function bootstrapAlwaysOn(
     runtime.setReportFn(bridge.report);
 
     registered.push(project.id);
-  }
+    return runtime;
+  };
+
+  for (const project of deps.projects) registerOne(project);
 
   if (registered.length === 0) {
     cg3Log('tasks:alwayson:bootstrap', 'info', 'no-project');
-    return { registered, started: false, teardown: () => {} };
+    return empty();
   }
 
   deps.manager.start();
@@ -122,5 +145,15 @@ export function bootstrapAlwaysOn(
     registered,
     started: true,
     teardown: () => deps.manager.stop(),
+    // 2026-11-03（缺口 #2）：运行期新增项目 ⇒ 立即注册并按其开关启停（与批量路径同口径）
+    registerProject: (project) => {
+      // 幂等：已注册的项目不重复注册（启动期不走此处 —— 批量来源已按 id 去重）
+      if (deps.manager.getRuntime(project.id)) return undefined;
+      const runtime = registerOne(project);
+      if (!runtime) return undefined;
+      if (project.enabled !== false) runtime.start();
+      else runtime.stop();
+      return runtime;
+    },
   };
 }

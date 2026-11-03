@@ -259,3 +259,68 @@ describe('bootstrapAlwaysOn：归属随项目注册', () => {
     expect(manager.getRuntime('local')?.ownerKey).toBeUndefined();
   });
 });
+
+// 2026-11-03（缺口 #2）：新建项目经 `project:created` 在运行期注册（不再等重启）
+describe('bootstrapAlwaysOn：运行期新增项目', () => {
+  const bridge = {
+    discovery: async () => null,
+    workspace: async () => '',
+    execution: async () => ({
+      success: true,
+      output: '',
+      errors: [],
+      toolCalls: 0,
+      durationMs: 0,
+    }),
+    report: async () => '',
+  } as unknown as AlwaysOnBridge;
+
+  it('registerProject(新项目) ⇒ 立即注册；重复/路径不存在 ⇒ undefined（幂等）', () => {
+    const manager = new AlwaysOnManager();
+    const result = bootstrapAlwaysOn({
+      enabled: true,
+      manager,
+      projects: [{ id: 'base', name: 'base', path: projectDir }],
+      createBridge: () => bridge,
+    });
+    expect(result.started).toBe(true);
+
+    const added = result.registerProject({
+      id: 'late',
+      name: 'late',
+      path: projectDir,
+    });
+    expect(added).toBeDefined();
+    expect(manager.getRuntime('late')).toBeDefined();
+    expect(result.registered).toContain('late');
+
+    // 重复注册 ⇒ 幂等
+    expect(
+      result.registerProject({ id: 'late', name: 'late', path: projectDir })
+    ).toBeUndefined();
+    // 路径不存在 ⇒ 跳过（delaySandbox 项目创建时目录可能还没建）
+    expect(
+      result.registerProject({
+        id: 'nopath',
+        name: 'nopath',
+        path: join(projectDir, 'missing-dir'),
+      })
+    ).toBeUndefined();
+
+    result.teardown();
+  });
+
+  it('enabled=false ⇒ 空结果的注册器为 no-op（不抛）', () => {
+    const manager = new AlwaysOnManager();
+    const result = bootstrapAlwaysOn({
+      enabled: false,
+      manager,
+      projects: [],
+      createBridge: () => bridge,
+    });
+    expect(result.started).toBe(false);
+    expect(
+      result.registerProject({ id: 'x', name: 'x', path: projectDir })
+    ).toBeUndefined();
+  });
+});

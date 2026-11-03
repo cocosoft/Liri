@@ -38,6 +38,8 @@ import {
 } from '@openliri/kernel/identity/requestScope';
 import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
+// 2026-11-03（缺口 #2）：新建项目通知进程内订阅者（AlwaysOn 运行期注册）
+import { globalEventBus } from '@openliri/kernel';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('workspace:ProjectStore');
@@ -415,6 +417,16 @@ export class ProjectStore {
       this.save(project); // 项目上下文文件由 save() 幂等补写（P0-1/P0-2）
 
       logger.info('项目已创建', { projectId: id, name: params.name });
+      // 2026-11-03（缺口 #2）：新建项目必须通知进程内订阅者 —— 此前 AlwaysOn 只在启动时
+      // `collectProjects()` 收集一次 ⇒ 新建项目要重启才进入自主执行（与删除侧的
+      // `project:deleted` 对称）。`delaySandbox`（自动建项目/迁移）时目录可能尚不存在，
+      // 订阅方按 `pathExists` 自行跳过（不在此处替它判）。
+      globalEventBus.publish('project:created', {
+        projectId: project.id,
+        name: project.name,
+        path: sandboxPath,
+        ownerKey: project.ownerKey,
+      });
       span.setAttribute('projectId', id);
       span.setStatus({ code: SpanStatusCode.OK });
       return project;

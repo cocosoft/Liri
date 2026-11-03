@@ -112,6 +112,16 @@ let settingsSubscribed = false;
 /** 项目删除订阅是否已挂（同上，幂等） */
 let projectRemovalSubscribed = false;
 
+/**
+ * 2026-11-03（缺口 #2）：**运行期项目注册器** —— 由 `startAlwaysOn` 在启动成功时挂上，
+ * 新建项目事件据此立即注册（此前只在启动期收集，新建须重启才进入自主执行）。
+ * `null` ⇒ 未启动 / 已停止。
+ */
+let projectRegistrar: ((project: AlwaysOnProject) => boolean) | null = null;
+
+/** 项目创建订阅是否已挂（同上，幂等） */
+let projectCreationSubscribed = false;
+
 /** 2026-11-03 P1：已注册项目的元数据（`getAlwaysOnStatus` 用它补全名字/路径） */
 const projectMeta = new Map<string, { name: string; path: string }>();
 
@@ -237,6 +247,8 @@ async function applyAlwaysOnEnabled(enabled: boolean): Promise<void> {
     }
     active = null;
     activeManager = null;
+    // 2026-11-03（缺口 #2）：停止后不再接受运行期新建（下次启动由 collectProjects 收）
+    projectRegistrar = null;
     return;
   }
   if (active?.started) return;
@@ -269,6 +281,55 @@ function subscribeProjectRemoval(): void {
       projectMeta.delete(projectId);
       activeManager?.unregisterProject(projectId);
       logger.info('项目已删除，已注销自主执行运行时', { projectId });
+    }
+  );
+}
+
+/**
+ * 订阅「项目已创建」⇒ 运行期注册该项目（2026-11-03 缺口 #2）。
+ *
+ * 取证：`collectProjects()` 只在启动时收集一次 ⇒ 新建项目**要重启**才进入自主执行
+ * （与删除侧缺口对称）。事件由 `ProjectStore.create()` 统一发布（覆盖 HTTP / 自动建项目
+ * 等全部创建入口）；`delaySandbox` 的项目此时目录可能不存在 ⇒ `registerOne` 按路径存在性跳过。
+ * 幂等挂载；未启动（`projectRegistrar === null`）⇒ 无操作，下次启动自然收集。
+ */
+function subscribeProjectCreation(): void {
+  if (projectCreationSubscribed) return;
+  projectCreationSubscribed = true;
+  globalEventBus.subscribe(
+    'project:created',
+    (
+      payload:
+        | {
+            projectId?: unknown;
+            name?: unknown;
+            path?: unknown;
+            ownerKey?: unknown;
+          }
+        | undefined
+    ) => {
+      const projectId = payload?.projectId;
+      const path = payload?.path;
+      if (typeof projectId !== 'string' || !projectId) return;
+      if (typeof path !== 'string' || !path) return;
+      const name =
+        typeof payload?.name === 'string' && payload.name
+          ? payload.name
+          : projectId;
+      const ownerKey =
+        typeof payload?.ownerKey === 'string' ? payload.ownerKey : undefined;
+      const registered =
+        projectRegistrar?.({
+          id: projectId,
+          name,
+          path,
+          ...(ownerKey ? { ownerKey } : {}),
+          // 与启动期同口径：按项目开关决定是否真正调度
+          enabled: isProjectAutonomyEnabled(projectId),
+        }) ?? false;
+      // 只有真正注册成功才进运行态快照（路径不存在/已注册 ⇒ 保持原样）
+      if (registered) projectMeta.set(projectId, { name, path });
+      logger.info('project:created 已处理', { projectId, registered });
     }
   );
 }
@@ -380,7 +441,11 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
   subscribeSettingsChanges();
   // 项目删除订阅与开关无关：关闭态下也要清掉 `projectMeta`（避免「运行状况」显示已删项目）
   subscribeProjectRemoval();
+  // 2026-11-03（缺口 #2）：新建项目订阅（真正生效取决于 running 时的 `projectRegistrar`）
+  subscribeProjectCreation();
   ensureStatusPort();
+  // 每次启动重建注册器绑定（旧绑定指向已 teardown 的 manager ⇒ 必须先清）
+  projectRegistrar = null;
   if (!resolveAlwaysOnEnabled()) {
     logger.info('AlwaysOn 未启用（用户设置关闭 或 FEATURE_ALWAYSON=false）');
     return { registered: [], started: false, teardown: () => {} };
@@ -944,6 +1009,10 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
   // 记下句柄：设置页关闭开关时据此 teardown（未启动 ⇒ 不留陈句柄）
   active = result.started ? result : null;
   activeManager = result.started ? manager : null;
+  // 2026-11-03（缺口 #2）：启动成功才挂运行期注册器（新建项目立即纳入自主执行）
+  projectRegistrar = result.started
+    ? (project) => !!result.registerProject(project)
+    : null;
 
   logger.info('AlwaysOn 接线完成', {
     registered: result.registered.length,

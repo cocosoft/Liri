@@ -23,6 +23,8 @@ const SESSIONS: Row[] = [
   { id: 'proj-1', metadata: { moduleType: 'project', projectId: 'proj_1_aa' } },
   { id: 'proj-2', metadata: { projectId: 'proj_2_bb' } }, // 无 moduleType 但有归属
   { id: 'legacy-1', metadata: { workspaceId: 'project-proj_3_cc' } },
+  // 2026-11-03：真实项目实体 id 直接落在 workspaceId（历史会话/早期自主会话）
+  { id: 'proj-ws', metadata: { workspaceId: 'proj_9_ww' } },
 ];
 
 describe('applySessionScopeFilter（唯一实现）', () => {
@@ -45,17 +47,17 @@ describe('applySessionScopeFilter（唯一实现）', () => {
     expect(ids).toEqual(['chat-1', 'chat-2', 'proj-2']);
   });
 
-  it('moduleType=project：显式 moduleType 与 legacy `project-` 前缀都算项目会话', () => {
+  it('moduleType=project：显式 moduleType 与 legacy `project-` / `proj_*` 都算项目会话', () => {
     const ids = applySessionScopeFilter(
       SESSIONS,
       { moduleType: 'project' },
       readMd
     ).map((s) => s.id);
     // proj-2 没有 moduleType（且 workspaceId 为空）⇒ 不属 project（数据侧由 P3 补齐）
-    expect(ids).toEqual(['proj-1', 'legacy-1']);
+    expect(ids).toEqual(['proj-1', 'legacy-1', 'proj-ws']);
   });
 
-  it('projectId：metadata.projectId 优先，legacy `project-<id>` 兜底', () => {
+  it('projectId：metadata.projectId 优先，legacy `project-<id>` / `proj_*` 兜底', () => {
     expect(
       applySessionScopeFilter(SESSIONS, { projectId: 'proj_1_aa' }, readMd).map(
         (s) => s.id
@@ -66,6 +68,12 @@ describe('applySessionScopeFilter（唯一实现）', () => {
         (s) => s.id
       )
     ).toEqual(['legacy-1']);
+    // 2026-11-03：`workspaceId = proj_*` 即项目 id
+    expect(
+      applySessionScopeFilter(SESSIONS, { projectId: 'proj_9_ww' }, readMd).map(
+        (s) => s.id
+      )
+    ).toEqual(['proj-ws']);
   });
 
   it('moduleType + projectId 同时传 ⇒ 需同时满足', () => {
@@ -85,18 +93,34 @@ describe('applySessionScopeFilter（唯一实现）', () => {
     ).toEqual(['proj-1']);
   });
 
-  it('lite 形态（扁平 moduleType/projectId）用同一实现过滤', () => {
+  it('lite 形态（扁平 moduleType/projectId/workspaceId）用同一实现过滤', () => {
     const lite = [
       { id: 'a', moduleType: 'chat' },
       { id: 'b', moduleType: 'project', projectId: 'proj_9_zz' },
       { id: 'c' },
+      // 2026-11-03：lite 投影补 workspaceId 后，只有它的历史会话也能归到项目
+      { id: 'd', workspaceId: 'proj_9_zz' },
     ];
-    const filtered = applySessionScopeFilter(
-      lite,
-      { moduleType: 'chat' },
-      (s) => ({ moduleType: s.moduleType, projectId: s.projectId })
-    );
-    expect(filtered.map((s) => s.id)).toEqual(['a', 'c']);
+    const readLite = (s: (typeof lite)[number]) => ({
+      moduleType: s.moduleType,
+      projectId: s.projectId,
+      workspaceId: s.workspaceId,
+    });
+    expect(
+      applySessionScopeFilter(lite, { moduleType: 'chat' }, readLite).map(
+        (s) => s.id
+      )
+    ).toEqual(['a', 'c']);
+    expect(
+      applySessionScopeFilter(lite, { moduleType: 'project' }, readLite).map(
+        (s) => s.id
+      )
+    ).toEqual(['b', 'd']);
+    expect(
+      applySessionScopeFilter(lite, { projectId: 'proj_9_zz' }, readLite).map(
+        (s) => s.id
+      )
+    ).toEqual(['b', 'd']);
   });
 });
 
@@ -113,7 +137,7 @@ describe('readLiteSessionMeta：lite 投影补上作用域字段', () => {
     }
   });
 
-  it('头部可解析路径：带出 moduleType / projectId', () => {
+  it('头部可解析路径：带出 moduleType / projectId / workspaceId', () => {
     const file = join(root, 'session.json');
     writeFileSync(
       file,
@@ -122,16 +146,21 @@ describe('readLiteSessionMeta：lite 投影补上作用域字段', () => {
         title: 'T',
         status: 'paused',
         updatedAt: 1793407479778,
-        metadata: { moduleType: 'project', projectId: 'proj_1792_aa' },
+        metadata: {
+          moduleType: 'project',
+          projectId: 'proj_1792_aa',
+          workspaceId: 'proj_1792_aa',
+        },
       }),
       'utf-8'
     );
     const meta = readLiteSessionMeta(file);
     expect(meta?.moduleType).toBe('project');
     expect(meta?.projectId).toBe('proj_1792_aa');
+    expect(meta?.workspaceId).toBe('proj_1792_aa');
   });
 
-  it('头部缺基础字段 ⇒ 回退全量解析，作用域字段仍不丢', () => {
+  it('头部缺基础字段 ⇒ 回退全量解析，作用域字段仍不丢（含仅 workspaceId 的存量会话）', () => {
     const file = join(root, 'session2.json');
     // 无 title/status ⇒ 走 JSON.parse 兜底分支
     writeFileSync(
@@ -145,5 +174,13 @@ describe('readLiteSessionMeta：lite 投影补上作用域字段', () => {
     const meta = readLiteSessionMeta(file);
     expect(meta?.moduleType).toBe('chat');
     expect(meta?.projectId).toBe('proj_5_bb');
+
+    const legacy = join(root, 'session3.json');
+    writeFileSync(
+      legacy,
+      JSON.stringify({ id: 's3', metadata: { workspaceId: 'proj_6_cc' } }),
+      'utf-8'
+    );
+    expect(readLiteSessionMeta(legacy)?.workspaceId).toBe('proj_6_cc');
   });
 });

@@ -28,6 +28,13 @@ export interface LiteSessionMeta {
    */
   moduleType?: string;
   projectId?: string;
+  /**
+   * 2026-11-03：所属工作区 / 项目 id（`proj_<ms>_<rand>`）。
+   *
+   * 历史会话可能**只有** `workspaceId` 而没有 `projectId`/`moduleType` ⇒ 作用域过滤
+   * （`applySessionScopeFilter`）需要它做兜底，否则 `lite` 分支漏掉这些会话。
+   */
+  workspaceId?: string;
 }
 
 /**
@@ -75,6 +82,7 @@ export function readLiteSessionMeta(filePath: string): LiteSessionMeta | null {
     const temporary = extractJsonStringField(raw, 'temporary');
     const moduleType = extractJsonStringField(raw, 'moduleType');
     const projectId = extractJsonStringField(raw, 'projectId');
+    const workspaceId = extractJsonStringField(raw, 'workspaceId');
 
     // P2-31 修复：头部 64KB 未覆盖全部字段（messages 数组在前等布局）或字段为
     // 非字符串值（数字时间戳）时，回退全量 JSON.parse，防止列表元数据静默缺失。
@@ -100,6 +108,9 @@ export function readLiteSessionMeta(filePath: string): LiteSessionMeta | null {
         projectId:
           projectId ??
           (md['projectId'] != null ? String(md['projectId']) : undefined),
+        workspaceId:
+          workspaceId ??
+          (md['workspaceId'] != null ? String(md['workspaceId']) : undefined),
       };
     }
 
@@ -110,6 +121,7 @@ export function readLiteSessionMeta(filePath: string): LiteSessionMeta | null {
       temporary,
       moduleType: moduleType || undefined,
       projectId: projectId || undefined,
+      workspaceId: workspaceId || undefined,
     };
   } catch {
     return null;

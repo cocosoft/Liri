@@ -111,8 +111,9 @@ export function sessionBelongsToProject(
  * 口径：
  * - 项目作用域（`scopeModuleType === "project"` 且有 `scopeProjectId`）：走
  *   `sessionBelongsToProject`（`projectId` 优先、`workspaceId` 兜底），与项目页卡片同源；
- * - 其余作用域：`Hub 记录的 moduleType` 优先，缺失按 `workspaceId` 反推（`proj_*`
- *   这类无法反推的 id 归入 `chat`），再与作用域比较。
+ * - 其余作用域：`Hub 记录的 moduleType` 优先，缺失按 `workspaceId` 反推（`proj_*` 按
+ *   `inferModuleTypeFromWorkspaceId` 归 project，与后端 `legacyProjectModuleType` 同口径），
+ *   再与作用域比较。
  *
  * 为什么单列一个函数：UI 条数与磁盘会话数"对不上"时，必须先能证明**过滤口径**是什么
  * （跨模块会话本就不该出现在本模块列表里）——判据固定在这里，回归由单测锁定。

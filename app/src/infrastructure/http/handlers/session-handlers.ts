@@ -52,29 +52,35 @@ const PROJECT_ENTITY_ID_RE = /^proj_\d+_[a-z0-9]+$/i;
 
 /**
  * 阶段一（2026-09-04）：项目会话判定收敛 helper。
- * 事实面收敛到 `metadata.projectId`；moduleType==='project' 或 legacy
- * `workspaceId` 前缀 `project-` 兜底（兼容期双读；后续存量 backfill 后仅剩 projectId）。
+ * 事实面收敛到 `metadata.projectId`；moduleType==='project' 或 legacy `workspaceId`
+ * （`project-*` 前缀 / `proj_<ms>_<rand>` 实体 id）兜底。
+ *
+ * 2026-11-03：补上 `proj_*` —— 历史会话与"补 projectId 之前"的自主执行会话常**只有**
+ * `workspaceId = proj_*`；此前只认 `project-` 前缀 ⇒ 服务端按 `projectId` /
+ * `moduleType=project` 过滤会漏掉它们（前端靠 `workspaceId` 兜底才显示）。
  */
 function legacyProjectModuleType(
   md: Record<string, unknown> | undefined
 ): string | undefined {
   if (md?.moduleType) return md.moduleType as string;
   const ws = md?.workspaceId;
-  if (typeof ws === 'string' && /^project-/.test(ws)) return 'project';
+  if (typeof ws !== 'string') return undefined;
+  if (/^project-/.test(ws) || PROJECT_ENTITY_ID_RE.test(ws)) return 'project';
   return undefined;
 }
 
-/** 会话关联的 projectId（metadata.projectId 优先，legacy workspaceId `project-` 前缀兜底） */
+/** 会话关联的 projectId（metadata.projectId 优先，workspaceId `project-*` / `proj_*` 兜底） */
 function effectiveProjectId(
   md: Record<string, unknown> | undefined
 ): string | undefined {
   const pid = md?.projectId;
   if (typeof pid === 'string' && pid) return pid;
   const ws = md?.workspaceId;
-  if (typeof ws === 'string') {
-    const m = /^project-(.+)$/.exec(ws);
-    if (m) return m[1];
-  }
+  if (typeof ws !== 'string') return undefined;
+  const m = /^project-(.+)$/.exec(ws);
+  if (m) return m[1];
+  // 2026-11-03：`proj_*` 本身就是项目 id（与前端 `sessionBelongsToProject` 同口径）
+  if (PROJECT_ENTITY_ID_RE.test(ws)) return ws;
   return undefined;
 }
 
@@ -95,6 +101,9 @@ export interface SessionScopeFilter {
  *     ⇒ 缺 `moduleType` 的会话**永远不等于 `chat`**（传 `moduleType=chat` 会返回空）。
  *     现统一为「缺省视为 `chat`」，与搜索结果下推（本文件 `:120`）及前端
  *     `sessionMatchesModuleScope` 同口径。
+ *
+ * 2026-11-03：`lite` 投影补 `workspaceId` ⇒ 两个分支都能对"只有 workspaceId 的历史会话"
+ * 做 `proj_*` 兜底（此前 `lite` 分支在这种会话上会漏判）。
  */
 export function applySessionScopeFilter<T>(
   items: T[],
@@ -214,7 +223,12 @@ export async function handleListSessions(
       sessions = applySessionScopeFilter<LiteSessionSummary>(
         liteItems,
         scope,
-        (s) => ({ moduleType: s.moduleType, projectId: s.projectId })
+        (s) => ({
+          moduleType: s.moduleType,
+          projectId: s.projectId,
+          // 2026-11-03：历史会话可能只有 workspaceId（`proj_*`）⇒ 兜底判归属
+          workspaceId: s.workspaceId,
+        })
       );
     } else {
       const full = await coreAPI.listSessions();

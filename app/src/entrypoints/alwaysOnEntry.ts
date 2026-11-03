@@ -19,10 +19,13 @@ import { dirname, join } from 'node:path';
 
 import { DEFAULT_TIMEZONE, MS_PER_DAY } from '@openliri/infra/constants';
 import { configManager } from '@openliri/infra/config';
-// 2026-11-03：按项目的「自主执行」开关（放 infra/config：handler 属 service 层，不能依赖 app/tasks）
+// 2026-11-03 P0：运行预算（默认放宽 + 可调）与按项目的「自主执行」开关
+// （放 infra/config：handler 属 service 层，不能依赖 app/tasks）
 import {
+  AUTONOMY_LIMITS_CONFIG_KEY,
   PROJECT_AUTONOMY_CONFIG_KEY,
   isProjectAutonomyEnabled,
+  readAutonomyLimits,
   readProjectAutonomyMap,
 } from '@openliri/infra/config';
 import {
@@ -177,9 +180,26 @@ function subscribeSettingsChanges(): void {
       }
       if (payload?.key === PROJECT_AUTONOMY_CONFIG_KEY) {
         applyProjectAutonomy();
+        return;
+      }
+      // 2026-11-03 P0：预算改动 ⇒ 重建调度（manager 的 config 构造期固定；未启动则下次启动即生效）
+      if (payload?.key === AUTONOMY_LIMITS_CONFIG_KEY) {
+        void restartAlwaysOnForNewLimits().catch((error: unknown) => {
+          logger.warn('按新预算重启 AlwaysOn 失败', {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
       }
     }
   );
+}
+
+/** 预算变更后重建调度（计数随新预算归零，属预期） */
+async function restartAlwaysOnForNewLimits(): Promise<void> {
+  if (!active?.started) return;
+  await applyAlwaysOnEnabled(false);
+  await applyAlwaysOnEnabled(true);
+  logger.info('AlwaysOn 已按新预算重启', readAutonomyLimits());
 }
 
 /**
@@ -280,7 +300,12 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
   const reportDir = (): string => join(alwaysOnRoot(), 'reports');
   /** snapshot-copy 回退的快照根目录（非 git / 脏仓项目的兜底隔离区） */
   const snapshotDir = (): string => join(alwaysOnRoot(), 'snapshots');
-  const manager = new AlwaysOnManager();
+  // 2026-11-03 P0：预算来自 `autonomy.limits`（默认已放宽；用户在设置页可调）
+  const autonomyLimits = readAutonomyLimits();
+  const manager = new AlwaysOnManager({
+    dailyBudget: autonomyLimits.dailyBudget,
+    cooldownMinutes: autonomyLimits.cooldownMinutes,
+  });
   /** 本轮隔离区句柄（runId → provider + handle）；worktree 的 Map 在 provider 内部，必须复用同一实例 */
   const activeRuns = new Map<
     string,
@@ -708,6 +733,11 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
     enabled: true,
     projects,
     manager,
+    // 2026-11-03 P0：每轮预算同样来自 `autonomy.limits`
+    limits: {
+      maxToolCalls: autonomyLimits.maxToolCalls,
+      timeoutMinutes: autonomyLimits.timeoutMinutes,
+    },
     createBridge: (project, limits) =>
       createAlwaysOnBridge({
         projectId: project.id,

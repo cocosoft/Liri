@@ -136,6 +136,16 @@ const enSettings = {
     featuresAlwaysOn: "Autonomous Mode (CG3)",
     featuresAlwaysOnDesc:
       "AI discovers and executes tasks autonomously when idle (Always-On + SelfWake)",
+    // 2026-11-03 P0: autonomous run budget (relaxed defaults, user-tunable)
+    autonomyLimitsTitle: "Autonomous run budget",
+    autonomyLimitsDesc:
+      "Controls how long and how many rounds each autonomous run may take; changes rebuild the scheduler immediately.",
+    autonomyTimeoutMinutes: "Max minutes per run",
+    autonomyMaxToolCalls: "Max tool calls per run",
+    autonomyDailyBudget: "Rounds per project per day",
+    autonomyCooldownMinutes: "Min minutes between runs",
+    autonomyLimitsHint:
+      "Larger budgets let long-running tasks keep going, but consume more model quota; tune gradually.",
     featuresShowStatusInTerminalTab: "Terminal Tab Status",
     featuresShowStatusInTerminalTabDesc: "Show running status on terminal tab",
     featuresShowTurnDuration: "Show Turn Duration",

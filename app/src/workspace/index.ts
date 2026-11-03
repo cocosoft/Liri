@@ -13,6 +13,8 @@ export {
 export { WorkItemStore, createWorkItemStore } from './WorkItemStore';
 export { ChangeSetStore, createChangeSetStore } from './ChangeSetStore';
 export { ProjectStore, createProjectStore } from './ProjectStore';
+// 2026-11-03 P0：托管项目根（工具 cwd 判定"缺失目录是否自动重建"时消费）
+export { resolveProjectWorkspaceRoot } from './projectWorkspaceRoot';
 // P1-19 ②（2026-10-08）：用户工作流模板 → workflow seam（装配层 + Provider + 幂等注册入口）
 export {
   WorkflowTemplateProvider,

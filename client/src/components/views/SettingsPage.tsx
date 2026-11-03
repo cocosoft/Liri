@@ -14,6 +14,9 @@ import { httpLegacy as http } from "../../services/httpClient";
 import AIConfigPanel from "../settings/AIConfigPanel";
 import AutoUpdatePanel from "../settings/AutoUpdatePanel";
 import FeatureFlagsPanel from "../settings/FeatureFlagsPanel";
+import AutonomyLimitsPanel, {
+  type AutonomyLimitsValue,
+} from "../settings/AutonomyLimitsPanel";
 import LlamaConfigPanel from "../settings/LlamaConfigPanel";
 import OllamaConfigPanel from "../settings/OllamaConfigPanel";
 import OfficeProjectSettingsPanel from "../settings/OfficeProjectSettingsPanel";
@@ -797,6 +800,28 @@ function SettingsPage() {
                     setConfig("features", {
                       ...((config.features as object) || {}),
                       ...u,
+                    })
+                  }
+                />
+                {/* 2026-11-03 P0：自主执行运行预算（默认与后端 DEFAULT_AUTONOMY_LIMITS 一致） */}
+                <AutonomyLimitsPanel
+                  isDark={isDark}
+                  collapsible
+                  limits={
+                    ({
+                      timeoutMinutes: 45,
+                      maxToolCalls: 400,
+                      dailyBudget: 8,
+                      cooldownMinutes: 30,
+                      ...((config["autonomy.limits"] as
+                        | Partial<AutonomyLimitsValue>
+                        | undefined) || {}),
+                    }) as AutonomyLimitsValue
+                  }
+                  onUpdate={(patch) =>
+                    setConfig("autonomy.limits", {
+                      ...((config["autonomy.limits"] as object) || {}),
+                      ...patch,
                     })
                   }
                 />

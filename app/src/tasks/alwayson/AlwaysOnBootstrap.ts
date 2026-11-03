@@ -41,6 +41,11 @@ export interface AlwaysOnBootstrapDeps {
   ) => AlwaysOnBridge;
   /** 路径存在性判定（测试可注入） */
   pathExists?: (path: string) => boolean;
+  /**
+   * 每轮执行预算（2026-11-03 可配置；缺省回落到 `DEFAULT_ALWAYSON_CONFIG.execution`）。
+   * 由入口从 `autonomy.limits` 读出后传入 —— `tasks` 层不直接读配置（保持可测）。
+   */
+  limits?: { maxToolCalls: number; timeoutMinutes: number };
 }
 
 export interface AlwaysOnBootstrapResult {
@@ -61,7 +66,7 @@ export function bootstrapAlwaysOn(
     return { registered: [], started: false, teardown: () => {} };
   }
 
-  const limits = {
+  const limits = deps.limits ?? {
     maxToolCalls: DEFAULT_ALWAYSON_CONFIG.execution.maxToolCalls,
     timeoutMinutes: DEFAULT_ALWAYSON_CONFIG.execution.timeoutMinutes,
   };

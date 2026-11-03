@@ -384,6 +384,42 @@ export class ToolExecutionService {
   constructor(public readonly deps: ToolExecutionDeps) {}
 
   /**
+   * 2026-11-03 P0：会话工作区目录原本不存在、已在托管项目根下自动重建 ⇒ 首次投影提示。
+   *
+   * 为什么不静默：重建出的是**空目录**，原内容可能已被删除/移走 —— 用户必须知道
+   * "任务能继续跑，但之前的产物不在里面了"（否则会误判为"文件被吞了"）。
+   */
+  private async notifyRecreatedSessionWorkspace(
+    sessionId: string,
+    workspacePath: string
+  ): Promise<void> {
+    const appendStreamEvent = this.deps.appendStreamEvent;
+    if (!appendStreamEvent) return;
+    const event: LiriEvent<'assistant/status'> = {
+      type: 'assistant/status',
+      schemaVersion: 1,
+      seq: 0,
+      time: Date.now(),
+      sessionId,
+      data: {
+        content:
+          `会话工作区不存在，已自动重建为空目录：${workspacePath}\n` +
+          '任务会继续执行；但原目录里的文件可能已被删除或移走（如属误删，请用「重新定位」指回原目录）。',
+        statusType: 'workspace_recreated',
+      },
+    };
+    try {
+      await appendStreamEvent(sessionId, event);
+    } catch (err) {
+      logger.warning('会话工作区重建提示投影失败', {
+        sessionId,
+        workspacePath,
+        error: String(err),
+      });
+    }
+  }
+
+  /**
    * G8（2026-11-03）：把「会话工作区不可用」投影为 `assistant/status`（`statusType=workspace_invalid`）。
    *
    * 为什么走事件流：该提示需要**持久化 + 重载可见**（用户下次打开会话仍能看到根因），
@@ -1291,6 +1327,17 @@ export class ToolExecutionService {
           await this.notifyInvalidSessionWorkspace(
             toolCall.sessionId,
             cwdDecision.invalidSessionWorkspace
+          );
+        }
+        // 2026-11-03 P0：目录已被自动重建 ⇒ 首次投影一条提示（用户需知道"原内容可能已丢失"）
+        if (
+          toolCall.sessionId &&
+          cwdDecision.shouldNotifyRecreatedWorkspace &&
+          cwdDecision.recreatedSessionWorkspace
+        ) {
+          await this.notifyRecreatedSessionWorkspace(
+            toolCall.sessionId,
+            cwdDecision.recreatedSessionWorkspace
           );
         }
         const context = {

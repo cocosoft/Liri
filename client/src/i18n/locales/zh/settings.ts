@@ -133,6 +133,16 @@ const zhSettings = {
     featuresAlwaysOn: "自主执行模式 (CG3)",
     featuresAlwaysOnDesc:
       "启用后 AI 可在闲置时自主发现并执行任务（Always-On + SelfWake）",
+    // 2026-11-03 P0：自主执行运行预算（默认放宽，可按需调整）
+    autonomyLimitsTitle: "自主执行运行预算",
+    autonomyLimitsDesc:
+      "控制自动执行一次跑多久、跑多少轮；改动后立即按新预算重建调度。",
+    autonomyTimeoutMinutes: "单轮最长时长（分钟）",
+    autonomyMaxToolCalls: "单轮工具调用上限",
+    autonomyDailyBudget: "每项目每日轮次",
+    autonomyCooldownMinutes: "两轮最小间隔（分钟）",
+    autonomyLimitsHint:
+      "预算越大越能连续推进长程任务，但也会占用更多模型额度；建议先按默认值观察。",
     featuresShowStatusInTerminalTab: "终端标签状态",
     featuresShowStatusInTerminalTabDesc: "在终端标签页上显示运行状态",
     featuresShowTurnDuration: "显示回合时长",

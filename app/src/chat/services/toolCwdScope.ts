@@ -30,6 +30,8 @@ import {
   isLocalPrincipal,
 } from '@openliri/kernel/identity/requestScope';
 import type { Principal } from '@openliri/kernel/identity/principal';
+// 2026-11-03 P0：托管项目根（决定"缺失目录要不要自动重建"）
+import { resolveProjectWorkspaceRoot } from '@modules/workspace';
 
 const logger = getLogger('chat:services:toolCwdScope');
 
@@ -47,6 +49,16 @@ export interface ToolCwdDecision {
   invalidSessionWorkspace?: string;
   /** G8：本次是否**首次**为（会话, 路径）告警 ⇒ 调用方只投影一次，避免刷屏 */
   shouldNotifyInvalidWorkspace?: boolean;
+  /**
+   * 2026-11-03 P0：会话工作区原本不存在、但位于**托管项目根**下 ⇒ 已自动重建为空目录。
+   *
+   * 现场：项目 `sandboxPath` 指向的目录被删/被清理后，会话仍指向它 ⇒ bash 每条都
+   * `cwd_inaccessible`、相对路径读取全失败 ⇒ 模型只能反复 `glob` 猜路径 ⇒ 3 轮无进展
+   * 被 `no_progress_loop` 熔断（长程任务"自动中断"的主要成因）。
+   */
+  recreatedSessionWorkspace?: string;
+  /** P0：本次是否**首次**为（会话, 路径）提示"已自动重建" ⇒ 调用方只投影一次 */
+  shouldNotifyRecreatedWorkspace?: boolean;
 }
 
 /**
@@ -152,6 +164,9 @@ function warnInvalidWorkspaceOnce(dir: string, sessionId?: string): boolean {
 /**
  * G8：显式会话工作区的**唯一返回点** —— 有效原样返回；无效也原样返回（读侧不猜、不改写
  * 用户选择），但附带"界面需提示一次"的标记，由调用方投影到事件流。
+ *
+ * 2026-11-03 P0：**托管项目根**下的目录缺失时自动重建（`mkdir -p`），而不是让整轮任务
+ * 一直失败（详见 {@link ToolCwdDecision.recreatedSessionWorkspace}）。
  */
 function decideSessionWorkspace(
   dir: string,
@@ -160,12 +175,58 @@ function decideSessionWorkspace(
   if (isUsableDirectory(dir)) {
     return { cwd: dir, rejectedSessionWorkspace: false };
   }
+  const recreated = recreateManagedWorkspaceOnce(dir);
+  if (recreated !== null) {
+    return {
+      cwd: dir,
+      rejectedSessionWorkspace: false,
+      recreatedSessionWorkspace: recreated,
+      shouldNotifyRecreatedWorkspace: markRecreatedNotifiedOnce(dir, sessionId),
+    };
+  }
   return {
     cwd: dir,
     rejectedSessionWorkspace: false,
     invalidSessionWorkspace: dir,
     shouldNotifyInvalidWorkspace: warnInvalidWorkspaceOnce(dir, sessionId),
   };
+}
+
+/** 已提示过"自动重建"的（会话, 路径）（上限 100 条防无界增长） */
+const notifiedRecreatedWorkspaces = new Set<string>();
+
+function markRecreatedNotifiedOnce(dir: string, sessionId?: string): boolean {
+  const key = sessionId ? `${sessionId}::${dir}` : dir;
+  if (notifiedRecreatedWorkspaces.has(key)) return false;
+  if (notifiedRecreatedWorkspaces.size >= 100)
+    notifiedRecreatedWorkspaces.clear();
+  notifiedRecreatedWorkspaces.add(key);
+  return true;
+}
+
+/**
+ * P0（2026-11-03）：托管项目根下的缺失目录 ⇒ 重建并返回该路径；其它情况返回 `null`。
+ *
+ * **只重建托管根**（`resolveProjectWorkspaceRoot()` 之内，即 `~/Documents/LiriProjects` 或
+ * 用户设置的「项目存放位置」）：这些目录由 Liri 自己创建与管理，重建是安全的；
+ * 用户手填的任意 `workspacePath` **不重建**（可能只是写错盘符，静默建目录会掩盖错误）。
+ */
+function recreateManagedWorkspaceOnce(dir: string): string | null {
+  if (existsSync(dir)) return null;
+  try {
+    if (!isPathWithin(resolveProjectWorkspaceRoot(), dir)) return null;
+    mkdirSync(dir, { recursive: true });
+    logger.warning('会话工作区目录不存在：已在托管项目根下自动重建为空目录', {
+      sessionWorkspacePath: dir,
+    });
+    return dir;
+  } catch (err) {
+    logger.warning('会话工作区自动重建失败（按无效路径处理）', {
+      sessionWorkspacePath: dir,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return null;
+  }
 }
 
 /**

@@ -150,6 +150,15 @@ export type {
   ProjectAutonomyMap,
 } from './projectAutonomy.js';
 
+// 2026-11-03：自主执行运行预算（`autonomy.limits`；默认放宽 + 可调）
+export {
+  AUTONOMY_LIMITS_CONFIG_KEY,
+  DEFAULT_AUTONOMY_LIMITS,
+  readAutonomyLimits,
+  setAutonomyLimits,
+} from './autonomyLimits.js';
+export type { AutonomyLimits } from './autonomyLimits.js';
+
 export {
   loadLocalSettings,
   saveLocalSettings,

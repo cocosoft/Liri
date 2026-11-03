@@ -50,6 +50,75 @@ const INTERRUPTED_HINT_INTERRUPTED =
 const INTERRUPTED_HINT_GENERATION =
   "⚠️ **该回复生成中断，未完成最终输出。** 下方「💭 思考过程」标签中保留了模型当时的推理草稿，可点击展开查看。";
 
+// 2026-11-03 P1：主循环终止原因可见化（后端 `turn/end.terminationReason`）。
+// 值是**结构化状态码**（`app/src/query/ReActLoop.ts` 的 `TerminationReason`），
+// 这里按"用户能据此行动"收敛为 5 组；`completed` 属正常收尾 ⇒ 不在表内（不显示徽标）。
+// 文案为 i18n 键的中文兜底默认值，渲染处经 t() 取当前语言。
+const TERMINATION_HINT_ABORTED = "本轮已中止，未继续执行。";
+const TERMINATION_HINT_BUDGET =
+  "已达本轮预算上限（轮次 / token / 时长），任务未在预算内完成。";
+const TERMINATION_HINT_FUSED =
+  "触发熔断：连续多轮没有实质进展，已停止以免空转。";
+const TERMINATION_HINT_ERROR =
+  "本轮异常终止（推理输出异常 / 内部错误 / 上下文压缩失败）。";
+const TERMINATION_HINT_BLOCKED =
+  "因环境阻塞而终止（权限 / 安全拦截 / 能力未就绪），重试通常无效。";
+
+const TERMINATION_NOTICES: Record<
+  string,
+  { key: string; fallback: string }
+> = {
+  aborted: { key: "chat.terminationAborted", fallback: TERMINATION_HINT_ABORTED },
+  system_aborted: {
+    key: "chat.terminationAborted",
+    fallback: TERMINATION_HINT_ABORTED,
+  },
+  max_turns: { key: "chat.terminationBudget", fallback: TERMINATION_HINT_BUDGET },
+  budget_exhausted: {
+    key: "chat.terminationBudget",
+    fallback: TERMINATION_HINT_BUDGET,
+  },
+  timeout: { key: "chat.terminationBudget", fallback: TERMINATION_HINT_BUDGET },
+  no_progress: { key: "chat.terminationFused", fallback: TERMINATION_HINT_FUSED },
+  exploration_fatigue: {
+    key: "chat.terminationFused",
+    fallback: TERMINATION_HINT_FUSED,
+  },
+  circuit_breaker: {
+    key: "chat.terminationFused",
+    fallback: TERMINATION_HINT_FUSED,
+  },
+  diminishing_returns: {
+    key: "chat.terminationFused",
+    fallback: TERMINATION_HINT_FUSED,
+  },
+  loop_detected: {
+    key: "chat.terminationFused",
+    fallback: TERMINATION_HINT_FUSED,
+  },
+  reasoning_error: {
+    key: "chat.terminationError",
+    fallback: TERMINATION_HINT_ERROR,
+  },
+  internal_error: {
+    key: "chat.terminationError",
+    fallback: TERMINATION_HINT_ERROR,
+  },
+  compaction_failed: {
+    key: "chat.terminationError",
+    fallback: TERMINATION_HINT_ERROR,
+  },
+  error: { key: "chat.terminationError", fallback: TERMINATION_HINT_ERROR },
+  environment_blocked: {
+    key: "chat.terminationBlocked",
+    fallback: TERMINATION_HINT_BLOCKED,
+  },
+  verifier_escalate: {
+    key: "chat.terminationBlocked",
+    fallback: TERMINATION_HINT_BLOCKED,
+  },
+};
+
 interface ChatMessageProps {
   message: Message;
   isStreaming?: boolean;
@@ -1371,6 +1440,19 @@ function AssistantMessage({
   // N-45：让出轮次（持久标记 `finishReason === 'yielded'`）不得落进下方"生成中断"兜底；
   // 对用户的可见提示由**会话级提示条**承担（`YieldNoticeBar`，读后端读时派生的 yieldState）
   const isYieldFinish = message.finishReason === "yielded";
+  // 2026-11-03 P1：主循环终止原因（`turn/end.terminationReason`）→ 可见徽标。
+  // - `completed` / 缺失 ⇒ 不显示（正常收尾，不制造噪音）
+  // - 用户/系统中止已由上方「该回复已中断」覆盖 ⇒ 不重复
+  const terminationNotice = !isStreaming
+    ? TERMINATION_NOTICES[message.terminationReason ?? ""]
+    : undefined;
+  const showTerminationNotice =
+    !!terminationNotice &&
+    !(
+      isInterruptedFinish &&
+      (message.terminationReason === "aborted" ||
+        message.terminationReason === "system_aborted")
+    );
   if (!isStreaming && isInterruptedFinish) {
     blocks = [
       {
@@ -1443,6 +1525,17 @@ function AssistantMessage({
         <DebugBlockInfo blocks={blocks} messageId={message.id} />
       )}
       {renderedContent}
+      {/* 2026-11-03 P1：本轮终止原因徽标（`turn/end.terminationReason`）——
+          "长程任务为什么停下"从只能翻日志变为消息内可见；原值为结构化状态码，
+          悬停可看原始 code（便于对照日志/台账）。 */}
+      {showTerminationNotice && terminationNotice && (
+        <div
+          className="mt-1 text-[11px] text-amber-600 dark:text-amber-400 select-none"
+          title={`terminationReason: ${message.terminationReason}`}
+        >
+          {t(terminationNotice.key, terminationNotice.fallback)}
+        </div>
+      )}
       {/* 流式光标：消息仍在生成中时，末尾显示闪烁指示器（单一实现见 src/index.css；
           原注释写"3 个脉冲圆点"与生效样式不符，2026-09-27 已随 P1-10 一并更正） */}
       {isStreaming && (

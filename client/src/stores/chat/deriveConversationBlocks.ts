@@ -324,10 +324,18 @@ function handleEvent(
       // 2026-08-24 中断提示链路：透传 finishReason 到当前/最近 assistant 消息，
       // 使「有正文但被中断」的消息能被前端识别并显示中断提示。
       // 条件赋值：data.finishReason 为空时不清掉已有值（避免覆盖 3.5 后端派生已补的值）
-      const endData = event.data as { finishReason?: string };
+      const endData = event.data as {
+        finishReason?: string;
+        terminationReason?: string;
+      };
       const target = state.current ?? state.lastAssistantMsg;
       if (target && endData.finishReason) {
         target.finishReason = endData.finishReason as Message["finishReason"];
+      }
+      // 2026-11-03 P1：主循环终止原因（`no_progress` / `max_turns` / `environment_blocked` …）
+      // 与 finishReason 分开透传 —— 前者是"这轮为什么停"，后者是 provider 末次响应。
+      if (target && endData.terminationReason) {
+        target.terminationReason = endData.terminationReason;
       }
       flushCurrent(state);
       break;

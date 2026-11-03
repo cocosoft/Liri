@@ -901,6 +901,16 @@ const enBase = {
     interruptedHintGeneration:
       "⚠️ **This reply's generation was interrupted and did not produce a final output.** The model's reasoning draft at the time is kept under the \"💭 Thinking process\" label below — click to expand.",
     untitledDeliverable: "Untitled deliverable",
+    // 2026-11-03 P1: turn termination-reason badge (`turn/end.terminationReason`)
+    terminationAborted: "This turn was aborted before finishing.",
+    terminationBudget:
+      "This turn hit its budget limit (turns / tokens / time) before completing the task.",
+    terminationFused:
+      "Circuit breaker tripped: several consecutive turns made no real progress, so the loop was stopped.",
+    terminationError:
+      "This turn ended abnormally (reasoning output error / internal error / context compaction failure).",
+    terminationBlocked:
+      "Stopped because the environment blocked it (permission / security interception / capability not ready). Retrying usually will not help.",
     // ChatMessageList (welcome page official site)
     welcomeOfficialSite: "Official site: https://openliri.com",
     // ---- i18n residual cleanup (2026-09-27, batch-8 evidence list) ----

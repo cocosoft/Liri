@@ -61,6 +61,14 @@ export interface Message {
     | "error"
     | "yielded"
     | "unknown";
+  /**
+   * 主循环终止原因（后端 `turn/end.terminationReason`，2026-11-03 P1 可见化）。
+   *
+   * 与 `finishReason` 语义不同：后者是 provider 末次响应（长程轮正常收尾常报 `tool_use`），
+   * 「这轮为什么停下」只看本字段。值域见后端 `query/ReActLoop.ts` 的 `TerminationReason`
+   * （`completed` / `no_progress` / `max_turns` / `environment_blocked` …）。
+   */
+  terminationReason?: string;
 }
 
 export interface QuestionOption {

@@ -490,4 +490,33 @@ describe("deriveConversationBlocks — 中断提示链路 turn/end 透传（2026
     const asst = msgs.find((m) => m.id === "asst-1");
     expect(asst?.finishReason).toBeUndefined();
   });
+
+  // 2026-11-03 P1：主循环终止原因（`turn/end.terminationReason`）透传到消息，
+  // 供 ChatMessage 渲染"本轮为什么停下"的可见徽标。
+  it("turn/end 带 terminationReason → assistant 消息挂上，且与 finishReason 互不覆盖", () => {
+    const events: LiriEvent[] = [
+      ev(1, "turn/start", { turn: 1 }),
+      ev(2, "assistant/text", { content: "有正文", messageId: "asst-1" }),
+      ev(3, "turn/end", {
+        turn: 1,
+        finishReason: "tool_use",
+        terminationReason: "no_progress",
+      }),
+    ];
+    const msgs = deriveConversationBlocks(events);
+    const asst = msgs.find((m) => m.id === "asst-1");
+    expect(asst?.finishReason).toBe("tool_use");
+    expect(asst?.terminationReason).toBe("no_progress");
+  });
+
+  it("turn/end 无 terminationReason → 该字段保持未定义（正常收尾不造文案）", () => {
+    const events: LiriEvent[] = [
+      ev(1, "turn/start", { turn: 1 }),
+      ev(2, "assistant/text", { content: "有正文", messageId: "asst-1" }),
+      ev(3, "turn/end", { turn: 1, finishReason: "stop" }),
+    ];
+    const msgs = deriveConversationBlocks(events);
+    const asst = msgs.find((m) => m.id === "asst-1");
+    expect(asst?.terminationReason).toBeUndefined();
+  });
 });

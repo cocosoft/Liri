@@ -871,6 +871,15 @@ const zhBase = {
     interruptedHintGeneration:
       "⚠️ **该回复生成中断，未完成最终输出。** 下方「💭 思考过程」标签中保留了模型当时的推理草稿，可点击展开查看。",
     untitledDeliverable: "未命名成果",
+    // 2026-11-03 P1：本轮终止原因徽标（`turn/end.terminationReason`）
+    terminationAborted: "本轮已中止，未继续执行。",
+    terminationBudget:
+      "已达本轮预算上限（轮次 / token / 时长），任务未在预算内完成。",
+    terminationFused: "触发熔断：连续多轮没有实质进展，已停止以免空转。",
+    terminationError:
+      "本轮异常终止（推理输出异常 / 内部错误 / 上下文压缩失败）。",
+    terminationBlocked:
+      "因环境阻塞而终止（权限 / 安全拦截 / 能力未就绪），重试通常无效。",
     // ChatMessageList（欢迎页官网）
     welcomeOfficialSite: "官网: https://openliri.com",
     // ---- i18n 残留收尾（2026-09-27，第 8 批取证清单）----

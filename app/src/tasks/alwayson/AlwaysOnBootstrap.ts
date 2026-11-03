@@ -85,7 +85,9 @@ export function bootstrapAlwaysOn(
       project.ownerKey
     );
     const projectEnabled = project.enabled !== false;
-    runtime.gates.setEnabled(projectEnabled);
+    // 全局保持启用；项目级暂停单独记（门控原因 `project_disabled`，便于日志区分）
+    runtime.gates.setEnabled(true);
+    runtime.gates.setProjectPaused(!projectEnabled);
     if (!projectEnabled) paused.push(runtime);
 
     const bridge = deps.createBridge(project, limits);

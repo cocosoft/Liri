@@ -515,8 +515,9 @@ describe('U-02 bootstrapAlwaysOn（开关语义）', () => {
       registered: [] as string[],
       started: 0,
       stopped: 0,
-      /** 2026-11-03：项目级暂停的证据（gate 初值 + 运行时被停掉的项目） */
+      /** 2026-11-03：项目级暂停的证据（gate 初值 / 暂停标记 / 运行时被停掉的项目） */
       gateStates: [] as boolean[],
+      pausedStates: [] as boolean[],
       runtimeStopped: [] as string[],
     };
     const manager = {
@@ -525,6 +526,7 @@ describe('U-02 bootstrapAlwaysOn（开关语义）', () => {
         return {
           gates: {
             setEnabled: (v: boolean) => calls.gateStates.push(v),
+            setProjectPaused: (v: boolean) => calls.pausedStates.push(v),
           },
           setDiscoveryFn: () => {},
           setWorkspaceFn: () => {},
@@ -622,7 +624,9 @@ describe('U-02 bootstrapAlwaysOn（开关语义）', () => {
     // 仍注册（运行期可经 getRuntime(id).start() 恢复），但调度被停掉
     expect(result.registered).toEqual(['p1', 'p2']);
     expect(result.started).toBe(true);
-    expect(calls.gateStates).toEqual([true, false]);
+    // 全局 gate 始终开；项目级暂停单独记（门控原因 ⇒ project_disabled）
+    expect(calls.gateStates).toEqual([true, true]);
+    expect(calls.pausedStates).toEqual([false, true]);
     expect(calls.runtimeStopped).toEqual(['p2']);
     expect(calls.started).toBe(1);
   });

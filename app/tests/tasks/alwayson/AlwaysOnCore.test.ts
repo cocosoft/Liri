@@ -96,6 +96,16 @@ describe('DiscoveryGates', () => {
     expect(result.reason).toBe('disabled');
   });
 
+  it('项目级暂停 ⇒ reason 为 project_disabled（与全局 disabled 区分）', () => {
+    gates.setProjectPaused(true);
+    const result = gates.evaluate();
+    expect(result.passed).toBe(false);
+    expect(result.reason).toBe('project_disabled');
+
+    gates.setProjectPaused(false);
+    expect(gates.evaluate().passed).toBe(true);
+  });
+
   it('fails when agent is busy', () => {
     gates.setBusy(true);
     const result = gates.evaluate();

@@ -15,6 +15,13 @@ export class DiscoveryGates {
   private config: AlwaysOnConfig;
   private signalWatcher: SignalWatcher;
   private enabled = true;
+  /**
+   * 项目级暂停（2026-11-03）：用户在项目菜单里暂停该项目的自主执行。
+   *
+   * 与全局 `enabled` 分开记：日志/判定能区分「整体关闭」与「只关了这一个项目」
+   * （`GateReason.project_disabled` 此前是死枚举）。
+   */
+  private projectPaused = false;
   private lastRun = 0;
   private lastUserMsg = 0;
   private todayCount = 0;
@@ -36,6 +43,10 @@ export class DiscoveryGates {
   /** 设置外部状态 */
   setEnabled(v: boolean): void {
     this.enabled = v;
+  }
+  /** 项目级暂停（与全局 `enabled` 分开，见字段注释） */
+  setProjectPaused(v: boolean): void {
+    this.projectPaused = v;
   }
   setLastRun(t: number): void {
     this.lastRun = t;
@@ -68,6 +79,12 @@ export class DiscoveryGates {
     // 1. 全局禁用
     if (!this.enabled)
       return this.fail('disabled', 'AlwaysOn is globally disabled');
+    // 1.5 项目级暂停（用户在该项目菜单里暂停）
+    if (this.projectPaused)
+      return this.fail(
+        'project_disabled',
+        'Autonomy is paused for this project by user setting'
+      );
     // 2. 项目路径不存在
     if (!this.projectPath || !existsSync(this.projectPath))
       return this.fail(

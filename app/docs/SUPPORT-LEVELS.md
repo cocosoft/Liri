@@ -75,7 +75,7 @@
 | `browser` | community | —（无专属测试） |
 | `browser_vision` | community | —（无专属测试） |
 | `canvas` | community | —（无专属测试） |
-| `channel` | core | `app/tests/channels/channelBudgetNotice.test.ts`（测试文件名） |
+| `channel` | core | `app/tests/channels/ChannelContract.test.ts`（测试文件名） |
 | `clipboard` | community | —（无专属测试） |
 | `code_run` | core | `app/tests/tools/codeRunnerLandlockConfig.test.ts`（测试文件名） |
 | `computer_use` | community | —（无专属测试） |
@@ -87,8 +87,8 @@
 | `file_edit` | community | —（无专属测试） |
 | `file_read` | core | `app/tests/tools/FileReadTool.test.ts`（测试文件名） |
 | `file_write` | core | `app/tests/tools/fileWriteToolPath.test.ts`（测试文件名） |
-| `glob` | core | `app/tests/tools/GlobTool/globAsync.test.ts`（测试文件名） |
-| `grep` | core | `app/tests/tools/grepSearchCacheInvalidation.test.ts`（测试文件名） |
+| `glob` | core | `app/tests/tools/GlobTool/GlobTool-braces.test.ts`（测试文件名） |
+| `grep` | core | `app/tests/tools/GrepTool/grepAsync.test.ts`（测试文件名） |
 | `image` | core | `app/tests/tools/imageSafetyFilter.test.ts`（测试文件名） |
 | `image_analysis` | community | —（无专属测试） |
 | `image_display` | community | —（无专属测试） |

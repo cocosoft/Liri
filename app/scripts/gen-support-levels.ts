@@ -126,7 +126,11 @@ function walk(dir: string, out: string[] = []): string[] {
       out.push(full);
     }
   }
-  return out;
+  // 确定性（跨平台）：`readdirSync` 顺序由文件系统决定（NTFS 近似字典序，ext4 是哈希序），
+  // 而 `resolveEvidence` **先命中者胜** ⇒ 不排序时同一提交在 Windows / Linux 上会生成
+  // 不同的证据列，`--check` 在 CI 必红（实证：33f4290ae 的 Static Checks
+  // 「Ledger drift gates」步骤 SUPPORT-LEVELS 不一致，本地 Windows 校验却通过）。
+  return out.sort();
 }
 
 function loadOverrides(): Overrides {

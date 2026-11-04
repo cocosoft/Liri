@@ -51,6 +51,19 @@ import {
 
 const logger = getLogger('chat:manager');
 
+/**
+ * P2-1（2026-11-04）：`_buildToolRoundMessages` 诊断日志的**级别判定**（纯函数）。
+ *
+ * 该日志的目的是"确认工具结果真的拼进了下一轮请求" —— 只有**条数不一致**时才需要
+ * INFO（异常/诊断价值）；正常路径每次请求都会打（实测 3 759 条）⇒ debug。
+ */
+export function shouldLogToolRoundAtInfo(
+  processedResults: number,
+  toolCalls: number
+): boolean {
+  return processedResults !== toolCalls;
+}
+
 // R1（2026-09-06，走查 W1/W9）：产出型写入工具集合（成功即视为"已交付文件产物"）
 const _WRITE_PRODUCTIVE_TOOLS = new Set([
   'file_write',
@@ -278,7 +291,12 @@ export class ChatStreamMessageLifecycle {
     }>
   ): Record<string, unknown>[] {
     // P2-3（2026-09-02）：诊断日志——确认工具结果是否真正拼入下一轮请求
-    logger.info('reactToolLoop:_buildToolRoundMessages', {
+    const resultChars = processedResults.map((pr) => {
+      // 空值判定收敛到 ChatHelper.toToolResultRawText（原 truthiness 会把 ''/0/false 误判为无载荷）
+      const raw = toToolResultRawText(pr.result.result, pr.result.error);
+      return { id: pr.normalizedToolCall.id, chars: raw.length };
+    });
+    const diagnostic = {
       currentMessages: currentMessages.length,
       toolCalls: currentToolCalls.length,
       processedResults: processedResults.length,
@@ -286,12 +304,18 @@ export class ChatStreamMessageLifecycle {
         typeof currentAssistantMsg.content === 'string'
           ? currentAssistantMsg.content.length
           : -1,
-      resultChars: processedResults.map((pr) => {
-        // 空值判定收敛到 ChatHelper.toToolResultRawText（原 truthiness 会把 ''/0/false 误判为无载荷）
-        const raw = toToolResultRawText(pr.result.result, pr.result.error);
-        return { id: pr.normalizedToolCall.id, chars: raw.length };
-      }),
-    });
+      resultChars,
+    };
+    // P2-1（2026-11-04）：正常路径（结果条数与工具调用一致）属 steady-state ⇒ debug
+    // （实测窗口内该单点 3 759 条）。**条数不一致**才说明"结果没真正拼进去"——
+    // 这正是本诊断的目的，仍为 INFO。
+    if (
+      shouldLogToolRoundAtInfo(processedResults.length, currentToolCalls.length)
+    ) {
+      logger.info('reactToolLoop:_buildToolRoundMessages', diagnostic);
+    } else {
+      logger.debug('reactToolLoop:_buildToolRoundMessages', diagnostic);
+    }
     const built: Record<string, unknown>[] = [
       ...currentMessages,
       {

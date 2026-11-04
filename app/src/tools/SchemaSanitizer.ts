@@ -99,7 +99,9 @@ export function sanitizeSchema(
   }
 
   if (changes.length > 0) {
-    logger.info('schema:sanitized', { changes, provider: options.provider });
+    // P2-1（2026-11-04）：每次请求都会做一次清洗，命中规则即打 ⇒ 实测 4 496 条同型 info。
+    // 这是"做了哪些改写"的实现细节（排查 provider 兼容时用），降为 debug；失败/异常仍是 warn/error。
+    logger.debug('schema:sanitized', { changes, provider: options.provider });
   }
 
   return { schema: cleaned, modified: changes.length > 0, changes };

@@ -1112,7 +1112,9 @@ export class ToolExecutionService {
     }
 
     // 排查 J-1.4：权限通过（含放行缓存命中）后继续执行——记录 sessionId 是否透传（BashTool 放行缓存依赖）
-    logger.info('executeTool: 权限通过，继续执行', {
+    // P2-1（2026-11-04）：这是"一切正常"的逐工具稳态日志（实测 2 039 条）⇒ debug；
+    // 拒绝/审批/异常路径各自仍打 warn/error，安全信号不降级。
+    logger.debug('executeTool: 权限通过，继续执行', {
       toolName: normalizedToolCall.name,
       toolCallId: toolCall.id,
       sessionId: toolCall.sessionId,

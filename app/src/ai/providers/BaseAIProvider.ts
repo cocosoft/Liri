@@ -427,6 +427,14 @@ export abstract class BaseAIProvider implements AIProvider {
   private static _caCertFilePath: string | null | undefined = undefined;
 
   /**
+   * P2-1（2026-11-04）：「已注入 tls.ca 证书」提示**每进程只打一次**。
+   *
+   * 该提示原本在**每次请求**的 `injectCADispatcher()` 里打 —— 实测窗口内同一行
+   * **4 494 条**（值恒定、零信息增量）。配置类事实只需一次，后续可从证书诊断接口查。
+   */
+  private static _tlsCaLogged = false;
+
+  /**
    * 获取带有系统 CA 证书的 undici fetch dispatcher。
    *
    * 优先从 NODE_EXTRA_CA_CERTS 环境变量读取，其次从系统默认 CA 路径读取。
@@ -522,10 +530,13 @@ export abstract class BaseAIProvider implements AIProvider {
       return undefined;
     }
 
-    logger.info('BaseAIProvider · 已注入 Bun 原生 tls.ca 证书', {
-      path: BaseAIProvider._caCertFilePath,
-    });
-
+    // P2-1：配置类事实**每进程一次**（见 `_tlsCaLogged` 注释）
+    if (!BaseAIProvider._tlsCaLogged) {
+      BaseAIProvider._tlsCaLogged = true;
+      logger.info('BaseAIProvider · 已注入 Bun 原生 tls.ca 证书', {
+        path: BaseAIProvider._caCertFilePath,
+      });
+    }
     return { ca: [Bun.file(BaseAIProvider._caCertFilePath)] };
   }
 

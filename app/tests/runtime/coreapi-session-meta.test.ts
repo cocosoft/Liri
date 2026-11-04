@@ -134,4 +134,43 @@ describe('CoreAPIImpl.updateSessionMeta 置顶契约（M1-T1.3）', () => {
     expect(memSession.metadata.toolProfile).toEqual([]);
     expect(storedSession.metadata.toolProfile).toEqual([]);
   });
+
+  /**
+   * P1（2026-11-04，UI 第三层）：会话级权限模式写入口。
+   * 落库键是 `permission_mode`（snake_case，与 `ChatManager.getSessionPermissionMode` 同一契约）。
+   */
+  it('⑧ permissionMode：内存 + 存储双侧写 permission_mode，且 touch updatedAt', async () => {
+    const { api, memSession, storedSession, updateSessionCalls } =
+      makeFixture(true);
+    const before = memSession.updatedAt.getTime();
+
+    await api.updateSessionMeta('sess-1', { permissionMode: 'strict' });
+
+    expect(memSession.metadata.permission_mode).toBe('strict');
+    expect(memSession.updatedAt.getTime()).toBeGreaterThan(before);
+    expect(updateSessionCalls.length).toBe(1);
+    expect(storedSession.metadata.permission_mode).toBe('strict');
+  });
+
+  it('⑨ permissionMode=null：清除会话覆盖（删键 ⇒ 判定回退进程默认档）', async () => {
+    const { api, memSession, storedSession } = makeFixture(true);
+    memSession.metadata.permission_mode = 'bypass';
+    storedSession.metadata.permission_mode = 'bypass';
+
+    await api.updateSessionMeta('sess-1', { permissionMode: null });
+
+    expect('permission_mode' in memSession.metadata).toBe(false);
+    expect('permission_mode' in storedSession.metadata).toBe(false);
+  });
+
+  it('⑩ permissionMode 未传：不动既有值（undefined ≠ 清除）', async () => {
+    const { api, memSession, storedSession } = makeFixture(true);
+    memSession.metadata.permission_mode = 'plan';
+    storedSession.metadata.permission_mode = 'plan';
+
+    await api.updateSessionMeta('sess-1', { model: 'm-2' });
+
+    expect(memSession.metadata.permission_mode).toBe('plan');
+    expect(storedSession.metadata.permission_mode).toBe('plan');
+  });
 });

@@ -1,4 +1,9 @@
-import type { LiriEvent, Message, Session } from "../types";
+import type {
+  LiriEvent,
+  Message,
+  Session,
+  SessionPermissionMode,
+} from "../types";
 import { http as apiHttp } from "./httpClient";
 import { ENDPOINTS } from "./endpoints";
 import { createLogger } from "../utils/logger";
@@ -338,6 +343,8 @@ function flattenSession<S extends Session | null>(session: S): S {
       effortLevel?: "low" | "medium" | "high" | "auto";
       /** PR-3：会话级审批模式（`auto-local` = 只读 + 工作区内本地写自动执行） */
       approvalMode?: "ask" | "auto-local";
+      /** P1（2026-11-04）：会话级权限模式（9 档；null/缺省 ⇒ 跟随进程默认档） */
+      permission_mode?: string | null;
     };
   };
   return {
@@ -359,6 +366,11 @@ function flattenSession<S extends Session | null>(session: S): S {
       raw.metadata?.effortLevel ||
       (session as { effortLevel?: "low" | "medium" | "high" | "auto" })
         .effortLevel,
+    // P1（2026-11-04）：权限模式（只认字符串；null/脏值 ⇒ 视为"跟随默认"，不造默认值）
+    permissionMode:
+      typeof raw.metadata?.permission_mode === "string"
+        ? (raw.metadata.permission_mode as SessionPermissionMode)
+        : undefined,
     modelId: raw.metadata?.model || session.modelId,
     providerId: raw.metadata?.providerId || session.providerId,
     workspaceId: raw.metadata?.workspaceId || session.workspaceId,
@@ -1080,6 +1092,11 @@ export const sessionService = {
        * 开关约束，默认关）；缺省 `ask`。
        */
       approvalMode?: "ask" | "auto-local";
+      /**
+       * P1（2026-11-04）：会话级**权限模式**（UI 第三层；9 档，后端 400 校验）。
+       * `null` ⇒ 清除会话覆盖、跟随进程默认档。
+       */
+      permissionMode?: SessionPermissionMode | null;
     },
   ): Promise<boolean> => {
     try {
@@ -1093,6 +1110,9 @@ export const sessionService = {
       if (meta.toolProfile !== undefined) body.tool_profile = meta.toolProfile;
       if (meta.approvalMode !== undefined)
         body.approval_mode = meta.approvalMode;
+      // P1（2026-11-04）：权限模式（`null` 是合法值 = 清除会话覆盖，故用 !== undefined 判）
+      if (meta.permissionMode !== undefined)
+        body.permission_mode = meta.permissionMode;
       const res = await apiHttp.patch(ENDPOINTS.session.meta(sessionId), body);
       if (res.ok) {
         _isUsingFallback = false;

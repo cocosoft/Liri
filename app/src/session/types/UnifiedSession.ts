@@ -90,6 +90,15 @@ export interface SessionMetadata {
    */
   chatMode?: 'auto' | 'deep' | 'code' | 'creative' | 'research';
   /**
+   * P1（2026-11-04）：会话级**权限模式**（UI 第三层写入；9 档，取值域见
+   * `@openliri/infra/common` 的 `PERMISSION_MODES`）。
+   *
+   * 读取点：`ChatManager.getSessionPermissionMode()` → 每次工具判定按
+   * `context.permissionMode` 覆盖进程默认档。`null`/缺失 ⇒ 跟随进程默认档。
+   * 字段名沿用既有契约（snake_case），与 `SessionMetadataService` 口径一致。
+   */
+  permission_mode?: string | null;
+  /**
    * P4b（2026-10-16）：会话级工具 profile 能力标签（`media` / `coding` 等）。
    * 经 `tools/toolProfile.ts` 的 `resolveToolProfileCategories()` 追加对应工具类别到
    * 本会话可见白名单；未声明 ⇒ 零行为变更。与 `models/SessionMetadata.ts` 对齐。

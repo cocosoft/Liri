@@ -44,6 +44,11 @@ import {
   normalizeTimestamp,
 } from './session-handlers-utils';
 import { LOCAL_REQUEST_BASE_URL, LOCAL_SERVICE_HOST } from '@openliri/kernel';
+// P1（2026-11-04）：会话级权限模式（UI 第三层）的 9 档取值域（唯一真源在 infra）
+import {
+  PERMISSION_MODES,
+  type PermissionMode,
+} from '@openliri/infra/permission';
 
 const logger = getLogger('infra:http:session-handlers');
 
@@ -1212,6 +1217,22 @@ export async function handleUpdateSessionMeta(
       return;
     }
 
+    // P1（2026-11-04）：会话级**权限模式**（UI 第三层）—— 只接受 9 档白名单，
+    // 或 `null`（= 清除会话覆盖、跟随进程默认档）。非法值 400，不静默忽略。
+    const rawPermissionMode = data.permission_mode;
+    if (
+      rawPermissionMode !== undefined &&
+      rawPermissionMode !== null &&
+      (typeof rawPermissionMode !== 'string' ||
+        !(PERMISSION_MODES as readonly string[]).includes(rawPermissionMode))
+    ) {
+      sendBadRequest(
+        res,
+        `permission_mode must be one of: ${PERMISSION_MODES.join(', ')} (or null)`
+      );
+      return;
+    }
+
     await coreAPI.updateSessionMeta(sessionId, {
       model: data.model as string | undefined,
       workspaceId: data.workspace_id as string | undefined,
@@ -1221,6 +1242,10 @@ export async function handleUpdateSessionMeta(
       workMode: data.work_mode as 'plan' | 'do' | undefined,
       toolProfile: data.tool_profile as string[] | undefined,
       approvalMode: data.approval_mode as 'ask' | 'auto-local' | undefined,
+      permissionMode:
+        rawPermissionMode === null
+          ? null
+          : (rawPermissionMode as PermissionMode | undefined),
     });
 
     res.writeHead(200, { 'Content-Type': 'application/json' });

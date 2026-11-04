@@ -35,6 +35,8 @@ import TemporarySessionToggle from "./TemporarySessionToggle";
 // 计划/执行开关（emoji 之后，单击切换；写入会话 metadata.workMode）
 import WorkModeToggle from "./WorkModeToggle";
 import ApprovalModeToggle from "./ApprovalModeToggle";
+// P1（2026-11-04）：会话级「权限模式」（第三层；写入会话 metadata.permission_mode）
+import PermissionModeMenu from "./PermissionModeMenu";
 // 回复设置（详略 + 快速模式）：复用 `/effort`、`/fast` 两条命令的同一实现
 import ReplyPrefsMenu from "./ReplyPrefsMenu";
 import { readFileAsBase64 } from "../../utils/format";
@@ -1329,8 +1331,9 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
                 ⏳ {t("chat.streamBlockedHint")}
               </div>
             )}
-            {/* 模式选择器 + 上传/表情 — 输入框上方 */}
-            <div className="flex items-center gap-1 mb-0.5">
+            {/* 模式选择器 + 上传/表情 — 输入框上方
+                P1（2026-11-04）：新增「权限模式」后本行控件变多 ⇒ 允许换行（窄窗口不横向溢出） */}
+            <div className="flex flex-wrap items-center gap-1 mb-0.5">
               <div className="relative">
                 <button
                   onClick={() => setShowModeMenu(!showModeMenu)}
@@ -1527,6 +1530,24 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
                       chatSessions: s.chatSessions.map((item) =>
                         item.id === changedId
                           ? { ...item, approvalMode: mode }
+                          : item,
+                      ),
+                    }));
+                  }}
+                  disabled={isStreaming}
+                />
+                {/* P1（2026-11-04）：会话级「权限模式」（第三层；覆盖进程默认档）。
+                    事实来源 = 会话 metadata.permission_mode；不越过 deny / 路径边界 / 沙箱 */}
+                <PermissionModeMenu
+                  sessionId={currentSession?.id}
+                  permissionMode={currentSession?.permissionMode}
+                  onChanged={(mode) => {
+                    const changedId = currentSession?.id;
+                    if (!changedId) return;
+                    useRootStore.setState((s) => ({
+                      chatSessions: s.chatSessions.map((item) =>
+                        item.id === changedId
+                          ? { ...item, permissionMode: mode }
                           : item,
                       ),
                     }));

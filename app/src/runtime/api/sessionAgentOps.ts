@@ -42,6 +42,8 @@ import {
 import type { Coordinator } from '@modules/runtime/coordinator';
 import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@openliri/infra/monitoring';
+// P1（2026-11-04）：会话级权限模式（UI 第三层写入）的取值域
+import type { PermissionMode } from '@openliri/infra/permission';
 import type { ChatManager } from '@modules/chat';
 import type { SessionManager } from '@modules/session/types/session';
 import type { DerivationDiff, LiteSessionSummary } from '@modules/session';
@@ -859,6 +861,8 @@ export class SessionAgentOps {
       toolProfile?: string[];
       /** PR-3（2026-10-23）：会话级审批模式（`auto-local` = 只读 + 工作区内本地写自动执行） */
       approvalMode?: 'ask' | 'auto-local';
+      /** P1（2026-11-04）：会话级权限模式（UI 第三层；`null` ⇒ 跟随进程默认档） */
+      permissionMode?: PermissionMode | null;
       /** §九（2026-11-03）：项目重新定位时同步会话工作区（绝对路径） */
       workspacePath?: string;
     }

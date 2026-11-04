@@ -38,6 +38,8 @@ import { ExecutionPhaseTracker } from '@modules/session';
 import type { LiriEvent } from '@modules/session/types/events';
 import type { Message } from '@modules/session/types/message';
 import { getLogger } from '@openliri/infra/monitoring';
+// P1（2026-11-04）：会话级权限模式（UI 第三层写入）的取值域
+import type { PermissionMode } from '@openliri/infra/permission';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('runtime:api:CoreAPIImpl');
@@ -382,6 +384,11 @@ export class SessionTitling {
       toolProfile?: string[];
       /** PR-3（2026-10-23）：会话级审批模式（`auto-local` = 只读 + 工作区内本地写自动执行） */
       approvalMode?: 'ask' | 'auto-local';
+      /**
+       * P1（2026-11-04）：会话级**权限模式**（UI 第三层；9 档白名单）。
+       * `null` ⇒ 清除会话覆盖、跟随进程默认档（`PERMISSION_MODE`）。
+       */
+      permissionMode?: PermissionMode | null;
       /** §九（2026-11-03）：项目重新定位时同步会话工作区（绝对路径） */
       workspacePath?: string;
     }
@@ -400,7 +407,9 @@ export class SessionTitling {
       meta.workMode !== undefined ||
       meta.toolProfile !== undefined ||
       // PR-3：审批模式属"配置类"字段（改变后续轮次的授权行为）
-      meta.approvalMode !== undefined;
+      meta.approvalMode !== undefined ||
+      // P1（2026-11-04）：权限模式同属配置类（null = 清除覆盖，也算一次配置变更）
+      meta.permissionMode !== undefined;
     const shouldTouchUpdatedAt = hasMetaField;
 
     // 1. 更新内存中的会话 metadata
@@ -423,6 +432,10 @@ export class SessionTitling {
         session.metadata.toolProfile = meta.toolProfile;
       if (meta.approvalMode !== undefined)
         session.metadata.approvalMode = meta.approvalMode;
+      // P1（2026-11-04）：权限模式（`null` ⇒ 删除键 ⇒ 判定回退进程默认档）
+      if (meta.permissionMode === null) delete session.metadata.permission_mode;
+      else if (meta.permissionMode !== undefined)
+        session.metadata.permission_mode = meta.permissionMode;
       // §九（2026-11-03）：项目重新定位 ⇒ 会话跟随新路径（**不**计入 hasMetaField，
       // 避免一次批量修复把几十个会话的 updatedAt 全部顶到列表最前）
       if (meta.workspacePath !== undefined)
@@ -452,6 +465,11 @@ export class SessionTitling {
             storedSession.metadata.toolProfile = meta.toolProfile;
           if (meta.approvalMode !== undefined)
             storedSession.metadata.approvalMode = meta.approvalMode;
+          // P1（2026-11-04）：权限模式（与内存同口径；`null` ⇒ 清除覆盖）
+          if (meta.permissionMode === null)
+            delete storedSession.metadata.permission_mode;
+          else if (meta.permissionMode !== undefined)
+            storedSession.metadata.permission_mode = meta.permissionMode;
           // §九（2026-11-03）：与内存同口径（项目重新定位 ⇒ 会话工作区跟随）
           if (meta.workspacePath !== undefined)
             storedSession.metadata.workspacePath = meta.workspacePath;

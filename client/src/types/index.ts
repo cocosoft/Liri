@@ -10,6 +10,7 @@ export type {
   SessionStatus,
   WorkMode,
   ApprovalMode,
+  SessionPermissionMode,
   ReplyEffortLevel,
 } from "./session";
 

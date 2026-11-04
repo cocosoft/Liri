@@ -9,6 +9,24 @@ export type WorkMode = "plan" | "do";
 export type ApprovalMode = "ask" | "auto-local";
 
 /**
+ * P1（2026-11-04）：会话级**权限模式**（第三层；覆盖进程默认档 `PERMISSION_MODE`）。
+ *
+ * 取值域与后端 `@openliri/infra/common` 的 `PERMISSION_MODES` **同集合**（9 档）：
+ * 后端对非法值 400（`permission_mode must be one of …`）⇒ 漂移会显式报错，不静默降级。
+ * `null` = 清除会话覆盖、跟随进程默认档。
+ */
+export type SessionPermissionMode =
+  | "default"
+  | "acceptEdits"
+  | "plan"
+  | "bypass"
+  | "dontAsk"
+  | "auto"
+  | "ask"
+  | "alwaysAsk"
+  | "strict";
+
+/**
  * 回复详略档（`/effort` 与输入区「回复设置」共用；源：会话 metadata.effortLevel）
  * `auto` = 不注入任何指令（与未设置等价）。
  */
@@ -40,6 +58,11 @@ export interface Session {
   workMode?: WorkMode;
   /** PR-3：会话级审批模式（源：metadata.approvalMode 展平；缺省 ask） */
   approvalMode?: ApprovalMode;
+  /**
+   * P1（2026-11-04）：会话级权限模式（源：`metadata.permission_mode` 展平）。
+   * 缺省/`null` ⇒ 跟随进程默认档（UI 显示「跟随默认」）。
+   */
+  permissionMode?: SessionPermissionMode;
   /** 会话的回复详略档（源：metadata.effortLevel 展平；未设置 ⇒ auto） */
   effortLevel?: ReplyEffortLevel;
   title: string;
@@ -91,6 +114,8 @@ export interface Session {
     workMode?: WorkMode;
     /** PR-3：会话级审批模式（`auto-local` = 只读 + 工作区内本地写自动执行） */
     approvalMode?: ApprovalMode;
+    /** P1（2026-11-04）：会话级权限模式（9 档；`null`/缺省 ⇒ 跟随进程默认档） */
+    permission_mode?: SessionPermissionMode | null;
     roundCount?: number;
     rollbackCount?: number;
     isStreaming?: boolean;

@@ -96,7 +96,7 @@ export class VertexAIProvider extends BaseAIProvider {
     }
   ): Promise<ChatResponse> {
     // 耗时统计：委托 BaseAIProvider.measureChat（2026-08-16）
-    return BaseAIProvider.measureChat('VertexAI', () =>
+    return BaseAIProvider.measureChat(this.providerLabel, () =>
       this.chatInternal(messages, options)
     );
   }
@@ -183,7 +183,7 @@ export class VertexAIProvider extends BaseAIProvider {
   ): AsyncGenerator<string, ChatResponse, unknown> {
     // 流式耗时统计：委托 BaseAIProvider.wrapChatStreamMeasure（2026-08-16）
     return yield* BaseAIProvider.wrapChatStreamMeasure(
-      'VertexAI',
+      this.providerLabel,
       this.chatStreamInternal(messages, options)
     );
   }

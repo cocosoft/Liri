@@ -278,7 +278,7 @@ export class OpenAIProvider extends BaseAIProvider {
     }
   ): Promise<ChatResponse> {
     // 耗时统计：委托 BaseAIProvider.measureChat（2026-08-16）
-    return BaseAIProvider.measureChat('OpenAI', () =>
+    return BaseAIProvider.measureChat(this.providerLabel, () =>
       this.chatInternal(messages, options)
     );
   }
@@ -363,7 +363,7 @@ export class OpenAIProvider extends BaseAIProvider {
   ): AsyncGenerator<string | ThinkingProviderChunk, ChatResponse, unknown> {
     // 流式耗时统计：委托 BaseAIProvider.wrapChatStreamMeasure（2026-08-16）
     return yield* BaseAIProvider.wrapChatStreamMeasure(
-      'OpenAI',
+      this.providerLabel,
       this.chatStreamInternal(messages, options)
     );
   }

@@ -50,7 +50,7 @@ export class AzureOpenAIProvider extends BaseAIProvider {
     options?: ChatOptions
   ): Promise<ChatResponse> {
     // 耗时统计：委托 BaseAIProvider.measureChat（2026-08-16）
-    return BaseAIProvider.measureChat('AzureOpenAI', () =>
+    return BaseAIProvider.measureChat(this.providerLabel, () =>
       this.sendRequest(messages, options, false)
     );
   }
@@ -61,7 +61,7 @@ export class AzureOpenAIProvider extends BaseAIProvider {
   ): AsyncGenerator<string | ThinkingProviderChunk, ChatResponse, unknown> {
     // 流式耗时统计：委托 BaseAIProvider.wrapChatStreamMeasure（2026-08-16）
     return yield* BaseAIProvider.wrapChatStreamMeasure(
-      'AzureOpenAI',
+      this.providerLabel,
       this.chatStreamInternal(messages, options)
     );
   }

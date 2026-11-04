@@ -200,6 +200,22 @@ export abstract class BaseAIProvider implements AIProvider {
   /** Provider 能力声明（子类在构造函数中设置） */
   public capabilities: ProviderCapabilities = {};
 
+  /**
+   * 供应商身份（余额熔断键 + 日志/错误文案里的供应商名）。
+   *
+   * **不要在各子类入口写死字面量**（原为 `measureChat('OpenAI', …)`）：所有未在
+   * `ProviderFactory` 里显式列出的 `providerType`（siliconflow / deepseek / zhipu …）
+   * 都走 `OpenAIProvider` 这个兼容实现，写死 `'OpenAI'` 会让
+   * ① 文案把真实供应商说成 OpenAI（实测：SiliconFlow 402 报成「供应商「OpenAI」」）；
+   * ② 熔断键共用一格 ⇒ 一家欠费把其余兼容供应商一起熔断 5 分钟。
+   *
+   * 取 `displayName`：DB 同步的实例（`ProviderSyncService`）会用供应商记录名覆盖它
+   * （如 `SiliconFlow`），可读性最好；缺失时退回 `id`（`providerId`，同一实例内恒定）。
+   */
+  protected get providerLabel(): string {
+    return this.displayName || this.id;
+  }
+
   /** 连续 529 错误计数（用于指数退避） */
   protected consecutive529Errors: number = 0;
 

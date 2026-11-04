@@ -294,7 +294,7 @@ export class LlamaCppProvider extends OpenAIProvider {
   ): Promise<ChatResponse> {
     await this.preFetchHealthCheck();
     const limitedTools = await this.limitTools(options?.tools);
-    return BaseAIProvider.measureChat('LlamaCpp', () =>
+    return BaseAIProvider.measureChat(this.providerLabel, () =>
       super.chat(messages, {
         ...options,
         ...this.clampMaxTokens(options),

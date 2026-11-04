@@ -44,7 +44,7 @@ export class BedrockProvider extends BaseAIProvider {
     options?: ChatOptions
   ): Promise<ChatResponse> {
     // 耗时统计：委托 BaseAIProvider.measureChat（2026-08-16）
-    return BaseAIProvider.measureChat('Bedrock', () =>
+    return BaseAIProvider.measureChat(this.providerLabel, () =>
       this.sendConverseRequest(messages, options, false)
     );
   }
@@ -55,7 +55,7 @@ export class BedrockProvider extends BaseAIProvider {
   ): AsyncGenerator<string, ChatResponse, unknown> {
     // 流式耗时统计：委托 BaseAIProvider.wrapChatStreamMeasure（2026-08-16）
     return yield* BaseAIProvider.wrapChatStreamMeasure(
-      'Bedrock',
+      this.providerLabel,
       this.chatStreamInternal(messages, options)
     );
   }

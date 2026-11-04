@@ -14,6 +14,7 @@ import {
   ProviderBalanceCircuitOpenError,
   resetProviderBalanceCircuitForTest,
 } from '../../src/ai/providers/providerCircuitBreaker';
+import { OpenAIProvider } from '../../src/ai/providers/OpenAIProvider';
 
 afterEach(() => resetProviderBalanceCircuitForTest());
 
@@ -73,5 +74,35 @@ describe('熔断窗口', () => {
     expect(err.message).toContain('余额/配额不足');
     expect(err.message).toContain('本次未发起网络请求');
     expect(err.message).toContain('充值');
+  });
+});
+
+describe('供应商身份（回归：不再写死 OpenAI）', () => {
+  /**
+   * 缺陷现场（2026-11-03）：SiliconFlow 返回 402 `{"code":30001,"message":"Sorry, your
+   * account balance is insufficient"}`，但 `OpenAIProvider` 入口把 label 写死成 `'OpenAI'`
+   * ⇒ 文案报「供应商「OpenAI」」（用户按提示充 OpenAI 无效），且所有 OpenAI 兼容供应商
+   * （siliconflow / deepseek / zhipu …）共用同一熔断键。
+   */
+  it('熔断键与文案取真实供应商身份（DB 同步的 displayName）', async () => {
+    const provider = new OpenAIProvider({
+      providerId: 'db:8f711541-36ee-4a68-acaf-98dc7a6a7c92',
+      displayName: 'SiliconFlow',
+      defaultBaseUrl: 'https://api.siliconflow.cn/v1',
+    });
+    tripProviderBalanceCircuit('SiliconFlow');
+
+    const err = await provider
+      .chat([{ role: 'user', content: 'hi' }])
+      .then(() => null)
+      .catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(ProviderBalanceCircuitOpenError);
+    expect((err as ProviderBalanceCircuitOpenError).provider).toBe(
+      'SiliconFlow'
+    );
+    expect((err as Error).message).toContain('SiliconFlow');
+    // 不再占用「OpenAI」这一格 ⇒ 其余兼容供应商不会被连坐熔断
+    expect(providerBalanceCircuitRemaining('OpenAI')).toBe(0);
   });
 });

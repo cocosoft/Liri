@@ -117,7 +117,7 @@ export class OllamaProvider extends BaseAIProvider {
     }
   ): Promise<ChatResponse> {
     // 耗时统计：委托 BaseAIProvider.measureChat（2026-08-16）
-    return BaseAIProvider.measureChat('Ollama', () =>
+    return BaseAIProvider.measureChat(this.providerLabel, () =>
       this.chatInternal(messages, options)
     );
   }
@@ -260,7 +260,7 @@ export class OllamaProvider extends BaseAIProvider {
   ): AsyncGenerator<string | ThinkingProviderChunk, ChatResponse, unknown> {
     // 流式耗时统计：委托 BaseAIProvider.wrapChatStreamMeasure（2026-08-16）
     return yield* BaseAIProvider.wrapChatStreamMeasure(
-      'Ollama',
+      this.providerLabel,
       this.chatStreamInternal(messages, options)
     );
   }

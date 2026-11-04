@@ -11,8 +11,11 @@
  *
  * 边界（刻意不做）：
  * - 不做持久化（进程重启即失效，充值后重启/等 TTL 均可恢复）；
- * - 不按模型/密钥细分（`label` 是 Provider 标签，如 `OpenAI`）——粗粒度足够止血，
- *   细粒度需要调用方提供 providerId，属后续优化；
+ * - 不按模型/密钥细分：`provider` 是**供应商身份**（`BaseAIProvider.providerLabel`，
+ *   即 `displayName` → DB 同步实例为供应商记录名，如 `SiliconFlow`；缺失退回 `providerId`）。
+ *   ⚠️ 必须由实例传入，**不能写死字面量** —— 所有 OpenAI 兼容供应商（siliconflow /
+ *   deepseek / zhipu …）共用 `OpenAIProvider` 实现，写死 `'OpenAI'` 会让一家欠费把其余
+ *   供应商一起熔断（实测 2026-11-03：SiliconFlow 402 被报成「供应商「OpenAI」」）。
  * - 不拦 5xx / 429（那些已有退避重试链路，语义不同）。
  */
 

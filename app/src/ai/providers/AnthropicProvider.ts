@@ -120,7 +120,7 @@ export class AnthropicProvider extends BaseAIProvider {
     options?: ChatOptions
   ): Promise<ChatResponse> {
     // 耗时统计：委托 BaseAIProvider.measureChat（2026-08-16）
-    return BaseAIProvider.measureChat('Anthropic', async () => {
+    return BaseAIProvider.measureChat(this.providerLabel, async () => {
       const model =
         options?.model ||
         this.config.model ||
@@ -138,7 +138,7 @@ export class AnthropicProvider extends BaseAIProvider {
   ): AsyncGenerator<string | ThinkingProviderChunk, ChatResponse, unknown> {
     // 流式耗时统计：委托 BaseAIProvider.wrapChatStreamMeasure（2026-08-16）
     return yield* BaseAIProvider.wrapChatStreamMeasure(
-      'Anthropic',
+      this.providerLabel,
       this.chatStreamInternal(messages, options)
     );
   }

@@ -116,6 +116,12 @@ export class FilePermissionStorage implements PermissionStorage {
 
   /**
    * 读取文件
+   *
+   * 2026-11-04（运行态排查 C2 第 2 步）：加 **mtime 缓存**。
+   * 权限判定在每次工具调用时都会读角色/规则文件（`existsSync + readFileSync + JSON.parse`），
+   * 事件循环探针实测这三步合计占主线程 self time 的 `existsSync 2.7% + readFileSync 6.4% + parse 6.2%`。
+   * 文件未变（mtime 相同）时直接复用上次解析结果；本类 `writeFile` 会主动失效缓存。
+   *
    * @param filePath 文件路径
    * @returns 文件内容
    */
@@ -123,8 +129,14 @@ export class FilePermissionStorage implements PermissionStorage {
     if (!fs.existsSync(filePath)) {
       return [] as unknown as T;
     }
-    const content = fs.readFileSync(filePath, 'utf8');
-    return JSON.parse(content) as T;
+    const mtimeMs = fs.statSync(filePath).mtimeMs;
+    const cached = this._readCache.get(filePath);
+    if (cached && cached.mtimeMs === mtimeMs) {
+      return cached.data as T;
+    }
+    const data = JSON.parse(fs.readFileSync(filePath, 'utf8')) as T;
+    this._readCache.set(filePath, { mtimeMs, data });
+    return data;
   }
 
   /**
@@ -134,7 +146,15 @@ export class FilePermissionStorage implements PermissionStorage {
    */
   private writeFile(filePath: string, data: any): void {
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+    // 主动失效：同进程写入后 mtime 精度可能不足以区分，直接删缓存比依赖 stat 更稳
+    this._readCache.delete(filePath);
   }
+
+  /** 文件读取缓存（键：绝对路径；值：mtime + 解析结果） */
+  private readonly _readCache = new Map<
+    string,
+    { mtimeMs: number; data: unknown }
+  >();
 
   /**
    * 保存权限规则

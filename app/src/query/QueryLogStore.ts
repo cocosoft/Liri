@@ -226,42 +226,70 @@ export class QueryLogStore {
     const metadataStr = entry.metadata ? JSON.stringify(entry.metadata) : null;
 
     await this.dbMutex.run(async () => {
-      await new Promise<void>((resolve, reject) => {
-        this.db?.run(
-          `INSERT INTO ${QUERY_LOG_TABLE}
+      // 2026-11-04（运行态排查 C3）：真机出现 `sqlite3:慢查询失败 run`（同一 INSERT），
+      // 属 SQLITE_BUSY / database is locked 类瞬时冲突（cost_records 等其它写者共用同一库文件）。
+      // 这里在互斥锁内做**有限重试**（最多 3 次、退避 50/100ms），避免日志静默丢失。
+      const runInsert = (): Promise<void> =>
+        new Promise<void>((resolve, reject) => {
+          this.db?.run(
+            `INSERT INTO ${QUERY_LOG_TABLE}
           (id, session_id, type, model, prompt_tokens, output_tokens, total_tokens,
            duration_ms, success, error, tool_name, retry_count, turn_count,
            tool_call_count, timestamp, metadata, owner_key)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            id,
-            entry.sessionId,
-            entry.type,
-            entry.model || null,
-            entry.promptTokens,
-            entry.outputTokens,
-            entry.totalTokens,
-            entry.durationMs,
-            entry.success ? 1 : 0,
-            entry.error || null,
-            entry.toolName || null,
-            entry.retryCount ?? null,
-            entry.turnCount ?? null,
-            entry.toolCallCount ?? null,
-            entry.timestamp,
-            metadataStr,
-            // 行级归属：本地身份 ⇒ `local:local`，租户内用户 ⇒ `<tenant>:<user>`
-            getRequestPrincipalKey(),
-          ],
-          (err: Error | null) => {
-            if (err) {
-              reject(err);
-            } else {
-              resolve();
+            [
+              id,
+              entry.sessionId,
+              entry.type,
+              entry.model || null,
+              entry.promptTokens,
+              entry.outputTokens,
+              entry.totalTokens,
+              entry.durationMs,
+              entry.success ? 1 : 0,
+              entry.error || null,
+              entry.toolName || null,
+              entry.retryCount ?? null,
+              entry.turnCount ?? null,
+              entry.toolCallCount ?? null,
+              entry.timestamp,
+              metadataStr,
+              // 行级归属：本地身份 ⇒ `local:local`，租户内用户 ⇒ `<tenant>:<user>`
+              getRequestPrincipalKey(),
+            ],
+            (err: Error | null) => {
+              if (err) {
+                reject(err);
+              } else {
+                resolve();
+              }
             }
-          }
-        );
-      });
+          );
+        });
+
+      // 名称带前缀：`lint:consts` 的同名常量棘轮要求跨文件唯一（`MAX_ATTEMPTS` 已存在）
+      const QUERY_LOG_INSERT_MAX_ATTEMPTS = 3;
+      for (
+        let attempt = 1;
+        attempt <= QUERY_LOG_INSERT_MAX_ATTEMPTS;
+        attempt++
+      ) {
+        try {
+          await runInsert();
+          return;
+        } catch (err) {
+          const text = String(err);
+          const retryable =
+            /SQLITE_BUSY|database is locked/i.test(text) &&
+            attempt < QUERY_LOG_INSERT_MAX_ATTEMPTS;
+          if (!retryable) throw err;
+          logger.warn('查询日志写入遇到锁冲突，重试', {
+            attempt,
+            error: text.slice(0, 160),
+          });
+          await new Promise((r) => setTimeout(r, 50 * attempt));
+        }
+      }
     });
 
     logger.debug('查询日志已记录', {

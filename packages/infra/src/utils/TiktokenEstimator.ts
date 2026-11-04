@@ -104,14 +104,66 @@ export function getCachedTiktokenEncoder(): TiktokenEncoding | null {
 export async function getTiktokenCount(text: string): Promise<number | null> {
   const encoder = await getTiktokenEncoder();
   if (!encoder) return null;
+  return getCachedTokenCount(text);
+}
+
+/**
+ * token 计数缓存（2026-11-04，运行态排查 C2）。
+ *
+ * 背景：BPE 分词是**同步 CPU 热点** —— 事件循环探针实测 `bytePairMerge` 单次采样
+ * 3.9–5.0 s、`encode` 1.2 s（占总 self time 的 25–34%），原因是长上下文在
+ * 压缩评估 / 预算判定里被**反复整段编码**。
+ *
+ * 口径：
+ * - key 用「文本长度 + FNV-1a 32 位哈希」而非原文 —— 原文是上百 KB 字符串，
+ *   直接当 key 会让缓存本身占满内存；
+ * - 哈希碰撞的后果只是**估算偏差**（该计数仅用于预算/分页），不影响计费真值；
+ * - 定长 2000 条，超限按插入顺序淘汰最旧（够覆盖一轮上下文的多份快照）。
+ */
+const TOKEN_COUNT_CACHE_MAX = 2000;
+const _tokenCountCache = new Map<string, number>();
+
+/** FNV-1a 32 位哈希（纯 JS、无依赖、O(n) 但远低于 BPE） */
+function fnv1a(text: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h;
+}
+
+/**
+ * **同步**取 token 数（要求编码器已加载；未加载返回 `null`，不触发加载）。
+ * 与 `getTiktokenCount` 共用同一份缓存与同一份计算结果。
+ */
+export function getCachedTokenCount(text: string): number | null {
+  const encoder = getCachedTiktokenEncoder();
+  if (!encoder) return null;
+  if (!text) return 0;
+
+  const key = `${text.length}:${fnv1a(text)}`;
+  const hit = _tokenCountCache.get(key);
+  if (hit !== undefined) return hit;
 
   try {
     const result = encoder.encode(text);
-    return Array.isArray(result) ? result.length : result.length;
+    const count = Array.isArray(result) ? result.length : result.length;
+    if (_tokenCountCache.size >= TOKEN_COUNT_CACHE_MAX) {
+      const oldest = _tokenCountCache.keys().next().value;
+      if (oldest !== undefined) _tokenCountCache.delete(oldest);
+    }
+    _tokenCountCache.set(key, count);
+    return count;
   } catch {
-    // @ignore-catch: tiktoken not loaded
+    // @ignore-catch: 编码失败按"未知"处理（调用方回落估算器）
     return null;
   }
+}
+
+/** 清空计数缓存（测试 / 切换编码器时用） */
+export function clearTokenCountCache(): void {
+  _tokenCountCache.clear();
 }
 
 /**

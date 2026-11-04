@@ -36,6 +36,7 @@ import type { ExecOptions } from 'child_process';
 import { analyzeBashCommandType, isSilentBashCommand } from './BashSemantics';
 // P2-2（2026-11-04）：cmd 内置命令 → 等价命令提示（仅"命令未找到"证据成立时生效）
 import { buildCmdBuiltinHint, isCommandNotFoundError } from './cmdBuiltinHint';
+import { isSearchNoMatch } from './searchNoMatch';
 // P2-2（2026-11-04）：只读探测被安全门拦截时附"改用 glob / list"的出路提示（**不改判定**）
 import { appendReadOnlyProbeHint } from './blockedProbeHint';
 // S1-5（2026-10-11）：命令规范化"单一事实源" —— 审批哈希 / 安全拦截层 / 最终 spawn /
@@ -538,6 +539,39 @@ export class BashTool extends BaseTool {
       const stderr = (error as { stderr?: string }).stderr;
       const exitCode = (error as { code?: number }).code;
       const stdout = (error as { stdout?: string }).stdout;
+      // P3（2026-11-04，前端会话跟踪）：**检索无匹配 ≠ 执行失败**。
+      // 实测 `dir /b /s /ad 2>nul | findstr /i "mario"` —— findstr 无匹配的约定退出码就是 1，
+      // stdout/stderr 均空，却被计为工具失败（3 次即触发 `all-tools-failed` 熔断），
+      // 模型只能重复同一调用。判据收窄见 `./searchNoMatch`（exit=1 + 双空 + 末段为检索命令）。
+      if (
+        isSearchNoMatch({ command: executedCommand, exitCode, stdout, stderr })
+      ) {
+        const noMatchMsg =
+          '检索无匹配（退出码 1；findstr/grep 的约定：没有匹配项即退出码 1，不是执行失败）';
+        logger.info('bash: search_no_match', {
+          sessionId: context.sessionId,
+          commandPreview: executedCommandPreview ?? '',
+        });
+        onProgress?.({
+          toolUseID: context.toolUseId || 'bash-tool',
+          data: createBashProgress('', '', 0, false, true),
+        });
+        return ToolUtils.createSuccessResult(noMatchMsg, {
+          output: noMatchMsg,
+          errorOutput: '',
+          executionTime,
+          toolName: 'bash',
+          executionId: ToolUtils.generateExecutionId('bash'),
+          timestamp: Date.now(),
+          metadata: { emptyResult: true, searchNoMatch: true },
+          newMessages: [
+            {
+              role: 'system',
+              content: `Command executed successfully in ${executionTime}ms (no match)`,
+            },
+          ],
+        });
+      }
       // 2026-10-31：非 0 退出时**必须**把退出码与 stdout 摘要交回模型。
       // 真机 app.log 单窗口 `bash: execute_error` 120 次，其中大量是
       // `findstr` 无匹配（退出码 1、stdout 为空、stderr 为空）——原消息只有

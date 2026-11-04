@@ -53,6 +53,9 @@ import {
 } from '@openliri/infra/error/types';
 import { handleError } from '@openliri/infra/error/handleError';
 import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
+// P2-1（2026-11-04）：逐请求延迟日志的级别判定（慢尾/失败才 INFO）
+import { shouldLogLatencyAtInfo } from './providerLatencyNotice.js';
+import { MS_PER_SECOND } from '@openliri/infra/constants';
 import { resolveModelRoute, RouteKey } from '../router/resolveModelRoute.js';
 import type { RouteKey as RouteKeyType } from '../router/routes.js';
 import type { TaskType } from '../modelRouter';
@@ -75,6 +78,17 @@ import {
 } from '@openliri/infra/utils/caCerts';
 
 const logger = getLogger('ai:baseProvider');
+
+/**
+ * P2-1（2026-11-04）：逐请求延迟日志的「慢」阈值（**低于阈值只进 debug**）。
+ *
+ * 真机窗口（`since=2026-11-04T04:00Z`）分布与保留比例：
+ * TTFB p95 1 366ms ⇒ 取 2s（保留 ≈2.6%）；流式 p95 5 557ms ⇒ 取 5s（≈7%）；
+ * 非流 p95 16 869ms ⇒ 取 15s（≈5.5%）。**失败一律 INFO**（见 `shouldLogLatencyAtInfo`）。
+ */
+const TTFB_SLOW_NOTICE = 2 * MS_PER_SECOND;
+const STREAM_SLOW_NOTICE = 5 * MS_PER_SECOND;
+const CHAT_SLOW_NOTICE = 15 * MS_PER_SECOND;
 
 /**
  * readStreamChunkWithTimeout 的流读取诊断状态（按 reader 隔离，
@@ -668,13 +682,20 @@ export abstract class BaseAIProvider implements AIProvider {
       attempts = attempt + 1;
       try {
         const response = await fetch(url, caInit);
-        logger.info('provider 请求完成（TTFB）', {
+        const elapsedMs = Date.now() - requestStart;
+        const ttfbPayload = {
           url: urlSummary,
-          elapsedMs: Date.now() - requestStart,
+          elapsedMs,
           attempts,
           status: response.status,
           ok: response.ok,
-        });
+        };
+        // P2-1：常态 TTFB 走 debug（每次请求一条），慢尾/失败仍 INFO
+        if (shouldLogLatencyAtInfo(elapsedMs, TTFB_SLOW_NOTICE, response.ok)) {
+          logger.info('provider 请求完成（TTFB）', ttfbPayload);
+        } else {
+          logger.debug('provider 请求完成（TTFB）', ttfbPayload);
+        }
         return response;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
@@ -799,12 +820,19 @@ export abstract class BaseAIProvider implements AIProvider {
           yield result.value as T;
           result = await stream.next();
         }
-        logger.info('provider 流式完成', {
+        const streamElapsedMs = Date.now() - start;
+        const streamPayload = {
           provider: label,
-          elapsedMs: Date.now() - start,
+          elapsedMs: streamElapsedMs,
           chunkCount,
           attempts,
-        });
+        };
+        // P2-1：常态流完成走 debug；**长流**（≥5s，约 7%）仍 INFO
+        if (shouldLogLatencyAtInfo(streamElapsedMs, STREAM_SLOW_NOTICE)) {
+          logger.info('provider 流式完成', streamPayload);
+        } else {
+          logger.debug('provider 流式完成', streamPayload);
+        }
         return result.value;
       } catch (error) {
         // 余额/配额不足 ⇒ 打开短期熔断，后续调用立即失败（不再逐条撞 402）
@@ -867,11 +895,18 @@ export abstract class BaseAIProvider implements AIProvider {
           throw new ProviderBalanceCircuitOpenError(label, remainingMs);
         }
         const result = await fn();
-        logger.info('provider 聊天完成', {
+        const chatElapsedMs = Date.now() - start;
+        const chatPayload = {
           provider: label,
-          elapsedMs: Date.now() - start,
+          elapsedMs: chatElapsedMs,
           attempts: attempt + 1,
-        });
+        };
+        // P2-1：常态非流完成走 debug；**慢请求**（≥15s，约 5.5%）仍 INFO
+        if (shouldLogLatencyAtInfo(chatElapsedMs, CHAT_SLOW_NOTICE)) {
+          logger.info('provider 聊天完成', chatPayload);
+        } else {
+          logger.debug('provider 聊天完成', chatPayload);
+        }
         return result;
       } catch (error) {
         // 余额/配额不足 ⇒ 打开短期熔断（熔断期内的调用在上方直接失败，不再产生网络请求）

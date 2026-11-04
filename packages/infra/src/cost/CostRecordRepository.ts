@@ -99,6 +99,22 @@ export interface CostAggregation {
 }
 
 /**
+ * 「按天 + 按模型」聚合的一行（`getDailyModelAggregatedCosts` 的返回值）
+ *
+ * `dayIndex` 是 UTC 日桶序号（`floor(timestamp / 一天)`），窗口切分用整数比较即可。
+ */
+export interface DailyModelCost {
+  dayIndex: number;
+  model: string;
+  cost: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
+  requests: number;
+}
+
+/**
  * 成本记录数据库仓库
  * 基于 sqlite3，遵循现有 CheckpointDatabase 模式
  */
@@ -903,6 +919,61 @@ export class CostRecordRepository {
   // ============================================================
   // [v1.2] 按天聚合查询（UTC 日界，供成本 API 使用）
   // ============================================================
+
+  /**
+   * **一次扫描**产出「按天 + 按模型」聚合，供成本概览在应用层派生各时间窗口（C3-3，2026-11-04）。
+   *
+   * 为什么要有它：概览此前对同一张表跑 4 次 `getAggregatedCosts`（每次 2 条 SQL）+ 1 次
+   * 按天聚合 = **9 次全表扫**（20 万行），打开一次页面就把 SQLite 串行队列压满并触发
+   * `慢查询` 告警。这里只扫一次（命中覆盖索引 `idx_cost_records_agg`，不回表），
+   * 今日 / 近 7 天 / 近 30 天 / 全量 与 Top 供应商都由调用方按 `dayIndex` 切分。
+   *
+   * `dayIndex` = `floor(timestamp / 一天)`（UTC 日桶）。**窗口按日界对齐**：调用方用
+   * `dayIndex >= todayIndex - 6` 表示"近 7 天"，与趋势图同一口径。
+   */
+  async getDailyModelAggregatedCosts(): Promise<DailyModelCost[]> {
+    await this.initDatabase();
+
+    const rows = await new Promise<unknown[]>((resolve, reject) => {
+      this.db?.all(
+        `SELECT
+          CAST(timestamp / ${MS_PER_DAY} AS INTEGER) as day_index,
+          model,
+          COALESCE(SUM(cost_usd), 0) as cost,
+          COALESCE(SUM(input_tokens), 0) as input_tokens,
+          COALESCE(SUM(output_tokens), 0) as output_tokens,
+          COALESCE(SUM(cache_read_tokens), 0) as cache_read_tokens,
+          COALESCE(SUM(cache_creation_tokens), 0) as cache_creation_tokens,
+          COUNT(*) as requests
+        FROM ${COST_RECORDS_TABLE}
+        WHERE owner_key = ?
+        GROUP BY day_index, model
+        ORDER BY day_index ASC`,
+        [this.owner()],
+        (err: Error | null, rows: unknown[]) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(rows || []);
+          }
+        }
+      );
+    });
+
+    return rows.map((r) => {
+      const row = r as Record<string, unknown>;
+      return {
+        dayIndex: Number(row.day_index),
+        model: String(row.model ?? ''),
+        cost: Number(row.cost),
+        inputTokens: Number(row.input_tokens),
+        outputTokens: Number(row.output_tokens),
+        cacheReadTokens: Number(row.cache_read_tokens),
+        cacheCreationTokens: Number(row.cache_creation_tokens),
+        requests: Number(row.requests),
+      };
+    });
+  }
 
   /**
    * 按 UTC 日界聚合每日成本数据

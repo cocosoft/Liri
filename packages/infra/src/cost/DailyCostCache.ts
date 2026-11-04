@@ -2,31 +2,20 @@
 // Copyright (c) 2026 190615273@qq.com
 
 /**
- * 按天成本聚合缓存
+ * 成本概览聚合缓存
  *
- * 缓存 CostRecordRepository.getDailyAggregatedCosts 的结果，
- * 减少 /v1/usage/cost/summary 等 API 的重复 SQL 查询。
+ * 缓存 `CostRecordRepository.getDailyModelAggregatedCosts()`（「按天 + 按模型」）的结果，
+ * 减少 `/api/cost/summary`、`/v1/usage/cost/summary` 等接口的重复 SQL 查询。
  *
- * 参考 codeburn-main src/daily-cache.ts 的设计：
- *   - TTL 过期自动刷新
- *   - 手动 invalidate 强制刷新
- *   - 轻量级单例
+ * C3-3（2026-11-04）：此前缓存的是「按天（不含模型）」聚合，而其**唯一调用点**传了 `startTime`
+ * ⇒ 按本类原有语义（带范围不缓存）永远命中不了；概览于是每打开一次就把 20 万行的表扫 9 遍。
+ * 现在改为缓存**无范围**的那一次聚合，由调用方按日桶切窗口 ⇒ 缓存真正生效且只剩一次扫描。
  */
 
-import type { CostRecordRepository } from './CostRecordRepository.js';
-
-interface DailyEntry {
-  date: string;
-  cost: number;
-  inputTokens: number;
-  outputTokens: number;
-  cacheReadTokens: number;
-  cacheCreationTokens: number;
-  requests: number;
-}
+import type { CostRecordRepository, DailyModelCost } from './CostRecordRepository.js';
 
 interface CacheEntry {
-  data: DailyEntry[];
+  data: DailyModelCost[];
   timestamp: number;
 }
 
@@ -41,23 +30,13 @@ class DailyCostCache {
     this.ttlMs = ttlMs;
   }
 
-  /** 获取每日聚合数据（命中缓存直接返回） */
-  async get(
-    repo: CostRecordRepository,
-    startTime?: number,
-    endTime?: number
-  ): Promise<DailyEntry[]> {
-    // 缓存 key 简化：全量查询始终命中同一缓存
-    // 带时间范围的查询不缓存（按需查询场景）
-    if (startTime !== undefined || endTime !== undefined) {
-      return repo.getDailyAggregatedCosts(startTime, endTime);
-    }
-
+  /** 获取「按天 + 按模型」聚合（命中缓存直接返回） */
+  async get(repo: CostRecordRepository): Promise<DailyModelCost[]> {
     if (this.cache && Date.now() - this.cache.timestamp < this.ttlMs) {
       return this.cache.data;
     }
 
-    const data = await repo.getDailyAggregatedCosts();
+    const data = await repo.getDailyModelAggregatedCosts();
     this.cache = { data, timestamp: Date.now() };
     return data;
   }

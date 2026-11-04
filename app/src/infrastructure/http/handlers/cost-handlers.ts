@@ -17,6 +17,8 @@ import type { CostReportDto } from '@modules/runtime/api/workspaceOpsPorts';
 // C1（2026-09-30 D-108，`ai` 域 P2）：改经服务层端口
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { LOCAL_REQUEST_BASE_URL } from '@openliri/kernel';
+// C3-3：窗口按 UTC 日界切分（日桶大小取常量真源）
+import { MS_PER_DAY } from '@openliri/infra/constants';
 
 const logger = getLogger('http:cost');
 
@@ -243,12 +245,6 @@ export async function handleGlobalCostSummary(
     const { getCostRecordRepository } = await import('@openliri/infra/cost');
     const repo = getCostRecordRepository();
 
-    const now = Date.now();
-    const todayStart = new Date();
-    todayStart.setUTCHours(0, 0, 0, 0);
-    const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
-    const monthAgo = now - 30 * 24 * 60 * 60 * 1000;
-
     const { getDailyCostCache } =
       await import('@openliri/infra/cost/DailyCostCache');
     const dailyCache = getDailyCostCache();
@@ -267,17 +263,97 @@ export async function handleGlobalCostSummary(
       if (pName) providerNameByModel.set(rec.modelId, pName);
     }
 
-    const [todayAgg, weekAgg, monthAgg, allAgg, dailyRows, sessionCount] =
-      await Promise.all([
-        repo.getAggregatedCosts({ startTime: todayStart.getTime() }),
-        repo.getAggregatedCosts({ startTime: weekAgo }),
-        repo.getAggregatedCosts({ startTime: monthAgo }),
-        repo.getAggregatedCosts({}),
-        dailyCache.get(repo, weekAgo),
-        repo.countSessionSummaries(),
-      ]);
+    // C3-3（2026-11-04）：单次扫描 + 应用层派生。
+    // 此前是 4 次 `getAggregatedCosts`（每次 2 条 SQL）+ 1 次按天聚合 = 9 次全表扫（20 万行），
+    // 打开一次概览就把 SQLite 串行队列压满并触发 `慢查询` 告警。
+    const [dailyModelCosts, sessionCount] = await Promise.all([
+      dailyCache.get(repo),
+      repo.countSessionSummaries(),
+    ]);
 
-    const topProviders = Object.entries(allAgg.modelBreakdown)
+    const todayIndex = Math.floor(Date.now() / MS_PER_DAY);
+    const weekIndex = todayIndex - 6; // 含今天共 7 个 UTC 日
+    const monthIndex = todayIndex - 29; // 含今天共 30 个 UTC 日
+
+    interface Bucket {
+      cost: number;
+      inputTokens: number;
+      outputTokens: number;
+      cacheReadTokens: number;
+      cacheCreationTokens: number;
+      requests: number;
+    }
+    const emptyBucket = (): Bucket => ({
+      cost: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheCreationTokens: 0,
+      requests: 0,
+    });
+    const todayAgg = emptyBucket();
+    const weekAgg = emptyBucket();
+    const monthAgg = emptyBucket();
+    const allAgg = emptyBucket();
+    const byDay = new Map<number, Bucket>();
+    const modelBreakdown: Record<
+      string,
+      {
+        totalCost: number;
+        totalTokens: number;
+        requestCount: number;
+        inputTokens: number;
+        outputTokens: number;
+      }
+    > = {};
+
+    for (const row of dailyModelCosts) {
+      const dayBucket = byDay.get(row.dayIndex) ?? emptyBucket();
+      byDay.set(row.dayIndex, dayBucket);
+
+      // 每个 row 只累加到「自己命中的窗口」，避免同一对象被重复计数
+      const buckets: Bucket[] = [allAgg, dayBucket];
+      if (row.dayIndex === todayIndex) buckets.push(todayAgg);
+      if (row.dayIndex >= weekIndex) buckets.push(weekAgg);
+      if (row.dayIndex >= monthIndex) buckets.push(monthAgg);
+
+      for (const bucket of buckets) {
+        bucket.cost += row.cost;
+        bucket.inputTokens += row.inputTokens;
+        bucket.outputTokens += row.outputTokens;
+        bucket.cacheReadTokens += row.cacheReadTokens;
+        bucket.cacheCreationTokens += row.cacheCreationTokens;
+        bucket.requests += row.requests;
+      }
+
+      const modelEntry = modelBreakdown[row.model] ?? {
+        totalCost: 0,
+        totalTokens: 0,
+        requestCount: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+      };
+      modelEntry.totalCost += row.cost;
+      modelEntry.totalTokens += row.inputTokens + row.outputTokens;
+      modelEntry.requestCount += row.requests;
+      modelEntry.inputTokens += row.inputTokens;
+      modelEntry.outputTokens += row.outputTokens;
+      modelBreakdown[row.model] = modelEntry;
+    }
+
+    // 趋势图：近 7 个 UTC 日（与窗口口径一致），按日升序
+    const dailyRows = Array.from(byDay.entries())
+      .filter(([dayIndex]) => dayIndex >= weekIndex)
+      .sort(([a], [b]) => a - b)
+      .map(([dayIndex, bucket]) => ({
+        date: new Date(dayIndex * MS_PER_DAY).toISOString().slice(0, 10),
+        cost: bucket.cost,
+        inputTokens: bucket.inputTokens,
+        outputTokens: bucket.outputTokens,
+        requests: bucket.requests,
+      }));
+
+    const topProviders = Object.entries(modelBreakdown)
       .filter(([, data]) => data.totalCost > 0)
       .map(([modelKey, data]) => ({
         provider: modelKey,
@@ -299,30 +375,24 @@ export async function handleGlobalCostSummary(
 
     const response = {
       totalSessions: sessionCount,
-      todayCost: todayAgg.totalCostUSD,
-      weeklyCost: weekAgg.totalCostUSD,
-      monthlyCost: monthAgg.totalCostUSD,
-      yearlyCost: allAgg.totalCostUSD,
-      todayTokens: todayAgg.totalInputTokens + todayAgg.totalOutputTokens,
-      monthlyTokens: monthAgg.totalInputTokens + monthAgg.totalOutputTokens,
-      totalInputTokens: allAgg.totalInputTokens,
-      totalOutputTokens: allAgg.totalOutputTokens,
-      totalTokens: allAgg.totalInputTokens + allAgg.totalOutputTokens,
-      totalCacheReadTokens: allAgg.totalCacheReadTokens,
-      totalCacheCreationTokens: allAgg.totalCacheCreationTokens,
-      totalRequests: allAgg.totalRequests,
-      sessionCost: allAgg.totalCostUSD,
-      sessionInputTokens: allAgg.totalInputTokens,
-      sessionOutputTokens: allAgg.totalOutputTokens,
-      sessionTokens: allAgg.totalInputTokens + allAgg.totalOutputTokens,
+      todayCost: todayAgg.cost,
+      weeklyCost: weekAgg.cost,
+      monthlyCost: monthAgg.cost,
+      yearlyCost: allAgg.cost,
+      todayTokens: todayAgg.inputTokens + todayAgg.outputTokens,
+      monthlyTokens: monthAgg.inputTokens + monthAgg.outputTokens,
+      totalInputTokens: allAgg.inputTokens,
+      totalOutputTokens: allAgg.outputTokens,
+      totalTokens: allAgg.inputTokens + allAgg.outputTokens,
+      totalCacheReadTokens: allAgg.cacheReadTokens,
+      totalCacheCreationTokens: allAgg.cacheCreationTokens,
+      totalRequests: allAgg.requests,
+      sessionCost: allAgg.cost,
+      sessionInputTokens: allAgg.inputTokens,
+      sessionOutputTokens: allAgg.outputTokens,
+      sessionTokens: allAgg.inputTokens + allAgg.outputTokens,
       topProviders,
-      dailyBreakdown: dailyRows.map((d) => ({
-        date: d.date,
-        cost: d.cost,
-        inputTokens: d.inputTokens,
-        outputTokens: d.outputTokens,
-        requests: d.requests,
-      })),
+      dailyBreakdown: dailyRows,
     };
 
     res.writeHead(200, { 'Content-Type': 'application/json' });

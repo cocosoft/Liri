@@ -79,30 +79,32 @@ export class AlertPresetLoader {
     if (!presetsDir || !fs.existsSync(presetsDir)) {
       const projectRoot =
         configManager.env('LIRI_PROJECT_DIR') || process.cwd();
-      const fallbackDir = path.join(
-        projectRoot,
-        'app',
-        'src',
-        'monitoring',
-        'alerts',
-        'presets'
-      );
-      if (fs.existsSync(fallbackDir)) {
+      const candidates = [
+        path.join(projectRoot, 'app', 'src', 'monitoring', 'alerts', 'presets'),
+        path.join(
+          projectRoot,
+          'packages',
+          'infra',
+          'src',
+          'monitoring',
+          'alerts',
+          'presets'
+        ),
+        path.join(projectRoot, 'alerts', 'presets'),
+      ];
+      const fallbackDir = candidates.find((p) => fs.existsSync(p));
+      if (fallbackDir) {
         this.config.presetsDir = fallbackDir;
         logger.info(`预置目录已回退到: ${fallbackDir}`);
       } else {
-        const altDir = path.join(projectRoot, 'alerts', 'presets');
-        if (fs.existsSync(altDir)) {
-          this.config.presetsDir = altDir;
-          logger.info(`预置目录已回退到: ${altDir}`);
-        } else {
-          logger.warn(`预置目录不存在: ${presetsDir}`);
-          return result;
-        }
+        logger.warn(`预置目录不存在: ${presetsDir}`);
+        return result;
       }
     }
 
-    const files = this.findPresetFiles(presetsDir);
+    // 必须读**回退后**的目录：上面的分支会把 `this.config.presetsDir` 改成回退位置，
+    // 用局部 `presetsDir`（回退前的旧值）会让回退形同虚设。
+    const files = this.findPresetFiles(this.config.presetsDir);
     result.totalFiles = files.length;
 
     for (const filePath of files) {

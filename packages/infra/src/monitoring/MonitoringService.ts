@@ -170,24 +170,24 @@ export class MonitoringService {
     try {
       const projectRoot =
         configManager.env('LIRI_PROJECT_DIR') || process.cwd();
-      const presetsDir = path.join(
-        projectRoot,
-        'app',
-        'src',
-        'monitoring',
-        'alerts',
-        'presets'
-      );
-      if (!fs.existsSync(presetsDir)) {
-        const altDir = path.join(projectRoot, 'alerts', 'presets');
-        if (fs.existsSync(altDir)) {
-          this.presetLoader.setPresetsDir(altDir);
-        } else {
-          this.presetLoader.setPresetsDir(presetsDir);
-        }
-      } else {
-        this.presetLoader.setPresetsDir(presetsDir);
-      }
+      // 顺序：① 打包产物内（Tauri `resources` 映射到 `app/src/...`）→ ② 源码仓
+      // （P28 迁入 `packages/infra` 后的真实位置）→ ③ 旧的同级回退位置。
+      const candidates = [
+        path.join(projectRoot, 'app', 'src', 'monitoring', 'alerts', 'presets'),
+        path.join(
+          projectRoot,
+          'packages',
+          'infra',
+          'src',
+          'monitoring',
+          'alerts',
+          'presets'
+        ),
+        path.join(projectRoot, 'alerts', 'presets'),
+      ];
+      const presetsDir =
+        candidates.find((p) => fs.existsSync(p)) ?? candidates[0];
+      this.presetLoader.setPresetsDir(presetsDir);
       const result = this.presetLoader.loadAllPresets();
 
       if (result.loadedRules > 0) {

@@ -70,6 +70,23 @@ const logger = getLogger('ai:model-router');
  */
 const routingLogThrottle = new LogThrottle({ windowMs: MS_PER_SECOND });
 
+/**
+ * P2-1（2026-11-04）：`ModelRouter.resolve: 路由决策` 的分级判据（纯函数）。
+ *
+ * **为什么降级**：真机窗口内 88 328 条中 **88 323 条**是 `source='configured'`（稳态命中）；
+ * 而"命中了哪个模型"已由**请求快照**（`RequestSnapshotService`：model + routeKey）逐请求落盘
+ * ⇒ 本行的信息增量只在"**回退**到了哪条来源 / 解析为空"。
+ *
+ * 回退与空结果全部保留 INFO（实测窗口仅 4 条 fallback / hardcoded），供 spec
+ * `model-input-snapshot-events.md` 承诺的"命中/回退来源"可观测。
+ */
+export function shouldLogRoutingDecisionAtInfo(params: {
+  source: string;
+  result: string;
+}): boolean {
+  return params.source !== 'configured' || !params.result;
+}
+
 // ============================================================
 // 任务类型枚举
 // ============================================================
@@ -761,12 +778,24 @@ export class ModelRouter {
     // P2-1：按 `taskType:source` 每秒最多一条（重复调用只累计，下一条带 suppressed）
     const throttle = routingLogThrottle.tick(`${taskType}:${decision.source}`);
     if (throttle.emit) {
-      logger.info('ModelRouter.resolve: 路由决策', {
+      const routingMeta = {
         task: taskType,
         model: result || '(空)',
         source: decision.source,
         ...(throttle.suppressed > 0 ? { suppressed: throttle.suppressed } : {}),
-      });
+      };
+      // P2-1（2026-11-04）：稳态命中降 debug，回退/空结果保留 INFO（判据见
+      // `shouldLogRoutingDecisionAtInfo`；真机 88 323/88 328 条都是 `configured`）。
+      if (
+        shouldLogRoutingDecisionAtInfo({
+          source: decision.source,
+          result,
+        })
+      ) {
+        logger.info('ModelRouter.resolve: 路由决策', routingMeta);
+      } else {
+        logger.debug('ModelRouter.resolve: 路由决策', routingMeta);
+      }
     }
     const elapsedMs = performance.now() - t0;
     if (elapsedMs > 5) {

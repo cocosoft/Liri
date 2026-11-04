@@ -139,11 +139,17 @@ describe('门禁：SettlementOutbox 的读写 SQL 不许漏 owner_key', () => {
     expect(rowSql.length).toBeGreaterThanOrEqual(12);
 
     const withoutOwner = rowSql.filter((sql) => !sql.includes('owner_key'));
-    // 仅 `prune()` 的两条裁剪（跨用户维护：上限是本库总量约束）
-    expect(withoutOwner).toHaveLength(2);
+    // 仅「跨用户维护」豁免（上限 / 终态收敛都是**本库总量**约束，按 owner 拆分会让
+    // 每个用户各占一份配额）：prune() 的两条 DELETE + 一条「超限行收敛」UPDATE。
+    expect(withoutOwner).toHaveLength(3);
     for (const sql of withoutOwner) {
-      expect(sql).toContain('DELETE FROM');
       expect(sql).not.toContain('session_id = ?');
+      const isMaintenanceDelete = sql.includes('DELETE FROM');
+      const isExhaustedConverge =
+        sql.includes('UPDATE') &&
+        sql.includes(`state = 'failed'`) &&
+        sql.includes('attempts >= ?');
+      expect(isMaintenanceDelete || isExhaustedConverge).toBe(true);
     }
 
     // 幂等不变式必须按 owner 分组（否则同租户两用户同名会话互相顶掉）

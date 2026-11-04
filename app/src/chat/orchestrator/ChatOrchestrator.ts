@@ -34,6 +34,11 @@ import { expandPromptCommand, mergeRuntimeNote } from './promptCommand.js';
 // BUG-C（2026-10-27 真机长程任务）：发送链入口归一输出预算（DB 的 max_output_tokens），
 // 避免下游各处硬编码 4096（实测大文件写入被整点截断）
 import { withTurnBudget } from '../services/ChatHelper.js';
+// P1（2026-11-04）：chatMode → 模型档位 / 工具集的唯一映射（纯函数）
+import {
+  filterToolSchemasByChatMode,
+  resolveChatModePolicy,
+} from '../chatModePolicy.js';
 // P0-1② 覆盖面补齐（2026-10-04，final-output-guard-no-tool-turns.md）：非流式无工具回合终稿校验
 import { guardFinalOutput } from '../finalOutputGuard.js';
 // BUG-E 补口（2026-10-27 真机复验）：TAOR 路径末轮无可见文本时补同源兜底
@@ -520,14 +525,40 @@ export class ChatOrchestrator {
         // 阶段 1: 构建 API 消息
         ctx.apiMessages = await prepareApiMessages(ctx);
 
-        // 工具定义
+        // 工具定义（P1，2026-11-04）：按会话 `metadata.chatMode` 过滤工具集 ——
+        // 目前只有 `creative` 做减法（去掉终端类工具）。缺失/脏值 ⇒ auto（零行为变更）。
+        const chatModePolicy = resolveChatModePolicy(
+          (session.metadata as Record<string, unknown> | undefined)?.chatMode
+        );
         const registry = this.host.getToolRegistry();
-        ctx.toolDefinitions = registry
-          ? this.host.buildToolDefinitions(registry.getToolSchemas())
+        const visibleSchemas = registry
+          ? filterToolSchemasByChatMode(
+              registry.getToolSchemas(),
+              chatModePolicy
+            )
           : [];
-        // TR-12-B（2026-09-22）：本轮工具清单落事件（引用式去重）——§1.6 红线
-        if (registry && ctx.toolDefinitions.length > 0) {
-          this.host.recordToolsSnapshot(session.id, registry.getToolSchemas());
+        ctx.toolDefinitions = registry
+          ? this.host.buildToolDefinitions(visibleSchemas)
+          : [];
+        // TR-12-B（2026-09-22）：本轮工具清单落事件（引用式去重）——§1.6 红线。
+        // P1：落**过滤后**的清单（模型可见 ⇔ 已落盘）。
+        if (registry && visibleSchemas.length > 0) {
+          this.host.recordToolsSnapshot(session.id, visibleSchemas);
+        }
+
+        // 模型档位（P1）：用户显式选过模型 ⇒ 尊重（`options.model` 非空即跳过）；
+        // 未选（服务端自发轮次）⇒ 按模式档位解析：`deep`/`code` 走 coding 档，其余 chat 档。
+        if (ctx.options && !ctx.options.model) {
+          const { resolveModelRoute, RouteKey } =
+            await import('../../ai/router/resolveModelRoute');
+          const route =
+            chatModePolicy.routeKey === 'coding'
+              ? RouteKey.CODING
+              : RouteKey.CHAT;
+          const routedModel = await resolveModelRoute(route, {
+            sessionId: session.id,
+          });
+          if (routedModel) ctx.options.model = routedModel;
         }
 
         // 注入注册表查询工具（有工具历史 或 C 阶段切窗发生时）

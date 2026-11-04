@@ -96,33 +96,31 @@ export async function submitToolApproval(
 ): Promise<string | null> {
   try {
     const { inboxManager } = await import('@modules/runtime/InboxManager.js');
-    // P0-2: 统一 hashCommandForExecution，与执行端 BashTool hash 一致
-    const {
-      hashCommandForExecution,
-      hashApprovalFingerprint,
-      resolveApprovalFingerprint,
-      previewApprovalFingerprint,
-      resolveRiskClass,
-      findPendingApprovalId,
-    } = await import('@openliri/infra/permission');
-    const command = typeof input.command === 'string' ? input.command : '';
-    // N1：非命令类工具（media:delete 等）改用工具调用键（toolName:稳定JSON）作为放行
-    // 哈希——审批后 LLM 重发时工具内 isToolCallApproved 命中才真正执行；bash 类工具
-    // toolCallApprovalKey 返回 command 原值，哈希与既有命令级审批完全一致（零行为变化）。
-    // PR-2：改为工具可声明的授权维度（如 `file_write` 只按路径），未声明 ⇒ 全参数 JSON。
+    // P1（2026-11-04）：审批卡构造收敛到 infra 的**唯一构造点**（与判定前路径同一实现，
+    // 见 `packages/infra/src/permission/toolApprovalSubmission.ts`）。此前两处各拼一份，
+    // 导致执行后路径缺 `metadata.risk`、`EXTERNAL` 类工具仍给永久放行选项。
+    const { buildToolApprovalCard, emitApprovalAudit, findPendingApprovalId } =
+      await import('@openliri/infra/permission');
     const tool = ports.toolRegistry?.getTool(toolName);
-    const approvalFingerprint = resolveApprovalFingerprint(
-      tool ?? toolName,
-      input
-    );
-    const approvalHash = hashCommandForExecution(approvalFingerprint);
     const sid = sessionId || 'default';
 
-    // PR-1（2026-10-23）：同指纹的待审批项已存在 ⇒ 复用，不重复建卡。
+    const card = buildToolApprovalCard({
+      toolOrName: tool ?? toolName,
+      input,
+      sessionId: sid,
+      approvalReason,
+      toolCallId,
+      // 来源模块沿用本路径的历史值（`_orphan` 判定只要求非空，故仍可分辨来源）
+      sourceModule: 'chat-tool-approval',
+      approvalScope,
+      approvalSnapshot,
+    });
+
+    // PR-1（2026-10-23）：同指纹的待审批项已存在 ⇒ 复用，不重复建卡（也不重复开审批链）
     const existingId = await findPendingApprovalId(inboxManager, {
       sessionId: sid,
       toolName,
-      approvalHash,
+      approvalHash: card.commandHash,
     });
     if (existingId) {
       logger.info('同指纹审批卡已存在，复用而非新建（工具级审批）', {
@@ -133,86 +131,43 @@ export async function submitToolApproval(
       return existingId;
     }
 
-    // PR-2（2026-10-23）四档：允许本次 / 本会话都允许 / 始终允许（工具+指纹）/ 拒绝
-    const options = command
-      ? ['approve', 'approve_session', 'allowlist_command', 'deny']
-      : ['approve', 'approve_session', 'allowlist_call', 'deny'];
-
-    // P5-1（2026-10-28）：审批四段打点 —— ① 申请 / ② 呈现（③④ 在审批解析侧）。
-    // 只在新卡真正要建时开链（复用既有卡的那条链已在更早的提交里落过 ①②）。
-    // 开关默认关（`config.json → approvalFourStage`）⇒ 关闭时以下调用为空操作。
-    const { emitApprovalAudit, newApprovalId } =
-      await import('@openliri/infra/permission');
-    const approvalId = newApprovalId();
-    const risk = resolveRiskClass(tool ?? toolName, input);
-    if (sessionId) {
-      emitApprovalAudit(sessionId, {
-        stage: 'requested',
-        approvalId,
-        toolName,
-        risk,
-        inputPreview: JSON.stringify(input).slice(0, 200),
-      });
-    }
+    // P5-1：① 申请（只在新卡真正要建时开链）
+    emitApprovalAudit(sid, {
+      stage: 'requested',
+      approvalId: card.approvalId,
+      toolName,
+      risk: card.risk,
+      inputPreview: JSON.stringify(input).slice(0, 200),
+    });
 
     const submitted = await inboxManager.submit(
       {
         sessionId: sid,
         type: 'approval',
-        title: `工具审批: ${toolName}`,
-        message:
-          (approvalReason ? `${approvalReason}\n` : '') +
-          `工具 '${toolName}' 请求执行（需人工确认）\n${
-            command
-              ? `命令: ${command}`
-              : `参数: ${JSON.stringify(input).slice(0, 300)}`
-          }`,
-        // PR-2（2026-10-23）四档：允许本次 / 本会话都允许 / 始终允许（工具+指纹）/ 拒绝
-        options,
+        title: card.title,
+        message: card.message,
+        options: card.options,
         offlineCapable: true,
         source: 'permission',
-        metadata: {
-          toolName,
-          sessionId: sid,
-          toolCallId,
-          // P5-1（2026-10-28）：审批链 id —— 审批解析侧据此把决定与申请串成一条链
-          approvalId,
-          // PR-1（2026-10-23）：**一律**写入审批指纹（非 shell 也要有），否则
-          // `applyApprovalSideEffects` 因缺 hash 直接 return ⇒ 批准从不落盘。
-          commandHash: approvalHash,
-          // PR-2：「始终允许」持久化用（只落摘要 + 截断预览，不落明文参数）
-          approvalFingerprintHash: hashApprovalFingerprint(approvalFingerprint),
-          approvalFingerprintPreview:
-            previewApprovalFingerprint(approvalFingerprint),
-          approvalScopeKind: 'once',
-          // P0-3: 携带原始命令，批准后写入放行缓存时提取命令名供命令名级放行
-          command: command || undefined,
-          // S1-1: 携带执行作用域 —— inbox 批准时写入放行缓存，执行端作用域不一致即不命中
-          approvalScope: approvalScope ?? undefined,
-          // S1-1: 携带审批快照 —— 批准时一并记录（原始命令 / 规范化命令 / 改写项）
-          approvalSnapshot: approvalSnapshot ?? undefined,
-          // B0-3（2026-10-30）：补来源模块 —— 缺它时 `InboxManager.submit` 会记
-          // `Inbox item missing source reference` 并给卡片打 `_orphan`
-          // （72h 真机 5 次；审批卡与来源工具调用脱钩后无法关联）。
-          sourceModule: 'chat-tool-approval',
-          inputPreview: JSON.stringify(input).slice(0, 300),
-        },
+        metadata: card.metadata,
       },
+      // 第二参数沿用本路径既有语义：把 inbox block 注入该会话的聊天消息流
+      // （判定前路径不注入，故仍由调用方各自决定 —— 合并的只是**卡片内容**）
       sid
     );
+
     // U-06-5：把 Inbox 项 id 回传，供工具卡片就地审批
     const inboxItemId = (submitted as { id?: string } | null | undefined)?.id;
-    if (sessionId) {
-      emitApprovalAudit(sessionId, {
-        stage: 'presented',
-        approvalId,
-        toolName,
-        risk,
-        options,
-        fingerprintHash: hashApprovalFingerprint(approvalFingerprint),
-        ...(inboxItemId ? { inboxItemId } : {}),
-      });
-    }
+    // P5-1：② 呈现
+    emitApprovalAudit(sid, {
+      stage: 'presented',
+      approvalId: card.approvalId,
+      toolName,
+      risk: card.risk,
+      options: card.options,
+      fingerprintHash: card.fingerprintHash,
+      ...(inboxItemId ? { inboxItemId } : {}),
+    });
     return inboxItemId ?? null;
   } catch (err) {
     // P1-3：Inbox 提交失败降级为普通 ask 文本，不静默

@@ -11,14 +11,11 @@ import {
   createAskDecision,
 } from './types/PermissionDecision';
 import { PermissionContext } from './types/PermissionContext';
-import {
-  hashApprovalFingerprint,
-  hashCommandForExecution,
-} from './ApprovedCommandRegistry';
-import {
-  previewApprovalFingerprint,
-  resolveApprovalFingerprint,
-} from './approvalFingerprint';
+import { hashApprovalFingerprint } from './ApprovedCommandRegistry';
+import { resolveApprovalFingerprint } from './approvalFingerprint';
+// P1（2026-11-04）：审批卡唯一构造点 + 审计②段（①段在构造点内落）
+import { buildToolApprovalCard } from './toolApprovalSubmission';
+import { emitApprovalAudit } from './approvalAudit';
 import {
   findPendingApprovalId,
   type PendingApprovalLookup,
@@ -713,19 +710,17 @@ export class PermissionChecker {
         | string
         | undefined;
 
-      // P1-2: 命令类工具计算规范化 hash，供批准后写入 ApprovedCommandRegistry（放行缓存）
-      // P0-2: 统一 hashCommandForExecution，与 BashTool 执行端 hash 一致
-      const command = typeof input.command === 'string' ? input.command : '';
-      const isCommandTool = isShellToolName(toolName);
-      // PR-1（2026-10-23）：**所有工具**都计算审批指纹 —— 原实现仅 shell 计算，
-      // 非命令工具批准后 `applyApprovalSideEffects` 因缺 `commandHash` 直接 return
-      // ⇒ 批准从未落盘（实测：`file_write` 每次重问）。shell 沿用 command，其余用
-      // `toolName:稳定JSON`（键排序），与执行端 `isToolCallApproved` 同键。
-      // PR-2（2026-10-23）：改为工具可声明的**授权维度**（如 `file_write` 只按路径），
-      // 使「始终允许 / 本会话都允许」真正可命中；未声明工具仍为全参数稳定 JSON。
-      const approvalFingerprint = resolveApprovalFingerprint(toolOrName, input);
-      const commandHash = hashCommandForExecution(approvalFingerprint);
-      const fingerprintHash = hashApprovalFingerprint(approvalFingerprint);
+      // P1（2026-11-04）：审批卡**唯一的构造点**（与执行后路径共用，见
+      // `toolApprovalSubmission.ts`）。指纹 / 选项 / 文案 / metadata / 审计①段都在那里，
+      // 本方法只负责"同指纹复用 → submit → 审计②段"。
+      const card = buildToolApprovalCard({
+        toolOrName,
+        input,
+        sessionId,
+        taskId,
+        sandbox: context.sandbox,
+      });
+      const commandHash = card.commandHash;
 
       // PR-1：提交前**先查是否已有同一指纹的待审批项**，有则复用（避免僵尸卡）。
       const existingId = inboxManager.list
@@ -747,75 +742,24 @@ export class PermissionChecker {
         );
       }
 
-      // PR-2（2026-10-23）四档：允许本次 / 本会话都允许 / 始终允许 / 拒绝。
-      // - 命令类：「始终允许」= 命令前缀白名单（`allowlist_command`），另保留工具级；
-      // - 外部类：只给本次 / 本会话 / 拒绝（外部副作用不提供永久放行）；
-      // - 其余：「始终允许」= 工具+参数指纹（`allowlist_call`）。
-      // Q-17（2026-10-23）：外部类原先还带一个 `standing_rule` 选项 —— 全仓**零消费**
-      // （客户端无文案映射、审批回复也无处理）⇒ 点击等于"点了没反应"，已摘除。
-      const options = isCommandTool
-        ? [
-            'approve',
-            'approve_session',
-            'allowlist_command',
-            'allowlist_tool',
-            'deny',
-          ]
-        : risk === RiskClass.EXTERNAL
-          ? ['approve', 'approve_session', 'deny']
-          : ['approve', 'approve_session', 'allowlist_call', 'deny'];
-
-      // P5-1（2026-10-28）：审批四段打点 —— ① 申请（② 呈现待卡片落成后补）。
-      // 只在新卡真正要建时开链（复用既有卡的那条链已在更早的提交里落过 ①②）。
-      // 开关默认关（`config.json → approvalFourStage`）⇒ 关闭时本调用为空操作。
-      const { emitApprovalAudit, newApprovalId } =
-        await import('./approvalAudit.js');
-      const approvalId = newApprovalId();
+      // P5-1：① 申请（**只在新卡真正要建时**开链 —— 复用既有卡的那条链更早已落过 ①②）
       emitApprovalAudit(sessionId, {
         stage: 'requested',
-        approvalId,
+        approvalId: card.approvalId,
         toolName,
-        risk,
+        risk: card.risk,
         inputPreview: JSON.stringify(input).slice(0, 200),
       });
 
       const submitted = await inboxManager.submit({
         sessionId,
         type: 'approval',
-        title: `工具审批: ${toolName}`,
-        message: `工具 '${toolName}' 请求执行（风险等级: ${risk}）\n${
-          command
-            ? `命令: ${command}`
-            : `参数: ${JSON.stringify(input).slice(0, 300)}`
-        }`,
-        options,
+        title: card.title,
+        message: card.message,
+        options: card.options,
         offlineCapable: true,
         source: 'permission',
-        metadata: {
-          toolName,
-          risk,
-          taskId,
-          commandHash,
-          // P5-1（2026-10-28）：审批链 id —— ③④ 段（审批解析侧）据此把决定与申请串成一条链
-          approvalId,
-          // P1-4 修复（2026-10-27）：审批卡必须带**来源模块**标记 —— `InboxManager.submit`
-          // 对 `type='approval'` 且既无 `channelSessionId` 又无 `metadata.sourceModule` 的项
-          // 记 warn 并打 `_orphan: true`（该标记当前**无**消费方，只影响可观测性）。
-          // 真机 2026-10-27 10:14–10:26Z：12 分钟内 9 次 `Inbox item missing source reference`。
-          sourceModule: 'permission',
-          // PR-2：「始终允许」按参数指纹持久化（只落摘要 + 截断预览，不落明文参数）
-          approvalFingerprintHash: fingerprintHash,
-          approvalFingerprintPreview:
-            previewApprovalFingerprint(approvalFingerprint),
-          approvalScopeKind: 'once',
-          // PR-3a（2026-10-23）：沙箱上下文留证 —— 让用户看到"这次是在哪执行的"。
-          // 仅证据面：不参与任何放行判定（豁免判定在 PR-3b）。
-          sandboxMode: context.sandbox?.mode,
-          sandboxPermissionLevel: context.sandbox?.permissionLevel,
-          // P0-3: 携带原始命令，批准后写入放行缓存时提取命令名供命令名级放行
-          command: command || undefined,
-          inputPreview: JSON.stringify(input).slice(0, 200),
-        },
+        metadata: card.metadata,
       });
 
       // U-06-5（2026-10-19）：把 Inbox 项 id 回传给工具结果，前端工具卡片可**就地审批**
@@ -825,26 +769,26 @@ export class PermissionChecker {
       // P5-1：② 呈现（卡片已落成 ⇒ 用户侧可见，含可选项与授权维度摘要）
       emitApprovalAudit(sessionId, {
         stage: 'presented',
-        approvalId,
+        approvalId: card.approvalId,
         toolName,
-        risk,
-        options,
-        fingerprintHash,
+        risk: card.risk,
+        options: card.options,
+        fingerprintHash: card.fingerprintHash,
         ...(inboxItemId ? { inboxItemId } : {}),
       });
 
       logger.info('Tool approval submitted to Inbox', {
         toolName,
-        risk,
+        risk: card.risk,
         sessionId,
         inboxItemId,
-        hasCommandHash: !!commandHash,
+        hasCommandHash: !!card.commandHash,
       });
 
       return createAskDecision(
-        `'${toolName}' queued in Inbox (risk: ${risk}). Awaiting approval.`,
+        `'${toolName}' queued in Inbox (risk: ${card.risk}). Awaiting approval.`,
         undefined,
-        { submittedToInbox: true, commandHash, inboxItemId }
+        { submittedToInbox: true, commandHash: card.commandHash, inboxItemId }
       );
     } catch (err) {
       logger.warn('Failed to submit to Inbox, falling back to ask', {

@@ -20,6 +20,11 @@ import {
 } from '@openliri/infra/error';
 import { getLogger } from '@openliri/kernel/loggerFacade';
 import { configManager } from '../../ConfigManager.js';
+// A5：JWT 验签。此处直接用 node:crypto 而非 `security/services/HashUtils`：
+// 后者只能经 `@openliri/infra/security` 桶文件导入（R03-002 禁止子目录直连），
+// 而该桶会把审计/扫描等整条安全子系统拉进认证模块，得不偿失（CS01 允许的
+// 「三行胜过过度抽象」取舍）。
+import { createHmac, timingSafeEqual } from 'crypto';
 
 const logger = getLogger('config:authChain');
 
@@ -372,14 +377,50 @@ export class JwtAuthenticator implements AuthStrategy {
 
     const jwtSecret = process.env['LIRI_JWT_SECRET'];
     if (!jwtSecret) {
-      logger.info('JWT_SECRET 未配置，使用简单 Base64 解码验证');
+      // A5 安全基线（2026-11-04）：无密钥 ⇒ 无法验签 ⇒ **fail-closed**。
+      // 原实现（"未配置则跳过签名校验，直接信任 payload"）等于允许任意伪造
+      // `sub` / `roles` / `tenant` —— 只要构造 `{"sub":"admin","roles":["admin"]}`
+      // 的三段式字符串即可通过认证。与 `VERIFIER_FAIL_CLOSED` / `REQUIRE_BEARER`
+      // 同一口径：配置缺失不得静默降级为"全部放行"。
+      logger.warning(
+        'JWT 认证被拒绝：LIRI_JWT_SECRET 未配置（fail-closed，不再跳过签名校验）'
+      );
+      return null;
     }
 
     try {
-      // JWT 解码（无签名验证，企业版应配置 JWT_SECRET）
       const parts = credentials.jwtToken.split('.');
       if (parts.length !== 3) {
         logger.info('JWT 格式无效');
+        return null;
+      }
+
+      // 只接受 HS256：显式拒绝 `alg: none` 与算法混淆（RS256 token 用 HS256 校验的经典绕过）
+      let header: { alg?: string };
+      try {
+        header = JSON.parse(
+          Buffer.from(parts[0], 'base64url').toString('utf-8')
+        ) as { alg?: string };
+      } catch {
+        logger.info('JWT 头部无法解析，已拒绝');
+        return null;
+      }
+      if (header.alg !== 'HS256') {
+        logger.warning('JWT 签名算法不受支持，已拒绝', { alg: header.alg });
+        return null;
+      }
+
+      // 签名校验：HMAC-SHA256(base64url(header) + "." + base64url(payload))
+      const signingInput = `${parts[0]}.${parts[1]}`;
+      const expected = createHmac('sha256', jwtSecret)
+        .update(signingInput)
+        .digest();
+      const actual = Buffer.from(parts[2], 'base64url');
+      if (
+        actual.length !== expected.length ||
+        !timingSafeEqual(actual, expected)
+      ) {
+        logger.warning('JWT 签名校验失败，已拒绝');
         return null;
       }
 

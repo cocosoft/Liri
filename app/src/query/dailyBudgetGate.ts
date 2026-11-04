@@ -49,6 +49,35 @@ export {
 // 快照形状与格式化见 `dailyBudgetSnapshot`（叶子模块，本模块再导出）。
 
 /**
+ * P2-1（2026-11-04）：`dailyBudgetGate:decision` 的**分级判据**（纯函数）。
+ *
+ * **为什么降级**：真机窗口内该行 56 583 条 / 26.9 MB，其中绝大多数是"稳态放行"
+ * （`allowed=true` 且主口径未越界）—— 结论恒为"可以调用"，没有信息增量。
+ *
+ * **为什么不能删**：它是 `BUDGET-USD-PRIMARY` 的**哨兵**（reopenWhen ①：核对
+ * `primary.exceeded` 与 `allowed` 是否不一致）⇒ 下列情形必须留在 INFO：
+ *   - **拒发**（`!allowed`）：预算/总闸真正生效；
+ *   - **主口径已越界却放行**（`exceeded && allowed`）：只可能由 `waive-once` 造成，需可比对；
+ *   - **kill-switch**：手动总闸被打开；
+ *   - **waiver**：本轮持有一次性通行证。
+ *
+ * 其余（稳态）降 debug —— 完整载荷仍在 debug 行里，排障时按模块开级别即可。
+ */
+export function shouldLogBudgetDecisionAtInfo(decision: {
+  allowed: boolean;
+  exceeded: boolean;
+  killSwitch: boolean;
+  waiver: boolean;
+}): boolean {
+  return (
+    !decision.allowed ||
+    decision.exceeded ||
+    decision.killSwitch ||
+    decision.waiver
+  );
+}
+
+/**
  * 判定"本轮能否发起模型调用"（**纯读，无副作用**）。
  *
  * ## 硬闸门（用户 2026-10-15 两次裁定的合成口径）
@@ -96,7 +125,7 @@ export function checkDailyBudget(input: {
   // 观测日志：硬闸门（主口径）+ Token 观测轨并排如实记录，便于核对"两者是否已分离"。
   const tokenBase = budget.getConfigSnapshot().dailyLimit;
   const tokenProjected = state.projectedUsed + input.estimatedTokens;
-  logger.info('dailyBudgetGate:decision', {
+  const decisionMeta = {
     sessionId: input.sessionId,
     primary: {
       unit: state.unit,
@@ -120,7 +149,21 @@ export function checkDailyBudget(input: {
     killSwitch,
     waiver,
     allowed,
-  });
+  };
+  // P2-1（2026-11-04）：稳态放行降 debug（真机 56 583 条 / 26.9 MB）；
+  // 拒发 / 越界放行 / kill-switch / waiver 仍 INFO（哨兵口径见 `shouldLogBudgetDecisionAtInfo`）。
+  if (
+    shouldLogBudgetDecisionAtInfo({
+      allowed,
+      exceeded: !primaryAllows,
+      killSwitch,
+      waiver,
+    })
+  ) {
+    logger.info('dailyBudgetGate:decision', decisionMeta);
+  } else {
+    logger.debug('dailyBudgetGate:decision', decisionMeta);
+  }
 
   // 快照**恒取主口径**（S3：不再"只在拒发时才切金额"）。
   return { allowed, snapshot: budget.getSnapshot() };

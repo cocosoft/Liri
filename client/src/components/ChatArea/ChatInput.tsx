@@ -848,6 +848,9 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
           sessionId,
           workMode,
           uploadedImages.length > 0 ? uploadedImages : undefined,
+          undefined,
+          // P1（2026-11-04）：当前下拉的模式随消息下发（后端落到会话 metadata.chatMode）
+          chatMode,
         );
       }
 
@@ -889,7 +892,15 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
     const { resolveWorkMode } =
       await import("../../stores/chat/chat-message-actions");
     const workMode = await resolveWorkMode(sessionId);
-    await streamMessage(text.trim(), sessionId, workMode);
+    await streamMessage(
+      text.trim(),
+      sessionId,
+      workMode,
+      undefined,
+      undefined,
+      // 与 handleSubmit 一致：语音发送同样带上当前模式
+      chatMode,
+    );
   };
 
   /**

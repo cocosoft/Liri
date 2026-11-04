@@ -81,6 +81,34 @@ export function resolveChatMode(raw: unknown): ChatMode {
     : 'auto';
 }
 
+/**
+ * 是否为合法模式取值（HTTP 边界的 fail-loud 校验用；与 `resolveChatMode` 同口径：
+ * 大小写不敏感、允许首尾空白）。
+ *
+ * 与 `resolveChatMode` 的分工：**请求边界**用本函数拒绝脏值（400），
+ * 读**存量会话 metadata** 时用 `resolveChatMode` 静默归一（历史脏值不阻断对话）。
+ */
+export function isChatMode(value: unknown): value is ChatMode {
+  if (typeof value !== 'string') return false;
+  return (CHAT_MODES as readonly string[]).includes(value.trim().toLowerCase());
+}
+
+/**
+ * 请求体 `chat_mode` ⇒ 会话 `metadata.chatMode` 的更新判定（P1-1，2026-11-04）。
+ *
+ * 独立成**纯函数**（同 `resolveRequestWorkspaceUpdate` 口径）：只有请求确实携带合法值、
+ * 且与当前会话值不同才返回新值；否则 `undefined`（不重复写库）。
+ * 缺失 / 脏值**不覆盖**已有会话值 —— 否则老客户端（不传该字段）会把模式重置成 `auto`。
+ */
+export function resolveRequestChatModeUpdate(input: {
+  requestChatMode: unknown;
+  sessionChatMode: unknown;
+}): ChatMode | undefined {
+  if (!isChatMode(input.requestChatMode)) return undefined;
+  const next = resolveChatMode(input.requestChatMode);
+  return next === resolveChatMode(input.sessionChatMode) ? undefined : next;
+}
+
 /** 取某个模式对应的完整策略（非法值按 `auto`） */
 export function resolveChatModePolicy(raw: unknown): ChatModePolicy {
   const mode = resolveChatMode(raw);

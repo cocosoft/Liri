@@ -854,6 +854,8 @@ export const chatService = {
     signal?: AbortSignal,
     options?: {
       workMode?: "plan" | "do";
+      /** P1（2026-11-04）：会话模式（auto/deep/code/creative/research），后端落到 metadata.chatMode */
+      chatMode?: string;
       images?: AttachedImage[];
       messageId?: string;
       /** P0 根治（2026-08-14）：前端流式消息 id，后端 createAssistantMessage 复用，
@@ -896,6 +898,8 @@ export const chatService = {
         body.continue_from = options.continueFrom;
       if (workspacePath) body.workspace_path = workspacePath;
       if (options?.workMode) body.work_mode = options.workMode;
+      // P1（2026-11-04）：会话模式随消息下发（后端边界校验 → 落到会话 metadata.chatMode）
+      if (options?.chatMode) body.chat_mode = options.chatMode;
       if (options?.images && options.images.length > 0)
         body.images = options.images;
 
@@ -1397,6 +1401,8 @@ export const chatService = {
     signal?: AbortSignal,
     options?: {
       workMode?: "plan" | "do";
+      /** P1（2026-11-04）：会话模式（透传给 streamMessage → 请求体 chat_mode） */
+      chatMode?: string;
       images?: AttachedImage[];
       messageId?: string;
       /** P0 根治（2026-08-14）：前端流式消息 id（透传给 streamMessage） */

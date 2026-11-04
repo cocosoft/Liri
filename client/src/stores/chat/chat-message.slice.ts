@@ -201,6 +201,8 @@ export const createMessageSlice: StateCreator<
       workMode?: "plan" | "do",
       attachedImages?: import("@/types").AttachedImage[],
       existingUserMessageId?: string,
+      /** P1（2026-11-04）：会话模式（随消息下发；后端落到会话 metadata.chatMode） */
+      chatMode?: string,
     ) => {
       await streamMessageImpl(
         messageSet,
@@ -210,6 +212,7 @@ export const createMessageSlice: StateCreator<
         workMode,
         attachedImages,
         existingUserMessageId,
+        chatMode,
       );
     },
 

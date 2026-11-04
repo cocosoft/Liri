@@ -146,6 +146,14 @@ export {
   PLAN_MODE_PROMPT,
 } from './workMode';
 export type { WorkMode } from './workMode';
+// chatMode 契约（P1，2026-11-04）：同 workMode 口径经模块出口暴露，供 HTTP 边界校验与聊天入口取用
+export {
+  CHAT_MODES,
+  isChatMode,
+  resolveChatMode,
+  resolveChatModePolicy,
+} from './chatModePolicy';
+export type { ChatMode, ChatModePolicy } from './chatModePolicy';
 // 回复详略档契约（`/effort` 后端接线，2026-10-22）：同 workMode 口径经模块出口暴露
 export {
   DEFAULT_REPLY_EFFORT,

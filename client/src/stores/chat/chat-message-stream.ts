@@ -86,6 +86,8 @@ export async function streamMessageImpl(
   workMode?: "plan" | "do",
   attachedImages?: AttachedImage[],
   existingUserMessageId?: string,
+  /** P1（2026-11-04）：会话模式（随消息下发；后端落到会话 metadata.chatMode） */
+  chatMode?: string,
 ): Promise<void> {
   // P2-2: 只取消同会话的旧流（多会话并行——不再互相中止）
   const sid = sessionId || "default";
@@ -366,6 +368,7 @@ export async function streamMessageImpl(
           controller.signal,
           {
             workMode,
+            chatMode,
             images: attachedImages,
             // AB-14 修复：写前落盘失败（outbox）也传前端消息 id，
             // 后端创建用户消息时沿用该 id（ChatManager 兜底），保证前后端 id 一致
@@ -377,6 +380,7 @@ export async function streamMessageImpl(
         )
       : chatService.streamMessage(content, sessionId, controller.signal, {
           workMode,
+          chatMode,
           images: attachedImages,
           // AB-14 修复：写前落盘失败（outbox）也传前端消息 id
           messageId: userMessage ? userMessage.id : undefined,

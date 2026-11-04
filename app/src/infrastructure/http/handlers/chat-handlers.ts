@@ -98,6 +98,22 @@ function safeFlush(r: http.ServerResponse): void {
 }
 
 /**
+ * P1（2026-11-04）：请求体 ⇒ `ChatRequest.metadata` 的**唯一**构造点（流式 / 非流式共用）。
+ *
+ * 此前两处各自内联 `workspace_path` 三元表达式；新增 `chat_mode` 后若继续各写一份，
+ * 必然漂移出"只有一条路径带上模式"的缺陷。缺省（无任一字段）⇒ `undefined`，与旧行为一致。
+ */
+function buildRequestMetadata(
+  request: ChatCompletionRequest
+): Record<string, unknown> | undefined {
+  const metadata: Record<string, unknown> = {};
+  if (request.workspace_path) metadata.workspacePath = request.workspace_path;
+  // 已在入口归一（`resolveChatMode`）；缺省不传 ⇒ 会话保留原有档位
+  if (request.chat_mode) metadata.chatMode = request.chat_mode;
+  return Object.keys(metadata).length > 0 ? metadata : undefined;
+}
+
+/**
  * K4b（2026-09-06）：SSE close 统一出口——仅当会话仍处于流式中才中止会话流/计划。
  * 背景：res.on('close') 在响应正常写完（客户端读完即关闭连接）也会触发；此前 close
  * handler 无条件 abortSessionStream → abortSessionPlans 会把【正常完成】的活跃 PDL
@@ -152,6 +168,13 @@ interface ChatCompletionRequest {
    * 客户端发了也无人校验/消费，属"空投"）。缺省时行为与旧版完全一致。
    */
   work_mode?: string;
+  /**
+   * 会话模式（P1，2026-11-04）：`auto` | `deep` | `code` | `creative` | `research`。
+   *
+   * 前端「模式」下拉随消息下发（此前该值只存在于组件 state，后端零读取点）。
+   * **非该取值即 400 fail loud**（同 `work_mode` 纪律）；缺省 ⇒ 不改会话已有档位。
+   */
+  chat_mode?: string;
   /**
    * 请求优先级（P26-1 §9.1 透传，2026-10-07）
    *
@@ -373,8 +396,12 @@ export async function handleChatCompletions(
   // 纪律：外部输入非法则 fail loud（400 + ErrorTracker），禁止静默忽略。
   // chat 归属 app 层、本文件属 service 层 ⇒ 按本文件既有 `await import('@modules/ai')`
   // 模式动态导入，避免 service -> app 静态倒挂。
-  const { isWorkMode, applyWorkModeToSystemPrompt } =
-    await import('@modules/chat');
+  const {
+    isWorkMode,
+    applyWorkModeToSystemPrompt,
+    isChatMode,
+    resolveChatMode,
+  } = await import('@modules/chat');
   const workMode = request.work_mode;
   if (workMode !== undefined && !isWorkMode(workMode)) {
     const error = new AppError(
@@ -406,6 +433,39 @@ export async function handleChatCompletions(
     request.system_prompt,
     workMode
   );
+
+  // P1（2026-11-04）：`chat_mode` 边界校验 —— 前端五个模式随消息下发（此前只活在组件 state）。
+  // 同 work_mode 纪律：非法即 400 fail loud；缺省 ⇒ 不写会话 metadata（老客户端行为不变）。
+  // 归一后的值经 `ChatRequest.metadata.chatMode` 下行，由会话生命周期落到 `metadata.chatMode`，
+  // 供模型档位 / 工具集 / 轮次预算三处读取（唯一映射表见 `chat/chatModePolicy.ts`）。
+  if (request.chat_mode !== undefined && !isChatMode(request.chat_mode)) {
+    const error = new AppError(
+      `Invalid chat_mode: ${JSON.stringify(request.chat_mode)} (expected "auto" | "deep" | "code" | "creative" | "research")`,
+      ErrorCategory.VALIDATION,
+      ErrorSeverity.MEDIUM,
+      'INVALID_CHAT_MODE',
+      { chatMode: request.chat_mode }
+    );
+    await handleError(error, {
+      module: 'http:chat',
+      action: 'validateChatMode',
+    });
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        error: {
+          message: error.message,
+          type: 'invalid_request_error',
+          code: 'INVALID_CHAT_MODE',
+        },
+      })
+    );
+    return;
+  }
+  request.chat_mode =
+    request.chat_mode === undefined
+      ? undefined
+      : resolveChatMode(request.chat_mode);
 
   // 多租户 P3：跨身份 / 不存在的会话统一 404 —— 必须在分流到流式处理（写 SSE 头）之前判定
   if (await respond404IfSessionUnavailable(request.session_id, res)) return;
@@ -448,9 +508,7 @@ async function handleNormalChat(
       sessionId: request.session_id,
       messageId: request.message_id,
       assistantMessageId: request.assistant_message_id,
-      metadata: request.workspace_path
-        ? { workspacePath: request.workspace_path }
-        : undefined,
+      metadata: buildRequestMetadata(request),
       images: request.images,
       model: request.model,
       temperature: request.temperature,
@@ -838,9 +896,7 @@ async function handleStreamingChat(
       assistantMessageId: request.assistant_message_id,
       // P0-2：执行标识外显（与渠道路径同一条记账链路；未开启灰度 ⇒ undefined = 零行为变更）
       executionId: executionLease?.executionId,
-      metadata: request.workspace_path
-        ? { workspacePath: request.workspace_path }
-        : undefined,
+      metadata: buildRequestMetadata(request),
       images: request.images,
       model: request.model,
       temperature: request.temperature,

@@ -47,6 +47,8 @@ import { SessionAccessFacade } from './SessionAccessFacade';
 import { resolveChannelSourceOnce } from './channelSourceOnce.js';
 // BUG-B（2026-10-27）：请求体 workspace_path ⇒ 会话 metadata 的落盘判定（纯函数）
 import { resolveRequestWorkspaceUpdate } from './toolCwdScope.js';
+// P1（2026-11-04）：请求体 `chat_mode` ⇒ 会话 metadata 的更新判定（与 workspacePath 同口径）
+import { resolveRequestChatModeUpdate } from '../chatModePolicy.js';
 import { MessageService } from './MessageService.js';
 import { eventNotificationService } from './EventNotificationService.js';
 import { clearPathCheckCache } from './PathGuardService';
@@ -431,6 +433,41 @@ export class SessionLifecycleManager {
   }
 
   /**
+   * P1（2026-11-04）：把**请求体** `chat_mode` 落到会话 `metadata.chatMode`。
+   *
+   * 与 `_applyRequestWorkspacePath` 同源同口径：`getOrLoadSession` 的 metadata 参数只在
+   * 新建会话时生效，既有会话必须显式回写。落盘的是**归一值**（`deep`/`code`…），
+   * 使下一轮（含断点续跑的 `streamResume`）读到同一档位。
+   *
+   * 缺失 / 脏值**不覆盖**（老客户端不传该字段 ⇒ 行为不变）；值相同不写库。
+   */
+  private async _applyRequestChatMode(
+    session: ChatSession,
+    metadata?: Record<string, unknown>
+  ): Promise<void> {
+    const next = resolveRequestChatModeUpdate({
+      requestChatMode: metadata?.chatMode,
+      sessionChatMode: session.metadata?.chatMode,
+    });
+    if (!next) return;
+    session.metadata = { ...session.metadata, chatMode: next };
+    try {
+      const stored = await this.sessionGateway.getSession(session.id);
+      if (stored) {
+        stored.metadata = { ...stored.metadata, chatMode: next };
+        await this.sessionGateway.updateSession(stored);
+      }
+    } catch (e) {
+      // @ignore-catch — 模式落盘失败不影响内存标记（下次请求再补）
+      logger.warn('会话 chatMode 落盘失败', {
+        sessionId: session.id,
+        chatMode: next,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
+  /**
    * 该会话在当前身份下是否**可用**（多租户 P3：HTTP 入口 404 语义的唯一判据）。
    *
    * - 任何身份都**必须确实存在**（内存缓存或按身份分区的存储）；
@@ -493,6 +530,8 @@ export class SessionLifecycleManager {
       await this._applyChannelSourceOnce(cached, metadata);
       // BUG-B（2026-10-27）：请求体 workspace_path 落到既有会话（缓存命中分支）
       await this._applyRequestWorkspacePath(cached, metadata);
+      // P1（2026-11-04）：请求体 chat_mode 落到既有会话（缓存命中分支）
+      await this._applyRequestChatMode(cached, metadata);
       await this._clearStaleRecoveryMarkers(cached);
       return cached;
     }
@@ -575,6 +614,8 @@ export class SessionLifecycleManager {
         await this._applyChannelSourceOnce(chatSession, metadata);
         // BUG-B（2026-10-27）：请求体 workspace_path 落到既有会话（存储加载分支）
         await this._applyRequestWorkspacePath(chatSession, metadata);
+        // P1（2026-11-04）：请求体 chat_mode 落到既有会话（存储加载分支）
+        await this._applyRequestChatMode(chatSession, metadata);
         await this._clearStaleRecoveryMarkers(chatSession);
         return chatSession;
       }

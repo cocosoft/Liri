@@ -12,8 +12,10 @@ import { describe, it, expect } from 'bun:test';
 import {
   CHAT_MODES,
   filterToolSchemasByChatMode,
+  isChatMode,
   resolveChatMode,
   resolveChatModePolicy,
+  resolveRequestChatModeUpdate,
 } from '../../src/chat/chatModePolicy';
 import { resolveChatModeToolTurns } from '../../src/chat/loopTurnLimits';
 
@@ -91,6 +93,60 @@ describe('P1：轮次预算按 chatMode 放大', () => {
     expect(Math.max(resolveChatModeToolTurns(30, 'code'), 12 + 40 + 5)).toBe(
       60
     );
+  });
+});
+
+describe('P1：请求体 chat_mode 的边界与落库口径', () => {
+  it('isChatMode：五个合法值（大小写/空白不敏感）通过，其余拒绝', () => {
+    for (const mode of CHAT_MODES) {
+      expect(isChatMode(mode)).toBe(true);
+      expect(isChatMode(` ${mode.toUpperCase()} `)).toBe(true);
+    }
+    for (const bad of [undefined, null, '', '   ', 'turbo', 42, {}]) {
+      expect(isChatMode(bad)).toBe(false);
+    }
+  });
+
+  it('请求值合法且与会话不同 ⇒ 返回归一值（落库）', () => {
+    expect(
+      resolveRequestChatModeUpdate({
+        requestChatMode: ' Deep ',
+        sessionChatMode: 'auto',
+      })
+    ).toBe('deep');
+    expect(
+      resolveRequestChatModeUpdate({
+        requestChatMode: 'code',
+        sessionChatMode: undefined,
+      })
+    ).toBe('code');
+  });
+
+  it('请求值与会话一致 ⇒ undefined（不重复写库）', () => {
+    expect(
+      resolveRequestChatModeUpdate({
+        requestChatMode: 'deep',
+        sessionChatMode: 'deep',
+      })
+    ).toBeUndefined();
+    // 存量脏值按 auto 归一后与 'auto' 相同 ⇒ 也不写库
+    expect(
+      resolveRequestChatModeUpdate({
+        requestChatMode: 'auto',
+        sessionChatMode: 'turbo',
+      })
+    ).toBeUndefined();
+  });
+
+  it('缺失 / 脏值 ⇒ undefined（老客户端不传，会话保留原档位）', () => {
+    for (const bad of [undefined, null, '', 'turbo', 42]) {
+      expect(
+        resolveRequestChatModeUpdate({
+          requestChatMode: bad,
+          sessionChatMode: 'deep',
+        })
+      ).toBeUndefined();
+    }
   });
 });
 

@@ -97,6 +97,8 @@ export interface MessageSlice {
     workMode?: "plan" | "do",
     attachedImages?: AttachedImage[],
     existingUserMessageId?: string,
+    /** P1（2026-11-04）：会话模式（随消息下发；后端落到会话 metadata.chatMode） */
+    chatMode?: string,
   ) => Promise<void>;
   /** #2 修复：重新生成指定 AI 消息（传入点击的 assistant 消息 id），
    *  原实现忽略点击哪条、永远重发最后一条且误删其后对话 */

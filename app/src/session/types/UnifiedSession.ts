@@ -83,6 +83,13 @@ export interface SessionMetadata {
   /** plan/do 工作模式——输入区开关写入（与 models/SessionMetadata.ts 对齐，见 .trae/specs/plan-do-mode.md） */
   workMode?: 'plan' | 'do';
   /**
+   * P1-1（2026-11-04）：会话模式（前端「模式」下拉随消息下发 `chat_mode` 后落到此处）。
+   *
+   * 唯一消费者是 `chat/chatModePolicy.ts` 的映射（模型档位 / 工具集 / 轮次预算）；
+   * 缺省 ⇒ 按 `auto` 处理（与改造前行为一致）。
+   */
+  chatMode?: 'auto' | 'deep' | 'code' | 'creative' | 'research';
+  /**
    * P4b（2026-10-16）：会话级工具 profile 能力标签（`media` / `coding` 等）。
    * 经 `tools/toolProfile.ts` 的 `resolveToolProfileCategories()` 追加对应工具类别到
    * 本会话可见白名单；未声明 ⇒ 零行为变更。与 `models/SessionMetadata.ts` 对齐。

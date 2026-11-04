@@ -19,6 +19,7 @@
  */
 
 import type { PermissionDenyInfo } from './types/PermissionDecision';
+import type { PermissionMode } from './PermissionMode';
 
 /** 工具授权上下文（与 `PermissionManager.checkPermissionForTool` 的 `context` 同构） */
 export interface ToolAuthorizeContext {
@@ -29,6 +30,8 @@ export interface ToolAuthorizeContext {
   metadata?: { goalText?: string };
   /** 会话级审批模式（缺省 ⇒ 权限层按 `ask` 处理） */
   approvalMode?: 'ask' | 'auto-local';
+  /** P1（2026-11-04）：会话级权限模式（缺省 ⇒ 权限层的进程默认档） */
+  permissionMode?: PermissionMode;
   /** 会话工作区路径（`auto-local` 的写边界） */
   workspacePath?: string;
   /** 本次执行的沙箱信号（仅审批卡留证，不参与判定） */

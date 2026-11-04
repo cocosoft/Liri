@@ -87,6 +87,7 @@ import type {
 import type {
   ApprovalScope,
   ApprovalSnapshot,
+  PermissionMode,
 } from '@openliri/infra/permission';
 // D2（2026-10-11）：权限管理器注入断言（生产 fail-fast，G9）
 import {
@@ -297,6 +298,13 @@ export interface ToolExecutionDeps {
    * （由 `PermissionChecker` 判定；受 `FEATURE_SESSION_AUTO_LOCAL` 开关约束）。
    */
   getSessionApprovalMode?: (sessionId?: string) => 'ask' | 'auto-local';
+  /**
+   * P1（2026-11-04）：会话级权限模式（会话元数据 `permission_mode`）。
+   *
+   * 缺省 / 脏值 ⇒ `undefined` ⇒ `PermissionManager` 回退**进程默认档**（`PERMISSION_MODE`）。
+   * 以**每次调用传参**的方式生效，不改全局单例（并发会话不串档）。
+   */
+  getSessionPermissionMode?: (sessionId?: string) => PermissionMode | undefined;
   isCommandApproved(
     toolName: string,
     args: Record<string, unknown>,
@@ -984,6 +992,10 @@ export class ToolExecutionService {
           // PR-3：会话级审批模式 + 工作区边界（自动执行只放行工作区内的本地写）
           approvalMode:
             this.deps.getSessionApprovalMode?.(toolCall.sessionId) ?? 'ask',
+          // P1（2026-11-04）：会话级权限模式（缺省 ⇒ 权限层的进程默认档）
+          permissionMode: this.deps.getSessionPermissionMode?.(
+            toolCall.sessionId
+          ),
           workspacePath:
             this.deps.getSessionWorkspacePath(toolCall.sessionId) ?? undefined,
           // PR-3a（2026-10-23）：沙箱信号 —— 审批卡留证 + PR-3b 豁免判定。

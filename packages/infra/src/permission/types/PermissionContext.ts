@@ -2,6 +2,7 @@
  * 权限上下文接口
  */
 import type { SandboxExecutionSignal } from '@openliri/infra/utils/toolContract/Tool';
+import type { PermissionMode } from '../PermissionMode';
 
 export interface PermissionContext {
   /**
@@ -51,6 +52,15 @@ export interface PermissionContext {
   approvalMode?: 'ask' | 'auto-local';
 
   /**
+   * P1（2026-11-04）：**会话级权限模式**（会话元数据 `permission_mode`）。
+   *
+   * 优先级：本字段（会话）> `PermissionManager` 的进程默认档（`PERMISSION_MODE` 环境变量）。
+   * 缺省 ⇒ 用进程默认档（改造前行为）。由执行入口按 `sessionId` 取出后注入，
+   * 而不是调用 `setMode()` 改全局单例 —— 多会话并发时后者会串档。
+   */
+  permissionMode?: PermissionMode;
+
+  /**
    * PR-3：会话工作区路径（`auto-local` 的写操作边界；缺省 ⇒ 不自动放行写）。
    */
   workspacePath?: string;
@@ -80,6 +90,8 @@ export function createPermissionContext(params: {
   metadata?: Record<string, unknown>;
   /** PR-3：会话级审批模式（缺省 `ask`） */
   approvalMode?: 'ask' | 'auto-local';
+  /** P1（2026-11-04）：会话级权限模式（缺省 ⇒ 用进程默认档） */
+  permissionMode?: PermissionMode;
   /** PR-3：会话工作区路径（`auto-local` 的写边界） */
   workspacePath?: string;
   /** PR-3a：本次执行的沙箱上下文（仅供审批卡留证，不改判定） */
@@ -93,6 +105,7 @@ export function createPermissionContext(params: {
     input: params.input,
     metadata: params.metadata,
     approvalMode: params.approvalMode,
+    permissionMode: params.permissionMode,
     workspacePath: params.workspacePath,
     sandbox: params.sandbox,
   };

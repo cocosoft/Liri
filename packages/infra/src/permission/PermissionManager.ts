@@ -418,8 +418,12 @@ export class PermissionManager {
     // 2. 根据权限模式执行不同的检查逻辑
     // （2026-10-23 PR-3b：原「沙箱自动允许」分支已删除 —— 死接线 + 按工具名猜；）
     // （其职责由 `PermissionChecker` 风险默认档前的沙箱豁免 S1–S4 承担。）
+    // P1（2026-11-04）：**会话级模式优先于进程默认档**。执行入口把会话元数据
+    // `permission_mode` 放进 `context.permissionMode`；缺省（CLI / 后台 / 未设置）用
+    // `this.mode`（来自 `PERMISSION_MODE` 环境变量，见构造器）。不改全局单例 ⇒ 并发会话不串档。
+    const effectiveMode = permissionContext.permissionMode ?? this.mode;
     let decision: PermissionDecision;
-    switch (this.mode) {
+    switch (effectiveMode) {
       case PermissionMode.BYPASS:
         decision = this.handleBypassPermissions();
         break;
@@ -470,13 +474,13 @@ export class PermissionManager {
     if (
       forceAskReason &&
       decision.type === PermissionDecisionType.ALLOW &&
-      this.mode !== PermissionMode.BYPASS &&
-      this.mode !== PermissionMode.DONT_ASK
+      effectiveMode !== PermissionMode.BYPASS &&
+      effectiveMode !== PermissionMode.DONT_ASK
     ) {
       decision = createAskDecision(forceAskReason);
       logger.info('permission:non_idempotent_retry_escalated', {
         tool: toolName,
-        mode: this.mode,
+        mode: effectiveMode,
       });
     }
 

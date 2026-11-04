@@ -24,6 +24,11 @@ import fs from 'fs';
 import path from 'path';
 
 import { configManager } from '@openliri/infra/config';
+// P1（2026-11-04）：会话级权限模式的取值域（与 PermissionManager 同一真源）
+import {
+  PERMISSION_MODES,
+  type PermissionMode,
+} from '@openliri/infra/permission';
 import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import { repairModelJson } from '@openliri/infra/utils/json';
 import { resolveBaseToolTurns } from './loopTurnLimits.js';
@@ -1754,6 +1759,24 @@ export class ChatManagerImpl implements ChatManager {
     const session = this._chatSessions.get(sessionId);
     const metadata = session?.metadata as Record<string, unknown> | undefined;
     return metadata?.approvalMode === 'auto-local' ? 'auto-local' : 'ask';
+  }
+
+  /**
+   * P1（2026-11-04）：会话级权限模式（会话元数据 `permission_mode`）。
+   *
+   * 交由 `PermissionManager` 在**每次判定时**读 `context.permissionMode`（不改全局单例 ⇒
+   * 并发会话不串档）。只认 9 个合法值；缺失 / 脏值 ⇒ `undefined`（回退进程默认档）。
+   */
+  private getSessionPermissionMode(
+    sessionId?: string
+  ): PermissionMode | undefined {
+    if (!sessionId) return undefined;
+    const session = this._chatSessions.get(sessionId);
+    const metadata = session?.metadata as Record<string, unknown> | undefined;
+    const raw = metadata?.permission_mode;
+    if (typeof raw !== 'string') return undefined;
+    const normalized = raw.trim().toLowerCase();
+    return PERMISSION_MODES.find((mode) => mode.toLowerCase() === normalized);
   }
 
   /**

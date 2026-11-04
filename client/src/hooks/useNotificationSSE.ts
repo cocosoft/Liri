@@ -11,6 +11,9 @@
  * - P0-5: 断线重连后增量补拉列表（游标）—— 改由 `sseService` 的 `connection:open` 事件驱动；
  * - P1-1: 监听 inbox:new/inbox:update，若属于当前打开的会话则刷新该会话消息（决策卡片实时出现）；
  * - 阶段A-遗留2: 监听 session:continued，系统续跑（yield 恢复 / SelfWake 唤醒）完成后刷新当前会话消息。
+ * - P1（2026-11-04）: 监听 session:meta_updated，会话元数据（workMode / approvalMode /
+ *   permissionMode / toolProfile…）变更后单条重取，补齐跨窗口/标签页回填
+ *   （此前该广播**无任何订阅方**，另一端改完配置本端界面停留在旧值）。
  */
 
 import { useEffect } from "react";
@@ -23,6 +26,35 @@ import { useSleepNoticeStore } from "../stores/sleepNoticeStore";
 import { useEstopStore } from "../stores/estopStore";
 import { useResourceGovernorStore } from "../stores/resourceGovernorStore";
 import { useOutputGuardStore } from "../stores/outputGuardStore";
+
+/**
+ * P1（2026-11-04）：`session:meta_updated` 广播 → 单条会话重取并合并进列表。
+ *
+ * 背景：`PATCH /v1/sessions/:id/meta`（workMode / approvalMode / permissionMode / toolProfile…）
+ * 会广播该事件，但前端此前**没有订阅方** ⇒ 另一端（另一窗口/标签页）改完配置后，
+ * 本端界面一直显示旧值，直到整表刷新。这里补上单一订阅点。
+ *
+ * 为什么**重取**而不是直接套 payload：PATCH 体是 snake_case（`permission_mode`…），
+ * 而会话对象用的是 `flattenSession` 的 camelCase 投影 —— 重取即复用**同一份映射**，
+ * 避免第二套字段对照表漂移（CS01）。事件频率低（用户手动改配置），代价可忽略。
+ */
+function refreshSessionMeta(sessionId?: string): void {
+  if (!sessionId) return;
+  sessionService
+    .get(sessionId)
+    .then((session) => {
+      if (!session) return;
+      // 只更新列表里**已存在**的会话：不因一次元数据广播把陌生会话塞进列表
+      const exists = useRootStore
+        .getState()
+        .chatSessions.some((s) => s.id === session.id);
+      if (!exists) return;
+      useRootStore.getState().upsertChatSession(session);
+    })
+    .catch(() => {
+      /* 元数据回填失败静默：下次刷新或重开页面仍会拿到服务端值 */
+    });
+}
 
 /** P1-1: inbox 事件若属于当前打开的会话，则刷新该会话消息（追加/更新 InboxBlock） */
 function refreshSessionIfActive(sessionId?: string): void {
@@ -82,6 +114,11 @@ export function useNotificationSSE() {
     const onSessionContinued = (data: unknown): void =>
       refreshSessionIfActive((data as { id?: string }).id);
 
+    // P1（2026-11-04）：会话元数据变更（workMode / approvalMode / permissionMode / toolProfile…）
+    // → 单条重取并合并，跨窗口/标签页回填（此前无订阅方 ⇒ 界面停留在旧值）
+    const onSessionMetaUpdated = (data: unknown): void =>
+      refreshSessionMeta((data as { id?: string }).id);
+
     // 休眠检测：后端推送后弹出"是否继续执行积压任务"提示
     const onSleepDetected = (data: unknown): void => {
       const d = data as {
@@ -131,6 +168,7 @@ export function useNotificationSSE() {
     sseService.on("inbox:new", onInboxNew);
     sseService.on("inbox:update", onInboxUpdate);
     sseService.on("session:continued", onSessionContinued);
+    sseService.on("session:meta_updated", onSessionMetaUpdated);
     sseService.on("system:sleep_detected", onSleepDetected);
     sseService.on("system:estop_changed", onEstopChanged);
     sseService.on("system:resource_governor", onResourceGovernor);
@@ -147,6 +185,7 @@ export function useNotificationSSE() {
       sseService.off("inbox:new", onInboxNew);
       sseService.off("inbox:update", onInboxUpdate);
       sseService.off("session:continued", onSessionContinued);
+      sseService.off("session:meta_updated", onSessionMetaUpdated);
       sseService.off("system:sleep_detected", onSleepDetected);
       sseService.off("system:estop_changed", onEstopChanged);
       sseService.off("system:resource_governor", onResourceGovernor);

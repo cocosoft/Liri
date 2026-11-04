@@ -5,10 +5,9 @@
  * → 会话 `metadata.permission_mode`（本组件写入）→ 单次工具判定的临时覆盖。
  *
  * 事实来源 = 会话 `metadata.permission_mode`（后端唯一）：
- *   选择 → `PATCH /v1/sessions/:id/meta { permission_mode }` → 后端落库（并广播
- *   `session:meta_updated`）。**如实说明**：前端目前没有该广播的订阅方（同
- *   `ApprovalModeToggle` / `WorkModeToggle`），界面回显靠 `onChanged` 就地更新；
- *   跨端回填仍缺失，刷新页面后以服务端值为准。
+ *   选择 → `PATCH /v1/sessions/:id/meta { permission_mode }` → 后端落库并广播
+ *   `session:meta_updated`（订阅方：`hooks/useNotificationSSE.ts`，单条重取后合并）。
+ *   本组件同时用 `onChanged` **就地**更新本地缓存，避免等到回填才刷新。
  *
  * 口径（与后端一致，**不夸大**）：
  * - 本选择只决定「未命中 deny/用户显式规则的调用**默认怎么处理**」，

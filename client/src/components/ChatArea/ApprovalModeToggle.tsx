@@ -8,7 +8,7 @@
  *
  * 事实来源 = 会话 `metadata.approvalMode`（后端唯一）：
  *   单击 → `PATCH /v1/sessions/:id/meta { approval_mode }` → 后端落库 + 广播
- *   `session:meta_updated`（`useInitApp` 订阅后刷新，跨页面/多端回填）。
+ *   `session:meta_updated`（订阅方 `hooks/useNotificationSSE.ts`，单条重取后合并）。
  *
  * 开启需**二次确认**并说明范围（写操作只放行工作区内）；关闭即时生效、不确认。
  * 后端另有 `FEATURE_SESSION_AUTO_LOCAL` 开关（默认关）—— 开关置开但后端未启用时，

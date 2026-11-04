@@ -6,7 +6,7 @@
  *
  * 事实来源 = 会话 `metadata.workMode`（后端唯一）：
  *   单击 → `PATCH /v1/sessions/:id/meta { work_mode }` → 后端落库 + 广播
- *   `session:meta_updated`（`useInitApp` 订阅后刷新列表，实现跨页面/多端回填）
+ *   `session:meta_updated`（订阅方 `hooks/useNotificationSSE.ts`，单条重取后合并）
  *   同时**就地**更新本地会话缓存，保证单击后立即反馈（不等往返）。
  *
  * 视觉复用 `WorkModeBadge`（展示层唯一实现），未设置时按全局默认 `plan` 显示——

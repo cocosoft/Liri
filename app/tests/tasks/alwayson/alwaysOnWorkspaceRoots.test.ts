@@ -50,15 +50,16 @@ describe('P0-2：入口确实写入 metadata.workspaceRoots', () => {
   );
 
   it('创建 AlwaysOn 会话时预置项目根', () => {
+    // 2026-11-04 真机复核后：预置的是 targetRoot（= 所属仓库根，回退 project.path）
     expect(source).toContain(
-      'workspaceRoots: mergeWorkspaceRoots(project.path'
+      'workspaceRoots: mergeWorkspaceRoots(targetRoot, [])'
     );
   });
 
   it('每轮改 cwd 时把项目根一并写进根列表（存量会话自然回填）', () => {
-    // 调用点把 `project.path` 作为 targetRoot 传入
+    // 调用点把 `targetRoot` 作为 targetRoot 传入
     expect(source).toContain(
-      'setSessionWorkspace(sessionId, cwd, project.id, project.path)'
+      'setSessionWorkspace(sessionId, cwd, project.id, targetRoot)'
     );
     // 实现里用唯一合并口径生成 workspaceRoots
     expect(source).toContain('mergeWorkspaceRoots(');

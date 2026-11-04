@@ -73,6 +73,8 @@ import { listAll } from '../workspaces/WorkspaceRegistry';
 // P0-2（2026-11-04，issue #35）：工作区根列表的**唯一合并口径**（与权限层/执行前同一实现；
 // 已于同日下沉 infra —— 入口不得直连 `chat` 模块，见 eslint `no-direct-module-import`）
 import { mergeWorkspaceRoots } from '@openliri/infra/utils/toolContract/workspaceRoots';
+// P0-2 残留（2026-11-04 真机复核）：预置根取**所属仓库根**，而不是任务目标的叶子目录
+import { findEnclosingRepoRoot } from '@openliri/infra/utils/toolContract/repoRoot';
 
 const logger = getLogger('entrypoints:alwayson');
 
@@ -951,8 +953,13 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
       maxToolCalls: autonomyLimits.maxToolCalls,
       timeoutMinutes: autonomyLimits.timeoutMinutes,
     },
-    createBridge: (project, limits) =>
-      createAlwaysOnBridge({
+    createBridge: (project, limits) => {
+      // P0-2 残留（2026-11-04 真机复核）：预置根取**所属仓库根**（向上找 `.git`）。
+      // 只预置任务目标的叶子目录时，模型改兄弟目录即被判越界（15Z 实测 41 次：
+      // 根里只有 `app\src\ai\router`，而模型要读 `app\src\tasks\…`）。
+      // 找不到 `.git`（含目录不存在）⇒ 退回 `project.path`，行为与改造前逐字一致。
+      const targetRoot = findEnclosingRepoRoot(project.path) ?? project.path;
+      return createAlwaysOnBridge({
         projectId: project.id,
         projectName: project.name,
         projectPath: project.path,
@@ -968,10 +975,11 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
             // 执行阶段再按轮改到隔离区）—— 此前缺失 ⇒ 工具 cwd 落到 Liri 自身仓库。
             metadata: {
               workspacePath: project.path,
-              // P0-2（2026-11-04，issue #35）：把**任务真实目标目录**预置为工作区根
+              // P0-2（2026-11-04，issue #35）：把**任务真实目标根**预置为工作区根
               // —— 执行阶段 cwd 会切到隔离副本，若不预置，模型按真实项目路径读写一律
-              // 被判越界（旧 TTL 5 分钟的审批卡 ⇒ 等价于持续拒绝）
-              workspaceRoots: mergeWorkspaceRoots(project.path, []),
+              // 被判越界（旧 TTL 5 分钟的审批卡 ⇒ 等价于持续拒绝）。
+              // 真机复核后改为"所属仓库根"（见上方 targetRoot）：叶子目录授权不够用。
+              workspaceRoots: mergeWorkspaceRoots(targetRoot, []),
               workspaceId: id,
               // 2026-11-03：补齐项目归属 —— 此前只有 workspaceId，缺 projectId/moduleType
               // ⇒ 按 `projectId` / `moduleType=project` 过滤的列表与接口会漏掉自主会话
@@ -987,7 +995,7 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
         prepareWorkspace,
         finishWorkspace,
         setSessionWorkspace: (sessionId, cwd) =>
-          setSessionWorkspace(sessionId, cwd, project.id, project.path),
+          setSessionWorkspace(sessionId, cwd, project.id, targetRoot),
         // P34：会话映射落在 `workitems.session_id`（Ticket 持有会话），
         // 不再维护 `sessions.json`；重启后从工作项读回同一会话。
         loadSession: async (projectId) => {
@@ -1034,7 +1042,8 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
             updatedAt: Date.now(),
           });
         },
-      }),
+      });
+    },
   });
 
   // 记下句柄：设置页关闭开关时据此 teardown（未启动 ⇒ 不留陈句柄）

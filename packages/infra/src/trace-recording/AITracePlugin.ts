@@ -183,8 +183,15 @@ export class AITracePlugin {
     };
     if (isPending) {
       traceLogger.debug('trace:ai_call_pending', tracePayload);
-    } else {
+    } else if (isError || record.durationMs >= this.config.slowThresholdMs) {
+      // P2-1 第三批（2026-11-04）：`completed` 稳态降 debug —— 同一次调用的
+      // model/token/时长已有三处承载：`engine.record()`（traces 落盘 = 查看器数据源）、
+      // `LLM call recorded`（调用记录落库）与 `metric/timing`（用量校准）。
+      // 本行只保留**异常**（isError）与**慢尾**（≥ slowThresholdMs）的 INFO：
+      // 真机窗口内该行 60 009 条 / 19.0 MB 属纯重复。
       traceLogger.info('trace:ai_call', tracePayload);
+    } else {
+      traceLogger.debug('trace:ai_call', tracePayload);
     }
 
     // pending 分支：跳过 usage listeners / metrics / alerts（completed 才走全链路）

@@ -6,7 +6,8 @@
  * 覆盖：工具轮完整流程 / 无工具直接结束 / 工具错误 / 最大轮数。
  */
 
-import { describe, it, expect, beforeEach } from 'bun:test';
+import { describe, it, expect, beforeEach, spyOn } from 'bun:test';
+import { getLogger } from '@openliri/infra/monitoring';
 import { ReActToolLoop } from '../../src/chat/ReActToolLoop.js';
 import { reactEventsToChunks } from '../../src/chat/reactEventsToChunks.js';
 import type { ReActEvent } from '../../src/query/ReActLoop.js';
@@ -1143,30 +1144,26 @@ describe('ReActToolLoop：压缩失败暂停续接', () => {
 });
 
 /**
- * **主链工具执行日志可观测性**（B 类缺口 ④，2026-10-25）。
+ * **主链工具执行日志可观测性**（B 类缺口 ④，2026-10-25 → P2-1 调整，2026-11-04）。
  *
  * 缺口：工具**开始**此前仅 `logger.debug`（默认级别不可见），与 end 的 INFO/WARN 不对称 ⇒
- * 排查"工具跑了没"只能靠 end 逆推。修复：start 升 INFO（记录 toolName/toolCallId/sessionId）。
+ * 排查"工具跑了没"只能靠 end 逆推。当时把 start 升 INFO。
  *
- * 断言方式：`addLogHandler` 捕获全部日志（与 R2 压缩稳态豁免用例同构），按消息 key 过滤，
- * 并校验级别（info）与数据字段。
+ * P2-1（2026-11-04）：真机 `onToolCall start+end` 合计 47 430 条 / 22.5 MB ⇒ 改为
+ * 「逐工具 start/end 降 debug（失败 end 仍 WARN）+ **每轮一行** `reactToolLoop:round summary`（INFO）」，
+ * 开始→结束的可见性由汇总行承载。
+ *
+ * 断言方式：直接 spy 该模块 logger 实例（默认 INFO 级别下 debug 不进 `addLogHandler`）——
+ * 校验"哪条走哪个级别"与汇总行的计数字段。
  */
 describe('主链工具执行日志（onToolCall start/end，B 类缺口 ④）', () => {
-  interface SeenEntry {
-    level: string;
-    message: string;
-    data?: Record<string, unknown>;
-  }
-
-  it('工具轮：start 升 INFO 记录 + end 记录（成功路径）', async () => {
-    const seen: SeenEntry[] = [];
-    const off = addLogHandler((entry) => {
-      seen.push({
-        level: entry.level,
-        message: entry.message,
-        data: entry.data,
-      });
-    });
+  it('工具轮：逐工具 start/end 降 debug + 每轮一行 INFO 汇总', async () => {
+    // P2-1（2026-11-04）：真机 `onToolCall start+end` 合计 47 430 条 / 22.5 MB ⇒
+    // 逐工具明细降 debug，观测改由每轮一行 `reactToolLoop:round summary`（INFO）承载。
+    // 默认 INFO 级别下 debug 不进 handler ⇒ 直接 spy 该模块 logger 实例（门面缓存同一实例）。
+    const loopLogger = getLogger('chat:reactToolLoop');
+    const infoSpy = spyOn(loopLogger, 'info');
+    const debugSpy = spyOn(loopLogger, 'debug');
     try {
       const ctx = makeCtx({
         activeClient: {
@@ -1210,31 +1207,36 @@ describe('主链工具执行日志（onToolCall start/end，B 类缺口 ④）',
         if (e.type === 'iteration_end') break;
       }
 
-      const starts = seen.filter(
-        (e) => e.message === 'reactToolLoop:onToolCall start'
-      );
-      const ends = seen.filter(
-        (e) => e.message === 'reactToolLoop:onToolCall end'
-      );
+      const callsOf = (spy: ReturnType<typeof spyOn>, msg: string) =>
+        (spy.mock.calls as unknown[][]).filter((c) => c[0] === msg);
 
-      // start：必须可观测（INFO，不再被 DEBUG 默认过滤吞掉）
-      expect(starts.length).toBeGreaterThan(0);
-      expect(starts[0].level).toBe('info');
-      expect(starts[0].data).toMatchObject({
+      // 逐工具明细：INFO 不再出现（否则又是逐次放大）
+      expect(callsOf(infoSpy, 'reactToolLoop:onToolCall start').length).toBe(0);
+      expect(callsOf(infoSpy, 'reactToolLoop:onToolCall end').length).toBe(0);
+      const startDbg = callsOf(debugSpy, 'reactToolLoop:onToolCall start');
+      const endDbg = callsOf(debugSpy, 'reactToolLoop:onToolCall end');
+      expect(startDbg.length).toBeGreaterThan(0);
+      expect(startDbg[0][1]).toMatchObject({
         sessionId: 'sess-test',
         toolName: 'read',
         toolCallId: 'tc1',
       });
-      // end：成功路径 INFO + 状态
-      expect(ends.length).toBeGreaterThan(0);
-      expect(ends[0].level).toBe('info');
-      expect(ends[0].data).toMatchObject({
+      expect(endDbg.length).toBeGreaterThan(0);
+      expect(endDbg[0][1]).toMatchObject({ status: 'success' });
+
+      // 每轮汇总：INFO 一行，计数与工具名可用
+      const rounds = callsOf(infoSpy, 'reactToolLoop:round summary');
+      expect(rounds.length).toBeGreaterThan(0);
+      expect(rounds[0][1]).toMatchObject({
         sessionId: 'sess-test',
-        toolName: 'read',
-        status: 'success',
+        toolCount: 1,
+        success: 1,
+        failed: 0,
+        toolNames: ['read'],
       });
     } finally {
-      off();
+      infoSpy.mockRestore();
+      debugSpy.mockRestore();
     }
   });
 });

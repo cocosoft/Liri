@@ -462,7 +462,8 @@ export class ToolResultPostProcess {
         pendingApproval: isPendingApproval,
       });
     } else {
-      logger.info('reactToolLoop:onToolCall end', {
+      // P2-1（2026-11-04）：成功路径降 debug —— 每轮一行汇总见 `reactToolLoop:round summary`。
+      logger.debug('reactToolLoop:onToolCall end', {
         sessionId: this.deps.getCtx().session.id,
         toolName: tc.name,
         toolCallId: tc.id,

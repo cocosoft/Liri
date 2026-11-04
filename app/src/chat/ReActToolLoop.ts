@@ -837,6 +837,8 @@ export class ReActToolLoop extends ReActLoop<
         }
       }
 
+      // P2-1（2026-11-04）：本轮工具执行计时起点（每轮汇总 `reactToolLoop:round summary` 用）
+      const roundStart = Date.now();
       for (const tc of calls) {
         // LRO-09 步骤 1a：跳过结果的双写（results + processedResults）已抽到
         // `./toolRoundSkippedResult`（PAIR-FILL 说明见该模块头注释）。
@@ -1032,7 +1034,9 @@ export class ReActToolLoop extends ReActLoop<
         // 遗漏 3：safeStringify 防循环引用/BigInt 抛错中断整轮工具。
         const rawArgsJson = safeStringify(tc.input);
         // B 类可观测性缺口 ④（2026-10-25）：工具开始此前仅 DEBUG ⇒ 升 INFO（主链"开始→结束"全程可见）
-        logger.info('reactToolLoop:onToolCall start', {
+        // P2-1（2026-11-04）：**每轮汇总**口径 —— 逐工具 start/end 降 debug（真机 47 430 条 / 22.5 MB），
+        // 本轮结束由 `reactToolLoop:round summary` 一行承载（见循环尾部）。
+        logger.debug('reactToolLoop:onToolCall start', {
           sessionId: this.ctx.session.id,
           toolName: tc.name,
           toolCallId: tc.id,
@@ -1135,7 +1139,8 @@ export class ReActToolLoop extends ReActLoop<
             pendingApproval: isPendingApproval,
           });
         } else {
-          logger.info('reactToolLoop:onToolCall end', {
+          // P2-1（2026-11-04）：成功路径降 debug —— 每轮一行汇总见 `reactToolLoop:round summary`。
+          logger.debug('reactToolLoop:onToolCall end', {
             sessionId: this.ctx.session.id,
             toolName: tc.name,
             toolCallId: tc.id,
@@ -1269,6 +1274,22 @@ export class ReActToolLoop extends ReActLoop<
         results,
         processedResults
       );
+
+      // P2-1（2026-11-04）：**每轮汇总**一行 —— 替代逐工具 `onToolCall start/end` 的 INFO 放大
+      //（真机 47 430 条 / 22.5 MB）；失败细节仍在 `onToolCall end`（warn）与工具自身日志里。
+      if (results.length > 0) {
+        const failed = results.filter((r) => r.status === 'error').length;
+        logger.info('reactToolLoop:round summary', {
+          sessionId: this.ctx.session.id,
+          round: this.loopState.toolTurnCount,
+          toolCount: results.length,
+          success: results.length - failed,
+          failed,
+          roundElapsedMs: Date.now() - roundStart,
+          toolNames: results.map((r) => r.name),
+          onToolCallRegistered: !!this.ctx.onToolCall,
+        });
+      }
 
       // C. 下一轮消息回填（对齐旧类 L406-411）+ 轮次推进 + unifiedTracker（L413-419）
       // 2026-08-31 工具结果二级防御：超限结果落盘 + 路径引用（防 822KB 工具结果

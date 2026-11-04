@@ -23,15 +23,15 @@ describe('isSearchNoMatch：检索无匹配判定', () => {
     ).toBe(true);
   });
 
-  it('POSIX 管道与无管道检索都识别', () => {
+  it('管道识别；**无管道时不判无匹配**（无法区分缺文件）', () => {
     expect(
       isSearchNoMatch({ command: 'ls -R | grep mario', exitCode: 1 })
     ).toBe(true);
     expect(isSearchNoMatch({ command: 'grep foo file.txt', exitCode: 1 })).toBe(
-      true
+      false
     );
     expect(isSearchNoMatch({ command: 'rg "pattern"', exitCode: 1 })).toBe(
-      true
+      false
     );
   });
 
@@ -46,7 +46,10 @@ describe('isSearchNoMatch：检索无匹配判定', () => {
 
   it('.exe 后缀与前导引号不影响识别', () => {
     expect(
-      isSearchNoMatch({ command: '"findstr.exe" /i mario *.txt', exitCode: 1 })
+      isSearchNoMatch({
+        command: 'type a.txt | "findstr.exe" /i mario',
+        exitCode: 1,
+      })
     ).toBe(true);
   });
 

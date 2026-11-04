@@ -40,6 +40,10 @@ export function isSearchNoMatch(params: {
   if (params.exitCode !== 1) return false;
   if ((params.stdout ?? '').trim() || (params.stderr ?? '').trim())
     return false;
+  // F3b（2026-11-04，真实执行对照发现）：**必须有管道**。
+  // 反例：`findstr x missing.txt`（文件不存在）在本机同样是 exit 1 + 双空 ⇒
+  // 无管道时无法区分"文件缺失"与"检索无匹配"，不能归为成功。
+  if (!(params.command ?? '').includes('|')) return false;
   const segment = lastSegment(params.command ?? '');
   if (!segment) return false;
   // 输出重定向 ⇒ "无匹配"与"结果写进文件"不可区分

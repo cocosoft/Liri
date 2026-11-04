@@ -53,6 +53,13 @@ import {
   DEFAULT_RETENTION_WARN_RATIO,
   type RetentionResult,
 } from './retentionProbe';
+// P1-2（2026-11-04）：低保留时用**结构化事实**兜底（路径/命令；确定性抽取，无 LLM）
+import {
+  extractStructuredFacts,
+  renderStructuredFactsBlock,
+} from './structuredFacts';
+// P1-2（2026-11-04）：tier3 超时编排（主超时 → abort → 收敛宽限；保留已完成折叠）
+import { runTier3WithTimeout } from './tier3Timeout';
 import { compactionLockStore } from './CompactionLockStore';
 // G-05（2026-10-19）：剩余 USD 水位的**影子观察**（纯函数；不改压缩决策）
 import { evaluateUsdWaterlineShadow } from './usdWaterlineShadow';
@@ -104,6 +111,15 @@ async function getAiService() {
  * （max_tokens=2560，5 字段 ≤1400 字）与用户等待的折中，超时由 signal 真正中断。
  */
 const COMPACTION_TIMEOUT_MS = 60_000;
+
+/**
+ * P1-2（2026-11-04）：超时后等待内层**收敛**的宽限期。
+ *
+ * `abort` 只在批边界被检查（`runFullCompaction` 的折叠循环），因此超时瞬间内层可能
+ * 正在收尾：给一小段窗口等它返回**已完成折叠**的部分结果（`applied:true`），
+ * 而不是立刻丢弃、回退到 tier2。窗口极小（5s）且仍受原超时约束，不会拖长请求。
+ */
+const TIER3_ABORT_GRACE_MS = Math.min(5_000, COMPACTION_TIMEOUT_MS);
 
 /** R1（2026-09-16）：Tier3 迭代折叠——单批折叠源 token 预算（≤约 5 倍 max_tokens=2560，单次摘要可覆盖） */
 const FOLD_BATCH_SOURCE_TOKENS = 12_000;
@@ -830,33 +846,40 @@ export class CompactionOrchestrator {
 
   /**
    * Tier 3 LLM 压缩 + 独立超时（2026-08-13 根治超时问题）：
-   * 超时只中断 LLM 调用（signal 经 aiService/OpenAIProvider 透传真正 abort，消灭僵尸请求），
-   * 超时返回 applied:false → 调用方保留 Tier2 结果（不再丢弃已完成压缩成果）。
+   * 超时只中断 LLM 调用（signal 经 aiService/OpenAIProvider 透传真正 abort，消灭僵尸请求）。
    * 与旧实现"Promise.race 整体超时丢弃整个 _doCompact"的区别：Tier1/2 同步毫秒级不受限。
+   *
+   * P1-2（2026-11-04）：超时不再**立即丢弃**已完成的折叠批次 —— 交给
+   * `runTier3WithTimeout`（主超时 → abort → 宽限收敛窗口），能拿回部分结果就采用，
+   * 拿不回才回退 tier2（`fallbackMessages`）。
    */
   private async _runFullCompactionWithTimeout(
     messages: ChatMessage[],
     ctx: CompactionContext
   ): Promise<CompactionOutcome> {
     const abortCtrl = new AbortController();
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
-    try {
-      return await Promise.race([
-        this.runFullCompaction(messages, ctx, abortCtrl.signal),
-        new Promise<CompactionOutcome>((resolve) => {
-          timeoutId = setTimeout(() => {
-            abortCtrl.abort();
-            logger.warn('compaction:❌tier3 超时（保留 tier2 结果）', {
-              sessionId: ctx.sessionId,
-              timeoutMs: COMPACTION_TIMEOUT_MS,
-            });
-            resolve({ messages, applied: false });
-          }, COMPACTION_TIMEOUT_MS);
-        }),
-      ]);
-    } finally {
-      if (timeoutId !== undefined) clearTimeout(timeoutId);
+    const { outcome, timedOut, keptPartial } = await runTier3WithTimeout({
+      work: this.runFullCompaction(messages, ctx, abortCtrl.signal),
+      abort: () => abortCtrl.abort(),
+      timeoutMs: COMPACTION_TIMEOUT_MS,
+      graceMs: TIER3_ABORT_GRACE_MS,
+      fallbackMessages: messages,
+    });
+    if (timedOut) {
+      if (keptPartial) {
+        logger.warn('compaction:tier3 超时但保留已完成折叠', {
+          sessionId: ctx.sessionId,
+          timeoutMs: COMPACTION_TIMEOUT_MS,
+          afterTokens: estimateMessagesTokens(outcome.messages),
+        });
+      } else {
+        logger.warn('compaction:❌tier3 超时（保留 tier2 结果）', {
+          sessionId: ctx.sessionId,
+          timeoutMs: COMPACTION_TIMEOUT_MS,
+        });
+      }
     }
+    return outcome;
   }
 
   /**
@@ -911,6 +934,8 @@ export class CompactionOrchestrator {
       const folded: string[] = []; // 已摘除早轮摘要（按旧→新顺序）
       // M5（2026-10-06）：各批「折叠区保留度」——source = 被折叠批原文 / target = 该批摘要
       const retentionResults: RetentionResult[] = [];
+      /** P1-2：本次压缩中因保留度不达标而补挂「结构化事实」的批数 */
+      let factsInjected = 0;
       let pool = [...toCompress]; // 尚未处理的中间+近期消息（旧→新）
       let iteration = 0;
       // P1-16（2026-10-05）：跨批 usage 累加器——迭代折叠的各批摘要调用用量逐批累加，
@@ -973,17 +998,49 @@ export class CompactionOrchestrator {
           break;
         }
 
-        folded.push(summary);
         // M5（2026-10-06）：折叠区保留度探针（纯函数、无 LLM）—— 度量"摘要是否保留了被折叠批
-        // 的关键实体"。**仅观测**（不改变压缩结果）；不达标在记录处告警（阈值 DEFAULT_RETENTION_WARN_RATIO）。
-        retentionResults.push(
-          measureRetention(
-            batch
-              .map((m) => (typeof m.content === 'string' ? m.content : ''))
-              .join('\n'),
-            summary
-          )
+        // 的关键实体"。不达标在记录处告警（阈值 DEFAULT_RETENTION_WARN_RATIO）。
+        const batchRetention = measureRetention(
+          batch
+            .map((m) => (typeof m.content === 'string' ? m.content : ''))
+            .join('\n'),
+          summary
         );
+        retentionResults.push(batchRetention);
+        // P1-2（2026-11-04）：保留度不达标（或该批没有可度量的文本实体，典型是纯工具批）
+        // ⇒ 把**结构化事实**（路径/命令）补在摘要后，避免低保留时把可复用的硬事实一起丢掉
+        //（实测 ratio 0.007 / 2172→16）。摘要里已出现的事实不重复追加；
+        // 事实块不得让摘要反超被折叠批（否则会触发"折叠无效果"），故先算 token 再定。
+        let finalSummary = summary;
+        const lowRetention =
+          batchRetention.total > 0 &&
+          batchRetention.ratio < DEFAULT_RETENTION_WARN_RATIO;
+        const retentionUnmeasurable = batchRetention.total === 0;
+        if (lowRetention || retentionUnmeasurable) {
+          const facts = extractStructuredFacts(batch);
+          const block = renderStructuredFactsBlock(facts, {
+            alreadyPresentIn: summary,
+          });
+          if (block) {
+            const withFacts = `${summary}\n\n${block}`;
+            const withFactsTokens = estimateMessagesTokens([
+              { role: 'system', content: withFacts } as ChatMessage,
+            ]);
+            if (withFactsTokens < batchTokens) {
+              finalSummary = withFacts;
+              factsInjected++;
+              logger.info('compaction:structured_facts_injected', {
+                sessionId: ctx.sessionId,
+                retentionRatio: Number(batchRetention.ratio.toFixed(3)),
+                retentionTotal: batchRetention.total,
+                paths: facts.paths.length,
+                commands: facts.commands.length,
+                addedTokens: withFactsTokens - summaryTokens,
+              });
+            }
+          }
+        }
+        folded.push(finalSummary);
         iteration++;
 
         // 目标窗口检查：head + 已折叠占位 + 未折叠 pool 已进入目标 → 停
@@ -1058,6 +1115,8 @@ export class CompactionOrchestrator {
         afterTokens,
         foldedBatches: folded.length,
         iterations: iteration,
+        // P1-2：有多少批因保留度不达标而补挂了结构化事实（0 ⇒ 行为与改造前逐字一致）
+        factsInjected,
       });
 
       // P1-16（2026-10-05）：迭代折叠为多次摘要调用——把各批 usage 累加后写入信封

@@ -48,6 +48,8 @@ import { UUID_RE } from '@openliri/kernel';
 import { getOTelTracing } from '@openliri/infra/monitoring/otel/OTelTracing';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { ModelRegistry } from './models/ModelRegistry.js';
+// C1：工具能力判定用枚举（与 DB 写入侧同一词汇表，避免裸字符串）
+import { ModelCapability } from './models/types.js';
 import type { APIProvider } from './models/ModelConfigs.js';
 import type { AppModelConfigService } from './models/AppModelConfigService';
 import {
@@ -358,6 +360,18 @@ const DEFAULT_TASK_CAPABILITY: Partial<Record<TaskType, string[]>> = {
   reranking: ['reranking'],
 };
 
+/**
+ * C1：**确实要用工具**的任务类型。
+ *
+ * `agent` = 长程/PDCA 步骤与子代理（`EXECUTOR_ROLE.taskType`），`coding` = 代码生成与调试。
+ * 这两类任务若派给"不支持工具调用"的模型，只能空转（真机证据：Ollama qwen3.6-27b
+ * 长程步骤返回 `does not support tools`，单轮被拖到 6 分钟）。
+ */
+const TOOL_REQUIRED_TASK_TYPES: ReadonlySet<TaskType> = new Set<TaskType>([
+  'agent',
+  'coding',
+]);
+
 /** 动态任务-能力映射缓存 */
 let taskCapabilityMapping: Partial<Record<TaskType, string[]>> = {
   ...DEFAULT_TASK_CAPABILITY,
@@ -451,6 +465,9 @@ export class ModelRouter {
 
   /** S3: 用户自定义阶段→模型直配映射（值为模型 UUID 或模型名；空则回退 DEFAULT_PHASE_TASK_MAP） */
   private _phaseMapping: Partial<Record<PdcaPhase, string>> = {};
+
+  /** C1：已告警过的「任务:模型」组合（每进程只告警一次，避免长会话刷屏） */
+  private _toolCapabilityWarned = new Set<string>();
 
   private constructor(options?: ModelRouterOptions) {
     this.defaultModel = options?.defaultModel || '';
@@ -946,8 +963,53 @@ export class ModelRouter {
    * 与 resolve() 的区别：UUID 缓存未命中时，resolve() 返回空字符串并异步预加载；
    * resolveAsync() 则同步查 DB 并填充缓存，确保当前请求不返回空。
    * 适合作为 resolveModelRoute() 等关键路径的入口。
+   *
+   * C1（2026-11-04）：解析出口统一做一次**工具能力比对**（只告警，见
+   * `warnToolCapabilityMismatch`）。chat / 长程 / 子代理共用本入口 ⇒ 单点覆盖。
    */
   async resolveAsync(taskType: TaskType): Promise<string> {
+    const modelId = await this.resolveAsyncCore(taskType);
+    this.warnToolCapabilityMismatch(taskType, modelId);
+    return modelId;
+  }
+
+  /**
+   * C1（2026-11-04）**告警版**加固：任务确实要用工具，而目标模型未声明工具能力时告警。
+   *
+   * 为什么先告警而非拦截：`validateTaskAssignment()` 是**只读**校验接口，直接拦截会让
+   * 历史上"配错但能跑"的任务立刻失败（属产品口径决策，见
+   * `dev_docs/20261104/统一策略层方案-权限工具长程与模式详略路径-20261104.md` §C1）。
+   * 观察一周无告警误报后，再把本方法升级为返回可读错误并中断派发。
+   *
+   * 只对**显式声明了 capabilities** 的模型判定：空/未声明无法区分"不支持"与"没填"，
+   * 告警只会是噪声（CS03）。同一「任务:模型」每进程只告警一次。
+   */
+  private warnToolCapabilityMismatch(
+    taskType: TaskType,
+    modelId: string
+  ): void {
+    if (!modelId || !TOOL_REQUIRED_TASK_TYPES.has(taskType)) return;
+    const dedupKey = `${taskType}:${modelId}`;
+    if (this._toolCapabilityWarned.has(dedupKey)) return;
+
+    const capabilities =
+      ModelRegistry.getInstance().getModel(modelId)?.capabilities;
+    if (!capabilities?.length) return;
+    if (
+      capabilities.includes(ModelCapability.TOOL_USE) ||
+      capabilities.includes(ModelCapability.FUNCTION_CALLING)
+    ) {
+      return;
+    }
+
+    this._toolCapabilityWarned.add(dedupKey);
+    logger.warning(
+      `ModelRouter: 任务 ${taskType} 的模型 ${modelId} 未声明工具能力（tool_use / function_calling），该任务的工具调用可能直接失败`,
+      { task: taskType, model: modelId, capabilities }
+    );
+  }
+
+  private async resolveAsyncCore(taskType: TaskType): Promise<string> {
     const otel = getOTelTracing();
     const span = otel.startSpan('modelRouter.resolveAsync', {
       'task.type': taskType,

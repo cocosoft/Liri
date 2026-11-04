@@ -106,7 +106,7 @@ function installRecordingStream(
 async function waitForState(
   outbox: SettlementOutbox,
   id: number,
-  expected: 'delivered' | 'failed',
+  expected: 'delivered' | 'failed' | 'dropped',
   timeoutMs = 2000
 ): Promise<string | undefined> {
   const start = Date.now();

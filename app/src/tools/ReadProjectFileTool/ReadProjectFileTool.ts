@@ -21,7 +21,7 @@ import { handleError } from '@openliri/infra/error';
 import { resolveDataDir } from '@openliri/infra/environment';
 import { createProjectStore } from '../../workspace/ProjectStore.js';
 import { WorkItemStore } from '../../workspace/WorkItemStore.js';
-import { readFileSync, existsSync, realpathSync } from 'fs';
+import { readFileSync, existsSync, realpathSync, statSync } from 'fs';
 import { resolve, join, normalize } from 'path';
 
 const logger = getLogger('tools:read_project_file');
@@ -161,6 +161,19 @@ export class ReadProjectFileTool {
                 },
               ],
             });
+          }
+
+          // P2-2（2026-11-04，《运行态问题排查与修复方案》）：**读前判目录**。
+          // 真机实测 `read_project_file` 对目录调用 ⇒ `EISDIR: illegal operation on a
+          // directory, read`（裸系统错误，模型只能重复同一调用）。此处给出可执行出路：
+          // 目录内容要用 glob / list，而不是"再读一次"。
+          if (statSync(realPath).isDirectory()) {
+            span.setStatus({ code: SpanStatusCode.OK });
+            return failProjectTool(
+              `这是一个目录，不是文件: ${relativePath}\n` +
+                '请改用 glob / list 查看目录内容，或指定目录下的具体文件后重试（不要重复对目录调用本工具）。',
+              ErrorLevel.RECOVERABLE
+            );
           }
 
           const content = readFileSync(realPath, 'utf-8');

@@ -16,7 +16,10 @@
  */
 
 import type { ChatSession } from '@modules/session/types/session';
-import { resolveSessionWorkspacePath } from '../services/toolCwdScope';
+import {
+  mergeWorkspaceRoots,
+  resolveSessionWorkspacePath,
+} from '../services/toolCwdScope';
 import {
   getProjectSandboxPath,
   type ProjectStoreLike,
@@ -50,4 +53,26 @@ export function getSessionWorkspacePath(
     metadata.workspacePath = resolved;
   }
   return resolved;
+}
+
+/**
+ * P1（2026-11-04，方案 §3.6）：会话**工作区根列表**（`resolveRoots` 的唯一实现）。
+ *
+ * - 首根 = {@link getSessionWorkspacePath}（`workspacePath` 或 `projectId → sandboxPath`，
+ *   并沿用其回写语义 ⇒ 与工具 cwd 同一事实来源）；
+ * - 其余 = `metadata.workspaceRoots`（用户批准越界申请时追加，写入时已父子折叠）。
+ *
+ * 原实现（`ChatManager.getSessionWorkspaceRoots`）只读 `metadata.workspacePath`，
+ * 对"仅有 projectId 的项目会话"会漏掉主根 ⇒ 权限层与执行前判定各自回落单根，口径不一致。
+ */
+export function getSessionWorkspaceRoots(
+  host: WorkspacePathHost,
+  sessionId?: string
+): string[] {
+  if (!sessionId) return [];
+  const primary = getSessionWorkspacePath(host, sessionId);
+  const metadata = host.getSession(sessionId)?.metadata as
+    | Record<string, unknown>
+    | undefined;
+  return mergeWorkspaceRoots(primary, metadata?.workspaceRoots);
 }

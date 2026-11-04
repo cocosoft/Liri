@@ -1419,7 +1419,9 @@ export class PermissionManager {
       | 'userRole'
       | 'metadata'
       | 'approvalMode'
+      | 'permissionMode'
       | 'workspacePath'
+      | 'workspaceRoots'
     > & {
       /**
        * PR-3a（2026-10-23）：本次执行的沙箱上下文（由执行入口注入）。
@@ -1470,7 +1472,12 @@ export class PermissionManager {
       metadata: context?.metadata,
       // PR-3：会话级审批模式与工作区边界（缺失 ⇒ 与改造前一致：ask + 无自动放行）
       approvalMode: context?.approvalMode,
+      // P1（2026-11-04）：会话级权限模式 —— **必须在此透传**，否则执行链（唯一真实入口
+      // `checkPermissionForTool`）断在 `createPermissionContext`，会话档位形同未接线。
+      permissionMode: context?.permissionMode,
       workspacePath: context?.workspacePath,
+      // P1（2026-11-04，§3.6）：工作区根列表（缺省 ⇒ 边界判定回落单根 workspacePath）
+      workspaceRoots: context?.workspaceRoots,
       // PR-3a：沙箱信号（缺失 ⇒ undefined，审批卡不写该字段 ⇒ 视为"未沙箱"）
       sandbox: context?.sandbox,
     });

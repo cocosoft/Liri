@@ -89,4 +89,20 @@ describe('P1：会话级 permissionMode 覆盖进程默认档', () => {
       expect(b.type).toBe('ask');
     });
   });
+
+  /**
+   * 2026-11-04 补测：**执行链**（`checkPermissionForTool`，Agent 工具执行的唯一入口）
+   * 曾把 `context.permissionMode` 丢在 `createPermissionContext` 之前 ⇒ 会话档位形同未接线。
+   * 本用例锁定该透传（判定为 allow，不触发 Inbox 提交）。
+   */
+  it('执行链 checkPermissionForTool 同样透传会话模式', async () => {
+    await withProcessMode('alwaysAsk', async (pm) => {
+      const r = await pm.checkPermissionForTool(
+        PROBE_TOOL,
+        {},
+        { sessionId: 'sess-chain', permissionMode: 'bypass' }
+      );
+      expect(r.allowed).toBe(true);
+    });
+  });
 });

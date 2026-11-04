@@ -122,6 +122,35 @@ export function resolveRequestWorkspaceUpdate(input: {
 }
 
 /**
+ * P1（2026-11-04，方案 §3.6）：会话**工作区根列表**的合并口径（纯函数，唯一实现）。
+ *
+ * 口径：`primary`（主工作区，恒在首） + `metadata.workspaceRoots`（用户批准越界申请时追加，
+ * 见 `runtime/inboxApproval.ts`，写入时已做父子折叠）。去重按"去尾斜杠 + 小写"归一
+ * （Windows 大小写不敏感；与 `getSessionWorkspaceRoots` 原实现逐字同口径）。
+ *
+ * 消费方：权限层 `auto-local` 边界（`findWorkspaceEscapeInRoots`）与执行前严格边界
+ * （`ToolExecutionService`）。**不得**再各写一份拼接/去重逻辑。
+ */
+export function mergeWorkspaceRoots(
+  primary: string | undefined,
+  extra: unknown
+): string[] {
+  const normalize = (p: string) => p.replace(/[\\/]+$/, '').toLowerCase();
+  const roots: string[] = [];
+  const seen = new Set<string>();
+  const push = (candidate: unknown): void => {
+    if (typeof candidate !== 'string' || !candidate.trim()) return;
+    const key = normalize(candidate);
+    if (seen.has(key)) return;
+    seen.add(key);
+    roots.push(candidate);
+  };
+  push(primary);
+  if (Array.isArray(extra)) for (const root of extra) push(root);
+  return roots;
+}
+
+/**
  * P0（2026-11-03，`dev_docs/20261103/工具cwd无效根因与修复方案-20261103.md`）：
  * **会话工作区可用性**判定（缺失 / 不是目录 / 无法 stat）。
  *

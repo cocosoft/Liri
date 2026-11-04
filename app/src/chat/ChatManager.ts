@@ -46,6 +46,8 @@ import {
   getOrCreateSessionMachine,
 } from './services/ChatHelper';
 import { ChatEventLogStore } from './manager/eventLogStore';
+// P1（2026-11-04，§3.6）：工作区根列表唯一解析（主根与工具 cwd 同源）
+import { getSessionWorkspaceRoots as resolveSessionWorkspaceRoots } from './manager/workspacePath';
 import { ChatRequestPrep } from './manager/requestPrep';
 import { ChatRollback } from './manager/rollback';
 import type { PendingInteractionEntry } from '@openliri/infra/utils/pendingInteractions';
@@ -1714,38 +1716,20 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
-   * B1（2026-10-30，issue #35）：会话的**工作区根列表**（首根 = `workspacePath`）。
+   * B1（2026-10-30，issue #35）：会话的**工作区根列表**（首根 = 主工作区）。
    *
-   * `metadata.workspaceRoots` 由用户批准越界申请时追加（见 `runtime/inboxApproval.ts`）；
-   * 未声明 ⇒ 只返回主工作区（与改造前单根语义逐字一致）。
-   * 仅在 `FEATURE_WORKSPACE_MULTI_ROOT` 开启时被消费。
+   * P1（2026-11-04，方案 §3.6）：实现收敛到 `manager/workspacePath.getSessionWorkspaceRoots`
+   * —— 主根与工具 cwd 同源（`workspacePath` 或 `projectId → sandboxPath`），
+   * `metadata.workspaceRoots` 由用户批准越界申请时追加（见 `runtime/inboxApproval.ts`）。
    */
   private getSessionWorkspaceRoots(sessionId?: string): string[] {
-    if (!sessionId) return [];
-    const session = this._chatSessions.get(sessionId);
-    const metadata = session?.metadata as Record<string, unknown> | undefined;
-    const extra = Array.isArray(metadata?.workspaceRoots)
-      ? (metadata.workspaceRoots as unknown[]).filter(
-          (r): r is string => typeof r === 'string' && r.trim().length > 0
-        )
-      : [];
-    const primary =
-      typeof metadata?.workspacePath === 'string' &&
-      metadata.workspacePath.trim()
-        ? metadata.workspacePath
-        : undefined;
-    if (!primary) return extra;
-    const normalized = (p: string) => p.replace(/[\\/]+$/, '').toLowerCase();
-    const seen = new Set([normalized(primary)]);
-    return [
-      primary,
-      ...extra.filter((r) => {
-        const key = normalized(r);
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      }),
-    ];
+    return resolveSessionWorkspaceRoots(
+      {
+        getSession: (id) => this._chatSessions.get(id),
+        projectSandboxStoreRef: this._projectSandboxStoreRef,
+      },
+      sessionId
+    );
   }
 
   /**

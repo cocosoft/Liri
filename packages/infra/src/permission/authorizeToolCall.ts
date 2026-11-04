@@ -34,6 +34,11 @@ export interface ToolAuthorizeContext {
   permissionMode?: PermissionMode;
   /** 会话工作区路径（`auto-local` 的写边界） */
   workspacePath?: string;
+  /**
+   * P1（2026-11-04，方案 §3.6）：会话工作区**根列表**（首根 = 主工作区）。
+   * 缺省 ⇒ 权限层回落单根 `workspacePath`（行为不变）。
+   */
+  workspaceRoots?: string[];
   /** 本次执行的沙箱信号（仅审批卡留证，不参与判定） */
   sandbox?: unknown;
   /** 非幂等工具重试 ⇒ 本应放行的决策升级为 ask */

@@ -66,6 +66,15 @@ export interface PermissionContext {
   workspacePath?: string;
 
   /**
+   * P1（2026-11-04，方案 §3.6）：会话的**工作区根列表**（首根 = 主工作区）。
+   *
+   * 由执行入口按 `sessionId` 统一解析后注入（`resolveRoots`），消费方只有
+   * `auto-local` 的边界判定：任一根之内即视为在界内（`findWorkspaceEscapeInRoots`）。
+   * 缺省 ⇒ 回落到单根 `workspacePath`（与改造前逐字一致）。
+   */
+  workspaceRoots?: string[];
+
+  /**
    * PR-3a（2026-10-23）：本次执行的**沙箱上下文**（由执行入口注入）。
    *
    * 当前只用于审批卡留证（`sandboxMode` / `sandboxPermissionLevel`），
@@ -94,6 +103,8 @@ export function createPermissionContext(params: {
   permissionMode?: PermissionMode;
   /** PR-3：会话工作区路径（`auto-local` 的写边界） */
   workspacePath?: string;
+  /** P1（2026-11-04）：会话工作区根列表（缺省 ⇒ 回落单根 `workspacePath`） */
+  workspaceRoots?: string[];
   /** PR-3a：本次执行的沙箱上下文（仅供审批卡留证，不改判定） */
   sandbox?: SandboxExecutionSignal;
 }): PermissionContext {
@@ -107,6 +118,7 @@ export function createPermissionContext(params: {
     approvalMode: params.approvalMode,
     permissionMode: params.permissionMode,
     workspacePath: params.workspacePath,
+    workspaceRoots: params.workspaceRoots,
     sandbox: params.sandbox,
   };
 }

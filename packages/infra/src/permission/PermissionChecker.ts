@@ -32,7 +32,7 @@ import { configManager } from '@openliri/infra/config';
 import { getLogger } from '@openliri/infra/monitoring';
 import { isShellToolName } from '@openliri/infra/utils/toolContract/toolRoles';
 import type { ToolSandboxLevel } from '@openliri/infra/utils/toolContract/Tool';
-import { findWorkspaceEscape } from '@openliri/infra/utils/toolContract/pathBoundary';
+import { findWorkspaceEscapeInRoots } from '@openliri/infra/utils/toolContract/pathBoundary';
 import { PATH_ARG_KEYS } from '@openliri/infra/utils/toolContract/pathArgs';
 // PR-3b（2026-10-23）：沙箱豁免判定（纯函数，§3.9.4 S1–S4）
 import { resolveSandboxExemption } from './sandboxExemption';
@@ -549,8 +549,18 @@ export class PermissionChecker {
       });
     };
 
-    const workspace = context.workspacePath;
-    if (!workspace) {
+    // P1（2026-11-04，方案 §3.6）：边界判定统一用**工作区根列表**（由执行入口的
+    // `resolveRoots` 注入）。灰度口径与执行前严格边界一致：`WORKSPACE_MULTI_ROOT` 关
+    // ⇒ 只认单根 `workspacePath`（与改造前逐字一致）；开 ⇒ 任一根之内即视为界内。
+    const roots =
+      feature('WORKSPACE_MULTI_ROOT') &&
+      context.workspaceRoots &&
+      context.workspaceRoots.length > 0
+        ? context.workspaceRoots
+        : context.workspacePath
+          ? [context.workspacePath]
+          : [];
+    if (roots.length === 0) {
       auditSkip('no-workspace');
       return null;
     }
@@ -561,12 +571,13 @@ export class PermissionChecker {
       auditSkip('no-path-arg');
       return null;
     }
-    const escape = findWorkspaceEscape(workspace, input);
+    const escape = findWorkspaceEscapeInRoots(roots, input);
     if (escape) {
       auditSkip('outside-workspace', {
         argKey: escape.key,
         resolved: escape.resolved,
         via: escape.via,
+        roots,
       });
       return null;
     }
@@ -576,7 +587,7 @@ export class PermissionChecker {
       toolName,
       risk,
       basis: 'auto-local + workspace-bounded write',
-      workspace,
+      roots,
     });
     // PR-3c（2026-10-23）：同一决策落安全审计通道（可查 / 可统计）
     this._auditAutoAllow(

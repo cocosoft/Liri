@@ -998,6 +998,12 @@ export class ToolExecutionService {
           ),
           workspacePath:
             this.deps.getSessionWorkspacePath(toolCall.sessionId) ?? undefined,
+          // P1（2026-11-04，方案 §3.6）：工作区**根列表**同源注入 —— 权限层 `auto-local`
+          // 的边界判定据此"任一根之内即放行"（此前只认单根 `workspacePath`，
+          // 与执行前严格边界用多根的口径不一致）。取不到 ⇒ 权限层回落单根。
+          workspaceRoots:
+            this.deps.getSessionWorkspaceRoots?.(toolCall.sessionId) ??
+            undefined,
           // PR-3a（2026-10-23）：沙箱信号 —— 审批卡留证 + PR-3b 豁免判定。
           // 方案 A（同批）：文件类工具（`file-io`）若真在容器/远端工作区执行，则由
           // `modeHint` 如实上报（Landlock 只包命令子进程，不代表文件 IO 被隔离）；

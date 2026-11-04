@@ -65,6 +65,17 @@ export interface BudgetSnapshot {
 }
 
 /**
+ * 主口径档位是否已「额度用尽」（`locked`）。
+ *
+ * 预算状态词的**单一事实源**在本文件（`BudgetMode`）；把字面量比较也收在这里，
+ * 避免各判定点（`budgetGate` / `dailyBudgetGate`）各自散写状态字面量
+ * （`lint:state-ratchet` 的 Register-or-Fail 口径）。
+ */
+export function isBudgetModeLocked(mode: BudgetMode): boolean {
+  return mode === 'locked';
+}
+
+/**
  * 金额（USD）→ 展示串：最少 2 位、最多 4 位小数（与前端 `formatUsd` 同口径）。
  *
  * ⚠️ **有意 `en-US`**（硬编码治理 `HD-P2-5`，2026-10-14）：USD 属于**金额口径**（货币符号 +

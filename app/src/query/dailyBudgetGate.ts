@@ -32,6 +32,8 @@
 import { getDailyBudget } from './DailyBudgetManager.js';
 import { formatBudget, formatBudgetExhausted } from './dailyBudgetSnapshot.js';
 import type { BudgetSnapshot } from './dailyBudgetSnapshot.js';
+import { evaluateBudgetGate } from './budgetGate.js';
+import type { BudgetBlockedBy } from './budgetGate.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { getLogger } from '@openliri/infra/monitoring';
 
@@ -106,7 +108,11 @@ export function shouldLogBudgetDecisionAtInfo(decision: {
 export function checkDailyBudget(input: {
   sessionId: string;
   estimatedTokens: number;
-}): { allowed: boolean; snapshot: BudgetSnapshot } {
+}): {
+  allowed: boolean;
+  blockedBy: BudgetBlockedBy | null;
+  snapshot: BudgetSnapshot;
+} {
   const budget = getDailyBudget();
   // ⚠️ 顺序敏感：`getMode()` 内含 `_rolloverIfNeeded()`（跨日归零 / 欠账扣回）⇒
   // 必须在读 `getUsdState()` **之前**，否则会看到昨日的 `usedUsd`。
@@ -120,7 +126,10 @@ export function checkDailyBudget(input: {
   // 硬闸门判据 = **主口径档位**（`_computeState` 仅在 USD 主口径下产出 `locked`；
   // kill-switch 任何口径下都产 `locked`）。Token 口径恒 `normal` ⇒ 天然不拦。
   const primaryAllows = state.mode !== 'locked';
-  const allowed = !killSwitch && (waiver || primaryAllows);
+  // P2 待办 2/2（2026-11-04）：判定式与"为什么被拦"的理由词汇收敛到 `budgetGate`
+  // （唯一实现，不在这里再写一遍 `!killSwitch && (waiver || …)`）。
+  const verdict = evaluateBudgetGate({ mode: state.mode, killSwitch, waiver });
+  const allowed = verdict.allowed;
 
   // 观测日志：硬闸门（主口径）+ Token 观测轨并排如实记录，便于核对"两者是否已分离"。
   const tokenBase = budget.getConfigSnapshot().dailyLimit;
@@ -149,6 +158,8 @@ export function checkDailyBudget(input: {
     killSwitch,
     waiver,
     allowed,
+    /** 拒发理由（`kill_switch` / `budget_limit`）：日志与拒绝载荷共用同一词汇 */
+    blockedBy: verdict.blockedBy,
   };
   // P2-1（2026-11-04）：稳态放行降 debug（真机 56 583 条 / 26.9 MB）；
   // 拒发 / 越界放行 / kill-switch / waiver 仍 INFO（哨兵口径见 `shouldLogBudgetDecisionAtInfo`）。
@@ -166,7 +177,11 @@ export function checkDailyBudget(input: {
   }
 
   // 快照**恒取主口径**（S3：不再"只在拒发时才切金额"）。
-  return { allowed, snapshot: budget.getSnapshot() };
+  return {
+    allowed,
+    blockedBy: verdict.blockedBy,
+    snapshot: budget.getSnapshot(),
+  };
 }
 
 /**
@@ -204,11 +219,13 @@ export function resolveEntryBudgetDenial(input: {
       '放行方式：在桌面端「用量中心 → 日限额」临时提额 / 今日解除（或调高每日上限）后重试。',
     context: {
       entry: input.entry,
-      // S3：口径随快照（USD 轨启用 ⇒ 金额）—— `dailyLimit`/`todayUsed` 均为**主口径**值。
+      // 口径随快照（USD 轨启用 ⇒ 金额）—— `dailyLimit`/`todayUsed` 均为**主口径**值。
       unit: decision.snapshot.unit,
       todayUsed: decision.snapshot.used,
       dailyLimit: decision.snapshot.limit,
       estimateThisRound: input.estimatedTokens,
+      // 拒发理由（`kill_switch` / `budget_limit`）：与 `dailyBudgetGate:decision` 日志同一词汇
+      blockedBy: decision.blockedBy,
     },
   };
 }

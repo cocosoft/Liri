@@ -259,6 +259,7 @@ function guardExecutorWithDailyBudget(
           todayUsed: decision.snapshot.used,
           dailyLimit: decision.snapshot.limit,
           estimateThisRound: estimatedTokens,
+          blockedBy: decision.blockedBy,
         }
       );
     }

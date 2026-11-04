@@ -169,11 +169,22 @@ describe('S3 · 源码守卫（防回流到「双轨从严」/「Token 拦停」
       join(import.meta.dir, '../../src/query/dailyBudgetGate.ts'),
       'utf8'
     );
-    expect(src).not.toContain('tokenAllowed && !usdExceeded');
-    // 判定式必须**只**看主口径档位（Token 轨不再有分支）
-    expect(src).toMatch(
-      /const allowed = !killSwitch && \(waiver \|\| primaryAllows\);/
+    // P2 待办 2/2（2026-11-04）：判定式与拒绝理由收敛到 `budgetGate`（唯一实现）
+    const verdictSrc = readFileSync(
+      join(import.meta.dir, '../../src/query/budgetGate.ts'),
+      'utf8'
     );
+    expect(src).not.toContain('tokenAllowed && !usdExceeded');
+    expect(verdictSrc).not.toContain('tokenAllowed && !usdExceeded');
+    // 判定式必须**只**看主口径档位（Token 轨不再有分支）
+    expect(verdictSrc).toMatch(
+      /const allowed = !input\.killSwitch && \(input\.waiver \|\| primaryAllows\);/
+    );
+    // 闸门必须**委托**该判定式，不得内联第二份
+    expect(src).toContain(
+      'evaluateBudgetGate({ mode: state.mode, killSwitch, waiver })'
+    );
+    expect(src).not.toMatch(/const allowed = !killSwitch &&/);
     expect(src).not.toContain('tokenTrackAllows');
   });
 });

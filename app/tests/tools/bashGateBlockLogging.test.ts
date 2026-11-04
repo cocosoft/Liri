@@ -214,4 +214,69 @@ describe('BashTool 硬拦截分支可观测性（2026-10-25 补日志）', () =>
       reg.dispose();
     }
   });
+
+  // P2-2（2026-11-04）：只读探测（`if exist …`）被拦时给"改用 glob / list"的出路；
+  // **不改判定** —— 仍拦截、分类与 reason 不变，只追加可读文案。
+  it('P2-2：只读探测被拦 ⇒ 结果带 glob/list 出路提示，分类与 reason 不变', async () => {
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    try {
+      const tool = new BashTool(reg);
+      const analyzer = (
+        tool as unknown as { securityAnalyzer: BashSecurityAnalyzer }
+      ).securityAnalyzer;
+      const analyzeSpy = spyOn(analyzer, 'analyze').mockReturnValue({
+        safe: false,
+        behavior: 'deny',
+        riskLevel: 'high',
+        matchedPatterns: [],
+      } as ReturnType<BashSecurityAnalyzer['analyze']>);
+      try {
+        const result = await tool.execute(
+          { command: 'if exist docs echo yes' },
+          makeContext('sess-probe')
+        );
+        // 拦截语义不变
+        expect(result.success).toBe(false);
+        expect(result.failureKind).toBe('safety_blocked');
+        expect(result.metadata?.reason).toBe('security_analyzer_deny');
+        // 出路提示已附（error + 回给模型的消息同源）
+        expect(String(result.error ?? '')).toContain('只读探测');
+        expect(String(result.error ?? '')).toContain('glob');
+        expect(String(result.newMessages?.[0]?.content ?? '')).toContain(
+          'glob'
+        );
+      } finally {
+        analyzeSpy.mockRestore();
+      }
+    } finally {
+      reg.dispose();
+    }
+  });
+
+  it('P2-2：非探测命令被拦 ⇒ **不**追加只读探测提示（不误伤）', async () => {
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    try {
+      const tool = new BashTool(reg);
+      const analyzer = (
+        tool as unknown as { securityAnalyzer: BashSecurityAnalyzer }
+      ).securityAnalyzer;
+      const analyzeSpy = spyOn(analyzer, 'analyze').mockReturnValue({
+        safe: false,
+        behavior: 'deny',
+        riskLevel: 'high',
+        matchedPatterns: [],
+      } as ReturnType<BashSecurityAnalyzer['analyze']>);
+      try {
+        const result = await tool.execute(
+          { command: 'echo deny-plain' },
+          makeContext('sess-plain')
+        );
+        expect(String(result.error ?? '')).not.toContain('只读探测');
+      } finally {
+        analyzeSpy.mockRestore();
+      }
+    } finally {
+      reg.dispose();
+    }
+  });
 });

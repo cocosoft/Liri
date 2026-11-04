@@ -36,6 +36,8 @@ import type { ExecOptions } from 'child_process';
 import { analyzeBashCommandType, isSilentBashCommand } from './BashSemantics';
 // P2-2（2026-11-04）：cmd 内置命令 → 等价命令提示（仅"命令未找到"证据成立时生效）
 import { buildCmdBuiltinHint, isCommandNotFoundError } from './cmdBuiltinHint';
+// P2-2（2026-11-04）：只读探测被安全门拦截时附"改用 glob / list"的出路提示（**不改判定**）
+import { appendReadOnlyProbeHint } from './blockedProbeHint';
 // S1-5（2026-10-11）：命令规范化"单一事实源" —— 审批哈希 / 安全拦截层 / 最终 spawn /
 // 审批卡展示四处共用 `standardizeCommand()` 的一次性产出（消除 G10/G22 口径漂移）
 import {
@@ -442,7 +444,7 @@ export class BashTool extends BaseTool {
           commandPreview: command.slice(0, 200),
           reason: pathBlock.metadata?.['reason'],
         });
-        return pathBlock;
+        return appendReadOnlyProbeHint(pathBlock, command);
       }
 
       const dangerBlock = checkBashDangerousCommand(command);
@@ -452,7 +454,7 @@ export class BashTool extends BaseTool {
           commandPreview: command.slice(0, 200),
           reason: dangerBlock.metadata?.['reason'],
         });
-        return dangerBlock;
+        return appendReadOnlyProbeHint(dangerBlock, command);
       }
 
       // G-07（2026-10-19）：`powershell/pwsh -Command "…"` 的内层脚本复用 PowerShellTool
@@ -489,7 +491,7 @@ export class BashTool extends BaseTool {
           commandPreview: command.slice(0, 200),
           reason: analysisBlock.metadata?.['reason'],
         });
-        return analysisBlock;
+        return appendReadOnlyProbeHint(analysisBlock, command);
       }
 
       const whitelistBlock = checkWhitelistAndSandbox(command, std);
@@ -502,7 +504,7 @@ export class BashTool extends BaseTool {
           commandPreview: command.slice(0, 200),
           reason: whitelistBlock.metadata?.['reason'],
         });
-        return whitelistBlock;
+        return appendReadOnlyProbeHint(whitelistBlock, command);
       }
 
       // A4（2026-10-09）：高能力解释器命令不得仅凭"白名单内"自动放行

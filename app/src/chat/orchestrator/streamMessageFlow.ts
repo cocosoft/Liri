@@ -109,6 +109,8 @@ import { buildBackgroundCompactionNotice } from './streamMessageBackgroundCompac
 import { guardFinalOutput } from '../finalOutputGuard.js';
 // B5-2㊸/㊹ 合一：THINKING_BATCH_SIZE / THINKING_BATCH_MS 唯一真源在 ../streamingLlm.js（chat 域 thinking 事件防抖参数），本处直接引用
 import { THINKING_BATCH_SIZE, THINKING_BATCH_MS } from '../streamingLlm.js';
+// P1 收口（2026-11-05）：流式路径按会话 `chatMode` 裁剪工具集（与非流式 sendMessage 同一实现）
+import { prepareStreamTools } from './streamToolPrepare.js';
 import { getOutputGuardRegistry } from '@openliri/infra/security';
 import { runOutputGuards } from '@openliri/infra/security';
 // PC-1（2026-10-07）：护栏命中 ⇒ 下发前端（消息级"已打码/已阻断"标注，不再静默改写）
@@ -598,22 +600,23 @@ export async function* runStreamMessage(
       });
     }
 
-    // 工具定义
-    const toolRegistry = host.getToolRegistry();
-    const toolDefinitions: ToolDefinition[] = toolRegistry
-      ? host.buildToolDefinitions(toolRegistry.getToolSchemas())
-      : [];
+    // 工具定义（按会话 chatMode 裁剪；缺失/脏值 ⇒ auto，零行为变更）
+    const { visibleSchemas, toolDefinitions } = prepareStreamTools(
+      host,
+      session
+    );
     // TR-12-B（2026-09-22）：本轮工具清单落事件（引用式去重）——「模型可见 ⇔ 已落盘」§1.6
-    if (toolRegistry && toolDefinitions.length > 0) {
-      host.recordToolsSnapshot(session.id, toolRegistry.getToolSchemas());
+    // P1 收口：落**过滤后**清单（与模型实际看到的一致）
+    if (visibleSchemas.length > 0) {
+      host.recordToolsSnapshot(session.id, visibleSchemas);
     }
     if (toolDefinitions.length === 0) {
       // 诊断埋点：工具定义为空时明确记录，区分"注册表缺失" vs "注册表内无工具"，
       // 避免"模型想调工具却无工具可用 → think-only"被静默掩盖
       logger.warn('streamMessage: 工具定义为空，模型无法调用任何工具', {
         sessionId: session.id,
-        registryPresent: !!toolRegistry,
-        schemaCount: toolRegistry?.getToolSchemas().length ?? 0,
+        registryPresent: !!host.getToolRegistry(),
+        schemaCount: host.getToolRegistry()?.getToolSchemas().length ?? 0,
       });
     }
     // Step 3（2026-08-22）：按任务裁剪工具集——全量工具定义（50+ 个，~10K tokens）

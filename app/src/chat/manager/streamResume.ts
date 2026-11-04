@@ -30,6 +30,11 @@ import type { Message } from '@modules/session/types/message.js';
 import type { ChatSession } from '@modules/session/types/session.js';
 // P1（2026-11-04）：恢复路径的轮次上限同样按会话 chatMode 放大
 import { resolveChatModeToolTurns } from '../loopTurnLimits.js';
+// P1 收口（2026-11-05）：续跑路径同样按会话 `chatMode` 裁剪工具集（与流式/非流式同一实现）
+import {
+  filterToolSchemasByChatMode,
+  resolveChatModePolicy,
+} from '../chatModePolicy.js';
 import type { ToolCall, ToolResult } from '@modules/session/types/tool.js';
 import type { UnifiedTokenTracker } from '@modules/tokenBudget';
 import type { ToolRegistry, ToolSchema } from '@modules/tools';
@@ -237,9 +242,15 @@ export class ChatStreamResume {
         return session.messages[session.messages.length - 1] || ({} as Message);
       }
 
-      // 4. 获取工具定义
+      // 4. 获取工具定义（P1 收口 2026-11-05：按会话 `chatMode` 裁剪，同一实现）
       const activeClient = deps.getLLMClient();
-      const toolSchemas = deps.getToolSchemas();
+      const chatModePolicy = resolveChatModePolicy(
+        (session.metadata as Record<string, unknown> | undefined)?.chatMode
+      );
+      const allSchemas = deps.getToolSchemas();
+      const toolSchemas = allSchemas
+        ? filterToolSchemasByChatMode(allSchemas, chatModePolicy)
+        : allSchemas;
       const toolDefinitions: ToolDefinition[] = toolSchemas
         ? deps.buildToolDefinitions(toolSchemas)
         : [];

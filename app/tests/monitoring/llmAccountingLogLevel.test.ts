@@ -17,6 +17,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { CostTracker, resolveCostLogLevel } from '@openliri/infra/cost';
 import { OTelAwareLogger } from '@openliri/infra/monitoring/logs/OTelAwareLogger';
+import { Logger } from '@openliri/infra/monitoring/logs/Logger';
 import { LLMTracker } from '@openliri/infra/monitoring/llm/LLMTracker';
 
 // LLMTracker 的异步 `persistCall` 会解析数据库路径 ⇒ 隔离到临时目录，不碰用户真实库
@@ -116,5 +117,65 @@ describe('P2-1：LLMTracker 的「LLM 调用记录」走 debug', () => {
     );
     expect(infos.length).toBe(0);
     expect(debugs.length).toBe(1);
+  });
+});
+
+describe('P2-1：LLMTracker 的「LLM call recorded」稳态降 debug，零成本仍 warn', () => {
+  let infoSpy: ReturnType<typeof spyOn>;
+  let debugSpy: ReturnType<typeof spyOn>;
+  let warnSpy: ReturnType<typeof spyOn>;
+
+  /** `this.logger` 是 `createLogger(...)` 的 Logger 实例 ⇒ 原型 spy 可捕获 */
+  const pick = (spy: ReturnType<typeof spyOn>) =>
+    (spy.mock.calls as unknown[][]).filter(
+      (c) => typeof c[0] === 'string' && c[0].startsWith('LLM call recorded:')
+    );
+
+  afterEach(() => {
+    infoSpy?.mockRestore();
+    debugSpy?.mockRestore();
+    warnSpy?.mockRestore();
+  });
+
+  it('正常成本（>0）⇒ debug，INFO 不再出现', () => {
+    infoSpy = spyOn(Logger.prototype, 'info');
+    debugSpy = spyOn(Logger.prototype, 'debug');
+    warnSpy = spyOn(Logger.prototype, 'warn');
+
+    new LLMTracker().recordLLMCall({
+      sessionId: 'sess-p21b',
+      requestId: 'req-p21b-ok',
+      model: 'm1',
+      provider: 'p1',
+      inputTokens: 10,
+      outputTokens: 5,
+      costUsd: 0.01,
+      durationMs: 120,
+    });
+
+    expect(pick(infoSpy).length).toBe(0);
+    expect(pick(debugSpy).length).toBe(1);
+    expect(pick(warnSpy).length).toBe(0);
+  });
+
+  it('零成本（未命中定价 / 无用量）⇒ 仍 warn', () => {
+    infoSpy = spyOn(Logger.prototype, 'info');
+    debugSpy = spyOn(Logger.prototype, 'debug');
+    warnSpy = spyOn(Logger.prototype, 'warn');
+
+    new LLMTracker().recordLLMCall({
+      sessionId: 'sess-p21b',
+      requestId: 'req-p21b-zero',
+      model: 'm-unknown-pricing',
+      provider: 'p1',
+      inputTokens: 0,
+      outputTokens: 0,
+      costUsd: 0,
+      durationMs: 12,
+    });
+
+    expect(pick(warnSpy).length).toBe(1);
+    expect(pick(debugSpy).length).toBe(0);
+    expect(pick(infoSpy).length).toBe(0);
   });
 });

@@ -605,13 +605,21 @@ export class LLMTracker {
     };
     appendLogEntry(logEntry);
 
-    this.logger.info(
-      `LLM call recorded: ${params.model} ${params.inputTokens}/${params.outputTokens} tokens, $${params.costUsd.toFixed(4)}`,
-      {
-        sessionId: params.sessionId,
-        provider: params.provider,
-      }
-    );
+    // P2-1（2026-11-04）：稳态计费行降 debug —— 同一事实已由上方 `appendLogEntry(logEntry)`
+    // （结构化日志内存 = 日志查看器 LLM 列表的数据源）与 `persistCall()`（`llm_call_records` 落库）承载。
+    // **零成本 = 计价异常**（未命中定价 / 无用量）⇒ 保持 warn，与 `CostTracker.resolveCostLogLevel`
+    // 同口径；此处不直接复用该函数：`monitoring → cost` 的模块级依赖会与既有 `cost → monitoring`
+    // 构成 R7 层内环（基线 0 环）。
+    const callLogMessage = `LLM call recorded: ${params.model} ${params.inputTokens}/${params.outputTokens} tokens, $${params.costUsd.toFixed(4)}`;
+    const callLogMeta = {
+      sessionId: params.sessionId,
+      provider: params.provider,
+    };
+    if (params.costUsd === 0) {
+      this.logger.warn(callLogMessage, callLogMeta);
+    } else {
+      this.logger.debug(callLogMessage, callLogMeta);
+    }
 
     // 输出 OTel 上下文感知的结构化日志（自动注入 traceId/spanId）
     // P2-1（2026-11-04）：同一次调用已由上方 `appendLogEntry(logEntry)` 写入**结构化日志内存**

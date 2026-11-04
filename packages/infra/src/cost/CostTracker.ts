@@ -75,6 +75,18 @@ interface CostBucket {
 }
 
 /**
+ * P2-1（2026-11-04）：`成本累加` 日志的**级别判定**（纯函数，便于钉口径）。
+ *
+ * - `costUsd === 0` ⇒ `warn`：未命中定价 / 计费异常，**必须**在默认级别可见；
+ * - 其余 ⇒ `debug`：每次调用一条的稳态累加（实测 6 882 条）。
+ *
+ * 成本的事实面是 `COST_RECORDED` 事件 + SQLite 持久化，不依赖本日志。
+ */
+export function resolveCostLogLevel(costUsd: number): 'warn' | 'debug' {
+  return costUsd === 0 ? 'warn' : 'debug';
+}
+
+/**
  * 成本跟踪器
  */
 export class CostTracker {
@@ -212,8 +224,10 @@ export class CostTracker {
     globalEventBus.publish(SystemEvents.COST_RECORDED, eventData);
 
     // 输出 OTel 上下文感知的结构化日志（自动注入 traceId/spanId）
-    const level = cost === 0 ? 'warn' : 'info';
-    this.otelLogger[level]('成本累加', {
+    // P2-1（2026-11-04）：**零成本是异常信号**（未命中定价）⇒ 保持 warn；
+    // 常态累加是"每次调用一条"的稳态行（实测 6 882 条）⇒ debug。
+    // 成本事实面是 `COST_RECORDED` 事件 + SQLite 持久化，不依赖本日志。
+    this.otelLogger[resolveCostLogLevel(cost)]('成本累加', {
       modelName: canonicalModelName,
       costUSD: cost,
       totalCostUSD: bucket.totalCostUSD,

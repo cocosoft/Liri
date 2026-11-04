@@ -614,7 +614,9 @@ export class LLMTracker {
     );
 
     // 输出 OTel 上下文感知的结构化日志（自动注入 traceId/spanId）
-    this.otelLogger.info('LLM 调用记录', {
+    // P2-1（2026-11-04）：同一次调用已由上方 `appendLogEntry(logEntry)` 写入**结构化日志内存**
+    // （日志查看器的 LLM 调用列表即该数据源）⇒ 这里再打一条 app.log 属重复（实测 11 486 条）⇒ debug。
+    this.otelLogger.debug('LLM 调用记录', {
       sessionId: params.sessionId,
       model: params.model,
       provider: params.provider,

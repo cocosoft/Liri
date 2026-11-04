@@ -330,8 +330,10 @@ export async function trackUsage(
         requestId,
       });
 
-      // 实时日志输出（用户可见，自动注入 traceId/spanId）
-      logger.info('API 调用', {
+      // 实时日志输出（供排查）
+      // P2-1（2026-11-04）：这是"每次调用一条"的稳态行（实测 11 486 条），且同一事实已由
+      // `syncToTrackers()`（LLMTracker 结构化记录）+ 用量落盘承载 ⇒ 降为 debug。
+      logger.debug('API 调用', {
         model: canonicalModel,
         providerId: params.providerId || 'unknown',
         inputTokens,

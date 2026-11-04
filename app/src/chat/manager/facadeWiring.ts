@@ -59,7 +59,9 @@ import type {
 } from '@openliri/infra/permission';
 import type { PendingInteractionEntry } from '@openliri/infra/utils/pendingInteractions';
 import type { SessionScopedRegistry } from '@openliri/infra/utils/SessionScopedRegistry';
-import { setStepLoopFactory } from '@modules/tasks';
+// P2（2026-11-04，方案 §3.3）：`setTaskSessionPolicyPort` = 长程任务策略快照的会话侧端口
+// （与 `setStepLoopFactory` 同因：装配期注册一次，避免 6 个编排入口逐个注入漏配）
+import { setStepLoopFactory, setTaskSessionPolicyPort } from '@modules/tasks';
 import type { MessageService } from '../services/MessageService.js';
 import type { SessionAccessFacade } from '../services/SessionAccessFacade';
 import { SessionLifecycleManager } from '../services/SessionLifecycleManager.js';
@@ -337,6 +339,33 @@ export function wireChatFacades(host: FacadeWiringHost): void {
   // 工具调用也无处执行（事故 `pdca_muz3wada`：`hasTAORLoop:false`，9 步 / 0 次工具调用）。
   // 注册后两条入口同源同行为。
   setStepLoopFactory((sid, opts) => host._getOrCreateTAORLoop(sid, opts));
+  // P2（2026-11-04，方案 §3.3）：向 tasks 层注册「长程任务策略快照」的**会话侧端口**。
+  // 与上一行同因：编排入口有 6 个（会话内升级 / `/v1/pdca/start` / `/goal` / 阶段链 /
+  // 启动恢复 / HTTP 快照），逐个注入必漏 ⇒ 装配期注册一次，tasks 层按需取用。
+  // 语义：capture = 读会话当前策略；applyReplay = 只改**内存**会话（不落库，不篡改用户设置）。
+  setTaskSessionPolicyPort({
+    capture: (sid) => {
+      const session = host._chatSessions.get(sid);
+      if (!session) return undefined;
+      const metadata = session.metadata as Record<string, unknown> | undefined;
+      return {
+        permissionMode: metadata?.permission_mode,
+        approvalMode: metadata?.approvalMode,
+        workspaceRoots: host.getSessionWorkspaceRoots(sid),
+      };
+    },
+    applyReplay: (sid, patch) => {
+      const session = host._chatSessions.get(sid);
+      if (!session) return;
+      const metadata = session.metadata as Record<string, unknown>;
+      if (patch.permissionMode !== undefined)
+        metadata.permission_mode = patch.permissionMode;
+      if (patch.approvalMode !== undefined)
+        metadata.approvalMode = patch.approvalMode;
+      if (patch.workspaceRoots !== undefined)
+        metadata.workspaceRoots = patch.workspaceRoots;
+    },
+  });
 
   host._pdcaLauncher = new PdcaLauncher({
     enablePlanDrivenLoop: true, // 阶段 3 退役（2026-09-01）：灰度开关删除，恒启用

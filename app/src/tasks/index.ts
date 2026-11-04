@@ -204,6 +204,14 @@ export type {
   PdcaMetrics,
   StepLoopFactory,
 } from './LongRunningTaskOrchestrator';
+// P2（2026-11-04，方案 §3.3）：长程策略快照的会话侧端口（chat 装配期注册一次）
+export { setTaskSessionPolicyPort } from './lro/taskSessionPolicyPort';
+export type { TaskSessionPolicyPort } from './lro/taskSessionPolicyPort';
+export type {
+  PolicyReplayPatch,
+  PolicySnapshotInput,
+  TaskPolicySnapshot,
+} from './lro/policySnapshot';
 export { generateAuditReport } from './AuditReport';
 export type { AuditReport, AuditStepEntry } from './AuditReport';
 export {

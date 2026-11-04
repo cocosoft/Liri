@@ -72,7 +72,6 @@ import {
   readPdcaCheckpoint,
 } from './PdcaWorkItemBridge';
 import type { PdcaPhase } from '@modules/tasks/phases';
-import { pdcaCheckpointStatus } from '@modules/tasks/phases';
 import { findUnprovableCriteria } from '@modules/tasks/successCriteria';
 import { getToolRegistry, buildToolDefinitions } from '../tools/index.js';
 import type { ToolUseContext } from '../tools/types/Tool.js';
@@ -161,7 +160,12 @@ import {
   type BlockedCommandEntry,
 } from './lro/blockedCommandLedger.js';
 import { resolveCommandPolicyVersion } from './lro/commandPolicyVersion.js';
-import { projectCheckpointSteps } from './lro/checkpointSnapshot.js';
+import type { TaskPolicySnapshot } from './lro/policySnapshot.js';
+import {
+  captureTaskPolicySnapshot,
+  replayTaskPolicySnapshot,
+} from './lro/policySnapshotWiring.js';
+import { persistPdcaCheckpoint } from './lro/checkpointPersist.js';
 import {
   renderAuditReport,
   persistAuditReportFile,
@@ -279,6 +283,8 @@ export class LongRunningTaskOrchestrator {
   /** §5 P1: 任务消息回写回调（runFullPdca 注入）与当前 sessionId */
   private _onTaskMessage?: (sessionId: string, msgs: TaskMessage[]) => void;
   private _sessionId: string | null = null;
+  /** P2（§3.3）：任务启动时采样的策略快照（随 checkpoint 落盘；恢复时重放） */
+  private _policySnapshot?: TaskPolicySnapshot;
   /** S2（2026-08-13）：TAORLoop 步骤 token 累计（goal_metrics stage 行数据源） */
   private _totalTokensTracked = 0;
   /** S2：任务开始时间（duration 计算） */
@@ -511,44 +517,43 @@ export class LongRunningTaskOrchestrator {
     return this.taskId;
   }
 
-  /**
-   * P0(M2)：将编排器状态（phase + plan.steps 快照）落盘到 PdcaWorkItemBridge checkpoint。
-   * 跨重启恢复依赖此快照——原实现仅写 lastPdcaPhase 单字段，重启后无法恢复步骤进度。
-   * 快照失败不影响任务执行（@ignore-catch）。
-   */
+  /** P0(M2)：编排状态落盘（实现见 `lro/checkpointPersist`） */
   private async _persistCheckpoint(): Promise<void> {
-    try {
-      const plan = this.planId
-        ? taskOrchestrator.getPlan(this.planId)
-        : undefined;
-      await writePdcaCheckpoint(this.taskId, {
-        taskId: this.taskId,
-        phase: this.phase,
-        // Gap D（1-0b）：status 随 phase 联动演进（findExistingTask 排除依赖终态 status）
-        status: pdcaCheckpointStatus(this.phase),
-        planId: this.planId ?? undefined,
-        sessionId: this._sessionId ?? undefined,
-        description: plan?.description ?? '',
-        // 步骤快照投影（字段口径见 `lro/checkpointSnapshot`：扩容原因/依赖/产物台账等）
-        steps: projectCheckpointSteps(plan),
-        // D5（M6）：escalate 缺陷清单（跨重启恢复后增量 replan 仍生效）
-        lastEscalations: this._lastEscalations,
-        // LRO-13：阻塞命令台账随快照落盘（resume 后同一命令直接短路，不重放那堵墙）
-        blockedCommands: this._blockedCommands,
-        // D4（M4）：TAORLoop token 累计（阶段边界结算 → StageOrchestrator 成本护栏）
-        totalTokens: this._totalTokensTracked,
-        // 2026-10-17：任务开始时间（跨重启恢复 duration 口径；0 ⇒ 不写）
-        startedAt: this._startedAt || undefined,
-        // S2/B（PR9）：max_turns 扩容续跑次数（跨重启累计，上限门禁）
-        turnsExtensions: this._turnsExtensions,
-      });
-    } catch {
-      // @ignore-catch — checkpoint 写入失败不影响任务执行
-    }
+    await persistPdcaCheckpoint({
+      taskId: this.taskId,
+      phase: this.phase,
+      planId: this.planId,
+      sessionId: this._sessionId,
+      plan: this.planId ? taskOrchestrator.getPlan(this.planId) : undefined,
+      lastEscalations: this._lastEscalations,
+      blockedCommands: this._blockedCommands,
+      totalTokens: this._totalTokensTracked,
+      startedAt: this._startedAt,
+      turnsExtensions: this._turnsExtensions,
+      ...(this._policySnapshot ? { policySnapshot: this._policySnapshot } : {}),
+    });
   }
 
   getPhase(): PdcaPhase {
     return this.phase;
+  }
+
+  getPolicySnapshot(): TaskPolicySnapshot | undefined {
+    return this._policySnapshot;
+  }
+
+  /** P2（§3.3）：任务启动时采样（实现见 `lro/policySnapshotWiring`） */
+  private _capturePolicySnapshot(sessionId: string): void {
+    captureTaskPolicySnapshot(this.taskId, sessionId, (s) => {
+      this._policySnapshot = s;
+    });
+  }
+
+  /** P2（§3.3）：恢复时重放（只收紧不放宽；缺快照 ⇒ 降级 `ask`） */
+  private _replayPolicySnapshot(sessionId: string, raw: unknown): void {
+    replayTaskPolicySnapshot(this.taskId, sessionId, raw, (s) => {
+      this._policySnapshot = s;
+    });
   }
 
   getIsolation() {
@@ -944,6 +949,8 @@ export class LongRunningTaskOrchestrator {
       onTaskMessage?: (sessionId: string, msgs: TaskMessage[]) => void;
       /** U-02：`/goal start` 创建的目标 id（终态按 id 落定目标状态） */
       goalId?: string;
+      /** P2（§3.3）：阶段链继承的快照（缺省 ⇒ 本任务自行采样） */
+      policySnapshot?: TaskPolicySnapshot;
     }
   ): Promise<PdcaStatus> {
     // §5 P1: 记录回写目标会话与回调，供 executeSingleStep 使用
@@ -952,6 +959,9 @@ export class LongRunningTaskOrchestrator {
     this._onTaskMessage = opts?.onTaskMessage;
     this._startedAt = Date.now();
     const requireApproval = opts?.requirePlanApproval ?? false;
+    // P2（§3.3）：任务启动即采样策略快照（子任务继承父链快照，不各自重新采样）
+    if (opts?.policySnapshot) this._policySnapshot = opts.policySnapshot;
+    else this._capturePolicySnapshot(sessionId);
 
     logger.info('[orchestrator] runFullPdca 开始', {
       taskId: this.taskId,
@@ -1644,6 +1654,9 @@ export class LongRunningTaskOrchestrator {
       setBlockedCommands: (value) => {
         this._blockedCommands = value;
       },
+      // P2（§3.3）：恢复时重放策略快照（缺失 ⇒ 保守降级 ask）
+      replayPolicySnapshot: (sessionId, raw) =>
+        this._replayPolicySnapshot(sessionId, raw),
     }) as Promise<PdcaStatus>;
   }
 

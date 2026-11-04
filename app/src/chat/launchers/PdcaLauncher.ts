@@ -10,6 +10,8 @@ import { PlanDrivenLoop } from '@modules/tasks';
 import type {
   PlanDrivenLoopResult,
   PlanDrivenLoopConfig,
+  // P2（2026-11-04，方案 §3.3）：阶段链继承的任务策略快照类型
+  TaskPolicySnapshot,
 } from '@modules/tasks';
 import type { AIProvider, ChatMessage } from '@modules/ai';
 import { registerPlanLoop, unregisterPlanLoop } from '../planAbortRegistry.js';
@@ -553,11 +555,15 @@ export class PdcaLauncher {
           }
         }
 
+        // P2（2026-11-04，方案 §3.3）：阶段链共享的策略快照（首个阶段采样，后续继承）
+        let chainPolicySnapshot: TaskPolicySnapshot | undefined;
         const stageOrch = StageOrchestrator.create(
           taskId,
           description,
           sessionId,
           {
+            // P2（2026-11-04，方案 §3.3）：**阶段链只采样一次策略快照**，后续阶段继承。
+            // 否则"第 2 阶段开始时"会重新读会话设置 ⇒ 用户中途改档仍会漂移。
             runStage: async (stage, chain) => {
               const child = getOrCreateOrchestrator(stage.pdcaTaskId);
               // B5（2026-09-04）：仅注入每步独立工厂——原同时 setTAORLoop(共享) +
@@ -570,8 +576,14 @@ export class PdcaLauncher {
                 {
                   requirePlanApproval: false,
                   onTaskMessage,
+                  ...(chainPolicySnapshot
+                    ? { policySnapshot: chainPolicySnapshot }
+                    : {}),
                 }
               );
+              // 首个阶段完成采样后，后续阶段统一继承（子任务自身不重新采样）
+              chainPolicySnapshot =
+                child.getPolicySnapshot() ?? chainPolicySnapshot;
               return {
                 artifact: collectStageArtifact(child),
                 // D4（M4）：阶段边界显式回写 token（成本护栏数据源）

@@ -77,6 +77,13 @@ export interface ResumeDeps {
    * 同一 `(命令, cwd, 策略版本)` 在续跑时直接短路，不再撞同一堵墙。
    */
   setBlockedCommands: (value: BlockedCommandEntry[]) => void;
+  /**
+   * P2（2026-11-04，方案 §3.3）：恢复时**重放策略快照**（而不是读当前会话设置）。
+   *
+   * 快照缺失/损坏 ⇒ 由实现侧保守降级 `ask`（不阻断恢复）。两个续跑分支（增量 replan /
+   * 原样续跑）都要先重放，否则"跑到一半被改宽"的问题在 replan 分支仍然存在。
+   */
+  replayPolicySnapshot: (sessionId: string, raw: unknown) => void;
 }
 
 /** P0(M9)：从 checkpoint 跨重启恢复执行（/goal resume 入口）。 */
@@ -134,6 +141,11 @@ export async function resumeFromCheckpoint(
       count: blockedCommands.length,
     });
   }
+
+  // P2（2026-11-04，方案 §3.3）：恢复时**重放任务启动时的策略快照**。
+  // 放在两条续跑分支之前：无论走增量 replan 还是原样续跑，后续步骤都用同一姿态；
+  // 快照缺失（旧任务）⇒ 实现侧降级 ask（不阻断恢复）。
+  deps.replayPolicySnapshot(sessionId, ck.policySnapshot);
 
   // PR5（#6）：半自动 replan resume——failed+replanPending → 用上轮缺陷驱动
   // executePlanPhase（增量 replan）后进入统一执行循环，而不是原样续跑旧步骤快照。

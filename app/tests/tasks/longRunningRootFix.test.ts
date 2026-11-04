@@ -199,6 +199,9 @@ function makeResumeDeps(taskId: string): {
     loopRan: boolean;
     /** LRO-13：resume 恢复的阻塞命令台账（条数即可） */
     blockedCount: number;
+    /** P2：resume 重放策略快照的入参（缺省快照也要被调用 ⇒ 由实现侧降级 ask） */
+    replayedSessionId: string | null;
+    replayedSnapshot: unknown;
   };
 } {
   const state = {
@@ -209,6 +212,8 @@ function makeResumeDeps(taskId: string): {
     startedAt: 0,
     loopRan: false,
     blockedCount: -1,
+    replayedSessionId: null as string | null,
+    replayedSnapshot: undefined as unknown,
   };
   const deps: ResumeDeps = {
     taskId,
@@ -253,6 +258,11 @@ function makeResumeDeps(taskId: string): {
     setBlockedCommands: (value) => {
       state.blockedCount = value.length;
     },
+    // P2（2026-11-04）：策略快照重放（记录入参，供"缺失快照仍被调用"的用例断言）
+    replayPolicySnapshot: (sessionId, raw) => {
+      state.replayedSessionId = sessionId;
+      state.replayedSnapshot = raw;
+    },
   };
   return { deps, state };
 }
@@ -276,6 +286,36 @@ describe('resume 可达性与字段回填', () => {
     expect(state.loopRan).toBe(true);
     expect(state.created).toEqual(['崩溃遗留任务']);
     expect(state.sessionId).toBe('sess-interrupted');
+    // P2：无论有无快照都要触发重放（缺快照由实现侧降级 ask，而不是跳过）
+    expect(state.replayedSessionId).toBe('sess-interrupted');
+    expect(state.replayedSnapshot).toBeUndefined();
+  });
+
+  it('带策略快照的 checkpoint ⇒ 快照原样交给重放', async () => {
+    const { deps, state } = makeResumeDeps('with-snapshot');
+    const snapshot = {
+      version: 1,
+      capturedAt: 1700000000000,
+      permissionMode: 'strict',
+      approvalMode: 'ask',
+      workspaceRoots: ['D:\\work'],
+      commandPolicyVersion: 'abc123',
+    };
+    const result = await resumeFromCheckpoint(
+      {
+        taskId: 'with-snapshot',
+        sessionId: 'sess-snap',
+        phase: 'execute',
+        description: '带快照任务',
+        steps: [{ id: 's1', description: '步骤1', status: 'pending' }],
+        policySnapshot: snapshot,
+      },
+      deps
+    );
+
+    expect(result).toBe('ran');
+    expect(state.replayedSessionId).toBe('sess-snap');
+    expect(state.replayedSnapshot).toEqual(snapshot);
   });
 
   it('用户中止（phase=abort）仍拒绝恢复', async () => {

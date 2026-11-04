@@ -132,6 +132,11 @@ export interface LiriEventMap {
      * 仅工具循环路径写入，单次回复时省略。本字段为只读展示/审计用。
      */
     terminationReason?: string;
+    /**
+     * P1-3（2026-11-04）：崩溃恢复**合成**的 closer（后端 `EventLogRepair` 补的
+     * `turn/end{canceled}`）。只表示"日志到此为止"，不代表用户中断过 ⇒ 前端静默处理。
+     */
+    synthetic?: boolean;
     error?: string;
   };
   "user/message": {

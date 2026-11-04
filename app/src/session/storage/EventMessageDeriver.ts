@@ -763,6 +763,10 @@ export function deriveMessagesFromEvents(
   // 实时流走 `metadata.terminationReason` 能看到徽标，历史回放此前丢失该字段
   // ⇒ 打开会话后徽标消失（真机实证：circuit_breaker 只以正文原始字符串出现）。
   const terminationReasonByTurn = new Map<number, string>();
+  // P1-3（2026-11-04）：该 turn 的结束原因是**崩溃恢复合成**的 closer 提供的
+  //（`turn/end.synthetic === true`）⇒ 派生时不再当作"用户可见的中断"。
+  // 与下面的"有正文 ⇒ 不补 canceled"启发式并存，但以结构化标记为准。
+  const syntheticFinishTurns = new Set<number>();
   for (const ev of events) {
     // A-3：跳过被压缩区间内的事件（旧消息不回放）
     if (isCompactedSeq(ev.seq)) continue;
@@ -802,10 +806,22 @@ export function deriveMessagesFromEvents(
       //    turn/end 追加在文件后部，若后写覆盖会把真实 tool_use/stop 抹成 canceled，
       //    导致所有回复在前端显示"该回复已中断"
       const turnNo = typeof data.turn === 'number' ? data.turn : currentTurnNo;
+      const synthetic = data.synthetic === true;
       if (typeof fr === 'string' && fr) {
         const existing = finishReasonByTurn.get(turnNo);
-        if (!existing || existing === 'canceled' || fr !== 'canceled') {
-          finishReasonByTurn.set(turnNo, fr);
+        if (synthetic) {
+          // P1-3：合成 closer 只做**兜底**（没有真实结束原因时才落），
+          // 并登记"该原因来自合成"⇒ 派生时不展示中断提示。
+          if (!existing) {
+            finishReasonByTurn.set(turnNo, fr);
+            syntheticFinishTurns.add(turnNo);
+          }
+        } else {
+          if (!existing || existing === 'canceled' || fr !== 'canceled') {
+            finishReasonByTurn.set(turnNo, fr);
+          }
+          // 真实 closer 到达 ⇒ 不再是"合成原因"
+          syntheticFinishTurns.delete(turnNo);
         }
       }
       // 2026-11-03 P1：终止判定随 turn 记录（崩溃恢复合成的 closers 不带该字段，
@@ -937,10 +953,12 @@ export function deriveMessagesFromEvents(
     // 真中断并补 canceled（此时没有可展示的正文，提示"生成中断"是准确的）。
     const hasFullContent =
       typeof agg.content === 'string' && agg.content.trim().length > 0;
+    // P1-3：合成 closer 带来的原因不是用户可感知的中断 ⇒ 不补 canceled。
+    const finishFromSynthetic = syntheticFinishTurns.has(agg.turnNo);
     const interruptedTurnFinish =
       turnFinish === 'error'
         ? 'error'
-        : turnFinish === 'canceled' && !hasFullContent
+        : turnFinish === 'canceled' && !finishFromSynthetic && !hasFullContent
           ? 'canceled'
           : undefined;
     // 阶段 A（A1-f，历史回填）：本轮以 `sessions_yield` 让出（turn/end

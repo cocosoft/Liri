@@ -333,7 +333,9 @@ export class EventLogRepair {
       seq: tailSeq + i + 1,
       time,
       sessionId: this.deps.sessionId,
-      data: { turn, finishReason: 'canceled' as const },
+      // P1-3（2026-11-04）：标记为**合成** closer —— 只表示"日志到此为止"，
+      // 不代表用户中断过；前端/投影据此静默（见 `turn/end.synthetic` 类型注释）
+      data: { turn, finishReason: 'canceled' as const, synthetic: true },
     }));
     return { closers, openTurns: sorted };
   }

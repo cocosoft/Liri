@@ -211,6 +211,8 @@ describe('D4 撕裂修复链（EventLogStorage）', () => {
     expect(
       (closers[0].data as { turn: number; finishReason: string }).finishReason
     ).toBe('canceled');
+    // P1-3（2026-11-04）：合成 closer 必须带结构化标记（前端据此静默）
+    expect((closers[0].data as { synthetic?: boolean }).synthetic).toBe(true);
     // 检测阶段不落盘
     expect(readLines(dir, 'turn-repair').length).toBe(3);
 

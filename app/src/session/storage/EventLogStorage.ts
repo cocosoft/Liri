@@ -31,7 +31,7 @@ import {
   readSync,
   closeSync,
 } from 'fs';
-import { join } from 'path';
+import { join, resolve as resolvePath } from 'path';
 import * as readline from 'readline';
 import { resolveLegacySessionsDir } from '@openliri/infra/environment';
 import { enterPhase, exitPhase } from '@openliri/infra/diagnostics';
@@ -52,6 +52,8 @@ import {
   THINKING_MERGE_MAX_BYTES,
 } from './EventLogThinkingBuffer';
 import { EventLogRepair, trackTurnLifecycle } from './EventLogRepair';
+// P1-3（2026-11-04）：文件级单写者队列（同一 events.jsonl 的多实例串行）
+import { enqueueFileWrite } from './fileWriteQueue';
 import {
   eventFilePathsInOrder,
   hasEventData,
@@ -291,14 +293,6 @@ export class EventLogStorage {
    * 生产为空；测试注入用于构造"扫描期间 append"并发竞态。
    */
   private readonly snapshotPreCommitHook?: () => Promise<void>;
-
-  /**
-   * 串行化 append 操作的 mutex queue
-   *
-   * 同一实例内并发 append 时，按调用顺序排队执行，保证 seq 单调。
-   * 内部用 Promise 链实现，无需引入额外锁库。
-   */
-  private appendMutex: Promise<unknown> = Promise.resolve();
 
   constructor(
     private readonly sessionId: string,
@@ -1514,17 +1508,13 @@ export class EventLogStorage {
   /**
    * 串行化 append 操作
    *
-   * 用 Promise 链实现 mutex：每个 append 调用挂到链尾，
-   * 等前一个完成后再执行。保证 seq 单调与文件 IO 顺序。
+   * P1-3（2026-11-04）：排队键从**实例**升级为**文件绝对路径**（`./fileWriteQueue`）——
+   * 同一会话的多个 `EventLogStorage` 实例写同一 `events.jsonl` 时也必须串行，
+   * 否则各自读到同一 tailSeq 产生 `duplicate-seq`。
    */
   private queueAppend<T>(fn: () => Promise<T>): Promise<T> {
-    const next = this.appendMutex.then(fn, fn);
-    // 把 next 链到 appendMutex 上，但忽略其 reject（错误已在 fn 内处理）
-    this.appendMutex = next.then(
-      () => undefined,
-      () => undefined
-    );
-    return next;
+    // 归一为绝对路径：不同实例可能以相对/绝对 `sessionsRoot` 构造同一文件
+    return enqueueFileWrite(resolvePath(this.filePath), fn);
   }
 
   /**

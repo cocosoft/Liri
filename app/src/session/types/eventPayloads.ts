@@ -94,6 +94,14 @@ export interface LiriEventMap {
     terminationReason?: string;
     /** 错误信息（finishReason=error 时） */
     error?: string;
+    /**
+     * P1-3（2026-11-04，《运行态问题排查与修复方案》）：**崩溃恢复合成的 closer**。
+     *
+     * 应用崩溃留下的未闭合轮次由 `EventLogRepair` 补一条 `turn/end{canceled}`；
+     * 它只表达"这条日志到此为止"，**不代表用户真的中断过** ⇒ 前端/投影据此静默，
+     * 不再把它当作"该回复已中断"的用户可见状态。
+     */
+    synthetic?: boolean;
   };
 
   /**

@@ -16,6 +16,8 @@ import type { ExecutionStore } from './ExecutionStore';
 import { emitExecutionEvent } from './eventSink';
 // 阶段 4（2026-10-12）：四原语**只读投影**（原生状态 → PREPARED/RUNNING/SUSPENDED/SETTLED 的带外广播）
 import { publishExecutionProjection } from './executionProjection';
+// P2-3（2026-11-04）：工具失败分类（唯一取值表在 infra）
+import type { ToolFailureKind } from '@openliri/infra/utils/toolContract/ToolResult';
 import {
   TOOL_CALL_UNKNOWN_STATUS,
   canTransition,
@@ -135,12 +137,20 @@ export class ExecutionManager {
     toolCallId: string,
     toolName: string,
     status: ToolCallStatus,
-    error?: string
+    error?: string,
+    failureKind?: ToolFailureKind
   ): void {
     const store = this.store;
     if (!store) return;
     void store
-      .settleToolCall(executionId, toolCallId, toolName, status, error)
+      .settleToolCall(
+        executionId,
+        toolCallId,
+        toolName,
+        status,
+        error,
+        failureKind
+      )
       .catch((err: unknown) =>
         logger.warn('execution tool_call settle failed（观测面失败仅留痕）', {
           executionId,
@@ -162,7 +172,8 @@ export class ExecutionManager {
     toolCallId: string,
     toolName: string,
     status: ToolCallStatus,
-    error?: string
+    error?: string,
+    failureKind?: ToolFailureKind
   ): Promise<void> {
     const store = this.store;
     if (!store) return;
@@ -172,7 +183,8 @@ export class ExecutionManager {
         toolCallId,
         toolName,
         status,
-        error
+        error,
+        failureKind
       );
     } catch (err) {
       logger.warn('execution endToolCall 落盘失败（观测面失败仅留痕）', {

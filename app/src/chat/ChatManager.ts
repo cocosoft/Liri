@@ -2140,7 +2140,9 @@ export class ChatManagerImpl implements ChatManager {
             (error instanceof Error ? error.message : String(error)).slice(
               0,
               500
-            )
+            ),
+            // P2-3：抛异常即"工具自身执行失败"（受控词表，非解析文案）
+            'tool_error'
           );
         } catch {
           // @ignore-catch — 结算失败不得掩盖原始执行异常
@@ -2155,7 +2157,9 @@ export class ChatManagerImpl implements ChatManager {
         toolCall.id,
         toolCall.name,
         result.error ? 'failed' : 'completed',
-        result.error ?? undefined
+        result.error ?? undefined,
+        // P2-3：失败分类随失败一起落表（成功行不写分类，避免脏数据）
+        result.error ? result.failureKind : undefined
       );
       return result;
     }

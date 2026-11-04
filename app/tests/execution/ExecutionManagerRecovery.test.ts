@@ -259,6 +259,7 @@ describe('R3（第九轮 §2.2）崩溃窗口：未知执行结果留痕', () =>
       'bash',
       'completed',
       undefined,
+      undefined,
       old + 1
     );
 

@@ -38,28 +38,25 @@ export enum ErrorLevel {
 }
 
 /**
- * 工具失败分类（LRO-09，2026-10-26）——**单一事实源**。
+ * 工具失败分类的**唯一取值表**（LRO-09 单一事实源；P2-3 起同时用于落盘侧读回校验）。
  *
- * 落点选择（分层事实源 `scripts/modules-to-layers.json`）：`utils` = infra，`tools`（app）与
- * `session`（service）都可合法向下依赖它；`session/types/tool.ts` 的会话侧投影以 re-export
- * 复用同一份定义（不另立第二份联合，R02）。
- *
- * 由**生产者按结构化依据**写入，禁止解析 `error` 文本反推（CS02）。
+ * 新增取值只改这一处 ⇒ `ToolFailureKind` 与 `isToolFailureKind()` 自动跟随
+ * （禁止在他处复制第二份清单，R02；此前 `session/types/tool.ts` 的局部副本已漂移）。
  */
-export type ToolFailureKind =
+export const TOOL_FAILURE_KINDS = [
   /** 权限规则 / 审批拒绝（含 Inbox 不可用降级） */
-  | 'permission_denied'
+  'permission_denied',
   /** 安全分析器 / PathGuard / 预处理拦截 */
-  | 'safety_blocked'
+  'safety_blocked',
   /** 依赖缺失、能力未就绪（如沙箱 helper 不可用） */
-  | 'env_unavailable'
+  'env_unavailable',
   /**
    * 会话工作区严格边界越界（B1，2026-10-30，issue #35）。
    *
    * **可恢复**：用户批准后目标可作为新根加入 `metadata.workspaceRoots` ⇒ 重发即通过。
    * 因此**不得**归入 `environment_blocked`（那会在 2 轮内熔断整轮，模型没有改错机会）。
    */
-  | 'workspace_escape'
+  'workspace_escape',
   /**
    * 会话工作区越界**且已提交「允许访问」审批申请**（2026-10-31，台账 §16）。
    *
@@ -67,9 +64,24 @@ export type ToolFailureKind =
    * 唯一出路是等审批落地后自动重试。故熔断分型把它判为**中性**（同 `aborted`：既不计数、
    * 也不清零），避免「等批准」把 `consecutiveInvalidTurns`（3 轮）烧完导致审批落地已无轮次可用。
    */
-  | 'workspace_escape_pending_approval'
+  'workspace_escape_pending_approval',
   /** 工具自身执行失败（可能可恢复） */
-  | 'tool_error';
+  'tool_error',
+] as const;
+
+export type ToolFailureKind = (typeof TOOL_FAILURE_KINDS)[number];
+
+/**
+ * 类型守卫：`unknown` ⇒ `ToolFailureKind`。
+ *
+ * 用于**持久层/事件读回**校验（CS04/CS06：不信任落盘字符串）——非法值不写键/按未分类处理。
+ */
+export function isToolFailureKind(value: unknown): value is ToolFailureKind {
+  return (
+    typeof value === 'string' &&
+    (TOOL_FAILURE_KINDS as readonly string[]).includes(value)
+  );
+}
 
 /**
  * 工具出参（**主契约**，工具执行层）

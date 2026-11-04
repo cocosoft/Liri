@@ -38,18 +38,13 @@ export enum ToolType {
  */
 export type { ToolFailureKind };
 
-/** 合法失败分类（P2-3 落盘侧校验：防把任意字符串当分类写进事件） */
-const TOOL_FAILURE_KINDS: readonly string[] = [
-  'permission_denied',
-  'safety_blocked',
-  'env_unavailable',
-  'tool_error',
-];
-
-/** 类型守卫：`unknown` ⇒ `ToolFailureKind`（不合法 ⇒ false，调用方据此决定是否写键） */
-export function isToolFailureKind(value: unknown): value is ToolFailureKind {
-  return typeof value === 'string' && TOOL_FAILURE_KINDS.includes(value);
-}
+/**
+ * 合法失败分类校验（P2-3 落盘侧/事件投影侧共用）。
+ *
+ * **取值表只在 infra 一份**（`TOOL_FAILURE_KINDS`）—— 此处直接 re-export，禁止复制清单：
+ * 上一版局部副本只列了 4 种，漏掉 `workspace_escape*` ⇒ 投影会把越界失败静默丢掉分类。
+ */
+export { isToolFailureKind } from '@openliri/infra/utils/toolContract/ToolResult';
 
 /**
  * 工具调用接口

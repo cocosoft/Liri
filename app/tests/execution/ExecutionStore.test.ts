@@ -217,6 +217,100 @@ describe('PR5-S1 ExecutionStore', () => {
     expect(typeof rows[0].endedAt).toBe('number');
   });
 
+  it('P2-3：结算写入 failureKind 并可读回；未给分类 ⇒ 不写键', async () => {
+    const id = eid('tc-kind');
+    await store.recordToolCall(id, 'k1', 'BashTool');
+    await store.settleToolCall(
+      id,
+      'k1',
+      'BashTool',
+      'failed',
+      '被安全门拦截',
+      'safety_blocked'
+    );
+    const rows = await store.listToolCalls(id);
+    expect(rows[0].status).toBe('failed');
+    expect(rows[0].failureKind).toBe('safety_blocked');
+
+    await store.recordToolCall(id, 'k2', 'T');
+    await store.settleToolCall(id, 'k2', 'T', 'failed', 'boom');
+    const k2 = (await store.listToolCalls(id)).find(
+      (r) => r.toolCallId === 'k2'
+    );
+    expect(k2?.failureKind).toBeUndefined();
+  });
+
+  it('P2-3：存量库缺 failure_kind 列 ⇒ 初始化补列，结算照常落盘', async () => {
+    const legacyPath = join(
+      tmpdir(),
+      `liri-legacy-toolcalls-${Date.now()}-${Math.floor(performance.now())}.db`
+    );
+    // 手工造"老库"：tool_calls 无 failure_kind 列，且已有一条历史 running 行
+    const raw = await new Promise<Database>((resolve, reject) => {
+      const d = new Database(legacyPath, (err: Error | null) =>
+        err ? reject(err) : resolve(d)
+      );
+    });
+    await new Promise<void>((resolve, reject) => {
+      raw.run(
+        `CREATE TABLE tool_calls (
+           id INTEGER PRIMARY KEY AUTOINCREMENT,
+           execution_id TEXT NOT NULL,
+           tool_call_id TEXT NOT NULL,
+           tool_name    TEXT NOT NULL,
+           status       TEXT NOT NULL,
+           started_at   INTEGER NOT NULL,
+           ended_at     INTEGER,
+           error        TEXT,
+           owner_key    TEXT NOT NULL DEFAULT 'local:local'
+         )`,
+        (err: Error | null) => (err ? reject(err) : resolve())
+      );
+    });
+    await new Promise<void>((resolve, reject) => {
+      raw.run(
+        `INSERT INTO tool_calls
+           (execution_id, tool_call_id, tool_name, status, started_at)
+         VALUES ('legacy-exec', 'old-call', 'T', 'running', 1)`,
+        (err: Error | null) => (err ? reject(err) : resolve())
+      );
+    });
+    raw.close();
+
+    const legacy = new ExecutionStore(legacyPath);
+    try {
+      await legacy.recordToolCall(eid('legacy-exec'), 'new-call', 'T');
+      await legacy.settleToolCall(
+        eid('legacy-exec'),
+        'new-call',
+        'T',
+        'failed',
+        'boom',
+        'tool_error'
+      );
+      const rows = await legacy.listToolCalls(eid('legacy-exec'));
+      expect(rows.find((r) => r.toolCallId === 'new-call')?.failureKind).toBe(
+        'tool_error'
+      );
+      // 旧行（NULL）读回不炸，按"未分类"处理
+      expect(
+        rows.find((r) => r.toolCallId === 'old-call')?.failureKind
+      ).toBeUndefined();
+    } finally {
+      legacy.close();
+      for (const suffix of ['', '-wal', '-shm']) {
+        const p = `${legacyPath}${suffix}`;
+        if (existsSync(p)) {
+          try {
+            unlinkSync(p);
+          } catch {
+            // @ignore-catch — 测试清理：Windows 下可能仍被占用
+          }
+        }
+      }
+    }
+  });
+
   it('G13：recordToolCall 跨结算仍幂等（同 (execution,toolCallId) 不新增行）', async () => {
     // 修复前：判据含 `ended_at IS NULL` ⇒ 结算后重放会插入第 2 行（ID 碰撞即错行结算的机制）
     const id = eid('tc-g13-idem');

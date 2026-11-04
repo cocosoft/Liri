@@ -109,6 +109,8 @@ describe('B-05 执行者侧逐工具 fail-closed（ChatManager.executeTool）', 
       expect(begin).toHaveBeenCalledTimes(1);
       expect(end).toHaveBeenCalledTimes(1);
       expect(end.mock.calls[0][3]).toBe('completed');
+      // P2-3：成功行不写失败分类（避免脏数据）
+      expect(end.mock.calls[0][5]).toBeUndefined();
     } finally {
       begin.mockRestore();
       end.mockRestore();
@@ -157,6 +159,8 @@ describe('B-05 执行者侧逐工具 fail-closed（ChatManager.executeTool）', 
         toolName: 'BashTool',
         result: null,
         error: '命令执行失败',
+        // P2-3：结构化分类随失败落表（不靠错误文案反推）
+        failureKind: 'permission_denied',
       } as ToolResult);
 
       await mgr.executeTool(toolCall);
@@ -164,6 +168,7 @@ describe('B-05 执行者侧逐工具 fail-closed（ChatManager.executeTool）', 
       expect(end).toHaveBeenCalledTimes(1);
       expect(end.mock.calls[0][3]).toBe('failed');
       expect(String(end.mock.calls[0][4])).toContain('命令执行失败');
+      expect(end.mock.calls[0][5]).toBe('permission_denied');
     } finally {
       begin.mockRestore();
       end.mockRestore();
@@ -190,6 +195,8 @@ describe('B-05 执行者侧逐工具 fail-closed（ChatManager.executeTool）', 
       expect(end).toHaveBeenCalledTimes(1);
       expect(end.mock.calls[0][3]).toBe('failed');
       expect(String(end.mock.calls[0][4])).toContain('spawn ENOENT boom');
+      // P2-3：异常即 `tool_error`（受控词表，非文案解析）
+      expect(end.mock.calls[0][5]).toBe('tool_error');
     } finally {
       begin.mockRestore();
       end.mockRestore();

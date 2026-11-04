@@ -46,6 +46,11 @@ import {
 } from '@openliri/kernel/identity/requestScope.js';
 import { registerScopedResource } from '@openliri/kernel/identity/scopedResources.js';
 import { getLogger } from '@openliri/infra/monitoring';
+// P2-3（2026-11-04）：失败分类的唯一取值表/守卫在 infra（禁止在此复制清单，R02）
+import {
+  isToolFailureKind,
+  type ToolFailureKind,
+} from '@openliri/infra/utils/toolContract/ToolResult';
 import {
   TOOL_CALL_INITIAL_STATUS,
   TOOL_CALL_UNKNOWN_STATUS,
@@ -109,6 +114,8 @@ export interface PersistedToolCall {
   startedAt: number;
   endedAt?: number;
   error?: string;
+  /** P2-3（2026-11-04）：失败分类（DB `failure_kind`；缺省 = 未分类） */
+  failureKind?: ToolFailureKind;
 }
 
 interface ExecutionRow {
@@ -143,6 +150,8 @@ interface ToolCallRow {
   started_at: number;
   ended_at: number | null;
   error: string | null;
+  /** P2-3：存量库补列（`undefined` 表示该列不存在 ⇒ 旧行/旧库） */
+  failure_kind?: string | null;
 }
 
 function rowToExecution(row: ExecutionRow): PersistedExecution {
@@ -283,10 +292,12 @@ export class ExecutionStore {
         started_at   INTEGER NOT NULL,
         ended_at     INTEGER,
         error        TEXT,
+        failure_kind TEXT,
         owner_key    TEXT NOT NULL DEFAULT 'local:local'
       )`
     );
     await this.ensureOwnerColumn(TOOL_CALLS_TABLE);
+    await this.ensureToolCallFailureKindColumn();
     await this.run(
       `CREATE INDEX IF NOT EXISTS idx_tool_calls_exec
        ON ${TOOL_CALLS_TABLE} (execution_id)`
@@ -323,6 +334,22 @@ export class ExecutionStore {
     if (columns.some((c) => c.name === 'owner_key')) return;
     await this.run(
       `ALTER TABLE ${table} ADD COLUMN owner_key TEXT NOT NULL DEFAULT 'local:local'`
+    );
+  }
+
+  /**
+   * P2-3（2026-11-04）：存量库补 `failure_kind` 列（只增不改、可重入）。
+   *
+   * 与 `ensureOwnerColumn` 同法：老库的 `tool_calls` 没有该列时，结算 SQL 会因列不存在整条失败
+   * （`endToolCall` 只留痕 ⇒ 该次结算静默丢失）⇒ 必须在建索引/写入之前补齐。
+   */
+  private async ensureToolCallFailureKindColumn(): Promise<void> {
+    const columns = await this.all<{ name: string }>(
+      `PRAGMA table_info(${TOOL_CALLS_TABLE})`
+    );
+    if (columns.some((c) => c.name === 'failure_kind')) return;
+    await this.run(
+      `ALTER TABLE ${TOOL_CALLS_TABLE} ADD COLUMN failure_kind TEXT`
     );
   }
 
@@ -555,6 +582,7 @@ export class ExecutionStore {
     toolName: string,
     status: ToolCallStatus,
     error?: string,
+    failureKind?: ToolFailureKind,
     endedAt: number = Date.now()
   ): Promise<void> {
     if (!isToolCallTerminalStatus(status)) {
@@ -591,10 +619,18 @@ export class ExecutionStore {
     );
     await this.run(
       `UPDATE ${TOOL_CALLS_TABLE}
-         SET status = ?, ended_at = ?, error = ?
+         SET status = ?, ended_at = ?, error = ?, failure_kind = ?
        WHERE execution_id = ? AND tool_call_id = ? AND ended_at IS NULL
          AND owner_key = ?`,
-      [status, endedAt, error ?? null, executionId, toolCallId, this.owner()]
+      [
+        status,
+        endedAt,
+        error ?? null,
+        failureKind ?? null,
+        executionId,
+        toolCallId,
+        this.owner(),
+      ]
     );
   }
 
@@ -664,6 +700,10 @@ export class ExecutionStore {
       startedAt: r.started_at,
       endedAt: r.ended_at ?? undefined,
       error: r.error ?? undefined,
+      // P2-3：读回按受控词表收窄（非法/空 ⇒ 未分类），不把任意字符串当分类回传
+      ...(isToolFailureKind(r.failure_kind)
+        ? { failureKind: r.failure_kind }
+        : {}),
     }));
   }
 

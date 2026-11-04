@@ -398,13 +398,21 @@ export class TokenBudgetController {
     else if (pct >= UNIFIED_THRESHOLDS.WARNING)
       status = TokenBudgetStatus.WARNING;
     else status = TokenBudgetStatus.NORMAL;
-    logger.info('tokenBudget:checkBudget', {
+    // P2-1（2026-11-04）：steady-state 降为 debug —— 实测窗口内该单点 **13 060 条全部是 normal**
+    // （每次 check 都打，`getCurrentBudgetState()` 内部还会再调一次）。预算压力态
+    //（WARNING / CRITICAL / EXCEEDED）仍为 INFO ⇒ 真正要看的信号不降级。
+    const payload = {
       status,
       percentUsed: Math.round(pct * 100) / 100,
       spent: this.spent,
       total: this.budget.total,
       model: this.model,
-    });
+    };
+    if (status === TokenBudgetStatus.NORMAL) {
+      logger.debug('tokenBudget:checkBudget', payload);
+    } else {
+      logger.info('tokenBudget:checkBudget', payload);
+    }
     return status;
   }
 

@@ -44,6 +44,20 @@ import { setUnifiedTokenTracker } from './trackerRegistry';
 
 const logger = getLogger('tokenBudget:unified');
 
+/**
+ * P2-1（2026-11-04）：`checkBeforeRequest` 的**日志级别判定**（纯函数，便于钉住口径）。
+ *
+ * 无理由的 `skip`（水位远低于阈值）是每次请求都会发生的 steady-state ⇒ 只进 debug
+ * （实测窗口内 2 217 / 2 663 条是 skip）；`trigger` / `warn` / 带理由的 `skip`
+ *（anti-flapping）仍是 INFO —— 压缩相关的决策与原因一个都不少。
+ */
+export function shouldLogUnifiedCheckAtInfo(
+  decision: 'trigger' | 'warn' | 'skip',
+  reason?: string
+): boolean {
+  return !(decision === 'skip' && !reason);
+}
+
 // ==========================================
 // Types
 // ==========================================
@@ -349,7 +363,10 @@ export class UnifiedTokenTracker {
         decision = 'skip';
       }
 
-      logger.info('unified:checkBeforeRequest', {
+      // P2-1（2026-11-04）：无理由的 `skip`（水位远低于阈值）是**每次请求都会发生**的 steady-state
+      // ⇒ 降为 debug（实测窗口内 2 217/2 663 条是 skip）。`trigger` / `warn` / 带理由的 `skip`
+      //（anti-flapping）仍为 INFO —— 压缩相关的决策与原因一个都不少。
+      const logPayload = {
         decision,
         ratio: Math.round(ratio * 100) / 100,
         estimatedTotal,
@@ -361,7 +378,12 @@ export class UnifiedTokenTracker {
         reason,
         // D-233：true ⇒ 估算已按 1× 窗口封顶提前返回（tokens 为**下界**，决策必为 trigger）
         estimateCapped: tailEstimate.capped,
-      });
+      };
+      if (shouldLogUnifiedCheckAtInfo(decision, reason)) {
+        logger.info('unified:checkBeforeRequest', logPayload);
+      } else {
+        logger.debug('unified:checkBeforeRequest', logPayload);
+      }
       return { decision, beforeTokens: estimatedTotal, snapshot, reason };
     } catch (err) {
       handleError(err, {

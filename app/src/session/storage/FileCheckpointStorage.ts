@@ -16,9 +16,29 @@ import type {
 } from '@modules/session/types/checkpoint.js';
 import { CHECKPOINT_MAX_AUTO } from '@modules/session/types/checkpoint.js';
 import { getLogger } from '@openliri/infra/monitoring';
+import { MS_PER_MINUTE } from '@openliri/infra/constants';
+import { LogThrottle } from '@openliri/infra/monitoring/logs/LogThrottle';
 const logger = getLogger('session:fileCheckpointStorage');
 
 const CHECKPOINT_DIR_DEFAULT = 'checkpoints';
+
+/**
+ * P2-1（2026-11-04）：淘汰日志的**放行间隔**（按会话）。
+ *
+ * 实测单窗口 `Enforced max checkpoints per session` **901 条** —— 根因是每次写入都在上限上
+ * 淘汰一个（checkpoint 策略问题，不属日志面），但"每次都打"本身让这条**唯一信号**淹没在
+ * 日志里。这里按会话每分钟放行一次（被压条数随下一条带出）：信号保留、条数受控，
+ * 不降级、不掩盖（降级才会让"持续淘汰"彻底不可见）。
+ */
+const CHECKPOINT_EVICT_LOG_MIN_INTERVAL = MS_PER_MINUTE;
+const evictLogThrottle = new LogThrottle({
+  windowMs: CHECKPOINT_EVICT_LOG_MIN_INTERVAL,
+});
+
+/** 仅测试用：重置淘汰日志的限流窗口（模块级状态，避免用例间互相压制） */
+export function resetCheckpointEvictLogThrottleForTest(): void {
+  evictLogThrottle.reset();
+}
 
 export class FileCheckpointStorage implements CheckpointStorage {
   private storageDir: string;
@@ -85,11 +105,18 @@ export class FileCheckpointStorage implements CheckpointStorage {
       }
 
       if (victims.length > 0) {
-        logger.info('Enforced max checkpoints per session', {
-          sessionId,
-          limit: CHECKPOINT_MAX_AUTO,
-          removed: victims.length,
-        });
+        // P2-1：按会话限流（见 `CHECKPOINT_EVICT_LOG_MIN_INTERVAL`），信号不降级
+        const decision = evictLogThrottle.tick(sessionId);
+        if (decision.emit) {
+          logger.info('Enforced max checkpoints per session', {
+            sessionId,
+            limit: CHECKPOINT_MAX_AUTO,
+            removed: victims.length,
+            ...(decision.suppressed > 0
+              ? { suppressed: decision.suppressed }
+              : {}),
+          });
+        }
       }
     } catch (e) {
       logger.warn('Failed to enforce max checkpoints', {

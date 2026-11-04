@@ -162,11 +162,14 @@ export class AITracePlugin {
     }
 
     // === 始终通过 Logger 记录 Trace 数据（必选项，不依赖配置） ===
+    // P2-1（2026-11-04）：`pending` 降为 debug —— 它只是"发起过"的占位（无 token / 时长），
+    // 与随后的 completed 记录**同一次调用**重复；默认 `mode='all'` 下完成记录必到，
+    // 实测窗口内 `trace:ai_call*` 1 185 条里近半是这份重复。完成/失败记录仍为 INFO。
     const model = this.extractModel(record);
     const usage = this.extractUsageFromRecord(record);
     const isError = !!record.error || record.response.status >= 400;
     // v5 方案 3.4（第四轮审查 C）：pending 用独立事件名，避免日志采集重复计数
-    traceLogger.info(isPending ? 'trace:ai_call_pending' : 'trace:ai_call', {
+    const tracePayload = {
       model,
       inputTokens: usage.inputTokens,
       outputTokens: usage.outputTokens,
@@ -177,7 +180,12 @@ export class AITracePlugin {
       isError,
       timestamp: record.timestamp,
       phase: record.phase,
-    });
+    };
+    if (isPending) {
+      traceLogger.debug('trace:ai_call_pending', tracePayload);
+    } else {
+      traceLogger.info('trace:ai_call', tracePayload);
+    }
 
     // pending 分支：跳过 usage listeners / metrics / alerts（completed 才走全链路）
     if (!isPending) {

@@ -26,12 +26,16 @@
  * 对齐 CheckpointDatabase.enforceMaxCheckpoints，每会话自动检查点上限
  * CHECKPOINT_MAX_AUTO（50），仅清理 autoCreated 的最旧检查点，保留手动检查点。
  */
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test';
 import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { FileCheckpointStorage } from '../../src/session/storage/FileCheckpointStorage';
+import {
+  FileCheckpointStorage,
+  resetCheckpointEvictLogThrottleForTest,
+} from '../../src/session/storage/FileCheckpointStorage';
+import { getLogger } from '@openliri/infra/monitoring';
 import { CHECKPOINT_MAX_AUTO } from '@modules/session/types/checkpoint';
 import type { SessionCheckpoint } from '@modules/session/types/checkpoint';
 
@@ -60,6 +64,7 @@ describe('FileCheckpointStorage.enforceMaxCheckpoints', () => {
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'cp-limit-'));
     storage = new FileCheckpointStorage(dir);
+    resetCheckpointEvictLogThrottleForTest();
   });
 
   afterEach(() => {
@@ -107,5 +112,53 @@ describe('FileCheckpointStorage.enforceMaxCheckpoints', () => {
     }
     const files = readdirSync(dir).filter((f) => f.endsWith('.json'));
     expect(files.length).toBe(CHECKPOINT_MAX_AUTO);
+  });
+
+  // P2-1（2026-11-04）：实测单窗口该 info 901 条 —— 淘汰本身是"每次写入都发生"的状态，
+  // 每次都打会把唯一信号淹没；改为按会话每分钟放行一次（信号保留、条数受控）。
+  it('P2-1：连续淘汰的 info 按会话限流（窗口内只放行 1 条）', async () => {
+    const logger = getLogger('session:fileCheckpointStorage');
+    const info = spyOn(logger, 'info');
+    try {
+      // 写满上限 + 3 个 ⇒ 后 3 次写入各触发一次淘汰
+      const total = CHECKPOINT_MAX_AUTO + 3;
+      for (let i = 0; i < total; i++) {
+        await storage.saveCheckpoint(makeCp(sid, `cp_auto_${i}`, i, true));
+      }
+
+      const evictLogs = info.mock.calls.filter(
+        (c) => c[0] === 'Enforced max checkpoints per session'
+      );
+      expect(evictLogs.length).toBe(1); // 3 次淘汰 ⇒ 1 条日志
+      expect(evictLogs[0][1]).toMatchObject({
+        sessionId: sid,
+        limit: CHECKPOINT_MAX_AUTO,
+        removed: 1,
+      });
+    } finally {
+      info.mockRestore();
+    }
+  });
+
+  it('P2-1：限流按 sessionId 分键（不同会话互不压制）', async () => {
+    const logger = getLogger('session:fileCheckpointStorage');
+    const info = spyOn(logger, 'info');
+    try {
+      // A 会话先淘汰一次（放行）
+      for (let i = 0; i <= CHECKPOINT_MAX_AUTO; i++) {
+        await storage.saveCheckpoint(makeCp('sess_a', `a_${i}`, i, true));
+      }
+      // B 会话随后淘汰一次（应独立放行，不受 A 的窗口影响）
+      for (let i = 0; i <= CHECKPOINT_MAX_AUTO; i++) {
+        await storage.saveCheckpoint(makeCp('sess_b', `b_${i}`, i, true));
+      }
+
+      const sessions = info.mock.calls
+        .filter((c) => c[0] === 'Enforced max checkpoints per session')
+        .map((c) => (c[1] as { sessionId: string }).sessionId);
+      expect(sessions).toEqual(['sess_a', 'sess_b']);
+    } finally {
+      info.mockRestore();
+    }
   });
 });

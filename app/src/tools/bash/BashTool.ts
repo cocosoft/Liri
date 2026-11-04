@@ -76,6 +76,8 @@ import { feature } from '@openliri/kernel';
 import {
   ApprovedCommandRegistry,
   getApprovedCommandRegistry,
+  // P2（2026-11-04，§3.3）：任务档审批 —— 查询放行缓存时带上活跃长程任务
+  getActiveTaskId,
   hashCommandForExecution,
   hashEnvForApproval,
   type ApprovalScope,
@@ -393,7 +395,9 @@ export class BashTool extends BaseTool {
       const isApproved = this.approvedRegistry.isApproved(
         context.sessionId || '',
         approvedHash,
-        approvalScope
+        approvalScope,
+        // P2（§3.3）：任务档条目只有匹配"当前活跃任务"才命中
+        getActiveTaskId(context.sessionId)
       );
       // S1-2（2026-10-11，G11）：**硬拦截层无条件执行**（下方花括号块恒定进入）。
       // 原实现 `if (!isApproved || revalidateApproved)` 允许"已批准 + 灰度关"整体跳过本层

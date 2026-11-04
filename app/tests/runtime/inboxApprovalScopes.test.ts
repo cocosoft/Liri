@@ -42,6 +42,12 @@ describe('PR-2：档位解析', () => {
     expect(resolveApprovalScopeKind('reject')).toBe('once');
     expect(resolveApprovalScopeKind('allowlist_call')).toBe('once');
   });
+
+  // P2（2026-11-04，§3.3）：「本任务都允许」⇒ task 档（不落成 session 档）
+  it('approve_task ⇒ task（选项式回复同样生效）', () => {
+    expect(resolveApprovalScopeKind('approve_task')).toBe('task');
+    expect(resolveApprovalScopeKind('approve', 'approve_task')).toBe('task');
+  });
 });
 
 describe('PR-2：「始终允许」落点解析', () => {

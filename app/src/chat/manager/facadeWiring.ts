@@ -61,7 +61,13 @@ import type { PendingInteractionEntry } from '@openliri/infra/utils/pendingInter
 import type { SessionScopedRegistry } from '@openliri/infra/utils/SessionScopedRegistry';
 // P2（2026-11-04，方案 §3.3）：`setTaskSessionPolicyPort` = 长程任务策略快照的会话侧端口
 // （与 `setStepLoopFactory` 同因：装配期注册一次，避免 6 个编排入口逐个注入漏配）
-import { setStepLoopFactory, setTaskSessionPolicyPort } from '@modules/tasks';
+import {
+  getActiveTaskIdForSession,
+  setStepLoopFactory,
+  setTaskSessionPolicyPort,
+} from '@modules/tasks';
+// P2（2026-11-04，§3.3）：会话活跃长程任务 → 任务档审批（infra 端口）
+import { setActiveTaskIdResolver } from '@openliri/infra/permission';
 import type { MessageService } from '../services/MessageService.js';
 import type { SessionAccessFacade } from '../services/SessionAccessFacade';
 import { SessionLifecycleManager } from '../services/SessionLifecycleManager.js';
@@ -339,6 +345,9 @@ export function wireChatFacades(host: FacadeWiringHost): void {
   // 工具调用也无处执行（事故 `pdca_muz3wada`：`hasTAORLoop:false`，9 步 / 0 次工具调用）。
   // 注册后两条入口同源同行为。
   setStepLoopFactory((sid, opts) => host._getOrCreateTAORLoop(sid, opts));
+  // P2（§3.3）：任务档审批 —— 把"会话当前活跃长程任务"解析器注册给权限层
+  // （权限层不能反向依赖 tasks；未注册 ⇒ 任务档条目一律不命中，只多问一次）
+  setActiveTaskIdResolver((sid) => getActiveTaskIdForSession(sid));
   // P2（2026-11-04，方案 §3.3）：向 tasks 层注册「长程任务策略快照」的**会话侧端口**。
   // 与上一行同因：编排入口有 6 个（会话内升级 / `/v1/pdca/start` / `/goal` / 阶段链 /
   // 启动恢复 / HTTP 快照），逐个注入必漏 ⇒ 装配期注册一次，tasks 层按需取用。

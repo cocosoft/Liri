@@ -105,7 +105,7 @@ export interface ApprovalRecordedAudit {
   approvalId: string;
   decision: ApprovalDecisionValue;
   commandHash?: string;
-  scopeKind: 'once' | 'session' | 'always';
+  scopeKind: 'once' | 'session' | 'task' | 'always';
 }
 
 export type ApprovalAuditEvent =

@@ -165,7 +165,10 @@ import {
   captureTaskPolicySnapshot,
   replayTaskPolicySnapshot,
 } from './lro/policySnapshotWiring.js';
-import { persistPdcaCheckpoint } from './lro/checkpointPersist.js';
+import {
+  persistPdcaCheckpoint,
+  writeAbortCheckpoint,
+} from './lro/checkpointPersist.js';
 import {
   renderAuditReport,
   persistAuditReportFile,
@@ -540,13 +543,6 @@ export class LongRunningTaskOrchestrator {
 
   getPolicySnapshot(): TaskPolicySnapshot | undefined {
     return this._policySnapshot;
-  }
-
-  /** P2（§3.3）：任务启动时采样（实现见 `lro/policySnapshotWiring`） */
-  private _capturePolicySnapshot(sessionId: string): void {
-    captureTaskPolicySnapshot(this.taskId, sessionId, (s) => {
-      this._policySnapshot = s;
-    });
   }
 
   /** P2（§3.3）：恢复时重放（只收紧不放宽；缺快照 ⇒ 降级 `ask`） */
@@ -960,8 +956,14 @@ export class LongRunningTaskOrchestrator {
     this._startedAt = Date.now();
     const requireApproval = opts?.requirePlanApproval ?? false;
     // P2（§3.3）：任务启动即采样策略快照（子任务继承父链快照，不各自重新采样）
-    if (opts?.policySnapshot) this._policySnapshot = opts.policySnapshot;
-    else this._capturePolicySnapshot(sessionId);
+    captureTaskPolicySnapshot(
+      this.taskId,
+      sessionId,
+      (s) => {
+        this._policySnapshot = s;
+      },
+      opts?.policySnapshot
+    );
 
     logger.info('[orchestrator] runFullPdca 开始', {
       taskId: this.taskId,
@@ -1725,11 +1727,7 @@ export class LongRunningTaskOrchestrator {
     // 原实现仅落库 goal_metrics、不写 checkpoint → phase 停留中止前值，
     // /goal list（按 phase∈completed/failed/abort 过滤）不过滤、scan 不回收该任务。
     // 注：LRTO.PdcaPhase 不含 'abort'（bridge 层类型含），此处直接写 checkpoint 文件。
-    await writePdcaCheckpoint(this.taskId, {
-      phase: 'abort',
-      status: 'abort',
-      abortedAt: new Date().toISOString(),
-    });
+    await writeAbortCheckpoint(this.taskId);
     await syncPdcaWorkItemStatus(this.taskId, 'abort');
     // S2（2026-08-13）：中止路径同样落库（超时/失败节点）
     // T-②02：同上，中止路径也做偏差判定（不因中止跳过可观测面）

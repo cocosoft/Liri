@@ -177,6 +177,9 @@ export type {
   ApprovalScope,
   ApprovalSnapshot,
 } from './ApprovedCommandRegistry';
+// P2（2026-11-04，方案 §3.3）：任务档审批作用域 —— 会话活跃任务解析端口
+export { setActiveTaskIdResolver, getActiveTaskId } from './activeTaskScope';
+export type { ActiveTaskIdResolver } from './activeTaskScope';
 
 // PR-2（2026-10-23）：授权维度（工具+参数指纹）与「始终允许」规则
 export {

@@ -39,6 +39,8 @@ export interface ToolAuthorizeContext {
    * 缺省 ⇒ 权限层回落单根 `workspacePath`（行为不变）。
    */
   workspaceRoots?: string[];
+  /** P2（2026-11-04，§3.3）：所属长程任务 id（缺省 ⇒ 判定层按会话活跃任务兜底解析） */
+  taskId?: string;
   /** 本次执行的沙箱信号（仅审批卡留证，不参与判定） */
   sandbox?: unknown;
   /** 非幂等工具重试 ⇒ 本应放行的决策升级为 ask */

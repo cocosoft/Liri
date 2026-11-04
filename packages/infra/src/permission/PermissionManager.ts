@@ -1422,6 +1422,7 @@ export class PermissionManager {
       | 'permissionMode'
       | 'workspacePath'
       | 'workspaceRoots'
+      | 'taskId'
     > & {
       /**
        * PR-3a（2026-10-23）：本次执行的沙箱上下文（由执行入口注入）。
@@ -1478,6 +1479,8 @@ export class PermissionManager {
       workspacePath: context?.workspacePath,
       // P1（2026-11-04，§3.6）：工作区根列表（缺省 ⇒ 边界判定回落单根 workspacePath）
       workspaceRoots: context?.workspaceRoots,
+      // P2（§3.3）：所属长程任务（缺省 ⇒ 审批卡不提供"本任务都允许"）
+      taskId: context?.taskId,
       // PR-3a：沙箱信号（缺失 ⇒ undefined，审批卡不写该字段 ⇒ 视为"未沙箱"）
       sandbox: context?.sandbox,
     });

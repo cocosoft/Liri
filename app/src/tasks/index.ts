@@ -207,6 +207,11 @@ export type {
 // P2（2026-11-04，方案 §3.3）：长程策略快照的会话侧端口（chat 装配期注册一次）
 export { setTaskSessionPolicyPort } from './lro/taskSessionPolicyPort';
 export type { TaskSessionPolicyPort } from './lro/taskSessionPolicyPort';
+// P2（2026-11-04，方案 §3.3）：会话活跃长程任务（任务档审批的判定依据）
+export {
+  getActiveTaskIdForSession,
+  releaseTaskScope,
+} from './lro/taskScopeRegistry';
 export type {
   PolicyReplayPatch,
   PolicySnapshotInput,

@@ -54,6 +54,13 @@ export interface ToolApprovalCardInput {
   toolCallId?: string;
   /** 所属长任务 id */
   taskId?: string;
+  /**
+   * P2（2026-11-04，方案 §3.3）：是否提供「**本任务都允许**」选项。
+   *
+   * 由调用方按"该会话当前确有活跃长程任务"决定（`getActiveTaskId(sessionId)`）。
+   * 缺省 `false` ⇒ 选项集与改造前逐字一致（会话档仍可用）。
+   */
+  allowTaskScope?: boolean;
   /** 卡片来源模块（缺省 `permission`） */
   sourceModule?: string;
   /** S1-1：工具声明的执行作用域（执行时须一致才命中放行缓存） */
@@ -101,17 +108,20 @@ export function buildToolApprovalCard(
   const fingerprintHash = hashApprovalFingerprint(approvalFingerprint);
 
   // PR-2 四档：命令类多一个工具级永久放行；外部副作用不提供永久放行（安全单调）。
+  // P2（§3.3）：长程任务进行中额外提供「本任务都允许」（比会话档窄：任务结束即失效）。
+  const taskScopeOption = params.allowTaskScope ? ['approve_task'] : [];
   const options = isCommandTool
     ? [
         'approve',
         'approve_session',
+        ...taskScopeOption,
         'allowlist_command',
         'allowlist_tool',
         'deny',
       ]
     : risk === RiskClass.EXTERNAL
-      ? ['approve', 'approve_session', 'deny']
-      : ['approve', 'approve_session', 'allowlist_call', 'deny'];
+      ? ['approve', 'approve_session', ...taskScopeOption, 'deny']
+      : ['approve', 'approve_session', ...taskScopeOption, 'allowlist_call', 'deny'];
 
   const approvalId = newApprovalId();
 

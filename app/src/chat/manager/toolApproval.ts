@@ -50,22 +50,39 @@ export async function isCommandApproved(
     // `if (!isShellToolName(toolName)) return false;` 使非命令工具的批准**永远查不到**，
     // 于是「点了批准、下一轮同一调用照样弹」。
     if (!isShellToolName(toolName)) {
-      const { isToolCallApproved } = await import('@openliri/infra/permission');
+      const { isToolCallApproved, getActiveTaskId } =
+        await import('@openliri/infra/permission');
+      // P2（§3.3）：任务档条目只有带上"当前活跃任务"才命中（不传 ⇒ 任务档一律不命中）
+      const taskId = getActiveTaskId(sessionId);
       return (
         !!sessionId &&
-        isToolCallApproved(sessionId, toolName, input, approvalFingerprint)
+        isToolCallApproved(
+          sessionId,
+          toolName,
+          input,
+          approvalFingerprint,
+          taskId
+        )
       );
     }
     const command = typeof input.command === 'string' ? input.command : '';
     if (!command || !sessionId) return false;
     // P0-2: 统一 hashCommandForExecution，与提交审批端（PermissionChecker）hash 一致
     // P0-3: 精确 hash 命中 或 命令名级放行命中（非危险命令，安全层仍兜底）→ 跳过 ask 弹卡
-    const { getApprovedCommandRegistry, hashCommandForExecution } =
-      await import('@openliri/infra/permission');
+    const {
+      getApprovedCommandRegistry,
+      hashCommandForExecution,
+      getActiveTaskId,
+    } = await import('@openliri/infra/permission');
     const registry = getApprovedCommandRegistry();
+    const taskId = getActiveTaskId(sessionId);
     return (
-      registry.isApproved(sessionId, hashCommandForExecution(command)) ||
-      registry.isCommandNameApproved(sessionId, command)
+      registry.isApproved(
+        sessionId,
+        hashCommandForExecution(command),
+        undefined,
+        taskId
+      ) || registry.isCommandNameApproved(sessionId, command, taskId)
     );
   } catch {
     // registry 不可用时按未批准处理，不影响安全底线（ask 仍会提交卡片）

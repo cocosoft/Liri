@@ -368,3 +368,77 @@ describe('S1-1 哈希强度与作用域绑定', () => {
     reg.dispose();
   });
 });
+
+/**
+ * P2（2026-11-04，方案 §3.3）：任务档审批（`scopeKind='task'`）。
+ *
+ * 要防的漂移：长程任务的「本任务都允许」被当成「本会话都允许」——
+ * 任务结束后（或换一个任务后）同类调用仍被静默放行。
+ */
+describe('P2 task 审批作用域', () => {
+  it('任务档只在 taskId 一致时命中（不传/其他任务 ⇒ 不命中）', () => {
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    const hash = hashCommand('echo task-scope');
+    reg.approve('session-1', hash, 'echo task-scope', {
+      scopeKind: 'task',
+      taskId: 'task-A',
+    });
+    expect(reg.isApproved('session-1', hash, undefined, 'task-A')).toBe(true);
+    expect(reg.isApproved('session-1', hash, undefined, 'task-B')).toBe(false);
+    expect(reg.isApproved('session-1', hash)).toBe(false);
+    reg.dispose();
+  });
+
+  it('任务档不按 TTL 过期；clearTask 精确回收（不影响其他任务）', () => {
+    const reg = new ApprovedCommandRegistry(20, false);
+    const hashA = hashCommand('echo task-a');
+    const hashB = hashCommand('echo task-b');
+    reg.approve('session-1', hashA, undefined, {
+      scopeKind: 'task',
+      taskId: 'task-A',
+    });
+    reg.approve('session-1', hashB, undefined, {
+      scopeKind: 'task',
+      taskId: 'task-B',
+    });
+    expect(reg.getApprovalEntry('session-1', hashA)?.expiresAt).toBe(
+      Number.POSITIVE_INFINITY
+    );
+    expect(reg.clearTask('task-A')).toBe(1);
+    expect(reg.isApproved('session-1', hashA, undefined, 'task-A')).toBe(false);
+    expect(reg.isApproved('session-1', hashB, undefined, 'task-B')).toBe(true);
+    reg.dispose();
+  });
+
+  it('缺 taskId 的任务档降级为 once（fail-closed，不做永久放行）', () => {
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    const hash = hashCommand('echo no-task');
+    reg.approve('session-1', hash, undefined, { scopeKind: 'task' });
+    const entry = reg.getApprovalEntry('session-1', hash);
+    expect(entry?.scopeKind).toBe('once');
+    expect(entry?.taskId).toBeUndefined();
+    expect(reg.isApproved('session-1', hash)).toBe(true);
+    reg.dispose();
+  });
+
+  it('命令名级放行同样受任务档约束', () => {
+    process.env.FEATURE_BASH_APPROVAL_STRICT = 'false';
+    try {
+      const reg = new ApprovedCommandRegistry(60_000, false);
+      reg.approve('session-1', hashCommand('dir /b x'), 'dir /b x', {
+        scopeKind: 'task',
+        taskId: 'task-A',
+      });
+      expect(reg.isCommandNameApproved('session-1', 'dir /b y', 'task-A')).toBe(
+        true
+      );
+      expect(reg.isCommandNameApproved('session-1', 'dir /b y', 'task-B')).toBe(
+        false
+      );
+      expect(reg.isCommandNameApproved('session-1', 'dir /b y')).toBe(false);
+      reg.dispose();
+    } finally {
+      delete process.env.FEATURE_BASH_APPROVAL_STRICT;
+    }
+  });
+});

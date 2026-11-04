@@ -5,7 +5,7 @@
  *
  * ## 四段（缺一不算审批）
  * `requested`（申请）→ `presented`（呈现：参数摘要 + 风险 + 授权维度 + 可选动作）
- * → `decided`（决定：`allow_once` / `allow_session` / `allow_always` / `deny`）
+ * → `decided`（决定：`allow_once` / `allow_session` / `allow_task` / `allow_always` / `deny`）
  * → `recorded`（留痕：放行缓存键 + 范围 + 审计）。
  *
  * ## 本模块只做"顺序与前置条件"的判定
@@ -24,8 +24,8 @@
  * ## 三条硬规则（对应规格 A2/A3/A4）
  * ① **不得跳段**：只能 `requested → presented → decided → recorded` 逐段推进；
  * ② **决定必须显式**：进入 `decided` 必须带 `decision`；`deny` 是终态（不得再 `recorded`）；
- * ③ **授权维度随决定**：`allow_session` / `allow_always` 必须带 `fingerprint`
- *   （否则"本会话/永久允许"会放大成全局）。
+ * ③ **授权维度随决定**：`allow_session` / `allow_task` / `allow_always` 必须带 `fingerprint`
+ *   （否则"本会话/本任务/永久允许"会放大成全局）。
  */
 
 /** 审批四段（顺序即数组顺序） */
@@ -51,6 +51,13 @@ export type ApprovalDecisionValue =
    * 它也必须带授权维度 `fingerprint` —— 否则"持久放行"会被放大成全局。
    */
   | 'allow_always'
+  /**
+   * P2（2026-11-04，方案 §3.3）：**本长程任务内允许**（Inbox 的 `approve_task`）。
+   *
+   * 比 `allow_session` 更窄：放行记录绑定任务 id，任务终态即失效。同样必须带
+   * `fingerprint`（授权维度），否则"任务档"会被放大成任务内任意调用。
+   */
+  | 'allow_task'
   | 'deny';
 
 /** 审批链状态 */
@@ -114,6 +121,7 @@ export function advanceApproval(
     }
     if (
       (options.decision === 'allow_session' ||
+        options.decision === 'allow_task' ||
         options.decision === 'allow_always') &&
       !options.fingerprint
     ) {
@@ -143,6 +151,7 @@ export function isApprovalExecutable(state: ApprovalChainState): boolean {
     state.stage === 'decided' &&
     (state.decision === 'allow_once' ||
       state.decision === 'allow_session' ||
+      state.decision === 'allow_task' ||
       state.decision === 'allow_always')
   );
 }
@@ -157,6 +166,8 @@ export function isApprovalExecutable(state: ApprovalChainState): boolean {
 export const APPROVAL_REPLY_TO_DECISION = {
   approve: 'allow_once',
   approve_session: 'allow_session',
+  // P2（2026-11-04，§3.3）：本任务都允许（仅长程任务进行中下发该选项）
+  approve_task: 'allow_task',
   allowlist_call: 'allow_always',
   allowlist_tool: 'allow_always',
   allowlist_command: 'allow_always',
@@ -185,8 +196,9 @@ export function resolveApprovalDecision(
 /** 决策 → 留痕范围（`deny` 不落任何放行 ⇒ 记 `once`） */
 export function resolveRecordScope(
   decision: ApprovalDecisionValue
-): 'once' | 'session' | 'always' {
+): 'once' | 'session' | 'task' | 'always' {
   if (decision === 'allow_session') return 'session';
+  if (decision === 'allow_task') return 'task';
   if (decision === 'allow_always') return 'always';
   return 'once';
 }

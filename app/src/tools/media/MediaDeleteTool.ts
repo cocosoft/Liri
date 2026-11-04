@@ -13,7 +13,10 @@ import { MediaErrorCode } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
 import { MEDIA_DELETE_OUTPUT_JSON_SCHEMA } from './mediaOutputSchemas';
 import { mediaStore } from '@openliri/infra/media/store/MediaStore';
-import { isToolCallApproved } from '@openliri/infra/permission';
+import {
+  getActiveTaskId,
+  isToolCallApproved,
+} from '@openliri/infra/permission';
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
@@ -68,7 +71,14 @@ export function createMediaDeleteTool(): Tool {
         // 未批准返回 REQUIRES_APPROVAL 提交审批卡（原实现无条件返回，永远不删除）。
         if (
           context.sessionId &&
-          isToolCallApproved(context.sessionId, 'media_delete', input)
+          isToolCallApproved(
+            context.sessionId,
+            'media_delete',
+            input,
+            undefined,
+            // P2（2026-11-04，§3.3）：任务档放行需要匹配当前活跃长程任务
+            getActiveTaskId(context.sessionId)
+          )
         ) {
           const deleted = mediaStore.delete(safe.path!);
           if (!deleted) {

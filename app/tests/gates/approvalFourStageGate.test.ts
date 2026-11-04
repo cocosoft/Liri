@@ -162,9 +162,13 @@ describe('A3/A4 · 决定显式 + 授权维度随决定', () => {
     if (!result.ok) expect(result.reason).toContain('必须带 decision');
   });
 
-  it('`allow_session` / `allow_always` 不带 fingerprint ⇒ 拒', () => {
+  it('`allow_session` / `allow_task` / `allow_always` 不带 fingerprint ⇒ 拒', () => {
     const presented = mustAdvance(startApprovalChain(), 'presented');
-    for (const decision of ['allow_session', 'allow_always'] as const) {
+    for (const decision of [
+      'allow_session',
+      'allow_task',
+      'allow_always',
+    ] as const) {
       const result = advanceApproval(presented, 'decided', { decision });
       expect(result.ok).toBe(false);
       if (!result.ok) expect(result.reason).toContain('fingerprint');
@@ -180,6 +184,8 @@ describe('A3/A4 · 决定显式 + 授权维度随决定', () => {
   it('回复值 → 决策词表（单一映射；未命中 fail-closed 为 deny）', () => {
     expect(resolveApprovalDecision('approve')).toBe('allow_once');
     expect(resolveApprovalDecision('approve_session')).toBe('allow_session');
+    // P2（2026-11-04，§3.3）：任务档
+    expect(resolveApprovalDecision('approve_task')).toBe('allow_task');
     expect(resolveApprovalDecision('allowlist_call')).toBe('allow_always');
     expect(resolveApprovalDecision('allowlist_tool')).toBe('allow_always');
     expect(resolveApprovalDecision('allowlist_command')).toBe('allow_always');
@@ -187,10 +193,12 @@ describe('A3/A4 · 决定显式 + 授权维度随决定', () => {
     expect(resolveApprovalDecision('something_else')).toBe('deny');
     // 选项式回复同义（任一命中）
     expect(resolveApprovalDecision('', 'approve')).toBe('allow_once');
+    expect(resolveApprovalDecision('', 'approve_task')).toBe('allow_task');
 
     // 留痕范围
     expect(resolveRecordScope('allow_once')).toBe('once');
     expect(resolveRecordScope('allow_session')).toBe('session');
+    expect(resolveRecordScope('allow_task')).toBe('task');
     expect(resolveRecordScope('allow_always')).toBe('always');
     expect(resolveRecordScope('deny')).toBe('once');
   });

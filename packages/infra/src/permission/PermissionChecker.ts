@@ -34,6 +34,8 @@ import { isShellToolName } from '@openliri/infra/utils/toolContract/toolRoles';
 import type { ToolSandboxLevel } from '@openliri/infra/utils/toolContract/Tool';
 import { findWorkspaceEscapeInRoots } from '@openliri/infra/utils/toolContract/pathBoundary';
 import { PATH_ARG_KEYS } from '@openliri/infra/utils/toolContract/pathArgs';
+// P2（§3.3）：会话活跃长程任务（任务档审批选项的可用性判定）
+import { getActiveTaskId } from './activeTaskScope';
 // PR-3b（2026-10-23）：沙箱豁免判定（纯函数，§3.9.4 S1–S4）
 import { resolveSandboxExemption } from './sandboxExemption';
 // Q-16（2026-10-23）：命令规则匹配语义（prefix / regex，单点实现，见 utils）
@@ -717,9 +719,9 @@ export class PermissionChecker {
         );
       }
 
-      const taskId = (context as unknown as Record<string, unknown>)?.taskId as
-        | string
-        | undefined;
+      // P2（§3.3）：任务档审批 —— 优先用上下文显式声明，其次按会话活跃任务兜底解析
+      const taskId =
+        context.taskId ?? getActiveTaskId(sessionId);
 
       // P1（2026-11-04）：审批卡**唯一的构造点**（与执行后路径共用，见
       // `toolApprovalSubmission.ts`）。指纹 / 选项 / 文案 / metadata / 审计①段都在那里，
@@ -729,6 +731,8 @@ export class PermissionChecker {
         input,
         sessionId,
         taskId,
+        // 只有确实在长程任务里才给「本任务都允许」（否则选项集与改造前一致）
+        allowTaskScope: Boolean(taskId),
         sandbox: context.sandbox,
       });
       const commandHash = card.commandHash;

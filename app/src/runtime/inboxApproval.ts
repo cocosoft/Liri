@@ -23,6 +23,8 @@ import {
 import {
   APPROVAL_REPLY_TO_DECISION,
   getApprovedCommandRegistry,
+  // P2（§3.3）：任务档审批 —— 活跃长程任务解析
+  getActiveTaskId,
   resolveApprovalDecision,
   resolveRecordScope,
   type ApprovalScope,
@@ -99,12 +101,17 @@ function isFingerprintAllowReply(
   return reply === 'allowlist_call' || selectedOption === 'allowlist_call';
 }
 
-/** PR-2：按回复值解析放行缓存档位（`approve_session` ⇒ 不过期） */
+/** PR-2：按回复值解析放行缓存档位（`approve_session` ⇒ 不过期；`approve_task` ⇒ 仅本任务） */
 export function resolveApprovalScopeKind(
   reply: string,
   selectedOption?: string
-): 'once' | 'session' {
-  return isSessionScopeReply(reply, selectedOption) ? 'session' : 'once';
+): 'once' | 'session' | 'task' {
+  if (isSessionScopeReply(reply, selectedOption)) return 'session';
+  // P2（2026-11-04，§3.3）：「本任务都允许」—— 绑定当前活跃长程任务，任务结束即失效
+  if (reply === 'approve_task' || selectedOption === 'approve_task') {
+    return 'task';
+  }
+  return 'once';
 }
 
 /**
@@ -252,14 +259,25 @@ async function applyApprovalSideEffects(
     | undefined;
   if (!commandHash || !current.sessionId) return;
 
-  // PR-2：按档写入 —— 「本会话都允许」不过期（随 clearSession / 进程退出失效）
+  // PR-2：按档写入 —— 「本会话都允许」不过期（随 clearSession / 进程退出失效）；
+  // P2（§3.3）：「本任务都允许」绑定当前活跃长程任务（缺活跃任务 ⇒ approve() 内部降级 once）
   const scopeKind = resolveApprovalScopeKind(reply, selectedOption);
+  const taskId =
+    scopeKind === 'task'
+      ? ((current.metadata?.taskId as string | undefined) ??
+        getActiveTaskId(current.sessionId))
+      : undefined;
+  if (scopeKind === 'task' && !taskId) {
+    logger.warn('「本任务都允许」缺少活跃任务，审批降级为 once', {
+      sessionId: current.sessionId,
+    });
+  }
   getApprovedCommandRegistry().approve(
     current.sessionId,
     commandHash,
     command,
-    approvalScope || approvalSnapshot || scopeKind === 'session'
-      ? { scope: approvalScope, snapshot: approvalSnapshot, scopeKind }
+    approvalScope || approvalSnapshot || scopeKind !== 'once'
+      ? { scope: approvalScope, snapshot: approvalSnapshot, scopeKind, taskId }
       : undefined
   );
   logger.info('工具审批已批准，写入命令放行缓存', {

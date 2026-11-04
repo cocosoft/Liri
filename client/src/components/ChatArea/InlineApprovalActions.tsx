@@ -29,6 +29,8 @@ interface Props {
 const TIER_ORDER = [
   "approve",
   "approve_session",
+  // P2（2026-11-04，§3.3）：本任务都允许（后端只在长程任务进行中下发该选项）
+  "approve_task",
   "allowlist_call",
   "allowlist_command",
   "allowlist_tool",
@@ -41,6 +43,7 @@ type TierReply = (typeof TIER_ORDER)[number];
 const TIER_LABEL_KEYS: Record<TierReply, string> = {
   approve: "chat.inboxReplyApprove",
   approve_session: "chat.inboxReplyApproveSession",
+  approve_task: "chat.inboxReplyApproveTask",
   allowlist_call: "chat.inboxReplyAllowAlways",
   allowlist_command: "chat.inboxReplyAllowCommand",
   allowlist_tool: "chat.inboxReplyAllowTool",
@@ -99,7 +102,7 @@ export default function InlineApprovalActions({ inboxId }: Props) {
           "error",
           (!res.ok ? String(res.error || "") : "") ||
             inboxReplyNotAppliedReason(res.ok ? res.data : undefined) ||
-            t("common.failed")
+            t("common.failed"),
         );
         return;
       }
@@ -117,6 +120,7 @@ export default function InlineApprovalActions({ inboxId }: Props) {
       <span className="inline-flex items-center gap-1 text-[10px] text-green-500">
         {done === "approve" ||
         done === "approve_session" ||
+        done === "approve_task" ||
         done.startsWith("allowlist_")
           ? `✅ ${t("chat.inboxHandled")}`
           : `✕ ${t("chat.inboxReplyReject")}`}

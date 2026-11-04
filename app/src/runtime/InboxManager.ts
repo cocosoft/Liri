@@ -1460,6 +1460,13 @@ function _buildDefaultActions(item: {
         style: 'secondary',
       });
     }
+    if (opts.includes('approve_task')) {
+      actions.push({
+        label: '本任务都允许',
+        reply: 'approve_task',
+        style: 'secondary',
+      });
+    }
     if (opts.includes('allowlist_call')) {
       actions.push({
         label: '始终允许',

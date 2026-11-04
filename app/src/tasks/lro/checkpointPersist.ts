@@ -9,13 +9,32 @@
  * 失败按既有语义**不阻断任务执行**（`@ignore-catch`）。
  */
 
-import { pdcaCheckpointStatus } from '@modules/tasks/phases';
+import {
+  PDCA_TERMINAL_PHASES,
+  pdcaCheckpointStatus,
+} from '@modules/tasks/phases';
 import type { PdcaPhase } from '../LongRunningTaskOrchestrator';
 import type { Plan } from '../TaskOrchestrator';
 import { writePdcaCheckpoint } from '../PdcaWorkItemBridge';
 import type { BlockedCommandEntry } from './blockedCommandLedger.js';
 import { projectCheckpointSteps } from './checkpointSnapshot.js';
 import type { TaskPolicySnapshot } from './policySnapshot.js';
+import { releaseTaskScope } from './taskScopeRegistry.js';
+
+/**
+ * 中止路径的终态 checkpoint（载荷与改造前逐字一致）+ 回收任务档审批。
+ *
+ * `abort()` 直接写 checkpoint（不走 `persistPdcaCheckpoint`），因此单列一个入口，
+ * 避免"任务已中止、任务档放行仍然生效"。
+ */
+export async function writeAbortCheckpoint(taskId: string): Promise<void> {
+  await writePdcaCheckpoint(taskId, {
+    phase: 'abort',
+    status: 'abort',
+    abortedAt: new Date().toISOString(),
+  });
+  releaseTaskScope(taskId);
+}
 
 export interface CheckpointPersistInput {
   taskId: string;
@@ -61,6 +80,8 @@ export async function persistPdcaCheckpoint(
       turnsExtensions: input.turnsExtensions,
       ...(input.policySnapshot ? { policySnapshot: input.policySnapshot } : {}),
     });
+    // P2（§3.3）：终态落盘 ⇒ 回收任务档审批（活跃登记 + 放行记录）
+    if (PDCA_TERMINAL_PHASES.has(input.phase)) releaseTaskScope(input.taskId);
   } catch {
     // @ignore-catch — checkpoint 写入失败不影响任务执行
   }

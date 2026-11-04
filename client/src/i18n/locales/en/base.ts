@@ -928,6 +928,8 @@ const enBase = {
     inboxReplyAllowCommand: "Allowlist command",
     // PR-2 (2026-10-23): four approval tiers — allow for this session / always (tool + args fingerprint)
     inboxReplyApproveSession: "Allow for session",
+    // P2 (2026-11-04, §3.3): task-scoped approval while a long-running task is active
+    inboxReplyApproveTask: "Allow for this task",
     inboxReplyAllowAlways: "Always allow",
     inboxReplyAllowAlwaysHint: "Always allow (this call's arguments only)",
     inboxRepliedToast: "Done: {{label}}",

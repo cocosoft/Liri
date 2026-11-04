@@ -32,6 +32,8 @@ const TYPE_LABEL_KEYS: Record<string, string> = {
 const REPLY_LABEL_KEYS: Record<string, string> = {
   approve: "chat.inboxReplyApprove",
   approve_session: "chat.inboxReplyApproveSession",
+  // P2（2026-11-04，§3.3）：本任务都允许（仅长程任务进行中出现）
+  approve_task: "chat.inboxReplyApproveTask",
   allowlist_call: "chat.inboxReplyAllowAlways",
   allowlist_tool: "chat.inboxReplyAllowTool",
   allowlist_command: "chat.inboxReplyAllowCommand",
@@ -87,7 +89,7 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
           "error",
           (!res.ok ? String(res.error || "") : "") ||
             inboxReplyNotAppliedReason(res.ok ? res.data : undefined) ||
-            t("common.failed")
+            t("common.failed"),
         );
         return;
       }
@@ -105,6 +107,7 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
       const isApproveLike =
         reply === "approve" ||
         reply === "approve_session" ||
+        reply === "approve_task" ||
         reply === "allowlist_call" ||
         reply === "allowlist_tool" ||
         reply === "allowlist_command";

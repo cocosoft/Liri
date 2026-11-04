@@ -17,6 +17,7 @@ import {
   type TaskPolicySnapshot,
 } from './policySnapshot.js';
 import { getTaskSessionPolicyPort } from './taskSessionPolicyPort.js';
+import { markTaskActive } from './taskScopeRegistry.js';
 
 const logger = getLogger('tasks:longRunning');
 
@@ -28,8 +29,17 @@ const logger = getLogger('tasks:longRunning');
 export function captureTaskPolicySnapshot(
   taskId: string,
   sessionId: string,
-  setSnapshot: (snapshot: TaskPolicySnapshot | undefined) => void
+  setSnapshot: (snapshot: TaskPolicySnapshot | undefined) => void,
+  /** 阶段链继承的快照（给定 ⇒ 不重新采样，只登记活跃任务并写回） */
+  inherited?: TaskPolicySnapshot
 ): void {
+  // P2（§3.3）：顺带登记「本会话当前活跃任务」——任务档审批据此判断"现在跑的是哪个任务"。
+  // 继承分支同样要登记：上一阶段终态会释放登记，不重登记则本阶段任务档静默消失。
+  markTaskActive(sessionId, taskId);
+  if (inherited) {
+    setSnapshot(inherited);
+    return;
+  }
   const port = getTaskSessionPolicyPort();
   if (!port) {
     logger.warn('[orchestrator] 策略快照未采样：会话端策略端口未注册', {
@@ -62,6 +72,8 @@ export function replayTaskPolicySnapshot(
   raw: unknown,
   setSnapshot: (snapshot: TaskPolicySnapshot | undefined) => void
 ): void {
+  // P2（§3.3）：恢复的任务同样是「当前活跃任务」（否则续跑期间的审批拿不到任务档）
+  markTaskActive(sessionId, taskId);
   const snapshot = restorePolicySnapshot(raw);
   setSnapshot(snapshot);
   const port = getTaskSessionPolicyPort();

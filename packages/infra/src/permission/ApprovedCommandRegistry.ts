@@ -227,8 +227,13 @@ export interface ApprovalEntry {
    * PR-2（2026-10-23）：审批**作用域档位**。
    * - `once`（缺省）：短 TTL（现状 5 分钟）；
    * - `session`：**本会话都允许** —— 有效期到会话结束（`clearSession()` 或进程退出）。
+   * - `task`（P2，2026-11-04，方案 §3.3）：**本长程任务都允许** —— 条目绑定 `taskId`，
+   *   只在该任务仍是会话的活跃任务时命中；任务结束（`clearTask()`）即失效。
+   *   比 `session` 更窄（不跨任务复用），用于"长程步骤同类调用只批一次"。
    */
-  scopeKind?: 'once' | 'session';
+  scopeKind?: 'once' | 'session' | 'task';
+  /** `scopeKind==='task'` 时绑定的任务 id（其余档位缺省） */
+  taskId?: string;
 }
 
 /**
@@ -388,8 +393,10 @@ export class ApprovedCommandRegistry {
       scope?: ApprovalScope;
       snapshot?: ApprovalSnapshot;
       capabilityDigest?: string;
-      /** PR-2：`session` ⇒ 本会话都允许（不过期，直到 `clearSession`） */
-      scopeKind?: 'once' | 'session';
+      /** PR-2：`session` ⇒ 本会话都允许（不过期，直到 `clearSession`）；P2：`task` ⇒ 本任务都允许 */
+      scopeKind?: 'once' | 'session' | 'task';
+      /** P2（方案 §3.3）：`scopeKind==='task'` 必填；缺失 ⇒ 降级为 `once`（fail-closed） */
+      taskId?: string;
     }
   ): void {
     if (!sessionId || !hash) return;
@@ -400,15 +407,30 @@ export class ApprovedCommandRegistry {
     }
     const scopeDigest = computeScopeDigest(extras?.scope);
     const ownerKey = currentOwnerKey();
-    const scopeKind = extras?.scopeKind === 'session' ? 'session' : 'once';
+    // P2：任务档必须有 taskId —— 缺失时降级 once（宁可多问一次，不做"账号级永久放行"）
+    const requestedKind = extras?.scopeKind;
+    const scopeKind: 'once' | 'session' | 'task' =
+      requestedKind === 'task' && !extras?.taskId
+        ? 'once'
+        : requestedKind === 'task'
+          ? 'task'
+          : requestedKind === 'session'
+            ? 'session'
+            : 'once';
+    const taskId = scopeKind === 'task' ? extras?.taskId : undefined;
+    if (requestedKind === 'task' && !taskId) {
+      logger.warn('任务审批作用域缺少 taskId，已降级为 once', {
+        sessionId,
+        hash,
+      });
+    }
     sessionMap.set(hash, {
       hash,
-      // PR-2：会话档不设过期（由 clearSession/进程退出失效）
+      // PR-2/P2：会话档与任务档不设过期（分别由 clearSession / clearTask 失效）
       expiresAt:
-        scopeKind === 'session'
-          ? Number.POSITIVE_INFINITY
-          : Date.now() + this.ttlMs,
+        scopeKind === 'once' ? Date.now() + this.ttlMs : Number.POSITIVE_INFINITY,
       scopeKind,
+      ...(taskId ? { taskId } : {}),
       // 多租户 P3：记录批准时的身份（本地身份 ⇒ 不写字段，零变更）
       ...(ownerKey ? { ownerKey } : {}),
       baseCommand: command ? getBaseCommand(command) : undefined,
@@ -437,7 +459,17 @@ export class ApprovedCommandRegistry {
    * —— fail-closed）。不传 `scope` 时保持既有语义（供"是否已批准"的快速判定，
    * 如 ChatManager 跳过 ask 卡片）。
    */
-  isApproved(sessionId: string, hash: string, scope?: ApprovalScope): boolean {
+  isApproved(
+    sessionId: string,
+    hash: string,
+    scope?: ApprovalScope,
+    /**
+     * P2（方案 §3.3）：当前会话的**活跃长程任务 id**。
+     * 任务档（`scopeKind==='task'`）条目只有在该值与条目 `taskId` 一致时才算命中
+     * （不传 ⇒ 任务档一律不命中，fail-closed）。
+     */
+    taskId?: string
+  ): boolean {
     if (!sessionId || !hash) return false;
     const sessionMap = this.store.get(sessionId);
     if (!sessionMap) return false;
@@ -445,6 +477,10 @@ export class ApprovedCommandRegistry {
     if (!entry) return false;
     // 多租户 P3：他人 / 本机（无归属）的放行记录对远端身份一律不可复用（fail-closed）
     if (!canAccessOwnerKey(entry.ownerKey)) return false;
+    // P2：任务档只在本任务内有效
+    if (entry.scopeKind === 'task' && (!taskId || entry.taskId !== taskId)) {
+      return false;
+    }
     if (Date.now() > entry.expiresAt) {
       sessionMap.delete(hash);
       return false;
@@ -480,7 +516,12 @@ export class ApprovedCommandRegistry {
    * BashTool 安全拦截层仍作为兜底执行（危险命令参数漂移会被安全层拦截）。
    * 危险命令必须精确 hash 命中（isApproved），防止 `rm -rf A` 放行 `rm -rf B`。
    */
-  isCommandNameApproved(sessionId: string, command: string): boolean {
+  isCommandNameApproved(
+    sessionId: string,
+    command: string,
+    /** P2：活跃长程任务 id（任务档条目必须匹配；缺省 ⇒ 任务档不命中） */
+    taskId?: string
+  ): boolean {
     // A5（2026-10-09）：严格模式（灰度开关 BASH_APPROVAL_STRICT，默认关）下禁用
     // 命令名级放行 —— 仅保留精确 hash 命中（isApproved），消除"同名不同参"漂移放行。
     if (feature('BASH_APPROVAL_STRICT')) return false;
@@ -496,6 +537,13 @@ export class ApprovedCommandRegistry {
     for (const entry of sessionMap.values()) {
       // 多租户 P3：命令名级放行同样按归属过滤
       if (!canAccessOwnerKey(entry.ownerKey)) continue;
+      // P2：任务档条目只在该任务内参与命令名级放行
+      if (
+        entry.scopeKind === 'task' &&
+        (!taskId || entry.taskId !== taskId)
+      ) {
+        continue;
+      }
       if (
         entry.baseCommand === base &&
         entry.commandSignature === signature &&
@@ -522,8 +570,33 @@ export class ApprovedCommandRegistry {
   }
 
   /**
-   * 多租户 P5：按**归属键前缀**清除放行记录（删除租户 / 移除成员时调用）
+   * P2（2026-11-04，方案 §3.3）：清除某长程任务的全部放行记录（任务终态/中止时调用）。
    *
+   * 任务档条目**不按 TTL 过期**（长任务可能跑几小时），因此必须由任务生命周期显式回收；
+   * 漏调只是多留几条内存记录（任务 id 不再活跃 ⇒ 也命中不到），不会造成越权放行。
+   *
+   * @returns 清除的记录数
+   */
+  clearTask(taskId: string): number {
+    if (!taskId) return 0;
+    let removed = 0;
+    for (const [sessionId, sessionMap] of this.store) {
+      for (const [hash, entry] of sessionMap) {
+        if (entry.scopeKind === 'task' && entry.taskId === taskId) {
+          sessionMap.delete(hash);
+          removed++;
+        }
+      }
+      if (sessionMap.size === 0) this.store.delete(sessionId);
+    }
+    if (removed > 0) {
+      logger.info('长程任务审批作用域已回收', { taskId, removed });
+    }
+    return removed;
+  }
+
+  /**
+   * 多租户 P5：按**归属键前缀**清除放行记录（删除租户 / 移除成员时调用）
    * 只删 `ownerKey` 匹配前缀的条目，其他身份与本机记录不受影响。
    *
    * @returns 清除的记录数
@@ -615,12 +688,16 @@ export function isToolCallApproved(
   toolName: string,
   input: Record<string, unknown>,
   /** PR-2：工具声明的参数指纹（缺省 = `toolCallApprovalKey`，零行为变更） */
-  fingerprint?: string
+  fingerprint?: string,
+  /** P2：活跃长程任务 id（任务档条目必须匹配；缺省 ⇒ 任务档不命中） */
+  taskId?: string
 ): boolean {
   const key = fingerprint ?? toolCallApprovalKey(toolName, input);
   return getApprovedCommandRegistry().isApproved(
     sessionId,
-    hashCommandForExecution(key)
+    hashCommandForExecution(key),
+    undefined,
+    taskId
   );
 }
 

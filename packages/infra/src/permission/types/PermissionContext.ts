@@ -75,6 +75,13 @@ export interface PermissionContext {
   workspaceRoots?: string[];
 
   /**
+   * P2（2026-11-04，方案 §3.3）：所属**长程任务 id**（缺省 ⇒ 审批卡不提供"本任务都允许"）。
+   *
+   * 判定层会先取本字段，取不到再用 `getActiveTaskId(sessionId)` 兜底解析。
+   */
+  taskId?: string;
+
+  /**
    * PR-3a（2026-10-23）：本次执行的**沙箱上下文**（由执行入口注入）。
    *
    * 当前只用于审批卡留证（`sandboxMode` / `sandboxPermissionLevel`），
@@ -105,6 +112,8 @@ export function createPermissionContext(params: {
   workspacePath?: string;
   /** P1（2026-11-04）：会话工作区根列表（缺省 ⇒ 回落单根 `workspacePath`） */
   workspaceRoots?: string[];
+  /** P2（2026-11-04，§3.3）：所属长程任务 id（缺省 ⇒ 不提供任务档审批选项） */
+  taskId?: string;
   /** PR-3a：本次执行的沙箱上下文（仅供审批卡留证，不改判定） */
   sandbox?: SandboxExecutionSignal;
 }): PermissionContext {
@@ -119,6 +128,7 @@ export function createPermissionContext(params: {
     permissionMode: params.permissionMode,
     workspacePath: params.workspacePath,
     workspaceRoots: params.workspaceRoots,
+    taskId: params.taskId,
     sandbox: params.sandbox,
   };
 }

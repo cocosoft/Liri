@@ -1206,8 +1206,9 @@ export interface LiriEventMap {
   //
   // `decision` 词表与本仓 Inbox 四档一一对应（实测 `PermissionChecker._submitToInbox`
   // 的 `options`）：`approve`→`allow_once`、`approve_session`→`allow_session`、
-  // `allowlist_*`→`allow_always`、其余→`deny`。规格 §1.1 原写三值，
-  // `allow_always` 是**取证后的补充**（持久化白名单是既有一等能力，不能记账成 session）。
+  // `approve_task`→`allow_task`（P2 任务档）、`allowlist_*`→`allow_always`、其余→`deny`。
+  // 规格 §1.1 原写三值，`allow_always` 与 `allow_task` 是**取证后的补充**
+  // （持久化白名单与任务档都是既有一等能力，不能记账成 session）。
 
   /** ① 申请：工具请求审批（尚未呈现给用户） */
   'approval/requested': {
@@ -1238,7 +1239,12 @@ export interface LiriEventMap {
   /** ③ 决定：用户作答或超时（超时按既有 `timeoutToDeny` 口径记 `deny`） */
   'approval/decided': {
     approvalId: string;
-    decision: 'allow_once' | 'allow_session' | 'allow_always' | 'deny';
+    decision:
+      | 'allow_once'
+      | 'allow_session'
+      | 'allow_task'
+      | 'allow_always'
+      | 'deny';
     /** 决定来源；`timeout` = fail-closed 自动拒绝 */
     by: 'user' | 'timeout';
     /** 原始回复值（对账用；`by:'timeout'` 时省略） */
@@ -1248,13 +1254,18 @@ export interface LiriEventMap {
   /** ④ 留痕：放行缓存/规则落盘结果（与 `ApprovedCommandRegistry` 同口径） */
   'approval/recorded': {
     approvalId: string;
-    decision: 'allow_once' | 'allow_session' | 'allow_always' | 'deny';
+    decision:
+      | 'allow_once'
+      | 'allow_session'
+      | 'allow_task'
+      | 'allow_always'
+      | 'deny';
     /** 放行缓存键（`hashCommandForExecution(approvalFingerprint)`） */
     commandHash?: string;
     /**
-     * 留痕范围：`once` 本次 / `session` 本会话 / `always` 持久化规则。
+     * 留痕范围：`once` 本次 / `session` 本会话 / `task` 本长程任务 / `always` 持久化规则。
      * `deny` ⇒ `once`（拒绝不落任何放行）。
      */
-    scopeKind: 'once' | 'session' | 'always';
+    scopeKind: 'once' | 'session' | 'task' | 'always';
   };
 }

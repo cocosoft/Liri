@@ -897,6 +897,8 @@ const zhBase = {
     inboxReplyAllowCommand: "加入命令白名单",
     // PR-2（2026-10-23）：四档审批 —— 本会话都允许 / 始终允许（工具+参数指纹）
     inboxReplyApproveSession: "本会话都允许",
+    // P2（2026-11-04，§3.3）：长程任务进行中的任务档授权（任务结束即失效）
+    inboxReplyApproveTask: "本任务都允许",
     inboxReplyAllowAlways: "始终允许",
     inboxReplyAllowAlwaysHint: "始终允许（仅此调用参数）",
     inboxRepliedToast: "已{{label}}",

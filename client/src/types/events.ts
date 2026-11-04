@@ -622,7 +622,8 @@ export interface LiriEventMap {
   "execution/ownership_decision": {
     executionId: string;
     action: "accept" | "queue";
-    reason: "session_free" | "owner_autonomous" | "owner_manual" | "occupied_unknown";
+    reason:
+      "session_free" | "owner_autonomous" | "owner_manual" | "occupied_unknown";
     ownerKind: "none" | "autonomous" | "manual";
     ownerTicketId?: string;
     messageId?: string;
@@ -646,15 +647,17 @@ export interface LiriEventMap {
   };
   "approval/decided": {
     approvalId: string;
-    decision: "allow_once" | "allow_session" | "allow_always" | "deny";
+    decision:
+      "allow_once" | "allow_session" | "allow_task" | "allow_always" | "deny";
     by: "user" | "timeout";
     reply?: string;
   };
   "approval/recorded": {
     approvalId: string;
-    decision: "allow_once" | "allow_session" | "allow_always" | "deny";
+    decision:
+      "allow_once" | "allow_session" | "allow_task" | "allow_always" | "deny";
     commandHash?: string;
-    scopeKind: "once" | "session" | "always";
+    scopeKind: "once" | "session" | "task" | "always";
   };
 }
 

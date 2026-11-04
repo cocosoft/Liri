@@ -264,7 +264,7 @@ describe('B1-4：启动钩子触发回放（不发起任何会话请求）', () 
     expect(registry.isWaiting(sessionId)).toBe(true);
   });
 
-  it('等待集未被重建（回放读不到等待者）⇒ 同一 pending 行走 markFailed 路径', async () => {
+  it('等待集未被重建（回放读不到等待者）⇒ 该行走终态 dropped（不再每次启动重试）', async () => {
     const store = await makeStore();
     const outbox = await makeOutbox();
     const sessionId = 's-boot-norebuild';
@@ -278,7 +278,7 @@ describe('B1-4：启动钩子触发回放（不发起任何会话请求）', () 
 
     // 注入**非进程级**的独立注册表：重建落在它身上，而恢复通路读的是
     // `getYieldRegistry()` ⇒ 等价于"等待集未被重建"。
-    // 这条反例正是 `rebuildYieldWaitingSet` 必须前置的证据：顺序一错（或不重建）即逐行 markFailed。
+    // 这条反例正是 `rebuildYieldWaitingSet` 必须前置的证据：顺序一错（或不重建）即逐行落终态。
     const orphanRegistry = new YieldRegistry();
     const cm = new ChatManagerImpl();
     const resumed: string[] = [];
@@ -290,7 +290,8 @@ describe('B1-4：启动钩子触发回放（不发起任何会话请求）', () 
       outbox,
     });
 
-    expect(await waitForState(outbox, rowId, 'failed')).toBe('failed');
+    // P1（2026-11-04）：无等待者 ⇒ 重投永远拿不到 ack ⇒ 直接终态（旧实现 failed 会每次启动重试）
+    expect(await waitForState(outbox, rowId, 'dropped')).toBe('dropped');
     expect((await outbox.getRow(rowId))?.attempts).toBe(1);
     expect(resumed).toEqual([]); // 无等待者 ⇒ 恢复执行器根本不被调用
     expect(getYieldRegistry().isWaiting(sessionId)).toBe(false);

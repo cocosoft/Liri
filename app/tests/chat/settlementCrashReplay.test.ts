@@ -276,7 +276,9 @@ describe('B4-3②：注入式崩溃演练（崩溃点由 hook 决定，非 OS �
     expect(await replayPendingSettlements(deps(), outboxB)).toBe(0);
     expect(resumes).toBe(1); // ③ 恢复仍恰好一次（不重复）
     row = await outboxB.getRow(rowId);
-    expect(row?.state).toBe('failed'); // 诚实落 failed（留待重试，超上限转 dropped）
+    // P1（2026-11-04）：重启后无等待登记 ⇒ 父轮次已不在 ⇒ 直接终态 dropped
+    //（旧实现 failed 会每次启动重试，真库曾累积 1 152 行 attempts=8）
+    expect(row?.state).toBe('dropped');
     expect(row?.attempts).toBe(2);
   });
 });

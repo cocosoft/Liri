@@ -13,6 +13,7 @@ import { unlinkSync } from 'fs';
 import { Database } from '@openliri/infra/external';
 import {
   SettlementOutbox,
+  resolveOutboxDbPath,
   MAX_DELIVERY_ATTEMPTS,
   REPLAY_MAX_AGE_MS,
   OUTBOX_MAX_AGE_MS,
@@ -256,5 +257,29 @@ describe('SettlementOutbox：M-3 原子认领 / 单向状态机 / 幂等键口�
 
     const id = await outbox.enqueue({ sessionId: 's1', endedAt: 1 });
     expect((await outbox.getRow(id))?.state).toBe('pending');
+  });
+});
+
+describe('结算台账库路径：测试进程隔离（P1，2026-11-04）', () => {
+  const originalDataDir = process.env.LIRI_DATA_DIR;
+
+  afterEach(() => {
+    if (originalDataDir === undefined) delete process.env.LIRI_DATA_DIR;
+    else process.env.LIRI_DATA_DIR = originalDataDir;
+  });
+
+  test('显式路径优先（用例自带的临时库不受隔离影响）', () => {
+    expect(resolveOutboxDbPath('/tmp/explicit.db')).toBe('/tmp/explicit.db');
+  });
+
+  test('测试环境且未显式隔离 ⇒ 内存库（不写生产 app.db）', () => {
+    delete process.env.LIRI_DATA_DIR;
+    expect(process.env.NODE_ENV).toBe('test');
+    expect(resolveOutboxDbPath()).toBe(':memory:');
+  });
+
+  test('测试环境但已用 LIRI_DATA_DIR 隔离 ⇒ 走隔离库路径', () => {
+    process.env.LIRI_DATA_DIR = join(tmpdir(), 'p1-isolated-data');
+    expect(resolveOutboxDbPath()).not.toBe(':memory:');
   });
 });

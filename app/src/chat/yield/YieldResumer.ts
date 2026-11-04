@@ -77,11 +77,15 @@ export async function handleYieldSettlement(
   const entry = registry.get(signal.sessionId);
   if (!entry) {
     // N-36 附注（2026-09-20）：原为静默 return —— 补 warn，区分"结算到了但该会话无等待登记"
-    // 与"登记存在但判定不可恢复"（否则现场只剩"结算后什么都没发生"）
-    logger.warn('yield 结算到达但该会话无等待登记', {
-      sessionId: signal.sessionId,
-      endedAt: signal.endedAt,
-    });
+    // 与"登记存在但判定不可恢复"（否则现场只剩"结算后什么都没发生"）。
+    // P1（2026-11-04）：`restored`（崩溃回放）信号没有登记属**预期**（登记只存内存，重启即失）
+    // ⇒ 降 debug；只有运行期首次投递才可能是"结算早于登记"的竞态，保留 warn。
+    const meta = { sessionId: signal.sessionId, endedAt: signal.endedAt };
+    if (signal.restored) {
+      logger.debug('yield 结算到达但该会话无等待登记（回放）', meta);
+    } else {
+      logger.warn('yield 结算到达但该会话无等待登记', meta);
+    }
     return false; // 该会话当前无 yield 等待
   }
 
@@ -337,6 +341,17 @@ export async function replayPendingSettlements(
       });
       const claimed = await outbox.claim(row.id);
       if (!claimed) return; // 超上限 ⇒ 已被转 dropped
+      // P1（2026-11-04）：重启后**等待登记不保留**（`YieldRegistry` 只存内存）⇒ 回放时目标
+      // 会话已登记缺席，说明该结算的父轮次已不在，重投**永远拿不到 ack**。旧实现落 `failed`
+      // 让每次启动重试一次（真库 1 152 行停在 failed/attempts=8、每次启动 81 条 warn）⇒
+      // 此处直接落终态 `dropped`（重放不再拾取）。
+      if (!getYieldRegistry().get(row.sessionId)) {
+        await outbox.markAbandoned(
+          row.id,
+          '恢复期无等待登记：父轮次已不在（重启后登记不保留）'
+        );
+        return;
+      }
       const ack = await handleYieldSettlement(
         { sessionId: row.sessionId, endedAt: row.endedAt, restored: true },
         deps

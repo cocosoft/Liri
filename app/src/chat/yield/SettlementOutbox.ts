@@ -30,7 +30,10 @@
  */
 
 import { Database } from '@openliri/infra/external';
-import { resolveTenantDbPath } from '@openliri/infra/environment';
+import {
+  resolveDbPath,
+  resolveTenantDbPath,
+} from '@openliri/infra/environment';
 // 租户级 DB（基础设施专项 §6.1 期 3）：库按**租户**分，用户靠 `owner_key` 行级隔离
 import {
   getRequestPrincipal,
@@ -63,6 +66,24 @@ export const OUTBOX_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
  * - 崩溃后回放：`attempting` 行在窗口过后仍可被重投（否则该行永久卡死、无法自愈）。
  */
 export const CLAIM_STALE_MS = 60_000;
+
+/**
+ * 结算台账的**默认库路径**（P1，2026-11-04）。
+ *
+ * **为什么需要**：真库 `agent_settlement_outbox` 里出现 `sess-A` / `sess-gate` / `sess-m8-*`
+ * 等**只存在于 `app/tests/**`** 的会话 —— `bun test` 经全局单例写进了
+ * `~/.pyapp/data/app.db`，此后每次启动回放都为这些行刷 warn（实测 81 条/启动）。
+ *
+ * 口径与 `LogConfigManager`（测试进程不写 `app.log`）一致：**测试环境且未显式隔离**
+ * （既没传 `dbPath`、也没有 `LIRI_DATA_DIR`）⇒ 用内存库；显式隔离的用例与生产不受影响。
+ */
+export function resolveOutboxDbPath(explicitPath?: string): string {
+  if (explicitPath) return explicitPath;
+  if (process.env.NODE_ENV === 'test' && !process.env.LIRI_DATA_DIR) {
+    return ':memory:';
+  }
+  return resolveDbPath();
+}
 
 /**
  * 投递状态（四态）。
@@ -117,9 +138,7 @@ export class SettlementOutbox {
   }
 
   private async doInit(): Promise<void> {
-    const dbPath =
-      this.dbPath ??
-      (await import('@openliri/infra/environment')).resolveDbPath();
+    const dbPath = resolveOutboxDbPath(this.dbPath);
     this.db = await new Promise<Database>((resolve, reject) => {
       const db = new Database(dbPath, (err: Error | null) =>
         err ? reject(err) : resolve(db)
@@ -398,6 +417,22 @@ export class SettlementOutbox {
     // 现以 WARN 为观测出口（对齐 §1.8：WARN 级始终输出，不随检查点日志开关关闭）。
     if (changed) {
       logger.warn('结算信号投递超限被丢弃（重放不再拾取）', { id, reason });
+    }
+    return changed;
+  }
+
+  /**
+   * 放弃一条**永远不可能送达**的结算（P1，2026-11-04）。
+   *
+   * 与 {@link markDropped} 的区别在语义与日志级别：那条是"重投超上限"，这条是
+   * "目标已不存在"（例：重启后父轮次已不在，内存里的等待登记不会重建）⇒ 以 INFO 留痕即可。
+   * `dropped` 仍是终态 ⇒ 回放不再拾取，不再每次启动刷 warn。
+   */
+  async markAbandoned(id: number, reason: string): Promise<boolean> {
+    await this.init();
+    const changed = await this.writeState(id, 'dropped', reason);
+    if (changed) {
+      logger.info('结算台账行已放弃（目标轮次已不在）', { id, reason });
     }
     return changed;
   }

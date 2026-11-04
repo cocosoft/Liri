@@ -4,7 +4,8 @@
  * 锁定：回放按台账重投；**收到 ack ⇒ delivered**、未获 ack ⇒ `failed`（仍可再回放）；
  * 且回放投递带 `restored: true`（避免重复恢复被误认为首次）。
  */
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { describe, test, expect, beforeEach, afterEach, spyOn } from 'bun:test';
+import { getLogger } from '@openliri/infra/monitoring';
 import { randomUUID } from 'crypto';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -64,7 +65,7 @@ describe('replayPendingSettlements（O8 回放）', () => {
     expect(seenReasons).toEqual(['subagents_settled_restored']);
   });
 
-  test('无等待登记 ⇒ 未获 ack ⇒ 台账转 failed（可再回放）', async () => {
+  test('回放时无等待登记 ⇒ 直接落终态 dropped（父轮次已不在，不再重试）', async () => {
     setYieldResumeHandler(async () => ({ ok: true }));
     const id = await outbox.enqueue({ sessionId: 'no-wait', endedAt: 200 });
 
@@ -72,10 +73,34 @@ describe('replayPendingSettlements（O8 回放）', () => {
 
     expect(delivered).toBe(0);
     const row = await outbox.getRow(id);
-    expect(row?.state).toBe('failed');
+    // P1（2026-11-04）：重启后登记不保留 ⇒ 该结算永远拿不到 ack ⇒ 不得每启动重试一次
+    expect(row?.state).toBe('dropped');
     expect(row?.attempts).toBe(1);
-    // 仍属可回放集合（区别于 dropped）
-    expect(await outbox.listReplayable()).toHaveLength(1);
+    expect(await outbox.listReplayable()).toHaveLength(0);
+  });
+
+  test('回放信号无登记 ⇒ 走 debug，不再刷 warn', async () => {
+    const resumerLogger = getLogger('chat:yield:resumer');
+    const warnSpy = spyOn(resumerLogger, 'warn');
+    const debugSpy = spyOn(resumerLogger, 'debug');
+    try {
+      const ack = await handleYieldSettlement(
+        { sessionId: 'no-wait-restored', endedAt: 200, restored: true },
+        deps
+      );
+      expect(ack).toBe(false);
+      const warns = (warnSpy.mock.calls as unknown[][]).filter((c) =>
+        String(c[0]).startsWith('yield 结算到达但该会话无等待登记')
+      );
+      const debugs = (debugSpy.mock.calls as unknown[][]).filter((c) =>
+        String(c[0]).startsWith('yield 结算到达但该会话无等待登记')
+      );
+      expect(warns.length).toBe(0);
+      expect(debugs.length).toBe(1);
+    } finally {
+      warnSpy.mockRestore();
+      debugSpy.mockRestore();
+    }
   });
 
   test('首次投递（非回放）的 reason 不带 restored 标记', async () => {

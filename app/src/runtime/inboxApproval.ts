@@ -302,10 +302,47 @@ async function applyApprovalSideEffects(
 }
 
 /**
+ * 把 `root` 并入既有的工作区根列表（**父子折叠**，2026-11-04 P0-1）。
+ *
+ * 规则：
+ * - `root` 已被某个既有根覆盖（相同或位于其下）⇒ 不新增（`changed: false`）；
+ * - `root` 覆盖了某些既有根（`root` 是它们的父）⇒ 用 `root` 替换掉那些子根，
+ *   被替换的写进 `dropped` 供日志留痕。
+ *
+ * 比较口径：Windows 路径不区分大小写，结尾分隔符与 `/` `\` 差异忽略 —— 与
+ * `ToolExecutionService._requestWorkspaceScopeApproval` 的在途去重键同一口径。
+ */
+export function mergeWorkspaceRoot(
+  existing: readonly string[],
+  root: string
+): { roots: string[]; changed: boolean; dropped: string[] } {
+  const trimmed = root.trim();
+  if (!trimmed) return { roots: [...existing], changed: false, dropped: [] };
+  const normalize = (p: string): string =>
+    p
+      .replace(/[\\/]+$/, '')
+      .replace(/\//g, '\\')
+      .toLowerCase();
+  const covers = (parent: string, child: string): boolean => {
+    const p = normalize(parent);
+    const c = normalize(child);
+    return c === p || c.startsWith(`${p}\\`);
+  };
+
+  if (existing.some((r) => covers(r, trimmed))) {
+    return { roots: [...existing], changed: false, dropped: [] };
+  }
+  const dropped = existing.filter((r) => covers(trimmed, r));
+  const kept = existing.filter((r) => !covers(trimmed, r));
+  return { roots: [...kept, trimmed], changed: true, dropped };
+}
+
+/**
  * B1（2026-10-30，issue #35）：「允许本会话访问 `<root>`」申请获批 ⇒ 把该路径追加到
  * 会话 `metadata.workspaceRoots`，然后走既有"批准后续跑"（重放被拒的工具调用）。
  *
- * 只追加**这一条**被用户看到的路径（不扩大到父目录），避免批准一次等于放开整盘。
+ * 只追加**这一条**被用户看到的路径（不扩大到父目录），避免批准一次等于放开整盘；
+ * 但与已有根做父子折叠（见 `mergeWorkspaceRoot`），避免同一链路上逐层各批一次。
  * 存储侧与内存态都要更新（`loadSession` 只读内存 Map ⇒ 冷会话走 gateway）。
  */
 async function applyWorkspaceScopeApproval(
@@ -334,6 +371,12 @@ async function applyWorkspaceScopeApproval(
       | undefined;
   };
 
+  /**
+   * 把新根并入会话的 `workspaceRoots`（**父子折叠**，2026-11-04 P0-1）。
+   *
+   * 实测问题：同一会话里 `E:\PY\...\app`、`E:\PY\...\app\src\ai\router`、`E:\PY\...\app\src\tasks`
+   * 各自弹卡、各批一次 —— 用户以为「批一次就够了」。收敛规则见 `mergeWorkspaceRoot`。
+   */
   const mergeRoot = (session: SessionLike): void => {
     const metadata = session.metadata ?? {};
     const existing = Array.isArray(metadata['workspaceRoots'])
@@ -341,8 +384,15 @@ async function applyWorkspaceScopeApproval(
           (r): r is string => typeof r === 'string'
         )
       : [];
-    if (existing.includes(root)) return;
-    session.metadata = { ...metadata, workspaceRoots: [...existing, root] };
+    const merged = mergeWorkspaceRoot(existing, root);
+    if (!merged.changed) return;
+    if (merged.dropped.length > 0) {
+      logger.info('工作区根已父子折叠（新根覆盖既有子根）', {
+        root,
+        dropped: merged.dropped,
+      });
+    }
+    session.metadata = { ...metadata, workspaceRoots: merged.roots };
   };
 
   try {

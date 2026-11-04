@@ -10,6 +10,10 @@ import type { InboxBlockData } from "../../types";
 import { http } from "../../services/httpClient";
 import { sseService } from "../../services/sseService";
 import { useToastStore } from "../../stores/toastStore";
+import {
+  inboxReplyNotAppliedReason,
+  isInboxReplyApplied,
+} from "./inboxReplyResult";
 
 interface Props {
   data: InboxBlockData;
@@ -75,31 +79,39 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
       const res = await http.post<unknown>(`/v1/inbox/${data.inboxId}/reply`, {
         reply,
       });
-      if (res.ok) {
-        setStatus("replied");
-        const label = REPLY_LABEL_KEYS[reply]
-          ? t(REPLY_LABEL_KEYS[reply])
-          : t("chat.reply");
-        addToast("success", t("chat.inboxRepliedToast", { label }));
-        onResolved?.();
-
-        // P2-1 + P2-4 → M2-T2.1（2026-08-31）：批准类 reply 的续跑责任收敛到后端——
-        // inbox-handlers 已 fire-and-forget 触发续跑（checkpoint/resume 优先，无检查点
-        // 时从 events.jsonl 尾部重建未完成 turn）。前端只做"触发 + 展示"：
-        // 不再查询检查点、不再轮询、不再降级 sendMessage 重发。
-        const isApproveLike =
-          reply === "approve" ||
-          reply === "approve_session" ||
-          reply === "allowlist_call" ||
-          reply === "allowlist_tool" ||
-          reply === "allowlist_command";
-        // U-06-4（2026-10-19）：续跑完成由后端广播 `session:continued`，
-        // 刷新由 useNotificationSSE 统一处理；此处只维护"续跑中"提示，
-        // 不再固定 sleep 3s 后全量重拉（绕过游标且与真实完成时间无关）。
-        if (isApproveLike && sessionId) setResuming(true);
-      } else {
-        addToast("error", String(res.error || t("common.failed")));
+      // P0-1（2026-11-04）：HTTP 200 不等于生效 —— 过期/已处理/并发冲突同样是 200。
+      // 只按 `res.ok` 判定会弹「已批准」但后端什么都没做（实测工作区目录因此始终没加根）。
+      if (!res.ok || !isInboxReplyApplied(res.data)) {
+        setStatus("expired");
+        addToast(
+          "error",
+          (!res.ok ? String(res.error || "") : "") ||
+            inboxReplyNotAppliedReason(res.ok ? res.data : undefined) ||
+            t("common.failed")
+        );
+        return;
       }
+      setStatus("replied");
+      const label = REPLY_LABEL_KEYS[reply]
+        ? t(REPLY_LABEL_KEYS[reply])
+        : t("chat.reply");
+      addToast("success", t("chat.inboxRepliedToast", { label }));
+      onResolved?.();
+
+      // P2-1 + P2-4 → M2-T2.1（2026-08-31）：批准类 reply 的续跑责任收敛到后端——
+      // inbox-handlers 已 fire-and-forget 触发续跑（checkpoint/resume 优先，无检查点
+      // 时从 events.jsonl 尾部重建未完成 turn）。前端只做"触发 + 展示"：
+      // 不再查询检查点、不再轮询、不再降级 sendMessage 重发。
+      const isApproveLike =
+        reply === "approve" ||
+        reply === "approve_session" ||
+        reply === "allowlist_call" ||
+        reply === "allowlist_tool" ||
+        reply === "allowlist_command";
+      // U-06-4（2026-10-19）：续跑完成由后端广播 `session:continued`，
+      // 刷新由 useNotificationSSE 统一处理；此处只维护"续跑中"提示，
+      // 不再固定 sleep 3s 后全量重拉（绕过游标且与真实完成时间无关）。
+      if (isApproveLike && sessionId) setResuming(true);
     } catch (e) {
       addToast("error", e instanceof Error ? e.message : t("common.failed"));
     } finally {

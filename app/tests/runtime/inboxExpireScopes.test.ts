@@ -13,6 +13,8 @@ import { existsSync, mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
+import { Database } from '@openliri/infra/external';
+
 import type { Principal } from '@openliri/kernel/identity/principal';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope';
 import { InboxManager } from '../../src/runtime/InboxManager';
@@ -91,5 +93,70 @@ describe('审批过期清理（P3）', () => {
       manager.list({ status: 'expired' })
     );
     expect(aliceExpired.items.length).toBe(1);
+  });
+});
+
+/**
+ * 审批过期 TTL 分层（2026-11-04，运行态排查 P0-1）
+ *
+ * 缺陷现场：全局 5 分钟 TTL ⇒ `inbox_items` 991 条里 934 条 expired、仅 46 条 replied；
+ * 181 张「工作区访问申请」全部过期，过期后同一目标又被重新建卡（同一目标 2–3 张）。
+ *
+ * 口径：工具审批 30 分钟；`metadata.kind === 'workspace-scope'` 24 小时。
+ */
+describe('审批过期 TTL 分层（P0-1）', () => {
+  const MIN = 60 * 1000;
+  const HOUR = 60 * MIN;
+
+  /** 直接改 created_at 把卡片"做旧"（submit 不接受自定义时间戳） */
+  async function backdate(sessionIds: string[], ageMs: number): Promise<void> {
+    const db = new Database(join(dataDir, 'app.db'));
+    try {
+      for (const sid of sessionIds) {
+        await new Promise<void>((resolve, reject) => {
+          db.run(
+            'UPDATE inbox_items SET created_at = ? WHERE session_id = ?',
+            [Date.now() - ageMs, sid],
+            (err: Error | null) => (err ? reject(err) : resolve())
+          );
+        });
+      }
+    } finally {
+      await new Promise<void>((resolve) => db.close(() => resolve()));
+    }
+  }
+
+  const workspaceScopeItem = (sessionId: string) => ({
+    ...pendingItem(sessionId),
+    title: '工作区访问申请: E:\\PY',
+    metadata: { kind: 'workspace-scope', workspaceScopeRoot: 'E:\\PY' },
+  });
+
+  it('40 分钟前：工具审批过期，工作区申请仍 pending', async () => {
+    await manager.submit(pendingItem('s-tool'));
+    await manager.submit(workspaceScopeItem('s-ws'));
+    await backdate(['s-tool', 's-ws'], 40 * MIN);
+
+    expect(await manager.expireAllScopes(30 * MIN, 24 * HOUR)).toBe(1);
+
+    const expired = await manager.list({ status: 'expired' });
+    expect(expired.items.map((i) => i.sessionId)).toEqual(['s-tool']);
+    const pending = await manager.list({ status: 'pending' });
+    expect(pending.items.map((i) => i.sessionId)).toEqual(['s-ws']);
+  });
+
+  it('显式传入更短的工作区 TTL ⇒ 工作区申请也会过期（参数不被写死）', async () => {
+    await manager.submit(workspaceScopeItem('s-ws2'));
+    await backdate(['s-ws2'], 40 * MIN);
+
+    expect(await manager.expireAllScopes(30 * MIN, 10 * MIN)).toBe(1);
+    expect((await manager.list({ status: 'pending' })).items.length).toBe(0);
+  });
+
+  it('缺省第二参数 ⇒ 与工具审批同口径（向后兼容旧调用）', async () => {
+    await manager.submit(workspaceScopeItem('s-ws3'));
+    await backdate(['s-ws3'], 40 * MIN);
+
+    expect(await manager.expireAllScopes(30 * MIN)).toBe(1);
   });
 });

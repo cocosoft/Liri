@@ -16,6 +16,10 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { http } from "../../services/httpClient";
 import { useToastStore } from "../../stores/toastStore";
+import {
+  inboxReplyNotAppliedReason,
+  isInboxReplyApplied,
+} from "./inboxReplyResult";
 
 interface Props {
   inboxId: string;
@@ -88,8 +92,15 @@ export default function InlineApprovalActions({ inboxId }: Props) {
       const res = await http.post<unknown>(`/v1/inbox/${inboxId}/reply`, {
         reply: value,
       });
-      if (!res.ok) {
-        addToast("error", String(res.error || t("common.failed")));
+      // P0-1（2026-11-04）：HTTP 200 不等于生效（过期/已处理/并发冲突同样是 200），
+      // 否则会出现「界面显示已处理、后端什么都没做」的假成功。
+      if (!res.ok || !isInboxReplyApplied(res.data)) {
+        addToast(
+          "error",
+          (!res.ok ? String(res.error || "") : "") ||
+            inboxReplyNotAppliedReason(res.ok ? res.data : undefined) ||
+            t("common.failed")
+        );
         return;
       }
       setDone(value);

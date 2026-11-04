@@ -460,6 +460,14 @@ export class ToolExecutionService {
   /** B1：按会话维护的文件状态快照缓存（read-before-edit 的基础） */
   private readonly _readFileStateCaches = new Map<string, FileStateCache>();
 
+  /**
+   * 工作区访问申请的在途去重键（`sessionId|归一化目标路径`）。
+   *
+   * 并行批次里多个工具同时越界到同一目标时，DB 的 pending 去重会因并发查不到而失效
+   * （实测同一目标 2–3 张卡）⇒ 用进程内集合把「正在提交」的窗口也覆盖掉。
+   */
+  private readonly _workspaceScopeInFlight = new Set<string>();
+
   /** B1：获取/创建指定会话的文件状态缓存 */
   getReadFileStateCache(sessionId: string | undefined): FileStateCache {
     const key = sessionId || 'default';
@@ -477,6 +485,10 @@ export class ToolExecutionService {
    * 同一会话 + 同一目标**只建一张**（查询既有 pending 卡去重，避免每轮重复刷屏）。
    * 批准后的加根与续跑在 `runtime/inboxApproval.ts` 的统一批准副作用里落地。
    *
+   * 2026-11-04（运行态排查 P0-1）：DB 去重只覆盖「已落库的 pending」，而同一轮
+   * `parallel_batch_execute` 里多个工具**并发**越界到同一目标时，都会在对方 submit 之前
+   * 查不到卡 ⇒ 实测同一目标出现 2–3 张卡。这里加一层**进程内在途去重**弥补竞态。
+   *
    * @returns 是否已有/已建审批卡（`false` = 提交失败，调用方据此如实告知模型）
    */
   private async _requestWorkspaceScopeApproval(
@@ -484,6 +496,12 @@ export class ToolExecutionService {
     targetPath: string
   ): Promise<boolean> {
     if (!sessionId) return false;
+    // 目标键归一（大小写 / 结尾分隔符），只用于进程内去重；DB 里的原值不动。
+    const inFlightKey = `${sessionId}|${targetPath
+      .replace(/[\\/]+$/, '')
+      .toLowerCase()}`;
+    if (this._workspaceScopeInFlight.has(inFlightKey)) return true;
+    this._workspaceScopeInFlight.add(inFlightKey);
     try {
       const { inboxManager, INBOX_STATUS_PENDING } =
         await import('@modules/runtime/InboxManager.js');
@@ -528,6 +546,9 @@ export class ToolExecutionService {
         error: String(error),
       });
       return false;
+    } finally {
+      // 提交结束即释放：之后同一目标的重复请求由 DB 的 pending 卡去重接住。
+      this._workspaceScopeInFlight.delete(inFlightKey);
     }
   }
 

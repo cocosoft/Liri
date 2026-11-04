@@ -192,27 +192,40 @@ export async function handleReplyInbox(
       sendError(res, 'Inbox item not found', 404);
       return;
     }
+    // 2026-11-04（P0-1 排查）：以下三种「没生效」的结局**必须显式带 `applied:false`**。
+    // 此前只回 HTTP 200 + status，前端只看 `res.ok` ⇒ 弹出「已批准」但后端什么都没做
+    //（实测：196 张工作区申请全部过期，用户却以为批过了，目录始终没进 workspaceRoots）。
+    // 保留 200 是为了不破坏既有客户端契约（渠道回传/旧前端），语义交由 `applied` 传达。
     if (outcome.kind === 'expired') {
       otel.endSpan(span, SpanStatusCode.OK);
+      logger.warn('审批回复未生效：卡已过期', { inboxId: id, reply });
       sendJSON(res, 200, {
         id,
         status: 'expired',
+        applied: false,
         message: '该审批已超时，无法处理',
       });
       return;
     }
     if (outcome.kind === 'already_processed') {
       otel.endSpan(span, SpanStatusCode.OK);
+      logger.info('审批回复未生效：此前已处理', {
+        inboxId: id,
+        reply,
+        previousReply: outcome.previousReply,
+      });
       sendJSON(res, 200, {
         id,
         status: 'already_processed',
+        applied: false,
         previousReply: outcome.previousReply,
       });
       return;
     }
     if (outcome.kind === 'concurrent_conflict') {
       otel.endSpan(span, SpanStatusCode.OK);
-      sendJSON(res, 200, { id, status: 'concurrent_conflict' });
+      logger.warn('审批回复未生效：并发冲突', { inboxId: id, reply });
+      sendJSON(res, 200, { id, status: 'concurrent_conflict', applied: false });
       return;
     }
     if (outcome.kind === 'update_failed') {

@@ -31,6 +31,8 @@ import { randomUUID } from 'crypto';
 import { broadcastEvent } from '@modules/infrastructure';
 import type { FrontendMessageBlock } from '@modules/session/types/UnifiedMessage.js';
 import { isPanelActionable, toInboxMetadata } from '@openliri/infra/attention';
+// 时间换算取常量真源（`lint:consts` D-2：不在业务文件里裸写 `n * 60 * 1000`）
+import { MS_PER_HOUR, MS_PER_MINUTE } from '@openliri/infra/constants';
 
 const logger = getLogger('runtime:inbox');
 
@@ -50,6 +52,31 @@ export type InboxItemStatus =
  */
 export const INBOX_STATUS_PENDING: InboxItemStatus = 'pending';
 export const INBOX_STATUS_PROCESSING: InboxItemStatus = 'processing';
+
+/**
+ * 审批过期 TTL（2026-11-04，运行态排查 P0-1）——**按类型分层**，不再全局 5 分钟。
+ *
+ * 实测背景：`inbox_items` 991 条审批卡里 934 条 `expired`、仅 46 条 `replied`（过期率 94%）；
+ * 181 张「工作区访问申请」**全部**过期，且过期后同一目标会被重新建卡（同一目标 2–3 张）。
+ * 根因之一就是全局 5 分钟：桌面端用户离开 5 分钟，所有待办一律作废，模型只能反复重试。
+ *
+ * 口径：
+ * - 工具审批（bash / file_write …）：30 分钟 —— 覆盖「离开一会儿再回来处理」；
+ * - 工作区访问申请（`metadata.kind === 'workspace-scope'`）：24 小时 —— 它是**会话级能力授予**，
+ *   不是一次性动作，短 TTL 只会让同一目标反复建卡（见 `_requestWorkspaceScopeApproval` 的 pending 去重）。
+ */
+export const APPROVAL_TTL_MS = MS_PER_MINUTE * 30;
+export const WORKSPACE_SCOPE_TTL_MS = MS_PER_HOUR * 24;
+/** 过期扫描周期（保持不变） */
+export const APPROVAL_EXPIRE_INTERVAL_MS = MS_PER_MINUTE * 2;
+
+/**
+ * 「工作区访问申请」的 SQL 判据。
+ *
+ * 与 `_requestWorkspaceScopeApproval` 写入的 `metadata.kind = 'workspace-scope'` 同源；
+ * 用 LIKE 而非 `json_extract` 是因为过期清理走的是 `sqlite3` 回调接口，不保证 JSON1 扩展可用。
+ */
+const WORKSPACE_SCOPE_PREDICATE = `COALESCE(metadata,'') LIKE '%"workspace-scope"%'`;
 
 export interface InboxItem {
   id: string;
@@ -132,16 +159,20 @@ export class InboxManager {
   /**
    * 启动审批过期调度（P2-1 工具执行审批链路）
    * 定期把超过 TTL 的 pending 审批置为 expired；前端展示"已超时过期"，reply 被拒。
+   *
+   * 2026-11-04（运行态排查 P0-1）：TTL **按类型分层**，不再全局 5 分钟 ——
+   * 见 `APPROVAL_TTL_MS` / `WORKSPACE_SCOPE_TTL_MS` 的头注（实测 94% 审批卡过期）。
    */
   startExpireScheduler(
-    ttlMs: number = 5 * 60 * 1000,
-    intervalMs: number = 2 * 60 * 1000
+    ttlMs: number = APPROVAL_TTL_MS,
+    intervalMs: number = APPROVAL_EXPIRE_INTERVAL_MS,
+    workspaceTtlMs: number = WORKSPACE_SCOPE_TTL_MS
   ): void {
     if (this.expireTimer) return;
     this.expireTimer = setInterval(() => {
       // 多租户 P3：定时器无请求作用域 ⇒ 必须显式遍历**所有已打开的分区库**
       // （原实现走 `expireOlderThan` → `getDb()` ⇒ 本地身份 ⇒ 租户库的 pending 永不过期）
-      this.expireAllScopes(ttlMs).catch((err) => {
+      this.expireAllScopes(ttlMs, workspaceTtlMs).catch((err) => {
         logger.warn('审批过期清理失败', { error: String(err) });
       });
     }, intervalMs);
@@ -1046,8 +1077,11 @@ export class InboxManager {
   }
 
   /** 清除过期项（当前身份库） */
-  async expireOlderThan(maxAgeMs: number): Promise<number> {
-    return this._expireOnDb(await this.getDb(), maxAgeMs);
+  async expireOlderThan(
+    maxAgeMs: number,
+    workspaceMaxAgeMs?: number
+  ): Promise<number> {
+    return this._expireOnDb(await this.getDb(), maxAgeMs, workspaceMaxAgeMs);
   }
 
   /**
@@ -1060,28 +1094,44 @@ export class InboxManager {
    * 租户级库（§6.1）：清理是**跨用户**维护动作（不按当前身份过滤）；
    * 事件按行内 `owner_key` 回落到各自身份投递，避免把别人的审批状态广播出去。
    */
-  async expireAllScopes(maxAgeMs: number): Promise<number> {
+  async expireAllScopes(
+    maxAgeMs: number,
+    workspaceMaxAgeMs?: number
+  ): Promise<number> {
     let total = 0;
-    if (this.db) total += await this._expireOnDb(this.db, maxAgeMs);
+    if (this.db)
+      total += await this._expireOnDb(this.db, maxAgeMs, workspaceMaxAgeMs);
     for (const db of this.scopedDbs.values()) {
       // 租户库：过期是**跨用户**维护动作（不按当前身份过滤）；事件按行内 owner_key
       // 回落到各自身份（见 `_expireOnDb`），避免把别人的审批状态推给本地连接。
-      total += await this._expireOnDb(db, maxAgeMs);
+      total += await this._expireOnDb(db, maxAgeMs, workspaceMaxAgeMs);
     }
     return total;
   }
 
   /** 过期清理的单一实现（连接由调用方给，避免再走 `getDb()` 的当前身份语义） */
-  private async _expireOnDb(db: Database, maxAgeMs: number): Promise<number> {
+  private async _expireOnDb(
+    db: Database,
+    maxAgeMs: number,
+    workspaceMaxAgeMs?: number
+  ): Promise<number> {
     const cutoff = Date.now() - maxAgeMs;
+    // 工作区访问申请用**独立**（更长）的 TTL；未显式给出时与工具审批同口径（向后兼容）。
+    const workspaceCutoff = Date.now() - (workspaceMaxAgeMs ?? maxAgeMs);
+    // 两种 TTL 合成一条 WHERE：工作区申请看 workspaceCutoff，其余看 cutoff。
+    const expireWhere = `status = 'pending' AND (
+        (${WORKSPACE_SCOPE_PREDICATE} AND created_at < ?)
+        OR (NOT (${WORKSPACE_SCOPE_PREDICATE}) AND created_at < ?)
+      )`;
+    const expireParams = [workspaceCutoff, cutoff];
 
     // 先查询将要过期的项（获取 channelSessionId 用于通知）+ 归属键（用于事件投递身份）
     const expired = await new Promise<
       Array<{ item: InboxItem; ownerKey?: string }>
     >((resolve, reject) => {
       db.all(
-        `SELECT * FROM inbox_items WHERE status = 'pending' AND created_at < ?`,
-        [cutoff],
+        `SELECT * FROM inbox_items WHERE ${expireWhere}`,
+        expireParams,
         (err: Error | null, rows: Record<string, unknown>[]) => {
           if (err) reject(err);
           else
@@ -1099,13 +1149,17 @@ export class InboxManager {
     const count = await new Promise<number>((resolve, reject) => {
       db.run(
         `UPDATE inbox_items SET status = 'expired', updated_at = ?
-          WHERE status = 'pending' AND created_at < ?`,
-        [Date.now(), cutoff],
+          WHERE ${expireWhere}`,
+        [Date.now(), ...expireParams],
         function (this: { changes: number }, err: Error | null) {
           if (err) reject(err);
           else {
             if (this.changes > 0)
-              logger.info('Expired inbox items', { count: this.changes });
+              logger.info('Expired inbox items', {
+                count: this.changes,
+                ttlMs: maxAgeMs,
+                workspaceTtlMs: workspaceMaxAgeMs ?? maxAgeMs,
+              });
             resolve(this.changes);
           }
         }

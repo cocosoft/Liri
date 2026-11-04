@@ -24,6 +24,9 @@
  * 提供成本跟踪、计算和报告功能
  */
 
+// 导出成本落库的「测试来源」护栏（附录 B2）
+export { shouldSkipCostEventPersistence } from './costPersistenceGuard.js';
+
 // 导出模型定价配置（排除与EnhancedCostManager重复的导出）
 export {
   formatCost,
@@ -126,6 +129,8 @@ import {
   runWithPrincipal,
 } from '@openliri/kernel/identity/requestScope.js';
 import type { CostRecordRepository } from './CostRecordRepository.js';
+// 测试来源护栏：测试进程且未隔离数据目录 ⇒ 不写生产成本表（附录 B2）
+import { shouldSkipCostEventPersistence } from './costPersistenceGuard.js';
 import {
   AnalyticsCategory,
   AnalyticsSeverity,
@@ -165,20 +170,29 @@ export async function initializeCostTrackingSystem(): Promise<void> {
       SystemEvents.COST_RECORDED,
       async (event: CostRecordedEvent) => {
         try {
-          // SQLite 持久化：**按事件的归属身份**取库（多租户 P5）
-          // 订阅回调可能已脱离发布者的 ALS 作用域 ⇒ 只认事件自带的 ownerKey，
-          // 否则所有租户的成本行都会落进启动时那一个（宿主）库。
-          const eventRepo = await resolveCostRepositoryForEvent(event);
-          await eventRepo.recordCost({
-            model: event.model,
-            inputTokens: event.inputTokens,
-            outputTokens: event.outputTokens,
-            cacheReadTokens: event.cacheReadInputTokens,
-            cacheCreationTokens: event.cacheCreationInputTokens,
-            costUSD: event.costUSD,
-            sessionId: event.sessionId,
-            requestId: event.requestId,
-          });
+          // 附录 B2 护栏：测试进程且调用方未显式隔离数据目录 ⇒ 不写生产成本表
+          // （实测曾把 $18 的 `zzz-unknown-test-model` 写进用户库，直接吃掉当日 USD 硬闸）
+          if (shouldSkipCostEventPersistence()) {
+            logger.debug('cost: 跳过成本落库（测试进程未隔离数据目录）', {
+              model: event.model,
+              costUSD: event.costUSD,
+            });
+          } else {
+            // SQLite 持久化：**按事件的归属身份**取库（多租户 P5）
+            // 订阅回调可能已脱离发布者的 ALS 作用域 ⇒ 只认事件自带的 ownerKey，
+            // 否则所有租户的成本行都会落进启动时那一个（宿主）库。
+            const eventRepo = await resolveCostRepositoryForEvent(event);
+            await eventRepo.recordCost({
+              model: event.model,
+              inputTokens: event.inputTokens,
+              outputTokens: event.outputTokens,
+              cacheReadTokens: event.cacheReadInputTokens,
+              cacheCreationTokens: event.cacheCreationInputTokens,
+              costUSD: event.costUSD,
+              sessionId: event.sessionId,
+              requestId: event.requestId,
+            });
+          }
         } catch (error) {
           await handleError(error, { module: 'cost:index', action: 'persist' });
         }

@@ -8,7 +8,9 @@ import {
   beforeEach,
   afterEach,
   beforeAll,
+  spyOn,
 } from 'bun:test';
+import { getLogger } from '@openliri/infra/monitoring';
 import { CronJobStore } from './CronJobStore';
 import { CronScheduler } from './CronScheduler';
 import { DeliveryQueue } from './DeliveryQueue';
@@ -312,6 +314,47 @@ describe('CronScheduler', () => {
 
     scheduler.stop();
     expect(scheduler.isRunning()).toBe(false);
+  });
+
+  // P2-1（2026-11-04）取证：真机窗口 91 710 条 `一次性作业已过期，标记完成`，同一 jobId 重复 365 次
+  // ⇒ 根因是"已完成的一次性作业仍残留 next_run_at"，每次**启动**追赶时被重新标记并刷日志
+  //（开发期热重载 = 频繁重启）。修复：完成时清空 next_run_at + 追赶跳过终止态（含自愈残留）。
+  it('已完成的过期一次性作业 ⇒ 启动追赶不再重复标记（并自愈残留 next_run_at）', async () => {
+    store = await createStore('sched_terminal_stale.db');
+    // 直接造出"终止态 + 残留 next_run_at"的历史行
+    await store.upsertJob(
+      makeTestJob({
+        id: 'stale-completed-once',
+        state: 'completed',
+        schedule: {
+          kind: 'once',
+          runAt: '2020-01-01T00:00:00.000Z',
+          display: '一次性',
+        },
+        nextRunAt: '2020-01-01T00:00:00.000Z',
+      })
+    );
+
+    const infoSpy = spyOn(getLogger('tasks:cron:scheduler'), 'info');
+    try {
+      scheduler = new CronScheduler(store, createExecutor(), {
+        checkIntervalMs: 60000,
+        enableLock: false,
+      });
+      await scheduler.start();
+
+      const marks = (infoSpy.mock.calls as unknown[][]).filter(
+        (c) => c[0] === '[CronScheduler] 一次性作业已过期，标记完成'
+      );
+      expect(marks.length).toBe(0);
+      // 自愈：残留的 next_run_at 被清空，避免下次启动再走一遍
+      expect(
+        (await store.getJob('stale-completed-once'))?.nextRunAt
+      ).toBeUndefined();
+    } finally {
+      infoSpy.mockRestore();
+      scheduler.stop();
+    }
   });
 
   it('tick 应该获取并执行到期作业', async () => {

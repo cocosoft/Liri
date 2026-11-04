@@ -34,6 +34,8 @@ import {
 } from '@openliri/infra/security';
 import type { ExecOptions } from 'child_process';
 import { analyzeBashCommandType, isSilentBashCommand } from './BashSemantics';
+// P2-2（2026-11-04）：cmd 内置命令 → 等价命令提示（仅"命令未找到"证据成立时生效）
+import { buildCmdBuiltinHint, isCommandNotFoundError } from './cmdBuiltinHint';
 // S1-5（2026-10-11）：命令规范化"单一事实源" —— 审批哈希 / 安全拦截层 / 最终 spawn /
 // 审批卡展示四处共用 `standardizeCommand()` 的一次性产出（消除 G10/G22 口径漂移）
 import {
@@ -303,6 +305,9 @@ export class BashTool extends BaseTool {
     // B 类可观测性缺口 ②（2026-10-25）：catch 作用域访问不到 try 块内的 `command`，
     // 故在执行前预存命令摘要，供异常分支落 app.log（含命令预览 + sessionId）。
     let executedCommandPreview: string | undefined;
+    // P2-2（2026-11-04）：catch 里需要**完整**命令（`command` 是 try 块内 let，作用域不可见）
+    // 才能判断首个 token 是否为 cmd 内置命令。
+    let executedCommand: string | undefined;
 
     try {
       // 对标CC：Zod输入验证
@@ -351,6 +356,7 @@ export class BashTool extends BaseTool {
       command = std.preprocessed;
       // B 类可观测性缺口 ②：预存最终 spawn 字符串摘要（见 `executedCommandPreview` 声明处）
       executedCommandPreview = command.slice(0, 200);
+      executedCommand = command;
       // 自动修正 cwd 中的 Unix 路径
       if (this.isWindows && cwd) {
         cwd = this.translateWindowsPath(cwd);
@@ -550,7 +556,14 @@ export class BashTool extends BaseTool {
           ? '\n提示: spawn ENOENT 可能来自「cwd 不存在」或「shell 可执行文件缺失」；' +
             '本工具已在执行前校验 cwd，若仍失败请检查 shell 与 PATH。'
           : '';
-      const msg = (detail ? `${rawMsg}\n（${detail}）` : rawMsg) + enoentHint;
+      // P2-2（2026-11-04）：Windows 上把 cmd 内置命令当 bash 命令用（`dir /b` 等）时给出等价写法。
+      // **只在"命令未找到"证据成立时**提示 —— 实测同类命令也有 exit 1（路径不存在）的形态，
+      // 那种情况加"这是 cmd 内置命令"会误导模型。
+      const cmdHint = buildCmdBuiltinHint(executedCommand, {
+        commandNotFound: isCommandNotFoundError(exitCode, rawMsg),
+      });
+      const msg =
+        (detail ? `${rawMsg}\n（${detail}）` : rawMsg) + enoentHint + cmdHint;
 
       // B 类可观测性缺口 ②（2026-10-25）：执行异常此前**零 app.log** —— 只返回 failureResult
       // 给模型，排查"命令为什么失败"只能翻会话消息。现补 error 级日志（含命令摘要 + stderr 截断）。

@@ -782,6 +782,8 @@ export class InboxManager {
             id: existing.id,
             sessionId: existing.sessionId,
           });
+          // P0-1：并发兜底同样是"合并"一次 ⇒ 计数 +1
+          await this.bumpApprovalHit(existing.id);
           otel.endSpan(span, SpanStatusCode.OK);
           return existing;
         }
@@ -1230,6 +1232,39 @@ export class InboxManager {
         `UPDATE inbox_items SET status = ?, updated_at = ?
           WHERE id = ? AND status = ? AND owner_key = ?`,
         [target, Date.now(), id, expected, this.owner()],
+        function (this: { changes: number }, err: Error | null) {
+          if (err) reject(err);
+          else resolve(this.changes > 0);
+        }
+      );
+    });
+  }
+
+  /**
+   * P0-1（2026-11-04）：同一指纹的审批请求被**合并**到既有卡时，把卡上的合并次数 +1
+   * （`metadata.dedupCount`，供前端显示 `×N`）。
+   *
+   * 为什么不在本类之外再建一套去重：提交侧去重已由「`findPendingApprovalId()` +
+   * `inbox_items` 的部分唯一索引」完成（**单一实现**）——`approval_dedup` 表若再接一遍就是
+   * 第二条轨道（architecture.md 双轨制禁止），而它并不提供增量能力。
+   *
+   * 幂等/边界：只累加 `status='pending'` 的卡；已处理/已过期返回 `false` 且不改历史卡。
+   *
+   * @returns 是否发生累加（并发下 CAS 失败 ⇒ false）
+   */
+  async bumpApprovalHit(id: string): Promise<boolean> {
+    const db = await this.getDb();
+    return new Promise<boolean>((resolve, reject) => {
+      db.run(
+        `UPDATE inbox_items
+            SET metadata = json_set(
+                  metadata,
+                  '$.dedupCount',
+                  COALESCE(json_extract(metadata, '$.dedupCount'), 1) + 1
+                ),
+                updated_at = ?
+          WHERE id = ? AND status = 'pending' AND owner_key = ?`,
+        [Date.now(), id, this.owner()],
         function (this: { changes: number }, err: Error | null) {
           if (err) reject(err);
           else resolve(this.changes > 0);

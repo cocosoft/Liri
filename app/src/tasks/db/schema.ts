@@ -136,6 +136,12 @@ CREATE INDEX IF NOT EXISTS idx_goal_metrics_session_id ON goal_metrics(session_i
 CREATE INDEX IF NOT EXISTS idx_goal_metrics_row_type ON goal_metrics(row_type);
 
 -- Phase 3: 审批去重表（幂等保护）
+-- ⚠️ 2026-11-04（P0-1 取证）：**从未接线，且不应接线** —— 审批去重已有单一实现：
+-- inbox_items 的 pending approval 部分唯一索引（session_id, tool_name, command_hash）
+-- + 提交前 findPendingApprovalId() 复用（见 app/src/runtime/InboxManager.ts 与
+-- app/tests/runtime/inboxApprovalUniqueIndex.test.ts）。再接本表即第二条轨道
+--（architecture.md 双轨制禁止），且无增量能力。因 project_rules §1.5 禁止删库结构 ⇒ 保留，
+-- 合并次数改记在卡自身的 metadata.dedupCount。
 CREATE TABLE IF NOT EXISTS approval_dedup (
   session_id TEXT NOT NULL,
   approval_type TEXT NOT NULL,

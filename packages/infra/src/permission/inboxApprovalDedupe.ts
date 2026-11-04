@@ -31,6 +31,13 @@ export interface PendingApprovalLookup {
   list?(params?: Record<string, unknown>): Promise<{
     items: MinimalInboxItem[];
   }>;
+  /**
+   * P0-1（2026-11-04）：复用既有卡时给"合并次数" +1（`InboxManager.bumpApprovalHit`）。
+   *
+   * **可选**：无该方法的最小实现（仅 `list`）照常去重，只是不计数。
+   * 计数**不另建一套去重**（`approval_dedup` 表未接线，避免双轨）——它只记录"被合并了几次"。
+   */
+  bumpApprovalHit?(id: string): Promise<boolean>;
 }
 
 /**
@@ -63,6 +70,10 @@ export async function findPendingApprovalId(
         meta.toolName === params.toolName &&
         meta.commandHash === params.approvalHash
       ) {
+        // P0-1：命中也即"又请求了一次同一审批" ⇒ 计数 +1（失败不影响复用）
+        if (typeof lookup.bumpApprovalHit === 'function') {
+          await lookup.bumpApprovalHit(item.id);
+        }
         return item.id;
       }
     }

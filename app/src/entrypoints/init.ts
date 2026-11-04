@@ -534,6 +534,21 @@ async function startDeferredPrefetches(): Promise<void> {
         }
       })(),
 
+      // 启动制品保留（traces / checkpoints / snapshots / logs / transcripts / tool-results）
+      //
+      // 2026-11-04（附录 B1）：此前的唯一入口挂在 `SessionGateway.initialize()` 的修剪节拍里，
+      // 而该方法既被 `if (this.pruner)` 包着、又是**懒调用**（实测启动后从未执行）⇒
+      // `data/traces` 涨到 15.1 GB。现改为进程级幂等调度器，与网关生命周期解耦。
+      (async () => {
+        try {
+          const { ensureArtifactRetentionScheduler } =
+            await import('../session/ArtifactRetention.js');
+          ensureArtifactRetentionScheduler();
+        } catch (error) {
+          logger.debug('制品保留调度器启动失败（非关键）', { error });
+        }
+      })(),
+
       // 启动 SessionSupervisor 会话监管器（空闲检测 + 自动回收）
       (async () => {
         try {

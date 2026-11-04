@@ -34,7 +34,7 @@
 import { readdir, stat, rm, rmdir } from 'fs/promises';
 import { join } from 'path';
 import { getLogger } from '@openliri/infra/monitoring';
-import { MS_PER_DAY } from '@openliri/infra/constants';
+import { MS_PER_DAY, MS_PER_MINUTE } from '@openliri/infra/constants';
 import {
   resolveDataSubDir,
   resolveSnapshotsDir,
@@ -449,4 +449,43 @@ export async function runArtifactRetention(
   } finally {
     exitPhase('retention:run');
   }
+}
+
+/**
+ * 制品保留的**进程级调度器**（2026-11-04，附录 B1）。
+ *
+ * 为什么需要它：保留逻辑此前只挂在 `SessionGateway.startPruneInterval()` 里，
+ * 而该方法被 `if (this.pruner)` 包着，且 `initialize()` 是**懒调用**
+ * （实测启动后 gateway 从未 `initialize()`）⇒ `runArtifactRetention()` 永不执行：
+ * `data/traces` 15.1 GB、8 天前的文件仍在、日志「制品保留」0 次命中。
+ *
+ * 口径：
+ * - 幂等（重复调用直接返回），可由 bootstrap 与会话网关任一方启动；
+ * - 启动即跑一次（清理积压），之后按 `intervalMs`（默认 5 分钟）重复；
+ * - `unref()`：不阻止进程退出；
+ * - 单轮失败只 warn，不抛出（沿用 `runArtifactRetention` 内部逐条目容错）。
+ */
+const DEFAULT_RETENTION_INTERVAL_MS = MS_PER_MINUTE * 5;
+let retentionTimer: ReturnType<typeof setInterval> | null = null;
+
+export function ensureArtifactRetentionScheduler(
+  intervalMs: number = DEFAULT_RETENTION_INTERVAL_MS
+): void {
+  if (retentionTimer) return;
+  const runOnce = (): void => {
+    void runArtifactRetention().catch((err: unknown) => {
+      logger.warn('制品保留执行失败（下一轮重试）', { error: String(err) });
+    });
+  };
+  runOnce();
+  retentionTimer = setInterval(runOnce, intervalMs);
+  retentionTimer.unref?.();
+  logger.info('制品保留调度器已启动', { intervalMs });
+}
+
+/** 停止调度器（幂等；进程退出/测试清理用） */
+export function stopArtifactRetentionScheduler(): void {
+  if (!retentionTimer) return;
+  clearInterval(retentionTimer);
+  retentionTimer = null;
 }

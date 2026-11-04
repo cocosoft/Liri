@@ -133,7 +133,7 @@ import { SessionStore } from './SessionStore.js';
 import type { SessionStoreOptions } from './SessionStore.js';
 import { SessionPruner } from './SessionPruner.js';
 // D3（2026-09-22）：制品级保留（traces / checkpoints / rollback snapshots）
-import { runArtifactRetention } from './ArtifactRetention.js';
+import { ensureArtifactRetentionScheduler } from './ArtifactRetention.js';
 import type { PrunerOptions, PruneResult } from './SessionPruner.js';
 import { SessionLock } from './SessionLock.js';
 import type { LockOptions, LockAcquireResult } from './SessionLock.js';
@@ -548,11 +548,17 @@ export class SessionGateway {
       this.fts.wireLifecycleListeners(this.eventBus);
     }
 
-    // 启动定时修剪（如果有修剪器）
-    if (this.pruner) {
-      await this.executePrune();
-      this.startPruneInterval();
-    }
+    // 启动定时修剪 + 制品保留（2026-11-04，附录 B1：两者解耦）
+    //
+    // 原实现把 `runArtifactRetention()` 绑在 `if (this.pruner)` 里，而 `pruner` 只由
+    // `wireWithFullServices()` 注入、该方法**无生产调用点**；而且 `initialize()` 本身是
+    // 懒调用（实测启动后本进程从未进入这里）⇒ 保留任务从未执行：
+    // `data/traces` 15.1 GB、8 天前的 `trace_2026-10-27.jsonl` 仍在、日志「制品保留」0 次。
+    // 现在：修剪仍按 pruner 是否存在决定（`executePrune()` 内部已判空），
+    // 制品保留改由进程级幂等调度器负责（bootstrap 也会启动它，重复调用无副作用）。
+    await this.executePrune();
+    this.startPruneInterval();
+    ensureArtifactRetentionScheduler();
 
     // 初始化归档器
     if (this.archiver) {
@@ -1673,9 +1679,8 @@ export class SessionGateway {
   /**
    * 内部：启动定时修剪
    *
-   * D3（2026-09-22）：同一节拍一并驱动**制品保留**（traces / checkpoints / rollback snapshots）。
-   * 复用既有定时器与 `close()` 生命周期，不新造调度器；两者各自 try/catch ——
-   * 一方失败不跳过另一方。
+   * D3（2026-09-22）起同一节拍曾一并驱动**制品保留**；2026-11-04（附录 B1）已把保留
+   * 拆到 `ensureArtifactRetentionScheduler()`（进程级幂等调度器），本方法只负责会话修剪。
    */
   private startPruneInterval(intervalMs: number = 300_000): void {
     this.stopPruneInterval();
@@ -1686,14 +1691,6 @@ export class SessionGateway {
         await handleError(err, {
           module: 'sessions:gateway',
           action: '定时修剪执行失败',
-        });
-      }
-      try {
-        await runArtifactRetention();
-      } catch (err) {
-        await handleError(err, {
-          module: 'sessions:gateway',
-          action: '制品保留执行失败',
         });
       }
     }, intervalMs);

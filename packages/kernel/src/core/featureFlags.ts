@@ -212,33 +212,28 @@ export const FEATURE_FLAGS = {
    */
   TOOL_DISCLOSURE_STRICT: false,
 
-  // ───── 工具能力包（P0-2，2026-10-30；**默认关**）─────
+  // ───── 工具能力包（P0-2；2026-11-05 默认翻为开，见《统一策略层方案》§3.2-2）─────
   /**
-   * **可选能力包**（`tools/toolCategories.ts` 的 `CAPABILITY_PACKS` 是唯一映射表）。
-   *
-   * 口径：包**关**（默认）⇒ 包内工具在 `default` / `chat` / `coding` / `agent` 四个通用任务面
-   * **不下发**给模型；包**开** ⇒ 与改造前逐字一致。
-   *
-   * ⚠️ **不是删除 / 不是注销**：工具仍注册可调用、仍可经 `tool_search` 检索到名字；
-   * 用户也可在 `settings.tools` 里逐个 `on` 覆盖（覆写层切在 `filterToolsByTask` 之后）。
-   * 依据：29 会话 32 127 次调用只用到 27/82 个工具（详见治理方案 §4.3）。
-   * 运维/灰度覆盖：`FEATURE_TOOL_PACK_MEDIA_IMAGE=true` 等。
+   * **可选能力包**（`CAPABILITY_PACKS` 是唯一映射表）：默认**开** ⇒ 是否下发交给任务类别白名单
+   * （媒体类仍不在 default/chat/coding 白名单 ⇒ 默认不可见）；`FEATURE_TOOL_PACK_*=false` ⇒ 回到
+   * "通用任务面一律不下发"。实测全开：default/chat +0、coding +9、agent +14。
+   * **可见 ≠ 获授权**：权限判定（PermissionChecker / 审批 / 路径边界）与本开关无关。
    */
-  TOOL_PACK_MEDIA_IMAGE: false,
+  TOOL_PACK_MEDIA_IMAGE: true,
   /** 能力包：媒体（视频）—— 见 `TOOL_PACK_MEDIA_IMAGE` */
-  TOOL_PACK_MEDIA_VIDEO: false,
+  TOOL_PACK_MEDIA_VIDEO: true,
   /** 能力包：媒体（音频 / TTS）—— 见 `TOOL_PACK_MEDIA_IMAGE` */
-  TOOL_PACK_MEDIA_AUDIO: false,
+  TOOL_PACK_MEDIA_AUDIO: true,
   /** 能力包：文档扩展（`doc_generate`）—— 见 `TOOL_PACK_MEDIA_IMAGE` */
-  TOOL_PACK_DOC_EXTRA: false,
+  TOOL_PACK_DOC_EXTRA: true,
   /** 能力包：协作（团队 / 消息 / 广播）—— 见 `TOOL_PACK_MEDIA_IMAGE` */
-  TOOL_PACK_COLLAB: false,
+  TOOL_PACK_COLLAB: true,
   /** 能力包：调度（cron / sleep / yield）—— 见 `TOOL_PACK_MEDIA_IMAGE` */
-  TOOL_PACK_SCHEDULE: false,
+  TOOL_PACK_SCHEDULE: true,
   /** 能力包：工作区（worktree / kanban / 建项目 / 存会话）—— 见 `TOOL_PACK_MEDIA_IMAGE` */
-  TOOL_PACK_WORKSPACE: false,
+  TOOL_PACK_WORKSPACE: true,
   /** 能力包：系统扩展（剪贴板 / 简报 / 代理清单 / 知识写入 / MCP 认证）—— 见 `TOOL_PACK_MEDIA_IMAGE` */
-  TOOL_PACK_SYSTEM_EXTRA: false,
+  TOOL_PACK_SYSTEM_EXTRA: true,
   /** 缓存 */
   ENABLE_CACHE: true,
 

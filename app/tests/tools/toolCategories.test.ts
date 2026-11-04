@@ -167,21 +167,20 @@ describe('toolCategories — P0 工具可见性回归', () => {
       ]);
     }
     // coding / agent 的类别白名单含 'assist' ⇒ 不受默认披露面收窄影响。
-    // P0-2（2026-10-30）：`clipboard` 属 `system_extra` 能力包（默认关）⇒ 这两个任务面
-    // 只剩 `plan` / `canvas`；包开即恢复（下方断言）。
+    // 2026-11-05：`clipboard` 属 `system_extra` 能力包，包**默认开** ⇒ 这两个任务面可见；
+    // 显式关回到旧口径（下方断言，证明包门控仍生效）。
     for (const taskType of ['coding', 'agent']) {
       const kept = filterToolsByTask(defs, taskType).map((t) => t.name);
-      for (const name of ['plan', 'canvas']) {
+      for (const name of ['plan', 'canvas', 'clipboard']) {
         expect(kept).toContain(name);
       }
-      expect(kept).not.toContain('clipboard');
     }
-    process.env['FEATURE_TOOL_PACK_SYSTEM_EXTRA'] = 'true';
+    process.env['FEATURE_TOOL_PACK_SYSTEM_EXTRA'] = 'false';
     try {
       for (const taskType of ['coding', 'agent']) {
-        expect(filterToolsByTask(defs, taskType).map((t) => t.name)).toContain(
-          'clipboard'
-        );
+        expect(
+          filterToolsByTask(defs, taskType).map((t) => t.name)
+        ).not.toContain('clipboard');
       }
     } finally {
       delete process.env['FEATURE_TOOL_PACK_SYSTEM_EXTRA'];
@@ -196,14 +195,14 @@ describe('toolCategories — P0 工具可见性回归', () => {
         'bash',
       ]);
     }
-    // P0-2（2026-10-30）：`sessions_yield` 属 `schedule` 能力包（默认关）⇒ agent 面默认不下发；
-    // 包开即恢复（证明类别映射没坏）。
-    expect(filterToolsByTask(defs, 'agent').map((t) => t.name)).not.toContain(
+    // 2026-11-05：`sessions_yield` 属 `schedule` 包，包**默认开** ⇒ agent 面可见；
+    // 显式关回到旧口径（证明类别映射与包门控都没坏）。
+    expect(filterToolsByTask(defs, 'agent').map((t) => t.name)).toContain(
       'sessions_yield'
     );
-    process.env['FEATURE_TOOL_PACK_SCHEDULE'] = 'true';
+    process.env['FEATURE_TOOL_PACK_SCHEDULE'] = 'false';
     try {
-      expect(filterToolsByTask(defs, 'agent').map((t) => t.name)).toContain(
+      expect(filterToolsByTask(defs, 'agent').map((t) => t.name)).not.toContain(
         'sessions_yield'
       );
     } finally {
@@ -382,14 +381,14 @@ describe('toolCategories — P0 工具可见性回归', () => {
       ]);
     }
     const coding = filterToolsByTask(defs, 'coding').map((t) => t.name);
-    // P0-2（2026-10-30）：睡眠族属 `schedule` 能力包（默认关）⇒ coding 面默认不下发；
-    // 包开即恢复（证明类别映射没坏）。
-    expect(coding).not.toContain('sleep');
-    process.env['FEATURE_TOOL_PACK_SCHEDULE'] = 'true';
+    // 2026-11-05：睡眠族属 `schedule` 包，包**默认开** ⇒ coding 面可见；
+    // 显式关回到旧口径（证明类别映射没坏）。
+    expect(coding).toContain('sleep');
+    process.env['FEATURE_TOOL_PACK_SCHEDULE'] = 'false';
     try {
-      expect(filterToolsByTask(defs, 'coding').map((t) => t.name)).toContain(
-        'sleep'
-      );
+      expect(
+        filterToolsByTask(defs, 'coding').map((t) => t.name)
+      ).not.toContain('sleep');
     } finally {
       delete process.env['FEATURE_TOOL_PACK_SCHEDULE'];
     }

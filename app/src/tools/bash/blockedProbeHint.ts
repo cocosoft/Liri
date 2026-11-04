@@ -19,18 +19,38 @@ const READ_ONLY_PROBE_PATTERNS: readonly RegExp[] = [
   /^\s*\[\s+-[efd]\s/, // POSIX: [ -e / -f / -d <路径> ]
 ];
 
+/**
+ * P4（2026-11-04，前端会话跟踪）：**遍历文件列表的只读循环**（`for %f in (a b c) do @(…)`）。
+ *
+ * 实测该形态被 `security_analyzer_ask` 拦下（`bash: security_gate_blocked`），模型无出路信息。
+ * 仅当循环体**不含**任何破坏性动作时才附提示 —— 循环本身可承载 `del`/`move` 等写操作，
+ * 不能一概当"只读"（CS06：不猜测）。
+ */
+const SHELL_LOOP_PREFIX = /^\s*for\s+(?:\/[a-z]\s+)?%\w+\s+in\s*\(/i;
+/** 破坏性动作 / 输出重定向（命中 ⇒ 不当作只读探测） */
+const DESTRUCTIVE_TOKENS =
+  /(?:^|[\s@(])(?:del|erase|rd|rmdir|rm|mv|move|copy|ren|rename|mkdir|md|setx|reg)(?:\s|$)|>>?/i;
+
 const PROBE_HINT =
   '\n提示: 本次被拦截的是「判断路径/文件是否存在」的**只读探测**命令。' +
   '这类需求请改用 glob / list 工具（列目录、按模式匹配），或 read 工具（读具体文件），' +
   '不必用终端探测；确实需要执行终端命令时，请在命令里说明用途。';
 
+const LOOP_HINT =
+  '\n提示: 本次被拦截的是「遍历文件列表」的**只读循环**命令。' +
+  '这类需求请改用 glob（按模式匹配列文件）或 list（列目录）工具，' +
+  '不必用终端循环；确实需要执行终端命令时，请在命令里说明用途。';
+
 /**
  * 构造提示文本；命令不属于只读探测 ⇒ **空字符串**（调用方据此不追加）。
  */
 export function buildReadOnlyProbeHint(command: string): string {
-  return READ_ONLY_PROBE_PATTERNS.some((re) => re.test(command))
-    ? PROBE_HINT
-    : '';
+  if (READ_ONLY_PROBE_PATTERNS.some((re) => re.test(command)))
+    return PROBE_HINT;
+  if (SHELL_LOOP_PREFIX.test(command) && !DESTRUCTIVE_TOKENS.test(command)) {
+    return LOOP_HINT;
+  }
+  return '';
 }
 
 /**

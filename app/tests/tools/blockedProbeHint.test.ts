@@ -34,6 +34,25 @@ describe('P2-2：只读探测的识别与提示', () => {
       expect(buildReadOnlyProbeHint(command)).toBe('');
     }
   );
+
+  // P4（2026-11-04，前端会话跟踪）：遍历文件列表的只读循环
+  it.each([
+    'for %f in (index.html package.json src\\game.js) do @(for %s in ("%f") do @echo %~zs)',
+    'for /f %x in (list.txt) do @echo %x',
+  ])('「%s」⇒ 只读循环提示（含 glob / list 出路）', (command: string) => {
+    const hint = buildReadOnlyProbeHint(command);
+    expect(hint).toContain('只读循环');
+    expect(hint).toContain('glob');
+    expect(hint).toContain('list');
+  });
+
+  it.each([
+    'for %f in (*.tmp) do @del %f',
+    'for %f in (a.txt) do @(copy %f b.txt)',
+    'for %f in (a.txt) do @echo %f > out.txt',
+  ])('循环体含破坏性动作 ⇒ 空串（不当作只读）', (command: string) => {
+    expect(buildReadOnlyProbeHint(command)).toBe('');
+  });
 });
 
 describe('P2-2：拦截结果的追加语义', () => {

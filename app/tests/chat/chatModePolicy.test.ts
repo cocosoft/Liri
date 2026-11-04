@@ -15,6 +15,7 @@ import {
   resolveChatMode,
   resolveChatModePolicy,
 } from '../../src/chat/chatModePolicy';
+import { resolveChatModeToolTurns } from '../../src/chat/loopTurnLimits';
 
 describe('P1：chatMode 归一', () => {
   it('缺失 / 非字符串 / 空串 / 脏值 ⇒ auto（不放宽任何东西）', () => {
@@ -59,6 +60,37 @@ describe('P1：chatMode → 模型档位 / 工具集 / 轮次乘子', () => {
     expect(policy.routeKey).toBe('chat');
     expect(policy.toolset).toBe('no-shell');
     expect(policy.turnMultiplier).toBe(1);
+  });
+});
+
+describe('P1：轮次预算按 chatMode 放大', () => {
+  it('deep / code ⇒ 基础轮次 ×2', () => {
+    expect(resolveChatModeToolTurns(30, 'deep')).toBe(60);
+    expect(resolveChatModeToolTurns(30, 'code')).toBe(60);
+    expect(resolveChatModeToolTurns(30, 'CODE')).toBe(60);
+  });
+
+  it('auto / research / creative / 缺失 / 脏值 ⇒ 基础轮次不变', () => {
+    for (const chatMode of [
+      'auto',
+      'research',
+      'creative',
+      undefined,
+      null,
+      '',
+      'turbo',
+      42,
+    ]) {
+      expect(resolveChatModeToolTurns(30, chatMode)).toBe(30);
+    }
+  });
+
+  it('尊重调用方传入的基数（env 覆盖后的非默认值同样被放大）', () => {
+    expect(resolveChatModeToolTurns(45, 'deep')).toBe(90);
+    // 恢复路径的 Math.max 首项：基数放大后仍需与剩余工具数取大
+    expect(Math.max(resolveChatModeToolTurns(30, 'code'), 12 + 40 + 5)).toBe(
+      60
+    );
   });
 });
 

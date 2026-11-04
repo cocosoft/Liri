@@ -44,6 +44,7 @@
  * 统一基数需双跑对照验证后才可评估（对标报告 L9 决策：短期不动）。
  */
 import { configManager } from '@openliri/infra/config';
+import { resolveChatModePolicy } from './chatModePolicy.js';
 
 /** 主对话基础轮次阈值默认值（2026-08-30 循环治理：防死循环，30 覆盖正常多轮任务） */
 export const DEFAULT_BASE_TOOL_TURNS = 30;
@@ -69,4 +70,22 @@ export function resolveBaseToolTurns(): number {
     if (!isNaN(val) && val > 0) return val;
   }
   return DEFAULT_BASE_TOOL_TURNS;
+}
+
+/**
+ * P1（2026-11-04）：按会话 `chatMode` 放大**主对话**轮次上限。
+ *
+ * 映射表唯一事实源在 `chatModePolicy`：`deep` / `code` ⇒ ×2，其余 ×1（含缺失/脏值 ⇒ auto）。
+ * 只作用于主对话两条循环的入口（流式 ReAct / TAOR 上下文）；子代理与 PDCA 步骤的基数
+ * 各有独立语义（见文件头），**不**经过这里，避免模式旋钮误伤批处理预算。
+ *
+ * @param baseTurns 基础阈值（调用方传入 `host.MAX_TOOL_TURNS` 或 `resolveBaseToolTurns()`）
+ * @param chatMode 会话 `metadata.chatMode`
+ */
+export function resolveChatModeToolTurns(
+  baseTurns: number,
+  chatMode: unknown
+): number {
+  const { turnMultiplier } = resolveChatModePolicy(chatMode);
+  return turnMultiplier > 1 ? baseTurns * turnMultiplier : baseTurns;
 }

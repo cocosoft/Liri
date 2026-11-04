@@ -28,6 +28,8 @@ import type { LoopDetector } from '@modules/query';
 import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI.js';
 import type { Message } from '@modules/session/types/message.js';
 import type { ChatSession } from '@modules/session/types/session.js';
+// P1（2026-11-04）：恢复路径的轮次上限同样按会话 chatMode 放大
+import { resolveChatModeToolTurns } from '../loopTurnLimits.js';
 import type { ToolCall, ToolResult } from '@modules/session/types/tool.js';
 import type { UnifiedTokenTracker } from '@modules/tokenBudget';
 import type { ToolRegistry, ToolSchema } from '@modules/tools';
@@ -263,9 +265,13 @@ export class ChatStreamResume {
 
       // 断线恢复动态上限（2026-09-01）：剩余工具数决定所需轮次，避免恢复的
       // 长任务在基础阈值（30 轮）内被误杀。历史轮次 + 剩余工具 + 5 轮余量。
+      // P1（2026-11-04）：基础阈值先按会话 chatMode 放大（deep / code ×2）。
       const toolTurnCount = generatorState.toolTurnCount;
       const MAX_TOOL_TURNS = Math.max(
-        deps.maxToolTurns,
+        resolveChatModeToolTurns(
+          deps.maxToolTurns,
+          (session.metadata as Record<string, unknown> | undefined)?.chatMode
+        ),
         toolTurnCount + remainingToolCalls.length + 5
       );
 

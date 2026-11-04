@@ -27,6 +27,8 @@ import type {
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { ToolResult } from '@modules/session/types/tool.js';
 import { toUsageInfo } from '../services/ChatHelper.js';
+// P1（2026-11-04）：轮次上限按会话 chatMode 放大（deep / code ×2）
+import { resolveChatModeToolTurns } from '../loopTurnLimits.js';
 import type { StreamingAutoCheckpoint } from '../services/StreamingAutoCheckpoint.js';
 import type { ChatOrchestratorHost } from './ChatOrchestratorHost.js';
 import type { ToolLoopContext } from '../ToolLoopRunner.js';
@@ -184,7 +186,10 @@ export function buildToolLoopContext(
     flushTextBuffer: (sid: string) => host.flushStreamEventBuffer(sid),
     // T2.3（2026-08-23）：tool_call 事件 seq 映射（闭环 callSeq 直读）
     toolCallSeqMap,
-    maxToolTurns: host.MAX_TOOL_TURNS,
+    maxToolTurns: resolveChatModeToolTurns(
+      host.MAX_TOOL_TURNS,
+      (session.metadata as Record<string, unknown> | undefined)?.chatMode
+    ),
     estimateMessagesTokens: estimateMessagesTokens as (
       messages: unknown[]
     ) => number,

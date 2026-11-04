@@ -33,6 +33,8 @@ import type {
 import type { ChatSession } from '@modules/session/types/session.js';
 
 import { StreamingAutoCheckpoint } from '../services/StreamingAutoCheckpoint.js';
+// P1（2026-11-04）：轮次上限按会话 chatMode 放大（deep / code ×2）
+import { resolveChatModeToolTurns } from '../loopTurnLimits.js';
 import type { ChatOrchestratorHost } from './ChatOrchestratorHost.js';
 import { buildToolLoopContext } from './streamMessageToolLoopContext.js';
 import { maybeStartRollbackRound } from './streamMessageRollbackRound.js';
@@ -163,7 +165,13 @@ export async function* runStreamToolLoop(
         currentToolCalls,
         assistantMessage,
       },
-      config: { maxIterations: host.MAX_TOOL_TURNS },
+      // P1（2026-11-04）：轮次上限按会话 chatMode 放大（deep / code ×2，其余不变）
+      config: {
+        maxIterations: resolveChatModeToolTurns(
+          host.MAX_TOOL_TURNS,
+          (session.metadata as Record<string, unknown> | undefined)?.chatMode
+        ),
+      },
     });
 
     // M1c：骨架事件流 → ChatStreamChunk（转换层）+ 心跳聚合 + todo chunk

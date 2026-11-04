@@ -37,7 +37,7 @@ export interface PendingApprovalLookup {
    * **可选**：无该方法的最小实现（仅 `list`）照常去重，只是不计数。
    * 计数**不另建一套去重**（`approval_dedup` 表未接线，避免双轨）——它只记录"被合并了几次"。
    */
-  bumpApprovalHit?(id: string): Promise<boolean>;
+  bumpApprovalHit?(id: string): Promise<unknown>;
 }
 
 /**

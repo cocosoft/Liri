@@ -932,6 +932,9 @@ const enBase = {
     inboxReplyApproveTask: "Allow for this task",
     inboxReplyAllowAlways: "Always allow",
     inboxReplyAllowAlwaysHint: "Always allow (this call's arguments only)",
+    // P0-1 (2026-11-04): how many identical approval requests were merged into this card (×N)
+    inboxMergedCountHint:
+      "The same request was merged {{count}} times (handle it once)",
     inboxRepliedToast: "Done: {{label}}",
     // PR-3 (2026-10-23): session-level "auto-run" toggle (read-only + local writes only)
     approvalAutoOff: "Auto-run: off",

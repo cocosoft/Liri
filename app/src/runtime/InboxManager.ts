@@ -30,6 +30,8 @@ import { getSessionOwner } from '@openliri/service/execution';
 import { randomUUID } from 'crypto';
 import { broadcastEvent } from '@modules/infrastructure';
 import type { FrontendMessageBlock } from '@modules/session/types/UnifiedMessage.js';
+// P0-1（2026-11-04）：把合并次数回填到会话内的 Inbox 卡片块（显示 ×N）
+import { patchInboxBlockDedupCount } from './inboxBlockPatch.js';
 import { isPanelActionable, toInboxMetadata } from '@openliri/infra/attention';
 // 时间换算取常量真源（`lint:consts` D-2：不在业务文件里裸写 `n * 60 * 1000`）
 import { MS_PER_HOUR, MS_PER_MINUTE } from '@openliri/infra/constants';
@@ -766,6 +768,8 @@ export class InboxManager {
           priority: 'normal',
           actions,
           channelSource: item.channelId,
+          // P0-1：合并次数（合并时由 `bumpApprovalHit` 回填，前端显示 ×N）
+          dedupCount: 1,
         }).catch(() => {
           /* block 注入失败不影响主流程 */
         });
@@ -1248,13 +1252,13 @@ export class InboxManager {
    * `inbox_items` 的部分唯一索引」完成（**单一实现**）——`approval_dedup` 表若再接一遍就是
    * 第二条轨道（architecture.md 双轨制禁止），而它并不提供增量能力。
    *
-   * 幂等/边界：只累加 `status='pending'` 的卡；已处理/已过期返回 `false` 且不改历史卡。
+   * 幂等/边界：只累加 `status='pending'` 的卡；已处理/已过期返回 `undefined` 且不改历史卡。
    *
-   * @returns 是否发生累加（并发下 CAS 失败 ⇒ false）
+   * @returns 累加后的合并次数；未累加（非 pending / 并发 CAS 失败）⇒ `undefined`
    */
-  async bumpApprovalHit(id: string): Promise<boolean> {
+  async bumpApprovalHit(id: string): Promise<number | undefined> {
     const db = await this.getDb();
-    return new Promise<boolean>((resolve, reject) => {
+    const changed = await new Promise<boolean>((resolve, reject) => {
       db.run(
         `UPDATE inbox_items
             SET metadata = json_set(
@@ -1271,6 +1275,77 @@ export class InboxManager {
         }
       );
     });
+    if (!changed) return undefined;
+
+    const row = await new Promise<
+      { session_id: string; dedup: number | null } | undefined
+    >((resolve, reject) => {
+      db.get(
+        `SELECT session_id, json_extract(metadata, '$.dedupCount') AS dedup
+           FROM inbox_items WHERE id = ? AND owner_key = ?`,
+        [id, this.owner()],
+        (
+          err: Error | null,
+          r?: { session_id: string; dedup: number | null }
+        ) => (err ? reject(err) : resolve(r))
+      );
+    });
+    if (!row) return undefined;
+
+    const dedupCount = typeof row.dedup === 'number' ? row.dedup : 1;
+    // 会话内卡片是**注入的静态块** ⇒ 持久化回填后由前端按 `inbox:update` 增量刷新
+    await this._syncInboxBlockDedupCount(row.session_id, id, dedupCount);
+    try {
+      broadcastEvent('inbox:update', {
+        id,
+        sessionId: row.session_id,
+        dedupCount,
+      });
+    } catch {
+      // @ignore-catch — 广播失败不影响计数（下次刷新会话仍能看到）
+    }
+    return dedupCount;
+  }
+
+  /**
+   * 把合并次数写回该卡在会话消息里的块（`inboxData.dedupCount`）。
+   *
+   * 失败只留痕：计数已在 `inbox_items` 落盘，卡片下次刷新仍可对齐；**不得**因此让
+   * `findPendingApprovalId()` 抛错（那会导致去重退化成"新建卡"）。
+   */
+  private async _syncInboxBlockDedupCount(
+    sessionId: string,
+    inboxId: string,
+    dedupCount: number
+  ): Promise<void> {
+    try {
+      const { createSessionGateway } = await import('@modules/session');
+      const gateway = createSessionGateway();
+      const messages = await gateway.getMessages(sessionId);
+      for (const msg of messages) {
+        const blocks = (msg.blocks ?? []) as unknown as Parameters<
+          typeof patchInboxBlockDedupCount
+        >[0];
+        const { blocks: next, changed } = patchInboxBlockDedupCount(
+          blocks,
+          inboxId,
+          dedupCount
+        );
+        if (!changed) continue;
+        await gateway.updateMessage(sessionId, msg.id, {
+          ...msg,
+          blocks: next as unknown as FrontendMessageBlock[],
+        });
+        return;
+      }
+    } catch (e) {
+      logger.warn('审批合并次数回填到会话卡片失败（不影响去重与计数）', {
+        sessionId,
+        inboxId,
+        dedupCount,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
   }
 
   /** 重置审批项状态为 pending（用于审批撤销） */

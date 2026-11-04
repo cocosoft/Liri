@@ -201,4 +201,29 @@ describe("InboxBlock 批准续跑（P0-5 → M2-T2.1）", () => {
     });
     expect(sendSpy).not.toHaveBeenCalled();
   });
+
+  // P0-1（2026-11-04）：同指纹审批被合并 ⇒ 会话内卡片显示 ×N（后端回填 dedupCount）
+  it("dedupCount > 1 ⇒ 卡片显示 ×N；=1 或缺省 ⇒ 不显示", () => {
+    const base: InboxBlockData = {
+      inboxId: "ib-3",
+      type: "approval",
+      title: "工具审批: file_write",
+      content: "",
+      status: "pending",
+      priority: "normal",
+      actions: [{ label: "批准", reply: "approve", style: "primary" }],
+    };
+
+    const merged = render(
+      <InboxBlock data={{ ...base, dedupCount: 3 }} sessionId="session-1" />,
+    );
+    expect(screen.getByText("×3")).toBeInTheDocument();
+    merged.unmount();
+
+    const single = render(
+      <InboxBlock data={{ ...base, dedupCount: 1 }} sessionId="session-1" />,
+    );
+    expect(screen.queryByText("×1")).toBeNull();
+    single.unmount();
+  });
 });

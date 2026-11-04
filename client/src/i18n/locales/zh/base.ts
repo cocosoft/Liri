@@ -901,6 +901,8 @@ const zhBase = {
     inboxReplyApproveTask: "本任务都允许",
     inboxReplyAllowAlways: "始终允许",
     inboxReplyAllowAlwaysHint: "始终允许（仅此调用参数）",
+    // P0-1（2026-11-04）：同指纹审批被合并的次数（卡片右上角显示 ×N）
+    inboxMergedCountHint: "同一请求已被合并 {{count}} 次（只需处理一次）",
     inboxRepliedToast: "已{{label}}",
     // PR-3（2026-10-23）：会话级「自动执行」开关（仅只读 + 本地写）
     approvalAutoOff: "自动执行：关",

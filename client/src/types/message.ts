@@ -254,6 +254,12 @@ export interface InboxBlockData {
   }>;
   channelSource?: string;
   expiresAt?: number;
+  /**
+   * P0-1（2026-11-04）：同指纹审批被**合并**的次数（`> 1` 时卡片显示 `×N`）。
+   *
+   * 数据源：`inbox_items.metadata.dedupCount`；合并时由后端回填到本块的 `inboxData`。
+   */
+  dedupCount?: number;
 }
 
 export interface Tool {

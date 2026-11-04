@@ -142,6 +142,11 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
   const isPending = status === "pending";
   const isExpired = status === "expired";
   const isUrgent = data.priority === "urgent";
+  // P0-1（2026-11-04）：同一指纹的审批请求被合并了几次（后端回填，仅 >1 时显示 `×N`）
+  const mergedCount =
+    typeof data.dedupCount === "number" && data.dedupCount > 1
+      ? data.dedupCount
+      : 1;
 
   // P2-8：过期倒计时原为渲染期一次性快照（`Date.now()` 只在重渲染时取一次）
   // ⇒ 卡片长时间停留在页面上时"X 分钟后过期"会冻结在首次渲染的值。
@@ -177,6 +182,14 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
         <span className="truncate text-sm font-medium text-gray-800 dark:text-gray-200">
           {data.title}
         </span>
+        {mergedCount > 1 && (
+          <span
+            className="shrink-0 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+            title={t("chat.inboxMergedCountHint", { count: mergedCount })}
+          >
+            ×{mergedCount}
+          </span>
+        )}
         {isPending && data.expiresAt && (
           <span className="ml-auto shrink-0 text-[10px] text-gray-400">
             {t("chat.expiresInMinutes", {

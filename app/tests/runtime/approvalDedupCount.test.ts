@@ -10,9 +10,28 @@
  * （architecture.md 双轨制禁止），且不提供增量能力。本文件只钉住真正缺的那一项：
  * **被合并了几次**（`metadata.dedupCount`）。
  */
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect, afterAll, spyOn } from 'bun:test';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { InboxManager } from '../../src/runtime/InboxManager.js';
 import { findPendingApprovalId } from '@openliri/infra/permission';
+
+// `bumpApprovalHit` 会把计数回填到会话卡片（经 session gateway）⇒ 测试必须隔离数据目录，
+// 不得读写用户真实 `~/.pyapp/data/sessions`。
+const dataDir = mkdtempSync(join(tmpdir(), 'p01-dedup-'));
+const prevDataDir = process.env['LIRI_DATA_DIR'];
+process.env['LIRI_DATA_DIR'] = dataDir;
+
+afterAll(() => {
+  if (prevDataDir === undefined) delete process.env['LIRI_DATA_DIR'];
+  else process.env['LIRI_DATA_DIR'] = prevDataDir;
+  try {
+    rmSync(dataDir, { recursive: true, force: true });
+  } catch {
+    // @ignore-catch — Windows 下 gateway 句柄可能仍占用临时目录（测试清理尽力而为）
+  }
+});
 
 function approval(
   sessionId: string,
@@ -57,8 +76,37 @@ describe('P0-1：审批合并计数（dedupCount）', () => {
     const item = await manager.submit(approval('s1', 'file_write', 'h1'));
     await manager.reply(item.id, 'deny');
 
-    expect(await manager.bumpApprovalHit(item.id)).toBe(false);
+    expect(await manager.bumpApprovalHit(item.id)).toBeUndefined();
     expect((await manager.get(item.id))?.metadata?.dedupCount).toBeUndefined();
+  });
+
+  it('累加成功 ⇒ 返回**累加后的次数**（供回填与日志使用）', async () => {
+    const manager = new InboxManager(':memory:');
+    const item = await manager.submit(approval('s1', 'file_write', 'h1'));
+
+    expect(await manager.bumpApprovalHit(item.id)).toBe(2);
+    expect(await manager.bumpApprovalHit(item.id)).toBe(3);
+  });
+
+  it('累加成功 ⇒ 把次数回填到会话卡片（走 _syncInboxBlockDedupCount）', async () => {
+    const manager = new InboxManager(':memory:');
+    const item = await manager.submit(approval('s1', 'file_write', 'h1'));
+    const seam = manager as unknown as {
+      _syncInboxBlockDedupCount: (
+        sessionId: string,
+        inboxId: string,
+        dedupCount: number
+      ) => Promise<void>;
+    };
+    const syncSpy = spyOn(seam, '_syncInboxBlockDedupCount').mockResolvedValue(
+      undefined
+    );
+    try {
+      await manager.bumpApprovalHit(item.id);
+      expect(syncSpy).toHaveBeenCalledWith('s1', item.id, 2);
+    } finally {
+      syncSpy.mockRestore();
+    }
   });
 });
 

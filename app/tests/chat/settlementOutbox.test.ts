@@ -258,6 +258,23 @@ describe('SettlementOutbox：M-3 原子认领 / 单向状态机 / 幂等键口�
     const id = await outbox.enqueue({ sessionId: 's1', endedAt: 1 });
     expect((await outbox.getRow(id))?.state).toBe('pending');
   });
+  test('attempts 达上限的 failed 行 ⇒ prune 时收敛为 dropped（终态可达）', async () => {
+    const outbox = await makeOutbox();
+    const id = await outbox.enqueue({ sessionId: 's-exhausted', endedAt: 1 });
+    for (let i = 0; i < MAX_DELIVERY_ATTEMPTS; i++) {
+      const claimed = await outbox.claim(id);
+      if (claimed) await outbox.markFailed(id, 'x');
+    }
+    const before = await outbox.getRow(id);
+    expect(before?.attempts).toBe(MAX_DELIVERY_ATTEMPTS);
+    expect(before?.state).toBe('failed');
+    // 旧实现：该行被 listReplayable() 排除 ⇒ 永远等不到 claim 的超限分支 ⇒ 永久停在 failed
+    expect(await outbox.listReplayable()).toHaveLength(0);
+
+    await outbox.prune();
+
+    expect((await outbox.getRow(id))?.state).toBe('dropped');
+  });
 });
 
 describe('结算台账库路径：测试进程隔离（P1，2026-11-04）', () => {

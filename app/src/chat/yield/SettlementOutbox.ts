@@ -474,6 +474,22 @@ export class SettlementOutbox {
          )`,
       [OUTBOX_MAX_ROWS]
     );
+    // P1（2026-11-04）：`attempts` 已达上限的 `failed` 行**不会**出现在 `listReplayable()`
+    // ⇒ 永远等不到 `claim()` 的"超限转 dropped"分支（真库曾累积 1 152 行停在 failed/attempts=8）。
+    // 在此统一收敛为终态 `dropped`（单向状态机 + 台账可解释），不删除（审计可回溯）。
+    const exhausted = await this.run(
+      `UPDATE ${SETTLEMENT_OUTBOX_TABLE}
+          SET state = 'dropped',
+              last_error = COALESCE(last_error, '超过重试上限（维护期收敛）'),
+              updated_at = ?
+        WHERE state = 'failed' AND attempts >= ?`,
+      [now, MAX_DELIVERY_ATTEMPTS]
+    );
+    if (exhausted > 0) {
+      logger.info('结算台账已收敛超限行（failed → dropped）', {
+        count: exhausted,
+      });
+    }
     // P1-5（2026-09-25）：裁剪是**上限收敛**的唯一出口，修复前返回值无任何消费方
     // ⇒ "保留上限是否在生效、裁掉多少"完全不可观测。现以 INFO 记录实际删除行数。
     if (removed > 0) {

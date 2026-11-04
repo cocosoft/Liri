@@ -600,16 +600,11 @@ export async function* runStreamMessage(
       });
     }
 
-    // 工具定义（按会话 chatMode 裁剪；缺失/脏值 ⇒ auto，零行为变更）
+    // 工具定义（按会话 chatMode 裁剪 + 落本轮工具清单；缺失/脏值 ⇒ auto，零行为变更）
     const { visibleSchemas, toolDefinitions } = prepareStreamTools(
       host,
       session
     );
-    // TR-12-B（2026-09-22）：本轮工具清单落事件（引用式去重）——「模型可见 ⇔ 已落盘」§1.6
-    // P1 收口：落**过滤后**清单（与模型实际看到的一致）
-    if (visibleSchemas.length > 0) {
-      host.recordToolsSnapshot(session.id, visibleSchemas);
-    }
     if (toolDefinitions.length === 0) {
       // 诊断埋点：工具定义为空时明确记录，区分"注册表缺失" vs "注册表内无工具"，
       // 避免"模型想调工具却无工具可用 → think-only"被静默掩盖

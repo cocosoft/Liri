@@ -21,8 +21,11 @@ import {
 } from '../chatModePolicy.js';
 
 export function prepareStreamTools(
-  host: Pick<ChatOrchestratorHost, 'getToolRegistry' | 'buildToolDefinitions'>,
-  session: { metadata?: unknown }
+  host: Pick<
+    ChatOrchestratorHost,
+    'getToolRegistry' | 'buildToolDefinitions' | 'recordToolsSnapshot'
+  >,
+  session: { id?: string; metadata?: unknown }
 ): { visibleSchemas: { name: string }[]; toolDefinitions: ToolDefinition[] } {
   const registry = host.getToolRegistry();
   const visibleSchemas = filterToolSchemasByChatMode(
@@ -31,6 +34,11 @@ export function prepareStreamTools(
       (session.metadata as Record<string, unknown> | undefined)?.['chatMode']
     )
   );
+  // TR-12-B（2026-09-22）／§1.6 红线：本轮工具清单落事件，且必须是**过滤后**清单
+  //（模型可见 ⇔ 已落盘）。空清单不落（与改造前同一条件）。
+  if (session.id && visibleSchemas.length > 0) {
+    host.recordToolsSnapshot(session.id, visibleSchemas);
+  }
   return {
     visibleSchemas,
     // 注册表缺失 ⇒ 无工具可用（与改造前一致的告警分支由调用方处理）

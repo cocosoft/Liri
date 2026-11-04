@@ -95,6 +95,20 @@ function ensureFlushTimer(): void {
 }
 
 /**
+ * P2-1（2026-11-04，《运行态问题排查与修复方案》）：把一条日志**压成单行**再落盘。
+ *
+ * 背景：text 格式的 `message` / `meta` 可能自带换行（多行堆栈、多行错误说明），
+ * 原实现原样入缓冲区 ⇒ 一个逻辑条目在文件里变成多行，按行解析的脚本/健康检查直接失配
+ * （实测 2.5h 窗口内 1,063 行非 JSON 续行）。
+ *
+ * 只在**落盘**时压行（控制台仍保留多行可读性）；JSON 格式已被 `JSON.stringify` 转义，
+ * 本函数对其无副作用。
+ */
+export function toSingleLineEntry(line: string): string {
+  return line.replace(/\r\n|\n|\r/g, '\\n');
+}
+
+/**
  * 将日志行加入异步写入队列
  */
 function enqueueFileWrite(filePath: string, line: string): void {
@@ -104,7 +118,8 @@ function enqueueFileWrite(filePath: string, line: string): void {
     fileWriteBuffers.set(filePath, []);
   }
   const buffer = fileWriteBuffers.get(filePath)!;
-  buffer.push(line);
+  // P2-1：一条日志 = 一行（否则多行堆栈会污染按行解析）
+  buffer.push(toSingleLineEntry(line));
 
   // 缓冲区满时立即 flush
   if (buffer.length >= globalMaxBufferSize) {

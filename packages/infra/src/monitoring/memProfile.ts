@@ -11,9 +11,19 @@
 import { getLogger } from './index';
 import { getMemoryPressureMonitor } from './memoryPressure/MemoryPressureMonitor.js';
 import { configManager } from '@openliri/infra/config';
+import { MS_PER_SECOND } from '@openliri/infra/constants';
 
 // 经统一出入口（R05-012）
 const MEM_PROFILE_ENABLED = configManager.env('MEM_PROFILE') === '1';
+
+/**
+ * P2-1（2026-11-04）：同一采样点的最小落日志间隔。
+ *
+ * 实测 44 分钟内 `memProfile:*` 521 条（热点管线每轮都打），其中绝大多数是同一批点的
+ * 重复快照。改为**按点限流**：窗口内只保留一条，其余计数、并在下一条放行时带上
+ * `suppressed`（信息量不减，条数受控）。数值口径：5 秒。
+ */
+const MEM_PROFILE_POINT_MIN_INTERVAL = 5 * MS_PER_SECOND;
 
 // R11-001（2026-09-24）：改用零样板门面 getLogger(module) —— 默认 INFO/json 形态，
 // 与原显式构造等价且复用单例；禁止直接构造 Logger 实例。
@@ -25,6 +35,40 @@ const logger = getLogger('chat:mem-profile');
  */
 function samplingActive(): boolean {
   return MEM_PROFILE_ENABLED || getMemoryPressureMonitor().currentLevel() >= 1;
+}
+
+/** 每个采样点的最近一次放行时间与被抑制条数（P2-1 限流状态） */
+const pointEmitState = new Map<string, { at: number; suppressed: number }>();
+
+/** 限流判定结果 */
+export interface MemProfileEmitDecision {
+  /** 本次是否应该落日志 */
+  emit: boolean;
+  /** 距上次放行期间被抑制的条数（放行时带出；未放行时为 0） */
+  suppressed: number;
+}
+
+/**
+ * 采样点限流判定（纯函数，P2-1）：
+ * - 窗口内 ⇒ 累计 `suppressed` 并返回 `{emit:false}`；
+ * - 窗口外 ⇒ 放行并带出累计数、重置窗口。
+ *
+ * 抽成纯函数以便直接单测（`memProfile` 本身受 env/内存水位门控，不易在测试里打开）。
+ */
+export function decideMemProfileEmit(
+  store: Map<string, { at: number; suppressed: number }>,
+  point: string,
+  now: number,
+  intervalMs: number = MEM_PROFILE_POINT_MIN_INTERVAL
+): MemProfileEmitDecision {
+  const state = store.get(point);
+  if (state && now - state.at < intervalMs) {
+    state.suppressed++;
+    return { emit: false, suppressed: 0 };
+  }
+  const suppressed = state?.suppressed ?? 0;
+  store.set(point, { at: now, suppressed: 0 });
+  return { emit: true, suppressed };
 }
 
 interface MemSample {
@@ -48,6 +92,12 @@ function sample(): MemSample {
 
 /**
  * 在关键点打一个内存采样日志（相对上一次采样的增量 + 绝对量）。
+ *
+ * P2-1（2026-11-04）：
+ * - **按点限流**（{@link MEM_PROFILE_POINT_MIN_INTERVAL}），窗口内重复采样只计数；
+ * - 仅由**内存水位**触发（未显式 `MEM_PROFILE=1`）时降为 `debug` —— 压力期仍可取证，
+ *   但不把 info 面刷满；显式诊断模式保持 info。
+ *
  * @param point 采样点标识（如 'context-build:post-map'）
  * @param extra 附加上下文（会话/消息数/内容长度等，可选）
  */
@@ -56,6 +106,12 @@ export function memProfile(
   extra?: Record<string, unknown>
 ): void {
   if (!samplingActive()) return;
+
+  // P2-1：按点限流（窗口内只累计，不落盘）
+  const decision = decideMemProfileEmit(pointEmitState, point, Date.now());
+  if (!decision.emit) return;
+  const suppressed = decision.suppressed;
+
   const cur = sample();
   const delta = last
     ? {
@@ -64,12 +120,22 @@ export function memProfile(
       }
     : { dRssMb: 0, dHeapUsedMb: 0 };
   last = cur;
-  logger.info(`memProfile:${point}`, {
+  const payload = {
     rssMb: cur.rssMb,
     heapUsedMb: cur.heapUsedMb,
     heapTotalMb: cur.heapTotalMb,
     externalMb: cur.externalMb,
     ...delta,
+    ...(suppressed > 0 ? { suppressed } : {}),
     ...extra,
-  });
+  };
+  // 显式诊断 ⇒ info；仅水位触发 ⇒ debug（P2-1 降噪）
+  if (MEM_PROFILE_ENABLED) logger.info(`memProfile:${point}`, payload);
+  else logger.debug(`memProfile:${point}`, payload);
+}
+
+/** 清空限流状态（测试隔离用；生产不调用） */
+export function resetMemProfileThrottleForTest(): void {
+  pointEmitState.clear();
+  last = null;
 }

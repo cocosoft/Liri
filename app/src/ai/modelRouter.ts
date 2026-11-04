@@ -43,6 +43,9 @@
 
 import { handleError } from '@openliri/infra/error/handleError';
 import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
+// P2-1（2026-11-04）：高频 info 按 key 限流（路由决策每次调用都会打 ⇒ 以调用量增长）
+import { LogThrottle } from '@openliri/infra/monitoring/logs/LogThrottle';
+import { MS_PER_SECOND } from '@openliri/infra/constants';
 // 硬编码治理 B5-2㉛：UUID 形态判定收敛到 `@modules/core` 单一真源（原为 8 份副本）
 import { UUID_RE } from '@openliri/kernel';
 import { getOTelTracing } from '@openliri/infra/monitoring/otel/OTelTracing';
@@ -58,6 +61,14 @@ import {
 } from '@modules/context/DependencyRegistry.js';
 
 const logger = getLogger('ai:model-router');
+
+/**
+ * P2-1（2026-11-04）：路由决策日志的按 key 限流。
+ *
+ * key = `taskType:source`；每 key 每秒最多一条，被压掉的条数在下一条以 `suppressed` 带出。
+ * 只限流这条高频 info，warn/error 与慢路径埋点不受影响。
+ */
+const routingLogThrottle = new LogThrottle({ windowMs: MS_PER_SECOND });
 
 // ============================================================
 // 任务类型枚举
@@ -747,11 +758,16 @@ export class ModelRouter {
     //（原只有各分支的 `debug` ⇒ 默认不落盘，"路由命中/回退"不可观测）
     const decision: { source: string } = { source: 'configured' };
     const result = this.resolveInner(taskType, decision);
-    logger.info('ModelRouter.resolve: 路由决策', {
-      task: taskType,
-      model: result || '(空)',
-      source: decision.source,
-    });
+    // P2-1：按 `taskType:source` 每秒最多一条（重复调用只累计，下一条带 suppressed）
+    const throttle = routingLogThrottle.tick(`${taskType}:${decision.source}`);
+    if (throttle.emit) {
+      logger.info('ModelRouter.resolve: 路由决策', {
+        task: taskType,
+        model: result || '(空)',
+        source: decision.source,
+        ...(throttle.suppressed > 0 ? { suppressed: throttle.suppressed } : {}),
+      });
+    }
     const elapsedMs = performance.now() - t0;
     if (elapsedMs > 5) {
       logger.warning(

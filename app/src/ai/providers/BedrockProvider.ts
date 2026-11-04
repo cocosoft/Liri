@@ -56,7 +56,8 @@ export class BedrockProvider extends BaseAIProvider {
     // 流式耗时统计：委托 BaseAIProvider.wrapChatStreamMeasure（2026-08-16）
     return yield* BaseAIProvider.wrapChatStreamMeasure(
       this.providerLabel,
-      this.chatStreamInternal(messages, options)
+      // P1-1：传工厂，首包前连接重置时可重建一条流重试一次
+      () => this.chatStreamInternal(messages, options)
     );
   }
 

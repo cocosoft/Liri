@@ -595,6 +595,35 @@ export abstract class BaseAIProvider implements AIProvider {
   }
 
   /**
+   * P1-1（2026-11-04，《运行态问题排查与修复方案》）：**响应体读取阶段**的连接重置。
+   *
+   * 与 {@link isRetryableConnectError} 分工：后者只覆盖 `fetch()` 本身抛出的**连接期**错误
+   * （TypeError / Bun `ConnectionRefused`）；本方法覆盖"响应头已返回、body 读到一半断开"，
+   * 典型成因是 keep-alive 长连接被服务端回收后复用（实测 DeepSeek `ECONNRESET` 32 次/窗口，
+   * 并连带 `compaction:tier3_fold_batch_error`）。
+   *
+   * 边界：主动取消（`AbortError`）与业务/HTTP 错误**绝不**归入此类。
+   */
+  protected static isRetryableBodyResetError(error: unknown): boolean {
+    if (!error || typeof error !== 'object') return false;
+    const err = error as {
+      message?: unknown;
+      code?: unknown;
+      name?: unknown;
+    };
+    if (err.name === 'AbortError') return false;
+    const code = typeof err.code === 'string' ? err.code : '';
+    const message = typeof err.message === 'string' ? err.message : '';
+    const haystack = `${code} ${message}`.toUpperCase();
+    return (
+      haystack.includes('ECONNRESET') ||
+      haystack.includes('UND_ERR_SOCKET') ||
+      haystack.includes('SOCKET HANG UP') ||
+      haystack.includes('EPIPE')
+    );
+  }
+
+  /**
    * 带连接重试的 fetch 包装（已注入系统 CA 证书 dispatcher）。
    *
    * 仅在网络连接阶段失败时重试（TypeError / Bun ConnectionRefused），
@@ -723,49 +752,82 @@ export abstract class BaseAIProvider implements AIProvider {
    * 统一统计流式总耗时与 chunk 数。正常完成打 info，异常/中断打 warn。
    * 各 Provider 的 chatStream 入口用 `yield*` 委托本包装器即可接入，
    * return 值（如 usage）通过 yield* 透传，行为不变。
+   *
+   * P1-1（2026-11-04）：第二参数改为**工厂**（`() => AsyncGenerator`），以便在
+   * **首包前**发生连接重置（`ECONNRESET` / `UND_ERR_SOCKET` / `socket hang up`）时
+   * 重建一条流重试一次 —— 已产出 chunk 时**不重试**（无法撤回已下发的内容）。
+   *
+   * @param createStream 流工厂（每次尝试都新建一条）
+   * @param maxRetries   首包前连接重置的最大重试次数（默认 1）
    */
   protected static async *wrapChatStreamMeasure<T, TReturn = void>(
     label: string,
-    stream: AsyncGenerator<T, TReturn>
+    createStream: () => AsyncGenerator<T, TReturn>,
+    maxRetries: number = 1
   ): AsyncGenerator<T, TReturn> {
     const start = Date.now();
     let chunkCount = 0;
-    try {
-      // 余额熔断：直接失败，不发请求（与 measureChat 同口径）
-      const remainingMs = providerBalanceCircuitRemaining(label);
-      if (remainingMs > 0) {
-        throw new ProviderBalanceCircuitOpenError(label, remainingMs);
-      }
-      // 必须手动 next() 迭代：for await 会丢弃内部生成器的 return 值，
-      // 导致上游 result.value 变 undefined（finalResponse.tool_calls 丢失 → 工具调用不执行）。
-      let result = await stream.next();
-      while (!result.done) {
-        chunkCount++;
-        yield result.value as T;
-        result = await stream.next();
-      }
-      logger.info('provider 流式完成', {
-        provider: label,
-        elapsedMs: Date.now() - start,
-        chunkCount,
-      });
-      return result.value;
-    } catch (error) {
-      // 余额/配额不足 ⇒ 打开短期熔断，后续调用立即失败（不再逐条撞 402）
-      if (isInsufficientBalanceError(error)) {
-        tripProviderBalanceCircuit(label);
-        logger.warning('provider 余额熔断已开启', {
+    let attempts = 0;
+    for (let attempt = 0; ; attempt++) {
+      attempts = attempt + 1;
+      /** 本次尝试已下发的 chunk 数（>0 ⇒ 不可重试） */
+      let attemptChunks = 0;
+      try {
+        // 余额熔断：直接失败，不发请求（与 measureChat 同口径）
+        const remainingMs = providerBalanceCircuitRemaining(label);
+        if (remainingMs > 0) {
+          throw new ProviderBalanceCircuitOpenError(label, remainingMs);
+        }
+        const stream = createStream();
+        // 必须手动 next() 迭代：for await 会丢弃内部生成器的 return 值，
+        // 导致上游 result.value 变 undefined（finalResponse.tool_calls 丢失 → 工具调用不执行）。
+        let result = await stream.next();
+        while (!result.done) {
+          attemptChunks++;
+          chunkCount++;
+          yield result.value as T;
+          result = await stream.next();
+        }
+        logger.info('provider 流式完成', {
           provider: label,
-          ttlMs: 5 * 60_000,
+          elapsedMs: Date.now() - start,
+          chunkCount,
+          attempts,
         });
+        return result.value;
+      } catch (error) {
+        // 余额/配额不足 ⇒ 打开短期熔断，后续调用立即失败（不再逐条撞 402）
+        if (isInsufficientBalanceError(error)) {
+          tripProviderBalanceCircuit(label);
+          logger.warning('provider 余额熔断已开启', {
+            provider: label,
+            ttlMs: 5 * 60_000,
+          });
+        } else if (
+          // P1-1：只有"首包前"的连接重置可安全重试（已产出的 chunk 撤不回）
+          attemptChunks === 0 &&
+          attempt < maxRetries &&
+          BaseAIProvider.isRetryableBodyResetError(error)
+        ) {
+          logger.warn('provider 流式首包前连接中断，将重试一次', {
+            provider: label,
+            elapsedMs: Date.now() - start,
+            attempt: attempt + 1,
+            maxAttempts: maxRetries + 1,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          await new Promise<void>((resolve) => setTimeout(resolve, 1000));
+          continue;
+        }
+        logger.warn('provider 流式失败', {
+          provider: label,
+          elapsedMs: Date.now() - start,
+          chunkCount,
+          attempts,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
       }
-      logger.warn('provider 流式失败', {
-        provider: label,
-        elapsedMs: Date.now() - start,
-        chunkCount,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      throw error;
     }
   }
 
@@ -774,39 +836,62 @@ export abstract class BaseAIProvider implements AIProvider {
    * 统计从入口到响应完成的耗时。正常完成打 info，失败打 warn。
    * 各 Provider 的 chat 入口用 `measureChat(label, () => this.xxx(...))`
    * 接入即可，返回值透传，行为不变。
+   *
+   * P1-1（2026-11-04）：响应体读取阶段的连接重置（`ECONNRESET` / `UND_ERR_SOCKET`）重试一次
+   * —— 与流式不同，非流式调用失败时**没有任何内容下发**，重试是幂等的（代价是可能重复计费一次）。
+   *
+   * @param maxRetries 连接重置的最大重试次数（默认 1；其它错误一律不重试）
    */
   protected static async measureChat<T>(
     label: string,
-    fn: () => Promise<T>
+    fn: () => Promise<T>,
+    maxRetries: number = 1
   ): Promise<T> {
     const start = Date.now();
-    try {
-      // 余额熔断：直接失败，不发请求（避免批量链路逐条撞 402）
-      const remainingMs = providerBalanceCircuitRemaining(label);
-      if (remainingMs > 0) {
-        throw new ProviderBalanceCircuitOpenError(label, remainingMs);
-      }
-      const result = await fn();
-      logger.info('provider 聊天完成', {
-        provider: label,
-        elapsedMs: Date.now() - start,
-      });
-      return result;
-    } catch (error) {
-      // 余额/配额不足 ⇒ 打开短期熔断（熔断期内的调用在上方直接失败，不再产生网络请求）
-      if (isInsufficientBalanceError(error)) {
-        tripProviderBalanceCircuit(label);
-        logger.warning('provider 余额熔断已开启', {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        // 余额熔断：直接失败，不发请求（避免批量链路逐条撞 402）
+        const remainingMs = providerBalanceCircuitRemaining(label);
+        if (remainingMs > 0) {
+          throw new ProviderBalanceCircuitOpenError(label, remainingMs);
+        }
+        const result = await fn();
+        logger.info('provider 聊天完成', {
           provider: label,
-          ttlMs: 5 * 60_000,
+          elapsedMs: Date.now() - start,
+          attempts: attempt + 1,
         });
+        return result;
+      } catch (error) {
+        // 余额/配额不足 ⇒ 打开短期熔断（熔断期内的调用在上方直接失败，不再产生网络请求）
+        if (isInsufficientBalanceError(error)) {
+          tripProviderBalanceCircuit(label);
+          logger.warning('provider 余额熔断已开启', {
+            provider: label,
+            ttlMs: 5 * 60_000,
+          });
+        } else if (
+          attempt < maxRetries &&
+          BaseAIProvider.isRetryableBodyResetError(error)
+        ) {
+          logger.warn('provider 聊天响应中断，将重试一次', {
+            provider: label,
+            elapsedMs: Date.now() - start,
+            attempt: attempt + 1,
+            maxAttempts: maxRetries + 1,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          await new Promise<void>((resolve) => setTimeout(resolve, 1000));
+          continue;
+        }
+        logger.warn('provider 聊天失败', {
+          provider: label,
+          elapsedMs: Date.now() - start,
+          attempts: attempt + 1,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
       }
-      logger.warn('provider 聊天失败', {
-        provider: label,
-        elapsedMs: Date.now() - start,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      throw error;
     }
   }
 

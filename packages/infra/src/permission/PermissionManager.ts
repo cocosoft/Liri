@@ -13,7 +13,7 @@ import { RuleManager, RuleContext } from './RuleManager';
 import { resolveApprovalFingerprint } from './approvalFingerprint';
 import { hashApprovalFingerprint } from './ApprovedCommandRegistry';
 import { DenialTracker } from './trackers/DenialTracker';
-import { PermissionMode } from './PermissionMode';
+import { PermissionMode, PERMISSION_MODES } from './PermissionMode';
 import {
   PermissionDecision,
   PermissionDecisionType,
@@ -163,6 +163,34 @@ function buildDenyInfo(
 }
 
 /**
+ * P1-1（2026-11-04）：从 `PERMISSION_MODE` 解析**进程默认权限档**。
+ *
+ * 背景：方案 §1.1 实测该环境变量**全仓无读取点**（配了不生效，与 `JWT_SECRET` / `CORS_ORIGIN`
+ * 同类"配置幻觉"）。这里把它接成 `PermissionManager` 的初始模式；会话级 / UI 仍可经
+ * `setMode()` 覆盖（P1 后续再收敛三层优先级）。
+ *
+ * - 未设置 / 空串 ⇒ `default`（与改造前逐字一致）；
+ * - 大小写不敏感（`DEFAULT` / `acceptEdits` 都能认）；
+ * - 非法值 ⇒ 回退 `default` 并告警（不阻断启动，fail-safe）。
+ */
+function resolveInitialPermissionMode(): PermissionMode {
+  const raw = configManager.env('PERMISSION_MODE', '')?.trim();
+  if (!raw) return PermissionMode.DEFAULT;
+
+  const normalized = raw.toLowerCase();
+  const matched = PERMISSION_MODES.find(
+    (mode) => mode.toLowerCase() === normalized
+  );
+  if (!matched) {
+    logger.warning(
+      `PERMISSION_MODE=${raw} 不是合法权限模式，已回退 default（合法值：${PERMISSION_MODES.join(' / ')}）`
+    );
+    return PermissionMode.DEFAULT;
+  }
+  return matched;
+}
+
+/**
  * 权限管理器类
  */
 export class PermissionManager {
@@ -236,6 +264,14 @@ export class PermissionManager {
     if (this.defaultBehavior === 'deny') {
       logger.warn(
         '权限默认行为已配置为 deny（fail-closed），无规则匹配的工具将被拒绝'
+      );
+    }
+
+    // P1-1（2026-11-04）：`PERMISSION_MODE` 此前全仓无读取点 ⇒ 接成进程默认档
+    this.mode = resolveInitialPermissionMode();
+    if (this.mode !== PermissionMode.DEFAULT) {
+      logger.info(
+        `权限模式由 PERMISSION_MODE 设为 ${this.mode}（会话级 setMode 仍可覆盖）`
       );
     }
 

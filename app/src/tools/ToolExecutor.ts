@@ -9,6 +9,8 @@ import {
   PermissionManager,
   createPermissionManager,
 } from '@openliri/infra/permission/PermissionManager';
+// P1（2026-11-04）：判定唯一出口（归一为 PolicyDecision）
+import { resolvePolicy } from '@openliri/infra/permission';
 import { GovernanceManager } from '../governance/managers/GovernanceManager';
 import { ToolHookManager } from '@modules/hooks';
 import { ToolHookContext } from '../hooks/types/ToolHooks';
@@ -696,12 +698,14 @@ export class ToolExecutor {
     }
 
     try {
-      const decision = await this.permissionManager.checkPermission(
-        tool.name,
-        input
-      );
+      // P1（2026-11-04）：判定出口收敛到 `resolvePolicy`（唯一 `PolicyDecision` 形状 + evidence）。
+      // 链本身（9 档模式 → 规则 → 风险默认）仍只有一份实现，此处只做归一。
+      const decision = await resolvePolicy(this.permissionManager, {
+        toolOrName: tool.name,
+        input,
+      });
 
-      if (decision.type === 'deny') {
+      if (decision.effect === 'deny') {
         // P3-5: Standing Rules — 检查是否有任务级预先批准覆盖拒绝决策
         const standingAllowed = await this.checkStandingRules(tool.name, input);
         if (!standingAllowed) {
@@ -712,10 +716,9 @@ export class ToolExecutor {
         }
       }
 
-      if (decision.type === 'ask') {
-        // P0（2026-11-04）：`ask` **不是** `allow`。原实现只处理 deny，ask 直接落到
-        // 末尾 `allowed: true` ⇒ 所有"需要用户确认"的调用在本执行器里被静默放行。
-        // 本执行器没有审批通道（CLI / 优化器路径），只能 fail-closed 并把原因交回模型。
+      if (decision.effect === 'ask') {
+        // P0（2026-11-04）：`ask` **不是** `allow`。本执行器是 CLI / 优化器路径，
+        // 没有审批通道 ⇒ 只能 fail-closed 并把原因交回模型。
         return {
           allowed: false,
           error:

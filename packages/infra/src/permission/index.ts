@@ -130,6 +130,17 @@ export type {
   ToolApprovalCardInput,
 } from './toolApprovalSubmission';
 
+// P1（2026-11-04）：权限判定的**唯一出口**（归一为 `PolicyDecision`，不复制判定链）
+export { resolvePolicy } from './resolvePolicy';
+export type {
+  PolicyDecision,
+  PolicyDecisionPort,
+  PolicyEvidence,
+  PolicyEvidenceSource,
+  PolicyVerdict,
+  ResolvePolicyRequest,
+} from './resolvePolicy';
+
 export {
   PermissionCache,
   PermissionRuleValidator,

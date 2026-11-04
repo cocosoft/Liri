@@ -676,10 +676,15 @@ export class ToolExecutor {
     if (tool.checkPermissions) {
       try {
         const permissionResult = await tool.checkPermissions(input, context);
-        return {
-          allowed: permissionResult.behavior === 'allow',
-          error: permissionResult.reason || null,
-        };
+        // 工具级 check 只能**收紧**：allow 之后仍要过通用判定（P0，2026-11-04）。
+        // 历史上 `buildTool` 默认注入 `() => allow`，而本方法见 allow 即返回 ⇒ 通用权限链
+        // 对每个 built 工具都被跳过；默认值已移除，这里保留"不因单方 allow 短路"的语义。
+        if (permissionResult.behavior !== 'allow') {
+          return {
+            allowed: false,
+            error: permissionResult.reason || 'Permission denied',
+          };
+        }
       } catch (error) {
         // @ignore-catch — 权限检查失败属于正常控制流
         return {
@@ -705,6 +710,18 @@ export class ToolExecutor {
             error: decision.reason || 'Permission denied',
           };
         }
+      }
+
+      if (decision.type === 'ask') {
+        // P0（2026-11-04）：`ask` **不是** `allow`。原实现只处理 deny，ask 直接落到
+        // 末尾 `allowed: true` ⇒ 所有"需要用户确认"的调用在本执行器里被静默放行。
+        // 本执行器没有审批通道（CLI / 优化器路径），只能 fail-closed 并把原因交回模型。
+        return {
+          allowed: false,
+          error:
+            decision.reason ||
+            'Permission requires user approval, which this executor cannot request',
+        };
       }
     } catch (error) {
       // @ignore-catch — 权限检查抛异常属于正常控制流

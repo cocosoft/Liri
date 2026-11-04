@@ -3,7 +3,6 @@
  * 从部分工具定义构建完整的Tool，填充默认值
  */
 import { Tool, ToolDef } from './types/Tool';
-import { createAllowResult } from './types/PermissionResult';
 
 /**
  * 工具默认值
@@ -31,10 +30,15 @@ const BUILDER_TOOL_DEFAULTS = {
   isDestructive: (_input?: Record<string, unknown>) => false,
 
   /**
-   * 默认权限检查返回allow，交由通用权限系统处理
+   * 默认**不提供** `checkPermissions`
+   *
+   * P0 整改（2026-11-04，统一策略层方案 §5）：此处原先注入
+   * `() => createAllowResult(input)`，而 `ToolExecutor.checkPermissions` 见到工具自带
+   * `checkPermissions` 就**直接采信**（`allowed: behavior === 'allow'`）⇒ 经 `buildTool`
+   * 构建的**每个**工具都绕过了 `PermissionManager` 这条唯一生效链（等于"全部放行"）。
+   * 现在默认留空，由执行方回落到通用判定；确需自定义的工具再显式实现本方法，
+   * 且语义只能是"**收紧**"（deny / ask），不能用来放行。
    */
-  checkPermissions: (input: Record<string, unknown>, _ctx?: any) =>
-    Promise.resolve(createAllowResult(input)),
 
   /**
    * 默认自动分类器输入返回空字符串

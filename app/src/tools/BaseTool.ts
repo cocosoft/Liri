@@ -197,7 +197,8 @@ export abstract class BaseTool<
 
   /**
    * 检查权限
-   * 默认返回allow，交由通用权限系统处理
+   * 默认返回 allow = **不追加限制**（不是"放行"）：执行器仍会走通用权限判定
+   * （P0，2026-11-04：工具级 check 只能收紧，不能短路 `PermissionManager`）
    * @param input 工具输入
    * @param context 工具使用上下文
    * @returns 权限结果

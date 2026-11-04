@@ -60,16 +60,26 @@ export class LogConfigManager {
   private static instance: LogConfigManager;
 
   private constructor() {
+    // 测试进程**不写**默认日志文件（2026-11-04，附录 A6 取证）。
+    // 实证：真机 `~/.pyapp/data/logs/app.log` 里出现 36 条 `sess-A` 的
+    // 「yield 结算到达但该会话无等待登记」—— `sess-A` 只存在于 `app/tests/**`，
+    // 说明 `bun test` 一直在往生产日志里写，污染按日志做的故障归因（本次排查即被误导）。
+    // 需要文件输出的用例自带 `new Logger({ targets: [...] })` 指向临时目录，不受此影响。
+    const isTest = process.env.NODE_ENV === 'test';
     this.config = {
       level: LogLevel.INFO,
       targets: [
         { type: 'console', level: LogLevel.INFO, format: 'pretty' },
-        {
-          type: 'file',
-          level: LogLevel.DEBUG,
-          path: join(resolveLogsDir(), 'app.log'),
-          format: 'json',
-        },
+        ...(isTest
+          ? []
+          : [
+              {
+                type: 'file' as const,
+                level: LogLevel.DEBUG,
+                path: join(resolveLogsDir(), 'app.log'),
+                format: 'json' as const,
+              },
+            ]),
       ],
       filters: [],
       format: 'json',

@@ -1274,7 +1274,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
     const logCfg = LogConfigManager.getInstance().get();
     const fileTarget = logCfg.targets.find((t) => t.type === 'file');
     return {
-      fileOutput: true,
+      fileOutput: Boolean(fileTarget), // 原写死 true ⇒ 测试/无文件目标也写盘
       logFile: fileTarget?.path,
       level: logCfg.level,
       format: logCfg.format as 'text' | 'json',

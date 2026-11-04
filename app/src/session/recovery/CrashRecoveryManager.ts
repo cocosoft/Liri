@@ -13,7 +13,6 @@
 
 import { getLogger } from '@openliri/infra/monitoring';
 import { broadcastEvent } from '@modules/infrastructure';
-import { markAppError } from '@openliri/infra/state/app/AppLifecycle';
 import { SessionStatus } from '../types/UnifiedSession';
 import type { UnifiedSession } from '../types/UnifiedSession';
 import type { UnifiedSessionStorage } from '../storage/UnifiedStorage';
@@ -195,8 +194,14 @@ export class CrashRecoveryManager {
         lastActivityBeforeCrash: String(session.lastActivityAt),
       };
       await this.storage.updateSession(session);
-      // §十 阶段 A：崩溃恢复失败 → 应用全局 ERROR 状态
-      markAppError(new Error(`会话崩溃恢复失败（stale）: ${session.id}`));
+      // P2（2026-11-04，前端会话跟踪）：**单会话不可恢复 ≠ 应用故障**。
+      // 原实现调 `markAppError(...)` ⇒ 一个过期会话（实测：上一个进程遗留的探测会话）
+      // 把全局状态机推到 `busy → error`，前端整体呈错误态，与故障范围严重不匹配。
+      // 现只落会话自身终态 + WARN 留痕（可搜可统计），应用状态不受影响。
+      logger.warn('会话崩溃恢复失败（stale）：仅标记该会话为 ERROR', {
+        sessionId: session.id,
+        idleMs: duration,
+      });
 
       return {
         sessionId: session.id,

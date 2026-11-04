@@ -598,7 +598,12 @@ export interface TaskRoutingValidationDeps {
     { displayName: string; providerId: string; enabled: boolean } | undefined
   >;
   listProviders(): Promise<
-    Array<{ providerType: string; name: string; isActive: boolean }>
+    Array<{
+      id?: string;
+      providerType: string;
+      name: string;
+      isActive: boolean;
+    }>
   >;
 }
 
@@ -671,11 +676,14 @@ export async function validateTaskRoutingTargets(
       );
       continue;
     }
-    // `model_registry.provider_id` 存的是 **provider_type**（如 deepseek / llamacpp），
-    // 而非 `ai_providers.id`（uuid）⇒ 按 providerType 匹配。
-    const provider = providers.find(
-      (p) => p.providerType === record.providerId
-    );
+    // `model_registry.provider_id` 有**两种形态**：`ai_providers.id`（UUID 强绑定）与
+    // provider_type（如 deepseek / llamacpp 的松绑定）—— 两种都要认。
+    // 只认后者时，强绑定的模型（如 Ollama 的 qwen3.6-27b:latest）会被误判「供应商未注册」，
+    // 实测 2026-11-04：把 `local` 指向已激活的 Ollama 仍 400。
+    // 口径与同文件 handleListModels / handleSwitchModel 的「UUID 优先，再兼容 provider_type」一致。
+    const provider =
+      providers.find((p) => p.id === record.providerId) ??
+      providers.find((p) => p.providerType === record.providerId);
     if (!provider) {
       problems.push(
         `「${taskType}」的模型「${record.displayName}」其供应商「${record.providerId}」未注册`

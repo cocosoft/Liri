@@ -15,7 +15,12 @@ import {
 } from '../../src/ai/api/ModelRuntimeAPI';
 
 type ModelStub = { displayName: string; providerId: string; enabled: boolean };
-type ProviderStub = { providerType: string; name: string; isActive: boolean };
+type ProviderStub = {
+  id?: string;
+  providerType: string;
+  name: string;
+  isActive: boolean;
+};
 
 function makeDeps(
   models: Record<string, ModelStub>,
@@ -157,6 +162,58 @@ describe('N-72 任务分工保存时可用性校验', () => {
       makeDeps({ 'llama-id': LLAMA }, [ACTIVE_DS, INACTIVE_LLAMA])
     );
     expect(body).toEqual({ agent: 'llama-id', chat: '' });
+  });
+});
+
+/**
+ * 2026-11-04：`model_registry.provider_id` 的两种形态都要认。
+ *
+ * 缺陷现场：把 `local` 从 SiliconFlow 切到**已激活**的 Ollama（`qwen3.6-27b:latest`）时
+ * 400「其供应商「645e47b5-…」未注册」—— 该记录存的是 `ai_providers.id`（UUID 强绑定，
+ * 也是 N-59 级联停用的口径），而校验器只按 `provider_type` 匹配。
+ */
+describe('provider_id 两种形态（UUID 强绑定 / provider_type 松绑定）', () => {
+  const OLLAMA_UUID = '645e47b5-8139-470b-b655-c1ba1f2e8368';
+  const OLLAMA_MODEL: ModelStub = {
+    displayName: 'qwen3.6-27b:latest',
+    providerId: OLLAMA_UUID,
+    enabled: true,
+  };
+  const ACTIVE_OLLAMA: ProviderStub = {
+    id: OLLAMA_UUID,
+    providerType: 'ollama',
+    name: 'Ollama',
+    isActive: true,
+  };
+
+  test('UUID 强绑定 + 供应商已注册 ⇒ 通过（本次实测缺陷）', async () => {
+    expect(
+      await validateTaskRoutingTargets(
+        { local: 'ollama-model-id' },
+        makeDeps({ 'ollama-model-id': OLLAMA_MODEL }, [ACTIVE_OLLAMA])
+      )
+    ).toEqual([]);
+  });
+
+  test('UUID 指向未注册供应商 ⇒ 仍报「未注册」（防线不松）', async () => {
+    const problems = await validateTaskRoutingTargets(
+      { local: 'ollama-model-id' },
+      makeDeps({ 'ollama-model-id': OLLAMA_MODEL }, [ACTIVE_DS])
+    );
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain('未注册');
+  });
+
+  test('UUID 强绑定但供应商未激活 ⇒ 仍报「未激活」', async () => {
+    const problems = await validateTaskRoutingTargets(
+      { local: 'ollama-model-id' },
+      makeDeps({ 'ollama-model-id': OLLAMA_MODEL }, [
+        { ...ACTIVE_OLLAMA, isActive: false },
+      ])
+    );
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain('未激活');
+    expect(problems[0]).toContain('Ollama');
   });
 });
 

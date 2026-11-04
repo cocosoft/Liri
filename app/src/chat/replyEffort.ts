@@ -15,6 +15,7 @@
  */
 
 import { EFFORT_TO_BUDGET } from '@modules/ai';
+import { resolveChatModePolicy } from './chatModePolicy';
 
 /** 回复详略档（与 `/effort` 命令的入参一致） */
 export type ReplyEffortLevel = 'low' | 'medium' | 'high' | 'auto';
@@ -98,14 +99,40 @@ export type ReplyThinkingConfig =
   | { type: 'disabled' };
 
 /**
+ * 详略 × 模式 的思考预算**生效矩阵**（纯函数，方案 §3.5，2026-11-04）。
+ *
+ * 唯一规则：两侧取**较大值**，取大不取小 ——
+ * - 详略侧：显式 `metadata.thinkingBudget` 优先，否则由 `effortLevel` 推导（`auto` ⇒ 无）；
+ * - 模式侧：`chatModePolicy` 的 `thinkingFloor`（当前仅 `deep` 有下限）；
+ * - 两侧都没有 ⇒ `undefined`（不注入 ⇒ 与接线前逐字一致）。
+ *
+ * 为什么取大：用户选「深度思考」时不应因详略为 `low` 被压掉推理；反之详略为 `high`
+ * 也不会被模式调低。文字密度仍**只由详略决定**（见 `buildReplyEffortPrompt`），模式不覆盖。
+ */
+export function resolveSessionThinkingBudget(
+  metadata: Record<string, unknown> | undefined
+): number | undefined {
+  const explicit = metadata?.['thinkingBudget'];
+  const effortBudget =
+    typeof explicit === 'number' && explicit > 0
+      ? explicit
+      : resolveEffortThinkingBudget(metadata?.['effortLevel']);
+  const floor = resolveChatModePolicy(metadata?.['chatMode']).thinkingFloor;
+  const candidates = [effortBudget, floor].filter(
+    (value): value is number => typeof value === 'number' && value > 0
+  );
+  return candidates.length > 0 ? Math.max(...candidates) : undefined;
+}
+
+/**
  * 会话元数据 → 本轮思考配置（2026-10-23，`/effort` 第二步）。
  *
  * 规则：
  * - `supportsThinking === false`（模型 `capabilities` 无 `thinking`）⇒ **不注入**；
- * - 优先用显式 `metadata.thinkingBudget`（`/effort` 落库值），否则由 `effortLevel` 推导；
- * - `auto` / 非法 / 预算 ≤ 0 ⇒ **不注入**（与接线前逐字一致）。
+ * - 预算取 {@link resolveSessionThinkingBudget}（详略与模式取较大值）；
+ * - 预算缺失 / ≤ 0 ⇒ **不注入**（与接线前逐字一致）。
  *
- * @param metadata 会话元数据（`{ effortLevel?, thinkingBudget? }`）
+ * @param metadata 会话元数据（`{ effortLevel?, thinkingBudget?, chatMode? }`）
  * @param supportsThinking 该模型是否支持思考（DB capabilities 判定结果）
  */
 export function resolveThinkingForSession(
@@ -114,12 +141,7 @@ export function resolveThinkingForSession(
 ): ReplyThinkingConfig | undefined {
   if (!supportsThinking) return undefined;
 
-  const explicit = metadata?.['thinkingBudget'];
-  const budget =
-    typeof explicit === 'number' && explicit > 0
-      ? explicit
-      : resolveEffortThinkingBudget(metadata?.['effortLevel']);
-
+  const budget = resolveSessionThinkingBudget(metadata);
   if (budget === undefined || budget <= 0) return undefined;
   return { type: 'enabled', budgetTokens: budget };
 }

@@ -18,6 +18,8 @@
  * 未接线时（`chatMode` 缺失或脏值）一律按 `auto` 处理 ⇒ 与改造前行为一致（零行为变更）。
  */
 
+import { EFFORT_TO_BUDGET } from '@modules/ai';
+
 /** 前端下拉的五个取值（与 `client/src/components/ChatArea/ChatInput.tsx` 同集合） */
 export type ChatMode = 'auto' | 'deep' | 'code' | 'creative' | 'research';
 
@@ -51,15 +53,27 @@ export interface ChatModePolicy {
   toolset: ChatModeToolset;
   /** 轮次预算乘子（≥1；`deep` / `code` 允许更长的 ReAct 循环） */
   turnMultiplier: number;
+  /**
+   * 思考预算**下限**（mode 旋钮对思考的作用面；缺省 ⇒ 不设下限）。
+   *
+   * 与详略（`effortLevel`）的关系见方案 §3.5：两者取**较大值**，取大不取小 ——
+   * 用户选了「深度思考」不应因详略为 `low` 被压掉推理；反之 `high` 详略也不会被模式调低。
+   */
+  thinkingFloor?: number;
 }
 
 /** 各模式的具体映射（**唯一事实源**；新增模式只改这里） */
 const MODE_POLICY: Record<ChatMode, Omit<ChatModePolicy, 'mode'>> = {
   // 智能问答：按问题自动选档 ⇒ 保持默认档位与全量工具
   auto: { routeKey: 'chat', toolset: 'all', turnMultiplier: 1 },
-  // 深度思考：显式要求长推理 ⇒ 强档 + 更长轮次；工具不限（需要检索/读文件）
-  deep: { routeKey: 'coding', toolset: 'all', turnMultiplier: 2 },
-  // 代码：面向仓库 ⇒ 强档 + 更长轮次 + 全量工具（含终端）
+  // 深度思考：显式要求长推理 ⇒ 强档 + 更长轮次 + 思考预算下限（不低于 medium 档）
+  deep: {
+    routeKey: 'coding',
+    toolset: 'all',
+    turnMultiplier: 2,
+    thinkingFloor: EFFORT_TO_BUDGET.medium,
+  },
+  // 代码：面向仓库 ⇒ 强档 + 更长轮次 + 全量工具（含终端）；不额外抬高思考下限
   code: { routeKey: 'coding', toolset: 'all', turnMultiplier: 2 },
   // 创意：低副作用 ⇒ 默认档、去掉终端类工具、预算不放大
   creative: { routeKey: 'chat', toolset: 'no-shell', turnMultiplier: 1 },

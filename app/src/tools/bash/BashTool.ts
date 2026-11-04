@@ -37,6 +37,7 @@ import { analyzeBashCommandType, isSilentBashCommand } from './BashSemantics';
 // P2-2（2026-11-04）：cmd 内置命令 → 等价命令提示（仅"命令未找到"证据成立时生效）
 import { buildCmdBuiltinHint, isCommandNotFoundError } from './cmdBuiltinHint';
 import { isSearchNoMatch } from './searchNoMatch';
+import { isPathNotFound } from './pathNotFound';
 // P2-2（2026-11-04）：只读探测被安全门拦截时附"改用 glob / list"的出路提示（**不改判定**）
 import { appendReadOnlyProbeHint } from './blockedProbeHint';
 // S1-5（2026-10-11）：命令规范化"单一事实源" —— 审批哈希 / 安全拦截层 / 最终 spawn /
@@ -568,6 +569,44 @@ export class BashTool extends BaseTool {
             {
               role: 'system',
               content: `Command executed successfully in ${executionTime}ms (no match)`,
+            },
+          ],
+        });
+      }
+      // F5（2026-11-04，前端会话跟踪）：**路径不存在 ≠ 执行失败**（只读列举类）。
+      // 实测 `dir output` / `dir /s /b /ad "…*01_work*"` 全是 `File Not Found`（exit 1），
+      // 却被判失败并计入 `all-tools-failed`。判据见 `./pathNotFound`（exit=1 + 缺失文案 + 只读命令）。
+      if (
+        isPathNotFound({
+          command: executedCommand,
+          exitCode,
+          stderr,
+          message: rawMsg,
+        })
+      ) {
+        const missingMsg =
+          '路径不存在：目标路径确实没有（这是事实查询结果，不是命令执行失败）。' +
+          '如需确认路径，请用 glob / list 工具；如需创建目录，请用对应的写工具。';
+        logger.info('bash: path_not_found', {
+          sessionId: context.sessionId,
+          commandPreview: executedCommandPreview ?? '',
+        });
+        onProgress?.({
+          toolUseID: context.toolUseId || 'bash-tool',
+          data: createBashProgress('', '', 0, false, true),
+        });
+        return ToolUtils.createSuccessResult(missingMsg, {
+          output: missingMsg,
+          errorOutput: '',
+          executionTime,
+          toolName: 'bash',
+          executionId: ToolUtils.generateExecutionId('bash'),
+          timestamp: Date.now(),
+          metadata: { emptyResult: true, pathNotFound: true },
+          newMessages: [
+            {
+              role: 'system',
+              content: `Command executed successfully in ${executionTime}ms (path not found)`,
             },
           ],
         });

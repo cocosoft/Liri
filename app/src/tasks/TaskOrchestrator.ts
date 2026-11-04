@@ -128,6 +128,14 @@ export const STEP_STATUS_PENDING: PlanStep['status'] = 'pending';
  */
 export const PLAN_STATUS_FAILED: Plan['status'] = 'failed';
 
+/**
+ * 计划步骤**终态**取值（P2-1，2026-11-04）：同 `STEP_STATUS_PENDING`，供
+ * `lro/logSummary.ts` 的每任务汇总计数复用，避免状态字面量在新文件里二次出现。
+ */
+export const STEP_STATUS_COMPLETED: PlanStep['status'] = 'completed';
+export const STEP_STATUS_FAILED: PlanStep['status'] = 'failed';
+export const STEP_STATUS_CANCELLED: PlanStep['status'] = 'cancelled';
+
 export interface Plan {
   id: string;
   description: string;

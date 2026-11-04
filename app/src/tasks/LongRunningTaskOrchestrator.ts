@@ -1774,6 +1774,7 @@ export class LongRunningTaskOrchestrator {
       totalSteps: metrics.totalSteps,
       totalTokens: this._totalTokensTracked,
       durationMs: this._startedAt > 0 ? Date.now() - this._startedAt : 0,
+      plan: this.requirePlan(),
     });
   }
 

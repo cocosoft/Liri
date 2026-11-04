@@ -229,6 +229,17 @@ export async function executeSingleStep(
       toolNames: roleToolNames(EXECUTOR_ROLE),
     });
     let taorStart = 0;
+    // P2-1（2026-11-04）：**每步汇总**口径 —— 逐次调用日志降 debug，
+    // 步骤收尾时一次性上报本步计数（真机窗口 4 条逐次日志合计 47.1 MB / 148 k 条）。
+    const stepStats = {
+      modelCalls: 0,
+      modelTotalMs: 0,
+      modelMaxMs: 0,
+      toolRounds: 0,
+      toolTotalMs: 0,
+      slowestToolMs: 0,
+      slowestToolName: '',
+    };
     /** PR-5：跨轮累计的工具结果（含入参），供结构化总结与审批卡提交 */
     const executedToolResults: Array<{
       toolCallId?: string;
@@ -274,7 +285,11 @@ export async function executeSingleStep(
             })
           );
           const callElapsed = Date.now() - callStart;
-          logger.info('[orchestrator] callModel 完成', {
+          stepStats.modelCalls += 1;
+          stepStats.modelTotalMs += callElapsed;
+          stepStats.modelMaxMs = Math.max(stepStats.modelMaxMs, callElapsed);
+          // P2-1（2026-11-04）：逐次调用降 debug —— 每步汇总见「TAORLoop 步骤收尾」。
+          logger.debug('[orchestrator] callModel 完成', {
             taskId,
             stepId: step.id,
             elapsedMs: callElapsed,
@@ -313,7 +328,9 @@ export async function executeSingleStep(
           }> = [];
           /** 本轮被安全策略拦截的工具名（用于事后注入改道 steering） */
           const blockedBySecurity: string[] = [];
-          logger.info('[orchestrator] executeTools 开始执行', {
+          stepStats.toolRounds += 1;
+          // P2-1（2026-11-04）：逐轮降 debug —— 每步汇总见「TAORLoop 步骤收尾」。
+          logger.debug('[orchestrator] executeTools 开始执行', {
             taskId: deps.taskId,
             stepId: step.id,
             toolCount: toolCalls.length,
@@ -468,6 +485,11 @@ export async function executeSingleStep(
                 }
               }
               const elapsed = Date.now() - toolStart;
+              stepStats.toolTotalMs += elapsed;
+              if (elapsed > stepStats.slowestToolMs) {
+                stepStats.slowestToolMs = elapsed;
+                stepStats.slowestToolName = tc.name;
+              }
               const resultPreview: string =
                 typeof toolResult === 'string'
                   ? (toolResult as string).slice(0, 100)
@@ -488,7 +510,8 @@ export async function executeSingleStep(
                   resultPreview,
                 });
               } else {
-                logger.info('[orchestrator] 工具执行成功', {
+                // P2-1（2026-11-04）：逐工具成功降 debug —— 每步汇总见「TAORLoop 步骤收尾」。
+                logger.debug('[orchestrator] 工具执行成功', {
                   taskId: deps.taskId,
                   stepId: step.id,
                   toolName: tc.name,
@@ -506,6 +529,11 @@ export async function executeSingleStep(
               });
             } catch (e) {
               const elapsed = Date.now() - toolStart;
+              stepStats.toolTotalMs += elapsed;
+              if (elapsed > stepStats.slowestToolMs) {
+                stepStats.slowestToolMs = elapsed;
+                stepStats.slowestToolName = tc.name;
+              }
               await handleError(e, {
                 module: 'tasks:longRunning',
                 action: 'executeTools',
@@ -523,7 +551,8 @@ export async function executeSingleStep(
               });
             }
           }
-          logger.info('[orchestrator] executeTools 执行完毕', {
+          // P2-1（2026-11-04）：逐轮汇总降 debug —— 每步汇总见「TAORLoop 步骤收尾」。
+          logger.debug('[orchestrator] executeTools 执行完毕', {
             taskId: deps.taskId,
             stepId: step.id,
             total: results.length,
@@ -666,6 +695,22 @@ export async function executeSingleStep(
         taorElapsedMs: taorElapsed,
         stepElapsedMs: stepElapsed,
         persistedMsgCount: persistedMessages.length,
+        // P2-1（2026-11-04）：**每步汇总**（替代逐次 callModel / executeTools / 工具成功日志）
+        modelCalls: stepStats.modelCalls,
+        modelTotalMs: stepStats.modelTotalMs,
+        modelMaxMs: stepStats.modelMaxMs,
+        toolRounds: stepStats.toolRounds,
+        toolTotalMs: stepStats.toolTotalMs,
+        slowestTool: stepStats.slowestToolName
+          ? `${stepStats.slowestToolName}:${stepStats.slowestToolMs}ms`
+          : undefined,
+        tools: {
+          total: toolOutcomes.total,
+          success: toolOutcomes.successCount,
+          failed: toolOutcomes.failedCount,
+          intercepted: toolOutcomes.securityIntercepted,
+          pendingApproval: toolOutcomes.pendingApproval,
+        },
         taorResult: log,
       });
       // OBS（M1b）：经典链步骤完成 → pdca:stage:phase（独立通道，非会话消息）

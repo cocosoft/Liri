@@ -19,6 +19,8 @@ import {
   createEvolutionDeps,
 } from '../evolution/AdaptationEvolutionService';
 import { resolveMemoryWritebackManager } from './portResolvers.js';
+import { logTaskSummary } from './logSummary';
+import type { Plan } from '../TaskOrchestrator';
 
 const logger = getLogger('tasks:longRunning');
 
@@ -34,9 +36,19 @@ export function recordGoalStageMetric(params: {
   totalSteps: number;
   totalTokens: number;
   durationMs: number;
+  /** P2-1（2026-11-04）：终态计划快照 —— 供「每任务汇总」一行日志（逐次日志已降 debug） */
+  plan: Plan;
 }): Promise<void> {
   const { taskId, sessionId, stageId, maxTurns, totalSteps, totalTokens } =
     params;
+  logTaskSummary({
+    taskId,
+    planId: params.plan.id,
+    stage: stageId,
+    plan: params.plan,
+    totalTokens,
+    startedAt: params.durationMs > 0 ? Date.now() - params.durationMs : 0,
+  });
   return goalMetricsService
     .init()
     .then(() =>

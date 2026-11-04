@@ -35,16 +35,20 @@ export function jsonParse<T = unknown>(text: string): T | null {
  * @returns 修复后的 JSON 字符串（若无法修复则返回原字符串）
  */
 export function repairModelJson(raw: string): string {
+  let lastError = '';
   // 先尝试直接解析，成功则无需修复
   try {
     JSON.parse(raw);
     return raw;
-  } catch {
-    void handleError(new Error('JSON repair: first pass needed'), {
-      module: 'utils:json',
-      action: 'repairModelJson:check',
+  } catch (error) {
+    // 2026-11-05：修复路径的**中间步骤**不是故障（后续通常能修好）——
+    // 原先三遍都走 `handleError` ⇒ 一次失败刷 3 条 error，把真实的不可修复失败埋掉
+    // （真机 15Z：first/second/all-failed 各 20 条/小时）。中间步骤降 debug，只留终态 error。
+    lastError = messageOf(error);
+    logger.debug('repairModelJson: 首轮解析失败，进入修复', {
+      rawLength: raw.length,
+      error: lastError,
     });
-    // pass to first repair
   }
 
   // 第一遍：修复非 JSON 标准转义的 \ 序列
@@ -54,10 +58,11 @@ export function repairModelJson(raw: string): string {
   try {
     JSON.parse(repaired);
     return repaired;
-  } catch {
-    void handleError(new Error('JSON repair: second pass needed'), {
-      module: 'utils:json',
-      action: 'repairModelJson:escapeFix',
+  } catch (error) {
+    lastError = messageOf(error);
+    logger.debug('repairModelJson: 转义修复后仍不可解析，进入路径修复', {
+      rawLength: raw.length,
+      error: lastError,
     });
     // pass to second repair
   }
@@ -72,14 +77,28 @@ export function repairModelJson(raw: string): string {
   try {
     JSON.parse(repaired);
     return repaired;
-  } catch {
+  } catch (error) {
+    // 终态：**真的修不好**。带上"多长 + 开头一段 + 最后一次解析错误" ——
+    // 旧日志只有 `{originalType:"object"}`，事后完全无法定位是哪段输出（真机 20 次/小时）。
     void handleError(new Error('JSON repair all passes failed'), {
       module: 'utils:json',
       action: 'repairModelJson:pathFix',
+      context: {
+        rawLength: raw.length,
+        rawPreview: raw.slice(0, JSON_REPAIR_PREVIEW_CHARS),
+        lastParseError: messageOf(error),
+      },
     });
     // 修复后仍失败，返回原字符串（由调用方处理）
     return raw;
   }
+}
+
+/** 终态日志里保留的原文前缀长度（够定位形态，又不至于把整段输出灌进日志） */
+const JSON_REPAIR_PREVIEW_CHARS = 200;
+
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 /**

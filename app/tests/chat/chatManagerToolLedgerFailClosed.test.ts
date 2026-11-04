@@ -146,6 +146,56 @@ describe('B-05 执行者侧逐工具 fail-closed（ChatManager.executeTool）', 
     }
   });
 
+  // P2-3（2026-11-04）：失败必须落表 —— 此前只有 `completed`，失败/异常都看不到。
+  it('工具返回 error 结果 ⇒ 结算为 failed 并写入 error', async () => {
+    const em = getExecutionManager();
+    const begin = spyOn(em, 'beginToolCall').mockResolvedValue(true);
+    const end = spyOn(em, 'endToolCall');
+    try {
+      const { mgr } = makeManager('exec-failed', {
+        toolCallId: 't1',
+        toolName: 'BashTool',
+        result: null,
+        error: '命令执行失败',
+      } as ToolResult);
+
+      await mgr.executeTool(toolCall);
+
+      expect(end).toHaveBeenCalledTimes(1);
+      expect(end.mock.calls[0][3]).toBe('failed');
+      expect(String(end.mock.calls[0][4])).toContain('命令执行失败');
+    } finally {
+      begin.mockRestore();
+      end.mockRestore();
+    }
+  });
+
+  it('工具**抛错** ⇒ 仍结算为 failed（写错误摘要）且原异常照常上抛', async () => {
+    const em = getExecutionManager();
+    const begin = spyOn(em, 'beginToolCall').mockResolvedValue(true);
+    const end = spyOn(em, 'endToolCall');
+    try {
+      const { mgr } = makeManager('exec-throw', {
+        toolCallId: 't1',
+        toolName: 'BashTool',
+        result: 'never',
+      });
+      const seams = mgr as unknown as ManagerSeams;
+      seams._toolExecutionService.execute = async () => {
+        throw new Error('spawn ENOENT boom');
+      };
+
+      await expect(mgr.executeTool(toolCall)).rejects.toThrow(/boom/);
+      // 结算仍发生（否则该行永远停在 running），状态 failed + 错误摘要
+      expect(end).toHaveBeenCalledTimes(1);
+      expect(end.mock.calls[0][3]).toBe('failed');
+      expect(String(end.mock.calls[0][4])).toContain('spawn ENOENT boom');
+    } finally {
+      begin.mockRestore();
+      end.mockRestore();
+    }
+  });
+
   it('无 executionId ⇒ 不记账、不结算（零行为变更）', async () => {
     const em = getExecutionManager();
     const begin = spyOn(em, 'beginToolCall');

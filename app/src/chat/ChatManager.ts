@@ -2124,7 +2124,29 @@ export class ChatManagerImpl implements ChatManager {
           error: `工具调用记账落盘失败 ⇒ 已拒绝执行（fail-closed，executionId=${executionId}）`,
         };
       }
-      const result = await svc.execute(toolCall, opts);
+      // P2-3（2026-11-04，《运行态问题排查与修复方案》）：工具**抛错**（而非返回带 error 的结果）
+      // 此前绕过结算 ⇒ 该行永远停在初始 running，`tool_calls` 表里看不到失败（复盘只能翻日志）。
+      // 这里补结算为 failed 并写入错误摘要，随后**原样抛出**（不改变调用方看到的异常语义）。
+      let result: Awaited<ReturnType<typeof svc.execute>>;
+      try {
+        result = await svc.execute(toolCall, opts);
+      } catch (error) {
+        try {
+          await mgr.endToolCall(
+            executionId as ExecId,
+            toolCall.id,
+            toolCall.name,
+            'failed',
+            (error instanceof Error ? error.message : String(error)).slice(
+              0,
+              500
+            )
+          );
+        } catch {
+          // @ignore-catch — 结算失败不得掩盖原始执行异常
+        }
+        throw error;
+      }
       // 结算（观测面；DB `tool_calls` 幂等 ⇒ 与任何其它观测者不冲突）
       // G17（2026-10-11，S1-4）：改**可等待**结算（`endToolCall`）—— 保证工具返回前结算已
       // 落盘/已尝试，消除"返回后仍在写"的观测窗口；失败仅留痕（不升级为工具失败）。

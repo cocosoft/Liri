@@ -47,6 +47,11 @@ beforeAll(() => {
   prevDataDir = process.env.LIRI_DATA_DIR;
   process.env.LIRI_DATA_DIR = dataDir;
   setUserDataDirOverride(dataDir);
+
+  // 注：`costTracker` 是**惰性 Proxy**（首次访问才 new）。这一步必须放在 env 隔离之后执行，
+  // 否则会在 `describe` 体求值期（早于所有 hook）就把仓库绑定到**真实** `~/.pyapp/data/app.db`
+  // —— 实测因此把 `zzz-unknown-test-model`（$18）写进了生产成本表，进而吃掉日预算硬闸。
+  costTracker.addCost('zzz-unknown-test-model', 1_000_000, 1_000_000);
 });
 
 afterAll(() => {
@@ -91,8 +96,7 @@ describe('CostRecordRepository.getAggregatedCosts 的 startTime 过滤（修正�
 });
 
 describe('CostBudgetManager.getBudgetStatus 周期成本（P7 修正）', () => {
-  // 注入"内存累计成本"= 旧实现的返回值（未知模型走默认定价 3+15 USD/M ⇒ 明确非 0）
-  costTracker.addCost('zzz-unknown-test-model', 1_000_000, 1_000_000);
+  // 注入的"内存累计成本"已上移到 `beforeAll`（必须在 env 隔离生效后触发，见其注释）
 
   test('未来周期起点 ⇒ currentCost 为 0（旧实现会返回内存累计，必然非 0）', async () => {
     const inMemory = costTracker.getTotalCostUSD();

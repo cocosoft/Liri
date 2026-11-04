@@ -14,10 +14,11 @@
 import { describe, it, expect } from 'bun:test';
 import { join } from 'node:path';
 import {
-  mergeWorkspaceRoots,
   resolveSessionWorkspacePath,
   resolveRequestWorkspaceUpdate,
 } from '../../src/chat/services/toolCwdScope.js';
+// P0-2（2026-11-04）：根列表合并口径下沉 infra
+import { mergeWorkspaceRoots } from '@openliri/infra/utils/toolContract/workspaceRoots';
 import { getSessionWorkspaceRoots } from '../../src/chat/manager/workspacePath.js';
 
 // `isAbsolute()` 是**平台相关**的：`D:\…` 在 POSIX 上不是绝对路径。

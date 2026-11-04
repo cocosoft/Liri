@@ -16,10 +16,9 @@
  */
 
 import type { ChatSession } from '@modules/session/types/session';
-import {
-  mergeWorkspaceRoots,
-  resolveSessionWorkspacePath,
-} from '../services/toolCwdScope';
+// P0-2（2026-11-04）：根列表合并口径下沉 infra（AlwaysOn 入口同用，不再经 chat 转发）
+import { mergeWorkspaceRoots } from '@openliri/infra/utils/toolContract/workspaceRoots';
+import { resolveSessionWorkspacePath } from '../services/toolCwdScope';
 import {
   getProjectSandboxPath,
   type ProjectStoreLike,

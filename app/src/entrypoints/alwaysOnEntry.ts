@@ -70,6 +70,9 @@ import { resolveProactiveGatePrefs } from '../proactive/ProactiveCronProducer';
 import { evaluateProactiveNotification } from '../proactive/ProactiveNotificationGate';
 import type { ProactiveMessagePayload } from '../proactive/types';
 import { listAll } from '../workspaces/WorkspaceRegistry';
+// P0-2（2026-11-04，issue #35）：工作区根列表的**唯一合并口径**（与权限层/执行前同一实现；
+// 已于同日下沉 infra —— 入口不得直连 `chat` 模块，见 eslint `no-direct-module-import`）
+import { mergeWorkspaceRoots } from '@openliri/infra/utils/toolContract/workspaceRoots';
 
 const logger = getLogger('entrypoints:alwayson');
 
@@ -658,21 +661,41 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
    * 2026-11-03：顺带补齐项目归属（`projectId` / `moduleType`）——
    * 存量自主会话只有 `workspaceId`，按 `projectId` 过滤的列表会漏掉它们；
    * 每轮 discovery 都会走到这里 ⇒ 存量会话自然回填，无需一次性迁移脚本。
+   *
+   * P0-2（2026-11-04，issue #35）：`targetRoot` = 任务**真实目标目录**（项目根），
+   * 与 cwd 一起写进 `metadata.workspaceRoots`（恒在首）。原因：执行阶段的 `cwd` 是
+   * 隔离副本，模型却按真实项目路径读写 ⇒ 不预置则每次都被判越界、弹一张很快过期的
+   * 审批卡（等价于"照旧拒绝"）。只影响**路径边界**（多根允许），不改 cwd、不改隔离策略、
+   * 不绕过 deny 规则；用户已批准追加的其它根原样保留（合并走同一实现）。
    */
   const setSessionWorkspace = async (
     sessionId: string,
     cwd: string,
-    projectId?: string
+    projectId?: string,
+    targetRoot?: string
   ): Promise<void> => {
     // P3：存量会话（本次升级前创建）没有 `workspaceStrict` ⇒ 一并补上，避免严格边界失效
-    const patch: Record<string, unknown> = {
+    const basePatch: Record<string, unknown> = {
       workspacePath: cwd,
       workspaceStrict: true,
       ...(projectId ? { projectId, moduleType: 'project' } : {}),
     };
+    /** 目标根恒在首 + 既有追加根（去重口径与权限层/执行前同一实现） */
+    const rootsOf = (metadata: unknown): Record<string, unknown> => {
+      if (!targetRoot) return {};
+      const roots = mergeWorkspaceRoots(
+        targetRoot,
+        (metadata as Record<string, unknown> | undefined)?.workspaceRoots
+      );
+      return roots.length > 0 ? { workspaceRoots: roots } : {};
+    };
     const cached = await chatManager.loadSession(sessionId);
     if (cached) {
-      cached.metadata = { ...(cached.metadata ?? {}), ...patch };
+      cached.metadata = {
+        ...(cached.metadata ?? {}),
+        ...basePatch,
+        ...rootsOf(cached.metadata),
+      };
       await chatManager.saveSession(cached);
       await chatManager.persistSessionMetadata(cached);
       return;
@@ -683,7 +706,11 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
     const stored = await gateway.getSession(sessionId);
     if (!stored) return;
     // `Session.metadata` 是强类型结构，直接写字面量属性会触发多余属性检查 ⇒ 经 Record 合并
-    stored.metadata = { ...(stored.metadata ?? {}), ...patch };
+    stored.metadata = {
+      ...(stored.metadata ?? {}),
+      ...basePatch,
+      ...rootsOf(stored.metadata),
+    };
     await gateway.updateSession(stored);
   };
 
@@ -941,6 +968,10 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
             // 执行阶段再按轮改到隔离区）—— 此前缺失 ⇒ 工具 cwd 落到 Liri 自身仓库。
             metadata: {
               workspacePath: project.path,
+              // P0-2（2026-11-04，issue #35）：把**任务真实目标目录**预置为工作区根
+              // —— 执行阶段 cwd 会切到隔离副本，若不预置，模型按真实项目路径读写一律
+              // 被判越界（旧 TTL 5 分钟的审批卡 ⇒ 等价于持续拒绝）
+              workspaceRoots: mergeWorkspaceRoots(project.path, []),
               workspaceId: id,
               // 2026-11-03：补齐项目归属 —— 此前只有 workspaceId，缺 projectId/moduleType
               // ⇒ 按 `projectId` / `moduleType=project` 过滤的列表与接口会漏掉自主会话
@@ -956,7 +987,7 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
         prepareWorkspace,
         finishWorkspace,
         setSessionWorkspace: (sessionId, cwd) =>
-          setSessionWorkspace(sessionId, cwd, project.id),
+          setSessionWorkspace(sessionId, cwd, project.id, project.path),
         // P34：会话映射落在 `workitems.session_id`（Ticket 持有会话），
         // 不再维护 `sessions.json`；重启后从工作项读回同一会话。
         loadSession: async (projectId) => {

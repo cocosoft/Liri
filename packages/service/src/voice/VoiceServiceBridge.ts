@@ -16,7 +16,9 @@
 import { getLogger } from '@openliri/infra/monitoring';
 import { getMetricsService } from '@openliri/infra/monitoring';
 import type { MetricsService } from '@openliri/infra/monitoring';
-import { SessionManager } from '@modules/session';
+// P33（2026-11-05）：原 `import { SessionManager } from '@modules/session'`（app 桶）
+// 在迁包后不可再用 ⇒ 会话侧上下文改为端口注入，实现由 preflight 接线。
+import { resolveVoiceSessionIntegration } from './runtimePorts';
 import { getAlertManager, AlertLevel } from '@openliri/infra/monitoring';
 import { getOTelTracing } from '@openliri/infra/monitoring';
 import { SafeInterval } from '@openliri/infra/utils/SafeInterval';
@@ -507,9 +509,13 @@ export class VoiceServiceBridge {
     // 初始化语音命令路由器
     this.commandRouter = new VoiceCommandRouter(this.config.commandRouter);
 
-    // 设置语音集成上下文（注入 SessionManager 实例）
-    if (SessionManager.instance) {
-      setVoiceIntegrationContext(SessionManager.instance, undefined);
+    // 设置语音集成上下文（P33：端口注入的 SessionManager/TranscriptManager）
+    const integration = resolveVoiceSessionIntegration();
+    if (integration?.sessionManager) {
+      setVoiceIntegrationContext(
+        integration.sessionManager,
+        integration.transcriptManager
+      );
     }
   }
 

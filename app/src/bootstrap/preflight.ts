@@ -56,7 +56,12 @@ import { setAnalyticsPricingResolver } from '@openliri/infra/analytics/pricingSo
 import { setAttachmentIngestionPortLoader } from '@openliri/service/services/file/attachments';
 import { setPromptCoreApiProvider } from '@openliri/service/services/prompt/PromptAssembler';
 import { setMcpToolScopePortLoader } from '@openliri/service/mcp/MCPTool';
+import {
+  setVoiceSessionIntegrationProvider,
+  setVoiceToolManagerProvider,
+} from '@openliri/service/voice/runtimePorts';
 import { getCoreAPI } from '../runtime/api/CoreAPIImpl';
+import { SessionManager } from '../session/SessionManager';
 import { getModelPricing } from '@openliri/infra/cost/ModelPricing';
 import type { NativeLib } from '../../native';
 import { RuleManager } from '@openliri/infra/permission';
@@ -219,6 +224,15 @@ function wireServiceDeps(): void {
   setMcpToolScopePortLoader(async () => {
     const { toolScopeManager } = await import('../tool/ToolScopeManager');
     return toolScopeManager;
+  });
+  // 语音工具桥接（P33，原 `voice/VoiceSession` 静态 import app 的 runtime 门面）
+  setVoiceToolManagerProvider(() => getCoreAPI().getToolManager());
+  // 语音会话侧上下文（P33，原 `voice/VoiceServiceBridge` 静态 import app 的 session 桶）
+  // 零语义变更：原实现即 `if (SessionManager.instance) setVoiceIntegrationContext(instance, undefined)`
+  // ⇒ 这里同样只在实例存在时返回，未初始化时返回 `null`（包内按既有语义跳过转写/token 回写）。
+  setVoiceSessionIntegrationProvider(() => {
+    const manager = SessionManager.instance;
+    return manager ? { sessionManager: manager } : null;
   });
 }
 

@@ -190,7 +190,7 @@ export class ChannelPluginPresence {
     if (options?.tts) {
       try {
         const { VoiceChannelIntegration } =
-          await import('../../voice/VoiceChannelIntegration');
+          await import('@openliri/service/voice/VoiceChannelIntegration');
         const channelIntegration = new VoiceChannelIntegration({});
         await channelIntegration.sendVoiceMessage({ text: message });
       } catch (error) {

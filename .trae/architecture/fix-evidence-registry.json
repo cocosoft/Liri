@@ -3466,7 +3466,7 @@
         "packages/service/src/services/voice/services/ttsConfigOverlay.ts",
         "packages/service/src/services/voice/services/voiceService.ts",
         "packages/service/src/services/voice/VoiceProvider.ts",
-        "app/src/voice/WakeWordEngine.ts",
+        "packages/service/src/voice/WakeWordEngine.ts",
         "app/src/hooks/useVoice.ts",
         "app/src/plugins/bundled/SettingsPlugin.ts"
       ],
@@ -6465,8 +6465,8 @@
         "packages/kernel/src/core/protocol/websocket.ts",
         "packages/kernel/src/core/index.ts",
         "app/src/acp/websocket.ts",
-        "app/src/voice/upgrade.ts",
-        "app/src/voice/WakeWebSocketServer.ts",
+        "packages/service/src/voice/upgrade.ts",
+        "packages/service/src/voice/WakeWebSocketServer.ts",
         "packages/service/src/services/voice/services/edgeTTSTransport.ts",
         "app/tests/voice/upgrade.test.ts",
         "app/tests/constants/sameNameConstsB2.test.ts"
@@ -7782,14 +7782,14 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/voice/VoiceSession.ts"
+        "packages/service/src/voice/VoiceSession.ts"
       ],
       "tests": [
         "app/tests/constants/sameNameConstsB2.test.ts"
       ],
       "changelog": [],
       "reopenWhen": "① 若语音会话超时需与通用会话同源（例如统一由配置项驱动），须先在配置层建真源再两处引用，**不得**直接合并两个数值（30min ≠ 10min，合并即改变语音会话行为）；② 若 `constants/common.ts` 的 `DEFAULT_SESSION_TIMEOUT` 长期无消费者，按 CD05/CD07…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-58-DEFAULT-SESSION-TIMEOUT）",
-      "notes": "① **判据**：两处同名但**取值与语义不同** —— `app/src/constants/common.ts` 的 `DEFAULT_SESSION_TIMEOUT = 30 * 60 * 1000`（通用「真源」文件中的导出，30 分钟）；`app/src/voice/VoiceSession.ts` 的私有…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-58-DEFAULT-SESSION-TIMEOUT）"
+      "notes": "① **判据**：两处同名但**取值与语义不同** —— `app/src/constants/common.ts` 的 `DEFAULT_SESSION_TIMEOUT = 30 * 60 * 1000`（通用「真源」文件中的导出，30 分钟）；`packages/service/src/voice/VoiceSe…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-58-DEFAULT-SESSION-TIMEOUT）"
     },
     {
       "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-59-MAX-FILENAME-LENGTH",
@@ -7834,7 +7834,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/voice/OpenAIRealtimeAdapter.ts"
+        "packages/service/src/voice/OpenAIRealtimeAdapter.ts"
       ],
       "tests": [
         "app/tests/constants/sameNameConstsB2.test.ts"
@@ -11064,7 +11064,7 @@
       },
       "code": [
         "app/src/tools/orchestration/types.ts",
-        "app/src/voice/STTStreamServer.ts",
+        "packages/service/src/voice/STTStreamServer.ts",
         "packages/service/src/services/voice/services/localSTTProvider.ts",
         "packages/service/src/services/voice/services/senseVoiceSTTProvider.ts",
         "app/tests/tools/orchestration/toolCallPartitionerToolNames.test.ts",
@@ -11151,8 +11151,8 @@
         "packages/infra/src/utils/auth.ts",
         "app/src/vfs/drivers/DevDocsDriver.ts",
         "app/src/vfs/drivers/McpResourcesDriver.ts",
-        "app/src/voice/GeminiLiveAdapter.ts",
-        "app/src/voice/OpenAIRealtimeAdapter.ts",
+        "packages/service/src/voice/GeminiLiveAdapter.ts",
+        "packages/service/src/voice/OpenAIRealtimeAdapter.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
       "tests": [],

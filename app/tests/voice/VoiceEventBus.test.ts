@@ -5,11 +5,11 @@
 
 import { describe, it, expect } from 'bun:test';
 
-import { VoiceEventBus } from '../../src/voice/VoiceEventBus.js';
+import { VoiceEventBus } from '@openliri/service/voice/VoiceEventBus';
 import type {
   VoiceClientEvent,
   VoiceServerEvent,
-} from '../../src/voice/types.js';
+} from '@openliri/service/voice/types';
 
 function createClientEvent(type: string): VoiceClientEvent {
   return { type } as VoiceClientEvent;

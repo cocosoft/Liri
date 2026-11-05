@@ -1278,8 +1278,8 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     // 4 处副本全部改为引用真源（含曾 `export` 的 acp，其**零消费者** ⇒ 一并收掉导出）
     const consumers: Array<[string, string]> = [
       ['src/acp/websocket.ts', 'MAGIC_GUID'],
-      ['src/voice/upgrade.ts', 'MAGIC_GUID'],
-      ['src/voice/WakeWebSocketServer.ts', 'MAGIC_GUID'],
+      ['../packages/service/src/voice/upgrade.ts', 'MAGIC_GUID'],
+      ['../packages/service/src/voice/WakeWebSocketServer.ts', 'MAGIC_GUID'],
       [
         '../packages/service/src/services/voice/services/edgeTTSTransport.ts',
         'WS_GUID',
@@ -1810,7 +1810,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(read('../packages/infra/src/constants/defaults.ts')).toContain(
       "envInt('LIRI_SESSION_TIMEOUT_MS', 30 * 60 * 1000)"
     );
-    const voice = read('src/voice/VoiceSession.ts');
+    const voice = read('../packages/service/src/voice/VoiceSession.ts');
     expect(voice).not.toMatch(
       /(^|[^_A-Za-z])const DEFAULT_SESSION_TIMEOUT\s*=/
     );
@@ -1835,7 +1835,9 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(read('../packages/infra/src/constants/common.ts')).toContain(
       "export const DEFAULT_MODEL = '';"
     );
-    const voice = read('src/voice/OpenAIRealtimeAdapter.ts');
+    const voice = read(
+      '../packages/service/src/voice/OpenAIRealtimeAdapter.ts'
+    );
     expect(voice).not.toMatch(/(^|[^_A-Za-z])const DEFAULT_MODEL\s*=/);
     expect(voice).toContain(
       "import { DEFAULT_MODEL } from '@openliri/infra/constants';"

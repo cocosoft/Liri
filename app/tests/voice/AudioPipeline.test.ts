@@ -10,7 +10,7 @@ import {
   AudioProcessor,
   AUDIO_FORMAT,
   DEFAULT_CHUNK_SIZE_BYTES,
-} from '../../src/voice/AudioPipeline.js';
+} from '@openliri/service/voice/AudioPipeline';
 
 describe('PCMAudioBuffer', () => {
   it('初始统计为空', () => {

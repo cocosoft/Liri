@@ -10,7 +10,7 @@
 import { configManager } from '@openliri/infra/config';
 import { getLogger } from '@openliri/infra/monitoring';
 import type { CommandContext } from '@modules/commands';
-import { createVoiceServiceBridge } from '../../../voice/VoiceServiceBridge';
+import { createVoiceServiceBridge } from '@openliri/service/voice/VoiceServiceBridge';
 
 const logger = getLogger('commands:voice');
 

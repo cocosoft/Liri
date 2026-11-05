@@ -12,7 +12,7 @@ import {
   buildFrame,
   isWebSocketUpgrade,
   upgradeToVoiceConnection,
-} from '../../src/voice/upgrade.js';
+} from '@openliri/service/voice/upgrade';
 
 /** WebSocket 魔术 GUID */
 const RFC6455_MAGIC_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';

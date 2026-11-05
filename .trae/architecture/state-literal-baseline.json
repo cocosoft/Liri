@@ -76,8 +76,6 @@
       "app/src/ui/RealtimeTerminalOutput.ts",
       "app/src/ui/TerminalComponents.ts",
       "app/src/ui/types/UITypes.ts",
-      "app/src/voice/types.ts",
-      "app/src/voice/VoiceSession.ts",
       "app/src/workspace/ProjectStore.ts",
       "app/src/workspace/TaskStore.ts",
       "app/src/workspace/types.ts",
@@ -87,7 +85,9 @@
       "packages/infra/src/security/rollback/SnapshotStorage.ts",
       "packages/infra/src/security/rollback/types.ts",
       "packages/kernel/src/core/connections/ConnectionRegistry.ts",
-      "packages/kernel/src/core/data-models.ts"
+      "packages/kernel/src/core/data-models.ts",
+      "packages/service/src/voice/types.ts",
+      "packages/service/src/voice/VoiceSession.ts"
     ],
     "ADMITTED": [
       "app/src/channels/dedup/index.ts"
@@ -754,13 +754,6 @@
       "app/src/ui/TerminalUIIntegration.ts",
       "app/src/ui/types/UITypes.ts",
       "app/src/ui/UIEnhancer.ts",
-      "app/src/voice/GeminiLiveAdapter.ts",
-      "app/src/voice/OpenAIRealtimeAdapter.ts",
-      "app/src/voice/STTStreamServer.ts",
-      "app/src/voice/types.ts",
-      "app/src/voice/upgrade.ts",
-      "app/src/voice/VoiceSession.ts",
-      "app/src/voice/WakeWebSocketServer.ts",
       "app/src/workspace/WorkflowTemplateProvider.ts",
       "app/src/workspace/workflowTemplateRunner.ts",
       "app/src/workspaces/apply/WorkspaceApply.ts",
@@ -864,7 +857,14 @@
       "packages/service/src/services/voice/services/recordingDetector.ts",
       "packages/service/src/services/voice/services/senseVoiceSTTProvider.ts",
       "packages/service/src/services/voice/services/streamSTTProvider.ts",
-      "packages/service/src/streaming/types.ts"
+      "packages/service/src/streaming/types.ts",
+      "packages/service/src/voice/GeminiLiveAdapter.ts",
+      "packages/service/src/voice/OpenAIRealtimeAdapter.ts",
+      "packages/service/src/voice/STTStreamServer.ts",
+      "packages/service/src/voice/types.ts",
+      "packages/service/src/voice/upgrade.ts",
+      "packages/service/src/voice/VoiceSession.ts",
+      "packages/service/src/voice/WakeWebSocketServer.ts"
     ],
     "failed": [
       "app/src/agent/events/OrchestrationEvents.ts",
@@ -1138,10 +1138,6 @@
       "app/src/tools/notebook/types/index.ts",
       "app/src/tools/notebook/types/NotebookTool.ts",
       "app/src/types/orchestrationSnapshot.ts",
-      "app/src/voice/types.ts",
-      "app/src/voice/VoiceEventBus.ts",
-      "app/src/voice/VoiceSession.ts",
-      "app/src/voice/WakeWordEngine.ts",
       "packages/infra/src/chronos/reaper/SessionReaper.ts",
       "packages/infra/src/diagnostics/loopProbe/loopProbeCore.ts",
       "packages/infra/src/memory/MemorySyncService.ts",
@@ -1153,7 +1149,11 @@
       "packages/kernel/src/core/events/UiEvents.ts",
       "packages/kernel/src/core/ModuleBootstrapper.ts",
       "packages/service/src/services/voice/services/audioPlayer.ts",
-      "packages/service/src/streaming/types.ts"
+      "packages/service/src/streaming/types.ts",
+      "packages/service/src/voice/types.ts",
+      "packages/service/src/voice/VoiceEventBus.ts",
+      "packages/service/src/voice/VoiceSession.ts",
+      "packages/service/src/voice/WakeWordEngine.ts"
     ],
     "installed": [
       "app/src/channels/wechat/cli-manager.ts",
@@ -1747,7 +1747,6 @@
       "app/src/tools/toolVisibilityReport.ts",
       "app/src/tools/TraceRecordingTool/TraceRecordingTool.ts",
       "app/src/tools/TTSTool/TTSTool.ts",
-      "app/src/voice/VoiceSession.ts",
       "app/src/workspace/ProjectItemStore.ts",
       "packages/infra/src/analytics/AnalyticsManager.ts",
       "packages/infra/src/analytics/AnalyticsMetadataService.ts",
@@ -1822,7 +1821,8 @@
       "packages/service/src/services/voice/services/playbackManager.ts",
       "packages/service/src/services/voice/services/voiceService.ts",
       "packages/service/src/streaming/IncrementalRetry.ts",
-      "packages/service/src/streaming/StreamStateMachine.ts"
+      "packages/service/src/streaming/StreamStateMachine.ts",
+      "packages/service/src/voice/VoiceSession.ts"
     ],
     "WAITING_USER": [
       "packages/service/src/execution/ExecutionStore.ts"

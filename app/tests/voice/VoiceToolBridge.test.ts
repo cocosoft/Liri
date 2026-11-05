@@ -5,12 +5,12 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 
-import { VoiceToolBridge } from '../../src/voice/VoiceToolBridge.js';
-import type { ToolExecutorDelegate } from '../../src/voice/VoiceToolBridge.js';
+import { VoiceToolBridge } from '@openliri/service/voice/VoiceToolBridge';
+import type { ToolExecutorDelegate } from '@openliri/service/voice/VoiceToolBridge';
 import type {
   VoiceToolCallEvent,
   VoiceToolDeclaration,
-} from '../../src/voice/types.js';
+} from '@openliri/service/voice/types';
 
 function createToolCall(
   callId: string,

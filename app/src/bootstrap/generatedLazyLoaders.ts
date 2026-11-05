@@ -11,7 +11,7 @@ export const LAZY_LOADERS: Record<string, () => Promise<unknown>> = {
   mcp: () => import('@openliri/service/mcp'),
   security: () => import('@openliri/infra/security'),
   sandbox: () => import('@modules/sandbox'),
-  voice: () => import('@modules/voice'),
+  voice: () => import('@openliri/service/voice'),
   ink: () => import('@modules/ink'),
   ui: () => import('@modules/ui'),
 };

@@ -13,8 +13,10 @@ import { upgradeToVoiceConnection } from './upgrade';
 import { VoiceSession } from './VoiceSession';
 import type { SessionIntegrationOptions } from './VoiceSession';
 import type { VoiceConnection } from './types';
-import type { SessionManager } from '@modules/session';
-import type { TranscriptManager } from '@modules/session';
+import type {
+  VoiceSessionManagerPort,
+  VoiceTranscriptManagerPort,
+} from './runtimePorts';
 
 const logger = getLogger('voice:gatewayBridge');
 
@@ -30,8 +32,8 @@ let integrationContext: SessionIntegrationOptions | null = null;
  * 注入到每个新建的 VoiceSession 中
  */
 export function setVoiceIntegrationContext(
-  sessionManager?: SessionManager,
-  transcriptManager?: TranscriptManager
+  sessionManager?: VoiceSessionManagerPort,
+  transcriptManager?: VoiceTranscriptManagerPort
 ): void {
   integrationContext = { sessionManager, transcriptManager };
   logger.info('语音集成上下文已设置', {

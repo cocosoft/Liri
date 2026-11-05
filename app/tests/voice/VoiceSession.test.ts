@@ -5,12 +5,12 @@
 
 import { describe, it, expect, beforeEach } from 'bun:test';
 
-import { VoiceSession } from '../../src/voice/VoiceSession.js';
+import { VoiceSession } from '@openliri/service/voice/VoiceSession';
 import type {
   VoiceConnection,
   VoiceClientEvent,
   VoiceServerEvent,
-} from '../../src/voice/types.js';
+} from '@openliri/service/voice/types';
 
 /**
  * 创建模拟 VoiceConnection

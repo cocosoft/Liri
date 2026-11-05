@@ -5,8 +5,8 @@
 
 import { describe, it, expect } from 'bun:test';
 
-import { GeminiLiveAdapter } from '../../src/voice/GeminiLiveAdapter.js';
-import type { VoiceServerEvent } from '../../src/voice/types.js';
+import { GeminiLiveAdapter } from '@openliri/service/voice/GeminiLiveAdapter';
+import type { VoiceServerEvent } from '@openliri/service/voice/types';
 
 describe('GeminiLiveAdapter', () => {
   it('构造函数初始化配置', () => {

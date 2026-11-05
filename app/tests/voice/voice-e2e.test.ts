@@ -18,7 +18,7 @@ import {
   handleVoiceUpgrade,
   getActiveVoiceSessionCount,
   closeAllVoiceSessions,
-} from '../../src/voice/VoiceGatewayBridge.js';
+} from '@openliri/service/voice/VoiceGatewayBridge';
 
 /**
  * 创建 HTTP 请求对象和响应对象的模拟

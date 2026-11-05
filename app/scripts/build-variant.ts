@@ -116,7 +116,7 @@ const BASE_LAZY_LOADERS: ReadonlyArray<readonly [string, string]> = [
   ['mcp', '@openliri/service/mcp'],
   ['security', '@openliri/infra/security'],
   ['sandbox', '@modules/sandbox'],
-  ['voice', '@modules/voice'],
+  ['voice', '@openliri/service/voice'],
 ];
 
 /** 仅在「未做 UI 裁剪」的变体里注册（`DROP_UI` ⇒ 连 import() 字面量都不生成） */

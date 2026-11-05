@@ -45,6 +45,14 @@
       "types": "./src/streaming/*.ts",
       "import": "./src/streaming/*.ts"
     },
+    "./voice": {
+      "types": "./src/voice/index.ts",
+      "import": "./src/voice/index.ts"
+    },
+    "./voice/*": {
+      "types": "./src/voice/*.ts",
+      "import": "./src/voice/*.ts"
+    },
     "./mcp": {
       "types": "./src/mcp/index.ts",
       "import": "./src/mcp/index.ts"

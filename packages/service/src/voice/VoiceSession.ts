@@ -21,14 +21,15 @@ import type {
 } from './types';
 import { GeminiLiveAdapter } from './GeminiLiveAdapter';
 import { OpenAIRealtimeAdapter } from './OpenAIRealtimeAdapter';
-// 2026-10-01 D-207（子批 D，`voice -> tools` 倒挂收口）：原静态导入 app 层 `@modules/tools`
-// 的 `globalToolManager` ⇒ 改经 **CoreAPI 门面**（service→service 合法）。
-// 零语义变更实证：`CoreAPIImpl.ts:301` 为 `this.toolManager = options?.toolManager ?? globalToolManager`
-// ⇒ `getCoreAPI().getToolManager()` 与 `globalToolManager` 是**同一实例**（§1.16 亦如此记载）。
-import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+// P33（2026-11-05）：原 `import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl'`
+// （D-207 的 service→service 门面写法）在迁入 `packages/service` 后不可再用
+// —— 包内不得引 `app/src` ⇒ 改为端口注入（`runtimePorts`），实现由 preflight 接线。
+import {
+  resolveVoiceToolManager,
+  type VoiceSessionManagerPort,
+  type VoiceTranscriptManagerPort,
+} from './runtimePorts';
 import type { ToolExecutorDelegate } from './VoiceToolBridge';
-import type { SessionManager } from '@modules/session';
-import type { TranscriptManager } from '@modules/session';
 import {
   MessageType,
   MessageRole,
@@ -54,8 +55,8 @@ const VOICE_SESSION_TIMEOUT = 10 * 60 * 1000;
 
 /** 会话集成选项 */
 export interface SessionIntegrationOptions {
-  sessionManager?: SessionManager;
-  transcriptManager?: TranscriptManager;
+  sessionManager?: VoiceSessionManagerPort;
+  transcriptManager?: VoiceTranscriptManagerPort;
   memoryManager?: MemoryManagerImpl;
 }
 
@@ -114,10 +115,10 @@ export class VoiceSession {
   private audioTimerStart: number = 0;
 
   /** 会话管理器（集成注入） */
-  private sessionManager: SessionManager | null = null;
+  private sessionManager: VoiceSessionManagerPort | null = null;
 
   /** 转录管理器（集成注入） */
-  private transcriptManager: TranscriptManager | null = null;
+  private transcriptManager: VoiceTranscriptManagerPort | null = null;
 
   /** 记忆管理器（集成注入） */
   private memoryManager: MemoryManagerImpl | null = null;
@@ -286,43 +287,51 @@ export class VoiceSession {
       const apiKey = this.resolveApiKey(config.provider);
       this.adapter = new AdapterClass(apiKey);
 
-      // 设置工具桥接委托——连接 VoiceToolBridge 到全局 ToolManager（D-207：经 CoreAPI 门面取同一实例）
-      const toolManager = getCoreAPI().getToolManager();
-      const toolDelegate: ToolExecutorDelegate = {
-        executeTool: async (name, input) => {
-          try {
-            const result = await toolManager.executeTool(name, input, {
-              sessionId: this.id,
-            });
-            return JSON.stringify(result);
-          } catch (err) {
-            void handleError(
-              err instanceof Error ? err : new Error(String(err)),
-              { module: 'voice:session', action: 'executeTool' }
-            );
-            return JSON.stringify({
-              error: err instanceof Error ? err.message : String(err),
-            });
-          }
-        },
-        getToolDeclarations: () => {
-          return toolManager.getAllTools().map((t) => ({
-            name: t.name,
-            description: t.description,
-            parameters: {
-              type: 'object',
-              properties: t.params.reduce(
-                (acc, p) => {
-                  acc[p.name] = { type: p.type, description: p.description };
-                  return acc;
-                },
-                {} as Record<string, unknown>
-              ),
+      // 工具桥接委托——连接 VoiceToolBridge 到全局 ToolManager
+      // （P33：原 D-207 的 `getCoreAPI()` 门面 → 端口注入；未注入按 error 记录，不静默）
+      const toolManager = resolveVoiceToolManager();
+      if (!toolManager) {
+        this.logger.error('工具管理器端口未注入，本轮会话不注册工具桥接', {
+          sessionId: this.id,
+        });
+      }
+      const toolDelegate: ToolExecutorDelegate | null = toolManager
+        ? {
+            executeTool: async (name, input) => {
+              try {
+                const result = await toolManager.executeTool(name, input, {
+                  sessionId: this.id,
+                });
+                return JSON.stringify(result);
+              } catch (err) {
+                void handleError(
+                  err instanceof Error ? err : new Error(String(err)),
+                  { module: 'voice:session', action: 'executeTool' }
+                );
+                return JSON.stringify({
+                  error: err instanceof Error ? err.message : String(err),
+                });
+              }
             },
-          }));
-        },
-      };
-      this.toolBridge.setDelegate(toolDelegate);
+            getToolDeclarations: () => {
+              return toolManager.getAllTools().map((t) => ({
+                name: t.name,
+                description: t.description,
+                parameters: {
+                  type: 'object',
+                  properties: t.params.reduce(
+                    (acc, p) => {
+                      acc[p.name] = { type: p.type, description: p.description };
+                      return acc;
+                    },
+                    {} as Record<string, unknown>
+                  ),
+                },
+              }));
+            },
+          }
+        : null;
+      if (toolDelegate) this.toolBridge.setDelegate(toolDelegate);
 
       // 设置工具桥接的进度回调
       this.toolBridge.setOnToolProgress((callId, summary) => {
@@ -338,9 +347,9 @@ export class VoiceSession {
         this.adapter?.sendToolResult(callId, output);
       });
 
-      // 将工具声明列表传递给适配器
+      // 将工具声明列表传递给适配器（端口未注入 ⇒ 空列表，模型可见“本轮无工具”）
       const toolOptions = {
-        tools: toolDelegate.getToolDeclarations(),
+        tools: toolDelegate?.getToolDeclarations() ?? [],
       };
 
       // Phase 2-3: OTel 追踪——Provider 连接

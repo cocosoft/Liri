@@ -651,7 +651,8 @@ export async function handleTestWakeWord(
 
     const { STTRegistry } =
       await import('@openliri/service/services/voice/services/sttRegistry');
-    const { detectWakeWord } = await import('../../../voice/VoiceWakeManager');
+    const { detectWakeWord } =
+      await import('@openliri/service/voice/VoiceWakeManager');
 
     // 使用该唤醒词作为 keyterms 进行 STT 转写
     const result = await STTRegistry.transcribe(audioBuffer, {
@@ -691,7 +692,7 @@ export async function handleWakeStart(
 ): Promise<void> {
   try {
     const { startWakeListening } =
-      await import('../../../voice/VoiceWakeManager');
+      await import('@openliri/service/voice/VoiceWakeManager');
     await startWakeListening();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, status: 'listening' }));
@@ -710,7 +711,7 @@ export async function handleWakeStop(
 ): Promise<void> {
   try {
     const { stopWakeListening } =
-      await import('../../../voice/VoiceWakeManager');
+      await import('@openliri/service/voice/VoiceWakeManager');
     await stopWakeListening();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, status: 'idle' }));
@@ -729,7 +730,7 @@ export async function handleWakeStatus(
 ): Promise<void> {
   try {
     const { isWakeListening, loadVoiceWakeConfig } =
-      await import('../../../voice/VoiceWakeManager');
+      await import('@openliri/service/voice/VoiceWakeManager');
     const config = await loadVoiceWakeConfig();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(

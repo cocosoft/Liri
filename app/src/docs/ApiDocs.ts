@@ -226,7 +226,7 @@ guideSystem.displayTemplate('basic-plugin');`,
     examples: [
       {
         title: '使用语音服务',
-        code: `import { createVoiceServiceBridge } from '../voice/VoiceServiceBridge';
+        code: `import { createVoiceServiceBridge } from '@openliri/service/voice/VoiceServiceBridge';
 
 const bridge = createVoiceServiceBridge();
 

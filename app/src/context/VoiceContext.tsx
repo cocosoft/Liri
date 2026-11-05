@@ -16,7 +16,7 @@ import {
   useEffect,
   type ReactNode,
 } from 'react';
-import { createVoiceServiceBridge } from '../voice/VoiceServiceBridge';
+import { createVoiceServiceBridge } from '@openliri/service/voice/VoiceServiceBridge';
 
 // VoiceService 实例通过 Bridge 获取（双轨统一入口）
 const getVoiceRecorder = () => createVoiceServiceBridge().service.recorder;

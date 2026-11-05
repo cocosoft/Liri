@@ -5,11 +5,11 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 
-import { OpenAIRealtimeAdapter } from '../../src/voice/OpenAIRealtimeAdapter.js';
+import { OpenAIRealtimeAdapter } from '@openliri/service/voice/OpenAIRealtimeAdapter';
 import type {
   VoiceSessionConfigEvent,
   VoiceServerEvent,
-} from '../../src/voice/types.js';
+} from '@openliri/service/voice/types';
 
 describe('OpenAIRealtimeAdapter', () => {
   it('构造函数初始化配置', () => {

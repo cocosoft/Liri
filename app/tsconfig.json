@@ -289,6 +289,15 @@
       "@openliri/service/mcp/*": [
         "../../packages/service/src/mcp/*"
       ],
+      "@openliri/service/voice": [
+        "../../packages/service/src/voice/index.ts"
+      ],
+      "@openliri/service/voice.js": [
+        "../../packages/service/src/voice/index.ts"
+      ],
+      "@openliri/service/voice/*": [
+        "../../packages/service/src/voice/*"
+      ],
       "@modules/tasks": ["tasks"],
       "@modules/tasks/*": ["tasks/*"],
       "@modules/ui": ["ui"],

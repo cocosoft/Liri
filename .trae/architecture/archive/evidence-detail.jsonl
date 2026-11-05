@@ -1430,7 +1430,7 @@
 {"id":"HARDCODE-QH2-LOCALE-TZ","k":"code#2","i":0,"c":"packages/service/src/services/voice/services/ttsConfigOverlay.ts"}
 {"id":"HARDCODE-QH2-LOCALE-TZ","k":"code#3","i":0,"c":"packages/service/src/services/voice/services/voiceService.ts"}
 {"id":"HARDCODE-QH2-LOCALE-TZ","k":"code#4","i":0,"c":"packages/service/src/services/voice/VoiceProvider.ts"}
-{"id":"HARDCODE-QH2-LOCALE-TZ","k":"code#5","i":0,"c":"app/src/voice/WakeWordEngine.ts"}
+{"id":"HARDCODE-QH2-LOCALE-TZ","k":"code#5","i":0,"c":"packages/service/src/voice/WakeWordEngine.ts"}
 {"id":"HARDCODE-QH2-LOCALE-TZ","k":"code#6","i":0,"c":"app/src/hooks/useVoice.ts"}
 {"id":"HARDCODE-QH2-LOCALE-TZ","k":"code#7","i":0,"c":"app/src/plugins/bundled/SettingsPlugin.ts"}
 {"id":"HARDCODE-QH2-LOCALE-TZ","k":"tests#0","i":0,"c":"app/tests/config/defaultLocaleTimezone.test.ts"}
@@ -3583,8 +3583,8 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID","k":"code#0","i":0,"c":"packages/kernel/src/core/protocol/websocket.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID","k":"code#1","i":0,"c":"packages/kernel/src/core/index.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID","k":"code#2","i":0,"c":"app/src/acp/websocket.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID","k":"code#3","i":0,"c":"app/src/voice/upgrade.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID","k":"code#4","i":0,"c":"app/src/voice/WakeWebSocketServer.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID","k":"code#3","i":0,"c":"packages/service/src/voice/upgrade.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID","k":"code#4","i":0,"c":"packages/service/src/voice/WakeWebSocketServer.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID","k":"code#5","i":0,"c":"packages/service/src/services/voice/services/edgeTTSTransport.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID","k":"code#6","i":0,"c":"app/tests/voice/upgrade.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID","k":"code#7","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -4226,11 +4226,11 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-58-DEFAULT-SESSION-TIMEOUT","k":"source","i":0,"c":"硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；基线 `.trae/architecture/hardcode-gate-baseline.json` 队列"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-58-DEFAULT-SESSION-TIMEOUT","k":"reopenWhen","i":0,"c":"① 若语音会话超时需与通用会话同源（例如统一由配置项驱动），须先在配置层建真源再两处引用，**不得**直接合并两个数值（30min ≠ 10min，合并即改变语音会话行为）；② 若 `constants/common.ts` 的 `DEFAULT_SESSION_TIMEOUT` 长期无消费者，按 CD05/CD07 走「先标记 deprecated + 观"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-58-DEFAULT-SESSION-TIMEOUT","k":"reopenWhen","i":1,"c":"察」再决定是否删除，不在治理改名中顺手删；③ 另注：`bridge/types/index.ts` 另有一份 `DEFAULT_SESSION_TIMEOUT_MS = 30 * 60 * 1000`（**同名不同名**的重复事实，门禁按名聚合抓不到）——若后续要收敛，按同一判据单独立项。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-58-DEFAULT-SESSION-TIMEOUT","k":"notes","i":0,"c":"① **判据**：两处同名但**取值与语义不同** —— `app/src/constants/common.ts` 的 `DEFAULT_SESSION_TIMEOUT = 30 * 60 * 1000`（通用「真源」文件中的导出，30 分钟）；`app/src/voice/VoiceSession.ts` 的私有一份 `= 10 * 60 * 1000`"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-58-DEFAULT-SESSION-TIMEOUT","k":"notes","i":0,"c":"① **判据**：两处同名但**取值与语义不同** —— `app/src/constants/common.ts` 的 `DEFAULT_SESSION_TIMEOUT = 30 * 60 * 1000`（通用「真源」文件中的导出，30 分钟）；`packages/service/src/voice/VoiceSession.ts` 的私有一份 `= 10 * 60 * 1000`"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-58-DEFAULT-SESSION-TIMEOUT","k":"notes","i":1,"c":"（语音会话空闲超时，10 分钟，用于 `setTimeout(..., DEFAULT_SESSION_TIMEOUT)` 关闭语音会话）。数值不同 ⇒ 异值异域 ⇒ 按域消歧，**保留通用真源名不改**，语音侧改 `VOICE_SESSION_TIMEOUT`（含声明与唯一消费点）。② 范围：本项**不改** `constants/common.ts`（其"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-58-DEFAULT-SESSION-TIMEOUT","k":"notes","i":2,"c":"导出面属于公共常量真源，改名会波及未列出的规划消费面）。③ 顺带观察（未处置）：`constants/common.ts` 的 `DEFAULT_SESSION_TIMEOUT` 全仓**无消费者**（与 `MAX_FILENAME_LENGTH` 同）——按 CD05 记录待观察，不在本项删除。④ 守卫：`sameNameConstsB2.test.ts`"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-58-DEFAULT-SESSION-TIMEOUT","k":"notes","i":3,"c":" 新增 `B5-2-58`（断言真源保留 30min、语音侧已改名且取值 10min）。⑤ 棘轮：基线键由 2 归零。⑥ 验证：app `tsc` exit 0；**78 例全绿**；`lint:consts` / `lint:arch` / `lint:unref` 全 exit 0。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-58-DEFAULT-SESSION-TIMEOUT","k":"code#0","i":0,"c":"app/src/voice/VoiceSession.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-58-DEFAULT-SESSION-TIMEOUT","k":"code#0","i":0,"c":"packages/service/src/voice/VoiceSession.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-58-DEFAULT-SESSION-TIMEOUT","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-59-MAX-FILENAME-LENGTH","k":"title","i":0,"c":"`MAX_FILENAME_LENGTH` ×2 按域消歧（异值异域：app 文件系统 255 / client 导出文件名 120，取值一字未改）⇒ 同名常量:MAX_FILENAME_LENGTH 2>0"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-59-MAX-FILENAME-LENGTH","k":"source","i":0,"c":"硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；基线 `.trae/architecture/hardcode-gate-baseline.json` 队列"}
@@ -4247,10 +4247,10 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-60-DEFAULT-MODEL","k":"reopenWhen","i":0,"c":"① 若「未指定模型」的语义要改为显式哨兵（如 `pyapp-default`）而非空串，须同时改后端解析与 §`model-usage.md` 口径，并按模型域条目重开；② **`DEFAULT_MODEL_SENTINEL`（`constants/common.ts` 与 `client/src/services/chatService.ts`，值 `"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-60-DEFAULT-MODEL","k":"reopenWhen","i":1,"c":"pyapp-default`；Rust 侧 `client/src-tauri/src/commands/chat.rs` 同值）属跨包契约**，本批**未处置**：需先在「跨包契约」与「按域消歧改名」之间裁定（前者需在门禁加契约豁免口，后者会让两侧名字不同却仍须逐字同值）；③ 若 `@modules/constants` 桶被治理收缩，须同步改本项引用。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-60-DEFAULT-MODEL","k":"notes","i":0,"c":"① **判据**：两处取值与语义相同（`''` 表示「未指定模型」，非任何具体模型名 —— 与 `model-usage.md`「DB 是模型唯一事实来源、禁止硬编码模型名」一致）⇒ 同值同事实 ⇒ 合一。② **真源选择**：`app/src/constants/common.ts`（经 `constants/index.ts` 的 `export * "}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-60-DEFAULT-MODEL","k":"notes","i":1,"c":"from './common.js'` 由 `@modules/constants` 桶暴露）；`app/src/voice/OpenAIRealtimeAdapter.ts` 删除私有一份、改 `import { DEFAULT_MODEL } from '@modules/constants'`（原消费点 `this.model = model ?? "}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-60-DEFAULT-MODEL","k":"notes","i":1,"c":"from './common.js'` 由 `@modules/constants` 桶暴露）；`packages/service/src/voice/OpenAIRealtimeAdapter.ts` 删除私有一份、改 `import { DEFAULT_MODEL } from '@modules/constants'`（原消费点 `this.model = model ?? "}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-60-DEFAULT-MODEL","k":"notes","i":2,"c":"DEFAULT_MODEL` 未变）。取值一字未改。③ 守卫：`sameNameConstsB2.test.ts` 新增 `B5-2-60`。④ **棘轮状态（如实）**：`lint:consts` 已给出「`同名常量:DEFAULT_MODEL`：基线 2 → 当前 0」，但**本轮基线播种被跳过**（该命令被取消）⇒ **基线文件尚未下调**，两键仍挂在"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-60-DEFAULT-MODEL","k":"notes","i":3,"c":"基线里；门禁判 PASS（只减不增），其提示行即本状态的证据。下次播种后即锁紧。⑤ 验证：app `tsc` exit 0；守卫测试 **80 例全绿**；`lint:consts` / `lint:arch` / `lint:unref` 全 exit 0。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-60-DEFAULT-MODEL","k":"code#0","i":0,"c":"app/src/voice/OpenAIRealtimeAdapter.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-60-DEFAULT-MODEL","k":"code#0","i":0,"c":"packages/service/src/voice/OpenAIRealtimeAdapter.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-60-DEFAULT-MODEL","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-61-DEFAULT-MAX-TOKENS","k":"title","i":0,"c":"`DEFAULT_MAX_TOKENS` ×2 按域消歧（异值异域：通用 4096 真源保留 / evals 红队 16384 改名，取值一字未改）⇒ 同名常量:DEFAULT_MAX_TOKENS 2>0"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-61-DEFAULT-MAX-TOKENS","k":"source","i":0,"c":"硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；基线 `.trae/architecture/hardcode-gate-baseline.json` 队列"}
@@ -5040,7 +5040,7 @@
 {"id":"VOICE-TTS-STT-NO-MODEL-NEEDED","k":"reopenWhen","i":2,"c":"④ 若某个 TTS/STT Provider 的注册条件变化（见 `VoiceServiceBridge.ts:375-404` 的 openAIApiKey / piper.modelDir 分支）：本条目列的「怎么配才真的生效」一段须同步。"}
 {"id":"VOICE-TTS-STT-NO-MODEL-NEEDED","k":"notes","i":0,"c":"【问题】门禁 `lint-models` 的「能力覆盖」子检查报两条断链：`task=tts 能力=text_to_speech`、`task=stt 能力=speech_recognition` 各 `0 个 enabled 模型`（第 8 轮修好该检查的本地可用性后**首次**可见）。用户问：该配哪个模型。【三条证据（结论：不需要配）】**① 语音走独立"}
 {"id":"VOICE-TTS-STT-NO-MODEL-NEEDED","k":"notes","i":1,"c":"子系统，完全不查 `model_registry`**：`packages/service/src/services/voice/**` 全目录检索 `model_registry` / `ModelRegistry` / `ModelPricingService` / `text_to_speech` / `speech_recognition` / `capabilit` ⇒ "}
-{"id":"VOICE-TTS-STT-NO-MODEL-NEEDED","k":"notes","i":2,"c":"**0 处命中**。TTS Provider 的注册条件是**语音服务配置**而非模型（`app/src/voice/VoiceServiceBridge.ts:375-404`）：`EdgeTTSProvider`（**始终注册**，免费、微软在线音色）→ `CommandTTSProvider`（系统可用时）→ `OpenAITTSProvider`（需"}
+{"id":"VOICE-TTS-STT-NO-MODEL-NEEDED","k":"notes","i":2,"c":"**0 处命中**。TTS Provider 的注册条件是**语音服务配置**而非模型（`packages/service/src/voice/VoiceServiceBridge.ts:375-404`）：`EdgeTTSProvider`（**始终注册**，免费、微软在线音色）→ `CommandTTSProvider`（系统可用时）→ `OpenAITTSProvider`（需"}
 {"id":"VOICE-TTS-STT-NO-MODEL-NEEDED","k":"notes","i":3,"c":" `service.openAIApiKey`，模型 `tts-1`/`tts-1-hd`）→ `PiperTTSProvider`（需 `service.piper.modelDir`）；STT 侧为 `SenseVoiceSTTProvider`（本地、中文优化）/ 本地 faster-whisper / `cloudSTTProvider`（需 key"}
 {"id":"VOICE-TTS-STT-NO-MODEL-NEEDED","k":"notes","i":4,"c":"）。工具侧亦同：`tools/TTSTool/TTSTool.ts:314,364` 与 `tools/VoiceOutputTool/VoiceOutputTool.ts` 都调 `voiceService.synthesizeSpeech/speak`，**不按任务类型取模型**。**② `tts`/`stt` 任务类型在路由面没有消费者**：`"}
 {"id":"VOICE-TTS-STT-NO-MODEL-NEEDED","k":"notes","i":5,"c":"RouteKey.TTS/STT` 只出现在定义文件 `app/src/ai/router/routes.ts`（`:65,66,95,96`），**无任何外部调用方**；在 `client/src`、`shared`、`app/tests` 中检索「按 tts/stt 取模型/路由」的调用 ⇒ **0 命中**（`tts`/`stt` 在客户端只作为「语音"}
@@ -5994,7 +5994,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-83","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-83","k":"notes","i":0,"c":"orchestration 的搜索集用于并发分区 ⇒ PARTITIONER_SEARCH_TOOLS（守卫用例同步）；流式 STT 的 30s 滑窗 ⇒ STT_MAX_TRANSCRIBE_SECONDS；两家 STT 提供者标识各自加域前缀；基线 153→149。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-83","k":"code#0","i":0,"c":"app/src/tools/orchestration/types.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-83","k":"code#1","i":0,"c":"app/src/voice/STTStreamServer.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-83","k":"code#1","i":0,"c":"packages/service/src/voice/STTStreamServer.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-83","k":"code#2","i":0,"c":"packages/service/src/services/voice/services/localSTTProvider.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-83","k":"code#3","i":0,"c":"packages/service/src/services/voice/services/senseVoiceSTTProvider.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-83","k":"code#4","i":0,"c":"app/tests/tools/orchestration/toolCallPartitionerToolNames.test.ts"}
@@ -6021,8 +6021,8 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#1","i":0,"c":"packages/infra/src/utils/auth.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#2","i":0,"c":"app/src/vfs/drivers/DevDocsDriver.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#3","i":0,"c":"app/src/vfs/drivers/McpResourcesDriver.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#4","i":0,"c":"app/src/voice/GeminiLiveAdapter.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#5","i":0,"c":"app/src/voice/OpenAIRealtimeAdapter.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#4","i":0,"c":"packages/service/src/voice/GeminiLiveAdapter.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#5","i":0,"c":"packages/service/src/voice/OpenAIRealtimeAdapter.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#6","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-87","k":"title","i":0,"c":"U-20/B5-2-87：存储文件名 / 注册表前缀 / 梦境只读集 / 工具搜索默认窗口"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-87","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}

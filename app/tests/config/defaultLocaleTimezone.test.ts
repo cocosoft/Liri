@@ -68,7 +68,8 @@ describe('Q-H2：默认语言 / 时区口径归一（zh-CN / Asia/Shanghai）', 
         decision: /language: DEFAULT_LOCALE/,
       },
       {
-        rel: 'voice/WakeWordEngine.ts',
+        // P33：`voice` 已迁入 packages/service（相对 APP_SRC 上跳两级到仓库根）
+        rel: '../../packages/service/src/voice/WakeWordEngine.ts',
         decision: /this\.language = config\.language \?\? DEFAULT_LOCALE/,
       },
       {

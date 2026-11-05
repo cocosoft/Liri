@@ -12,8 +12,8 @@ import { STTRegistry } from '@openliri/service/services/voice/services/sttRegist
 import {
   upgradeSTTStreamConnection,
   closeAllSTTStreamSessions,
-} from '../../src/voice/STTStreamServer.js';
-import { parseFrame } from '../../src/voice/upgrade.js';
+} from '@openliri/service/voice/STTStreamServer';
+import { parseFrame } from '@openliri/service/voice/upgrade';
 
 const transcribeCalls: Array<{
   bytes: number;

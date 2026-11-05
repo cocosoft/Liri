@@ -42,6 +42,7 @@
  */
 
 import { handleError } from '@openliri/infra/error/handleError';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
 // P2-1（2026-11-04）：高频 info 按 key 限流（路由决策每次调用都会打 ⇒ 以调用量增长）
 import { LogThrottle } from '@openliri/infra/monitoring/logs/LogThrottle';
@@ -399,6 +400,39 @@ const TOOL_REQUIRED_TASK_TYPES: ReadonlySet<TaskType> = new Set<TaskType>([
   'agent',
   'coding',
 ]);
+
+/**
+ * P0-3（2026-11-05）：**派发前**工具能力硬拦截（纯判据 + 可读错误）。
+ *
+ * 口径：任务声明需要工具能力（`agent` / `coding`），而目标模型**显式声明**的
+ * capabilities 不含 `tool_use` / `function_calling` ⇒ 直接抛出配置错误，不再让
+ * provider 回退成"无 tools"请求再超时（真机：Ollama 27B 单轮被拖到 6 分钟）。
+ *
+ * 边界：能力**未声明**（空/缺字段）⇒ 放行 —— 无法区分"不支持"与"没填"，
+ * 拦截只会误伤（CS03）；此处与观察期告警版同一判据，仅动作从 warn 升级为 throw。
+ */
+export function enforceToolCapabilityGate(
+  taskType: TaskType,
+  modelId: string,
+  capabilities: readonly string[] | undefined
+): void {
+  if (!modelId || !TOOL_REQUIRED_TASK_TYPES.has(taskType)) return;
+  if (!capabilities?.length) return;
+  if (
+    capabilities.includes(ModelCapability.TOOL_USE) ||
+    capabilities.includes(ModelCapability.FUNCTION_CALLING)
+  ) {
+    return;
+  }
+  throw new AppError(
+    `任务 ${taskType} 需要工具调用能力，但目标模型 ${modelId} 的 capabilities 未声明 ` +
+      `tool_use / function_calling（当前：${capabilities.join(', ')}）。` +
+      '请在「模型管理 → 任务分工」改到支持工具调用的模型，或为该模型补登能力标签。',
+    ErrorCategory.CONFIGURATION,
+    ErrorSeverity.HIGH,
+    'MODEL_TOOL_CAPABILITY_MISSING'
+  );
+}
 
 /** 动态任务-能力映射缓存 */
 let taskCapabilityMapping: Partial<Record<TaskType, string[]>> = {
@@ -1009,49 +1043,41 @@ export class ModelRouter {
    * resolveAsync() 则同步查 DB 并填充缓存，确保当前请求不返回空。
    * 适合作为 resolveModelRoute() 等关键路径的入口。
    *
-   * C1（2026-11-04）：解析出口统一做一次**工具能力比对**（只告警，见
-   * `warnToolCapabilityMismatch`）。chat / 长程 / 子代理共用本入口 ⇒ 单点覆盖。
+   * C1（2026-11-04）→ **P0-3（2026-11-05）硬拦截**：解析出口统一做一次工具能力校验
+   * （`assertToolCapability`）。chat / 长程 / 子代理共用本入口 ⇒ 单点覆盖。
    */
   async resolveAsync(taskType: TaskType): Promise<string> {
     const modelId = await this.resolveAsyncCore(taskType);
-    this.warnToolCapabilityMismatch(taskType, modelId);
+    this.assertToolCapability(taskType, modelId);
     return modelId;
   }
 
   /**
-   * C1（2026-11-04）**告警版**加固：任务确实要用工具，而目标模型未声明工具能力时告警。
+   * C1（2026-11-04）告警版 → **P0-3（2026-11-05）硬拦截**：
+   * 判据抽到 `enforceToolCapabilityGate`（纯函数、可单测），本方法只负责取能力并
+   * 在**每进程首次**记录一条 warning（便于日志里定位是谁配错了），随后**抛出**可读错误。
    *
-   * 为什么先告警而非拦截：`validateTaskAssignment()` 是**只读**校验接口，直接拦截会让
-   * 历史上"配错但能跑"的任务立刻失败（属产品口径决策，见
-   * `dev_docs/20261104/统一策略层方案-权限工具长程与模式详略路径-20261104.md` §C1）。
-   * 观察一周无告警误报后，再把本方法升级为返回可读错误并中断派发。
-   *
-   * 只对**显式声明了 capabilities** 的模型判定：空/未声明无法区分"不支持"与"没填"，
-   * 告警只会是噪声（CS03）。同一「任务:模型」每进程只告警一次。
+   * 观察期证据：日志中**零条**真实「未声明工具能力」告警（唯一命中是工具结果里的
+   * 文档检索文本），且 `agent` 任务已切到云端工具模型 ⇒ 误伤面仅为"显式配错"的配置。
    */
-  private warnToolCapabilityMismatch(
-    taskType: TaskType,
-    modelId: string
-  ): void {
-    if (!modelId || !TOOL_REQUIRED_TASK_TYPES.has(taskType)) return;
-    const dedupKey = `${taskType}:${modelId}`;
-    if (this._toolCapabilityWarned.has(dedupKey)) return;
-
-    const capabilities =
-      ModelRegistry.getInstance().getModel(modelId)?.capabilities;
-    if (!capabilities?.length) return;
-    if (
-      capabilities.includes(ModelCapability.TOOL_USE) ||
-      capabilities.includes(ModelCapability.FUNCTION_CALLING)
-    ) {
-      return;
+  private assertToolCapability(taskType: TaskType, modelId: string): void {
+    const capabilities = modelId
+      ? ModelRegistry.getInstance().getModel(modelId)?.capabilities
+      : undefined;
+    try {
+      enforceToolCapabilityGate(taskType, modelId, capabilities);
+    } catch (err) {
+      const dedupKey = `${taskType}:${modelId}`;
+      if (!this._toolCapabilityWarned.has(dedupKey)) {
+        this._toolCapabilityWarned.add(dedupKey);
+        logger.warning('ModelRouter: 派发前拦截（工具能力不匹配）', {
+          task: taskType,
+          model: modelId,
+          capabilities,
+        });
+      }
+      throw err;
     }
-
-    this._toolCapabilityWarned.add(dedupKey);
-    logger.warning(
-      `ModelRouter: 任务 ${taskType} 的模型 ${modelId} 未声明工具能力（tool_use / function_calling），该任务的工具调用可能直接失败`,
-      { task: taskType, model: modelId, capabilities }
-    );
   }
 
   private async resolveAsyncCore(taskType: TaskType): Promise<string> {

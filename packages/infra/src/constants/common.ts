@@ -140,6 +140,12 @@ export const EFFECT_CLAIM_STALE_MS = MS_PER_MINUTE;
 export const EFFECT_REPLY_POLL_MS = 15_000;
 
 /**
+ * 文件删除的瞬时占用重试基数（Windows：AV / 残留句柄 ⇒ `EPERM` / `EBUSY`）。
+ * 按次数线性退避（50ms、100ms…），用于"删除失败即永久残留"的清理路径（如检查点）。 @kind A
+ */
+export const FS_UNLINK_RETRY_BASE_DELAY_MS = 50;
+
+/**
  * 产品默认语言 / 时区（**唯一真源**）。
  *
  * 口径（`dev_docs/20261013/硬编码统一治理方案-20261013.md` §11 `Q-H2`，2026-10-13 裁定）：

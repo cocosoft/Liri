@@ -16,7 +16,10 @@ import type {
 } from '@modules/session/types/checkpoint.js';
 import { CHECKPOINT_MAX_AUTO } from '@modules/session/types/checkpoint.js';
 import { getLogger } from '@openliri/infra/monitoring';
-import { MS_PER_MINUTE } from '@openliri/infra/constants';
+import {
+  MS_PER_MINUTE,
+  FS_UNLINK_RETRY_BASE_DELAY_MS,
+} from '@openliri/infra/constants';
 import { LogThrottle } from '@openliri/infra/monitoring/logs/LogThrottle';
 const logger = getLogger('session:fileCheckpointStorage');
 
@@ -38,6 +41,45 @@ const evictLogThrottle = new LogThrottle({
 /** 仅测试用：重置淘汰日志的限流窗口（模块级状态，避免用例间互相压制） */
 export function resetCheckpointEvictLogThrottleForTest(): void {
   evictLogThrottle.reset();
+}
+
+/**
+ * Windows 下检查点文件可能被 AV / 残留句柄短暂占用（`EPERM` / `EBUSY`）⇒ 删除失败。
+ * 实测日志 `session:fileCheckpointStorage|Failed to delete checkpoint` 即此形态：
+ * 一次失败就永久残留，直到（若有的）过期清理再撞同一把锁。
+ *
+ * 处置：有界重试（3 次、50/100ms 退避）+ 成功恢复留 info + 终态失败带 `attempts`。
+ * `ENOENT` 视为"已被并发删除"= 成功，不做无意义重试。
+ */
+export const CHECKPOINT_UNLINK_MAX_ATTEMPTS = 3;
+
+export async function unlinkCheckpointFileWithRetry(
+  target: string,
+  unlink: (filePath: string) => Promise<void> = (filePath) =>
+    fs.promises.unlink(filePath)
+): Promise<number> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= CHECKPOINT_UNLINK_MAX_ATTEMPTS; attempt++) {
+    try {
+      await unlink(target);
+      if (attempt > 1) {
+        logger.info('checkpoint:unlink_retry_recovered', {
+          target,
+          attempts: attempt,
+        });
+      }
+      return attempt;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') return attempt;
+      lastError = err;
+      if (attempt < CHECKPOINT_UNLINK_MAX_ATTEMPTS) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, FS_UNLINK_RETRY_BASE_DELAY_MS * attempt)
+        );
+      }
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error('unlink_failed');
 }
 
 export class FileCheckpointStorage implements CheckpointStorage {
@@ -203,11 +245,12 @@ export class FileCheckpointStorage implements CheckpointStorage {
       const matched = files.find((f) => pattern.test(f));
       if (!matched) return;
 
-      await fs.promises.unlink(path.join(this.storageDir, matched));
-    } catch {
+      await unlinkCheckpointFileWithRetry(path.join(this.storageDir, matched));
+    } catch (err) {
       logger.warn('Failed to delete checkpoint', {
         checkpointId,
-        error: 'io_error',
+        error: err instanceof Error ? err.message : 'io_error',
+        attempts: CHECKPOINT_UNLINK_MAX_ATTEMPTS,
       });
     }
   }
@@ -223,7 +266,7 @@ export class FileCheckpointStorage implements CheckpointStorage {
 
       for (const file of matched) {
         try {
-          await fs.promises.unlink(path.join(this.storageDir, file));
+          await unlinkCheckpointFileWithRetry(path.join(this.storageDir, file));
         } catch (delErr) {
           // KB-CKPT-DEL-ENTRY（2026-08-29）：单文件删除失败静默 continue → 残留检查点
           logger.warn('删除检查点文件失败，跳过', {
@@ -282,7 +325,7 @@ export class FileCheckpointStorage implements CheckpointStorage {
           const filePath = path.join(this.storageDir, file);
           const stat = await fs.promises.stat(filePath);
           if (stat.mtimeMs < expireTime) {
-            await fs.promises.unlink(filePath);
+            await unlinkCheckpointFileWithRetry(filePath);
             count++;
           }
         } catch (cleanErr) {

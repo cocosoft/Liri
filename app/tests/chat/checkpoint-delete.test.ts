@@ -36,6 +36,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { FileCheckpointStorage } from '../../src/session/storage/FileCheckpointStorage.js';
+import {
+  CHECKPOINT_UNLINK_MAX_ATTEMPTS,
+  unlinkCheckpointFileWithRetry,
+} from '../../src/session/storage/FileCheckpointStorage.js';
 
 describe('FileCheckpointStorage.deleteSessionCheckpoints', () => {
   let dir: string;
@@ -81,5 +85,51 @@ describe('FileCheckpointStorage.deleteSessionCheckpoints', () => {
     await storage.deleteSessionCheckpoints('sessionNotFound');
     const files = readdirSync(dir);
     expect(files).toHaveLength(4);
+  });
+});
+
+/**
+ * C8（2026-11-04 运行态排查）：`Failed to delete checkpoint` 一次失败即永久残留。
+ * 判据：瞬时占用（EPERM/EBUSY）有界重试；`ENOENT` 视为已删除；耗尽后抛出（由调用方如实记录）。
+ */
+describe('unlinkCheckpointFileWithRetry', () => {
+  const errWithCode = (code: string) =>
+    Object.assign(new Error(`mock ${code}`), { code });
+
+  it('瞬时占用后成功：按退避重试并返回实际次数', async () => {
+    let calls = 0;
+    const attempts = await unlinkCheckpointFileWithRetry(
+      'cp.json',
+      async () => {
+        calls += 1;
+        if (calls < 3) throw errWithCode('EPERM');
+      }
+    );
+    expect(calls).toBe(3);
+    expect(attempts).toBe(3);
+  });
+
+  it('ENOENT 视为已删除，不重试', async () => {
+    let calls = 0;
+    const attempts = await unlinkCheckpointFileWithRetry(
+      'cp.json',
+      async () => {
+        calls += 1;
+        throw errWithCode('ENOENT');
+      }
+    );
+    expect(calls).toBe(1);
+    expect(attempts).toBe(1);
+  });
+
+  it('重试耗尽后抛出原始错误（调用方据此告警）', async () => {
+    let calls = 0;
+    await expect(
+      unlinkCheckpointFileWithRetry('cp.json', async () => {
+        calls += 1;
+        throw errWithCode('EBUSY');
+      })
+    ).rejects.toThrow('mock EBUSY');
+    expect(calls).toBe(CHECKPOINT_UNLINK_MAX_ATTEMPTS);
   });
 });

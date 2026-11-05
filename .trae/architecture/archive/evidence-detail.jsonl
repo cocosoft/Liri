@@ -8304,3 +8304,14 @@
 {"id":"SERVICE-PACKAGE-P35-BRIDGE-CLOSURE","k":"code#8","i":0,"c":"app/src/bootstrap/preflight.ts"}
 {"id":"SERVICE-PACKAGE-P35-BRIDGE-CLOSURE","k":"tests#0","i":0,"c":"app/tests/bridge/acpRemoteExposure.test.ts"}
 {"id":"SERVICE-PACKAGE-P35-BRIDGE-CLOSURE","k":"tests#1","i":0,"c":"app/tests/channels/MessageRouter.test.ts"}
+{"id":"TEST-ISOLATION-MODELROUTER-TASKCACHE","k":"title","i":0,"c":"修复跨文件污染：tests/ai/ModelRouterSetTasks 不还原进程单例 _taskCache，致 taorLoopResumeWiring 3 例全量必红"}
+{"id":"TEST-ISOLATION-MODELROUTER-TASKCACHE","k":"source","i":0,"c":"全量 bun test 复现（10577 pass / 3 fail）→ 二分定位污染源（tests/ai/ModelRouterSetTasks.test.ts）"}
+{"id":"TEST-ISOLATION-MODELROUTER-TASKCACHE","k":"reopenWhen","i":0,"c":"① 新的测试若写入进程级单例（ModelRouter._taskCache / configManager / featureFlags / 全局 registry），必须 afterEach 还原进场快照；② bun:test 的文件级隔离**不成立**（同进程串行），不要再以「文件级隔离」为由省略还原；③ 复现方式：`bun test "}
+{"id":"TEST-ISOLATION-MODELROUTER-TASKCACHE","k":"reopenWhen","i":1,"c":"tests/ai/ModelRouterSetTasks.test.ts tests/chat/taorLoopResumeWiring.test.ts`。"}
+{"id":"TEST-ISOLATION-MODELROUTER-TASKCACHE","k":"notes","i":0,"c":"症状：taorLoopResumeWiring 的 3 个「G-T3-1 委托路径 reset() 条件化」用例单跑/窄跑全绿，全量必红；失败点为 runCalls=0 且全日志无「委托 TAORLoop」。二分：tests/ai → 前 14 文件绿 / 14-20 红 → 单文件命中 ModelRouterSetTasks。根因：ModelRouter "}
+{"id":"TEST-ISOLATION-MODELROUTER-TASKCACHE","k":"notes","i":1,"c":"是进程单例，该文件 beforeEach 只 seed({}) 清空 _taskCache、afterEach 为空（注释还写着「bun:test 文件级隔离无跨文件污染」），用例留下的 chat=new-chat / default=deepseek-v4-flash 存活到下一个文件，改变了 ChatOrchestrator.sendMessage 的模"}
+{"id":"TEST-ISOLATION-MODELROUTER-TASKCACHE","k":"notes","i":2,"c":"型路由解析（resolveModelRoute(CHAT)），使 TAOR 委托分支不再进入。修复：进场快照 _taskCache → afterEach 逐例还原 + 改写误导注释；不碰受害测试。验证：配对 22 pass；tests/ai+tests/chat 1241 pass；全量 10580 pass / 44 skip / 0 fail（修前 3"}
+{"id":"TEST-ISOLATION-MODELROUTER-TASKCACHE","k":"notes","i":3,"c":" fail）。"}
+{"id":"TEST-ISOLATION-MODELROUTER-TASKCACHE","k":"code#0","i":0,"c":"app/tests/ai/ModelRouterSetTasks.test.ts"}
+{"id":"TEST-ISOLATION-MODELROUTER-TASKCACHE","k":"tests#0","i":0,"c":"app/tests/ai/ModelRouterSetTasks.test.ts"}
+{"id":"TEST-ISOLATION-MODELROUTER-TASKCACHE","k":"tests#1","i":0,"c":"app/tests/chat/taorLoopResumeWiring.test.ts"}

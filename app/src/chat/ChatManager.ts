@@ -45,19 +45,13 @@ import {
   getLocalSession,
   getOrCreateSessionMachine,
 } from './services/ChatHelper';
-import { ChatEventLogStore } from './manager/eventLogStore';
+// A 批外移（2026-11-05）：8 个构造期 helper 的装配收敛到单一工厂
+import { buildChatManagerHelpers } from './manager/assembly';
 // P1（2026-11-04，§3.6）：工作区根列表唯一解析（主根与工具 cwd 同源）
 import { getSessionWorkspaceRoots as resolveSessionWorkspaceRoots } from './manager/workspacePath';
-import { ChatRequestPrep } from './manager/requestPrep';
-import { ChatRollback } from './manager/rollback';
 import type { PendingInteractionEntry } from '@openliri/infra/utils/pendingInteractions';
 // S1（2026-10-19）：会话级缓存统一 dispose 契约（会话 → 键集合）
 import { SessionScopedRegistry } from '@openliri/infra/utils/SessionScopedRegistry';
-import { ChatPromptAssembly } from './manager/promptAssembly';
-import { ChatBootstrap } from './manager/bootstrap';
-import { ChatStreamMessageLifecycle } from './pipeline/streamMessageLifecycle';
-import { ChatSessionTeardown } from './manager/sessionTeardown';
-import { ChatRecovery } from './manager/recovery';
 // U4 历史会话补评（2026-10-06）：磁盘会话的"最近更新优先"排序（纯函数）
 import { rankRecentSessionIds } from './quality/sessionScan';
 import {
@@ -638,44 +632,20 @@ export class ChatManagerImpl implements ChatManager {
   private _pendingPersistPromises: Set<Promise<void>> = new Set();
 
   /**
-   * 事件日志实例缓存与生命周期（`ChatEventLogStore`，首批提取自本类）。
+   * 8 个构造期 helper 的装配（A 批外移，2026-11-05）。
    *
-   * 原字段 `_eventLogCache`、静态常量 `EVENT_LOG_CACHE_MAX` 及 LRU 淘汰/释放逻辑
-   * 已随迁至该模块（`chat/manager/eventLogStore.ts`）；本类经同族方法**薄转发**。
+   * 构造参数与各模块的历史说明见 `manager/assembly.ts`；下文保留同名字段别名，
+   * 使全部调用点与测试（按字段名 mock）逐字不变。
    */
-  private readonly _eventLogStore = new ChatEventLogStore({
+  private readonly _helpers = buildChatManagerHelpers({
     getCurrentSessionId: () => this._currentSessionId,
     isCodeContext: () => this._lastStreamBuildCodeContext,
     getToolCallSeqMap: () => this._toolCallSeqMap,
     getToolCallSeqMapRebuilt: () => this._toolCallSeqMapRebuilt,
-  });
-
-  /**
-   * 请求构建 / 快照 / 压缩（`ChatRequestPrep`，A1 批提取自本类）。
-   *
-   * 原 C14 簇（`extractFilePathsFromText` / `_sanitizeApiMessages` / `requestSnapshot` 家族 /
-   * `_buildToolDefinitions` / `_truncateApiMessages` / `_compressToolHistory` /
-   * `_estimateArrayTokens` / `_approxJsonLength`）已随迁至该模块；本类经同族方法**薄转发**
-   * （#18 薄委托收敛：`_recordModelInputSnapshot` / `_compressToolHistory` /
-   * `_estimateArrayTokens` 已无调用者 ⇒ 已删，调用点直连本模块）。
-   * 对外签名与日志口径不变（行为等价）；跨簇状态经全 getter 注入（无初始化顺序陷阱）。
-   */
-  private readonly _requestPrep = new ChatRequestPrep({
-    getOrCreateEventLog: (sid) => this._getOrCreateEventLog(sid),
+    getOrCreateEventLog: (sid: string) => this._getOrCreateEventLog(sid),
     getChatSessions: () => this._chatSessions,
     getContextTracker: () => this.contextTracker,
-    getToolRound: (sid) => this.getToolRound(sid),
-  });
-
-  /**
-   * 交互解析 + 文件回滚轮次（`ChatRollback`，A2 批提取自本类）。
-   *
-   * 原 C19 的 5 个成员（`resolveInteraction` / `_getRollbackIntegration` /
-   * `_startRollbackRound` / `_endRollbackRound` / `undoRoundsSince`）已随迁至该模块；
-   * 本类经同族方法**薄转发**（`_getRollbackIntegration` 无对外调用者 ⇒ 整体迁出）。
-   * 对外签名与日志口径不变（行为等价）；跨簇状态经全 getter 注入。
-   */
-  private readonly _rollback = new ChatRollback({
+    getToolRound: (sid: string) => this.getToolRound(sid),
     getPendingInteractions: () => this._pendingInteractions,
     getMessageService: () => this.messageService,
     addAndPersistMessage: (sid, msg, opts) =>
@@ -683,65 +653,24 @@ export class ChatManagerImpl implements ChatManager {
     getRollbackIntegrations: () => this.rollbackIntegrations,
     getPermissionManager: () => this.permissionManager,
     getSessionGateway: () => this.sessionGateway,
-  });
-
-  /**
-   * 系统提示词组装（`ChatPromptAssembly`，A3 批提取自本类）。
-   *
-   * 原 C12 的 2 个成员（`getOrAssembleSystemPrompt` / `resolvePromptClientForSystemPrompt`）
-   * 已随迁至该模块（`resolvePromptClientForSystemPrompt` 无对外调用者 ⇒ 整体迁出）；
-   * 本类经 `getOrAssembleSystemPrompt` **薄转发**。日志/签名不变（行为等价）。
-   */
-  private readonly _promptAssembly = new ChatPromptAssembly({
     getImageContextService: () => this.imageContextService,
     getSessionAccess: () => this.sessionAccess,
     recordModelInputSnapshot: (sid, input) =>
       this._requestPrep.recordModelInputSnapshot(sid, input),
     getClientForModel: (model?: string) => this.getClientForModel(model),
     getLlmClient: () => this.llmClient,
-  });
-
-  /**
-   * 启动加载 / 迁移 / 初始化（`ChatBootstrap`，A4a 批提取自本类）。
-   *
-   * 原 C13 的 6 个成员（`ensureSessionsLoaded` / `_cleanStalePidFiles` /
-   * `_migrateHomeFromProjectToUser` / `initialize` / `_resumePendingSessions` /
-   * `_loadSessionsFromGateway`）已随迁至该模块；本类经 `ensureSessionsLoaded` /
-   * `initialize` 两个**对外入口薄转发**（其余 4 个无对外调用者 ⇒ 整体迁出）。
-   * `_sessionsLoaded` / `_resumeFailCount` 随之迁入。日志/签名不变（行为等价）。
-   */
-  private readonly _bootstrap = new ChatBootstrap({
-    getSessionGateway: () => this.sessionGateway,
-    getChatSessions: () => this._chatSessions,
-    getSessionAccess: () => this.sessionAccess,
     getTokenBudget: () => this.tokenBudget,
     getOrCreateTAORLoop: (sid: string) => this._getOrCreateTAORLoop(sid),
-    getLlmClient: () => this.llmClient,
     isDurableResumeEnabled: () => this.ENABLE_DURABLE_RESUME,
     shouldPersistRecalculatedTotal: (before, after) =>
       shouldPersistRecalculatedTotal(before, after),
-    // I2（最终整支评审）：启动期重建挂起登记所需的两支扫描入口（流式 = 检查点服务；
-    // batch = ResumeManager 单例的 `scanBudgetSuspends`，动态 import 与 bootstrap 既有同款）。
     getCheckpointService: () => this._checkpointService,
     scanBudgetSuspendCheckpoints: async () => {
       const { resumeManager } = await import('../query/ResumeManager.js');
       return resumeManager.scanBudgetSuspends();
     },
-    // B3-3：启动登记处一并装配唤醒端口（修「重启后未先发消息即放行 ⇒ 静默无效」）。
-    // 装配体仍复用既有惰性入口的实现（幂等：`_budgetSuspendResumeWired` 至多一次）。
     installBudgetSuspendResume: () =>
       this._ensureBudgetSuspendResumeInstalled(),
-  });
-
-  /**
-   * 流式请求**消息构建**（`ChatStreamMessageLifecycle`，A5a 批提取自本类）。
-   *
-   * 原 `_buildApiMessagesForStream` / `_buildToolRoundMessages` / `_dedupeToolResultForStub`
-   * （含 `_toolResultStubCache`）已随迁至该模块；本类经**薄转发**。
-   * 切窗标记 `_lastStreamBuild*` 仍归宿主（被 `streamMessageFlow` 与事件日志 store 读取），
-   * 经 setter/getter 注入。日志/签名不变（行为等价）。
-   */
-  private readonly _streamMessageLifecycle = new ChatStreamMessageLifecycle({
     setLastStreamBuildWindowed: (v) => {
       this._lastStreamBuildWindowed = v;
     },
@@ -749,41 +678,9 @@ export class ChatManagerImpl implements ChatManager {
       this._lastStreamBuildCodeContext = v;
     },
     getLastStreamBuildCodeContext: () => this._lastStreamBuildCodeContext,
-    getCurrentSessionId: () => this._currentSessionId,
-  });
-
-  /**
-   * 会话拆除 / 级联收口（`ChatSessionTeardown`，A6 批提取自本类）。
-   *
-   * 原 `deleteSession` / `clearAllSessions` 及三个私有级联助手
-   * （`_dismissSessionInboxItems` / `_closeSessionPdca` / `_deleteSessionCheckpoints`）
-   * 已随迁至该模块；本类经 2 个对外入口**薄转发**。
-   * 其余 C21 成员（`createSession` / `forkSession` / `getSessions` …）**均为 1 行薄委托**
-   * （真实实现早已在 `SessionLifecycleManager`）⇒ **不迁**（避免制造薄转发僵尸方法）。
-   * 日志/签名不变（行为等价）。
-   */
-  private readonly _sessionTeardown = new ChatSessionTeardown({
     getSessionLifecycle: () => this.sessionLifecycle,
-    getSessionGateway: () => this.sessionGateway,
-    getCheckpointService: () => this._checkpointService,
     dropEventLogSession: (sid: string) => this._eventLogStore.dropSession(sid),
     clearToolRound: (sid: string) => this.clearToolRound(sid),
-  });
-
-  /**
-   * 启动期恢复装配 / yield 恢复器 / 会话内部续跑（`ChatRecovery`，A4b 批提取自本类）。
-   *
-   * 原 C18 的 5 个成员（`bootstrapYieldRecovery` / `bootstrapRecovery` /
-   * `_ensureYieldResumerInstalled` / `_resumeSessionInternally` /
-   * `_rebuildTrailingTurnFromEvents`）已随迁至该模块；本类经 `bootstrapYieldRecovery` /
-   * `bootstrapRecovery` / `_ensureYieldResumerInstalled` 三个入口**薄转发**
-   * （`_resumeSessionInternally` 无宿主调用者 ⇒ 整体迁出；
-   * `_rebuildTrailingTurnFromEvents` 仅被宿主 `resumeStream` 调用 ⇒ 经 `_recovery` 直调）。
-   * 两个恢复器字段 `_yieldResumerInstalled` / `_yieldResumerUninstall` 仍归宿主
-   * （被 `cleanup()` 直接读写）⇒ 经 getter/setter 注入。日志/签名不变（行为等价）。
-   */
-  private readonly _recovery = new ChatRecovery({
-    getSessionGateway: () => this.sessionGateway,
     getStreamMaxTurn: (sid: string) =>
       this._eventLogStore.getStreamMaxTurn(sid),
     getUnifiedTracker: () => this.unifiedTracker,
@@ -795,10 +692,17 @@ export class ChatManagerImpl implements ChatManager {
       this._yieldResumerUninstall = fn;
     },
     streamMessage: (content, options) => this.streamMessage(content, options),
-    getOrCreateEventLog: (sid: string) => this._getOrCreateEventLog(sid),
-    getSessionLifecycle: () => this.sessionLifecycle,
-    getMessageService: () => this.messageService,
   });
+
+  private readonly _eventLogStore = this._helpers.eventLogStore;
+  private readonly _requestPrep = this._helpers.requestPrep;
+  private readonly _rollback = this._helpers.rollback;
+  private readonly _promptAssembly = this._helpers.promptAssembly;
+  private readonly _bootstrap = this._helpers.bootstrap;
+  private readonly _streamMessageLifecycle =
+    this._helpers.streamMessageLifecycle;
+  private readonly _sessionTeardown = this._helpers.sessionTeardown;
+  private readonly _recovery = this._helpers.recovery;
 
   /**
    * M1 事件溯源：toolCallId → seq 映射

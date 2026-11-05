@@ -1511,11 +1511,13 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
 
   test('B5-2㊳：`SAFE_ID_PATTERN` 已合一（同值同事实；真源在 BridgeApi.ts，BridgeApiClient 改别名引用）', () => {
     // 2 处同名同值 `/^[a-zA-Z0-9_-]+$/`、同为 bridge/api 域 ID 校验 ⇒ 合一，非消歧
-    const truth = read('src/bridge/api/BridgeApi.ts');
+    const truth = read('../packages/service/src/bridge/api/BridgeApi.ts');
     expect(truth).toContain('SAFE_ID_PATTERN 唯一真源');
     expect(truth).toContain('const SAFE_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;');
     expect(truth).toContain('export function validateBridgeId');
-    const client = read('src/bridge/api/BridgeApiClient.ts');
+    const client = read(
+      '../packages/service/src/bridge/api/BridgeApiClient.ts'
+    );
     expect(client).not.toMatch(/(^|[^_A-Za-z])const SAFE_ID_PATTERN\s*=/);
     // prettier 可能折行 import 块 ⇒ 分片段断言（空白容忍）
     expect(client).toContain('validateBridgeId as importedValidateBridgeId');
@@ -1525,10 +1527,12 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
 
   test('B5-2㊴：`EMPTY_POLL_LOG_INTERVAL` 已合一（同值同事实；真源在 BridgeApi.ts，BridgeApiClient 改引用）', () => {
     // 2 处同名同值 100、同为 bridge/api 域空轮询日志节流判定 ⇒ 合一，非消歧
-    const truth = read('src/bridge/api/BridgeApi.ts');
+    const truth = read('../packages/service/src/bridge/api/BridgeApi.ts');
     expect(truth).toContain('EMPTY_POLL_LOG_INTERVAL 唯一真源');
     expect(truth).toContain('export const EMPTY_POLL_LOG_INTERVAL = 100;');
-    const client = read('src/bridge/api/BridgeApiClient.ts');
+    const client = read(
+      '../packages/service/src/bridge/api/BridgeApiClient.ts'
+    );
     expect(client).not.toMatch(
       /(^|[^_A-Za-z])const EMPTY_POLL_LOG_INTERVAL\s*=/
     );

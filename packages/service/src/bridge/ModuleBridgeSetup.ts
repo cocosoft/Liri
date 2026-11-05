@@ -12,6 +12,7 @@ import { isIP } from 'node:net';
 import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
 import { handleError } from '@openliri/infra/error/handleError';
 import { initModuleBridge } from './ModuleBridgeInit.js';
+import { loadBridgeTaskRegistry } from './taskRegistryPort';
 import { createAcpWebSocketServer } from '@modules/acp';
 import type { ModuleBridgeDependencies } from './ModuleBridgeRuntime.js';
 import type { AcpWebSocketServerConfig } from '@modules/acp/types.js';
@@ -107,16 +108,22 @@ export async function setupModuleBridgeOnStartup(): Promise<void> {
   const deps: ModuleBridgeDependencies = {};
 
   try {
-    const { taskRegistry } = await import('../tasks/TaskRegistry.js');
-    deps.taskRegistry = {
-      getAllTaskInfos: () => taskRegistry.getAllTaskInfos(),
-      getTaskInfo: (id) => taskRegistry.getTaskInfo(id),
-      getTaskCountByType: () => taskRegistry.getTaskCountByType(),
-      getTaskCountByStatus: () => taskRegistry.getTaskCountByStatus(),
-      kill: (id) => taskRegistry.kill(id),
-      getTaskCount: () => taskRegistry.getTaskCount(),
-    };
-    logger.info('[Bridge] TaskRegistry 已接入');
+    // P34（2026-11-05）：原 `await import('../tasks/TaskRegistry.js')`（app 层）→ 端口注入，
+    // 实现由 `bootstrap/preflight.ts` 接线；未注入 ⇒ 与既有 catch 分支同义的「暂未就绪」
+    const taskRegistry = await loadBridgeTaskRegistry();
+    if (!taskRegistry) {
+      logger.info('[Bridge] TaskRegistry 暂未就绪，跳过');
+    } else {
+      deps.taskRegistry = {
+        getAllTaskInfos: () => taskRegistry.getAllTaskInfos(),
+        getTaskInfo: (id) => taskRegistry.getTaskInfo(id),
+        getTaskCountByType: () => taskRegistry.getTaskCountByType(),
+        getTaskCountByStatus: () => taskRegistry.getTaskCountByStatus(),
+        kill: (id) => taskRegistry.kill(id),
+        getTaskCount: () => taskRegistry.getTaskCount(),
+      };
+      logger.info('[Bridge] TaskRegistry 已接入');
+    }
   } catch {
     void handleError(new Error('TaskRegistry 动态导入失败'), {
       module: 'bridge:setup',

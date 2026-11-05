@@ -4970,7 +4970,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/bridge/api/BridgeApi.ts",
+        "packages/service/src/bridge/api/BridgeApi.ts",
         "app/src/ai/services/aiService.ts",
         "app/src/agent/harness/index.ts",
         "app/src/chat/services/ImageDownloader.ts"
@@ -6794,8 +6794,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/bridge/api/BridgeApi.ts",
-        "app/src/bridge/api/BridgeApiClient.ts",
+        "packages/service/src/bridge/api/BridgeApi.ts",
+        "packages/service/src/bridge/api/BridgeApiClient.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
@@ -6823,8 +6823,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/bridge/api/BridgeApi.ts",
-        "app/src/bridge/api/BridgeApiClient.ts",
+        "packages/service/src/bridge/api/BridgeApi.ts",
+        "packages/service/src/bridge/api/BridgeApiClient.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
@@ -11392,7 +11392,7 @@
       },
       "code": [
         "packages/kernel/src/core/endpoints.ts",
-        "app/src/bridge/ModuleBridgeSetup.ts",
+        "packages/service/src/bridge/ModuleBridgeSetup.ts",
         "app/src/channels/webhook/WebhookChannel.ts",
         "app/src/channels/webhook/config-schema.ts",
         "app/src/channels/bluebubbles/config-schema.ts",

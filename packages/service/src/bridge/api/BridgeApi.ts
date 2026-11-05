@@ -20,7 +20,7 @@ import {
 } from '../types/BridgeApiTypes';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('bridge\api\BridgeApi');
+const logger = getLogger('bridge:api');
 
 /**
  * B5-2㊴：EMPTY_POLL_LOG_INTERVAL 唯一真源（bridge/api 域内空轮询日志节流阈值；

@@ -98,6 +98,7 @@
       "@openliri/infra/oauth.js": ["../../packages/infra/src/oauth/index.ts"],
       "@openliri/infra/oauth/*": ["../../packages/infra/src/oauth/*"],
       "croner": ["../node_modules/croner"],
+      "axios": ["../node_modules/axios"],
       "lru-cache": ["../node_modules/lru-cache"],
       "zod": ["../node_modules/zod"],
       "zod/*": ["../node_modules/zod/*"],
@@ -297,6 +298,15 @@
       ],
       "@openliri/service/voice/*": [
         "../../packages/service/src/voice/*"
+      ],
+      "@openliri/service/bridge": [
+        "../../packages/service/src/bridge/index.ts"
+      ],
+      "@openliri/service/bridge.js": [
+        "../../packages/service/src/bridge/index.ts"
+      ],
+      "@openliri/service/bridge/*": [
+        "../../packages/service/src/bridge/*"
       ],
       "@modules/tasks": ["tasks"],
       "@modules/tasks/*": ["tasks/*"],

@@ -322,7 +322,7 @@ export function registerStandardHandlers(): void {
       // T1.75: 初始化 ACP 模块桥接（非阻塞）
       try {
         const { setupModuleBridgeOnStartup } =
-          await import('../../bridge/ModuleBridgeSetup.js');
+          await import('@openliri/service/bridge/ModuleBridgeSetup');
         await setupModuleBridgeOnStartup();
         logger.info('[Phase 5] ACP 模块桥接初始化完成');
       } catch (e) {

@@ -9,7 +9,7 @@
  * 非回环（`0.0.0.0`、`::`、私网段、域名）· 空白 token 不算已配置。
  */
 import { describe, expect, it } from 'bun:test';
-import { resolveAcpRemoteRefusalReason } from '../../src/bridge/ModuleBridgeSetup';
+import { resolveAcpRemoteRefusalReason } from '@openliri/service/bridge/ModuleBridgeSetup';
 
 describe('N-81 ACP 远程暴露 fail-closed 判据', () => {
   it('回环地址 + 无 token ⇒ 允许（本机信任基线）', () => {

@@ -12,6 +12,7 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "noEmit": true,
+    "jsx": "react-jsx",
     "typeRoots": ["../../app/node_modules/@types"],
     "types": ["node"],
     "baseUrl": ".",
@@ -21,6 +22,15 @@
       "@openliri/infra/*": ["../infra/src/*"],
       "@openliri/service/*": ["./src/*"],
       "@modules/*": ["../../app/src/*"],
+      "@modules/doc": ["../../app/src/modules/doc"],
+      "@modules/doc/*": ["../../app/src/modules/doc/*"],
+      "@modules/workflow": ["../../app/src/modules/workflow"],
+      "@modules/workflow/*": ["../../app/src/modules/workflow/*"],
+      "@modules/mail": ["../../app/src/modules/mail"],
+      "@modules/mail/*": ["../../app/src/modules/mail/*"],
+      "@modules/calendar": ["../../app/src/modules/calendar"],
+      "@modules/calendar/*": ["../../app/src/modules/calendar/*"],
+      "axios": ["../../app/node_modules/axios"],
       "@shared/*": ["../../shared/*"],
       "@growthbook/growthbook": [
         "../../app/node_modules/@growthbook/growthbook"

@@ -3,10 +3,10 @@
  * 管理远程控制桥接连接，对标 CC 的 /remote-control (rc) 命令
  */
 import { feature } from '@openliri/kernel';
-import { bridgeStateStore, type BridgeState } from '@modules/bridge';
-import { readBridgeConfig } from '@modules/bridge';
-import { createBridgeMain, type BridgeMain } from '@modules/bridge';
-import { createDummySpawner } from '@modules/bridge';
+import { bridgeStateStore, type BridgeState } from '@openliri/service/bridge';
+import { readBridgeConfig } from '@openliri/service/bridge';
+import { createBridgeMain, type BridgeMain } from '@openliri/service/bridge';
+import { createDummySpawner } from '@openliri/service/bridge';
 import type { CommandContext, CommandResult } from '@modules/commands';
 import { getLogger } from '@openliri/infra/monitoring';
 
@@ -160,7 +160,7 @@ function createBridgeInstance(
  */
 function createSimulatedPollHandler(): (
   pollCount: number
-) => import('../../bridge/types/index.js').WorkResponse | null {
+) => import('@openliri/service/bridge/types/index').WorkResponse | null {
   let localPollCount = 0;
   return () => {
     localPollCount++;

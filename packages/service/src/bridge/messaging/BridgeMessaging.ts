@@ -13,7 +13,7 @@ import {
 } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('bridge\messaging\BridgeMessaging');
+const logger = getLogger('bridge:messaging');
 
 /**
  * 消息类型

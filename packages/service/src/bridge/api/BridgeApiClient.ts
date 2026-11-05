@@ -534,4 +534,4 @@ export type {
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('bridge\api\BridgeApiClient');
+const logger = getLogger('bridge:api:client');

@@ -10,8 +10,8 @@
  * - `app/src/ai/providers/BaseAIProvider.ts`（用 `baseDelayMs` 而非 `initialDelayMs`）
  * - `packages/service/src/streaming/IncrementalRetry.ts`（`IncrementalRetryConfig`，流式增量重试；P31 迁入 service 物理包）
  *
- * **Bridge API 退避** —— 唯一真源 `app/src/bridge/types/BridgeApiTypes.ts` 的
- * `DEFAULT_BACKOFF_CONFIG`（`bridge/api/BridgeApi.ts` 原先**自带同值副本** ⇒ 已删）。
+ * **Bridge API 退避** —— 唯一真源 `packages/service/src/bridge/types/BridgeApiTypes.ts` 的
+ * `DEFAULT_BACKOFF_CONFIG`（`bridge/api/BridgeApi.ts` 原先**自带同值副本** ⇒ 已删；P34 迁入 service 物理包）。
  *
  * **已合一的消费点**：`ai/services/aiService.ts` · `agent/harness/index.ts` ·
  * `chat/services/ImageDownloader.ts` 的重试次数默认值改为引用标准真源。
@@ -86,9 +86,11 @@ describe('HD-P1-2 A8 · 退避/重试默认值单一真源', () => {
   it('Bridge 退避默认值 `DEFAULT_BACKOFF_CONFIG` 只声明一次（bridge/types/BridgeApiTypes.ts）', () => {
     const hits = findHits(/const DEFAULT_BACKOFF_CONFIG\b/);
     expect(hits).toHaveLength(1);
-    expect(hits[0].startsWith('src/bridge/types/BridgeApiTypes.ts:')).toBe(
-      true
-    );
+    expect(
+      hits[0].startsWith(
+        '../packages/service/src/bridge/types/BridgeApiTypes.ts:'
+      )
+    ).toBe(true);
   });
 
   it('已合一的消费点：引用真源，且本文件内不再内联重试次数默认值', () => {
@@ -118,14 +120,18 @@ describe('HD-P1-2 A8 · 退避/重试默认值单一真源', () => {
 
   it('**有意/待裁定的值差异**显式钉住（防止无声漂移）', () => {
     // Bridge API 的重试次数与 `withRetry` 标准**不同**（5 vs 3）—— 未合并（合并会改行为）
-    expect(read(join(APP, 'src/bridge/types/BridgeApiTypes.ts'))).toMatch(
-      /maxRetries:\s*5,/
-    );
+    expect(
+      read(join(APP, '../packages/service/src/bridge/types/BridgeApiTypes.ts'))
+    ).toMatch(/maxRetries:\s*5,/);
 
     // BridgeMain 与 PollManager 各有一份 `DEFAULT_BACKOFF`（conn/general 形态），
     // 其 general 值**不一致**（500/30000 vs 1000/60000）—— 未合并（合并会改行为）
-    const main = read(join(APP, 'src/bridge/BridgeMain.ts'));
-    const poll = read(join(APP, 'src/bridge/managers/PollManager.ts'));
+    const main = read(
+      join(APP, '../packages/service/src/bridge/BridgeMain.ts')
+    );
+    const poll = read(
+      join(APP, '../packages/service/src/bridge/managers/PollManager.ts')
+    );
     expect(main).toMatch(/generalInitialMs:\s*500,/);
     expect(main).toMatch(/generalCapMs:\s*30_000,/);
     expect(poll).toMatch(/generalInitialMs:\s*1000,/);

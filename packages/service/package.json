@@ -53,6 +53,14 @@
       "types": "./src/voice/*.ts",
       "import": "./src/voice/*.ts"
     },
+    "./bridge": {
+      "types": "./src/bridge/index.ts",
+      "import": "./src/bridge/index.ts"
+    },
+    "./bridge/*": {
+      "types": "./src/bridge/*.ts",
+      "import": "./src/bridge/*.ts"
+    },
     "./mcp": {
       "types": "./src/mcp/index.ts",
       "import": "./src/mcp/index.ts"

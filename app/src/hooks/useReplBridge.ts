@@ -4,11 +4,11 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { BridgeMain } from '@modules/bridge';
+import { BridgeMain } from '@openliri/service/bridge';
 // C1（2026-10-09）：id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';
-import { type BridgeSession } from '@modules/bridge';
-import { type BridgeMessage } from '@modules/bridge';
+import { type BridgeSession } from '@openliri/service/bridge';
+import { type BridgeMessage } from '@openliri/service/bridge';
 
 import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('hooks:useReplBridge');

@@ -60,6 +60,7 @@ import {
   setVoiceSessionIntegrationProvider,
   setVoiceToolManagerProvider,
 } from '@openliri/service/voice/runtimePorts';
+import { setBridgeTaskRegistryLoader } from '@openliri/service/bridge/taskRegistryPort';
 import { getCoreAPI } from '../runtime/api/CoreAPIImpl';
 import { SessionManager } from '../session/SessionManager';
 import { getModelPricing } from '@openliri/infra/cost/ModelPricing';
@@ -233,6 +234,11 @@ function wireServiceDeps(): void {
   setVoiceSessionIntegrationProvider(() => {
     const manager = SessionManager.instance;
     return manager ? { sessionManager: manager } : null;
+  });
+  // ACP 模块桥的任务注册表（P34，原 `bridge/ModuleBridgeSetup` 动态 import app 的 tasks/TaskRegistry）
+  setBridgeTaskRegistryLoader(async () => {
+    const { taskRegistry } = await import('../tasks/TaskRegistry');
+    return taskRegistry;
   });
 }
 

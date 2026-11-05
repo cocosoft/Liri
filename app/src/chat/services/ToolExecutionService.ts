@@ -28,7 +28,7 @@ import { convergenceDetector } from '../services/ConvergenceDetector.js';
 import { eventNotificationService } from '../services/EventNotificationService.js';
 import { toolResultRegistry } from '../../tool/ToolResultRegistry.js';
 import { resolveDataDir } from '@openliri/infra/environment';
-import { resolveToolCwd } from './toolCwdScope';
+import { isUsableDirectory, resolveToolCwd } from './toolCwdScope';
 // G8（2026-11-03）：会话工作区不可用时向事件流投影一次提示（界面可见）
 import type { LiriEvent } from '@modules/session/types/events';
 // 多租户 P0 阶段 2：请求级权限角色（桌面/后台无请求作用域 ⇒ null ⇒ 保持既有回退语义）
@@ -386,6 +386,26 @@ export function formatWorkspaceEscapeError(params: {
         : '';
   return (
     base.replace('本会话可访问根：', `本会话可访问根${rootsHint}：`) + applyHint
+  );
+}
+
+/**
+ * P0-1（2026-11-05）：**会话工作区已失效**时的错误文案（纯函数，便于单测）。
+ *
+ * 现场：会话工作区是一个已被删除的 worktree（`…\worktrees\alwayson-…-1793846360099`），
+ * 严格边界仍然生效 ⇒ 任何指向真实仓库的路径都判「越界」，而越界文案还建议
+ * 「改用该根下的相对路径」——指向一个**不存在的根**。模型只能反复重试：
+ * 实测 236 次越界 + 20 次 `spawn ENOENT`（`cmd.exe` 被误判为缺失）。
+ */
+export function formatWorkspaceInvalidError(params: {
+  roots: readonly string[];
+}): string {
+  const list = params.roots.length > 0 ? params.roots.join('、') : '(未知)';
+  return (
+    `会话工作区已失效：${list} 不存在或不是目录；` +
+    '工具无法在该根下执行（子进程会拿到无效 cwd，表现为 ENOENT，易被误判为系统命令缺失）。' +
+    '请不要继续猜测其它路径 —— 请向用户说明「工作区已失效」，' +
+    '并请其重新定位项目工作区（或在项目管理中重新生成工作区）后再继续。'
   );
 }
 
@@ -1407,6 +1427,32 @@ export class ToolExecutionService {
                   normalizedToolCall.arguments
                 );
           if (escape) {
+            // P0-1（2026-11-05）：**工作区已失效** ⇒ 越界文案会指向一个死根
+            //（"请改用该根下的相对路径"），模型只能反复重试（实测 236 次越界 + 20 次 ENOENT）。
+            // 只要**没有任何可访问根可用**，就改为 fail-fast 的环境阻塞错误（env_unavailable）：
+            // 计入 environment_blocked（2 轮熔断），并在可见错误里要求重新定位工作区。
+            const candidateRoots =
+              multiRootEnabled && roots.length > 0
+                ? roots
+                : [sessionWorkspacePath];
+            if (candidateRoots.every((root) => !isUsableDirectory(root))) {
+              logger.warn(
+                '会话工作区已失效，越界调用改为 fail-fast（严格边界）',
+                {
+                  toolCallId: toolCall.id,
+                  toolName: normalizedToolCall.name,
+                  sessionId: toolCall.sessionId,
+                  roots: candidateRoots,
+                }
+              );
+              return {
+                toolCallId: toolCall.id,
+                toolName: normalizedToolCall.name,
+                result: null,
+                error: formatWorkspaceInvalidError({ roots: candidateRoots }),
+                failureKind: 'env_unavailable' as ToolFailureKind,
+              };
+            }
             // 首次越界 ⇒ 提交「允许本会话访问该目录」审批卡（同一目标只建一张）。
             // 提交失败不影响拒绝：按"未申请"如实告知模型（CS03-002 不静默）。
             let approvalRequested: boolean | undefined;

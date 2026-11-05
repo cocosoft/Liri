@@ -34,6 +34,8 @@
 import { join } from 'path';
 import { resolveDataDir } from '@openliri/infra/environment';
 import { getLogger } from '@openliri/infra/monitoring';
+// P1-5（2026-11-05）：用户面计数口径（与存储层/运行时读接口同一实现）
+import { computeConversationCounts } from '@openliri/infra/utils/sessionCounts';
 import {
   getFTS5SearchEngine,
   type FTS5SearchEngine,
@@ -61,6 +63,8 @@ export interface FtsIndexStoragePort {
   listSessions(): Promise<UnifiedSession[]>;
   getMessages(sessionId: string): Promise<UnifiedMessage[]>;
   updateSession(session: UnifiedSession): Promise<void>;
+  /** P1-5：单会话计数校正需要读会话本身（实现方 `UnifiedSessionStorage` 已有） */
+  getSession?(sessionId: string): Promise<UnifiedSession | null>;
 }
 
 export interface FtsIndexDeps {
@@ -216,6 +220,71 @@ export class SessionGatewayFtsIndex {
     // P2-7（2026-09-25）：返回**本次重建写入的文档数**（供恢复编排层汇总；
     // 清单齐备时返回 0 —— 口径是"重建了多少"，不是"总共有多少"）
     return indexedCount;
+  }
+
+  /**
+   * P1-5（2026-11-05）：按**持久层消息**校正单个会话的用户面计数（幂等）。
+   *
+   * @returns `true` = 写入了新计数
+   */
+  async syncSessionCounts(sessionId: string): Promise<boolean> {
+    const session = await this.storage.getSession?.(sessionId);
+    if (!session) return false;
+    const messages = await this.storage.getMessages(sessionId);
+    const counts = computeConversationCounts(messages);
+    const metadata = session.metadata as Record<string, unknown> | undefined;
+    if (
+      metadata?.messageCount === counts.messageCount &&
+      metadata?.roundCount === counts.roundCount
+    ) {
+      return false;
+    }
+    session.metadata = {
+      ...session.metadata,
+      messageCount: counts.messageCount,
+      roundCount: counts.roundCount,
+    } as SessionMetadata;
+    await this.storage.updateSession(session);
+    return true;
+  }
+
+  /**
+   * P1-5（2026-11-05）：存量会话补齐 `metadata.messageCount`（**后台、幂等**）。
+   *
+   * 与 {@link migrateRoundCount} 的分工：后者在启动期**同步**执行且只补 `roundCount` 一个字段；
+   * 本次要为每个会话遍历消息全文算**用户面计数**，因此放到后台执行，避免拖慢启动。
+   * 由 `SessionGateway.initialize()` 以 fire-and-forget 调用；失败只记日志（下次启动重试，
+   * 且会话一旦被打开，`loadMessages` 的校准也会补上）。
+   */
+  async backfillConversationCounts(): Promise<{
+    updated: number;
+    failed: number;
+  }> {
+    let updated = 0;
+    let failed = 0;
+    try {
+      const sessions = await this.storage.listSessions();
+      for (const session of sessions) {
+        const metadata = session.metadata as
+          | Record<string, unknown>
+          | undefined;
+        if (typeof metadata?.messageCount === 'number') continue;
+        try {
+          if (await this.syncSessionCounts(session.id)) updated += 1;
+        } catch {
+          /* @ignore-catch — 单会话补齐失败不影响其它会话（下轮启动或打开时再校准） */
+          failed += 1;
+        }
+      }
+      if (updated > 0 || failed > 0) {
+        logger.info('用户面计数补齐完成（后台）', { updated, failed });
+      }
+    } catch (err) {
+      logger.warn('用户面计数补齐失败（非致命，稍后自动校准）', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+    return { updated, failed };
   }
 
   /**

@@ -15,9 +15,11 @@
  * 为什么放在 `chat/services` 而不是 `core/paths`：`core/paths` 只做路径计算（无副作用，
  * 也不该知道"cwd 要怎么兜底"这一策略）；目录创建属于执行侧职责。
  */
-import { existsSync, mkdirSync, statSync } from 'fs';
+import { existsSync, mkdirSync } from 'fs';
 import { isAbsolute } from 'path';
 import { getLogger } from '@openliri/infra/monitoring';
+// P0-1（2026-11-05）：目录可用性判据下沉 infra（会话面与工具面共用同一实现）
+import { isUsableDirectory } from '@openliri/infra/utils/toolContract/workspaceRoots';
 import {
   isCompiledRuntime,
   isPathWithin,
@@ -128,8 +130,11 @@ export function resolveRequestWorkspaceUpdate(input: {
  */
 
 /**
- * P0（2026-11-03，`dev_docs/20261103/工具cwd无效根因与修复方案-20261103.md`）：
- * **会话工作区可用性**判定（缺失 / 不是目录 / 无法 stat）。
+ * P0（2026-11-03）：**会话工作区可用性**判定（缺失 / 不是目录 / 无法 stat）。
+ *
+ * P0-1（2026-11-05）：实现已**下沉**到 `@openliri/infra/utils/toolContract/workspaceRoots`
+ * —— 会话面（`GET /v1/sessions/:id` 的 `workspaceStatus`）也要用同一判据，各写一份必然漂移。
+ * 此处**原样转发**，`chat/**` 内既有约 10 处相对引用零改动。
  *
  * 为什么必须判：spawn 类工具（bash / powershell / grep…）都以 `options.cwd` 启动子进程；
  * 目录不存在时 `exec` 抛 `ENOENT … uv_spawn 'cmd.exe'` —— **把"cwd 无效"误报成"可执行文件缺失"**。
@@ -138,13 +143,7 @@ export function resolveRequestWorkspaceUpdate(input: {
  * 处置口径：**先判后用**（调用方在 spawn 前给出可操作错误），**不**静默换目录执行
  * （那会把产物写到错误位置，LRO-06 同类事故）。
  */
-function isUsableDirectory(dir: string): boolean {
-  try {
-    return statSync(dir).isDirectory();
-  } catch {
-    return false;
-  }
-}
+export { isUsableDirectory };
 
 /** 已告警过的无效工作区（避免每次工具调用都刷同一条 warn；上限 100 条防无界增长） */
 const warnedInvalidWorkspaces = new Set<string>();

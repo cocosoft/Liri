@@ -102,7 +102,6 @@ import type {
   UnifiedSession,
   SessionFilter,
   SessionStats,
-  SessionMetadata,
   CreateSessionParams,
 } from './types/UnifiedSession.js';
 import type {
@@ -541,6 +540,8 @@ export class SessionGateway {
 
     // 迁移：为已有 session 计算 roundCount（幂等）
     await this.fts.migrateRoundCount();
+    // P1-5（2026-11-05）：存量会话补齐 `messageCount`（后台，不阻塞启动；失败仅记日志）
+    void this.fts.backfillConversationCounts().catch(() => {});
 
     if (this.eventBus) {
       // FTS 索引维护监听（message:created / session:deleted / messages:deleted）
@@ -1318,18 +1319,8 @@ export class SessionGateway {
       for (const msg of messages) await this.fts.indexMessage(sessionId, msg);
       ftsDocs = messages.length;
 
-      const session = await this.getSession(sessionId);
-      const userMsgCount = messages.filter((m) => m.role === 'user').length;
-      const current = (session?.metadata as Record<string, unknown> | undefined)
-        ?.roundCount;
-      if (session && current !== userMsgCount) {
-        session.metadata = {
-          ...session.metadata,
-          roundCount: userMsgCount,
-        } as SessionMetadata;
-        await (await this.store()).updateSession(session);
-        roundCountFixed = 1;
-      }
+      // P1-5（2026-11-05）：计数（roundCount / messageCount）校正收敛到 FTS 簇（幂等）
+      roundCountFixed = (await this.fts.syncSessionCounts(sessionId)) ? 1 : 0;
     } catch (err) {
       failures.push({ sessionId, error: errText(err) });
     }

@@ -30,6 +30,7 @@
  */
 
 import * as fs from 'fs';
+import { isAbsolute } from 'path';
 // 多租户 P1：会话归属判定（本地身份恒放行 ⇒ 桌面零行为变更）
 import {
   getRequestPermissionRole,
@@ -39,9 +40,22 @@ import {
   canAccessSession,
   type SessionOwner,
 } from '@openliri/infra/security/identity';
+// P0-1（2026-11-05）：会话工作区状态（读时派生；与工具面同一判据/合并口径）
+import {
+  computeWorkspaceStatus,
+  mergeWorkspaceRoots,
+  type WorkspaceStatus,
+} from '@openliri/infra/utils/toolContract/workspaceRoots';
 import type { Coordinator } from '@modules/runtime/coordinator';
 import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@openliri/infra/monitoring';
+// P0-4（2026-11-05）：任务分区消息（PDCA 步骤）不计入用户面计数；
+// P1-5（2026-11-05）：计数口径的**单一事实源**在 infra（存储层写元数据时同样调用）
+import { computeConversationCounts } from '@openliri/infra/utils/sessionCounts';
+import {
+  filterTaskPartitionMessages,
+  isTaskPartitionMessage,
+} from './messagePartition';
 // P1（2026-11-04）：会话级权限模式（UI 第三层写入）的取值域
 import type { PermissionMode } from '@openliri/infra/permission';
 import type { ChatManager } from '@modules/chat';
@@ -87,17 +101,73 @@ const logger = getLogger('runtime:api:CoreAPIImpl');
 function countConversationMessages(
   messages: Array<{ role: string }> | undefined
 ): number {
-  if (!messages) return 0;
-  return messages.filter((m) => m.role === 'user' || m.role === 'assistant')
-    .length;
+  return computeConversationCounts(messages).messageCount;
 }
 
 /** 统计用户消息数 = 对话轮次 */
 function countUserMessages(
   messages: Array<{ role: string }> | undefined
 ): number {
-  if (!messages) return 0;
-  return messages.filter((m) => m.role === 'user').length;
+  return computeConversationCounts(messages).roundCount;
+}
+
+/**
+ * P1-5（2026-11-05）：消息数/轮次数的**单一口径** —— 持久层优先。
+ *
+ * 实证：`GET /v1/sessions/{id}` 返回 `messageCount=7`、`roundCount=16`，而同会话
+ * `GET /v1/sessions/{id}/messages` 返回 698 条（assistant 147 / tool 533 / user 18）、
+ * 导出为 165 条 / 18 轮。根因是本文件用**进程内存** `chatSessions[].messages` 计数，
+ * 而该 Map 对未加载/已卸载的会话只持有**切片**（daemon 重启后尤甚）。
+ *
+ * 口径：持久层有消息 ⇒ 用持久层；持久层为空（新会话尚未落盘）⇒ 回退内存；
+ * 两者都空 ⇒ `roundCount` 回退 `metadata.roundCount`（legacy 兜底）。
+ */
+export function resolveSessionCounts(params: {
+  persistedMessages?: Array<{ role: string }>;
+  memoryMessages?: Array<{ role: string }>;
+  metadataRoundCount?: number;
+}): { messageCount: number; roundCount: number } {
+  const persisted = params.persistedMessages ?? [];
+  const source =
+    persisted.length > 0 ? persisted : (params.memoryMessages ?? []);
+  if (source.length === 0) {
+    return { messageCount: 0, roundCount: params.metadataRoundCount ?? 0 };
+  }
+  return {
+    messageCount: countConversationMessages(source),
+    roundCount: countUserMessages(source),
+  };
+}
+
+/**
+ * P0-1（2026-11-05）：会话工作区状态（**读时派生**，不落库、不改会话状态）。
+ *
+ * 根列表口径与工具面完全一致（`mergeWorkspaceRoots`：`metadata.workspacePath` 为首根，
+ * `metadata.workspaceRoots` 为追加根）；可用性判据同样复用 infra 的 `isUsableDirectory`
+ * （`computeWorkspaceStatus` 默认值）⇒ 不会出现"会话说正常、工具说越界"。
+ *
+ * 只从 **metadata** 派生：项目会话（仅 `projectId`）的 sandboxPath 需查项目库，
+ * 详情接口不做这一跳（避免为一次 GET 引入 store 依赖）；这类会话保持 `unbound`，
+ * 工具面仍会在首轮按既有逻辑判定并 fail-fast。
+ */
+export function resolveWorkspaceStatus(
+  metadata: Record<string, unknown> | undefined
+): WorkspaceStatus {
+  // 与工具面同口径：**只认绝对路径**（`resolveSessionWorkspacePath` 忽略相对值/项目名，
+  // 存量会话的 `workspacePath` 可能是修复前的项目名 —— 真机实测一条 `proj_…` 存量值，
+  // 若把相对值当根会误报「工作区已失效」）。
+  const rawPrimary = metadata?.workspacePath;
+  const primary =
+    typeof rawPrimary === 'string' && isAbsolute(rawPrimary)
+      ? rawPrimary
+      : undefined;
+  const extraRoots = Array.isArray(metadata?.workspaceRoots)
+    ? (metadata.workspaceRoots as unknown[]).filter(
+        (r): r is string => typeof r === 'string' && isAbsolute(r)
+      )
+    : undefined;
+  const roots = mergeWorkspaceRoots(primary, extraRoots);
+  return computeWorkspaceStatus(roots);
 }
 
 /** 惰性依赖端口（每次调用求值 ⇒ 与宿主注册/创建时序解耦） */
@@ -468,24 +538,80 @@ export class SessionAgentOps {
       return undefined;
     }
 
+    // P1-5（2026-11-05）：计数以**持久层消息**为准 —— 内存 `chatSessions[].messages`
+    // 对未加载/已卸载的会话只持有切片（实测 messageCount=7 vs /messages=698）。
+    let persistedMessages: Array<{ role: string }> | undefined;
+    try {
+      const read = await this.deps
+        .getSessionMessagesRead()
+        .getSessionMessages(sessionId);
+      persistedMessages = read.messages;
+    } catch (err) {
+      // @ignore-catch — 读持久层失败不应影响会话详情本身；计数回退内存并留痕
+      logger.warn('getSession:读取持久层消息失败，计数回退内存', {
+        sessionId,
+        error: String(err),
+      });
+    }
+    const counts = resolveSessionCounts({
+      persistedMessages,
+      // P0-4：内存回退同样排除任务分区消息（与读接口/UI 口径一致）
+      memoryMessages: filterTaskPartitionMessages(session.messages),
+      metadataRoundCount: session.metadata.roundCount,
+    });
+
+    // P1-5（2026-11-05）：把**事件派生**计数回写持久层。
+    // 投影（`messages.jsonl`）可能落后事件日志 1–2 条（真机 35 个会话中 7 个），而详情以事件
+    // 派生为准 ⇒ 打开会话即校正 `metadata.messageCount/roundCount`，列表（读持久层）随之一致。
+    // 不计入 `updatedAt`：「打开会话」不是内容更新。
+    if (
+      persisted.metadata.messageCount !== counts.messageCount ||
+      persisted.metadata.roundCount !== counts.roundCount
+    ) {
+      persisted.metadata = {
+        ...persisted.metadata,
+        messageCount: counts.messageCount,
+        roundCount: counts.roundCount,
+      };
+      try {
+        await this.deps
+          .getChatManager()
+          .getSessionGateway()
+          .updateSession(persisted);
+      } catch (err) {
+        /* @ignore-catch — 校正失败不影响详情返回（下次打开会再校正） */
+        logger.warn('会话计数回写持久层失败（非致命）', {
+          sessionId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
     return {
       id: session.id,
       title: session.title,
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
-      messageCount: countConversationMessages(session.messages),
-      roundCount:
-        session.metadata.roundCount ?? countUserMessages(session.messages),
+      messageCount: counts.messageCount,
+      roundCount: counts.roundCount,
       source: this.resolveSessionSource(session),
       // #23：状态取持久层（与列表同口径）
       status: persisted.status,
       metadata: session.metadata,
+      // P0-1（2026-11-05）：工作区是否已失效（读时派生，不落库）——
+      // 让前端在**发消息前**就能提示，而不是等首次工具调用报「越界 / ENOENT」。
+      workspaceStatus: resolveWorkspaceStatus(session.metadata),
     };
   }
 
   async getSessionMessages(
     sessionId: string,
-    query?: { limit?: number; before?: number; maxVisible?: number }
+    query?: {
+      limit?: number;
+      before?: number;
+      maxVisible?: number;
+      includeTaskMessages?: boolean;
+    }
   ): Promise<{
     messages: Array<{
       id: string;
@@ -629,6 +755,16 @@ export class SessionAgentOps {
     const sessions = all.filter((_, i) => presence[i] !== null);
     const persistedStatus = new Map<string, string | undefined>();
     all.forEach((s, i) => persistedStatus.set(s.id, presence[i]?.status));
+    // P1-5（2026-11-05）：计数取**持久层 metadata**（存储层写消息时维护），
+    // 而不是内存 `ChatSession.metadata`——后者是启动期加载的快照，可能早于后台补齐/
+    // 后续写入（真机实测：磁盘 36/18，内存 36/16）。
+    const persistedCountsMeta = new Map<string, Record<string, unknown>>();
+    all.forEach((s, i) => {
+      persistedCountsMeta.set(
+        s.id,
+        (presence[i]?.metadata as Record<string, unknown> | undefined) ?? {}
+      );
+    });
     // 多租户 P1：`getSessions()` 是**进程级内存 Map**（含其他身份的会话）⇒
     // 非本地身份再按归属过滤一次（本地身份不过滤，零行为变更）。
     const principal = getRequestPrincipal();
@@ -660,18 +796,36 @@ export class SessionAgentOps {
         if (!keep) filteredCount += 1;
         return keep;
       })
-      .map((session) => ({
-        id: session.id,
-        title: session.title,
-        createdAt: session.createdAt,
-        updatedAt: session.updatedAt,
-        messageCount: countConversationMessages(session.messages),
-        roundCount: countUserMessages(session.messages),
-        source: this.resolveSessionSource(session),
-        // 持久层权威；`presence` 缺失（已过滤）时不会走到这里
-        status: persistedStatus.get(session.id) ?? session.state,
-        metadata: session.metadata,
-      }));
+      .map((session) => {
+        // P0-4（2026-11-05）：任务分区消息（PDCA 步骤）不计入用户面消息数/轮次
+        const visibleMessages = session.messages.filter(
+          (m) => !isTaskPartitionMessage(m)
+        );
+        // P1-5（2026-11-05）：**优先取持久化计数**（存储层写/删消息时维护；取持久层而非内存
+        // 快照）—— 内存数组对未打开/已卸载会话只是切片，按它计数会偏小甚至为 0（真机 7 vs 698）。
+        const metadata = persistedCountsMeta.get(session.id);
+        const persistedMessageCount =
+          typeof metadata?.messageCount === 'number'
+            ? metadata.messageCount
+            : undefined;
+        const persistedRoundCount =
+          typeof metadata?.roundCount === 'number'
+            ? metadata.roundCount
+            : undefined;
+        const fallbackCounts = computeConversationCounts(visibleMessages);
+        return {
+          id: session.id,
+          title: session.title,
+          createdAt: session.createdAt,
+          updatedAt: session.updatedAt,
+          messageCount: persistedMessageCount ?? fallbackCounts.messageCount,
+          roundCount: persistedRoundCount ?? fallbackCounts.roundCount,
+          source: this.resolveSessionSource(session),
+          // 持久层权威；`presence` 缺失（已过滤）时不会走到这里
+          status: persistedStatus.get(session.id) ?? session.state,
+          metadata: session.metadata,
+        };
+      });
     // P2-2：记录空壳会话被过滤条数，便于排查"会话缺失"类问题（总数 vs 返回数对不上）
     if (filteredCount > 0) {
       logger.info('listSessions:过滤空壳会话', {

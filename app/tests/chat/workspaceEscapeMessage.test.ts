@@ -7,7 +7,28 @@
  */
 import { describe, expect, it } from 'bun:test';
 
-import { formatWorkspaceEscapeError } from '../../src/chat/services/ToolExecutionService';
+import {
+  formatWorkspaceEscapeError,
+  formatWorkspaceInvalidError,
+} from '../../src/chat/services/ToolExecutionService';
+
+describe('P0-1（2026-11-05）：工作区失效文案', () => {
+  it('列出失效根并要求重新定位；不得再建议「改用该根下的相对路径」', () => {
+    const dead =
+      'E:\\PY\\Documents\\CODES\\worktrees\\alwayson-proj_x-1793846360099';
+    const text = formatWorkspaceInvalidError({ roots: [dead] });
+    expect(text).toContain('会话工作区已失效');
+    expect(text).toContain(dead);
+    expect(text).toContain('重新定位项目工作区');
+    expect(text).not.toContain('请改用该根下的相对路径');
+  });
+
+  it('多根时逐个列出', () => {
+    const text = formatWorkspaceInvalidError({ roots: ['C:\\a', 'C:\\b'] });
+    expect(text).toContain('C:\\a');
+    expect(text).toContain('C:\\b');
+  });
+});
 
 describe('越界错误文案（FIX-10）', () => {
   it('必须给出可访问根与越界参数', () => {

@@ -20,6 +20,8 @@
 // SOFTWARE.
 
 import type http from 'http';
+import { statSync } from 'node:fs';
+import { isAbsolute, resolve } from 'node:path';
 
 // ========== 输入解析辅助（P2-23 修复） ==========
 
@@ -41,6 +43,32 @@ export function tryParseJson(body: string): Record<string, unknown> | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * P0-1（2026-11-05）：会话工作区**重新定位**的入参校验（绝对路径 + 已存在目录）。
+ *
+ * 为什么不自动建目录：路径写错时静默 `mkdir` 会造出空目录 ⇒ 用户以为修好了、产物却不在
+ * （与项目 relocate `project-handlers` 同一口径）。
+ *
+ * @returns `ok: true` 时 `path` 为 `resolve` 规范化后的绝对路径；`ok: false` ⇒ 调用方回 400
+ */
+export function validateWorkspacePathInput(
+  raw: unknown
+): { ok: true; path: string } | { ok: false; error: string } {
+  if (typeof raw !== 'string' || !raw.trim()) {
+    return { ok: false, error: 'workspace_path must be a non-empty string' };
+  }
+  if (!isAbsolute(raw.trim())) {
+    return { ok: false, error: 'workspace_path must be an absolute path' };
+  }
+  const resolved = resolve(raw.trim());
+  try {
+    if (statSync(resolved).isDirectory()) return { ok: true, path: resolved };
+  } catch {
+    /* @ignore-catch — 不存在 / 无权限一律按「不是可用目录」回 400（下方统一返回） */
+  }
+  return { ok: false, error: 'workspace_path must be an existing directory' };
 }
 
 /** 统一 400 Bad Request 响应 */

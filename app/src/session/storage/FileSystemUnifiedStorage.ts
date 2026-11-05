@@ -32,6 +32,8 @@ import {
   segmentFileName,
 } from './messageSegments.js';
 import { handleError } from '@openliri/infra/error';
+// P1-5（2026-11-05）：用户面计数口径（单一事实源在 infra；与运行时读接口共用）
+import { computeConversationCounts } from '@openliri/infra/utils/sessionCounts';
 
 import { getLogger } from '@openliri/infra/monitoring';
 import { enterPhase, exitPhase } from '@openliri/infra/diagnostics';
@@ -436,6 +438,9 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
       this.messages.set(sessionId, [...msgMap.values()]);
       // H6：loadMessages 校准消息计数（去重后真实条数）
       this.messageCounts.set(sessionId, msgMap.size);
+      // P1-5：读取即校准用户面计数 —— 存量会话（升级前无 `metadata.messageCount`）在首次
+      // 打开时自动补齐并落盘，此后列表直接读元数据即可。
+      await this.syncConversationCounts(sessionId);
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;
       // 仅文件不存在/IO 失败等整体异常才置空（与旧行为一致）
@@ -569,6 +574,47 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     const dir = sessionDir(root, session.id);
     await fs.mkdir(dir, { recursive: true });
     await this.writer.writeJSON(sessionFilePath(root, session.id), session);
+  }
+
+  /**
+   * P1-5（2026-11-05）：把**用户面计数**写进 `metadata.messageCount` / `metadata.roundCount`。
+   *
+   * 为什么在存储层维护：列表接口不能为几十个会话逐个解析 `messages.jsonl`（会拖慢 30s 轮询），
+   * 而 `chatSessions[].messages` 对未打开/已卸载会话只是**切片**（真机：详情 698 条 vs 列表 7 条）。
+   * 存储层是消息的唯一写入口 ⇒ 在这里增量维护并落盘，列表零额外 IO 且跨重启准确（R08-001）。
+   *
+   * 口径由 infra `computeConversationCounts` 单点定义（user + assistant，排除 tool 与任务分区消息）；
+   * 仅在计数变化时落盘（同一条消息的多次 `updateMessage` 不产生元数据写放大）。
+   */
+  private async syncConversationCounts(sessionId: string): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    const messages = this.messages.get(sessionId);
+    if (!session || !messages) return;
+    const { messageCount, roundCount } = computeConversationCounts(messages);
+    const metadata = session.metadata as Record<string, unknown> | undefined;
+    if (
+      metadata?.messageCount === messageCount &&
+      metadata?.roundCount === roundCount
+    ) {
+      return;
+    }
+    session.metadata = {
+      ...session.metadata,
+      messageCount,
+      roundCount,
+    };
+    this.sessions.set(sessionId, session);
+    try {
+      await this.persistSession(session);
+    } catch (err) {
+      /* @ignore-catch — 计数只是列表投影，落盘失败不阻断消息写/读（下次写或读会再校准） */
+      logger.warn('会话计数落盘失败（非致命，稍后自动校准）', {
+        sessionId,
+        messageCount,
+        roundCount,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
 
   private async persistMessageAppend(
@@ -1054,6 +1100,8 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
         return;
       }
       await this.persistMessageAppend(sessionId, message);
+      // P1-5：写后同步用户面计数（仅在变化时落盘 session.json）
+      await this.syncConversationCounts(sessionId);
     });
   }
 
@@ -1137,6 +1185,8 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
           // loadMessages 已反向去重（后写覆盖），同 id 多行读取安全。
           const writeStart = Date.now();
           await this.persistMessageAppend(sessionId, msgs[idx]);
+          // P1-5：角色/内容变更可能改变计数（如 role 校正）⇒ 同步一次
+          await this.syncConversationCounts(sessionId);
           const writeElapsedMs = Date.now() - writeStart;
           // 定期 compact（第 6/7 条改造）：追加次数或累计体积达阈值即触发，异步化——
           // fire-and-forget 入写队列后台重写（enqueueCompact），不再阻塞 updateMessage。
@@ -1207,6 +1257,8 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
       // H6：删除后按内存实况校准计数
       this.messageCounts.set(sessionId, filtered.length);
       await this.persistMessagesRewrite(sessionId, filtered);
+      // P1-5：删除后同步用户面计数
+      await this.syncConversationCounts(sessionId);
     });
   }
 
@@ -1286,6 +1338,8 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
       const dir = sessionDir(root, sessionId);
       await fs.mkdir(dir, { recursive: true });
       await this.writer.append(messagesFilePath(root, sessionId), data);
+      // P1-5：批量追加后同步用户面计数
+      await this.syncConversationCounts(sessionId);
     });
   }
 
@@ -1301,6 +1355,8 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
       // H6：批量删除后按内存实况校准计数
       this.messageCounts.set(sessionId, filtered.length);
       await this.persistMessagesRewrite(sessionId, filtered);
+      // P1-5：删除后同步用户面计数
+      await this.syncConversationCounts(sessionId);
     });
   }
 

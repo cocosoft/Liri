@@ -42,6 +42,7 @@ import {
   sendBadRequest,
   sendNotFound,
   normalizeTimestamp,
+  validateWorkspacePathInput,
 } from './session-handlers-utils';
 import { LOCAL_REQUEST_BASE_URL, LOCAL_SERVICE_HOST } from '@openliri/kernel';
 // P1（2026-11-04）：会话级权限模式（UI 第三层）的 9 档取值域（唯一真源在 infra）
@@ -464,10 +465,14 @@ export async function handleGetSessionMessages(
     const beforeParam = url.searchParams.get('before');
     // #27（2026-10-30）：可见条目预算（非 tool 消息条数）—— 工具记录不占首屏预算
     const maxVisibleParam = url.searchParams.get('maxVisible');
+    // P0-4（2026-11-05）：任务分区（PDCA 步骤消息）默认不返回；审计视图显式 `?includeTask=1`
+    const includeTaskParam = url.searchParams.get('includeTask');
     const result = await coreAPI.getSessionMessages(sessionId, {
       limit: limitParam ? parseInt(limitParam, 10) : undefined,
       before: beforeParam ? parseInt(beforeParam, 10) : undefined,
       maxVisible: maxVisibleParam ? parseInt(maxVisibleParam, 10) : undefined,
+      includeTaskMessages:
+        includeTaskParam === '1' || includeTaskParam === 'true',
     });
     // Fix1（2026-09-05）：读路径统一按 toolCallId 去重（与前端/写路径同策略）——
     // 历史双写或 SSE 重复发送导致的同 call 重复块不再外溢到接口（实测 189 块 → 186 唯一）。
@@ -1233,6 +1238,18 @@ export async function handleUpdateSessionMeta(
       return;
     }
 
+    // P0-1（2026-11-05）：会话工作区**重新定位**（工作区被删后的一键恢复入口）。
+    // 边界校验 fail loud（同 work_mode / tool_profile 口径）：只接受绝对路径 + 已存在目录。
+    let nextWorkspacePath: string | undefined;
+    if (data.workspace_path !== undefined) {
+      const checked = validateWorkspacePathInput(data.workspace_path);
+      if (!checked.ok) {
+        sendBadRequest(res, checked.error);
+        return;
+      }
+      nextWorkspacePath = checked.path;
+    }
+
     await coreAPI.updateSessionMeta(sessionId, {
       model: data.model as string | undefined,
       workspaceId: data.workspace_id as string | undefined,
@@ -1246,6 +1263,7 @@ export async function handleUpdateSessionMeta(
         rawPermissionMode === null
           ? null
           : (rawPermissionMode as PermissionMode | undefined),
+      workspacePath: nextWorkspacePath,
     });
 
     res.writeHead(200, { 'Content-Type': 'application/json' });

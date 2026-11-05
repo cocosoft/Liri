@@ -19,6 +19,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+import { statSync } from 'node:fs';
+
 /**
  * 会话**工作区根列表**的合并口径（纯函数，唯一实现）。
  *
@@ -52,4 +54,64 @@ export function mergeWorkspaceRoots(
   push(primary);
   if (Array.isArray(extra)) for (const root of extra) push(root);
   return roots;
+}
+
+/**
+ * 目录是否可用（存在且是目录）。
+ *
+ * P0-1（2026-11-05）：由 `chat/services/toolCwdScope` **下沉**到此 —— 会话面（`GET /v1/sessions/:id`
+ * 的工作区状态）与工具面（spawn 前 cwd 判定）必须同一判据，各写一份必然漂移（CS01）。
+ *
+ * 为什么必须判：spawn 类工具以 `options.cwd` 启动子进程，目录不存在时 `exec` 抛
+ * `ENOENT … uv_spawn 'cmd.exe'`（把"cwd 无效"误报成"可执行文件缺失"）。
+ */
+export function isUsableDirectory(dir: string): boolean {
+  try {
+    return statSync(dir).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/** 会话工作区状态（P0-1，2026-11-05） */
+export type WorkspaceStatusState =
+  /** 会话没有绑定任何工作区（未配置，不是错误） */
+  | 'unbound'
+  /** 全部根可用 */
+  | 'ok'
+  /** 部分根已失效（多根场景：用户批准追加过的根被删） */
+  | 'partial'
+  /** 全部根已失效（典型：worktree 被清理后会话仍钉在旧根） */
+  | 'invalid';
+
+export interface WorkspaceStatus {
+  state: WorkspaceStatusState;
+  /** 会话当前的工作区根（首根 = 主工作区） */
+  roots: string[];
+  /** 已失效的根（`state` 为 `partial` / `invalid` 时非空） */
+  missingRoots: string[];
+}
+
+/**
+ * 计算会话工作区状态（纯逻辑 + 可注入判据，便于测试）。
+ *
+ * 真机背景（2026-11-05）：worktree 被删后，会话的 `metadata.workspacePath` 仍指向死目录，
+ * 表现为首次工具调用才报「路径越界 / ENOENT」。会话面提前给出状态，可在**发消息前**
+ * 告诉用户"工作区已失效"，而不是等工具连续失败。
+ */
+export function computeWorkspaceStatus(
+  roots: readonly string[],
+  isUsable: (dir: string) => boolean = isUsableDirectory
+): WorkspaceStatus {
+  if (roots.length === 0) {
+    return { state: 'unbound', roots: [], missingRoots: [] };
+  }
+  const missingRoots = roots.filter((root) => !isUsable(root));
+  const state: WorkspaceStatusState =
+    missingRoots.length === 0
+      ? 'ok'
+      : missingRoots.length === roots.length
+        ? 'invalid'
+        : 'partial';
+  return { state, roots: [...roots], missingRoots };
 }

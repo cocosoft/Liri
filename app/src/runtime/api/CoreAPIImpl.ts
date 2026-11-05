@@ -1648,7 +1648,7 @@ export class CoreAPIImpl implements CoreAPI {
 
   async getSessionMessages(
     sessionId: string,
-    query?: { limit?: number; before?: number; maxVisible?: number }
+    query?: Parameters<CoreAPI['getSessionMessages']>[1]
   ): Promise<{
     messages: Array<{
       id: string;

@@ -69,6 +69,8 @@ import {
 import { getRequestPrincipal } from '@openliri/kernel/identity/requestScope';
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
+// P0-4（2026-11-05）：任务分区消息（PDCA 步骤）默认不进用户面读取
+import { filterTaskPartitionMessages } from './messagePartition';
 
 const logger = getLogger('runtime:api:CoreAPIImpl');
 
@@ -163,7 +165,13 @@ export class SessionMessagesRead {
 
   async getSessionMessages(
     sessionId: string,
-    query?: { limit?: number; before?: number; maxVisible?: number }
+    query?: {
+      limit?: number;
+      before?: number;
+      maxVisible?: number;
+      /** P0-4：`true` = 审计视图（含 PDCA 步骤消息）；缺省只返回用户面消息 */
+      includeTaskMessages?: boolean;
+    }
   ): Promise<{
     messages: Array<{
       id: string;
@@ -354,20 +362,36 @@ export class SessionMessagesRead {
    * 不传 limit 的全量响应**保持原样**（不改动其他消费者可见字段）。
    */
   private _paginateMessages<
-    T extends { lastEventSeq?: number; timestamp?: number; role?: string },
+    T extends {
+      lastEventSeq?: number;
+      timestamp?: number;
+      role?: string;
+      metadata?: Record<string, unknown> | null;
+    },
   >(
     messages: T[],
-    query?: { limit?: number; before?: number; maxVisible?: number }
+    query?: {
+      limit?: number;
+      before?: number;
+      maxVisible?: number;
+      includeTaskMessages?: boolean;
+    }
   ): { messages: T[]; hasMore: boolean } {
+    // P0-4（2026-11-05）：**任务分区过滤**放在分页之前 —— 分页预算只算用户面消息，
+    // 否则 PDCA 步骤消息会挤占 `limit` / `maxVisible` 名额，导致"翻页后仍然看不到历史"。
+    const visible = filterTaskPartitionMessages(
+      messages,
+      query?.includeTaskMessages
+    );
     const limit = query?.limit;
     const maxVisible = query?.maxVisible;
     if (
       (limit == null || limit <= 0) &&
       (maxVisible == null || maxVisible <= 0)
     ) {
-      return { messages, hasMore: false };
+      return { messages: visible, hasMore: false };
     }
-    const normalized = withPaginationSeq(messages);
+    const normalized = withPaginationSeq(visible);
     const key = (m: T): number => m.lastEventSeq ?? m.timestamp ?? 0;
     let filtered = normalized;
     if (query?.before != null) {

@@ -38,6 +38,8 @@ import type { RequestPriority } from '@modules/types/requestPriority';
 import type { ToolCallStatus } from '@openliri/service/execution';
 // P1（2026-11-04）：会话级权限模式（UI 第三层写入）的取值域
 import type { PermissionMode } from '@openliri/infra/permission';
+// P0-1（2026-11-05）：会话工作区状态（详情接口读时派生）
+import type { WorkspaceStatus } from '@openliri/infra/utils/toolContract/workspaceRoots';
 // P2-7 / G4（2026-09-25）：派生一致性校验结果
 import type { DerivationDiff } from '@modules/session';
 // C1 站点 7（2026-09-30 D-90）：第三方技能适配器**服务层端口**（见同目录 thirdPartySkillPorts.ts）
@@ -406,6 +408,17 @@ export interface SessionInfo {
    */
   status?: string;
   metadata?: Record<string, unknown>;
+  /**
+   * P0-1（2026-11-05）：会话工作区状态（**读时派生**，不落库）。
+   *
+   * 真机背景：worktree 被清理后，会话仍钉在旧根（`metadata.workspacePath` 指向死目录），
+   * 此前只有**首次工具调用**才报「路径越界 / ENOENT」。此处提前给出状态，前端可在发消息前
+   * 提示「工作区已失效」并引导用户重新定位，而不是等工具连续失败。
+   *
+   * `unbound` = 未绑定工作区（不是错误）；`invalid` = 全部根已失效；`partial` = 多根场景部分失效。
+   * 仅在**详情接口**返回：列表接口逐会话 stat 会拖慢 30s 轮询。
+   */
+  workspaceStatus?: WorkspaceStatus;
 }
 
 /** 会话创建参数 */
@@ -761,7 +774,13 @@ export interface CoreAPI {
    */
   getSessionMessages(
     sessionId: string,
-    query?: { limit?: number; before?: number; maxVisible?: number }
+    query?: {
+      limit?: number;
+      before?: number;
+      maxVisible?: number;
+      /** P0-4：`true` = 审计视图（含 PDCA 步骤消息）；缺省只返回用户面消息 */
+      includeTaskMessages?: boolean;
+    }
   ): Promise<{
     messages: Array<{
       id: string;

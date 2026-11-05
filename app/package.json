@@ -285,5 +285,8 @@
   },
   "engines": {
     "bun": ">=1.0.0"
+  },
+  "patchedDependencies": {
+    "dingtalk-stream@2.1.5": "patches/dingtalk-stream@2.1.5.patch"
   }
 }

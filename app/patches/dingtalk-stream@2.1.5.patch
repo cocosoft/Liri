@@ -1,0 +1,64 @@
+diff --git a/dist/client.mjs b/dist/client.mjs
+index 238d9c5de3afa0e8f0851693804ce6637e8147be..4adfd4a93b5a271de94962b00cefa451992cd040 100644
+--- a/dist/client.mjs
++++ b/dist/client.mjs
+@@ -143,8 +143,11 @@ class DWClient extends EventEmitter {
+         console.info("[" + (/* @__PURE__ */ new Date()).toISOString() + "] connect success");
+         if (this.config.keepAlive) {
+           this.isAlive = true;
++          // 每次（重）连前先清掉上一个心跳定时器：close/error 自动重连不会清理它，
++          // 否则 interval 会随重连次数累积，互相把新 socket 判死并触发更多重连。
++          this.clearHeartbeat();
+           this.heartbeatIntervallId = setInterval(() => {
+-            var _a, _b;
++            var _a;
+             if (this.isAlive === false) {
+               console.error(
+                 "TERMINATE SOCKET: Ping Pong does not transfer heartbeat within heartbeat intervall"
+@@ -152,7 +155,12 @@ class DWClient extends EventEmitter {
+               return (_a = this.socket) == null ? void 0 : _a.terminate();
+             }
+             this.isAlive = false;
+-            (_b = this.socket) == null ? void 0 : _b.ping("", true);
++            // 心跳守卫：重连重叠时 this.socket 可能已换成尚在 CONNECTING 的新连接，
++            // 此时 ping() 会同步抛 'WebSocket is not open'，在定时器回调里无人捕获 ⇒ 进程退出。
++            const socket = this.socket;
++            if (socket != null && socket.readyState === WebSocket.OPEN) {
++              socket.ping("", true);
++            }
+           }, this.heartbeat_interval);
+         }
+         resolve();
+@@ -165,6 +173,7 @@ class DWClient extends EventEmitter {
+       });
+       this.socket.on("close", (err) => {
+         this.printDebug("Socket closed");
++        this.clearHeartbeat();
+         this.connected = false;
+         this.registered = false;
+         if (this.config.autoReconnect && !this.userDisconnect) {
+@@ -179,6 +188,7 @@ class DWClient extends EventEmitter {
+         var _a;
+         this.printDebug("SOCKET ERROR");
+         console.warn("ERROR", err);
++        this.clearHeartbeat();
+         (_a = this.socket) == null ? void 0 : _a.terminate();
+         reject(err);
+       });
+@@ -201,10 +211,14 @@ class DWClient extends EventEmitter {
+     var _a;
+     console.info("Disconnecting.");
+     this.userDisconnect = true;
+-    if (this.config.keepAlive && this.heartbeatIntervallId !== void 0) {
++    this.clearHeartbeat();
++    (_a = this.socket) == null ? void 0 : _a.close();
++  }
++  clearHeartbeat() {
++    if (this.heartbeatIntervallId !== void 0) {
+       clearInterval(this.heartbeatIntervallId);
++      this.heartbeatIntervallId = void 0;
+     }
+-    (_a = this.socket) == null ? void 0 : _a.close();
+   }
+   heartbeat() {
+     this.isAlive = true;

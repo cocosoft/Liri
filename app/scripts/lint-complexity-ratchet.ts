@@ -37,7 +37,12 @@ const SRC_GLOB = 'src/**/*.ts';
  * 不需要 type-aware project。不纳入即静默失明：迁包后这些函数整块脱离棘轮，
  * 而棘轮只报"下降"、不会报红（等于把假绿换个位置）。
  */
-const PKG_GLOBS = ['packages/kernel/src/**/*.ts', 'packages/infra/src/**/*.ts'];
+// P33-a（2026-11-05）：service 物理包并入（同 P4 理由：迁出 ≠ 免检）
+const PKG_GLOBS = [
+  'packages/kernel/src/**/*.ts',
+  'packages/infra/src/**/*.ts',
+  'packages/service/src/**/*.ts',
+];
 
 interface Baseline {
   version: number;

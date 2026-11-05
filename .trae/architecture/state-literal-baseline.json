@@ -121,7 +121,8 @@
       "app/src/tools/ImageGenerateTool/ImageGenerationRouter.ts",
       "app/src/workspace/BottleneckAnalyzer.ts",
       "packages/infra/src/security/CompleteSecuritySystem.ts",
-      "packages/infra/src/security/IOAuditor.ts"
+      "packages/infra/src/security/IOAuditor.ts",
+      "packages/service/src/services/policyLimits/LimitEnforcer.ts"
     ],
     "budget_limited": [
       "app/src/runtime/api/taskOpsPorts.ts",
@@ -133,6 +134,10 @@
       "app/src/agent/models/types.ts",
       "app/src/channels/routing/messageRouter.ts",
       "app/src/ink/ink/hooks/use-tab-status.ts"
+    ],
+    "CANCEL_REQUESTED": [
+      "packages/service/src/execution/ExecutionManager.ts",
+      "packages/service/src/execution/ExecutionStore.ts"
     ],
     "cancelled": [
       "app/src/acp/AcpWebSocketServer.ts",
@@ -185,12 +190,14 @@
       "packages/infra/src/chronos/service/CronTaskStore.ts",
       "packages/infra/src/config/enterprise/audit/ApprovalWorkflow.ts",
       "packages/infra/src/config/enterprise/audit/ExecApprovalManager.ts",
-      "packages/kernel/src/core/events/UiEvents.ts"
+      "packages/kernel/src/core/events/UiEvents.ts",
+      "packages/service/src/streaming/types.ts"
     ],
     "CANCELLED": [
       "app/src/tools/sidecar/lspSidecar.ts",
       "app/src/tools/sidecar/mediaCapabilities.ts",
-      "app/src/tools/sidecar/mediaSidecar.ts"
+      "app/src/tools/sidecar/mediaSidecar.ts",
+      "packages/service/src/execution/ExecutionManager.ts"
     ],
     "completed": [
       "app/src/agent/AgentTelemetry.ts",
@@ -382,11 +389,13 @@
       "packages/infra/src/utils/toolContract/ToolProgress.ts",
       "packages/kernel/src/core/data-models.ts",
       "packages/kernel/src/core/events/UiEvents.ts",
-      "packages/kernel/src/core/spi/TaskRegistryService.ts"
+      "packages/kernel/src/core/spi/TaskRegistryService.ts",
+      "packages/service/src/streaming/types.ts"
     ],
     "COMPLETED": [
       "app/src/ai/providers/FALProvider.ts",
-      "app/src/ai/providers/OpenAIProvider.ts"
+      "app/src/ai/providers/OpenAIProvider.ts",
+      "packages/service/src/execution/ExecutionManager.ts"
     ],
     "error": [
       "app/src/acp/AcpWebSocketServer.ts",
@@ -831,7 +840,31 @@
       "packages/kernel/src/core/SessionSpanTracer.ts",
       "packages/kernel/src/core/spi/LoggerService.ts",
       "packages/kernel/src/core/utils/ErrorHandler.ts",
-      "packages/kernel/src/core/utils/Performance.ts"
+      "packages/kernel/src/core/utils/Performance.ts",
+      "packages/service/src/services/file/fileNaming.ts",
+      "packages/service/src/services/mcp/marketplace/adapters/GitHubRegistryAdapter.ts",
+      "packages/service/src/services/mcp/marketplace/adapters/NPMRegistryAdapter.ts",
+      "packages/service/src/services/mcp/marketplace/adapters/SmitheryRegistryAdapter.ts",
+      "packages/service/src/services/mcp/MCPConnection.ts",
+      "packages/service/src/services/mcp/transports/SSETransport.ts",
+      "packages/service/src/services/mcp/types/index.ts",
+      "packages/service/src/services/prompt/PromptValidator.ts",
+      "packages/service/src/services/teamMemorySync/Watcher.ts",
+      "packages/service/src/services/toolResultStorage/ContentReplacementStore.ts",
+      "packages/service/src/services/voice/models/types.ts",
+      "packages/service/src/services/voice/preventSleep.ts",
+      "packages/service/src/services/voice/services/audioNormalizer.ts",
+      "packages/service/src/services/voice/services/audioPlayer.ts",
+      "packages/service/src/services/voice/services/cloudSTTProvider.ts",
+      "packages/service/src/services/voice/services/commandTTSProvider.ts",
+      "packages/service/src/services/voice/services/edgeTTSTransport.ts",
+      "packages/service/src/services/voice/services/localSTTProvider.ts",
+      "packages/service/src/services/voice/services/openAITTSProvider.ts",
+      "packages/service/src/services/voice/services/piperTTSProvider.ts",
+      "packages/service/src/services/voice/services/recordingDetector.ts",
+      "packages/service/src/services/voice/services/senseVoiceSTTProvider.ts",
+      "packages/service/src/services/voice/services/streamSTTProvider.ts",
+      "packages/service/src/streaming/types.ts"
     ],
     "failed": [
       "app/src/agent/events/OrchestrationEvents.ts",
@@ -1018,12 +1051,17 @@
       "packages/infra/src/utils/toolContract/ToolProgress.ts",
       "packages/kernel/src/core/events/OrchestrationMetrics.ts",
       "packages/kernel/src/core/events/UiEvents.ts",
-      "packages/kernel/src/core/spi/TaskRegistryService.ts"
+      "packages/kernel/src/core/spi/TaskRegistryService.ts",
+      "packages/service/src/services/mcp/client.ts",
+      "packages/service/src/services/mcp/MCPConnectionManager.ts",
+      "packages/service/src/services/mcp/types/index.ts",
+      "packages/service/src/services/notifier.ts"
     ],
     "FAILED": [
       "app/src/ai/providers/FALProvider.ts",
       "app/src/ai/providers/OpenAIProvider.ts",
-      "app/src/commands/builtin/plugins/Plugins.ts"
+      "app/src/commands/builtin/plugins/Plugins.ts",
+      "packages/service/src/execution/ExecutionManager.ts"
     ],
     "idle": [
       "app/src/agent/display/index.ts",
@@ -1113,7 +1151,9 @@
       "packages/infra/src/state/session/SessionStateMachine.ts",
       "packages/kernel/src/core/data-models.ts",
       "packages/kernel/src/core/events/UiEvents.ts",
-      "packages/kernel/src/core/ModuleBootstrapper.ts"
+      "packages/kernel/src/core/ModuleBootstrapper.ts",
+      "packages/service/src/services/voice/services/audioPlayer.ts",
+      "packages/service/src/streaming/types.ts"
     ],
     "installed": [
       "app/src/channels/wechat/cli-manager.ts",
@@ -1201,7 +1241,11 @@
       "packages/infra/src/security/bash/modeValidation.ts",
       "packages/infra/src/security/SecurityAudit.ts",
       "packages/infra/src/security/SecurityAuditLogger.ts",
-      "packages/kernel/src/core/sleep/SleepMonitor.ts"
+      "packages/kernel/src/core/sleep/SleepMonitor.ts",
+      "packages/service/src/services/BridgeChronosIntegration.ts",
+      "packages/service/src/services/voice/services/audioPlayer.ts",
+      "packages/service/src/streaming/backpressure.ts",
+      "packages/service/src/streaming/scrubbers/StreamingThinkScrubber.ts"
     ],
     "paused": [
       "app/src/agent/AgentCronToolkit.ts",
@@ -1234,7 +1278,10 @@
       "app/src/workspace/types.ts",
       "packages/infra/src/config/enterprise/sandbox/EnterpriseSandboxManager.ts",
       "packages/kernel/src/core/data-models.ts",
-      "packages/kernel/src/core/sleep/SleepMonitor.ts"
+      "packages/kernel/src/core/sleep/SleepMonitor.ts",
+      "packages/service/src/services/voice/services/audioPlayer.ts",
+      "packages/service/src/streaming/backpressure.ts",
+      "packages/service/src/streaming/types.ts"
     ],
     "pending": [
       "app/src/ai/local/llama/LlamaCppServerManager.ts",
@@ -1361,7 +1408,13 @@
       "packages/infra/src/trace-recording/types.ts",
       "packages/infra/src/trace-recording/viewer/ViewerService.ts",
       "packages/kernel/src/core/LazyModuleStrategy.ts",
-      "packages/kernel/src/core/spi/TaskRegistryService.ts"
+      "packages/kernel/src/core/spi/TaskRegistryService.ts",
+      "packages/service/src/services/mcp/MCPConnectionManager.ts",
+      "packages/service/src/services/mcp/types/index.ts",
+      "packages/service/src/streaming/scrubbers/StreamingToolCallScrubber.ts"
+    ],
+    "QUEUED": [
+      "packages/service/src/execution/ExecutionManager.ts"
     ],
     "RECEIVED": [
       "app/src/channels/dedup/index.ts"
@@ -1510,7 +1563,13 @@
       "app/src/query/budgetSuspend.ts",
       "app/src/query/toolJobSuspend.ts",
       "app/src/runtime/api/domainSnapshotOps.ts",
-      "packages/infra/src/state/engine/projectionBroker.ts"
+      "packages/infra/src/state/engine/projectionBroker.ts",
+      "packages/service/src/execution/ExecutionManager.ts",
+      "packages/service/src/execution/executionProjection.ts",
+      "packages/service/src/execution/ExecutionStore.ts"
+    ],
+    "STALE": [
+      "packages/service/src/execution/ExecutionManager.ts"
     ],
     "unknown": [
       "app/src/acp/AcpWebSocketServer.ts",
@@ -1744,7 +1803,29 @@
       "packages/kernel/src/core/errorHandler.ts",
       "packages/kernel/src/core/errors.ts",
       "packages/kernel/src/core/events/OrchestrationMetrics.ts",
-      "packages/kernel/src/core/health/types.ts"
+      "packages/kernel/src/core/health/types.ts",
+      "packages/service/src/mcp/MCPTool.ts",
+      "packages/service/src/services/api/logging.ts",
+      "packages/service/src/services/file/attachments.ts",
+      "packages/service/src/services/file/AttachmentSourceMigration.ts",
+      "packages/service/src/services/file/FileValidator.ts",
+      "packages/service/src/services/file/registerMediaFile.ts",
+      "packages/service/src/services/mcp/marketplace/adapters/GitHubRegistryAdapter.ts",
+      "packages/service/src/services/mcp/marketplace/adapters/NPMRegistryAdapter.ts",
+      "packages/service/src/services/mcp/marketplace/adapters/SmitheryRegistryAdapter.ts",
+      "packages/service/src/services/mcp/resourceManager.ts",
+      "packages/service/src/services/mcp/transports/ChildProcessTracker.ts",
+      "packages/service/src/services/prompt/PromptAssembler.ts",
+      "packages/service/src/services/voice/services/audioNormalizer.ts",
+      "packages/service/src/services/voice/services/environmentRuntimeDetector.ts",
+      "packages/service/src/services/voice/services/piperTTSProvider.ts",
+      "packages/service/src/services/voice/services/playbackManager.ts",
+      "packages/service/src/services/voice/services/voiceService.ts",
+      "packages/service/src/streaming/IncrementalRetry.ts",
+      "packages/service/src/streaming/StreamStateMachine.ts"
+    ],
+    "WAITING_USER": [
+      "packages/service/src/execution/ExecutionStore.ts"
     ]
   }
 }

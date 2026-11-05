@@ -3,12 +3,12 @@
   "version": 1,
   "recordedAt": "2026-10-10",
   "threshold": 100,
-  "countAtThreshold": 7,
+  "countAtThreshold": 6,
   "reference": {
     "40": 76,
     "60": 30,
     "80": 12,
-    "100": 7
+    "100": 6
   },
-  "note": "阈值 100 取自实测 P99=26 之上（台账 L-10）；最大离群 `runStreamMessage` 复杂度已由 309 降至 262（P2-1b…n 分批治理，见 function-size-baseline.json）—— 仍 ≥100，故 countAtThreshold 维持 7 不变。"
+  "note": "阈值 100 取自实测 P99=26 之上（台账 L-10）；最大离群 `runStreamMessage` 复杂度已由 309 降至 262（P2-1b…n 分批治理，见 function-size-baseline.json）—— 仍 ≥100。2026-11-05（P33-a）：`packages/service/src` 并入扫描面后实测 ≥100 为 6，基线由 7 下调锁定。"
 }

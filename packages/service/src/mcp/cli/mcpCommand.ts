@@ -13,7 +13,9 @@ import { handleError } from '@openliri/infra/error';
 // Q-18（2026-10-23）：派生口径抽到服务层共享（`mcp_auth` 工具与 CLI 同源）
 import { deriveOAuthConfig } from '@openliri/service/services/mcp/auth/deriveOAuthConfig';
 
-const logger = getLogger('mcpCommand');
+// P33-a（2026-11-05）：`packages/service/src` 纳入 logger 名门禁后暴露的历史非合规名，
+// 按「域:子域」规范更名（仅日志分类字符串，无路由依赖）
+const logger = getLogger('mcp:command');
 
 /**
  * 创建MCP CLI命令

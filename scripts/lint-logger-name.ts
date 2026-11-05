@@ -31,6 +31,8 @@ const SCAN_ROOTS = [
   resolve(repoRoot, 'packages/kernel/src'),
   // P4（2026-11-01）：infra 物理包并入同一扫描面（不纳入则包内 getLogger 名字失检）
   resolve(repoRoot, 'packages/infra/src'),
+  // P33-a（2026-11-05）：service 物理包同口径并入
+  resolve(repoRoot, 'packages/service/src'),
 ];
 const SKIP_DIRS = new Set(['node_modules', 'dist', '__tests__', 'tests']);
 const EXTS = new Set(['.ts', '.tsx']);

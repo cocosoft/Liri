@@ -113,6 +113,8 @@ async function main(): Promise<void> {
     join(rootDir, 'packages', 'kernel', 'src'),
     // P2（2026-11-01）：infra 物理包试点同样适用（迁出 ≠ 免检）
     join(rootDir, 'packages', 'infra', 'src'),
+    // P33-a（2026-11-05）：service 物理包同样适用
+    join(rootDir, 'packages', 'service', 'src'),
     join(rootDir, 'client', 'src'),
     join(rootDir, 'app', 'native'),
   ];

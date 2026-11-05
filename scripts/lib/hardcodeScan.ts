@@ -35,6 +35,8 @@ export const SCAN_DIRS = [
   join(PROJECT_ROOT, 'packages', 'kernel', 'src'),
   // P2（2026-11-01）：infra 物理包试点 —— 迁出的模块仍是生产代码，不纳入即静默失明
   join(PROJECT_ROOT, 'packages', 'infra', 'src'),
+  // P33-a（2026-11-05）：service 物理包同口径纳入
+  join(PROJECT_ROOT, 'packages', 'service', 'src'),
   join(PROJECT_ROOT, 'client', 'src'),
 ];
 

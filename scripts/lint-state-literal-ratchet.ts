@@ -47,6 +47,11 @@ const APP_SRC = resolve(repoRoot, 'app/src');
 const KERNEL_SRC = resolve(repoRoot, 'packages/kernel/src');
 /** 2026-11-01：infra 物理包（R6 同源）⇒ 未建包时跳过，建包后必须纳入，避免静默盲区 */
 const INFRA_PKG_SRC = resolve(repoRoot, 'packages/infra/src');
+/**
+ * 2026-11-05（P33-a）：service 物理包（R8 同源）同口径纳入。
+ * P29–P32 迁入的 203 个文件此前不在扫描面内 —— 边界由 R8 守着，但状态字面量维度是静默盲区。
+ */
+const SERVICE_PKG_SRC = resolve(repoRoot, 'packages/service/src');
 
 const SKIP_DIRS = new Set(['node_modules', 'dist', '__tests__', 'tests']);
 const EXTS = new Set(['.ts', '.tsx']);
@@ -55,9 +60,11 @@ const EXTS = new Set(['.ts', '.tsx']);
 function collectFiles(): ScannedFile[] {
   const files: ScannedFile[] = [];
   // 2026-11-01：`packages/infra/src` 建包后自动纳入（未建包时不存在 ⇒ 跳过，不报错）
-  const stack = existsSync(INFRA_PKG_SRC)
-    ? [APP_SRC, KERNEL_SRC, INFRA_PKG_SRC]
-    : [APP_SRC, KERNEL_SRC];
+  // 2026-11-05（P33-a）：`packages/service/src` 同口径纳入
+  const stack = [APP_SRC, KERNEL_SRC].filter((dir) => existsSync(dir));
+  for (const pkg of [INFRA_PKG_SRC, SERVICE_PKG_SRC]) {
+    if (existsSync(pkg)) stack.push(pkg);
+  }
   while (stack.length > 0) {
     const dir = stack.pop() as string;
     for (const entry of readdirSync(dir, { withFileTypes: true })) {

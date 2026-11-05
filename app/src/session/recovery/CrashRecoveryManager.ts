@@ -90,7 +90,17 @@ export class CrashRecoveryManager {
     const now = Date.now();
 
     for (const session of sessions) {
-      if (!this.isInterruptibleSession(session)) continue;
+      if (!this.isInterruptibleSession(session)) {
+        // P0-2（2026-11-05）：**空壳会话状态对账**。
+        // `isInterruptibleSession` 对「从未有活动」的 ACTIVE 空壳返回 false（本意：别把闲置
+        // 空壳批量转 paused/error），但这并不等于它可以长期对外呈现「运行中」——
+        // 实测 `session_mvzzaaux…`「对话 1」0 消息 0 轮，跨 daemon 重启仍是 active。
+        // 这里只纠正状态（不写 `crashRecovery` 元数据、不广播），与崩溃恢复口径区分。
+        if (await this.reconcileEmptyActive(session)) {
+          result.skippedSessions++;
+        }
+        continue;
+      }
 
       result.totalChecked++;
       const detail = await this.processSession(session, now);
@@ -176,6 +186,27 @@ export class CrashRecoveryManager {
       logger.info('会话已标记优雅关闭（下次启动跳过崩溃恢复）', { marked });
     }
     return marked;
+  }
+
+  /**
+   * P0-2（2026-11-05）：空壳会话状态对账（ACTIVE 且从未有活动 ⇒ PAUSED）。
+   *
+   * 与崩溃恢复的区别：这类会话**不是被中断**，只是创建后从未被使用；
+   * 因此不写 `crashRecovery` 元数据、不发 `session:paused` 广播。
+   * 直写 storage（不经 SessionGateway.updateSession）以免 bump `lastActivityAt`。
+   */
+  private async reconcileEmptyActive(
+    session: UnifiedSession
+  ): Promise<boolean> {
+    if (session.status !== SessionStatus.ACTIVE) return false;
+    if (session.lastActivityAt > session.createdAt) return false;
+    session.status = SessionStatus.PAUSED;
+    session.metadata = { ...session.metadata, statusReconcile: 'empty_active' };
+    await this.storage.updateSession(session);
+    logger.info('空壳会话状态对账：ACTIVE → PAUSED（从未有活动）', {
+      sessionId: session.id,
+    });
+    return true;
   }
 
   private async processSession(

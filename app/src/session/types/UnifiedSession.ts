@@ -39,6 +39,15 @@ export interface SessionMetadata {
   /** P2-7（2026-09-18）：总消息数（崩溃恢复时重算并回写，列表统计口径） */
   totalMessages?: number;
   /**
+   * P1-5（2026-11-05）：**用户面消息数**（user + assistant；不含 tool/system 与任务分区消息）。
+   *
+   * 由存储层在写消息/删消息时维护并落盘（`FileSystemUnifiedStorage.syncConversationCounts`），
+   * 列表接口直接读取 ⇒ 不必为每个会话解析 messages.jsonl，也不受内存切片影响。
+   */
+  messageCount?: number;
+  /** P1-5（2026-11-05）：**对话轮次**（user 消息数；口径同上） */
+  roundCount?: number;
+  /**
    * N-50（2026-09-20）：已删除轮次的事件 seq 墓碑（闭区间；`endSeq: null` = 到会话末尾）。
    * 助手/工具消息由事件派生，仅删投影不足以移除它们；事件日志不可重写（会留 seq 空洞），
    * 故读取时按派生消息的 `lastEventSeq` 过滤。写入方：`CoreAPIImpl.deleteMessage`。
@@ -65,6 +74,12 @@ export interface SessionMetadata {
   seedLength?: number;
   sessionType?: SessionType;
   crashRecovery?: string;
+  /**
+   * P0-2（2026-11-05）：启动期状态对账标记（例：`empty_active` = ACTIVE 空壳被纠正为 PAUSED）。
+   *
+   * 与 `crashRecovery` 区分：对账**不是崩溃中断**，故不写 `crashRecovery`。
+   */
+  statusReconcile?: string;
   crashedAt?: string;
   lastActivityBeforeCrash?: string;
   resumedAt?: string;

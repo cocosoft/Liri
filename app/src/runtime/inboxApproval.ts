@@ -31,6 +31,11 @@ import {
   type ApprovalSnapshot,
 } from '@openliri/infra/permission';
 
+import {
+  APPROVAL_RESUME_IDLE_POLL_MS,
+  APPROVAL_RESUME_IDLE_WAIT_MS,
+} from './defaults.js';
+
 const logger = getLogger('runtime:inboxApproval');
 
 /** 审批解析结局（HTTP 层据此映射状态码/响应体） */
@@ -434,7 +439,14 @@ async function applyWorkspaceScopeApproval(
     }
 
     logger.info('工作区根已追加（越界申请获批）', { sessionId, root });
-    await triggerResumeAfterApproval(sessionId);
+    // P0-3：续跑可能需等待原回合结束（有界 120s），不得拖住审批的 HTTP 响应 ⇒
+    // 与工具审批路径同口径 fire-and-forget，完成后由 `session:continued` 广播驱动前端刷新。
+    void triggerResumeAfterApproval(sessionId).catch((resumeErr: unknown) => {
+      logger.warn('工作区加根后自动续跑失败', {
+        sessionId,
+        error: String(resumeErr),
+      });
+    });
   } catch (error) {
     // 加根失败不应影响审批结果本身：如实记录，用户可重发（此时仍会被拒）
     logger.warn('工作区根追加失败（不影响审批结果）', {
@@ -496,6 +508,40 @@ async function resumePdcaIfApplicable(
 }
 
 /**
+ * P0-3（2026-11-05，`dev_docs/20261105/运行时问题清单`）：审批续跑的**在飞串行化**。
+ *
+ * 实证（旧 daemon 日志）：`13:20:50` 审批已批准 → `13:21:19` 原回合仍在写文件
+ * （`reactToolLoop:file_write_loop_detected`）→ `13:21:20` 记录
+ * 「审批后自动续跑失败」/ `SimpleMutex: acquire timeout after 30000ms`。
+ * 原因是 `resumeStream` 直接 `mutex.acquire()`，与会话级互斥正面相撞：
+ * 等满 30s 后只留一条 warn，用户侧表现为「批了但没继续」。
+ *
+ * 处置：起续跑流前先**等原回合结束**（有界轮询 `isSessionStreaming`）；超过上界则
+ * 明确延后并记录原因（放行缓存已写入，后续回合/前端兜底可继续），
+ * 不再把互斥超时伪装成「续跑失败」。
+ *
+ * 上界取 120s（≈4× 会话互斥的 30s）：实测事故里原回合在批准后约 29s 才结束，
+ * 若与互斥同额（30s）仍会踩线；120s 覆盖常见长回合，超界则如实延后而非空等。
+ *
+ * 等待会话流结束（返回是否已空闲）；`isStreaming` 与 `now` 均可注入，便于回归。
+ */
+export async function waitForSessionIdle(
+  isStreaming: (sessionId: string) => boolean,
+  sessionId: string,
+  waitMs: number = APPROVAL_RESUME_IDLE_WAIT_MS,
+  now: () => number = Date.now
+): Promise<boolean> {
+  const deadline = now() + waitMs;
+  while (isStreaming(sessionId)) {
+    if (now() >= deadline) return false;
+    await new Promise((resolve) =>
+      setTimeout(resolve, APPROVAL_RESUME_IDLE_POLL_MS)
+    );
+  }
+  return true;
+}
+
+/**
  * 批准后后端直接触发会话续跑（复用 checkpoint/resume 机制）
  *
  * 不依赖前端发消息触发 LLM 自发重发：`resumeStream` 会重放 pendingApproval 工具
@@ -509,6 +555,19 @@ async function triggerResumeAfterApproval(sessionId: string): Promise<void> {
     const chatManager = getCoreAPI().chatManager;
     if (!chatManager || typeof chatManager.resumeStream !== 'function') {
       logger.warn('审批后自动续跑跳过：ChatManager 不可用', { sessionId });
+      return;
+    }
+
+    // P0-3 在飞守卫：原回合仍在运行时先等它结束，避免与会话互斥正面相撞。
+    const idle = await waitForSessionIdle(
+      (sid) => chatManager.isSessionStreaming(sid),
+      sessionId
+    );
+    if (!idle) {
+      logger.info('审批后自动续跑延后：原回合仍在运行（放行缓存已生效）', {
+        sessionId,
+        waitedMs: APPROVAL_RESUME_IDLE_WAIT_MS,
+      });
       return;
     }
 

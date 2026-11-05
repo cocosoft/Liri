@@ -1177,8 +1177,9 @@ const enBase = {
         "Your message has been saved. You can resend it to continue (generation restarts from the current progress).",
       actionOutboxed:
         "Your message is stored locally and will be resent automatically once the network recovers — no need to resend it.",
+      // P1-6: the pause can also be caused by an unreachable model service, not only a lost backend
       pausedWaiting:
-        "The backend connection was lost. The reply is paused and will resume automatically once the backend recovers.",
+        "The reply is paused (connection or model service temporarily unavailable). Click “Resume now” to retry; if the backend had disconnected, it will resume automatically once it recovers.",
       reconnectingStep:
         "The connection was lost. Resuming from step {{step}}...",
     },

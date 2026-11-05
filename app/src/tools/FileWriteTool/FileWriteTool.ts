@@ -14,6 +14,10 @@ import {
 import { runRegisteredOutputGuards } from '@openliri/infra/security/outputGuardRegistry';
 import { resolveFilePath, getToolBaseDir } from '../utils/ToolUtils';
 import { resolveIsolatedFileTarget } from '../utils/isolatedFileIo';
+import {
+  resolveReadFileState,
+  type FileStateCache,
+} from '@openliri/infra/utils/fileStateCache';
 import { invalidateGrepSearchCache } from '../GrepTool/GrepTool';
 import type { FileOperationResult } from '../types/ToolResult';
 
@@ -234,6 +238,59 @@ export class FileWriteTool extends BaseTool {
   override searchHint = 'Write content to a file';
   override maxResultSizeChars = 10000;
 
+  /**
+   * 2026-11-05：覆盖已有文件前的 **read-before-write** 校验（与 file_edit 同口径）。
+   *
+   * 只覆盖、非 append、非隔离环境时启用：
+   * - 文件存在但没读过 ⇒ 拒绝（提示先 file_read；追加用 append，无需先读）；
+   * - 读过但磁盘 mtime 已变 ⇒ 拒绝并要求重读（避免基于过期内容覆盖）。
+   * 新文件不校验（新建无需先读）。
+   */
+  private checkOverwriteFreshness(
+    cache: FileStateCache,
+    resolvedPath: string
+  ): string | null {
+    if (!fs.existsSync(resolvedPath)) return null;
+    const snapshot = cache.get(resolvedPath);
+    if (!snapshot) {
+      return (
+        `文件 ${resolvedPath} 已存在且尚未读取。请先 file_read 再覆盖；` +
+        `若只是追加内容，请使用 append（无需先读）。`
+      );
+    }
+    if (snapshot.mtimeMs !== undefined) {
+      try {
+        const currentMtime = fs.statSync(resolvedPath).mtimeMs;
+        if (currentMtime !== snapshot.mtimeMs) {
+          return (
+            `文件 ${resolvedPath} 自上次读取后已被修改（mtime 变化）。` +
+            `请重新 file_read 后再覆盖，避免用过期的旧内容覆盖新内容。`
+          );
+        }
+      } catch {
+        // @ignore-catch — stat 失败按"文件已不存在"处理，不阻断（writeFile 会给出错误）
+      }
+    }
+    return null;
+  }
+
+  /** 写入成功后刷新读快照（使同一轮后续写不再因 mtime 变化误报） */
+  private recordSnapshot(cache: FileStateCache, resolvedPath: string): void {
+    try {
+      const content = readFileWithEncoding(resolvedPath);
+      const mtimeMs = fs.statSync(resolvedPath).mtimeMs;
+      cache.set(resolvedPath, {
+        content,
+        timestamp: Date.now(),
+        offset: undefined,
+        limit: undefined,
+        mtimeMs,
+      });
+    } catch {
+      // @ignore-catch — 记录失败不影响写入结果
+    }
+  }
+
   override async execute(
     input: Record<string, unknown>,
     context: ToolUseContext,
@@ -302,6 +359,24 @@ export class FileWriteTool extends BaseTool {
       }
 
       const append = (input.append as boolean) || false;
+
+      // 2026-11-05：覆盖已有文件前必须读过（read-before-write）——防误覆盖。
+      const cache = resolveReadFileState(context.readFileState);
+      if (cache && !isolated && !append) {
+        const freshnessError = this.checkOverwriteFreshness(
+          cache,
+          resolvedPath
+        );
+        if (freshnessError) {
+          return createToolResult(freshnessError, {
+            success: false,
+            error: freshnessError,
+            newMessages: [
+              { role: 'system', content: `Error: ${freshnessError}` },
+            ],
+          });
+        }
+      }
 
       // content 与 source_file 至少提供一个：内容在磁盘时必须优先走 source_file（0 输出 token）
       const hasContent =
@@ -414,6 +489,9 @@ export class FileWriteTool extends BaseTool {
           content: effectiveContent,
         });
       }
+
+      // 写成功 ⇒ 刷新读快照（同一轮后续覆盖不再误报 mtime 变化）
+      if (cache && !isolated) this.recordSnapshot(cache, resolvedPath);
 
       // 注册到 FileRegistry（异步执行，不阻塞响应返回）
       this.registerWriteToFileRegistry(input);

@@ -130,6 +130,15 @@ const FOLD_TARGET_TOKENS =
   Number(configManager.env('REACT_LAYER_WINDOW_TOKENS')) || 45_000; // 经统一出入口（R05-012），保留 || 语义
 
 /**
+ * C5（2026-11-05）：后台压缩的 CAS 冲突重试上限。
+ *
+ * 守卫（消息数量 / 内容指纹）失败原为"直接放弃"——用户在压缩期间发消息时本轮白跑，
+ * 且下一条消息到来后又要重新压缩。改为按**最新快照**重跑一次；上限 1 次避免与
+ * 持续输入互相追逐（成本 = 一次后台摘要，且下一轮本就要压缩）。
+ */
+const COMPACTION_BG_CAS_MAX_RETRIES = 1;
+
+/**
  * R1（2026-09-16）：从旧→新的待折叠消息流取出**最早的一小批**——累积到接近 budgetTokens 即封批，
  * 单条超大消息不被打散（自成一批，保证折叠批内 tool 配对尽可能完整）。
  * @param pool 待折叠消息（旧→新）
@@ -552,6 +561,21 @@ export class CompactionOrchestrator {
     setMessages: (messages: ChatMessage[]) => void,
     ctx: CompactionContext
   ): Promise<boolean> {
+    return this._compactSessionInBackground(getMessages, setMessages, ctx, 0);
+  }
+
+  /**
+   * 实现体：`attempt` 为 CAS 冲突后的重试序号（0 = 首次）。
+   *
+   * 守卫失败 ⇒ 若还有重试额度，用**最新**消息重跑（见 `COMPACTION_BG_CAS_MAX_RETRIES`）；
+   * 额度用尽 ⇒ 按原语义放弃写回并如实告警（不静默覆盖并发新增/修改）。
+   */
+  private async _compactSessionInBackground(
+    getMessages: () => ChatMessage[],
+    setMessages: (messages: ChatMessage[]) => void,
+    ctx: CompactionContext,
+    attempt: number
+  ): Promise<boolean> {
     const snapshotCount = getMessages().length;
     if (snapshotCount === 0) return false;
     // 压缩开始前的内容指纹（压缩期间可能被并发修改）
@@ -562,6 +586,7 @@ export class CompactionOrchestrator {
       sessionId: ctx.sessionId,
       model: ctx.model,
       messageCount: snapshotCount,
+      attempt,
     });
     const result = await this.compact(getMessages(), ctx);
     if (!result.applied) {
@@ -574,31 +599,74 @@ export class CompactionOrchestrator {
     }
     // 守卫①：压缩期间消息数量变化（有新消息/删除）→ 放弃写回（避免覆盖新增）
     if (getMessages().length !== snapshotCount) {
-      logger.warn('compaction:bg_skip — 压缩期间消息数量变化，放弃写回', {
-        sessionId: ctx.sessionId,
-        snapshotCount,
-        currentCount: getMessages().length,
-      });
-      return false;
+      return this._retryOrSkipBackgroundCompaction(
+        getMessages,
+        setMessages,
+        ctx,
+        attempt,
+        'count-changed',
+        {
+          sessionId: ctx.sessionId,
+          snapshotCount,
+          currentCount: getMessages().length,
+        }
+      );
     }
     // 守卫②（P2-6）：数量相同但内容被并发改写（替换/编辑消息）→ 放弃写回
     if (
       CompactionOrchestrator.fingerprintMessages(getMessages()) !==
       snapshotFingerprint
     ) {
-      logger.warn('compaction:bg_skip — 压缩期间消息内容变化，放弃写回', {
-        sessionId: ctx.sessionId,
-        snapshotCount,
-      });
-      return false;
+      return this._retryOrSkipBackgroundCompaction(
+        getMessages,
+        setMessages,
+        ctx,
+        attempt,
+        'fingerprint-changed',
+        { sessionId: ctx.sessionId, snapshotCount }
+      );
     }
     setMessages(result.messages);
     logger.info('compaction:bg_applied — 后台压缩已写回会话', {
       sessionId: ctx.sessionId,
       messageCount: result.messages.length,
       beforeCount: snapshotCount,
+      attempt,
     });
     return true;
+  }
+
+  /** CAS 冲突处置：有额度 ⇒ 按最新快照重跑；无额度 ⇒ 放弃并如实告警 */
+  private async _retryOrSkipBackgroundCompaction(
+    getMessages: () => ChatMessage[],
+    setMessages: (messages: ChatMessage[]) => void,
+    ctx: CompactionContext,
+    attempt: number,
+    reason: 'count-changed' | 'fingerprint-changed',
+    detail: Record<string, unknown>
+  ): Promise<boolean> {
+    if (attempt < COMPACTION_BG_CAS_MAX_RETRIES) {
+      logger.info(
+        'compaction:bg_retry_cas — 压缩期间消息变化，按最新快照重跑',
+        {
+          ...detail,
+          reason,
+          attempt: attempt + 1,
+        }
+      );
+      return this._compactSessionInBackground(
+        getMessages,
+        setMessages,
+        ctx,
+        attempt + 1
+      );
+    }
+    logger.warn('compaction:bg_skip — 压缩期间消息变化，放弃写回', {
+      ...detail,
+      reason,
+      attempts: attempt + 1,
+    });
+    return false;
   }
 
   /** 执行压缩管线。Tier1/2 为同步毫秒级；Tier3 带独立超时（见 _runFullCompactionWithTimeout） */

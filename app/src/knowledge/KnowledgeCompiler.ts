@@ -76,6 +76,14 @@ interface CompileState {
   lastCompileAt: number;
   /** 编译轮次版本（K5.3：血缘/快照绑定，每次编译运行 +1） */
   lastVersion?: number;
+  /**
+   * C4（2026-11-05）：lint 错误数**棘轮基线**（只减不增）。
+   *
+   * 首轮编译以当时的错误数为基线（不因存量历史错误阻断）；此后一旦本次错误数
+   * 高于基线即判本次编译失败，只有下降时才把基线下调锁定成果。
+   * 缺省（旧状态文件 / 手工清理）⇒ 视为首轮。
+   */
+  lintErrorBaseline?: number;
   docs: Record<
     string,
     {
@@ -85,6 +93,44 @@ interface CompileState {
       digest?: string;
     }
   >;
+}
+
+/** lint 错误数棘轮的判定结果（纯函数输出，便于单测） */
+export type LintRatchetDecision =
+  | { action: 'adopted'; baseline: number }
+  | { action: 'unchanged'; baseline: number }
+  | { action: 'lowered'; previous: number; baseline: number }
+  | { action: 'exceeded'; baseline: number };
+
+/** 状态文件里的基线可能是脏值（NaN / 负数 / 非数字）⇒ 一律视为"无基线" */
+function normalizeLintBaseline(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
+    ? value
+    : undefined;
+}
+
+/**
+ * C4（2026-11-05）：lint 错误数棘轮。
+ *
+ * - 无基线 ⇒ `adopted`（采纳当前值为基线，不阻断首轮）；
+ * - 高于基线 ⇒ `exceeded`（调用方据此判本次编译失败，基线保持不变）；
+ * - 低于基线 ⇒ `lowered`（下调锁定，只能变好）；
+ * - 相等 ⇒ `unchanged`。
+ */
+export function decideLintRatchet(
+  currentErrors: number,
+  baseline: number | undefined
+): LintRatchetDecision {
+  const current =
+    Number.isFinite(currentErrors) && currentErrors > 0
+      ? Math.floor(currentErrors)
+      : 0;
+  const base = normalizeLintBaseline(baseline);
+  if (base === undefined) return { action: 'adopted', baseline: current };
+  if (current > base) return { action: 'exceeded', baseline: base };
+  if (current < base)
+    return { action: 'lowered', previous: base, baseline: current };
+  return { action: 'unchanged', baseline: base };
 }
 
 /** 可编译的文件扩展名（不含 .meta.json 伴侣文件）
@@ -422,17 +468,52 @@ export class KnowledgeCompiler {
           const linter = new WikiLinter(defaultRules);
           const lintReport = await linter.run(this.knowledgeRoot);
           const { error, warning } = lintReport.summary;
+          // C4（2026-11-05）：lint 错误数棘轮（只减不增）。
+          // 首轮采纳当前值为基线；高于基线 ⇒ 判本次编译失败（进 result.errors + error 日志）；
+          // 低于基线 ⇒ 下调锁定（只能变好）。
+          const ratchet = decideLintRatchet(error, newState.lintErrorBaseline);
+          if (ratchet.action === 'adopted' || ratchet.action === 'lowered') {
+            newState.lintErrorBaseline = ratchet.baseline;
+            await this.saveCompileState(newState);
+            logger.info(
+              ratchet.action === 'adopted'
+                ? 'knowledge:lint:baseline_adopted — 采纳当前错误数为 lint 基线'
+                : 'knowledge:lint:ratchet_lowered — lint 错误减少，基线下调锁定',
+              {
+                errors: error,
+                warnings: warning,
+                baseline: ratchet.baseline,
+                previousBaseline:
+                  ratchet.action === 'lowered' ? ratchet.previous : undefined,
+              }
+            );
+          }
           if (error > 0 || warning > 0) {
-            logger.warn(`编译后 lint 发现 ${error} 个错误, ${warning} 个警告`, {
-              lintSummary: lintReport.summary,
-            });
+            const exceeded = ratchet.action === 'exceeded';
+            const detail = exceeded
+              ? `lint 错误 ${error} 超过基线 ${ratchet.baseline}（棘轮只减不增）`
+              : `lint: ${error} errors, ${warning} warnings`;
+            (exceeded ? logger.error : logger.warn)(
+              exceeded
+                ? `编译后 lint 错误 ${error} 超过基线 ${ratchet.baseline}（棘轮只减不增）`
+                : `编译后 lint 发现 ${error} 个错误, ${warning} 个警告`,
+              {
+                lintSummary: lintReport.summary,
+                lintErrorBaseline: ratchet.baseline,
+                lintRatchetAction: ratchet.action,
+              }
+            );
+            if (exceeded) {
+              // 判失败：与既有编译错误同口径，调用方/面板据此看到"编译未通过"
+              result.errors.push(detail);
+            }
             // 将 lint 结果追加到 log.md
             await this.indexManager.appendLog({
               timestamp: Date.now(),
               action: 'lint',
               source: 'KnowledgeCompiler',
               pages: [],
-              detail: `lint: ${error} errors, ${warning} warnings`,
+              detail,
             });
           } else {
             logger.info('编译后 lint 检查通过');

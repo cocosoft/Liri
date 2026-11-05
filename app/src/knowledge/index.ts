@@ -36,8 +36,16 @@
 
 export { KnowledgeRouter, getKnowledgeRouter } from './KnowledgeRouter';
 
-export { KnowledgeCompiler, runKnowledgeCompile } from './KnowledgeCompiler';
-export type { CompileOptions, CompileResult } from './KnowledgeCompiler';
+export {
+  KnowledgeCompiler,
+  runKnowledgeCompile,
+  decideLintRatchet,
+} from './KnowledgeCompiler';
+export type {
+  CompileOptions,
+  CompileResult,
+  LintRatchetDecision,
+} from './KnowledgeCompiler';
 
 export {
   KnowledgeDigestService,

@@ -8315,3 +8315,8 @@
 {"id":"TEST-ISOLATION-MODELROUTER-TASKCACHE","k":"code#0","i":0,"c":"app/tests/ai/ModelRouterSetTasks.test.ts"}
 {"id":"TEST-ISOLATION-MODELROUTER-TASKCACHE","k":"tests#0","i":0,"c":"app/tests/ai/ModelRouterSetTasks.test.ts"}
 {"id":"TEST-ISOLATION-MODELROUTER-TASKCACHE","k":"tests#1","i":0,"c":"app/tests/chat/taorLoopResumeWiring.test.ts"}
+{"id":"CHANNEL-DINGTALK-HEARTBEAT-RACE","k":"title","i":0,"c":"修复钉钉 Stream 心跳竞态导致 daemon 退出（dingtalk-stream@2.1.5 bun patch）"}
+{"id":"CHANNEL-DINGTALK-HEARTBEAT-RACE","k":"source","i":0,"c":"生产崩溃转储 crash-2026-11-05T13-44-27-394Z.json + 当日 daemon 日志（74 次 TERMINATE SOCKET）"}
+{"id":"CHANNEL-DINGTALK-HEARTBEAT-RACE","k":"reopenWhen","i":0,"c":"升级 dingtalk-stream 到上游修复版后回退本补丁；若再出现 readyState 报错则复检。"}
+{"id":"CHANNEL-DINGTALK-HEARTBEAT-RACE","k":"code#0","i":0,"c":"app/patches/dingtalk-stream@2.1.5.patch"}
+{"id":"CHANNEL-DINGTALK-HEARTBEAT-RACE","k":"tests#0","i":0,"c":"app/tests/channels/dingtalkRobotMessage.test.ts"}

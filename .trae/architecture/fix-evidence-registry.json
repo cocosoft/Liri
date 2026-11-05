@@ -17413,6 +17413,31 @@
       "changelog": [],
       "reopenWhen": "① 新的测试若写入进程级单例（ModelRouter._taskCache / configManager / featureFlags / 全局 registry），必须 afterEach 还原进场快照；② bun:test 的文件级隔离**不成立**（同进程串行），不要再以「文件级隔离」为由省略还原；③ 复现方…（全文见 archive/evidence-detail.jsonl#TEST-ISOLATION-MODELROUTER-TASKCACHE）",
       "notes": "症状：taorLoopResumeWiring 的 3 个「G-T3-1 委托路径 reset() 条件化」用例单跑/窄跑全绿，全量必红；失败点为 runCalls=0 且全日志无「委托 TAORLoop」。二分：tests/ai → 前 14 文件绿 / 14-20 红 → 单文件命中 ModelRouterSet…（全文见 archive/evidence-detail.jsonl#TEST-ISOLATION-MODELROUTER-TASKCACHE）"
+    },
+    {
+      "id": "CHANNEL-DINGTALK-HEARTBEAT-RACE",
+      "title": "修复钉钉 Stream 心跳竞态导致 daemon 退出（dingtalk-stream@2.1.5 bun patch）",
+      "source": "生产崩溃转储 crash-2026-11-05T13-44-27-394Z.json + 当日 daemon 日志（74 次 TERMINATE SOCKET）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/patches/dingtalk-stream@2.1.5.patch"
+      ],
+      "tests": [
+        "app/tests/channels/dingtalkRobotMessage.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "升级 dingtalk-stream 到上游修复版后回退本补丁；若再出现 readyState 报错则复检。（全文见 archive/evidence-detail.jsonl#CHANNEL-DINGTALK-HEARTBEAT-RACE）"
     }
   ]
 }

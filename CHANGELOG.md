@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **CHANNEL-DINGTALK-HEARTBEAT-RACE**：修复钉钉 Stream 心跳竞态致 daemon 退出（bun patch） —— 验证 dingtalk5-0|raceNeg1/Pos0|reinstall|health200；基线 SDK 2.1.5 心跳 interval 在 close/error 不清理、ping 未判 readyState（详情见 archive/evidence-detail.jsonl#CHANNEL-DINGTALK-HEARTBEAT-RACE）
 - ✅ **TEST-ISOLATION-MODELROUTER-TASKCACHE**：修复 ModelRouter 单例 _taskCache 的跨文件测试污染 —— 验证 pair22-0|aiChat1241-0|full10580-0；基线 全量 10577 pass / 3 fail（taorLoopResumeWiring 3 例，单跑绿）（详情见 archive/evidence-detail.jsonl#TEST-ISOLATION-MODELROUTER-TASKCACHE）
 - ✅ **SERVICE-PACKAGE-P35-BRIDGE-CLOSURE**：P35：bridge 收口（上层依赖端口化） —— 验证 tsc0|tests1384|infra0|r8neg0|gates20-0|pull3559-1304；基线 P34 后包程序吞 2030 个 app/src 文件（3559 总文件），靠 8 条 app 别名 + jsx 支撑（详情见 archive/evidence-detail.jsonl#SERVICE-PACKAGE-P35-BRIDGE-CLOSURE）
 - ✅ **SERVICE-PACKAGE-P34-BRIDGE**：P34：bridge 迁入 packages/service —— 验证 tsc0|tests559|infra0|r8neg0|gates17-0；基线 bridge 31 文件在 app/src（1 处 app 层动态 import：../tasks/TaskRegistry）（详情见 archive/evidence-detail.jsonl#SERVICE-PACKAGE-P34-BRIDGE）

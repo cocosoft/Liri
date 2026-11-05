@@ -9,7 +9,7 @@ import { getLogger } from '@openliri/infra/monitoring';
 import { Database } from '@openliri/infra/external';
 import { resolveDbPath } from '@openliri/infra/environment';
 import { randomUUID } from 'crypto';
-import { broadcastEvent } from '@modules/infrastructure';
+import { broadcastEvent } from '@modules/infrastructure/http/handlers/handler-utils';
 
 const logger = getLogger('runtime:notification');
 

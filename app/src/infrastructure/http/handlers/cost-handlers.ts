@@ -13,7 +13,7 @@ import { getLogger } from '@openliri/infra/monitoring';
 import { resolveWorkspacePath } from './workspaces-handlers';
 // C1（2026-09-30 D-114，`workspace` 域 P2）：成本报告**类型位**改经服务层端口**逐字镜像**
 // （原类型导入**不在此处复写** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
-import type { CostReportDto } from '@modules/runtime/api/workspaceOpsPorts';
+import type { CostReportDto } from '@openliri/service/runtime/api/workspaceOpsPorts';
 // C1（2026-09-30 D-108，`ai` 域 P2）：改经服务层端口
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { LOCAL_REQUEST_BASE_URL } from '@openliri/kernel';

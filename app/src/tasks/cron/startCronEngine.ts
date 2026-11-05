@@ -145,7 +145,7 @@ function createCronDispatchDelivery(): (
     // 4) 最终兜底：写入通知中心
     try {
       const { notificationPersistence } =
-        await import('@modules/runtime/NotificationPersistence.js');
+        await import('@openliri/service/runtime/NotificationPersistence');
       await notificationPersistence().create({
         category: 'system',
         priority: 'normal',

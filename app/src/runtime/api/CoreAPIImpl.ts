@@ -29,22 +29,22 @@ import * as fs from 'fs';
 import { configManager } from '@openliri/infra/config';
 import type { CoreAPI } from './CoreAPI';
 // C1（2026-09-30 D-98/D-101）：任务运维**服务层端口**（用于给 `getTaskOpsPort()` 显式标注返回类型）
-import type { TaskOpsPort } from './taskOpsPorts';
+import type { TaskOpsPort } from '@openliri/service/runtime/api/taskOpsPorts';
 // C1（2026-09-30 D-106）：AI 运维**服务层端口**（用于给 `getAiOpsPort()` 显式标注返回类型）
 import type { AiOpsPort } from '@openliri/service/ports/aiOpsPorts';
 // C1（2026-09-30 D-111）：三个小域**服务层端口**（用于给 `getXxxOpsPort()` 显式标注返回类型）
-import type { QueryOpsPort } from './queryOpsPorts';
-import type { BuddyOpsPort } from './buddyOpsPorts';
-import type { CommandsOpsPort } from './commandsOpsPorts';
-import type { WorkspaceOpsPort } from './workspaceOpsPorts';
-import type { ProjectOpsPort } from './projectOpsPorts';
-import type { SkillsOpsPort } from './skillsOpsPorts';
-import type { AutoReplyPort } from './autoReplyPorts';
-import type { A2APort } from './a2aPorts';
-import type { BridgePort } from './bridgePorts';
-import type { AutoCompactServiceRefPort } from './compactPorts';
-import type { EmbeddingRefPort } from './embeddingPorts';
-import type { SessionCheckpointRefPort } from './sessionCheckpointPorts';
+import type { QueryOpsPort } from '@openliri/service/runtime/api/queryOpsPorts';
+import type { BuddyOpsPort } from '@openliri/service/runtime/api/buddyOpsPorts';
+import type { CommandsOpsPort } from '@openliri/service/runtime/api/commandsOpsPorts';
+import type { WorkspaceOpsPort } from '@openliri/service/runtime/api/workspaceOpsPorts';
+import type { ProjectOpsPort } from '@openliri/service/runtime/api/projectOpsPorts';
+import type { SkillsOpsPort } from '@openliri/service/runtime/api/skillsOpsPorts';
+import type { AutoReplyPort } from '@openliri/service/runtime/api/autoReplyPorts';
+import type { A2APort } from '@openliri/service/runtime/api/a2aPorts';
+import type { BridgePort } from '@openliri/service/runtime/api/bridgePorts';
+import type { AutoCompactServiceRefPort } from '@openliri/service/runtime/api/compactPorts';
+import type { EmbeddingRefPort } from '@openliri/service/runtime/api/embeddingPorts';
+import type { SessionCheckpointRefPort } from '@openliri/service/runtime/api/sessionCheckpointPorts';
 // D-227（2026-10-02，B12 `runtime -> app` 收口）：`AutoCompactService` 原为压缩域**同步**门面所需
 // （见 `createAutoCompactService()`）；现改经 `CoreApiAppDeps.createAutoCompactService` 由组合根注入
 // ⇒ 删除 `@modules/compaction` 静态值导入（该「文件 × 模块」豁免对随之消失）。
@@ -52,7 +52,7 @@ import type { SessionCheckpointRefPort } from './sessionCheckpointPorts';
 // —— `FileCheckpointStorage` 已下沉 `session/storage/`(service)，`session/**` 回归同模块直连
 // ⇒ 本文件不再需要静态导入 `@modules/query`（该「文件 × 模块」对随之消失）。
 import { DomainSnapshotOps } from './domainSnapshotOps';
-import { terminationReasonField } from './streamTermination';
+import { terminationReasonField } from '@openliri/service/runtime/api/streamTermination';
 import { SessionMessagesRead } from './sessionMessagesRead';
 import { MessageMutation } from './messageMutation';
 import { SessionTitling } from './sessionTitling';
@@ -92,7 +92,7 @@ import type { ChatManager } from '@modules/chat';
 // 或**方法内动态导入**（异步路径）⇒ 删除 `@modules/chat` 静态值导入（该「文件 × 模块」豁免对随之消失）。
 // B2（2026-10-05）：`verifySessionDerivation` 转发签名所需的类型位（实现已外迁 `sessionMessagesRead.ts`）
 import type { DerivationDiff, LiteSessionSummary } from '@modules/session';
-import type { SessionRoundSummariesResult } from './roundSummaries'; // B2：按轮摘要返回体
+import type { SessionRoundSummariesResult } from '@openliri/service/runtime/api/roundSummaries'; // B2：按轮摘要返回体
 // E-1 diff（2026-08-23）：文件变更前后 unified diff 计算
 
 import type { LiriEvent } from '@modules/session/types/events';
@@ -100,8 +100,8 @@ import type { SessionManager } from '@modules/session/types/session';
 import type { Message } from '@modules/session/types/message';
 import type { ToolManager } from '@modules/tools';
 import { TOOL_NAME_CONSTANTS } from '@openliri/infra/constants';
-import type { Coordinator } from '@modules/runtime/coordinator';
-import { coordinator as defaultCoordinator } from '@modules/runtime/coordinator';
+import type { Coordinator } from '@openliri/service/runtime/coordinator';
+import { coordinator as defaultCoordinator } from '@openliri/service/runtime/coordinator';
 import { getLogger } from '@openliri/infra/monitoring';
 import { getOTelTracing } from '@openliri/infra/monitoring/otel/OTelTracing';
 import { SpanStatusCode } from '@opentelemetry/api';

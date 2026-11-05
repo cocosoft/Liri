@@ -491,7 +491,7 @@ describe('C1/I3：流式唤醒"真的继续跑"且返回值如实', () => {
       return {} as never;
     };
 
-    const { inboxManager } = await import('../../src/runtime/InboxManager');
+    const { inboxManager } = await import('@modules/runtime/InboxManager');
     const submitted: unknown[] = [];
     const original = inboxManager.submit;
     (

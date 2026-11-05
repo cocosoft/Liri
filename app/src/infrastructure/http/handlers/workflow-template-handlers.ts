@@ -21,7 +21,7 @@ import { getLogger } from '@openliri/infra/monitoring';
 import type {
   WorkflowTemplateDto,
   WorkflowTemplateStorePort,
-} from '@modules/runtime/api/workspaceOpsPorts';
+} from '@openliri/service/runtime/api/workspaceOpsPorts';
 // 台账 S24 ①（2026-10-08）：用户模板改经**持久化 store** 读写（此前为模块私有内存 Map ⇒ 进程重启即丢）；
 // 规格：`.trae/specs/workflow-template-persistence.md`（D1–D4）。
 // ⚠️ 依 D-113 端口模式：`workspace` 域 store 必须经 **service 侧端口** 取用 ——

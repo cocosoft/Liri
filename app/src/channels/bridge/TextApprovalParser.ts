@@ -130,7 +130,7 @@ export async function processTextApproval(
 
   try {
     const { resolveInboxApproval } =
-      await import('@modules/runtime/inboxApproval.js');
+      await import('@modules/runtime/inboxApproval');
 
     const reply = intent === 'approve' ? 'approve' : 'reject';
     const outcome = await resolveInboxApproval(inboxItemId, reply);

@@ -112,7 +112,7 @@ export async function submitToolApproval(
   approvalSnapshot?: ApprovalSnapshot
 ): Promise<string | null> {
   try {
-    const { inboxManager } = await import('@modules/runtime/InboxManager.js');
+    const { inboxManager } = await import('@modules/runtime/InboxManager');
     // P1（2026-11-04）：审批卡构造收敛到 infra 的**唯一构造点**（与判定前路径同一实现，
     // 见 `packages/infra/src/permission/toolApprovalSubmission.ts`）。此前两处各拼一份，
     // 导致执行后路径缺 `metadata.risk`、`EXTERNAL` 类工具仍给永久放行选项。

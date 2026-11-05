@@ -92,7 +92,7 @@
       "packages/infra/src/chronos/autoDream/ConsolidationLock.ts"
     ],
     "Coordinator": [
-      "app/src/runtime/coordinator.ts"
+      "packages/service/src/runtime/coordinator.ts"
     ],
     "Copy": [
       "app/src/commands/builtin/copy/Copy.ts"
@@ -309,9 +309,6 @@
     "api-logging": [
       "packages/service/src/services/api/logging.ts"
     ],
-    "app": [
-      "packages/infra/src/utils/log.ts"
-    ],
     "authHandler": [
       "app/src/cli/handlers/authHandler.ts"
     ],
@@ -320,18 +317,6 @@
     ],
     "batch-test": [
       "app/src/scripts/batch-test.ts"
-    ],
-    "bridge\\api\\BridgeApi": [
-      "app/src/bridge/api/BridgeApi.ts"
-    ],
-    "bridge\\api\\BridgeApiClient": [
-      "app/src/bridge/api/BridgeApiClient.ts"
-    ],
-    "bridge\\api\\SimulatedBridgeApi": [
-      "app/src/bridge/api/SimulatedBridgeApi.ts"
-    ],
-    "bridge\\messaging\\BridgeMessaging": [
-      "app/src/bridge/messaging/BridgeMessaging.ts"
     ],
     "buddy\\conditional": [
       "app/src/buddy/conditional.ts"
@@ -408,9 +393,6 @@
     "diagnoseHandler": [
       "app/src/cli/handlers/diagnoseHandler.ts"
     ],
-    "error\\api\\APISceneClassifier": [
-      "packages/infra/src/error/api/APISceneClassifier.ts"
-    ],
     "exit": [
       "app/src/cli/exit.ts",
       "app/src/commands/builtin/exit/index.ts"
@@ -457,9 +439,6 @@
       "app/src/cli/trustLevelArgs.ts",
       "app/src/main.ts",
       "packages/infra/src/monitoring/logs/Logger.ts"
-    ],
-    "mcpCommand": [
-      "app/src/mcp/cli/mcpCommand.ts"
     ],
     "mcpHandler": [
       "app/src/cli/handlers/mcpHandler.ts"

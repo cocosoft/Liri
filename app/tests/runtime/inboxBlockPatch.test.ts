@@ -11,7 +11,7 @@ import { describe, it, expect } from 'bun:test';
 import {
   patchInboxBlockDedupCount,
   type InboxBlockLike,
-} from '../../src/runtime/inboxBlockPatch.js';
+} from '@openliri/service/runtime/inboxBlockPatch';
 
 const textBlock: InboxBlockLike = { id: 'b0', type: 'text', content: 'hello' };
 const target: InboxBlockLike = {

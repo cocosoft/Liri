@@ -38,7 +38,7 @@ import type { LatencyStatsDto } from '@openliri/service/ports/aiOpsPorts';
 import type {
   QueryToolStatsDto,
   QueryErrorStatsDto,
-} from '@modules/runtime/api/queryOpsPorts';
+} from '@openliri/service/runtime/api/queryOpsPorts';
 
 const logger = getLogger('infrastructure:http:handlers:analytics-handlers');
 

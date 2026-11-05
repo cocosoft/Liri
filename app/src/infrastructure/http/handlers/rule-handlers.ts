@@ -16,7 +16,7 @@ import type { HandlerCtx } from './handler-utils';
 // C1（2026-09-30 D-114，`workspace` 域 P2）：规则引擎 + 类型位改经服务层端口
 // （原具名导入**不在此处复写** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import type { RuleSpecializationDto } from '@modules/runtime/api/workspaceOpsPorts';
+import type { RuleSpecializationDto } from '@openliri/service/runtime/api/workspaceOpsPorts';
 
 /** C1（D-114）：规则引擎经端口取用（`workspace` 域） */
 async function getEngine(workspacePath?: string) {

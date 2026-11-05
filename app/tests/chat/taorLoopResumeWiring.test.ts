@@ -254,7 +254,7 @@ describe('resumeSuspendedSession「真再跑」（F2 / D7）', () => {
     }) as never;
     internals(cm).chatOrchestrator.sendMessage = async () => ({}) as never;
 
-    const { inboxManager } = await import('../../src/runtime/InboxManager');
+    const { inboxManager } = await import('@modules/runtime/InboxManager');
     const submitted: unknown[] = [];
     const original = inboxManager.submit;
     (

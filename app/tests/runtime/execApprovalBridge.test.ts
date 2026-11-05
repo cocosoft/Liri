@@ -14,7 +14,7 @@ import {
   __getMirroredApprovalsForTest,
   __resetExecApprovalBridgeForTest,
   type ExecApprovalBridgeDeps,
-} from '../../src/runtime/execApprovalBridge.js';
+} from '@modules/runtime/execApprovalBridge';
 import type {
   ExecApprovalManager,
   ExecApprovalRequest,

@@ -23,11 +23,11 @@ import { readBody, json } from './handler-utils';
 // C1（2026-09-30 D-117，`project` 域静态面）：构件存储 / 上下文服务 / 引擎钩子 / 类型位改经端口
 // （原相对/具名导入**不在此处复写** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import type { ProjectContextDto } from '@modules/runtime/api/workspaceOpsPorts';
+import type { ProjectContextDto } from '@openliri/service/runtime/api/workspaceOpsPorts';
 import type {
   ArtifactKindDto,
   ProjectArtifactDto,
-} from '@modules/runtime/api/projectOpsPorts';
+} from '@openliri/service/runtime/api/projectOpsPorts';
 
 const logger = getLogger('project:artifactHandlers');
 

@@ -11,7 +11,7 @@ import type { A2ATask } from '@modules/types/a2a';
 /**
  * A2A 端口类型（**从 `getCoreAPI()` 派生**）。
  *
- * 刻意**不** `import type { A2APort } from '@modules/runtime/api/a2aPorts'` ——
+ * 刻意**不** `import type { A2APort } from '@openliri/service/runtime/api/a2aPorts'` ——
  * 那是 service 层模块的**子目录路径**，静态引用会撞 R03-002「模块出口单一」的白名单判定；
  * 用派生类型等价且零新跨模块边。
  */

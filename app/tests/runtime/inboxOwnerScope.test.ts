@@ -27,7 +27,7 @@
  */
 import { afterAll, describe, expect, it } from 'bun:test';
 import { readFileSync } from 'node:fs';
-import { InboxManager } from '../../src/runtime/InboxManager';
+import { InboxManager } from '@modules/runtime/InboxManager';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import type { Principal } from '@openliri/kernel/identity/principal';
 

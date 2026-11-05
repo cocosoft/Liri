@@ -36,7 +36,7 @@ import { sendError, readRequestBody } from './handler-utils';
 import type {
   AutoReplyRuleDto,
   AutoReplyRuleInput,
-} from '@modules/runtime/api/autoReplyPorts';
+} from '@openliri/service/runtime/api/autoReplyPorts';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 
 /** 序列化规则（RegExp → { type, value, flags }，函数 response 不传输） */

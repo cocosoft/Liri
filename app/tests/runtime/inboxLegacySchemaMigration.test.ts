@@ -35,7 +35,7 @@ import { mkdtempSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { Database } from '@openliri/infra/external';
-import { InboxManager } from '../../src/runtime/InboxManager';
+import { InboxManager } from '@modules/runtime/InboxManager';
 
 const dir = mkdtempSync(join(tmpdir(), 'inbox-legacy-'));
 const dbPath = join(dir, 'app.db');

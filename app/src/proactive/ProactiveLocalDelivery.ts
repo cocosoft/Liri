@@ -33,7 +33,7 @@ import {
   type NotificationAction,
   type NotificationCreateInput,
   type NotificationPriority,
-} from '@modules/runtime/NotificationPersistence.js';
+} from '@openliri/service/runtime/NotificationPersistence';
 import type {
   ProactiveAction,
   ProactiveMessagePayload,

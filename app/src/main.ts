@@ -1478,7 +1478,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
     // T1.26: 初始化通知持久化（建表 + FTS5 + 过期调度）
     await wrapInit('NotificationPersistence', async () => {
       const { notificationPersistence } =
-        await import('@modules/runtime/NotificationPersistence.js');
+        await import('@openliri/service/runtime/NotificationPersistence');
       await notificationPersistence().init();
     });
 
@@ -1487,7 +1487,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
     // 这里安装通知端口（未安装时预算侧不产生任何副作用）。
     await wrapInit('BudgetAlertNotifications', async () => {
       const { notificationPersistence } =
-        await import('@modules/runtime/NotificationPersistence.js');
+        await import('@openliri/service/runtime/NotificationPersistence');
       const { setBudgetAlertNotifier } = await import('@modules/query');
       setBudgetAlertNotifier(async (alert) => {
         const existing = await notificationPersistence().findBySourceRef(
@@ -1696,7 +1696,8 @@ export async function launch(options: LaunchOptions): Promise<void> {
         // 不新增会话事件类型 / 不新增模型可见输入 ⇒ 不触 `unknown-tool-call-recovery.md §1.6` 红线。
         if (manualRequired.length > 0) {
           try {
-            const { inboxManager } = await import('./runtime/InboxManager.js');
+            const { inboxManager } =
+              await import('@modules/runtime/InboxManager');
             const seen = new Set<string>();
             for (const c of manualRequired) {
               const key = `${c.sessionId}\u0000${c.toolName}`;

@@ -26,7 +26,7 @@ import type {
 } from '@openliri/service/execution/types';
 import { getCostRecordRepository } from '@openliri/infra/cost/CostRecordRepository';
 import { getCheckpointDatabase } from '../../src/chat/services/CheckpointDatabase';
-import { InboxManager } from '../../src/runtime/InboxManager';
+import { InboxManager } from '@modules/runtime/InboxManager';
 import {
   getQueryLogStore,
   resetQueryLogStore,

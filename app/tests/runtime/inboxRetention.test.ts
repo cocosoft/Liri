@@ -15,7 +15,7 @@ import { Database } from '@openliri/infra/external';
 
 import type { Principal } from '@openliri/kernel/identity/principal';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope';
-import { InboxManager } from '../../src/runtime/InboxManager';
+import { InboxManager } from '@modules/runtime/InboxManager';
 
 const ALICE: Principal = { tenantId: 'acme', userId: 'alice', roles: ['user'] };
 const DAY = 24 * 60 * 60 * 1000;

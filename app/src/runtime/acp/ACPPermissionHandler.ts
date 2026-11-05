@@ -52,13 +52,12 @@ export class ACPPermissionHandler {
     try {
       // Dynamic import to avoid circular dependency
 
-      const { unattendedMode } =
-        require('@modules/runtime/UnattendedModeManager.js') as {
-          unattendedMode: {
-            isUnattended: () => boolean;
-            shouldAutoApprove: () => boolean;
-          };
+      const { unattendedMode } = require('../UnattendedModeManager.js') as {
+        unattendedMode: {
+          isUnattended: () => boolean;
+          shouldAutoApprove: () => boolean;
         };
+      };
       if (unattendedMode?.isUnattended?.()) {
         if (request.risk === 'medium' && unattendedMode.shouldAutoApprove()) {
           this.cacheDecision(key, ACPPermissionDecision.ALLOW);

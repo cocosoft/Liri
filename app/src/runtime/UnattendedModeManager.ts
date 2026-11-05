@@ -9,8 +9,8 @@
 
 import { getLogger } from '@openliri/infra/monitoring';
 import { FEATURE_FLAGS } from '@openliri/kernel';
-import { inboxManager } from '@modules/runtime/InboxManager.js';
-import type { InboxItemType } from '@modules/runtime/InboxManager.js';
+import { inboxManager } from './InboxManager.js';
+import type { InboxItemType } from './InboxManager.js';
 
 const logger = getLogger('runtime:unattended');
 

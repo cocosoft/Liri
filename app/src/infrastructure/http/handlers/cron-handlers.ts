@@ -27,7 +27,7 @@ import { sendError, readRequestBody } from './handler-utils';
 import { handleError } from '@openliri/infra/error';
 // C1（2026-09-30 D-101，`tasks` 域 P2）：改经服务层端口
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import type { CronJobRecord } from '@modules/runtime/api/taskOpsPorts';
+import type { CronJobRecord } from '@openliri/service/runtime/api/taskOpsPorts';
 import { LOCAL_SERVICE_HOST } from '@openliri/kernel';
 
 /**

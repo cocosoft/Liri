@@ -27,7 +27,7 @@
  */
 
 import type http from 'http';
-import type { TaskOpsPort } from './taskOpsPorts';
+import type { TaskOpsPort } from '@openliri/service/runtime/api/taskOpsPorts';
 // P39-b-2：驾驶舱端口实现单列（本文件已近 2000 行上限）
 import { createCockpitOps } from './cockpitOps';
 import type {
@@ -38,10 +38,10 @@ import type {
 import type {
   QueryOpsPort,
   ResearchOrchestrationConfigDto,
-} from './queryOpsPorts';
-import type { BuddyOpsPort } from './buddyOpsPorts';
-import type { CommandsOpsPort } from './commandsOpsPorts';
-import type { WorkspaceOpsPort } from './workspaceOpsPorts';
+} from '@openliri/service/runtime/api/queryOpsPorts';
+import type { BuddyOpsPort } from '@openliri/service/runtime/api/buddyOpsPorts';
+import type { CommandsOpsPort } from '@openliri/service/runtime/api/commandsOpsPorts';
+import type { WorkspaceOpsPort } from '@openliri/service/runtime/api/workspaceOpsPorts';
 import type {
   AgentRoleStorePort,
   TeamStorePort,
@@ -54,18 +54,18 @@ import type {
   ProjectItemStorePort,
   WorkflowTemplateStorePort,
   WorkflowTemplateRunOutcomeDto,
-} from './workspaceOpsPorts';
+} from '@openliri/service/runtime/api/workspaceOpsPorts';
 import type {
   ProjectOpsPort,
   ArtifactKindDto,
   ProjectArtifactDto,
   ProjectArtifactStorePort,
-} from './projectOpsPorts';
-import type { SkillsOpsPort } from './skillsOpsPorts';
-import type { AutoReplyPort } from './autoReplyPorts';
-import type { A2APort } from './a2aPorts';
+} from '@openliri/service/runtime/api/projectOpsPorts';
+import type { SkillsOpsPort } from '@openliri/service/runtime/api/skillsOpsPorts';
+import type { AutoReplyPort } from '@openliri/service/runtime/api/autoReplyPorts';
+import type { A2APort } from '@openliri/service/runtime/api/a2aPorts';
 import { isTerminalState } from '@modules/types/a2a';
-import type { BridgePort } from './bridgePorts';
+import type { BridgePort } from '@openliri/service/runtime/api/bridgePorts';
 
 export class DomainSnapshotOps {
   /**

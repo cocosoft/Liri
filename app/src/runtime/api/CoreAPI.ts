@@ -29,7 +29,7 @@ import type {
   FileInfo,
   ToolVisibilityReport,
 } from '@modules/tools';
-import type { TodoBlockData } from './todo-types';
+import type { TodoBlockData } from '@openliri/service/runtime/api/todo-types';
 import type { DocWorkflowProgressData } from '@modules/doc/types/outline';
 import type { LiriEvent } from '@modules/session/types/events';
 import type { RequestPriority } from '@modules/types/requestPriority';
@@ -43,25 +43,25 @@ import type { WorkspaceStatus } from '@openliri/infra/utils/toolContract/workspa
 // P2-7 / G4（2026-09-25）：派生一致性校验结果
 import type { DerivationDiff } from '@modules/session';
 // C1 站点 7（2026-09-30 D-90）：第三方技能适配器**服务层端口**（见同目录 thirdPartySkillPorts.ts）
-import type { ThirdPartySkillAdapterPort } from './thirdPartySkillPorts';
+import type { ThirdPartySkillAdapterPort } from '@openliri/service/runtime/api/thirdPartySkillPorts';
 // C1（2026-09-30 D-92）：插件管理**服务层端口**（见同目录 pluginAdminPorts.ts）
-import type { PluginAdminPort } from './pluginAdminPorts';
+import type { PluginAdminPort } from '@openliri/service/runtime/api/pluginAdminPorts';
 // C1（2026-09-30 D-93）：工具运行时**服务层端口**（见同目录 toolsPorts.ts）
-import type { ToolsPort } from './toolsPorts';
+import type { ToolsPort } from '@openliri/service/runtime/api/toolsPorts';
 // C1（2026-09-30 D-95）：知识库运维 P1**服务层端口**（见同目录 knowledgeOpsPorts.ts）
-import type { KnowledgeOpsPort } from './knowledgeOpsPorts';
+import type { KnowledgeOpsPort } from '@openliri/service/runtime/api/knowledgeOpsPorts';
 // C1（2026-09-30 D-98）：任务运维 P1**服务层端口**（见同目录 taskOpsPorts.ts）
-import type { TaskOpsPort } from './taskOpsPorts';
+import type { TaskOpsPort } from '@openliri/service/runtime/api/taskOpsPorts';
 // C1（2026-09-30 D-106）：AI 运维 P1**服务层端口**（见同目录 aiOpsPorts.ts）
 import type { AiOpsPort } from '@openliri/service/ports/aiOpsPorts';
 // C1（2026-09-30 D-111，零散单点收尾）：三个小域**服务层端口**
-import type { QueryOpsPort } from './queryOpsPorts';
-import type { BuddyOpsPort } from './buddyOpsPorts';
-import type { CommandsOpsPort } from './commandsOpsPorts';
-import type { WorkspaceOpsPort } from './workspaceOpsPorts';
-import type { ProjectOpsPort } from './projectOpsPorts';
+import type { QueryOpsPort } from '@openliri/service/runtime/api/queryOpsPorts';
+import type { BuddyOpsPort } from '@openliri/service/runtime/api/buddyOpsPorts';
+import type { CommandsOpsPort } from '@openliri/service/runtime/api/commandsOpsPorts';
+import type { WorkspaceOpsPort } from '@openliri/service/runtime/api/workspaceOpsPorts';
+import type { ProjectOpsPort } from '@openliri/service/runtime/api/projectOpsPorts';
 // B2（2026-10-30）：按轮摘要（供轮次导航补齐未加载轮次）
-import type { SessionRoundSummariesResult } from './roundSummaries';
+import type { SessionRoundSummariesResult } from '@openliri/service/runtime/api/roundSummaries';
 
 /** 进度事件，用于通知调用方当前 AI 处理阶段 */
 export interface ProgressEvent {

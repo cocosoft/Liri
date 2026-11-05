@@ -15,7 +15,7 @@
  * 修复：提交串行队列 ⇒ 并发提交全部落库。
  */
 import { describe, it, expect } from 'bun:test';
-import { InboxManager } from '../../src/runtime/InboxManager.js';
+import { InboxManager } from '@modules/runtime/InboxManager';
 
 function approval(
   sessionId: string,

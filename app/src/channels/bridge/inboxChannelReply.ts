@@ -32,7 +32,7 @@ import { getOTelTracing } from '@openliri/infra/monitoring/otel/OTelTracing';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@openliri/infra/error';
 import { withRetry, RetryableError } from '@openliri/infra/utils/withRetry';
-import type { InboxItem } from '@modules/runtime/InboxManager.js';
+import type { InboxItem } from '@modules/runtime/InboxManager';
 // 仅类型：sqlite 连接在 `_writeDeadLetter` 里**动态** import（不进启动面），类型用擦除式导入
 import type { Database } from '@openliri/infra/external';
 import { channelRegistry } from '../registry/ChannelRegistry';

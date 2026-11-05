@@ -7,8 +7,8 @@ import { afterEach, describe, expect, test } from 'bun:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { NotificationPersistence } from '../../src/runtime/NotificationPersistence';
-import type { NotificationCreateInput } from '../../src/runtime/NotificationPersistence';
+import { NotificationPersistence } from '@openliri/service/runtime/NotificationPersistence';
+import type { NotificationCreateInput } from '@openliri/service/runtime/NotificationPersistence';
 import {
   createProactiveLocalDelivery,
   PROACTIVE_NOTIFICATION_SOURCE,

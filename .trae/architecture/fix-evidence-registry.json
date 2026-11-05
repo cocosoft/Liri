@@ -12593,7 +12593,7 @@
       "code": [
         "app/src/plugins/utils/pluginConfigValues.ts",
         "app/src/plugins/index.ts",
-        "app/src/runtime/api/pluginAdminPorts.ts",
+        "packages/service/src/runtime/api/pluginAdminPorts.ts",
         "app/src/runtime/api/domainSnapshotOps.ts",
         "app/src/infrastructure/http/handlers/plugin-marketplace-handlers.ts",
         "app/src/infrastructure/http/handlers/route-table.ts",
@@ -14229,7 +14229,7 @@
         "app/src/runtime/api/domainSnapshotOps.ts",
         "app/src/chat/manager/pdcaLaunch.ts",
         "app/src/tasks/db/SqliteTaskStore.ts",
-        "app/src/runtime/api/taskOpsPorts.ts"
+        "packages/service/src/runtime/api/taskOpsPorts.ts"
       ],
       "tests": [
         "app/tests/tasks/sharedSqliteTaskStore.test.ts"
@@ -14596,7 +14596,7 @@
       },
       "code": [
         "app/src/infrastructure/http/handlers/pdca-handlers.ts",
-        "app/src/runtime/api/taskOpsPorts.ts"
+        "packages/service/src/runtime/api/taskOpsPorts.ts"
       ],
       "tests": [
         "app/tests/http/pdca-confirm.contract.test.ts"
@@ -17376,7 +17376,7 @@
         "packages/service/src/bridge/channel/BridgeChannelReporter.ts",
         "packages/service/tsconfig.json",
         "packages/service/package.json",
-        "app/src/runtime/api/bridgePorts.ts",
+        "packages/service/src/runtime/api/bridgePorts.ts",
         "app/src/bootstrap/preflight.ts"
       ],
       "tests": [

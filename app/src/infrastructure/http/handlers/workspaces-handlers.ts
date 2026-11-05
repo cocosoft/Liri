@@ -34,7 +34,7 @@ import { mapChatErrorResponse, type ChatErrorBody } from './chat-handlers';
 import type {
   TaskNodeDto,
   TaskStatusDto,
-} from '@modules/runtime/api/workspaceOpsPorts';
+} from '@openliri/service/runtime/api/workspaceOpsPorts';
 import { LOCAL_REQUEST_BASE_URL, globalEventBus } from '@openliri/kernel';
 
 const logger = getLogger('http:workspaces');

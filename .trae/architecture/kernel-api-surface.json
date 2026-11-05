@@ -4,9 +4,9 @@
   "fileCount": 87,
   "symbolCount": 709,
   "levelCounts": {
-    "stable": 207,
+    "stable": 208,
     "experimental": 128,
-    "internal": 374
+    "internal": 373
   },
   "entries": [
     {
@@ -1255,7 +1255,7 @@
     "endpoints.ts#DEFAULT_COMFYUI_ENDPOINT": "stable",
     "endpoints.ts#DEFAULT_LOCAL_OAUTH_API_BASE": "stable",
     "endpoints.ts#DEFAULT_LOCAL_OAUTH_APPS_BASE": "stable",
-    "endpoints.ts#DEFAULT_MCP_OAUTH_CALLBACK_PORT": "internal",
+    "endpoints.ts#DEFAULT_MCP_OAUTH_CALLBACK_PORT": "stable",
     "endpoints.ts#DEFAULT_MCP_PROXY_URL": "stable",
     "endpoints.ts#DEFAULT_OAUTH_LOCAL_BASE_URL": "stable",
     "endpoints.ts#DEFAULT_OAUTH_REDIRECT_URI": "stable",

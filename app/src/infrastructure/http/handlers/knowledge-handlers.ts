@@ -23,7 +23,7 @@ import {
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 // C1（2026-09-30 D-97，`knowledge` 域 P3）：类型位改为服务层端口类型
 // （原文由 docs 域提供；此处**故意不写完整导入路径** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
-import type { KnowledgeRoutePort } from '@modules/runtime/api/knowledgeOpsPorts';
+import type { KnowledgeRoutePort } from '@openliri/service/runtime/api/knowledgeOpsPorts';
 
 /** 需要 ConverterEngine 转换的二进制文件扩展名 */
 // B5-2⑳（2026-10-14）：原为本文件**两处函数级同名副本**（内容逐字相同）⇒ 合一为模块级单一真源

@@ -14,8 +14,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import { join, dirname } from 'path';
 import { existsSync, readFileSync, writeFileSync, rmSync, mkdirSync } from 'fs';
 import { createPermissionManager } from '@openliri/infra/permission/PermissionManager';
-import { inboxManager } from '../../src/runtime/InboxManager.js';
-import { unattendedMode } from '../../src/runtime/UnattendedModeManager.js';
+import { inboxManager } from '@modules/runtime/InboxManager';
+import { unattendedMode } from '@modules/runtime/UnattendedModeManager';
 import { resolvePermissionsDir } from '@openliri/infra/environment';
 import { setPermissionRuntimeDeps } from '@openliri/infra/permission/PermissionChecker';
 

@@ -11,7 +11,7 @@ import { describe, expect, it } from 'bun:test';
 import {
   filterTaskPartitionMessages,
   isTaskPartitionMessage,
-} from '../../src/runtime/api/messagePartition';
+} from '@openliri/service/runtime/api/messagePartition';
 
 const taskMsg = (id: string) => ({
   id,

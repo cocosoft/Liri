@@ -16,12 +16,12 @@
 import type http from 'http';
 import { sendError, readRequestBody, type HandlerCtx } from './handler-utils';
 import { handleError } from '@openliri/infra/error';
-import { notificationPersistence } from '@modules/runtime/NotificationPersistence.js';
+import { notificationPersistence } from '@openliri/service/runtime/NotificationPersistence';
 import type {
   NotificationCategory,
   NotificationStatus,
   NotificationPriority,
-} from '@modules/runtime/NotificationPersistence.js';
+} from '@openliri/service/runtime/NotificationPersistence';
 import { LOCAL_SERVICE_HOST } from '@openliri/kernel';
 
 function sendJSON(

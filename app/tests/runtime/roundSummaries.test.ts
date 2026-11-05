@@ -16,7 +16,7 @@ import {
   buildSessionRoundSummaries,
   summarizeRoundText,
   type RoundSummarySourceMessage,
-} from '../../src/runtime/api/roundSummaries.js';
+} from '@openliri/service/runtime/api/roundSummaries';
 import { SessionMessagesRead } from '../../src/runtime/api/sessionMessagesRead.js';
 import type { ChatManager } from '@modules/chat';
 import type { SessionManager } from '../../src/session/types/session.js';

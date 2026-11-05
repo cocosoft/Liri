@@ -1959,9 +1959,9 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(gate).toContain('CROSS_PACKAGE_CONTRACT_CONSTS');
     expect(gate).toContain('ROUND_SUMMARY_MAX_CHARS:');
     // 两侧分属不同包（client 不依赖后端包）⇒ 无法 import，只能靠守卫钉住逐字同值
-    expect(read('src/runtime/api/roundSummaries.ts')).toContain(
-      'export const ROUND_SUMMARY_MAX_CHARS = 60;'
-    );
+    expect(
+      read('../packages/service/src/runtime/api/roundSummaries.ts')
+    ).toContain('export const ROUND_SUMMARY_MAX_CHARS = 60;');
     expect(read('../client/src/utils/roundSummaries.ts')).toContain(
       'export const ROUND_SUMMARY_MAX_CHARS = 60;'
     );

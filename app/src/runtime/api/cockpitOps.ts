@@ -11,7 +11,7 @@ import type {
   CockpitHistoryDto,
   CockpitSnapshotDto,
   CockpitTakeoverCandidateDto,
-} from './taskOpsPorts';
+} from '@openliri/service/runtime/api/taskOpsPorts';
 import { getExecutionStore } from '@openliri/service/execution';
 import { getLogger } from '@openliri/infra/monitoring';
 
@@ -58,7 +58,7 @@ export function createCockpitOps(): CockpitOpsPort {
         .map((item) => item.id);
       let actionable = new Set<string>();
       try {
-        const { inboxManager } = await import('../InboxManager.js');
+        const { inboxManager } = await import('@modules/runtime/InboxManager');
         actionable = new Set(
           await inboxManager.listActionableTicketIds(busyTicketIds)
         );

@@ -339,7 +339,7 @@ export class ScheduleHook {
   }): Promise<void> {
     try {
       const { notificationPersistence } =
-        await import('@modules/runtime/NotificationPersistence.js');
+        await import('@openliri/service/runtime/NotificationPersistence');
       const startTs = Math.floor(new Date(event.start).getTime() / 1000);
       await notificationPersistence().create({
         category: 'notice',
@@ -366,7 +366,7 @@ export class ScheduleHook {
   private async _dismissCalendarNotice(eventId: string): Promise<void> {
     try {
       const { notificationPersistence } =
-        await import('@modules/runtime/NotificationPersistence.js');
+        await import('@openliri/service/runtime/NotificationPersistence');
       await notificationPersistence().resolveBySourceRef(eventId);
     } catch {
       /* 通知消除失败不影响日历主流程 */

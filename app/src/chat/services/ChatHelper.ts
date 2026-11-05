@@ -17,7 +17,7 @@ import {
 } from '@openliri/kernel';
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { ToolResult } from '@modules/session/types/tool.js';
-import type { TodoBlockData } from '@modules/runtime/api/todo-types.js';
+import type { TodoBlockData } from '@openliri/service/runtime/api/todo-types';
 import { MessageType as SessionMessageType } from '@modules/session/types/UnifiedMessage';
 import { MessageRole as SessionMessageRole } from '@modules/session/types/UnifiedMessage';
 import type {

@@ -90,7 +90,7 @@ import { extractTodoData } from './services/ChatHelper';
 // 2026-11-01：工具调用纠偏（同参数重复 / 跨轮重读已读文件）外移到 manager（守 R04-001 行数）
 import { ToolCallCorrection } from './manager/toolCallCorrection';
 import { toolCallArgsKey } from '@openliri/infra/utils/toolCallKey';
-import type { TodoBlockData } from '@modules/runtime/api/todo-types';
+import type { TodoBlockData } from '@openliri/service/runtime/api/todo-types';
 import type { QuestionData } from '@modules/runtime/api/CoreAPI.js';
 import {
   shouldAsk as decisionGateCheck,

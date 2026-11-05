@@ -33,7 +33,7 @@ import {
   readApprovalFourStageConfig,
   setApprovalAuditSink,
 } from '@openliri/infra/permission/approvalAudit';
-import { toSessionEvent } from '../../src/runtime/api/approvalAuditSink';
+import { toSessionEvent } from '@modules/runtime/api/approvalAuditSink';
 
 const REPO_ROOT = join(import.meta.dir, '../../..');
 

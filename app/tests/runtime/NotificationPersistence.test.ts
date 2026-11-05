@@ -17,7 +17,7 @@ import type http from 'http';
 import {
   NotificationPersistence,
   setNotificationPersistence,
-} from '../../src/runtime/NotificationPersistence.js';
+} from '@openliri/service/runtime/NotificationPersistence';
 import { handleCreateNotification } from '../../src/infrastructure/http/handlers/notification-handlers.js';
 
 // bun 运行时全局 Bun 的 sleep API（src/ink/ink/global.d.ts 的全局 Bun 声明

@@ -17,7 +17,7 @@
  */
 import { feature } from '@openliri/kernel';
 import { getLogger } from '@openliri/infra/monitoring';
-import type { InboxItem } from '@modules/runtime/InboxManager.js';
+import type { InboxItem } from '@modules/runtime/InboxManager';
 
 import { EFFECT_REPLY_POLL_MS } from '@openliri/infra/constants';
 
@@ -254,7 +254,7 @@ export function kickReplyEffectDispatcher(): void {
  * 动态 import：`runtime` / `channels` 均为 service 层，避免启动期把两者拉进 app 依赖面。
  */
 export async function createDefaultReplyDispatchDeps(): Promise<ReplyDispatchDeps> {
-  const { inboxManager } = await import('@modules/runtime/InboxManager.js');
+  const { inboxManager } = await import('@modules/runtime/InboxManager');
   const { relayReplyToChannel } =
     await import('@modules/channels/bridge/inboxChannelReply.js');
   return {

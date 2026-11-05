@@ -19,7 +19,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import type { TodoBlockData } from '@modules/runtime/api/todo-types';
+import type { TodoBlockData } from '@openliri/service/runtime/api/todo-types';
 import type {
   TodoExpansionState,
   ToolTurnBudget as ToolTurnBudgetState,

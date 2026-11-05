@@ -14,7 +14,7 @@
 import { describe, it, expect } from 'bun:test';
 
 import { resolveStreamFinishReason } from '../../src/runtime/api/CoreAPIImpl';
-import { terminationReasonField } from '../../src/runtime/api/streamTermination';
+import { terminationReasonField } from '@openliri/service/runtime/api/streamTermination';
 
 describe('resolveStreamFinishReason：终止原因不得被降级成 stop', () => {
   it('★ 顶层无值 + metadata.finishReason=budget_exhausted ⇒ 原样透出（本片修复的正是这条）', () => {

@@ -955,8 +955,9 @@ async function startDeferredPrefetches(): Promise<void> {
       (async () => {
         try {
           const { unattendedMode } =
-            await import('../runtime/UnattendedModeManager.js');
-          const { inboxManager } = await import('../runtime/InboxManager.js');
+            await import('@modules/runtime/UnattendedModeManager');
+          const { inboxManager } =
+            await import('@modules/runtime/InboxManager');
           const { setPermissionRuntimeDeps } =
             await import('@openliri/infra/permission/PermissionChecker');
           // PR-3c（2026-10-23）：自动放行（沙箱豁免 / 会话 auto-local）的审计落盘。
@@ -988,7 +989,7 @@ async function startDeferredPrefetches(): Promise<void> {
           // `permission`(infra) 不静态依赖 `chat`(service)。开关在 sink 内按
           // `config.json → approvalFourStage.enabled`（默认关）判定。
           const { installApprovalAuditSink } =
-            await import('../runtime/api/approvalAuditSink.js');
+            await import('@modules/runtime/api/approvalAuditSink');
           await installApprovalAuditSink();
         } catch (error) {
           logger.warning('权限运行时依赖注入失败（非关键）', { error });

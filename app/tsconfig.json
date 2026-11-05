@@ -248,6 +248,12 @@
       "@openliri/service/services/*": [
         "../../packages/service/src/services/*"
       ],
+      "@openliri/service/runtime/*.js": [
+        "../../packages/service/src/runtime/*"
+      ],
+      "@openliri/service/runtime/*": [
+        "../../packages/service/src/runtime/*"
+      ],
       "@openliri/service/ports/*": [
         "../../packages/service/src/ports/*"
       ],

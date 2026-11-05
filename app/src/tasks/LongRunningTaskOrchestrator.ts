@@ -65,7 +65,7 @@ import type { VerificationResult } from '@modules/query';
 // 13-P0-2（2026-10-05）：验收标准结构化（存档回填时由文本重派生）
 import { parseSuccessCriteria } from '@modules/tasks/successCriteria';
 import { FileLockManager, fileLockManager } from './FileLockManager.js';
-import { inboxManager } from '@modules/runtime/InboxManager.js';
+import { inboxManager } from '@modules/runtime/InboxManager';
 import {
   syncPdcaWorkItemStatus,
   writePdcaCheckpoint,
@@ -992,7 +992,7 @@ export class LongRunningTaskOrchestrator {
       // `UnattendedModeManager` 文档早已承诺该语义，但主路径此前未接线 ⇒ 全自动流程
       // 仍会停在审批点。动态导入避免 tasks ↔ runtime 的静态环。
       const { unattendedMode } =
-        await import('@modules/runtime/UnattendedModeManager.js');
+        await import('@modules/runtime/UnattendedModeManager');
       if (
         shouldAutoApprovePlan(
           requireApproval,

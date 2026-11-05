@@ -31,7 +31,7 @@ import { randomUUID } from 'crypto';
 import { broadcastEvent } from '@modules/infrastructure';
 import type { FrontendMessageBlock } from '@modules/session/types/UnifiedMessage.js';
 // P0-1（2026-11-04）：把合并次数回填到会话内的 Inbox 卡片块（显示 ×N）
-import { patchInboxBlockDedupCount } from './inboxBlockPatch.js';
+import { patchInboxBlockDedupCount } from '@openliri/service/runtime/inboxBlockPatch.js';
 import { isPanelActionable, toInboxMetadata } from '@openliri/infra/attention';
 // 时间换算取常量真源（`lint:consts` D-2：不在业务文件里裸写 `n * 60 * 1000`）
 import { MS_PER_HOUR, MS_PER_MINUTE } from '@openliri/infra/constants';
@@ -889,7 +889,7 @@ export class InboxManager {
       void (async () => {
         try {
           const { notificationPersistence } =
-            await import('@modules/runtime/NotificationPersistence.js');
+            await import('@openliri/service/runtime/NotificationPersistence.js');
           await notificationPersistence().resolveBySourceRef(item.id);
         } catch {
           /* 通知更新失败不影响 Inbox 主流程 */
@@ -1369,7 +1369,8 @@ export class InboxManager {
     dedupCount: number
   ): Promise<void> {
     try {
-      const { createSessionGateway } = await import('@modules/session');
+      const { createSessionGateway } =
+        await import('@modules/session/SessionGateway');
       const gateway = createSessionGateway();
       const messages = await gateway.getMessages(sessionId);
       for (const msg of messages) {
@@ -1671,7 +1672,8 @@ async function _injectInboxBlock(
   data: Record<string, unknown>
 ): Promise<void> {
   const { randomUUID } = await import('crypto');
-  const { createSessionGateway } = await import('@modules/session');
+  const { createSessionGateway } =
+    await import('@modules/session/SessionGateway');
 
   const gateway = createSessionGateway();
   const allMessages = await gateway.getMessages(sessionId);

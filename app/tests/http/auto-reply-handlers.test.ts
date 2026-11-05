@@ -24,7 +24,7 @@ import {
 import type {
   AutoReplyRuleDto,
   AutoReplyRuleInput,
-} from '../../src/runtime/api/autoReplyPorts';
+} from '@openliri/service/runtime/api/autoReplyPorts';
 import * as coreAPIModule from '../../src/runtime/api/CoreAPIImpl';
 
 /** 当前端口返回的规则（每个用例前重置） */

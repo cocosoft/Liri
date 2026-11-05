@@ -31,7 +31,7 @@ import {
   EFFECT_STATUS_PENDING,
   EFFECT_STATUS_SETTLED,
 } from '../../../src/tasks/effects';
-import type { InboxItem } from '../../../src/runtime/InboxManager';
+import type { InboxItem } from '@modules/runtime/InboxManager';
 
 const NOW = Date.parse('2026-11-02T12:00:00Z');
 

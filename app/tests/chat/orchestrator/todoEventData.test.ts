@@ -12,7 +12,7 @@
 import { describe, expect, it } from 'bun:test';
 
 import { buildTodoEventData } from '../../../src/chat/orchestrator/streamMessageHelpers.js';
-import type { TodoBlockData } from '@modules/runtime/api/todo-types';
+import type { TodoBlockData } from '@openliri/service/runtime/api/todo-types';
 
 function todo(overrides: Partial<TodoBlockData> = {}): TodoBlockData {
   return {

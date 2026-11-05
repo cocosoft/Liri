@@ -7,7 +7,7 @@
  * ③ `countByTicket()` 与台账行数一致（含已回复/已过期口径）。
  */
 import { describe, it, expect } from 'bun:test';
-import { InboxManager } from '../../src/runtime/InboxManager.js';
+import { InboxManager } from '@modules/runtime/InboxManager';
 import { readInboxAttention } from '@openliri/infra/attention';
 
 function base(over: Record<string, unknown> = {}) {

@@ -23,7 +23,7 @@ import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import type {
   CompetitiveOrchestrationResultDto,
   ResearchCallModelDto,
-} from '@modules/runtime/api/queryOpsPorts';
+} from '@openliri/service/runtime/api/queryOpsPorts';
 
 const logger = getLogger('infra:research-handlers');
 

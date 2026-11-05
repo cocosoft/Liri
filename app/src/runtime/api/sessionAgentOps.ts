@@ -46,7 +46,7 @@ import {
   mergeWorkspaceRoots,
   type WorkspaceStatus,
 } from '@openliri/infra/utils/toolContract/workspaceRoots';
-import type { Coordinator } from '@modules/runtime/coordinator';
+import type { Coordinator } from '@openliri/service/runtime/coordinator';
 import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@openliri/infra/monitoring';
 // P0-4（2026-11-05）：任务分区消息（PDCA 步骤）不计入用户面计数；
@@ -55,7 +55,7 @@ import { computeConversationCounts } from '@openliri/infra/utils/sessionCounts';
 import {
   filterTaskPartitionMessages,
   isTaskPartitionMessage,
-} from './messagePartition';
+} from '@openliri/service/runtime/api/messagePartition';
 // P1（2026-11-04）：会话级权限模式（UI 第三层写入）的取值域
 import type { PermissionMode } from '@openliri/infra/permission';
 import type { ChatManager } from '@modules/chat';
@@ -91,7 +91,7 @@ import {
   type ToolPermissionPort,
 } from '@openliri/infra/permission';
 // B2（2026-10-30）：按轮摘要（供轮次导航补齐未加载轮次）
-import type { SessionRoundSummariesResult } from './roundSummaries';
+import type { SessionRoundSummariesResult } from '@openliri/service/runtime/api/roundSummaries';
 import type { MessageMutation } from './messageMutation';
 import type { SessionTitling } from './sessionTitling';
 import type { ToolManager } from '@modules/tools';

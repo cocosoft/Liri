@@ -41,6 +41,14 @@
       "types": "./src/ports/bridgePorts.ts",
       "import": "./src/ports/bridgePorts.ts"
     },
+    "./runtime/*.js": {
+      "types": "./src/runtime/*.ts",
+      "import": "./src/runtime/*.ts"
+    },
+    "./runtime/*": {
+      "types": "./src/runtime/*.ts",
+      "import": "./src/runtime/*.ts"
+    },
     "./streaming": {
       "types": "./src/streaming/index.ts",
       "import": "./src/streaming/index.ts"

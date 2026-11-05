@@ -37,7 +37,7 @@ import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import type {
   PdcaMetricsDto,
   PdcaOrchestratorPort,
-} from '@modules/runtime/api/taskOpsPorts';
+} from '@openliri/service/runtime/api/taskOpsPorts';
 
 const logger = getLogger('pdca:handlers');
 

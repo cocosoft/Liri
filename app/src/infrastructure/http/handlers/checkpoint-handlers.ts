@@ -29,7 +29,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 // C1（2026-09-30 D-117，`query` 域静态面）：循环**类型位**改经服务层端口**最小结构镜像**
 // （原具名导入**不在此处复写** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
-import type { TaorLoopPort } from '@modules/runtime/api/queryOpsPorts';
+import type { TaorLoopPort } from '@openliri/service/runtime/api/queryOpsPorts';
 import type { HandlerCtx } from './handler-utils';
 // 2026-10-01 D-201（chat 域取用面收敛）：原**静态**导入 app 层 `@modules/chat` 的
 // `createChatManager()` ⇒ `infrastructure -> app` 倒挂。

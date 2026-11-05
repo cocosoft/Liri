@@ -4,14 +4,14 @@
 // ⚠️ 用**同步**门面而非 Promise 端口：本文件由 `SessionGateway` 的**构造函数**与
 // **同步 fluent API**（`wireWithRealServices(): this`）调用 ⇒ 改异步会向上传染。
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import type { AutoCompactServiceRefPort } from '@modules/runtime/api/compactPorts';
+import type { AutoCompactServiceRefPort } from '@openliri/service/runtime/api/compactPorts';
 // 2026-10-01（B11 余 1 条 · `session -> chat` 收口）：原**整条**静态导入 `@modules/chat`
 // （值 `getCheckpointService` + 类型 `SessionCheckpointService`）⇒ 构成 `session -> chat`(app) 倒挂。
 // 该取用是**装配值**（非类型）⇒ 移类型文件治不了 ⇒ 改经 **CoreAPI 同步门面**（既有 sanctioned 缝，
 // 同 `getCheckpointCleanup()`）：`CoreAPIImpl.getSessionCheckpointRef()`；投影见
 // `./runtime/api/sessionCheckpointPorts#SessionCheckpointRefPort`（只声明真正被调用的 1 方法 + 被读的 2 字段）。
 // ⚠️ 本导入必须**整条**去掉（值 + 类型一并）—— 只删值导入则该「文件 × 模块」对仍在、计数不减。
-import type { SessionCheckpointRefPort } from '@modules/runtime/api/sessionCheckpointPorts';
+import type { SessionCheckpointRefPort } from '@openliri/service/runtime/api/sessionCheckpointPorts';
 import type {
   SessionCheckpointService,
   SessionCheckpointHandle,

@@ -14,7 +14,7 @@ import { describe, it, expect } from 'bun:test';
 import {
   parseFingerprintAllowTarget,
   resolveApprovalScopeKind,
-} from '../../src/runtime/inboxApproval.js';
+} from '@modules/runtime/inboxApproval';
 import {
   hashApprovalFingerprint,
   hashCommandForExecution,

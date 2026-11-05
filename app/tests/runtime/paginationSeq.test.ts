@@ -34,7 +34,7 @@ import {
   extendPageStartToWholeRounds,
   selectVisiblePageStart,
   withPaginationSeq,
-} from '../../src/runtime/api/paginationSeq';
+} from '@openliri/service/runtime/api/paginationSeq';
 
 interface Row {
   id: string;

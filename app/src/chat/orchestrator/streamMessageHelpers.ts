@@ -12,7 +12,7 @@
 import type { LiriEventMap } from '@modules/session/types/eventPayloads.js';
 // P2-1d-4 / P2-1f：载荷与输入类型**取自既有契约**（R02：不复制数据形状）；仅类型依赖，无运行时环。
 import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI.js';
-import type { TodoBlockData } from '@modules/runtime/api/todo-types';
+import type { TodoBlockData } from '@openliri/service/runtime/api/todo-types';
 
 /**
  * O2-4 探针判据（2026-09-24「会话暴露问题分析与优化方案」§五，纯函数，导出便于单测）。

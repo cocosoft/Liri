@@ -6,7 +6,7 @@
  * 各自弹卡、各批一次；用户以为「批一次就够了」，实际只放开了最末一级目录。
  */
 import { describe, expect, it } from 'bun:test';
-import { mergeWorkspaceRoot } from '../../src/runtime/inboxApproval';
+import { mergeWorkspaceRoot } from '@modules/runtime/inboxApproval';
 
 const APP = 'E:\\PY\\Documents\\CODES\\PY_APP\\app';
 const ROUTER = `${APP}\\src\\ai\\router`;

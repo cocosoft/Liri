@@ -72,6 +72,9 @@ export const CONSUMER_ROOTS = [
   // P6（2026-11-01）：`utils` 迁入 infra 物理包后，其内核消费点仍属真实消费方 ——
   // 不纳入会把 `ToolResult` 等从 stable 误降为 internal（迁包被误读成"消费面消失"）。
   'packages/infra',
+  // P37（2026-11-06）：`runtime/coordinator` 迁入 service 物理包后同理 ——
+  // 不纳入会把 `IAgentToolPort` / `resolveAgentTool` 从 experimental 误降为 internal。
+  'packages/service',
 ] as const;
 
 /** 从消费方源码文本中提取「引用了哪些内核符号名」 */

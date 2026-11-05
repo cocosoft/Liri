@@ -27,7 +27,7 @@ import { randomUUID } from 'node:crypto';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 // ⚠️ **类型位** app 类型已替换为服务层端口类型（原为 semantic store 模块的 SemanticStore；
 // 此处**故意不写完整导入路径** —— 门禁 `parseModuleImports` 不剥离注释，写了会让「对」复活，见台账 D-77）
-import type { SemanticStorePort } from '@modules/runtime/api/knowledgeOpsPorts';
+import type { SemanticStorePort } from '@openliri/service/runtime/api/knowledgeOpsPorts';
 
 const logger = getLogger('http:semanticIndex');
 

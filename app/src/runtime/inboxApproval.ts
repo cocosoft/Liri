@@ -34,7 +34,7 @@ import {
 import {
   APPROVAL_RESUME_IDLE_POLL_MS,
   APPROVAL_RESUME_IDLE_WAIT_MS,
-} from './defaults.js';
+} from '@openliri/service/runtime/defaults.js';
 
 const logger = getLogger('runtime:inboxApproval');
 
@@ -584,7 +584,8 @@ async function triggerResumeAfterApproval(sessionId: string): Promise<void> {
     // U-06-4（2026-10-19）：续跑结束（成功/异常）广播 `session:continued`，
     // 前端据此刷新当前会话 —— 取代原先「固定 sleep 3s + 全量 getMessages」的时序猜测。
     try {
-      const { broadcastEvent } = await import('@modules/infrastructure');
+      const { broadcastEvent } =
+        await import('@modules/infrastructure/http/handlers/handler-utils');
       await broadcastEvent('session:continued', { id: sessionId, ok: resumed });
     } catch (e) {
       logger.warn('审批后续跑 SSE 广播失败', {

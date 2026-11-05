@@ -15,7 +15,7 @@ import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import type {
   WorkItemSearchQueryDto,
   WorkItemSearchResultDto,
-} from '@modules/runtime/api/workspaceOpsPorts';
+} from '@openliri/service/runtime/api/workspaceOpsPorts';
 import { resolveWorkspacePath } from './workspaces-handlers';
 
 /** C1（D-114）：工作空间上下文（配置 + 工作项存储）经端口取用 */

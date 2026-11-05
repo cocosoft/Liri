@@ -30,7 +30,11 @@ import {
 import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import { throwIfAborted } from '@modules/agent';
 
-import { parsePlanDraft } from '../planOutputParser';
+import {
+  draftFromSubmitPlanToolCalls,
+  parsePlanDraft,
+  SUBMIT_PLAN_TOOL_NAME,
+} from '../planOutputParser';
 import type { Plan } from '../TaskOrchestrator';
 import { TaskStatus } from '../types';
 import {
@@ -45,6 +49,40 @@ import {
 } from './plannerSupport.js';
 
 const logger = getLogger('tasks:longRunning');
+
+/**
+ * C9（2026-11-05）：Planner 的**结构化输出**工具（合成定义）。
+ *
+ * 只用于出站函数定义（`extraTools`），**不注册、不执行**——调用方直接读 `toolCalls`。
+ * 与文本 JSON 解析共用同一套字段校验（`parsePlanDraft`），不产生第二份契约。
+ */
+const SUBMIT_PLAN_TOOL = {
+  name: SUBMIT_PLAN_TOOL_NAME,
+  description: '提交执行计划。必须通过本工具提交；不要只输出自然语言或代码块。',
+  input_schema: {
+    type: 'object',
+    properties: {
+      steps: {
+        type: 'array',
+        items: { type: 'string' },
+        minItems: 1,
+        description: '按执行顺序排列的步骤描述',
+      },
+      acceptanceCriteria: {
+        type: 'array',
+        items: { type: 'string' },
+        description: '与 steps 等长的可证验收标准',
+      },
+      dependsOn: {
+        type: 'array',
+        description:
+          '可选：第 i 步依赖的前置步骤下标（0-based，不允许自依赖/依赖后续）',
+        items: { type: 'array', items: { type: 'integer', minimum: 0 } },
+      },
+    },
+    required: ['steps'],
+  },
+} as const;
 
 /** 上次执行遗留的缺陷（增量 replan 的输入） */
 export interface PlanEscalation {
@@ -123,42 +161,59 @@ ${replanSection}
 }
 说明：dependsOn 为可选字段，长度与 steps 对齐；
 第 i 步依赖 steps 中哪些前置步骤，填这些步骤的下标（0-based）；无依赖填 []；
-不允许依赖自身或后续步骤（依赖错误时执行器会按无依赖/串行安全兜底）。`;
+不允许依赖自身或后续步骤（依赖错误时执行器会按无依赖/串行安全兜底）。
 
-    const planText = normalizeExecutorResult(
+输出要求（C9）：**必须调用 \`${SUBMIT_PLAN_TOOL_NAME}\` 工具**提交计划
+（steps / acceptanceCriteria / dependsOn）；不要只输出自然语言或代码块。`;
+
+    const result = normalizeExecutorResult(
       await deps.executor({
         systemPrompt: PLANNER_ROLE.systemPrompt,
         userPrompt: planPrompt,
         tools: roleToolNames(PLANNER_ROLE),
+        // C9：合成工具（仅出站；不进注册表、不被执行）——结构化输出的唯一入口
+        extraTools: [SUBMIT_PLAN_TOOL],
         taskType: PLANNER_ROLE.taskType,
         isolation: deps.isolation,
       })
-    ).content;
+    );
+    const planText = result.content;
 
-    // 解析 Planner 输出（U-01，2026-10-17）：只接受结构化 JSON；
-    // 解析失败先做一次“修复重问”，仍失败则整体失败 —— **禁止按行切分兜底**。
+    // 解析 Planner 输出（U-01，2026-10-17）：只接受结构化计划；
+    // C9（2026-11-05）优先级：① `submit_plan` 工具调用 → ② 文本 JSON（兼容不支持 tools 的模型）
+    // → ③ 一次修复重问；仍失败则整体失败 —— **禁止按行切分兜底**。
     let steps: string[] = [description];
     let acceptance: string[] = [];
     // 1-1a（2026-09-03）：可选依赖（按步骤 0-based 序号）。仅首轮规划解析——
     // 增量 replan（缺陷修订）时步骤编号与旧计划可能漂移，填充错误依赖风险大于收益，保持串行保守。
     let dependsOn: number[][] | undefined;
 
-    const parsedPlan = parsePlanDraft(planText);
-    let draft = parsedPlan.ok ? parsedPlan.draft : undefined;
+    const structured = draftFromSubmitPlanToolCalls(result.toolCalls);
+    let draft = structured?.draft;
+    let planSource: 'tool-call' | 'text' | 'repair' = 'tool-call';
+    let parseReason = '';
+    if (!draft) {
+      const parsedPlan = parsePlanDraft(planText);
+      draft = parsedPlan.ok ? parsedPlan.draft : undefined;
+      planSource = 'text';
+      if (!parsedPlan.ok) parseReason = parsedPlan.reason;
+    }
     if (!draft) {
       logger.warn(
-        '[orchestrator] Planner 输出不是可解析的 JSON，发起一次修复重问',
+        '[orchestrator] Planner 未给出可解析的结构化计划（submit_plan / 文本均失败），发起一次修复重问',
         {
           taskId: deps.taskId,
-          reason: parsedPlan.ok ? 'unknown' : parsedPlan.reason,
+          reason: parseReason || 'unknown',
+          toolCalls: result.toolCalls.map((c) => c.name),
         }
       );
       draft = await repairPlanJson(
         repairDeps,
         description,
         planText,
-        parsedPlan.ok ? 'unknown' : parsedPlan.reason
+        parseReason || 'unknown'
       );
+      planSource = 'repair';
     }
     if (!draft) {
       throw new AppError(
@@ -172,6 +227,12 @@ ${replanSection}
 
     steps = draft.steps;
     acceptance = draft.acceptanceCriteria;
+    logger.info('[orchestrator] Planner 计划解析成功', {
+      taskId: deps.taskId,
+      source: planSource,
+      steps: draft.steps.length,
+      hasDependsOn: Array.isArray(draft.dependsOn),
+    });
     if (deps.lastEscalations.length === 0 && Array.isArray(draft.dependsOn)) {
       dependsOn = draft.dependsOn.map((deps2) =>
         deps2.map((d) => Number(d)).filter((d) => Number.isInteger(d) && d >= 0)

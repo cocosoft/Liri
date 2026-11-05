@@ -143,6 +143,17 @@ export type ExecutorFn = (params: {
   userPrompt: string;
   /** 本次可用的**真实**工具名（由 `RoleConfig.taskType` 派生，禁止手写） */
   tools: string[];
+  /**
+   * C9（2026-11-05）：调用方追加的**合成工具**（结构化输出用，如 Planner 的 `submit_plan`）。
+   *
+   * 只做「出站函数定义」的最小投影（`input_schema` 与 `ToolSchemaLike` 同形），
+   * 不进工具注册表、不被执行器执行 —— 由调用方读取 `toolCalls` 自行消费。
+   */
+  extraTools?: ReadonlyArray<{
+    name: string;
+    description?: string;
+    input_schema?: unknown;
+  }>;
   /** 模型解析用任务类型（任务分工 / DB 唯一事实来源） */
   taskType: TaskType;
   isolation: ReturnType<typeof createAgentIsolation>;

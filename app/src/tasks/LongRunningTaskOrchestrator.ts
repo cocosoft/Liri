@@ -392,14 +392,13 @@ export class LongRunningTaskOrchestrator {
 
         // 工具定义：先按角色派生的**真实名**挑 schema，再经 wire codec 出站
         // （冒号命名空间工具若原样下发会被 provider 400 拒绝）。
-        const tools =
-          params.tools.length > 0
-            ? buildToolDefinitions(
-                getToolRegistry()
-                  .getToolSchemas()
-                  .filter((s) => params.tools.includes(s.name))
-              )
-            : [];
+        // C9（2026-11-05）：并入调用方追加的合成工具（结构化输出，如 Planner 的 submit_plan）。
+        const tools = buildToolDefinitions([
+          ...getToolRegistry()
+            .getToolSchemas()
+            .filter((s) => params.tools.includes(s.name)),
+          ...(params.extraTools ?? []),
+        ]);
 
         const response = await service.generate(
           [

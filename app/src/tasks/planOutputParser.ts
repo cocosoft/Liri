@@ -134,3 +134,32 @@ export function parsePlanDraft(text: string): PlanParseResult {
     },
   };
 }
+
+/** C9（2026-11-05）：Planner 结构化输出的工具名（唯一出口） */
+export const SUBMIT_PLAN_TOOL_NAME = 'submit_plan';
+
+/** 工具调用的最小形状（与 `ExecutorToolCall` 同形；避免解析层反向依赖 tasks 契约） */
+export interface PlanToolCallLike {
+  name: string;
+  arguments: unknown;
+}
+
+/**
+ * C9（2026-11-05）：从工具调用里取计划。
+ *
+ * 只认 `submit_plan`；把 `arguments`（对象或 JSON 字符串）序列化后**复用
+ * `parsePlanDraft`** 做同一套字段校验（CS01：不写第二份校验）。
+ * 没有该调用 / 参数不合法 ⇒ `null`（调用方回退到文本解析）。
+ */
+export function draftFromSubmitPlanToolCalls(
+  toolCalls: readonly PlanToolCallLike[]
+): { draft: PlanDraft; raw: string } | null {
+  const call = toolCalls.find((c) => c.name === SUBMIT_PLAN_TOOL_NAME);
+  if (!call) return null;
+  const raw =
+    typeof call.arguments === 'string'
+      ? call.arguments
+      : JSON.stringify(call.arguments ?? {});
+  const parsed = parsePlanDraft(raw);
+  return parsed.ok ? { draft: parsed.draft, raw } : null;
+}

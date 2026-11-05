@@ -55,6 +55,8 @@ import {
   resolveMaxContextTokens,
   resolveEffectiveTurnModel,
 } from '../services/ChatHelper';
+// P1-6：模型请求网络不可用 → 用户可见文案（与工具面共用判据）
+import { getStreamInterruptContent } from './toolErrorMessages.js';
 // K4（2026-09-06）：项目执行意图判定 —— P2-1i 后由 `selectToolsForTurn` 消费。
 // G18（2026-10-11）：`lastUserMessageText` 的消费点随"工具集选择块"外移，本文件不再直接引用。
 import {
@@ -1350,7 +1352,7 @@ export async function* runStreamMessage(
           });
           yield {
             type: 'error',
-            content: `流式响应中断: ${errorMsg}`,
+            content: getStreamInterruptContent(genErr, errorMsg),
             sessionId: session.id,
             // P1-1：结构化错误码——前端据此识别可恢复中断（避免字符串匹配，CS02）
             errorCode: 'STREAM_INTERRUPTED',

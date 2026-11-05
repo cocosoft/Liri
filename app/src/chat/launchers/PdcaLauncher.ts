@@ -98,6 +98,64 @@ export function formatPdcaModeHint(
 }
 
 /**
+ * P0-5（2026-11-06）：任务**终态回执**文案（纯函数，供单测）。
+ *
+ * 为什么需要：P0-4 把任务步骤消息默认从用户会话中分离（`isTaskMessage`），
+ * 于是「任务完成 / 未达成 / 中止 / 等审批」也一并被隐藏 —— 用户只看到任务悄无声息地结束
+ * （即 P0-5 的原始症状）。终态回执是**一条结论**，不是步骤消息 ⇒ 不设 `isTaskMessage`，
+ * 保留在用户会话；步骤细节仍在编排面板与 `?includeTask=1` 审计视图里。
+ */
+export function formatPdcaTerminalNotice(input: {
+  /** 终态档位（`awaitingApproval=true` 时不使用） */
+  outcome?: 'completed' | 'partial' | 'aborted' | 'budget' | 'failed';
+  /**
+   * `true` = 任务停在「等待阶段审批」。
+   *
+   * 用布尔而非状态词汇（如 `awaiting_approval`）：本参数只是**回执呈现档位**，不是状态机状态；
+   * 写成状态词汇会被 `lint:state-ratchet` 当成新的状态字面量出现点（需登记）。
+   */
+  awaitingApproval?: boolean;
+  completed: number;
+  total: number;
+  /** partial 时的未达成数 */
+  failed?: number;
+  /** 依赖阻断未执行数 */
+  blocked?: number;
+  /** failed 时的原因（调用方已截断） */
+  error?: string;
+  /** 计量单位（步 / 阶段） */
+  unit?: string;
+}): string {
+  const unit = input.unit ?? '步';
+  const progress = `${input.completed}/${input.total} ${unit}完成`;
+  const extra: string[] = [];
+  if ((input.failed ?? 0) > 0 && input.outcome !== 'failed') {
+    extra.push(`${input.failed} ${unit}未达成`);
+  }
+  if ((input.blocked ?? 0) > 0) {
+    extra.push(`${input.blocked} ${unit}因依赖阻断未执行`);
+  }
+  const suffix = extra.length > 0 ? `（${extra.join('，')}）` : '';
+  if (input.awaitingApproval) {
+    return `⏸ 编排任务暂停：等待阶段审批（${progress}${suffix}）。请在编排面板确认后继续。`;
+  }
+  switch (input.outcome ?? 'completed') {
+    case 'completed':
+      return `✅ 编排任务完成：${progress}${suffix}。步骤详情见编排面板。`;
+    case 'partial':
+      return `⚠️ 编排任务未完全达成：${progress}${suffix}。步骤详情见编排面板。`;
+    case 'aborted':
+      return `⏹ 编排任务已中止：${progress}${suffix}。重新发送需求可继续。`;
+    case 'budget':
+      return `⚠️ 编排任务因预算耗尽结束：${progress}${suffix}。步骤详情见编排面板。`;
+    case 'failed':
+      return `❌ 编排任务执行失败${input.error ? `：${input.error}` : ''}。可重新发送需求重试。`;
+    default:
+      return `⚠️ 编排任务结束：${progress}${suffix}。`;
+  }
+}
+
+/**
  * PDCA 启动器
  * 提取自 ChatManager._launchImplicitPdca（L2964-L3079，115 行）
  *
@@ -141,6 +199,35 @@ export class PdcaLauncher {
       });
     }
   }
+  /**
+   * P0-5（2026-11-06）：写一条**用户可见**的任务终态回执（**不设** `isTaskMessage`）。
+   *
+   * 与 `_persistModeHint` / 步骤消息的区别：那些是任务分区消息（P0-4 默认从用户会话分离），
+   * 而终态回执是用户需要看到的**结论**。写入失败不影响编排（CS03）。
+   */
+  private _persistTerminalNotice(
+    sessionId: string,
+    taskId: string,
+    text: string
+  ): void {
+    try {
+      this.deps.persistMessage(
+        sessionId,
+        this.deps.messageService.createAssistantMessage(text, {
+          sessionId,
+          metadata: { taskId, taskType: 'pdca-final' },
+        })
+      );
+    } catch (error) {
+      /* @ignore-catch — 回执写入失败不影响编排执行 */
+      logger.warn('PDCA 终态回执写入失败', {
+        sessionId,
+        taskId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
   async launch(
     projectId: string,
     description: string,
@@ -431,6 +518,25 @@ export class PdcaLauncher {
                 });
               }
             }
+            // P0-5（2026-11-06）：终态回执放在**最后** —— P0-4 过滤任务步骤消息后，这是用户
+            // 唯一能看到的「任务结束了、结果如何」的结论（步骤细节仍在编排面板）。
+            this._persistTerminalNotice(
+              sessionId,
+              taskId,
+              formatPdcaTerminalNotice({
+                outcome: aborted
+                  ? 'aborted'
+                  : budgetExhausted
+                    ? 'budget'
+                    : result.failedSteps > 0
+                      ? 'partial'
+                      : 'completed',
+                completed: result.completedSteps,
+                total: result.stepCount,
+                failed: result.failedSteps,
+                blocked: result.blockedSteps.length,
+              })
+            );
           } catch (e) {
             await writePdcaCheckpoint(taskId, {
               taskId,
@@ -447,6 +553,20 @@ export class PdcaLauncher {
               action: 'planDrivenLoop_execute',
               context: { sessionId },
             });
+            // P0-5：失败也必须给用户一条可见结论（原先只写日志/检查点）
+            this._persistTerminalNotice(
+              sessionId,
+              taskId,
+              formatPdcaTerminalNotice({
+                outcome: 'failed',
+                completed: 0,
+                total: 0,
+                error: (e instanceof Error ? e.message : String(e)).slice(
+                  0,
+                  160
+                ),
+              })
+            );
           } finally {
             unregisterPlanLoop(taskId, planLoop);
           }
@@ -617,6 +737,28 @@ export class PdcaLauncher {
               phase: s.phase,
               currentStage: s.currentStage,
             });
+            // P0-5（2026-11-06）：阶段链终态回执（用户可见）—— 完成 / 失败 / 等审批
+            const doneStages = s.stages.filter(
+              (stage) => stage.status === 'completed'
+            ).length;
+            this._persistTerminalNotice(
+              sessionId,
+              taskId,
+              formatPdcaTerminalNotice({
+                outcome:
+                  s.phase === 'completed'
+                    ? 'completed'
+                    : s.phase === 'failed'
+                      ? 'failed'
+                      : undefined,
+                awaitingApproval:
+                  s.phase !== 'completed' && s.phase !== 'failed',
+                completed: doneStages,
+                total: s.stages.length,
+                unit: '阶段',
+                error: s.phase === 'failed' ? '阶段执行失败' : undefined,
+              })
+            );
           })
           .catch((e) => {
             handleError(e, {
@@ -624,6 +766,20 @@ export class PdcaLauncher {
               action: 'implicitPdca_execute',
               context: { taskId, projectId },
             });
+            // P0-5：阶段链异常同样给用户一条可见结论
+            this._persistTerminalNotice(
+              sessionId,
+              taskId,
+              formatPdcaTerminalNotice({
+                outcome: 'failed',
+                completed: 0,
+                total: 0,
+                error: (e instanceof Error ? e.message : String(e)).slice(
+                  0,
+                  160
+                ),
+              })
+            );
           });
       } catch {
         /* 隐性 PDCA 启动失败不影响主流程 */

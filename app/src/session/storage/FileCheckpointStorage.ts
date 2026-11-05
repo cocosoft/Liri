@@ -84,6 +84,19 @@ export async function unlinkCheckpointFileWithRetry(
 
 export class FileCheckpointStorage implements CheckpointStorage {
   private storageDir: string;
+  /**
+   * 每会话的检查点索引（A4，2026-11-05）——把「每次写入都重扫目录 + 读全部文件」
+   * 改为「首次按需扫描一次，之后随写入增量维护」。
+   *
+   * 真机证据：单窗口 `Enforced max checkpoints per session` 901 次，而每次淘汰都要
+   * 3 次 `readdir` + 读取上限内全部 JSON（~50 个）⇒ 数万次无谓文件读。
+   * 索引是**可重建缓存**（非跨重启状态）：`deleteSessionCheckpoints` / `cleanup` 时失效，
+   * 失效后下一次写入重新做一次权威扫描。
+   */
+  private readonly sessionIndex = new Map<
+    string,
+    Map<string, { createdAt: number; autoCreated: boolean }>
+  >();
 
   constructor(storageDir?: string) {
     if (storageDir) {
@@ -107,9 +120,13 @@ export class FileCheckpointStorage implements CheckpointStorage {
 
   /** 生成检查点文件名 */
   private filePath(checkpoint: SessionCheckpoint): string {
+    return this.filePathFor(checkpoint.sessionId, checkpoint.id);
+  }
+
+  private filePathFor(sessionId: string, checkpointId: string): string {
     return path.join(
       this.storageDir,
-      `checkpoint-${checkpoint.sessionId}-${checkpoint.id}.json`
+      `checkpoint-${sessionId}-${checkpointId}.json`
     );
   }
 
@@ -119,31 +136,55 @@ export class FileCheckpointStorage implements CheckpointStorage {
     const fp = this.filePath(checkpoint);
     const data = JSON.stringify(checkpoint, null, 2);
     await fs.promises.writeFile(fp, data, 'utf-8');
-    await this.enforceMaxCheckpoints(checkpoint.sessionId);
+    await this.enforceMaxCheckpoints(checkpoint);
   }
 
   /**
    * 限制每会话自动检查点数量（对齐 CheckpointDatabase.enforceMaxCheckpoints），
    * 防止文件检查点无限累积（曾造成 12GB 级堆积）。
    * 仅清理自动创建的检查点（autoCreated），保留手动/显式检查点；最旧优先删除。
+   *
+   * A4（2026-11-05）：**按需触发** —— 首次为某会话建立索引时扫描一次目录，
+   * 之后随写入增量维护；超限时按索引直接 `unlink` 目标路径，不再每写一次就
+   * `readdir` + 读取全部检查点文件。
    */
-  private async enforceMaxCheckpoints(sessionId: string): Promise<void> {
+  private async enforceMaxCheckpoints(
+    checkpoint: SessionCheckpoint
+  ): Promise<void> {
+    const { sessionId } = checkpoint;
     try {
-      const count = await this.getCheckpointCount(sessionId);
-      if (count <= CHECKPOINT_MAX_AUTO) {
+      let entries = this.sessionIndex.get(sessionId);
+      if (!entries) {
+        entries = new Map();
+        for (const cp of await this.loadCheckpoints(sessionId)) {
+          entries.set(cp.id, {
+            createdAt: cp.createdAt,
+            autoCreated: cp.autoCreated === true,
+          });
+        }
+        this.sessionIndex.set(sessionId, entries);
+      }
+      entries.set(checkpoint.id, {
+        createdAt: checkpoint.createdAt,
+        autoCreated: checkpoint.autoCreated === true,
+      });
+
+      const overflow = entries.size - CHECKPOINT_MAX_AUTO;
+      if (overflow <= 0) {
         return;
       }
 
-      const checkpoints = await this.loadCheckpoints(sessionId);
-      const toDelete = count - CHECKPOINT_MAX_AUTO;
-      // loadCheckpoints 按 createdAt 倒序返回，这里取 autoCreated 的最旧 toDelete 个
-      const victims = checkpoints
-        .filter((cp) => cp.autoCreated)
-        .sort((a, b) => a.createdAt - b.createdAt)
-        .slice(0, toDelete);
+      // 最旧的自动检查点优先淘汰（手动/显式检查点永不参与）
+      const victims = [...entries.entries()]
+        .filter(([, entry]) => entry.autoCreated)
+        .sort((a, b) => a[1].createdAt - b[1].createdAt)
+        .slice(0, overflow);
 
-      for (const cp of victims) {
-        await this.deleteCheckpoint(cp.id);
+      for (const [victimId] of victims) {
+        await unlinkCheckpointFileWithRetry(
+          this.filePathFor(sessionId, victimId)
+        );
+        entries.delete(victimId);
       }
 
       if (victims.length > 0) {
@@ -161,6 +202,8 @@ export class FileCheckpointStorage implements CheckpointStorage {
         }
       }
     } catch (e) {
+      // 索引失效（例如外部按龄清理）⇒ 下次写入重新建立权威索引
+      this.sessionIndex.delete(sessionId);
       logger.warn('Failed to enforce max checkpoints', {
         sessionId,
         error: e instanceof Error ? e.message : String(e),
@@ -237,6 +280,10 @@ export class FileCheckpointStorage implements CheckpointStorage {
 
   /** 删除单个检查点 */
   async deleteCheckpoint(checkpointId: string): Promise<void> {
+    // 索引同步失效（找不到文件时也删：索引可能是陈旧项）
+    for (const entries of this.sessionIndex.values()) {
+      entries.delete(checkpointId);
+    }
     try {
       const files = await fs.promises.readdir(this.storageDir);
       const pattern = new RegExp(
@@ -257,6 +304,8 @@ export class FileCheckpointStorage implements CheckpointStorage {
 
   /** 删除某 session 所有检查点 */
   async deleteSessionCheckpoints(sessionId: string): Promise<void> {
+    // 索引整体失效（删除可能部分失败 ⇒ 下次写入重新做权威扫描）
+    this.sessionIndex.delete(sessionId);
     try {
       const files = await fs.promises.readdir(this.storageDir);
       const pattern = new RegExp(
@@ -313,6 +362,8 @@ export class FileCheckpointStorage implements CheckpointStorage {
 
   /** 清理过期检查点 */
   async cleanup(expireTime: number): Promise<number> {
+    // 按龄清理会绕过索引删文件 ⇒ 索引整体失效，下次写入重建
+    this.sessionIndex.clear();
     try {
       const files = await fs.promises.readdir(this.storageDir);
       let count = 0;

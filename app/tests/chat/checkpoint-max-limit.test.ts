@@ -161,4 +161,46 @@ describe('FileCheckpointStorage.enforceMaxCheckpoints', () => {
       info.mockRestore();
     }
   });
+
+  // A4（2026-11-05）：原实现每次写入都 `readdir` + 读取全部检查点文件（~50 个），
+  // 真机单窗口 901 次淘汰 ⇒ 数万次无谓文件读。改为「首次按需建索引，之后增量维护」。
+  it('A4：索引按需建立 —— 同一会话只在首次写入时扫描目录', async () => {
+    const load = spyOn(storage, 'loadCheckpoints');
+    try {
+      for (let i = 0; i < 5; i++) {
+        await storage.saveCheckpoint(makeCp(sid, `cp_idx_${i}`, i, true));
+      }
+      expect(load).toHaveBeenCalledTimes(1);
+    } finally {
+      load.mockRestore();
+    }
+  });
+
+  it('A4：deleteSessionCheckpoints 后索引失效 ⇒ 下次写入重新扫描', async () => {
+    await storage.saveCheckpoint(makeCp(sid, 'cp_before', 1, true));
+    await storage.deleteSessionCheckpoints(sid);
+
+    const load = spyOn(storage, 'loadCheckpoints');
+    try {
+      await storage.saveCheckpoint(makeCp(sid, 'cp_after', 2, true));
+      expect(load).toHaveBeenCalledTimes(1);
+    } finally {
+      load.mockRestore();
+    }
+  });
+
+  it('A4：文件被外部按龄清理后淘汰不抛错，数量仍收敛到上限', async () => {
+    for (let i = 0; i < CHECKPOINT_MAX_AUTO + 1; i++) {
+      await storage.saveCheckpoint(makeCp(sid, `cp_ext_${i}`, i, true));
+    }
+    // 模拟制品保留绕过索引删掉「下一个将被淘汰」的文件
+    rmSync(join(dir, `checkpoint-${sid}-cp_ext_1.json`), { force: true });
+
+    await expect(
+      storage.saveCheckpoint(makeCp(sid, 'cp_ext_new', 999, true))
+    ).resolves.toBeUndefined();
+
+    const files = readdirSync(dir).filter((f) => f.endsWith('.json'));
+    expect(files.length).toBe(CHECKPOINT_MAX_AUTO);
+  });
 });

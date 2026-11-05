@@ -73,6 +73,16 @@ const TOOL_NAME_MAP: Record<string, string> = {
   file_delete: "tool.name.file_delete",
   file_create: "tool.name.file_create",
   file_convert: "tool.name.file_convert",
+  // P2-3（2026-11-05）：下面这些名字**真机已在执行成功**，但映射表缺条目 ⇒ UI 原样显示
+  // 英文 `edit_file` / `tool_search`（本会话实测 1 次 / 10 次）。别名两档与项目文件两档
+  // 服务端本就接受（见 `toolNotifySummary` 的双命名兼容、`ReadProjectFileTool`），此处补齐。
+  read_file: "tool.name.file_read",
+  write_file: "tool.name.file_write",
+  edit_file: "tool.name.file_edit",
+  read_project_file: "tool.name.read_project_file",
+  write_project_file: "tool.name.write_project_file",
+  // 工具检索入口（延迟工具的发现入口，模型高频调用但此前无中文名）
+  tool_search: "tool.name.tool_search",
 
   // ---- 执行类 ----
   bash: "tool.name.bash",
@@ -204,21 +214,30 @@ function buildToolHumanSummary(toolCall: ToolCall): string {
         i18n.t("tool.summary.searchingKnowledge"),
         getArgStr(args, "query"),
       );
+    // 延迟工具检索（模型用它发现未下发的工具；高频调用）
+    case "tool_search":
+      return formatSummary(
+        i18n.t("tool.summary.searchingTools"),
+        getArgStr(args, "query"),
+      );
 
     // ---- 文件操作类 ----
     case "file_read":
     case "read":
+    case "read_file":
       return formatSummary(
         i18n.t("tool.summary.reading"),
         getArgStr(args, "file_path", "path"),
       );
     case "file_write":
     case "write":
+    case "write_file":
       return formatSummary(
         i18n.t("tool.summary.writing"),
         `${getArgStr(args, "file_path", "path")}${summarizeSize(args)}`,
       );
     case "file_edit":
+    case "edit_file":
       return formatSummary(
         i18n.t("tool.summary.editing"),
         getArgStr(args, "file_path", "path"),
@@ -239,6 +258,17 @@ function buildToolHumanSummary(toolCall: ToolCall): string {
       return formatSummary(
         i18n.t("tool.summary.convertingFile"),
         getArgStr(args, "file_path", "path", "input"),
+      );
+    // 项目文件（路径相对项目根；与 file_* 同款摘要，只是作用域不同）
+    case "read_project_file":
+      return formatSummary(
+        i18n.t("tool.summary.reading"),
+        getArgStr(args, "path", "file_path"),
+      );
+    case "write_project_file":
+      return formatSummary(
+        i18n.t("tool.summary.writing"),
+        `${getArgStr(args, "path", "file_path")}${summarizeSize(args)}`,
       );
 
     // ---- 执行类 ----

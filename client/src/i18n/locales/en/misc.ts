@@ -180,6 +180,10 @@ const enMisc = {
       grep: "Text search",
       glob: "File search",
       search_knowledge: "Search knowledge base",
+      // P2-3（2026-11-05）：these names already execute on real sessions but had no label entry
+      tool_search: "Search tools",
+      read_project_file: "Read project file",
+      write_project_file: "Write project file",
       file_read: "Read file",
       file_write: "Write file",
       file_edit: "Edit file",
@@ -243,6 +247,7 @@ const enMisc = {
       searchingWeb: "Searching the web",
       fetchingPage: "Fetching page",
       searchingKnowledge: "Searching knowledge base",
+      searchingTools: "Searching tools",
       reading: "Reading",
       writing: "Writing",
       editing: "Editing",

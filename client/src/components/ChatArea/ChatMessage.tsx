@@ -22,6 +22,10 @@ import { useVirtualScroll } from "./VirtualScrollContext";
 import ToolResultMessage from "./ToolResultMessage";
 import BlockRenderer from "./BlockRenderer";
 import { isMediaDisplayToolName } from "../../utils/toolHumanSummary";
+// P0-4（2026-11-05）：后台任务消息标记（与导出侧共用同一读取实现）
+import { readTaskMessageTag } from "../../utils/taskMessageTag";
+// P0-5（2026-11-05）：终止原因 → 可见提示（未知原因兜底，不再静默）
+import { getTerminationNotice } from "../../utils/terminationNotice";
 import { unwrapJsonDataPayload } from "../../utils/jsonPayloadText";
 import { splitDiagnosticText } from "../../utils/diagnosticText";
 import { knowledgeService } from "../../services/knowledgeService";
@@ -50,74 +54,9 @@ const INTERRUPTED_HINT_INTERRUPTED =
 const INTERRUPTED_HINT_GENERATION =
   "⚠️ **该回复生成中断，未完成最终输出。** 下方「💭 思考过程」标签中保留了模型当时的推理草稿，可点击展开查看。";
 
-// 2026-11-03 P1：主循环终止原因可见化（后端 `turn/end.terminationReason`）。
-// 值是**结构化状态码**（`app/src/query/ReActLoop.ts` 的 `TerminationReason`），
-// 这里按"用户能据此行动"收敛为 5 组；`completed` 属正常收尾 ⇒ 不在表内（不显示徽标）。
-// 文案为 i18n 键的中文兜底默认值，渲染处经 t() 取当前语言。
-const TERMINATION_HINT_ABORTED = "本轮已中止，未继续执行。";
-const TERMINATION_HINT_BUDGET =
-  "已达本轮预算上限（轮次 / token / 时长），任务未在预算内完成。";
-const TERMINATION_HINT_FUSED =
-  "触发熔断：连续多轮没有实质进展，已停止以免空转。";
-const TERMINATION_HINT_ERROR =
-  "本轮异常终止（推理输出异常 / 内部错误 / 上下文压缩失败）。";
-const TERMINATION_HINT_BLOCKED =
-  "因环境阻塞而终止（权限 / 安全拦截 / 能力未就绪），重试通常无效。";
-
-const TERMINATION_NOTICES: Record<
-  string,
-  { key: string; fallback: string }
-> = {
-  aborted: { key: "chat.terminationAborted", fallback: TERMINATION_HINT_ABORTED },
-  system_aborted: {
-    key: "chat.terminationAborted",
-    fallback: TERMINATION_HINT_ABORTED,
-  },
-  max_turns: { key: "chat.terminationBudget", fallback: TERMINATION_HINT_BUDGET },
-  budget_exhausted: {
-    key: "chat.terminationBudget",
-    fallback: TERMINATION_HINT_BUDGET,
-  },
-  timeout: { key: "chat.terminationBudget", fallback: TERMINATION_HINT_BUDGET },
-  no_progress: { key: "chat.terminationFused", fallback: TERMINATION_HINT_FUSED },
-  exploration_fatigue: {
-    key: "chat.terminationFused",
-    fallback: TERMINATION_HINT_FUSED,
-  },
-  circuit_breaker: {
-    key: "chat.terminationFused",
-    fallback: TERMINATION_HINT_FUSED,
-  },
-  diminishing_returns: {
-    key: "chat.terminationFused",
-    fallback: TERMINATION_HINT_FUSED,
-  },
-  loop_detected: {
-    key: "chat.terminationFused",
-    fallback: TERMINATION_HINT_FUSED,
-  },
-  reasoning_error: {
-    key: "chat.terminationError",
-    fallback: TERMINATION_HINT_ERROR,
-  },
-  internal_error: {
-    key: "chat.terminationError",
-    fallback: TERMINATION_HINT_ERROR,
-  },
-  compaction_failed: {
-    key: "chat.terminationError",
-    fallback: TERMINATION_HINT_ERROR,
-  },
-  error: { key: "chat.terminationError", fallback: TERMINATION_HINT_ERROR },
-  environment_blocked: {
-    key: "chat.terminationBlocked",
-    fallback: TERMINATION_HINT_BLOCKED,
-  },
-  verifier_escalate: {
-    key: "chat.terminationBlocked",
-    fallback: TERMINATION_HINT_BLOCKED,
-  },
-};
+// P0-5（2026-11-05）：主循环终止原因 → 提示文案抽到 `utils/terminationNotice`
+// （原为文件内 Record：缺键即静默无提示，后端新增原因时用户只听到"结束提示音"）。
+// 现由该模块统一兜底未知原因，并被测试锁住覆盖面。
 
 interface ChatMessageProps {
   message: Message;
@@ -376,6 +315,8 @@ const ChatMessageMemo = memo(
     const isDark = configTheme === "dark";
     const isUser = message.role === "user";
     const isTool = message.role === "tool";
+    // P0-4（2026-11-05）：后台任务消息（PDCA 等）与用户会话共用 sessionId —— 加徽标区分来源
+    const taskTag = readTaskMessageTag(message.metadata);
 
     /** 查找被回复的原始消息（P0-5：replyTarget 已由上方 selector 精准订阅，无需 useMemo） */
     const formatTime = (timestamp: number) => {
@@ -643,8 +584,19 @@ const ChatMessageMemo = memo(
         {/* 消息气泡 */}
         <div className="flex-1 min-w-0 max-w-[70%]">
           {/* 头部：AI 才显示 agent 标签和被回复标记 */}
-          {!isUser && (message.agentName || hasReplies) && (
+          {!isUser && (message.agentName || hasReplies || taskTag.isTaskMessage) && (
             <div className="flex items-center gap-2 mb-1">
+              {/* P0-4：后台任务产出徽标（不隐藏消息，只标明来源，避免"答非所问"误读） */}
+              {taskTag.isTaskMessage && (
+                <span
+                  className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 font-medium"
+                  title={t("chat.taskMessageHint", {
+                    taskId: taskTag.taskId ?? "—",
+                  })}
+                >
+                  {t("chat.taskMessageBadge")}
+                </span>
+              )}
               {/* Agent 名称标签 */}
               {message.agentName && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 font-medium">
@@ -1443,9 +1395,10 @@ function AssistantMessage({
   // 2026-11-03 P1：主循环终止原因（`turn/end.terminationReason`）→ 可见徽标。
   // - `completed` / 缺失 ⇒ 不显示（正常收尾，不制造噪音）
   // - 用户/系统中止已由上方「该回复已中断」覆盖 ⇒ 不重复
+  // P0-5：未知原因不再静默（`getTerminationNotice` 会给兜底文案 + 原因码）
   const terminationNotice = !isStreaming
-    ? TERMINATION_NOTICES[message.terminationReason ?? ""]
-    : undefined;
+    ? getTerminationNotice(message.terminationReason)
+    : null;
   const showTerminationNotice =
     !!terminationNotice &&
     !(
@@ -1533,7 +1486,10 @@ function AssistantMessage({
           className="mt-1 text-[11px] text-amber-600 dark:text-amber-400 select-none"
           title={`terminationReason: ${message.terminationReason}`}
         >
-          {t(terminationNotice.key, terminationNotice.fallback)}
+          {t(terminationNotice.key, {
+            ...terminationNotice.params,
+            defaultValue: terminationNotice.fallback,
+          })}
         </div>
       )}
       {/* 流式光标：消息仍在生成中时，末尾显示闪烁指示器（单一实现见 src/index.css；

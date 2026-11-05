@@ -50,6 +50,26 @@ export type SessionStatus =
   | "error"
   | "aborted";
 
+/**
+ * P0-1（2026-11-05）：会话工作区状态（后端 `GET /v1/sessions/:id` 的 `workspaceStatus`）。
+ *
+ * - `unbound`：会话未绑定工作区（不是错误）；
+ * - `ok`：全部根可用；
+ * - `partial`：多根场景下部分根已失效；
+ * - `invalid`：全部根已失效（典型：worktree 被清理后会话仍钉在旧根）。
+ *
+ * 取值与后端 `WorkspaceStatusState`（infra `toolContract/workspaceRoots`）同集合。
+ */
+export type WorkspaceStatusState = "unbound" | "ok" | "partial" | "invalid";
+
+export interface WorkspaceStatus {
+  state: WorkspaceStatusState;
+  /** 会话当前的工作区根（首根 = 主工作区） */
+  roots: string[];
+  /** 已失效的根 */
+  missingRoots: string[];
+}
+
 export interface Session {
   id: string;
   /** 会话持久化状态（缺省 = 后端未提供，按正常会话处理） */
@@ -103,6 +123,14 @@ export interface Session {
 
   /** 该会话绑定的工作空间物理路径 */
   workspacePath?: string;
+
+  /**
+   * P0-1（2026-11-05）：工作区状态（后端**详情接口**读时派生；列表接口不返回）。
+   *
+   * 真机背景：worktree 被清理后会话仍钉在旧根，此前只有首次工具调用才报
+   * 「路径越界 / ENOENT」。`invalid` = 全部根已失效，`partial` = 多根场景部分失效。
+   */
+  workspaceStatus?: WorkspaceStatus;
 
   /** 该会话的任务分工覆盖（仅覆盖部分任务类型，未覆盖的走全局配置） */
   tasksOverride?: Partial<import("./model").TaskModelConfig>;

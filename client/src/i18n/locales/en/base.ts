@@ -728,6 +728,11 @@ const enBase = {
     clearPartialFailed: "Failed to delete {{count}} session(s)",
     confirmDeleteSession: "Are you sure you want to delete this session?",
     hasReplies: "Has replies",
+    // P0-4 (2026-11-05): background tasks (PDCA…) share the user sessionId, so assistant
+    // messages tagged `metadata.isTaskMessage` are mixed in — label them instead of hiding.
+    taskMessageBadge: "Task output",
+    taskMessageHint:
+      "This came from background task {{taskId}}, not a reply to your current message",
     jumpToReply: "Jump to reply",
     branch: "Branch",
     branching: "Branching...",
@@ -926,6 +931,23 @@ const enBase = {
       "This turn ended abnormally (reasoning output error / internal error / context compaction failure).",
     terminationBlocked:
       "Stopped because the environment blocked it (permission / security interception / capability not ready). Retrying usually will not help.",
+    // P0-5: an unregistered termination reason from the backend must not be silent
+    terminationUnknown: "This turn ended abnormally (reason code: {{reason}}).",
+    // P0-1 (2026-11-05): session workspace is gone — warn before sending, not after tool failures
+    workspaceInvalidTitle: "This session's workspace no longer exists",
+    workspaceInvalidDesc:
+      "These directories were deleted or are unreachable: {{paths}}. Sending more messages will keep failing. Pick the workspace again (or start a new session) and retry.",
+    workspacePartialTitle: "Part of this session's workspace no longer exists",
+    workspacePartialDesc:
+      "These directories were deleted or are unreachable: {{paths}}. Reads/writes to them will fail; pick or remove that root.",
+    // P0-1 (3) (2026-11-05): one-click relocate after the workspace is gone (pointer only; backend validates)
+    workspaceRelocateAction: "Relocate workspace",
+    workspaceRelocating: "Relocating…",
+    workspaceRelocatePick: "Choose a new workspace folder",
+    workspaceRelocateUnavailable:
+      "This environment cannot open a folder picker. Please use the desktop app.",
+    workspaceRelocateFailed:
+      "Relocation failed: the target folder is unavailable or could not be saved.",
     // ChatMessageList (welcome page official site)
     welcomeOfficialSite: "Official site: https://openliri.com",
     // ---- i18n residual cleanup (2026-09-27, batch-8 evidence list) ----
@@ -1182,6 +1204,7 @@ const enBase = {
         "(Thinking too long, truncated: only the first {{kept}} characters are exported; the original is {{total}} characters — the full thinking is available in the session)",
       progress: "[Progress]",
       taskDecomposition: "[Task Breakdown]",
+      taskMessage: "[Task output {{taskId}}]",
       error: "[Error]",
     },
   },

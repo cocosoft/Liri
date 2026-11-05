@@ -168,6 +168,10 @@ const zhMisc = {
       grep: "文本搜索",
       glob: "文件搜索",
       search_knowledge: "搜索知识库",
+      // P2-3（2026-11-05）：检索/项目文件/别名均已在真机执行成功，此前缺条目致 UI 显示英文名
+      tool_search: "搜索工具",
+      read_project_file: "读取项目文件",
+      write_project_file: "写入项目文件",
       file_read: "读取文件",
       file_write: "写入文件",
       file_edit: "编辑文件",
@@ -231,6 +235,7 @@ const zhMisc = {
       searchingWeb: "正在网络搜索",
       fetchingPage: "正在获取网页",
       searchingKnowledge: "正在搜索知识库",
+      searchingTools: "正在检索工具",
       reading: "正在读取",
       writing: "正在写入",
       editing: "正在编辑",

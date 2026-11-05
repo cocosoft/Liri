@@ -1097,6 +1097,11 @@ export const sessionService = {
        * `null` ⇒ 清除会话覆盖、跟随进程默认档。
        */
       permissionMode?: SessionPermissionMode | null;
+      /**
+       * P0-1（2026-11-05）：会话工作区**重新定位**（绝对路径；后端校验「已存在目录」）。
+       * 用户在工作区失效提示条里选中新目录后写入，下一轮工具 cwd 即跟随。
+       */
+      workspacePath?: string;
     },
   ): Promise<boolean> => {
     try {
@@ -1113,6 +1118,9 @@ export const sessionService = {
       // P1（2026-11-04）：权限模式（`null` 是合法值 = 清除会话覆盖，故用 !== undefined 判）
       if (meta.permissionMode !== undefined)
         body.permission_mode = meta.permissionMode;
+      // P0-1（2026-11-05）：工作区重新定位（后端校验绝对路径 + 已存在目录）
+      if (meta.workspacePath !== undefined)
+        body.workspace_path = meta.workspacePath;
       const res = await apiHttp.patch(ENDPOINTS.session.meta(sessionId), body);
       if (res.ok) {
         _isUsingFallback = false;

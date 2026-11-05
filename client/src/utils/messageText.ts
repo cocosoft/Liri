@@ -9,6 +9,8 @@ import type { Message } from "../types";
 import { getToolDisplayName, getToolHumanSummary } from "./toolHumanSummary";
 import { createLogger } from "./logger";
 import { decodeToolResultContent } from "./toolResultText";
+// P0-4（2026-11-05）：后台任务消息标记（与渲染侧共用同一读取实现）
+import { readTaskMessageTag } from "./taskMessageTag";
 import i18n from "../i18n";
 
 const logger = createLogger("utils:messageText");
@@ -84,8 +86,11 @@ function getMessagePlainText(message: Message): string {
   }
 
   if (message.blocks && message.blocks.length > 0) {
+    // P2-2：与导出版同一判据 —— content 非空即权威正文，text 块不重复计入
+    const contentIsAuthoritative = hasAuthoritativeContent(message.content);
     for (const block of message.blocks) {
       if (block.content) {
+        if (block.type === "text" && contentIsAuthoritative) continue;
         if (
           !message.content ||
           (typeof message.content === "string" &&
@@ -104,11 +109,36 @@ function getMessagePlainText(message: Message): string {
   return parts.join("\n");
 }
 
+/**
+ * P2-2（2026-11-05）：`message.content` 是否已是正文的权威来源（导出/搜索共用同一判据）。
+ *
+ * 真机取证（`session_mw375o4312e5f31d38`：146 条含 text 块的消息 / 191 个块）：
+ *   · 176 个块**原文**即被 `content` 子串命中；
+ *   · 9 个块仅**空白差异**（开头多几个换行 / 流式累积 vs 最终快照）；
+ *   · 剩 6 个块（5 条消息）**两边都不互为子串** —— 内容是同一段落但中段有出入，
+ *     且这 6 个块的字符数**全部小于** `content` ⇒ 旧判据（原文包含）漏掉它们，
+ *     导出里同一段落出现两遍（文档实证：`chat-export` 三处 export=2 / store=1）。
+ *
+ * 结论：`content` 是聚合后的**最终正文**，text 块只是它的流式分段 ⇒ content 非空
+ * （去空白后）时不再重复导出 text 块。content 为空/纯空白时仍导出块（历史消息正文只在块里）。
+ */
+function hasAuthoritativeContent(messageContent: Message["content"]): boolean {
+  return typeof messageContent === "string" && messageContent.trim() !== "";
+}
+
 /** 导出版：富文本提取（思考/工具/进度语义化前缀）
  *  @param full D6（2026-09-27）= B：「完整版导出」——思考与工具结果**不截断**、
  *              工具调用附完整参数（体积可能很大，由用户在导出菜单显式选择） */
 function getMessageExportText(message: Message, full = false): string {
   const parts: string[] = [];
+  // P0-4（2026-11-05）：后台任务消息（PDCA 等）与用户会话共用 sessionId —— 导出件必须能区分来源，
+  // 否则同一份导出里"用户话题"与"任务步骤"混杂，读者无从判断哪条是回复。只标记，不删内容。
+  const taskTag = readTaskMessageTag(message.metadata);
+  if (taskTag.isTaskMessage) {
+    parts.push(
+      i18n.t("chat.export.taskMessage", { taskId: taskTag.taskId ?? "—" }),
+    );
+  }
   // thinking 块前置输出，导出顺序符合"思考在前、正文在后"的阅读习惯
   // 相邻 thinking 块合并（防御流式 delta 碎片化导致重复 💭 标签）
   if (message.blocks) {
@@ -192,13 +222,9 @@ function getMessageExportText(message: Message, full = false): string {
         continue;
       }
 
-      // 与渲染去重逻辑一致——content 已包含的文本块不重复导出，
-      // 避免"流式累积文本 + 最终快照"双源重复
-      if (
-        block.type === "text" &&
-        typeof message.content === "string" &&
-        message.content.includes(content)
-      ) {
+      // 与渲染去重逻辑一致——content 非空即权威正文，text 块是其流式分段
+      //（P2-2：旧判据用"原文字符串包含"，空白/中段差异时漏判 ⇒ 整段重复导出）
+      if (block.type === "text" && hasAuthoritativeContent(message.content)) {
         continue;
       }
 

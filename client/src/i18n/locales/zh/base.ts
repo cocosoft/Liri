@@ -700,6 +700,11 @@ const zhBase = {
     clearPartialFailed: "有 {{count}} 个会话删除失败",
     confirmDeleteSession: "确定删除此会话？",
     hasReplies: "有回复",
+    // P0-4（2026-11-05）：后台任务（PDCA 等）与用户会话共用 sessionId ⇒ 消息库里混有
+    // `metadata.isTaskMessage` 的助手消息。先做**可见区分**（不隐藏、不改数据）：
+    // 让用户一眼看出"这条不是对我的回复"，避免"答非所问"的误读。
+    taskMessageBadge: "任务产出",
+    taskMessageHint: "这条来自后台任务 {{taskId}}，不是对你当前消息的回复",
     jumpToReply: "跳转到回复",
     branch: "分支",
     branching: "分支中...",
@@ -893,6 +898,22 @@ const zhBase = {
       "本轮异常终止（推理输出异常 / 内部错误 / 上下文压缩失败）。",
     terminationBlocked:
       "因环境阻塞而终止（权限 / 安全拦截 / 能力未就绪），重试通常无效。",
+    // P0-5：后端新增了未登记的终止原因 ⇒ 不静默，展示原因码
+    terminationUnknown: "本轮异常结束（原因码：{{reason}}）。",
+    // P0-1（2026-11-05）：会话工作区失效提示（发消息前就告知，不等工具连续失败）
+    workspaceInvalidTitle: "本会话的工作区已不存在",
+    workspaceInvalidDesc:
+      "以下目录已被删除或不可访问：{{paths}}。继续发消息会持续失败。请重新选择工作区（或新建会话）后再试。",
+    workspacePartialTitle: "本会话的部分工作区已不存在",
+    workspacePartialDesc:
+      "以下目录已被删除或不可访问：{{paths}}。对它们的读写会失败，请重新选择或移除该根。",
+    // P0-1 ③（2026-11-05）：失效后的一键重新定位（只改指向；后端校验目录已存在）
+    workspaceRelocateAction: "重新定位工作区",
+    workspaceRelocating: "正在重新定位…",
+    workspaceRelocatePick: "选择新的工作区目录",
+    workspaceRelocateUnavailable:
+      "当前环境无法打开目录选择器，请在桌面客户端中操作。",
+    workspaceRelocateFailed: "重新定位失败：目标目录不可用或保存失败。",
     // ChatMessageList（欢迎页官网）
     welcomeOfficialSite: "官网: https://openliri.com",
     // ---- i18n 残留收尾（2026-09-27，第 8 批取证清单）----
@@ -1134,6 +1155,7 @@ const zhBase = {
         "（思考过长，已截断：仅导出前 {{kept}} 字，原文共 {{total}} 字；完整思考见会话内）",
       progress: "[进度]",
       taskDecomposition: "[任务分解]",
+      taskMessage: "[任务产出 {{taskId}}]",
       error: "[错误]",
     },
   },

@@ -50,7 +50,10 @@ function CollapsedBarImpl({
           <button
             key={tab.id}
             onClick={() => onExpandAndSwitch(tab.id)}
-            className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+            className={`relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors ${
+              // 2026-11-05：设置类标签固定到底部，与信息类标签拉开层次（不再一排 6 个等距图标）
+              tab.id === "settings" ? "mt-auto" : ""
+            }`}
             title={t("chatInspector.expandToTab", { label: tab.label })}
           >
             {tab.icon}

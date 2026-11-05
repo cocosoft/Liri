@@ -22,15 +22,4 @@ export const PERMISSION_MODE_KEYS: readonly SessionPermissionMode[] = [
   "bypass",
 ];
 
-/** 与后端 `PERMISSION_MODE_SYMBOLS` 对齐（`default` 后端为空串，这里用齿轮便于识别） */
-export const PERMISSION_MODE_SYMBOLS: Record<SessionPermissionMode, string> = {
-  default: "⚙",
-  acceptEdits: "✎",
-  plan: "⏸",
-  bypass: "⚡",
-  dontAsk: "🔇",
-  auto: "🔄",
-  ask: "❓",
-  alwaysAsk: "⚠️",
-  strict: "🔒",
-};
+// 图标：见 `permissionModeIcons.tsx`（2026-11-05 起由 emoji/符号改为单色线性图标）

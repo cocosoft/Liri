@@ -27,8 +27,7 @@ function Footer() {
   const config = useConfigStore((s) => s.config);
   const timezone = (config.timezone as string) || DEFAULT_TIMEZONE;
   const currency = getCurrencyFromTimezone(timezone);
-  const { status, checkStatus, startBackend, stopBackend, error } =
-    useBackendStore();
+  const { status, checkStatus, startBackend, error } = useBackendStore();
   const { currentModelName, routerTier, routingMode, loadCurrent } =
     useModelSwitchStore();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -94,12 +93,6 @@ function Footer() {
     setActionLoading(false);
   };
 
-  const handleStop = async () => {
-    setActionLoading(true);
-    await stopBackend();
-    setActionLoading(false);
-  };
-
   const getUptime = (seconds: number) => {
     const d = Math.floor(seconds / 86400);
     const h = Math.floor((seconds % 86400) / 3600);
@@ -129,35 +122,33 @@ function Footer() {
   };
 
   return (
-    <footer className="h-8 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex items-center px-4 text-xs text-gray-600 dark:text-gray-400 select-none relative overflow-hidden">
+    <footer
+      className={`h-8 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 items-center px-4 text-xs text-gray-600 dark:text-gray-400 select-none relative ${
+        // 窄屏：运行中不占用 32px（其余字段本就 hidden lg:*）；断连时整条浮出，保留“启动”入口
+        status.running ? "hidden lg:flex" : "flex"
+      }`}
+    >
       <div className="flex items-center gap-3 flex-1">
-        {/* 后端状态 */}
-        <div
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="flex items-center gap-1.5 hover:text-gray-900 dark:hover:text-gray-200 transition-colors cursor-pointer"
-          title={t("footer.expandStatus")}
-        >
-          {getStatusDot(status.running)}
-          <span>Backend {getStatusText()}</span>
-          {status.running ? (
+        {/* 后端状态：运行中只留一个绿点（点击展开详情），断连时才显示文字 + 启动入口。
+            停止/启动的完整入口在 ConfigPanel，这里不再重复按钮（2026-11-05） */}
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setIsExpanded(!isExpanded)}
+            aria-expanded={isExpanded}
+            aria-label={t("footer.expandStatus")}
+            className="flex items-center gap-1.5 hover:text-gray-900 dark:hover:text-gray-200 transition-colors cursor-pointer"
+            title={t("footer.expandStatus")}
+          >
+            {getStatusDot(status.running)}
+            {!status.running && <span>Backend {getStatusText()}</span>}
+          </button>
+          {!status.running && (
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleStop();
-              }}
+              type="button"
+              onClick={handleStart}
               disabled={actionLoading}
-              className="ml-2 px-1.5 py-0.5 text-[10px] bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white rounded transition-colors"
-            >
-              {actionLoading ? "..." : t("common.stop")}
-            </button>
-          ) : (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleStart();
-              }}
-              disabled={actionLoading}
-              className="ml-2 px-1.5 py-0.5 text-[10px] bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded transition-colors"
+              className="ml-1 px-1.5 py-0.5 text-[10px] bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded transition-colors"
             >
               {actionLoading ? "..." : t("common.start")}
             </button>

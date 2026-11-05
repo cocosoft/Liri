@@ -57,20 +57,17 @@ interface NavRow {
 /** 行内摘要最大字符数（窄列只放得下 ~4–6 个汉字，其余由浮层给全） */
 const RAIL_SUMMARY_CHARS = 24;
 
-/** 浮层摘要最大字符数 */
-const DETAIL_SUMMARY_CHARS = 120;
-
 /**
  * 轮次导航器 — 在消息列表左侧显示对话轮次（B1，2026-10-30）。
  *
- * 形态（用户裁定「窄列 + 截断摘要」）：
- * - **常显**：进入会话即可看到有哪些轮，不再折叠成 12px 胶囊、不再依赖 hover 展开；
- * - 每行 =「轮号 + 用户问题摘要（按可用宽度截断）」——实测导航右缘 354、正文起点 398，
- *   故列宽控制在 ~68px 内，**不遮挡正文**；
- * - 完整问题用**自定义浮层**（hover/focus 时浮出），**移除原生 `title`**（不可控、不可聚焦）；
+ * 形态（2026-11-05 改版，对标 ChatGPT / Copilot 的「对话刻度」）：
+ * - **静止只留刻度**：每轮 = 2px 短横线，当前轮加粗为蓝色，不再常显数字与摘要；
+ * - **单条悬浮**：hover/focus 某一刻度时，在该行右侧浮出「#轮号 + 摘要」卡片；
+ *   卡片渲染在滚动容器之外（用 `getBoundingClientRect` 定位），长会话也不会被裁；
+ * - 导航条整体仅 ~16px 宽，**不遮挡正文**（旧实现 hover 展开 68px 会压住内容）；
  * - 保留：点击跳转（经 `chatInspectorStore.highlightedRoundId` → 虚拟列表内部滚动）、
- *   当前轮高亮、「更早 N 轮未加载」入口、流式中/跨午夜标记；
- * - 轮数多时列表**可滚动**（原"前 3 + 当前 ±5 + 后 3 + ⋯"的窗口折叠已移除）。
+ *   当前轮高亮、「更早 N 轮未加载」入口、流式中（脉冲）/ 跨午夜（靛色）标记；
+ * - 轮数多时导航条自身可滚动（`max-h-[70vh]`）。
  *
  * B2（2026-10-30）：**未加载轮次也有摘要** —— 一次请求取整会话按轮摘要，
  * 未加载行按绝对轮号渲染为只读行（不可点击：目标消息不在虚拟列表中，无法滚动定位）。
@@ -87,9 +84,19 @@ function RoundNavigator({
   const { t } = useTranslation();
   /** 当前活跃轮的**绝对轮号**（0 = 尚未定位） */
   const [activeRound, setActiveRound] = useState<number>(0);
-  /** 浮层当前展开的轮（绝对轮号；-1 = 无） */
-  const [detailRound, setDetailRound] = useState<number>(-1);
+  /** 悬浮摘要卡：记录「哪一轮 + 容器内纵向位置」——卡片渲染在滚动容器之外，避免被裁 */
+  const [detail, setDetail] = useState<{ index: number; top: number } | null>(
+    null,
+  );
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const showDetail = useCallback((index: number, el: HTMLElement) => {
+    const wrap = wrapperRef.current;
+    if (!wrap) return;
+    const wrapRect = wrap.getBoundingClientRect();
+    const rect = el.getBoundingClientRect();
+    setDetail({ index, top: rect.top - wrapRect.top + rect.height / 2 });
+  }, []);
   /** 目标消息 id → 由持有 virtualizer 的列表内部滚动（P0-6，见 handleRoundClick 注释） */
   const setHighlightedRoundId = useChatInspectorStore(
     (s) => s.setHighlightedRoundId,
@@ -282,12 +289,21 @@ function RoundNavigator({
     return null;
   }
 
+  const detailRow = detail
+    ? rows.find((r) => r.absIndex === detail.index)
+    : undefined;
+
   return (
-    <div className="absolute left-0 top-0 bottom-0 z-10 pointer-events-none">
-      {/* B1：常显窄列（轮号 + 截断摘要），不再折叠成胶囊 */}
+    <div
+      ref={wrapperRef}
+      className="absolute left-0 top-0 bottom-0 z-10 pointer-events-none"
+    >
+      {/* 2026-11-05（对标 ChatGPT / Copilot 的「对话刻度」）：
+          静止只留 2px 刻度；hover 单条时在右侧浮出摘要卡（卡片在滚动容器外，不被裁剪）。
+          轮号保留在 sr-only（读屏/测试）与悬浮卡里，视觉上靠位置与高亮识别。 */}
       <div
         ref={listRef}
-        className="absolute left-1 top-1/2 -translate-y-1/2 flex flex-col gap-1 bg-white/95 dark:bg-gray-800/95 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg px-1 py-2 pointer-events-auto w-[68px] max-h-[80vh] overflow-y-auto"
+        className="group absolute left-1 top-1/2 flex max-h-[70vh] w-4 -translate-y-1/2 flex-col items-center gap-1 overflow-y-auto rounded-full border border-gray-200 bg-white/70 px-0.5 py-1.5 opacity-70 shadow-sm backdrop-blur transition-opacity hover:opacity-100 dark:border-gray-700 dark:bg-gray-800/70 pointer-events-auto"
       >
         {/* P1-6a：更早轮次未加载入口（尾部分页下，已加载的只是最后若干轮）。
             仅在 `hasOlder`（后端确认有更早消息）时出现——避免把"总量与已加载轮数之差"
@@ -295,7 +311,7 @@ function RoundNavigator({
         {hasOlder && (
           <button
             onClick={onLoadOlder}
-            className="w-5 h-4 shrink-0 rounded-full text-[8px] font-medium flex items-center justify-center bg-gray-100 dark:bg-gray-700/60 text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600 transition-all"
+            className="flex h-3 w-3 shrink-0 items-center justify-center rounded-full text-[8px] text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"
             title={
               unloadedRounds > 0
                 ? t("chat.roundsUnloaded", { count: unloadedRounds })
@@ -303,59 +319,46 @@ function RoundNavigator({
             }
             aria-label={t("chat.roundsUnloadedNoCount")}
           >
-            {unloadedRounds > 0 ? `↑${unloadedRounds}` : "↑"}
+            ↑
           </button>
         )}
 
         {rows.map((row) => {
           const isActive = row.absIndex === activeRound;
-          const isDetailOpen = detailRound === row.absIndex;
-          const badgeClass = row.isCurrentStreaming
-            ? "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 ring-1 ring-blue-300 dark:ring-blue-700"
+          const tickClass = row.isCurrentStreaming
+            ? "h-1 w-3 animate-pulse bg-blue-400"
             : row.crossesMidnight
-              ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-500 dark:text-indigo-400"
+              ? "h-0.5 w-2 bg-indigo-400 hover:w-3"
               : isActive
-                ? "bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 scale-110"
+                ? "h-1 w-3 bg-blue-500"
                 : row.loaded
-                  ? "bg-gray-200 dark:bg-gray-700/60 text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600"
-                  : "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500";
-          const badgeContent = row.isCurrentStreaming ? (
-            <span className="text-[7px]">⏳</span>
-          ) : (
-            <span className="relative">
-              {row.absIndex}
-              {row.crossesMidnight && (
-                <span className="absolute -top-1 -right-1 text-[7px] leading-none">
-                  🌙
-                </span>
-              )}
-            </span>
-          );
-          const badgeBase =
-            "w-4 h-4 shrink-0 rounded-full text-[9px] font-medium flex items-center justify-center transition-all duration-200";
+                  ? "h-0.5 w-2 bg-gray-300 hover:w-3 hover:bg-gray-500 dark:bg-gray-600"
+                  : "h-0.5 w-2 bg-gray-200 dark:bg-gray-700";
 
           return (
             <div
               key={row.absIndex}
               data-round-active={isActive ? "true" : undefined}
               data-round-unloaded={row.loaded ? undefined : "true"}
-              className="relative flex items-center gap-1 shrink-0"
-              onMouseEnter={() => setDetailRound(row.absIndex)}
-              onMouseLeave={() => setDetailRound(-1)}
+              className="relative flex shrink-0 items-center justify-center"
+              onMouseEnter={(e) =>
+                showDetail(row.absIndex, e.currentTarget as HTMLElement)
+              }
+              onMouseLeave={() => setDetail(null)}
             >
               {row.loaded ? (
                 <button
                   onClick={() => handleRoundClick(row)}
-                  onFocus={() => setDetailRound(row.absIndex)}
-                  onBlur={() => setDetailRound(-1)}
+                  onFocus={(e) =>
+                    showDetail(row.absIndex, e.currentTarget as HTMLElement)
+                  }
+                  onBlur={() => setDetail(null)}
                   aria-label={t("chat.roundNavRoundAria", {
                     count: row.absIndex,
                   })}
-                  className={`${badgeBase} cursor-pointer border-0 ${badgeClass} ${
-                    row.isCurrentStreaming ? "animate-pulse" : ""
-                  }`}
+                  className={`block cursor-pointer rounded-full transition-all duration-150 ${tickClass}`}
                 >
-                  {badgeContent}
+                  <span className="sr-only">{row.absIndex}</span>
                 </button>
               ) : (
                 // B2：未加载轮 —— 只有摘要，消息不在虚拟列表中 ⇒ 不提供点击（点击无法定位）
@@ -364,28 +367,32 @@ function RoundNavigator({
                     count: row.absIndex,
                   })}
                   data-round-id={row.absIndex}
-                  className={`${badgeBase} ${badgeClass}`}
+                  className={`block rounded-full ${tickClass}`}
                 >
-                  {badgeContent}
+                  <span className="sr-only">{row.absIndex}</span>
                 </span>
               )}
-
-              {/* B1：行内截断摘要（常显，不需要 hover） */}
-              <span className="min-w-0 flex-1 truncate text-[9px] leading-none text-gray-500 dark:text-gray-400 select-none">
-                {row.summary}
-              </span>
-
-              {/* B1：完整问题浮层（替代原生 title；只在 hover/focus 时出现） */}
-              {isDetailOpen && row.fullText.trim().length > 0 && (
-                <div className="absolute left-full ml-1 top-1/2 -translate-y-1/2 w-56 px-2 py-1 bg-gray-800 dark:bg-gray-700 text-white text-[10px] leading-snug rounded shadow-lg whitespace-normal break-words pointer-events-none z-20">
-                  {summarizeRoundText(row.fullText, DETAIL_SUMMARY_CHARS)}
-                  <div className="absolute left-[-3px] top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-gray-800 dark:bg-gray-700 rotate-45" />
-                </div>
-              )}
+              {/* 摘要常驻 DOM（读屏 / 既有测试口径），视觉上只在悬浮卡出现 */}
+              <span className="sr-only">{row.summary}</span>
             </div>
           );
         })}
       </div>
+
+      {/* 悬浮摘要卡：贴刻度右侧、跟随被 hover 的行；超出滚动容器也不被裁 */}
+      {detail && detailRow && (
+        <div
+          className="absolute left-6 z-20 w-56 -translate-y-1/2 rounded bg-gray-800 px-2 py-1 text-[10px] leading-snug text-white shadow-lg whitespace-normal break-words dark:bg-gray-700"
+          style={{ top: detail.top }}
+        >
+          <span className="mr-1 font-medium text-blue-300">
+            #{detailRow.absIndex}
+          </span>
+          <span className="mr-1 text-gray-400">·</span>
+          {detailRow.summary}
+          <div className="absolute left-[-3px] top-1/2 h-1.5 w-1.5 -translate-y-1/2 rotate-45 bg-gray-800 dark:bg-gray-700" />
+        </div>
+      )}
     </div>
   );
 }

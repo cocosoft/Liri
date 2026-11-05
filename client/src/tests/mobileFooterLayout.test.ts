@@ -7,7 +7,12 @@
  *
  * 修复口径：
  *  ① `App` 在 Footer 与底栏之间补等高占位（底栏 fixed，不占文档流）；
- *  ② Footer 内容按 `lg` 断点收敛：窄屏只保留「后端状态 + 停止/启动」。
+ *  ② Footer 内容按 `lg` 断点收敛：窄屏只保留「后端状态 + 启动」。
+ *
+ * 2026-11-05（控制面简化 v4）调整：
+ *  - 运行中：窄屏整条让位（`hidden lg:flex`），只留移动底栏；断连时才浮出并提供「启动」；
+ *  - 运行中：桌面端状态段只留一个绿点（可点击展开详情），不再重复「Backend 运行中 / 停止」；
+ *  - 去掉根节点的 `overflow-hidden`（它会把 `absolute bottom-full` 的系统状态面板裁掉）。
  *
  * 手法：源码扫描（与 `navigationBoundary.test.ts` 同款，渲染成本高、接线更值得锁）。
  */
@@ -31,8 +36,9 @@ describe("窄屏状态栏：与移动底栏共存", () => {
     expect(navAt).toBeGreaterThan(spacerAt);
   });
 
-  it("Footer 根节点裁掉溢出（原内容宽 823 > 768 视口）", () => {
-    expect(footerSrc).toContain("select-none relative overflow-hidden");
+  it("Footer 不裁剪 absolute 详情面板（原 overflow-hidden 会裁掉系统状态）", () => {
+    expect(footerSrc).not.toContain("select-none relative overflow-hidden");
+    expect(footerSrc).toContain("absolute bottom-full");
   });
 
   it("窄屏隐藏 CPU/MEM/端口/模型/Token 等密集段落（lg 断点）", () => {
@@ -44,8 +50,11 @@ describe("窄屏状态栏：与移动底栏共存", () => {
     expect(footerSrc).toContain("hidden lg:inline text-orange-500"); // 今日消费
   });
 
-  it("后端状态与启停按钮在窄屏仍然可见（不参与隐藏）", () => {
+  it("运行中窄屏让位、断连时浮出并保留启动入口", () => {
+    expect(footerSrc).toContain('status.running ? "hidden lg:flex" : "flex"');
     expect(footerSrc).toContain("Backend {getStatusText()}");
-    expect(footerSrc).toContain('t("common.stop")');
+    expect(footerSrc).toContain('t("common.start")');
+    // 运行中不再重复「停止」按钮（入口在 ConfigPanel）
+    expect(footerSrc).not.toContain('t("common.stop")');
   });
 });

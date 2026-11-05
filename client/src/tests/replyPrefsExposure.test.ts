@@ -58,15 +58,31 @@ describe("回复设置菜单：读路径", () => {
   });
 });
 
-describe("输入区接线", () => {
-  it("ChatInput 渲染菜单并把会话 id / 当前档位传下去", () => {
-    expect(inputSrc).toContain('import ReplyPrefsMenu from "./ReplyPrefsMenu"');
-    expect(inputSrc).toContain("<ReplyPrefsMenu");
+describe("输入区接线（2026-11-05 控制面简化 A′）", () => {
+  const replyModeSrc = readClient("../components/ChatArea/ReplyModeMenu.tsx");
+
+  it("ChatInput 渲染「回答模式」并把会话 id / 当前详略传下去", () => {
+    expect(inputSrc).toContain('import ReplyModeMenu from "./ReplyModeMenu"');
+    expect(inputSrc).toContain("<ReplyModeMenu");
     expect(inputSrc).toContain("sessionId={currentSession?.id}");
     expect(inputSrc).toContain("effortLevel={currentSession?.effortLevel}");
   });
 
-  it("切换成功后就地更新会话缓存（后端广播仍为最终事实）", () => {
-    expect(inputSrc).toContain("effortLevel: level");
+  it("档位切换把详略归零（思考预算交给模式，避免两个旋钮争同一预算）", () => {
+    expect(replyModeSrc).toContain('runCommand("effort auto", sessionId)');
+  });
+
+  it("「快速」档复用全局 fastMode（fast on / fast off），不新增字段", () => {
+    expect(replyModeSrc).toContain(
+      'runCommand(wantFast ? "fast on" : "fast off")',
+    );
+    expect(replyModeSrc).toContain('configService.get("fastMode")');
+  });
+
+  it("旧入口不再占用工具栏（入口收敛，字段与组件保留）", () => {
+    expect(inputSrc).not.toContain("<ReplyPrefsMenu");
+    expect(inputSrc).not.toContain("<WorkModeToggle");
+    expect(inputSrc).not.toContain("<ApprovalModeToggle");
+    expect(inputSrc).not.toContain("<TemporarySessionToggle");
   });
 });

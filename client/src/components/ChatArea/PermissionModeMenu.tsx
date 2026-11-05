@@ -14,6 +14,9 @@
  *   **不能**越过 deny 规则、路径边界与沙箱限制（方案 §3.4 红线）；
  * - 「跟随默认」= 清除会话覆盖（`permission_mode: null`），判定回退进程默认档；
  * - `bypass` 会无条件放行（仅 killswitch 之外无拦截）⇒ 需**二次确认**。
+ *
+ * 2026-11-05（前端控制面简化 A′）：输入区只留 3 档循环胶囊（`PermissionModePill`），
+ * 本组件的 9 档全量改以 `inline` 形态嵌进「更多 → 高级权限」，供排障与高级用户使用。
  */
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -21,10 +24,8 @@ import type { SessionPermissionMode } from "@/types";
 import { sessionService } from "@/services/sessionService";
 import { handleClientError } from "@/utils/handleError";
 import { toastError } from "@/stores/toastStore";
-import {
-  PERMISSION_MODE_KEYS,
-  PERMISSION_MODE_SYMBOLS,
-} from "./permissionModeOptions";
+import { PERMISSION_MODE_KEYS } from "./permissionModeOptions";
+import PermissionModeIcon from "./permissionModeIcons";
 
 interface PermissionModeMenuProps {
   /** 绑定会话 id；缺省时禁用 */
@@ -35,6 +36,8 @@ interface PermissionModeMenuProps {
   onChanged?: (mode: SessionPermissionMode | undefined) => void;
   /** 流式输出等场景由调用方统一禁用 */
   disabled?: boolean;
+  /** 内联形态：不渲染触发按钮，直接把档位列表铺开（供「更多」弹层复用） */
+  inline?: boolean;
 }
 
 export default function PermissionModeMenu({
@@ -42,6 +45,7 @@ export default function PermissionModeMenu({
   permissionMode,
   onChanged,
   disabled = false,
+  inline = false,
 }: PermissionModeMenuProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -50,6 +54,8 @@ export default function PermissionModeMenu({
   const [confirming, setConfirming] = useState<SessionPermissionMode | null>(
     null,
   );
+  /** inline 形态：是否展开「更多档位」（默认只列常用 3 档，避免弹层过高） */
+  const [showAll, setShowAll] = useState(false);
 
   const label = permissionMode
     ? t(`chat.permission.mode.${permissionMode}`)
@@ -94,6 +100,168 @@ export default function PermissionModeMenu({
     void apply(mode);
   };
 
+  /** 档位列表（普通形态与 inline 形态共用同一份，禁止两处各写一套） */
+  const options = (
+    <>
+      <button
+        type="button"
+        role="option"
+        aria-selected={permissionMode === undefined}
+        onClick={() => void apply(null)}
+        className={`flex w-full flex-col gap-0.5 px-3 py-2 text-left text-sm transition-colors ${
+          permissionMode === undefined
+            ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+            : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+        }`}
+      >
+        <span>{t("chat.permission.followDefault")}</span>
+        <span className="text-[11px] text-gray-400">
+          {t("chat.permission.followDefaultHint")}
+        </span>
+      </button>
+      {PERMISSION_MODE_KEYS.map((mode) => (
+        <button
+          key={mode}
+          type="button"
+          role="option"
+          aria-selected={permissionMode === mode}
+          onClick={() => handleSelect(mode)}
+          className={`flex w-full flex-col gap-0.5 px-3 py-2 text-left text-sm transition-colors ${
+            permissionMode === mode
+              ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+              : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+          }`}
+        >
+          <span className="flex items-center gap-1.5">
+            <PermissionModeIcon mode={mode} className="h-3.5 w-3.5 shrink-0" />
+            <span>{t(`chat.permission.mode.${mode}`)}</span>
+          </span>
+          <span className="text-[11px] text-gray-400">
+            {t(`chat.permission.modeDesc.${mode}`)}
+          </span>
+        </button>
+      ))}
+    </>
+  );
+
+  /** inline 形态的单行档位：说明收进 title，行高减半（弹层默认只占约 1/4 屏） */
+  const compactRow = (mode: SessionPermissionMode | undefined) => {
+    const active = permissionMode === mode;
+    const shortLabel =
+      mode === undefined
+        ? t("chat.permission.pillDefault")
+        : mode === "plan"
+          ? t("chat.permission.pillPlan")
+          : mode === "bypass"
+            ? t("chat.permission.pillBypass")
+            : t(`chat.permission.mode.${mode}`);
+    const desc =
+      mode === undefined
+        ? t("chat.permission.followDefaultHint")
+        : t(`chat.permission.modeDesc.${mode}`);
+    return (
+      <button
+        key={mode ?? "followDefault"}
+        type="button"
+        role="option"
+        aria-selected={active}
+        title={desc}
+        onClick={() => (mode ? handleSelect(mode) : void apply(null))}
+        className={`flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-sm transition-colors ${
+          active
+            ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+            : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+        }`}
+      >
+        <span className="flex w-4 shrink-0 justify-center">
+          <PermissionModeIcon
+            mode={mode ?? "default"}
+            className="h-3.5 w-3.5"
+          />
+        </span>
+        <span>{shortLabel}</span>
+      </button>
+    );
+  };
+
+  const confirmPanel = (
+    <div
+      className={
+        inline
+          ? "mx-2 my-1 rounded border border-amber-400/50 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+          : "absolute bottom-full right-0 z-30 mb-1 w-72 rounded border border-amber-400/50 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-800 shadow-lg dark:bg-amber-950/40 dark:text-amber-300"
+      }
+    >
+      <div className="mb-1">{t("chat.permission.bypassConfirmBody")}</div>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => void apply("bypass")}
+          disabled={pending}
+          className="rounded bg-amber-500 px-2 py-0.5 font-medium text-white hover:bg-amber-600 disabled:opacity-50"
+        >
+          {t("chat.permission.bypassConfirm")}
+        </button>
+        <button
+          type="button"
+          onClick={() => setConfirming(null)}
+          disabled={pending}
+          className="rounded px-2 py-0.5 text-gray-600 hover:text-gray-800 disabled:opacity-50 dark:text-gray-300"
+        >
+          {t("common.cancel")}
+        </button>
+      </div>
+    </div>
+  );
+
+  if (inline) {
+    // 常用 3 档 + 「更多档位」折叠；紧凑行只显示名称，说明见 title
+    const moreKeys = PERMISSION_MODE_KEYS.filter(
+      (mode) => mode !== "plan" && mode !== "bypass",
+    );
+    return (
+      <div className="relative">
+        <div
+          role="listbox"
+          aria-label={t("chat.permission.hint")}
+          className="max-h-[60vh] overflow-y-auto py-1"
+        >
+          {compactRow(undefined)}
+          {compactRow("plan")}
+          {compactRow("bypass")}
+          <button
+            type="button"
+            onClick={() => setShowAll((v) => !v)}
+            aria-expanded={showAll}
+            className="flex w-full items-center justify-between px-3 py-1.5 text-xs text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
+          >
+            <span>
+              {showAll
+                ? t("chat.permission.collapseAll")
+                : t("chat.permission.showAll")}
+            </span>
+            <svg
+              className={`h-3 w-3 transition-transform ${showAll ? "rotate-180" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          </button>
+          {showAll && moreKeys.map((mode) => compactRow(mode))}
+        </div>
+        {confirming === "bypass" && confirmPanel}
+      </div>
+    );
+  }
+
   return (
     <div className="relative">
       <button
@@ -105,7 +273,10 @@ export default function PermissionModeMenu({
         title={t("chat.permission.hint")}
         className="flex items-center gap-1 rounded-full border border-gray-200 bg-gray-100 px-2 py-0.5 text-xs transition-colors hover:border-amber-300 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:hover:border-amber-500"
       >
-        <span>{PERMISSION_MODE_SYMBOLS[permissionMode ?? "default"]}</span>
+        <PermissionModeIcon
+          mode={permissionMode ?? "default"}
+          className="h-3.5 w-3.5 shrink-0"
+        />
         <span className="text-gray-500 dark:text-gray-400">{label}</span>
         <svg
           className="h-3 w-3 text-gray-400"
@@ -128,70 +299,11 @@ export default function PermissionModeMenu({
             role="listbox"
             className="absolute bottom-full left-0 z-20 mb-1 max-h-80 w-64 overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800"
           >
-            <button
-              type="button"
-              role="option"
-              aria-selected={permissionMode === undefined}
-              onClick={() => void apply(null)}
-              className={`flex w-full flex-col gap-0.5 px-3 py-2 text-left text-sm transition-colors ${
-                permissionMode === undefined
-                  ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
-                  : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-              }`}
-            >
-              <span>{t("chat.permission.followDefault")}</span>
-              <span className="text-[11px] text-gray-400">
-                {t("chat.permission.followDefaultHint")}
-              </span>
-            </button>
-            {PERMISSION_MODE_KEYS.map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                role="option"
-                aria-selected={permissionMode === mode}
-                onClick={() => handleSelect(mode)}
-                className={`flex w-full flex-col gap-0.5 px-3 py-2 text-left text-sm transition-colors ${
-                  permissionMode === mode
-                    ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
-                    : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-                }`}
-              >
-                <span className="flex items-center gap-1.5">
-                  <span>{PERMISSION_MODE_SYMBOLS[mode]}</span>
-                  <span>{t(`chat.permission.mode.${mode}`)}</span>
-                </span>
-                <span className="text-[11px] text-gray-400">
-                  {t(`chat.permission.modeDesc.${mode}`)}
-                </span>
-              </button>
-            ))}
+            {options}
           </div>
         </>
       )}
-      {confirming === "bypass" && (
-        <div className="absolute bottom-full right-0 z-30 mb-1 w-72 rounded border border-amber-400/50 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-800 shadow-lg dark:bg-amber-950/40 dark:text-amber-300">
-          <div className="mb-1">{t("chat.permission.bypassConfirmBody")}</div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => void apply("bypass")}
-              disabled={pending}
-              className="rounded bg-amber-500 px-2 py-0.5 font-medium text-white hover:bg-amber-600 disabled:opacity-50"
-            >
-              {t("chat.permission.bypassConfirm")}
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirming(null)}
-              disabled={pending}
-              className="rounded px-2 py-0.5 text-gray-600 hover:text-gray-800 disabled:opacity-50 dark:text-gray-300"
-            >
-              {t("common.cancel")}
-            </button>
-          </div>
-        </div>
-      )}
+      {confirming === "bypass" && confirmPanel}
     </div>
   );
 }

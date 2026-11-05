@@ -30,15 +30,11 @@ import type { FileAttachmentBarHandle } from "./FileAttachmentBar";
 import SlashCommandMenu, { SLASH_COMMANDS } from "./SlashCommandMenu";
 import MentionMenu, { type MentionItem } from "./MentionMenu";
 import { useChatDraft } from "./useChatDraft";
-// UI 期 UI-3（2026-09-23 修复计划 §十）：临时对话开关（并入工具栏行，替代原先独占一行）
-import TemporarySessionToggle from "./TemporarySessionToggle";
-// 计划/执行开关（emoji 之后，单击切换；写入会话 metadata.workMode）
-import WorkModeToggle from "./WorkModeToggle";
-import ApprovalModeToggle from "./ApprovalModeToggle";
-// P1（2026-11-04）：会话级「权限模式」（第三层；写入会话 metadata.permission_mode）
-import PermissionModeMenu from "./PermissionModeMenu";
-// 回复设置（详略 + 快速模式）：复用 `/effort`、`/fast` 两条命令的同一实现
-import ReplyPrefsMenu from "./ReplyPrefsMenu";
+// 2026-11-05（前端控制面简化 A′ v2）：输入框底栏只留「回答模式 + 权限胶囊 + ＋」，
+// 语音/发送在右；计划/执行、自动执行、详略、临时对话的入口已收敛。
+import ReplyModeMenu from "./ReplyModeMenu";
+import PermissionModePill from "./PermissionModePill";
+import { toChatMode, type ReplyMode } from "./replyModeOptions";
 import { readFileAsBase64 } from "../../utils/format";
 import { handleClientError } from "../../utils/handleError";
 import { toastError, toastWarning } from "../../stores/toastStore";
@@ -79,18 +75,6 @@ function isImageFile(file: File): boolean {
   return file.type.startsWith("image/");
 }
 
-/** 聊天模式选项 */
-const CHAT_MODES = [
-  { key: "auto", icon: "🤖", labelKey: "chat.modeAuto" },
-  { key: "deep", icon: "🧠", labelKey: "chat.modeDeep" },
-  { key: "code", icon: "💻", labelKey: "chat.modeCode" },
-  { key: "creative", icon: "🎨", labelKey: "chat.modeCreative" },
-  // P0-3（2026-09-06）：研究模式——显式启动候选生成 + 对抗评审编排（不走普通 AI 流）
-  { key: "research", icon: "🔬", labelKey: "chat.modeResearch" },
-] as const;
-
-type ChatMode = (typeof CHAT_MODES)[number]["key"];
-
 function ChatInput({ fluid = false }: { fluid?: boolean }) {
   const { t } = useTranslation();
   const [showCommands, setShowCommands] = useState(false);
@@ -101,8 +85,7 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
   const [translatingId, setTranslatingId] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showUploadMenu, setShowUploadMenu] = useState(false);
-  const [showModeMenu, setShowModeMenu] = useState(false);
-  const [chatMode, setChatMode] = useState<ChatMode>("auto");
+  const [chatMode, setChatMode] = useState<ReplyMode>("auto");
   /** @ 引用自动补全状态 */
   const [showMentions, setShowMentions] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
@@ -851,8 +834,9 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
           workMode,
           uploadedImages.length > 0 ? uploadedImages : undefined,
           undefined,
-          // P1（2026-11-04）：当前下拉的模式随消息下发（后端落到会话 metadata.chatMode）
-          chatMode,
+          // 回答模式随消息下发（后端落到会话 metadata.chatMode）；
+          // 「快速」档在协议上等同 auto，差异由全局 fastMode 承担
+          toChatMode(chatMode),
         );
       }
 
@@ -900,8 +884,8 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
       workMode,
       undefined,
       undefined,
-      // 与 handleSubmit 一致：语音发送同样带上当前模式
-      chatMode,
+      // 与 handleSubmit 一致：语音发送同样带上当前模式（快速档 → auto）
+      toChatMode(chatMode),
     );
   };
 
@@ -1331,252 +1315,8 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
                 ⏳ {t("chat.streamBlockedHint")}
               </div>
             )}
-            {/* 模式选择器 + 上传/表情 — 输入框上方
-                P1（2026-11-04）：新增「权限模式」后本行控件变多 ⇒ 允许换行（窄窗口不横向溢出） */}
-            <div className="flex flex-wrap items-center gap-1 mb-0.5">
-              <div className="relative">
-                <button
-                  onClick={() => setShowModeMenu(!showModeMenu)}
-                  disabled={!currentSession}
-                  className="flex items-center gap-1 px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full hover:border-blue-300 dark:hover:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  title={t("chat.selectMode")}
-                >
-                  <span>
-                    {CHAT_MODES.find((m) => m.key === chatMode)?.icon}
-                  </span>
-                  <span className="text-gray-500 dark:text-gray-400">
-                    {t(
-                      CHAT_MODES.find((m) => m.key === chatMode)?.labelKey ??
-                        "chat.selectMode",
-                    )}
-                  </span>
-                  <svg
-                    className="w-3 h-3 text-gray-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
-                </button>
-                {showModeMenu && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-10"
-                      onClick={() => setShowModeMenu(false)}
-                    />
-                    <div className="absolute top-full left-0 mt-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-20">
-                      {CHAT_MODES.map((mode) => (
-                        <button
-                          key={mode.key}
-                          onClick={() => {
-                            setChatMode(mode.key);
-                            setShowModeMenu(false);
-                          }}
-                          className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition-colors ${
-                            chatMode === mode.key
-                              ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-                              : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                          }`}
-                        >
-                          <span>{mode.icon}</span>
-                          <span>{t(mode.labelKey)}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-              {/* 上传 + 表情按钮 */}
-              <div className="flex items-center gap-0.5">
-                <input
-                  ref={imageInputRef}
-                  id="image-upload-input"
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => {
-                    if (e.target.files) handleImageFiles(e.target.files);
-                    e.target.value = "";
-                  }}
-                />
-                <div className="relative" ref={uploadMenuRef}>
-                  <button
-                    onClick={() => setShowUploadMenu(!showUploadMenu)}
-                    aria-label={t("chat.uploadFile")}
-                    disabled={!currentSession || isUploading}
-                    className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    title={t("chat.uploadFile")}
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 4v16m8-8H4"
-                      />
-                    </svg>
-                  </button>
-                  {showUploadMenu && (
-                    <div className="absolute bottom-full left-0 mb-1 w-36 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-20">
-                      <button
-                        onClick={() => {
-                          imageInputRef.current?.click();
-                          setShowUploadMenu(false);
-                        }}
-                        className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors"
-                      >
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                          />
-                        </svg>
-                        {t("chat.uploadImage")}
-                      </button>
-                      <button
-                        onClick={() => {
-                          fileBarRef.current?.triggerFileInput();
-                          setShowUploadMenu(false);
-                        }}
-                        className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors"
-                      >
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
-                          />
-                        </svg>
-                        {t("chat.uploadFile")}
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <button
-                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  aria-label={t("chat.emoji")}
-                  disabled={!currentSession}
-                  className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  title={t("chat.emoji")}
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                </button>
-                {/* 计划/执行开关（emoji 之后）——单击切换，写入会话 metadata.workMode；
-                    未设置时按全局默认 plan 显示（与 resolveWorkMode 缺省一致） */}
-                <WorkModeToggle
-                  sessionId={currentSession?.id}
-                  workMode={currentSession?.workMode}
-                  onChanged={(mode) => {
-                    // 就地更新本地会话缓存：事实来源仍是后端 DB，随后
-                    // session:meta_updated 广播回填以服务端为准
-                    const changedId = currentSession?.id;
-                    if (!changedId) return;
-                    useRootStore.setState((s) => ({
-                      chatSessions: s.chatSessions.map((item) =>
-                        item.id === changedId
-                          ? { ...item, workMode: mode }
-                          : item,
-                      ),
-                    }));
-                  }}
-                  disabled={isStreaming}
-                />
-                {/* PR-3（2026-10-23）：会话级「自动执行」开关（仅只读 + 本地写）。
-                    事实来源 = 会话 metadata.approvalMode；后端受 FEATURE_SESSION_AUTO_LOCAL 约束 */}
-                <ApprovalModeToggle
-                  sessionId={currentSession?.id}
-                  approvalMode={currentSession?.approvalMode}
-                  onChanged={(mode) => {
-                    const changedId = currentSession?.id;
-                    if (!changedId) return;
-                    useRootStore.setState((s) => ({
-                      chatSessions: s.chatSessions.map((item) =>
-                        item.id === changedId
-                          ? { ...item, approvalMode: mode }
-                          : item,
-                      ),
-                    }));
-                  }}
-                  disabled={isStreaming}
-                />
-                {/* P1（2026-11-04）：会话级「权限模式」（第三层；覆盖进程默认档）。
-                    事实来源 = 会话 metadata.permission_mode；不越过 deny / 路径边界 / 沙箱 */}
-                <PermissionModeMenu
-                  sessionId={currentSession?.id}
-                  permissionMode={currentSession?.permissionMode}
-                  onChanged={(mode) => {
-                    const changedId = currentSession?.id;
-                    if (!changedId) return;
-                    useRootStore.setState((s) => ({
-                      chatSessions: s.chatSessions.map((item) =>
-                        item.id === changedId
-                          ? { ...item, permissionMode: mode }
-                          : item,
-                      ),
-                    }));
-                  }}
-                  disabled={isStreaming}
-                />
-                {/* 回复设置（详略 / 快速模式）—— 与 `/effort`、`/fast` 命令同一实现；
-                    详略写会话 metadata.effortLevel，快速模式写全局配置 fastMode */}
-                <ReplyPrefsMenu
-                  sessionId={currentSession?.id}
-                  effortLevel={currentSession?.effortLevel}
-                  onEffortChanged={(level) => {
-                    // 就地更新本地会话缓存：事实来源仍是后端，随后
-                    // session:meta_updated 广播回填以服务端为准
-                    const changedId = currentSession?.id;
-                    if (!changedId) return;
-                    useRootStore.setState((s) => ({
-                      chatSessions: s.chatSessions.map((item) =>
-                        item.id === changedId
-                          ? { ...item, effortLevel: level }
-                          : item,
-                      ),
-                    }));
-                  }}
-                />
-              </div>
-              {/* UI 期 UI-3：临时对话开关并入本行（组件内 `ml-auto` 右对齐） */}
-              <TemporarySessionToggle />
-            </div>
+            {/* 2026-11-05（A′ v2）：原「输入框上方工具行」已取消 ——
+                策略控件并入输入框底栏（左侧策略 / 右侧语音与发送），对标 Trae。 */}
             {/* 输入框 + 按钮 — textarea 独占整行，按钮在下方右对齐 */}
             <div className="flex flex-col gap-1 bg-gray-100 dark:bg-gray-700 rounded-2xl p-1 ring-1 ring-transparent focus-within:ring-blue-500/40 dark:focus-within:ring-blue-400/30 focus-within:shadow-md transition-all duration-200">
               {/* 文本输入 */}
@@ -1613,114 +1353,262 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
                 </div>
               )}
 
-              {/* 底部按钮 — 语音 + 发送，右对齐 */}
-              <div className="flex items-center gap-1 self-end">
-                <VoiceInputButton
-                  ref={voiceBtnRef}
-                  isDark={config.theme === "dark"}
-                  autoSubmit
-                  onShouldSubmit={handleVoiceSubmit}
-                  onTranscribed={(text) => {
-                    setInput(text);
-                    // 填入文字后自动聚焦到输入框
-                    textareaRef.current?.focus();
-                  }}
-                />
-                {/* CG3: Steering 注入 — 流式执行中可发送指令 */}
-                {isStreaming && currentSession && (
-                  <div className="flex items-center gap-1">
-                    {showSteering ? (
-                      <div className="flex items-center gap-1">
-                        <input
-                          ref={steeringInputRef}
-                          type="text"
-                          value={steeringText}
-                          onChange={(e) => setSteeringText(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") handleSteering();
-                            if (e.key === "Escape") {
-                              setShowSteering(false);
-                              setSteeringText("");
-                            }
-                          }}
-                          placeholder={t("chat.steeringPlaceholder")}
-                          className="w-36 px-2 py-1.5 text-xs bg-amber-50 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 rounded-lg text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
-                          autoFocus
+              {/* 底栏（A′ v2）：左侧策略控件 / 右侧语音与发送（对标 Trae 输入区） */}
+              <div className="flex items-center justify-between gap-1">
+                <div className="flex min-w-0 items-center gap-1">
+                  <ReplyModeMenu
+                    value={chatMode}
+                    onChange={setChatMode}
+                    sessionId={currentSession?.id}
+                    effortLevel={currentSession?.effortLevel}
+                    onEffortReset={() => {
+                      // 档位承载思考预算 ⇒ 详略归零；事实来源仍是后端，广播回填为准
+                      const changedId = currentSession?.id;
+                      if (!changedId) return;
+                      useRootStore.setState((s) => ({
+                        chatSessions: s.chatSessions.map((item) =>
+                          item.id === changedId
+                            ? { ...item, effortLevel: "auto" }
+                            : item,
+                        ),
+                      }));
+                    }}
+                    disabled={!currentSession}
+                  />
+                  <PermissionModePill
+                    sessionId={currentSession?.id}
+                    permissionMode={currentSession?.permissionMode}
+                    onChanged={(mode) => {
+                      const changedId = currentSession?.id;
+                      if (!changedId) return;
+                      useRootStore.setState((s) => ({
+                        chatSessions: s.chatSessions.map((item) =>
+                          item.id === changedId
+                            ? { ...item, permissionMode: mode }
+                            : item,
+                        ),
+                      }));
+                    }}
+                    disabled={isStreaming}
+                  />
+                  {/* ＋：图片 / 文件 / 表情（一个入口收纳三类附件动作） */}
+                  <div className="relative" ref={uploadMenuRef}>
+                    <input
+                      ref={imageInputRef}
+                      id="image-upload-input"
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files) handleImageFiles(e.target.files);
+                        e.target.value = "";
+                      }}
+                    />
+                    <button
+                      onClick={() => setShowUploadMenu(!showUploadMenu)}
+                      aria-label={t("chat.moreActions")}
+                      disabled={!currentSession || isUploading}
+                      className="rounded p-1 text-gray-400 transition-colors hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-gray-300"
+                      title={t("chat.moreActions")}
+                    >
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 4v16m8-8H4"
                         />
+                      </svg>
+                    </button>
+                    {showUploadMenu && (
+                      <div className="absolute bottom-full left-0 z-20 mb-1 w-36 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
                         <button
-                          onClick={handleSteering}
-                          disabled={!steeringText.trim()}
-                          className="px-2 py-1.5 text-xs bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50 transition-colors"
+                          onClick={() => {
+                            imageInputRef.current?.click();
+                            setShowUploadMenu(false);
+                          }}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
                         >
-                          {t("chat.steeringSend")}
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                            />
+                          </svg>
+                          {t("chat.uploadImage")}
+                        </button>
+                        <button
+                          onClick={() => {
+                            fileBarRef.current?.triggerFileInput();
+                            setShowUploadMenu(false);
+                          }}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                        >
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                            />
+                          </svg>
+                          {t("chat.uploadFile")}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowEmojiPicker(true);
+                            setShowUploadMenu(false);
+                          }}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                        >
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
+                          {t("chat.emoji")}
                         </button>
                       </div>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          setShowSteering(true);
-                          setTimeout(
-                            () => steeringInputRef.current?.focus(),
-                            50,
-                          );
-                        }}
-                        className="p-1.5 text-amber-500 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
-                        title={t("chat.steeringTitle")}
-                      >
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"
-                          />
-                        </svg>
-                      </button>
                     )}
                   </div>
-                )}
-                {isStreaming && !messageQueueEnabled ? (
-                  <button
-                    onClick={() => stopMessage()}
-                    aria-label={t("chat.stopGeneration")}
-                    className="px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all font-medium shadow-md hover:shadow-lg flex items-center gap-2"
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
+                </div>
+                <div className="flex items-center gap-1">
+                  <VoiceInputButton
+                    ref={voiceBtnRef}
+                    isDark={config.theme === "dark"}
+                    autoSubmit
+                    onShouldSubmit={handleVoiceSubmit}
+                    onTranscribed={(text) => {
+                      setInput(text);
+                      // 填入文字后自动聚焦到输入框
+                      textareaRef.current?.focus();
+                    }}
+                  />
+                  {/* CG3: Steering 注入 — 流式执行中可发送指令 */}
+                  {isStreaming && currentSession && (
+                    <div className="flex items-center gap-1">
+                      {showSteering ? (
+                        <div className="flex items-center gap-1">
+                          <input
+                            ref={steeringInputRef}
+                            type="text"
+                            value={steeringText}
+                            onChange={(e) => setSteeringText(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleSteering();
+                              if (e.key === "Escape") {
+                                setShowSteering(false);
+                                setSteeringText("");
+                              }
+                            }}
+                            placeholder={t("chat.steeringPlaceholder")}
+                            className="w-36 px-2 py-1.5 text-xs bg-amber-50 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 rounded-lg text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                            autoFocus
+                          />
+                          <button
+                            onClick={handleSteering}
+                            disabled={!steeringText.trim()}
+                            className="px-2 py-1.5 text-xs bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50 transition-colors"
+                          >
+                            {t("chat.steeringSend")}
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setShowSteering(true);
+                            setTimeout(
+                              () => steeringInputRef.current?.focus(),
+                              50,
+                            );
+                          }}
+                          className="p-1.5 text-amber-500 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
+                          title={t("chat.steeringTitle")}
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"
+                            />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {isStreaming && !messageQueueEnabled ? (
+                    <button
+                      onClick={() => stopMessage()}
+                      aria-label={t("chat.stopGeneration")}
+                      title={t("chat.stopGeneration")}
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-red-500 to-red-600 text-white shadow-md transition-all hover:from-red-600 hover:to-red-700 hover:shadow-lg"
                     >
-                      <rect x="4" y="4" width="16" height="16" rx="2" />
-                    </svg>
-                    <span>{t("chat.stopGeneration")}</span>
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleSubmit}
-                    aria-label={
-                      isStreaming && messageQueueEnabled
-                        ? t("chat.queueSend")
-                        : t("chat.send")
-                    }
-                    disabled={
-                      !currentSession ||
-                      (!messageQueueEnabled && isSending) ||
-                      isUploading ||
-                      (!input.trim() &&
-                        attachments.length === 0 &&
-                        imageItems.length === 0)
-                    }
-                    className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium shadow-md hover:shadow-lg flex items-center gap-2"
-                  >
-                    {isUploading ? (
-                      <>
+                      <svg
+                        className="h-4 w-4"
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <rect x="4" y="4" width="16" height="16" rx="2" />
+                      </svg>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleSubmit}
+                      aria-label={
+                        isStreaming && messageQueueEnabled
+                          ? t("chat.queueSend")
+                          : t("chat.send")
+                      }
+                      title={
+                        isStreaming && messageQueueEnabled
+                          ? t("chat.queueSend")
+                          : t("chat.send")
+                      }
+                      disabled={
+                        !currentSession ||
+                        (!messageQueueEnabled && isSending) ||
+                        isUploading ||
+                        (!input.trim() &&
+                          attachments.length === 0 &&
+                          imageItems.length === 0)
+                      }
+                      className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md transition-all hover:from-blue-600 hover:to-blue-700 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {isUploading || isSending ? (
                         <svg
-                          className="animate-spin h-4 w-4"
+                          className="h-4 w-4 animate-spin"
                           fill="none"
                           viewBox="0 0 24 24"
                         >
@@ -1738,39 +1626,9 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
                             d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                           />
                         </svg>
-                        <span>{t("chat.uploading")}</span>
-                      </>
-                    ) : isSending ? (
-                      <>
+                      ) : (
                         <svg
-                          className="animate-spin h-4 w-4"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          />
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          />
-                        </svg>
-                        <span>
-                          {messageQueueEnabled && messageQueue.length > 0
-                            ? `${t("chat.sending")} (${messageQueue.length} ${t("chat.queued")})`
-                            : t("chat.sending")}
-                        </span>
-                      </>
-                    ) : messageQueueEnabled && messageQueue.length > 0 ? (
-                      <>
-                        <svg
-                          className="w-5 h-5"
+                          className="h-4 w-4"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -1782,31 +1640,19 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
                             d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
                           />
                         </svg>
-                        <span>
-                          {t("chat.send")} ({messageQueue.length + 1}{" "}
-                          {t("chat.queued")})
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                          />
-                        </svg>
-                        <span>{t("chat.send")}</span>
-                      </>
-                    )}
-                  </button>
-                )}
+                      )}
+                      {/* 排队数量用小徽标，不再撑宽按钮 */}
+                      {!isUploading &&
+                        !isSending &&
+                        messageQueueEnabled &&
+                        messageQueue.length > 0 && (
+                          <span className="absolute -top-1 -right-1 min-w-[16px] rounded-full bg-blue-700 px-1 text-center text-[10px] leading-4 text-white">
+                            {messageQueue.length + 1}
+                          </span>
+                        )}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>

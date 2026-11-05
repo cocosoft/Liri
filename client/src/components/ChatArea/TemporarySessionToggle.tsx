@@ -12,8 +12,11 @@ import { useSessionStore } from "../../stores/sessionStore";
  *   —— 禁止用标题字符串判断）；
  * - 切换动作：新建对应模式会话 + URL `?temporary=1` 同步（对齐 Copilot Temporary）；
  * - 全文说明走 `title`，行内只在开启时显示精简徽标（避免与同行工具按钮挤压）。
+ *
+ * 2026-11-05（前端控制面简化 A′）：从输入区工具栏移到「新建会话」入口旁，
+ * 以 `compact` 纯图标形态挂载（它本就是"新建会话"动作，不该占会话级工具栏）。
  */
-function TemporarySessionToggle() {
+function TemporarySessionToggle({ compact = false }: { compact?: boolean }) {
   const { t } = useTranslation();
   const currentSession = useSessionStore((s) => s.currentSession);
   const createSession = useSessionStore((s) => s.createSession);
@@ -34,6 +37,38 @@ function TemporarySessionToggle() {
         // @ignore-catch — 创建失败已由 createChatSession toast，URL 保持原样避免状态不一致
       });
   };
+
+  if (compact) {
+    return (
+      <button
+        type="button"
+        onClick={() => handleToggle(!isTemporary)}
+        className={`rounded-lg p-1 transition-colors ${
+          isTemporary
+            ? "bg-amber-100 text-amber-600 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:hover:bg-amber-900/50"
+            : "text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:hover:bg-gray-600 dark:hover:text-gray-200"
+        }`}
+        aria-pressed={isTemporary}
+        aria-label={t("chat.temporaryToggle")}
+        title={t("chat.temporaryHint")}
+      >
+        <svg
+          className="h-4 w-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+          />
+        </svg>
+      </button>
+    );
+  }
 
   return (
     <button

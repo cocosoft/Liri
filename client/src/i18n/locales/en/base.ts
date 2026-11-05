@@ -476,10 +476,21 @@ const enBase = {
     quickActions: "Quick Actions",
     selectMode: "Select Mode",
     modeAuto: "Smart Chat",
+    modeQuick: "Quick",
     modeDeep: "Deep Think",
     modeCode: "Code Assistant",
     modeCreative: "Creative Writing",
     modeResearch: "Research Mode",
+    replyModeTitle: "Response mode",
+    replyModeResearchHint: "Separate pipeline",
+    replyModeResearchBadge: "Standalone",
+    replyModeSwitchFailed: "Failed to switch response mode",
+    effortResetHint:
+      "Session detail level reset to Auto (thinking budget now follows the response mode)",
+    fastModeGlobalHint:
+      "Quick is a global setting: all sessions will use the low-cost model",
+    moreAdvanced: "Advanced permissions",
+    moreActions: "More actions",
     researchStartFailed:
       "Research mode failed to start (backend not responding)",
     // Starter prompt cards
@@ -951,6 +962,14 @@ const enBase = {
       followDefault: "Permission: follow default",
       followDefaultHint:
         "No session override; judged by the process default (PERMISSION_MODE)",
+      pillDefault: "Follow default",
+      pillPlan: "Read-only plan",
+      pillBypass: "Full auto",
+      pillAria: "Permission: {{label}} (click to cycle)",
+      showAll: "More tiers",
+      collapseAll: "Fewer tiers",
+      pillHint:
+        "Click to cycle: follow default → read-only plan → full auto (the ▾ on the right lists all 9 tiers)",
       switchFailed: "Failed to switch permission mode",
       bypassConfirmBody:
         "Bypass mode allows tool calls unconditionally (deny rules and path boundaries still enforced by the executor). Switch anyway?",

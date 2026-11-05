@@ -21,6 +21,7 @@ import SessionContextMenu from "./SessionContextMenu";
 import { isInsidePanel } from "./sidebarPanelHitTest";
 import SessionListItem from "./SessionListItem";
 import SessionTitle from "./SessionTitle";
+import TemporarySessionToggle from "./TemporarySessionToggle";
 import { useDreamSessionIds } from "./useDreamSessionIds";
 // 2026-10-16：折叠状态策略外迁为可测 hook（窄屏自动折叠不写偏好 + 回宽屏恢复）
 import { useSidebarCollapse } from "./useSidebarCollapse";
@@ -850,6 +851,8 @@ function SessionHistorySidebar({
           </span>
         </h3>
         <div className="flex items-center gap-1">
+          {/* 2026-11-05（A′）：临时对话移到「新建会话」入口旁（它本就是新建会话动作） */}
+          <TemporarySessionToggle compact />
           <button
             onClick={handleNewSession}
             className="p-1 text-gray-400 hover:text-blue-500 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"

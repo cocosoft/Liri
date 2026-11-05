@@ -8264,3 +8264,23 @@
 {"id":"SERVICE-PACKAGE-P33-VOICE","k":"tests#0","i":0,"c":"app/tests/voice/VoiceSession.test.ts"}
 {"id":"SERVICE-PACKAGE-P33-VOICE","k":"tests#1","i":0,"c":"app/tests/voice/VoiceToolBridge.test.ts"}
 {"id":"SERVICE-PACKAGE-P33-VOICE","k":"tests#2","i":0,"c":"app/tests/voice/voice-e2e.test.ts"}
+{"id":"SERVICE-PACKAGE-P34-BRIDGE","k":"title","i":0,"c":"P34：bridge（ACP 模块桥）迁入 packages/service —— 31 文件；1 处反转（TaskRegistry 端口）；同层依赖保留（半包化）"}
+{"id":"SERVICE-PACKAGE-P34-BRIDGE","k":"source","i":0,"c":"dev_docs/20261101/infra包化可行性-20261101.md §七 矩阵（bridge 31 文件 / 运行期 app 出边 0，卡 runtime·channels·acp）"}
+{"id":"SERVICE-PACKAGE-P34-BRIDGE","k":"reopenWhen","i":0,"c":"① 包 typecheck 实测 3559 文件（包内 253 / app/src 2030）—— 同层 @modules/{channels,runtime} 把 app 类型图拉进包程序，彻底收口需这两个模块迁包（runtime 只能契约下沉）；② packages/service/tsconfig.json 的 5 条 app 别名（@modules/"}
+{"id":"SERVICE-PACKAGE-P34-BRIDGE","k":"reopenWhen","i":1,"c":"{doc,workflow,mail,calendar}）+ axios + jsx 仅为此存在 ⇒ 收口时删除；③ app/tsconfig.json 不得写注释（lint-architecture 用 JSON.parse 读它）；④ ImportManager.aliasMap 的 @modules/bridge 是零消费者死配置，另行清理。"}
+{"id":"SERVICE-PACKAGE-P34-BRIDGE","k":"notes","i":0,"c":"31 文件逐文件 git mv（父目录被运行中进程句柄占用，目录级 rename 失败）至 packages/service/src/bridge；exports 增 ./bridge + ./bridge/*；app/tsconfig 增 3 条 paths。唯一必须反转：ModuleBridgeSetup 的 await import("}
+{"id":"SERVICE-PACKAGE-P34-BRIDGE","k":"notes","i":1,"c":"../tasks/TaskRegistry.js)（app 层）→ taskRegistryPort.ts + setBridgeTaskRegistryLoader，preflight.wireServiceDeps 接线，未注入走既有的「暂未就绪，跳过」。@modules/{channels,runtime,acp} 属 service/core 同层，"}
+{"id":"SERVICE-PACKAGE-P34-BRIDGE","k":"notes","i":2,"c":"R8 放行，按路径 1 保留。顺带修复 4 个反斜杠 logger 名 → bridge:api / bridge:api:client / bridge:api:simulated / bridge:messaging。验证：两侧 typecheck 0；tests/{bridge,constants,core,utils} 559 pass；R8 检查 "}
+{"id":"SERVICE-PACKAGE-P34-BRIDGE","k":"notes","i":3,"c":"788 处，负向自证注入 @modules/chat 点名 bridge/logger/BridgeLogger.ts:1；运行时探针（桶 11 导出 / 子路径 BridgeStateStore·readBridgeConfig / 端口 null→注入）；lint:arch·infra·refs·consts·size·complexity·"}
+{"id":"SERVICE-PACKAGE-P34-BRIDGE","k":"notes","i":4,"c":"state-ratchet·logger-name·fn-size·invariants·session·mock·no-module-mock·gate-parity·startup-graph·entrypoints·doc-code 全绿；state-literal 基线随迁重指 39 条，证据 code[] 重指 6 处。"}
+{"id":"SERVICE-PACKAGE-P34-BRIDGE","k":"code#0","i":0,"c":"packages/service/src/bridge/index.ts"}
+{"id":"SERVICE-PACKAGE-P34-BRIDGE","k":"code#1","i":0,"c":"packages/service/src/bridge/taskRegistryPort.ts"}
+{"id":"SERVICE-PACKAGE-P34-BRIDGE","k":"code#2","i":0,"c":"packages/service/src/bridge/ModuleBridgeSetup.ts"}
+{"id":"SERVICE-PACKAGE-P34-BRIDGE","k":"code#3","i":0,"c":"packages/service/package.json"}
+{"id":"SERVICE-PACKAGE-P34-BRIDGE","k":"code#4","i":0,"c":"packages/service/tsconfig.json"}
+{"id":"SERVICE-PACKAGE-P34-BRIDGE","k":"code#5","i":0,"c":"app/tsconfig.json"}
+{"id":"SERVICE-PACKAGE-P34-BRIDGE","k":"code#6","i":0,"c":"app/src/bootstrap/preflight.ts"}
+{"id":"SERVICE-PACKAGE-P34-BRIDGE","k":"code#7","i":0,"c":"app/src/main.ts"}
+{"id":"SERVICE-PACKAGE-P34-BRIDGE","k":"tests#0","i":0,"c":"app/tests/bridge/acpRemoteExposure.test.ts"}
+{"id":"SERVICE-PACKAGE-P34-BRIDGE","k":"tests#1","i":0,"c":"app/tests/utils/backoffDefaults.test.ts"}
+{"id":"SERVICE-PACKAGE-P34-BRIDGE","k":"tests#2","i":0,"c":"app/tests/core/endpointsSingleSource.test.ts"}

@@ -17316,6 +17316,41 @@
       "changelog": [],
       "reopenWhen": "① bridge（31 文件）仍卡 runtime/coordinator + CoreAPIImpl + channels + acp；runtime（46 文件 / 19 处 app 出边，domainSnapshotOps 单文件即编排 19 个 app 模块）是 app 的组合根 ⇒ 只能契约下沉，不是搬目录…（全文见 archive/evidence-detail.jsonl#SERVICE-PACKAGE-P33-VOICE）",
       "notes": "17 文件 git mv 至 packages/service/src/voice；exports 增 ./voice（桶）+ ./voice/*；app/tsconfig 增 3 条 paths；18 个文件改写 import（build-variant 懒加载表 / generatedLazyLoaders / …（全文见 archive/evidence-detail.jsonl#SERVICE-PACKAGE-P33-VOICE）"
+    },
+    {
+      "id": "SERVICE-PACKAGE-P34-BRIDGE",
+      "title": "P34：bridge（ACP 模块桥）迁入 packages/service —— 31 文件；1 处反转（TaskRegistry 端口）；同层依赖保留（半包化）",
+      "source": "dev_docs/20261101/infra包化可行性-20261101.md §七 矩阵（bridge 31 文件 / 运行期 app 出边 0，卡 runtime·channels·acp）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/service/src/bridge/index.ts",
+        "packages/service/src/bridge/taskRegistryPort.ts",
+        "packages/service/src/bridge/ModuleBridgeSetup.ts",
+        "packages/service/package.json",
+        "packages/service/tsconfig.json",
+        "app/tsconfig.json",
+        "app/src/bootstrap/preflight.ts",
+        "app/src/main.ts"
+      ],
+      "tests": [
+        "app/tests/bridge/acpRemoteExposure.test.ts",
+        "app/tests/utils/backoffDefaults.test.ts",
+        "app/tests/core/endpointsSingleSource.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 包 typecheck 实测 3559 文件（包内 253 / app/src 2030）—— 同层 @modules/{channels,runtime} 把 app 类型图拉进包程序，彻底收口需这两个模块迁包（runtime 只能契约下沉）；② packages/service/tsconfig.json 的…（全文见 archive/evidence-detail.jsonl#SERVICE-PACKAGE-P34-BRIDGE）",
+      "notes": "31 文件逐文件 git mv（父目录被运行中进程句柄占用，目录级 rename 失败）至 packages/service/src/bridge；exports 增 ./bridge + ./bridge/*；app/tsconfig 增 3 条 paths。唯一必须反转：ModuleBridgeSetup 的 a…（全文见 archive/evidence-detail.jsonl#SERVICE-PACKAGE-P34-BRIDGE）"
     }
   ]
 }

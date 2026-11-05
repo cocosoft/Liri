@@ -151,10 +151,12 @@ import {
 import type { IToolExecutor } from '@modules/ai';
 import type { ToolRegistry } from '@modules/tools';
 // issue #8 · Cut A（2026-10-29）：检查点边界判定 + 预算挂起/放行装配外移
+import { installBudgetSuspendResume } from './manager/checkpointBudget';
+// D 批外移（2026-11-05）：工具执行守卫（checkpoint 边界 + 逐工具记账）
 import {
-  ensureCheckpointBoundary,
-  installBudgetSuspendResume,
-} from './manager/checkpointBudget';
+  executeToolWithGuards,
+  type ExecuteToolOptions,
+} from './manager/toolExecution';
 // issue #8 · Cut C（2026-10-29）：宿主级 sink / 退出钩子 / 内存水位装配外移
 import { installHostWiring } from './manager/hostWiring';
 // issue #8 · Cut C（2026-10-29）：`ChatOrchestrator` 宿主端口字面量外移
@@ -1831,124 +1833,22 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
-   * 执行工具
-   * @param toolCall 工具调用
-   * @returns 工具结果
+   * 执行工具（D 批外移，2026-11-05：checkpoint 边界 + 逐工具记账见 `manager/toolExecution.ts`）
    */
   async executeTool(
     toolCall: ToolCall,
-    // 2026-08-24 进度链路打通：透传 onProgress（工具细粒度进度回调）
-    opts?: {
-      useErrorHandler?: boolean;
-      onProgress?: (progress: {
-        toolUseID: string;
-        data: Record<string, unknown>;
-      }) => void;
-    }
+    opts?: ExecuteToolOptions
   ): Promise<ToolResult> {
-    // 更新动态依赖
-    const svc = this._toolExecutionService!;
-    svc.deps.currentSessionId = this._currentSessionId ?? '';
-
-    // P5-4（2026-10-28）：**Checkpoint 边界** —— 不可逆操作（有副作用 ∧ 非幂等）执行前，
-    // 同会话必须存在 checkpoint。默认关闭（`config.json` 的 `checkpointBoundary.enabled`），
-    // 关闭时零行为变更；开启后 `relaxed` 先补建快照，建失败 ⇒ 拒绝（fail-closed）。
-    // 规格：`.trae/specs/p5-runtime-hardening-specs.md` §3。
-    const boundaryRefusal = await ensureCheckpointBoundary({
-      toolName: toolCall.name,
-      currentSessionId: this._currentSessionId,
-      resumeCoordinator: this.resumeCoordinator,
-    });
-    if (boundaryRefusal) {
-      logger.warn('Checkpoint 边界拒绝执行（不可逆操作前无可用快照）', {
-        sessionId: this._currentSessionId,
-        toolName: toolCall.name,
-        reason: boundaryRefusal,
-      });
-      return {
-        toolCallId: toolCall.id,
-        toolName: toolCall.name,
-        result: null,
-        error: boundaryRefusal,
-      };
-    }
-
-    // B-05（2026-10-09，第九轮审查 §十五）：**逐工具前置记账（fail-closed）**。
-    //
-    // `executionId` 由入口下传（Router → `ChatRequest.executionId` → `StreamMessageOptions`
-    // → `_sessionExecutionIds`）。本层是工具**执行者**收口点 ⇒ 能做到**精确到单个工具**的拒绝
-    // （优于 Router 层的"整执行中止"）。
-    // 落盘失败 ⇒ 无法证明"副作用发生前已记账"（R3 的 `unknown` 恢复依赖该记录）⇒ **不执行该工具**。
-    const executionId = this._sessionExecutionIds.get(
-      this._currentSessionId ?? ''
+    return executeToolWithGuards(
+      {
+        service: this._toolExecutionService!,
+        currentSessionId: () => this._currentSessionId,
+        sessionExecutionIds: this._sessionExecutionIds,
+        resumeCoordinator: this.resumeCoordinator,
+      },
+      toolCall,
+      opts
     );
-    if (executionId) {
-      const { getExecutionManager } =
-        await import('@openliri/service/execution');
-      type ExecId = Parameters<
-        ReturnType<typeof getExecutionManager>['beginToolCall']
-      >[0];
-      const mgr = getExecutionManager();
-      const ok = await mgr.beginToolCall(
-        executionId as ExecId,
-        toolCall.id,
-        toolCall.name
-      );
-      if (!ok) {
-        logger.error('工具调用记账落盘失败 ⇒ 拒绝执行该工具（fail-closed）', {
-          sessionId: this._currentSessionId,
-          executionId,
-          toolCallId: toolCall.id,
-          toolName: toolCall.name,
-        });
-        return {
-          toolCallId: toolCall.id,
-          toolName: toolCall.name,
-          result: null,
-          error: `工具调用记账落盘失败 ⇒ 已拒绝执行（fail-closed，executionId=${executionId}）`,
-        };
-      }
-      // P2-3（2026-11-04，《运行态问题排查与修复方案》）：工具**抛错**（而非返回带 error 的结果）
-      // 此前绕过结算 ⇒ 该行永远停在初始 running，`tool_calls` 表里看不到失败（复盘只能翻日志）。
-      // 这里补结算为 failed 并写入错误摘要，随后**原样抛出**（不改变调用方看到的异常语义）。
-      let result: Awaited<ReturnType<typeof svc.execute>>;
-      try {
-        result = await svc.execute(toolCall, opts);
-      } catch (error) {
-        try {
-          await mgr.endToolCall(
-            executionId as ExecId,
-            toolCall.id,
-            toolCall.name,
-            'failed',
-            (error instanceof Error ? error.message : String(error)).slice(
-              0,
-              500
-            ),
-            // P2-3：抛异常即"工具自身执行失败"（受控词表，非解析文案）
-            'tool_error'
-          );
-        } catch {
-          // @ignore-catch — 结算失败不得掩盖原始执行异常
-        }
-        throw error;
-      }
-      // 结算（观测面；DB `tool_calls` 幂等 ⇒ 与任何其它观测者不冲突）
-      // G17（2026-10-11，S1-4）：改**可等待**结算（`endToolCall`）—— 保证工具返回前结算已
-      // 落盘/已尝试，消除"返回后仍在写"的观测窗口；失败仅留痕（不升级为工具失败）。
-      await mgr.endToolCall(
-        executionId as ExecId,
-        toolCall.id,
-        toolCall.name,
-        result.error ? 'failed' : 'completed',
-        result.error ?? undefined,
-        // P2-3：失败分类随失败一起落表（成功行不写分类，避免脏数据）
-        result.error ? result.failureKind : undefined
-      );
-      return result;
-    }
-
-    return svc.execute(toolCall, opts);
   }
 
   /**

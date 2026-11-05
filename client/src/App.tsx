@@ -191,21 +191,26 @@ function App() {
   ]);
 
   // 初始化未完成 / 加载失败时显示过渡态
+  // C7（2026-11-05 真机回归发现）：初始化阶段也要渲染连接横幅——后端不可达时
+  // `phase` 永远到不了 ready，原实现会一直停在「正在初始化…」且没有任何断连提示。
   if (initState.phase !== "ready" && initState.phase !== "first_run_wizard") {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-100 dark:bg-gray-900">
-        {initState.phase === "error" ? (
-          <div className="text-center">
-            <div className="text-red-500 text-lg mb-2">
-              {t("common.initFailed")}
+      <div className="flex flex-col h-screen bg-gray-100 dark:bg-gray-900">
+        <ConnectionBanner />
+        <div className="flex flex-1 items-center justify-center">
+          {initState.phase === "error" ? (
+            <div className="text-center">
+              <div className="text-red-500 text-lg mb-2">
+                {t("common.initFailed")}
+              </div>
+              <div className="text-sm text-gray-500">{initState.error}</div>
             </div>
-            <div className="text-sm text-gray-500">{initState.error}</div>
-          </div>
-        ) : (
-          <div className="text-gray-400 text-sm">
-            {t("common.initializing")}
-          </div>
-        )}
+          ) : (
+            <div className="text-gray-400 text-sm">
+              {t("common.initializing")}
+            </div>
+          )}
+        </div>
       </div>
     );
   }

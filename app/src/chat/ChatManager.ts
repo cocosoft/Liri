@@ -42,6 +42,11 @@ import {
 } from './services/ChatHelper';
 // A 批外移（2026-11-05）：8 个构造期 helper 的装配收敛到单一工厂
 import { buildChatManagerHelpers } from './manager/assembly';
+// C 批外移（2026-11-05）：退出前 flush / cleanShutdown 钩子注册表（main 信号链同源）
+import {
+  registerCleanShutdownHandler,
+  registerEventBufferFlusher,
+} from './lifecycle/shutdownHooks';
 import type { PendingInteractionEntry } from '@openliri/infra/utils/pendingInteractions';
 // S1（2026-10-19）：会话级缓存统一 dispose 契约（会话 → 键集合）
 import { SessionScopedRegistry } from '@openliri/infra/utils/SessionScopedRegistry';
@@ -2227,156 +2232,11 @@ export class ChatManagerImpl implements ChatManager {
 }
 
 /**
- * 优雅退出钩子注册表（2026-09-02 排查"会话中断"补充）。
- * ChatManagerImpl 构造时注册"全会话 text-batch 缓冲 flush"；main.ts 信号链
- * （SIGTERM/SIGINT）在退出前调用 flushAllEventBuffers()，把流式缓冲正文落盘，
- * 避免进程被 watch 重启/Ctrl+C 终止时留下 torn-tail / open-turn。
- * 模块级数组 + 函数声明（hoisted），重复构造仅追加 no-op 闭包，幂等。
- */
-const eventBufferFlushers: Array<() => Promise<number>> = [];
-
-/** 注册一个退出前 flush 钩子（返回注册条数，便于日志） */
-export function registerEventBufferFlusher(fn: () => Promise<number>): void {
-  eventBufferFlushers.push(fn);
-}
-
-/** 退出前 flush 全部已注册会话的事件缓冲（逐条容错，返回总 flush chunk 数） */
-export async function flushAllEventBuffers(): Promise<number> {
-  let total = 0;
-  await Promise.all(
-    eventBufferFlushers.map((fn) =>
-      fn()
-        .then((n) => {
-          total += n;
-        })
-        .catch(() => {
-          // @ignore-catch — 单条 flush 失败不阻断退出链（CS03）
-        })
-    )
-  );
-  return total;
-}
-
-/**
- * M4（2026-09-17）：优雅退出前为可中断会话写 cleanShutdown 标记的钩子注册表
- * （镜像 eventBufferFlushers 模式，幂等；main 信号链调用 markSessionsCleanShutdown）。
- */
-const cleanShutdownHandlers: Array<() => Promise<void>> = [];
-
-/** 注册一个退出前 cleanShutdown 标记钩子 */
-export function registerCleanShutdownHandler(fn: () => Promise<void>): void {
-  cleanShutdownHandlers.push(fn);
-}
-
-/** 退出前标记全部可中断会话为优雅关闭（逐条容错，不阻断退出链） */
-export async function markSessionsCleanShutdown(): Promise<void> {
-  await Promise.all(
-    cleanShutdownHandlers.map((fn) =>
-      fn().catch(() => {
-        // @ignore-catch — 单条标记失败不阻断退出链（CS03）
-      })
-    )
-  );
-}
-
-/**
  * 创建聊天管理器实例
  * @returns 聊天管理器实例
  */
 export function createChatManager(): ChatManager {
   return new ChatManagerImpl();
-}
-
-/**
- * 将工具执行异常转换为用户友好提示。
- * 过滤 OpenAI SDK / fetch 级别的技术错误（如 socket 关闭），
- * 避免向用户暴露底层实现细节。
- */
-function getToolExecErrorMessage(err: unknown): string {
-  if (!(err instanceof Error)) {
-    return `工具执行异常: ${String(err).slice(0, 200)}`;
-  }
-  const msg = err.message;
-  const lower = msg.toLowerCase();
-
-  // ── 服务商过载/不可用 ──
-  if (
-    lower.includes('503') ||
-    lower.includes('overloaded') ||
-    lower.includes('too busy') ||
-    lower.includes('server error') ||
-    lower.includes('service unavailable') ||
-    lower.includes('capacity')
-  ) {
-    let detail = '';
-    try {
-      const jsonMatch = msg.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const body = JSON.parse(jsonMatch[0]);
-        if (body.code) detail = ` (${body.code})`;
-        if (body.message) detail = ` (${body.code || ''}: ${body.message})`;
-      }
-    } catch {
-      /* ignore */
-    }
-    return `AI 服务繁忙，请稍后重试${detail}`;
-  }
-
-  // ── 频率限制 ──
-  if (
-    lower.includes('429') ||
-    lower.includes('rate limit') ||
-    lower.includes('too many requests')
-  ) {
-    return '请求过于频繁，请稍后重试';
-  }
-
-  // ── 认证/权限 ──
-  if (
-    lower.includes('401') ||
-    lower.includes('403') ||
-    lower.includes('unauthorized') ||
-    lower.includes('invalid api key')
-  ) {
-    return 'AI 服务认证失败，请检查模型配置中的 API Key';
-  }
-
-  // ── 上下文溢出 ──
-  if (
-    lower.includes('context length') ||
-    lower.includes('too long') ||
-    lower.includes('maximum context') ||
-    lower.includes('token limit')
-  ) {
-    return '输入内容过长，请缩短输入或开启会话压缩';
-  }
-
-  // ── 超时 ──
-  if (lower.includes('timeout') || lower.includes('timed out')) {
-    return 'AI 服务响应超时，请稍后重试';
-  }
-
-  // ── mutex 死锁 ──
-  if (lower.includes('simplemutex') || lower.includes('acquire timeout')) {
-    return '会话正在处理中，请等待上一条消息完成后重试';
-  }
-
-  // socket 连接意外关闭 → AI 服务响应中断
-  if (msg.includes('socket connection was closed')) {
-    return 'AI 服务响应中断，请重试';
-  }
-  // fetch 超时 / 网络错误
-  if (
-    msg.includes('fetch failed') ||
-    msg.includes('ECONNREFUSED') ||
-    msg.includes('ETIMEDOUT') ||
-    msg.includes('ENOTFOUND')
-  ) {
-    return '连接 AI 服务失败，请检查网络后重试';
-  }
-
-  // 超过 200 字符的未知错误也截断
-  return `工具执行异常: ${msg.slice(0, 200)}`;
 }
 
 // 向后兼容导出

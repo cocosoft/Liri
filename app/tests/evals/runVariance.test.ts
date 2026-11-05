@@ -12,6 +12,8 @@
 import { describe, expect, it } from 'bun:test';
 
 import {
+  MIN_K_FOR_VARIANCE_GATE,
+  checkVarianceSampling,
   compareRunVariance,
   formatRunVariance,
 } from '../../src/evals/runVariance';
@@ -126,5 +128,33 @@ describe('P39: compareRunVariance', () => {
     expect(text).toContain('两次运行');
     expect(text).toContain('t1');
     expect(text).toContain('超出容差');
+  });
+});
+
+/**
+ * P39 采样门槛（2026-11-05）：±10% 门禁要求 k≥8。
+ *
+ * 依据：同题集 k=4 两轮相对差 15.6%（假失败，单题粒度 25%）、k=8 为 2.2%（达标）。
+ * 行为：CLI 在 `--check-variance` 且 k<8 时**拒绝运行**（退出码 2），不再产出噪声结论。
+ */
+describe('P39 采样门槛：checkVarianceSampling', () => {
+  it('k=1 / k=4 不足以支撑门禁，理由里带实测依据与建议值', () => {
+    for (const k of [1, 4]) {
+      const check = checkVarianceSampling(k);
+      expect(check.ok).toBe(false);
+      expect(check.reason).toContain('k≥8');
+      expect(check.reason).toContain('15.6%');
+      expect(check.reason).toContain('--k=8');
+    }
+  });
+
+  it('k=8 及以上通过（含边界值）', () => {
+    expect(checkVarianceSampling(MIN_K_FOR_VARIANCE_GATE).ok).toBe(true);
+    expect(checkVarianceSampling(9).ok).toBe(true);
+  });
+
+  it('非整数 / 非法值一律拒绝（避免四舍五入后误放行）', () => {
+    expect(checkVarianceSampling(7.5).ok).toBe(false);
+    expect(checkVarianceSampling(Number.NaN).ok).toBe(false);
   });
 });

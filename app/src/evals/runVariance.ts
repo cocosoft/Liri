@@ -51,6 +51,35 @@ export type { RunVarianceReport, TaskVariance } from './types.js';
 /** 默认容差（10%，与 P39 验收口径一致） */
 export const DEFAULT_VARIANCE_TOLERANCE = 0.1;
 
+/**
+ * P39 采样门槛（2026-11-05）：±10% **复现性门禁**要求 k≥8。
+ *
+ * 实测依据（同题集 12 题 · 300s 超时 · infra 重试 1）：
+ * - k=4 两轮相对差 **15.6%**（判"不达标"）—— 单题粒度就是 25%，实为抽样噪声；
+ * - k=8 两轮相对差 **2.2%**（达标），逐题漂移全部是单次 attempt 翻转（±12.5%）。
+ * ⇒ k<8 时该门禁会给出**假失败**，必须先提高采样再门禁化。
+ * 代价：12 题 × 8 次 × 2 轮 ≈ 96 次调用 / 约 90 分钟。
+ */
+export const MIN_K_FOR_VARIANCE_GATE = 8;
+
+export interface VarianceSamplingCheck {
+  ok: boolean;
+  reason?: string;
+}
+
+/** 采样是否足以支撑 ±10% 门禁（纯函数；CLI 在 `--check-variance` 时调用） */
+export function checkVarianceSampling(k: number): VarianceSamplingCheck {
+  if (Number.isInteger(k) && k >= MIN_K_FOR_VARIANCE_GATE) return { ok: true };
+  return {
+    ok: false,
+    reason:
+      `--check-variance 需要 k≥${MIN_K_FOR_VARIANCE_GATE}（当前 k=${k}）：` +
+      `k=4 时单题粒度 25%、实测两轮相对差 15.6% 属抽样噪声 ⇒ 门禁会假失败；` +
+      `k=${MIN_K_FOR_VARIANCE_GATE} 实测 2.2%。请加 --k=${MIN_K_FOR_VARIANCE_GATE}` +
+      `（约 96 次调用 / 90 分钟）。`,
+  };
+}
+
 function noiseOf(result: EvalTaskResult): number {
   return result.environmentNoiseAttempts ?? 0;
 }

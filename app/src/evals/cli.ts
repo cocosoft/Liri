@@ -29,7 +29,7 @@
  *   bun run eval -- --model=<模型名> --repeat-fresh=2   # 每个 attempt 重建沙箱（A3-a；治"抖动"，成本高）
  *   bun run eval -- --model=<模型名> --fresh-per-task   # 每个任务重建沙箱（A3-b；治"状态污染"）
  *   bun run eval -- --model=<模型名> --check-order      # 正序+倒序各跑一轮并比对（A3-b；耗时翻倍）
- *   bun run eval -- --model=<模型名> --check-variance   # 同题集连跑两轮并按 ±10% 比对（P39；耗时翻倍）
+ *   bun run eval -- --model=<模型名> --k=8 --check-variance   # 同题集连跑两轮并按 ±10% 比对（P39；k≥8 强制，耗时翻倍）
  *   bun run eval -- --compare-runs=<a.json> --compare-runs=<b.json>   # 只对比两份已有报告（不调模型；P39）
  *   #   可选：--variance-tolerance=0.1（容差，缺省 10%）
  *   bun run eval -- --model=<模型名> --keep     # 保留沙箱目录（默认评测结束即删；沙箱内含凭据副本）
@@ -68,6 +68,7 @@ import {
 // P39（2026-11-02）：两次运行 ±10% 可复现性对比（纯函数 + CLI 两个入口）
 import {
   DEFAULT_VARIANCE_TOLERANCE,
+  checkVarianceSampling,
   compareRunVariance,
   formatRunVariance,
   type RunVarianceReport,
@@ -225,6 +226,18 @@ const varianceTolerance = ((): number => {
     ? parsed
     : DEFAULT_VARIANCE_TOLERANCE;
 })();
+/**
+ * P39 采样门槛（2026-11-05）：`--check-variance` 是**门禁**（超容差 ⇒ 退出码 1），
+ * 而 k<8 时该门禁会**假失败**（k=4 实测两轮 15.6%、k=8 为 2.2%）⇒ 直接拒绝运行，
+ * 避免用噪声结论去否定基线。纯比较已有报告仍走 `--compare-runs`（不涉及 k）。
+ */
+if (checkVariance) {
+  const sampling = checkVarianceSampling(k);
+  if (!sampling.ok) {
+    err(sampling.reason ?? '--check-variance 采样不足');
+    process.exit(2);
+  }
+}
 /**
  * P1-1 形态 A（2026-10-04，`.trae/specs/adversarial-agent-form-a.md`）：**对抗提案相位**开关。
  *

@@ -19,7 +19,7 @@ import {
   INBOX_STATUS_PENDING,
   INBOX_STATUS_PROCESSING,
   type InboxItem,
-} from '@modules/runtime/InboxManager.js';
+} from './InboxManager.js';
 import {
   APPROVAL_REPLY_TO_DECISION,
   getApprovedCommandRegistry,
@@ -34,7 +34,8 @@ import {
 import {
   APPROVAL_RESUME_IDLE_POLL_MS,
   APPROVAL_RESUME_IDLE_WAIT_MS,
-} from '@openliri/service/runtime/defaults.js';
+} from './defaults.js';
+import { getRuntimeCoreApi } from './api/coreApiProvider.js';
 
 const logger = getLogger('runtime:inboxApproval');
 
@@ -419,8 +420,7 @@ async function applyWorkspaceScopeApproval(
   };
 
   try {
-    const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl.js');
-    const chatManager = getCoreAPI().chatManager as unknown as
+    const chatManager = getRuntimeCoreApi()?.chatManager as unknown as
       | ChatManagerLike
       | undefined;
 
@@ -483,10 +483,11 @@ async function resumePdcaIfApplicable(
   if (!taskId || !sessionId) return;
 
   try {
-    const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl.js');
-    const orchestrator = await getCoreAPI()
-      .getTaskOpsPort()
-      .then((port) => port.getOrCreatePdcaOrchestrator(taskId));
+    const getTaskOpsPort = getRuntimeCoreApi()?.getTaskOpsPort;
+    if (!getTaskOpsPort) return;
+    const orchestrator = await getTaskOpsPort().then((port) =>
+      port.getOrCreatePdcaOrchestrator(taskId)
+    );
     if (!orchestrator) return;
     // 批准类回复（本次 / 本会话 / 始终允许）都应续跑；拒绝只记录
     if (isApprovalReply(reply, selectedOption)) {
@@ -551,8 +552,7 @@ export async function waitForSessionIdle(
 async function triggerResumeAfterApproval(sessionId: string): Promise<void> {
   let resumed = false;
   try {
-    const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl.js');
-    const chatManager = getCoreAPI().chatManager;
+    const chatManager = getRuntimeCoreApi()?.chatManager;
     if (!chatManager || typeof chatManager.resumeStream !== 'function') {
       logger.warn('审批后自动续跑跳过：ChatManager 不可用', { sessionId });
       return;
@@ -560,7 +560,7 @@ async function triggerResumeAfterApproval(sessionId: string): Promise<void> {
 
     // P0-3 在飞守卫：原回合仍在运行时先等它结束，避免与会话互斥正面相撞。
     const idle = await waitForSessionIdle(
-      (sid) => chatManager.isSessionStreaming(sid),
+      (sid) => chatManager.isSessionStreaming?.(sid) ?? false,
       sessionId
     );
     if (!idle) {

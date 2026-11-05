@@ -28,10 +28,11 @@ import {
 import { registerScopedResource } from '@openliri/kernel/identity/scopedResources.js';
 import { getSessionOwner } from '@openliri/service/execution';
 import { randomUUID } from 'crypto';
-import { broadcastEvent } from '@modules/infrastructure';
+import { broadcastEvent } from '@modules/infrastructure/http/handlers/handler-utils';
 import type { FrontendMessageBlock } from '@modules/session/types/UnifiedMessage.js';
 // P0-1（2026-11-04）：把合并次数回填到会话内的 Inbox 卡片块（显示 ×N）
-import { patchInboxBlockDedupCount } from '@openliri/service/runtime/inboxBlockPatch.js';
+import { patchInboxBlockDedupCount } from './inboxBlockPatch.js';
+import { getRuntimeSessionGateway } from './sessionGatewayProvider.js';
 import { isPanelActionable, toInboxMetadata } from '@openliri/infra/attention';
 // 时间换算取常量真源（`lint:consts` D-2：不在业务文件里裸写 `n * 60 * 1000`）
 import { MS_PER_HOUR, MS_PER_MINUTE } from '@openliri/infra/constants';
@@ -870,7 +871,7 @@ export class InboxManager {
 
       // 异步回传审批结果到来源渠道（失败不阻塞主流程）
       if (item.channelSessionId && item.channelId) {
-        import('../channels/bridge/inboxChannelReply.js')
+        import('@modules/channels/bridge/inboxChannelReply.js')
           .then(({ relayReplyToChannel }) => relayReplyToChannel(item))
           .catch(() => {
             /* 回传失败不影响 Inbox 主流程 */
@@ -889,7 +890,7 @@ export class InboxManager {
       void (async () => {
         try {
           const { notificationPersistence } =
-            await import('@openliri/service/runtime/NotificationPersistence.js');
+            await import('./NotificationPersistence.js');
           await notificationPersistence().resolveBySourceRef(item.id);
         } catch {
           /* 通知更新失败不影响 Inbox 主流程 */
@@ -1369,9 +1370,14 @@ export class InboxManager {
     dedupCount: number
   ): Promise<void> {
     try {
-      const { createSessionGateway } =
-        await import('@modules/session/SessionGateway');
-      const gateway = createSessionGateway();
+      const gateway = getRuntimeSessionGateway();
+      if (!gateway) {
+        logger.warn('会话网关未注册，跳过审批合并次数回填', {
+          sessionId,
+          inboxId,
+        });
+        return;
+      }
       const messages = await gateway.getMessages(sessionId);
       for (const msg of messages) {
         const blocks = (msg.blocks ?? []) as unknown as Parameters<
@@ -1672,10 +1678,12 @@ async function _injectInboxBlock(
   data: Record<string, unknown>
 ): Promise<void> {
   const { randomUUID } = await import('crypto');
-  const { createSessionGateway } =
-    await import('@modules/session/SessionGateway');
+  const gateway = getRuntimeSessionGateway();
+  if (!gateway) {
+    logger.warn('会话网关未注册，跳过 Inbox 卡片注入', { sessionId });
+    return;
+  }
 
-  const gateway = createSessionGateway();
   const allMessages = await gateway.getMessages(sessionId);
 
   // 如果未指定 messageId，自动查找该会话最新的助手消息

@@ -700,7 +700,8 @@ export class SessionMessagesRead {
     messages: UnifiedMessage[]
   ): Promise<void> {
     try {
-      const { inboxManager } = await import('@modules/runtime/InboxManager');
+      const { inboxManager } =
+        await import('@openliri/service/runtime/InboxManager');
       // 直查 inbox_items.session_id（而非 JOIN session_inbox_map）：
       // Web 提交的审批项无 channelSessionId 不写 map 表，getBySession 会漏掉。
       const { items } = await inboxManager.list({

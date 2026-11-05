@@ -138,7 +138,8 @@ export async function tryHandleTextApproval(
     const items = await channelSessionManager.getInboxItemIds(channelSessionId);
     if (items.length === 0) return null;
 
-    const { inboxManager } = await import('@modules/runtime/InboxManager');
+    const { inboxManager } =
+      await import('@openliri/service/runtime/InboxManager');
     for (const itemId of items) {
       const item = await inboxManager.get(itemId);
       if (!item || item.status !== 'pending') continue;

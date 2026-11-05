@@ -145,7 +145,8 @@ export class ChatSessionTeardown {
   /** M2-T2.2：关闭会话所有待处理审批项（失败不阻塞删除主流程）*/
   private async dismissSessionInboxItems(sessionId: string): Promise<void> {
     try {
-      const { inboxManager } = await import('@modules/runtime/InboxManager');
+      const { inboxManager } =
+        await import('@openliri/service/runtime/InboxManager');
       const closed = await inboxManager.dismissBySession(sessionId);
       if (closed > 0) {
         logger.info('deleteSession:关闭孤儿审批项', { sessionId, closed });

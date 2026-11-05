@@ -17,8 +17,8 @@ import { existsSync, readFileSync, writeFileSync, rmSync, mkdirSync } from 'fs';
 import { createPermissionManager } from '@openliri/infra/permission/PermissionManager';
 import { PermissionMode } from '@openliri/infra/permission/PermissionMode';
 import { PermissionBehavior } from '@openliri/infra/permission/types/PermissionRule';
-import { inboxManager } from '@modules/runtime/InboxManager';
-import { unattendedMode } from '@modules/runtime/UnattendedModeManager';
+import { inboxManager } from '@openliri/service/runtime/InboxManager';
+import { unattendedMode } from '@openliri/service/runtime/UnattendedModeManager';
 import { resolvePermissionsDir } from '@openliri/infra/environment';
 // D-126 起 `permission/*` 的 runtime 依赖为**入口注入**；测试绕过入口 ⇒ 显式注入
 // （`app/tests/**` 不在门禁扫描根 `app/src` 内，此处跨层导入不触发架构规则）

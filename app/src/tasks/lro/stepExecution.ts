@@ -949,7 +949,8 @@ async function submitStepApprovalCards(args: {
   const pending = args.summary.outcomes.filter((o) => o.pendingApproval);
   if (pending.length === 0) return;
   try {
-    const { inboxManager } = await import('@modules/runtime/InboxManager');
+    const { inboxManager } =
+      await import('@openliri/service/runtime/InboxManager');
     const {
       hashCommandForExecution,
       hashApprovalFingerprint,

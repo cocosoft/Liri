@@ -14,7 +14,7 @@ import {
   __getMirroredApprovalsForTest,
   __resetExecApprovalBridgeForTest,
   type ExecApprovalBridgeDeps,
-} from '@modules/runtime/execApprovalBridge';
+} from '@openliri/service/runtime/execApprovalBridge';
 import type {
   ExecApprovalManager,
   ExecApprovalRequest,

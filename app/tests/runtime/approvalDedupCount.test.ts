@@ -14,7 +14,7 @@ import { describe, it, expect, afterAll, spyOn } from 'bun:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { InboxManager } from '@modules/runtime/InboxManager';
+import { InboxManager } from '@openliri/service/runtime/InboxManager';
 import { findPendingApprovalId } from '@openliri/infra/permission';
 
 // `bumpApprovalHit` 会把计数回填到会话卡片（经 session gateway）⇒ 测试必须隔离数据目录，

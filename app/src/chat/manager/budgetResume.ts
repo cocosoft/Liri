@@ -143,7 +143,8 @@ export async function submitResumeManualConfirmations(
   manual: readonly PendingToolCallRef[]
 ): Promise<void> {
   try {
-    const { inboxManager } = await import('@modules/runtime/InboxManager');
+    const { inboxManager } =
+      await import('@openliri/service/runtime/InboxManager');
     const seen = new Set<string>();
     for (const p of manual) {
       if (seen.has(p.toolName)) continue;

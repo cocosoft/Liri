@@ -654,4 +654,20 @@ export async function registerAllSpis(
     // 保留是为了让「装配声明」在本文件内**可见且可被覆盖测试枚举**。
     markSpiRegistered('knowledge');
   }
+
+  // ---- runtime 组合根端口（P37，2026-11-06）----
+  // `packages/service/src/runtime` 不再直连 app：审批续跑 / Inbox 卡片回填 / PDCA 恢复
+  // 经这两个注入缝取实现（同 D-128 推送模型）。未注册时消费方按「不可用」降级。
+  {
+    const { registerRuntimeSessionGatewayFactory } =
+      await import('@openliri/service/runtime/sessionGatewayProvider');
+    const { createSessionGateway } =
+      await import('@modules/session/SessionGateway');
+    registerRuntimeSessionGatewayFactory(() => createSessionGateway());
+
+    const { registerRuntimeCoreApiProvider } =
+      await import('@openliri/service/runtime/api/coreApiProvider');
+    const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
+    registerRuntimeCoreApiProvider(() => getCoreAPI());
+  }
 }

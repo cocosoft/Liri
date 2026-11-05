@@ -9,7 +9,7 @@
  *  ③ 非 approval 类型不受该索引影响。
  */
 import { describe, it, expect, beforeEach } from 'bun:test';
-import { InboxManager } from '@modules/runtime/InboxManager';
+import { InboxManager } from '@openliri/service/runtime/InboxManager';
 
 function approval(
   sessionId: string,

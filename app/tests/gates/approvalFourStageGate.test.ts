@@ -33,7 +33,7 @@ import {
   readApprovalFourStageConfig,
   setApprovalAuditSink,
 } from '@openliri/infra/permission/approvalAudit';
-import { toSessionEvent } from '@modules/runtime/api/approvalAuditSink';
+import { toSessionEvent } from '@openliri/service/runtime/api/approvalAuditSink';
 
 const REPO_ROOT = join(import.meta.dir, '../../..');
 
@@ -282,7 +282,9 @@ describe('接线自证（三处调用点各落自己那几段）', () => {
   });
 
   it('③④ 在审批解析侧，且入口已安装 sink', () => {
-    const approval = readSource('app/src/runtime/inboxApproval.ts');
+    const approval = readSource(
+      'packages/service/src/runtime/inboxApproval.ts'
+    );
     expect(approval).toContain("stage: 'decided'");
     expect(approval).toContain("stage: 'recorded'");
 

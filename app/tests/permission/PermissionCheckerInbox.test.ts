@@ -45,8 +45,8 @@ import {
   RuleManager,
   deduplicateRules,
 } from '@openliri/infra/permission/RuleManager';
-import { inboxManager } from '@modules/runtime/InboxManager';
-import { unattendedMode } from '@modules/runtime/UnattendedModeManager';
+import { inboxManager } from '@openliri/service/runtime/InboxManager';
+import { unattendedMode } from '@openliri/service/runtime/UnattendedModeManager';
 import { hashCommandForExecution } from '@openliri/infra/permission/ApprovedCommandRegistry';
 import { configManager } from '@openliri/infra/config';
 import { resolvePermissionsDir } from '@openliri/infra/environment';

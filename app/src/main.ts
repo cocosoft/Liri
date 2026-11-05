@@ -1697,7 +1697,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
         if (manualRequired.length > 0) {
           try {
             const { inboxManager } =
-              await import('@modules/runtime/InboxManager');
+              await import('@openliri/service/runtime/InboxManager');
             const seen = new Set<string>();
             for (const c of manualRequired) {
               const key = `${c.sessionId}\u0000${c.toolName}`;

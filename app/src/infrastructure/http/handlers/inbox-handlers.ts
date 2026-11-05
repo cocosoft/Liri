@@ -22,9 +22,9 @@ import {
   inboxManager,
   type InboxItemStatus,
   type InboxItemType,
-} from '@modules/runtime/InboxManager';
+} from '@openliri/service/runtime/InboxManager';
 // 审批解析的**唯一实现**（HTTP / IM 文本审批 / 企业审批流共用）
-import { resolveInboxApproval } from '@modules/runtime/inboxApproval';
+import { resolveInboxApproval } from '@openliri/service/runtime/inboxApproval';
 import { LOCAL_REQUEST_BASE_URL } from '@openliri/kernel';
 
 const logger = getLogger('http:inbox');

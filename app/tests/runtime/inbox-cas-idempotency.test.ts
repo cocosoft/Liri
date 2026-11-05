@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'bun:test';
-import { InboxManager } from '@modules/runtime/InboxManager';
+import { InboxManager } from '@openliri/service/runtime/InboxManager';
 
 describe('InboxManager CAS 幂等（M2-T2.1）', () => {
   let manager: InboxManager;

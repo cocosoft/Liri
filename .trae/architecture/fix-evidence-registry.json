@@ -13091,7 +13091,7 @@
         "packages/infra/src/permission/types/PermissionRule.ts",
         "packages/infra/src/permission/RuleManager.ts",
         "packages/infra/src/permission/PermissionManager.ts",
-        "app/src/runtime/inboxApproval.ts"
+        "packages/service/src/runtime/inboxApproval.ts"
       ],
       "tests": [
         "app/tests/permission/ruleSourceAndRemovalHint.test.ts",
@@ -13176,7 +13176,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/runtime/InboxManager.ts"
+        "packages/service/src/runtime/InboxManager.ts"
       ],
       "tests": [
         "app/tests/runtime/inboxLegacySchemaMigration.test.ts"
@@ -14622,7 +14622,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/runtime/InboxManager.ts"
+        "packages/service/src/runtime/InboxManager.ts"
       ],
       "tests": [
         "app/tests/runtime/inboxParallelSubmit.test.ts"

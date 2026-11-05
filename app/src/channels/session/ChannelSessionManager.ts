@@ -408,7 +408,8 @@ export class ChannelSessionManager extends EventEmitter {
    */
   async linkInboxItem(sessionId: string, inboxItemId: string): Promise<void> {
     try {
-      const { inboxManager } = await import('@modules/runtime/InboxManager');
+      const { inboxManager } =
+        await import('@openliri/service/runtime/InboxManager');
       await inboxManager.linkSession(sessionId, inboxItemId);
     } catch (err) {
       await handleError(err, {
@@ -424,7 +425,8 @@ export class ChannelSessionManager extends EventEmitter {
    */
   async getInboxItemIds(sessionId: string): Promise<string[]> {
     try {
-      const { inboxManager } = await import('@modules/runtime/InboxManager');
+      const { inboxManager } =
+        await import('@openliri/service/runtime/InboxManager');
       const items = await inboxManager.getBySession(sessionId);
       return items.map((i) => i.id);
     } catch (err) {

@@ -1561,7 +1561,8 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       checkpoint.inboxState.pendingInboxItems.length > 0
     ) {
       try {
-        const { inboxManager } = await import('@modules/runtime/InboxManager');
+        const { inboxManager } =
+          await import('@openliri/service/runtime/InboxManager');
         const approvedToolCalls: string[] = [];
         for (const item of checkpoint.inboxState.pendingInboxItems) {
           const current = await inboxManager.get(item.itemId);

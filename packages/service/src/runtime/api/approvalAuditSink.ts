@@ -20,6 +20,7 @@ import type {
   ApprovalAuditEvent,
   ApprovalAuditSink,
 } from '@openliri/infra/permission';
+import { getRuntimeCoreApi } from './coreApiProvider.js';
 
 const logger = getLogger('runtime:approvalAuditSink');
 
@@ -102,8 +103,7 @@ async function appendOne(
   sessionId: string,
   event: ApprovalAuditEvent
 ): Promise<void> {
-  const { getCoreAPI } = await import('./CoreAPIImpl.js');
-  const chatManager = getCoreAPI().chatManager;
+  const chatManager = getRuntimeCoreApi()?.chatManager;
   if (!chatManager || typeof chatManager.appendStreamEvent !== 'function') {
     return;
   }

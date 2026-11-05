@@ -497,7 +497,8 @@ let retentionTimer: ReturnType<typeof setInterval> | null = null;
 
 /** A3：生产路径 —— 交给 `runtime` 的 InboxManager（动态导入，避免静态耦合与启动图膨胀） */
 async function purgeInboxRows(cutoffMs: number): Promise<number> {
-  const { inboxManager } = await import('@modules/runtime/InboxManager');
+  const { inboxManager } =
+    await import('@openliri/service/runtime/InboxManager');
   return inboxManager.purgeOlderThanAllScopes(cutoffMs);
 }
 

@@ -58,7 +58,8 @@ export function createCockpitOps(): CockpitOpsPort {
         .map((item) => item.id);
       let actionable = new Set<string>();
       try {
-        const { inboxManager } = await import('@modules/runtime/InboxManager');
+        const { inboxManager } =
+          await import('@openliri/service/runtime/InboxManager');
         actionable = new Set(
           await inboxManager.listActionableTicketIds(busyTicketIds)
         );

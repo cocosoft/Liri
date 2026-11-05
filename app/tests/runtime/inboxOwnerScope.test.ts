@@ -27,7 +27,7 @@
  */
 import { afterAll, describe, expect, it } from 'bun:test';
 import { readFileSync } from 'node:fs';
-import { InboxManager } from '@modules/runtime/InboxManager';
+import { InboxManager } from '@openliri/service/runtime/InboxManager';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import type { Principal } from '@openliri/kernel/identity/principal';
 
@@ -109,7 +109,10 @@ describe('InboxManager：行级隔离', () => {
 describe('门禁：InboxManager 的行级读写 SQL 不许漏 owner_key', () => {
   it('三张表的写入 + 按 id/session 定位的语句都必须带 owner_key', () => {
     const src = readFileSync(
-      new URL('../../src/runtime/InboxManager.ts', import.meta.url),
+      new URL(
+        '../../../packages/service/src/runtime/InboxManager.ts',
+        import.meta.url
+      ),
       'utf8'
     );
 

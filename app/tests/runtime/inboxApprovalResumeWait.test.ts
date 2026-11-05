@@ -13,7 +13,7 @@
  */
 
 import { describe, it, expect } from 'bun:test';
-import { waitForSessionIdle } from '@modules/runtime/inboxApproval';
+import { waitForSessionIdle } from '@openliri/service/runtime/inboxApproval';
 
 describe('P0-3：审批续跑在飞守卫', () => {
   it('会话已空闲 ⇒ 立即返回 true', async () => {

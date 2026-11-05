@@ -532,7 +532,7 @@ export class ToolExecutionService {
     this._workspaceScopeInFlight.add(inFlightKey);
     try {
       const { inboxManager, INBOX_STATUS_PENDING } =
-        await import('@modules/runtime/InboxManager');
+        await import('@openliri/service/runtime/InboxManager');
       const { items } = await inboxManager.list({
         sessionId,
         // 用规范常量（状态字面量棘轮：`pending` 不得裸写）
@@ -1060,7 +1060,7 @@ export class ToolExecutionService {
               // 由企业侧批准/拒绝后再回灌 Inbox（单一赢家由 CAS 保证）。
               // 动态 import：该路径**只在实际出现 ASK 时**走到，且镜像模块会连带加载
               // 企业审批管理器 —— 静态引入会让它进启动面（棘轮 +1.3KB）。
-              void import('@modules/runtime/execApprovalBridge')
+              void import('@openliri/service/runtime/execApprovalBridge')
                 .then(({ mirrorAskToEnterpriseApproval }) => {
                   mirrorAskToEnterpriseApproval({
                     inboxItemId: permissionResult.inboxItemId,

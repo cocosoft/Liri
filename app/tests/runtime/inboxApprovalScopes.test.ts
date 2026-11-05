@@ -14,7 +14,7 @@ import { describe, it, expect } from 'bun:test';
 import {
   parseFingerprintAllowTarget,
   resolveApprovalScopeKind,
-} from '@modules/runtime/inboxApproval';
+} from '@openliri/service/runtime/inboxApproval';
 import {
   hashApprovalFingerprint,
   hashCommandForExecution,

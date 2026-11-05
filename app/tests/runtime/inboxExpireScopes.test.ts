@@ -17,7 +17,7 @@ import { Database } from '@openliri/infra/external';
 
 import type { Principal } from '@openliri/kernel/identity/principal';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope';
-import { InboxManager } from '@modules/runtime/InboxManager';
+import { InboxManager } from '@openliri/service/runtime/InboxManager';
 
 const ALICE: Principal = { tenantId: 'acme', userId: 'alice', roles: ['user'] };
 

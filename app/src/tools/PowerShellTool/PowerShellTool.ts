@@ -93,6 +93,38 @@ function splitPowerShellStatements(command: string): string[] {
 }
 
 /**
+ * P1-2④（2026-11-05）：剥离**前导字符串字面量 + `+` 拼接**，让后续命令继续参与白名单校验。
+ *
+ * 真机（会话 `session_mvwkdol840f68a0ebe`，19 条 `powershell:allowlist` 中的 2 条）：
+ * ```
+ * "node: " + (Get-Command node -ErrorAction SilentlyContinue).Source; "bun: " + (Get-Command bun …)
+ * ```
+ * 旧实现（G3，2026-11-03）遇到引号开头一律判「不是命令」⇒ 语句里唯一的只读命令
+ * `Get-Command` **从未被校验**，而整条脚本又因「零动词」被拒 ⇒ 模型看到
+ * 「命令「node: 」不在允许列表」，无从自纠。
+ *
+ * 边界（安全面**不缩小**）：
+ *   · 只剥「引号字符串 + `+`」这一种前缀；剥完剩下的部分照常解析 ——
+ *     `"x" + (Remove-Item …)` 会得到 `remove-item` ⇒ 仍然拒绝（原因还更准确）；
+ *   · 剥完为空（纯字符串语句，如分隔线 `"---"`）⇒ 返回 `null`，由既有零动词规则处理；
+ *   · 引号后紧跟别的东西（如 `'…' -f $a`）⇒ 原样返回，交回既有分支（`isReadOnlyFormatExpression`）。
+ */
+function stripLeadingStringConcat(statement: string): string {
+  let cur = statement.trim();
+  for (;;) {
+    const m = /^(['"])([^'"]*)\1\s*/.exec(cur);
+    if (!m) return cur;
+    const after = cur.slice(m[0].length).trim();
+    if (after.startsWith('+')) {
+      cur = after.slice(1).trim();
+      continue;
+    }
+    // 引号后紧跟别的东西（如 `-f`）⇒ 返回**当前位置**（不回到原始串，避免丢掉已剥离的部分）
+    return after === '' ? '' : cur;
+  }
+}
+
+/**
  * 提取一条语句实际执行的命令动词。
  *
  * - 纯注释 / 纯字面量赋值（`$f='x'`）⇒ `null`（不构成命令）；
@@ -125,6 +157,14 @@ function extractPowerShellStatementVerb(statement: string): string | null {
   const hadCallOperator = /^&\s*/.test(rest);
   rest = rest.replace(/^&\s*/, '');
   if (!rest) return null;
+
+  // P1-2④（2026-11-05）：前导字符串拼接（`"node: " + (Get-Command node).Source`）——
+  // 剥掉标签字符串后**继续按命令解析**，使括号里的真实命令进入白名单校验。
+  const withoutStringPrefix = stripLeadingStringConcat(rest);
+  if (withoutStringPrefix !== rest) {
+    if (!withoutStringPrefix) return null; // 纯字符串语句（echo / 分隔线）
+    rest = withoutStringPrefix;
+  }
 
   // `& 'C:\Program Files\nodejs\node.exe'` ⇒ 取 basename（仅去 .exe/.cmd/.bat/.com；
   // **不**去 .ps1 —— 避免把 `node.ps1` 误认成 `node`）

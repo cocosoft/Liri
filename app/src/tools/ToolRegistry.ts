@@ -505,11 +505,20 @@ export class ToolRegistry {
 
     const tool = this.getTool(toolCall.toolName);
     if (!tool) {
+      // P2-1（2026-11-05 真机）：**工具不存在必须落 `error`**。
+      // 此前只写 `newMessages`（`data/result` 均为 null 且无 `error`）⇒
+      // `toolResultContract.classifyToolResult` 判成 `empty-success`，模型收到
+      // 「（工具执行成功，无输出）… 请勿重复调用」——把「调了个不存在的工具」说成成功。
+      // 实测：会话 `session_mw375o4312e5f31d38` 13:21:27Z 的 `edit_file`（真实工具名 `file_edit`）
+      // 回执即为此文案，而同一批次里并行的 `file_edit` 才真正改了文件。
+      const notFound = `Tool ${toolCall.toolName} not found`;
       return createToolResult(null, {
+        success: false,
+        error: notFound,
         newMessages: [
           {
             role: 'system',
-            content: `Error: Tool not found: ${toolCall.toolName}`,
+            content: `Error: ${notFound}`,
           },
         ],
       });
@@ -534,11 +543,16 @@ export class ToolRegistry {
         policyName: policyResult.policyName,
         reason: policyResult.reason,
       });
+      // P2-1（2026-11-05）：策略拒绝同样必须落 `error`（否则被判成 empty-success，
+      // 模型会把「没权限」读成「执行成功但无输出」并继续走错方向）。
+      const denied = `Tool ${toolCall.toolName} is not allowed by policy: ${policyResult.reason ?? 'unknown'}`;
       return createToolResult(null, {
+        success: false,
+        error: denied,
         newMessages: [
           {
             role: 'system',
-            content: `Error: Tool ${toolCall.toolName} is not allowed by policy: ${policyResult.reason ?? 'unknown'}`,
+            content: `Error: ${denied}`,
           },
         ],
       });

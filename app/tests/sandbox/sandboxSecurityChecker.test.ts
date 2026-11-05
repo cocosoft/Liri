@@ -66,6 +66,37 @@ describe('R2 矩阵行「权限不足 ⇒ 明确拒绝」：危险命令（token
     );
     expect(checker.checkDangerousCommands('dir /w').allowed).toBe(true);
   });
+
+  // P1-2④（2026-11-05 真机）：多词危险模式旧用 `includes` ⇒
+  // `Get-Command node -ErrorAction …` 里的 `node -E…` 被当成 `node -e` 整条误拒。
+  it('【防回退】`-ErrorAction` 不被当成 `node -e`（真机误杀）', () => {
+    expect(
+      checker.checkDangerousCommands(
+        '"node: " + (Get-Command node -ErrorAction SilentlyContinue).Source'
+      ).allowed
+    ).toBe(true);
+    expect(
+      checker.checkDangerousCommands('Get-Item x -ErrorAction Stop').allowed
+    ).toBe(true);
+  });
+
+  it('多词危险模式仍拦住真实形态（含紧跟引号的紧贴写法）', () => {
+    for (const cmd of [
+      'node -e "console.log(1)"',
+      'node -e"console.log(1)"',
+      "node -e 'console.log(1)'",
+    ]) {
+      const r = checker.checkDangerousCommands(cmd);
+      expect(r.allowed).toBe(false);
+      expect(r.matchedPattern).toBe('node -e');
+    }
+  });
+
+  it('回归：`rm -rf /` 仍拒绝（单 token 优先命中 rm）', () => {
+    expect(checker.checkDangerousCommands('rm -rf /').matchedPattern).toBe(
+      'rm'
+    );
+  });
 });
 
 describe('R2 矩阵行「权限不足 ⇒ 明确拒绝」：其余拦截面', () => {

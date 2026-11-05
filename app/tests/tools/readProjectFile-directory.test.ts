@@ -19,6 +19,7 @@ import { randomUUID } from 'crypto';
 const dataDir = join(tmpdir(), `p22-data-${randomUUID()}`);
 const sandboxDir = join(tmpdir(), `p22-sandbox-${randomUUID()}`);
 const projectId = 'proj_p22_read_dir';
+const outsideName = `p22-outside-${randomUUID()}.txt`;
 const prevLiriDataDir = process.env.LIRI_DATA_DIR;
 process.env.LIRI_DATA_DIR = dataDir;
 
@@ -53,6 +54,8 @@ describe('P2-2：read_project_file 读目录 ⇒ 可执行出路', () => {
     );
     writeFileSync(join(sandboxDir, 'docs', 'a.md'), '# 目录内的文件', 'utf-8');
     writeFileSync(join(sandboxDir, 'root.md'), '# 根文件', 'utf-8');
+    // P2-1：沙箱**外**的真实文件（用于验证越界拒绝必须是失败而非"成功无输出"）
+    writeFileSync(join(tmpdir(), outsideName), 'outside', 'utf-8');
   });
 
   afterAll(() => {
@@ -81,5 +84,25 @@ describe('P2-2：read_project_file 读目录 ⇒ 可执行出路', () => {
     const r = await tool.execute({ projectId, relativePath: 'docs/a.md' }, ctx);
     expect(r.error).toBeUndefined();
     expect(String(r.data)).toContain('# 目录内的文件');
+  });
+
+  // P2-1（2026-11-05 真机复现）：`relativePath: '.'` 旧实现被判成「越界」且返回空成功
+  //（真机回执「（工具执行成功，无输出）」）。项目根必须视为「在范围内」⇒ 落到目录分支。
+  it('读项目根 "." ⇒ 走目录分支给出出路，而不是"越界"', async () => {
+    const r = await tool.execute({ projectId, relativePath: '.' }, ctx);
+    expect(r.success).toBe(false);
+    expect(r.error).toBeTruthy();
+    expect(r.error).toContain('这是一个目录');
+    expect(r.error).not.toContain('超出项目文件夹范围');
+  });
+
+  it('越界路径 ⇒ 明确「安全拒绝」且是失败（不再是成功无输出）', async () => {
+    const r = await tool.execute(
+      { projectId, relativePath: `../${outsideName}` },
+      ctx
+    );
+    expect(r.success).toBe(false);
+    expect(r.error).toContain('安全拒绝');
+    expect(r.error).toContain('超出项目文件夹范围');
   });
 });

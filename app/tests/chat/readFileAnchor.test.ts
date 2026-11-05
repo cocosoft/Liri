@@ -1,12 +1,14 @@
+// MIT License
+// Copyright (c) 2026 190615273@qq.com
+
 /**
- * 已读文件锚定（Bug 4 第三项，2026-11-01）。
+ * P1-3（2026-11-05）：已读/已检索目标锚定 —— 扩展到检索类工具。
  *
- * 钉住三件事：
- *   ① 首次读取不提示；**跨轮**重读同一路径才提示（含轮次），同轮内并行重复读不提示；
- *   ② 每个路径只提示一次（`markNotified` 后不再打扰）；
- *   ③ 提示有界：最多点名 3 个路径，其余以计数带过（防止纠偏本身撑爆上下文）。
+ * 盯盘实证：183 次 `repeated-call` / 120 个不同目标，其中 `glob pattern=**\/*` 同路径重复最突出；
+ * 原实现只覆盖 `file_read`，检索类重复无人纠正。
  */
-import { describe, expect, it } from 'bun:test';
+
+import { describe, it, expect } from 'bun:test';
 import {
   buildRereadNotice,
   createReadFileAnchorState,
@@ -14,108 +16,100 @@ import {
   recordReadCalls,
 } from '../../src/chat/services/readFileAnchor';
 
-const read = (path: string, extra: Record<string, unknown> = {}) => ({
-  name: 'file_read',
-  input: { path, ...extra },
+const ws = 'C:\\ws';
+
+describe('P1-3：读取类工具（原有行为不回退）', () => {
+  it('第 2 轮读同一文件 ⇒ 提示「已读取」', () => {
+    const state = createReadFileAnchorState();
+    const call = { name: 'file_read', input: { path: `${ws}\\a.ts` } };
+    recordReadCalls(state, [call], 1);
+
+    const notice = buildRereadNotice(state, [call], 2);
+    expect(notice).not.toBeNull();
+    expect(notice).toContain(`${ws}\\a.ts`);
+    expect(notice).toContain('第 1 轮已读取');
+  });
+
+  it('同一轮内重复读 ⇒ 不提示（并行读取属正常）', () => {
+    const state = createReadFileAnchorState();
+    const call = { name: 'file_read', input: { path: `${ws}\\b.ts` } };
+    recordReadCalls(state, [call], 1);
+    expect(buildRereadNotice(state, [call], 1)).toBeNull();
+  });
+
+  it('已提示过（markNotified）⇒ 不再重复打扰', () => {
+    const state = createReadFileAnchorState();
+    const call = { name: 'file_read', input: { path: `${ws}\\c.ts` } };
+    recordReadCalls(state, [call], 1);
+    markNotified(state, [call]);
+    expect(buildRereadNotice(state, [call], 2)).toBeNull();
+  });
 });
 
-describe('已读文件锚定', () => {
-  it('首次读取不提示，并记入台账', () => {
+describe('P1-3：检索类工具（本轮新增覆盖）', () => {
+  it('glob 同路径 + 同模式第 2 轮 ⇒ 提示「已检索」并展示模式', () => {
     const state = createReadFileAnchorState();
-    const calls = [read('docs/a.md')];
+    const call = {
+      name: 'glob',
+      input: { path: ws, pattern: '**/*' },
+    };
+    recordReadCalls(state, [call], 1);
 
-    expect(buildRereadNotice(state, calls, 1)).toBeNull();
-    recordReadCalls(state, calls, 1);
-
-    expect(state.records['docs/a.md']).toMatchObject({
-      reads: 1,
-      turns: [1],
-      notified: false,
-    });
-  });
-
-  it('跨轮重读同一路径 ⇒ 提示含路径与上次轮次（参数只差 offset 也算）', () => {
-    const state = createReadFileAnchorState();
-    recordReadCalls(state, [read('docs/a.md')], 1);
-
-    const notice = buildRereadNotice(
-      state,
-      [read('docs/a.md', { offset: 200 })],
-      3
-    );
+    const notice = buildRereadNotice(state, [call], 2);
     expect(notice).not.toBeNull();
-    expect(String(notice)).toContain('docs/a.md');
-    expect(String(notice)).toContain('第 1 轮已读');
-    expect(String(notice)).toContain('offset/limit');
+    expect(notice).toContain('glob(**/*)');
+    expect(notice).toContain('已检索');
   });
 
-  it('同一轮内重复读同一路径 ⇒ 不提示（并行读取属正常）', () => {
+  it('glob 同路径不同模式 ⇒ 不算重复（正常探查）', () => {
     const state = createReadFileAnchorState();
-    recordReadCalls(state, [read('docs/a.md')], 2);
-
-    expect(
-      buildRereadNotice(state, [read('docs/a.md'), read('docs/a.md')], 2)
-    ).toBeNull();
-  });
-
-  it('已提示过的路径不再提示（每路径仅一次）', () => {
-    const state = createReadFileAnchorState();
-    const calls = [read('docs/a.md')];
-    recordReadCalls(state, calls, 1);
-
-    expect(buildRereadNotice(state, calls, 2)).not.toBeNull();
-    markNotified(state, calls);
-    recordReadCalls(state, calls, 2);
-
-    expect(buildRereadNotice(state, calls, 3)).toBeNull();
-  });
-
-  it('非 file_read / 参数缺 path ⇒ 不参与', () => {
-    const state = createReadFileAnchorState();
-    recordReadCalls(state, [read('docs/a.md')], 1);
-
-    expect(
-      buildRereadNotice(
-        state,
-        [
-          { name: 'grep', input: { path: 'docs/a.md' } },
-          { name: 'file_read', input: { filePath: 'docs/a.md' } },
-          { name: 'file_read', input: { path: '   ' } },
-        ],
-        2
-      )
-    ).toBeNull();
-  });
-
-  it('提示有界：最多点名 3 个路径，其余以计数带过', () => {
-    const state = createReadFileAnchorState();
-    const paths = ['a.md', 'b.md', 'c.md', 'd.md', 'e.md'];
     recordReadCalls(
       state,
-      paths.map((p) => read(p)),
+      [{ name: 'glob', input: { path: ws, pattern: '**/*' } }],
       1
     );
-
-    const notice = String(
-      buildRereadNotice(
-        state,
-        paths.map((p) => read(p)),
-        2
-      )
+    const notice = buildRereadNotice(
+      state,
+      [{ name: 'glob', input: { path: ws, pattern: 'src/**/*.ts' } }],
+      2
     );
-    for (const p of ['a.md', 'b.md', 'c.md']) expect(notice).toContain(p);
-    expect(notice).not.toContain('d.md');
-    expect(notice).toContain('另有 2 个已读文件');
+    expect(notice).toBeNull();
   });
 
-  it('台账有界：每路径最多保留 10 个轮次', () => {
+  it('grep 同路径 + 同模式第 2 轮 ⇒ 提示', () => {
     const state = createReadFileAnchorState();
-    for (let turn = 1; turn <= 15; turn++) {
-      recordReadCalls(state, [read('docs/a.md')], turn);
-    }
-    const record = state.records['docs/a.md']!;
-    expect(record.turns).toHaveLength(10);
-    expect(record.turns[record.turns.length - 1]).toBe(15);
-    expect(record.reads).toBe(15);
+    const call = {
+      name: 'grep',
+      input: { path: `${ws}\\src`, pattern: 'TODO' },
+    };
+    recordReadCalls(state, [call], 1);
+    const notice = buildRereadNotice(state, [call], 3);
+    expect(notice).toContain('grep(TODO)');
+    expect(notice).toContain('第 1 轮已检索');
+  });
+
+  it('检索类参数不完整（缺 pattern / path 为空）⇒ 不记录也不提示', () => {
+    const state = createReadFileAnchorState();
+    recordReadCalls(
+      state,
+      [
+        { name: 'glob', input: { path: ws } },
+        { name: 'grep', input: { path: '   ', pattern: 'TODO' } },
+      ],
+      1
+    );
+    expect(Object.keys(state.records)).toEqual([]);
+  });
+});
+
+describe('P1-3：边界', () => {
+  it('非读取/检索类工具（bash）⇒ 不进入台账', () => {
+    const state = createReadFileAnchorState();
+    recordReadCalls(
+      state,
+      [{ name: 'bash', input: { path: `${ws}\\a.ts` } }],
+      1
+    );
+    expect(Object.keys(state.records)).toEqual([]);
   });
 });

@@ -111,11 +111,14 @@ export class ReadProjectFileTool {
           const sandboxPath = project.sandboxPath;
           if (!sandboxPath) {
             span.setStatus({ code: SpanStatusCode.OK });
-            return createToolResult(null, {
-              newMessages: [
-                { role: 'assistant' as const, content: '项目未配置文件夹路径' },
-              ],
-            });
+            // P2-1（2026-11-05 真机复现）：此前只写 `newMessages`、`data=null` 且无 `error`
+            // ⇒ 被判成 `empty-success`（模型看到「执行成功，无输出」）。实机：
+            // `POST /v1/tools/read_project_file/execute`（项目无 sandboxPath）返回
+            // `{success:true,data:null,result:null,error:null}` ⇒ 必须走统一失败构造。
+            return failProjectTool(
+              `项目 ${projectId} 未配置文件夹路径，无法读取文件: ${relativePath}`,
+              ErrorLevel.RECOVERABLE
+            );
           }
 
           // 路径安全校验：resolve + normalize + realpath
@@ -148,19 +151,22 @@ export class ReadProjectFileTool {
 
           const realPath = realpathSync(rawPath);
           const realSandbox = realpathSync(sandboxPath);
-          if (
-            !realPath.startsWith(realSandbox + '\\') &&
-            !realPath.startsWith(realSandbox + '/')
-          ) {
+          // P2-1（2026-11-05 真机复现）：**项目根自身视为「在范围内」**（与写侧
+          // `WriteProjectFileTool.isInsideSandbox` 同口径，此前读侧漏了这一项）。
+          // 旧判据只认 `realSandbox + '\\'` 前缀 ⇒ `relativePath='.'` 命中「越界」分支，
+          // 而该分支又只写 `newMessages`（`error` 缺省）⇒ 被判成 `empty-success`：
+          // 真机 `read_project_file{relativePath:"."}` 回执 =「执行成功，无输出」。
+          const insideSandbox =
+            realPath === realSandbox ||
+            realPath.startsWith(realSandbox + '\\') ||
+            realPath.startsWith(realSandbox + '/');
+          if (!insideSandbox) {
             span.setStatus({ code: SpanStatusCode.OK });
-            return createToolResult(null, {
-              newMessages: [
-                {
-                  role: 'assistant' as const,
-                  content: '安全拒绝：文件路径超出项目文件夹范围',
-                },
-              ],
-            });
+            // 安全拒绝**必须是失败**：此前返回 null 结果 + 无 error ⇒ 模型把"越界被拒"读成成功。
+            return failProjectTool(
+              `安全拒绝：文件路径超出项目文件夹范围: ${relativePath}`,
+              ErrorLevel.RECOVERABLE
+            );
           }
 
           // P2-2（2026-11-04，《运行态问题排查与修复方案》）：**读前判目录**。

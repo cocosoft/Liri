@@ -47,6 +47,34 @@ export interface SecurityCheckerConfig {
 }
 
 /**
+ * 多词危险模式（如 `node -e` / `rm -rf`）的**相邻 token** 匹配。
+ *
+ * P1-2④（2026-11-05 真机）：旧实现对多词模式直接 `command.includes(d)` ⇒
+ * `Get-Command node -ErrorAction SilentlyContinue` 里的 `node -E…` 被当成 `node -e`，
+ * 整条只读命令被判「命令包含危险操作: "node -e"」。
+ *
+ * 判据：按 token（已按空白/`;|&<>` 切分并小写）逐位相邻比对；末位额外容忍紧跟引号的紧贴写法
+ * （`node -e"code"` 切成 `["node", "-e\"code\""]`），但**不容忍** `-erroraction`
+ * 这类以 `-e` 开头的其它开关 —— 避免把误伤换成漏判。
+ */
+function containsAdjacentTokens(tokens: string[], parts: string[]): boolean {
+  const last = parts.length - 1;
+  outer: for (let i = 0; i + parts.length <= tokens.length; i++) {
+    for (let j = 0; j < parts.length; j++) {
+      const token = tokens[i + j];
+      const part = parts[j];
+      const ok =
+        token === part ||
+        (j === last &&
+          (token.startsWith(`${part}"`) || token.startsWith(`${part}'`)));
+      if (!ok) continue outer;
+    }
+    return true;
+  }
+  return false;
+}
+
+/**
  * 沙箱安全检查器
  */
 export class SandboxSecurityChecker {
@@ -382,9 +410,11 @@ export class SandboxSecurityChecker {
     for (const dangerous of this.dangerousCommands) {
       const d = dangerous.toLowerCase().trim();
       if (!d) continue;
-      const matched = d.includes(' ')
-        ? lowerCommand.includes(d) // 带参数组合（如 "rm -rf"）整体匹配，组合本身足够具体
-        : tokens.includes(d); // 单 token 危险词：按独立 token 精确匹配
+      const parts = d.split(/\s+/).filter(Boolean);
+      const matched =
+        parts.length > 1
+          ? containsAdjacentTokens(tokens, parts)
+          : tokens.includes(d);
       if (matched) {
         return {
           allowed: false,

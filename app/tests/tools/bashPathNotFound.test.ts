@@ -95,4 +95,63 @@ describe('isPathNotFound：只读列举的"路径不存在"判定', () => {
       })
     ).toBe(false);
   });
+
+  // P1-1（2026-11-05）：`where` 未命中是事实查询的答案，不是执行失败
+  it('where 未命中（Could not find files for the given pattern(s)）⇒ true', () => {
+    expect(
+      isPathNotFound({
+        command: 'where tsc',
+        exitCode: 1,
+        message:
+          'Command failed: where tsc INFO: Could not find files for the given pattern(s).',
+      })
+    ).toBe(true);
+  });
+
+  it('where 命中 ⇒ 退出码 0，不适用（保持 false）', () => {
+    expect(
+      isPathNotFound({
+        command: 'where tsc',
+        exitCode: 0,
+        stderr: '',
+      })
+    ).toBe(false);
+  });
+
+  // P1-1（2026-11-05）：`powershell -Command "<cmdlet>"` 包裹形态 —— 解包后按内层命令判定
+  it('powershell -Command 只读 cmdlet + Cannot find path ⇒ true', () => {
+    expect(
+      isPathNotFound({
+        command: 'powershell -Command "Get-Content PRD.md"',
+        exitCode: 1,
+        stderr:
+          "Get-Content : Cannot find path 'E:\\proj\\PRD.md' because it does not exist.",
+      })
+    ).toBe(true);
+    expect(
+      isPathNotFound({
+        command: 'pwsh -NoProfile -c "Get-ChildItem -Filter *.md"',
+        exitCode: 1,
+        stderr:
+          "Get-ChildItem : Cannot find path 'E:\\gone' because it does not exist.",
+      })
+    ).toBe(true);
+  });
+
+  it('powershell 包裹写类命令 / -File 脚本 ⇒ false（不得当成"路径不存在"）', () => {
+    expect(
+      isPathNotFound({
+        command: 'powershell -Command "Remove-Item PRD.md"',
+        exitCode: 1,
+        stderr: 'Cannot find path',
+      })
+    ).toBe(false);
+    expect(
+      isPathNotFound({
+        command: 'powershell -File missing.ps1',
+        exitCode: 1,
+        stderr: 'Cannot find path',
+      })
+    ).toBe(false);
+  });
 });

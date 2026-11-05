@@ -106,7 +106,7 @@
 | `notebook` | core | `app/tests/tools/notebook.test.ts`（测试文件名） |
 | `pdf` | core | `app/tests/tools/PDFTool.test.ts`（测试文件名） |
 | `plan` | core | `app/tests/core/planDrivenLoop.test.ts`（测试文件名） |
-| `powershell` | core | `app/tests/tools/powerShellTrustLevel.test.ts`（测试文件名） |
+| `powershell` | core | `app/tests/tools/powerShellStringPrefixCommands.test.ts`（测试文件名） |
 | `read_project_file` | core | `app/tests/tools/readProjectFile-directory.test.ts`（测试文件名） |
 | `repl` | core | `app/tests/chat/replyEffort.test.ts`（测试文件名） |
 | `save_conversation` | community | —（无专属测试） |

@@ -91,7 +91,13 @@ export function preprocessWindowsCommand(command: string): PreprocessResult {
   // 无需修改，cmd.exe 支持 &&
 
   // 检测仅包含 Unix 路径的命令（禁止执行）
-  if (/\bcd\s+\/[a-z]/.test(processed)) {
+  // P1-2（2026-11-05）：**排除 cmd 的 `cd` 开关**（`/d` 切盘符、`/s`）。
+  // 原判据 `/\bcd\s+\/[a-z]/` 会把合法的 `cd /d "C:\..."` 判成 Unix 根路径而阻断；
+  // 而本函数自己的提示语恰恰建议用户写 `cd /d "E:\真实目录"` —— 提示与判据自相矛盾
+  //（真机：4 条 ❌ `cd /d "C:\Users\csdnc\Documents\..."`）。
+  const cdTarget = /\bcd\s+(\/[^\s"']*)/.exec(processed)?.[1] ?? '';
+  const isWindowsCdSwitch = /^\/[dDsS]$/.test(cdTarget);
+  if (/^\/[a-z]/.test(cdTarget) && !isWindowsCdSwitch) {
     warnings.push(
       '禁止: cd 到 Unix 根路径（如 /tmp、/usr）。请使用 Windows 路径或 %TEMP%；等价单条写法：改用 bash 的 cwd 参数指定真实目录，或写 `cd /d "E:\\真实目录"` 后另起一条命令（真机 seq 2744 即此形态）'
     );

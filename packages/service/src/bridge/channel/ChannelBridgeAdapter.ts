@@ -18,13 +18,35 @@ import {
   ErrorSeverity,
   handleError,
 } from '@openliri/infra/error';
-import { channelRegistry } from '@modules/channels';
+// P35（2026-11-05）：原 `@modules/channels`（桶）与 `@modules/runtime/coordinator`（含 tools 依赖链）
+// 会把 app 的整张类型图拉进包程序 ⇒ ① 通道注册表改**窄子路径**直连；
+// ② coordinator 改为本文件内的**最小结构契约**（只声明实际消费的 4 个方法，P30「包内类型 + 最小结构契约」同口径）。
+import { channelRegistry } from '@modules/channels/registry/ChannelRegistry';
 import type { ChannelId, MessageContext } from '@modules/channels/types';
-import type {
-  Coordinator,
-  CoordinatorTask,
-  CoordinatorConfig,
-} from '@modules/runtime/coordinator';
+
+/** coordinator 的任务入参（本文件只传这 3 个字段；`subagentType` 仅单任务用） */
+export interface ChannelBridgeTaskInput {
+  description: string;
+  prompt: string;
+  subagentType?: string;
+  priority?: number;
+}
+
+/** coordinator 的任务视图（本文件只读这 4 个字段） */
+export interface ChannelBridgeTaskView {
+  id: string;
+  status: string;
+  result?: string;
+  error?: string;
+}
+
+/** 协作器的最小结构契约（`Coordinator` 结构上可直接传入） */
+export interface ChannelBridgeCoordinator {
+  addTask(input: ChannelBridgeTaskInput): string;
+  addTasks(inputs: ChannelBridgeTaskInput[]): string[];
+  getAllTasks(): ChannelBridgeTaskView[];
+  getRunningTasks(): unknown[];
+}
 
 const logger = getLogger('channels:bridge');
 
@@ -46,8 +68,8 @@ export interface ChannelTaskMetadata {
  * 跨通道分发选项（coordinator 为必填，其余可选）
  */
 export interface ChannelBridgeOptions {
-  /** 协作器实例（必填） */
-  coordinator: Coordinator;
+  /** 协作器实例（必填；结构契约见 `ChannelBridgeCoordinator`） */
+  coordinator: ChannelBridgeCoordinator;
   /** 是否自动回复进度 */
   autoProgressReply?: boolean;
   /** 进度回复间隔（毫秒） */
@@ -69,7 +91,7 @@ const DEFAULT_OPTIONS: Omit<ChannelBridgeOptions, 'coordinator'> = {
  * 替代 `new ChannelBridgeAdapter({ coordinator })` 的直接构造。
  */
 export function createChannelBridgeAdapter(
-  coordinator: Coordinator,
+  coordinator: ChannelBridgeCoordinator,
   options?: Omit<ChannelBridgeOptions, 'coordinator'>
 ): ChannelBridgeAdapter {
   if (!coordinator) {

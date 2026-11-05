@@ -10,7 +10,7 @@
 
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
-import { channelRegistry } from '@modules/channels';
+import { channelRegistry } from '@modules/channels/registry/ChannelRegistry';
 import type { ChannelId } from '@modules/channels/types';
 
 const logger = getLogger('bridge:channel:bridgeChannelReporter');

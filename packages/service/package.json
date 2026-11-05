@@ -37,6 +37,10 @@
       "types": "./src/ports/aiOpsPorts.ts",
       "import": "./src/ports/aiOpsPorts.ts"
     },
+    "./ports/bridgePorts": {
+      "types": "./src/ports/bridgePorts.ts",
+      "import": "./src/ports/bridgePorts.ts"
+    },
     "./streaming": {
       "types": "./src/streaming/index.ts",
       "import": "./src/streaming/index.ts"

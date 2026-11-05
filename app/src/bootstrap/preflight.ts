@@ -61,6 +61,7 @@ import {
   setVoiceToolManagerProvider,
 } from '@openliri/service/voice/runtimePorts';
 import { setBridgeTaskRegistryLoader } from '@openliri/service/bridge/taskRegistryPort';
+import { setBridgePortProvider } from '@openliri/service/bridge/runtimePorts';
 import { getCoreAPI } from '../runtime/api/CoreAPIImpl';
 import { SessionManager } from '../session/SessionManager';
 import { getModelPricing } from '@openliri/infra/cost/ModelPricing';
@@ -240,6 +241,8 @@ function wireServiceDeps(): void {
     const { taskRegistry } = await import('../tasks/TaskRegistry');
     return taskRegistry;
   });
+  // ACP 桥的 worktree 能力（P35，原 `bridge/BridgeMain` 静态 import app 的 runtime 门面）
+  setBridgePortProvider(() => getCoreAPI().getBridgePort());
 }
 
 /**

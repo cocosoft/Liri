@@ -17,11 +17,11 @@ import { createSimulatedBridgeApi } from './api/SimulatedBridgeApi.js';
 import { createPollManager } from './managers/PollManager.js';
 import { createSessionManager } from './managers/SessionManager.js';
 import { createHeartbeatManager } from './managers/HeartbeatManager.js';
-// 2026-10-01 D-207（子批 D，`bridge -> workspaces` 倒挂收口）：原静态导入 app 层
-// `@modules/workspaces/...`（`createWorkspaceGit` · `pruneOrphanWorktrees`）⇒ 改经
-// **服务层端口** `getCoreAPI().getBridgePort()`（service→service 合法；实现内聚 CoreAPIImpl）。
-import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import type { WorktreeManagerPort } from '@modules/runtime/api/bridgePorts';
+// 2026-10-01 D-207（子批 D，`bridge -> workspaces` 倒挂收口）：worktree 能力经**服务层端口**取得
+// ⇒ P35（2026-11-05）迁包后再进一步：`getCoreAPI()` 门面改为端口注入（`./runtimePorts`），
+// 包内不再静态引用 app 的 `runtime`（那会把 app 的类型图整张拉进包程序）。
+import { resolveBridgePort } from './runtimePorts';
+import type { WorktreeManagerPort } from '@openliri/service/ports/bridgePorts';
 import { exec as nodeExec } from 'child_process';
 import { promisify } from 'util';
 import { bridgeStateStore } from './state/BridgeStateStore.js';
@@ -187,7 +187,7 @@ export class BridgeMain {
       });
 
       this.worktreeManager = (
-        await getCoreAPI().getBridgePort()
+        await resolveBridgePort()
       ).createWorktreeManager({
         baseDir: this.config.dir,
       });
@@ -437,7 +437,7 @@ export class BridgeMain {
       }
       if (!gitRoot) return;
       const pruned = await (
-        await getCoreAPI().getBridgePort()
+        await resolveBridgePort()
       ).pruneOrphanWorktrees(gitRoot);
       if (pruned.length > 0) {
         this.logger.logVerbose(

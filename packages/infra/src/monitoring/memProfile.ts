@@ -40,6 +40,139 @@ function samplingActive(): boolean {
 /** 每个采样点的最近一次放行时间与被抑制条数（P2-1 限流状态） */
 const pointEmitState = new Map<string, { at: number; suppressed: number }>();
 
+/**
+ * A4（2026-11-05）：RSS 基线告警口径（**不用固定阈值**，以启动稳态为基线）。
+ *
+ * - 暖机 60s（毫秒）：进程启动初期 RSS 尚在爬升，此窗口内的采样只用于确定起点；
+ * - 基线 = 暖机结束后**首个**采样值（每进程重新采纳，进程重启即重置）；
+ * - 告警需**同时**满足「≥ 基线 ×1.5」与「绝对增量 ≥ 256MB」——只用比例会在小内存进程上
+ *   过于敏感，只用绝对值又无法跨机器比较，故两者取与；
+ * - 冷却 10 分钟（毫秒）：同一轮上涨只提示一次，避免刷屏。
+ */
+const RSS_BASELINE_THRESHOLDS = {
+  graceMs: 60 * MS_PER_SECOND,
+  multiplier: 1.5,
+  minDeltaMb: 256,
+  cooldownMs: 10 * 60 * MS_PER_SECOND,
+} as const;
+
+/** RSS 基线状态（纯函数入参/出参，便于单测） */
+export interface RssBaselineState {
+  /** 已采纳的启动稳态基线（MB）；`null` = 尚未采纳 */
+  baselineMb: number | null;
+  /** 首次采样时刻（暖机窗口起点）；0 = 尚未开始 */
+  firstSampleAt: number;
+  /** 上次告警时刻；0 = 从未告警 */
+  lastAlertAt: number;
+}
+
+export interface RssBaselineThresholds {
+  graceMs: number;
+  multiplier: number;
+  minDeltaMb: number;
+  cooldownMs: number;
+}
+
+export type RssBaselineAction = 'warmup' | 'adopted' | 'alert' | 'ok';
+
+/**
+ * A4：RSS 基线判定（纯函数）。
+ *
+ * `warmup` 暖机中 / `adopted` 本轮采纳基线 / `alert` 超基线且过冷却 / `ok` 其余。
+ */
+export function evaluateRssBaseline(
+  state: RssBaselineState,
+  currentMb: number,
+  now: number,
+  thresholds: RssBaselineThresholds = RSS_BASELINE_THRESHOLDS
+): {
+  action: RssBaselineAction;
+  next: RssBaselineState;
+  ratio?: number;
+  deltaMb?: number;
+} {
+  if (state.baselineMb === null) {
+    const firstSampleAt = state.firstSampleAt || now;
+    if (now - firstSampleAt < thresholds.graceMs) {
+      return { action: 'warmup', next: { ...state, firstSampleAt } };
+    }
+    return {
+      action: 'adopted',
+      next: { ...state, firstSampleAt, baselineMb: currentMb },
+    };
+  }
+
+  const baseline = state.baselineMb;
+  const ratio = baseline > 0 ? currentMb / baseline : 1;
+  const deltaMb = currentMb - baseline;
+  const overRatio = ratio >= thresholds.multiplier;
+  const overDelta = deltaMb >= thresholds.minDeltaMb;
+  if (!overRatio || !overDelta) {
+    return { action: 'ok', next: state, ratio, deltaMb };
+  }
+  // `lastAlertAt === 0` = 从未告警（不能按"60s 前告过警"算，否则首轮永远被冷却吞掉）
+  if (
+    state.lastAlertAt > 0 &&
+    now - state.lastAlertAt < thresholds.cooldownMs
+  ) {
+    return { action: 'ok', next: state, ratio, deltaMb };
+  }
+  return { action: 'alert', next: { ...state, lastAlertAt: now }, ratio, deltaMb };
+}
+
+/** 运行期基线状态（模块级；每进程一份） */
+let rssBaselineState: RssBaselineState = {
+  baselineMb: null,
+  firstSampleAt: 0,
+  lastAlertAt: 0,
+};
+
+/**
+ * A4：基线检查的全局最小间隔。
+ *
+ * `memProfile()` 是热点管线（每轮对话多点调用），而 `process.memoryUsage()` 不便宜；
+ * 基线告警无需逐点精度，故整体 30s 一次即可，既保住"不受 MEM_PROFILE 开关影响"，
+ * 又不把诊断关闭时的零开销退化成每次调用都取样。
+ */
+const RSS_BASELINE_CHECK_MIN_INTERVAL = 30 * MS_PER_SECOND;
+
+let lastRssBaselineCheckAt = 0;
+
+/** 仅测试用：复位 RSS 基线状态 */
+export function resetRssBaselineForTest(): void {
+  rssBaselineState = { baselineMb: null, firstSampleAt: 0, lastAlertAt: 0 };
+  lastRssBaselineCheckAt = 0;
+}
+
+/** 基线检查（带全局节流）；返回本次是否真的做了采样 */
+function checkRssBaseline(now: number): boolean {
+  if (
+    lastRssBaselineCheckAt !== 0 &&
+    now - lastRssBaselineCheckAt < RSS_BASELINE_CHECK_MIN_INTERVAL
+  ) {
+    return false;
+  }
+  lastRssBaselineCheckAt = now;
+
+  const cur = sample();
+  const verdict = evaluateRssBaseline(rssBaselineState, cur.rssMb, now);
+  rssBaselineState = verdict.next;
+  if (verdict.action === 'adopted') {
+    logger.info('memProfile:rss_baseline_adopted — 采纳启动稳态 RSS 为基线', {
+      baselineMb: cur.rssMb,
+      graceMs: RSS_BASELINE_THRESHOLDS.graceMs,
+    });
+  } else if (verdict.action === 'alert') {
+    logger.warn('memProfile:rss_above_baseline — RSS 显著高于启动基线', {
+      currentMb: cur.rssMb,
+      baselineMb: rssBaselineState.baselineMb,
+      ratio: +(verdict.ratio ?? 0).toFixed(2),
+      deltaMb: +(verdict.deltaMb ?? 0).toFixed(1),
+    });
+  }
+  return true;
+}
+
 /** 限流判定结果 */
 export interface MemProfileEmitDecision {
   /** 本次是否应该落日志 */
@@ -105,14 +238,21 @@ export function memProfile(
   point: string,
   extra?: Record<string, unknown>
 ): void {
+  const now = Date.now();
+
+  // A4（2026-11-05）：RSS 基线告警**不依赖 MEM_PROFILE** —— 否则诊断开关关着就永不告警。
+  // 带 30s 全局节流，避免热点管线每轮都调 process.memoryUsage()。
+  checkRssBaseline(now);
+
   if (!samplingActive()) return;
 
   // P2-1：按点限流（窗口内只累计，不落盘）
-  const decision = decideMemProfileEmit(pointEmitState, point, Date.now());
+  const decision = decideMemProfileEmit(pointEmitState, point, now);
   if (!decision.emit) return;
   const suppressed = decision.suppressed;
 
   const cur = sample();
+
   const delta = last
     ? {
         dRssMb: +(cur.rssMb - last.rssMb).toFixed(1),
@@ -138,4 +278,6 @@ export function memProfile(
 export function resetMemProfileThrottleForTest(): void {
   pointEmitState.clear();
   last = null;
+  // A4：连同 RSS 基线状态一并复位，避免跨用例污染
+  resetRssBaselineForTest();
 }

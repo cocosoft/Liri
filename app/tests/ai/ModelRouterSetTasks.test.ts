@@ -15,9 +15,21 @@ import { appModelConfigService } from '../../src/ai/models/AppModelConfigService
 
 const router = ModelRouter.getInstance();
 
+type RouterInternals = { _taskCache: Map<string, string> };
+const internals = (): RouterInternals => router as unknown as RouterInternals;
+
+/**
+ * 进程级单例的**进场快照**（2026-11-05 修复）：
+ * `ModelRouter` 是进程单例，`_taskCache` 的写入会**跨文件存活**。本文件此前只 `seed({})` 清空、
+ * 从不还原 ⇒ 用例留下的 `chat=new-chat` / `default=deepseek-v4-flash` 会泄漏到后续文件，
+ * 实测使 `tests/chat/taorLoopResumeWiring` 的 3 个 `sendMessage` 委托路径用例在**全量**跑时变红
+ * （单跑/窄跑全绿）。故改为「进场快照 → 逐例还原」。
+ */
+let originalTasks: Map<string, string>;
+
 /** 记录 service 调用 + 重置内存缓存 */
 function seed(opts: { tasks?: Record<string, string> }) {
-  const r = router as unknown as { _taskCache: Map<string, string> };
+  const r = internals();
   // 2026-09-27：此处**保持严格形态，不做兜底**。`_taskCache` 缺失只可能说明
   // `getInstance()` 拿到的不是真身而是别的测试留下的 stub —— 该现象的真实成因是
   // `resolveModelRoute.test.ts` 曾用 `mock.module('@modules/ai/modelRouter.js')`
@@ -29,11 +41,15 @@ function seed(opts: { tasks?: Record<string, string> }) {
 }
 
 beforeEach(() => {
+  originalTasks = new Map(internals()._taskCache);
   seed({});
 });
 
 afterEach(() => {
-  // spy 在用例内显式 restore；bun:test 文件级隔离无跨文件污染
+  // 还原进场快照（避免进程级单例把本文件的 `_taskCache` 泄漏给后续测试文件）
+  const cache = internals()._taskCache;
+  cache.clear();
+  for (const [k, v] of originalTasks) cache.set(k, v);
 });
 
 describe('ModelRouter.setTasks 空串清除语义（K 补充 2-B）', () => {

@@ -33,6 +33,41 @@ import type { ReviewGate, ReviewGateContext } from '../review/ReviewGate.js';
 
 const logger = getLogger('tasks:longRunning');
 
+/**
+ * 2026-11-05：编排层 **no-progress 熔断**。
+ *
+ * 背景（真机 `app.log` 23:31–23:36）：同一步骤连续两轮产出**完全相同**的失败证据
+ * （同一份 review issues + 没有任何新增产物 + 工具成败/拦截计数一致），`decideStep`
+ * 仍按普通 retry 消耗重试预算（默认 3 次），把同一个大编辑再跑一遍 ⇒ 空转。
+ *
+ * 判据（只在**证据齐全**时启用；缺证据一律放行，避免误伤旧路径）：
+ *  - 有 `reviewResult`，且 `toolOutcomes` / `artifacts` 至少一个存在；
+ *  - 「通过标记 + 分数 + 问题清单 + 产物集合 + 工具成败/拦截计数」与上一轮完全一致；
+ *  - 已至少重试过 1 次（`retryCount >= 1`）。
+ * 命中 ⇒ 直接 escalate（走既有 `recordEscalation` → 增量 replan），不再消耗剩余重试。
+ */
+const attemptFingerprints = new Map<string, string>();
+/** 熔断指纹的进程内上限（超限整体清空，避免长进程无界增长） */
+const MAX_TRACKED_STEPS = 500;
+
+function attemptFingerprint(step: PlanStep): string | null {
+  const review = step.reviewResult;
+  const outcomes = step.toolOutcomes;
+  if (!review) return null;
+  if (!outcomes && !step.artifacts) return null;
+  return JSON.stringify({
+    pass: review.pass,
+    score: review.score,
+    issues: (review.issues ?? [])
+      .map((i) => `${i.severity}:${i.description}`)
+      .sort(),
+    artifacts: [...(step.artifacts ?? [])].sort(),
+    success: outcomes?.successCount ?? -1,
+    failed: outcomes?.failedCount ?? -1,
+    intercepted: outcomes?.securityIntercepted ?? -1,
+  });
+}
+
 export interface StepReviewDecideDeps {
   taskId: string;
   planId: string | null;
@@ -124,6 +159,9 @@ export async function decideStep(
   const step = plan.steps.find((s) => s.id === stepId);
   if (!step) throw new Error(`Step not found: ${stepId}`);
 
+  /** 熔断指纹键（任务 + 计划 + 步骤；计划重建后自然隔离） */
+  const fingerprintKey = `${deps.taskId}:${deps.planId}:${step.id}`;
+
   const otel = getOTelTracing();
   const span = otel.startSpan('pdca.decide', {
     'task.id': deps.taskId,
@@ -137,6 +175,7 @@ export async function decideStep(
 
     switch (decision) {
       case 'approved':
+        attemptFingerprints.delete(fingerprintKey);
         // 已完成，无需更多操作
         deps.recordLifecycle(
           'progress',
@@ -147,6 +186,47 @@ export async function decideStep(
 
       case 'retry': {
         const maxRetries = step.maxRetries ?? 3;
+
+        // ── no-progress 熔断（2026-11-05）──
+        // 连续两轮证据完全一致 ⇒ 再重试也不会产生新信息，直接升级 escalate（增量 replan）。
+        const fingerprint = attemptFingerprint(step);
+        const prevFingerprint = attemptFingerprints.get(fingerprintKey);
+        if (
+          fingerprint !== null &&
+          prevFingerprint === fingerprint &&
+          step.retryCount >= 1
+        ) {
+          attemptFingerprints.delete(fingerprintKey);
+          step.decision = 'escalate';
+          step.status = 'failed';
+          step.error = `No progress across ${step.retryCount + 1} attempts (identical evidence)`;
+          await deps.recordEscalation(step);
+          deps.recordLifecycle(
+            'progress',
+            TaskStatus.RUNNING,
+            `No progress, escalated: ${step.description}`
+          );
+          logger.warn('[orchestrator] 连续两轮无进展，熔断升级为 escalate', {
+            taskId: deps.taskId,
+            planId: deps.planId,
+            stepId: step.id,
+            stepDesc: step.description.slice(0, 60),
+            attempts: step.retryCount + 1,
+            reviewScore: step.reviewResult?.score,
+            reviewPass: step.reviewResult?.pass,
+            successCount: step.toolOutcomes?.successCount,
+            failedCount: step.toolOutcomes?.failedCount,
+            artifactCount: step.artifacts?.length,
+          });
+          break;
+        }
+        if (fingerprint !== null) {
+          if (attemptFingerprints.size >= MAX_TRACKED_STEPS) {
+            attemptFingerprints.clear();
+          }
+          attemptFingerprints.set(fingerprintKey, fingerprint);
+        }
+
         if (step.retryCount >= maxRetries) {
           // 超过重试上限
           step.decision = 'escalate';
@@ -198,6 +278,7 @@ export async function decideStep(
       }
 
       case 'skip':
+        attemptFingerprints.delete(fingerprintKey);
         step.status = 'cancelled';
         deps.recordLifecycle(
           'progress',
@@ -207,6 +288,7 @@ export async function decideStep(
         break;
 
       case 'escalate':
+        attemptFingerprints.delete(fingerprintKey);
         step.status = 'failed';
         deps.recordLifecycle(
           'progress',
@@ -225,6 +307,7 @@ export async function decideStep(
        * 获批后由 `resumeAfterApproval` 把该步置回 pending 重跑。
        */
       case 'suspend':
+        attemptFingerprints.delete(fingerprintKey);
         deps.recordLifecycle(
           'progress',
           TaskStatus.RUNNING,

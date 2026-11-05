@@ -283,6 +283,14 @@ export const connectionMonitor = {
     return checkBackendHealth();
   },
 
+  /**
+   * C7（2026-11-05）：立即跑一次健康检查**并允许状态转移**（与 10s 周期 tick 同一实现）。
+   * 供全局断连横幅的「立即重试」按钮调用——避免为手动重试另写一套判定。
+   */
+  recheckNow(): Promise<void> {
+    return tick();
+  },
+
   /** 状态转移历史（不可变快照） */
   getHistory(): ConnectionTransition[] {
     return [...history];

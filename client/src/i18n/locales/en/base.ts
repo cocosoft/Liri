@@ -74,6 +74,10 @@ const enBase = {
     estopBannerDesc:
       "New messages and scheduled tasks are paused; in-progress tasks are unaffected.",
     estopBannerLift: "Lift Pause",
+    connectionOffline: "Network is offline. Check your connection.",
+    connectionLost: "Connection to the backend was lost. Retrying…",
+    connectionRetry: "Retry now",
+    connectionRetrying: "Retrying…",
     sleepTitle: "System Sleep Detected",
     sleepMessage:
       "The system slept for about {{lag}}, during which {{pending}} scheduled tasks did not run. Continue execution?",

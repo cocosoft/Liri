@@ -30,6 +30,7 @@ import { useAutoUpdate } from "./hooks/useAutoUpdate";
 import { useAutoCreateSession } from "./hooks/useAutoCreateSession";
 import SleepConfirmNotice from "./components/common/SleepConfirmNotice";
 import EstopBanner from "./components/common/EstopBanner";
+import ConnectionBanner from "./components/common/ConnectionBanner";
 import QuickNoteModal from "./components/common/QuickNoteModal";
 import GlobalSearchModal from "./components/ChatArea/GlobalSearchModal";
 import { APP_EVENTS } from "./constants/events";
@@ -213,6 +214,7 @@ function App() {
     <TooltipProvider>
       <div className="flex flex-col h-screen bg-gray-100 dark:bg-gray-900">
         <EstopBanner />
+        <ConnectionBanner />
         <Header />
         <OperationStatusBar />
         <ToastContainer />

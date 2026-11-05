@@ -71,6 +71,10 @@ const zhBase = {
     estopBannerReason: "原因：{{reason}}",
     estopBannerDesc: "新消息与定时任务已暂停，进行中的任务不受影响。",
     estopBannerLift: "解除暂停",
+    connectionOffline: "网络已断开，请检查网络连接",
+    connectionLost: "与后端的连接已中断，正在自动重试…",
+    connectionRetry: "立即重试",
+    connectionRetrying: "重试中…",
     sleepTitle: "检测到系统休眠",
     sleepMessage:
       "系统休眠了约 {{lag}}，期间有 {{pending}} 个定时任务未执行。是否继续执行？",

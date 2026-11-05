@@ -58,6 +58,7 @@
     "gen:status": "bun run scripts/gen-status.ts",
     "gen:support-levels": "bun run scripts/gen-support-levels.ts",
     "prune:sessions": "bun run scripts/prune-sessions.ts",
+    "reply-shadow:rate": "bun run scripts/reply-shadow-rate.ts",
     "benchmark:startup": "bun run scripts/benchmark-startup.ts",
     "benchmark:compare": "bun run ../scripts/compare-performance-baseline.ts",
     "memory": "bun run src/cli/index.ts",

@@ -62,6 +62,8 @@ describe('影子写（只写不派发）', () => {
       channelSessionId: 'cs-1',
       conversationId: 'conv-1',
       reply: 'approve',
+      // P38 观察字段：差异率复算用（真实投递成功）
+      realDelivered: true,
     });
     // 只写不派发：仍可被领取，但本批没有任何消费者
     expect((await queue!.claimDue(Date.now(), 10)).length).toBe(1);
@@ -82,6 +84,8 @@ describe('影子写（只写不派发）', () => {
     const entry = await queue!.get(REPLY_EFFECT_KIND, key);
     expect(entry?.generation).toBe(2);
     expect(entry?.attempts).toBe(0);
+    // P38 观察字段：真实投递失败 ⇒ 差异率分子（不依赖日志轮转）
+    expect(entry?.payload.realDelivered).toBe(false);
     const counts = await queue!.counts();
     expect(counts[EFFECT_STATUS_PENDING]).toBe(1);
   });

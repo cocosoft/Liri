@@ -37,6 +37,17 @@ export interface ReplyShadowInput extends ReplyEffectPayload {
   delivered: boolean;
 }
 
+/**
+ * 影子记录的落库载荷（重建字段 + **观察字段**）。
+ *
+ * `realDelivered` 只服务**差异率复算**：真实投递失败而影子仍入队 ⇒ 该行计入差异分子。
+ * 之所以不"只打日志"：日志会随轮转/重启丢失，而 P38 的观察期要求**跨周可复算**差异率。
+ * b-3（开关打开、真实链路自己入队）**不写**该字段，避免把观察字段带进生产载荷。
+ */
+export type ReplyShadowQueuePayload = ReplyEffectPayload & {
+  realDelivered: boolean;
+};
+
 /** 幂等键：同一 Inbox 项在同一渠道只回传一次 */
 export function replyEffectKey(channelId: string, inboxItemId: string): string {
   return `${channelId}:${inboxItemId}`;
@@ -68,12 +79,13 @@ export function setReplyShadowQueueForTest(
 export async function shadowReplyRelay(input: ReplyShadowInput): Promise<void> {
   if (feature('EFFECT_REPLY_MIGRATION')) return;
 
-  const payload: ReplyEffectPayload = {
+  const payload: ReplyShadowQueuePayload = {
     inboxItemId: input.inboxItemId,
     channelId: input.channelId,
     channelSessionId: input.channelSessionId,
     conversationId: input.conversationId,
     reply: input.reply,
+    realDelivered: input.delivered === true,
   };
 
   try {

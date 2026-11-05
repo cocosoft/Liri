@@ -188,6 +188,8 @@ export async function handleGetSandboxStatus(
         resourceSummary: status.resourceSummary,
         activeWorkspaceCount: status.activeWorkspaceCount,
         runtimeIsolation: status.runtimeIsolation,
+        // A5-①（2026-11-05）：姿态 + fail-open 风险（语言中立编码），供设置页如实展示
+        posture: status.posture ?? null,
       })
     );
   } catch (err) {

@@ -154,6 +154,21 @@ const enWorkspace = {
     expiresAt: "Expires",
     extend: "Extend",
     subtitle: "Configure and manage isolated execution environments",
+    postureTitle: "Current security posture",
+    postureModeNone:
+      "Execution mode: no isolation evidence (this run is not bound by kernel-level constraints)",
+    postureModeEnforced: "Execution mode: kernel-level constraints are active",
+    postureFailOpen:
+      "When the sandbox fails to initialise or lacks capability: falls back to unconstrained execution (fail-open, by design)",
+    postureFailClosed:
+      "When the sandbox fails to initialise or lacks capability: execution is refused (fail-closed)",
+    postureBashIn: "bash tool: runs inside the sandbox",
+    postureBashOut:
+      "bash tool: runs outside the sandbox (landlock.bashEnabled=false)",
+    postureGuardOn: "Interpreter confirmation (BASH_INTERPRETER_GUARD): on",
+    postureGuardOff: "Interpreter confirmation (BASH_INTERPRETER_GUARD): off",
+    postureHealthy: "No known fail-open risk",
+    postureRiskCount: "{{count}} fail-open risk(s)",
     enableSandbox: "Enable Sandbox",
     disableSandbox: "Disable Sandbox",
     securityConfig: "Security Config",

@@ -511,6 +511,13 @@ export async function registerAllSpis(
     //（`default@<tenant>:<user>`，工作目录 = 该身份 `<scoped>/workspace`）由
     // `getScopedDefaultWorkspace()` 惰性建立 —— 下方三个读取面全部改走该入口。
 
+    // A5-①（2026-11-05）：沙箱姿态（同步纯函数）——状态接口与启动日志**共用同一次探测**。
+    const { describeSandboxPosture } =
+      await import('@modules/sandbox/sandboxPosture');
+    const { feature } = await import('@openliri/kernel');
+    const sandboxPosture = describeSandboxPosture();
+    const bashInterpreterGuard = feature('BASH_INTERPRETER_GUARD');
+
     await registerSandboxSpi(container, {
       // 端口输入为 `Record<string, unknown>`，SandboxManager 期望具名字段
       // （`{ command?: string; dangerouslyDisableSandbox?: boolean }`）⇒ 边界处收窄断言
@@ -546,6 +553,15 @@ export async function registerAllSpis(
         activeWorkspaceCount: scopedActiveWorkspaceCount(),
         // P1-1（2026-10-27）：页面据此诚实降级 —— 无隔离证据时权限级别不参与判定
         runtimeIsolation: resolveSandboxExecutionSignal().mode,
+        // A5-①：把「当前受不受内核级约束」如实交给设置页（风险用语言中立编码）
+        posture: {
+          mode: sandboxPosture.mode,
+          permissionLevel: sandboxPosture.permissionLevel,
+          landlock: sandboxPosture.landlock,
+          openRiskCodes: sandboxPosture.openRiskCodes,
+          // A5-①：解释器命令二次确认开关（默认关）—— 让用户看到"现在到底受不受这道门保护"
+          bashInterpreterGuard,
+        },
       }),
     });
 
@@ -554,11 +570,9 @@ export async function registerAllSpis(
     // 此前只有文档层说明，使用者容易误读成「沙箱开了就受内核级约束」。
     // 这里只做**如实播报**，不改任何默认值与判定。
     {
-      const { describeSandboxPosture } =
-        await import('@modules/sandbox/sandboxPosture');
       const { getLogger } =
         await import('@openliri/infra/monitoring/logs/Logger');
-      const posture = describeSandboxPosture();
+      const posture = sandboxPosture;
       const logger = getLogger('sandbox:posture');
       logger.info('沙箱姿态（本次进程）', {
         mode: posture.mode,

@@ -81,6 +81,25 @@ export interface SandboxRuntimeStatus {
    * UI 据此诚实降级（禁用级别控件）。取值域见 app 侧 `SandboxExecutionMode`。
    */
   runtimeIsolation: string;
+  /**
+   * A5-①（2026-11-05）：沙箱姿态与 fail-open 风险（可选；未注册 / 旧实现 ⇒ 缺省）。
+   *
+   * 供设置页把「当前到底受不受内核级约束」如实展示给用户；
+   * `openRiskCodes` 为**语言中立编码**（前端按码取 i18n 文案，CS02）。
+   */
+  posture?: {
+    mode: string;
+    permissionLevel: string;
+    landlock: {
+      enabled: boolean;
+      bashEnabled: boolean;
+      failClosed: boolean;
+      available: boolean;
+    };
+    openRiskCodes: string[];
+    /** A5-①：解释器命令需人工确认（`BASH_INTERPRETER_GUARD`，默认关） */
+    bashInterpreterGuard?: boolean;
+  };
 }
 
 /** 沙箱端口（core 侧契约） */

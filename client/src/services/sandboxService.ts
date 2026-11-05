@@ -24,6 +24,22 @@ export interface SandboxStatus {
   runtimeEnabled: boolean;
   /** 隔离模式（同 `SandboxConfig.runtimeIsolation`） */
   runtimeIsolation: SandboxIsolationMode;
+  /**
+   * A5-①（2026-11-05）：当前安全姿态与 fail-open 风险（语言中立编码）。
+   * `null` / 缺省 ⇒ 后端未提供（旧版本），页面不渲染该卡片。
+   */
+  posture?: {
+    mode: string;
+    permissionLevel: string;
+    landlock: {
+      enabled: boolean;
+      bashEnabled: boolean;
+      failClosed: boolean;
+      available: boolean;
+    };
+    openRiskCodes: string[];
+    bashInterpreterGuard?: boolean;
+  } | null;
   settings: {
     enabled?: boolean;
     allowUnsandboxedCommands?: boolean;

@@ -38,6 +38,12 @@ describe('describeSandboxPosture（#7 沙箱姿态可读化）', () => {
     expect(posture.openRisks.join('\n')).toContain('mode=none');
     expect(posture.openRisks.join('\n')).toContain('failClosed=false');
     expect(posture.openRisks.join('\n')).toContain('bashEnabled=false');
+    // A5-①：语言中立编码与 openRisks 一一对应（前端按编码取 i18n 文案）
+    expect(posture.openRiskCodes).toEqual([
+      'mode-none',
+      'landlock-fail-open',
+      'landlock-bash-disabled',
+    ]);
   });
 
   test('landlock 生效 + failClosed=true + bashEnabled=true ⇒ 零风险（不刷警告）', () => {
@@ -53,6 +59,7 @@ describe('describeSandboxPosture（#7 沙箱姿态可读化）', () => {
     });
 
     expect(posture.openRisks).toEqual([]);
+    expect(posture.openRiskCodes).toEqual([]);
   });
 
   test('只有 failClosed=false ⇒ 只报一条（不牵连其他项）', () => {
@@ -68,6 +75,7 @@ describe('describeSandboxPosture（#7 沙箱姿态可读化）', () => {
 
     expect(posture.openRisks).toHaveLength(1);
     expect(posture.openRisks[0]).toContain('failClosed=false');
+    expect(posture.openRiskCodes).toEqual(['landlock-fail-open']);
   });
 
   test('未注入 overrides ⇒ 返回结构完整且可序列化（读真实配置）', () => {
@@ -81,6 +89,7 @@ describe('describeSandboxPosture（#7 沙箱姿态可读化）', () => {
     expect(typeof posture.landlock.failClosed).toBe('boolean');
     expect(typeof posture.landlock.available).toBe('boolean');
     expect(Array.isArray(posture.openRisks)).toBe(true);
+    expect(posture.openRiskCodes).toHaveLength(posture.openRisks.length);
     // 可 JSON 序列化（启动日志会原样落盘）
     expect(() => JSON.stringify(posture)).not.toThrow();
   });

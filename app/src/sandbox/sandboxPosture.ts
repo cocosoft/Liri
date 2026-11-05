@@ -21,6 +21,17 @@ import { readLandlockConfig } from './landlock/config';
 import { LandlockDetector } from './landlock/LandlockDetector';
 import { resolveSandboxExecutionSignal } from './sandboxExecutionSignal';
 
+/**
+ * fail-open 风险的**语言中立编码**（A5-①，2026-11-05）。
+ *
+ * 前端按编码取 i18n 文案；后端仍保留人类可读 `openRisks` 供日志使用
+ * （CS02：判别值不用文案，避免切语言/改文案后判别失效）。
+ */
+export type SandboxRiskCode =
+  | 'mode-none'
+  | 'landlock-fail-open'
+  | 'landlock-bash-disabled';
+
 export interface SandboxPosture {
   /** 当前进程的隔离模式（`none` = 无隔离证据） */
   mode: SandboxExecutionMode;
@@ -35,6 +46,8 @@ export interface SandboxPosture {
   };
   /** 当前姿态下**实际存在**的 fail-open 风险（人类可读；空数组 = 无） */
   openRisks: string[];
+  /** 同上的语言中立编码（前端 i18n 用；与 `openRisks` 一一对应） */
+  openRiskCodes: SandboxRiskCode[];
 }
 
 export interface DescribeSandboxPostureOverrides {
@@ -67,17 +80,21 @@ export function describeSandboxPosture(
   };
 
   const openRisks: string[] = [];
+  const openRiskCodes: SandboxRiskCode[] = [];
   if (mode === 'none') {
     openRisks.push('当前进程无隔离证据（mode=none）：本次执行不受内核级约束');
+    openRiskCodes.push('mode-none');
   }
   if (!landlock.failClosed) {
     openRisks.push(
       'landlock.failClosed=false：helper 初始化失败或能力缺失时，会回退到无内核约束的执行器'
     );
+    openRiskCodes.push('landlock-fail-open');
   }
   if (!landlock.bashEnabled) {
     openRisks.push('landlock.bashEnabled=false：bash 工具默认不在沙箱内执行');
+    openRiskCodes.push('landlock-bash-disabled');
   }
 
-  return { mode, permissionLevel, landlock, openRisks };
+  return { mode, permissionLevel, landlock, openRisks, openRiskCodes };
 }

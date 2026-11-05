@@ -96,6 +96,29 @@ function SandboxPage() {
    */
   const levelInactive = sandboxConfig?.runtimeIsolation === "none";
 
+  /**
+   * A5-①（2026-11-05）：把「当前到底受不受内核级约束」摊开给用户看。
+   * 全部取自后端 `/v1/sandbox/status` 的 `posture`（语言中立编码 + 布尔事实），
+   * 不在前端自行推断，避免与真实判定漂移。
+   */
+  const posture = status?.posture ?? null;
+  const postureLines = posture
+    ? [
+        posture.mode === "none"
+          ? t("sandbox.postureModeNone")
+          : t("sandbox.postureModeEnforced"),
+        posture.landlock.failClosed
+          ? t("sandbox.postureFailClosed")
+          : t("sandbox.postureFailOpen"),
+        posture.landlock.bashEnabled
+          ? t("sandbox.postureBashIn")
+          : t("sandbox.postureBashOut"),
+        posture.bashInterpreterGuard
+          ? t("sandbox.postureGuardOn")
+          : t("sandbox.postureGuardOff"),
+      ]
+    : [];
+
   const labelClass = isDark ? "text-gray-300" : "text-gray-700";
   const valueClass = isDark ? "text-gray-100" : "text-gray-900";
   const mutedClass = isDark ? "text-gray-400" : "text-gray-500";
@@ -138,6 +161,39 @@ function SandboxPage() {
           </div>
         ) : (
           <>
+            {/* A5-①：当前安全姿态（如实告知受不受内核级约束） */}
+            {posture && (
+              <div className={`${cardClass} mb-6`}>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className={`text-lg font-semibold ${valueClass}`}>
+                    {t("sandbox.postureTitle")}
+                  </h3>
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded ${
+                      posture.openRiskCodes.length > 0
+                        ? isDark
+                          ? "bg-amber-900/40 text-amber-300"
+                          : "bg-amber-50 text-amber-700"
+                        : isDark
+                          ? "bg-green-900/40 text-green-300"
+                          : "bg-green-50 text-green-700"
+                    }`}
+                  >
+                    {posture.openRiskCodes.length > 0
+                      ? t("sandbox.postureRiskCount", {
+                          count: posture.openRiskCodes.length,
+                        })
+                      : t("sandbox.postureHealthy")}
+                  </span>
+                </div>
+                <ul className={`space-y-1 text-sm ${labelClass}`}>
+                  {postureLines.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {/* 安全配置 */}
             <div className={`${cardClass} mb-6`}>
               <h3 className={`text-lg font-semibold mb-4 ${valueClass}`}>

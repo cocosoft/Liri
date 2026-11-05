@@ -17,7 +17,7 @@ import { getOTelTracing } from '@openliri/infra/monitoring/otel/OTelTracing';
 import { Span, SpanStatusCode } from '@opentelemetry/api';
 import { configManager } from '@openliri/infra/config';
 import { resolveDbPath } from '@openliri/infra/environment';
-import { trackUsage, modelRouter, estimateMessagesTokens } from '@modules/ai';
+import { modelRouter, estimateMessagesTokens } from '@modules/ai';
 import { taskOrchestrator } from './TaskOrchestrator';
 import { emitPdcaLiveEvent } from './PdcaLiveEvents';
 import type { Plan, PlanStep } from './TaskOrchestrator';
@@ -401,7 +401,6 @@ export class LongRunningTaskOrchestrator {
               )
             : [];
 
-        const _trackStart = Date.now();
         const response = await service.generate(
           [
             { role: AIMessageRole.SYSTEM, content: params.systemPrompt },
@@ -411,13 +410,12 @@ export class LongRunningTaskOrchestrator {
           tools.length > 0 ? { tools } : undefined
         );
 
-        // 债四「换算接线」（2026-10-13）：与 `trackUsage` **同一模型表达式**（数出同源）
+        // 记账唯一入口在 `AIServiceImpl.generate()` 内部（已调 `trackUsage`，带真实 providerId
+        // 与实测延迟）——调用方**不得**再记一次。
+        // 2026-11-05 修复：此处曾二次调用 `trackUsage` ⇒ 每笔长程/子代理请求在
+        // `cost_records` 落两行（同 token、同秒、不同 request_id），日预算 USD 闸门被翻倍吃掉。
+        // 债四「换算接线」（2026-10-13）：模型表达式仍与记账同源。
         const turnModel = response.model || model || 'unknown';
-        trackUsage(response, {
-          model: turnModel,
-          providerId: 'default',
-          latencyMs: Date.now() - _trackStart,
-        });
         // R16（台账 L-14）：任务/子代理**非 chat 管线**用量计入每日预算
         recordDailyBudgetFromUsage(
           (response as { usage?: unknown }).usage,

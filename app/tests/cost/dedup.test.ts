@@ -110,3 +110,33 @@ describe('接线守卫 — 主响应只有一条记账路径', () => {
     expect(source).not.toContain('costTracker.addCost(');
   });
 });
+
+/**
+ * 2026-11-05 真机取证：`cost_records` 有 9 687 组「同会话 + 同秒 + 同 input/output，
+ * 连 cache_read/cache_creation 都逐 token 相同」的成对行（两行相距 4–6ms、request_id 不同）。
+ * 两次真实调用的缓存写不可能一个 token 都不差 ⇒ 同一份 usage 被记了两次。
+ * 定位：`LongRunningTaskOrchestrator` 调 `AIServiceImpl.generate()`（其内部已 `trackUsage`）后
+ * 又调了一次 `trackUsage` ⇒ 长程/子代理请求全部双记，日预算 USD 闸门被翻倍吃掉。
+ */
+describe('接线守卫 — 调用 AIService 后不得二次记账', () => {
+  const source = readFileSync(
+    join(
+      __dirname,
+      '..',
+      '..',
+      'src',
+      'tasks',
+      'LongRunningTaskOrchestrator.ts'
+    ),
+    'utf-8'
+  );
+
+  it('`LongRunningTaskOrchestrator` 调 `service.generate(...)` 后不得再调 `trackUsage(`', () => {
+    expect(source).toContain('service.generate(');
+    expect(source).not.toContain('trackUsage(');
+  });
+
+  it('每日预算记账仍保留（去重不得顺带丢掉 R16 的预算口径）', () => {
+    expect(source).toContain('recordDailyBudgetFromUsage(');
+  });
+});

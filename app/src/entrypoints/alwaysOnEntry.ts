@@ -394,7 +394,7 @@ function applyProjectAutonomy(): void {
   for (const projectId of Object.keys(map)) {
     const runtime = activeManager.getRuntime(projectId);
     if (!runtime) continue;
-    const enabled = map[projectId]?.enabled !== false;
+    const enabled = map[projectId]?.enabled === true;
     // 用 `project_disabled` 而不是全局 `disabled`（日志可区分"整体关"与"只关这个项目"）
     runtime.gates.setProjectPaused(!enabled);
     if (enabled) runtime.start();

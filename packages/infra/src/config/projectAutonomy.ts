@@ -4,7 +4,11 @@
  * **持久化**：`autonomy.projects`（`ConfigManager` 全局配置，与 `PUT /v1/config/autonomy.projects` 同源），
  * 结构 `{ [projectId]: { enabled: boolean } }`。
  *
- * **口径**：缺省 = 开（不写配置即保持全局行为）；只有显式 `enabled: false` 才暂停该项目。
+ * **口径（2026-11-05 起）**：缺省 = **关** —— 只有显式 `enabled: true` 才允许该项目自主执行。
+ *
+ * 变更理由：原口径「缺省 = 开」使 14 个已注册项目在后端启动后同时恢复自主运行（单日 2.1 万次
+ * 模型调用），且**没写过配置条目的项目一律自动开跑** —— 与「未经人确认不应自动开工」冲突。
+ * 现口径下新建项目也默认暂停，需在项目页显式开启。
  *
  * **为什么放 infra/config 而不是 `Project` 实体 / `tasks`（app）**：
  * - 不改项目 schema、不迁移存量项目；
@@ -31,9 +35,9 @@ export function readProjectAutonomyMap(): ProjectAutonomyMap {
     : {};
 }
 
-/** 该项目是否允许自主执行（缺省 `true`） */
+/** 该项目是否允许自主执行（缺省 `false`：只有显式 `enabled: true` 才开） */
 export function isProjectAutonomyEnabled(projectId: string): boolean {
-  return readProjectAutonomyMap()[projectId]?.enabled !== false;
+  return readProjectAutonomyMap()[projectId]?.enabled === true;
 }
 
 /**

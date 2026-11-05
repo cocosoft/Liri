@@ -986,9 +986,9 @@ export default function ProjectsPage() {
     const badge = getActivityBadge(p.id);
     const isCompleted = p.status === "completed";
     const isEditing = editingId === p.id;
-    // 2026-11-03：自主执行开关以后端为准（缺省开）；暂停时条目上给可见提示
+    // 2026-11-05：自主执行开关以后端为准（**缺省关**，需显式开启）；暂停时条目上给可见提示
     const autonomyEnabled =
-      backendProjects.find((b) => b.id === p.id)?.autonomyEnabled !== false;
+      backendProjects.find((b) => b.id === p.id)?.autonomyEnabled === true;
     const canUndo =
       Date.now() - (p.autoCreatedAt ?? p.createdAt) < 30 * 60 * 1000;
 

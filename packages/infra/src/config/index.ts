@@ -138,7 +138,7 @@ export {
   getProjectSettingsPath,
 } from './settings/projectSettings.js';
 
-// 2026-11-03：按项目的「自主执行」开关（`autonomy.projects`；缺省开、显式 false 暂停）
+// 2026-11-05：按项目的「自主执行」开关（`autonomy.projects`；**缺省关**、显式 true 才开）
 export {
   PROJECT_AUTONOMY_CONFIG_KEY,
   readProjectAutonomyMap,

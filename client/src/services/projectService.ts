@@ -86,6 +86,7 @@ export async function relocateProject(
  *
  * 后端持久化到配置 `autonomy.projects.<id>.enabled` 并即时生效（不用重启）：
  * 暂停 = 停掉该项目的 5 分钟 tick；恢复 = 重新开始（会话仍复用同一个）。
+ * 缺省 = **关**（2026-11-05 起）：只有显式恢复过的项目才会自主运行。
  */
 export async function setProjectAutonomy(
   projectId: string,

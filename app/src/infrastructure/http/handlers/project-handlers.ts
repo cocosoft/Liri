@@ -172,8 +172,7 @@ export async function handleGetProject(
 
 // ─── PUT /v1/projects/:projectId/autonomy — 按项目暂停/恢复自主执行 ───
 //
-// 口径（2026-11-03）：
-// - 持久化到配置 `autonomy.projects.<id>.enabled`（跨重启有效；缺省 = 开）；
+// 口径（2026-11-05 起）：缺省 = **关**（只有显式 `enabled: true` 才允许自主执行）；
 // - 运行期生效：写完后进程内广播 `config:changed`，由 `alwaysOnEntry` 立即
 //   `runtime.stop()` / `runtime.start()`（不重启应用、不重建会话）；
 // - 项目必须存在（否则 404）—— 避免给不存在的 id 写脏配置。

@@ -1125,8 +1125,10 @@ export class InboxManager {
    * 调用方：制品保留调度器（`ArtifactRetention`，5 分钟节拍，30 天口径）。
    */
   async purgeOlderThanAllScopes(cutoffMs: number): Promise<number> {
-    let total = 0;
-    if (this.db) total += await this._purgeOnDb(this.db, cutoffMs);
+    // 维护动作必须**按需打开**本地库：调度器无请求作用域 ⇒ 解析为本地身份。
+    // 否则进程刚启动、inbox 尚未被任何消费者访问时 `this.db === null`，
+    // 回收会静默空转（真机复现：30 天外仍有 23 条终态行未被删）。
+    let total = await this._purgeOnDb(await this.getDb(), cutoffMs);
     for (const db of this.scopedDbs.values()) {
       total += await this._purgeOnDb(db, cutoffMs);
     }

@@ -1248,6 +1248,13 @@ export class CompactionOrchestrator {
       //  汇总多次 handleError 刷 ErrorTracker。
       logger.warn('compaction:tier3_fold_batch_error', {
         error: String(err),
+        // 归因（C5）：`The operation was aborted` 既可能是 tier3 超时，也可能是上层取消；
+        // 只记错误文本无法区分 ⇒ 显式带上 signal 状态与耗时。
+        aborted: signal?.aborted === true,
+        abortReason: signal?.aborted
+          ? String(signal.reason ?? 'unspecified')
+          : undefined,
+        elapsedMs: Date.now() - requestStartedAt,
       });
       return null;
     }

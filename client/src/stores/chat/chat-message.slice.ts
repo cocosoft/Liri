@@ -44,6 +44,9 @@ import {
   loadOlderMessagesImpl,
 } from "./chat-message-actions";
 
+// P1-6（2026-11-06）：挂起流自动重试的退避序列（有界 + 可中止）
+import { nextAutoResumeDelay } from "../../utils/autoResumeBackoff";
+
 const logger = createLogger("stores:chat:message");
 
 /** 阶段2：后端恢复后自动续传的倒计时（毫秒，可被手动"立即恢复"/"放弃"抢先取消） */
@@ -80,12 +83,26 @@ export const createMessageSlice: StateCreator<
   let autoResumeSubscribed = false;
   /** N8-1：<30s 最短掉线场景的兜底轮询定时器（见 ensureAutoResumeListener） */
   let autoResumePollTimer: ReturnType<typeof setInterval> | null = null;
+  /**
+   * P1-6（2026-11-06）：挂起期**自动重试**的已尝试次数与下次允许时间。
+   *
+   * 为什么需要：`/health` 只反映后端存活；上游模型网络不可用时它仍健康 ⇒ 原先每 3s 无条件
+   * `resumeStream` 会「失败→重新挂起」形成热循环（反复请求模型）。改为有界 + 退避。
+   */
+  let autoResumeAttempt = 0;
+  let autoResumeNextAt = 0;
+  /** 用尽告警只打一次，避免轮询刷屏 */
+  let autoResumeExhaustedLogged = false;
 
   /** 进入自动恢复倒计时（phase → recovering，3s 后自动续传；手动恢复/放弃可抢先） */
   function triggerAutoResume(): void {
     const paused = get().pausedStreams;
     const ids = Object.keys(paused);
     if (ids.length === 0) return;
+    // P1-6：每次自动恢复计一次尝试，并登记**下次**允许时间（有界 + 退避）
+    autoResumeAttempt += 1;
+    autoResumeNextAt =
+      Date.now() + (nextAutoResumeDelay(autoResumeAttempt + 1) ?? 0);
     logger.info("connectionMonitor:后端恢复，挂起流进入自动恢复倒计时", {
       sessions: ids,
     });
@@ -118,8 +135,25 @@ export const createMessageSlice: StateCreator<
         if (ids.length === 0) {
           clearInterval(autoResumePollTimer!);
           autoResumePollTimer = null;
+          // P1-6：无挂起会话 ⇒ 重置退避（下一轮失败重新从 3s 起）
+          autoResumeAttempt = 0;
+          autoResumeNextAt = 0;
+          autoResumeExhaustedLogged = false;
           return;
         }
+        // P1-6：有界 + 退避。`/health` 通过只说明**后端**在线；上游模型网络不可用时续跑仍会
+        // 失败并重新挂起 ⇒ 必须按退避等待，用尽后停止自动重试（只保留用户手动「立即恢复」）。
+        if (nextAutoResumeDelay(autoResumeAttempt + 1) === null) {
+          if (!autoResumeExhaustedLogged) {
+            autoResumeExhaustedLogged = true;
+            logger.warn("autoResumePoll:自动重试次数用尽，转为手动恢复", {
+              sessions: ids,
+              attempts: autoResumeAttempt,
+            });
+          }
+          return;
+        }
+        if (Date.now() < autoResumeNextAt) return;
         const healthy = await connectionMonitor.healthCheckOnce();
         if (healthy) {
           logger.info("autoResumePoll:健康检查通过，触发自动恢复", {

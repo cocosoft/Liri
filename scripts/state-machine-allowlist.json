@@ -9,9 +9,9 @@
       "reason": "agent 域（子代理）本地运行态，属「领域内建」而非跨域编排状态机（对齐 R09-001 现有登记边界）"
     },
     {
-      "file": "app/src/bridge/sessions/MultiSessionManager.ts",
+      "file": "packages/service/src/bridge/sessions/MultiSessionManager.ts",
       "exportName": "SessionStatus",
-      "reason": "IDE 桥接层的多会话进程态，其生命周期由 bridge 自身管理，与 session 域 SessionState 非同一物"
+      "reason": "IDE 桥接层的多会话进程态，其生命周期由 bridge 自身管理，与 session 域 SessionState 非同一物（P34：bridge 已迁 packages/service）"
     },
     {
       "file": "app/src/chat/models/types.ts",

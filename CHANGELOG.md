@@ -19,6 +19,8 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **SERVICE-PACKAGE-P33-VOICE**：P33：voice 迁入 packages/service —— 验证 tsc0|voice192|infra0|r8neg0|gates13-0；基线 voice 17 文件在 app/src（2 处运行期 app 出边：CoreAPIImpl / SessionManager）（详情见 archive/evidence-detail.jsonl#SERVICE-PACKAGE-P33-VOICE）
+- ✅ **SERVICE-PACKAGE-P33A-GATE-SURFACE**：P33-a：service 包质量门禁扫描面补齐 —— 验证 tsc0|scripts0|lint5-0|negprobe3；基线 五闸扫描面仅 app/src + packages/infra/src（service 包 203 文件为静默盲区）（详情见 archive/evidence-detail.jsonl#SERVICE-PACKAGE-P33A-GATE-SURFACE）
 - ✅ **SERVICE-PACKAGE-P32-MCP**：P32：mcp 迁入 packages/service —— 验证 tsc0|tests9766|gates55|infra0|scc0；基线 mcp 6 文件在 app/src（1 处动态 import ../tool 倒挂）（详情见 archive/evidence-detail.jsonl#SERVICE-PACKAGE-P32-MCP）
 - ✅ **SERVICE-PACKAGE-P31-STREAMING**：P31：streaming 迁入 packages/service —— 验证 tsc0|tests9766|gates55|infra0|scc0；基线 streaming 14 文件在 app/src（出边仅 infra + 包内 services/api）（详情见 archive/evidence-detail.jsonl#SERVICE-PACKAGE-P31-STREAMING）
 - ✅ **SERVICE-PACKAGE-P30-SERVICES**：P30：services 迁入 packages/service（端口下沉 + 5 处跨层反转） —— 验证 tsc0|tests9766|gates55|infra0|scc0；基线 services 173 文件在 app/src（18 子域；1 处运行期 app 依赖 + 2 处类型）（详情见 archive/evidence-detail.jsonl#SERVICE-PACKAGE-P30-SERVICES）

@@ -8229,3 +8229,38 @@
 {"id":"SERVICE-PACKAGE-P32-MCP","k":"code#4","i":0,"c":"app/src/bootstrap/preflight.ts"}
 {"id":"SERVICE-PACKAGE-P32-MCP","k":"tests#0","i":0,"c":"app/tests/mcp/sdkClientApiShape.test.ts"}
 {"id":"SERVICE-PACKAGE-P32-MCP","k":"tests#1","i":0,"c":"app/tests/mcp/realServerE2E.test.ts"}
+{"id":"SERVICE-PACKAGE-P33A-GATE-SURFACE","k":"title","i":0,"c":"P33-a：state-ratchet / file-size / complexity / hardcodeScan / logger-name 五闸扫描面纳入 packages/service/src（负向自证 3 闸）"}
+{"id":"SERVICE-PACKAGE-P33A-GATE-SURFACE","k":"source","i":0,"c":"dev_docs/20261101/infra包化可行性-20261101.md §4（门禁扫描面纪律：宁可 fail-closed，不可静默跳过新包）"}
+{"id":"SERVICE-PACKAGE-P33A-GATE-SURFACE","k":"reopenWhen","i":0,"c":"① 其余按 app/src 枚举的门禁（lint:entrypoints / lint:unref / lint:legacy-env / lint:models 等）仍未覆盖 packages/service/src ⇒ 逐项确认；② 新增物理包时同口径：先补扫描面再搬目录，验收必须是「新路径注入违规能让门禁变红」；③ 复杂度 >=100 基线已收紧到 6"}
+{"id":"SERVICE-PACKAGE-P33A-GATE-SURFACE","k":"reopenWhen","i":1,"c":"，新增离群会立即变红；④ 全量 bun test 有 3 个 order-dependent 失败（tests/chat/taorLoopResumeWiring，单跑与 tests/chat+tests/query 同跑均绿）⇒ 单独定位。"}
+{"id":"SERVICE-PACKAGE-P33A-GATE-SURFACE","k":"notes","i":0,"c":"P29–P32 迁入 service 包的 203 个文件此前不在 state-ratchet / file-size / complexity / consts / logger-name 扫描面内（只有 lint:infra R8 守物理边界）。本批五处扫描面补 packages/service/src，与 P2/P4 对 infra 的口径一致（迁出 "}
+{"id":"SERVICE-PACKAGE-P33A-GATE-SURFACE","k":"notes","i":1,"c":"≠ 免检）。负向自证：包内临时探针（2101 行 + 130 分支函数 + CANCEL_REQUESTED 字面量）⇒ state-ratchet / size / complexity 三闸同时 exit 1 并点名 packages/service/src/__gateProbe.ts，删除后三闸转绿；consts 的同值字面量检查实测已覆盖包内文件（"}
+{"id":"SERVICE-PACKAGE-P33A-GATE-SURFACE","k":"notes","i":2,"c":"https://modelscope.cn 3 文件命中）。存量吸收：state-literal 基线 --update 新增 73 处（全部位于 packages/service/src），连带 14 条 app/src/voice 路径在 P33 迁包后重指。暴露并修复历史违规：mcp/cli/mcpCommand.ts 的 getLogger("}
+{"id":"SERVICE-PACKAGE-P33A-GATE-SURFACE","k":"notes","i":3,"c":"mcpCommand) → mcp:command。"}
+{"id":"SERVICE-PACKAGE-P33A-GATE-SURFACE","k":"code#0","i":0,"c":"scripts/lint-state-literal-ratchet.ts"}
+{"id":"SERVICE-PACKAGE-P33A-GATE-SURFACE","k":"code#1","i":0,"c":"scripts/lint-file-size.ts"}
+{"id":"SERVICE-PACKAGE-P33A-GATE-SURFACE","k":"code#2","i":0,"c":"scripts/lib/hardcodeScan.ts"}
+{"id":"SERVICE-PACKAGE-P33A-GATE-SURFACE","k":"code#3","i":0,"c":"scripts/lint-logger-name.ts"}
+{"id":"SERVICE-PACKAGE-P33A-GATE-SURFACE","k":"code#4","i":0,"c":"app/scripts/lint-complexity-ratchet.ts"}
+{"id":"SERVICE-PACKAGE-P33A-GATE-SURFACE","k":"code#5","i":0,"c":".trae/architecture/state-literal-baseline.json"}
+{"id":"SERVICE-PACKAGE-P33A-GATE-SURFACE","k":"code#6","i":0,"c":".trae/architecture/complexity-baseline.json"}
+{"id":"SERVICE-PACKAGE-P33A-GATE-SURFACE","k":"code#7","i":0,"c":"packages/service/src/mcp/cli/mcpCommand.ts"}
+{"id":"SERVICE-PACKAGE-P33-VOICE","k":"title","i":0,"c":"P33：voice（实时语音子系统）迁入 packages/service —— 17 文件；2 处跨层反转（ToolManager / SessionManager 端口注入）"}
+{"id":"SERVICE-PACKAGE-P33-VOICE","k":"source","i":0,"c":"dev_docs/20261101/infra包化可行性-20261101.md §七 矩阵（voice 17 文件 / 2 处运行期 app 出边）"}
+{"id":"SERVICE-PACKAGE-P33-VOICE","k":"reopenWhen","i":0,"c":"① bridge（31 文件）仍卡 runtime/coordinator + CoreAPIImpl + channels + acp；runtime（46 文件 / 19 处 app 出边，domainSnapshotOps 单文件即编排 19 个 app 模块）是 app 的组合根 ⇒ 只能契约下沉，不是搬目录；② 包内仍保留 "}
+{"id":"SERVICE-PACKAGE-P33-VOICE","k":"reopenWhen","i":1,"c":"@modules/session/types/UnifiedMessage 纯类型叶子（2 条 type-only + 2 个枚举值）⇒ session 迁包时一并收口；③ 两个端口未注入 ⇒ 不注册工具桥接（记 error）/ 跳过转写与 token 回写（与迁包前 if (SessionManager.instance) 同语义）。"}
+{"id":"SERVICE-PACKAGE-P33-VOICE","k":"notes","i":0,"c":"17 文件 git mv 至 packages/service/src/voice；exports 增 ./voice（桶）+ ./voice/*；app/tsconfig 增 3 条 paths；18 个文件改写 import（build-variant 懒加载表 / generatedLazyLoaders / commands / context / "}
+{"id":"SERVICE-PACKAGE-P33-VOICE","k":"notes","i":1,"c":"infrastructure / plugins / 10 个 tests/voice 用例），另 2 个读源码守卫路径随迁（sameNameConstsB2 / defaultLocaleTimezone）。反转：VoiceSession 的 getCoreAPI().getToolManager() → VoiceToolManagerPort + "}
+{"id":"SERVICE-PACKAGE-P33-VOICE","k":"notes","i":2,"c":"setVoiceToolManagerProvider；VoiceServiceBridge 的 SessionManager.instance → setVoiceSessionIntegrationProvider，两者并入 preflight.wireServiceDeps（main.ts 零增行）。验证：两侧 typecheck 0；"}
+{"id":"SERVICE-PACKAGE-P33-VOICE","k":"notes","i":3,"c":"tests/voice 192 pass / 0 fail；lint:infra R8 检查 751 处（+69），负向自证注入 @modules/chat 点名 voice/VoiceEventBus.ts:1 后回滚 0 违规；运行时探针（桶 33 导出 / 子路径 / 端口默认 null → 注入可用 / VoiceEventBus 可实例化）；"}
+{"id":"SERVICE-PACKAGE-P33-VOICE","k":"notes","i":4,"c":"lint:arch / refs / consts / size / complexity / state-ratchet / logger-name / fn-size / invariants / session / mock / no-module-mock / gate-parity / startup-graph 全绿。"}
+{"id":"SERVICE-PACKAGE-P33-VOICE","k":"code#0","i":0,"c":"packages/service/src/voice/index.ts"}
+{"id":"SERVICE-PACKAGE-P33-VOICE","k":"code#1","i":0,"c":"packages/service/src/voice/runtimePorts.ts"}
+{"id":"SERVICE-PACKAGE-P33-VOICE","k":"code#2","i":0,"c":"packages/service/src/voice/VoiceSession.ts"}
+{"id":"SERVICE-PACKAGE-P33-VOICE","k":"code#3","i":0,"c":"packages/service/src/voice/VoiceServiceBridge.ts"}
+{"id":"SERVICE-PACKAGE-P33-VOICE","k":"code#4","i":0,"c":"packages/service/package.json"}
+{"id":"SERVICE-PACKAGE-P33-VOICE","k":"code#5","i":0,"c":"app/tsconfig.json"}
+{"id":"SERVICE-PACKAGE-P33-VOICE","k":"code#6","i":0,"c":"app/src/bootstrap/preflight.ts"}
+{"id":"SERVICE-PACKAGE-P33-VOICE","k":"tests#0","i":0,"c":"app/tests/voice/VoiceSession.test.ts"}
+{"id":"SERVICE-PACKAGE-P33-VOICE","k":"tests#1","i":0,"c":"app/tests/voice/VoiceToolBridge.test.ts"}
+{"id":"SERVICE-PACKAGE-P33-VOICE","k":"tests#2","i":0,"c":"app/tests/voice/voice-e2e.test.ts"}

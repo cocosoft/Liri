@@ -157,6 +157,10 @@ import {
   executeToolWithGuards,
   type ExecuteToolOptions,
 } from './manager/toolExecution';
+// E 批外移（2026-11-05）：会话侧静态工具定义（纯数据）
+import { SESSION_LOOKUP_TOOL } from './manager/toolDefinitions';
+// E 批外移（2026-11-05）：TAORLoop 实例工厂（空 id 拒绝 / 私有实例 / 分键缓存 / 活跃登记）
+import { getOrCreateTaorLoop } from './manager/taorLoopFactory';
 // issue #8 · Cut C（2026-10-29）：宿主级 sink / 退出钩子 / 内存水位装配外移
 import { installHostWiring } from './manager/hostWiring';
 // issue #8 · Cut C（2026-10-29）：`ChatOrchestrator` 宿主端口字面量外移
@@ -843,7 +847,7 @@ export class ChatManagerImpl implements ChatManager {
     this.chatOrchestrator = new ChatOrchestrator({
       host: createOrchestratorHost(
         asWiringHost<OrchestratorWiringHost>(this),
-        (this.constructor as typeof ChatManagerImpl).SESSION_LOOKUP_TOOL
+        SESSION_LOOKUP_TOOL
       ),
     });
 
@@ -885,96 +889,21 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
-   * 获取或创建 TAORLoop 实例（懒初始化）
-   * TAORLoop 统一编排已常驻（ENABLE_LOOP_V8_PHASE2 于阶段 3 退役，2026-09-01）——L6 注释清理 2026-09-06
+   * 获取或创建 TAORLoop 实例（E 批外移，2026-11-05：实现见 `manager/taorLoopFactory.ts`）
    */
   private _getOrCreateTAORLoop(
     sessionId: string,
     opts?: { maxTurnsMultiplier?: number; privateInstance?: boolean }
   ): TAORLoop {
-    // P0 修复（2026-08-14 排查）：空 sessionId 拒绝创建——原单例首次调用固化空 id，
-    // 导致所有会话串扰同一 TAORLoop。改为按 sessionId 的 Map 缓存 + 非空校验。
-    if (!sessionId) {
-      logger.warn(
-        '_getOrCreateTAORLoop: 拒绝空 sessionId（防 TAORLoop 串扰污染）'
-      );
-      throw new Error('TAORLoop requires a non-empty sessionId');
-    }
-    const multiplier = opts?.maxTurnsMultiplier ?? 1;
-    // S1（2026-09-05，PR9）：privateInstance=true → LRTO 任务私有实例——
-    // 每次调用全新构建、不入任何缓存（中止/销毁安全，不伤同会话普通对话）。
-    if (opts?.privateInstance) {
-      const baseMaxTurns =
-        parseInt(configManager.env('MAX_TAOR_TURNS') || '') || 300;
-      return createChatAgentLoop({
-        mode: 'batch',
-        queryEngine: this.getQueryEngine(),
-        config: {
-          sessionId,
-          maxTurns: multiplier > 1 ? baseMaxTurns * multiplier : baseMaxTurns,
-          // 归属③（2026-09-05）：任务私有实例关闭 DB 检查点——任务级持久化由
-          // LRTO._persistCheckpoint 承担；否则此类 checkpoint 会被 Durable Resume
-          // 当作会话恢复（sessionId=taskId）造成任务上下文串入普通对话恢复。
-          enableCheckpoint: false,
-          checkpointInterval: 0,
-          // G-3：仅在配置了 verifier 角色时注入（未配置 ⇒ 键不存在，行为零变化）
-          ...(this._verifier.callModel
-            ? { verifierModel: this._verifier.callModel }
-            : {}),
-        },
-      });
-    }
-    // S1（2026-09-05，PR9/B-任务）：扩容续跑时创建放大轮次预算的独立实例——
-    // 与基础实例分键缓存（同 multiplier 复用，避免每次 re-roll 新建实例）。
-    //
-    // 2026-10-19（源码排查 S1）：改用 `SessionScopedRegistry.getOrCreate()` —— 键为
-    // `sessionId`（基础）/ `sessionId::turnsX<n>`（扩容），同时由注册表登记
-    // 「会话 → 键集合」⇒ 拆除时 `dispose(sessionId)` 精确回收全部变体（无需独立登记簿）。
-    const taorLoop = this._taorLoops.getOrCreate(
-      sessionId,
-      () => {
-        const baseMaxTurns =
-          parseInt(configManager.env('MAX_TAOR_TURNS') || '') || 300;
-        // 阶段 2（2026-09-01）：统一循环工厂（mode='batch'）替代直接 createTAORLoop
-        return createChatAgentLoop({
-          mode: 'batch',
-          queryEngine: this.getQueryEngine(),
-          config: {
-            sessionId,
-            maxTurns: multiplier > 1 ? baseMaxTurns * multiplier : baseMaxTurns,
-            /** 启用检查点，每 3 轮自动保存（原值：关闭 + 5 轮） */
-            enableCheckpoint: true,
-            checkpointInterval: 3,
-            // G-3：仅在配置了 verifier 角色时注入（未配置 ⇒ 键不存在，行为零变化）
-            ...(this._verifier.callModel
-              ? { verifierModel: this._verifier.callModel }
-              : {}),
-          },
-        });
+    return getOrCreateTaorLoop(
+      {
+        getQueryEngine: () => this.getQueryEngine(),
+        getVerifierModel: () => this._verifier.callModel,
+        loops: this._taorLoops,
       },
-      multiplier > 1 ? String(multiplier) : undefined
+      sessionId,
+      opts
     );
-    // F2（2026-10-12，预算挂起续跑 Task 3）：把实例登记进活跃注册表
-    // （`checkpoint-handlers` 的 `activeLoops`）。修复前 `registerTAORLoop` 全仓零调用
-    // ⇒ 注册表恒空 ⇒ `handleResumeCheckpoint` 恒 404（batch 手动恢复不可达）。
-    //
-    // 注册键用 **sessionId**（非 `cacheKey`）：端点的寻址键即路径段 sessionId
-    // （`parsePathParams` → `activeLoops.get(params.id)`），而 `cacheKey` 在
-    // `multiplier > 1` 时会带 `::turnsXn` 后缀 ⇒ 用它会令放大实例在端点上寻址失配。
-    //
-    // 2026-10-19（源码排查 D2/D3 修复）：登记从「仅首次创建」改为**每次取用**——
-    // ① 端点/steering 始终指向**最近一次使用**的实例（扩容实例也因此可达，原实现被基础实例
-    //    覆盖后扩容实例在端点上失联）；② 同时把 `cacheKey` 记进会话的键集合，供拆除时精确回收。
-    //
-    // `TAORLoop` **已存在** `getCheckpointsForSession`（`:1662`）⇒ 直接按 `TaorLoopPort`
-    // 结构转发，**不**改 `TAORLoop.ts`（该文件已逼近 R04-001 行数上限）。
-    const activeLoop = taorLoop;
-    registerTAORLoop(sessionId, {
-      getCheckpointsForSession: () => activeLoop.getCheckpointsForSession(),
-      resumeFromCheckpoint: (id?: string) =>
-        activeLoop.resumeFromCheckpoint(id),
-    });
-    return taorLoop;
   }
 
   /**
@@ -1477,94 +1406,6 @@ export class ChatManagerImpl implements ChatManager {
       options
     );
   }
-
-  /**
-   * 构建工具定义列表
-   */
-  /**
-   * 注册表查询工具：按 tool_call_id 获取完整工具执行结果
-   */
-  private static readonly QUERY_TOOL_GET_RESULT: ToolDefinition = {
-    type: 'function',
-    function: {
-      name: 'get_tool_result',
-      description:
-        '查询此前某次工具调用的完整执行结果。当压缩摘要或上下文中的工具结果信息不足以支持后续决策时，使用此工具获取全部细节。参数 tool_call_id 来自 assistant 消息的 tool_calls 数组。',
-      parameters: {
-        type: 'object',
-        properties: {
-          tool_call_id: {
-            type: 'string',
-            description:
-              '工具调用 ID（如 call_xxxx），来自 assistant 消息的 tool_calls 数组中的 id 字段',
-          },
-        },
-        required: ['tool_call_id'],
-      },
-    },
-  };
-
-  /**
-   * 注册表查询工具：列出当前会话的所有工具调用记录
-   */
-  private static readonly QUERY_TOOL_LIST_CALLS: ToolDefinition = {
-    type: 'function',
-    function: {
-      name: 'list_tool_calls',
-      description:
-        '列出当前会话中所有已执行工具的调用记录，包括 tool_call_id、工具名称和所属轮次。可指定 round 参数按轮次过滤。使用 get_tool_result 基于返回的 tool_call_id 查询完整详情。',
-      parameters: {
-        type: 'object',
-        properties: {
-          round: {
-            type: 'number',
-            description:
-              '可选，指定轮次号（从 1 开始）。不传时返回全部轮次记录。',
-          },
-        },
-        required: [],
-      },
-    },
-  };
-
-  /**
-   * C 阶段（2026-09-02，P1，C 详设 §4）：session_lookup — 按事件区间取回被切早期原文。
-   * 分页（每页 ≤2K tokens，nextFromSeq 续页），只读，仅限当前会话。
-   */
-  static readonly SESSION_LOOKUP_TOOL: ToolDefinition = {
-    type: 'function',
-    function: {
-      name: 'session_lookup',
-      description:
-        '取回当前会话中较早的原始对话记录（当上下文压缩/分层未携带早期内容时使用）。支持按事件序号（fromSeq）或从会话开头（offset）分页取回，每页约 2000 tokens；返回的 nextFromSeq 可继续翻页直到取完。',
-      parameters: {
-        type: 'object',
-        properties: {
-          sessionId: { type: 'string', description: '当前会话 id' },
-          fromSeq: {
-            type: 'number',
-            description:
-              '起始事件序号（上一页返回的 nextFromSeq）。不传则从会话开头或按 offset 定位。',
-          },
-          toSeq: {
-            type: 'number',
-            description: '可选，截止事件序号（默认取至一页容量）。',
-          },
-          offset: {
-            type: 'number',
-            description:
-              '可选，从会话开头跳过的事件条数（与 fromSeq 二选一，用于从头翻页）。',
-          },
-          limit: {
-            type: 'number',
-            description:
-              '可选，本页最大事件条数（默认按 token 预算自动折算）。',
-          },
-        },
-        required: [],
-      },
-    },
-  };
 
   /**
    * P2（08-09）：创建 StreamPipeline 实例

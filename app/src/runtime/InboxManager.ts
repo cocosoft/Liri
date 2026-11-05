@@ -1115,6 +1115,54 @@ export class InboxManager {
     return total;
   }
 
+  /**
+   * A3（2026-11-05）：归档回收 —— 删除 `created_at < cutoffMs` 的**终态**条目
+   * （`replied` / `expired` / `dismissed`），覆盖所有已打开的分区库。
+   *
+   * 为什么需要：`_expireOnDb` 只把 pending 置为 `expired`，**从不删行** ⇒ 实测 991 条里
+   * 934 条终态永久占库。`pending` / `processing` 是活动态，任何情况下都不按龄删除。
+   *
+   * 调用方：制品保留调度器（`ArtifactRetention`，5 分钟节拍，30 天口径）。
+   */
+  async purgeOlderThanAllScopes(cutoffMs: number): Promise<number> {
+    let total = 0;
+    if (this.db) total += await this._purgeOnDb(this.db, cutoffMs);
+    for (const db of this.scopedDbs.values()) {
+      total += await this._purgeOnDb(db, cutoffMs);
+    }
+    return total;
+  }
+
+  /** 终态行回收的单一实现（连接由调用方给，语义同 `_expireOnDb`） */
+  private async _purgeOnDb(db: Database, cutoffMs: number): Promise<number> {
+    const deleted = await new Promise<number>((resolve, reject) => {
+      db.run(
+        `DELETE FROM inbox_items
+          WHERE status NOT IN ('pending', 'processing') AND created_at < ?`,
+        [cutoffMs],
+        function (this: { changes: number }, err: Error | null) {
+          if (err) reject(err);
+          else resolve(this.changes);
+        }
+      );
+    });
+    if (deleted === 0) return 0;
+
+    // 关联表只删孤儿（不触碰仍存在的条目）；失败不阻断回收本身
+    try {
+      await new Promise<void>((resolve, reject) => {
+        db.run(
+          `DELETE FROM session_inbox_map WHERE inbox_item_id NOT IN (SELECT id FROM inbox_items)`,
+          (err: Error | null) => (err ? reject(err) : resolve())
+        );
+      });
+    } catch (err) {
+      logger.warn('inbox 归档回收后清理关联表失败', { error: String(err) });
+    }
+    logger.info('inbox_items 归档回收', { count: deleted, cutoffMs });
+    return deleted;
+  }
+
   /** 过期清理的单一实现（连接由调用方给，避免再走 `getDb()` 的当前身份语义） */
   private async _expireOnDb(
     db: Database,

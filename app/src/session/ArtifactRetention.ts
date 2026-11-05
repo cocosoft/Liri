@@ -35,6 +35,7 @@ import { readdir, stat, rm, rmdir } from 'fs/promises';
 import { join } from 'path';
 import { getLogger } from '@openliri/infra/monitoring';
 import { MS_PER_DAY, MS_PER_MINUTE } from '@openliri/infra/constants';
+import { INBOX_RETENTION_DAYS } from '@openliri/infra/constants/common';
 import {
   resolveDataSubDir,
   resolveSnapshotsDir,
@@ -78,6 +79,12 @@ export interface ArtifactRetentionPolicy {
   eventLoopBlockKeepDays: number;
   /** `artifacts/eventloop-blocks` 下最多保留份数（不论年龄，最新优先） */
   eventLoopBlockMaxCount: number;
+  /**
+   * A3（2026-11-05）：`inbox_items` **终态行**（`replied/expired/dismissed`）保留天数。
+   *
+   * 过期只改状态不删行（实测 991 条里 934 条终态永久占库）⇒ 与 transcripts 同口径 30 天。
+   */
+  inboxKeepDays: number;
 }
 
 export const DEFAULT_ARTIFACT_RETENTION: ArtifactRetentionPolicy = {
@@ -94,6 +101,8 @@ export const DEFAULT_ARTIFACT_RETENTION: ArtifactRetentionPolicy = {
   // 探针产物：与 traces 同口径 7 天；单进程最多转储 3 份 ⇒ 30 份足够覆盖多轮取证会话
   eventLoopBlockKeepDays: 7,
   eventLoopBlockMaxCount: 30,
+  // A3：与 transcripts / snapshots 的 30 天口径一致
+  inboxKeepDays: INBOX_RETENTION_DAYS,
 };
 
 export interface RetentionStats {
@@ -110,6 +119,8 @@ export interface ArtifactRetentionReport {
   transcripts: RetentionStats;
   toolResults: RetentionStats;
   eventLoopBlocks: RetentionStats;
+  /** A3：`inbox_items` 终态行回收（`bytesFreed` 恒 0 —— 数据库文件不随行删除收缩） */
+  inbox: RetentionStats;
   elapsedMs: number;
 }
 
@@ -130,6 +141,14 @@ export interface RunArtifactRetentionParams {
   dirs?: ArtifactRetentionDirs;
   /** 时间注入（测试用；缺省 `Date.now()`） */
   now?: number;
+  /**
+   * A3（2026-11-05）：`inbox_items` 终态行回收（入参 cutoff，返回删除行数）。
+   *
+   * **刻意不设缺省实现**：本函数此前是纯文件清理，而 `resolveDbPath()` 指向**真实库** ——
+   * 若默认落到生产库，任何注入隔离目录的用例都会误删真实审批记录。
+   * 生产路径由调度器 `ensureArtifactRetentionScheduler` 显式注入（见 `purgeInboxRows`）。
+   */
+  purgeInbox?: (cutoffMs: number) => Promise<number>;
 }
 
 function emptyStats(): RetentionStats {
@@ -404,6 +423,11 @@ export async function runArtifactRetention(
       cutoffMs: now - policy.eventLoopBlockKeepDays * MS_PER_DAY,
       maxCount: policy.eventLoopBlockMaxCount,
     });
+    // A3（2026-11-05）：inbox 终态行回收（缺省不触碰 DB，见 `purgeInbox` 的注入说明）
+    const inbox = await pruneInboxRows(
+      params.purgeInbox,
+      now - policy.inboxKeepDays * MS_PER_DAY
+    );
 
     const report: ArtifactRetentionReport = {
       traces,
@@ -414,6 +438,7 @@ export async function runArtifactRetention(
       transcripts,
       toolResults,
       eventLoopBlocks,
+      inbox,
       elapsedMs: Date.now() - started,
     };
 
@@ -425,7 +450,8 @@ export async function runArtifactRetention(
       logs.deleted +
       transcripts.deleted +
       toolResults.deleted +
-      eventLoopBlocks.deleted;
+      eventLoopBlocks.deleted +
+      inbox.deleted;
     // 无删除时保持静默（每 5 分钟一条噪音日志没有价值）；有删除则记录可核对的口径
     if (deletedTotal > 0) {
       const withMb = (s: RetentionStats): RetentionStats & { mb: number } => ({
@@ -441,6 +467,7 @@ export async function runArtifactRetention(
         transcripts: withMb(transcripts),
         toolResults: withMb(toolResults),
         eventLoopBlocks: withMb(eventLoopBlocks),
+        inbox,
         policy,
         elapsedMs: report.elapsedMs,
       });
@@ -468,14 +495,36 @@ export async function runArtifactRetention(
 const DEFAULT_RETENTION_INTERVAL_MS = MS_PER_MINUTE * 5;
 let retentionTimer: ReturnType<typeof setInterval> | null = null;
 
+/** A3：生产路径 —— 交给 `runtime` 的 InboxManager（动态导入，避免静态耦合与启动图膨胀） */
+async function purgeInboxRows(cutoffMs: number): Promise<number> {
+  const { inboxManager } = await import('@modules/runtime/InboxManager.js');
+  return inboxManager.purgeOlderThanAllScopes(cutoffMs);
+}
+
+/** A3：inbox 回收的容错壳（未注入 ⇒ 空统计；失败只 warn，不阻断文件清理） */
+async function pruneInboxRows(
+  purge: RunArtifactRetentionParams['purgeInbox'],
+  cutoffMs: number
+): Promise<RetentionStats> {
+  if (!purge) return emptyStats();
+  try {
+    return { deleted: await purge(cutoffMs), bytesFreed: 0 };
+  } catch (err) {
+    logger.warn('inbox 归档回收失败（下一轮重试）', { error: String(err) });
+    return emptyStats();
+  }
+}
+
 export function ensureArtifactRetentionScheduler(
   intervalMs: number = DEFAULT_RETENTION_INTERVAL_MS
 ): void {
   if (retentionTimer) return;
   const runOnce = (): void => {
-    void runArtifactRetention().catch((err: unknown) => {
-      logger.warn('制品保留执行失败（下一轮重试）', { error: String(err) });
-    });
+    void runArtifactRetention({ purgeInbox: purgeInboxRows }).catch(
+      (err: unknown) => {
+        logger.warn('制品保留执行失败（下一轮重试）', { error: String(err) });
+      }
+    );
   };
   runOnce();
   retentionTimer = setInterval(runOnce, intervalMs);

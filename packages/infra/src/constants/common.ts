@@ -146,6 +146,14 @@ export const EFFECT_REPLY_POLL_MS = 15_000;
 export const FS_UNLINK_RETRY_BASE_DELAY_MS = 50;
 
 /**
+ * A3（2026-11-05）：`inbox_items` **终态行**（`replied` / `expired` / `dismissed`）保留天数。
+ *
+ * 与 transcripts / snapshots 的 30 天口径一致；`pending` / `processing` 是活动态，
+ * 任何情况下都不按龄删除（见 `InboxManager.purgeOlderThanAllScopes`）。 @kind A
+ */
+export const INBOX_RETENTION_DAYS = 30;
+
+/**
  * 产品默认语言 / 时区（**唯一真源**）。
  *
  * 口径（`dev_docs/20261013/硬编码统一治理方案-20261013.md` §11 `Q-H2`，2026-10-13 裁定）：

@@ -415,3 +415,46 @@ describe('D3：安全边界', () => {
     expect(second.traces.deleted).toBe(0);
   });
 });
+
+describe('A3：inbox 终态行回收', () => {
+  test('cutoff 由 inboxKeepDays 推出，删除数进 report.inbox', async () => {
+    const dirs = makeRoots();
+    const now = Date.now();
+    let seenCutoff = 0;
+
+    const report = await runArtifactRetention({
+      dirs,
+      now,
+      policy: { inboxKeepDays: 30 },
+      purgeInbox: async (cutoff) => {
+        seenCutoff = cutoff;
+        return 7;
+      },
+    });
+
+    expect(seenCutoff).toBe(now - 30 * DAY);
+    expect(report.inbox).toEqual({ deleted: 7, bytesFreed: 0 });
+  });
+
+  test('未注入 purgeInbox ⇒ 不触碰 DB，report.inbox 为空统计', async () => {
+    const dirs = makeRoots();
+    const report = await runArtifactRetention({ dirs });
+    expect(report.inbox).toEqual({ deleted: 0, bytesFreed: 0 });
+  });
+
+  test('回收抛错只 warn，不影响文件清理结果', async () => {
+    const dirs = makeRoots();
+    const old = fileWithAge(dirs.traces, 'trace_x.jsonl', 30);
+
+    const report = await runArtifactRetention({
+      dirs,
+      purgeInbox: async () => {
+        throw new Error('db down');
+      },
+    });
+
+    expect(existsSync(old)).toBe(false);
+    expect(report.traces.deleted).toBe(1);
+    expect(report.inbox.deleted).toBe(0);
+  });
+});

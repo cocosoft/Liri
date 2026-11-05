@@ -27,7 +27,7 @@
 | 面 | 总数 | core | community |
 |---|---:|---:|---:|
 | 消息通道 | 27 | 26 | 0 |
-| 内建工具 | 69 | 42 | 27 |
+| 内建工具 | 69 | 43 | 26 |
 
 ## 消息通道
 
@@ -84,7 +84,7 @@
 | `cron` | core | `app/tests/chronos/cron.test.ts`（测试文件名） |
 | `doc_generate` | community | —（无专属测试） |
 | `file_convert` | core | `app/tests/tools/FileConvertTool.test.ts`（测试文件名） |
-| `file_edit` | community | —（无专属测试） |
+| `file_edit` | core | `app/tests/tools/fileEditNoMatch.test.ts`（测试文件名） |
 | `file_read` | core | `app/tests/tools/FileReadTool.test.ts`（测试文件名） |
 | `file_write` | core | `app/tests/tools/fileWriteToolPath.test.ts`（测试文件名） |
 | `glob` | core | `app/tests/tools/GlobTool/GlobTool-braces.test.ts`（测试文件名） |

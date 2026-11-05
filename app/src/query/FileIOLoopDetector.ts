@@ -162,7 +162,14 @@ export class FileIOLoopDetector {
     // ① 同一文件的绝对/相对写法归一到**已有键**（详见 `isSameAccessTarget`）；
     // ② 裸 `.`（当前目录）无 cwd 时无法比较 ⇒ **不计入**（漏检不误检），避免
     //    「绝对路径 vs `.`」这种同一目录的两种写法互相叠加（真机 app.log 实证误判）。
-    if (normalizedPath !== '.' && normalizedPath !== '') {
+    //
+    // 2026-11-05 修（真机 app.log：904 次「文件IO循环已被阻止」）：**写不进入重复窗口**。
+    // 旧实现把读与写混在同一个 `recentFiles` 窗口 ⇒ 正常的「读 → 改 → 读 → 改」
+    // 在同一文件上 4 次访问即被判为循环并阻断（含大量 `file_read` 被拦），
+    // 恰好掐断修正文档的手段。现口径：
+    //   - 只有**读**参与窗口计数（连续/交替读同一目标仍会被拦）；
+    //   - 写视为“有进展”⇒ 把该目标从窗口移除，避免“改完再读”被自己的写拖累。
+    if (isRead && normalizedPath !== '.' && normalizedPath !== '') {
       const sameTargetKey = this.recentFiles.find((k) =>
         isSameAccessTarget(k, accessKey)
       );
@@ -170,10 +177,16 @@ export class FileIOLoopDetector {
       if (this.recentFiles.length > this.MAX_RECENT_FILES_TRACK) {
         this.recentFiles.shift();
       }
+    } else if (isWrite && normalizedPath !== '.' && normalizedPath !== '') {
+      this.recentFiles = this.recentFiles.filter(
+        (k) => !isSameAccessTarget(k, accessKey)
+      );
     }
 
     // ── 读循环检测 ──
     if (isRead) {
+      // 读打断“连续写”链（连续 = 中间没有其它 IO）
+      this.currentWrite = null;
       const region =
         offset !== undefined && limit !== undefined
           ? `offset=${offset},limit=${limit}`
@@ -212,6 +225,8 @@ export class FileIOLoopDetector {
 
     // ── 写循环检测 ──
     if (isWrite) {
+      // 写打断“连续读”链（读→改→读 属正常迭代，不叠加读计数）
+      this.currentRead = null;
       const w = this.currentWrite;
       if (
         w &&

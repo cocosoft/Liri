@@ -126,6 +126,51 @@ describe('FileIOLoopDetector', () => {
     });
   });
 
+  describe('读写交替（2026-11-05 口径修正）', () => {
+    test('读→改→读→改 同一文件不算循环（写有进展，不进入重复窗口）', () => {
+      const detector = new FileIOLoopDetector({
+        warningThreshold: 3,
+        blockThreshold: 4,
+      });
+
+      for (let i = 0; i < 4; i++) {
+        const read = detector.checkBeforeAccess('file_read', '/prd.md');
+        expect(read.blocked).toBe(false);
+        const edit = detector.checkBeforeAccess('file_edit', '/prd.md');
+        expect(edit.blocked).toBe(false);
+      }
+    });
+
+    test('写会移除该目标的历史读计数（先读 3 次再写，再读不累积到 4）', () => {
+      const detector = new FileIOLoopDetector({
+        warningThreshold: 3,
+        blockThreshold: 4,
+      });
+
+      detector.checkBeforeAccess('file_read', '/doc.md');
+      detector.checkBeforeAccess('file_read', '/doc.md');
+      detector.checkBeforeAccess('file_read', '/doc.md');
+      detector.checkBeforeAccess('file_edit', '/doc.md');
+
+      const after = detector.checkBeforeAccess('file_read', '/doc.md');
+      expect(after.blocked).toBe(false);
+    });
+
+    test('连续读同一文件仍然会被拦（回归）', () => {
+      const detector = new FileIOLoopDetector({
+        warningThreshold: 3,
+        blockThreshold: 4,
+      });
+
+      detector.checkBeforeAccess('file_read', '/doc.md');
+      detector.checkBeforeAccess('file_read', '/doc.md');
+      detector.checkBeforeAccess('file_read', '/doc.md');
+      expect(detector.checkBeforeAccess('file_read', '/doc.md').blocked).toBe(
+        true
+      );
+    });
+  });
+
   describe('reset', () => {
     test('reset 后所有计数归零', () => {
       const detector = new FileIOLoopDetector({

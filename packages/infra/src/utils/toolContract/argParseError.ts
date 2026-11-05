@@ -75,7 +75,8 @@ export function describeMissingRequiredParams(
   const advice = parseErr
     ? `本次调用的参数 JSON 不完整（原始长度 ${parseErr.rawLength} 字符，通常因单次输出` +
       `达到上限被截断）。请把大文件拆成多次写入（先写骨架，再用同一路径追加/覆盖分段），` +
-      `或缩短单次内容后重试；不要原样重复同一调用。`
+      `或缩短单次内容后重试；编辑类工具请减小 old_string/new_string，或改用 file_write ` +
+      `整段重写；不要原样重复同一调用。`
     : receivedKeys.length === 0
       ? `本次调用未携带任何参数。请按工具定义补全参数后重试（大内容请分段写入）。`
       : '';

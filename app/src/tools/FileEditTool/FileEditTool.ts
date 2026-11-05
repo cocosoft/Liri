@@ -76,6 +76,32 @@ export interface FileEditResult extends FileOperationResult {
 const FILE_EDIT_MAX_FILE_SIZE = 1 * 1024 * 1024 * 1024; // 1 GiB
 
 /**
+ * 单次编辑参数上限（2026-11-05，真机 `app.log` 复盘）：
+ * 整节文档塞进 `old_string/new_string`（原始 JSON 5088 字符）⇒ 输出被截断 ⇒
+ * 参数 JSON 解析失败 ⇒ 模型原样重试、零进展。超限时提前拒绝并给出替代方案。
+ */
+const FILE_EDIT_MAX_ARG_BYTES = 4 * 1024;
+
+/** 同一处连续未命中的 no-progress 上限（超过后文案升级为“禁止原样重试”） */
+const FILE_EDIT_NO_PROGRESS_CAP = 2;
+
+/** 未命中计数有效期：超过 10 分钟的旧失败不再累计（避免跨任务误升级） */
+const FILE_EDIT_NO_PROGRESS_TTL = 10 * 60 * 1000;
+
+/** 同处连续未命中计数（`sessionId:绝对路径:old_string 哈希`） */
+const noProgressStreak = new Map<string, { count: number; at: number }>();
+
+/** FNV-1a 32 位哈希（只用于去重键，不做安全用途） */
+function hashText(text: string): string {
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36);
+}
+
+/**
  * 单次替换的**纯计算**（宿主直写与"经隔离工作区写"共用 —— 2026-10-23 方案 A）。
  *
  * @returns `null` = 未命中 `old_string`（调用方按"未替换"回执）
@@ -225,10 +251,6 @@ import { getToolBaseDir } from '../utils/ToolUtils';
 import { normalizeApprovalPath } from '@openliri/infra/permission';
 const logger = getLogger('tools:FileEditTool:FileEditTool');
 
-function normalizeQuotes(str: string): string {
-  return str.replace(/\u2018|\u2019/g, "'").replace(/\u201c|\u201d/g, '"');
-}
-
 export class FileEditTool extends BaseTool {
   name = TOOL_NAME_CONSTANTS.file_edit;
   description = '通过替换文本编辑文件';
@@ -348,6 +370,56 @@ export class FileEditTool extends BaseTool {
     }
   }
 
+  /**
+   * 2026-11-05：`old_string` 未命中 ⇒ **硬失败**（此前仍回报 "Successfully edited"，
+   * 模型误以为写成功 ⇒ 反复调用同一处、零进展）。同时按「同处连续未命中」升级文案。
+   */
+  private buildNoMatchFailure(
+    context: ToolUseContext,
+    resolvedPath: string,
+    oldString: string,
+    rawPath: string,
+    cache?: FileStateCache | null
+  ): ToolResult<unknown> {
+    const key = `${context.sessionId ?? ''}:${resolvedPath}:${hashText(oldString)}`;
+    if (noProgressStreak.size > 500) noProgressStreak.clear();
+    const prev = noProgressStreak.get(key);
+    // 「读后再试」是允许的：失败之后若发生新的 file_read（快照时间更新），
+    // 说明拿到了新信息 ⇒ 计数重置；否则连击累加。
+    const snapshot = cache?.get(resolvedPath);
+    const stale =
+      prev !== undefined && Date.now() - prev.at > FILE_EDIT_NO_PROGRESS_TTL;
+    const readAfterFailure =
+      prev !== undefined &&
+      snapshot?.timestamp !== undefined &&
+      snapshot.timestamp > prev.at;
+    const streak = (stale || readAfterFailure ? 0 : (prev?.count ?? 0)) + 1;
+    noProgressStreak.set(key, { count: streak, at: Date.now() });
+    const msg =
+      `old_string 未命中，文件未修改（第 ${streak} 次）。` +
+      `请先 file_read 读取 ${rawPath} 确认当前内容，再基于最新文本编辑；` +
+      `若要整段重写，请改用 file_write。` +
+      (streak >= FILE_EDIT_NO_PROGRESS_CAP
+        ? ` 同一处已连续 ${streak} 次未命中：禁止原样重试，先读文件或改用 file_write。`
+        : '');
+    return createToolResult(msg, {
+      success: false,
+      error: msg,
+      newMessages: [{ role: 'system', content: `Error: ${msg}` }],
+    });
+  }
+
+  /** 成功写入后清掉该处的未命中计数 */
+  private clearNoProgress(
+    context: ToolUseContext,
+    resolvedPath: string,
+    oldString: string
+  ): void {
+    noProgressStreak.delete(
+      `${context.sessionId ?? ''}:${resolvedPath}:${hashText(oldString)}`
+    );
+  }
+
   override async execute(
     input: Record<string, unknown>,
     context: ToolUseContext,
@@ -396,20 +468,45 @@ export class FileEditTool extends BaseTool {
         );
       }
 
+      // 2026-11-05：大参数护栏 —— 超限调用会在传输层被截断成“参数为空”，
+      // 模型只看到缺参 ⇒ 原样重试。这里提前拒绝并给出替代方案。
+      const oldBytes = Buffer.byteLength(oldString, 'utf-8');
+      const newBytes = Buffer.byteLength(newString, 'utf-8');
+      if (
+        oldBytes > FILE_EDIT_MAX_ARG_BYTES ||
+        newBytes > FILE_EDIT_MAX_ARG_BYTES
+      ) {
+        const msg =
+          `编辑参数过大（old_string ${oldBytes} 字节 / new_string ${newBytes} 字节，` +
+          `单次上限 ${FILE_EDIT_MAX_ARG_BYTES} 字节）。请拆成多次小范围编辑，` +
+          `或改用 file_write 整段重写；不要原样重试。`;
+        return createToolResult(msg, {
+          success: false,
+          error: msg,
+          newMessages: [{ role: 'system', content: `Error: ${msg}` }],
+        });
+      }
+
       if (replaceAll) {
         // 使用编码感知的文件读取（自动检测 UTF-8 / GBK / GB18030）；
         // 隔离环境内统一按 UTF-8 读取（`cat` 原样输出）
         const content = isolated
           ? await isolated.io.readFile(isolated.isolatedPath)
           : readFileWithEncoding(resolvedPath);
-        const normalizedOld = normalizeQuotes(content).includes(
-          normalizeQuotes(oldString)
-        )
-          ? oldString
-          : oldString;
+        // 2026-11-05：replace_all 先计数 —— 0 命中时 `replaceAll` 会原样写回，
+        // 旧实现仍回报 `replaced: true`（假成功）。未命中统一走硬失败。
+        if (countOccurrences(content, oldString) === 0) {
+          return this.buildNoMatchFailure(
+            context,
+            resolvedPath,
+            oldString,
+            input.file_path as string,
+            cache
+          );
+        }
         // G-8：edit 面护栏只作用于模型新增 delta（见 guardEditDelta）
         const newContent = content.replaceAll(
-          normalizedOld,
+          oldString,
           guardEditDelta(newString, input.file_path as string)
         );
         if (isolated) {
@@ -419,6 +516,7 @@ export class FileEditTool extends BaseTool {
           // B1：编辑成功后更新快照
           if (cache) this.recordSnapshot(cache, resolvedPath);
         }
+        this.clearNoProgress(context, resolvedPath, oldString);
         // 写成功 ⇒ grep 短路缓存失效（否则"写后同 pattern 复查"会回写前的陈旧结果）
         invalidateGrepSearchCache();
         return createToolResult(
@@ -466,14 +564,28 @@ export class FileEditTool extends BaseTool {
           oldString,
           newString,
         });
-        // B1：编辑成功后更新快照
-        if (cache) this.recordSnapshot(cache, result.canonicalPath);
+        // B1：编辑成功后更新快照（未命中时文件未变，不刷新快照）
+        if (result.replaced && cache) {
+          this.recordSnapshot(cache, result.canonicalPath);
+        }
         outcome = {
           linesChanged: result.linesChanged,
           replaced: result.replaced,
           oldStringFound: result.oldStringFound,
         };
       }
+
+      // 2026-11-05：未命中 ⇒ 硬失败（旧实现继续回 "Successfully edited"，见 buildNoMatchFailure）
+      if (!outcome.replaced) {
+        return this.buildNoMatchFailure(
+          context,
+          resolvedPath,
+          oldString,
+          input.file_path as string,
+          cache
+        );
+      }
+      this.clearNoProgress(context, resolvedPath, oldString);
       if (outcome.replaced) {
         // 写成功 ⇒ grep 短路缓存失效（否则"写后同 pattern 复查"会回写前的陈旧结果）
         invalidateGrepSearchCache();

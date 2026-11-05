@@ -152,8 +152,12 @@ describe('G-3 主对话接线守卫', () => {
     // ② 入口 await（在建 TAOR 实例之前；#18 薄委托收敛后入口直连模块函数）
     expect(src).toContain('await ensureVerifierCallModel(this._verifier)');
     // ③ 条件注入：未配置 ⇒ 不出现 `verifierModel` 键
-    expect(src).toContain('...(this._verifier.callModel');
-    expect(src).toContain('{ verifierModel: this._verifier.callModel }');
+    // E 批（2026-11-05）把 TAOR 实例构造外移到 `manager/taorLoopFactory.ts`
+    // ⇒ 宿主只保留取值器，条件注入断言随实现迁到工厂（断言强度不变：两处构造均需条件展开）。
+    expect(src).toContain('getVerifierModel: () => this._verifier.callModel');
+    expect(read('src/chat/manager/taorLoopFactory.ts')).toContain(
+      '...(verifierModel ? { verifierModel } : {})'
+    );
     // ④ 幂等：解析只进行一次
     expect(impl).toContain('if (state.resolved) return state.resolved');
   });

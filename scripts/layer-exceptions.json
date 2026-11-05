@@ -25,7 +25,7 @@
       "ruleId": "R04-001",
       "file": "app/src/chat/ChatManager.ts",
       "targetLines": 2000,
-      "plan": "H-1 阶段化拆分（2026-10-18 续期；2026-11-05 进度回填）：i18n 已按 namespace 切片（zh/en 各 5 片，均 ≤2000，FSZ-109/110 已删除）；ChatManager 当前 2507 行（原 4041）⇒ 目标 ≤2000，剩余 507；已完成 A 批（8 个构造期 helper 装配外移到 manager/assembly.ts，2604 → 2507）；后续：① ≤2026-11-15 会话访问器组外移；② ≤2026-12-15 检查点/压缩面 + getClientForModel/executeTool 薄化；③ ≤2027-01-31 TAOR 生命周期收敛并删除本例外；未达成则重新评估并按同口径续期",
+      "plan": "H-1 阶段化拆分（2026-10-18 续期；2026-11-05 进度回填）：i18n 已按 namespace 切片（zh/en 各 5 片，均 ≤2000，FSZ-109/110 已删除）；ChatManager 当前 2383 行（原 4041）⇒ 目标 ≤2000，剩余 383；已完成 A 批（8 个构造期 helper 装配外移到 manager/assembly.ts）与 B 批（8 个会话访问器/文本投影外移到 manager/sessionAccessors.ts）；后续：① ≤2026-11-15 检查点/压缩面外移；② ≤2026-12-15 getClientForModel/executeTool 薄化；③ ≤2027-01-31 TAOR 生命周期收敛并删除本例外；未达成则重新评估并按同口径续期",
       "expiresAt": "2027-01-31",
       "owner": "@arch-lead"
     }

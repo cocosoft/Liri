@@ -24,11 +24,6 @@ import fs from 'fs';
 import path from 'path';
 
 import { configManager } from '@openliri/infra/config';
-// P1（2026-11-04）：会话级权限模式的取值域（与 PermissionManager 同一真源）
-import {
-  PERMISSION_MODES,
-  type PermissionMode,
-} from '@openliri/infra/permission';
 import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import { repairModelJson } from '@openliri/infra/utils/json';
 import { resolveBaseToolTurns } from './loopTurnLimits.js';
@@ -47,8 +42,6 @@ import {
 } from './services/ChatHelper';
 // A 批外移（2026-11-05）：8 个构造期 helper 的装配收敛到单一工厂
 import { buildChatManagerHelpers } from './manager/assembly';
-// P1（2026-11-04，§3.6）：工作区根列表唯一解析（主根与工具 cwd 同源）
-import { getSessionWorkspaceRoots as resolveSessionWorkspaceRoots } from './manager/workspacePath';
 import type { PendingInteractionEntry } from '@openliri/infra/utils/pendingInteractions';
 // S1（2026-10-19）：会话级缓存统一 dispose 契约（会话 → 键集合）
 import { SessionScopedRegistry } from '@openliri/infra/utils/SessionScopedRegistry';
@@ -75,8 +68,6 @@ import { TaskFacade } from './facades/TaskFacade';
 import { PdcaLauncher } from './launchers/PdcaLauncher';
 // U-22/S1：PDCA 自动启动簇外移（自动建项目 → launch → 决策轨迹）
 import { PdcaLaunchCoordinator } from './manager/pdcaLaunch';
-// BUG-A（2026-10-27）：空输出兜底的**结构化**判定（禁止文案匹配 —— CS02）
-import { isEmptyOutputFallbackMessage } from './terminationOutput';
 // U-22/S2：流式请求准备段外移（输入净化 → 取会话 → abort/锁 → 用户消息落盘）
 import { ChatStreamSetup } from './manager/streamSetup';
 // U-22/S3：消息持久化 / 事件投影簇外移
@@ -1593,127 +1584,11 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
-   * P0-D 配套: 获取会话绑定的真实工作区 ID（项目模块会话 = projectId）
-   * 供 create_project 工具使用，避免 AI 建的项目挂到 sessionId 名下（前端 projects 列表不可见）
+   * 会话元数据 / 文本投影已外移（B 批，2026-11-05）：
+   * `manager/sessionAccessors.ts`（工作区 ID / 严格边界 / 审批模式 / 权限模式 /
+   * 最近 user 文本 / 最近 assistant 文本 / 空输出兜底判定）。
+   * 消费方（`facadeWiring` 端口、工具执行、升级判定）直接调用纯函数，宿主不再保留转发方法。
    */
-  private getSessionWorkspaceId(sessionId?: string): string | undefined {
-    if (!sessionId) return undefined;
-    const session = this._chatSessions.get(sessionId);
-    const metadata = session?.metadata as Record<string, unknown> | undefined;
-    const workspaceId = metadata?.workspaceId as string | undefined;
-    if (!workspaceId) return undefined;
-    // 项目模块下 workspaceId === projectId（sessionSlice 约定），返回真实工作区 ID
-    return workspaceId;
-  }
-
-  /**
-   * U-02 v2 / P3（2026-10-20）：会话是否声明**工作区严格边界**。
-   *
-   * 仅 AlwaysOn 的隔离轮把 `metadata.workspaceStrict` 置 true ⇒ 工具执行层拒绝
-   * 越界的路径入参（绝对路径 / `../`）。其余会话未声明 ⇒ **零行为变更**。
-   */
-  private isSessionWorkspaceStrict(sessionId?: string): boolean {
-    if (!sessionId) return false;
-    const session = this._chatSessions.get(sessionId);
-    const metadata = session?.metadata as Record<string, unknown> | undefined;
-    return metadata?.workspaceStrict === true;
-  }
-
-  /**
-   * B1（2026-10-30，issue #35）：会话的**工作区根列表**（首根 = 主工作区）。
-   *
-   * P1（2026-11-04，方案 §3.6）：实现收敛到 `manager/workspacePath.getSessionWorkspaceRoots`
-   * —— 主根与工具 cwd 同源（`workspacePath` 或 `projectId → sandboxPath`），
-   * `metadata.workspaceRoots` 由用户批准越界申请时追加（见 `runtime/inboxApproval.ts`）。
-   */
-  private getSessionWorkspaceRoots(sessionId?: string): string[] {
-    return resolveSessionWorkspaceRoots(
-      {
-        getSession: (id) => this._chatSessions.get(id),
-        projectSandboxStoreRef: this._projectSandboxStoreRef,
-      },
-      sessionId
-    );
-  }
-
-  /**
-   * PR-3（2026-10-23）：会话级审批模式（会话元数据 `approvalMode`）。
-   *
-   * 只认白名单值：`auto-local` ⇒ 自动执行（仅只读 + 本地写，受 `FEATURE_SESSION_AUTO_LOCAL` 约束）；
-   * 其余（含缺失 / 脏值）一律 `ask` —— 不因未知取值放宽。
-   */
-  private getSessionApprovalMode(sessionId?: string): 'ask' | 'auto-local' {
-    if (!sessionId) return 'ask';
-    const session = this._chatSessions.get(sessionId);
-    const metadata = session?.metadata as Record<string, unknown> | undefined;
-    return metadata?.approvalMode === 'auto-local' ? 'auto-local' : 'ask';
-  }
-
-  /**
-   * P1（2026-11-04）：会话级权限模式（会话元数据 `permission_mode`）。
-   *
-   * 交由 `PermissionManager` 在**每次判定时**读 `context.permissionMode`（不改全局单例 ⇒
-   * 并发会话不串档）。只认 9 个合法值；缺失 / 脏值 ⇒ `undefined`（回退进程默认档）。
-   */
-  private getSessionPermissionMode(
-    sessionId?: string
-  ): PermissionMode | undefined {
-    if (!sessionId) return undefined;
-    const session = this._chatSessions.get(sessionId);
-    const metadata = session?.metadata as Record<string, unknown> | undefined;
-    const raw = metadata?.permission_mode;
-    if (typeof raw !== 'string') return undefined;
-    const normalized = raw.trim().toLowerCase();
-    return PERMISSION_MODES.find((mode) => mode.toLowerCase() === normalized);
-  }
-
-  /**
-   * 最近 N 条 user 消息文本（换行拼接）—— 裸会话升级判定**共用**的取数口径。
-   *
-   * P0-1（2026-09-06）：任务轮内模型可能 `ask_user_question` 澄清，澄清答复会占住"最后一条
-   * user"位置使任务原句被覆盖 ⇒ 聚合最近 3 条（原实现内联于此，2026-09-25 抽出供
-   * "执行意图"与"运行中长任务信号"两个触发方共用 —— CS01）。
-   */
-  private _recentUserText(session: ChatSession, n = 3): string {
-    const userMessages =
-      session.messages?.filter((m) => m.role === 'user') ?? [];
-    return userMessages
-      .slice(-n)
-      .map((m) => {
-        const c = (m as unknown as Record<string, unknown>)?.content;
-        return typeof c === 'string' ? c : '';
-      })
-      .join('\n');
-  }
-
-  /** 最近一条 assistant 消息的文本（升级动作需要 content；无则空串 —— 工具型收尾常为空） */
-  private _lastAssistantText(session: ChatSession): string {
-    const messages = session.messages ?? [];
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const m = messages[i] as unknown as { role?: string; content?: unknown };
-      if (m?.role === 'assistant' && typeof m.content === 'string') {
-        return m.content;
-      }
-    }
-    return '';
-  }
-
-  /**
-   * BUG-A（2026-10-27）：最近一条 assistant 消息是否为「空输出兜底」投影。
-   *
-   * 判定唯一依据是消息 `metadata.emptyOutputFallback`（`computeFinalMessage` 写入的
-   * 结构化标记），**禁止**比对兜底文案本身（CS02）。
-   */
-  private _isLastAssistantOutputFallback(session: ChatSession): boolean {
-    const messages = session.messages ?? [];
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const m = messages[i];
-      if ((m as { role?: string })?.role === 'assistant') {
-        return isEmptyOutputFallbackMessage(m);
-      }
-    }
-    return false;
-  }
 
   /** 裸会话 ⇒ PDCA 编排升级（U-22/S1 外移；单一动作入口，实现在 `manager/pdcaLaunch.ts`） */
   private async _escalateToPdcaViaBareSession(params: {

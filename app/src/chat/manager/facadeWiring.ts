@@ -21,8 +21,6 @@
  */
 
 import { SimpleMutex } from '@openliri/kernel';
-// P1（2026-11-04）：会话级权限模式类型（与 PermissionManager 同一取值域）
-import type { PermissionMode } from '@openliri/infra/permission';
 import type {
   ToolAwareClient,
   ToolDefinition,
@@ -93,6 +91,18 @@ import { isCommandApproved, submitToolApproval } from './toolApproval';
 import { wireCodeRunnerDeps } from './codeRunnerWiring';
 import { shouldUseCodeMode, shouldUsePlanDrivenLoop } from './routing';
 import { getSessionWorkspacePath } from './workspacePath';
+// B 批外移（2026-11-05）：会话元数据 / 文本投影改为纯函数直调（宿主不再保留转发方法）
+import {
+  getSessionApprovalMode,
+  getSessionPermissionMode,
+  getSessionWorkspaceId,
+  isLastAssistantOutputFallback,
+  isSessionWorkspaceStrict,
+  lastAssistantText,
+  recentUserText,
+} from './sessionAccessors';
+// B1（2026-10-30）：会话工作区根列表（首根 = 主工作区）仍由 `workspacePath` 单一实现
+import { getSessionWorkspaceRoots as resolveSessionWorkspaceRoots } from './workspacePath';
 import type { ProjectStoreLike } from './projectSandboxPath';
 import { persistTurnSummary } from '../services/MessageContextPipeline';
 import { assertHostSurface, type AssertNever } from './wiringHostGuard';
@@ -166,13 +176,6 @@ export interface FacadeWiringHost {
     sessionId: string,
     opts?: { maxTurnsMultiplier?: number; privateInstance?: boolean }
   ): TAORLoop;
-  getSessionWorkspaceId(sessionId?: string): string | undefined;
-  isSessionWorkspaceStrict(sessionId?: string): boolean;
-  /** B1（2026-10-30）：多根工作区（首根 = `workspacePath`） */
-  getSessionWorkspaceRoots(sessionId?: string): string[];
-  getSessionApprovalMode(sessionId?: string): 'ask' | 'auto-local';
-  /** P1（2026-11-04）：会话级权限模式（缺省 / 脏值 ⇒ undefined ⇒ 进程默认档） */
-  getSessionPermissionMode(sessionId?: string): PermissionMode | undefined;
   createSession(params: CreateSessionParams): Promise<ChatSession>;
   /** LRO-06：`ProjectStore` 实例缓存（`getSessionWorkspacePath` 端口直连所需） */
   _projectSandboxStoreRef: { current?: ProjectStoreLike };
@@ -182,9 +185,6 @@ export interface FacadeWiringHost {
     event: LiriEvent
   ): Promise<{ ok: boolean; reason?: string; tailSeq: number }>;
   persistSessionMetadata(session: ChatSession): Promise<void>;
-  _recentUserText(session: ChatSession, n?: number): string;
-  _lastAssistantText(session: ChatSession): string;
-  _isLastAssistantOutputFallback(session: ChatSession): boolean;
   _waitForAbortSettled(
     sessionId: string,
     controller: AbortController
@@ -262,19 +262,11 @@ const FACADE_HOST_REQUIRED_KEYS = [
   '_loopDetector',
   '_recovery',
   '_getOrCreateTAORLoop',
-  'getSessionWorkspaceId',
-  'isSessionWorkspaceStrict',
-  'getSessionWorkspaceRoots',
-  'getSessionApprovalMode',
-  'getSessionPermissionMode',
   'createSession',
   '_projectSandboxStoreRef',
   'getStreamTailSeq',
   'appendStreamEvent',
   'persistSessionMetadata',
-  '_recentUserText',
-  '_lastAssistantText',
-  '_isLastAssistantOutputFallback',
   '_waitForAbortSettled',
   'getSessionMachine',
   '_eventLogStore',
@@ -360,7 +352,13 @@ export function wireChatFacades(host: FacadeWiringHost): void {
       return {
         permissionMode: metadata?.permission_mode,
         approvalMode: metadata?.approvalMode,
-        workspaceRoots: host.getSessionWorkspaceRoots(sid),
+        workspaceRoots: resolveSessionWorkspaceRoots(
+          {
+            getSession: (id) => host._chatSessions.get(id),
+            projectSandboxStoreRef: host._projectSandboxStoreRef,
+          },
+          sid
+        ),
       };
     },
     applyReplay: (sid, patch) => {
@@ -446,14 +444,25 @@ export function wireChatFacades(host: FacadeWiringHost): void {
         },
         sid
       ),
-    getSessionWorkspaceId: host.getSessionWorkspaceId.bind(host),
-    isSessionWorkspaceStrict: host.isSessionWorkspaceStrict.bind(host),
+    getSessionWorkspaceId: (sid) =>
+      getSessionWorkspaceId(host._chatSessions, sid),
+    isSessionWorkspaceStrict: (sid) =>
+      isSessionWorkspaceStrict(host._chatSessions, sid),
     // B1（2026-10-30，issue #35）：多根工作区（仅 FEATURE_WORKSPACE_MULTI_ROOT 开启时消费）
-    getSessionWorkspaceRoots: host.getSessionWorkspaceRoots.bind(host),
+    getSessionWorkspaceRoots: (sid) =>
+      resolveSessionWorkspaceRoots(
+        {
+          getSession: (id) => host._chatSessions.get(id),
+          projectSandboxStoreRef: host._projectSandboxStoreRef,
+        },
+        sid
+      ),
     // PR-3（2026-10-23）：会话级审批模式（缺省 ask）
-    getSessionApprovalMode: host.getSessionApprovalMode.bind(host),
+    getSessionApprovalMode: (sid) =>
+      getSessionApprovalMode(host._chatSessions, sid),
     // P1（2026-11-04）：会话级权限模式（缺省 ⇒ 进程默认档）
-    getSessionPermissionMode: host.getSessionPermissionMode.bind(host),
+    getSessionPermissionMode: (sid) =>
+      getSessionPermissionMode(host._chatSessions, sid),
     isCommandApproved: (toolName, input, sid, approvalFingerprint) =>
       isCommandApproved(toolName, input, sid, approvalFingerprint),
     sessionLookup: (args) => host._eventLogStore.sessionLookup(args),
@@ -517,11 +526,11 @@ export function wireChatFacades(host: FacadeWiringHost): void {
     getStreamTailSeq: (sid) => host.getStreamTailSeq(sid),
     appendStreamEvent: (sid, event) => host.appendStreamEvent(sid, event),
     persistSessionMetadata: (session) => host.persistSessionMetadata(session),
-    recentUserText: (session, n) => host._recentUserText(session, n),
-    lastAssistantText: (session) => host._lastAssistantText(session),
+    recentUserText: (session, n) => recentUserText(session, n),
+    lastAssistantText: (session) => lastAssistantText(session),
     // BUG-A（2026-10-27）：长任务信号升级时区分"模型产出"与"空输出兜底"（结构化标记）
     isLastAssistantOutputFallback: (session) =>
-      host._isLastAssistantOutputFallback(session),
+      isLastAssistantOutputFallback(session),
     // LRO-11（2026-10-26）：执行模式可见告知（"仍在普通对话循环"等）
     notifyUser: (sid, text, metadata) => {
       host._msgPersist.addAndPersistMessage(
@@ -607,7 +616,7 @@ export function wireChatFacades(host: FacadeWiringHost): void {
     accumulateSessionMemory: (sid, user, assistant, tokens, toolCalls) => {
       host._memoryManager!.accumulate(sid, user, assistant, tokens, toolCalls);
     },
-    recentUserText: (session, n) => host._recentUserText(session, n),
+    recentUserText: (session, n) => recentUserText(session, n),
     shouldUseCodeMode: (msg) => shouldUseCodeMode(msg),
     escalateToPdcaViaBareSession: (params) =>
       host._escalateToPdcaViaBareSession(params),

@@ -117,6 +117,26 @@ describe('W3 可复现性裁定（演进方案 §3 · 2026-10-21 用户「开启
   });
 });
 
+/**
+ * P36 裁定（2026-11-05 用户「先处理 P36 的默认开启」）：`MESSAGE_OWNERSHIP` 默认开。
+ *
+ * 翻转依据（真机取证）：`ticket_assignments` 803 行**全部 `ended`** ⇒ 读侧恒
+ * `{kind:'none'}`、判定恒 `accept`；且自主执行已默认关（无自主持有者）。
+ * 若有人再把默认改回关，本用例立即变红，强制同步文档与证据。
+ */
+describe('P36 裁定：MESSAGE_OWNERSHIP 默认开', () => {
+  it('无 env 时默认开；`FEATURE_MESSAGE_OWNERSHIP=false` 仍可关闭（逃生）', () => {
+    expect(FEATURE_FLAGS.MESSAGE_OWNERSHIP).toBe(true);
+    delete process.env['FEATURE_MESSAGE_OWNERSHIP'];
+    expect(feature('MESSAGE_OWNERSHIP')).toBe(true);
+
+    touched.push('MESSAGE_OWNERSHIP');
+    process.env['FEATURE_MESSAGE_OWNERSHIP'] = 'false';
+    expect(feature('MESSAGE_OWNERSHIP')).toBe(false);
+    delete process.env['FEATURE_MESSAGE_OWNERSHIP'];
+  });
+});
+
 describe('P1-8 配置契约 · ② 无覆盖时读值 == 声明默认值', () => {
   it('每项在无 `FEATURE_*` 环境变量时，`feature()` == `FEATURE_FLAGS[]`', () => {
     for (const name of SAFETY_SWITCHES) {

@@ -330,7 +330,11 @@ function dedupeCrossMessageToolBlocks(
   return changed ? { ...msg, blocks } : msg;
 }
 
-function SessionHeader() {
+/**
+ * @param inline P2-9（2026-11-05）：内联进全局顶栏（`/chat` 只有一行 header）。
+ *   内联形态不自带背景/边框/内边距，只占剩余横向空间。
+ */
+function SessionHeader({ inline = false }: { inline?: boolean } = {}) {
   const { currentSession, renameSession } = useSessionStore();
   const messages = useChatStore((s) => s.messages);
   const { t } = useTranslation();
@@ -507,9 +511,15 @@ function SessionHeader() {
     setExportOpen(false);
   };
 
+  // P2-9：两种形态共用同一套内容与状态，只有外壳不同
+  const Wrapper = inline ? "div" : "header";
+  const wrapperClass = inline
+    ? "relative flex flex-1 items-center justify-between gap-3 min-w-0"
+    : "relative bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between";
+
   return (
-    // #20 修复：header 补 relative——详情面板 absolute top-full 需以其为定位基准
-    <header className="relative bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between">
+    // #20 修复：wrapper 补 relative——详情面板 absolute top-full 需以其为定位基准
+    <Wrapper className={wrapperClass}>
       <div className="flex items-center gap-3 min-w-0">
         {currentSession ? (
           <>
@@ -686,7 +696,7 @@ function SessionHeader() {
           </div>
         )}
       </div>
-    </header>
+    </Wrapper>
   );
 }
 

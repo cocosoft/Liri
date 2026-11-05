@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import SessionHistorySidebar from "../ChatArea/SessionHistorySidebar";
-import SessionHeader from "../ChatArea/SessionHeader";
 import ChatArea from "../ChatArea/ChatArea";
 import { ChatInspector } from "../ChatInspector";
 import { ErrorBoundary } from "../common/ErrorBoundary";
@@ -25,7 +24,7 @@ export default function ChatPageLayout() {
     <div className="flex flex-1 page-transition-enter overflow-hidden">
       <SessionHistorySidebar />
       <main className="flex-1 flex flex-col min-w-0 bg-gray-50 dark:bg-gray-900">
-        <SessionHeader />
+        {/* P2-9（2026-11-05）：会话标题/轮次/导出现在内联在全局顶栏，本页不再渲染第二行 */}
         <ErrorBoundary>
           <ChatArea />
         </ErrorBoundary>

@@ -1,8 +1,9 @@
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useNotificationStore } from "../../stores/notificationStore";
 import { BellIcon, BookOpenIcon, SearchIcon } from "../../assets/icons";
 import { APP_EVENTS } from "../../constants/events";
+import SessionHeader from "../ChatArea/SessionHeader";
 
 /**
  * 页面顶部 Header
@@ -16,10 +17,15 @@ import { APP_EVENTS } from "../../constants/events";
  * H7/E-4：全局搜索弹窗与 ⌘K 监听已上提到 App 层（应用级能力），
  *         本组件仅派发 open-global-search 事件。
  * H6/E-5：自动更新轮询已上提到 App 层，不再绑定本组件生命周期。
+ *
+ * P2-9（2026-11-05）：顶栏合并为**一行** —— `/chat` 的会话标题/轮次/导出内联到本顶栏，
+ * 不再在其下方额外渲染第二行 `SessionHeader`。全局搜索/帮助/通知仍在右侧常驻，
+ * 品牌保留在最左（三者都不迁移，只合并行高）。
  */
 function Header() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const isChat = useLocation().pathname === "/chat";
 
   // 通知中心
   const openPanel = useNotificationStore((s) => s.openPanel);
@@ -28,10 +34,10 @@ function Header() {
   return (
     <header className="h-14 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4">
       {/* Logo（D-i：Liri 双名——英文 Liri + 中文玲珑鸟） */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-1 min-w-0">
         <button
           onClick={() => navigate("/")}
-          className="flex items-baseline gap-2 hover:opacity-80 transition-opacity"
+          className="flex items-baseline gap-2 hover:opacity-80 transition-opacity flex-shrink-0"
         >
           <img
             src="/liri_logo.png"
@@ -41,14 +47,25 @@ function Header() {
           <h1 className="text-[28px] font-bold leading-none text-gray-900 dark:text-white">
             Liri
           </h1>
-          <span className="text-sm text-gray-400 dark:text-gray-500">
+          <span className="text-sm text-gray-400 dark:text-gray-500 hidden sm:inline">
             {t("header.productZh")}
           </span>
         </button>
+
+        {/* P2-9：会话信息（标题 / 轮次 / 导出）内联进同一条顶栏 */}
+        {isChat && (
+          <>
+            <span
+              aria-hidden
+              className="h-6 w-px bg-gray-200 dark:bg-gray-700 flex-shrink-0"
+            />
+            <SessionHeader inline />
+          </>
+        )}
       </div>
 
       {/* 右上：全局搜索 + 消息中心 */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 flex-shrink-0">
         {/* 全局搜索（Ctrl+K / ⌘K，弹窗由 App 层承载） */}
         <button
           onClick={() =>

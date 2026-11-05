@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **SERVICE-PACKAGE-P35-BRIDGE-CLOSURE**：P35：bridge 收口（上层依赖端口化） —— 验证 tsc0|tests1384|infra0|r8neg0|gates20-0|pull3559-1304；基线 P34 后包程序吞 2030 个 app/src 文件（3559 总文件），靠 8 条 app 别名 + jsx 支撑（详情见 archive/evidence-detail.jsonl#SERVICE-PACKAGE-P35-BRIDGE-CLOSURE）
 - ✅ **SERVICE-PACKAGE-P34-BRIDGE**：P34：bridge 迁入 packages/service —— 验证 tsc0|tests559|infra0|r8neg0|gates17-0；基线 bridge 31 文件在 app/src（1 处 app 层动态 import：../tasks/TaskRegistry）（详情见 archive/evidence-detail.jsonl#SERVICE-PACKAGE-P34-BRIDGE）
 - ✅ **SERVICE-PACKAGE-P33-VOICE**：P33：voice 迁入 packages/service —— 验证 tsc0|voice192|infra0|r8neg0|gates13-0；基线 voice 17 文件在 app/src（2 处运行期 app 出边：CoreAPIImpl / SessionManager）（详情见 archive/evidence-detail.jsonl#SERVICE-PACKAGE-P33-VOICE）
 - ✅ **SERVICE-PACKAGE-P33A-GATE-SURFACE**：P33-a：service 包质量门禁扫描面补齐 —— 验证 tsc0|scripts0|lint5-0|negprobe3；基线 五闸扫描面仅 app/src + packages/infra/src（service 包 203 文件为静默盲区）（详情见 archive/evidence-detail.jsonl#SERVICE-PACKAGE-P33A-GATE-SURFACE）

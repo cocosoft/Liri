@@ -8284,3 +8284,23 @@
 {"id":"SERVICE-PACKAGE-P34-BRIDGE","k":"tests#0","i":0,"c":"app/tests/bridge/acpRemoteExposure.test.ts"}
 {"id":"SERVICE-PACKAGE-P34-BRIDGE","k":"tests#1","i":0,"c":"app/tests/utils/backoffDefaults.test.ts"}
 {"id":"SERVICE-PACKAGE-P34-BRIDGE","k":"tests#2","i":0,"c":"app/tests/core/endpointsSingleSource.test.ts"}
+{"id":"SERVICE-PACKAGE-P35-BRIDGE-CLOSURE","k":"title","i":0,"c":"P35：bridge 收口 —— 残留 3 处上层依赖端口化/窄化，包类型面 3559 → 1304 文件（app/src 2030 → 60）"}
+{"id":"SERVICE-PACKAGE-P35-BRIDGE-CLOSURE","k":"source","i":0,"c":"dev_docs/20261101/infra包化可行性-20261101.md §7.5（P34 半包化代价）→ §7.6（本批收口）"}
+{"id":"SERVICE-PACKAGE-P35-BRIDGE-CLOSURE","k":"reopenWhen","i":0,"c":"① packages/service/tsconfig.json 只剩 axios（bridge 自身第三方依赖）；若再出现 app 侧别名，说明又有包内文件引了 app 模块 ⇒ 按本批范式端口化，而不是补别名；② 剩余 60 个 app/src 文件全是 core 层 acp/**（合法依赖）⇒ acp 迁 kernel 后归零；③ "}
+{"id":"SERVICE-PACKAGE-P35-BRIDGE-CLOSURE","k":"reopenWhen","i":1,"c":"ChannelBridgeCoordinator 是最小结构契约（4 方法），若 bridge 需要 coordinator 更多方法，先扩契约再改调用点。"}
+{"id":"SERVICE-PACKAGE-P35-BRIDGE-CLOSURE","k":"notes","i":0,"c":"① getCoreAPI().getBridgePort()（2 处）→ bridge/runtimePorts 的 setBridgePortProvider + resolveBridgePort，未注入抛错（worktree 隔离不静默降级）；② BridgePort/WorktreeManagerPort 契约 git mv 到 "}
+{"id":"SERVICE-PACKAGE-P35-BRIDGE-CLOSURE","k":"notes","i":1,"c":"packages/service/src/ports/bridgePorts.ts（P30 aiOpsPorts 同口径），app 侧 runtime/api/bridgePorts.ts 留转出 shim（2 个既有引用零改动）；③ @modules/runtime/coordinator 的 3 个 type → 文件内最小结构契约 "}
+{"id":"SERVICE-PACKAGE-P35-BRIDGE-CLOSURE","k":"notes","i":2,"c":"ChannelBridgeCoordinator（断掉 coordinator → tools 链）；④ @modules/channels 桶 → 窄子路径 registry/ChannelRegistry（2 文件）。实测：包 typecheck 3559 → 1304 文件，app/src 2030 → 60（仅 acp），删 8 条 app 别名 +"}
+{"id":"SERVICE-PACKAGE-P35-BRIDGE-CLOSURE","k":"notes","i":3,"c":" jsx。验证：两侧 typecheck 0；20 条门禁全绿；tests/{bridge,channels,utils,constants,core,state} 1384 pass；R8 815 处 + 负向自证点名 bridge/logger/BridgeLogger.ts:1；运行时探针（桶 11 导出 / 端口默认抛错 → 注入可用 / "}
+{"id":"SERVICE-PACKAGE-P35-BRIDGE-CLOSURE","k":"notes","i":4,"c":"adapter 委托与计数正常）。"}
+{"id":"SERVICE-PACKAGE-P35-BRIDGE-CLOSURE","k":"code#0","i":0,"c":"packages/service/src/bridge/runtimePorts.ts"}
+{"id":"SERVICE-PACKAGE-P35-BRIDGE-CLOSURE","k":"code#1","i":0,"c":"packages/service/src/ports/bridgePorts.ts"}
+{"id":"SERVICE-PACKAGE-P35-BRIDGE-CLOSURE","k":"code#2","i":0,"c":"packages/service/src/bridge/BridgeMain.ts"}
+{"id":"SERVICE-PACKAGE-P35-BRIDGE-CLOSURE","k":"code#3","i":0,"c":"packages/service/src/bridge/channel/ChannelBridgeAdapter.ts"}
+{"id":"SERVICE-PACKAGE-P35-BRIDGE-CLOSURE","k":"code#4","i":0,"c":"packages/service/src/bridge/channel/BridgeChannelReporter.ts"}
+{"id":"SERVICE-PACKAGE-P35-BRIDGE-CLOSURE","k":"code#5","i":0,"c":"packages/service/tsconfig.json"}
+{"id":"SERVICE-PACKAGE-P35-BRIDGE-CLOSURE","k":"code#6","i":0,"c":"packages/service/package.json"}
+{"id":"SERVICE-PACKAGE-P35-BRIDGE-CLOSURE","k":"code#7","i":0,"c":"app/src/runtime/api/bridgePorts.ts"}
+{"id":"SERVICE-PACKAGE-P35-BRIDGE-CLOSURE","k":"code#8","i":0,"c":"app/src/bootstrap/preflight.ts"}
+{"id":"SERVICE-PACKAGE-P35-BRIDGE-CLOSURE","k":"tests#0","i":0,"c":"app/tests/bridge/acpRemoteExposure.test.ts"}
+{"id":"SERVICE-PACKAGE-P35-BRIDGE-CLOSURE","k":"tests#1","i":0,"c":"app/tests/channels/MessageRouter.test.ts"}

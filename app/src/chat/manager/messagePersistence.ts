@@ -438,22 +438,32 @@ export class ChatMessagePersistence {
     const streamedTextWritten =
       message.role === 'assistant' &&
       eventLog.hasStreamedTextForMessage(message.id);
+    // N-6（2026-11-06）：续跑路径**只**实时写了 tool_call 事件（没有流式正文事件）——
+    // 此时只过滤 tool_call，正文/思考事件仍要照常写（否则续跑轮的可见正文丢失）。
+    const toolCallsWritten = Boolean(
+      (message.metadata as Record<string, unknown> | undefined)
+        ?.__toolCallsWritten
+    );
     let filteredEvents = events;
     if (
-      (hasStreamedMarker || streamedTextWritten) &&
+      (hasStreamedMarker || streamedTextWritten || toolCallsWritten) &&
       message.role === 'assistant'
     ) {
       const before = events.length;
+      const skipText = hasStreamedMarker || streamedTextWritten;
+      const skipToolCalls = skipText || toolCallsWritten;
       // P0-fix-4（2026-08-23）：流式路径已实时写入 tool_call 事件（工具循环内 tool_start 时），
       // 落盘时同样过滤 assistant/tool_call，避免与实时写入的事件重复（按 id 去重靠过滤实现）。
       filteredEvents = events.filter(
         (e) =>
-          e.type !== 'assistant/text' &&
-          // F-2（2026-09-02）：流式 text 已以 text-batch 聚合事件实时写入，
-          // 最终落盘同样过滤，避免与完整正文双份写入
-          e.type !== 'assistant/text-batch' &&
-          e.type !== 'assistant/thinking' &&
-          e.type !== 'assistant/tool_call'
+          !(
+            skipText &&
+            (e.type === 'assistant/text' ||
+              // F-2（2026-09-02）：流式 text 已以 text-batch 聚合事件实时写入，
+              // 最终落盘同样过滤，避免与完整正文双份写入
+              e.type === 'assistant/text-batch' ||
+              e.type === 'assistant/thinking')
+          ) && !(skipToolCalls && e.type === 'assistant/tool_call')
       );
       const removed = before - filteredEvents.length;
       if (removed > 0) {

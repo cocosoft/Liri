@@ -243,6 +243,25 @@ function compoundRejectHint(reason: string): string {
   return '等价单条写法：改为一条只读的单一命令（不带 && || | ; 与重定向）';
 }
 
+/**
+ * N-7（2026-11-06）：复合只读判定的拒绝原因里，**只有"非只读命令（x）"属可审批形态**。
+ *
+ * 其余原因（重定向 / 命令替换 / 变量展开 / 后台执行 / 引号未闭合 / 变量赋值 / 空段 /
+ * 非常规命令名）都是**结构风险**，维持硬拒（fail-closed）。
+ */
+function isNonReadOnlySegmentReason(reason: string): boolean {
+  return reason.startsWith('非只读命令（');
+}
+
+/**
+ * FIX-15 不回归：PowerShell 包裹命令多段出现时维持硬拒（内层脚本未经 PowerShell 链判定）。
+ * 只有"整条命令仅此一条语句"且调用方显式委托时才放行（见 `delegatedSinglePowerShell`）。
+ */
+const POWERSHELL_WRAPPER_COMMANDS: ReadonlySet<string> = new Set([
+  'powershell',
+  'pwsh',
+]);
+
 /** FIX-16（2026-10-27）：单条只读命令的放行结论（与 `compoundReadOnly` 同一只读族）。 */
 const SINGLE_READONLY_ALLOW: SecurityAnalysisResult = Object.freeze({
   safe: true,
@@ -413,11 +432,13 @@ export class BashSecurityAnalyzer {
     }
 
     // P3-3: allowlist 前缀匹配 —— 含 shell operator 的复合命令**先做逐段只读判定**
-    // （P1-3，2026-10-27）：全段只读 ⇒ 放行；重定向 / 命令替换 / 后台 `&` /
-    // 变量展开 / 任一段非只读 ⇒ **维持原硬拒**。
+    // （P1-3，2026-10-27）：全段只读 ⇒ 放行；重定向 / 命令替换 / 后台 `&` / 变量展开
+    // ⇒ 硬拒；**仅"含非只读段"⇒ 转人工审批**（N-7，2026-11-06：与单条未知命令同口径）。
     // 背景：真机实测 `cd /d X && dir /b`、`dir /s /b *.ts | find /c /v ""` 连审批机会都没有。
     const allowlistCheck = checkBashAllowlist(trimmedCommand);
     let allowlistPendingDeny = false;
+    /** N-7（2026-11-06）：转人工审批时的自定义说明（复合命令含非只读段） */
+    let allowlistAskMessage: string | undefined;
     let compoundVerdict: CompoundReadOnlyVerdict | null = null;
     if (!allowlistCheck.safe) {
       const isShellOperator = allowlistCheck.reason.includes('Shell operator');
@@ -426,17 +447,54 @@ export class BashSecurityAnalyzer {
         if (options.delegatedSinglePowerShell) return DELEGATED_SINGLE_PS_ALLOW;
         compoundVerdict = checkCompoundReadOnly(trimmedCommand);
         if (!compoundVerdict.allowed) {
-          return {
-            safe: false,
-            behavior: 'deny',
-            riskLevel: 'high',
-            // F1：给出**可执行的原因**，让模型改命令而不是反复重试同一条
-            message: `复合命令被拒绝：${compoundVerdict.reason}。仅允许「全段只读」的串联（&& || | ;），且不得含重定向/命令替换/变量/后台执行。${compoundRejectHint(compoundVerdict.reason)}`,
-            matchedPatterns: [
-              `Bash allowlist rejected: ${allowlistCheck.reason}`,
-              `compound-readonly denied: ${compoundVerdict.reason}`,
-            ],
-          };
+          // N-7（2026-11-06 真机）：**结构合法但含非只读段**与"单条未知命令"同口径 ——
+          // 整串转人工审批。此前该形态直接硬拒，而单条 `node --check game.js` 只弹审批
+          // ⇒ 同一意图两条结论，模型还把归因读成"node 不能跑"而不是"整串需要审批"。
+          if (isNonReadOnlySegmentReason(compoundVerdict.reason)) {
+            const segmentBases = compoundVerdict.segments.map(
+              (seg) => seg.trim().split(/\s+/)[0] ?? ''
+            );
+            const dangerousSegments = segmentBases.filter(
+              (cmd) => cmd !== '' && this.checkDangerousBaseCommand(cmd)
+            );
+            // FIX-15 不回归：多段里的 PowerShell 包裹**未经 PowerShell 安全链判定**
+            // （委托只在"整条命令仅此一条语句"时成立）⇒ 不得转审批，维持硬拒。
+            const psWrapperSegments = segmentBases.filter((cmd) =>
+              POWERSHELL_WRAPPER_COMMANDS.has(cmd.toLowerCase())
+            );
+            if (dangerousSegments.length > 0 || psWrapperSegments.length > 0) {
+              // 危险段（sudo / passwd / rm …）或未委托的 PS 包裹仍 fail-closed
+              return {
+                safe: false,
+                behavior: 'deny',
+                riskLevel: 'high',
+                message:
+                  psWrapperSegments.length > 0
+                    ? `复合命令被拒绝：${compoundVerdict.reason}。多段命令里的 PowerShell 包裹（${psWrapperSegments.join('、')}）未经 PowerShell 安全链判定，请拆成单条执行或改用 powershell 工具。${compoundRejectHint(compoundVerdict.reason)}`
+                    : `复合命令包含危险命令（${dangerousSegments.join('、')}），已拒绝执行。`,
+                matchedPatterns: [
+                  `Bash allowlist rejected: ${allowlistCheck.reason}`,
+                  `compound-readonly denied: ${compoundVerdict.reason}`,
+                  'compound-dangerous-segment',
+                ],
+              };
+            }
+            allowlistPendingDeny = true;
+            allowlistAskMessage = `复合命令含非只读段（${compoundVerdict.reason}）：整串包含写操作/未知命令，需人工确认后执行。${compoundRejectHint(compoundVerdict.reason)}`;
+            compoundVerdict = null;
+          } else {
+            return {
+              safe: false,
+              behavior: 'deny',
+              riskLevel: 'high',
+              // F1：给出**可执行的原因**，让模型改命令而不是反复重试同一条
+              message: `复合命令被拒绝：${compoundVerdict.reason}。仅允许「全段只读」的串联（&& || | ;），且不得含重定向/命令替换/变量/后台执行。${compoundRejectHint(compoundVerdict.reason)}`,
+              matchedPatterns: [
+                `Bash allowlist rejected: ${allowlistCheck.reason}`,
+                `compound-readonly denied: ${compoundVerdict.reason}`,
+              ],
+            };
+          }
         }
       } else {
         // FIX-16（2026-10-27）：**单条只读命令**与"多段只读串联"必须同一口径 ——
@@ -532,7 +590,8 @@ export class BashSecurityAnalyzer {
             augmentedResult,
             trustLevel,
             allowlistPendingDeny,
-            allowlistCheck.reason
+            allowlistCheck.reason,
+            allowlistAskMessage
           );
         }
       } catch (err) {
@@ -547,7 +606,8 @@ export class BashSecurityAnalyzer {
       result,
       trustLevel,
       allowlistPendingDeny,
-      allowlistCheck.reason
+      allowlistCheck.reason,
+      allowlistAskMessage
     );
   }
 
@@ -559,7 +619,9 @@ export class BashSecurityAnalyzer {
     result: SecurityAnalysisResult,
     trustLevel: string | undefined,
     allowlistPendingDeny: boolean,
-    allowlistReason: string
+    allowlistReason: string,
+    /** N-7：转审批时的自定义说明（复合命令含非只读段）；缺省走通用文案 */
+    askMessage?: string
   ): SecurityAnalysisResult {
     // 危险命令在任何情况下都不被绕过
     if (result.behavior === 'deny') return result;
@@ -571,6 +633,7 @@ export class BashSecurityAnalyzer {
         safe: false,
         behavior: 'ask',
         message:
+          askMessage ??
           result.message ??
           `命令不在已知安全列表（${allowlistReason}），需人工确认后执行`,
         matchedPatterns: [

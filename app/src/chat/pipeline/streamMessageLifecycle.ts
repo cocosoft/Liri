@@ -371,12 +371,16 @@ export class ChatStreamMessageLifecycle {
       (turnKey === null || turnKey !== this._writeHintMessageId)
     ) {
       this._writeHintMessageId = turnKey;
-      logger.info('reactToolLoop:write_done_should_conclude', {
+      // N-8（2026-11-06 真机）：本条只是**注入收敛提示**（软引导），不是"要结束本轮"的
+      // 判定/信号 —— 原日志名 `write_done_should_conclude` 会被读成"已决定收尾"，
+      // 与随后继续 file_write 的实际行为矛盾。改为与行为一致的命名。
+      logger.info('reactToolLoop:write_done_conclude_hint_injected', {
         tools: processedResults
           .filter((pr) =>
             _WRITE_PRODUCTIVE_TOOLS.has(pr.normalizedToolCall.name)
           )
           .map((pr) => pr.normalizedToolCall.name),
+        hintChars: _WRITE_CONCLUDE_HINT.length,
       });
       built.push({
         role: 'system' as const,

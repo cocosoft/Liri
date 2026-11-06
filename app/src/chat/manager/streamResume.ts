@@ -28,6 +28,7 @@ import type { LoopDetector } from '@modules/query';
 import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI.js';
 import type { Message } from '@modules/session/types/message.js';
 import type { ChatSession } from '@modules/session/types/session.js';
+import type { LiriEvent } from '@modules/session/types/events';
 import { DataSessionStatus } from '@modules/session/types/session.js';
 // P1（2026-11-04）：恢复路径的轮次上限同样按会话 chatMode 放大
 import { resolveChatModeToolTurns } from '../loopTurnLimits.js';
@@ -102,6 +103,17 @@ export interface StreamResumeDeps {
   messageService: MessageService;
   /** 消息落盘（宿主 `_addAndPersistMessage`） */
   addAndPersistMessage: (sessionId: string, message: Message) => Promise<void>;
+  /**
+   * N-6（2026-11-06 真机）：续跑轮实时写 `assistant/tool_call` 事件。
+   *
+   * 原实现只落最终 assistant 消息（无 tool_call 块）⇒ 续跑轮的工具结果在事件回放里成了
+   * **孤儿**（前端只能显示「工具返回 #ID」，没有命令/参数/结构化样式）。这里与流式主路径
+   * （`streamMessageToolLoop` 的 tool_start 分支）同源写事件。
+   */
+  appendStreamEvent: (
+    sessionId: string,
+    event: LiriEvent
+  ) => Promise<{ ok: boolean; reason?: string; tailSeq: number }>;
   /** Token 追踪器（流式水位） */
   unifiedTracker: UnifiedTokenTracker;
   /** 用量记账（宿主唯一入口） */
@@ -446,9 +458,42 @@ export class ChatStreamResume {
         assistantMessage: resumeAssistantMsg,
       });
       let loopStep = await loopIter.next();
+      // N-6：本条消息（续跑轮唯一持久化的 assistant）已写过的 tool_call 事件数
+      let toolCallEventsWritten = 0;
+      // N-6：**被重放**的调用在原始回合已写过 assistant/tool_call 事件（tool_start 在
+      // 审批闸门之前发出）⇒ 不再重复写，避免同一 callId 挂到两条助手消息上（重复工具卡）。
+      const replayedCallIds = new Set(remainingToolCalls.map((tc) => tc.id));
       while (!loopStep.done) {
-        for (const chunk of reactEventsToChunks(loopStep.value, sessionId)) {
+        const reactEvent = loopStep.value;
+        for (const chunk of reactEventsToChunks(reactEvent, sessionId)) {
           yield chunk;
+        }
+        // N-6（2026-11-06）：与流式主路径同口径，在工具启动时写 assistant/tool_call 事件，
+        // 使回放/派生能生成 tool_call 块（否则续跑轮的工具结果只能显示「工具返回 #ID」）。
+        // messageId 固定为续跑轮唯一的 assistant 消息 id（本次续跑不产生逐轮消息）。
+        if (
+          reactEvent.type === 'tool_start' &&
+          !replayedCallIds.has(reactEvent.callId)
+        ) {
+          try {
+            const appended = await deps.appendStreamEvent(sessionId, {
+              type: 'assistant/tool_call',
+              schemaVersion: 1,
+              seq: 0,
+              time: Date.now(),
+              sessionId,
+              data: {
+                toolCallId: reactEvent.callId,
+                name: reactEvent.name,
+                args: reactEvent.input ?? {},
+                messageId: resumeAssistantMsg.id,
+                callSeq: 0,
+              },
+            } as LiriEvent);
+            if (appended.ok) toolCallEventsWritten++;
+          } catch {
+            // @ignore-catch — 事件追加失败不阻断续跑（CS03）
+          }
         }
         loopStep = await loopIter.next();
       }
@@ -471,6 +516,13 @@ export class ChatStreamResume {
       assistantMessage.finishReason = streamAbortController.signal.aborted
         ? 'abort'
         : 'stop';
+      // N-6：tool_call 事件已实时写 ⇒ 落盘时不要由 convertMessage 再生成一遍（避免重复块）
+      if (toolCallEventsWritten > 0) {
+        assistantMessage.metadata = {
+          ...(assistantMessage.metadata ?? {}),
+          __toolCallsWritten: true,
+        };
+      }
       deps.addAndPersistMessage(sessionId, assistantMessage);
 
       return assistantMessage;

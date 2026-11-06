@@ -69,6 +69,62 @@ function normalizeLoadedBlock(block: MessageBlock): MessageBlock {
 }
 
 /**
+ * N-5（2026-11-06 真机）：**端点态**助手片段不参与气泡合并。
+ *
+ * 真机（`session_mw4vwtmp38957bec2f`）：同一轮里先后出现「⏸ 等待审批」「⚠️ 本次未能
+ * 生成回复」「❌ 编排失败」三段收尾文案，Phase 2 把它们合并进**同一个气泡** ⇒ 用户同时
+ * 看到互相矛盾的结论（等待审批 / 未生成 / 已处理 / 异常结束）。
+ *
+ * 端点态片段各自代表一次"停下来的结论"（暂停 / 失败 / 空输出 / 中止），合并只会制造
+ * 矛盾 ⇒ 各自成气泡；正常轮次（`stop` / `tool_calls` / `completed`）的合并行为不变。
+ *
+ * 判据只读**结构化字段**（`metadata.finishReason` / `metadata.terminationReason` /
+ * `metadata.emptyOutputFallback` / 顶层 `finishReason`），禁止比对文案（CS02）。
+ */
+const TERMINAL_ASSISTANT_REASONS: ReadonlySet<string> = new Set([
+  // 等待审批 / 可续中断
+  "awaiting_approval",
+  "empty_output",
+  "output_budget_exhausted",
+  "max_turns",
+  "budget_exhausted",
+  "timeout",
+  "compaction_failed",
+  // 失败 / 中止
+  "error",
+  "internal_error",
+  "reasoning_error",
+  "circuit_breaker",
+  "environment_blocked",
+  "no_progress",
+  "exploration_fatigue",
+  "loop_detected",
+  "aborted",
+  "system_aborted",
+  "canceled",
+]);
+
+function isTerminalAssistantFragment(message: Message): boolean {
+  const meta = message.metadata as Record<string, unknown> | undefined;
+  if (meta?.emptyOutputFallback === true) return true;
+  const finish =
+    typeof meta?.finishReason === "string"
+      ? meta.finishReason
+      : message.finishReason;
+  const termination =
+    typeof message.terminationReason === "string"
+      ? message.terminationReason
+      : typeof meta?.terminationReason === "string"
+        ? meta.terminationReason
+        : undefined;
+  return (
+    (typeof finish === "string" && TERMINAL_ASSISTANT_REASONS.has(finish)) ||
+    (typeof termination === "string" &&
+      TERMINAL_ASSISTANT_REASONS.has(termination))
+  );
+}
+
+/**
  * 加载历史消息时为 assistant 消息重建 blocks 结构
  * 确保 AssistantMessage 组件能正确分组渲染（text / tool_call 等）
  * 如果后端已保存 blocks，则直接使用，否则自动重建。
@@ -183,7 +239,13 @@ export function setMessagesImpl(
 
       const lastIdx = mergedMessages.length - 1;
       const lastMsg = mergedMessages[lastIdx];
-      if (lastMsg && lastMsg.role === "assistant") {
+      if (
+        lastMsg &&
+        lastMsg.role === "assistant" &&
+        // N-5：端点态（暂停/失败/空输出/中止）各自成气泡，不与相邻片段合并
+        !isTerminalAssistantFragment(lastMsg) &&
+        !isTerminalAssistantFragment(msg)
+      ) {
         // 检测：完全相同 content 的重复 assistant → 跳过
         const lastContent = lastMsg.content ?? "";
         const thisContent = msg.content ?? "";

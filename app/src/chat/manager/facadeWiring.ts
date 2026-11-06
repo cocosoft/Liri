@@ -674,6 +674,8 @@ export function wireChatFacades(host: FacadeWiringHost): void {
     messageService: host.messageService,
     addAndPersistMessage: (sid, msg) =>
       host._msgPersist.addAndPersistMessage(sid, msg),
+    // N-6（2026-11-06）：续跑轮实时写 assistant/tool_call 事件（回放能生成工具卡）
+    appendStreamEvent: (sid, event) => host.appendStreamEvent(sid, event),
     unifiedTracker: host.unifiedTracker,
     recordChatResponseUsage: (sid, usage, requestId, model) =>
       host.recordChatResponseUsage(sid, usage, requestId, model),

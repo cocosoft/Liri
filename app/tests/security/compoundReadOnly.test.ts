@@ -161,11 +161,30 @@ describe('BashSecurityAnalyzer：复合只读放行', () => {
     expect(r.behavior).toBe('allow');
   });
 
-  it('含非只读段 ⇒ 仍 deny，且带可读原因（F1）', () => {
+  it('含非只读段 ⇒ 转人工审批（N-7：与单条未知命令同口径）', () => {
     const r = analyzer.analyze('cd X && node script.js');
+    expect(r.behavior).toBe('ask');
+    // 归因必须指向"整串复合命令"，而不是"node 不能跑"
+    expect(r.message ?? '').toContain('复合命令含非只读段');
+    expect(r.message ?? '').toContain('需人工确认');
+    expect(r.matchedPatterns.join(' | ')).toContain('Bash allowlist');
+  });
+
+  it('含危险段（sudo 等）⇒ 仍 deny（fail-closed）', () => {
+    const r = analyzer.analyze('cd X && sudo ls');
     expect(r.behavior).toBe('deny');
-    expect(r.message ?? '').toContain('复合命令被拒绝');
-    expect(r.matchedPatterns.join(' | ')).toContain('compound-readonly denied');
+    expect(r.message ?? '').toContain('危险命令');
+    expect(r.matchedPatterns).toContain('compound-dangerous-segment');
+  });
+
+  it('真机形态：cd + node --check + echo ⇒ ask（此前被硬拒）', () => {
+    const r = analyzer.analyze(
+      'cd output\\mario-verify3 && node --check game.js && echo "CHECK_OK"'
+    );
+    expect(r.behavior).toBe('ask');
+    expect(r.message ?? '').toContain('复合命令含非只读段');
+    // 仍给出可照抄的单条写法（G5 不回归）
+    expect(r.message ?? '').toContain('等价单条写法');
   });
 
   it('重定向 ⇒ 仍 deny，且带可读原因（F1）', () => {
@@ -181,7 +200,8 @@ describe('G5（2026-11-03）：Bash 侧拒绝必须自带「等价单条写法�
 
   it('非只读段 ⇒ 点名该命令并给出拆分写法（真机 seq 1279 / 3221）', () => {
     const r = analyzer.analyze('cd X && if exist x dir /b');
-    expect(r.behavior).toBe('deny');
+    // N-7：改为转人工审批（不再硬拒），但可照抄的等价写法必须保留
+    expect(r.behavior).toBe('ask');
     expect(r.message ?? '').toContain('等价单条写法');
     expect(r.message ?? '').toContain('「if」');
   });

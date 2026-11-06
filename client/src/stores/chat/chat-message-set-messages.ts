@@ -222,7 +222,22 @@ export function setMessagesImpl(
         mergedMessages[lastIdx] = {
           ...lastMsg,
           content: (lastMsg.content || "") + (msg.content || ""),
-          timestamp: lastMsg.timestamp || msg.timestamp,
+          // N-14（2026-11-06 真机）：合并后的气泡按**最后一段**的时序定位。
+          // 原实现沿用首段的 timestamp/lastEventSeq —— 续跑轮次的工具结果没有对应
+          // tool_call 块（派生消息只留收尾助手消息），会作为孤儿消息排在更大 seq 上；
+          // 此时挂在收尾助手消息里的审批卡片被整条合并气泡拖到这些工具结果**之前**，
+          // 用户滚到底部只看到工具返回，看不到「批准/拒绝」（真机复现）。
+          timestamp: Math.max(lastMsg.timestamp || 0, msg.timestamp || 0),
+          ...(typeof msg.lastEventSeq === "number"
+            ? {
+                lastEventSeq: Math.max(
+                  typeof lastMsg.lastEventSeq === "number"
+                    ? lastMsg.lastEventSeq
+                    : 0,
+                  msg.lastEventSeq,
+                ),
+              }
+            : {}),
           blocks: [
             ...(lastMsg.blocks || []),
             ...(Array.isArray(msg.blocks) ? msg.blocks : []).map((b) =>

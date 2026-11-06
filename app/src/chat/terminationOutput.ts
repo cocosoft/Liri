@@ -45,6 +45,43 @@ export const AWAITING_APPROVAL_NOTICE =
   '⏸ 有工具调用正在等待你的审批：请在下方审批卡片（或收件箱）中处理后继续；' +
   '批准后会自动接着执行，无需重发消息。';
 
+/**
+ * N-3（2026-11-06 真机）：本轮**失败**收尾 ⇒ 会话状态落 `error`（列表显示"本轮出错"）。
+ *
+ * 与下方 `resolveTerminationOutput` 的 `switch (reason)` 同源：失败族的收尾原因集中在这里，
+ * 供 `ChatMessagePersistence` 的会话状态收敛判定消费（此前只有 `awaiting_approval` 会写状态，
+ * `circuit_breaker` / `empty_output` 等失败收尾一律留在 `active`）。
+ *
+ * ⚠️ 新增失败类收尾原因时**两处同改**：`switch` 文案 + 本集合。
+ */
+export const FAILED_TURN_REASONS: ReadonlySet<string> = new Set([
+  'error',
+  'internal_error',
+  'reasoning_error',
+  'circuit_breaker',
+  'environment_blocked',
+  'no_progress',
+  'exploration_fatigue',
+  'loop_detected',
+]);
+
+/**
+ * N-3：本轮**可续**收尾（额度/轮次/空输出/连接中断）⇒ 会话状态落 `paused`
+ * （列表显示"已暂停/可恢复"警告，不伪装成故障）。
+ *
+ * `empty_output` / `output_budget_exhausted` 都属"直接回复「继续」即可"的形态；
+ * `timeout` / `compaction_failed` 只在 `metadata.terminationReason` 出现。
+ */
+export const PAUSED_TURN_REASONS: ReadonlySet<string> = new Set([
+  'empty_output',
+  'output_budget_exhausted',
+  'max_turns',
+  'budget_exhausted',
+  'timeout',
+  'compaction_failed',
+  'system_aborted',
+]);
+
 export interface TerminationOutputInput {
   /** 终止原因（唯一来源：`getTerminationReason()`） */
   reason: TerminationReason;

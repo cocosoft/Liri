@@ -37,6 +37,8 @@ import {
 } from '../planOutputParser';
 import type { Plan } from '../TaskOrchestrator';
 import { TaskStatus } from '../types';
+// N-3（2026-11-06）：规划阶段失败 ⇒ 终态 PDCA 事件（否则前端「编排进行中」永不收敛）
+import { emitPdcaLiveEvent } from '../PdcaLiveEvents';
 import {
   normalizeExecutorResult,
   PLANNER_ROLE,
@@ -326,6 +328,22 @@ ${replanSection}
       action: 'executePlanPhase',
       context: { taskId: deps.taskId },
     });
+    // N-3（2026-11-06 真机）：规划阶段失败 = 本轮编排**已结束**，必须发终态事件。
+    // 此前 `PLAN_PARSE_FAILED` 直接抛给调用方（只落可见回执 + handleError），前端
+    // orchestrationStore 的最新事件停在 `pdca:auto_launched` ⇒ 浮动栏永久显示
+    // 「PDCA 编排进行中」。放在本文件的统一 catch 里，覆盖规划阶段的全部失败出口。
+    void emitPdcaLiveEvent(
+      'pdca:stage:fail',
+      { taskId: deps.taskId, sessionId },
+      {
+        stage: 'plan',
+        // 状态取值走枚举（状态字面量棘轮：`'failed'` 不得裸写）
+        status: TaskStatus.FAILED,
+        message: `PDCA 规划失败：${
+          e instanceof Error ? e.message : String(e)
+        }`.slice(0, 200),
+      }
+    );
     otel.recordError(span, e instanceof Error ? e : new Error(String(e)));
     otel.endSpan(span, SpanStatusCode.ERROR, String(e));
     throw e;

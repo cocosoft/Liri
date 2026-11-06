@@ -43,6 +43,8 @@ import { buildAssistantTimingData } from '../services/timingEvent';
 import { notifySessionMetaUpdated } from '../services/sessionMetaBroadcast';
 // P1-2：`awaiting_approval` 的**唯一事实源**（状态字面量棘轮要求，见 stateMachineCatalog）
 import { TRANSIENT_AWAITING_APPROVAL } from '../services/ToolExecutionService';
+// N-3（2026-11-06）：失败/可续收尾原因的**单一分类表**（与收尾文案同源，见 terminationOutput）
+import { FAILED_TURN_REASONS, PAUSED_TURN_REASONS } from '../terminationOutput';
 
 const logger = getLogger('chat:manager');
 
@@ -97,40 +99,94 @@ export function shouldRejectEmptyAssistantMessage(message: Message): boolean {
   return !blockTypes.includes('text') && !blockTypes.includes('tool_call');
 }
 
+/** 用户重新发言可"重开"的状态（不碰 archived/ended 等生命周期态） */
+const REOPENABLE_STATES: ReadonlySet<DataSessionStatus> = new Set([
+  DataSessionStatus.REQUIRES_ACTION,
+  DataSessionStatus.PAUSED,
+  DataSessionStatus.ERROR,
+]);
+
 /**
- * P1-2（2026-11-06）：会话状态随「等待审批」推进（**纯判定**，导出便于单测）。
+ * 取本轮收尾原因（**结构化字段**，禁止比对收尾文案，CS02）。
  *
- * 真机问题：回合以 `awaiting_approval` 收尾时会话状态仍是 `active` ⇒ 会话列表里
- * 看不出"卡在等你批"，也无法与"正在跑"区分（台账 §29 P1-2）。
+ * 三个来源的先后：ReAct 主循环落的 `metadata.finishReason` → SSE 终块落的
+ * `metadata.terminationReason`（`timeout` / `compaction_failed` 只有后者）→ 消息顶层
+ * `finishReason`（无工具循环时由 StreamPipeline 写 provider 的 stop reason）。
+ */
+function turnEndReason(
+  message: Pick<Message, 'role' | 'metadata' | 'finishReason'>
+): string | undefined {
+  const meta = message.metadata as
+    | { finishReason?: unknown; terminationReason?: unknown }
+    | undefined;
+  if (typeof meta?.finishReason === 'string') return meta.finishReason;
+  if (typeof meta?.terminationReason === 'string') {
+    return meta.terminationReason;
+  }
+  return typeof message.finishReason === 'string'
+    ? message.finishReason
+    : undefined;
+}
+
+/**
+ * P1-2 / N-3（2026-11-06）：一轮结束后会话状态的**收敛判定**（纯函数，导出便于单测）。
+ *
+ * 真机问题（§35 → §N-3）：
+ * - §35 只覆盖了 `awaiting_approval` ⇒ 该态现在能正确落 `requires_action`；
+ * - 但 `empty_output` / `output_budget_exhausted` / `circuit_breaker` 等**失败收尾**
+ *   一律不写状态 ⇒ `GET /v1/sessions/{id}` 仍是 `active`，列表也看不出"上一轮没跑完"。
+ *
+ * 口径：失败 ⇒ `error`；可续的中断 ⇒ `paused`；等待审批 ⇒ `requires_action`；
+ * 正常完成（`stop` / `completed` …）**不改**（`active` 表示"可继续对话"，不是"正在跑"）。
+ * 用户重新发言 ⇒ 可重开态回到 `active`（否则徽标会永久挂住）。
+ *
  * 本函数只决定**该写成什么**，落盘与失败降级由调用方负责。
  *
  * @param message      本次落盘的消息
  * @param currentState 会话当前内存态
  * @returns 需要迁移到的状态；`null` = 保持不变
  */
-export function resolveApprovalSessionState(
-  message: Pick<Message, 'role' | 'metadata'>,
+export function resolveSessionStateAfterMessage(
+  message: Pick<Message, 'role' | 'metadata' | 'finishReason'>,
   currentState: DataSessionStatus
 ): DataSessionStatus | null {
-  const finishReason = (
-    message.metadata as { finishReason?: unknown } | undefined
-  )?.finishReason;
-  if (
-    message.role === 'assistant' &&
-    finishReason === TRANSIENT_AWAITING_APPROVAL
-  ) {
-    return currentState === DataSessionStatus.REQUIRES_ACTION
-      ? null
-      : DataSessionStatus.REQUIRES_ACTION;
+  if (message.role === 'user') {
+    return REOPENABLE_STATES.has(currentState)
+      ? DataSessionStatus.ACTIVE
+      : null;
   }
-  // 用户重新发言（没走审批卡片）⇒ 视为"已处理"，回到正常态
-  if (
-    message.role === 'user' &&
-    currentState === DataSessionStatus.REQUIRES_ACTION
-  ) {
-    return DataSessionStatus.ACTIVE;
+  if (message.role !== 'assistant') return null;
+
+  const reason = turnEndReason(message);
+  if (!reason) return null;
+
+  let next: DataSessionStatus | null = null;
+  if (reason === TRANSIENT_AWAITING_APPROVAL) {
+    next = DataSessionStatus.REQUIRES_ACTION;
+  } else if (FAILED_TURN_REASONS.has(reason)) {
+    next = DataSessionStatus.ERROR;
+  } else if (PAUSED_TURN_REASONS.has(reason)) {
+    next = DataSessionStatus.PAUSED;
   }
-  return null;
+  // 幂等：已是目标态 ⇒ 不重复落盘/广播
+  return next === currentState ? null : next;
+}
+
+/**
+ * P1-2 / N-3：内存态（`DataSessionStatus`）→ 存储态（`SessionStatus`）显式映射。
+ * 两套枚举值域相同但**不 cast**，避免任一侧新增成员时被静默吞掉。
+ */
+function toStoredSessionStatus(state: DataSessionStatus): SessionStatus {
+  switch (state) {
+    case DataSessionStatus.PAUSED:
+      return SessionStatus.PAUSED;
+    case DataSessionStatus.ERROR:
+      return SessionStatus.ERROR;
+    case DataSessionStatus.REQUIRES_ACTION:
+      return SessionStatus.REQUIRES_ACTION;
+    default:
+      return SessionStatus.ACTIVE;
+  }
 }
 
 export class ChatMessagePersistence {
@@ -288,26 +344,23 @@ export class ChatMessagePersistence {
   }
 
   /**
-   * P1-2（2026-11-06）：把「等待审批 / 用户已处理」的会话状态**同步到存储**。
+   * P1-2 / N-3（2026-11-06）：把「回合收尾 / 用户重开」的会话状态**同步到存储**。
    *
    * 内存态与存储态是两套模型（`ChatSession.state` ⇄ `UnifiedSession.status`），
    * 本方法做一次显式映射（不 cast，避免两套枚举漂移被静默掩盖）。
    * 仅在**状态真的变化**时落盘；落盘失败只 warn（下次落消息会再同步，CS03）。
    */
   private syncConversationState(session: ChatSession, message: Message): void {
-    const next = resolveApprovalSessionState(message, session.state);
+    const next = resolveSessionStateAfterMessage(message, session.state);
     if (!next) return;
     session.state = next;
     void (async () => {
       try {
         const stored = await this.deps.sessionGateway.getSession(session.id);
         if (!stored) return;
-        stored.status =
-          next === DataSessionStatus.REQUIRES_ACTION
-            ? SessionStatus.REQUIRES_ACTION
-            : SessionStatus.ACTIVE;
+        stored.status = toStoredSessionStatus(next);
         await this.deps.sessionGateway.updateSession(stored);
-        logger.info('会话状态已同步（审批等待/恢复）', {
+        logger.info('会话状态已同步（回合收尾）', {
           sessionId: session.id,
           state: next,
         });

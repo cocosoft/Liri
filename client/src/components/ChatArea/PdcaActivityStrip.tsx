@@ -53,6 +53,47 @@ export const PROGRESS_EVENT_TYPES: string[] = [
 
 export const AUTO_LAUNCHED_TYPE = "pdca:auto_launched";
 
+/**
+ * N-3（2026-11-06 真机）：**终态**事件类型 —— 编排本轮已结束（完成 / 失败 / 中止）。
+ *
+ * 后端在链条终态统一发 `pdca:stage:complete`（`status` 取 completed/failed/cancelled），
+ * 规划阶段失败补发 `pdca:stage:fail`。它们仍属于「活跃事件」用于渲染进度卡，
+ * 但**不得**再被判定为"编排进行中"——否则完成后浮动栏永久显示「PDCA 编排进行中」
+ * （真机 §N-3：`PLAN_PARSE_FAILED` 之后一直挂着）。
+ */
+export const TERMINAL_PDCA_EVENT_TYPES: string[] = [
+  "pdca:stage:complete",
+  "pdca:stage:fail",
+];
+
+/** 该事件是否代表编排本轮**已结束** */
+export function isTerminalPdcaEvent(ev: PdcaLiveEventPayload): boolean {
+  return TERMINAL_PDCA_EVENT_TYPES.includes(ev.type);
+}
+
+/**
+ * N-3：会话的 PDCA 入口判定（纯函数；`usePdcaEntry` 与单测共用）。
+ *
+ * `visible` 只表示"编排**仍在进行**"：最新事件是终态（完成/失败/中止）⇒ 隐藏入口，
+ * 避免浮动栏与徽标永久显示「PDCA 编排进行中」。终态的详情仍可从消息内
+ * `PdcaWorkflowCard` 查看（它独立消费事件，不受本判定影响）。
+ */
+export function resolvePdcaEntry(
+  timeline: PdcaLiveEventPayload[],
+  latest: Record<string, PdcaLiveEventPayload>,
+  sessionId: string | undefined
+): { visible: boolean; taskId?: string } {
+  if (!sessionId) return { visible: false };
+  const ev = findLatestEvent(timeline, latest, sessionId, [
+    ...PROGRESS_EVENT_TYPES,
+    AUTO_LAUNCHED_TYPE,
+  ]);
+  return {
+    visible: !!ev && !isTerminalPdcaEvent(ev),
+    taskId: ev?.taskId ?? ev?.planId ?? undefined,
+  };
+}
+
 /** 阶段胶囊元信息结构（PdcaWorkflowCard 复用，P2-A）
  *  `label` 为语言中立字面量（Plan/Do/Check/Act、PDCA）；需翻译的文案走 `labelKey`，
  *  由渲染处经 `metaLabel` 解析（i18n 残留收尾）。 */

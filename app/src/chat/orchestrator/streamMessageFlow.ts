@@ -90,6 +90,8 @@ import { prepareStream } from './streamMessagePrepare.js';
 import { makeEventEmitter } from './streamMessageEvents.js';
 // P2-1d-3（2026-10-10，同上 §3-S6）：截断/降级的**纯决策**（动作留在本函数）
 import { decideTruncationStep } from './streamMessageTruncationStep.js';
+// N-12 后续（2026-11-06）：chunk 间等待的 10s 心跳切片（等待逻辑外移，控制本函数体积）
+import { awaitNextChunkWithHeartbeat } from './chunkIdleWait.js';
 // P2-1e（2026-10-10，同上 §3-S2/S7）：所有权释放（唯一释放点）随终态提交片段外移
 // `./streamMessageFinalize`（U-18/S7，2026-10-18）⇒ 本文件不再直接引用。
 // P2-1h（2026-10-10，同上 §3-S4）：流式水位上报（节流决策 + 双载荷；动作留在本函数）
@@ -1186,32 +1188,27 @@ export async function* runStreamMessage(
             };
             yield thinkingChunk;
           }
-          // M1-T1.2（2026-08-31）：chunk 间空闲竞速超时——TTFB 已有 300s 硬超时，
-          // 但流中途 provider 停滞（TCP 半开/推理服务僵死）会无限挂住 chunk 循环
-          // （abort 依赖 provider 正确响应 signal，非确定性）。与 sleep 竞速，
-          // 超时抛错走既有中断 catch 路径（system/error 落盘 + STREAM_INTERRUPTED）。
+          // M1-T1.2（2026-08-31）：chunk 间空闲竞速超时 —— provider 中途停滞（TCP 半开/
+          // 推理服务僵死）会挂住 chunk 循环（abort 依赖 provider 正确响应 signal）。
+          // N-12 后续（2026-11-06）：改为 10s 一片 + 心跳日志（`chunk_idle_heartbeat`），
+          // 不再是一次 120s 静默竞速（等待逻辑见 `./chunkIdleWait`）。
           const IDLE_CHUNK_TIMEOUT_MS = Number(
             configManager.env('STREAM_IDLE_TIMEOUT_MS') ?? '120000'
           );
-          const nextPromise = gen.next();
-          const settledNext = await Promise.race([
-            nextPromise.then((v) => ({ timedOut: false as const, value: v })),
-            sleep(IDLE_CHUNK_TIMEOUT_MS).then(() => ({
-              timedOut: true as const,
-              value: null,
-            })),
-          ]);
-          if (settledNext.timedOut) {
-            // 丢弃挂起的 next，让 gen 在后续 GC 时终止（provider signal 已 abort 兜底）
-            void nextPromise.catch(() => {});
-            throw new AppError(
-              `流式响应停滞超过 ${Math.round(IDLE_CHUNK_TIMEOUT_MS / 1000)}s（模型无输出），流已终止。可重试或检查推理服务状态。`,
-              ErrorCategory.EXECUTION,
-              ErrorSeverity.HIGH,
-              'STREAM_IDLE_TIMEOUT'
-            );
-          }
-          result = settledNext.value;
+          result = await awaitNextChunkWithHeartbeat({
+            next: gen.next(),
+            timeoutMs: IDLE_CHUNK_TIMEOUT_MS,
+            timeoutMessage: `流式响应停滞超过 ${Math.round(IDLE_CHUNK_TIMEOUT_MS / 1000)}s（模型无输出），流已终止。可重试或检查推理服务状态。`,
+            onHeartbeat: ({ waitedMs, remainingMs }) =>
+              logger.warn('streamMessage:chunk_idle_heartbeat', {
+                sessionId: session.id,
+                model: turnModel ?? 'unknown',
+                waitedMs,
+                remainingMs,
+                timeoutMs: IDLE_CHUNK_TIMEOUT_MS,
+                accumulatedContentLength: accumulatedContent.length,
+              }),
+          });
         }
         // 流结束：flush 剩余 thinking 增量（KB-EVENT-BATCH）
         await flushThinkingEvents();

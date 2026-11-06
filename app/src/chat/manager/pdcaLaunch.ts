@@ -21,7 +21,8 @@
  */
 
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { isAbsolute, join } from 'node:path';
+import { statSync } from 'node:fs';
 
 import { getLogger } from '@openliri/infra/monitoring';
 import { patternFeatureFlag, selectPattern } from '@modules/query/patterns';
@@ -44,8 +45,31 @@ import { WorkItemStore } from '../../workspace/WorkItemStore.js';
 import { resolveDataDir } from '@openliri/infra/environment';
 import { eventNotificationService } from '../services/EventNotificationService.js';
 import type { PdcaLauncher } from '../launchers/PdcaLauncher';
+// P2-2（2026-11-06）：项目目标摘要（短指令 ⇒ 取助手计划标题）
+import { buildProjectGoalSummary } from '../launchers/planSource';
 
 const logger = getLogger('chat:manager');
+
+/**
+ * P2-1（2026-11-06）：会话已有**显式工作区**时返回它（绝对路径 + 真实目录）。
+ *
+ * 真机缺陷（`session_mw458fpp3ea32a050e`）：会话工作区 `E:\…\PY_APP`（产物 `output/tetris`），
+ * 自动建项目却用默认 `~/Documents/LiriProjects/<id>` ⇒ 项目沙箱是**空目录**；前端跳转后
+ * `metadata.workspacePath` 被改成空目录，模型下一轮再也找不到本轮产物。
+ * 口径：只用**客户端显式选择**且**真实存在**的目录；否则回退既有默认（零行为变更）。
+ */
+export function resolveExistingSessionWorkspace(
+  session: ChatSession
+): string | undefined {
+  const value = session.metadata?.workspacePath;
+  if (typeof value !== 'string' || !value || !isAbsolute(value))
+    return undefined;
+  try {
+    return statSync(value).isDirectory() ? value : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 /**
  * 项目名/描述防护（2026-10-31 P1-4）：系统提示类文本（`你是 …` / `You are …` 模板句）
@@ -204,10 +228,12 @@ export class PdcaLaunchCoordinator {
     forceDecompose?: boolean;
   }): Promise<void> {
     const { session, assistantContent, lastUserContent } = params;
-    const goalSummary = lastUserContent
-      .replace(/\s+/g, ' ')
-      .trim()
-      .slice(0, 30);
+    // P2-2（2026-11-06）：短指令（"按计划执行"）时项目名取助手计划的标题，
+    // 避免出现「按计划直接执行 全部执行 P0-P6 …」这类拼接式项目名。
+    const goalSummary = buildProjectGoalSummary(
+      lastUserContent,
+      assistantContent
+    );
     const projectId = await this.autoCreateProject(session, undefined, {
       hasGoal: true,
       deliverables: 1,
@@ -621,10 +647,14 @@ export class PdcaLaunchCoordinator {
         return existingProjectId;
       }
 
+      // P2-1（2026-11-06）：会话已有显式工作区 ⇒ 项目沙箱落在同一目录，
+      // 避免"新项目 = 空目录 + 工作区被切走"导致本轮产物失联（真机会话实证）。
+      const sessionWorkspace = resolveExistingSessionWorkspace(session);
       const project = projectStore.create({
         workspaceId: bindingWorkspaceId ?? 'default',
         name: projectName,
         description: descriptionText,
+        ...(sessionWorkspace ? { sandboxPath: sessionWorkspace } : {}),
         delaySandbox: true,
       });
 
@@ -668,6 +698,8 @@ export class PdcaLaunchCoordinator {
         projectId: project.id,
         sessionId: session.id,
         deliverables: result.deliverables,
+        sandboxPath: project.sandboxPath,
+        reusedSessionWorkspace: Boolean(sessionWorkspace),
       });
 
       // P0 增强：通知前端导航到新项目

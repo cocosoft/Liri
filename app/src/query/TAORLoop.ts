@@ -21,7 +21,7 @@ import { renderGoalTemplate } from '@openliri/infra/constants/goalTemplates';
 // 阶段 A（N-28 修复）：yield 轮次登记（与 stream 路径 ReActToolLoop 共用同一实现）
 import { registerYieldFromResults } from '../session/yield';
 import { RoundProgressTracker } from './taor/roundProgress.js';
-import { toFileIoLoopBlocked } from './taor/helpers.js';
+import { toFileIoLoopBlocked, hasAwaitingApproval } from './taor/helpers.js';
 import {
   messageProjector,
   resolveContextWindow,
@@ -1009,6 +1009,7 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       allSucceeded: rawResults.every((r) => !r?.error),
       anyAborted: false,
       yielded: yieldedEntry !== null,
+      awaitingApproval: hasAwaitingApproval(rawResults),
     };
   }
 
@@ -1734,7 +1735,7 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
   /** A2（2026-09-05）：TAOR stopReason → 统一终止原因（A 档：委托纯映射函数，
    *  显式收口 loop_detected/timeout，杜绝未知原因被折叠成 completed 的误判） */
   override getTerminationReason(): TerminationReason {
-    return mapTaorStopReasonToTermination(this.stopReason);
+    return mapTaorStopReasonToTermination(this.stopReason, this.state.phase);
   }
 
   /** A2：预算耗尽终止由 stopReason 判别（供骨架钩子） */

@@ -27,6 +27,17 @@ const logger = getLogger('chat:reactToolLoop');
 export const EMPTY_OUTPUT_FALLBACK_TEXT =
   '\n\n⚠️ 本次未能生成回复（模型本轮未产出可见内容，可能因输出被截断或空回复重试已达上限）。请重发消息或换个问法重试。';
 
+/**
+ * 2026-11-06（审批根因簇 P0-2）：等待审批的收尾提示 —— **单一文案来源**。
+ *
+ * 流式路径由 `resolveTerminationOutput('awaiting_approval')` 拼进助手消息；
+ * 非流式（TAOR）路径没有 finalize 消息，由 `ChatOrchestrator` 用它补一条助手消息
+ * ⇒ 两条路径的用户可见文案逐字一致，不出现第二份硬编码。
+ */
+export const AWAITING_APPROVAL_NOTICE =
+  '⏸ 有工具调用正在等待你的审批：请在下方审批卡片（或收件箱）中处理后继续；' +
+  '批准后会自动接着执行，无需重发消息。';
+
 export interface TerminationOutputInput {
   /** 终止原因（唯一来源：`getTerminationReason()`） */
   reason: TerminationReason;
@@ -303,6 +314,12 @@ export function resolveTerminationOutput(
     case 'compaction_failed':
       suffix = `\n\n⚠️ 上下文压缩未能生效（连续压不动且上下文已吃紧），本轮已停止继续执行。你可以重试、精简上下文，或新开一个会话继续。`;
       break;
+    // 2026-11-06（审批根因簇 P0-2）：等待审批不是失败也不是完成——必须在收尾文案里
+    // 明确告诉用户"批准后会自动继续"，否则用户只看到一段莫名其妙的停顿。
+    case 'awaiting_approval':
+      finishReason = 'awaiting_approval';
+      suffix = `\n\n${AWAITING_APPROVAL_NOTICE}`;
+      break;
     // 无专属文案的原因（正常完成 / 其余子类专属 stop reason）：是否兜底取决于正文是否
     // 为空 —— 见下方统一兜底（一期 F1-1）。
     case 'completed':
@@ -408,6 +425,9 @@ export function mapTerminationToGoalReason(
     case 'completed':
     case 'verifier_escalate':
     case 'diminishing_returns':
+    // 2026-11-06（审批根因簇 P0-3）：等待审批是**中性暂停**（用户侧有待办），
+    // 不是无进展也不是中断 ⇒ 不落目标原因码，避免把暂停记成目标退化。
+    case 'awaiting_approval':
       return null;
     default: {
       // 穷尽断言：新增 TerminationReason 成员而未在此映射 ⇒ 编译失败

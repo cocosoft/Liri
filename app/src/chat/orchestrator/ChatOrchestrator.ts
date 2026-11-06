@@ -43,6 +43,7 @@ import {
 import { guardFinalOutput } from '../finalOutputGuard.js';
 // BUG-E 补口（2026-10-27 真机复验）：TAOR 路径末轮无可见文本时补同源兜底
 import {
+  AWAITING_APPROVAL_NOTICE,
   buildEmptyReplyFallback,
   isEmptyOutputFallbackMessage,
 } from '../terminationOutput.js';
@@ -807,6 +808,8 @@ export class ChatOrchestrator {
                   turnCount: number;
                   totalTokens: number;
                   stopReason: string;
+                  /** E1①：统一终止原因（审批暂停等骨架相位据此透出） */
+                  terminationReason?: string;
                 }>;
               };
               // G-T3-1（2026-10-12）：续跑（`resumeSuspendedSession` 的 taor 分支）登记的
@@ -857,11 +860,14 @@ export class ChatOrchestrator {
                 messages: taorMessages,
                 deps,
               });
+              const awaitingApproval =
+                taorResult.terminationReason === 'awaiting_approval';
               logger.info('sendMessage TAORLoop 完成', {
                 sessionId: session.id,
                 turns: taorResult.turnCount,
                 tokens: taorResult.totalTokens,
                 reason: taorResult.stopReason,
+                terminationReason: taorResult.terminationReason,
               });
               this.host.onTurnEnd?.();
               // TAORLoop 已持久化消息，取会话最后一条 assistant 作为返回值
@@ -873,11 +879,34 @@ export class ChatOrchestrator {
                 : undefined;
               if (lastAssistant) assistantMessage = lastAssistant;
 
-              // BUG-E 补口（2026-10-27 真机复验）：TAOR 的 finalize 不产出消息 ⇒ 末轮
-              // "无可见文本"时返回值 content 为空（实测 13:57:17Z `stopReason=diminishing_returns`
-              // + HTTP `contentLength=0`，用户零答复）。与 ReAct 路径同源兜底（同一常量/判据）。
-              // 已是兜底消息则不重复追加（幂等）。
-              if (!isEmptyOutputFallbackMessage(lastAssistant)) {
+              // 2026-11-06（审批根因簇 P0-2）：TAOR 在"工具已提交审批"时立即收尾，
+              // 但 finalize 不产出消息 ⇒ 不补一条用户可见提示的话，用户只看到一片空白
+              //（且会被下方 BUG-E 兜底误报成"本次未能生成回复"）。文案与流式路径同源。
+              if (awaitingApproval) {
+                const alreadyNotified =
+                  (
+                    lastAssistant?.metadata as
+                      | Record<string, unknown>
+                      | undefined
+                  )?.finishReason === 'awaiting_approval';
+                if (!alreadyNotified) {
+                  const noticeMsg =
+                    this.host.messageService.createAssistantMessage(
+                      AWAITING_APPROVAL_NOTICE,
+                      { sessionId: session.id }
+                    );
+                  noticeMsg.metadata = {
+                    ...(noticeMsg.metadata ?? {}),
+                    finishReason: 'awaiting_approval',
+                  };
+                  this.host.addAndPersistMessage(session.id, noticeMsg);
+                  assistantMessage = noticeMsg;
+                }
+              } else if (!isEmptyOutputFallbackMessage(lastAssistant)) {
+                // BUG-E 补口（2026-10-27 真机复验）：TAOR 的 finalize 不产出消息 ⇒ 末轮
+                // "无可见文本"时返回值 content 为空（实测 13:57:17Z `stopReason=diminishing_returns`
+                // + HTTP `contentLength=0`，用户零答复）。与 ReAct 路径同源兜底（同一常量/判据）。
+                // 已是兜底消息则不重复追加（幂等）。
                 const emptyFallback = buildEmptyReplyFallback(
                   lastAssistant?.content as
                     | string

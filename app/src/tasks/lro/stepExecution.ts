@@ -655,7 +655,20 @@ export async function executeSingleStep(
           criticalEvidence
         ) + readBackEvidence;
       const terminationReason = result.terminationReason;
-      if (isNonConvergedTermination(terminationReason)) {
+      if (terminationReason === 'awaiting_approval') {
+        // 2026-11-06（审批根因簇 P0-2）：TAOR 遇"工具已提交审批"即收尾 ⇒ 本步是**暂停**，
+        // 不是"预算内未收敛"，更不是完成。批准后由 resumeStream 续跑；
+        // 此处如实落 failed（不计完成），避免 review/目标门把暂停当成就绪。
+        taskOrchestrator.markStepFailed(
+          step.id,
+          `[AWAITING_APPROVAL] 步骤因工具审批暂停，批准后会自动续跑（turns=${result.turnCount}）`,
+          {
+            partialOutput: stepEvidence,
+            terminationReason,
+            toolOutcomes,
+          }
+        );
+      } else if (isNonConvergedTermination(terminationReason)) {
         // U-02（2026-10-19）：预算耗尽但未收敛 ⇒ **不得**记为 completed。
         // 原实现无条件 markStepCompleted ⇒ review 只审 completed 步骤、目标门也可能
         // 看到"步骤全过"而形成假完成。改落 failed 并保留终止原因（resume 扩容续跑据此选候选）。

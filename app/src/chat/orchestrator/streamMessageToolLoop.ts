@@ -436,9 +436,19 @@ export async function* runStreamToolLoop(
     // D3（2026-09-25，`.trae/specs/long-task-routing.md` §3.6）：**运行中长任务信号** ⇒ 交宿主
     // 按**既有**升级通道处理（是否升级由 `chat/longTaskEscalation.ts` 的闸门判定：裸会话 +
     // 轮次闸 ≥2 + 非 Code Mode）。宿主未实现该缝（测试桩）⇒ 不升级，行为不变。
+    // 2026-11-06（审批根因簇 P0-2）：因「等待审批」而收尾**不是任务阶段结束** ——
+    // 不得当成"长任务信号"去自动升级 PDCA（真机 `session_mw458fpp3ea32a050e` 因此在
+    // 审批暂停时建出 goal = 三句用户原话的空项目，随后步骤全部 step_blocked）。
+    // 批准后 resumeStream 会接着跑，真正的长任务信号留到实际收尾时再判。
+    const awaitingApprovalStop =
+      loop.getTerminationReason() === 'awaiting_approval';
     try {
       const longTask = loop.getLongTaskSignal();
-      if (longTask.isLongTask && host.onLongTaskSignal) {
+      if (
+        !awaitingApprovalStop &&
+        longTask.isLongTask &&
+        host.onLongTaskSignal
+      ) {
         await host.onLongTaskSignal(session, {
           pendingTodoCount: longTask.pendingTodoCount,
           consumedTurns: longTask.consumedTurns,

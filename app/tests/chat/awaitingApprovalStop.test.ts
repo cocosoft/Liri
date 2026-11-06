@@ -1,0 +1,233 @@
+// MIT License
+// Copyright (c) 2026 190615273@qq.com
+//
+// 2026-11-06（审批根因簇 P0-1/P0-2/P0-3）回归锁。
+//
+// 真机 `session_mw458fpp3ea32a050e` 的三条实证：
+//   ① 单回合 33 分钟 / 200 轮 —— 工具返回 `awaiting_approval` 后模型继续跑，
+//      15 张审批卡全部在回合内过期；
+//   ② 批准后 `resumeStream` 打印「所有工具已完成，无需恢复」—— 等待审批的调用
+//      被记成了"已答"，无处重放；
+//   ③ `tool/canceled` 补发会把等待审批的调用也标成已答（events 重建路径同样失联）。
+//
+// 本文件的用例均为「修复前必失败」：
+//   - 循环在提交审批后立即收尾（不再调用第二次 LLM）；
+//   - 终止原因 = `awaiting_approval`，收尾文案明确告知"批准后自动继续"；
+//   - `awaiting_approval` 的 tool/result **不算已答**（events 重建仍能重放）；
+//   - 从落盘消息中能捞出待重放的 tool_call id。
+
+import { describe, it, expect } from 'bun:test';
+import { ReActToolLoop } from '../../src/chat/ReActToolLoop.js';
+import type { ToolLoopContext } from '../../src/chat/ToolLoopRunner.js';
+import type { ChatResponse, ChatMessage } from '@modules/ai';
+import {
+  mapTerminationToGoalReason,
+  resolveTerminationOutput,
+} from '../../src/chat/terminationOutput.js';
+import {
+  extractAwaitingApprovalToolCallIds,
+  extractPendingToolCallsFromEvents,
+} from '../../src/chat/utils/pendingToolCalls.js';
+import type { LiriEvent } from '@modules/session/types/events';
+
+const AWAITING_PAYLOAD = {
+  status: 'awaiting_approval',
+  message: '工具 bash 需要审批，已提交审批卡片等待用户批准',
+  pendingApproval: true,
+  inboxId: 'inbox-1',
+};
+
+function makeCtx(): { ctx: ToolLoopContext; llmCalls: () => number } {
+  let callCount = 0;
+  const nextResponse = (): ChatResponse => {
+    callCount++;
+    if (callCount === 1) {
+      return {
+        content: '',
+        stop_reason: 'tool_calls',
+        tool_calls: [
+          {
+            id: 'tc-bash',
+            name: 'bash',
+            arguments: { command: 'bun test' },
+          },
+        ],
+      } as ChatResponse;
+    }
+    // 若循环没有在审批处收尾，就会走到这里（本用例断言 llmCalls === 1）
+    return { content: '不应到达', stop_reason: 'stop' } as ChatResponse;
+  };
+  const ctx = {
+    session: { id: 'sess-awaiting-approval', messages: [] },
+    options: {},
+    abortSignal: new AbortController().signal,
+    executeTool: async (toolCall: { id: string; name: string }) => ({
+      toolCallId: toolCall.id,
+      toolName: toolCall.name,
+      result: AWAITING_PAYLOAD,
+      error: undefined,
+    }),
+    pendingInteractions: new Map(),
+    loopDetector: {
+      detect: () => ({ stuck: false }),
+      recordToolCallOutcome: () => {},
+      recordTurn: () => {},
+    },
+    messageService: {
+      createToolResultMessage: (result: unknown) => ({
+        id: 'tool-msg',
+        content: String(result),
+      }),
+      createAssistantMessage: (content: string) => ({
+        id: 'assistant-msg',
+        content,
+        role: 'assistant',
+      }),
+    },
+    addAndPersistMessage: () => {},
+    checkpointService: { saveCheckpointWithData: async () => undefined },
+    streamingCheckpoint: { onToolCompleted: async () => undefined },
+    activeClient: {
+      streamMessage: async function* (
+        _messages: ChatMessage[],
+        _options: Record<string, unknown>
+      ): AsyncGenerator<string, ChatResponse> {
+        return nextResponse();
+      },
+      sendMessage: async () => nextResponse(),
+      getProviderId: () => 'mock',
+    },
+    unifiedTracker: {
+      resetStreamTokens: () => {},
+      updateBaselineForRound: () => {},
+    },
+    recordChatResponseUsage: () => {},
+    toolResultRegistry: {
+      storeResult: () => {},
+      getCurrentRound: () => 0,
+      nextRound: () => 1,
+    },
+    toolRegistry: { getTool: () => undefined },
+    toolDefinitions: [],
+    buildToolRoundMessages: (m: Record<string, unknown>[]) => m,
+    maxToolTurns: 8,
+    estimateMessagesTokens: () => 0,
+  } as unknown as ToolLoopContext;
+  return { ctx, llmCalls: () => callCount };
+}
+
+function makeInput() {
+  return {
+    apiMessages: [{ role: 'user', content: '跑测试' }],
+    currentToolCalls: [],
+    assistantMessage: null,
+    nonStreaming: true,
+  } as never;
+}
+
+async function drain(loop: ReActToolLoop): Promise<void> {
+  for await (const _e of loop.run(makeInput())) {
+    /* consume */
+  }
+}
+
+describe('P0-2：工具提交审批 ⇒ 本回合立即收尾（不再空转）', () => {
+  it('只调用一次 LLM，终止原因为 awaiting_approval，收尾文案告知"批准后自动继续"', async () => {
+    const { ctx, llmCalls } = makeCtx();
+    const loop = new ReActToolLoop(ctx, makeInput(), { maxIterations: 8 });
+    await drain(loop);
+
+    // 修复前：模型带着"已提交审批"继续下一轮（真机 200 轮），llmCalls 会是 2
+    expect(llmCalls()).toBe(1);
+    expect(loop.getTerminationReason()).toBe('awaiting_approval');
+    const tip = loop.getTerminationTip();
+    expect(tip).toContain('等待你的审批');
+    expect(tip).toContain('批准后会自动接着执行');
+  });
+
+  it('终止输出映射：awaiting_approval 有专属文案，且不落目标原因码（中性暂停）', () => {
+    const out = resolveTerminationOutput({
+      reason: 'awaiting_approval',
+      iteration: 1,
+      maxIterations: 8,
+      isLongTaskSignal: false,
+      droppedToolCallsAtStop: 0,
+      maxTotalDurationMs: 3 * 60 * 60 * 1000,
+    });
+    expect(out.finishReason).toBe('awaiting_approval');
+    expect(out.suffix).toContain('等待你的审批');
+    expect(mapTerminationToGoalReason('awaiting_approval')).toBeNull();
+  });
+});
+
+describe('P0-1：awaiting_approval 不算"已答"（否则批准后无物可重放）', () => {
+  it('events 重建：awaiting_approval 的 tool/result 不计入 answered，仍在 pending', () => {
+    const events = [
+      {
+        type: 'assistant/tool_call',
+        data: {
+          toolCallId: 'tc-bash',
+          name: 'bash',
+          args: { command: 'bun test' },
+          messageId: 'm1',
+        },
+      },
+      {
+        type: 'tool/result',
+        data: {
+          toolCallId: 'tc-bash',
+          result: JSON.stringify(AWAITING_PAYLOAD),
+          isError: false,
+        },
+      },
+    ] as unknown as LiriEvent[];
+
+    const { pending, answered } = extractPendingToolCallsFromEvents(events);
+    // 修复前：answered 含 tc-bash ⇒ pending 为空 ⇒ 「所有工具已完成，无需恢复」
+    expect(answered.has('tc-bash')).toBe(false);
+    expect(pending.map((p) => p.toolCallId)).toEqual(['tc-bash']);
+  });
+
+  it('负向对照：普通工具结果仍然算已答（不得因本次改动反复重放）', () => {
+    const events = [
+      {
+        type: 'assistant/tool_call',
+        data: { toolCallId: 'tc-ok', name: 'grep', args: {} },
+      },
+      {
+        type: 'tool/result',
+        data: { toolCallId: 'tc-ok', result: '{"matches":[]}', isError: false },
+      },
+    ] as unknown as LiriEvent[];
+
+    const { pending, answered } = extractPendingToolCallsFromEvents(events);
+    expect(answered.has('tc-ok')).toBe(true);
+    expect(pending).toEqual([]);
+  });
+
+  it('从落盘消息中提取待重放的 tool_call id（content 块形态）', () => {
+    const ids = extractAwaitingApprovalToolCallIds([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool_result',
+            value: JSON.stringify(AWAITING_PAYLOAD),
+            toolCallId: 'tc-bash',
+          },
+        ],
+      },
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool_result',
+            value: JSON.stringify({ matches: [] }),
+            toolCallId: 'tc-grep',
+          },
+        ],
+      },
+    ]);
+    expect([...ids]).toEqual(['tc-bash']);
+  });
+});

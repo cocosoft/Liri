@@ -1360,8 +1360,29 @@ export class ReActToolLoop extends ReActLoop<
           results.some((r) => r.status === 'aborted' || r.status === 'timeout'),
         // 注意：`registerYieldFromResults` 未命中时返回 **null**（非 undefined）
         yielded: yieldedEntry !== null,
+        // 2026-11-06（审批根因簇 P0-2）：任一工具已提交审批 ⇒ 本轮收尾（不再跑下一轮 reason）。
+        // 判据取自**已执行结果**（串行与并发批次都汇入 processedResults），
+        // 与 `isPendingApproval` 同一结构化字段，不解析文案（CS02）。
+        awaitingApproval: processedResults.some(
+          (pr) =>
+            (pr.result as { result?: { pendingApproval?: unknown } })?.result
+              ?.pendingApproval === true
+        ),
       };
     } finally {
+      // 2026-11-06（审批根因簇 P0-2）：等待审批的调用**不是**孤儿——它已落
+      // `tool/result`（awaiting_approval）且会在批准后被 resumeStream 重放。
+      // 若在此补发 `tool/canceled`，事件侧会把它标记为"已答"（answered），
+      // reboot 恢复将永不重放（这正是"批准后什么都没发生"的另一半根因）。
+      const awaitingApprovalIds = new Set(
+        processedResults
+          .filter(
+            (pr) =>
+              (pr.result as { result?: { pendingApproval?: unknown } })?.result
+                ?.pendingApproval === true
+          )
+          .map((pr) => pr.normalizedToolCall.id)
+      );
       // B-2（2026-08-23）：工具调用未完成终态补发——已写 tool_call 事件
       // （toolCallSeqMap 有记录）但未完成的工具，补发 tool/canceled，保证事件流
       // 有完整终态（回放/日志不再把"已放弃"误显示为"进行中"；ask_user_question
@@ -1369,6 +1390,7 @@ export class ReActToolLoop extends ReActLoop<
       try {
         for (const tc of calls) {
           if (this.loopState.completedToolCallIds.includes(tc.id)) continue;
+          if (awaitingApprovalIds.has(tc.id)) continue; // 等待审批 ⇒ 保留待重放
           if (!this.ctx.toolCallSeqMap?.has(tc.id)) continue; // 未发 tool_call 事件
           await this.streamingLlm.appendStreamEvent('tool/canceled', {
             toolCallId: tc.id,

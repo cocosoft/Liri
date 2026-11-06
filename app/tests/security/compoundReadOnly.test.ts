@@ -9,6 +9,7 @@
  */
 import { describe, expect, it } from 'bun:test';
 import { checkCompoundReadOnly } from '@openliri/infra/security/compoundReadOnly';
+import { stripHarmlessRedirects } from '@openliri/infra/security/compoundReadOnly';
 import { BashSecurityAnalyzer } from '@openliri/infra/security/BashSecurityAnalyzer';
 
 describe('checkCompoundReadOnly：正向（全段只读）', () => {
@@ -200,5 +201,40 @@ describe('G5（2026-11-03）：Bash 侧拒绝必须自带「等价单条写法�
   it('非常规命令名（路径前缀）⇒ 给出裸命令名写法', () => {
     const r = analyzer.analyze('C:\\Windows\\System32\\cmd.exe /c dir; dir');
     expect(r.message ?? '').toContain('裸命令名');
+  });
+});
+
+// ─── P1-3（2026-11-06，审批/熔断根因簇）：丢弃型重定向不得让单条命令落入"复合"硬拒 ───
+describe('P1-3：`2>&1` / `2>nul` 不再触发复合命令硬拒', () => {
+  const analyzer = new BashSecurityAnalyzer();
+
+  it('单条非只读命令 + 静音重定向 ⇒ ask（保留审批），不再 deny', () => {
+    // 真机：`bun test 2>&1` 连续 4 次被 deny，报文误写成"非只读命令（bun）"
+    const r = analyzer.analyze('bun test 2>&1');
+    expect(r.behavior).toBe('ask');
+    expect(r.message ?? '').not.toContain('复合命令被拒绝');
+  });
+
+  it('只读命令 + 静音重定向 ⇒ 仍按只读放行', () => {
+    expect(analyzer.analyze('dir /b 2>nul').behavior).toBe('allow');
+    expect(analyzer.analyze('where /r C:\\Users csdnc 2>nul').behavior).toBe(
+      'allow'
+    );
+  });
+
+  it('负向：写文件型重定向仍 deny（不得被顺带放行）', () => {
+    const r = analyzer.analyze('bun test > out.txt');
+    expect(r.behavior).toBe('deny');
+    expect(r.message ?? '').toContain('重定向');
+  });
+
+  it('stripHarmlessRedirects：只剥离丢弃/合并型，写文件型原样保留', () => {
+    expect(stripHarmlessRedirects('bun test 2>&1')).toBe('bun test');
+    expect(stripHarmlessRedirects('dir /b 2>nul')).toBe('dir /b');
+    expect(stripHarmlessRedirects('ls /tmp 2>/dev/null')).toBe('ls /tmp');
+    expect(stripHarmlessRedirects('bun test > out.txt')).toBe(
+      'bun test > out.txt'
+    );
+    expect(stripHarmlessRedirects('dir 2>nulx')).toBe('dir 2>nulx');
   });
 });

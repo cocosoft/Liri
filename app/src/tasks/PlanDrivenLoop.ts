@@ -109,6 +109,13 @@ export interface PlanDrivenLoopConfig {
   taskId?: string;
   /** OBS/C3（2026-09-06）：所属项目 ID（事件携带供前端按项目过滤） */
   projectId?: string;
+  /**
+   * P2-2（2026-11-06）：会话工作区路径（与工具 cwd 同源）。
+   *
+   * 注入后每个步骤 prompt 会带上"所有文件读写以此目录为准"，避免模型声称
+   * "没有文件路径/工具"而空转（真机 step1 5 秒即 `step_blocked`）。
+   */
+  workspacePath?: string;
   /** P0-2（2026-09-06）：pitfall 记录钩子（P1-2 pitfall 注册表接入点；未注入则 no-op，批次隔离） */
   recordPitfall?: (rec: {
     stepId: string;
@@ -173,6 +180,9 @@ export interface PlanDrivenLoopConfig {
  * 连续 2 步受阻已足以判定"缺的是同一个前提"，继续跑只会等比例浪费 token 与时间。
  */
 const MAX_CONSECUTIVE_BLOCKED_STEPS = 2;
+
+/** P2-2（2026-11-06）：步骤 prompt 注入的任务源上限（防超长计划吃满上下文） */
+const MAX_STEP_PLAN_CHARS = 6000;
 
 /**
  * PR8（#9）：PDL run 级 token 总账上限——多步任务各 step 独立满额预算会导致
@@ -413,6 +423,15 @@ export class PlanDrivenLoop {
   private budgetExhausted: boolean = false;
   /** 2026-11-02：连续自述"受阻"的步数（达 `MAX_CONSECUTIVE_BLOCKED_STEPS` ⇒ 熔断剩余步骤） */
   private _consecutiveBlockedSteps: number = 0;
+  /**
+   * P2-2（2026-11-06）：本次 run 的**完整任务源**（用户原话 + 助手计划正文）。
+   *
+   * 为什么不用 `plan.description`：Plan 实体的 description 截断到 200 字（UI 标题口径），
+   * 用它做步骤 prompt 的"总体目标锚点"时，计划正文在第 200 字后被丢掉。
+   */
+  private planSource: string = '';
+  /** P2-2：会话工作区（与工具 cwd 同源；未注入则步骤 prompt 不写该行） */
+  private readonly workspacePath?: string;
 
   constructor(config: PlanDrivenLoopConfig) {
     this.taorLoop = config.taorLoop;
@@ -421,6 +440,7 @@ export class PlanDrivenLoop {
     this.sessionId = config.sessionId;
     this.taskId = config.taskId;
     this.projectId = config.projectId;
+    this.workspacePath = config.workspacePath;
     this.recordPitfall = config.recordPitfall;
     this.pitfallRetriever = config.pitfallRetriever;
     this.enableAutoDecompose = config.enableAutoDecompose === true;
@@ -462,6 +482,8 @@ export class PlanDrivenLoop {
     this.totalTokens = 0;
     this.aborted = false;
     this.budgetExhausted = false;
+    // P2-2（2026-11-06）：保存完整任务源，供每步 prompt 回锚（Plan.description 只有 200 字）
+    this.planSource = userMessage;
     // B2（2026-09-04）：每次 run 前 reset——TAORLoop 实例可能跨消息/跨 step 复用，
     // 不 reset 则上一轮 stopped/turnCount/守卫残留会导致本轮 reason 早退（空转/无输出）
     this.taorLoop.reset();
@@ -725,6 +747,23 @@ export class PlanDrivenLoop {
     // 用空壳 deps（executeTools 返回 []）覆盖注入，导致快速路径"空转无工具"。
     const result = await this._runCollect(userMessage);
     this.totalTokens += result.totalTokens;
+    // 2026-11-06（审批根因簇 P0-2）：审批暂停 **≠** 直接执行完成。
+    // TAOR 现在遇到"工具已提交审批"即收尾（不再空转到 maxTurns）⇒ 若仍按 completed
+    // 播报，会把"等用户批准"粉饰成"任务完成"（CS06）。批准后由 resumeStream 续跑。
+    if (result.terminationReason === 'awaiting_approval') {
+      return this._buildResult(false, [
+        {
+          stepId: 'direct',
+          description: userMessage.slice(0, 100),
+          state: 'failed',
+          output: '',
+          error: '等待工具审批：批准后会自动续跑（本轮不计完成）',
+          durationMs: Date.now() - this.startTime,
+          turnCount: result.turnCount,
+          tokenCount: result.totalTokens,
+        },
+      ]);
+    }
     // OBS（M1a）：direct 完成 → phase + complete（独立通道，非会话消息）
     void emitPdcaLiveEvent(
       'pdca:stage:phase',
@@ -1221,7 +1260,16 @@ export class PlanDrivenLoop {
           // 2026-11-02（根因修复）：**目标是否达成**由本步结论标记判定，不由"LLM 回合是否
           // 正常返回文本"判定。此前 5 步全自述"信息不足/阻塞"仍被记为 completed，
           // 最终播报"✅ 执行完成：5/5 步"（会话导出实证）。
-          const verdict = parseStepVerdict(stepText);
+          // 2026-11-06（审批根因簇 P0-2）：审批暂停优先于文本标记 —— TAOR 遇审批即收尾，
+          // 末条 assistant 文本常为空；不得因此判成 step_done/unverified 计完成。
+          const pausedForApproval =
+            result.terminationReason === 'awaiting_approval';
+          const verdict = pausedForApproval
+            ? {
+                verdict: STEP_VERDICT_BLOCKED,
+                reason: '等待工具审批：批准后会自动续跑（本轮不计完成）',
+              }
+            : parseStepVerdict(stepText);
           const verdictNote =
             verdict.verdict === STEP_VERDICT_BLOCKED
               ? `[STEP_BLOCKED] ${verdict.reason ?? '模型自述本步受阻'}`
@@ -1469,9 +1517,19 @@ export class PlanDrivenLoop {
       // 2026-11-02：**总体目标锚点**。此前步骤只拿到"本步描述"与已完成步骤，
       // 分解失准（例如被无目标消息触发而分解出"澄清型"步骤）时，每步都会重新向用户
       // 要信息（会话导出实证：5 步全部"信息不足"）⇒ 用计划描述把每步锚回原始目标。
-      this.plan?.description
-        ? `本次任务总体目标：${this.plan.description}`
+      // P2-2（2026-11-06）：改用**完整任务源**（含助手计划正文）——`plan.description`
+      // 只有 200 字，计划正文会被截掉；真机 step1 因此"找不到执行计划"直接 blocked。
+      (() => {
+        const goal = (this.planSource || this.plan?.description || '')
+          .trim()
+          .slice(0, MAX_STEP_PLAN_CHARS);
+        return goal ? `本次任务总体目标与已确认计划：\n${goal}` : '';
+      })(),
+      // P2-2：工作区与工具可用性 —— 真机 step1 自述"没有文件路径/工具"（5 秒 blocked）
+      this.workspacePath
+        ? `工作区（所有文件读写以此目录为准）：${this.workspacePath}`
         : '',
+      '如需查看/修改文件，请直接调用当前可用的文件/终端工具；若确实不可用，错误信息会说明原因。',
       '',
       // Teamwork P2b（2026-09-06）：首步注入同类历史 pitfall（避免重蹈覆辙；仅首步一次）
       index === 0 && this._pitfallContext

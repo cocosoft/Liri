@@ -124,6 +124,18 @@ describe('checkPowerShellWrapper：内层串与直接执行判定一致（G-07�
   test('未包裹 ⇒ 本门不介入（null）', () => {
     expect(checkPowerShellWrapper('echo hello')).toBeNull();
   });
+
+  // P1-2（2026-11-06，审批/熔断根因簇）：硬拦截必须带结构化失败分类 —— 缺分类会被
+  // `classifyTurn()` 计入 `consecutiveInvalidTurns`（真机 `powershell_wrapper_deny`
+  // 成为 `circuit_breaker` 的第 2 次计数）。
+  test('P1-2：deny 结果带 failureKind=safety_blocked（普通拒绝 + opaque 两路）', () => {
+    const denied = checkPowerShellWrapper(
+      `powershell -Command "Invoke-Expression 'calc'"`
+    );
+    expect(denied?.failureKind).toBe('safety_blocked');
+    const opaque = checkPowerShellWrapper('powershell -EncodedCommand AAAA');
+    expect(opaque?.failureKind).toBe('safety_blocked');
+  });
 });
 
 /**

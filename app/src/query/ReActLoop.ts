@@ -120,7 +120,10 @@ export type TerminationReason =
   | 'timeout'
   // 三期 F3-2（2026-09-23 修复计划 §六）：上下文压缩失败 ⇒ 终止。此前该支不置相位，
   // 收尾文案与"压缩失败"无任何关联（用户只看到一句通用兜底）。
-  | 'compaction_failed';
+  | 'compaction_failed'
+  // 2026-11-06（审批根因簇 P0-2）：工具已提交审批、本回合主动收尾（等待批准后自动续跑）。
+  // **既非完成也非失败**——批准后由 `resumeStream` 重放被拦的 tool_call。
+  | 'awaiting_approval';
 
 /** 中止来源（二期 O2-1）：`user` = 用户主动停止；`system` = 传输/生命周期等系统侧中止 */
 export type AbortSource = 'user' | 'system';
@@ -227,7 +230,10 @@ export interface ReActState {
     // 三期 F3-2（2026-09-23）：上下文压缩失败/停滞 ⇒ 专门相位（收尾可见"为何停下"）。
     | 'compaction_failed'
     // 阶段 A（A1-d）：以 sessions_yield 让出 turn 的收尾相位（既非完成也非截断）
-    | 'yielded';
+    | 'yielded'
+    // 2026-11-06（审批根因簇 P0-2）：工具已提交审批、等待用户批准 ⇒ 本回合收尾，
+    // 批准后由 `resumeStream` 重放该 tool_call（既非完成也非失败）。
+    | 'awaiting_approval';
   pendingToolCalls: ToolCallEntry[];
   lastError?: string;
   /**
@@ -275,6 +281,16 @@ export interface ActResult {
    * 等待子代理结算后由恢复通路开启新 turn；见 .trae/documents/阶段A-恢复通路设计Spec.md）。
    */
   yielded?: boolean;
+  /**
+   * 2026-11-06（审批根因簇 P0-2）：本轮有工具**已提交审批**、等待用户批准。
+   *
+   * 为 true 时骨架不再进入下一轮，直接 finalize（phase = `awaiting_approval`）。
+   * 理由（真机 `session_mw458fpp3ea32a050e`）：原实现把 `awaiting_approval` 当成普通成功结果，
+   * 模型带着"已提交审批"继续跑 —— 单回合 33 分钟 / 200 轮 / 15 张卡在回合内全部过期；
+   * 且后续工具的 assistant 消息覆盖了最后一条，审批落地时 `resumeStream` 只看最后一条
+   * assistant 消息 ⇒ 无从重放（日志实证「所有工具已完成，无需恢复」）。
+   */
+  awaitingApproval?: boolean;
 }
 
 /** 工具结果条目 */
@@ -369,6 +385,14 @@ export function classifyTurn(
   const allFailed =
     decisive.length > 0 && decisive.every((r) => r.status === 'error');
   if (!allFailed) return 'progress';
+  // P1-1（2026-11-06）：检查/测试类命令的非零退出（tsc / bun test / eslint / git diff --exit-code）
+  // 是**有效证据**，不是"模型无效输出"。计入 invalid 会让"按错误修代码"的长任务触发
+  // `circuit_breaker`（真机 `session_mw458fpp3ea32a050e` 连续 3 次 tsc 报错即被熔断）。
+  // 原地打转由既有 no_progress（轮签名重复）与 maxTurns 兜底，不靠 invalid 计数。
+  const allExpectedNonzero = decisive.every(
+    (r) => r.failureKind === 'expected_nonzero_exit'
+  );
+  if (allExpectedNonzero) return 'progress';
   // 2026-10-31（台账 §16）：全部失败且**都**是「越界 + 已提交审批」⇒ 中性。
   // 用户侧有待办，模型重试不会有不同结果；若计 invalid（3 轮）会在批准前就熔断整轮。
   const allAwaitingApproval = decisive.every(
@@ -757,6 +781,9 @@ export abstract class ReActLoop<
     if (this.state.phase === 'timeout') return 'timeout';
     // 三期 F3-2（2026-09-23）：压缩失败同理——必须在 completed 之前判别。
     if (this.state.phase === 'compaction_failed') return 'compaction_failed';
+    // 2026-11-06（审批根因簇 P0-2）：等待审批收尾必须在 max_turns 之前判别——
+    // 否则"恰好同时到轮次上限"会把审批语义整体遮蔽成 max_turns。
+    if (this.state.phase === 'awaiting_approval') return 'awaiting_approval';
     if (
       this.state.phase === 'truncated' ||
       this.state.iteration >= this.config.maxIterations
@@ -1230,6 +1257,22 @@ export abstract class ReActLoop<
         if (actResult.yielded) {
           this.state.phase = 'yielded';
           yield { type: 'yielded' };
+          return this.finalize(this.state, context);
+        }
+
+        // --- 2026-11-06（审批根因簇 P0-2）：等待审批 ⇒ 立即收尾 ---
+        // 本轮已有工具提交审批卡片：不再进入下一轮 reason。原实现让模型带着
+        // 「已提交审批，请勿编造替代方案」继续跑（真机单回合 200 轮 / 33 分钟 / 15 张卡过期）；
+        // 更关键的是，后续轮的 assistant 消息会覆盖"最后一条含 tool_calls 的消息"，
+        // 导致审批落地时 resumeStream 找不到可重放的调用（日志实证「所有工具已完成，无需恢复」）。
+        // 收尾后由 `triggerResumeAfterApproval` → `resumeStream` 重放该 tool_call。
+        if (actResult.awaitingApproval) {
+          this.state.phase = 'awaiting_approval';
+          logger.info('reActLoop:awaiting_approval_stop', {
+            iteration: this.state.iteration,
+            toolCount: actResult.results.length,
+            toolNames: actResult.results.map((r) => r.name),
+          });
           return this.finalize(this.state, context);
         }
 

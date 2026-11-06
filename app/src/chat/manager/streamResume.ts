@@ -45,6 +45,8 @@ import { repairImageUrls } from '../services/ChatHelper';
 import { stripBareExploration } from '../services/bareExplorationStripper';
 import type { MessageService } from '../services/MessageService.js';
 import type { PendingInteractionEntry } from '@openliri/infra/utils/pendingInteractions';
+// 2026-11-06（审批根因簇 P0-1）：识别「等待审批」的 tool_call —— 批准后必须重放
+import { extractAwaitingApprovalToolCallIds } from '../utils/pendingToolCalls.js';
 
 const logger = getLogger('chat:manager');
 
@@ -206,6 +208,13 @@ export class ChatStreamResume {
       // 3. 找到最后一条含 tool_calls 的 assistant 消息，提取剩余工具
       let accumulatedContent = '';
       let remainingToolCalls: ParsedToolCall[] = [];
+      // 2026-11-06（审批根因簇 P0-1）：`awaiting_approval` 的 tool/result 虽已落盘，
+      // 但**不是终态**——审批通过后必须重放。原实现只按 completedToolCallIds 过滤，
+      // 而待审批调用的结果以"成功形状"落盘 ⇒ 被视为已完成 ⇒ 日志打印
+      // 「所有工具已完成，无需恢复」，批准后什么都没发生。
+      const awaitingApprovalIds = extractAwaitingApprovalToolCallIds(
+        session.messages
+      );
       for (let i = session.messages.length - 1; i >= 0; i--) {
         const msg = session.messages[i];
         if (msg.role === 'assistant' && msg.metadata?.tool_calls) {
@@ -215,7 +224,11 @@ export class ChatStreamResume {
             function: { name: string; arguments: string };
           }>;
           remainingToolCalls = tcs
-            .filter((tc) => !completedToolCallIds.includes(tc.id))
+            .filter(
+              (tc) =>
+                !completedToolCallIds.includes(tc.id) ||
+                awaitingApprovalIds.has(tc.id)
+            )
             .map((tc) => ({
               id: tc.id,
               name: tc.function.name,
@@ -264,6 +277,10 @@ export class ChatStreamResume {
         stepIndex,
         completedToolCount: completedToolCallIds.length,
         remainingToolCount: remainingToolCalls.length,
+        // 2026-11-06：其中有多少是"审批已通过、需要重放"的调用
+        replayedAwaitingApproval: remainingToolCalls.filter((tc) =>
+          awaitingApprovalIds.has(tc.id)
+        ).length,
         toolTurnCount: generatorState.toolTurnCount,
       });
 
@@ -289,15 +306,39 @@ export class ChatStreamResume {
       // 5. 工具执行循环（轻量模式收敛 2026-09-01：复用 ReActToolLoop，经统一工厂。
       //    对齐 ReActToolLoop.reason 首轮"直接执行剩余工具"语义（needsInitialLlmCall=false），
       //    消除手写循环（原三轨之一）。恢复场景简化语义保持：不启用审批/心跳。
-      const apiMessages = session.messages.map((m) => ({
-        role: m.role,
-        content:
-          typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
-        ...(m.metadata?.tool_calls
-          ? { tool_calls: m.metadata.tool_calls }
-          : {}),
-        ...(m.toolCallId ? { tool_call_id: m.toolCallId } : {}),
-      }));
+      // 2026-11-06（审批根因簇 P0-1）：重放的调用在历史里**已有**一条 awaiting_approval
+      // 的 tool 结果。协议要求每个 tool_call 恰好一条 tool 应答（重复会被 provider 拒绝），
+      // 故构建给 LLM 的消息时剔除这条旧结果——重放产出的新结果才是本轮唯一应答。
+      // 落盘侧保留两条（"提交过审批" → "批准后实际结果"）作为审计轨迹。
+      const replayIds = new Set(remainingToolCalls.map((tc) => tc.id));
+      const isReplayedToolMessage = (m: Message): boolean => {
+        if (m.role !== 'tool') return false;
+        const blocks = Array.isArray(m.content) ? m.content : [];
+        for (const raw of blocks) {
+          const b = raw as { type?: string; toolCallId?: string };
+          if (
+            b?.type === 'tool_result' &&
+            typeof b.toolCallId === 'string' &&
+            replayIds.has(b.toolCallId)
+          ) {
+            return true;
+          }
+        }
+        return typeof m.toolCallId === 'string' && replayIds.has(m.toolCallId);
+      };
+      const apiMessages = session.messages
+        .filter((m) => !isReplayedToolMessage(m))
+        .map((m) => ({
+          role: m.role,
+          content:
+            typeof m.content === 'string'
+              ? m.content
+              : JSON.stringify(m.content),
+          ...(m.metadata?.tool_calls
+            ? { tool_calls: m.metadata.tool_calls }
+            : {}),
+          ...(m.toolCallId ? { tool_call_id: m.toolCallId } : {}),
+        }));
 
       const { toolResultRegistry } =
         await import('../../tool/ToolResultRegistry.js');

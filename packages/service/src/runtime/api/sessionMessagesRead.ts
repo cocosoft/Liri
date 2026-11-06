@@ -71,6 +71,8 @@ import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 // P0-4（2026-11-05）：任务分区消息（PDCA 步骤）默认不进用户面读取
 import { filterTaskPartitionMessages } from './messagePartition';
+// P3-1（2026-11-06）：已处理/已过期审批块也要留痕（否则"有文字没卡片"）
+import { selectApprovalItemsForBlocks } from './approvalBlockSelection';
 
 const logger = getLogger('runtime:api:CoreAPIImpl');
 
@@ -706,27 +708,58 @@ export class SessionMessagesRead {
         await import('../InboxManager');
       // 直查 inbox_items.session_id（而非 JOIN session_inbox_map）：
       // Web 提交的审批项无 channelSessionId 不写 map 表，getBySession 会漏掉。
-      const { items } = await inboxManager.list({
+      const pendingQuery = inboxManager.list({
         sessionId,
         status: 'pending',
         type: 'approval',
       });
-      const pending = items;
-      // 排查 J-1.3：记录读时合成的待审批项数量，确认审批卡片能注入会话消息
-      logger.info('attachPendingApprovalBlocks: 查询待审批项', {
+      // P3-1（2026-11-06）：同一回合窗口内已处理/已过期的审批也要合成（带状态留痕），
+      // 否则卡片一被处理就整块消失，而消息里"请批准"的文字还在。
+      const recentQuery = inboxManager.list({
         sessionId,
-        pendingCount: pending.length,
+        type: 'approval',
+        limit: 50,
       });
-      if (pending.length === 0) return;
+      const [{ items: pendingItems }, { items: recentItems }] =
+        await Promise.all([pendingQuery, recentQuery]);
 
       const lastAssistant = messages
         .filter((m) => m.role === 'assistant')
         .pop();
       if (!lastAssistant) return;
 
+      // 锚点 = 最后一条 assistant 消息时间（缺省 now）；窗口覆盖长回合内的全部卡片
+      const anchorMs =
+        typeof (lastAssistant as { timestamp?: number }).timestamp === 'number'
+          ? (lastAssistant as { timestamp: number }).timestamp
+          : Date.now();
+      const selected = selectApprovalItemsForBlocks({
+        pending: pendingItems,
+        recent: recentItems,
+        anchorMs,
+      });
+      const resolvedCount = selected.filter(
+        (i) => i.status !== 'pending'
+      ).length;
+      // 排查 J-1.3：记录读时合成的待审批/已处理数量，确认审批卡片能注入会话消息
+      logger.info('attachPendingApprovalBlocks: 查询待审批项', {
+        sessionId,
+        pendingCount: pendingItems.length,
+        resolvedCount,
+      });
+      if (selected.length === 0) return;
+
       const existing =
         (lastAssistant.blocks as unknown as FrontendMessageBlock[]) ?? [];
-      const blocks = pending.map(
+      // P3-1：同一 inboxId 只保留一份（提交期注入与读时合成可能同时存在）
+      const selectedIds = new Set(selected.map((i) => i.id));
+      const kept = existing.filter((b) => {
+        const block = b as { type?: string; inboxData?: { inboxId?: string } };
+        if (block.type !== 'inbox') return true;
+        const inboxId = block.inboxData?.inboxId;
+        return !(typeof inboxId === 'string' && selectedIds.has(inboxId));
+      });
+      const blocks = selected.map(
         (item) =>
           ({
             id: item.id,
@@ -737,7 +770,8 @@ export class SessionMessagesRead {
               type: item.type,
               title: item.title,
               content: item.message || '',
-              status: 'pending',
+              // P3-1：据实写入状态（pending / replied / expired），前端 InboxBlock 三态已支持
+              status: item.status,
               priority: 'normal',
               actions: (item.options?.length
                 ? item.options
@@ -752,7 +786,7 @@ export class SessionMessagesRead {
             },
           }) as FrontendMessageBlock
       );
-      lastAssistant.blocks = [...existing, ...blocks];
+      lastAssistant.blocks = [...kept, ...blocks];
     } catch (err) {
       // 合成失败不影响消息读取
       void handleError(err, {

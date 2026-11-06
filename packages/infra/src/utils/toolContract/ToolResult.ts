@@ -65,6 +65,17 @@ export const TOOL_FAILURE_KINDS = [
    * 也不清零），避免「等批准」把 `consecutiveInvalidTurns`（3 轮）烧完导致审批落地已无轮次可用。
    */
   'workspace_escape_pending_approval',
+  /**
+   * 检查/测试类命令**以非零退出码结束**（P1-1，2026-11-06）。
+   *
+   * 事实：`tsc` / `bun test` / `eslint` / `git diff --exit-code` 的"未通过"就是非零退出，
+   * 且输出本身就是模型需要的**有效证据**。旧实现走通用失败 ⇒ 计入 `invalid` ⇒ 真机
+   * `session_mw458fpp3ea32a050e` 连续 3 次 tsc 报错即 `circuit_breaker`（模型正在按错误修代码）。
+   *
+   * 分型：`classifyTurn()` 判为 `progress`（有信息产出，清零失败计数）——是否真的原地打转
+   * 由既有的 no_progress（轮签名重复）与 maxTurns 兜底。
+   */
+  'expected_nonzero_exit',
   /** 工具自身执行失败（可能可恢复） */
   'tool_error',
 ] as const;
@@ -80,6 +91,33 @@ export function isToolFailureKind(value: unknown): value is ToolFailureKind {
   return (
     typeof value === 'string' &&
     (TOOL_FAILURE_KINDS as readonly string[]).includes(value)
+  );
+}
+
+/**
+ * 2026-11-06（审批根因簇 P0-1）：判定工具结果载荷是否为「已提交审批、等待用户批准」。
+ *
+ * 事实源是工具执行层写入的结构化字段 `pendingApproval: true`
+ *（`ToolExecutionService` 的 `awaiting_approval` 结果），**禁止解析文案**（CS02）。
+ * 载荷可能是对象（内存态）或 JSON 字符串（事件 / 消息落盘态）——两者都兼容。
+ *
+ * **为什么落在 infra 契约层**：`query`（TAORLoop 审批暂停）与 `chat`（resume 重放 /
+ * events 重建）都要用同一判据；放在任一上层模块都会造成同层反向依赖或第二份实现（CS01）。
+ */
+export function isAwaitingApprovalPayload(payload: unknown): boolean {
+  if (!payload) return false;
+  let value: unknown = payload;
+  if (typeof value === 'string') {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return false;
+    }
+  }
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    (value as { pendingApproval?: unknown }).pendingApproval === true
   );
 }
 

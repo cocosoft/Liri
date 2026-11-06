@@ -15,6 +15,9 @@
  * 纯函数、无 I/O。**不改安全判定**，只改成功/失败归类。
  */
 
+// P1-1（2026-11-06）：末段提取与「检查未通过」判定共用（CS01，单一实现）
+import { lastCommandSegment } from './exitSemantics';
+
 /** 检索类命令（最后一段的首个词） */
 const SEARCH_COMMANDS = [
   'findstr',
@@ -24,12 +27,6 @@ const SEARCH_COMMANDS = [
   'rg',
   'select-string',
 ];
-
-/** 取管道/串联的最后一段（`|`、`||`、`&&`、`;` 都算分隔） */
-function lastSegment(command: string): string {
-  const parts = command.split(/\|\||&&|[|;]/);
-  return (parts[parts.length - 1] ?? '').trim();
-}
 
 export function isSearchNoMatch(params: {
   command: string | undefined;
@@ -44,7 +41,7 @@ export function isSearchNoMatch(params: {
   // 反例：`findstr x missing.txt`（文件不存在）在本机同样是 exit 1 + 双空 ⇒
   // 无管道时无法区分"文件缺失"与"检索无匹配"，不能归为成功。
   if (!(params.command ?? '').includes('|')) return false;
-  const segment = lastSegment(params.command ?? '');
+  const segment = lastCommandSegment(params.command ?? '');
   if (!segment) return false;
   // 输出重定向 ⇒ "无匹配"与"结果写进文件"不可区分
   if (segment.includes('>')) return false;

@@ -380,6 +380,15 @@ export function wireChatFacades(host: FacadeWiringHost): void {
     buildTAORContext: (sid, defs, opts) =>
       buildTAORContextFor(host, sid, defs, opts),
     sessionMap: host._chatSessions,
+    // P2-2（2026-11-06）：PDL 步骤 prompt 的工作区（与工具 cwd 同一解析函数）
+    getSessionWorkspacePath: (sid) =>
+      getSessionWorkspacePath(
+        {
+          getSession: (id) => host._chatSessions.get(id),
+          projectSandboxStoreRef: host._projectSandboxStoreRef,
+        },
+        sid
+      ),
     messageService: host.messageService,
     persistMessage: (sid, msg) =>
       host._msgPersist.addAndPersistMessage(sid, msg),

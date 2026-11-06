@@ -93,8 +93,14 @@
       "app/src/channels/dedup/index.ts"
     ],
     "awaiting_approval": [
+      "app/src/chat/orchestrator/ChatOrchestrator.ts",
+      "app/src/chat/orchestrator/streamMessageToolLoop.ts",
       "app/src/chat/services/ToolExecutionService.ts",
+      "app/src/chat/terminationOutput.ts",
       "app/src/query/ReActLoop.ts",
+      "app/src/query/taor/helpers.ts",
+      "app/src/tasks/lro/stepExecution.ts",
+      "app/src/tasks/PlanDrivenLoop.ts",
       "app/src/tasks/StageOrchestrator.ts"
     ],
     "blocked": [

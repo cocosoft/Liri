@@ -191,9 +191,13 @@ export function isSinglePowerShellWrapperCommand(command: string): boolean {
 function deny(message: string, reason: string): ToolResult<unknown> {
   // BUG-8（2026-10-19）：硬拦截必须带 `error`/`success:false`，
   // 否则消费方按 `toolResult.error` 判定时会把拦截误记为成功。
+  // P1-2（2026-11-06）：补 `failureKind` —— 安全拦截属**环境阻塞**，缺分类会被
+  // `classifyTurn()` 计入 `consecutiveInvalidTurns`（真机 `powershell_wrapper_deny`
+  // 成为熔断的第 2 次计数），与 `bashSecurityGate` 的同类分支口径不一致。
   return createToolResult(message, {
     success: false,
     error: message,
+    failureKind: 'safety_blocked',
     newMessages: [{ role: 'system', content: `Error: ${message}` }],
     metadata: { securityIntercepted: true, reason },
   });

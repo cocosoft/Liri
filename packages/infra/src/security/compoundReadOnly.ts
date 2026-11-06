@@ -35,6 +35,23 @@ export interface CompoundReadOnlyVerdict {
 }
 
 /**
+ * 去除**丢弃/合并型**输出重定向（`2>nul` / `2>&1` / `>/dev/null`），其余原样保留。
+ *
+ * P1-3（2026-11-06）：`checkBashAllowlist` 原本把 `2>&1` 里的 `>`/`&` 当成 shell operator
+ * ⇒ 单条非只读命令（如 `bun test 2>&1`）落入"复合只读"分支被**硬拒**（真机 4 次重试、
+ * 报文还误写成"非只读命令（bun）"，连审批机会都没有）。
+ *
+ * 只剥离**不产生文件写入**的重定向；`> out.txt` / `>>` 原样保留（仍是硬拒面）。
+ * 与 `checkCompoundReadOnly` 的 FIX-9 判定同口径（同一组 `nul` / `/dev/null` / `&1` / `&2`）。
+ */
+export function stripHarmlessRedirects(command: string): string {
+  const stripped = command
+    .replace(/\s*[12]?>>?\s*(?:nul\b|\/dev\/null\b|&[12])\s*/gi, ' ')
+    .trim();
+  return stripped.length > 0 ? stripped : command;
+}
+
+/**
  * 引号感知切段；同时拒绝重定向 / 命令替换 / 变量展开 / 后台执行。
  *
  * FIX-2（2026-10-27）：`&` 的语义**随 shell 而定** —— POSIX 里是"后台执行"，

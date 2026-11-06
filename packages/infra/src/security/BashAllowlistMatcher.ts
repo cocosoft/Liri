@@ -11,6 +11,8 @@ import {
   POWERSHELL_READ_ONLY_PREFIX_PATTERNS,
   VERSION_ONLY_QUERY_PATTERN,
 } from './readOnlyCommands';
+// P1-3（2026-11-06）：丢弃/合并型重定向不算 shell operator（与 compoundReadOnly 同口径）
+import { stripHarmlessRedirects } from './compoundReadOnly';
 
 // Shell operators that indicate injection risk
 const SHELL_OPERATORS = /[;&|><`$]/;
@@ -38,8 +40,11 @@ export function checkBashAllowlist(command: string): AllowlistResult {
   const trimmed = command.trim();
 
   // 1. Reject shell operators
-  if (SHELL_OPERATORS.test(trimmed)) {
-    const operatorMatch = trimmed.match(SHELL_OPERATORS);
+  // P1-3（2026-11-06）：先剥离丢弃/合并型重定向（`2>&1` / `2>nul` / `>/dev/null`）再判 operator
+  // —— 否则 `bun test 2>&1` 会被当成"复合命令"硬拒（应转人工审批，批准后可执行）。
+  const operatorProbe = stripHarmlessRedirects(trimmed);
+  if (SHELL_OPERATORS.test(operatorProbe)) {
+    const operatorMatch = operatorProbe.match(SHELL_OPERATORS);
     return {
       safe: false,
       reason: `Shell operator '${operatorMatch?.[0]}' detected — potential command injection. Use a single command without chaining operators.`,

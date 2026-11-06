@@ -38,6 +38,8 @@ import { analyzeBashCommandType, isSilentBashCommand } from './BashSemantics';
 import { buildCmdBuiltinHint, isCommandNotFoundError } from './cmdBuiltinHint';
 import { isSearchNoMatch } from './searchNoMatch';
 import { isPathNotFound } from './pathNotFound';
+// P1-1（2026-11-06）：检查/测试类命令的非零退出 = 有效证据（不烧熔断 invalid 预算）
+import { isExpectedNonzeroExit } from './exitSemantics';
 // P2-2（2026-11-04）：只读探测被安全门拦截时附"改用 glob / list"的出路提示（**不改判定**）
 import { appendReadOnlyProbeHint } from './blockedProbeHint';
 // S1-5（2026-10-11）：命令规范化"单一事实源" —— 审批哈希 / 安全拦截层 / 最终 spawn /
@@ -640,15 +642,29 @@ export class BashTool extends BaseTool {
       const msg =
         (detail ? `${rawMsg}\n（${detail}）` : rawMsg) + enoentHint + cmdHint;
 
+      // P1-1（2026-11-06，熔断根因簇）：检查/测试类命令的非零退出是**有效结果**。
+      // `tsc` / `bun test` / `eslint` 的"未通过"本来就以非零退出表达；旧实现统一按
+      // 工具失败处理 ⇒ 计入 `consecutiveInvalidTurns` ⇒ 真机连续 3 次 tsc 报错即熔断。
+      // 这里只改**分类**（失败状态照旧，UI/日志仍可见），供 `classifyTurn()` 判为 progress。
+      const expectedNonzeroExit = isExpectedNonzeroExit({
+        command: executedCommand,
+        exitCode,
+      });
+
       // B 类可观测性缺口 ②（2026-10-25）：执行异常此前**零 app.log** —— 只返回 failureResult
-      // 给模型，排查"命令为什么失败"只能翻会话消息。现补 error 级日志（含命令摘要 + stderr 截断）。
-      logger.error('bash: execute_error', {
+      // 给模型，排查"命令为什么失败"只能翻会话消息。现补日志（含命令摘要 + stderr 截断）。
+      const errorLogMeta = {
         sessionId: context.sessionId,
         commandPreview: executedCommandPreview ?? '',
         error: rawMsg.slice(0, 500),
         ...(exitCode !== undefined ? { exitCode } : {}),
         ...(stderr ? { stderr: stderr.slice(0, 300) } : {}),
-      });
+      };
+      if (expectedNonzeroExit) {
+        logger.info('bash: expected_nonzero_exit', errorLogMeta);
+      } else {
+        logger.error('bash: execute_error', errorLogMeta);
+      }
 
       // 报告执行错误
       onProgress?.({
@@ -662,6 +678,9 @@ export class BashTool extends BaseTool {
         toolName: 'bash',
         executionId: ToolUtils.generateExecutionId('bash'),
         timestamp: Date.now(),
+        ...(expectedNonzeroExit
+          ? { failureKind: 'expected_nonzero_exit' as const }
+          : {}),
         newMessages: [
           {
             role: 'system',

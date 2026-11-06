@@ -740,6 +740,9 @@ describe('ReActToolLoop (M1a)', () => {
 // M1-INV②（2026-08-31）：孤儿补偿锁定——B-2 finally 补发契约回归保护。
 // 契约：已写 tool_call 事件（toolCallSeqMap 有记录）但未完成的工具，循环结束时
 // 必有 tool/canceled 终态（回放不悬挂）；正常完成/失败的工具不补发。
+// 2026-11-06 例外（审批根因簇 P0-1）：结果为 `pendingApproval:true`（awaiting_approval）
+// 的调用**不补发**——它已落 tool/result，且批准后必须由 resumeStream 重放；
+// 补 canceled 会让事件侧把它判为"已答"，批准后无物可执行。
 describe('ReActToolLoop 孤儿补偿（M1-INV②）', () => {
   function makeOrphanCtx(
     toolResult: { result: unknown; error?: string },
@@ -794,7 +797,7 @@ describe('ReActToolLoop 孤儿补偿（M1-INV②）', () => {
     return { ctx, capturedEvents };
   }
 
-  it('挂起的审批/提问工具未恢复 → 循环结束补发 tool/canceled（callSeq 闭环）', async () => {
+  it('挂起的审批工具未恢复 → **不**补发 tool/canceled（保留待审批，批准后重放）', async () => {
     // 模拟审批/提问挂起等待：工具返回 pendingApproval=true 且永不恢复
     const { ctx, capturedEvents } = makeOrphanCtx({
       result: { pendingApproval: true },
@@ -803,10 +806,13 @@ describe('ReActToolLoop 孤儿补偿（M1-INV②）', () => {
     for await (const _e of loop.run(makeInput())) {
       // 消费事件流至结束
     }
+    // 2026-11-06（审批根因簇 P0-1）：`awaiting_approval` 不再是"未完成孤儿"——
+    // 它已落 tool/result，且批准后必须由 resumeStream 重放。补发 canceled 会让事件侧
+    // 把该调用记为"已答"（answered），批准后永远找不到可执行项（真机实证：
+    // 「所有工具已完成，无需恢复」）。挂起可见性由审批卡 + pendingApproval 徽标承担。
     const canceled = capturedEvents.find((e) => e.type === 'tool/canceled');
-    expect(canceled).toBeTruthy();
-    expect(canceled?.data.toolCallId).toBe('tc-pending');
-    expect(canceled?.data.callSeq).toBe(42);
+    expect(canceled).toBe(undefined);
+    expect(loop.getTerminationReason()).toBe('awaiting_approval');
   });
 
   it('正常完成的工具 → 不补发 tool/canceled', async () => {
@@ -903,12 +909,13 @@ describe('ReActToolLoop 孤儿补偿（M1-INV②）', () => {
       (e) => e.type === 'tool/canceled' && e.data.toolCallId === 'tc-done'
     );
     expect(doneCanceled).toBe(undefined);
-    // 挂起的 tc-pending 补 canceled（callSeq 闭环）
+    // 2026-11-06（审批根因簇 P0-1）：待审批的 tc-pending 同样**不**补 canceled——
+    // 它保留为"待重放"，批准后由 resumeStream 执行（补 canceled 会被事件侧判为已答）。
     const pendingCanceled = capturedEvents.find(
       (e) => e.type === 'tool/canceled' && e.data.toolCallId === 'tc-pending'
     );
-    expect(pendingCanceled).toBeTruthy();
-    expect(pendingCanceled?.data.callSeq).toBe(11);
+    expect(pendingCanceled).toBe(undefined);
+    // 真·未执行（无任何结果）的调用仍按既有契约补 canceled —— 见上方单工具用例。
   });
 });
 

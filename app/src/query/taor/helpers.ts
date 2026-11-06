@@ -20,9 +20,24 @@ import {
   resolveContextWindow,
 } from '@modules/context';
 import { estimateMessagesTokens } from '@modules/ai/tokenizer/TokenEstimator.js';
+// 2026-11-06（审批根因簇 P0-2）：审批等待态判据（infra 契约层单一实现）
+import { isAwaitingApprovalPayload } from '@openliri/infra/utils/toolContract';
 import type { SteeringEntry, TerminationReason } from '../ReActLoop.js';
 
 const logger = getLogger('query:taorLoop');
+
+/**
+ * 2026-11-06（审批根因簇 P0-2）：批处理结果中是否存在「已提交审批、等待批准」的调用。
+ *
+ * 供 `TAORLoop.act()` 派生 `ActResult.awaitingApproval`（骨架见 true 即收尾，
+ * 批准后由 `resumeStream` 重放）。判据唯一事实源 = infra 的 `isAwaitingApprovalPayload`
+ *（结构化字段，不解析文案）。
+ */
+export function hasAwaitingApproval(
+  results: ReadonlyArray<{ result?: unknown } | undefined>
+): boolean {
+  return results.some((r) => isAwaitingApprovalPayload(r?.result));
+}
 
 /** L3（2026-09-06）：回合质量重试指令 —— **B2-3 收尾迁移（2026-09-23）**：
  *  文案唯一来源改为 `constants/goalTemplates`（2026-10-21 由 `tasks/goal/` 下沉常量层，
@@ -105,8 +120,13 @@ export function toFileIoLoopBlocked(
  * 被 default 折叠成 completed 的误判（见 error_repairs 方案 A 记录）。导出便于单测。
  */
 export function mapTaorStopReasonToTermination(
-  reason: string | null | undefined
+  reason: string | null | undefined,
+  /** 骨架相位（2026-11-06）：`awaiting_approval` 不在 StopHookReason 词表内，须优先判别 */
+  phase?: string
 ): TerminationReason {
+  // 2026-11-06（审批根因簇 P0-2）：审批暂停由骨架 `ActResult.awaitingApproval` 置相位，
+  // TAOR 的 stopReason 仍是 completed ⇒ 不先判相位会被折叠成"正常完成"。
+  if (phase === 'awaiting_approval') return 'awaiting_approval';
   switch (reason) {
     case 'max_turns':
       return 'max_turns';

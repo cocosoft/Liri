@@ -16,6 +16,8 @@ import type {
 import type { AIProvider, ChatMessage } from '@modules/ai';
 import { registerPlanLoop, unregisterPlanLoop } from '../planAbortRegistry.js';
 import { createChatManagerTAORDeps } from '@modules/query';
+// P2-2（2026-11-06）：计划源合成（短指令 + 助手计划正文）
+import { buildPdcaPlanSource } from './planSource';
 import { pitfallRegistry } from '@modules/tasks';
 // A7（2026-10-01）：研究编排改经 query 侧唯一装配点（不再直接构造编排器实例）
 import { runResearchOrchestration } from '@modules/query';
@@ -74,6 +76,13 @@ export interface PdcaLauncherDeps {
   getDecomposerProvider?: () => Promise<AIProvider | null>;
   /** 可选：PlanDrivenLoop 工厂（P2-C 测试注入；默认内部 new PlanDrivenLoop） */
   planLoopFactory?: (config: PlanDrivenLoopConfig) => PlanDrivenLoop;
+  /**
+   * P2-2（2026-11-06）：会话工作区解析（与工具 cwd **同源**）。
+   *
+   * 用途：PDL 步骤 prompt 里告知模型"所有文件读写以此目录为准"，避免模型声称
+   * "没有文件路径/工具"而空转（真机 step1 5 秒即 blocked）。可选：未注入 ⇒ 不注入该行。
+   */
+  getSessionWorkspacePath?: (sessionId: string) => string | undefined;
 }
 
 /**
@@ -280,6 +289,8 @@ export class PdcaLauncher {
             taorLoopFactory: this.deps.taorLoopFactory,
             deps,
             sessionId,
+            // P2-2（2026-11-06）：步骤 prompt 需要工作区路径（与工具 cwd 同源）
+            workspacePath: this.deps.getSessionWorkspacePath?.(sessionId),
             // OBS/C3（2026-09-06）：注入任务/项目归属 → stage 事件携带 taskId，前端可定位 PdcaPipeline
             taskId,
             projectId,
@@ -429,7 +440,17 @@ export class PdcaLauncher {
           const planLoop = this.deps.planLoopFactory
             ? this.deps.planLoopFactory(planLoopConfig)
             : new PlanDrivenLoop(planLoopConfig);
-          const message = userMessage || description;
+          // P2-2（2026-11-06）：用户末条常是「按计划执行」这类短指令 —— 计划正文在
+          // 助手消息里，必须一并交给分解器（原 `userMessage || description` 会整段丢弃）。
+          const message = buildPdcaPlanSource(userMessage, description);
+          if (userMessage && message !== userMessage) {
+            logger.info('pdca:plan_source_enriched', {
+              sessionId,
+              userLength: userMessage.length,
+              assistantLength: description.length,
+              planSourceLength: message.length,
+            });
+          }
           // 4.0-2 N1（2026-09-04）：PDL 快速路径注册任务实体（checkpoint）——
           // /v1/pdca/list 权威源=checkpoint 目录 + 内存 orchestrator；此前 PDL 无实体，
           // 编排视图看不到快速路径运行。注册后单源可见（pdca:* 事件已双路发出）。

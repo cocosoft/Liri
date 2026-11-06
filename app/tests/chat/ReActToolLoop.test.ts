@@ -1151,6 +1151,72 @@ describe('ReActToolLoop：压缩失败暂停续接', () => {
 });
 
 /**
+ * 2026-11-06：模型把工具调用写成正文（DSML 残渣 / `<bash">`）⇒ 本轮零工具执行。
+ *
+ * 真机 `session_mw4n94q10d049b6b3e` 07:31:08Z：
+ *   `<bash">…</｜｜DSML｜｜ parameter>`，`hasToolCalls=false`。
+ * 旧判据把非空正文当"已完成"⇒ 用户拿到垃圾，PDCA 还把它当任务描述。
+ */
+describe('ReActToolLoop：工具调用标记泄漏到正文（incomplete=malformed）', () => {
+  interface LoopInternals {
+    loopState: { messages: Array<Record<string, unknown>> };
+    onIncompleteTurn: (result: {
+      text: string;
+      toolCalls: unknown[];
+      finishReason: string;
+    }) => Promise<boolean>;
+  }
+
+  const leakedText =
+    '<bash">\n<parameter name="command">cd && dir /b</｜｜DSML｜｜ parameter>\n' +
+    '</invoke>\n</｜｜DSML｜｜ invoke>\n</｜｜DSML｜｜ calls>';
+
+  function makeLoop(): ReActToolLoop {
+    return new ReActToolLoop(makeCtx(), makeInput(), { maxIterations: 5 });
+  }
+
+  it('DSML 残渣 ⇒ 注入续接指令（不让垃圾当结果）', async () => {
+    const loop = makeLoop();
+    const internals = loop as unknown as LoopInternals;
+    const before = internals.loopState.messages.length;
+
+    const continued = await internals.onIncompleteTurn.call(loop, {
+      text: leakedText,
+      toolCalls: [],
+      finishReason: 'stop',
+    });
+
+    expect(continued).toBe(true);
+    expect(internals.loopState.messages.length).toBe(before + 1);
+    expect(
+      String(internals.loopState.messages.at(-1)?.content ?? '')
+    ).toContain('标准工具调用');
+  });
+
+  it('同类只重试一次（再次泄漏 ⇒ 放行，不死循环）', async () => {
+    const loop = makeLoop();
+    const internals = loop as unknown as LoopInternals;
+    const result = { text: leakedText, toolCalls: [], finishReason: 'stop' };
+
+    expect(await internals.onIncompleteTurn.call(loop, result)).toBe(true);
+    expect(await internals.onIncompleteTurn.call(loop, result)).toBe(false);
+  });
+
+  it('正常正文里的代码块/普通文本不误判', async () => {
+    const loop = makeLoop();
+    const internals = loop as unknown as LoopInternals;
+
+    const continued = await internals.onIncompleteTurn.call(loop, {
+      text: '已完成：`tsc` 通过，测试全绿。',
+      toolCalls: [],
+      finishReason: 'stop',
+    });
+
+    expect(continued).toBe(false);
+  });
+});
+
+/**
  * **主链工具执行日志可观测性**（B 类缺口 ④，2026-10-25 → P2-1 调整，2026-11-04）。
  *
  * 缺口：工具**开始**此前仅 `logger.debug`（默认级别不可见），与 end 的 INFO/WARN 不对称 ⇒

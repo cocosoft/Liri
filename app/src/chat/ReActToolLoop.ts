@@ -121,7 +121,10 @@ import {
   type AgentPreReasoningDeps,
 } from './agentPreReasoning';
 // U-22/S1（2026-10-17）：不完整回合检测外移（行为等价搬迁）
-import { onIncompleteTurn } from './agentIncompleteTurn';
+import {
+  INITIAL_INCOMPLETE_RETRIES,
+  onIncompleteTurn,
+} from './agentIncompleteTurn';
 import { handleError } from '@openliri/infra/error';
 import {
   loadNegotiationState,
@@ -196,13 +199,8 @@ export class ReActToolLoop extends ReActLoop<
    * 正文 delta 上消费并清零（一次性）。
    */
   private _supersedeNextRoundText = false;
-  /** 不完整回合重试计数（每类上限 1 次，防死循环，对标 openclaw RETRY_LIMITS） */
-  private readonly _incompleteRetries = {
-    empty: 0,
-    reasoning: 0,
-    planning: 0,
-    truncated: 0,
-  };
+  /** 不完整回合重试计数（初值/重置同源 `INITIAL_INCOMPLETE_RETRIES`，防漏项） */
+  private readonly _incompleteRetries = { ...INITIAL_INCOMPLETE_RETRIES };
   /**
    * P1-1②（2026-09-28）：终稿校验回喂是否已用掉（**每 run 至多 1 次**）。
    *
@@ -1682,15 +1680,12 @@ export class ReActToolLoop extends ReActLoop<
    * （不跨 run 累积）'）。此前本类的 `_incompleteRetries` 只有初始化与累加、**全类无
    * 任何清零** ⇒ 实为"任务级终身一次"：第二次空回复直接放行 → 空正文。
    *
-   * 注：TAORLoop 的键集只有 2 个（`empty` / `planning`），本类有 4 个 ⇒ 全部纳入。
+   * 注：TAORLoop 的键集只有 2 个（`empty` / `planning`），本类有 5 个 ⇒ 全部纳入。
    * `resetRunState()` 由宿主在每次 run 前调用（见 `ReActLoop.resetRunState` 注释）。
    */
   protected override resetRunState(): void {
     super.resetRunState();
-    this._incompleteRetries.empty = 0;
-    this._incompleteRetries.reasoning = 0;
-    this._incompleteRetries.planning = 0;
-    this._incompleteRetries.truncated = 0;
+    Object.assign(this._incompleteRetries, INITIAL_INCOMPLETE_RETRIES);
     this.droppedToolCallsAtStop = 0;
     this._terminalSettled = false;
     this._terminalSettle = null;

@@ -81,6 +81,18 @@ describe('stripOrphanToolTags — 孤立工具调用标签残片剥离', () => {
     expect(stripOrphanToolTags(input)).toBe(input);
   });
 
+  test('剥离 DeepSeek DSML 特殊 token 残渣（2026-11-06）', () => {
+    // 真机 session_mw4n94q10d049b6b3e 07:31:08Z 的正文形态
+    const input = `<bash">
+<parameter name="command">cd && dir /b</｜｜DSML｜｜ parameter>
+</invoke>
+</｜｜DSML｜｜ invoke>
+</｜｜DSML｜｜ calls>`;
+    const result = stripOrphanToolTags(input);
+    expect(result).not.toContain('｜｜DSML｜｜');
+    expect(result).toContain('cd && dir /b');
+  });
+
   test('空内容不崩', () => {
     expect(stripOrphanToolTags('')).toBe('');
     expect(stripOrphanToolTags('   ')).toBe('');

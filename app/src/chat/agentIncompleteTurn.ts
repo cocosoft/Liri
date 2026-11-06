@@ -39,12 +39,43 @@ const TRUNCATED_RESPONSE_RETRY_INSTRUCTION = CONTINUATION_TEMPLATES.truncated;
 const PLANNING_ONLY_RE =
   /(?:以下(?:是)?(?:我(?:的)?)?(?:执行)?计划|我的计划(?:如下|是)|\bplan(?:\s*:|\s+is|\s+to)\b|步骤\s*[:：]|接下来(?:我)?(?:将|会))/i;
 
+/**
+ * 工具调用标记泄漏到正文的判据（2026-11-06）
+ *
+ * 真机（`session_mw4n94q10d049b6b3e`，07:31:08Z）：模型把工具调用写成正文 ——
+ *   `<bash">\n<parameter name="command">cd && dir /b</｜｜DSML｜｜ parameter>\n</invoke>…`
+ * 响应 `hasToolCalls=false` ⇒ 本轮没有任何工具被执行，但正文非空 ⇒ 旧判据视为"已完成"，
+ * 用户拿到一段垃圾，且这段垃圾还会被 PDCA 当作任务描述继续下发。
+ *
+ * 判据刻意收窄（不碰正常正文）：只认 DeepSeek 特殊 token 残渣 `｜｜DSML｜｜`
+ * 与标签名后跟多余引号的畸形开标签（如 `<bash">`）—— 两者都不会出现在合法正文里。
+ */
+const LEAKED_TOOL_MARKUP_RE = /｜｜DSML｜｜|<[a-z_]+"\s*>/i;
+/** 工具调用标记泄漏的续接指令（每轮至多 1 次） */
+const MALFORMED_TOOL_MARKUP_RETRY_INSTRUCTION =
+  '上一轮响应把工具调用写成了正文标记（如 <bash>、</｜｜DSML｜｜ …>），系统无法解析，' +
+  '因此没有执行任何工具。请改用**标准工具调用**重新发起同样的操作，不要在正文中书写工具调用标签。';
+
 export interface IncompleteRetries {
   empty: number;
   reasoning: number;
   planning: number;
   truncated: number;
+  /** 工具调用标记泄漏到正文（2026-11-06） */
+  malformed: number;
 }
+
+/**
+ * 重试计数初值：**同时**用于 `ReActToolLoop` 的字段初始化与 `resetRunState()` 重置，
+ * 避免新增分类时只加字段、漏加清零（该类此前正是"只初始化不重置"导致整轮失效）。
+ */
+export const INITIAL_INCOMPLETE_RETRIES: IncompleteRetries = {
+  empty: 0,
+  reasoning: 0,
+  planning: 0,
+  truncated: 0,
+  malformed: 0,
+};
 
 export interface AgentIncompleteTurnDeps {
   sessionId: string;
@@ -95,12 +126,22 @@ export async function onIncompleteTurn(
   // 现按**可见正文**（剥离 think/response 标签后）判定完整性。
   const text = stripThinkResponseTags((result.text ?? '').trim()).trim();
 
-  let kind: 'empty' | 'reasoning' | 'planning' | 'truncated' | null = null;
+  let kind:
+    | 'empty'
+    | 'reasoning'
+    | 'planning'
+    | 'truncated'
+    | 'malformed'
+    | null = null;
   // 修复（2026-09-03）：输出被长度限制截断（finishReason=max_tokens）是最常见的
   // "任务中断"伪装——模型没写完就被预算打断且未产出 tool_calls。此前该信号被
   // reason() 改写为 'stop' 且此处无截断分支 → 直接 finalize → 用户看到"才提要求就中断"。
   if (result.finishReason === 'max_tokens') {
     kind = 'truncated';
+  } else if (LEAKED_TOOL_MARKUP_RE.test(text)) {
+    // 2026-11-06：工具调用被写成正文标记（DSML 残渣 / `<bash">`）⇒ 本轮零工具执行，
+    // 正文是垃圾。旧判据会当"已完成"直接交付，且这段垃圾还会被 PDCA 当成任务描述。
+    kind = 'malformed';
   } else if (!text && !deps.lastRoundHadThinking) {
     kind = 'empty'; // 空回复
   } else if (!text && deps.lastRoundHadThinking) {
@@ -155,7 +196,9 @@ export async function onIncompleteTurn(
         ? REASONING_ONLY_RETRY_INSTRUCTION
         : kind === 'planning'
           ? PLANNING_ONLY_RETRY_INSTRUCTION
-          : TRUNCATED_RESPONSE_RETRY_INSTRUCTION;
+          : kind === 'malformed'
+            ? MALFORMED_TOOL_MARKUP_RETRY_INSTRUCTION
+            : TRUNCATED_RESPONSE_RETRY_INSTRUCTION;
   deps.incompleteRetries[kind]++;
   // 截断续接：下一轮 reason 放大输出预算（截断是硬性预算不足，重试需更多额度）
   if (kind === 'truncated') deps.setBoostNextReasonMaxTokens(true);

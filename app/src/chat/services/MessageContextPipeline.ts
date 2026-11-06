@@ -1257,7 +1257,14 @@ export function stripThinkResponseTags(content: string): string {
 export function stripOrphanToolTags(text: string): string {
   if (!text) return text;
   if (!text.trim()) return '';
-  return text
-    .replace(/<\/?(?:parameter|invoke|tool_call|tool_calls)\b[^>]*>/gi, '')
-    .trim();
+  return (
+    text
+      .replace(/<\/?(?:parameter|invoke|tool_call|tool_calls)\b[^>]*>/gi, '')
+      // 2026-11-06：DeepSeek 特殊 token 残渣（模型把工具调用写成正文时出现，
+      // 形如 `</｜｜DSML｜｜ parameter>`）。不清掉会随 assistant 消息落盘，
+      // 并被后续流程（如 PDCA 任务描述）当成正文继续使用。
+      .replace(/<\/?\s*｜｜\s*DSML\s*｜｜[^>]*>/gi, '')
+      .replace(/｜｜\s*DSML\s*｜｜/gi, '')
+      .trim()
+  );
 }

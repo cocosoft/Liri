@@ -401,7 +401,14 @@ export function checkWhitelistAndSandbox(
   const sandboxCheckResult =
     sandboxSecurityChecker.checkDangerousCommands(command);
   if (!sandboxCheckResult.allowed) {
-    return blockedResult(`沙箱安全检查: ${sandboxCheckResult.reason}`, {
+    // N-18（2026-11-07 真机）：把检查器的**可执行替代**带给模型。
+    // 旧文案只有「请检查命令是否必要，避免执行破坏性操作」，对 `node -e` 这类被拒毫无指导，
+    // 真机里模型只会换写法反复重试（`node -e` → `node --eval` → `_probe.js`），
+    // 白烧 2–3 轮并撞 `turn_blocked (consecutive environment-blocked turn)`。
+    const hint = sandboxCheckResult.suggestion
+      ? `（${sandboxCheckResult.suggestion}）`
+      : '';
+    return blockedResult(`沙箱安全检查: ${sandboxCheckResult.reason}${hint}`, {
       reason: 'sandbox_checker',
     });
   }

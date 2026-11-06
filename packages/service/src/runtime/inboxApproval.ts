@@ -37,6 +37,8 @@ import {
   APPROVAL_RESUME_IDLE_POLL_MS,
   APPROVAL_RESUME_IDLE_WAIT_MS,
 } from './defaults.js';
+// N-17（2026-11-07）：审批续跑的同会话在飞合并（消除多卡连批时的互斥超时）
+import { createResumeCoalescer } from './resumeCoalescer.js';
 import { getRuntimeCoreApi } from './api/coreApiProvider.js';
 
 const logger = getLogger('runtime:inboxApproval');
@@ -671,8 +673,15 @@ export async function waitForSessionIdle(
  * 不依赖前端发消息触发 LLM 自发重发：`resumeStream` 会重放 pendingApproval 工具
  *（此时放行缓存已写入，直接执行），并继续 LLM 循环直至完成。
  * fire-and-forget：无可恢复检查点或恢复失败时静默返回，由前端 sendMessage 兜底。
+ *
+ * N-17（2026-11-07 真机）：同一会话**在飞合并**，实现见 `./resumeCoalescer`。
  */
-async function triggerResumeAfterApproval(sessionId: string): Promise<void> {
+const triggerResumeAfterApproval = createResumeCoalescer((sid) =>
+  runResumeOnce(sid)
+);
+
+/** 单轮续跑（原有实现；合并由 `resumeCoalescer` 负责） */
+async function runResumeOnce(sessionId: string): Promise<void> {
   let resumed = false;
   try {
     const chatManager = getRuntimeCoreApi()?.chatManager;

@@ -25,6 +25,26 @@ export interface SecurityCheckResult {
 }
 
 /**
+ * N-18（2026-11-07 真机）：解释器**内联代码**形态（`node -e` / `python -c` …）。
+ *
+ * 这些形态**仍按硬拒处理**（沙箱职责不变），但必须给出**可执行替代**：
+ * 真机日志显示模型被拒后只会换写法反复试（`node -e` → `node --eval` → `_probe.js`），
+ * 白烧 2–3 轮并撞上 `turn_blocked (consecutive environment-blocked turn)`。
+ * 故拒因文案改为"写入脚本文件再执行"，让模型一步改对。
+ */
+export const INTERPRETER_INLINE_PATTERNS: ReadonlySet<string> = new Set([
+  'node -e',
+  'python -c',
+  'python3 -c',
+  'perl -e',
+  'ruby -e',
+  'bash -c',
+  'sh -c',
+  'zsh -c',
+  'ksh -c',
+]);
+
+/**
  * 安全检查器配置
  */
 export interface SecurityCheckerConfig {
@@ -420,7 +440,10 @@ export class SandboxSecurityChecker {
           allowed: false,
           reason: `命令包含危险操作: "${dangerous}"`,
           matchedPattern: dangerous,
-          suggestion: '请检查命令是否必要，避免执行破坏性操作',
+          // N-18：内联解释器 ⇒ 给可执行替代，避免模型换写法反复重试
+          suggestion: INTERPRETER_INLINE_PATTERNS.has(d)
+            ? '内联代码请先写入脚本文件再执行（如 node check.js / python check.py）'
+            : '请检查命令是否必要，避免执行破坏性操作',
         };
       }
     }

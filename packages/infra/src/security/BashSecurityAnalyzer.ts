@@ -39,6 +39,38 @@ let nativeAnalyzerLoader:
   | null = null;
 
 /**
+ * N-16（2026-11-07 真机）：命令里是否存在**引号外**的分号。
+ *
+ * 原生分析器的 `semicolon_chaining` 只按 `"; "` / ";\n" 子串判定，不区分引号 ⇒
+ * `node -e "const a=1; const b=2"`（真机长任务的实际写法）被判"注入攻击"并**硬拒**，
+ * 连续两轮后 `turn_blocked (consecutive environment-blocked turn)`。
+ *
+ * 语义依据：引号内的 `;` 是**参数内容**（整段引号是一个 argv），不构成 shell 链式执行。
+ * 只对分号做剥离；`$(...)` / 反引号在双引号内**仍会执行**，故其余注入类型保持原判。
+ */
+export function hasUnquotedSemicolon(command: string): boolean {
+  let quote: '"' | "'" | null = null;
+  for (let i = 0; i < command.length; i++) {
+    const ch = command[i];
+    if (quote) {
+      // 双引号内的 `\"` 是转义，不结束引号（cmd/POSIX 共有约定）
+      if (ch === '\\' && quote === '"') {
+        i += 1;
+        continue;
+      }
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      continue;
+    }
+    if (ch === ';') return true;
+  }
+  return false;
+}
+
+/**
  * 注入原生分析能力来源（app 启动期调用；`null` = 撤销，测试用）。
  *
  * 注入会**清空**上一次的解析结果与降级状态，避免沿用旧句柄。
@@ -541,8 +573,35 @@ export class BashSecurityAnalyzer {
           let finalBehavior: SecurityBehavior = 'allow';
           const messages: string[] = [];
 
+          // N-16（2026-11-07 真机）：过滤「引号内分号」假阳性。
+          // 原生分析器按 `"; "` 子串判 `semicolon_chaining`，不看引号 ⇒
+          // `node -e "const a=1; const b=2"` 这类合法命令被判注入并**硬拒**（连续两轮后 turn_blocked）。
+          // 引号内的 `;` 不构成 shell 链式执行（整段是一个参数），故仅在**引号外**存在分号时才认。
+          const rawInjections: string[] = Array.isArray(
+            nativeResult.injection_types
+          )
+            ? nativeResult.injection_types
+            : [];
+          const injectionTypes = rawInjections.filter(
+            (inj: string) =>
+              !(
+                inj === 'semicolon_chaining' &&
+                !hasUnquotedSemicolon(trimmedCommand)
+              )
+          );
+          // 若"可疑"判定**只**来自被过滤掉的假阳性（且无危险模式命中）⇒ 视同 safe，
+          // 否则 `node -e "a; b"` 仍会停在 suspicious/ask（原为 deny）。
+          const onlyFalsePositiveInjection =
+            rawInjections.length > 0 && injectionTypes.length === 0;
+          const effectiveRiskLevel: string =
+            nativeResult.risk_level === 'suspicious' &&
+            onlyFalsePositiveInjection &&
+            (nativeResult.matches?.length ?? 0) === 0
+              ? 'safe'
+              : nativeResult.risk_level;
+
           // 映射Rust结果到TS类型
-          if (nativeResult.risk_level === 'dangerous') {
+          if (effectiveRiskLevel === 'dangerous') {
             highestRiskLevel = 'high';
             finalBehavior = 'deny';
             messages.push(
@@ -553,7 +612,7 @@ export class BashSecurityAnalyzer {
                 matchedPatterns.push(m.type || m.pattern);
               }
             }
-          } else if (nativeResult.risk_level === 'suspicious') {
+          } else if (effectiveRiskLevel === 'suspicious') {
             highestRiskLevel = 'medium';
             finalBehavior = 'ask';
             messages.push('命令存在可疑特征');
@@ -564,16 +623,14 @@ export class BashSecurityAnalyzer {
             }
           }
 
-          // 注入类型检测
-          if (nativeResult.injection_types?.length > 0) {
-            for (const inj of nativeResult.injection_types) {
+          // 注入类型检测（N-16：已剔除引号内分号的假阳性）
+          if (injectionTypes.length > 0) {
+            for (const inj of injectionTypes) {
               matchedPatterns.push(`injection:${inj}`);
             }
             highestRiskLevel = 'high';
             finalBehavior = 'deny';
-            messages.push(
-              `检测到注入攻击: ${nativeResult.injection_types.join(', ')}`
-            );
+            messages.push(`检测到注入攻击: ${injectionTypes.join(', ')}`);
           }
 
           // 原生检查通过了，但仍然需要运行TS特有的检查

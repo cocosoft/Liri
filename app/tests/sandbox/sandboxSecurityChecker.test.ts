@@ -97,6 +97,22 @@ describe('R2 矩阵行「权限不足 ⇒ 明确拒绝」：危险命令（token
       'rm'
     );
   });
+
+  // N-18（2026-11-07 真机）：内联解释器被拒时**必须给可执行替代**，否则模型只会换写法反复重试
+  // （`node -e` → `node --eval` → `_probe.js`），白烧 2–3 轮并撞 turn_blocked。
+  it('N-18：`node -e` / `python -c` 的 suggestion 指向"写入脚本文件"', () => {
+    for (const cmd of ['node -e "console.log(1)"', 'python -c "print(1)"']) {
+      const r = checker.checkDangerousCommands(cmd);
+      expect(r.allowed).toBe(false);
+      expect(r.suggestion ?? '').toContain('脚本文件');
+    }
+  });
+
+  it('N-18：非解释器类拒因仍是通用建议（不误改成脚本提示）', () => {
+    const r = checker.checkDangerousCommands('rm -rf /');
+    expect(r.allowed).toBe(false);
+    expect(r.suggestion ?? '').not.toContain('脚本文件');
+  });
 });
 
 describe('R2 矩阵行「权限不足 ⇒ 明确拒绝」：其余拦截面', () => {

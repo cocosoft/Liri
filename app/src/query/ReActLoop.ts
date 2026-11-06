@@ -31,7 +31,11 @@ import type { QuestionData } from '@modules/runtime/api/CoreAPI.js';
 import type { SteeringSource } from '@modules/session/types/eventPayloads';
 // LRO-09（2026-10-26）：失败分类的**单一事实源**在 session 工具契约（与 `ToolResult.failureKind` 同源）
 import type { ToolFailureKind } from '@modules/session/types/tool.js';
-import { buildRoundSignature, isRepeatedLoop } from './loopGuard.js';
+import {
+  buildRoundSignature,
+  fileToolSignatureArgs,
+  isRepeatedLoop,
+} from './loopGuard.js';
 
 const logger = getLogger('query:reactLoop');
 
@@ -1299,12 +1303,11 @@ export abstract class ReActLoop<
                   ? {
                       title: (tc.input as Record<string, unknown>).title,
                     }
-                  : // P15（2026-09-01）：file_write/file_edit 签名取 file_path + content
-                    // 长度——参数 JSON 截断 200 字符（loopGuard normalizeArgs）使增量
-                    // 写同一文件的签名相同（HTML 开头相同），误判"无进展"熔断（实测
-                    // 模型分 4 轮写 ai-agent-daily-report.html，第 3 轮被 no_progress）。
-                    // content 长度变化（增量完善）→ 签名不同 → 放行；完全相同（重写）
-                    // → 签名相同 → 熔断（真正无进展）。
+                  : // P15（2026-09-01）：file_write/file_edit 签名取文件路径 + 内容特征
+                    // （不再用参数 JSON 全文——截断 200 字符会让增量写同一文件的签名相同，
+                    // 误判"无进展"熔断，实测模型分 4 轮写同一 HTML，第 3 轮被 no_progress）。
+                    // P1-2（2026-11-06）：file_edit 没有 `content` ⇒ 旧口径长度恒为 0，
+                    // 同文件的不同编辑签名坍缩 ⇒ 误熔断（见 loopGuard.fileToolSignatureArgs）。
                     (tc.name === 'file_write' ||
                         tc.name === 'FileWriteTool' ||
                         tc.name === 'write_file' ||
@@ -1313,21 +1316,7 @@ export abstract class ReActLoop<
                         tc.name === 'edit_file') &&
                       typeof tc.input === 'object' &&
                       tc.input !== null
-                    ? (() => {
-                        const inp = tc.input as Record<string, unknown>;
-                        const fp =
-                          typeof inp.file_path === 'string'
-                            ? inp.file_path
-                            : typeof inp.path === 'string'
-                              ? inp.path
-                              : '';
-                        const content = inp.content;
-                        return {
-                          file_path: fp,
-                          contentLength:
-                            typeof content === 'string' ? content.length : 0,
-                        };
-                      })()
+                    ? fileToolSignatureArgs(tc.input as Record<string, unknown>)
                     : tc.input,
             })),
           });

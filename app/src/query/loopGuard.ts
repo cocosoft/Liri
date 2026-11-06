@@ -35,6 +35,56 @@ function normalizeArgs(args: Record<string, unknown>): string {
   }
 }
 
+/** FNV-1a 32 位摘要（仅用于轮签名去重，非安全哈希） */
+function signatureHash(text: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(8, '0');
+}
+
+/**
+ * 文件类工具的签名参数归一化（P1-2，2026-11-06）
+ *
+ * `file_write` 有 `content` ⇒ 用内容长度区分增量写入（既有 P15 口径，保持不变）；
+ * `file_edit` **没有** `content`（参数是 `old_string` / `new_string` / `replace_all`）
+ * ⇒ 旧实现取到的 `content.length` 恒为 0，同一文件上**任意多次不同编辑**签名完全相同，
+ * 被 `isRepeatedLoop()` 判成"无进展"。
+ *
+ * 真机证据（`session_mw4n94q10d049b6b3e`，2026-11-06）：
+ *   - 07:25:31 `reActLoop:no_progress_loop` 签名 `file_edit:success:{"contentLength":"0","file_path":"…\\scripts\\simulate.ts"}`
+ *   - 07:33:57 同型（`docs/PRD.md`）
+ * 两次被判"重复"的三轮实际是不同位置的编辑且全部 success。
+ *
+ * 现改为对改动内容取短摘要：同一处同一改法仍同签名（真重复照旧熔断），
+ * 不同编辑不同签名（放行）。
+ */
+export function fileToolSignatureArgs(
+  input: Record<string, unknown>
+): Record<string, unknown> {
+  const filePath =
+    typeof input.file_path === 'string'
+      ? input.file_path
+      : typeof input.path === 'string'
+        ? input.path
+        : '';
+
+  const content = input.content;
+  if (typeof content === 'string') {
+    return { file_path: filePath, contentLength: content.length };
+  }
+
+  const oldText = typeof input.old_string === 'string' ? input.old_string : '';
+  const newText = typeof input.new_string === 'string' ? input.new_string : '';
+  return {
+    file_path: filePath,
+    editHash: signatureHash(`${oldText}\u0000${newText}`),
+    replaceAll: input.replace_all === true,
+  };
+}
+
 /**
  * 构建轮签名：工具名+状态+归一化参数排序拼接。
  * 用于检测"不同工具组合反复尝试但无实质进展"的循环

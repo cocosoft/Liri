@@ -23,6 +23,7 @@
 import { describe, it, expect } from "vitest";
 import {
   dedupeToolCallBlocks,
+  hasPendingApprovalCard,
   parseApprovalSignal,
 } from "../chat-message-shared";
 import type { MessageBlock } from "@/types";
@@ -123,5 +124,54 @@ describe("parseApprovalSignal — 审批等待信号（U-06-5）", () => {
     expect(parseApprovalSignal("plain text result")).toBeNull();
     expect(parseApprovalSignal(undefined)).toBeNull();
     expect(parseApprovalSignal({ pendingApproval: true })).toBeNull();
+  });
+});
+
+/**
+ * P0-1（2026-11-06）：流式收尾后是否需要补拉审批卡片。
+ *
+ * 真机背景：`inbox:new` 广播早于本轮 assistant 消息落盘 ⇒ 那次刷新拿不到卡片，
+ * 随后流式写入又覆盖本地列表 ⇒ 用户不刷新页面看不到审批卡。
+ */
+describe("hasPendingApprovalCard — 是否已有待处理审批卡片（P0-1）", () => {
+  const inboxBlock = (
+    status: "pending" | "replied" | "expired",
+  ): MessageBlock =>
+    ({
+      id: `blk_inbox_${status}`,
+      type: "inbox",
+      content: "",
+      inboxData: {
+        inboxId: "ib-1",
+        type: "approval",
+        title: "工具审批: bash",
+        content: "",
+        status,
+        actions: [],
+      },
+    }) as MessageBlock;
+
+  it("含 pending 审批块 ⇒ true", () => {
+    expect(hasPendingApprovalCard([{ blocks: [inboxBlock("pending")] }])).toBe(
+      true,
+    );
+  });
+
+  it("仅 replied / expired ⇒ false（不重复补拉）", () => {
+    expect(
+      hasPendingApprovalCard([
+        { blocks: [inboxBlock("replied"), inboxBlock("expired")] },
+      ]),
+    ).toBe(false);
+  });
+
+  it("空列表 / 无 blocks / 非 inbox 块 ⇒ false", () => {
+    expect(hasPendingApprovalCard([])).toBe(false);
+    expect(hasPendingApprovalCard([{}])).toBe(false);
+    expect(
+      hasPendingApprovalCard([
+        { blocks: [{ id: "b", type: "text", content: "hi" }] },
+      ]),
+    ).toBe(false);
   });
 });

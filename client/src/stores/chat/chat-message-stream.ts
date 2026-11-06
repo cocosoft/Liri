@@ -21,6 +21,7 @@ import {
 } from "@/services/chatService";
 import { useFeatureFlagStore } from "@/stores/featureFlags";
 import { playCompletionSound } from "@/services/SoundService";
+import { sessionService } from "@/services/sessionService";
 import { createLogger } from "@/utils/logger";
 import {
   createThinkExtractor,
@@ -32,7 +33,10 @@ import { SaveQueue, staleSessionCache } from "./chat-history.slice";
 import { handleClientError } from "@/utils/handleError";
 import { toastWarning } from "@/stores/toastStore";
 import i18n from "@/i18n";
-import { removeStreamController } from "./chat-message-shared";
+import {
+  removeStreamController,
+  hasPendingApprovalCard,
+} from "./chat-message-shared";
 import { useTrajectoryStore } from "./trajectoryStore";
 import {
   processChunk,
@@ -625,6 +629,13 @@ export async function streamMessageImpl(
     // 需标记消息 finishReason 供 ChatMessage 显示中断提示。
     let receivedDone = false;
     let receivedError = false;
+    /**
+     * P0-1（2026-11-06）：本轮收尾原因（`done` chunk 上的结构化字段）。
+     * 只用于「是否等待审批」这一件事，避免用正文/工具文本做字符串匹配（CS02）。
+     */
+    let doneFinishReason: string | undefined;
+    /** 主循环终止原因（`turn/end.terminationReason`，可能随 done 或 usage 块下发） */
+    let doneTerminationReason: string | undefined;
 
     for await (const rawChunk of generator) {
       // 检查是否已被中止
@@ -642,14 +653,30 @@ export async function streamMessageImpl(
 
       // 正常收尾标志（rawChunk 层与子 chunk 层都检查，覆盖 chatService
       // 解析路径与 extractor 拆分路径）
-      if (rawChunk.type === "done") receivedDone = true;
+      if (rawChunk.type === "done") {
+        receivedDone = true;
+        doneFinishReason =
+          (rawChunk as { finishReason?: string }).finishReason ??
+          doneFinishReason;
+      }
+      doneTerminationReason =
+        (rawChunk as { terminationReason?: string }).terminationReason ??
+        doneTerminationReason;
       if (rawChunk.type === "error") receivedError = true;
 
       const chunks = Array.from(extractor.extract(rawChunk));
       for (const chunk of chunks) {
         chunkCount++;
         // 子 chunk 层标志（extractor 可能拆分出 done/error）
-        if (chunk.type === "done") receivedDone = true;
+        if (chunk.type === "done") {
+          receivedDone = true;
+          doneFinishReason =
+            (chunk as { finishReason?: string }).finishReason ??
+            doneFinishReason;
+        }
+        doneTerminationReason =
+          (chunk as { terminationReason?: string }).terminationReason ??
+          doneTerminationReason;
         if (chunk.type === "error") receivedError = true;
         await processChunk(chunkCtx, chunk);
       }
@@ -1006,9 +1033,44 @@ export async function streamMessageImpl(
       }
     }
 
+    // P0-1（2026-11-06 真机）：回合以「等待审批」收尾时补一次**收尾后**的消息重取。
+    // 背景：`inbox:new` 广播发生在工具执行中途（早于本轮 assistant 消息落盘），
+    // 那一刻的刷新拿到的是"还没有审批卡片"的历史，随后流式写入又覆盖了本地列表
+    // ⇒ 用户不刷新页面就看不到审批卡片（真机 session_mw4qxg9md9ca793031 复现）。
+    // 服务端的 Inbox 块在**读时合成**，故落盘后再取必然带上；这里只做有界重试（1 次）。
+    if (
+      !controller.signal.aborted &&
+      (doneFinishReason === "awaiting_approval" ||
+        doneTerminationReason === "awaiting_approval" ||
+        finalBlocks.some(
+          (b) => b.type === "tool_call" && b.toolCall?.pendingApproval === true,
+        ))
+    ) {
+      const refreshApprovalCard = async (attempt: number): Promise<void> => {
+        try {
+          const msgs = await sessionService.getMessages(sid);
+          if (get().messages[0]?.session_id !== sid) return;
+          if (!hasPendingApprovalCard(msgs)) {
+            // 服务端可能尚未落盘本轮 assistant 消息 ⇒ 一次有界重试（不做轮询）
+            if (attempt < 1) {
+              setTimeout(() => void refreshApprovalCard(attempt + 1), 800);
+            }
+            return;
+          }
+          get().mergeRefreshedMessages(msgs);
+          logger.info("[P0-1:streamMessage] 等待审批收尾后已补拉审批卡片", {
+            sessionId: sid,
+            attempt,
+          });
+        } catch {
+          /* @ignore-catch — 补拉失败不影响主流程（用户重开会话仍可见卡片） */
+        }
+      };
+      void refreshApprovalCard(0);
+    }
+
     // 自动重命名由后端 autoGenerateTitle 唯一负责（P1-4 消除双责任方竞态），
     // 前端仅响应 session:renamed SSE 刷新标题（P2-4）。
-
     // 消息排队：自动消费队列中的下一条消息
     tryDequeue();
   } catch (error) {

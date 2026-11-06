@@ -56,6 +56,23 @@ export function getToolResultFull(toolCallId: string): string | undefined {
 }
 
 /**
+ * P0-1（2026-11-06）：消息列表里是否已有**待处理**的审批卡片。
+ *
+ * 用途：流式回合以「等待审批」收尾后判断是否需要补拉消息。
+ * 服务端的 Inbox 块是**读时合成**（`attachPendingApprovalBlocks`），
+ * 列表里没有 pending 卡片通常意味着本轮 assistant 消息尚未落盘 ⇒ 可重试一次。
+ */
+export function hasPendingApprovalCard(
+  messages: ReadonlyArray<{ blocks?: MessageBlock[] }>,
+): boolean {
+  return messages.some((m) =>
+    (m.blocks ?? []).some(
+      (b) => b.type === "inbox" && b.inboxData?.status === "pending",
+    ),
+  );
+}
+
+/**
  * U-06-5（2026-10-19）：从工具结果 JSON 文本提取审批等待信号。
  *
  * `awaiting_approval` 结果由后端返回为结构化 JSON

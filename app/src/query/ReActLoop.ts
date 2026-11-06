@@ -18,6 +18,8 @@
 
 import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
 import { handleError } from '@openliri/infra/error/handleError';
+// P1-3（2026-11-06）：推理错误 ⇒ 用户可读摘要（原文仍进日志/handleError，不丢排查证据）
+import { summarizeReasoningError } from './reasoningErrorSummary.js';
 // 2026-09-25 §6.8：预期中断判据（常量 / 品牌 / isAbortReason）已**下沉**到 `error/`，
 // 以供更低层共用（`handleError` 唯一错误入口、`ai/providers/*` 包装点、`core/exit/ExitRecorder`）。
 import {
@@ -1155,8 +1157,11 @@ export abstract class ReActLoop<
               yield { type: 'reasoning_end', result: reasonResult };
             } else {
               this.state.phase = 'reasoning_error';
-              this.state.lastError = String(err);
-              yield { type: 'error', message: String(err) };
+              // P1-3（2026-11-06）：正文给可读摘要；`String(err)` 原文仍在上面的
+              // `handleError` + `reActLoop:reasoning_error` 日志里（真机曾把 provider 的
+              // `AppError: OpenAI API error (400): {...}` 原文直接当助手正文展示）。
+              this.state.lastError = summarizeReasoningError(err);
+              yield { type: 'error', message: this.state.lastError };
               return this.finalize(this.state, context);
             }
           }

@@ -662,6 +662,10 @@ export interface LiriEventMap {
     decision:
       "allow_once" | "allow_session" | "allow_task" | "allow_always" | "deny";
     commandHash?: string;
+    /**
+     * P2-4（2026-11-07）：`once` = 同一命令指纹在短 TTL（默认 5 分钟）内可复用，
+     * **不是**"仅一次"（后端 `APPROVAL_SCOPE_COMMAND_TTL` 为语义真源）。
+     */
     scopeKind: "once" | "session" | "task" | "always";
   };
 }

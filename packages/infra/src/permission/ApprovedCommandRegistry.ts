@@ -46,6 +46,17 @@ const logger = getLogger('permission:approvedCommands');
 /** 批准记录默认 TTL（毫秒）— P0-1: 60s → 5min，匹配"批准→LLM 续跑"真实耗时（实测 75–131s） */
 const APPROVED_COMMAND_TTL_MS = 300_000;
 
+/**
+ * P2-4（2026-11-07 真机台账）：`scopeKind` 的「命令指纹档」字面量。
+ *
+ * **真语义 = 同一命令指纹在 TTL 窗口（默认 5 分钟）内可复用**，不是"批准一次即失效"
+ * （见下方 `expiresAt` 计算与 `APPROVED_COMMAND_TTL_MS`）。
+ *
+ * 字面量沿用 `'once'`：审批裁决事件（`approval/decided`）与审计记录已按该值落盘，属既成契约
+ * ⇒ 以**常量名**表达真语义，调用方按 `APPROVAL_SCOPE_COMMAND_TTL` 理解而非"仅本次"。
+ */
+export const APPROVAL_SCOPE_COMMAND_TTL = 'once' as const;
+
 /** 环境变量：批准放行缓存 TTL（毫秒） */
 const APPROVAL_TTL_ENV = 'PERMISSION_APPROVAL_TTL_MS';
 
@@ -225,13 +236,14 @@ export interface ApprovalEntry {
   snapshot?: ApprovalSnapshot;
   /**
    * PR-2（2026-10-23）：审批**作用域档位**。
-   * - `once`（缺省）：短 TTL（现状 5 分钟）；
+   * - `APPROVAL_SCOPE_COMMAND_TTL`（缺省，字面量 `'once'`）：**同一命令指纹在短 TTL 内可复用**
+   *   （现状 5 分钟；执行后不消费）—— 不是"批准一次即失效"，见该常量注释；
    * - `session`：**本会话都允许** —— 有效期到会话结束（`clearSession()` 或进程退出）。
    * - `task`（P2，2026-11-04，方案 §3.3）：**本长程任务都允许** —— 条目绑定 `taskId`，
    *   只在该任务仍是会话的活跃任务时命中；任务结束（`clearTask()`）即失效。
    *   比 `session` 更窄（不跨任务复用），用于"长程步骤同类调用只批一次"。
    */
-  scopeKind?: 'once' | 'session' | 'task';
+  scopeKind?: typeof APPROVAL_SCOPE_COMMAND_TTL | 'session' | 'task';
   /** `scopeKind==='task'` 时绑定的任务 id（其余档位缺省） */
   taskId?: string;
 }
@@ -393,9 +405,12 @@ export class ApprovedCommandRegistry {
       scope?: ApprovalScope;
       snapshot?: ApprovalSnapshot;
       capabilityDigest?: string;
-      /** PR-2：`session` ⇒ 本会话都允许（不过期，直到 `clearSession`）；P2：`task` ⇒ 本任务都允许 */
-      scopeKind?: 'once' | 'session' | 'task';
-      /** P2（方案 §3.3）：`scopeKind==='task'` 必填；缺失 ⇒ 降级为 `once`（fail-closed） */
+      /**
+       * PR-2：`session` ⇒ 本会话都允许（不过期，直到 `clearSession`）；P2：`task` ⇒ 本任务都允许；
+       * 缺省/其余 ⇒ `APPROVAL_SCOPE_COMMAND_TTL`（同一命令指纹 TTL 窗口内可复用，**非"仅一次"**）
+       */
+      scopeKind?: typeof APPROVAL_SCOPE_COMMAND_TTL | 'session' | 'task';
+      /** P2（方案 §3.3）：`scopeKind==='task'` 必填；缺失 ⇒ 降级为命令指纹 TTL 档（fail-closed） */
       taskId?: string;
     }
   ): void {
@@ -407,19 +422,19 @@ export class ApprovedCommandRegistry {
     }
     const scopeDigest = computeScopeDigest(extras?.scope);
     const ownerKey = currentOwnerKey();
-    // P2：任务档必须有 taskId —— 缺失时降级 once（宁可多问一次，不做"账号级永久放行"）
+    // P2：任务档必须有 taskId —— 缺失时降级为命令指纹档（宁可多问一次，不做"账号级永久放行"）
     const requestedKind = extras?.scopeKind;
-    const scopeKind: 'once' | 'session' | 'task' =
+    const scopeKind: typeof APPROVAL_SCOPE_COMMAND_TTL | 'session' | 'task' =
       requestedKind === 'task' && !extras?.taskId
-        ? 'once'
+        ? APPROVAL_SCOPE_COMMAND_TTL
         : requestedKind === 'task'
           ? 'task'
           : requestedKind === 'session'
             ? 'session'
-            : 'once';
+            : APPROVAL_SCOPE_COMMAND_TTL;
     const taskId = scopeKind === 'task' ? extras?.taskId : undefined;
     if (requestedKind === 'task' && !taskId) {
-      logger.warn('任务审批作用域缺少 taskId，已降级为 once', {
+      logger.warn('任务审批作用域缺少 taskId，已降级为命令指纹 TTL 档', {
         sessionId,
         hash,
       });
@@ -428,7 +443,9 @@ export class ApprovedCommandRegistry {
       hash,
       // PR-2/P2：会话档与任务档不设过期（分别由 clearSession / clearTask 失效）
       expiresAt:
-        scopeKind === 'once' ? Date.now() + this.ttlMs : Number.POSITIVE_INFINITY,
+        scopeKind === APPROVAL_SCOPE_COMMAND_TTL
+          ? Date.now() + this.ttlMs
+          : Number.POSITIVE_INFINITY,
       scopeKind,
       ...(taskId ? { taskId } : {}),
       // 多租户 P3：记录批准时的身份（本地身份 ⇒ 不写字段，零变更）

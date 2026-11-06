@@ -22,6 +22,8 @@ import {
 } from './InboxManager.js';
 import {
   APPROVAL_REPLY_TO_DECISION,
+  // P2-4（2026-11-07）：命令指纹档字面量（`'once'` 的真语义 = TTL 窗口内可复用）
+  APPROVAL_SCOPE_COMMAND_TTL,
   getApprovedCommandRegistry,
   // P2（§3.3）：任务档审批 —— 活跃长程任务解析
   getActiveTaskId,
@@ -107,17 +109,22 @@ function isFingerprintAllowReply(
   return reply === 'allowlist_call' || selectedOption === 'allowlist_call';
 }
 
-/** PR-2：按回复值解析放行缓存档位（`approve_session` ⇒ 不过期；`approve_task` ⇒ 仅本任务） */
+/**
+ * PR-2：按回复值解析放行缓存档位（`approve_session` ⇒ 不过期；`approve_task` ⇒ 仅本任务）。
+ *
+ * P2-4（2026-11-07）：缺省档返回 `APPROVAL_SCOPE_COMMAND_TTL`（字面量 `'once'`）——
+ * 其真语义是**同一命令指纹在 TTL 窗口（默认 5 分钟）内可复用**，不是"批准一次即失效"。
+ */
 export function resolveApprovalScopeKind(
   reply: string,
   selectedOption?: string
-): 'once' | 'session' | 'task' {
+): typeof APPROVAL_SCOPE_COMMAND_TTL | 'session' | 'task' {
   if (isSessionScopeReply(reply, selectedOption)) return 'session';
   // P2（2026-11-04，§3.3）：「本任务都允许」—— 绑定当前活跃长程任务，任务结束即失效
   if (reply === 'approve_task' || selectedOption === 'approve_task') {
     return 'task';
   }
-  return 'once';
+  return APPROVAL_SCOPE_COMMAND_TTL;
 }
 
 /**

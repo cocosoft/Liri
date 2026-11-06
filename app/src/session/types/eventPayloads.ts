@@ -1271,7 +1271,11 @@ export interface LiriEventMap {
     /** 放行缓存键（`hashCommandForExecution(approvalFingerprint)`） */
     commandHash?: string;
     /**
-     * 留痕范围：`once` 本次 / `session` 本会话 / `task` 本长程任务 / `always` 持久化规则。
+     * 留痕范围：`once` / `session` / `task` / `always`。
+     *
+     * ⚠️ P2-4（2026-11-07）：`once` 的含义是**同一命令指纹在短 TTL（默认 5 分钟）内可复用**，
+     * **不是**"批准一次即失效"（执行后不消费缓存放行记录）。字面量为既成事件契约，语义真源见
+     * `packages/infra/src/permission/ApprovedCommandRegistry.ts` 的 `APPROVAL_SCOPE_COMMAND_TTL`。
      * `deny` ⇒ `once`（拒绝不落任何放行）。
      */
     scopeKind: 'once' | 'session' | 'task' | 'always';

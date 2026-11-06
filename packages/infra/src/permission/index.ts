@@ -162,6 +162,8 @@ export {
 export {
   ApprovedCommandRegistry,
   getApprovedCommandRegistry,
+  // P2-4（2026-11-07）：审批档位字面量常量（`'once'` 的真语义 = 命令指纹 TTL 档）
+  APPROVAL_SCOPE_COMMAND_TTL,
   normalizeCommand,
   hashCommand,
   hashCommandForExecution,

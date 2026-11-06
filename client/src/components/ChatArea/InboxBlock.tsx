@@ -72,6 +72,70 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
   const [resuming, setResuming] = useState(false);
   const addToast = useToastStore((s) => s.addToast);
   const { t } = useTranslation();
+  // P1-1（2026-11-06）：本会话待审批卡数量 —— 决定是否显示「全部批准」
+  const [pendingApprovals, setPendingApprovals] = useState(0);
+  const [batchReplying, setBatchReplying] = useState(false);
+
+  // P1-1（2026-11-06）：**外部状态同步** —— 同会话其它卡片被批量批准后，服务端回填
+  // `inboxData.status='replied'`，但本组件的 `status` 是挂载时的初值 ⇒ 卡片会一直停在
+  // "待批"（真机：一键批准 2 张后，另一张仍显示批准按钮）。只接受**终态**回填，
+  // 避免乐观置 `replied` 后被一次过期重取翻回 `pending`。
+  useEffect(() => {
+    if (data.status !== "pending") setStatus(data.status);
+  }, [data.status]);
+
+  // P1-1：同轮多工具（如 3 个 mkdir）会各生成一张卡；>1 时给一键批准入口。
+  // 只用于按钮显隐，取数失败静默（点击时后端仍会告知实际落地数量）。
+  useEffect(() => {
+    if (data.status !== "pending" || data.type !== "approval" || !sessionId) {
+      return;
+    }
+    let cancelled = false;
+    http
+      .get<{ total?: number }>(
+        `/v1/inbox?sessionId=${encodeURIComponent(sessionId)}&status=pending&type=approval&limit=50`,
+      )
+      .then((res) => {
+        if (cancelled || !res.ok) return;
+        const total = (res.data as { total?: number } | undefined)?.total;
+        if (typeof total === "number") setPendingApprovals(total);
+      })
+      .catch(() => {
+        /* 计数仅用于按钮显隐，失败静默 */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [data.status, data.type, sessionId]);
+
+  /** P1-1：一次批准本会话全部待审批卡（服务端只触发一次续跑） */
+  const handleApproveAll = async () => {
+    if (batchReplying || status !== "pending" || !sessionId) return;
+    setBatchReplying(true);
+    try {
+      const res = await http.post<{
+        applied?: boolean;
+        resolved?: string[];
+      }>("/v1/inbox/approve-all", { sessionId, reply: "approve" });
+      const applied =
+        res.ok &&
+        (res.data as { applied?: boolean } | undefined)?.applied === true;
+      if (!applied) {
+        addToast("error", t("chat.inboxApproveAllNone"));
+        return;
+      }
+      const count = (res.data as { resolved?: string[] }).resolved?.length ?? 0;
+      setStatus("replied");
+      addToast("success", t("chat.inboxApproveAllToast", { count }));
+      onResolved?.();
+      // 续跑完成由后端 `session:continued` 驱动刷新（与单卡批准同源）
+      setResuming(true);
+    } catch (e) {
+      addToast("error", e instanceof Error ? e.message : t("common.failed"));
+    } finally {
+      setBatchReplying(false);
+    }
+  };
 
   const handleAction = async (reply: string) => {
     if (replying || status !== "pending") return;
@@ -233,6 +297,20 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
               </button>
             );
           })}
+
+        {/* P1-1（2026-11-06）：同会话多张待审批卡 ⇒ 一键全部批准（服务端只续跑一次） */}
+        {isPending && data.type === "approval" && pendingApprovals > 1 && (
+          <button
+            onClick={handleApproveAll}
+            disabled={replying || batchReplying}
+            title={t("chat.inboxApproveAllHint")}
+            className="rounded-lg border border-green-500 px-3 py-1 text-xs font-medium text-green-600 transition-colors hover:bg-green-50 disabled:opacity-50 dark:border-green-600 dark:text-green-400 dark:hover:bg-green-900/20"
+          >
+            {batchReplying
+              ? "..."
+              : t("chat.inboxApproveAll", { count: pendingApprovals })}
+          </button>
+        )}
 
         {/* P2-1: 批准后自动续跑中 —— 避免用户感知空转 */}
         {resuming && (

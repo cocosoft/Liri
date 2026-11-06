@@ -137,6 +137,13 @@ describe("InboxBlock 批准续跑（P0-5 → M2-T2.1）", () => {
     postSpy = vi
       .spyOn(http, "post")
       .mockResolvedValue({ ok: true, data: {}, error: undefined });
+    // P1-1：卡片挂载时会查待审批数量（仅用于按钮显隐）—— 这里固定为"取数失败"，
+    // 让本组用例聚焦单卡批准路径，不引入网络访问。
+    vi.spyOn(http, "get").mockResolvedValue({
+      ok: false,
+      data: undefined,
+      error: "mock",
+    } as never);
     // 打桩 chat store 的 sendMessage——M2-T2.1 契约：前端不再降级触发 sendMessage，
     // 续跑责任收敛到后端（inbox-handlers fire-and-forget + events 尾部重建）
     sendSpy = vi
@@ -225,5 +232,93 @@ describe("InboxBlock 批准续跑（P0-5 → M2-T2.1）", () => {
     );
     expect(screen.queryByText("×1")).toBeNull();
     single.unmount();
+  });
+});
+
+describe("InboxBlock 全部批准（P1-1）", () => {
+  const base: InboxBlockData = {
+    inboxId: "ib-a",
+    type: "approval",
+    title: "工具审批: bash",
+    content: "命令: mkdir out",
+    status: "pending",
+    priority: "normal",
+    actions: [
+      { label: "批准", reply: "approve", style: "primary" },
+      { label: "拒绝", reply: "deny", style: "danger" },
+    ],
+  };
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("同会话 >1 张待审批 ⇒ 显示「全部批准（3 项）」并 POST approve-all", async () => {
+    vi.spyOn(http, "get").mockResolvedValue({
+      ok: true,
+      data: { total: 3 },
+      error: undefined,
+    } as never);
+    const postSpy = vi.spyOn(http, "post").mockResolvedValue({
+      ok: true,
+      data: { applied: true, resolved: ["a", "b", "c"] },
+      error: undefined,
+    } as never);
+
+    render(<InboxBlock data={base} sessionId="session-1" />);
+    const button = await screen.findByText(/全部批准/);
+    fireEvent.click(button);
+
+    await waitFor(() =>
+      expect(postSpy).toHaveBeenCalledWith("/v1/inbox/approve-all", {
+        sessionId: "session-1",
+        reply: "approve",
+      }),
+    );
+  });
+
+  it("仅 1 张待审批 ⇒ 不显示批量按钮", async () => {
+    const getSpy = vi.spyOn(http, "get").mockResolvedValue({
+      ok: true,
+      data: { total: 1 },
+      error: undefined,
+    } as never);
+    vi.spyOn(http, "post").mockResolvedValue({
+      ok: true,
+      data: {},
+      error: undefined,
+    } as never);
+
+    render(<InboxBlock data={base} sessionId="session-1" />);
+    await waitFor(() => expect(getSpy).toHaveBeenCalled());
+    expect(screen.queryByText(/全部批准/)).toBeNull();
+  });
+
+  // 真机回归：一键批准 2 张后，未被点击的那张必须随服务端回填切到"已处理"
+  it("外部回填 status=replied ⇒ 卡片切到已处理（同级卡片同步）", async () => {
+    vi.spyOn(http, "get").mockResolvedValue({
+      ok: false,
+      data: undefined,
+      error: "mock",
+    } as never);
+    vi.spyOn(http, "post").mockResolvedValue({
+      ok: true,
+      data: {},
+      error: undefined,
+    } as never);
+
+    const { rerender } = render(
+      <InboxBlock data={base} sessionId="session-1" />,
+    );
+    expect(screen.getByText("批准")).toBeInTheDocument();
+
+    rerender(
+      <InboxBlock
+        data={{ ...base, status: "replied" }}
+        sessionId="session-1"
+      />,
+    );
+    await waitFor(() => expect(screen.queryByText("批准")).toBeNull());
+    expect(screen.getByText(/已处理/)).toBeInTheDocument();
   });
 });

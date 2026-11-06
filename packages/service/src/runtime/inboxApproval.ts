@@ -146,7 +146,12 @@ export function parseFingerprintAllowTarget(
 export async function resolveInboxApproval(
   id: string,
   reply: string,
-  selectedOption?: string
+  selectedOption?: string,
+  /**
+   * P1-1（2026-11-06）：**延后续跑**。批量入口逐项落地时置真，最后由批量函数统一触发
+   * 一次 `resumeStream`（否则 N 张卡会各触发一次续跑争同一把会话互斥）。
+   */
+  options?: { deferResume?: boolean }
 ): Promise<InboxApprovalOutcome> {
   const current = await inboxManager.get(id);
   if (!current) return { kind: 'not_found' };
@@ -167,7 +172,7 @@ export async function resolveInboxApproval(
   const updated = await inboxManager.reply(id, reply, selectedOption);
   if (!updated) return { kind: 'update_failed' };
 
-  await applyApprovalSideEffects(current, reply, selectedOption);
+  await applyApprovalSideEffects(current, reply, selectedOption, options);
   await recordApprovalDecision(current, reply, selectedOption);
   await resumePdcaIfApplicable(current, reply, selectedOption);
 
@@ -185,6 +190,111 @@ export async function resolveInboxApproval(
   }
 
   return { kind: 'ok', item: updated };
+}
+
+/** 批量审批结果（P1-1） */
+export interface BatchApprovalOutcome {
+  sessionId: string;
+  /** 成功落地的 Inbox 项 id */
+  resolved: string[];
+  /** 未落地项及原因（`expired` / `already_processed` / `concurrent_conflict` …） */
+  skipped: Array<{ id: string; kind: string }>;
+  /** 是否触发了会话续跑（至少一项落地，且不是纯 PDCA 步骤卡） */
+  resumed: boolean;
+}
+
+/**
+ * P1-1（2026-11-06）：批量审批的**候选判定**（纯函数）。
+ *
+ * 口径：`status='pending'` + `type='approval'` + （可选）同工具名。
+ * 抽成纯函数是为了在不触库的前提下锁定筛选契约（顺序保持入参顺序）。
+ */
+export function selectBatchApprovalTargets<
+  T extends {
+    status?: string;
+    type?: string;
+    metadata?: Record<string, unknown>;
+  },
+>(items: readonly T[], toolName?: string): T[] {
+  return items.filter(
+    (item) =>
+      item.status === INBOX_STATUS_PENDING &&
+      item.type === 'approval' &&
+      (!toolName || item.metadata?.toolName === toolName)
+  );
+}
+
+/**
+ * P1-1（2026-11-06）：一次批准同一会话的**全部待审批卡**。
+ *
+ * **为什么必须在服务端做**：每张卡的 `resolveInboxApproval` 都会 fire-and-forget 触发
+ * 一次 `resumeStream`；N 张卡 ⇒ N 次续跑争同一把会话互斥（后到的只会在
+ * 「所有工具已完成」上空转，日志刷屏且时序不可控）。批量入口逐项落地时置
+ * `deferResume`，**最后只触发一次**。
+ *
+ * 只处理 `type='approval'` 的 pending 项；`toolName` 可选（只批同一工具，用于"同工具同风险"收窄）。
+ */
+export async function resolveInboxApprovalsBatch(params: {
+  sessionId: string;
+  reply: string;
+  selectedOption?: string;
+  toolName?: string;
+  limit?: number;
+}): Promise<BatchApprovalOutcome> {
+  const { sessionId, reply, selectedOption, toolName } = params;
+  const outcome: BatchApprovalOutcome = {
+    sessionId,
+    resolved: [],
+    skipped: [],
+    resumed: false,
+  };
+  if (!sessionId) return outcome;
+
+  const listed = await inboxManager.list({
+    sessionId,
+    status: INBOX_STATUS_PENDING,
+    type: 'approval',
+    limit: params.limit ?? 50,
+    offset: 0,
+  });
+  const targets = selectBatchApprovalTargets(listed.items, toolName);
+
+  let hasChatResumeTarget = false;
+  for (const item of targets) {
+    const result = await resolveInboxApproval(item.id, reply, selectedOption, {
+      deferResume: true,
+    });
+    if (result.kind !== 'ok') {
+      outcome.skipped.push({ id: item.id, kind: result.kind });
+      continue;
+    }
+    outcome.resolved.push(item.id);
+    // PDCA 步骤卡由 `resumePdcaIfApplicable` 各自续跑 ⇒ 不再叠加聊天续跑
+    if (typeof item.metadata?.pdcaTaskId !== 'string') {
+      hasChatResumeTarget = true;
+    }
+  }
+
+  if (hasChatResumeTarget && isApprovalReply(reply, selectedOption)) {
+    outcome.resumed = true;
+    void triggerResumeAfterApproval(sessionId).catch((resumeErr: unknown) => {
+      logger.warn('批量审批后自动续跑失败（前端可兜底续跑）', {
+        sessionId,
+        error: String(resumeErr),
+      });
+    });
+  }
+
+  logger.info('批量审批完成', {
+    sessionId,
+    reply,
+    ...(toolName ? { toolName } : {}),
+    candidateCount: targets.length,
+    resolvedCount: outcome.resolved.length,
+    skippedCount: outcome.skipped.length,
+    resumed: outcome.resumed,
+  });
+  return outcome;
 }
 
 /**
@@ -244,13 +354,14 @@ async function recordApprovalDecision(
 async function applyApprovalSideEffects(
   current: InboxItem,
   reply: string,
-  selectedOption?: string
+  selectedOption?: string,
+  options?: { deferResume?: boolean }
 ): Promise<void> {
   if (current.type !== 'approval' || current.source !== 'permission') return;
   // B1（2026-10-30，issue #35）：工作区访问申请走独立副作用（加根 + 续跑），
   // 它**没有** commandHash（不写命令放行缓存），必须在放行缓存分支之前分流。
   if (current.metadata?.kind === 'workspace-scope') {
-    await applyWorkspaceScopeApproval(current, reply, selectedOption);
+    await applyWorkspaceScopeApproval(current, reply, selectedOption, options);
     return;
   }
   if (!isApprovalReply(reply, selectedOption)) return;
@@ -315,6 +426,8 @@ async function applyApprovalSideEffects(
     return;
   }
 
+  // P1-1：批量入口 `deferResume` ⇒ 由 `resolveInboxApprovalsBatch` 统一触发一次续跑
+  if (options?.deferResume) return;
   void triggerResumeAfterApproval(current.sessionId).catch(
     (resumeErr: unknown) => {
       logger.warn('审批后自动续跑失败（前端可兜底续跑）', {
@@ -372,7 +485,8 @@ export function mergeWorkspaceRoot(
 async function applyWorkspaceScopeApproval(
   current: InboxItem,
   reply: string,
-  selectedOption?: string
+  selectedOption?: string,
+  options?: { deferResume?: boolean }
 ): Promise<void> {
   const sessionId = current.sessionId;
   const root = current.metadata?.workspaceScopeRoot;
@@ -441,6 +555,8 @@ async function applyWorkspaceScopeApproval(
     logger.info('工作区根已追加（越界申请获批）', { sessionId, root });
     // P0-3：续跑可能需等待原回合结束（有界 120s），不得拖住审批的 HTTP 响应 ⇒
     // 与工具审批路径同口径 fire-and-forget，完成后由 `session:continued` 广播驱动前端刷新。
+    // P1-1：批量入口 `deferResume` ⇒ 统一由批量函数触发一次。
+    if (options?.deferResume) return;
     void triggerResumeAfterApproval(sessionId).catch((resumeErr: unknown) => {
       logger.warn('工作区加根后自动续跑失败', {
         sessionId,

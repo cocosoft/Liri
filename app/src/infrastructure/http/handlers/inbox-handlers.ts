@@ -24,7 +24,10 @@ import {
   type InboxItemType,
 } from '@openliri/service/runtime/InboxManager';
 // 审批解析的**唯一实现**（HTTP / IM 文本审批 / 企业审批流共用）
-import { resolveInboxApproval } from '@openliri/service/runtime/inboxApproval';
+import {
+  resolveInboxApproval,
+  resolveInboxApprovalsBatch,
+} from '@openliri/service/runtime/inboxApproval';
 import { LOCAL_REQUEST_BASE_URL } from '@openliri/kernel';
 
 const logger = getLogger('http:inbox');
@@ -261,6 +264,66 @@ export async function handleReplyInbox(
     sendError(
       res,
       `Inbox reply failed: ${e instanceof Error ? e.message : String(e)}`,
+      500
+    );
+  }
+}
+
+/**
+ * POST /v1/inbox/approve-all — **批量审批**（P1-1，2026-11-06）
+ *
+ * body: `{ sessionId, reply?, toolName? }`（`reply` 缺省 `approve`）
+ *
+ * 一次落地同一会话的全部待审批卡，并**只触发一次**续跑。
+ * 真机动机：同一轮多个工具（如 3 个 `mkdir`）各弹一张卡，逐个点批的代价与
+ * 中途被打断的风险都高；批量入口把 N 次会话互斥争抢收敛为 1 次。
+ */
+export async function handleApproveAllInbox(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  _ctx: HandlerCtx
+): Promise<void> {
+  const otel = getOTelTracing();
+  const span = otel.startSpan('inbox.approveAll', {});
+
+  try {
+    const bodyStr = await readRequestBody(req);
+    const body = bodyStr ? JSON.parse(bodyStr) : {};
+    const sessionId = body.sessionId as string | undefined;
+    const reply = (body.reply as string | undefined) || 'approve';
+    const toolName = body.toolName as string | undefined;
+    if (!sessionId) {
+      otel.endSpan(span, SpanStatusCode.ERROR, 'no_session');
+      sendError(res, 'Missing sessionId', 400);
+      return;
+    }
+
+    const outcome = await resolveInboxApprovalsBatch({
+      sessionId,
+      reply,
+      toolName,
+    });
+    span.setAttribute('inbox.session', sessionId);
+    span.setAttribute('inbox.resolved', outcome.resolved.length);
+    span.setAttribute('inbox.skipped', outcome.skipped.length);
+    otel.endSpan(span, SpanStatusCode.OK);
+    sendJSON(res, 200, {
+      applied: outcome.resolved.length > 0,
+      sessionId: outcome.sessionId,
+      resolved: outcome.resolved,
+      skipped: outcome.skipped,
+      resumed: outcome.resumed,
+    });
+  } catch (e) {
+    await handleError(e, {
+      module: 'http:inbox',
+      action: 'handleApproveAllInbox',
+    });
+    otel.recordError(span, e instanceof Error ? e : new Error(String(e)));
+    otel.endSpan(span, SpanStatusCode.ERROR, String(e));
+    sendError(
+      res,
+      `Inbox approve-all failed: ${e instanceof Error ? e.message : String(e)}`,
       500
     );
   }

@@ -56,6 +56,7 @@ import {
   handleHealthReport,
 } from '../analytics-handlers';
 import {
+  handleApproveAllInbox,
   handleGetInbox,
   handleInboxCount,
   handleListInbox,
@@ -216,6 +217,11 @@ export async function dispatchMonitorCommandRoutes(
   }
   if (url === '/v1/inbox/count' && method === 'GET') {
     await handleInboxCount(req, res, handlerCtx);
+    return true;
+  }
+  // P1-1（2026-11-06）：批量审批 —— 必须在下方 `/v1/inbox/` 前缀分支之前精确匹配
+  if (url === '/v1/inbox/approve-all' && method === 'POST') {
+    await handleApproveAllInbox(req, res, handlerCtx);
     return true;
   }
   if (url.startsWith('/v1/inbox/') && url !== '/v1/inbox/count') {

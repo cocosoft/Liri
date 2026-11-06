@@ -973,6 +973,13 @@ const enBase = {
     inboxMergedCountHint:
       "The same request was merged {{count}} times (handle it once)",
     inboxRepliedToast: "Done: {{label}}",
+    // P1-1 (2026-11-06): batch approval — approve all pending cards of this session at once
+    inboxApproveAll: "Approve all ({{count}})",
+    inboxApproveAllHint:
+      "Approve every pending card in this session at once (does not reject anything)",
+    inboxApproveAllToast: "Approved {{count}} item(s)",
+    inboxApproveAllNone:
+      "No pending items to approve (they may have expired or been handled)",
     // PR-3 (2026-10-23): session-level "auto-run" toggle (read-only + local writes only)
     approvalAutoOff: "Auto-run: off",
     approvalAutoOn: "Auto-run: read + local write",

@@ -938,6 +938,11 @@ const zhBase = {
     // P0-1（2026-11-04）：同指纹审批被合并的次数（卡片右上角显示 ×N）
     inboxMergedCountHint: "同一请求已被合并 {{count}} 次（只需处理一次）",
     inboxRepliedToast: "已{{label}}",
+    // P1-1（2026-11-06）：批量审批 —— 同一会话多张待审批卡一次批准
+    inboxApproveAll: "全部批准（{{count}} 项）",
+    inboxApproveAllHint: "一次批准本会话的所有待审批卡（不含拒绝项）",
+    inboxApproveAllToast: "已批准 {{count}} 项",
+    inboxApproveAllNone: "没有可批准的待办项（可能已过期或已被处理）",
     // PR-3（2026-10-23）：会话级「自动执行」开关（仅只读 + 本地写）
     approvalAutoOff: "自动执行：关",
     approvalAutoOn: "自动执行：只读+本地写",

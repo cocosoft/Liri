@@ -417,8 +417,15 @@ export class BashTool extends BaseTool {
       //（安全基线可被灰度开关回退）。现语义收敛为：
       // - 硬拦截（路径 / 危险命令 / 危险模式 / AST-危险 / deny / 白名单 / 沙箱）：**恒执行，开关关不掉**；
       // - `bypassAsk` 仅豁免"重复弹 ask 卡"（已批准命令不再重复确认）；
-      // - 灰度开关 `BASH_APPROVED_REVALIDATE`：关 ⇒ 已批准命令免重复 ask；开 ⇒ 已批准命令仍按 ask 复检。
-      const bypassAsk = isApproved && !feature('BASH_APPROVED_REVALIDATE');
+      // - 「复检」= 上面的硬拦截层，**恒定执行**，与批准无关。
+      //
+      // P0-3（2026-11-06 真机 `session_mw4sdx7ma4abe32ea4`）：原式
+      // `isApproved && !feature('BASH_APPROVED_REVALIDATE')` 与 `featureFlags.ts` A2 的
+      // 文档语义**相反** —— 默认开（安全基线）⇒ `bypassAsk` 恒 false ⇒ 批准后立刻
+      // 重弹同一张 ask 卡（09:44:04 批准 → 30ms 后 `security_analyzer_ask` → 再弹卡），
+      // 形成"批准 → 恢复 → 再弹卡"的无限审批环，长任务永远无法推进。
+      // 现口径与 A2 文档一致：**批准即免审批交互**；硬拦截一层不少。
+      const bypassAsk = isApproved;
       // P0-4: 放行即需审计记录（session + hash + 命令）确保可追溯
       if (isApproved) {
         logger.info('已批准命令放行', {

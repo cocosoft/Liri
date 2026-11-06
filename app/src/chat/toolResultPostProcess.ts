@@ -562,24 +562,10 @@ export class ToolResultPostProcess {
       // 流式检查点失败不影响执行（@ignore-catch）
     }
 
-    const resultEntry: ToolResultEntry = {
-      toolCallId: tc.id,
-      name: tc.name,
-      status: toolResult.error ? 'error' : 'success',
-      // 遗漏 1（2026-08-14 复查）：对象/数组结果（grep/glob/create_project 等经
-      // ToolExecutor 返回 result.data 为对象）也下发——否则 tool_end 转换层 result
-      // undefined → 前端工具卡片结果区空白。对齐 ToolExecutor.ts 的 JSON.stringify 方案。
-      output:
-        typeof toolResult.result === 'string'
-          ? toolResult.result
-          : toolResult.result !== undefined
-            ? safeStringify(toolResult.result)
-            : undefined,
-      error: toolResult.error,
-      // LRO-09：上游（权限决策 / 安全门）已给出的分类优先；缺省按「工具自身失败」兜底
-      failureKind:
-        toolResult.failureKind ?? (toolResult.error ? 'tool_error' : undefined),
-    };
+    const resultEntry: ToolResultEntry = buildExecutedToolResultEntry(
+      tc,
+      toolResult
+    );
     // todo chunk 数据：工具结果含 _todoData 时收集（对齐旧类 _executeToolRound extractTodoData）
     const todoData = extractTodoData(toolResult);
     const processedEntry = {
@@ -598,6 +584,38 @@ export class ToolResultPostProcess {
 export interface ToolRoundResults {
   results: ToolResultEntry[];
   processedResults: Array<{ normalizedToolCall: ToolCall; result: ToolResult }>;
+}
+
+/**
+ * 单次工具执行结果 → `ToolResultEntry`（**唯一构造点**，串行 / 并行两条路径共用）。
+ *
+ * LRO-09（2026-10-26）要求 `failureKind` 一路透传。P0-3（2026-11-06）取证：串行路径
+ * （`ReActToolLoop.act`）内联构造时漏了该字段 ⇒ 安全门拦截被 `classifyTurn` 判成
+ * `invalid`（烧 `consecutiveInvalidTurns`）而非 `environment_blocked`。收敛为单一构造点后
+ * 两条路径的分类口径不再可能漂移（CS01：禁止第二份实现）。
+ */
+export function buildExecutedToolResultEntry(
+  tc: Pick<ToolCallEntry, 'id' | 'name'>,
+  toolResult: Pick<ToolResult, 'result' | 'error' | 'failureKind'>
+): ToolResultEntry {
+  return {
+    toolCallId: tc.id,
+    name: tc.name,
+    status: toolResult.error ? 'error' : 'success',
+    // 遗漏 1（2026-08-14 复查）：对象/数组结果（grep/glob/create_project 等经
+    // ToolExecutor 返回 result.data 为对象）也下发——否则 tool_end 转换层 result
+    // undefined → 前端工具卡片结果区空白。对齐 ToolExecutor.ts 的 JSON.stringify 方案。
+    output:
+      typeof toolResult.result === 'string'
+        ? toolResult.result
+        : toolResult.result !== undefined
+          ? safeStringify(toolResult.result)
+          : undefined,
+    error: toolResult.error,
+    // LRO-09：上游（权限决策 / 安全门）已给出的分类优先；缺省按「工具自身失败」兜底
+    failureKind:
+      toolResult.failureKind ?? (toolResult.error ? 'tool_error' : undefined),
+  };
 }
 
 /**

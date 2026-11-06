@@ -259,6 +259,41 @@ describe('A2 已批准命令安全复检（安全基线 BASH_APPROVED_REVALIDATE
     expect(String(result.data ?? '')).toContain('safe-approved');
     reg.dispose();
   });
+
+  it('P0-3：已批准的 ask 类命令**不再重复弹卡**（批准即免审批交互，硬拦截仍执行）', async () => {
+    // 真机 session_mw4sdx7ma4abe32ea4：批准 `bun test` → 30ms 后再次 security_analyzer_ask
+    // ⇒ 无限审批环。旧式 `isApproved && !feature('BASH_APPROVED_REVALIDATE')` 在默认值
+    // true 下把 bypassAsk 恒置 false；现口径与 featureFlags 的 A2 文档一致：批准即免交互。
+    // （作用域摘要与 cwd/env 绑定，构造真实命中成本高 ⇒ 直接钉住 `isApproved` 命中分支。）
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    const tool = new BashTool(reg);
+    const registry = (
+      tool as unknown as { approvedRegistry: ApprovedCommandRegistry }
+    ).approvedRegistry;
+    const approvedSpy = spyOn(registry, 'isApproved').mockReturnValue(true);
+    const analyzer = (
+      tool as unknown as { securityAnalyzer: BashSecurityAnalyzer }
+    ).securityAnalyzer;
+    const analyzeSpy = spyOn(analyzer, 'analyze').mockReturnValue({
+      safe: false,
+      behavior: 'ask',
+      riskLevel: 'medium',
+      message: '模拟 ask（需要用户确认）',
+    } as ReturnType<BashSecurityAnalyzer['analyze']>);
+    try {
+      const result = await tool.execute(
+        { command: 'echo ask-mock' },
+        makeContext('session-1')
+      );
+      expect(result.requireApproval).not.toBe(true);
+      expect(result.success).toBe(true);
+      expect(String(result.data ?? '')).toContain('ask-mock');
+    } finally {
+      analyzeSpy.mockRestore();
+      approvedSpy.mockRestore();
+      reg.dispose();
+    }
+  });
 });
 
 describe('A4 解释器命令人工确认（灰度开关 BASH_INTERPRETER_GUARD，默认关）', () => {

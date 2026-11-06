@@ -116,6 +116,7 @@ export const ALLOWED_COMMANDS = new Set([
   // 文件查看（只读）
   'dir',
   'ls',
+  'pwd',
   'type',
   'cat',
   'echo',

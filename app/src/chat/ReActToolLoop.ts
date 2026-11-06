@@ -49,6 +49,8 @@ import {
   safeStringify,
   // LRO-09 步骤 1a：跳过调用的结果回填（原 `act()` 内 `recordSkippedTool` 闭包，纯搬运）
   recordSkippedToolCall,
+  // P0-3（2026-11-06）：结果条目唯一构造点（串行/并行同口径，保留 `failureKind`）
+  buildExecutedToolResultEntry,
   type ParallelBatchItem,
   type ToolRoundResults,
 } from './toolResultPostProcess.js';
@@ -1236,21 +1238,7 @@ export class ReActToolLoop extends ReActLoop<
           // 流式检查点失败不影响执行（@ignore-catch）
         }
 
-        results.push({
-          toolCallId: tc.id,
-          name: tc.name,
-          status: toolResult.error ? 'error' : 'success',
-          // 遗漏 1（2026-08-14 复查）：对象/数组结果（grep/glob/create_project 等经
-          // ToolExecutor 返回 result.data 为对象）也下发——否则 tool_end 转换层 result
-          // undefined → 前端工具卡片结果区空白。对齐 ToolExecutor.ts 的 JSON.stringify 方案。
-          output:
-            typeof toolResult.result === 'string'
-              ? toolResult.result
-              : toolResult.result !== undefined
-                ? safeStringify(toolResult.result)
-                : undefined,
-          error: toolResult.error,
-        });
+        results.push(buildExecutedToolResultEntry(tc, toolResult));
         // todo chunk 数据：工具结果含 _todoData 时收集（对齐旧类 _executeToolRound extractTodoData）
         const todoData = extractTodoData(toolResult);
         if (todoData) {

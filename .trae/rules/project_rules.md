@@ -2,7 +2,7 @@
 alwaysApply: true
 ---
 # Liri 项目规则文档
-**版本**: 7.28.0 | **更新**: 2026-10-26
+**版本**: 7.29.0 | **更新**: 2026-11-06
 
 ## §1 基础规则
 
@@ -57,7 +57,7 @@ gci -Recurse -Include *.ts,*.tsx | % { if ($(gc $_.FullName -Raw) -notmatch "MIT
 | `OUTPUT_GUARD_KEEP_ORIGINAL` | `false` | 护栏**改写审计**（`validation/output_guard_applied`）是否连**原文**一起落盘；**默认只记元数据**（动作/护栏名/原文长度/原文 SHA-256） | `FEATURE_OUTPUT_GUARD_KEEP_ORIGINAL=true`；**开 = 未打码内容落入本地事件日志**（P26-2 P4 隐私取舍） | §2-#3 |
 | `RESOURCE_GOVERNOR` | `false` | 跨会话准入 / 抢占 / 排队（P26-1） | `FEATURE_RESOURCE_GOVERNOR=true` | §2-#4 |
 | `PRO_SECURITY_SUITE` | `false` | 高级安全套件 | `FEATURE_PRO_SECURITY_SUITE=true` | §2-#5 |
-| `BASH_APPROVED_REVALIDATE` | `true` | 已批准命令**安全复检**（**安全基线**，2026-10-09 翻转；批准只免审批交互，硬拦截仍须过；A2） | `FEATURE_BASH_APPROVED_REVALIDATE=false`（灰度回退旧行为） | — |
+| `BASH_APPROVED_REVALIDATE` | `true` | **legacy 别名：全仓无读取点**（2026-11-06 P0-3 订正）。硬拦截层自 S1-2 起**恒定执行、开关关不掉**；「批准只免审批交互」由 `BashTool` 直接按 `isApproved` 决定（旧式把默认值 `true` 读成"再弹一次 ask"⇒ 批准后立刻重弹同一张卡，无限审批环，真机 `session_mw4sdx7ma4abe32ea4` 实证） | `FEATURE_BASH_APPROVED_REVALIDATE=false`（保留兼容，行为不再变化） | — |
 | `BASH_INTERPRETER_GUARD` | `false` | 高能力**解释器命令**人工确认（node/bun/npm/python/pwsh 等；A4） | `FEATURE_BASH_INTERPRETER_GUARD=true` | §2-#8 |
 | `BASH_APPROVAL_STRICT` | `true` | 批准**严格模式**（禁用命令名级放行，仅精确 hash；A5）—— 2026-10-31 翻为**安全基线**（B3 已把命令名级放行收窄为结构化签名；真实日志「命令名级放行命中」= 0 ⇒ 实用摩擦 ≈ 0） | `FEATURE_BASH_APPROVAL_STRICT=false`（灰度回退旧行为） | — |
 | `EXECUTION_TWO_PHASE_CANCEL` | `false` | 两段式取消（`CANCEL_REQUESTED`→`abort()`→grace→`CANCELLED`；**未确认则保留 lease**，后续消息排队；PR2） | `FEATURE_EXECUTION_TWO_PHASE_CANCEL=true` | §2-#10 |
@@ -358,6 +358,7 @@ import { resolveOutputDir, resolveDbPath } from '@openliri/infra/environment';  
 ---
 
 ## §2 版本历史
+- **v7.29.0**: §1.4 **`BASH_APPROVED_REVALIDATE` 语义订正（如实）** —— 该项自 **2026-11-06（P0-3）** 起为 **legacy 别名（全仓无读取点）**：硬拦截层自 S1-2（2026-10-11）已恒定执行，而「批准只免审批交互」现由 `BashTool` 直接按 `isApproved` 判定。旧实现把默认值 `true` 读成"再弹一次 ask"，导致**批准后立刻重弹同一张卡**（真机 `session_mw4sdx7ma4abe32ea4`：批准 → 30ms 后 `security_analyzer_ask` → 再弹卡，无限审批环）。**默认值与 `SAFETY_SWITCHES` 断言不变**，仅订正文档语义（`lint:doc-code` 通过）。
 - **v7.28.0**: §1.4 安全开关清单 **21 → 22 项**，新增 **`LIRI_PLUGIN_REQUIRE_SIGNATURE`**（默认值**由信任锚存在性决定**：随包 `app/trusted-keys/*.pem` 随安装包分发 ⇒ 安装版默认开）—— 承接 **T25-08 P2**：插件清单签名闸此前已默认生效（「信任锚即意图」），但**未进本表、不受 `lint:doc-code` 断言保护**（其默认值非 `featureFlags.ts` 字面量，`SAFETY_SWITCHES` 覆盖不到）。同步：新增 `PLUGIN_SIGNATURE_ASSERTIONS` 3 条断言（env 名 / 「信任锚即意图」默认语义 / 随包公钥真实存在）
 - **v7.27.0**: §1.4 安全开关清单 **17 → 18 项**，新增 **`REQUIRE_BEARER`**（默认 `true` = 安全基线）—— 承接 **§6-#11**：HTTP 绑定**非回环**地址（`LIRI_HTTP_HOST`，如 Docker `0.0.0.0`）或 `headless` 变体时，**无有效 `Bearer` 登录会话一律 401**，不再回落 `LOCAL_PRINCIPAL`（共享密钥为空时 `verifyRequestAuth` 对任何请求都通过 ⇒ 远端可拿本机特权身份）；`/v1/health*`、`/v1/a2a*`（自带鉴权）豁免；桌面/CLI 回环绑定**零行为变更**。同步：`featureFlags.ts` + `SAFETY_SWITCHES` 断言（17 → 18）+ 本文表（触发条件 `—` = 默认开）
 - **v7.26.0**: §1.5「数据库统一约定」补**租户级**口径 —— 已认证身份走 `resolveTenantDbPath()`（`tenants/<t>/app.db`），租户内靠 `owner_key` 行级隔离且**每条读必须过滤**；实例缓存键改 `tenantId`；`resolveScopedDbPath()` 停用（非 DB 的按用户资产仍走 `resolveScopedDataDir()`）。同步：`app/src` 内 `resolveScopedDbPath` 归零、14 个仓储迁移完成（基础设施专项 §6.1）

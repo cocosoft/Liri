@@ -30,15 +30,28 @@
  *   R2 **幂等**：同一 `wakeId` 连续 `fire` 两次 ⇒ 续跑**仅一次**；
  *   R3 未知 `wakeId` ⇒ 不触发执行器（重建索引后仍未知）。
  */
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  afterAll,
+} from 'bun:test';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 
-// 覆盖数据目录，避免污染真实数据（与既有 SelfWakeFire.test.ts 同法）
+// 隔离数据目录，避免污染真实数据（2026-11-06：改用契约键 `LIRI_DATA_DIR`）
 const testDataDir = join(tmpdir(), `cg3-selfwake-restart-${randomUUID()}.d`);
-process.env.PYAPP_DATA_DIR = testDataDir;
+const prevDataDir = process.env.LIRI_DATA_DIR;
+process.env.LIRI_DATA_DIR = testDataDir;
+/** 恢复 env：bun 全量测试同进程 ⇒ 不恢复会泄漏给后续文件 */
+afterAll(() => {
+  if (prevDataDir === undefined) delete process.env.LIRI_DATA_DIR;
+  else process.env.LIRI_DATA_DIR = prevDataDir;
+});
 
 const { WakeStore } = await import('../../../src/tasks/selfwake/WakeStore');
 const { SelfWakeService, setSelfWakeResumeHandler } =

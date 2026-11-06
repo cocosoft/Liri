@@ -5,7 +5,7 @@ import { join, dirname } from 'path';
 import { readFileSync, existsSync, readdirSync } from 'fs';
 import { EventLogStorage } from '../src/session/storage/EventLogStorage';
 import { MessageToEventMigrator } from '../src/session/storage/MessageToEventMigrator';
-import { resolveSessionsDir, resolveDbPath } from '@openliri/infra/environment';
+import { resolveSessionsDir } from '@openliri/infra/environment';
 // 防止 Logger 未初始化导致报错：设置一个全局 logger fallback（用 console）
 const mod_logger = await import('@openliri/infra/monitoring/logs/Logger');
 // D-137 收网（2026-09-30）：两处修正 ——
@@ -27,9 +27,13 @@ if (!g._logger_init_flag) {
 }
 
 // ── 环境变量初始化（pyapp.ts 同款最简子集），让 resolve* 正常工作 ──
-if (!process.env.PYAPP_HOME) process.env.PYAPP_HOME = join(homedir(), '.pyapp');
-if (!process.env.PYAPP_DATA_DIR)
-  process.env.PYAPP_DATA_DIR = join(process.env.PYAPP_HOME, 'data');
+// 2026-11-06：`resolve*` 只读契约键（`LIRI_*`）；`PYAPP_HOME` / `PYAPP_DATA_DIR`
+// 是已弃用别名（`resolvePyappHome()` 不读）⇒ 原写法实际靠默认值兜底，现改正。
+if (!process.env.LIRI_HOME) process.env.LIRI_HOME = join(homedir(), '.pyapp');
+if (!process.env.LIRI_DATA_DIR)
+  process.env.LIRI_DATA_DIR = join(process.env.LIRI_HOME, 'data');
+// `PYAPP_PROJECT_DIR` 仍按历史键写入：`resolveWorktreeHash` 的回退分支读的就是它
+//（`legacyProductEnvKey`），改键会改变 worktree 哈希 ⇒ 找不到既有会话目录。
 if (!process.env.PYAPP_PROJECT_DIR)
   process.env.PYAPP_PROJECT_DIR = 'E:\\PY\\Documents\\CODES\\PY_APP';
 

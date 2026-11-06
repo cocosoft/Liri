@@ -13,10 +13,10 @@ import { configManager } from '@openliri/infra/config';
 
 /** 获取数据子目录路径 */
 export function cg3DataDir(sub: string): string {
+  // 2026-11-06：只读契约键 `LIRI_DATA_DIR`（`PYAPP_DATA_DIR` 是已弃用别名，
+  // 与 `resolveDataDir()` 不同源 ⇒ 同一进程里两套路径会不一致）。
   const base =
-    process.env.PYAPP_DATA_DIR ||
-    configManager.env('LIRI_DATA_DIR') ||
-    join(homedir(), '.pyapp', 'data');
+    configManager.env('LIRI_DATA_DIR') || join(homedir(), '.pyapp', 'data');
   const dir = join(base, sub);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   return dir;

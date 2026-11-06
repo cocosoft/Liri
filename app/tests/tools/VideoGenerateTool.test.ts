@@ -15,7 +15,8 @@
  *  - Phase 2: localhost imageUrl → temp file 转换测试
  *
  * 前置条件：
- *  - SiliconFlow API Key 已配置在 DB 中
+ *  - 需**显式导出** `SILICONFLOW_API_KEY` 才会跑集成用例（未导出则全部跳过；
+ *    2026-11-06 起不再从生产库 `ai_providers` 隐式读真实密钥）
  *  - 任务分工: video → Lightricks/LTX-Video (T2V)
  *  - I2V 测试通过 params.model 显式指定 Wan-AI/Wan2.2-I2V-A14B
  */
@@ -26,8 +27,6 @@ import { VideoGenerationRouter } from '../../src/tools/VideoGenerateTool/VideoGe
 import { RegistryVideoProvider } from '../../src/tools/VideoGenerateTool/providers/RegistryVideoProvider';
 import type { AIProvider } from '@modules/ai';
 import { syncDBProvidersToRegistry } from '../../src/ai/providers/ProviderSyncService';
-// 2026-10-24：原引用 `../../../core/paths`（core 已下沉 packages/kernel）⇒ 改走唯一入口
-import { resolveDbPath } from '@openliri/infra/environment';
 import { ModelRouter } from '../../src/ai/modelRouter';
 import type { ToolUseContext } from '../../src/tools/types/ToolUseContext.js';
 
@@ -69,45 +68,12 @@ beforeAll(async () => {
   }
 
   // 检查环境变量中的 SiliconFlow API Key
+  //
+  // 2026-11-06：不再从**生产库** `ai_providers` 读密钥。
+  // 理由：① 单测隐式读取真实凭据属于"测试碰生产数据"（且会把密钥前缀打进日志）；
+  // ② 集成用例会真实计费，应由开发者**显式导出** `SILICONFLOW_API_KEY` 才跑。
   hasSiliconKey = !!process.env.SILICONFLOW_API_KEY;
-
-  // 从 DB 读取 API Key（使用正确的 DB 路径）
-  try {
-    // `bun:sqlite` 无 TS 声明（仓内测试统一走内核包装层）⇒ 此处只读一次、显式声明所需最小面
-    const { Database: BunDatabase } = (await import(
-      'bun:sqlite' as string
-    )) as {
-      Database: new (
-        path: string,
-        opts: { readonly: boolean }
-      ) => {
-        query(sql: string): { get(): { api_key?: string } | null };
-        close(): void;
-      };
-    };
-    const dbPath = resolveDbPath();
-    console.log(`[beforeAll] DB 路径: ${dbPath}`);
-
-    const db = new BunDatabase(dbPath, { readonly: true });
-
-    const silicon = db
-      .query(
-        "SELECT api_key FROM ai_providers WHERE provider_type = 'siliconflow'"
-      )
-      .get();
-
-    if (silicon?.api_key) {
-      siliconApiKey = silicon.api_key;
-      hasSiliconKey = true;
-      console.log(
-        `[beforeAll] DB 中 SiliconFlow API Key: ${siliconApiKey.slice(0, 10)}...`
-      );
-    }
-
-    db.close();
-  } catch (e) {
-    console.warn('[beforeAll] DB 读取失败:', (e as Error).message);
-  }
+  if (hasSiliconKey) siliconApiKey = process.env.SILICONFLOW_API_KEY!;
 
   console.log('\n=== 视频生成测试环境 ===');
   console.log(

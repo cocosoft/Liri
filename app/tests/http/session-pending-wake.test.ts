@@ -34,11 +34,11 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 
-// 覆盖 PYAPP_DATA_DIR，避免污染真实数据（须在导入 WakeStore 前设置）
+// 隔离数据目录，避免污染真实数据（须在导入 WakeStore 前设置；2026-11-06 改用契约键）
 const testDataDir = join(tmpdir(), `liri-pending-wake-${randomUUID()}.d`);
 /** 原值备份：**必须**在 afterAll 恢复（见下） */
-const prevDataDir = process.env.PYAPP_DATA_DIR;
-process.env.PYAPP_DATA_DIR = testDataDir;
+const prevDataDir = process.env.LIRI_DATA_DIR;
+process.env.LIRI_DATA_DIR = testDataDir;
 
 const { createCg3Services, getCg3SelfWakeService } =
   await import('../../src/tasks/Cg3Bootstrap');
@@ -60,12 +60,12 @@ describe('resolvePendingWake（会话待触发唤醒只读字段）', () => {
     } catch {
       /* best-effort */
     }
-    // **必须恢复 env**：bun 全量测试在**同一进程**内跑所有文件 ⇒ 模块级改 `PYAPP_DATA_DIR`
+    // **必须恢复 env**：bun 全量测试在**同一进程**内跑所有文件 ⇒ 模块级改 `LIRI_DATA_DIR`
     // 会**泄漏给后续文件**。实测（2026-09-27 CI）：泄漏使 `tests/config/ConfigLayersService.test.ts`
     // 的层级配置里多出 `data_dir: /tmp/liri-pending-wake-*` ⇒ Test Suite (ubuntu-latest) 转红。
-    // `cg3DataDir()` 是**调用时**读 env（`cg3Env.ts:16-19`），故恢复后即彻底生效。
-    if (prevDataDir === undefined) delete process.env.PYAPP_DATA_DIR;
-    else process.env.PYAPP_DATA_DIR = prevDataDir;
+    // `cg3DataDir()` / `resolveDataDir()` 都是**调用时**读 env，故恢复后即彻底生效。
+    if (prevDataDir === undefined) delete process.env.LIRI_DATA_DIR;
+    else process.env.LIRI_DATA_DIR = prevDataDir;
   });
 
   it('无待触发记录 ⇒ undefined（不造默认值）', async () => {

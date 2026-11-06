@@ -12,7 +12,10 @@
  * 修法：判定走**结构化标记** `metadata.emptyOutputFallback`（禁止文案匹配 —— CS02），
  * 兜底轮改用**用户任务原句**作描述。
  *
- * 本用例直接驱动 finalize 的裸会话升级分支，断言传给升级入口的 `assistantContent`。
+ * N-2（2026-11-06 真机长程任务，第二次长程实测）：改成"**兜底轮直接不升级**"。
+ * 实证 `session_mw4vwtmp38957bec2f`：兜底后仍升级 ⇒ Planner 用同一模型同一上下文连续两次
+ * 空输出 ⇒ `PLAN_PARSE_FAILED`，还顺手建了一个目录都不存在的空项目。连一句回复都产不出的
+ * 回合，拉起 4 阶段编排只会把失败放大成三条用户可见错误。
  */
 import { describe, expect, it } from 'bun:test';
 
@@ -111,29 +114,24 @@ async function runFinalize(
   );
 }
 
-describe('BUG-A 下游：兜底文案不得作为 PDCA 任务描述', () => {
-  it('兜底轮（metadata.emptyOutputFallback）⇒ 用**用户任务原句**作描述', async () => {
+describe('BUG-A / N-2 下游：兜底轮不得进入 PDCA 编排', () => {
+  it('★ 兜底轮（metadata.emptyOutputFallback）⇒ **不升级**（N-2 短路）', async () => {
     const capture: { payload?: unknown } = {};
     await runFinalize(makeAssistant(EMPTY_OUTPUT_FALLBACK_TEXT, true), capture);
+
+    // 修复前：会带着"用户原句"升级 ⇒ 编排器用同一模型再空输出一次 ⇒ PLAN_PARSE_FAILED
+    expect(capture.payload).toBeUndefined();
+  });
+
+  it('负向对照：正常正文轮 ⇒ 照常升级，且用模型产出作描述', async () => {
+    const capture: { payload?: unknown } = {};
+    await runFinalize(makeAssistant(DONE_TEXT, false), capture);
 
     const payload = capture.payload as
       | { assistantContent?: string; lastUserContent?: string }
       | undefined;
     expect(payload).toBeDefined();
-    // 关键：绝不能是系统兜底文案
-    expect(payload?.assistantContent).not.toBe(EMPTY_OUTPUT_FALLBACK_TEXT);
-    expect(payload?.assistantContent).toBe(LAST_USER);
-    expect(payload?.lastUserContent).toBe(LAST_USER);
-  });
-
-  it('负向对照：正常正文轮 ⇒ 原样使用模型产出（不得被替换为用户原句）', async () => {
-    const capture: { payload?: unknown } = {};
-    await runFinalize(makeAssistant(DONE_TEXT, false), capture);
-
-    const payload = capture.payload as
-      | { assistantContent?: string }
-      | undefined;
-    expect(payload).toBeDefined();
     expect(payload?.assistantContent).toBe(DONE_TEXT);
+    expect(payload?.lastUserContent).toBe(LAST_USER);
   });
 });

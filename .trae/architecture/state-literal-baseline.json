@@ -839,6 +839,7 @@
       "packages/service/src/bridge/websocket/WebSocketClient.ts",
       "packages/service/src/runtime/acp/server.ts",
       "packages/service/src/runtime/acp/types.ts",
+      "packages/service/src/runtime/api/streamTermination.ts",
       "packages/service/src/runtime/api/workspaceOpsPorts.ts",
       "packages/service/src/services/file/fileNaming.ts",
       "packages/service/src/services/mcp/marketplace/adapters/GitHubRegistryAdapter.ts",

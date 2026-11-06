@@ -346,6 +346,10 @@ export function resolveTerminationOutput(
       // BUG-A（2026-10-27）：把"这是兜底文案而非模型产出"结构化，供下游（PDCA 升级等）
       // 做判定——**不得**靠比对文案（CS02）。
       emptyOutputFallback = true;
+      // N-2（2026-11-06 真机长程任务）：兜底轮**不是正常完成**（此前 metadata.finishReason
+      // 为空 ⇒ 出口报 `stop` ⇒ 下游按"正常结束"处理）。落结构化终止原因，刷新后的事件回放
+      // 也能看到"这轮没有模型产出"。已有值（如 circuit_breaker）不覆盖。
+      finishReason = finishReason ?? 'empty_output';
       // T-⑥08（2026-10-02 实证）：该兜底触发时**此前不落任何诊断字段** —— 实测会话里
       // 4 次命中的助手消息 `finishReason` / `tokenUsage` / `startedAt` **全为 null**，
       // 导致"高频空回复"无法归因（其中 3 次是"只出思考、无正文"）。此处补一条结构化

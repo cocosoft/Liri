@@ -64,6 +64,28 @@ describe('resolveStreamFinishReason：终止原因不得被降级成 stop', () =
       })
     ).toBe('error');
   });
+
+  // N-2（2026-11-06 真机长程任务）：两次长程任务都以「空输出兜底」收尾，出口却一律报 stop
+  // ⇒ 下游按"正常完成"处理。结构化标记优先于 provider 顶层 `stop`（那只是"模型停止说话"）。
+  it('★ 空输出兜底（metadata.emptyOutputFallback）⇒ empty_output（不被顶层 stop 降级）', () => {
+    expect(
+      resolveStreamFinishReason({
+        streamFailed: false,
+        topLevelFinishReason: 'stop',
+        metadata: { emptyOutputFallback: true },
+      })
+    ).toBe('empty_output');
+  });
+
+  it('负向对照：没有兜底标记 ⇒ 顶层值仍优先（不在正常轮里改语义）', () => {
+    expect(
+      resolveStreamFinishReason({
+        streamFailed: false,
+        topLevelFinishReason: 'stop',
+        metadata: { emptyOutputFallback: false, finishReason: 'max_turns' },
+      })
+    ).toBe('stop');
+  });
 });
 
 // 2026-11-03 P1：`terminationReason`（主循环为何停下）与 `finishReason`（provider 末次响应）

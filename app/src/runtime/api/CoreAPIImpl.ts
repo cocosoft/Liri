@@ -52,7 +52,10 @@ import type { SessionCheckpointRefPort } from '@openliri/service/runtime/api/ses
 // —— `FileCheckpointStorage` 已下沉 `session/storage/`(service)，`session/**` 回归同模块直连
 // ⇒ 本文件不再需要静态导入 `@modules/query`（该「文件 × 模块」对随之消失）。
 import { DomainSnapshotOps } from './domainSnapshotOps';
-import { terminationReasonField } from '@openliri/service/runtime/api/streamTermination';
+import {
+  resolveStreamFinishReason,
+  terminationReasonField,
+} from '@openliri/service/runtime/api/streamTermination';
 import { SessionMessagesRead } from '@openliri/service/runtime/api/sessionMessagesRead';
 import { MessageMutation } from '@openliri/service/runtime/api/messageMutation';
 import { SessionTitling } from '@openliri/service/runtime/api/sessionTitling';
@@ -249,32 +252,10 @@ export function shouldPersistStreamFallback(input: {
   return input.errorCode === undefined;
 }
 
-/**
- * 解析 `chatStream` 出口的 `finishReason`（2026-10-17，真机缺陷修复）。
- *
- * **为什么需要**：骨架把「终止原因」的**单一来源**落在消息的 `metadata.finishReason`
- * （`ReActToolLoop.computeFinalMessage` ← `resolveTerminationOutput`），而消息**顶层**的
- * `finishReason` 只承载 provider 末次响应的原值。此前这里**只读顶层** ⇒ 终止原因在 CoreAPI
- * 出口被降级成 `stop`：
- * - 真机证据（2026-10-17 09:53，QQ）：`reActLoop:daily_budget_exhausted` +
- *   `budgetSuspend:suspended` 均已成立，但 `chatStream:完成` 报 `finishReason:"stop"` ⇒
- *   通道侧判据 `finishReason === 'budget_exhausted'` **永不成立** ⇒ **不发预算挂起卡片**
- *   （`CHANNEL-BUDGET-INLINE-RELIEF` 的整条通道放行入口在真机上不可达）。
- *
- * 优先级：失败 ⇒ `error`（AB-3：禁止用 `stop` 掩盖失败）> 顶层值（provider 语义）>
- * `metadata.finishReason`（骨架终止原因）> `stop`（兜底）。
- */
-export function resolveStreamFinishReason(input: {
-  streamFailed: boolean;
-  topLevelFinishReason?: string;
-  metadata?: Record<string, unknown>;
-}): string {
-  if (input.streamFailed) return 'error';
-  if (input.topLevelFinishReason) return input.topLevelFinishReason;
-  const fromMeta = input.metadata?.['finishReason'];
-  if (typeof fromMeta === 'string' && fromMeta) return fromMeta;
-  return 'stop';
-}
+// 2026-11-06（N-2）：`resolveStreamFinishReason` 已外移到
+// `@openliri/service/runtime/api/streamTermination`（本文件逼近 R04-001 的 2000 行上限）；
+// 此处**转发导出**保留既有消费面（测试与通道侧仍从 CoreAPIImpl 取用）。
+export { resolveStreamFinishReason };
 
 export class CoreAPIImpl implements CoreAPI {
   /**

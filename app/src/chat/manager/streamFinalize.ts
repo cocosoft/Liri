@@ -261,6 +261,11 @@ export class ChatStreamFinalize {
         : '';
     if (
       !contextId &&
+      // N-2（2026-11-06 真机长程任务）：本轮以「空输出兜底」收尾 ⇒ **不升级编排**。
+      // 实测（`session_mw4vwtmp38957bec2f`）：兜底后仍被升级为 PDCA，Planner 用同一模型
+      // 同一上下文连续两次空输出 ⇒ `PLAN_PARSE_FAILED`，再建一个空项目、多一条用户可见
+      // 失败文案。连"一句回复"都产不出的回合，拉起 4 阶段编排只会放大失败。
+      !emptyOutputFallback &&
       assistantMessage.content &&
       (bareUserMessages.length >= 2 || isStrongBuildIntent(bareFirstContent)) &&
       isExecutionTaskIntent(bareLastContent) &&
@@ -269,16 +274,17 @@ export class ChatStreamFinalize {
       logger.info('pdca:bare_session_intent_detected', {
         sessionId: session.id,
         intent: bareLastContent.slice(0, 60),
-        // BUG-A：兜底文案已改走用户任务原句（可诊断：本轮无模型产出仍触发升级）
-        emptyOutputFallback,
       });
       await deps.escalateToPdcaViaBareSession({
         session,
-        // BUG-A：兜底文案 ⇒ 用**用户任务原句**作描述，绝不把系统文案当需求
-        assistantContent: emptyOutputFallback
-          ? bareLastContent
-          : (assistantMessage.content as string),
+        assistantContent: assistantMessage.content as string,
         lastUserContent: bareLastContent,
+      });
+    } else if (!contextId && emptyOutputFallback) {
+      // 留痕：被短路时也要可诊断（否则"为什么没升级"无从排查）
+      logger.info('pdca:bare_session_escalation_skipped', {
+        sessionId: session.id,
+        reason: 'empty_output_fallback',
       });
     }
 

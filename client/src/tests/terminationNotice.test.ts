@@ -14,6 +14,7 @@ import { describe, expect, it } from "vitest";
 import {
   getTerminationNotice,
   KNOWN_TERMINATION_REASONS,
+  SUPPRESSED_TERMINATION_REASONS,
   TERMINATION_COMPLETED,
 } from "../utils/terminationNotice";
 
@@ -36,24 +37,32 @@ const BACKEND_TERMINATION_REASONS = [
   "loop_detected",
   "timeout",
   "compaction_failed",
+  "awaiting_approval",
+  "output_budget_exhausted",
 ] as const;
 
 describe("P0-5 终止原因覆盖面", () => {
-  it("后端每个非 completed 原因都有可见提示", () => {
+  it("后端每个非 completed 原因都有提示（或被显式抑制）", () => {
     for (const reason of BACKEND_TERMINATION_REASONS) {
       if (reason === TERMINATION_COMPLETED) continue;
       const notice = getTerminationNotice(reason);
+      if (SUPPRESSED_TERMINATION_REASONS.includes(reason)) {
+        expect(notice, `抑制项 ${reason} 不应有提示`).toBeNull();
+        continue;
+      }
       expect(notice, `终止原因 ${reason} 没有提示文案`).not.toBeNull();
       expect(notice!.key.startsWith("chat.termination")).toBe(true);
       expect(notice!.fallback.length).toBeGreaterThan(0);
     }
   });
 
-  it("客户端已知原因集合与后端全集对齐（不含 completed）", () => {
+  it("客户端已知原因 + 抑制项 与后端全集对齐（不含 completed）", () => {
     const expected = BACKEND_TERMINATION_REASONS.filter(
       (r) => r !== TERMINATION_COMPLETED,
     );
-    expect([...KNOWN_TERMINATION_REASONS].sort()).toEqual([...expected].sort());
+    expect(
+      [...KNOWN_TERMINATION_REASONS, ...SUPPRESSED_TERMINATION_REASONS].sort(),
+    ).toEqual([...expected].sort());
   });
 
   it("completed / 未携带原因 ⇒ 不显示（正常收尾不制造噪音）", () => {
@@ -83,5 +92,16 @@ describe("P0-5 终止原因覆盖面", () => {
     expect(getTerminationNotice("max_turns")!.key).toBe(
       "chat.terminationBudget",
     );
+  });
+
+  it("P2-5：等待审批属中性暂停 ⇒ 不显示「异常结束」", () => {
+    expect(getTerminationNotice("awaiting_approval")).toBeNull();
+  });
+
+  it("N-13：输出预算耗尽 ⇒ 独立分组（不再落「未知原因」兜底）", () => {
+    const notice = getTerminationNotice("output_budget_exhausted");
+    expect(notice).not.toBeNull();
+    expect(notice!.key).toBe("chat.terminationOutputBudget");
+    expect(notice!.fallback).toContain("输出预算");
   });
 });

@@ -935,6 +935,9 @@ const enBase = {
       "This turn ended abnormally (reasoning output error / internal error / context compaction failure).",
     terminationBlocked:
       "Stopped because the environment blocked it (permission / security interception / capability not ready). Retrying usually will not help.",
+    // N-13 / P2-5 (2026-11-07): output budget exhausted by reasoning — its own group (was the unknown fallback)
+    terminationOutputBudget:
+      'This turn\'s output budget was consumed by reasoning before any reply was produced; reply "continue" to keep going.',
     // P0-5: an unregistered termination reason from the backend must not be silent
     terminationUnknown: "This turn ended abnormally (reason code: {{reason}}).",
     // P0-1 (2026-11-05): session workspace is gone — warn before sending, not after tool failures

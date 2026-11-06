@@ -106,7 +106,7 @@ import {
  * - `requires_approval` 的**唯一事实源** = `ToolExecutionStatus` 枚举（本文件**不复制**其字面量，
  *   守住"数出同源"）。
  */
-const TRANSIENT_AWAITING_APPROVAL = 'awaiting_approval' as const;
+export const TRANSIENT_AWAITING_APPROVAL = 'awaiting_approval' as const;
 
 const logger = getLogger('chat:toolExecution');
 

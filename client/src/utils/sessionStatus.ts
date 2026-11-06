@@ -34,6 +34,12 @@ const STATUS_BADGES: Partial<Record<SessionStatus, SessionStatusBadge>> = {
     labelKey: "chat.sessionStatusError",
     hintKey: "chat.sessionStatusErrorHint",
   },
+  // P1-2（2026-11-06）：等待审批 ⇒ 列表可辨（此前该状态恒不出现，用户看不出"卡在等批"）
+  requires_action: {
+    tone: "warning",
+    labelKey: "chat.sessionStatusRequiresAction",
+    hintKey: "chat.sessionStatusRequiresActionHint",
+  },
 };
 
 /**

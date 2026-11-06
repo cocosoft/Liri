@@ -28,6 +28,7 @@ import type { LoopDetector } from '@modules/query';
 import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI.js';
 import type { Message } from '@modules/session/types/message.js';
 import type { ChatSession } from '@modules/session/types/session.js';
+import { DataSessionStatus } from '@modules/session/types/session.js';
 // P1（2026-11-04）：恢复路径的轮次上限同样按会话 chatMode 放大
 import { resolveChatModeToolTurns } from '../loopTurnLimits.js';
 // P1 收口（2026-11-05）：续跑路径同样按会话 `chatMode` 裁剪工具集（与流式/非流式同一实现）
@@ -42,6 +43,8 @@ import type { ToolRegistry, ToolSchema } from '@modules/tools';
 import { orderToolResultsAfterOwners } from './resumeMessageOrder.js';
 
 import { StreamingAutoCheckpoint } from '../services/StreamingAutoCheckpoint';
+// P1-2（2026-11-06）：会话状态复位后通知前端重取（清掉"待审批"徽标）
+import { notifySessionMetaUpdated } from '../services/sessionMetaBroadcast';
 import { stripThinkResponseTags } from '../services/MessageContextPipeline';
 import { repairImageUrls } from '../services/ChatHelper';
 import { stripBareExploration } from '../services/bareExplorationStripper';
@@ -202,6 +205,12 @@ export class ChatStreamResume {
       // 1. 恢复会话状态
       const session = await deps.getOrLoadSession(sessionId);
       session.messages = checkpoint.messages;
+      // P1-2（2026-11-06）：续跑即"用户已处理" ⇒ 内存态同步复位。
+      // 存储态由上面的 `resumeSessionState` 复位（已把 requires_action 视作可恢复态），
+      // 这里补内存投影，否则同一进程内列表仍显示"待审批"。
+      session.state = DataSessionStatus.ACTIVE;
+      // P1-2：广播单条会话元数据 ⇒ 前端把"待审批"徽标换回正常态
+      await notifySessionMetaUpdated(sessionId);
 
       // 2. 创建新的 streamAbortController
       const streamAbortController = new AbortController();

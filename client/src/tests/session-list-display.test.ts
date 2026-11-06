@@ -105,6 +105,13 @@ describe("resolveSessionStatusBadge：状态徽标", () => {
     expect(resolveSessionStatusBadge("error")?.tone).toBe("danger");
   });
 
+  // P1-2（2026-11-06）：等待审批（requires_action）也要有警示徽标
+  it("requires_action ⇒ 警示色 + 专属文案键", () => {
+    const badge = resolveSessionStatusBadge("requires_action");
+    expect(badge?.tone).toBe("warning");
+    expect(badge?.labelKey).toBe("chat.sessionStatusRequiresAction");
+  });
+
   it("正常态 / 缺省 / 未知取值 ⇒ 不出徽标", () => {
     expect(resolveSessionStatusBadge("active")).toBeNull();
     expect(resolveSessionStatusBadge(undefined)).toBeNull();

@@ -553,6 +553,10 @@ const enBase = {
     sessionStatusError: "Error",
     sessionStatusErrorHint:
       "The previous turn failed and did not finish; open the session to review the messages and retry.",
+    // P1-2 (2026-11-06): awaiting approval (requires_action)
+    sessionStatusRequiresAction: "Needs approval",
+    sessionStatusRequiresActionHint:
+      "This session is waiting for your approval; open it and handle the approval card to continue automatically.",
     /** #23: empty sessions (0 messages) are collapsed by default */
     emptySessionsToggle: "Empty {{count}}",
     emptySessionsToggleHint: "Show/hide sessions with 0 messages",

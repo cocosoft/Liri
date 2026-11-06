@@ -531,6 +531,10 @@ const zhBase = {
     sessionStatusError: "出错",
     sessionStatusErrorHint:
       "该会话上一轮执行出错，未正常完成；可打开查看已有消息后重试。",
+    // P1-2（2026-11-06）：等待审批（requires_action）
+    sessionStatusRequiresAction: "待审批",
+    sessionStatusRequiresActionHint:
+      "该会话正在等待你的审批：打开会话处理审批卡片后会自动继续。",
     /** #23：空会话（0 条消息）默认折叠，可展开查看 */
     emptySessionsToggle: "空会话 {{count}}",
     emptySessionsToggleHint: "显示/隐藏 0 条消息的空会话",

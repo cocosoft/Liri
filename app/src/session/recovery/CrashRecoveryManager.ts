@@ -274,7 +274,14 @@ export class CrashRecoveryManager {
     const session = await this.storage.getSession(sessionId);
     if (!session) return null;
 
-    if (session.status !== SessionStatus.PAUSED) return session;
+    // P1-2（2026-11-06）：`requires_action`（等待审批）同样是"已恢复"的起点 ——
+    // 批准后 resumeStream 会调到这里；不复位就会让列表一直停在"待审批"。
+    if (
+      session.status !== SessionStatus.PAUSED &&
+      session.status !== SessionStatus.REQUIRES_ACTION
+    ) {
+      return session;
+    }
 
     session.status = SessionStatus.ACTIVE;
     session.lastActivityAt = Date.now();

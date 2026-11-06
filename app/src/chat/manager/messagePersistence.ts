@@ -22,6 +22,8 @@ import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import type { Message } from '@modules/session/types/message.js';
 import type { ChatSession } from '@modules/session/types/session.js';
+import { DataSessionStatus } from '@modules/session/types/session.js';
+import { SessionStatus } from '@modules/session/types/UnifiedSession';
 import type { EventLogStorage, SessionGateway } from '@modules/session';
 import { MessageToEventMigrator } from '@modules/session';
 import { shrinkToolResultMessageForPersistence } from '@modules/tools';
@@ -37,6 +39,10 @@ import { resolveWorktreeHash } from '@openliri/infra/environment';
 
 import { persistChatMessage, toSessionMsgType } from '../services/ChatHelper';
 import { buildAssistantTimingData } from '../services/timingEvent';
+// P1-2（2026-11-06）：会话状态变更 → 前端单条重取（复用 SSE 广播唯一入口）
+import { notifySessionMetaUpdated } from '../services/sessionMetaBroadcast';
+// P1-2：`awaiting_approval` 的**唯一事实源**（状态字面量棘轮要求，见 stateMachineCatalog）
+import { TRANSIENT_AWAITING_APPROVAL } from '../services/ToolExecutionService';
 
 const logger = getLogger('chat:manager');
 
@@ -89,6 +95,42 @@ export function shouldRejectEmptyAssistantMessage(message: Message): boolean {
     (b) => (b as { type?: unknown }).type
   );
   return !blockTypes.includes('text') && !blockTypes.includes('tool_call');
+}
+
+/**
+ * P1-2（2026-11-06）：会话状态随「等待审批」推进（**纯判定**，导出便于单测）。
+ *
+ * 真机问题：回合以 `awaiting_approval` 收尾时会话状态仍是 `active` ⇒ 会话列表里
+ * 看不出"卡在等你批"，也无法与"正在跑"区分（台账 §29 P1-2）。
+ * 本函数只决定**该写成什么**，落盘与失败降级由调用方负责。
+ *
+ * @param message      本次落盘的消息
+ * @param currentState 会话当前内存态
+ * @returns 需要迁移到的状态；`null` = 保持不变
+ */
+export function resolveApprovalSessionState(
+  message: Pick<Message, 'role' | 'metadata'>,
+  currentState: DataSessionStatus
+): DataSessionStatus | null {
+  const finishReason = (
+    message.metadata as { finishReason?: unknown } | undefined
+  )?.finishReason;
+  if (
+    message.role === 'assistant' &&
+    finishReason === TRANSIENT_AWAITING_APPROVAL
+  ) {
+    return currentState === DataSessionStatus.REQUIRES_ACTION
+      ? null
+      : DataSessionStatus.REQUIRES_ACTION;
+  }
+  // 用户重新发言（没走审批卡片）⇒ 视为"已处理"，回到正常态
+  if (
+    message.role === 'user' &&
+    currentState === DataSessionStatus.REQUIRES_ACTION
+  ) {
+    return DataSessionStatus.ACTIVE;
+  }
+  return null;
 }
 
 export class ChatMessagePersistence {
@@ -196,6 +238,8 @@ export class ChatMessagePersistence {
       session.updatedAt = new Date();
       session.metadata.lastActivityAt = new Date();
       session.metadata.totalMessages = session.messages.length;
+      // P1-2（2026-11-06）：等待审批 ⇒ `requires_action`（含跨重启落盘）
+      this.syncConversationState(session, message);
       // 会话恢复后清除崩溃标记（正常使用说明已恢复）
       if (session.metadata.crashRecovery) {
         delete session.metadata.crashRecovery;
@@ -241,6 +285,42 @@ export class ChatMessagePersistence {
       deps.pendingPersistPromises.delete(persistPromise)
     );
     await persistPromise;
+  }
+
+  /**
+   * P1-2（2026-11-06）：把「等待审批 / 用户已处理」的会话状态**同步到存储**。
+   *
+   * 内存态与存储态是两套模型（`ChatSession.state` ⇄ `UnifiedSession.status`），
+   * 本方法做一次显式映射（不 cast，避免两套枚举漂移被静默掩盖）。
+   * 仅在**状态真的变化**时落盘；落盘失败只 warn（下次落消息会再同步，CS03）。
+   */
+  private syncConversationState(session: ChatSession, message: Message): void {
+    const next = resolveApprovalSessionState(message, session.state);
+    if (!next) return;
+    session.state = next;
+    void (async () => {
+      try {
+        const stored = await this.deps.sessionGateway.getSession(session.id);
+        if (!stored) return;
+        stored.status =
+          next === DataSessionStatus.REQUIRES_ACTION
+            ? SessionStatus.REQUIRES_ACTION
+            : SessionStatus.ACTIVE;
+        await this.deps.sessionGateway.updateSession(stored);
+        logger.info('会话状态已同步（审批等待/恢复）', {
+          sessionId: session.id,
+          state: next,
+        });
+        // 通知前端：客户端 `useNotificationSSE` 已订阅 `session:meta_updated`，
+        // 会单条重取该会话并回填状态徽标（否则列表要等下次整表刷新才更新）。
+        await notifySessionMetaUpdated(session.id);
+      } catch (e) {
+        logger.warn('会话状态落盘失败（下次落消息会再同步）', {
+          sessionId: session.id,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+    })();
   }
 
   /**

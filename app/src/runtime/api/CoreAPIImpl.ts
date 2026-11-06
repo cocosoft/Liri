@@ -53,8 +53,8 @@ import type { SessionCheckpointRefPort } from '@openliri/service/runtime/api/ses
 // ⇒ 本文件不再需要静态导入 `@modules/query`（该「文件 × 模块」对随之消失）。
 import { DomainSnapshotOps } from './domainSnapshotOps';
 import { terminationReasonField } from '@openliri/service/runtime/api/streamTermination';
-import { SessionMessagesRead } from './sessionMessagesRead';
-import { MessageMutation } from './messageMutation';
+import { SessionMessagesRead } from '@openliri/service/runtime/api/sessionMessagesRead';
+import { MessageMutation } from '@openliri/service/runtime/api/messageMutation';
 import { SessionTitling } from './sessionTitling';
 // C3-S1（2026-10-09，`.trae/specs/core-api-impl-split.md`）：工具查询 / 会话 CRUD 与查询 /
 // 代理任务 / 文件类型 —— 自本文件**纯搬迁**（只搬不改）至 `sessionAgentOps.ts`；此处仅薄转发。

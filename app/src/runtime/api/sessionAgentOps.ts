@@ -84,7 +84,7 @@ import type {
   AgentResult,
   ConvertFileParams,
 } from './CoreAPI';
-import type { SessionMessagesRead } from './sessionMessagesRead';
+import type { SessionMessagesRead } from '@openliri/service/runtime/api/sessionMessagesRead';
 // P1（2026-11-03）：工具授权**唯一入口**（Agent 主链与 HTTP 路径共用）
 import {
   authorizeToolCall,
@@ -92,7 +92,7 @@ import {
 } from '@openliri/infra/permission';
 // B2（2026-10-30）：按轮摘要（供轮次导航补齐未加载轮次）
 import type { SessionRoundSummariesResult } from '@openliri/service/runtime/api/roundSummaries';
-import type { MessageMutation } from './messageMutation';
+import type { MessageMutation } from '@openliri/service/runtime/api/messageMutation';
 import type { SessionTitling } from './sessionTitling';
 import type { ToolManager } from '@modules/tools';
 

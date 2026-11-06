@@ -38,9 +38,12 @@
  * 故不存在初始化顺序陷阱，也不存在运行时递归。
  */
 
-import { addDeletedRange, isSeqInDeletedRanges } from '@modules/session';
+import {
+  addDeletedRange,
+  isSeqInDeletedRanges,
+} from '@modules/session/storage/deletedRanges';
 import type { SessionManager } from '@modules/session/types/session';
-import type { ChatManager } from '@modules/chat';
+import type { RuntimeChatManagerRef } from './runtimeChatManagerRef';
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
@@ -50,7 +53,7 @@ const logger = getLogger('runtime:api:CoreAPIImpl');
  * B3（2026-10-05）：宿主依赖（全 getter，零初始化顺序陷阱）。
  */
 export interface MessageMutationDeps {
-  getChatManager: () => ChatManager;
+  getChatManager: () => RuntimeChatManagerRef;
   getSessionManager: () => SessionManager;
   /** C20（宿主 `CoreAPIImpl.cleanupOrphanAttachments`）：删除消息后清理孤儿附件。 */
   getCleanupOrphanAttachments: () => (
@@ -179,7 +182,9 @@ export class MessageMutation {
         this.deps.getSessionManager().updateSession?.(session);
       }
       try {
-        const storedSession = await gateway.getSession(sessionId);
+        const storedSession = (await gateway.getSession(sessionId)) as {
+          metadata: Record<string, unknown>;
+        } | null;
         if (storedSession) {
           storedSession.metadata.deletedMessageRanges = ranges;
           await gateway.updateSession(storedSession);

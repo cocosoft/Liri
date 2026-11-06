@@ -31,28 +31,28 @@
  * 由宿主 `deleteMessage`（C14，待批 B3）直调 ⇒ 此处 `public`。
  */
 
+import { MessageToEventMigrator } from '@modules/session/storage/MessageToEventMigrator';
 import {
-  MessageToEventMigrator,
   deriveMessagesFromEvents,
   diffDerivationMessages,
-  type EventLogStorage,
   type DerivationDiff,
   type DerivedMessage,
-} from '@modules/session';
+} from '@modules/session/storage/EventMessageDeriver';
+import type { EventLogStorage } from '@modules/session/storage/EventLogStorage';
 import { dedupeMessagesToolCallBlocks } from '@openliri/infra/utils/chatBlocks';
 import {
   alignPageStartToTurn,
   extendPageStartToWholeRounds,
   selectVisiblePageStart,
   withPaginationSeq,
-} from '@openliri/service/runtime/api/paginationSeq';
+} from './paginationSeq';
 // B2（2026-10-30）：按轮摘要的服务端实现（与前端 `ROUND_SUMMARY_MAX_CHARS` 同口径）
 import {
   ROUND_SUMMARY_DEFAULT_ROUNDS,
   ROUND_SUMMARY_MAX_ROUNDS_PER_REQUEST,
   buildSessionRoundSummaries,
   type SessionRoundSummariesResult,
-} from '@openliri/service/runtime/api/roundSummaries';
+} from './roundSummaries';
 import { LRUCache } from '@openliri/infra/utils/cache';
 import type { LiriEvent } from '@modules/session/types/events';
 import type { SessionManager } from '@modules/session/types/session';
@@ -60,7 +60,7 @@ import type {
   UnifiedMessage,
   FrontendMessageBlock,
 } from '@modules/session/types/UnifiedMessage';
-import type { ChatManager } from '@modules/chat';
+import type { RuntimeChatManagerRef } from './runtimeChatManagerRef';
 import { resolveWorktreeHash } from '@openliri/infra/environment';
 import {
   canAccessSession,
@@ -70,7 +70,7 @@ import { getRequestPrincipal } from '@openliri/kernel/identity/requestScope';
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 // P0-4（2026-11-05）：任务分区消息（PDCA 步骤）默认不进用户面读取
-import { filterTaskPartitionMessages } from '@openliri/service/runtime/api/messagePartition';
+import { filterTaskPartitionMessages } from './messagePartition';
 
 const logger = getLogger('runtime:api:CoreAPIImpl');
 
@@ -111,7 +111,7 @@ function cloneDerivedMessages(
  * B2（2026-10-05）：宿主依赖（全 getter，零初始化顺序陷阱）。
  */
 export interface SessionMessagesReadDeps {
-  getChatManager: () => ChatManager;
+  getChatManager: () => RuntimeChatManagerRef;
   getSessionManager: () => SessionManager;
   /**
    * N-50（2026-09-20）：按会话元数据"删除墓碑"过滤**事件派生**消息
@@ -149,7 +149,9 @@ export class SessionMessagesRead {
     try {
       const gateway = this.deps.getChatManager().getSessionGateway?.();
       if (!gateway || typeof gateway.getSession !== 'function') return true;
-      const stored = await gateway.getSession(sessionId);
+      const stored = (await gateway.getSession(sessionId)) as {
+        metadata?: Record<string, unknown>;
+      } | null;
       if (!stored) return true;
       const owner = (stored.metadata as { owner?: SessionOwner } | undefined)
         ?.owner;
@@ -701,7 +703,7 @@ export class SessionMessagesRead {
   ): Promise<void> {
     try {
       const { inboxManager } =
-        await import('@openliri/service/runtime/InboxManager');
+        await import('../InboxManager');
       // 直查 inbox_items.session_id（而非 JOIN session_inbox_map）：
       // Web 提交的审批项无 channelSessionId 不写 map 表，getBySession 会漏掉。
       const { items } = await inboxManager.list({

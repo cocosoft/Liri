@@ -10,7 +10,7 @@
  */
 import { describe, it, expect } from 'bun:test';
 
-import { SessionMessagesRead } from '../../src/runtime/api/sessionMessagesRead.js';
+import { SessionMessagesRead } from '@openliri/service/runtime/api/sessionMessagesRead';
 import type { EventLogStorage } from '@modules/session';
 import type { ChatManager } from '@modules/chat';
 import type { SessionManager } from '../../src/session/types/session.js';

@@ -13,7 +13,7 @@
  *   C 有 v1 事件 ⇒ `available:true` + 返回事实差异报告（本方法不判错）
  */
 import { describe, it, expect } from 'bun:test';
-import { SessionMessagesRead } from '../../src/runtime/api/sessionMessagesRead.js';
+import { SessionMessagesRead } from '@openliri/service/runtime/api/sessionMessagesRead';
 import type { EventLogStorage } from '@modules/session';
 import type { LiriEvent } from '../../src/session/types/events.js';
 import type { ChatManager } from '@modules/chat';

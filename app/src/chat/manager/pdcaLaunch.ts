@@ -44,6 +44,8 @@ import { createProjectStore } from '../../workspace/ProjectStore.js';
 import { WorkItemStore } from '../../workspace/WorkItemStore.js';
 import { resolveDataDir } from '@openliri/infra/environment';
 import { eventNotificationService } from '../services/EventNotificationService.js';
+// N-4（2026-11-06）：项目沙箱与会话工具 cwd 同一事实源（裸会话不再指向不存在的默认目录）
+import { resolveToolCwd } from '../services/toolCwdScope.js';
 import type { PdcaLauncher } from '../launchers/PdcaLauncher';
 // P2-2（2026-11-06）：项目目标摘要（短指令 ⇒ 取助手计划标题）
 import { buildProjectGoalSummary } from '../launchers/planSource';
@@ -69,6 +71,30 @@ export function resolveExistingSessionWorkspace(
   } catch {
     return undefined;
   }
+}
+
+/**
+ * N-4（2026-11-06）：自动建项目的**沙箱目录** —— 与会话工具的实际 cwd 同一事实源。
+ *
+ * 真机缺陷（`session_mw4vwtmp38957bec2f`）：裸会话（无显式工作区）的产物落在工具 cwd，
+ * 但自动建项目用的是默认 `~/Documents/LiriProjects/<id>`（`delaySandbox` ⇒ 目录从未创建）
+ * ⇒ 项目是**空指向**：`sandboxPath` 不存在，`output/mario` 一件产物都进不来。
+ *
+ * 优先级：
+ *   ① 会话显式工作区（真实目录，P2-1）；
+ *   ② `resolveToolCwd()` —— 与工具执行**同一个解析器**（裸会话：开发版 = 项目根、
+ *      编译版 = `<data>/workspace/sessions/<id>`，目录按需创建）。
+ *
+ * @param resolveCwd 仅单测注入；生产走 `resolveToolCwd`（按当前请求身份分治）
+ */
+export function resolveProjectSandboxPath(
+  session: ChatSession,
+  resolveCwd: (sessionId: string) => string | undefined = (sessionId) =>
+    resolveToolCwd(undefined, undefined, { sessionId }).cwd
+): { sandboxPath?: string; source: 'session-workspace' | 'tool-cwd' } {
+  const explicit = resolveExistingSessionWorkspace(session);
+  if (explicit) return { sandboxPath: explicit, source: 'session-workspace' };
+  return { sandboxPath: resolveCwd(session.id), source: 'tool-cwd' };
 }
 
 /**
@@ -649,12 +675,14 @@ export class PdcaLaunchCoordinator {
 
       // P2-1（2026-11-06）：会话已有显式工作区 ⇒ 项目沙箱落在同一目录，
       // 避免"新项目 = 空目录 + 工作区被切走"导致本轮产物失联（真机会话实证）。
-      const sessionWorkspace = resolveExistingSessionWorkspace(session);
+      // N-4（2026-11-06）：**裸会话**（无显式工作区）不再落到从未创建的默认目录，
+      // 改用工具实际执行的 cwd（同一解析器）——否则项目是空指向、产物一件都进不来。
+      const sandbox = resolveProjectSandboxPath(session);
       const project = projectStore.create({
         workspaceId: bindingWorkspaceId ?? 'default',
         name: projectName,
         description: descriptionText,
-        ...(sessionWorkspace ? { sandboxPath: sessionWorkspace } : {}),
+        ...(sandbox.sandboxPath ? { sandboxPath: sandbox.sandboxPath } : {}),
         delaySandbox: true,
       });
 
@@ -699,7 +727,8 @@ export class PdcaLaunchCoordinator {
         sessionId: session.id,
         deliverables: result.deliverables,
         sandboxPath: project.sandboxPath,
-        reusedSessionWorkspace: Boolean(sessionWorkspace),
+        sandboxSource: sandbox.source,
+        reusedSessionWorkspace: sandbox.source === 'session-workspace',
       });
 
       // P0 增强：通知前端导航到新项目

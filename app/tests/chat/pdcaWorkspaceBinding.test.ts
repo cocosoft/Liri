@@ -11,7 +11,10 @@ import { describe, expect, it } from 'bun:test';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { resolveExistingSessionWorkspace } from '../../src/chat/manager/pdcaLaunch';
+import {
+  resolveExistingSessionWorkspace,
+  resolveProjectSandboxPath,
+} from '../../src/chat/manager/pdcaLaunch';
 import type { ChatSession } from '@modules/session/types/session.js';
 
 function sessionWith(workspacePath: unknown): ChatSession {
@@ -48,5 +51,43 @@ describe('P2-1：项目沙箱复用会话工作区', () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+/**
+ * N-4（2026-11-06）：**裸会话**（无显式工作区）的项目沙箱必须与会话工具的实际 cwd 一致。
+ *
+ * 真机 `session_mw4vwtmp38957bec2f`：自动建项目 `sandboxPath=~/Documents/LiriProjects/<id>`
+ * （`delaySandbox` ⇒ 目录从未创建），而产物写在工具 cwd（`output/mario`）⇒ 项目空指向。
+ */
+describe('N-4：项目沙箱回落工具实际 cwd', () => {
+  it('有显式工作区 ⇒ 用它，且不调用 cwd 解析', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'n4-ws-'));
+    let called = false;
+    try {
+      const sandbox = resolveProjectSandboxPath(sessionWith(dir), () => {
+        called = true;
+        return 'C:\\fallback';
+      });
+      expect(sandbox).toEqual({
+        sandboxPath: dir,
+        source: 'session-workspace',
+      });
+      expect(called).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('裸会话 / 工作区失效 ⇒ 回落工具 cwd（同源解析器）', () => {
+    expect(
+      resolveProjectSandboxPath(sessionWith(undefined), () => 'C:\\tool-cwd')
+    ).toEqual({ sandboxPath: 'C:\\tool-cwd', source: 'tool-cwd' });
+    expect(
+      resolveProjectSandboxPath(
+        sessionWith(join(tmpdir(), 'n4-missing-dir')),
+        () => 'C:\\tool-cwd'
+      )
+    ).toEqual({ sandboxPath: 'C:\\tool-cwd', source: 'tool-cwd' });
   });
 });

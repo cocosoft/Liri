@@ -42,6 +42,7 @@ import { isMediaOutputToolName } from '@openliri/infra/utils/toolContract/toolRo
 import {
   findWorkspaceEscape,
   findWorkspaceEscapeInRoots,
+  PATH_ARG_KEYS,
 } from '@openliri/infra/utils/toolContract';
 import type { ToolName } from '@openliri/infra/constants/toolNames.generated';
 import {
@@ -409,8 +410,50 @@ export function formatWorkspaceInvalidError(params: {
   );
 }
 
+/**
+ * 形态④（2026-11-06 裁定）：**不放宽路径根**，只把「本轮可访问根」显式告诉模型。
+ *
+ * 背景：长程/自主任务的会话 cwd 是隔离工作区（`~/.pyapp/workspaces/…`），模型却按
+ * 真实项目根读写 ⇒ 权限层按工作区边界判 `ask`，模型只看到「需要审批」、不知道
+ * 可用根是谁，于是反复重试（与 FIX-10 同源：缺的是**允许根**，不是判定本身）。
+ *
+ * 为什么选「告知根」而不是「把项目根并入边界」：后者会让自主任务直接写真实项目根，
+ * 削弱隔离（CD07 安全域一票否决）；且审核口径与 FIX-10 的越界文案保持一致。
+ *
+ * @param roots 本轮可访问根（空 ⇒ 返回空串，不添加噪声）
+ */
+export function formatWorkspaceRootsHint(roots: readonly string[]): string {
+  if (roots.length === 0) return '';
+  return (
+    `（本会话可访问根：${roots.join(' | ')}；` +
+    '若你使用的是真实项目路径，请改用这些根内的路径）'
+  );
+}
+
 export class ToolExecutionService {
   constructor(public readonly deps: ToolExecutionDeps) {}
+
+  /**
+   * 形态④：解析本轮可访问根（列表优先，缺省回落单根 `workspacePath`）。
+   *
+   * 只在入参**含路径参数**时返回提示 —— 结构判定（`PATH_ARG_KEYS`），
+   * 不做文案匹配（CS02），也不会给「无路径语义」的 ask 添噪声。
+   */
+  private _workspaceRootsHint(
+    sessionId: string | undefined,
+    args: Record<string, unknown> | undefined
+  ): string {
+    if (!args) return '';
+    const hasPathArg = PATH_ARG_KEYS.some(
+      (key) =>
+        typeof args[key] === 'string' && (args[key] as string).trim() !== ''
+    );
+    if (!hasPathArg) return '';
+    const listed = this.deps.getSessionWorkspaceRoots?.(sessionId) ?? [];
+    const primary = this.deps.getSessionWorkspacePath(sessionId);
+    const roots = listed.length > 0 ? listed : primary ? [primary] : [];
+    return formatWorkspaceRootsHint(roots);
+  }
 
   /**
    * 2026-11-03 P0：会话工作区目录原本不存在、已在托管项目根下自动重建 ⇒ 首次投影提示。
@@ -1045,6 +1088,12 @@ export class ToolExecutionService {
 
       if (!permissionResult.allowed) {
         if (permissionResult.kind === 'ask') {
+          // 形态④（2026-11-06 裁定）：把本轮可访问根一并回给模型，避免它拿着
+          // 真实项目路径反复重试（长程/自主任务的 cwd 是隔离工作区）。
+          const scopeHint = this._workspaceRootsHint(
+            toolCall.sessionId,
+            normalizedToolCall.arguments
+          );
           const approvedHit = await this.deps.isCommandApproved(
             normalizedToolCall.name,
             normalizedToolCall.arguments,
@@ -1080,7 +1129,7 @@ export class ToolExecutionService {
                 });
               const approvalResult = {
                 status: TRANSIENT_AWAITING_APPROVAL,
-                message: `工具 '${normalizedToolCall.name}' 需要审批，已提交审批卡片等待用户批准。用户批准后可继续执行，请勿编造替代方案。`,
+                message: `工具 '${normalizedToolCall.name}' 需要审批，已提交审批卡片等待用户批准。用户批准后可继续执行，请勿编造替代方案。${scopeHint}`,
                 pendingApproval: true,
                 // U-06-5：Inbox 项 id —— 前端工具卡片就地审批（无则退回卡片/收件箱入口）
                 inboxId: permissionResult.inboxItemId,
@@ -1107,7 +1156,8 @@ export class ToolExecutionService {
               // `session_mvoqs1ho875ea6b95e` 连续 13 次因此被判失败且无人可批）。
               error:
                 `需要用户确认，但审批通道不可用（${permissionResult.reason || 'Inbox 提交失败'}）：` +
-                '本次调用未排队；请先修复审批通道（如数据库迁移/权限目录）后重新发起。',
+                '本次调用未排队；请先修复审批通道（如数据库迁移/权限目录）后重新发起。' +
+                scopeHint,
               // LRO-09：审批未能提交（Inbox 不可用等）⇒ 环境层阻塞，非模型输出问题
               failureKind: 'permission_denied',
               metadata: { approvalChannelDown: true },

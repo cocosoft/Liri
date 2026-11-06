@@ -10,7 +10,20 @@ import { describe, expect, it } from 'bun:test';
 import {
   formatWorkspaceEscapeError,
   formatWorkspaceInvalidError,
+  formatWorkspaceRootsHint,
 } from '../../src/chat/services/ToolExecutionService';
+
+describe('形态④（2026-11-06 裁定）：ask 结果里的「可访问根」提示', () => {
+  it('空根 ⇒ 空串（不给无路径语义的 ask 添噪）', () => {
+    expect(formatWorkspaceRootsHint([])).toBe('');
+  });
+
+  it('列出允许根并要求改用根内路径（与 FIX-10 同口径）', () => {
+    const text = formatWorkspaceRootsHint(['C:\\ws', 'E:\\proj']);
+    expect(text).toContain('本会话可访问根：C:\\ws | E:\\proj');
+    expect(text).toContain('请改用这些根内的路径');
+  });
+});
 
 describe('P0-1（2026-11-05）：工作区失效文案', () => {
   it('列出失效根并要求重新定位；不得再建议「改用该根下的相对路径」', () => {

@@ -234,12 +234,18 @@ export class StreamingLlm {
       `msg-turn-${Date.now().toString(36)}-${randomIdSuffix(6)}`;
     // BUG-C（2026-10-27 真机长程任务）：工具轮输出预算同样以 DB 的 `max_output_tokens`
     // 为准（此前硬编码 4096 ⇒ 生成大文件参数的轮次被整点截断）；取不到才回落 4096。
+    // N-1（2026-11-06 真机长程任务）：调用方下发的聊天级 `maxTokens`（客户端默认 8192）
+    // 此前**优先**于 DB 值 ⇒ 上面 BUG-C 的口径被静默架空，写大文件的工具参数被整点截断
+    // （实测 `game.js` 两轮全断）。工具轮生成的是**工具参数**而非聊天回复，故取两者较大者：
+    // 聊天级上限仍按用户设置生效（只影响非工具轮），这里只放宽"生成参数"的预算。
+    const clientMaxTokens = this.deps.getCtx().options?.maxTokens as
+      | number
+      | undefined;
+    const dbMaxOutputTokens = resolveMaxOutputTokens(
+      this.deps.getCtx().options?.model as string | undefined
+    );
     const toolRoundBaseMaxTokens =
-      (this.deps.getCtx().options?.maxTokens as number | undefined) ??
-      resolveMaxOutputTokens(
-        this.deps.getCtx().options?.model as string | undefined
-      ) ??
-      4096;
+      Math.max(clientMaxTokens ?? 0, dbMaxOutputTokens ?? 0) || 4096;
     // 截断续接放大（2026-09-03）：onIncompleteTurn truncated 分支置位后，本轮预算 base×4
     //（封顶 64K），一次性消费掉标记，避免后续轮次持续放大。
     const boostMaxTokens = this.deps.getBoostNextReasonMaxTokens();

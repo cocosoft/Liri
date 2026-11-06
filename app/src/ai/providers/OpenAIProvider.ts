@@ -466,6 +466,8 @@ export class OpenAIProvider extends BaseAIProvider {
         >();
         let stopReason: 'stop' | 'tool_calls' | 'max_tokens' = 'stop';
         let toolCalls: ParsedToolCall[] = [];
+        // N-1（2026-11-06）：截断时已收到但未写完的工具调用（参数为半截 JSON，不执行）
+        let partialToolCalls: ParsedToolCall[] = [];
 
         // P2-13 修复：reader.read() 无数据超时（60s），防止 Provider 流挂起导致
         // streamMessage 卡在 await gen.next()、会话互斥锁（SimpleMutex）永久不释放。
@@ -569,6 +571,17 @@ export class OpenAIProvider extends BaseAIProvider {
                 finishReason === 'length'
               ) {
                 stopReason = 'max_tokens';
+                // N-1（2026-11-06 真机长程任务）：截断常发生在**工具参数**里（实测 `file_write`
+                // 写大文件时被 8192 输出上限整点截断）。此前这些半截调用被静默丢弃 ⇒ 重试时
+                // 模型不知道自己在写哪个文件，改去做 `dir /b`，任务在原地中断。
+                // 现在把"名字 + 半截参数"如实上报（`_raw`），**由上层决定如何使用，绝不执行**。
+                partialToolCalls = Array.from(pendingToolCalls.values())
+                  .filter((tc) => tc.name)
+                  .map((tc) => ({
+                    id: tc.id,
+                    name: tc.name,
+                    arguments: { _raw: tc.arguments, _partial: true },
+                  }));
               }
             } catch (err) {
               // skip malformed SSE lines
@@ -581,6 +594,8 @@ export class OpenAIProvider extends BaseAIProvider {
           model,
           stop_reason: stopReason,
           tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
+          partial_tool_calls:
+            partialToolCalls.length > 0 ? partialToolCalls : undefined,
           usage: lastUsage,
         };
       } catch (error) {

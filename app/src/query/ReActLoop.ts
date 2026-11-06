@@ -272,6 +272,13 @@ export interface ReasonResult<TContext = unknown> {
    * **信息不销毁**，供观测/排查使用（不参与控制流）。
    */
   rawFinishReason?: string;
+  /**
+   * N-1（2026-11-06 真机长程任务）：被 `max_tokens` 截断时**参数未写完**的工具调用。
+   *
+   * 与 `toolCalls` **严格分离**：这里面的 `input` 是半截 JSON（`{_raw, _partial}`），
+   * **绝不可执行**；只用于"截断续写归因"（识别正在写哪个文件，把续写目标写进续接指令）。
+   */
+  partialToolCalls?: ToolCallEntry[];
   usage?: { inputTokens: number; outputTokens: number };
   context?: TContext;
 }

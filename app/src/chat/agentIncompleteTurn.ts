@@ -15,7 +15,7 @@
  */
 
 import { getLogger } from '@openliri/infra/monitoring';
-import type { ReasonResult } from '@modules/query';
+import type { ReasonResult, ToolCallEntry } from '@modules/query';
 import type { GoalTurnReason } from '@modules/tasks';
 import {
   createFragment,
@@ -55,6 +55,45 @@ const LEAKED_TOOL_MARKUP_RE = /｜｜DSML｜｜|<[a-z_]+"\s*>/i;
 const MALFORMED_TOOL_MARKUP_RETRY_INSTRUCTION =
   '上一轮响应把工具调用写成了正文标记（如 <bash>、</｜｜DSML｜｜ …>），系统无法解析，' +
   '因此没有执行任何工具。请改用**标准工具调用**重新发起同样的操作，不要在正文中书写工具调用标签。';
+
+/**
+ * N-1（2026-11-06 真机长程任务）：截断发生在 `file_write` 参数里时，取出被写的目标文件。
+ *
+ * 真机证据（`session_mw4vwtmp38957bec2f`）：两轮都在写 `output/mario/game.js` 时命中
+ * `incomplete_turn_retry kind=truncated`；原来的截断续接文案是**通用**的，模型重试时
+ * 丢掉写入目标（第二轮改去做 `dir /b`），任务在原地中断、`game.js` 永远没写出来。
+ *
+ * 只从半截 JSON 前缀里取 `file_path`（不解析 `content`，那部分本来就是残缺的）。
+ */
+function extractTruncatedWriteTarget(
+  partial: readonly ToolCallEntry[] | undefined
+): string | null {
+  if (!partial?.length) return null;
+  for (const call of partial) {
+    if (call.name !== 'file_write') continue;
+    const raw = (call.input as { _raw?: unknown } | undefined)?._raw;
+    if (typeof raw !== 'string') continue;
+    const matched = /"file_path"\s*:\s*"((?:[^"\\]|\\.)*)"/.exec(raw);
+    if (!matched) continue;
+    try {
+      return JSON.parse(`"${matched[1]}"`) as string;
+    } catch {
+      return matched[1];
+    }
+  }
+  return null;
+}
+
+/** 截断发生在写文件时的定向续接指令（比通用文案多：目标文件 + 分块写入 + 禁止改做探索） */
+function buildTruncatedWriteInstruction(filePath: string): string {
+  return (
+    `你上一次的输出在调用 file_write 写「${filePath}」时被输出长度上限截断，` +
+    '这段内容**没有写入磁盘**（参数不完整，系统不会执行它）。\n' +
+    '请改用**分块写入**继续：先用 file_write 写第 1 块（建议 ≤150 行），' +
+    '成功后再用 file_write 的 append:true 逐块追加，直到写完；' +
+    '不要重写整个文件，也不要去列目录/探索环境来代替写入。'
+  );
+}
 
 export interface IncompleteRetries {
   empty: number;
@@ -189,6 +228,10 @@ export async function onIncompleteTurn(
   }
   if (deps.incompleteRetries[kind] >= 1) return false; // 每类最多重试 1 次
 
+  const truncatedWriteTarget =
+    kind === 'truncated'
+      ? extractTruncatedWriteTarget(result.partialToolCalls)
+      : null;
   const instruction =
     kind === 'empty'
       ? EMPTY_RESPONSE_RETRY_INSTRUCTION
@@ -198,7 +241,9 @@ export async function onIncompleteTurn(
           ? PLANNING_ONLY_RETRY_INSTRUCTION
           : kind === 'malformed'
             ? MALFORMED_TOOL_MARKUP_RETRY_INSTRUCTION
-            : TRUNCATED_RESPONSE_RETRY_INSTRUCTION;
+            : truncatedWriteTarget
+              ? buildTruncatedWriteInstruction(truncatedWriteTarget)
+              : TRUNCATED_RESPONSE_RETRY_INSTRUCTION;
   deps.incompleteRetries[kind]++;
   // 截断续接：下一轮 reason 放大输出预算（截断是硬性预算不足，重试需更多额度）
   if (kind === 'truncated') deps.setBoostNextReasonMaxTokens(true);
@@ -217,6 +262,8 @@ export async function onIncompleteTurn(
     kind,
     retries: { ...deps.incompleteRetries },
     textPreview: text.slice(0, 80),
+    // N-1：截断发生在写文件时，留痕"续接目标"，便于事后确认续写是否落到正确的文件
+    ...(truncatedWriteTarget ? { truncatedWriteTarget } : {}),
   });
   return true;
 }

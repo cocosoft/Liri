@@ -318,6 +318,13 @@ export interface ChatResponse {
   model?: string;
   stop_reason: 'stop' | 'tool_calls' | 'max_tokens';
   tool_calls?: ParsedToolCall[];
+  /**
+   * N-1（2026-11-06 真机长程任务）：被 `max_tokens` 截断时**参数尚未写完**的工具调用。
+   *
+   * 参数是半截 JSON（`arguments._raw`），**绝不可执行**；仅供上层"截断续写"归因使用
+   * （例如识别出"正在写哪个文件"，把续写目标告诉模型，避免重试后丢失写入意图）。
+   */
+  partial_tool_calls?: ParsedToolCall[];
   usage?: {
     prompt_tokens: number;
     cache_read_input_tokens?: number;

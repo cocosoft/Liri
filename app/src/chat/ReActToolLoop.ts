@@ -671,6 +671,19 @@ export class ReActToolLoop extends ReActLoop<
       })
     );
 
+    // N-1（2026-11-06）：截断时 provider 上报的**半截**工具调用。只做归因，**绝不执行**
+    // （参数是 `{_raw}`，半截 JSON）。供 `onIncompleteTurn` 生成"续写哪个文件"的续接指令。
+    const responseWithPartial = response as {
+      partial_tool_calls?: Array<{
+        id: string;
+        name: string;
+        arguments?: Record<string, unknown>;
+      }>;
+    };
+    const partialToolCalls: ToolCallEntry[] = (
+      responseWithPartial.partial_tool_calls ?? []
+    ).map((tc) => ({ id: tc.id, name: tc.name, input: tc.arguments ?? {} }));
+
     // 排查锚点：每轮推理产出的工具调用默认可见。circuit_breaker 触发时，
     // 配合 onToolCall end 和工具自身失败日志，可完整还原"AI 决策 → 工具执行 → 失败"链路。
     // 参数 JSON 化后截断 200 字符（命令类工具如 powershell/bash 必须能看到命令内容）。
@@ -777,6 +790,8 @@ export class ReActToolLoop extends ReActLoop<
         (toolCalls.length > 0 ? 'tool_calls' : 'stop'),
       rawFinishReason:
         resp.finishReason ?? resp.stop_reason ?? UNKNOWN_FINISH_REASON,
+      // N-1（2026-11-06）：半截工具调用只作归因，不进 `toolCalls` ⇒ 不会被执行
+      ...(partialToolCalls.length > 0 ? { partialToolCalls } : {}),
       context,
     };
   }

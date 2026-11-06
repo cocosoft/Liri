@@ -669,5 +669,10 @@ export async function registerAllSpis(
       await import('@openliri/service/runtime/api/coreApiProvider');
     const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
     registerRuntimeCoreApiProvider(() => getCoreAPI());
+
+    const { registerRuntimeTitleGeneratorFactory } =
+      await import('@openliri/service/runtime/api/runtimeAgentPort');
+    const { getTitleGenerator } = await import('@modules/agent');
+    registerRuntimeTitleGeneratorFactory(() => getTitleGenerator());
   }
 }

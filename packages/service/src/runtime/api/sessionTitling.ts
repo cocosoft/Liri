@@ -33,8 +33,9 @@
  * `clearTrackers` 释放（单向消费，无宿主写路径）。
  */
 
-import type { ChatManager } from '@modules/chat';
-import { ExecutionPhaseTracker } from '@modules/session';
+import type { RuntimeChatManagerRef } from './runtimeChatManagerRef';
+import { getRuntimeTitleGenerator } from './runtimeAgentPort';
+import { ExecutionPhaseTracker } from '@modules/session/ExecutionPhaseTracker';
 import type { LiriEvent } from '@modules/session/types/events';
 import type { Message } from '@modules/session/types/message';
 import { getLogger } from '@openliri/infra/monitoring';
@@ -77,7 +78,7 @@ function firstAssistantText(
  * B4（2026-10-05）：宿主依赖（全 getter，零初始化顺序陷阱）。
  */
 export interface SessionTitlingDeps {
-  getChatManager: () => ChatManager;
+  getChatManager: () => RuntimeChatManagerRef;
 }
 
 /**
@@ -491,18 +492,24 @@ export class SessionTitling {
     assistantResponse: string
   ): Promise<string | null> {
     try {
-      // 子批 F `runtime -> agent` 收口：唯一取用点，async 上下文 ⇒ 动态导入（本文件既有模式）
-      const { getTitleGenerator } = await import('@modules/agent');
-      const titleGenerator = getTitleGenerator();
+      // 子批 F `runtime -> agent` 收口：唯一取用点；P39（2026-11-06）改为注入端口
+      // （包内不再直连 `@modules/agent`，未注册时按「标题生成不可用」降级）。
+      const titleGenerator = getRuntimeTitleGenerator();
+      if (!titleGenerator) {
+        logger.warning('标题生成器未注册（保留占位标题）', { sessionId });
+        return null;
+      }
       const title = await titleGenerator.generateTitle(
         userMessage,
         assistantResponse,
         async (messages) => {
-          const llmClient = this.deps.getChatManager().getLLMClient();
-          const response = await llmClient.sendMessage(
-            messages as import('@modules/ai').ChatMessage[],
-            {}
-          );
+          const llmClient = this.deps.getChatManager().getLLMClient() as {
+            sendMessage(
+              messages: unknown[],
+              options?: object
+            ): Promise<{ content?: string } | null | undefined>;
+          };
+          const response = await llmClient.sendMessage(messages, {});
           return response?.content || null;
         }
       );

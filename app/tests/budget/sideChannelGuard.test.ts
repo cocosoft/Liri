@@ -31,8 +31,14 @@ import {
   getDailyBudget,
   resetDailyBudgetForTest,
 } from '../../src/query/DailyBudgetManager';
-import { SessionTitling } from '../../src/runtime/api/sessionTitling';
+import { SessionTitling } from '@openliri/service/runtime/api/sessionTitling';
+import { registerRuntimeTitleGeneratorFactory } from '@openliri/service/runtime/api/runtimeAgentPort';
+import { getTitleGenerator } from '@modules/agent';
 import { SessionSummarizer } from '../../src/chat/services/SessionSummarizer';
+
+// P39（2026-11-06）：标题生成器改为**启动期注入端口**（`spiWiring#registerAllSpis` 同源）。
+// 本文件直测 `SessionTitling`（不经 bootstrap），故在此按生产口径注册，保证 J 用例仍是"真调模型"。
+registerRuntimeTitleGeneratorFactory(() => getTitleGenerator());
 
 // 会话摘要会落 `projects/<id>/summaries.json` ⇒ 隔离数据目录（避免污染真实 ~/.pyapp）
 const dataDir = mkdtempSync(join(tmpdir(), 'budget-sidechannel-t13-'));
@@ -162,7 +168,7 @@ describe('T13：后台不并入日预算（D-j 负向夹具）', () => {
     const backgroundFiles = [
       '../../packages/infra/src/chronos/autoDream/AutoDream.ts', // H 做梦
       'chat/services/SessionSummarizer.ts', // I 会话摘要
-      'runtime/api/sessionTitling.ts', // J 自动标题
+      '../../packages/service/src/runtime/api/sessionTitling.ts', // J 自动标题
       'tasks/evolution/AdaptationEvolutionService.ts', // N 记忆/进化
       'agent/BtwHandler.ts', // O 只登记（疑未接线，CD05）
     ] as const;

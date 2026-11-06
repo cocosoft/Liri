@@ -55,7 +55,7 @@ import { DomainSnapshotOps } from './domainSnapshotOps';
 import { terminationReasonField } from '@openliri/service/runtime/api/streamTermination';
 import { SessionMessagesRead } from '@openliri/service/runtime/api/sessionMessagesRead';
 import { MessageMutation } from '@openliri/service/runtime/api/messageMutation';
-import { SessionTitling } from './sessionTitling';
+import { SessionTitling } from '@openliri/service/runtime/api/sessionTitling';
 // C3-S1（2026-10-09，`.trae/specs/core-api-impl-split.md`）：工具查询 / 会话 CRUD 与查询 /
 // 代理任务 / 文件类型 —— 自本文件**纯搬迁**（只搬不改）至 `sessionAgentOps.ts`；此处仅薄转发。
 import { SessionAgentOps } from './sessionAgentOps';

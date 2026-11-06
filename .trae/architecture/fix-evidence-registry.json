@@ -8707,7 +8707,7 @@
         "app/src/runtime/api/CoreAPI.ts",
         "app/src/runtime/api/CoreAPIImpl.ts",
         "app/src/runtime/api/sessionAgentOps.ts",
-        "app/src/runtime/api/sessionTitling.ts",
+        "packages/service/src/runtime/api/sessionTitling.ts",
         "app/src/infrastructure/http/handlers/session-handlers.ts",
         "app/src/session/models/SessionMetadata.ts",
         "app/src/session/types/UnifiedSession.ts",

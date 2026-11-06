@@ -55,7 +55,7 @@ const CHECKS: Check[] = [
   {
     // 2026-10-19：`autoGenerateTitle` 随 R04 尺寸治理迁到 `sessionTitling.ts`
     // （`CoreAPIImpl` 仅保留薄转发）—— 判据不变，仅更新落点。
-    file: 'app/src/runtime/api/sessionTitling.ts',
+    file: 'packages/service/src/runtime/api/sessionTitling.ts',
     funcName: 'autoGenerateTitle',
     requiredPattern: '??',
     description:

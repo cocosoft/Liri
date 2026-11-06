@@ -8,10 +8,12 @@
  * 真实 `ChatManager` 仍可结构赋值过来（方法参数按双变处理）。
  */
 import type { UnifiedMessage } from '@modules/session/types/UnifiedMessage.js';
+import type { ChatSession } from '@modules/session/types/session';
+import type { UnifiedSession } from '@modules/session/types/UnifiedSession.js';
 
 /** 会话网关的最小结构（删除 / 更新 / 读取路径实际用到的方法） */
 export interface RuntimeSessionGatewayRef {
-  getSession(sessionId: string): Promise<unknown>;
+  getSession(sessionId: string): Promise<UnifiedSession | null>;
   getMessages(
     sessionId: string,
     options?: { limit?: number; offset?: number }
@@ -35,4 +37,11 @@ export interface RuntimeChatManagerRef {
     maxRound: number,
     roundIndex: Record<string, number>
   ): Promise<Array<{ roundId: number; success: boolean; error?: string }>>;
+  /** 会话标题路径（`sessionTitling`）：内存会话集合 */
+  getSessions(): ChatSession[];
+  /** 会话事件写入（`sessionTitling` 追加 `session/title` 事件） */
+  getStreamTailSeq(sessionId: string): Promise<number>;
+  appendStreamEvent(sessionId: string, event: unknown): Promise<unknown>;
+  /** LLM 客户端（`sessionTitling` 的标题生成回调；具体形状由调用方就近收窄） */
+  getLLMClient(): unknown;
 }

@@ -40,7 +40,7 @@ import type { ChatManager } from '@modules/chat';
 import type { ToolManager } from '@modules/tools';
 import type { SmartRouter, RouteDecision } from '@modules/ai';
 import type { ChatRequest, ChatResponse, QuestionData } from './CoreAPI';
-import type { SessionTitling } from './sessionTitling';
+import type { SessionTitling } from '@openliri/service/runtime/api/sessionTitling';
 
 const logger = getLogger('runtime:api:CoreAPIImpl');
 

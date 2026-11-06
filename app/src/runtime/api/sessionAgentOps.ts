@@ -93,7 +93,7 @@ import {
 // B2（2026-10-30）：按轮摘要（供轮次导航补齐未加载轮次）
 import type { SessionRoundSummariesResult } from '@openliri/service/runtime/api/roundSummaries';
 import type { MessageMutation } from '@openliri/service/runtime/api/messageMutation';
-import type { SessionTitling } from './sessionTitling';
+import type { SessionTitling } from '@openliri/service/runtime/api/sessionTitling';
 import type { ToolManager } from '@modules/tools';
 
 const logger = getLogger('runtime:api:CoreAPIImpl');

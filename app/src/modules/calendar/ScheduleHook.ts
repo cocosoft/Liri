@@ -26,6 +26,27 @@ import { AIScheduleIndex } from './AIScheduleIndex';
 const logger = getLogger('calendar:scheduleHook');
 
 /**
+ * 通知中心写入端口（2026-11-06）
+ *
+ * **为什么抽端口**：`_pushCalendarNotice` 原直接取全局单例 `notificationPersistence()`
+ * ⇒ 单测调用 `onCalendarCreated` 会把 fixture 写进真实通知中心（实测 441 条）。
+ * 抽出端口后测试可注入 no-op/录制实现，生产默认仍用单例。
+ */
+export interface CalendarNoticeSink {
+  create(input: {
+    category: 'notice';
+    priority: 'normal';
+    title: string;
+    content: string;
+    source: 'calendar';
+    source_ref: string;
+    link_to?: { type: 'session' | 'page' | 'url'; id: string; label?: string };
+    expires_at?: number;
+  }): Promise<unknown>;
+  resolveBySourceRef(sourceRef: string): Promise<unknown>;
+}
+
+/**
  * ScheduleHook
  * 管理日历事件与 Cron 提醒之间的生命周期同步
  */
@@ -34,12 +55,27 @@ export class ScheduleHook {
   private aiIndex: AIScheduleIndex;
   /** N-5：保存订阅对象，destroy 时统一退订，避免热重载/重复 init 后监听器叠加 */
   private unsubscribes: EventSubscription[] = [];
+  /** 通知写入端口（缺省 → 懒解析全局单例，生产行为不变） */
+  private readonly noticeSink?: CalendarNoticeSink;
 
-  constructor(cronStore?: CronJobStore, aiIndex?: AIScheduleIndex) {
+  constructor(
+    cronStore?: CronJobStore,
+    aiIndex?: AIScheduleIndex,
+    noticeSink?: CalendarNoticeSink
+  ) {
     // T25-02 补（2026-10-25）：库路径按**当前身份**解析 —— 此前钉死 `resolveDbPath()`
     // ⇒ 租户请求读写的是本地库。本地身份下两者等值（`tenantScopedDataRoot` 对本地原样返回）⇒ 桌面零变更。
     this.cronStore = cronStore ?? new CronJobStore(resolveTenantDbPath());
     this.aiIndex = aiIndex ?? new AIScheduleIndex(resolveTenantDbPath());
+    this.noticeSink = noticeSink;
+  }
+
+  /** 取通知写入端口（未注入 ⇒ 懒加载全局单例，避免启动期静态耦合） */
+  private async _notice(): Promise<CalendarNoticeSink> {
+    if (this.noticeSink) return this.noticeSink;
+    const { notificationPersistence } =
+      await import('@openliri/service/runtime/NotificationPersistence');
+    return notificationPersistence();
   }
 
   /**
@@ -338,10 +374,9 @@ export class ScheduleHook {
     description?: string;
   }): Promise<void> {
     try {
-      const { notificationPersistence } =
-        await import('@openliri/service/runtime/NotificationPersistence');
+      const notice = await this._notice();
       const startTs = Math.floor(new Date(event.start).getTime() / 1000);
-      await notificationPersistence().create({
+      await notice.create({
         category: 'notice',
         priority: 'normal',
         title: `日程: ${event.summary}`,
@@ -365,9 +400,8 @@ export class ScheduleHook {
    */
   private async _dismissCalendarNotice(eventId: string): Promise<void> {
     try {
-      const { notificationPersistence } =
-        await import('@openliri/service/runtime/NotificationPersistence');
-      await notificationPersistence().resolveBySourceRef(eventId);
+      const notice = await this._notice();
+      await notice.resolveBySourceRef(eventId);
     } catch {
       /* 通知消除失败不影响日历主流程 */
     }

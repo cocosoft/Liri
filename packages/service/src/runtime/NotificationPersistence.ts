@@ -7,9 +7,11 @@
 
 import { getLogger } from '@openliri/infra/monitoring';
 import { Database } from '@openliri/infra/external';
-import { resolveDbPath } from '@openliri/infra/environment';
+import { getUserDataDirOverride, resolveDbPath } from '@openliri/infra/environment';
 import { randomUUID } from 'crypto';
 import { broadcastEvent } from '@modules/infrastructure/http/handlers/handler-utils';
+// 2026-11-06：测试环境未隔离数据目录 ⇒ 不落真实库（单测曾写脏生产通知中心 441 条）
+import { shouldSkipNotificationPersistence } from './notificationPersistenceGuard.js';
 
 const logger = getLogger('runtime:notification');
 
@@ -109,9 +111,12 @@ export class NotificationPersistence {
   private db: Database | null = null;
   private expireTimer: ReturnType<typeof setInterval> | null = null;
   private disposed = false;
+  /** 调用方是否显式传了库路径（显式 ⇒ 单测自行隔离，护栏不介入） */
+  private readonly explicitDbPath: boolean;
 
-  constructor(dbPath: string = resolveDbPath()) {
-    this.dbPath = dbPath;
+  constructor(dbPath?: string) {
+    this.explicitDbPath = dbPath !== undefined;
+    this.dbPath = dbPath ?? resolveDbPath();
   }
 
   async init(): Promise<void> {
@@ -268,9 +273,43 @@ export class NotificationPersistence {
     input: NotificationCreateInput,
     userId: string = 'default'
   ): Promise<NotificationItem> {
+    const now = Math.floor(Date.now() / 1000);
+    if (
+      shouldSkipNotificationPersistence(
+        process.env,
+        getUserDataDirOverride(),
+        this.explicitDbPath
+      )
+    ) {
+      // 测试环境未隔离数据目录：只返回形状完整的对象，不写真实库（2026-11-06 护栏）
+      logger.debug('notification: 测试环境未隔离数据目录，跳过落库', {
+        title: input.title,
+        source: input.source,
+        sourceRef: input.source_ref,
+      });
+      return {
+        id: randomUUID(),
+        user_id: userId,
+        category: input.category,
+        priority: input.priority || 'normal',
+        title: input.title,
+        content: input.content || '',
+        status: 'unread',
+        source: input.source || '',
+        source_ref: input.source_ref || '',
+        actions: input.actions || [],
+        link_to: input.link_to || null,
+        created_at: now,
+        updated_at: now,
+        read_at: null,
+        resolved_at: null,
+        expires_at: input.expires_at || null,
+        action_token: input.actions?.length ? randomUUID() : null,
+      };
+    }
+
     const db = await this._getDb();
     const id = randomUUID();
-    const now = Math.floor(Date.now() / 1000);
     const action_token = input.actions?.length ? randomUUID() : null;
 
     const item: NotificationItem = {

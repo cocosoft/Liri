@@ -11,7 +11,10 @@ import { describe, expect, test } from 'bun:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ScheduleHook } from '../../src/modules/calendar/ScheduleHook';
+import {
+  ScheduleHook,
+  type CalendarNoticeSink,
+} from '../../src/modules/calendar/ScheduleHook';
 import { AIScheduleIndex } from '../../src/modules/calendar/AIScheduleIndex';
 import {
   CalendarEvents,
@@ -23,18 +26,52 @@ import { CronJobStore } from '../../src/tasks/cron/CronJobStore';
 
 const MINUTE = 60 * 1000;
 
-/** 每个用例独立库：`ScheduleHook` 的两个依赖都落同一个临时 db */
+/** 录制到的通知（2026-11-06：测试不再写真实通知中心） */
+interface NoticeRecord {
+  title: string;
+  source: string;
+  sourceRef: string;
+}
+
+/**
+ * 每个用例独立库：`ScheduleHook` 的两个依赖都落同一个临时 db。
+ *
+ * 通知端口**必须注入**：不注入时 `_pushCalendarNotice` 会取全局单例、落生产库
+ * （实测曾写入 441 条 `日程: 日程 ev-*` 通知）。
+ */
 async function withHook(
-  run: (ctx: { hook: ScheduleHook; store: CronJobStore }) => Promise<void>
+  run: (ctx: {
+    hook: ScheduleHook;
+    store: CronJobStore;
+    notices: NoticeRecord[];
+  }) => Promise<void>
 ): Promise<void> {
   const dir = mkdtempSync(join(tmpdir(), 'schedule-hook-guard-'));
   const dbPath = join(dir, 'app.db');
   const store = new CronJobStore(dbPath);
   const index = new AIScheduleIndex(dbPath);
+  const notices: NoticeRecord[] = [];
+  const noticeSink: CalendarNoticeSink = {
+    async create(input) {
+      notices.push({
+        title: input.title,
+        source: input.source,
+        sourceRef: input.source_ref,
+      });
+      return { id: `notice-${input.source_ref}` };
+    },
+    async resolveBySourceRef() {
+      return true;
+    },
+  };
   await store.init();
   await index.init();
   try {
-    await run({ hook: new ScheduleHook(store, index), store });
+    await run({
+      hook: new ScheduleHook(store, index, noticeSink),
+      store,
+      notices,
+    });
   } finally {
     await store.close();
     await index.close();
@@ -166,6 +203,23 @@ describe('ScheduleHook 提醒过期守卫', () => {
       expect(jobs[0]!.nextRunAt).toBe(
         new Date(newStart.getTime() - 15 * MINUTE).toISOString()
       );
+    });
+  });
+
+  test('通知中心走注入端口：标题为「日程: …」，不写真实库', async () => {
+    await withHook(async ({ hook, notices }) => {
+      await hook.onCalendarCreated(
+        createdPayload('ev-notice', 90 * MINUTE, [15])
+      );
+      // 通知推送是 fire-and-forget ⇒ 让出一轮事件循环等它完成
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(notices).toHaveLength(1);
+      expect(notices[0]).toEqual({
+        title: '日程: 日程 ev-notice',
+        source: 'calendar',
+        sourceRef: 'ev-notice',
+      });
     });
   });
 });

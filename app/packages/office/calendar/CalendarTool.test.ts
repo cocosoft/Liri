@@ -2,6 +2,12 @@
  * CalendarTool 集成测试
  * 验证增删改查 + .ics 文件读写
  * 使用临时目录隔离测试数据
+ *
+ * 2026-11-06 修复：此前设的是 `PYAPP_HOME`（**已弃用别名，`resolvePyappHome()` 不读**）
+ * ⇒ 用例实际把 `测试会议 / 旧标题 / 待删除 / Alice 生日聚会` 等 fixture 写进**生产**日历目录
+ * `~/.pyapp/office/calendars/`，随后被运行中的应用当作真实日程消费（生成 source_triggers /
+ * workitems / pending_proactive_pushes / 通知）。现改用契约键 `LIRI_HOME`
+ *（`productEnvKey('HOME')`，见 `packages/kernel/src/core/productIdentity.ts`）。
  */
 
 import { describe, expect, test, beforeEach, afterEach } from 'bun:test';
@@ -10,17 +16,20 @@ import * as path from 'path';
 import * as os from 'os';
 
 const testHome = path.join(os.tmpdir(), 'pyapp-cal-test-' + Date.now());
-const calDir = path.join(testHome, 'office', 'calendars');
+const HOME_KEY = 'LIRI_HOME';
+let originalHome: string | undefined;
 
 beforeEach(() => {
   if (fs.existsSync(testHome)) fs.rmSync(testHome, { recursive: true });
   fs.mkdirSync(testHome, { recursive: true });
-  process.env['PYAPP_HOME'] = testHome;
+  originalHome = process.env[HOME_KEY];
+  process.env[HOME_KEY] = testHome;
 });
 
 afterEach(() => {
   if (fs.existsSync(testHome)) fs.rmSync(testHome, { recursive: true });
-  delete process.env['PYAPP_HOME'];
+  if (originalHome === undefined) delete process.env[HOME_KEY];
+  else process.env[HOME_KEY] = originalHome;
 });
 
 describe('CalendarTool', () => {

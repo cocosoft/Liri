@@ -1,12 +1,24 @@
 /**
  * VoiceWakeManager 单元测试
  * 覆盖唤醒词检测、配置持久化、触发器规范化
+ *
+ * 2026-11-06 修复：本文件原直接读写 `resolvePyappHome()/settings/voicewake.json`
+ * ⇒ 用`~/.pyapp`（生产）做夹具：`beforeEach` 会**删除用户的真实唤醒词配置**。
+ * 现改为模块级把 `LIRI_HOME` 指向临时目录（契约键；`PYAPP_HOME` 是已弃用别名），
+ * 文件级 afterAll 恢复。
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { unlinkSync, existsSync, mkdirSync } from 'fs';
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  afterAll,
+} from 'bun:test';
+import { unlinkSync, existsSync, mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
-import { rmSync } from 'fs';
+import { tmpdir } from 'os';
 
 import {
   defaultVoiceWakeTriggers,
@@ -17,7 +29,19 @@ import {
 } from '@openliri/service/voice/VoiceWakeManager';
 import { resolvePyappHome } from '@openliri/infra/environment';
 
+const HOME_KEY = 'LIRI_HOME';
+const originalHome = process.env[HOME_KEY];
+const testHome = join(tmpdir(), 'pyapp-voicewake-test-' + Date.now());
+process.env[HOME_KEY] = testHome;
+mkdirSync(join(testHome, 'settings'), { recursive: true });
+
 const CONFIG_PATH = join(resolvePyappHome(), 'settings', 'voicewake.json');
+
+afterAll(() => {
+  rmSync(testHome, { recursive: true, force: true });
+  if (originalHome === undefined) delete process.env[HOME_KEY];
+  else process.env[HOME_KEY] = originalHome;
+});
 
 describe('defaultVoiceWakeTriggers', () => {
   it('返回默认唤醒词列表', () => {

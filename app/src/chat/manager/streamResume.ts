@@ -38,6 +38,8 @@ import {
 import type { ToolCall, ToolResult } from '@modules/session/types/tool.js';
 import type { UnifiedTokenTracker } from '@modules/tokenBudget';
 import type { ToolRegistry, ToolSchema } from '@modules/tools';
+// P0-2（2026-11-06）：审批恢复后 tool 结果可能被"等待审批提示"隔开 ⇒ 发送前修正顺序
+import { orderToolResultsAfterOwners } from './resumeMessageOrder.js';
 
 import { StreamingAutoCheckpoint } from '../services/StreamingAutoCheckpoint';
 import { stripThinkResponseTags } from '../services/MessageContextPipeline';
@@ -340,6 +342,17 @@ export class ChatStreamResume {
           ...(m.toolCallId ? { tool_call_id: m.toolCallId } : {}),
         }));
 
+      // P0-2（2026-11-06）：`awaiting_approval` 收尾会追加一条"⏸ 等待审批"的 assistant 消息，
+      // 它夹在 tool_calls 与其 tool 结果之间 ⇒ provider 400（tool 必须紧跟声明它的 assistant）。
+      // 这里只修正顺序（tool 结果移到 owner 之后），不改业务内容。
+      const orderedApiMessages = orderToolResultsAfterOwners(
+        apiMessages as unknown as Array<{
+          role?: string;
+          tool_calls?: Array<{ id?: unknown }>;
+          tool_call_id?: string;
+        }>
+      );
+
       const { toolResultRegistry } =
         await import('../../tool/ToolResultRegistry.js');
       const toolLoopCtx = {
@@ -404,7 +417,9 @@ export class ChatStreamResume {
         mode: 'stream',
         ctx: toolLoopCtx,
         input: {
-          apiMessages,
+          apiMessages: orderedApiMessages as unknown as Array<
+            Record<string, unknown>
+          >,
           currentToolCalls: remainingToolCalls,
           assistantMessage: resumeAssistantMsg,
           needsInitialLlmCall: false, // 首轮直接执行剩余工具（恢复语义）
@@ -415,7 +430,9 @@ export class ChatStreamResume {
       // 消费 ReActEvent 流 → ChatStreamChunk（含文本增量 reasoning_delta → text chunk）
       let loopMessage: Message | null = null;
       const loopIter = loop.run({
-        apiMessages,
+        apiMessages: orderedApiMessages as unknown as Array<
+          Record<string, unknown>
+        >,
         currentToolCalls: remainingToolCalls,
         assistantMessage: resumeAssistantMsg,
       });

@@ -6,6 +6,7 @@
  * 所有遵循 OpenAI chat/completions 格式标准的提供商
  */
 import { BaseTransport } from './BaseTransport';
+import { getLogger } from '@openliri/infra/monitoring';
 import type {
   NormalizedResponse,
   NormalizedToolCall,
@@ -14,6 +15,8 @@ import type {
 } from './types';
 import { isThinkingModeModel } from '../../query/ThinkingMode.js';
 import { toReasoningEffort } from '../clients/thinking.js';
+
+const logger = getLogger('ai:transports:chat-completions');
 
 export class ChatCompletionsTransport extends BaseTransport {
   readonly provider = 'chat_completions';
@@ -75,10 +78,14 @@ export class ChatCompletionsTransport extends BaseTransport {
     // projector 的 provider 请求路径），防 DeepSeek 等 400。
     const cleaned: typeof messages = [];
     let pendingToolIds = new Set<string>();
+    /** P0-2（2026-11-06）：被剥离的孤立 tool 结果 id —— 供 400 排查定位（不改变语义） */
+    const strippedOrphanToolIds: string[] = [];
     for (const m of messages) {
       if (m.role === 'tool') {
         if (m.tool_call_id && pendingToolIds.has(m.tool_call_id)) {
           cleaned.push(m);
+        } else {
+          strippedOrphanToolIds.push(m.tool_call_id ?? '(no-id)');
         }
         // 孤立 tool 结果（无前置声明）→ 剥离
         continue;
@@ -95,6 +102,15 @@ export class ChatCompletionsTransport extends BaseTransport {
         // user/system：清空配对窗口（其后的 tool 消息必为孤立）
         pendingToolIds = new Set();
       }
+    }
+    if (strippedOrphanToolIds.length > 0) {
+      // 若紧接着仍出现 provider 400（tool 无前置 tool_calls），这条日志即证据：
+      // 说明 400 不是"孤立 tool"造成，而是声明方 assistant 本身缺失/顺序异常。
+      logger.warn('transport:stripped_orphan_tool_results', {
+        count: strippedOrphanToolIds.length,
+        toolCallIds: strippedOrphanToolIds.slice(0, 10),
+        totalMessages: messages.length,
+      });
     }
 
     return cleaned

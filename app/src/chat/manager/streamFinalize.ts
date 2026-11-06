@@ -35,7 +35,10 @@ import type { ChatSession } from '@modules/session/types/session.js';
 import { getYieldRegistry } from '../../session/yield';
 import { ImplicitEngineHook } from '../../project/ImplicitEngineHook';
 import { isExecutionTaskIntent, isStrongBuildIntent } from '../taskIntent';
-import { isEmptyOutputFallbackMessage } from '../terminationOutput';
+import {
+  isEmptyOutputFallbackMessage,
+  isOutputBudgetExhaustedMessage,
+} from '../terminationOutput';
 
 const logger = getLogger('chat:manager');
 
@@ -254,6 +257,10 @@ export class ChatStreamFinalize {
     // 89 条无关消息）。判定用**结构化标记** `metadata.emptyOutputFallback`，
     // **禁止**对文案做字符串匹配（CS02）。
     const emptyOutputFallback = isEmptyOutputFallbackMessage(assistantMessage);
+    // N-13（2026-11-06）：本轮若以「输出预算被推理耗尽」收尾，同样**没有模型产出**
+    // ⇒ 与兜底轮同口径，不得作为编排任务描述流转。
+    const outputBudgetExhausted =
+      isOutputBudgetExhaustedMessage(assistantMessage);
     const bareFirstContent =
       bareUserMessages.length > 0
         ? (((bareUserMessages[0] as unknown as Record<string, unknown>)
@@ -266,6 +273,7 @@ export class ChatStreamFinalize {
       // 同一上下文连续两次空输出 ⇒ `PLAN_PARSE_FAILED`，再建一个空项目、多一条用户可见
       // 失败文案。连"一句回复"都产不出的回合，拉起 4 阶段编排只会放大失败。
       !emptyOutputFallback &&
+      !outputBudgetExhausted &&
       assistantMessage.content &&
       (bareUserMessages.length >= 2 || isStrongBuildIntent(bareFirstContent)) &&
       isExecutionTaskIntent(bareLastContent) &&
@@ -280,11 +288,13 @@ export class ChatStreamFinalize {
         assistantContent: assistantMessage.content as string,
         lastUserContent: bareLastContent,
       });
-    } else if (!contextId && emptyOutputFallback) {
+    } else if (!contextId && (emptyOutputFallback || outputBudgetExhausted)) {
       // 留痕：被短路时也要可诊断（否则"为什么没升级"无从排查）
       logger.info('pdca:bare_session_escalation_skipped', {
         sessionId: session.id,
-        reason: 'empty_output_fallback',
+        reason: emptyOutputFallback
+          ? 'empty_output_fallback'
+          : 'output_budget_exhausted',
       });
     }
 

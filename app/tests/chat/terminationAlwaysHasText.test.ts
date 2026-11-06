@@ -88,6 +88,18 @@ describe('BUG-A：空输出兜底的结构化标记', () => {
     expect(out.finishReason).toBe('circuit_breaker');
   });
 
+  // N-13（2026-11-06 真机长程任务）：截断续接额度用尽 + 预算被推理耗尽 ⇒ 必须给专门收尾，
+  // 不能退回"本次未能生成回复"的通用兜底（用户看不出是预算问题）。
+  it('★ N-13：output_budget_exhausted ⇒ 专门文案，且不算 emptyOutputFallback', () => {
+    const out = resolveTerminationOutput(
+      base({ reason: 'output_budget_exhausted', assistantMessageContent: '' })
+    );
+    expect(out.finishReason).toBe('output_budget_exhausted');
+    expect(out.suffix).toContain('输出预算');
+    expect(out.suffix).toContain('继续');
+    expect(out.emptyOutputFallback).toBe(false);
+  });
+
   it('负向对照：有正文 / 有可见文本块 ⇒ emptyOutputFallback=false', () => {
     expect(
       resolveTerminationOutput(

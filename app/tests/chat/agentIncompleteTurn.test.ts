@@ -37,7 +37,12 @@ interface Harness {
   deps: AgentIncompleteTurnDeps;
   retries: IncompleteRetries;
   messages: Record<string, unknown>[];
-  flags: { boost: boolean; supersede: boolean; phaseCompactionFailed: boolean };
+  flags: {
+    boost: boolean;
+    supersede: boolean;
+    phaseCompactionFailed: boolean;
+    phaseOutputBudgetExhausted: boolean;
+  };
 }
 
 function makeDeps(): Harness {
@@ -47,6 +52,7 @@ function makeDeps(): Harness {
     boost: false,
     supersede: false,
     phaseCompactionFailed: false,
+    phaseOutputBudgetExhausted: false,
   };
   const deps: AgentIncompleteTurnDeps = {
     sessionId: 'sess-n1',
@@ -68,18 +74,23 @@ function makeDeps(): Harness {
     setPhaseCompactionFailed: () => {
       flags.phaseCompactionFailed = true;
     },
+    setPhaseOutputBudgetExhausted: () => {
+      flags.phaseOutputBudgetExhausted = true;
+    },
   };
   return { deps, retries, messages, flags };
 }
 
 function truncatedResult(
-  partialToolCalls?: ToolCallEntry[]
+  partialToolCalls?: ToolCallEntry[],
+  thinkingRatio?: number
 ): ReasonResult<ToolLoopContext> {
   return {
     text: '',
     toolCalls: [],
     finishReason: 'max_tokens',
     ...(partialToolCalls ? { partialToolCalls } : {}),
+    ...(thinkingRatio !== undefined ? { thinkingRatio } : {}),
   };
 }
 
@@ -200,5 +211,67 @@ describe('N-11：空回复的两次续接', () => {
     await onIncompleteTurn(emptyResult(), h.deps);
     expect(await onIncompleteTurn(emptyResult(), h.deps)).toBe(false);
     expect(h.retries.empty).toBe(2);
+  });
+});
+
+/**
+ * N-13（2026-11-06 真机长程任务）：截断发生在**推理阶段**（预算被思考耗尽）时的定向续接。
+ *
+ * 真机证据：三次长程任务都在写大文件前被 `max_tokens` 截断，且 `partial_tool_calls` 为空
+ * （正文/参数根本没开始写），`thinkingChunkCount` 远大于 `textChunkCount`。旧实现只给通用
+ * 截断文案（"从断点继续"），模型会再想一遍、再次耗光预算；且 `truncated` 只有 1 次额度，
+ * 第二次截断时**静默**落兜底。
+ */
+describe('N-13：推理型截断的续接与额度', () => {
+  it('★ 推理占比 ≥0.8 且无半截调用 ⇒ 换用"停止推理"指令', async () => {
+    const h = makeDeps();
+    const handled = await onIncompleteTurn(
+      truncatedResult(undefined, 0.95),
+      h.deps
+    );
+
+    expect(handled).toBe(true);
+    const instruction = lastInstruction(h.messages);
+    expect(instruction).toContain('推理阶段');
+    expect(instruction).toContain('停止继续推理');
+    expect(h.retries.truncated).toBe(1);
+  });
+
+  it('负向对照：推理占比低（正文写了一半）⇒ 仍用通用截断文案', async () => {
+    const h = makeDeps();
+    await onIncompleteTurn(truncatedResult(undefined, 0.2), h.deps);
+
+    const instruction = lastInstruction(h.messages);
+    expect(instruction).toContain(
+      CONTINUATION_TEMPLATES.truncated.slice(0, 12)
+    );
+    expect(instruction).not.toContain('停止继续推理');
+  });
+
+  it('负向对照：有半截 file_write ⇒ 定向续写优先于推理型文案', async () => {
+    const h = makeDeps();
+    await onIncompleteTurn(
+      truncatedResult(
+        [{ id: 'call_00', name: 'file_write', input: partialWriteArgs }],
+        0.95
+      ),
+      h.deps
+    );
+
+    const instruction = lastInstruction(h.messages);
+    expect(instruction).toContain(FILE_PATH);
+    expect(instruction).not.toContain('停止继续推理');
+  });
+
+  it('★ 第 3 次截断 ⇒ 放手 + 置 output_budget_exhausted 相位（不再静默）', async () => {
+    const h = makeDeps();
+    await onIncompleteTurn(truncatedResult(undefined, 0.9), h.deps);
+    await onIncompleteTurn(truncatedResult(undefined, 0.9), h.deps);
+    expect(h.retries.truncated).toBe(2);
+
+    expect(
+      await onIncompleteTurn(truncatedResult(undefined, 0.9), h.deps)
+    ).toBe(false);
+    expect(h.flags.phaseOutputBudgetExhausted).toBe(true);
   });
 });

@@ -107,6 +107,18 @@ export function isEmptyOutputFallbackMessage(message: unknown): boolean {
 }
 
 /**
+ * N-13（2026-11-06）：判定一条助手消息是否为「输出预算被推理耗尽」的收尾。
+ *
+ * 与 `isEmptyOutputFallbackMessage` 同构（只读结构化 `metadata.finishReason`，禁止比对文案）：
+ * 这类轮次同样**没有模型产出**，不应作为 PDCA 编排的任务描述来源。
+ */
+export function isOutputBudgetExhaustedMessage(message: unknown): boolean {
+  const meta = (message as { metadata?: Record<string, unknown> } | null)
+    ?.metadata;
+  return meta?.['finishReason'] === 'output_budget_exhausted';
+}
+
+/**
  * BUG-E（2026-10-27 真机长程任务）：判定助手消息内容里是否存在**用户可见正文**。
  *
  * 口径（与 `ContentBlockType` 一致）：`text` / `code` 且 `value` 非空白才算可见；
@@ -321,6 +333,16 @@ export function resolveTerminationOutput(
     case 'compaction_failed':
       suffix = `\n\n⚠️ 上下文压缩未能生效（连续压不动且上下文已吃紧），本轮已停止继续执行。你可以重试、精简上下文，或新开一个会话继续。`;
       break;
+    // N-13（2026-11-06 真机长程任务）：输出预算被推理耗尽（截断续接额度已用尽）。
+    // 此前该形态静默落通用兜底 —— 用户只看到"本次未能生成回复"，看不出是预算问题，
+    // 也无从知道"直接回复继续即可"。
+    case 'output_budget_exhausted':
+      finishReason = 'output_budget_exhausted';
+      suffix =
+        `\n\n⚠️ 本轮输出预算被推理耗尽（模型把输出额度花在思考上，正文/文件内容还没写完）` +
+        `，截断续写额度也已用尽。已写入的文件不会丢失：直接回复「继续」即可接着写剩余部分；` +
+        `若反复出现，建议换用输出额度更大的模型。`;
+      break;
     // 2026-11-06（审批根因簇 P0-2）：等待审批不是失败也不是完成——必须在收尾文案里
     // 明确告诉用户"批准后会自动继续"，否则用户只看到一段莫名其妙的停顿。
     case 'awaiting_approval':
@@ -428,6 +450,10 @@ export function mapTerminationToGoalReason(
     // 二期 O2-1：系统中止 ≠ 用户主动放弃 ⇒ 独立原因码（只记录）
     case 'system_aborted':
       return 'system_aborted';
+    // N-13（2026-11-06）：输出预算被推理耗尽 —— 不是"模型无进展"，也不是用户中断，
+    // 按"本轮被中断"记录（只记录，不推进 no_progress_streak）。
+    case 'output_budget_exhausted':
+      return 'turn_interrupted';
     // 三期 F3-2：压缩停滞**已由 `onIncompleteTurn` 直接落** `compaction_stalled`
     //（判点在压缩停滞处）⇒ 此处返回 null，避免同一次终止落两次目标状态。
     case 'compaction_failed':

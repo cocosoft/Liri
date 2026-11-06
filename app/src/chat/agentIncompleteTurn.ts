@@ -70,6 +70,26 @@ const EMPTY_OUTPUT_ESCALATED_INSTRUCTION =
   '不要输出空内容，也不要只做推理。';
 
 /**
+ * N-13（2026-11-06 真机长程任务）：判定"截断是预算被推理耗尽"的阈值。
+ *
+ * 依据：三次长程任务的截断轮 `thinkingChunkCount` 314 / 97 而 `textChunkCount` 0~71，
+ * 且 `partial_tool_calls` 为空（正文/参数根本没开始写）。取 0.8 覆盖这些形态，
+ * 同时不会把"正文写了一半被截断"（比例低）误判成推理型。
+ */
+const REASONING_TRUNCATED_RATIO = 0.8;
+
+/**
+ * N-13：**推理型截断**的续接指令 —— 与通用截断文案的区别是"明确要求停止推理"。
+ *
+ * 通用文案只说"从断点继续"，而推理型截断的断点本身就在思考里，模型很容易再想一遍、
+ * 再次把预算耗光（真机两次都这样）。这里直接给出唯一允许的两种动作。
+ */
+const TRUNCATED_REASONING_RETRY_INSTRUCTION =
+  '你上一次的输出在**推理阶段**就被输出长度上限截断了（正文/工具参数还没开始写）。' +
+  '现在停止继续推理：直接发起下一步工具调用（例如分块写文件），或用一句话给出结论。' +
+  '不要展开分析，也不要复述刚才的思考。';
+
+/**
  * N-1（2026-11-06 真机长程任务）：截断发生在 `file_write` 参数里时，取出被写的目标文件。
  *
  * 真机证据（`session_mw4vwtmp38957bec2f`）：两轮都在写 `output/mario/game.js` 时命中
@@ -151,6 +171,8 @@ export interface AgentIncompleteTurnDeps {
   setSupersedeNextRoundText: (value: boolean) => void;
   /** 置相位 `compaction_failed`（收尾文案据此说明"为何停下"） */
   setPhaseCompactionFailed: () => void;
+  /** N-13（2026-11-06）：置相位 `output_budget_exhausted`（截断续接额度用尽 + 预算被推理耗尽） */
+  setPhaseOutputBudgetExhausted: () => void;
 }
 
 /** 对标 openclaw（2026-09-01）：不完整回合检测——空回复 / 只思考无答案 / 只计划不行动，
@@ -239,15 +261,38 @@ export async function onIncompleteTurn(
     deps.setPhaseCompactionFailed();
     return false;
   }
-  // N-11（2026-11-06）：`empty` 允许重试 **2 次**（真机同一任务 3 轮出现 3 次零可见输出，
-  // 单次重试后就落兜底）。其余类别仍为 1 次，防死循环。
-  const maxRetries = kind === 'empty' ? 2 : 1;
-  if (deps.incompleteRetries[kind] >= maxRetries) return false;
-
   const truncatedWriteTarget =
     kind === 'truncated'
       ? extractTruncatedWriteTarget(result.partialToolCalls)
       : null;
+  // N-13（2026-11-06）：推理型截断 = 没有半截工具调用（参数没开始写）+ 推理占绝对多数
+  const thinkingRatio = result.thinkingRatio;
+  const reasoningTruncated =
+    kind === 'truncated' &&
+    truncatedWriteTarget === null &&
+    typeof thinkingRatio === 'number' &&
+    thinkingRatio >= REASONING_TRUNCATED_RATIO;
+
+  // N-11（2026-11-06）：`empty` 允许重试 **2 次**（真机同一任务 3 轮出现 3 次零可见输出，
+  // 单次重试后就落兜底）。N-13（2026-11-06）：`truncated` 同为 2 次 —— 真机主形态是截断，
+  // 额度 1 时第二段截断会**静默**落兜底。其余类别仍为 1 次，防死循环。
+  const maxRetries = kind === 'empty' || kind === 'truncated' ? 2 : 1;
+  if (deps.incompleteRetries[kind] >= maxRetries) {
+    // N-13（G3）：额度耗尽必须**可见** —— 此前 truncated 走 `return false` 无任何痕迹，
+    // 用户只看到通用兜底文案，排查时也看不出"是预算不足还是模型空转"。
+    if (kind === 'truncated') {
+      deps.setPhaseOutputBudgetExhausted();
+      logger.warn('reactToolLoop:truncated_budget_exhausted', {
+        sessionId: deps.sessionId,
+        retries: { ...deps.incompleteRetries },
+        thinkingRatio: thinkingRatio ?? null,
+        hasPartialToolCall: (result.partialToolCalls?.length ?? 0) > 0,
+        textPreview: text.slice(0, 80),
+      });
+    }
+    return false;
+  }
+
   const instruction =
     kind === 'empty'
       ? deps.incompleteRetries.empty >= 1
@@ -261,7 +306,9 @@ export async function onIncompleteTurn(
             ? MALFORMED_TOOL_MARKUP_RETRY_INSTRUCTION
             : truncatedWriteTarget
               ? buildTruncatedWriteInstruction(truncatedWriteTarget)
-              : TRUNCATED_RESPONSE_RETRY_INSTRUCTION;
+              : reasoningTruncated
+                ? TRUNCATED_REASONING_RETRY_INSTRUCTION
+                : TRUNCATED_RESPONSE_RETRY_INSTRUCTION;
   deps.incompleteRetries[kind]++;
   // 截断续接：下一轮 reason 放大输出预算（截断是硬性预算不足，重试需更多额度）
   if (kind === 'truncated') deps.setBoostNextReasonMaxTokens(true);
@@ -282,6 +329,8 @@ export async function onIncompleteTurn(
     textPreview: text.slice(0, 80),
     // N-1：截断发生在写文件时，留痕"续接目标"，便于事后确认续写是否落到正确的文件
     ...(truncatedWriteTarget ? { truncatedWriteTarget } : {}),
+    // N-13：截断归因 —— 推理占比高且无半截调用 ⇒ 预算被推理耗尽
+    ...(thinkingRatio !== undefined ? { thinkingRatio } : {}),
   });
   return true;
 }

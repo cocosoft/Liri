@@ -127,6 +127,8 @@ import {
   INITIAL_INCOMPLETE_RETRIES,
   onIncompleteTurn,
 } from './agentIncompleteTurn';
+// N-1 / N-13（2026-11-06）：截断归因投影外移（本文件逼近 2000 行上限）
+import { attributeReasonRound } from './agentReasonAttribution';
 import { handleError } from '@openliri/infra/error';
 import {
   loadNegotiationState,
@@ -671,18 +673,12 @@ export class ReActToolLoop extends ReActLoop<
       })
     );
 
-    // N-1（2026-11-06）：截断时 provider 上报的**半截**工具调用。只做归因，**绝不执行**
-    // （参数是 `{_raw}`，半截 JSON）。供 `onIncompleteTurn` 生成"续写哪个文件"的续接指令。
-    const responseWithPartial = response as {
-      partial_tool_calls?: Array<{
-        id: string;
-        name: string;
-        arguments?: Record<string, unknown>;
-      }>;
-    };
-    const partialToolCalls: ToolCallEntry[] = (
-      responseWithPartial.partial_tool_calls ?? []
-    ).map((tc) => ({ id: tc.id, name: tc.name, input: tc.arguments ?? {} }));
+    // N-1 / N-13（2026-11-06）：截断归因（半截工具调用 + 推理占比）。只读取证，**不执行**。
+    // 外移到 `agentReasonAttribution`（本文件逼近 R04-001 的 2000 行上限）。
+    const { partialToolCalls, thinkingRatio } = attributeReasonRound(
+      response,
+      this.streamingLlm.lastRoundChunkStats()
+    );
 
     // 排查锚点：每轮推理产出的工具调用默认可见。circuit_breaker 触发时，
     // 配合 onToolCall end 和工具自身失败日志，可完整还原"AI 决策 → 工具执行 → 失败"链路。
@@ -792,6 +788,8 @@ export class ReActToolLoop extends ReActLoop<
         resp.finishReason ?? resp.stop_reason ?? UNKNOWN_FINISH_REASON,
       // N-1（2026-11-06）：半截工具调用只作归因，不进 `toolCalls` ⇒ 不会被执行
       ...(partialToolCalls.length > 0 ? { partialToolCalls } : {}),
+      // N-13（2026-11-06）：推理占流式分片比例（无分片计数时缺省）
+      ...(thinkingRatio !== undefined ? { thinkingRatio } : {}),
       context,
     };
   }
@@ -1546,6 +1544,10 @@ export class ReActToolLoop extends ReActLoop<
       },
       setPhaseCompactionFailed: () => {
         this.state.phase = 'compaction_failed';
+      },
+      // N-13（2026-11-06）：截断续接额度用尽 ⇒ 专门相位（收尾可见"输出预算被推理耗尽"）
+      setPhaseOutputBudgetExhausted: () => {
+        this.state.phase = 'output_budget_exhausted';
       },
     });
   }

@@ -96,6 +96,15 @@ export class StreamingLlm {
    *  chunk 事件写入与 createAssistantMessage 复用（N4/A3） */
   private _activeToolRoundMessageId = '';
 
+  /**
+   * N-13（2026-11-06）：上一轮流式调用的分片计数（推理 vs 正文）。
+   * 只进内存、供 `ReActToolLoop.reason()` 换算 `thinkingRatio`；不落盘、不发事件。
+   */
+  private _lastRoundChunkStats: { text: number; thinking: number } = {
+    text: 0,
+    thinking: 0,
+  };
+
   constructor(private readonly deps: StreamingLlmDeps) {}
 
   /** 非流式 LLM 调用（对齐旧类 _nonStreamingLlmRound）：tools 透传 + usage 上报 */
@@ -219,6 +228,14 @@ export class StreamingLlm {
   }
 
   /**
+   * N-13（2026-11-06）：上一轮流式调用的分片计数（`text` / `thinking`）。
+   * 两者都为 0（如非流式调用）⇒ 调用方**不得**据此臆造比例。
+   */
+  lastRoundChunkStats(): { text: number; thinking: number } {
+    return this._lastRoundChunkStats;
+  }
+
+  /**
    * 流式 LLM 调用（generator，M4 方案 A）：逐 chunk 增量 yield reasoning_delta / thinking_delta
    * （P0-C 恢复 + thinking 转发），return 携带清洗后的 ChatResponse。
    * @param retried 残缺工具重试标记：maxTokens 加倍（对齐旧类 _streamLlmRound）
@@ -273,6 +290,10 @@ export class StreamingLlm {
         }
       );
     const textChunks: string[] = [];
+    // N-13（2026-11-06）：本轮分片计数（推理 vs 正文）—— 供上层判断"预算是否被推理耗尽"。
+    // 只在内存里累加，不引入新的磁盘/事件字段。
+    let textChunkCount = 0;
+    let thinkingChunkCount = 0;
     // P13（2026-09-01）：工具轮 LLM 流式 text chunk 过 StreamingThinkScrubber——
     // 模型输出 <think> 内容时此前原样流式输出（仅最终 content 有清洗链），
     // 前端实时看到思考内容泄露到正文。流式逐 chunk 擦除 think/response/XML 标签。
@@ -312,6 +333,7 @@ export class StreamingLlm {
         }).content;
         if (scrubbed) {
           textChunks.push(scrubbed);
+          textChunkCount += 1;
           const replace = pendingReplace;
           pendingReplace = false;
           // 增量文本即时输出（对齐旧类 P0-C：工具轮 LLM 文本逐 chunk SSE）
@@ -329,6 +351,7 @@ export class StreamingLlm {
           await this._writeToolRoundText(scrubbed, replace);
         }
       } else if (chunk?.type === 'thinking') {
+        thinkingChunkCount += 1;
         // 本轮产出 thinking 标记（reasoning-only 检测用，对标 openclaw 2026-09-01）
         this.deps.setLastRoundHadThinking(true);
         yield {
@@ -389,6 +412,12 @@ export class StreamingLlm {
     this._reportUsage(final, requestId);
     // 每轮 LLM 响应后向骨架预算记账（用 provider **真实** prompt_tokens；无预算时 no-op）
     this._chargeStreamBudget(this._usageOf(final));
+
+    // N-13：记录本轮推理/正文分片数（供上层判断"预算是否被推理耗尽"）
+    this._lastRoundChunkStats = {
+      text: textChunkCount,
+      thinking: thinkingChunkCount,
+    };
 
     return {
       ...final,

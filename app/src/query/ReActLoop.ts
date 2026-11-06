@@ -129,7 +129,11 @@ export type TerminationReason =
   | 'compaction_failed'
   // 2026-11-06（审批根因簇 P0-2）：工具已提交审批、本回合主动收尾（等待批准后自动续跑）。
   // **既非完成也非失败**——批准后由 `resumeStream` 重放被拦的 tool_call。
-  | 'awaiting_approval';
+  | 'awaiting_approval'
+  // N-13（2026-11-06 真机长程任务）：**输出预算被推理耗尽**——模型把 `max_tokens` 花在
+  // thinking 上，正文/工具参数还没开始就被截断，且截断续接额度已用尽。
+  // 此前该形态静默落通用兜底（用户只看得到"本次未能生成回复"），无法归因。
+  | 'output_budget_exhausted';
 
 /** 中止来源（二期 O2-1）：`user` = 用户主动停止；`system` = 传输/生命周期等系统侧中止 */
 export type AbortSource = 'user' | 'system';
@@ -239,7 +243,9 @@ export interface ReActState {
     | 'yielded'
     // 2026-11-06（审批根因簇 P0-2）：工具已提交审批、等待用户批准 ⇒ 本回合收尾，
     // 批准后由 `resumeStream` 重放该 tool_call（既非完成也非失败）。
-    | 'awaiting_approval';
+    | 'awaiting_approval'
+    // N-13（2026-11-06）：截断续接额度用尽且预算被推理耗尽 ⇒ 专门相位（收尾可见"为何停下"）
+    | 'output_budget_exhausted';
   pendingToolCalls: ToolCallEntry[];
   lastError?: string;
   /**
@@ -279,6 +285,13 @@ export interface ReasonResult<TContext = unknown> {
    * **绝不可执行**；只用于"截断续写归因"（识别正在写哪个文件，把续写目标写进续接指令）。
    */
   partialToolCalls?: ToolCallEntry[];
+  /**
+   * N-13（2026-11-06）：本轮推理占流式 chunk 的比例（`thinking / (thinking + text)`）。
+   *
+   * 用于区分两种截断：**预算被推理耗尽**（比例高、`partialToolCalls` 为空）与
+   * **工具参数太长**（有半截工具调用）。仅在拿到分片计数时有值，缺省不臆造。
+   */
+  thinkingRatio?: number;
   usage?: { inputTokens: number; outputTokens: number };
   context?: TContext;
 }
@@ -797,6 +810,10 @@ export abstract class ReActLoop<
     // 2026-11-06（审批根因簇 P0-2）：等待审批收尾必须在 max_turns 之前判别——
     // 否则"恰好同时到轮次上限"会把审批语义整体遮蔽成 max_turns。
     if (this.state.phase === 'awaiting_approval') return 'awaiting_approval';
+    // N-13（2026-11-06）：输出预算被推理耗尽（截断续接额度已用尽）——必须早于下面的
+    // truncated/max_turns 折叠，否则会被 `phase==='truncated'` 误报成"到轮次上限"。
+    if (this.state.phase === 'output_budget_exhausted')
+      return 'output_budget_exhausted';
     if (
       this.state.phase === 'truncated' ||
       this.state.iteration >= this.config.maxIterations

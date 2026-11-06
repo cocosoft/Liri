@@ -49,6 +49,17 @@ const makeAssistant = (content: string, flagged: boolean): Message =>
     ...(flagged ? { metadata: { emptyOutputFallback: true } } : {}),
   }) as unknown as Message;
 
+/** N-13：输出预算被推理耗尽的收尾（正文是系统文案，metadata 只有 finishReason） */
+const makeBudgetExhaustedAssistant = (content: string): Message =>
+  ({
+    id: 'a2',
+    role: 'assistant',
+    content,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    metadata: { finishReason: 'output_budget_exhausted' },
+  }) as unknown as Message;
+
 /** 采集升级入口收到的参数；其余依赖一律 no-op */
 function makeDeps(capture: { payload?: unknown }): StreamFinalizeDeps {
   return {
@@ -133,5 +144,15 @@ describe('BUG-A / N-2 下游：兜底轮不得进入 PDCA 编排', () => {
     expect(payload).toBeDefined();
     expect(payload?.assistantContent).toBe(DONE_TEXT);
     expect(payload?.lastUserContent).toBe(LAST_USER);
+  });
+
+  // N-13（2026-11-06）：预算被推理耗尽同样"没有任何模型产出" ⇒ 与兜底轮同口径，不得升级编排。
+  it('★ N-13：output_budget_exhausted 收尾 ⇒ 不升级', async () => {
+    const capture: { payload?: unknown } = {};
+    await runFinalize(
+      makeBudgetExhaustedAssistant('⚠️ 本轮输出预算被推理耗尽…'),
+      capture
+    );
+    expect(capture.payload).toBeUndefined();
   });
 });

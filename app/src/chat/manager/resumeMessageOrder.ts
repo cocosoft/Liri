@@ -91,3 +91,135 @@ export function orderToolResultsAfterOwners<T extends OrderableChatMessage>(
   });
   return out;
 }
+
+// ---------------------------------------------------------------------------
+// N-15（2026-11-06 真机）：审批占位结果的识别
+//
+// **问题**：工具调用被安全门拦成"待审批"时，会先落一条 `awaiting_approval` 的 tool 结果；
+// 批准后续跑**重放**同一调用并落第二条真实结果 ⇒ 同一 `tool_call_id` 被应答两次 ⇒ provider
+// 400 `Messages with role 'tool' must be a response to a preceding message with 'tool_calls'`。
+// 续跑入口本应用「剔除占位、只留重放结果」，但原判定只认**顶层 `toolCallId`** 与
+// **`content` 为数组时的 block.toolCallId**，而占位消息的三种常见形态都会漏判：
+//   ① `tool_call_id` 只在 `metadata.toolCallId`（持久化读回的形状）；
+//   ② `content` 是 **JSON 字符串**（续跑内 ReAct 循环写回的形状），不是数组；
+//   ③ 两者皆无、仅顶层 `toolCallId`（原实现已覆盖）。
+// 故此处把"取 tool_call_id"收敛为**单一实现**（三处来源 + 字符串 content 解析）。
+// ---------------------------------------------------------------------------
+
+/** 参与「占位结果识别」的最小消息形状 */
+export interface ToolResultCarrierMessage {
+  role?: string;
+  content?: unknown;
+  toolCallId?: string;
+  metadata?: { toolCallId?: unknown };
+}
+
+/** 从 `content`（数组或 JSON 字符串）里的 `tool_result` 块读出 toolCallId */
+function readToolCallIdFromContent(content: unknown): string | undefined {
+  let blocks: unknown = content;
+  if (typeof content === 'string') {
+    const trimmed = content.trim();
+    // 纯文本结果（工具原始输出）不做 JSON 解析：只尝试 `[` / `{` 开头的结构化载荷
+    if (!trimmed.startsWith('[') && !trimmed.startsWith('{')) return undefined;
+    try {
+      blocks = JSON.parse(trimmed);
+    } catch {
+      return undefined;
+    }
+  }
+  if (!Array.isArray(blocks)) return undefined;
+  for (const raw of blocks) {
+    const b = raw as { type?: unknown; toolCallId?: unknown };
+    if (
+      b?.type === 'tool_result' &&
+      typeof b.toolCallId === 'string' &&
+      b.toolCallId
+    ) {
+      return b.toolCallId;
+    }
+  }
+  return undefined;
+}
+
+/** 取 tool 结果消息对应的 tool_call_id（顶层 → `metadata.toolCallId` → 内容块） */
+export function toolResultCallIdOf(
+  message: ToolResultCarrierMessage
+): string | undefined {
+  if (typeof message.toolCallId === 'string' && message.toolCallId) {
+    return message.toolCallId;
+  }
+  const fromMeta = message.metadata?.toolCallId;
+  if (typeof fromMeta === 'string' && fromMeta) return fromMeta;
+  return readToolCallIdFromContent(message.content);
+}
+
+/**
+ * 该 `tool` 消息是否是**待重放调用的旧占位结果**（须在发给模型前剔除）。
+ *
+ * 判定口径：`role==='tool'` 且其 `tool_call_id` 落在 `replayIds`（本次续跑会重放的调用集合）。
+ * 落盘侧**保留**两条（"提交过审批" → "批准后实际结果"）作为审计轨迹，只在发送前剔除。
+ */
+export function isReplayedToolResult(
+  message: ToolResultCarrierMessage,
+  replayIds: ReadonlySet<string>
+): boolean {
+  if (message.role !== 'tool') return false;
+  const id = toolResultCallIdOf(message);
+  return id !== undefined && replayIds.has(id);
+}
+
+/**
+ * 取 assistant 消息**声明的** `tool_calls`。
+ *
+ * 两种载体：持久化的 `metadata.tool_calls`，与事件派生消息的**顶层** `tool_calls`（§31.4 观察项）。
+ * 只认前者会让"重启后由事件重建的会话"丢失全部声明 ⇒ 其 tool 结果变成孤立消息（必然 400），
+ * 故此处收敛为单一取值入口。
+ */
+export function declaredToolCallsOf(message: {
+  metadata?: { tool_calls?: unknown };
+  tool_calls?: unknown;
+}): Array<Record<string, unknown>> | undefined {
+  const fromMeta = message.metadata?.tool_calls;
+  if (Array.isArray(fromMeta) && fromMeta.length > 0) {
+    return fromMeta as Array<Record<string, unknown>>;
+  }
+  const fromTop = message.tool_calls;
+  if (Array.isArray(fromTop) && fromTop.length > 0) {
+    return fromTop as Array<Record<string, unknown>>;
+  }
+  return undefined;
+}
+
+/**
+ * 同一 `tool_call_id` 只保留**最后一条** `tool` 应答（N-15）。
+ *
+ * 为什么必须去重：审批链路会为同一调用先后落两条结果——① 待审批占位（`awaiting_approval`）、
+ * ② 批准后重放的真实结果。跨**多次**审批续跑时，历史里这类"一对二"会累积；而
+ * `isReplayedToolResult` 只能剔除**本次**要重放的调用（`replayIds`），对"往次审批"留下的
+ * 重复无能为力 ⇒ 同一 call 被应答两次 ⇒ provider 400。
+ *
+ * 保留**最后一条**的理由：真实结果总在占位之后（先"提交过审批"，后"批准后执行"）。
+ * 无重复时**原样返回同一引用**（零开销，与 {@link orderToolResultsAfterOwners} 一致）。
+ */
+export function dedupeToolResults<T extends ToolResultCarrierMessage>(
+  messages: readonly T[]
+): readonly T[] {
+  const lastIndexByCallId = new Map<string, number>();
+  messages.forEach((m, i) => {
+    if (m.role !== 'tool') return;
+    const id = toolResultCallIdOf(m);
+    if (id !== undefined) lastIndexByCallId.set(id, i);
+  });
+
+  const drop = new Set<number>();
+  messages.forEach((m, i) => {
+    if (m.role !== 'tool') return;
+    const id = toolResultCallIdOf(m);
+    if (id === undefined) return;
+    const last = lastIndexByCallId.get(id);
+    if (last !== undefined && last !== i) drop.add(i);
+  });
+  if (drop.size === 0) return messages;
+
+  return messages.filter((_, i) => !drop.has(i));
+}

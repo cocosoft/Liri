@@ -41,7 +41,13 @@ import type { ToolCall, ToolResult } from '@modules/session/types/tool.js';
 import type { UnifiedTokenTracker } from '@modules/tokenBudget';
 import type { ToolRegistry, ToolSchema } from '@modules/tools';
 // P0-2（2026-11-06）：审批恢复后 tool 结果可能被"等待审批提示"隔开 ⇒ 发送前修正顺序
-import { orderToolResultsAfterOwners } from './resumeMessageOrder.js';
+import {
+  declaredToolCallsOf,
+  dedupeToolResults,
+  isReplayedToolResult,
+  orderToolResultsAfterOwners,
+  toolResultCallIdOf,
+} from './resumeMessageOrder.js';
 
 import { StreamingAutoCheckpoint } from '../services/StreamingAutoCheckpoint';
 // P1-2（2026-11-06）：会话状态复位后通知前端重取（清掉"待审批"徽标）
@@ -240,30 +246,32 @@ export class ChatStreamResume {
       );
       for (let i = session.messages.length - 1; i >= 0; i--) {
         const msg = session.messages[i];
-        if (msg.role === 'assistant' && msg.metadata?.tool_calls) {
-          const tcs = msg.metadata.tool_calls as Array<{
-            id: string;
-            type: string;
-            function: { name: string; arguments: string };
-          }>;
-          remainingToolCalls = tcs
-            .filter(
-              (tc) =>
-                !completedToolCallIds.includes(tc.id) ||
-                awaitingApprovalIds.has(tc.id)
-            )
-            .map((tc) => ({
-              id: tc.id,
-              name: tc.function.name,
-              arguments:
-                typeof tc.function.arguments === 'string'
-                  ? JSON.parse(tc.function.arguments)
-                  : tc.function.arguments,
-            }));
-          accumulatedContent =
-            typeof msg.content === 'string' ? msg.content : '';
-          break;
-        }
+        if (msg.role !== 'assistant') continue;
+        // N-15：声明可能在 `metadata.tool_calls`，也可能只在顶层 `tool_calls`（事件派生消息）⇒
+        // 统一走 `declaredToolCallsOf`，否则重建不出剩余调用（续跑"所有工具已完成"假象）。
+        const declared = declaredToolCallsOf(msg);
+        if (!declared) continue;
+        const tcs = declared as Array<{
+          id: string;
+          type: string;
+          function: { name: string; arguments: string };
+        }>;
+        remainingToolCalls = tcs
+          .filter(
+            (tc) =>
+              !completedToolCallIds.includes(tc.id) ||
+              awaitingApprovalIds.has(tc.id)
+          )
+          .map((tc) => ({
+            id: tc.id,
+            name: tc.function.name,
+            arguments:
+              typeof tc.function.arguments === 'string'
+                ? JSON.parse(tc.function.arguments)
+                : tc.function.arguments,
+          }));
+        accumulatedContent = typeof msg.content === 'string' ? msg.content : '';
+        break;
       }
 
       if (remainingToolCalls.length === 0) {
@@ -333,45 +341,38 @@ export class ChatStreamResume {
       // 的 tool 结果。协议要求每个 tool_call 恰好一条 tool 应答（重复会被 provider 拒绝），
       // 故构建给 LLM 的消息时剔除这条旧结果——重放产出的新结果才是本轮唯一应答。
       // 落盘侧保留两条（"提交过审批" → "批准后实际结果"）作为审计轨迹。
+      // N-15（2026-11-06 真机）：占位消息的 `toolCallId` 常落在 `metadata.toolCallId`（持久化形状）
+      // 或 `content` 的 JSON 字符串里（续跑内 ReAct 循环形状）⇒ 判定收敛到 `isReplayedToolResult`
+      // 单一实现（原内联版只认顶层字段 + 数组 content，漏判 ⇒ 同一 call 应答两次 ⇒ provider 400）。
       const replayIds = new Set(remainingToolCalls.map((tc) => tc.id));
-      const isReplayedToolMessage = (m: Message): boolean => {
-        if (m.role !== 'tool') return false;
-        const blocks = Array.isArray(m.content) ? m.content : [];
-        for (const raw of blocks) {
-          const b = raw as { type?: string; toolCallId?: string };
-          if (
-            b?.type === 'tool_result' &&
-            typeof b.toolCallId === 'string' &&
-            replayIds.has(b.toolCallId)
-          ) {
-            return true;
-          }
-        }
-        return typeof m.toolCallId === 'string' && replayIds.has(m.toolCallId);
-      };
       const apiMessages = session.messages
-        .filter((m) => !isReplayedToolMessage(m))
-        .map((m) => ({
-          role: m.role,
-          content:
-            typeof m.content === 'string'
-              ? m.content
-              : JSON.stringify(m.content),
-          ...(m.metadata?.tool_calls
-            ? { tool_calls: m.metadata.tool_calls }
-            : {}),
-          ...(m.toolCallId ? { tool_call_id: m.toolCallId } : {}),
-        }));
+        .filter((m) => !isReplayedToolResult(m, replayIds))
+        .map((m) => {
+          // N-15：`tool_call_id` 不能只看顶层字段（占位结果把它放在 `metadata.toolCallId`
+          // 或 `content` 的块里）⇒ 统一走 `toolResultCallIdOf`，否则去重无法配对。
+          const toolCallId =
+            m.role === 'tool' ? toolResultCallIdOf(m) : m.toolCallId;
+          // N-15：声明方必须原样带给 provider（`metadata.tool_calls` 为空时回落到顶层
+          // `tool_calls`，否则其 tool 结果全成孤立消息 ⇒ 400）。
+          const declaredToolCalls =
+            m.role === 'assistant' ? declaredToolCallsOf(m) : undefined;
+          return {
+            role: m.role,
+            content:
+              typeof m.content === 'string'
+                ? m.content
+                : JSON.stringify(m.content),
+            ...(declaredToolCalls ? { tool_calls: declaredToolCalls } : {}),
+            ...(toolCallId ? { tool_call_id: toolCallId } : {}),
+          };
+        });
 
       // P0-2（2026-11-06）：`awaiting_approval` 收尾会追加一条"⏸ 等待审批"的 assistant 消息，
       // 它夹在 tool_calls 与其 tool 结果之间 ⇒ provider 400（tool 必须紧跟声明它的 assistant）。
-      // 这里只修正顺序（tool 结果移到 owner 之后），不改业务内容。
+      // 先按 `tool_call_id` 去重（N-15：往次审批留下的"占位 + 真实结果"一对二），再修正顺序（tool 结果移到 owner 之后），
+      // 不改业务内容。
       const orderedApiMessages = orderToolResultsAfterOwners(
-        apiMessages as unknown as Array<{
-          role?: string;
-          tool_calls?: Array<{ id?: unknown }>;
-          tool_call_id?: string;
-        }>
+        dedupeToolResults(apiMessages)
       );
 
       const { toolResultRegistry } =

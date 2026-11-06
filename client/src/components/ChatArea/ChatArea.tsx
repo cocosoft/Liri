@@ -133,13 +133,33 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
   // 阶段2：当前会话若存在挂起流则显示断连 Banner
   const currentSid = currentSession?.id;
   // P0-1（2026-11-05）：工作区失效提示（后端详情接口读时派生；发消息前就告知）
-  const workspaceNotice = getWorkspaceStatusNotice(currentSession?.workspaceStatus);
+  const workspaceNotice = getWorkspaceStatusNotice(
+    currentSession?.workspaceStatus,
+  );
+  /**
+   * 2026-11-06：提示条可关闭（按「会话 + 状态」记，切会话/状态变化后自动重新出现）。
+   * 背景：`workspaceStatus` 只在切到会话时校验一次，若目录在会话创建后才被建出来，
+   * 旧实现会把 `invalid` 一直粘住 —— 既没有关闭入口，也没有重新校验的时机。
+   */
+  const [dismissedWorkspaceNotice, setDismissedWorkspaceNotice] = useState<
+    string | null
+  >(null);
+  const workspaceNoticeKey = workspaceNotice
+    ? `${currentSid ?? ""}|${workspaceNotice.titleKey}|${workspaceNotice.paths.join("|")}`
+    : null;
+  const showWorkspaceNotice =
+    workspaceNotice !== null && dismissedWorkspaceNotice !== workspaceNoticeKey;
   const pausedInfo = currentSid ? pausedStreams[currentSid] : undefined;
 
   // P0-1：切到会话时**按需补拉**详情里的 `workspaceStatus` —— 列表接口不返回该字段
   //（逐会话 stat 会拖慢 30s 轮询），而切换会话用的是列表项缓存 ⇒ 此处补一次即可。
+  // 2026-11-06：改为**每次切到该会话都校验一次**（原先只在字段缺失时拉）。
+  // 只拉一次会把「目录当时还没建出来」的 `invalid` 永久粘住（真机：
+  // `proj_1793950268367_d274df` 由 PDCA 在会话创建后才创建，提示条却一直不消失）。
+  const workspaceCheckedFor = useRef<string | null>(null);
   useEffect(() => {
-    if (!currentSid || currentSession?.workspaceStatus) return;
+    if (!currentSid || workspaceCheckedFor.current === currentSid) return;
+    workspaceCheckedFor.current = currentSid;
     let cancelled = false;
     void sessionService
       .get(currentSid)
@@ -148,16 +168,21 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
         const latest = useSessionStore.getState().currentSession;
         if (latest?.id !== currentSid) return;
         useSessionStore.setState({
-          currentSession: { ...latest, workspaceStatus: detail.workspaceStatus },
+          currentSession: {
+            ...latest,
+            workspaceStatus: detail.workspaceStatus,
+          },
         });
       })
       .catch(() => {
         /* @ignore-catch — 提示缺失不影响主流程（工具面仍会 fail-fast） */
+        // 校验失败时允许下次再试（否则该会话在本次挂载内永久不再校验）
+        workspaceCheckedFor.current = null;
       });
     return () => {
       cancelled = true;
     };
-  }, [currentSid, currentSession?.workspaceStatus]);
+  }, [currentSid]);
 
   // P0-1（2026-11-05）：工作区失效后的**一键重新定位**（只改指向：不移动 / 不重建目录）。
   // 后端 PATCH `/v1/sessions/:id/meta` 校验「绝对路径 + 已存在目录」，写错路径不会造空目录。
@@ -619,7 +644,7 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
       )}
       {/* P0-1（2026-11-05）：会话工作区已失效 —— 发消息前就提示，不等工具连续失败。
           只提示、不改会话状态（目录可能被用户恢复；下一轮详情刷新即消失）。 */}
-      {workspaceNotice && (
+      {showWorkspaceNotice && workspaceNotice && (
         <div className="mx-4 mt-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 flex items-start gap-2">
           <span className="text-red-500 dark:text-red-400 flex-shrink-0">
             ⚠️
@@ -646,6 +671,15 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
               </button>
             )}
           </div>
+          <button
+            type="button"
+            onClick={() => setDismissedWorkspaceNotice(workspaceNoticeKey)}
+            aria-label={t("common.close")}
+            title={t("common.close")}
+            className="flex-shrink-0 w-6 h-6 -mt-1 -mr-1 rounded-md text-red-500 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40"
+          >
+            ×
+          </button>
         </div>
       )}
       <div ref={containerRef} className="flex-1 min-h-0 overflow-y-auto">

@@ -18,8 +18,11 @@
 // 提前设置环境变量，避免模块初始化时的循环依赖（与 migrate-memory 脚本一致）
 const { homedir } = await import('os');
 const pyappHome = homedir() + '/.pyapp';
-process.env.PYAPP_HOME = pyappHome;
-process.env.PYAPP_DATA_DIR = pyappHome + '/data';
+// 2026-11-06：`resolveDbPath()` 只读契约键 `LIRI_*`（`PYAPP_HOME` / `PYAPP_DATA_DIR` 是已弃用别名，
+// 设了也不生效 ⇒ 之前实际一直落默认目录）
+process.env.LIRI_HOME = pyappHome;
+process.env.LIRI_DATA_DIR = pyappHome + '/data';
+// `PYAPP_PROJECT_DIR` 仍按历史键写入：`resolveWorktreeHash` 的回退分支读的就是它
 process.env.PYAPP_PROJECT_DIR = process.cwd();
 
 import { Database } from 'bun:sqlite';

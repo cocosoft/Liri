@@ -36,8 +36,9 @@ if (splitArg && Number.isNaN(SPLIT_MS)) {
   process.exit(2);
 }
 
-const ROOT = process.env.PYAPP_DATA
-  ? join(process.env.PYAPP_DATA, 'sessions')
+// 2026-11-06：改读契约键 `LIRI_DATA_DIR`（原 `PYAPP_DATA` 不是任何一端的键名 ⇒ 之前恒落默认目录）
+const ROOT = process.env.LIRI_DATA_DIR
+  ? join(process.env.LIRI_DATA_DIR, 'sessions')
   : join(homedir(), '.pyapp', 'data', 'sessions');
 
 function collectEventLogs(dir: string): string[] {

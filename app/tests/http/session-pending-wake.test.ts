@@ -26,7 +26,7 @@
  * 的 `pendingWake` 字段。断言的是**字段构造语义**（有/无、取最早、只算待触发），
  * 不 mock 任何模块（避免 `mock.module` 的进程级污染，见台账 2026-09-27 条目）。
  *
- * 数据源用**真实** `WakeStore`（`PYAPP_DATA_DIR` 指向临时目录）+ 真实 `SelfWakeService`。
+ * 数据源用**真实** `WakeStore`（`LIRI_DATA_DIR` 指向临时目录）+ 真实 `SelfWakeService`。
  */
 import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
 import { existsSync, mkdirSync, rmSync } from 'fs';

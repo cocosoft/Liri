@@ -16,13 +16,12 @@
  *   bun scripts/cleanup-legacy-taor-checkpoints.ts --apply --session <id>
  */
 import { Database } from 'bun:sqlite';
-import { homedir } from 'os';
-import { join } from 'path';
 import { existsSync } from 'fs';
+import { resolveDbPath } from '@openliri/infra/environment';
 
-const dbPath = process.env.PYAPP_DATA_DIR
-  ? join(process.env.PYAPP_DATA_DIR, 'app.db')
-  : join(homedir(), '.pyapp', 'data', 'app.db');
+// 2026-11-06：走统一路径解析（只读契约键 `LIRI_DATA_DIR`；`PYAPP_DATA_DIR` 是已弃用别名，
+// 之前直接读它 ⇒ 设了别名也永远不会被采纳）
+const dbPath = resolveDbPath();
 
 const args = process.argv.slice(2);
 const apply = args.includes('--apply');

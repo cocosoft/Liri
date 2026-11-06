@@ -30,17 +30,23 @@ import { logSecurityBlock } from '@openliri/infra/security/SecurityAuditLogger';
 import { LOCAL_SERVICE_HOST } from '@openliri/kernel';
 const logger = getLogger('infrastructure:http:handlers:files-handlers');
 
+/**
+ * 主目录的唯一解析入口（契约键 `LIRI_HOME`，缺省 `~/.pyapp`）。
+ * 2026-11-06：不再读已弃用别名 `PYAPP_HOME`（`resolvePyappHome()` 不认它，
+ * 这里再认会让"文件页看到的根目录"与进程其它路径解析分叉）。
+ */
+function resolveHomeDir(): string {
+  const { resolvePyappHome } = require('@openliri/infra/environment');
+  return resolvePyappHome();
+}
+
 // 已注册的存储分区别名 → 绝对路径解析函数（延迟动态 import）
 function resolveStorePath(rawPath: string): string {
   const { isAbsolute, resolve, join } = require('path');
 
   // 空路径或 "." 表示 LIRI_HOME（~/.pyapp/），展示全目录
   if (!rawPath || rawPath === '.') {
-    return (
-      process.env.LIRI_HOME ||
-      process.env.PYAPP_HOME ||
-      join(require('os').homedir(), '.pyapp')
-    );
+    return resolveHomeDir();
   }
 
   const firstSegment = rawPath.split(/[/\\]/).filter(Boolean)[0] || rawPath;
@@ -62,7 +68,7 @@ function resolveStorePath(rawPath: string): string {
           return undefined;
         }
       })(),
-    home: process.env.LIRI_HOME || process.env.PYAPP_HOME,
+    home: resolveHomeDir(),
   };
 
   const base = ENV_MAP[firstSegment];
@@ -90,10 +96,7 @@ function resolveStorePath(rawPath: string): string {
   }
   // BUG-B 修复：未知前缀的绝对路径拒绝访问，防止目录列表越权
   // 仅允许 LIRI_HOME 下的路径（~/.pyapp/）
-  const home =
-    process.env.LIRI_HOME ||
-    process.env.PYAPP_HOME ||
-    join(require('os').homedir(), '.pyapp');
+  const home = resolveHomeDir();
   // F-20（2026-10-28）：相对路径必须按 LIRI_HOME 解析。原先 `resolve(rawPath)` 按进程 CWD
   // 解析 ⇒ memory / data / logs 等**未注册分区**被判"越权"后**静默回退成 home**，
   // 页面于是把整个 ~/.pyapp 根目录当成该分区内容（relPath 仍标 `memory/…`），

@@ -7,7 +7,10 @@
  * 无人消费 → unhandledRejection（长响应 >60s 必现）。
  */
 import { describe, it, expect, afterEach } from 'bun:test';
-import { BaseAIProvider } from '../../src/ai/providers/BaseAIProvider.js';
+import {
+  BaseAIProvider,
+  resolveStreamReadRetryBudget,
+} from '../../src/ai/providers/BaseAIProvider.js';
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -123,5 +126,22 @@ describe('BaseAIProvider.readStreamChunkWithTimeout', () => {
     expect(calls).toBe(1); // 同一 read 挂起后恢复返回
     expect(canceled).toBe(0); // 恢复后不应取消流
     expect(unhandled).toHaveLength(0);
+  });
+});
+
+/**
+ * N-12（2026-11-06 真机）：内部重试预算必须对齐调用方的看门狗，否则 provider 会活过
+ * `streamMessageFlow` 的超时（块间空闲 120s / TTFB 300s）⇒ 孤儿重试 + 回合卡住约 4 分钟。
+ */
+describe('N-12：流式读取内部重试预算对齐调用方看门狗', () => {
+  it('块间（非首块）⇒ 0 次内部重试（90s < 调用方空闲竞速 120s）', () => {
+    expect(resolveStreamReadRetryBudget(false, 2)).toBe(0);
+    expect(resolveStreamReadRetryBudget(false, 0)).toBe(0);
+  });
+
+  it('首块（TTFB）⇒ 最多 1 次（120s×2=240s < 调用方 300s）', () => {
+    expect(resolveStreamReadRetryBudget(true, 2)).toBe(1);
+    expect(resolveStreamReadRetryBudget(true, 1)).toBe(1);
+    expect(resolveStreamReadRetryBudget(true, 0)).toBe(0);
   });
 });

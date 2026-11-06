@@ -91,6 +91,28 @@ const STREAM_SLOW_NOTICE = 5 * MS_PER_SECOND;
 const CHAT_SLOW_NOTICE = 15 * MS_PER_SECOND;
 
 /**
+ * N-12（2026-11-06 真机）：流式读取的**内部重试预算**，必须对齐调用方的看门狗。
+ *
+ * 真机：回合卡住约 4 分钟——provider 内部连续重试（块间 90s×3=270s / 首块 120s×3=360s）
+ * 活过了 `streamMessageFlow` 的超时（块间空闲竞速 120s、TTFB 硬超时 300s）⇒ 调用方早已
+ * 放弃并重发，被放弃的流仍在后台"第 2/3 次重试"（孤儿重试 + 日志噪音 + 白等）。
+ *
+ * 对齐口径：
+ * - 首块（TTFB）：调用方预算 300s ⇒ 最多 1 次重试（120s×2 = 240s < 300s）；
+ * - 块间：调用方预算 120s ⇒ **不再内部重试**（90s 一次即报错，把重试权交回上层）。
+ *
+ * @param isFirstChunk 是否首个 chunk（TTFB 阶段）
+ * @param timeoutRetries 调用方/默认的期望重试次数（本函数只做上限收敛）
+ */
+export function resolveStreamReadRetryBudget(
+  isFirstChunk: boolean,
+  timeoutRetries: number
+): number {
+  if (!isFirstChunk) return 0;
+  return Math.min(Math.max(0, timeoutRetries), 1);
+}
+
+/**
  * readStreamChunkWithTimeout 的流读取诊断状态（按 reader 隔离，
  * 避免同一 provider 实例并发流时状态交叉）
  */
@@ -1031,10 +1053,12 @@ export abstract class BaseAIProvider implements AIProvider {
    * 导致 streamMessage 卡在 await gen.next()、会话互斥锁（SimpleMutex）永久不释放。
    * 各 Provider 的流式读取统一调用此方法。
    *
-   * 超时策略（2026-08-18 优化）：
+   * 超时策略（2026-08-18 优化；2026-11-06 N-12 对齐调用方看门狗）：
    * - 首 chunk（TTFB）：默认 120s，覆盖推理模型（GLM-Z1/DeepSeek-R1）长时间思考
    * - 后续 chunk：默认 90s，覆盖网络抖动/服务端短暂停滞
-   * - 重试次数：2 次（总等待上限 120s + 90s + 90s = 300s，与 L1 请求总超时对齐）
+   * - 重试次数：**由 `resolveStreamReadRetryBudget` 收敛** —— 首块最多 1 次（120s×2=240s
+   *   < 调用方 TTFB 300s）；块间 **0 次**（90s < 调用方空闲竞速 120s）。
+   *   原实现固定 2 次 ⇒ 内部重试活过调用方超时，形成孤儿重试（真机回合卡住约 4 分钟）。
    *
    * 诊断日志（module: ai:baseProvider，排查超时用）：
    * - debug：每块读取（序号/字节数）、流正常结束
@@ -1042,7 +1066,7 @@ export abstract class BaseAIProvider implements AIProvider {
    *
    * @param reader - response.body.getReader() 返回的 reader
    * @param timeoutMs - 无数据超时（默认 90s，首 chunk 自动用 120s）
-   * @param timeoutRetries - 超时重试次数（默认 2 次）
+   * @param timeoutRetries - 期望的超时重试次数（默认 2 次；经 `resolveStreamReadRetryBudget` 收敛后生效）
    */
   protected async readStreamChunkWithTimeout(
     reader: ReadableStreamDefaultReader<Uint8Array>,
@@ -1069,6 +1093,12 @@ export abstract class BaseAIProvider implements AIProvider {
     const effectiveTimeoutMs = isFirstChunk
       ? Math.max(timeoutMs, 120_000) // 首 chunk 至少 120s
       : timeoutMs;
+    // N-12：内部重试预算对齐调用方看门狗（见 `resolveStreamReadRetryBudget`）——
+    // 否则 provider 的重试会活过 `streamMessageFlow` 的超时，变成孤儿重试 + 4 分钟白等。
+    const effectiveRetries = resolveStreamReadRetryBudget(
+      isFirstChunk,
+      timeoutRetries
+    );
 
     try {
       // 每次读取前的"等待"标记：排查挂起时可确认最后一次 read() 已发出但未返回
@@ -1087,7 +1117,7 @@ export abstract class BaseAIProvider implements AIProvider {
       const timeoutPromise = new Promise<never>((_, reject) => {
         const failAfterExhausted = () => {
           state.strikes++;
-          if (state.strikes > timeoutRetries) {
+          if (state.strikes > effectiveRetries) {
             // 连续超时达到阈值：取消流并报错（真挂起）
             const idleMs = Date.now() - state.lastChunkAt;
             // 场景分类：便于日志快速定位超时原因
@@ -1100,7 +1130,7 @@ export abstract class BaseAIProvider implements AIProvider {
                 ? 'INTER_CHUNK_TIMEOUT'
                 : 'STREAM_STALLED';
             logger.warn(
-              `[${this.id}] 流式读取超时（${effectiveTimeoutMs / 1000}s 无数据，已重试 ${timeoutRetries} 次）`,
+              `[${this.id}] 流式读取超时（${effectiveTimeoutMs / 1000}s 无数据，已重试 ${effectiveRetries} 次）`,
               {
                 timeoutMs: effectiveTimeoutMs,
                 baseTimeoutMs: timeoutMs,
@@ -1113,24 +1143,28 @@ export abstract class BaseAIProvider implements AIProvider {
                 awaitingFirstChunk: isFirstChunk,
                 scenario,
                 strikes: state.strikes,
+                // N-12：配置期望 vs 实际生效（对齐调用方看门狗后的上限）
+                configuredRetries: timeoutRetries,
+                effectiveRetries,
               }
             );
             reject(
               new Error(
-                `${this.id} stream: ${effectiveTimeoutMs / 1000}s 无数据（重试 ${timeoutRetries} 次后仍无数据），连接可能挂起`
+                `${this.id} stream: ${effectiveTimeoutMs / 1000}s 无数据（重试 ${effectiveRetries} 次后仍无数据），连接可能挂起`
               )
             );
             return;
           }
           // 首次超时：仅告警并继续等待（网络抖动/慢响应可恢复），即自动重试
           logger.warn(
-            `[${this.id}] 流式读取超时（第 ${state.strikes}/${timeoutRetries + 1} 次，继续等待 ${effectiveTimeoutMs / 1000}s）`,
+            `[${this.id}] 流式读取超时（第 ${state.strikes}/${effectiveRetries + 1} 次，继续等待 ${effectiveTimeoutMs / 1000}s）`,
             {
               timeoutMs: effectiveTimeoutMs,
               baseTimeoutMs: timeoutMs,
               isFirstChunk,
               strikes: state.strikes,
-              timeoutRetries,
+              timeoutRetries: effectiveRetries,
+              configuredRetries: timeoutRetries,
               chunkCount: state.chunkCount,
               totalMs: Date.now() - state.startedAt,
               lastIntervalMs: state.lastIntervalMs,

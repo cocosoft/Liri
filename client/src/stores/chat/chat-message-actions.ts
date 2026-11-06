@@ -44,17 +44,31 @@ function saveAbortCheckpoint(sessionId: string): void {
     });
 }
 
-/** 检测工作模式：从会话级 workMode 读取 Plan/Do 模式（源：Session.workMode 展平） */
+/**
+ * 检测工作模式：从会话级 workMode 读取 Plan/Do 模式（源：Session.workMode 展平）。
+ *
+ * N-10（2026-11-06 真机长程任务）：**缺省改为 `do`**（原为 `plan`）。
+ *
+ * 原口径来自 2026-09-14 的产品决定「聊天默认 plan」，前提是输入区有 Plan/Do 两态开关
+ * 供用户切换；2026-11-05「前端控制面简化 A′ v2」把该开关从输入区移除后，缺省 plan 变成
+ * **不可逃避**的默认：新建会话的第一条消息必然带 `work_mode=plan`，模型于是按
+ * 「只规划、不调用有副作用的写工具」行事 —— 实测（`session_mw4xn1o6cb5281eb70`）用户明确
+ * 要求"完整开发一个游戏"，模型只做只读探查、零交付，且界面看不出原因。
+ *
+ * 现在：**不带显式 workMode 的普通会话按 `do` 执行**；`plan` 仍由「工作空间会话」
+ * （后端 `workspaces-handlers` 创建时写入 `metadata.workMode='plan'`）或显式
+ * `PATCH /v1/sessions/:id/meta { work_mode: 'plan' }` 提供。
+ */
 export async function resolveWorkMode(
   sessionId?: string,
 ): Promise<"plan" | "do"> {
-  if (!sessionId) return "plan";
+  if (!sessionId) return "do";
   try {
     const { useSessionStore } = await import("../sessionStore");
     const session = useSessionStore
       .getState()
       .sessions.find((item) => item.id === sessionId);
-    return session?.workMode ?? "plan";
+    return session?.workMode ?? "do";
   } catch (err) {
     handleClientError(
       err,
@@ -64,7 +78,7 @@ export async function resolveWorkMode(
       },
       "warn",
     );
-    return "plan";
+    return "do";
   }
 }
 

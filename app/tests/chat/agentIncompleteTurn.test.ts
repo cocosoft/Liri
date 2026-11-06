@@ -157,3 +157,48 @@ describe('N-1：截断发生在 file_write 参数里 ⇒ 续接指令带上写�
     );
   });
 });
+
+/**
+ * N-11（2026-11-06 真机长程任务）：空回复允许**两次**续接，第二次换成硬指令。
+ *
+ * 真机证据：同一任务 3 轮里 3 次"零可见输出"；旧实现每类只重试 1 次 ⇒ 第一次重试仍空时
+ * 直接落兜底文案，回合"看着结束、其实没交付"。
+ */
+describe('N-11：空回复的两次续接', () => {
+  const emptyResult = (): ReasonResult<ToolLoopContext> => ({
+    text: '',
+    toolCalls: [],
+    finishReason: 'stop',
+  });
+
+  it('第 1 次空回复 ⇒ 通用续接文案，仍接管', async () => {
+    const h = makeDeps();
+    expect(await onIncompleteTurn(emptyResult(), h.deps)).toBe(true);
+
+    expect(lastInstruction(h.messages)).toContain(
+      CONTINUATION_TEMPLATES.empty.slice(0, 12)
+    );
+    expect(h.retries.empty).toBe(1);
+  });
+
+  it('★ 第 2 次空回复 ⇒ 换成「只做一件事」硬指令（不再重复通用文案）', async () => {
+    const h = makeDeps();
+    await onIncompleteTurn(emptyResult(), h.deps);
+    expect(await onIncompleteTurn(emptyResult(), h.deps)).toBe(true);
+
+    const instruction = lastInstruction(h.messages);
+    expect(instruction).toContain('只做一件事');
+    expect(instruction).not.toContain(
+      CONTINUATION_TEMPLATES.empty.slice(0, 12)
+    );
+    expect(h.retries.empty).toBe(2);
+  });
+
+  it('第 3 次空回复 ⇒ 放手（落兜底文案，不死循环）', async () => {
+    const h = makeDeps();
+    await onIncompleteTurn(emptyResult(), h.deps);
+    await onIncompleteTurn(emptyResult(), h.deps);
+    expect(await onIncompleteTurn(emptyResult(), h.deps)).toBe(false);
+    expect(h.retries.empty).toBe(2);
+  });
+});

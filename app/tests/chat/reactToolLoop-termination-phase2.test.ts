@@ -158,10 +158,11 @@ describe('ReActToolLoop 终止原因（二期 F2-0/F2-1/F2-2/F2-4）', () => {
     await drain(loop);
     const secondRunCalls = calls - firstRunCalls;
 
-    // 首轮：空回复 → 回捞一次（再问）⇒ 2 次 LLM 调用
-    expect(firstRunCalls).toBe(2);
+    // 首轮：空回复 → 回捞两次（N-11：`empty` 额度由 1 提到 2）⇒ 3 次 LLM 调用
+    expect(firstRunCalls).toBe(3);
     // 修复前：额度是"任务级终身一次"，第二轮直接放行 ⇒ 仅 1 次调用（断言失败）
-    expect(secondRunCalls).toBe(2);
+    // N-11 后同理：第二轮必须**重新**领到 2 次额度（归零语义不变）
+    expect(secondRunCalls).toBe(3);
   });
 
   it('F2-3：终止副作用幂等 —— 反复取最终消息（每轮 ≥2 次 finalize）只落一次 Goal', async () => {

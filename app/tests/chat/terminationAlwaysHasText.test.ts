@@ -76,6 +76,8 @@ describe('BUG-A：空输出兜底的结构化标记', () => {
     expect(out.suffix.trim().length).toBeGreaterThan(0);
     // N-2（2026-11-06）：兜底轮不是"正常完成" —— 结构化终止原因供出口/回放判定
     expect(out.finishReason).toBe('empty_output');
+    // N-11（2026-11-06）：兜底文案必须给出"产物还在、可原地继续"的出路
+    expect(out.suffix).toContain('继续');
   });
 
   it('N-2 负向对照：已有专属终止原因（circuit_breaker）⇒ 不让 empty_output 覆盖', () => {

@@ -57,6 +57,19 @@ const MALFORMED_TOOL_MARKUP_RETRY_INSTRUCTION =
   '因此没有执行任何工具。请改用**标准工具调用**重新发起同样的操作，不要在正文中书写工具调用标签。';
 
 /**
+ * N-11（2026-11-06 真机长程任务）：空回复的**第 2 次**续接指令（升级版）。
+ *
+ * 真机证据（`session_mw4vwtmp38957bec2f` / `session_mw4xuwg25a18fa4e70`）：同一任务 3 轮里
+ * 出现 3 次"零可见输出"，而旧实现每类只重试 1 次 ⇒ 第一次重试若是空，直接落兜底文案，
+ * 回合"看着结束、其实没交付"。第二次改用**只做一件事**的硬指令，别再给一次空转机会。
+ */
+const EMPTY_OUTPUT_ESCALATED_INSTRUCTION =
+  '你连续两轮没有任何可见输出。现在**只做一件事**：' +
+  '① 如果任务还有未完成的步骤，立刻发起下一步工具调用；' +
+  '② 否则用一两句话说明当前状态（已完成什么、还剩什么）。' +
+  '不要输出空内容，也不要只做推理。';
+
+/**
  * N-1（2026-11-06 真机长程任务）：截断发生在 `file_write` 参数里时，取出被写的目标文件。
  *
  * 真机证据（`session_mw4vwtmp38957bec2f`）：两轮都在写 `output/mario/game.js` 时命中
@@ -226,7 +239,10 @@ export async function onIncompleteTurn(
     deps.setPhaseCompactionFailed();
     return false;
   }
-  if (deps.incompleteRetries[kind] >= 1) return false; // 每类最多重试 1 次
+  // N-11（2026-11-06）：`empty` 允许重试 **2 次**（真机同一任务 3 轮出现 3 次零可见输出，
+  // 单次重试后就落兜底）。其余类别仍为 1 次，防死循环。
+  const maxRetries = kind === 'empty' ? 2 : 1;
+  if (deps.incompleteRetries[kind] >= maxRetries) return false;
 
   const truncatedWriteTarget =
     kind === 'truncated'
@@ -234,7 +250,9 @@ export async function onIncompleteTurn(
       : null;
   const instruction =
     kind === 'empty'
-      ? EMPTY_RESPONSE_RETRY_INSTRUCTION
+      ? deps.incompleteRetries.empty >= 1
+        ? EMPTY_OUTPUT_ESCALATED_INSTRUCTION
+        : EMPTY_RESPONSE_RETRY_INSTRUCTION
       : kind === 'reasoning'
         ? REASONING_ONLY_RETRY_INSTRUCTION
         : kind === 'planning'

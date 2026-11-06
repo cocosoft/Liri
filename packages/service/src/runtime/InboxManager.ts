@@ -31,7 +31,12 @@ import { randomUUID } from 'crypto';
 import { broadcastEvent } from '@modules/infrastructure/http/handlers/handler-utils';
 import type { FrontendMessageBlock } from '@modules/session/types/UnifiedMessage.js';
 // P0-1（2026-11-04）：把合并次数回填到会话内的 Inbox 卡片块（显示 ×N）
-import { patchInboxBlockDedupCount } from './inboxBlockPatch.js';
+// P3-1（2026-11-06）：把审批终态（replied / expired）也写回卡片块 ⇒ 历史可追溯
+import {
+  patchInboxBlockDedupCount,
+  patchInboxBlockStatus,
+  type InboxBlockLike,
+} from './inboxBlockPatch.js';
 import { getRuntimeSessionGateway } from './sessionGatewayProvider.js';
 import { isPanelActionable, toInboxMetadata } from '@openliri/infra/attention';
 // 时间换算取常量真源（`lint:consts` D-2：不在业务文件里裸写 `n * 60 * 1000`）
@@ -869,6 +874,12 @@ export class InboxManager {
         selectedOption: _selectedOption,
       });
 
+      // P3-1（2026-11-06）：把终态写回会话卡片块 —— 否则读消息时的合成窗口（2h / 20 条）
+      // 一过，卡片就从历史里消失，只剩"请批准"的文字。
+      await this._syncInboxBlockStatuses(item.sessionId, [
+        { inboxId: id, status: 'replied' },
+      ]);
+
       // 异步回传审批结果到来源渠道（失败不阻塞主流程）
       if (item.channelSessionId && item.channelId) {
         import('@modules/channels/bridge/inboxChannelReply.js')
@@ -1253,6 +1264,36 @@ export class InboxManager {
       else await emit();
     }
 
+    // P3-1（2026-11-06）：把 expired 写回会话卡片块（全历史可追溯）。
+    // 按「归属身份 + 会话」归组：同一会话只读一次消息，避免逐条回填放大 I/O。
+    const expiredGroups = new Map<
+      string,
+      { ownerKey?: string; sessionId: string; inboxIds: string[] }
+    >();
+    for (const { item, ownerKey } of expired) {
+      if (!item.sessionId) continue;
+      const key = `${ownerKey ?? ''}|${item.sessionId}`;
+      const group = expiredGroups.get(key) ?? {
+        ownerKey,
+        sessionId: item.sessionId,
+        inboxIds: [],
+      };
+      group.inboxIds.push(item.id);
+      expiredGroups.set(key, group);
+    }
+    for (const group of expiredGroups.values()) {
+      const sync = (): Promise<void> =>
+        this._syncInboxBlockStatuses(
+          group.sessionId,
+          group.inboxIds.map((inboxId) => ({ inboxId, status: 'expired' }))
+        );
+      const principal = group.ownerKey
+        ? principalFromKey(group.ownerKey)
+        : null;
+      if (principal) await runWithPrincipal(principal, sync);
+      else await sync();
+    }
+
     // 清理已过期项的关联记录
     try {
       await new Promise<void>((resolve, reject) => {
@@ -1400,6 +1441,59 @@ export class InboxManager {
         sessionId,
         inboxId,
         dedupCount,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
+  /**
+   * P3-1（2026-11-06）：把审批终态写回该会话消息里的 Inbox 块（全历史可追溯）。
+   *
+   * 与 {@link _syncInboxBlockDedupCount} 同型 —— 卡片是**静态块**，状态若只存在于
+   * `inbox_items`，读消息时的合成窗口（2h / 20 条）一过就再也挂不回去。
+   * 每个会话只读一遍消息、每条受影响消息只写一次。失败只留痕，不影响审批主流程。
+   */
+  private async _syncInboxBlockStatuses(
+    sessionId: string,
+    updates: ReadonlyArray<{ inboxId: string; status: InboxItemStatus }>
+  ): Promise<void> {
+    if (!sessionId || updates.length === 0) return;
+    try {
+      const gateway = getRuntimeSessionGateway();
+      if (!gateway) {
+        logger.warn('会话网关未注册，跳过审批状态回填', {
+          sessionId,
+          updates: updates.length,
+        });
+        return;
+      }
+      const messages = await gateway.getMessages(sessionId);
+      let patchedMessages = 0;
+      for (const msg of messages) {
+        let blocks = (msg.blocks ?? []) as unknown as InboxBlockLike[];
+        let changed = false;
+        for (const u of updates) {
+          const patched = patchInboxBlockStatus(blocks, u.inboxId, u.status);
+          if (!patched.changed) continue;
+          blocks = patched.blocks;
+          changed = true;
+        }
+        if (!changed) continue;
+        await gateway.updateMessage(sessionId, msg.id, {
+          ...msg,
+          blocks: blocks as unknown as FrontendMessageBlock[],
+        });
+        patchedMessages++;
+      }
+      logger.info('审批状态已回填到会话卡片', {
+        sessionId,
+        updates: updates.length,
+        patchedMessages,
+      });
+    } catch (e) {
+      logger.warn('审批状态回填到会话卡片失败（不影响审批主流程）', {
+        sessionId,
+        updates: updates.length,
         error: e instanceof Error ? e.message : String(e),
       });
     }

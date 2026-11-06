@@ -72,7 +72,10 @@ import { handleError } from '@openliri/infra/error';
 // P0-4（2026-11-05）：任务分区消息（PDCA 步骤）默认不进用户面读取
 import { filterTaskPartitionMessages } from './messagePartition';
 // P3-1（2026-11-06）：已处理/已过期审批块也要留痕（否则"有文字没卡片"）
-import { selectApprovalItemsForBlocks } from './approvalBlockSelection';
+import {
+  refreshPresentApprovalBlocks,
+  selectApprovalItemsForBlocks,
+} from './approvalBlockSelection';
 
 const logger = getLogger('runtime:api:CoreAPIImpl');
 
@@ -749,44 +752,47 @@ export class SessionMessagesRead {
       });
       if (selected.length === 0) return;
 
+      // P3-1（2026-11-06）：审批终态会由 InboxManager 写回**原位置的**卡片块
+      // ⇒ 已存在的块只就地刷新状态（保持它在历史里的位置），不再重复合成到最后一条消息；
+      // 只有从未落过块的项（提交期注入被流式覆盖 / 老会话）才补合成。
+      const { missing } = refreshPresentApprovalBlocks(messages, selected);
+      const missingIds = new Set(missing);
+
       const existing =
         (lastAssistant.blocks as unknown as FrontendMessageBlock[]) ?? [];
-      // P3-1：同一 inboxId 只保留一份（提交期注入与读时合成可能同时存在）
-      const selectedIds = new Set(selected.map((i) => i.id));
-      const kept = existing.filter((b) => {
-        const block = b as { type?: string; inboxData?: { inboxId?: string } };
-        if (block.type !== 'inbox') return true;
-        const inboxId = block.inboxData?.inboxId;
-        return !(typeof inboxId === 'string' && selectedIds.has(inboxId));
-      });
-      const blocks = selected.map(
-        (item) =>
-          ({
-            id: item.id,
-            type: 'inbox',
-            content: '',
-            inboxData: {
-              inboxId: item.id,
-              type: item.type,
-              title: item.title,
-              content: item.message || '',
-              // P3-1：据实写入状态（pending / replied / expired），前端 InboxBlock 三态已支持
-              status: item.status,
-              priority: 'normal',
-              actions: (item.options?.length
-                ? item.options
-                : ['approve', 'deny']
-              ).map((o) => ({
-                label: o === 'approve' ? '批准' : o === 'deny' ? '拒绝' : o,
-                reply: o,
-                style:
-                  o === 'deny' ? ('danger' as const) : ('primary' as const),
-              })),
-              channelSource: item.channelId,
-            },
-          }) as FrontendMessageBlock
-      );
-      lastAssistant.blocks = [...kept, ...blocks];
+      const blocks = selected
+        .filter((item) => missingIds.has(item.id))
+        .map(
+          (item) =>
+            ({
+              id: item.id,
+              type: 'inbox',
+              content: '',
+              inboxData: {
+                inboxId: item.id,
+                type: item.type,
+                title: item.title,
+                content: item.message || '',
+                // P3-1：据实写入状态（pending / replied / expired），前端 InboxBlock 三态已支持
+                status: item.status,
+                priority: 'normal',
+                actions: (item.options?.length
+                  ? item.options
+                  : ['approve', 'deny']
+                ).map((o) => ({
+                  label:
+                    o === 'approve' ? '批准' : o === 'deny' ? '拒绝' : o,
+                  reply: o,
+                  style:
+                    o === 'deny' ? ('danger' as const) : ('primary' as const),
+                })),
+                channelSource: item.channelId,
+              },
+            }) as FrontendMessageBlock
+        );
+      if (blocks.length > 0) {
+        lastAssistant.blocks = [...existing, ...blocks];
+      }
     } catch (err) {
       // 合成失败不影响消息读取
       void handleError(err, {

@@ -10,6 +10,7 @@ import { describe, expect, it } from 'bun:test';
 import {
   APPROVAL_BLOCK_LOOKBACK_MS,
   APPROVAL_BLOCK_MAX_RESOLVED,
+  refreshPresentApprovalBlocks,
   selectApprovalItemsForBlocks,
 } from '@openliri/service/runtime/api/approvalBlockSelection';
 
@@ -67,5 +68,69 @@ describe('selectApprovalItemsForBlocks', () => {
     expect(
       selectApprovalItemsForBlocks({ pending: [], recent: [], anchorMs: NOW })
     ).toEqual([]);
+  });
+});
+
+describe('refreshPresentApprovalBlocks', () => {
+  const inboxBlock = (inboxId: string, status: string) => ({
+    id: `b-${inboxId}`,
+    type: 'inbox',
+    content: '',
+    inboxData: { inboxId, status },
+  });
+
+  it('已落块的项 ⇒ 就地刷新状态，且不计入 missing（不重复合成）', () => {
+    const msg = { id: 'm1', blocks: [inboxBlock('ib-1', 'pending')] };
+    const { missing, updatedMessages } = refreshPresentApprovalBlocks(
+      [msg],
+      [{ id: 'ib-1', status: 'replied' }]
+    );
+
+    expect(missing).toEqual([]);
+    expect(updatedMessages).toBe(1);
+    const data = (msg.blocks[0] as { inboxData: { status: string } }).inboxData;
+    expect(data.status).toBe('replied');
+  });
+
+  it('未落块的项 ⇒ 进 missing；已有块不受影响', () => {
+    const kept = inboxBlock('ib-1', 'expired');
+    const msg = { id: 'm1', blocks: [kept] };
+    const { missing, updatedMessages } = refreshPresentApprovalBlocks(
+      [msg],
+      [
+        { id: 'ib-1', status: 'expired' },
+        { id: 'ib-2', status: 'expired' },
+      ]
+    );
+
+    expect(missing).toEqual(['ib-2']);
+    // 状态没变 ⇒ 不重写该消息
+    expect(updatedMessages).toBe(0);
+    expect(msg.blocks[0]).toBe(kept);
+  });
+
+  it('卡片落较早消息 ⇒ 只改那一处，不搬到最新消息', () => {
+    const first = { id: 'm1', blocks: [inboxBlock('ib-1', 'pending')] };
+    const second = { id: 'm2', blocks: [{ id: 'b1', type: 'text' }] };
+    const { missing, updatedMessages } = refreshPresentApprovalBlocks(
+      [first, second],
+      [{ id: 'ib-1', status: 'expired' }]
+    );
+
+    expect(missing).toEqual([]);
+    expect(updatedMessages).toBe(1);
+    expect(second.blocks).toHaveLength(1);
+    const data = (first.blocks[0] as { inboxData: { status: string } })
+      .inboxData;
+    expect(data.status).toBe('expired');
+  });
+
+  it('无 blocks 的消息与非 inbox 块原样跳过', () => {
+    const texts = [{ id: 'm1', blocks: [{ id: 'b1', type: 'text' }] }];
+    const { missing, updatedMessages } = refreshPresentApprovalBlocks(texts, [
+      { id: 'ib-9', status: 'replied' },
+    ]);
+    expect(missing).toEqual(['ib-9']);
+    expect(updatedMessages).toBe(0);
   });
 });

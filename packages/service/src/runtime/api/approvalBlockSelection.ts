@@ -14,6 +14,8 @@
  * 纯函数、无 I/O，便于单测。
  */
 
+import { patchInboxBlockStatus, type InboxBlockLike } from '../inboxBlockPatch';
+
 /** 已处理/已过期审批的合成窗口（相对最后一条 assistant 消息） */
 export const APPROVAL_BLOCK_LOOKBACK_MS = 2 * 60 * 60 * 1000;
 /** 单次最多合成多少个已处理项（防历史噪声） */
@@ -60,4 +62,56 @@ export function selectApprovalItemsForBlocks<T extends ApprovalBlockItemShape>(p
   }
 
   return [...byId.values()].sort((a, b) => a.createdAt - b.createdAt);
+}
+
+/** 参与就地刷新的最小消息形态（只有 `blocks` 会被读到/改写） */
+export interface ApprovalBlockMessageLike {
+  blocks?: unknown;
+}
+
+/**
+ * P3-1（2026-11-06）：审批终态已写回**原位置**的卡片块 ⇒ 读时只就地刷新状态，
+ * 不再把卡片重复合成到最后一条消息；只有从未落过块的项才需要调用方补合成。
+ *
+ * @returns `missing` 尚未落块的审批项 id（调用方据此补合成）；
+ *          `updatedMessages` 实际被改写 messages 数（仅内存，不写盘）
+ */
+export function refreshPresentApprovalBlocks<
+  M extends ApprovalBlockMessageLike,
+>(
+  messages: readonly M[],
+  selected: ReadonlyArray<{ id: string; status: string }>
+): { missing: string[]; updatedMessages: number } {
+  const present = new Set<string>();
+  for (const msg of messages) {
+    if (!Array.isArray(msg.blocks)) continue;
+    for (const block of msg.blocks as InboxBlockLike[]) {
+      const inboxId = block?.inboxData?.inboxId;
+      if (block?.type === 'inbox' && typeof inboxId === 'string') {
+        present.add(inboxId);
+      }
+    }
+  }
+
+  let updatedMessages = 0;
+  for (const msg of messages) {
+    if (!Array.isArray(msg.blocks)) continue;
+    let blocks = msg.blocks as InboxBlockLike[];
+    let changed = false;
+    for (const item of selected) {
+      if (!present.has(item.id)) continue;
+      const patched = patchInboxBlockStatus(blocks, item.id, item.status);
+      if (!patched.changed) continue;
+      blocks = patched.blocks;
+      changed = true;
+    }
+    if (!changed) continue;
+    msg.blocks = blocks;
+    updatedMessages++;
+  }
+
+  return {
+    missing: selected.filter((i) => !present.has(i.id)).map((i) => i.id),
+    updatedMessages,
+  };
 }

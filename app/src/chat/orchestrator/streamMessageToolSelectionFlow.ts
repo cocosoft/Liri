@@ -21,6 +21,7 @@ import { resolveContextWindow } from '@modules/context';
 import {
   recordToolSchemaEntropy,
   readToolVisibilityOverrides,
+  getDiscoveredTools,
 } from '@modules/tools';
 import { emitPreparedSnapshot } from '@openliri/service/execution';
 import { guardSuspendFromEntropy } from '../../query/guardSuspend.js';
@@ -93,7 +94,12 @@ export function selectAndObserveToolDefinitions(
     // **仅在非重放分支读**：重放工具面必须恒等于落盘快照（`✅-4`，方案 R6）；
     // 空表 / 未配置 ⇒ `applyToolVisibilityOverrides` 恒等 ⇒ 零行为变更。
     ...(options?.forcedVisibleTools === undefined
-      ? { overrides: readToolVisibilityOverrides() }
+      ? {
+          overrides: readToolVisibilityOverrides(),
+          // 2026-11-07（方案 §6.4 续）：本会话 `tool_search` 命中过的工具按名补回
+          //（未搜索过 ⇒ 空数组 ⇒ 与改动前逐字等价；重放分支不叠加，快照须可复现）
+          discoveredToolNames: getDiscoveredTools(session.id),
+        }
       : {}),
     // T1-13 / `✅-4` R-A：重放强制集（有则短路任务/profile 裁剪 ⇒ 重放工具面 = 落盘快照）
     ...(options?.forcedVisibleTools !== undefined

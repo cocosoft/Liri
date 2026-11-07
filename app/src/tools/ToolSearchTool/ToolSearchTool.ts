@@ -21,6 +21,8 @@ import { getToolRegistry } from '../ToolRegistry';
 import { ARCHIVED_MISC_TOOLS } from '../toolCategories';
 import { readToolVisibilityOverrides } from '../toolVisibilityOverrides';
 import { getSkillRegistryLazy } from '../SkillTool/skillRegistryAccess';
+// 2026-11-07（方案 §6.4）：把命中工具记到会话级「已发现」集 ⇒ 下一轮补进工具定义
+import { recordDiscoveredTools } from '../discoveredTools';
 
 /**
  * 解析工具名称为可搜索部分
@@ -319,7 +321,7 @@ export class ToolSearchTool extends BaseTool<
    */
   override async execute(
     input: ToolSearchInput,
-    _context: ToolUseContext,
+    context: ToolUseContext,
     _onProgress?: ToolCallProgress
   ): Promise<ToolResult<ToolSearchOutput>> {
     const { query, max_results = 5 } = input;
@@ -378,6 +380,9 @@ export class ToolSearchTool extends BaseTool<
         hint =
           hintList.length > 0 ? `；可用工具示例: ${hintList.join(', ')}` : '';
       }
+
+      // 2026-11-07（方案 §6.4）：记到会话级「已发现」集（`skill:` 引导项除外 —— 它们不是工具）
+      recordDiscoveredTools(context.sessionId, found);
 
       return createToolResult(
         {
@@ -448,6 +453,9 @@ export class ToolSearchTool extends BaseTool<
         keywordHint = `；可用工具示例: ${hintList.join(', ')}`;
       }
     }
+
+    // 2026-11-07（方案 §6.4）：只登记**真实工具名**（`matches` 里还混有 `skill:` 引导项）
+    recordDiscoveredTools(context.sessionId, toolMatches);
 
     return createToolResult(
       {

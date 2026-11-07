@@ -410,6 +410,13 @@ export {
   getToolCategory,
 } from './toolCategories';
 export type { ToolCategory } from './toolCategories';
+// 2026-11-07（方案 §6.4 续）：会话级「tool_search 已发现工具」登记（内存 LRU，按会话隔离）
+export {
+  clearDiscoveredTools,
+  getDiscoveredTools,
+  recordDiscoveredTools,
+  resetDiscoveredToolsForTest,
+} from './discoveredTools';
 // TG-4 / T1-13（2026-10-13）：会话级工具 profile（能力标签 → 追加工具类别）
 export {
   resolveToolProfileCategories,

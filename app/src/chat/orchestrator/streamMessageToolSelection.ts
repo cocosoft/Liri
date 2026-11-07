@@ -57,6 +57,14 @@ export interface ToolSelectionInput {
    * 重放工具面会与落盘快照分叉（方案 R6 / `✅-4`）。
    */
   overrides?: ToolVisibilityOverrides;
+  /**
+   * 2026-11-07（方案 §6.4 续）：本会话经 `tool_search` **已发现**的工具名。
+   *
+   * 这些工具已注册、执行也不拦，但不在本轮披露面 ⇒ 模型看不到 schema 就不会调用。
+   * 提供时按名从 `tools`（**裁剪前全量**）补回 ⇒ "搜到了就能直接用"。
+   * **未提供 / 空 ⇒ 零行为变更**；重放路径（`forcedVisibleTools`）**不叠加**（快照必须可复现）。
+   */
+  discoveredToolNames?: readonly string[];
 }
 
 export interface ToolSelectionResult {
@@ -70,6 +78,30 @@ export interface ToolSelectionResult {
   removedNames: string[];
   /** 是否发生裁剪（`filtered.length !== tools.length`，与原实现同口径） */
   trimmed: boolean;
+}
+
+/**
+ * 把"本会话已发现"的工具按名补回（2026-11-07，方案 §6.4 续）。
+ *
+ * 与 `applyToolVisibilityOverrides` 的 `on` 同向：**按名从裁剪前的全量补回**，不受任务类别 /
+ * 披露面白名单限制 —— `tool_search` 本身就是"显式检索"这一意图的落点。
+ *
+ * ⚠️ 归档工具无需在此再判：`tool_search` 的检索面已排除 `ARCHIVED_MISC_TOOLS`
+ * （用户 `on` 覆写者除外）⇒ 进来的名字天然不含归档项。
+ */
+function appendDiscoveredTools<T extends { function?: { name?: string } }>(
+  selected: T[],
+  allTools: T[],
+  discoveredNames: readonly string[]
+): T[] {
+  if (discoveredNames.length === 0) return selected;
+  const present = new Set(selected.map((t) => t.function?.name ?? ''));
+  const wanted = new Set(discoveredNames);
+  const extra = allTools.filter((t) => {
+    const name = t.function?.name ?? '';
+    return wanted.has(name) && !present.has(name);
+  });
+  return extra.length === 0 ? selected : [...selected, ...extra];
 }
 
 /**
@@ -131,10 +163,14 @@ export function selectToolsForTurn(
       ? tools.filter((t) =>
           input.forcedVisibleTools?.includes(t.function?.name ?? '')
         )
-      : applyToolVisibilityOverrides(
-          filterToolsByTask(tools, taskType, extraCategories),
+      : appendDiscoveredTools(
+          applyToolVisibilityOverrides(
+            filterToolsByTask(tools, taskType, extraCategories),
+            tools,
+            input.overrides ?? {}
+          ),
           tools,
-          input.overrides ?? {}
+          input.discoveredToolNames ?? []
         );
   const removedNames = tools
     .filter((t) => !filteredTools.includes(t))

@@ -25,6 +25,7 @@
 
 export {
   ConfigManager,
+  ConfigWriteRefusedError,
   configManager,
   getConfigManager,
   setConfigManagerForTest,

@@ -320,6 +320,21 @@ export class ConfigMutationConflictError extends AppError {
 }
 
 /**
+ * 配置写入被拒（配置系统未启用时）
+ *
+ * 2026-11-07（真机事故）：临时脚本在**未调用 `enableConfigs()`** 的进程里调 `setConfigValue()`，
+ * `getGlobalConfig()` 此时只返回默认快照（不读盘），而 `saveGlobalConfig()` 照样落盘
+ * ⇒ 用户的 `~/.pyapp/config.json` 被覆盖成 `{}`（主题 / features / soul / user / autonomy 全丢）。
+ * 现改为 **fail-closed**：读都读不到真实配置时，就不允许写回。
+ */
+export class ConfigWriteRefusedError extends AppError {
+  constructor(message: string) {
+    super(message, ErrorCategory.CONFIGURATION, ErrorSeverity.HIGH);
+    this.name = 'ConfigWriteRefusedError';
+  }
+}
+
+/**
  * 配置管理器类
  */
 export class ConfigManager {
@@ -851,6 +866,19 @@ export class ConfigManager {
   saveGlobalConfig(
     updater: (currentConfig: GlobalConfig) => GlobalConfig
   ): void {
+    // 2026-11-07：与 `getGlobalConfig()` 的读口径**同源**（未启用且非 test ⇒ 读到的只是默认快照）
+    // ⇒ 此时写回会把用户 config.json 覆盖成默认配置（真机实测被清成 `{}`），必须 fail-closed。
+    if (!this.configReadingAllowed && this.env('NODE_ENV') !== 'test') {
+      const refused = new ConfigWriteRefusedError(
+        '配置系统未启用（未调用 enableConfigs()）⇒ 拒绝写回全局配置：' +
+          '此时内存里只有默认配置，落盘会覆盖用户 config.json'
+      );
+      void handleError(refused, {
+        module: 'config:manager',
+        action: 'save_global_config_refused',
+      });
+      throw refused;
+    }
     try {
       const currentConfig = this.getGlobalConfig();
       const newConfig = updater(currentConfig);

@@ -25,6 +25,7 @@ import {
   buildIntegrityLevelArgs,
   buildWindowsBashInvocation,
   cleanupStaleWindowsBashGrants,
+  describeIcaclsFailure,
   expandWindowsEnvVars,
   isWindowsAccessDenied,
   parseIntegrityLevel,
@@ -620,5 +621,33 @@ describe('§10 execBashCommand：Windows 写隔离接线', () => {
     expect(caught?.message).toContain('sandbox_denied: write');
     // 归因不改变「标签必须恢复」
     expect(ctx.icacls.levels.get('C:\\work\\ws')).toBe('Medium');
+  });
+});
+
+describe('icacls 失败归因（describeIcaclsFailure，2026-11-07）', () => {
+  it('超时（killed=true）不再伪装成「权限不足」', () => {
+    const detail = describeIcaclsFailure({
+      killed: true,
+      stderr: '',
+      message: 'Command failed: icacls.exe E:\\repo /grant *S-1-5-21:(WO)',
+    });
+    expect(detail).toContain('超时');
+    // 真机：15s 超时 + 空 stderr ⇒ 旧实现只回 "Command failed: …"，看起来像拒绝访问
+    expect(detail).not.toContain('Command failed');
+  });
+
+  it('有 stderr ⇒ 原样返回（如 Access is denied）', () => {
+    expect(
+      describeIcaclsFailure({
+        stderr: 'Access is denied.\r\n',
+        message: 'Command failed: icacls.exe x',
+      })
+    ).toBe('Access is denied.');
+  });
+
+  it('无 stderr 且未被终止 ⇒ 回退 message', () => {
+    expect(
+      describeIcaclsFailure({ message: 'Command failed: icacls.exe x' })
+    ).toBe('Command failed: icacls.exe x');
   });
 });

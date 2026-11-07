@@ -83,12 +83,38 @@ export interface IcaclsResult {
 /** `icacls` 执行器（**可注入**：离线测试不需要真的改 ACL） */
 export type IcaclsRunner = (args: string[]) => Promise<IcaclsResult>;
 
+/**
+ * 把 `execFile` 的失败整理成**可诊断**文案（纯函数，便于单测）。
+ *
+ * `execFile` 超时时 `killed=true` 且 stderr 为空、message 只有 `Command failed: icacls.exe …`
+ * —— 读的人无法区分「超时」「拒绝访问」「参数错」。真机教训（2026-11-07）：仓库根
+ * `icacls <dir> /grant *SID:(WO)` 实测 **≈19.9s**（改 DACL 触发整树继承传播），而旧超时 15s
+ * ⇒ 被当成"权限不足"并降级 plain。现超时 120s（见 `defaultIcaclsRunner`），且失败必须能归因。
+ */
+export function describeIcaclsFailure(error: {
+  message?: string;
+  stderr?: string;
+  killed?: boolean;
+  signal?: string;
+}): string {
+  const stderr = String(error.stderr ?? '').trim();
+  if (error.killed) {
+    return 'icacls 超时（120s；大仓库改 DACL 会触发整树继承传播，属已知耗时）';
+  }
+  if (error.signal) {
+    return `icacls 被信号终止（${error.signal}）`;
+  }
+  if (stderr) return stderr;
+  return error.message ?? 'icacls 调用失败（无 stderr）';
+}
+
 /** 默认执行器：调用系统 `icacls.exe`（非 0 退出码不抛错，统一收敛成 `ok:false`） */
 export const defaultIcaclsRunner: IcaclsRunner = async (args) => {
   try {
     const { stdout, stderr } = await execFileAsync('icacls.exe', args, {
       windowsHide: true,
-      timeout: 15_000,
+      // 120s：见上方注释（仓库根补 (WO) 实测 ≈20s，且每个目录只付一次）
+      timeout: 120_000,
     });
     return { ok: true, stdout: String(stdout), stderr: String(stderr) };
   } catch (error) {
@@ -96,12 +122,14 @@ export const defaultIcaclsRunner: IcaclsRunner = async (args) => {
       stdout?: string;
       stderr?: string;
       message?: string;
+      killed?: boolean;
+      signal?: string;
     };
     return {
       ok: false,
       stdout: String(enriched.stdout ?? ''),
       stderr: String(enriched.stderr ?? ''),
-      error: enriched.message ?? String(error),
+      error: describeIcaclsFailure(enriched),
     };
   }
 };

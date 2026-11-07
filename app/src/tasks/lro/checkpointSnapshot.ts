@@ -34,5 +34,8 @@ export function projectCheckpointSteps(
     terminationReason: s.terminationReason,
     dependsOn: s.dependsOn,
     artifacts: s.artifacts,
+    // 2026-11-08：进度读模型需要「成功工具证据」才能正确判定只读完成步
+    // （与 `TaskOrchestrator.getPlanProgress` 同口径）—— 丢失会让重启后进度掉回门后。
+    toolOutcomes: s.toolOutcomes,
   }));
 }

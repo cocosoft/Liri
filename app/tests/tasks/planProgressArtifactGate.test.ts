@@ -129,6 +129,51 @@ describe('LRO-12：0 产物 ⇒ 进度不得报完成', () => {
     expect(planOf(plan.id).steps[0]?.artifacts).toEqual(['same.txt']);
     expect(progressOf(plan.id).artifacts).toBe(1);
   });
+
+  // 2026-11-08（真机）：3/3 步完成、审查 88/88/95、产物 2 个，接口仍报 percent=67
+  // + artifactGated=true —— 「读回确认」这类只读步天然无产物，被产物门永久压住。
+  it('空台账但有成功工具证据（只读/校验步）⇒ 计入进度', () => {
+    const plan = planWithSteps(2);
+    complete(plan.id, 0, ['out/a.txt']);
+    // 第 2 步只读（无产物），但有 1 次成功的工具调用
+    const step2 = planOf(plan.id).steps[1]!;
+    orchestrator.markStepCompleted(step2.id, '读回确认：内容一致', {
+      artifacts: [],
+      toolOutcomes: {
+        outcomes: [],
+        total: 1,
+        successCount: 1,
+        failedCount: 0,
+        securityIntercepted: 0,
+        pendingApproval: 0,
+      },
+    });
+
+    const p = progressOf(plan.id);
+    expect(p.completed).toBe(2);
+    expect(p.percent).toBe(100);
+    expect(p.artifactGated).toBe(false);
+  });
+
+  it('空台账且无工具证据（纯自述完成）⇒ 仍不推进进度', () => {
+    const plan = planWithSteps(1);
+    const step = planOf(plan.id).steps[0]!;
+    orchestrator.markStepCompleted(step.id, '已完成', {
+      artifacts: [],
+      toolOutcomes: {
+        outcomes: [],
+        total: 0,
+        successCount: 0,
+        failedCount: 0,
+        securityIntercepted: 0,
+        pendingApproval: 0,
+      },
+    });
+
+    const p = progressOf(plan.id);
+    expect(p.percent).toBe(0);
+    expect(p.artifactGated).toBe(true);
+  });
 });
 
 describe('LRO-12：台账持久化（重启后进度不掉回 0）', () => {

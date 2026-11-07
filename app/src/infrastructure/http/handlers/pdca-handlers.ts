@@ -403,7 +403,16 @@ function deriveCheckpointProgress(steps: Array<Record<string, unknown>>):
       : undefined;
     if (arts) for (const p of arts) artifactPaths.add(p);
     if (s.status !== 'completed') continue;
-    if (arts === undefined || arts.length > 0) artifactBackedCompleted++;
+    // 2026-11-08：与 `TaskOrchestrator.getPlanProgress` 同口径 —— 空台账但有**成功工具
+    // 证据**的完成步同样计数（只读/校验步天然无产物，不能被产物门永久压住）。
+    const outcomes = s.toolOutcomes as { successCount?: number } | undefined;
+    if (
+      arts === undefined ||
+      arts.length > 0 ||
+      (outcomes?.successCount ?? 0) > 0
+    ) {
+      artifactBackedCompleted++;
+    }
   }
   return {
     total,

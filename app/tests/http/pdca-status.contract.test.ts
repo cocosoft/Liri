@@ -175,6 +175,32 @@ await writePdcaCheckpoint('pdca_st_bare_orch', {
   ],
 });
 
+// 2026-11-08（真机）：跨重启读模型同样要认「成功工具证据」——只读完成步（空台账）
+// 不能被产物门永久压住，否则 3/3 完成的任务重启后仍显示 67%。
+await writePdcaCheckpoint('pdca_st_evidence', {
+  taskId: 'pdca_st_evidence',
+  planId: 'plan_st_evidence',
+  phase: 'completed',
+  status: 'completed',
+  description: '含只读校验步的已完成任务',
+  sessionId: 'sess_st',
+  steps: [
+    { ...makeStep('s1', '写文件', 'completed'), artifacts: ['out/a.txt'] },
+    {
+      ...makeStep('s2', '读回确认', 'completed'),
+      artifacts: [],
+      toolOutcomes: {
+        outcomes: [],
+        total: 1,
+        successCount: 1,
+        failedCount: 0,
+        securityIntercepted: 0,
+        pendingApproval: 0,
+      },
+    },
+  ],
+});
+
 describe('GET /v1/pdca/:taskId 契约（1-5 P2 跨重启详情适配）', () => {
   test('活跃 checkpoint：构造 plan{steps} 原样透传 + progress 推导（1c1r → 50%）', async () => {
     const { status, body } = await call('pdca_st_active');
@@ -205,6 +231,16 @@ describe('GET /v1/pdca/:taskId 契约（1-5 P2 跨重启详情适配）', () => 
     expect(progress.completed).toBe(2);
     expect(progress.pending).toBe(1);
     expect(progress.percent).toBe(67);
+  });
+
+  test('空台账但有成功工具证据 ⇒ 进度 100%、不被产物门压住', async () => {
+    const { status, body } = await call('pdca_st_evidence');
+    expect(status).toBe(200);
+    const progress = body.progress as Record<string, unknown>;
+    expect(progress.completed).toBe(2);
+    expect(progress.total).toBe(2);
+    expect(progress.percent).toBe(100);
+    expect(progress.artifactGated).toBe(false);
   });
 
   test('无 steps checkpoint：省略 plan/progress，不编造', async () => {

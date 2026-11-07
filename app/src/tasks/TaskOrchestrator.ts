@@ -623,7 +623,14 @@ export class TaskOrchestrator implements ISnapshotCapable {
       // 未采集台账（undefined）⇒ 旧口径；采集了但为空 ⇒ 本步不推进进度
       if (stepArtifacts === undefined || stepArtifacts.length > 0) {
         artifactBackedCompleted++;
+        continue;
       }
+      // 2026-11-08（真机）：**有成功工具证据**的空台账完成步同样推进进度。
+      // 「读回确认 / 校验」这类步骤天然不产生产物，此前被产物门永久压住 ——
+      // 真机 3/3 步完成、审查 88/88/95、产物 2 个，接口仍报 `percent=67`
+      // + `artifactGated=true`，与 `phase=completed` 自相矛盾。
+      // 产物门的原意是拦「模型纯自述完成、什么都没做」；有成功工具调用即不属于该形态。
+      if ((step.toolOutcomes?.successCount ?? 0) > 0) artifactBackedCompleted++;
     }
     const artifactCount = artifactPaths.size;
 

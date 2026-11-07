@@ -1631,3 +1631,29 @@ export class PermissionManager {
 export function createPermissionManager(): PermissionManager {
   return new PermissionManager();
 }
+
+/**
+ * 查询**持久化规则**是否放行某次工具调用（2026-11-07 真机：命令级白名单批了不生效）。
+ *
+ * 背景：审批卡「加入命令白名单 / 工具白名单」写入 `tool_rules.json`（A 体系），由
+ * `PermissionChecker` 消费；但 bash 的**安全闸 ask** 独立于权限层，只看 `bypassAsk`
+ * （命令哈希缓存）⇒ 规则命中也照样弹卡（真机：批准 `^node -e.*` 后同一命令仍弹卡）。
+ * 工具层据此把「规则已放行」折算成 `bypassAsk` —— 只免审批交互，硬拦截一条不少。
+ *
+ * 事实源 = `PermissionManager` 单例（`inboxApproval` 写规则用的同一实例）。
+ * 读取失败 ⇒ `false`（不得因读不到规则而放宽，fail-closed）。
+ */
+export function isCallAllowedByPersistedRules(
+  toolName: string,
+  input: Record<string, unknown>,
+  /** 测试可注入（生产缺省 = 单例的 checker；与审批写规则同一实例） */
+  checker?: Pick<PermissionChecker, 'isToolAllowed'>
+): boolean {
+  try {
+    const target = checker ?? PermissionManager.getInstance().getPermissionChecker();
+    return target.isToolAllowed(toolName, { input } as PermissionContext);
+  } catch {
+    // @ignore-catch — 规则不可读仅影响"是否免审批"，硬拦截层照旧执行
+    return false;
+  }
+}

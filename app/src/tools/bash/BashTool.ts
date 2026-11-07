@@ -302,6 +302,38 @@ export class BashTool extends BaseTool {
     this.securityAnalyzer = new BashSecurityAnalyzer();
   }
 
+  /**
+   * 解析「本次是否免审批」（2026-11-07 真机：命令级白名单批了不生效）。
+   *
+   * 两个来源，任一命中 ⇒ `bypassAsk`（仅免"重复弹 ask 卡"，硬拦截层照旧全跑）：
+   * - `approvedRegistry`：`approve` / `approve_session` 写入的命令哈希缓存；
+   * - 持久化规则（`tool_rules.json`，`allowlist_command` / `allowlist_tool` 写入）：
+   *   由 `PermissionChecker.isToolAllowed` 按 `contentPattern` / 工具级匹配。
+   */
+  private async resolveApprovalState(
+    command: string,
+    sessionId: string | undefined,
+    approvalScope: ApprovalScope
+  ): Promise<{
+    hash: string;
+    bypassAsk: boolean;
+    source: 'registry' | 'rule' | 'none';
+  }> {
+    const hash = hashCommandForExecution(command);
+    const registryHit = this.approvedRegistry.isApproved(
+      sessionId || '',
+      hash,
+      approvalScope,
+      getActiveTaskId(sessionId)
+    );
+    if (registryHit) return { hash, bypassAsk: true, source: 'registry' };
+
+    const { isCallAllowedByPersistedRules } =
+      await import('@openliri/infra/permission/PermissionManager');
+    const ruleHit = isCallAllowedByPersistedRules('bash', { command });
+    return { hash, bypassAsk: ruleHit, source: ruleHit ? 'rule' : 'none' };
+  }
+
   override async execute(
     input: Record<string, unknown>,
     context: ToolUseContext,
@@ -403,14 +435,12 @@ export class BashTool extends BaseTool {
       // P0-4: 已批准命令放行通道 —— 用户审批批准的命令放行
       // （保留 Zod 输入校验 L333 + Windows 预处理 L351 + 审计日志，见下）
       // P0-2: 统一用 hashCommandForExecution（与提交审批端一致，幂等于已预处理命令）
-      const approvedHash = hashCommandForExecution(command);
-      const isApproved = this.approvedRegistry.isApproved(
-        context.sessionId || '',
-        approvedHash,
-        approvalScope,
-        // P2（§3.3）：任务档条目只有匹配"当前活跃任务"才命中
-        getActiveTaskId(context.sessionId)
+      const approval = await this.resolveApprovalState(
+        command,
+        context.sessionId,
+        approvalScope
       );
+      const approvedHash = approval.hash;
       // S1-2（2026-10-11，G11）：**硬拦截层无条件执行**（下方花括号块恒定进入）。
       // 原实现 `if (!isApproved || revalidateApproved)` 允许"已批准 + 灰度关"整体跳过本层
       // ⇒ 只要把 `FEATURE_BASH_APPROVED_REVALIDATE` 置 false，DENY/危险命令即可被绕过
@@ -425,14 +455,15 @@ export class BashTool extends BaseTool {
       // 重弹同一张 ask 卡（09:44:04 批准 → 30ms 后 `security_analyzer_ask` → 再弹卡），
       // 形成"批准 → 恢复 → 再弹卡"的无限审批环，长任务永远无法推进。
       // 现口径与 A2 文档一致：**批准即免审批交互**；硬拦截一层不少。
-      const bypassAsk = isApproved;
+      const bypassAsk = approval.bypassAsk;
       // P0-4: 放行即需审计记录（session + hash + 命令）确保可追溯
-      if (isApproved) {
+      if (bypassAsk) {
         logger.info('已批准命令放行', {
           sessionId: context.sessionId,
           hash: approvedHash,
           command: command.slice(0, 500),
           bypassAsk,
+          approvalSource: approval.source,
           hardBlocksEnforced: true,
         });
       }
@@ -527,7 +558,7 @@ export class BashTool extends BaseTool {
       // G18 下沉（2026-10-11）：抽为 `checkInterpreterGuard(...)`（含 O1-B2 观测日志），语义不变。
       const interpreterBlock = checkInterpreterGuard({
         std,
-        isApproved,
+        isApproved: bypassAsk,
         approvalScope,
         approvalSnapshot,
         sessionId: context.sessionId,

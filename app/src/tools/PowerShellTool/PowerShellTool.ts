@@ -43,6 +43,16 @@ import {
 } from '@openliri/infra/security';
 import { SandboxSecurityChecker } from '@modules/sandbox';
 import { completeSecuritySystem } from '@openliri/infra/security';
+// 2026-11-07 真机：PowerShell 的 ask 此前**没有审批通道**（只回失败文本 ⇒ 永远无法批准），
+// 现与 BashTool 同口径走「审批卡 + 已批准命中」。
+import {
+  getActiveTaskId,
+  getApprovedCommandRegistry,
+  hashCommandForExecution,
+  type ApprovalScope,
+  type ApprovalSnapshot,
+} from '@openliri/infra/permission';
+import type { ToolFailureKind } from '@openliri/infra/utils/toolContract/ToolResult';
 import { configManager } from '@openliri/infra/config';
 import type { PermissionConfig } from '@openliri/infra/config/types';
 
@@ -622,6 +632,93 @@ export function evaluatePowerShellSecurity(
   return { allowed: true, behavior: 'allow' };
 }
 
+/** 审批作用域/快照（与 BashTool 同口径；2026-11-07 真机补齐 PowerShell 审批通道） */
+function buildPowerShellApprovalContext(
+  command: string,
+  cwd: string | undefined
+): { scope: ApprovalScope; snapshot: ApprovalSnapshot } {
+  return {
+    scope: { platform: process.platform, cwd },
+    snapshot: {
+      originalCommand: command,
+      normalizedCommand: command,
+      rewrites: [],
+    },
+  };
+}
+
+/**
+ * 本次 ask 是否已被批准（命令哈希缓存 或 持久化规则命中）。
+ * 只免"人工确认"，不放宽 deny / 白名单 / 沙箱硬拒绝。
+ */
+async function isPowerShellPreApproved(
+  command: string,
+  sessionId: string | undefined,
+  scope: ApprovalScope
+): Promise<boolean> {
+  const hash = hashCommandForExecution(command);
+  if (
+    getApprovedCommandRegistry().isApproved(
+      sessionId ?? '',
+      hash,
+      scope,
+      getActiveTaskId(sessionId)
+    )
+  ) {
+    return true;
+  }
+  const { isCallAllowedByPersistedRules } =
+    await import('@openliri/infra/permission/PermissionManager');
+  return isCallAllowedByPersistedRules('powershell', { command });
+}
+
+/** PowerShell 安全链的「阻断结果」映射（ask 未获批 ⇒ 带 requireApproval，进入审批卡） */
+export function buildPowerShellSecurityBlock(
+  decision: PowerShellSecurityDecision,
+  input: {
+    preApproved: boolean;
+    approval: { scope: ApprovalScope; snapshot: ApprovalSnapshot };
+    startTime: number;
+  }
+): ToolResult<unknown> | null {
+  if (decision.allowed) return null;
+  const isAsk = decision.behavior === 'ask';
+  // 已批准 / 规则命中 ⇒ 跳过 ask 分支，继续走后续硬拦截与执行（与 BashTool 同语义）
+  if (isAsk && input.preApproved) return null;
+  const prefix = isAsk
+    ? '需要用户确认: '
+    : decision.code === 'SANDBOX_SECURITY_DENIED'
+      ? '沙箱安全检查: '
+      : decision.code === 'COMMAND_NOT_ALLOWED'
+        ? '安全检查: '
+        : '安全检查失败: ';
+  const approvalFields = isAsk
+    ? {
+        requireApproval: true,
+        approvalReason: decision.message ?? '此命令需要确认后执行',
+        failureKind: 'permission_denied' as ToolFailureKind,
+        metadata: {
+          errorCategory: 'permission',
+          errorCode: decision.code,
+          securityIntercepted: true,
+          approvalScope: input.approval.scope,
+          approvalSnapshot: input.approval.snapshot,
+        },
+      }
+    : {
+        metadata: {
+          errorCategory: 'security',
+          errorCode: decision.code,
+          securityIntercepted: true,
+        },
+      };
+  return createFailureResult(`${prefix}${decision.message ?? ''}`, {
+    executionTime: Date.now() - input.startTime,
+    errorLevel: isAsk ? ErrorLevel.RECOVERABLE : ErrorLevel.FATAL,
+    ...approvalFields,
+  });
+}
+
 /**
  * 方案三（P0-3）：判断是否为「项目沙箱内的安全删除」。
  * 放行条件（3b 安全约束）：
@@ -965,25 +1062,23 @@ export class PowerShellTool extends BaseTool {
         analyzer: this.securityAnalyzer,
         trustLevel,
       });
-      if (!decision.allowed) {
-        const isAsk = decision.behavior === 'ask';
-        const prefix = isAsk
-          ? '需要用户确认: '
-          : decision.code === 'SANDBOX_SECURITY_DENIED'
-            ? '沙箱安全检查: '
-            : decision.code === 'COMMAND_NOT_ALLOWED'
-              ? '安全检查: '
-              : '安全检查失败: ';
-        return createFailureResult(`${prefix}${decision.message ?? ''}`, {
-          executionTime: Date.now() - startTime,
-          errorLevel: isAsk ? ErrorLevel.RECOVERABLE : ErrorLevel.FATAL,
-          metadata: {
-            errorCategory: isAsk ? 'permission' : 'security',
-            errorCode: decision.code,
-            securityIntercepted: true,
-          },
-        });
-      }
+      // 2026-11-07 真机：ask 此前只回失败文本（无 requireApproval）⇒ 永远没有审批卡可批；
+      // 现与 BashTool 同口径：已批准/规则命中则继续执行，否则带 requireApproval 交给审批流。
+      const approval = buildPowerShellApprovalContext(
+        command,
+        workingDirectory
+      );
+      const preApproved = await isPowerShellPreApproved(
+        command,
+        context.sessionId,
+        approval.scope
+      );
+      const securityBlock = buildPowerShellSecurityBlock(decision, {
+        preApproved,
+        approval,
+        startTime,
+      });
+      if (securityBlock) return securityBlock;
 
       // F5 修复：操作审计日志
       completeSecuritySystem.auditAction({

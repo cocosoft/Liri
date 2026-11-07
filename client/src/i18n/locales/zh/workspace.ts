@@ -155,6 +155,9 @@ const zhWorkspace = {
     postureFailClosed: "沙箱初始化失败或能力缺失时：拒绝执行（fail-closed）",
     postureBashIn: "bash 工具：在沙箱内执行",
     postureBashOut: "bash 工具：不在沙箱内执行（landlock.bashEnabled=false）",
+    // P2（2026-11-07）：Windows 上不是"开关没开"，而是平台无法隔离（需改工作区 ACL）
+    postureBashUnsupported:
+      "bash 工具：不在沙箱内执行 —— Windows 无法做 OS 级隔离（Low IL 需给工作区改 ACL，按既定决策不改用户仓库），打开开关也只会拒绝执行",
     postureGuardOn: "解释器命令二次确认（BASH_INTERPRETER_GUARD）：已开启",
     postureGuardOff: "解释器命令二次确认（BASH_INTERPRETER_GUARD）：未开启",
     postureHealthy: "无已知 fail-open 风险",

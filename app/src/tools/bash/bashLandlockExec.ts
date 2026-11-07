@@ -89,6 +89,8 @@ import {
   resolveTempDir,
 } from '@openliri/infra/environment';
 import { reportBashLandlockGapOnce } from './bashLandlockGap';
+// P2（2026-11-07）：Windows 上 bash 无法做 OS 级隔离（需改工作区 ACL，见 spec §3.3）
+import { reportBashSandboxDegradedOnce } from './bashSandboxDegraded';
 
 const logger = getLogger('tools:bash:landlock-exec');
 
@@ -532,6 +534,10 @@ export async function execBashCommand(
   if (!config.enabled || (!config.bashEnabled && !evalForced)) {
     // G1-C（选项 C）的顾问性提示：能力可用却未接入时 WARN 一次
     await reportBashLandlockGapOnce();
+    // P2（2026-11-07）：Windows 上"不开沙箱"是平台约束而非开关问题 —— 一次性说清
+    reportBashSandboxDegradedOnce({
+      platform: deps.platform ?? process.platform,
+    });
     const out = await runPlain(input.command, plainOptions);
     logger.info('bash: exec_ok', {
       commandPreview,
@@ -570,6 +576,7 @@ export async function execBashCommand(
   // P0-4 ②：评测期强制但能力不可用 ⇒ **回退 plain**（非 refuse）
   if (gate.mode === 'plain') {
     await reportBashLandlockGapOnce();
+    reportBashSandboxDegradedOnce({ platform });
     const out = await runPlain(input.command, plainOptions);
     logger.info('bash: exec_ok', {
       commandPreview,

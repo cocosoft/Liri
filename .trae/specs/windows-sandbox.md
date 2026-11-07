@@ -72,6 +72,15 @@ Low IL 进程**默认不能写** Medium 目录。要让 bash 能写工作区，�
 ⇒ v1 只覆盖 `code_run`：其运行目录是**我们自己的临时目录**，降标签/授权不触碰用户资产。
 `bash` 在 Windows 上继续 `refuse/platform-unsupported`（**与今天行为一致**，不是回退）。
 
+> **2026-11-07 复核（P2 追加决策）**：用户曾要求「bash 接入 win-sandbox-run，默认启用」；
+> 复核本文件 §3.3 后确认**阻塞仍在**（helper 无路径授权，Low IL 需给仓库改 ACL），
+> 用户拍板 **「保持不沙箱 + 补齐可观测」**。落地内容：
+> - `describeSandboxPosture` 增 `bashSandboxReason: 'enforced' | 'switch-off' | 'platform-unsupported'`，
+>   Windows 报 `bash-sandbox-unsupported`（不再含糊地说"开关没开"）；
+> - bash 首次 plain 执行落一次 `bash: sandbox_degraded`（含 `why` / `ref`，指向本节）；
+> - `code_run` 的沙箱拒绝补归因码 `sandbox_denied: init | write`；
+> - 设置页「当前安全姿态」如实显示上句，避免误以为"打开开关就受保护"（在 Windows 打开只会全部拒绝）。
+
 ### 3.4 接线（与 macOS 完全同形）
 
 | 层 | 文件 | 改动 |

@@ -19,6 +19,8 @@ describe('describeSandboxPosture（#7 沙箱姿态可读化）', () => {
     const posture = describeSandboxPosture({
       mode: 'none',
       permissionLevel: 'standard',
+      // P2（2026-11-07）：姿态现在区分平台；本用例固定 linux 以断言"开关未开"分支
+      platform: 'linux',
       landlock: {
         enabled: true,
         bashEnabled: false,
@@ -84,6 +86,9 @@ describe('describeSandboxPosture（#7 沙箱姿态可读化）', () => {
     expect(['none', 'landlock', 'container', 'ssh', 'pty']).toContain(
       posture.mode
     );
+    expect(['enforced', 'switch-off', 'platform-unsupported']).toContain(
+      posture.bashSandboxReason
+    );
     expect(typeof posture.landlock.enabled).toBe('boolean');
     expect(typeof posture.landlock.bashEnabled).toBe('boolean');
     expect(typeof posture.landlock.failClosed).toBe('boolean');
@@ -92,5 +97,39 @@ describe('describeSandboxPosture（#7 沙箱姿态可读化）', () => {
     expect(posture.openRiskCodes).toHaveLength(posture.openRisks.length);
     // 可 JSON 序列化（启动日志会原样落盘）
     expect(() => JSON.stringify(posture)).not.toThrow();
+  });
+
+  test('Windows + bashEnabled=false ⇒ 标注"平台不支持"（不是开关没开）', () => {
+    const posture = describeSandboxPosture({
+      mode: 'none',
+      platform: 'win32',
+      landlock: {
+        enabled: true,
+        bashEnabled: false,
+        failClosed: true,
+        available: false,
+      },
+    });
+
+    expect(posture.bashSandboxReason).toBe('platform-unsupported');
+    expect(posture.openRiskCodes).toContain('bash-sandbox-unsupported');
+    // 不能同时报"开关没开"（会把平台约束说成用户可修复项）
+    expect(posture.openRiskCodes).not.toContain('landlock-bash-disabled');
+    expect(posture.openRisks.join('\n')).toContain('ACL');
+  });
+
+  test('Windows 但 bashEnabled=true ⇒ enforced（由用户显式选择，且实际会被 refuse）', () => {
+    const posture = describeSandboxPosture({
+      mode: 'none',
+      platform: 'win32',
+      landlock: {
+        enabled: true,
+        bashEnabled: true,
+        failClosed: true,
+        available: true,
+      },
+    });
+    expect(posture.bashSandboxReason).toBe('enforced');
+    expect(posture.openRiskCodes).not.toContain('bash-sandbox-unsupported');
   });
 });

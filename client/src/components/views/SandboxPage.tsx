@@ -112,7 +112,9 @@ function SandboxPage() {
           : t("sandbox.postureFailOpen"),
         posture.landlock.bashEnabled
           ? t("sandbox.postureBashIn")
-          : t("sandbox.postureBashOut"),
+          : posture.bashSandboxReason === "platform-unsupported"
+            ? t("sandbox.postureBashUnsupported")
+            : t("sandbox.postureBashOut"),
         posture.bashInterpreterGuard
           ? t("sandbox.postureGuardOn")
           : t("sandbox.postureGuardOff"),

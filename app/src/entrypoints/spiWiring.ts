@@ -557,6 +557,8 @@ export async function registerAllSpis(
         posture: {
           mode: sandboxPosture.mode,
           permissionLevel: sandboxPosture.permissionLevel,
+          // P2（2026-11-07）：bash 隔离状态原因（enforced / switch-off / platform-unsupported）
+          bashSandboxReason: sandboxPosture.bashSandboxReason,
           landlock: sandboxPosture.landlock,
           openRiskCodes: sandboxPosture.openRiskCodes,
           // A5-①：解释器命令二次确认开关（默认关）—— 让用户看到"现在到底受不受这道门保护"
@@ -578,6 +580,8 @@ export async function registerAllSpis(
         mode: posture.mode,
         permissionLevel: posture.permissionLevel,
         landlock: posture.landlock,
+        // P2（2026-11-07）：Windows 上 bash 无法隔离，启动日志即如实标注
+        bashSandboxReason: posture.bashSandboxReason,
       });
       for (const risk of posture.openRisks) {
         logger.warn('沙箱 fail-open（2026-08-25 兼容优先的既定决策，非缺陷）', {

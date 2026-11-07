@@ -31,6 +31,12 @@ export interface SandboxStatus {
   posture?: {
     mode: string;
     permissionLevel: string;
+    /**
+     * P2（2026-11-07）：bash 隔离状态原因。
+     * `platform-unsupported` = Windows 上无法做 OS 级隔离（需改工作区 ACL），
+     * 与"用户没开开关"（`switch-off`）区分展示。
+     */
+    bashSandboxReason?: "enforced" | "switch-off" | "platform-unsupported";
     landlock: {
       enabled: boolean;
       bashEnabled: boolean;

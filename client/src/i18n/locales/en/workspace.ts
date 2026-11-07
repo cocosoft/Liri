@@ -165,6 +165,9 @@ const enWorkspace = {
     postureBashIn: "bash tool: runs inside the sandbox",
     postureBashOut:
       "bash tool: runs outside the sandbox (landlock.bashEnabled=false)",
+    // P2 (2026-11-07): on Windows this is a platform limit, not a missing switch
+    postureBashUnsupported:
+      "bash tool: runs outside the sandbox — Windows cannot provide OS-level isolation (Low IL needs repo ACL changes, which we do not make by design); enabling the switch only refuses to run",
     postureGuardOn: "Interpreter confirmation (BASH_INTERPRETER_GUARD): on",
     postureGuardOff: "Interpreter confirmation (BASH_INTERPRETER_GUARD): off",
     postureHealthy: "No known fail-open risk",

@@ -100,11 +100,33 @@ async function applyLowLabelWithIcacls(dir: string): Promise<LowLabelResult> {
   }
 }
 
+/**
+ * P2（2026-11-07）：沙箱拒绝的**可归因**分类。
+ *
+ * 目标（方案 §2.4 P2-b）：拒绝要能说清是"起不来"还是"写不出去"，而不是一律
+ * `security-rejected` 让用户猜。编码进错误文案（`sandbox_denied: <kind>`）并同时返回给调用方。
+ *
+ * @returns `'init'` 初始化/授权失败；`'write'` 目标程序被 MIC 拒绝写；`null` 与沙箱无关
+ */
+export function classifyWinSandboxDenial(
+  text: string | undefined,
+  kind: 'init' | 'runtime'
+): 'init' | 'write' | null {
+  if (kind === 'init') return 'init';
+  if (!text) return null;
+  return /access is denied|permission denied|拒绝访问|eperm|eacces|unauthorizedaccess/i.test(
+    text
+  )
+    ? 'write'
+    : null;
+}
+
 /** 构造"拒绝执行"的结果（与 landlock 的 `security-rejected` 同语义） */
 function refusalResult(message: string): CodeRunResult {
   return {
     status: 'security-rejected',
-    error: message,
+    // P2：拒绝必须可归因（init = helper/打标失败；write = 运行期被 MIC 拒绝写）
+    error: `${message}［sandbox_denied: init］`,
     logs: [],
     toolCalls: [],
     durationMs: 0,
@@ -224,6 +246,23 @@ export async function runCodeRunnerWithWindowsSandbox(
       { detail: result.error }
     );
     return null;
+  }
+
+  // P2（2026-11-07）：目标程序被 MIC 拒绝写 ⇒ 可归因（写入越界，而不是脚本逻辑错）
+  const denial = classifyWinSandboxDenial(
+    [result.error, ...result.logs].filter(Boolean).join('\n'),
+    'runtime'
+  );
+  if (denial === 'write') {
+    logger.warn('Windows 沙箱拒绝写入（MIC / Access Denied）', {
+      sandboxDenied: 'write',
+    });
+    // 错误面优先用 `error`；只有日志时取最后几行，避免归因字段丢失
+    const detail = result.error ?? result.logs.slice(-3).join('\n');
+    return {
+      ...result,
+      error: `${detail}［sandbox_denied: write］`,
+    };
   }
 
   return result;

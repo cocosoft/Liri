@@ -42,6 +42,28 @@ import type {
 const logger = getLogger('pdca:handlers');
 
 /**
+ * 步骤决策的合法取值（与 `tasks/PlanReview` 的 `ReviewDecision` 同源）。
+ *
+ * 2026-11-07（真机 `pdca_mw6f842k`）：`POST /v1/pdca/:id/step/:stepId/decide` 原先直接
+ * 把请求体透传给编排器 —— 非法值（实测 `bogus`）被写进 `plan.steps[].decision` 且回
+ * `200 {ok:true}`。HTTP 是**未受信边界**，这里必须显式校验。
+ */
+const PDCA_STEP_DECISIONS = [
+  'approved',
+  'retry',
+  'skip',
+  'escalate',
+  'suspend',
+] as const;
+
+/** 决策取值校验（HTTP 未受信边界的唯一判据） */
+function isPdcaStepDecision(
+  value: string
+): value is (typeof PDCA_STEP_DECISIONS)[number] {
+  return (PDCA_STEP_DECISIONS as readonly string[]).includes(value);
+}
+
+/**
  * OBS（M3b-DB）：GET /v1/pdca/decisions?limit=N
  * 查询 task_audit_log 中 event_type='pdca_decision' 的决策轨迹（分流归因）。
  */
@@ -566,8 +588,17 @@ export async function handlePdcaReviewStep(
       });
     } /* 可选模块, 加载失败时降级 */
     if (!orchestrator) {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Not available' }));
+      // 2026-11-07（真机）：原实现回 `200 {error:'Not available'}` —— 与 `confirm` 同源的
+      // 假成功（调用方无法区分"已审阅"与"什么都没做"）。任务未装载/不存在 ⇒ 404。
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          ok: false,
+          error: 'not_found',
+          taskId,
+          message: `PDCA 任务不存在或未在运行：${taskId}`,
+        })
+      );
       return;
     }
     const review = await orchestrator.reviewStep(stepId);
@@ -589,8 +620,27 @@ export async function handlePdcaDecideStep(
   stepId: string
 ): Promise<void> {
   try {
-    const body = await readRequestBody(req);
-    const { decision } = JSON.parse(body);
+    let decision = '';
+    try {
+      const body = await readRequestBody(req);
+      const parsed = JSON.parse(body || '{}') as { decision?: unknown };
+      decision = typeof parsed.decision === 'string' ? parsed.decision : '';
+    } catch {
+      // 请求体不是合法 JSON ⇒ 按"缺/非法 decision"处理（400，而非 500）
+      decision = '';
+    }
+    if (!isPdcaStepDecision(decision)) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          ok: false,
+          error: 'invalid_decision',
+          decision,
+          allowed: PDCA_STEP_DECISIONS,
+        })
+      );
+      return;
+    }
     let orchestrator: PdcaOrchestratorPort | null = null;
     try {
       orchestrator = await (
@@ -603,8 +653,16 @@ export async function handlePdcaDecideStep(
       });
     } /* 可选模块, 加载失败时降级 */
     if (!orchestrator) {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Not available' }));
+      // 2026-11-07（真机）：与 review / confirm 同口径 —— 不再回 `200 {error}` 假成功。
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          ok: false,
+          error: 'not_found',
+          taskId,
+          message: `PDCA 任务不存在或未在运行：${taskId}`,
+        })
+      );
       return;
     }
     await orchestrator.decideStep(stepId, decision);

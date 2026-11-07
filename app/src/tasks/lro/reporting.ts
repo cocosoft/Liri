@@ -100,6 +100,10 @@ export function projectPdcaStatus(view: PdcaReportView): PdcaStatus {
     taskId: view.taskId,
     planId: view.planId || '',
     phase: view.phase,
+    // 2026-11-07（真机）：会话/描述随状态投影 —— 否则详情接口在「内存（重启前）」与
+    // 「检查点（重启后）」两条路径字段不一致；两者都取自计划（createPlan 时已落库）。
+    ...(plan?.sessionId ? { sessionId: plan.sessionId } : {}),
+    ...(plan?.description ? { description: plan.description } : {}),
     plan,
     progress,
     currentStep,

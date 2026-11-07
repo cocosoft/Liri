@@ -18,6 +18,12 @@ export interface PdcaStatus {
   taskId: string;
   planId: string;
   phase: PdcaPhase;
+  /**
+   * 2026-11-07（真机）：会话与描述随状态一并返回 —— 否则同一任务的详情接口在
+   * 「内存（重启前）」与「检查点（重启后）」两条路径字段不一致（列表接口已合并）。
+   */
+  sessionId?: string;
+  description?: string;
   plan?: Plan;
   progress?: PlanProgress;
   currentStep?: PlanStep;

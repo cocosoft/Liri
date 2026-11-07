@@ -8,6 +8,7 @@
  */
 import { describe, expect, test, beforeEach } from 'bun:test';
 import {
+  clearAllDiscoveredTools,
   clearDiscoveredTools,
   expandToolDefinitionsWithDiscovered,
   getDiscoveredTools,
@@ -71,6 +72,14 @@ describe('discoveredTools 登记', () => {
     clearDiscoveredTools('s1');
     expect(getDiscoveredTools('s1')).toEqual([]);
     expect(getDiscoveredTools('s2')).toEqual(['glob']);
+  });
+
+  test('clearAllDiscoveredTools 清空全部（批量清空会话时调用）', () => {
+    recordDiscoveredTools('s1', ['powershell']);
+    recordDiscoveredTools('s2', ['glob']);
+    clearAllDiscoveredTools();
+    expect(getDiscoveredTools('s1')).toEqual([]);
+    expect(getDiscoveredTools('s2')).toEqual([]);
   });
 });
 

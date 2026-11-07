@@ -150,6 +150,8 @@ import {
 } from '@modules/ai';
 import type { IToolExecutor } from '@modules/ai';
 import type { ToolRegistry } from '@modules/tools';
+// 2026-11-07（方案 §13）：会话删除/批量清空时同步丢弃「tool_search 已发现工具」登记
+import { clearAllDiscoveredTools, clearDiscoveredTools } from '@modules/tools';
 // issue #8 · Cut A（2026-10-29）：检查点边界判定 + 预算挂起/放行装配外移
 import { installBudgetSuspendResume } from './manager/checkpointBudget';
 // D 批外移（2026-11-05）：工具执行守卫（checkpoint 边界 + 逐工具记账）
@@ -1735,6 +1737,9 @@ export class ChatManagerImpl implements ChatManager {
     // I1：注销进程级注册表登记（本会话已不存在）——置于拆除**第一步**，与拆除结果解耦
     // （拆除实现即使抛错，注册表也已回收，不留僵尸 TAORLoop）。
     this._unregisterTaorLoop(sessionId);
+    // 2026-11-07（方案 §13）：会话删除 ⇒ 丢弃该会话的「tool_search 已发现工具」登记
+    //（内存 LRU，会话已不存在时不该还留着）
+    clearDiscoveredTools(sessionId);
     await this._sessionTeardown.deleteSession(sessionId);
   }
 
@@ -1742,6 +1747,8 @@ export class ChatManagerImpl implements ChatManager {
     // I1：批量清空 ⇒ 注销本实例登记过的全部会话（按 moduleType 过滤的语义由拆除实现承担；
     // 此处只回收进程级注册表，避免其无界增长）。
     this._unregisterAllTaorLoops();
+    // 2026-11-07（方案 §13）：批量清空 ⇒ 已发现工具登记一并清空（不留到已删会话）
+    clearAllDiscoveredTools();
     await this._sessionTeardown.clearAllSessions(moduleType);
   }
 

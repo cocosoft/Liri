@@ -46,9 +46,14 @@ export function getDiscoveredTools(sessionId: string): readonly string[] {
   return discoveredBySession.get(sessionId) ?? [];
 }
 
-/** 清空某会话的登记（会话结束 / 显式重置时调用） */
+/** 清空某会话的登记（会话删除 / 显式重置时调用） */
 export function clearDiscoveredTools(sessionId: string): void {
   discoveredBySession.delete(sessionId);
+}
+
+/** 清空全部会话的登记（批量清空会话时调用，避免残留到已不存在的会话） */
+export function clearAllDiscoveredTools(): void {
+  discoveredBySession.clear();
 }
 
 /** 测试用：清空全部（避免用例间串味） */

@@ -608,20 +608,36 @@ async function resumePdcaIfApplicable(
   if (!taskId || !sessionId) return;
 
   try {
-    const getTaskOpsPort = getRuntimeCoreApi()?.getTaskOpsPort;
-    if (!getTaskOpsPort) return;
-    const orchestrator = await getTaskOpsPort().then((port) =>
-      port.getOrCreatePdcaOrchestrator(taskId)
-    );
+    // 2026-11-07 真机：此前把方法**取出后再调用**（`const getTaskOpsPort = coreApi?.getTaskOpsPort;
+    // getTaskOpsPort()`）⇒ `this` 丢失 ⇒ `TypeError: undefined is not an object
+    // (evaluating 'this.domainSnapshotOps')` ⇒ 批准 PDCA 步骤后**续跑从未发生**（任务停在挂起）。
+    // 现保留接收者调用（`coreApi.getTaskOpsPort()`）。
+    const coreApi = getRuntimeCoreApi();
+    if (!coreApi) return;
+    const port = await coreApi.getTaskOpsPort?.();
+    if (!port) return;
+    const orchestrator = await port.getOrCreatePdcaOrchestrator(taskId);
     if (!orchestrator) return;
     // 批准类回复（本次 / 本会话 / 始终允许）都应续跑；拒绝只记录
     if (isApprovalReply(reply, selectedOption)) {
-      const result = await orchestrator.resumeAfterApproval(sessionId);
-      logger.info('PDCA resumed after Inbox approval', {
-        taskId,
-        source: item.source,
-        phase: result.phase,
-      });
+      // 2026-11-07 真机：此前 **await** 整个 PDCA 续跑（步骤重执行可长达数分钟）
+      // ⇒ `POST /v1/inbox/:id/reply` 同步阻塞（实测 107s，HTTP 客户端 60s 超时）。
+      // 改为 fire-and-forget：放行缓存已写入，续跑进度经 SSE 推送；失败只留日志。
+      void orchestrator
+        .resumeAfterApproval(sessionId)
+        .then((result) => {
+          logger.info('PDCA resumed after Inbox approval', {
+            taskId,
+            source: item.source,
+            phase: result.phase,
+          });
+        })
+        .catch((resumeErr) => {
+          logger.warn('PDCA resume after Inbox approval failed', {
+            taskId,
+            error: String(resumeErr),
+          });
+        });
     } else {
       logger.info('PDCA plan rejected via Inbox', { taskId });
     }

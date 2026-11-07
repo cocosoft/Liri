@@ -111,6 +111,7 @@ import { resumeFromCheckpoint } from './lro/resumeFromCheckpoint.js';
 // PR-5（2026-10-23）：步骤级审批挂起的落点与恢复（外移以守住 R04-001 行数上限）
 import {
   resumeSuspendedSteps,
+  shouldStopForPendingApproval as stopOnPending,
   suspendPlanForApproval,
 } from './lro/stepSuspension.js';
 // PR-5（2026-10-23）：目标级收敛判定与「未收敛」收尾（同上，外移守行数上限）
@@ -717,6 +718,7 @@ export class LongRunningTaskOrchestrator {
           await this.executeSingleStep(step, plan);
         }
       }
+      if (stopOnPending('batch', this.taskId, this.planId, plan)) break;
     }
 
     // 中止：**不得**推进到 review（否则 phase=review 会覆盖 abort 终态，
@@ -1267,6 +1269,8 @@ export class LongRunningTaskOrchestrator {
           await this.autoDecideStep(step.id);
         }
       }
+      if (stopOnPending('iteration', this.taskId, this.planId, updatedPlan))
+        break;
 
       // 重新检查状态：所有步骤是否都为终态
       const latestPlan = this.requirePlan();

@@ -31,6 +31,57 @@ export function listSuspendedSteps(plan: Plan): PlanStep[] {
 }
 
 /**
+ * 在等人工审批的步骤（2026-11-07 真机）。
+ *
+ * 批次调度用：`executeAllSteps` 在每批结束后调用 —— 有任一步的工具结果
+ * `pendingApproval > 0` 时**不得**再启动后续批次，否则依赖步骤会基于"尚未执行"的
+ * 产物空转（真机：step_1 的 bash 被 ask 挂起后，step_2/3 仍并行跑了数分钟）。
+ */
+export function listStepsAwaitingApproval(plan: Plan): PlanStep[] {
+  return plan.steps.filter((s) => (s.toolOutcomes?.pendingApproval ?? 0) > 0);
+}
+
+/** 是否有步骤在等人工审批（挂起决策 或 工具结果标记） */
+export function hasPendingApproval(plan: Plan): boolean {
+  return (
+    listSuspendedSteps(plan).length > 0 ||
+    listStepsAwaitingApproval(plan).length > 0
+  );
+}
+
+/**
+ * 2026-11-07 真机：批次/轮次调度的「待审批」短路判定（有则落一条日志）。
+ *
+ * - `batch`：本批结束后**不得**再启动后续批次 —— 否则依赖步骤会基于"尚未执行"的产物
+ *   空转（真机 step_1 被 ask 挂起后 step_2/3 仍并行跑了数分钟）；
+ * - `iteration`：本轮结束后**直接退出** PDCA 循环，交给 `suspendPlanForApproval` 落
+ *   `stage_awaiting_approval` —— 否则下一轮会继续执行依赖步骤，且目标级评估会把
+ *   "等待审批"判成未收敛（plan.status=failed + P2 告警）。
+ */
+export function shouldStopForPendingApproval(
+  scope: 'batch' | 'iteration',
+  taskId: string,
+  planId: string | null,
+  plan: Plan
+): boolean {
+  if (!hasPendingApproval(plan)) return false;
+  logger.warn(
+    scope === 'batch'
+      ? '[orchestrator] 检测到待审批步骤 ⇒ 停止后续批次'
+      : '[orchestrator] 存在待审批步骤 ⇒ 结束本轮循环，等待人工审批',
+    {
+      taskId,
+      planId,
+      stepIds: [
+        ...listSuspendedSteps(plan),
+        ...listStepsAwaitingApproval(plan),
+      ].map((s) => s.id),
+    }
+  );
+  return true;
+}
+
+/**
  * 把挂起步骤置回 `pending` 并清 `decision`（**保留** result/toolOutcomes 作为审计证据）。
  *
  * @returns 被恢复的步骤 id 列表（空 = 没有可恢复的挂起步骤）

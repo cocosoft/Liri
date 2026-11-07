@@ -972,7 +972,16 @@ async function submitStepApprovalCards(args: {
       findPendingApprovalId,
     } = await import('@openliri/infra/permission');
 
+    /** 本次已建卡的工具名（同一步骤同一工具只建一张，见下方注释） */
+    const alreadyCarded = new Set<string>();
+
     for (const outcome of pending) {
+      // 2026-11-07 真机：步骤被 ask 拦下后模型会换着命令重试，旧实现给**每个不同命令**
+      // 各建一张卡（真机一步 11 张）⇒ 同一工具本次只建第一张；步骤恢复后若仍用别的
+      // 命令，会在下一轮重新建卡（不会永久丢失审批通道）。
+      const toolName = outcome.toolName ?? '';
+      if (alreadyCarded.has(toolName)) continue;
+      alreadyCarded.add(toolName);
       const call = args.executed.find(
         (r) =>
           r.toolName === outcome.toolName &&

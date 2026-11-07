@@ -339,14 +339,24 @@ export function blockedReplayResult(
   toolCallId?: string;
   toolName: string;
   error: string;
+  /** 2026-11-08：结果级标记 —— "被安全门拒绝执行"（不是"工具执行失败"） */
+  result: {
+    success: false;
+    error: string;
+    metadata: { securityIntercepted: true };
+  };
   failureKind: ToolFailureKind;
 } {
+  const error =
+    `[BLOCKED_REPLAY] 该命令此前已被判定为不可执行（原因：${entry.reason}，工作目录：${entry.cwd}），` +
+    '本次续跑**不再重放**。请改用其它命令/路径，或先解除该限制后再试；原样重复不会改变结论。';
   return {
     toolCallId: call.id,
     toolName: call.name,
-    error:
-      `[BLOCKED_REPLAY] 该命令此前已被判定为不可执行（原因：${entry.reason}，工作目录：${entry.cwd}），` +
-      '本次续跑**不再重放**。请改用其它命令/路径，或先解除该限制后再试；原样重复不会改变结论。',
+    error,
+    // 归类为**安全拦截**（未执行）：审查门据此不再把它算成"工具调用失败"的阻塞项
+    //（真机 `pdca_mw6u5jhp`：批准后续跑仍撞一次台账结论，审查把它当 major ⇒ 反复重试 ⇒ escalate）
+    result: { success: false, error, metadata: { securityIntercepted: true } },
     failureKind: 'safety_blocked',
   };
 }

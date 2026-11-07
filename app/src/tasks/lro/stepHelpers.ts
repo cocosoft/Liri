@@ -169,8 +169,55 @@ export function summarizeToolOutcomes(
     outcomes,
     total: outcomes.length,
     successCount: outcomes.filter((o) => o.success).length,
-    failedCount: outcomes.filter((o) => !o.success && !o.pendingApproval)
-      .length,
+    // 2026-11-08：安全拦截 = **未执行**，与待审批同口径不计入失败（"没跑"≠"跑挂了"）
+    failedCount: outcomes.filter(
+      (o) => !o.success && !o.pendingApproval && !o.securityIntercepted
+    ).length,
+    securityIntercepted: outcomes.filter((o) => o.securityIntercepted).length,
+    pendingApproval: outcomes.filter((o) => o.pendingApproval).length,
+  };
+}
+
+/**
+ * 2026-11-08（真机 `pdca_mw6sfu1y` step_6）：**跨尝试合并**同一步骤的工具结局。
+ *
+ * 为什么必须合并：`stepExecution` 每次尝试都用"本次尝试"的结局**覆盖**
+ * `PlanStep.toolOutcomes`。重试的语义是"同一目标再试一次"，前一次已成功的调用不会因为
+ * 重试而消失 —— 覆盖会让「上一次写出产物的成功证据」被「这一次空手而归」抹掉，于是
+ * 进度门看到 `successCount=0` + `artifacts=[]` ⇒ 不计该完成步 ⇒ 终态 `completed` 却报 67%。
+ *
+ * 真机：该步首次尝试以 `file_write output/.gitkeep` 达成、审查 90 分通过；重试那次两条 bash
+ * 全被 `[BLOCKED_REPLAY]` 拦下 ⇒ 覆盖后该步变成"零证据"。
+ *
+ * 合并口径：只用**上一次的成功条目**（`success`）+ 本次尝试的全部条目，计数按合并结果重算。
+ * 为什么要过滤旧条目：
+ * - 旧的「待审批」表示"未执行"，重试后以本次为准；留着会让 Reviewer 看到"同一条命令既
+ *   PENDING_APPROVAL 又 success"的自相矛盾证据（真机 `pdca_mw6ttkug` step_7 据此 escalate）；
+ * - 旧的「失败」属于上一次尝试的过程状态（常见形态：先撞 `[BLOCKED_REPLAY]`、批准后再跑就通了），
+ *   跨尝试累计会把已解决的问题重复计入审查（真机 `pdca_mw6u5jhp`：最后一次尝试干净，
+ *   但历史失败仍让审查判"工具调用失败"而 escalate）。
+ * 保留的只有"做过的事"（成功调用），这既是进度门的证据，也是审查的产物依据。
+ */
+export function mergeToolOutcomeSummaries(
+  prev: ToolOutcomeSummary | undefined,
+  next: ToolOutcomeSummary | undefined
+): ToolOutcomeSummary | undefined {
+  if (!prev) return next;
+  if (!next) return prev;
+  const outcomes = [
+    ...prev.outcomes.filter((o) => o.success),
+    ...next.outcomes,
+  ];
+  return {
+    outcomes,
+    total: outcomes.length,
+    successCount: outcomes.filter((o) => o.success).length,
+    // 2026-11-08：**安全拦截（未执行）不算"执行失败"** —— 与待审批同口径：
+    // "没跑"不是"跑挂了"。此前被拦命令（含 `[BLOCKED_REPLAY]` 短路）一并计入 failedCount，
+    // 审查门据此判 major 阻塞项 ⇒ 已解决的问题反复重试 ⇒ escalate（真机 `pdca_mw6u5jhp`）。
+    failedCount: outcomes.filter(
+      (o) => !o.success && !o.pendingApproval && !o.securityIntercepted
+    ).length,
     securityIntercepted: outcomes.filter((o) => o.securityIntercepted).length,
     pendingApproval: outcomes.filter((o) => o.pendingApproval).length,
   };

@@ -270,8 +270,11 @@ export class DefaultReviewGate implements ReviewGate {
 
     // PR-5：`success=false` 的工具调用**直接**构成阻塞 issue（不依赖 LLM 是否看出来）；
     // 待审批（未执行）不加阻塞项 —— 它由 `decide` 转 `suspend`。
+    // 2026-11-08：**安全拦截（未执行）同样不加阻塞项** —— 被拦命令（含 `[BLOCKED_REPLAY]`
+    // 短路）不是"工具执行失败"；把它当 major 会让已解决的问题反复重试（真机 `pdca_mw6u5jhp`）。
     const failedOutcomes = (step.toolOutcomes?.outcomes ?? []).filter(
-      (o) => !o.success && !o.pendingApproval && !!o.error
+      (o) =>
+        !o.success && !o.pendingApproval && !o.securityIntercepted && !!o.error
     );
     if (failedOutcomes.length > 0) {
       review.pass = false;

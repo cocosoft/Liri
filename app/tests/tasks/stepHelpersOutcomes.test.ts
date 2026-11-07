@@ -19,6 +19,7 @@ import {
   buildCriticalOutcomeEvidence,
   buildTaorStepResult,
   formatToolOutcomeSummary,
+  mergeToolOutcomeSummaries,
   summarizeToolOutcomes,
 } from '../../src/tasks/lro/stepHelpers.js';
 
@@ -106,6 +107,77 @@ describe('PR-5：关键证据不参与截断', () => {
       { toolName: 'file_read', result: { success: true } },
     ]);
     expect(buildCriticalOutcomeEvidence(summary)).toEqual([]);
+  });
+});
+
+describe('2026-11-08：跨尝试合并工具结局（重试不抹掉上一次的成功证据）', () => {
+  it('成功尝试 + 之后的空手尝试 ⇒ 成功数保留（真机 pdca_mw6sfu1y step_6）', () => {
+    const first = summarizeToolOutcomes([
+      { toolCallId: 'w1', toolName: 'file_write', result: { success: true } },
+    ]);
+    const second = summarizeToolOutcomes([
+      {
+        toolCallId: 'b1',
+        toolName: 'bash',
+        error: '[BLOCKED_REPLAY] 不再重放',
+      },
+      {
+        toolCallId: 'b2',
+        toolName: 'bash',
+        error: '[BLOCKED_REPLAY] 不再重放',
+      },
+    ]);
+
+    const merged = mergeToolOutcomeSummaries(first, second)!;
+    expect(merged.successCount).toBe(1); // 上一次的成功证据不被覆盖
+    expect(merged.failedCount).toBe(2);
+    expect(merged.total).toBe(3);
+    expect(merged.outcomes.map((o) => o.toolCallId)).toEqual([
+      'w1',
+      'b1',
+      'b2',
+    ]);
+  });
+
+  it('上一次的失败/待审批条目不跨尝试累计（只留"做过的事"）', () => {
+    const first = summarizeToolOutcomes([
+      { toolCallId: 'p1', toolName: 'bash', result: { requireApproval: true } },
+      {
+        toolCallId: 'f1',
+        toolName: 'bash',
+        error: '[BLOCKED_REPLAY] 不再重放',
+      },
+      { toolCallId: 'w1', toolName: 'file_write', result: { success: true } },
+    ]);
+    const second = summarizeToolOutcomes([
+      { toolCallId: 's1', toolName: 'bash', result: { success: true } },
+    ]);
+    const merged = mergeToolOutcomeSummaries(first, second)!;
+    expect(merged.pendingApproval).toBe(0);
+    expect(merged.failedCount).toBe(0);
+    // 真机 pdca_mw6u5jhp：最后一次尝试干净，历史失败仍被审查计入 ⇒ 误判"工具调用失败"
+    expect(merged.outcomes.map((o) => o.toolCallId)).toEqual(['w1', 's1']);
+  });
+
+  it('本次尝试的失败照常计入（不清洗当前问题）', () => {
+    const first = summarizeToolOutcomes([
+      { toolCallId: 'w1', toolName: 'file_write', result: { success: true } },
+    ]);
+    const second = summarizeToolOutcomes([
+      { toolCallId: 'f2', toolName: 'bash', error: '命令执行失败' },
+    ]);
+    const merged = mergeToolOutcomeSummaries(first, second)!;
+    expect(merged.failedCount).toBe(1);
+    expect(merged.successCount).toBe(1);
+  });
+
+  it('任一侧缺失 ⇒ 原样返回另一侧（不造假汇总）', () => {
+    const only = summarizeToolOutcomes([
+      { toolName: 'file_read', result: { success: true } },
+    ]);
+    expect(mergeToolOutcomeSummaries(undefined, only)).toBe(only);
+    expect(mergeToolOutcomeSummaries(only, undefined)).toBe(only);
+    expect(mergeToolOutcomeSummaries(undefined, undefined)).toBeUndefined();
   });
 });
 

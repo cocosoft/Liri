@@ -52,6 +52,7 @@ import {
   classifyArtifactAccess,
   describeToolResultFailure,
   isSecurityIntercepted,
+  mergeToolOutcomeSummaries,
   summarizeToolOutcomes,
 } from './stepHelpers.js';
 import { findWorkspaceEscape } from './workspaceGuard.js';
@@ -197,6 +198,10 @@ export async function executeSingleStep(
       '【硬约束】',
       '- 不得向用户提问、请求确认或等待用户答复；信息不足时基于现有信息做可回退的最小决策，并在结果中写明假设。',
       '- 不得以 shell 管道（|）、逻辑与（&&）、逻辑或（||）作为判定动作；需要多步时逐次调用工具并说明结果。',
+      // 2026-11-08（真机 `pdca_mw6tie3k`）：模型用 `if exist output (echo ...) else (...)` 判断目录
+      // 是否存在 ⇒ 条件式不在安全白名单 ⇒ 弹审批（同一意图换写法又弹一张）。存在性/匹配/计数
+      // 都有专用只读工具，不需要 shell 条件式。
+      '- 判断文件/目录是否存在、内容是否匹配、数量多少时，用 file_read / glob / grep 等专用工具；不要用 shell 条件式（`if exist`、`if [ ]`、`test`）或把判断塞进一条命令 —— 这会触发人工审批并阻塞任务。',
       // 2026-10-31：真机 app.log 单窗口 211 次「工具路径越界」——模型反复传仓库根绝对路径，
       // 而此前提示词与拒绝文案都**没告诉它**工作区在哪 ⇒ 只能盲试。工作区根目录属确定性事实，
       // 直接前置声明（越界守卫本身不放宽）。
@@ -351,6 +356,10 @@ export async function executeSingleStep(
               });
               if (replay) {
                 results.push(blockedReplayResult(replay, tc));
+                // 2026-11-08（真机 `pdca_mw6u5jhp`）：短路结果同样要**触发改道 steering** ——
+                // 否则模型会原样重试同一条命令（真机一次步骤里撞了 2 次），既浪费轮次，
+                // 又让审查门看到"重复失败"而压分。
+                blockedBySecurity.push(tc.name);
                 logger.warn('[orchestrator] 阻塞命令短路（不重放）', {
                   taskId: deps.taskId,
                   stepId: step.id,
@@ -683,13 +692,22 @@ export async function executeSingleStep(
           }
         );
       } else {
+        // 2026-11-08（真机 `pdca_mw6sfu1y`）：重试**不得覆盖**前一次尝试的成功证据 ——
+        // 否则"上一次写出了产物、这一次空手"会让进度门看到零证据（completed 却报 67%）。
+        const mergedOutcomes = mergeToolOutcomeSummaries(
+          step.toolOutcomes,
+          toolOutcomes
+        );
+        const mergedArtifacts = [
+          ...new Set([...(step.artifacts ?? []), ...writtenPaths]),
+        ];
         taskOrchestrator.markStepCompleted(step.id, stepEvidence, {
           // E1①（2026-09-05，方案甲）：终止原因透传落 PlanStep
           terminationReason,
-          toolOutcomes,
+          toolOutcomes: mergedOutcomes,
           // LRO-12（2026-10-26）：产物台账（**空数组也传**）⇒ 进度只由产物存在性推进；
           // 本步跑了但没写出任何文件时不推进进度，避免"步骤打勾即完成"的假进度
-          artifacts: [...writtenPaths],
+          artifacts: mergedArtifacts,
         });
       }
       await deps.persistCheckpoint(); // P0(M2)

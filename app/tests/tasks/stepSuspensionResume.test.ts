@@ -11,7 +11,12 @@
  */
 
 import { describe, expect, it } from 'bun:test';
-import { resumeSuspendedSteps } from '../../src/tasks/lro/stepSuspension';
+import {
+  isSuspendLimitReached,
+  MAX_SUSPEND_ROUNDS_PER_TASK,
+  nextSuspendStreak,
+  resumeSuspendedSteps,
+} from '../../src/tasks/lro/stepSuspension';
 import type { Plan, PlanStep } from '../../src/tasks/TaskOrchestrator';
 
 function makePlan(step: Partial<PlanStep>): Plan {
@@ -88,5 +93,42 @@ describe('2026-11-08：resumeSuspendedSteps 清理待审批证据', () => {
     expect(resumeSuspendedSteps(plan)).toEqual([]);
     expect(plan.steps[0]?.toolOutcomes?.pendingApproval).toBe(1);
     expect(plan.steps[0]?.toolOutcomes?.outcomes).toHaveLength(1);
+  });
+});
+
+/**
+ * 2026-11-08（真机 `pdca_mw6z3y1o`）：挂起上限只数「连续无进展」轮次。
+ *
+ * 旧口径是绝对次数：4 条不同命令（每条各批一次、每轮都多完成一步）在第 4 条被判
+ * `[SUSPEND_LIMIT]`，任务 20% 失败。新口径：有新增完成步骤 ⇒ 连击重置。
+ */
+describe('2026-11-08：挂起上限 = 连续无进展轮次', () => {
+  it('有进展（已完成步数增加）⇒ 连击重置为 1', () => {
+    expect(
+      nextSuspendStreak({ prevStreak: 3, prevCompleted: 1, completedNow: 2 })
+    ).toBe(1);
+  });
+
+  it('无进展（已完成步数未增加）⇒ 连击 +1，达上限即停', () => {
+    let streak = 0;
+    const completed = 1;
+    const seen: number[] = [];
+    for (let i = 0; i < MAX_SUSPEND_ROUNDS_PER_TASK + 1; i++) {
+      streak = nextSuspendStreak({
+        prevStreak: streak,
+        prevCompleted: completed,
+        completedNow: 1,
+      });
+      seen.push(streak);
+    }
+    expect(seen).toEqual([1, 2, 3, 4]);
+    expect(isSuspendLimitReached(3)).toBe(false);
+    expect(isSuspendLimitReached(4)).toBe(true);
+  });
+
+  it('水位被审查重试冲掉（completed 变小）不算进展', () => {
+    expect(
+      nextSuspendStreak({ prevStreak: 2, prevCompleted: 3, completedNow: 2 })
+    ).toBe(3);
   });
 });

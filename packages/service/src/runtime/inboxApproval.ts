@@ -656,19 +656,37 @@ async function resumePdcaWithRetry(
 
 /** 在飞续跑（按 taskId 合并）：同一批里同任务的 N 张卡只应触发**一次** resume */
 const inFlightPdcaResume = new Map<string, Promise<void>>();
+/** 在飞期间新到的批准（按 taskId 合并）—— 结束后必须补跑一次，不能丢 */
+const queuedPdcaResume = new Set<string>();
 
+/**
+ * 2026-11-08（真机 `pdca_mw6zdlu2`）：在飞期间的批准要**排队**，不能"跳过"。
+ *
+ * 事故窗口：审批卡在工具 ask 的那一刻就创建（步骤还要再跑几秒才真正挂起），用户此时点
+ * 「批准」⇒ `resume` 发现上一轮续跑**仍在执行**（它正跑着这个步骤）⇒ 旧实现直接
+ * `跳过重复触发`。而那一轮结束时正好挂起，再没人触发续跑 ⇒ 任务永久停在
+ * `stage_awaiting_approval`、收件箱零 pending（用户已批，却看不到任何可点的东西）。
+ *
+ * 现口径：在飞期间记一个"待补跑"标记；在飞结束后若标记仍在 ⇒ 再续跑一次
+ * （多次批准合并为一次）。
+ */
 function schedulePdcaResume(
   orchestrator: RuntimePdcaOrchestratorPort,
   sessionId: string,
   taskId: string
 ): void {
   if (inFlightPdcaResume.has(taskId)) {
-    logger.info('PDCA 续跑已在进行中，跳过重复触发', { taskId });
+    queuedPdcaResume.add(taskId);
+    logger.info('PDCA 续跑已在进行中，已排队待其结束后补跑', { taskId });
     return;
   }
   const task = resumePdcaWithRetry(orchestrator, sessionId, taskId).finally(
     () => {
       inFlightPdcaResume.delete(taskId);
+      if (queuedPdcaResume.delete(taskId)) {
+        logger.info('PDCA 续跑排队项到期 ⇒ 补跑一次', { taskId });
+        schedulePdcaResume(orchestrator, sessionId, taskId);
+      }
     }
   );
   inFlightPdcaResume.set(taskId, task);

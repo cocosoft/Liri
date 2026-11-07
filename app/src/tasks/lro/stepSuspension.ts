@@ -126,20 +126,54 @@ export function resumeSuspendedSteps(plan: Plan): string[] {
 }
 
 /**
- * 同一任务最多「挂起等审批」的轮次（2026-11-08，真机 `pdca_mw6vophl`）。
+ * 同一任务最多**连续无进展**地「挂起等审批」的轮次（2026-11-08，真机 `pdca_mw6vophl`）。
  *
  * 为什么会无限循环：每次批准后模型换一条**等价但不同**的命令（`node -e …` → `node a.js`
  * → `del a.js` → `node b.js`…），每条都要独立人工批准 ⇒ "挂起 → 批准 → 再挂起"永不收敛，
  * 用户永远点不完（该任务实测连续 3 张卡仍在挂起）。
+ *
+ * 2026-11-08（真机 `pdca_mw6z3y1o`）：**只数"没有新增完成步骤"的连续轮次** —— 绝对次数会把
+ * 正常任务误杀：4 条不同命令本就该各批一次，旧实现批准 3 次后（每轮都多完成一步）第 4 条
+ * 直接判 `[SUSPEND_LIMIT]`，任务在 20% 失败。有进展 ⇒ 计数重置为 1。
+ *
  * 超过上限 ⇒ 不再挂起：把挂起步如实标 failed 并交给终态裁决（escalate / 待 replan），
  * 让会话里出现 ⚠️ 结论，而不是再弹一张卡。
  */
 export const MAX_SUSPEND_ROUNDS_PER_TASK = 3;
 
-/** 读取本任务已挂起轮次（检查点持久化，跨重启累计） */
-async function readSuspendRounds(taskId: string): Promise<number> {
+/**
+ * 本轮挂起的"无进展连击"值（纯函数，供单测）。
+ *
+ * @param prevStreak    上次挂起时的连击值
+ * @param prevCompleted 上次挂起时的**已完成步数最高水位**
+ * @param completedNow  本次挂起时的已完成步数
+ */
+export function nextSuspendStreak(input: {
+  prevStreak: number;
+  prevCompleted: number;
+  completedNow: number;
+}): number {
+  return input.completedNow > input.prevCompleted ? 1 : input.prevStreak + 1;
+}
+
+/** 是否已达到"连续无进展挂起"上限 */
+export function isSuspendLimitReached(streak: number): boolean {
+  return streak > MAX_SUSPEND_ROUNDS_PER_TASK;
+}
+
+/** 读取本任务的挂起连击与已完成步数最高水位（检查点持久化，跨重启累计） */
+async function readSuspendState(
+  taskId: string
+): Promise<{ streak: number; completed: number }> {
   const ck = await readPdcaCheckpoint(taskId);
-  return Number((ck as { suspendRounds?: unknown } | null)?.suspendRounds) || 0;
+  const raw = (ck ?? {}) as {
+    suspendRounds?: unknown;
+    suspendCompleted?: unknown;
+  };
+  return {
+    streak: Number(raw.suspendRounds) || 0,
+    completed: Number(raw.suspendCompleted) || 0,
+  };
 }
 
 /**
@@ -161,25 +195,39 @@ export async function suspendPlanForApproval(args: {
   const suspended = listSuspendedSteps(args.plan);
   if (suspended.length === 0) return null;
 
-  const rounds = await readSuspendRounds(args.taskId);
-  if (rounds >= MAX_SUSPEND_ROUNDS_PER_TASK) {
+  const state = await readSuspendState(args.taskId);
+  // 已完成步数（含"产物已写好、只剩一条命令等批准"的挂起步）—— 它增长即代表本轮有实际进展
+  const completedNow = args.plan.steps.filter(
+    (s) => s.status === STEP_STATUS_COMPLETED
+  ).length;
+  const streak = nextSuspendStreak({
+    prevStreak: state.streak,
+    prevCompleted: state.completed,
+    completedNow,
+  });
+  if (isSuspendLimitReached(streak)) {
     for (const step of suspended) {
       step.status = STEP_STATUS_FAILED;
       step.error =
-        `[SUSPEND_LIMIT] 本任务已挂起等待审批 ${rounds} 次仍未收敛（命令反复变化，每条都要单独批准）；` +
+        `[SUSPEND_LIMIT] 连续 ${streak} 次挂起等待审批都没有新增完成步骤（命令反复变化，每条都要单独批准）；` +
         '已停止该步骤。请调整权限/改用其它实现方式后 replan。';
     }
     await args.persistCheckpoint();
     logger.warn('[orchestrator] 挂起轮次达上限 ⇒ 停止再挂起，交终态裁决', {
       taskId: args.taskId,
       planId: args.planId,
-      rounds,
+      streak,
+      completedNow,
       max: MAX_SUSPEND_ROUNDS_PER_TASK,
       stepIds: suspended.map((s) => s.id),
     });
     return null;
   }
-  await writePdcaCheckpoint(args.taskId, { suspendRounds: rounds + 1 });
+  // 已完成步数取**最高水位**：审查重试会把已通过的步置回 pending，水位不能被冲掉
+  await writePdcaCheckpoint(args.taskId, {
+    suspendRounds: streak,
+    suspendCompleted: Math.max(state.completed, completedNow),
+  });
 
   await args.setPhase('stage_awaiting_approval');
   await args.persistCheckpoint();

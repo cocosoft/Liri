@@ -27,6 +27,8 @@ import {
 } from '../TaskOrchestrator';
 import type { PdcaStatus } from './contracts.js';
 import { emitPdcaReceipt } from './terminalReceipt.js';
+// 2026-11-08：挂起轮次持久化（跨重启累计；超上限后停止循环）
+import { readPdcaCheckpoint, writePdcaCheckpoint } from '../PdcaWorkItemBridge';
 
 const logger = getLogger('tasks:longRunning');
 
@@ -111,8 +113,27 @@ export function resumeSuspendedSteps(plan: Plan): string[] {
 }
 
 /**
+ * 同一任务最多「挂起等审批」的轮次（2026-11-08，真机 `pdca_mw6vophl`）。
+ *
+ * 为什么会无限循环：每次批准后模型换一条**等价但不同**的命令（`node -e …` → `node a.js`
+ * → `del a.js` → `node b.js`…），每条都要独立人工批准 ⇒ "挂起 → 批准 → 再挂起"永不收敛，
+ * 用户永远点不完（该任务实测连续 3 张卡仍在挂起）。
+ * 超过上限 ⇒ 不再挂起：把挂起步如实标 failed 并交给终态裁决（escalate / 待 replan），
+ * 让会话里出现 ⚠️ 结论，而不是再弹一张卡。
+ */
+export const MAX_SUSPEND_ROUNDS_PER_TASK = 3;
+
+/** 读取本任务已挂起轮次（检查点持久化，跨重启累计） */
+async function readSuspendRounds(taskId: string): Promise<number> {
+  const ck = await readPdcaCheckpoint(taskId);
+  return Number((ck as { suspendRounds?: unknown } | null)?.suspendRounds) || 0;
+}
+
+/**
  * 若计划中有挂起步骤 ⇒ 阶段转 `stage_awaiting_approval`、落检查点并返回当前状态；
  * 否则返回 `null`（调用方继续走既有终态裁决）。
+ *
+ * 超过 `MAX_SUSPEND_ROUNDS_PER_TASK` ⇒ 不再挂起，返回 `null`（挂起步如实标 failed）。
  */
 export async function suspendPlanForApproval(args: {
   taskId: string;
@@ -126,6 +147,27 @@ export async function suspendPlanForApproval(args: {
 }): Promise<PdcaStatus | null> {
   const suspended = listSuspendedSteps(args.plan);
   if (suspended.length === 0) return null;
+
+  const rounds = await readSuspendRounds(args.taskId);
+  if (rounds >= MAX_SUSPEND_ROUNDS_PER_TASK) {
+    for (const step of suspended) {
+      step.status = STEP_STATUS_FAILED;
+      step.error =
+        `[SUSPEND_LIMIT] 本任务已挂起等待审批 ${rounds} 次仍未收敛（命令反复变化，每条都要单独批准）；` +
+        '已停止该步骤。请调整权限/改用其它实现方式后 replan。';
+    }
+    await args.persistCheckpoint();
+    logger.warn('[orchestrator] 挂起轮次达上限 ⇒ 停止再挂起，交终态裁决', {
+      taskId: args.taskId,
+      planId: args.planId,
+      rounds,
+      max: MAX_SUSPEND_ROUNDS_PER_TASK,
+      stepIds: suspended.map((s) => s.id),
+    });
+    return null;
+  }
+  await writePdcaCheckpoint(args.taskId, { suspendRounds: rounds + 1 });
+
   await args.setPhase('stage_awaiting_approval');
   await args.persistCheckpoint();
   // 2026-11-08：挂起回执（HTTP 启动的任务会话此前只有这一条消息，也是审批卡的承载消息）

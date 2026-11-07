@@ -27,6 +27,7 @@ import {
   shouldReRollMaxTurnsStep,
 } from './pureDecisions.js';
 import { replanMaxRetries } from './portResolvers.js';
+import { resumeSuspendedSteps } from './stepSuspension.js';
 // LRO-13（2026-10-26）：阻塞命令台账随 checkpoint 恢复 —— 续跑时同一命令直接短路
 import {
   restoreBlockedCommands,
@@ -278,6 +279,17 @@ export async function resumeFromCheckpoint(
   if (phase === 'plan_pending') {
     await deps.setPhase('plan_pending');
     return deps.getStatus(); // 等待审批
+  }
+  if (phase === 'stage_awaiting_approval') {
+    // 2026-11-07 真机：跨重启后批准续跑 —— 挂起步骤须**置回 pending**，否则重建的 plan 里
+    // 它仍是 completed（executeAllSteps 跳过）⇒ 批了却什么都不跑。
+    const resumed = resumeSuspendedSteps(restored);
+    logger.info('[orchestrator] 跨重启恢复：挂起步骤置回 pending', {
+      taskId: deps.taskId,
+      resumed,
+    });
+    await deps.setPhase('execute');
+    return deps.runExecuteDecideLoop();
   }
   await deps.setPhase('execute');
   return deps.runExecuteDecideLoop();

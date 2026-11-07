@@ -1126,24 +1126,23 @@ export class LongRunningTaskOrchestrator {
       return this._runExecuteDecideLoop();
     }
 
+    // 跨重启：内存无 phase ⇒ 按 checkpoint 恢复。
+    // - stage_awaiting_approval：恢复后直接续跑并返回（本次批准即恢复信号）；
+    // - plan_pending：恢复为等待计划审批，随后走下方「批准 → execute」旧路径。
     if (this.phase !== 'plan_pending') {
       const ck = await readPdcaCheckpoint(this.taskId);
-      if (ck && ck.phase === 'plan_pending') {
-        logger.info('跨重启审批恢复：从 checkpoint 恢复 plan_pending', {
-          taskId: this.taskId,
-          sessionId,
-        });
-        await this.resumeFromCheckpoint(ck as Record<string, unknown>);
+      if (ck?.phase === 'stage_awaiting_approval') {
+        return this.resumeFromCheckpoint(ck as Record<string, unknown>);
       }
-    }
-
-    if (this.phase !== 'plan_pending') {
-      throw new AppError(
-        'Orchestrator is not in plan_pending phase',
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        'PDCA_NOT_PENDING'
-      );
+      if (ck?.phase !== 'plan_pending') {
+        throw new AppError(
+          'Orchestrator is not in plan_pending phase',
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          'PDCA_NOT_PENDING'
+        );
+      }
+      await this.resumeFromCheckpoint(ck as Record<string, unknown>);
     }
 
     await this.setPhase('execute');

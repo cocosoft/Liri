@@ -64,10 +64,21 @@ type OrchestratorWithPrivates = LongRunningTaskOrchestrator & {
 
 describe('L3 跨重启审批续跑（T2.1）', () => {
   afterAll(() => {
-    // 先关闭 DB 连接（WAL 句柄），否则 Windows 下 rmSync 报 EBUSY
+    // 先关闭 DB 连接（WAL 句柄），否则 Windows 下 rmSync 报 EBUSY。
+    // 注意 `close()` 走 sqlite3 异步回调 ⇒ 句柄释放有延迟，需有界重试；
+    // 仍失败则留给系统清理，不让清理动作把整个测试文件判失败。
     closePdcaCheckpointStore();
     delete process.env.LIRI_DATA_DIR;
-    rmSync(dataDir, { recursive: true, force: true });
+    try {
+      rmSync(dataDir, {
+        recursive: true,
+        force: true,
+        maxRetries: 5,
+        retryDelay: 100,
+      });
+    } catch {
+      // Windows 偶发 EBUSY：临时目录由系统清理，不影响断言结果
+    }
   });
 
   it('模拟进程 A：审批挂起时 checkpoint 落盘 plan_pending + 步骤快照', async () => {

@@ -27,6 +27,11 @@ import type {
 import { extractTodoData, autoAnswerUnattended } from '@modules/chat';
 import { withDeadline } from '@openliri/infra/utils/withDeadline';
 import { PENDING_INTERACTION_TTL_MS } from '@openliri/infra/constants';
+// 2026-11-07（方案 §13）：tool_search 命中后把工具定义补进本轮（TAOR/batch 路径）
+import {
+  expandToolDefinitionsWithDiscovered,
+  getToolRegistry,
+} from '@modules/tools';
 import {
   createPendingInteractionEntry,
   hasActivePendingInteraction,
@@ -447,6 +452,22 @@ export function createChatManagerTAORDeps(
           );
 
           const toolResult = await Promise.race([executePromise, onAbort]);
+
+          // 2026-11-07（方案 §13.3）：与流式主链同一口径 —— `tool_search` 命中后把 schema 补进
+          // `ctx.toolDefinitions`（每轮请求都现读它）⇒ 同轮下一次请求即可直接调用该工具。
+          // 无新增发现时零开销（先比已存在集合）。
+          const discoveredAdded = expandToolDefinitionsWithDiscovered(
+            ctx.toolDefinitions,
+            ctx.sessionId,
+            getToolRegistry()?.getToolSchemas() ?? []
+          );
+          if (discoveredAdded.length > 0) {
+            logger.info('taorAdapter — tool_search 命中后补回工具定义', {
+              sessionId: ctx.sessionId,
+              added: discoveredAdded,
+              total: ctx.toolDefinitions.length,
+            });
+          }
 
           // P1-5: 报告结果给 CascadeAbortManager — Bash/写错误触发级联中止
           const hasError = !!toolResult.error;

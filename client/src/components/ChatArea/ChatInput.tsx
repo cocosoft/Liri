@@ -1354,7 +1354,10 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
               )}
 
               {/* 底栏（A′ v2）：左侧策略控件 / 右侧语音与发送（对标 Trae 输入区） */}
-              <div className="flex items-center justify-between gap-1">
+              <div
+                className="flex items-center justify-between gap-1"
+                title={t("chat.controlGroupHint")}
+              >
                 <div className="flex min-w-0 items-center gap-1">
                   <ReplyModeMenu
                     value={chatMode}
@@ -1374,6 +1377,12 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
                       }));
                     }}
                     disabled={!currentSession}
+                  />
+                  {/* P3（2026-11-07）：两个旋钮语义不同，用分隔线 + 分组提示区分：
+                      左＝回答模式（模型档位/工具集），右＝权限（是否放行执行） */}
+                  <span
+                    aria-hidden="true"
+                    className="mx-0.5 h-3 w-px shrink-0 bg-gray-300 dark:bg-gray-600"
                   />
                   <PermissionModePill
                     sessionId={currentSession?.id}

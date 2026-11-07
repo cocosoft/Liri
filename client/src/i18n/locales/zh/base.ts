@@ -473,6 +473,11 @@ const zhBase = {
     modeCreative: "创意写作",
     modeResearch: "研究模式",
     replyModeTitle: "回答模式",
+    // P3（2026-11-07）：输入区两个旋钮语义不同，必须说清作用面
+    replyModeFooter:
+      "只影响模型档位与工具集（创意档会移除终端类工具），不改变权限；工具能不能执行由右侧「权限」决定。",
+    controlGroupHint:
+      "左侧「回答模式」＝模型档位/工具集；右侧「权限」＝工具要不要审批、能不能执行。两者互不替代。",
     replyModeResearchHint: "独立链路",
     replyModeResearchBadge: "独立",
     replyModeSwitchFailed: "回答模式切换失败",
@@ -966,7 +971,7 @@ const zhBase = {
     approvalAutoSwitchFailed: "切换自动执行失败",
     // P1（2026-11-04）：会话级权限模式（第三层：覆盖进程默认档）
     permission: {
-      hint: "会话级权限模式：只决定未被规则明确拒绝/允许的调用默认怎么处理，不能越过 deny 规则、路径边界与沙箱限制。",
+      hint: "会话级权限模式：只决定本层「默认怎么处理」，不能越过 deny 规则、路径边界与沙箱限制；命令类工具（bash / powershell）的安全确认是独立闸门，放宽档不会关闭它。",
       followDefault: "权限：跟随默认",
       followDefaultHint: "不设会话覆盖，按进程默认档（PERMISSION_MODE）判定",
       pillDefault: "跟随默认",
@@ -994,14 +999,14 @@ const zhBase = {
       },
       modeDesc: {
         default: "按规则与工具风险判定，未命中时用默认档",
-        acceptEdits: "自动批准文件编辑类操作，其余按默认",
-        plan: "只读规划，不执行写操作",
+        acceptEdits: "自动批准文件编辑类操作；命令类工具的安全确认不受影响",
+        plan: "每个工具调用都要你确认（不会自动放行）",
         auto: "按 AI 分类器自动判定",
         ask: "每次调用都询问",
         alwaysAsk: "强制询问（即使有规则允许）",
         dontAsk: "不弹询问，直接拒绝需要确认的调用",
         strict: "大多数操作默认拒绝",
-        bypass: "无条件放行（仍需执行侧兜底）",
+        bypass: "放行本层判定；命令类工具的安全确认仍独立生效",
       },
     },
     inboxResuming: "已批准，正在执行…",

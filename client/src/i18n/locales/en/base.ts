@@ -486,6 +486,11 @@ const enBase = {
     modeCreative: "Creative Writing",
     modeResearch: "Research Mode",
     replyModeTitle: "Response mode",
+    // P3 (2026-11-07): the two input-bar controls mean different things
+    replyModeFooter:
+      "Only changes the model tier and toolset (Creative removes terminal tools); it does not change permissions — use the Permission control for that.",
+    controlGroupHint:
+      "Left: Response mode (model tier / toolset). Right: Permission (whether tools need approval and may run). Neither replaces the other.",
     replyModeResearchHint: "Separate pipeline",
     replyModeResearchBadge: "Standalone",
     replyModeSwitchFailed: "Failed to switch response mode",
@@ -1003,7 +1008,7 @@ const enBase = {
     approvalAutoSwitchFailed: "Failed to switch auto-run mode",
     // P1 (2026-11-04): session-level permission mode (third layer: overrides the process default)
     permission: {
-      hint: "Session permission mode: only decides the default handling for calls not explicitly allowed/denied by rules. It never bypasses deny rules, path boundaries or sandbox limits.",
+      hint: "Session permission mode: only decides this layer's default handling. It never bypasses deny rules, path boundaries or sandbox limits; command tools (bash / powershell) keep their own confirmation gate, which the relaxed tiers do not turn off.",
       followDefault: "Permission: follow default",
       followDefaultHint:
         "No session override; judged by the process default (PERMISSION_MODE)",
@@ -1032,14 +1037,16 @@ const enBase = {
       },
       modeDesc: {
         default: "Decide by rules and tool risk, fall back to the default tier",
-        acceptEdits: "Auto-approve file edits, everything else by default",
-        plan: "Read-only planning, no writes",
+        acceptEdits:
+          "Auto-approve file edits; command tools keep their own confirmation",
+        plan: "Every tool call asks you first (nothing is auto-approved)",
         auto: "Decided by the AI classifier",
         ask: "Ask on every call",
         alwaysAsk: "Force asking even when a rule allows it",
         dontAsk: "Never prompt — deny calls that need confirmation",
         strict: "Deny most operations by default",
-        bypass: "Allow everything (executor-side guards still apply)",
+        bypass:
+          "Allow at this layer; command tools keep their own confirmation gate",
       },
     },
     inboxResuming: "Approved — resuming…",

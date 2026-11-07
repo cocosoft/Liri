@@ -142,6 +142,7 @@ export default function ReplyModeMenu({
 
   return (
     <div className="relative" ref={rootRef}>
+      {/* P3（2026-11-07）：hover 即说明作用面（不是权限开关），避免与右侧「权限」混淆 */}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -149,7 +150,7 @@ export default function ReplyModeMenu({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={t("chat.replyModeTitle")}
-        title={t("chat.replyModeTitle")}
+        title={t("chat.replyModeFooter")}
         className="flex items-center gap-1 rounded-full border border-gray-300 bg-white px-2 py-0.5 text-xs transition-colors hover:border-blue-300 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-blue-500"
       >
         <ReplyModeIcon mode={current.key} className="h-3.5 w-3.5 shrink-0" />
@@ -207,6 +208,10 @@ export default function ReplyModeMenu({
               )}
             </button>
           ))}
+          {/* P3（2026-11-07）：说清本旋钮的作用面 —— 它不是权限开关 */}
+          <p className="mt-1 border-t border-gray-200 px-3 pt-1.5 text-[11px] leading-relaxed text-gray-400 dark:border-gray-700 dark:text-gray-500">
+            {t("chat.replyModeFooter")}
+          </p>
         </div>
       )}
     </div>

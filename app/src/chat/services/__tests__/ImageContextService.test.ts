@@ -3,7 +3,25 @@
  * 测试会话级图片路径注册、路径匹配、图像上下文跟踪
  */
 import { describe, it, expect } from 'bun:test';
-import { ImageContextService } from '../ImageContextService';
+import {
+  ImageContextService,
+  formatAttachedImagesBlock,
+} from '../ImageContextService';
+
+describe('formatAttachedImagesBlock — 附带图片提示块（2026-11-07）', () => {
+  it('空路径返回空串（调用方无需额外判空）', () => {
+    expect(formatAttachedImagesBlock([])).toBe('');
+  });
+
+  it('包含真实路径，并点名 image_analysis、禁止 shell 绕过', () => {
+    const text = formatAttachedImagesBlock(['/tmp/a.png', '/tmp/b.png']);
+    expect(text).toContain('/tmp/a.png');
+    expect(text).toContain('/tmp/b.png');
+    expect(text).toContain('image_analysis');
+    expect(text).toContain('不要');
+    expect(text).toContain('bash');
+  });
+});
 
 const SESSION = 'test-session-001';
 const SESSION2 = 'test-session-002';

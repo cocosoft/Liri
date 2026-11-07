@@ -61,6 +61,7 @@ import {
   isCodeContextMessage,
 } from '../services/MessageContextPipeline';
 import { stripBareExploration } from '../services/bareExplorationStripper';
+import { formatAttachedImagesBlock } from '../services/ImageContextService';
 import { composeSystemPrompt } from '../services/systemPromptComposition';
 import { StreamingToolCallScrubber } from '@openliri/service/streaming';
 import { validatePathsInOutput } from '../services/PathGuardService';
@@ -265,9 +266,7 @@ export async function prepareApiMessages(
         .filter(Boolean) as string[];
       if (imagePaths.length > 0) {
         lastUserMsg.content =
-          lastUserMsg.content +
-          '\n\n[附带的图片路径]\n' +
-          imagePaths.map((p) => `- ${p}`).join('\n');
+          lastUserMsg.content + formatAttachedImagesBlock(imagePaths);
       }
     }
     const absoluteImagePaths = options.images.map((img) =>

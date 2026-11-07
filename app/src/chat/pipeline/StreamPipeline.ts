@@ -57,6 +57,7 @@ import type {
 } from '@modules/ai';
 import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI.js';
 import type { ImageContextService } from '../services/ImageContextService.js';
+import { formatAttachedImagesBlock } from '../services/ImageContextService.js';
 
 // 阶段标签（阻塞探针 P2 第二批，2026-09-22；依据 §8.9：`chat:pipeline` r=0.36）
 import { withPhase } from '@openliri/infra/diagnostics';
@@ -191,9 +192,7 @@ export class StreamPipeline {
 
       if (imagePaths.length > 0) {
         lastUserMsg.content =
-          lastUserMsg.content +
-          '\n\n[附带的图片路径]\n' +
-          imagePaths.map((p) => `- ${p}`).join('\n');
+          lastUserMsg.content + formatAttachedImagesBlock(imagePaths);
       }
     }
 

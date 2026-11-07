@@ -20,6 +20,25 @@ export interface ImageContext {
   lastAnalyzedImage?: { filePath: string; action: string };
 }
 
+/**
+ * P2（2026-11-07 真机）：用户附带图片时追加到**最后一条 user 消息**的路径块。
+ *
+ * 改前只有 `[附带的图片路径]` + 路径列表 —— 模型不知道有专用识图工具，于是用
+ * bash / powershell / python 自行试错读取图片（真机实录：一句"识别这张图"消耗多条命令，
+ * 每条命令一张审批卡）。这里**点名** `image_analysis` 并禁止 shell 绕过。
+ *
+ * 单一存放处：`StreamPipeline`（流式）与 `sendMessageFlow`（非流式）共用（CS01）。
+ */
+export function formatAttachedImagesBlock(paths: readonly string[]): string {
+  if (paths.length === 0) return '';
+  return (
+    '\n\n[附带的图片路径]\n' +
+    paths.map((p) => `- ${p}`).join('\n') +
+    '\n\n本轮用户附带了图片：识别/描述/OCR 图片内容**必须**调用 `image_analysis` 工具，' +
+    '`inputPath` 用上面的真实路径；**不要**用 bash / powershell / python 自行读取或解析图片文件。'
+  );
+}
+
 export class ImageContextService {
   /** 会话级已知图片路径集合（委托给 SessionConfirmedPaths，方案 4） */
   private sessionImagePaths: Map<string, Set<string>> = new Map();

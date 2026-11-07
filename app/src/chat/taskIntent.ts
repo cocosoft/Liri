@@ -81,6 +81,46 @@ export function isStrongBuildIntent(text: string): boolean {
 }
 
 /**
+ * P2（2026-11-07 真机）：单次「能力直通」意图判定 —— **否决升级**用。
+ *
+ * 用户「看一张图 / 读一个文件 / 查一下版本」这类**单步能力请求**，本来就该由普通对话
+ * 循环一次工具调用回答。把它升级成 PDCA 编排（自动建项目 + 分步 + 每步独立 TAOR）是净增
+ * 成本：编排步骤的工具面固定为 file/bash/powershell，识别图片只能靠 shell 试错，每条命令
+ * 一张审批卡（真机实录）。
+ *
+ * 判定（保守）：
+ *  - 必须同时命中「只读动作词」+「单次能力对象」；
+ *  - 命中任何「多步 / 产出 / 写操作」信号 ⇒ **不**直通（交回既有升级判定）。
+ *
+ * 语义边界：返回 true 只表示「不值得为它拉起编排」，**不**表示"必须调用某个工具"。
+ * 误判代价 = 留在普通对话循环（用户仍可用 `/goal start` 显式编排），因此判定偏保守。
+ */
+export function isCapabilityDirectIntent(text: string): boolean {
+  if (!text) return false;
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+
+  /**
+   * 多步 / 产出 / 写操作 ⇒ 天然不属于"单次能力"
+   *
+   * ⚠️ 写动词必须带宾语（`写一份` / `写代码` …）：裸 `写` 会把「文件里**写**了什么」这种
+   * **只读**问句误判成写操作（真机复验实测，2026-11-07）。
+   */
+  const MULTI_STEP_OR_WRITE =
+    /(?:步骤|逐步|分步|计划|批量|循环|每个|重构|实现|开发|搭建|创建|新建|编写|改写|重写|写入|写(?:一份|一个|个|段|代码|脚本|函数|程序)|修改|修正|改正|更新|补充|完善|删除|移动|重命名|安装|部署|提交|推送|生成|导出|整理|转成|转换成|测试|单测)/;
+  if (MULTI_STEP_OR_WRITE.test(trimmed)) return false;
+
+  /** 只读动作词 */
+  const READ_VERB =
+    /(?:识别|辨认|看看|看一下|看下|读取|读一下|读出|列出|列一下|查看|查一下|查询|分析|检查|打开|OCR|ocr)/;
+  /** 单次能力对象（图片 / 单个文件 / 单条查询对象） */
+  const CAPABILITY_OBJECT =
+    /(?:图片|图像|照片|截图|图里|图中|这张图|那张图|文件|目录|文件夹|版本|端口|进程|环境变量|代码|报错|日志)/;
+
+  return READ_VERB.test(trimmed) && CAPABILITY_OBJECT.test(trimmed);
+}
+
+/**
  * P0-3（2026-09-06，Teamwork 方案 H）：研究型意图判定——候选生成 + 对抗批评的触发信号。
  * 与 isExecutionTaskIntent 同属消息意图分类（非状态判断），regex 命中表示"该任务值得
  * 多视角生成候选并由对抗批评收敛"，供 ChatManager 分流研究模式（与 feature

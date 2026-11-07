@@ -14,7 +14,42 @@ import {
   hasRefineIntent,
   hasResearchIntent,
   hasVerifyIntent,
+  isCapabilityDirectIntent,
 } from '../../src/chat/taskIntent';
+
+// 2026-11-07（真机）：单次能力请求否决编排 —— 识图 / 读文件 / 查版本不该走 PDCA
+describe('isCapabilityDirectIntent — 单次能力直通判定（2026-11-07）', () => {
+  it('单次识图 / 读文件 / 查版本类命中', () => {
+    expect(isCapabilityDirectIntent('识别这张图里有什么')).toBe(true);
+    expect(isCapabilityDirectIntent('帮我看看这张图')).toBe(true);
+    expect(isCapabilityDirectIntent('帮我看下这个图片是什么')).toBe(true);
+    expect(isCapabilityDirectIntent('读一下这个文件')).toBe(true);
+    expect(isCapabilityDirectIntent('查一下 node 版本')).toBe(true);
+    expect(isCapabilityDirectIntent('帮我检查这段代码有没有问题')).toBe(true);
+  });
+
+  // 真机复验（2026-11-07）：裸 `写` 曾把「文件里写了什么」误判成写操作 ⇒ 未直通、拉起 PDCA
+  it('「写了什么」等只读问句不被当作写操作', () => {
+    expect(
+      isCapabilityDirectIntent('帮我检查 C:\\tmp\\note.txt 这个文件里写了什么')
+    ).toBe(true);
+    expect(isCapabilityDirectIntent('看看日志里写了什么')).toBe(true);
+  });
+
+  it('多步 / 产出 / 写操作类不命中（交回既有升级判定）', () => {
+    expect(isCapabilityDirectIntent('帮我实现一个分页组件')).toBe(false);
+    expect(isCapabilityDirectIntent('帮我做个记账软件，分步做完')).toBe(false);
+    expect(isCapabilityDirectIntent('识别图片里的文字并整理成表格')).toBe(
+      false
+    );
+    expect(isCapabilityDirectIntent('写一个脚本识别图片')).toBe(false);
+    expect(isCapabilityDirectIntent('帮我检查项目里有没有未使用依赖')).toBe(
+      false
+    );
+    expect(isCapabilityDirectIntent('今天天气怎么样')).toBe(false);
+    expect(isCapabilityDirectIntent('')).toBe(false);
+  });
+});
 
 describe('hasResearchIntent — 研究型意图判定（P0-3 触发信号）', () => {
   it('多方案/权衡/选型/可行性类任务命中', () => {

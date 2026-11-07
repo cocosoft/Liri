@@ -34,7 +34,11 @@ import type { ChatSession } from '@modules/session/types/session.js';
 
 import { getYieldRegistry } from '../../session/yield';
 import { ImplicitEngineHook } from '../../project/ImplicitEngineHook';
-import { isExecutionTaskIntent, isStrongBuildIntent } from '../taskIntent';
+import {
+  isCapabilityDirectIntent,
+  isExecutionTaskIntent,
+  isStrongBuildIntent,
+} from '../taskIntent';
 import {
   isEmptyOutputFallbackMessage,
   isOutputBudgetExhaustedMessage,
@@ -266,6 +270,19 @@ export class ChatStreamFinalize {
         ? (((bareUserMessages[0] as unknown as Record<string, unknown>)
             ?.content as string) ?? '')
         : '';
+    // P2（2026-11-07 真机）：「能力直通」否决位 —— 单次能力请求（识图 / 读文件 / 查版本）
+    // 不进编排。判定只取**最后一条 user 消息**（`bareLastContent` 聚合最近 3 条，会把上一轮
+    // 长任务里的「写 / 实现」等词带进来，令单次请求也被否决）。
+    const bareLastSingleContent =
+      bareUserMessages.length > 0
+        ? (((
+            bareUserMessages[bareUserMessages.length - 1] as unknown as Record<
+              string,
+              unknown
+            >
+          )?.content as string) ?? '')
+        : '';
+    const capabilityDirect = isCapabilityDirectIntent(bareLastSingleContent);
     if (
       !contextId &&
       // N-2（2026-11-06 真机长程任务）：本轮以「空输出兜底」收尾 ⇒ **不升级编排**。
@@ -274,6 +291,7 @@ export class ChatStreamFinalize {
       // 失败文案。连"一句回复"都产不出的回合，拉起 4 阶段编排只会放大失败。
       !emptyOutputFallback &&
       !outputBudgetExhausted &&
+      !capabilityDirect &&
       assistantMessage.content &&
       (bareUserMessages.length >= 2 || isStrongBuildIntent(bareFirstContent)) &&
       isExecutionTaskIntent(bareLastContent) &&
@@ -287,6 +305,12 @@ export class ChatStreamFinalize {
         session,
         assistantContent: assistantMessage.content as string,
         lastUserContent: bareLastContent,
+      });
+    } else if (!contextId && capabilityDirect) {
+      // 留痕：能力直通否决也要可诊断（否则"为什么没升级"无从排查）
+      logger.info('pdca:launch_skip_capability_direct', {
+        sessionId: session.id,
+        intent: bareLastSingleContent.slice(0, 60),
       });
     } else if (!contextId && (emptyOutputFallback || outputBudgetExhausted)) {
       // 留痕：被短路时也要可诊断（否则"为什么没升级"无从排查）
@@ -356,7 +380,9 @@ export class ChatStreamFinalize {
           if (
             result.hasGoal &&
             result.deliverables >= deliverableThreshold &&
-            !session.metadata?.projectId
+            !session.metadata?.projectId &&
+            // P2（2026-11-07）：单次能力请求不建项目（与下方 launch 同口径）
+            !capabilityDirect
           ) {
             await deps.autoCreateProject(session, contextId, result);
           }
@@ -365,7 +391,14 @@ export class ChatStreamFinalize {
           // P0-1 提取：含会话级 launch 锁防重复卡片、分流决策 trace、双路径 launch）
           // CM-6 互斥（2026-08-25）：Code Mode 分流命中时跳过 PDCA，避免双引擎并发
           if (goalTriggered && session.metadata?.projectId) {
-            if (!deps.shouldUseCodeMode(lastUserContent || '')) {
+            if (capabilityDirect) {
+              // P2（2026-11-07）：单次能力请求（识图 / 读文件 / 查版本）不拉起编排
+              logger.info('pdca:launch_skip_capability_direct', {
+                sessionId: session.id,
+                projectId: session.metadata.projectId,
+                intent: lastUserContent.slice(0, 60),
+              });
+            } else if (!deps.shouldUseCodeMode(lastUserContent || '')) {
               deps.maybeLaunchPdca(
                 session,
                 // BUG-A：兜底文案 ⇒ 用**用户任务原句**作描述（同裸会话分支，单一判定口径）

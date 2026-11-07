@@ -191,6 +191,56 @@ export interface SessionAgentOpsDeps {
   getPermissionManager?: () => unknown;
 }
 
+/**
+ * 2026-11-07（真机冒烟）：工具级「待审批」在 HTTP 直调路径上曾被当成**成功**。
+ *
+ * 工具安全闸（bash AST / 白名单 / 沙箱二次校验）返回 `requireApproval: true` 时，
+ * 命令**并未执行**；本入口没有审批通道（不会提交 Inbox 卡），若原样回 `success: true`，
+ * 调用方（外部集成 / API 调试）会误判"已执行"。这里如实回传 `pendingApproval` +
+ * `approvalChannelDown`，与权限层 `ask` 分支的失败关闭口径一致（CS02：只认显式字段）。
+ */
+export function mapToolExecutionResult(
+  toolCall: ToolCallSpec,
+  rawResult: unknown,
+  executionTime: number
+): ToolResult & { success: boolean; data: unknown } {
+  const result = rawResult as {
+    output?: unknown;
+    data?: unknown;
+    error?: string | null;
+    success?: boolean;
+    requireApproval?: boolean;
+    approvalReason?: string;
+  };
+  if (result.requireApproval === true) {
+    const reason = result.approvalReason ?? '需要用户确认后执行';
+    logger.warn('CoreAPIImpl.executeTool(): 工具要求审批 ⇒ 本次未执行', {
+      toolName: toolCall.name,
+      approvalReason: reason,
+    });
+    return {
+      toolCallId: toolCall.id,
+      toolName: toolCall.name,
+      success: false,
+      data: { pendingApproval: true, approvalChannelDown: true },
+      result: null,
+      error:
+        `工具「${toolCall.name}」需要用户批准，本次调用未执行：${reason}` +
+        '（该接口没有审批通道，请改用会话内调用或调整权限档后重试）',
+      executionTime,
+    };
+  }
+  return {
+    toolCallId: toolCall.id,
+    toolName: toolCall.name,
+    success: result.success ?? true,
+    data: result.data ?? null,
+    result: result.output ?? null,
+    error: result.error ?? null,
+    executionTime,
+  };
+}
+
 export class SessionAgentOps {
   constructor(private readonly deps: SessionAgentOpsDeps) {}
 
@@ -403,22 +453,11 @@ export class SessionAgentOps {
           toolCall.arguments as Record<string, unknown>,
           { sessionId }
         );
-      const result = rawResult as {
-        output?: unknown;
-        data?: unknown;
-        error?: string | null;
-        success: boolean;
-      };
-
-      const response = {
-        toolCallId: toolCall.id,
-        toolName: toolCall.name,
-        success: result.success ?? true,
-        data: result.data ?? null,
-        result: result.output ?? null,
-        error: result.error ?? null,
-        executionTime: Date.now() - startTime,
-      };
+      const response = mapToolExecutionResult(
+        toolCall,
+        rawResult,
+        Date.now() - startTime
+      );
       logger.info('CoreAPIImpl.executeTool() 出口', {
         toolName: toolCall.name,
         success: response.success,

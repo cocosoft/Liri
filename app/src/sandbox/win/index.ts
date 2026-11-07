@@ -17,6 +17,7 @@ export {
   WIN_SANDBOX_EXIT,
   buildWinSandboxArgv,
   classifyWinSandboxExit,
+  decodeWindowsConsoleOutput,
   runWithWinSandbox,
 } from './runWithWinSandbox';
 export type {

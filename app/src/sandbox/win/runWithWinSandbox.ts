@@ -94,6 +94,43 @@ export function classifyWinSandboxExit(exitCode: number | null): {
   };
 }
 
+/**
+ * 解码 helper 子进程输出（2026-11-07 真机发现）。
+ *
+ * helper 以 `windowsHide: true`（= `CREATE_NO_WINDOW`）拉起 ⇒ 子进程**没有控制台**，
+ * `cmd.exe` 内置命令（`ver` / `dir` / `type` …）按系统 OEM 码页输出（中文 Windows 为
+ * GBK/cp936），而 `Buffer.toString()` 按 UTF-8 解码 ⇒ 中文变「锟斤拷」。
+ *
+ * 判据：先用**严格** UTF-8 解码；非法字节序列再按当前区域语言选 OEM 编码。
+ * 纯 ASCII 在两种编码下一致 ⇒ 不会误伤。分块到达的半个多字节字符也因此不会乱：
+ * 调用方**攒整段 Buffer** 后一次性解码（见下方 stdout/stderr 收集）。
+ *
+ * @param locale 区域标识（默认取运行时；参数化是为了让用例与 CI 机器语言无关）
+ */
+export function decodeWindowsConsoleOutput(
+  buf: Buffer,
+  locale: string = Intl.DateTimeFormat().resolvedOptions().locale
+): string {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(buf);
+  } catch {
+    // @ignore-catch — 非 UTF-8 是 Windows 无控制台子进程的常态，按 OEM 码页再试
+    const fallback = locale.startsWith('zh')
+      ? 'gbk'
+      : locale.startsWith('ja')
+        ? 'shift_jis'
+        : locale.startsWith('ko')
+          ? 'euc-kr'
+          : 'windows-1252';
+    try {
+      return new TextDecoder(fallback).decode(buf);
+    } catch {
+      // @ignore-catch — 运行时不支持该编码（无 ICU）⇒ 退回宽松 UTF-8，至少不抛错
+      return buf.toString('utf8');
+    }
+  }
+}
+
 export async function runWithWinSandbox(
   input: WinSandboxRunInput
 ): Promise<WinSandboxRunResult> {
@@ -138,22 +175,38 @@ export async function runWithWinSandbox(
       else signal.addEventListener('abort', onAbort, { once: true });
     }
 
-    let stdout = '';
-    let stderr = '';
-    const append = (acc: string, block: string): string =>
-      appendWithinLimit(acc, block, input.maxBufferChars).text;
+    // 2026-11-07：攒整段 Buffer 再解码 —— 分块边界可能切断多字节字符（GBK / UTF-8）
+    const stdoutChunks: Buffer[] = [];
+    const stderrChunks: Buffer[] = [];
+    // 上限按**字节**粗裁（UTF-8 最坏 4 字节/字符），字符上限在解码后用 appendWithinLimit 精确执行
+    const maxBytes = input.maxBufferChars * 4;
+    let stdoutBytes = 0;
+    let stderrBytes = 0;
+    const collected = (chunks: Buffer[]): string =>
+      appendWithinLimit(
+        '',
+        decodeWindowsConsoleOutput(Buffer.concat(chunks)),
+        input.maxBufferChars
+      ).text;
 
     child.stdout?.on('data', (d: Buffer) => {
-      stdout = append(stdout, d.toString());
+      if (stdoutBytes >= maxBytes) return;
+      stdoutChunks.push(d);
+      stdoutBytes += d.length;
     });
     child.stderr?.on('data', (d: Buffer) => {
-      stderr = append(stderr, d.toString());
+      if (stderrBytes >= maxBytes) return;
+      stderrChunks.push(d);
+      stderrBytes += d.length;
     });
     child.on(CHILD_PROCESS_ERROR_EVENT, (err: NodeJS.ErrnoException) => {
       cleanupAbort();
       resolve({
-        stdout,
-        stderr: stderr ? `${stderr}\n${String(err)}` : String(err),
+        stdout: collected(stdoutChunks),
+        stderr: (() => {
+          const text = collected(stderrChunks);
+          return text ? `${text}\n${String(err)}` : String(err);
+        })(),
         exitCode: null,
         timedOut: false,
         helperFailed: false,
@@ -165,8 +218,8 @@ export async function runWithWinSandbox(
       cleanupAbort();
       const semantics = classifyWinSandboxExit(code);
       resolve({
-        stdout,
-        stderr,
+        stdout: collected(stdoutChunks),
+        stderr: collected(stderrChunks),
         exitCode: code,
         timedOut: semantics.timedOut,
         helperFailed: semantics.helperFailed,

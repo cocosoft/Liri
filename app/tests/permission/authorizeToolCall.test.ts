@@ -89,6 +89,8 @@ describe('HTTP/CoreAPI 路径权限门（B2）', () => {
   function makeOps(options: {
     permissionManager?: unknown;
     executed: string[];
+    /** 工具自身返回值（默认成功；用于回放"安全闸要求审批"等真实形态） */
+    toolResult?: unknown;
   }): SessionAgentOps {
     return new SessionAgentOps({
       getPermissionManager: () => options.permissionManager,
@@ -96,7 +98,7 @@ describe('HTTP/CoreAPI 路径权限门（B2）', () => {
         ({
           executeTool: async (name: string) => {
             options.executed.push(name);
-            return { success: true, output: 'ok' };
+            return options.toolResult ?? { success: true, output: 'ok' };
           },
         }) as never,
       getChatManager: () => ({}) as never,
@@ -164,5 +166,27 @@ describe('HTTP/CoreAPI 路径权限门（B2）', () => {
     const result = await ops.executeTool('session-1', toolCall);
     expect(executed).toEqual(['file_write']);
     expect(result.error).toBe(null);
+  });
+
+  it('工具级 requireApproval（安全闸）⇒ 不谎报成功，回传 pendingApproval + 无审批通道', async () => {
+    const executed: string[] = [];
+    const ops = makeOps({
+      permissionManager: portReturning({ allowed: true }),
+      executed,
+      // 真机形态（2026-11-07）：bash 安全闸返回 success:true + requireApproval:true，
+      // 命令实际**未执行**；HTTP 路径此前原样回 success:true（调用方误判已执行）。
+      toolResult: {
+        success: true,
+        data: '需要用户确认: 命令不在已知安全列表',
+        requireApproval: true,
+        approvalReason: '命令不在已知安全列表',
+      },
+    });
+    const result = await ops.executeTool('session-1', toolCall);
+    expect(executed).toEqual(['file_write']);
+    expect((result as { success?: boolean }).success).toBe(false);
+    expect(result.result).toBe(null);
+    expect(result.error).toContain('需要用户批准');
+    expect(result.error).toContain('命令不在已知安全列表');
   });
 });

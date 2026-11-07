@@ -12,6 +12,7 @@ import {
   buildWinSandboxArgv,
   classifyWinSandboxExit,
   clearWindowsSandboxCapabilityCache,
+  decodeWindowsConsoleOutput,
   detectWindowsSandboxCapability,
   resolveWinSandboxHelperCandidates,
   resolveWinSandboxHelperPath,
@@ -213,5 +214,35 @@ describe('classifyWinSandboxExit', () => {
       timedOut: false,
       helperFailed: false,
     });
+  });
+});
+
+// 2026-11-07 真机发现：helper 无控制台 ⇒ cmd 内置命令按 OEM 码页输出（中文 Windows = GBK），
+// 原实现统一按 UTF-8 解码 ⇒ 中文乱码（`ver` 输出「[�汾 …]」）。
+describe('decodeWindowsConsoleOutput', () => {
+  it('UTF-8 输出原样通过（英文 / 中文都不动）', () => {
+    expect(
+      decodeWindowsConsoleOutput(
+        Buffer.from('Microsoft Windows [Version 10.0]', 'utf8')
+      )
+    ).toBe('Microsoft Windows [Version 10.0]');
+    expect(decodeWindowsConsoleOutput(Buffer.from('中文输出', 'utf8'))).toBe(
+      '中文输出'
+    );
+  });
+
+  it('GBK 输出按 OEM 码页解码（真机字节「版本」）', () => {
+    // 真机取证：cmd /d /s /c ver（无控制台）⇒ 0d0a…5bb0e6b1be2031302e30
+    const gbk = Buffer.from([0xb0, 0xe6, 0xb1, 0xbe]);
+    expect(decodeWindowsConsoleOutput(gbk, 'zh-CN')).toBe('版本');
+  });
+
+  it('非中文区域回退 windows-1252（不抛错；非中文机器不误用 GBK）', () => {
+    const latin1 = Buffer.from([0xe9, 0x74, 0xe9]); // é t é（UTF-8 非法）
+    expect(decodeWindowsConsoleOutput(latin1, 'fr-FR')).toBe('été');
+  });
+
+  it('空输出 ⇒ 空串（不抛错）', () => {
+    expect(decodeWindowsConsoleOutput(Buffer.alloc(0))).toBe('');
   });
 });

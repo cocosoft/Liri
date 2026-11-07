@@ -101,7 +101,14 @@ export function buildToolApprovalCard(
   const risk = resolveRiskClass(toolOrName, input);
 
   const approvalFingerprint = resolveApprovalFingerprint(toolOrName, input);
-  const commandHash = hashCommandForExecution(approvalFingerprint);
+  // 2026-11-08（真机 `pdca_mw6mbd7w`）：**命令类工具的执行侧放行键就是命令文本**——
+  // `BashTool` / `PowerShellTool` 都按 `hashCommandForExecution(command)` 查放行缓存。
+  // 此前这里对**所有**工具统一用 `hashCommandForExecution(approvalFingerprint)`，而 bash
+  // 没有声明 `approvalFingerprint` ⇒ 指纹是 `bash:{"command":"…"}`，与执行端 hash **永不相等**
+  // ⇒ 用户批准后重发同一命令仍弹卡（"批了不生效"）。
+  const commandHash = isCommandTool
+    ? hashCommandForExecution(command)
+    : hashCommandForExecution(approvalFingerprint);
   const fingerprintHash = hashApprovalFingerprint(approvalFingerprint);
 
   // P0（2026-11-07，权限与沙箱拉通方案 §2.2）：审批卡**收敛为三档 + 拒绝**——

@@ -784,6 +784,21 @@ async function resumePdcaIfApplicable(
     if (!orchestrator) return;
     // 批准类回复（本次 / 本会话 / 始终允许）都应续跑；拒绝只记录
     if (isApprovalReply(reply, selectedOption)) {
+      // 2026-11-08（真机 `pdca_mw6m1mg8`）：**先解除该命令的「不可执行」台账结论**。
+      // LRO-13 的阻塞台账在 `security_analyzer_ask` 时就已入账；只写放行缓存不清台账
+      // ⇒ 续跑第一步仍被 `[BLOCKED_REPLAY]` 短路（实测批准后 step_1 连续 3 轮被短路、
+      // 任务最终 failed）。批准的是这条命令本身 ⇒ 按命令文本移除对应条目。
+      const approvedCommand = item.metadata?.command;
+      if (typeof approvedCommand === 'string' && approvedCommand.trim()) {
+        try {
+          orchestrator.clearBlockedCommand?.(approvedCommand);
+        } catch (clearErr) {
+          logger.warn('审批通过后解除阻塞台账失败（续跑可能仍短路）', {
+            taskId,
+            error: String(clearErr),
+          });
+        }
+      }
       // 2026-11-07：同一步骤的其余旧卡已无意义（续跑后统一清理，防重复续跑/堆积）
       void expireSiblingStepCards(item);
       schedulePdcaResume(orchestrator, sessionId, taskId);

@@ -157,7 +157,8 @@ import {
 // 大文件拆分（spec file-size-debt-partition-plan §46）：报告投影 + 纯函数判定外迁 `./lro/*`。
 // LRO-13（2026-10-26）：阻塞命令台账 —— 续跑时同一 (命令, cwd, 策略版本) 直接短路
 import {
-  createHostBlockedCommandLedger,
+  clearApprovedBlockedCommand,
+  createTaskBlockedCommandLedger,
   type BlockedCommandEntry,
 } from './lro/blockedCommandLedger.js';
 import { resolveCommandPolicyVersion } from './lro/commandPolicyVersion.js';
@@ -880,24 +881,14 @@ export class LongRunningTaskOrchestrator {
     };
   }
 
-  /** LRO-13：台账读写面（门槛/裁剪见 `lro/blockedCommandLedger`；策略版本步首取定） */
+  /** LRO-13：台账读写面（门槛/裁剪/日志见 `lro/blockedCommandLedger`；策略版本步首取定） */
   private _blockedCommandLedger(policyVersion: string) {
-    return createHostBlockedCommandLedger({
+    return createTaskBlockedCommandLedger({
+      taskId: this.taskId,
+      policyVersion,
       getEntries: () => this._blockedCommands,
       setEntries: (value) => {
         this._blockedCommands = value;
-      },
-      taskId: this.taskId,
-      policyVersion,
-      onRecorded: (entry, total) => {
-        logger.info('[orchestrator] 阻塞命令入账（续跑将短路）', {
-          taskId: this.taskId,
-          toolName: entry.toolName,
-          reason: entry.reason,
-          commandPreview: entry.command.slice(0, 120),
-          cwd: entry.cwd,
-          blockedCount: total,
-        });
       },
     });
   } /** Phase 3: REVIEW（U-22/S3 外移；实现在 `./lro/stepReviewDecide`）。 */
@@ -1092,6 +1083,25 @@ export class LongRunningTaskOrchestrator {
    */
   getTokenUsage(): number {
     return this._totalTokensTracked;
+  }
+
+  /**
+   * 2026-11-08（真机 `pdca_mw6m1mg8`）：审批通过 ⇒ 解除该命令的「不可执行」台账结论。
+   *
+   * 不解除会怎样：`security_analyzer_ask` 已把命令记入台账，续跑第一步就被
+   * `[BLOCKED_REPLAY]` 短路 ⇒ 用户批准了也永远跑不起来。
+   */
+  clearBlockedCommand(command: string): number {
+    return clearApprovedBlockedCommand({
+      taskId: this.taskId,
+      command,
+      entries: this._blockedCommands,
+      setEntries: (value) => {
+        this._blockedCommands = value;
+      },
+      // 落盘：否则重启后旧结论复活（失败不阻断，续跑自身也会写检查点）
+      persist: () => void this._persistCheckpoint().catch(() => {}),
+    });
   }
 
   /**
@@ -1815,14 +1825,7 @@ export class LongRunningTaskOrchestrator {
     });
   }
 
-  /**
-   * 3-1（2026-09-03）：PDCA 终态 → 轻量记忆回写（Act 复盘产物化，喂给全局长效 recall）。
-   * 喂入源 = 编排器 PlanStep 完整对象（含 decision/reviewResult/dependsOn），非 auditReport（缺 dependsOn）。
-   * 映射：整条为 MemoryType.DECISION 复盘（含每步决策/审查结论/依赖），tags 标注来源 pdca+outcome+taskId。
-   * 幂等：_memoryWriteDone 单次 guard + createMemory 缓存精确去重（命中返回 existing）兜底。
-   * 频控：PDCA 终态每任务一次低频；不重复梦境 cron 精炼管线（MemoryDreamService 职责，防三实现职责重叠）。
-   * fire-and-forget：失败降级日志，不阻塞 PDCA 收尾。
-   */
+  /** 3-1：PDCA 终态轻量记忆回写（幂等 guard 留宿主；实现与取舍见 `./lro/terminalHooks`）。 */
   private _persistMemoryFromAudit(outcome: 'completed' | 'aborted'): void {
     if (this._memoryWriteDone) return;
     this._memoryWriteDone = true;
@@ -1834,13 +1837,7 @@ export class LongRunningTaskOrchestrator {
     });
   }
 
-  /**
-   * 方向4（2026-09-03）：PDCA 终态落任务级评估样例（review_samples，方向 4 Spec）。
-   * 结构化快照：PlanStep 完整对象（含 dependsOn/decision/reviewResult/retryCount）→ steps_json；
-   * 附带 reviewPassRate 运行时快照、GoalEvaluateGate 收敛判定（_goalEvaluation）、成本/时长、自主度启发值。
-   * 幂等：_sampleWriteDone 单次 guard + recordReviewSample 内 pdca_task_id 已存在跳过。
-   * fire-and-forget：失败降级日志，不阻塞 PDCA 收尾。
-   */
+  /** 方向4：PDCA 终态落任务级评估样例（幂等 guard 留宿主；实现见 `./lro/terminalHooks`）。 */
   private _persistReviewSample(stage: 'pdca_completed' | 'pdca_aborted'): void {
     if (this._sampleWriteDone) return;
     this._sampleWriteDone = true;

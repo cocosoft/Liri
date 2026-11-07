@@ -10,7 +10,10 @@
  */
 
 import { describe, it, expect } from 'bun:test';
-import { buildToolApprovalCard } from '@openliri/infra/permission';
+import {
+  buildToolApprovalCard,
+  hashCommandForExecution,
+} from '@openliri/infra/permission';
 import { RiskClass } from '@openliri/infra/permission/types/RiskClass';
 
 describe('P1：审批卡唯一构造点', () => {
@@ -50,6 +53,22 @@ describe('P1：审批卡唯一构造点', () => {
     ]);
     expect(card.metadata['command']).toBe('ls');
     expect(card.risk).toBe(RiskClass.SHELL);
+  });
+
+  // 2026-11-08（真机 pdca_mw6mbd7w）：卡片的 commandHash 必须与执行端一致，
+  // 否则用户批准后同一命令仍被 ask（"批了不生效"）。
+  it('命令类工具 ⇒ commandHash 等于执行端 hashCommandForExecution(command)', () => {
+    const command = 'node -e "console.log(\'pdca-approve-ok\')"';
+    const card = buildToolApprovalCard({
+      toolOrName: 'bash',
+      input: { command },
+      sessionId: 's',
+    });
+    expect(card.commandHash).toBe(hashCommandForExecution(command));
+    // 且**不得**退化成全参数指纹（`bash:{"command":…}`）的 hash
+    expect(card.commandHash).not.toBe(
+      hashCommandForExecution(`bash:${JSON.stringify({ command })}`)
+    );
   });
 
   it('外部发送类工具 ⇒ 不给永久放行选项（仅这次/拒绝）', () => {

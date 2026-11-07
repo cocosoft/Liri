@@ -18,6 +18,7 @@
 import { getLogger } from '@openliri/infra/monitoring';
 // #28（2026-10-30）：任务回写内容只取可读字段（工具结果契约类型，避免裸字面量）
 import type { ToolResult } from '@openliri/infra/utils/toolContract';
+import { isCommandToolName } from '@openliri/infra/utils/toolContract/toolRoles';
 import type { AgentIsolation } from '@modules/agent';
 import {
   AppError,
@@ -989,8 +990,24 @@ async function submitStepApprovalCards(args: {
       );
       const input = call?.arguments ?? {};
       const fingerprint = resolveApprovalFingerprint(outcome.toolName, input);
-      const commandHash = hashCommandForExecution(fingerprint);
       const command = typeof input.command === 'string' ? input.command : '';
+      // 2026-11-08（真机 `pdca_mw6mbd7w`）：**命令类工具的放行键是命令文本本身**
+      // （`BashTool`/`PowerShellTool` 都按 `hashCommandForExecution(command)` 查缓存）。
+      // 此前一律对 `fingerprint`（`bash:{"command":…}`）取 hash ⇒ 与执行端永不相等，
+      // 用户批准后同一条命令仍被 ask（"批了不生效"）。
+      const commandHash =
+        isCommandToolName(outcome.toolName) && command.trim()
+          ? hashCommandForExecution(command)
+          : hashCommandForExecution(fingerprint);
+      // 2026-11-08（真机 `pdca_mw6mktrf`）：**必须随卡带上工具自己给出的执行作用域**。
+      // 执行端（`BashTool.resolveApprovalState`）查缓存时会传 `approvalScope`；放行记录若
+      // 没有 `scopeDigest`（`scopeBound:false`），`isApproved` 按 fail-closed 判**不命中**
+      // ⇒ 用户批准后同一条命令照样被 ask。作用域/快照由工具在 ask 结果里给出，此处照抄。
+      const resultMeta = (
+        call?.result as { metadata?: Record<string, unknown> } | undefined
+      )?.metadata;
+      const approvalScope = resultMeta?.approvalScope;
+      const approvalSnapshot = resultMeta?.approvalSnapshot;
 
       const existingId = await findPendingApprovalId(inboxManager, {
         sessionId: args.sessionId,
@@ -1029,6 +1046,10 @@ async function submitStepApprovalCards(args: {
           approvalScopeKind: 'once',
           command: command || undefined,
           inputPreview: JSON.stringify(input).slice(0, 200),
+          // 2026-11-08：作用域/快照随卡落库 —— 缺了会让批准记录 `scopeBound:false`，
+          // 执行端按 fail-closed 判不命中（"批了不生效"）。
+          ...(approvalScope ? { approvalScope } : {}),
+          ...(approvalSnapshot ? { approvalSnapshot } : {}),
           // B0-3（2026-10-30）：补来源模块，避免 Inbox 记 `missing source reference`
           // 并把 LRO 步骤审批卡标记为孤儿（无法回连到步骤）。
           sourceModule: 'lro-step',

@@ -19,6 +19,7 @@ import {
   normalizeBlockedCommand,
   pushBlockedCommand,
   readCommandFromArgs,
+  removeBlockedCommand,
   restoreBlockedCommands,
   type BlockedCommandEntry,
 } from '../../src/tasks/lro/blockedCommandLedger.js';
@@ -232,5 +233,36 @@ describe('LRO-13：短路结果文案', () => {
     expect(r.error).toContain('[BLOCKED_REPLAY]');
     expect(r.error).toContain('path_safety');
     expect(r.error).toContain('不再重放');
+  });
+});
+
+// 2026-11-08（真机 pdca_mw6m1mg8）：审批通过后必须解除台账，否则续跑仍 [BLOCKED_REPLAY]
+describe('LRO-13：审批通过 ⇒ 解除该命令的台账结论', () => {
+  it('按规范化命令移除（空白差异不影响）', () => {
+    const entries = [
+      entry({ command: 'node -e "console.log(1)"' }),
+      entry({ command: 'echo other' }),
+    ];
+    const { next, removed } = removeBlockedCommand(
+      entries,
+      '  node   -e "console.log(1)" '
+    );
+    expect(removed).toBe(1);
+    expect(next).toHaveLength(1);
+    expect(next[0]?.command).toBe('echo other');
+  });
+
+  it('同命令不同 cwd 也一并解除（批准的是命令本身）', () => {
+    const entries = [
+      entry({ command: 'node a.js', cwd: '/work' }),
+      entry({ command: 'node a.js', cwd: '/other' }),
+    ];
+    expect(removeBlockedCommand(entries, 'node a.js').removed).toBe(2);
+  });
+
+  it('空命令 / 不在台账 ⇒ 原样返回且 removed=0', () => {
+    const entries = [entry()];
+    expect(removeBlockedCommand(entries, '  ').removed).toBe(0);
+    expect(removeBlockedCommand(entries, 'rm -rf /').next).toHaveLength(1);
   });
 });

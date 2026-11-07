@@ -20,8 +20,11 @@
  */
 
 import { createHash } from 'node:crypto';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { ToolFailureKind } from '@modules/session/types/tool.js';
 import { isSecurityIntercepted } from './stepHelpers.js';
+
+const logger = getLogger('tasks:longRunning');
 
 /** 台账上限（保留最近 N 条；超出丢最旧，避免 checkpoint 无限膨胀） */
 export const BLOCKED_COMMAND_MAX_ENTRIES = 50;
@@ -255,6 +258,77 @@ export function createHostBlockedCommandLedger(
       deps.onRecorded?.(entry, next.length);
     },
   };
+}
+
+/**
+ * 2026-11-08（真机 `pdca_mw6m1mg8`）：**审批通过 ⇒ 解除该命令的"不可执行"结论**。
+ *
+ * 事故：`security_analyzer_ask` 入账后，用户批准会把命令写进放行缓存（`ApprovedCommandRegistry`），
+ * 但台账里的旧结论仍在 ⇒ 续跑第一步就被 `[BLOCKED_REPLAY]` 短路，**批准永远不生效**：
+ * 真机 step_1 在批准后仍连续 3 轮 BLOCKED_REPLAY，最终 `failed`（审查 5 分）。
+ *
+ * 判定口径：按**规范化命令**相等（与台账键的规范化一致；cwd/策略版本不参与 —— 用户批准的是
+ * 这条命令本身，任何 cwd 下的既有结论都应失效）。
+ */
+export function removeBlockedCommand(
+  entries: readonly BlockedCommandEntry[],
+  command: string
+): { next: BlockedCommandEntry[]; removed: number } {
+  const target = normalizeBlockedCommand(command);
+  if (!target) return { next: [...entries], removed: 0 };
+  const next = entries.filter(
+    (e) => normalizeBlockedCommand(e.command) !== target
+  );
+  return { next, removed: entries.length - next.length };
+}
+
+/**
+ * 任务级台账（带日志）——宿主只持有数组本身，日志/去重/裁剪收在这里。
+ * 2026-11-08：从 `LongRunningTaskOrchestrator` 外移（R04-001 行数上限）。
+ */
+export function createTaskBlockedCommandLedger(deps: {
+  taskId: string;
+  policyVersion: string;
+  getEntries: () => readonly BlockedCommandEntry[];
+  setEntries: (value: BlockedCommandEntry[]) => void;
+}): ReturnType<typeof createHostBlockedCommandLedger> {
+  return createHostBlockedCommandLedger({
+    ...deps,
+    onRecorded: (entry, total) => {
+      logger.info('[orchestrator] 阻塞命令入账（续跑将短路）', {
+        taskId: deps.taskId,
+        toolName: entry.toolName,
+        reason: entry.reason,
+        commandPreview: entry.command.slice(0, 120),
+        cwd: entry.cwd,
+        blockedCount: total,
+      });
+    },
+  });
+}
+
+/**
+ * 审批通过 ⇒ 解除该命令的「不可执行」结论（日志 + 可选落盘）。
+ * 2026-11-08：从 `LongRunningTaskOrchestrator.clearBlockedCommand` 外移（行数上限）。
+ */
+export function clearApprovedBlockedCommand(deps: {
+  taskId: string;
+  command: string;
+  entries: readonly BlockedCommandEntry[];
+  setEntries: (value: BlockedCommandEntry[]) => void;
+  persist?: () => void;
+}): number {
+  const { next, removed } = removeBlockedCommand(deps.entries, deps.command);
+  if (removed === 0) return 0;
+  deps.setEntries(next);
+  logger.info('[orchestrator] 审批通过 ⇒ 解除阻塞台账（允许重放）', {
+    taskId: deps.taskId,
+    commandPreview: deps.command.slice(0, 120),
+    removed,
+    blockedCount: next.length,
+  });
+  deps.persist?.();
+  return removed;
 }
 
 /** 短路结果（**不执行工具**）：把既有结论原样交给模型，附上"不要重复"的明确指令 */

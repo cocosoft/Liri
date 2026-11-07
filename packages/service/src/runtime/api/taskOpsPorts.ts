@@ -186,6 +186,13 @@ export interface PdcaOrchestratorPort {
    * `AttributeValue`）⇒ app 侧该字段为必填字符串（字符串枚举/联合均可赋给 `string`）。
    */
   resumeAfterApproval(sessionId: string): Promise<{ phase: string }>;
+  /**
+   * 2026-11-08（真机 `pdca_mw6m1mg8`）：审批通过后解除该命令的「不可执行」台账结论。
+   *
+   * 不解除 ⇒ 续跑第一步就被 `[BLOCKED_REPLAY]` 短路，批准永远不生效。
+   * ⚠️ **可选**：旧实现/测试替身没有该方法时，调用方跳过（不影响审批本身）。
+   */
+  clearBlockedCommand?(command: string): number;
   /** 原 `abort()`（P4 `inbox-handlers` 审批撤销） */
   abort(): Promise<void>;
 }

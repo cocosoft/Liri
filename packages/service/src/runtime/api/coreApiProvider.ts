@@ -27,6 +27,11 @@ export interface RuntimePdcaOrchestratorPort {
   resumeAfterApproval(sessionId: string): Promise<{ phase: string }>;
   /** 2026-11-07：Inbox 拒绝 ⇒ 终止任务（否则永久挂起并锁死会话幂等键） */
   abort?(): Promise<void>;
+  /**
+   * 2026-11-08：审批通过 ⇒ 解除该命令的「不可执行」台账结论（否则续跑仍
+   * `[BLOCKED_REPLAY]` 短路，批准不生效）。可选：替身无此方法时跳过。
+   */
+  clearBlockedCommand?(command: string): number;
 }
 
 /** 任务端口的最小结构 */

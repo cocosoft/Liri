@@ -200,6 +200,10 @@ export async function scanAndAbortStalePdcaTasks(): Promise<{
 
     const abortedCk: Record<string, unknown> = {
       ...ck,
+      // 2026-11-08（真机 `pdca_mw6x79jd`）：**phase 也要落 abort** —— 只写 status 时读模型
+      // 仍是 `phase=execute`（真机复验：`status=abort` 但 `phase=execute`），而 `/goal list`
+      // 等入口按 phase 过滤终态 ⇒ 被回收的任务仍显示成"执行中"。
+      phase: 'abort',
       status: 'abort',
       abortedAt: new Date().toISOString(),
     };

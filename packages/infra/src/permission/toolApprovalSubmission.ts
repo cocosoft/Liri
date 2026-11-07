@@ -13,7 +13,9 @@
  * `inboxManager.submit(...)` 与审计 ②（presented）段。
  *
  * 口径（两侧字段并集，缺省不臆造）：
- * - 选项：命令类多 `allowlist_tool`；`EXTERNAL` 只给 本次 / 本会话 / 拒绝（外部副作用不提供永久放行）；
+ * - 选项（P0，2026-11-07 收敛为三档 + 拒绝）：命令类 `approve / allowlist_command /
+ *   allowlist_tool / deny`；其余 `approve / allowlist_call / deny`；`EXTERNAL` 只给
+ *   `approve / deny`（外部副作用不提供永久放行）；
  * - `risk` 由 `resolveRiskClass()` 统一派生（传工具对象走声明，只传名字退回旧启发式）；
  * - `inputPreview` 统一截断 300 字符。
  */
@@ -54,13 +56,6 @@ export interface ToolApprovalCardInput {
   toolCallId?: string;
   /** 所属长任务 id */
   taskId?: string;
-  /**
-   * P2（2026-11-04，方案 §3.3）：是否提供「**本任务都允许**」选项。
-   *
-   * 由调用方按"该会话当前确有活跃长程任务"决定（`getActiveTaskId(sessionId)`）。
-   * 缺省 `false` ⇒ 选项集与改造前逐字一致（会话档仍可用）。
-   */
-  allowTaskScope?: boolean;
   /** 卡片来源模块（缺省 `permission`） */
   sourceModule?: string;
   /** S1-1：工具声明的执行作用域（执行时须一致才命中放行缓存） */
@@ -107,21 +102,19 @@ export function buildToolApprovalCard(
   const commandHash = hashCommandForExecution(approvalFingerprint);
   const fingerprintHash = hashApprovalFingerprint(approvalFingerprint);
 
-  // PR-2 四档：命令类多一个工具级永久放行；外部副作用不提供永久放行（安全单调）。
-  // P2（§3.3）：长程任务进行中额外提供「本任务都允许」（比会话档窄：任务结束即失效）。
-  const taskScopeOption = params.allowTaskScope ? ['approve_task'] : [];
+  // P0（2026-11-07，权限与沙箱拉通方案 §2.2）：审批卡**收敛为三档 + 拒绝**——
+  // 「仅这次执行」/「以后这个命令免审批」（命令级）/「以后整个工具免审批」（工具级）。
+  // 之前的「本会话都允许 / 本任务都允许」不再下发：它们只是放行缓存的不同 TTL，
+  // 与三档并存时用户无法判断"这一下点的到底是哪一层"（真机反馈：分不清命令还是工具）。
+  // 后端仍能解析这两个 reply 值（存量在途卡片），只是不再作为新卡片的选项。
+  // 非命令类工具没有"命令"这一层：`allowlist_call` 是"同工具 + 同参数指纹"，
+  // 等价于这一层，故只在非命令类工具上出现（不同时给两个 allowlist 档）。
   const options = isCommandTool
-    ? [
-        'approve',
-        'approve_session',
-        ...taskScopeOption,
-        'allowlist_command',
-        'allowlist_tool',
-        'deny',
-      ]
+    ? ['approve', 'allowlist_command', 'allowlist_tool', 'deny']
     : risk === RiskClass.EXTERNAL
-      ? ['approve', 'approve_session', ...taskScopeOption, 'deny']
-      : ['approve', 'approve_session', ...taskScopeOption, 'allowlist_call', 'deny'];
+      ? // 外部副作用不提供任何永久放行（安全单调）：只能本次批准或拒绝
+        ['approve', 'deny']
+      : ['approve', 'allowlist_call', 'deny'];
 
   const approvalId = newApprovalId();
 

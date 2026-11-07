@@ -966,16 +966,21 @@ const enBase = {
     inboxTypeApproval: "Approval",
     inboxTypeQuestion: "Question",
     inboxTypeAuthorization: "Authorization",
-    inboxReplyApprove: "Approve",
+    // P0 (2026-11-07): button labels state the scope — no more "command vs tool" guessing
+    inboxReplyApprove: "Run once",
     inboxReplyReject: "Reject",
-    inboxReplyAllowTool: "Allowlist tool",
-    inboxReplyAllowCommand: "Allowlist command",
+    inboxReplyAllowTool: "Never ask for this tool",
+    inboxReplyAllowCommand: "Never ask for this command",
     // PR-2 (2026-10-23): four approval tiers — allow for this session / always (tool + args fingerprint)
     inboxReplyApproveSession: "Allow for session",
     // P2 (2026-11-04, §3.3): task-scoped approval while a long-running task is active
     inboxReplyApproveTask: "Allow for this task",
-    inboxReplyAllowAlways: "Always allow",
-    inboxReplyAllowAlwaysHint: "Always allow (this call's arguments only)",
+    inboxReplyAllowAlways: "Never ask for this call",
+    inboxReplyAllowAlwaysHint:
+      "Matches the same tool + same argument fingerprint; different arguments ask again.",
+    // P0 (2026-11-07): where the allowlist rule lands (same wording as the settings tab)
+    inboxAllowlistHint:
+      "Saved to Settings › Custom rules › Tool allowlist (same rule set as that page; revoke it there).",
     // P0-1 (2026-11-04): how many identical approval requests were merged into this card (×N)
     inboxMergedCountHint:
       "The same request was merged {{count}} times (handle it once)",

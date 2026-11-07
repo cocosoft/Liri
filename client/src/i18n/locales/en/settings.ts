@@ -1012,9 +1012,15 @@ const enSettings = {
     rulesTabDirBlacklist: "Directory Blacklist",
     rulesTabDirWhitelist: "Directory Whitelist",
     // PR-2 (2026-10-23): tool-level list + revoke "always allow"
-    rulesTabTools: "Tools",
+    // P0 (2026-11-07): tab name aligned with the approval card wording
+    rulesTabTools: "Tool allowlist",
+    // P0 (2026-11-07): layer labels — show which layer this page belongs to
+    rulesLayerCommandHint:
+      "L2 · Command & directory rules (hard backstop): a blacklist hit is rejected outright; no allowlist can override it.",
+    rulesLayerToolsHint:
+      "L1 · Tool allowlist (tool_rules.json): decides whether to ask. The approval card's 「never ask for this command / this tool」 writes here, and each entry can be revoked here.",
     toolsRulesHint:
-      "Tool-level list: Allow = run without asking; Ask = prompt every time; Deny = block outright (deny always wins, allowlists cannot override). Stored in the same tool_rules.json the decision path reads — effective immediately.",
+      "Tool-level list: Allow = run without asking; Ask = prompt every time; Deny = block outright (deny always wins, allowlists cannot override). Stored in the same tool_rules.json the decision path reads — effective immediately. Rules created from approval cards also show up below.",
     toolsRulesSearch: "Search tool name…",
     toolsRulesLoading: "Loading tools and rules…",
     toolsRulesLoadFailed: "Failed to load tool rules",
@@ -1024,10 +1030,16 @@ const enSettings = {
     toolsRulesBehaviorAllow: "Allow",
     toolsRulesBehaviorAsk: "Ask",
     toolsRulesBehaviorDeny: "Deny",
-    toolsRulesRemembered: "Remembered approvals (always allow) · {{count}}",
+    toolsRulesRemembered:
+      "Remembered calls (same tool + same args) · {{count}}",
     toolsRulesRememberedHint:
-      "“Always allow” applies to a tool + argument fingerprint (e.g. file_write keys on the file path only); revoke entries here.",
-    toolsRulesRememberedEmpty: "No “always allow” entries",
+      "Written by the approval card’s “Never ask for this call”: applies to a tool + argument fingerprint (e.g. file_write keys on the file path only); revoke entries here.",
+    toolsRulesRememberedEmpty: "No remembered calls",
+    // P1 (2026-11-07): command-level allowlist (written by the approval card’s “Never ask for this command”)
+    toolsRulesCommands: "Remembered commands (command-level) · {{count}}",
+    toolsRulesCommandsHint:
+      "Written by the approval card’s “Never ask for this command”: matches a tool + command prefix (only commands sharing that prefix); revoke entries here.",
+    toolsRulesCommandsEmpty: "No command-level entries",
     toolsRulesFromSettings: "From settings",
     toolsRulesFromSettingsHint:
       "This rule lives in the settings file under permissions.{allow,ask,deny} (merged at startup) — shown read-only here; edit the settings file to change it.",

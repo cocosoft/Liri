@@ -67,7 +67,7 @@ function decide(tool: Record<string, unknown>, input: Record<string, unknown>) {
 }
 
 describe('PR-2 审批选项（Q-17）', () => {
-  it('外部副作用：只给 本次 / 本会话 / 拒绝，不含 standing_rule', async () => {
+  it('外部副作用：只给 本次 / 拒绝，不含 standing_rule', async () => {
     const decision = await decide(
       { name: 'web_fetch_like', riskClass: 'external' },
       { url: 'https://example.com' }
@@ -76,7 +76,7 @@ describe('PR-2 审批选项（Q-17）', () => {
     expect(decision.type).toBe(PermissionDecisionType.ASK);
     expect(submitted).toHaveLength(1);
     const options = submitted[0].options as string[];
-    expect(options).toEqual(['approve', 'approve_session', 'deny']);
+    expect(options).toEqual(['approve', 'deny']);
     expect(options).not.toContain('standing_rule');
   });
 

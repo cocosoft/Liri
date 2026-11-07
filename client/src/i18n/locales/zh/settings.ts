@@ -962,9 +962,15 @@ const zhSettings = {
     rulesTabDirBlacklist: "目录黑名单",
     rulesTabDirWhitelist: "目录白名单",
     // PR-2（2026-10-23）：工具级名单 + 「始终允许」撤销
-    rulesTabTools: "工具",
+    // P0（2026-11-07）：tab 名与审批卡文案对齐（"工具放行"= tool_rules.json 的免审批规则）
+    rulesTabTools: "工具放行",
+    // P0（2026-11-07）：分层标注 —— 让用户看清"这一页的东西在哪一层、谁覆盖谁"
+    rulesLayerCommandHint:
+      "L2 · 命令与目录规则（强制兜底）：黑名单命中即拒，任何「免审批」都无法覆盖。",
+    rulesLayerToolsHint:
+      "L1 · 工具放行规则（tool_rules.json）：决定「要不要问」。审批卡上的「以后这个命令免审批 / 以后整个工具免审批」写的就是这里，可在此逐条撤销。",
     toolsRulesHint:
-      "工具级名单：允许＝免审批直接执行；询问＝每次弹审批；拒绝＝直接拦截（拒绝恒优先，白名单不能覆盖）。落点与决策主链路为同一份 tool_rules.json，改完即时生效。",
+      "工具级名单：允许＝免审批直接执行；询问＝每次弹审批；拒绝＝直接拦截（拒绝恒优先，白名单不能覆盖）。落点与决策主链路为同一份 tool_rules.json，改完即时生效；审批卡上的免审批规则也出现在下面的清单里。",
     toolsRulesSearch: "搜索工具名…",
     toolsRulesLoading: "正在读取工具与规则…",
     toolsRulesLoadFailed: "读取工具名单失败",
@@ -974,10 +980,15 @@ const zhSettings = {
     toolsRulesBehaviorAllow: "允许",
     toolsRulesBehaviorAsk: "询问",
     toolsRulesBehaviorDeny: "拒绝",
-    toolsRulesRemembered: "已记住的审批（始终允许）· {{count}}",
+    toolsRulesRemembered: "已记住的调用（同工具 + 同参数）· {{count}}",
     toolsRulesRememberedHint:
-      "「始终允许」按工具 + 参数指纹生效（如 file_write 只按文件路径）；这里可逐条撤销。",
-    toolsRulesRememberedEmpty: "暂无「始终允许」记录",
+      "由审批卡「以后这个调用免审批」写入：按工具 + 参数指纹生效（如 file_write 只按文件路径）；这里可逐条撤销。",
+    toolsRulesRememberedEmpty: "暂无按调用记住的审批",
+    // P1（2026-11-07）：命令级免审批（审批卡「以后这个命令免审批」写入）
+    toolsRulesCommands: "已记住的命令（命令级免审批）· {{count}}",
+    toolsRulesCommandsHint:
+      "由审批卡「以后这个命令免审批」写入：工具 + 命令前缀匹配（仅对同一前缀的命令生效）；这里可逐条撤销。",
+    toolsRulesCommandsEmpty: "暂无命令级免审批记录",
     toolsRulesFromSettings: "来自 settings",
     toolsRulesFromSettingsHint:
       "该规则写在 settings 文件的 permissions.{allow,ask,deny} 里（启动时并入决策）—— 本面板只读展示，请在 settings 文件中修改。",

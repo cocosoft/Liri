@@ -301,6 +301,16 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
         ))}
       </div>
 
+      {/* P0（2026-11-07）：分层标注 —— 命令/目录 = L2 强制兜底；工具放行 = L1 免审批规则。
+          审批卡按钮名与此处 tab 名逐字对齐，用户能把"点了什么"和"写到哪里"对上。 */}
+      <p className="pb-2 text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">
+        {t(
+          activeTab === "tools"
+            ? "settings.rulesLayerToolsHint"
+            : "settings.rulesLayerCommandHint",
+        )}
+      </p>
+
       {/* PR-2：「工具」tab 走即时落盘（tool_rules.json），不使用下方的整块保存 */}
       {activeTab === "tools" ? (
         <ToolRulesSection isDark={isDark} />

@@ -36,7 +36,7 @@ describe('P1：审批卡唯一构造点', () => {
     expect(afterExecute.approvalId).not.toBe(beforeDecision.approvalId);
   });
 
-  it('命令类工具 ⇒ 五档选项（含命令白名单与工具级放行）', () => {
+  it('命令类工具 ⇒ 四档选项（仅这次 / 命令级 / 工具级 / 拒绝）', () => {
     const card = buildToolApprovalCard({
       toolOrName: 'bash',
       input: { command: 'ls' },
@@ -44,7 +44,6 @@ describe('P1：审批卡唯一构造点', () => {
     });
     expect(card.options).toEqual([
       'approve',
-      'approve_session',
       'allowlist_command',
       'allowlist_tool',
       'deny',
@@ -53,28 +52,23 @@ describe('P1：审批卡唯一构造点', () => {
     expect(card.risk).toBe(RiskClass.SHELL);
   });
 
-  it('外部发送类工具 ⇒ 不给永久放行选项（本次/本会话/拒绝）', () => {
+  it('外部发送类工具 ⇒ 不给永久放行选项（仅这次/拒绝）', () => {
     const card = buildToolApprovalCard({
       toolOrName: 'send_email',
       input: { to: 'a@b.c' },
       sessionId: 's',
     });
     expect(card.risk).toBe(RiskClass.EXTERNAL);
-    expect(card.options).toEqual(['approve', 'approve_session', 'deny']);
+    expect(card.options).toEqual(['approve', 'deny']);
   });
 
-  it('其余工具 ⇒ 四档选项（含参数指纹放行）', () => {
+  it('其余工具 ⇒ 三档选项（含参数指纹放行）', () => {
     const card = buildToolApprovalCard({
       toolOrName: 'file_write',
       input: { file_path: '/tmp/a.txt' },
       sessionId: 's',
     });
-    expect(card.options).toEqual([
-      'approve',
-      'approve_session',
-      'allowlist_call',
-      'deny',
-    ]);
+    expect(card.options).toEqual(['approve', 'allowlist_call', 'deny']);
   });
 
   it('执行后路径的扩展字段被如实写入（risk / scope / snapshot / sourceModule）', () => {

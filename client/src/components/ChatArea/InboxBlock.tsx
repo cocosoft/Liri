@@ -340,6 +340,13 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
           </span>
         )}
       </div>
+      {/* P0（2026-11-07）：出现 allowlist 档时标出规则落点（设置 › 自定义规则 › 工具放行） */}
+      {isPending &&
+        data.actions.some((a) => a.reply.startsWith("allowlist_")) && (
+          <p className="mt-2 text-[10px] leading-relaxed text-gray-500 dark:text-gray-400">
+            {t("chat.inboxAllowlistHint")}
+          </p>
+        )}
     </div>
   );
 }

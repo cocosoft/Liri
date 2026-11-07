@@ -9,6 +9,11 @@
  * 档位由后端在 Inbox 项 `options` 上声明（外部副作用类不给永久放行），
  * 组件挂载时读取 `GET /v1/inbox/:id` 过滤按钮 —— 不自行放宽可选档位。
  *
+ * P0（2026-11-07，权限与沙箱拉通方案 §2.2）：档位收敛为**三档 + 拒绝**
+ * （仅这次执行 / 以后这个命令免审批 / 以后整个工具免审批），按钮文案自带作用域，
+ * 并在出现 allowlist 档时显式标出「写入设置 › 自定义规则 › 工具放行，可撤销」——
+ * 用户此前无法判断"加入命令白名单 / 加入工具白名单"到底落到哪一层。
+ *
  * 续跑责任仍在后端（inbox-handlers fire-and-forget + `session:continued` 广播），
  * 这里只做「提交审批 + 反馈」；刷新由 useNotificationSSE 统一处理。
  */
@@ -128,32 +133,41 @@ export default function InlineApprovalActions({ inboxId }: Props) {
     );
   }
 
+  const hasAllowlist = tiers.some((tier) => tier.startsWith("allowlist_"));
+
   return (
-    <span className="inline-flex flex-wrap items-center gap-1.5">
-      {tiers.map((tier) => {
-        const danger = tier === "deny" || tier === "reject";
-        const className = danger
-          ? "px-2 py-0.5 rounded text-[10px] font-medium bg-red-500/15 text-red-400 hover:bg-red-500/25 disabled:opacity-50 transition-colors"
-          : tier === "approve"
-            ? "px-2 py-0.5 rounded text-[10px] font-medium bg-green-500/15 text-green-400 hover:bg-green-500/25 disabled:opacity-50 transition-colors"
-            : "px-2 py-0.5 rounded text-[10px] font-medium bg-gray-500/15 text-gray-300 hover:bg-gray-500/25 disabled:opacity-50 transition-colors";
-        return (
-          <button
-            key={tier}
-            type="button"
-            onClick={() => void reply(tier)}
-            disabled={busy}
-            title={
-              tier === "allowlist_call"
-                ? t("chat.inboxReplyAllowAlwaysHint")
-                : undefined
-            }
-            className={className}
-          >
-            {t(TIER_LABEL_KEYS[tier])}
-          </button>
-        );
-      })}
-    </span>
+    <>
+      <span className="inline-flex flex-wrap items-center gap-1.5">
+        {tiers.map((tier) => {
+          const danger = tier === "deny" || tier === "reject";
+          const className = danger
+            ? "px-2 py-0.5 rounded text-[10px] font-medium bg-red-500/15 text-red-400 hover:bg-red-500/25 disabled:opacity-50 transition-colors"
+            : tier === "approve"
+              ? "px-2 py-0.5 rounded text-[10px] font-medium bg-green-500/15 text-green-400 hover:bg-green-500/25 disabled:opacity-50 transition-colors"
+              : "px-2 py-0.5 rounded text-[10px] font-medium bg-gray-500/15 text-gray-300 hover:bg-gray-500/25 disabled:opacity-50 transition-colors";
+          return (
+            <button
+              key={tier}
+              type="button"
+              onClick={() => void reply(tier)}
+              disabled={busy}
+              title={
+                tier === "allowlist_call"
+                  ? t("chat.inboxReplyAllowAlwaysHint")
+                  : undefined
+              }
+              className={className}
+            >
+              {t(TIER_LABEL_KEYS[tier])}
+            </button>
+          );
+        })}
+      </span>
+      {hasAllowlist && (
+        <p className="mt-1 text-[10px] leading-relaxed text-gray-500 dark:text-gray-400">
+          {t("chat.inboxAllowlistHint")}
+        </p>
+      )}
+    </>
   );
 }

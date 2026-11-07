@@ -75,6 +75,17 @@ export default function ToolRulesSection({ isDark }: Props) {
     () => rules.filter((r) => !!r.inputFingerprint),
     [rules],
   );
+  /**
+   * P1（2026-11-07）：**命令级免审批**规则（工具 + 命令前缀，`contentPattern`）。
+   *
+   * 这些规则由审批卡「以后这个命令免审批」写入（`persistAllowlistRule(commandLevel=true)`）。
+   * 此前本面板只列"整工具"与"同参数指纹"两类，`contentPattern` 规则**既不展示也无法撤销**
+   * ⇒ 用户在审批卡上点下的命令级放行，到设置里找不到（与卡片上的"可撤销"承诺不符）。
+   */
+  const commandRules = useMemo(
+    () => rules.filter((r) => !!r.contentPattern),
+    [rules],
+  );
   /** settings 文件来源（只读合并视图）：展示真实生效值，但不在本面板写入 */
   const settingsRules = useMemo(
     () =>
@@ -276,6 +287,42 @@ export default function ToolRulesSection({ isDark }: Props) {
                   <span className={`ml-2 ${muted}`}>
                     {rule.inputFingerprint?.slice(0, 12)}
                   </span>
+                </code>
+                <button
+                  type="button"
+                  onClick={() => void deleteRule(rule)}
+                  disabled={busy === rule.id}
+                  className="text-red-400 hover:text-red-600 shrink-0 disabled:opacity-50"
+                >
+                  {t("common.delete")}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      {/* P1（2026-11-07）：命令级免审批（审批卡「以后这个命令免审批」写入，可撤销） */}
+      <div className="pt-1">
+        <p className={`text-xs font-medium ${muted}`}>
+          {t("settings.toolsRulesCommands", { count: commandRules.length })}
+        </p>
+        <p className={`text-[11px] ${muted}`}>
+          {t("settings.toolsRulesCommandsHint")}
+        </p>
+        {commandRules.length === 0 ? (
+          <p className={`text-[11px] py-1 ${muted}`}>
+            {t("settings.toolsRulesCommandsEmpty")}
+          </p>
+        ) : (
+          <div className="mt-1 space-y-1">
+            {commandRules.map((rule) => (
+              <div
+                key={rule.id}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs ${rowBg}`}
+              >
+                <code className="break-all flex-1">
+                  {rule.toolName}
+                  <span className={`ml-2 ${muted}`}>{rule.contentPattern}</span>
                 </code>
                 <button
                   type="button"

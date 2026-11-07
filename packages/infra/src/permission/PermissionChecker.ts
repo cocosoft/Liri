@@ -726,13 +726,12 @@ export class PermissionChecker {
       // P1（2026-11-04）：审批卡**唯一的构造点**（与执行后路径共用，见
       // `toolApprovalSubmission.ts`）。指纹 / 选项 / 文案 / metadata / 审计①段都在那里，
       // 本方法只负责"同指纹复用 → submit → 审计②段"。
+      // P0（2026-11-07）：卡片选项已收敛为三档 + 拒绝，`taskId` 仅作为留证写入 metadata。
       const card = buildToolApprovalCard({
         toolOrName,
         input,
         sessionId,
         taskId,
-        // 只有确实在长程任务里才给「本任务都允许」（否则选项集与改造前一致）
-        allowTaskScope: Boolean(taskId),
         sandbox: context.sandbox,
       });
       const commandHash = card.commandHash;

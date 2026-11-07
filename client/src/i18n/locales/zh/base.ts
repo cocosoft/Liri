@@ -932,16 +932,21 @@ const zhBase = {
     inboxTypeApproval: "审批",
     inboxTypeQuestion: "提问",
     inboxTypeAuthorization: "授权",
-    inboxReplyApprove: "批准",
+    // P0（2026-11-07）：按钮文案自带**作用域**——用户不再需要猜"这是命令还是工具"
+    inboxReplyApprove: "仅这次执行",
     inboxReplyReject: "拒绝",
-    inboxReplyAllowTool: "加入工具白名单",
-    inboxReplyAllowCommand: "加入命令白名单",
+    inboxReplyAllowTool: "以后整个工具免审批",
+    inboxReplyAllowCommand: "以后这个命令免审批",
     // PR-2（2026-10-23）：四档审批 —— 本会话都允许 / 始终允许（工具+参数指纹）
     inboxReplyApproveSession: "本会话都允许",
     // P2（2026-11-04，§3.3）：长程任务进行中的任务档授权（任务结束即失效）
     inboxReplyApproveTask: "本任务都允许",
-    inboxReplyAllowAlways: "始终允许",
-    inboxReplyAllowAlwaysHint: "始终允许（仅此调用参数）",
+    inboxReplyAllowAlways: "以后这个调用免审批",
+    inboxReplyAllowAlwaysHint:
+      "同一工具 + 同一参数指纹自动放行；参数变化会重新询问。",
+    // P0（2026-11-07）：allowlist 档的规则落点（与设置页 tab 名逐字对齐，避免两套叫法）
+    inboxAllowlistHint:
+      "免审批规则会写入「设置 › 自定义规则 › 工具放行」（与设置页同一份规则，可在那里撤销）。",
     // P0-1（2026-11-04）：同指纹审批被合并的次数（卡片右上角显示 ×N）
     inboxMergedCountHint: "同一请求已被合并 {{count}} 次（只需处理一次）",
     inboxRepliedToast: "已{{label}}",

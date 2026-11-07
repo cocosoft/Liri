@@ -46,7 +46,9 @@
  * ✅ **macOS 也吃这组开关（2026-10-26）**：`bashEnabled` 开启后 bash 与 `code_run` 走 Seatbelt
  * （`/usr/bin/sandbox-exec`），首版只做**写隔离**（读/网络不收紧）；能力不可用 ⇒ 仍 **refuse**
  * （与 Linux 同口径，不静默降级）。方案见 `.trae/specs/macos-sandbox-exec.md`。
- * Windows 仍无 OS 级兜底（开启 `bashEnabled` ⇒ refuse / `platform-unsupported`）。
+ * ✅ **Windows 也吃这组开关（2026-11-07，方案 §10）**：`bashEnabled` 开启后 bash 走
+ * `win-sandbox-run.exe`（Low IL + Job Object），并在执行前后**临时**把可写目录的完整性标签
+ * 降为 Low / 恢复原级别（`tools/bash/bashWindowsSandbox.ts`）。只做**写**隔离，读与网络不受限。
  */
 import { configManager } from '@openliri/infra/config';
 

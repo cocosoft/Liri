@@ -31,10 +31,15 @@
  * 用户需要的路径就会**拦掉正常命令**（方案 §4 G1 点名的"误伤"）⇒ 由用户显式开启。
  *
  * **开启后的语义（关键，避免"假受限"）**：
- * - 显式开启却**无法真正受限**（非 Linux / 本机 Landlock 不可用）⇒ **拒绝执行**（fail-closed，
- *   B2 同取向："不假装已受限"），错误信息给出可操作的两条出路（关开关 / 换环境）；
- * - helper 初始化失败（exit 125）⇒ 由既有 `failClosed` 决定：`true` 拒绝、`false` 回退普通执行并 WARN；
+ * - 显式开启却**无法真正受限**（非 Linux/macOS/Windows / 本机 Landlock 不可用）⇒ **拒绝执行**
+ *   （fail-closed，B2 同取向："不假装已受限"），错误信息给出可操作的两条出路（关开关 / 换环境）；
+ * - helper 初始化失败（landlock exit 125 / Windows helper exit 126）⇒ 由既有 `failClosed` 决定：
+ *   `true` 拒绝、`false` 回退普通执行并 WARN；
  * - 命令本身非 0 退出 ⇒ 与原来的 `exec` 路径**同形**（抛错、带出 `stderr`/`code`）。
+ *
+ * **平台覆盖**：Linux = Landlock、macOS = Seatbelt（`sandbox-exec`）、
+ * Windows = Low IL（`win-sandbox-run.exe` + **执行前后临时降级/恢复目录完整性标签**，
+ * 见 `bashWindowsSandbox.ts` 与方案 §10）。三者都只隔离**写**。
  *
  * **本项只补"文件系统写"的内核级约束；网络保持"不受限"**（2026-09-29 台账 D-36-①/D-38 更正）：
  * 原实现传 `net.allow = connect_tcp/udp`（意图"放行"）⇒ 经 `--net-connect` 落到内核后实际是
@@ -53,6 +58,7 @@
  */
 
 import { exec } from 'node:child_process';
+import { mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
@@ -71,6 +77,9 @@ import {
   processRegistry,
   killProcessTree,
   resolveLandlockHelperPath,
+  // 2026-11-07：Windows 兜底（Low IL + Job Object），配合下面的临时完整性标签实现**写隔离**
+  detectWindowsSandboxCapability,
+  runWithWinSandbox,
 } from '@modules/sandbox';
 import type {
   LandlockCapability,
@@ -82,6 +91,9 @@ import type {
   ProcessInfo,
   SandboxExecRunInput,
   SandboxExecRunResult,
+  WinSandboxRunInput,
+  WinSandboxRunResult,
+  WindowsSandboxCapability,
 } from '@modules/sandbox';
 import {
   resolveDownloadsDir,
@@ -89,8 +101,16 @@ import {
   resolveTempDir,
 } from '@openliri/infra/environment';
 import { reportBashLandlockGapOnce } from './bashLandlockGap';
-// P2（2026-11-07）：Windows 上 bash 无法做 OS 级隔离（需改工作区 ACL，见 spec §3.3）
+// P2（2026-11-07）：bash 未隔离时的**一次性告警**（开关默认关闭 ⇒ 如实说明"现在没隔离"）
 import { reportBashSandboxDegradedOnce } from './bashSandboxDegraded';
+// 2026-11-07（方案 §10）：Windows bash 真写隔离 —— 临时降级目录完整性标签 + 执行后恢复
+import {
+  beginWindowsBashGrants,
+  buildWindowsBashInvocation,
+  isWindowsAccessDenied,
+  type IcaclsRunner,
+  type UserSidResolver,
+} from './bashWindowsSandbox';
 
 const logger = getLogger('tools:bash:landlock-exec');
 
@@ -229,7 +249,7 @@ export function buildBashLandlockPolicy(input: {
 
 /** 门控判定结果（`refuse` 时 `message` 必填，供用户可操作地排障） */
 export interface BashLandlockGate {
-  mode: 'plain' | 'landlock' | 'sandbox-exec' | 'refuse';
+  mode: 'plain' | 'landlock' | 'sandbox-exec' | 'windows-low-il' | 'refuse';
   reason:
     | 'master-off'
     | 'switch-off'
@@ -237,6 +257,7 @@ export interface BashLandlockGate {
     | 'capability-unavailable'
     | 'macos-enabled'
     | 'macos-capability-unavailable'
+    | 'windows-enabled'
     | 'eval-forced'
     | 'eval-forced-fallback'
     | 'enabled';
@@ -295,6 +316,13 @@ export function decideBashLandlockGate(input: {
       };
     }
     return { mode: 'sandbox-exec', reason: 'macos-enabled' };
+  }
+
+  // 2026-11-07（方案 §10）：Windows 走 Low IL helper，并由调用方在**执行前后**临时降级/恢复
+  // 可写目录的完整性标签（`bashWindowsSandbox.ts`）。helper 缺失 / 授权失败时由调用方按
+  // `failClosed` 决定拒绝还是降级 —— 判据在这里只负责「开关开着 ⇒ 走 Windows 沙箱路径」。
+  if (platform === 'win32') {
+    return { mode: 'windows-low-il', reason: 'windows-enabled' };
   }
 
   if (platform !== 'linux') {
@@ -471,6 +499,18 @@ export interface BashExecDeps {
   runSandboxExec?: (
     input: SandboxExecRunInput
   ) => Promise<SandboxExecRunResult>;
+  /** 2026-11-07：Windows Low IL 能力探测（默认 `detectWindowsSandboxCapability`；测试可注入） */
+  detectWin?: () => WindowsSandboxCapability;
+  /** 2026-11-07：Windows Low IL 执行器（默认 `runWithWinSandbox`；测试可注入） */
+  runWinSandbox?: (input: WinSandboxRunInput) => Promise<WinSandboxRunResult>;
+  /** 2026-11-07：`icacls` 执行器（默认真实调用；测试注入以免改真实 ACL） */
+  runIcacls?: IcaclsRunner;
+  /** 2026-11-07：授权台账路径（默认 `~/.pyapp/data/…`；测试注入临时文件） */
+  winGrantJournalPath?: string;
+  /** 2026-11-07：目录存在性判定（默认 `fs.existsSync`；测试可注入） */
+  winPathExists?: (path: string) => boolean;
+  /** 2026-11-07：当前用户 SID（默认 `whoami /user`；测试注入以免真起进程） */
+  winResolveUserSid?: UserSidResolver;
 }
 
 export interface BashExecInput {
@@ -490,9 +530,11 @@ function commandFailedError(input: {
   stdout: string;
   stderr: string;
   exitCode: number;
+  /** 追加在错误信息末尾的归因标记（如 `［sandbox_denied: write］`） */
+  suffix?: string;
 }): Error {
   const error = new Error(
-    `Command failed: ${input.command}${input.stderr ? `\n${input.stderr}` : ''}`
+    `Command failed: ${input.command}${input.stderr ? `\n${input.stderr}` : ''}${input.suffix ?? ''}`
   );
   const enriched = error as Error & {
     code?: number;
@@ -655,20 +697,155 @@ export async function execBashCommand(
       ...(input.signal ? { signal: input.signal } : {}),
     });
 
-  const result =
-    gate.mode === 'sandbox-exec'
-      ? await runMacOSBash()
-      : await runLandlockBash();
+  /** 2026-11-07：Windows Low IL 下**允许写**的目录（其余写操作由 MIC 拒绝） */
+  const windowsWritableDirs = (): string[] => [
+    input.cwd ?? process.cwd(),
+    resolveOutputDir(),
+    resolveDownloadsDir(),
+    resolveTempDir(),
+    ...config.bashExtraWritablePaths,
+  ];
 
-  // S7（2026-10-09）：两条沙箱路径都以终态登记进 `ProcessRegistry`
-  // （landlock helper 内部已登记 ⇒ 仅 macOS 这里补一次，避免重复条目）
-  if (gate.mode === 'sandbox-exec') {
+  /**
+   * 2026-11-07（方案 §10）：Windows 写隔离执行。
+   *
+   * @returns 执行结果；`null` = 按 `failClosed=false` 降级到普通执行（调用方跑 plain）
+   */
+  const runWindowsBash = async (): Promise<WinSandboxRunResult | null> => {
+    const cap = (deps.detectWin ?? detectWindowsSandboxCapability)();
+    if (!cap.available) {
+      if (config.failClosed) {
+        throw new AppError(
+          `已开启 sandbox.landlock.bashEnabled，但 Windows 沙箱 helper 不可用（${cap.reason ?? '未知'}；failClosed=true）⇒ 拒绝执行 bash。` +
+            `请运行 bun run build:win-sandbox 构建 helper，或关闭该开关。［sandbox_denied: init］`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          'G1A_WIN_SANDBOX_UNAVAILABLE'
+        );
+      }
+      logger.warn(
+        'Windows 沙箱 helper 不可用 ⇒ 按 failClosed=false 降级普通执行',
+        { reason: cap.reason }
+      );
+      return null;
+    }
+
+    const session = await beginWindowsBashGrants(windowsWritableDirs(), {
+      ...(deps.runIcacls ? { runIcacls: deps.runIcacls } : {}),
+      ...(deps.winGrantJournalPath
+        ? { journalPath: deps.winGrantJournalPath }
+        : {}),
+      ...(deps.winPathExists ? { pathExists: deps.winPathExists } : {}),
+      ...(deps.winResolveUserSid
+        ? { resolveUserSid: deps.winResolveUserSid }
+        : {}),
+    });
+    if (!session.ok) {
+      await session.release();
+      const detail = session.failures
+        .map((failure) => `${failure.dir}: ${failure.error}`)
+        .join('; ');
+      if (config.failClosed) {
+        throw new AppError(
+          `无法为 bash 工作区临时降级完整性标签（${detail}；failClosed=true）⇒ 拒绝执行。［sandbox_denied: init］`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          'G1A_WIN_SANDBOX_GRANT_FAILED'
+        );
+      }
+      logger.warn(
+        'Windows bash 写授权失败 ⇒ 按 failClosed=false 降级普通执行',
+        {
+          detail,
+        }
+      );
+      return null;
+    }
+
+    try {
+      // 系统 %TEMP% 是整棵大树（真机实测给它打标签要 60s+）⇒ 绝不改它；
+      // 把子进程的 TEMP/TMP 指到受管临时目录（与 code_run 的 Windows 执行器同口径）。
+      const windowsTemp = resolveTempDir();
+      try {
+        mkdirSync(windowsTemp, { recursive: true });
+      } catch {
+        // @ignore-catch 建不出临时目录不致命：命令仍可执行，只是写 TEMP 时会被 MIC 拒绝
+      }
+      const childEnv = {
+        ...input.env,
+        TEMP: windowsTemp,
+        TMP: windowsTemp,
+        TMPDIR: windowsTemp,
+      };
+      // 命令文本经环境变量转交；`%VAR%` 先用**同一个** childEnv 在 Node 侧展开
+      const invocation = buildWindowsBashInvocation({
+        command: input.command,
+        env: childEnv,
+      });
+      return await (deps.runWinSandbox ?? runWithWinSandbox)({
+        program: invocation.program,
+        args: invocation.args,
+        ...(input.cwd ? { cwd: input.cwd } : {}),
+        env: { ...childEnv, ...invocation.env },
+        timeoutMs: input.timeoutMs,
+        maxBufferChars: input.maxBufferChars,
+        ...(input.signal ? { signal: input.signal } : {}),
+      });
+    } finally {
+      // 关键：无论成功/失败/取消，都必须把完整性标签恢复回去
+      await session.release();
+    }
+  };
+
+  const result =
+    gate.mode === 'windows-low-il'
+      ? await runWindowsBash()
+      : gate.mode === 'sandbox-exec'
+        ? await runMacOSBash()
+        : await runLandlockBash();
+
+  if (result === null) {
+    // 仅 Windows 分支会返回 null（helper/授权不可用且 failClosed=false）
+    const out = await runPlain(input.command, plainOptions);
+    logger.info('bash: exec_ok', {
+      commandPreview,
+      mode: 'plain',
+      exitCode: 0,
+      durationMs: Date.now() - startedAt,
+    });
+    return out;
+  }
+
+  // S7（2026-10-09）：沙箱路径都以终态登记进 `ProcessRegistry`
+  // （landlock helper 内部已登记 ⇒ 仅 macOS / Windows 这里补一次，避免重复条目）
+  if (gate.mode === 'sandbox-exec' || gate.mode === 'windows-low-il') {
     registerBashProcess(
       result.pid,
       input.command,
       result.error ? 'error' : result.timedOut ? 'timed_out' : 'completed',
       result.exitCode ?? undefined
     );
+  }
+
+  // 2026-11-07：Windows helper 的 exit 126 = helper 自身失败（与目标程序退出码区分开）
+  if (
+    gate.mode === 'windows-low-il' &&
+    'helperFailed' in result &&
+    result.helperFailed
+  ) {
+    if (config.failClosed) {
+      throw new AppError(
+        `Windows 沙箱 helper 自身失败（exit 126；failClosed=true）⇒ 拒绝执行：${result.stderr.slice(0, 500)}［sandbox_denied: init］`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        'G1A_WIN_SANDBOX_INIT_FAILED'
+      );
+    }
+    logger.warn(
+      'Windows 沙箱 helper 自身失败（exit 126）⇒ 按 failClosed=false 降级普通执行',
+      { detail: result.stderr.slice(0, 300) }
+    );
+    return runPlain(input.command, plainOptions);
   }
 
   // ⚠️ exit-125 协议**只属 landlock**：`sandbox-exec` 没有该语义，若把用户命令的 125 当"初始化失败"，
@@ -702,11 +879,17 @@ export async function execBashCommand(
     );
   }
   if (result.exitCode !== 0) {
+    // 2026-11-07（方案 §10）：Windows 写隔离生效时，越界写会以「拒绝访问」失败 ⇒ 可归因
+    const sandboxDenied =
+      gate.mode === 'windows-low-il' && isWindowsAccessDenied(result.stderr)
+        ? 'write'
+        : undefined;
     // B 类可观测性缺口 ③：命令非 0 退出补 warn（exitCode + stderr 截断）
     logger.warn('bash: exec_failed', {
       commandPreview,
       exitCode: result.exitCode,
       stderr: result.stderr.slice(0, 300),
+      ...(sandboxDenied ? { sandboxDenied } : {}),
       durationMs: Date.now() - startedAt,
     });
     throw commandFailedError({
@@ -714,6 +897,7 @@ export async function execBashCommand(
       stdout: result.stdout,
       stderr: result.stderr,
       exitCode: result.exitCode,
+      ...(sandboxDenied ? { suffix: '［sandbox_denied: write］' } : {}),
     });
   }
   logger.info('bash: exec_ok', {

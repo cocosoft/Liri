@@ -7,7 +7,7 @@ export type SandboxPermissionLevel = "full" | "standard" | "readonly";
 
 /** 当前生效的隔离模式（P1-1：`none` ⇒ 无隔离证据，权限级别不参与实际判定） */
 export type SandboxIsolationMode =
-  | "landlock" | "container" | "ssh" | "pty" | "none";
+  "landlock" | "container" | "ssh" | "pty" | "none";
 
 /** 沙箱配置 */
 export interface SandboxConfig {
@@ -32,11 +32,12 @@ export interface SandboxStatus {
     mode: string;
     permissionLevel: string;
     /**
-     * P2（2026-11-07）：bash 隔离状态原因。
-     * `platform-unsupported` = Windows 上无法做 OS 级隔离（需改工作区 ACL），
-     * 与"用户没开开关"（`switch-off`）区分展示。
+     * 2026-11-07（方案 §10）：bash 隔离状态原因。
+     * `windows-switch-off` = Windows 上默认不隔离，但打开开关即可（执行期间临时改完整性标签）；
+     * `windows-enforced` = Windows 上已隔离（每次执行临时授权、执行后恢复）。
      */
-    bashSandboxReason?: "enforced" | "switch-off" | "platform-unsupported";
+    bashSandboxReason?:
+      "enforced" | "windows-enforced" | "switch-off" | "windows-switch-off";
     landlock: {
       enabled: boolean;
       bashEnabled: boolean;

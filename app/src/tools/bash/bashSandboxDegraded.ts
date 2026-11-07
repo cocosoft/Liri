@@ -2,17 +2,14 @@
 // Copyright (c) 2026 190615273@qq.com
 
 /**
- * bash「未隔离」的可观测信号（P2，2026-11-07）。
+ * bash「未隔离」的可观测信号（P2，2026-11-07；2026-11-07 晚随方案 §10 更新口径）。
  *
- * 决策背景（用户 2026-11-07 拍板：「保持不沙箱 + 补齐可观测」）：
- * `win-sandbox-run.exe` 只做 **Low IL + Job Object**，**不做路径授权**；
- * Low IL 进程默认写不了 Medium 目录（用户仓库就是 Medium）⇒ 让 bash 真写隔离
- * 必须给用户仓库加 Low IL 的 ACL（grant/setintegritylevel），存在残留/并发污染，
- * 见 `.trae/specs/windows-sandbox.md §3.3`（v1 明确不做）。
+ * 2026-11-07 白天：Windows 上 bash 只能 plain 执行（Low IL 需要给工作区改 ACL，当时判定不做）。
+ * 2026-11-07 晚（方案 §10）：用户拍板「临时授权 + finally 撤销」，Windows 已能真写隔离
+ * ⇒ 是否隔离变成**显式开关**（`sandbox.landlock.bashEnabled`，默认关）。
  *
- * 因此 Windows 上 bash **继续 plain 执行**，但必须让这件事**可查**：
- * 每条 `bash: exec_ok` 已带 `mode: 'plain'`；本模块补**一次**结构化告警，
- * 说明「不是开关没开，而是平台不支持」，避免被误读成"沙箱已保护开发命令"。
+ * 因此本模块的职责收窄为：**开关没开时如实说明"现在没隔离"**（不是平台做不到），
+ * 避免被误读成"沙箱已保护开发命令"。
  *
  * 只做描述 / 打日志：**不参与任何 allow / ask / deny 判定**，也不改执行路径。
  */
@@ -26,7 +23,7 @@ let reported = false;
 
 export interface BashSandboxDegradedVerdict {
   report: boolean;
-  reason: 'windows-unsupported' | 'not-windows' | 'already-reported';
+  reason: 'windows-bash-opt-in' | 'not-windows' | 'already-reported';
 }
 
 /** 纯判据（零 IO、零状态）—— 便于离线覆盖分支 */
@@ -40,7 +37,7 @@ export function judgeBashSandboxDegraded(input: {
   if (input.alreadyReported) {
     return { report: false, reason: 'already-reported' };
   }
-  return { report: true, reason: 'windows-unsupported' };
+  return { report: true, reason: 'windows-bash-opt-in' };
 }
 
 export interface BashSandboxDegradedDeps {
@@ -67,13 +64,13 @@ export function reportBashSandboxDegradedOnce(
   reported = true;
   try {
     const warn = deps.warn ?? ((message, meta) => logger.warn(message, meta));
-    warn('bash: sandbox_degraded —— 本平台无法对 bash 做 OS 级隔离', {
+    warn('bash: sandbox_degraded —— 本平台当前未对 bash 做 OS 级隔离', {
       mode: 'plain',
-      reason: 'platform-unsupported',
+      reason: 'windows-bash-opt-in',
       writablePolicy: 'unrestricted',
-      // 让读者一眼看到"为什么不是开个开关就行"
-      why: 'Windows Low IL 沙箱要求给工作区改 ACL（残留/并发污染），v1 明确不做',
-      ref: '.trae/specs/windows-sandbox.md §3.3',
+      // 让读者一眼看到"怎么开、开了会发生什么"
+      why: 'Windows 的 bash 写隔离需要临时把可写目录的完整性标签降为 Low（执行后恢复）⇒ 默认关闭，由 sandbox.landlock.bashEnabled 显式开启',
+      ref: 'dev_docs/20261107/权限与沙箱拉通方案-20261107.md §10',
       affectedTools: ['bash', 'powershell'],
     });
   } catch {

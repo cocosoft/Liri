@@ -151,13 +151,16 @@ const zhWorkspace = {
     postureTitle: "当前安全姿态",
     postureModeNone: "执行模式：无隔离证据（本次执行不受内核级约束）",
     postureModeEnforced: "执行模式：内核级约束已生效",
-    postureFailOpen: "沙箱初始化失败或能力缺失时：回退到无约束执行（fail-open，既定决策）",
+    postureFailOpen:
+      "沙箱初始化失败或能力缺失时：回退到无约束执行（fail-open，既定决策）",
     postureFailClosed: "沙箱初始化失败或能力缺失时：拒绝执行（fail-closed）",
     postureBashIn: "bash 工具：在沙箱内执行",
     postureBashOut: "bash 工具：不在沙箱内执行（landlock.bashEnabled=false）",
-    // P2（2026-11-07）：Windows 上不是"开关没开"，而是平台无法隔离（需改工作区 ACL）
-    postureBashUnsupported:
-      "bash 工具：不在沙箱内执行 —— Windows 无法做 OS 级隔离（Low IL 需给工作区改 ACL，按既定决策不改用户仓库），打开开关也只会拒绝执行",
+    // 2026-11-07（方案 §10）：Windows 已能通过"临时降级完整性标签"实现 bash 写隔离
+    postureBashInWindows:
+      "bash 工具：在 Windows Low IL 沙箱内执行 —— 每次执行前临时把可写目录的完整性标签降为 Low，执行后恢复；读与网络仍不受限",
+    postureBashWindowsOptIn:
+      "bash 工具：不在沙箱内执行 —— Windows 上默认不隔离；打开 landlock.bashEnabled 后会以 Low IL 执行（每次执行期间临时降低可写目录的完整性标签、执行后恢复；读与网络仍不受限）",
     postureGuardOn: "解释器命令二次确认（BASH_INTERPRETER_GUARD）：已开启",
     postureGuardOff: "解释器命令二次确认（BASH_INTERPRETER_GUARD）：未开启",
     // P2-c（2026-11-07）：权限档 ≠ 沙箱 —— 前者管「要不要问」，后者管「跑起来能碰什么」
@@ -1420,7 +1423,8 @@ const zhWorkspace = {
     relocatePathRequired: "请输入新的目录路径",
     relocateSave: "重新定位",
     relocating: "处理中…",
-    relocatePartial: "项目已重新定位，但有 {{count}} 个会话未能同步更新工作区（详见服务端日志）",
+    relocatePartial:
+      "项目已重新定位，但有 {{count}} 个会话未能同步更新工作区（详见服务端日志）",
     // 2026-11-03：按项目的「自主执行」开关（暂停后不再 5 分钟 tick）
     pauseAutonomy: "暂停自主执行",
     resumeAutonomy: "恢复自主执行",

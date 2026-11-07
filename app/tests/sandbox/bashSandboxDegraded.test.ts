@@ -21,10 +21,10 @@ beforeEach(() => {
 });
 
 describe('P2：bash 未隔离的可观测信号', () => {
-  it('Windows ⇒ 提示（reason=windows-unsupported）', () => {
+  it('Windows ⇒ 提示（reason=windows-bash-opt-in）', () => {
     expect(
       judgeBashSandboxDegraded({ platform: 'win32', alreadyReported: false })
-    ).toEqual({ report: true, reason: 'windows-unsupported' });
+    ).toEqual({ report: true, reason: 'windows-bash-opt-in' });
   });
 
   it('非 Windows ⇒ 不提示（Linux/macOS 有各自沙箱路径）', () => {
@@ -55,10 +55,10 @@ describe('P2：bash 未隔离的可观测信号', () => {
     expect(second).toEqual({ report: false, reason: 'already-reported' });
     expect(calls).toHaveLength(1);
     expect(calls[0].message).toContain('sandbox_degraded');
-    expect(calls[0].meta?.reason).toBe('platform-unsupported');
+    expect(calls[0].meta?.reason).toBe('windows-bash-opt-in');
     expect(calls[0].meta?.mode).toBe('plain');
     expect(calls[0].meta?.writablePolicy).toBe('unrestricted');
-    expect(String(calls[0].meta?.ref)).toContain('windows-sandbox.md');
+    expect(String(calls[0].meta?.ref)).toContain('§10');
   });
 
   it('非 Windows 零 IO、零告警', () => {

@@ -31,14 +31,21 @@ export type SandboxRiskCode =
   | 'mode-none'
   | 'landlock-fail-open'
   | 'landlock-bash-disabled'
-  // P2（2026-11-07）：Windows 上 bash 无法做 OS 级隔离（Low IL 需改工作区 ACL）
-  | 'bash-sandbox-unsupported';
+  // 2026-11-07（方案 §10）：Windows 上 bash 默认不隔离（打开开关后会临时降级目录完整性标签）
+  | 'bash-sandbox-windows-opt-in';
 
-/** bash 是否受 OS 级隔离，以及原因（语言中立；前端按此取文案） */
+/**
+ * bash 是否受 OS 级隔离，以及原因（语言中立；前端按此取文案）
+ *
+ * 2026-11-07（方案 §10）：Windows 已支持 bash 写隔离（Low IL + 临时完整性标签）⇒
+ * 不再有「平台不支持」这一态，改为区分「开关没开」（`windows-switch-off`）与「Windows 已开启」
+ * （`windows-enforced`，前端据此说明"执行期间临时改标签、执行后恢复"）。
+ */
 export type BashSandboxReason =
   | 'enforced'
+  | 'windows-enforced'
   | 'switch-off'
-  | 'platform-unsupported';
+  | 'windows-switch-off';
 
 export interface SandboxPosture {
   /** 当前进程的隔离模式（`none` = 无隔离证据） */
@@ -97,9 +104,11 @@ export function describeSandboxPosture(
 
   const platform = overrides.platform ?? process.platform;
   const bashSandboxReason: BashSandboxReason = landlock.bashEnabled
-    ? 'enforced'
+    ? platform === 'win32'
+      ? 'windows-enforced'
+      : 'enforced'
     : platform === 'win32'
-      ? 'platform-unsupported'
+      ? 'windows-switch-off'
       : 'switch-off';
 
   const openRisks: string[] = [];
@@ -114,13 +123,13 @@ export function describeSandboxPosture(
     );
     openRiskCodes.push('landlock-fail-open');
   }
-  if (bashSandboxReason === 'platform-unsupported') {
-    // P2（2026-11-07）：Windows 上不是"开关没开"，而是 Low IL 需要给工作区改 ACL
-    // （残留/并发污染），v1 明确不做；必须如实区分，避免用户以为打开开关就受保护。
+  if (bashSandboxReason === 'windows-switch-off') {
+    // 2026-11-07（方案 §10）：Windows 已能做 bash **写**隔离，但属显式选择（默认关）：
+    // 执行期间要临时把工作区完整性标签降为 Low，执行后恢复 ⇒ 默认不替用户做主。
     openRisks.push(
-      'Windows 无法对 bash 做 OS 级隔离：Low IL 沙箱需要给工作区改 ACL（按 2026-11-07 决策不改用户仓库）'
+      'Windows 上 bash 默认不隔离：打开 sandbox.landlock.bashEnabled 后会以 Low IL 执行，并临时把可写目录的完整性标签降为 Low（执行后恢复；读与网络仍不受限）'
     );
-    openRiskCodes.push('bash-sandbox-unsupported');
+    openRiskCodes.push('bash-sandbox-windows-opt-in');
   } else if (!landlock.bashEnabled) {
     openRisks.push('landlock.bashEnabled=false：bash 工具默认不在沙箱内执行');
     openRiskCodes.push('landlock-bash-disabled');

@@ -580,7 +580,7 @@ export async function registerAllSpis(
         mode: posture.mode,
         permissionLevel: posture.permissionLevel,
         landlock: posture.landlock,
-        // P2（2026-11-07）：Windows 上 bash 无法隔离，启动日志即如实标注
+        // 2026-11-07（方案 §10）：bash 隔离状态（enforced / windows-enforced / switch-off …）
         bashSandboxReason: posture.bashSandboxReason,
       });
       for (const risk of posture.openRisks) {
@@ -588,6 +588,39 @@ export async function registerAllSpis(
           risk,
         });
       }
+    }
+
+    // 2026-11-07（方案 §10）：Windows bash 写隔离会**临时**把可写目录的完整性标签降为 Low，
+    // 正常路径在 `finally` 恢复；进程被强杀/崩溃时来不及 ⇒ 启动时按台账补一次恢复。
+    // ⚠️ 刻意**不阻塞启动**：撤销临时 WRITE_OWNER 会触发整棵目录树的 ACL 传播
+    //   （真机实测 15 万文件 ≈ 8s）；失败只留日志，台账保留到下次启动。
+    if (process.platform === 'win32') {
+      void (async () => {
+        const { getLogger: getSandboxLogger } =
+          await import('@openliri/infra/monitoring/logs/Logger');
+        try {
+          const { cleanupStaleWindowsBashGrants } =
+            await import('@modules/tools/bash/bashWindowsSandbox');
+          const cleanup = await cleanupStaleWindowsBashGrants();
+          if (cleanup.restored.length > 0 || cleanup.failures.length > 0) {
+            getSandboxLogger('sandbox:posture').info(
+              'bash 完整性标签清理（上次进程残留）',
+              {
+                restored: cleanup.restored,
+                failures: cleanup.failures,
+              }
+            );
+          }
+        } catch (error) {
+          // @ignore-catch 清理属兜底：失败不得阻断启动（台账保留，下轮重试）
+          getSandboxLogger('sandbox:posture').warn(
+            'bash 完整性标签清理失败（不阻断启动）',
+            { error: String(error) }
+          );
+        }
+      })().catch(() => {
+        // 日志通道本身不可用 ⇒ 静默（清理属兜底，绝不阻断启动）
+      });
     }
 
     markSpiRegistered('sandbox');

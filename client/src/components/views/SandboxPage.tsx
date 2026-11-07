@@ -111,9 +111,11 @@ function SandboxPage() {
           ? t("sandbox.postureFailClosed")
           : t("sandbox.postureFailOpen"),
         posture.landlock.bashEnabled
-          ? t("sandbox.postureBashIn")
-          : posture.bashSandboxReason === "platform-unsupported"
-            ? t("sandbox.postureBashUnsupported")
+          ? posture.bashSandboxReason === "windows-enforced"
+            ? t("sandbox.postureBashInWindows")
+            : t("sandbox.postureBashIn")
+          : posture.bashSandboxReason === "windows-switch-off"
+            ? t("sandbox.postureBashWindowsOptIn")
             : t("sandbox.postureBashOut"),
         posture.bashInterpreterGuard
           ? t("sandbox.postureGuardOn")

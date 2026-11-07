@@ -172,7 +172,8 @@ describe('execBashCommand 成败/拒绝分支可观测性（B 类缺口 ③）',
         deps: {
           config: cfg({ enabled: true, bashEnabled: true }),
           evalForced: false,
-          platform: 'win32',
+          // 2026-11-07（方案 §10）：win32 已改为 windows-low-il ⇒ 用 still-unsupported 的平台覆盖 refuse 分支
+          platform: 'freebsd',
         },
       })
     ).rejects.toThrow();
@@ -183,7 +184,7 @@ describe('execBashCommand 成败/拒绝分支可观测性（B 类缺口 ③）',
       commandPreview: 'rm -rf /tmp/x',
       reason: 'platform-unsupported',
     });
-    expect(String(refused[0][1].message ?? '')).toContain('win32');
+    expect(String(refused[0][1].message ?? '')).toContain('freebsd');
   });
 
   it('Landlock 域内非 0 退出 ⇒ warn exec_failed（exitCode + stderr 截断）', async () => {

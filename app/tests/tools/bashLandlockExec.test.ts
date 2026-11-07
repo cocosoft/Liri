@@ -80,15 +80,25 @@ describe('G1-A: 默认关闭 + 门控判据（纯函数）', () => {
     ).toEqual({ mode: 'plain', reason: 'switch-off' });
   });
 
+  it('开启 + win32 ⇒ windows-low-il（2026-11-07：Low IL + 临时完整性标签）', () => {
+    expect(
+      decideBashLandlockGate({
+        config: cfg({ bashEnabled: true }),
+        platform: 'win32',
+        capability: null,
+      })
+    ).toEqual({ mode: 'windows-low-il', reason: 'windows-enabled' });
+  });
+
   it('开启但平台不支持 ⇒ 拒绝执行（并给出可操作出路）', () => {
     const gate = decideBashLandlockGate({
       config: cfg({ bashEnabled: true }),
-      platform: 'win32',
+      platform: 'freebsd',
       capability: null,
     });
     expect(gate.mode).toBe('refuse');
     expect(gate.reason).toBe('platform-unsupported');
-    expect(gate.message).toContain('win32');
+    expect(gate.message).toContain('freebsd');
     expect(gate.message).toContain('sandbox.landlock.bashEnabled');
   });
 
@@ -314,7 +324,7 @@ describe('G1-A: 开关关闭 ⇒ 与改造前等价（且不探测）', () => {
 });
 
 describe('G1-A: 开启后无法受限 ⇒ 拒绝（不静默降级）', () => {
-  it('非 Linux：拒绝，且**不调用**普通执行器', async () => {
+  it('不支持的平台：拒绝，且**不调用**普通执行器', async () => {
     const spy = plainSpy();
     await expect(
       execBashCommand({
@@ -324,7 +334,8 @@ describe('G1-A: 开启后无法受限 ⇒ 拒绝（不静默降级）', () => {
         maxBufferChars: 1024,
         deps: {
           config: cfg({ bashEnabled: true }),
-          platform: 'win32',
+          // 2026-11-07：win32 已接入 windows-low-il ⇒ 用不支持的平台覆盖 refuse
+          platform: 'freebsd',
           runPlain: spy.runPlain,
         },
       })

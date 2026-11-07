@@ -114,15 +114,14 @@ describe('decideBashLandlockGate — 其他平台回归', () => {
     expect(gate.reason).toBe('capability-unavailable');
   });
 
-  it('win32 + 开关开 ⇒ refuse/platform-unsupported（Windows 仍无兜底）', () => {
+  it('win32 + 开关开 ⇒ windows-low-il（2026-11-07 起 Windows 有 Low IL 兜底）', () => {
     const gate = decideBashLandlockGate({
       config: onConfig,
       platform: 'win32',
       capability: null,
       macCapability: macAvailable,
     });
-    expect(gate.mode).toBe('refuse');
-    expect(gate.reason).toBe('platform-unsupported');
+    expect(gate).toEqual({ mode: 'windows-low-il', reason: 'windows-enabled' });
   });
 
   it('eval-forced 语义不变（评测期回退 plain）', () => {

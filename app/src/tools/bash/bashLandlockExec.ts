@@ -77,9 +77,6 @@ import {
   processRegistry,
   killProcessTree,
   resolveLandlockHelperPath,
-  // 2026-11-07：Windows 兜底（Low IL + Job Object），配合下面的临时完整性标签实现**写隔离**
-  detectWindowsSandboxCapability,
-  runWithWinSandbox,
 } from '@modules/sandbox';
 import type {
   LandlockCapability,
@@ -103,10 +100,12 @@ import {
 import { reportBashLandlockGapOnce } from './bashLandlockGap';
 // P2（2026-11-07）：bash 未隔离时的**一次性告警**（开关默认关闭 ⇒ 如实说明"现在没隔离"）
 import { reportBashSandboxDegradedOnce } from './bashSandboxDegraded';
-// 2026-11-07（方案 §10）：Windows bash 真写隔离 —— 临时降级目录完整性标签 + 执行后恢复
+// 2026-11-07（方案 §10）：Windows 真写隔离 —— 临时降级目录完整性标签 + 执行后恢复；
+// 序列（探测 → 授权 → helper 执行 → finally 恢复）收敛在 `runWithWindowsWriteIsolation`，
+// 与 `powershell` 工具共用同一实现（方案 §10.5 遗留项）。
 import {
-  beginWindowsBashGrants,
   buildWindowsBashInvocation,
+  runWithWindowsWriteIsolation,
   isWindowsAccessDenied,
   type IcaclsRunner,
   type UserSidResolver,
@@ -712,11 +711,55 @@ export async function execBashCommand(
    * @returns 执行结果；`null` = 按 `failClosed=false` 降级到普通执行（调用方跑 plain）
    */
   const runWindowsBash = async (): Promise<WinSandboxRunResult | null> => {
-    const cap = (deps.detectWin ?? detectWindowsSandboxCapability)();
-    if (!cap.available) {
+    // 系统 %TEMP% 是整棵大树（真机实测给它打标签要 60s+）⇒ 绝不改它；
+    // 把子进程的 TEMP/TMP 指到受管临时目录（与 code_run 的 Windows 执行器同口径）。
+    const windowsTemp = resolveTempDir();
+    try {
+      mkdirSync(windowsTemp, { recursive: true });
+    } catch {
+      // @ignore-catch 建不出临时目录不致命：命令仍可执行，只是写 TEMP 时会被 MIC 拒绝
+    }
+    const childEnv = {
+      ...input.env,
+      TEMP: windowsTemp,
+      TMP: windowsTemp,
+      TMPDIR: windowsTemp,
+    };
+    // 命令文本经环境变量转交；`%VAR%` 先用**同一个** childEnv 在 Node 侧展开
+    const invocation = buildWindowsBashInvocation({
+      command: input.command,
+      env: childEnv,
+    });
+
+    const outcome = await runWithWindowsWriteIsolation(
+      {
+        program: invocation.program,
+        args: invocation.args,
+        writableDirs: windowsWritableDirs(),
+        ...(input.cwd ? { cwd: input.cwd } : {}),
+        env: { ...childEnv, ...invocation.env },
+        timeoutMs: input.timeoutMs,
+        maxBufferChars: input.maxBufferChars,
+        ...(input.signal ? { signal: input.signal } : {}),
+      },
+      {
+        ...(deps.detectWin ? { detect: deps.detectWin } : {}),
+        ...(deps.runWinSandbox ? { run: deps.runWinSandbox } : {}),
+        ...(deps.runIcacls ? { runIcacls: deps.runIcacls } : {}),
+        ...(deps.winGrantJournalPath
+          ? { journalPath: deps.winGrantJournalPath }
+          : {}),
+        ...(deps.winPathExists ? { pathExists: deps.winPathExists } : {}),
+        ...(deps.winResolveUserSid
+          ? { resolveUserSid: deps.winResolveUserSid }
+          : {}),
+      }
+    );
+
+    if (outcome.kind === 'helper-unavailable') {
       if (config.failClosed) {
         throw new AppError(
-          `已开启 sandbox.landlock.bashEnabled，但 Windows 沙箱 helper 不可用（${cap.reason ?? '未知'}；failClosed=true）⇒ 拒绝执行 bash。` +
+          `已开启 sandbox.landlock.bashEnabled，但 Windows 沙箱 helper 不可用（${outcome.detail}；failClosed=true）⇒ 拒绝执行 bash。` +
             `请运行 bun run build:win-sandbox 构建 helper，或关闭该开关。［sandbox_denied: init］`,
           ErrorCategory.EXECUTION,
           ErrorSeverity.HIGH,
@@ -725,29 +768,15 @@ export async function execBashCommand(
       }
       logger.warn(
         'Windows 沙箱 helper 不可用 ⇒ 按 failClosed=false 降级普通执行',
-        { reason: cap.reason }
+        { reason: outcome.detail }
       );
       return null;
     }
 
-    const session = await beginWindowsBashGrants(windowsWritableDirs(), {
-      ...(deps.runIcacls ? { runIcacls: deps.runIcacls } : {}),
-      ...(deps.winGrantJournalPath
-        ? { journalPath: deps.winGrantJournalPath }
-        : {}),
-      ...(deps.winPathExists ? { pathExists: deps.winPathExists } : {}),
-      ...(deps.winResolveUserSid
-        ? { resolveUserSid: deps.winResolveUserSid }
-        : {}),
-    });
-    if (!session.ok) {
-      await session.release();
-      const detail = session.failures
-        .map((failure) => `${failure.dir}: ${failure.error}`)
-        .join('; ');
+    if (outcome.kind === 'grant-failed') {
       if (config.failClosed) {
         throw new AppError(
-          `无法为 bash 工作区临时降级完整性标签（${detail}；failClosed=true）⇒ 拒绝执行。［sandbox_denied: init］`,
+          `无法为 bash 工作区临时降级完整性标签（${outcome.detail}；failClosed=true）⇒ 拒绝执行。［sandbox_denied: init］`,
           ErrorCategory.EXECUTION,
           ErrorSeverity.HIGH,
           'G1A_WIN_SANDBOX_GRANT_FAILED'
@@ -755,46 +784,12 @@ export async function execBashCommand(
       }
       logger.warn(
         'Windows bash 写授权失败 ⇒ 按 failClosed=false 降级普通执行',
-        {
-          detail,
-        }
+        { detail: outcome.detail }
       );
       return null;
     }
 
-    try {
-      // 系统 %TEMP% 是整棵大树（真机实测给它打标签要 60s+）⇒ 绝不改它；
-      // 把子进程的 TEMP/TMP 指到受管临时目录（与 code_run 的 Windows 执行器同口径）。
-      const windowsTemp = resolveTempDir();
-      try {
-        mkdirSync(windowsTemp, { recursive: true });
-      } catch {
-        // @ignore-catch 建不出临时目录不致命：命令仍可执行，只是写 TEMP 时会被 MIC 拒绝
-      }
-      const childEnv = {
-        ...input.env,
-        TEMP: windowsTemp,
-        TMP: windowsTemp,
-        TMPDIR: windowsTemp,
-      };
-      // 命令文本经环境变量转交；`%VAR%` 先用**同一个** childEnv 在 Node 侧展开
-      const invocation = buildWindowsBashInvocation({
-        command: input.command,
-        env: childEnv,
-      });
-      return await (deps.runWinSandbox ?? runWithWinSandbox)({
-        program: invocation.program,
-        args: invocation.args,
-        ...(input.cwd ? { cwd: input.cwd } : {}),
-        env: { ...childEnv, ...invocation.env },
-        timeoutMs: input.timeoutMs,
-        maxBufferChars: input.maxBufferChars,
-        ...(input.signal ? { signal: input.signal } : {}),
-      });
-    } finally {
-      // 关键：无论成功/失败/取消，都必须把完整性标签恢复回去
-      await session.release();
-    }
+    return outcome.result;
   };
 
   const result =

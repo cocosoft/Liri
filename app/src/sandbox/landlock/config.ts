@@ -49,6 +49,9 @@
  * ✅ **Windows 也吃这组开关（2026-11-07，方案 §10）**：`bashEnabled` 开启后 bash 走
  * `win-sandbox-run.exe`（Low IL + Job Object），并在执行前后**临时**把可写目录的完整性标签
  * 降为 Low / 恢复原级别（`tools/bash/bashWindowsSandbox.ts`）。只做**写**隔离，读与网络不受限。
+ * ✅ **同一开关也覆盖 `powershell` 工具（2026-11-07，方案 §10.5）**：它原先直起 `pwsh`，
+ * 白名单含 `New-Item`/`Copy-Item`/`Out-File` 等写动词 ⇒ 会绕过 bash 的写隔离；
+ * 现与 bash 共用 `runWithWindowsWriteIsolation`（`tools/PowerShellTool/powershellWindowsSandbox.ts`）。
  */
 import { configManager } from '@openliri/infra/config';
 

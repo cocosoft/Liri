@@ -156,11 +156,12 @@ const zhWorkspace = {
     postureFailClosed: "沙箱初始化失败或能力缺失时：拒绝执行（fail-closed）",
     postureBashIn: "bash 工具：在沙箱内执行",
     postureBashOut: "bash 工具：不在沙箱内执行（landlock.bashEnabled=false）",
-    // 2026-11-07（方案 §10）：Windows 已能通过"临时降级完整性标签"实现 bash 写隔离
+    // 2026-11-07（方案 §10 + §10.5）：Windows 已能通过"临时降级完整性标签"实现命令执行写隔离；
+    // 同一开关同时覆盖 bash 与 powershell（powershell 原先直起 pwsh ⇒ 会绕过 bash 的写隔离）
     postureBashInWindows:
-      "bash 工具：在 Windows Low IL 沙箱内执行 —— 每次执行前临时把可写目录的完整性标签降为 Low，执行后恢复；读与网络仍不受限",
+      "命令执行（bash / powershell）：在 Windows Low IL 沙箱内执行 —— 每次执行前临时把可写目录的完整性标签降为 Low，执行后恢复；读与网络仍不受限",
     postureBashWindowsOptIn:
-      "bash 工具：不在沙箱内执行 —— Windows 上默认不隔离；打开 landlock.bashEnabled 后会以 Low IL 执行（每次执行期间临时降低可写目录的完整性标签、执行后恢复；读与网络仍不受限）",
+      "命令执行（bash / powershell）：不在沙箱内执行 —— Windows 上默认不隔离；打开 landlock.bashEnabled 后会以 Low IL 执行（每次执行期间临时降低可写目录的完整性标签、执行后恢复；读与网络仍不受限）",
     postureGuardOn: "解释器命令二次确认（BASH_INTERPRETER_GUARD）：已开启",
     postureGuardOff: "解释器命令二次确认（BASH_INTERPRETER_GUARD）：未开启",
     // P2-c（2026-11-07）：权限档 ≠ 沙箱 —— 前者管「要不要问」，后者管「跑起来能碰什么」

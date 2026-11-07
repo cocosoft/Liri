@@ -27,8 +27,10 @@ import {
   isEmptyOutput,
   EMPTY_OUTPUT_HINT,
 } from '../utils/ToolUtils';
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import {
+  buildPowerShellInvocation,
+  runPowerShellCommand,
+} from './powershellWindowsSandbox';
 import * as path from 'path';
 import { realpathSync, existsSync } from 'fs';
 import {
@@ -706,8 +708,6 @@ const PowerShellOutputSchema = z.object({
   exitCode: z.number().int().optional().describe('退出码'),
 });
 
-const execAsync = promisify(exec);
-
 /**
  * F7b（2026-10-27）：把 PowerShell 执行失败报文整理成**可诊断**形态。
  *
@@ -973,7 +973,7 @@ export class PowerShellTool extends BaseTool {
 
       const depth = input.depth as number | undefined;
       const exclude = input.exclude as string | undefined;
-      const pwshCommand = this.buildPowerShellCommand(
+      const invocation = buildPowerShellInvocation(
         command,
         executionPolicy,
         depth,
@@ -989,11 +989,30 @@ export class PowerShellTool extends BaseTool {
         },
       });
 
-      const { stdout, stderr } = await execAsync(pwshCommand, {
+      // 2026-11-07（方案 §10.5）：Windows 且 `sandbox.landlock.bashEnabled=true` 时走
+      // `win-sandbox-run.exe`（Low IL + 临时完整性标签），与 bash 同一套写隔离；
+      // 未启用 / 降级时内部回退到原 `exec('pwsh …')`。
+      const runResult = await runPowerShellCommand({
+        invocation,
         cwd: workingDirectory,
-        timeout,
+        timeoutMs: timeout,
         env: { ...process.env, POWERSHELL_TEAPOT: '1' },
+        ...(context.abortController?.signal
+          ? { signal: context.abortController.signal }
+          : {}),
       });
+      if (runResult.kind === 'refused') {
+        return createFailureResult(runResult.message, {
+          executionTime: Date.now() - startTime,
+          errorLevel: ErrorLevel.FATAL,
+          metadata: {
+            errorCategory: 'security',
+            errorCode: 'SANDBOX_UNAVAILABLE',
+            securityIntercepted: true,
+          },
+        });
+      }
+      const { stdout, stderr } = runResult;
 
       const output = stdout + (stderr ? '\n[stderr]:\n' + stderr : '');
 
@@ -1076,42 +1095,6 @@ export class PowerShellTool extends BaseTool {
         metadata: { errorCategory: 'execution', errorCode: 'EXECUTION_FAILED' },
       });
     }
-  }
-
-  /**
-   * 构建 PowerShell 命令
-   * @param command 原始命令
-   * @param executionPolicy 执行策略
-   * @param depth 可选的输出深度限制
-   * @param exclude 可选的排除文本模式
-   */
-  private buildPowerShellCommand(
-    command: string,
-    executionPolicy: string,
-    depth?: number,
-    exclude?: string
-  ): string {
-    let finalCommand = command;
-
-    // 追加 depth 限制：通过 Select-Object -First 限制输出对象数
-    if (depth !== undefined && depth > 0) {
-      finalCommand += ` | Select-Object -First ${depth}`;
-    }
-
-    // 追加 exclude 过滤：通过 Select-String 排除匹配行
-    if (exclude) {
-      // 转义单引号防止命令注入
-      const escapedExclude = exclude.replace(/'/g, "''");
-      finalCommand += ` | Select-String -NotMatch -SimpleMatch '${escapedExclude}'`;
-    }
-
-    // 使用 EncodedCommand 避免双层引号转义问题：
-    // child_process.exec 在 Windows 上通过 cmd.exe /d /s /c 执行，
-    // cmd.exe 对引号的处理（^" 或 ""）与 PowerShell（`" 或 ""）不同，
-    // 导致含双引号的命令（如 LLM 用引号包裹含中文符号的文件路径）被错误解析。
-    // Base64 编码完全绕过 cmd.exe → pwsh 的引号转义层，支持任意 Unicode 字符。
-    const encoded = Buffer.from(finalCommand, 'utf16le').toString('base64');
-    return `pwsh -NoProfile -ExecutionPolicy ${executionPolicy} -EncodedCommand ${encoded}`;
   }
 
   /**

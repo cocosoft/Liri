@@ -165,11 +165,12 @@ const enWorkspace = {
     postureBashIn: "bash tool: runs inside the sandbox",
     postureBashOut:
       "bash tool: runs outside the sandbox (landlock.bashEnabled=false)",
-    // 2026-11-07 (§10): Windows can isolate bash writes by temporarily lowering the integrity label
+    // 2026-11-07 (§10 + §10.5): Windows isolates command writes by temporarily lowering the integrity label;
+    // the same switch covers bash and powershell (powershell used to spawn pwsh directly, bypassing bash's write isolation)
     postureBashInWindows:
-      "bash tool: runs in the Windows Low IL sandbox (each run temporarily lowers the integrity label of writable folders, then restores it; reads and network stay unrestricted)",
+      "Command execution (bash / powershell): runs in the Windows Low IL sandbox (each run temporarily lowers the integrity label of writable folders, then restores it; reads and network stay unrestricted)",
     postureBashWindowsOptIn:
-      "bash tool: runs outside the sandbox — Windows does not isolate bash by default; enabling landlock.bashEnabled runs it under Low IL (the integrity label of writable folders is lowered for the duration and restored afterwards; reads and network stay unrestricted)",
+      "Command execution (bash / powershell): runs outside the sandbox — Windows does not isolate by default; enabling landlock.bashEnabled runs it under Low IL (the integrity label of writable folders is lowered for the duration and restored afterwards; reads and network stay unrestricted)",
     postureGuardOn: "Interpreter confirmation (BASH_INTERPRETER_GUARD): on",
     postureGuardOff: "Interpreter confirmation (BASH_INTERPRETER_GUARD): off",
     // P2-c (2026-11-07): permission tier vs sandbox — "ask or not" vs "what it may touch"

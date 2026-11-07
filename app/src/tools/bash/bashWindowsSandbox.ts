@@ -57,6 +57,15 @@ import { dirname, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { resolveDataDir } from '@openliri/infra/environment';
 import { getLogger } from '@openliri/infra/monitoring';
+import {
+  detectWindowsSandboxCapability,
+  runWithWinSandbox,
+} from '@modules/sandbox';
+import type {
+  WinSandboxRunInput,
+  WinSandboxRunResult,
+  WindowsSandboxCapability,
+} from '@modules/sandbox';
 
 const logger = getLogger('tools:bash:windows-sandbox');
 const execFileAsync = promisify(execFile);
@@ -526,6 +535,78 @@ export function resetWindowsBashGrantsForTest(): void {
   activeGrants.clear();
 }
 
+/**
+ * 「Windows 写隔离执行」的**共用入口**（2026-11-07；`bash` 与 `powershell` 共用）。
+ *
+ * 固定序列：能力探测 → 临时降完整性标签（含 `WRITE_OWNER` 兜底）→ `win-sandbox-run.exe`
+ * 执行 → `finally` 恢复标签。**不替调用方做 failClosed 决策**：helper 缺失 / 授权失败都以
+ * `kind` 返回，由调用方按自己的工具名与 `sandbox.landlock.failClosed` 决定「拒绝」还是「降级 plain」。
+ */
+export type WindowsWriteIsolationOutcome =
+  | { kind: 'ran'; result: WinSandboxRunResult }
+  | { kind: 'helper-unavailable'; detail: string }
+  | { kind: 'grant-failed'; detail: string };
+
+export interface WindowsWriteIsolationInput {
+  /** 目标程序（`pwsh` / `cmd.exe` …；helper 直接 CreateProcess 它，不经 shell） */
+  program: string;
+  args: string[];
+  /** 执行期间允许写的目录（其余写操作由 MIC 拒绝） */
+  writableDirs: string[];
+  cwd?: string;
+  env: NodeJS.ProcessEnv;
+  timeoutMs: number;
+  maxBufferChars: number;
+  signal?: AbortSignal;
+}
+
+export interface WindowsWriteIsolationDeps extends WindowsBashGrantDeps {
+  /** 能力探测（默认 `detectWindowsSandboxCapability`；测试可注入） */
+  detect?: () => WindowsSandboxCapability;
+  /** helper 执行器（默认 `runWithWinSandbox`；测试可注入） */
+  run?: (input: WinSandboxRunInput) => Promise<WinSandboxRunResult>;
+}
+
+export async function runWithWindowsWriteIsolation(
+  input: WindowsWriteIsolationInput,
+  deps: WindowsWriteIsolationDeps = {}
+): Promise<WindowsWriteIsolationOutcome> {
+  const capability = (deps.detect ?? detectWindowsSandboxCapability)();
+  if (!capability.available) {
+    return {
+      kind: 'helper-unavailable',
+      detail: capability.reason ?? '未知原因',
+    };
+  }
+
+  const session = await beginWindowsBashGrants(input.writableDirs, deps);
+  if (!session.ok) {
+    await session.release();
+    return {
+      kind: 'grant-failed',
+      detail: session.failures
+        .map((failure) => `${failure.dir}: ${failure.error}`)
+        .join('; '),
+    };
+  }
+
+  try {
+    const result = await (deps.run ?? runWithWinSandbox)({
+      program: input.program,
+      args: input.args,
+      ...(input.cwd ? { cwd: input.cwd } : {}),
+      env: input.env,
+      timeoutMs: input.timeoutMs,
+      maxBufferChars: input.maxBufferChars,
+      ...(input.signal ? { signal: input.signal } : {}),
+    });
+    return { kind: 'ran', result };
+  } finally {
+    // 关键：无论成功/失败/取消，都必须把完整性标签恢复回去
+    await session.release();
+  }
+}
+
 export interface StaleGrantCleanupResult {
   restored: string[];
   failures: WindowsBashGrantFailure[];
@@ -670,7 +751,7 @@ export function buildWindowsBashInvocation(input: {
  */
 export function isWindowsAccessDenied(text: string | undefined): boolean {
   if (!text) return false;
-  return /access is denied|permission denied|拒绝访问|eperm|eacces|unauthorizedaccess/i.test(
+  return /access is denied|access to the path .* is denied|permission denied|拒绝访问|eperm|eacces|unauthorizedaccess/i.test(
     text
   );
 }

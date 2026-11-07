@@ -27,16 +27,26 @@ export interface PdcaReceiptFacts {
   completed: number;
   total: number;
   failed: number;
+  /**
+   * 2026-11-08（真机 `pdca_mw6tie3k`）：**已挂起等待审批**。
+   *
+   * 必须由落点显式标注：挂起时"可见步骤恰好全部完成"是常见形态（产物已写好，只剩一条
+   * 需要批准的 shell 命令）⇒ 只按步数判定会输出「✅ 长程任务完成」，而任务其实在等审批
+   * （真机：会话里就出现了这条假的完成回执）。
+   */
+  paused?: boolean;
 }
 
 /**
  * 终态回执文案（纯函数，供单测；与 `emitPdcaReceipt` 同一口径）。
  *
  * 口径：**不做状态词汇比较**（`lint:state-ratchet`：状态字面量须收敛到唯一事实源），
- * 只用"步数事实 + 阶段名（数据）"决定文案。
+ * 只用"步数事实 + 阶段名（数据）+ 显式挂起标记"决定文案。
  */
 export function formatPdcaReceipt(input: PdcaReceiptFacts): string {
-  const { taskId, phase, completed, total, failed } = input;
+  const { taskId, phase, completed, total, failed, paused } = input;
+  if (paused)
+    return `⏸ 长程任务已挂起等待审批：${completed}/${total} 步已达成（阶段 ${phase}，taskId ${taskId}）`;
   if (total > 0 && completed === total && failed === 0)
     return `✅ 长程任务完成：${completed}/${total} 步（taskId ${taskId}）`;
   if (failed > 0)
@@ -72,6 +82,7 @@ export function emitPdcaReceipt(
     completed: facts.completed,
     total: facts.total,
     failed: facts.failed,
+    ...(facts.paused ? { paused: true } : {}),
   });
   emitPdcaReceiptText({
     taskId: facts.taskId,

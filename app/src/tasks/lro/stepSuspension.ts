@@ -133,6 +133,9 @@ export async function suspendPlanForApproval(args: {
     taskId: args.taskId,
     sessionId: args.plan.sessionId,
     phase: 'stage_awaiting_approval',
+    // 挂起时"可见步骤恰好全部完成"是常态（产物已写好，只剩一条命令等批准）⇒ 必须显式标注，
+    // 否则文案会误报「✅ 完成」（真机 `pdca_mw6tie3k`）
+    paused: true,
     completed: args.plan.steps.filter((s) => s.status === STEP_STATUS_COMPLETED)
       .length,
     total: args.plan.steps.length,

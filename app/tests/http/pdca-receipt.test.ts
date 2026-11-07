@@ -55,4 +55,19 @@ describe('formatPdcaReceipt — 终态回执文案', () => {
     expect(text).toContain('未完成');
     expect(text).not.toContain('长程任务完成');
   });
+
+  it('挂起等待审批（即使可见步骤全部完成）⇒ ⏸ 挂起，不冒充完成', () => {
+    // 真机 `pdca_mw6tie3k`：产物已写好、只剩一条 shell 命令等批准 ⇒ 2/2 步完成，
+    // 但任务确实在等审批；只按步数判定会输出假的「✅ 完成」。
+    const text = formatPdcaReceipt({
+      taskId: 'pdca_demo',
+      phase: 'stage_awaiting_approval',
+      completed: 2,
+      total: 2,
+      failed: 0,
+      paused: true,
+    });
+    expect(text).toContain('已挂起等待审批');
+    expect(text).not.toContain('长程任务完成');
+  });
 });

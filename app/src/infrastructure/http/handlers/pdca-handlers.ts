@@ -189,6 +189,15 @@ export async function scanAndAbortStalePdcaTasks(): Promise<{
     }
 
     const taskId = ck.taskId as string;
+    // 2026-11-08（真机 `pdca_mw6umn2e`）：本函数文档写的是"标记**无活跃 orchestrator** 的
+    // running 任务为 abort"，但实现一直没查这一条 —— 真机撞到竞态：daemon 启动的同时
+    // （HTTP 已可接受请求）用户就发起了任务，`runFullPdca` 正在内存里跑，紧随其后的启动扫描
+    // 却把它的检查点改成 abort ⇒ 任务卡死在 `plan` 阶段（日志：应用启动 20:21:30.571Z，
+    // 2.2 秒后同一 taskId 被"旧任务"标记 abort）。
+    // 内存里有活跃编排器 ⇒ 它显然不是崩溃遗留，必须跳过。
+    const live = await taskOps.getPdcaOrchestrator(taskId);
+    if (live) continue;
+
     const abortedCk: Record<string, unknown> = {
       ...ck,
       status: 'abort',

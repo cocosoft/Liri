@@ -43,6 +43,46 @@ describe('LRO-D3：只读版本查询进入 allowlist', () => {
   });
 });
 
+describe('2026-11-08：工作区内良性写命令（mkdir/touch）不再弹审批', () => {
+  it('工作区相对路径的建目录/建空文件 ⇒ 已知安全', () => {
+    for (const cmd of [
+      'mkdir output',
+      'mkdir -p output/nested',
+      'mkdir --parents a/b/c',
+      'mkdir output docs',
+      'touch output/a.md',
+      'touch a.md b.md',
+    ]) {
+      expect(checkBashAllowlist(cmd).safe).toBe(true);
+    }
+  });
+
+  it('越界/绝对路径/变量展开/未知开关 ⇒ 仍不放行（转审批）', () => {
+    for (const cmd of [
+      'mkdir /tmp/x',
+      'mkdir C:\\temp\\x',
+      'mkdir ../outside',
+      'mkdir %TEMP%\\x',
+      'mkdir -m 777 output',
+      'touch ~/x.md',
+      'mkdir',
+    ]) {
+      expect(checkBashAllowlist(cmd).safe).toBe(false);
+    }
+  });
+
+  it('危险命令族不受影响（rm/del 仍为未知 ⇒ 不因新规则放行）', () => {
+    expect(checkBashAllowlist('rm -rf output').safe).toBe(false);
+    expect(checkBashAllowlist('del a.md').safe).toBe(false);
+  });
+
+  it('分析器端到端：mkdir output ⇒ 不 ask（真机卡点）', () => {
+    const analyzer = new BashSecurityAnalyzer();
+    expect(analyzer.analyze('mkdir output').behavior).not.toBe('ask');
+    expect(analyzer.analyze('mkdir ../x').behavior).toBe('ask');
+  });
+});
+
 describe('LRO-D3：未受信工作区不再静默硬拒', () => {
   const analyzer = new BashSecurityAnalyzer();
 

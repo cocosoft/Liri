@@ -178,6 +178,7 @@ import {
   projectPdcaMetrics,
 } from './lro/reporting.js';
 import type { PdcaReportView } from './lro/reporting.js';
+import { emitPdcaReceiptFromAudit } from './lro/terminalReceipt.js';
 import {
   planTurnsExtensionDecision,
   shouldReRollMaxTurnsStep,
@@ -1064,6 +1065,7 @@ export class LongRunningTaskOrchestrator {
    */
   private persistAuditReport(report: AuditReport): void {
     persistAuditReportFile(report);
+    emitPdcaReceiptFromAudit(report, Boolean(this._onTaskMessage));
   }
 
   // ─── 状态查询 ───────────────────────────────────────
@@ -1428,6 +1430,7 @@ export class LongRunningTaskOrchestrator {
       setPhase: (phase) => this.setPhase(phase),
       persistCheckpoint: () => this._persistCheckpoint(),
       getStatus: () => this.getStatus(),
+      hasPushChannel: Boolean(this._onTaskMessage),
     });
     if (suspendedStatus) return suspendedStatus;
 

@@ -297,21 +297,34 @@ export async function handlePdcaStart(
       await getCoreAPI().getTaskOpsPort()
     ).getOrCreatePdcaOrchestrator(taskId);
 
-    // 异步执行 PDCA，不阻塞 HTTP 响应
-    void orchestrator
-      .runFullPdca(description, sessionId)
-      .then((status) =>
-        persistPdcaTerminalReceipt(sessionId, taskId, status as unknown)
-      )
-      .catch(async (e) => {
-        const { handleError } = await import('@openliri/infra/error');
-        handleError(e, {
-          module: 'infrastructure:http:handlers:pdca-handlers',
-          action: 'runFullPdca',
-          context: { taskId, workItemId },
-        });
-        await persistPdcaTerminalReceipt(sessionId, taskId, undefined, true);
+    // 异步执行 PDCA，不阻塞 HTTP 响应。
+    // 2026-11-08：终态回执**不再**由本层写 —— 编排层在 completed / failed（含 escalate）/
+    // 挂起三处统一发（`lro/terminalReceipt`），否则"审批后续跑"这条与 HTTP 启动无关的
+    // 路径永远拿不到回执（真机 `pdca_mw6rx5kr`）。本层只处理执行异常。
+    void orchestrator.runFullPdca(description, sessionId).catch(async (e) => {
+      const { handleError } = await import('@openliri/infra/error');
+      handleError(e, {
+        module: 'infrastructure:http:handlers:pdca-handlers',
+        action: 'runFullPdca',
+        context: { taskId, workItemId },
       });
+      // 编排器在终态前崩溃 ⇒ 没有终态回执，这里补一条事实（不编造步数）。
+      // 写会话消息走 CoreAPI（与旧实现同路径，避免 infrastructure 直接依赖 tasks 域）
+      try {
+        const core = getCoreAPI();
+        core.chatManager.addMessage(
+          sessionId,
+          core.chatManager
+            .getMessageService()
+            .createAssistantMessage(`⚠️ 长程任务异常终止（taskId ${taskId}）`, {
+              sessionId,
+              metadata: { taskId, pdcaReceipt: true },
+            })
+        );
+      } catch {
+        // @ignore-catch — 回执属附加信息，写入失败不影响任务结果
+      }
+    });
 
     // 持久化检查点（含归属信息）
     await (
@@ -363,77 +376,6 @@ export async function handlePdcaStart(
     broadcastEvent('pdca:started', { taskId, workItemId });
   } catch (err) {
     sendError(res, err);
-  }
-}
-
-/** 2026-11-08：终态回执文案（纯函数，供单测；与 `persistPdcaTerminalReceipt` 同一口径）。 */
-export function formatPdcaReceipt(input: {
-  taskId: string;
-  phase: string;
-  completed: number;
-  total: number;
-  failed: number;
-}): string {
-  const { taskId, phase, completed, total, failed } = input;
-  // 口径：**不做状态词汇比较**（`lint:state-ratchet`：状态字面量须收敛到唯一事实源），
-  // 只用"步数事实 + 阶段名（数据）"决定文案。
-  if (total > 0 && completed === total && failed === 0)
-    return `✅ 长程任务完成：${completed}/${total} 步（taskId ${taskId}）`;
-  if (failed > 0)
-    return `⚠️ 长程任务未完成：${completed}/${total} 步达成，${failed} 步失败（阶段 ${phase}，taskId ${taskId}）`;
-  return `⏸ 长程任务未结束：${completed}/${total} 步已达成（阶段 ${phase}，taskId ${taskId}）`;
-}
-
-/**
- * 2026-11-08（真机 `pdca_mw6p0s5t`）：**HTTP 启动的 PDCA 任务终态回执**。
- *
- * `POST /v1/pdca/start` 拿到的编排器**没有** `onTaskMessage`（日志 `hasOnTaskMessage:false`）
- * ⇒ 步骤消息与终态回执**一条都没写进会话**：真机 4/4 步全完成、产物正确、审查 90–92 分，
- * 会话 `messages.jsonl` 仍是 **0 字节** —— 用户点「用编排推进」后界面上什么都看不到。
- *
- * 口径与 §P0-5 一致：**只补一条终态回执**（步骤细节留在编排面板 / `?includeTask=1` 审计视图）。
- * 失败不阻断（任务已结束，回执属附加信息）。
- */
-async function persistPdcaTerminalReceipt(
-  sessionId: string,
-  taskId: string,
-  status: unknown,
-  crashed = false
-): Promise<void> {
-  try {
-    const s = (status ?? {}) as {
-      phase?: string;
-      plan?: { steps?: Array<{ status?: string }> };
-    };
-    const steps = s.plan?.steps ?? [];
-    const total = steps.length;
-    const completed = steps.filter((x) => x.status === 'completed').length;
-    const failed = steps.filter(
-      (x) => x.status === 'failed' || x.status === 'cancelled'
-    ).length;
-    const phase = s.phase ?? (crashed ? 'error' : 'unknown');
-    const text = formatPdcaReceipt({ taskId, phase, completed, total, failed });
-    const core = getCoreAPI();
-    const message = core.chatManager
-      .getMessageService()
-      .createAssistantMessage(text, {
-        sessionId,
-        metadata: { taskId, pdcaReceipt: true },
-      });
-    core.chatManager.addMessage(sessionId, message);
-    logger.info('PDCA 终态回执已写入会话', {
-      sessionId,
-      taskId,
-      phase,
-      completed,
-      total,
-    });
-  } catch (e) {
-    logger.warn('PDCA 终态回执写入失败（不影响任务结果）', {
-      sessionId,
-      taskId,
-      error: String(e),
-    });
   }
 }
 
@@ -572,6 +514,20 @@ export async function handlePdcaStatus(
         return;
       }
     }
+    // 2026-11-08（真机 `pdca_mw6rx5kr`）：escalate 收尾只把 replan 事实写进检查点
+    // （内存 phase 仍为 `execute`，属半自动 replan 的既有语义）⇒ 内存读模型这里补合并，
+    // 否则"待重规划"的任务与"仍在执行"的任务在接口上完全同形。
+    const ckForReplan = await (
+      await getCoreAPI().getTaskOpsPort()
+    ).readPdcaCheckpoint(taskId);
+    if (ckForReplan) {
+      if (typeof ckForReplan.replanPending === 'boolean') {
+        status.replanPending = ckForReplan.replanPending;
+      }
+      if (typeof ckForReplan.replanFailCount === 'number') {
+        status.replanFailCount = ckForReplan.replanFailCount;
+      }
+    }
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(status));
   } catch (err) {
@@ -615,6 +571,11 @@ function buildCheckpointStatusView(
     projectId: rec.projectId,
     sessionId: rec.sessionId,
     totalTokens: rec.totalTokens,
+    // 2026-11-08（真机 `pdca_mw6rx5kr`）：escalate 终态会把 phase 保持 `execute`（半自动
+    // replan 语义）⇒ 只靠 phase/progress 看，任务与"仍在跑"无法区分。把 replan 事实透出，
+    // 调用方才能显示"待重规划 / 已转人工"。
+    replanPending: rec.replanPending,
+    replanFailCount: rec.replanFailCount,
     source: 'checkpoint',
   };
 }

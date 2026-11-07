@@ -2,16 +2,17 @@
 // Copyright (c) 2026 190615273@qq.com
 
 /**
- * 2026-11-08（真机 `pdca_mw6p0s5t`）：HTTP 启动的 PDCA 任务**终态回执**文案。
+ * 2026-11-08（真机 `pdca_mw6p0s5t` / `pdca_mw6rx5kr`）：PDCA **终态回执**文案。
  *
- * 背景：`POST /v1/pdca/start` 的编排器没有 `onTaskMessage` ⇒ 会话拿不到任何消息
- * （真机 4/4 步完成、产物正确，`messages.jsonl` 仍 0 字节）。修复后补一条终态回执。
+ * 背景：HTTP 启动的编排器没有 `onTaskMessage` ⇒ 会话拿不到任何消息（真机 4/4 步完成、
+ * 产物正确，`messages.jsonl` 仍 0 字节）。回执下沉到编排层（`lro/terminalReceipt`）后，
+ * completed / failed（含 escalate）/ 挂起/续跑 三个落点统一发出。
  *
  * 口径：**不做状态词汇比较**（`lint:state-ratchet`：状态字面量须收敛到唯一事实源），
  * 只用「步数事实 + 阶段名（数据）」决定文案。
  */
 import { describe, expect, it } from 'bun:test';
-import { formatPdcaReceipt } from '../../src/infrastructure/http/handlers/pdca-handlers';
+import { formatPdcaReceipt } from '../../src/tasks/lro/terminalReceipt';
 
 const base = { taskId: 'pdca_demo', completed: 4, total: 4, failed: 0 };
 

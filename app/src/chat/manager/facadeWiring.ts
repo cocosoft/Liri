@@ -61,6 +61,7 @@ import type { SessionScopedRegistry } from '@openliri/infra/utils/SessionScopedR
 // （与 `setStepLoopFactory` 同因：装配期注册一次，避免 6 个编排入口逐个注入漏配）
 import {
   getActiveTaskIdForSession,
+  setPdcaReceiptSink,
   setStepLoopFactory,
   setTaskSessionPolicyPort,
 } from '@modules/tasks';
@@ -337,6 +338,21 @@ export function wireChatFacades(host: FacadeWiringHost): void {
   // 工具调用也无处执行（事故 `pdca_muz3wada`：`hasTAORLoop:false`，9 步 / 0 次工具调用）。
   // 注册后两条入口同源同行为。
   setStepLoopFactory((sid, opts) => host._getOrCreateTAORLoop(sid, opts));
+  // 2026-11-08：向 tasks 层注册「PDCA 终态回执」的会话落点。
+  // 与上一行同因：编排入口有多个（`/v1/pdca/start` / 审批后 resume / 重启恢复），
+  // 若只在 HTTP 启动路径写回执，审批续跑的终态就**没有回执**（真机 `pdca_mw6rx5kr`）。
+  setPdcaReceiptSink((receipt) => {
+    // 同文连续回执去重（真机 `pdca_mw6sfu1y`）：批准后续跑又立刻挂起 ⇒ 会写出第二条
+    // 完全相同的「⏸ 1/3 步已达成」，用户看到的是重复噪音；审批卡仍会挂到最后一条消息上。
+    const messages = host._chatSessions.get(receipt.sessionId)?.messages;
+    const last = messages?.[messages.length - 1];
+    if (last && last.content === receipt.text) return;
+    const message = host.messageService.createAssistantMessage(receipt.text, {
+      sessionId: receipt.sessionId,
+      metadata: { taskId: receipt.taskId, pdcaReceipt: true },
+    });
+    host._msgPersist.addAndPersistMessage(receipt.sessionId, message);
+  });
   // P2（§3.3）：任务档审批 —— 把"会话当前活跃长程任务"解析器注册给权限层
   // （权限层不能反向依赖 tasks；未注册 ⇒ 任务档条目一律不命中，只多问一次）
   setActiveTaskIdResolver((sid) => getActiveTaskIdForSession(sid));

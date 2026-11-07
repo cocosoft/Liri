@@ -20,8 +20,13 @@
 import { getLogger } from '@openliri/infra/monitoring';
 import type { PdcaPhase } from '@modules/tasks/phases';
 import type { Plan, PlanStep } from '../TaskOrchestrator';
-import { STEP_STATUS_PENDING } from '../TaskOrchestrator';
+import {
+  STEP_STATUS_COMPLETED,
+  STEP_STATUS_FAILED,
+  STEP_STATUS_PENDING,
+} from '../TaskOrchestrator';
 import type { PdcaStatus } from './contracts.js';
+import { emitPdcaReceipt } from './terminalReceipt.js';
 
 const logger = getLogger('tasks:longRunning');
 
@@ -116,11 +121,25 @@ export async function suspendPlanForApproval(args: {
   setPhase: (phase: PdcaPhase) => Promise<void>;
   persistCheckpoint: () => Promise<void>;
   getStatus: () => PdcaStatus;
+  /** 有推送通道（CLI/REPL 的 `onTaskMessage`）⇒ 不发回执，避免同一结果两条消息 */
+  hasPushChannel?: boolean;
 }): Promise<PdcaStatus | null> {
   const suspended = listSuspendedSteps(args.plan);
   if (suspended.length === 0) return null;
   await args.setPhase('stage_awaiting_approval');
   await args.persistCheckpoint();
+  // 2026-11-08：挂起回执（HTTP 启动的任务会话此前只有这一条消息，也是审批卡的承载消息）
+  emitPdcaReceipt({
+    taskId: args.taskId,
+    sessionId: args.plan.sessionId,
+    phase: 'stage_awaiting_approval',
+    completed: args.plan.steps.filter((s) => s.status === STEP_STATUS_COMPLETED)
+      .length,
+    total: args.plan.steps.length,
+    failed: args.plan.steps.filter((s) => s.status === STEP_STATUS_FAILED)
+      .length,
+    hasPushChannel: args.hasPushChannel,
+  });
   logger.info('[orchestrator] PDCA 挂起：等待人工审批', {
     taskId: args.taskId,
     planId: args.planId,

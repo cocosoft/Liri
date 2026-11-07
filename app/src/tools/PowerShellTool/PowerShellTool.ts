@@ -667,6 +667,31 @@ function isSandboxSafeDelete(
 }
 
 /**
+ * 解析 PowerShell 的工作目录（2026-11-07 真机缺陷修复）
+ *
+ * 旧写法直接读 `context.options.cwd`；但 **HTTP 工具执行路径**
+ * （`POST /v1/tools/powershell/execute`）传进来的 context 只有 `sessionId` 等少数字段，
+ * 没有 `options` ⇒ 运行期 `TypeError: undefined is not an object (evaluating 'context.options.cwd')`
+ * （真机复现：`{"success":false,"error":"undefined is not an object …","executionTime":13}`）。
+ * 类型上 `options` 必填与真实调用面不符 ⇒ 这里按"可能缺省"处理，无 cwd 时回落 `process.cwd()`。
+ */
+export function resolvePowerShellWorkingDirectory(
+  inputWorkingDirectory: string | undefined,
+  contextCwd: string | undefined
+): string {
+  return inputWorkingDirectory || contextCwd || process.cwd();
+}
+
+/**
+ * 从（可能不完整的）context 取 cwd —— 单独成函数是为了**不给 `execute` 增分支**
+ * （`lint:complexity`：`execute` 已贴上限，可选链也算分支）。
+ */
+function contextCwdOf(context: unknown): string | undefined {
+  const ctx = context as { options?: { cwd?: string } } | undefined;
+  return ctx?.options?.cwd;
+}
+
+/**
  * PowerShell 输入模式
  * 安全审计修复：移除 skipSecurityCheck 参数，安全检查强制运行
  */
@@ -876,10 +901,10 @@ export class PowerShellTool extends BaseTool {
     try {
       const command = input.command as string;
       const timeout = (input.timeout as number) || 60000;
-      const workingDirectory =
-        (input.workingDirectory as string) ||
-        context.options.cwd ||
-        process.cwd();
+      const workingDirectory = resolvePowerShellWorkingDirectory(
+        input.workingDirectory as string | undefined,
+        contextCwdOf(context)
+      );
       const executionPolicy = (input.executionPolicy as string) || 'Bypass';
 
       const workingDirCheck = checkPathAccessibility(

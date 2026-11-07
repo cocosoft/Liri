@@ -298,14 +298,20 @@ export async function handlePdcaStart(
     ).getOrCreatePdcaOrchestrator(taskId);
 
     // 异步执行 PDCA，不阻塞 HTTP 响应
-    void orchestrator.runFullPdca(description, sessionId).catch(async (e) => {
-      const { handleError } = await import('@openliri/infra/error');
-      handleError(e, {
-        module: 'infrastructure:http:handlers:pdca-handlers',
-        action: 'runFullPdca',
-        context: { taskId, workItemId },
+    void orchestrator
+      .runFullPdca(description, sessionId)
+      .then((status) =>
+        persistPdcaTerminalReceipt(sessionId, taskId, status as unknown)
+      )
+      .catch(async (e) => {
+        const { handleError } = await import('@openliri/infra/error');
+        handleError(e, {
+          module: 'infrastructure:http:handlers:pdca-handlers',
+          action: 'runFullPdca',
+          context: { taskId, workItemId },
+        });
+        await persistPdcaTerminalReceipt(sessionId, taskId, undefined, true);
       });
-    });
 
     // 持久化检查点（含归属信息）
     await (
@@ -357,6 +363,77 @@ export async function handlePdcaStart(
     broadcastEvent('pdca:started', { taskId, workItemId });
   } catch (err) {
     sendError(res, err);
+  }
+}
+
+/** 2026-11-08：终态回执文案（纯函数，供单测；与 `persistPdcaTerminalReceipt` 同一口径）。 */
+export function formatPdcaReceipt(input: {
+  taskId: string;
+  phase: string;
+  completed: number;
+  total: number;
+  failed: number;
+}): string {
+  const { taskId, phase, completed, total, failed } = input;
+  // 口径：**不做状态词汇比较**（`lint:state-ratchet`：状态字面量须收敛到唯一事实源），
+  // 只用"步数事实 + 阶段名（数据）"决定文案。
+  if (total > 0 && completed === total && failed === 0)
+    return `✅ 长程任务完成：${completed}/${total} 步（taskId ${taskId}）`;
+  if (failed > 0)
+    return `⚠️ 长程任务未完成：${completed}/${total} 步达成，${failed} 步失败（阶段 ${phase}，taskId ${taskId}）`;
+  return `⏸ 长程任务未结束：${completed}/${total} 步已达成（阶段 ${phase}，taskId ${taskId}）`;
+}
+
+/**
+ * 2026-11-08（真机 `pdca_mw6p0s5t`）：**HTTP 启动的 PDCA 任务终态回执**。
+ *
+ * `POST /v1/pdca/start` 拿到的编排器**没有** `onTaskMessage`（日志 `hasOnTaskMessage:false`）
+ * ⇒ 步骤消息与终态回执**一条都没写进会话**：真机 4/4 步全完成、产物正确、审查 90–92 分，
+ * 会话 `messages.jsonl` 仍是 **0 字节** —— 用户点「用编排推进」后界面上什么都看不到。
+ *
+ * 口径与 §P0-5 一致：**只补一条终态回执**（步骤细节留在编排面板 / `?includeTask=1` 审计视图）。
+ * 失败不阻断（任务已结束，回执属附加信息）。
+ */
+async function persistPdcaTerminalReceipt(
+  sessionId: string,
+  taskId: string,
+  status: unknown,
+  crashed = false
+): Promise<void> {
+  try {
+    const s = (status ?? {}) as {
+      phase?: string;
+      plan?: { steps?: Array<{ status?: string }> };
+    };
+    const steps = s.plan?.steps ?? [];
+    const total = steps.length;
+    const completed = steps.filter((x) => x.status === 'completed').length;
+    const failed = steps.filter(
+      (x) => x.status === 'failed' || x.status === 'cancelled'
+    ).length;
+    const phase = s.phase ?? (crashed ? 'error' : 'unknown');
+    const text = formatPdcaReceipt({ taskId, phase, completed, total, failed });
+    const core = getCoreAPI();
+    const message = core.chatManager
+      .getMessageService()
+      .createAssistantMessage(text, {
+        sessionId,
+        metadata: { taskId, pdcaReceipt: true },
+      });
+    core.chatManager.addMessage(sessionId, message);
+    logger.info('PDCA 终态回执已写入会话', {
+      sessionId,
+      taskId,
+      phase,
+      completed,
+      total,
+    });
+  } catch (e) {
+    logger.warn('PDCA 终态回执写入失败（不影响任务结果）', {
+      sessionId,
+      taskId,
+      error: String(e),
+    });
   }
 }
 

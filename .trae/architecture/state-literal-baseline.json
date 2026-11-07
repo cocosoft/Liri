@@ -611,6 +611,7 @@
       "app/src/infrastructure/http/handlers/llama-handlers.ts",
       "app/src/infrastructure/http/handlers/mcp-marketplace-handlers.ts",
       "app/src/infrastructure/http/handlers/orchestration-handlers.ts",
+      "app/src/infrastructure/http/handlers/pdca-handlers.ts",
       "app/src/infrastructure/http/handlers/routes/a2a-delegator.ts",
       "app/src/infrastructure/http/handlers/semantic-index-handlers.ts",
       "app/src/infrastructure/http/handlers/video-task-handlers.ts",

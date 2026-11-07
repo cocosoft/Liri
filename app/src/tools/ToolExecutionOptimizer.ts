@@ -47,6 +47,11 @@ export interface ToolExecutionOptimizerOptions {
 
 /**
  * 工具执行优化器
+ *
+ * ⚠️ 2026-11-07：本类的 `executeWithCache` 按 `tool.name + JSON(input)` 缓存结果 **5 分钟**，
+ * 与 `utils/OptimizedToolManagerUtils` 原先那套缓存是同一个缺陷（有副作用的工具会被缓存掉：
+ * 真机实测同一 `ver` 第二次 4ms 返回、命令未执行；见 `.trae/rules/architecture-compliance.md` R01-004）。
+ * 当前**全仓未接线**；如需启用，必须先排除 `bash` / `file_write` / `code_run` 等副作用工具。
  */
 export class ToolExecutionOptimizer {
   /** 工具执行器 */

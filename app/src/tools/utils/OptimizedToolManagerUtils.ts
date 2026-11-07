@@ -7,10 +7,7 @@ import { Tool } from '../types/Tool';
 import { ToolFactory } from '../ToolFactory';
 import { profileCheckpoint } from '@openliri/infra/performance';
 import { loadBuiltinTools as loadBuiltinToolsFromUtils } from './ToolManagerUtils.js';
-import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
-
-const logger = getLogger('tools:optimizedUtils');
 
 /**
  * 延迟加载工具模块
@@ -43,59 +40,22 @@ export function loadBuiltinTools(factory: ToolFactory): Tool[] {
   return tools;
 }
 
-import { TTLCache } from '@openliri/infra/utils/cache';
-
 /**
- * 工具执行缓存
- */
-class ToolExecutionCache {
-  private cache: TTLCache<unknown>;
-
-  constructor() {
-    this.cache = new TTLCache(100, 5 * 60 * 1000);
-  }
-
-  /**
-   * 获取缓存结果
-   */
-  get(key: string): unknown {
-    return this.cache.get(key);
-  }
-
-  /**
-   * 设置缓存结果
-   */
-  set(key: string, result: unknown): void {
-    this.cache.set(key, result);
-  }
-
-  /**
-   * 清除缓存
-   */
-  clear(): void {
-    this.cache.clear();
-  }
-
-  /**
-   * 获取缓存大小
-   */
-  size(): number {
-    return this.cache.size();
-  }
-}
-
-/**
- * 全局工具执行缓存实例
- */
-export const toolExecutionCache = new ToolExecutionCache();
-
-/**
- * 优化的工具执行函数
+ * 执行工具（**每次都真执行，不做结果缓存**）。
+ *
+ * ⚠️ 2026-11-07 修复：此函数此前用 `tool.name:JSON.stringify(input)` 做 5 分钟结果缓存，
+ * 且有副作用的工具（`bash` / `file_write` / `code_run` …）同样命中缓存 —— 真机实测：
+ * 同一 `ver` 第二次调用 4ms 返回、`bash:` 日志一条没有（**命令根本没执行**）。
+ * 两条理由说明"工具结果"整体不可缓存：
+ *  ① 副作用工具重放 = "以为跑了其实没跑"（对 security/审批语义是直接破坏）；
+ *  ② 即便只读工具（`file_read` / `glob`）结果也随外部状态变化 —— 读后写再读会拿到旧内容。
+ * ⇒ 缓存整条移除；本函数只保留"执行 + 错误收口"的薄语义（调用方依赖其错误形状）。
+ *
  * @param tool 工具
  * @param input 输入
  * @param context 上下文
  * @param onProgress 进度回调
- * @returns 执行结果
+ * @returns 执行结果（工具抛错时收敛成 `{ error, toolName }`，不向上抛）
  */
 export async function optimizedExecuteTool(
   tool: Tool,
@@ -103,19 +63,8 @@ export async function optimizedExecuteTool(
   context: any,
   onProgress?: any
 ): Promise<unknown> {
-  // 生成缓存键
-  const cacheKey = `${tool.name}:${JSON.stringify(input)}`;
-
-  // 检查缓存
-  const cachedResult = toolExecutionCache.get(cacheKey);
-  if (cachedResult) {
-    return cachedResult;
-  }
-
-  // 执行工具
-  let result: unknown;
   try {
-    result = await tool.execute(input, context, onProgress);
+    return await tool.execute(input, context, onProgress);
   } catch (err) {
     await handleError(err, {
       module: 'tools:utils',
@@ -126,13 +75,6 @@ export async function optimizedExecuteTool(
       toolName: tool.name,
     };
   }
-
-  // 缓存结果（仅缓存成功的结果）
-  if (result && !(result as Record<string, unknown>).error) {
-    toolExecutionCache.set(cacheKey, result);
-  }
-
-  return result;
 }
 
 /**

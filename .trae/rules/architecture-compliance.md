@@ -848,7 +848,7 @@ bun run eval --model=<模型名> --k=4 --gate      # 关键任务建议 k≥4（
 | R01-004 | `oauth/services/OAuthDiscovery.ts` | 已修复，改用 TTLCache（MetadataCache 内建） | ✅ |
 | R01-004 | ~~`ai/localAgent/LocalAgentCache.ts`~~ | 已修复，改用 TTLCache；**2026-10-24 核查：全仓已不存在** ⇒ 本行转为历史记录 | ~~✅~~ **已删除** |
 | R01-004 | ~~`memory/services/EmbeddingService.ts`~~ | 已修复，改用 TTLCache（EmbeddingResult 缓存）；**2026-10-24 核查：全仓已不存在** ⇒ 本行转为历史记录 | ~~✅~~ **已删除** |
-| R01-004 | `tools/utils/OptimizedToolManagerUtils.ts` | 已修复，改用 TTLCache（ToolExecutionCache） | ✅ |
+| R01-004 | ~~`tools/utils/OptimizedToolManagerUtils.ts`~~ | 曾改用 TTLCache（ToolExecutionCache）；**2026-11-07：结果缓存整条移除** —— 按 `tool.name:JSON(args)` 缓存会把有副作用的调用（bash/file_write/code_run）也吃掉（真机：同一 `ver` 第二次 4ms 返回、命令未执行），且只读工具结果同样会过期 ⇒ 本行转为历史记录 | ~~✅~~ **已移除** |
 | R01-004 | `ink/ink/screen.ts` | StylePool 内 4 个 memoization 缓存（transitionCache/inverseCache/currentMatchCache/selectionBgCache），属渲染引擎计算缓存，无 TTL 语义，在渲染热路径上 | 永久 |
 | R01-004 | `services/mcp/MCPConnectionManager.ts` | clientCache（SDK 连接引用缓存）和 toolsCache（工具列表缓存），属连接状态追踪和查找表 | 永久 |
 | R01-003 | `services/api/client.ts` | `ApiClient.request()` 内建 for 循环指数退避重试，含特定 API 错误分类处理；已设计 @deprecated 计划迁移到 utils/withRetry | 2026-Q3 |

@@ -76,6 +76,25 @@ export interface PlannerRepairDeps {
 }
 
 /**
+ * 2026-11-08（真机）：**规划阶段的路径约束**。
+ *
+ * 执行期的步骤 prompt 早已要求"路径相对工作区"，但**规划阶段没有任何约束** ⇒ planner 反复
+ * 把步骤/验收标准的落点写成 `/tmp/xxx`（Unix 绝对路径）或 `C:\...`，执行期一律被越界守卫
+ * 拒绝（真机 `pdca_mw6mktrf` / `pdca_mw6mq5qz`：step_1 空转数轮、审查 5 分、目标不收敛）。
+ *
+ * 三个 prompt 共用本段（首轮规划 / JSON 修复重问 / 验收标准重写），避免各写一份漂移。
+ */
+export function workspacePathConstraint(workspace: string): string {
+  return [
+    '【路径约束（硬性）】',
+    `本任务隔离工作区根目录: \`${workspace}\``,
+    '- steps 与 acceptanceCriteria 里出现的**所有文件路径必须是工作区相对路径**（如 `output/report.md`）；',
+    '- 禁止 `/tmp/...`、`%TEMP%\\...`、`C:\\...`、`~/...` 等绝对路径或工作区外路径 ——',
+    '  执行器会按"越界"直接拒绝，该步骤必然失败。',
+  ].join('\n');
+}
+
+/**
  * U-01（2026-10-17）：Planner 输出修复重问（只做一次）。
  *
  * 与 `repairAcceptanceCriteria` 同模式：把不可解析的原始输出回灌，要求**仅输出 JSON**。
@@ -91,6 +110,7 @@ export async function repairPlanJson(
     '你先前输出的执行计划无法被 JSON 解析。请**只输出修正后的 JSON**（不要围栏、不要解释、不要前后缀）。',
     '',
     `任务描述: ${description}`,
+    workspacePathConstraint(deps.isolation.workspace),
     `解析失败原因: ${reason}`,
     '',
     '【原始输出（可能被截断）】',
@@ -175,6 +195,7 @@ export async function repairAcceptanceCriteria(
     intro,
     '',
     `任务描述: ${description}`,
+    workspacePathConstraint(deps.isolation.workspace),
     '',
     `步骤（共 ${steps.length} 步，顺序不变）:`,
     stepList,

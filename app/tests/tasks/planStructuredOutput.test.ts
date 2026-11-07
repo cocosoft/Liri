@@ -17,6 +17,7 @@ import {
   draftFromSubmitPlanToolCalls,
   SUBMIT_PLAN_TOOL_NAME,
 } from '../../src/tasks/planOutputParser.js';
+import { workspacePathConstraint } from '../../src/tasks/lro/plannerSupport.js';
 
 const validPlan = {
   steps: ['读取配置', '写入产物'],
@@ -92,5 +93,21 @@ describe('planPhase — 接线（结构化优先，文本兜底）', () => {
     expect(toolCallAt).toBeGreaterThan(-1);
     expect(textAt).toBeGreaterThan(toolCallAt);
     expect(repairAt).toBeGreaterThan(textAt);
+  });
+
+  // 2026-11-08（真机 pdca_mw6mktrf）：规划阶段必须约束路径，否则 planner 产出 /tmp/…
+  it('规划 prompt 带工作区路径约束', () => {
+    expect(src).toContain('workspacePathConstraint(deps.isolation.workspace)');
+  });
+});
+
+describe('workspacePathConstraint — 规划阶段路径约束（2026-11-08）', () => {
+  it('给出工作区根目录，并点名禁止 /tmp、C:\\、~ 等绝对路径', () => {
+    const text = workspacePathConstraint('C:\\work\\pdca_demo');
+    expect(text).toContain('C:\\work\\pdca_demo');
+    expect(text).toContain('相对路径');
+    expect(text).toContain('/tmp');
+    expect(text).toContain('C:\\');
+    expect(text).toContain('~');
   });
 });

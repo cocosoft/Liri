@@ -48,6 +48,7 @@ import {
   repairAcceptanceCriteria,
   repairPlanJson,
   roleToolNames,
+  workspacePathConstraint,
 } from './plannerSupport.js';
 
 const logger = getLogger('tasks:longRunning');
@@ -153,6 +154,7 @@ ${
     // 让 Planner 分析并输出步骤
     const planPrompt = `请分析以下任务并输出 JSON 格式的执行计划：
 任务描述: ${description}
+${workspacePathConstraint(deps.isolation.workspace)}
 ${replanSection}
 
 输出格式：

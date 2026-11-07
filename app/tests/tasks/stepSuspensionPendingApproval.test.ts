@@ -74,11 +74,27 @@ describe('shouldStopForPendingApproval', () => {
 });
 
 describe('resumeSuspendedSteps', () => {
-  it('恢复挂起步骤时**清零** pendingApproval（调度判据不能读旧值）', () => {
+  it('恢复挂起步骤时清零 pendingApproval，并剔除 pending 条目（计数按条目重算，不能"复活"）', () => {
     const suspended = {
-      ...step('a', 2),
+      ...step('a'),
       decision: 'suspend',
-    } as PlanStep;
+      toolOutcomes: {
+        outcomes: [
+          {
+            toolName: 'bash',
+            toolCallId: 'call_pending',
+            success: false,
+            pendingApproval: true,
+          },
+          { toolName: 'file_write', toolCallId: 'call_ok', success: true },
+        ],
+        total: 2,
+        successCount: 1,
+        failedCount: 0,
+        securityIntercepted: 0,
+        pendingApproval: 1,
+      },
+    } as unknown as PlanStep;
     const p = plan([suspended, step('b', 0)]);
 
     const resumed = resumeSuspendedSteps(p);
@@ -86,10 +102,13 @@ describe('resumeSuspendedSteps', () => {
     expect(resumed).toEqual(['a']);
     expect(p.steps[0].status).toBe('pending');
     expect(p.steps[0].decision).toBeUndefined();
-    // 其余证据保留（total/successCount 不变），只有 pendingApproval 归零
-    expect(p.steps[0].toolOutcomes?.total).toBe(1);
+    // 成功证据保留；pending 条目作废（否则计数重算会把已批准的"待审批"复活 ⇒ 无卡可批的永久等待）
     expect(p.steps[0].toolOutcomes?.pendingApproval).toBe(0);
-    // 否则后续批次会被"旧待审批"再次短路（无卡可批 ⇒ 永久等待）
+    expect(p.steps[0].toolOutcomes?.total).toBe(1);
+    expect(p.steps[0].toolOutcomes?.successCount).toBe(1);
+    expect(p.steps[0].toolOutcomes?.outcomes.map((o) => o.toolCallId)).toEqual([
+      'call_ok',
+    ]);
     expect(hasPendingApproval(p)).toBe(false);
   });
 });

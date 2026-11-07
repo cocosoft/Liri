@@ -104,7 +104,20 @@ export function resumeSuspendedSteps(plan: Plan): string[] {
       step.status = STEP_STATUS_PENDING;
       step.decision = undefined;
       if (step.toolOutcomes) {
-        step.toolOutcomes = { ...step.toolOutcomes, pendingApproval: 0 };
+        // 2026-11-08（真机 `pdca_mw6wxxk1`）：**只清计数不够** —— `outcomes[]` 里的条目仍带
+        // `pendingApproval: true`，而计数现在按条目重算（`summarizeToolOutcomes` /
+        // `mergeToolOutcomeSummaries`）⇒ 已批准的"待审批"被复活，任务再次挂起却**不会再提交
+        // 新卡**（卡在 stage_awaiting_approval、收件箱里一条 pending 都没有，用户无处可点）。
+        // 恢复语义：这些条目代表"未执行"，批准后应作废（不是证据），一并剔除。
+        const kept = step.toolOutcomes.outcomes.filter(
+          (o) => !o.pendingApproval
+        );
+        step.toolOutcomes = {
+          ...step.toolOutcomes,
+          outcomes: kept,
+          total: kept.length,
+          pendingApproval: 0,
+        };
       }
       resumed.push(step.id);
     }

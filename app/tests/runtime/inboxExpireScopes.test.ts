@@ -17,7 +17,10 @@ import { Database } from '@openliri/infra/external';
 
 import type { Principal } from '@openliri/kernel/identity/principal';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope';
-import { InboxManager } from '@openliri/service/runtime/InboxManager';
+import {
+  InboxManager,
+  onInboxItemsExpired,
+} from '@openliri/service/runtime/InboxManager';
 
 const ALICE: Principal = { tenantId: 'acme', userId: 'alice', roles: ['user'] };
 
@@ -53,6 +56,47 @@ function pendingItem(sessionId: string) {
 }
 
 describe('审批过期清理（P3）', () => {
+  // 2026-11-07（隐藏缺陷 #1）：过期必须能被入口层观测到 —— PDCA 步骤卡的卡一旦过期
+  // 就不可回复，若不收口任务，任务会永久停在 stage_awaiting_approval 并锁死会话幂等键。
+  it('过期回调携带卡片（含 pdcaTaskId），入口层据此收口任务', async () => {
+    const seen: Array<{ id: string; pdcaTaskId?: string }> = [];
+    const off = onInboxItemsExpired((item) => {
+      seen.push({
+        id: item.id,
+        pdcaTaskId:
+          typeof item.metadata?.pdcaTaskId === 'string'
+            ? item.metadata.pdcaTaskId
+            : undefined,
+      });
+    });
+    try {
+      const submitted = await manager.submit({
+        ...pendingItem('s-expire-cb'),
+        metadata: { pdcaTaskId: 'pdca_cb_1' },
+      });
+      await manager.expireAllScopes(-1000);
+      expect(seen).toContainEqual({
+        id: submitted.id,
+        pdcaTaskId: 'pdca_cb_1',
+      });
+    } finally {
+      off();
+    }
+  });
+
+  it('expireByIds 只置过期指定 pending 行（同步骤旧卡清理用）', async () => {
+    const keep = await manager.submit(pendingItem('s-keep'));
+    const target = await manager.submit(pendingItem('s-target'));
+
+    const changed = await manager.expireByIds([target.id]);
+    expect(changed).toBe(1);
+
+    const pending = await manager.list({ status: 'pending' });
+    expect(pending.items.map((i) => i.id)).toEqual([keep.id]);
+    const expired = await manager.list({ status: 'expired' });
+    expect(expired.items.map((i) => i.id)).toEqual([target.id]);
+  });
+
   it('无作用域定时清理 ⇒ 租户库 pending 变 expired，本地库不受影响', async () => {
     // 租户库（§6.1）：提交一条 pending（连接落在 tenants/acme/app.db）
     await runWithPrincipal(ALICE, () => manager.submit(pendingItem('s-alice')));

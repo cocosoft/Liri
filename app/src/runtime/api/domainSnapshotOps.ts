@@ -953,9 +953,7 @@ export class DomainSnapshotOps {
         await import('@modules/tasks/db/sharedTaskStore');
       return getSharedSqliteTaskStore();
     };
-    /** `@modules/tasks` barrel 取用（P1–P3 共用入口） */
     const tasksModule = async () => import('@modules/tasks');
-    /** PDCA 检查点桥接层取用（P3-b） */
     const pdcaBridge = async () => import('@modules/tasks/PdcaWorkItemBridge');
     /** 目标任务模块取用（P4；含 `getTaskGoalStore` / `isTerminalGoalStatus`） */
     const goalModule = async () => import('@modules/tasks/goal/TaskGoalStore');
@@ -1165,6 +1163,9 @@ export class DomainSnapshotOps {
         (await tasksModule()).getOrCreateOrchestrator(taskId),
       listPdcaOrchestrators: async () =>
         (await tasksModule()).getAllOrchestrators(),
+      // 2026-11-07（真机）：审计报告落盘读取（重启后恢复的唯一入口）
+      readTaskAuditReport: async (taskId: string) =>
+        (await tasksModule()).readAuditReportFile(taskId),
 
       // ---- 自唤醒 / pitfall / PDCA 直播 / 目标（P4）----
       listPendingWakes: async (sessionId: string) => {

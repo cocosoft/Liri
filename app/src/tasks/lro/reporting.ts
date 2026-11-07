@@ -10,7 +10,7 @@
  */
 
 import { getLogger } from '@openliri/infra/monitoring';
-import { mkdirSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { resolveDataDir } from '@openliri/infra/environment';
 import { taskOrchestrator } from '../TaskOrchestrator';
@@ -81,6 +81,24 @@ export function persistAuditReportFile(report: AuditReport): void {
       taskId: report.taskId,
       error: String(err),
     });
+  }
+}
+
+/**
+ * 读取落盘的审计报告（**重启后恢复**）。
+ *
+ * 2026-11-07（真机）：`persistAuditReportFile` 的注释已写明「重启后可恢复」，但此前
+ * **没有任何读取点** ⇒ 重启后 `GET /v1/pdca/:id/audit` 只回 `{error:'Not available'}`，
+ * 而真实报告就在 `~/.pyapp/data/task-audits/{taskId}.json`。本函数是该文件的唯一读取实现。
+ */
+export function readAuditReportFile(taskId: string): AuditReport | null {
+  try {
+    const p = join(resolveDataDir(), 'task-audits', `${taskId}.json`);
+    if (!existsSync(p)) return null;
+    return JSON.parse(readFileSync(p, 'utf-8')) as AuditReport;
+  } catch (err) {
+    logger.warn('审计报告读取失败', { taskId, error: String(err) });
+    return null;
   }
 }
 

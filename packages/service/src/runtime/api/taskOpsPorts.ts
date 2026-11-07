@@ -403,6 +403,15 @@ export interface TaskOpsPort {
   getOrCreatePdcaOrchestrator(taskId: string): Promise<PdcaOrchestratorPort>;
   /** 原 `getAllOrchestrators()` */
   listPdcaOrchestrators(): Promise<PdcaOrchestratorPort[]>;
+  /**
+   * 读取落盘的审计报告（重启后恢复）。
+   *
+   * 2026-11-07（真机）：报告由 `persistAuditReportFile` 写入
+   * `~/.pyapp/data/task-audits/{taskId}.json`（注释即写明「重启后可恢复」），但此前
+   * **无读取点** ⇒ 重启后 `GET /v1/pdca/:id/audit` 只回 `{error:'Not available'}`。
+   * 返回 `null` = 该任务没有落盘报告（调用方按 not_found 处理）。
+   */
+  readTaskAuditReport?(taskId: string): Promise<unknown | null>;
 
   // ---- 自唤醒 / pitfall / PDCA 直播 / 目标（P4）----
   /**

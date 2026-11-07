@@ -1764,6 +1764,16 @@ export async function launch(options: LaunchOptions): Promise<void> {
         // C1（2026-09-30 D-103）：该扫描已改 `async`（端口 API 异步化）⇒ **必须 await**，
         // 以保持下方"留存清理在其之后"的既有次序约束（见紧邻注释）。
         const scanResult = await scanAndAbortStalePdcaTasks();
+        // 2c) 2026-11-07（隐藏缺陷 #1）：审批卡过期 ⇒ 收口对应 PDCA 任务。
+        // 卡已不可回复；若不收口，任务永久停在 stage_awaiting_approval，且
+        // findExistingTask 会把该会话的幂等键永久锁死（同会话新任务恒返回旧 taskId）。
+        const { onInboxItemsExpired } =
+          await import('@openliri/service/runtime/InboxManager');
+        const { abortPdcaAfterExpiry } =
+          await import('@openliri/service/runtime/inboxApproval');
+        onInboxItemsExpired((item) => {
+          void abortPdcaAfterExpiry(item);
+        });
         // 2b) U-02（2026-10-19）：重启自动续跑（**默认关**，`PDCA_AUTO_RESUME=true` 开启）。
         // 仅恢复扫描刚标记 abort 的崩溃遗留任务（phase 非终态），数量受
         // `PDCA_AUTO_RESUME_LIMIT`（默认 3）约束；失败保留 `/goal resume` 人工入口。

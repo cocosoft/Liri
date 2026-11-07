@@ -112,6 +112,22 @@ export interface InboxItem {
 }
 
 /**
+ * 2026-11-07（隐藏缺陷）：审批卡过期的**旁路监听器**。
+ *
+ * 过期只改状态 + 广播时，PDCA 步骤卡对应的任务会永久停在
+ * `stage_awaiting_approval`（卡已不可回复）⇒ 会话幂等键被 `findExistingTask` 锁死。
+ * 监听器由入口层（`main.ts`）注册，用于把"过期"收口成任务终态。
+ */
+type InboxExpiredListener = (item: InboxItem) => void;
+const expiredListeners = new Set<InboxExpiredListener>();
+
+/** 订阅"审批卡已过期"（返回取消订阅函数） */
+export function onInboxItemsExpired(fn: InboxExpiredListener): () => void {
+  expiredListeners.add(fn);
+  return () => expiredListeners.delete(fn);
+}
+
+/**
  * P37（2026-11-02）：结构化注意力载荷（可选）。
  *
  * 生产者只需给事实，`submit()` 统一转成 `inbox_items.metadata` 的固定键
@@ -1262,6 +1278,18 @@ export class InboxManager {
       const principal = ownerKey ? principalFromKey(ownerKey) : null;
       if (principal) await runWithPrincipal(principal, emit);
       else await emit();
+
+      // 2026-11-07：旁路监听（入口层据此收口 PDCA 等依赖"卡可回复"的状态机）
+      for (const listener of expiredListeners) {
+        try {
+          listener(item);
+        } catch (err) {
+          logger.warn('过期回调失败', {
+            inboxId: item.id,
+            error: String(err),
+          });
+        }
+      }
     }
 
     // P3-1（2026-11-06）：把 expired 写回会话卡片块（全历史可追溯）。
@@ -1632,6 +1660,29 @@ export class InboxManager {
          WHERE session_id = ? AND status IN ('pending', 'processing')
            AND owner_key = ?`,
         [Date.now(), sessionId, this.owner()],
+        function (this: { changes: number }, err: Error | null) {
+          if (err) reject(err);
+          else resolve(this.changes);
+        }
+      );
+    });
+  }
+
+  /**
+   * 2026-11-07（隐藏缺陷）：按 id 批量置过期（仅 pending 行）。
+   *
+   * 用途：同一步骤可能因"命令不同"挂多张审批卡；批准其一并续跑后，其余卡已无意义
+   * （再批只会重复续跑、卡片堆积）。由 `inboxApproval` 在续跑时清理。
+   */
+  async expireByIds(ids: string[]): Promise<number> {
+    if (ids.length === 0) return 0;
+    const db = await this.getDb();
+    const placeholders = ids.map(() => '?').join(',');
+    return new Promise<number>((resolve, reject) => {
+      db.run(
+        `UPDATE inbox_items SET status = 'expired', updated_at = ?
+         WHERE id IN (${placeholders}) AND status = 'pending' AND owner_key = ?`,
+        [Date.now(), ...ids, this.owner()],
         function (this: { changes: number }, err: Error | null) {
           if (err) reject(err);
           else resolve(this.changes);

@@ -554,8 +554,26 @@ export async function handlePdcaAudit(
       });
     } /* 可选模块, 加载失败时降级 */
     if (!orchestrator) {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ taskId, error: 'Not available' }));
+      // 2026-11-07（真机）：报告由 `persistAuditReportFile` 落盘
+      // （`~/.pyapp/data/task-audits/{taskId}.json`，注释即写明「重启后可恢复」），
+      // 但此前**无读取点** ⇒ 重启后只回 `{error:'Not available'}`（真实报告就在磁盘上）。
+      // 现按落盘报告恢复；确实没有报告 ⇒ 404（不再假成功）。
+      const port = await getCoreAPI().getTaskOpsPort();
+      const persisted = await port.readTaskAuditReport?.(taskId);
+      if (persisted) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(persisted));
+        return;
+      }
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          ok: false,
+          error: 'not_found',
+          taskId,
+          message: `PDCA 任务审计报告不存在：${taskId}`,
+        })
+      );
       return;
     }
     const report = orchestrator.generateReport();

@@ -1728,7 +1728,7 @@ export class LongRunningTaskOrchestrator {
     // 原实现仅落库 goal_metrics、不写 checkpoint → phase 停留中止前值，
     // /goal list（按 phase∈completed/failed/abort 过滤）不过滤、scan 不回收该任务。
     // 注：LRTO.PdcaPhase 不含 'abort'（bridge 层类型含），此处直接写 checkpoint 文件。
-    await writeAbortCheckpoint(this.taskId);
+    await writeAbortCheckpoint(this.taskId, () => this.generateReport());
     await syncPdcaWorkItemStatus(this.taskId, 'abort');
     // S2（2026-08-13）：中止路径同样落库（超时/失败节点）
     // T-②02：同上，中止路径也做偏差判定（不因中止跳过可观测面）

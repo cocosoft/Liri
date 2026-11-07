@@ -312,6 +312,8 @@ export type { CrossProcessLockOptions } from './CrossProcessLock';
 export * from './cron';
 
 export * from './PdcaWorkItemBridge.js';
+// 2026-11-07（真机）：审计报告落盘读取（重启后恢复）经 barrel 暴露给服务层端口
+export * from './lro/reporting.js';
 
 // P33（2026-11-02）：已结束工作项的 Mandate 重校验（消息唤醒前）
 export * from './autonomy/revalidate.js';

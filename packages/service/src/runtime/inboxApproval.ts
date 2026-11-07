@@ -41,6 +41,8 @@ import {
 import { createResumeCoalescer } from './resumeCoalescer.js';
 import { getRuntimeCoreApi } from './api/coreApiProvider.js';
 import type { RuntimePdcaOrchestratorPort } from './api/coreApiProvider.js';
+// 2026-11-07（隐藏缺陷 #3）：Inbox 与 CLI `/goal approve` 并发续跑时只跑一个循环
+import { resumePdcaOnce } from './resumeSingleFlight.js';
 
 const logger = getLogger('runtime:inboxApproval');
 
@@ -623,7 +625,9 @@ async function resumePdcaWithRetry(
 ): Promise<void> {
   for (let attempt = 0; ; attempt++) {
     try {
-      const result = await orchestrator.resumeAfterApproval(sessionId);
+      const result = await resumePdcaOnce(orchestrator, () =>
+        orchestrator.resumeAfterApproval(sessionId)
+      );
       logger.info('PDCA resumed after Inbox approval', {
         taskId,
         phase: result.phase,
@@ -671,6 +675,78 @@ function schedulePdcaResume(
 }
 
 /**
+ * 2026-11-07（隐藏缺陷 #4）：同一步骤的**其他待批卡**在续跑后置为过期。
+ *
+ * 同一步骤可能因"命令不同"挂多张卡；批准其一并续跑后，其余卡已无意义
+ * （再批只会重复续跑、卡片堆积）。仅清理同 `(pdcaTaskId, stepId)` 的 pending 行。
+ */
+async function expireSiblingStepCards(item: InboxItem): Promise<void> {
+  const taskId = item.metadata?.pdcaTaskId;
+  const stepId = item.metadata?.stepId;
+  if (typeof taskId !== 'string' || typeof stepId !== 'string') return;
+  try {
+    const listed = await inboxManager.list({
+      sessionId: item.sessionId,
+      status: INBOX_STATUS_PENDING,
+      type: 'approval',
+      limit: 50,
+      offset: 0,
+    });
+    const ids = listed.items
+      .filter(
+        (i) =>
+          i.id !== item.id &&
+          i.metadata?.pdcaTaskId === taskId &&
+          i.metadata?.stepId === stepId
+      )
+      .map((i) => i.id);
+    if (ids.length === 0) return;
+    const expired = await inboxManager.expireByIds(ids);
+    logger.info('同一步骤的旧审批卡已置过期', { taskId, stepId, expired });
+  } catch (err) {
+    logger.warn('清理同一步骤旧审批卡失败', {
+      taskId,
+      stepId,
+      error: String(err),
+    });
+  }
+}
+
+/**
+ * 2026-11-07（隐藏缺陷 #1）：审批卡**过期** ⇒ 终止其对应的 PDCA 任务。
+ *
+ * 卡已不可回复，任务却停在 `stage_awaiting_approval`（`pendingApproval>0`）⇒
+ * `findExistingTask` 只按"非终态 status"判定 ⇒ **该会话的幂等键永久锁死**
+ * （同会话新任务恒返回旧 taskId，与已修的 deny 死锁同型）。
+ * 由入口层（`main.ts`）注册到 `onInboxItemsExpired`。
+ */
+export async function abortPdcaAfterExpiry(item: InboxItem): Promise<void> {
+  const taskId =
+    item.source === 'pdca'
+      ? (item.metadata?.taskId as string | undefined)
+      : typeof item.metadata?.pdcaTaskId === 'string'
+        ? item.metadata.pdcaTaskId
+        : undefined;
+  if (!taskId) return;
+  try {
+    const coreApi = getRuntimeCoreApi();
+    const port = await coreApi?.getTaskOpsPort?.();
+    const orchestrator = await port?.getOrCreatePdcaOrchestrator(taskId);
+    logger.warn('审批卡过期 ⇒ 终止 PDCA 任务（释放会话幂等键）', {
+      taskId,
+      inboxId: item.id,
+    });
+    await orchestrator?.abort?.();
+  } catch (err) {
+    logger.warn('审批卡过期后终止 PDCA 失败', {
+      taskId,
+      inboxId: item.id,
+      error: String(err),
+    });
+  }
+}
+
+/**
  * PDCA 审批恢复（原 `inbox-handlers` 内联逻辑，随解析实现一并下沉）
  *
  * - 批准 ⇒ `resumeAfterApproval(sessionId)` 让计划继续推进；
@@ -708,6 +784,8 @@ async function resumePdcaIfApplicable(
     if (!orchestrator) return;
     // 批准类回复（本次 / 本会话 / 始终允许）都应续跑；拒绝只记录
     if (isApprovalReply(reply, selectedOption)) {
+      // 2026-11-07：同一步骤的其余旧卡已无意义（续跑后统一清理，防重复续跑/堆积）
+      void expireSiblingStepCards(item);
       schedulePdcaResume(orchestrator, sessionId, taskId);
     } else {
       // 2026-11-07（真机）：拒绝后既无续跑入口、也无 abort 入口 ⇒ 任务永久停在挂起，

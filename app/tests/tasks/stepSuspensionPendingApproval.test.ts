@@ -10,6 +10,7 @@ import { describe, expect, it } from 'bun:test';
 import {
   hasPendingApproval,
   listStepsAwaitingApproval,
+  resumeSuspendedSteps,
   shouldStopForPendingApproval,
 } from '../../src/tasks/lro/stepSuspension';
 import type { Plan, PlanStep } from '../../src/tasks/TaskOrchestrator';
@@ -69,5 +70,26 @@ describe('shouldStopForPendingApproval', () => {
   it('无待审批 ⇒ false（零行为变更）', () => {
     const p = plan([step('a', 0)]);
     expect(shouldStopForPendingApproval('batch', 't1', 'p1', p)).toBe(false);
+  });
+});
+
+describe('resumeSuspendedSteps', () => {
+  it('恢复挂起步骤时**清零** pendingApproval（调度判据不能读旧值）', () => {
+    const suspended = {
+      ...step('a', 2),
+      decision: 'suspend',
+    } as PlanStep;
+    const p = plan([suspended, step('b', 0)]);
+
+    const resumed = resumeSuspendedSteps(p);
+
+    expect(resumed).toEqual(['a']);
+    expect(p.steps[0].status).toBe('pending');
+    expect(p.steps[0].decision).toBeUndefined();
+    // 其余证据保留（total/successCount 不变），只有 pendingApproval 归零
+    expect(p.steps[0].toolOutcomes?.total).toBe(1);
+    expect(p.steps[0].toolOutcomes?.pendingApproval).toBe(0);
+    // 否则后续批次会被"旧待审批"再次短路（无卡可批 ⇒ 永久等待）
+    expect(hasPendingApproval(p)).toBe(false);
   });
 });

@@ -82,7 +82,11 @@ export function shouldStopForPendingApproval(
 }
 
 /**
- * 把挂起步骤置回 `pending` 并清 `decision`（**保留** result/toolOutcomes 作为审计证据）。
+ * 把挂起步骤置回 `pending` 并清 `decision`（**保留** result / 其余工具证据）。
+ *
+ * 2026-11-07（隐藏缺陷）：`toolOutcomes.pendingApproval` 必须**清零** —— 它同时是
+ * 「批次/轮次调度判据」的输入（`listStepsAwaitingApproval`）。恢复后若该步不在首批执行
+ * （依赖未满足），旧计数会让后续批次继续短路 ⇒ 再次挂起但**没有新卡**（永久等待）。
  *
  * @returns 被恢复的步骤 id 列表（空 = 没有可恢复的挂起步骤）
  */
@@ -92,6 +96,9 @@ export function resumeSuspendedSteps(plan: Plan): string[] {
     if (step.decision === 'suspend') {
       step.status = STEP_STATUS_PENDING;
       step.decision = undefined;
+      if (step.toolOutcomes) {
+        step.toolOutcomes = { ...step.toolOutcomes, pendingApproval: 0 };
+      }
       resumed.push(step.id);
     }
   }

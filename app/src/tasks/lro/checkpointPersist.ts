@@ -17,6 +17,9 @@ import type { PdcaPhase } from '../LongRunningTaskOrchestrator';
 import type { Plan } from '../TaskOrchestrator';
 import { writePdcaCheckpoint } from '../PdcaWorkItemBridge';
 import type { BlockedCommandEntry } from './blockedCommandLedger.js';
+// 2026-11-07：中止路径的审计报告落盘（与 completed/failed 两条路径同源）
+import { persistAuditReportFile } from './reporting.js';
+import type { AuditReport } from '../AuditReport';
 import { projectCheckpointSteps } from './checkpointSnapshot.js';
 import type { TaskPolicySnapshot } from './policySnapshot.js';
 import { releaseTaskScope } from './taskScopeRegistry.js';
@@ -26,8 +29,23 @@ import { releaseTaskScope } from './taskScopeRegistry.js';
  *
  * `abort()` 直接写 checkpoint（不走 `persistPdcaCheckpoint`），因此单列一个入口，
  * 避免"任务已中止、任务档放行仍然生效"。
+ *
+ * 2026-11-07（真机）：中止路径**同样落审计报告** —— 否则重启后
+ * `GET /v1/pdca/:id/audit` 无落盘文件可恢复（completed/failed 两条路径均已落盘）。
+ * 报告由调用方以**工厂**传入：中止可能发生在计划创建之前（`generateReport` 会抛），
+ * 此时不落盘，读取侧按 404 处理。
  */
-export async function writeAbortCheckpoint(taskId: string): Promise<void> {
+export async function writeAbortCheckpoint(
+  taskId: string,
+  buildReport?: () => AuditReport
+): Promise<void> {
+  if (buildReport) {
+    try {
+      persistAuditReportFile(buildReport());
+    } catch {
+      // @ignore-catch — 无计划可生成报告时中止流程不受影响（读取侧按 404）
+    }
+  }
   await writePdcaCheckpoint(taskId, {
     phase: 'abort',
     status: 'abort',

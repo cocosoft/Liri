@@ -42,8 +42,10 @@ afterAll(() => {
   }
 });
 
-const { handlePdcaReviewStep, handlePdcaDecideStep } =
+const { handlePdcaReviewStep, handlePdcaDecideStep, handlePdcaAudit } =
   await import('../../src/infrastructure/http/handlers/pdca-handlers');
+const { persistAuditReportFile } =
+  await import('../../src/tasks/lro/reporting');
 
 function createRes(): {
   res: http.ServerResponse;
@@ -93,6 +95,12 @@ async function review(taskId: string) {
   return created.read();
 }
 
+async function audit(taskId: string) {
+  const created = createRes();
+  await handlePdcaAudit(makeReq(), created.res, taskId);
+  return created.read();
+}
+
 describe('POST /v1/pdca/:taskId/step/:stepId/decide 契约', () => {
   test('非法 decision ⇒ 400（不再把 bogus 写进计划）', async () => {
     const { status, body } = await decide('pdca_decide_probe', {
@@ -138,6 +146,38 @@ describe('POST /v1/pdca/:taskId/step/:stepId/decide 契约', () => {
 describe('POST /v1/pdca/:taskId/step/:stepId/review 契约', () => {
   test('任务未装载 ⇒ 404 not_found（原为 200 {error:Not available}）', async () => {
     const { status, body } = await review('pdca_review_missing_xyz');
+    expect(status).toBe(404);
+    expect(body.ok).toBe(false);
+    expect(body.error).toBe('not_found');
+  });
+});
+
+describe('GET /v1/pdca/:taskId/audit 契约（重启后恢复）', () => {
+  const persistedTaskId = 'pdca_audit_persisted';
+
+  test('落盘报告存在（编排器未装载）⇒ 200 返回真实报告', async () => {
+    persistAuditReportFile({
+      taskId: persistedTaskId,
+      planId: 'plan_audit_1',
+      totalSteps: 1,
+      completedSteps: 1,
+      failedSteps: 0,
+      skippedSteps: 0,
+      totalDurationMs: 12,
+      totalRetries: 0,
+      steps: [],
+      summary: '审计报告（落盘恢复）',
+      generatedAt: 1,
+    });
+
+    const { status, body } = await audit(persistedTaskId);
+    expect(status).toBe(200);
+    expect(body.taskId).toBe(persistedTaskId);
+    expect(body.summary).toBe('审计报告（落盘恢复）');
+  });
+
+  test('既无编排器也无落盘报告 ⇒ 404 not_found', async () => {
+    const { status, body } = await audit('pdca_audit_missing_xyz');
     expect(status).toBe(404);
     expect(body.ok).toBe(false);
     expect(body.error).toBe('not_found');

@@ -7,6 +7,8 @@ import {
   ensureGoalForBatch,
 } from '@modules/tasks';
 import { getOrCreateOrchestrator, getOrchestrator } from '@modules/tasks';
+// 2026-11-07（隐藏缺陷 #3）：CLI 批准与 Inbox 批准并发时只跑一个续跑循环
+import { resumePdcaOnce } from '@openliri/service/runtime/resumeSingleFlight';
 import { handleError } from '@openliri/infra/error';
 
 function phaseLabel(phase: unknown): string {
@@ -319,7 +321,9 @@ export default {
     try {
       const ck = await readPdcaCheckpoint(taskId);
       const sessionId = (ck?.sessionId as string | undefined) ?? '';
-      const status = await orchestrator.resumeAfterApproval(sessionId);
+      const status = await resumePdcaOnce(orchestrator, () =>
+        orchestrator.resumeAfterApproval(sessionId)
+      );
       context.onDone?.(`任务 ${taskId} 已批准并继续执行`, {
         display: 'system',
       });

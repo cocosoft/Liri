@@ -77,6 +77,45 @@ export function setPdcaReceiptSink(sink: PdcaReceiptSink | undefined): void {
   receiptSink = sink;
 }
 
+/**
+ * 终态收口：作废本任务遗留的待审批卡（2026-11-08 真机 `pdca_mw6yabdj`）。
+ *
+ * 为什么会留下：步骤执行期先提交审批卡，之后才判"挂起轮次上限"；达上限直接落 failed 时，
+ * 那张卡**永远不会**再被续跑消费，却仍挂在收件箱/会话里（用户点"批准"只会给已失败任务
+ * 触发一次无效续跑）。终态即置 `expired`（保留历史，不删行）。
+ */
+async function expireOrphanApprovalCards(
+  taskId: string,
+  sessionId: string
+): Promise<void> {
+  try {
+    const { inboxManager, INBOX_STATUS_PENDING } =
+      await import('@openliri/service/runtime/InboxManager');
+    const listed = await inboxManager.list({
+      sessionId,
+      status: INBOX_STATUS_PENDING,
+      type: 'approval',
+      limit: 50,
+      offset: 0,
+    });
+    const ids = listed.items
+      .filter(
+        (i) =>
+          i.metadata?.pdcaTaskId === taskId || i.metadata?.taskId === taskId
+      )
+      .map((i) => i.id);
+    if (ids.length === 0) return;
+    const expired = await inboxManager.expireByIds(ids);
+    logger.info('PDCA 终态 ⇒ 遗留审批卡已置过期', { taskId, expired });
+  } catch (err) {
+    // @ignore-catch — 清理属收口附加动作，失败不得影响任务终态
+    logger.warn('终态清理遗留审批卡失败（不影响任务结果）', {
+      taskId,
+      error: String(err),
+    });
+  }
+}
+
 /** 发一条回执；无落点 / 无会话 / 有推送通道 / 写入失败 ⇒ 静默跳过（不阻断任务） */
 export function emitPdcaReceipt(
   facts: PdcaReceiptFacts & {
@@ -84,6 +123,11 @@ export function emitPdcaReceipt(
     hasPushChannel?: boolean;
   }
 ): void {
+  // 挂起态（paused）的卡是**有效**审批卡，必须保留；只有终态才作废遗留卡。
+  // 与推送通道无关：CLI/REPL 同样会建 Inbox 卡。
+  if (!facts.paused && facts.sessionId) {
+    void expireOrphanApprovalCards(facts.taskId, facts.sessionId);
+  }
   if (facts.hasPushChannel) return;
   const text = formatPdcaReceipt({
     taskId: facts.taskId,

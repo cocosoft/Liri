@@ -22,7 +22,7 @@
 import { createHash } from 'node:crypto';
 import { getLogger } from '@openliri/infra/monitoring';
 import type { ToolFailureKind } from '@modules/session/types/tool.js';
-import { isSecurityIntercepted } from './stepHelpers.js';
+import { isPendingApproval, isSecurityIntercepted } from './stepHelpers.js';
 
 const logger = getLogger('tasks:longRunning');
 
@@ -140,7 +140,12 @@ export function readBlockedReason(result: unknown): string {
  * 由一次工具结果生成台账条目（不满足条件 ⇒ undefined，调用方无需再判断）。
  *
  * 入账条件（全部满足）：命令工具 **且** 入参含命令 **且** 结果是**安全门硬拦截**
- * （`metadata.securityIntercepted === true`）。
+ * （`metadata.securityIntercepted === true`）**且**不是"等人工审批"。
+ *
+ * 2026-11-08（真机 `pdca_mw6yabdj`）：**`security_analyzer_ask` 不入账** —— 它表示
+ * "尚未判定、等人批准"，不是"已判定不可执行"。旧实现把它入账 ⇒ 用户批准后模型重放同一
+ * 命令时先撞 `[BLOCKED_REPLAY]`（文案还写着"请改用其它命令"）⇒ 模型改成等价写法 ⇒
+ * 命中新审批指纹、再弹一张卡（实测 3 轮不收敛）。
  */
 export function makeBlockedCommandEntry(
   input: BlockedCommandCandidate
@@ -148,6 +153,7 @@ export function makeBlockedCommandEntry(
   if (!isCommandTool(input.toolName)) return undefined;
   const command = readCommandFromArgs(input.args);
   if (!command) return undefined;
+  if (isPendingApproval(input.result)) return undefined;
   if (!isSecurityIntercepted(input.result)) return undefined;
   return {
     key: blockedCommandKey({ ...input, command }),

@@ -103,6 +103,28 @@ describe('LRO-13：入账门槛（只认安全门显式拦截）', () => {
     expect(e?.recordedAt).toBe(42);
   });
 
+  // 2026-11-08（真机 pdca_mw6yabdj）：ask 不是"已判定不可执行" —— 入账会让批准后的
+  // 原样重放先撞 [BLOCKED_REPLAY]，模型被迫改写成等价命令 ⇒ 又命中新审批指纹。
+  it('等人工审批（requireApproval）⇒ 不入账（批准后应允许原样重放）', () => {
+    expect(
+      makeBlockedCommandEntry({
+        toolName: 'bash',
+        args: { command: 'node -e "console.log(11)"' },
+        cwd: '/work',
+        policyVersion: 'v1',
+        result: {
+          success: false,
+          error: '需要用户确认: 命令不在已知安全列表',
+          requireApproval: true,
+          metadata: {
+            securityIntercepted: true,
+            reason: 'security_analyzer_ask',
+          },
+        },
+      })
+    ).toBeUndefined();
+  });
+
   it('普通工具报错（无拦截标记）⇒ 不入账（重放有意义）', () => {
     expect(
       makeBlockedCommandEntry({

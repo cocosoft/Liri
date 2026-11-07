@@ -118,8 +118,14 @@ export interface ToolOutcomeSummary {
   pendingApproval: number;
 }
 
-/** 判定单条工具结果是否"要求审批"（失败关闭：只认显式标记） */
-function isPendingApproval(result: unknown): boolean {
+/**
+ * 判定单条工具结果是否"要求审批"（失败关闭：只认显式标记）。
+ *
+ * 2026-11-08（真机 `pdca_mw6yabdj`）：导出 —— 命令工具的 ask 结果同时带
+ * `securityIntercepted: true`，消费方必须能把它与**硬拦截**区分开（否则会把它记进
+ * 「已判定不可执行」台账、并对模型注入"改道"指令 ⇒ 批准后命令反而被改写）。
+ */
+export function isPendingApproval(result: unknown): boolean {
   if (!result || typeof result !== 'object') return false;
   const r = result as { requireApproval?: unknown; status?: unknown };
   return (

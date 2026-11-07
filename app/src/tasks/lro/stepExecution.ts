@@ -51,6 +51,7 @@ import {
   buildTaorStepResult,
   classifyArtifactAccess,
   describeToolResultFailure,
+  isPendingApproval,
   isSecurityIntercepted,
   mergeToolOutcomeSummaries,
   summarizeToolOutcomes,
@@ -202,6 +203,9 @@ export async function executeSingleStep(
       // 是否存在 ⇒ 条件式不在安全白名单 ⇒ 弹审批（同一意图换写法又弹一张）。存在性/匹配/计数
       // 都有专用只读工具，不需要 shell 条件式。
       '- 判断文件/目录是否存在、内容是否匹配、数量多少时，用 file_read / glob / grep 等专用工具；不要用 shell 条件式（`if exist`、`if [ ]`、`test`）或把判断塞进一条命令 —— 这会触发人工审批并阻塞任务。',
+      // 2026-11-08（真机 `pdca_mw6yabdj`）：审批按**命令文本**放行；模型批准后换等价写法
+      // （`-e` → `--eval` → 写成脚本）⇒ 每次都命中新指纹、再弹一张卡，3 轮后任务失败。
+      '- 需要人工审批的命令（返回 `需要用户确认`）在用户批准后，请**原样执行同一条命令**：不要改写参数、不要换等价写法（如 `-e` 换 `--eval`、改写进脚本文件），也不要换工具 —— 改写会命中新的审批指纹，导致再次挂起。',
       // 2026-10-31：真机 app.log 单窗口 211 次「工具路径越界」——模型反复传仓库根绝对路径，
       // 而此前提示词与拒绝文案都**没告诉它**工作区在哪 ⇒ 只能盲试。工作区根目录属确定性事实，
       // 直接前置声明（越界守卫本身不放宽）。
@@ -463,8 +467,14 @@ export async function executeSingleStep(
                 stripArgParseErrorKey(tc.arguments),
                 toolContext
               );
-              // 2026-10-08（steering）：被安全策略拦截的工具名先记账，本轮结束后统一注入改道指令
-              if (isSecurityIntercepted(toolResult)) {
+              // 2026-10-08（steering）：被安全策略拦截的工具名先记账，本轮结束后统一注入改道指令。
+              // 2026-11-08（真机 `pdca_mw6yabdj`）：**等人工审批 ≠ 硬拦截** —— ask 结果也带
+              // `securityIntercepted`，若同样注入"立即改道"，用户批准的那条命令会被模型主动
+              // 改写成等价写法（`-e` → `--eval`）⇒ 命中新指纹再弹一张卡（3 轮不收敛）。
+              if (
+                isSecurityIntercepted(toolResult) &&
+                !isPendingApproval(toolResult)
+              ) {
                 blockedBySecurity.push(tc.name);
               }
               // LRO-13：安全门硬拦截的命令入账（随 checkpoint 持久化）⇒ 续跑短路。

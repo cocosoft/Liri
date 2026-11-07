@@ -860,17 +860,18 @@ export class ConfigManager {
   }
 
   /**
-   * 保存全局配置
-   * @param updater 配置更新函数
+   * 写入前的 fail-closed 守卫（2026-11-07）
+   *
+   * 与 `getGlobalConfig()` 的**读口径同源**：未启用配置系统且非 test ⇒ 内存里只有默认快照
+   * ⇒ 任何"读内存 → 改 → 落盘"的写路径都会把用户 `config.json` 覆盖成默认值
+   * （真机实测被清成 `{}`）。
+   *
+   * ⚠️ `resetConfig()` **不**走本守卫：它就是"显式重置为默认值"的用户操作（设置页「恢复默认」）。
    */
-  saveGlobalConfig(
-    updater: (currentConfig: GlobalConfig) => GlobalConfig
-  ): void {
-    // 2026-11-07：与 `getGlobalConfig()` 的读口径**同源**（未启用且非 test ⇒ 读到的只是默认快照）
-    // ⇒ 此时写回会把用户 config.json 覆盖成默认配置（真机实测被清成 `{}`），必须 fail-closed。
+  private assertConfigWritable(action: string): void {
     if (!this.configReadingAllowed && this.env('NODE_ENV') !== 'test') {
       const refused = new ConfigWriteRefusedError(
-        '配置系统未启用（未调用 enableConfigs()）⇒ 拒绝写回全局配置：' +
+        `配置系统未启用（未调用 enableConfigs()）⇒ 拒绝写回全局配置（${action}）：` +
           '此时内存里只有默认配置，落盘会覆盖用户 config.json'
       );
       void handleError(refused, {
@@ -879,6 +880,16 @@ export class ConfigManager {
       });
       throw refused;
     }
+  }
+
+  /**
+   * 保存全局配置
+   * @param updater 配置更新函数
+   */
+  saveGlobalConfig(
+    updater: (currentConfig: GlobalConfig) => GlobalConfig
+  ): void {
+    this.assertConfigWritable('saveGlobalConfig');
     try {
       const currentConfig = this.getGlobalConfig();
       const newConfig = updater(currentConfig);
@@ -927,6 +938,8 @@ export class ConfigManager {
    * @throws ConfigMutationConflictError 当检测到外部修改时
    */
   mutateConfigFile(mutator: (draft: GlobalConfig) => void): GlobalConfig {
+    // 与 saveGlobalConfig 同一守卫：draft 来自 getGlobalConfig()（未启用时是默认快照）
+    this.assertConfigWritable('mutateConfigFile');
     const expectedHash = this.configHash;
 
     // 克隆当前配置作为 draft

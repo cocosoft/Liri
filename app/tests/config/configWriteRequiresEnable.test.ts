@@ -63,6 +63,23 @@ describe('配置写入 fail-closed（未 enableConfigs）', () => {
     }
   });
 
+  test('mutateConfigFile 同样拒绝（draft 也是默认快照）', () => {
+    const configPath = join(workDir, 'd', 'config.json');
+    const manager = withoutConfigsEnabled(configPath);
+    const original = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      expect(() =>
+        manager.mutateConfigFile((draft) => {
+          (draft as unknown as Record<string, unknown>)['theme'] = 'dark';
+        })
+      ).toThrow(ConfigWriteRefusedError);
+      expect(existsSync(configPath)).toBe(false);
+    } finally {
+      process.env.NODE_ENV = original;
+    }
+  });
+
   test('enableConfigs 之后写入正常（不误伤）', () => {
     const configPath = join(workDir, 'c', 'config.json');
     const manager = new ConfigManager(configPath);

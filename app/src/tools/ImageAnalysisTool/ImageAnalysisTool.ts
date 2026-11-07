@@ -1177,7 +1177,11 @@ export class ImageAnalysisTool extends BaseTool {
       // 通过模型 UUID 从 DB 获取完整记录（含 providerId）
       const { modelPricingService } =
         await import('../../ai/models/ModelPricingService.js');
-      const record = await modelPricingService.getPricingById(modelUuid);
+      let record = await modelPricingService.getPricingById(modelUuid);
+      // 2026-11-07 真机：`PUT /v1/models/tasks` 的校验**兼容存 modelId**（`deepseek-v4-flash`），
+      // 但本工具此前只按 UUID 查 ⇒ 存 modelId 时运行期报「在数据库中不存在」，配置"可保存但不可用"。
+      // 补：按 modelId 兜底解析（UUID 口径优先，零行为变更）。
+      if (!record) record = await modelPricingService.getPricing(modelUuid);
       if (!record) {
         return {
           success: false,

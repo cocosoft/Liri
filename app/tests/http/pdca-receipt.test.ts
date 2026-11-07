@@ -70,4 +70,19 @@ describe('formatPdcaReceipt — 终态回执文案', () => {
     expect(text).toContain('已挂起等待审批');
     expect(text).not.toContain('长程任务完成');
   });
+
+  it('已中止（用户拒绝审批）⇒ ⏹ 中止，不冒充完成/未结束', () => {
+    // 真机 `pdca_mw6vej5m`：拒绝审批后此前完全无回执，会话停在「⏸ 已挂起等待审批」
+    const text = formatPdcaReceipt({
+      taskId: 'pdca_demo',
+      phase: 'abort',
+      completed: 2,
+      total: 3,
+      failed: 0,
+      aborted: true,
+    });
+    expect(text).toContain('已中止');
+    expect(text).toContain('2/3 步');
+    expect(text).not.toContain('长程任务完成');
+  });
 });

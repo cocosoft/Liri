@@ -35,16 +35,25 @@ export interface PdcaReceiptFacts {
    * （真机：会话里就出现了这条假的完成回执）。
    */
   paused?: boolean;
+  /**
+   * 2026-11-08（真机 `pdca_mw6vej5m`）：**已中止**（用户拒绝审批 / 手动中止）。
+   *
+   * 中止走的是 `writeAbortCheckpoint`，此前**完全不出回执** ⇒ 用户拒绝后会话停在
+   * 「⏸ 已挂起等待审批」再无下文，看起来像卡死。
+   */
+  aborted?: boolean;
 }
 
 /**
  * 终态回执文案（纯函数，供单测；与 `emitPdcaReceipt` 同一口径）。
  *
  * 口径：**不做状态词汇比较**（`lint:state-ratchet`：状态字面量须收敛到唯一事实源），
- * 只用"步数事实 + 阶段名（数据）+ 显式挂起标记"决定文案。
+ * 只用"步数事实 + 阶段名（数据）+ 显式挂起/中止标记"决定文案。
  */
 export function formatPdcaReceipt(input: PdcaReceiptFacts): string {
-  const { taskId, phase, completed, total, failed, paused } = input;
+  const { taskId, phase, completed, total, failed, paused, aborted } = input;
+  if (aborted)
+    return `⏹ 长程任务已中止：${completed}/${total} 步已达成（taskId ${taskId}）`;
   if (paused)
     return `⏸ 长程任务已挂起等待审批：${completed}/${total} 步已达成（阶段 ${phase}，taskId ${taskId}）`;
   if (total > 0 && completed === total && failed === 0)
@@ -83,6 +92,7 @@ export function emitPdcaReceipt(
     total: facts.total,
     failed: facts.failed,
     ...(facts.paused ? { paused: true } : {}),
+    ...(facts.aborted ? { aborted: true } : {}),
   });
   emitPdcaReceiptText({
     taskId: facts.taskId,
@@ -132,6 +142,31 @@ export function emitPdcaReceiptFromAudit(
     completed: report.completedSteps,
     total: report.totalSteps,
     failed: report.failedSteps,
+    hasPushChannel,
+  });
+}
+
+/**
+ * 中止回执（`writeAbortCheckpoint` 落点）：用户拒绝审批 / 手动中止时也要有结论。
+ *
+ * 2026-11-08（真机 `pdca_mw6vej5m`）：拒绝审批后任务 `phase=abort`、检查点 aborted，
+ * 但会话里**只有挂起那一刻的 ⏸**，用户看不出任务已经结束。
+ */
+export function emitPdcaAbortReceipt(
+  report: AuditReport,
+  hasPushChannel: boolean
+): void {
+  const plan = report.planId
+    ? taskOrchestrator.getPlan(report.planId)
+    : undefined;
+  emitPdcaReceipt({
+    taskId: report.taskId,
+    sessionId: plan?.sessionId,
+    phase: 'abort',
+    completed: report.completedSteps,
+    total: report.totalSteps,
+    failed: report.failedSteps,
+    aborted: true,
     hasPushChannel,
   });
 }

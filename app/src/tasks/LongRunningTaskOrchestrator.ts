@@ -169,7 +169,8 @@ import {
 } from './lro/policySnapshotWiring.js';
 import {
   persistPdcaCheckpoint,
-  writeAbortCheckpoint,
+  // 别名仅为单行调用（R04-001 行数上限 1998/2000，展开会超）
+  writeAbortCheckpoint as writeAbortCk,
 } from './lro/checkpointPersist.js';
 import {
   renderAuditReport,
@@ -1737,11 +1738,10 @@ export class LongRunningTaskOrchestrator {
     }
     this._activeStepLoops.clear();
     this._recordLifecycle('finalized', TaskStatus.FAILED, 'Aborted by user');
-    // Gap D（1-0c，2026-09-03）：中止必须落 checkpoint 终态。
-    // 原实现仅落库 goal_metrics、不写 checkpoint → phase 停留中止前值，
-    // /goal list（按 phase∈completed/failed/abort 过滤）不过滤、scan 不回收该任务。
-    // 注：LRTO.PdcaPhase 不含 'abort'（bridge 层类型含），此处直接写 checkpoint 文件。
-    await writeAbortCheckpoint(this.taskId, () => this.generateReport());
+    // Gap D（1-0c，2026-09-03）：中止必须落 checkpoint 终态 —— 原实现仅落库 goal_metrics、不写 checkpoint ⇒ phase 停留中止前值，/goal list（按 phase∈completed/failed/abort 过滤）不过滤、scan 不回收该任务。
+    // 注：LRTO.PdcaPhase 不含 'abort'（bridge 层类型含），此处直接写 checkpoint 文件；`hasPush` 决定是否补中止回执。
+    const hasPush = Boolean(this._onTaskMessage);
+    await writeAbortCk(this.taskId, () => this.generateReport(), hasPush);
     await syncPdcaWorkItemStatus(this.taskId, 'abort');
     // S2（2026-08-13）：中止路径同样落库（超时/失败节点）
     // T-②02：同上，中止路径也做偏差判定（不因中止跳过可观测面）

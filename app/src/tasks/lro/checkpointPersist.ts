@@ -19,6 +19,8 @@ import { writePdcaCheckpoint } from '../PdcaWorkItemBridge';
 import type { BlockedCommandEntry } from './blockedCommandLedger.js';
 // 2026-11-07：中止路径的审计报告落盘（与 completed/failed 两条路径同源）
 import { persistAuditReportFile } from './reporting.js';
+// 2026-11-08：中止同样要发终态回执（否则用户拒绝审批后会话停在「⏸ 已挂起等待审批」）
+import { emitPdcaAbortReceipt } from './terminalReceipt.js';
 import type { AuditReport } from '../AuditReport';
 import { projectCheckpointSteps } from './checkpointSnapshot.js';
 import type { TaskPolicySnapshot } from './policySnapshot.js';
@@ -37,11 +39,15 @@ import { releaseTaskScope } from './taskScopeRegistry.js';
  */
 export async function writeAbortCheckpoint(
   taskId: string,
-  buildReport?: () => AuditReport
+  buildReport?: () => AuditReport,
+  hasPushChannel = false
 ): Promise<void> {
   if (buildReport) {
     try {
-      persistAuditReportFile(buildReport());
+      const report = buildReport();
+      persistAuditReportFile(report);
+      // 2026-11-08（真机 `pdca_mw6vej5m`）：拒绝审批 ⇒ 中止，此前**没有任何回执**
+      emitPdcaAbortReceipt(report, hasPushChannel);
     } catch {
       // @ignore-catch — 无计划可生成报告时中止流程不受影响（读取侧按 404）
     }

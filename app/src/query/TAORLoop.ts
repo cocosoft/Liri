@@ -21,7 +21,7 @@ import { renderGoalTemplate } from '@openliri/infra/constants/goalTemplates';
 // 阶段 A（N-28 修复）：yield 轮次登记（与 stream 路径 ReActToolLoop 共用同一实现）
 import { registerYieldFromResults } from '../session/yield';
 import { RoundProgressTracker } from './taor/roundProgress.js';
-import { toFileIoLoopBlocked, hasAwaitingApproval } from './taor/helpers.js';
+import { guardFileIoAccesses, hasAwaitingApproval } from './taor/helpers.js';
 import {
   messageProjector,
   resolveContextWindow,
@@ -196,6 +196,8 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
   private pathGuard: PathGuard;
   // Phase 2: 文件IO循环检测
   private fileIOLoopDetector: FileIOLoopDetector;
+  /** 2026-11-07：已就"同一目标重复读"提醒过模型的路径（每次 run 重置） */
+  private ioWarnedTargets = new Set<string>();
   // Phase 3: 日预算管理（收益递减 + 优雅最后一调）
   private dailyBudget: DailyBudgetManager;
   // Phase 4: 验证器代理（制造者/检查者分离）
@@ -683,35 +685,16 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
         );
       }
     }
-    for (const tc of calls) {
-      const args = tc.input as Record<string, unknown>;
-      // 2026-09-26（漂移家族第 ② 处的**调用链一半**）：原写法只认 `path` / `filePath` / `directory`，
-      // 而本仓真实入参键是 `file_path`（file_read/file_write/file_edit）、`notebook_path`（notebook）、
-      // `searchPath`（grep）⇒ 即便清单名已修正，`checkBeforeAccess()` 也**从未被调用**
-      // （fail-open：漏检不误检）。现按各工具 `params` 声明补齐。
-      const filePath = (args.file_path ??
-        args.notebook_path ??
-        args.path ??
-        args.searchPath ??
-        args.filePath ??
-        args.directory) as string | undefined;
-      if (filePath) {
-        const ioCheck = this.fileIOLoopDetector.checkBeforeAccess(
-          tc.name,
-          filePath,
-          args.offset as number | undefined,
-          args.limit as number | undefined,
-          // 2026-10-31：把 `glob` / `grep` 的 pattern 纳入判定键 —— 同一目录下不同 pattern
-          // 是**不同查询**，此前被算作「连续读同一文件」，第 4 次即终止整轮
-          // （真机单窗口 346–434 次 `文件IO循环已被阻止`，全部指向同一工作区根）。
-          typeof args.pattern === 'string' ? args.pattern : undefined
-        );
-        if (ioCheck.blocked) {
-          // 2026-10-31（口径：维持 abort 整轮，仅补可观测）：明细/pattern/日志统一由
-          // `toFileIoLoopBlocked` 产出（TAORLoop 受 R04-001 行数上限约束，不再内联展开）。
-          blocked.push(toFileIoLoopBlocked(tc, filePath, ioCheck.message));
-        }
-      }
+    // 文件 IO 循环检测（2026-11-07 外移 `taor/helpers`，守住 R04-001 行数基线）：
+    // `blocked` ⇒ 整批终止（原口径）；`warnings` ⇒ 就地 steer 模型收敛（此前 never surfaced）。
+    const ioGuard = guardFileIoAccesses(
+      calls,
+      this.fileIOLoopDetector,
+      this.ioWarnedTargets
+    );
+    blocked.push(...ioGuard.blocked);
+    for (const warning of ioGuard.warnings) {
+      this.injectSteering(warning, 'other');
     }
     if (blocked.length > 0) {
       this.stopReason = 'aborted';
@@ -1972,6 +1955,7 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
     this.errorRecovery.resetAll();
     this.circuitBreaker.reset();
     this.fileIOLoopDetector.reset();
+    this.ioWarnedTargets.clear();
     this.verifier.reset();
     this.toolCallStats.clear();
     this.roundProgress.reset();

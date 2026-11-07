@@ -23,6 +23,7 @@ import { estimateMessagesTokens } from '@modules/ai/tokenizer/TokenEstimator.js'
 // 2026-11-06（审批根因簇 P0-2）：审批等待态判据（infra 契约层单一实现）
 import { isAwaitingApprovalPayload } from '@openliri/infra/utils/toolContract';
 import type { SteeringEntry, TerminationReason } from '../ReActLoop.js';
+import type { FileIOLoopDetector } from '../FileIOLoopDetector.js';
 
 const logger = getLogger('query:taorLoop');
 
@@ -112,6 +113,78 @@ export function toFileIoLoopBlocked(
     name: call.name,
     reason: buildFileIoBlockReason(ioDetail, pattern),
   };
+}
+
+/**
+ * 文件 IO 守卫结果：被拦条目 + 需注入模型的预警（同一目标每 run 只提醒一次）。
+ */
+export interface FileIoGuardOutcome {
+  blocked: Array<{ id: string; name: string; reason: string }>;
+  warnings: string[];
+}
+
+/**
+ * 文件 IO 循环检测段（2026-11-07 从 `TAORLoop.act()` 外移，守住 R04-001 的 1999 行基线）。
+ *
+ * 行为与原地实现一致；唯一新增：`warning` 也转成 steer 文案 —— 此前只消费 `blocked`，
+ * 检测器的预警**从未到达模型**（真机 `pdca_mw6cygbp` step_3：第 4 次读同一文件即整轮
+ * 终止，模型来不及基于已有证据作答）。拦截语义不变。
+ */
+export function guardFileIoAccesses(
+  calls: ReadonlyArray<{ id: string; name: string; input?: unknown }>,
+  detector: Pick<FileIOLoopDetector, 'checkBeforeAccess'>,
+  warned: Set<string>
+): FileIoGuardOutcome {
+  const outcome: FileIoGuardOutcome = { blocked: [], warnings: [] };
+  for (const tc of calls) {
+    const args = (tc.input ?? {}) as Record<string, unknown>;
+    // 2026-09-26（漂移家族第 ② 处的**调用链一半**）：原写法只认 `path` / `filePath` / `directory`，
+    // 而本仓真实入参键是 `file_path`（file_read/file_write/file_edit）、`notebook_path`（notebook）、
+    // `searchPath`（grep）⇒ 即便清单名已修正，`checkBeforeAccess()` 也**从未被调用**
+    // （fail-open：漏检不误检）。现按各工具 `params` 声明补齐。
+    const filePath = (args.file_path ??
+      args.notebook_path ??
+      args.path ??
+      args.searchPath ??
+      args.filePath ??
+      args.directory) as string | undefined;
+    if (!filePath) continue;
+    const ioCheck = detector.checkBeforeAccess(
+      tc.name,
+      filePath,
+      args.offset as number | undefined,
+      args.limit as number | undefined,
+      // 2026-10-31：把 `glob` / `grep` 的 pattern 纳入判定键 —— 同一目录下不同 pattern
+      // 是**不同查询**，此前被算作「连续读同一文件」，第 4 次即终止整轮。
+      typeof args.pattern === 'string' ? args.pattern : undefined
+    );
+    if (ioCheck.blocked) {
+      // 2026-10-31（口径：维持 abort 整轮，仅补可观测）：明细/pattern/日志统一由
+      // `toFileIoLoopBlocked` 产出。
+      outcome.blocked.push(toFileIoLoopBlocked(tc, filePath, ioCheck.message));
+    } else if (ioCheck.warning && !warned.has(filePath)) {
+      warned.add(filePath);
+      outcome.warnings.push(
+        buildFileIoWarningMessage(ioCheck.message ?? '连续重复读取同一目标')
+      );
+    }
+  }
+  return outcome;
+}
+
+/**
+ * 文件 IO 循环的**预警**文案（2026-11-07 真机）。
+ *
+ * 检测器在 `warningThreshold` 就返回 `warning:true`，但 TAORLoop 此前**只消费 `blocked`**
+ * ⇒ 模型对"同一目标已连续读 N 次"毫无感知，下一次（`blockThreshold`）直接整轮终止，
+ * 来不及基于已有证据作答（真机 `pdca_mw6cygbp` step_3：读 4 次被拦、重试 3 次同样失败）。
+ * 本文案用于在第 N 次**已执行**时就地提醒模型收敛；拦截语义不变。
+ */
+export function buildFileIoWarningMessage(detail: string): string {
+  return (
+    `文件IO重复警告（本次调用已执行）：${detail}。` +
+    '如无新增信息，请立即基于已有结果作答，不要继续重复读取同一目标。'
+  );
 }
 
 /**

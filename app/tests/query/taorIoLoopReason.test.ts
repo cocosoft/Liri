@@ -11,6 +11,7 @@
 import { describe, expect, it } from 'bun:test';
 import {
   buildFileIoBlockReason,
+  buildFileIoWarningMessage,
   toFileIoLoopBlocked,
 } from '../../src/query/taor/helpers';
 
@@ -29,6 +30,17 @@ describe('buildFileIoBlockReason', () => {
     expect(reason).toContain('[IO] 连续读 a.md ×4');
     expect(reason).not.toContain('pattern=');
     expect(reason).toContain('整轮已终止');
+  });
+});
+
+describe('buildFileIoWarningMessage', () => {
+  it('预警文案说明"本次已执行"并给出收敛指令（不改变拦截语义）', () => {
+    const msg = buildFileIoWarningMessage('[IO] 连续读 a.md ×3 (警告)');
+    expect(msg).toContain('文件IO重复警告（本次调用已执行）');
+    expect(msg).toContain('[IO] 连续读 a.md ×3 (警告)');
+    expect(msg).toContain('不要继续重复读取同一目标');
+    // 预警不得伪装成"已终止"（那是 block 文案的语义）
+    expect(msg).not.toContain('整轮已终止');
   });
 });
 

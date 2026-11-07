@@ -1028,6 +1028,10 @@ export class ToolExecutionService {
         'chat:toolExecution'
       );
     }
+    // P3（2026-11-07，方案 §2.3-4）：会话权限档自动放行的来源（供下方稳态日志标注）
+    let permissionAutoInfo:
+      | { autoApproved: true; approvalSource?: string }
+      | undefined;
     if (this.deps.getPermissionManager()) {
       // P1（2026-11-03）：权限判定的**唯一入口**（与 HTTP/CoreAPI 路径共用，见
       // `packages/infra/src/permission/authorizeToolCall.ts`）—— 此前这里内联构造
@@ -1179,6 +1183,18 @@ export class ToolExecutionService {
           };
         }
       }
+
+      // P3（2026-11-07，方案 §2.3-4）：允许分支已收敛 ⇒ 记录「自动放行」来源，
+      // 供下方稳态日志标注（此处 `permissionResult` 才被 TS 收敛为 allow 变体）
+      permissionAutoInfo =
+        permissionResult.allowed && permissionResult.autoApproved
+          ? {
+              autoApproved: true,
+              ...(permissionResult.approvalSource
+                ? { approvalSource: permissionResult.approvalSource }
+                : {}),
+            }
+          : undefined;
     }
 
     // 排查 J-1.4：权限通过（含放行缓存命中）后继续执行——记录 sessionId 是否透传（BashTool 放行缓存依赖）
@@ -1188,6 +1204,8 @@ export class ToolExecutionService {
       toolName: normalizedToolCall.name,
       toolCallId: toolCall.id,
       sessionId: toolCall.sessionId,
+      // P3（2026-11-07，方案 §2.3-4）：标注「自动放行」来源，避免与用户批准混同
+      ...(permissionAutoInfo ?? {}),
     });
 
     // ── 回滚：文件操作前追踪 ──

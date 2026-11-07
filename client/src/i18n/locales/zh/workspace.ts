@@ -160,6 +160,9 @@ const zhWorkspace = {
       "bash 工具：不在沙箱内执行 —— Windows 无法做 OS 级隔离（Low IL 需给工作区改 ACL，按既定决策不改用户仓库），打开开关也只会拒绝执行",
     postureGuardOn: "解释器命令二次确认（BASH_INTERPRETER_GUARD）：已开启",
     postureGuardOff: "解释器命令二次确认（BASH_INTERPRETER_GUARD）：未开启",
+    // P2-c（2026-11-07）：权限档 ≠ 沙箱 —— 前者管「要不要问」，后者管「跑起来能碰什么」
+    posturePermissionDecoupled:
+      "会话「权限」档只影响要不要审批，不改变沙箱可碰范围（由平台沙箱策略决定）",
     postureHealthy: "无已知 fail-open 风险",
     postureRiskCount: "{{count}} 项 fail-open 风险",
     enableSandbox: "启用沙箱",

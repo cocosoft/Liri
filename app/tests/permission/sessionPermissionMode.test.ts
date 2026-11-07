@@ -105,4 +105,38 @@ describe('P1：会话级 permissionMode 覆盖进程默认档', () => {
       expect(r.allowed).toBe(true);
     });
   });
+
+  /**
+   * P3（2026-11-07，方案 §2.3-4）：放宽档自动放行必须**可区分于用户逐条批准**。
+   * 否则日志/审计里两种来源无法分辨（且这两档根本不产生审批卡）。
+   */
+  it('放宽档自动放行带 autoApproved + approvalSource；收紧档不带', async () => {
+    await withProcessMode('default', async (pm) => {
+      const bypass = await pm.checkPermissionForTool(
+        PROBE_TOOL,
+        {},
+        { sessionId: 'sess-auto', permissionMode: 'bypass' }
+      );
+      expect(bypass.allowed).toBe(true);
+      expect(bypass.autoApproved).toBe(true);
+      expect(bypass.approvalSource).toBe('permission-mode:bypass');
+
+      const auto = await pm.checkPermissionForTool(
+        PROBE_TOOL,
+        {},
+        { sessionId: 'sess-auto', permissionMode: 'auto' }
+      );
+      expect(auto.autoApproved).toBe(true);
+      expect(auto.approvalSource).toBe('permission-mode:auto');
+
+      // 收紧档（ask）⇒ 不进入自动放行标注
+      const ask = await pm.checkPermissionForTool(
+        PROBE_TOOL,
+        {},
+        { sessionId: 'sess-auto', permissionMode: 'ask' }
+      );
+      expect(ask.autoApproved).toBeUndefined();
+      expect(ask.approvalSource).toBeUndefined();
+    });
+  });
 });

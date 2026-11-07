@@ -90,6 +90,31 @@ const defaultAllowWarnedTools = new Set<string>();
 let bypassObservabilityLogged = false;
 
 /**
+ * P3（2026-11-07，方案 §2.3-4）：会话权限档**自动放行**的「每会话每来源一次」提示。
+ *
+ * 为什么需要：放宽档（bypass / auto / dontAsk）不产生审批卡，若日志与审计不标注来源，
+ * 事后无法区分「用户批准」与「档位自动放行」。按 (sessionId, source) 去重，避免长任务刷屏；
+ * 条目上限 500 后整体清空（只影响提示频率，不影响判定）。
+ */
+const autoAllowedNoticeKeys = new Set<string>();
+
+function logAutoAllowedOnce(
+  source: string,
+  toolName: string,
+  sessionId?: string
+): void {
+  const key = `${sessionId ?? '-'}::${source}`;
+  if (autoAllowedNoticeKeys.has(key)) return;
+  if (autoAllowedNoticeKeys.size > 500) autoAllowedNoticeKeys.clear();
+  autoAllowedNoticeKeys.add(key);
+  logger.info('permission:auto_allowed（会话权限档自动放行，非用户逐条批准）', {
+    source,
+    toolName,
+    sessionId,
+  });
+}
+
+/**
  * F-01（2026-10-28）：把 `decision.rule` 归一为**可读标签**。
  *
  * `PermissionDecision.rule` 声明为 `any`，实际常是规则**对象**；原实现 `String(rule)`
@@ -1463,6 +1488,10 @@ export class PermissionManager {
      * 归一化时被截断 ⇒ 工具结果拿不到「哪条规则、怎么解除」。
      */
     denyInfo?: PermissionDenyInfo;
+    /** P3（2026-11-07，方案 §2.3-4）：会话权限档自动放行（非用户逐条批准） */
+    autoApproved?: boolean;
+    /** 同上：来源编码（`permission-mode:bypass` / `permission-mode:auto` / …） */
+    approvalSource?: string;
   }> {
     // P1-2: 构造完整 PermissionContext（补 toolName/input），透传 sessionId 供统一提交
     const permissionContext = createPermissionContext({
@@ -1493,6 +1522,25 @@ export class PermissionManager {
       context?.forceAskReason
     );
 
+    // P3（2026-11-07，方案 §2.3-4）：会话权限档的**放宽档**（bypass / auto / dontAsk）
+    // 会直接放行而不产生审批卡 ⇒ 必须显式标注「自动放行」，不得在日志/审计里与
+    // 「用户逐条批准」混同。仅在 allow 时标注；收紧档（plan/ask/alwaysAsk/strict）不适用。
+    const effectivePermissionMode =
+      permissionContext.permissionMode ?? this.mode;
+    const autoSource =
+      decision.type === PermissionDecisionType.ALLOW
+        ? effectivePermissionMode === PermissionMode.BYPASS
+          ? 'permission-mode:bypass'
+          : effectivePermissionMode === PermissionMode.AUTO
+            ? 'permission-mode:auto'
+            : effectivePermissionMode === PermissionMode.DONT_ASK
+              ? 'permission-mode:dontAsk'
+              : undefined
+        : undefined;
+    if (autoSource) {
+      logAutoAllowedOnce(autoSource, toolName, context?.sessionId);
+    }
+
     // P1-2: ask 决策统一提交 Inbox 审批卡片（唯一提交点，开关控制，避免重复提交）。
     // 提交成功 → 决策携带 submittedToInbox:true + commandHash，供上层返回 awaiting_approval；
     // 提交失败/开关关闭 → 保留原 ask 决策（上层降级为 ask 文本）。
@@ -1517,13 +1565,15 @@ export class PermissionManager {
         });
       }
     }
-    return this._checkPermissionForToolResult(decision, toolName);
+    return this._checkPermissionForToolResult(decision, toolName, autoSource);
   }
 
   /** P1-2: 归一化 checkPermissionForTool 返回结构（含 submittedToInbox/commandHash） */
   private _checkPermissionForToolResult(
     decision: PermissionDecision,
-    toolName: string
+    toolName: string,
+    /** P3（2026-11-07）：自动放行来源（会话权限档）；缺省 = 常规判定 */
+    autoSource?: string
   ): {
     allowed: boolean;
     decision?: {
@@ -1536,6 +1586,10 @@ export class PermissionManager {
     commandHash?: string;
     inboxItemId?: string;
     denyInfo?: PermissionDenyInfo;
+    /** P3（2026-11-07，方案 §2.3-4）：本次放行由会话权限档自动完成（非用户逐条批准） */
+    autoApproved?: boolean;
+    /** 同上：来源编码（`permission-mode:bypass` / `permission-mode:auto` / …） */
+    approvalSource?: string;
   } {
     const allowed = decision.type === 'allow';
     const submittedToInbox = decision.context?.submittedToInbox === true;
@@ -1564,6 +1618,8 @@ export class PermissionManager {
       commandHash,
       inboxItemId,
       denyInfo,
+      // P3：只有 allow 才可能带自动来源（ask/deny 由调用方传入 undefined）
+      ...(autoSource ? { autoApproved: true, approvalSource: autoSource } : {}),
     };
   }
 }

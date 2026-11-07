@@ -67,11 +67,21 @@ export interface ToolPermissionPortResult {
   commandHash?: string;
   inboxItemId?: string;
   denyInfo?: PermissionDenyInfo;
+  /** P3（2026-11-07）：会话权限档自动放行（非用户逐条批准） */
+  autoApproved?: boolean;
+  /** 同上：来源编码（`permission-mode:bypass` 等） */
+  approvalSource?: string;
 }
 
 /** 归一后的授权结论（调用方只认这一个 DTO） */
 export type AuthorizeOutcome =
-  | { allowed: true; reason?: string }
+  | {
+      allowed: true;
+      reason?: string;
+      /** P3（2026-11-07，方案 §2.3-4）：本次放行由会话权限档自动完成 */
+      autoApproved?: boolean;
+      approvalSource?: string;
+    }
   | {
       allowed: false;
       kind: 'ask';
@@ -113,7 +123,19 @@ export async function authorizeToolCall(
   );
 
   if (result.allowed) {
-    return result.reason ? { allowed: true, reason: result.reason } : { allowed: true };
+    return {
+      allowed: true,
+      ...(result.reason ? { reason: result.reason } : {}),
+      // P3（2026-11-07）：把「自动放行」来源透传给执行侧（日志/展示要能区分用户批准）
+      ...(result.autoApproved
+        ? {
+            autoApproved: true,
+            ...(result.approvalSource
+              ? { approvalSource: result.approvalSource }
+              : {}),
+          }
+        : {}),
+    };
   }
 
   const reason =

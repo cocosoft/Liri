@@ -170,6 +170,9 @@ const enWorkspace = {
       "bash tool: runs outside the sandbox — Windows cannot provide OS-level isolation (Low IL needs repo ACL changes, which we do not make by design); enabling the switch only refuses to run",
     postureGuardOn: "Interpreter confirmation (BASH_INTERPRETER_GUARD): on",
     postureGuardOff: "Interpreter confirmation (BASH_INTERPRETER_GUARD): off",
+    // P2-c (2026-11-07): permission tier vs sandbox — "ask or not" vs "what it may touch"
+    posturePermissionDecoupled:
+      "The session Permission tier only decides whether to ask; it does not change what the sandbox allows (that is set by the platform sandbox policy)",
     postureHealthy: "No known fail-open risk",
     postureRiskCount: "{{count}} fail-open risk(s)",
     enableSandbox: "Enable Sandbox",

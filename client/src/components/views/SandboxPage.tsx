@@ -118,6 +118,8 @@ function SandboxPage() {
         posture.bashInterpreterGuard
           ? t("sandbox.postureGuardOn")
           : t("sandbox.postureGuardOff"),
+        // P2-c（2026-11-07）：权限档与沙箱解耦 —— 两者作用面不同，避免混为一谈
+        t("sandbox.posturePermissionDecoupled"),
       ]
     : [];
 

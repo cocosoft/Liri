@@ -106,6 +106,35 @@ function containsAdjacentTokens(tokens: string[], parts: string[]): boolean {
 }
 
 /**
+ * P1（2026-11-07 真机）：取每条子命令的**命令位 token**（首 token，跳过 `VAR=value` 前缀）。
+ *
+ * 背景：`dangerousCommands` 里的单 token 项（`.` / `exec` / `source` / `kill` …）此前按
+ * 「出现在任意位置」判定 ⇒ 只读命令被误杀：
+ * - `dir .` / `ls .` / `git diff .` 命中 `.`（`source` 的别名）⇒「命令包含危险操作: "."」；
+ * - `grep exec src` 命中 `exec` ⇒ 同上。
+ * 命令位的语义：只有子命令**开头**的那个词才是"要执行的程序"，其余位置是参数正文。
+ * 多词模式（`rm -rf` / `curl | bash` 等）仍按原逻辑整串相邻匹配（组合已足够具体）。
+ */
+function collectCommandPositionTokens(command: string): Set<string> {
+  const result = new Set<string>();
+  for (const segment of command.split(/[;|&\r\n]+/)) {
+    const tokens = segment.trim().split(/\s+/).filter(Boolean);
+    let index = 0;
+    // 跳过 `FOO=bar` 形式的环境变量前缀（它们不是命令）
+    while (
+      index < tokens.length &&
+      /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[index])
+    ) {
+      index += 1;
+    }
+    const base = tokens[index];
+    if (!base) continue;
+    result.add(base.replace(/^["']|["']$/g, '').toLowerCase());
+  }
+  return result;
+}
+
+/**
  * 沙箱安全检查器
  */
 export class SandboxSecurityChecker {
@@ -435,6 +464,8 @@ export class SandboxSecurityChecker {
     // 旧实现用 includes()——如危险词 "ri"（Remove-Item 缩写）会误伤
     // "transcripts"、"dir" 等任何含 "ri" 的正常命令。
     const tokens = lowerCommand.split(/[\s;|&<>]+/).filter(Boolean);
+    // P1（2026-11-07）：单 token 危险项只认命令位（见 collectCommandPositionTokens）
+    const commandPositionTokens = collectCommandPositionTokens(lowerCommand);
 
     // N-19：解释器内联执行 ⇒ **升级人工确认**（不硬拒）。与 A4 守卫同口径，
     // 且避免"硬拒 node -e 但放过 node --eval"的既不安全也不精确。
@@ -459,7 +490,8 @@ export class SandboxSecurityChecker {
       const matched =
         parts.length > 1
           ? containsAdjacentTokens(tokens, parts)
-          : tokens.includes(d);
+          : // P1（2026-11-07）：单 token 只认**命令位**，避免 `dir .` / `grep exec src` 误杀
+            commandPositionTokens.has(d);
       if (matched) {
         return {
           allowed: false,

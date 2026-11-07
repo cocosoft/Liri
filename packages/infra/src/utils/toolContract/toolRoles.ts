@@ -27,6 +27,30 @@ export function isShellToolName(name: string): boolean {
   return SHELL_TOOL_NAMES.has(name);
 }
 
+/**
+ * P1（2026-11-07，真机反馈「只有 bash 接了，其它命令呢」）：带**命令文本**的命令类工具。
+ *
+ * 与 `isShellToolName()` 的区别与分工：
+ * - `isShellToolName()` = 权限层的**历史口径**（bash/shell/command），被放行缓存、
+ *   意图偏差等路径消费，语义保持不动；
+ * - 本集合额外包含 `powershell` / `pwsh`（入参同样是 `command` 文本），用于：
+ *   ① 审批卡是否给出「命令级 / 工具级」放行档（`toolApprovalSubmission`）；
+ *   ② L2「自定义规则 → 命令黑名单/白名单」是否对它的 `command` 生效
+ *      （`PermissionChecker` / `PermissionManager`）。
+ *
+ * 之前只认 bash：PowerShell 工具既拿不到命令级放行档，设置里的命令黑名单/白名单也管不到它。
+ */
+const COMMAND_TOOL_NAMES: ReadonlySet<string> = new Set([
+  ...SHELL_TOOL_NAMES,
+  'powershell',
+  'pwsh',
+]);
+
+/** 是否为「入参含 command 文本」的命令类工具（审批档位 / 命令级规则用） */
+export function isCommandToolName(name: string): boolean {
+  return COMMAND_TOOL_NAMES.has(name);
+}
+
 const FILE_WRITE_TOOL_NAMES: ReadonlySet<string> = new Set([
   'file_write',
   'file_edit',

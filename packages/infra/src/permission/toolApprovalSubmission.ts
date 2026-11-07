@@ -21,7 +21,7 @@
  */
 
 import type { SandboxExecutionSignal } from '@openliri/infra/utils/toolContract/Tool';
-import { isShellToolName } from '@openliri/infra/utils/toolContract/toolRoles';
+import { isCommandToolName } from '@openliri/infra/utils/toolContract/toolRoles';
 
 import {
   resolveApprovalFingerprint,
@@ -95,7 +95,9 @@ export function buildToolApprovalCard(
     typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
 
   const command = typeof input.command === 'string' ? input.command : '';
-  const isCommandTool = isShellToolName(toolName);
+  // P1（2026-11-07）：命令类工具扩到 powershell/pwsh（入参同样是 command 文本）。
+  // 无命令文本 ⇒ 不给「命令级」档（否则 contentPattern 为空会退化成**整工具**放行）。
+  const isCommandTool = isCommandToolName(toolName) && command.trim().length > 0;
   const risk = resolveRiskClass(toolOrName, input);
 
   const approvalFingerprint = resolveApprovalFingerprint(toolOrName, input);

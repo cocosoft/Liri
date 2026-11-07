@@ -67,6 +67,8 @@ export const READ_ONLY_BASE_COMMANDS: ReadonlySet<string> = new Set([
   'chcp',
   'systeminfo',
   'tasklist',
+  // P1（2026-11-07 真机）：查看端口/连接是只读操作，此前被白名单门硬拒
+  'netstat',
   'ps',
   'df',
   'du',
@@ -121,6 +123,8 @@ export const BASH_READ_ONLY_PREFIX_PATTERNS: readonly RegExp[] = [
   /^file\b/i,
   /^stat\b/i,
   /^md5sum\b/i,
+  // P1（2026-11-07 真机）：只读网络诊断
+  /^netstat\b/i,
 ];
 
 /** 已知安全的 PowerShell 只读命令前缀（消费方同上，按 shell 适配） */

@@ -11,6 +11,9 @@
  * ⚠️ 本模块是**数据与纯函数**：不得引入 IO / 状态 / 日志（保持可静态审计）。
  */
 
+// P1（2026-11-07）：只读族与白名单必须同源 —— 见 `isBaseCommandAllowed` 注释
+import { READ_ONLY_BASE_COMMANDS } from '@openliri/infra/security';
+
 /**
  * 危险命令列表 - 对标CC源码安全策略
  */
@@ -61,8 +64,11 @@ export const DANGEROUS_PATTERNS = [
   /&&\s*rm\s+/,
   /\|\|\s*rm\s+/,
   /eval\s*\(/,
-  /exec\s+/,
-  /source\s+/,
+  // P1（2026-11-07 真机）：`exec` / `source` 只在**命令位**（行首或 `; | & (` 之后）才算
+  // 危险，否则只读命令的搜索词会被误杀 —— 实测 `grep -rn "exec " src` 被硬拒
+  // 「检测到危险命令模式」（引号内是搜索词，不是被执行的命令）。
+  /(?:^|[;&|(]\s*)exec\s+/,
+  /(?:^|[;&|(]\s*)source\s+/,
 ];
 
 /**
@@ -162,12 +168,20 @@ export const ALLOWED_COMMANDS = new Set([
 
 /**
  * 检查命令的基命令是否在白名单中
+ *
+ * P1（2026-11-07 真机）：白名单与**只读族**（`READ_ONLY_BASE_COMMANDS`）此前是两套不一致的清单
+ * ⇒ `rg` / `head` / `wc` / `tree` / `tasklist` 被分析器判「只读放行」后，仍在本门被硬拒
+ * 「命令不在允许列表中」。只读族是同一事实源（`security/readOnlyCommands.ts`），此处并入。
+ *
  * @param baseCommand S1-5：已归一化的基命令名（见 `commandNormalization.deriveBaseCommand`）
  * @returns 是否允许
  */
 export function isBaseCommandAllowed(baseCommand: string): boolean {
   if (!baseCommand) return false;
-  return ALLOWED_COMMANDS.has(baseCommand);
+  return (
+    ALLOWED_COMMANDS.has(baseCommand) ||
+    READ_ONLY_BASE_COMMANDS.has(baseCommand)
+  );
 }
 
 /**

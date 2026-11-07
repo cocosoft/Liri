@@ -30,7 +30,7 @@ import {
 } from './types/RiskClass';
 import { configManager } from '@openliri/infra/config';
 import { getLogger } from '@openliri/infra/monitoring';
-import { isShellToolName } from '@openliri/infra/utils/toolContract/toolRoles';
+import { isCommandToolName } from '@openliri/infra/utils/toolContract/toolRoles';
 import type { ToolSandboxLevel } from '@openliri/infra/utils/toolContract/Tool';
 import { findWorkspaceEscapeInRoots } from '@openliri/infra/utils/toolContract/pathBoundary';
 import { PATH_ARG_KEYS } from '@openliri/infra/utils/toolContract/pathArgs';
@@ -355,7 +355,9 @@ export class PermissionChecker {
     // P1-2: 命令内容级黑白名单（「设置→自定义规则」B 体系）参与决策 —
     // 与 BashSecurityAnalyzer 消费同一配置（permission.customRules.commandRules），
     // 黑名单命中 deny、whitelist 模式命中 allow，使 UI 白名单能真正免审批。
-    if (isShellToolName(toolName) && typeof input.command === 'string') {
+    // P1（2026-11-07）：命令类工具扩到 powershell/pwsh —— 此前设置里的命令黑名单/白名单
+    // 对 PowerShell 工具完全不生效（用户反馈「只有 bash 接了」）。
+    if (isCommandToolName(toolName) && typeof input.command === 'string') {
       const cmdDecision = checkCommandCustomRules(input.command);
       if (cmdDecision) return cmdDecision;
     }

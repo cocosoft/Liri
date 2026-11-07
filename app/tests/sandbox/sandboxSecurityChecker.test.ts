@@ -187,3 +187,32 @@ describe('R2 矩阵行「权限不足 ⇒ 明确拒绝」：全链路 check 的"
     );
   });
 });
+
+describe('P1（2026-11-07 真机）：只读命令不再被判「危险操作」', () => {
+  it('`dir .` / `ls .` / `git diff .` ⇒ 通过（`.` 只在命令位才是 source 别名）', () => {
+    for (const cmd of ['dir .', 'ls .', 'git diff .', 'dir .\\']) {
+      expect(checker.checkDangerousCommands(cmd).allowed).toBe(true);
+    }
+  });
+
+  it('只读搜索词含 exec / source / kill ⇒ 通过（参数正文不是被执行命令）', () => {
+    for (const cmd of [
+      'grep exec src',
+      'grep -rn "exec " src',
+      'grep -rn source src',
+      'grep kill src',
+    ]) {
+      expect(checker.checkDangerousCommands(cmd).allowed).toBe(true);
+    }
+  });
+
+  it('【负向对照】真在命令位 ⇒ 仍拒绝', () => {
+    expect(checker.checkDangerousCommands('. ./script.sh').allowed).toBe(false);
+    expect(checker.checkDangerousCommands('exec ls').allowed).toBe(false);
+    expect(checker.checkDangerousCommands('rm -rf /').allowed).toBe(false);
+    // 复合命令里的危险段同样要认（命令位按 `; | &` 切段）
+    expect(checker.checkDangerousCommands('echo hi; rm -rf /').allowed).toBe(
+      false
+    );
+  });
+});

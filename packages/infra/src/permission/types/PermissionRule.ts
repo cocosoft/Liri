@@ -300,9 +300,15 @@ export function isRuleMatch(
 
   // 检查内容模式是否匹配
   try {
-    const inputString = JSON.stringify(input);
     const pattern = new RegExp(rule.contentPattern);
-    return pattern.test(inputString);
+    // P0（2026-11-07 真机）：命令类工具的规则必须按**命令原文**匹配。
+    // 旧实现只对 `JSON.stringify(input)` 做正则 ⇒ 审批卡写下的 `^node -e.*`
+    // 永远不命中（JSON 以 `{"command":"` 开头）⇒「以后这个命令免审批」点了也不生效。
+    // 保留 JSON 兜底：既有按其它字段书写的内容规则不失去匹配能力。
+    const commandText =
+      typeof input['command'] === 'string' ? input['command'] : null;
+    if (commandText !== null && pattern.test(commandText)) return true;
+    return pattern.test(JSON.stringify(input));
   } catch (error) {
     void handleError(error, {
       module: 'permission:rule',

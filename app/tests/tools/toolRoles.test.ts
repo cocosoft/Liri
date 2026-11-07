@@ -13,6 +13,7 @@
 import { describe, it, expect } from 'bun:test';
 
 import {
+  isCommandToolName,
   isFileWriteToolName,
   isMediaOutputToolName,
   isShellToolName,
@@ -29,6 +30,15 @@ describe('A-4 角色集合（名称级判据单一来源）', () => {
 
   it('shell 组不额外纳入 powershell（原判据只覆盖三名，避免行为变更）', () => {
     expect(isShellToolName('powershell')).toBe(false);
+  });
+
+  it('命令类工具（审批档位 / 命令级规则口径）：powershell 与 pwsh 必须命中', () => {
+    for (const n of ['bash', 'shell', 'command', 'powershell', 'pwsh']) {
+      expect(isCommandToolName(n)).toBe(true);
+    }
+    // 只读/文件类工具没有 command 文本语义 ⇒ 不给「命令级」档位
+    expect(isCommandToolName('file_read')).toBe(false);
+    expect(isCommandToolName('code_run')).toBe(false);
   });
 
   it('文件写组：含两个历史别名 write_to_file / replace_in_file', () => {

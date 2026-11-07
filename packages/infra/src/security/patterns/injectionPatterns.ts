@@ -71,21 +71,24 @@ export const INJECTION_PATTERNS: SecurityPattern[] = [
   },
   {
     name: 'eval_command',
-    pattern: /\beval\s+/,
+    // P1（2026-11-07 真机）：只在**命令位**（行首或 `; | & (` 之后）判定。
+    // 旧 `\beval\s+` 会把只读命令的搜索词/参数当命令 —— 实测 `grep exec src`、
+    // `grep -rn "exec " src` 被判「检测到 exec 命令」并弹审批。
+    pattern: /(?:^|[;&|(]\s*)eval\s+/,
     message: '检测到 eval 命令，可能执行任意代码',
     riskLevel: 'high',
     behavior: 'ask',
   },
   {
     name: 'exec_command',
-    pattern: /\bexec\s+/,
+    pattern: /(?:^|[;&|(]\s*)exec\s+/,
     message: '检测到 exec 命令，可能替换当前进程',
     riskLevel: 'medium',
     behavior: 'ask',
   },
   {
     name: 'source_command',
-    pattern: /\b(source|\.)\s+/,
+    pattern: /(?:^|[;&|(]\s*)(?:source|\.)\s+/,
     message: '检测到 source 命令，可能执行脚本文件',
     riskLevel: 'low',
     behavior: 'ask',

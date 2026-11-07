@@ -40,6 +40,7 @@ import {
 // N-17（2026-11-07）：审批续跑的同会话在飞合并（消除多卡连批时的互斥超时）
 import { createResumeCoalescer } from './resumeCoalescer.js';
 import { getRuntimeCoreApi } from './api/coreApiProvider.js';
+import type { RuntimePdcaOrchestratorPort } from './api/coreApiProvider.js';
 
 const logger = getLogger('runtime:inboxApproval');
 
@@ -269,6 +270,10 @@ export async function resolveInboxApprovalsBatch(params: {
   const targets = selectBatchApprovalTargets(listed.items, toolName);
 
   let hasChatResumeTarget = false;
+  // 2026-11-07（真机）：PDCA 步骤卡的续跑由 `resumePdcaIfApplicable` 触发（fire-and-forget），
+  // 原实现只统计聊天续跑 ⇒ 纯 PDCA 批量审批返回 `resumed:false`（真机 `pdca_mw6e0e94`
+  // 明明已从 stage_awaiting_approval 续跑）。此处一并统计，字段语义为"已触发续跑"。
+  let hasPdcaResumeTarget = false;
   for (const item of targets) {
     const result = await resolveInboxApproval(item.id, reply, selectedOption, {
       deferResume: true,
@@ -279,19 +284,26 @@ export async function resolveInboxApprovalsBatch(params: {
     }
     outcome.resolved.push(item.id);
     // PDCA 步骤卡由 `resumePdcaIfApplicable` 各自续跑 ⇒ 不再叠加聊天续跑
-    if (typeof item.metadata?.pdcaTaskId !== 'string') {
+    if (typeof item.metadata?.pdcaTaskId === 'string') {
+      hasPdcaResumeTarget = true;
+    } else {
       hasChatResumeTarget = true;
     }
   }
 
-  if (hasChatResumeTarget && isApprovalReply(reply, selectedOption)) {
+  if (
+    (hasChatResumeTarget || hasPdcaResumeTarget) &&
+    isApprovalReply(reply, selectedOption)
+  ) {
     outcome.resumed = true;
-    void triggerResumeAfterApproval(sessionId).catch((resumeErr: unknown) => {
-      logger.warn('批量审批后自动续跑失败（前端可兜底续跑）', {
-        sessionId,
-        error: String(resumeErr),
+    if (hasChatResumeTarget) {
+      void triggerResumeAfterApproval(sessionId).catch((resumeErr: unknown) => {
+        logger.warn('批量审批后自动续跑失败（前端可兜底续跑）', {
+          sessionId,
+          error: String(resumeErr),
+        });
       });
-    });
+    }
   }
 
   logger.info('批量审批完成', {
@@ -583,6 +595,82 @@ async function applyWorkspaceScopeApproval(
 }
 
 /**
+ * 2026-11-07（真机 `pdca_mw6eclut`）：审批可能**早于**挂起落定 —— 卡片在步骤执行中提交，
+ * 而编排器要到批次结束才进入 `stage_awaiting_approval`。此时 `resumeAfterApproval` 抛
+ * `PDCA_NOT_PENDING`；原实现只记 warn ⇒ 任务随后挂起且**无人续跑**（卡已是 replied，永久卡死）。
+ *
+ * 处置：可恢复类失败按**有界退避**重试（≈1 分钟窗口），等编排器落定后再续跑；
+ * 仍失败才记 warn（调用方早已返回，不阻塞 HTTP）。
+ */
+const PDCA_RESUME_RETRY_DELAYS_MS = [
+  1000, 2000, 4000, 8000, 15000, 15000, 15000,
+] as const;
+
+/** 「编排器还没进入可恢复阶段」类错误（可重试）；其余错误直接放弃 */
+function isResumeNotReady(err: unknown): boolean {
+  const text = String(err);
+  return (
+    text.includes('PDCA_NOT_PENDING') ||
+    text.includes('not in plan_pending') ||
+    text.includes('not awaiting step approval')
+  );
+}
+
+async function resumePdcaWithRetry(
+  orchestrator: RuntimePdcaOrchestratorPort,
+  sessionId: string,
+  taskId: string
+): Promise<void> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const result = await orchestrator.resumeAfterApproval(sessionId);
+      logger.info('PDCA resumed after Inbox approval', {
+        taskId,
+        phase: result.phase,
+        attempt: attempt + 1,
+      });
+      return;
+    } catch (resumeErr) {
+      const delay = PDCA_RESUME_RETRY_DELAYS_MS[attempt];
+      if (!isResumeNotReady(resumeErr) || delay === undefined) {
+        logger.warn('PDCA resume after Inbox approval failed', {
+          taskId,
+          attempt: attempt + 1,
+          error: String(resumeErr),
+        });
+        return;
+      }
+      logger.info('PDCA 尚未落定到可恢复阶段，稍后重试续跑', {
+        taskId,
+        attempt: attempt + 1,
+        retryInMs: delay,
+      });
+      await new Promise<void>((resolve) => setTimeout(resolve, delay));
+    }
+  }
+}
+
+/** 在飞续跑（按 taskId 合并）：同一批里同任务的 N 张卡只应触发**一次** resume */
+const inFlightPdcaResume = new Map<string, Promise<void>>();
+
+function schedulePdcaResume(
+  orchestrator: RuntimePdcaOrchestratorPort,
+  sessionId: string,
+  taskId: string
+): void {
+  if (inFlightPdcaResume.has(taskId)) {
+    logger.info('PDCA 续跑已在进行中，跳过重复触发', { taskId });
+    return;
+  }
+  const task = resumePdcaWithRetry(orchestrator, sessionId, taskId).finally(
+    () => {
+      inFlightPdcaResume.delete(taskId);
+    }
+  );
+  inFlightPdcaResume.set(taskId, task);
+}
+
+/**
  * PDCA 审批恢复（原 `inbox-handlers` 内联逻辑，随解析实现一并下沉）
  *
  * - 批准 ⇒ `resumeAfterApproval(sessionId)` 让计划继续推进；
@@ -620,24 +708,7 @@ async function resumePdcaIfApplicable(
     if (!orchestrator) return;
     // 批准类回复（本次 / 本会话 / 始终允许）都应续跑；拒绝只记录
     if (isApprovalReply(reply, selectedOption)) {
-      // 2026-11-07 真机：此前 **await** 整个 PDCA 续跑（步骤重执行可长达数分钟）
-      // ⇒ `POST /v1/inbox/:id/reply` 同步阻塞（实测 107s，HTTP 客户端 60s 超时）。
-      // 改为 fire-and-forget：放行缓存已写入，续跑进度经 SSE 推送；失败只留日志。
-      void orchestrator
-        .resumeAfterApproval(sessionId)
-        .then((result) => {
-          logger.info('PDCA resumed after Inbox approval', {
-            taskId,
-            source: item.source,
-            phase: result.phase,
-          });
-        })
-        .catch((resumeErr) => {
-          logger.warn('PDCA resume after Inbox approval failed', {
-            taskId,
-            error: String(resumeErr),
-          });
-        });
+      schedulePdcaResume(orchestrator, sessionId, taskId);
     } else {
       // 2026-11-07（真机）：拒绝后既无续跑入口、也无 abort 入口 ⇒ 任务永久停在挂起，
       // 且 `findExistingTask` 把该会话的幂等键锁死（同会话新任务永远返回旧 taskId，

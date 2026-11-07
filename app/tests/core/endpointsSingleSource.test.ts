@@ -40,13 +40,25 @@ function walk(dir: string, out: string[]): void {
   }
 }
 
+/**
+ * 源文件清单（懒加载缓存）：本文件的三条断言都要扫同一棵树，
+ * 重复 walk 纯属浪费 —— 2026-11-08 全量跑测时该用例曾因超过 bun 默认 5s 超时误报失败。
+ */
+let cachedFiles: string[] | undefined;
+function sourceFiles(): string[] {
+  if (!cachedFiles) {
+    const out: string[] = [];
+    walk(SRC, out);
+    walk(KERNEL, out);
+    cachedFiles = out;
+  }
+  return cachedFiles;
+}
+
 /** 返回 `app/src` 下**除 `core/endpoints.ts` 外**命中该正则的 `相对路径:行号` 清单 */
 function hitsOutsideEndpoints(re: RegExp): string[] {
-  const files: string[] = [];
-  walk(SRC, files);
-  walk(KERNEL, files);
   const found: string[] = [];
-  for (const f of files) {
+  for (const f of sourceFiles()) {
     const rel = relative(APP, f).split('\\').join('/');
     if (rel === ENDPOINTS_REL) continue;
     const lines = readFileSync(f, 'utf8').split('\n');
@@ -82,7 +94,7 @@ describe('HD-P0-2 端点 / 本机 host 单一真源', () => {
     expect(hitsOutsideEndpoints(q('http://localhost:11434'))).toEqual([]);
     expect(hitsOutsideEndpoints(q('http://localhost:11434/v1'))).toEqual([]);
     expect(hitsOutsideEndpoints(q('http://localhost:7600'))).toEqual([]);
-  });
+  }, 30000); // 全仓扫描：并行跑全量时默认 5s 会踩线（2026-11-08 实测 5.1s 误报失败）
 
   it('②b 语义边界：:8080 的两个事实源不得互相合并', () => {
     const OAUTH_CONST = 'DEFAULT_OAUTH_LOCAL_BASE_URL';

@@ -17,8 +17,10 @@ import {
   checkAstAndAnalyzer,
   checkBashDangerousCommand,
   checkInterpreterGuard,
+  checkWhitelistAndSandbox,
 } from '../../src/tools/bash/bashSecurityGate.js';
 import { standardizeCommand } from '../../src/tools/bash/commandNormalization.js';
+import { SandboxSecurityChecker } from '../../src/sandbox/SandboxSecurityChecker.js';
 import {
   describePowerShellFailure,
   evaluatePowerShellSecurity,
@@ -181,6 +183,41 @@ describe('解释器守卫：仅内联代码升级确认', () => {
       sessionId: undefined,
     });
     expect(block?.requireApproval).toBe(true);
+  });
+});
+
+describe('N-19：沙箱"解释器内联执行"从硬拒改为升级确认', () => {
+  const cmd = 'node -e "console.log(1)"';
+  const std = standardizeCommand(cmd, { isWindows: true });
+
+  it('未批准 ⇒ 转审批卡（requireApproval），不再是安全失败', () => {
+    const r = checkWhitelistAndSandbox(cmd, std, {
+      bypassAsk: false,
+      approvalScope,
+      approvalSnapshot,
+    });
+    expect(r?.requireApproval).toBe(true);
+    expect(r?.metadata?.['reason']).toBe('sandbox_confirmation');
+    // N-18：待确认文案也要带可执行替代（文案在 result / approvalReason 里）
+    expect(JSON.stringify(r)).toContain('脚本文件');
+  });
+
+  it('已批准（命中放行缓存）⇒ 放行（修复前会被沙箱二次校验硬拒）', () => {
+    expect(
+      checkWhitelistAndSandbox(cmd, std, {
+        bypassAsk: true,
+        approvalScope,
+        approvalSnapshot,
+      })
+    ).toBeNull();
+  });
+
+  it('shell 包裹（bash -c）仍硬拒（结构性风险；直接验沙箱层，绕开基命令白名单）', () => {
+    const r = new SandboxSecurityChecker().checkDangerousCommands(
+      'bash -c "echo 1"'
+    );
+    expect(r.allowed).toBe(false);
+    expect(r.requiresConfirmation).toBeUndefined();
   });
 });
 

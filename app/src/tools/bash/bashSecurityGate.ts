@@ -385,11 +385,17 @@ export function checkAstAndAnalyzer(params: {
  * - 白名单（F3）：仅允许安全的基命令；基命令取 S1-5 统一归一化结果 `std.baseCommand`；
  * - 沙箱二次校验（F2）：独立于工具层安全检查器的 `SandboxSecurityChecker`。
  *
- * @returns 命中 ⇒ 拦截结果；通过 ⇒ `null`
+ * @returns 命中 ⇒ 拦截/待确认结果；通过 ⇒ `null`
  */
 export function checkWhitelistAndSandbox(
   command: string,
-  std: StandardizedCommand
+  std: StandardizedCommand,
+  /** N-19：沙箱"升级确认"所需的审批上下文（缺省 ⇒ 按硬拒处理，fail-closed） */
+  ask?: {
+    bypassAsk: boolean;
+    approvalScope: ApprovalScope;
+    approvalSnapshot: ApprovalSnapshot;
+  }
 ): ToolResult<unknown> | null {
   if (!isBaseCommandAllowed(std.baseCommand)) {
     return blockedResult(
@@ -408,6 +414,26 @@ export function checkWhitelistAndSandbox(
     const hint = sandboxCheckResult.suggestion
       ? `（${sandboxCheckResult.suggestion}）`
       : '';
+    // N-19（2026-11-07）：解释器内联执行 ⇒ 升级人工确认（与 A4 守卫同口径）。
+    // 已批准（`bypassAsk`，命中放行缓存）⇒ 放行；否则转审批卡，而不是硬拒。
+    if (sandboxCheckResult.requiresConfirmation && ask) {
+      if (ask.bypassAsk) return null;
+      const askMessage = `沙箱安全检查: ${sandboxCheckResult.reason}${hint}`;
+      return createToolResult(`需要用户确认: ${askMessage}`, {
+        requireApproval: true,
+        approvalReason: askMessage,
+        failureKind: 'permission_denied',
+        newMessages: [
+          { role: 'system', content: `Error: 需要用户确认: ${askMessage}` },
+        ],
+        metadata: {
+          securityIntercepted: true,
+          reason: 'sandbox_confirmation',
+          approvalScope: ask.approvalScope,
+          approvalSnapshot: ask.approvalSnapshot,
+        },
+      });
+    }
     return blockedResult(`沙箱安全检查: ${sandboxCheckResult.reason}${hint}`, {
       reason: 'sandbox_checker',
     });

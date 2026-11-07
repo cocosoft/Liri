@@ -27,13 +27,17 @@ const BASH_TOOL = read('../../src/tools/bash/BashTool.ts');
 const GATE_SRC = read('../../src/tools/bash/bashSecurityGate.ts');
 const PSW_SRC = read('../../src/tools/bash/powerShellWrapper.ts');
 
-/** BashTool 里各门调用点的锚点（顺序即执行顺序） */
+/** BashTool 里各门调用点的锚点（顺序即执行顺序）
+ *
+ * N-19（2026-11-07）：`whitelist_sandbox` 多了一个审批上下文参数（沙箱"解释器内联执行"
+ * 从硬拒改为升级人工确认），故锚点去掉结尾右括号（仍锁"命令 + 归一化结构"两个实参）。
+ */
 const CALL_ANCHORS: Record<CommandGateId, string> = {
   path_safety: 'checkPathSafety(std)',
   dangerous_command: 'checkBashDangerousCommand(command)',
   powershell_wrapper: 'checkPowerShellWrapper(',
   ast_analyzer: 'checkAstAndAnalyzer({',
-  whitelist_sandbox: 'checkWhitelistAndSandbox(command, std)',
+  whitelist_sandbox: 'checkWhitelistAndSandbox(command, std',
   interpreter_guard: 'checkInterpreterGuard({',
 };
 
@@ -89,6 +93,10 @@ describe('安全门登记表：豁免与失败分类', () => {
     }
     if (/checkInterpreterGuard\(\{[\s\S]{0,300}?isApproved/.test(BASH_TOOL)) {
       passingApproval.add('interpreter_guard');
+    }
+    // N-19（2026-11-07）：沙箱"解释器内联执行"改为升级确认 ⇒ 该门也须传审批上下文
+    if (/checkWhitelistAndSandbox\([\s\S]{0,200}?bypassAsk/.test(BASH_TOOL)) {
+      passingApproval.add('whitelist_sandbox');
     }
 
     const declared = COMMAND_GATE_ORDER.filter(

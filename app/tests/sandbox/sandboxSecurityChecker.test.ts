@@ -105,6 +105,8 @@ describe('R2 矩阵行「权限不足 ⇒ 明确拒绝」：危险命令（token
       const r = checker.checkDangerousCommands(cmd);
       expect(r.allowed).toBe(false);
       expect(r.suggestion ?? '').toContain('脚本文件');
+      // N-19：解释器内联执行 ⇒ 升级确认（不是硬拒）
+      expect(r.requiresConfirmation).toBe(true);
     }
   });
 

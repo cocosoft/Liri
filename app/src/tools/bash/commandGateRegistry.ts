@@ -92,10 +92,12 @@ export const COMMAND_GATES: Readonly<Record<CommandGateId, CommandGateSpec>> = {
   whitelist_sandbox: {
     id: 'whitelist_sandbox',
     order: 5,
-    reasons: ['command_whitelist', 'sandbox_checker'],
-    askExemptable: false,
+    // N-19（2026-11-07）：沙箱的"解释器内联执行"从硬拒改为升级确认 ⇒ 新 reason 码
+    reasons: ['command_whitelist', 'sandbox_checker', 'sandbox_confirmation'],
+    // 可被"已批准"豁免（与 ast_analyzer 同口径：命中放行缓存 ⇒ 放行，不再弹卡）
+    askExemptable: true,
     failureKind: 'safety_blocked',
-    summary: '基命令白名单 + 沙箱二次校验',
+    summary: '基命令白名单 + 沙箱二次校验（解释器内联执行转审批）',
   },
   interpreter_guard: {
     id: 'interpreter_guard',

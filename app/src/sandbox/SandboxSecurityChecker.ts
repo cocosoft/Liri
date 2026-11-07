@@ -22,27 +22,38 @@ export interface SecurityCheckResult {
   matchedPattern?: string;
   /** 建议的操作 */
   suggestion?: string;
+  /**
+   * N-19（2026-11-07）：命中项属"升级人工确认"而非硬拒。
+   * 调用方应转审批卡（`requireApproval`），而不是当失败丢弃。
+   */
+  requiresConfirmation?: boolean;
 }
 
 /**
- * N-18（2026-11-07 真机）：解释器**内联代码**形态（`node -e` / `python -c` …）。
+ * N-18/N-19（2026-11-07 真机）：解释器**内联代码**形态（`node -e` / `python -c` …）。
  *
- * 这些形态**仍按硬拒处理**（沙箱职责不变），但必须给出**可执行替代**：
- * 真机日志显示模型被拒后只会换写法反复试（`node -e` → `node --eval` → `_probe.js`），
- * 白烧 2–3 轮并撞上 `turn_blocked (consecutive environment-blocked turn)`。
- * 故拒因文案改为"写入脚本文件再执行"，让模型一步改对。
+ * - 不再硬拒（N-19）：与既有 A4 解释器守卫（`BASH_INTERPRETER_GUARD`，设计为"升级人工确认"）
+ *   口径一致；硬拒同时可被 `node --eval` 无成本绕过 ⇒ 既不安全也不精确；
+ * - 仍**不放行**：调用方（`bashSecurityGate`）转成审批卡，用户可一键批准；
+ * - 拒因（或待审批文案）必须带**可执行替代**（N-18）：真机里模型只会换写法反复试
+ *   （`node -e` → `node --eval` → `_probe.js`），白烧 2–3 轮并撞 `turn_blocked`。
  */
-export const INTERPRETER_INLINE_PATTERNS: ReadonlySet<string> = new Set([
+export const INTERPRETER_CONFIRM_PATTERNS: readonly string[] = [
   'node -e',
   'python -c',
   'python3 -c',
   'perl -e',
   'ruby -e',
-  'bash -c',
-  'sh -c',
-  'zsh -c',
-  'ksh -c',
-]);
+];
+
+/** 内联解释器的可执行替代提示（N-18：模型可见文案的唯一来源） */
+export const INTERPRETER_INLINE_HINT =
+  '内联代码请先写入脚本文件再执行（如 node check.js / python check.py）';
+
+/** 兼容旧名（既有调用方/测试按 Set 语义使用） */
+export const INTERPRETER_INLINE_PATTERNS: ReadonlySet<string> = new Set(
+  INTERPRETER_CONFIRM_PATTERNS.concat(['bash -c', 'sh -c', 'zsh -c', 'ksh -c'])
+);
 
 /**
  * 安全检查器配置
@@ -155,11 +166,9 @@ export class SandboxSecurityChecker {
     'base64 -d |',
     'echo ... | base64',
     'echo | base64 -d',
-    'python -c',
-    'python3 -c',
-    'perl -e',
-    'ruby -e',
-    'node -e',
+    // N-19（2026-11-07）：解释器内联执行（node -e / python -c …）已移到「升级人工确认」，
+    // 见 INTERPRETER_CONFIRM_PATTERNS；此处只保留 **shell 包裹**（bash -c 等）—— 它能把任意
+    // 命令再拼一次，属结构性风险，仍硬拒。
     'bash -c',
     'sh -c',
     'zsh -c',
@@ -426,6 +435,22 @@ export class SandboxSecurityChecker {
     // 旧实现用 includes()——如危险词 "ri"（Remove-Item 缩写）会误伤
     // "transcripts"、"dir" 等任何含 "ri" 的正常命令。
     const tokens = lowerCommand.split(/[\s;|&<>]+/).filter(Boolean);
+
+    // N-19：解释器内联执行 ⇒ **升级人工确认**（不硬拒）。与 A4 守卫同口径，
+    // 且避免"硬拒 node -e 但放过 node --eval"的既不安全也不精确。
+    for (const pattern of INTERPRETER_CONFIRM_PATTERNS) {
+      const parts = pattern.split(/\s+/).filter(Boolean);
+      if (containsAdjacentTokens(tokens, parts)) {
+        return {
+          allowed: false,
+          requiresConfirmation: true,
+          reason: `命令包含危险操作: "${pattern}"`,
+          matchedPattern: pattern,
+          // N-18：把可执行替代一起给出，模型可一步改对（或用户批准本次）
+          suggestion: INTERPRETER_INLINE_HINT,
+        };
+      }
+    }
 
     for (const dangerous of this.dangerousCommands) {
       const d = dangerous.toLowerCase().trim();

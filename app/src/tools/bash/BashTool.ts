@@ -505,7 +505,12 @@ export class BashTool extends BaseTool {
         return appendReadOnlyProbeHint(analysisBlock, command);
       }
 
-      const whitelistBlock = checkWhitelistAndSandbox(command, std);
+      const whitelistBlock = checkWhitelistAndSandbox(command, std, {
+        // N-19（2026-11-07）：沙箱的"解释器内联执行"从硬拒改为升级人工确认
+        bypassAsk,
+        approvalScope,
+        approvalSnapshot,
+      });
       if (whitelistBlock) {
         // 2026-10-25（B 类可观测性缺口 ①）：白名单 F3 / 沙箱二次校验 F2 拦截事件此前**零日志**
         // —— 只落会话消息、不进 app.log（用户会话 `session_mvl0d0a3d6e2e9a764` 实证"bash 命令

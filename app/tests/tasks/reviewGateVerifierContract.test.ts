@@ -37,6 +37,7 @@ import {
   DefaultReviewGate,
   type ReviewGateContext,
 } from '../../src/tasks/review/ReviewGate';
+import { VerifierAgent } from '../../src/query/VerifierAgent';
 import type { AgentIsolation } from '@modules/agent';
 
 const EVIDENCE_TOKEN = 'EVIDENCE_TOKEN_9f3c';
@@ -87,6 +88,7 @@ describe('ReviewGate → VerifierAgent 证据通道契约', () => {
     const input = verifier.lastInput as {
       toolResults?: Array<{ toolName?: string; result?: unknown }>;
       successCriteria?: { items: unknown[] };
+      maxCharsPerToolResult?: number;
     } | null;
 
     expect(input).not.toBeNull();
@@ -99,5 +101,43 @@ describe('ReviewGate → VerifierAgent 证据通道契约', () => {
     expect(input?.successCriteria?.items.length ?? 0).toBeGreaterThan(0);
     // ④ 每次审查独立计数（与 TAORLoop 在 run 起点 reset 同口径）
     expect(verifier.resetCalls).toBe(1);
+    // ⑤ 证据预算必须放宽 —— 投递的是整段执行记录，默认 500 字符会截掉关键证据
+    expect(input?.maxCharsPerToolResult ?? 0).toBeGreaterThan(500);
+  });
+
+  it('长执行记录的尾部证据必须进入验证器提示词（不被 500 字符截断）', async () => {
+    const gate = new DefaultReviewGate({ enableMechanicalVerify: false });
+    const verifier = new VerifierAgent({ failClosed: true });
+    let prompt = '';
+    verifier.setCallModel(async function* (messages) {
+      prompt = messages[1]?.content ?? '';
+      yield {
+        content: JSON.stringify({ verdict: 'APPROVE', confidence: 0.9 }),
+      };
+    });
+
+    // 前 1000 字符为填充，真正的读回证据在尾部（复现真机：证据落在 500 字符之后）
+    const filler = 'x'.repeat(1000);
+    const tailEvidence = 'TAIL_EVIDENCE_LRO_7a1';
+    const ctx = {
+      taskId: 'task-contract-2',
+      planId: 'plan-contract-2',
+      step: {
+        id: 'step-2',
+        description: '读取 f.txt 并核对内容',
+        acceptanceCriteria: 'file_read 返回内容为 v',
+        result: `[TAORLoop] turns=3\n${filler}\n[tool] {"data":"${tailEvidence}"}`,
+        status: 'completed',
+      },
+      isolation: {
+        abortController: new AbortController(),
+      } as unknown as AgentIsolation,
+      executor: async () =>
+        '{"pass":true,"score":90,"issues":[],"summary":"ok"}',
+      verifier,
+    } as unknown as ReviewGateContext;
+
+    await gate.reviewStep(ctx);
+    expect(prompt).toContain(tailEvidence);
   });
 });

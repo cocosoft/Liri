@@ -124,6 +124,15 @@ export interface VerificationInput {
    * 未注入 ⇒ 行为与现状完全一致（单指标路径）。
    */
   successCriteria?: SuccessCriteria;
+  /**
+   * 2026-11-07（真机取证）：单条工具结果的**证据预算**（字符）。
+   *
+   * 默认 500 适用于 TAOR 的「上一轮工具结果」通道；而长程任务的步骤审查传入的是
+   * **整段步骤执行记录**（含多次工具调用）—— 500 会把文件读回等关键证据截掉，
+   * 验证器据此判「本轮无证据」并 REJECT（真机 `pdca_mw6ck8l2`：step_2/step_3 证据齐全
+   * 却连判 REJECT ⇒ 步骤假失败 ⇒ 任务 failed）。需要长证据的调用方显式提高预算。
+   */
+  maxCharsPerToolResult?: number;
 }
 
 const DEFAULT_CONFIG: VerifierAgentConfig = {
@@ -144,6 +153,8 @@ function buildVerificationPrompt(input: VerificationInput): string {
   const criteriaSkeleton = input.successCriteria
     ? renderCriteriaSkeleton(input.successCriteria)
     : '';
+  // 2026-11-07：证据预算可被调用方放宽（见 `VerificationInput.maxCharsPerToolResult`）
+  const resultCap = input.maxCharsPerToolResult ?? 500;
   const toolResultsSummary = input.toolResults
     .map((tr) => {
       if (tr.error) {
@@ -151,8 +162,8 @@ function buildVerificationPrompt(input: VerificationInput): string {
       }
       const resultStr =
         typeof tr.result === 'string'
-          ? tr.result.slice(0, 500)
-          : JSON.stringify(tr.result).slice(0, 500);
+          ? tr.result.slice(0, resultCap)
+          : JSON.stringify(tr.result).slice(0, resultCap);
       return `- ${tr.toolName}(${tr.toolCallId}): ${resultStr}`;
     })
     .join('\n');

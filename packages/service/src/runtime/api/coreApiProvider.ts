@@ -22,9 +22,11 @@ export interface RuntimeSessionGatewayPort {
   updateSession(session: RuntimeSessionLike): Promise<void>;
 }
 
-/** PDCA 编排器的最小结构（恢复链只用 `resumeAfterApproval`） */
+/** PDCA 编排器的最小结构（恢复链只用 `resumeAfterApproval` / 拒绝时 `abort`） */
 export interface RuntimePdcaOrchestratorPort {
   resumeAfterApproval(sessionId: string): Promise<{ phase: string }>;
+  /** 2026-11-07：Inbox 拒绝 ⇒ 终止任务（否则永久挂起并锁死会话幂等键） */
+  abort?(): Promise<void>;
 }
 
 /** 任务端口的最小结构 */

@@ -33,6 +33,16 @@ import { formatToolOutcomeSummary } from '../lro/stepHelpers.js';
 
 const logger = getLogger('tasks:reviewGate');
 
+/**
+ * 2026-11-07（真机取证）：步骤审查投给 `VerifierAgent` 的**证据预算**（字符）。
+ *
+ * 这里投递的是**整段步骤执行记录**（`step.result`，含多轮助手文本与工具结果），
+ * 不是单条工具结果 —— 沿用验证器默认的 500 字符上限会把文件读回等关键证据截掉，
+ * 验证器据此判定「本轮无证据」并 REJECT（真机 `pdca_mw6ck8l2`：step_2/step_3 证据齐全
+ * 却连判 REJECT ⇒ 步骤假失败 ⇒ 任务 failed）。按"一次执行记录"的实际规模给足预算。
+ */
+const STEP_EVIDENCE_MAX_CHARS = 12000;
+
 /** 审查门执行上下文（由 Orchestrator 注入运行时依赖） */
 export interface ReviewGateContext {
   taskId: string;
@@ -311,6 +321,8 @@ export class DefaultReviewGate implements ReviewGate {
             ],
             turnCount: 0,
             sessionId: ctx.taskId,
+            // 2026-11-07：整段执行记录需要更大的证据预算（默认 500 会截掉关键证据）
+            maxCharsPerToolResult: STEP_EVIDENCE_MAX_CHARS,
             // 13-P0-2（2026-10-05）：注入结构化验收标准 —— 验证器 checks[] 必须以该骨架为准
             // （无验收标准 ⇒ undefined ⇒ 行为与现状一致）
             successCriteria:

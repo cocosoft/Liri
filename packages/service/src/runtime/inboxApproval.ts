@@ -639,7 +639,17 @@ async function resumePdcaIfApplicable(
           });
         });
     } else {
-      logger.info('PDCA plan rejected via Inbox', { taskId });
+      // 2026-11-07（真机）：拒绝后既无续跑入口、也无 abort 入口 ⇒ 任务永久停在挂起，
+      // 且 `findExistingTask` 把该会话的幂等键锁死（同会话新任务永远返回旧 taskId，
+      // 真机 `pdca_mw6bpgs5`：deny 后 start 返回 `existing: true` 而任务永不推进）。
+      // 拒绝即终止：写 abort 终态释放会话幂等键，用户可重新发起任务。
+      logger.info('PDCA rejected via Inbox, aborting task', { taskId });
+      void orchestrator.abort?.().catch((abortErr) => {
+        logger.warn('PDCA abort after Inbox rejection failed', {
+          taskId,
+          error: String(abortErr),
+        });
+      });
     }
   } catch (pdcaErr) {
     logger.warn('PDCA resume after Inbox approval failed', {

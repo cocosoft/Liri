@@ -1221,8 +1221,7 @@ export class LongRunningTaskOrchestrator {
     let lastFingerprint = '';
     let stallRounds = 0;
     const stallThreshold = this.resolveStallRounds();
-    // 终态裁决（2026-10-17）：记录"为何以失败退出"，供循环外区分
-    // completed / failed / escalate，避免失败出口被无条件写成 completed。
+    // 终态裁决（2026-10-17）：记录"为何以失败退出"，避免失败出口被无条件写成 completed。
     let failureReason: string | null = null;
 
     while (!allDone && iterations < maxIterations) {
@@ -1367,8 +1366,9 @@ export class LongRunningTaskOrchestrator {
         });
         if (convergence.kind === 'replanned') return convergence.status;
         if (convergence.kind === 'unconverged') {
+          // 2026-11-07：不得把 `allDone` 改回 false（否则 escalate 的 replanPending 被终态覆盖，
+          // 真机 `pdca_mw6cygbp`）⇒ 未收敛改由 `failureReason` 参与终态裁决。
           failureReason = convergence.failureReason;
-          allDone = false;
           break;
         }
       }
@@ -1452,10 +1452,10 @@ export class LongRunningTaskOrchestrator {
 
     const finalPlan = this.requirePlan();
     // escalate 只在"全部步骤终态 + 某步决策为 escalate"时成立（与旧语义一致）；
-    // 停滞/准入/超轮次等中途失败一律走 failed 终态，不得借 escalate 保留可续跑状态。
+    // 停滞/准入/超轮次/未收敛等中途失败一律走 failed 终态，不得借 escalate 保留可续跑状态。
     const hasEscalated =
       allDone && finalPlan.steps.some((s) => s.decision === 'escalate');
-    const succeeded = allDone && !hasEscalated;
+    const succeeded = allDone && !hasEscalated && failureReason === null;
     finalPlan.status = succeeded ? 'completed' : 'failed';
     finalPlan.completedAt = new Date().toISOString();
     taskOrchestrator['savePlan']?.(finalPlan);
@@ -1476,8 +1476,8 @@ export class LongRunningTaskOrchestrator {
       // PR5（#6，2026-09-05）：escalate 收尾 → checkpoint 写 replanPending /
       // replanFailCount（半自动闭环，决策 4/6/7）。计数持久化、跨 resume/重启累计；
       // 达上限 replanPending=false（转人工介入），resume 入口据此拒绝（见 resumeFromCheckpoint）。
-      // **2026-10-17**：此分支**不**调用 setPhase —— phase 必须保持 execute 且
-      // status=failed，否则 replanPending 会被终态覆盖，半自动 replan 永远无法被 resume。
+      // **2026-10-17 / 2026-11-07**：不得 `setPhase('failed')`（replanPending 被覆盖）；内存 phase 同步回 execute。
+      await this.setPhase('execute');
       const prevCk = (await readPdcaCheckpoint(this.taskId)) ?? {};
       const prevFail = Number(prevCk.replanFailCount) || 0;
       const next = prevFail + 1;

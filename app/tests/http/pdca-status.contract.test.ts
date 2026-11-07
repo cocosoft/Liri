@@ -160,6 +160,21 @@ await writePdcaCheckpoint('pdca_st_nosteps', {
   projectId: 'proj_st',
 });
 
+// 2026-11-07（真机 pdca_mw6bpgs5）：跨重启后的 Inbox 审批路径会创建**空编排器**
+// （无 plan/planId，phase 默认 'plan'）⇒ 状态接口必须仍按检查点读模型返回。
+await writePdcaCheckpoint('pdca_st_bare_orch', {
+  taskId: 'pdca_st_bare_orch',
+  planId: 'plan_st_bare',
+  phase: 'stage_awaiting_approval',
+  status: 'running',
+  description: '等待步骤审批的跨重启任务',
+  sessionId: 'sess_st',
+  steps: [
+    makeStep('s1', '执行', 'completed'),
+    makeStep('s2', '待执行', 'pending'),
+  ],
+});
+
 describe('GET /v1/pdca/:taskId 契约（1-5 P2 跨重启详情适配）', () => {
   test('活跃 checkpoint：构造 plan{steps} 原样透传 + progress 推导（1c1r → 50%）', async () => {
     const { status, body } = await call('pdca_st_active');
@@ -207,5 +222,26 @@ describe('GET /v1/pdca/:taskId 契约（1-5 P2 跨重启详情适配）', () => 
     expect(status).toBe(200);
     expect(body.phase).toBe('none');
     expect(body.taskId).toBe('pdca_missing_xyz');
+  });
+
+  // 2026-11-07（真机）：Inbox 审批路径先建了一个**空编排器**，此前状态接口就不再回退
+  // 检查点 ⇒ 阶段从 stage_awaiting_approval 退化为 plan、步骤清单消失。
+  test('内存空编排器（无 plan）⇒ 仍按检查点读模型返回（阶段/步骤不丢失）', async () => {
+    const { getCoreAPI } = await import('../../src/runtime/api/CoreAPIImpl');
+    const port = await getCoreAPI().getTaskOpsPort();
+    const orchestrator = (await port.getOrCreatePdcaOrchestrator(
+      'pdca_st_bare_orch'
+    )) as unknown as { dispose?: () => void };
+    try {
+      const { status, body } = await call('pdca_st_bare_orch');
+      expect(status).toBe(200);
+      expect(body.source).toBe('checkpoint');
+      expect(body.phase).toBe('stage_awaiting_approval');
+      expect(body.planId).toBe('plan_st_bare');
+      const plan = body.plan as { steps: CkStep[] };
+      expect(plan.steps.map((s) => s.id)).toEqual(['s1', 's2']);
+    } finally {
+      orchestrator?.dispose?.();
+    }
   });
 });

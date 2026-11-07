@@ -430,45 +430,85 @@ export async function handlePdcaStatus(
         );
         return;
       }
-      const rec = ck as Record<string, unknown>;
-      const rawSteps = rec.steps;
-      const steps =
-        Array.isArray(rawSteps) && rawSteps.length > 0
-          ? (rawSteps as Array<Record<string, unknown>>)
-          : undefined;
-      const plan = steps
-        ? {
-            id: (rec.planId as string) || taskId,
-            description: (rec.description as string) ?? '',
-            steps,
-          }
-        : undefined;
-      const progress = steps ? deriveCheckpointProgress(steps) : undefined;
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(
-        JSON.stringify({
-          taskId,
-          planId: (rec.planId as string) ?? '',
-          phase: (rec.phase as string) ?? 'none',
-          status: (rec.status as string) ?? 'unknown',
-          description: (rec.description as string) ?? '',
-          plan,
-          progress,
-          workItemId: rec.workItemId,
-          workspaceId: rec.workspaceId,
-          projectId: rec.projectId,
-          sessionId: rec.sessionId,
-          totalTokens: rec.totalTokens,
-          source: 'checkpoint',
-        })
+        JSON.stringify(
+          buildCheckpointStatusView(taskId, ck as Record<string, unknown>)
+        )
       );
       return;
     }
+    const status = orchestrator.getStatus() as unknown as Record<
+      string,
+      unknown
+    >;
+    // 2026-11-07（真机）：跨重启后的审批路径会用 `getOrCreatePdcaOrchestrator` 建一个
+    // **空实例**（无 plan / planId，phase 默认 'plan'）。一旦它存在，本接口就不再回退
+    // 检查点 ⇒ UI 从「真实阶段 + 步骤清单」退化为「plan + 空」（真机 `pdca_mw6bpgs5`
+    // 拒绝后实测）。内存实例没装载计划 ⇒ 不携带比检查点更多的信息，按检查点读模型返回。
+    if (!status.plan) {
+      const ck = await (
+        await getCoreAPI().getTaskOpsPort()
+      ).readPdcaCheckpoint(taskId);
+      if (ck) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify(
+            buildCheckpointStatusView(
+              taskId,
+              ck as Record<string, unknown>,
+              typeof status.phase === 'string' ? status.phase : undefined
+            )
+          )
+        );
+        return;
+      }
+    }
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(orchestrator.getStatus()));
+    res.end(JSON.stringify(status));
   } catch (err) {
     sendError(res, err);
   }
+}
+
+/**
+ * 检查点 → 状态读模型（与 `getStatus()` 字段对齐；无步骤快照时省略 plan/progress）。
+ *
+ * 2026-11-07：`phase` 优先取检查点；检查点无该字段（刚启动、尚未进阶段）时用内存阶段兜底。
+ */
+function buildCheckpointStatusView(
+  taskId: string,
+  rec: Record<string, unknown>,
+  fallbackPhase?: string
+): Record<string, unknown> {
+  const rawSteps = rec.steps;
+  const steps =
+    Array.isArray(rawSteps) && rawSteps.length > 0
+      ? (rawSteps as Array<Record<string, unknown>>)
+      : undefined;
+  const plan = steps
+    ? {
+        id: (rec.planId as string) || taskId,
+        description: (rec.description as string) ?? '',
+        steps,
+      }
+    : undefined;
+  const progress = steps ? deriveCheckpointProgress(steps) : undefined;
+  return {
+    taskId,
+    planId: (rec.planId as string) ?? '',
+    phase: (rec.phase as string) ?? fallbackPhase ?? 'none',
+    status: (rec.status as string) ?? 'unknown',
+    description: (rec.description as string) ?? '',
+    plan,
+    progress,
+    workItemId: rec.workItemId,
+    workspaceId: rec.workspaceId,
+    projectId: rec.projectId,
+    sessionId: rec.sessionId,
+    totalTokens: rec.totalTokens,
+    source: 'checkpoint',
+  };
 }
 
 /**

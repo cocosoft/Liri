@@ -9,6 +9,7 @@
 import { describe, expect, test, beforeEach } from 'bun:test';
 import {
   clearDiscoveredTools,
+  expandToolDefinitionsWithDiscovered,
   getDiscoveredTools,
   recordDiscoveredTools,
   resetDiscoveredToolsForTest,
@@ -121,5 +122,40 @@ describe('selectToolsForTurn 补回已发现工具', () => {
       discoveredToolNames: ['code_run'],
     });
     expect(namesOf(selection.tools)).toEqual(['bash']);
+  });
+});
+
+describe('expandToolDefinitionsWithDiscovered（同轮补回）', () => {
+  const schemas = [
+    {
+      name: 'code_run',
+      description: 'run code',
+      input_schema: { properties: {}, required: [] },
+    },
+  ];
+
+  test('补进缺失的工具定义，且幂等（已在目标里不重复）', () => {
+    recordDiscoveredTools('s1', ['code_run']);
+    const target: ToolDefinition[] = [];
+    expect(expandToolDefinitionsWithDiscovered(target, 's1', schemas)).toEqual([
+      'code_run',
+    ]);
+    expect(namesOf(target)).toEqual(['code_run']);
+    expect(expandToolDefinitionsWithDiscovered(target, 's1', schemas)).toEqual(
+      []
+    );
+    expect(namesOf(target)).toHaveLength(1);
+  });
+
+  test('未登记 / 未注册 ⇒ 不补、不臆造', () => {
+    const target: ToolDefinition[] = [];
+    expect(
+      expandToolDefinitionsWithDiscovered(target, 'nobody', schemas)
+    ).toEqual([]);
+    recordDiscoveredTools('s2', ['unknown_tool']);
+    expect(expandToolDefinitionsWithDiscovered(target, 's2', schemas)).toEqual(
+      []
+    );
+    expect(target).toHaveLength(0);
   });
 });

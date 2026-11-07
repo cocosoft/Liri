@@ -46,7 +46,9 @@ function fakeHost() {
     appendStreamEvent: [] as Array<{ sid: string; ev: unknown }>,
     addAndPersist: [] as Array<{ sid: string; msg: unknown }>,
   };
-  const toolRegistry = { tag: 'registry' };
+  // 2026-11-07（方案 §13）：装配处会在每次 `executeTool` 后按需调用 `getToolSchemas()`
+  //（补回 tool_search 命中的工具）⇒ fake registry 需提供该方法（返回空 ⇒ 零补回）。
+  const toolRegistry = { tag: 'registry', getToolSchemas: () => [] };
   const host = {
     MAX_TOOL_TURNS: 7,
     pendingInteractions: { tag: 'pi' },

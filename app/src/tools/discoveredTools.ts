@@ -14,6 +14,9 @@
  *  - **不改可见性语义**：补回仍受"有意归档"（`ARCHIVED_MISC_TOOLS`）与用户覆写约束（见调用方）。
  */
 import { LRUCache } from '@openliri/infra/utils/cache';
+import type { ToolDefinition } from '@modules/ai';
+import { buildToolDefinitions, toWireToolName } from './toolNameCodec';
+import type { ToolSchemaLike } from './toolNameCodec';
 
 /** 会话 → 已发现工具名（LRU 上限 200 个会话，避免长期运行的内存增长） */
 const discoveredBySession = new LRUCache<readonly string[]>(200);
@@ -51,4 +54,36 @@ export function clearDiscoveredTools(sessionId: string): void {
 /** 测试用：清空全部（避免用例间串味） */
 export function resetDiscoveredToolsForTest(): void {
   discoveredBySession.clear();
+}
+
+/**
+ * 把该会话**已发现**但当前工具定义里没有的工具，按名补进 `target`（**原地 push**）。
+ *
+ * 调用时机：工具刚执行完（见 `streamMessageToolLoopContext` 的 `executeTool`）——
+ * 工具轮的每次 LLM 请求都现读 `ctx.toolDefinitions`（`StreamingLlm`），
+ * ⇒ 补进去之后**同一轮的下一次请求**就能看到 schema（不再等下一用户轮）。
+ *
+ * 幂等：已在 `target` 里的不重复加；返回本次真正补进去的 **wire 名**（供调用方留痕）。
+ *
+ * @param target 工具轮的 `ctx.toolDefinitions`（数组身份不变，原地追加）
+ * @param sessionId 会话 id
+ * @param schemas 注册表全量 schema（由调用方提供，避免本模块反向依赖 ToolRegistry）
+ */
+export function expandToolDefinitionsWithDiscovered(
+  target: ToolDefinition[],
+  sessionId: string,
+  schemas: readonly ToolSchemaLike[]
+): string[] {
+  const names = getDiscoveredTools(sessionId);
+  if (names.length === 0) return [];
+  const present = new Set(target.map((t) => t.function?.name ?? ''));
+  const wanted = new Set(
+    names.map((n) => toWireToolName(n)).filter((n) => !present.has(n))
+  );
+  if (wanted.size === 0) return [];
+  const matched = schemas.filter((s) => wanted.has(toWireToolName(s.name)));
+  if (matched.length === 0) return [];
+  const added = buildToolDefinitions(matched);
+  target.push(...added);
+  return added.map((d) => d.function?.name ?? '');
 }

@@ -20,6 +20,9 @@
 
 import { estimateMessagesTokens } from '@modules/ai';
 import type { ToolDefinition, ParsedToolCall } from '@modules/ai';
+import { getLogger } from '@openliri/infra/monitoring';
+// 2026-11-07（方案 §13）：tool_search 命中后把工具定义补进本轮（同轮生效）
+import { expandToolDefinitionsWithDiscovered } from '@modules/tools';
 import type {
   Message,
   StreamMessageOptions,
@@ -32,6 +35,8 @@ import { resolveChatModeToolTurns } from '../loopTurnLimits.js';
 import type { StreamingAutoCheckpoint } from '../services/StreamingAutoCheckpoint.js';
 import type { ChatOrchestratorHost } from './ChatOrchestratorHost.js';
 import type { ToolLoopContext } from '../ToolLoopRunner.js';
+
+const logger = getLogger('chat:streamFlow:toolLoop');
 
 /** 装配 `ToolLoopContext` 所需的输入（本轮状态 + host 能力句柄） */
 export interface ToolLoopContextDeps {
@@ -101,8 +106,8 @@ export function buildToolLoopContext(
     // P0-4（2026-08-14）：透传工具执行事件回调 → ReActToolLoop.act 触发 → CoreAPIImpl
     // onToolCall 收集（带参数 tool_call chunk + 完成状态提示，与 TAOR 路径行为一致）
     onToolCall: options?.onToolCall,
-    executeTool: (tc: ParsedToolCall, opts: unknown) =>
-      host.executeTool(
+    executeTool: async (tc: ParsedToolCall, opts: unknown) => {
+      const result = await host.executeTool(
         {
           id: tc.id,
           name: tc.name,
@@ -116,7 +121,24 @@ export function buildToolLoopContext(
             data: Record<string, unknown>;
           }) => void;
         }
-      ),
+      );
+      // 2026-11-07（方案 §13）：`tool_search` 命中后把工具 schema 补进**本轮**工具定义 ——
+      // 工具轮每次 LLM 请求都现读 `ctx.toolDefinitions`（`StreamingLlm`）⇒ 下一次请求即可调用。
+      // 幂等且无新增发现时零开销（先比较已存在集合，命中不到才查注册表）。
+      const added = expandToolDefinitionsWithDiscovered(
+        toolDefinitions,
+        session.id,
+        host.getToolRegistry()?.getToolSchemas() ?? []
+      );
+      if (added.length > 0) {
+        logger.info('chat:toolLoop — tool_search 命中后补回工具定义', {
+          sessionId: session.id,
+          added,
+          total: toolDefinitions.length,
+        });
+      }
+      return result;
+    },
     // 工具轮端口要求 `Map<string,{questionId,promise,resolve}>`，而 host 有意把该 Map
     // 暴露为 `Map<string, unknown>`（解耦消费侧）⇒ 单字段窄断言桥接；运行时为**同一 Map 引用**。
     pendingInteractions:

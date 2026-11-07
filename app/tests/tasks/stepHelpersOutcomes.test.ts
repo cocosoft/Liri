@@ -18,6 +18,7 @@ import { describe, it, expect } from 'bun:test';
 import {
   buildCriticalOutcomeEvidence,
   buildTaorStepResult,
+  buildToolCallEvidence,
   formatToolOutcomeSummary,
   mergeToolOutcomeSummaries,
   summarizeToolOutcomes,
@@ -196,5 +197,34 @@ describe('PR-5：给审查员的结构化清单', () => {
 
   it('无工具调用 ⇒ 空串（不造假清单）', () => {
     expect(formatToolOutcomeSummary(summarizeToolOutcomes([]))).toBe('');
+  });
+});
+
+/**
+ * 2026-11-08（真机 `pdca_mw70c49j`）：证据里要能看到**命令原文**。
+ *
+ * 此前只有工具结果，审查员反复判「无法证明命令原样执行」⇒ 连重试 3 次。
+ */
+describe('buildToolCallEvidence：入参回显', () => {
+  it('命令工具逐字回显 command，并带失败原因', () => {
+    const text = buildToolCallEvidence([
+      { toolName: 'bash', arguments: { command: 'node -e "console.log(7)"' } },
+      {
+        toolName: 'bash',
+        arguments: { command: 'node a.js' },
+        error: 'Command failed',
+      },
+    ]);
+    expect(text).toContain('node -e \\"console.log(7)\\"');
+    expect(text).toContain('[call] bash');
+    expect(text).toContain('失败: Command failed');
+  });
+
+  it('非命令工具回显参数摘要；空调用 ⇒ 空串（不造证据）', () => {
+    const text = buildToolCallEvidence([
+      { toolName: 'file_read', arguments: { file_path: 'a.txt' } },
+    ]);
+    expect(text).toContain('args={"file_path":"a.txt"}');
+    expect(buildToolCallEvidence([])).toBe('');
   });
 });

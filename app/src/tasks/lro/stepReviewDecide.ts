@@ -256,6 +256,9 @@ export async function decideStep(
         }
 
         // 重置状态准备重试
+        // 2026-11-08（真机 `pdca_mw6zsuks`）：审查自评 pass 仍可能被门判 retry（阻塞级 major /
+        // 分数门槛）—— 生命周期里写明原因，避免"上一条 ✅ 通过、下一条就 Retry"看起来自相矛盾。
+        const selfPassed = step.reviewResult?.pass === true;
         step.status = 'pending';
         step.retryCount++;
         step.decision = undefined;
@@ -263,7 +266,9 @@ export async function decideStep(
         deps.recordLifecycle(
           'progress',
           TaskStatus.RUNNING,
-          `Retry #${step.retryCount} for: ${step.description}`
+          `Retry #${step.retryCount} for: ${step.description}${
+            selfPassed ? '（审查自评通过，但存在阻塞级问题或未达分数门槛）' : ''
+          }`
         );
         logger.info('[orchestrator] 步骤重试已就绪', {
           taskId: deps.taskId,

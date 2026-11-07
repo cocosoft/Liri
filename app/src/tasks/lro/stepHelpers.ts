@@ -321,6 +321,38 @@ export function buildTaorStepResult(
   return lines.join('\n');
 }
 
+/**
+ * 本次尝试的**工具调用入参回显**（2026-11-08 真机 `pdca_mw70c49j`）。
+ *
+ * 为什么需要：步骤证据此前只有工具**结果**，没有入参 ⇒ 审查员反复判「无法证明命令
+ * 原样执行（命令字符串未回显）」，为一句本可核验的话连重试 3 次。回显
+ * `[call] <tool> command="…"` 让"命令原文"成为证据的一部分（只读文本，不改变判定口径）。
+ */
+export function buildToolCallEvidence(
+  calls: ReadonlyArray<{
+    toolName?: string;
+    arguments?: Record<string, unknown>;
+    error?: unknown;
+  }>,
+  max = 8
+): string {
+  const lines: string[] = [];
+  for (const c of calls.slice(-max)) {
+    const args = c.arguments ?? {};
+    const label =
+      typeof args.command === 'string'
+        ? `command=${JSON.stringify(args.command)}`
+        : `args=${JSON.stringify(args).slice(0, 200)}`;
+    const fail = typeof c.error === 'string' && c.error.trim() ? c.error : '';
+    lines.push(
+      `[call] ${c.toolName ?? '(unnamed)'} ${label}${
+        fail ? ` → 失败: ${fail.slice(0, 120)}` : ''
+      }`
+    );
+  }
+  return lines.length > 0 ? `\n[本次尝试的工具调用]\n${lines.join('\n')}` : '';
+}
+
 /** 一步内某次工具调用对「产物」的读写意图（机械保障：写后读回用） */
 export interface ArtifactAccess {
   kind: 'write' | 'read';

@@ -68,6 +68,14 @@ describe('findUnprovableCriteria（可证性黑名单）', () => {
       // 2026-10-08 轮 10 真机实证：shell 受安全策略门控 ⇒ 不得作为判定动作
       'bash 执行只读命令 dir "C:\\tmp" 的输出中包含 sbx',
       '格式：powershell 运行 Get-Content 的输出非空',
+      // 2026-11-08（真机 pdca_mw70c49j）：执行次数类要求 —— 审批恢复/重试必然让它恒假
+      '本步骤内仅一次命令调用，输出为 7',
+      '唯一一次命令执行调用',
+      '只调用一次 node 命令',
+      '仅执行一次并记录 stdout',
+      '只运行 1 次',
+      '该单次命令执行的工具输出内容等于 7',
+      '本步骤执行次数为 1',
     ];
     for (const c of bad) {
       expect({ c, hit: findUnprovableCriteria([c]).length }).toEqual({
@@ -83,6 +91,9 @@ describe('findUnprovableCriteria（可证性黑名单）', () => {
       'glob 在 C:\\tmp 下能列出 a.txt',
       'grep 在 a.txt 中命中文本 hello',
       '文件 C:\\tmp\\a.txt 存在',
+      // 不是"仅一次"语义 ⇒ 不得误伤（2026-11-08）
+      '只保留最后一次结果',
+      '每次调用都返回 7',
     ];
     expect(findUnprovableCriteria(good)).toEqual([]);
   });

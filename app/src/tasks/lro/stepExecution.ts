@@ -49,6 +49,7 @@ import {
   buildCriticalOutcomeEvidence,
   buildSecuritySteeringMessage,
   buildTaorStepResult,
+  buildToolCallEvidence,
   classifyArtifactAccess,
   describeToolResultFailure,
   isPendingApproval,
@@ -673,7 +674,11 @@ export async function executeSingleStep(
             elapsedMs: taorElapsed,
           },
           criticalEvidence
-        ) + readBackEvidence;
+        ) +
+        // 2026-11-08（真机 `pdca_mw70c49j`）：把本次调用的**入参（命令原文）**并入证据 ——
+        // 只给结果时审查员无法核验"命令原样执行"，会为此反复 retry。
+        buildToolCallEvidence(executedToolResults) +
+        readBackEvidence;
       const terminationReason = result.terminationReason;
       if (terminationReason === 'awaiting_approval') {
         // 2026-11-06（审批根因簇 P0-2）：TAOR 遇"工具已提交审批"即收尾 ⇒ 本步是**暂停**，

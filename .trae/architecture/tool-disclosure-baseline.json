@@ -7,12 +7,12 @@
     "disclosureCount": 12,
     "providerSurfaceTokens": 1500
   },
-  "targetMet": true,
+  "targetMet": false,
   "totalToolCount": 69,
-  "disclosureCount": 12,
-  "structuralTokens": 2253,
-  "providerSurfaceTokens": 1397,
-  "sourceDescriptionChars": 3481,
+  "disclosureCount": 13,
+  "structuralTokens": 2396,
+  "providerSurfaceTokens": 1512,
+  "sourceDescriptionChars": 3588,
   "disclosureNames": [
     "agent",
     "ask_user_question",
@@ -22,6 +22,7 @@
     "file_write",
     "grep",
     "mcp_tool",
+    "powershell",
     "todo_write",
     "tool_search",
     "web_fetch",
@@ -29,8 +30,8 @@
   ],
   "perTask": {
     "default": {
-      "disclosureCount": 12,
-      "providerSurfaceTokens": 1397,
+      "disclosureCount": 13,
+      "providerSurfaceTokens": 1512,
       "disclosureNames": [
         "agent",
         "ask_user_question",
@@ -40,6 +41,7 @@
         "file_write",
         "grep",
         "mcp_tool",
+        "powershell",
         "todo_write",
         "tool_search",
         "web_fetch",

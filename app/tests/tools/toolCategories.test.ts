@@ -37,8 +37,10 @@
 import { describe, expect, test } from 'bun:test';
 import {
   DEFAULT_DISCLOSURE_TOOLS,
+  PLATFORM_DISCLOSURE_TOOLS,
   filterToolsByTask,
   getToolCategory,
+  isInDefaultDisclosure,
   TOOL_CATEGORIES,
 } from '../../src/tools/toolCategories';
 import { toWireToolName } from '../../src/tools/toolNameCodec';
@@ -248,7 +250,7 @@ describe('toolCategories — P0 工具可见性回归', () => {
    * `bash`/`powershell` ⇒ 模型看不到 shell（自述"环境无 shell 工具"），执行类任务
    * 无法跑命令验证产物。shell 属通用执行能力，小上下文已由 `local` 轻量集兜底。
    */
-  test('2026-10-11 修复: shell 类的 `bash` 在默认披露面内；`powershell` 收窄但任务面可见', () => {
+  test('2026-11-07（§6.4）: shell 类的 `bash` 恒在默认披露面；`powershell` 仅 Windows 在默认面内', () => {
     expect(getToolCategory('bash')).toBe('shell');
     expect(getToolCategory('powershell')).toBe('shell');
     const defs = [
@@ -258,8 +260,9 @@ describe('toolCategories — P0 工具可见性回归', () => {
     ];
     for (const taskType of ['chat', 'default', undefined]) {
       const kept = filterToolsByTask(defs, taskType).map((t) => t.name);
-      // AC-16（2026-10-28）：默认面只留 `bash`（12 个之一）；`powershell` 同族但不在白名单
-      expect(kept).toEqual(['bash']);
+      expect(kept).toContain('bash');
+      // 平台专属项（AC-16 显式评审例外）：Windows 才在默认面内；其余平台仍 12 个
+      expect(kept.includes('powershell')).toBe(process.platform === 'win32');
       // 反证：有意归档的 misc 仍被裁（不是全量放行）
       expect(kept).not.toContain('computer_use');
     }
@@ -392,5 +395,29 @@ describe('toolCategories — P0 工具可见性回归', () => {
     } finally {
       delete process.env['FEATURE_TOOL_PACK_SCHEDULE'];
     }
+  });
+});
+
+describe('默认披露面 — 平台专属项（方案 §6.4，2026-11-07）', () => {
+  test('powershell 只在 Windows 进入默认披露面；bash 恒在', () => {
+    expect(isInDefaultDisclosure('powershell', 'win32')).toBe(true);
+    expect(isInDefaultDisclosure('powershell', 'linux')).toBe(false);
+    expect(isInDefaultDisclosure('powershell', 'darwin')).toBe(false);
+    expect(isInDefaultDisclosure('bash', 'linux')).toBe(true);
+    expect(isInDefaultDisclosure('tool_search', 'linux')).toBe(true);
+  });
+
+  test('平台专属项不进静态 12 项白名单（非 Windows 面预算不变）', () => {
+    // 静态集合是跨平台基线；powershell 由 PLATFORM_DISCLOSURE_TOOLS 按平台叠加
+    expect(DEFAULT_DISCLOSURE_TOOLS.has('powershell')).toBe(false);
+    expect(DEFAULT_DISCLOSURE_TOOLS.size).toBe(12);
+    expect(PLATFORM_DISCLOSURE_TOOLS.has('powershell')).toBe(
+      process.platform === 'win32'
+    );
+  });
+
+  test('未知工具不看平台一律"面外"', () => {
+    expect(isInDefaultDisclosure('some_hidden_tool', 'win32')).toBe(false);
+    expect(isInDefaultDisclosure('some_hidden_tool', 'linux')).toBe(false);
   });
 });

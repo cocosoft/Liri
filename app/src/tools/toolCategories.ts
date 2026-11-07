@@ -607,6 +607,34 @@ export const DEFAULT_DISCLOSURE_TOOLS: ReadonlySet<string> = new Set([
   'tool_search',
 ]);
 
+/**
+ * **平台专属**的默认披露工具（2026-11-07，方案 §6.4）。
+ *
+ * 为什么需要：`bash` 在 Windows 上走 cmd.exe（基命令白名单），`Get-ChildItem` 这类 cmd 不可执行的
+ * 命令只能走 `powershell`；而它原先不在默认披露面 ⇒ chat 会话里模型看不到该工具，
+ * 只能绕成 `bash` + `powershell -Command`（多一层包裹、引号易错，还要重复过两道安全链）。
+ *
+ * AC-16 例外（显式评审）：`default`/`chat` 面在 **Windows 上为 13 个**（其余平台仍 12），
+ * 基线由 `bun run measure:tool-disclosure --update` 写入；该工具无平台无关实现
+ * （`pwsh` 在 Linux/macOS 通常不存在）⇒ 不在非 Windows 面占 schema 预算。
+ */
+export const PLATFORM_DISCLOSURE_TOOLS: ReadonlySet<string> =
+  process.platform === 'win32' ? new Set(['powershell']) : new Set();
+
+/**
+ * 该工具是否在**默认披露面**内（唯一判定；含平台专属项）。
+ *
+ * ⚠️ 所有"是否披露"的判定都必须走这里 —— 直接用 `DEFAULT_DISCLOSURE_TOOLS.has()` 会把
+ * 平台专属项判成"未披露"（`filterToolsByTask` / `getRealToolNamesForTask` 两处曾各写一份）。
+ */
+export function isInDefaultDisclosure(
+  toolName: string,
+  platform: NodeJS.Platform = process.platform
+): boolean {
+  if (DEFAULT_DISCLOSURE_TOOLS.has(toolName)) return true;
+  return platform === 'win32' && PLATFORM_DISCLOSURE_TOOLS.has(toolName);
+}
+
 /** 该任务类型是否套用**默认披露面白名单**（`default` / `chat` / 未指定） */
 function usesDefaultDisclosure(taskType: string | undefined): boolean {
   return (
@@ -629,7 +657,7 @@ export function isOutsideDefaultDisclosure(
   extraCategories: readonly ToolCategory[] = []
 ): boolean {
   if (!usesDefaultDisclosure(taskType)) return false;
-  if (DEFAULT_DISCLOSURE_TOOLS.has(toolName)) return false;
+  if (isInDefaultDisclosure(toolName)) return false;
   return !extraCategories.includes(getToolCategory(toolName));
 }
 
@@ -948,7 +976,7 @@ export function getRealToolNamesForTask(
   // （否则 LRTO 角色工具范围会比模型真实可见面更宽，形成第二套口径）。
   if (usesDefaultDisclosure(taskType)) {
     for (const name of names) {
-      if (!DEFAULT_DISCLOSURE_TOOLS.has(name)) names.delete(name);
+      if (!isInDefaultDisclosure(name)) names.delete(name);
     }
   }
   // P0-2（2026-10-30）：能力包未开的工具同样从本清单剔除（同一判据，避免第二套口径）。

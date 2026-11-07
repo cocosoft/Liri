@@ -127,6 +127,7 @@
     "descriptions:export": "bun run scripts/export-tool-descriptions.ts",
     "descriptions:check": "bun run scripts/export-tool-descriptions.ts --check",
     "measure:session-cost": "bun run ../scripts/measure-session-cost.ts",
+    "measure:tool-disclosure": "bun run scripts/measure-tool-disclosure.ts",
     "lint:license": "bun run ../scripts/check-license-compliance.ts",
     "audit:complexity": "bun run scripts/state-complexity-audit.ts",
     "bench:otel": "bun run scripts/bench-otel-overhead.ts",

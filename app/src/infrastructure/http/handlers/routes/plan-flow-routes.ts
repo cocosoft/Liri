@@ -47,6 +47,7 @@ import {
   handlePdcaList,
   handlePdcaMetrics,
   handlePdcaReviewStep,
+  handlePdcaAbortTask,
   handlePdcaResumeTask,
   handlePdcaStart,
   handlePdcaStatus,
@@ -142,6 +143,15 @@ export async function dispatchPlanFlowRoutes(
   // OBS（M3b-DB）：decision trace 查询端点——必须置于 /v1/pdca/:taskId 前
   if (method === 'GET' && url === '/v1/pdca/decisions') {
     await handlePdcaDecisionLog(req, res);
+    return true;
+  }
+  // 2026-11-08：中止在飞任务（此前无任何 HTTP 入口能停掉 PDCA 循环）
+  if (method === 'POST' && url.match(/^\/v1\/pdca\/([^/]+)\/abort$/)) {
+    await handlePdcaAbortTask(
+      req,
+      res,
+      url.match(/^\/v1\/pdca\/([^/]+)\/abort$/)![1]
+    );
     return true;
   }
   // 2026-11-08：escalate / 崩溃遗留任务的续跑入口（⚠️ 回执里的「可 replan 续跑」）

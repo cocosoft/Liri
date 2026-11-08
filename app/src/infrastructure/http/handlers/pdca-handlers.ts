@@ -177,7 +177,7 @@ async function findExistingTask(sessionId: string): Promise<string | null> {
  */
 function buildAbortedCheckpoint(
   ck: Record<string, unknown>,
-  abortedBy: 'startup_scan' | 'orphan_scan'
+  abortedBy: 'startup_scan' | 'orphan_scan' | 'user_abort'
 ): Record<string, unknown> {
   return {
     ...ck,
@@ -760,6 +760,73 @@ function deriveCheckpointProgress(steps: Array<Record<string, unknown>>):
   };
 }
 
+/**
+ * 中止正在运行的长程任务（2026-11-08，真机 `pdca_mw7qg094`）。
+ *
+ * 此前**没有**任何 HTTP 入口能停掉在飞的 PDCA：`POST /v1/plans/:id/abort` 只作用于
+ * `TaskOrchestrator` 的独立计划，动不了 LRO 编排器里的循环（真机：任务在
+ * execute/review 之间反复 replan、进度从 2/2 掉回 0/2，只能等 maxIteration 自然耗尽）。
+ *
+ * 语义：
+ * - 无检查点 ⇒ 404；
+ * - 已终态 ⇒ 409 `already_terminal`（不重复中止）；
+ * - 内存里没有在飞编排器（进程重启后）⇒ 409 `not_running`（此时任务已无循环可停）；
+ * - 成功 ⇒ 调用 `orchestrator.abort()` 并落 `phase/status=abort, abortedBy=user_abort`。
+ */
+export async function handlePdcaAbortTask(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  taskId: string
+): Promise<void> {
+  try {
+    const port = await getCoreAPI().getTaskOpsPort();
+    const ck = await port.readPdcaCheckpoint(taskId);
+    if (!ck) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '任务不存在', taskId }));
+      return;
+    }
+    const statusSets = await port.getPdcaStatusSets();
+    const status = ck.status as string | undefined;
+    const phase = ck.phase as string | undefined;
+    const terminal =
+      (status !== undefined && statusSets.terminal.has(status)) ||
+      (phase !== undefined && statusSets.terminalPhases.has(phase));
+    if (terminal) {
+      res.writeHead(409, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({ error: 'already_terminal', taskId, status, phase })
+      );
+      return;
+    }
+
+    const orchestrator = await port.getPdcaOrchestrator(taskId);
+    if (!orchestrator?.abort) {
+      res.writeHead(409, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: 'not_running',
+          taskId,
+          hint: '当前进程没有该任务的在飞编排器（进程重启后已无循环可停）',
+        })
+      );
+      return;
+    }
+
+    await orchestrator.abort();
+    const abortedCk = buildAbortedCheckpoint(ck, 'user_abort');
+    await port.writePdcaCheckpoint(taskId, abortedCk);
+    if (ck.workItemId) {
+      await port.syncPdcaWorkItemStatus(taskId, 'abort');
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true, taskId, phase: 'abort' }));
+    broadcastEvent('pdca:aborted', { taskId });
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
 export async function handlePdcaStatus(
   _req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -842,10 +909,31 @@ export async function handlePdcaStatus(
       }
     }
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(status));
+    res.end(JSON.stringify(withProgressIteration(status)));
   } catch (err) {
     sendError(res, err);
   }
+}
+
+/**
+ * 给 `progress` 补上 `iteration`（2026-11-08，真机 `pdca_mw7qg094`）。
+ *
+ * 现象：任务在 `execute → review → execute` 之间反复迭代，**每次迭代都会重新规划**，
+ * 步骤计数随之重置 ⇒ 接口上的 `completed/total` 从 `2/2` 掉回 `0/2`，看起来像"进度倒退"。
+ * 接口本身没有撒谎（新计划确实 0/2），缺的是"这是第几轮"这一维度。
+ *
+ * 处置：把 `iteration`（以及已有 `replanPending`/`replanFailCount`）并入 `progress`，
+ * 前端可显示「第 N 轮 · x/y」而不是让用户以为进度回退。**零语义变更**，纯附加字段。
+ */
+function withProgressIteration(
+  status: Record<string, unknown>
+): Record<string, unknown> {
+  const progress = status.progress as Record<string, unknown> | undefined;
+  if (!progress) return status;
+  const iteration =
+    typeof status.loopIteration === 'number' ? status.loopIteration : undefined;
+  if (iteration === undefined) return status;
+  return { ...status, progress: { ...progress, iteration } };
 }
 
 /**
@@ -870,7 +958,12 @@ function buildCheckpointStatusView(
         steps,
       }
     : undefined;
-  const progress = steps ? deriveCheckpointProgress(steps) : undefined;
+  const baseProgress = steps ? deriveCheckpointProgress(steps) : undefined;
+  // 同上：迭代维度（新计划计数会重置，需标出"第几轮"）
+  const progress =
+    baseProgress && typeof rec.loopIteration === 'number'
+      ? { ...baseProgress, iteration: rec.loopIteration }
+      : baseProgress;
   return {
     taskId,
     planId: (rec.planId as string) ?? '',

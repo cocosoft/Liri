@@ -137,6 +137,8 @@ export class AIServiceImpl implements AIService {
       model: extractModelFromResponse(chatResponse, resolvedModel),
       providerId: (client as AIProvider).id,
       latencyMs,
+      // 2026-11-08：非 chat 管线（长程任务/子代理）按传入的会话 ID 归属用量。
+      sessionId: this.config.sessionId,
     }).catch((err) => {
       logger.warn('trackUsage 失败（非流式）', { error: String(err) });
     });
@@ -242,6 +244,8 @@ export class AIServiceImpl implements AIService {
       providerId: (client as AIProvider).id,
       latencyMs,
       isStreaming: true,
+      // 2026-11-08：同 `generate` —— 归属会话 ID（缺省落 'default' 桶）。
+      sessionId: this.config.sessionId,
     }).catch((err) => {
       logger.warn('trackUsage 失败（流式）', { error: String(err) });
     });

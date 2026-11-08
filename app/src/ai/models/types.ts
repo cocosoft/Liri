@@ -218,6 +218,13 @@ export interface AIServiceConfig {
   baseUrl?: string;
   timeout?: number;
   maxRetries?: number;
+  /**
+   * 本次调用的归属会话 ID（2026-11-08，真机 `pdca_mw7rsd9j`）。
+   *
+   * 缺省 ⇒ `llm_call_records` / `cost_records` 落到 `'default'` 桶；非 chat 管线
+   * （长程任务、子代理）须显式传任务/会话 ID，否则用量无法按任务归属。
+   */
+  sessionId?: string;
 }
 
 export interface AIService {

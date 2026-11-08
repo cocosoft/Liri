@@ -50,6 +50,7 @@ const portStub = {
   // 与桥接层同源的活跃状态集（"运行中不得续跑"判据）
   getPdcaStatusSets: async () => ({
     terminal: new Set(['completed', 'failed', 'abort']),
+    terminalPhases: new Set(['completed', 'failed', 'abort']),
     active: new Set(['started', 'running', 'paused']),
     awaitingApprovalPhases: new Set([
       'plan_pending',

@@ -260,6 +260,51 @@ describe('终态任务的步骤审查 / 决策准入', () => {
 });
 
 /**
+ * 规划期（`phase=plan`、尚无计划）的准入（2026-11-08 真机 `pdca_mw7m52sy`）。
+ *
+ * 修复前：这两个端点直达编排器 ⇒ `reviewStep/decideStep` 抛 `No plan created` ⇒ 500
+ * （调用方无法区分"服务异常"与"计划还没生成"）。
+ */
+describe('规划期（无计划）的步骤审查 / 决策准入', () => {
+  function seedPlanless(taskId: string) {
+    const orchestrator = getOrCreateOrchestrator(taskId) as unknown as {
+      planId: string | null;
+      phase: string;
+    };
+    orchestrator.planId = null;
+    orchestrator.phase = 'plan';
+    return orchestrator;
+  }
+
+  test('review ⇒ 409 plan_not_ready（原为 500 No plan created）', async () => {
+    const taskId = 'pdca_no_plan_review_probe';
+    seedPlanless(taskId);
+    const created = createRes();
+    await handlePdcaReviewStep(makeReq(), created.res, taskId, 'step_1');
+    const { status, body } = created.read();
+    expect(status).toBe(409);
+    expect(body.ok).toBe(false);
+    expect(body.error).toBe('plan_not_ready');
+    expect(body.phase).toBe('plan');
+  });
+
+  test('decide ⇒ 409 plan_not_ready（不再 500）', async () => {
+    const taskId = 'pdca_no_plan_decide_probe';
+    seedPlanless(taskId);
+    const created = createRes();
+    await handlePdcaDecideStep(
+      makeReq({ decision: 'approved' }),
+      created.res,
+      taskId,
+      'step_1'
+    );
+    const { status, body } = created.read();
+    expect(status).toBe(409);
+    expect(body.error).toBe('plan_not_ready');
+  });
+});
+
+/**
  * `POST /v1/inbox/:id/undo` 契约（2026-11-08 真机 `pdca_mw7g2qiv`）。
  *
  * 修复前：步骤级 PDCA 卡（`source='permission'` + `metadata.pdcaTaskId`）撤销时既不中止

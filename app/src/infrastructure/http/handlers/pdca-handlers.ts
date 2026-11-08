@@ -32,6 +32,8 @@ import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@openliri/infra/monitoring';
 // C1（2026-09-30 D-103，`tasks` 域 P3-b）：改经服务层端口
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+// 2026-11-08（存量收口）：判断"待审批任务是否还有人能点"须读收件箱 pending 卡
+import { inboxManager } from '@openliri/service/runtime/InboxManager';
 // ⚠️ **类型位** app 类型（原文由 tasks 域提供）已替换为服务层端口类型。
 // 此处**故意不写完整导入路径** —— 门禁不剥离注释，写了会让「对」复活（见台账 D-77）
 import type {
@@ -123,6 +125,30 @@ interface WorkItemRecord {
   completedAt?: string;
 }
 
+/**
+ * 检查点是否**仍在生命周期内**（非终态）—— 幂等键与启动扫描的**唯一判据**。
+ *
+ * 2026-11-08（僵尸任务取证，真机 95 条 / 63 个会话）：
+ * 此前两个入口对**同一批行**的解读相反 ——
+ * - `findExistingTask`：`status ∉ 终态` ⇒ 视为进行中 ⇒ `status IS NULL` 的老行**永久锁会话**；
+ * - `scanAndAbortStalePdcaTasks`：`status` 必须 ∈ 活跃集 ⇒ `status IS NULL` 直接 `continue`
+ *   ⇒ 同一批行**永不清理**。
+ *
+ * 现统一口径（与留存清理同源，GR02）：检查点**两个字段并用**，
+ * `phase` 或 `status` **任一**为终态即算终态；两者都缺省则按非终态处理
+ * （宁可多留一轮，也不把可能在跑的任务判死）。
+ */
+function isCheckpointLive(
+  ck: Record<string, unknown>,
+  sets: { terminal: ReadonlySet<string>; terminalPhases: ReadonlySet<string> }
+): boolean {
+  const status = ck.status as string | undefined;
+  const phase = ck.phase as string | undefined;
+  if (status !== undefined && sets.terminal.has(status)) return false;
+  if (phase !== undefined && sets.terminalPhases.has(phase)) return false;
+  return true;
+}
+
 /** 幂等键检查：相同 sessionId 的进行中 PDCA 任务 */
 async function findExistingTask(sessionId: string): Promise<string | null> {
   // 2026-09-29（台账「另案 ⑥」）：改用桥接层**带记忆的索引**（原实现每请求全量 read+parse）；
@@ -133,14 +159,65 @@ async function findExistingTask(sessionId: string): Promise<string | null> {
     taskOps.getPdcaStatusSets(),
   ]);
   for (const ck of checkpoints.values()) {
-    if (
-      ck.sessionId === sessionId &&
-      !statusSets.terminal.has(ck.status as string)
-    ) {
+    if (ck.sessionId === sessionId && isCheckpointLive(ck, statusSets)) {
       return ck.taskId as string;
     }
   }
   return null;
+}
+
+/**
+ * 构造「已终止」检查点补丁（启动扫描 / 孤儿收口共用）。
+ *
+ * - **phase 也要落 abort**（2026-11-08 真机 `pdca_mw6x79jd`）：只写 status 时读模型
+ *   仍是 `phase=execute`，而 `/goal list` 等入口按 phase 过滤终态 ⇒ 被回收的任务仍显示"执行中"；
+ * - `abortedBy` 显式标来源（2026-11-08 真机 `pdca_mw7d3dq3`）：phase 落 abort 后
+ *   `/resume` 的终态判据会一律拒绝，`PDCA_AUTO_RESUME` 也失效 —— 标来源供续跑入口区分
+ *   「用户中止」/「进程重启中断」/「孤儿收口」。
+ */
+function buildAbortedCheckpoint(
+  ck: Record<string, unknown>,
+  abortedBy: 'startup_scan' | 'orphan_scan'
+): Record<string, unknown> {
+  return {
+    ...ck,
+    phase: 'abort',
+    status: 'abort',
+    abortedBy,
+    abortedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * 收件箱里**仍可审批**的 PDCA taskId 集合。
+ *
+ * 2026-11-08（存量收口）：`stage_awaiting_approval` 的含义是"等人点卡"，
+ * 因此真正的判据是**收件箱里确有 pending 卡**。卡过期/被驳回后任务就再无入口
+ * （`/resume` 对 awaiting 一律 409，审批只能走卡片或 `/goal`）⇒ 无 pending 卡即孤儿。
+ *
+ * id 解析与 `abortPdcaAfterExpiry` 同源：`source==='pdca'` 取 `metadata.taskId`，
+ * 其余取 `metadata.pdcaTaskId`。
+ */
+async function collectPendingPdcaTaskIds(): Promise<Set<string>> {
+  const ids = new Set<string>();
+  const pageSize = 200;
+  for (let offset = 0; ; offset += pageSize) {
+    const { items, total } = await inboxManager.list({
+      status: 'pending',
+      limit: pageSize,
+      offset,
+    });
+    for (const item of items) {
+      const meta = (item.metadata ?? {}) as Record<string, unknown>;
+      const taskId =
+        item.source === 'pdca'
+          ? (meta['taskId'] as string | undefined)
+          : (meta['pdcaTaskId'] as string | undefined);
+      if (typeof taskId === 'string' && taskId.length > 0) ids.add(taskId);
+    }
+    if (offset + pageSize >= total) break;
+  }
+  return ids;
 }
 
 /**
@@ -166,9 +243,12 @@ export async function scanAndAbortStalePdcaTasks(): Promise<{
   const abortedCheckpoints: Array<Record<string, unknown>> = [];
   // M2（2026-10-09）：**可续跑**（等待审批阶段）任务清单 —— 启动扫描**不** abort 它们，
   // 但此前**静默跳过**（仅 continue）⇒ 用户不知道"重启后有任务可恢复"。本清单使其**可发现**
-  // （恢复入口：`/goal` 审批 或 `POST …/checkpoint/resume`，见 `checkpoint-handlers.ts`）。
-  // 零行为变更：仅新增日志，不改变 abort / 保留判定。
+  // （恢复入口：`/goal` 审批 或 `POST /v1/pdca/:taskId/resume`）。
+  // 2026-11-08（存量收口）：**可续跑 = 收件箱仍有 pending 卡**；无卡的不再计入，
+  // 而是按孤儿收口（`abortedBy='orphan_scan'`）—— 详见循环内注释。
   const resumable: Array<{ taskId: string; phase?: string }> = [];
+  /** 收件箱 pending 卡对应的 taskId（惰性求值：只有出现待审批检查点时才查收件箱） */
+  let pendingTaskIds: Set<string> | null = null;
   const taskOps = await getCoreAPI().getTaskOpsPort();
   const [checkpoints, statusSets] = await Promise.all([
     taskOps.getPdcaCheckpointIndex(),
@@ -176,19 +256,41 @@ export async function scanAndAbortStalePdcaTasks(): Promise<{
   ]);
 
   for (const ck of checkpoints.values()) {
-    // 命中判据与豁免判据**与留存清理同源**（GR02）：活跃集 / 待审批阶段集
-    const status = ck.status as string | undefined;
-    if (status === undefined || !statusSets.active.has(status)) continue;
+    // 判据与 `findExistingTask` **同一函数**（2026-11-08 根因修复）：此前本处要求
+    // `status ∈ 活跃集`，`status IS NULL` 的老检查点直接 `continue` ⇒ 既不清也不 abort，
+    // 而幂等键那边却把它们当"进行中"锁死会话。现在两边都走 `isCheckpointLive`。
+    if (!isCheckpointLive(ck, statusSets)) continue;
+    const taskId = ck.taskId as string;
     // Gap D（1-0c，2026-09-03）：等待审批的任务（plan_pending/stage_awaiting_approval）
     // 不是崩溃遗留——重启后应保留供 /goal 审批/恢复，不得被启动扫描误 abort。
     // （1-0b 后 plan_pending 的 status 演进为 'started'，故此处需按 phase 二次排除。）
+    //
+    // 2026-11-08（存量收口）：**保留的前提是"还有人能点"** —— 收件箱里必须有指向该任务
+    // 的 pending 卡。卡过期/被驳回后任务再无入口（`/resume` 对 awaiting 一律 409，
+    // 审批只能走卡片或 `/goal`）⇒ 无 pending 卡即孤儿，直接收口，否则会永久占住会话
+    // 幂等键（真机：95 条 `started` + 151 条 NULL 共锁 46 个会话，每次启动重扫一遍）。
     const phase = ck.phase as string | undefined;
     if (phase !== undefined && statusSets.awaitingApprovalPhases.has(phase)) {
-      resumable.push({ taskId: ck.taskId as string, phase });
+      pendingTaskIds ??= await collectPendingPdcaTaskIds();
+      if (pendingTaskIds.has(taskId)) {
+        resumable.push({ taskId, phase });
+        continue;
+      }
+      const orphanCk = buildAbortedCheckpoint(ck, 'orphan_scan');
+      await taskOps.writePdcaCheckpoint(taskId, orphanCk);
+      abortedCheckpoints.push(orphanCk);
+      if (ck.workItemId) {
+        await taskOps.syncPdcaWorkItemStatus(taskId, 'abort');
+      }
+      aborted++;
+      logger.info('PDCA 孤儿任务已收口（待审批阶段但收件箱无 pending 卡）', {
+        taskId,
+        phase,
+        status: ck.status,
+      });
       continue;
     }
 
-    const taskId = ck.taskId as string;
     // 2026-11-08（真机 `pdca_mw6umn2e`）：本函数文档写的是"标记**无活跃 orchestrator** 的
     // running 任务为 abort"，但实现一直没查这一条 —— 真机撞到竞态：daemon 启动的同时
     // （HTTP 已可接受请求）用户就发起了任务，`runFullPdca` 正在内存里跑，紧随其后的启动扫描
@@ -198,20 +300,7 @@ export async function scanAndAbortStalePdcaTasks(): Promise<{
     const live = await taskOps.getPdcaOrchestrator(taskId);
     if (live) continue;
 
-    const abortedCk: Record<string, unknown> = {
-      ...ck,
-      // 2026-11-08（真机 `pdca_mw6x79jd`）：**phase 也要落 abort** —— 只写 status 时读模型
-      // 仍是 `phase=execute`（真机复验：`status=abort` 但 `phase=execute`），而 `/goal list`
-      // 等入口按 phase 过滤终态 ⇒ 被回收的任务仍显示成"执行中"。
-      phase: 'abort',
-      status: 'abort',
-      // 2026-11-08（真机 `pdca_mw7d3dq3`）：**崩溃遗留的可续跑标记** —— phase 落 abort 后，
-      // `resumeFromCheckpoint`/HTTP `/resume` 的终态判据会把它们一律拒绝（真机：409
-      //「任务已终止且不可 replan」），`PDCA_AUTO_RESUME` 同样失效。显式标记来源，
-      // 供续跑入口区分「用户中止」与「进程重启中断」。
-      abortedBy: 'startup_scan',
-      abortedAt: new Date().toISOString(),
-    };
+    const abortedCk = buildAbortedCheckpoint(ck, 'startup_scan');
     await taskOps.writePdcaCheckpoint(taskId, abortedCk);
     // U-02：保留快照供入口层按需自动恢复（`PDCA_AUTO_RESUME`，默认关）
     abortedCheckpoints.push(abortedCk);
@@ -861,6 +950,10 @@ export async function handlePdcaAudit(
  * 自相矛盾），`retry` 同时递增 `retryCount`。不存在的 stepId 则回 500（"Step not found"），
  * 与其它端点的 404 口径不一致。
  *
+ * 2026-11-08（真机 `pdca_mw7m52sy`）：规划期（`phase=plan`、尚无 plan）调用这两个端点，
+ * 原先直达编排器 ⇒ `reviewStep/decideStep` 抛 `No plan created` ⇒ **500**。计划未就绪是
+ * 可预期的状态冲突，回 409 `plan_not_ready`（与"步骤不存在"的 404 区分）。
+ *
  * 已响应 ⇒ 返回 true（调用方直接 return）。
  */
 function rejectTerminalOrMissingStep(
@@ -890,7 +983,21 @@ function rejectTerminalOrMissingStep(
     return true;
   }
   const steps = status.plan?.steps;
-  if (steps && !steps.some((s) => s.id === stepId)) {
+  if (!steps || steps.length === 0) {
+    res.writeHead(409, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        ok: false,
+        error: 'plan_not_ready',
+        taskId,
+        stepId,
+        phase,
+        message: `任务尚无计划（phase=${phase ?? 'unknown'}），暂不可审查/决策步骤`,
+      })
+    );
+    return true;
+  }
+  if (!steps.some((s) => s.id === stepId)) {
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(
       JSON.stringify({

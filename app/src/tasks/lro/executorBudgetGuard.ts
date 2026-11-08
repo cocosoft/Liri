@@ -34,13 +34,24 @@ const logger = getLogger('tasks:longRunning');
  *      `DAILY_BUDGET_EXCEEDED`（**不发起模型调用**）；
  *   2. **中止即可续跑**（本节无新挂起机制，见 Spec §10-8）：抛出点在阶段边界之后
  *      （`setPhase()` 已落 checkpoint）⇒ 任务停在当前阶段，放行后**重发/续跑**即可；
- *   3. **计账**：自定义执行器若回传 `usage` 则计入日预算；默认执行器已在内部记账
- *      （其返回值不含 `usage`）⇒ **不会被重复计入**。
+ *   3. **计账**：**注入的自定义执行器**回传 `usage` 时由本包装器计入日预算；**默认执行器**
+ *      在内部记账（2026-11-08 起也会回传 `usage`，仅用于任务级 token 统计）⇒ 由
+ *      `accountUsage:false` 跳过，**不会被重复计入**。
  */
 export function guardExecutorWithDailyBudget(
   base: ExecutorFn,
-  taskId: string
+  taskId: string,
+  /**
+   * `accountUsage`（2026-11-08，真机 `pdca_mw7rsd9j`）：
+   * - `true`（默认）= 编排器替**注入的自定义执行器**记账（其内部不计账）；
+   * - `false` = **默认执行器**已在内部记账，此处只放行、不重复计（否则日预算被翻倍吃掉）。
+   *
+   * 默认执行器现会回传 `usage`（供 TAORLoop 任务级 token 统计）⇒ 必须靠本开关区分，
+   * 不能再以"返回值无 usage"作为默认执行器的判据。
+   */
+  opts: { accountUsage?: boolean } = {}
 ): ExecutorFn {
+  const accountUsage = opts.accountUsage !== false;
   return async (params) => {
     const estimatedTokens = estimateMessagesTokens([
       { role: 'system', content: params.systemPrompt },
@@ -76,11 +87,12 @@ export function guardExecutorWithDailyBudget(
       );
     }
     const result = await base(params);
-    // 计账：仅"执行器回传 usage"时计入（默认执行器内部已记账 ⇒ 不回传 usage ⇒ 不重复计）
+    // 计账：仅"需编排器记账 custom 执行器回传 usage"时计入
+    // （默认执行器内部已记账 ⇒ `accountUsage:false` ⇒ 不重复计）
     // 债四「换算接线」（2026-10-13）：**自定义** ExecutorFn 的实际模型对编排器不可见
     // （见 `lro/contracts.ts` 的 `ExecutorResult` 说明）⇒ 该路径**只记 token、不记金额**
     // （`recordTurnCostUsd` 以 `debug` 留痕，**不取兜底价、不臆造金额**）。
-    if (result && typeof result === 'object') {
+    if (accountUsage && result && typeof result === 'object') {
       recordDailyBudgetFromUsage((result as { usage?: unknown }).usage);
     }
     return result;

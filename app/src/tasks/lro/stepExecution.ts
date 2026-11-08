@@ -254,6 +254,11 @@ export async function executeSingleStep(
       modelCalls: 0,
       modelTotalMs: 0,
       modelMaxMs: 0,
+      /**
+       * 2026-11-08（真机 `pdca_mw7rsd9j`）：本步**真实** token 消耗（各轮 input+output 累计）。
+       * 0 = 执行器未回传 usage（如自定义执行器）⇒ 任务级统计回退 TAORLoop 的预算占用。
+       */
+      usageTokens: 0,
       toolRounds: 0,
       toolTotalMs: 0,
       slowestToolMs: 0,
@@ -294,15 +299,31 @@ export async function executeSingleStep(
             )
             .join('\n\n');
           const callStart = Date.now();
-          const result = normalizeExecutorResult(
-            await executor({
-              systemPrompt: EXECUTOR_ROLE.systemPrompt,
-              userPrompt: execPrompt + '\n\n' + conversationContext,
-              tools: roleToolNames(EXECUTOR_ROLE),
-              taskType: EXECUTOR_ROLE.taskType,
-              isolation,
-            })
-          );
+          const rawResult = await executor({
+            systemPrompt: EXECUTOR_ROLE.systemPrompt,
+            userPrompt: execPrompt + '\n\n' + conversationContext,
+            tools: roleToolNames(EXECUTOR_ROLE),
+            taskType: EXECUTOR_ROLE.taskType,
+            isolation,
+          });
+          const result = normalizeExecutorResult(rawResult);
+          // 2026-11-08（真机 `pdca_mw7rsd9j`）：把执行器回传的 `usage` 转成 TAORLoop 认的
+          // chunk（它只从 `chunk.usage.prompt_tokens` 取真实输入量）—— 此前该值被
+          // `normalizeExecutorResult` 丢掉 ⇒ `TAORLoop 步骤收尾.totalTokens` 恒 0。
+          // 兼容 `prompt_tokens`（provider 原形）与 `inputTokens`（内部形），口径同
+          // `recordDailyBudgetFromUsage`。
+          const rawUsage =
+            typeof rawResult === 'object'
+              ? (rawResult.usage as Record<string, number> | undefined)
+              : undefined;
+          // `Number()` 归一：provider 偶有把用量写成字符串的形态，直接相加会拼串。
+          const promptTokens =
+            Number(rawUsage?.prompt_tokens ?? rawUsage?.inputTokens ?? 0) || 0;
+          const completionTokens =
+            Number(
+              rawUsage?.completion_tokens ?? rawUsage?.outputTokens ?? 0
+            ) || 0;
+          stepStats.usageTokens += promptTokens + completionTokens;
           const callElapsed = Date.now() - callStart;
           stepStats.modelCalls += 1;
           stepStats.modelTotalMs += callElapsed;
@@ -324,6 +345,11 @@ export async function executeSingleStep(
           // ⇒ `executeTools` 结构性不可达（事故指纹：callModel 完成 84 / executeTools 开始 0）。
           for (const tc of result.toolCalls) {
             yield { type: 'tool_call', toolCall: tc };
+          }
+          // 真实输入量以**独立块**回传：TAORLoop 只读 `chunk.usage`，与块类型/文本无关。
+          // 必须放在 `done` 之前（`done` 是末块，会参与 `...lastChunk` 合并）。
+          if (promptTokens > 0) {
+            yield { type: 'usage', usage: { prompt_tokens: promptTokens } };
           }
           yield { type: 'done' };
         },
@@ -642,10 +668,14 @@ export async function executeSingleStep(
       // 1-1d（2026-09-03）：每步独立记账（跨 retry 累计）+ 聚合单值双写。
       // 并发安全依据：本结算点为无 await 的同步语句，事件循环下 += 不丢更新；
       // stepDurations[].tokens 提供 per-step 明细，供审计/评估集聚合校验。
-      deps.addTotalTokens(result.totalTokens);
+      // 2026-11-08（真机 `pdca_mw7rsd9j`）：优先用**真实用量累计**（`stepStats.usageTokens`）；
+      // 无 usage（自定义执行器）⇒ 回退 TAORLoop 的预算占用量（`result.totalTokens`）。
+      const stepTokens =
+        stepStats.usageTokens > 0 ? stepStats.usageTokens : result.totalTokens;
+      deps.addTotalTokens(stepTokens);
       const stepTok = deps.stepDurations.get(step.id);
       if (stepTok) {
-        stepTok.tokens = (stepTok.tokens ?? 0) + result.totalTokens;
+        stepTok.tokens = (stepTok.tokens ?? 0) + stepTokens;
       }
 
       // 2026-10-08（机械保障 · 写后读回）：提示词层引导**不可靠** —— 真机实测执行器常漏做
@@ -678,7 +708,7 @@ export async function executeSingleStep(
           lastMessagesSnapshot,
           {
             turns: result.turnCount,
-            tokens: result.totalTokens,
+            tokens: stepTokens,
             elapsedMs: taorElapsed,
           },
           criticalEvidence
@@ -746,7 +776,7 @@ export async function executeSingleStep(
           : 'completed',
         terminationReason,
         turns: result.turnCount,
-        totalTokens: result.totalTokens,
+        totalTokens: stepTokens,
         taorElapsedMs: taorElapsed,
         stepElapsedMs: stepElapsed,
         persistedMsgCount: persistedMessages.length,

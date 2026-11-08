@@ -329,7 +329,12 @@ export class LongRunningTaskOrchestrator {
         // 模型属性/选择一律读 DB）。
         const model = modelRouter.resolve(params.taskType);
         const { createAIService, AIMessageRole } = await import('@modules/ai');
-        const service = createAIService({ defaultModel: model });
+        const service = createAIService({
+          defaultModel: model,
+          // 2026-11-08（真机 `pdca_mw7rsd9j`）：非 chat 管线须显式给归属会话 ID，
+          // 否则 `llm_call_records.session_id` 恒为 'default'，任务用量无法归属。
+          sessionId: this.taskId,
+        });
 
         // 工具定义：先按角色派生的**真实名**挑 schema，再经 wire codec 出站
         // （冒号命名空间工具若原样下发会被 provider 400 拒绝）。
@@ -396,13 +401,20 @@ export class LongRunningTaskOrchestrator {
             arguments: tc.arguments,
           })),
           finishReason: response.finish_reason,
+          // 2026-11-08（真机 `pdca_mw7rsd9j`）：把 provider `usage` 回传给调用方做**任务级统计**
+          // （TAORLoop 的 token 累计只认 `usage.prompt_tokens`）。每日预算已在上方
+          // `recordDailyBudgetFromUsage` 记过 ⇒ 包装器以 `accountUsage:false` 跳过重复计。
+          ...(response.usage ? { usage: response.usage } : {}),
         };
       });
 
     // G-2/D（2026-10-11）：自定义与默认执行器**一律**经日预算收口 —— 长程任务的每一处执行器
-    // 调用（规划 / 步骤 / 验证 / 目标评估）都在闸门内；计账仅在"执行器回传 usage"时发生
-    // （默认执行器内部已记账 ⇒ 不回传 usage ⇒ 不重复计）。
-    this.executor = guardExecutorWithDailyBudget(baseExecutor, this.taskId);
+    // 调用（规划 / 步骤 / 验证 / 目标评估）都在闸门内。
+    // 2026-11-08：`accountUsage` 区分**默认执行器**（其内部已记账，回传 usage 只供任务级统计）
+    // 与**注入的自定义执行器**（编排器必须替它记账，否则该路径无计账）。
+    this.executor = guardExecutorWithDailyBudget(baseExecutor, this.taskId, {
+      accountUsage: executor !== undefined,
+    });
 
     // 2026-10-08（真机实测暴露）：`ReviewGate` 用的 VerifierAgent **从未注入模型** ⇒
     // `VerifierAgent.verify()` 命中 `!this.callModel` 的 fail-closed 分支（ESCALATE，

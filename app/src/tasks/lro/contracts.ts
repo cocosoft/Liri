@@ -139,14 +139,20 @@ export interface ExecutorToolCall {
  * G-2/D（2026-10-11，Spec `daily-budget-over-limit-ux.md` §5-D-1 D）：再扩展可选 `usage` ——
  * **自定义 `ExecutorFn` 的模型用量只能由执行器回传**（编排器无法观测其内部调用）；
  * 回传后由编排器 `recordDailyBudgetFromUsage()` 计入每日预算（与默认执行器同口径）。
- * 默认执行器已在内部记账（回传对象**不带** `usage`）⇒ 不会被重复计入。
+ *
+ * 2026-11-08（真机 `pdca_mw7rsd9j`）：**默认执行器也开始回传 `usage`** —— 用途是
+ * 让 `TAORLoop` 拿到真实输入量（任务级 token 统计此前恒 0），而每日预算仍由默认执行器
+ * 内部记账 ⇒ 包装器改用 `accountUsage:false` 区分，不再以"有没有 usage"判断是否重复计。
  */
 export type ExecutorResult =
   | string
   | {
       content: string;
       toolCalls?: ExecutorToolCall[];
-      /** 本次调用的 LLM `usage`（`prompt_tokens`/`completion_tokens` 或 `inputTokens`/`outputTokens` 形） */
+      /**
+       * 本次调用的 LLM `usage`（`prompt_tokens`/`completion_tokens` 或 `inputTokens`/`outputTokens` 形）。
+       * 默认执行器回传真实 provider 用量；自定义执行器可选回传。
+       */
       usage?: unknown;
       /**
        * 本次调用的结束原因（provider 原值，如 `stop` / `max_tokens` / `length`）。

@@ -61,6 +61,10 @@ export async function writeAbortCheckpoint(
   await writePdcaCheckpoint(taskId, {
     phase: 'abort',
     status: 'abort',
+    // 2026-11-08（真机 `pdca_mw7dmlhw` 复盘）：**覆盖崩溃标记** —— 崩溃恢复过的任务
+    // 检查点里仍留着 `abortedBy='startup_scan'`；若不覆盖，用户之后主动中止的任务
+    // 仍会被续跑判据当成"崩溃遗留"而放行。
+    abortedBy: 'user_abort',
     abortedAt: new Date().toISOString(),
   });
   releaseTaskScope(taskId);

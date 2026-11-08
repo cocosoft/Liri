@@ -35,7 +35,10 @@ import {
   setPdcaReceiptSink,
   emitPdcaInterruptedReceipts,
 } from '../../src/tasks/lro/terminalReceipt';
-import { markResumeFailure } from '../../src/tasks/lro/checkpointPersist';
+import {
+  markResumeFailure,
+  writeAbortCheckpoint,
+} from '../../src/tasks/lro/checkpointPersist';
 
 taskOrchestrator.setPlansDir(mkdtempSync(join(tmpdir(), 'plans-rootfix-')));
 
@@ -607,6 +610,25 @@ describe('崩溃遗留可续跑（2026-11-08 真机 pdca_mw7d3dq3）', () => {
         deps
       )
     ).rejects.toThrow(/已处于终态/);
+  });
+
+  it('崩溃标记在用户中止后被覆盖 ⇒ 不再可续跑（真机 pdca_mw7dmlhw 复盘）', async () => {
+    const taskId = `crash-then-abort-${Date.now()}`;
+    await writePdcaCheckpoint(taskId, {
+      taskId,
+      sessionId: 'sess-crash-abort',
+      phase: 'abort',
+      status: 'abort',
+      abortedBy: 'startup_scan',
+      steps: [{ id: 's1', description: '步骤1', status: 'pending' }],
+    });
+
+    await writeAbortCheckpoint(taskId);
+
+    const ck = await readPdcaCheckpoint(taskId);
+    expect(ck?.['abortedBy']).toBe('user_abort');
+    const { deps } = makeResumeDeps(taskId);
+    await expect(resumeFromCheckpoint(ck!, deps)).rejects.toThrow(/已处于终态/);
   });
 
   it('中断回执：有步骤快照 ⇒ 告知可续跑；无快照 ⇒ 如实说明不可续跑', () => {

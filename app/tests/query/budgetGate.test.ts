@@ -23,8 +23,10 @@ const DAILY_GATE_SRC = readFileSync(
   new URL('../../src/query/dailyBudgetGate.ts', import.meta.url),
   'utf8'
 );
+// 2026-11-08：日预算收口已外移 `lro/executorBudgetGuard`（守 R04-001 行数上限）——
+// 断言目标随之迁移到**新实现**，宿主文件不再含该函数。
 const LRO_SRC = readFileSync(
-  new URL('../../src/tasks/LongRunningTaskOrchestrator.ts', import.meta.url),
+  new URL('../../src/tasks/lro/executorBudgetGuard.ts', import.meta.url),
   'utf8'
 );
 

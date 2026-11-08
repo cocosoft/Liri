@@ -32,7 +32,7 @@
  *   分页（offset/limit 变化）不计为重复
  */
 
-import { READ_TOOLS, WRITE_TOOLS } from './tool-constants.js';
+import { FILE_READ_TOOLS, READ_TOOLS, WRITE_TOOLS } from './tool-constants.js';
 import { getLogger } from '@openliri/infra/monitoring';
 import {
   isLoopObserveOnly,
@@ -262,6 +262,23 @@ export class FileIOLoopDetector {
     // 「连续读/写 ×N」文案；本判据只覆盖**非连续**重复，如 A、B、A、C、A、D、A）。
     const repeatDetected = this._detectRepeatedTarget();
     if (repeatDetected.detected) {
+      // 2026-11-08（真机 `pdca_mw7upzeh`）：原实现把重复命中**整批 blocked**，两处过激：
+      //   ① 被拦的这次访问**自己并不重复**（日志：`file_read b.txt` 被拦，理由却是
+      //      `a.txt ×4`）—— 整批终止会掐断一个完全合法的调用；
+      //   ② **内容读**（`file_read`）重复无副作用（该步「读 a → 写 b → 读回」因读 a 的第 4 次
+      //      被整批 blocked ⇒ 实际已完成（b.txt=b=A 已写入并读回）的步骤被判 failed）。
+      // 现口径：这两种情况降级为 warning（就地 steer 模型别再重复）；检索类读
+      // （`glob`/`grep` 同 pattern 同目录重复）仍为 blocked（2026-10-31 裁定口径）。
+      const selfRepeated =
+        repeatDetected.key !== undefined &&
+        isSameAccessTarget(repeatDetected.key, accessKey);
+      if (FILE_READ_TOOLS.has(toolName) || !selfRepeated) {
+        return {
+          blocked: false,
+          warning: true,
+          message: repeatDetected.message ?? '[IO_REPEAT] 同一目标重复访问',
+        };
+      }
       return this._applyObserveOnly({
         blocked: true,
         warning: false,
@@ -292,7 +309,12 @@ export class FileIOLoopDetector {
    *
    * 现判据：**单个** target 在窗口内出现次数 ≥ `blockThreshold`（默认 4）。
    */
-  private _detectRepeatedTarget(): { detected: boolean; message?: string } {
+  private _detectRepeatedTarget(): {
+    detected: boolean;
+    message?: string;
+    /** 达到阈值的那个判定键（调用方据此判断"被拦的这次是否就是它自己"） */
+    key?: string;
+  } {
     if (this.recentFiles.length < this.config.blockThreshold) {
       return { detected: false };
     }
@@ -303,6 +325,7 @@ export class FileIOLoopDetector {
       if (n >= this.config.blockThreshold) {
         return {
           detected: true,
+          key,
           message: `[IO_REPEAT] 最近 ${this.recentFiles.length} 次访问中，同一目标重复 ×${n}（${pathPartOfKey(key)}）`,
         };
       }

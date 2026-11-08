@@ -135,8 +135,8 @@ import type {
   EscalationRecord,
 } from './lro/contracts.js';
 import { normalizeExecutorResult } from './lro/contracts.js';
-// 2026-11-08：LRO 时长阈值单一事实源（`lint:consts` B 类要求集中在 defaults.ts）
-import { SLOW_MODEL_CALL_WARN_MS } from './lro/defaults.js';
+// 2026-11-08：慢模型调用留痕（调用**进行中**告警，避免"不返回 ⇒ 无日志"）
+import { watchSlowModelCall } from './lro/modelCallTrace.js';
 // R16（台账 L-14）：任务/子代理**非 chat 管线**的模型用量计入每日预算
 // （此路径不经 `ChatManager.recordChatResponseUsage`，故在默认执行器单点记账）。
 import { recordDailyBudgetFromUsage } from '../query/DailyBudgetManager';
@@ -348,33 +348,31 @@ export class LongRunningTaskOrchestrator {
           ...(params.extraTools ?? []),
         ]);
 
-        const callStartMs = Date.now();
-        const response = await service.generate(
-          [
-            { role: AIMessageRole.SYSTEM, content: params.systemPrompt },
-            { role: AIMessageRole.USER, content: params.userPrompt },
-          ],
+        // 2026-11-08（真机 `pdca_mw7t9rj9`）：慢调用要在**调用进行中**就留痕 ——
+        // 返回后再比时长永远等不到"不返回"的情况，用户视角就是卡死。
+        const stopSlowWatch = watchSlowModelCall({
+          taskId: this.taskId,
           model,
-          tools.length > 0
-            ? {
-                tools,
-                ...(params.maxTokens ? { max_tokens: params.maxTokens } : {}),
-              }
-            : params.maxTokens
-              ? { max_tokens: params.maxTokens }
-              : undefined
-        );
-        // 2026-11-08（真机 `pdca_mw7sfwyf`）：规划调用实测 **109s** 且全程**无任何日志** ⇒
-        // 用户视角是"plan 阶段卡死"，排查时也无法区分"在等模型"与"死锁"。慢调用留一条 warn。
-        const callElapsedMs = Date.now() - callStartMs;
-        if (callElapsedMs > SLOW_MODEL_CALL_WARN_MS) {
-          logger.warn('LLM 调用耗时偏高（在等模型，非死锁）', {
+          taskType: params.taskType,
+          maxTokens: params.maxTokens,
+        });
+        const response = await service
+          .generate(
+            [
+              { role: AIMessageRole.SYSTEM, content: params.systemPrompt },
+              { role: AIMessageRole.USER, content: params.userPrompt },
+            ],
             model,
-            taskType: params.taskType,
-            elapsedMs: callElapsedMs,
-            maxTokens: params.maxTokens ?? null,
-          });
-        }
+            tools.length > 0
+              ? {
+                  tools,
+                  ...(params.maxTokens ? { max_tokens: params.maxTokens } : {}),
+                }
+              : params.maxTokens
+                ? { max_tokens: params.maxTokens }
+                : undefined
+          )
+          .finally(stopSlowWatch);
 
         // 2026-11-08（真机 `pdca_mw7q12pb`）：**空回答**必须留证 —— 此前只回 `content:''`，
         // 上层只能报 `empty-output`，看不出是「模型没输出」还是「输出预算被思考吃光」。
@@ -1371,7 +1369,11 @@ export class LongRunningTaskOrchestrator {
         if (convergence.kind === 'unconverged') {
           // 2026-11-07：不得把 `allDone` 改回 false（否则 escalate 的 replanPending 被终态覆盖，
           // 真机 `pdca_mw6cygbp`）⇒ 未收敛改由 `failureReason` 参与终态裁决。
-          failureReason = convergence.failureReason;
+          // 2026-11-08（真机 `pdca_mw7tuuy5`）：终态 detail 带上目标门的**可读原因**，
+          // 否则用户只看到 `PDCA failed: PDCA_GOAL_NOT_CONVERGED` 这种错误码。
+          failureReason = convergence.detail
+            ? `${convergence.failureReason}: ${convergence.detail.slice(0, 200)}`
+            : convergence.failureReason;
           break;
         }
       }

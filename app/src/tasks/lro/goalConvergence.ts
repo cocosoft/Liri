@@ -39,7 +39,12 @@ const logger = getLogger('tasks:longRunning');
 export type GoalConvergenceOutcome =
   | { kind: 'continue' }
   | { kind: 'replanned'; status: PdcaStatus }
-  | { kind: 'unconverged'; failureReason: string };
+  /**
+   * `detail`：目标门给出的**可读原因**（2026-11-08，真机 `pdca_mw7tuuy5`）。
+   * 此前只回错误码 ⇒ 终态 lifecycle 只有 `PDCA failed: PDCA_GOAL_NOT_CONVERGED`，
+   * 用户看不到"为什么失败"（真正的 reason 只在日志里）。
+   */
+  | { kind: 'unconverged'; failureReason: string; detail?: string };
 
 export interface GoalConvergenceDeps {
   taskId: string;
@@ -170,5 +175,10 @@ export async function runGoalConvergenceGate(
     });
   }
 
-  return { kind: 'unconverged', failureReason: 'PDCA_GOAL_NOT_CONVERGED' };
+  return {
+    kind: 'unconverged',
+    failureReason: 'PDCA_GOAL_NOT_CONVERGED',
+    // 2026-11-08（真机 `pdca_mw7tuuy5`）：带上可读原因，终态 detail 不再只有错误码
+    detail: goalConv.reason,
+  };
 }

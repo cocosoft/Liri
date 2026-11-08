@@ -29,6 +29,8 @@ import {
 } from '@openliri/infra/error';
 import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import { throwIfAborted } from '@modules/agent';
+// 2026-11-08：规划输出预算按 **DB 模型属性** 取（禁止写死），见 `resolvePlannerMaxOutputTokens`
+import { ModelRegistry, modelRouter } from '@modules/ai';
 
 import {
   draftFromSubmitPlanToolCalls,
@@ -54,15 +56,37 @@ import {
 const logger = getLogger('tasks:longRunning');
 
 /**
- * Planner 单次调用的**输出 token 上限**（2026-11-08，真机 `pdca_mw7q12pb`）。
+ * Planner 单次调用的**回退输出上限**（DB 无 `max_output_tokens` 时使用）。
  *
- * 为什么不沿用 provider 默认 4096：`deepseek-v4-pro` 带 `thinking` 能力，
- * 思考过程同样计入输出预算 ⇒ 4096 被思考吃光时 content 为空、也没有 tool_call，
- * 计划被判 `empty-output`（`llm_call_records` 里 `output_tokens=4096` 连续两次，
- * 耗时 62 s / 70 s）。规划输出（steps + criteria + dependsOn）本身只需几百 token，
- * 这里留出的是**思考预算**。
+ * 为什么不沿用 provider 默认 4096：思考型模型（`capabilities` 含 `thinking`）会把
+ * 输出预算先花在思考上 ⇒ 预算不足时 content 为空、也没有 tool_call，计划被判
+ * `empty-output`（真机 `pdca_mw7q12pb`：`output_tokens=4096` 连续两次、耗时 62/70s）。
+ *
+ * 2026-11-08（真机 `pdca_mw7te6i5`）：**写死 8192 不够** —— `deepseek-v4-pro` 的
+ * DB 上限是 16384，却只给 8192，思考吃光后 140s 返回空计划（`finish_reason=max_tokens`）。
+ * ⇒ 预算必须读 DB（`model-usage.md` 的「模型属性唯一事实来源」），本常量仅作回退。
  */
-const LRO_PLANNER_MAX_OUTPUT_TOKENS = 8192;
+const LRO_PLANNER_FALLBACK_MAX_OUTPUT_TOKENS = 8192;
+
+/**
+ * 解析 Planner 的输出上限：**优先 DB** 的 `max_output_tokens`，缺失/异常才回退。
+ *
+ * 模型由 `modelRouter.resolve(PLANNER_ROLE.taskType)` 解析（任务分工 / DB 唯一事实来源），
+ * 与默认执行器内 `modelRouter.resolve(params.taskType)` 同一口径 ⇒ 取的正是即将调用的模型。
+ */
+function resolvePlannerMaxOutputTokens(): number {
+  try {
+    const modelId = modelRouter.resolve(PLANNER_ROLE.taskType);
+    const maxOutput =
+      ModelRegistry.getInstance().getModel(modelId)?.maxOutputTokens;
+    return typeof maxOutput === 'number' && maxOutput > 0
+      ? maxOutput
+      : LRO_PLANNER_FALLBACK_MAX_OUTPUT_TOKENS;
+  } catch {
+    // @ignore-catch — 解析失败不影响规划：回退到已知安全值
+    return LRO_PLANNER_FALLBACK_MAX_OUTPUT_TOKENS;
+  }
+}
 
 /**
  * C9（2026-11-05）：Planner 的**结构化输出**工具（合成定义）。
@@ -181,6 +205,8 @@ ${replanSection}
 输出要求（C9）：**必须调用 \`${SUBMIT_PLAN_TOOL_NAME}\` 工具**提交计划
 （steps / acceptanceCriteria / dependsOn）；不要只输出自然语言或代码块。`;
 
+    // 2026-11-08（真机 `pdca_mw7te6i5`）：预算读 DB 的 `max_output_tokens`（见解析函数注释）
+    const plannerMaxTokens = resolvePlannerMaxOutputTokens();
     const rawResult = await deps.executor({
       systemPrompt: PLANNER_ROLE.systemPrompt,
       userPrompt: planPrompt,
@@ -189,7 +215,7 @@ ${replanSection}
       extraTools: [SUBMIT_PLAN_TOOL],
       taskType: PLANNER_ROLE.taskType,
       // 2026-11-08（真机 `pdca_mw7q12pb`）：给思考型模型留出输出预算，见常量注释
-      maxTokens: LRO_PLANNER_MAX_OUTPUT_TOKENS,
+      maxTokens: plannerMaxTokens,
       isolation: deps.isolation,
     });
     const result = normalizeExecutorResult(rawResult);
@@ -225,7 +251,7 @@ ${replanSection}
       if (truncated && !planText.trim() && result.toolCalls.length === 0) {
         throw new AppError(
           '规划模型把输出预算全用于「思考」，未产出任何计划内容' +
-            `（finish_reason=${finishReason}，上限 ${LRO_PLANNER_MAX_OUTPUT_TOKENS}）。` +
+            `（finish_reason=${finishReason}，上限 ${plannerMaxTokens}）。` +
             '请把「模型管理 → 任务分工 → 规划」改为**非思考**模型，或调大该模型的输出上限。',
           ErrorCategory.VALIDATION,
           ErrorSeverity.HIGH,
@@ -233,7 +259,7 @@ ${replanSection}
           {
             taskId: deps.taskId,
             finishReason,
-            maxTokens: LRO_PLANNER_MAX_OUTPUT_TOKENS,
+            maxTokens: plannerMaxTokens,
           }
         );
       }

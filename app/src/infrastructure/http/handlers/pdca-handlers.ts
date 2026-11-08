@@ -395,6 +395,75 @@ export async function handlePdcaStart(
 }
 
 /**
+ * POST /v1/pdca/:taskId/resume —— **续跑入口**（escalate 的 replan / 崩溃遗留恢复）。
+ *
+ * 2026-11-08（真机 `pdca_mw771zbt`）：⚠️ 终态回执已写「可 replan 续跑」，但 HTTP 侧此前
+ * 没有任何入口（`handlePdcaResumeCheckpoint` 从未注册路由）⇒ 用户照做只会 404。
+ *
+ * 口径：
+ * - 无检查点 ⇒ 404；
+ * - 终态且不可 replan（`completed` / `abort` / `failed` 且 `replanPending=false`）⇒ 409；
+ * - 复用内存编排器，否则按 taskId 新建（`resumeFromCheckpoint` 自带跨重启重建 Plan）；
+ * - **异步执行**（与 `/start` 一致）：立即 202，进度靠 `GET /v1/pdca/:taskId` 轮询。
+ */
+export async function handlePdcaResumeTask(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  taskId: string
+): Promise<void> {
+  try {
+    const port = await getCoreAPI().getTaskOpsPort();
+    const ck = await port.readPdcaCheckpoint(taskId);
+    if (!ck) {
+      sendError(res, new Error(`任务不存在：${taskId}`), 404);
+      return;
+    }
+    const status = ck.status as string | undefined;
+    const phase = ck.phase as string | undefined;
+    const replanPending = Boolean(ck.replanPending);
+    const notResumable =
+      phase === 'completed' ||
+      phase === 'abort' ||
+      status === 'completed' ||
+      status === 'abort' ||
+      (status === 'failed' && !replanPending);
+    if (notResumable) {
+      res.writeHead(409, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: '任务已终止且不可 replan',
+          taskId,
+          status,
+          phase,
+          replanPending,
+        })
+      );
+      return;
+    }
+    const orchestrator =
+      (await port.getPdcaOrchestrator(taskId)) ??
+      (await port.getOrCreatePdcaOrchestrator(taskId));
+    if (typeof orchestrator.resumeFromCheckpoint !== 'function') {
+      sendError(res, new Error('编排器不支持续跑'), 501);
+      return;
+    }
+    // 与 `/start` 同口径：异步执行，不阻塞 HTTP 响应
+    void orchestrator.resumeFromCheckpoint(ck).catch((e: unknown) => {
+      void handleError(e, {
+        module: 'pdca:handlers',
+        action: 'resumeTask',
+        context: { taskId },
+      });
+    });
+    res.writeHead(202, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ taskId, status: 'resuming', replanPending }));
+    broadcastEvent('pdca:resumed', { taskId });
+  } catch (e) {
+    sendError(res, e instanceof Error ? e : new Error(String(e)), 500);
+  }
+}
+
+/**
  * 1-5 P2（2026-09-04）：由 checkpoint steps 快照推导 progress 读模型。
  * 仅统计已知状态（completed/running/failed/cancelled），其余归入 pending；
  * 非数组/空数组返回 undefined（调用方据此省略 progress，不编造进度）。

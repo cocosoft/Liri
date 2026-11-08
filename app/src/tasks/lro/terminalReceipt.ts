@@ -189,6 +189,31 @@ export function emitPdcaReceiptText(input: {
 }
 
 /**
+ * 启动扫描把**崩溃遗留**任务标 abort 后的回执（入口层调用）。
+ *
+ * 2026-11-08（真机 `pdca_mw7d3dq3`）：进程被杀 ⇒ 重启扫描把任务标 abort，但会话里
+ * **没有任何结论**，用户只看到停在半截的消息。现补一条中断回执，并告知可续跑入口
+ * （扫描已写 `abortedBy='startup_scan'`，`/resume` 与 `PDCA_AUTO_RESUME` 均放行）。
+ */
+export function emitPdcaInterruptedReceipts(
+  checkpoints: Array<Record<string, unknown>>
+): void {
+  for (const ck of checkpoints) {
+    const taskId = String(ck.taskId ?? '');
+    const steps = Array.isArray(ck.steps) ? ck.steps.length : 0;
+    const tail =
+      steps > 0
+        ? `可 POST /v1/pdca/${taskId}/resume 或 /goal resume 续跑`
+        : '无步骤快照，无法自动续跑';
+    emitPdcaReceiptText({
+      taskId,
+      sessionId: (ck.sessionId as string | undefined) ?? null,
+      text: `⏹ 长程任务因进程重启被中断：${steps} 步计划已保留（taskId ${taskId}）；${tail}`,
+    });
+  }
+}
+
+/**
  * 审计报告落盘后的终态回执（completed / failed 两条路径共用同一落点）。
  *
  * 口径与 `persistAuditReport` 同源：报告字段即"步数事实"，阶段名取计划的 `status`。

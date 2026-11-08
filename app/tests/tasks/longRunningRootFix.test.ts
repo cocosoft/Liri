@@ -31,7 +31,10 @@ import {
   readPdcaCheckpoint,
   writePdcaCheckpoint,
 } from '../../src/tasks/PdcaWorkItemBridge';
-import { setPdcaReceiptSink } from '../../src/tasks/lro/terminalReceipt';
+import {
+  setPdcaReceiptSink,
+  emitPdcaInterruptedReceipts,
+} from '../../src/tasks/lro/terminalReceipt';
 import { markResumeFailure } from '../../src/tasks/lro/checkpointPersist';
 
 taskOrchestrator.setPlansDir(mkdtempSync(join(tmpdir(), 'plans-rootfix-')));
@@ -568,5 +571,65 @@ describe('续跑失败的收口（2026-11-08 真机 pdca_mw7bjwo8）', () => {
 
     expect(memoryPhases).toEqual([]);
     expect(await readPdcaCheckpoint('terminal-refuse')).toBeNull();
+  });
+});
+
+describe('崩溃遗留可续跑（2026-11-08 真机 pdca_mw7d3dq3）', () => {
+  it('启动扫描标记 abortedBy=startup_scan ⇒ phase=abort 仍允许续跑', async () => {
+    const { deps, state } = makeResumeDeps('crash-leftover');
+    const result = await resumeFromCheckpoint(
+      {
+        taskId: 'crash-leftover',
+        sessionId: 'sess-crash',
+        phase: 'abort',
+        status: 'abort',
+        abortedBy: 'startup_scan',
+        description: '崩溃遗留任务',
+        steps: [{ id: 's1', description: '步骤1', status: 'pending' }],
+      },
+      deps
+    );
+
+    expect(result).toBe('ran');
+    expect(state.loopRan).toBe(true);
+  });
+
+  it('用户主动中止（无标记）⇒ 仍拒绝续跑', async () => {
+    const { deps } = makeResumeDeps('user-aborted');
+    await expect(
+      resumeFromCheckpoint(
+        {
+          taskId: 'user-aborted',
+          phase: 'abort',
+          status: 'abort',
+          steps: [{ id: 's1', description: '步骤1', status: 'pending' }],
+        },
+        deps
+      )
+    ).rejects.toThrow(/已处于终态/);
+  });
+
+  it('中断回执：有步骤快照 ⇒ 告知可续跑；无快照 ⇒ 如实说明不可续跑', () => {
+    const receipts: Array<{ taskId: string; sessionId: string; text: string }> =
+      [];
+    setPdcaReceiptSink((p) => receipts.push(p));
+    try {
+      emitPdcaInterruptedReceipts([
+        {
+          taskId: 'crash-1',
+          sessionId: 'sess-1',
+          steps: [{ id: 's1' }, { id: 's2' }],
+        },
+        { taskId: 'crash-2', sessionId: 'sess-2', steps: [] },
+      ]);
+    } finally {
+      setPdcaReceiptSink(undefined);
+    }
+
+    expect(receipts).toHaveLength(2);
+    expect(receipts[0]?.text).toContain('因进程重启被中断');
+    expect(receipts[0]?.text).toContain('2 步计划已保留');
+    expect(receipts[0]?.text).toContain('续跑');
+    expect(receipts[1]?.text).toContain('无法自动续跑');
   });
 });

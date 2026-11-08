@@ -1764,6 +1764,13 @@ export async function launch(options: LaunchOptions): Promise<void> {
         // C1（2026-09-30 D-103）：该扫描已改 `async`（端口 API 异步化）⇒ **必须 await**，
         // 以保持下方"留存清理在其之后"的既有次序约束（见紧邻注释）。
         const scanResult = await scanAndAbortStalePdcaTasks();
+        // 2026-11-08（真机 `pdca_mw7d3dq3`）：崩溃遗留被标 abort ⇒ 必须留回执，
+        // 否则会话停在半截且无任何结论（回执同时告知可续跑入口）。
+        if (scanResult.abortedCheckpoints.length > 0) {
+          const { emitPdcaInterruptedReceipts } =
+            await import('@modules/tasks');
+          emitPdcaInterruptedReceipts(scanResult.abortedCheckpoints);
+        }
         // 2c) 2026-11-07（隐藏缺陷 #1）：审批卡过期 ⇒ 收口对应 PDCA 任务。
         // 卡已不可回复；若不收口，任务永久停在 stage_awaiting_approval，且
         // findExistingTask 会把该会话的幂等键永久锁死（同会话新任务恒返回旧 taskId）。

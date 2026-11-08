@@ -252,4 +252,34 @@ describe('POST /v1/pdca/:taskId/resume — 入口判定', () => {
     expect(String(r.body['error'])).toContain('正在运行');
     expect(resumeCalls).toHaveLength(0);
   });
+
+  test('崩溃遗留（abortedBy=startup_scan）⇒ 202，允许续跑', async () => {
+    checkpoint = {
+      taskId: 'pdca_crash',
+      status: 'abort',
+      phase: 'abort',
+      abortedBy: 'startup_scan',
+      steps: [{ id: 's1', status: 'pending' }],
+    };
+
+    const r = await call('pdca_crash');
+    expect(r.status).toBe(202);
+    expect(r.body['status']).toBe('resuming');
+    await tick();
+    expect(resumeCalls).toHaveLength(1);
+  });
+
+  test('用户主动中止（phase=abort，无崩溃标记）⇒ 仍 409', async () => {
+    checkpoint = {
+      taskId: 'pdca_user_abort',
+      status: 'abort',
+      phase: 'abort',
+      steps: [{ id: 's1', status: 'pending' }],
+    };
+
+    const r = await call('pdca_user_abort');
+    expect(r.status).toBe(409);
+    expect(String(r.body['error'])).toContain('不可 replan');
+    expect(resumeCalls).toHaveLength(0);
+  });
 });

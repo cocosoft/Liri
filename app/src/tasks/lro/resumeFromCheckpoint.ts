@@ -141,11 +141,17 @@ async function resumeFromCheckpointCore(
   // 2026-10-17（M2 可达性修复）：启动扫描 `scanAndAbortStalePdcaTasks` 会把**崩溃遗留**
   // 的活跃任务写成 `status:'abort'`，但保留非终态 phase（execute/review/decide）。
   // 旧判据把该组合当终态一律拒绝 ⇒ P0(M2) 的步骤快照在生产没有有效消费路径。
-  // 放行条件严格限定：status=abort **且** phase 非终态 **且** 步骤快照非空。
+  // 放行条件严格限定：status=abort **且** 步骤快照非空，且满足任一
+  //   ① `abortedBy='startup_scan'`（2026-11-08 真机 `pdca_mw7d3dq3`：扫描为满足
+  //      /goal list 的 phase 过滤已把 phase 落 abort ⇒ 必须靠标记识别，否则不可续跑）；
+  //   ② phase 仍非终态（旧格式检查点，无标记）。
+  const crashAborted = ck.abortedBy === 'startup_scan';
   const interruptedByScan =
-    ckStatus === 'abort' && !isTerminal(phase) && steps.length > 0;
+    ckStatus === 'abort' &&
+    steps.length > 0 &&
+    (crashAborted || !isTerminal(phase));
   const refuseResume =
-    isTerminal(phase) ||
+    (isTerminal(phase) && !crashAborted) ||
     (isTerminal(ckStatus) && !replanResumable && !interruptedByScan);
   if (refuseResume) {
     throw new AppError(

@@ -205,6 +205,11 @@ export async function scanAndAbortStalePdcaTasks(): Promise<{
       // 等入口按 phase 过滤终态 ⇒ 被回收的任务仍显示成"执行中"。
       phase: 'abort',
       status: 'abort',
+      // 2026-11-08（真机 `pdca_mw7d3dq3`）：**崩溃遗留的可续跑标记** —— phase 落 abort 后，
+      // `resumeFromCheckpoint`/HTTP `/resume` 的终态判据会把它们一律拒绝（真机：409
+      //「任务已终止且不可 replan」），`PDCA_AUTO_RESUME` 同样失效。显式标记来源，
+      // 供续跑入口区分「用户中止」与「进程重启中断」。
+      abortedBy: 'startup_scan',
       abortedAt: new Date().toISOString(),
     };
     await taskOps.writePdcaCheckpoint(taskId, abortedCk);
@@ -447,11 +452,15 @@ export async function handlePdcaResumeTask(
       res.end(JSON.stringify({ taskId, status: 'already_resuming' }));
       return;
     }
+    // 2026-11-08（真机 `pdca_mw7d3dq3`）：**崩溃遗留可续跑** —— 启动扫描为满足
+    // `/goal list` 的 phase 过滤，把 `phase` 也落成 `abort`；若这里按终态拒绝，
+    // 崩溃恢复入口（本端点 + `PDCA_AUTO_RESUME`）全部失效（真机 409）。
+    // 仅放行扫描标记；用户主动中止（无标记）仍拒绝。
+    const crashLeftover = ck.abortedBy === 'startup_scan';
     const notResumable =
-      phase === 'completed' ||
-      phase === 'abort' ||
+      ((phase === 'completed' || phase === 'abort') && !crashLeftover) ||
       status === 'completed' ||
-      status === 'abort' ||
+      (status === 'abort' && !crashLeftover) ||
       (status === 'failed' && !replanPending);
     if (notResumable) {
       res.writeHead(409, { 'Content-Type': 'application/json' });

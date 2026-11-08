@@ -209,6 +209,8 @@ export { setTaskSessionPolicyPort } from './lro/taskSessionPolicyPort';
 export type { TaskSessionPolicyPort } from './lro/taskSessionPolicyPort';
 // 2026-11-08：PDCA 终态回执（chat 装配期注册会话落点；见 `lro/terminalReceipt`）
 export { setPdcaReceiptSink } from './lro/terminalReceipt';
+// 2026-11-08：崩溃遗留被启动扫描标 abort 后的中断回执（入口层调用）
+export { emitPdcaInterruptedReceipts } from './lro/terminalReceipt';
 // P2（2026-11-04，方案 §3.3）：会话活跃长程任务（任务档审批的判定依据）
 export {
   getActiveTaskIdForSession,

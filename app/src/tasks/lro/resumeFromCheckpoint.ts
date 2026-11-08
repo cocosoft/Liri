@@ -77,6 +77,13 @@ export interface ResumeDeps {
   /** 任务开始时间（duration 口径；旧 checkpoint 无该字段 ⇒ 0） */
   setStartedAt: (value: number) => void;
   /**
+   * 回填已执行轮次（2026-11-08，真机 `pdca_mw7w3wvc`）。
+   *
+   * 恢复后 `loopIteration` 原从 1 重算 ⇒ 详情接口把"第 5 轮崩溃"显示成"第 1 轮"；
+   * 回填后循环起点随之延续（轮次上限按**任务总轮次**计，防无限恢复重跑）。
+   */
+  setLoopIteration?: (value: number) => void;
+  /**
    * LRO-13（2026-10-26）：恢复**阻塞命令台账**（续跑幂等）——
    * 同一 `(命令, cwd, 策略版本)` 在续跑时直接短路，不再撞同一堵墙。
    */
@@ -195,6 +202,7 @@ async function resumeFromCheckpointCore(
     deps.setTotalTokensTracked(Number(ck.totalTokens) || 0);
     deps.setTurnsExtensions(Number(ck.turnsExtensions) || 0);
     deps.setStartedAt(Number(ck.startedAt) || 0);
+    deps.setLoopIteration?.(Number(ck.loopIteration) || 0);
     const descriptionText =
       (ck.description as string | undefined) ?? '恢复的 PDCA 任务';
     logger.info('[orchestrator] resume 触发增量 replan（半自动闭环）', {
@@ -211,6 +219,12 @@ async function resumeFromCheckpointCore(
   const extLimit =
     parseInt(configManager.env('PDCA_MAX_TURNS_EXTENSION_LIMIT') || '') || 3;
   deps.setTurnsExtensions(Number(ck.turnsExtensions) || 0);
+  // 2026-11-08（真机 `pdca_mw7vxtmt`）：**原样续跑分支同样要回填 token 累计** ——
+  // replan 分支早已修（见上方 §2026-10-17 注释），但主路径漏了 ⇒ 崩溃恢复后
+  // 任务级 `totalTokens` 从 0 重算，崩溃前已完成步骤的用量凭空消失（成本口径低估）。
+  deps.setTotalTokensTracked(Number(ck.totalTokens) || 0);
+  // 同批：轮次也要延续（否则恢复后从"第 1 轮"重算，接口与日志都会误报）
+  deps.setLoopIteration?.(Number(ck.loopIteration) || 0);
   const extDecision = planTurnsExtensionDecision(
     steps,
     deps.getTurnsExtensions(),

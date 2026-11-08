@@ -234,8 +234,8 @@ export class LongRunningTaskOrchestrator {
   /** P1-2（2026-08-31）：当前 PDCA 循环 turn 预算上限（goal_metrics.max_turns 数据源） */
   private _maxTurns = 0;
   /**
-   * 2026-11-08（真机 `pdca_mw7qg094`）：本实例已执行的 PDCA 轮次。
-   * 随状态投影（`getStatus().loopIteration`）与检查点一并落盘；重启后详情接口读检查点。
+   * 2026-11-08（真机 `pdca_mw7qg094`）：已执行的 PDCA 轮次（**含续跑回填**，见 resume）。
+   * 随状态投影与检查点落盘；`_runExecuteDecideLoop` 以它为起点（恢复后不重置）。
    */
   private _iterations = 0;
   /** P1-3（2026-08-31）：目标级收敛判定门（对标 Hermes evaluate_after_turn，无状态可复用） */
@@ -1195,7 +1195,7 @@ export class LongRunningTaskOrchestrator {
    */
   private async _runExecuteDecideLoop(): Promise<PdcaStatus> {
     let allDone = false;
-    let iterations = 0;
+    let iterations = this._iterations;
     // P1/L8（2026-09-06）：上限随最新 plan 每轮重算——replan/escalate 会替换 plan.steps
     // （D5 增量 replan），入口只算一次会在步骤增多后被旧上限误杀（技术报告 E4/P3）。
     // 当前无 replan 时 steps 数每轮恒定 → 上限不变，行为兼容；仅替换后才发生"上限重算"。
@@ -1657,6 +1657,10 @@ export class LongRunningTaskOrchestrator {
       },
       setStartedAt: (value) => {
         this._startedAt = value;
+      },
+      // 2026-11-08：恢复已执行轮次（循环起点随之延续，接口不再把"第 N 轮"显示成"第 1 轮"）
+      setLoopIteration: (value) => {
+        this._iterations = value;
       },
       // LRO-13：恢复阻塞命令台账（续跑短路依据）
       setBlockedCommands: (value) => {

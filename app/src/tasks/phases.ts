@@ -98,3 +98,9 @@ export const PDCA_TO_WORKITEM: Record<PdcaPhase, WorkItemStatus> = {
 
 /** P0(M9)：PDCA 终态阶段（list 时过滤掉） */
 export const PDCA_TERMINAL_PHASES = new Set(['completed', 'failed', 'abort']);
+
+/**
+ * 单值 phase 常量（2026-11-08）：供各模块引用失败终态，避免裸写 `'failed'`
+ * （lint:state-ratchet 要求状态字面量收敛到唯一事实源）。
+ */
+export const PDCA_PHASE_FAILED: PdcaPhase = 'failed';

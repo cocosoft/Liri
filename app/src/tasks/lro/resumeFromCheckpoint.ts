@@ -21,6 +21,7 @@ import { getLogger } from '@openliri/infra/monitoring';
 import type { PlanReview, ReviewDecision } from '../PlanReview';
 import type { Plan, PlanStep } from '../TaskOrchestrator';
 import { TaskStatus } from '../types';
+import type { PdcaPhase } from '@modules/tasks/phases';
 import { parseSuccessCriteria } from '@modules/tasks/successCriteria';
 import {
   planTurnsExtensionDecision,
@@ -33,6 +34,8 @@ import {
   restoreBlockedCommands,
   type BlockedCommandEntry,
 } from './blockedCommandLedger.js';
+// 2026-11-08（真机 `pdca_mw7bjwo8`）：续跑失败的收口（失败检查点 + ⚠️ 回执）
+import { markResumeFailure } from './checkpointPersist.js';
 
 const logger = getLogger('tasks:longRunning');
 
@@ -85,10 +88,36 @@ export interface ResumeDeps {
    * 原样续跑）都要先重放，否则"跑到一半被改宽"的问题在 replan 分支仍然存在。
    */
   replayPolicySnapshot: (sessionId: string, raw: unknown) => void;
+  /**
+   * 2026-11-08（真机 `pdca_mw7bjwo8`）：真跑阶段抛错时同步**内存 phase**。
+   * 检查点/回执由 `markResumeFailure` 落（本文件包装层调用）。
+   */
+  setMemoryPhase?: (phase: PdcaPhase) => void;
+}
+
+/** 续跑入口（带失败收口）：真跑阶段抛错先收口再上抛，避免检查点停在「活跃」造成死锁。 */
+export async function resumeFromCheckpoint(
+  ck: Record<string, unknown>,
+  deps: ResumeDeps
+): Promise<unknown> {
+  try {
+    return await resumeFromCheckpointCore(ck, deps);
+  } catch (err) {
+    // 终态拒绝属「没开始跑」⇒ 不落失败检查点、不发回执（否则会把可恢复任务误标失败）
+    const code = err instanceof AppError ? err.code : undefined;
+    if (code !== 'PDCA_RESUME_TERMINAL') {
+      await markResumeFailure({
+        taskId: deps.taskId,
+        error: err,
+        onPhase: deps.setMemoryPhase,
+      });
+    }
+    throw err;
+  }
 }
 
 /** P0(M9)：从 checkpoint 跨重启恢复执行（/goal resume 入口）。 */
-export async function resumeFromCheckpoint(
+async function resumeFromCheckpointCore(
   ck: Record<string, unknown>,
   deps: ResumeDeps
 ): Promise<unknown> {

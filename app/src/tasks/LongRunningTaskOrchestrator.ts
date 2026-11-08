@@ -1089,10 +1089,8 @@ export class LongRunningTaskOrchestrator {
   }
 
   /**
-   * 2026-11-08（真机 `pdca_mw6m1mg8`）：审批通过 ⇒ 解除该命令的「不可执行」台账结论。
-   *
-   * 不解除会怎样：`security_analyzer_ask` 已把命令记入台账，续跑第一步就被
-   * `[BLOCKED_REPLAY]` 短路 ⇒ 用户批准了也永远跑不起来。
+   * 2026-11-08（真机 `pdca_mw6m1mg8`）：审批通过 ⇒ 解除该命令的台账结论（否则续跑第一步
+   * 就被 `[BLOCKED_REPLAY]` 短路，批准了也永远跑不起来）。
    */
   clearBlockedCommand(command: string): number {
     return clearApprovedBlockedCommand({
@@ -1673,6 +1671,9 @@ export class LongRunningTaskOrchestrator {
       // P2（§3.3）：恢复时重放策略快照（缺失 ⇒ 保守降级 ask）
       replayPolicySnapshot: (sessionId, raw) =>
         this._replayPolicySnapshot(sessionId, raw),
+      setMemoryPhase: (p) => {
+        this.phase = p;
+      },
     }) as Promise<PdcaStatus>;
   }
 

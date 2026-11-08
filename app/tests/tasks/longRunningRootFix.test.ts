@@ -27,7 +27,12 @@ import {
   isAutoReplanEnabled,
   replanMaxRetries,
 } from '../../src/tasks/lro/portResolvers';
-import { readPdcaCheckpoint } from '../../src/tasks/PdcaWorkItemBridge';
+import {
+  readPdcaCheckpoint,
+  writePdcaCheckpoint,
+} from '../../src/tasks/PdcaWorkItemBridge';
+import { setPdcaReceiptSink } from '../../src/tasks/lro/terminalReceipt';
+import { markResumeFailure } from '../../src/tasks/lro/checkpointPersist';
 
 taskOrchestrator.setPlansDir(mkdtempSync(join(tmpdir(), 'plans-rootfix-')));
 
@@ -472,5 +477,96 @@ describe('escalate 收尾的 phase 投影（2026-11-08 真机 pdca_mw79lfjh）',
       delete process.env.PDCA_GOAL_EVALUATE;
       delete process.env.PDCA_REPLAN_MAX_RETRIES;
     }
+  });
+});
+
+describe('续跑失败的收口（2026-11-08 真机 pdca_mw7bjwo8）', () => {
+  it('真跑阶段抛错 ⇒ 检查点落 failed+replanPending，并发一条 ⚠️ 回执', async () => {
+    const taskId = `resume-fail-${Date.now()}`;
+    await writePdcaCheckpoint(taskId, {
+      taskId,
+      sessionId: 'sess-resume-fail',
+      phase: 'plan',
+      status: 'started',
+      replanPending: true,
+      replanFailCount: 2,
+    });
+    const receipts: Array<{ taskId: string; sessionId: string; text: string }> =
+      [];
+    const memoryPhases: string[] = [];
+    setPdcaReceiptSink((p) => receipts.push(p));
+    try {
+      await markResumeFailure({
+        taskId,
+        error: new Error('Planner 输出无法解析为有效计划（已重问一次）'),
+        onPhase: (p) => memoryPhases.push(p),
+      });
+    } finally {
+      setPdcaReceiptSink(undefined);
+    }
+
+    const ck = await readPdcaCheckpoint(taskId);
+    expect(ck?.['phase']).toBe('failed');
+    expect(ck?.['status']).toBe('failed');
+    // 保留可重试：下一轮 /resume 仍会放行（failed + replanPending）
+    expect(ck?.['replanPending']).toBe(true);
+    expect(ck?.['replanFailCount']).toBe(2);
+    expect(memoryPhases).toEqual(['failed']);
+    expect(receipts).toHaveLength(1);
+    expect(receipts[0]?.sessionId).toBe('sess-resume-fail');
+    expect(receipts[0]?.text).toContain('续跑失败');
+    expect(receipts[0]?.text).toContain('可重试');
+  });
+
+  it('包装层：真跑阶段失败 ⇒ 收口后仍上抛（调用方日志不丢）', async () => {
+    const { deps } = makeResumeDeps('replan-fail');
+    const memoryPhases: string[] = [];
+    deps.setMemoryPhase = (p) => memoryPhases.push(p);
+    deps.executePlanPhase = async () => {
+      throw new Error('PLAN_PARSE_FAILED');
+    };
+
+    await expect(
+      resumeFromCheckpoint(
+        {
+          taskId: 'replan-fail',
+          sessionId: 'sess-replan-fail',
+          phase: 'execute',
+          status: 'failed',
+          replanPending: true,
+          replanFailCount: 1,
+          description: 'replan 失败任务',
+          steps: [{ id: 's1', description: '步骤1', status: 'pending' }],
+        },
+        deps
+      )
+    ).rejects.toThrow('PLAN_PARSE_FAILED');
+
+    expect(memoryPhases).toEqual(['failed']);
+    const ck = await readPdcaCheckpoint('replan-fail');
+    expect(ck?.['phase']).toBe('failed');
+    expect(ck?.['status']).toBe('failed');
+    expect(ck?.['replanPending']).toBe(true);
+  });
+
+  it('终态拒绝不算「续跑失败」⇒ 不落失败检查点、不打内存 phase', async () => {
+    const { deps } = makeResumeDeps('terminal-refuse');
+    const memoryPhases: string[] = [];
+    deps.setMemoryPhase = (p) => memoryPhases.push(p);
+
+    await expect(
+      resumeFromCheckpoint(
+        {
+          taskId: 'terminal-refuse',
+          phase: 'completed',
+          status: 'completed',
+          steps: [{ id: 's1', description: '步骤1', status: 'completed' }],
+        },
+        deps
+      )
+    ).rejects.toThrow(/已处于终态/);
+
+    expect(memoryPhases).toEqual([]);
+    expect(await readPdcaCheckpoint('terminal-refuse')).toBeNull();
   });
 });

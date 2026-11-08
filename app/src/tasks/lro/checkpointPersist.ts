@@ -11,16 +11,22 @@
 
 import {
   PDCA_TERMINAL_PHASES,
+  PDCA_PHASE_FAILED,
   pdcaCheckpointStatus,
 } from '@modules/tasks/phases';
 import type { PdcaPhase } from '../LongRunningTaskOrchestrator';
 import type { Plan } from '../TaskOrchestrator';
-import { writePdcaCheckpoint } from '../PdcaWorkItemBridge';
+// 状态字面量唯一事实源（lint:state-ratchet：不得裸写 'failed'）
+import { PLAN_STATUS_FAILED } from '../TaskOrchestrator';
+import { writePdcaCheckpoint, readPdcaCheckpoint } from '../PdcaWorkItemBridge';
 import type { BlockedCommandEntry } from './blockedCommandLedger.js';
 // 2026-11-07：中止路径的审计报告落盘（与 completed/failed 两条路径同源）
 import { persistAuditReportFile } from './reporting.js';
 // 2026-11-08：中止同样要发终态回执（否则用户拒绝审批后会话停在「⏸ 已挂起等待审批」）
-import { emitPdcaAbortReceipt } from './terminalReceipt.js';
+import {
+  emitPdcaAbortReceipt,
+  emitPdcaReceiptText,
+} from './terminalReceipt.js';
 import type { AuditReport } from '../AuditReport';
 import { projectCheckpointSteps } from './checkpointSnapshot.js';
 import type { TaskPolicySnapshot } from './policySnapshot.js';
@@ -58,6 +64,41 @@ export async function writeAbortCheckpoint(
     abortedAt: new Date().toISOString(),
   });
   releaseTaskScope(taskId);
+}
+
+/**
+ * 续跑失败收口（2026-11-08，真机 `pdca_mw7bjwo8`）。
+ *
+ * `POST /v1/pdca/:taskId/resume` 的 replan 分支在 Planner 两次输出都无法解析时抛
+ * `PLAN_PARSE_FAILED`，原实现只把它交给调用方记录 ⇒ 检查点停在
+ * `phase=plan / status=started`：`/resume` 此后永远 409「任务正在运行」（只能重启
+ * daemon 解锁），会话里也没有任何结论。
+ *
+ * 现口径：落 `phase/status=failed` + `replanPending=true`（**保留可重试**，下一轮走
+ * 增量 replan），并发一条 ⚠️ 回执；异常仍由调用方上抛（日志不丢）。
+ */
+export async function markResumeFailure(input: {
+  taskId: string;
+  sessionId?: string | null;
+  error: unknown;
+  /** 同步内存 phase（检查点之外的第二处投影） */
+  onPhase?: (phase: PdcaPhase) => void;
+}): Promise<void> {
+  const reason =
+    input.error instanceof Error ? input.error.message : String(input.error);
+  input.onPhase?.(PDCA_PHASE_FAILED);
+  const ck = (await readPdcaCheckpoint(input.taskId)) ?? {};
+  await writePdcaCheckpoint(input.taskId, {
+    taskId: input.taskId,
+    phase: PDCA_PHASE_FAILED,
+    status: PLAN_STATUS_FAILED,
+    replanPending: true,
+  });
+  emitPdcaReceiptText({
+    taskId: input.taskId,
+    sessionId: (ck.sessionId as string | undefined) ?? input.sessionId,
+    text: `⚠️ 长程任务续跑失败：${reason}（taskId ${input.taskId}）；可重试 POST /v1/pdca/${input.taskId}/resume`,
+  });
 }
 
 export interface CheckpointPersistInput {

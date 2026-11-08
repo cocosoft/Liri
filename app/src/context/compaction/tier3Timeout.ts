@@ -12,7 +12,10 @@
  */
 
 import type { ChatMessage } from '@modules/ai';
-import type { CompactionOutcome } from './CompactionOrchestrator';
+// 2026-11-08：类型从 `./compactionOutcome`（纯类型 leaf）取，
+// 不再反向 import 编排器 —— 原写法构成 `CompactionOrchestrator ↔ tier3Timeout` 循环
+// （CI `madge --circular` 基线 0，阻断）。
+import type { CompactionOutcome } from './compactionOutcome';
 
 export interface Tier3TimeoutParams {
   /** 内层压缩（已带 abort signal） */

@@ -13,8 +13,11 @@ import {
   PDCA_TERMINAL_PHASES,
   PDCA_PHASE_FAILED,
   pdcaCheckpointStatus,
+  // 2026-11-08：`PdcaPhase` 直接取自 phases（唯一事实源）—— 原先
+  // `import type ... from '../LongRunningTaskOrchestrator'` 构成
+  // `LongRunningTaskOrchestrator ↔ checkpointPersist` 循环（CI madge 基线 0，阻断）。
+  type PdcaPhase,
 } from '@modules/tasks/phases';
-import type { PdcaPhase } from '../LongRunningTaskOrchestrator';
 import type { Plan } from '../TaskOrchestrator';
 // 状态字面量唯一事实源（lint:state-ratchet：不得裸写 'failed'）
 import { PLAN_STATUS_FAILED } from '../TaskOrchestrator';

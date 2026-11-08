@@ -67,12 +67,18 @@ export type WorkItemStatus =
  */
 export function pdcaCheckpointStatus(
   phase: PdcaPhase
-): 'started' | 'running' | 'completed' {
+): 'started' | 'running' | 'completed' | 'abort' {
   switch (phase) {
     case 'completed':
-    case 'abort':
     case 'failed':
       return 'completed';
+    // 2026-11-08（真机 `pdca_mw7vio5i`）：**中止 ≠ 完成**。原映射把 `abort` 也归到
+    // `'completed'` ⇒ 中止任务的检查点 status 显示"完成"，且 `/resume` 的
+    // `status === 'completed' ⇒ 不可续跑` 会**无条件**拒绝所有崩溃遗留任务
+    // （扫描收口同样落 `phase='abort'`）⇒ 崩溃恢复失效。`abort` 已在
+    // `PDCA_TERMINAL_STATUSES` 中 ⇒ 改回自身值，终态判定不受影响。
+    case 'abort':
+      return 'abort';
     case 'execute':
     case 'review':
     case 'decide':

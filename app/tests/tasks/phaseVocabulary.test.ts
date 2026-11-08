@@ -39,9 +39,13 @@ describe('PhaseVocabulary B4 — 编排族单一真源（pdcaCheckpointStatus / 
     for (const phase of ['execute', 'review', 'decide'] as const) {
       expect(pdcaCheckpointStatus(phase)).toBe('running');
     }
-    for (const phase of ['completed', 'abort', 'failed'] as const) {
+    for (const phase of ['completed', 'failed'] as const) {
       expect(pdcaCheckpointStatus(phase)).toBe('completed');
     }
+    // 2026-11-08（真机 `pdca_mw7vio5i`）：中止 ≠ 完成 —— 原映射把 abort 归到 completed，
+    // 导致中止任务显示"完成"，且 `/resume` 的 `status === 'completed'` 判据会无条件
+    // 拒绝崩溃遗留（扫描收口同样落 `phase='abort'`）⇒ 崩溃恢复失效。
+    expect(pdcaCheckpointStatus('abort')).toBe('abort');
   });
 
   test('PDCA_TO_WORKITEM 派生 WorkItem.status（与 Bridge 原映射一致）', () => {

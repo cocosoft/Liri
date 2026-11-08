@@ -370,22 +370,55 @@ export async function handleUndoApproval(
       return;
     }
 
-    // 如果 PDCA 审批已被触发恢复，尝试暂停
-    if (item.source === 'pdca' && item.metadata?.taskId) {
-      try {
-        const orch = await (
-          await getCoreAPI().getTaskOpsPort()
-        ).getOrCreatePdcaOrchestrator(item.metadata.taskId as string);
-        if (orch) {
-          await orch.abort();
-          logger.info('PDCA orchestrator aborted due to approval undo', {
-            inboxId: id,
-            taskId: item.metadata.taskId,
-          });
-        }
-      } catch {
-        // 暂停失败不阻塞撤销
+    // PDCA 审批卡被撤销 ⇒ 已续跑的任务必须真的停下来。
+    //
+    // 2026-11-08（真机 `session_mw7g2qf77a0033a2f4` / `pdca_mw7g2qiv`）：原判据是
+    // `source==='pdca' && metadata.taskId`，只覆盖**计划审批**卡；**步骤级审批**卡由 LRO 提交，
+    // `source='permission'` + `metadata.pdcaTaskId` ⇒ 撤销时既不中止任务，又把卡重置为 pending：
+    // 接口回 `success:true`，但批准的命令照常执行完、任务正常 completed，卡随后被终态清理置过期
+    // ——用户看到"撤销成功"，实际什么都没撤（假成功）。且旧实现用 `getOrCreate*`，对**已终态**
+    // 任务会新建空编排器并 `abort()`，写入 abort 检查点**覆盖已完成的记录**。
+    //
+    // 现口径（与 `resumePdcaIfApplicable` / `abortPdcaAfterExpiry` 同一套 id 解析）：
+    // - 任务已终态/已不在内存 ⇒ 如实回 `success:false / task_finished`，卡保持 replied（保留痕迹）；
+    // - 任务活跃 ⇒ 中止；卡**不**重置为 pending（任务已中止，再批准只会得到 409 死卡）。
+    const pdcaTaskId =
+      item.source === 'pdca'
+        ? typeof item.metadata?.taskId === 'string'
+          ? item.metadata.taskId
+          : undefined
+        : typeof item.metadata?.pdcaTaskId === 'string'
+          ? item.metadata.pdcaTaskId
+          : undefined;
+    if (pdcaTaskId) {
+      const port = await getCoreAPI().getTaskOpsPort();
+      const orch = await port.getPdcaOrchestrator(pdcaTaskId);
+      const phase = (orch?.getStatus() as { phase?: string } | undefined)?.phase;
+      // 终态集走**端口**（`getPdcaStatusSets`）—— infrastructure 属 service 层，
+      // 不能直接 import tasks（app 层）；集合同源 `tasks/phases.ts`。
+      const { terminal } = await port.getPdcaStatusSets();
+      if (!orch || (phase !== undefined && terminal.has(phase))) {
+        sendJSON(res, 200, {
+          success: false,
+          reason: 'task_finished',
+          taskId: pdcaTaskId,
+          phase: phase ?? null,
+        });
+        return;
       }
+      await orch.abort();
+      logger.info('PDCA orchestrator aborted due to approval undo', {
+        inboxId: id,
+        taskId: pdcaTaskId,
+        phase,
+      });
+      sendJSON(res, 200, {
+        success: true,
+        remainingWindow: COOL_OFF_MS - elapsed,
+        taskAborted: true,
+        taskId: pdcaTaskId,
+      });
+      return;
     }
 
     await inboxManager.resetStatus(id, 'pending');

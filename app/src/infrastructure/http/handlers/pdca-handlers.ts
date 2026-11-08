@@ -395,6 +395,9 @@ export async function handlePdcaStart(
   }
 }
 
+/** 在飞续跑（按 taskId）—— 防止连续 POST 让同一任务并行跑两个循环 */
+const inFlightResumeTasks = new Set<string>();
+
 /**
  * POST /v1/pdca/:taskId/resume —— **续跑入口**（escalate 的 replan / 崩溃遗留恢复）。
  *
@@ -403,7 +406,9 @@ export async function handlePdcaStart(
  *
  * 口径：
  * - 无检查点 ⇒ 404；
+ * - **等待人工决策**（`plan_pending` / `stage_awaiting_approval`）⇒ 409（审批走卡片/`/goal`）；
  * - 终态且不可 replan（`completed` / `abort` / `failed` 且 `replanPending=false`）⇒ 409；
+ * - 同任务已有续跑在飞 ⇒ 202 `already_resuming`（不并行起第二轮）；
  * - 复用内存编排器，否则按 taskId 新建（`resumeFromCheckpoint` 自带跨重启重建 Plan）；
  * - **异步执行**（与 `/start` 一致）：立即 202，进度靠 `GET /v1/pdca/:taskId` 轮询。
  */
@@ -422,6 +427,26 @@ export async function handlePdcaResumeTask(
     const status = ck.status as string | undefined;
     const phase = ck.phase as string | undefined;
     const replanPending = Boolean(ck.replanPending);
+    // 2026-11-08（真机 `pdca_mw78nolv`）：**待审批 ≠ 可续跑** —— 此时调续跑只会把步骤
+    // 再跑一遍（命令仍被 ask 拦下、卡也不新增），白烧 token。审批走收件箱卡片 / `/goal`。
+    if (phase === 'plan_pending' || phase === 'stage_awaiting_approval') {
+      res.writeHead(409, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: '任务正在等待人工决策，请先审批（收件箱卡片或 /goal）',
+          taskId,
+          status,
+          phase,
+        })
+      );
+      return;
+    }
+    // 重复调用幂等：同一任务已有续跑在飞 ⇒ 直接告知，不再并行起一轮
+    if (inFlightResumeTasks.has(taskId)) {
+      res.writeHead(202, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ taskId, status: 'already_resuming' }));
+      return;
+    }
     const notResumable =
       phase === 'completed' ||
       phase === 'abort' ||
@@ -448,14 +473,20 @@ export async function handlePdcaResumeTask(
       sendError(res, new Error('编排器不支持续跑'), 501);
       return;
     }
-    // 与 `/start` 同口径：异步执行，不阻塞 HTTP 响应
-    void orchestrator.resumeFromCheckpoint(ck).catch((e: unknown) => {
-      void handleError(e, {
-        module: 'pdca:handlers',
-        action: 'resumeTask',
-        context: { taskId },
+    // 与 `/start` 同口径：异步执行，不阻塞 HTTP 响应（在飞期间重复调用走幂等分支）
+    inFlightResumeTasks.add(taskId);
+    void orchestrator
+      .resumeFromCheckpoint(ck)
+      .catch((e: unknown) => {
+        void handleError(e, {
+          module: 'pdca:handlers',
+          action: 'resumeTask',
+          context: { taskId },
+        });
+      })
+      .finally(() => {
+        inFlightResumeTasks.delete(taskId);
       });
-    });
     res.writeHead(202, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ taskId, status: 'resuming', replanPending }));
     broadcastEvent('pdca:resumed', { taskId });

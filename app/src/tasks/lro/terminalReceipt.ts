@@ -17,6 +17,8 @@
 import { getLogger } from '@openliri/infra/monitoring';
 import type { AuditReport } from '../AuditReport';
 import { taskOrchestrator } from '../TaskOrchestrator';
+// 2026-11-08：回执里的「可 replan」以检查点为准（与 `/resume` 的 409 判据同源）
+import { readPdcaCheckpoint } from '../PdcaWorkItemBridge';
 
 const logger = getLogger('tasks:longRunning');
 
@@ -195,23 +197,37 @@ export function emitPdcaReceiptFromAudit(
   report: AuditReport,
   hasPushChannel: boolean
 ): void {
-  const plan = report.planId
-    ? taskOrchestrator.getPlan(report.planId)
-    : undefined;
   // 2026-11-08（真机 `pdca_mw76rof9`）：escalate 收尾时 phase 留在 execute（防覆盖
-  // replanPending）⇒ 从步骤决策判"可 replan"，让 ⚠️ 回执带上唯一恢复入口的提示。
-  const replanAvailable =
-    plan?.steps?.some((s) => s.decision === 'escalate') ?? false;
-  emitPdcaReceipt({
-    taskId: report.taskId,
-    sessionId: plan?.sessionId,
-    phase: plan?.status ?? '',
-    completed: report.completedSteps,
-    total: report.totalSteps,
-    failed: report.failedSteps,
-    replanAvailable,
-    hasPushChannel,
-  });
+  // replanPending）⇒ ⚠️ 回执要带上"可 replan"的提示。
+  // 2026-11-08（真机 `pdca_mw771zbt`）：**以检查点的 `replanPending` 为准** —— 只看步骤
+  // `decision='escalate'` 会在 replan 次数用尽后仍写"可 replan 续跑"，而 `/resume` 此时
+  // 按设计回 409（提示与事实不符）。读取失败/无检查点 ⇒ 不提示（回执本身照发）。
+  void (async () => {
+    const plan = report.planId
+      ? taskOrchestrator.getPlan(report.planId)
+      : undefined;
+    let replanAvailable = false;
+    try {
+      const ck = await readPdcaCheckpoint(report.taskId);
+      replanAvailable = ck?.replanPending === true;
+    } catch (err) {
+      // @ignore-catch — replan 提示属附加信息，读取失败不得影响回执
+      logger.warn('读取检查点失败（回执不提示 replan）', {
+        taskId: report.taskId,
+        error: String(err),
+      });
+    }
+    emitPdcaReceipt({
+      taskId: report.taskId,
+      sessionId: plan?.sessionId,
+      phase: plan?.status ?? '',
+      completed: report.completedSteps,
+      total: report.totalSteps,
+      failed: report.failedSteps,
+      replanAvailable,
+      hasPushChannel,
+    });
+  })();
 }
 
 /**

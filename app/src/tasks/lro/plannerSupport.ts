@@ -15,6 +15,7 @@
  * **行为等价**：提示词文案、日志字段、失败返回 `undefined` 的语义**逐字未变**。
  */
 
+import { existsSync, readdirSync } from 'fs';
 import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@openliri/infra/monitoring';
 
@@ -85,13 +86,31 @@ export interface PlannerRepairDeps {
  * 三个 prompt 共用本段（首轮规划 / JSON 修复重问 / 验收标准重写），避免各写一份漂移。
  */
 export function workspacePathConstraint(workspace: string): string {
+  const workspaceEmpty = isWorkspaceEmpty(workspace);
   return [
     '【路径约束（硬性）】',
     `本任务隔离工作区根目录: \`${workspace}\``,
     '- steps 与 acceptanceCriteria 里出现的**所有文件路径必须是工作区相对路径**（如 `output/report.md`）；',
     '- 禁止 `/tmp/...`、`%TEMP%\\...`、`C:\\...`、`~/...` 等绝对路径或工作区外路径 ——',
     '  执行器会按"越界"直接拒绝，该步骤必然失败。',
+    // 2026-11-08（真机 `pdca_mw7tlrc4`）：Planner 把"统计 app/src/tasks 下 .ts 数"写成步骤，
+    // 理由是"app/src/... 也是相对路径"。但那是**仓库**相对路径，工作区里根本不存在该目录
+    // ⇒ 执行器 glob 全是空结果、反复换 pattern 直到 IO 守卫中止。必须把"工作区 ≠ 仓库"说清。
+    `- 工作区当前内容：${workspaceEmpty ? '**空目录**（本任务还没有任何文件）' : '仅本任务已产出的文件'}；`,
+    '- 仓库代码（`app/src/...`、`packages/...`）**不在工作区里**：不要规划"遍历 / 统计 / 浏览仓库源码"的步骤' +
+      '（glob/grep 一定空结果）；需要项目文件时用 `read_project_file`（需 `projectId`，只读单文件）。',
   ].join('\n');
+}
+
+/** 工作区是否为空（规划期事实快照；读失败按"空"处理，只影响提示词措辞） */
+export function isWorkspaceEmpty(workspace: string): boolean {
+  try {
+    if (!existsSync(workspace)) return true;
+    return readdirSync(workspace).length === 0;
+  } catch {
+    // @ignore-catch — 仅影响提示词措辞，不影响规划
+    return true;
+  }
 }
 
 /**

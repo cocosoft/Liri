@@ -218,7 +218,16 @@ export interface PdcaOrchestratorPort {
  * 调用方**取一次、同步 `.has()`**（避免逐次 await）。
  */
 export interface PdcaStatusSetsDto {
+  /** 终态 **status** 集（桥接层 `PDCA_TERMINAL_STATUSES`） */
   terminal: ReadonlySet<string>;
+  /**
+   * 终态 **phase** 集（桥接层 `PDCA_TERMINAL_PHASES`）。
+   *
+   * 2026-11-08（判据不一致根因）：检查点**两个字段并用** —— 任一为终态即算终态。
+   * 缺这一项时，调用方只能拿 `terminal` 去比 status，`status IS NULL` 的存量行
+   * 就会被误判为"进行中"（真机：63 个会话的幂等键永久锁死）。
+   */
+  terminalPhases: ReadonlySet<string>;
   active: ReadonlySet<string>;
   awaitingApprovalPhases: ReadonlySet<string>;
 }
@@ -379,6 +388,11 @@ export interface TaskOpsPort {
   markStepRunning(stepId: string): Promise<void>;
   /** 原 `taskOrchestrator.markStepFailed(stepId, reason)`（返回值原调用点未使用） */
   markStepFailed(stepId: string, reason?: string | undefined): Promise<void>;
+  /**
+   * 中止整份计划（2026-11-08）：活跃步骤落 `cancelled`、计划落 `aborted`
+   * （用户主动终止 ≠ failed）。`false` = 计划不存在。
+   */
+  abortPlan(planId: string): Promise<boolean>;
 
   // ---- 任务流注册表（P3：模块级**单例**，取用内聚 —— 规则 21）----
   /** 原 `taskFlowRegistry.getAllFlows()`（调用方仅 `JSON.stringify`） */

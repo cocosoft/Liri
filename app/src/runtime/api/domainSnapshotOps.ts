@@ -1118,6 +1118,7 @@ export class DomainSnapshotOps {
       markStepFailed: async (stepId: string, reason?: string | undefined) => {
         (await orchestrator()).markStepFailed(stepId, reason);
       },
+      abortPlan: async (planId: string) => (await orchestrator()).abortPlan(planId),
 
       // ---- 任务流注册表（P3：单例取用内聚）----
       listTaskFlows: async () => (await flowRegistry()).getAllFlows(),
@@ -1153,6 +1154,7 @@ export class DomainSnapshotOps {
         const b = await pdcaBridge();
         return {
           terminal: b.PDCA_TERMINAL_STATUSES,
+          terminalPhases: b.PDCA_TERMINAL_PHASES,
           active: b.PDCA_ACTIVE_STATUSES,
           awaitingApprovalPhases: b.PDCA_AWAITING_APPROVAL_PHASES,
         };

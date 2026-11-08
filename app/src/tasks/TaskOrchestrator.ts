@@ -868,36 +868,52 @@ export class TaskOrchestrator implements ISnapshotCapable {
   }
 
   /**
-   * 终止所有活跃计划中的运行中或待处理任务
+   * 中止**单个**计划（2026-11-08，真机 `plan_mw7m5cxi_7fc7`）。
+   *
+   * 语义：用户主动终止 ≠ 失败 ⇒ 活跃步骤落 `cancelled`、计划落 `aborted`
+   * （此前 HTTP `POST /v1/plans/:id/abort` 走 `markStepFailed` ⇒ 计划被记成 `failed`
+   * 且错误文案「已终止」，与审计/UI 的"已终止"状态自相矛盾）。
+   *
+   * @returns `false` = 计划不存在（HTTP 侧据此回 404）
+   */
+  async abortPlan(planId: string): Promise<boolean> {
+    const plan = this.getPlan(planId);
+    if (!plan) return false;
+
+    for (const step of plan.steps) {
+      if (step.status !== 'running' && step.status !== 'pending') continue;
+      step.status = 'cancelled';
+
+      const task = taskRegistry.getTask(step.taskId);
+      if (task && task instanceof NoteTask) {
+        task.setStatusDirect(TaskStatus.KILLED);
+      } else if (task) {
+        await task.kill().catch((e) => {
+          void handleError(e, {
+            module: 'tasks:TaskOrchestrator',
+            action: 'abort_killTask',
+            context: { stepId: step.id, taskId: step.taskId },
+          });
+        });
+      }
+    }
+
+    plan.status = 'aborted';
+    plan.completedAt = new Date().toISOString();
+    this.savePlan(plan);
+
+    // 发射计划完成事件（中断）
+    this.emitPlanCompleted(plan);
+    return true;
+  }
+
+  /**
+   * 终止所有活跃计划中的运行中或待处理任务（逐计划复用 `abortPlan`，语义唯一）
    */
   async abortAll(): Promise<void> {
     for (const plan of this.plans.values()) {
       if (plan.status !== 'running' && plan.status !== 'pending') continue;
-
-      for (const step of plan.steps) {
-        if (step.status !== 'running' && step.status !== 'pending') continue;
-        step.status = 'cancelled';
-
-        const task = taskRegistry.getTask(step.taskId);
-        if (task && task instanceof NoteTask) {
-          task.setStatusDirect(TaskStatus.KILLED);
-        } else if (task) {
-          await task.kill().catch((e) => {
-            void handleError(e, {
-              module: 'tasks:TaskOrchestrator',
-              action: 'abort_killTask',
-              context: { stepId: step.id, taskId: step.taskId },
-            });
-          });
-        }
-      }
-
-      plan.status = 'aborted';
-      plan.completedAt = new Date().toISOString();
-      this.savePlan(plan);
-
-      // 发射计划完成事件（中断）
-      this.emitPlanCompleted(plan);
+      await this.abortPlan(plan.id);
     }
   }
 

@@ -159,6 +159,26 @@ describe('createPlan 步骤索引（P0 根因）', () => {
   });
 });
 
+describe('abortPlan：用户主动终止 ≠ 失败（2026-11-08 真机 plan_mw7m5cxi_7fc7）', () => {
+  it('活跃步骤落 cancelled、计划落 aborted（不再被记成 failed）', async () => {
+    const plan = taskOrchestrator.createPlan(
+      '终止守卫',
+      ['步骤A'],
+      'session-abort'
+    );
+    const step = plan.steps[0]!;
+    taskOrchestrator.markStepRunning(step.id);
+
+    expect(await taskOrchestrator.abortPlan(plan.id)).toBe(true);
+    expect(step.status).toBe('cancelled');
+    expect(plan.status).toBe('aborted');
+    expect(plan.completedAt).toBeDefined();
+
+    // 不存在的计划 ⇒ false（HTTP 侧据此回 404）
+    expect(await taskOrchestrator.abortPlan('plan_missing_xyz')).toBe(false);
+  });
+});
+
 describe('依赖失败阻断', () => {
   it('前置步骤 failed ⇒ 后继 cancelled 且标注 [DEPENDENCY_BLOCKED]', async () => {
     const o = makeOrchestrator(async () => {

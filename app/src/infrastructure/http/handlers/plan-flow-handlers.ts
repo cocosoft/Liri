@@ -101,6 +101,11 @@ export async function handleGetPlan(
 
 /**
  * 执行计划
+ *
+ * 2026-11-08（真机 `plan_mw7m5cxi_7fc7`）：此端点**没有执行方** —— 原先只把 pending 步骤
+ * 标成 `running` 就回 `{ok:true}`，实测 3 秒后仍停在 `running`（无任何推进），计划永久卡在
+ * "执行中"。计划执行只由 PDCA（`POST /v1/pdca/start`）或会话消息链驱动 ⇒ 如实回 501，
+ * 不再伪造"已开始执行"（与 D52 撤销假成功同源）。
  */
 export async function handleExecutePlan(
   _req: http.IncomingMessage,
@@ -111,19 +116,20 @@ export async function handleExecutePlan(
     const taskOps = await getCoreAPI().getTaskOpsPort();
     const plan = await taskOps.getPlan(planId);
     if (!plan) {
-      res.writeHead(404);
+      res.writeHead(404, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Plan not found' }));
       return;
     }
-    // 标记所有 pending 步骤为 running
-    for (const step of plan.steps) {
-      if (step.status === 'pending') {
-        await taskOps.markStepRunning(step.id);
-      }
-    }
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ ok: true, planId }));
-    broadcastEvent('plan:executed', { planId });
+    res.writeHead(501, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        ok: false,
+        error: 'not_supported',
+        planId,
+        message:
+          '该端点无执行器：计划执行须经 POST /v1/pdca/start 或会话消息驱动',
+      })
+    );
   } catch (err) {
     sendError(res, err);
   }
@@ -131,6 +137,9 @@ export async function handleExecutePlan(
 
 /**
  * 中止计划
+ *
+ * 2026-11-08：改走 `taskOrchestrator.abortPlan` —— 活跃步骤落 `cancelled`、计划落 `aborted`。
+ * 此前用 `markStepFailed`，用户主动终止被记成 `failed`（错误文案「已终止」）。
  */
 export async function handleAbortPlan(
   _req: http.IncomingMessage,
@@ -139,17 +148,11 @@ export async function handleAbortPlan(
 ): Promise<void> {
   try {
     const taskOps = await getCoreAPI().getTaskOpsPort();
-    const plan = await taskOps.getPlan(planId);
-    if (!plan) {
-      res.writeHead(404);
+    const aborted = await taskOps.abortPlan(planId);
+    if (!aborted) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Plan not found' }));
       return;
-    }
-    // 标记所有 running/pending 步骤为 cancelled
-    for (const step of plan.steps) {
-      if (step.status === 'running' || step.status === 'pending') {
-        await taskOps.markStepFailed(step.id, '已终止');
-      }
     }
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ ok: true, planId }));

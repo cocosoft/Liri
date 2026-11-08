@@ -247,19 +247,30 @@ ${replanSection}
       // 证据：`llm_call_records.output_tokens` 恰好等于上限、`finish_reason=max_tokens`、
       // content 为空且零 tool_call ⇒ 输出预算全被「思考」吃掉。用同一提示词重问只会
       // 再烧 60~70 s 并得到同样结果（实测连续两次）。
-      const truncated = /^(max_tokens|length)$/i.test(finishReason ?? '');
-      if (truncated && !planText.trim() && result.toolCalls.length === 0) {
+      //
+      // 2026-11-08（真机 `pdca_mw7q8q3l`）：**输出被截断**同样不能重问 —— 该任务的重问
+      // reason 是 `json-parse-error: SyntaxError: JSON Parse error: Unterminated string`
+      // （字符串未闭合）⇒ 模型输出了 JSON 但被 `max_tokens` 截断；同一预算重问只会再截一次，
+      // 白烧 69 s 后才报「已重问一次」这种含糊结论（首轮 reason 是 `empty-output`）。
+      const cutOff =
+        /^(max_tokens|length)$/i.test(finishReason ?? '') ||
+        /Unterminated|Unexpected end/i.test(parseReason);
+      if (cutOff) {
+        const hadContent = planText.trim().length > 0;
         throw new AppError(
-          '规划模型把输出预算全用于「思考」，未产出任何计划内容' +
-            `（finish_reason=${finishReason}，上限 ${plannerMaxTokens}）。` +
-            '请把「模型管理 → 任务分工 → 规划」改为**非思考**模型，或调大该模型的输出上限。',
+          (hadContent
+            ? `规划模型输出被截断（${finishReason ? `finish_reason=${finishReason}` : parseReason}，上限 ${plannerMaxTokens}）`
+            : '规划模型把输出预算全用于「思考」，未产出任何计划内容') +
+            '。请把「模型管理 → 任务分工 → 规划」改为**非思考**模型，或调大该模型的输出上限。',
           ErrorCategory.VALIDATION,
           ErrorSeverity.HIGH,
-          'PLAN_OUTPUT_BUDGET_EXHAUSTED',
+          hadContent ? 'PLAN_OUTPUT_TRUNCATED' : 'PLAN_OUTPUT_BUDGET_EXHAUSTED',
           {
             taskId: deps.taskId,
             finishReason,
             maxTokens: plannerMaxTokens,
+            outputLength: planText.length,
+            parseReason,
           }
         );
       }
@@ -285,7 +296,14 @@ ${replanSection}
         ErrorCategory.VALIDATION,
         ErrorSeverity.HIGH,
         'PLAN_PARSE_FAILED',
-        { taskId: deps.taskId, outputPreview: planText.slice(0, 200) }
+        {
+          taskId: deps.taskId,
+          outputPreview: planText.slice(0, 200),
+          // 2026-11-08：把解析原因与预算带出 —— 否则只能看到「无法解析」，无从判断
+          // 是格式错、被截断还是别的（真机 `pdca_mw7q8q3l` 排查时缺这两项）。
+          parseReason: parseReason || 'unknown',
+          maxTokens: plannerMaxTokens,
+        }
       );
     }
 

@@ -162,4 +162,34 @@ describe('T10：长程任务执行器的日预算收口（G-2/D）', () => {
     expect(thrown).toBeInstanceOf(AppError);
     expect((thrown as AppError).code).toBe('PLAN_PARSE_FAILED');
   });
+
+  // 2026-11-08（真机 `pdca_mw7q8q3l`）：首轮 `empty-output`、重问 reason
+  // `json-parse-error: ... Unterminated string` —— 输出被 max_tokens 截断，
+  // 同一预算重问只会再截一次（白烧 69s）。现在截断即快速失败，**不重问**。
+  it('输出被截断（JSON 未闭合）⇒ PLAN_OUTPUT_TRUNCATED 且不重问', async () => {
+    let calls = 0;
+    const orchestrator = new LongRunningTaskOrchestrator(
+      `t10-trunc-${Date.now()}`,
+      async () => {
+        calls += 1;
+        return {
+          content: '{"steps":["a"],"acceptanceCriteria":["x"],"dependsOn":[[',
+          finishReason: 'max_tokens',
+        };
+      }
+    ) as unknown as OrchestratorWithPrivates;
+
+    let thrown: unknown;
+    try {
+      await orchestrator.executePlanPhase('T10 截断', SESSION_ID);
+    } catch (e) {
+      thrown = e;
+    }
+
+    expect(thrown).toBeInstanceOf(AppError);
+    expect((thrown as AppError).code).toBe('PLAN_OUTPUT_TRUNCATED');
+    expect((thrown as AppError).context?.outputLength).toBeGreaterThan(0);
+    // 截断不可重试：重问只会再被同一预算截一次
+    expect(calls).toBe(1);
+  });
 });

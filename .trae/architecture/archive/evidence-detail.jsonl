@@ -4772,7 +4772,7 @@
 {"id":"TOOLVIS-P4B-TOOLPROFILE","k":"code#2","i":0,"c":"app/src/runtime/api/CoreAPI.ts"}
 {"id":"TOOLVIS-P4B-TOOLPROFILE","k":"code#3","i":0,"c":"app/src/runtime/api/CoreAPIImpl.ts"}
 {"id":"TOOLVIS-P4B-TOOLPROFILE","k":"code#4","i":0,"c":"app/src/runtime/api/sessionAgentOps.ts"}
-{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"code#5","i":0,"c":"app/src/runtime/api/sessionTitling.ts"}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"code#5","i":0,"c":"packages/service/src/runtime/api/sessionTitling.ts"}
 {"id":"TOOLVIS-P4B-TOOLPROFILE","k":"code#6","i":0,"c":"app/src/infrastructure/http/handlers/session-handlers.ts"}
 {"id":"TOOLVIS-P4B-TOOLPROFILE","k":"code#7","i":0,"c":"app/src/session/models/SessionMetadata.ts"}
 {"id":"TOOLVIS-P4B-TOOLPROFILE","k":"code#8","i":0,"c":"app/src/session/types/UnifiedSession.ts"}
@@ -6406,7 +6406,7 @@
 {"id":"PLUGIN-CONFIG-API","k":"reopenWhen","i":0,"c":"UI 接表单时直接调 GET/PUT config；若需按租户隔离插件配置，需改 PluginConfigManager 的存储分片"}
 {"id":"PLUGIN-CONFIG-API","k":"code#0","i":0,"c":"app/src/plugins/utils/pluginConfigValues.ts"}
 {"id":"PLUGIN-CONFIG-API","k":"code#1","i":0,"c":"app/src/plugins/index.ts"}
-{"id":"PLUGIN-CONFIG-API","k":"code#2","i":0,"c":"app/src/runtime/api/pluginAdminPorts.ts"}
+{"id":"PLUGIN-CONFIG-API","k":"code#2","i":0,"c":"packages/service/src/runtime/api/pluginAdminPorts.ts"}
 {"id":"PLUGIN-CONFIG-API","k":"code#3","i":0,"c":"app/src/runtime/api/domainSnapshotOps.ts"}
 {"id":"PLUGIN-CONFIG-API","k":"code#4","i":0,"c":"app/src/infrastructure/http/handlers/plugin-marketplace-handlers.ts"}
 {"id":"PLUGIN-CONFIG-API","k":"code#5","i":0,"c":"app/src/infrastructure/http/handlers/route-table.ts"}
@@ -6611,7 +6611,7 @@
 {"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"code#0","i":0,"c":"packages/infra/src/permission/types/PermissionRule.ts"}
 {"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"code#1","i":0,"c":"packages/infra/src/permission/RuleManager.ts"}
 {"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"code#2","i":0,"c":"packages/infra/src/permission/PermissionManager.ts"}
-{"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"code#3","i":0,"c":"app/src/runtime/inboxApproval.ts"}
+{"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"code#3","i":0,"c":"packages/service/src/runtime/inboxApproval.ts"}
 {"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"tests#0","i":0,"c":"app/tests/permission/ruleSourceAndRemovalHint.test.ts"}
 {"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"tests#1","i":0,"c":"app/tests/permission/PermissionDenyLocatable.test.ts"}
 {"id":"LONG-TASK-ROUTING-FORCE-DECOMPOSE","k":"notes","i":3,"c":"【矩阵复核，2026-10-26】路由矩阵已按当前代码逐行复核并落到正式文档 `.trae/specs/long-task-routing.md` §9（唯一事实源）：原 10 行中 7 行证据引用（路径/行号）过期、3 行条件表述不完整（第 6 行兼有），均订正；补充 3 类真实入口（Inbox 审批续跑 / 远程 `/goal` 执行 / `PDCA_AUTO_REPLAN` 自动 replan）。"}
@@ -6642,7 +6642,7 @@
 {"id":"INBOX-SCHEMA-MIGRATION-ORDER","k":"source","i":0,"c":"会话 session_mvoqs1ho875ea6b95e / app.log / app.db PRAGMA"}
 {"id":"INBOX-SCHEMA-MIGRATION-ORDER","k":"reopenWhen","i":0,"c":"任一环境日志再现 Inbox unavailable"}
 {"id":"INBOX-SCHEMA-MIGRATION-ORDER","k":"notes","i":0,"c":"建表与索引拆段；初始化失败不缓存连接；旧库夹具回归"}
-{"id":"INBOX-SCHEMA-MIGRATION-ORDER","k":"code#0","i":0,"c":"app/src/runtime/InboxManager.ts"}
+{"id":"INBOX-SCHEMA-MIGRATION-ORDER","k":"code#0","i":0,"c":"packages/service/src/runtime/InboxManager.ts"}
 {"id":"INBOX-SCHEMA-MIGRATION-ORDER","k":"tests#0","i":0,"c":"app/tests/runtime/inboxLegacySchemaMigration.test.ts"}
 {"id":"SESSION-CWD-REQUIRE-PATH","k":"title","i":0,"c":"LRO-06 的 cwd 修复运行期从未生效"}
 {"id":"SESSION-CWD-REQUIRE-PATH","k":"source","i":0,"c":"app.log「解析项目 sandboxPath 失败」"}
@@ -6937,7 +6937,7 @@
 {"id":"SHARED-TASK-STORE","k":"code#1","i":0,"c":"app/src/runtime/api/domainSnapshotOps.ts"}
 {"id":"SHARED-TASK-STORE","k":"code#2","i":0,"c":"app/src/chat/manager/pdcaLaunch.ts"}
 {"id":"SHARED-TASK-STORE","k":"code#3","i":0,"c":"app/src/tasks/db/SqliteTaskStore.ts"}
-{"id":"SHARED-TASK-STORE","k":"code#4","i":0,"c":"app/src/runtime/api/taskOpsPorts.ts"}
+{"id":"SHARED-TASK-STORE","k":"code#4","i":0,"c":"packages/service/src/runtime/api/taskOpsPorts.ts"}
 {"id":"SHARED-TASK-STORE","k":"tests#0","i":0,"c":"app/tests/tasks/sharedSqliteTaskStore.test.ts"}
 {"id":"PRECOMMIT-GENERATED-GATES","k":"title","i":0,"c":"pre-commit 前置 4 项生成物 / 边界 / 体量门禁（startup-graph / kernel / architecture-boundaries / tool-params）"}
 {"id":"PRECOMMIT-GENERATED-GATES","k":"source","i":0,"c":"app/scripts/setup-git-hooks.ts；2026-10-31 全量门禁审计"}
@@ -7057,7 +7057,7 @@
 {"id":"PDCA-CONFIRM-NO-FAKE-SUCCESS","k":"notes","i":0,"c":"根因：可选方法 + 可选链把「能力缺失」折叠成「成功」。现按真实能力分档：404 not_found / 501 not_implemented（并 warn pdca:confirm_unavailable）/ 200 ok。客户端无该端点消费者（grep 0 命中）⇒ 零 UI 影响；契约测试用真实 CoreAPI + 真编排器实例（无 confirm "}
 {"id":"PDCA-CONFIRM-NO-FAKE-SUCCESS","k":"notes","i":1,"c":"⇒ 501；注入 confirm ⇒ 200 且被调用 1 次）。"}
 {"id":"PDCA-CONFIRM-NO-FAKE-SUCCESS","k":"code#0","i":0,"c":"app/src/infrastructure/http/handlers/pdca-handlers.ts"}
-{"id":"PDCA-CONFIRM-NO-FAKE-SUCCESS","k":"code#1","i":0,"c":"app/src/runtime/api/taskOpsPorts.ts"}
+{"id":"PDCA-CONFIRM-NO-FAKE-SUCCESS","k":"code#1","i":0,"c":"packages/service/src/runtime/api/taskOpsPorts.ts"}
 {"id":"PDCA-CONFIRM-NO-FAKE-SUCCESS","k":"tests#0","i":0,"c":"app/tests/http/pdca-confirm.contract.test.ts"}
 {"id":"INBOX-PARALLEL-SUBMIT","k":"title","i":0,"c":"Inbox 并发提交串行化：并行工具调用的第二张审批卡不再静默丢失"}
 {"id":"INBOX-PARALLEL-SUBMIT","k":"source","i":0,"c":"真机 app.log（2026-10-31 11:31:36 / 11:46:44 / 12:05:16）：runtime:inbox [submit] cannot start a transaction within a transaction，紧邻 chat:toolExecution「工作区越界审批卡提交失败（按未申请处理）」，且同一毫秒另一张卡「"}
@@ -7065,7 +7065,7 @@
 {"id":"INBOX-PARALLEL-SUBMIT","k":"reopenWhen","i":0,"c":"再出现 cannot start a transaction within a transaction，或并行工具调用的审批卡数量少于越界/审批请求数"}
 {"id":"INBOX-PARALLEL-SUBMIT","k":"notes","i":0,"c":"根因：submit() 在同一条 inbox 连接上无条件 BEGIN IMMEDIATE；reactToolLoop:parallel_batch_execute 并行提交两张卡 ⇒ 第二个 BEGIN 失败/被回滚 ⇒ 卡丢失（用户看不到卡、无从批准）。修复：实例内提交队列串行（一次失败不阻断后续）。回归阴性对照：去掉队列后 6 并发仅 1 行长存（5 "}
 {"id":"INBOX-PARALLEL-SUBMIT","k":"notes","i":1,"c":"张静默丢失，调用方仍拿到成功对象）；加队列后 6 张全落库。"}
-{"id":"INBOX-PARALLEL-SUBMIT","k":"code#0","i":0,"c":"app/src/runtime/InboxManager.ts"}
+{"id":"INBOX-PARALLEL-SUBMIT","k":"code#0","i":0,"c":"packages/service/src/runtime/InboxManager.ts"}
 {"id":"INBOX-PARALLEL-SUBMIT","k":"tests#0","i":0,"c":"app/tests/runtime/inboxParallelSubmit.test.ts"}
 {"id":"MEM-RELATION-GRAPH-ATOMIC","k":"title","i":0,"c":"记忆关系图保存同源修复 + 抽出共享原子写原语 writeFileAtomic（唯一临时名 + rename 重试）"}
 {"id":"MEM-RELATION-GRAPH-ATOMIC","k":"source","i":0,"c":"真机 app.log（2026-10-31）：memory:manager [save_relation_graph] ENOENT rename memory-relation-graph.json.tmp（与 save_index 同源：固定 .tmp + 并发保存）"}
@@ -8300,7 +8300,7 @@
 {"id":"SERVICE-PACKAGE-P35-BRIDGE-CLOSURE","k":"code#4","i":0,"c":"packages/service/src/bridge/channel/BridgeChannelReporter.ts"}
 {"id":"SERVICE-PACKAGE-P35-BRIDGE-CLOSURE","k":"code#5","i":0,"c":"packages/service/tsconfig.json"}
 {"id":"SERVICE-PACKAGE-P35-BRIDGE-CLOSURE","k":"code#6","i":0,"c":"packages/service/package.json"}
-{"id":"SERVICE-PACKAGE-P35-BRIDGE-CLOSURE","k":"code#7","i":0,"c":"app/src/runtime/api/bridgePorts.ts"}
+{"id":"SERVICE-PACKAGE-P35-BRIDGE-CLOSURE","k":"code#7","i":0,"c":"packages/service/src/runtime/api/bridgePorts.ts"}
 {"id":"SERVICE-PACKAGE-P35-BRIDGE-CLOSURE","k":"code#8","i":0,"c":"app/src/bootstrap/preflight.ts"}
 {"id":"SERVICE-PACKAGE-P35-BRIDGE-CLOSURE","k":"tests#0","i":0,"c":"app/tests/bridge/acpRemoteExposure.test.ts"}
 {"id":"SERVICE-PACKAGE-P35-BRIDGE-CLOSURE","k":"tests#1","i":0,"c":"app/tests/channels/MessageRouter.test.ts"}

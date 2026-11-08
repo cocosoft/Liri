@@ -1112,10 +1112,6 @@ export class DomainSnapshotOps {
         (await orchestrator()).getPlan(planId) ?? null,
       getPlanProgress: async (planId: string) =>
         (await orchestrator()).getPlanProgress(planId),
-      markStepRunning: async (stepId: string) =>
-        (await orchestrator()).markStepRunning(stepId),
-      markStepFailed: async (stepId: string, reason?: string | undefined) =>
-        (await orchestrator()).markStepFailed(stepId, reason),
       abortPlan: async (planId: string) =>
         (await orchestrator()).abortPlan(planId),
 

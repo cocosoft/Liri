@@ -384,10 +384,6 @@ export interface TaskOpsPort {
   getPlan(planId: string): Promise<PlanDto | null>;
   /** 原 `taskOrchestrator.getPlanProgress(planId)`（调用方仅 `JSON.stringify`） */
   getPlanProgress(planId: string): Promise<unknown>;
-  /** 原 `taskOrchestrator.markStepRunning(stepId)`（返回值原调用点未使用） */
-  markStepRunning(stepId: string): Promise<void>;
-  /** 原 `taskOrchestrator.markStepFailed(stepId, reason)`（返回值原调用点未使用） */
-  markStepFailed(stepId: string, reason?: string | undefined): Promise<void>;
   /**
    * 中止整份计划（2026-11-08）：活跃步骤落 `cancelled`、计划落 `aborted`
    * （用户主动终止 ≠ failed）。`false` = 计划不存在。

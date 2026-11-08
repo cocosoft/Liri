@@ -44,6 +44,12 @@ WORKDIR /app
 
 # 复制依赖清单（利用 Docker 层缓存）
 COPY app/package.json app/bun.lock* ./
+# 2026-11-08（Deploy Docker 真机失败）：`app/package.json` 的 `patchedDependencies`
+# 指向 `patches/dingtalk-stream@2.1.5.patch`；补丁文件不在依赖层里 ⇒
+# `bun install --frozen-lockfile` 直接失败：
+#   error: Couldn't find patch file: 'patches/dingtalk-stream@2.1.5.patch'
+# 补丁属依赖树的一部分，必须与清单同层复制（否则 install 层缓存也跟着错）。
+COPY app/patches ./patches
 # 2026-08-17 修复：原 `bun install --frozen-lockfile ... || bun install` 静默降级会掩盖
 # install 失败（依赖树不完整 → bun build 报模块缺失）。frozen-lockfile 失败必须显式报错暴露根因。
 RUN bun install --frozen-lockfile --no-progress

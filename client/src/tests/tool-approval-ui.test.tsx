@@ -21,6 +21,16 @@ import InboxBlock from "../components/ChatArea/InboxBlock";
 import ToolCallGroup from "../components/ChatArea/ToolCallGroup";
 import ToolExecutionGroup from "../components/ChatArea/ToolExecutionGroup";
 import type { InboxBlockData, MessageBlock, ToolCall } from "../types";
+import i18n from "../i18n";
+
+/**
+ * 「批准（本次）」按钮的**实际渲染文案**。
+ *
+ * P0（2026-11-07，《权限与沙箱拉通方案》§2.2）：审批档位收敛为三档 + 拒绝，
+ * `approve` 的文案由「批准」改为「仅这次执行」（i18n `chat.inboxReplyApprove`），
+ * 以便用户看清作用域。测试直接取 i18n 值 ⇒ 文案调整后不会静默失配。
+ */
+const APPROVE_LABEL = String(i18n.t("chat.inboxReplyApprove"));
 
 describe("ToolCallGroup 等待审批态（P2-2）", () => {
   it("pendingApproval=true → 渲染「⏳ 等待审批」徽标", () => {
@@ -105,7 +115,7 @@ describe("ToolCallGroup 就地审批（U-06-5）", () => {
     };
     render(<ToolCallGroup toolCall={toolCall} variant="card" />);
 
-    fireEvent.click(screen.getByText("批准"));
+    fireEvent.click(screen.getByText(APPROVE_LABEL));
     await waitFor(() =>
       expect(postSpy).toHaveBeenCalledWith("/v1/inbox/ib-9/reply", {
         reply: "approve",
@@ -123,7 +133,7 @@ describe("ToolCallGroup 就地审批（U-06-5）", () => {
     };
     render(<ToolCallGroup toolCall={toolCall} variant="card" />);
     expect(screen.getByText(/等待审批/)).toBeTruthy();
-    expect(screen.queryByText("批准")).toBeNull();
+    expect(screen.queryByText(APPROVE_LABEL)).toBeNull();
   });
 });
 
@@ -174,7 +184,7 @@ describe("InboxBlock 批准续跑（P0-5 → M2-T2.1）", () => {
       ],
     };
     render(<InboxBlock data={data} sessionId="session-1" />);
-    fireEvent.click(screen.getByText("批准"));
+    fireEvent.click(screen.getByText(APPROVE_LABEL));
     await waitFor(() => expect(postSpy).toHaveBeenCalled());
 
     expect(postSpy).toHaveBeenCalledWith("/v1/inbox/ib-1/reply", {
@@ -310,7 +320,7 @@ describe("InboxBlock 全部批准（P1-1）", () => {
     const { rerender } = render(
       <InboxBlock data={base} sessionId="session-1" />,
     );
-    expect(screen.getByText("批准")).toBeInTheDocument();
+    expect(screen.getByText(APPROVE_LABEL)).toBeInTheDocument();
 
     rerender(
       <InboxBlock
@@ -318,7 +328,7 @@ describe("InboxBlock 全部批准（P1-1）", () => {
         sessionId="session-1"
       />,
     );
-    await waitFor(() => expect(screen.queryByText("批准")).toBeNull());
+    await waitFor(() => expect(screen.queryByText(APPROVE_LABEL)).toBeNull());
     expect(screen.getByText(/已处理/)).toBeInTheDocument();
   });
 });

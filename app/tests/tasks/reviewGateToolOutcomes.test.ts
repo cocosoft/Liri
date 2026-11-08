@@ -169,3 +169,25 @@ describe('PR-5：审查门读 toolOutcomes', () => {
     ).toBe(false);
   });
 });
+
+/**
+ * 2026-11-08（真机 `pdca_mw70c49j`）：审查**口径**回归锁。
+ *
+ * 审批恢复 + 审查重试会让同一条命令被执行多次（证据里多条 `[call]`）。此前审查员把它
+ * 当"违反单次执行/过程缺陷"记 major ⇒ 阻塞 ⇒ 再重试 ⇒ 调用更多、更判不过（真机连判 3 次）。
+ */
+describe('2026-11-08：审查口径（重复调用属系统机制）', () => {
+  it('系统提示词写明三条硬约束', async () => {
+    let captured = '';
+    const executor = (async (req: { systemPrompt?: string }) => {
+      captured = req.systemPrompt ?? '';
+      return {
+        content: '{"pass":true,"score":90,"issues":[],"summary":"ok"}',
+      };
+    }) as never;
+    await makeGate().reviewStep(ctxFor(stepWith(), executor));
+    expect(captured).toContain('跨审批恢复与自动重试');
+    expect(captured).toContain('最后一次成功执行的结果');
+    expect(captured).toContain('不得自行发明新的验收条件');
+  });
+});

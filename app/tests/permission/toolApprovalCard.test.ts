@@ -11,6 +11,7 @@
 
 import { describe, it, expect } from 'bun:test';
 import {
+  buildApprovalOptions,
   buildToolApprovalCard,
   hashCommandForExecution,
 } from '@openliri/infra/permission';
@@ -107,5 +108,50 @@ describe('P1：审批卡唯一构造点', () => {
     expect(card.metadata['approvalScope']).toBeDefined();
     expect(card.metadata['approvalSnapshot']).toBeDefined();
     expect(card.message.startsWith('风险拦截\n')).toBe(true);
+  });
+});
+
+/**
+ * 2026-11-08（第三十八轮，真机 `pdca_mw7l43fu`）：LRO 步骤审批卡曾自写
+ * `['approve','approve_session','deny']` —— P0 收敛后该路径没跟上。现两处共用
+ * `buildApprovalOptions`（唯一真源），下面锁死四类判定。
+ */
+describe('P0：审批卡选项唯一真源 buildApprovalOptions', () => {
+  it('命令类 + 有命令文本 ⇒ 三档 + 拒绝', () => {
+    expect(
+      buildApprovalOptions({
+        toolName: 'bash',
+        command: 'node -e "console.log(1)"',
+        risk: RiskClass.SHELL,
+      })
+    ).toEqual(['approve', 'allowlist_command', 'allowlist_tool', 'deny']);
+  });
+
+  it('命令类但命令为空 ⇒ 退化为指纹档（避免空 contentPattern 变成整工具放行）', () => {
+    expect(
+      buildApprovalOptions({
+        toolName: 'bash',
+        command: '   ',
+        risk: RiskClass.SHELL,
+      })
+    ).toEqual(['approve', 'allowlist_call', 'deny']);
+  });
+
+  it('EXTERNAL ⇒ 仅本次 / 拒绝（外部副作用不给永久放行）', () => {
+    expect(
+      buildApprovalOptions({
+        toolName: 'send_email',
+        risk: RiskClass.EXTERNAL,
+      })
+    ).toEqual(['approve', 'deny']);
+  });
+
+  it('非命令类工具 ⇒ 指纹档', () => {
+    expect(
+      buildApprovalOptions({
+        toolName: 'file_write',
+        risk: RiskClass.WRITE_LOCAL,
+      })
+    ).toEqual(['approve', 'allowlist_call', 'deny']);
   });
 });

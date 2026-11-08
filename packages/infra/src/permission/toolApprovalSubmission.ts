@@ -82,6 +82,31 @@ export interface ToolApprovalCard {
 const INPUT_PREVIEW_MAX_CHARS = 300;
 
 /**
+ * 审批卡**选项集**的唯一真源（P0 三档 + 拒绝）。
+ *
+ * 2026-11-08（第三十八轮，真机 `pdca_mw7l43fu`）：LRO 步骤审批卡此前自己写死
+ * `['approve','approve_session','deny']` —— P0 收敛后这条路径没跟上（用户看不到
+ * 命令级/工具级，只能选已被移除的"本会话都允许"）。抽成本函数供两处共用：
+ * - 有命令文本 ⇒ 仅这次 / 命令级 / 工具级 / 拒绝；
+ * - `EXTERNAL` ⇒ 仅本次 / 拒绝（外部副作用不提供永久放行）；
+ * - 其余 ⇒ 仅这次 / 同工具+同参数指纹 / 拒绝（非命令类没有"命令"这一层）。
+ */
+export function buildApprovalOptions(params: {
+  toolName: string;
+  command?: string;
+  risk: RiskClass;
+}): string[] {
+  const { toolName, risk } = params;
+  const command = params.command ?? '';
+  const isCommandTool = isCommandToolName(toolName) && command.trim().length > 0;
+  return isCommandTool
+    ? ['approve', 'allowlist_command', 'allowlist_tool', 'deny']
+    : risk === RiskClass.EXTERNAL
+      ? ['approve', 'deny']
+      : ['approve', 'allowlist_call', 'deny'];
+}
+
+/**
  * 构造一张工具审批卡。
  *
  * **纯函数**（除 `newApprovalId()` 的序号自增外无副作用）：审计 ①「申请」段由调用方在
@@ -112,18 +137,9 @@ export function buildToolApprovalCard(
   const fingerprintHash = hashApprovalFingerprint(approvalFingerprint);
 
   // P0（2026-11-07，权限与沙箱拉通方案 §2.2）：审批卡**收敛为三档 + 拒绝**——
-  // 「仅这次执行」/「以后这个命令免审批」（命令级）/「以后整个工具免审批」（工具级）。
-  // 之前的「本会话都允许 / 本任务都允许」不再下发：它们只是放行缓存的不同 TTL，
-  // 与三档并存时用户无法判断"这一下点的到底是哪一层"（真机反馈：分不清命令还是工具）。
-  // 后端仍能解析这两个 reply 值（存量在途卡片），只是不再作为新卡片的选项。
-  // 非命令类工具没有"命令"这一层：`allowlist_call` 是"同工具 + 同参数指纹"，
-  // 等价于这一层，故只在非命令类工具上出现（不同时给两个 allowlist 档）。
-  const options = isCommandTool
-    ? ['approve', 'allowlist_command', 'allowlist_tool', 'deny']
-    : risk === RiskClass.EXTERNAL
-      ? // 外部副作用不提供任何永久放行（安全单调）：只能本次批准或拒绝
-        ['approve', 'deny']
-      : ['approve', 'allowlist_call', 'deny'];
+  // 具体档位由 `buildApprovalOptions`（唯一真源）决定；后端仍能解析
+  // `approve_session` / `approve_task`（存量在途卡片），只是不再作为新卡片选项。
+  const options = buildApprovalOptions({ toolName, command, risk });
 
   const approvalId = newApprovalId();
 

@@ -19,6 +19,11 @@ import { getLogger } from '@openliri/infra/monitoring';
 // #28（2026-10-30）：任务回写内容只取可读字段（工具结果契约类型，避免裸字面量）
 import type { ToolResult } from '@openliri/infra/utils/toolContract';
 import { isCommandToolName } from '@openliri/infra/utils/toolContract/toolRoles';
+// 2026-11-08（第三十八轮）：审批卡选项集的**唯一真源**（P0 三档），LRO 步骤卡不再自写一份
+import {
+  buildApprovalOptions,
+  resolveRiskClass,
+} from '@openliri/infra/permission';
 import type { AgentIsolation } from '@modules/agent';
 import {
   AppError,
@@ -1027,6 +1032,14 @@ async function submitStepApprovalCards(args: {
       const input = call?.arguments ?? {};
       const fingerprint = resolveApprovalFingerprint(outcome.toolName, input);
       const command = typeof input.command === 'string' ? input.command : '';
+      // 风险等级与选项集走 `@openliri/infra/permission` 的唯一实现（P0 三档 + EXTERNAL 收窄），
+      // 避免 LRO 步骤卡与聊天侧审批卡再次漂移（真机 `pdca_mw7l43fu`：此前只有 approve_session）。
+      const risk = resolveRiskClass(outcome.toolName, input);
+      const options = buildApprovalOptions({
+        toolName: outcome.toolName,
+        command,
+        risk,
+      });
       // 2026-11-08（真机 `pdca_mw6mbd7w`）：**命令类工具的放行键是命令文本本身**
       // （`BashTool`/`PowerShellTool` 都按 `hashCommandForExecution(command)` 查缓存）。
       // 此前一律对 `fingerprint`（`bash:{"command":…}`）取 hash ⇒ 与执行端永不相等，
@@ -1069,11 +1082,13 @@ async function submitStepApprovalCards(args: {
             ? `命令: ${command}`
             : `参数: ${JSON.stringify(input).slice(0, 300)}`
         }`,
-        options: ['approve', 'approve_session', 'deny'],
+        options,
         offlineCapable: true,
         source: 'permission',
         metadata: {
           toolName: outcome.toolName,
+          // 与聊天侧审批卡同口径（UI/审计可据此展示风险等级）
+          risk,
           taskId: args.taskId,
           stepId: args.stepId,
           commandHash,

@@ -124,7 +124,10 @@ export type {
 } from './utils/ShadowedRuleDetector';
 
 // P1（2026-11-04）：审批卡的**唯一构造点**（判定前 / 执行后两条路径共用）
-export { buildToolApprovalCard } from './toolApprovalSubmission';
+export {
+  buildApprovalOptions,
+  buildToolApprovalCard,
+} from './toolApprovalSubmission';
 export type {
   ToolApprovalCard,
   ToolApprovalCardInput,

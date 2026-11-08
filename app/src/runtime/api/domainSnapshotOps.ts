@@ -1112,13 +1112,12 @@ export class DomainSnapshotOps {
         (await orchestrator()).getPlan(planId) ?? null,
       getPlanProgress: async (planId: string) =>
         (await orchestrator()).getPlanProgress(planId),
-      markStepRunning: async (stepId: string) => {
-        (await orchestrator()).markStepRunning(stepId);
-      },
-      markStepFailed: async (stepId: string, reason?: string | undefined) => {
-        (await orchestrator()).markStepFailed(stepId, reason);
-      },
-      abortPlan: async (planId: string) => (await orchestrator()).abortPlan(planId),
+      markStepRunning: async (stepId: string) =>
+        (await orchestrator()).markStepRunning(stepId),
+      markStepFailed: async (stepId: string, reason?: string | undefined) =>
+        (await orchestrator()).markStepFailed(stepId, reason),
+      abortPlan: async (planId: string) =>
+        (await orchestrator()).abortPlan(planId),
 
       // ---- 任务流注册表（P3：单例取用内聚）----
       listTaskFlows: async () => (await flowRegistry()).getAllFlows(),

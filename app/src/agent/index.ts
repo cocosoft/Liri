@@ -242,6 +242,7 @@ export { agentTelemetry } from './AgentTelemetry.js';
 export type { AgentIsolation } from './AgentIsolation.js';
 export {
   createAgentIsolation,
+  resolveTaskWorkspace,
   throwIfAborted,
   registerIsolationToScope,
 } from './AgentIsolation.js';

@@ -36,6 +36,8 @@ import {
 } from './blockedCommandLedger.js';
 // 2026-11-08（真机 `pdca_mw7bjwo8`）：续跑失败的收口（失败检查点 + ⚠️ 回执）
 import { markResumeFailure } from './checkpointPersist.js';
+// 方案 C（2026-11-09）：replan 前拍产物清单 + 发"将重跑 N 步"回执（不改执行语义）
+import { prepareReplan } from './replanGuard.js';
 
 const logger = getLogger('tasks:longRunning');
 
@@ -209,6 +211,14 @@ async function resumeFromCheckpointCore(
       taskId: deps.taskId,
       replanFailCount,
       defectCount: deps.getLastEscalations().length,
+    });
+    // 方案 C（2026-11-09，真机 `pdca_mw81e4z5`）：replan 会**重建整份计划**（全部 pending）
+    // ⇒ 已完成步骤被重跑、产物被重写。此前对用户完全静默 ⇒ 这里补「成本可见 + 现场可回溯」：
+    // 产物清单快照 + 一条回执（不改变执行语义）。
+    prepareReplan({
+      taskId: deps.taskId,
+      sessionId,
+      previousSteps: steps as Array<{ status?: string; description?: string }>,
     });
     await deps.executePlanPhase(descriptionText, sessionId);
     deps.setLastEscalations([]);

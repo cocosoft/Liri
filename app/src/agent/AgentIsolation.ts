@@ -24,11 +24,21 @@ export interface AgentIsolation {
 const WORKSPACES_ROOT = join(resolvePyappHome(), 'workspaces');
 
 /**
+ * 任务工作区路径（**唯一事实源**）。
+ *
+ * 2026-11-09：`replan` 前要对产物做快照，需要与隔离创建**同一套**路径规则；
+ * 抽成导出函数避免两处各写一遍（CS01）。
+ */
+export function resolveTaskWorkspace(agentId: string): string {
+  return join(WORKSPACES_ROOT, agentId);
+}
+
+/**
  * 为指定 Agent 创建隔离环境
  */
 export function createAgentIsolation(agentId: string): AgentIsolation {
   const abortController = new AbortController();
-  const workspace = join(WORKSPACES_ROOT, agentId);
+  const workspace = resolveTaskWorkspace(agentId);
 
   // 创建工作目录
   if (!existsSync(workspace)) {

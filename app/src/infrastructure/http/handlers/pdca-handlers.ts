@@ -226,10 +226,11 @@ export async function scanAndAbortStalePdcaTasks(): Promise<{
     logger.info('启动扫描：发现可续跑任务（等待审批，未 abort）', {
       count: resumable.length,
       tasks: resumable.slice(0, 20),
-      // 2026-11-08（真机核查）：原注释写的 `POST /v1/pdca/checkpoint/resume` **没有接线**
-      // （`handlePdcaResumeCheckpoint` 导出但无路由），照抄会让运维去点一个 404。实际入口：
-      // CLI `/goal`（审批/续跑）；HTTP 侧仅审批卡（inbox reply）会触发挂起步骤续跑。
-      resumeEntry: '/goal 审批（CLI）；HTTP 侧经收件箱审批卡续跑',
+      // 2026-11-08：原注释写的 `POST /v1/pdca/checkpoint/resume` 并不存在（`handlePdcaResumeCheckpoint`
+      // 导出但无路由）。实际入口：CLI `/goal`；HTTP 走 `POST /v1/pdca/:taskId/resume`
+      // （本轮新增）或收件箱审批卡（仅挂起步骤）。
+      resumeEntry:
+        '/goal（CLI）或 POST /v1/pdca/:taskId/resume；挂起步骤亦可经审批卡续跑',
     });
   }
   return { aborted, abortedCheckpoints, resumable };

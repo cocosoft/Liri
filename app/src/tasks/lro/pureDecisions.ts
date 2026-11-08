@@ -71,3 +71,36 @@ export function shouldAutoApprovePlan(
 ): boolean {
   return requireApproval && isUnattended;
 }
+
+/**
+ * PDCA 终态裁决（2026-11-09，真机 `pdca_mw81e4z5`）。
+ *
+ * 背景：`allDone` 的判据是"步骤全部终态"，而 `failed` 也是终态 ⇒ 此前「1 步 failed +
+ * 其余 approved」会落 `completed`（汇总显示 `completed:2 / failed:1` 却报成功）。
+ * 口径：`failed` **阻塞**成功；`cancelled`（用户 skip）不阻塞；escalate 走可续跑（不算成功）。
+ *
+ * 抽成纯函数以便直驱单测（终态分支在 `runFullPdca` 尾部，依赖模型计划生成）。
+ */
+export function decideTerminalOutcome(input: {
+  allDone: boolean;
+  hasEscalated: boolean;
+  failureReason: string | null;
+  /** 仅 `failed` 参与裁决（`cancelled` 视为用户主动跳过） */
+  failedSteps: ReadonlyArray<{ id: string; description?: string }>;
+}): { failureReason: string | null; succeeded: boolean } {
+  let failureReason = input.failureReason;
+  if (input.failedSteps.length > 0 && failureReason === null) {
+    const first = input.failedSteps[0];
+    failureReason =
+      `PDCA_STEP_FAILED: 步骤「${(first.description || first.id).slice(0, 80)}」未完成` +
+      (input.failedSteps.length > 1
+        ? `（共 ${input.failedSteps.length} 步失败）`
+        : '');
+  }
+  const succeeded =
+    input.allDone &&
+    !input.hasEscalated &&
+    failureReason === null &&
+    input.failedSteps.length === 0;
+  return { failureReason, succeeded };
+}

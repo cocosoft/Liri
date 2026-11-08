@@ -184,6 +184,7 @@ import {
   planTurnsExtensionDecision,
   shouldReRollMaxTurnsStep,
   shouldAutoApprovePlan,
+  decideTerminalOutcome,
 } from './lro/pureDecisions.js';
 // 纯函数判定原为公开导出 ⇒ re-export 保持公开面（spec §46）
 export {
@@ -1179,20 +1180,12 @@ export class LongRunningTaskOrchestrator {
   }
 
   /**
-   * P0(M2/M9)：统一 EXECUTE → REVIEW → DECIDE 循环。
-   * 从 runFullPdca 与 resumeAfterApproval 的后半段抽取（两处原为重复实现）。
-   * resumeFromCheckpoint 跨重启恢复后同样进入此循环继续执行。
-   */
-  /**
-   * 1-1e（2026-09-03）review/decision 时序语义（dependsOn 填充后生效）：
-   * - executeAllSteps 单轮内按 `_groupStepsByDependency` 拓扑批次顺序执行全部批次
-   *   （批次内依赖满足才并行、批次间串行 await）→ A→B→C 链在同一轮即全部完成
-   *   （依赖满足即推进）；并非"每轮只跑一个依赖层"。
-   * - Review+Decide 在每轮 executeAllSteps 之后批量进行：仅对 `completed && !decision`
-   *   步骤 autoDecideStep（幂等，approved/failed 不重审）。需多轮的场景 = review 判 retry
-   *   （清 decision + 置回 pending，下轮重跑）或 escalate 后 replan。
-   * - 收敛有界：每轮仅 retry 步骤重入 runnable，每步重试 ≤ maxRetries，受 maxIterations 兜底。
-   * - ⚠ 勿假设"每步执行完立即 Review"——决策以 executeAllSteps 轮尾批量进行、时机随批次漂移。
+   * P0(M2/M9)：统一 EXECUTE→REVIEW→DECIDE 循环（`runFullPdca` / `resumeAfterApproval` /
+   * `resumeFromCheckpoint` 三条入口共用，原为重复实现）。
+   * 1-1e：单轮内按依赖拓扑批次执行（批内并行、批间串行），轮尾**批量** review/decide；
+   * 仅 `completed && !decision` 的步骤参与（幂等）。需多轮 = review 判 retry（清 decision
+   * 并置回 pending）或 escalate 后 replan；收敛有界（每步 ≤ maxRetries，受 maxIterations 兜底）。
+   * ⚠ 勿假设"每步执行完立即 Review"（决策在轮尾，时机随批次漂移）。
    */
   private async _runExecuteDecideLoop(): Promise<PdcaStatus> {
     let allDone = false;
@@ -1458,11 +1451,18 @@ export class LongRunningTaskOrchestrator {
     }
 
     const finalPlan = this.requirePlan();
-    // escalate 只在"全部步骤终态 + 某步决策为 escalate"时成立（与旧语义一致）；
-    // 停滞/准入/超轮次/未收敛等中途失败一律走 failed 终态，不得借 escalate 保留可续跑状态。
+    // escalate 只在"全部步骤终态 + 某步决策为 escalate"时成立；中途失败一律 failed（不借 escalate 保留续跑）。
     const hasEscalated =
       allDone && finalPlan.steps.some((s) => s.decision === 'escalate');
-    const succeeded = allDone && !hasEscalated && failureReason === null;
+    // 2026-11-09（真机 `pdca_mw81e4z5`）：`failed` 也是"终态" ⇒ 失败步骤必须参与终态裁决（见纯函数）。
+    const outcome = decideTerminalOutcome({
+      allDone,
+      hasEscalated,
+      failureReason,
+      failedSteps: finalPlan.steps.filter((s) => s.status === 'failed'),
+    });
+    failureReason = outcome.failureReason;
+    const succeeded = outcome.succeeded;
     finalPlan.status = succeeded ? 'completed' : 'failed';
     finalPlan.completedAt = new Date().toISOString();
     taskOrchestrator['savePlan']?.(finalPlan);

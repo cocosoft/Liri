@@ -20,6 +20,7 @@ import {
   type ResumeDeps,
 } from '../../src/tasks/lro/resumeFromCheckpoint';
 import {
+  decideTerminalOutcome,
   isNonConvergedTermination,
   shouldAutoApprovePlan,
 } from '../../src/tasks/lro/pureDecisions';
@@ -79,6 +80,73 @@ function makeOrchestrator(
     executor
   ) as unknown as OrchestratorUnderTest;
 }
+
+describe('终态裁决：失败步骤必须阻塞成功（2026-11-09 真机 pdca_mw81e4z5）', () => {
+  const failed = [{ id: 'step_5', description: '判定矛盾条件并如实报告' }];
+
+  it('全部终态但有 1 步 failed ⇒ 不算成功，并给出可读原因', () => {
+    const r = decideTerminalOutcome({
+      allDone: true,
+      hasEscalated: false,
+      failureReason: null,
+      failedSteps: failed,
+    });
+    expect(r.succeeded).toBe(false);
+    expect(r.failureReason).toContain('PDCA_STEP_FAILED');
+    expect(r.failureReason).toContain('判定矛盾条件');
+  });
+
+  it('多步失败 ⇒ 原因里带失败步数', () => {
+    const r = decideTerminalOutcome({
+      allDone: true,
+      hasEscalated: false,
+      failureReason: null,
+      failedSteps: [...failed, { id: 'step_6' }],
+    });
+    expect(r.failureReason).toContain('共 2 步失败');
+  });
+
+  it('cancelled（用户 skip）不阻塞成功：调用方只传 failed', () => {
+    const r = decideTerminalOutcome({
+      allDone: true,
+      hasEscalated: false,
+      failureReason: null,
+      failedSteps: [],
+    });
+    expect(r.succeeded).toBe(true);
+    expect(r.failureReason).toBeNull();
+  });
+
+  it('已有更具体原因（如未收敛）⇒ 不被步骤失败覆盖；escalate 不算成功', () => {
+    const keep = decideTerminalOutcome({
+      allDone: true,
+      hasEscalated: false,
+      failureReason: 'PDCA_GOAL_NOT_CONVERGED: 目标偏差',
+      failedSteps: failed,
+    });
+    expect(keep.failureReason).toContain('PDCA_GOAL_NOT_CONVERGED');
+    expect(keep.succeeded).toBe(false);
+
+    const escalated = decideTerminalOutcome({
+      allDone: true,
+      hasEscalated: true,
+      failureReason: null,
+      failedSteps: [],
+    });
+    expect(escalated.succeeded).toBe(false);
+  });
+
+  it('未全部终态 ⇒ 不算成功', () => {
+    const r = decideTerminalOutcome({
+      allDone: false,
+      hasEscalated: false,
+      failureReason: null,
+      failedSteps: [],
+    });
+    expect(r.succeeded).toBe(false);
+    expect(r.failureReason).toBeNull();
+  });
+});
 
 describe('非收敛步骤不得记为完成（U-02）', () => {
   it('预算耗尽三类终止原因判为非收敛；completed/undefined 为收敛', () => {

@@ -35,6 +35,27 @@ describe('parseSuccessCriteria（自由文本 → 结构化）', () => {
     expect(parseSuccessCriteria('   ')).toBeUndefined();
     expect(parseSuccessCriteria('\n\n')).toBeUndefined();
   });
+
+  // 2026-11-09（真机 `pdca_mw8fvtn7`）：反引号内的换行曾是"切分点" ⇒ 拆出残句
+  // 「`step two``」⇒ 模型无法判定 ⇒ 骨架漏项 ⇒ passRate 0.5 ⇒ REJECT ⇒ 空转重试。
+  it('行内反引号里的换行不切分（真机形态）', () => {
+    const c = parseSuccessCriteria(
+      'file_read 读取 notes.md 返回内容等于 `# Plan\n- step two`'
+    );
+    expect(c?.items).toHaveLength(1);
+    expect(c?.items[0].desc).toContain('- step two');
+  });
+
+  it('三反引号代码块内的换行/分号不切分', () => {
+    const c = parseSuccessCriteria(
+      '输出如下：\n```\na; b\nc\n```\n并且退出码为 0'
+    );
+    expect(c?.items.map((i) => i.desc)).toEqual([
+      '输出如下：',
+      '```\na; b\nc\n```',
+      '并且退出码为 0',
+    ]);
+  });
 });
 
 describe('renderCriteriaSkeleton', () => {

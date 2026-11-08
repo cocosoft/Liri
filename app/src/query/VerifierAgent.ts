@@ -145,6 +145,17 @@ const DEFAULT_CONFIG: VerifierAgentConfig = {
 // ─── 验证提示词模板 ────────────────────────────────────
 
 /**
+ * 文本内容比较的**归一化口径**（2026-11-09，真机 `pdca_mw8g3uxp`）。
+ *
+ * 实测：同一份 `# PLAN_CONTENT`，首轮判 REJECT（"多一个尾部换行，字面值不相等"）、
+ * 重跑一轮后判 APPROVE（"仅多出末尾换行，不影响等价"）⇒ 同一事实两个相反结论 ⇒ 白烧一轮。
+ * 文件写入/读取普遍带尾部换行，验收要求"逐字等于两行"时不应因此判失败。
+ */
+const TEXT_COMPARE_NORMALIZATION =
+  '**文本比较口径**：比较文件内容时，文件**末尾单个换行符**的差异不算不符（写入/读取规范化的常规产物）；' +
+  '仅当验收标准**显式**要求"不得有尾部换行 / 逐字节相等"时才按严格比较（此类标准应报"无法判定"而非判失败）。';
+
+/**
  * 构建验证提示词
  * 指令核心：默认拒绝，需制造者证明修改正确性
  */
@@ -186,6 +197,7 @@ function buildVerificationPrompt(input: VerificationInput): string {
       '2. 依据上方审查准则逐项给出 checks（item=准则要点，passed=是否满足）',
       '3. 存在明显缺陷或与任务目标不符 → REJECT，feedback 给出具体理由',
       '4. 无法确定（置信度低）→ ESCALATE',
+      TEXT_COMPARE_NORMALIZATION,
       '',
       '## 待审对象',
       '',
@@ -230,6 +242,7 @@ function buildVerificationPrompt(input: VerificationInput): string {
     '   - 是否有遗漏的边界情况？',
     '3. 如果工具调用失败，应判定为 REJECT',
     '4. 如果无法确定（置信度低），应判定为 ESCALATE',
+    TEXT_COMPARE_NORMALIZATION,
     '',
     '## 本轮工具调用结果',
     '',

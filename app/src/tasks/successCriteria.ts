@@ -51,8 +51,7 @@ export function parseSuccessCriteria(
   raw?: string
 ): SuccessCriteria | undefined {
   if (!raw || !raw.trim()) return undefined;
-  const parts = raw
-    .split(/[\n；;]+/)
+  const parts = splitCriteriaOutsideCode(raw)
     .map((s) =>
       s
         .trim()
@@ -69,6 +68,42 @@ export function parseSuccessCriteria(
       check: 'llm' as const,
     })),
   };
+}
+
+/**
+ * 按「**代码片段之外**」的换行 / 中英文分号切分。
+ *
+ * 2026-11-09（真机 `pdca_mw8fvtn7`）：验收标准写成
+ * "file_read 读取 notes.md 返回内容等于 `` `# Plan\n- step two` ``" 时，原实现按裸 `\n` 切开 ⇒
+ * 得到「… 等于 `` `# Plan ``」与「`` step two` ``」两条 —— 后者是**无意义残句**，模型无法判定 ⇒
+ * 骨架漏项记 `passed:false` ⇒ passRate 0.5 ⇒ REJECT（模型自己判的是 APPROVE）⇒ 空转重试一整轮。
+ *
+ * 口径：行内反引号（`` ` ``）与三反引号代码块内的换行/分号**不切分**；反引号外的照旧切分。
+ */
+function splitCriteriaOutsideCode(raw: string): string[] {
+  const parts: string[] = [];
+  let buf = '';
+  let inFence = false;
+  let inInline = false;
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    if (raw.startsWith('```', i)) {
+      inFence = !inFence;
+      buf += '```';
+      i += 2;
+      continue;
+    }
+    if (ch === '`' && !inFence) inInline = !inInline;
+    const isSeparator = ch === '\n' || ch === '；' || ch === ';';
+    if (isSeparator && !inFence && !inInline) {
+      parts.push(buf);
+      buf = '';
+      continue;
+    }
+    buf += ch;
+  }
+  parts.push(buf);
+  return parts;
 }
 
 /** 渲染为验证提示词骨架（要求逐条照抄、按序给出 `checks[]`） */

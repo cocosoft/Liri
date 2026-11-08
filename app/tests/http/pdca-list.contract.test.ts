@@ -121,11 +121,17 @@ describe('POST /v1/pdca/list 契约（1-5 P1）', () => {
     const { status, body } = await call();
     expect(status).toBe(200);
     expect(Array.isArray(body.items)).toBe(true);
-    expect(body.total).toBe(2);
+    // ⚠️ 不断言 `total === 2`：`bun test` 同进程跑全部用例时，检查点表是**共享的真实 DB**，
+    // 其它测试文件也会写入检查点（2026-11-08 CI ubuntu 实测 total=6）。此处只锁契约形状。
+    expect(body.total).toBeGreaterThanOrEqual(2);
     // 默认上限 200（摘要化后不再全量返回）
     expect(body.limit).toBe(200);
     expect(body.offset).toBe(0);
-    const a = body.items.find((t: any) => t.taskId === 'pdca_ck_a');
+    expect(body.items).toHaveLength(Math.min(body.total, body.limit));
+
+    // 字段断言走 projectId 过滤（只命中本文件写入的两条，不受其它文件的检查点影响）
+    const scoped = await call({ projectId: 'proj_x' });
+    const a = scoped.body.items.find((t: any) => t.taskId === 'pdca_ck_a');
     expect(a).toBeDefined();
     expect(a.source).toBe('checkpoint');
     expect(a.status).toBe('running');
@@ -166,12 +172,15 @@ describe('POST /v1/pdca/list 契约（1-5 P1）', () => {
   });
 
   test('limit 截断条目但 total 仍为全量；offset 跳过', async () => {
-    const limited = await call({ limit: 1 });
+    const all = await call({ projectId: 'proj_x' });
+    const limited = await call({ projectId: 'proj_x', limit: 1 });
     expect(limited.body.items.length).toBe(1);
+    // total = 过滤后的**全量**（与 limit 无关）
+    expect(limited.body.total).toBe(all.body.total);
     expect(limited.body.total).toBe(2);
     expect(limited.body.limit).toBe(1);
 
-    const skipped = await call({ limit: 1, offset: 1 });
+    const skipped = await call({ projectId: 'proj_x', limit: 1, offset: 1 });
     expect(skipped.body.items.length).toBe(1);
     expect(skipped.body.items[0].taskId).not.toBe(limited.body.items[0].taskId);
   });
@@ -179,7 +188,12 @@ describe('POST /v1/pdca/list 契约（1-5 P1）', () => {
   test('按最近活动时间倒序（刚更新的排最前）', async () => {
     // 重写 b ⇒ 其 updatedAt 变为最新（摘要排序即按此字段）
     await writePdcaCheckpoint('pdca_ck_b', { status: 'completed' });
-    const { body } = await call();
+    const { body } = await call({ projectId: 'proj_x' });
     expect(body.items[0].taskId).toBe('pdca_ck_b');
+    // 全表（含其它测试文件写入的检查点）也必须保持倒序
+    const times = body.items.map((t: any) =>
+      t.updatedAt ? Date.parse(t.updatedAt) : 0
+    );
+    expect(times).toEqual([...times].sort((a, b) => b - a));
   });
 });

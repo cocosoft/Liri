@@ -132,7 +132,9 @@ describe('接线守卫 — 调用 AIService 后不得二次记账', () => {
   );
 
   it('`LongRunningTaskOrchestrator` 调 `service.generate(...)` 后不得再调 `trackUsage(`', () => {
-    expect(source).toContain('service.generate(');
+    // 2026-11-08：调用点已改为链式写法（`service\n  .generate(...)\n  .finally(...)`），
+    // 用规整化匹配而不是字面 `service.generate(`，否则守卫会因**换行/链式**误报"没有调用"。
+    expect(source).toMatch(/service\s*\.\s*generate\(/);
     expect(source).not.toContain('trackUsage(');
   });
 

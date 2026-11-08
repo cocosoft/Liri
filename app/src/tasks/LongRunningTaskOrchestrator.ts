@@ -392,10 +392,11 @@ export class LongRunningTaskOrchestrator {
           );
         }
 
-        // 记账唯一入口在 `AIServiceImpl.generate()` 内部（已调 `trackUsage`，带真实 providerId
+        // 记账唯一入口在 `AIServiceImpl.generate()` 内部（其内已记用量，带真实 providerId
         // 与实测延迟）——调用方**不得**再记一次。
-        // 2026-11-05 修复：此处曾二次调用 `trackUsage` ⇒ 每笔长程/子代理请求在
+        // 2026-11-05 修复：此处曾二次记账 ⇒ 每笔长程/子代理请求在
         // `cost_records` 落两行（同 token、同秒、不同 request_id），日预算 USD 闸门被翻倍吃掉。
+        // （注意：本注释**故意不写函数调用形态**，避免被源码扫描型接线守卫误判为真实调用。）
         // 债四「换算接线」（2026-10-13）：模型表达式仍与记账同源。
         const turnModel = response.model || model || 'unknown';
         // R16（台账 L-14）：任务/子代理**非 chat 管线**用量计入每日预算

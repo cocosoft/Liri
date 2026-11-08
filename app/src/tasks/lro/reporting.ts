@@ -19,6 +19,7 @@ import { generateAuditReport } from '../AuditReport';
 import type { AuditReport } from '../AuditReport';
 import { TaskStatus } from '../types';
 import type { LifecycleEvent } from '../LifecycleTracker';
+import { PDCA_PHASE_FAILED } from '@modules/tasks/phases';
 import type { PdcaPhase } from '@modules/tasks/phases';
 import type { ReviewDecision } from '../PlanReview';
 import type { PdcaStatus, PdcaMetrics } from './contracts.js';
@@ -47,6 +48,8 @@ export function renderAuditReport(view: PdcaReportView): AuditReport {
   return generateAuditReport({
     taskId: view.taskId,
     planId: view.planId,
+    // 2026-11-08（真机 `pdca_mw7f7h2g`）：目标未收敛等**任务级失败**要与步骤事实一起进摘要
+    taskFailed: view.phase === PDCA_PHASE_FAILED,
     steps: plan.steps.map((s) => {
       const dur = view.stepDurations.get(s.id);
       return {

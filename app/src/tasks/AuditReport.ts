@@ -41,6 +41,11 @@ export interface AuditReport {
 export function generateAuditReport(params: {
   taskId: string;
   planId: string;
+  /**
+   * 2026-11-08（真机 `pdca_mw7f7h2g`）：**任务级失败**（如目标未收敛）。
+   * 步骤可能全完成且 0 失败 ⇒ 只按步数聚合会把失败任务写成「任务 完成」。
+   */
+  taskFailed?: boolean;
   steps: Array<{
     id: string;
     description: string;
@@ -51,7 +56,7 @@ export function generateAuditReport(params: {
     error?: string;
   }>;
 }): AuditReport {
-  const { taskId, planId, steps } = params;
+  const { taskId, planId, steps, taskFailed } = params;
 
   let completedSteps = 0;
   let failedSteps = 0;
@@ -81,8 +86,13 @@ export function generateAuditReport(params: {
   // 2026-11-08（真机 `pdca_mw7e6fvy`）：**未终态步骤也算未完成** —— 原判据只看
   // failed/cancelled，中止任务（2 completed + 1 pending）的审计摘要会写成
   // 「任务 完成 | 2/3 步骤完成」，与中止回执/`plan.status=aborted` 自相矛盾。
+  // 2026-11-08（真机 `pdca_mw7f7h2g`）：**任务级失败同样算未完成** —— 目标未收敛时
+  // 步骤可能 2/2 全通过，单按步数仍会写「任务 完成」。
   const allPassed =
-    failedSteps === 0 && skippedSteps === 0 && completedSteps === steps.length;
+    !taskFailed &&
+    failedSteps === 0 &&
+    skippedSteps === 0 &&
+    completedSteps === steps.length;
   const avgScore =
     entries.filter((e) => e.reviewScore !== undefined).length > 0
       ? Math.round(

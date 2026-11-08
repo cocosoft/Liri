@@ -107,4 +107,14 @@ describe('formatPdcaReceipt — 终态回执文案', () => {
     expect(text).toContain('2/3 步');
     expect(text).not.toContain('长程任务完成');
   });
+
+  // 2026-11-08（真机 pdca_mw7f7h2g）：目标未收敛 ⇒ 步骤 2/2 全通过、0 失败，但任务已 failed；
+  // 只按步数会输出假的「✅ 完成」，与 plan.status=failed / `/resume` 409 矛盾。
+  it('任务级失败（目标未收敛）但步骤全完成 ⇒ ⚠️，不冒充完成', () => {
+    const text = formatPdcaReceipt({ ...base, phase: 'failed', taskFailed: true });
+    expect(text).toContain('未完成');
+    expect(text).toContain('4/4 步');
+    expect(text).toContain('目标未通过终态校验');
+    expect(text).not.toContain('长程任务完成');
+  });
 });

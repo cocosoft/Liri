@@ -16,7 +16,7 @@
 
 import { getLogger } from '@openliri/infra/monitoring';
 import type { AuditReport } from '../AuditReport';
-import { taskOrchestrator } from '../TaskOrchestrator';
+import { taskOrchestrator, PLAN_STATUS_FAILED } from '../TaskOrchestrator';
 // 2026-11-08：回执里的「可 replan」以检查点为准（与 `/resume` 的 409 判据同源）
 import { readPdcaCheckpoint } from '../PdcaWorkItemBridge';
 
@@ -51,6 +51,12 @@ export interface PdcaReceiptFacts {
    * "未完成"，用户看不到唯一的恢复入口；补一句"可 replan 续跑"。
    */
   replanAvailable?: boolean;
+  /**
+   * 2026-11-08（真机 `pdca_mw7f7h2g`）：**任务级失败**（如目标未收敛
+   * `PDCA_GOAL_NOT_CONVERGED`）。此时步骤可能 2/2 全通过、0 失败 ⇒ 只按步数会输出假的
+   * 「✅ 长程任务完成」，与 `plan.status=failed` / `/resume` 409 自相矛盾。
+   */
+  taskFailed?: boolean;
 }
 
 /**
@@ -69,15 +75,21 @@ export function formatPdcaReceipt(input: PdcaReceiptFacts): string {
     paused,
     aborted,
     replanAvailable,
+    taskFailed,
   } = input;
   if (aborted)
     return `⏹ 长程任务已中止：${completed}/${total} 步已达成（taskId ${taskId}）`;
   if (paused)
     return `⏸ 长程任务已挂起等待审批：${completed}/${total} 步已达成（阶段 ${phase}，taskId ${taskId}）`;
-  if (total > 0 && completed === total && failed === 0)
+  if (!taskFailed && total > 0 && completed === total && failed === 0)
     return `✅ 长程任务完成：${completed}/${total} 步（taskId ${taskId}）`;
   if (failed > 0)
     return `⚠️ 长程任务未完成：${completed}/${total} 步达成，${failed} 步失败（阶段 ${phase}，taskId ${taskId}）${
+      replanAvailable ? '；可 replan 续跑' : ''
+    }`;
+  // 任务级失败但无失败步骤（目标未收敛）⇒ 不说「0 步失败」，只报事实
+  if (taskFailed)
+    return `⚠️ 长程任务未完成：${completed}/${total} 步已达成，目标未通过终态校验（阶段 ${phase}，taskId ${taskId}）${
       replanAvailable ? '；可 replan 续跑' : ''
     }`;
   return `⏸ 长程任务未结束：${completed}/${total} 步已达成（阶段 ${phase}，taskId ${taskId}）`;
@@ -158,6 +170,7 @@ export function emitPdcaReceipt(
     ...(facts.paused ? { paused: true } : {}),
     ...(facts.aborted ? { aborted: true } : {}),
     ...(facts.replanAvailable ? { replanAvailable: true } : {}),
+    ...(facts.taskFailed ? { taskFailed: true } : {}),
   });
   emitPdcaReceiptText({
     taskId: facts.taskId,
@@ -250,6 +263,9 @@ export function emitPdcaReceiptFromAudit(
       total: report.totalSteps,
       failed: report.failedSteps,
       replanAvailable,
+      // 2026-11-08（真机 `pdca_mw7f7h2g`）：目标未收敛时步骤可能全通过、0 失败 ⇒
+      // 必须把**任务级失败**显式带给文案，否则会输出假的「✅ 完成」。
+      taskFailed: plan?.status === PLAN_STATUS_FAILED,
       hasPushChannel,
     });
   })();

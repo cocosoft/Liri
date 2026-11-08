@@ -85,6 +85,8 @@ describe('非收敛步骤不得记为完成（U-02）', () => {
     expect(isNonConvergedTermination('max_turns')).toBe(true);
     expect(isNonConvergedTermination('timeout')).toBe(true);
     expect(isNonConvergedTermination('budget_exhausted')).toBe(true);
+    // 2026-11-08（真机 `pdca_mw7sfwyf`）：TAORLoop 因 no_tool_call 死循环中止 ⇒ 中止≠完成
+    expect(isNonConvergedTermination('aborted')).toBe(true);
     expect(isNonConvergedTermination('completed')).toBe(false);
     expect(isNonConvergedTermination(undefined)).toBe(false);
   });

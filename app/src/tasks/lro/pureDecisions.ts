@@ -43,6 +43,14 @@ const NON_CONVERGED_TERMINATION_REASONS = new Set([
   'max_turns',
   'timeout',
   'budget_exhausted',
+  /**
+   * 2026-11-08（真机 `pdca_mw7sfwyf`）：TAORLoop 的 `no_tool_call` 死循环检测 critical
+   * 会把 `stopReason` 置 `'aborted'`（模型连续多轮只回文本、不调工具）。此前该原因
+   * **不在本集合** ⇒ 步骤被记为 `completed`（假完成）⇒ Review 判 REJECT ⇒ retry ⇒
+   * 再次 aborted ⇒ 同一批步骤 4 轮反复"完成—拒绝"，最终 escalate/replan 也救不回来。
+   * 中止 ≠ 完成：必须落 failed，交给重试/升级链处理。
+   */
+  'aborted',
 ]);
 
 export function isNonConvergedTermination(reason?: string): boolean {

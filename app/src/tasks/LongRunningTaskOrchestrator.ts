@@ -135,6 +135,8 @@ import type {
   EscalationRecord,
 } from './lro/contracts.js';
 import { normalizeExecutorResult } from './lro/contracts.js';
+// 2026-11-08：LRO 时长阈值单一事实源（`lint:consts` B 类要求集中在 defaults.ts）
+import { SLOW_MODEL_CALL_WARN_MS } from './lro/defaults.js';
 // R16（台账 L-14）：任务/子代理**非 chat 管线**的模型用量计入每日预算
 // （此路径不经 `ChatManager.recordChatResponseUsage`，故在默认执行器单点记账）。
 import { recordDailyBudgetFromUsage } from '../query/DailyBudgetManager';
@@ -346,6 +348,7 @@ export class LongRunningTaskOrchestrator {
           ...(params.extraTools ?? []),
         ]);
 
+        const callStartMs = Date.now();
         const response = await service.generate(
           [
             { role: AIMessageRole.SYSTEM, content: params.systemPrompt },
@@ -361,6 +364,17 @@ export class LongRunningTaskOrchestrator {
               ? { max_tokens: params.maxTokens }
               : undefined
         );
+        // 2026-11-08（真机 `pdca_mw7sfwyf`）：规划调用实测 **109s** 且全程**无任何日志** ⇒
+        // 用户视角是"plan 阶段卡死"，排查时也无法区分"在等模型"与"死锁"。慢调用留一条 warn。
+        const callElapsedMs = Date.now() - callStartMs;
+        if (callElapsedMs > SLOW_MODEL_CALL_WARN_MS) {
+          logger.warn('LLM 调用耗时偏高（在等模型，非死锁）', {
+            model,
+            taskType: params.taskType,
+            elapsedMs: callElapsedMs,
+            maxTokens: params.maxTokens ?? null,
+          });
+        }
 
         // 2026-11-08（真机 `pdca_mw7q12pb`）：**空回答**必须留证 —— 此前只回 `content:''`，
         // 上层只能报 `empty-output`，看不出是「模型没输出」还是「输出预算被思考吃光」。

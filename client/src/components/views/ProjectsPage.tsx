@@ -259,6 +259,8 @@ export default function ProjectsPage() {
   const [showSmartMenu, setShowSmartMenu] = useState(false);
   const [rightPanelTab, setRightPanelTab] = useState<string>("materials");
   const [pdcaTasks, setPdcaTasks] = useState<PdcaStatus[]>([]);
+  /** 后端摘要列表的**总数**（items 受 limit 截断，标题计数用 total） */
+  const [pdcaTotal, setPdcaTotal] = useState(0);
   const [pdcaError, setPdcaError] = useState<string | null>(null);
   const [selectedPdcaTaskId, setSelectedPdcaTaskId] = useState<string | null>(
     null,
@@ -464,6 +466,7 @@ export default function ProjectsPage() {
   useEffect(() => {
     if (!selectedProjectId || rightPanelTab !== "orchestration") {
       setPdcaTasks([]);
+      setPdcaTotal(0);
       setPdcaError(null);
       setSelectedPdcaTaskId(null);
       return;
@@ -472,9 +475,11 @@ export default function ProjectsPage() {
     const load = () => {
       pdcaService
         .list(selectedProjectId)
-        .then((tasks) => {
+        .then((res) => {
           if (cancelled) return;
+          const tasks = res.items;
           setPdcaTasks(tasks);
+          setPdcaTotal(res.total);
           setPdcaError(null);
           // OBS（M3b-UI）：REST 列表作为状态快照 seed 到实时通道 store（断线重连补缺口）
           // 4.2-4：仅回放活跃（非终态）任务——终态以 REST 历史分区为准，
@@ -1484,7 +1489,7 @@ export default function ProjectsPage() {
               {pdcaTasks.length > 0 && (
                 <div className="border-t border-gray-200 dark:border-gray-700">
                   <div className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    {t("projects.pdcaTasks", { count: pdcaTasks.length })}
+                    {t("projects.pdcaTasks", { count: pdcaTotal })}
                   </div>
                   {/* OBS（M3b-UI）：独立通道实时面板（4.2-4：按当前项目上下文过滤） */}
                   <OrchestrationLivePanel

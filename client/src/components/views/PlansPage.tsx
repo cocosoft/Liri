@@ -221,8 +221,8 @@ function PdcaView() {
     setLoading(true);
     // 尝试获取已有 PDCA 列表，取第一条作为当前活动的 taskId
     const data = await pdcaService.list();
-    if (data.length > 0 && data[0].taskId) {
-      setActiveTaskId(data[0].taskId);
+    if (data.items.length > 0 && data.items[0].taskId) {
+      setActiveTaskId(data.items[0].taskId);
     }
     setLoading(false);
   }, []);

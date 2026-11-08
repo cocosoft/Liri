@@ -151,21 +151,30 @@ export interface PdcaStatus {
   projectId?: string;
   sessionId?: string;
   workItemId?: string;
+  /** 列表摘要：最近活动时间（后端按此倒序，见 `POST /v1/pdca/list`） */
+  updatedAt?: string;
+}
+
+/** 列表返回（摘要 + 分页元信息；2026-11-08 起后端不再返回全量完整状态） */
+export interface PdcaListResult {
+  items: PdcaStatus[];
+  total: number;
+  limit: number;
+  offset: number;
 }
 
 export const pdcaService = {
-  /** 获取 PDCA 列表；传入 projectId 时按项目过滤（1-5 P1，语义对齐后端 projectId 过滤器） */
-  list: async (projectId?: string): Promise<PdcaStatus[]> => {
+  /** 获取 PDCA 列表摘要；传入 projectId 时按项目过滤（1-5 P1，语义对齐后端 projectId 过滤器） */
+  list: async (projectId?: string): Promise<PdcaListResult> => {
     try {
-      const res = await http.post<PdcaStatus[] | { data?: PdcaStatus[] }>(
+      const res = await http.post<PdcaListResult>(
         ENDPOINTS.pdca.list,
         projectId ? { projectId } : {},
       );
-      if (Array.isArray(res)) return res;
-      if (res && Array.isArray(res.data)) return res.data;
-      return [];
+      if (res && Array.isArray(res.items)) return res;
+      return { items: [], total: 0, limit: 0, offset: 0 };
     } catch {
-      return [];
+      return { items: [], total: 0, limit: 0, offset: 0 };
     }
   },
 

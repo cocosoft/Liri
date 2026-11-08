@@ -23,7 +23,11 @@ vi.mock("../../../stores/sessionStore", () => ({
     selector(mocks.session),
 }));
 vi.mock("../../../services/planService", () => ({
-  pdcaService: { list: async () => [], start: mocks.start },
+  pdcaService: {
+    // 2026-11-08：list 已摘要化为 {items,total,limit,offset}
+    list: async () => ({ items: [], total: 0, limit: 0, offset: 0 }),
+    start: mocks.start,
+  },
   planService: { list: async () => [] },
 }));
 vi.mock("../../Agent/PdcaPipeline", () => ({ default: () => null }));

@@ -202,6 +202,14 @@ export interface PdcaOrchestratorPort {
   clearBlockedCommand?(command: string): number;
   /** 原 `abort()`（P4 `inbox-handlers` 审批撤销） */
   abort(): Promise<void>;
+  /**
+   * 2026-11-08（真机 `pdca_mw7gf70g`）：**启动期失败**后摘除死实例。
+   *
+   * 规划阶段抛 `PLAN_PARSE_FAILED` 时该任务不会再有终态推进；实例若留在活跃注册表，
+   * `GET /v1/pdca/:id` 与 `/list` 会继续按内存态显示 `phase=plan`（假活跃）。
+   * ⚠️ **可选**：测试替身/旧实现未提供时调用方跳过（不影响终态检查点的收口）。
+   */
+  dispose?(): void;
 }
 
 /**

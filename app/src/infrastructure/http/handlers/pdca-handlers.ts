@@ -255,6 +255,48 @@ export function shouldEmitStartFailureReceipt(status: unknown): boolean {
 }
 
 /**
+ * 失败终态值（与 `tasks/phases.ts` 的 `PDCA_PHASE_FAILED` 同值）。
+ *
+ * infrastructure 属 service 层，**不得** import tasks（app 层）——终态**集合**改由端口
+ * `getPdcaStatusSets()` 注入；单值没有端口导出，故在此显式声明同值常量并注明来源。
+ */
+const PDCA_PHASE_FAILED_VALUE = 'failed';
+
+/**
+ * 启动期失败收口（导出供单测注入端口）。
+ *
+ * 2026-11-08（真机 `pdca_mw7gf70g`）：规划阶段抛 `PLAN_PARSE_FAILED` 时 `runFullPdca`
+ * 直接上抛，检查点停在 `status=started / phase=plan` ⇒ ① `findExistingTask` 只排除终态
+ * ⇒ 该会话的幂等键**永久锁死**（同会话再 start 恒返回旧 taskId、`existing:true`，新描述
+ * 被丢弃）；② `/resume` 因内存实例存活被判"正在运行"；③ `/list` 一直显示该任务在 plan。
+ *
+ * 现口径：已终态（含用户中止）⇒ 不覆盖（返回 false）；否则落 `failed` 并摘掉死实例。
+ *
+ * @returns 是否新落了 failed 终态
+ */
+export async function closeOutStartFailure(
+  taskId: string,
+  orchestrator: { getStatus(): unknown; dispose?: () => void },
+  writeCheckpoint: (
+    taskId: string,
+    patch: Record<string, unknown>
+  ) => Promise<void>,
+  terminalPhases: ReadonlySet<string>
+): Promise<boolean> {
+  const phase = (orchestrator.getStatus() as { phase?: string } | undefined)
+    ?.phase;
+  if (phase !== undefined && terminalPhases.has(phase)) return false;
+  await writeCheckpoint(taskId, {
+    taskId,
+    phase: PDCA_PHASE_FAILED_VALUE,
+    status: 'failed',
+    replanPending: false,
+  });
+  orchestrator.dispose?.();
+  return true;
+}
+
+/**
  * 启动 PDCA 循环
  *
  * 请求体: { description, sessionId, workspaceId?, projectId? }
@@ -340,19 +382,41 @@ export async function handlePdcaStart(
         action: 'runFullPdca',
         context: { taskId, workItemId },
       });
+      const status = orchestrator.getStatus();
+      // 2026-11-08（真机 `pdca_mw7gf70g`）：启动期失败必须落终态（详见 `closeOutStartFailure`）。
+      try {
+        const port = await getCoreAPI().getTaskOpsPort();
+        const { terminal } = await port.getPdcaStatusSets();
+        await closeOutStartFailure(
+          taskId,
+          orchestrator,
+          (id, patch) => port.writePdcaCheckpoint(id, patch),
+          terminal
+        );
+      } catch (patchErr) {
+        // @ignore-catch — 收口失败不改变"异常终止"的事实，回执照发
+        logger.warn('启动失败收口写检查点失败（不影响异常回执）', {
+          taskId,
+          error: String(patchErr),
+        });
+      }
       // 编排器在终态前崩溃 ⇒ 没有终态回执，这里补一条事实（不编造步数）。
       // 写会话消息走 CoreAPI（与旧实现同路径，避免 infrastructure 直接依赖 tasks 域）
-      if (!shouldEmitStartFailureReceipt(orchestrator.getStatus())) return;
+      if (!shouldEmitStartFailureReceipt(status)) return;
       try {
         const core = getCoreAPI();
+        const reason = (e instanceof Error ? e.message : String(e)).slice(0, 200);
         core.chatManager.addMessage(
           sessionId,
           core.chatManager
             .getMessageService()
-            .createAssistantMessage(`⚠️ 长程任务异常终止（taskId ${taskId}）`, {
-              sessionId,
-              metadata: { taskId, pdcaReceipt: true },
-            })
+            .createAssistantMessage(
+              `⚠️ 长程任务异常终止：${reason}（taskId ${taskId}）`,
+              {
+                sessionId,
+                metadata: { taskId, pdcaReceipt: true },
+              }
+            )
         );
       } catch {
         // @ignore-catch — 回执属附加信息，写入失败不影响任务结果
@@ -789,6 +853,60 @@ export async function handlePdcaAudit(
 }
 
 /**
+ * 步骤审查 / 决策的公共准入（HTTP 未受信边界）。
+ *
+ * 2026-11-08（真机 `pdca_mw7g2qiv`）：这两个端点此前**不看任务状态** —— 对已 completed 的
+ * 任务仍会真的重跑一次 Reviewer（模型调用 + 覆盖历史审查分），`decide` 还能把已完成步骤
+ * 改成 `pending`（实测 `phase=completed` / `plan.status=completed` / `step.status=pending`
+ * 自相矛盾），`retry` 同时递增 `retryCount`。不存在的 stepId 则回 500（"Step not found"），
+ * 与其它端点的 404 口径不一致。
+ *
+ * 已响应 ⇒ 返回 true（调用方直接 return）。
+ */
+function rejectTerminalOrMissingStep(
+  res: http.ServerResponse,
+  orchestrator: PdcaOrchestratorPort,
+  taskId: string,
+  stepId: string,
+  terminalPhases: ReadonlySet<string>
+): boolean {
+  const status = orchestrator.getStatus() as {
+    phase?: string;
+    plan?: { steps?: Array<{ id: string }> };
+  };
+  const phase = status.phase;
+  if (phase !== undefined && terminalPhases.has(phase)) {
+    res.writeHead(409, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        ok: false,
+        error: 'task_terminal',
+        taskId,
+        stepId,
+        phase,
+        message: `任务已终止（phase=${phase}），不可再审查/决策步骤`,
+      })
+    );
+    return true;
+  }
+  const steps = status.plan?.steps;
+  if (steps && !steps.some((s) => s.id === stepId)) {
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        ok: false,
+        error: 'step_not_found',
+        taskId,
+        stepId,
+        message: `步骤不存在：${stepId}`,
+      })
+    );
+    return true;
+  }
+  return false;
+}
+
+/**
  * 审阅 PDCA 步骤
  */
 export async function handlePdcaReviewStep(
@@ -823,6 +941,13 @@ export async function handlePdcaReviewStep(
       );
       return;
     }
+    const { terminal } = await (
+      await getCoreAPI().getTaskOpsPort()
+    ).getPdcaStatusSets();
+    if (
+      rejectTerminalOrMissingStep(res, orchestrator, taskId, stepId, terminal)
+    )
+      return;
     const review = await orchestrator.reviewStep(stepId);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(review));
@@ -887,6 +1012,13 @@ export async function handlePdcaDecideStep(
       );
       return;
     }
+    const { terminal } = await (
+      await getCoreAPI().getTaskOpsPort()
+    ).getPdcaStatusSets();
+    if (
+      rejectTerminalOrMissingStep(res, orchestrator, taskId, stepId, terminal)
+    )
+      return;
     await orchestrator.decideStep(stepId, decision);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ ok: true }));

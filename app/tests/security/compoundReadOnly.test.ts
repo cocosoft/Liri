@@ -37,6 +37,27 @@ describe('checkCompoundReadOnly：正向（全段只读）', () => {
     expect(checkCompoundReadOnly('node --version && dir').allowed).toBe(true);
   });
 
+  // 2026-11-09（真机：会话「全自动」下仍弹命令审批 —— 实际命令如下）：
+  // 切段后 `2>nul` 留在段尾，整串锚定的版本查询正则失配 ⇒ 整串被判「非只读命令（node）」。
+  it('版本查询段带良性重定向 ⇒ 仍判只读', () => {
+    const v = checkCompoundReadOnly(
+      'node -v 2>nul & python --version 2>nul & echo --',
+      { platform: 'win32' }
+    );
+    expect(v.allowed).toBe(true);
+    expect(v.segments).toHaveLength(3);
+  });
+
+  it('负向：解释器执行脚本（非版本查询）即使带重定向仍拒绝', () => {
+    expect(
+      checkCompoundReadOnly('node -v2 2>nul', { platform: 'win32' }).allowed
+    ).toBe(false);
+    expect(
+      checkCompoundReadOnly('node script.js 2>nul', { platform: 'win32' })
+        .allowed
+    ).toBe(false);
+  });
+
   it('git 只读子命令可作为段', () => {
     expect(checkCompoundReadOnly('git status | head').allowed).toBe(true);
   });

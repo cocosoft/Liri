@@ -367,6 +367,15 @@ export interface ToolUseContext {
     sessionId?: string;
     profile?: 'coding' | 'messaging' | 'minimal';
     permissionMode?: string;
+    /**
+     * 权限层已**自动放行**（`auto` / `bypass` / `acceptEdits` 等放宽档）。
+     *
+     * 2026-11-09（真机：用户选了「全自动」仍弹命令审批）：bash 安全闸的 ask
+     * （`security_analyzer_ask` / 白名单 ask / 解释器确认）**独立于权限层**，只看
+     * 「命令是否批准过」。工具据此在放宽档下跳过 **ask 级**拦截；`deny` / 危险命令 /
+     * 路径越界 / 沙箱白名单等**硬拦截一律照跑**。
+     */
+    autoApproved?: boolean;
     attributes?: Record<string, unknown>;
   };
   /**

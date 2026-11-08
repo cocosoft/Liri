@@ -77,6 +77,9 @@ import {
   type BlockedCommandEntry,
   type BlockedCommandProbeInput,
 } from './blockedCommandLedger.js';
+// 2026-11-09（真机：会话「全自动」下长程任务仍弹命令审批）：LRO 此前**绕过权限层**，
+// 现与聊天链同源判定（`authorizeToolCall`），见 `toolAuthorization.ts`。
+import { authorizeLroToolCall } from './toolAuthorization.js';
 
 const logger = getLogger('tasks:longRunning');
 
@@ -503,10 +506,71 @@ export async function executeSingleStep(
                 });
                 continue;
               }
+              // 2026-11-09（真机：会话「全自动」下长程任务仍弹命令审批）：本链此前**完全绕过
+              // 权限层**（仅做越界/缺参校验后直接 `tool.execute()`）⇒ 会话 `permission_mode`
+              // 在长程任务里从未生效。现与聊天链同源（`authorizeToolCall`）判定：
+              // - deny ⇒ 不执行，把拒绝原因交回模型（可换合法做法）；
+              // - ask  ⇒ **不阻断**（长程任务无人值守，任务启动即视为用户授权；审批卡由权限层
+              //   提交，批准后下次调用自然命中放行缓存）—— 但**不算自动放行**，安全闸 ask 照旧；
+              // - allow ⇒ 执行，并把「权限层已自动放行」写进 `policyContext`，
+              //   供 bash 安全闸跳过 **ask 级**拦截（危险命令/路径/沙箱等硬拦截照旧）。
+              const auth = await authorizeLroToolCall({
+                taskId: deps.taskId,
+                sessionId: deps.getSessionId(),
+                workspacePath: deps.isolation.workspace,
+                toolName: tc.name,
+                args: tc.arguments,
+              });
+              if (auth?.kind === 'deny') {
+                logger.warn('[orchestrator] 工具权限拒绝，已阻止执行', {
+                  taskId: deps.taskId,
+                  stepId: step.id,
+                  toolName: tc.name,
+                  toolCallId: tc.id,
+                  reason: auth.reason,
+                });
+                results.push({
+                  toolCallId: tc.id,
+                  toolName: tc.name,
+                  error: `权限拒绝：${auth.reason ?? '该工具调用不在当前权限允许范围内'}`,
+                });
+                continue;
+              }
+              if (auth?.kind === 'ask') {
+                logger.info(
+                  '[orchestrator] 工具调用需人工确认（不阻断任务，按未自动放行执行）',
+                  {
+                    taskId: deps.taskId,
+                    stepId: step.id,
+                    toolName: tc.name,
+                    toolCallId: tc.id,
+                    reason: auth.reason,
+                    permissionMode: auth.permissionMode,
+                  }
+                );
+              }
+              // 显式写 false 防「上一次调用自动放行」串用；仅 allow+autoApproved 才置 true
+              const policyNow = toolContext.policyContext ?? {};
+              const callContext: ToolUseContext =
+                auth?.kind === 'allow' && auth.autoApproved
+                  ? {
+                      ...toolContext,
+                      policyContext: {
+                        ...policyNow,
+                        autoApproved: true,
+                        ...(auth.permissionMode
+                          ? { permissionMode: auth.permissionMode }
+                          : {}),
+                      },
+                    }
+                  : {
+                      ...toolContext,
+                      policyContext: { ...policyNow, autoApproved: false },
+                    };
               // 保留键可能随合法参数一起出现（解析失败时携带诊断）⇒ 执行前剥除，不污染工具入参
               const toolResult = await tool.execute(
                 stripArgParseErrorKey(tc.arguments),
-                toolContext
+                callContext
               );
               // 2026-10-08（steering）：被安全策略拦截的工具名先记账，本轮结束后统一注入改道指令。
               // 2026-11-08（真机 `pdca_mw6yabdj`）：**等人工审批 ≠ 硬拦截** —— ask 结果也带

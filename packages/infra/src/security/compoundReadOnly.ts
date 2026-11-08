@@ -224,9 +224,13 @@ export function checkCompoundReadOnly(
       return { allowed: false, reason: `非常规命令名（${first}）`, segments };
     }
 
+    // 2026-11-09（真机：`node -v 2>nul & python --version 2>nul & echo --` 被判"非只读命令"）：
+    // 切段后 `2>nul` / `2>&1` 会留在段尾，而版本查询 / git 只读是**整串锚定**正则 ⇒ 先剥离
+    // 良性重定向再判定（`cleaned` 仍推原段，审批指纹/展示不变）。
+    const probe = stripHarmlessRedirects(seg);
     if (
-      VERSION_ONLY_QUERY_PATTERN.test(seg) ||
-      GIT_READ_ONLY_PATTERN.test(seg)
+      VERSION_ONLY_QUERY_PATTERN.test(probe) ||
+      GIT_READ_ONLY_PATTERN.test(probe)
     ) {
       cleaned.push(seg);
       continue;

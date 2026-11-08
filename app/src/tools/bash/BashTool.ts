@@ -456,6 +456,16 @@ export class BashTool extends BaseTool {
       // 形成"批准 → 恢复 → 再弹卡"的无限审批环，长任务永远无法推进。
       // 现口径与 A2 文档一致：**批准即免审批交互**；硬拦截一层不少。
       const bypassAsk = approval.bypassAsk;
+      // 2026-11-09（真机：用户选「全自动」仍弹命令审批）：权限层的放宽档已在执行入口
+      // 自动放行（`policyContext.autoApproved`），但 bash 安全闸的 ask **独立于权限层**。
+      // 口径：放宽档下跳过 **ask 级**拦截（analyzer ask / 白名单 ask / 解释器确认），
+      // **deny / 危险命令 / 路径越界 / 沙箱白名单等硬拦截一律照跑**。
+      const policyAutoApproved = context.policyContext?.autoApproved === true;
+      const skipAskByPolicy = (block: unknown): boolean =>
+        policyAutoApproved &&
+        typeof block === 'object' &&
+        block !== null &&
+        (block as { requireApproval?: unknown }).requireApproval === true;
       // P0-4: 放行即需审计记录（session + hash + 命令）确保可追溯
       if (bypassAsk) {
         logger.info('已批准命令放行', {
@@ -508,11 +518,19 @@ export class BashTool extends BaseTool {
         trustLevel
       );
       if (psWrapperBlock) {
-        logger.warn('bash: powershell_wrapper_blocked', {
-          sessionId: context.sessionId,
-          commandPreview: command.slice(0, 200),
-        });
-        return psWrapperBlock;
+        if (skipAskByPolicy(psWrapperBlock)) {
+          logger.warn('bash: policy_auto_skip_ask', {
+            sessionId: context.sessionId,
+            commandPreview: command.slice(0, 200),
+            reason: 'powershell_wrapper_ask',
+          });
+        } else {
+          logger.warn('bash: powershell_wrapper_blocked', {
+            sessionId: context.sessionId,
+            commandPreview: command.slice(0, 200),
+          });
+          return psWrapperBlock;
+        }
       }
 
       const analysisBlock = checkAstAndAnalyzer({
@@ -528,12 +546,16 @@ export class BashTool extends BaseTool {
       if (analysisBlock) {
         // 2026-10-25（与 path/danger 分支同源补日志）：分析器 deny / AST 拦截事件落 app.log，
         // 字段同构（reason 区分 deny 与 ask/inconclusive 等来源）。
-        logger.warn('bash: security_gate_blocked', {
-          sessionId: context.sessionId,
-          commandPreview: command.slice(0, 200),
-          reason: analysisBlock.metadata?.['reason'],
-        });
-        return appendReadOnlyProbeHint(analysisBlock, command);
+        const skip = skipAskByPolicy(analysisBlock);
+        logger.warn(
+          skip ? 'bash: policy_auto_skip_ask' : 'bash: security_gate_blocked',
+          {
+            sessionId: context.sessionId,
+            commandPreview: command.slice(0, 200),
+            reason: analysisBlock.metadata?.['reason'],
+          }
+        );
+        if (!skip) return appendReadOnlyProbeHint(analysisBlock, command);
       }
 
       const whitelistBlock = checkWhitelistAndSandbox(command, std, {
@@ -546,12 +568,16 @@ export class BashTool extends BaseTool {
         // 2026-10-25（B 类可观测性缺口 ①）：白名单 F3 / 沙箱二次校验 F2 拦截事件此前**零日志**
         // —— 只落会话消息、不进 app.log（用户会话 `session_mvl0d0a3d6e2e9a764` 实证"bash 命令
         // 被安全策略拦截"无迹可查）。与 path/danger/ast 三分支（本方法 :392/:402/:435）同构补齐。
-        logger.warn('bash: security_gate_blocked', {
-          sessionId: context.sessionId,
-          commandPreview: command.slice(0, 200),
-          reason: whitelistBlock.metadata?.['reason'],
-        });
-        return appendReadOnlyProbeHint(whitelistBlock, command);
+        const skip = skipAskByPolicy(whitelistBlock);
+        logger.warn(
+          skip ? 'bash: policy_auto_skip_ask' : 'bash: security_gate_blocked',
+          {
+            sessionId: context.sessionId,
+            commandPreview: command.slice(0, 200),
+            reason: whitelistBlock.metadata?.['reason'],
+          }
+        );
+        if (!skip) return appendReadOnlyProbeHint(whitelistBlock, command);
       }
 
       // A4（2026-10-09）：高能力解释器命令不得仅凭"白名单内"自动放行
@@ -564,7 +590,12 @@ export class BashTool extends BaseTool {
         sessionId: context.sessionId,
       });
       if (interpreterBlock) {
-        return interpreterBlock;
+        if (!skipAskByPolicy(interpreterBlock)) return interpreterBlock;
+        logger.warn('bash: policy_auto_skip_ask', {
+          sessionId: context.sessionId,
+          commandPreview: command.slice(0, 200),
+          reason: 'interpreter_confirm_ask',
+        });
       }
 
       // G18 下沉（2026-10-11）：审计 + env 构建 + 执行 + 截断 + 成功结果构造，抽为

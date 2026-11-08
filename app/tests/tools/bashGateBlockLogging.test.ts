@@ -47,13 +47,17 @@ import { ApprovedCommandRegistry } from '@openliri/infra/permission/ApprovedComm
 import type { BashSecurityAnalyzer } from '@openliri/infra/security/BashSecurityAnalyzer';
 import type { ToolUseContext } from '../../src/tools/types/Tool.js';
 
-/** 最小可用的 ToolUseContext（仅 execute 用到 sessionId） */
-function makeContext(sessionId: string): ToolUseContext {
+/** 最小可用的 ToolUseContext（仅 execute 用到 sessionId / policyContext） */
+function makeContext(
+  sessionId: string,
+  policyContext?: ToolUseContext['policyContext']
+): ToolUseContext {
   return {
     sessionId,
     options: {} as ToolUseContext['options'],
     abortController: new AbortController(),
     readFileState: {},
+    ...(policyContext ? { policyContext } : {}),
   } as unknown as ToolUseContext;
 }
 
@@ -272,6 +276,123 @@ describe('BashTool 硬拦截分支可观测性（2026-10-25 补日志）', () =>
           makeContext('sess-plain')
         );
         expect(String(result.error ?? '')).not.toContain('只读探测');
+      } finally {
+        analyzeSpy.mockRestore();
+      }
+    } finally {
+      reg.dispose();
+    }
+  });
+});
+
+/**
+ * 2026-11-09（真机：会话权限选「全自动」仍弹命令审批）：
+ * 权限层放宽档 ⇒ 执行入口写 `policyContext.autoApproved` ⇒ bash 安全闸只跳过 **ask 级**
+ * 拦截（analyzer ask / 白名单 ask / 解释器确认），**deny 等硬拦截一律照跑**。
+ */
+describe('2026-11-09：policyContext.autoApproved 只跳过 ask，不放过 deny', () => {
+  const askAnalysis = {
+    safe: false,
+    behavior: 'ask',
+    riskLevel: 'medium',
+    message: '需要人工确认（测试夹具）',
+    matchedPatterns: [],
+  } as unknown as ReturnType<BashSecurityAnalyzer['analyze']>;
+
+  it('无自动放行 ⇒ 仍返回待审批（requireApproval）', async () => {
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    try {
+      const tool = new BashTool(reg);
+      const analyzer = (
+        tool as unknown as { securityAnalyzer: BashSecurityAnalyzer }
+      ).securityAnalyzer;
+      const analyzeSpy = spyOn(analyzer, 'analyze').mockReturnValue(
+        askAnalysis
+      );
+      // 本机可能已有持久化放行规则（`tool_rules.json`）⇒ 显式钉住"未批准"，
+      // 否则 ask 根本不会产生（用例变成环境相关）。
+      const approvalSpy = spyOn(
+        tool as unknown as {
+          resolveApprovalState: (
+            command: string,
+            sessionId?: string,
+            approvalScope?: unknown
+          ) => Promise<{
+            hash: string;
+            bypassAsk: boolean;
+            source: 'registry' | 'rule' | 'none';
+          }>;
+        },
+        'resolveApprovalState'
+      ).mockResolvedValue({
+        hash: 'test-hash',
+        bypassAsk: false,
+        source: 'none',
+      });
+      try {
+        const result = await tool.execute(
+          { command: 'echo policy-ask' },
+          makeContext('sess-ask')
+        );
+        expect(result.requireApproval).toBe(true);
+        expect(result.metadata?.securityIntercepted).toBe(true);
+      } finally {
+        approvalSpy.mockRestore();
+        analyzeSpy.mockRestore();
+      }
+    } finally {
+      reg.dispose();
+    }
+  });
+
+  it('autoApproved=true ⇒ 跳过 analyzer ask 并真正执行', async () => {
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    try {
+      const tool = new BashTool(reg);
+      const analyzer = (
+        tool as unknown as { securityAnalyzer: BashSecurityAnalyzer }
+      ).securityAnalyzer;
+      const analyzeSpy = spyOn(analyzer, 'analyze').mockReturnValue(
+        askAnalysis
+      );
+      try {
+        const result = await tool.execute(
+          { command: 'echo policy-auto-pass' },
+          makeContext('sess-auto', { autoApproved: true })
+        );
+        expect(result.requireApproval).toBeUndefined();
+        expect(result.success).toBe(true);
+        expect(String(result.data ?? '')).toContain('policy-auto-pass');
+      } finally {
+        analyzeSpy.mockRestore();
+      }
+    } finally {
+      reg.dispose();
+    }
+  });
+
+  it('autoApproved=true 下 deny 仍然硬拦截（不因自动放行而放宽）', async () => {
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    try {
+      const tool = new BashTool(reg);
+      const analyzer = (
+        tool as unknown as { securityAnalyzer: BashSecurityAnalyzer }
+      ).securityAnalyzer;
+      const analyzeSpy = spyOn(analyzer, 'analyze').mockReturnValue({
+        safe: false,
+        behavior: 'deny',
+        riskLevel: 'high',
+        message: '危险命令（测试夹具）',
+        matchedPatterns: [],
+      } as ReturnType<BashSecurityAnalyzer['analyze']>);
+      try {
+        const result = await tool.execute(
+          { command: 'echo policy-deny' },
+          makeContext('sess-auto-deny', { autoApproved: true })
+        );
+        expect(result.success).toBe(false);
+        expect(result.metadata?.securityIntercepted).toBe(true);
+        expect(result.metadata?.reason).toBe('security_analyzer_deny');
       } finally {
         analyzeSpy.mockRestore();
       }

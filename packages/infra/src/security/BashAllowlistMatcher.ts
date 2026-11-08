@@ -96,7 +96,9 @@ export function checkBashAllowlist(command: string): AllowlistResult {
   }
 
   // 2.1 只读版本查询（LRO-D3）：`node -v` 这类"完整命令 + 版本开关"放行
-  if (VERSION_ONLY_QUERY_PATTERN.test(trimmed)) {
+  // 2026-11-09（真机）：与 `compoundReadOnly` 同口径 —— 先剥离良性重定向（`node -v 2>nul`
+  // 否则因 `$` 锚定失败被判未知命令 ⇒ 转人工审批）。
+  if (VERSION_ONLY_QUERY_PATTERN.test(operatorProbe)) {
     return { safe: true, reason: 'Command is a read-only version query' };
   }
 

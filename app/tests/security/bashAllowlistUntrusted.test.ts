@@ -37,6 +37,14 @@ describe('LRO-D3：只读版本查询进入 allowlist', () => {
     expect(checkBashAllowlist('git add -A').safe).toBe(false);
   });
 
+  // 2026-11-09（真机：会话「全自动」下仍弹命令审批 —— 实际命令形如 `node -v 2>nul`）：
+  // 良性重定向不改变语义，先剥离再判版本查询（与 compoundReadOnly 同口径）。
+  it('版本查询 + 良性重定向 ⇒ 仍已知安全', () => {
+    expect(checkBashAllowlist('node -v 2>nul').safe).toBe(true);
+    expect(checkBashAllowlist('python --version 2>&1').safe).toBe(true);
+    expect(checkBashAllowlist('node script.js 2>nul').safe).toBe(false);
+  });
+
   it('版本查询 + 串联/重定向 ⇒ 仍按 shell 操作符拒绝', () => {
     expect(checkBashAllowlist('node -v && rm -rf /').safe).toBe(false);
     expect(checkBashAllowlist('node -v > out.txt').safe).toBe(false);

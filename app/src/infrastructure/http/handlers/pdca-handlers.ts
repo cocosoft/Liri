@@ -494,7 +494,10 @@ export async function handlePdcaStart(
       if (!shouldEmitStartFailureReceipt(status)) return;
       try {
         const core = getCoreAPI();
-        const reason = (e instanceof Error ? e.message : String(e)).slice(0, 200);
+        const reason = (e instanceof Error ? e.message : String(e)).slice(
+          0,
+          200
+        );
         core.chatManager.addMessage(
           sessionId,
           core.chatManager

@@ -393,7 +393,8 @@ export async function handleUndoApproval(
     if (pdcaTaskId) {
       const port = await getCoreAPI().getTaskOpsPort();
       const orch = await port.getPdcaOrchestrator(pdcaTaskId);
-      const phase = (orch?.getStatus() as { phase?: string } | undefined)?.phase;
+      const phase = (orch?.getStatus() as { phase?: string } | undefined)
+        ?.phase;
       // 终态集走**端口**（`getPdcaStatusSets`）—— infrastructure 属 service 层，
       // 不能直接 import tasks（app 层）；集合同源 `tasks/phases.ts`。
       const { terminal } = await port.getPdcaStatusSets();

@@ -28,9 +28,8 @@ const AWAITING_PHASES = new Set(['plan_pending', 'stage_awaiting_approval']);
 /** 先装 spy，再解析被测 handler（spy 生效后才能替换掉 `getCoreAPI`） */
 const getCoreAPISpy = spyOn(coreAPIModule, 'getCoreAPI');
 
-const { handlePdcaStart, scanAndAbortStalePdcaTasks } = await import(
-  '../../src/infrastructure/http/handlers/pdca-handlers'
-);
+const { handlePdcaStart, scanAndAbortStalePdcaTasks } =
+  await import('../../src/infrastructure/http/handlers/pdca-handlers');
 
 type Ck = Record<string, unknown> & { taskId: string };
 
@@ -52,8 +51,12 @@ function installPort(): void {
       active: ACTIVE_STATUS,
       awaitingApprovalPhases: AWAITING_PHASES,
     }),
-    readPdcaCheckpoint: async (taskId: string) => checkpoints.get(taskId) ?? null,
-    writePdcaCheckpoint: async (taskId: string, patch: Record<string, unknown>) => {
+    readPdcaCheckpoint: async (taskId: string) =>
+      checkpoints.get(taskId) ?? null,
+    writePdcaCheckpoint: async (
+      taskId: string,
+      patch: Record<string, unknown>
+    ) => {
       written.push({ taskId, patch });
       const prev = checkpoints.get(taskId) ?? { taskId };
       checkpoints.set(taskId, { ...prev, ...patch } as Ck);
@@ -84,9 +87,10 @@ beforeEach(() => {
   written = [];
   liveOrchestrators = new Set();
   pendingCards = [];
-  inboxListSpy.mockImplementation(
-    async () => ({ items: pendingCards as never, total: pendingCards.length })
-  );
+  inboxListSpy.mockImplementation(async () => ({
+    items: pendingCards as never,
+    total: pendingCards.length,
+  }));
   getCoreAPISpy.mockReset();
   installPort();
 });
@@ -215,7 +219,9 @@ describe('启动扫描：`status IS NULL` 不再被静默跳过', () => {
     const result = await scanAndAbortStalePdcaTasks();
 
     expect(result.aborted).toBe(0);
-    expect(result.resumable.map((r) => r.taskId)).toContain('pdca_null_awaiting');
+    expect(result.resumable.map((r) => r.taskId)).toContain(
+      'pdca_null_awaiting'
+    );
     expect(written).toHaveLength(0);
   });
 

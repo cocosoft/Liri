@@ -24,7 +24,8 @@ const { LongRunningTaskOrchestrator } =
   await import('../../src/tasks/LongRunningTaskOrchestrator');
 const { readPdcaCheckpoint, closePdcaCheckpointStore } =
   await import('../../src/tasks/PdcaWorkItemBridge');
-const { default: goalCommand } = await import('../../src/commands/builtin/goal/Goal');
+const { default: goalCommand } =
+  await import('../../src/commands/builtin/goal/Goal');
 
 const originalRunFullPdca = LongRunningTaskOrchestrator.prototype.runFullPdca;
 
@@ -36,7 +37,12 @@ afterAll(async () => {
   closePdcaCheckpointStore();
   delete process.env.LIRI_DATA_DIR;
   try {
-    rmSync(dataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    rmSync(dataDir, {
+      recursive: true,
+      force: true,
+      maxRetries: 5,
+      retryDelay: 100,
+    });
   } catch {
     /* 临时目录清理失败不影响测试结论 */
   }
@@ -52,9 +58,8 @@ async function waitForFailedCheckpoint(
   sessionId: string,
   timeoutMs = 3000
 ): Promise<Record<string, unknown>> {
-  const { listPdcaCheckpoints } = await import(
-    '../../src/tasks/PdcaWorkItemBridge'
-  );
+  const { listPdcaCheckpoints } =
+    await import('../../src/tasks/PdcaWorkItemBridge');
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const all = await listPdcaCheckpoints();

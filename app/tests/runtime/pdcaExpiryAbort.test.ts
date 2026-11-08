@@ -25,15 +25,12 @@ import { join } from 'node:path';
 const dataDir = mkdtempSync(join(tmpdir(), 'pdca-expiry-abort-'));
 process.env.LIRI_DATA_DIR = dataDir;
 
-const { InboxManager, onInboxItemsExpired } = await import(
-  '@openliri/service/runtime/InboxManager'
-);
-const { abortPdcaAfterExpiry } = await import(
-  '@openliri/service/runtime/inboxApproval'
-);
-const { registerRuntimeCoreApiProvider } = await import(
-  '@openliri/service/runtime/api/coreApiProvider'
-);
+const { InboxManager, onInboxItemsExpired } =
+  await import('@openliri/service/runtime/InboxManager');
+const { abortPdcaAfterExpiry } =
+  await import('@openliri/service/runtime/inboxApproval');
+const { registerRuntimeCoreApiProvider } =
+  await import('@openliri/service/runtime/api/coreApiProvider');
 
 let manager: InstanceType<typeof InboxManager>;
 let offListener: (() => void) | undefined;

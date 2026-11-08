@@ -112,3 +112,8 @@ function main(): void {
 }
 
 main();
+
+// lint:exit（台账 N-16 / N-49）：入口脚本必须显式退出。
+// 本脚本虽 `db.close()` 后无长驻句柄，但守卫按「入口必须显式 exit」统一要求 ——
+// 一旦将来引入定时器 / 连接池，缺 exit 会表现为"命令卡住不返回"。
+process.exit(0);

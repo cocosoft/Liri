@@ -263,6 +263,10 @@ export class DefaultReviewGate implements ReviewGate {
           '\n判定口径（硬约束）：\n' +
           '- 证据里的 `[本次尝试的工具调用]` 是**跨审批恢复与自动重试**累计的执行痕迹；同一命令出现多次属系统机制，**不得**据此记 critical/major 或判不通过（最多 minor，且不影响 pass）。\n' +
           '- 判定以**最后一次成功执行的结果**与验收标准比对；"是否原样执行"只看 `[call]` 行里的命令原文。\n' +
+          // 2026-11-08（真机 `pdca_mw7wv9ee`）：任务要求"读取不存在的 missing.txt"，执行器用
+          // `file_write` 自己造出该文件再读回凑出期望内容 ⇒ 首轮审查正确判 critical，第三轮
+          // 却因"最后读到了期望内容"判 98 分通过（伪造前提未被识别）。
+          '- **证据来源合法性**：若验收标准要求某文件/内容**原本存在**或**禁止创建/修改**，而本步的工具调用显示该文件是被本步 `file_write`/`file_edit` 创建或改写的，则判 `critical`（伪造前提）—— 不得因"最后读到了期望内容"就判通过。\n' +
           '- 只按给定验收标准判定，不得自行发明新的验收条件；证据不足时如实说明"未实测"，不要凭空要求额外的元数据。',
         userPrompt: reviewPrompt,
         // 审查员为**纯文本 JSON**角色（输出须可直接解析）——原值 `['search', 'file']` 是
@@ -311,7 +315,9 @@ export class DefaultReviewGate implements ReviewGate {
               {
                 role: 'system',
                 content:
-                  '你是一个任务审查员。对比验收标准和实际执行结果，给出审查意见。只读操作，不修改任何文件。输出 JSON 格式：{"pass":bool,"score":0-100,"issues":[],"summary":"..."}',
+                  '你是一个任务审查员。对比验收标准和实际执行结果，给出审查意见。只读操作，不修改任何文件。输出 JSON 格式：{"pass":bool,"score":0-100,"issues":[],"summary":"..."}' +
+                  // 2026-11-08（真机 `pdca_mw7wv9ee`）：与上方 LLM Reviewer 同口径 —— 证据来源合法性
+                  '若验收要求某文件/内容原本存在或禁止创建/修改，而证据显示该文件已被本步 file_write/file_edit 创建或改写，判 critical（伪造前提），不得因"最后读到了期望内容"判通过。',
               },
               { role: 'user', content: reviewPrompt },
               { role: 'assistant', content: reviewText },

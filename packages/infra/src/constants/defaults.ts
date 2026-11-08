@@ -74,6 +74,11 @@ export interface RuntimeDefaults {
   agentsListDefaultLimit: number;
   /** 单页上限（防止代理清单挤占上下文） */
   agentsListMaxLimit: number;
+  // ── pdcaList（`POST /v1/pdca/list` 摘要分页） ─────────────────────────
+  /** 单页默认条数（摘要化：避免一次拉回全部历史） */
+  pdcaListDefaultLimit: number;
+  /** 单页上限（500 条摘要 ≈ 数百 KB，防单请求过大） */
+  pdcaListMaxLimit: number;
 }
 
 /** 每 token 估算字节数（A 类换算常数；派生字段的唯一来源） */
@@ -96,7 +101,8 @@ const TOKEN_BYTES_ESTIMATE = 4;
  * `LIRI_TOOL_RESULT_MAX_TOKENS` · `LIRI_TOOL_SUMMARY_MAX_LENGTH` ·
  * `LIRI_TOOL_RESULT_PREVIEW_MAX_LENGTH` · `LIRI_TOOL_TIMEOUT_MS` ·
  * `LIRI_MAX_CONCURRENT_TOOLS` · `LIRI_MAX_TOOL_RETRIES` · `LIRI_INSIGHTS_SLOW_MS` ·
- * `LIRI_AGENTS_LIST_DEFAULT_LIMIT` · `LIRI_AGENTS_LIST_MAX_LIMIT`
+ * `LIRI_AGENTS_LIST_DEFAULT_LIMIT` · `LIRI_AGENTS_LIST_MAX_LIMIT` ·
+ * `LIRI_PDCA_LIST_DEFAULT_LIMIT` · `LIRI_PDCA_LIST_MAX_LIMIT`
  */
 export function getRuntimeDefaults(): RuntimeDefaults {
   const apiImageMaxBase64Size = envInt(
@@ -162,5 +168,9 @@ export function getRuntimeDefaults(): RuntimeDefaults {
     // agentsList（`agents_list` 分页）
     agentsListDefaultLimit: envInt('LIRI_AGENTS_LIST_DEFAULT_LIMIT', 50),
     agentsListMaxLimit: envInt('LIRI_AGENTS_LIST_MAX_LIMIT', 200),
+
+    // pdcaList（PDCA 列表摘要分页，2026-11-08）
+    pdcaListDefaultLimit: envInt('LIRI_PDCA_LIST_DEFAULT_LIMIT', 200),
+    pdcaListMaxLimit: envInt('LIRI_PDCA_LIST_MAX_LIMIT', 500),
   };
 }

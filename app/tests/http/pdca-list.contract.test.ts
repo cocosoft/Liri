@@ -85,7 +85,15 @@ function makeReq(body?: object): http.IncomingMessage {
 async function call(body?: object) {
   const created = createRes();
   await handlePdcaList(makeReq(body), created.res);
-  return { status: created.status, body: JSON.parse(created.body) as any[] };
+  return {
+    status: created.status,
+    body: JSON.parse(created.body) as {
+      items: any[];
+      total: number;
+      limit: number;
+      offset: number;
+    },
+  };
 }
 
 // 预写 checkpoint（模拟跨重启遗留任务，无内存 orchestrator）
@@ -109,35 +117,69 @@ await writePdcaCheckpoint('pdca_ck_b', {
 });
 
 describe('POST /v1/pdca/list 契约（1-5 P1）', () => {
-  test('无 body：列出 checkpoint 回退任务（重启后非空）', async () => {
+  test('无 body：返回摘要包裹结构（items/total/limit/offset）', async () => {
     const { status, body } = await call();
     expect(status).toBe(200);
-    expect(Array.isArray(body)).toBe(true);
-    const a = body.find((t: any) => t.taskId === 'pdca_ck_a');
+    expect(Array.isArray(body.items)).toBe(true);
+    expect(body.total).toBe(2);
+    // 默认上限 200（摘要化后不再全量返回）
+    expect(body.limit).toBe(200);
+    expect(body.offset).toBe(0);
+    const a = body.items.find((t: any) => t.taskId === 'pdca_ck_a');
     expect(a).toBeDefined();
     expect(a.source).toBe('checkpoint');
     expect(a.status).toBe('running');
     expect(a.projectId).toBe('proj_x');
     expect(a.workspaceId).toBe('ws1');
     expect(a.sessionId).toBe('sess_a');
+    // 摘要必须带最近活动时间（列表排序依据）
+    expect(typeof a.updatedAt).toBe('string');
+  });
+
+  test('摘要不含大载荷（plan / audit / lifecycle 不得出现在列表里）', async () => {
+    const { body } = await call();
+    for (const item of body.items) {
+      expect(item).not.toHaveProperty('plan');
+      expect(item).not.toHaveProperty('audit');
+      expect(item).not.toHaveProperty('lifecycle');
+    }
   });
 
   test('?projectId=proj_x → 2 项；proj_y → 0 项', async () => {
     const x = await call({ projectId: 'proj_x' });
-    expect(x.body.length).toBe(2);
+    expect(x.body.items.length).toBe(2);
     const y = await call({ projectId: 'proj_y' });
-    expect(y.body.length).toBe(0);
+    expect(y.body.items.length).toBe(0);
+    expect(y.body.total).toBe(0);
   });
 
   test('?sessionId=sess_a → 1 项', async () => {
     const { body } = await call({ sessionId: 'sess_a' });
-    expect(body.length).toBe(1);
-    expect(body[0].taskId).toBe('pdca_ck_a');
+    expect(body.items.length).toBe(1);
+    expect(body.items[0].taskId).toBe('pdca_ck_a');
   });
 
   test('?workspaceId=ws2 → 1 项（pdca_ck_b）', async () => {
     const { body } = await call({ workspaceId: 'ws2' });
-    expect(body.length).toBe(1);
-    expect(body[0].taskId).toBe('pdca_ck_b');
+    expect(body.items.length).toBe(1);
+    expect(body.items[0].taskId).toBe('pdca_ck_b');
+  });
+
+  test('limit 截断条目但 total 仍为全量；offset 跳过', async () => {
+    const limited = await call({ limit: 1 });
+    expect(limited.body.items.length).toBe(1);
+    expect(limited.body.total).toBe(2);
+    expect(limited.body.limit).toBe(1);
+
+    const skipped = await call({ limit: 1, offset: 1 });
+    expect(skipped.body.items.length).toBe(1);
+    expect(skipped.body.items[0].taskId).not.toBe(limited.body.items[0].taskId);
+  });
+
+  test('按最近活动时间倒序（刚更新的排最前）', async () => {
+    // 重写 b ⇒ 其 updatedAt 变为最新（摘要排序即按此字段）
+    await writePdcaCheckpoint('pdca_ck_b', { status: 'completed' });
+    const { body } = await call();
+    expect(body.items[0].taskId).toBe('pdca_ck_b');
   });
 });

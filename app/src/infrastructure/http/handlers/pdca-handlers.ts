@@ -26,6 +26,11 @@ import { join } from 'path';
 import { existsSync, writeFileSync, readFileSync } from 'fs';
 import { resolvePyappHome } from '@openliri/infra/environment';
 import { LOCAL_REQUEST_BASE_URL } from '@openliri/kernel';
+// R03-002：常量必须走模块出口（B 类运行参数统一由 infra constants 供值）
+import {
+  PDCA_LIST_DEFAULT_LIMIT,
+  PDCA_LIST_MAX_LIMIT,
+} from '@openliri/infra/constants';
 import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
 
 import { handleError } from '@openliri/infra/error';
@@ -1231,14 +1236,123 @@ export async function handlePdcaDecideStep(
   }
 }
 
+/** 列表摘要条目 —— **不含** `plan` / `audit` / `lifecycle` 等大载荷（详情走 `GET /v1/pdca/:id`） */
+interface PdcaListItem {
+  taskId: string;
+  phase: string;
+  status: string;
+  planId?: string;
+  description?: string;
+  source?: 'checkpoint';
+  workItemId?: string;
+  projectId?: string;
+  workspaceId?: string;
+  sessionId?: string;
+  progress?: Record<string, number>;
+  updatedAt?: string;
+}
+
+/** 进度只保留数值字段（防止把 `progress` 之外的大对象带进摘要） */
+function pickProgress(
+  item: Record<string, unknown>
+): Record<string, number> | undefined {
+  const progress = item.progress as Record<string, unknown> | undefined;
+  if (!progress || typeof progress !== 'object') return undefined;
+  const out: Record<string, number> = {};
+  for (const key of [
+    'total',
+    'pending',
+    'running',
+    'completed',
+    'failed',
+    'cancelled',
+    'percent',
+  ]) {
+    const value = progress[key];
+    if (typeof value === 'number' && Number.isFinite(value)) out[key] = value;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 /**
- * 列出所有 PDCA 任务
+ * 活动时间：内存条目取生命周期最后事件（实时），检查点条目取 `updatedAt`（落盘时间）。
+ * 缺省返回 `undefined` ⇒ 排序时排最后（不伪造时间）。
+ */
+function resolveUpdatedAt(item: Record<string, unknown>): string | undefined {
+  if (typeof item.updatedAt === 'string' && item.updatedAt)
+    return item.updatedAt;
+  const lifecycle = item.lifecycle;
+  if (!Array.isArray(lifecycle)) return undefined;
+  const last = lifecycle[lifecycle.length - 1] as
+    | Record<string, unknown>
+    | undefined;
+  const ts = last?.['timestamp'];
+  return typeof ts === 'number' && Number.isFinite(ts)
+    ? new Date(ts).toISOString()
+    : undefined;
+}
+
+/** 把完整状态/检查点投影成列表摘要（字段白名单，杜绝大载荷外泄） */
+function summarizePdcaItem(
+  item: Record<string, unknown>,
+  opts: { source?: 'checkpoint' } = {}
+): PdcaListItem {
+  const summary: PdcaListItem = {
+    taskId: String(item.taskId ?? ''),
+    phase: typeof item.phase === 'string' && item.phase ? item.phase : 'none',
+    status:
+      typeof item.status === 'string' && item.status ? item.status : 'unknown',
+  };
+  for (const key of [
+    'planId',
+    'description',
+    'workItemId',
+    'projectId',
+    'workspaceId',
+    'sessionId',
+  ] as const) {
+    const value = item[key];
+    if (typeof value === 'string' && value.length > 0) summary[key] = value;
+  }
+  const progress = pickProgress(item);
+  if (progress) summary.progress = progress;
+  if (opts.source) summary.source = opts.source;
+  const updatedAt = resolveUpdatedAt(item);
+  if (updatedAt) summary.updatedAt = updatedAt;
+  return summary;
+}
+
+/** 条数归一：非法/非正 ⇒ 默认值；超过上限 ⇒ 截到上限 */
+function normalizeListLimit(value: unknown): number {
+  const limit = Number(value);
+  if (!Number.isFinite(limit) || limit <= 0) return PDCA_LIST_DEFAULT_LIMIT;
+  return Math.min(Math.floor(limit), PDCA_LIST_MAX_LIMIT);
+}
+
+/** 偏移归一：非法/负数 ⇒ 0 */
+function normalizeListOffset(value: unknown): number {
+  const offset = Number(value);
+  return Number.isFinite(offset) && offset > 0 ? Math.floor(offset) : 0;
+}
+
+/** 时间戳比较键（缺省/不可解析 ⇒ 0，排最后） */
+function toTimeMs(iso: string | undefined): number {
+  if (!iso) return 0;
+  const ms = Date.parse(iso);
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+/**
+ * 列出所有 PDCA 任务（**摘要**，2026-11-08 改造）
  *
  * POST /v1/pdca/list
- * 请求体（可选）: { workspaceId?: string; projectId?: string; sessionId?: string }
+ * 请求体（可选）: { workspaceId?, projectId?, sessionId?, limit?, offset? }
  * 数据源 = 内存 orchestrator（活跃）+ checkpoint 回退（跨重启遗留，1-5 P1 前置 2026-09-03）：
  * checkpoint 含 Gap D 修复保留的归属字段（workItemId/workspaceId/projectId/status/phase），
  * 重启后 list 不再为空。过滤字段取自各条目的归属（checkpoint 优先）。
+ *
+ * 返回 `{ items, total, limit, offset }`：`items` 按最近活动时间倒序、默认 200 条（上限 500）；
+ * 每项只含列表渲染所需字段（不含 `plan` / `audit` / `lifecycle`）。
  */
 export async function handlePdcaList(
   req: http.IncomingMessage,
@@ -1249,6 +1363,8 @@ export async function handlePdcaList(
       workspaceId?: string;
       projectId?: string;
       sessionId?: string;
+      limit?: number;
+      offset?: number;
     };
     try {
       const body = await readRequestBody(req);
@@ -1313,6 +1429,7 @@ export async function handlePdcaList(
         projectId: ck.projectId ?? undefined,
         workspaceId: ck.workspaceId ?? undefined,
         sessionId: ck.sessionId ?? undefined,
+        updatedAt: typeof ck.updatedAt === 'string' ? ck.updatedAt : undefined,
         source: 'checkpoint',
       });
     }
@@ -1331,8 +1448,27 @@ export async function handlePdcaList(
       return true;
     });
 
+    // 摘要化 + 倒序（最近活动在前）+ 分页截断（2026-11-08：原为全量完整状态，1.19 MB）
+    const summaries = filtered
+      .map((item) =>
+        item.source === 'checkpoint'
+          ? summarizePdcaItem(item, { source: 'checkpoint' })
+          : summarizePdcaItem(item)
+      )
+      .sort((a, b) => toTimeMs(b.updatedAt) - toTimeMs(a.updatedAt));
+    const total = summaries.length;
+    const limit = normalizeListLimit(filter.limit);
+    const offset = normalizeListOffset(filter.offset);
+
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(filtered));
+    res.end(
+      JSON.stringify({
+        items: summaries.slice(offset, offset + limit),
+        total,
+        limit,
+        offset,
+      })
+    );
   } catch (err) {
     sendError(res, err);
   }

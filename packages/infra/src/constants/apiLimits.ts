@@ -46,3 +46,21 @@ export const IMAGE_TARGET_RAW_SIZE = B.imageTargetRawSize;
 export const IMAGE_MAX_WIDTH = B.imageMaxWidth;
 /** @kind B */
 export const IMAGE_MAX_HEIGHT = B.imageMaxHeight;
+
+// =============================================================================
+// PDCA 列表摘要分页（2026-11-08：列表接口原为全量完整状态，真机 1538 条 / 1.19 MB）
+// =============================================================================
+
+/**
+ * `POST /v1/pdca/list` 单页默认条数
+ *
+ * @kind B
+ */
+export const PDCA_LIST_DEFAULT_LIMIT = B.pdcaListDefaultLimit;
+
+/**
+ * `POST /v1/pdca/list` 单页上限（防单请求过大）
+ *
+ * @kind B
+ */
+export const PDCA_LIST_MAX_LIMIT = B.pdcaListMaxLimit;

@@ -56,6 +56,28 @@ describe('formatPdcaReceipt — 终态回执文案', () => {
     expect(text).not.toContain('长程任务完成');
   });
 
+  // 2026-11-08（真机 pdca_mw76rof9）：escalate 后 phase 留在 execute，用户只能从回执知道
+  // "可以 replan 续跑"。
+  it('escalate（可 replan）⇒ ⚠️ 回执补「可 replan 续跑」；不可 replan 时不写', () => {
+    const withReplan = formatPdcaReceipt({
+      taskId: 'pdca_demo',
+      phase: 'execute',
+      completed: 0,
+      total: 2,
+      failed: 2,
+      replanAvailable: true,
+    });
+    expect(withReplan).toContain('可 replan 续跑');
+    const without = formatPdcaReceipt({
+      taskId: 'pdca_demo',
+      phase: 'execute',
+      completed: 0,
+      total: 2,
+      failed: 2,
+    });
+    expect(without).not.toContain('可 replan 续跑');
+  });
+
   it('挂起等待审批（即使可见步骤全部完成）⇒ ⏸ 挂起，不冒充完成', () => {
     // 真机 `pdca_mw6tie3k`：产物已写好、只剩一条 shell 命令等批准 ⇒ 2/2 步完成，
     // 但任务确实在等审批；只按步数判定会输出假的「✅ 完成」。

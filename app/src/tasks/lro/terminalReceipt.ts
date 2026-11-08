@@ -42,6 +42,13 @@ export interface PdcaReceiptFacts {
    * 「⏸ 已挂起等待审批」再无下文，看起来像卡死。
    */
   aborted?: boolean;
+  /**
+   * 2026-11-08（真机 `pdca_mw76rof9`）：**可 replan 续跑**（有步骤决策为 escalate）。
+   *
+   * escalate 收尾时 `phase` 故意留在 `execute`（防覆盖 `replanPending`）⇒ 回执若只说
+   * "未完成"，用户看不到唯一的恢复入口；补一句"可 replan 续跑"。
+   */
+  replanAvailable?: boolean;
 }
 
 /**
@@ -51,7 +58,16 @@ export interface PdcaReceiptFacts {
  * 只用"步数事实 + 阶段名（数据）+ 显式挂起/中止标记"决定文案。
  */
 export function formatPdcaReceipt(input: PdcaReceiptFacts): string {
-  const { taskId, phase, completed, total, failed, paused, aborted } = input;
+  const {
+    taskId,
+    phase,
+    completed,
+    total,
+    failed,
+    paused,
+    aborted,
+    replanAvailable,
+  } = input;
   if (aborted)
     return `⏹ 长程任务已中止：${completed}/${total} 步已达成（taskId ${taskId}）`;
   if (paused)
@@ -59,7 +75,9 @@ export function formatPdcaReceipt(input: PdcaReceiptFacts): string {
   if (total > 0 && completed === total && failed === 0)
     return `✅ 长程任务完成：${completed}/${total} 步（taskId ${taskId}）`;
   if (failed > 0)
-    return `⚠️ 长程任务未完成：${completed}/${total} 步达成，${failed} 步失败（阶段 ${phase}，taskId ${taskId}）`;
+    return `⚠️ 长程任务未完成：${completed}/${total} 步达成，${failed} 步失败（阶段 ${phase}，taskId ${taskId}）${
+      replanAvailable ? '；可 replan 续跑' : ''
+    }`;
   return `⏸ 长程任务未结束：${completed}/${total} 步已达成（阶段 ${phase}，taskId ${taskId}）`;
 }
 
@@ -137,6 +155,7 @@ export function emitPdcaReceipt(
     failed: facts.failed,
     ...(facts.paused ? { paused: true } : {}),
     ...(facts.aborted ? { aborted: true } : {}),
+    ...(facts.replanAvailable ? { replanAvailable: true } : {}),
   });
   emitPdcaReceiptText({
     taskId: facts.taskId,
@@ -179,6 +198,10 @@ export function emitPdcaReceiptFromAudit(
   const plan = report.planId
     ? taskOrchestrator.getPlan(report.planId)
     : undefined;
+  // 2026-11-08（真机 `pdca_mw76rof9`）：escalate 收尾时 phase 留在 execute（防覆盖
+  // replanPending）⇒ 从步骤决策判"可 replan"，让 ⚠️ 回执带上唯一恢复入口的提示。
+  const replanAvailable =
+    plan?.steps?.some((s) => s.decision === 'escalate') ?? false;
   emitPdcaReceipt({
     taskId: report.taskId,
     sessionId: plan?.sessionId,
@@ -186,6 +209,7 @@ export function emitPdcaReceiptFromAudit(
     completed: report.completedSteps,
     total: report.totalSteps,
     failed: report.failedSteps,
+    replanAvailable,
     hasPushChannel,
   });
 }

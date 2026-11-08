@@ -39,3 +39,18 @@ export const DEFAULT_POLL_MS = 60_000;
 
 /** 过期临时文件阈值：24 小时后清理 */
 export const DEFAULT_TEMP_MAX_AGE_MS = 24 * 3600_000;
+
+/**
+ * 运行时健康探针采样间隔：15 秒
+ *
+ * 2026-11-08：从 `RuntimeHealthProbe.ts` 迁入（`lint:consts` D-2 B 类裸字面量）。
+ * 名称带 `RUNTIME_HEALTH_` 前缀而非通用 `DEFAULT_INTERVAL_MS` —— 后者已按域消歧
+ * （B5-2㉝），不得再建同名通用名。
+ */
+export const RUNTIME_HEALTH_PROBE_INTERVAL_MS = 15_000;
+
+/** 事件循环延迟告警阈值：2 秒 */
+export const RUNTIME_HEALTH_LAG_WARN_MS = 2_000;
+
+/** 同类延迟告警的最小间隔：60 秒（避免每轮刷屏） */
+export const RUNTIME_HEALTH_LAG_WARN_COOLDOWN_MS = 60_000;

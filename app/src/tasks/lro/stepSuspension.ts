@@ -103,6 +103,11 @@ export function resumeSuspendedSteps(plan: Plan): string[] {
     if (step.decision === 'suspend') {
       step.status = STEP_STATUS_PENDING;
       step.decision = undefined;
+      // 2026-11-08（真机 `pdca_mw760faj`）：**旧审查结论必须作废** —— 挂起前那条审查是
+      // "命令未执行（等审批）"的结论；恢复后重跑会产出新证据，但 `autoDecideStep` 见
+      // `reviewResult` 已存在就**跳过重新审查**、直接按旧结论判 `retry` ⇒ 白跑一轮执行
+      // （真机进度 50%→25%，多一次完整步骤执行 + 审查）。
+      step.reviewResult = undefined;
       if (step.toolOutcomes) {
         // 2026-11-08（真机 `pdca_mw6wxxk1`）：**只清计数不够** —— `outcomes[]` 里的条目仍带
         // `pendingApproval: true`，而计数现在按条目重算（`summarizeToolOutcomes` /

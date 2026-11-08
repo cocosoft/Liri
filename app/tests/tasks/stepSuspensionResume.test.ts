@@ -56,6 +56,15 @@ describe('2026-11-08：resumeSuspendedSteps 清理待审批证据', () => {
   it('挂起步骤恢复 ⇒ 去掉 pending 条目并清零计数（不再"复活"）', () => {
     const plan = makePlan({
       decision: 'suspend',
+      // 2026-11-08（真机 pdca_mw760faj）：挂起前的审查结论（"命令未执行"）不得沿用到重跑
+      reviewResult: {
+        stepId: 'step_1',
+        pass: false,
+        score: 38,
+        issues: [],
+        summary: '命令未执行（等审批）',
+        reviewedAt: Date.now(),
+      },
       toolOutcomes: {
         outcomes: [pendingOutcome, successOutcome] as never,
         total: 2,
@@ -70,6 +79,8 @@ describe('2026-11-08：resumeSuspendedSteps 清理待审批证据', () => {
 
     expect(resumed).toEqual(['step_1']);
     expect(plan.steps[0]?.decision).toBeUndefined();
+    // 旧审查结论作废（否则 autoDecideStep 跳过重审、按旧结论判 retry）
+    expect(plan.steps[0]?.reviewResult).toBeUndefined();
     const outcomes = plan.steps[0]?.toolOutcomes;
     expect(outcomes?.pendingApproval).toBe(0);
     expect(outcomes?.total).toBe(1);

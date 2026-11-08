@@ -37,6 +37,7 @@ import {
 } from '../../src/tasks/lro/terminalReceipt';
 import {
   markResumeFailure,
+  markStartFailure,
   writeAbortCheckpoint,
 } from '../../src/tasks/lro/checkpointPersist';
 import { generateAuditReport } from '../../src/tasks/AuditReport';
@@ -487,6 +488,66 @@ describe('escalate 收尾的 phase 投影（2026-11-08 真机 pdca_mw79lfjh）',
   });
 });
 
+describe('启动期失败的收口（2026-11-08 真机 pdca_mw7gf70g，CLI /goal start 路径）', () => {
+  it('started/plan ⇒ 落 failed（replanPending=false）并发 ⚠️ 回执', async () => {
+    const taskId = `start-fail-${Date.now()}`;
+    await writePdcaCheckpoint(taskId, {
+      taskId,
+      sessionId: 'sess-start-fail',
+      phase: 'plan',
+      status: 'started',
+    });
+    const receipts: Array<{ taskId: string; sessionId: string; text: string }> =
+      [];
+    setPdcaReceiptSink((p) => receipts.push(p));
+    let marked = false;
+    try {
+      marked = await markStartFailure({
+        taskId,
+        error: new Error('Planner 输出无法解析为有效计划（已重问一次）'),
+      });
+    } finally {
+      setPdcaReceiptSink(undefined);
+    }
+
+    expect(marked).toBe(true);
+    const ck = await readPdcaCheckpoint(taskId);
+    expect(ck?.['phase']).toBe('failed');
+    expect(ck?.['status']).toBe('failed');
+    // 无计划 ⇒ 不可 replan（与续跑失败不同）
+    expect(ck?.['replanPending']).toBe(false);
+    expect(receipts).toHaveLength(1);
+    expect(receipts[0]?.sessionId).toBe('sess-start-fail');
+    expect(receipts[0]?.text).toContain('启动失败');
+    expect(receipts[0]?.text).toContain('可重新发起');
+  });
+
+  it('已终态 ⇒ 不覆盖、返回 false、不发回执', async () => {
+    const taskId = `start-fail-terminal-${Date.now()}`;
+    await writePdcaCheckpoint(taskId, {
+      taskId,
+      sessionId: 'sess-start-terminal',
+      phase: 'abort',
+      status: 'abort',
+    });
+    const receipts: Array<{ taskId: string; sessionId: string; text: string }> =
+      [];
+    setPdcaReceiptSink((p) => receipts.push(p));
+    let marked = true;
+    try {
+      marked = await markStartFailure({ taskId, error: new Error('x') });
+    } finally {
+      setPdcaReceiptSink(undefined);
+    }
+
+    expect(marked).toBe(false);
+    const ck = await readPdcaCheckpoint(taskId);
+    expect(ck?.['phase']).toBe('abort');
+    expect(ck?.['status']).toBe('abort');
+    expect(receipts).toHaveLength(0);
+  });
+});
+
 describe('续跑失败的收口（2026-11-08 真机 pdca_mw7bjwo8）', () => {
   it('真跑阶段抛错 ⇒ 检查点落 failed+replanPending，并发一条 ⚠️ 回执', async () => {
     const taskId = `resume-fail-${Date.now()}`;
@@ -693,6 +754,17 @@ describe('审计摘要不得把「未终态步骤」算作完成（2026-11-08 �
       taskId: 't3',
       planId: 'p3',
       steps: [step('a', 'completed'), step('b', 'failed')],
+    });
+    expect(r.summary.startsWith('任务 未完全完成')).toBe(true);
+  });
+
+  // 2026-11-08（真机 pdca_mw7f7h2g）：目标未收敛 ⇒ 步骤 2/2 全通过，但任务已 failed
+  it('任务级失败（target taskFailed）⇒ 全部步骤 completed 也写未完全完成', () => {
+    const r = generateAuditReport({
+      taskId: 't4',
+      planId: 'p4',
+      taskFailed: true,
+      steps: [step('a', 'completed'), step('b', 'completed')],
     });
     expect(r.summary.startsWith('任务 未完全完成')).toBe(true);
   });

@@ -6,7 +6,11 @@ import {
   PDCA_TERMINAL_PHASES,
   ensureGoalForBatch,
 } from '@modules/tasks';
-import { getOrCreateOrchestrator, getOrchestrator } from '@modules/tasks';
+import {
+  getOrCreateOrchestrator,
+  getOrchestrator,
+  markStartFailure,
+} from '@modules/tasks';
 // 2026-11-07（隐藏缺陷 #3）：CLI 批准与 Inbox 批准并发时只跑一个续跑循环
 import { resumePdcaOnce } from '@openliri/service/runtime/resumeSingleFlight';
 import { handleError } from '@openliri/infra/error';
@@ -151,6 +155,19 @@ export default {
             action: 'start',
             context: { taskId },
           });
+          // 2026-11-08（真机 `pdca_mw7gf70g`，第三十四轮）：启动期失败必须落终态 ——
+          // 否则检查点停在 `status=started`，本命令的幂等判据（`phase` 非终态）会把该会话
+          // 永久判为"已有进行中任务"，`/goal start` 再也起不来（与 HTTP 路径 D54 同型）。
+          try {
+            const marked = await markStartFailure({
+              taskId,
+              sessionId,
+              error: e,
+            });
+            if (marked) orchestrator.dispose();
+          } catch {
+            // @ignore-catch — 收口失败不改变"启动失败"的事实
+          }
         });
 
       context.onDone?.(`PDCA 任务 ${taskId} 已启动`, { display: 'system' });

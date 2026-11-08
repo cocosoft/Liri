@@ -105,6 +105,47 @@ export async function markResumeFailure(input: {
   });
 }
 
+/**
+ * 启动期失败收口（2026-11-08 真机 `pdca_mw7gf70g`；第三十四轮补 CLI `/goal start` 路径）。
+ *
+ * 规划阶段抛 `PLAN_PARSE_FAILED` 时 `runFullPdca` 直接上抛，检查点停在
+ * `status=started / phase=plan`：`/goal start` 的幂等判据是
+ * `!PDCA_TERMINAL_PHASES.has(ck.phase)`（`phase` 缺失/plan ⇒ 视为进行中）⇒ 该会话
+ * **再也起不了新任务**；`/goal list` 也一直把它列为进行中。
+ *
+ * 现口径与 HTTP `/v1/pdca/start` 一致：已终态（含用户中止）⇒ 不覆盖、返回 false；
+ * 否则落 `failed` + `replanPending=false` 并发一条 ⚠️ 回执（无计划 ⇒ 不可 replan）。
+ *
+ * ⚠️ 分层：`infrastructure`（service 层）不能反向依赖本模块，其收口用端口版
+ * `closeOutStartFailure`（`pdca-handlers.ts`），二者判据必须保持一致。
+ */
+export async function markStartFailure(input: {
+  taskId: string;
+  sessionId?: string | null;
+  error: unknown;
+  /** 同步内存 phase（调用方随即 `dispose()` 时可不传） */
+  onPhase?: (phase: PdcaPhase) => void;
+}): Promise<boolean> {
+  const ck = (await readPdcaCheckpoint(input.taskId)) ?? {};
+  const phase = ck.phase as string | undefined;
+  if (phase !== undefined && PDCA_TERMINAL_PHASES.has(phase)) return false;
+  input.onPhase?.(PDCA_PHASE_FAILED);
+  await writePdcaCheckpoint(input.taskId, {
+    taskId: input.taskId,
+    phase: PDCA_PHASE_FAILED,
+    status: PLAN_STATUS_FAILED,
+    replanPending: false,
+  });
+  const reason =
+    input.error instanceof Error ? input.error.message : String(input.error);
+  emitPdcaReceiptText({
+    taskId: input.taskId,
+    sessionId: (ck.sessionId as string | undefined) ?? input.sessionId,
+    text: `⚠️ 长程任务启动失败：${reason.slice(0, 200)}（taskId ${input.taskId}）；可重新发起任务`,
+  });
+  return true;
+}
+
 export interface CheckpointPersistInput {
   taskId: string;
   phase: PdcaPhase;

@@ -211,6 +211,8 @@ export type { TaskSessionPolicyPort } from './lro/taskSessionPolicyPort';
 export { setPdcaReceiptSink } from './lro/terminalReceipt';
 // 2026-11-08：崩溃遗留被启动扫描标 abort 后的中断回执（入口层调用）
 export { emitPdcaInterruptedReceipts } from './lro/terminalReceipt';
+// 2026-11-08（D55）：启动期失败收口（CLI `/goal start` 用；经本出口导出，禁止直连 lro 子目录）
+export { markStartFailure } from './lro/checkpointPersist';
 // P2（2026-11-04，方案 §3.3）：会话活跃长程任务（任务档审批的判定依据）
 export {
   getActiveTaskIdForSession,

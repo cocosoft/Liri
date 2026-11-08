@@ -1487,19 +1487,18 @@ export class LongRunningTaskOrchestrator {
     });
 
     if (hasEscalated) {
-      // PR5（#6，2026-09-05）：escalate 收尾 → checkpoint 写 replanPending /
-      // replanFailCount（半自动闭环，决策 4/6/7）。计数持久化、跨 resume/重启累计；
+      // PR5（#6）：escalate 收尾 → checkpoint 写 replanPending/replanFailCount（跨 resume/重启累计）。
       // 达上限 replanPending=false（转人工介入），resume 入口据此拒绝（见 resumeFromCheckpoint）。
-      // **2026-10-17 / 2026-11-07**：不得 `setPhase('failed')`（replanPending 被覆盖）；内存 phase 同步回 execute。
-      await this.setPhase('execute');
+      // 2026-10-17/11-07：可续跑时不得 `setPhase('failed')`（replanPending 被覆盖），phase 回 execute；
+      // 2026-11-08（真机 `pdca_mw79lfjh`）：用尽则落 failed —— 否则 `/v1/pdca/:id`、`/goal list` 永远"执行中"。
       const prevCk = (await readPdcaCheckpoint(this.taskId)) ?? {};
-      const prevFail = Number(prevCk.replanFailCount) || 0;
-      const next = prevFail + 1;
+      const next = (Number(prevCk.replanFailCount) || 0) + 1;
       const maxReplan = replanMaxRetries();
       const replanPending = next < maxReplan;
+      await this.setPhase(replanPending ? 'execute' : 'failed');
       await writePdcaCheckpoint(this.taskId, {
         taskId: this.taskId,
-        phase: 'execute',
+        phase: replanPending ? 'execute' : 'failed',
         status: 'failed',
         replanPending,
         replanFailCount: next,

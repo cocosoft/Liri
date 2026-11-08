@@ -27,6 +27,7 @@ import {
   isAutoReplanEnabled,
   replanMaxRetries,
 } from '../../src/tasks/lro/portResolvers';
+import { readPdcaCheckpoint } from '../../src/tasks/PdcaWorkItemBridge';
 
 taskOrchestrator.setPlansDir(mkdtempSync(join(tmpdir(), 'plans-rootfix-')));
 
@@ -410,5 +411,66 @@ describe('resume 可达性与字段回填', () => {
 
     expect(state.blockedCount).toBe(0);
     expect(state.loopRan).toBe(true);
+  });
+});
+
+describe('escalate 收尾的 phase 投影（2026-11-08 真机 pdca_mw79lfjh）', () => {
+  /** 造一个"全部步骤终态 + 某步 escalate"的计划（直接驱动终态裁决段） */
+  function makeEscalatedOrchestrator(taskId: string): {
+    run: () => Promise<{ phase: string }>;
+  } {
+    const o = new LongRunningTaskOrchestrator(taskId, async () => 'not-json');
+    const plan = taskOrchestrator.createPlan(
+      'escalate 终态投影',
+      ['步骤A', '步骤B'],
+      'session-escalate-phase'
+    );
+    for (const s of plan.steps) {
+      s.status = 'failed';
+      s.decision = 'escalate';
+    }
+    (o as unknown as { planId: string | null }).planId = plan.id;
+    return {
+      run: () =>
+        (
+          o as unknown as {
+            _runExecuteDecideLoop: () => Promise<{ phase: string }>;
+          }
+        )._runExecuteDecideLoop(),
+    };
+  }
+
+  it('replan 预算用尽（replanPending=false）⇒ phase=failed，不再显示"执行中"', async () => {
+    process.env.PDCA_GOAL_EVALUATE = 'false';
+    process.env.PDCA_REPLAN_MAX_RETRIES = '1';
+    const taskId = `escalate-exhausted-${Date.now()}`;
+    try {
+      const status = await makeEscalatedOrchestrator(taskId).run();
+      expect(status.phase).toBe('failed');
+      const ck = await readPdcaCheckpoint(taskId);
+      expect(ck?.['phase']).toBe('failed');
+      expect(ck?.['replanPending']).toBe(false);
+      expect(ck?.['replanFailCount']).toBe(1);
+    } finally {
+      delete process.env.PDCA_GOAL_EVALUATE;
+      delete process.env.PDCA_REPLAN_MAX_RETRIES;
+    }
+  });
+
+  it('仍有 replan 预算 ⇒ 保持 phase=execute（可续跑语义不变）', async () => {
+    process.env.PDCA_GOAL_EVALUATE = 'false';
+    process.env.PDCA_REPLAN_MAX_RETRIES = '3';
+    const taskId = `escalate-pending-${Date.now()}`;
+    try {
+      const status = await makeEscalatedOrchestrator(taskId).run();
+      expect(status.phase).toBe('execute');
+      const ck = await readPdcaCheckpoint(taskId);
+      expect(ck?.['phase']).toBe('execute');
+      expect(ck?.['replanPending']).toBe(true);
+      expect(ck?.['replanFailCount']).toBe(1);
+    } finally {
+      delete process.env.PDCA_GOAL_EVALUATE;
+      delete process.env.PDCA_REPLAN_MAX_RETRIES;
+    }
   });
 });

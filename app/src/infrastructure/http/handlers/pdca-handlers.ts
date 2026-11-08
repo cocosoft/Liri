@@ -466,9 +466,29 @@ export async function handlePdcaResumeTask(
       );
       return;
     }
+    // 2026-11-08（真机 `pdca_mw79lfjh` 复盘中发现）：**运行中的任务不得再被续跑**。
+    // 在飞幂等只覆盖"经本端点发起的续跑"，覆盖不到"首次运行 / 自动 replan / 审批续跑"
+    // 这条链路 —— 此时调续跑会让同一任务并行跑两个循环（白烧 token、步骤互相覆盖）。
+    // 判据：内存编排器存活 **且** 检查点状态仍属活跃集；escalate 待 replan 时
+    // `status='failed'` 不属活跃集 ⇒ 仍可续跑。
+    const liveOrchestrator = await port.getPdcaOrchestrator(taskId);
+    if (liveOrchestrator) {
+      const { active } = await port.getPdcaStatusSets();
+      if (status !== undefined && active.has(status)) {
+        res.writeHead(409, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            error: '任务正在运行，无需续跑',
+            taskId,
+            status,
+            phase,
+          })
+        );
+        return;
+      }
+    }
     const orchestrator =
-      (await port.getPdcaOrchestrator(taskId)) ??
-      (await port.getOrCreatePdcaOrchestrator(taskId));
+      liveOrchestrator ?? (await port.getOrCreatePdcaOrchestrator(taskId));
     if (typeof orchestrator.resumeFromCheckpoint !== 'function') {
       sendError(res, new Error('编排器不支持续跑'), 501);
       return;

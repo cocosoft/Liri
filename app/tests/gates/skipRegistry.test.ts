@@ -174,6 +174,14 @@ const SKIP_REGISTRY: SkipEntry[] = [
     module: 'session',
     severity: 'platform',
   },
+  {
+    file: 'app/tests/tools/bashSemanticSuccess.test.ts',
+    match: "process.platform !== 'win32'",
+    reason:
+      '真实执行面只跑 cmd.exe 形态命令（dir/findstr），非 Windows 无该语义',
+    module: 'tools',
+    severity: 'platform',
+  },
   ...Array.from({ length: 5 }, (_, i) => ({
     file: 'app/tests/tools/repl.integration.test.ts',
     match: '!pythonAvailable',

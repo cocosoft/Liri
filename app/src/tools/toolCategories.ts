@@ -617,9 +617,27 @@ export const DEFAULT_DISCLOSURE_TOOLS: ReadonlySet<string> = new Set([
  * AC-16 例外（显式评审）：`default`/`chat` 面在 **Windows 上为 13 个**（其余平台仍 12），
  * 基线由 `bun run measure:tool-disclosure --update` 写入；该工具无平台无关实现
  * （`pwsh` 在 Linux/macOS 通常不存在）⇒ 不在非 Windows 面占 schema 预算。
+ *
+ * 平台专属披露项的**唯一事实源**（按平台索引）。
+ *
+ * 2026-11-08（CI 真机，ubuntu/macos 红）：此前这里是"按**宿主**平台算一次的 Set"，
+ * 而 `isInDefaultDisclosure(name, platform)` 又暴露了 `platform` 形参 ⇒ 在非 Windows 宿主上
+ * `isInDefaultDisclosure('powershell','win32')` 恒为 false（形参与事实源不一致，等于该形参**说谎**）。
+ * 现改为平台表：判定只看**调用方给的平台**（缺省 `process.platform`，运行期行为不变）。
+ */
+const PLATFORM_DISCLOSURE_BY_PLATFORM: Readonly<
+  Partial<Record<NodeJS.Platform, ReadonlySet<string>>>
+> = {
+  win32: new Set(['powershell']),
+};
+
+/**
+ * 当前**宿主平台**上叠加的默认披露工具（供可见性报表/测试读取"本机实际面"）。
+ *
+ * 判定请统一走 `isInDefaultDisclosure(name, platform)`；本常量只表达"本机叠加项"。
  */
 export const PLATFORM_DISCLOSURE_TOOLS: ReadonlySet<string> =
-  process.platform === 'win32' ? new Set(['powershell']) : new Set();
+  PLATFORM_DISCLOSURE_BY_PLATFORM[process.platform] ?? new Set<string>();
 
 /**
  * 该工具是否在**默认披露面**内（唯一判定；含平台专属项）。
@@ -632,7 +650,7 @@ export function isInDefaultDisclosure(
   platform: NodeJS.Platform = process.platform
 ): boolean {
   if (DEFAULT_DISCLOSURE_TOOLS.has(toolName)) return true;
-  return platform === 'win32' && PLATFORM_DISCLOSURE_TOOLS.has(toolName);
+  return PLATFORM_DISCLOSURE_BY_PLATFORM[platform]?.has(toolName) ?? false;
 }
 
 /** 该任务类型是否套用**默认披露面白名单**（`default` / `chat` / 未指定） */

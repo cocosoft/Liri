@@ -42,27 +42,33 @@ afterEach(() => {
   resetGraySwitchWarningForTest();
 });
 
-describe('realdir 语义：路径不存在 / 检索无匹配 不再算失败', () => {
-  it('dir 不存在的路径 ⇒ 成功 + pathNotFound 标记 + 可读文案', async () => {
-    const result = await run('dir "__f5_no_such_dir_9c1f__"');
-    expect(result.success).toBe(true);
-    expect(result.metadata?.pathNotFound).toBe(true);
-    expect(String(result.data ?? '')).toContain('路径不存在');
-  });
+// 三条用例都跑 **cmd.exe 形态**命令（`dir` / `findstr`）——非 Windows 宿主没有这些命令，
+// 只会得到 "command not found"（且被 security gate 拦成 path_safety）⇒ 断言"成功 + 标记"
+// 必然失败。故整块按平台条件跳过（2026-11-08 CI ubuntu/macos 真机红）。
+describe.skipIf(process.platform !== 'win32')(
+  'realdir 语义：路径不存在 / 检索无匹配 不再算失败',
+  () => {
+    it('dir 不存在的路径 ⇒ 成功 + pathNotFound 标记 + 可读文案', async () => {
+      const result = await run('dir "__f5_no_such_dir_9c1f__"');
+      expect(result.success).toBe(true);
+      expect(result.metadata?.pathNotFound).toBe(true);
+      expect(String(result.data ?? '')).toContain('路径不存在');
+    });
 
-  it('dir | findstr 无匹配 ⇒ 成功 + searchNoMatch 标记', async () => {
-    const result = await run(
-      'dir /b /s /ad 2>nul | findstr /i "__f3_no_such_token_9c1f__"'
-    );
-    expect(result.success).toBe(true);
-    expect(result.metadata?.searchNoMatch).toBe(true);
-    expect(String(result.data ?? '')).toContain('检索无匹配');
-  });
+    it('dir | findstr 无匹配 ⇒ 成功 + searchNoMatch 标记', async () => {
+      const result = await run(
+        'dir /b /s /ad 2>nul | findstr /i "__f3_no_such_token_9c1f__"'
+      );
+      expect(result.success).toBe(true);
+      expect(result.metadata?.searchNoMatch).toBe(true);
+      expect(String(result.data ?? '')).toContain('检索无匹配');
+    });
 
-  it('对照组：findstr 缺失文件（exit 2）仍判失败（不误伤真失败）', async () => {
-    const result = await run('findstr /i x "__f3_no_such_file_9c1f__.txt"');
-    expect(result.success).toBe(false);
-    expect(result.metadata?.searchNoMatch).toBeUndefined();
-    expect(result.metadata?.pathNotFound).toBeUndefined();
-  });
-});
+    it('对照组：findstr 缺失文件（exit 2）仍判失败（不误伤真失败）', async () => {
+      const result = await run('findstr /i x "__f3_no_such_file_9c1f__.txt"');
+      expect(result.success).toBe(false);
+      expect(result.metadata?.searchNoMatch).toBeUndefined();
+      expect(result.metadata?.pathNotFound).toBeUndefined();
+    });
+  }
+);

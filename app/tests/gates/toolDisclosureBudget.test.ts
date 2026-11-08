@@ -65,8 +65,11 @@ describe('AC-16 模型可见面预算 · 棘轮（default 面）', () => {
   });
 
   it('门禁自证（负向夹具）：披露集 +1 ⇒ 必报', () => {
+    // 夹具必须**相对基线**构造（2026-11-08，CI 非 Windows 真机红）：
+    // 基线取跨平台最差值（Windows 面 13），非 Windows 宿主实测更小（12）⇒
+    // 用 `current + 1` 仍可能 ≤ 基线，夹具就"恒不报"而失去自证力。
     const comparison = compareDisclosureBudget(
-      { ...current, disclosureCount: current.disclosureCount + 1 },
+      { ...current, disclosureCount: baseline.disclosureCount + 1 },
       baseline
     );
     expect(comparison.problems.length).toBeGreaterThan(0);

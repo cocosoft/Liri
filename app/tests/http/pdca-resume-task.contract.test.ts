@@ -74,7 +74,7 @@ beforeEach(() => {
 });
 
 // 动态导入：确保 spy 生效后再解析 handler（模块级 `getCoreAPI` 绑定）
-const { handlePdcaResumeTask } =
+const { handlePdcaResumeTask, shouldEmitStartFailureReceipt } =
   await import('../../src/infrastructure/http/handlers/pdca-handlers');
 
 function makeRes(): {
@@ -281,5 +281,17 @@ describe('POST /v1/pdca/:taskId/resume — 入口判定', () => {
     expect(r.status).toBe(409);
     expect(String(r.body['error'])).toContain('不可 replan');
     expect(resumeCalls).toHaveLength(0);
+  });
+});
+
+describe('启动路径异常回执判定（2026-11-08 真机 pdca_mw7eb8lt）', () => {
+  test('中止态 ⇒ 不再补发「异常终止」（编排层已发 ⏹ 中止回执）', () => {
+    expect(shouldEmitStartFailureReceipt({ phase: 'abort' })).toBe(false);
+  });
+
+  test('非中止态 / 无状态 ⇒ 仍补发（真实崩溃不静默）', () => {
+    expect(shouldEmitStartFailureReceipt({ phase: 'execute' })).toBe(true);
+    expect(shouldEmitStartFailureReceipt(undefined)).toBe(true);
+    expect(shouldEmitStartFailureReceipt(null)).toBe(true);
   });
 });

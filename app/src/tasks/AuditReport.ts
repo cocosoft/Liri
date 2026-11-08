@@ -78,7 +78,11 @@ export function generateAuditReport(params: {
     };
   });
 
-  const allPassed = failedSteps === 0 && skippedSteps === 0;
+  // 2026-11-08（真机 `pdca_mw7e6fvy`）：**未终态步骤也算未完成** —— 原判据只看
+  // failed/cancelled，中止任务（2 completed + 1 pending）的审计摘要会写成
+  // 「任务 完成 | 2/3 步骤完成」，与中止回执/`plan.status=aborted` 自相矛盾。
+  const allPassed =
+    failedSteps === 0 && skippedSteps === 0 && completedSteps === steps.length;
   const avgScore =
     entries.filter((e) => e.reviewScore !== undefined).length > 0
       ? Math.round(

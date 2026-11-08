@@ -39,6 +39,7 @@ import {
   markResumeFailure,
   writeAbortCheckpoint,
 } from '../../src/tasks/lro/checkpointPersist';
+import { generateAuditReport } from '../../src/tasks/AuditReport';
 
 taskOrchestrator.setPlansDir(mkdtempSync(join(tmpdir(), 'plans-rootfix-')));
 
@@ -653,5 +654,46 @@ describe('崩溃遗留可续跑（2026-11-08 真机 pdca_mw7d3dq3）', () => {
     expect(receipts[0]?.text).toContain('2 步计划已保留');
     expect(receipts[0]?.text).toContain('续跑');
     expect(receipts[1]?.text).toContain('无法自动续跑');
+  });
+});
+
+describe('审计摘要不得把「未终态步骤」算作完成（2026-11-08 真机 pdca_mw7e6fvy）', () => {
+  const step = (id: string, status: string) => ({
+    id,
+    description: id,
+    status,
+    retryCount: 0,
+    durationMs: 0,
+  });
+
+  it('2 completed + 1 pending（中止 / 未跑完）⇒ 未完全完成', () => {
+    const r = generateAuditReport({
+      taskId: 't1',
+      planId: 'p1',
+      steps: [
+        step('a', 'completed'),
+        step('b', 'completed'),
+        step('c', 'pending'),
+      ],
+    });
+    expect(r.summary.startsWith('任务 未完全完成')).toBe(true);
+  });
+
+  it('全部 completed ⇒ 任务 完成', () => {
+    const r = generateAuditReport({
+      taskId: 't2',
+      planId: 'p2',
+      steps: [step('a', 'completed'), step('b', 'completed')],
+    });
+    expect(r.summary.startsWith('任务 完成')).toBe(true);
+  });
+
+  it('有 failed ⇒ 仍为未完全完成（既有语义不变）', () => {
+    const r = generateAuditReport({
+      taskId: 't3',
+      planId: 'p3',
+      steps: [step('a', 'completed'), step('b', 'failed')],
+    });
+    expect(r.summary.startsWith('任务 未完全完成')).toBe(true);
   });
 });

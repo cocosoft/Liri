@@ -244,6 +244,17 @@ export async function scanAndAbortStalePdcaTasks(): Promise<{
 // ========== PDCA Handlers ==========
 
 /**
+ * 启动路径（`runFullPdca` 异常）是否还要补发「异常终止」回执。
+ *
+ * 2026-11-08（真机 `pdca_mw7eb8lt`）：用户**拒绝审批**会让 `runFullPdca` 以中止异常退出，
+ * 而编排层已发过 `⏹ 长程任务已中止`；此处再补一条「⚠️ 长程任务异常终止」会对同一任务给出
+ * 两条互相矛盾的结论。按编排器**状态**（而非错误文案）判定：中止态 ⇒ 跳过。
+ */
+export function shouldEmitStartFailureReceipt(status: unknown): boolean {
+  return (status as { phase?: string } | undefined)?.phase !== 'abort';
+}
+
+/**
  * 启动 PDCA 循环
  *
  * 请求体: { description, sessionId, workspaceId?, projectId? }
@@ -331,6 +342,7 @@ export async function handlePdcaStart(
       });
       // 编排器在终态前崩溃 ⇒ 没有终态回执，这里补一条事实（不编造步数）。
       // 写会话消息走 CoreAPI（与旧实现同路径，避免 infrastructure 直接依赖 tasks 域）
+      if (!shouldEmitStartFailureReceipt(orchestrator.getStatus())) return;
       try {
         const core = getCoreAPI();
         core.chatManager.addMessage(

@@ -34,6 +34,8 @@ export interface PdcaReportView {
   decisionAwait: Promise<ReviewDecision> | null;
   auditReport: AuditReport | null;
   lifecycle: LifecycleEvent[];
+  /** 已执行的 PDCA 轮次（编排器随每轮 `iterations++` 回写；见 `PdcaStatus.loopIteration`） */
+  iterations: number;
   stepDurations: ReadonlyMap<
     string,
     { startMs: number; endMs?: number; tokens?: number }
@@ -127,6 +129,8 @@ export function projectPdcaStatus(view: PdcaReportView): PdcaStatus {
     ...(plan?.description ? { description: plan.description } : {}),
     plan,
     progress,
+    // 2026-11-08：轮次随状态投影（HTTP 层据此并入 `progress.iteration`）
+    loopIteration: view.iterations,
     currentStep,
     awaitUserDecision: view.decisionAwait !== null,
     audit: view.auditReport || undefined,

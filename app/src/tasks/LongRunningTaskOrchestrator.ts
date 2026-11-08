@@ -17,7 +17,7 @@ import { getOTelTracing } from '@openliri/infra/monitoring/otel/OTelTracing';
 import { Span, SpanStatusCode } from '@opentelemetry/api';
 import { configManager } from '@openliri/infra/config';
 import { resolveDbPath } from '@openliri/infra/environment';
-import { modelRouter, estimateMessagesTokens } from '@modules/ai';
+import { modelRouter } from '@modules/ai';
 import { taskOrchestrator } from './TaskOrchestrator';
 import { emitPdcaLiveEvent } from './PdcaLiveEvents';
 import type { Plan, PlanStep } from './TaskOrchestrator';
@@ -139,10 +139,8 @@ import { normalizeExecutorResult } from './lro/contracts.js';
 // （此路径不经 `ChatManager.recordChatResponseUsage`，故在默认执行器单点记账）。
 import { recordDailyBudgetFromUsage } from '../query/DailyBudgetManager';
 // G-2/D（2026-10-11）：闸门**单一收口**（与流式/非流式 chat 同源判定），用于长程任务执行器
-import {
-  checkDailyBudget,
-  formatBudgetExhausted,
-} from '../query/dailyBudgetGate';
+// 2026-11-08：整段外移 `./lro/executorBudgetGuard`（守住 R04-001 行数上限），语义逐字未变。
+import { guardExecutorWithDailyBudget } from './lro/executorBudgetGuard.js';
 export type {
   PdcaStatus,
   PdcaMetrics,
@@ -213,72 +211,6 @@ export { collectPendingReadBacks } from './lro/stepArtifacts.js';
 //  `EXECUTOR_ROLE` / `ExecutorFn` / `TaskMessage` / `EscalationRecord` 已外迁
 //  `./lro/contracts`，并由本文件 import + re-export 保持公开面，spec §44）
 
-/**
- * G-2/D（2026-10-11，Spec `daily-budget-over-limit-ux.md` §5-D-1 D / §1.2 G-2）：
- * 长程任务执行器的**日预算统一收口**（计账 + 闸门）。
- *
- * **为什么需要**：长程任务走的是**非 chat 管线**（默认执行器直调 `AIService.generate`）——
- * 它不经 `CoreAPI.chatStream`（流式闸门）也不经 `sendMessageFlow`（非流式闸门）⇒ 此前
- * **既无闸门也无（自定义执行器的）计账**，可在预算耗尽后继续跑（G-2 的绕过路径）。
- *
- * **收口口径**（对齐流式/非流式 chat 的单一收口 `checkDailyBudget()`）：
- *   1. **判定在前**：以"系统提示 + 用户提示"的估算为 `estimatedTokens`，超限即抛
- *      `DAILY_BUDGET_EXCEEDED`（**不发起模型调用**）；
- *   2. **中止即可续跑**（本节无新挂起机制，见 Spec §10-8）：抛出点在阶段边界之后
- *      （`setPhase()` 已落 checkpoint）⇒ 任务停在当前阶段，放行后**重发/续跑**即可；
- *   3. **计账**：自定义执行器若回传 `usage` 则计入日预算；默认执行器已在内部记账
- *      （其返回值不含 `usage`）⇒ **不会被重复计入**。
- */
-function guardExecutorWithDailyBudget(
-  base: ExecutorFn,
-  taskId: string
-): ExecutorFn {
-  return async (params) => {
-    const estimatedTokens = estimateMessagesTokens([
-      { role: 'system', content: params.systemPrompt },
-      { role: 'user', content: params.userPrompt },
-    ]);
-    const decision = checkDailyBudget({
-      sessionId: taskId,
-      estimatedTokens,
-    });
-    if (!decision.allowed) {
-      logger.warn('lro:budget — 执行器调用前置检查拒绝', {
-        taskId,
-        taskType: params.taskType,
-        todayUsed: decision.snapshot.used,
-        dailyLimit: decision.snapshot.limit,
-        estimateThisRound: estimatedTokens,
-        mode: decision.snapshot.mode,
-      });
-      throw new AppError(
-        `${formatBudgetExhausted(decision.snapshot)}，为避免超额，本次未调用模型；任务已停在当前阶段，放行后可直接续跑/重发。`,
-        ErrorCategory.RESOURCE,
-        ErrorSeverity.MEDIUM,
-        'DAILY_BUDGET_EXCEEDED',
-        {
-          taskId,
-          // 口径随快照（2026-10-15：主口径已切 USD）—— 与 `resolveEntryBudgetDenial` 的 context 同形。
-          unit: decision.snapshot.unit,
-          todayUsed: decision.snapshot.used,
-          dailyLimit: decision.snapshot.limit,
-          estimateThisRound: estimatedTokens,
-          blockedBy: decision.blockedBy,
-        }
-      );
-    }
-    const result = await base(params);
-    // 计账：仅"执行器回传 usage"时计入（默认执行器内部已记账 ⇒ 不回传 usage ⇒ 不重复计）
-    // 债四「换算接线」（2026-10-13）：**自定义** ExecutorFn 的实际模型对编排器不可见
-    // （见 `lro/contracts.ts` 的 `ExecutorResult` 说明）⇒ 该路径**只记 token、不记金额**
-    // （`recordTurnCostUsd` 以 `debug` 留痕，**不取兜底价、不臆造金额**）。
-    if (result && typeof result === 'object') {
-      recordDailyBudgetFromUsage((result as { usage?: unknown }).usage);
-    }
-    return result;
-  };
-}
-
 export class LongRunningTaskOrchestrator {
   private taskId: string;
   private planId: string | null = null;
@@ -299,6 +231,11 @@ export class LongRunningTaskOrchestrator {
   private _startedAt = 0;
   /** P1-2（2026-08-31）：当前 PDCA 循环 turn 预算上限（goal_metrics.max_turns 数据源） */
   private _maxTurns = 0;
+  /**
+   * 2026-11-08（真机 `pdca_mw7qg094`）：本实例已执行的 PDCA 轮次。
+   * 随状态投影（`getStatus().loopIteration`）与检查点一并落盘；重启后详情接口读检查点。
+   */
+  private _iterations = 0;
   /** P1-3（2026-08-31）：目标级收敛判定门（对标 Hermes evaluate_after_turn，无状态可复用） */
   private goalEvaluateGate = new GoalEvaluateGate();
   /**
@@ -410,8 +347,33 @@ export class LongRunningTaskOrchestrator {
             { role: AIMessageRole.USER, content: params.userPrompt },
           ],
           model,
-          tools.length > 0 ? { tools } : undefined
+          tools.length > 0
+            ? {
+                tools,
+                ...(params.maxTokens ? { max_tokens: params.maxTokens } : {}),
+              }
+            : params.maxTokens
+              ? { max_tokens: params.maxTokens }
+              : undefined
         );
+
+        // 2026-11-08（真机 `pdca_mw7q12pb`）：**空回答**必须留证 —— 此前只回 `content:''`，
+        // 上层只能报 `empty-output`，看不出是「模型没输出」还是「输出预算被思考吃光」。
+        // 这里把 finish_reason 与 token 用量打进日志（不改变返回语义）。
+        const contentText = response.content ?? '';
+        const toolCallCount = (response.tool_calls ?? []).length;
+        if (!contentText.trim() && toolCallCount === 0) {
+          logger.warn(
+            'LLM 返回空内容（无 tool_call）—— 常见于思考型模型输出预算耗尽',
+            {
+              model,
+              taskType: params.taskType,
+              finishReason: response.finish_reason,
+              maxTokens: params.maxTokens ?? null,
+              usage: (response as { usage?: unknown }).usage,
+            }
+          );
+        }
 
         // 记账唯一入口在 `AIServiceImpl.generate()` 内部（已调 `trackUsage`，带真实 providerId
         // 与实测延迟）——调用方**不得**再记一次。
@@ -433,6 +395,7 @@ export class LongRunningTaskOrchestrator {
             name: tc.name,
             arguments: tc.arguments,
           })),
+          finishReason: response.finish_reason,
         };
       });
 
@@ -535,6 +498,7 @@ export class LongRunningTaskOrchestrator {
       totalTokens: this._totalTokensTracked,
       startedAt: this._startedAt,
       turnsExtensions: this._turnsExtensions,
+      loopIteration: this._iterations,
       ...(this._policySnapshot ? { policySnapshot: this._policySnapshot } : {}),
     });
   }
@@ -1052,6 +1016,7 @@ export class LongRunningTaskOrchestrator {
       decisionAwait: this.decisionAwait,
       auditReport: this.auditReport,
       lifecycle: this.lifecycle.getHistory(),
+      iterations: this._iterations,
       stepDurations: this.stepDurations,
     };
   }
@@ -1237,6 +1202,7 @@ export class LongRunningTaskOrchestrator {
 
     while (!allDone && iterations < maxIterations) {
       iterations++;
+      this._iterations = iterations;
       // P1/L8：每轮以最新 plan 重算（replan 后新 steps 当轮即生效）
       maxIterations = resolveMaxIterations();
 

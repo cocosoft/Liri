@@ -26,6 +26,13 @@ export interface PdcaStatus {
   description?: string;
   plan?: Plan;
   progress?: PlanProgress;
+  /**
+   * 已执行的 PDCA 轮次（2026-11-08，真机 `pdca_mw7qg094`）。
+   *
+   * 每轮 replan 会替换计划、步骤计数归零 ⇒ 只给 `progress.completed/total` 会让人误以为
+   * "进度倒退"。轮次是**独立维度**：内存路径由编排器轮次计数器出，重启后由检查点回填。
+   */
+  loopIteration?: number;
   currentStep?: PlanStep;
   awaitUserDecision: boolean;
   decisionPrompt?: string;
@@ -141,6 +148,14 @@ export type ExecutorResult =
       toolCalls?: ExecutorToolCall[];
       /** 本次调用的 LLM `usage`（`prompt_tokens`/`completion_tokens` 或 `inputTokens`/`outputTokens` 形） */
       usage?: unknown;
+      /**
+       * 本次调用的结束原因（provider 原值，如 `stop` / `max_tokens` / `length`）。
+       *
+       * 2026-11-08（真机 `pdca_mw7q12pb`）：思考型模型会把**输出预算全耗在思考**上
+       * ⇒ content 为空但 `finishReason=max_tokens`。调用方据此区分「模型没答」与
+       * 「预算被思考吃光」，避免用同样的提示词再烧一次重问。
+       */
+      finishReason?: string;
     };
 
 /** 默认执行器函数类型 */
@@ -162,6 +177,15 @@ export type ExecutorFn = (params: {
   }>;
   /** 模型解析用任务类型（任务分工 / DB 唯一事实来源） */
   taskType: TaskType;
+  /**
+   * 本次调用的**输出 token 上限**（不传 ⇒ 由 provider 默认值决定，实测 4096）。
+   *
+   * 2026-11-08（真机 `pdca_mw7q12pb`）：`deepseek-v4-pro` 带 `thinking` 能力，
+   * 4096 的输出预算会被**思考过程**吃光（`llm_call_records`：`output_tokens=4096`
+   * 连续两次、content 为空、无 tool_call）⇒ Planner 被判 `empty-output`。
+   * 需要更大预算的调用方（如 Planner）显式传入。
+   */
+  maxTokens?: number;
   isolation: ReturnType<typeof createAgentIsolation>;
 }) => Promise<ExecutorResult>;
 

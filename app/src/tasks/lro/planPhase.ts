@@ -54,6 +54,17 @@ import {
 const logger = getLogger('tasks:longRunning');
 
 /**
+ * Planner 单次调用的**输出 token 上限**（2026-11-08，真机 `pdca_mw7q12pb`）。
+ *
+ * 为什么不沿用 provider 默认 4096：`deepseek-v4-pro` 带 `thinking` 能力，
+ * 思考过程同样计入输出预算 ⇒ 4096 被思考吃光时 content 为空、也没有 tool_call，
+ * 计划被判 `empty-output`（`llm_call_records` 里 `output_tokens=4096` 连续两次，
+ * 耗时 62 s / 70 s）。规划输出（steps + criteria + dependsOn）本身只需几百 token，
+ * 这里留出的是**思考预算**。
+ */
+const LRO_PLANNER_MAX_OUTPUT_TOKENS = 8192;
+
+/**
  * C9（2026-11-05）：Planner 的**结构化输出**工具（合成定义）。
  *
  * 只用于出站函数定义（`extraTools`），**不注册、不执行**——调用方直接读 `toolCalls`。
@@ -170,18 +181,21 @@ ${replanSection}
 输出要求（C9）：**必须调用 \`${SUBMIT_PLAN_TOOL_NAME}\` 工具**提交计划
 （steps / acceptanceCriteria / dependsOn）；不要只输出自然语言或代码块。`;
 
-    const result = normalizeExecutorResult(
-      await deps.executor({
-        systemPrompt: PLANNER_ROLE.systemPrompt,
-        userPrompt: planPrompt,
-        tools: roleToolNames(PLANNER_ROLE),
-        // C9：合成工具（仅出站；不进注册表、不被执行）——结构化输出的唯一入口
-        extraTools: [SUBMIT_PLAN_TOOL],
-        taskType: PLANNER_ROLE.taskType,
-        isolation: deps.isolation,
-      })
-    );
+    const rawResult = await deps.executor({
+      systemPrompt: PLANNER_ROLE.systemPrompt,
+      userPrompt: planPrompt,
+      tools: roleToolNames(PLANNER_ROLE),
+      // C9：合成工具（仅出站；不进注册表、不被执行）——结构化输出的唯一入口
+      extraTools: [SUBMIT_PLAN_TOOL],
+      taskType: PLANNER_ROLE.taskType,
+      // 2026-11-08（真机 `pdca_mw7q12pb`）：给思考型模型留出输出预算，见常量注释
+      maxTokens: LRO_PLANNER_MAX_OUTPUT_TOKENS,
+      isolation: deps.isolation,
+    });
+    const result = normalizeExecutorResult(rawResult);
     const planText = result.content;
+    const finishReason =
+      typeof rawResult === 'string' ? undefined : rawResult.finishReason;
 
     // 解析 Planner 输出（U-01，2026-10-17）：只接受结构化计划；
     // C9（2026-11-05）优先级：① `submit_plan` 工具调用 → ② 文本 JSON（兼容不支持 tools 的模型）
@@ -203,6 +217,26 @@ ${replanSection}
       if (!parsedPlan.ok) parseReason = parsedPlan.reason;
     }
     if (!draft) {
+      // 2026-11-08（真机 `pdca_mw7q12pb`）：**预算耗尽 ⇒ 立刻失败，不再重问**。
+      // 证据：`llm_call_records.output_tokens` 恰好等于上限、`finish_reason=max_tokens`、
+      // content 为空且零 tool_call ⇒ 输出预算全被「思考」吃掉。用同一提示词重问只会
+      // 再烧 60~70 s 并得到同样结果（实测连续两次）。
+      const truncated = /^(max_tokens|length)$/i.test(finishReason ?? '');
+      if (truncated && !planText.trim() && result.toolCalls.length === 0) {
+        throw new AppError(
+          '规划模型把输出预算全用于「思考」，未产出任何计划内容' +
+            `（finish_reason=${finishReason}，上限 ${LRO_PLANNER_MAX_OUTPUT_TOKENS}）。` +
+            '请把「模型管理 → 任务分工 → 规划」改为**非思考**模型，或调大该模型的输出上限。',
+          ErrorCategory.VALIDATION,
+          ErrorSeverity.HIGH,
+          'PLAN_OUTPUT_BUDGET_EXHAUSTED',
+          {
+            taskId: deps.taskId,
+            finishReason,
+            maxTokens: LRO_PLANNER_MAX_OUTPUT_TOKENS,
+          }
+        );
+      }
       logger.warn(
         '[orchestrator] Planner 未给出可解析的结构化计划（submit_plan / 文本均失败），发起一次修复重问',
         {

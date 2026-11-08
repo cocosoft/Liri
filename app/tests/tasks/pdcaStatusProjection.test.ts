@@ -49,10 +49,13 @@ describe('PDCA 状态投影字段（内存/检查点一致性）', () => {
       decisionAwait: null,
       auditReport: null,
       lifecycle: [],
+      iterations: 2,
       stepDurations: new Map(),
     });
 
     expect(status.sessionId).toBe('session-proj-1');
     expect(status.description).toBe('投影测试任务');
+    // 2026-11-08：轮次随状态投影（HTTP 层据此并入 `progress.iteration`）
+    expect(status.loopIteration).toBe(2);
   });
 });

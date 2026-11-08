@@ -159,6 +159,8 @@ export interface CheckpointPersistInput {
   /** 任务开始（0 ⇒ 不写） */
   startedAt: number;
   turnsExtensions: number;
+  /** 2026-11-08：已执行的 PDCA 轮次（详情接口重启后据此显示「第 N 轮」；0 ⇒ 不写） */
+  loopIteration?: number;
   /** P2（§3.3）：策略快照（旧任务无该字段 ⇒ 恢复侧保守降级 ask） */
   policySnapshot?: TaskPolicySnapshot;
 }
@@ -188,6 +190,8 @@ export async function persistPdcaCheckpoint(
       startedAt: input.startedAt || undefined,
       // S2/B（PR9）：max_turns 扩容续跑次数（跨重启累计，上限门禁）
       turnsExtensions: input.turnsExtensions,
+      // 2026-11-08：轮次随检查点落盘（0 ⇒ 不写，保持旧任务载荷形状）
+      ...(input.loopIteration ? { loopIteration: input.loopIteration } : {}),
       ...(input.policySnapshot ? { policySnapshot: input.policySnapshot } : {}),
     });
     // P2（§3.3）：终态落盘 ⇒ 回收任务档审批（活跃登记 + 放行记录）

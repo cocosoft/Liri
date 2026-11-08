@@ -700,6 +700,21 @@ export async function validateTaskRoutingTargets(
 }
 
 /**
+ * 任务分工入参**形状**校验（I6，2026-11-08）：返回"值不是字符串"的键。
+ *
+ * 期望扁平映射 `{taskType: "<模型ID>"}`；把 `GET /v1/models/tasks` 的
+ * `{tasks:{…}}` 包裹结构原样 PUT 回来是实测触发路径（对象进 SQLite 绑定参数 ⇒ 500）。
+ * `null` / `undefined` 视为"清空该路由"，属合法值（与 N-72 校验口径一致）。
+ */
+export function findInvalidTaskAssignmentValues(
+  body: Record<string, unknown>
+): string[] {
+  return Object.entries(body)
+    .filter(([, v]) => v !== null && v !== undefined && typeof v !== 'string')
+    .map(([k]) => k);
+}
+
+/**
  * PUT /v1/models/tasks — 保存任务分工配置
  */
 export async function handleSaveTasks(
@@ -709,6 +724,25 @@ export async function handleSaveTasks(
 ): Promise<void> {
   try {
     const body = (await parseBody(req)) as Record<string, unknown>;
+
+    // 2026-11-08（真机 I6）：**入参形状校验** —— 期望扁平映射 `{taskType: "<模型ID>"}`。
+    // 实测把 `GET /v1/models/tasks` 的返回体（`{tasks:{...}}`）原样 PUT 回来时，
+    // 对象被塞进 SQLite 绑定参数 ⇒ `Binding expected string...` ⇒ 落到 catch 变成
+    // **500 且把内部 SQLite 错误回给客户端**（既不准确也泄露实现细节）。
+    // 现口径：非字符串值（含嵌套对象）⇒ 400 + 指明正确形状。
+    const invalidKeys = findInvalidTaskAssignmentValues(body);
+    if (invalidKeys.length > 0) {
+      res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(
+        JSON.stringify({
+          error:
+            `任务分工格式错误：${invalidKeys.join('、')} 的值必须是字符串` +
+            '（期望扁平映射 `{taskType: "<模型ID>"}`；不要原样回传 `GET /v1/models/tasks` 的 `{tasks:{…}}` 包裹结构）',
+          invalidKeys,
+        })
+      );
+      return;
+    }
 
     // N-72（2026-09-25）：保存前**校验每个路由目标的可用性**。
     //
@@ -769,7 +803,11 @@ export async function handleSaveTasks(
       action: 'updateTasks',
     });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ error: (err as Error).message }));
+    // 2026-11-08（I6）：**不回显内部错误文本** —— 原实现把 SQLite 绑定错误原样回给客户端
+    // （`Binding expected string...`），既误导用户也泄露实现细节；细节留在服务端日志。
+    res.end(
+      JSON.stringify({ error: '保存任务分工失败（内部错误，详见服务端日志）' })
+    );
   }
 }
 

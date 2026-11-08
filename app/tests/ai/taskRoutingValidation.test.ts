@@ -9,6 +9,7 @@
  */
 import { describe, test, expect } from 'bun:test';
 import {
+  findInvalidTaskAssignmentValues,
   pickChangedTaskAssignments,
   validateTaskRoutingTargets,
   type TaskRoutingValidationDeps,
@@ -269,5 +270,32 @@ describe('P2-6 任务分工：只校验本次改动的键', () => {
     expect(problems).toHaveLength(1);
     expect(problems[0]).toContain('chat');
     expect(problems[0]).toContain('已禁用');
+  });
+});
+
+// I6（2026-11-08 真机）：把 `GET /v1/models/tasks` 的 `{tasks:{…}}` 原样 PUT 回来时，
+// 对象进 SQLite 绑定参数 ⇒ 500 且把内部错误回给客户端。现改为入参形状先校验（400）。
+describe('I6 任务分工入参形状校验', () => {
+  test('包裹结构 {tasks:{…}} ⇒ 命中 tasks（实测触发路径）', () => {
+    expect(
+      findInvalidTaskAssignmentValues({ tasks: { agent: 'abc' } })
+    ).toEqual(['tasks']);
+  });
+
+  test('非字符串值（数字/数组/布尔）⇒ 逐个报出', () => {
+    expect(
+      findInvalidTaskAssignmentValues({ agent: 123, chat: ['a'], quick: true })
+    ).toEqual(['agent', 'chat', 'quick']);
+  });
+
+  test('扁平合法映射 / 空值 ⇒ 不报（空串/null 属"清空路由"）', () => {
+    expect(findInvalidTaskAssignmentValues({})).toEqual([]);
+    expect(
+      findInvalidTaskAssignmentValues({
+        agent: 'uuid-1',
+        chat: '',
+        local: null,
+      })
+    ).toEqual([]);
   });
 });

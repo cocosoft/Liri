@@ -427,72 +427,16 @@ export class ChatOrchestrator {
         turnAbort = new AbortController();
         this.host.sessionAbortControllers.set(session.id, turnAbort);
       }
-      // hook 前置
-      const preMsgResult = await this.host.hookChainManager.execute('chat', {
-        event: 'chat.pre-message',
-        data: { message: safeContent, sessionId: session.id },
-        sessionId: session.id,
-      });
-      for (const hr of preMsgResult.before) {
-        if (
-          hr.data &&
-          typeof hr.data === 'object' &&
-          'message' in (hr.data as Record<string, unknown>)
-        ) {
-          safeContent = (hr.data as Record<string, string>).message;
-        }
-      }
+      // hook 前置 + 用户消息准备
+      // P2-7（2026-11-10）：两段**纯搬运**到私有方法 —— `mutex.run` 回调的圈复杂度原为 102
+      // （`lint:complexity` ≥100 棘轮离群），提取后回到阈值内；行为逐字不变。
+      safeContent = await this._applyPreMessageHooks(session, safeContent);
+      const userMessage = this._prepareOutgoingUserMessage(
+        session,
+        safeContent,
+        options
+      );
 
-      // 用户消息 + 轮次计数 + 持久化（前端写前落盘后按 id 复用，避免重复持久化）
-      let userMessage: Message;
-      const prePersisted = options?.messageId
-        ? (session.messages.find((m) => m.id === options.messageId) as
-            | Message
-            | undefined)
-        : undefined;
-      const prevRoundCount = session.metadata.roundCount ?? 0;
-      session.metadata.roundCount = prevRoundCount + 1;
-      const fromInternal = options?._fromInternal === true;
-      if (!fromInternal) {
-        // Buddy 成长：用户发起对话才计数（内部调用不计入，精确"用户真实对话轮数"）
-        void import('@modules/buddy')
-          .then(({ recordUserSession }) => recordUserSession())
-          .catch((err) =>
-            logger.warn('Buddy 用户对话轮次埋点失败', { error: String(err) })
-          );
-      }
-      if (fromInternal) {
-        // 现场调试断点：内部调用触发时醒目提示（默认日志级别可见）
-        logger.info(
-          '[内部调用断点] _fromInternal=true，本轮不计入 userSessions',
-          {
-            sessionId: session.id,
-            roundCountFrom: prevRoundCount,
-            roundCountTo: session.metadata.roundCount,
-            source: options?._fromInternalSource ?? 'unknown',
-          }
-        );
-      }
-      logger[fromInternal ? 'debug' : 'info']('用户对话轮次+1（非流式）', {
-        sessionId: session.id,
-        roundCountFrom: prevRoundCount,
-        roundCountTo: session.metadata.roundCount,
-        model: options?.model ?? null,
-        contentLength: safeContent.length,
-        prePersisted: !!prePersisted,
-        messageId: options?.messageId ?? null,
-        _fromInternal: options?._fromInternal ?? false,
-        source: fromInternal ? 'internal' : 'user',
-      });
-      if (prePersisted) {
-        userMessage = prePersisted;
-      } else {
-        userMessage = this.host.messageService.createUserMessage(safeContent, {
-          sessionId: session.id,
-          metadata: options?.metadata,
-        });
-        this.host.addAndPersistMessage(session.id, userMessage);
-      }
       this.host.getSessionMachine(session.id).start('sendMessage');
 
       const { getOTelTracing } = await import('@openliri/infra/monitoring');
@@ -1108,6 +1052,95 @@ export class ChatOrchestrator {
         this.host.sessionAbortControllers.delete(session.id);
       }
     });
+  }
+
+  /**
+   * P2-7（2026-11-10）：`chat.pre-message` hook 前置 —— 允许 hook 改写本轮用户内容。
+   *
+   * 从 `sendMessage` 的 `mutex.run` 回调中**原样搬出**（零行为变更），用于把该回调的
+   * 圈复杂度从 102 降到棘轮阈值（≥100）之内。
+   */
+  private async _applyPreMessageHooks(
+    session: ChatSession,
+    content: string
+  ): Promise<string> {
+    let safeContent = content;
+    const preMsgResult = await this.host.hookChainManager.execute('chat', {
+      event: 'chat.pre-message',
+      data: { message: safeContent, sessionId: session.id },
+      sessionId: session.id,
+    });
+    for (const hr of preMsgResult.before) {
+      if (
+        hr.data &&
+        typeof hr.data === 'object' &&
+        'message' in (hr.data as Record<string, unknown>)
+      ) {
+        safeContent = (hr.data as Record<string, string>).message;
+      }
+    }
+    return safeContent;
+  }
+
+  /**
+   * P2-7（2026-11-10）：用户消息 + 轮次计数 + 持久化（前端写前落盘后按 id 复用，避免重复持久化）。
+   *
+   * 同上：从 `mutex.run` 回调原样搬出，仅降低圈复杂度。
+   */
+  private _prepareOutgoingUserMessage(
+    session: ChatSession,
+    safeContent: string,
+    options?: SendMessageOptions
+  ): Message {
+    const prePersisted = options?.messageId
+      ? (session.messages.find((m) => m.id === options.messageId) as
+          | Message
+          | undefined)
+      : undefined;
+    const prevRoundCount = session.metadata.roundCount ?? 0;
+    session.metadata.roundCount = prevRoundCount + 1;
+    const fromInternal = options?._fromInternal === true;
+    if (!fromInternal) {
+      // Buddy 成长：用户发起对话才计数（内部调用不计入，精确"用户真实对话轮数"）
+      void import('@modules/buddy')
+        .then(({ recordUserSession }) => recordUserSession())
+        .catch((err) =>
+          logger.warn('Buddy 用户对话轮次埋点失败', { error: String(err) })
+        );
+    }
+    if (fromInternal) {
+      // 现场调试断点：内部调用触发时醒目提示（默认日志级别可见）
+      logger.info(
+        '[内部调用断点] _fromInternal=true，本轮不计入 userSessions',
+        {
+          sessionId: session.id,
+          roundCountFrom: prevRoundCount,
+          roundCountTo: session.metadata.roundCount,
+          source: options?._fromInternalSource ?? 'unknown',
+        }
+      );
+    }
+    logger[fromInternal ? 'debug' : 'info']('用户对话轮次+1（非流式）', {
+      sessionId: session.id,
+      roundCountFrom: prevRoundCount,
+      roundCountTo: session.metadata.roundCount,
+      model: options?.model ?? null,
+      contentLength: safeContent.length,
+      prePersisted: !!prePersisted,
+      messageId: options?.messageId ?? null,
+      _fromInternal: options?._fromInternal ?? false,
+      source: fromInternal ? 'internal' : 'user',
+    });
+    if (prePersisted) return prePersisted;
+    const userMessage = this.host.messageService.createUserMessage(
+      safeContent,
+      {
+        sessionId: session.id,
+        metadata: options?.metadata,
+      }
+    );
+    this.host.addAndPersistMessage(session.id, userMessage);
+    return userMessage;
   }
 
   /**

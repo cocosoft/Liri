@@ -50,6 +50,8 @@ import { resolveToolCwd } from '../services/toolCwdScope.js';
 import type { PdcaLauncher } from '../launchers/PdcaLauncher';
 // P2-2（2026-11-06）：项目目标摘要（短指令 ⇒ 取助手计划标题）
 import { buildProjectGoalSummary } from '../launchers/planSource';
+// B6（2026-11-09）：中途发言并入当前计划（设计稿 §5-1）
+import { appendSupplementToSession } from '@modules/tasks';
 
 const logger = getLogger('chat:manager');
 
@@ -245,6 +247,29 @@ export class PdcaLaunchCoordinator {
   }
 
   /**
+   * B6（2026-11-09，设计稿 §5-1）：demand 会话**执行中**收到新消息 ⇒ 作为补充需求
+   * 并入当前计划（不切模式、不重开任务）。
+   *
+   * 命中活跃编排器 ⇒ 并入 + 告知用户 + 本次 launch 直接短路；
+   * 未命中（无在跑任务）⇒ 返回 false，调用方照常走既有判定（行为不变）。
+   */
+  private _mergeDemandSupplement(session: ChatSession): boolean {
+    if (!isDemandSession(session.metadata)) return false;
+    const text = this.deps.recentUserText(session, 1).trim();
+    if (!text || !appendSupplementToSession(session.id, text)) return false;
+    logger.info('pdca:demand_supplement_merged', {
+      sessionId: session.id,
+      length: text.length,
+    });
+    this.deps.notifyUser?.(
+      session.id,
+      '📎 已把这条补充需求并入当前任务，继续按原计划推进。',
+      { taskType: 'pdca-mode' }
+    );
+    return true;
+  }
+
+  /**
    * 裸会话 ⇒ PDCA 编排升级（**单一动作入口**）：建项目 → `maybeLaunch`。
    */
   async escalateViaBareSession(params: {
@@ -255,6 +280,8 @@ export class PdcaLaunchCoordinator {
     forceDecompose?: boolean;
   }): Promise<void> {
     const { session, assistantContent, lastUserContent } = params;
+    // B6：已在执行的 demand 任务 ⇒ 补充需求并入，不建新项目、不重开任务
+    if (this._mergeDemandSupplement(session)) return;
     // P2-2（2026-11-06）：短指令（"按计划执行"）时项目名取助手计划的标题，
     // 避免出现「按计划直接执行 全部执行 P0-P6 …」这类拼接式项目名。
     const goalSummary = buildProjectGoalSummary(
@@ -288,6 +315,8 @@ export class PdcaLaunchCoordinator {
     opts?: { forceDecompose?: boolean }
   ): void {
     const launcher = this.deps.getPdcaLauncher();
+    // B6：已在执行的 demand 任务 ⇒ 补充需求并入，不重开任务
+    if (this._mergeDemandSupplement(session)) return;
     if (this.deps.launchingSessions.has(session.id)) {
       logger.warn('pdca:launch_skip_duplicate', {
         sessionId: session.id,

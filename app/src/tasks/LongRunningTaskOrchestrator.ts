@@ -183,10 +183,8 @@ import {
 } from './lro/reporting.js';
 import type { PdcaReportView } from './lro/reporting.js';
 import { emitPdcaReceiptFromAudit } from './lro/terminalReceipt.js';
-import {
-  takeOneShotDegradation,
-  type DegradationLedger,
-} from './lro/failureRecovery.js';
+import { takeOneShotDegradation } from './lro/failureRecovery.js';
+import { flushSupplements } from './lro/supplementQueue.js';
 import {
   planTurnsExtensionDecision,
   shouldReRollExtendedStep,
@@ -297,14 +295,15 @@ export class LongRunningTaskOrchestrator {
   /** S2/B（2026-09-05，PR9）：步骤轮次预算乘子（resume 扩容续跑时=2）与累计次数 */
   private _stepTurnsMultiplier: number = 1;
   private _turnsExtensions: number = 0;
-  private _degradation: DegradationLedger = { used: false };
+  private _degradation = { used: false };
   /**
    * S4（PR9）/ 2026-10-17 修复：**在飞步骤 loop 集合**（中止级联 abort）。
    * 原实现是单槽 `_currentLoop`，并行批次（Promise.allSettled）只保留最后一个 ⇒
    * 中止/dispose 时其余在飞 loop 继续真实模型调用与工具执行（持续烧钱）。
    * 每个 loop 由步骤执行结束时的 release 回调移除（完成后不再被 abort）。
+   * B6：公开只读句柄（补充需求需注入在飞私有 loop）。
    */
-  private readonly _activeStepLoops = new Set<TAORLoop>();
+  readonly stepLoops = new Set<TAORLoop>();
   /**
    * Phase 4: VerifierAgent（双指标验证：CheckPassRate + Confidence）
    */
@@ -829,9 +828,10 @@ export class LongRunningTaskOrchestrator {
       createStepLoop: (taskId, opts) =>
         this.taorLoopFactory ? this.taorLoopFactory(taskId, opts) : undefined,
       registerStepLoop: (loop) => {
-        this._activeStepLoops.add(loop);
+        this.stepLoops.add(loop);
+        flushSupplements(this._sessionId, loop);
         return () => {
-          this._activeStepLoops.delete(loop);
+          this.stepLoops.delete(loop);
         };
       },
       stepTurnsMultiplier: this._stepTurnsMultiplier,
@@ -1720,7 +1720,7 @@ export class LongRunningTaskOrchestrator {
     }
     // 2026-10-17 修复：并行批次可能有多个在飞私有 loop ⇒ **逐个**中止
     // （原单槽 `_currentLoop` 只覆盖最后一个，其余继续真实模型调用/工具执行）。
-    for (const loop of this._activeStepLoops) {
+    for (const loop of this.stepLoops) {
       try {
         void loop.abort();
       } catch (err) {
@@ -1731,7 +1731,7 @@ export class LongRunningTaskOrchestrator {
         });
       }
     }
-    this._activeStepLoops.clear();
+    this.stepLoops.clear();
     this._recordLifecycle('finalized', TaskStatus.FAILED, 'Aborted by user');
     // Gap D（1-0c，2026-09-03）：中止必须落 checkpoint 终态 —— 原实现仅落库 goal_metrics、不写 checkpoint ⇒ phase 停留中止前值，/goal list（按 phase∈completed/failed/abort 过滤）不过滤、scan 不回收该任务。
     // 注：LRTO.PdcaPhase 不含 'abort'（bridge 层类型含），此处直接写 checkpoint 文件；`hasPush` 决定是否补中止回执。
@@ -1875,14 +1875,14 @@ export class LongRunningTaskOrchestrator {
 
     // 1.1（2026-10-17）：dispose 同样要中止在飞步骤 loop（会话拆除 / 24h 清理 /
     // plan 被删除都会走到这里）——原实现只 dispose 共享 taorLoop，私有实例继续烧模型。
-    for (const loop of this._activeStepLoops) {
+    for (const loop of this.stepLoops) {
       try {
         void loop.abort();
       } catch {
         // dispose 容错：单个 loop 取消失败不阻断清理
       }
     }
-    this._activeStepLoops.clear();
+    this.stepLoops.clear();
 
     // 1.5 T1.2: 释放执行副作用作用域（abort/文件/沙箱按 LIFO 释放，
     //    dispose 幂等 + 内部容错上报，不阻断主流程）

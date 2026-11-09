@@ -16,6 +16,7 @@
 
 import { messageProjector } from '@modules/context';
 import { getLogger } from '@openliri/infra/monitoring';
+import { resolveUsageModelName } from '@modules/ai';
 import type { ChatMessage, ParsedToolCall, ToolDefinition } from '@modules/ai';
 import type { ChatManagerTAORContext } from '@modules/query';
 import { recordDailyBudgetFromUsage } from '@modules/query';
@@ -67,6 +68,8 @@ export interface TaorContextDeps {
       options?: Record<string, unknown>
     ) => Promise<{
       content: unknown;
+      /** provider 回显的**实际**模型名（金额台账取价/归因用） */
+      model?: string;
       tool_calls?: ParsedToolCall[];
       usage?: {
         prompt_tokens?: number;
@@ -74,6 +77,11 @@ export interface TaorContextDeps {
         total_tokens?: number;
       };
     }>;
+    /**
+     * provider 级默认模型（纯读，零副作用）。
+     * `options.model` 缺失时用于金额台账归因（`ToolAwareClient.getConfiguredModel`）。
+     */
+    getConfiguredModel?: () => string | undefined;
   };
   executeTool: (
     toolCall: ToolCall,
@@ -177,9 +185,21 @@ export function buildTAORContext(
       });
       // 2026-11-09：TAOR **工具轮**（每轮一次 provider 调用）此前**完全不记账** ⇒ 日预算 /
       // 成本台账只覆盖首轮响应，长程任务可用任意轮次绕过日限额（也是 `dailyBudget:usd_skip`
-      // 的另一来源）。模型名取本轮请求实际使用的 `options.model`；缺失 ⇒ 只记 token、
-      // 不臆造金额（Q-U5，由 `recordTurnCostUsd` 内部告警）。
-      recordDailyBudgetFromUsage(response.usage, sessionId, options?.model);
+      // 的另一来源）。模型名取本轮**实际模型**：`options.model` 优先，缺失/占位时用响应体回显
+      // 兜底（复用 `StreamPipeline`/`sendMessageFlow` 的同一助手，数出同源）；两者都无 ⇒
+      // 只记 token、不臆造金额（Q-U5，由 `recordTurnCostUsd` 内部告警）。
+      // ⚠️ 真机证据：`options.model` 在服务端自发轮次/工具轮（如 `PdcaLauncher` 传
+      // `undefined`）常为空 ⇒ 原先传 `undefined` 使这些轮次整轮金额漏记
+      // （日志 `dailyBudget:usd_skip`，`model: null`）。现按「请求声明 → 客户端默认模型
+      // → 响应体回显」三级取值，仍都不可得才落到 `'unknown'` 并如实告警。
+      recordDailyBudgetFromUsage(
+        response.usage,
+        sessionId,
+        resolveUsageModelName(
+          options?.model ?? client.getConfiguredModel?.(),
+          response.model
+        )
+      );
       return {
         content:
           typeof response.content === 'string'

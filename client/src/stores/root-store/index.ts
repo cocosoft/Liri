@@ -206,9 +206,10 @@ export const useRootStore = create<RootState>()(
             // 等待页面 mount 后 enterModule 覆盖才标记就绪，避免刷新时闪现旧模块会话
             state._contextReady = false;
           }
-          setTimeout(() => {
-            useRootStore.getState().loadChatSessions();
-          }, 0);
+          // 不在此处拉会话列表：水合发生在模块导入时，后端 HTTP 尚未就绪
+          // （真机每次启动产生 `获取会话列表失败：HTTP 与 Tauri 均不可用`）。
+          // 首屏加载的唯一入口是 `useInitApp` 的 phase3（等 phase2 确认后端 running 后
+          // 才 `loadSessions()`），那里失败也才是真实的"后端不可用"。
         },
       },
     ),

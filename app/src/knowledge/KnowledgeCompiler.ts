@@ -33,7 +33,11 @@ import { FileRegistry } from '@openliri/service/services/file/FileRegistry';
 import { FileSource } from '@openliri/service/services/file/types';
 import { IndexManager } from './IndexManager';
 import { WikiLinter, defaultRules } from './lint/WikiLinter';
-import { providerRegistry, modelRouter } from '@modules/ai';
+import {
+  providerRegistry,
+  modelRouter,
+  isInsufficientBalanceError,
+} from '@modules/ai';
 import { createMaxOutputRetryState, advanceMaxOutputRetry } from '@modules/ai';
 import { GraphExtractor } from './graph/GraphExtractor';
 import { KnowledgeGraph } from './graph/KnowledgeGraph';
@@ -582,7 +586,7 @@ export class KnowledgeCompiler {
                   });
                 }
                 // 对页面进行图谱提取
-                for (const compiledFile of limited) {
+                for (const [pageIndex, compiledFile] of limited.entries()) {
                   try {
                     // 节流：超大页跳过（提取 prompt 仅用前 8000 字符，
                     // 全量读入巨页只会造成内存尖峰，与用户 agentic 任务竞争）
@@ -627,8 +631,18 @@ export class KnowledgeCompiler {
                         });
                       }
                     }
-                  } catch {
-                    // 单个文件提取失败不阻塞
+                  } catch (err) {
+                    // 单个文件提取失败不阻塞；但「余额/配额不足」是**批次级**故障：
+                    // 剩余页全部注定失败 ⇒ 立即中止本轮（只记一条），充值/换供应商后
+                    // 下次编译由 `!hasKnowledgeEdges` 自动补建。
+                    if (isInsufficientBalanceError(err)) {
+                      logger.warn('图谱自动提取中止：供应商余额/配额不足', {
+                        failedFile: compiledFile,
+                        remaining: limited.length - pageIndex - 1,
+                        error: (err as Error).message,
+                      });
+                      break;
+                    }
                   }
                 }
               } finally {

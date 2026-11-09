@@ -605,11 +605,8 @@ export class ModelRouter {
       await appModelConfigService.initialize();
 
       // 2026-11-09（真机实证：每次启动的 resolve 都报 UUID 缓存未命中）：**先**预加载
-      // UUID→模型名，**再**发布任务缓存。`resolve()` 是同步方法，一旦 `_taskCache` 里已能
-      // 看到配置的 UUID 而映射表还是空的，就只会返回 ''（`source=configured` 却拿到空）
-      // ⇒ 路由静默退化到 hardcoded-default，并持续告警。两步顺序颠倒即产生这个窗口。
-      await this.preloadUuidCache();
-
+      // UUID→模型名，**再**发布任务缓存 —— 该顺序已下沉到 `_loadTaskCacheFromDb()`，
+      // 使 `refreshTaskCache()` 等其它发布路径一并受益（详见该方法内注释）。
       await this._loadTaskCacheFromDb(appModelConfigService);
 
       // S3: 加载阶段→模型直配映射（持久化在 ai_app_model_configs，app_type = phase_<phase>）
@@ -719,6 +716,12 @@ export class ModelRouter {
   private async _loadTaskCacheFromDb(
     svc: AppModelConfigService
   ): Promise<void> {
+    // 2026-11-09（真机实证）：**任何**发布 `_taskCache` 的路径都必须先刷新 UUID→模型名映射，
+    // 否则 `resolve()` 在两次 await 之间读到 UUID 而映射表为空 ⇒ 返回 ''（路由静默退化 +
+    // 每次调用刷一条 `UUID缓存未命中` warning）。此前只在 `initFromDb` 前置了预加载，
+    // `refreshTaskCache()`（TopologyWatcher / 启动期 API 触发的另一条发布路径）仍会制造同一窗口。
+    await this.preloadUuidCache();
+
     this._taskCache.clear();
 
     for (const taskType of ALL_TASK_TYPES) {

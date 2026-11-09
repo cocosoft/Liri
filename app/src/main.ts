@@ -816,6 +816,14 @@ async function reportBootCompletion(
 async function launchDaemon(options: LaunchOptions): Promise<void> {
   logger.info('后台守护进程模式启动（常驻模式，不启动 REPL 交互）');
 
+  // 2026-11-09（真机实证）：DAEMON 是**唯一**不经过 `launchREPL` 的模式，此前从未调用
+  // `modelRouter.initFromDb()`（日志中 `ModelRouter: DB 初始化完成` 只出现在 REPL 启动里）。
+  // 后果：任务配置缓存与 UUID→模型名映射都为空，HTTP 就绪后前几次 `resolve()` 返回 ''
+  // ⇒ 路由静默退化到 hardcoded-default（`resolveModelRoute` 日志 `model:(空)`），
+  // 待 `refreshTaskCache()` / 命中兜底预加载后才恢复，并刷出 `UUID缓存未命中` 告警。
+  // 必须在 HTTP 启动前完成：请求一到就可能触发 resolve。
+  await modelRouter.initFromDb();
+
   // DAEMON 模式复用与 REPL 完全一致的 HTTP 启动链路（端口解析优先级、startHTTPServer）：
   //   CLI --http-port > env LIRI_HTTP_PORT > 默认 18990
   // 之前走 launchRepl(useLegacyRepl=true) 的问题：后台 no-tty 下 stdin EOF 立即触发

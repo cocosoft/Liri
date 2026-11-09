@@ -352,6 +352,13 @@ export class LLMTracker {
         CREATE INDEX IF NOT EXISTS idx_llm_calls_session
         ON llm_call_records(session_id, timestamp)
       `);
+    // `restoreFromDB` 的启动恢复按 `owner_key + timestamp` 取近 7 天。
+    // 仅有 `(session_id, timestamp)` 索引时该查询会全表扫 + 临时 B 树排序
+    // （真机 25 万行实测 154ms，加索引后 63ms，且不再排序）。
+    this.db.run(`
+        CREATE INDEX IF NOT EXISTS idx_llm_calls_owner_ts
+        ON llm_call_records(owner_key, timestamp)
+      `);
   }
 
   private countTotalCalls(): number {
@@ -362,12 +369,15 @@ export class LLMTracker {
 
   private async restoreFromDB(): Promise<void> {
     if (!this.db) return;
-    // 加载最近 7 天的调用记录
+    // 加载最近 7 天的调用记录。
+    // 边界值必须与写入侧同一文本格式（`toISOString()` ⇒ `...T...Z`）：
+    // `datetime('now','-7 days')` 产出 `YYYY-MM-DD HH:MM:SS`（空格分隔），与 ISO 文本比较时
+    // 第 10 位 `T`(0x54) > ` `(0x20) ⇒ 边界当天的记录全部被判为「晚于」⇒ 窗口被放宽近 24h。
     const rows = await new Promise<any[]>((resolve) => {
       this.db!.all(
         `SELECT * FROM llm_call_records
          WHERE owner_key = ?
-           AND timestamp > datetime('now', '-7 days')
+           AND timestamp > strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-7 days')
          ORDER BY timestamp ASC`,
         [getRequestPrincipalKey()],
         (err: Error | null, rows: any[]) => resolve(err ? [] : rows)

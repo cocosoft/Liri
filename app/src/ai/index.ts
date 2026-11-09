@@ -342,7 +342,11 @@ export type {
 export { UsageTracker } from './UsageTracker';
 export type { TrackUsageParams } from './UsageTracker';
 export { trackUsage } from './UsageTracker';
-export { extractModelFromResponse } from './UsageTracker';
+export {
+  extractModelFromResponse,
+  resolveUsageModelName,
+} from './UsageTracker';
+export { isInsufficientBalanceError } from './providers/providerCircuitBreaker';
 
 export {
   PriorityBasedFailover,

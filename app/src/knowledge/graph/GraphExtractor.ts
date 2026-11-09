@@ -9,10 +9,11 @@
  *
  * 降级策略：
  *   - quick 任务未配置模型 → 跳过（WARNING 日志）
- *   - LLM 调用失败 → 跳过该文档，不阻塞编译管线（ERROR 日志）
+ *   - LLM 调用失败 → 跳过该文档，不阻塞编译管线（WARNING 日志）
+ *   - 供应商余额/配额不足 → 上抛给调用方整批快速失败（批次级故障，非单文档问题）
  */
 
-import { modelRouter } from '@modules/ai';
+import { modelRouter, isInsufficientBalanceError } from '@modules/ai';
 import { LogLevel } from '@openliri/infra/monitoring';
 import { OTelAwareLogger } from '@openliri/infra/monitoring/logs/OTelAwareLogger';
 import { getOTelTracing } from '@openliri/infra/monitoring/otel/OTelTracing';
@@ -313,6 +314,13 @@ export async function extractGraph(
 
     return { entities: keptEntities, edges: keptEdges };
   } catch (err) {
+    // 供应商余额/配额不足属于**批次级**故障：所有后续文档同样注定失败 ⇒ 上抛让调用方
+    // 整批快速失败（否则每个文档各失败一次、各刷一条 warn；真机一次编译 43 条）。
+    // 其余错误仍按"跳过该文档"降级，不阻塞编译管线。
+    if (isInsufficientBalanceError(err)) {
+      otel.recordError(span, err as Error);
+      throw err;
+    }
     logger.warn('图谱提取失败，跳过该文档', {
       error: (err as Error).message,
       domain,

@@ -654,7 +654,10 @@ export class LongRunningTaskOrchestrator {
         (s.dependsOn ?? []).some((depId) => {
           const dep = plan.steps.find((p) => p.id === depId);
           return (
-            !!dep && (dep.status === 'failed' || dep.status === 'cancelled')
+            // B8（§5-3）：本轮已因日预算停止 ⇒ 不阻断（后继保持 pending，续跑才有候选）
+            !budgetStopped(plan) &&
+            !!dep &&
+            (dep.status === 'failed' || dep.status === 'cancelled')
           );
         })
       );
@@ -1267,7 +1270,6 @@ export class LongRunningTaskOrchestrator {
 
       // 重新检查状态：所有步骤是否都为终态
       const latestPlan = this.requirePlan();
-      // 本轮步骤摘要（迭代日志 / 硬停止 / 轮次上限三处同源，避免各写一份）
       const stepStatuses = latestPlan.steps.map((s) => ({
         id: s.id,
         status: s.status,

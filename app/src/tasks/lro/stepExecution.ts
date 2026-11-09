@@ -49,6 +49,11 @@ import { EXECUTOR_ROLE, normalizeExecutorResult } from './contracts.js';
 import type { ExecutorFn, TaskMessage } from './contracts.js';
 import { isWorkspaceEmpty, roleToolNames } from './plannerSupport.js';
 import { isNonConvergedTermination } from './pureDecisions.js';
+// B8（2026-11-09，设计稿 §5-3）：日预算耗尽的终止原因（与编排器共用同一字面量真源）
+import {
+  DAILY_BUDGET_TERMINATION_REASON,
+  budgetStopped,
+} from './failureRecovery.js';
 import {
   MAX_SECURITY_STEERS_PER_STEP,
   buildCriticalOutcomeEvidence,
@@ -163,6 +168,9 @@ export async function executeSingleStep(
   plan: Plan,
   deps: StepExecutionDeps
 ): Promise<void> {
+  // B8（2026-11-09，设计稿 §5-3）：本轮日预算已耗尽 ⇒ 剩余步骤保持 pending（放行后可续跑），
+  // 不再逐个撞闸门（每次撞都会落 failed，续跑就丢了候选）。
+  if (budgetStopped(plan)) return;
   taskOrchestrator.markStepRunning(step.id);
   await deps.persistCheckpoint(); // P0(M2)：步骤状态变更即落盘
   deps.stepDurations.set(step.id, { startMs: Date.now() });
@@ -1026,6 +1034,26 @@ export async function executeSingleStep(
       return;
     }
     const errMsg = e instanceof Error ? e.message : String(e);
+    // B8（2026-11-09，设计稿 §5-3）：日预算闸门拒绝 ⇒ 放行前重试/重规划都不会通过，
+    // 不进有界重试、不 escalate；如实落 failed 并让主循环立即收尾（终态回执标注预算原因）。
+    if (e instanceof AppError && e.code === 'DAILY_BUDGET_EXCEEDED') {
+      step.status = 'failed';
+      step.terminationReason = DAILY_BUDGET_TERMINATION_REASON;
+      step.error = errMsg;
+      taskOrchestrator.markStepFailed(step.id, errMsg);
+      deps.recordLifecycle(
+        'progress',
+        TaskStatus.RUNNING,
+        `Step stopped by daily budget: ${step.description}`
+      );
+      logger.warn('[orchestrator] 日预算耗尽，任务停止（不再重试）', {
+        taskId: deps.taskId,
+        stepId: step.id,
+        error: errMsg.slice(0, 200),
+      });
+      await deps.persistCheckpoint();
+      return;
+    }
     const maxRetries = step.maxRetries ?? 3;
     if (step.retryCount < maxRetries) {
       // PR5（#5，2026-09-05）：执行级有界重试——瞬时工具/网络异常不直接终态 failed。

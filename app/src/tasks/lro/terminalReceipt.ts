@@ -269,6 +269,8 @@ export function collectDeliveryFacts(plan: Plan | undefined): {
 
 /** 分类优先级（同票数时按此顺序取，避免输出随步骤顺序抖动） */
 const FAILURE_CATEGORY_PRIORITY: StepFailureCategory[] = [
+  // B8：日预算耗尽属任务级硬停止 ⇒ 与其他分类同票时优先展示
+  'daily_budget',
   'tool_failure',
   'output_budget',
   'turn_budget',

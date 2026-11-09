@@ -21,9 +21,27 @@
 export type StepFailureCategory =
   | 'output_budget'
   | 'turn_budget'
+  | 'daily_budget'
   | 'tool_failure'
   | 'provider_deferred'
   | 'unclassified';
+
+/**
+ * B8（2026-11-09，设计稿 §5-3）：**日预算闸门**拒绝执行的步骤终止原因。
+ *
+ * 与 `budget_exhausted`（单次执行内的轮次/token 预算）区分：闸门拒绝是**全任务级**硬约束，
+ * 放行（预算重置）前重试/重规划都不会通过 ⇒ 立即停止任务，不再消耗重试轮次。
+ */
+export const DAILY_BUDGET_TERMINATION_REASON = 'daily_budget_exhausted';
+
+/** 计划中是否已有步骤因日预算闸门停止（命中 ⇒ 主循环立即收尾） */
+export function budgetStopped(plan: {
+  steps: ReadonlyArray<{ terminationReason?: string }>;
+}): boolean {
+  return plan.steps.some(
+    (s) => s.terminationReason === DAILY_BUDGET_TERMINATION_REASON
+  );
+}
 
 /** 输出预算被推理（思考）耗尽后仍未能收敛 */
 const OUTPUT_BUDGET_REASONS: ReadonlySet<string> = new Set([
@@ -69,6 +87,7 @@ export function classifyStepFailure(step: {
 }): StepFailureCategory {
   const reason = step.terminationReason;
   if (typeof reason === 'string') {
+    if (reason === DAILY_BUDGET_TERMINATION_REASON) return 'daily_budget';
     if (OUTPUT_BUDGET_REASONS.has(reason)) return 'output_budget';
     if (TURN_BUDGET_REASONS.has(reason)) return 'turn_budget';
     if (PROVIDER_REASONS.has(reason)) return 'provider_deferred';
@@ -100,8 +119,10 @@ export function degradationActionFor(
       return 'extra_attempt';
     case 'tool_failure':
       return 'replan';
+    case 'daily_budget':
     case 'provider_deferred':
     case 'unclassified':
+      // 日预算闸门在放行前恒拒绝 ⇒ 重试/重规划都不会通过，不消耗降级额度
       return null;
   }
 }
@@ -130,6 +151,7 @@ export function takeOneShotDegradation(
 export const FAILURE_CATEGORY_LABELS: Record<StepFailureCategory, string> = {
   output_budget: '输出预算被推理耗尽，正文/文件内容未写完',
   turn_budget: '执行轮次/预算耗尽，未在预算内收敛',
+  daily_budget: '日预算已耗尽，任务已停止（放行预算后可续跑）',
   tool_failure: '工具调用持续失败（已降级重规划一次）',
   provider_deferred: '模型供应商暂缓/网络中断（已尝试供应商故障转移）',
   unclassified: '未归类',

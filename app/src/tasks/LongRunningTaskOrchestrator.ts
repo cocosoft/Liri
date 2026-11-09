@@ -184,6 +184,9 @@ import {
 import type { PdcaReportView } from './lro/reporting.js';
 import { emitPdcaReceiptFromAudit } from './lro/terminalReceipt.js';
 import { takeOneShotDegradation } from './lro/failureRecovery.js';
+// B8（2026-11-09，设计稿 §5-3）：日预算耗尽 ⇒ 立即停止（与步骤侧共用终止原因真源）
+import { budgetStopped } from './lro/failureRecovery.js';
+import { stopPlanWithError } from './lro/planStop.js';
 import { flushSupplements } from './lro/supplementQueue.js';
 import {
   planTurnsExtensionDecision,
@@ -1256,9 +1259,21 @@ export class LongRunningTaskOrchestrator {
       }
       if (stopOnPending('iteration', this.taskId, this.planId, updatedPlan))
         break;
+      // B8（2026-11-09，§5-3）：日预算耗尽 ⇒ 立即收尾（不重试、不重规划；回执带预算原因）
+      if (budgetStopped(updatedPlan)) {
+        failureReason = 'DAILY_BUDGET_EXHAUSTED';
+        break;
+      }
 
       // 重新检查状态：所有步骤是否都为终态
       const latestPlan = this.requirePlan();
+      // 本轮步骤摘要（迭代日志 / 硬停止 / 轮次上限三处同源，避免各写一份）
+      const stepStatuses = latestPlan.steps.map((s) => ({
+        id: s.id,
+        status: s.status,
+        decision: s.decision,
+        retryCount: s.retryCount,
+      }));
       const terminalStatuses = ['completed', 'failed', 'cancelled'] as const;
       allDone = latestPlan.steps.every((s) =>
         (terminalStatuses as readonly string[]).includes(s.status)
@@ -1270,12 +1285,7 @@ export class LongRunningTaskOrchestrator {
         iteration: iterations,
         maxIterations,
         allDone,
-        stepStatuses: latestPlan.steps.map((s) => ({
-          id: s.id,
-          status: s.status,
-          decision: s.decision,
-          retryCount: s.retryCount,
-        })),
+        stepStatuses,
         hasRetry:
           !allDone &&
           latestPlan.steps.some(
@@ -1297,31 +1307,23 @@ export class LongRunningTaskOrchestrator {
           previous &&
           shouldStopForStall(previous, fingerprint, stallRounds, stallThreshold)
         ) {
-          latestPlan.status = 'failed';
-          latestPlan.completedAt = new Date().toISOString();
-          taskOrchestrator['savePlan']?.(latestPlan);
-          void handleError(
-            new AppError(
-              `PDCA 连续 ${stallRounds} 轮无进展，已硬停止`,
-              ErrorCategory.OPERATION,
-              ErrorSeverity.HIGH,
-              'PDCA_NO_PROGRESS',
-              {
-                taskId: this.taskId,
-                planId: this.planId,
-                iterations,
-                stallRounds,
-                stallThreshold,
-                stepStatuses: latestPlan.steps.map((s) => ({
-                  id: s.id,
-                  status: s.status,
-                  decision: s.decision,
-                  retryCount: s.retryCount,
-                })),
-              }
-            ),
-            { module: 'tasks:longRunning', action: 'stallStop' }
-          );
+          stopPlanWithError({
+            plan: latestPlan,
+            savePlan: (p) => taskOrchestrator['savePlan']?.(p),
+            taskId: this.taskId,
+            planId: this.planId,
+            code: 'PDCA_NO_PROGRESS',
+            message: `PDCA 连续 ${stallRounds} 轮无进展，已硬停止`,
+            category: ErrorCategory.OPERATION,
+            severity: ErrorSeverity.HIGH,
+            details: {
+              iterations,
+              stallRounds,
+              stallThreshold,
+              stepStatuses,
+            },
+            action: 'stallStop',
+          });
           failureReason = 'PDCA_NO_PROGRESS';
           break;
         }
@@ -1385,11 +1387,7 @@ export class LongRunningTaskOrchestrator {
                 planId: this.planId,
                 iterations,
                 maxIterations,
-                steps: latestPlan.steps.map((s) => ({
-                  id: s.id,
-                  status: s.status,
-                  decision: s.decision,
-                })),
+                steps: stepStatuses,
               }
             ),
             { module: 'tasks:longRunning', action: 'runFullPdca' }

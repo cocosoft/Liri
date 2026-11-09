@@ -112,6 +112,11 @@ export interface PlanPhaseDeps {
     dependsOn: number[][] | undefined
   ) => Plan;
   setPlanId: (planId: string) => void;
+  /**
+   * B2（2026-11-09）：会话处于 demand（许愿式）自主度 ⇒ **验收标准前置**校验。
+   * 缺失时先纠正一次，仍缺失则抛出 `PLAN_CRITERIA_MISSING`（fail-closed）。
+   */
+  demand?: boolean;
 }
 
 /** Phase 1: PLAN —— 生成（或修订）执行计划。 */
@@ -343,6 +348,49 @@ ${replanSection}
           '[orchestrator] 验收标准经一次纠正后仍过于形式化（原样保留，不丢弃）',
           { taskId: deps.taskId, offending: stillFormOnly.slice(0, 5) }
         );
+      }
+    }
+
+    // B2（2026-11-09）：demand（许愿式）会话 —— **验收标准前置**（fail-closed）。
+    // 许愿式没有人在环上兜底：某步若无可判定验收标准，REVIEW 阶段就失去判定锚点
+    // ⇒ 不允许"先干再说"。缺失 ⇒ 复用同一纠正通道重问一次（只重写验收标准）；
+    // 仍缺失 ⇒ 抛出终止（启动器落失败回执，用户可见）。
+    if (deps.demand) {
+      const missingSteps = steps
+        .map((_, i) => i)
+        .filter((i) => !(acceptance[i] ?? '').trim());
+      if (missingSteps.length > 0) {
+        logger.warn('[orchestrator] demand 计划缺少验收标准，发起一次纠正', {
+          taskId: deps.taskId,
+          missing: missingSteps.map((i) => i + 1),
+        });
+        const repaired = await repairAcceptanceCriteria(
+          repairDeps,
+          description,
+          steps,
+          missingSteps.map((i) => `第${i + 1}步：${steps[i]}（验收标准缺失）`),
+          'missing'
+        );
+        if (repaired) acceptance = repaired;
+        const stillMissing = steps
+          .map((_, i) => i)
+          .filter((i) => !(acceptance[i] ?? '').trim());
+        if (stillMissing.length > 0) {
+          throw new AppError(
+            'demand 计划缺少可判定的验收标准（已重问一次）',
+            ErrorCategory.VALIDATION,
+            ErrorSeverity.HIGH,
+            'PLAN_CRITERIA_MISSING',
+            {
+              taskId: deps.taskId,
+              missingSteps: stillMissing.map((i) => i + 1),
+            }
+          );
+        }
+        logger.info('[orchestrator] demand 验收标准纠正成功', {
+          taskId: deps.taskId,
+          count: missingSteps.length,
+        });
       }
     }
 

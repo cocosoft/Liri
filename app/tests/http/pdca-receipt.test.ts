@@ -12,7 +12,11 @@
  * 只用「步数事实 + 阶段名（数据）」决定文案。
  */
 import { describe, expect, it } from 'bun:test';
-import { formatPdcaReceipt } from '../../src/tasks/lro/terminalReceipt';
+import {
+  collectDeliveryFacts,
+  formatPdcaReceipt,
+} from '../../src/tasks/lro/terminalReceipt';
+import type { Plan, PlanStep } from '../../src/tasks/TaskOrchestrator';
 
 const base = { taskId: 'pdca_demo', completed: 4, total: 4, failed: 0 };
 
@@ -120,5 +124,115 @@ describe('formatPdcaReceipt — 终态回执文案', () => {
     expect(text).toContain('4/4 步');
     expect(text).toContain('目标未通过终态校验');
     expect(text).not.toContain('长程任务完成');
+  });
+});
+
+// B3（2026-11-09）：交付回执的增量事实 —— 存在即展示，缺失不造占位。
+describe('formatPdcaReceipt — 交付分段', () => {
+  it('无交付事实 ⇒ 文案与既有口径逐字一致（不追加空段）', () => {
+    const text = formatPdcaReceipt({ ...base, phase: 'completed' });
+    expect(text).not.toContain('📦');
+    expect(text).not.toContain('未验证');
+    expect(text).not.toContain('下一步');
+  });
+
+  it('有产物 / 未验证项 / 下一步 ⇒ 逐段展示', () => {
+    const text = formatPdcaReceipt({
+      ...base,
+      phase: 'completed',
+      artifacts: ['src/a.ts'],
+      unverified: ['第 2 步：接口返回 200'],
+      nextSteps: ['POST /v1/pdca/pdca_demo/resume 续跑（replan）'],
+    });
+    expect(text).toContain('📦 产物：');
+    expect(text).toContain('- src/a.ts');
+    expect(text).toContain('⚠️ 未验证的验收项：');
+    expect(text).toContain('- 第 2 步：接口返回 200');
+    expect(text).toContain('➡️ 下一步：');
+  });
+
+  it('nextSteps 最多展示 3 条；空白项不展示', () => {
+    const text = formatPdcaReceipt({
+      ...base,
+      phase: 'completed',
+      artifacts: ['  '],
+      nextSteps: ['a', 'b', 'c', 'd'],
+    });
+    expect(text).not.toContain('📦');
+    expect(text).toContain('- a');
+    expect(text).toContain('- c');
+    expect(text).not.toContain('- d');
+  });
+});
+
+describe('collectDeliveryFacts — 只投影既有事实', () => {
+  function step(over: Partial<PlanStep> & { id: string }): PlanStep {
+    return {
+      id: over.id,
+      description: over.description ?? over.id,
+      status: over.status ?? 'pending',
+      taskId: over.taskId ?? 'pdca_demo',
+      retryCount: over.retryCount ?? 0,
+      maxRetries: over.maxRetries ?? 3,
+      artifacts: over.artifacts,
+      acceptanceCriteria: over.acceptanceCriteria,
+      reviewResult: over.reviewResult,
+    };
+  }
+
+  function plan(steps: PlanStep[]): Plan {
+    return {
+      id: 'plan_1',
+      description: 'demo',
+      steps,
+      status: 'running',
+      createdAt: new Date(0).toISOString(),
+      sessionId: 'session_1',
+    };
+  }
+
+  it('无计划 ⇒ 空（不造占位）', () => {
+    expect(collectDeliveryFacts(undefined)).toEqual({});
+  });
+
+  it('产物跨步去重；未完成且无审查结果的验收项计入 unverified', () => {
+    const facts = collectDeliveryFacts(
+      plan([
+        step({
+          id: 'step_1',
+          status: 'completed',
+          artifacts: ['src/a.ts'],
+        }),
+        step({
+          id: 'step_2',
+          status: 'failed',
+          artifacts: ['src/a.ts', 'src/b.ts'],
+          acceptanceCriteria: '接口返回 200',
+        }),
+      ])
+    );
+    expect(facts.artifacts).toEqual(['src/a.ts', 'src/b.ts']);
+    expect(facts.unverified).toEqual(['接口返回 200']);
+  });
+
+  it('已验证但未通过的步骤不计入 unverified（那是「未通过」，由失败步数表达）', () => {
+    const facts = collectDeliveryFacts(
+      plan([
+        step({
+          id: 'step_1',
+          status: 'failed',
+          acceptanceCriteria: '构建通过',
+          reviewResult: {
+            stepId: 'step_1',
+            pass: false,
+            score: 20,
+            issues: [],
+            summary: 'failed',
+            reviewedAt: 0,
+          },
+        }),
+      ])
+    );
+    expect(facts.unverified).toBeUndefined();
   });
 });

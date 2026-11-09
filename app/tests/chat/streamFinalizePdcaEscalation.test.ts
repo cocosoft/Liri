@@ -156,3 +156,77 @@ describe('BUG-A / N-2 下游：兜底轮不得进入 PDCA 编排', () => {
     expect(capture.payload).toBeUndefined();
   });
 });
+
+/**
+ * B2（2026-11-09）：demand（许愿式）会话的同轮升级。
+ *
+ * 与交互会话的差异只有"是否值得拉起编排"这一处：许愿式首条消息通常不含「帮我/请」
+ * 等强动词 ⇒ 走 `isDemandGoalIntent` 排除法；纯寒暄/致谢仍不得触发。
+ */
+describe('B2：demand 会话 —— 首条目标消息即升级编排', () => {
+  /** 单条用户消息的会话（demand / 交互对照只差 metadata） */
+  const makeSingleMessageSession = (
+    text: string,
+    metadata: Record<string, unknown> = {}
+  ): ChatSession =>
+    ({
+      id: 'sess-demand-b2',
+      metadata,
+      messages: [{ id: 'u1', role: 'user', content: text }],
+    }) as unknown as ChatSession;
+
+  async function runFinalizeWith(
+    session: ChatSession,
+    assistant: Message,
+    capture: { payload?: unknown }
+  ): Promise<void> {
+    const finalize = new ChatStreamFinalize(makeDeps(capture));
+    const content =
+      typeof assistant.content === 'string' ? assistant.content : '';
+    await finalize.finalize(
+      session,
+      content,
+      content,
+      assistant,
+      null,
+      new AbortController(),
+      spanStub
+    );
+  }
+
+  it('★ demand + "做一个贪吃蛇小游戏"（无强动词、单轮）⇒ 升级', async () => {
+    const capture: { payload?: unknown } = {};
+    await runFinalizeWith(
+      makeSingleMessageSession('做一个贪吃蛇小游戏', { autonomy: 'demand' }),
+      makeAssistant('好的，我先规划…', false),
+      capture
+    );
+
+    // 升级描述取 deps.recentUserText（测试桩固定为 LAST_USER）；这里只验证"确实升级了"
+    const payload = capture.payload as
+      | { assistantContent?: string }
+      | undefined;
+    expect(payload).toBeDefined();
+    expect(payload?.assistantContent).toBe('好的，我先规划…');
+  });
+
+  it('负向对照：交互会话同一句话（单轮、无强动词）⇒ 不升级（现状不变）', async () => {
+    const capture: { payload?: unknown } = {};
+    await runFinalizeWith(
+      makeSingleMessageSession('做一个贪吃蛇小游戏'),
+      makeAssistant('好的，我先规划…', false),
+      capture
+    );
+    expect(capture.payload).toBeUndefined();
+  });
+
+  it('demand + 纯致谢 ⇒ 仍不升级（排除法不是无条件放行）', async () => {
+    const capture: { payload?: unknown } = {};
+    await runFinalizeWith(
+      makeSingleMessageSession('谢谢！', { autonomy: 'demand' }),
+      makeAssistant('不客气', false),
+      capture
+    );
+    expect(capture.payload).toBeUndefined();
+  });
+});

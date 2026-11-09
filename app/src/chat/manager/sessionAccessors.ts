@@ -12,6 +12,7 @@
  * 收敛到纯函数后调用方直接传 `sessions`，宿主不再需要保留 8 个转发方法。
  *
  * 口径不变：`getSessionPermissionMode` 仍只认 9 个合法值（脏值 ⇒ `undefined` ⇒ 进程默认档）；
+ * B2（2026-11-09）唯一例外：未设置权限档的 **demand 会话**返回 `auto`（显式值仍优先）。
  * `isLastAssistantOutputFallback` 仍以结构化标记 `metadata.emptyOutputFallback` 为唯一依据（CS02）。
  */
 
@@ -88,8 +89,13 @@ export function getSessionPermissionMode(
   sessionId?: string
 ): PermissionMode | undefined {
   if (!sessionId) return undefined;
-  const raw = metaOf(sessions.get(sessionId))?.permission_mode;
-  if (typeof raw !== 'string') return undefined;
+  const meta = metaOf(sessions.get(sessionId));
+  const raw = meta?.permission_mode;
+  if (typeof raw !== 'string') {
+    // B2（2026-11-09）：demand（许愿式）会话**缺省档为 auto**（可被显式 permission_mode
+    // 覆盖）。只改"未设置"时的缺省值：越界写 / 删除 / Bash 闸仍按各自策略判定（D3）。
+    return meta?.autonomy === 'demand' ? 'auto' : undefined;
+  }
   const normalized = raw.trim().toLowerCase();
   return PERMISSION_MODES.find((mode) => mode.toLowerCase() === normalized);
 }

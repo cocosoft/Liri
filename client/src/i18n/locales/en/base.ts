@@ -1049,6 +1049,15 @@ const enBase = {
           "Allow at this layer; command tools keep their own confirmation gate",
       },
     },
+    // B2 (2026-11-09): session autonomy (demand / "wish" mode) — orthogonal to permission, not nested
+    autonomy: {
+      pillInteractive: "Turn by turn",
+      pillDemand: "Wish mode",
+      pillAria: "Autonomy: {{label}} (click to switch)",
+      pillHint:
+        "Wish mode: give a goal only — Liri plans, executes, verifies and delivers automatically (mid-run messages fold into the current plan); out-of-workspace writes, deletions and external commands still hit their safety gates.",
+      switchFailed: "Failed to switch autonomy",
+    },
     inboxResuming: "Approved — resuming…",
     inboxHandled: "Handled",
     inboxExpired: "Expired",

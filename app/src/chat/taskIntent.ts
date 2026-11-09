@@ -25,6 +25,40 @@ export function isExecutionTaskIntent(text: string): boolean {
 }
 
 /**
+ * B2（2026-11-09）：demand（许愿式）会话的**目标意图**判定 —— 用户"只给目标"即应进入编排。
+ *
+ * 与 `isExecutionTaskIntent` 的分工：后者要求「帮我/我要 + 强动词」等**措辞证据**，
+ * 许愿式常见写法（"做一个贪吃蛇小游戏"、"给这个项目加上登录"）往往不含这些词；
+ * demand 模式下改为**排除法**：只要不是纯寒暄/致谢/确认，也不是纯知识型提问，就视为目标。
+ *
+ * 安全边界不在此处：单次能力请求仍由 `isCapabilityDirectIntent` 否决（调用方保留），
+ * 危险工具/权限仍走各自闸门（本函数只决定"是否值得拉起编排"）。
+ */
+export function isDemandGoalIntent(text: string): boolean {
+  if (!text) return false;
+  const trimmed = text.trim();
+  if (trimmed.length < 2) return false;
+  // 纯寒暄 / 致谢 / 确认 / 终止类短句 ⇒ 不是目标
+  if (
+    /^(?:你好|您好|hi|hello|嗨|在吗|谢谢|多谢|感谢|辛苦了|好的|好|ok|嗯|收到|明白|知道了|继续|暂停|停)[\s!！。.,，?？~～]*$/i.test(
+      trimmed
+    )
+  ) {
+    return false;
+  }
+  // 纯知识型提问（"什么是 X？"）⇒ 不是交付目标；带"做一个…?"则仍按目标处理
+  if (
+    /^(?:什么是|是什么|为什么|怎么理解|如何理解|介绍一下|解释一下|说说)/.test(
+      trimmed
+    ) &&
+    /[?？]\s*$/.test(trimmed)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+/**
  * 取消息列表最后一条非空 user 文本（供工具类别裁剪等场景读"本轮用户意图"）。
  * 找不到返回空串。
  */

@@ -110,6 +110,8 @@ function buildRequestMetadata(
   if (request.workspace_path) metadata.workspacePath = request.workspace_path;
   // 已在入口归一（`resolveChatMode`）；缺省不传 ⇒ 会话保留原有档位
   if (request.chat_mode) metadata.chatMode = request.chat_mode;
+  // B1（2026-11-09）：会话自主度（已在入口校验；缺省不传 ⇒ 会话保留原有自主度）
+  if (request.autonomy) metadata.autonomy = request.autonomy;
   return Object.keys(metadata).length > 0 ? metadata : undefined;
 }
 
@@ -175,6 +177,13 @@ interface ChatCompletionRequest {
    * **非该取值即 400 fail loud**（同 `work_mode` 纪律）；缺省 ⇒ 不改会话已有档位。
    */
   chat_mode?: string;
+  /**
+   * B1（2026-11-09）：会话自主度 —— `interactive`（缺省）| `demand`（许愿式：只给目标，
+   * 自动规划/执行/验收/交付）。
+   *
+   * **非该取值即 400 fail loud**（同 `work_mode` 纪律）；缺省 ⇒ 不改会话已有自主度。
+   */
+  autonomy?: string;
   /**
    * 请求优先级（P26-1 §9.1 透传，2026-10-07）
    *
@@ -401,6 +410,7 @@ export async function handleChatCompletions(
     applyWorkModeToSystemPrompt,
     isChatMode,
     resolveChatMode,
+    isAutonomyMode,
   } = await import('@modules/chat');
   const workMode = request.work_mode;
   if (workMode !== undefined && !isWorkMode(workMode)) {
@@ -466,6 +476,34 @@ export async function handleChatCompletions(
     request.chat_mode === undefined
       ? undefined
       : resolveChatMode(request.chat_mode);
+
+  // B1（2026-11-09）：`autonomy` 边界校验 —— 同 `work_mode` 纪律：非法即 400 fail loud；
+  // 缺省 ⇒ 不写会话 metadata（老客户端行为不变）。归一值经 `ChatRequest.metadata.autonomy`
+  // 下行，由会话生命周期落到 `metadata.autonomy`（B2 起被 demand 执行链读取）。
+  if (request.autonomy !== undefined && !isAutonomyMode(request.autonomy)) {
+    const error = new AppError(
+      `Invalid autonomy: ${JSON.stringify(request.autonomy)} (expected "interactive" | "demand")`,
+      ErrorCategory.VALIDATION,
+      ErrorSeverity.MEDIUM,
+      'INVALID_AUTONOMY',
+      { autonomy: request.autonomy }
+    );
+    await handleError(error, {
+      module: 'http:chat',
+      action: 'validateAutonomy',
+    });
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        error: {
+          message: error.message,
+          type: 'invalid_request_error',
+          code: 'INVALID_AUTONOMY',
+        },
+      })
+    );
+    return;
+  }
 
   // 多租户 P3：跨身份 / 不存在的会话统一 404 —— 必须在分流到流式处理（写 SSE 头）之前判定
   if (await respond404IfSessionUnavailable(request.session_id, res)) return;

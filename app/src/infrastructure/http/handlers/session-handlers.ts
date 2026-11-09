@@ -1238,6 +1238,16 @@ export async function handleUpdateSessionMeta(
       return;
     }
 
+    // B1（2026-11-09）：会话自主度 —— 只接受白名单值（非法值 400，不静默忽略）
+    if (
+      data.autonomy !== undefined &&
+      data.autonomy !== 'interactive' &&
+      data.autonomy !== 'demand'
+    ) {
+      sendBadRequest(res, 'autonomy must be "interactive" | "demand"');
+      return;
+    }
+
     // P0-1（2026-11-05）：会话工作区**重新定位**（工作区被删后的一键恢复入口）。
     // 边界校验 fail loud（同 work_mode / tool_profile 口径）：只接受绝对路径 + 已存在目录。
     let nextWorkspacePath: string | undefined;
@@ -1257,6 +1267,7 @@ export async function handleUpdateSessionMeta(
       tasksOverride: data.tasks_override as Record<string, string> | undefined,
       pinned: data.pinned as boolean | undefined,
       workMode: data.work_mode as 'plan' | 'do' | undefined,
+      autonomy: data.autonomy as 'interactive' | 'demand' | undefined,
       toolProfile: data.tool_profile as string[] | undefined,
       approvalMode: data.approval_mode as 'ask' | 'auto-local' | undefined,
       permissionMode:

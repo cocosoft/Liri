@@ -148,6 +148,14 @@ export {
   PLAN_MODE_PROMPT,
 } from './workMode';
 export type { WorkMode } from './workMode';
+// autonomy 契约（B1，2026-11-09）：demand 许愿式模式的取值校验与请求体更新判定
+export {
+  AUTONOMY_MODES,
+  isAutonomyMode,
+  isDemandSession,
+  resolveRequestAutonomyUpdate,
+} from './autonomy';
+export type { AutonomyMode } from './autonomy';
 // chatMode 契约（P1，2026-11-04）：同 workMode 口径经模块出口暴露，供 HTTP 边界校验与聊天入口取用
 export {
   CHAT_MODES,

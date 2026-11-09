@@ -78,6 +78,26 @@ describe('StageOrchestrator — 2 阶段链（D1/M7）', () => {
     );
   });
 
+  it('B2：autoApproveStages ⇒ 跳过阶段审批，一气呵成到 completed', async () => {
+    const calls: string[] = [];
+    const orch = StageOrchestrator.create(
+      'stage-test-demand',
+      '做一个记账小工具',
+      's-demand',
+      deps(calls),
+      undefined,
+      undefined,
+      { autoApproveStages: true }
+    );
+
+    const status = await orch.run();
+
+    expect(calls).toEqual(['requirement', 'design']);
+    expect(status.phase).toBe('completed');
+    // 审批门为 auto ⇒ 不再出现 stage_awaiting_approval
+    expect(status.stages.every((s) => s.approval === 'auto')).toBe(true);
+  });
+
   it('非审批挂起状态调用 resumeAfterApproval 抛错', async () => {
     const orch = StageOrchestrator.create('stage-test-3', 'x', 's-3', deps([]));
     await expect(orch.resumeAfterApproval()).rejects.toThrow();

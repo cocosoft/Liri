@@ -36,9 +36,11 @@ import { getYieldRegistry } from '../../session/yield';
 import { ImplicitEngineHook } from '../../project/ImplicitEngineHook';
 import {
   isCapabilityDirectIntent,
+  isDemandGoalIntent,
   isExecutionTaskIntent,
   isStrongBuildIntent,
 } from '../taskIntent';
+import { isDemandSession } from '../autonomy';
 import {
   isEmptyOutputFallbackMessage,
   isOutputBudgetExhaustedMessage,
@@ -283,6 +285,9 @@ export class ChatStreamFinalize {
           )?.content as string) ?? '')
         : '';
     const capabilityDirect = isCapabilityDirectIntent(bareLastSingleContent);
+    // B2（2026-11-09）：demand（许愿式）会话 —— 用户只给目标即**同轮**升级编排，不看轮次闸
+    // 与强动词措辞；能力直通 / 空输出兜底 / 输出预算 / Code Mode 四项否决仍保留。
+    const demandMode = isDemandSession(session.metadata);
     if (
       !contextId &&
       // N-2（2026-11-06 真机长程任务）：本轮以「空输出兜底」收尾 ⇒ **不升级编排**。
@@ -293,12 +298,16 @@ export class ChatStreamFinalize {
       !outputBudgetExhausted &&
       !capabilityDirect &&
       assistantMessage.content &&
-      (bareUserMessages.length >= 2 || isStrongBuildIntent(bareFirstContent)) &&
-      isExecutionTaskIntent(bareLastContent) &&
+      (demandMode
+        ? isDemandGoalIntent(bareLastSingleContent)
+        : (bareUserMessages.length >= 2 ||
+            isStrongBuildIntent(bareFirstContent)) &&
+          isExecutionTaskIntent(bareLastContent)) &&
       !deps.shouldUseCodeMode(bareLastContent)
     ) {
       logger.info('pdca:bare_session_intent_detected', {
         sessionId: session.id,
+        autonomy: demandMode ? 'demand' : 'interactive',
         intent: bareLastContent.slice(0, 60),
       });
       await deps.escalateToPdcaViaBareSession({
@@ -353,13 +362,17 @@ export class ChatStreamFinalize {
             /(?:帮我|我要|我想|给我)\s*(?:做|开发|规划|设计|建|创建|写|整理|实现|搭建|部署)/.test(
               lastUserContent
             );
-          const deliverableThreshold = hasExplicitIntent ? 1 : 2;
+          // B2（2026-11-09）：demand 会话首条即可能已是完整目标 ⇒ 交付物阈值降为 1
+          const deliverableThreshold = hasExplicitIntent || demandMode ? 1 : 2;
 
           // PDL 启动修复（2026-09-05，K3 排查）：ImplicitEngineHook 的 hasGoal 仅靠文本
           // 正则（须含"目标：…"等字样），普通"实现计划/分步/补测试"措辞永不命中 → 自动
           // PDCA/PDL 在项目会话形同虚设。此处对【项目会话 + 用户明确产出意图】兜底放行
           // goal；复杂/危险任务仍由 _shouldUsePlanDrivenLoop 分流进 LRTO（只放行升级通道）。
-          const userTaskIntent = isExecutionTaskIntent(lastUserContent);
+          // B2（2026-11-09）：demand 会话按"目标意图"放行（措辞不限强动词）
+          const userTaskIntent =
+            isExecutionTaskIntent(lastUserContent) ||
+            (demandMode && isDemandGoalIntent(lastUserContent));
           const goalTriggered =
             result.hasGoal ||
             (Boolean(session.metadata?.projectId) &&

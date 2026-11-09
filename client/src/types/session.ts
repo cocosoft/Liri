@@ -2,6 +2,14 @@
 export type WorkMode = "plan" | "do";
 
 /**
+ * B1（2026-11-09）：会话自主度。
+ * - `interactive`（缺省）：既有逐轮交互；
+ * - `demand`：许愿式 —— 用户只给目标，自动规划/执行/验收/交付。
+ * 事实来源为后端 `metadata.autonomy`（缺省/脏值 ⇒ 视为 `interactive`）。
+ */
+export type AutonomyMode = "interactive" | "demand";
+
+/**
  * PR-3（2026-10-23）：会话级审批模式。
  * - `ask`（默认）：所有需要审批的工具都人工确认；
  * - `auto-local`：只读 + **会话工作区内**的本地写自动执行（shell / 外部 / 越界写仍需审批）。
@@ -76,6 +84,8 @@ export interface Session {
   status?: SessionStatus;
   /** 会话的 Plan/Do 工作模式（源：metadata.workMode 展平） */
   workMode?: WorkMode;
+  /** B1（2026-11-09）：会话自主度（源：metadata.autonomy 展平；缺省 === interactive） */
+  autonomy?: AutonomyMode;
   /** PR-3：会话级审批模式（源：metadata.approvalMode 展平；缺省 ask） */
   approvalMode?: ApprovalMode;
   /**
@@ -140,6 +150,8 @@ export interface Session {
   /** 会话元数据（后端 DataSessionMetadata 投影） */
   metadata?: {
     workMode?: WorkMode;
+    /** B1（2026-11-09）：会话自主度（`demand` = 许愿式；缺省 === interactive） */
+    autonomy?: AutonomyMode;
     /** PR-3：会话级审批模式（`auto-local` = 只读 + 工作区内本地写自动执行） */
     approvalMode?: ApprovalMode;
     /** P1（2026-11-04）：会话级权限模式（9 档；`null`/缺省 ⇒ 跟随进程默认档） */

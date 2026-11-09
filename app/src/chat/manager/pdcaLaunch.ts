@@ -40,6 +40,7 @@ import {
   hasVerifyIntent,
 } from '../taskIntent';
 import { shouldEscalateLongTask } from '../longTaskEscalation';
+import { isDemandSession } from '../autonomy';
 import { createProjectStore } from '../../workspace/ProjectStore.js';
 import { WorkItemStore } from '../../workspace/WorkItemStore.js';
 import { resolveDataDir } from '@openliri/infra/environment';
@@ -437,16 +438,22 @@ export class PdcaLaunchCoordinator {
         });
       return;
     }
+    // B2（2026-11-09）：demand（许愿式）会话 —— 强制走经典阶段链（PlanDrivenLoop 快速路径
+    // 不产出验收标准，无法满足"验收前置"）；其余分流逻辑不变。
+    const demandMode = isDemandSession(session.metadata);
     // OBS（M3a）：分流决策 trace——记录走 PDL 快速路径还是经典阶段链
-    const usePlanDriven = this.deps.shouldUsePlanDrivenLoop(
-      lastUserContent || ''
-    );
-    const decisionReasons = usePlanDriven
-      ? ['simple', 'no-dangerous-tool']
-      : ['complex-or-dangerous'];
-    const decisionMsg = usePlanDriven
-      ? '简单任务走 PlanDrivenLoop 快速路径'
-      : '复杂/危险任务走经典 PDCA 阶段链';
+    const usePlanDriven =
+      !demandMode && this.deps.shouldUsePlanDrivenLoop(lastUserContent || '');
+    const decisionReasons = demandMode
+      ? ['demand-goal', 'stage-chain']
+      : usePlanDriven
+        ? ['simple', 'no-dangerous-tool']
+        : ['complex-or-dangerous'];
+    const decisionMsg = demandMode
+      ? '许愿式：跳过计划待确认，验收标准前置后直接执行'
+      : usePlanDriven
+        ? '简单任务走 PlanDrivenLoop 快速路径'
+        : '复杂/危险任务走经典 PDCA 阶段链';
     import('../../tasks/PdcaLiveEvents')
       .then((m) => {
         // B1（2026-09-06，P0-2）：自动启动信号——供前端 banner/执行模式徽标消费
@@ -505,8 +512,9 @@ export class PdcaLaunchCoordinator {
         lastUserContent || undefined,
         // S3（P1-5 §5 S3）：两层分流决策（复杂度门 + 危险工具 + message 粒度 hash 10%）
         usePlanDriven,
-        // LRO-11：长任务信号升级 ⇒ 强制分解（压过消息长度门）
-        opts
+        // LRO-11：长任务信号升级 ⇒ 强制分解（压过消息长度门）；
+        // B2（2026-11-09）：demand 会话把自主度交给启动器（阶段审批自动放行）
+        { ...opts, demand: demandMode }
       )
       .catch(() => {
         /* 隐性引擎失败不阻塞消息流 */

@@ -103,6 +103,15 @@ describe('planPhase — 接线（结构化优先，文本兜底）', () => {
   it('规划 prompt 带工作区路径约束', () => {
     expect(src).toContain('workspacePathConstraint(deps.isolation.workspace)');
   });
+
+  // B2（2026-11-09）：demand（许愿式）会话 —— 验收标准前置（fail-closed）
+  it('demand 在创建 Plan 前校验验收标准，缺失即 PLAN_CRITERIA_MISSING', () => {
+    const gateAt = src.indexOf('if (deps.demand)');
+    const createAt = src.indexOf('// 创建 Plan');
+    expect(gateAt).toBeGreaterThan(-1);
+    expect(src).toContain('PLAN_CRITERIA_MISSING');
+    expect(createAt).toBeGreaterThan(gateAt);
+  });
 });
 
 describe('workspacePathConstraint — 规划阶段路径约束（2026-11-08）', () => {
@@ -193,5 +202,30 @@ describe('repairAcceptanceCriteria — 输出解析健壮性（2026-11-09）', (
     );
     expect(got).toEqual(['A', 'B']);
     expect(received).toBeGreaterThan(0);
+  });
+
+  // B2（2026-11-09）：demand 验收标准前置 —— 缺失时走同一纠正通道，提示词要明确"补全"
+  it('mode=missing 的提示词点名缺失，并要求只补验收标准', async () => {
+    let seenPrompt = '';
+    const got = await repairAcceptanceCriteria(
+      {
+        taskId: 'pdca_test',
+        isolation: {
+          workspace: 'C:\\work\\pdca_test',
+        } as unknown as PlannerRepairDeps['isolation'],
+        executor: async (params) => {
+          seenPrompt = params.userPrompt;
+          return {
+            content: '{"acceptanceCriteria":["页面含 canvas","自测退出码 0"]}',
+          };
+        },
+      },
+      '做一个游戏',
+      steps,
+      steps,
+      'missing'
+    );
+    expect(seenPrompt).toContain('缺少验收标准');
+    expect(got).toEqual(['页面含 canvas', '自测退出码 0']);
   });
 });

@@ -381,6 +381,8 @@ export class SessionTitling {
       pinned?: boolean;
       /** plan/do 工作模式（见 `.trae/specs/plan-do-mode.md`；输入区开关写入） */
       workMode?: 'plan' | 'do';
+      /** B1（2026-11-09）：会话自主度（`demand` = 许愿式；缺省 === interactive） */
+      autonomy?: 'interactive' | 'demand';
       /** P4b（2026-10-16）：会话级工具 profile 能力标签（`media` / `coding` 等）⇒ 追加对应工具类别 */
       toolProfile?: string[];
       /** PR-3（2026-10-23）：会话级审批模式（`auto-local` = 只读 + 工作区内本地写自动执行） */
@@ -406,6 +408,8 @@ export class SessionTitling {
       meta.providerId !== undefined ||
       meta.tasksOverride !== undefined ||
       meta.workMode !== undefined ||
+      // B1（2026-11-09）：自主度属"配置类"字段（改变后续轮次的执行契约）
+      meta.autonomy !== undefined ||
       meta.toolProfile !== undefined ||
       // PR-3：审批模式属"配置类"字段（改变后续轮次的授权行为）
       meta.approvalMode !== undefined ||
@@ -429,6 +433,8 @@ export class SessionTitling {
       if (meta.pinned !== undefined) session.metadata.pinned = meta.pinned;
       if (meta.workMode !== undefined)
         session.metadata.workMode = meta.workMode;
+      if (meta.autonomy !== undefined)
+        session.metadata.autonomy = meta.autonomy;
       if (meta.toolProfile !== undefined)
         session.metadata.toolProfile = meta.toolProfile;
       if (meta.approvalMode !== undefined)
@@ -462,6 +468,8 @@ export class SessionTitling {
             storedSession.metadata.pinned = meta.pinned;
           if (meta.workMode !== undefined)
             storedSession.metadata.workMode = meta.workMode;
+          if (meta.autonomy !== undefined)
+            storedSession.metadata.autonomy = meta.autonomy;
           if (meta.toolProfile !== undefined)
             storedSession.metadata.toolProfile = meta.toolProfile;
           if (meta.approvalMode !== undefined)

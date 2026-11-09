@@ -209,7 +209,12 @@ export class StageOrchestrator {
      * D3 消费（偏差 2）：需求追踪 ID（requirementTracker 注册的 req_<sha1>），
      * 贯穿阶段链（prompt 注入 → 产物 → 交付清单），供需求→产物证据追溯。
      */
-    requirementId?: string
+    requirementId?: string,
+    /**
+     * B2（2026-11-09）：demand（许愿式）会话 —— 阶段审批**自动放行**（跳过"计划待确认"）。
+     * 仅放宽流程暂停点，不放宽任何工具/权限判定（Bash 闸与权限档独立生效）。
+     */
+    opts: { autoApproveStages?: boolean } = {}
   ): StageOrchestrator {
     const record: StageChainRecord = {
       taskId,
@@ -220,7 +225,7 @@ export class StageOrchestrator {
       stages: STAGE_DEFS.map((def) => ({
         id: def.id,
         name: def.name,
-        approval: def.approval,
+        approval: opts.autoApproveStages ? 'auto' : def.approval,
         status: 'pending',
         pdcaTaskId: `${taskId}_${def.id}`,
       })),

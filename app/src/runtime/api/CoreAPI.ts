@@ -886,6 +886,11 @@ export interface CoreAPI {
       model?: string;
       /** plan/do 工作模式（见 `.trae/specs/plan-do-mode.md`；输入区开关写入，缺省由前端按 plan 派生） */
       workMode?: 'plan' | 'do';
+      /**
+       * B1（2026-11-09）：会话自主度（`demand` = 许愿式）。缺省 ⇒ 不改动；
+       * 取值校验见 `chat/autonomy.ts`（HTTP 边界非法值 400）。
+       */
+      autonomy?: 'interactive' | 'demand';
       workspaceId?: string;
       providerId?: string;
       tasksOverride?: Record<string, string>;

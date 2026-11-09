@@ -250,8 +250,11 @@ export class PdcaLauncher {
     /**
      * LRO-11（2026-10-26）：长任务信号升级 ⇒ 强制分解（压过消息长度门），
      * 并向用户回写一条"本次执行模式"的可见提示。
+     *
+     * B2（2026-11-09）：`demand` = 会话处于许愿式自主度 —— 阶段审批自动放行
+     * （`StageOrchestrator.autoApproveStages`），子编排器执行"验收标准前置"校验。
      */
-    opts?: { forceDecompose?: boolean }
+    opts?: { forceDecompose?: boolean; demand?: boolean }
   ): Promise<void> {
     const otel = getOTelTracing();
     const span = otel.startSpan('chat:pdcaLaunch', {
@@ -717,6 +720,9 @@ export class PdcaLauncher {
                 {
                   requirePlanApproval: false,
                   onTaskMessage,
+                  // B2（2026-11-09）：demand 会话 —— 每个阶段子编排器同样执行
+                  // "验收标准前置"校验（缺失即失败回执，不带病开工）
+                  ...(opts?.demand ? { demand: true } : {}),
                   ...(chainPolicySnapshot
                     ? { policySnapshot: chainPolicySnapshot }
                     : {}),
@@ -745,7 +751,9 @@ export class PdcaLauncher {
                 : 'terminate',
           },
           // D3 消费（偏差 2）：需求追踪 ID 贯穿阶段链
-          requirementId
+          requirementId,
+          // B2（2026-11-09）：demand 会话跳过阶段审批（"计划待确认"），一气呵成到交付
+          { autoApproveStages: opts?.demand === true }
         );
 
         // 4.0-1（2026-09-04）：await 到阶段链完成（同快速路径——锁覆盖整个执行期）

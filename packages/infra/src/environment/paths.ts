@@ -664,6 +664,17 @@ export function resolveArtifactsDir(
   return join(resolveDataDir(env), 'artifacts');
 }
 
+/**
+ * 任务交付回执落盘路径：`<data>/artifacts/<taskId>/delivery.md`
+ *
+ * B3（2026-11-09）：demand 会话终态留存的交付回执（与会话回执同源）。
+ * `taskId` 做路径安全化（只留 `[A-Za-z0-9._-]`），防 `../` 逃逸。
+ */
+export function resolveTaskDeliveryPath(taskId: string): string {
+  const safeId = taskId.replace(/[^A-Za-z0-9._-]/g, '_') || 'task';
+  return join(resolveArtifactsDir(), safeId, 'delivery.md');
+}
+
 /** 治理数据目录（app/data/governance/） */
 export function resolveGovernanceDir(
   env: NodeJS.ProcessEnv = process.env

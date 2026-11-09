@@ -14,9 +14,17 @@
  * 有推送通道（CLI/REPL 的 `onTaskMessage`）的任务不再重复发（否则同一结果两条）。
  */
 
+import { mkdirSync, writeFileSync } from 'fs';
+import { dirname } from 'path';
+import { resolveTaskDeliveryPath } from '@openliri/infra/environment';
 import { getLogger } from '@openliri/infra/monitoring';
 import type { AuditReport } from '../AuditReport';
-import { taskOrchestrator, PLAN_STATUS_FAILED } from '../TaskOrchestrator';
+import {
+  taskOrchestrator,
+  PLAN_STATUS_FAILED,
+  STEP_STATUS_COMPLETED,
+} from '../TaskOrchestrator';
+import type { Plan } from '../TaskOrchestrator';
 // 2026-11-08：回执里的「可 replan」以检查点为准（与 `/resume` 的 409 判据同源）
 import { readPdcaCheckpoint } from '../PdcaWorkItemBridge';
 
@@ -57,6 +65,18 @@ export interface PdcaReceiptFacts {
    * 「✅ 长程任务完成」，与 `plan.status=failed` / `/resume` 409 自相矛盾。
    */
   taskFailed?: boolean;
+  /**
+   * B3（2026-11-09）：交付事实 —— **产物路径清单**（各步 `artifacts` 台账去重汇总）。
+   * 缺失/为空 ⇒ 回执不追加该段（不造占位，CS04）。
+   */
+  artifacts?: string[];
+  /**
+   * B3：**未能验证的验收项**（步骤未完成且从未产出审查结果）。
+   * 只是事实投影，不推断"达成"或"未达成"。
+   */
+  unverified?: string[];
+  /** B3：建议的后续动作（仅由既有事实推导，如可 replan）；缺失 ⇒ 不追加 */
+  nextSteps?: string[];
 }
 
 /**
@@ -77,22 +97,57 @@ export function formatPdcaReceipt(input: PdcaReceiptFacts): string {
     replanAvailable,
     taskFailed,
   } = input;
-  if (aborted)
-    return `⏹ 长程任务已中止：${completed}/${total} 步已达成（taskId ${taskId}）`;
-  if (paused)
-    return `⏸ 长程任务已挂起等待审批：${completed}/${total} 步已达成（阶段 ${phase}，taskId ${taskId}）`;
-  if (!taskFailed && total > 0 && completed === total && failed === 0)
-    return `✅ 长程任务完成：${completed}/${total} 步（taskId ${taskId}）`;
-  if (failed > 0)
-    return `⚠️ 长程任务未完成：${completed}/${total} 步达成，${failed} 步失败（阶段 ${phase}，taskId ${taskId}）${
+  let head: string;
+  if (aborted) {
+    head = `⏹ 长程任务已中止：${completed}/${total} 步已达成（taskId ${taskId}）`;
+  } else if (paused) {
+    head = `⏸ 长程任务已挂起等待审批：${completed}/${total} 步已达成（阶段 ${phase}，taskId ${taskId}）`;
+  } else if (!taskFailed && total > 0 && completed === total && failed === 0) {
+    head = `✅ 长程任务完成：${completed}/${total} 步（taskId ${taskId}）`;
+  } else if (failed > 0) {
+    head = `⚠️ 长程任务未完成：${completed}/${total} 步达成，${failed} 步失败（阶段 ${phase}，taskId ${taskId}）${
       replanAvailable ? '；可 replan 续跑' : ''
     }`;
-  // 任务级失败但无失败步骤（目标未收敛）⇒ 不说「0 步失败」，只报事实
-  if (taskFailed)
-    return `⚠️ 长程任务未完成：${completed}/${total} 步已达成，目标未通过终态校验（阶段 ${phase}，taskId ${taskId}）${
+  } else if (taskFailed) {
+    // 任务级失败但无失败步骤（目标未收敛）⇒ 不说「0 步失败」，只报事实
+    head = `⚠️ 长程任务未完成：${completed}/${total} 步已达成，目标未通过终态校验（阶段 ${phase}，taskId ${taskId}）${
       replanAvailable ? '；可 replan 续跑' : ''
     }`;
-  return `⏸ 长程任务未结束：${completed}/${total} 步已达成（阶段 ${phase}，taskId ${taskId}）`;
+  } else {
+    head = `⏸ 长程任务未结束：${completed}/${total} 步已达成（阶段 ${phase}，taskId ${taskId}）`;
+  }
+  return head + formatDeliverySections(input);
+}
+
+/**
+ * B3（2026-11-09）：交付分段 —— **仅在事实非空时追加**（缺失不造占位，CS04/CS06）。
+ */
+function formatDeliverySections(input: PdcaReceiptFacts): string {
+  const sections: string[] = [];
+  const artifacts = (input.artifacts ?? [])
+    .map((a) => a.trim())
+    .filter(Boolean);
+  if (artifacts.length > 0) {
+    sections.push(['📦 产物：', ...artifacts.map((a) => `- ${a}`)].join('\n'));
+  }
+  const unverified = (input.unverified ?? [])
+    .map((u) => u.trim())
+    .filter(Boolean);
+  if (unverified.length > 0) {
+    sections.push(
+      ['⚠️ 未验证的验收项：', ...unverified.map((u) => `- ${u}`)].join('\n')
+    );
+  }
+  const nextSteps = (input.nextSteps ?? [])
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 3);
+  if (nextSteps.length > 0) {
+    sections.push(
+      ['➡️ 下一步：', ...nextSteps.map((s) => `- ${s}`)].join('\n')
+    );
+  }
+  return sections.length > 0 ? `\n\n${sections.join('\n\n')}` : '';
 }
 
 /** 回执落点（会话消息写入由 app 层注册；tasks 域不直接持有 chatManager） */
@@ -161,22 +216,75 @@ export function emitPdcaReceipt(
     void expireOrphanApprovalCards(facts.taskId, facts.sessionId);
   }
   if (facts.hasPushChannel) return;
-  const text = formatPdcaReceipt({
-    taskId: facts.taskId,
-    phase: facts.phase,
-    completed: facts.completed,
-    total: facts.total,
-    failed: facts.failed,
-    ...(facts.paused ? { paused: true } : {}),
-    ...(facts.aborted ? { aborted: true } : {}),
-    ...(facts.replanAvailable ? { replanAvailable: true } : {}),
-    ...(facts.taskFailed ? { taskFailed: true } : {}),
-  });
+  const text = formatPdcaReceipt(facts);
   emitPdcaReceiptText({
     taskId: facts.taskId,
     sessionId: facts.sessionId,
     text,
   });
+}
+
+/**
+ * B3（2026-11-09）：从计划快照收集**交付事实**（只投影既有数据，不推断）。
+ *
+ * - `artifacts`：各步 `artifacts` 台账去重汇总（执行器的写后读回台账）；
+ * - `unverified`：**未完成且从未产出审查结果**的步骤验收项 —— 这类验收项确实"没能验证"；
+ *   已验证但被判不通过的步骤不计入（那是"未通过"，已由失败步数表达）。
+ */
+export function collectDeliveryFacts(plan: Plan | undefined): {
+  artifacts?: string[];
+  unverified?: string[];
+} {
+  if (!plan) return {};
+  const artifacts = [
+    ...new Set(
+      plan.steps.flatMap((s) => s.artifacts ?? []).map((a) => a.trim())
+    ),
+  ].filter(Boolean);
+  const unverified = plan.steps
+    .filter((s) => s.status !== STEP_STATUS_COMPLETED && !s.reviewResult)
+    .map((s) => (s.acceptanceCriteria ?? '').trim() || s.description)
+    .filter(Boolean);
+  return {
+    ...(artifacts.length > 0 ? { artifacts } : {}),
+    ...(unverified.length > 0 ? { unverified } : {}),
+  };
+}
+
+/**
+ * B3（2026-11-09）：demand 会话的交付留存 —— `<data>/artifacts/<taskId>/delivery.md`。
+ *
+ * 与回执**同源文案**（同一 `formatPdcaReceipt` 产物），只补任务/会话/阶段头信息。
+ * 写盘失败只告警：交付留存属附加面，不得影响任务终态（会话回执已发出）。
+ */
+function persistDemandDelivery(input: {
+  taskId: string;
+  sessionId?: string | null;
+  phase: string;
+  text: string;
+}): void {
+  try {
+    const path = resolveTaskDeliveryPath(input.taskId);
+    mkdirSync(dirname(path), { recursive: true });
+    const header = [
+      `# 交付回执 · ${input.taskId}`,
+      '',
+      `- 生成时间：${new Date().toISOString()}`,
+      `- 会话：${input.sessionId ?? '（无）'}`,
+      `- 阶段：${input.phase || '（未知）'}`,
+      '',
+      '---',
+      '',
+    ].join('\n');
+    writeFileSync(path, `${header}${input.text}\n`, 'utf-8');
+    logger.info('demand 交付回执已落盘', { taskId: input.taskId, path });
+  } catch (err) {
+    // @ignore-catch — 交付留存属附加动作，失败不得影响任务终态
+    logger.warn('demand 交付回执落盘失败（不影响任务结果）', {
+      taskId: input.taskId,
+      error: String(err),
+    });
+  }
 }
 
 /**
@@ -233,7 +341,9 @@ export function emitPdcaInterruptedReceipts(
  */
 export function emitPdcaReceiptFromAudit(
   report: AuditReport,
-  hasPushChannel: boolean
+  hasPushChannel: boolean,
+  /** B3（2026-11-09）：许愿式（demand）会话 ⇒ 终态额外落盘 `delivery.md` */
+  demand = false
 ): void {
   // 2026-11-08（真机 `pdca_mw76rof9`）：escalate 收尾时 phase 留在 execute（防覆盖
   // replanPending）⇒ ⚠️ 回执要带上"可 replan"的提示。
@@ -255,9 +365,9 @@ export function emitPdcaReceiptFromAudit(
         error: String(err),
       });
     }
-    emitPdcaReceipt({
+    const delivery = collectDeliveryFacts(plan);
+    const facts: PdcaReceiptFacts = {
       taskId: report.taskId,
-      sessionId: plan?.sessionId,
       phase: plan?.status ?? '',
       completed: report.completedSteps,
       total: report.totalSteps,
@@ -266,8 +376,27 @@ export function emitPdcaReceiptFromAudit(
       // 2026-11-08（真机 `pdca_mw7f7h2g`）：目标未收敛时步骤可能全通过、0 失败 ⇒
       // 必须把**任务级失败**显式带给文案，否则会输出假的「✅ 完成」。
       taskFailed: plan?.status === PLAN_STATUS_FAILED,
+      ...delivery,
+      // B3：可 replan 是唯一能由事实确定的后续动作；其余不猜（缺失不造占位）
+      ...(replanAvailable
+        ? {
+            nextSteps: [`POST /v1/pdca/${report.taskId}/resume 续跑（replan）`],
+          }
+        : {}),
+    };
+    emitPdcaReceipt({
+      ...facts,
+      sessionId: plan?.sessionId,
       hasPushChannel,
     });
+    if (demand) {
+      persistDemandDelivery({
+        taskId: report.taskId,
+        sessionId: plan?.sessionId,
+        phase: facts.phase,
+        text: formatPdcaReceipt(facts),
+      });
+    }
   })();
 }
 
@@ -279,19 +408,33 @@ export function emitPdcaReceiptFromAudit(
  */
 export function emitPdcaAbortReceipt(
   report: AuditReport,
-  hasPushChannel: boolean
+  hasPushChannel: boolean,
+  /** B3（2026-11-09）：许愿式（demand）会话 ⇒ 中止也留交付回执 */
+  demand = false
 ): void {
   const plan = report.planId
     ? taskOrchestrator.getPlan(report.planId)
     : undefined;
-  emitPdcaReceipt({
+  const facts: PdcaReceiptFacts = {
     taskId: report.taskId,
-    sessionId: plan?.sessionId,
     phase: 'abort',
     completed: report.completedSteps,
     total: report.totalSteps,
     failed: report.failedSteps,
     aborted: true,
+    ...collectDeliveryFacts(plan),
+  };
+  emitPdcaReceipt({
+    ...facts,
+    sessionId: plan?.sessionId,
     hasPushChannel,
   });
+  if (demand) {
+    persistDemandDelivery({
+      taskId: report.taskId,
+      sessionId: plan?.sessionId,
+      phase: facts.phase,
+      text: formatPdcaReceipt(facts),
+    });
+  }
 }

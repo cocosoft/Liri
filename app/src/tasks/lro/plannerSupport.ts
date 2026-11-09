@@ -242,14 +242,17 @@ export async function repairAcceptanceCriteria(
   description: string,
   steps: readonly string[],
   offending: readonly string[],
-  /** PR-5：`form-only` = 可证但过于形式化（如只要求 grep 命中条数） */
-  mode: 'unprovable' | 'form-only' = 'unprovable'
+  /** PR-5：`form-only` = 可证但过于形式化（如只要求 grep 命中条数）；
+   *  B2（2026-11-09）：`missing` = 该步**没有**验收标准（demand 前置校验） */
+  mode: 'unprovable' | 'form-only' | 'missing' = 'unprovable'
 ): Promise<string[] | undefined> {
   const stepList = steps.map((s, i) => `${i + 1}. ${s}`).join('\n');
   const intro =
-    mode === 'form-only'
-      ? '你先前给出的验收标准中，下列条目**过于形式化**（只要"命中/非空/存在/成功"这类形式条件，空壳稿也能满足），请**只重写验收标准**（步骤描述与顺序保持不变）。'
-      : '你先前给出的验收标准中，下列条目**无法用工具输出证明**，请**只重写验收标准**（步骤描述与顺序保持不变）。';
+    mode === 'missing'
+      ? '你先前给出的验收标准中，下列步骤**缺少验收标准**（缺失或为空），请**只补充/重写验收标准**（步骤描述与顺序保持不变）。'
+      : mode === 'form-only'
+        ? '你先前给出的验收标准中，下列条目**过于形式化**（只要"命中/非空/存在/成功"这类形式条件，空壳稿也能满足），请**只重写验收标准**（步骤描述与顺序保持不变）。'
+        : '你先前给出的验收标准中，下列条目**无法用工具输出证明**，请**只重写验收标准**（步骤描述与顺序保持不变）。';
   const requirement =
     mode === 'form-only'
       ? [

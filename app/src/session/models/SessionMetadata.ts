@@ -16,6 +16,11 @@ export interface SessionMetadata {
   mode: string;
   /** plan/do 工作模式（见 `.trae/specs/plan-do-mode.md`；事实来源为后端会话 metadata） */
   workMode?: 'plan' | 'do';
+  /**
+   * B1（2026-11-09）：会话自主度（demand = 用户只给目标，自动规划/执行/验收/交付）。
+   * 缺省 `undefined` === `interactive`（既有行为不变）；取值校验见 `chat/autonomy.ts`。
+   */
+  autonomy?: 'interactive' | 'demand';
   model?: string;
   workspaceId?: string;
   providerId?: string;
@@ -92,6 +97,9 @@ export class SessionMetadata implements SessionMetadata {
   /** plan/do 工作模式（见 `.trae/specs/plan-do-mode.md`） */
   workMode?: 'plan' | 'do';
 
+  /** B1（2026-11-09）：会话自主度（缺省 === interactive；见 `chat/autonomy.ts`） */
+  autonomy?: 'interactive' | 'demand';
+
   /** P4b（2026-10-16）：会话级工具 profile 能力标签（见 `@modules/tools` 的 `TOOL_PROFILE_CATEGORIES`） */
   toolProfile?: string[];
   /** PR-3（2026-10-23）：会话级审批模式（`auto-local` = 只读 + 工作区内本地写自动执行） */
@@ -123,6 +131,7 @@ export class SessionMetadata implements SessionMetadata {
       worktreeState: this.worktreeState,
       prLink: this.prLink,
       ...(this.workMode !== undefined ? { workMode: this.workMode } : {}),
+      ...(this.autonomy !== undefined ? { autonomy: this.autonomy } : {}),
       ...(this.toolProfile !== undefined
         ? { toolProfile: this.toolProfile }
         : {}),
@@ -146,6 +155,10 @@ export class SessionMetadata implements SessionMetadata {
     // plan/do 工作模式：仅在合法取值时保留（非法/缺省视为未设置）
     if (data.workMode === 'plan' || data.workMode === 'do') {
       meta.workMode = data.workMode;
+    }
+    // B1（2026-11-09）：会话自主度——仅在合法取值时保留（缺省/非法视为未设置）
+    if (data.autonomy === 'interactive' || data.autonomy === 'demand') {
+      meta.autonomy = data.autonomy;
     }
     // P4b（2026-10-16）：工具 profile 标签——仅接受字符串数组（非法形态视为未设置，不造默认值）
     if (Array.isArray(data.toolProfile)) {

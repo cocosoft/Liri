@@ -98,6 +98,11 @@ export interface SessionMetadata {
   /** plan/do 工作模式——输入区开关写入（与 models/SessionMetadata.ts 对齐，见 .trae/specs/plan-do-mode.md） */
   workMode?: 'plan' | 'do';
   /**
+   * B1（2026-11-09）：会话自主度（`demand` = 许愿式：自动规划/执行/验收/交付）。
+   * 缺省 `undefined` === `interactive`；与 `models/SessionMetadata.ts` 对齐。
+   */
+  autonomy?: 'interactive' | 'demand';
+  /**
    * P1-1（2026-11-04）：会话模式（前端「模式」下拉随消息下发 `chat_mode` 后落到此处）。
    *
    * 唯一消费者是 `chat/chatModePolicy.ts` 的映射（模型档位 / 工具集 / 轮次预算）；

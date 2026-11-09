@@ -9,6 +9,7 @@ export type {
   Session,
   SessionStatus,
   WorkMode,
+  AutonomyMode,
   ApprovalMode,
   SessionPermissionMode,
   ReplyEffortLevel,

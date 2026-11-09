@@ -1076,6 +1076,8 @@ export class SessionAgentOps {
       pinned?: boolean;
       /** plan/do 工作模式（见 `.trae/specs/plan-do-mode.md`；输入区开关写入） */
       workMode?: 'plan' | 'do';
+      /** B1（2026-11-09）：会话自主度（`demand` = 许愿式；缺省 === interactive） */
+      autonomy?: 'interactive' | 'demand';
       /** P4b（2026-10-16）：会话级工具 profile 能力标签（`media` / `coding` 等）⇒ 追加对应工具类别 */
       toolProfile?: string[];
       /** PR-3（2026-10-23）：会话级审批模式（`auto-local` = 只读 + 工作区内本地写自动执行） */

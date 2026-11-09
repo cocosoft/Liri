@@ -1009,6 +1009,15 @@ const zhBase = {
         bypass: "放行本层判定；命令类工具的安全确认仍独立生效",
       },
     },
+    // B2（2026-11-09）：会话自主度（许愿式 demand）—— 与权限档正交，不嵌套
+    autonomy: {
+      pillInteractive: "逐轮协作",
+      pillDemand: "许愿式",
+      pillAria: "自主度：{{label}}（点击切换）",
+      pillHint:
+        "许愿式：只给目标，自动规划/执行/验收/交付（中途发言并入当前计划）；越界写、删除与外发命令仍按安全闸门询问。",
+      switchFailed: "切换自主度失败",
+    },
     inboxResuming: "已批准，正在执行…",
     inboxHandled: "已处理",
     inboxExpired: "已超时过期",

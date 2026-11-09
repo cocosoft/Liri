@@ -49,14 +49,16 @@ import { releaseTaskScope } from './taskScopeRegistry.js';
 export async function writeAbortCheckpoint(
   taskId: string,
   buildReport?: () => AuditReport,
-  hasPushChannel = false
+  hasPushChannel = false,
+  /** B3（2026-11-09）：demand 会话 ⇒ 中止也落交付回执 */
+  demand = false
 ): Promise<void> {
   if (buildReport) {
     try {
       const report = buildReport();
       persistAuditReportFile(report);
       // 2026-11-08（真机 `pdca_mw6vej5m`）：拒绝审批 ⇒ 中止，此前**没有任何回执**
-      emitPdcaAbortReceipt(report, hasPushChannel);
+      emitPdcaAbortReceipt(report, hasPushChannel, demand);
     } catch {
       // @ignore-catch — 无计划可生成报告时中止流程不受影响（读取侧按 404）
     }
@@ -166,6 +168,8 @@ export interface CheckpointPersistInput {
   loopIteration?: number;
   /** P2（§3.3）：策略快照（旧任务无该字段 ⇒ 恢复侧保守降级 ask） */
   policySnapshot?: TaskPolicySnapshot;
+  /** B2（2026-11-09）：许愿式（demand）身份（旧任务无该字段 ⇒ false，行为不变） */
+  demand?: boolean;
 }
 
 /** 写入 PDCA checkpoint（合并写；任何失败都不影响任务执行） */
@@ -196,6 +200,8 @@ export async function persistPdcaCheckpoint(
       // 2026-11-08：轮次随检查点落盘（0 ⇒ 不写，保持旧任务载荷形状）
       ...(input.loopIteration ? { loopIteration: input.loopIteration } : {}),
       ...(input.policySnapshot ? { policySnapshot: input.policySnapshot } : {}),
+      // B2（2026-11-09）：许愿式身份随检查点落盘（恢复侧回放 ⇒ 验收前置校验不降级）
+      ...(input.demand ? { demand: true } : {}),
     });
     // P2（§3.3）：终态落盘 ⇒ 回收任务档审批（活跃登记 + 放行记录）
     if (PDCA_TERMINAL_PHASES.has(input.phase)) releaseTaskScope(input.taskId);

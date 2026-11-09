@@ -65,6 +65,11 @@ export interface ResumeDeps {
   setPhase: (phase: 'plan_pending' | 'execute') => Promise<void>;
   recordLifecycle: (phase: string, status: TaskStatus, detail?: string) => void;
   persistCheckpoint: () => Promise<void>;
+  /**
+   * B2（2026-11-09）：回放"许愿式"身份（checkpoint `demand`）—— 续跑的 PLAN 阶段
+   * 仍执行验收标准前置校验；旧任务缺该字段 ⇒ false（行为不变）。
+   */
+  setDemand?: (demand: boolean) => void;
   resolveWorkspaceId: (sessionId: string) => Promise<string | undefined>;
   createPlan: (
     description: string,
@@ -204,6 +209,8 @@ async function resumeFromCheckpointCore(
   // 放在两条续跑分支之前：无论走增量 replan 还是原样续跑，后续步骤都用同一姿态；
   // 快照缺失（旧任务）⇒ 实现侧降级 ask（不阻断恢复）。
   deps.replayPolicySnapshot(sessionId, ck.policySnapshot);
+  // B2（2026-11-09）：回放 demand 身份（必须在 executePlanPhase 之前，验收前置生效）
+  deps.setDemand?.(ck.demand === true);
 
   // PR5（#6）：半自动 replan resume——failed+replanPending → 用上轮缺陷驱动
   // executePlanPhase（增量 replan）后进入统一执行循环，而不是原样续跑旧步骤快照。

@@ -49,6 +49,8 @@ import { resolveChannelSourceOnce } from './channelSourceOnce.js';
 import { resolveRequestWorkspaceUpdate } from './toolCwdScope.js';
 // P1（2026-11-04）：请求体 `chat_mode` ⇒ 会话 metadata 的更新判定（与 workspacePath 同口径）
 import { resolveRequestChatModeUpdate } from '../chatModePolicy.js';
+// B1（2026-11-09）：请求体 `autonomy` ⇒ 会话 metadata 的更新判定（与 chatMode 同口径）
+import { resolveRequestAutonomyUpdate } from '../autonomy.js';
 import { MessageService } from './MessageService.js';
 import { eventNotificationService } from './EventNotificationService.js';
 import { clearPathCheckCache } from './PathGuardService';
@@ -468,6 +470,39 @@ export class SessionLifecycleManager {
   }
 
   /**
+   * B1（2026-11-09）：把**请求体** `autonomy` 落到会话 `metadata.autonomy`。
+   *
+   * 与 `_applyRequestChatMode` 同源同口径：新建会话由 `createSession` 的 `metadata` 直接带入；
+   * 既有会话必须显式回写。缺失 / 脏值**不覆盖**（未设置 === `interactive`），值相同不写库。
+   * 本批只落字段，不读行为（demand 执行链在 B2 接线）。
+   */
+  private async _applyRequestAutonomy(
+    session: ChatSession,
+    metadata?: Record<string, unknown>
+  ): Promise<void> {
+    const next = resolveRequestAutonomyUpdate({
+      requestAutonomy: metadata?.autonomy,
+      sessionAutonomy: session.metadata?.autonomy,
+    });
+    if (!next) return;
+    session.metadata = { ...session.metadata, autonomy: next };
+    try {
+      const stored = await this.sessionGateway.getSession(session.id);
+      if (stored) {
+        stored.metadata = { ...stored.metadata, autonomy: next };
+        await this.sessionGateway.updateSession(stored);
+      }
+    } catch (e) {
+      // @ignore-catch — 自主度落盘失败不影响内存标记（下次请求再补）
+      logger.warn('会话 autonomy 落盘失败', {
+        sessionId: session.id,
+        autonomy: next,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
+  /**
    * 该会话在当前身份下是否**可用**（多租户 P3：HTTP 入口 404 语义的唯一判据）。
    *
    * - 任何身份都**必须确实存在**（内存缓存或按身份分区的存储）；
@@ -532,6 +567,8 @@ export class SessionLifecycleManager {
       await this._applyRequestWorkspacePath(cached, metadata);
       // P1（2026-11-04）：请求体 chat_mode 落到既有会话（缓存命中分支）
       await this._applyRequestChatMode(cached, metadata);
+      // B1（2026-11-09）：请求体 autonomy 落到既有会话（缓存命中分支）
+      await this._applyRequestAutonomy(cached, metadata);
       await this._clearStaleRecoveryMarkers(cached);
       return cached;
     }
@@ -616,6 +653,8 @@ export class SessionLifecycleManager {
         await this._applyRequestWorkspacePath(chatSession, metadata);
         // P1（2026-11-04）：请求体 chat_mode 落到既有会话（存储加载分支）
         await this._applyRequestChatMode(chatSession, metadata);
+        // B1（2026-11-09）：请求体 autonomy 落到既有会话（存储加载分支）
+        await this._applyRequestAutonomy(chatSession, metadata);
         await this._clearStaleRecoveryMarkers(chatSession);
         return chatSession;
       }

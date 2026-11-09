@@ -119,7 +119,9 @@ import {
 import { runGoalConvergenceGate } from './lro/goalConvergence.js';
 // U-02（2026-10-19）：`/goal start` 目标 ↔ PDCA 终态绑定
 import { settleGoalById } from './goal/goalRunBinding.js';
-import { resolveAuditStore, replanMaxRetries } from './lro/portResolvers.js';
+import { replanMaxRetries } from './lro/portResolvers.js';
+// U-22（2026-11-09）：生命周期记录/审计转发外移（守 R04-001 行数上限）
+import { recordLifecycle } from './lro/lifecycleAudit.js';
 import {
   recordGoalStageMetric,
   runAdaptationEvolutionHook,
@@ -229,6 +231,8 @@ export class LongRunningTaskOrchestrator {
   private _sessionId: string | null = null;
   /** P2（§3.3）：任务启动时采样的策略快照（随 checkpoint 落盘；恢复时重放） */
   private _policySnapshot?: TaskPolicySnapshot;
+  /** B2：是否来自 demand（许愿式）会话（只影响 PLAN 阶段的验收标准前置校验） */
+  private _demand = false;
   /** S2（2026-08-13）：TAORLoop 步骤 token 累计（goal_metrics stage 行数据源） */
   private _totalTokensTracked = 0;
   /** S2：任务开始时间（duration 计算） */
@@ -462,50 +466,21 @@ export class LongRunningTaskOrchestrator {
   }
 
   /**
-   * 1-3（2026-09-03）：lifecycle 统一记录入口 —— 内存轨迹（LifecycleTracker 纯内存不改）
-   * + fire-and-forget 审计转发 task_audit_log（复用 SqliteTaskStore.writeAuditLog）。
-   * 不把 sqlite 依赖塞进 LifecycleTracker、不在编排器直注 store（TaskRegistry 同模式的小型转发）。
-   * event_type = lifecycle phase（created/started/progress/finalized），终态语义由 status 表达
-   * （completed/failed/killed 等）；old_status 取前一事件状态。
+   * 1-3（2026-09-03）：lifecycle 统一记录入口 —— 内存轨迹 + fire-and-forget 审计转发。
+   * 实现外移到 `./lro/lifecycleAudit`（守 R04-001 行数上限）。
    */
   private _recordLifecycle(
     phase: LifecyclePhase,
     status: TaskStatus,
     detail?: string
   ): void {
-    this.lifecycle.record(phase, status, detail);
-    const history = this.lifecycle.getHistory();
-    const prev = history.length >= 2 ? history[history.length - 2] : undefined;
-    void this._flushLifecycleAudit(
+    recordLifecycle({
+      taskId: this.taskId,
+      lifecycle: this.lifecycle,
       phase,
       status,
-      prev ? (prev.status as string) : null
-    );
-  }
-
-  /** 审计转发（fire-and-forget；失败降级日志，不阻塞主流程） */
-  private async _flushLifecycleAudit(
-    phase: string,
-    status: TaskStatus,
-    oldStatus: string | null
-  ): Promise<void> {
-    try {
-      const store = await resolveAuditStore();
-      if (!store) return;
-      await store.writeAuditLog({
-        taskId: this.taskId,
-        eventType: phase,
-        oldStatus,
-        newStatus: status as string,
-        timestamp: Date.now(),
-      });
-    } catch (err) {
-      await handleError(err, {
-        module: 'tasks:longRunning',
-        action: 'lifecycleAuditForward',
-        context: { taskId: this.taskId, phase, status: String(status) },
-      });
-    }
+      detail,
+    });
   }
   getTaskId(): string {
     return this.taskId;
@@ -526,6 +501,7 @@ export class LongRunningTaskOrchestrator {
       turnsExtensions: this._turnsExtensions,
       loopIteration: this._iterations,
       ...(this._policySnapshot ? { policySnapshot: this._policySnapshot } : {}),
+      ...(this._demand ? { demand: true } : {}),
     });
   }
   getPhase(): PdcaPhase {
@@ -618,6 +594,7 @@ export class LongRunningTaskOrchestrator {
     return runPlanPhase(description, sessionId, {
       taskId: this.taskId,
       isolation: this.isolation,
+      demand: this._demand,
       setPhase: (phase) => this.setPhase(phase),
       recordLifecycle: (phase, status, detail) =>
         this._recordLifecycle(phase as LifecyclePhase, status, detail),
@@ -929,6 +906,8 @@ export class LongRunningTaskOrchestrator {
       goalId?: string;
       /** P2（§3.3）：阶段链继承的快照（缺省 ⇒ 本任务自行采样） */
       policySnapshot?: TaskPolicySnapshot;
+      /** B2：demand 会话 —— 验收标准前置 + 不等待计划审批（无人在环） */
+      demand?: boolean;
     }
   ): Promise<PdcaStatus> {
     // §5 P1: 记录回写目标会话与回调，供 executeSingleStep 使用
@@ -937,7 +916,10 @@ export class LongRunningTaskOrchestrator {
     this._goalId = opts?.goalId;
     this._onTaskMessage = opts?.onTaskMessage;
     this._startedAt = Date.now();
-    const requireApproval = opts?.requirePlanApproval ?? false;
+    this._demand = opts?.demand === true;
+    const requireApproval = this._demand
+      ? false
+      : (opts?.requirePlanApproval ?? false);
     // P2（§3.3）：任务启动即采样策略快照（子任务继承父链快照，不各自重新采样）
     captureTaskPolicySnapshot(
       this.taskId,
@@ -1057,7 +1039,11 @@ export class LongRunningTaskOrchestrator {
    */
   private persistAuditReport(report: AuditReport): void {
     persistAuditReportFile(report);
-    emitPdcaReceiptFromAudit(report, Boolean(this._onTaskMessage));
+    emitPdcaReceiptFromAudit(
+      report,
+      Boolean(this._onTaskMessage),
+      this._demand
+    );
   }
 
   // ─── 状态查询 ───────────────────────────────────────
@@ -1617,6 +1603,9 @@ export class LongRunningTaskOrchestrator {
       recordLifecycle: (phase, status, detail) =>
         this._recordLifecycle(phase as LifecyclePhase, status, detail),
       persistCheckpoint: () => this._persistCheckpoint(),
+      setDemand: (demand) => {
+        this._demand = demand;
+      },
       resolveWorkspaceId: (sessionId) =>
         taskOrchestrator.resolveWorkspaceId(sessionId),
       createPlan: (
@@ -1741,7 +1730,12 @@ export class LongRunningTaskOrchestrator {
     // Gap D（1-0c，2026-09-03）：中止必须落 checkpoint 终态 —— 原实现仅落库 goal_metrics、不写 checkpoint ⇒ phase 停留中止前值，/goal list（按 phase∈completed/failed/abort 过滤）不过滤、scan 不回收该任务。
     // 注：LRTO.PdcaPhase 不含 'abort'（bridge 层类型含），此处直接写 checkpoint 文件；`hasPush` 决定是否补中止回执。
     const hasPush = Boolean(this._onTaskMessage);
-    await writeAbortCk(this.taskId, () => this.generateReport(), hasPush);
+    await writeAbortCk(
+      this.taskId,
+      () => this.generateReport(),
+      hasPush,
+      this._demand
+    );
     await syncPdcaWorkItemStatus(this.taskId, 'abort');
     // S2（2026-08-13）：中止路径同样落库（超时/失败节点）
     // T-②02：同上，中止路径也做偏差判定（不因中止跳过可观测面）

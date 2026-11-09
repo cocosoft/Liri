@@ -23,8 +23,14 @@ import {
   taskOrchestrator,
   PLAN_STATUS_FAILED,
   STEP_STATUS_COMPLETED,
+  STEP_STATUS_FAILED,
 } from '../TaskOrchestrator';
 import type { Plan } from '../TaskOrchestrator';
+import {
+  classifyStepFailure,
+  FAILURE_CATEGORY_LABELS,
+  type StepFailureCategory,
+} from './failureRecovery.js';
 // 2026-11-08：回执里的「可 replan」以检查点为准（与 `/resume` 的 409 判据同源）
 import { readPdcaCheckpoint } from '../PdcaWorkItemBridge';
 
@@ -77,6 +83,11 @@ export interface PdcaReceiptFacts {
   unverified?: string[];
   /** B3：建议的后续动作（仅由既有事实推导，如可 replan）；缺失 ⇒ 不追加 */
   nextSteps?: string[];
+  /**
+   * D4（2026-11-09）：失败原因分类（由失败步骤的 `terminationReason` / `toolOutcomes`
+   * 结构化判定，见 `failureRecovery.classifyStepFailure`）。`unclassified` 不展示。
+   */
+  failureCategory?: StepFailureCategory;
 }
 
 /**
@@ -146,6 +157,11 @@ function formatDeliverySections(input: PdcaReceiptFacts): string {
     sections.push(
       ['➡️ 下一步：', ...nextSteps.map((s) => `- ${s}`)].join('\n')
     );
+  }
+  // D4：失败原因分类（未归类不展示，不造占位）
+  const category = input.failureCategory;
+  if (category && category !== 'unclassified') {
+    sections.push(`🔎 失败原因：${FAILURE_CATEGORY_LABELS[category]}`);
   }
   return sections.length > 0 ? `\n\n${sections.join('\n\n')}` : '';
 }
@@ -249,6 +265,44 @@ export function collectDeliveryFacts(plan: Plan | undefined): {
     ...(artifacts.length > 0 ? { artifacts } : {}),
     ...(unverified.length > 0 ? { unverified } : {}),
   };
+}
+
+/** 分类优先级（同票数时按此顺序取，避免输出随步骤顺序抖动） */
+const FAILURE_CATEGORY_PRIORITY: StepFailureCategory[] = [
+  'tool_failure',
+  'output_budget',
+  'turn_budget',
+  'provider_deferred',
+];
+
+/**
+ * D4（2026-11-09）：从失败步骤的**结构化字段**汇总失败原因分类。
+ *
+ * - 只在确有失败时给（`failedSteps > 0` 或任务级 failed）；全部通过 ⇒ 空对象；
+ * - 只看 `status === failed` 的步骤，`unclassified` 不计入；
+ * - 多类并存取出现次数最多的那类（同票按固定优先级）—— 只展示一个，不堆砌。
+ */
+export function collectFailureFacts(
+  plan: Plan | undefined,
+  report: AuditReport
+): { failureCategory?: StepFailureCategory } {
+  if (!plan) return {};
+  if (report.failedSteps <= 0 && plan.status !== PLAN_STATUS_FAILED) return {};
+  const counts = new Map<StepFailureCategory, number>();
+  for (const step of plan.steps) {
+    if (step.status !== STEP_STATUS_FAILED) continue;
+    const category = classifyStepFailure(step);
+    if (category === 'unclassified') continue;
+    counts.set(category, (counts.get(category) ?? 0) + 1);
+  }
+  if (counts.size === 0) return {};
+  const ranked = [...counts.entries()].sort(
+    (a, b) =>
+      b[1] - a[1] ||
+      FAILURE_CATEGORY_PRIORITY.indexOf(a[0]) -
+        FAILURE_CATEGORY_PRIORITY.indexOf(b[0])
+  );
+  return { failureCategory: ranked[0][0] };
 }
 
 /**
@@ -366,6 +420,7 @@ export function emitPdcaReceiptFromAudit(
       });
     }
     const delivery = collectDeliveryFacts(plan);
+    const failureFacts = collectFailureFacts(plan, report);
     const facts: PdcaReceiptFacts = {
       taskId: report.taskId,
       phase: plan?.status ?? '',
@@ -377,6 +432,7 @@ export function emitPdcaReceiptFromAudit(
       // 必须把**任务级失败**显式带给文案，否则会输出假的「✅ 完成」。
       taskFailed: plan?.status === PLAN_STATUS_FAILED,
       ...delivery,
+      ...failureFacts,
       // B3：可 replan 是唯一能由事实确定的后续动作；其余不猜（缺失不造占位）
       ...(replanAvailable
         ? {

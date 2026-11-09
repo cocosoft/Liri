@@ -7,8 +7,21 @@
  */
 
 /**
- * B-任务（2026-09-05）：max_turns 扩容续跑判定（纯函数，可单测）。
- * steps 含 max_turns 终止步骤且续跑次数未达上限 → 本轮放大轮次预算（×2）并计数+1。
+ * D4（2026-11-09）：**预算类**终止原因 —— 扩容续跑可救（多给一轮即可继续）。
+ *
+ * 原集合只有 `max_turns`；真机 N-13 形态「输出预算被推理耗尽」
+ * （`output_budget_exhausted`）同样是"没写完、可接着写"，一并纳入。
+ */
+const TURNS_EXTENSION_REASONS: ReadonlySet<string> = new Set([
+  'max_turns',
+  'budget_exhausted',
+  'output_budget_exhausted',
+  'timeout',
+]);
+
+/**
+ * B-任务（2026-09-05）：预算类扩容续跑判定（纯函数，可单测）。
+ * steps 含预算类终止步骤且续跑次数未达上限 → 本轮放大轮次预算（×2）并计数+1。
  */
 export function planTurnsExtensionDecision(
   steps: Array<{ terminationReason?: string }>,
@@ -16,7 +29,9 @@ export function planTurnsExtensionDecision(
   limit: number
 ): { apply: boolean; multiplier: number; count: number } {
   const candidates = steps.filter(
-    (s) => s.terminationReason === 'max_turns'
+    (s) =>
+      typeof s.terminationReason === 'string' &&
+      TURNS_EXTENSION_REASONS.has(s.terminationReason)
   ).length;
   if (candidates > 0 && currentExtensions < limit) {
     return { apply: true, multiplier: 2, count: currentExtensions + 1 };
@@ -24,12 +39,16 @@ export function planTurnsExtensionDecision(
   return { apply: false, multiplier: 1, count: currentExtensions };
 }
 
-/** B-任务：扩容激活时，max_turns 终止的步骤置回 pending 重跑（loop_detected 拒绝） */
-export function shouldReRollMaxTurnsStep(
+/** 扩容激活时，预算类终止的步骤置回 pending 重跑（`aborted` / `loop_detected` 拒绝） */
+export function shouldReRollExtendedStep(
   multiplierActive: boolean,
   terminationReason?: string
 ): boolean {
-  return multiplierActive && terminationReason === 'max_turns';
+  return (
+    multiplierActive &&
+    typeof terminationReason === 'string' &&
+    TURNS_EXTENSION_REASONS.has(terminationReason)
+  );
 }
 
 /**
@@ -43,6 +62,14 @@ const NON_CONVERGED_TERMINATION_REASONS = new Set([
   'max_turns',
   'timeout',
   'budget_exhausted',
+  /**
+   * D4（2026-11-09）：输出预算被推理耗尽（N-13，`finishReason=output_budget_exhausted`）。
+   *
+   * 此前该原因**不在本集合** ⇒ 步骤被记为 `completed`（假完成），review 只审 completed
+   * 步骤、目标门也可能看到"步骤全过"，而正文/文件内容其实没写完。与 `max_turns`
+   * 同属"预算耗尽但未收敛"，必须落 failed 交给扩容续跑 / 重试链。
+   */
+  'output_budget_exhausted',
   /**
    * 2026-11-08（真机 `pdca_mw7sfwyf`）：TAORLoop 的 `no_tool_call` 死循环检测 critical
    * 会把 `stopReason` 置 `'aborted'`（模型连续多轮只回文本、不调工具）。此前该原因

@@ -184,15 +184,19 @@ import {
 import type { PdcaReportView } from './lro/reporting.js';
 import { emitPdcaReceiptFromAudit } from './lro/terminalReceipt.js';
 import {
+  takeOneShotDegradation,
+  type DegradationLedger,
+} from './lro/failureRecovery.js';
+import {
   planTurnsExtensionDecision,
-  shouldReRollMaxTurnsStep,
+  shouldReRollExtendedStep,
   shouldAutoApprovePlan,
   decideTerminalOutcome,
 } from './lro/pureDecisions.js';
 // 纯函数判定原为公开导出 ⇒ re-export 保持公开面（spec §46）
 export {
   planTurnsExtensionDecision,
-  shouldReRollMaxTurnsStep,
+  shouldReRollExtendedStep,
 } from './lro/pureDecisions.js';
 
 const logger = getLogger('tasks:longRunning');
@@ -293,6 +297,7 @@ export class LongRunningTaskOrchestrator {
   /** S2/B（2026-09-05，PR9）：步骤轮次预算乘子（resume 扩容续跑时=2）与累计次数 */
   private _stepTurnsMultiplier: number = 1;
   private _turnsExtensions: number = 0;
+  private _degradation: DegradationLedger = { used: false };
   /**
    * S4（PR9）/ 2026-10-17 修复：**在飞步骤 loop 集合**（中止级联 abort）。
    * 原实现是单槽 `_currentLoop`，并行批次（Promise.allSettled）只保留最后一个 ⇒
@@ -583,6 +588,7 @@ export class LongRunningTaskOrchestrator {
         const d = this.stepDurations.get(stepId);
         return d?.endMs ? d.endMs - d.startMs : undefined;
       },
+      takeDegradation: (c) => takeOneShotDegradation(this._degradation, c),
     };
   } /**
    * Phase 1: PLAN（U-22/S1 外移；实现在 `./lro/planPhase`，行为等价搬迁）。

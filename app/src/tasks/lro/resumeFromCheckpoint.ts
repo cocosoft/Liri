@@ -27,7 +27,7 @@ import { parseSuccessCriteria } from '@modules/tasks/successCriteria';
 import { alignTaskWorkspace, type AgentIsolation } from '@modules/agent';
 import {
   planTurnsExtensionDecision,
-  shouldReRollMaxTurnsStep,
+  shouldReRollExtendedStep,
 } from './pureDecisions.js';
 import { replanMaxRetries } from './portResolvers.js';
 import { resumeSuspendedSteps } from './stepSuspension.js';
@@ -316,10 +316,10 @@ async function resumeFromCheckpointCore(
     step.terminationReason = s.terminationReason as string | undefined;
     // LRO-12（2026-10-26）：产物台账回填 —— 与快照同批（缺失时保持 undefined ⇒ 旧口径）
     step.artifacts = s.artifacts as string[] | undefined;
-    // S2/B（PR9）：扩容候选步骤置回 pending 重跑（决策谓词见纯函数 shouldReRollMaxTurnsStep，
+    // S2/B（PR9）：扩容候选步骤置回 pending 重跑（决策谓词见纯函数 shouldReRollExtendedStep，
     // 本轮完成时由 markStepCompleted 重新落盘新 reason）
     if (
-      shouldReRollMaxTurnsStep(
+      shouldReRollExtendedStep(
         deps.getStepTurnsMultiplier() > 1,
         s.terminationReason as string | undefined
       )

@@ -28,6 +28,11 @@ import type { PlanReview, ReviewDecision } from '../PlanReview';
 import type { PlanStep } from '../TaskOrchestrator';
 import type { Plan } from '../TaskOrchestrator';
 import { TaskStatus } from '../types';
+import {
+  classifyStepFailure,
+  type DegradationAction,
+  type StepFailureCategory,
+} from './failureRecovery.js';
 import type { ExecutorFn } from './contracts.js';
 import type { ReviewGate, ReviewGateContext } from '../review/ReviewGate.js';
 
@@ -81,6 +86,13 @@ export interface StepReviewDecideDeps {
   recordEscalation: (step: PlanStep) => Promise<void>;
   /** 上一轮该步骤耗时（毫秒；未跑过 ⇒ undefined） */
   previousStepDurationMs: (stepId: string) => number | undefined;
+  /**
+   * D4（2026-11-09）：本任务唯一一次「先降级一次」额度。
+   *
+   * 命中可恢复失败类且额度未用 ⇒ 返回动作并扣减额度；否则/无动作 ⇒ `null`。
+   * 账本在编排器（进程内一次），不落检查点：重启后最多再来一次，不新增持久字段。
+   */
+  takeDegradation?: (category: StepFailureCategory) => DegradationAction | null;
 }
 
 /** 构建 ReviewGate 执行上下文（Orchestrator 运行时依赖注入） */
@@ -185,7 +197,55 @@ export async function decideStep(
         break;
 
       case 'retry': {
-        const maxRetries = step.maxRetries ?? 3;
+        let maxRetries = step.maxRetries ?? 3;
+
+        // ── D4（2026-11-09）：可恢复失败类「先降级一次」──
+        // 只换策略、不新增重试框架：工具持续失败 ⇒ 走既有 escalate→增量 replan
+        // （降低计划粒度）；预算类 ⇒ 在既有 retry 上多给一次尝试。额度全任务一次。
+        const failureCategory = classifyStepFailure(step);
+        const degradation = deps.takeDegradation?.(failureCategory) ?? null;
+        if (degradation === 'replan') {
+          attemptFingerprints.delete(fingerprintKey);
+          step.decision = 'escalate';
+          step.status = 'failed';
+          step.error = `[DEGRADED_ONCE:${failureCategory}] 单步持续失败，已降低计划粒度重规划`;
+          await deps.recordEscalation(step);
+          deps.recordLifecycle(
+            'progress',
+            TaskStatus.RUNNING,
+            `Degraded once, replan: ${step.description}`
+          );
+          logger.warn('[orchestrator] 可恢复失败已降级一次（降低计划粒度）', {
+            taskId: deps.taskId,
+            planId: deps.planId,
+            stepId: step.id,
+            stepDesc: step.description.slice(0, 60),
+            failureCategory,
+            retryCount: step.retryCount,
+            failedCount: step.toolOutcomes?.failedCount,
+            successCount: step.toolOutcomes?.successCount,
+          });
+          break;
+        }
+        if (degradation === 'extra_attempt') {
+          step.maxRetries = maxRetries + 1;
+          maxRetries = step.maxRetries;
+          deps.recordLifecycle(
+            'progress',
+            TaskStatus.RUNNING,
+            `Degraded once, extra attempt: ${step.description}`
+          );
+          logger.info('[orchestrator] 预算类失败已降级一次（多给一次尝试）', {
+            taskId: deps.taskId,
+            planId: deps.planId,
+            stepId: step.id,
+            stepDesc: step.description.slice(0, 60),
+            failureCategory,
+            terminationReason: step.terminationReason,
+            retryCount: step.retryCount,
+            maxRetries,
+          });
+        }
 
         // ── no-progress 熔断（2026-11-05）──
         // 连续两轮证据完全一致 ⇒ 再重试也不会产生新信息，直接升级 escalate（增量 replan）。

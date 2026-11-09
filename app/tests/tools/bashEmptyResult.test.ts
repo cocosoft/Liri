@@ -20,7 +20,10 @@ import {
   BashTool,
   resetGraySwitchWarningForTest,
 } from '../../src/tools/bash/BashTool.js';
-import { isEmptyOutput } from '../../src/tools/utils/ToolUtils.js';
+import {
+  isEmptyOutput,
+  EMPTY_OUTPUT_HINT,
+} from '../../src/tools/utils/ToolUtils.js';
 import { ApprovedCommandRegistry } from '@openliri/infra/permission/ApprovedCommandRegistry';
 import type { ToolUseContext } from '../../src/tools/types/Tool.js';
 
@@ -73,6 +76,14 @@ describe('LRO-10：两个 shell 工具接线（同一口径）', () => {
     expect(PWSH_TOOL_SRC).toContain('EMPTY_OUTPUT_HINT : output');
     expect(PWSH_TOOL_SRC).toContain('metadata: { emptyResult: true }');
     expect(PWSH_TOOL_SRC).toContain("logger.info('powershell: empty_result'");
+  });
+
+  // 2026-11-09（真机 `pdca_mw8k25ul`）：同一"空输出"命令被原样重试 8 次直到断路器 aborted
+  // ⇒ 提示必须明确"空输出就是结果"，并给出 glob/list 的替代路径。
+  it('空输出提示给出「这是结果 / 不要原样重试 / 改用 glob」的出路', () => {
+    expect(EMPTY_OUTPUT_HINT).toContain('空输出就是结果本身');
+    expect(EMPTY_OUTPUT_HINT).toContain('不要原样重试');
+    expect(EMPTY_OUTPUT_HINT).toContain('glob');
   });
 
   it('真实执行有输出的命令 ⇒ 不标 emptyResult、正文保留原文', async () => {

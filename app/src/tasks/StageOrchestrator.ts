@@ -20,6 +20,8 @@ import {
   writePdcaCheckpoint,
 } from './PdcaWorkItemBridge.js';
 import { taskOrchestrator } from './TaskOrchestrator.js';
+// 计划级失败状态（状态字面量唯一事实源；lint:state-ratchet）
+import { PLAN_STATUS_FAILED } from './TaskOrchestrator.js';
 import type { LongRunningTaskOrchestrator } from './LongRunningTaskOrchestrator.js';
 // P1（2026-11-10）：阶段交付物的结构化投影（纯函数；不再把步骤描述当产物下传）
 import {
@@ -209,13 +211,29 @@ export function createDefaultStageRunner(
  * B13（2026-11-09）：子 PDCA 的**非成功**结局（挂起 / 失败）⇒ 阶段链须同样停下。
  *
  * 两个阶段执行器（ChatManager 注入版 / 默认版）共用同一判据，避免各写一份而漂移。
+ *
+ * 2026-11-10 修复（真机 `pdca_mw9uuur1`）：失败可能**只体现在计划上** —— 子任务
+ * `phase` 仍停在 `execute`，但计划里已有 failed 步 / `plan.status=failed`。此前只判
+ * `phase` ⇒ 漏判 ⇒ 阶段链带着失败的需求阶段继续跑 design（父级一直 running）。
  */
 export function readStageChildOutcome(child: {
-  getStatus: () => { phase: string };
+  getStatus: () => {
+    phase: string;
+    plan?: {
+      status?: string;
+      steps?: ReadonlyArray<{ status?: string }>;
+    };
+  };
 }): { paused?: true; failed?: true } {
-  const phase = child.getStatus().phase;
-  if (phase === 'stage_awaiting_approval') return { paused: true };
-  if (phase === 'failed' || phase === 'abort') return { failed: true };
+  const status = child.getStatus();
+  if (status.phase === 'stage_awaiting_approval') return { paused: true };
+  if (status.phase === 'failed' || status.phase === 'abort')
+    return { failed: true };
+  const plan = status.plan;
+  if (plan?.status === PLAN_STATUS_FAILED) return { failed: true };
+  if ((plan?.steps ?? []).some((step) => step.status === 'failed')) {
+    return { failed: true };
+  }
   return {};
 }
 

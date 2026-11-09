@@ -13,6 +13,7 @@ import { join } from 'path';
 import {
   StageOrchestrator,
   buildStagePrompt,
+  readStageChildOutcome,
   resolveStageScale,
   type StageChainRecord,
 } from '../../src/tasks/StageOrchestrator';
@@ -221,6 +222,49 @@ describe('StageOrchestrator — 2 阶段链（D1/M7）', () => {
     const prompt = buildStagePrompt(chain.stages[1], chain);
     expect(prompt).toContain('PRD：支持微信支付');
     expect(prompt).toContain('需求规格说明');
+  });
+});
+
+describe('阶段子任务结局判据（真机 pdca_mw9uuur1 修复）', () => {
+  const child = (status: {
+    phase: string;
+    plan?: { status?: string; steps?: Array<{ status?: string }> };
+  }) => ({ getStatus: () => status });
+
+  it('phase=execute 但计划里有 failed 步 ⇒ failed', () => {
+    expect(
+      readStageChildOutcome(
+        child({
+          phase: 'execute',
+          plan: { status: 'running', steps: [{ status: 'failed' }] },
+        })
+      )
+    ).toEqual({ failed: true });
+  });
+
+  it('plan.status=failed ⇒ failed（即使 phase 仍是 execute）', () => {
+    expect(
+      readStageChildOutcome(
+        child({ phase: 'execute', plan: { status: 'failed', steps: [] } })
+      )
+    ).toEqual({ failed: true });
+  });
+
+  it('全部完成 ⇒ 无结局标记；phase=failed / 挂起审批仍分别判失败与暂停', () => {
+    expect(
+      readStageChildOutcome(
+        child({
+          phase: 'execute',
+          plan: { status: 'running', steps: [{ status: 'completed' }] },
+        })
+      )
+    ).toEqual({});
+    expect(readStageChildOutcome(child({ phase: 'failed' }))).toEqual({
+      failed: true,
+    });
+    expect(
+      readStageChildOutcome(child({ phase: 'stage_awaiting_approval' }))
+    ).toEqual({ paused: true });
   });
 });
 

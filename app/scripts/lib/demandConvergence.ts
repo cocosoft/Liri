@@ -40,6 +40,22 @@ export interface ConvergenceSummary {
   /** JSON 解析失败的行数（分组未知，如实单列） */
   unparsable: number;
   total: number;
+  /**
+   * P2（2026-11-10）：**阶段 × 终止原因** 的失败步分布（含阶段子任务）。
+   *
+   * 收敛率只能回答"差多少"，回答不了"卡在哪一层"。此处按 `taskId` 的阶段后缀
+   * （`<父>_requirement` 等）与步骤终止原因聚合，供定位需求阶段空转 / 审批挂起等。
+   */
+  terminations: TerminationBucket[];
+}
+
+/** 失败步的聚合桶 */
+export interface TerminationBucket {
+  /** 阶段（`requirement` / `design` / `delivery` / `(root)`） */
+  stage: string;
+  /** 终止原因（步骤 `terminationReason`，或 `dependency_blocked` / `step_failed` / `run_failed`） */
+  reason: string;
+  count: number;
 }
 
 function emptyStats(): CohortStats {
@@ -70,6 +86,69 @@ function terminalOf(data: Record<string, unknown>): string | undefined {
   return undefined;
 }
 
+/** 检查点所属阶段（`<父>_<stageId>` ⇒ stageId；否则 `(root)`） */
+function stageOfTask(taskId: string, taskIds: ReadonlySet<string>): string {
+  const cut = taskId.lastIndexOf('_');
+  return cut > 0 && taskIds.has(taskId.slice(0, cut))
+    ? taskId.slice(cut + 1)
+    : '(root)';
+}
+
+/** 聚合失败步：阶段 × 终止原因（含阶段子任务；行级失败但无失败步时单列 `run_failed`） */
+function collectTerminations(
+  parsedRows: ReadonlyArray<{
+    data: Record<string, unknown>;
+    taskId: string;
+  }>,
+  taskIds: ReadonlySet<string>
+): TerminationBucket[] {
+  const counts = new Map<string, number>();
+  const bump = (stage: string, reason: string): void => {
+    const key = `${stage}\u0000${reason}`;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  };
+
+  for (const { data, taskId } of parsedRows) {
+    const stage = stageOfTask(taskId, taskIds);
+    const steps = Array.isArray(data.steps)
+      ? (data.steps as Array<Record<string, unknown>>)
+      : [];
+    let counted = false;
+    for (const step of steps) {
+      const status = typeof step.status === 'string' ? step.status : '';
+      if (!status || status === 'completed') continue;
+      counted = true;
+      if (status === 'cancelled') {
+        bump(stage, 'dependency_blocked');
+        continue;
+      }
+      const reason =
+        typeof step.terminationReason === 'string' &&
+        step.terminationReason &&
+        step.terminationReason !== 'completed'
+          ? step.terminationReason
+          : 'step_failed';
+      bump(stage, reason);
+    }
+    const terminal = terminalOf(data);
+    if (!counted && (terminal === 'failed' || terminal === 'abort')) {
+      bump(stage, `run_${terminal}`);
+    }
+  }
+
+  return [...counts.entries()]
+    .map(([key, count]) => {
+      const [stage, reason] = key.split('\u0000');
+      return { stage: stage ?? '(root)', reason: reason ?? 'unknown', count };
+    })
+    .sort(
+      (a, b) =>
+        b.count - a.count ||
+        a.stage.localeCompare(b.stage) ||
+        a.reason.localeCompare(b.reason)
+    );
+}
+
 /** 聚合检查点行（`raw` = 检查点 data JSON 原文） */
 export function summarizeCheckpoints(
   rows: ReadonlyArray<{ raw: string }>
@@ -79,6 +158,7 @@ export function summarizeCheckpoints(
     interactive: emptyStats(),
     unparsable: 0,
     total: rows.length,
+    terminations: [],
   };
 
   const parsedRows: Array<{ data: Record<string, unknown>; taskId: string }> =
@@ -133,6 +213,7 @@ export function summarizeCheckpoints(
 
   finalizeStats(summary.demand);
   finalizeStats(summary.interactive);
+  summary.terminations = collectTerminations(parsedRows, taskIds);
   return summary;
 }
 
@@ -197,6 +278,28 @@ export function formatSummary(
   if (thin.length > 0) {
     out.push(
       `⚠️ 样本不足（< ${MIN_SAMPLES}）：${thin.join(' / ')} —— 不作结论，请继续积累任务样本。`
+    );
+  }
+
+  // P2（2026-11-10）：失败分布 —— 回答"卡在哪一层、为什么"
+  out.push('', '=== 阶段 × 终止原因（失败步分布）===');
+  if (summary.terminations.length === 0) {
+    out.push('无失败步。');
+  } else {
+    out.push(
+      ['阶段'.padEnd(14), '终止原因'.padEnd(22), '次数'.padStart(6)].join('')
+    );
+    for (const bucket of summary.terminations) {
+      out.push(
+        [
+          bucket.stage.padEnd(14),
+          bucket.reason.padEnd(22),
+          String(bucket.count).padStart(6),
+        ].join('')
+      );
+    }
+    out.push(
+      '口径: 阶段取 taskId 后缀（父行缺失记 (root)）；cancelled ⇒ dependency_blocked；无失败步的行级失败记 run_failed/run_abort。'
     );
   }
   return out.join('\n');

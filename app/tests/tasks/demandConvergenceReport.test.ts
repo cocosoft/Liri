@@ -92,6 +92,58 @@ describe('B9：检查点聚合口径', () => {
     expect(summary.interactive.failed).toBe(1);
     expect(summary.interactive.aborted).toBe(1);
   });
+
+  it('P2：按阶段 × 终止原因聚合失败步（含阶段子任务）', () => {
+    const summary = summarizeCheckpoints([
+      // 父行：整行 failed 但没有失败步 ⇒ 单列 run_failed
+      row({ taskId: 'pdca_x', phase: 'failed' }),
+      row({
+        taskId: 'pdca_x_requirement',
+        phase: 'failed',
+        steps: [
+          { status: 'failed', terminationReason: 'aborted' },
+          { status: 'cancelled' },
+        ],
+      }),
+    ]);
+
+    expect(summary.terminations).toContainEqual({
+      stage: 'requirement',
+      reason: 'aborted',
+      count: 1,
+    });
+    expect(summary.terminations).toContainEqual({
+      stage: 'requirement',
+      reason: 'dependency_blocked',
+      count: 1,
+    });
+    expect(summary.terminations).toContainEqual({
+      stage: '(root)',
+      reason: 'run_failed',
+      count: 1,
+    });
+  });
+
+  it('P2：报告输出"阶段 × 终止原因"段落（无失败步时如实说明）', () => {
+    const withFailure = formatSummary(
+      summarizeCheckpoints([
+        row({
+          taskId: 'pdca_y_requirement',
+          phase: 'failed',
+          steps: [{ status: 'failed', terminationReason: 'max_turns' }],
+        }),
+      ]),
+      { dbPath: 'x.db' }
+    );
+    expect(withFailure).toContain('阶段 × 终止原因');
+    expect(withFailure).toContain('max_turns');
+
+    const clean = formatSummary(
+      summarizeCheckpoints([row({ taskId: 'pdca_z', phase: 'completed' })]),
+      { dbPath: 'x.db' }
+    );
+    expect(clean).toContain('无失败步');
+  });
 });
 
 describe('B9：报告文案', () => {

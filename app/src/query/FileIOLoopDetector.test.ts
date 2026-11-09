@@ -6,6 +6,11 @@
  * 2026-09-29：工具名对齐**真实注册名**（read_file→file_read、write_file→file_write）。
  * 此前用 CC 旧名 ⇒ 检测器**不追踪**它们 ⇒ 计数从不递增 ⇒ 4 例断言**空过**（"warning=false" 恒真），
  * 而要求"应触发"的 4 例则长期失败（D-12）。
+ *
+ * 2026-11-10：修正「跨文件交替」用例的**过期期望** —— 2026-11-08 起窗口重复的**内容读**
+ * （`file_read`）已降级为 warning（重复读无副作用；整批 blocked 会掐断合法读回，真机
+ * `pdca_mw7upzeh`）。原用例仍断言 `blocked=true` ⇒ 长期红。现分别断言内容读=warning、
+ * 检索类读（`glob`）=blocked 两条分支。
  */
 import { describe, test, expect } from 'bun:test';
 import { FileIOLoopDetector } from './FileIOLoopDetector';
@@ -92,8 +97,17 @@ describe('FileIOLoopDetector', () => {
     });
   });
 
-  describe('跨文件交替循环检测', () => {
-    test('A→B→A→B→A→B 交替读取应触发 block', () => {
+  /**
+   * 跨文件交替重复（口径沿革）：
+   * - 2026-10-31：只认「**同一目标**在窗口内重复 ≥ 阈值」，交替访问不同目标本身不算循环；
+   * - 2026-11-08（真机 `pdca_mw7upzeh`）：窗口重复命中时，**内容读**（`file_read`）降级为
+   *   warning（重复读无副作用，整批 blocked 会掐断合法的读回），**检索类读**（`glob`/`grep`）
+   *   仍为 blocked。
+   *
+   * ⇒ 本组用例覆盖上述两条分支；「连续读第 4 次必拦」由上方「读循环检测」覆盖。
+   */
+  describe('跨文件交替重复（2026-10-31 / 2026-11-08 口径）', () => {
+    test('交替读同一文件、窗口内第 4 次 ⇒ warning（内容读不阻断）', () => {
       const detector = new FileIOLoopDetector({
         warningThreshold: 3,
         blockThreshold: 4,
@@ -105,7 +119,45 @@ describe('FileIOLoopDetector', () => {
       }
 
       const result = detector.checkBeforeAccess('file_read', '/a.txt');
+      expect(result.warning).toBe(true);
+      expect(result.blocked).toBe(false);
+    });
+
+    test('交替检索（glob 同 pattern）窗口内第 4 次 ⇒ block（检索类读仍阻断）', () => {
+      const detector = new FileIOLoopDetector({
+        warningThreshold: 3,
+        blockThreshold: 4,
+      });
+
+      for (let i = 0; i < 3; i++) {
+        detector.checkBeforeAccess('glob', '/a', undefined, undefined, 'p');
+        detector.checkBeforeAccess('glob', '/b', undefined, undefined, 'p');
+      }
+
+      const result = detector.checkBeforeAccess(
+        'glob',
+        '/a',
+        undefined,
+        undefined,
+        'p'
+      );
       expect(result.blocked).toBe(true);
+    });
+
+    test('交替访问不同目标各 2 次 ⇒ 不拦（乒乓 ≠ 循环）', () => {
+      const detector = new FileIOLoopDetector({
+        warningThreshold: 3,
+        blockThreshold: 4,
+      });
+
+      for (let i = 0; i < 2; i++) {
+        detector.checkBeforeAccess('file_read', '/a.txt');
+        detector.checkBeforeAccess('file_read', '/b.txt');
+      }
+
+      const result = detector.checkBeforeAccess('file_read', '/a.txt');
+      expect(result.warning).toBe(false);
+      expect(result.blocked).toBe(false);
     });
   });
 

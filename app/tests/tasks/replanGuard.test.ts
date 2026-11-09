@@ -371,4 +371,25 @@ describe('T2 计划层集成：prepareReplan → applyReusableSteps', () => {
     expect(applyReusableSteps(rephrased, summary.reusable)).toBe(0);
     expect(rephrased.steps.every((s) => s.status === 'pending')).toBe(true);
   });
+
+  it('传入 workspace ⇒ 快照根目录用会话工作区（不再取任务隔离目录）', () => {
+    const calls: Array<string | undefined> = [];
+    prepareReplan({
+      taskId: TASK_ID,
+      previousSteps: [],
+      workspace: 'C:/work/session-project',
+      capture: (taskId, workspaceArg) => {
+        calls.push(workspaceArg);
+        return {
+          taskId,
+          capturedAt: new Date().toISOString(),
+          workspace: workspaceArg ?? '',
+          entries: 0,
+          truncated: false,
+          files: [],
+        };
+      },
+    });
+    expect(calls).toEqual(['C:/work/session-project']);
+  });
 });

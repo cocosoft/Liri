@@ -239,11 +239,16 @@ export * from './TitleGenerator.js';
 
 // 2026-08-29 R03-002 收敛：telemetry / trajectory / isolation 统一出口
 export { agentTelemetry } from './AgentTelemetry.js';
-export type { AgentIsolation } from './AgentIsolation.js';
+export type {
+  AgentIsolation,
+  TaskWorkspaceResolver,
+} from './AgentIsolation.js';
 export {
   createAgentIsolation,
   resolveTaskWorkspace,
   toWorkspaceRelativePath,
+  alignTaskWorkspace,
+  setTaskWorkspaceResolver,
   throwIfAborted,
   registerIsolationToScope,
 } from './AgentIsolation.js';

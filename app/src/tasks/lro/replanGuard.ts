@@ -143,8 +143,13 @@ function collectEntries(
  *
  * 快照文件：`<pyappHome>/data/replan-snapshots/<taskId>-<ISO>.json`（文件名去冒号，Windows 合法）。
  */
-export function captureWorkspaceSnapshot(taskId: string): WorkspaceSnapshot {
-  const workspace = resolveTaskWorkspace(taskId);
+export function captureWorkspaceSnapshot(
+  taskId: string,
+  workspaceOverride?: string
+): WorkspaceSnapshot {
+  // 2026-11-09：快照根目录 = 任务实际 cwd。此前恒取 `resolveTaskWorkspace(taskId)`
+  // （隔离空目录）⇒ 会话工作区里的产物不进快照，复用判定必然失效。
+  const workspace = workspaceOverride ?? resolveTaskWorkspace(taskId);
   const capturedAt = new Date().toISOString();
   const files: WorkspaceFileEntry[] = [];
   if (existsSync(workspace)) {
@@ -354,8 +359,10 @@ export function prepareReplan(input: {
   previousSteps: ReadonlyArray<PreviousStepSnapshot>;
   /** 上轮缺陷清单（受影响步骤不复用） */
   defects?: ReadonlyArray<{ stepDescription: string }>;
+  /** 任务实际 cwd（会话工作区）；缺省 ⇒ 任务隔离目录 */
+  workspace?: string;
   /** 注入点（测试用）；缺省走真实快照 */
-  capture?: (taskId: string) => WorkspaceSnapshot;
+  capture?: (taskId: string, workspace?: string) => WorkspaceSnapshot;
 }): ReplanPlanSummary {
   const total = input.previousSteps.length;
   const previouslyCompleted = input.previousSteps.filter(
@@ -363,7 +370,10 @@ export function prepareReplan(input: {
   ).length;
   let snapshot: WorkspaceSnapshot | undefined;
   try {
-    snapshot = (input.capture ?? captureWorkspaceSnapshot)(input.taskId);
+    snapshot = (input.capture ?? captureWorkspaceSnapshot)(
+      input.taskId,
+      input.workspace
+    );
   } catch (err) {
     logger.warn('replan 产物快照异常（不阻断 replan）', {
       taskId: input.taskId,

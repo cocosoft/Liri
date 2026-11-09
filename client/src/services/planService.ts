@@ -151,6 +151,11 @@ export interface PdcaStatus {
   projectId?: string;
   sessionId?: string;
   workItemId?: string;
+  /**
+   * 2026-11-09（Q2）：任务**实际生效**的工作区（后端取执行侧 `isolation.workspace`）。
+   * 仅内存路径返回；重启后的检查点回退读模型没有该字段 ⇒ 调用方需判空。
+   */
+  workspace?: string;
   /** 列表摘要：最近活动时间（后端按此倒序，见 `POST /v1/pdca/list`） */
   updatedAt?: string;
 }

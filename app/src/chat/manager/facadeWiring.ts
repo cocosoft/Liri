@@ -92,6 +92,9 @@ import { isCommandApproved, submitToolApproval } from './toolApproval';
 import { wireCodeRunnerDeps } from './codeRunnerWiring';
 import { shouldUseCodeMode, shouldUsePlanDrivenLoop } from './routing';
 import { getSessionWorkspacePath } from './workspacePath';
+// 2026-11-09（方案 B）：长程任务 cwd 与工具 cwd 共用安全判定（唯一实现见 toolCwdScope）
+import { resolveTaskCwd } from '../services/toolCwdScope';
+import { setTaskWorkspaceResolver } from '@modules/agent';
 // B 批外移（2026-11-05）：会话元数据 / 文本投影改为纯函数直调（宿主不再保留转发方法）
 import {
   getSessionApprovalMode,
@@ -356,6 +359,23 @@ export function wireChatFacades(host: FacadeWiringHost): void {
   // P2（§3.3）：任务档审批 —— 把"会话当前活跃长程任务"解析器注册给权限层
   // （权限层不能反向依赖 tasks；未注册 ⇒ 任务档条目一律不命中，只多问一次）
   setActiveTaskIdResolver((sid) => getActiveTaskIdForSession(sid));
+  // 2026-11-09（真机 `pdca_mw8txe5r`）：长程任务 cwd 与会话工作区对齐。
+  // 此前任务恒定跑在 `~/.pyapp/workspaces/<taskId>`（空目录）⇒ 用户选中目录里的既有
+  // 文件完全不可见，依赖既有文件的步骤必然失败。
+  // 方案 B（2026-11-09）：解析走 `resolveTaskCwd` —— 与工具 cwd **同一套安全判定**
+  // （租户越界 ⇒ 回退该身份根），且裸会话**不再保留任务隔离目录**，改用会话级目录；
+  // 任务级隔离目录只留给并行 Agent / 蜂群（它们本就该多实例隔离）。
+  setTaskWorkspaceResolver((sid) => {
+    if (!sid) return undefined;
+    const explicit = getSessionWorkspacePath(
+      {
+        getSession: (id) => host._chatSessions.get(id),
+        projectSandboxStoreRef: host._projectSandboxStoreRef,
+      },
+      sid
+    );
+    return resolveTaskCwd(explicit, sid).cwd;
+  });
   // P2（2026-11-04，方案 §3.3）：向 tasks 层注册「长程任务策略快照」的**会话侧端口**。
   // 与上一行同因：编排入口有 6 个（会话内升级 / `/v1/pdca/start` / `/goal` / 阶段链 /
   // 启动恢复 / HTTP 快照），逐个注入必漏 ⇒ 装配期注册一次，tasks 层按需取用。

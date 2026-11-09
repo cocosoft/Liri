@@ -15,7 +15,10 @@ import { join, resolve } from 'path';
 
 import type { Principal } from '@openliri/kernel/identity/principal';
 import { resolveProjectRoot } from '@openliri/infra/environment';
-import { resolveToolCwd } from '../../src/chat/services/toolCwdScope';
+import {
+  resolveTaskCwd,
+  resolveToolCwd,
+} from '../../src/chat/services/toolCwdScope';
 
 const ALICE: Principal = { tenantId: 'acme', userId: 'alice', roles: ['user'] };
 const BOB: Principal = { tenantId: 'acme', userId: 'bob', roles: ['user'] };
@@ -200,5 +203,55 @@ describe('G8：无效会话工作区 ⇒ 界面提示标记（按「会话 + 路
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+/**
+ * 方案 B（2026-11-09）：长程任务（无人值守）的 cwd —— 与工具 cwd **同一安全判定**，
+ * 唯一差异是裸会话的兜底：一律用**会话级目录**（开发入口也**不**回落仓库根）。
+ */
+describe('resolveTaskCwd：长程任务 cwd（方案 B）', () => {
+  const LOCAL: Principal = { tenantId: 'local', userId: 'local', roles: [] };
+
+  it('本地身份 + 裸会话 ⇒ <data>/workspace/sessions/<id>，且目录被创建（不回落仓库根）', () => {
+    const decision = resolveTaskCwd(undefined, 'sess-task-a', LOCAL);
+
+    expect(decision.cwd).toBe(
+      resolve(join(dataDir, 'workspace', 'sessions', 'sess-task-a'))
+    );
+    expect(existsSync(decision.cwd)).toBe(true);
+    expect(decision.cwd).not.toBe(resolveProjectRoot());
+  });
+
+  it('本地身份 + 显式会话工作区 ⇒ 原样使用（不覆盖用户选择）', () => {
+    const explicit = resolve(dataDir, 'user-picked-task');
+    const decision = resolveTaskCwd(explicit, 'sess-task-b', LOCAL);
+    expect(decision.cwd).toBe(explicit);
+    expect(decision.rejectedSessionWorkspace).toBe(false);
+  });
+
+  it('已认证身份 + 根内工作区 ⇒ 原样使用', () => {
+    const inside = join(aliceRoot(), 'proj-1');
+    const decision = resolveTaskCwd(inside, 'sess-task-c', ALICE);
+    expect(decision.cwd).toBe(resolve(inside));
+    expect(decision.rejectedSessionWorkspace).toBe(false);
+  });
+
+  it('已认证身份 + 根外（含 .. 逃逸）⇒ 忽略并回退租户工作区（绝不回落项目根）', () => {
+    for (const candidate of [
+      join(dataDir, 'sessions', 'shared'),
+      join(aliceRoot(), '..', '..', 'bob', 'workspace'),
+    ]) {
+      const decision = resolveTaskCwd(candidate, 'sess-task-d', ALICE);
+      expect(decision.cwd).toBe(resolve(aliceRoot()));
+      expect(decision.rejectedSessionWorkspace).toBe(true);
+      expect(decision.cwd).not.toBe(resolveProjectRoot());
+    }
+  });
+
+  it('已认证身份 + 裸会话 ⇒ 该身份工作区根（不落到进程级会话目录）', () => {
+    const decision = resolveTaskCwd(undefined, 'sess-task-e', ALICE);
+    expect(decision.cwd).toBe(resolve(aliceRoot()));
+    expect(decision.rejectedSessionWorkspace).toBe(false);
   });
 });

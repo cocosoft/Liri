@@ -50,6 +50,8 @@ describe('PDCA 状态投影字段（内存/检查点一致性）', () => {
       auditReport: null,
       lifecycle: [],
       iterations: 2,
+      // 2026-11-09（Q2）：任务生效工作区（执行侧 `isolation.workspace`）
+      workspace: 'C:/data/workspace/sessions/session-proj-1',
       stepDurations: new Map(),
     });
 
@@ -57,5 +59,7 @@ describe('PDCA 状态投影字段（内存/检查点一致性）', () => {
     expect(status.description).toBe('投影测试任务');
     // 2026-11-08：轮次随状态投影（HTTP 层据此并入 `progress.iteration`）
     expect(status.loopIteration).toBe(2);
+    // 2026-11-09（Q2）：前端据此显示「任务工作区」（生效值，不是会话配置值）
+    expect(status.workspace).toBe('C:/data/workspace/sessions/session-proj-1');
   });
 });

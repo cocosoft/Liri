@@ -1236,6 +1236,7 @@ const zhKnowledge = {
     decisionEscalate: "⚠ 上报",
     noStepSnapshot: "该任务无步骤快照（阶段链/待审批）",
     overallProgress: "总体进度",
+    workspace: "工作区",
     stepsCount: "步骤 ({{count}})",
     retryInline: "重试: {{count}}/{{max}}",
     acceptanceCriteria: "验收标准:",

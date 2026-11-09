@@ -213,6 +213,17 @@ export default function PdcaPipeline({ taskId }: PdcaPipelineProps) {
         )}
       </div>
 
+      {/* 2026-11-09（Q2）：任务**实际生效**的 cwd —— 后端取执行侧 `isolation.workspace`；
+          重启后的检查点回退读模型没有该字段（不显示比显示错的强）。 */}
+      {status.workspace && (
+        <div className="flex items-center gap-1 min-w-0 text-[10px] text-gray-400">
+          <span className="shrink-0">{t("agent.workspace")}:</span>
+          <span className="truncate font-mono" title={status.workspace}>
+            {status.workspace}
+          </span>
+        </div>
+      )}
+
       {/* 总体进度 */}
       {progress && (
         <div>

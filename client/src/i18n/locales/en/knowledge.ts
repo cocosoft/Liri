@@ -1297,6 +1297,7 @@ const enKnowledge = {
     noStepSnapshot:
       "This task has no step snapshot (stage chain / pending approval)",
     overallProgress: "Overall progress",
+    workspace: "Workspace",
     stepsCount: "Steps ({{count}})",
     retryInline: "Retry: {{count}}/{{max}}",
     acceptanceCriteria: "Acceptance criteria:",

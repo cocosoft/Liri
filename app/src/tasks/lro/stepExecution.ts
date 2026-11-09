@@ -47,7 +47,7 @@ import type { Plan, PlanStep } from '../TaskOrchestrator';
 import { TaskStatus } from '../types';
 import { EXECUTOR_ROLE, normalizeExecutorResult } from './contracts.js';
 import type { ExecutorFn, TaskMessage } from './contracts.js';
-import { roleToolNames } from './plannerSupport.js';
+import { isWorkspaceEmpty, roleToolNames } from './plannerSupport.js';
 import { isNonConvergedTermination } from './pureDecisions.js';
 import {
   MAX_SECURITY_STEERS_PER_STEP,
@@ -221,7 +221,12 @@ export async function executeSingleStep(
       `- 工具的文件路径一律**相对本任务工作区根目录** \`${deps.isolation.workspace}\`（如 \`output/report.md\`）；不要传仓库根或其它绝对路径，否则会被越界守卫拒绝。`,
       // 2026-11-08（真机 `pdca_mw7t4025`）：工作区是**空目录**，模型却反复换 pattern 探测
       // `app/src/...`（13 次工具全空）直到被 IO 循环守卫中止。空结果属正常初始态。
-      '- 该工作区初始为**空目录**：`glob` / `grep` 搜不到文件是正常的，**不要反复换 pattern 探测同一路径**；确认一次不存在后按"该路径不可用"继续（本任务**没有 `projectId`**，`read_project_file` 也不可用）。',
+      // 2026-11-09（cwd 对齐会话工作区后修正）：**不能写死"初始为空目录"** —— 真机
+      // `pdca_mw8uz6mf` 的工作区已有 `hello.txt`，提示词却声称其为空，模型读到文件后反复核对
+      // （`file_read` ×4）。按**真实目录内容**分型。
+      isWorkspaceEmpty(deps.isolation.workspace)
+        ? '- 该工作区初始为**空目录**：`glob` / `grep` 搜不到文件是正常的，**不要反复换 pattern 探测同一路径**；确认一次不存在后按"该路径不可用"继续（本任务**没有 `projectId`**，`read_project_file` 也不可用）。'
+        : '- 该工作区**已有内容**（会话工作区）：先用 `glob` 列出根目录确认真实文件，再决定路径；**不要假定文件不存在**，也不要反复换 pattern 探测同一路径（本任务**没有 `projectId`**，`read_project_file` 不可用）。',
       // 2026-11-09（真机 `pdca_mw8k25ul`）：`cd <空工作区> && powershell -Command "Get-ChildItem -File ..."`
       // 连续 8 次返回同一条"空输出"，直到全局断路器以 aborted 收尾（整步白跑）。空输出是**结果**，不是失败。
       '- 命令返回**空输出且退出码 0** 时，空输出就是结果本身（如目录为空 / 无匹配项）：**不要原样重试同一条命令**，据实记录"无结果"后继续下一步；需要列举改用 `glob` / `list`。',

@@ -742,7 +742,7 @@ data: {"type":"done","result":{...}}
 | GET | `/v1/tasks/pdca/metrics` | ✅ | 无前端调用方（S1 灰度观测，curl 调用） |
 | POST | `/v1/pdca/start` | ✅ | 无前端调用方；响应含 phase 契约（2026-09-03）：`{taskId, status:'started', workItemId, phase:'plan'}` |
 | POST | `/v1/pdca/list` | ✅ | PdcaPipeline / projects 编排 tab / PlansPage；**摘要化（2026-11-08）**：请求体（可选）`{workspaceId?, projectId?, sessionId?, limit?, offset?}`（limit 默认 200、上限 500）；响应 `{items, total, limit, offset}`，`items` 按最近活动时间倒序，每项仅含 taskId/phase/status/归属字段/progress 数值/`updatedAt`（**不含** `plan`/`audit`/`lifecycle`，详情走 `GET /v1/pdca/:taskId`）；数据源 = 内存 orchestrator + checkpoint 回退（重启后非空），checkpoint-only 条目带 `source:'checkpoint'` |
-| GET | `/v1/pdca/:taskId` | ✅ | PdcaPipeline / projects 编排 tab；读模型 = 有内存 → `getStatus()`（含 plan/progress/audit/currentStep）；无内存 → checkpoint 回退（1-5 P2，2026-09-04）：构造 getStatus 对齐形态（`plan`/`progress` 由快照 `steps` 推导并原样透传，无 steps 则省略不编造，带 `source:'checkpoint'`）；checkpoint 不存在 → `{taskId, phase:'none', planId:'', lifecycle:[]}` |
+| GET | `/v1/pdca/:taskId` | ✅ | PdcaPipeline / projects 编排 tab；读模型 = 有内存 → `getStatus()`（含 plan/progress/audit/currentStep/`workspace`）；无内存 → checkpoint 回退（1-5 P2，2026-09-04）：构造 getStatus 对齐形态（`plan`/`progress` 由快照 `steps` 推导并原样透传，无 steps 则省略不编造，带 `source:'checkpoint'`）；checkpoint 不存在 → `{taskId, phase:'none', planId:'', lifecycle:[]}`。`workspace`（2026-11-09 Q2）= **任务实际生效**的工作区（执行侧 `isolation.workspace`），仅在内存路径返回，checkpoint 回退省略（不编造） |
 
 > LRO-12（2026-10-26）：`progress.percent` 受**产物门**约束（与 `TaskOrchestrator.getPlanProgress` 同口径）——
 > 已采集产物台账的完成步若为零产物（`artifacts: []`）**不推进进度**；额外字段 `progress.artifacts`（产物路径数）

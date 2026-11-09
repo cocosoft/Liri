@@ -51,6 +51,14 @@ const NON_CONVERGED_TERMINATION_REASONS = new Set([
    * 中止 ≠ 完成：必须落 failed，交给重试/升级链处理。
    */
   'aborted',
+  /**
+   * 2026-11-09（真机 `pdca_mw8vmiy9`）：TAORLoop 在**模型调用失败**（当日 DNS/网络中断，
+   * `getaddrinfo ENOTFOUND`）时以 `terminationReason='error'` 收尾（turns=1、tokens=0、43ms）。
+   * 此前该原因不在本集合 ⇒ 步骤记为 `completed`（假完成）⇒ Review 判 12/100 REJECT ⇒ retry ⇒
+   * 再次 error ⇒ 同一批步骤反复"完成—拒绝—重试"，任务最终 `failed` 且日志里全是"已完成"。
+   * 与 `aborted` 同理：**异常 ≠ 完成**，必须落 failed 交给重试/升级链处理。
+   */
+  'error',
 ]);
 
 export function isNonConvergedTermination(reason?: string): boolean {

@@ -155,6 +155,8 @@ describe('非收敛步骤不得记为完成（U-02）', () => {
     expect(isNonConvergedTermination('budget_exhausted')).toBe(true);
     // 2026-11-08（真机 `pdca_mw7sfwyf`）：TAORLoop 因 no_tool_call 死循环中止 ⇒ 中止≠完成
     expect(isNonConvergedTermination('aborted')).toBe(true);
+    // 2026-11-09（真机 `pdca_mw8vmiy9`）：模型调用失败（DNS 中断）以 error 收尾 ⇒ 异常≠完成
+    expect(isNonConvergedTermination('error')).toBe(true);
     expect(isNonConvergedTermination('completed')).toBe(false);
     expect(isNonConvergedTermination(undefined)).toBe(false);
   });

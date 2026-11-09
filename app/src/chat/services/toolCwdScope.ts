@@ -293,3 +293,56 @@ export function resolveToolCwd(
 
   return { cwd: root, rejectedSessionWorkspace: Boolean(sessionWorkspacePath) };
 }
+
+/**
+ * 长程任务（**无人值守**）的 cwd 决策（2026-11-09，方案 B）。
+ *
+ * 与 {@link resolveToolCwd} **共用同一套安全判定**（租户越界 ⇒ 忽略会话工作区并回退该身份根；
+ * 会话工作区缺失/不是目录 ⇒ 交由 `decideSessionWorkspace` 重建或告警），唯一差异是
+ * "**无会话工作区**"时的兜底：
+ * - `resolveToolCwd`：本地身份按运行形态分流（编译版 `<data>/workspace/sessions/<id>`
+ *   / 开发版仓库根，后者只为调试便利）；
+ * - 本函数：**一律使用会话级目录** `resolveSessionWorkspaceDir(sessionId)`。
+ *
+ * 为什么不沿用开发版"回落仓库根"：长程任务是无人值守 + 可执行 bash + 批量写文件，
+ * 裸会话（新建会话、通道会话、cron 触发）落到代码仓会让模型改写 Liri 自身源码/配置 ——
+ * 与沙箱兜底事故（`.trae/rules/code-deletion.md` CD07）同类的不可控面。任务级隔离目录
+ * （`~/.pyapp/workspaces/<taskId>`）则留给**并行 Agent / 蜂群**，它们本就该多实例隔离。
+ *
+ * @param sessionWorkspacePath 会话元数据里的工作区（可能来自请求体，未经验证）
+ * @param sessionId 会话 id（会话级目录的锚点）
+ * @param principal 当前请求身份（缺省取 ALS；后台任务无作用域 ⇒ 本地身份）
+ */
+export function resolveTaskCwd(
+  sessionWorkspacePath: string | null | undefined,
+  sessionId: string,
+  principal: Principal = getRequestPrincipal()
+): ToolCwdDecision {
+  if (isLocalPrincipal(principal)) {
+    if (sessionWorkspacePath) {
+      return decideSessionWorkspace(sessionWorkspacePath, sessionId);
+    }
+    // bash / glob / file_read 都以 cwd 为基准 ⇒ 目录必须存在，否则首次任务即失败
+    const dir = resolveSessionWorkspaceDir(sessionId);
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+    }
+    return { cwd: dir, rejectedSessionWorkspace: false };
+  }
+
+  const root = resolveScopedWorkspaceRoot(principal);
+  if (sessionWorkspacePath && isPathWithin(root, sessionWorkspacePath)) {
+    return decideSessionWorkspace(sessionWorkspacePath, sessionId);
+  }
+  if (!existsSync(root)) {
+    mkdirSync(root, { recursive: true });
+  }
+  if (sessionWorkspacePath) {
+    logger.warning('会话工作区越出租户根，长程任务改用租户工作区', {
+      principalKey: `${principal.tenantId}:${principal.userId}`,
+      sessionWorkspacePath,
+      root,
+    });
+  }
+  return { cwd: root, rejectedSessionWorkspace: Boolean(sessionWorkspacePath) };
+}

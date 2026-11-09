@@ -23,6 +23,8 @@ import type { Plan, PlanStep } from '../TaskOrchestrator';
 import { TaskStatus } from '../types';
 import type { PdcaPhase } from '@modules/tasks/phases';
 import { parseSuccessCriteria } from '@modules/tasks/successCriteria';
+// 2026-11-09：恢复时把 cwd 对齐会话工作区（真机 `pdca_mw8txe5r` 的空目录根因）
+import { alignTaskWorkspace, type AgentIsolation } from '@modules/agent';
 import {
   planTurnsExtensionDecision,
   shouldReRollMaxTurnsStep,
@@ -73,6 +75,8 @@ export interface ResumeDeps {
     workspaceId: string | undefined
   ) => Plan;
   getLastEscalations: () => CheckpointEscalation[];
+  /** 2026-11-09：隔离对象（cwd 对齐与 replan 快照根目录共用） */
+  getIsolation?: () => AgentIsolation;
   setLastEscalations: (value: CheckpointEscalation[]) => void;
   getTurnsExtensions: () => number;
   setTurnsExtensions: (value: number) => void;
@@ -138,6 +142,10 @@ async function resumeFromCheckpointCore(
   const sessionId = (ck.sessionId as string | undefined) ?? '';
   const steps = (ck.steps as Array<Record<string, unknown>> | undefined) ?? [];
   const phase = (ck.phase as string | undefined) ?? 'execute';
+  // 2026-11-09：重启后续跑先对齐 cwd —— 否则同一任务会从会话工作区切回空的隔离目录，
+  // 既有产物不可见（replan 快照与目标门取证都会落空）。
+  const isolation = deps.getIsolation?.();
+  if (isolation) alignTaskWorkspace(isolation, deps.taskId, ck.sessionId);
 
   // Gap D（1-0c，2026-09-03）：终态任务拒绝恢复。
   // PR5（#6，2026-09-05）：半自动 replan 例外——status=failed + replanPending 且
@@ -225,6 +233,8 @@ async function resumeFromCheckpointCore(
       sessionId,
       previousSteps: steps as unknown as PreviousStepSnapshot[],
       defects: deps.getLastEscalations(),
+      // 2026-11-09：快照根目录必须是任务实际 cwd（会话工作区），不能用任务隔离目录
+      workspace: isolation?.workspace,
     });
     const plan = await deps.executePlanPhase(descriptionText, sessionId);
     const reused = applyReusableSteps(plan, replanSummary.reusable);

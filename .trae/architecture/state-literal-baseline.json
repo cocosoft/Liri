@@ -694,6 +694,7 @@
       "app/src/tasks/InProcessTeammateTask.ts",
       "app/src/tasks/LocalBashTask.ts",
       "app/src/tasks/RemoteAgentTask.ts",
+      "app/src/tasks/lro/pureDecisions.ts",
       "app/src/tasks/selfwake/SelfWakeService.ts",
       "app/src/tasks/TaskAuditService.ts",
       "app/src/tasks/TaskReconciliationService.ts",

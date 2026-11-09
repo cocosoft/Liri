@@ -602,13 +602,6 @@ export function checkPathAccessibility(
 
   const suggestions: string[] = [];
 
-  // 检测路径是否被 JSON 反斜杠转义损坏（如 E:\PY\CODESPY_APP 缺少分隔符）
-  if (targetPath !== normalized) {
-    suggestions.push(
-      '路径中包含反斜杠，可能被 JSON 转义损坏。已自动归一化为正斜杠格式'
-    );
-  }
-
   const projectDir = configManager.env('LIRI_PROJECT_DIR') || process.cwd();
   const resolvedProject = path.resolve(projectDir);
 
@@ -646,15 +639,15 @@ export function checkPathAccessibility(
         suggestions.push(
           `上级目录 "${parentDir}" 不存在，但 "${grandParent}" 中存在相似目录: ${siblings.join(', ')}`
         );
-        suggestions.push('路径可能被 JSON 转义损坏，请检查反斜杠是否正确转义');
       }
     }
     suggestions.push(`上级目录不存在: ${parentDir}`);
     suggestions.push('请确认项目源码已同步到当前磁盘');
   } else {
-    suggestions.push('请确认路径拼写正确');
+    // 2026-11-09：此分支**父目录存在** ⇒ 路径写法本身没有问题，不再断言"JSON 转义损坏"
+    //（归一化已在入口完成）。真机 `pdca_mw8txe5r` 中该误导文案诱发了 4 次重复读取。
     suggestions.push(
-      '如果路径来自 AI 模型输出，请检查反斜杠是否被 JSON 转义（应使用 \\\\ 或 /）'
+      '请确认路径拼写正确；可用相对路径（相对当前工作区根目录）'
     );
   }
 

@@ -172,4 +172,26 @@ describe('repairAcceptanceCriteria — 输出解析健壮性（2026-11-09）', (
     );
     expect(got).toBeUndefined();
   });
+
+  // 2026-11-09（真机 `pdca_mw8uz6mf`）：纠正调用此前未传预算 ⇒ provider 默认 4096 被思考吃光
+  it('纠正调用显式传入输出预算（与主规划同口径）', async () => {
+    let received: number | undefined;
+    const got = await repairAcceptanceCriteria(
+      {
+        taskId: 'pdca_test',
+        isolation: {
+          workspace: 'C:\\work\\pdca_test',
+        } as unknown as PlannerRepairDeps['isolation'],
+        executor: async (params) => {
+          received = params.maxTokens;
+          return { content: '{"acceptanceCriteria":["A","B"]}' };
+        },
+      },
+      '做一个游戏',
+      steps,
+      ['输出非空']
+    );
+    expect(got).toEqual(['A', 'B']);
+    expect(received).toBeGreaterThan(0);
+  });
 });

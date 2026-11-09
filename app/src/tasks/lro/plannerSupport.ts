@@ -18,6 +18,8 @@
 import { existsSync, readdirSync } from 'fs';
 import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@openliri/infra/monitoring';
+// 2026-11-09：纠正/修复重问与主规划**共用同一输出预算**（DB `max_output_tokens`，禁止写死）
+import { ModelRegistry, modelRouter } from '@modules/ai';
 
 import { getRealToolNamesForTask } from '../../tools/index.js';
 import {
@@ -35,6 +37,43 @@ import {
 } from './contracts.js';
 
 const logger = getLogger('tasks:longRunning');
+
+/**
+ * Planner 单次调用的**回退输出上限**（DB 无 `max_output_tokens` 时使用）。
+ *
+ * 为什么不沿用 provider 默认 4096：思考型模型（`capabilities` 含 `thinking`）会把
+ * 输出预算先花在思考上 ⇒ 预算不足时 content 为空、也没有 tool_call，计划被判
+ * `empty-output`（真机 `pdca_mw7q12pb`：`output_tokens=4096` 连续两次、耗时 62/70s）。
+ *
+ * 2026-11-08（真机 `pdca_mw7te6i5`）：**写死 8192 不够** —— `deepseek-v4-pro` 的
+ * DB 上限是 16384，却只给 8192，思考吃光后 140s 返回空计划（`finish_reason=max_tokens`）。
+ * ⇒ 预算必须读 DB（`model-usage.md` 的「模型属性唯一事实来源」），本常量仅作回退。
+ */
+const LRO_PLANNER_FALLBACK_MAX_OUTPUT_TOKENS = 8192;
+
+/**
+ * 解析 Planner 的输出上限：**优先 DB** 的 `max_output_tokens`，缺失/异常才回退。
+ *
+ * 模型由 `modelRouter.resolve(PLANNER_ROLE.taskType)` 解析（任务分工 / DB 唯一事实来源），
+ * 与默认执行器内 `modelRouter.resolve(params.taskType)` 同一口径 ⇒ 取的正是即将调用的模型。
+ *
+ * 2026-11-09（真机 `pdca_mw8uz6mf`）：**纠正 / 修复重问也必须传同一预算** —— 两处此前未传
+ * ⇒ 退回 provider 默认 4096 ⇒ 思考吃光后 `finish_reason=max_tokens, outputLength=0`，
+ * 纠正与修复各白烧一次调用，结论只能降级为"保留原样"。
+ */
+export function resolvePlannerMaxOutputTokens(): number {
+  try {
+    const modelId = modelRouter.resolve(PLANNER_ROLE.taskType);
+    const maxOutput =
+      ModelRegistry.getInstance().getModel(modelId)?.maxOutputTokens;
+    return typeof maxOutput === 'number' && maxOutput > 0
+      ? maxOutput
+      : LRO_PLANNER_FALLBACK_MAX_OUTPUT_TOKENS;
+  } catch {
+    // @ignore-catch — 解析失败不影响规划：回退到已知安全值
+    return LRO_PLANNER_FALLBACK_MAX_OUTPUT_TOKENS;
+  }
+}
 
 /**
  * 角色可用工具名：由角色的**任务类型**经 `TOOL_CATEGORIES` 派生（单一事实源）。
@@ -94,16 +133,18 @@ export function workspacePathConstraint(workspace: string): string {
   const workspaceEmpty = isWorkspaceEmpty(workspace);
   return [
     '【路径约束（硬性）】',
-    `本任务隔离工作区根目录: \`${workspace}\``,
+    `本任务工作区根目录: \`${workspace}\``,
     '- steps 与 acceptanceCriteria 里出现的**所有文件路径必须是工作区相对路径**（如 `output/report.md`）；',
     '- 禁止 `/tmp/...`、`%TEMP%\\...`、`C:\\...`、`~/...` 等绝对路径或工作区外路径 ——',
     '  执行器会按"越界"直接拒绝，该步骤必然失败。',
     // 2026-11-08（真机 `pdca_mw7tlrc4`）：Planner 把"统计 app/src/tasks 下 .ts 数"写成步骤，
     // 理由是"app/src/... 也是相对路径"。但那是**仓库**相对路径，工作区里根本不存在该目录
     // ⇒ 执行器 glob 全是空结果、反复换 pattern 直到 IO 守卫中止。必须把"工作区 ≠ 仓库"说清。
-    `- 工作区当前内容：${workspaceEmpty ? '**空目录**（本任务还没有任何文件）' : '仅本任务已产出的文件'}；`,
-    '- 仓库代码（`app/src/...`、`packages/...`）**不在工作区里**：不要规划"遍历 / 统计 / 浏览仓库源码"的步骤' +
-      '（glob/grep 一定空结果）；需要项目文件时用 `read_project_file`（需 `projectId`，只读单文件）。',
+    // 2026-11-09：cwd 对齐会话工作区后，工作区**可能本来是项目目录** ⇒ 不能再断言
+    // "仓库代码不在工作区里"（真机 `pdca_mw8uz6mf` 的工作区就已有文件）。改为"先 glob 确认"。
+    `- 工作区当前内容：${workspaceEmpty ? '**空目录**（本任务还没有任何文件）' : '已有文件（会话工作区原有内容 + 本任务产物）'}；`,
+    '- 需要仓库/项目源码时**先用 `glob` 确认该路径在工作区里确实存在**再规划读取；不存在则不要规划' +
+      '"遍历 / 统计 / 浏览仓库源码"的步骤（glob/grep 只会得到空结果）。本任务**没有 `projectId`**，`read_project_file` 不可用。',
   ].join('\n');
 }
 
@@ -152,6 +193,8 @@ export async function repairPlanJson(
       userPrompt: prompt,
       tools: roleToolNames(PLANNER_ROLE),
       taskType: PLANNER_ROLE.taskType,
+      // 2026-11-09：与主规划同预算，避免思考型模型把 4096 吃光后返回空
+      maxTokens: resolvePlannerMaxOutputTokens(),
       isolation: deps.isolation,
     });
     const text = normalizeExecutorResult(raw).content;
@@ -247,6 +290,8 @@ export async function repairAcceptanceCriteria(
       userPrompt: prompt,
       tools: roleToolNames(PLANNER_ROLE),
       taskType: PLANNER_ROLE.taskType,
+      // 2026-11-09：同主规划预算（见 `resolvePlannerMaxOutputTokens` 注释）
+      maxTokens: resolvePlannerMaxOutputTokens(),
       isolation: deps.isolation,
     });
     const text = normalizeExecutorResult(raw).content;

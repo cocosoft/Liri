@@ -7,8 +7,13 @@
 
 import { mkdirSync, existsSync, rmSync } from 'fs';
 import { resolvePyappHome } from '@openliri/infra/environment';
+// 2026-11-09：目录可用性判据**单一实现**（infra 下沉版；会话面/工具面已共用，勿再自写一份）
+import { isUsableDirectory } from '@openliri/infra/utils/toolContract/workspaceRoots';
+import { getLogger } from '@openliri/infra/monitoring';
 import { join } from 'path';
 import type { EffectScope } from '@modules/context';
+
+const logger = getLogger('agent:isolation');
 
 export interface AgentIsolation {
   /** 取消信号控制器 */
@@ -31,6 +36,57 @@ const WORKSPACES_ROOT = join(resolvePyappHome(), 'workspaces');
  */
 export function resolveTaskWorkspace(agentId: string): string {
   return join(WORKSPACES_ROOT, agentId);
+}
+
+/**
+ * 会话工作区解析器（由 chat 层在装配期注册；未注册 ⇒ 全部保留任务隔离目录）。
+ *
+ * 2026-11-09（真机 `pdca_mw8txe5r`）：长程任务恒定跑在 `~/.pyapp/workspaces/<taskId>`
+ * （空目录），会话里用户选定的工作区（含既有文件）完全不可见 ⇒ 依赖既有文件的步骤
+ * 必然失败（`file_read hello.txt` → 不存在 → 重试 3 轮 + 空转 26 万 token）。
+ * 现口径（方案 B）：会话/项目有可用工作区 ⇒ 就用它；**没有就用会话级目录**
+ * （`resolveTaskCwd`，与聊天工具同一套安全判定）。任务级隔离目录只留给并行 Agent / 蜂群。
+ */
+export type TaskWorkspaceResolver = (
+  sessionId: string | undefined
+) => string | undefined;
+
+let taskWorkspaceResolver: TaskWorkspaceResolver | undefined;
+
+export function setTaskWorkspaceResolver(fn?: TaskWorkspaceResolver): void {
+  taskWorkspaceResolver = fn;
+}
+
+/**
+ * 把任务的 `isolation.workspace` 对齐到会话工作区（返回是否切换）。
+ *
+ * `sessionIdRaw` 接受 checkpoint 里的 `unknown`（未知来源一律按"无会话"处理）。
+ * 目标不可用时**保留隔离目录**并告警，绝不让任务落到一个无法访问的 cwd。
+ */
+export function alignTaskWorkspace(
+  isolation: AgentIsolation,
+  taskId: string,
+  sessionIdRaw: unknown
+): boolean {
+  const sessionId = typeof sessionIdRaw === 'string' ? sessionIdRaw : undefined;
+  const target = sessionId ? taskWorkspaceResolver?.(sessionId) : undefined;
+  if (!target || target === isolation.workspace) return false;
+  if (!isUsableDirectory(target)) {
+    logger.warn('会话工作区不可用，长程任务保留隔离目录', {
+      taskId,
+      sessionId,
+      workspace: target,
+    });
+    return false;
+  }
+  logger.info('长程任务工作区已对齐会话工作区', {
+    taskId,
+    sessionId,
+    previous: isolation.workspace,
+    workspace: target,
+  });
+  isolation.workspace = target;
+  return true;
 }
 
 /**

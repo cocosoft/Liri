@@ -24,6 +24,14 @@ export interface PdcaStatus {
    */
   sessionId?: string;
   description?: string;
+  /**
+   * 2026-11-09（Q2）：**任务实际生效的工作区**（执行侧 `isolation.workspace`）。
+   *
+   * 必须是"生效值"而非"会话配置值"：长程任务会把 cwd 对齐到会话工作区
+   * （`alignTaskWorkspace`），裸会话落在 `<data>/workspace/sessions/<id>` —— 只有执行侧知道最终值。
+   * 仅**内存路径**提供；检查点未记录该字段 ⇒ 重启后的回退读模型省略（不编造）。
+   */
+  workspace?: string;
   plan?: Plan;
   progress?: PlanProgress;
   /**

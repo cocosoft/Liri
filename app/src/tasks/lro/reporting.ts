@@ -36,6 +36,12 @@ export interface PdcaReportView {
   lifecycle: LifecycleEvent[];
   /** 已执行的 PDCA 轮次（编排器随每轮 `iterations++` 回写；见 `PdcaStatus.loopIteration`） */
   iterations: number;
+  /**
+   * 2026-11-09（Q2）：任务实际生效的工作区（执行侧 `isolation.workspace`）。
+   *
+   * 直读宿主字段：**零派生、零副作用**（不在 GET 侧做 store 查询 / mkdir）。
+   */
+  workspace: string;
   stepDurations: ReadonlyMap<
     string,
     { startMs: number; endMs?: number; tokens?: number }
@@ -127,6 +133,8 @@ export function projectPdcaStatus(view: PdcaReportView): PdcaStatus {
     // 「检查点（重启后）」两条路径字段不一致；两者都取自计划（createPlan 时已落库）。
     ...(plan?.sessionId ? { sessionId: plan.sessionId } : {}),
     ...(plan?.description ? { description: plan.description } : {}),
+    // 2026-11-09（Q2）：任务生效工作区（执行侧唯一事实源）
+    workspace: view.workspace,
     plan,
     progress,
     // 2026-11-08：轮次随状态投影（HTTP 层据此并入 `progress.iteration`）

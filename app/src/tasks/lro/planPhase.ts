@@ -29,8 +29,6 @@ import {
 } from '@openliri/infra/error';
 import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import { throwIfAborted } from '@modules/agent';
-// 2026-11-08：规划输出预算按 **DB 模型属性** 取（禁止写死），见 `resolvePlannerMaxOutputTokens`
-import { ModelRegistry, modelRouter } from '@modules/ai';
 
 import {
   draftFromSubmitPlanToolCalls,
@@ -49,44 +47,12 @@ import {
 import {
   repairAcceptanceCriteria,
   repairPlanJson,
+  resolvePlannerMaxOutputTokens,
   roleToolNames,
   workspacePathConstraint,
 } from './plannerSupport.js';
 
 const logger = getLogger('tasks:longRunning');
-
-/**
- * Planner 单次调用的**回退输出上限**（DB 无 `max_output_tokens` 时使用）。
- *
- * 为什么不沿用 provider 默认 4096：思考型模型（`capabilities` 含 `thinking`）会把
- * 输出预算先花在思考上 ⇒ 预算不足时 content 为空、也没有 tool_call，计划被判
- * `empty-output`（真机 `pdca_mw7q12pb`：`output_tokens=4096` 连续两次、耗时 62/70s）。
- *
- * 2026-11-08（真机 `pdca_mw7te6i5`）：**写死 8192 不够** —— `deepseek-v4-pro` 的
- * DB 上限是 16384，却只给 8192，思考吃光后 140s 返回空计划（`finish_reason=max_tokens`）。
- * ⇒ 预算必须读 DB（`model-usage.md` 的「模型属性唯一事实来源」），本常量仅作回退。
- */
-const LRO_PLANNER_FALLBACK_MAX_OUTPUT_TOKENS = 8192;
-
-/**
- * 解析 Planner 的输出上限：**优先 DB** 的 `max_output_tokens`，缺失/异常才回退。
- *
- * 模型由 `modelRouter.resolve(PLANNER_ROLE.taskType)` 解析（任务分工 / DB 唯一事实来源），
- * 与默认执行器内 `modelRouter.resolve(params.taskType)` 同一口径 ⇒ 取的正是即将调用的模型。
- */
-function resolvePlannerMaxOutputTokens(): number {
-  try {
-    const modelId = modelRouter.resolve(PLANNER_ROLE.taskType);
-    const maxOutput =
-      ModelRegistry.getInstance().getModel(modelId)?.maxOutputTokens;
-    return typeof maxOutput === 'number' && maxOutput > 0
-      ? maxOutput
-      : LRO_PLANNER_FALLBACK_MAX_OUTPUT_TOKENS;
-  } catch {
-    // @ignore-catch — 解析失败不影响规划：回退到已知安全值
-    return LRO_PLANNER_FALLBACK_MAX_OUTPUT_TOKENS;
-  }
-}
 
 /**
  * C9（2026-11-05）：Planner 的**结构化输出**工具（合成定义）。

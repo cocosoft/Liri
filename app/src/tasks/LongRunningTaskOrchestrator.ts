@@ -42,6 +42,7 @@ import {
   createAgentIsolation,
   throwIfAborted,
   registerIsolationToScope,
+  alignTaskWorkspace,
 } from '@modules/agent';
 import { EffectScope } from '@modules/context';
 import type { AuditReport } from './AuditReport';
@@ -506,7 +507,6 @@ export class LongRunningTaskOrchestrator {
       });
     }
   }
-
   getTaskId(): string {
     return this.taskId;
   }
@@ -528,7 +528,6 @@ export class LongRunningTaskOrchestrator {
       ...(this._policySnapshot ? { policySnapshot: this._policySnapshot } : {}),
     });
   }
-
   getPhase(): PdcaPhase {
     return this.phase;
   }
@@ -934,6 +933,7 @@ export class LongRunningTaskOrchestrator {
   ): Promise<PdcaStatus> {
     // §5 P1: 记录回写目标会话与回调，供 executeSingleStep 使用
     this._sessionId = sessionId;
+    alignTaskWorkspace(this.isolation, this.taskId, sessionId);
     this._goalId = opts?.goalId;
     this._onTaskMessage = opts?.onTaskMessage;
     this._startedAt = Date.now();
@@ -1032,7 +1032,6 @@ export class LongRunningTaskOrchestrator {
   }
 
   // ─── 报告 ───────────────────────────────────────────
-
   /** 报告投影所需的宿主状态只读快照（spec §46） */
   private reportView(): PdcaReportView {
     return {
@@ -1043,6 +1042,7 @@ export class LongRunningTaskOrchestrator {
       auditReport: this.auditReport,
       lifecycle: this.lifecycle.getHistory(),
       iterations: this._iterations,
+      workspace: this.isolation.workspace,
       stepDurations: this.stepDurations,
     };
   }
@@ -1636,6 +1636,7 @@ export class LongRunningTaskOrchestrator {
           workspaceId
         ),
       getLastEscalations: () => this._lastEscalations,
+      getIsolation: () => this.isolation,
       setLastEscalations: (value) => {
         this._lastEscalations = value;
       },

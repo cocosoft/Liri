@@ -103,6 +103,11 @@ export interface SessionMetadata {
    */
   autonomy?: 'interactive' | 'demand';
   /**
+   * B7（2026-11-09，设计稿 §5-4）：demand 会话的歧义问询预算是否已用尽。
+   * 结构化标记（非字符串）⇒ 跨重启保持「最多问 1 次」；与 `models/SessionMetadata.ts` 对齐。
+   */
+  demandAskUsed?: boolean;
+  /**
    * P1-1（2026-11-04）：会话模式（前端「模式」下拉随消息下发 `chat_mode` 后落到此处）。
    *
    * 唯一消费者是 `chat/chatModePolicy.ts` 的映射（模型档位 / 工具集 / 轮次预算）；

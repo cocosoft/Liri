@@ -100,6 +100,12 @@ export class SessionMetadata implements SessionMetadata {
   /** B1（2026-11-09）：会话自主度（缺省 === interactive；见 `chat/autonomy.ts`） */
   autonomy?: 'interactive' | 'demand';
 
+  /**
+   * B7（2026-11-09，设计稿 §5-4）：demand 会话的歧义问询预算是否已用尽。
+   * 结构化标记（非字符串）⇒ 跨重启保持「最多问 1 次」；非 demand 会话恒不置位。
+   */
+  demandAskUsed?: boolean;
+
   /** P4b（2026-10-16）：会话级工具 profile 能力标签（见 `@modules/tools` 的 `TOOL_PROFILE_CATEGORIES`） */
   toolProfile?: string[];
   /** PR-3（2026-10-23）：会话级审批模式（`auto-local` = 只读 + 工作区内本地写自动执行） */
@@ -132,6 +138,7 @@ export class SessionMetadata implements SessionMetadata {
       prLink: this.prLink,
       ...(this.workMode !== undefined ? { workMode: this.workMode } : {}),
       ...(this.autonomy !== undefined ? { autonomy: this.autonomy } : {}),
+      ...(this.demandAskUsed === true ? { demandAskUsed: true } : {}),
       ...(this.toolProfile !== undefined
         ? { toolProfile: this.toolProfile }
         : {}),
@@ -160,6 +167,8 @@ export class SessionMetadata implements SessionMetadata {
     if (data.autonomy === 'interactive' || data.autonomy === 'demand') {
       meta.autonomy = data.autonomy;
     }
+    // B7（2026-11-09）：问询预算标记——仅接受 true（缺省/脏值视为未用）
+    if (data.demandAskUsed === true) meta.demandAskUsed = true;
     // P4b（2026-10-16）：工具 profile 标签——仅接受字符串数组（非法形态视为未设置，不造默认值）
     if (Array.isArray(data.toolProfile)) {
       meta.toolProfile = data.toolProfile.filter(

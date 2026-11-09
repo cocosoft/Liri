@@ -27,6 +27,7 @@ import type {
 import {
   extractTodoData,
   autoAnswerUnattended,
+  noteDemandAsk,
   stripThinkResponseTags,
 } from '@modules/chat';
 import { withDeadline } from '@openliri/infra/utils/withDeadline';
@@ -101,6 +102,11 @@ export interface ChatManagerTAORContext {
 
   /** 会话 ID */
   sessionId: string;
+
+  /**
+   * B7（2026-11-09，设计稿 §5-4）：会话元数据 —— 供 demand 问询预算判定（缺省 ⇒ 非 demand）。
+   */
+  sessionMetadata?: unknown;
 
   /**
    * 2026-11-09：**外层已落盘**的种子轮 tool_call id 列表。
@@ -357,9 +363,11 @@ export function createChatManagerTAORDeps(
         // v0.5: requiresUserInteraction 检测（对齐 ReActToolLoop act 遗漏 2）
         // 非流式路径：检测到交互工具时，发送 question chunk 并等待用户答案
         const toolObj = ctx.toolRegistry?.getTool(tc.name);
+        const session = { id: ctx.sessionId, metadata: ctx.sessionMetadata };
         // U-02（2026-10-20）：无人值守下由 helper 注入答复并记审计 ⇒ 跳过挂起；普通路径不变
+        // B7（2026-11-09，设计稿 §5-4）：demand 会话问询预算已用尽 ⇒ 同路代答（最多问 1 次）
         if (
-          !autoAnswerUnattended(toolObj, tc, ctx.sessionId) &&
+          !autoAnswerUnattended(toolObj, tc, session) &&
           toolObj?.requiresUserInteraction?.()
         ) {
           // 同轮多提问防护（对齐 ReActToolLoop）：Map 单槽不静默覆盖。
@@ -382,6 +390,8 @@ export function createChatManagerTAORDeps(
 
           const args = tc.arguments as Record<string, unknown>;
           const questionId = `q_${Date.now()}_${(tc.id || '').slice(0, 8)}`;
+          // B7：demand 会话唯一的一次问询在此记账（此后的问询由上面的 helper 代答）
+          noteDemandAsk(session);
           const questionData: QuestionData = {
             questionId,
             question: String(args.question ?? ''),

@@ -1,19 +1,26 @@
 /**
- * 交互式提问的**无人值守自动答复**接线（U-02，2026-10-20 用户裁定「自动通过，记录审计」）。
+ * 交互式提问的**自动代答**接线 —— 两条口径共用一处判定与注入：
  *
- * 两条编排链（`ReActToolLoop` 流式 / `ChatManagerTAORAdapter` 非流式）共用本函数，
- * 避免两处各写一份「判定 + 注入 + 审计」；纯答复口径见 `@modules/utils/unattendedAnswers`。
+ * 1. U-02（2026-10-20 用户裁定「自动通过，记录审计」）：`UNATTENDED_MODE` 开启时
+ *    任何会话的提问都直接代答，避免无人值守续跑被提问永久挂住。
+ * 2. B7（2026-11-09，设计稿 §5-4）：demand（许愿式）会话的歧义问询**最多 1 次**；
+ *    预算用尽后转自动代答，继续全自动推进，不再挂起等用户。
+ *
+ * 两条口径都走「判定 → 注入 `_userAnswers` → 审计日志」同一实现，避免两条编排链
+ * （`ReActToolLoop` 流式 / `ChatManagerTAORAdapter` 非流式）各写一份；纯答复口径见
+ * `@openliri/infra/utils/unattendedAnswers`。
  *
  * 行为边界：
- * - 仅在 `UNATTENDED_MODE` 开启且工具声明 `requiresUserInteraction()` 时生效；
- * - 生效时**不挂起、不发 question 事件**，直接把答复写进工具入参 `_userAnswers`（注入前做冻结保护）；
- * - 普通路径（开关默认关）返回 `false`，调用方照旧等待用户。
+ * - 工具必须声明 `requiresUserInteraction()`；否则永不代答；
+ * - 生效时**不挂起、不发 question 事件**，直接把答复写进工具入参（注入前做冻结保护）；
+ * - 两条口径都不成立时返回 `false`，调用方照旧等待用户。
  */
 import { getLogger } from '@openliri/infra/monitoring';
 import {
   isUnattendedMode,
   resolveUnattendedAnswers,
 } from '@openliri/infra/utils/unattendedAnswers';
+import { isDemandSession } from './autonomy';
 
 const logger = getLogger('chat:interactionAutoApprove');
 
@@ -32,15 +39,78 @@ interface InteractionCallShape {
   arguments?: Record<string, unknown>;
 }
 
+/** 会话侧需要的最小形状（`ChatSession` 满足） */
+export interface AutoAnswerSession {
+  id: string;
+  metadata?: unknown;
+}
+
+/** B7：本进程内已用掉问询预算的会话（跨重启由 `metadata.demandAskUsed` 兜底） */
+const demandAsked = new Set<string>();
+
+/** B7：落盘钩子（装配层注入；未注入 ⇒ 只记内存态） */
+let persistDemandAskUsed: ((sessionId: string) => void) | undefined;
+
 /**
+ * B7 装配层注册落盘钩子（与 `setTaskSessionPolicyPort` 同型：端口一次注入，避免逐入口漏接）。
+ * 钩子只负责把 `metadata.demandAskUsed` 写进会话存储，失败由钩子自身告警（内存态已生效）。
+ */
+export function setDemandAskPersistHook(fn: (sessionId: string) => void): void {
+  persistDemandAskUsed = fn;
+}
+
+/** B7 记账：demand 会话已发出其唯一允许的一次问询（内存标记 + 落盘） */
+export function noteDemandAsk(session: AutoAnswerSession): void {
+  if (!isDemandSession(session.metadata)) return;
+  demandAsked.add(session.id);
+  if (session.metadata && typeof session.metadata === 'object') {
+    (session.metadata as Record<string, unknown>).demandAskUsed = true;
+  }
+  persistDemandAskUsed?.(session.id);
+}
+
+/** 预算是否已用尽（内存标记 ∪ 已落盘的元数据标记） */
+function isDemandAskUsed(session: AutoAnswerSession): boolean {
+  if (demandAsked.has(session.id)) return true;
+  const meta = session.metadata as { demandAskUsed?: unknown } | undefined;
+  return meta?.demandAskUsed === true;
+}
+
+/**
+ * B7 重置该会话的问询预算（内存标记 + 元数据标记）。
+ *
+ * 调用时机：会话自主度**真实变更**时（`SessionLifecycleManager._applyRequestAutonomy`）
+ * ⇒ 切回 demand 重新获得 1 次问询额度；同值请求不触发（否则每轮都会被重置）。
+ */
+export function resetDemandAskBudget(session: AutoAnswerSession): void {
+  demandAsked.delete(session.id);
+  if (session.metadata && typeof session.metadata === 'object') {
+    delete (session.metadata as Record<string, unknown>).demandAskUsed;
+  }
+}
+
+/**
+ * 是否代答（不挂起）。
+ *
+ * @param isRecovery 该调用是同一问询的**重放**（恢复态）⇒ 不代答，用户答案仍按原链路注入。
  * @returns `true`＝已完成自动答复（调用方**跳过**挂起等待，直接执行工具）。
  */
 export function autoAnswerUnattended(
   tool: InteractionToolShape | undefined,
   call: InteractionCallShape,
-  sessionId: string
+  session: AutoAnswerSession,
+  isRecovery?: boolean
 ): boolean {
-  if (tool?.requiresUserInteraction?.() !== true || !isUnattendedMode()) {
+  if (tool?.requiresUserInteraction?.() !== true) {
+    return false;
+  }
+  const unattended = isUnattendedMode();
+  // B7：demand 会话的问询预算已用尽（恢复态不代答，避免覆盖用户已给的答案）
+  const demandSpent =
+    isRecovery !== true &&
+    isDemandSession(session.metadata) &&
+    isDemandAskUsed(session);
+  if (!unattended && !demandSpent) {
     return false;
   }
 
@@ -60,12 +130,12 @@ export function autoAnswerUnattended(
   }
 
   logger.warn('chat:interaction_auto_answered', {
-    sessionId,
+    sessionId: session.id,
     toolCallId: call.id,
     toolName: call.name,
     questionType: raw.questionType ?? 'choice',
     answers,
-    reason: 'unattended-auto-approve',
+    reason: unattended ? 'unattended-auto-approve' : 'demand-ask-exhausted',
   });
   return true;
 }

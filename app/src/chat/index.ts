@@ -30,6 +30,8 @@ export type { ChatService } from './models/types';
 export { createChatManager } from './ChatManager';
 export type { ChatManager } from './ChatManagerInterface';
 export { autoAnswerUnattended } from './interactionAutoApprove';
+// B7（2026-11-09，设计稿 §5-4）：demand 会话问询预算记账（最多 1 次，此后转自动代答）
+export { noteDemandAsk } from './interactionAutoApprove';
 export { ChatSession } from './sessions/chatSession';
 export { ChatHistory } from './history/chatHistory';
 export type { ChatMessage, ChatSessionOptions } from './models/types';

@@ -51,6 +51,8 @@ import { resolveRequestWorkspaceUpdate } from './toolCwdScope.js';
 import { resolveRequestChatModeUpdate } from '../chatModePolicy.js';
 // B1（2026-11-09）：请求体 `autonomy` ⇒ 会话 metadata 的更新判定（与 chatMode 同口径）
 import { resolveRequestAutonomyUpdate } from '../autonomy.js';
+// B7（2026-11-09，设计稿 §5-4）：自主度变更时重置 demand 问询预算
+import { resetDemandAskBudget } from '../interactionAutoApprove.js';
 import { MessageService } from './MessageService.js';
 import { eventNotificationService } from './EventNotificationService.js';
 import { clearPathCheckCache } from './PathGuardService';
@@ -486,10 +488,14 @@ export class SessionLifecycleManager {
     });
     if (!next) return;
     session.metadata = { ...session.metadata, autonomy: next };
+    // B7（2026-11-09，设计稿 §5-4）：自主度**真实变更** ⇒ 重置问询预算（切回 demand 重新获得 1 次）
+    resetDemandAskBudget(session);
     try {
       const stored = await this.sessionGateway.getSession(session.id);
       if (stored) {
         stored.metadata = { ...stored.metadata, autonomy: next };
+        // 落盘侧同步清除（否则重启后仍被判为预算已用尽）
+        delete stored.metadata.demandAskUsed;
         await this.sessionGateway.updateSession(stored);
       }
     } catch (e) {

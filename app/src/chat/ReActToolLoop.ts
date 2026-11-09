@@ -104,13 +104,14 @@ import {
 import {
   awaitAnswersWithHeartbeat,
   emitSuspensionSettled,
+  injectUserAnswers,
   registerInteraction,
   registerPendingAnswer,
   type AgentInteractionDeps,
 } from './agentInteraction';
 // S4（2026-10-19）：待处理交互单槽的 TTL 自愈（判据处顺带清除过期条目）
 import { hasActivePendingInteraction } from '@openliri/infra/utils/pendingInteractions';
-import { autoAnswerUnattended } from './interactionAutoApprove';
+import { autoAnswerUnattended, noteDemandAsk } from './interactionAutoApprove';
 // U-22/S1（2026-10-17）：终止输出/目标原因码外移（行为等价搬迁）
 import {
   mapTerminationToGoalReason,
@@ -966,21 +967,16 @@ export class ReActToolLoop extends ReActLoop<
 
         // 2. 交互恢复：等待用户答案（v3：yield question 穿透挂起链路）；U-02 无人值守下由 helper 注入答复并记审计
         const toolObj = this.ctx.toolRegistry.getTool(tc.name);
+        const isRecovery =
+          this.input.interactionContext &&
+          calls.indexOf(tc) === this.input.interactionContext.interactionIdx;
+        // B7（2026-11-09，设计稿 §5-4）：demand 会话问询预算用尽 ⇒ 代答；恢复态仍注入用户答案
         if (
-          !autoAnswerUnattended(toolObj, tc, this.ctx.session.id) &&
+          !autoAnswerUnattended(toolObj, tc, this.ctx.session, isRecovery) &&
           toolObj?.requiresUserInteraction?.()
         ) {
-          const isRecovery =
-            this.input.interactionContext &&
-            calls.indexOf(tc) === this.input.interactionContext.interactionIdx;
           if (isRecovery) {
-            // 2026-08-30 修复：入参可能是深冻结对象 ⇒ 注入 `_userAnswers` 前先确保可扩展（否则整轮工具失败）
-            const inputObj = tc.input as Record<string, unknown>;
-            if (!Object.isExtensible(inputObj)) {
-              tc.input = { ...inputObj };
-            }
-            (tc.input as Record<string, unknown>)._userAnswers =
-              this.input.interactionContext!.userAnswers;
+            injectUserAnswers(tc, this.input.interactionContext!.userAnswers);
           } else {
             // 同轮多提问防护（v3）：Map 单槽不静默覆盖——构造 error result 保证 tool_end 闭环（避免 tool_start 卡片悬挂）
             // S4：判据处顺带清除过期条目（漏释放 ⇒ TTL 自愈，不永久死锁）
@@ -1029,12 +1025,7 @@ export class ReActToolLoop extends ReActLoop<
             }
             const answers = answersResult.value; // string[] | undefined
             if (answers) {
-              // 2026-08-30 修复：input 冻结保护（同 isRecovery 分支，防止修改不可扩展对象）
-              const inputObj = tc.input as Record<string, unknown>;
-              if (!Object.isExtensible(inputObj)) {
-                tc.input = { ...inputObj };
-              }
-              (tc.input as Record<string, unknown>)._userAnswers = answers;
+              injectUserAnswers(tc, answers);
             }
           }
         }
@@ -1919,6 +1910,8 @@ export class ReActToolLoop extends ReActLoop<
     questionData: QuestionData;
     promise: Promise<string[]>;
   } {
+    // B7：demand 会话唯一一次问询在此记账（此后转自动代答）
+    noteDemandAsk(this.ctx.session);
     return registerInteraction(
       tc.id ?? '',
       tc.input as Record<string, unknown>,

@@ -73,6 +73,22 @@ export function registerPendingAnswer(
 }
 
 /**
+ * 把答案注入工具入参 `_userAnswers`（U-02/恢复态三处共用）。
+ *
+ * 2026-08-30 修复：入参可能是深冻结对象 ⇒ 注入前先确保可扩展（否则整轮工具失败）。
+ */
+export function injectUserAnswers(
+  toolCall: { input?: unknown },
+  answers: string[]
+): void {
+  const input = toolCall.input as Record<string, unknown>;
+  if (!Object.isExtensible(input)) {
+    toolCall.input = { ...input };
+  }
+  (toolCall.input as Record<string, unknown>)._userAnswers = answers;
+}
+
+/**
  * 注册 pendingInteraction，返回 questionData + 等待 promise（v3：不挂起调用方，
  * 由 act 内迭代消费 `awaitAnswersWithHeartbeat` 产出心跳并等待答案）。
  */

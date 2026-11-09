@@ -143,6 +143,8 @@ export function buildTAORContext(
   });
   return {
     sessionId,
+    // B7（2026-11-09，设计稿 §5-4）：会话元数据下发，供适配器判定 demand 问询预算
+    sessionMetadata: deps.getSessionMetadata?.(sessionId),
     toolDefinitions,
     // v0.5：注入 toolRegistry + pendingInteractions，支持非流式路径 requiresUserInteraction 检测
     toolRegistry: deps.getToolInteraction

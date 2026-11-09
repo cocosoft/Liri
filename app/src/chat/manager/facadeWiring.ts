@@ -21,6 +21,9 @@
  */
 
 import { SimpleMutex } from '@openliri/kernel';
+import { getLogger } from '@openliri/infra/monitoring';
+// B7（2026-11-09，设计稿 §5-4）：demand 问询预算的落盘端口（宿主侧注入会话存储）
+import { setDemandAskPersistHook } from '../interactionAutoApprove';
 import type {
   ToolAwareClient,
   ToolDefinition,
@@ -237,6 +240,8 @@ export interface FacadeWiringHost {
  *
  * 只列**输入**：输出（本函数赋值）在装配前不存在，不能参与存在性检查。
  */
+const logger = getLogger('chat:facadeWiring');
+
 const FACADE_HOST_REQUIRED_KEYS = [
   'sessionAccess',
   '_chatSessions',
@@ -408,6 +413,25 @@ export function wireChatFacades(host: FacadeWiringHost): void {
       if (patch.workspaceRoots !== undefined)
         metadata.workspaceRoots = patch.workspaceRoots;
     },
+  });
+
+  // B7（2026-11-09，设计稿 §5-4）：demand 问询预算落盘 —— 「最多问 1 次」需跨重启保持。
+  // 只增补 `metadata.demandAskUsed`（写入前重读存储，避免覆盖并发改动）；失败只告警（内存标记已生效）。
+  setDemandAskPersistHook((sessionId) => {
+    void (async () => {
+      try {
+        const stored = await host.sessionGateway.getSession(sessionId);
+        if (!stored) return;
+        stored.metadata = { ...stored.metadata, demandAskUsed: true };
+        await host.sessionGateway.updateSession(stored);
+      } catch (e) {
+        // @ignore-catch — 落盘失败不影响内存标记（下次提问再补）
+        logger.warn('demand 问询预算落盘失败', {
+          sessionId,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+    })();
   });
 
   host._pdcaLauncher = new PdcaLauncher({

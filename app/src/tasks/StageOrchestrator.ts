@@ -70,6 +70,14 @@ export interface StageChainRecord {
   deliveryManifest?: DeliveryManifest;
   /** D3/M8 消费（偏差 2 闭环）：需求追踪 ID（requirementTracker 注册的 req_<sha1>） */
   requirementId?: string;
+  /**
+   * B13（2026-11-09，真机实测）：父级记录自带 demand 身份。
+   *
+   * 此前只有子阶段 PDCA 检查点带 `demand`，顶层这条没有 ⇒
+   * `stats:demand`（指标 4）按顶层读取时把 demand 任务算成 interactive。
+   * 每份快照**自描述**，不依赖别的行推断。
+   */
+  demand?: boolean;
   updatedAt: string;
 }
 
@@ -108,12 +116,27 @@ export const STAGE_DEFS: Array<{
   { id: 'delivery', name: '交付', approval: 'auto' },
 ];
 
-/** 阶段执行结果（D4 起含 token 用量，供阶段边界成本结算） */
+/** 阶段执行结果（D4（M4）起含 token 用量，供阶段边界成本结算） */
 export interface StageRunnerResult {
   /** 阶段产物文本（下阶段基线） */
   artifact: string;
   /** 本阶段 token 消耗（阶段边界累计到父级 totalTokens） */
   tokens: number;
+  /**
+   * B13（2026-11-09，真机 `pdca_mw9gube7_design`）：子 PDCA 因**工具审批**挂起
+   * （`phase='stage_awaiting_approval'`，如 powershell 命令待人工确认）。
+   *
+   * 阶段链必须**同样停下**；此前把挂起当阶段成功 ⇒ 父级链一路 `completed`，
+   * 实际交付并未完成（"假完成"，同时虚高 demand 收敛率）。
+   */
+  paused?: boolean;
+  /**
+   * B13（2026-11-09，真机 `pdca_mw9hbaiy_requirement`）：子 PDCA 终态为 **failed / abort**。
+   *
+   * `runFullPdca` 失败时**正常返回**（不抛错）⇒ 阶段链此前把失败阶段当成功继续，
+   * 父级 `completed`（需求阶段已失败却报"任务完成"）。
+   */
+  failed?: boolean;
 }
 
 /** StageOrchestrator 外部依赖（子 PDCA 执行由调用方注入，保持编排器与执行解耦） */
@@ -156,8 +179,23 @@ export function createDefaultStageRunner(
       artifact: collectStageArtifact(child),
       // D4（M4）：阶段边界显式回写 token（TAORLoopResult.totalTokens 累计）
       tokens: child.getTokenUsage(),
+      ...readStageChildOutcome(child),
     };
   };
+}
+
+/**
+ * B13（2026-11-09）：子 PDCA 的**非成功**结局（挂起 / 失败）⇒ 阶段链须同样停下。
+ *
+ * 两个阶段执行器（ChatManager 注入版 / 默认版）共用同一判据，避免各写一份而漂移。
+ */
+export function readStageChildOutcome(child: {
+  getStatus: () => { phase: string };
+}): { paused?: true; failed?: true } {
+  const phase = child.getStatus().phase;
+  if (phase === 'stage_awaiting_approval') return { paused: true };
+  if (phase === 'failed' || phase === 'abort') return { failed: true };
+  return {};
 }
 
 /** 阶段 prompt（产物基线注入：design 阶段携带 requirement PRD） */
@@ -213,8 +251,10 @@ export class StageOrchestrator {
     /**
      * B2（2026-11-09）：demand（许愿式）会话 —— 阶段审批**自动放行**（跳过"计划待确认"）。
      * 仅放宽流程暂停点，不放宽任何工具/权限判定（Bash 闸与权限档独立生效）。
+     *
+     * B13：`demand` 同时作为**持久化身份**写进父级检查点（见 `StageChainRecord.demand`）。
      */
-    opts: { autoApproveStages?: boolean } = {}
+    opts: { autoApproveStages?: boolean; demand?: boolean } = {}
   ): StageOrchestrator {
     const record: StageChainRecord = {
       taskId,
@@ -233,6 +273,7 @@ export class StageOrchestrator {
       totalTokens: 0,
       budgetLimitTokens: budget.budgetLimitTokens ?? 0,
       budgetPolicy: budget.budgetPolicy ?? 'terminate',
+      ...(opts.demand ? { demand: true } : {}),
       updatedAt: new Date().toISOString(),
     };
     return new StageOrchestrator(record, deps);
@@ -290,6 +331,20 @@ export class StageOrchestrator {
         stage.artifact = result.artifact;
         // D4（M4）：阶段边界显式回写 token → 全局成本护栏（跨阶段累计）
         this.record.totalTokens += result.tokens;
+        // B13：子 PDCA 失败/中止 ⇒ 阶段链同样失败收尾（不得当作阶段完成）
+        if (result.failed) {
+          stage.status = 'failed';
+          this.record.phase = 'failed';
+          await this.persist();
+          return this.record;
+        }
+        // B13：子 PDCA 挂在工具审批 ⇒ 阶段链同样停在审批门（不得当作阶段完成）
+        if (result.paused) {
+          stage.status = 'awaiting_approval';
+          this.record.phase = 'stage_awaiting_approval';
+          await this.persist();
+          return this.record;
+        }
         stage.status =
           stage.approval === 'stage_approval'
             ? 'awaiting_approval'

@@ -15,6 +15,7 @@ import {
   buildStagePrompt,
   type StageChainRecord,
 } from '../../src/tasks/StageOrchestrator';
+import { readPdcaCheckpoint } from '../../src/tasks/PdcaWorkItemBridge';
 
 // GAI-3：checkpoint / WorkItem 迁入 app.db（`resolveDbPath()` 读 LIRI_DATA_DIR）
 // ⇒ 隔离临时库，避免污染真实 ~/.pyapp/data/app.db
@@ -87,7 +88,7 @@ describe('StageOrchestrator — 2 阶段链（D1/M7）', () => {
       deps(calls),
       undefined,
       undefined,
-      { autoApproveStages: true }
+      { autoApproveStages: true, demand: true }
     );
 
     const status = await orch.run();
@@ -96,6 +97,64 @@ describe('StageOrchestrator — 2 阶段链（D1/M7）', () => {
     expect(status.phase).toBe('completed');
     // 审批门为 auto ⇒ 不再出现 stage_awaiting_approval
     expect(status.stages.every((s) => s.approval === 'auto')).toBe(true);
+    // B13：父级检查点自带 demand 身份（指标 4 取数按顶层行分组）
+    const ck = await readPdcaCheckpoint('stage-test-demand');
+    expect(ck?.demand).toBe(true);
+  });
+
+  it('B13：子 PDCA 挂在工具审批 ⇒ 阶段链停在审批门（不误报阶段完成）', async () => {
+    const calls: string[] = [];
+    const orch = StageOrchestrator.create(
+      'stage-test-paused',
+      '做一个记账小工具',
+      's-paused',
+      {
+        runStage: async (stage) => {
+          calls.push(stage.id);
+          return { artifact: `产物-${stage.id}`, tokens: 10, paused: true };
+        },
+      },
+      undefined,
+      undefined,
+      { autoApproveStages: true }
+    );
+
+    const status = await orch.run();
+
+    // 不得继续跑 design，也不得给出交付清单（阶段并未真正完成）
+    expect(calls).toEqual(['requirement']);
+    expect(status.phase).toBe('stage_awaiting_approval');
+    expect(status.deliveryManifest).toBeUndefined();
+    expect(status.stages.find((s) => s.id === 'requirement')?.status).toBe(
+      'awaiting_approval'
+    );
+  });
+
+  it('B13：子 PDCA 失败 ⇒ 阶段链失败收尾（不误报完成）', async () => {
+    const calls: string[] = [];
+    const orch = StageOrchestrator.create(
+      'stage-test-failed',
+      '做一个记账小工具',
+      's-failed',
+      {
+        runStage: async (stage) => {
+          calls.push(stage.id);
+          return { artifact: '', tokens: 5, failed: true };
+        },
+      },
+      undefined,
+      undefined,
+      { autoApproveStages: true }
+    );
+
+    const status = await orch.run();
+
+    expect(calls).toEqual(['requirement']);
+    expect(status.phase).toBe('failed');
+    expect(status.deliveryManifest).toBeUndefined();
+    expect(status.stages.find((s) => s.id === 'requirement')?.status).toBe(
+      'failed'
+    );
   });
 
   it('非审批挂起状态调用 resumeAfterApproval 抛错', async () => {

@@ -69,6 +69,29 @@ describe('B9：检查点聚合口径', () => {
     expect(summary.demand.samples).toBe(0);
     expect(summary.interactive.samples).toBe(1);
   });
+
+  it('B13：一次阶段链任务只算 1 个样本（父行计入、子阶段行剔除）', () => {
+    const summary = summarizeCheckpoints([
+      row({ taskId: 'pdca_a', demand: true, phase: 'completed' }),
+      row({ taskId: 'pdca_a_requirement', demand: true, phase: 'completed' }),
+      row({ taskId: 'pdca_a_design', demand: true, phase: 'completed' }),
+      row({ taskId: 'pdca_b', phase: 'failed' }),
+    ]);
+    expect(summary.demand.samples).toBe(1);
+    expect(summary.demand.completed).toBe(1);
+    expect(summary.interactive.samples).toBe(1);
+  });
+
+  it('B13：phase 非终态时回退 status（PDL 快路径终态写成 phase=execute）', () => {
+    const summary = summarizeCheckpoints([
+      row({ taskId: 'pdca_fast', phase: 'execute', status: 'completed' }),
+      row({ taskId: 'pdca_fast2', phase: 'execute', status: 'failed' }),
+      row({ taskId: 'pdca_fast3', phase: 'execute', status: 'abort' }),
+    ]);
+    expect(summary.interactive.completed).toBe(1);
+    expect(summary.interactive.failed).toBe(1);
+    expect(summary.interactive.aborted).toBe(1);
+  });
 });
 
 describe('B9：报告文案', () => {

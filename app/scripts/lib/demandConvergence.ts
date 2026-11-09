@@ -4,8 +4,13 @@
  * 与 I/O 分离（脚本 `report-demand-convergence.ts` 只负责读库/打印），便于直驱单测。
  *
  * **口径（写死，避免各人各算）**：
+ * - 样本单位：**根检查点**（一次任务 = 1 样本）。阶段链会为每个阶段另外写 `<父>_<stageId>`
+ *   子检查点；若一并计入，一次 demand 任务会被算成 3 个样本（demand 恒走阶段链，
+ *   而 interactive 多走单条快速路径）⇒ 两组不可比。子检查点仅在父行不存在时才计入。
  * - 分组：检查点 `data.demand === true` ⇒ demand；否则（含旧任务无该字段）⇒ interactive；
- * - 终态：`completed` / `failed` / `abort`（与 `PDCA_TERMINAL_PHASES` 同源）；
+ * - 终态：优先 `phase`（PDCA 相），非终态时回退 `status`（PDL 快路径把终态写成
+ *   `phase:'execute' + status:'completed'`，只读 `phase` 会把已完成算成"进行中"）；
+ *   终态集合 = `completed` / `failed` / `abort`（与 `PDCA_TERMINAL_PHASES` 同源）；
  *   其余（plan / execute / review / decide / plan_pending / stage_awaiting_approval）⇒ 进行中；
  * - **收敛率 = completed / (completed + failed)**：用户中止（abort）不计入分母，
  *   否则"用户主动停掉"会被读成"系统收敛变差"；
@@ -55,6 +60,16 @@ function finalizeStats(stats: CohortStats): void {
     stats.concluded > 0 ? stats.completed / stats.concluded : null;
 }
 
+/** 单个检查点的终态（无终态 ⇒ undefined） */
+function terminalOf(data: Record<string, unknown>): string | undefined {
+  for (const value of [data.phase, data.status]) {
+    if (value === 'completed' || value === 'failed' || value === 'abort') {
+      return value;
+    }
+  }
+  return undefined;
+}
+
 /** 聚合检查点行（`raw` = 检查点 data JSON 原文） */
 export function summarizeCheckpoints(
   rows: ReadonlyArray<{ raw: string }>
@@ -66,6 +81,8 @@ export function summarizeCheckpoints(
     total: rows.length,
   };
 
+  const parsedRows: Array<{ data: Record<string, unknown>; taskId: string }> =
+    [];
   for (const row of rows) {
     let data: Record<string, unknown>;
     try {
@@ -79,10 +96,26 @@ export function summarizeCheckpoints(
       summary.unparsable += 1;
       continue;
     }
+    parsedRows.push({
+      data,
+      taskId: typeof data.taskId === 'string' ? data.taskId : '',
+    });
+  }
 
+  // 根样本判定：`<父 taskId>_<stageId>` 且父行在库 ⇒ 子阶段检查点（父行缺失时保留为样本）
+  const taskIds = new Set(
+    parsedRows.map((r) => r.taskId).filter((id) => id.length > 0)
+  );
+  const isStageChild = (taskId: string): boolean => {
+    const cut = taskId.lastIndexOf('_');
+    return cut > 0 && taskIds.has(taskId.slice(0, cut));
+  };
+
+  for (const { data, taskId } of parsedRows) {
+    if (isStageChild(taskId)) continue;
     const cohort = data.demand === true ? summary.demand : summary.interactive;
     cohort.samples += 1;
-    switch (data.phase) {
+    switch (terminalOf(data)) {
       case 'completed':
         cohort.completed += 1;
         break;
@@ -93,7 +126,7 @@ export function summarizeCheckpoints(
         cohort.aborted += 1;
         break;
       default:
-        // 非终态（含旧任务缺 phase）⇒ 进行中，不计入收敛率
+        // 非终态（含旧任务缺 phase/status）⇒ 进行中，不计入收敛率
         cohort.inProgress += 1;
     }
   }

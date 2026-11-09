@@ -7,6 +7,8 @@ import { getOTelTracing } from '@openliri/infra/monitoring/otel';
 import { resolveDataDir } from '@openliri/infra/environment';
 import { configManager } from '@openliri/infra/config';
 import { PlanDrivenLoop } from '@modules/tasks';
+// P0-1（2026-11-10，demand 准入门）：PDL 快路径的交付留存（与 LRO 同一实现）
+import { persistDemandDeliveryText } from '@modules/tasks';
 import type {
   PlanDrivenLoopResult,
   PlanDrivenLoopConfig,
@@ -328,6 +330,12 @@ export class PdcaLauncher {
             // LRO-11（2026-10-26）：长任务信号压过长度门 + 把"本次执行模式"回写成
             // 一条用户可见消息（此前用户只能从 PDCA 徽标猜，看不出是不是单步直执行）。
             forceDecompose: opts?.forceDecompose,
+            // P0-1 跟进（2026-11-10）：复杂度门只看**用户原话**（`message` 是"用户消息 +
+            // 助手计划正文"的增强源，长度会把短目标顶过阈值 ⇒ 过度分解，真机 `pdca_mw9q1h08`）
+            ...(userMessage ? { classificationSource: userMessage } : {}),
+            // P0-1（2026-11-10，demand 准入门）：许愿式会话走 PDL 时，验收标准前置
+            // 由分解结果承接（缺失即 `PLAN_CRITERIA_MISSING`，不再强制上阶段链）
+            demand: opts?.demand === true,
             onModeDecided: (mode) => {
               this._persistModeHint(sessionId, taskId, mode);
             },
@@ -468,6 +476,9 @@ export class PdcaLauncher {
             projectId,
             description: description.slice(0, 200),
             startedAt,
+            // P0-1（2026-11-10）：demand 目标也可走 PDL 快路径 ⇒ 检查点自带自主度身份
+            // （否则 `stats:demand` 指标 4 会把许愿式任务算成 interactive）
+            ...(opts?.demand ? { demand: true } : {}),
           });
           try {
             // S3 前置（2026-09-05，4.0 审计 §9.8）：补齐 registerPlanLoop 调用点——
@@ -480,27 +491,37 @@ export class PdcaLauncher {
             const aborted = result.aborted === true;
             // PR8（#9）：预算耗尽（成本护栏中止）按 failed 收尾，不误标 completed
             const budgetExhausted = result.budgetExhausted === true;
+            // P0-1（2026-11-10，真机 `pdca_mw9q1h08`）：有未达成步骤 / 因依赖阻断未执行的步骤
+            // **同样不是完成** —— 此前无条件写 'completed'（真机 0/1 步完成却报 completed），
+            // 既误导用户，也让 `stats:demand`（指标 4）把失败任务算成收敛。
+            const incomplete =
+              result.failedSteps > 0 || result.blockedSteps.length > 0;
             await writePdcaCheckpoint(taskId, {
               taskId,
               phase: 'execute',
               status: aborted
                 ? 'abort'
-                : budgetExhausted
+                : budgetExhausted || incomplete
                   ? 'failed'
                   : 'completed',
               sessionId,
               projectId,
               description: description.slice(0, 200),
               completedAt:
-                aborted || budgetExhausted
+                aborted || budgetExhausted || incomplete
                   ? undefined
                   : new Date().toISOString(),
               abortedAt: aborted ? new Date().toISOString() : undefined,
-              failedAt: budgetExhausted ? new Date().toISOString() : undefined,
+              failedAt:
+                budgetExhausted || (!aborted && incomplete)
+                  ? new Date().toISOString()
+                  : undefined,
               startedAt,
               stepCount: result.stepCount,
               completedSteps: result.completedSteps,
               failedSteps: result.failedSteps,
+              // P0-1：终态快照同样自描述（每份快照不依赖前一次合并写）
+              ...(opts?.demand ? { demand: true } : {}),
             });
             logger.info('PlanDrivenLoop 执行完成', {
               sessionId,
@@ -544,23 +565,34 @@ export class PdcaLauncher {
             }
             // P0-5（2026-11-06）：终态回执放在**最后** —— P0-4 过滤任务步骤消息后，这是用户
             // 唯一能看到的「任务结束了、结果如何」的结论（步骤细节仍在编排面板）。
-            this._persistTerminalNotice(
-              sessionId,
-              taskId,
-              formatPdcaTerminalNotice({
-                outcome: aborted
-                  ? 'aborted'
-                  : budgetExhausted
-                    ? 'budget'
-                    : result.failedSteps > 0
-                      ? 'partial'
-                      : 'completed',
-                completed: result.completedSteps,
-                total: result.stepCount,
-                failed: result.failedSteps,
-                blocked: result.blockedSteps.length,
-              })
-            );
+            const terminalText = formatPdcaTerminalNotice({
+              outcome: aborted
+                ? 'aborted'
+                : budgetExhausted
+                  ? 'budget'
+                  : result.failedSteps > 0
+                    ? 'partial'
+                    : 'completed',
+              completed: result.completedSteps,
+              total: result.stepCount,
+              failed: result.failedSteps,
+              blocked: result.blockedSteps.length,
+            });
+            this._persistTerminalNotice(sessionId, taskId, terminalText);
+            // P0-1（2026-11-10）：demand 分流到 PDL 快路径后不再经过 LRO 回执 ⇒
+            // B3 的 `artifacts/<taskId>/delivery.md` 在此补写（同一实现，单一口径）
+            if (opts?.demand) {
+              persistDemandDeliveryText({
+                taskId,
+                sessionId,
+                phase: aborted
+                  ? 'abort'
+                  : budgetExhausted || result.failedSteps > 0
+                    ? 'failed'
+                    : 'completed',
+                text: terminalText,
+              });
+            }
           } catch (e) {
             await writePdcaCheckpoint(taskId, {
               taskId,
@@ -578,19 +610,22 @@ export class PdcaLauncher {
               context: { sessionId },
             });
             // P0-5：失败也必须给用户一条可见结论（原先只写日志/检查点）
-            this._persistTerminalNotice(
-              sessionId,
-              taskId,
-              formatPdcaTerminalNotice({
-                outcome: 'failed',
-                completed: 0,
-                total: 0,
-                error: (e instanceof Error ? e.message : String(e)).slice(
-                  0,
-                  160
-                ),
-              })
-            );
+            const failedText = formatPdcaTerminalNotice({
+              outcome: 'failed',
+              completed: 0,
+              total: 0,
+              error: (e instanceof Error ? e.message : String(e)).slice(0, 160),
+            });
+            this._persistTerminalNotice(sessionId, taskId, failedText);
+            // P0-1（2026-11-10）：demand 失败同样留交付回执（与 LRO 的 abort/failed 同口径）
+            if (opts?.demand) {
+              persistDemandDeliveryText({
+                taskId,
+                sessionId,
+                phase: 'failed',
+                text: failedText,
+              });
+            }
           } finally {
             unregisterPlanLoop(taskId, planLoop);
           }
@@ -620,8 +655,12 @@ export class PdcaLauncher {
 
         // D1（M7，2026-08-13）：隐性模式改按阶段策略——需求阶段产出 PRD 后 stage_approval
         // 审批，approve 才进设计（"先商量后执行"真正落地）。父 checkpoint 承载阶段链状态。
-        const { StageOrchestrator, buildStagePrompt, collectStageArtifact } =
-          await import('../../tasks/StageOrchestrator');
+        const {
+          StageOrchestrator,
+          buildStagePrompt,
+          collectStageArtifact,
+          readStageChildOutcome,
+        } = await import('../../tasks/StageOrchestrator');
         const { getOrCreateOrchestrator } =
           await import('../../tasks/LongRunningTaskOrchestrator');
 
@@ -731,10 +770,14 @@ export class PdcaLauncher {
               // 首个阶段完成采样后，后续阶段统一继承（子任务自身不重新采样）
               chainPolicySnapshot =
                 child.getPolicySnapshot() ?? chainPolicySnapshot;
+              // B13（2026-11-09，真机 `pdca_mw9gube7_design` / `pdca_mw9hbaiy_requirement`）：
+              // 子 PDCA 挂起或失败时 `runFullPdca` 都**正常返回** ⇒ 必须显式上报，
+              // 否则阶段链把未完成的阶段误判为"阶段完成"（父级假 `completed`）
               return {
                 artifact: collectStageArtifact(child),
                 // D4（M4）：阶段边界显式回写 token（成本护栏数据源）
                 tokens: child.getTokenUsage(),
+                ...readStageChildOutcome(child),
               };
             },
           },
@@ -753,7 +796,11 @@ export class PdcaLauncher {
           // D3 消费（偏差 2）：需求追踪 ID 贯穿阶段链
           requirementId,
           // B2（2026-11-09）：demand 会话跳过阶段审批（"计划待确认"），一气呵成到交付
-          { autoApproveStages: opts?.demand === true }
+          // B13（2026-11-09）：父级检查点同样写入 demand 身份（此前只有子阶段检查点带）
+          {
+            autoApproveStages: opts?.demand === true,
+            demand: opts?.demand === true,
+          }
         );
 
         // 4.0-1（2026-09-04）：await 到阶段链完成（同快速路径——锁覆盖整个执行期）

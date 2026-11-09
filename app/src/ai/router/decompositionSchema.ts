@@ -57,6 +57,14 @@ export const parsedSubTaskSchema = z.object({
    * 不在此处判失败 —— 一个**可选新字段**的取值噪声不应把整次分解降级为单步。
    */
   dependsOnMode: z.string().optional(),
+  /**
+   * P0-1（2026-11-10，demand 准入门）：子任务的**可判定验收标准**。
+   *
+   * 许愿式（demand）会话改走 PDL 快路径后，B2 的"验收标准前置"由分解结果承接
+   * （原先只有阶段链子 PDCA 的 planner 产出验收标准）。**宽进**：缺省 ⇒ 由调用方
+   * 按 demand 口径 fail-closed 处置，不在此判整次分解失败。
+   */
+  acceptanceCriteria: z.string().optional(),
 });
 
 export type ParsedSubTaskJson = z.infer<typeof parsedSubTaskSchema>;

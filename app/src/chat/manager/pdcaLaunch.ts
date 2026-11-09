@@ -467,19 +467,26 @@ export class PdcaLaunchCoordinator {
         });
       return;
     }
-    // B2（2026-11-09）：demand（许愿式）会话 —— 强制走经典阶段链（PlanDrivenLoop 快速路径
-    // 不产出验收标准，无法满足"验收前置"）；其余分流逻辑不变。
+    // P0-1（2026-11-10，demand 准入门）：demand **不再无条件**走经典阶段链。
+    // B2 当初的理由是"PDL 不产出验收标准"，该缺口已由 `TaskDecomposer` 的
+    // `acceptanceCriteria` + `PlanDrivenLoop` 的 fail-closed 前置补齐 ⇒ 现在与交互会话
+    // 共用同一个复杂度门：简单目标走 PDL 快路径（省掉两段子 PDCA），复杂/危险才上阶段链。
     const demandMode = isDemandSession(session.metadata);
     // OBS（M3a）：分流决策 trace——记录走 PDL 快速路径还是经典阶段链
-    const usePlanDriven =
-      !demandMode && this.deps.shouldUsePlanDrivenLoop(lastUserContent || '');
+    const usePlanDriven = this.deps.shouldUsePlanDrivenLoop(
+      lastUserContent || ''
+    );
     const decisionReasons = demandMode
-      ? ['demand-goal', 'stage-chain']
+      ? usePlanDriven
+        ? ['demand-goal', 'simple']
+        : ['demand-goal', 'complex-or-dangerous']
       : usePlanDriven
         ? ['simple', 'no-dangerous-tool']
         : ['complex-or-dangerous'];
     const decisionMsg = demandMode
-      ? '许愿式：跳过计划待确认，验收标准前置后直接执行'
+      ? usePlanDriven
+        ? '许愿式：跳过计划待确认，快速路径执行（验收标准前置）'
+        : '许愿式：跳过阶段审批，走经典 PDCA 阶段链'
       : usePlanDriven
         ? '简单任务走 PlanDrivenLoop 快速路径'
         : '复杂/危险任务走经典 PDCA 阶段链';

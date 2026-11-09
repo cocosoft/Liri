@@ -80,6 +80,13 @@ export interface SubTask {
   /** 依赖的子任务 ID 列表（这些子任务完成后才能执行本任务） */
   dependsOn: string[];
   /**
+   * P0-1（2026-11-10）：本子任务的**可判定验收标准**（一次工具输出即可判定）。
+   *
+   * demand（许愿式）会话走 PDL 快路径时，用它承接 B2 的"验收标准前置"；
+   * 非 demand 会话缺省（`undefined`）⇒ 计划步骤不带验收标准，行为与改造前一致。
+   */
+  acceptanceCriteria?: string;
+  /**
    * 13-P1-1：依赖模式 —— `'hard'` = 前驱失败则本步跳过（阻断传播）；`'soft'` = 不阻断
    * （前驱失败时仍执行，但会收到显式 `[DEPENDENCY_DEGRADED]` 标注，见 Step 1）。
    *
@@ -120,6 +127,9 @@ const DECOMPOSE_PROMPT = `你是任务分解专家。请把用户的请求拆解
    - "soft"：依赖失败时仍照常执行该子任务 —— 仅当该子任务在输入部分/完全缺失时仍可正当推进
      （例如可选的补充信息、尽力而为的上下文收集）时使用。soft 子任务会收到一条显式的 [DEPENDENCY_DEGRADED] 通知。
    省略该字段即采用默认值（"hard"）。
+7. 为每个子任务给出验收标准 "acceptanceCriteria"（一句话）：执行完该子任务后，**一次工具调用
+   的输出即可判定真假**。涉及文件产物用「file_read 读取 <相对路径> 返回内容包含 <具体文本>」；
+   目录类用「glob 在 <相对路径> 下能列出 <名>」。禁止把 shell 当判定动作，禁止字节级/元数据类条件。
 
 只返回一个 JSON 对象：
 {
@@ -131,7 +141,8 @@ const DECOMPOSE_PROMPT = `你是任务分解专家。请把用户的请求拆解
       "description": "clear description of what this subtask does",
       "tier": "simple|medium|complex|reasoning",
       "dependsOn": [],
-      "dependsOnMode": "hard"
+      "dependsOnMode": "hard",
+      "acceptanceCriteria": "file_read 读取 output/report.md 返回内容包含 \"## 结论\""
     }
   ]
 }
@@ -262,6 +273,10 @@ export class TaskDecomposer {
           dependsOn: st.dependsOn ?? [],
           // 13-P1-1 Step 2（2026-10-06）：透传模型给出的依赖模式（逃生门）；缺省/噪声 ⇒ undefined
           dependsOnMode: this.normalizeDependencyMode(st.dependsOnMode),
+          // P0-1（2026-11-10）：透传验收标准（留空 ⇒ 由消费方按 demand 口径处置）
+          ...(st.acceptanceCriteria?.trim()
+            ? { acceptanceCriteria: st.acceptanceCriteria.trim() }
+            : {}),
           status: 'pending' as const,
         }));
 

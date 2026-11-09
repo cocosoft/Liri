@@ -16,7 +16,12 @@
  */
 
 import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
-import { handleError } from '@openliri/infra/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@openliri/infra/error';
 // C1（2026-09-30 D-121，`R00-003` P2/G1）：SSE 广播改经 core SPI 端口（core 内自洽）
 import { resolveBroadcast } from '@openliri/kernel';
 import { TAORLoop } from '@modules/query/TAORLoop.js';
@@ -164,6 +169,25 @@ export interface PlanDrivenLoopConfig {
    * ⇒ 本次 run **不使用**快速路径（走分解；分解失败再降级直执行）。
    */
   forceDecompose?: boolean;
+  /**
+   * P0-1（2026-11-10，demand 准入门）：会话处于许愿式（demand）自主度。
+   *
+   * 语义（与阶段链一致，仅"验收标准前置"一项）：
+   * - 分解路径：每个子任务**必须**有可判定验收标准（缺失即 fail-closed，落
+   *   `PLAN_CRITERIA_MISSING`），验收标准来自 `TaskDecomposer` 的分解结果；
+   * - 单步快路径（`_executeDirect`，无计划步骤）：无步骤可审 ⇒ 不做该前置校验
+   *   （与改造前 demand 走阶段链时的 trivial 目标等价，不额外放宽任何工具/权限判定）。
+   */
+  demand?: boolean;
+  /**
+   * P0-1 跟进（2026-11-10，真机 `pdca_mw9q1h08`）：**复杂度门只看用户原话**。
+   *
+   * `run()` 的入参是"用户消息 + 助手计划正文"的增强计划源（P2-2），长度常远超阈值
+   * ⇒ 23 字的许愿目标被判 complex、分解成 4 步并全部失败。本字段供调用方传入
+   * **用户原话**专供长度/复杂度判定；规划、直接执行、分解仍用 `run()` 的增强源。
+   * 缺省（未注入）⇒ 退回 `run()` 入参，行为与改造前一致。
+   */
+  classificationSource?: string;
   /**
    * LRO-11（2026-10-26）：**执行模式确定回调**（供调用方给用户一条可见提示）。
    *
@@ -411,6 +435,10 @@ export class PlanDrivenLoop {
   private escalateFailureRate: number;
   /** LRO-11：长任务信号强制分解（压过消息长度门） */
   private forceDecompose: boolean;
+  /** P0-1 跟进：复杂度门判定专用文本（用户原话；缺省退回 `run()` 入参） */
+  private readonly classificationSource?: string;
+  /** P0-1：许愿式（demand）会话 —— 分解结果必须带可判定验收标准 */
+  private readonly demand: boolean;
   /** LRO-11：执行模式确定回调（simple / decomposed / direct） */
   private onModeDecided?: (mode: 'simple' | 'decomposed' | 'direct') => void;
 
@@ -457,6 +485,8 @@ export class PlanDrivenLoop {
       config.escalateFailureRate ?? DEFAULT_ESCALATE_FAILURE_RATE;
     // LRO-11：长任务信号压过长度门 + 执行模式回调（缺省不启用，行为零变化）
     this.forceDecompose = config.forceDecompose === true;
+    this.demand = config.demand === true;
+    this.classificationSource = config.classificationSource;
     this.onModeDecided = config.onModeDecided;
 
     if (config.decomposerProvider) {
@@ -509,8 +539,11 @@ export class PlanDrivenLoop {
       // 复杂度判定门：简单任务跳过分解，直接执行（T-②05：阈值取本次生效判据）
       // 13-P2-2：接**最小回流点**——简单路径近期失败率偏高 ⇒ 不走近路（升级为分解/经典路径）
       // LRO-11（2026-10-26）：长任务信号（forceDecompose）**压过**长度门。
+      // P0-1 跟进（2026-11-10）：判定只看**用户原话**（`classificationSource`）—— 增强计划源
+      // 里的助手正文会把"解释一下 X"这类短目标顶过长度门，导致过度分解（真机 `pdca_mw9q1h08`）。
+      const classifyText = this.classificationSource?.trim() || userMessage;
       let useSimplePath = decideSimplePath({
-        message: userMessage,
+        message: classifyText,
         policy: this.fastPathPolicy,
         forceDecompose: this.forceDecompose,
       });
@@ -518,7 +551,7 @@ export class PlanDrivenLoop {
         logger.info('长任务信号升级：跳过快速路径，强制分解', {
           sessionId: this.sessionId,
           taskId: this.taskId,
-          messageLength: userMessage.trim().length,
+          messageLength: classifyText.trim().length,
         });
       }
       if (useSimplePath) {
@@ -557,6 +590,7 @@ export class PlanDrivenLoop {
       }
 
       // 尝试分解
+      let decomposed: DecompositionResult | undefined;
       if (this.enableAutoDecompose && this.decomposer) {
         try {
           span.addEvent('planDrivenLoop.decompose.start');
@@ -569,19 +603,13 @@ export class PlanDrivenLoop {
               sessionId: this.sessionId,
               stepCount: decomposition.subTasks.length,
             });
-            // LRO-11：先告知调用方本次执行模式（用户可见提示），再执行
-            this.onModeDecided?.('decomposed');
-            // A1（2026-10-01）：原此处调用 selectPattern 记录所套模式——该决策对本层无任何
-            // 执行后果（PDL 只能分解/直执行，无法承接 competitive_strategy），且输入是硬编码
-            // 字面量 ⇒ 必然退化为日志。决策权已归位到分流层（ChatManager._maybeLaunchPdca，
-            // 见 .trae/specs/pattern-executable-assembly.md §3.3），本层不再重复选择。
-            return this._recordOutcome(
-              'decomposed',
-              await this._executeDecomposed(userMessage, decomposition)
-            );
+            decomposed = decomposition;
+          } else {
+            span.addEvent('planDrivenLoop.decompose.singleTask');
           }
-          span.addEvent('planDrivenLoop.decompose.singleTask');
         } catch (err) {
+          // P0-1（2026-11-10）：catch **只覆盖分解本身** —— 执行期错误（尤其是 demand 的
+          // `PLAN_CRITERIA_MISSING`）不得被这里吞成"降级直执行"，否则验收标准前置静默失效。
           span.addEvent('planDrivenLoop.decompose.failed', {
             error: String(err),
           });
@@ -590,6 +618,18 @@ export class PlanDrivenLoop {
             sessionId: this.sessionId,
           });
         }
+      }
+      if (decomposed) {
+        // LRO-11：先告知调用方本次执行模式（用户可见提示），再执行
+        this.onModeDecided?.('decomposed');
+        // A1（2026-10-01）：原此处调用 selectPattern 记录所套模式——该决策对本层无任何
+        // 执行后果（PDL 只能分解/直执行，无法承接 competitive_strategy），且输入是硬编码
+        // 字面量 ⇒ 必然退化为日志。决策权已归位到分流层（ChatManager._maybeLaunchPdca，
+        // 见 .trae/specs/pattern-executable-assembly.md §3.3），本层不再重复选择。
+        return this._recordOutcome(
+          'decomposed',
+          await this._executeDecomposed(userMessage, decomposed)
+        );
       }
 
       span.addEvent('planDrivenLoop.directExecute');
@@ -826,12 +866,33 @@ export class PlanDrivenLoop {
         .map((depId) => idxById.get(depId))
         .filter((idx): idx is number => typeof idx === 'number')
     );
+    // P0-1（2026-11-10，demand 准入门）：**验收标准前置**由分解结果承接。
+    // 许愿式会话没有人在环上兜底 ⇒ 某步缺失可判定验收标准就不允许开工（与阶段链
+    // 子 PDCA 的 `PLAN_CRITERIA_MISSING` 同口径）；非 demand 会话保持原行为（undefined）。
+    const acceptance = this.demand
+      ? subtasks.map((t) => (t.acceptanceCriteria ?? '').trim())
+      : undefined;
+    if (acceptance) {
+      const missing = acceptance
+        .map((c, index) => (c ? -1 : index))
+        .filter((index) => index >= 0);
+      if (missing.length > 0) {
+        throw new AppError(
+          'demand 计划缺少可判定的验收标准',
+          ErrorCategory.VALIDATION,
+          ErrorSeverity.HIGH,
+          'PLAN_CRITERIA_MISSING',
+          { missingSteps: missing.map((index) => index + 1) }
+        );
+      }
+    }
+
     this.plan = taskOrchestrator.createPlan(
       userMessage.slice(0, 200),
       subtasks.map((t) => t.description),
       this.sessionId,
       undefined,
-      undefined,
+      acceptance,
       workspaceId,
       dependsOnIdx
     );
@@ -846,6 +907,9 @@ export class PlanDrivenLoop {
         status: 'running',
         sessionId: this.sessionId,
         projectId: this.projectId,
+        // P0-1（2026-11-10）：demand 走 PDL 后，检查点必须自带自主度身份 ——
+        // 否则 `stats:demand`（指标 4）会把许愿式任务算成 interactive。
+        ...(this.demand ? { demand: true } : {}),
       });
     }
 
@@ -916,6 +980,8 @@ export class PlanDrivenLoop {
         status: 'running',
         sessionId: this.sessionId,
         projectId: this.projectId,
+        // P0-1（2026-11-10）：同上，执行快照同样自带 demand 身份
+        ...(this.demand ? { demand: true } : {}),
       });
     }
     for (const batch of topoBatches) {

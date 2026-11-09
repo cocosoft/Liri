@@ -213,6 +213,8 @@ export { setPdcaReceiptSink } from './lro/terminalReceipt';
 export { emitPdcaInterruptedReceipts } from './lro/terminalReceipt';
 // B6（2026-11-09）：demand 会话中途发言并入当前计划（设计稿 §5-1；chat 侧单一入口）
 export { appendSupplementToSession } from './lro/demandSupplement';
+// P0-1（2026-11-10，demand 准入门）：PDL 快路径的交付留存（B3 契约在分流变化后仍生效）
+export { persistDemandDeliveryText } from './lro/terminalReceipt';
 // 2026-11-08（D55）：启动期失败收口（CLI `/goal start` 用；经本出口导出，禁止直连 lro 子目录）
 export { markStartFailure } from './lro/checkpointPersist';
 // P2（2026-11-04，方案 §3.3）：会话活跃长程任务（任务档审批的判定依据）

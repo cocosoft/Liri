@@ -363,6 +363,22 @@ function persistDemandDelivery(input: {
 }
 
 /**
+ * P0-1（2026-11-10，demand 准入门）：**非 LRO 路径**的交付留存入口。
+ *
+ * 背景：demand 目标按规模分流后，trivial 走 PDL 快路径 ⇒ 不再经过
+ * `emitPdcaReceiptFromAudit`，B3 的 `<data>/artifacts/<taskId>/delivery.md`
+ * 会静默缺失。此处复用**同一实现**（单一口径），由启动器在 PDL 终态调用。
+ */
+export function persistDemandDeliveryText(input: {
+  taskId: string;
+  sessionId?: string | null;
+  phase: string;
+  text: string;
+}): void {
+  persistDemandDelivery(input);
+}
+
+/**
  * 原文回执（异常/非标准路径用）：不经过步数投影，避免为凑文案而**编造步数**（CS04）。
  */
 export function emitPdcaReceiptText(input: {

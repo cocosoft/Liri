@@ -382,3 +382,186 @@ describe('13-P1-1 Step 2: 缺省 hard 翻转后 PDL 阻断行为', () => {
     }
   });
 });
+
+/**
+ * P0-1（2026-11-10，demand 准入门）：许愿式会话改走 PDL 后，"验收标准前置"
+ * 由分解结果承接 —— 缺失即 fail-closed，不得带病开工。
+ */
+describe('P0-1: demand 准入门 —— 分解结果的验收标准前置', () => {
+  const LONG_MSG =
+    '这是一个足够长的复杂任务描述，用于强制走分解路径而不是快速路径';
+  const POLICY = { maxSimpleTaskLength: 10, dangerousIntentPatterns: [] };
+
+  const makeLoop = () =>
+    ({
+      reset: () => {},
+      runCollect: async () => ({ totalTokens: 1, turnCount: 1 }),
+      getLastAssistantText: () => '已完成',
+    }) as unknown as TAORLoop;
+
+  const makeProvider = (subTasks: unknown[]) =>
+    ({
+      id: 'test-provider',
+      displayName: 'Test Provider',
+      chat: async () => ({
+        content: JSON.stringify({
+          mainTier: 'complex',
+          reasoning: 'r',
+          subTasks,
+        }),
+        model: 'test-model',
+      }),
+      listModels: async () => [],
+      validateConfig: () => ({ valid: true, errors: [] }),
+    }) as unknown as AIProvider;
+
+  /** 临时数据目录 + 计划目录隔离（与同文件既有用例同法） */
+  const withTempData = async (fn: () => Promise<void>): Promise<void> => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'pdl-demand-'));
+    const prevDataDir = process.env.LIRI_DATA_DIR;
+    process.env.LIRI_DATA_DIR = dataDir;
+    taskOrchestrator.setPlansDir(join(dataDir, 'plans'));
+    try {
+      await fn();
+    } finally {
+      if (prevDataDir === undefined) delete process.env.LIRI_DATA_DIR;
+      else process.env.LIRI_DATA_DIR = prevDataDir;
+      try {
+        rmSync(dataDir, {
+          recursive: true,
+          force: true,
+          maxRetries: 5,
+          retryDelay: 100,
+        });
+      } catch {
+        /* 临时目录清理失败不影响测试结论 */
+      }
+    }
+  };
+
+  it('demand + 分解缺验收标准 ⇒ PLAN_CRITERIA_MISSING（不带病开工）', async () => {
+    await withTempData(async () => {
+      const pdl = new PlanDrivenLoop({
+        taorLoop: makeLoop(),
+        deps: {} as TAORLoopDeps,
+        sessionId: 's-demand-missing',
+        enableAutoDecompose: true,
+        decomposerProvider: makeProvider([
+          { id: 'step-1', description: '步骤A' },
+          { id: 'step-2', description: '步骤B', dependsOn: ['step-1'] },
+        ]),
+        fastPathPolicy: POLICY,
+        demand: true,
+      });
+      await expect(pdl.run(LONG_MSG)).rejects.toMatchObject({
+        code: 'PLAN_CRITERIA_MISSING',
+      });
+    });
+  });
+
+  it('demand + 分解带验收标准 ⇒ 计划步骤落 acceptanceCriteria', async () => {
+    await withTempData(async () => {
+      const pdl = new PlanDrivenLoop({
+        taorLoop: makeLoop(),
+        deps: {} as TAORLoopDeps,
+        sessionId: 's-demand-ok',
+        enableAutoDecompose: true,
+        decomposerProvider: makeProvider([
+          {
+            id: 'step-1',
+            description: '步骤A',
+            acceptanceCriteria: 'file_read 读取 output/a.md 返回内容包含 "A"',
+          },
+          {
+            id: 'step-2',
+            description: '步骤B',
+            dependsOn: ['step-1'],
+            acceptanceCriteria: 'file_read 读取 output/b.md 返回内容包含 "B"',
+          },
+        ]),
+        fastPathPolicy: POLICY,
+        demand: true,
+      });
+      await pdl.run(LONG_MSG);
+
+      const plan = (
+        pdl as unknown as {
+          plan: { steps: Array<{ acceptanceCriteria?: string }> };
+        }
+      ).plan;
+      expect(plan.steps.map((s) => s.acceptanceCriteria)).toEqual([
+        'file_read 读取 output/a.md 返回内容包含 "A"',
+        'file_read 读取 output/b.md 返回内容包含 "B"',
+      ]);
+    });
+  });
+
+  it('非 demand 会话保持原行为：缺验收标准不拦（零回归）', async () => {
+    await withTempData(async () => {
+      const pdl = new PlanDrivenLoop({
+        taorLoop: makeLoop(),
+        deps: {} as TAORLoopDeps,
+        sessionId: 's-interactive',
+        enableAutoDecompose: true,
+        decomposerProvider: makeProvider([
+          { id: 'step-1', description: '步骤A' },
+          { id: 'step-2', description: '步骤B', dependsOn: ['step-1'] },
+        ]),
+        fastPathPolicy: POLICY,
+      });
+      await pdl.run(LONG_MSG);
+
+      const plan = (
+        pdl as unknown as {
+          plan: { steps: Array<{ acceptanceCriteria?: string }> };
+        }
+      ).plan;
+      expect(plan.steps.every((s) => s.acceptanceCriteria === undefined)).toBe(
+        true
+      );
+    });
+  });
+
+  it('复杂度门只看用户原话：长增强源 + 短原话 ⇒ simple 快路径', async () => {
+    await withTempData(async () => {
+      const modes: string[] = [];
+      const pdl = new PlanDrivenLoop({
+        taorLoop: makeLoop(),
+        deps: {} as TAORLoopDeps,
+        sessionId: 's-classify-short',
+        enableAutoDecompose: true,
+        decomposerProvider: makeProvider([
+          { id: 'step-1', description: '步骤A' },
+          { id: 'step-2', description: '步骤B', dependsOn: ['step-1'] },
+        ]),
+        fastPathPolicy: POLICY,
+        // 用户原话只有 8 字（阈值 10）⇒ 判 simple，不分解
+        classificationSource: '解释一下依赖注入',
+        onModeDecided: (mode) => modes.push(mode),
+      });
+      // 入参是"用户消息 + 助手计划正文"的增强源（远超阈值）
+      await pdl.run(LONG_MSG);
+      expect(modes).toEqual(['simple']);
+    });
+  });
+
+  it('未注入分类文本 ⇒ 退回 run 入参（旧行为，长文本仍分解）', async () => {
+    await withTempData(async () => {
+      const modes: string[] = [];
+      const pdl = new PlanDrivenLoop({
+        taorLoop: makeLoop(),
+        deps: {} as TAORLoopDeps,
+        sessionId: 's-classify-default',
+        enableAutoDecompose: true,
+        decomposerProvider: makeProvider([
+          { id: 'step-1', description: '步骤A' },
+          { id: 'step-2', description: '步骤B', dependsOn: ['step-1'] },
+        ]),
+        fastPathPolicy: POLICY,
+        onModeDecided: (mode) => modes.push(mode),
+      });
+      await pdl.run(LONG_MSG);
+      expect(modes).toEqual(['decomposed']);
+    });
+  });
+});

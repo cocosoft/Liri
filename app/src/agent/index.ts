@@ -243,6 +243,7 @@ export type { AgentIsolation } from './AgentIsolation.js';
 export {
   createAgentIsolation,
   resolveTaskWorkspace,
+  toWorkspaceRelativePath,
   throwIfAborted,
   registerIsolationToScope,
 } from './AgentIsolation.js';

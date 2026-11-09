@@ -34,6 +34,34 @@ export function resolveTaskWorkspace(agentId: string): string {
 }
 
 /**
+ * 把工具台账里的路径归一为**相对工作区**的路径（无法归属 ⇒ undefined）。
+ *
+ * 产物台账（`step.artifacts`）记录的是模型调用工具时传入的原始路径，可能是相对路径、
+ * 也可能被模型写成工作区绝对路径 ⇒ 消费方（replan 复用 / 目标门取证）需要同一套换算。
+ *
+ * 2026-11-09：与 `resolveTaskWorkspace` 同属"工作区路径规则唯一事实源"，避免两个消费方各写一遍。
+ */
+export function toWorkspaceRelativePath(
+  workspace: string,
+  rawPath: string
+): string | undefined {
+  const raw = rawPath.trim();
+  if (!raw) return undefined;
+  const normalized = raw.replaceAll('\\', '/');
+  const root = workspace.replaceAll('\\', '/').replace(/\/+$/, '');
+  const isAbsolute =
+    /^[A-Za-z]:\//.test(normalized) || normalized.startsWith('/');
+  if (isAbsolute) {
+    // Windows 路径大小写不敏感：按小写前缀归属，保留下原大小写
+    if (!normalized.toLowerCase().startsWith(`${root.toLowerCase()}/`)) {
+      return undefined;
+    }
+    return normalized.slice(root.length + 1);
+  }
+  return normalized.replace(/^(\.\/)+/, '');
+}
+
+/**
  * 为指定 Agent 创建隔离环境
  */
 export function createAgentIsolation(agentId: string): AgentIsolation {

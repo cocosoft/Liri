@@ -36,8 +36,13 @@ import {
 } from './blockedCommandLedger.js';
 // 2026-11-08（真机 `pdca_mw7bjwo8`）：续跑失败的收口（失败检查点 + ⚠️ 回执）
 import { markResumeFailure } from './checkpointPersist.js';
-// 方案 C（2026-11-09）：replan 前拍产物清单 + 发"将重跑 N 步"回执（不改执行语义）
-import { prepareReplan } from './replanGuard.js';
+// 方案 C（2026-11-09）：replan 前拍产物清单 + 发"将重跑 N 步"回执
+// P0-2（2026-11-09）：产物未变的已完成步骤增量复用，不再全量重跑
+import {
+  applyReusableSteps,
+  prepareReplan,
+  type PreviousStepSnapshot,
+} from './replanGuard.js';
 
 const logger = getLogger('tasks:longRunning');
 
@@ -212,15 +217,25 @@ async function resumeFromCheckpointCore(
       replanFailCount,
       defectCount: deps.getLastEscalations().length,
     });
-    // 方案 C（2026-11-09，真机 `pdca_mw81e4z5`）：replan 会**重建整份计划**（全部 pending）
-    // ⇒ 已完成步骤被重跑、产物被重写。此前对用户完全静默 ⇒ 这里补「成本可见 + 现场可回溯」：
-    // 产物清单快照 + 一条回执（不改变执行语义）。
-    prepareReplan({
+    // 方案 C（2026-11-09，真机 `pdca_mw81e4z5`）：replan 会重建整份计划。
+    // P0-2（2026-11-09，真机 `pdca_mw8nknox`）：`completed` 且产物未变的步骤**增量复用**，
+    // 只重跑失败/受影响步骤（此前全量重跑会把已完成步骤的产物无谓重写）。
+    const replanSummary = prepareReplan({
       taskId: deps.taskId,
       sessionId,
-      previousSteps: steps as Array<{ status?: string; description?: string }>,
+      previousSteps: steps as unknown as PreviousStepSnapshot[],
+      defects: deps.getLastEscalations(),
     });
-    await deps.executePlanPhase(descriptionText, sessionId);
+    const plan = await deps.executePlanPhase(descriptionText, sessionId);
+    const reused = applyReusableSteps(plan, replanSummary.reusable);
+    if (reused > 0) {
+      logger.info('[orchestrator] replan 复用产物未变步骤', {
+        taskId: deps.taskId,
+        reused,
+        planned: replanSummary.reusable.length,
+      });
+      await deps.persistCheckpoint();
+    }
     deps.setLastEscalations([]);
     return deps.runExecuteDecideLoop();
   }

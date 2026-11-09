@@ -87,6 +87,9 @@ export async function runGoalConvergenceGate(
         status: s.status,
         result: s.result,
         review: s.reviewResult?.summary,
+        // 2026-11-09（真机 `pdca_mw8nknox`）：带上产物台账 ⇒ 目标门可回读**最终产物**取证，
+        // 避免仅凭历史审查文本判未收敛（假失败 + 全量 replan）。
+        artifacts: s.artifacts,
       })),
     },
     deps.ctx
@@ -98,6 +101,15 @@ export async function runGoalConvergenceGate(
     converged: goalConv.converged,
     confidence: goalConv.confidence,
     reason: goalConv.reason,
+  });
+  // 2026-11-09：成功路径也留一条可断言记录（验收脚本据此确认"目标门确实执行过"，
+  // 避免场景 A 在评估从未到达时被"没有未收敛标记"误判为通过）。
+  logger.info('目标级评估完成', {
+    taskId,
+    planId,
+    converged: goalConv.converged,
+    confidence: goalConv.confidence,
+    evaluated: goalConv.evaluated,
   });
   // L7（2026-09-06）：仅模型明确 false 才阻止假完成——undefined（评估失败/超时/
   // 未给明确 bool）按"跳过结论"处理，不阻塞主流程也不误判未达成。

@@ -9,8 +9,12 @@
  * - isGoalEvaluateEnabled 默认启用
  */
 import { describe, test, expect } from 'bun:test';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { resolveTaskWorkspace } from '@modules/agent';
 import {
   GoalEvaluateGate,
+  collectArtifactEvidence,
   isGoalEvaluateEnabled,
 } from '../../../src/tasks/review/GoalEvaluateGate';
 import type { GoalEvaluateContext } from '../../../src/tasks/review/GoalEvaluateGate';
@@ -91,5 +95,93 @@ describe('GoalEvaluateGate（P1-3）', () => {
 
   test('isGoalEvaluateEnabled 默认启用（未配置环境变量时）', () => {
     expect(isGoalEvaluateEnabled()).toBe(true);
+  });
+
+  test('converged=null ⇒ 未决（跳过结论，不阻塞主流程）', async () => {
+    const ctx = fakeContext(async () =>
+      JSON.stringify({ converged: null, confidence: 0, reason: '证据不足' })
+    );
+    const r = await gate.evaluate(input, ctx);
+    expect(r.evaluated).toBe(false);
+    expect(r.converged).toBeUndefined();
+    expect(r.reason).toBe('证据不足');
+  });
+
+  test('取证闭环：回读产物最终内容 + 标注"历史审查" + 允许 converged=null', async () => {
+    const taskId = `pdca_goal_evidence_${Date.now()}`;
+    const workspace = resolveTaskWorkspace(taskId);
+    mkdirSync(workspace, { recursive: true });
+    writeFileSync(
+      join(workspace, 'game.js'),
+      "const canvas = document.getElementById('gameCanvas');",
+      'utf-8'
+    );
+    let capturedPrompt = '';
+    try {
+      const ctx: GoalEvaluateContext = {
+        isolation: {
+          abortController: new AbortController(),
+          workspace,
+        } as unknown as AgentIsolation,
+        executor: async (params) => {
+          capturedPrompt = params.userPrompt;
+          return JSON.stringify({
+            converged: true,
+            confidence: 0.9,
+            reason: '已修复',
+          });
+        },
+      };
+      await gate.evaluate(
+        {
+          goal: '修复 canvas 引用',
+          steps: [
+            {
+              description: '修复 index.html 引用',
+              status: 'completed',
+              result: 'done',
+              // 陈旧审查文本：第 5 步已修复，但这里仍保留第 4 步的历史结论
+              review: "game.js 用 getElementById('game')",
+              artifacts: ['game.js'],
+            },
+          ],
+        },
+        ctx
+      );
+      // 最终产物内容必须进入评估输入（而不是只让模型看陈旧审查）
+      expect(capturedPrompt).toContain("getElementById('gameCanvas')");
+      expect(capturedPrompt).toContain('历史快照');
+      expect(capturedPrompt).toContain('converged=null');
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  test('取证边界：长文件截断 / 二进制与目录跳过 / 缺失工作区不阻断', () => {
+    const taskId = `pdca_goal_evidence_bounds_${Date.now()}`;
+    const workspace = resolveTaskWorkspace(taskId);
+    mkdirSync(workspace, { recursive: true });
+    try {
+      writeFileSync(join(workspace, 'long.txt'), 'x'.repeat(7000), 'utf-8');
+      writeFileSync(join(workspace, 'img.png'), 'PNGDATA', 'utf-8');
+      mkdirSync(join(workspace, 'subdir'));
+
+      const evidence = collectArtifactEvidence(workspace, [
+        'long.txt',
+        'img.png',
+        'subdir',
+        'missing.txt',
+      ]);
+      expect(evidence).toContain('### long.txt');
+      expect(evidence).toContain('已截断');
+      expect(evidence).not.toContain('img.png');
+      expect(evidence).not.toContain('subdir');
+      expect(evidence).not.toContain('missing.txt');
+
+      expect(collectArtifactEvidence(undefined, ['long.txt'])).toBe('');
+      expect(collectArtifactEvidence(workspace, [])).toBe('');
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
   });
 });

@@ -20,7 +20,12 @@ import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@openliri/infra/monitoring';
 
 import { getRealToolNamesForTask } from '../../tools/index.js';
-import { parsePlanDraft, type PlanDraft } from '../planOutputParser';
+import {
+  extractFirstJsonObject,
+  parsePlanDraft,
+  stripOuterFence,
+  type PlanDraft,
+} from '../planOutputParser';
 import type { PlanStep } from '../TaskOrchestrator';
 import {
   normalizeExecutorResult,
@@ -142,20 +147,28 @@ export async function repairPlanJson(
   ].join('\n');
 
   try {
-    const text = normalizeExecutorResult(
-      await deps.executor({
-        systemPrompt: PLANNER_ROLE.systemPrompt,
-        userPrompt: prompt,
-        tools: roleToolNames(PLANNER_ROLE),
-        taskType: PLANNER_ROLE.taskType,
-        isolation: deps.isolation,
-      })
-    ).content;
+    const raw = await deps.executor({
+      systemPrompt: PLANNER_ROLE.systemPrompt,
+      userPrompt: prompt,
+      tools: roleToolNames(PLANNER_ROLE),
+      taskType: PLANNER_ROLE.taskType,
+      isolation: deps.isolation,
+    });
+    const text = normalizeExecutorResult(raw).content;
+    const finishReason = typeof raw === 'string' ? undefined : raw.finishReason;
     const parsed = parsePlanDraft(text);
     if (!parsed.ok) {
+      // 2026-11-09（真机 01:56:41 同族日志 `Unexpected EOF`）：只报 reason 无法区分
+      // 「格式错」与「被 max_tokens 截断」—— 后者换同一提示词重问只会再截一次。
+      const truncated =
+        /^(max_tokens|length)$/i.test(finishReason ?? '') ||
+        /Unterminated|Unexpected end|Unexpected EOF/i.test(parsed.reason);
       logger.warn('[orchestrator] Planner JSON 修复重问仍不可解析', {
         taskId: deps.taskId,
         reason: parsed.reason,
+        finishReason,
+        outputLength: text.length,
+        ...(truncated ? { truncated: true } : {}),
       });
       return undefined;
     }
@@ -229,26 +242,53 @@ export async function repairAcceptanceCriteria(
   ].join('\n');
 
   try {
-    const text = normalizeExecutorResult(
-      await deps.executor({
-        systemPrompt: PLANNER_ROLE.systemPrompt,
-        userPrompt: prompt,
-        tools: roleToolNames(PLANNER_ROLE),
-        taskType: PLANNER_ROLE.taskType,
-        isolation: deps.isolation,
-      })
-    ).content;
-    const parsed = JSON.parse(text) as { acceptanceCriteria?: unknown };
+    const raw = await deps.executor({
+      systemPrompt: PLANNER_ROLE.systemPrompt,
+      userPrompt: prompt,
+      tools: roleToolNames(PLANNER_ROLE),
+      taskType: PLANNER_ROLE.taskType,
+      isolation: deps.isolation,
+    });
+    const text = normalizeExecutorResult(raw).content;
+    const finishReason = typeof raw === 'string' ? undefined : raw.finishReason;
+    // 2026-11-09：模型常把 JSON 包在 ```json 围栏或加前后缀 ⇒ 裸 `JSON.parse` 必然失败，
+    // 纠正能力被白白丢掉（真机日志 `JSON Parse error: Unexpected EOF`）。复用 Planner 解析器
+    // 的同一提取口径（`stripOuterFence` + `extractFirstJsonObject`），不做猜造式降级。
+    const candidates = new Set<string>();
+    const fenced = stripOuterFence(text);
+    if (fenced) candidates.add(fenced);
+    const objectText = extractFirstJsonObject(fenced);
+    if (objectText) candidates.add(objectText);
+
+    let parsed: { acceptanceCriteria?: unknown } | undefined;
+    let parseReason = '';
+    for (const candidate of candidates) {
+      try {
+        parsed = JSON.parse(candidate) as { acceptanceCriteria?: unknown };
+        break;
+      } catch (e) {
+        parseReason = e instanceof Error ? e.message : String(e);
+      }
+    }
     const next = Array.isArray(parsed?.acceptanceCriteria)
       ? parsed.acceptanceCriteria.map((s) => String(s))
       : undefined;
     if (!next || next.length !== steps.length) {
+      // 解析失败是**设计内降级**（保留原验收标准），不是错误 ⇒ 走 warn，
+      // 不再经 `handleError` 记入 ErrorTracker；并把截断线索带出，便于区分格式错与预算耗尽。
+      const truncated =
+        /^(max_tokens|length)$/i.test(finishReason ?? '') ||
+        /Unterminated|Unexpected end|Unexpected EOF/i.test(parseReason);
       logger.warn(
         '[orchestrator] 验收标准纠正结果不可用（条数不齐/解析失败）',
         {
           taskId: deps.taskId,
           expected: steps.length,
           got: next?.length ?? -1,
+          finishReason,
+          outputLength: text.length,
+          ...(next ? {} : { parseReason: parseReason || 'no-json-object' }),
+          ...(truncated ? { truncated: true } : {}),
         }
       );
       return undefined;

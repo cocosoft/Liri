@@ -17,7 +17,11 @@ import {
   draftFromSubmitPlanToolCalls,
   SUBMIT_PLAN_TOOL_NAME,
 } from '../../src/tasks/planOutputParser.js';
-import { workspacePathConstraint } from '../../src/tasks/lro/plannerSupport.js';
+import {
+  repairAcceptanceCriteria,
+  workspacePathConstraint,
+  type PlannerRepairDeps,
+} from '../../src/tasks/lro/plannerSupport.js';
 
 const validPlan = {
   steps: ['读取配置', '写入产物'],
@@ -109,5 +113,63 @@ describe('workspacePathConstraint — 规划阶段路径约束（2026-11-08）',
     expect(text).toContain('/tmp');
     expect(text).toContain('C:\\');
     expect(text).toContain('~');
+  });
+});
+
+describe('repairAcceptanceCriteria — 输出解析健壮性（2026-11-09）', () => {
+  const steps = ['生成页面', '写自测脚本'];
+
+  /** 假执行器：只回放给定输出（isolation 仅透传，不参与解析） */
+  function deps(content: string, finishReason?: string): PlannerRepairDeps {
+    return {
+      taskId: 'pdca_test',
+      isolation: {
+        workspace: 'C:\\work\\pdca_test',
+      } as unknown as PlannerRepairDeps['isolation'],
+      executor: async () =>
+        finishReason === undefined ? content : { content, finishReason },
+    };
+  }
+
+  it('```json 围栏包裹 ⇒ 仍可解析（原先裸 JSON.parse 会失败）', async () => {
+    const got = await repairAcceptanceCriteria(
+      deps(
+        '```json\n{"acceptanceCriteria":["页面含 canvas","自测退出码 0"]}\n```'
+      ),
+      '做一个游戏',
+      steps,
+      ['输出非空']
+    );
+    expect(got).toEqual(['页面含 canvas', '自测退出码 0']);
+  });
+
+  it('前后带解释文字 ⇒ 提取首个平衡 JSON 对象', async () => {
+    const got = await repairAcceptanceCriteria(
+      deps('好的，修正如下：\n{"acceptanceCriteria":["A","B"]}\n以上。'),
+      '做一个游戏',
+      steps,
+      ['输出非空']
+    );
+    expect(got).toEqual(['A', 'B']);
+  });
+
+  it('条数不齐 ⇒ undefined（保留原验收标准）', async () => {
+    const got = await repairAcceptanceCriteria(
+      deps('{"acceptanceCriteria":["只有一条"]}'),
+      '做一个游戏',
+      steps,
+      ['输出非空']
+    );
+    expect(got).toBeUndefined();
+  });
+
+  it('被 max_tokens 截断 ⇒ undefined，不抛错', async () => {
+    const got = await repairAcceptanceCriteria(
+      deps('{"acceptanceCriteria":["A","B', 'max_tokens'),
+      '做一个游戏',
+      steps,
+      ['输出非空']
+    );
+    expect(got).toBeUndefined();
   });
 });

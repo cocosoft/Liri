@@ -116,6 +116,16 @@ export function toFileIoLoopBlocked(
 }
 
 /**
+ * 2026-11-09（真机 `pdca_mw8lrnmb` step_10）：**只读目录列举**重复同一查询不构成文件 IO 风险，
+ * 却被 `fileIOBlock=4` 直接 abort 整步 —— 该步的职责恰恰是"glob 列产物做交付前检查"，
+ * 模型在写入后多次重新列举属正常行为（日志：`tool=glob pattern=* 同一目标重复 ×4`）。
+ *
+ * 口径：列举类工具最多**警告 + 就地 steer**（模型会收到"基于已有结果作答"），**永不硬拦**；
+ * 读写类工具仍按原阈值阻断（那才是真正的 IO 循环风险）。
+ */
+const READ_ONLY_LISTING_TOOLS: ReadonlySet<string> = new Set(['glob']);
+
+/**
  * 文件 IO 守卫结果：被拦条目 + 需注入模型的预警（同一目标每 run 只提醒一次）。
  */
 export interface FileIoGuardOutcome {
@@ -159,6 +169,16 @@ export function guardFileIoAccesses(
       typeof args.pattern === 'string' ? args.pattern : undefined
     );
     if (ioCheck.blocked) {
+      // 只读列举 ⇒ 降级为预警（见 `READ_ONLY_LISTING_TOOLS` 注释），不改其它工具口径
+      if (READ_ONLY_LISTING_TOOLS.has(tc.name.toLowerCase())) {
+        if (!warned.has(filePath)) {
+          warned.add(filePath);
+          outcome.warnings.push(
+            buildFileIoWarningMessage(ioCheck.message ?? '连续重复列出同一目录')
+          );
+        }
+        continue;
+      }
       // 2026-10-31（口径：维持 abort 整轮，仅补可观测）：明细/pattern/日志统一由
       // `toFileIoLoopBlocked` 产出。
       outcome.blocked.push(toFileIoLoopBlocked(tc, filePath, ioCheck.message));

@@ -121,8 +121,18 @@ describe('S1-1 审批作用域绑定（执行端，2026-10-11）', () => {
         scope: { platform: process.platform, cwd: 'C:\\projA' },
       });
       const tool = new BashTool(reg);
+      // 只统计**放行缓存（registry）**命中：本机 `tool_rules.json` 可能存有工具级 bash allow 规则，
+      // 它同样会打这条日志（`approvalSource='rule'`），但与"审批作用域绑定"无关 ⇒ 会让用例随
+      // 用户数据变红。按来源过滤后，断言意图（registry 的 cwd 作用域未命中）保持不变。
       const approvedLogCount = (): number =>
-        infoSpy.mock.calls.filter((c) => c[0] === '已批准命令放行').length;
+        (
+          infoSpy.mock.calls as unknown as Array<
+            [string, { approvalSource?: string } | undefined]
+          >
+        ).filter(
+          (c) =>
+            c[0] === '已批准命令放行' && c[1]?.approvalSource === 'registry'
+        ).length;
 
       // ① 作用域一致 ⇒ 命中放行
       const ctxMatch = {

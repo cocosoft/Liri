@@ -242,6 +242,14 @@ export function mapToolExecutionResult(
 }
 
 export class SessionAgentOps {
+  /**
+   * 2026-11-09：`过滤空壳会话` 日志的**边沿触发键**。
+   * 前端每 ~4s 轮询一次 `listSessions`，稳态下每次都是同一组计数（真机 191/14/177）
+   * ⇒ 每次各记一条 INFO，单日 6120 条（约占日志 10%）。改为"计数变化才记"：
+   * 保留"会话缺失"排查所需的信号，去掉纯重复噪声。
+   */
+  private shellFilterLogKey?: string;
+
   constructor(private readonly deps: SessionAgentOpsDeps) {}
 
   async listTools(): Promise<ToolInfo[]> {
@@ -783,25 +791,35 @@ export class SessionAgentOps {
     const all = this.deps.getSessionManager().getSessions();
     // TB-14（2026-09-24）：同 getSession——列表侧也须过滤"磁盘目录已消失"的幽灵会话
     //（跨进程/跨实例软删除，`chatSessions` 内存 Map 未同步；实测复验第 5 步删除后仍列出）。
-    const presence = await Promise.all(
-      all.map((s) =>
-        this.deps.getChatManager().getSessionGateway().getSession(s.id)
-      )
+    // 2026-11-09（批量查询）：一次存储层列表替代 N 次 `getSession`——原实现对每个会话逐个
+    // 回查磁盘（191 会话 × 1~2 次 `existsSync`），而前端每 ~4s 轮询一次列表。存储层
+    // `listSessions` 已改为批量目录快照，且同样会摘除幽灵会话（TB-14 自愈语义不变）。
+    // `includeTemporary: true`：`getSession` 不过滤临时会话，此处保持一致。
+    const gateway = this.deps.getChatManager().getSessionGateway();
+    const persistedById = new Map(
+      (await gateway.listSessions({ includeTemporary: true })).map((p) => [
+        p.id,
+        p,
+      ])
     );
     // #23（2026-10-30）：同一次持久层回查顺带取出**磁盘状态**——列表此前只投影内存
     // `session.state`（`mapSessionStatusToState` 对 `error` 无映射 ⇒ 出错会话显示成正常）。
-    // 状态是**持久事实**，故以持久层为准（`presence[i].status`），缺失才回退内存态。
-    const sessions = all.filter((_, i) => presence[i] !== null);
+    // 状态是**持久事实**，故以持久层为准（`persistedById.get(id).status`），缺失才回退内存态。
+    const sessions = all.filter((s) => persistedById.has(s.id));
     const persistedStatus = new Map<string, string | undefined>();
-    all.forEach((s, i) => persistedStatus.set(s.id, presence[i]?.status));
+    all.forEach((s) =>
+      persistedStatus.set(s.id, persistedById.get(s.id)?.status)
+    );
     // P1-5（2026-11-05）：计数取**持久层 metadata**（存储层写消息时维护），
     // 而不是内存 `ChatSession.metadata`——后者是启动期加载的快照，可能早于后台补齐/
     // 后续写入（真机实测：磁盘 36/18，内存 36/16）。
     const persistedCountsMeta = new Map<string, Record<string, unknown>>();
-    all.forEach((s, i) => {
+    all.forEach((s) => {
       persistedCountsMeta.set(
         s.id,
-        (presence[i]?.metadata as Record<string, unknown> | undefined) ?? {}
+        (persistedById.get(s.id)?.metadata as
+          | Record<string, unknown>
+          | undefined) ?? {}
       );
     });
     // 多租户 P1：`getSessions()` 是**进程级内存 Map**（含其他身份的会话）⇒
@@ -860,18 +878,26 @@ export class SessionAgentOps {
           messageCount: persistedMessageCount ?? fallbackCounts.messageCount,
           roundCount: persistedRoundCount ?? fallbackCounts.roundCount,
           source: this.resolveSessionSource(session),
-          // 持久层权威；`presence` 缺失（已过滤）时不会走到这里
+          // 持久层权威；`persistedById` 缺失（已过滤）时不会走到这里
           status: persistedStatus.get(session.id) ?? session.state,
           metadata: session.metadata,
         };
       });
     // P2-2：记录空壳会话被过滤条数，便于排查"会话缺失"类问题（总数 vs 返回数对不上）
+    // 2026-11-09：改为边沿触发（计数变化才记），避免轮询路径每 4s 重复刷同一条 INFO。
     if (filteredCount > 0) {
-      logger.info('listSessions:过滤空壳会话', {
-        total: visible.length,
-        filteredCount,
-        returned: result.length,
-      });
+      const logKey = `${visible.length}/${filteredCount}/${result.length}`;
+      if (logKey !== this.shellFilterLogKey) {
+        this.shellFilterLogKey = logKey;
+        logger.info('listSessions:过滤空壳会话', {
+          total: visible.length,
+          filteredCount,
+          returned: result.length,
+        });
+      }
+    } else {
+      // 归零后清空，下次再出现空壳仍会记一条（不吞掉真实状态跃迁）
+      this.shellFilterLogKey = undefined;
     }
     return result;
   }

@@ -80,7 +80,9 @@ export class ContextCacheService {
     try {
       const watcher = fs.watch(filePath, (eventType) => {
         if (eventType === 'change' || eventType === 'rename') {
-          logger.info(`File changed: ${filePath}`);
+          // 2026-11-09：fs 事件是**逐文件**高频回调（`.git` 递归监听时会成批触发，
+          // 真机单日 5114 条），属排障细节 ⇒ debug（INFO 档只在需要排查失效时开启）。
+          logger.debug(`File changed: ${filePath}`);
           if (cacheKeys) {
             for (const key of cacheKeys) {
               this.delete(key);
@@ -112,7 +114,9 @@ export class ContextCacheService {
         { recursive: true },
         (eventType, filename) => {
           if (filename && (eventType === 'change' || eventType === 'rename')) {
-            logger.info(`Directory changed: ${filename}`);
+            // 2026-11-09：同 `watchFile` —— 递归目录监听下这是逐文件高频回调，
+            // 真机单日 5114 条 INFO（几乎全来自 `.git/objects`）⇒ 降为 debug。
+            logger.debug(`Directory changed: ${filename}`);
             if (cacheKeys) {
               for (const key of cacheKeys) {
                 this.delete(key);

@@ -20,6 +20,10 @@ import { getCachedTiktokenEncoder } from './TiktokenEstimator';
 import { getLogger } from '@openliri/infra/monitoring';
 import { TOOL_RESULT_MAX_LENGTH } from '@openliri/infra/utils/toolResultLimits';
 
+// Bun 全局在本仓的类型声明是「按需最小子集」（见 `src/ink/ink/global.d.ts`，不含 `hash`）。
+// 此处按需补充本模块用到的 `Bun.hash`，与 `src/buddy/companion.ts` 同法（模块作用域，不污染全局）。
+declare const Bun: { hash: (s: string) => bigint };
+
 const logger = getLogger('ai:tokenizer');
 
 const CJK_REGEX =
@@ -73,6 +77,67 @@ function storeMessageTokens(msg: object, tokens: number): void {
 }
 
 /**
+ * 2026-11-09：**内容摘要缓存（第二层，跨对象重建）**。
+ *
+ * 对象身份缓存（R3）只在"同一条消息对象跨轮复用"时有效；但请求侧
+ * `buildApiMessagesForStream` 每轮都按 `{ role, content }` **重建** apiMessages 对象
+ * ⇒ 流式主链路上身份缓存必然全 miss ⇒ 每轮对整窗历史重做 BPE。
+ * 真机 CPU profile（event-loop block，lag 3.5s）：`estimateMessagesTokens → encode →
+ * bytePairMerge / join` 自耗时合计 ≈55%（≈1.9s），全部来自"内容没变、对象是新的"。
+ *
+ * 以**内容摘要**为键（只存内容 tokens，不含角色开销）⇒ 重建对象也能命中，成本回到
+ * "仅本轮新增消息"。只持有 64 位摘要、不持有原文字符串，避免大会话内存泄漏。
+ */
+const CONTENT_TOKEN_CACHE = new Map<number, number>();
+// 上限复用 `PER_MESSAGE_TOKEN_CACHE_LIMIT`（条目仅"摘要 + 数值"，量级一致）
+const CONTENT_TOKEN_CACHE_ORDER: number[] = [];
+
+/** 内容摘要：优先 Bun 原生 hash；非 Bun 运行时不启用该层（退回身份缓存） */
+function contentDigest(text: string): number | undefined {
+  if (typeof Bun === 'undefined' || typeof Bun.hash !== 'function')
+    return undefined;
+  return Number(Bun.hash(text));
+}
+
+function storeContentTokens(digest: number, tokens: number): void {
+  if (CONTENT_TOKEN_CACHE.has(digest)) return;
+  CONTENT_TOKEN_CACHE.set(digest, tokens);
+  CONTENT_TOKEN_CACHE_ORDER.push(digest);
+  if (CONTENT_TOKEN_CACHE_ORDER.length > PER_MESSAGE_TOKEN_CACHE_LIMIT) {
+    const toEvict = Math.floor(CONTENT_TOKEN_CACHE_ORDER.length / 2);
+    for (let i = 0; i < toEvict; i++) {
+      const key = CONTENT_TOKEN_CACHE_ORDER.shift();
+      if (key !== undefined) CONTENT_TOKEN_CACHE.delete(key);
+    }
+  }
+}
+
+/** 单段内容的 tokens（内容摘要缓存 → tiktoken BPE → CJK 启发式） */
+function contentTokens(
+  text: string,
+  encoder: ReturnType<typeof getCachedTiktokenEncoder>
+): number {
+  const digest = contentDigest(text);
+  if (digest !== undefined) {
+    const cached = CONTENT_TOKEN_CACHE.get(digest);
+    if (cached !== undefined) return cached;
+  }
+  let tokens: number;
+  if (encoder) {
+    try {
+      tokens = encoder.encode(text).length;
+    } catch {
+      // 编码失败时回退到启发式
+      tokens = estimateTokens(text);
+    }
+  } else {
+    tokens = estimateTokens(text);
+  }
+  if (digest !== undefined) storeContentTokens(digest, tokens);
+  return tokens;
+}
+
+/**
  * D-233（2026-10-02）：**单条消息的 token 计算（缓存优先）** —— 各估算路径共用，避免逻辑分叉。
  * 命中缓存直接返回；未命中则 tiktoken BPE → CJK 启发式，并写回缓存。
  * 缓存值口径 = 角色开销 + 内容 tokens（与同步版一致）。
@@ -90,18 +155,7 @@ function tokenOfMessage(
   let per = overhead;
   if (typeof msg.content === 'string') {
     // 戊（D-234）：与请求侧同口径（工具结果超长则按上限取样），避免对 14MB 原文做 BPE
-    const text = contentForEstimate(msg, msg.content);
-    if (encoder) {
-      try {
-        const result = encoder.encode(text);
-        per += Array.isArray(result) ? result.length : result.length;
-      } catch {
-        // 编码失败时回退到启发式
-        per += estimateTokens(text);
-      }
-    } else {
-      per += estimateTokens(text);
-    }
+    per += contentTokens(contentForEstimate(msg, msg.content), encoder);
   } else if (msg.content) {
     per += estimateTokens(JSON.stringify(msg.content));
   }
@@ -200,42 +254,11 @@ export function estimateMessagesTokens(
 
   // 优先使用 tiktoken BPE 精确分词（若编码器已加载）
   const encoder = getCachedTiktokenEncoder();
-  if (encoder) {
-    let total = 0;
-    for (const msg of messages) {
-      // R3（2026-09-16）：命中按对象身份的缓存则跳过真 encode（新增轮才会 miss）
-      if (typeof msg === 'object' && msg !== null) {
-        const cached = cachedMessageTokens(msg);
-        if (cached !== undefined) {
-          total += cached;
-          continue;
-        }
-      }
-      const overhead =
-        ROLE_OVERHEAD[msg.role ?? 'user'] ?? PER_MESSAGE_OVERHEAD;
-      let per = overhead;
-      if (typeof msg.content === 'string') {
-        // 戊（D-234）：与请求侧同口径（工具结果超长则按上限取样）
-        const text = contentForEstimate(msg, msg.content);
-        try {
-          const result = encoder.encode(text);
-          per += Array.isArray(result) ? result.length : result.length;
-        } catch {
-          // 编码失败时回退到启发式
-          per += estimateTokens(text);
-        }
-      } else if (msg.content) {
-        per += estimateTokens(JSON.stringify(msg.content));
-      }
-      total += per;
-      if (typeof msg === 'object' && msg !== null) {
-        storeMessageTokens(msg, per);
-      }
-    }
-    return Math.ceil(total);
-  }
-
-  return messages.reduce((sum, msg) => sum + estimateMessageTokens(msg), 0);
+  // 2026-11-09：收敛到 `tokenOfMessage`（CS01 单一实现）——此前本函数重复了一份
+  // "身份缓存 → BPE → 启发式"的逻辑，且漏掉了内容摘要缓存 ⇒ 重建对象时全量重编码。
+  let total = 0;
+  for (const msg of messages) total += tokenOfMessage(msg, encoder);
+  return Math.ceil(total);
 }
 
 /**

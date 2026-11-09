@@ -719,8 +719,6 @@ export class EventLogStorage {
           this.tailSeq = toWrite.seq as number;
           // 2026-10-31：登记进程内轮次生命周期（在飞判定见 `EventLogRepair.hasRecentInFlightTurn`）
           trackTurnLifecycle(this.sessionId, toWrite);
-          // A-6（2026-08-23）：持久化 lastKnown tailSeq（meta 写失败不影响本次写入）
-          await this.writePersistedTailSeq(toWrite.seq as number);
           // A-5（2026-08-23）：写入成功 → 连续失败计数清零（熔断自动解除）
           this.appendFailCount = 0;
           // P1-2：快照增量扩展（toWrite 已冻结，与落盘对象一致，直接共享引用）
@@ -747,6 +745,11 @@ export class EventLogStorage {
               }
             }
           }
+          // A-6（2026-08-23）：持久化 lastKnown tailSeq（meta 写失败不影响本次写入）。
+          // 2026-11-09：必须放在**内存态（tailSeq + 事件快照）同步推进之后**——否则这个
+          // await 期间并发的读会看到 `snapshotTail === tailSeq - 1`，被判
+          // `snapshot-behind-memory`（真机实证：每轮告警并在冷却期后全量重建快照）。
+          await this.writePersistedTailSeq(toWrite.seq as number);
           // P3-8（2026-09-02）：事件字节索引——append 写路径增量维护区间。
           // G-4：行字节用 Buffer.byteLength(line,'utf-8')——seek 偏移是 UTF-8 字节数，
           // 不可复用 line.length（UTF-16 code unit，中文差 1.5~3 倍会系统性偏斜）。

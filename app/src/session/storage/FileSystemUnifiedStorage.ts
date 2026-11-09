@@ -1023,12 +1023,43 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     }
   }
 
+  /**
+   * 2026-11-09：**批量存在性快照** —— 每个分区根枚举一次 `readdir`，取代逐会话 `existsSync`。
+   *
+   * `listSessions` 原先对每个会话调用 `isSessionDirPresent`（每个根 1 次 `existsSync`；
+   * 真机会话 191 个、根 2 个 ⇒ 每次列表约 380 次系统调用），而前端每 ~4s 轮询一次列表。
+   * 会话目录是分区的**直接子目录**（`sessionDir()` = `resolve(root, id)`），故可枚举一次建集合，
+   * 再 O(1) 判定。
+   *
+   * @returns 各根直接子目录名集合；根不存在 ⇒ 跳过（等价 `existsSync=false`）；
+   *          其余枚举错误 ⇒ 返回 null，调用方退回逐 id 回查（不因权限/瞬时错误误判会话丢失）。
+   */
+  private existingSessionDirNames(): Set<string> | null {
+    const names = new Set<string>();
+    for (const root of [this.basePath, ...this.legacyRoots]) {
+      try {
+        for (const entry of readdirSync(root, { withFileTypes: true })) {
+          if (entry.isDirectory()) names.add(entry.name);
+        }
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') continue;
+        return null;
+      }
+    }
+    return names;
+  }
+
   async listSessions(filter?: SessionFilter): Promise<UnifiedSession[]> {
     // TB-14（2026-09-24）：同 getSession——列表也必须回查磁盘目录，否则跨进程软删除的
     // 会话仍会被列出（实测复验第 5 步：删除后 list 仍含该 id）。
+    // 2026-11-09：回查改为**批量目录快照**（每根一次 readdir），不再逐会话 existsSync。
+    const presentNames = this.existingSessionDirNames();
     const result: UnifiedSession[] = [];
     for (const session of this.sessions.values()) {
-      if (!this.isSessionDirPresent(session.id)) {
+      const present = presentNames
+        ? presentNames.has(session.id)
+        : this.isSessionDirPresent(session.id);
+      if (!present) {
         logger.info('listSessions:磁盘目录已不存在,摘除内存条目', {
           sessionId: session.id,
         });

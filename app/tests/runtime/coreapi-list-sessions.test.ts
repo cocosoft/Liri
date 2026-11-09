@@ -70,11 +70,14 @@ function makeFixture(
       getSession: (id: string) => inMemory.find((s) => s.id === id),
     }),
     getSessionGateway: () => ({
-      getSession: async (id: string) => {
-        const stored = onDisk[id];
-        if (!stored) return null;
-        return { id, status: stored.status };
-      },
+      // 2026-11-09：列表侧改为**一次批量查询**（原为 N 次 `getSession`）——此处不提供
+      // `getSession`，若实现回退成逐会话回查会立刻失败（契约锁定）。
+      listSessions: async () =>
+        Object.entries(onDisk).map(([id, stored]) => ({
+          id,
+          status: stored.status,
+          metadata: {},
+        })),
     }),
   };
   const api = new CoreAPIImpl({

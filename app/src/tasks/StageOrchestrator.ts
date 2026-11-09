@@ -21,6 +21,11 @@ import {
 } from './PdcaWorkItemBridge.js';
 import { taskOrchestrator } from './TaskOrchestrator.js';
 import type { LongRunningTaskOrchestrator } from './LongRunningTaskOrchestrator.js';
+// P1（2026-11-10）：阶段交付物的结构化投影（纯函数；不再把步骤描述当产物下传）
+import {
+  formatStageDeliverable,
+  projectStageDeliverable,
+} from './stageDeliverable.js';
 
 const logger = getLogger('tasks:stageOrchestrator');
 
@@ -214,20 +219,33 @@ export function buildStagePrompt(
   const baseline =
     chain.stages.find((s) => s.id === 'requirement')?.artifact ?? '';
   return `【设计】请基于以下需求规格说明（PRD）进行设计（产物作为实现阶段输入基线）。
-需求规格说明（PRD）:
+需求规格说明（PRD）与已成立事实（禁止重复创建/重新实现）:
 ${baseline || chain.description}`;
 }
 
-/** 从子编排器收集阶段产物（已完成步骤的结果文本） */
+/**
+ * 从子编排器收集阶段交付物（P1，2026-11-10）。
+ *
+ * 语义变更：**不再拼步骤描述**。原实现把 `[步骤描述] 结果` 整段下传，下一阶段 planner
+ * 会把"上一阶段的指令"读成待办、重复创建同一产物（真机 `pdca_mw9g2qzz`：requirement
+ * 写过 `prd.md`，design 又写一遍，并把校验拆成 3 个独立步骤）。
+ * 现按 `stageDeliverable` 投影为「目标 / 验收标准 / 产物台账 / 已成立事实」。
+ */
 export function collectStageArtifact(
   child: LongRunningTaskOrchestrator
 ): string {
   const status = child.getStatus() as { planId?: string };
   const plan = status.planId ? taskOrchestrator.getPlan(status.planId) : null;
-  const parts = (plan?.steps ?? [])
-    .filter((s) => s.status === 'completed' && s.result)
-    .map((s) => `[${s.description}] ${s.result}`);
-  return parts.length > 0 ? parts.join('\n\n') : '';
+  if (!plan) return '';
+  const deliverable = projectStageDeliverable({
+    goal: plan.description,
+    steps: plan.steps,
+  });
+  const hasContent =
+    deliverable.criteria.length > 0 ||
+    deliverable.artifacts.length > 0 ||
+    deliverable.facts.length > 0;
+  return hasContent ? formatStageDeliverable(deliverable) : '';
 }
 
 export class StageOrchestrator {

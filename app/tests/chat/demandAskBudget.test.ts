@@ -13,9 +13,11 @@
 import { describe, expect, it } from 'bun:test';
 import {
   autoAnswerUnattended,
+  formatDemandAutoAnswerNotice,
   noteDemandAsk,
   resetDemandAskBudget,
   setDemandAskPersistHook,
+  setDemandAutoAnswerNoticeHook,
 } from '../../src/chat/interactionAutoApprove';
 import { SessionMetadata } from '../../src/session/models/SessionMetadata';
 
@@ -116,6 +118,51 @@ describe('B7：预算用尽后的第二次提问', () => {
         session
       )
     ).toBe(false);
+  });
+});
+
+describe('B12：代答的用户可见留痕', () => {
+  const ask = (id: string) => ({
+    id,
+    name: 'ask_user_question',
+    input: { questionType: 'choice', options: [{ label: '方案 A' }] },
+  });
+
+  it('提示文案只陈述已作的选择', () => {
+    const text = formatDemandAutoAnswerNotice(['方案 A']);
+    expect(text).toContain('方案 A');
+    expect(text).toContain('自动作答');
+  });
+
+  it('预算用尽触发代答 ⇒ 通知一次（sessionId + 所选项）', () => {
+    const noticed: Array<{ sessionId: string; answers: string[] }> = [];
+    setDemandAutoAnswerNoticeHook((input) => noticed.push(input));
+    const session = { id: 'sess-b12-notice', metadata: demandMeta() };
+    noteDemandAsk(session);
+    expect(autoAnswerUnattended(INTERACTIVE_TOOL, ask('tc-b12'), session)).toBe(
+      true
+    );
+    expect(noticed).toEqual([
+      { sessionId: 'sess-b12-notice', answers: ['方案 A'] },
+    ]);
+    setDemandAutoAnswerNoticeHook(() => {});
+  });
+
+  it('未代答（预算尚在 / 恢复态）⇒ 不通知', () => {
+    const noticed: string[] = [];
+    setDemandAutoAnswerNoticeHook(({ sessionId }) => noticed.push(sessionId));
+    const session = { id: 'sess-b12-quiet', metadata: demandMeta() };
+    // 预算尚在 ⇒ 照常挂起
+    expect(
+      autoAnswerUnattended(INTERACTIVE_TOOL, ask('tc-b12-1'), session)
+    ).toBe(false);
+    // 恢复态 ⇒ 即便预算已用尽也不代答
+    noteDemandAsk(session);
+    expect(
+      autoAnswerUnattended(INTERACTIVE_TOOL, ask('tc-b12-2'), session, true)
+    ).toBe(false);
+    expect(noticed).toEqual([]);
+    setDemandAutoAnswerNoticeHook(() => {});
   });
 });
 

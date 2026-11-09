@@ -51,6 +51,36 @@ const demandAsked = new Set<string>();
 /** B7：落盘钩子（装配层注入；未注入 ⇒ 只记内存态） */
 let persistDemandAskUsed: ((sessionId: string) => void) | undefined;
 
+/** B12：代答留痕钩子（装配层注入；未注入 ⇒ 只记审计日志） */
+let notifyDemandAutoAnswer:
+  | ((input: { sessionId: string; answers: string[] }) => void)
+  | undefined;
+
+/**
+ * B12（2026-11-09）：装配层注册「代答已在会话里留痕」的钩子（与落盘钩子同型）。
+ *
+ * 为什么需要：B7 的代答对用户完全无感（不产生 question 事件）⇒ 用户会以为模型"跳过了"
+ * 自己的追问。钩子由装配层写入一条带结构化标记的助手消息，失败只告警（不影响工具执行）。
+ */
+export function setDemandAutoAnswerNoticeHook(
+  fn: (input: { sessionId: string; answers: string[] }) => void
+): void {
+  notifyDemandAutoAnswer = fn;
+}
+
+/**
+ * B12：代答提示文案（只陈述已作的选择，不臆造理由）。
+ */
+export function formatDemandAutoAnswerNotice(
+  answers: readonly string[]
+): string {
+  const picked = answers
+    .map((a) => a.trim())
+    .filter((a) => a.length > 0)
+    .join('、');
+  return `📎 已按模型建议自动作答：${picked}（本次会话的问询额度已用完，继续自动推进）`;
+}
+
 /**
  * B7 装配层注册落盘钩子（与 `setTaskSessionPolicyPort` 同型：端口一次注入，避免逐入口漏接）。
  * 钩子只负责把 `metadata.demandAskUsed` 写进会话存储，失败由钩子自身告警（内存态已生效）。
@@ -137,5 +167,7 @@ export function autoAnswerUnattended(
     answers,
     reason: unattended ? 'unattended-auto-approve' : 'demand-ask-exhausted',
   });
+  // B12：仅"问询预算用尽"这一支需要在会话里留痕（无人值守模式本就无人在看）
+  if (demandSpent) notifyDemandAutoAnswer?.({ sessionId: session.id, answers });
   return true;
 }

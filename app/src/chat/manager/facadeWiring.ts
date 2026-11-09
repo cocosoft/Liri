@@ -23,7 +23,12 @@
 import { SimpleMutex } from '@openliri/kernel';
 import { getLogger } from '@openliri/infra/monitoring';
 // B7（2026-11-09，设计稿 §5-4）：demand 问询预算的落盘端口（宿主侧注入会话存储）
-import { setDemandAskPersistHook } from '../interactionAutoApprove';
+// B12（2026-11-09）：代答留痕端口（预算用尽后的自动作答需在会话里可见）
+import {
+  formatDemandAutoAnswerNotice,
+  setDemandAskPersistHook,
+  setDemandAutoAnswerNoticeHook,
+} from '../interactionAutoApprove';
 import type {
   ToolAwareClient,
   ToolDefinition,
@@ -432,6 +437,26 @@ export function wireChatFacades(host: FacadeWiringHost): void {
         });
       }
     })();
+  });
+
+  // B12（2026-11-09）：demand 问询预算用尽后的代答在会话里**留痕**（否则用户以为模型跳过了追问）。
+  // 结构化标记 `demandAskAutoAnswered` 供后续判定，**不读文案**（CS02）；写入失败只告警。
+  setDemandAutoAnswerNoticeHook(({ sessionId, answers }) => {
+    try {
+      host._msgPersist.addAndPersistMessage(
+        sessionId,
+        host.messageService.createAssistantMessage(
+          formatDemandAutoAnswerNotice(answers),
+          { sessionId, metadata: { demandAskAutoAnswered: true } }
+        )
+      );
+    } catch (e) {
+      // @ignore-catch — 提示属附加信息，写入失败不得影响工具执行
+      logger.warn('demand 代答提示写入失败', {
+        sessionId,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
   });
 
   host._pdcaLauncher = new PdcaLauncher({

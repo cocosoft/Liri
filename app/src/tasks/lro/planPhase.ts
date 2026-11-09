@@ -51,6 +51,8 @@ import {
   roleToolNames,
   workspacePathConstraint,
 } from './plannerSupport.js';
+// P1（2026-11-10）：demand 计划剔除纯校验步骤（纯函数，含依赖重映射）
+import { dropVerificationOnlySteps } from './stepPlanFilter.js';
 
 const logger = getLogger('tasks:longRunning');
 
@@ -291,6 +293,28 @@ ${replanSection}
       dependsOn = draft.dependsOn.map((deps2) =>
         deps2.map((d) => Number(d)).filter((d) => Number.isInteger(d) && d >= 0)
       );
+    }
+
+    // P1（2026-11-10，真机 `pdca_mw9g2qzz` / `pdca_mw9hyf0j`）：许愿式会话的规划期
+    // **剔除纯校验步骤** —— 产物读回已由 `lro/stepArtifacts` 机械补做、验收由 `ReviewGate`
+    // 统一判定，把"读取确认 / 校验七章 / grep 检查"当独立步骤只会重复读写同一产物、
+    // 吃光轮次预算并触发 IO 循环守卫。非 demand 会话行为不变。
+    if (deps.demand && steps.length > 1) {
+      const filtered = dropVerificationOnlySteps({
+        steps,
+        acceptance,
+        dependsOn,
+      });
+      if (filtered.droppedIndexes.length > 0) {
+        logger.info('[orchestrator] demand 计划剔除纯校验步骤', {
+          taskId: deps.taskId,
+          dropped: filtered.droppedIndexes.map((index) => index + 1),
+          kept: filtered.steps.length,
+        });
+        steps = filtered.steps;
+        acceptance = filtered.acceptance ?? acceptance;
+        dependsOn = filtered.dependsOn ?? dependsOn;
+      }
     }
 
     // 2026-10-08（方案1 全面修复）：验收标准**可证性**机械校验。

@@ -118,6 +118,10 @@ export const PLANNER_ROLE: RoleConfig = {
     // 与执行器侧按 `isWorkspaceEmpty()` 分型的事实**互相矛盾** ⇒ Planner 计划与实际环境错位。
     // 现由 `workspacePathConstraint(workspace)`（plannerSupport）在**三个** planner 提示词
     // （首轮规划 / JSON 修复重问 / 验收标准重写）里按真实工作区动态注入，保持单一真源。
+    // P1（2026-11-10）：纯校验步骤属重复劳动 —— 产物读回由 `lro/stepArtifacts` 机械补做、
+    // 验收由 `ReviewGate` 统一判定。规划期就禁止另立步骤（demand 侧另有机械过滤兜底）。
+    '**不要规划"单纯校验 / 读取确认 / 复查 / grep 检查"类步骤**：产物的读回与验收由编排器机械完成，' +
+    '请把校验并入产出该产物的步骤，避免同一产物被反复读写。\n' +
     '另：涉及文件产物时，优先写成 `file_read 读取 <路径> 返回内容等于 <值>`（该读回由编排器机械保障，必然有证据）；' +
     '目录类产物写成 `glob 在 <目录> 下能列出 <名>`。',
 };

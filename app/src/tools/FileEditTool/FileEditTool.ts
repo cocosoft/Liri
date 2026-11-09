@@ -79,8 +79,14 @@ const FILE_EDIT_MAX_FILE_SIZE = 1 * 1024 * 1024 * 1024; // 1 GiB
  * 单次编辑参数上限（2026-11-05，真机 `app.log` 复盘）：
  * 整节文档塞进 `old_string/new_string`（原始 JSON 5088 字符）⇒ 输出被截断 ⇒
  * 参数 JSON 解析失败 ⇒ 模型原样重试、零进展。超限时提前拒绝并给出替代方案。
+ *
+ * 2026-11-09（会话 `session_mw8fwx3a48ba9e07f9` 复盘）：原 4 KB 上限**过窄** ——
+ * 模型三次正常写入分别被 5650 / 5556 / 4173 字节拒绝，每次都只减几十字节后原样重试，
+ * 累计 3 个"无效轮"，直接推高熔断计数。截断的真实约束是**模型输出预算**
+ * （`max_output_tokens`，工具轮已按 DB 值放宽至 8192+），8 KB ≈ 2–3 K token，
+ * 落在预算内；真发生截断时上游已有半截工具调用检测（N-1），不会再变成"参数为空"。
  */
-const FILE_EDIT_MAX_ARG_BYTES = 4 * 1024;
+export const FILE_EDIT_MAX_ARG_BYTES = 8 * 1024;
 
 /** 同一处连续未命中的 no-progress 上限（超过后文案升级为“禁止原样重试”） */
 const FILE_EDIT_NO_PROGRESS_CAP = 2;
@@ -478,8 +484,8 @@ export class FileEditTool extends BaseTool {
       ) {
         const msg =
           `编辑参数过大（old_string ${oldBytes} 字节 / new_string ${newBytes} 字节，` +
-          `单次上限 ${FILE_EDIT_MAX_ARG_BYTES} 字节）。请拆成多次小范围编辑，` +
-          `或改用 file_write 整段重写；不要原样重试。`;
+          `单次上限 ${FILE_EDIT_MAX_ARG_BYTES} 字节）。请拆成多次小范围编辑（按行分段，` +
+          `每次只改一处），或改用 file_write 整段重写；不要原样重试。`;
         return createToolResult(msg, {
           success: false,
           error: msg,

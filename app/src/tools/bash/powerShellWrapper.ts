@@ -188,6 +188,75 @@ export function isSinglePowerShellWrapperCommand(command: string): boolean {
   return trimmed.slice(head[0].length + statement.length).trim() === '';
 }
 
+/** 引号外按 `&&` / `;` / 换行切分；遇 `|` 或单 `&`（后台/分隔）⇒ 空数组（不可委托，fail-closed） */
+function splitTopLevelStatements(text: string): string[] {
+  const parts: string[] = [];
+  let buf = '';
+  let quote: '"' | "'" | null = null;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quote) {
+      buf += ch;
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      buf += ch;
+      continue;
+    }
+    if (ch === '\n' || ch === '\r' || ch === ';') {
+      parts.push(buf);
+      buf = '';
+      continue;
+    }
+    if (ch === '&') {
+      if (text[i + 1] === '&') {
+        parts.push(buf);
+        buf = '';
+        i++;
+        continue;
+      }
+      return [];
+    }
+    if (ch === '|') return [];
+    buf += ch;
+  }
+  if (quote) return [];
+  parts.push(buf);
+  // 空段（`cd x && && powershell …`）⇒ 视为不可委托
+  return parts.some((p) => !p.trim()) ? [] : parts.map((p) => p.trim());
+}
+
+/** 前置段是否仅为无副作用的 `cd <路径>`（不含管道/重定向/变量展开/其它命令） */
+function isReadOnlyCdStatement(statement: string): boolean {
+  const s = statement.trim();
+  if (!/^cd(?:\s|$)/i.test(s)) return false;
+  // `%VAR%`（cmd）/ `$VAR` / 反引号 / 重定向 / 串联一律不放行（fail-closed）
+  return !/[%|&<>`$]/.test(s);
+}
+
+/**
+ * 2026-11-09（会话 `session_mw8fwx3a48ba9e07f9` 复盘）：允许「只读 `cd` 前缀 + 单条 PS 包裹」委托。
+ *
+ * 真机被拒形态：`cd /d "E:\…" && powershell -Command "Get-ChildItem -Recurse -File | Select-Object …"`
+ * —— 前缀 `cd` 无副作用，内层脚本仍由 PowerShell 安全链（`checkPowerShellWrapper`）判定；
+ * 旧实现只认「整条命令仅一条语句」⇒ 该形态被判「非只读命令（powershell）」硬拒，
+ * 同一轮内第二次环境阻塞即触发 `environment_blocked` 中断。
+ *
+ * 边界（fail-closed）：前缀**只允许** `cd <路径>`；出现管道 / 重定向 / 变量展开 / 其它命令、
+ * 或包裹后面还有兄弟段 ⇒ 不委托，维持原 deny。
+ */
+export function isDelegatedPowerShellCommand(command: string): boolean {
+  const trimmed = command.trim();
+  if (isSinglePowerShellWrapperCommand(trimmed)) return true;
+  const parts = splitTopLevelStatements(trimmed);
+  if (parts.length < 2) return false;
+  const last = parts[parts.length - 1] ?? '';
+  if (!parts.slice(0, -1).every(isReadOnlyCdStatement)) return false;
+  return isSinglePowerShellWrapperCommand(last);
+}
+
 function deny(message: string, reason: string): ToolResult<unknown> {
   // BUG-8（2026-10-19）：硬拦截必须带 `error`/`success:false`，
   // 否则消费方按 `toolResult.error` 判定时会把拦截误记为成功。

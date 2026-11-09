@@ -36,7 +36,7 @@ import type { ExecOptions } from 'child_process';
 import { analyzeBashCommandType, isSilentBashCommand } from './BashSemantics';
 // P2-2（2026-11-04）：cmd 内置命令 → 等价命令提示（仅"命令未找到"证据成立时生效）
 import { buildCmdBuiltinHint, isCommandNotFoundError } from './cmdBuiltinHint';
-import { isSearchNoMatch } from './searchNoMatch';
+import { hasExistingSearchFileTarget, isSearchNoMatch } from './searchNoMatch';
 import { isPathNotFound } from './pathNotFound';
 // P1-1（2026-11-06）：检查/测试类命令的非零退出 = 有效证据（不烧熔断 invalid 预算）
 import { isExpectedNonzeroExit } from './exitSemantics';
@@ -62,7 +62,7 @@ import {
 // 复用 PowerShellTool 的同一判定入口（不新增第二套危险词表）。
 import {
   checkPowerShellWrapper,
-  isSinglePowerShellWrapperCommand,
+  isDelegatedPowerShellCommand,
 } from './powerShellWrapper';
 // G18：大输出软截断抽至 `./bashOutputTruncate`
 import {
@@ -540,8 +540,9 @@ export class BashTool extends BaseTool {
         approvalSnapshot,
         analyzer: this.securityAnalyzer,
         trustLevel,
-        // FIX-15：单条 PowerShell 包裹已由上一道闸（G-07）用 PowerShell 安全链判定过
-        delegatedSinglePowerShell: isSinglePowerShellWrapperCommand(command),
+        // FIX-15：单条 PowerShell 包裹已由上一道闸（G-07）用 PowerShell 安全链判定过；
+        // 2026-11-09：委托范围扩到「只读 `cd` 前缀 + 单条包裹」（见 `isDelegatedPowerShellCommand`）
+        delegatedSinglePowerShell: isDelegatedPowerShellCommand(command),
       });
       if (analysisBlock) {
         // 2026-10-25（与 path/danger 分支同源补日志）：分析器 deny / AST 拦截事件落 app.log，
@@ -621,7 +622,17 @@ export class BashTool extends BaseTool {
       // stdout/stderr 均空，却被计为工具失败（3 次即触发 `all-tools-failed` 熔断），
       // 模型只能重复同一调用。判据收窄见 `./searchNoMatch`（exit=1 + 双空 + 末段为检索命令）。
       if (
-        isSearchNoMatch({ command: executedCommand, exitCode, stdout, stderr })
+        isSearchNoMatch({
+          command: executedCommand,
+          exitCode,
+          stdout,
+          stderr,
+          // 2026-11-09：无管道时，只有"目标文件确实存在"才判无匹配（缺文件仍算失败）
+          hasExistingFileTarget: hasExistingSearchFileTarget(
+            executedCommand ?? '',
+            context?.options?.cwd
+          ),
+        })
       ) {
         const noMatchMsg =
           '检索无匹配（退出码 1；findstr/grep 的约定：没有匹配项即退出码 1，不是执行失败）';

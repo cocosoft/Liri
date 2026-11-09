@@ -261,7 +261,13 @@ function compoundRejectHint(reason: string): string {
     return `等价单条写法：把「${notReadOnly[1]}」单独作为一条命令执行；只读查询也单独执行（如「dir /b」），两次调用不要用 && / | 串联`;
   }
   if (/重定向（/.test(reason)) {
-    return '等价单条写法：执行命令时去掉 > 重定向；写文件改用 file_write 工具';
+    // 2026-11-09（会话 `session_mw8fwx3a48ba9e07f9`）：工具**已完整捕获 stdout/stderr**
+    // （含退出码），不需要 `>` 把输出重定向到文件；`<` 也不是读文件的手段（有 file_read）。
+    // 旧文案只提 `>` 与 file_write ⇒ 模型仍反复 `> _out.txt & type _out.txt` / `find /c /v "" < %f` 撞墙。
+    return (
+      '等价单条写法：直接执行命令即可（工具已捕获完整输出，**不要**用 > / < 重定向）；' +
+      '要把结果落盘用 file_write；要读文件内容用 file_read；只需过滤输出时用 findstr / Select-String'
+    );
   }
   if (/变量|命令替换|反引号/.test(reason)) {
     return '等价单条写法：把变量/命令替换展开成字面值后，作为一条单一命令重试';

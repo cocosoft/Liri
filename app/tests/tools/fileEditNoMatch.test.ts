@@ -7,13 +7,16 @@
  * 本片锁住三条契约：
  *  ① 未命中（含 replace_all 0 命中）⇒ `success:false`，并提示先读文件 / 改用 file_write；
  *  ② 同一处连续未命中第 2 次 ⇒ 文案升级为「禁止原样重试」；
- *  ③ 单次 old_string/new_string 超过 4KB ⇒ 提前拒绝（真机 5088 字符 JSON 被输出上限截断）。
+ *  ③ 单次 old_string/new_string 超过上限（8KB）⇒ 提前拒绝（真机 5088 字符 JSON 被输出上限截断）。
  */
 import { afterAll, describe, expect, it } from 'bun:test';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FileEditTool } from '../../src/tools/FileEditTool/FileEditTool';
+import {
+  FILE_EDIT_MAX_ARG_BYTES,
+  FileEditTool,
+} from '../../src/tools/FileEditTool/FileEditTool';
 import type { ToolUseContext } from '../../src/tools/types/ToolUseContext';
 
 const dir = mkdtempSync(join(tmpdir(), 'file-edit-no-match-'));
@@ -98,13 +101,13 @@ describe('file_edit：未命中必须硬失败', () => {
   });
 });
 
-describe('file_edit：大参数护栏（4KB）', () => {
+describe('file_edit：大参数护栏（8KB）', () => {
   it('old_string 超限 ⇒ 提前拒绝并建议 file_write / 拆小', async () => {
     const name = seed('x\n');
     const result = await new FileEditTool().execute(
       {
         file_path: name,
-        old_string: 'a'.repeat(4 * 1024 + 1),
+        old_string: 'a'.repeat(FILE_EDIT_MAX_ARG_BYTES + 1),
         new_string: 'b',
       },
       ctx
@@ -121,11 +124,28 @@ describe('file_edit：大参数护栏（4KB）', () => {
       {
         file_path: name,
         old_string: 'x',
-        new_string: 'b'.repeat(4 * 1024 + 1),
+        new_string: 'b'.repeat(FILE_EDIT_MAX_ARG_BYTES + 1),
       },
       ctx
     );
     expect(result.success).toBe(false);
     expect(String(result.data)).toContain('编辑参数过大');
+  });
+
+  // 2026-11-09（会话 `session_mw8fwx3a48ba9e07f9`）：4–6 KB 的整段编辑曾被误拒
+  it('真机形态：5.6 KB 的 new_string 不再被拒（在 8KB 上限内）', async () => {
+    const name = seed('x\n');
+    const result = await new FileEditTool().execute(
+      {
+        file_path: name,
+        old_string: 'x',
+        new_string: 'b'.repeat(5650),
+      },
+      ctx
+    );
+    expect(result.success).not.toBe(false);
+    expect(readFileSync(join(dir, name), 'utf-8')).toBe(
+      'b'.repeat(5650) + '\n'
+    );
   });
 });

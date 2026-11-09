@@ -8,8 +8,14 @@
  * ⇒ 计入 `all-tools-failed`（3 次触发熔断）。本文件钉住判据的**收窄边界**：
  * 只有「exit 恰为 1 + stdout/stderr 均空 + 末段是检索命令 + 末段无输出重定向」才算无匹配。
  */
-import { describe, it, expect } from 'bun:test';
-import { isSearchNoMatch } from '../../src/tools/bash/searchNoMatch';
+import { afterAll, describe, it, expect } from 'bun:test';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import {
+  hasExistingSearchFileTarget,
+  isSearchNoMatch,
+} from '../../src/tools/bash/searchNoMatch';
 
 describe('isSearchNoMatch：检索无匹配判定', () => {
   it('真机形态（cmd 管道 + findstr 无匹配）⇒ true', () => {
@@ -94,6 +100,60 @@ describe('isSearchNoMatch：检索无匹配判定', () => {
         command: 'findstr /i mario *.txt > out.txt',
         exitCode: 1,
       })
+    ).toBe(false);
+  });
+});
+
+// ─── 2026-11-09（会话 `session_mw8fwx3a48ba9e07f9`）：无管道 + 目标文件存在 ───
+describe('无管道 + 目标文件存在 ⇒ 同样判「无匹配」', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'bash-no-match-'));
+  mkdirSync(join(dir, 'tests'), { recursive: true });
+  writeFileSync(join(dir, 'tests', 'run-tests.mjs'), '// fixture\n', 'utf-8');
+  const sep = process.platform === 'win32' ? '\\' : '/';
+  const existing = `cd /d "${dir}" && findstr /n /c:"相机只向右推进" tests${sep}run-tests.mjs`;
+  const missing = `cd /d "${dir}" && findstr /n /c:"x" tests${sep}missing.mjs`;
+
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('文件存在 ⇒ 有"存在"证据 + exit 1 双空 ⇒ 无匹配', () => {
+    const exists = hasExistingSearchFileTarget(existing, dir);
+    expect(exists).toBe(true);
+    expect(
+      isSearchNoMatch({
+        command: existing,
+        exitCode: 1,
+        stdout: '',
+        stderr: '',
+        hasExistingFileTarget: exists,
+      })
+    ).toBe(true);
+  });
+
+  it('不带"文件存在"证据 ⇒ 维持旧口径（false）', () => {
+    expect(isSearchNoMatch({ command: existing, exitCode: 1 })).toBe(false);
+  });
+
+  it('文件不存在 ⇒ 不判无匹配（缺文件仍是失败）', () => {
+    expect(hasExistingSearchFileTarget(missing, dir)).toBe(false);
+    expect(
+      isSearchNoMatch({
+        command: missing,
+        exitCode: 1,
+        stdout: '',
+        stderr: '',
+        hasExistingFileTarget: false,
+      })
+    ).toBe(false);
+  });
+
+  it('非检索命令 ⇒ false（普通命令 exit 1 仍是失败）', () => {
+    expect(
+      hasExistingSearchFileTarget(
+        `cd /d "${dir}" && node tests${sep}run-tests.mjs`,
+        dir
+      )
     ).toBe(false);
   });
 });

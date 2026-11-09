@@ -14,6 +14,7 @@ import { describe, expect, it } from 'bun:test';
 import { BashSecurityAnalyzer } from '@openliri/infra/security/BashSecurityAnalyzer';
 import { checkAstAndAnalyzer } from '../../src/tools/bash/bashSecurityGate.js';
 import { isSinglePowerShellWrapperCommand } from '../../src/tools/bash/powerShellWrapper.js';
+import { isDelegatedPowerShellCommand } from '../../src/tools/bash/powerShellWrapper.js';
 import type {
   ApprovalScope,
   ApprovalSnapshot,
@@ -60,6 +61,46 @@ describe('isSinglePowerShellWrapperCommand', () => {
     expect(
       isSinglePowerShellWrapperCommand('echo powershell -Command "x"')
     ).toBe(false);
+  });
+});
+
+describe('isDelegatedPowerShellCommand：只读 cd 前缀可委托（2026-11-09）', () => {
+  const CD_PS = `cd /d "E:\\PY\\Documents\\CODES\\PY_APP\\output\\super-mario-1-1" && powershell -Command "Get-ChildItem -Recurse -File | Select-Object FullName, Length | Format-Table -AutoSize"`;
+
+  it('真机形态：cd 前缀 + 单条包裹 ⇒ 可委托', () => {
+    expect(isDelegatedPowerShellCommand(CD_PS)).toBe(true);
+    expect(isDelegatedPowerShellCommand(`cd a && cd b && pwsh -c "1"`)).toBe(
+      true
+    );
+    expect(isDelegatedPowerShellCommand(SINGLE)).toBe(true);
+  });
+
+  it('前缀含非 cd 命令 / 管道 / 重定向 / 变量 ⇒ 不委托（fail-closed）', () => {
+    expect(
+      isDelegatedPowerShellCommand(`del /f x && powershell -Command "1"`)
+    ).toBe(false);
+    expect(isDelegatedPowerShellCommand(`cd a | powershell -Command "1"`)).toBe(
+      false
+    );
+    expect(
+      isDelegatedPowerShellCommand(`cd a > out.txt && powershell -Command "1"`)
+    ).toBe(false);
+    expect(
+      isDelegatedPowerShellCommand(`cd %TEMP% && powershell -Command "1"`)
+    ).toBe(false);
+    // 包裹后仍有兄弟段 ⇒ 不委托
+    expect(
+      isDelegatedPowerShellCommand(`cd a && powershell -Command "1" && del x`)
+    ).toBe(false);
+    expect(isDelegatedPowerShellCommand('dir /b')).toBe(false);
+  });
+
+  it('分析器：cd 前缀委托后不再判「非只读命令（powershell）」', () => {
+    const r = new BashSecurityAnalyzer().analyze(CD_PS, undefined, {
+      delegatedSinglePowerShell: true,
+    });
+    expect(r.behavior).toBe('allow');
+    expect(r.matchedPatterns).toContain('powershell-wrapper-delegated');
   });
 });
 

@@ -493,16 +493,24 @@ export class KnowledgeCompiler {
             const detail = exceeded
               ? `lint 错误 ${error} 超过基线 ${ratchet.baseline}（棘轮只减不增）`
               : `lint: ${error} errors, ${warning} warnings`;
-            (exceeded ? logger.error : logger.warn)(
-              exceeded
-                ? `编译后 lint 错误 ${error} 超过基线 ${ratchet.baseline}（棘轮只减不增）`
-                : `编译后 lint 发现 ${error} 个错误, ${warning} 个警告`,
-              {
-                lintSummary: lintReport.summary,
-                lintErrorBaseline: ratchet.baseline,
-                lintRatchetAction: ratchet.action,
-              }
-            );
+            // 2026-11-09：不得把 logger 方法从对象上摘下裸调用（丢 `this` ⇒ 每次
+            // lint 有发现都会在此抛错，被下方 catch 记成 `[post_lint]` 并吞掉棘轮判失败）
+            const lintMeta = {
+              lintSummary: lintReport.summary,
+              lintErrorBaseline: ratchet.baseline,
+              lintRatchetAction: ratchet.action,
+            };
+            if (exceeded) {
+              logger.error(
+                `编译后 lint 错误 ${error} 超过基线 ${ratchet.baseline}（棘轮只减不增）`,
+                lintMeta
+              );
+            } else {
+              logger.warn(
+                `编译后 lint 发现 ${error} 个错误, ${warning} 个警告`,
+                lintMeta
+              );
+            }
             if (exceeded) {
               // 判失败：与既有编译错误同口径，调用方/面板据此看到"编译未通过"
               result.errors.push(detail);

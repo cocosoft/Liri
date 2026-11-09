@@ -332,6 +332,14 @@ export interface ChatResponse {
    * （例如识别出"正在写哪个文件"，把续写目标告诉模型，避免重试后丢失写入意图）。
    */
   partial_tool_calls?: ParsedToolCall[];
+  /**
+   * 2026-11-09（真机工具自检）：非流式响应里的**思考内容**（OpenAI 兼容的 `reasoning_content`）。
+   *
+   * 流式有 thinking chunk，非流式只有这个字段。此前 `toChatResponse` 把它丢了 ⇒
+   * 「只思考、正文为空」的一轮在上层表现为"空回复"（真机 `kind="empty" textPreview=""`，
+   * 重试文案也指错方向）。这里只承载、不渲染：可见正文仍以 `content` 为准。
+   */
+  reasoning?: string | null;
   usage?: {
     prompt_tokens: number;
     cache_read_input_tokens?: number;

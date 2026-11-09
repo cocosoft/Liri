@@ -675,10 +675,10 @@ export class ReActToolLoop extends ReActLoop<
 
     // N-1 / N-13（2026-11-06）：截断归因（半截工具调用 + 推理占比）。只读取证，**不执行**。
     // 外移到 `agentReasonAttribution`（本文件逼近 R04-001 的 2000 行上限）。
-    const { partialToolCalls, thinkingRatio } = attributeReasonRound(
-      response,
-      this.streamingLlm.lastRoundChunkStats()
-    );
+    const { partialToolCalls, thinkingRatio, hadReasoning } =
+      attributeReasonRound(response, this.streamingLlm.lastRoundChunkStats());
+    // 2026-11-09：非流式没有 thinking chunk ⇒ 用响应体 reasoning 补本轮思考标记（与流式同口径）
+    if (hadReasoning) this._lastRoundHadThinking = true;
 
     // 排查锚点：每轮推理产出的工具调用默认可见。circuit_breaker 触发时，
     // 配合 onToolCall end 和工具自身失败日志，可完整还原"AI 决策 → 工具执行 → 失败"链路。

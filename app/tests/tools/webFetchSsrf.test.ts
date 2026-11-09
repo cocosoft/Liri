@@ -124,6 +124,58 @@ describe('WebFetchTool.execute 对接 SSRF', () => {
 });
 
 /**
+ * 2026-11-09（真机工具自检）：**上下文没有 `abortController` 时不得崩**。
+ *
+ * 非流式 chat（`POST /v1/chat/completions` `stream:false`）没有会话级取消源 ⇒
+ * `ToolUseContext.abortController` 运行时为 `undefined`（类型却声明为必填）。
+ * bash / powershell 早就用可选链兜住这一档，web_fetch 漏了 ⇒ 该路径下整个工具不可用
+ * （实测报错：`undefined is not an object (evaluating 'context.abortController.signal')`）。
+ */
+describe('上下文无 abortController（非流式 chat 路径）', () => {
+  const ORIG_FETCH = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = ORIG_FETCH;
+  });
+
+  it('成功路径照常返回内容，不读不存在的 abortController', async () => {
+    dns.promises.resolve4 = (async () => [
+      '93.184.216.34',
+    ]) as unknown as typeof ORIG_RESOLVE4;
+    globalThis.fetch = (async () =>
+      new Response('<html><body>fetch-smoke-ok</body></html>', {
+        status: 200,
+        headers: { 'content-type': 'text/html; charset=utf-8' },
+      })) as unknown as typeof ORIG_FETCH;
+
+    const r = await new WebFetchTool().execute(
+      { url: 'http://example.com/' },
+      {} as never
+    );
+    expect((r.data as { content?: string }).content).toContain(
+      'fetch-smoke-ok'
+    );
+  });
+
+  it('传输层失败（非取消）⇒ 报超时口径，不因缺 abortController 二次崩', async () => {
+    dns.promises.resolve4 = (async () => [
+      '93.184.216.34',
+    ]) as unknown as typeof ORIG_RESOLVE4;
+    globalThis.fetch = (async () => {
+      const err = new Error('simulated abort');
+      err.name = 'AbortError';
+      throw err;
+    }) as unknown as typeof ORIG_FETCH;
+
+    const r = await new WebFetchTool().execute(
+      { url: 'http://example.com/', timeout: 1234 },
+      {} as never
+    );
+    expect(String(r.data)).toContain('Request timed out after 1234ms');
+  });
+});
+
+/**
  * 方案 C（2026-09-25）：拦截文案区分「代理 fake-IP」与「内网目标」。
  *
  * 背景（台账 N-61）：实测 arxiv 系列域名被解析到 198.19.0.x（企业代理 fake-IP 池），

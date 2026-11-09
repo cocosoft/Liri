@@ -173,6 +173,12 @@ export class TransportProviderAdapter {
       result.tool_calls = normalized.toolCalls.map(toParsedToolCall);
     }
 
+    // 2026-11-09：非流式思考内容必须透传 —— 丢了它，「只思考、正文为空」的一轮
+    // 在上层就成了"空回复"（真机 kind="empty"）。可见正文仍以 content 为准。
+    if (normalized.reasoning) {
+      result.reasoning = normalized.reasoning;
+    }
+
     return result;
   }
 

@@ -46,6 +46,19 @@ export const AWAITING_APPROVAL_NOTICE =
   '批准后会自动接着执行，无需重发消息。';
 
 /**
+ * 2026-11-09：中止类收尾文案 —— **单一文案来源**（CS01）。
+ *
+ * 流式路径经 `resolveTerminationOutput` 的 `system_aborted` / `aborted` 分支拼进助手消息；
+ * 非流式（TAOR）路径取消后无可见正文时，由 `ChatOrchestrator` 用同源常量补一条助手消息
+ * ⇒ 两条路径逐字一致，不出现第二份硬编码；也不会被误落 BUG-E「本次未能生成回复」兜底。
+ */
+export const SYSTEM_ABORTED_SUFFIX =
+  '\n\n⏹ 本轮生成已中止（连接中断或会话被关闭）。如需继续，请重新发送消息。';
+
+/** 用户主动停止（见 `SYSTEM_ABORTED_SUFFIX` 头注：同一唯一来源） */
+export const USER_ABORTED_SUFFIX = '\n\n⏹ 已按你的请求停止本轮生成。';
+
+/**
  * N-3（2026-11-06 真机）：本轮**失败**收尾 ⇒ 会话状态落 `error`（列表显示"本轮出错"）。
  *
  * 与下方 `resolveTerminationOutput` 的 `switch (reason)` 同源：失败族的收尾原因集中在这里，
@@ -346,12 +359,12 @@ export function resolveTerminationOutput(
     // 二期 O2-1：系统中止 ⇒ 明确"这不是你点的停止"（此前文案是"已按你的请求停止"）
     case 'system_aborted':
       finishReason = 'system_aborted';
-      suffix = `\n\n⏹ 本轮生成已中止（连接中断或会话被关闭）。如需继续，请重新发送消息。`;
+      suffix = SYSTEM_ABORTED_SUFFIX;
       break;
     // 一期 F1-3（2026-09-23）：用户主动停止——此前无对应分支，若此时尚无正文
     // ⇒ 落盘空消息（用户点"停止"却拿到一片空白）。
     case 'aborted':
-      suffix = `\n\n⏹ 已按你的请求停止本轮生成。`;
+      suffix = USER_ABORTED_SUFFIX;
       break;
     // 二期 F2-2（2026-09-23）：会话级总时长上限——此前该支不置相位，被判别器误判为
     // 'completed' ⇒ 用户看到"正常完成"却拿不到任何结论；并如实交代被丢弃的工具调用。

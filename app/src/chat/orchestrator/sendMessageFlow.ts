@@ -648,14 +648,28 @@ export async function invokeLlm(
     usage &&
     (usage.prompt_tokens ?? 0) + (usage.completion_tokens ?? 0) > 0
   ) {
+    // 债四「换算接线」（2026-11-09）：非流式主链此前**漏传第 4 参 `model`** ⇒
+    // `recordTurnCostUsd` 拿不到模型名 ⇒ 按 Q-U5 口径跳过金额记账（`dailyBudget:usd_skip`）
+    // ⇒ `usedUsd` 在非流式路径出现缺口。与 `StreamPipeline`（2026-10-15 已修）同类：
+    // 调用点漏传，而非账本本身错。与下方 `trackUsage` 用**同一表达式**（数出同源）。
+    const turnModel = extractModelFromResponse(
+      response,
+      options?.model || 'unknown'
+    );
+
     // T14 出口①：`recordChatResponseUsage` 内部 `settleFor(session, 真实用量)` ⇒ 多退少补、清在途
-    host.recordChatResponseUsage(session.id, response.usage, requestId);
+    host.recordChatResponseUsage(
+      session.id,
+      response.usage,
+      requestId,
+      turnModel
+    );
 
     // 异步记录使用量
     trackUsage(response, {
       // 2026-09-27 修 `LLM call recorded: unknown`（同 §三处记账点）：优先 provider 回显的
       // 真实模型名，回落 options.model → 'unknown'。复用既有助手，不新增实现。
-      model: extractModelFromResponse(response, options?.model || 'unknown'),
+      model: turnModel,
       providerId: activeClient.getProviderId(),
       latencyMs: 0,
       isStreaming: false,

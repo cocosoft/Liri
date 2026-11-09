@@ -137,6 +137,8 @@ export {
 
 // 2026-09-24 R03-002 收敛：services/ChatHelper · yield 通路统一出口
 export { extractTodoData, repairImageUrls } from './services/ChatHelper';
+// 2026-11-09：内联思考清洗出口 —— 供 TAOR 持久化路径与流式/ReAct 路径共用（CS01 单一实现）
+export { stripThinkResponseTags } from './services/MessageContextPipeline';
 export { getSettlementOutbox } from './yield/SettlementOutbox';
 export { notifyYieldSettled } from './yield/YieldSettlementBridge';
 // plan/do 工作模式契约（B1，2026-09-14）：经模块出口暴露，供 HTTP 层按 R03-002 导入

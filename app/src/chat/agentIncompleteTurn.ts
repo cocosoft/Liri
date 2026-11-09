@@ -198,7 +198,14 @@ export async function onIncompleteTurn(
   // 2026-10-27 实测（会话 `session_mvoqs1ho875ea6b95e`）：模型终稿**只含 `<think>…</think>`**、
   // 无任何正文时，`result.text` 非空 ⇒ 原判据判为"已完成" ⇒ 用户拿到空回答，且不会重试。
   // 现按**可见正文**（剥离 think/response 标签后）判定完整性。
-  const text = stripThinkResponseTags((result.text ?? '').trim()).trim();
+  const rawText = (result.text ?? '').trim();
+  const text = stripThinkResponseTags(rawText).trim();
+  // 2026-11-09（真机 SMOKE，deepseek-v4-flash 非流式工具轮）：有些 provider 把思考**内联**在
+  // `content` 里（`<think>…</think>`）而不发 thinking chunk ⇒ `lastRoundHadThinking` 恒为 false，
+  // 「只思考、无可见答案」被误判成「空回复」，重试文案也就指错了方向（让模型"再输出一次"，
+  // 而不是"别只想着，给结论"）。判据补齐：原始正文非空、剥离标签后为空 ⇒ 确实只思考了。
+  const hadThinking =
+    deps.lastRoundHadThinking || (rawText.length > 0 && text.length === 0);
 
   let kind:
     | 'empty'
@@ -216,9 +223,9 @@ export async function onIncompleteTurn(
     // 2026-11-06：工具调用被写成正文标记（DSML 残渣 / `<bash">`）⇒ 本轮零工具执行，
     // 正文是垃圾。旧判据会当"已完成"直接交付，且这段垃圾还会被 PDCA 当成任务描述。
     kind = 'malformed';
-  } else if (!text && !deps.lastRoundHadThinking) {
+  } else if (!text && !hadThinking) {
     kind = 'empty'; // 空回复
-  } else if (!text && deps.lastRoundHadThinking) {
+  } else if (!text && hadThinking) {
     kind = 'reasoning'; // 只思考未给出可见答案
   } else if (text && PLANNING_ONLY_RE.test(text)) {
     kind = 'planning'; // 只描述计划未行动（保守启发式）
@@ -327,6 +334,10 @@ export async function onIncompleteTurn(
     kind,
     retries: { ...deps.incompleteRetries },
     textPreview: text.slice(0, 80),
+    // 2026-11-09：内联思考留痕 —— 正文非空但剥离后为空，可区分「模型只思考」与「模型真空转」
+    ...(rawText.length > 0 && text.length === 0
+      ? { inlineThinkingChars: rawText.length }
+      : {}),
     // N-1：截断发生在写文件时，留痕"续接目标"，便于事后确认续写是否落到正确的文件
     ...(truncatedWriteTarget ? { truncatedWriteTarget } : {}),
     // N-13：截断归因 —— 推理占比高且无半截调用 ⇒ 预算被推理耗尽

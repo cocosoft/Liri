@@ -604,6 +604,12 @@ export class ModelRouter {
         await import('./models/AppModelConfigService.js');
       await appModelConfigService.initialize();
 
+      // 2026-11-09（真机实证：每次启动的 resolve 都报 UUID 缓存未命中）：**先**预加载
+      // UUID→模型名，**再**发布任务缓存。`resolve()` 是同步方法，一旦 `_taskCache` 里已能
+      // 看到配置的 UUID 而映射表还是空的，就只会返回 ''（`source=configured` 却拿到空）
+      // ⇒ 路由静默退化到 hardcoded-default，并持续告警。两步顺序颠倒即产生这个窗口。
+      await this.preloadUuidCache();
+
       await this._loadTaskCacheFromDb(appModelConfigService);
 
       // S3: 加载阶段→模型直配映射（持久化在 ai_app_model_configs，app_type = phase_<phase>）
@@ -612,8 +618,6 @@ export class ModelRouter {
       if (this._taskCache.size === 0) {
         await this._migrateFromConfigJson(appModelConfigService);
       }
-
-      await this.preloadUuidCache();
 
       // 刷新任务-能力映射（从 CapabilityService）
       await refreshTaskCapabilityMapping();

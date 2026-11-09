@@ -44,7 +44,10 @@ import { guardFinalOutput } from '../finalOutputGuard.js';
 // BUG-E 补口（2026-10-27 真机复验）：TAOR 路径末轮无可见文本时补同源兜底
 import {
   AWAITING_APPROVAL_NOTICE,
+  SYSTEM_ABORTED_SUFFIX,
+  USER_ABORTED_SUFFIX,
   buildEmptyReplyFallback,
+  hasVisibleAssistantText,
   isEmptyOutputFallbackMessage,
 } from '../terminationOutput.js';
 import {
@@ -413,7 +416,17 @@ export class ChatOrchestrator {
       priority: options?.priority ?? DEFAULT_REQUEST_PRIORITY,
     });
 
+    // 2026-11-09：非流式也登记**本轮**取消源。此前只有流式路径往
+    // `_sessionAbortControllers` 放 controller ⇒ 非流式工具取不到会话级 signal
+    //（`ToolExecutionService` 明确拒绝伪造"没人 abort 的 controller"），客户端断开 /
+    // 看门狗中止都无法传导到工具内部。在互斥体内登记，已被在途流式占用时不覆盖。
+    let turnAbort: AbortController | undefined;
+
     const sendPromise = mutex.run(async () => {
+      if (!this.host.sessionAbortControllers.has(session.id)) {
+        turnAbort = new AbortController();
+        this.host.sessionAbortControllers.set(session.id, turnAbort);
+      }
       // hook 前置
       const preMsgResult = await this.host.hookChainManager.execute('chat', {
         event: 'chat.pre-message',
@@ -793,6 +806,8 @@ export class ChatOrchestrator {
                 await import('../../query/ChatManagerTAORAdapter');
               const taorLoop = this.host.getOrCreateTAORLoop(session.id) as {
                 reset(): void;
+                /** 2026-11-09：会话取消源桥接（见下方 onTurnAbort） */
+                abort(saveCheckpoint?: boolean): Promise<void>;
                 /** N-42：以外部已产生的工具调用作为首轮 ACT（跳过首轮 REASON） */
                 seedPendingToolCalls(
                   calls: Array<{
@@ -839,10 +854,14 @@ export class ChatOrchestrator {
                 ctx.toolDefinitions,
                 // BUG-C：带有效输出预算（TAOR 首轮 callModel 的 `...options` 依赖它）
                 sendOptions
+              ) as ChatManagerTAORContext;
+              // 2026-11-09：种子轮 assistant 已由上方以**清洗版**落盘 ⇒ 告知适配器按
+              // tool_call id 判重，避免 TAOR 再把同一轮落一份（历史重复声明会让回放的
+              // 工具结果错配、被 `MessageProjector` 当无主结果剥离）。
+              taorContext.seedToolCallIds = (response.tool_calls ?? []).map(
+                (tc) => tc.id
               );
-              const deps = createChatManagerTAORDeps(
-                taorContext as ChatManagerTAORContext
-              );
+              const deps = createChatManagerTAORDeps(taorContext);
               const taorMessages: ChatMessage[] = ctx.apiMessages.map((m) => ({
                 role: (m.role as ChatMessage['role']) || 'user',
                 content:
@@ -856,10 +875,25 @@ export class ChatOrchestrator {
                   ? { tool_calls: m.tool_calls as ChatMessage['tool_calls'] }
                   : {}),
               }));
-              const taorResult = await taorLoop.runCollect({
-                messages: taorMessages,
-                deps,
-              });
+              // 2026-11-09：把本轮会话取消源桥接到 TAOR —— 客户端断开 / 看门狗中止时，
+              // 循环不再继续「模型→工具」空转（此前只有工具内部拿到 signal，循环照跑）。
+              const onTurnAbort = () => {
+                void taorLoop.abort();
+              };
+              if (turnAbort) {
+                if (turnAbort.signal.aborted) {
+                  onTurnAbort();
+                } else {
+                  turnAbort.signal.addEventListener('abort', onTurnAbort, {
+                    once: true,
+                  });
+                }
+              }
+              const taorResult = await taorLoop
+                .runCollect({ messages: taorMessages, deps })
+                .finally(() => {
+                  turnAbort?.signal.removeEventListener('abort', onTurnAbort);
+                });
               const awaitingApproval =
                 taorResult.terminationReason === 'awaiting_approval';
               logger.info('sendMessage TAORLoop 完成', {
@@ -878,6 +912,15 @@ export class ChatOrchestrator {
                     .find((m) => m.role === 'assistant')
                 : undefined;
               if (lastAssistant) assistantMessage = lastAssistant;
+
+              // 2026-11-09：取消 ≠ 生成失败 —— 非流式本轮被中止（连接中断 / 会话关闭 / 按请求
+              // 停止）时，若末条 assistant 无可见正文，补一条与流式**同源**的收尾文案
+              //（`terminationOutput.ts` 的导出常量，CS01），不得落 BUG-E「本次未能生成回复」兜底。
+              const cancelledSuffix = turnAbort?.signal.aborted
+                ? SYSTEM_ABORTED_SUFFIX
+                : taorResult.stopReason === 'aborted'
+                  ? USER_ABORTED_SUFFIX
+                  : undefined;
 
               // 2026-11-06（审批根因簇 P0-2）：TAOR 在"工具已提交审批"时立即收尾，
               // 但 finalize 不产出消息 ⇒ 不补一条用户可见提示的话，用户只看到一片空白
@@ -902,7 +945,32 @@ export class ChatOrchestrator {
                   this.host.addAndPersistMessage(session.id, noticeMsg);
                   assistantMessage = noticeMsg;
                 }
-              } else if (!isEmptyOutputFallbackMessage(lastAssistant)) {
+              } else if (
+                cancelledSuffix &&
+                !hasVisibleAssistantText(
+                  lastAssistant?.content as
+                    | string
+                    | Array<{ type: string; value?: unknown }>
+                    | undefined
+                )
+              ) {
+                const cancelMsg =
+                  this.host.messageService.createAssistantMessage(
+                    cancelledSuffix.trim(),
+                    { sessionId: session.id }
+                  );
+                cancelMsg.metadata = {
+                  ...(cancelMsg.metadata ?? {}),
+                  finishReason: turnAbort?.signal.aborted
+                    ? 'system_aborted'
+                    : 'aborted',
+                };
+                this.host.addAndPersistMessage(session.id, cancelMsg);
+                assistantMessage = cancelMsg;
+              } else if (
+                !cancelledSuffix &&
+                !isEmptyOutputFallbackMessage(lastAssistant)
+              ) {
                 // BUG-E 补口（2026-10-27 真机复验）：TAOR 的 finalize 不产出消息 ⇒ 末轮
                 // "无可见文本"时返回值 content 为空（实测 13:57:17Z `stopReason=diminishing_returns`
                 // + HTTP `contentLength=0`，用户零答复）。与 ReAct 路径同源兜底（同一常量/判据）。
@@ -1032,6 +1100,13 @@ export class ChatOrchestrator {
     // A5（2026-10-05）：释放治理器名额（与请求同生命周期，成功/失败都释放）
     return sendPromise.finally(() => {
       getResourceGovernor().release(session.id);
+      // 只清理**本轮自己**登记的条目（在途流式的 controller 不得被误删）
+      if (
+        turnAbort &&
+        this.host.sessionAbortControllers.get(session.id) === turnAbort
+      ) {
+        this.host.sessionAbortControllers.delete(session.id);
+      }
     });
   }
 

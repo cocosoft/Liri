@@ -275,3 +275,61 @@ describe('N-13：推理型截断的续接与额度', () => {
     expect(h.flags.phaseOutputBudgetExhausted).toBe(true);
   });
 });
+
+/**
+ * 2026-11-09（真机 SMOKE，deepseek-v4-flash 非流式工具轮）：**内联思考不得判成空回复**。
+ *
+ * 该模型把思考内联在 `content` 里（`<think>…</think>`）而不发 thinking chunk ⇒
+ * `lastRoundHadThinking` 恒为 false，旧判据把「只思考、无可见答案」当「空回复」，
+ * 注入的是 `empty` 文案（让模型"再输出一次"），而不是 `reasoning` 文案（"别只想着，给结论"）。
+ * 真机表现：`taorLoop:incomplete_turn_retry kind="empty" textPreview=""`。
+ */
+describe('内联 `<think>` 正文 ⇒ 归为 reasoning（不是 empty）', () => {
+  const inlineThink = (think: string): ReasonResult<ToolLoopContext> => ({
+    text: `<think>${think}</think>`,
+    toolCalls: [],
+    finishReason: 'stop',
+  });
+
+  it('★ 正文只有内联 think ⇒ reasoning 文案，且 consumed 的是 reasoning 额度', async () => {
+    const h = makeDeps();
+    const handled = await onIncompleteTurn(
+      inlineThink('先想一下该调哪个工具'),
+      h.deps
+    );
+
+    expect(handled).toBe(true);
+    expect(h.retries.reasoning).toBe(1);
+    expect(h.retries.empty).toBe(0);
+    expect(lastInstruction(h.messages)).toContain(
+      CONTINUATION_TEMPLATES.reasoning
+    );
+  });
+
+  it('负向对照：正文真的为空 ⇒ 仍是 empty（不误伤真空转）', async () => {
+    const h = makeDeps();
+    await onIncompleteTurn(
+      { text: '', toolCalls: [], finishReason: 'stop' },
+      h.deps
+    );
+
+    expect(h.retries.empty).toBe(1);
+    expect(h.retries.reasoning).toBe(0);
+    expect(lastInstruction(h.messages)).toContain(CONTINUATION_TEMPLATES.empty);
+  });
+
+  it('负向对照：有可见正文 ⇒ 不接管（正常回答零打扰）', async () => {
+    const h = makeDeps();
+    const handled = await onIncompleteTurn(
+      {
+        text: '<think>x</think>已经写好 smoke/a.txt',
+        toolCalls: [],
+        finishReason: 'stop',
+      },
+      h.deps
+    );
+
+    expect(handled).toBe(false);
+    expect(h.messages.length).toBe(0);
+  });
+});

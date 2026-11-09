@@ -11,6 +11,8 @@
 import { describe, expect, it } from 'bun:test';
 
 import {
+  SYSTEM_ABORTED_SUFFIX,
+  USER_ABORTED_SUFFIX,
   buildEmptyReplyFallback,
   hasVisibleAssistantText,
   isEmptyOutputFallbackMessage,
@@ -53,6 +55,17 @@ describe('F3：终止必须有正文', () => {
       resolveTerminationOutput(base({ reason: 'system_aborted' })).suffix.trim()
         .length
     ).toBeGreaterThan(0);
+  });
+
+  // 2026-11-09：非流式取消收尾复用同一文案（CS01 单一来源）—— switch 与导出常量**逐字相等**，
+  // 任一侧单独改动即变红（防两条路径文案漂移）。
+  it('中止文案单一来源：switch 逐字复用导出常量', () => {
+    expect(resolveTerminationOutput(base({ reason: 'aborted' })).suffix).toBe(
+      USER_ABORTED_SUFFIX
+    );
+    expect(
+      resolveTerminationOutput(base({ reason: 'system_aborted' })).suffix
+    ).toBe(SYSTEM_ABORTED_SUFFIX);
   });
 
   it('负向对照：completed 且已有正文 ⇒ 不追加任何提示', () => {

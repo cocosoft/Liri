@@ -703,6 +703,21 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       return { results: [], allSucceeded: false, anyAborted: false };
     }
 
+    // 2026-11-09：先落盘声明再执行工具（工具结果由事件通道实时落盘；否则历史里「结果先于
+    // 声明」会被回放当无主结果剥离）。已落盘者由 deps 指纹跳过（含种子轮声明）。
+    try {
+      await this.deps.persistMessages(
+        this.messages,
+        this.abortController.signal
+      );
+    } catch (e) {
+      await handleError(e, {
+        module: 'query:taorLoop',
+        action: 'persist_pre_act',
+        context: { sessionId: this.taorConfig.sessionId },
+      });
+    }
+
     // trace tool enter
     const toolStartTs = Date.now();
     for (const tc of calls) {

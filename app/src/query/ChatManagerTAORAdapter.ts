@@ -24,7 +24,11 @@ import type {
   QuestionData,
   QuestionOption,
 } from '@modules/runtime/api/CoreAPI.js';
-import { extractTodoData, autoAnswerUnattended } from '@modules/chat';
+import {
+  extractTodoData,
+  autoAnswerUnattended,
+  stripThinkResponseTags,
+} from '@modules/chat';
 import { withDeadline } from '@openliri/infra/utils/withDeadline';
 import { PENDING_INTERACTION_TTL_MS } from '@openliri/infra/constants';
 // 2026-11-07（方案 §13）：tool_search 命中后把工具定义补进本轮（TAOR/batch 路径）
@@ -98,6 +102,15 @@ export interface ChatManagerTAORContext {
   /** 会话 ID */
   sessionId: string;
 
+  /**
+   * 2026-11-09：**外层已落盘**的种子轮 tool_call id 列表。
+   *
+   * 非流式路径的第一响应由 `ChatOrchestrator` 先落一份（清洗版），TAOR 若再落一份，
+   * 历史里就出现同一批 id 的重复声明 ⇒ 回放配对错乱（工具结果被当无主结果剥离）。
+   * 适配器据此预置判重指纹，保证「一轮一写」。
+   */
+  seedToolCallIds?: string[];
+
   /** 工具定义列表 */
   toolDefinitions: ToolDefinition[];
 
@@ -168,10 +181,25 @@ export function createChatManagerTAORDeps(
   // TAOR 每轮把整个 messages 数组（含全部历史）重新持久化 → 会话文件重复膨胀
   // （33 行中 18 行重复）、上下文 token 同步膨胀。改为内容指纹判重，只持久化新消息。
   const persistedFingerprints = new Set<string>();
+  // 2026-11-09：种子轮声明（外层已落盘）预置指纹，与下方 fingerprintOf 同口径（按 id 归并）
+  if (ctx.seedToolCallIds && ctx.seedToolCallIds.length > 0) {
+    persistedFingerprints.add(
+      `assistant|tools|${[...ctx.seedToolCallIds].sort().join(',')}`
+    );
+  }
   const fingerprintOf = (msg: ChatMessage): string => {
     const toolCallId = (msg as { tool_call_id?: string }).tool_call_id ?? '';
-    const toolCallsKey = msg.tool_calls ? JSON.stringify(msg.tool_calls) : '';
-    return `${msg.role}|${toolCallId}|${toolCallsKey}|${
+    // 2026-11-09：带工具调用的 assistant 只按 **call id 集合** 归并 —— 同一轮可能由外层
+    // （清洗正文 + 嵌套 function 形状）与 TAOR（原始正文 + 扁平形状）各构造一份，
+    // 按内容/形状取指纹会把同一轮算成两条 ⇒ 历史出现同 id 的重复声明。
+    const callIds = (msg.tool_calls ?? [])
+      .map((tc) => tc.id)
+      .sort()
+      .join(',');
+    if (msg.role === 'assistant' && callIds) {
+      return `assistant|tools|${callIds}`;
+    }
+    return `${msg.role}|${toolCallId}|${
       typeof msg.content === 'string'
         ? msg.content
         : JSON.stringify(msg.content)
@@ -204,16 +232,32 @@ export function createChatManagerTAORDeps(
             : {}),
         });
 
-        yield {
-          type: 'text',
-          content: response.content ?? '',
-          tool_calls: (response.tool_calls ?? []).map((tc) => ({
-            id: tc.id,
-            name: tc.name,
-            arguments: tc.arguments,
-          })),
-          usage: response.usage,
-        };
+        // 2026-11-09（非流式工具轮后空回复，真机 `session_mw90qvsv11cd12eebc`）：
+        // 工具调用必须以**单数** `toolCall` 逐块 yield —— `TAORLoop._collectCallModel`
+        // 只按 `chunk.toolCall` 聚合（见 `tasks/lro/stepExecution.ts` 同款正例）。
+        // 此前这里 yield 的是**复数** `tool_calls`，被聚合层结构性忽略 ⇒ 除 seed 轮外
+        // 每一轮工具调用都"消失"：模型反复请求 file_read，`reason()` 却拿到空
+        // toolCalls ⇒ 误判「空回复」重试 ⇒ 最终兜底文案（executeTools 永不触达）。
+        if (response.content) {
+          yield { type: 'text', content: response.content };
+        }
+        for (const tc of response.tool_calls ?? []) {
+          yield {
+            type: 'tool_call',
+            toolCall: {
+              id: tc.id,
+              name: tc.name,
+              arguments: tc.arguments,
+            },
+          };
+        }
+        // 真实输入量以独立块回传（TAORLoop 只读 `chunk.usage.prompt_tokens`），须在 `done` 之前
+        if (response.usage?.prompt_tokens) {
+          yield {
+            type: 'usage',
+            usage: { prompt_tokens: response.usage.prompt_tokens },
+          };
+        }
         yield { type: 'done' };
       } catch (error) {
         await handleError(error, {
@@ -602,16 +646,17 @@ export function createChatManagerTAORDeps(
           skipped++;
           continue;
         }
-        if (msg.role === 'assistant' && msg.content) {
-          ctx.persistMessage(
-            ctx.sessionId,
-            msg.content as string,
-            'assistant',
-            undefined,
-            {
-              tool_calls: msg.tool_calls,
-            }
-          );
+        if (msg.role === 'assistant') {
+          // 2026-11-09：可见正文里的内联思考（`<think>`）不得作为 assistant 正文落盘 ——
+          // 回放时等于给模型示范"上一轮只输出思考"（流式 / ReAct 路径本就先清洗）。
+          const visible = stripThinkResponseTags(msg.content ?? '').trim();
+          const hasDeclarations = (msg.tool_calls?.length ?? 0) > 0;
+          // 2026-11-09：**空正文 + tool_calls** 的声明也必须落盘 —— 否则其工具结果在历史里
+          // 无主，回放时被 `MessageProjector` 剥离，模型实际看不到这些工具输出。
+          if (!visible && !hasDeclarations) continue;
+          ctx.persistMessage(ctx.sessionId, visible, 'assistant', undefined, {
+            ...(hasDeclarations ? { tool_calls: msg.tool_calls } : {}),
+          });
           persistedFingerprints.add(fp);
           persisted++;
         } else if (msg.role === 'tool') {

@@ -123,23 +123,44 @@ export class SessionRouterStore {
       );
     });
 
-    const columns = await new Promise<Array<{ name: string }>>(
+    const columns = await new Promise<Array<{ name: string; pk: number }>>(
       (resolve, reject) => {
         this.db!.all(
           `PRAGMA table_info(${SESSION_ROUTER_TABLE_NAME})`,
           [],
           (err: Error | null, rows) =>
-            err ? reject(err) : resolve((rows || []) as Array<{ name: string }>)
+            err
+              ? reject(err)
+              : resolve((rows || []) as Array<{ name: string; pk: number }>)
         );
       }
     );
-    if (columns.some((c) => c.name === 'owner_key')) return;
-    await new Promise<void>((resolve, reject) => {
-      this.db!.run(
-        `ALTER TABLE ${SESSION_ROUTER_TABLE_NAME} ADD COLUMN owner_key TEXT NOT NULL DEFAULT 'local:local'`,
-        (err: Error | null) => (err ? reject(err) : resolve())
-      );
-    });
+    const hasOwnerKey = columns.some((c) => c.name === 'owner_key');
+    if (!hasOwnerKey) {
+      await new Promise<void>((resolve, reject) => {
+        this.db!.run(
+          `ALTER TABLE ${SESSION_ROUTER_TABLE_NAME} ADD COLUMN owner_key TEXT NOT NULL DEFAULT 'local:local'`,
+          (err: Error | null) => (err ? reject(err) : resolve())
+        );
+      });
+    }
+    // 2026-11-09：旧库主键仍是单列 `session_id`（SQLite 的 ALTER 改不了主键）⇒
+    // `ON CONFLICT(session_id, owner_key)` 找不到匹配的唯一约束，upsert 每次报
+    // `ON CONFLICT clause does not match any PRIMARY KEY or UNIQUE constraint`
+    // （真机 app.db 实证：router_session_routes 恒 0 行，路由黏性从未落盘）。
+    // 补一个与冲突目标一致的唯一索引即可（新库复合主键已满足，故仅旧库需要）。
+    const pkColumns = new Set(
+      columns.filter((c) => c.pk > 0).map((c) => c.name)
+    );
+    if (!pkColumns.has('owner_key')) {
+      await new Promise<void>((resolve, reject) => {
+        this.db!.run(
+          `CREATE UNIQUE INDEX IF NOT EXISTS ux_${SESSION_ROUTER_TABLE_NAME}_owner
+             ON ${SESSION_ROUTER_TABLE_NAME} (session_id, owner_key)`,
+          (err: Error | null) => (err ? reject(err) : resolve())
+        );
+      });
+    }
   }
 
   /** 当前写入/查询的归属键（本地 ⇒ `local:local`） */

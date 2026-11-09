@@ -11,6 +11,9 @@
  *   ③ 对照组：`findstr <缺失文件>`（exit 2）仍是失败 —— 防止把真失败也归成成功。
  */
 import { describe, it, expect, afterEach } from 'bun:test';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   BashTool,
   resetGraySwitchWarningForTest,
@@ -56,12 +59,20 @@ describe.skipIf(process.platform !== 'win32')(
     });
 
     it('dir | findstr 无匹配 ⇒ 成功 + searchNoMatch 标记', async () => {
-      const result = await run(
-        'dir /b /s /ad 2>nul | findstr /i "__f3_no_such_token_9c1f__"'
-      );
-      expect(result.success).toBe(true);
-      expect(result.metadata?.searchNoMatch).toBe(true);
-      expect(String(result.data ?? '')).toContain('检索无匹配');
+      // 2026-11-09：原命令在仓库根执行 `dir /b /s /ad` 会**全量递归**（含 node_modules），
+      // 实测 >5s 触发 bun 默认用例超时（确定性失败）。改指向临时空目录：管道、退出码、
+      // 空输出等真机形态不变，耗时恒定。
+      const dir = mkdtempSync(join(tmpdir(), 'bash-nomatch-'));
+      try {
+        const result = await run(
+          `dir /b /s /ad "${dir}" 2>nul | findstr /i "__f3_no_such_token_9c1f__"`
+        );
+        expect(result.success).toBe(true);
+        expect(result.metadata?.searchNoMatch).toBe(true);
+        expect(String(result.data ?? '')).toContain('检索无匹配');
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
     });
 
     it('对照组：findstr 缺失文件（exit 2）仍判失败（不误伤真失败）', async () => {

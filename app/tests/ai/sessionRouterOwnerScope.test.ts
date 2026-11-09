@@ -26,7 +26,10 @@
  * `cleanExpired()` 是跨用户维护动作（过期行对本租户所有用户都已失效）⇒ 显式豁免。
  */
 import { afterAll, describe, expect, it } from 'bun:test';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { Database } from '@openliri/infra/external';
 import { SessionRouterStore } from '../../src/ai/router/SessionRouterStore';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import type { Principal } from '@openliri/kernel/identity/principal';
@@ -75,6 +78,47 @@ describe('SessionRouterStore：行级隔离', () => {
     const bob = await runWithPrincipal(BOB, () => store.get('s-shared'));
     expect(bob?.hitCount).toBe(1);
     expect(bob?.tier).toBe('reasoning');
+  });
+});
+
+describe('旧库主键迁移：单列 session_id + 后补 owner_key', () => {
+  it('补唯一索引后 upsert 能落盘（不再报 ON CONFLICT 不匹配）', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'session-router-'));
+    const dbPath = join(dir, 'app.db');
+    const legacy = await new Promise<Database>((resolve, reject) => {
+      const db = new Database(dbPath, (err: Error | null) =>
+        err ? reject(err) : resolve(db)
+      );
+    });
+    const exec = (sql: string) =>
+      new Promise<void>((resolve, reject) => {
+        legacy.run(sql, (err: Error | null) => (err ? reject(err) : resolve()));
+      });
+    await exec(`CREATE TABLE router_session_routes (
+      session_id TEXT PRIMARY KEY,
+      tier TEXT NOT NULL,
+      provider TEXT NOT NULL DEFAULT '',
+      model TEXT NOT NULL DEFAULT '',
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      hit_count INTEGER NOT NULL DEFAULT 1
+    )`);
+    await exec(
+      `ALTER TABLE router_session_routes ADD COLUMN owner_key TEXT NOT NULL DEFAULT 'local:local'`
+    );
+    await new Promise<void>((resolve, reject) =>
+      legacy.close((err: Error | null) => (err ? reject(err) : resolve()))
+    );
+
+    const legacyStore = new SessionRouterStore(dbPath);
+    try {
+      await legacyStore.set('s-legacy', 'medium', 'p', 'm');
+      const record = await legacyStore.get('s-legacy');
+      expect(record?.tier).toBe('medium');
+    } finally {
+      legacyStore.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

@@ -32,6 +32,14 @@ export interface ReasonAttribution {
   partialToolCalls: ToolCallEntry[];
   /** 推理占比；两侧都为 0（如非流式调用）时为 `undefined`（不臆造） */
   thinkingRatio?: number;
+  /**
+   * 2026-11-09（真机 SMOKE）：本轮 provider 是否**带了思考内容**。
+   *
+   * 流式由 thinking chunk 打标记；非流式没有 chunk，只能读响应体的 `reasoning`
+   *（`reasoning_content`）。不读它 ⇒ 非流式下「只思考、正文为空」会被判成"空回复"，
+   * 续接指令指错方向（真机 `kind="empty" textPreview=""`）。
+   */
+  hadReasoning: boolean;
 }
 
 /**
@@ -53,8 +61,10 @@ export function attributeReasonRound(
   }));
 
   const total = chunkStats.text + chunkStats.thinking;
+  const reasoning = (response as { reasoning?: unknown })?.reasoning;
   return {
     partialToolCalls,
     ...(total > 0 ? { thinkingRatio: chunkStats.thinking / total } : {}),
+    hadReasoning: typeof reasoning === 'string' && reasoning.trim().length > 0,
   };
 }

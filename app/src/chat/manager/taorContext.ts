@@ -18,6 +18,7 @@ import { messageProjector } from '@modules/context';
 import { getLogger } from '@openliri/infra/monitoring';
 import type { ChatMessage, ParsedToolCall, ToolDefinition } from '@modules/ai';
 import type { ChatManagerTAORContext } from '@modules/query';
+import { recordDailyBudgetFromUsage } from '@modules/query';
 import type { LiriEvent } from '@modules/session/types/events';
 import type {
   Message,
@@ -174,6 +175,11 @@ export function buildTAORContext(
           ? (opts?.tools as unknown as ToolDefinition[])
           : undefined,
       });
+      // 2026-11-09：TAOR **工具轮**（每轮一次 provider 调用）此前**完全不记账** ⇒ 日预算 /
+      // 成本台账只覆盖首轮响应，长程任务可用任意轮次绕过日限额（也是 `dailyBudget:usd_skip`
+      // 的另一来源）。模型名取本轮请求实际使用的 `options.model`；缺失 ⇒ 只记 token、
+      // 不臆造金额（Q-U5，由 `recordTurnCostUsd` 内部告警）。
+      recordDailyBudgetFromUsage(response.usage, sessionId, options?.model);
       return {
         content:
           typeof response.content === 'string'

@@ -276,7 +276,10 @@ export class WebFetchTool extends BaseTool {
         fetchOptions,
         timeout,
         // S2-2（2026-10-11，G15）：上下文取消信号（用户取消 ⇒ 在途 HTTP 请求即中断）
-        context.abortController.signal
+        // 2026-11-09：非流式 chat 路径没有会话级取消源（`abortController` 为 undefined）⇒
+        // 与 bash / powershell 等同款可选链；否则 web_fetch 在该路径直接抛
+        // 「undefined is not an object (evaluating 'context.abortController.signal')」
+        context.abortController?.signal
       );
 
       const status = response.status;
@@ -376,7 +379,7 @@ export class WebFetchTool extends BaseTool {
         // S2-2（2026-10-11，G15）：区分「用户取消」与「超时」—— 二者同为 `AbortError`，但语义
         // 不同（取消由 `context.abortController` 触发）。原实现一律报"超时" ⇒ 误导用户
         // （用户主动取消却被告知超时）。文案随响应语言规范保持英文（与既有该工具文案一致）。
-        const canceled = context.abortController.signal.aborted;
+        const canceled = context.abortController?.signal.aborted ?? false;
         const message = canceled
           ? 'Request canceled'
           : `Request timed out after ${input.timeout || 30000}ms`;

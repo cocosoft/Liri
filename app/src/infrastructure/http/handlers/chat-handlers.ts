@@ -485,6 +485,12 @@ async function handleNormalChat(
   res: http.ServerResponse,
   request: ChatCompletionRequest
 ): Promise<void> {
+  // 2026-11-09：非流式中途断开（页面刷新 / 请求中止）⇒ 中止本轮，让工具拿到真实
+  // signal 后停下；正常完成时 `writableFinished=true` ⇒ 不误伤。`abortSessionOnClose`
+  // 内部先看 `isSessionStreaming()`（本轮 controller 未登记时直接跳过，不会误中止计划）。
+  res.on('close', () => {
+    if (!res.writableFinished) abortSessionOnClose(request.session_id);
+  });
   const userMessage = request.messages[request.messages.length - 1];
   if (!userMessage || userMessage.role !== 'user') {
     res.writeHead(400, { 'Content-Type': 'application/json' });

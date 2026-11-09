@@ -292,7 +292,7 @@ export class ChatCompletionsTransport extends BaseTransport {
       }
     }
 
-    return {
+    const normalized: NormalizedResponse = {
       content,
       toolCalls,
       usage: {
@@ -321,6 +321,26 @@ export class ChatCompletionsTransport extends BaseTransport {
       model: (r.model as string) ?? '',
       id: (r.id as string) ?? '',
     };
+
+    // 2026-11-09（真机工具自检）：空补全取证 —— 只在「既无正文又无工具调用」时打一条，
+    // 记录**原始形状**（finish_reason / 输出 token / message 字段 / content 类型 / reasoning 长度）。
+    // 没有这条，上层只看到 `kind="empty"`，无从区分模型真空转、思考被吞、还是协议形状变了。
+    if (!content && toolCalls.length === 0) {
+      logger.warn('transport:empty_completion', {
+        finishReason: (choice?.finish_reason as string) ?? null,
+        completionTokens: usage.completion_tokens ?? 0,
+        messageKeys: Object.keys(message),
+        contentType: Array.isArray(message.content)
+          ? 'array'
+          : typeof message.content,
+        reasoningChars:
+          typeof message.reasoning_content === 'string'
+            ? message.reasoning_content.length
+            : 0,
+      });
+    }
+
+    return normalized;
   }
 
   override mapFinishReason(rawReason: string): string {

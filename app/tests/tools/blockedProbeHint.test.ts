@@ -44,6 +44,10 @@ describe('P2-2：只读探测的识别与提示', () => {
     expect(hint).toContain('只读循环');
     expect(hint).toContain('glob');
     expect(hint).toContain('list');
+    // 2026-11-09（`session_mw8fwx3a48ba9e07f9`）：glob/list 不返回文件大小，
+    // 模型会为拿大小反复套 for 循环 ⇒ 提示必须给出真正可行的单条命令与工具。
+    expect(hint).toContain('dir <文件>');
+    expect(hint).toContain('file_read');
   });
 
   it.each([

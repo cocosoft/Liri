@@ -26,8 +26,24 @@ import {
   formatStageDeliverable,
   projectStageDeliverable,
 } from './stageDeliverable.js';
+// P2（2026-11-10）：阶段模板规模复用 PDL 的复杂度判定（同一阈值口径，避免两套判据漂移）
+import { classifyTaskComplexity } from './PlanDrivenLoop.js';
 
 const logger = getLogger('tasks:stageOrchestrator');
+
+/**
+ * P2（2026-11-10）：阶段模板规模 —— `trivial` 只要精简需求说明，`standard` 才要完整 PRD。
+ *
+ * 判定复用 `classifyTaskComplexity`（与 PDL 快速路径同一阈值口径，单一真源），
+ * 由 `chain.description` 派生 ⇒ **无需落库**（确定性纯函数，恢复时结果一致）。
+ */
+export type StageScale = 'trivial' | 'standard';
+
+export function resolveStageScale(description: string): StageScale {
+  return classifyTaskComplexity(description) === 'simple'
+    ? 'trivial'
+    : 'standard';
+}
 
 /** 阶段 ID（MVP：requirement→design→delivery） */
 export type StageId = 'requirement' | 'design' | 'delivery';
@@ -213,6 +229,12 @@ export function buildStagePrompt(
     const rid = chain.requirementId
       ? `\n需求追踪 ID: ${chain.requirementId}（产物须标注该 ID 作为需求证据）`
       : '';
+    // P2（2026-11-10，真机 `pdca_mw9g2qzz`）：**模板按规模分型** —— 短目标却要求七章 PRD，
+    // 只会把需求阶段撑成多步长文档（每步都是一整个 TAOR 循环）。阈值复用既有复杂度判定。
+    if (resolveStageScale(chain.description) === 'trivial') {
+      return `【需求分析】请产出**精简需求说明**（5–10 行，只写：目标 / 验收标准 / 约束），不要扩写成多章 PRD。
+任务描述: ${chain.description}${rid}`;
+    }
     return `【需求分析】请产出需求规格说明（PRD）。
 任务描述: ${chain.description}${rid}`;
   }

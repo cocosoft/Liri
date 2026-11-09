@@ -13,6 +13,7 @@ import { join } from 'path';
 import {
   StageOrchestrator,
   buildStagePrompt,
+  resolveStageScale,
   type StageChainRecord,
 } from '../../src/tasks/StageOrchestrator';
 import { readPdcaCheckpoint } from '../../src/tasks/PdcaWorkItemBridge';
@@ -220,6 +221,31 @@ describe('StageOrchestrator — 2 阶段链（D1/M7）', () => {
     const prompt = buildStagePrompt(chain.stages[1], chain);
     expect(prompt).toContain('PRD：支持微信支付');
     expect(prompt).toContain('需求规格说明');
+  });
+});
+
+describe('P2：阶段模板按规模分型', () => {
+  const makeChain = (description: string): StageChainRecord =>
+    StageOrchestrator.create('scale-test', description, 's-scale', {
+      runStage: async () => ({ artifact: '', tokens: 0 }),
+    }).getStatus();
+
+  it('短目标 ⇒ trivial；长目标 ⇒ standard（复用 PDL 复杂度阈值）', () => {
+    expect(resolveStageScale('创建工作区根目录的 hello.txt')).toBe('trivial');
+    expect(resolveStageScale('请'.repeat(200))).toBe('standard');
+  });
+
+  it('trivial 的 requirement 阶段只要精简需求说明，不再要求多章 PRD', () => {
+    const chain = makeChain('创建工作区根目录的 hello.txt');
+    const prompt = buildStagePrompt(chain.stages[0]!, chain);
+    expect(prompt).toContain('精简需求说明');
+    expect(prompt).not.toContain('请产出需求规格说明（PRD）');
+  });
+
+  it('standard 的 requirement 阶段保持完整 PRD 模板', () => {
+    const chain = makeChain('请'.repeat(200));
+    const prompt = buildStagePrompt(chain.stages[0]!, chain);
+    expect(prompt).toContain('需求规格说明（PRD）');
   });
 });
 

@@ -231,6 +231,11 @@ export function mapTaorStopReasonToTermination(
       return 'diminishing_returns';
     case 'loop_detected':
       return 'loop_detected';
+    // P0-3（2026-11-10）：循环守卫细分口径 —— 与 `aborted`（用户/任务中止）区分
+    case 'no_tool_call':
+      return 'no_tool_call';
+    case 'io_loop':
+      return 'io_loop';
     case 'timeout':
       return 'timeout';
     case 'aborted':

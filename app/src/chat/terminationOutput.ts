@@ -366,6 +366,21 @@ export function resolveTerminationOutput(
     case 'aborted':
       suffix = USER_ABORTED_SUFFIX;
       break;
+    // P0-3（2026-11-10）：循环守卫细分后的**专属文案**。
+    // 此前两者都折叠进 `aborted` ⇒ 用户看到"已按你的请求停止"（其实并不是他停的），
+    // 也无法判断该"继续"还是"换说法/换文件"。
+    case 'no_tool_call':
+      finishReason = 'no_tool_call';
+      suffix =
+        '\n\n⚠️ 本轮模型连续多轮只输出文本、没有调用任何工具，已停止以避免空转。' +
+        '可直接回复「继续」，或把目标说得更具体（要产出什么文件/执行什么命令）。';
+      break;
+    case 'io_loop':
+      finishReason = 'io_loop';
+      suffix =
+        '\n\n⚠️ 检测到对同一文件的重复读写循环（已读写多次仍无新结果），已停止以避免空转。' +
+        '请指明具体文件或调整目标后再试。';
+      break;
     // 二期 F2-2（2026-09-23）：会话级总时长上限——此前该支不置相位，被判别器误判为
     // 'completed' ⇒ 用户看到"正常完成"却拿不到任何结论；并如实交代被丢弃的工具调用。
     case 'timeout': {
@@ -489,6 +504,11 @@ export function mapTerminationToGoalReason(
     // LRO-09 步骤 3（2026-10-26）：环境阻塞**不是**模型无进展（模型可能完全正确，
     // 是环境不放行）⇒ 只记录、不推进 `no_progress_streak`，避免把环境故障记成目标退化。
     case 'environment_blocked':
+      return 'turn_interrupted';
+    // P0-3（2026-11-10）：循环守卫细分 —— 语义与 `environment_blocked` 同档（只记录）。
+    // 是否推进 `no_progress_streak` 属目标层策略调整，未在本批改动（避免行为漂移）。
+    case 'no_tool_call':
+    case 'io_loop':
       return 'turn_interrupted';
     // 二期 O2-1：其余细分成员都不是"无进展" ⇒ 只记录（见 N2 语义边界）
     case 'reasoning_error':

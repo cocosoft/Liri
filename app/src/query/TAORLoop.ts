@@ -589,7 +589,7 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       logger.warn('no_tool_call 死循环检测触发', {
         message: noToolCallResult.message,
       });
-      this.stopReason = 'aborted';
+      this.stopReason = 'no_tool_call'; // P0-3：原 `aborted`，与用户/任务中止混同
       this.stopped = true;
       return {
         text: '',
@@ -697,7 +697,7 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       this.injectSteering(warning, 'other');
     }
     if (blocked.length > 0) {
-      this.stopReason = 'aborted';
+      this.stopReason = 'io_loop'; // P0-3：文件 IO 守卫命中（原 `aborted`）
       this.stopped = true;
       await this._emitCanceledForBlocked(blocked);
       return { results: [], allSucceeded: false, anyAborted: false };
@@ -1773,7 +1773,7 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
 
     const budgetStatus = this.tokenBudget.checkBudget();
     if (budgetStatus === TokenBudgetStatus.EXCEEDED) {
-      this.stopReason = 'aborted';
+      this.stopReason = 'budget_exhausted'; // P0-3：原 aborted（NON_CONVERGED 内，行为不变）
       this.stopped = true;
       return true;
     }

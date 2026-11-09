@@ -19,7 +19,14 @@ export type StopHookReason =
   | 'max_turns'
   | 'diminishing_returns'
   | 'budget_exhausted'
-  | 'verifier_escalate';
+  | 'verifier_escalate'
+  /**
+   * P0-3（2026-11-10）：**循环守卫细分** —— 原两处守卫都写 `aborted`，与"用户/任务中止"
+   * 混在一起 ⇒ 统计与排障看不出是"模型连续只回文本"还是"文件 IO 反复读写"。
+   * `no_tool_call` = 连续多轮无工具调用；`io_loop` = 文件 IO 循环守卫命中。
+   */
+  | 'no_tool_call'
+  | 'io_loop';
 
 export interface StopHookContext {
   sessionId: string;

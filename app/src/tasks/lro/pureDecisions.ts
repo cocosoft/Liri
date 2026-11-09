@@ -79,6 +79,14 @@ const NON_CONVERGED_TERMINATION_REASONS = new Set([
    */
   'aborted',
   /**
+   * P0-3（2026-11-10）：循环守卫细分（`no_tool_call` / `io_loop`）与 `aborted` 同为"未收敛"。
+   *
+   * 语义不变（原两处守卫就落 `aborted` ⇒ failed），仅让失败原因可区分：
+   * 需求阶段实测 5 例中有 2 例自此可归因为"模型连续只回文本 / 文件 IO 反复读写"。
+   */
+  'no_tool_call',
+  'io_loop',
+  /**
    * 2026-11-09（真机 `pdca_mw8vmiy9`）：TAORLoop 在**模型调用失败**（当日 DNS/网络中断，
    * `getaddrinfo ENOTFOUND`）时以 `terminationReason='error'` 收尾（turns=1、tokens=0、43ms）。
    * 此前该原因不在本集合 ⇒ 步骤记为 `completed`（假完成）⇒ Review 判 12/100 REJECT ⇒ retry ⇒

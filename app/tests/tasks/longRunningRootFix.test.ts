@@ -157,6 +157,9 @@ describe('非收敛步骤不得记为完成（U-02）', () => {
     expect(isNonConvergedTermination('aborted')).toBe(true);
     // 2026-11-09（真机 `pdca_mw8vmiy9`）：模型调用失败（DNS 中断）以 error 收尾 ⇒ 异常≠完成
     expect(isNonConvergedTermination('error')).toBe(true);
+    // P0-3（2026-11-10）：循环守卫细分后仍属"未收敛"（原 `aborted`，语义不变仅更可归因）
+    expect(isNonConvergedTermination('no_tool_call')).toBe(true);
+    expect(isNonConvergedTermination('io_loop')).toBe(true);
     expect(isNonConvergedTermination('completed')).toBe(false);
     expect(isNonConvergedTermination(undefined)).toBe(false);
   });

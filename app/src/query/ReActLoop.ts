@@ -133,7 +133,13 @@ export type TerminationReason =
   // N-13（2026-11-06 真机长程任务）：**输出预算被推理耗尽**——模型把 `max_tokens` 花在
   // thinking 上，正文/工具参数还没开始就被截断，且截断续接额度已用尽。
   // 此前该形态静默落通用兜底（用户只看得到"本次未能生成回复"），无法归因。
-  | 'output_budget_exhausted';
+  | 'output_budget_exhausted'
+  /**
+   * P0-3（2026-11-10）：循环守卫细分（对齐 `StopHookReason`）——
+   * 此前两类守卫都折叠为 `aborted`，与用户/任务中止不可区分。
+   */
+  | 'no_tool_call'
+  | 'io_loop';
 
 /** 中止来源（二期 O2-1）：`user` = 用户主动停止；`system` = 传输/生命周期等系统侧中止 */
 export type AbortSource = 'user' | 'system';

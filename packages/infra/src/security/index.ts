@@ -293,6 +293,8 @@ export {
   BASH_QUICK_READ_ONLY_COMMANDS,
   POWERSHELL_ALLOWED_COMMAND_PREFIXES,
   POWERSHELL_READ_ONLY_COMMAND_PATTERNS,
+  AUTO_MODE_READONLY_COMMANDS,
+  AUTO_MODE_GIT_READONLY_SUBCOMMANDS,
 } from './readOnlyCommands';
 export { getRedactMiddleware } from './redact';
 // U-21（批次⑦，2026-10-17）：scanners/validators/bash/files 子入口入桶

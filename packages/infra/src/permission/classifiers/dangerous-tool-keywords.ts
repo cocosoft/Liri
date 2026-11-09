@@ -216,13 +216,11 @@ export const DANGEROUS_TOOL_KEYWORDS = new Set([
   'unset',
   'declare',
   // 系统信息
-  'cat',
-  'head',
-  'tail',
+  // 2026-11-09（B4 follow-up）：移除 `cat` / `head` / `tail` / `grep` / `find` ——
+  // 它们是**只读**工具名（本仓的搜索工具就叫 `grep`），按工具名判危险会让 auto 档
+  // 无条件 deny；其入参仍由分类器 + 只读命令白名单按内容判定。
   'less',
   'more',
-  'grep',
-  'find',
   'which',
   'whereis',
   // 用户管理

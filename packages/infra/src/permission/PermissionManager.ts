@@ -65,6 +65,9 @@ import {
   ClassifierManager,
   classifierManager,
 } from './classifiers/auto-mode-classifier-manager';
+// 2026-11-09（B4 follow-up）：auto 档「只读命令」短路 —— 分类器词表把 ls/cat/git
+// 等只读命令名当危险模式做子串匹配，这里先放行「单一、只读、无组合」的命令。
+import { checkReadonlyCommand } from './classifiers/readonly-command-allowlist';
 // 2026-10-23（PR-3b，CD05/CD07）：原此处导入 `SandboxIntegration` 的
 // `SandboxIntegrationService` / `sandboxIntegrationService` —— 该「沙箱自动放行」为**死接线**
 // （`autoAllowIfSandboxed` 硬编码 false 且无配置读取 ⇒ 分支恒不命中），且其"是否需要沙箱"
@@ -1001,6 +1004,17 @@ export class PermissionManager {
     if (allowRule) {
       this.denialTracker.trackSuccess(toolName);
       return createAllowDecision(`Allowed by rule from ${allowRule.source}`);
+    }
+
+    // 2.5（2026-11-09，B4 follow-up）：只读命令短路。
+    // 用户显式 deny / ask / allow 规则（上面）优先；这里只放行结构上只读的单一命令，
+    // 含管道/重定向/命令替换、`find -exec`、`git` 非只读子命令等继续走分类器。
+    if (isCommandToolName(toolName) && typeof input.command === 'string') {
+      const readonly = checkReadonlyCommand(input.command);
+      if (readonly.allowed) {
+        this.denialTracker.trackSuccess(toolName);
+        return createAllowDecision(readonly.reason);
+      }
     }
 
     // 3. 使用自动分类器

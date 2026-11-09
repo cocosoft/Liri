@@ -47,3 +47,7 @@ export type {
   AutoModeStats,
 } from './AutoModeState.js';
 export { AutoModeState } from './AutoModeState.js';
+
+// 2026-11-09（B4 follow-up）：auto 档「只读命令」短路判定（纯函数）
+export { checkReadonlyCommand } from './readonly-command-allowlist.js';
+export type { ReadonlyCommandCheck } from './readonly-command-allowlist.js';

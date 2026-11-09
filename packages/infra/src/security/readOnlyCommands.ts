@@ -327,3 +327,87 @@ export const POWERSHELL_READ_ONLY_COMMAND_PATTERNS: readonly RegExp[] = [
   /^get-.*-readonly/i,
   /^out-/i,
 ];
+
+// ─── auto 模式：单一命令只读白名单（B4 follow-up，2026-11-09） ────
+
+/**
+ * auto 模式「只读命令短路」的**严格**白名单（只认**单一**命令，无组合 / 展开）。
+ *
+ * 与上面清单的分工（**不得互换**）：
+ * - `READ_ONLY_BASE_COMMANDS`：复合只读判定的**基命令**（允许 `a && b` 串联）；
+ * - `BASH_QUICK_READ_ONLY_COMMANDS`：`BashSecurityAnalyzer` 的宽松版（含解释器）；
+ * - 本集合：单条命令直接放行，故**刻意不含**任何可能执行子进程或写文件的命令
+ *   （`sed` / `awk` / `xargs` / `less` / `more` 均不在内）。
+ *
+ * 消费方：`permission/classifiers/readonly-command-allowlist`
+ */
+export const AUTO_MODE_READONLY_COMMANDS: ReadonlySet<string> = new Set([
+  // 文件 / 目录查看
+  'ls',
+  'dir',
+  'pwd',
+  'cat',
+  'head',
+  'tail',
+  'wc',
+  'find',
+  'grep',
+  'egrep',
+  'fgrep',
+  'stat',
+  'file',
+  'tree',
+  'du',
+  'df',
+  'diff',
+  'cmp',
+  'which',
+  'whereis',
+  // git 本身按子命令约束（见 AUTO_MODE_GIT_READONLY_SUBCOMMANDS）
+  'git',
+  // 输出 / 环境查看
+  'echo',
+  'date',
+  'cal',
+  'uname',
+  'whoami',
+  'id',
+  'groups',
+  'printenv',
+  // 校验和 / 文本过滤（不落盘）
+  'md5sum',
+  'sha1sum',
+  'sha256sum',
+  'sha512sum',
+  'sort',
+  'uniq',
+  'cut',
+  // PowerShell 7 只读 cmdlet
+  'get-childitem',
+  'get-content',
+  'get-item',
+  'test-path',
+  'get-location',
+  'select-string',
+]);
+
+/**
+ * `git` 的只读子命令（auto 模式短路用）。
+ *
+ * 比 `GIT_READ_ONLY_SUBCOMMANDS` **更严**：后者供"参数扫描"用，含 `branch` / `remote` /
+ * `config` / `stash` / `archive` 等**可写**子命令；短路直接放行 ⇒ 只保留纯读取者。
+ */
+export const AUTO_MODE_GIT_READONLY_SUBCOMMANDS: ReadonlySet<string> = new Set([
+  'status',
+  'diff',
+  'log',
+  'show',
+  'blame',
+  'rev-parse',
+  'describe',
+  'shortlog',
+  'ls-files',
+  'ls-tree',
+  'cat-file',
+  'grep',
+]);

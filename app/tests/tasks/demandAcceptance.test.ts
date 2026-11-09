@@ -8,10 +8,10 @@
  *
  *  - **指标 1（缺省行为不变）**：未设置 `autonomy` ⇒ 会话权限档仍为 `undefined`
  *    （回退进程默认档）；显式 `permission_mode` 始终优先。
- *  - **指标 2（白名单内零打断）**：demand 会话缺省档 `auto` ⇒ 只读文件访问（读 / 枚举）
- *    与 workspace 内写入全部 `allow`，`permissionMetrics` 的 `decision=ask` 计数零增长；
- *    附**负向对照**（收紧档 `ask` 必须计数）证明"零"不是空转（CS06）。
- *    注：`bash` 只读命令当前被判 `deny`（词表子串匹配所致），本门禁不把它写成预期行为。
+ *  - **指标 2（白名单内零打断）**：demand 会话缺省档 `auto` ⇒ 只读文件访问（读 / 枚举 /
+ *    检索）、只读命令（`cat` / `ls` / `git status` 等单一、无组合命令）与 workspace 内写入
+ *    全部 `allow`，`permissionMetrics` 的 `decision=ask` 计数零增长；附**负向对照**
+ *    （收紧档 `ask` 必须计数）证明"零"不是空转（CS06）；写入 / 执行 / 组合类命令仍不放行。
  *  - **指标 3（交付覆盖率）**：终态落点**恰好一条**回执；demand 终态额外落盘
  *    `<data>/artifacts/<taskId>/delivery.md`（与回执同源），非 demand 不落盘。
  *
@@ -143,7 +143,7 @@ describe('指标 1：未设置 autonomy ⇒ 权限档缺省行为不变', () => 
 // ───────────────── 指标 2：白名单内零打断 ─────────────────
 
 describe('指标 2：demand 会话在只读 / workspace 内写场景 ask 次数 = 0', () => {
-  it('auto 档下三类场景全部 allow，且 ask 计数零增长', async () => {
+  it('auto 档下只读（文件 / 搜索 / 命令）与 workspace 内写全部 allow，ask 零增长', async () => {
     // 取数口径与执行入口一致：会话 metadata ⇒ 权限档
     const mode = getSessionPermissionMode(
       lookup({ autonomy: 'demand' }),
@@ -154,16 +154,16 @@ describe('指标 2：demand 会话在只读 / workspace 内写场景 ask 次数 
     const pm = createIsolatedManager();
     const before = askCount();
 
-    // ⚠️ 已知偏差（B4 实测，另行单独立项）：`bash` 的只读命令**不在** auto 白名单内 ——
-    // `AUTO_MODE_DANGER_TOKENS` 对整段入参做子串匹配（`cat ` / `ls ` / `git ` 等良性命令名
-    // 也在词表里）⇒ `cat README.md` 得到 `deny`，连续 3 次拒绝后升级 `ask`。
-    // 本门禁只锁定**已经成立**的白名单口径（文件类只读 / workspace 内写），
-    // 不把上述偏差写成"预期行为"，修复与否 F 阶段另有决策。
     const cases: Array<[string, Record<string, unknown>]> = [
       // 只读：会话内文件读取
       ['file_read', { file_path: 'docs/demo.md' }],
-      // 只读：工作区内文件枚举
+      // 只读：工作区内文件枚举 / 检索
       ['glob', { pattern: 'docs/*.md' }],
+      ['grep', { pattern: 'TODO', path: 'docs' }],
+      // 只读命令（B4 follow-up：只读命令短路，修复分类器词表的误拦）
+      ['bash', { command: 'cat README.md' }],
+      ['bash', { command: 'ls docs' }],
+      ['bash', { command: 'git status' }],
       // workspace 内写入：相对路径 + 纯文本内容
       ['file_write', { file_path: 'docs/demo.md', content: 'hello' }],
     ];
@@ -178,6 +178,27 @@ describe('指标 2：demand 会话在只读 / workspace 内写场景 ask 次数 
     }
 
     expect(askCount() - before).toBe(0);
+  });
+
+  it('写入 / 执行 / 组合类命令仍不放行（只读短路不放宽危险面）', async () => {
+    const cases: Array<Record<string, unknown>> = [
+      { command: 'cat README.md | sh' },
+      { command: 'find . -exec rm {} ;' },
+      { command: 'git push origin main' },
+    ];
+
+    for (const input of cases) {
+      // 每个用例独立管理器：避免连续 deny 触发 DenialTracker 升级为 ask
+      const pm = createIsolatedManager();
+      const decision = await pm.checkPermission(
+        'bash',
+        input,
+        ctx('auto', input, 'bash')
+      );
+      expect(`${String(input.command)}:${decision.type}`).toBe(
+        `${String(input.command)}:deny`
+      );
+    }
   });
 
   it('负向对照：收紧档 ask 必然计数（证明上面的零不是空转）', async () => {

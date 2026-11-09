@@ -120,6 +120,7 @@
     "lint:gate-parity": "PYAPP_PROJECT_DIR=.. bun run ../scripts/lint-gate-parity.ts",
     "lint:permission-single-source": "PYAPP_PROJECT_DIR=.. bun run ../scripts/lint-permission-single-source.ts",
     "migrate:permission-rules": "bun run scripts/migrate-permission-rules.ts",
+    "stats:demand": "bun run scripts/report-demand-convergence.ts",
     "handoff": "bun run ../scripts/gen-handoff.ts",
     "prompts:export": "bun run scripts/export-prompts.ts",
     "prompts:check": "bun run scripts/export-prompts.ts --check",

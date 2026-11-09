@@ -27,6 +27,7 @@ import {
 import {
   collectFailureFacts,
   formatPdcaReceipt,
+  resolveReceiptNextSteps,
   type PdcaReceiptFacts,
 } from '../../src/tasks/lro/terminalReceipt';
 import { taskOrchestrator } from '../../src/tasks/TaskOrchestrator';
@@ -62,6 +63,56 @@ describe('B8：日预算耗尽的结构化判定', () => {
       false
     );
     expect(budgetStopped({ steps: [{}] })).toBe(false);
+  });
+});
+
+describe('B11：回执的下一步建议（只给事实确定的动作）', () => {
+  it('日预算停止 ⇒ resume 需先放行/重置预算', () => {
+    const steps = resolveReceiptNextSteps({
+      taskId: 'pdca_b11',
+      replanAvailable: false,
+      failureCategory: 'daily_budget',
+    });
+    expect(steps).toEqual([
+      'POST /v1/pdca/pdca_b11/resume 续跑（需先放行/重置日预算）',
+    ]);
+  });
+
+  it('预算停止优先于 replan（同票不叠加，避免给出无效动作）', () => {
+    const steps = resolveReceiptNextSteps({
+      taskId: 'pdca_b11',
+      replanAvailable: true,
+      failureCategory: 'daily_budget',
+    });
+    expect(steps.length).toBe(1);
+    expect(steps[0]).toContain('放行/重置日预算');
+    expect(steps[0]).not.toContain('replan');
+  });
+
+  it('仅可 replan ⇒ resume 续跑（replan）；都没有 ⇒ 不给', () => {
+    expect(
+      resolveReceiptNextSteps({ taskId: 'pdca_b11', replanAvailable: true })
+    ).toEqual(['POST /v1/pdca/pdca_b11/resume 续跑（replan）']);
+    expect(
+      resolveReceiptNextSteps({ taskId: 'pdca_b11', replanAvailable: false })
+    ).toEqual([]);
+  });
+
+  it('回执文案随 nextSteps 渲染「下一步」段', () => {
+    const text = formatPdcaReceipt({
+      taskId: 'pdca_b11',
+      phase: 'failed',
+      completed: 1,
+      total: 2,
+      failed: 1,
+      nextSteps: resolveReceiptNextSteps({
+        taskId: 'pdca_b11',
+        replanAvailable: false,
+        failureCategory: 'daily_budget',
+      }),
+    });
+    expect(text).toContain('➡️ 下一步：');
+    expect(text).toContain('放行/重置日预算');
   });
 });
 

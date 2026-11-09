@@ -199,6 +199,9 @@ describe('B10 ②③④：demand 任务全链路（B6 / B8 / B3）', () => {
     expect(receipts.length).toBe(1);
     expect(receipts[0].taskId).toBe(taskId);
     expect(receipts[0].text).toContain(FAILURE_CATEGORY_LABELS.daily_budget);
+    // B11：预算停止的下一步建议（放行后续跑），不是"立刻 resume"
+    expect(receipts[0].text).toContain('➡️ 下一步：');
+    expect(receipts[0].text).toContain('放行/重置日预算');
 
     // ④（B3）demand 终态额外落盘 delivery.md（与回执同源）
     const deliveryPath = resolveTaskDeliveryPath(taskId);

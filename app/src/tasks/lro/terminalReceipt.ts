@@ -308,6 +308,25 @@ export function collectFailureFacts(
 }
 
 /**
+ * B11（2026-11-09）：回执「下一步建议」—— **只给由事实确定的动作**，不猜。
+ *
+ * - 日预算停止：须先放行/重置预算，否则 resume 必被同一闸门再次拒绝；
+ * - 可 replan：resume 续跑（replan）；
+ * - 两者互斥且预算优先（预算停止时 replan 也无济于事）。
+ */
+export function resolveReceiptNextSteps(input: {
+  taskId: string;
+  replanAvailable: boolean;
+  failureCategory?: StepFailureCategory;
+}): string[] {
+  const resume = `POST /v1/pdca/${input.taskId}/resume`;
+  if (input.failureCategory === 'daily_budget') {
+    return [`${resume} 续跑（需先放行/重置日预算）`];
+  }
+  return input.replanAvailable ? [`${resume} 续跑（replan）`] : [];
+}
+
+/**
  * B3（2026-11-09）：demand 会话的交付留存 —— `<data>/artifacts/<taskId>/delivery.md`。
  *
  * 与回执**同源文案**（同一 `formatPdcaReceipt` 产物），只补任务/会话/阶段头信息。
@@ -423,6 +442,12 @@ export function emitPdcaReceiptFromAudit(
     }
     const delivery = collectDeliveryFacts(plan);
     const failureFacts = collectFailureFacts(plan, report);
+    // B11（2026-11-09）：下一步建议只给**由事实确定**的动作（纯函数，可单测）
+    const nextSteps = resolveReceiptNextSteps({
+      taskId: report.taskId,
+      replanAvailable,
+      failureCategory: failureFacts.failureCategory,
+    });
     const facts: PdcaReceiptFacts = {
       taskId: report.taskId,
       phase: plan?.status ?? '',
@@ -435,12 +460,7 @@ export function emitPdcaReceiptFromAudit(
       taskFailed: plan?.status === PLAN_STATUS_FAILED,
       ...delivery,
       ...failureFacts,
-      // B3：可 replan 是唯一能由事实确定的后续动作；其余不猜（缺失不造占位）
-      ...(replanAvailable
-        ? {
-            nextSteps: [`POST /v1/pdca/${report.taskId}/resume 续跑（replan）`],
-          }
-        : {}),
+      ...(nextSteps.length > 0 ? { nextSteps } : {}),
     };
     emitPdcaReceipt({
       ...facts,

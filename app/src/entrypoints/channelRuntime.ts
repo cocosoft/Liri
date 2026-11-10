@@ -61,6 +61,11 @@ export async function startChannelRuntime(): Promise<void> {
       logger.error('通道就地放行动作端口注册失败', { error: String(err) });
     }
 
+    // P38-b（2026-11-10）：reply effects 端口接线（影子写/入队）。
+    // 此前只在**生产未引用**的 `BootPipelineIntegrator` Phase 5 里注入 ⇒ 影子队列永远无行；
+    // 现随通道运行时（REPL/DAEMON 共用）一并接线，模块内幂等。
+    await (await import('./replyEffectWiring')).wireReplyEffectRuntime();
+
     // 后台连接已启用的通道（不阻塞启动）
     lazyConnectChannels().catch((err) => {
       logger.error('延迟通道连接异常', { error: String(err) });

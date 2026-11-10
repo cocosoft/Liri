@@ -182,6 +182,64 @@ describe('2026-11-08：跨尝试合并工具结局（重试不抹掉上一次的
   });
 });
 
+/**
+ * §30.6（2026-11-10 复验，`dev_docs/20261107/权限与沙箱拉通方案-20261107.md`）：
+ * **`[BLOCKED_REPLAY]` 后改道成功的工具必须进该步台账**。
+ *
+ * 原始现场（真机 `pdca_mw6sfu1y` step_6）：两条 bash 被拦后改道 `file_write output/.gitkeep`
+ * 成功，但重试那次用"本次尝试"覆盖了台账 ⇒ `successCount=0` ⇒ 产物门不计该步 ⇒
+ * `completed` 却 `percent=67`。修复是 `mergeToolOutcomeSummaries`（跨尝试保留成功条目）。
+ * 本组用例把两种顺序都锁住，防止"成功证据被覆盖/被过滤"复发。
+ */
+describe('§30.6：BLOCKED_REPLAY 后改道成功的证据采集', () => {
+  it('同一次尝试：2 条 bash 被拦 + 改道 file_write 成功 ⇒ successCount=1', () => {
+    const summary = summarizeToolOutcomes([
+      {
+        toolCallId: 'b1',
+        toolName: 'bash',
+        error: '[BLOCKED_REPLAY] 不再重放',
+      },
+      {
+        toolCallId: 'b2',
+        toolName: 'bash',
+        error: '[BLOCKED_REPLAY] 不再重放',
+      },
+      { toolCallId: 'w1', toolName: 'file_write', result: { success: true } },
+    ]);
+    expect(summary.total).toBe(3);
+    expect(summary.successCount).toBe(1);
+    expect(summary.failedCount).toBe(2);
+    expect(summary.outcomes.map((o) => o.success)).toEqual([
+      false,
+      false,
+      true,
+    ]);
+  });
+
+  it('上一次尝试全被拦、这一次改道成功 ⇒ 合并后成功证据保留', () => {
+    const blocked = summarizeToolOutcomes([
+      {
+        toolCallId: 'b1',
+        toolName: 'bash',
+        error: '[BLOCKED_REPLAY] 不再重放',
+      },
+      {
+        toolCallId: 'b2',
+        toolName: 'bash',
+        error: '[BLOCKED_REPLAY] 不再重放',
+      },
+    ]);
+    const rerouted = summarizeToolOutcomes([
+      { toolCallId: 'w1', toolName: 'file_write', result: { success: true } },
+    ]);
+    const merged = mergeToolOutcomeSummaries(blocked, rerouted)!;
+    expect(merged.successCount).toBe(1);
+    // 旧的失败属上一次尝试的过程状态（已改道解决）⇒ 不跨尝试累计
+    expect(merged.failedCount).toBe(0);
+    expect(merged.total).toBe(1);
+  });
+});
+
 describe('PR-5：给审查员的结构化清单', () => {
   it('写明 pendingApproval = 未执行（禁止据此判"模型未产出"）', () => {
     const summary = summarizeToolOutcomes([

@@ -95,6 +95,25 @@ async function notifyReplyShadow(input: ReplyShadowPayload): Promise<void> {
 type DatabaseConnection = Database;
 
 /**
+ * P38 观察口径（2026-11-10）：把 outbound 返回值归一为「是否真的发出」。
+ *
+ * 为什么需要：`relayReplyToChannel` 主路径此前对 `sendInteractive/sendMarkdown/sendText`
+ * **无条件** `sent = true`（只有抛错才降级），而插件式渠道常见形态是**返回 `{success:false}`
+ * 不抛错**（如 `WebhookChannelPlugin.sendTextMessage` 捕获异常后返回失败结果）⇒
+ * 真实失败被记成 `delivered=true`，影子队列的差异率分子恒为 0，观察期数据失真。
+ *
+ * 归一规则（保守、向后兼容）：
+ * - 返回对象且带 `success` 字段 ⇒ **只认 `success === true`**；
+ * - 返回 `void` / `boolean` / 无 `success` 的对象（旧适配器）⇒ 视为已发出（行为不变）。
+ */
+export function isSendDelivered(result: unknown): boolean {
+  if (result && typeof result === 'object' && 'success' in result) {
+    return (result as { success?: unknown }).success === true;
+  }
+  return true;
+}
+
+/**
  * 将 Inbox 回复结果回传给渠道
  *
  * 根据渠道能力降级选择通知方式：
@@ -181,12 +200,13 @@ export async function relayReplyToChannel(
           .sendInteractive === 'function'
       ) {
         try {
-          await outbound.sendInteractive(target, {
+          const res = await outbound.sendInteractive(target, {
             title: inboxItem.status === 'expired' ? '审批已过期' : '审批结果',
             content,
             color: inboxItem.reply === 'approve' ? 'green' : 'red',
           });
-          sent = true;
+          // P38（2026-11-10）：插件返回 `{success:false}` 不抛错 ⇒ 必须按失败处理并继续降级
+          sent = isSendDelivered(res);
         } catch (e) {
           logger.warn('sendInteractive 失败，降级到 sendMarkdown/sendText', {
             channelName,
@@ -201,11 +221,10 @@ export async function relayReplyToChannel(
           .sendMarkdown === 'function'
       ) {
         try {
-          await (outbound as unknown as Record<string, Function>).sendMarkdown(
-            target,
-            content
-          );
-          sent = true;
+          const res = await (
+            outbound as unknown as Record<string, Function>
+          ).sendMarkdown(target, content);
+          sent = isSendDelivered(res);
         } catch (e) {
           logger.warn('sendMarkdown 失败，降级到 sendText', {
             channelName,
@@ -215,8 +234,16 @@ export async function relayReplyToChannel(
         }
       }
       if (!sent && typeof outbound.sendText === 'function') {
-        await outbound.sendText(target, content);
-        sent = true;
+        try {
+          const res = await outbound.sendText(target, content);
+          sent = isSendDelivered(res);
+        } catch (e) {
+          logger.warn('sendText 失败（无更多降级档）', {
+            channelName,
+            inboxId: inboxItem.id,
+            error: String(e),
+          });
+        }
       }
       if (!sent) {
         logger.warn('relayReplyToChannel: no usable outbound adapter', {

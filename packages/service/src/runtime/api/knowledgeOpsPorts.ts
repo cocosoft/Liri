@@ -111,7 +111,22 @@ export interface KnowledgeLintResultDto {
   };
 }
 
-/** 知识库运维端口（P1：13 方法 = 4 文件的**实际调用面**；P2 追加 6；P3 追加 20） */
+/**
+ * 知识库 lint 棘轮快照（C4，2026-11-10）。
+ *
+ * ⚠️ `errors` / `warnings` 来自**编译后 lint 同一个** `WikiLinter`；
+ * `runKnowledgeLint()`（`KnowledgeLinter`）是另一套规则，其计数不可与基线比较。
+ */
+export interface KnowledgeLintRatchetDto {
+  errors: number;
+  warnings: number;
+  /** 编译状态里的基线；从未编译（或基线为脏值）⇒ null */
+  baseline: number | null;
+  /** `no_baseline` = 尚无基线；`lowered` = 当前低于基线（下次编译会下调锁定） */
+  status: 'no_baseline' | 'unchanged' | 'lowered' | 'exceeded';
+}
+
+/** 知识库运维端口（P1：13 方法 = 4 文件的**实际调用面**；P2 追加 6；P3 追加 21） */
 export interface KnowledgeOpsPort {
   // ---- 数据源（`datasource/RSSConnector`）----
   syncRssDataSource(config: {
@@ -285,6 +300,8 @@ export interface KnowledgeOpsPort {
   }): Promise<unknown[]>;
   /** 知识库体检（原 `runKnowledgeLint()`，原调用不传 `aiService`） */
   runKnowledgeLint(): Promise<KnowledgeLintResultDto>;
+  /** lint 棘轮快照（只读：当前 wiki lint 计数 vs 编译状态里的基线，不改基线） */
+  getKnowledgeLintRatchet(): Promise<KnowledgeLintRatchetDto>;
   /** PDF OCR 降级开关与阈值（原 `isPdfOcrEnabled()` + `SCAN_MIN_CHARS_PER_PAGE`） */
   getKnowledgePdfOcrInfo(): Promise<{
     enabled: boolean;

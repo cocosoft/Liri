@@ -894,11 +894,15 @@ export class DomainSnapshotOps {
         const store = getLineageStore();
         return await store.query(query);
       },
-      runKnowledgeLint: async () => {
-        const { runKnowledgeLint: runLint } =
-          await import('@modules/knowledge/KnowledgeLinter.js');
-        return runLint();
-      },
+      runKnowledgeLint: async () =>
+        (
+          await import('@modules/knowledge/KnowledgeLinter.js')
+        ).runKnowledgeLint(),
+      // C4（2026-11-10）：与编译后 lint 同源（`WikiLinter` + 编译状态基线），只读
+      getKnowledgeLintRatchet: async () =>
+        (
+          await import('@modules/knowledge/KnowledgeCompiler.js')
+        ).readLintRatchetSnapshot(),
       getKnowledgePdfOcrInfo: async () => {
         const { isPdfOcrEnabled, SCAN_MIN_CHARS_PER_PAGE } =
           await import('@modules/knowledge/ingestion/extractors/PdfOcrExtractor.js');

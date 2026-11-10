@@ -25,7 +25,12 @@ export async function handleKnowledgeHealth(
 ): Promise<void> {
   try {
     const kops = await getCoreAPI().getKnowledgeOpsPort();
-    const lintResult = await kops.runKnowledgeLint();
+    // C4（2026-11-10）：lint 棘轮与体检并行——基线存在编译状态里，只读不改。
+    // 两者用**不同 linter**（棘轮=编译后 WikiLinter；主指标=KnowledgeLinter），故分开返回。
+    const [lintResult, lintRatchet] = await Promise.all([
+      kops.runKnowledgeLint(),
+      kops.getKnowledgeLintRatchet(),
+    ]);
     const { summary } = lintResult;
 
     // 计算综合 lint 分数 (0-100)
@@ -102,6 +107,9 @@ export async function handleKnowledgeHealth(
       consistencyWarnings: summary.byCategory['consistency'] ?? 0,
       qualityIssues: summary.byCategory['quality'] ?? 0,
       lintScore,
+      // C4（2026-11-10）：lint 棘轮可见性——「当前 wiki lint 错误数 vs 编译基线」，
+      // 面板据此看 lint 债务是否只减不增（基线只由编译流程推进，本接口不写状态）
+      lintRatchet,
       sourceDistribution,
       tagDistribution,
       recentItems,

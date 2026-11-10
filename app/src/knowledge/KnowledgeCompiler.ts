@@ -137,6 +137,56 @@ export function decideLintRatchet(
   return { action: 'unchanged', baseline: base };
 }
 
+/** 计数可能是脏值（NaN / 负数 / 小数）⇒ 归零取整（与棘轮判定同口径） */
+function normalizeLintCount(value: number): number {
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+}
+
+/** lint 棘轮快照（`/v1/knowledge/health` 的消费面） */
+export interface LintRatchetSnapshot {
+  errors: number;
+  warnings: number;
+  /** 编译状态里的基线；从未编译（或基线为脏值）⇒ null */
+  baseline: number | null;
+  /**
+   * 与基线比对的结果：
+   * - `no_baseline`：尚无基线（只有编译流程才会采纳首轮基线）；
+   * - `unchanged` / `lowered` / `exceeded`：与 `decideLintRatchet` 同义。
+   */
+  status: 'no_baseline' | 'unchanged' | 'lowered' | 'exceeded';
+}
+
+/**
+ * C4（2026-11-10）：把「当前 wiki lint 计数 + 编译状态里的基线」折成面板可读快照。
+ *
+ * 纯函数（只读判定）：基线只由编译流程推进，健康巡检**不得**改动棘轮。
+ */
+export function buildLintRatchetSnapshot(
+  errors: number,
+  warnings: number,
+  baseline: unknown
+): LintRatchetSnapshot {
+  const normalizedErrors = normalizeLintCount(errors);
+  const normalizedWarnings = normalizeLintCount(warnings);
+  const base = normalizeLintBaseline(baseline);
+  if (base === undefined) {
+    return {
+      errors: normalizedErrors,
+      warnings: normalizedWarnings,
+      baseline: null,
+      status: 'no_baseline',
+    };
+  }
+  const decision = decideLintRatchet(normalizedErrors, base);
+  return {
+    errors: normalizedErrors,
+    warnings: normalizedWarnings,
+    baseline: base,
+    // base 已定义 ⇒ decision 不可能是 adopted；此分支仅用于类型收窄
+    status: decision.action === 'adopted' ? 'no_baseline' : decision.action,
+  };
+}
+
 /** 可编译的文件扩展名（不含 .meta.json 伴侣文件）
  * K1（知识库优化）：加入 PDF/DOCX/XLSX——文档类在 compileFile 入口经 extractor 抽取
  * 文本层后进入既有 LLM 编译管线（见 TextExtractor.DOCUMENT_EXTRACT_EXTS）。 */
@@ -288,7 +338,7 @@ export class KnowledgeCompiler {
       startCompileProgress(rawFiles.length);
 
       // 加载编译状态快照，用于跳过无变更文件
-      const compileState = await this.loadCompileState();
+      const compileState = await readCompileState();
       // K5.3：编译轮次版本（血缘/快照绑定，每次运行 +1）
       const version = (compileState?.lastVersion ?? 0) + 1;
       this.compileVersion = version;
@@ -1192,19 +1242,6 @@ summary: 概念简介
   }
 
   /**
-   * 加载编译状态快照
-   */
-  private async loadCompileState(): Promise<CompileState | null> {
-    try {
-      if (!existsSync(COMPILE_STATE_PATH)) return null;
-      const raw = await readFile(COMPILE_STATE_PATH, 'utf-8');
-      return JSON.parse(raw) as CompileState;
-    } catch (_err) {
-      return null;
-    }
-  }
-
-  /**
    * 持久化编译状态快照
    */
   private async saveCompileState(state: CompileState): Promise<void> {
@@ -1222,6 +1259,45 @@ summary: 概念简介
       logger.warning('编译状态快照保存失败', { error: String(error) });
     }
   }
+}
+
+/**
+ * 加载编译状态快照（只读；文件不存在 / 解析失败 ⇒ null）
+ *
+ * 与类内 `saveCompileState` 配对；健康巡检也要读基线，故提到模块级以免为读一个
+ * 文件去 `new KnowledgeCompiler(aiService)`。
+ */
+async function readCompileState(): Promise<CompileState | null> {
+  try {
+    if (!existsSync(COMPILE_STATE_PATH)) return null;
+    const raw = await readFile(COMPILE_STATE_PATH, 'utf-8');
+    return JSON.parse(raw) as CompileState;
+  } catch (_err) {
+    return null;
+  }
+}
+
+/**
+ * C4（2026-11-10）：lint 棘轮快照（只读）。
+ *
+ * `/v1/knowledge/health` 需要暴露「当前 lint 错误数 vs 棘轮基线」，让面板能看出
+ * lint 债务是否只减不增。基线存在编译状态文件里、只由编译流程推进（本函数**不写**
+ * 状态、不改基线）。
+ *
+ * ⚠️ 必须用**与编译后 lint 同一个** `WikiLinter`（`defaultRules`）复跑：基线记的是
+ * WikiLinter 的 `summary.error`，而健康巡检主指标走 `KnowledgeLinter`（另一套规则
+ * 与扫描范围），两者计数不可互相比较。
+ */
+export async function readLintRatchetSnapshot(): Promise<LintRatchetSnapshot> {
+  const state = await readCompileState();
+  const report = await new WikiLinter(defaultRules).run(
+    join(resolvePyappHome(), 'knowledge')
+  );
+  return buildLintRatchetSnapshot(
+    report.summary.error,
+    report.summary.warning,
+    state?.lintErrorBaseline
+  );
 }
 
 /**

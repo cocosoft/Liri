@@ -533,6 +533,13 @@ export const knowledgeService = {
     consistencyWarnings: number;
     qualityIssues: number;
     lintScore: number;
+    /** C4：lint 棘轮（当前 wiki lint 计数 vs 编译基线；与编译后 lint 同源） */
+    lintRatchet?: {
+      errors: number;
+      warnings: number;
+      baseline: number | null;
+      status: "no_baseline" | "unchanged" | "lowered" | "exceeded";
+    };
     /** D5：扫描件 OCR 开关状态（默认关） */
     ocr?: {
       enabled: boolean;
@@ -555,6 +562,12 @@ export const knowledgeService = {
       consistencyWarnings: number;
       qualityIssues: number;
       lintScore: number;
+      lintRatchet?: {
+        errors: number;
+        warnings: number;
+        baseline: number | null;
+        status: "no_baseline" | "unchanged" | "lowered" | "exceeded";
+      };
       ocr?: {
         enabled: boolean;
         envVar: string;

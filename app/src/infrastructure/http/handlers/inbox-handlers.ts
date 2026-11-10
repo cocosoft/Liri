@@ -241,19 +241,10 @@ export async function handleReplyInbox(
     span.setAttribute('inbox.id', id);
     span.setAttribute('inbox.reply', reply);
 
-    // ── 渠道回传：异步执行，不阻塞 API 响应 ──
-    if (updated.channelSessionId) {
-      const { relayReplyToChannel } =
-        await import('@modules/channels/bridge/inboxChannelReply.js');
-      // fire-and-forget: 先返回 API 响应给 InboxPanel，后台异步回传渠道
-      relayReplyToChannel(updated).catch((bridgeErr: unknown) => {
-        logger.warn('Inbox reply relay to channel failed (async)', {
-          inboxId: id,
-          channelSessionId: updated.channelSessionId,
-          error: String(bridgeErr),
-        });
-      });
-    }
+    // 2026-11-10（重复 relay 单据）：渠道回传的**唯一发送点**在
+    // `InboxManager.reply()` 内部（覆盖 HTTP / IM 文本审批 / 企业审批流所有入口）。
+    // 此前此处又 fire-and-forget 调了一次 ⇒ 一次审批会向渠道发 2 条回执
+    // （`verify:p38` 实测 `/ok` 2 次 POST）。删除这一处，避免双轨。
 
     otel.endSpan(span, SpanStatusCode.OK);
     sendJSON(res, 200, updated);

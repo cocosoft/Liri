@@ -56,6 +56,9 @@ export const TASK_GOAL_TERMINAL_STATUSES: ReadonlySet<TaskGoalStatus> = new Set(
   ['completed', 'budget_limited', 'failed', 'cancelled']
 );
 
+/** 单值目标状态常量（2026-11-10）：落定失败态时引用，避免裸写 `'failed'` */
+export const GOAL_STATUS_FAILED = 'failed' as const satisfies TaskGoalStatus;
+
 /** 状态迁移 / 字段变更的原因码 —— 定义已下沉 `@modules/types/goal`（本文件再导出，见文件头）。 */
 
 /** 是否为终态 */

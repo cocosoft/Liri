@@ -69,7 +69,6 @@ import { FileLockManager, fileLockManager } from './FileLockManager.js';
 import { inboxManager } from '@openliri/service/runtime/InboxManager';
 import {
   syncPdcaWorkItemStatus,
-  writePdcaCheckpoint,
   readPdcaCheckpoint,
 } from './PdcaWorkItemBridge';
 import type { PdcaPhase } from '@modules/tasks/phases';
@@ -119,7 +118,7 @@ import {
 import { runGoalConvergenceGate } from './lro/goalConvergence.js';
 // U-02（2026-10-19）：`/goal start` 目标 ↔ PDCA 终态绑定
 import { settleGoalById } from './goal/goalRunBinding.js';
-import { replanMaxRetries } from './lro/portResolvers.js';
+import { finalizeEscalation } from './lro/escalationFinalize.js';
 // U-22（2026-11-09）：生命周期记录/审计转发外移（守 R04-001 行数上限）
 import { recordLifecycle } from './lro/lifecycleAudit.js';
 import {
@@ -1444,7 +1443,7 @@ export class LongRunningTaskOrchestrator {
 
     const finalPlan = this.requirePlan();
     // escalate 只在"全部步骤终态 + 某步决策为 escalate"时成立；中途失败一律 failed（不借 escalate 保留续跑）。
-    const hasEscalated =
+    let hasEscalated =
       allDone && finalPlan.steps.some((s) => s.decision === 'escalate');
     // 2026-11-09（真机 `pdca_mw81e4z5`）：`failed` 也是"终态" ⇒ 失败步骤必须参与终态裁决（见纯函数）。
     const outcome = decideTerminalOutcome({
@@ -1472,29 +1471,20 @@ export class LongRunningTaskOrchestrator {
     });
 
     if (hasEscalated) {
-      // PR5（#6）：escalate 收尾 → checkpoint 写 replanPending/replanFailCount（跨 resume/重启累计）。
-      // 达上限 replanPending=false（转人工介入），resume 入口据此拒绝（见 resumeFromCheckpoint）。
-      // 2026-10-17/11-07：可续跑时不得 `setPhase('failed')`（replanPending 被覆盖），phase 回 execute；
-      // 2026-11-08（真机 `pdca_mw79lfjh`）：用尽则落 failed —— 否则 `/v1/pdca/:id`、`/goal list` 永远"执行中"。
-      const prevCk = (await readPdcaCheckpoint(this.taskId)) ?? {};
-      const next = (Number(prevCk.replanFailCount) || 0) + 1;
-      const maxReplan = replanMaxRetries();
-      const replanPending = next < maxReplan;
-      await this.setPhase(replanPending ? 'execute' : 'failed');
-      await writePdcaCheckpoint(this.taskId, {
+      // PR5（#6）+ §60.4②（2026-11-10）：收尾与「同一缺陷重复 N 次即终止」闸门已外移
+      // `./lro/escalationFinalize`（PR5 原语义不变：达上限 ⇒ replanPending=false 转人工）。
+      const gate = await finalizeEscalation({
         taskId: this.taskId,
-        phase: replanPending ? 'execute' : 'failed',
-        status: 'failed',
-        replanPending,
-        replanFailCount: next,
-        replanConvergedAt: replanPending ? undefined : new Date().toISOString(),
+        sessionId: this._sessionId,
+        goalId: this._goalId,
+        escalations: this._lastEscalations,
+        setPhase: (phase) => this.setPhase(phase),
       });
-      logger.info('[orchestrator] escalate 收尾（半自动 replan）', {
-        taskId: this.taskId,
-        replanFailCount: next,
-        maxReplan,
-        replanPending,
-      });
+      if (gate.stoppedByDefectRepeat) {
+        // 缺陷反复重现 ⇒ 不再 replan：按"失败收尾"给结论（目标已在闸门内改落 failed）
+        hasEscalated = false;
+        failureReason = gate.failureReason ?? 'PDCA_DEFECT_REPEATED';
+      }
     } else if (!succeeded) {
       await this.setPhase('failed');
     }

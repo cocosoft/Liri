@@ -912,6 +912,16 @@ export async function handlePdcaStatus(
       if (typeof ckForReplan.replanFailCount === 'number') {
         status.replanFailCount = ckForReplan.replanFailCount;
       }
+      // §60.4②（2026-11-10）：同一缺陷重复早停的事实（结论可查，不只靠会话回执）
+      if (typeof ckForReplan.defectRepeatCount === 'number') {
+        status.defectRepeatCount = ckForReplan.defectRepeatCount;
+      }
+      if (typeof ckForReplan.defectSummary === 'string') {
+        status.defectSummary = ckForReplan.defectSummary;
+      }
+      if (typeof ckForReplan.stopReason === 'string') {
+        status.stopReason = ckForReplan.stopReason;
+      }
     }
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(withProgressIteration(status)));
@@ -987,6 +997,10 @@ function buildCheckpointStatusView(
     // 调用方才能显示"待重规划 / 已转人工"。
     replanPending: rec.replanPending,
     replanFailCount: rec.replanFailCount,
+    // §60.4②（2026-11-10）：缺陷重复闸门的结论（跨重启后同样可见）
+    defectRepeatCount: rec.defectRepeatCount,
+    defectSummary: rec.defectSummary,
+    stopReason: rec.stopReason,
     source: 'checkpoint',
   };
 }

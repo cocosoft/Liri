@@ -110,3 +110,6 @@ export const PDCA_TERMINAL_PHASES = new Set(['completed', 'failed', 'abort']);
  * （lint:state-ratchet 要求状态字面量收敛到唯一事实源）。
  */
 export const PDCA_PHASE_FAILED: PdcaPhase = 'failed';
+
+/** 执行/重规划阶段的单值常量（同上口径：避免裸写 `'execute'`） */
+export const PDCA_PHASE_EXECUTE: PdcaPhase = 'execute';

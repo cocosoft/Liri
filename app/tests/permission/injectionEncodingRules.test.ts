@@ -157,6 +157,38 @@ describe('AutoModeClassifier：文件载荷的正文不当作命令扫描', () =
       expect(decision.shouldBlock).toBe(true);
     }
   });
+
+  it('方案①：引号包裹命令名 / 嵌套 shell 的内层命令仍拦', async () => {
+    const cases = [
+      '"node" -e "x"',
+      "'node' -e 'x'",
+      'bash -lc "node -e x"',
+      'powershell -Command "node -e x"',
+    ];
+    for (const command of cases) {
+      const decision = await classifier.classify('bash', { command }, []);
+      expect(decision.shouldBlock).toBe(true);
+    }
+
+    // 只是**提到**命令名的只读命令仍放行
+    const quotedText = await classifier.classify(
+      'bash',
+      { command: 'echo "run node -e later"' },
+      []
+    );
+    expect(quotedText.shouldBlock).toBe(false);
+  });
+
+  it('元字符令牌按原文匹配：正文里的句点 / 分号不再误报（真机 `node --check *.js`）', async () => {
+    for (const command of [
+      'echo snake.js; Write-Output ok',
+      'Get-Item snake.js',
+      'type README.md',
+    ]) {
+      const decision = await classifier.classify('powershell', { command }, []);
+      expect(decision.shouldBlock).toBe(false);
+    }
+  });
 });
 
 describe('SENSITIVE_PATH_PATTERNS：收窄为真正敏感路径（2026-11-10 用户裁定）', () => {

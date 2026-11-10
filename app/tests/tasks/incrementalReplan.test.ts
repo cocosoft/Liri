@@ -11,6 +11,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { LongRunningTaskOrchestrator } from '../../src/tasks/LongRunningTaskOrchestrator';
+import { setReplanSteps } from '../../src/tasks/lro/planPhase';
 import type { PlanReview, ReviewDecision } from '../../src/tasks/PlanReview';
 import { taskOrchestrator } from '../../src/tasks/TaskOrchestrator';
 
@@ -121,5 +122,57 @@ describe('阶段回退增量 replan（D5/M6）', () => {
     expect(capturedPrompts[0]).toContain('上次失败步骤');
     expect(capturedPrompts[0]).toContain('[critical] 性能瓶颈未优化');
     expect(capturedPrompts[0]).toContain('仅针对上述缺陷重规划受影响步骤');
+  });
+
+  // 2026-11-10（真机 `pdca_mwa9kw4i`）：planner 看不到旧描述 ⇒ 改写 ⇒ 复用匹配不到。
+  it('replan 提示词列出上一轮已完成步骤的原文（供逐字保留）', async () => {
+    const capturedPrompts: string[] = [];
+    const taskId = `d5-replan-steps-${Date.now()}`;
+    const o = new LongRunningTaskOrchestrator(
+      taskId,
+      async (params: { userPrompt: string }) => {
+        capturedPrompts.push(params.userPrompt);
+        return JSON.stringify({
+          steps: ['在工作区创建 notes.md 并写入三行要点', '修复步'],
+          acceptanceCriteria: ['a', 'b'],
+        });
+      }
+    ) as unknown as OrchestratorWithPrivates;
+
+    const plan = taskOrchestrator.createPlan(
+      'D5 复用步测试',
+      ['步骤C'],
+      's-d5-s'
+    );
+    o.planId = plan.id;
+    const step = plan.steps[0];
+    taskOrchestrator.markStepRunning(step.id);
+    step.reviewResult = {
+      stepId: step.id,
+      pass: false,
+      score: 30,
+      issues: [{ severity: 'major', description: '缺少 config' }],
+      summary: '审查未通过',
+      reviewedAt: Date.now(),
+    } as PlanReview;
+    await o.decideStep(step.id, 'escalate');
+
+    setReplanSteps(taskId, [
+      {
+        description: '在工作区创建 notes.md 并写入三行要点',
+        status: 'completed',
+      },
+      { description: '读取 config.json 生成 summary.md', status: 'failed' },
+    ]);
+    await o.executePlanPhase('D5 复用步测试', 's-d5-s');
+
+    expect(capturedPrompts[0]).toContain('已完成');
+    expect(capturedPrompts[0]).toContain(
+      '在工作区创建 notes.md 并写入三行要点'
+    );
+    // 失败步不在"已完成"清单里（它本来就要重规划）
+    expect(capturedPrompts[0]).not.toContain(
+      '读取 config.json 生成 summary.md'
+    );
   });
 });

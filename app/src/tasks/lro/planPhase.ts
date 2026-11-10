@@ -36,6 +36,7 @@ import {
   SUBMIT_PLAN_TOOL_NAME,
 } from '../planOutputParser';
 import type { Plan } from '../TaskOrchestrator';
+import { STEP_STATUS_COMPLETED } from '../TaskOrchestrator';
 import { TaskStatus } from '../types';
 // N-3（2026-11-06）：规划阶段失败 ⇒ 终态 PDCA 事件（否则前端「编排进行中」永不收敛）
 import { emitPdcaLiveEvent } from '../PdcaLiveEvents';
@@ -119,6 +120,69 @@ export interface PlanPhaseDeps {
    * 缺失时先纠正一次，仍缺失则抛出 `PLAN_CRITERIA_MISSING`（fail-closed）。
    */
   demand?: boolean;
+  /**
+   * 2026-11-10（真机 `pdca_mwa9kw4i`）：上一轮计划的步骤快照（含状态）。
+   *
+   * 增量 replan 时把**已完成步骤的原始描述**显式喂给 planner —— 此前提示词只列了失败步，
+   * planner 需从零重写其余步骤，实测会改写描述 ⇒ 编排器按描述复用产物时匹配不到（复用落地 0）。
+   */
+  previousSteps?: ReadonlyArray<{ description: string; status: string }>;
+}
+
+/**
+ * 增量 replan 的「上一轮步骤」上下文（2026-11-10）。
+ *
+ * 为什么不走 `PlanPhaseDeps`：宿主的编排器已顶到 R04-001 的 2000 行上限，加字段/传参
+ * 会直接触发门禁。此处按 **taskId** 暂存、读取即删（一次规划一份），并发任务互不影响。
+ */
+const replanStepContext = new Map<
+  string,
+  Array<{ description: string; status: string }>
+>();
+
+/** 由 `resumeFromCheckpoint` 在 replan 分支写入（同一任务下一次规划读取后即清） */
+export function setReplanSteps(
+  taskId: string,
+  steps: Array<{ description: string; status: string }>
+): void {
+  replanStepContext.set(taskId, steps);
+}
+
+function takeReplanSteps(
+  taskId: string
+): Array<{ description: string; status: string }> | undefined {
+  const steps = replanStepContext.get(taskId);
+  replanStepContext.delete(taskId);
+  return steps;
+}
+
+/** 增量 replan 提示词里"已完成步骤"的展示上限（防提示词膨胀） */
+const MAX_LISTED_COMPLETED_STEPS = 10;
+/** 单条已完成步骤描述的展示上限 */
+const COMPLETED_STEP_DESC_CHARS = 160;
+
+/**
+ * 渲染「上一轮已完成步骤」段落（2026-11-10）。
+ *
+ * 目的：让 planner **看得见**必须逐字保留的描述。此前提示词只有"逐字一致"这条抽象约束，
+ * 却没有任何原文可对照 ⇒ 实测被改写、复用落地 0（真机 `pdca_mwa9kw4i`）。
+ * 只列 `completed` 步（`pending`/`failed` 本来就要重规划），并按条数/长度截断。
+ */
+function renderCompletedStepsSection(
+  steps: ReadonlyArray<{ description: string; status: string }> | undefined
+): string {
+  const completed = (steps ?? [])
+    .filter((s) => s.status === STEP_STATUS_COMPLETED)
+    .slice(0, MAX_LISTED_COMPLETED_STEPS);
+  if (completed.length === 0) return '';
+  const lines = completed.map((s) => {
+    const desc =
+      s.description.length > COMPLETED_STEP_DESC_CHARS
+        ? `${s.description.slice(0, COMPLETED_STEP_DESC_CHARS)}…`
+        : s.description;
+    return `- "${desc}"`;
+  });
+  return `\n上次计划中**已完成**的步骤（这些描述必须原样出现在新计划里，不得改写、合并或删除）：\n${lines.join('\n')}`;
 }
 
 /** Phase 1: PLAN —— 生成（或修订）执行计划。 */
@@ -157,7 +221,7 @@ ${
     .join('\n') || '- （无明细，按失败步骤范围修订）'
 }
 修订范围: 仅针对上述缺陷重规划受影响步骤；与缺陷无关的已有步骤保持原样。
-复用要求（硬约束）：与缺陷无关的步骤，其 step 描述必须与上次计划**逐字一致**（供编排器按描述复用已完成产物）。`
+复用要求（硬约束）：与缺陷无关的步骤，其 step 描述必须与上次计划**逐字一致**（供编排器按描述复用已完成产物）。${renderCompletedStepsSection(deps.previousSteps ?? takeReplanSteps(deps.taskId))}`
         : '';
 
     // 让 Planner 分析并输出步骤

@@ -45,6 +45,8 @@ import {
   prepareReplan,
   type PreviousStepSnapshot,
 } from './replanGuard.js';
+// 2026-11-10：把上一轮步骤交给 replan 提示词（让"逐字一致"有原文可对照）
+import { setReplanSteps } from './planPhase.js';
 
 const logger = getLogger('tasks:longRunning');
 
@@ -243,6 +245,16 @@ async function resumeFromCheckpointCore(
       // 2026-11-09：快照根目录必须是任务实际 cwd（会话工作区），不能用任务隔离目录
       workspace: isolation?.workspace,
     });
+    // 2026-11-10：把上一轮步骤（尤其 completed）交给 replan 提示词，让"逐字一致"有原文可对照
+    setReplanSteps(
+      deps.taskId,
+      (
+        steps as unknown as Array<{ description?: string; status?: string }>
+      ).map((s) => ({
+        description: String(s.description ?? ''),
+        status: String(s.status ?? ''),
+      }))
+    );
     const plan = await deps.executePlanPhase(descriptionText, sessionId);
     const reused = applyReusableSteps(plan, replanSummary.reusable);
     if (reused > 0) {

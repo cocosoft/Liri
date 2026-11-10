@@ -97,12 +97,80 @@ describe('AutoModeClassifier：文件载荷的正文不当作命令扫描', () =
     expect(decision.reason).toContain('dangerous command pattern');
   });
 
-  it('无路径字段的输入仍整体扫描（fail-closed 面不变）', async () => {
-    const decision = await classifier.classify(
-      'custom_tool',
-      { script: 'echo a && echo b' },
+  it('执行面工具（bash / code）仍整体扫描', async () => {
+    const bash = await classifier.classify(
+      'bash',
+      { command: 'echo a && echo b' },
       []
     );
-    expect(decision.shouldBlock).toBe(true);
+    expect(bash.shouldBlock).toBe(true);
+
+    const code = await classifier.classify(
+      'code',
+      { code: 'exec("\\x41")' },
+      []
+    );
+    expect(code.shouldBlock).toBe(true);
+  });
+
+  it('非执行工具（todo_write）的正文不再被命令令牌误杀', async () => {
+    const decision = await classifier.classify(
+      'todo_write',
+      {
+        action: 'write',
+        title: '交付贪吃蛇',
+        todos: [
+          { id: '1', content: '检查工作区 at 10:00', status: 'in_progress' },
+        ],
+      },
+      []
+    );
+    expect(decision.shouldBlock).toBe(false);
+  });
+
+  it('危险令牌按标识符边界匹配：`repeat` 不再命中 `at `，真 `at` 调度仍拦', async () => {
+    const safe = await classifier.classify(
+      'bash',
+      { command: 'echo repeat value' },
+      []
+    );
+    expect(safe.shouldBlock).toBe(false);
+
+    const scheduler = await classifier.classify(
+      'bash',
+      { command: 'at 10:00 cmd.exe' },
+      []
+    );
+    expect(scheduler.shouldBlock).toBe(true);
+    expect(scheduler.reason).toContain('at');
+  });
+});
+
+describe('SENSITIVE_PATH_PATTERNS：收窄为真正敏感路径（2026-11-10 用户裁定）', () => {
+  const classifier = new AutoModeClassifier();
+
+  it('会话工作区这类 C:\\Users\\<me> 绝对路径不再判敏感', async () => {
+    const decision = await classifier.classify(
+      'file_write',
+      { file_path: 'C:\\Users\\me\\ws\\index.html', content: 'ok' },
+      []
+    );
+    expect(decision.shouldBlock).toBe(false);
+  });
+
+  it('System32 / 账号级 / UNC 管理共享仍判敏感（安全面不削弱）', async () => {
+    for (const path of [
+      'C:\\Windows\\System32\\config\\SAM',
+      'C:\\Users\\Administrator\\Desktop\\a.txt',
+      '\\\\localhost\\c$\\secret.txt',
+    ]) {
+      const decision = await classifier.classify(
+        'file_write',
+        { file_path: path, content: 'ok' },
+        []
+      );
+      expect(decision.shouldBlock).toBe(true);
+      expect(decision.reason).toContain('sensitive path');
+    }
   });
 });

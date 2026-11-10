@@ -51,6 +51,26 @@ export function isCommandToolName(name: string): boolean {
   return COMMAND_TOOL_NAMES.has(name);
 }
 
+/**
+ * 入参是要被**执行**的代码文本的工具（2026-11-10）。
+ *
+ * 与 `isCommandToolName` 的分工：那个是"入参键叫 command"的 shell 类；本集合补
+ * **代码执行**工具（`code` 工具的入参是 `code`），供分类器决定"注入类检测要扫谁"。
+ */
+const CODE_EXEC_TOOL_NAMES: ReadonlySet<string> = new Set(['code']);
+
+/**
+ * 是否为「入参会被执行」的工具（命令 / 代码）。
+ *
+ * 分类器的命令注入 / 危险令牌 / 编码 / XSS 等检测**只应对执行面生效** —— 对
+ * `todo_write` 的待办正文、`grep` 的正则、`file_write` 的文件内容扫描只会误杀
+ * （真机 2026-11-10：`todo_write` 因 `"id "`、`file_write` 因 `at ` / `</script>`
+ * 被拒 ⇒ `environment_blocked`）。
+ */
+export function isExecutionToolName(name: string): boolean {
+  return COMMAND_TOOL_NAMES.has(name) || CODE_EXEC_TOOL_NAMES.has(name);
+}
+
 const FILE_WRITE_TOOL_NAMES: ReadonlySet<string> = new Set([
   'file_write',
   'file_edit',

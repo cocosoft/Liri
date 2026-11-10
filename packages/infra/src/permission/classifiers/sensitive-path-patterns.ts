@@ -109,10 +109,11 @@ export const SENSITIVE_PATH_PATTERNS = [
   '/sys/class/',
   '/sys/block/',
   // Windows系统目录
-  'C:\\',
-  'D:\\',
-  'E:\\',
-  'F:\\',
+  // 2026-11-10（用户裁定：收窄为"真正敏感路径"）：**删除裸盘符根**（原 `C:\` / `D:\` / `E:\` / `F:\`）
+  // 与 `C:\Users\` —— 它们让 Windows 上**任何绝对路径**都命中（含会话工作区内的合法路径），
+  // 真机 `session_mwafnqfgo…` 因此零产物。是否「越界」由既有的会话工作区守卫判定
+  // （`ToolExecutionService` 越界写 ⇒ 确认），分类器不再重复且更宽。
+  // 具体高危项（System32 / 凭据 / 注册表 / 计划任务）全部保留。
   '\\\\.\\',
   '\\\\?\\',
   'C:\\Windows\\',
@@ -120,7 +121,8 @@ export const SENSITIVE_PATH_PATTERNS = [
   'C:\\Windows\\SysWOW64\\',
   'C:\\Program Files\\',
   'C:\\Program Files (x86)\\',
-  'C:\\Users\\',
+  // 2026-11-10：`C:\Users\` 整棵用户目录曾在此 ⇒ 所有会话工作区都被判敏感（已删）；
+  // 只保留具体的账号级/公共目录项。
   'C:\\Users\\Administrator\\',
   'C:\\Users\\Default\\',
   'C:\\Users\\Public\\',

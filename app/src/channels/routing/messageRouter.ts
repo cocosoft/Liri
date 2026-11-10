@@ -98,6 +98,7 @@ import {
   resolveLlmFailure,
   resolveSuspendedOutboundContent,
   CHANNEL_DELIVERY_CONTRACT,
+  CHANNEL_READONLY_TOOLS_CONTRACT,
 } from './messageRouterContract';
 import type {
   RouteResult,
@@ -734,7 +735,13 @@ async function routeChannelMessageInner(
         // 2026-10-17：注入**通道投递契约**（按请求、不进历史）—— 模型看不到出站文件路由，
         // 曾两次在正文里臆断投递结果（"附件还没实际发出" / 编造 `broadcast send` 返回 false）。
         // 契约见 `messageRouterContract.CHANNEL_DELIVERY_CONTRACT`。
-        runtimeSystemNote: CHANNEL_DELIVERY_CONTRACT,
+        // 2026-11-10：不可信来源（渠道入站）再叠加**工具限制契约** —— 副作用工具已在执行层被拒、
+        // 也已移出披露面，但模型仍会凭历史记忆凭空调用（真机实证）⇒ 用系统提示显式声明「仅只读」。
+        // 与执行层同门控（`CHANNEL_UNTRUSTED_TAINT`）：开关关时工具不被拒，故不宣称禁用。
+        runtimeSystemNote:
+          untrustedOrigin && feature('CHANNEL_UNTRUSTED_TAINT')
+            ? `${CHANNEL_DELIVERY_CONTRACT}\n\n${CHANNEL_READONLY_TOOLS_CONTRACT}`
+            : CHANNEL_DELIVERY_CONTRACT,
         metadata: {
           channel: channelKey,
           ...(untrustedOrigin ? { untrustedOrigin: true } : {}),

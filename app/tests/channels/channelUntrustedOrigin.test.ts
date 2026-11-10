@@ -12,6 +12,7 @@
 import { describe, expect, it } from 'bun:test';
 import { FEATURE_FLAGS } from '@openliri/kernel';
 import { isUntrustedChannelOrigin } from '../../src/channels/toolPolicy';
+import { CHANNEL_READONLY_TOOLS_CONTRACT } from '../../src/channels/routing/messageRouterContract';
 import {
   isBlockedForUntrustedOrigin,
   resolveToolEffect,
@@ -56,5 +57,14 @@ describe('T25-07：不可信来源下的工具准入（判据 = TOOL_EFFECTS）'
 describe('T25-07：开关默认值', () => {
   it('CHANNEL_UNTRUSTED_TAINT 默认开（安全基线）', () => {
     expect(FEATURE_FLAGS.CHANNEL_UNTRUSTED_TAINT).toBe(true);
+  });
+});
+
+describe('T25-07：系统提示里的工具限制契约（2026-11-10）', () => {
+  it('显式声明「仅有只读工具」与「不要尝试调用」，避免模型凭空调用被禁工具', () => {
+    expect(CHANNEL_READONLY_TOOLS_CONTRACT).toContain('仅有只读工具');
+    expect(CHANNEL_READONLY_TOOLS_CONTRACT).toContain('不要尝试调用');
+    // 给出出路：本机执行，而不是让模型硬试
+    expect(CHANNEL_READONLY_TOOLS_CONTRACT).toContain('桌面端');
   });
 });

@@ -395,7 +395,17 @@ describe('HealthChecker', () => {
   it('auto-check runs periodically', async () => {
     checker.registerCheck('auto', async () => ({ status: 'healthy' as const }));
     checker.startAutoCheck(50);
-    await new Promise((r) => setTimeout(r, 120));
+    // 2026-11-10（CI macos-latest 实测抖动）：原实现固定 `sleep(120)` 后断言 ≥2 次 ——
+    // 50ms 间隔只留 20ms 余量，runner 稍有停顿就只跑 1 次（macOS 失败、ubuntu/Windows 通过）。
+    // 改为**按截止时间轮询**到出现 2 次为止，语义不变（周期任务确实在反复执行），
+    // 但不再依赖"墙钟恰好不延迟"。
+    const deadline = Date.now() + 2000;
+    while (
+      checker.getCheckHistory('auto').length < 2 &&
+      Date.now() < deadline
+    ) {
+      await new Promise((r) => setTimeout(r, 10));
+    }
     checker.stopAutoCheck();
     const history = checker.getCheckHistory('auto');
     expect(history.length).toBeGreaterThanOrEqual(2);

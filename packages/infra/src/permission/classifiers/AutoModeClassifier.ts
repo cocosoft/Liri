@@ -85,6 +85,57 @@ const SAFE_TOOLS = new Set([
 ]);
 
 /**
+ * 文件写入类工具里承载**正文**的字段（2026-11-10）。
+ *
+ * 分类器原先把 `JSON.stringify(input)` 整体喂给命令注入 / 危险令牌 / 编码 / XSS 检测 ⇒
+ * 写文件时正文里的正常文本也会被判攻击（真机 `session_mwafufgo83f3a75abb`：`file_write`
+ * 因正文含 ` at ` 与 `</script>` 连续 2 轮被拒 ⇒ `environment_blocked`，任务直接失败；
+ * 前一轮同类误报是正文含 `C:\Users\…` 被判 Unicode 编码攻击）。
+ *
+ * 口径：这些字段是**数据**，不在本次调用里执行；真正的执行面（bash `command` / code_run
+ * `code`）不含这些键 ⇒ 仍走全部检测。若正文日后被拿去执行，那次执行的入参会再次被检查。
+ */
+const FILE_CONTENT_FIELD_KEYS = new Set([
+  'content',
+  'text',
+  'body',
+  'markdown',
+  'html',
+  'old_string',
+  'new_string',
+  'diff',
+  'patch',
+  'snippet',
+]);
+
+/** 文件载荷的路径字段（与正文键同时出现才认定"这是文件载荷"） */
+const FILE_PATH_FIELD_KEYS = new Set([
+  'file_path',
+  'filepath',
+  'path',
+  'target_path',
+]);
+
+/**
+ * 去掉文件载荷里的正文键（其他工具输入原样返回，保持 fail-closed 的扫描面）。
+ */
+function stripFileContentFields(
+  input: Record<string, unknown>
+): Record<string, unknown> {
+  const keys = Object.keys(input).map((key) => key.toLowerCase());
+  const looksLikeFilePayload =
+    keys.some((key) => FILE_PATH_FIELD_KEYS.has(key)) &&
+    keys.some((key) => FILE_CONTENT_FIELD_KEYS.has(key));
+  if (!looksLikeFilePayload) return input;
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(input)) {
+    if (FILE_CONTENT_FIELD_KEYS.has(key.toLowerCase())) continue;
+    out[key] = value;
+  }
+  return out;
+}
+
+/**
  * 模拟自动模式分类器实现
  * 这是一个基础实现，实际项目中可以替换为真实的AI分类器
  */
@@ -175,8 +226,9 @@ export class AutoModeClassifier implements IAutoModeClassifier {
       }
     }
 
-    // 检查输入中的危险命令模式
-    const inputString = JSON.stringify(input).toLowerCase();
+    // 检查输入中的危险命令模式（文件载荷只扫"路径+其余参数"，正文属数据不执行）
+    const scanInput = stripFileContentFields(input);
+    const inputString = JSON.stringify(scanInput).toLowerCase();
 
     // 检查Unicode零宽字符注入
     const zeroWidthResult = detectZeroWidthCharacters(

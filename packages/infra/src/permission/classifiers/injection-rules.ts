@@ -137,6 +137,20 @@ export function detectZshEqualsExpansion(
 }
 
 /**
+ * 完整的 Unicode 转义序列（`\u4f60` / `\u{1F600}`）。
+ *
+ * 2026-11-10（真机 `session_mwafnqnjdbfc550f7b`）：原实现用 `includes('\\u')`，而调用方传的是
+ * `JSON.stringify(input).toLowerCase()` —— Windows 绝对路径 `C:\Users\…` 转义后是
+ * `c:\\users\\…`，同样命中 ⇒ 正常的 `file_write` 被判「Unicode 编码攻击」，连续 2 轮被拦后
+ * 整轮 `environment_blocked`（任务直接失败）。改为**要求完整转义序列**：真正的转义攻击仍拦，
+ * 路径里的"反斜杠 + u"不再误报。
+ */
+const UNICODE_ESCAPE_PATTERN = /\\u(?:\{[0-9a-f]{1,6}\}|[0-9a-f]{4})/i;
+
+/** 完整的十六进制转义序列（`\x41`）；同理避免 `C:\x…` 这类路径误报 */
+const HEX_ESCAPE_PATTERN = /\\x[0-9a-f]{2}/i;
+
+/**
  * 检测编码攻击（Base64、URL编码等）
  * @param input 输入字符串
  * @returns 检测结果
@@ -161,16 +175,16 @@ export function detectEncodingAttack(input: string): ClassifierDecision | null {
     };
   }
 
-  // 检查Unicode编码模式
-  if (input.includes('%u') || input.includes('\\u')) {
+  // 检查Unicode编码模式（要求完整转义序列，见 `UNICODE_ESCAPE_PATTERN`）
+  if (input.includes('%u') || UNICODE_ESCAPE_PATTERN.test(input)) {
     return {
       shouldBlock: true,
       reason: 'Input contains Unicode encoding attack',
     };
   }
 
-  // 检查十六进制编码模式
-  if (input.includes('\\x') || input.includes('0x')) {
+  // 检查十六进制编码模式（`\x` 要求完整转义；`0x` 沿用原判定）
+  if (HEX_ESCAPE_PATTERN.test(input) || input.includes('0x')) {
     return {
       shouldBlock: true,
       reason: 'Input contains hexadecimal encoding attack',
@@ -178,7 +192,7 @@ export function detectEncodingAttack(input: string): ClassifierDecision | null {
   }
 
   // 检查printf编码模式
-  if (input.includes('printf') && input.includes('\\x')) {
+  if (input.includes('printf') && HEX_ESCAPE_PATTERN.test(input)) {
     return {
       shouldBlock: true,
       reason: 'Input contains printf encoding attack',

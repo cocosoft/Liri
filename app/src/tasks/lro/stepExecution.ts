@@ -1040,7 +1040,10 @@ export async function executeSingleStep(
       step.status = 'failed';
       step.terminationReason = DAILY_BUDGET_TERMINATION_REASON;
       step.error = errMsg;
-      taskOrchestrator.markStepFailed(step.id, errMsg);
+      // 2026-11-10：失败步落终止原因（预算类有专用常量）
+      taskOrchestrator.markStepFailed(step.id, errMsg, {
+        terminationReason: DAILY_BUDGET_TERMINATION_REASON,
+      });
       deps.recordLifecycle(
         'progress',
         TaskStatus.RUNNING,
@@ -1092,7 +1095,10 @@ export async function executeSingleStep(
       ),
       { module: 'tasks:longRunning', action: 'executor_exhausted' }
     );
-    taskOrchestrator.markStepFailed(step.id, step.error);
+    // 2026-11-10：无终止原因的失败步统一记 retry_exhausted（此处即重试耗尽路径）
+    taskOrchestrator.markStepFailed(step.id, step.error, {
+      terminationReason: step.terminationReason ?? 'retry_exhausted',
+    });
     await deps.persistCheckpoint(); // P0(M2)
     // §5 P1: 失败也回写执行摘要
     deps.emitTaskMessage([

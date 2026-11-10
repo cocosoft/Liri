@@ -124,6 +124,29 @@ describe('B9：检查点聚合口径', () => {
     });
   });
 
+  it('2026-11-10：显式终止原因优先（审查 skip 属 cancelled 但不是依赖阻断）', () => {
+    const summary = summarizeCheckpoints([
+      row({
+        taskId: 'pdca_exp',
+        phase: 'failed',
+        steps: [
+          { status: 'cancelled', terminationReason: 'skipped_by_review' },
+          { status: 'failed', terminationReason: 'retry_exhausted' },
+        ],
+      }),
+    ]);
+    expect(summary.terminations).toContainEqual({
+      stage: '(root)',
+      reason: 'skipped_by_review',
+      count: 1,
+    });
+    expect(summary.terminations).toContainEqual({
+      stage: '(root)',
+      reason: 'retry_exhausted',
+      count: 1,
+    });
+  });
+
   it('P2：报告输出"阶段 × 终止原因"段落（无失败步时如实说明）', () => {
     const withFailure = formatSummary(
       summarizeCheckpoints([

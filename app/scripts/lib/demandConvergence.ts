@@ -118,17 +118,21 @@ function collectTerminations(
       const status = typeof step.status === 'string' ? step.status : '';
       if (!status || status === 'completed') continue;
       counted = true;
-      if (status === 'cancelled') {
-        bump(stage, 'dependency_blocked');
-        continue;
-      }
-      const reason =
+      // 2026-11-10：**优先用显式终止原因**（审查 skip 也是 cancelled，但不是依赖阻断）
+      const explicit =
         typeof step.terminationReason === 'string' &&
         step.terminationReason &&
         step.terminationReason !== 'completed'
           ? step.terminationReason
-          : 'step_failed';
-      bump(stage, reason);
+          : undefined;
+      if (explicit) {
+        bump(stage, explicit);
+        continue;
+      }
+      bump(
+        stage,
+        status === 'cancelled' ? 'dependency_blocked' : 'step_failed'
+      );
     }
     const terminal = terminalOf(data);
     if (!counted && (terminal === 'failed' || terminal === 'abort')) {

@@ -208,6 +208,8 @@ export async function decideStep(
           attemptFingerprints.delete(fingerprintKey);
           step.decision = 'escalate';
           step.status = 'failed';
+          // 2026-11-10：失败步必须落终止原因（否则 stats:demand 全归到 step_failed，无法归因）
+          step.terminationReason = 'degraded_replan';
           step.error = `[DEGRADED_ONCE:${failureCategory}] 单步持续失败，已降低计划粒度重规划`;
           await deps.recordEscalation(step);
           deps.recordLifecycle(
@@ -259,6 +261,7 @@ export async function decideStep(
           attemptFingerprints.delete(fingerprintKey);
           step.decision = 'escalate';
           step.status = 'failed';
+          step.terminationReason = 'no_progress';
           step.error = `No progress across ${step.retryCount + 1} attempts (identical evidence)`;
           await deps.recordEscalation(step);
           deps.recordLifecycle(
@@ -291,6 +294,7 @@ export async function decideStep(
           // 超过重试上限
           step.decision = 'escalate';
           step.status = 'failed';
+          step.terminationReason = 'retry_exhausted';
           step.error = `Exceeded max retries (${maxRetries})`;
           // D5（M6）：重试上限升级 escalate 同样捕获缺陷 → 增量 replan
           await deps.recordEscalation(step);
@@ -345,6 +349,8 @@ export async function decideStep(
       case 'skip':
         attemptFingerprints.delete(fingerprintKey);
         step.status = 'cancelled';
+        // 2026-11-10：审查判 skip 属"主动跳过"，不是依赖阻断（指标按原因区分）
+        step.terminationReason = 'skipped_by_review';
         deps.recordLifecycle(
           'progress',
           TaskStatus.RUNNING,
@@ -355,6 +361,8 @@ export async function decideStep(
       case 'escalate':
         attemptFingerprints.delete(fingerprintKey);
         step.status = 'failed';
+        // 2026-11-10：升级 replan 同样是"失败"，必须落原因
+        step.terminationReason = 'escalated';
         deps.recordLifecycle(
           'progress',
           TaskStatus.RUNNING,

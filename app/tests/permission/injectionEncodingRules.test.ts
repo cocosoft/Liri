@@ -128,21 +128,34 @@ describe('AutoModeClassifier：文件载荷的正文不当作命令扫描', () =
     expect(decision.shouldBlock).toBe(false);
   });
 
-  it('危险令牌按标识符边界匹配：`repeat` 不再命中 `at `，真 `at` 调度仍拦', async () => {
-    const safe = await classifier.classify(
-      'bash',
-      { command: 'echo repeat value' },
+  it('方案①：解释器名作为**参数**的只读探测不再命中（真机 `Get-Command node`）', async () => {
+    const probe = await classifier.classify(
+      'powershell',
+      { command: 'Get-Command node -ErrorAction SilentlyContinue' },
       []
     );
-    expect(safe.shouldBlock).toBe(false);
+    expect(probe.shouldBlock).toBe(false);
 
-    const scheduler = await classifier.classify(
+    const argsOnly = await classifier.classify(
       'bash',
-      { command: 'at 10:00 cmd.exe' },
+      { command: 'echo repeat node python' },
       []
     );
-    expect(scheduler.shouldBlock).toBe(true);
-    expect(scheduler.reason).toContain('at');
+    expect(argsOnly.shouldBlock).toBe(false);
+  });
+
+  it('方案①：命令位命中仍拦（含分隔符之后 / 外壳命令之后）', async () => {
+    const cases = [
+      'node -e "console.log(1)"',
+      'echo hi; node -e "x"',
+      'sudo rm -rf /',
+      'echo hi | sh',
+      'at 10:00 cmd.exe',
+    ];
+    for (const command of cases) {
+      const decision = await classifier.classify('bash', { command }, []);
+      expect(decision.shouldBlock).toBe(true);
+    }
   });
 });
 

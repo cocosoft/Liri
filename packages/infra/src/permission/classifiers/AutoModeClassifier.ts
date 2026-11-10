@@ -6,6 +6,8 @@
 import { handleError } from '@openliri/infra/error';
 // 2026-11-10：注入类检测只对"入参会被执行"的工具生效（角色判据单一来源）
 import { isExecutionToolName } from '@openliri/infra/utils/toolContract/toolRoles';
+// 2026-11-10（方案①）：危险令牌按**命令位**匹配（解释器名作为参数时不误报）
+import { containsCommandToken } from './command-token-match';
 import { DANGEROUS_TOOL_KEYWORDS } from './dangerous-tool-keywords';
 import { AUTO_MODE_DANGER_TOKENS } from './dangerous-command-patterns';
 import { SENSITIVE_PATH_PATTERNS } from './sensitive-path-patterns';
@@ -160,18 +162,22 @@ function collectStringValues(value: unknown, out: string[]): void {
 }
 
 /**
- * 危险令牌的**标识符边界**匹配（2026-11-10）。
+ * 取执行面原文（`command` / `cmd` / `code`），用于注入类检测。
  *
- * 原实现 `surface.includes(token)` 是子串匹配：`node -e` 会命中 PowerShell 的
- * `node -ErrorAction`（真机 `session_mwagfxw09146ea473f` 的只读 `Get-Command node
- * -ErrorAction …` 因此被拒）、`at ` 会命中英文正文的 "at 10"。现要求令牌两侧不紧邻
- * 字母/数字/下划线；令牌自带的空白先裁掉（`' && '` ⇒ `&&`，`'rm -rf /'` 保持原样）。
+ * 缺失这些字段 ⇒ `undefined`（该工具没有可执行入参，注入类检测不适用）。
  */
-function containsDangerToken(surface: string, token: string): boolean {
-  const trimmed = token.trim();
-  if (!trimmed) return false;
-  const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return new RegExp(`(^|[^a-z0-9_])${escaped}([^a-z0-9_]|$)`, 'i').test(surface);
+function executionSurfaceOf(
+  input: Record<string, unknown>
+): string | undefined {
+  const parts: string[] = [];
+  for (const [key, value] of Object.entries(input)) {
+    if (typeof value !== 'string') continue;
+    const lowered = key.toLowerCase();
+    if (lowered === 'command' || lowered === 'cmd' || lowered === 'code') {
+      parts.push(value);
+    }
+  }
+  return parts.length > 0 ? parts.join('\n').toLowerCase() : undefined;
 }
 
 /**
@@ -269,13 +275,14 @@ export class AutoModeClassifier implements IAutoModeClassifier {
     const scanInput = stripFileContentFields(input);
     const inputString = JSON.stringify(scanInput).toLowerCase();
     /**
-     * 2026-11-10：注入类检测只对**会被执行的入参**生效（bash/powershell 的 `command`、
-     * `code` 工具的 `code`）。其余工具的入参是数据（待办正文 / 正则 / 路径 / 文件正文），
-     * 逐条硬匹配只会误杀：真机 `todo_write` 因 `"id "`、`grep` 因正则被判危险命令 ⇒
-     * deny 累积后连带把正常读取升级成 ask。空 ⇒ 跳过该组检测（敏感路径与工作区守卫照旧）。
+     * 2026-11-10：注入类检测只对**会被执行的入参**生效（`command` / `cmd` / `code`）。
+     * 其余工具的入参是数据（待办正文 / 正则 / 路径 / 文件正文），逐条硬匹配只会误杀：
+     * 真机 `todo_write` 因 `"id "`、`grep` 因正则被判危险命令 ⇒ deny 累积后连带把正常
+     * 读取升级成 ask。取**原文**而非 JSON 文本 —— 危险令牌按命令位锚定，JSON 的
+     * `{"command":"` 前缀会让任何"句首"锚点失效（见 `containsDangerToken`）。
      */
     const executionSurface = isExecutionToolName(lowerToolName)
-      ? inputString
+      ? executionSurfaceOf(scanInput)
       : undefined;
 
     // 检查Unicode零宽字符注入
@@ -306,9 +313,9 @@ export class AutoModeClassifier implements IAutoModeClassifier {
         return encodingResult;
       }
 
-      // 检查危险命令模式（标识符边界匹配，见 `containsDangerToken`）
+      // 检查危险命令模式（按**命令位**匹配，见 `containsCommandToken`）
       for (const pattern of AUTO_MODE_DANGER_TOKENS) {
-        if (containsDangerToken(executionSurface, pattern)) {
+        if (containsCommandToken(executionSurface, pattern)) {
           return {
             shouldBlock: true,
             reason: `Input contains dangerous command pattern: "${pattern}"`,

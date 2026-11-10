@@ -25,6 +25,8 @@
  */
 
 import type { ClassifierDecision } from './classifierDecision';
+// 2026-11-10（方案①）：命令词按命令位匹配（与 AutoModeClassifier 同一实现）
+import { containsCommandToken } from './command-token-match';
 
 /**
  * 检测Unicode零宽字符注入
@@ -335,7 +337,18 @@ export function detectXssAttack(input: string): ClassifierDecision | null {
 }
 
 /**
- * 检测命令注入攻击
+ * `detectCommandInjection` 中**必须子串匹配**的模式（语言级函数调用可出现在任意位置）。
+ */
+const ALWAYS_SUBSTRING_PATTERNS = new Set([
+  'system(',
+  'exec(',
+  'eval(',
+  'call_user_func',
+  'create_function',
+]);
+
+/**
+ * 检测命令注入（shell 命令替换 / 子 shell / 解释器执行 / 远程执行）
  * @param input 输入字符串
  * @returns 检测结果
  */
@@ -403,8 +416,16 @@ export function detectCommandInjection(
     'create_function',
   ];
 
+  /**
+   * 2026-11-10（用户裁定方案①）：命令词按**命令位**匹配，避免解释器名作为**参数**时误报
+   * （`Get-Command node -ErrorAction` 曾命中 `node -e`）。以元字符开头的模式保持子串匹配；
+   * 语言级函数调用（`system(` / `exec(` 等）可能出现在任意位置，仍按子串判定。
+   */
   for (const pattern of injectionPatterns) {
-    if (input.includes(pattern)) {
+    const hit = ALWAYS_SUBSTRING_PATTERNS.has(pattern)
+      ? input.includes(pattern)
+      : containsCommandToken(input, pattern);
+    if (hit) {
       return {
         shouldBlock: true,
         reason: `Input contains command injection pattern: "${pattern}"`,

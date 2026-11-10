@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.5.25-blue)
+![Version](https://img.shields.io/badge/version-0.5.26-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -459,7 +459,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.5.25**
+当前版本：**v0.5.26**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -468,13 +468,15 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.5.25 (2026-11-04)
-权限体系收敛、自主执行接线与可观测补齐
+#### v0.5.26 (2026-11-10)
+demand 许愿式模式、阶段契约与失败归因
 
-- ✅ **权限体系收敛** - 工具授权单一入口 + P2 规则归一；进程级角色第二真源收敛；D 体系 UI/HTTP 入口按 P3-3 摘除，未接线的 `EnhancedPermissionEngine` 两步删除
-- ✅ **自主执行接线** - 项目级开关改由 `project_disabled` 门控 + 会话补齐项目归属；新建/删除项目同步接入与注销运行时；长程任务 cwd 自愈 + 预算可调
-- ✅ **可观测补齐** - 终止原因随流下发并可回放；自主执行运行态前端可见；`SELF_VERIFY_PATTERN` 开关桥接到用户设置
-- ✅ **网络与调度** - 工具出站继承系统代理；一次性 cron 完成后清空 `next_run_at` 并跳过终止态追赶（修复过期提醒反复标记）
+- ✅ **demand 许愿式自主度** - 新增会话自主度 `demand`（只给目标不写步骤）：澄清问题限一条、运行中消息并入当前计划、简单目标按规模分流到 PDL 快路径
+- ✅ **阶段契约与规划降噪** - 阶段间传结构化交付物（「已成立事实」禁止重复创建）；规划期剔除纯校验步骤；需求说明模板按 trivial / standard 分型
+- ✅ **失败可归因** - 失败步必须落 `terminationReason`，`stats:demand` 新增「阶段 × 终止原因」分布；空转熔断细分 `no_tool_call` / `io_loop`；计划级失败不再被阶段链当成功
+- ✅ **权限与审批** - 审批档收敛三档 + 会话级选择；审批作用域绑定运行中的长任务并在续跑时重放策略快照；只读命令短路
+- ✅ **运行时与结构** - 日志降噪聚合、检查点增量索引、cost 记账单次化；`packages/service` 迁包 P29–P35 并把 5 个门禁扩展到该包
+- ✅ **验证** - 全量 `bun test` 11304 pass / 0 fail，typecheck 与 55 个门禁全绿
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

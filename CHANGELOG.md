@@ -202,6 +202,15 @@
 - ✅ **macOS 假红** - `mobilePairing` 用例不再用 1ms TTL 与 runner 时钟赛跑
 <!-- EVIDENCE-VIEWS:END -->
 
+#### v0.5.26 (2026-11-10)  demand 许愿式模式、阶段契约与失败归因
+
+- ✅ **demand 许愿式自主度**：新增会话自主度 `demand`（只给目标、不写步骤）；澄清问题上限一条；运行中消息并入当前计划；简单目标按规模分流到 PDL 快路径（单步 / 分解 / 直执行），复杂目标仍走阶段链。
+- ✅ **阶段契约与规划降噪**：阶段间传结构化交付物 `StageDeliverable`（「已成立事实」显式禁止重复创建）；规划期剔除纯校验步骤（产物读回与验收由编排器机械完成）；需求说明模板按 trivial / standard 分型。
+- ✅ **失败可归因**：失败步必须落 `terminationReason`（`degraded_replan` / `no_progress` / `retry_exhausted` / `escalated` / `skipped_by_review` / `daily_budget_exhausted`），`stats:demand` 报告新增「阶段 × 终止原因」分布；空转熔断细分 `no_tool_call` / `io_loop`，计划级失败不再被阶段链当成功。真机随访：demand 收敛率 20% → 100%（n=5，每任务 2 步、零失败步）。
+- ✅ **权限与审批接线**：审批档收敛为三档并支持会话级选择；审批作用域绑定「正在运行的长任务」、启动时快照策略并在续跑时重放；只读命令短路（不再误判危险）；bash 安全闸改为可对账的表驱动。
+- ✅ **运行时与可观测**：日志降噪与按步/按轮聚合、事件循环停顿与会话列表轮询成本、检查点增量索引与崩溃恢复回填、cost 记账单次化、RSS 漂移告警、JWT 验签 fail-closed。
+- ✅ **结构与验证**：`packages/service` 迁包 P29–P35（execution / services / streaming / mcp / bridge / voice）并把 5 个门禁扫描面扩展到该包；全量 `bun test` 11304 pass / 44 skip / 0 fail，typecheck 与 55 个门禁全绿，`version:check` 8 处一致。
+
 #### v0.5.25 (2026-11-04)  权限体系收敛、自主执行接线与可观测补齐
 
 - ✅ **权限体系收敛（P2/P3）**：工具授权收敛为单一入口 + P2 规则归一；进程级角色第二真源收敛（多租户 P0 收尾）；D 体系（细粒度用户/角色）的 UI 与 HTTP 入口按 P3-3 摘除，`EnhancedPermissionEngine` 未接线实现按「先摘 barrel 出口、再删实现」两步删除。

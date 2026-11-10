@@ -85,6 +85,12 @@ import {
 // 2026-11-09（真机：会话「全自动」下长程任务仍弹命令审批）：LRO 此前**绕过权限层**，
 // 现与聊天链同源判定（`authorizeToolCall`），见 `toolAuthorization.ts`。
 import { authorizeLroToolCall } from './toolAuthorization.js';
+// 2026-11-10：单步内「同参只读调用」短路（真机 19 次重复读白烧 token），见模块头注释
+import {
+  rememberRepeatedRead,
+  takeRepeatedReadForTool,
+} from './repeatedReads.js';
+import type { RepeatedReadCache } from './repeatedReads.js';
 
 const logger = getLogger('tasks:longRunning');
 
@@ -312,6 +318,8 @@ export async function executeSingleStep(
       const readPaths = new Set<string>();
       // 2026-10-08（steering）：本步已注入的"改道"次数（上限见 MAX_SECURITY_STEERS_PER_STEP）
       let securitySteerCount = 0;
+      // 2026-11-10：本步内「同参只读调用」的缓存（写调用会清空，见 `repeatedReads`）
+      const repeatedReads: RepeatedReadCache = new Map();
 
       const taorDeps = createTAORLoopDeps({
         callModel: async function* (msgs: any[], signal: AbortSignal) {
@@ -522,6 +530,25 @@ export async function executeSingleStep(
                 });
                 continue;
               }
+              // 2026-11-10：单步内「同参只读调用」短路 —— 真机 `pdca_mw8uz6mf` 第 3 步为列出
+              // 2 个文件重复 `glob` ×11 + `file_read` ×6（19 次 / 约 127k tokens）。只对只读工具
+              // 生效（命令类与写类除外），写调用会清空本步缓存；连续短路 2 次后强制真实执行。
+              const repeated = takeRepeatedReadForTool(
+                tc,
+                tool.isReadOnly?.bind(tool),
+                repeatedReads
+              );
+              const readOnlyCall = repeated.readOnly;
+              if (repeated.shortCircuit) {
+                logger.info('[orchestrator] 同参只读调用短路（本步内已执行）', {
+                  taskId: deps.taskId,
+                  stepId: step.id,
+                  toolName: tc.name,
+                  toolCallId: tc.id,
+                });
+                results.push(repeated.shortCircuit);
+                continue;
+              }
               // 2026-11-09（真机：会话「全自动」下长程任务仍弹命令审批）：本链此前**完全绕过
               // 权限层**（仅做越界/缺参校验后直接 `tool.execute()`）⇒ 会话 `permission_mode`
               // 在长程任务里从未生效。现与聊天链同源（`authorizeToolCall`）判定：
@@ -662,6 +689,13 @@ export async function executeSingleStep(
                   resultPreview,
                 });
               }
+              rememberRepeatedRead(
+                tc,
+                readOnlyCall,
+                toolResult,
+                resultFailure,
+                repeatedReads
+              );
               results.push({
                 toolCallId: tc.id,
                 toolName: tc.name,
@@ -669,6 +703,8 @@ export async function executeSingleStep(
                 ...(resultFailure ? { error: resultFailure } : {}),
               });
             } catch (e) {
+              // 执行异常 ⇒ 世界状态未知，本步缓存整体失效（只损失优化，不冒险复用）
+              repeatedReads.clear();
               const elapsed = Date.now() - toolStart;
               stepStats.toolTotalMs += elapsed;
               if (elapsed > stepStats.slowestToolMs) {

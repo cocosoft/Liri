@@ -218,4 +218,42 @@ describe('SENSITIVE_PATH_PATTERNS：收窄为真正敏感路径（2026-11-10 用
       expect(decision.reason).toContain('sensitive path');
     }
   });
+
+  it('Unix 面同样收窄：家目录 / tmp / opt / srv / mnt / media 不再判敏感', async () => {
+    for (const path of [
+      '~/notes/a.md',
+      '/home/me/proj/a.md',
+      '/tmp/build/a.md',
+      '/opt/app/data/a.md',
+      '/srv/web/a.md',
+      '/media/usb/a.md',
+      '/mnt/disk/a.md',
+    ]) {
+      const decision = await classifier.classify(
+        'file_write',
+        { file_path: path, content: 'ok' },
+        []
+      );
+      expect(decision.shouldBlock).toBe(false);
+    }
+  });
+
+  it('Unix 凭据 / 系统项仍拦（含删掉 /home/ 后补齐的 /.ssh/ 与 /.aws/）', async () => {
+    for (const path of [
+      '/etc/passwd',
+      '/root/.ssh/authorized_keys',
+      '/home/me/.ssh/authorized_keys',
+      '~/.ssh/id_rsa',
+      '/tmp/x/.aws/credentials',
+      '/var/log/syslog',
+    ]) {
+      const decision = await classifier.classify(
+        'file_write',
+        { file_path: path, content: 'ok' },
+        []
+      );
+      expect(decision.shouldBlock).toBe(true);
+      expect(decision.reason).toContain('sensitive path');
+    }
+  });
 });

@@ -29,6 +29,11 @@
  */
 export const SENSITIVE_PATH_PATTERNS = [
   // Unix/Linux系统目录
+  // 2026-11-10（与 Windows 盘符根同一裁定：只保留**真正敏感**的路径）：删除
+  // `/home/`、`/tmp/`、`/var/tmp/`、`/opt/`、`/media/`、`/mnt/`、`/srv/`、`/run/`、`/var/`
+  // —— 它们把**用户工作区 / 临时目录 / 应用安装目录**整体判敏感（真机实测：写
+  // `/home/<user>/proj`、`/tmp/build`、`/opt/app/data` 全被拒）。是否「越界」由会话工作区
+  // 守卫判定；系统级敏感项（`/etc/`、`/root/`、`/var/log/`、`/var/lib/docker/` 等）全部保留。
   '/etc/',
   '/sys/',
   '/proc/',
@@ -36,21 +41,12 @@ export const SENSITIVE_PATH_PATTERNS = [
   '/usr/sbin/',
   '/bin/',
   '/sbin/',
-  '/var/',
   '/boot/',
   '/lib/',
   '/lib64/',
   '/root/',
-  '/home/',
-  '/tmp/',
-  '/var/tmp/',
-  '/run/',
   '/dev/',
-  '/mnt/',
-  '/media/',
-  '/opt/',
   '/usr/local/',
-  '/srv/',
   '/kernel/',
   '/firmware/',
   '/etc/passwd',
@@ -60,7 +56,11 @@ export const SENSITIVE_PATH_PATTERNS = [
   '/etc/sudoers',
   '/etc/ssh/',
   '/root/.ssh/',
-  '/home/*/.ssh/',
+  // 2026-11-10：原 `'/home/*/.ssh/'` 是**字面量**（判定用 `includes`，`*` 不展开 ⇒ 永不命中）。
+  // 删掉 `/home/` 后必须用能真正命中的写法补上凭据目录：任何位置的 `/.ssh/` / `/.aws/`
+  //（含 `~/.ssh/…` 与 `/home/<user>/.ssh/…`）。
+  '/.ssh/',
+  '/.aws/',
   '/var/log/',
   '/var/log/auth.log',
   '/var/log/syslog',
@@ -96,7 +96,6 @@ export const SENSITIVE_PATH_PATTERNS = [
   '/var/mail/',
   '/var/cache/',
   '/var/log/',
-  '/tmp/',
   '/dev/shm/',
   '/run/shm/',
   '/run/user/',
@@ -157,7 +156,8 @@ export const SENSITIVE_PATH_PATTERNS = [
   'azure://',
   'wasb://',
   // 特殊路径
-  '~/',
+  // 2026-11-10：`~/` 裸家目录曾在此 ⇒ 模型写 `~/notes/a.md` 这类正常路径被判敏感（已删）；
+  // 家目录下的**凭据目录**（`~/.ssh/`、`~/.aws/`、`~/.config/`）保留。
   '~/.ssh/',
   '~/.aws/',
   '~/.config/',

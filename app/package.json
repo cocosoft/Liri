@@ -60,6 +60,7 @@
     "prune:sessions": "bun run scripts/prune-sessions.ts",
     "verify:replan-reuse": "bun run scripts/verify-replan-reuse.ts",
     "reply-shadow:rate": "bun run scripts/reply-shadow-rate.ts",
+    "verify:p38": "bun run scripts/verify-p38-reply-shadow.ts",
     "benchmark:startup": "bun run scripts/benchmark-startup.ts",
     "benchmark:compare": "bun run ../scripts/compare-performance-baseline.ts",
     "memory": "bun run src/cli/index.ts",

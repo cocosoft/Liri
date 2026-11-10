@@ -121,6 +121,7 @@
     "lint:permission-single-source": "PYAPP_PROJECT_DIR=.. bun run ../scripts/lint-permission-single-source.ts",
     "migrate:permission-rules": "bun run scripts/migrate-permission-rules.ts",
     "stats:demand": "bun run scripts/report-demand-convergence.ts",
+    "stats:session-usage": "bun run scripts/report-session-usage.ts",
     "handoff": "bun run ../scripts/gen-handoff.ts",
     "prompts:export": "bun run scripts/export-prompts.ts",
     "prompts:check": "bun run scripts/export-prompts.ts --check",

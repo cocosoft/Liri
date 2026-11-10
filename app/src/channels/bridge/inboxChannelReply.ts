@@ -173,6 +173,17 @@ export async function relayReplyToChannel(
     // 查找对应的 IChannelPlugin 实例获取 OutboundAdapter
     const plugin = channelBootstrapper.getPluginInstance(channelName);
     const outbound = plugin?.outbound;
+    // 2026-11-10（重复回执收敛）：按渠道**能力**预选档位 —— 显式 `false` 时跳过该档，
+    // 避免"不支持也 fallback 到 sendText"导致同一封回执被重复发送
+    // （webhook interactive/markdown 均为 false，修复前每次回传会发 3 档 × 3 重试 = 9 次）。
+    const capabilities = (
+      plugin as { capabilities?: { interactive?: boolean } } | undefined
+    )?.capabilities;
+    const meta = (
+      plugin as { meta?: { markdownCapable?: boolean } } | undefined
+    )?.meta;
+    const supportsInteractive = capabilities?.interactive !== false;
+    const supportsMarkdown = meta?.markdownCapable !== false;
 
     const content = _formatReplyMessage(inboxItem);
     const target =
@@ -196,6 +207,7 @@ export async function relayReplyToChannel(
 
       // 优先使用 sendInteractive（支持按钮的渠道），失败时降级到 sendMarkdown → sendText
       if (
+        supportsInteractive &&
         typeof (outbound as unknown as Record<string, Function>)
           .sendInteractive === 'function'
       ) {
@@ -217,6 +229,7 @@ export async function relayReplyToChannel(
       }
       if (
         !sent &&
+        supportsMarkdown &&
         typeof (outbound as unknown as Record<string, Function>)
           .sendMarkdown === 'function'
       ) {

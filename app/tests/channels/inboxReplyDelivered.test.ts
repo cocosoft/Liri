@@ -83,9 +83,15 @@ describe('relayReplyToChannel ⇒ 影子队列的 delivered 事实', () => {
     channelBootstrapper.getPluginInstance = originalPlugin;
   });
 
-  function stubPlugin(outbound: Record<string, unknown>): void {
+  function stubPlugin(
+    outbound: Record<string, unknown>,
+    extra: Record<string, unknown> = {}
+  ): void {
     channelRegistry.get = (() => ({ sendMessage: async () => false })) as never;
-    channelBootstrapper.getPluginInstance = (() => ({ outbound })) as never;
+    channelBootstrapper.getPluginInstance = (() => ({
+      outbound,
+      ...extra,
+    })) as never;
   }
 
   it('outbound 返回 success=false（不抛错）⇒ 影子记 realDelivered=false', async () => {
@@ -143,6 +149,42 @@ describe('relayReplyToChannel ⇒ 影子队列的 delivered 事实', () => {
     const ok = await relayReplyToChannel(inboxItem());
 
     expect(calls).toEqual(['interactive', 'text']);
+    expect(ok).toBe(true);
+    expect(shadows[0].delivered).toBe(true);
+  });
+
+  it('能力显式不支持 interactive/markdown ⇒ 只走 sendText（不重复发送）', async () => {
+    const calls: string[] = [];
+    stubPlugin(
+      {
+        sendInteractive: async () => {
+          calls.push('interactive');
+          return { success: false };
+        },
+        sendMarkdown: async () => {
+          calls.push('markdown');
+          return { success: false };
+        },
+        sendText: async () => {
+          calls.push('text');
+          return { success: true };
+        },
+      },
+      {
+        capabilities: { interactive: false },
+        meta: { markdownCapable: false },
+      }
+    );
+    setReplyEffectPort({
+      shadow: async (input) => {
+        shadows.push(input);
+      },
+    });
+
+    const ok = await relayReplyToChannel(inboxItem());
+
+    // webhook 的真实能力组合：三档都不可用/不支持 ⇒ 只应发一次纯文本
+    expect(calls).toEqual(['text']);
     expect(ok).toBe(true);
     expect(shadows[0].delivered).toBe(true);
   });

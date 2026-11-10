@@ -232,11 +232,16 @@ export class WebhookChannel extends EventEmitter {
   }
 
   /**
-   * 发送 Webhook（向外部端点发送数据）
+   * 发送 Webhook（向外部端点 POST JSON）
+   *
+   * 2026-11-10（P38 观察期）：此前只 `emit` 一个事件就返回 `true`（**从未真正发请求**），
+   * 且插件层也无条件 `{success:true}` ⇒ 该渠道的 `delivered` 恒真、reply 影子差异率无法观测。
+   * 现按 target 真实 POST（http/https），返回**真实投递结果**：
+   * - 2xx ⇒ `true`；非 2xx / 网络错误 / 非法 URL ⇒ `false`；
+   * - 重试次数取 `config.maxRetries`（默认 3），超时取 `config.timeout`（默认 10s）；
+   * - `message:sent` 事件照旧发出（`status` 如实标 `sent` / `failed`）。
    */
   async sendMessage(target: string, text: string): Promise<boolean> {
-    if (!this.connected && this.config.endpoints.length === 0) return false;
-
     const payload = { text, timestamp: Date.now(), source: 'Liri' };
 
     const message: WebhookMessage = {
@@ -249,9 +254,66 @@ export class WebhookChannel extends EventEmitter {
       timestamp: Date.now(),
     };
 
+    const ok = await this.postJson(target, payload);
+    message.status = ok ? 'sent' : 'failed';
     this.emit('message:sent', message);
+    return ok;
+  }
 
-    return true;
+  /** POST JSON 到 target（带重试与超时）；任何失败都返回 false，不抛 */
+  private async postJson(
+    target: string,
+    payload: Record<string, unknown>
+  ): Promise<boolean> {
+    let url: URL;
+    try {
+      url = new URL(target);
+    } catch {
+      logger.warn('webhook 投递目标不是合法 URL', { target });
+      return false;
+    }
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      logger.warn('webhook 仅支持 http/https 目标', {
+        target,
+        protocol: url.protocol,
+      });
+      return false;
+    }
+
+    const attempts = Math.max(1, this.config.maxRetries);
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), this.config.timeout);
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        });
+        if (res.ok) return true;
+        logger.warn('webhook 投递返回非 2xx', {
+          target,
+          status: res.status,
+          attempt,
+        });
+      } catch (err) {
+        logger.warn('webhook 投递失败', {
+          target,
+          attempt,
+          error: String(err),
+        });
+      } finally {
+        clearTimeout(timer);
+      }
+      if (attempt < attempts) {
+        // 指数退避（200ms → 400ms → …，封顶 2s）：对端短暂失败不留死信
+        await new Promise((r) =>
+          setTimeout(r, Math.min(200 * 2 ** (attempt - 1), 2000))
+        );
+      }
+    }
+    return false;
   }
 
   /**
@@ -359,8 +421,12 @@ class WebhookChannelPlugin extends BaseChannelPlugin {
     content: string
   ): Promise<SendResult> {
     try {
-      await webhookChannel.sendMessage(target, content);
-      return { success: true };
+      // 2026-11-10（P38 观察期）：真实 outbound 的结果必须如实回传 ——
+      // 此前无条件 `{success:true}` ⇒ 下游（reply 影子 / 差异率）无法看到投递失败。
+      const ok = await webhookChannel.sendMessage(target, content);
+      return ok
+        ? { success: true }
+        : { success: false, error: `webhook 投递失败：${target}` };
     } catch (e) {
       await handleError(e, {
         module: 'channels:webhook',

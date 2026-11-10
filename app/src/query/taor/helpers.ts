@@ -24,6 +24,8 @@ import { estimateMessagesTokens } from '@modules/ai/tokenizer/TokenEstimator.js'
 import { isAwaitingApprovalPayload } from '@openliri/infra/utils/toolContract';
 import type { SteeringEntry, TerminationReason } from '../ReActLoop.js';
 import type { FileIOLoopDetector } from '../FileIOLoopDetector.js';
+// 2026-11-10：内容读（`file_read`）重复只 steer 不 abort（与 glob 同口径）
+import { FILE_READ_TOOLS } from '../tool-constants.js';
 
 const logger = getLogger('query:taorLoop');
 
@@ -120,10 +122,20 @@ export function toFileIoLoopBlocked(
  * 却被 `fileIOBlock=4` 直接 abort 整步 —— 该步的职责恰恰是"glob 列产物做交付前检查"，
  * 模型在写入后多次重新列举属正常行为（日志：`tool=glob pattern=* 同一目标重复 ×4`）。
  *
- * 口径：列举类工具最多**警告 + 就地 steer**（模型会收到"基于已有结果作答"），**永不硬拦**；
- * 读写类工具仍按原阈值阻断（那才是真正的 IO 循环风险）。
+ * 2026-11-10（真机 `pdca_mwair2wg_design` step_2，**同一类**）：设计步连续读同一份
+ * `需求说明.md` ×4 ⇒ `terminationReason=io_loop` ⇒ 整步 failed、设计产物缺失 ⇒
+ * 目标门 `PDCA_GOAL_NOT_CONVERGED`、阶段链 failed。内容读重复**没有副作用**，且重复读短路
+ * （`eb53e591b`：同参第 3 次起不再真读）已压住 token 成本 ⇒ 终止整步的代价远大于收益。
+ *
+ * 口径：下列**只读、无副作用**工具最多**警告 + 就地 steer**（模型会收到"基于已有结果作答"），
+ * **永不硬拦**；写类（`file_write` / `file_edit` / `vfs`）与搜索类（`grep`）仍按原阈值阻断。
  */
+/** 只读目录列举：重复同一查询不算 IO 循环（2026-11-09 真机 `pdca_mw8lrnmb`） */
 const READ_ONLY_LISTING_TOOLS: ReadonlySet<string> = new Set(['glob']);
+const STEER_ONLY_IO_TOOLS: ReadonlySet<string> = new Set([
+  ...READ_ONLY_LISTING_TOOLS,
+  ...FILE_READ_TOOLS,
+]);
 
 /**
  * 文件 IO 守卫结果：被拦条目 + 需注入模型的预警（同一目标每 run 只提醒一次）。
@@ -169,12 +181,12 @@ export function guardFileIoAccesses(
       typeof args.pattern === 'string' ? args.pattern : undefined
     );
     if (ioCheck.blocked) {
-      // 只读列举 ⇒ 降级为预警（见 `READ_ONLY_LISTING_TOOLS` 注释），不改其它工具口径
-      if (READ_ONLY_LISTING_TOOLS.has(tc.name.toLowerCase())) {
+      // 只读、无副作用（列举 + 内容读）⇒ 降级为预警（见 `STEER_ONLY_IO_TOOLS` 注释）
+      if (STEER_ONLY_IO_TOOLS.has(tc.name.toLowerCase())) {
         if (!warned.has(filePath)) {
           warned.add(filePath);
           outcome.warnings.push(
-            buildFileIoWarningMessage(ioCheck.message ?? '连续重复列出同一目录')
+            buildFileIoWarningMessage(ioCheck.message ?? '连续重复访问同一目标')
           );
         }
         continue;

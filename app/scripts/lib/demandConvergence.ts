@@ -153,6 +153,81 @@ function collectTerminations(
     );
 }
 
+/** 单个根任务的身份（供验收指标 2/3 复用同一"根样本"口径） */
+export interface RootTaskInfo {
+  taskId: string;
+  sessionId?: string;
+  /** `data.demand === true` ⇒ demand，否则 interactive（含旧任务无该字段） */
+  demand: boolean;
+  /** 终态（completed / failed / abort）；非终态 ⇒ undefined */
+  terminal?: string;
+}
+
+interface ParsedRow {
+  data: Record<string, unknown>;
+  taskId: string;
+}
+
+/** 解析检查点 JSON（失败行计入 `unparsable`，不透传异常） */
+function parseRows(rows: ReadonlyArray<{ raw: string }>): {
+  parsedRows: ParsedRow[];
+  unparsable: number;
+} {
+  const parsedRows: ParsedRow[] = [];
+  let unparsable = 0;
+  for (const row of rows) {
+    let data: Record<string, unknown>;
+    try {
+      const parsed: unknown = JSON.parse(row.raw);
+      if (!parsed || typeof parsed !== 'object') {
+        unparsable += 1;
+        continue;
+      }
+      data = parsed as Record<string, unknown>;
+    } catch {
+      unparsable += 1;
+      continue;
+    }
+    parsedRows.push({
+      data,
+      taskId: typeof data.taskId === 'string' ? data.taskId : '',
+    });
+  }
+  return { parsedRows, unparsable };
+}
+
+/** 根样本过滤：`<父 taskId>_<stageId>` 且父行在库 ⇒ 子阶段检查点不算样本 */
+function filterRootRows(parsedRows: readonly ParsedRow[]): ParsedRow[] {
+  const taskIds = new Set(
+    parsedRows.map((r) => r.taskId).filter((id) => id.length > 0)
+  );
+  return parsedRows.filter(({ taskId }) => !isStageChild(taskId, taskIds));
+}
+
+function isStageChild(taskId: string, taskIds: ReadonlySet<string>): boolean {
+  const cut = taskId.lastIndexOf('_');
+  return cut > 0 && taskIds.has(taskId.slice(0, cut));
+}
+
+/**
+ * 列出根任务身份（一次任务 = 一条）。
+ *
+ * 与 `summarizeCheckpoints` 共用「根样本」与「终态」口径（CS01：同一事实不写两遍判定），
+ * 供设计稿 §4 的指标 2/3 取数使用。
+ */
+export function listRootTasks(
+  rows: ReadonlyArray<{ raw: string }>
+): RootTaskInfo[] {
+  return filterRootRows(parseRows(rows).parsedRows).map(({ data, taskId }) => ({
+    taskId,
+    ...(typeof data.sessionId === 'string' && data.sessionId
+      ? { sessionId: data.sessionId }
+      : {}),
+    demand: data.demand === true,
+    ...(terminalOf(data) ? { terminal: terminalOf(data) } : {}),
+  }));
+}
+
 /** 聚合检查点行（`raw` = 检查点 data JSON 原文） */
 export function summarizeCheckpoints(
   rows: ReadonlyArray<{ raw: string }>
@@ -165,38 +240,13 @@ export function summarizeCheckpoints(
     terminations: [],
   };
 
-  const parsedRows: Array<{ data: Record<string, unknown>; taskId: string }> =
-    [];
-  for (const row of rows) {
-    let data: Record<string, unknown>;
-    try {
-      const parsed: unknown = JSON.parse(row.raw);
-      if (!parsed || typeof parsed !== 'object') {
-        summary.unparsable += 1;
-        continue;
-      }
-      data = parsed as Record<string, unknown>;
-    } catch {
-      summary.unparsable += 1;
-      continue;
-    }
-    parsedRows.push({
-      data,
-      taskId: typeof data.taskId === 'string' ? data.taskId : '',
-    });
-  }
-
-  // 根样本判定：`<父 taskId>_<stageId>` 且父行在库 ⇒ 子阶段检查点（父行缺失时保留为样本）
+  const { parsedRows, unparsable } = parseRows(rows);
+  summary.unparsable = unparsable;
   const taskIds = new Set(
     parsedRows.map((r) => r.taskId).filter((id) => id.length > 0)
   );
-  const isStageChild = (taskId: string): boolean => {
-    const cut = taskId.lastIndexOf('_');
-    return cut > 0 && taskIds.has(taskId.slice(0, cut));
-  };
 
-  for (const { data, taskId } of parsedRows) {
-    if (isStageChild(taskId)) continue;
+  for (const { data } of filterRootRows(parsedRows)) {
     const cohort = data.demand === true ? summary.demand : summary.interactive;
     cohort.samples += 1;
     switch (terminalOf(data)) {

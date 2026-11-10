@@ -390,6 +390,13 @@ export function emitPdcaReceiptText(input: {
   if (!sessionId || !receiptSink) return;
   try {
     receiptSink({ taskId: input.taskId, sessionId, text: input.text });
+    // 2026-11-10（设计稿 §4 指标 3）：回执**已发出**的可取数信号 ——
+    // 原实现只在失败时打日志 ⇒ "终态数 = 回执数"无法从日志核对。
+    logger.info('PDCA 终态回执已发出', {
+      taskId: input.taskId,
+      sessionId,
+      length: input.text.length,
+    });
   } catch (err) {
     // @ignore-catch — 回执属附加信息，写入失败不得影响任务终态
     logger.warn('PDCA 终态回执写入失败（不影响任务结果）', {

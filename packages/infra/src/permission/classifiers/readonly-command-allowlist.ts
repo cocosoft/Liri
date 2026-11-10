@@ -122,6 +122,40 @@ function violatesArgumentGuards(
 }
 
 /**
+ * 解释器「无写入自检」形态（2026-11-10，用户裁定）。
+ *
+ * demand（许愿式）任务会用 `node --check x.js` 自检语法，但 `node` **不在**
+ * `AUTO_MODE_READONLY_COMMANDS`（该集合刻意不含解释器）⇒ 落分类器按解释器令牌 deny，
+ * deny 累积再升级为 ask（真机 `session_mwah5033f019cafde4` 唯一 1 次 ask 即此来源）。
+ *
+ * 只放行**不执行代码、不写文件**的形态：
+ *  - `node --version` / `node -v`；
+ *  - `node --check <file>`（仅语法检查，不运行脚本）；
+ *  - `python` / `python3` 的 `--version` / `-V`。
+ * `-e` / `--eval` / `-p` / `-r` / `-i` / `-m`、直接跑脚本、`-`（stdin）一律不放行。
+ */
+function isInterpreterSelfCheck(
+  name: string,
+  args: readonly string[]
+): boolean {
+  const lower = args.map((arg) => arg.toLowerCase());
+  if (name === 'node') {
+    if (lower.length === 1 && (lower[0] === '--version' || lower[0] === '-v')) {
+      return true;
+    }
+    return (
+      lower.length === 2 &&
+      lower[0] === '--check' &&
+      !lower[1].startsWith('-')
+    );
+  }
+  if (name === 'python' || name === 'python3') {
+    return lower.length === 1 && (lower[0] === '--version' || lower[0] === '-v');
+  }
+  return false;
+}
+
+/**
  * 判断命令是否可被 auto 模式直接放行（单一、只读、无组合）。
  *
  * @param command 命令原文（`isCommandToolName()` 为真时工具入参的 `command` 字段）
@@ -149,11 +183,19 @@ export function checkReadonlyCommand(
     // 带路径前缀的同名可执行文件（`/tmp/ls`、`.\ls`）不放行
     return { allowed: false, reason: 'Command name carries a path prefix' };
   }
+
+  const args = tokens.slice(1);
+  // 解释器自检（版本 / 语法检查）先于白名单判定：只放行无写入形态
+  if (isInterpreterSelfCheck(name, args)) {
+    return {
+      allowed: true,
+      reason: `Interpreter self-check (no execution): ${name}`,
+    };
+  }
   if (!AUTO_MODE_READONLY_COMMANDS.has(name)) {
     return { allowed: false, reason: `Not a read-only command: ${name}` };
   }
 
-  const args = tokens.slice(1);
   if (violatesArgumentGuards(name, args)) {
     return {
       allowed: false,

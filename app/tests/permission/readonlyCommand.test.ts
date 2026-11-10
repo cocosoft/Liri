@@ -38,6 +38,12 @@ describe('checkReadonlyCommand：只读命令放行', () => {
     'get-content README.md',
     'Get-Item package.json',
     'Select-String -Pattern TODO -Path docs',
+    // 2026-11-10：解释器「无写入自检」（不执行代码、不写文件）
+    'node --version',
+    'node -v',
+    'node --check snake.js',
+    'python --version',
+    'python3 -V',
   ];
 
   for (const command of allowed) {
@@ -81,6 +87,15 @@ describe('checkReadonlyCommand：写入 / 执行 / 组合 / 伪装不放行', ()
     ['sudo', 'sudo ls'],
     ['xargs 执行', 'xargs rm'],
     ['pager 可执行', 'less a.txt'],
+    // 2026-11-10：解释器自检只放行"版本 / 语法检查"两种无写入形态
+    ['node 执行表达式', 'node -e "console.log(1)"'],
+    ['node --eval', 'node --eval "x"'],
+    ['node 直接跑脚本', 'node snake.js'],
+    ['node --check 缺文件', 'node --check'],
+    ['node --check stdin', 'node --check -'],
+    ['node 混合参数', 'node --version --check a.js'],
+    ['python 执行表达式', 'python -c "print(1)"'],
+    ['python 跑模块', 'python -m py_compile a.py'],
   ] as const;
 
   for (const [label, command] of blocked) {

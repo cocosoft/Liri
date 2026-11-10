@@ -30,6 +30,13 @@ export const APPROVAL_LOG_MESSAGE = 'Tool approval submitted to Inbox';
 /** 终态回执已发出的日志文案（`terminalReceipt.emitPdcaReceiptText`） */
 export const RECEIPT_LOG_MESSAGE = 'PDCA 终态回执已发出';
 
+/**
+ * demand 专属日志（`terminalReceipt` 只在 demand 任务落 `delivery.md`）。
+ *
+ * 指标 1「缺省行为不变」的可机械判定部分：这条日志**不得**出现在 interactive 任务上。
+ */
+export const DEMAND_ONLY_LOG_MESSAGE = 'demand 交付回执已落盘';
+
 export interface DeliveryCoverage {
   /** 日志窗口内的终态任务数（覆盖率分母） */
   terminals: number;
@@ -48,6 +55,12 @@ export interface DemandAcceptanceSummary {
   approvals: { demand: number; interactive: number };
   /** 指标 3：各组回执覆盖率 */
   delivery: { demand: DeliveryCoverage; interactive: DeliveryCoverage };
+  /**
+   * 指标 1（可机械判定部分）：demand 专属日志落在各组的次数。
+   *
+   * 期望 `interactive = 0` —— 非 0 说明 demand 专有行为泄漏到了普通会话。
+   */
+  demandOnlyLogs: { demand: number; interactive: number; unknown: number };
   log: { lines: number; parsed: number };
 }
 
@@ -122,8 +135,13 @@ export function summarizeDemandAcceptance(
   const summary: DemandAcceptanceSummary = {
     approvals: { demand: 0, interactive: 0 },
     delivery: { demand: emptyCoverage(), interactive: emptyCoverage() },
+    demandOnlyLogs: { demand: 0, interactive: 0, unknown: 0 },
     log: { lines: logLines.length, parsed: parsed.length },
   };
+
+  const cohortByTaskId = new Map<string, boolean>(
+    tasks.map((t) => [t.taskId, t.demand])
+  );
 
   const receipts = new Set<string>();
   const seenInLog = new Set<string>();
@@ -136,6 +154,12 @@ export function summarizeDemandAcceptance(
     }
     if (line.message === RECEIPT_LOG_MESSAGE && line.taskId) {
       receipts.add(line.taskId);
+    }
+    if (line.message === DEMAND_ONLY_LOG_MESSAGE) {
+      const demand = line.taskId ? cohortByTaskId.get(line.taskId) : undefined;
+      if (demand === true) summary.demandOnlyLogs.demand += 1;
+      else if (demand === false) summary.demandOnlyLogs.interactive += 1;
+      else summary.demandOnlyLogs.unknown += 1;
     }
   }
 
@@ -193,16 +217,24 @@ function pct(delivered: number, terminals: number): string {
   return terminals > 0 ? `${((delivered / terminals) * 100).toFixed(1)}%` : '—';
 }
 
-/** 人读报告（指标 2/3 段落） */
+/** 人读报告（指标 1/2/3 段落） */
 export function formatAcceptance(
   summary: DemandAcceptanceSummary,
   meta: { logPath: string; since?: string }
 ): string {
   const out = [
-    '=== demand 验收取数（设计稿 §4 指标 2/3）===',
+    '=== demand 验收取数（设计稿 §4 指标 1/2/3）===',
     `日志: ${meta.logPath}`,
     `区间: ${meta.since ? `timestamp >= ${meta.since}` : '全部'}`,
     `日志行: ${summary.log.lines} 条（可解析 ${summary.log.parsed} 条）`,
+    '',
+    '指标 1 · 缺省行为不变（demand 专属日志不得落在 interactive 任务上，期望 interactive = 0）',
+    `  demand      ${String(summary.demandOnlyLogs.demand).padStart(4)} 条（${DEMAND_ONLY_LOG_MESSAGE}）`,
+    `  interactive ${String(summary.demandOnlyLogs.interactive).padStart(4)} 条` +
+      (summary.demandOnlyLogs.interactive === 0 ? '  ✅' : '  ❌ 泄漏'),
+    ...(summary.demandOnlyLogs.unknown > 0
+      ? [`  未知任务    ${String(summary.demandOnlyLogs.unknown).padStart(4)} 条（不在检查点里）`]
+      : []),
     '',
     '指标 2 · 白名单内零打断（ask 次数，期望 demand = 0）',
     `  demand      ${String(summary.approvals.demand).padStart(4)} 次`,
@@ -235,8 +267,9 @@ export function formatAcceptance(
   out.push(
     '',
     '口径: ask 取 `Tool approval submitted to Inbox`（按会话归组）；回执取 `PDCA 终态回执已发出`（按 taskId）；' +
+      'demand 专属日志取 `demand 交付回执已落盘`（按 taskId 归组）；' +
       '日志窗口未覆盖的老任务单列，不计入覆盖率分母。',
-    '指标 1（缺省行为不变）由全量 `bun test` 门禁覆盖，本脚本不重复取数。'
+    '指标 1 的其余部分（未设置 autonomy 时既有用例全绿）由全量 `bun test` 门禁覆盖。'
   );
   return out.join('\n');
 }

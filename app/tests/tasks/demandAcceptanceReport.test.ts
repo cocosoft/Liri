@@ -89,6 +89,23 @@ describe('demandAcceptance：指标 2/3 取数', () => {
     expect(summary.log.parsed).toBe(2);
   });
 
+  it('指标 1：demand 专属日志按任务归组，interactive 上出现即泄漏', () => {
+    const tasks = [
+      task('t_d1', true, 's_d', 'completed'),
+      task('t_i1', false, 's_i', 'completed'),
+    ];
+    const summary = summarizeDemandAcceptance(tasks, [
+      log('demand 交付回执已落盘', { taskId: 't_d1', path: 'delivery.md' }),
+      log('demand 交付回执已落盘', { taskId: 't_i1', path: 'delivery.md' }),
+      log('demand 交付回执已落盘', { taskId: 't_unknown', path: 'x.md' }),
+    ]);
+    expect(summary.demandOnlyLogs).toEqual({
+      demand: 1,
+      interactive: 1,
+      unknown: 1,
+    });
+  });
+
   it('filterLogLinesSince：按 timestamp 过滤，无 timestamp 行保留', () => {
     const lines = [
       log('a', {}, '2026-10-31T23:00:00.000Z'),

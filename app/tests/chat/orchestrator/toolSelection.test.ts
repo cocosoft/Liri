@@ -120,3 +120,44 @@ describe('P2-1i S3 本轮工具集选择 · 任务类型判定 + 裁剪', () => 
     expect(r.tools.map((t) => t.function?.name)).toEqual(['file_read']);
   });
 });
+
+/**
+ * T25-07 可见面收敛（2026-11-10）：渠道入站（不可信来源）会话里，执行层必拒的工具
+ * 不得出现在披露面 —— 否则模型反复尝试 ⇒ 连续失败 ⇒ `circuit_breaker` ⇒ 整轮判失败
+ * （真机实证：QQ 发消息必回「⚠️ 消息处理失败，请稍后重发重试。」）。
+ */
+describe('T25-07 可见面收敛 · 不可信来源会话', () => {
+  const batch = [def('file_read'), def('grep'), def('bash'), def('agent')];
+
+  it('untrustedOrigin ⇒ 裁掉执行层必拒的副作用工具，只读工具保留', () => {
+    const trusted = run({ tools: batch });
+    const untrusted = run({ tools: batch, untrustedOrigin: true });
+
+    // 对照：可信会话里 default 集含 shell（2026-10-11 修复）
+    expect(trusted.tools.map((t) => t.function?.name)).toContain('bash');
+    expect(untrusted.tools.map((t) => t.function?.name)).toEqual([
+      'file_read',
+      'grep',
+    ]);
+    expect(untrusted.trimmed).toBe(true);
+    expect(untrusted.removedNames).toEqual(['bash', 'agent']);
+  });
+
+  it('未标记不可信来源 / 显式 false ⇒ 零行为变更', () => {
+    const base = run({ tools: batch });
+    const explicitFalse = run({ tools: batch, untrustedOrigin: false });
+    expect(explicitFalse.tools.map((t) => t.function?.name)).toEqual(
+      base.tools.map((t) => t.function?.name)
+    );
+    expect(explicitFalse.removedNames).toEqual(base.removedNames);
+  });
+
+  it('`tool_search` 补回也不得让被禁工具重回披露面', () => {
+    const r = run({
+      tools: batch,
+      untrustedOrigin: true,
+      discoveredToolNames: ['bash'],
+    });
+    expect(r.tools.map((t) => t.function?.name)).not.toContain('bash');
+  });
+});

@@ -18,6 +18,7 @@ import {
   filterToolsByTask,
   resolveToolProfileCategories,
   applyToolVisibilityOverrides,
+  isBlockedForUntrustedOrigin,
   type ToolCategory,
   type ToolVisibilityOverrides,
 } from '@modules/tools';
@@ -65,6 +66,16 @@ export interface ToolSelectionInput {
    * **未提供 / 空 ⇒ 零行为变更**；重放路径（`forcedVisibleTools`）**不叠加**（快照必须可复现）。
    */
   discoveredToolNames?: readonly string[];
+  /**
+   * T25-07 可见面收敛（2026-11-10）：本会话是否为**渠道入站驱动的不可信来源**。
+   *
+   * 执行层（`ToolExecutionService`）对这类会话拒绝一切 `sideEffect !== 'none'` 的工具；
+   * 若它们仍在披露面，模型会反复尝试 ⇒ `consecutiveInvalidTurns` 撞断路器 ⇒ 整轮判失败
+   * （真机实证：QQ 发消息必回「⚠️ 消息处理失败，请稍后重发重试。」）。
+   * 置 `true` ⇒ 按**同一判据**（`isBlockedForUntrustedOrigin`）把它们移出可见面，
+   * 使「可见 == 可执行」。缺省 / `false` ⇒ 零行为变更。
+   */
+  untrustedOrigin?: boolean;
 }
 
 export interface ToolSelectionResult {
@@ -172,14 +183,22 @@ export function selectToolsForTurn(
           tools,
           input.discoveredToolNames ?? []
         );
+  // T25-07 可见面收敛（2026-11-10）：执行层会拒绝渠道会话的副作用工具 ⇒ 可见面同口径收敛，
+  // 避免模型反复尝试被拒工具（连续失败 ⇒ 断路器 ⇒ 整轮判失败）。判据复用 `tools/toolEffects.ts`
+  // 的**唯一事实源**，与 `ToolExecutionService` 逐条一致；不受 `tool_search` 补回影响（后置过滤）。
+  const visibleTools = input.untrustedOrigin
+    ? filteredTools.filter(
+        (t) => !isBlockedForUntrustedOrigin(t.function?.name ?? '')
+      )
+    : filteredTools;
   const removedNames = tools
-    .filter((t) => !filteredTools.includes(t))
+    .filter((t) => !visibleTools.includes(t))
     .map((t) => t.function?.name ?? '');
   return {
     taskType,
     promotedByExecutionIntent,
-    tools: filteredTools,
+    tools: visibleTools,
     removedNames,
-    trimmed: filteredTools.length !== tools.length,
+    trimmed: visibleTools.length !== tools.length,
   };
 }

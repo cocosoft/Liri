@@ -15,6 +15,7 @@
  * 日志**文案**与字段不变。
  */
 import { getLogger } from '@openliri/infra/monitoring';
+import { feature } from '@openliri/kernel';
 import { estimateTokens } from '@modules/ai';
 import type { ToolDefinition } from '@modules/ai';
 import { resolveContextWindow } from '@modules/context';
@@ -80,6 +81,13 @@ export function selectAndObserveToolDefinitions(
   const profile = Array.isArray(rawProfile)
     ? rawProfile.filter((t): t is string => typeof t === 'string')
     : undefined;
+  // T25-07 可见面收敛（2026-11-10）：与执行层同一门控（`CHANNEL_UNTRUSTED_TAINT`）——
+  // 本轮入站带 `untrustedOrigin`（Router 打标）或会话已被打 `origin='channel'` 污点（只升不降）
+  // ⇒ 裁掉执行层必拒的副作用工具（否则模型反复尝试 ⇒ 连续失败 ⇒ 断路器 ⇒ 整轮失败）。
+  const untrustedOrigin =
+    feature('CHANNEL_UNTRUSTED_TAINT') &&
+    (sessionMeta?.origin === 'channel' ||
+      options?.metadata?.untrustedOrigin === true);
   const selection = selectToolsForTurn({
     tools: toolDefinitions,
     explicitTaskType: options?.metadata?.taskType,
@@ -90,6 +98,7 @@ export function selectAndObserveToolDefinitions(
     lastUserText: lastUserMessageText(apiMessages),
     hasImages,
     profile,
+    ...(untrustedOrigin ? { untrustedOrigin } : {}),
     // P2（2026-10-16，方案 §3.3/§3.4）：用户可见性覆写（`settings.tools`，三态）——
     // **仅在非重放分支读**：重放工具面必须恒等于落盘快照（`✅-4`，方案 R6）；
     // 空表 / 未配置 ⇒ `applyToolVisibilityOverrides` 恒等 ⇒ 零行为变更。

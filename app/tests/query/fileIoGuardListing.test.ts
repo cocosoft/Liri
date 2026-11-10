@@ -9,8 +9,8 @@
  * 真机现场 ②（2026-11-10）：设计步连续读同一份 `需求说明.md` ×4 ⇒ `terminationReason=io_loop`
  * ⇒ 设计产物缺失 ⇒ 目标门 `PDCA_GOAL_NOT_CONVERGED`。
  *
- * 口径：`glob`（列举）与 `file_read`（内容读）这类**只读无副作用**访问最多警告 + 就地 steer
- * （永不硬拦）；写类口径不变。
+ * 口径：`glob`（列举）、`grep`（检索）与 `file_read`（内容读）这类**只读无副作用**访问最多
+ * 警告 + 就地 steer（永不硬拦）；写类口径不变。
  */
 
 import { describe, expect, it } from 'bun:test';
@@ -68,6 +68,23 @@ describe('文件 IO 守卫：只读列举降级为警告', () => {
           id: 'c5',
           name: 'file_read',
           input: { file_path: 'C:/ws/需求说明.md' },
+        },
+      ],
+      blockedDetector,
+      new Set()
+    );
+    expect(out.blocked).toHaveLength(0);
+    expect(out.warnings).toHaveLength(1);
+    expect(out.warnings[0]).toContain('基于已有结果作答');
+  });
+
+  it('grep 命中阻断阈值 ⇒ 只读检索同样只警告、不 blocked', () => {
+    const out = guardFileIoAccesses(
+      [
+        {
+          id: 'c6',
+          name: 'grep',
+          input: { searchPath: 'C:/ws', pattern: 'TODO' },
         },
       ],
       blockedDetector,

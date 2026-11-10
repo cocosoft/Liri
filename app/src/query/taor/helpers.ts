@@ -24,8 +24,8 @@ import { estimateMessagesTokens } from '@modules/ai/tokenizer/TokenEstimator.js'
 import { isAwaitingApprovalPayload } from '@openliri/infra/utils/toolContract';
 import type { SteeringEntry, TerminationReason } from '../ReActLoop.js';
 import type { FileIOLoopDetector } from '../FileIOLoopDetector.js';
-// 2026-11-10：内容读（`file_read`）重复只 steer 不 abort（与 glob 同口径）
-import { FILE_READ_TOOLS } from '../tool-constants.js';
+// 2026-11-10：只读检索（`glob`/`grep`）与内容读（`file_read`）重复只 steer 不 abort
+import { FILE_READ_TOOLS, SEARCH_TOOLS } from '../tool-constants.js';
 
 const logger = getLogger('query:taorLoop');
 
@@ -127,13 +127,16 @@ export function toFileIoLoopBlocked(
  * 目标门 `PDCA_GOAL_NOT_CONVERGED`、阶段链 failed。内容读重复**没有副作用**，且重复读短路
  * （`eb53e591b`：同参第 3 次起不再真读）已压住 token 成本 ⇒ 终止整步的代价远大于收益。
  *
- * 口径：下列**只读、无副作用**工具最多**警告 + 就地 steer**（模型会收到"基于已有结果作答"），
- * **永不硬拦**；写类（`file_write` / `file_edit` / `vfs`）与搜索类（`grep`）仍按原阈值阻断。
+ * 2026-11-10（本项收口）：`grep` 与 `glob` 同为**只读检索**（判定键已含 pattern，不同 pattern
+ * 不互相叠加），重复同一查询同样只该 steer —— 否则同一类 `io_loop` 失败会从 `file_read`
+ * 转移到 `grep`（本仓已有真机 `grep` 因 deny 升级为 ask 的前例）。
+ *
+ * 口径：下列**只读、无副作用**工具（列举 / 检索 / 内容读）最多**警告 + 就地 steer**
+ * （模型会收到"基于已有结果作答"），**永不硬拦**；写类（`file_write` / `file_edit` / `vfs`）
+ * 仍按原阈值阻断。
  */
-/** 只读目录列举：重复同一查询不算 IO 循环（2026-11-09 真机 `pdca_mw8lrnmb`） */
-const READ_ONLY_LISTING_TOOLS: ReadonlySet<string> = new Set(['glob']);
 const STEER_ONLY_IO_TOOLS: ReadonlySet<string> = new Set([
-  ...READ_ONLY_LISTING_TOOLS,
+  ...SEARCH_TOOLS,
   ...FILE_READ_TOOLS,
 ]);
 
@@ -181,7 +184,7 @@ export function guardFileIoAccesses(
       typeof args.pattern === 'string' ? args.pattern : undefined
     );
     if (ioCheck.blocked) {
-      // 只读、无副作用（列举 + 内容读）⇒ 降级为预警（见 `STEER_ONLY_IO_TOOLS` 注释）
+      // 只读、无副作用（列举 / 检索 / 内容读）⇒ 降级为预警（见 `STEER_ONLY_IO_TOOLS` 注释）
       if (STEER_ONLY_IO_TOOLS.has(tc.name.toLowerCase())) {
         if (!warned.has(filePath)) {
           warned.add(filePath);

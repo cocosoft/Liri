@@ -27,6 +27,7 @@ import {
   windowStartForBudget,
   computePaginationPoint,
   isCodeContextMessage,
+  buildWorkspaceRootSection,
   LAYERING_HINT,
   LAYERING_HINT_CODE,
 } from '../../src/chat/services/MessageContextPipeline';
@@ -129,6 +130,22 @@ function rounds(
   }
   return out;
 }
+
+describe('buildWorkspaceRootSection — 聊天链工作区基准提示（2026-11-10）', () => {
+  test('缺省/空工作区 ⇒ 空串（不注入，零行为变更）', () => {
+    expect(buildWorkspaceRootSection()).toBe('');
+    expect(buildWorkspaceRootSection('')).toBe('');
+  });
+
+  test('显式工作区 ⇒ 给出相对路径基准与越界后果', () => {
+    const text = buildWorkspaceRootSection(
+      'C:\\Users\\u\\.pyapp\\workspaces\\s1'
+    );
+    expect(text).toContain('C:\\Users\\u\\.pyapp\\workspaces\\s1');
+    expect(text).toContain('相对路径基准');
+    expect(text).toContain('人工确认');
+  });
+});
 
 describe('windowStartForBudget — C-2 构建期预算切窗', () => {
   test('未超窗 → 0（零开销，语义不变）', async () => {

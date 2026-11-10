@@ -55,6 +55,27 @@ export function getSessionWorkspacePath(
 }
 
 /**
+ * 装配期注册的宿主（`facadeWiring` 单点注册，2026-11-10）。
+ *
+ * 供**非构造期装配面**（系统提示词组装经 `ChatPromptAssemblyDeps` 的缺省注入）复用同一
+ * 解析实现 —— 既不新增第四份内联闭包（CS01），也不让 `ChatManager` 继续增行（R04-001）。
+ */
+let registeredHost: WorkspacePathHost | undefined;
+
+export function registerWorkspacePathHost(host: WorkspacePathHost): void {
+  registeredHost = host;
+}
+
+/** 已注册宿主上的会话工作区；未注册 / 无会话 ⇒ `undefined`（调用方据此不注入） */
+export function resolveRegisteredSessionWorkspace(
+  sessionId?: string
+): string | undefined {
+  return registeredHost && sessionId
+    ? getSessionWorkspacePath(registeredHost, sessionId)
+    : undefined;
+}
+
+/**
  * P1（2026-11-04，方案 §3.6）：会话**工作区根列表**（`resolveRoots` 的唯一实现）。
  *
  * - 首根 = {@link getSessionWorkspacePath}（`workspacePath` 或 `projectId → sandboxPath`，

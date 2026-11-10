@@ -99,7 +99,11 @@ import { buildTAORContextFor } from './taorContextWiring';
 import { isCommandApproved, submitToolApproval } from './toolApproval';
 import { wireCodeRunnerDeps } from './codeRunnerWiring';
 import { shouldUseCodeMode, shouldUsePlanDrivenLoop } from './routing';
-import { getSessionWorkspacePath } from './workspacePath';
+// 2026-11-10：`registerWorkspacePathHost` —— 提示词侧复用同一工作区解析（注册一次）
+import {
+  getSessionWorkspacePath,
+  registerWorkspacePathHost,
+} from './workspacePath';
 // 2026-11-09（方案 B）：长程任务 cwd 与工具 cwd 共用安全判定（唯一实现见 toolCwdScope）
 import { resolveTaskCwd } from '../services/toolCwdScope';
 import { setTaskWorkspaceResolver } from '@modules/agent';
@@ -369,6 +373,12 @@ export function wireChatFacades(host: FacadeWiringHost): void {
   // P2（§3.3）：任务档审批 —— 把"会话当前活跃长程任务"解析器注册给权限层
   // （权限层不能反向依赖 tasks；未注册 ⇒ 任务档条目一律不命中，只多问一次）
   setActiveTaskIdResolver((sid) => getActiveTaskIdForSession(sid));
+  // 2026-11-10（指标 2 归因）：系统提示词需要会话工作区基准 —— 注册一次，提示词与工具共用
+  // 同一解析实现（`ChatManager` 已到 2000 行上限，不再向其加装配行）。
+  registerWorkspacePathHost({
+    getSession: (id) => host._chatSessions.get(id),
+    projectSandboxStoreRef: host._projectSandboxStoreRef,
+  });
   // 2026-11-09（真机 `pdca_mw8txe5r`）：长程任务 cwd 与会话工作区对齐。
   // 此前任务恒定跑在 `~/.pyapp/workspaces/<taskId>`（空目录）⇒ 用户选中目录里的既有
   // 文件完全不可见，依赖既有文件的步骤必然失败。

@@ -29,6 +29,7 @@ import { assembleContextualSystemPrompt } from '../services/MessageContextPipeli
 import type { ImageContextService } from '../services/ImageContextService';
 import type { SessionAccessFacade } from '../services/SessionAccessFacade';
 import type { ModelInputSnapshot } from '../services/RequestSnapshotService';
+import { resolveRegisteredSessionWorkspace } from './workspacePath';
 
 /**
  * 系统提示词组装所依据的 `ModelRouter.resolve` **路由键**（T-②04，2026-10-02）——
@@ -51,6 +52,11 @@ export interface ChatPromptAssemblyDeps {
   getClientForModel: (model?: string) => ToolAwareClient;
   /** 全局 llmClient（路由不可用时的回退） */
   getLlmClient: () => ToolAwareClient | undefined;
+  /**
+   * 2026-11-10：会话显式工作区（与工具 cwd **同源**的解析函数）。
+   * 缺省 ⇒ 不注入工作区提示（既有宿主/测试桩零影响）。
+   */
+  getSessionWorkspacePath?: (sessionId: string) => string | undefined;
 }
 
 export class ChatPromptAssembly {
@@ -93,7 +99,9 @@ export class ChatPromptAssembly {
           model: promptModel,
           route: promptModel ? PROMPT_ASSEMBLY_ROUTE : undefined,
         });
-      }
+      },
+      // 2026-11-10：会话工作区提示（宿主注入优先；未注入时用装配期注册的同一解析器）
+      this.deps.getSessionWorkspacePath ?? resolveRegisteredSessionWorkspace
     );
   }
 

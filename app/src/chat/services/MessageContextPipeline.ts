@@ -958,6 +958,23 @@ export async function truncateByPreciseTokens(
 }
 
 /**
+ * 会话工作区提示段（2026-11-10，纯函数）。
+ *
+ * 聊天链此前**从没告诉模型**相对路径的基准在哪 ⇒ 模型按代码仓习惯写绝对路径，
+ * 越界写按策略走确认（真机 demand：2 次 ask 全部来自写到 `E:\…\PY_APP\index.html`）。
+ *
+ * 空/缺失工作区 ⇒ 空串 ⇒ 不注入（裸会话的 cwd 由运行形态决定，不给出不实基准）。
+ */
+export function buildWorkspaceRootSection(workspaceRoot?: string): string {
+  if (!workspaceRoot) return '';
+  return [
+    '## 会话工作区',
+    `- 本会话工具的相对路径基准：\`${workspaceRoot}\``,
+    '- 新建/修改产物请写在该目录内（用相对路径）；写到该目录之外会触发人工确认或被拒绝。',
+  ].join('\n');
+}
+
+/**
  * 获取或组装系统提示词
  * 每次根据当前会话状态重新组装（包含动态段落如 sessionContext）
  *
@@ -981,7 +998,15 @@ export async function assembleContextualSystemPrompt(
     sections: SystemPromptSection[],
     contents: (string | null)[],
     mode: string
-  ) => void
+  ) => void,
+  /**
+   * 2026-11-10（指标 2 归因）：会话工作区（绝对路径）解析器。
+   *
+   * 聊天链此前**从没告诉模型**相对路径的基准在哪 ⇒ 模型按代码仓习惯写绝对路径，
+   * 越界守卫按策略走确认（真机 demand：2 次 ask 全来自写到 `E:\…\PY_APP\index.html`）。
+   * 只在解析出**显式工作区**时注入；裸会话的 cwd 由运行形态决定，不给出不实基准。
+   */
+  getSessionWorkspacePath?: (sessionId: string) => string | undefined
 ): Promise<string> {
   const providerId = llmClient?.getProviderId() || '';
   // 本地模型判定：baseUrl 指向 localhost/127.0.0.1 → 启用精简 system prompt
@@ -1087,6 +1112,20 @@ export async function assembleContextualSystemPrompt(
         'imageContext',
         () => imageContextText,
         '图片上下文随消息变化'
+      )
+    );
+  }
+  // 2026-11-10：会话工作区（仅显式工作区时注入）—— 让模型知道相对路径基准，
+  // 避免"照代码仓习惯写绝对路径 ⇒ 越界 ⇒ 弹审批"（指标 2 的唯一实证来源）。
+  const workspaceSection = buildWorkspaceRootSection(
+    getSessionWorkspacePath?.(session.id)
+  );
+  if (workspaceSection) {
+    extraDynamicSections.push(
+      DANGEROUS_uncachedSystemPromptSection(
+        'workspaceRoot',
+        () => workspaceSection,
+        '会话工作区随会话设置变化'
       )
     );
   }

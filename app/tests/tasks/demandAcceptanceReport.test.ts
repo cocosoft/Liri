@@ -106,6 +106,32 @@ describe('demandAcceptance：指标 2/3 取数', () => {
     });
   });
 
+  it('阶段子任务的回执/日志归一到根任务（demand 走阶段链时交付写在 <父>_<stage>）', () => {
+    const tasks = [task('pdca_root', true, 's_d', 'completed')];
+    const summary = summarizeDemandAcceptance(tasks, [
+      log('PDCA 终态回执已发出', { taskId: 'pdca_root_design' }),
+      log('demand 交付回执已落盘', { taskId: 'pdca_root_design' }),
+    ]);
+    expect(summary.delivery.demand.delivered).toBe(1);
+    expect(summary.delivery.demand.terminals).toBe(1);
+    expect(summary.demandOnlyLogs).toEqual({
+      demand: 1,
+      interactive: 0,
+      unknown: 0,
+    });
+  });
+
+  it('delivery.md 已落盘也算交付（PDL 快路径不经 audit 回执）', () => {
+    const tasks = [task('pdca_pdl', true, 's_d', 'completed')];
+    const summary = summarizeDemandAcceptance(
+      tasks,
+      [log('任务开始', { taskId: 'pdca_pdl' })],
+      new Set(['pdca_pdl'])
+    );
+    expect(summary.delivery.demand.delivered).toBe(1);
+    expect(summary.delivery.demand.missingCount).toBe(0);
+  });
+
   it('filterLogLinesSince：按 timestamp 过滤，无 timestamp 行保留', () => {
     const lines = [
       log('a', {}, '2026-10-31T23:00:00.000Z'),

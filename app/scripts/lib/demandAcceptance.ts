@@ -121,7 +121,14 @@ function emptyCoverage(): DeliveryCoverage {
  */
 export function summarizeDemandAcceptance(
   tasks: readonly RootTaskInfo[],
-  logLines: readonly string[]
+  logLines: readonly string[],
+  /**
+   * 已有 `<data>/artifacts/<taskId>/delivery.md` 的任务 id 集合（B3 交付留存的**事实**）。
+   *
+   * 必要性（2026-11-10 真机）：PDL 快路径（trivial demand）由 `PdcaLauncher` 直接落
+   * `delivery.md`，**不经过** `emitPdcaReceiptFromAudit` ⇒ 只数日志会把这类任务误判成"缺回执"。
+   */
+  deliveredTaskIds?: ReadonlySet<string>
 ): DemandAcceptanceSummary {
   const { parsed } = parseLogLines(logLines);
 
@@ -142,6 +149,19 @@ export function summarizeDemandAcceptance(
   const cohortByTaskId = new Map<string, boolean>(
     tasks.map((t) => [t.taskId, t.demand])
   );
+  const rootIds = new Set(cohortByTaskId.keys());
+  /**
+   * 阶段子任务 id ⇒ 根任务 id（`<父>_<stageId>` 且父在检查点里）。
+   *
+   * 2026-11-10 真机：demand 走阶段链，`delivery.md` 与回执都写在**子任务** id 上
+   * （`pdca_x_design`）⇒ 不归一会把已交付读成 0 覆盖、并误记进"未知任务"。
+   */
+  const rootOf = (taskId: string): string => {
+    const cut = taskId.lastIndexOf('_');
+    return cut > 0 && rootIds.has(taskId.slice(0, cut))
+      ? taskId.slice(0, cut)
+      : taskId;
+  };
 
   const receipts = new Set<string>();
   const seenInLog = new Set<string>();
@@ -153,14 +173,21 @@ export function summarizeDemandAcceptance(
       }
     }
     if (line.message === RECEIPT_LOG_MESSAGE && line.taskId) {
-      receipts.add(line.taskId);
+      receipts.add(rootOf(line.taskId));
     }
     if (line.message === DEMAND_ONLY_LOG_MESSAGE) {
-      const demand = line.taskId ? cohortByTaskId.get(line.taskId) : undefined;
+      const demand = line.taskId
+        ? cohortByTaskId.get(rootOf(line.taskId))
+        : undefined;
       if (demand === true) summary.demandOnlyLogs.demand += 1;
       else if (demand === false) summary.demandOnlyLogs.interactive += 1;
       else summary.demandOnlyLogs.unknown += 1;
     }
+  }
+
+  // 交付事实二：`delivery.md` 已落盘（PDL 快路径不经 audit 回执，但交付确实存在）
+  for (const id of deliveredTaskIds ?? []) {
+    receipts.add(rootOf(id));
   }
 
   // 窗口覆盖判定：终态任务 id 是否在日志里出现过（回执行本身也算）

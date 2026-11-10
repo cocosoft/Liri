@@ -231,7 +231,16 @@ export function emitPdcaReceipt(
   if (!facts.paused && facts.sessionId) {
     void expireOrphanApprovalCards(facts.taskId, facts.sessionId);
   }
-  if (facts.hasPushChannel) return;
+  if (facts.hasPushChannel) {
+    // 2026-11-10：走推送通道时**不经过** `emitPdcaReceiptText`，此前没有任何"回执已发出"信号
+    // ⇒ 指标 3（回执数 = 终态数）会把聊天链路起的任务全算成"缺回执"（真机 demand 任务即如此）。
+    logger.info('PDCA 终态回执已发出', {
+      taskId: facts.taskId,
+      sessionId: facts.sessionId ?? null,
+      channel: 'push',
+    });
+    return;
+  }
   const text = formatPdcaReceipt(facts);
   emitPdcaReceiptText({
     taskId: facts.taskId,
@@ -395,6 +404,7 @@ export function emitPdcaReceiptText(input: {
     logger.info('PDCA 终态回执已发出', {
       taskId: input.taskId,
       sessionId,
+      channel: 'text',
       length: input.text.length,
     });
   } catch (err) {

@@ -16,8 +16,8 @@
  *   bun run scripts/report-demand-convergence.ts --log <path-to-app.log>
  */
 import { Database } from 'bun:sqlite';
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { resolveDbPath, resolveLogsDir } from '@openliri/infra/environment';
 import {
   formatSummary,
@@ -29,6 +29,22 @@ import {
   formatAcceptance,
   summarizeDemandAcceptance,
 } from './lib/demandAcceptance';
+
+/**
+ * 已落 `delivery.md` 的任务 id（B3 交付留存的事实面）。
+ *
+ * 与 `resolveTaskDeliveryPath` 同构：`<data>/artifacts/<taskId>/delivery.md`；
+ * PDL 快路径不经 audit 回执，只靠日志数会把已交付任务误判成"缺回执"。
+ */
+function loadDeliveredTaskIds(dataDir: string): Set<string> {
+  const root = join(dataDir, 'artifacts');
+  const delivered = new Set<string>();
+  if (!existsSync(root)) return delivered;
+  for (const name of readdirSync(root)) {
+    if (existsSync(join(root, name, 'delivery.md'))) delivered.add(name);
+  }
+  return delivered;
+}
 
 /** 取检查点行（只读；表不存在 ⇒ 空数组，由报告如实呈现 0 样本） */
 function loadCheckpointRows(
@@ -102,7 +118,11 @@ function main(): void {
           since
         )
       : [];
-  const acceptance = summarizeDemandAcceptance(listRootTasks(rows), logLines);
+  const acceptance = summarizeDemandAcceptance(
+    listRootTasks(rows),
+    logLines,
+    loadDeliveredTaskIds(dirname(dbPath))
+  );
 
   if (args.includes('--json')) {
     console.log(

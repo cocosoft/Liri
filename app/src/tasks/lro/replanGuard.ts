@@ -344,6 +344,23 @@ export function applyReusableSteps(
     remaining.delete(key);
     applied += 1;
   }
+  if (applied === 0) {
+    // 2026-11-10（真机 `pdca_mwa9kw4i` 场景 B）：候选存在却一步未落地 ⇒ 只可能是
+    // 「新计划已非 pending」或「归一化键不相等」。此前静默返回 0，无法区分，白跑一轮。
+    logger.warn(
+      '[orchestrator] replan 复用候选未落地（需核对描述键 / 步骤状态）',
+      {
+        planned: reusable.length,
+        candidates: reusable.map((r) =>
+          normalizeStepDescription(r.description)
+        ),
+        planSteps: plan.steps.map((s) => ({
+          key: normalizeStepDescription(s.description),
+          status: s.status,
+        })),
+      }
+    );
+  }
   return applied;
 }
 

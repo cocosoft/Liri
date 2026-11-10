@@ -940,13 +940,17 @@ export async function handlePdcaStatus(
  * 处置：把 `iteration`（以及已有 `replanPending`/`replanFailCount`）并入 `progress`，
  * 前端可显示「第 N 轮 · x/y」而不是让用户以为进度回退。**零语义变更**，纯附加字段。
  */
-function withProgressIteration(
+export function withProgressIteration(
   status: Record<string, unknown>
 ): Record<string, unknown> {
   const progress = status.progress as Record<string, unknown> | undefined;
   if (!progress) return status;
+  // 2026-11-10（§60.4① 核查）：`0` = 尚未进入执行循环（plan 阶段）⇒ 不显示"第 0 轮"，
+  // 与检查点口径一致（`loopIteration` 只在 >0 时落盘）。
   const iteration =
-    typeof status.loopIteration === 'number' ? status.loopIteration : undefined;
+    typeof status.loopIteration === 'number' && status.loopIteration > 0
+      ? status.loopIteration
+      : undefined;
   if (iteration === undefined) return status;
   return { ...status, progress: { ...progress, iteration } };
 }
@@ -992,6 +996,9 @@ function buildCheckpointStatusView(
     projectId: rec.projectId,
     sessionId: rec.sessionId,
     totalTokens: rec.totalTokens,
+    // 2026-11-10（§60.4① 核查）：与内存投影对齐 —— 内存 `getStatus()` 同时给顶层
+    // `loopIteration` 与 `progress.iteration`，检查点读模型原先只有后者（字段不一致）
+    loopIteration: rec.loopIteration,
     // 2026-11-08（真机 `pdca_mw6rx5kr`）：escalate 终态会把 phase 保持 `execute`（半自动
     // replan 语义）⇒ 只靠 phase/progress 看，任务与"仍在跑"无法区分。把 replan 事实透出，
     // 调用方才能显示"待重规划 / 已转人工"。

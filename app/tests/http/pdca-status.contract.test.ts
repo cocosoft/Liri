@@ -33,7 +33,7 @@ afterAll(() => {
 
 const { writePdcaCheckpoint } =
   await import('../../src/tasks/PdcaWorkItemBridge');
-const { handlePdcaStatus } =
+const { handlePdcaStatus, withProgressIteration } =
   await import('../../src/infrastructure/http/handlers/pdca-handlers');
 
 function createRes(): {
@@ -125,6 +125,8 @@ await writePdcaCheckpoint('pdca_st_active', {
   workspaceId: 'ws_st',
   projectId: 'proj_st',
   workItemId: 'wi_st',
+  // §60.4①（2026-11-10）：多轮任务的检查点带 `loopIteration`（真实库 `pdca_mw8nknox` = 4）
+  loopIteration: 3,
   steps: [
     makeStep('s1', '调研', 'completed'),
     makeStep('s2', '实现', 'running'),
@@ -220,6 +222,9 @@ describe('GET /v1/pdca/:taskId 契约（1-5 P2 跨重启详情适配）', () => 
     expect(progress.running).toBe(1);
     expect(progress.pending).toBe(0);
     expect(progress.percent).toBe(50);
+    // §60.4①（2026-11-10 真机核查）：轮次同时给顶层与 progress（内存/检查点字段对齐）
+    expect(body.loopIteration).toBe(3);
+    expect(progress.iteration).toBe(3);
   });
 
   test('review 阶段部分完成：progress 推导（2c1p → 67%）', async () => {
@@ -231,6 +236,8 @@ describe('GET /v1/pdca/:taskId 契约（1-5 P2 跨重启详情适配）', () => 
     expect(progress.completed).toBe(2);
     expect(progress.pending).toBe(1);
     expect(progress.percent).toBe(67);
+    // 旧检查点没有 loopIteration ⇒ 不编造轮次（CS06）
+    expect(progress.iteration).toBeUndefined();
   });
 
   test('空台账但有成功工具证据 ⇒ 进度 100%、不被产物门压住', async () => {
@@ -279,5 +286,42 @@ describe('GET /v1/pdca/:taskId 契约（1-5 P2 跨重启详情适配）', () => 
     } finally {
       orchestrator?.dispose?.();
     }
+  });
+});
+
+/**
+ * §60.4①（2026-11-10）：内存路径的「第 N 轮」合并。
+ *
+ * 历史缺口（真机 `pdca_mw7r380j`）：`getStatus()` 早期没有 `loopIteration` ⇒ 详情接口
+ * `iter=` 为空，只有检查点回退路径能显示轮次。现口径：内存投影给顶层 `loopIteration`，
+ * 本函数把它并入 `progress.iteration`；`0`（尚未进入执行循环）不显示。
+ */
+describe('withProgressIteration（内存路径轮次合并）', () => {
+  test('loopIteration>0 ⇒ 并入 progress.iteration，其他字段原样', () => {
+    const out = withProgressIteration({
+      loopIteration: 3,
+      replanPending: false,
+      progress: { completed: 1, total: 2, percent: 50 },
+    });
+    expect(out.progress).toEqual({
+      completed: 1,
+      total: 2,
+      percent: 50,
+      iteration: 3,
+    });
+    expect(out.loopIteration).toBe(3);
+    expect(out.replanPending).toBe(false);
+  });
+
+  test('loopIteration=0（plan 阶段）⇒ 原样返回（不显示"第 0 轮"）', () => {
+    const input = { loopIteration: 0, progress: { completed: 0, total: 0 } };
+    expect(withProgressIteration(input)).toBe(input);
+  });
+
+  test('无 loopIteration / 无 progress ⇒ 原样返回（不造字段）', () => {
+    const noIter = { progress: { completed: 1, total: 2 } };
+    expect(withProgressIteration(noIter)).toBe(noIter);
+    const noProgress = { loopIteration: 2 };
+    expect(withProgressIteration(noProgress)).toBe(noProgress);
   });
 });

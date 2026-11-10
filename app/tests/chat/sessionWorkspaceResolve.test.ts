@@ -12,14 +12,18 @@
  *   4. 无 projectId 且无 workspacePath ⇒ undefined（无项目会话保持旧行为）。
  */
 import { describe, it, expect } from 'bun:test';
-import { join } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 import {
   resolveSessionWorkspacePath,
   resolveRequestWorkspaceUpdate,
 } from '../../src/chat/services/toolCwdScope.js';
 // P0-2（2026-11-04）：根列表合并口径下沉 infra
 import { mergeWorkspaceRoots } from '@openliri/infra/utils/toolContract/workspaceRoots';
-import { getSessionWorkspaceRoots } from '../../src/chat/manager/workspacePath.js';
+import {
+  getSessionWorkspaceRoots,
+  registerWorkspacePathHost,
+  resolveRegisteredSessionWorkspace,
+} from '../../src/chat/manager/workspacePath.js';
 
 // `isAbsolute()` 是**平台相关**的：`D:\…` 在 POSIX 上不是绝对路径。
 // 本文件断言的是"绝对/相对"语义，因此夹具必须按当前平台构造，
@@ -175,5 +179,41 @@ describe('P1：工作区根列表（resolveRoots）', () => {
     };
     expect(getSessionWorkspaceRoots(host, undefined)).toEqual([]);
     expect(getSessionWorkspaceRoots(host, 'sess-none')).toEqual([]);
+  });
+});
+
+/**
+ * 2026-11-10：**裸会话**（无显式工作区 / 无 projectId）也要给模型"相对路径基准"。
+ *
+ * 真机：裸会话的系统提示里没有工作区段 ⇒ 模型按代码仓习惯写绝对路径，越界写被确认拦下。
+ * 口径与 `resolveToolCwd` 的"无会话工作区"分支一致：编译版 = 会话目录，开发版 = 项目根；
+ * **只算路径，不建目录**（提示词组装无副作用）；会话未加载 ⇒ 不猜。
+ */
+describe('裸会话提示基准（2026-11-10）', () => {
+  const bare = { id: 'sess_bare', metadata: {} } as never;
+  const explicit = {
+    id: 'sess_explicit',
+    metadata: { workspacePath: EXPLICIT },
+  } as never;
+
+  registerWorkspacePathHost({
+    getSession: (id) =>
+      id === 'sess_bare' ? bare : id === 'sess_explicit' ? explicit : undefined,
+    projectSandboxStoreRef: {},
+  });
+
+  it('显式工作区优先（与工具 cwd 同源）', () => {
+    expect(resolveRegisteredSessionWorkspace('sess_explicit')).toBe(EXPLICIT);
+  });
+
+  it('裸会话 ⇒ 给出非空绝对基准（开发版=项目根；编译版=会话目录）', () => {
+    const value = resolveRegisteredSessionWorkspace('sess_bare');
+    expect(typeof value).toBe('string');
+    expect(isAbsolute(value ?? '')).toBe(true);
+  });
+
+  it('会话未加载 / 无 sessionId ⇒ undefined（不猜磁盘状态）', () => {
+    expect(resolveRegisteredSessionWorkspace('sess_missing')).toBeUndefined();
+    expect(resolveRegisteredSessionWorkspace()).toBeUndefined();
   });
 });

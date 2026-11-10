@@ -18,6 +18,11 @@
 import type { ChatSession } from '@modules/session/types/session';
 // P0-2（2026-11-04）：根列表合并口径下沉 infra（AlwaysOn 入口同用，不再经 chat 转发）
 import { mergeWorkspaceRoots } from '@openliri/infra/utils/toolContract/workspaceRoots';
+import {
+  isCompiledRuntime,
+  resolveProjectRoot,
+  resolveSessionWorkspaceDir,
+} from '@openliri/infra/environment';
 import { resolveSessionWorkspacePath } from '../services/toolCwdScope';
 import {
   getProjectSandboxPath,
@@ -66,13 +71,31 @@ export function registerWorkspacePathHost(host: WorkspacePathHost): void {
   registeredHost = host;
 }
 
-/** 已注册宿主上的会话工作区；未注册 / 无会话 ⇒ `undefined`（调用方据此不注入） */
+/**
+ * 裸会话（无显式工作区、无 projectId）的相对路径基准（2026-11-10）。
+ *
+ * 与 `resolveToolCwd` 的"无会话工作区"分支**同口径**，但**只算路径、不建目录** ——
+ * 提示词组装不应有文件系统副作用：
+ *  - 编译版：工具 cwd = `<data>/workspace/sessions/<sessionId>`；
+ *  - 开发版：工具 cwd 回落 `resolveProjectRoot()`（代码仓根，便于调试）。
+ */
+function bareSessionWorkspace(sessionId: string): string {
+  return isCompiledRuntime()
+    ? resolveSessionWorkspaceDir(sessionId)
+    : resolveProjectRoot();
+}
+
+/** 已注册宿主上的会话工作区；未注册 / 会话未加载 ⇒ `undefined`（调用方据此不注入） */
 export function resolveRegisteredSessionWorkspace(
   sessionId?: string
 ): string | undefined {
-  return registeredHost && sessionId
-    ? getSessionWorkspacePath(registeredHost, sessionId)
-    : undefined;
+  if (!registeredHost || !sessionId) return undefined;
+  // 会话未加载 ⇒ 不猜（磁盘上可能有显式工作区，等加载后再给）
+  if (!registeredHost.getSession(sessionId)) return undefined;
+  return (
+    getSessionWorkspacePath(registeredHost, sessionId) ??
+    bareSessionWorkspace(sessionId)
+  );
 }
 
 /**

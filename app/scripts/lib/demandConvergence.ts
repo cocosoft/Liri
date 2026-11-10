@@ -210,6 +210,29 @@ function isStageChild(taskId: string, taskIds: ReadonlySet<string>): boolean {
 }
 
 /**
+ * 根任务的 demand 身份（2026-11-10）。
+ *
+ * B13（2026-11-09）之前的构建只把 `demand` 写进**阶段子检查点**，父行缺失 ⇒ 历史
+ * demand 任务会被读成 interactive（指标 1 误报"泄漏"、指标 4 样本归错组）。
+ * 口径：父行显式 `demand === true`，或任一阶段子检查点 `demand === true` ⇒ demand。
+ * 只升不降：写侧从不写 `demand: false`，缺失一律视为"未知"，不得据此判 interactive。
+ */
+function resolveDemandRoots(
+  parsedRows: readonly ParsedRow[],
+  taskIds: ReadonlySet<string>
+): Set<string> {
+  const roots = new Set<string>();
+  for (const { data, taskId } of parsedRows) {
+    if (!taskId || data.demand !== true) continue;
+    const cut = taskId.lastIndexOf('_');
+    roots.add(
+      isStageChild(taskId, taskIds) && cut > 0 ? taskId.slice(0, cut) : taskId
+    );
+  }
+  return roots;
+}
+
+/**
  * 列出根任务身份（一次任务 = 一条）。
  *
  * 与 `summarizeCheckpoints` 共用「根样本」与「终态」口径（CS01：同一事实不写两遍判定），
@@ -218,12 +241,17 @@ function isStageChild(taskId: string, taskIds: ReadonlySet<string>): boolean {
 export function listRootTasks(
   rows: ReadonlyArray<{ raw: string }>
 ): RootTaskInfo[] {
-  return filterRootRows(parseRows(rows).parsedRows).map(({ data, taskId }) => ({
+  const { parsedRows } = parseRows(rows);
+  const taskIds = new Set(
+    parsedRows.map((r) => r.taskId).filter((id) => id.length > 0)
+  );
+  const demandRoots = resolveDemandRoots(parsedRows, taskIds);
+  return filterRootRows(parsedRows).map(({ data, taskId }) => ({
     taskId,
     ...(typeof data.sessionId === 'string' && data.sessionId
       ? { sessionId: data.sessionId }
       : {}),
-    demand: data.demand === true,
+    demand: data.demand === true || demandRoots.has(taskId),
     ...(terminalOf(data) ? { terminal: terminalOf(data) } : {}),
   }));
 }
@@ -245,9 +273,13 @@ export function summarizeCheckpoints(
   const taskIds = new Set(
     parsedRows.map((r) => r.taskId).filter((id) => id.length > 0)
   );
+  const demandRoots = resolveDemandRoots(parsedRows, taskIds);
 
-  for (const { data } of filterRootRows(parsedRows)) {
-    const cohort = data.demand === true ? summary.demand : summary.interactive;
+  for (const { data, taskId } of filterRootRows(parsedRows)) {
+    const cohort =
+      data.demand === true || demandRoots.has(taskId)
+        ? summary.demand
+        : summary.interactive;
     cohort.samples += 1;
     switch (terminalOf(data)) {
       case 'completed':

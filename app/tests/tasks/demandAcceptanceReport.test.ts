@@ -132,6 +132,37 @@ describe('demandAcceptance：指标 2/3 取数', () => {
     expect(summary.delivery.demand.missingCount).toBe(0);
   });
 
+  it('指标 2 归因：demand 会话的 ask 按工具名分组（次数降序、同名升序）', () => {
+    const tasks = [task('t_d1', true, 's_d', 'completed')];
+    const summary = summarizeDemandAcceptance(tasks, [
+      log('Tool approval submitted to Inbox', {
+        sessionId: 's_d',
+        toolName: 'file_write',
+      }),
+      log('Tool approval submitted to Inbox', {
+        sessionId: 's_d',
+        toolName: 'bash',
+      }),
+      log('Tool approval submitted to Inbox', {
+        sessionId: 's_d',
+        toolName: 'file_write',
+      }),
+      // 缺 toolName ⇒ 归入 (unknown)，不丢弃计数
+      log('Tool approval submitted to Inbox', { sessionId: 's_d' }),
+      // 非 demand 会话不进归因面
+      log('Tool approval submitted to Inbox', {
+        sessionId: 's_unknown',
+        toolName: 'bash',
+      }),
+    ]);
+    expect(summary.approvals.demand).toBe(4);
+    expect(summary.demandApprovalsByTool).toEqual([
+      { tool: 'file_write', count: 2 },
+      { tool: '(unknown)', count: 1 },
+      { tool: 'bash', count: 1 },
+    ]);
+  });
+
   it('filterLogLinesSince：按 timestamp 过滤，无 timestamp 行保留', () => {
     const lines = [
       log('a', {}, '2026-10-31T23:00:00.000Z'),

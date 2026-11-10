@@ -53,6 +53,13 @@ export interface DeliveryCoverage {
 export interface DemandAcceptanceSummary {
   /** 指标 2：各组审批卡提交次数（ask） */
   approvals: { demand: number; interactive: number };
+  /**
+   * 指标 2 的归因面：demand 会话里 ask 的**工具分布**（期望为空）。
+   *
+   * 2026-11-10 真机：2 次 ask 全部来自"模型把产物写到会话工作区之外的绝对路径"
+   * ⇒ 只看次数无法区分"demand 语义破坏"与"模型越界"，故按工具名分组。
+   */
+  demandApprovalsByTool: Array<{ tool: string; count: number }>;
   /** 指标 3：各组回执覆盖率 */
   delivery: { demand: DeliveryCoverage; interactive: DeliveryCoverage };
   /**
@@ -68,6 +75,7 @@ interface ParsedLogLine {
   message: string;
   sessionId?: string;
   taskId?: string;
+  toolName?: string;
 }
 
 function parseLogLines(lines: readonly string[]): {
@@ -98,6 +106,7 @@ function parseLogLines(lines: readonly string[]): {
         ? { sessionId: meta.sessionId }
         : {}),
       ...(typeof meta.taskId === 'string' ? { taskId: meta.taskId } : {}),
+      ...(typeof meta.toolName === 'string' ? { toolName: meta.toolName } : {}),
     });
   }
   return { parsed, parsedCount: parsed.length };
@@ -141,6 +150,7 @@ export function summarizeDemandAcceptance(
 
   const summary: DemandAcceptanceSummary = {
     approvals: { demand: 0, interactive: 0 },
+    demandApprovalsByTool: [],
     delivery: { demand: emptyCoverage(), interactive: emptyCoverage() },
     demandOnlyLogs: { demand: 0, interactive: 0, unknown: 0 },
     log: { lines: logLines.length, parsed: parsed.length },
@@ -165,10 +175,14 @@ export function summarizeDemandAcceptance(
 
   const receipts = new Set<string>();
   const seenInLog = new Set<string>();
+  const demandApprovalTools = new Map<string, number>();
   for (const line of parsed) {
     if (line.message === APPROVAL_LOG_MESSAGE && line.sessionId) {
-      if (demandSessions.has(line.sessionId)) summary.approvals.demand += 1;
-      else if (interactiveSessions.has(line.sessionId)) {
+      if (demandSessions.has(line.sessionId)) {
+        summary.approvals.demand += 1;
+        const tool = line.toolName ?? '(unknown)';
+        demandApprovalTools.set(tool, (demandApprovalTools.get(tool) ?? 0) + 1);
+      } else if (interactiveSessions.has(line.sessionId)) {
         summary.approvals.interactive += 1;
       }
     }
@@ -184,6 +198,10 @@ export function summarizeDemandAcceptance(
       else summary.demandOnlyLogs.unknown += 1;
     }
   }
+
+  summary.demandApprovalsByTool = [...demandApprovalTools.entries()]
+    .map(([tool, count]) => ({ tool, count }))
+    .sort((a, b) => b.count - a.count || a.tool.localeCompare(b.tool));
 
   // 交付事实二：`delivery.md` 已落盘（PDL 快路径不经 audit 回执，但交付确实存在）
   for (const id of deliveredTaskIds ?? []) {
@@ -260,12 +278,21 @@ export function formatAcceptance(
     `  interactive ${String(summary.demandOnlyLogs.interactive).padStart(4)} 条` +
       (summary.demandOnlyLogs.interactive === 0 ? '  ✅' : '  ❌ 泄漏'),
     ...(summary.demandOnlyLogs.unknown > 0
-      ? [`  未知任务    ${String(summary.demandOnlyLogs.unknown).padStart(4)} 条（不在检查点里）`]
+      ? [
+          `  未知任务    ${String(summary.demandOnlyLogs.unknown).padStart(4)} 条（不在检查点里）`,
+        ]
       : []),
     '',
     '指标 2 · 白名单内零打断（ask 次数，期望 demand = 0）',
     `  demand      ${String(summary.approvals.demand).padStart(4)} 次`,
     `  interactive ${String(summary.approvals.interactive).padStart(4)} 次`,
+    ...(summary.demandApprovalsByTool.length > 0
+      ? [
+          `  按工具      ${summary.demandApprovalsByTool
+            .map((t) => `${t.tool} ×${t.count}`)
+            .join(' / ')}`,
+        ]
+      : []),
     '',
     '指标 3 · 交付覆盖率（回执数 / 窗口内终态数，期望 100%）',
   ];

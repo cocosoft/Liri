@@ -12,6 +12,7 @@ import { describe, expect, it } from 'bun:test';
 import {
   MIN_SAMPLES,
   formatSummary,
+  listRootTasks,
   summarizeCheckpoints,
 } from '../../scripts/lib/demandConvergence';
 
@@ -80,6 +81,29 @@ describe('B9：检查点聚合口径', () => {
     expect(summary.demand.samples).toBe(1);
     expect(summary.demand.completed).toBe(1);
     expect(summary.interactive.samples).toBe(1);
+  });
+
+  it('2026-11-10：父行缺 demand 时继承阶段子检查点的身份（B13 之前只写子行）', () => {
+    const rows = [
+      // B13 之前的父行：没有 demand 字段（阶段链任务的真实历史形态）
+      row({ taskId: 'pdca_legacy', phase: 'completed' }),
+      row({
+        taskId: 'pdca_legacy_requirement',
+        demand: true,
+        phase: 'completed',
+      }),
+      row({ taskId: 'pdca_legacy_design', demand: true, phase: 'completed' }),
+      // 无任何 demand 证据 ⇒ 仍归 interactive
+      row({ taskId: 'pdca_plain', phase: 'failed' }),
+    ];
+    const summary = summarizeCheckpoints(rows);
+    expect(summary.demand.samples).toBe(1);
+    expect(summary.demand.completed).toBe(1);
+    expect(summary.interactive.samples).toBe(1);
+
+    const roots = listRootTasks(rows);
+    expect(roots.find((r) => r.taskId === 'pdca_legacy')?.demand).toBe(true);
+    expect(roots.find((r) => r.taskId === 'pdca_plain')?.demand).toBe(false);
   });
 
   it('B13：phase 非终态时回退 status（PDL 快路径终态写成 phase=execute）', () => {

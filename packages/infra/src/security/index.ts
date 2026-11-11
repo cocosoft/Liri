@@ -283,6 +283,9 @@ export {
   // P5（2026-11-11）：auto 模式命令令牌表（硬拦 = deny / 审批 = ask）
   AUTO_MODE_HARD_DENY_TOKENS,
   AUTO_MODE_APPROVAL_TOKENS,
+  // 2026-11-11：命令别名归一表（规范名令牌 ⇒ 别名等价写法）
+  COMMAND_ALIASES,
+  expandTokenAliases,
 } from './patterns';
 export type { UnifiedRulePlatform } from './patterns';
 // P2-3（2026-11-03）：只读命令目录单一来源（bash / cmd / PowerShell 按 shell 引用）

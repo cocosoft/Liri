@@ -20,6 +20,7 @@ import { DANGEROUS_TOOL_KEYWORDS } from './dangerous-tool-keywords';
 import {
   AUTO_MODE_HARD_DENY_TOKENS,
   AUTO_MODE_APPROVAL_TOKENS,
+  expandTokenAliases,
 } from '@openliri/infra/security';
 import { SENSITIVE_PATH_PATTERNS } from './sensitive-path-patterns';
 import { ENV_POLLUTION_PATTERNS } from './env-pollution-patterns';
@@ -55,6 +56,21 @@ import {
 // 本地使用需 `import`（re-export 不引入本地绑定）；对外路径由下方 `export type` 保持不变。
 import type { ClassifierDecision } from './classifierDecision';
 export type { ClassifierDecision } from './classifierDecision';
+
+/**
+ * 令牌**或其命令别名**是否命中（2026-11-11，别名归一表）。
+ *
+ * 先判原令牌（原始命令名的既有判定不变），再按 `COMMAND_ALIASES` 展开的别名判
+ * （`set-content` ⇒ `sc`、`add-content` ⇒ `ac`、`clear-content` ⇒ `clc`、
+ * `copy-item` ⇒ `cpi`、`move-item` ⇒ `mi`、`remove-item` ⇒ `ri`、`new-item` ⇒ `ni`）。
+ * 这样新增别名只需改表，不必同时改两张令牌表。
+ */
+function matchesCommandToken(surface: string, token: string): boolean {
+  if (containsCommandToken(surface, token)) return true;
+  return expandTokenAliases(token).some((alias) =>
+    containsCommandToken(surface, alias)
+  );
+}
 
 /**
  * 分类器接口
@@ -342,7 +358,7 @@ export class AutoModeClassifier implements IAutoModeClassifier {
 
       // 检查危险命令模式（按**命令位**匹配，见 `containsCommandToken`）
       for (const pattern of AUTO_MODE_HARD_DENY_TOKENS) {
-        if (containsCommandToken(executionSurface, pattern)) {
+        if (matchesCommandToken(executionSurface, pattern)) {
           return {
             shouldBlock: true,
             reason: `Input contains dangerous command pattern: "${pattern}"`,
@@ -483,7 +499,7 @@ export class AutoModeClassifier implements IAutoModeClassifier {
     // 2026-11-11（P5-approval）：可能覆盖 / 搬走既有文件的命令**不硬拒**，转人工审批。
     // 放在所有 deny 判定之后 ⇒ 同时命中硬拦（`sudo cp …`）或注入类规则时仍是 deny。
     for (const pattern of AUTO_MODE_APPROVAL_TOKENS) {
-      if (containsCommandToken(executionSurface, pattern)) {
+      if (matchesCommandToken(executionSurface, pattern)) {
         return {
           shouldBlock: false,
           requiresApproval: true,

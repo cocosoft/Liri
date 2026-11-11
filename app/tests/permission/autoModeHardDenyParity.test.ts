@@ -16,6 +16,10 @@ import {
   AUTO_MODE_APPROVAL_TOKENS,
   AUTO_MODE_HARD_DENY_TOKENS,
 } from '@openliri/infra/security/patterns/dangerousCommands';
+import {
+  COMMAND_ALIASES,
+  expandTokenAliases,
+} from '@openliri/infra/security/patterns/commandAliases';
 import { AutoModeClassifier } from '@openliri/infra/permission/classifiers/AutoModeClassifier';
 import {
   detectEncodedPathTraversal,
@@ -184,11 +188,9 @@ describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
   it('审批表覆盖各平台的等价写法（复制 / 移动 / 删除 / 链接 / 权限位 / 写盘 / git）', () => {
     expect([...AUTO_MODE_APPROVAL_TOKENS].sort()).toEqual([
       '-itemtype symboliclink',
-      'ac ',
       'add-content',
       'attrib ',
       'chmod ',
-      'clc ',
       'clear-content',
       'copy ',
       'copy-item',
@@ -221,7 +223,6 @@ describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
       'ren ',
       'rm ',
       'robocopy ',
-      'sc ',
       'set-acl',
       'set-content',
       'set-itemproperty',
@@ -231,6 +232,27 @@ describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
     for (const token of AUTO_MODE_APPROVAL_TOKENS) {
       expect(AUTO_MODE_HARD_DENY_TOKENS).not.toContain(token);
     }
+  });
+
+  it('别名归一表：别名可由规范名令牌展开，且端到端生效', async () => {
+    for (const [alias, canonical] of COMMAND_ALIASES) {
+      expect(expandTokenAliases(canonical)).toContain(alias);
+    }
+    // 写盘别名 ⇒ 由 add-content / set-content / clear-content 令牌判为审批
+    for (const command of ['ac a.txt hi', 'sc a.txt hi', 'clc a.txt']) {
+      const decision = await classifier.classify('bash', { command }, []);
+      expect(decision.requiresApproval).toBe(true);
+    }
+    // `ri` ⇒ remove-item 令牌 ⇒ 硬拦
+    const ri = await classifier.classify('bash', { command: 'ri a.txt' }, []);
+    expect(ri.shouldBlock).toBe(true);
+    // `ni` 只归一成 new-item（无该令牌）⇒ 建目录仍放行
+    const niDir = await classifier.classify(
+      'bash',
+      { command: 'ni -ItemType Directory -Path ws' },
+      []
+    );
+    expect(niDir.shouldBlock).toBe(false);
   });
 
   it('分类器标记 requiresApproval（不是 shouldBlock）', async () => {

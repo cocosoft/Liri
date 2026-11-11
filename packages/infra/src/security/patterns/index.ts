@@ -34,6 +34,8 @@ export {
   AUTO_MODE_HARD_DENY_TOKENS,
   AUTO_MODE_APPROVAL_TOKENS,
 } from './dangerousCommands';
+// 2026-11-11：命令别名归一表（规范名令牌 ⇒ 别名等价写法）
+export { COMMAND_ALIASES, expandTokenAliases } from './commandAliases';
 export type { UnifiedRulePlatform } from './dangerousCommands';
 export {
   INJECTION_PATTERNS,

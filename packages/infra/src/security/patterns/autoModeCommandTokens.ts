@@ -654,7 +654,22 @@ export const AUTO_MODE_HARD_DENY_TOKENS = [
  *  - 一刀切硬拒会打断正常开发（批量整理、备份、重命名），直接放行又绕过了
  *    用户对文件去向的确认 ⇒ 用审批档。
  *
+ * 2026-11-11（等价性补齐）：PowerShell 的 `Copy-Item` / `Move-Item` 及其别名
+ * （`cpi` / `mi`，以及 cmd 的 `copy` / `move`）与 `cp` / `mv` 是同一操作，
+ * 否则换个写法就能绕过审批。
+ *
  * 注意：若同一条命令同时命中硬拦表（如 `sudo cp …`），**硬拦优先** —— 分类器先扫
  * `AUTO_MODE_HARD_DENY_TOKENS`，再扫本表。
  */
-export const AUTO_MODE_APPROVAL_TOKENS = ['cp ', 'mv '];
+export const AUTO_MODE_APPROVAL_TOKENS = [
+  // POSIX / cmd
+  'cp ',
+  'mv ',
+  'copy ',
+  'move ',
+  // PowerShell cmdlet 与短别名
+  'copy-item',
+  'move-item',
+  'cpi ',
+  'mi ',
+];

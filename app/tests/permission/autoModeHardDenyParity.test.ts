@@ -174,15 +174,33 @@ function createIsolatedManager(): PermissionManager {
 describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
   const classifier = new AutoModeClassifier();
 
-  it('审批表只含 cp / mv，且与硬拦表互斥', () => {
-    expect([...AUTO_MODE_APPROVAL_TOKENS].sort()).toEqual(['cp ', 'mv ']);
+  it('审批表覆盖 cp / mv 及 PowerShell / cmd 等价写法', () => {
+    expect([...AUTO_MODE_APPROVAL_TOKENS].sort()).toEqual([
+      'copy ',
+      'copy-item',
+      'cp ',
+      'cpi ',
+      'mi ',
+      'move ',
+      'move-item',
+      'mv ',
+    ]);
     for (const token of AUTO_MODE_APPROVAL_TOKENS) {
       expect(AUTO_MODE_HARD_DENY_TOKENS).not.toContain(token);
     }
   });
 
   it('分类器标记 requiresApproval（不是 shouldBlock）', async () => {
-    for (const command of ['cp a.txt b.txt', 'mv ws/a.txt ws/b.txt']) {
+    for (const command of [
+      'cp a.txt b.txt',
+      'mv ws/a.txt ws/b.txt',
+      'copy a.txt b.txt',
+      'move a.txt b.txt',
+      'cpi a.txt b.txt',
+      'mi a.txt b.txt',
+      'powershell -NoProfile -Command "Copy-Item a.txt b.txt"',
+      'powershell -NoProfile -Command "Move-Item a.txt b.txt"',
+    ]) {
       const decision = await classifier.classify('bash', { command }, []);
       expect(decision.shouldBlock).toBe(false);
       expect(decision.requiresApproval).toBe(true);
@@ -213,6 +231,24 @@ describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
       }) as PermissionContext
     );
     expect(decision.type).toBe('ask');
+  });
+
+  it('PermissionManager（auto 档）：PowerShell 等价写法同样转 ask', async () => {
+    const pm = createIsolatedManager();
+    for (const command of ['Copy-Item a.txt b.txt', 'Move-Item a.txt b.txt']) {
+      const input = { command };
+      const decision = await pm.checkPermission(
+        'powershell',
+        input,
+        createPermissionContext({
+          toolName: 'powershell',
+          input,
+          permissionMode: PermissionMode.AUTO,
+          sessionId: 'sess-approval-ps',
+        }) as PermissionContext
+      );
+      expect(decision.type).toBe('ask');
+    }
   });
 
   it('审批档不再被路径令牌抢先拒绝（/tmp、/home 等普通目录）', async () => {

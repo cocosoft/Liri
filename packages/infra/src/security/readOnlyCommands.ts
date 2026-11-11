@@ -417,3 +417,59 @@ export const AUTO_MODE_GIT_READONLY_SUBCOMMANDS: ReadonlySet<string> = new Set([
   'cat-file',
   'grep',
 ]);
+
+/**
+ * 集群 / 容器 / 代码托管 CLI 的**只读子命令**（P1c，2026-11-12 从
+ * `readonly-command-allowlist.ts` 迁入；该文件原先各有一份字面集合）。
+ *
+ * 迁入本文件的原因：只读目录**唯一事实源**在此（门禁 `lint:permission-single-source`
+ * 的 `CANONICAL_FILES.readOnly`）。命令语义注册表 `commandSpecs.ts` 只**引用**这些常量，
+ * 不再复制字面量。
+ */
+export const AUTO_MODE_KUBECTL_READONLY_SUBCOMMANDS: ReadonlySet<string> = new Set([
+  'get',
+  'describe',
+  'logs',
+  'top',
+  'explain',
+  'api-resources',
+  'api-versions',
+  'version',
+  'cluster-info',
+  'events',
+]);
+
+export const AUTO_MODE_DOCKER_READONLY_SUBCOMMANDS: ReadonlySet<string> = new Set([
+  'ps',
+  'images',
+  'logs',
+  'inspect',
+  'version',
+  'info',
+  'stats',
+  'top',
+  'port',
+  'diff',
+  'search',
+]);
+
+/** `gh` 用「两段式子命令」（`pr view` / `run list` …） */
+export const AUTO_MODE_GH_READONLY_SUBCOMMANDS: ReadonlySet<string> = new Set([
+  'pr view',
+  'pr list',
+  'pr diff',
+  'pr checks',
+  'pr status',
+  'issue view',
+  'issue list',
+  'issue status',
+  'run list',
+  'run view',
+  'run download',
+  'repo view',
+  'release list',
+  'release view',
+  'status',
+  'auth status',
+  'config get',
+]);

@@ -15,10 +15,12 @@
 import { describe, expect, it } from 'bun:test';
 import {
   AUTO_MODE_APPROVAL_TOKENS,
+  AUTO_MODE_GIT_READONLY_SUBCOMMANDS,
   AUTO_MODE_HARD_DENY_TOKENS,
   COMMAND_EQUIVALENCE_GROUPS,
   COMMAND_SPECS,
   denyTokensFromSpecs,
+  readonlySubcommandsFor,
 } from '@openliri/infra/security';
 import { AutoModeClassifier } from '@openliri/infra/permission/classifiers/AutoModeClassifier';
 
@@ -125,7 +127,7 @@ describe('P1：审批档由 CommandSpec 派生后与旧表等价', () => {
   });
 
   it('等价组内部同档（不得跨 deny / ask）', () => {
-    const tierByName = new Map<string, string>();
+    const tierByName = new Map<string, string | undefined>();
     for (const spec of COMMAND_SPECS) {
       for (const name of [spec.token, ...(spec.equivalents ?? [])]) {
         if (!name) continue;
@@ -178,5 +180,21 @@ describe('P1b：硬拦表由 CommandSpec 派生后零丢失', () => {
       const decision = await classifier.classify('bash', { command }, []);
       expect(decision.shouldBlock, `应 deny：${command}`).toBe(true);
     }
+  });
+});
+
+describe('P1c：只读子命令由注册表引用（不再各处一份字面集合）', () => {
+  it('readonlySubcommandsFor 与只读目录常量同源', () => {
+    expect([...readonlySubcommandsFor('git')].sort()).toEqual(
+      [...AUTO_MODE_GIT_READONLY_SUBCOMMANDS].sort()
+    );
+    expect(readonlySubcommandsFor('kubectl').has('get')).toBe(true);
+    expect(readonlySubcommandsFor('kubectl').has('delete')).toBe(false);
+    expect(readonlySubcommandsFor('docker').has('ps')).toBe(true);
+    expect(readonlySubcommandsFor('docker').has('run')).toBe(false);
+    expect(readonlySubcommandsFor('gh').has('pr view')).toBe(true);
+    expect(readonlySubcommandsFor('gh').has('pr merge')).toBe(false);
+    // 未知命令 ⇒ 空集合（调用方按"不放行"处理，不得静默放行）
+    expect(readonlySubcommandsFor('not-a-command').size).toBe(0);
   });
 });

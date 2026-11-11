@@ -23,6 +23,14 @@
  * 档位推导见 `approvalTokensFromSpecs()` / `equivalenceGroupsFromSpecs()`。
  */
 
+// P1c（2026-11-12）：只读子命令的唯一事实源在 `readOnlyCommands.ts`（门禁的 CANONICAL_FILES.readOnly）
+import {
+  AUTO_MODE_DOCKER_READONLY_SUBCOMMANDS,
+  AUTO_MODE_GH_READONLY_SUBCOMMANDS,
+  AUTO_MODE_GIT_READONLY_SUBCOMMANDS,
+  AUTO_MODE_KUBECTL_READONLY_SUBCOMMANDS,
+} from '../readOnlyCommands';
+
 /** 操作类型（P2/P3 将据此推导档位、数据流与工作区边界） */
 export type OperationKind =
   | 'read'
@@ -58,7 +66,16 @@ export interface CommandSpec {
    * （当时只按名字分档，没有语义分类），P2 再按 `OperationKind` 补齐。
    */
   kind?: OperationKind;
-  tier: CommandTier;
+  /**
+   * 档位。**缺省 = 仅登记元数据**（例如只读子命令清单），不产生任何令牌。
+   * 两档令牌的派生只认 `tier === 'ask' | 'deny'`。
+   */
+  tier?: CommandTier;
+  /**
+   * 该命令的**只读子命令**（P1c）：读侧（`readonly-command-allowlist`）与
+   * 写侧（令牌表）共用同一份注册表，避免"读放行、写审批"两处各列一遍。
+   */
+  readonlySubcommands?: ReadonlySet<string>;
 }
 
 /**
@@ -160,7 +177,12 @@ export const COMMAND_SPECS: readonly CommandSpec[] = [
   { token: 'npm ci', kind: 'pkg', tier: 'ask' },
 
   // ── 容器 / 集群 / 代码托管（只收写子命令；只读查询走只读白名单） ────────
-  { equivalents: ['docker', 'podman'], kind: 'cloud', tier: 'ask' },
+  {
+    equivalents: ['docker', 'podman'],
+    kind: 'cloud',
+    tier: 'ask',
+    readonlySubcommands: AUTO_MODE_DOCKER_READONLY_SUBCOMMANDS,
+  },
   { token: 'docker run', kind: 'cloud', tier: 'ask' },
   { token: 'docker exec', kind: 'cloud', tier: 'ask' },
   { token: 'docker cp', kind: 'cloud', tier: 'ask' },
@@ -182,6 +204,23 @@ export const COMMAND_SPECS: readonly CommandSpec[] = [
   { token: 'gh pr merge', kind: 'cloud', tier: 'ask' },
   { token: 'gh release delete', kind: 'cloud', tier: 'ask' },
   { token: 'gh repo delete', kind: 'cloud', tier: 'ask' },
+
+  // ── P1c：只读子命令（不产生令牌，读侧与写侧共用） ───────────────────────
+  {
+    equivalents: ['git'],
+    kind: 'read',
+    readonlySubcommands: AUTO_MODE_GIT_READONLY_SUBCOMMANDS,
+  },
+  {
+    equivalents: ['kubectl'],
+    kind: 'read',
+    readonlySubcommands: AUTO_MODE_KUBECTL_READONLY_SUBCOMMANDS,
+  },
+  {
+    equivalents: ['gh'],
+    kind: 'read',
+    readonlySubcommands: AUTO_MODE_GH_READONLY_SUBCOMMANDS,
+  },
 
   // ── deny 档：此处只登记等价关系（硬拦令牌仍在 autoModeCommandTokens.ts） ──
   {
@@ -500,6 +539,23 @@ export function denyTokensFromSpecs(): string[] {
     (spec): spec is CommandSpec & { token: string } =>
       spec.tier === 'deny' && typeof spec.token === 'string'
   ).map((spec) => spec.token);
+}
+
+/**
+ * 命令名 → 只读子命令集合（P1c）。
+ *
+ * 找不到（或该命令没有只读子命令）⇒ 空集合（调用方按"不放行"处理）。
+ */
+export function readonlySubcommandsFor(command: string): ReadonlySet<string> {
+  const name = command.trim().toLowerCase();
+  for (const spec of COMMAND_SPECS) {
+    if (!spec.readonlySubcommands) continue;
+    const names = [spec.token, ...(spec.equivalents ?? [])]
+      .filter((value): value is string => Boolean(value))
+      .map((value) => value.trim().toLowerCase());
+    if (names.includes(name)) return spec.readonlySubcommands;
+  }
+  return new Set<string>();
 }
 
 /**

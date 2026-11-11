@@ -77,6 +77,11 @@ const MUST_NOT_DENY = [
   'cp ',
   'mv ',
   'git ',
+  // 2026-11-11：以下由硬拦降为审批（危险子形态仍在硬拦表）
+  'rm ',
+  'ln ',
+  'find ',
+  'chmod ',
   // 路径类令牌：已收敛到 SENSITIVE_PATH_PATTERNS / detectPathTraversal（单一来源）
   '/etc/',
   '/root/',
@@ -174,16 +179,20 @@ function createIsolatedManager(): PermissionManager {
 describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
   const classifier = new AutoModeClassifier();
 
-  it('审批表覆盖 cp / mv 及 PowerShell / cmd 等价写法', () => {
+  it('审批表覆盖 cp / mv 及 PowerShell / cmd 等价写法，并含删除 / 链接 / 条件操作 / 权限位', () => {
     expect([...AUTO_MODE_APPROVAL_TOKENS].sort()).toEqual([
+      'chmod ',
       'copy ',
       'copy-item',
       'cp ',
       'cpi ',
+      'find ',
+      'ln ',
       'mi ',
       'move ',
       'move-item',
       'mv ',
+      'rm ',
     ]);
     for (const token of AUTO_MODE_APPROVAL_TOKENS) {
       expect(AUTO_MODE_HARD_DENY_TOKENS).not.toContain(token);
@@ -200,11 +209,41 @@ describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
       'mi a.txt b.txt',
       'powershell -NoProfile -Command "Copy-Item a.txt b.txt"',
       'powershell -NoProfile -Command "Move-Item a.txt b.txt"',
+      'rm notes.txt',
+      'ln -s a.txt link.txt',
+      'find . -name "*.tmp" -delete',
+      'chmod 644 run.sh',
     ]) {
       const decision = await classifier.classify('bash', { command }, []);
       expect(decision.shouldBlock).toBe(false);
       expect(decision.requiresApproval).toBe(true);
     }
+  });
+
+  it('明确危险形态仍硬拦（不因降级而放开）', async () => {
+    for (const command of [
+      'rm -rf /',
+      'chmod 777 secret.txt',
+      'chown -R me /opt/x',
+      'sed -i s/a/b/ file.txt',
+    ]) {
+      const decision = await classifier.classify('bash', { command }, []);
+      expect(decision.shouldBlock).toBe(true);
+      expect(decision.requiresApproval).toBeUndefined();
+    }
+  });
+
+  it('dot-source 只在命令位命中（`. ./env.sh` 拦，含「点 + 空格」的正常命令不误伤）', async () => {
+    for (const command of ['. ./env.sh', 'bash -lc ". ./env.sh"']) {
+      const decision = await classifier.classify('bash', { command }, []);
+      expect(decision.shouldBlock).toBe(true);
+    }
+    const normal = await classifier.classify(
+      'bash',
+      { command: 'echo done . ' },
+      []
+    );
+    expect(normal.shouldBlock).toBe(false);
   });
 
   it('硬拦优先：同时命中硬拦表时仍是 deny，不降级为审批', async () => {
@@ -248,6 +287,31 @@ describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
         }) as PermissionContext
       );
       expect(decision.type).toBe('ask');
+    }
+  });
+
+  it('PermissionManager（auto 档）：rm / chmod / find 走审批，危险形态仍 deny', async () => {
+    const pm = createIsolatedManager();
+    const cases: Array<[string, 'ask' | 'deny']> = [
+      ['rm notes.txt', 'ask'],
+      ['chmod +x run.sh', 'ask'],
+      ['find . -name "*.tmp" -delete', 'ask'],
+      ['rm -rf build', 'deny'],
+      ['chmod 777 secret.txt', 'deny'],
+    ];
+    for (const [command, expected] of cases) {
+      const input = { command };
+      const decision = await pm.checkPermission(
+        'bash',
+        input,
+        createPermissionContext({
+          toolName: 'bash',
+          input,
+          permissionMode: PermissionMode.AUTO,
+          sessionId: 'sess-approval-destructive',
+        }) as PermissionContext
+      );
+      expect(decision.type).toBe(expected);
     }
   });
 

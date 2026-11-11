@@ -538,7 +538,6 @@ export const AUTO_MODE_HARD_DENY_TOKENS = [
   'groupdel ',
   'groupmod ',
   'passwd ',
-  'chmod ',
   'chown ',
   'chgrp ',
   'chattr ',
@@ -548,10 +547,11 @@ export const AUTO_MODE_HARD_DENY_TOKENS = [
   // 系统信息这类「结构上不写、不执行子进程」的命令由 `readonly-command-allowlist`
   // 放行；留在硬拦表里只会让 auto 档把正常操作判死。仍保留的是能**删除 / 覆盖 /
   // 改权限 / 就地写回 / 起子进程**的命令。
-  'rm ',
+  // 2026-11-11（审批档扩容）：`rm` / `ln` / `find` / `chmod` 属「常见但可能不可逆」，
+  // 改由 `AUTO_MODE_APPROVAL_TOKENS` 转人工审批；其中**递归/强删/777** 等明确危险形态
+  // 仍由上方硬拦令牌拦死（`rm -rf`、`chmod 777` …）。`sed` / `awk` 保留硬拦：
+  // 二者可执行任意命令（`sed e` / `awk system()`），按"任意代码执行 ⇒ deny"的既定政策不降级。
   'rmdir ',
-  'ln ',
-  'find ', // `find -delete` / `-exec` 可写可执行（只读形态先被 readonly 短路放行）
   'sort ', // `sort -o` 写文件
   'sed ', // `sed -i` 写文件 / `sed e` 执行命令
   'awk ', // `system()` 可执行
@@ -658,18 +658,26 @@ export const AUTO_MODE_HARD_DENY_TOKENS = [
  * （`cpi` / `mi`，以及 cmd 的 `copy` / `move`）与 `cp` / `mv` 是同一操作，
  * 否则换个写法就能绕过审批。
  *
+ * 2026-11-11（扩容）：`rm` / `ln` / `find` / `chmod` 同样属"常见但可能不可逆"，
+ * 由 deny 降为审批；但**明确危险形态仍是硬拦**（`rm -rf`、`rmdir`、`chmod 777`、
+ * `chown`/`chattr`/`setfacl` …），因为硬拦表先扫。
+ *
  * 注意：若同一条命令同时命中硬拦表（如 `sudo cp …`），**硬拦优先** —— 分类器先扫
  * `AUTO_MODE_HARD_DENY_TOKENS`，再扫本表。
  */
 export const AUTO_MODE_APPROVAL_TOKENS = [
-  // POSIX / cmd
+  // 文件搬运（POSIX / cmd / PowerShell）
   'cp ',
   'mv ',
   'copy ',
   'move ',
-  // PowerShell cmdlet 与短别名
   'copy-item',
   'move-item',
   'cpi ',
   'mi ',
+  // 文件删除 / 链接 / 条件操作 / 权限位（危险子形态仍在硬拦表）
+  'rm ',
+  'ln ',
+  'find ',
+  'chmod ',
 ];

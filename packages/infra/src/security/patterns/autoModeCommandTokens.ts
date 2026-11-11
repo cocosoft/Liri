@@ -816,6 +816,50 @@ export const AUTO_MODE_APPROVAL_TOKENS = [
   '-itemtype symboliclink',
   // 属性 / 注册表值写入（与 Set-Content 同类，属写盘）
   'set-itemproperty',
+  // 2026-11-11（P2 等价性补齐）：与上面同档但此前漏收的写法 —— 归档解压/压缩、
+  // `Tee-Object`、属性写入 cmdlet、进程终止、强写覆盖（`-Force`）、依赖安装与
+  // 远程写操作（`docker` / `kubectl` / `gh`）。`Rename-Item` / `rni` / `Set-Item` / `si`
+  // 等由 `commandAliases.ts` 的等价组展开，不在此重复枚举。
+  'expand-archive',
+  'compress-archive',
+  'export-csv',
+  'tee-object',
+  'new-itemproperty',
+  'remove-itemproperty',
+  'clear-itemproperty',
+  'stop-process',
+  'spps',
+  ' -force', // `New-Item -Force` / `Set-Content -Force` 等覆盖既有文件的强写形态
+  'git config ', // 配置写入（`core.pager` / `core.sshCommand` / `alias.x=!…` 均为持久化执行入口）
+  'bun add ',
+  'bun install',
+  'yarn add ',
+  'pnpm add ',
+  'npm ci',
+  'npm add ',
+  // 容器 / 集群 / 代码托管：只收**会改远端或宿主**的子命令，只读查询
+  // （`docker ps|images|logs`、`kubectl get|describe|logs`）保持放行。
+  'docker run',
+  'docker exec',
+  'docker cp',
+  'docker rm',
+  'docker rmi',
+  'docker push',
+  'docker system prune',
+  'kubectl apply',
+  'kubectl create',
+  'kubectl delete',
+  'kubectl patch',
+  'kubectl replace',
+  'kubectl scale',
+  'kubectl edit',
+  'kubectl drain',
+  'kubectl cordon',
+  'kubectl rollout',
+  'kubectl exec',
+  'gh pr merge',
+  'gh release delete',
+  'gh repo delete',
   // 注：PowerShell 写盘短别名（`ac` / `sc` / `clc` 等）**不在此枚举** ——
   // 由 `security/patterns/commandAliases.ts` 的等价组统一展开，新增写法只改那张表。
 ];

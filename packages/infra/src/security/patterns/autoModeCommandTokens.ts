@@ -552,6 +552,12 @@ export const AUTO_MODE_HARD_DENY_TOKENS = [
   // 仍由上方硬拦令牌拦死（`rm -rf`、`chmod 777` …）。`sed` / `awk` 保留硬拦：
   // 二者可执行任意命令（`sed e` / `awk system()`），按"任意代码执行 ⇒ deny"的既定政策不降级。
   'rmdir ',
+  // `find` 本体走审批档，但 `-exec*` / `-ok*` 是**执行任意命令**的形态 ⇒ 硬拦。
+  // 带前后空格的元字符令牌按原文子串匹配（命令位锚定无法覆盖 `find . -exec` 这种中缀）。
+  ' -exec ',
+  ' -execdir ',
+  ' -ok ',
+  ' -okdir ',
   'sort ', // `sort -o` 写文件
   'sed ', // `sed -i` 写文件 / `sed e` 执行命令
   'awk ', // `system()` 可执行

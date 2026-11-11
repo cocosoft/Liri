@@ -64,6 +64,71 @@ const FIND_DENIED_TOKENS = [
 ];
 
 /**
+ * 集群 / 容器 / 代码托管 CLI 的**只读子命令**（2026-11-12，P0 · 未知命令策略 B）。
+ *
+ * 背景：切换到"未知命令非只读即审批"后，`kubectl get` / `docker ps` / `gh pr view`
+ * 这类纯查询会被误伤。命令名只在 `AUTO_MODE_READONLY_COMMANDS` 里挂名，
+ * **真正的判据是这里的子命令白名单**；未列出的子命令一律不放行（落审批档）。
+ */
+const KUBERNETES_READONLY_SUBCOMMANDS = new Set([
+  'get',
+  'describe',
+  'logs',
+  'top',
+  'explain',
+  'api-resources',
+  'api-versions',
+  'version',
+  'cluster-info',
+  'events',
+]);
+
+const DOCKER_READONLY_SUBCOMMANDS = new Set([
+  'ps',
+  'images',
+  'logs',
+  'inspect',
+  'version',
+  'info',
+  'stats',
+  'top',
+  'port',
+  'diff',
+  'search',
+]);
+
+/** `gh` 用「两段式子命令」判（`pr view` / `run list` …） */
+const GH_READONLY_SUBCOMMANDS = new Set([
+  'pr view',
+  'pr list',
+  'pr diff',
+  'pr checks',
+  'pr status',
+  'issue view',
+  'issue list',
+  'issue status',
+  'run list',
+  'run view',
+  'run download',
+  'repo view',
+  'release list',
+  'release view',
+  'status',
+  'auth status',
+  'config get',
+]);
+
+/** `gh api` 的写侧标记（出现即不放行） */
+const GH_API_WRITE_FLAGS = new Set([
+  '-x',
+  '--method',
+  '-f',
+  '--field',
+  '--raw-field',
+  '--input',
+]);
+
+/**
  * 命令组合 / 展开字符：命中即不放行。
  *
  * `$` 一并拒绝：变量展开（`$HOME/.ssh/...`）会让"字面只读"变成"任意路径只读"，
@@ -98,6 +163,29 @@ function violatesArgumentGuards(
     }
     // 无子命令（只打印帮助）也不放行；其余子命令必须在只读集合内
     return true;
+  }
+
+  // 2026-11-12（P0）：集群 / 容器 / 代码托管 —— 只放行只读子命令
+  if (name === 'kubectl') {
+    return !KUBERNETES_READONLY_SUBCOMMANDS.has(lowerArgs[0] ?? '');
+  }
+
+  if (name === 'docker') {
+    return !DOCKER_READONLY_SUBCOMMANDS.has(lowerArgs[0] ?? '');
+  }
+
+  if (name === 'gh') {
+    const first = lowerArgs[0] ?? '';
+    if (first === 'api') {
+      // `gh api` 默认 GET；出现写侧标记（`-X` / `-f` / `--input` …）即不放行
+      return lowerArgs.some(
+        (arg) =>
+          GH_API_WRITE_FLAGS.has(arg) ||
+          [...GH_API_WRITE_FLAGS].some((flag) => arg.startsWith(`${flag}=`))
+      );
+    }
+    const pair = `${first} ${lowerArgs[1] ?? ''}`.trim();
+    return !GH_READONLY_SUBCOMMANDS.has(pair);
   }
 
   if (name === 'date') {

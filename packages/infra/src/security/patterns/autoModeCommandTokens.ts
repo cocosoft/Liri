@@ -251,6 +251,16 @@ export const AUTO_MODE_HARD_DENY_TOKENS = [
   // 任意代码执行 / 起子进程（`iex` / `saps` 由等价组展开）
   'invoke-expression',
   'start-process',
+  // 2026-11-12（P0 · 执行体/注册类补齐，实测此前全为 ALLOW）：
+  // cmd 内建 `start`、提权 `runas`、DLL/MSI 加载、内存编译、模块导入、全权限运行时
+  'start ',
+  'runas ',
+  'regsvr32 ',
+  'msiexec ',
+  'add-type',
+  'import-module',
+  '[reflection.assembly]::load',
+  'deno ',
   'nc ',
   'netcat ',
   'telnet ',
@@ -829,6 +839,10 @@ export const AUTO_MODE_APPROVAL_TOKENS = [
   'clear-itemproperty',
   'stop-process',
   'spps',
+  // 2026-11-12（P0）：下载落盘（此前只有 `http://` 触发 SSRF，无 URL 时静默放行）
+  // 与远端共享映射（可读写工作区外路径）
+  '-outfile',
+  'new-psdrive',
   ' -force', // `New-Item -Force` / `Set-Content -Force` 等覆盖既有文件的强写形态
   'git config ', // 配置写入（`core.pager` / `core.sshCommand` / `alias.x=!…` 均为持久化执行入口）
   'bun add ',

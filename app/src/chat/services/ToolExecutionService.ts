@@ -31,11 +31,8 @@ import { resolveDataDir } from '@openliri/infra/environment';
 import { isUsableDirectory, resolveToolCwd } from './toolCwdScope';
 // G8（2026-11-03）：会话工作区不可用时向事件流投影一次提示（界面可见）
 import type { LiriEvent } from '@modules/session/types/events';
-// 多租户 P0 阶段 2：请求级权限角色（桌面/后台无请求作用域 ⇒ null ⇒ 保持既有回退语义）
-import {
-  getRequestPermissionRole,
-  getRequestPrincipal,
-} from '@openliri/kernel/identity/requestScope.js';
+// 多租户 P0 阶段 2：权限判定身份位（本地身份按 admin 参与 RBAC；已认证取请求角色）
+import { getRequestPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import { ToolExecutionStatus } from '@openliri/infra/utils/toolContract/ToolResult';
 import { isMediaOutputToolName } from '@openliri/infra/utils/toolContract/toolRoles';
 // U-02 v2 / P3（2026-10-20）：工作区边界判定（与 LRO 共用同一纯函数，实现落 utils 避免 chat↔tasks 环）
@@ -94,6 +91,7 @@ import type {
 import {
   assertPermissionManagerInjected,
   authorizeToolCall,
+  getEffectivePermissionRole,
   resolveApprovalFingerprint,
   type ToolPermissionPort,
 } from '@openliri/infra/permission';
@@ -1039,10 +1037,12 @@ export class ToolExecutionService {
       const pm = this.deps.getPermissionManager() as ToolPermissionPort;
       // R07-3（2026-10-07）：非幂等工具的「重试」⇒ 执行前**主动分流**为审批
       // （原实现仅把 `[重试注意]` 写进 tool 结果回传模型，属**被动**提示）。
-      // 多租户 P0 阶段 2：把**请求作用域**里的角色带进权限判定 ——
-      // 已认证请求各带各的角色（并发登录不再互相覆盖）；本地/后台 ⇒ null ⇒ 不传，
-      // 权限层回退进程级角色，桌面端行为与改造前一致。
-      const requestRole = getRequestPermissionRole();
+      // 多租户 P0 阶段 2：把**身份位**带进权限判定 —— 已认证请求各带各的角色；
+      // 本地身份按 admin（桌面即 owner，2026-11-11 裁定）参与 RBAC 角色绑定。
+      const requestRole = getEffectivePermissionRole();
+      // 2026-11-11：userId 一并传入 —— 细粒度 RBAC 的“用户级绑定”按 userId 命中；
+      // 此前只传 userRole，用户级规则永远不会生效（本地身份 userId = local）。
+      const requestUserId = getRequestPrincipal().userId;
       // PR-0（2026-10-23）：把**工具对象**带进权限判定 —— 风险类别按工具声明派生
       // （`riskClass`/`riskClassFor`/`TOOL_EFFECTS`/`sandboxLevel`），不再按工具名猜。
       // 取不到（未注册/懒加载未解包）⇒ 传 undefined，权限层回退旧启发式（行为零变更）。
@@ -1054,6 +1054,7 @@ export class ToolExecutionService {
         args: normalizedToolCall.arguments,
         context: {
           sessionId: toolCall.sessionId,
+          userId: requestUserId,
           ...(requestRole ? { userRole: requestRole } : {}),
           ...(permissionTool ? { tool: permissionTool } : {}),
           // PR-3：会话级审批模式 + 工作区边界（自动执行只放行工作区内的本地写）

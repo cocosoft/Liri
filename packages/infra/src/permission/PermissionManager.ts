@@ -825,7 +825,7 @@ export class PermissionManager {
 
     // D 体系（角色 / 用户 / 资源）规则：deny 在此立即返回（先于一切 ask/allow）；
     // ask / allow 两档在本函数后段按“ask 先于 allow”的安全顺序返回。
-    // 2026-11-03 收敛：角色只来自请求级 `context.userRole`（无请求作用域 ⇒ 不参与）。
+    // 身份位由调用方传入（本地身份经 getEffectivePermissionRole 映射为 admin，2026-11-11）。
     const effectiveRole = resolveEffectiveRole(context.userRole);
     const fineGrained = await this.checkFineGrainedRules(
       toolName,
@@ -988,6 +988,7 @@ export class PermissionManager {
 
     // 2.1（2026-11-11）RBAC（角色 / 用户 / 资源）与 default 档同口径：
     // deny 先于一切 ask/allow；ask / allow 在后段按“ask 先于 allow”返回。
+    // 身份位由调用方传入（本地身份映射为 admin）。
     const effectiveRole = resolveEffectiveRole(context.userRole);
     const fineGrained = await this.checkFineGrainedRules(
       toolName,
@@ -1203,6 +1204,7 @@ export class PermissionManager {
    *
    * 多租户 P0：角色/用户由**调用方显式传入**（`context.userRole` / `context.userId`），
    * 方法内不读任何进程级字段 ⇒ 并发请求各自判定、互不覆盖（2026-11-03 收敛）。
+   * 本地身份由调用方经 `getEffectivePermissionRole()` 映射为 `admin`（2026-11-11 裁定）。
    */
   private async checkFineGrainedRules(
     toolName: string,

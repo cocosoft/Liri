@@ -23,9 +23,12 @@ import { BaseTool } from '../BaseTool';
 import type { ToolParam, ToolResult, ToolUseContext } from '../types/index';
 import { getLogger } from '@openliri/infra/monitoring';
 import { getToolRegistry } from '../ToolRegistry';
-import { PermissionManager } from '@openliri/infra/permission';
+import {
+  getEffectivePermissionRole,
+  PermissionManager,
+} from '@openliri/infra/permission';
 // 多租户 P0（2026-11-03 收敛）：请求级角色必须**显式传入**，不再由进程级角色兜底
-import { getRequestPermissionRole } from '@openliri/kernel/identity/requestScope.js';
+import { getRequestPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import { configManager } from '@openliri/infra/config';
 import { feature } from '@openliri/kernel';
 import {
@@ -494,8 +497,9 @@ async function executeWhitelistedTool(
     const permission = await pm.checkPermissionForTool(name, input, {
       sessionId,
       metadata: { source: 'code_mode' },
-      // 多租户 P0：嵌套工具执行同样显式携带请求级角色（无作用域 ⇒ undefined ⇒ 角色 deny 不参与）
-      userRole: getRequestPermissionRole() ?? undefined,
+      // 2026-11-11：身份位与聊天主链同源（本地=admin；用户级 RBAC 依赖 userId）
+      userId: getRequestPrincipal().userId,
+      userRole: getEffectivePermissionRole() ?? undefined,
     });
     // ask 决策（submittedToInbox 或 isInboxApprovalEnabled 关闭未提交）一律视为拒绝
     if (!permission.allowed) {

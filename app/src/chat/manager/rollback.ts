@@ -31,8 +31,10 @@ import { resolveProjectRoot } from '@openliri/infra/environment';
 // 多租户 P0（2026-11-03 收敛）：角色显式传入，不再由进程级角色兜底
 import {
   canAccessOwnerKey,
-  getRequestPermissionRole,
+  getRequestPrincipal,
 } from '@openliri/kernel/identity/requestScope';
+// 2026-11-11：判定身份位（本地身份 ⇒ admin，供 RBAC 角色绑定命中）
+import { getEffectivePermissionRole } from '@openliri/infra/permission';
 import {
   RollbackIntegration,
   FileOperationTracker,
@@ -198,14 +200,18 @@ export class ChatRollback {
           checkPermissionForTool: (
             name: string,
             args: Record<string, unknown>,
-            context?: { userRole?: string }
+            context?: { userRole?: string; userId?: string }
           ) => Promise<{ allowed: boolean; reason?: string }>;
         };
         integration.setPermissionChecker(async (action, roundId) => {
           const result = await pm.checkPermissionForTool(
             action === 'undo' ? 'undo_round' : 'redo_round',
             { sessionId, roundId },
-            { userRole: getRequestPermissionRole() ?? undefined }
+            {
+              // 2026-11-11：身份位与聊天主链同源（本地=admin；用户级 RBAC 依赖 userId）
+              userId: getRequestPrincipal().userId,
+              userRole: getEffectivePermissionRole() ?? undefined,
+            }
           );
           return { allowed: result.allowed, reason: result.reason };
         });

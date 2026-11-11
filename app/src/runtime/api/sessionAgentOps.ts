@@ -32,10 +32,7 @@
 import * as fs from 'fs';
 import { isAbsolute } from 'path';
 // 多租户 P1：会话归属判定（本地身份恒放行 ⇒ 桌面零行为变更）
-import {
-  getRequestPermissionRole,
-  getRequestPrincipal,
-} from '@openliri/kernel/identity/requestScope.js';
+import { getRequestPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import {
   canAccessSession,
   type SessionOwner,
@@ -88,6 +85,7 @@ import type { SessionMessagesRead } from '@openliri/service/runtime/api/sessionM
 // P1（2026-11-03）：工具授权**唯一入口**（Agent 主链与 HTTP 路径共用）
 import {
   authorizeToolCall,
+  getEffectivePermissionRole,
   type ToolPermissionPort,
 } from '@openliri/infra/permission';
 // B2（2026-10-30）：按轮摘要（供轮次导航补齐未加载轮次）
@@ -406,7 +404,9 @@ export class SessionAgentOps {
           // 多租户 P0（2026-11-03 收敛）：角色显式取自请求作用域，无作用域 ⇒ 无角色
           context: {
             sessionId,
-            userRole: getRequestPermissionRole() ?? undefined,
+            // 2026-11-11：身份位与聊天主链同源（本地=admin；用户级 RBAC 依赖 userId）
+            userId: getRequestPrincipal().userId,
+            userRole: getEffectivePermissionRole() ?? undefined,
           },
         }
       );

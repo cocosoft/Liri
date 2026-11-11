@@ -18,12 +18,15 @@
 import { getLogger } from '@openliri/infra/monitoring';
 import {
   authorizeToolCall,
+  getEffectivePermissionRole,
   PermissionManager,
   PERMISSION_MODES,
   type AuthorizeOutcome,
   type PermissionMode,
 } from '@openliri/infra/permission';
 import { getTaskSessionPolicyPort } from './taskSessionPolicyPort.js';
+// 2026-11-11：LRO 步骤工具与聊天主链同源携带身份位（本地=admin；用户级 RBAC 依赖 userId）
+import { getRequestPrincipal } from '@openliri/kernel/identity/requestScope.js';
 
 const logger = getLogger('tasks:lro:toolAuthorization');
 
@@ -113,12 +116,15 @@ export async function authorizeLroToolCall(input: {
       ? rawRoots.filter((p): p is string => typeof p === 'string')
       : [];
     const workspaceRoots = taskWorkspace ? [taskWorkspace] : sessionRoots;
+    const effectiveRole = getEffectivePermissionRole();
     const outcome = await authorizeToolCall(PermissionManager.getInstance(), {
       toolName: input.toolName,
       args: input.args,
       context: {
         ...(sessionId ? { sessionId } : {}),
         taskId: input.taskId,
+        userId: getRequestPrincipal().userId,
+        ...(effectiveRole ? { userRole: effectiveRole } : {}),
         ...(permissionMode ? { permissionMode } : {}),
         ...(sessionPolicy?.approvalMode === 'auto-local'
           ? { approvalMode: 'auto-local' as const }

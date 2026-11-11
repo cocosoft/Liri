@@ -274,6 +274,12 @@ export {
 } from './PermissionManager';
 // D2（2026-10-11）：权限管理器注入断言（生产 fail-fast，G9）
 export { assertPermissionManagerInjected } from './assertPermissionInjected';
+// 2026-11-11：权限**判定身份位**（本地身份 ⇒ admin，已认证 ⇒ roles[0]）
+export {
+  LOCAL_PERMISSION_ROLE,
+  getEffectivePermissionRole,
+} from './localIdentity';
+
 // P1（2026-11-03）：工具授权**单一入口**（Agent 主链 + HTTP/CoreAPI 路径共用）
 export { authorizeToolCall } from './authorizeToolCall';
 export type {

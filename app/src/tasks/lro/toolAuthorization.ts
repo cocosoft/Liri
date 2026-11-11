@@ -40,7 +40,10 @@ export type LroToolAuthDecision =
       permissionMode?: PermissionMode;
     }
   | {
-      /** 需人工审批（权限层已提交 Inbox）：长程任务**不阻断**（无人值守），但不算自动放行 */
+      /**
+       * 需人工审批（权限层已提交 Inbox）：**本次不执行**（P1-6，2026-11-11 起与
+       * `authorizeToolCall` 契约一致；批准后重试该步骤即走放行缓存）。
+       */
       kind: 'ask';
       permissionMode?: PermissionMode;
       reason?: string;
@@ -86,8 +89,8 @@ export function classifyAuthOutcome(
 /**
  * 判定一次 LRO 步骤工具调用。
  *
- * 返回 `undefined` ⇒ **权限层不可用**（未注册端口 / 判定抛错）：调用方保持旧行为
- * （直接执行，工具自身安全闸仍在），不因权限层故障阻断任务。
+ * 权限层故障（判定抛错 / 端口异常）⇒ **fail-closed 返回 deny**（P1-6，2026-11-11）：
+ * 调用方不得执行，把原因交回模型；不再以 `undefined` 让调用方"保持旧行为"。
  */
 export async function authorizeLroToolCall(input: {
   taskId: string;
@@ -101,7 +104,7 @@ export async function authorizeLroToolCall(input: {
   workspacePath?: string | null;
   toolName: string;
   args: Record<string, unknown>;
-}): Promise<LroToolAuthDecision | undefined> {
+}): Promise<LroToolAuthDecision> {
   const sessionId = input.sessionId ?? undefined;
   try {
     const sessionPolicy = sessionId
@@ -162,12 +165,16 @@ export async function authorizeLroToolCall(input: {
     }
     return decision;
   } catch (err) {
-    // @ignore-catch — 权限层不可用 ⇒ 退回旧行为（工具自身安全闸仍在），不阻断任务
-    logger.warn('LRO 工具权限判定失败（退回旧行为，不阻断）', {
+    // P1-6（2026-11-11）：**fail-closed**。此前返回 `undefined` ⇒ 调用方按旧行为直接执行，
+    // 权限层故障等于绕过全部 RBAC / ask 规则（与 P1-3「读不到就拒绝」口径矛盾）。
+    logger.warn('LRO 工具权限判定失败（fail-closed：拒绝本次执行）', {
       taskId: input.taskId,
       toolName: input.toolName,
       error: String(err),
     });
-    return undefined;
+    return {
+      kind: 'deny',
+      reason: `权限层不可用：${err instanceof Error ? err.message : String(err)}`,
+    };
   }
 }

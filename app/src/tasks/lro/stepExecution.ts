@@ -553,8 +553,9 @@ export async function executeSingleStep(
               // 权限层**（仅做越界/缺参校验后直接 `tool.execute()`）⇒ 会话 `permission_mode`
               // 在长程任务里从未生效。现与聊天链同源（`authorizeToolCall`）判定：
               // - deny ⇒ 不执行，把拒绝原因交回模型（可换合法做法）；
-              // - ask  ⇒ **不阻断**（长程任务无人值守，任务启动即视为用户授权；审批卡由权限层
-              //   提交，批准后下次调用自然命中放行缓存）—— 但**不算自动放行**，安全闸 ask 照旧；
+              // - ask  ⇒ **不执行本次调用**（P1-6，2026-11-11：此前"不阻断"⇒ 非 bash 工具可在
+              //   未获批时写盘；与 `authorizeToolCall`「ask ⇒ 不得执行」契约矛盾）。审批卡仍由
+              //   权限层提交，批准后重试该步骤即命中放行缓存；
               // - allow ⇒ 执行，并把「权限层已自动放行」写进 `policyContext`，
               //   供 bash 安全闸跳过 **ask 级**拦截（危险命令/路径/沙箱等硬拦截照旧）。
               const auth = await authorizeLroToolCall({
@@ -581,7 +582,7 @@ export async function executeSingleStep(
               }
               if (auth?.kind === 'ask') {
                 logger.info(
-                  '[orchestrator] 工具调用需人工确认（不阻断任务，按未自动放行执行）',
+                  '[orchestrator] 工具调用需人工确认（本次不执行，等待批准后重试）',
                   {
                     taskId: deps.taskId,
                     stepId: step.id,
@@ -591,6 +592,12 @@ export async function executeSingleStep(
                     permissionMode: auth.permissionMode,
                   }
                 );
+                results.push({
+                  toolCallId: tc.id,
+                  toolName: tc.name,
+                  error: `需要人工审批：${auth.reason ?? '等待批准'}（批准后重试该步骤）`,
+                });
+                continue;
               }
               // 显式写 false 防「上一次调用自动放行」串用；仅 allow+autoApproved 才置 true
               const policyNow = toolContext.policyContext ?? {};

@@ -12,8 +12,12 @@
  * - ask ⇒ 调用方不得执行；deny ⇒ 一律拒绝。
  */
 
-import { describe, expect, it } from 'bun:test';
-import { classifyAuthOutcome } from '../../src/tasks/lro/toolAuthorization.js';
+import { describe, expect, it, spyOn } from 'bun:test';
+import * as permissionModule from '@openliri/infra/permission';
+import {
+  authorizeLroToolCall,
+  classifyAuthOutcome,
+} from '../../src/tasks/lro/toolAuthorization.js';
 
 describe('classifyAuthOutcome：权限层结论 → LRO 三态', () => {
   it('allow + autoApproved ⇒ 放宽档自动放行（透传权限模式）', () => {
@@ -65,5 +69,28 @@ describe('classifyAuthOutcome：权限层结论 → LRO 三态', () => {
     expect(
       classifyAuthOutcome({ allowed: false, kind: 'deny', reason: '' })
     ).toEqual({ kind: 'deny' });
+  });
+});
+
+describe('authorizeLroToolCall：权限层故障 fail-closed（P1-6）', () => {
+  it('授权层抛错 ⇒ deny（不再返回 undefined 直接执行）', async () => {
+    const spy = spyOn(permissionModule, 'authorizeToolCall').mockImplementation(
+      async () => {
+        throw new Error('permission layer down');
+      }
+    );
+    try {
+      const decision = await authorizeLroToolCall({
+        taskId: 'task-1',
+        toolName: 'bash',
+        args: { command: 'echo hi' },
+      });
+
+      expect(decision.kind).toBe('deny');
+      if (decision.kind !== 'deny') return;
+      expect(decision.reason).toContain('permission layer down');
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

@@ -114,6 +114,11 @@ export function useNotificationSSE() {
     const onSessionContinued = (data: unknown): void =>
       refreshSessionIfActive((data as { id?: string }).id);
 
+    // 2026-11-11（P4）：历史消息的读时覆盖 / 编辑完成后端广播 → 命中当前会话则重拉消息
+    // （否则界面停留在旧气泡，只能手动刷新）
+    const onMessagesUpdated = (data: unknown): void =>
+      refreshSessionIfActive((data as { sessionId?: string }).sessionId);
+
     // P1（2026-11-04）：会话元数据变更（workMode / approvalMode / permissionMode / toolProfile…）
     // → 单条重取并合并，跨窗口/标签页回填（此前无订阅方 ⇒ 界面停留在旧值）
     const onSessionMetaUpdated = (data: unknown): void =>
@@ -169,6 +174,7 @@ export function useNotificationSSE() {
     sseService.on("inbox:update", onInboxUpdate);
     sseService.on("session:continued", onSessionContinued);
     sseService.on("session:meta_updated", onSessionMetaUpdated);
+    sseService.on("messages:updated", onMessagesUpdated);
     sseService.on("system:sleep_detected", onSleepDetected);
     sseService.on("system:estop_changed", onEstopChanged);
     sseService.on("system:resource_governor", onResourceGovernor);
@@ -186,6 +192,7 @@ export function useNotificationSSE() {
       sseService.off("inbox:update", onInboxUpdate);
       sseService.off("session:continued", onSessionContinued);
       sseService.off("session:meta_updated", onSessionMetaUpdated);
+      sseService.off("messages:updated", onMessagesUpdated);
       sseService.off("system:sleep_detected", onSleepDetected);
       sseService.off("system:estop_changed", onEstopChanged);
       sseService.off("system:resource_governor", onResourceGovernor);

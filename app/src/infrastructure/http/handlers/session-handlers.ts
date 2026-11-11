@@ -810,6 +810,13 @@ export async function handleUpdateMessageBlocks(
       text,
       override
     );
+    // 2026-11-11（P4）：读时覆盖只改读取面 ⇒ 必须通知前端重取，否则界面停留在旧气泡。
+    if (override) {
+      ctx.broadcastEvent('messages:updated', {
+        sessionId,
+        messageIds: [messageId],
+      });
+    }
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true }));

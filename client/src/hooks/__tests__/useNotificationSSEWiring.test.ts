@@ -28,6 +28,18 @@ describe("useNotificationSSE：session:meta_updated 订阅", () => {
     );
   });
 
+  it("messages:updated（读时覆盖）→ 当前会话重取消息，注册与解绑成对", () => {
+    expect(src).toMatch(
+      /sseService\.on\("messages:updated", onMessagesUpdated\)/,
+    );
+    expect(src).toMatch(
+      /sseService\.off\("messages:updated", onMessagesUpdated\)/,
+    );
+    expect(src).toMatch(
+      /const onMessagesUpdated = \(data: unknown\): void =>\s*refreshSessionIfActive\(/,
+    );
+  });
+
   it("回调走单条重取（refreshSessionMeta + upsertChatSession），不另写字段映射", () => {
     expect(src).toMatch(
       /const onSessionMetaUpdated = \(data: unknown\): void =>\s*refreshSessionMeta\(/,

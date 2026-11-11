@@ -187,6 +187,70 @@ export const AUTO_MODE_HARD_DENY_TOKENS = [
   // 故不能用 `' call create'` 这种中缀写法。
   'wmic ',
   'takeown ',
+  // 2026-11-11（P0 等价性补齐）：Windows 账户 / 提权 / 系统加固 / 持久化 —— 与 Linux 侧
+  // 的 `useradd` / `chown` / `crontab` / `systemctl` 对齐。此前这批**全部放行**（探针实测）。
+  // 只读查询（`net user` 无参数、`netsh advfirewall show`）会一并被拒 —— 与 `wmic` 同口径：
+  // 该组命令的只读形态在本项目里没有实际用途，宁可多拒。
+  'net user ',
+  'net localgroup ',
+  'net group ',
+  'add-localgroupmember',
+  'set-localuser',
+  'new-localuser',
+  'remove-localuser',
+  'set-executionpolicy',
+  'set-mppreference',
+  'add-mppreference',
+  'disable-windowsoptionalfeature',
+  'enable-windowsoptionalfeature',
+  'uninstall-windowsfeature',
+  'bcdedit',
+  'netsh advfirewall',
+  'netsh firewall',
+  // 服务 / 计划任务**定义**变更（等价于已拦的 `sc create|config|delete`、`schtasks /create`）
+  'register-scheduledtask',
+  'unregister-scheduledtask',
+  'new-service',
+  'set-service',
+  'remove-service',
+  // 下载落地 / 编解码落地（`-urlcache` 可把远端载荷写到本地）
+  'certutil -urlcache',
+  'certutil -decode',
+  'certutil -encode',
+  'certutil -addstore',
+  // 子系统 / 远端执行（与已拦的 `ssh ` 对齐）
+  'wsl ',
+  'enter-pssession',
+  'new-pssession',
+  'invoke-command',
+  'scp ',
+  // 设备节点 / 文件能力（提权）
+  'mknod ',
+  'setcap ',
+  // 一次性远端执行器 / 全局安装（供应链执行入口）
+  'npx ',
+  'bunx ',
+  'npm i -g',
+  'npm publish',
+  'yarn global add',
+  'pnpm add -g',
+  'bun add -g',
+  'winget install',
+  'choco install',
+  'scoop install',
+  'install-module',
+  'install-package',
+  'install-script',
+  // 容器滥用形态：特权容器 / 宿主机根目录挂载
+  '--privileged',
+  ' -v /:',
+  // 磁盘 / 分区 / 回收站（等价于已拦的 `format` / `mkfs`；`Initialize-Disk` / `Clear-Disk`
+  // 由等价组展开）
+  'format-volume',
+  'clear-recyclebin',
+  // 任意代码执行 / 起子进程（`iex` / `saps` 由等价组展开）
+  'invoke-expression',
+  'start-process',
   'nc ',
   'netcat ',
   'telnet ',
@@ -753,5 +817,5 @@ export const AUTO_MODE_APPROVAL_TOKENS = [
   // 属性 / 注册表值写入（与 Set-Content 同类，属写盘）
   'set-itemproperty',
   // 注：PowerShell 写盘短别名（`ac` / `sc` / `clc` 等）**不在此枚举** ——
-  // 由 `security/patterns/commandAliases.ts` 的归一表统一展开，新增别名只改那张表。
+  // 由 `security/patterns/commandAliases.ts` 的等价组统一展开，新增写法只改那张表。
 ];

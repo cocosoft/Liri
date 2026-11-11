@@ -15,6 +15,13 @@ import { DEFAULT_SUBAGENT_MAX_TURNS } from '../../chat/loopTurnLimits.js';
 import type { Tool } from '../types/Tool';
 import type { ToolUseContext } from '../types/ToolUseContext';
 import { ToolExecutionStatus } from '../types/ToolResult';
+// P0-1（2026-11-11）：子代理内层工具**逐次授权**（外层只授权了 `agent` 这个名字）
+import {
+  authorizeToolCall,
+  getEffectivePermissionRoles,
+  PermissionManager,
+} from '@openliri/infra/permission';
+import { getRequestPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import type { AIProvider } from '@modules/ai';
 import { estimateMessagesTokens, providerRegistry } from '@modules/ai';
 import { resolveModelRoute, RouteKey } from '@modules/ai';
@@ -886,7 +893,35 @@ export class SubAgentEngine {
           }
         );
       }
-      const result = await tool.execute(parsedArgs, resolvedContext);
+      const result = await (async () => {
+        // P0-1（2026-11-11）：逐次授权（deny / ask 一律不执行；子代理无就地审批 UI）
+        const auth = await authorizeToolCall(PermissionManager.getInstance(), {
+          toolName: toolCall.name,
+          args: parsedArgs,
+          context: {
+            ...(resolvedContext.sessionId
+              ? { sessionId: resolvedContext.sessionId }
+              : {}),
+            userId: getRequestPrincipal().userId,
+            userRoles: getEffectivePermissionRoles(),
+          },
+        });
+        if (!auth.allowed) {
+          logger.warn('子代理工具调用被权限层拒绝', {
+            toolName: toolCall.name,
+            kind: auth.kind,
+            reason: auth.reason,
+          });
+          return {
+            success: false,
+            error:
+              auth.kind === 'ask'
+                ? `Tool '${toolCall.name}' requires approval: ${auth.reason ?? 'awaiting approval'}`
+                : `Tool '${toolCall.name}' denied: ${auth.reason ?? 'not allowed'}`,
+          };
+        }
+        return tool.execute(parsedArgs, resolvedContext);
+      })();
       // B2-c 读取侧收口（2026-09-30）：载荷以 **`data`** 为准，`result` 并行载荷已清零。
       const output = result.output || result.data || JSON.stringify(result);
 

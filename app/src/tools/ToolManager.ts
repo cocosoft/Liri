@@ -41,6 +41,14 @@ import type {
 } from './policy/ToolPolicy';
 import { getDefaultToolPolicyPipeline } from './policy/defaultPipeline';
 import { ToolPolicyPipeline } from './policy/ToolPolicyPipeline';
+// P0-1（2026-11-11）：**执行入口统一授权**——CLI / 语音 / 工作流经本方法执行工具，
+// 此前只做 shield + DefaultToolPolicy（缺省 owner）⇒ RBAC / ask 规则 / 权限档全部失效。
+import {
+  authorizeToolCall,
+  getEffectivePermissionRoles,
+  PermissionManager,
+} from '@openliri/infra/permission';
+import { getRequestPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import type {
   ToolDefinition,
   ToolImplementation,
@@ -440,6 +448,48 @@ export class ToolManager extends EventEmitter {
       ARG_PARSE_ERROR_KEY in (normalizedInput ?? {})
         ? stripArgParseErrorKey(normalizedInput ?? {})
         : normalizedInput;
+
+    // P0-1（2026-11-11）：CLI / 语音 / 工作流等入口走同一条授权链。
+    // 上游已授权过的调用方（CoreAPI）用 `policyContext.permissionAuthorized` 标记，避免重复判定
+    // （重复判定会二次提交审批卡）。ask 一律**不执行**：非交互入口没有就地审批 UI，
+    // 如实返回「需审批」由调用方提示用户。
+    const preAuthorized =
+      (
+        context as
+          | { policyContext?: { permissionAuthorized?: boolean } }
+          | undefined
+      )?.policyContext?.permissionAuthorized === true;
+    if (!preAuthorized) {
+      const sessionId =
+        typeof (context as { sessionId?: unknown } | undefined)?.sessionId ===
+        'string'
+          ? (context as { sessionId: string }).sessionId
+          : undefined;
+      const outcome = await authorizeToolCall(PermissionManager.getInstance(), {
+        toolName: name,
+        args: (execInput ?? {}) as Record<string, unknown>,
+        context: {
+          ...(sessionId ? { sessionId } : {}),
+          userId: getRequestPrincipal().userId,
+          userRoles: getEffectivePermissionRoles(),
+        },
+      });
+      if (!outcome.allowed) {
+        logger.warn('工具执行被权限层拒绝（执行入口统一授权）', {
+          toolName: name,
+          kind: outcome.kind,
+          reason: outcome.reason,
+        });
+        return createToolResult(null, {
+          success: false,
+          error:
+            outcome.kind === 'ask'
+              ? `工具 ${name} 需要人工审批：${outcome.reason ?? '等待批准'}（请批准后重试）`
+              : `工具 ${name} 被权限拒绝：${outcome.reason ?? '不在允许范围内'}`,
+        });
+      }
+    }
+
     try {
       const result = await optimizedExecuteTool(
         tool,

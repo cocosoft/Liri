@@ -26,6 +26,9 @@ function extractTaskId(url: string): string | null {
   return match ? match[1] : null;
 }
 
+/** 视频生成工具名（与 `toolNames.generated` 同源；此处仅作授权标识，不另建名单） */
+const VIDEO_GENERATE_TOOL_NAME = 'video_generate';
+
 /** 解析 JSON body */
 async function parseBody(
   req: http.IncomingMessage
@@ -77,6 +80,40 @@ async function handleCreateTask(
       json(res, 400, {
         error:
           'prompt is required (or provide imageUrl/imagePath for image-to-video)',
+      });
+      return;
+    }
+
+    // P0-1（2026-11-11）：本入口此前直调工具（空 ctx）⇒ RBAC / ask 规则 / 权限档全部失效。
+    // 与其它入口同源授权：ask 一律不执行（审批卡仍由权限层提交，批准后重试即可）。
+    const {
+      authorizeToolCall,
+      getEffectivePermissionRoles,
+      PermissionManager,
+    } = await import('@openliri/infra/permission');
+    const { getRequestPrincipal } =
+      await import('@openliri/kernel/identity/requestScope.js');
+    const outcome = await authorizeToolCall(PermissionManager.getInstance(), {
+      toolName: VIDEO_GENERATE_TOOL_NAME,
+      args: {
+        prompt,
+        imageUrl,
+        imagePath,
+        duration,
+        aspectRatio,
+        model: modelId,
+      },
+      context: {
+        userId: getRequestPrincipal().userId,
+        userRoles: getEffectivePermissionRoles(),
+      },
+    });
+    if (!outcome.allowed) {
+      json(res, 403, {
+        error:
+          outcome.kind === 'ask'
+            ? `工具 ${VIDEO_GENERATE_TOOL_NAME} 需要人工审批：${outcome.reason ?? '等待批准'}`
+            : `工具 ${VIDEO_GENERATE_TOOL_NAME} 被权限拒绝：${outcome.reason ?? '不在允许范围内'}`,
       });
       return;
     }

@@ -19,6 +19,13 @@ import { ToolTag } from '../types/Tool';
 import { createToolResult } from '../types/ToolResult';
 import { PlanToolOutputSchema, PlanToolOutputJsonSchema } from './schemas';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
+// P0-1（2026-11-11）：计划步骤内的工具**逐次授权**（外层只授权了 `plan` 这个名字）
+import {
+  authorizeToolCall,
+  getEffectivePermissionRoles,
+  PermissionManager,
+} from '@openliri/infra/permission';
+import { getRequestPrincipal } from '@openliri/kernel/identity/requestScope.js';
 
 import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools\PlanTool\PlanTool');
@@ -495,7 +502,29 @@ export class PlanTool extends BaseTool<
                   });
 
                   if (tool) {
-                    stepResult = await tool.execute(toolArgs, context);
+                    const auth = await authorizeToolCall(
+                      PermissionManager.getInstance(),
+                      {
+                        toolName: tool.name,
+                        args: toolArgs as Record<string, unknown>,
+                        context: {
+                          ...(context.sessionId
+                            ? { sessionId: context.sessionId }
+                            : {}),
+                          userId: getRequestPrincipal().userId,
+                          userRoles: getEffectivePermissionRoles(),
+                        },
+                      }
+                    );
+                    stepResult = auth.allowed
+                      ? await tool.execute(toolArgs, context)
+                      : createToolResult(null, {
+                          success: false,
+                          error:
+                            auth.kind === 'ask'
+                              ? `工具 ${tool.name} 需要人工审批：${auth.reason ?? '等待批准'}`
+                              : `工具 ${tool.name} 被权限拒绝：${auth.reason ?? '不在允许范围内'}`,
+                        });
                   } else {
                     throw new AppError(
                       `工具未找到: ${toolName}`,

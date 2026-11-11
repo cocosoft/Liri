@@ -462,7 +462,7 @@ export class SessionAgentOps {
         .executeTool(
           toolCall.name,
           toolCall.arguments as Record<string, unknown>,
-          { sessionId }
+          { sessionId, policyContext: { permissionAuthorized: true } }
         );
       const response = mapToolExecutionResult(
         toolCall,

@@ -514,28 +514,15 @@ export function detectDeserializationAttack(
  */
 export function detectLDAPInjection(input: string): ClassifierDecision | null {
   const ldapPatterns = [
-    // LDAP特殊字符
-    '*',
-    '(',
-    ')',
-    '&',
-    '|',
-    '=',
-    '!',
-    '~',
-    // 逻辑操作符
-    '&',
-    '|',
-    '!',
-    // LDAP过滤器注入
+    // LDAP 过滤器注入：只认**结构化组合**。
+    // 2026-11-11：原先还列了单字符 `*` `(` `)` `&` `|` `=` `!` `~`，等于"出现任一特殊字符
+    // 即判注入" —— 实测把 `git reset HEAD~1`、`git log --grep=(fix)` 判成 LDAP 注入
+    // （审批档根本走不到）。单字符不具 LDAP 语义，统一移除；下方仍保留"≥3 个特殊字符"的
+    // 组合启发式与结构化过滤器模式。
     '(|',
     '(&',
     '(!',
     '))',
-    // 通配符攻击
-    '*',
-    '**',
-    '***',
     // 空值攻击
     '\x00',
     '%00',

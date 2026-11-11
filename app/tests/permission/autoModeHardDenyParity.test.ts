@@ -129,6 +129,8 @@ describe('AutoModeClassifier：收敛前后的允许 / 拦截对照', () => {
       'ps aux',
       'echo -n hello',
       'git status',
+      'git fetch origin',
+      'git add .',
       'mkdir -p ws/out',
     ]) {
       const decision = await classifier.classify('bash', { command }, []);
@@ -193,8 +195,21 @@ describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
       'cp ',
       'cpi ',
       'find ',
+      'git am ',
+      'git apply ',
+      'git checkout',
+      'git cherry-pick',
+      'git commit',
+      'git merge ',
       'git mv',
+      'git reset ',
+      'git revert ',
       'git rm',
+      'git stash apply',
+      'git stash pop',
+      'git switch',
+      'git tag ',
+      'git worktree add',
       'icacls ',
       'ln ',
       'mi ',
@@ -251,6 +266,20 @@ describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
       'ac a.txt hi',
       'sc a.txt hi',
       'clc a.txt',
+      // git 写操作（会改工作区 / 历史）
+      'git checkout main',
+      'git switch main',
+      'git reset HEAD~1',
+      'git merge feature',
+      'git cherry-pick abc123',
+      'git revert HEAD',
+      'git commit -m "x"',
+      'git stash pop',
+      'git stash apply',
+      'git apply patch.diff',
+      'git am 0001.patch',
+      'git tag v1.0.0',
+      'git worktree add ../wt main',
     ]) {
       const decision = await classifier.classify('bash', { command }, []);
       expect(decision.shouldBlock).toBe(false);
@@ -264,6 +293,7 @@ describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
       'chmod 777 secret.txt',
       'chown -R me /opt/x',
       'sed -i s/a/b/ file.txt',
+      'git config core.hooksPath .hooks',
     ]) {
       const decision = await classifier.classify('bash', { command }, []);
       expect(decision.shouldBlock).toBe(true);

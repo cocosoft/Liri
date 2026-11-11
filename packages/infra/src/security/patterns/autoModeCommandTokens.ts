@@ -481,6 +481,8 @@ export const AUTO_MODE_HARD_DENY_TOKENS = [
   'git remote set-url',
   'git submodule ',
   'git worktree remove',
+  // 2026-11-11：`core.hooksPath` 可把 git 钩子指到任意目录 ⇒ 持久化执行入口 ⇒ 硬拦。
+  'git config core.hookspath',
   'svn ',
   'hg ',
   'bzr ',
@@ -722,6 +724,22 @@ export const AUTO_MODE_APPROVAL_TOKENS = [
   // 仓库内文件操作（等价于本地 rm / mv）
   'git rm',
   'git mv',
+  // 2026-11-11（git 写操作口径）：**会改工作区 / 历史**的常规操作转审批；
+  // 破坏性更强的形态仍在硬拦表（`reset --hard` / `clean` / `checkout --` / `restore` /
+  // `push` / `rebase` / `branch -D` / `tag -d` / `stash drop|clear` / `core.hooksPath`）。
+  'git checkout',
+  'git switch',
+  'git reset ',
+  'git merge ',
+  'git cherry-pick',
+  'git revert ',
+  'git commit',
+  'git stash pop',
+  'git stash apply',
+  'git apply ',
+  'git am ',
+  'git tag ',
+  'git worktree add',
   // 写盘型 cmdlet / 管道写文件（2026-11-11 口径）：shell 写**绕过工作区边界守卫**
   // （`Write` 工具越界会确认，shell 不会），且重定向 `> ` / `>> ` 本就是硬拦
   // ⇒ 统一转审批，避免"换个写法就静默写盘"。

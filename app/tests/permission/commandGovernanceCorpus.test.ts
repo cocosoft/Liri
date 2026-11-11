@@ -103,7 +103,8 @@ describe('P0 语料：执行 / 提权 / 注册类', () => {
 describe('P0 语料：写盘 / 远端 / 未知命令 ⇒ ask', () => {
   it('下载落盘与远端映射', async () => {
     for (const command of [
-      'iwr -Uri .\\local -OutFile out.txt',
+      // P3 后：工作区内落盘 ⇒ allow（另有专门用例），工作区外仍 ask
+      'iwr -Uri .\\local -OutFile ..\\..\\outside.txt',
       'New-PSDrive -Name X -PSProvider FileSystem -Root \\\\host\\share',
     ]) {
       const { tier } = await verdict(command);

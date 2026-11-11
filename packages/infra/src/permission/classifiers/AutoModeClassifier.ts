@@ -24,6 +24,9 @@ import {
   splitCommandSegments,
   type CommandSegment,
 } from './command-segments';
+// P3（2026-11-12）：写目标识别 + 工作区边界（下载器族在工作区内落盘不再弹审批）
+import { extractWriteTargets } from './write-targets';
+import { isWithinWorkingDirectory } from '../filesystem';
 import { DANGEROUS_TOOL_KEYWORDS } from './dangerous-tool-keywords';
 // 2026-11-11（P5）：命令令牌表已迁入安全规则域，经安全模块桶（index.ts）导入
 import {
@@ -98,6 +101,16 @@ function resolveCompoundReadonlyAllow(): boolean {
  * 复合命令的连接符（去空白后比较）。
  */
 const COMPOSITION_TOKENS = new Set(['|', '||', '&&', ';', '&']);
+
+/**
+ * 下载器族命令（P3）：它们的 `-OutFile` 是**明确的落盘参数**，
+ * 因此可以按"目标是否在工作区内"分级，而不是一律弹审批。
+ */
+const DOWNLOADER_CMDLETS = new Set([
+  'iwr',
+  'invoke-webrequest',
+  'invoke-restmethod',
+]);
 
 /**
  * P2a（2026-11-12）：否定来自「复合连接符」时，指出**真正需要审批的那一段**。
@@ -408,6 +421,8 @@ export class AutoModeClassifier implements IAutoModeClassifier {
     let compoundAllReadonly = false;
     /** P2b：是否为复合命令（管道 / 连接符 / 子 shell 分段后 ≥2 段） */
     let isCompositeCommand = false;
+    /** P3：下载器族在工作区内落盘（允许），工作区外仍转审批 */
+    let downloaderInWorkspace = false;
 
     if (executionSurface) {
       // 检查Zsh equals expansion攻击
@@ -445,6 +460,17 @@ export class AutoModeClassifier implements IAutoModeClassifier {
       const firstWord = executionSurface.trim().split(/\s+/)[0]?.toLowerCase() ?? '';
       const isShellWrapper =
         /^(?:bash|sh|zsh|ksh|powershell|pwsh|cmd|cmd\.exe)$/.test(firstWord);
+
+      // 2026-11-12（P3）：下载器族的写目标全部在工作区内 ⇒ 允许（工作区外仍 ask）。
+      // 用 `process.cwd()` 作边界基准：shell 命令就在该目录下执行，与 `Write` 工具口径一致。
+      if (DOWNLOADER_CMDLETS.has(firstWord)) {
+        const writeTargets = extractWriteTargets(executionSurface);
+        downloaderInWorkspace =
+          writeTargets.length > 0 &&
+          writeTargets.every((target) =>
+            isWithinWorkingDirectory(target, process.cwd())
+          );
+      }
       // 2026-11-12（P0）：脚本体必须取自**原文** —— 小写面里的 base64 是乱码，
       // 会让只读短路误判（`-EncodedCommand <ls 的 base64>` 被判"非只读"）。
       // 同时剔除"看起来就是 base64 载荷"的脚本体：那串不是脚本，真正的脚本在 `encoded.bodies`。
@@ -643,6 +669,10 @@ export class AutoModeClassifier implements IAutoModeClassifier {
     // 2026-11-11（P5-approval）：可能覆盖 / 搬走既有文件的命令**不硬拒**，转人工审批。
     // 放在所有 deny 判定之后 ⇒ 同时命中硬拦（`sudo cp …`）或注入类规则时仍是 deny。
     for (const pattern of AUTO_MODE_APPROVAL_TOKENS) {
+      // P3：工作区内的下载落盘不必弹审批（工作区外仍由 `-outfile` 转 ask）
+      if (pattern === '-outfile' && downloaderInWorkspace) {
+        continue;
+      }
       if (
         commandSurfaces.some((surface) => matchesCommandToken(surface, pattern))
       ) {
@@ -652,6 +682,17 @@ export class AutoModeClassifier implements IAutoModeClassifier {
           reason: `Command requires approval: "${pattern}"`,
         };
       }
+    }
+
+    /**
+     * 2026-11-12（P3）：下载器族把文件落到**工作区内** ⇒ 与 `Write` 工具同口径（允许）。
+     * 工作区外仍走上面的审批档（`-outfile`），敏感路径另有硬拦。
+     */
+    if (downloaderInWorkspace) {
+      return {
+        shouldBlock: false,
+        reason: 'Write target is inside the workspace',
+      };
     }
 
     /**

@@ -44,6 +44,7 @@ export {
 export {
   COMMAND_SPECS,
   approvalTokensFromSpecs,
+  denyTokensFromSpecs,
   equivalenceGroupsFromSpecs,
 } from './commandSpecs';
 export type {

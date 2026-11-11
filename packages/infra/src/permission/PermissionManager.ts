@@ -224,7 +224,7 @@ function buildDenyInfo(
  *
  * 背景：方案 §1.1 实测该环境变量**全仓无读取点**（配了不生效，与 `JWT_SECRET` / `CORS_ORIGIN`
  * 同类"配置幻觉"）。这里把它接成 `PermissionManager` 的初始模式；会话级 / UI 仍可经
- * `setMode()` 覆盖（P1 后续再收敛三层优先级）。
+ * `setMode()` 覆盖。三层优先级已收敛到 `resolveEffectiveMode()`（2026-11-11）。
  *
  * - 未设置 / 空串 ⇒ `default`（与改造前逐字一致）；
  * - 大小写不敏感（`DEFAULT` / `PLAN` 都能认）；
@@ -244,6 +244,24 @@ function resolveInitialPermissionMode(): PermissionMode {
     return PermissionMode.DEFAULT;
   }
   return matched;
+}
+
+/**
+ * 权限档**三层优先级**的唯一解析点（2026-11-11 收敛）。
+ *
+ * 1. 请求级：`PermissionContext.permissionMode`（执行入口把会话元数据 `permission_mode`
+ *    放进来；CLI / 后台 / 未设置时为 undefined）；
+ * 2. 实例级：`setMode()` 写入的档（初值来自 `PERMISSION_MODE`，见构造器）；
+ * 3. 兜底：实例档的初值 `PermissionMode.DEFAULT`（构造器已赋值，故这里无需再兜一次）。
+ *
+ * 判定分支与审计标签（`permission-mode:auto` 等）**必须共用本函数** —— 否则会出现
+ * "判定按会话档、标签按进程档"的错配。
+ */
+function resolveEffectiveMode(
+  requestMode: PermissionMode | undefined,
+  instanceMode: PermissionMode
+): PermissionMode {
+  return requestMode ?? instanceMode;
 }
 
 /**
@@ -477,7 +495,11 @@ export class PermissionManager {
     // P1（2026-11-04）：**会话级模式优先于进程默认档**。执行入口把会话元数据
     // `permission_mode` 放进 `context.permissionMode`；缺省（CLI / 后台 / 未设置）用
     // `this.mode`（来自 `PERMISSION_MODE` 环境变量，见构造器）。不改全局单例 ⇒ 并发会话不串档。
-    const effectiveMode = permissionContext.permissionMode ?? this.mode;
+    // 2026-11-11：三层优先级收敛到 `resolveEffectiveMode()`（判定与审计标签共用）。
+    const effectiveMode = resolveEffectiveMode(
+      permissionContext.permissionMode,
+      this.mode
+    );
     let decision: PermissionDecision;
     switch (effectiveMode) {
       case PermissionMode.BYPASS:
@@ -1783,8 +1805,10 @@ export class PermissionManager {
     // P3（2026-11-07，方案 §2.3-4）：会话权限档的**放宽档**（bypass / auto / dontAsk）
     // 会直接放行而不产生审批卡 ⇒ 必须显式标注「自动放行」，不得在日志/审计里与
     // 「用户逐条批准」混同。仅在 allow 时标注；收紧档（plan）不适用。
-    const effectivePermissionMode =
-      permissionContext.permissionMode ?? this.mode;
+    const effectivePermissionMode = resolveEffectiveMode(
+      permissionContext.permissionMode,
+      this.mode
+    );
     const autoSource =
       decision.type === PermissionDecisionType.ALLOW
         ? effectivePermissionMode === PermissionMode.BYPASS

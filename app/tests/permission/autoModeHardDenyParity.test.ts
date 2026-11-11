@@ -73,6 +73,14 @@ const MUST_NOT_DENY = [
   'cp ',
   'mv ',
   'git ',
+  // 路径类令牌：已收敛到 SENSITIVE_PATH_PATTERNS / detectPathTraversal（单一来源）
+  '/etc/',
+  '/root/',
+  '/tmp/',
+  '/home/',
+  '/var/',
+  'C:\\',
+  '../',
 ];
 
 describe('AUTO_MODE_HARD_DENY_TOKENS：真危险令牌必须保留', () => {
@@ -201,5 +209,38 @@ describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
       }) as PermissionContext
     );
     expect(decision.type).toBe('ask');
+  });
+
+  it('审批档不再被路径令牌抢先拒绝（/tmp、/home 等普通目录）', async () => {
+    const pm = createIsolatedManager();
+    for (const command of [
+      'mv a.txt /tmp/b.txt',
+      'cp a.txt /tmp/backup.txt',
+      'cp a.txt /home/me/b.txt',
+    ]) {
+      const input = { command };
+      const decision = await pm.checkPermission(
+        'bash',
+        input,
+        createPermissionContext({
+          toolName: 'bash',
+          input,
+          permissionMode: PermissionMode.AUTO,
+          sessionId: 'sess-approval-path',
+        }) as PermissionContext
+      );
+      expect(decision.type).toBe('ask');
+    }
+  });
+
+  it('路径敏感度仍由单一来源拦截（敏感目录 / 路径遍历）', async () => {
+    for (const command of [
+      'cp a.txt /etc/passwd',
+      'mv a.txt /root/secret',
+      'cp ../../etc/passwd out.txt',
+    ]) {
+      const decision = await classifier.classify('bash', { command }, []);
+      expect(decision.shouldBlock).toBe(true);
+    }
   });
 });

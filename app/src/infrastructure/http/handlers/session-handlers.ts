@@ -792,8 +792,15 @@ export async function handleUpdateMessageBlocks(
     // 2026-11-11：可选正文同步（清理历史重复提示时，需要 blocks 与 content 一起改，
     // 否则导出 / 下一轮上下文仍读到旧文案）。非字符串按未提供处理。
     const text = typeof data.text === 'string' ? data.text : undefined;
-    // 2026-11-11：历史消息（事件派生主源）必须走读时覆盖，否则只改投影前端不可见
-    const persistOverride = data.override === true;
+    // 2026-11-11：历史消息（事件派生主源）必须走读时覆盖，否则只改投影前端不可见。
+    // 覆盖只存小字段：正文 + 需隐藏的块 id（不存整份 blocks，避免会话元数据膨胀）。
+    const hiddenBlockIds = Array.isArray(data.hiddenBlockIds)
+      ? data.hiddenBlockIds.filter(
+          (value: unknown): value is string => typeof value === 'string'
+        )
+      : undefined;
+    const override =
+      data.override === true ? { content: text, hiddenBlockIds } : undefined;
 
     const coreAPI = getCoreAPI();
     await coreAPI.updateMessageBlocks(
@@ -801,7 +808,7 @@ export async function handleUpdateMessageBlocks(
       messageId,
       blocks,
       text,
-      persistOverride
+      override
     );
 
     res.writeHead(200, { 'Content-Type': 'application/json' });

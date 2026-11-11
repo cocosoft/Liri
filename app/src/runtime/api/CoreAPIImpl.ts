@@ -1692,14 +1692,14 @@ export class CoreAPIImpl implements CoreAPI {
     messageId: string,
     blocks: Array<Record<string, unknown>>,
     text?: string,
-    persistOverride?: boolean
+    override?: { content?: string; hiddenBlockIds?: string[] }
   ): Promise<void> {
     return this.sessionAgentOps.updateMessageBlocks(
       sessionId,
       messageId,
       blocks,
       text,
-      persistOverride
+      override
     );
   }
 

@@ -836,15 +836,15 @@ export interface CoreAPI {
    * 更新消息的 blocks 结构。
    *
    * - `text`：同步正文（避免导出/下一轮仍读到旧文案）
-   * - `persistOverride`：历史消息需同时写入会话元数据的读时覆盖表
-   *   （派生读为主源时，仅写投影对前端不可见）
+   * - `override`：历史消息需同时写入会话元数据的读时覆盖表（只存正文 / 隐藏块 id，
+   *   不存整份 blocks —— 派生读为主源时仅写投影对前端不可见）
    */
   updateMessageBlocks(
     sessionId: string,
     messageId: string,
     blocks: Array<Record<string, unknown>>,
     text?: string,
-    persistOverride?: boolean
+    override?: { content?: string; hiddenBlockIds?: string[] }
   ): Promise<void>;
 
   /** 删除单条消息（软删除） */

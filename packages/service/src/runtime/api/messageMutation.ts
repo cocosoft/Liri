@@ -77,13 +77,13 @@ export class MessageMutation {
     messageId: string,
     blocks: Array<Record<string, unknown>>,
     text?: string,
-    persistOverride?: boolean
+    override?: { content?: string; hiddenBlockIds?: string[] }
   ): Promise<void> {
     await this.deps
       .getChatManager()
       .updateMessageBlocks(sessionId, messageId, blocks, text);
-    if (persistOverride) {
-      await this.persistMessageOverride(sessionId, messageId, blocks, text);
+    if (override) {
+      await this.persistMessageOverride(sessionId, messageId, override);
     }
   }
 
@@ -97,8 +97,7 @@ export class MessageMutation {
   private async persistMessageOverride(
     sessionId: string,
     messageId: string,
-    blocks: Array<Record<string, unknown>>,
-    text?: string
+    override: { content?: string; hiddenBlockIds?: string[] }
   ): Promise<void> {
     const session = this.deps.getSessionManager().getSession(sessionId);
     if (!session?.metadata) {
@@ -113,11 +112,16 @@ export class MessageMutation {
       metadata.messageOverrides && typeof metadata.messageOverrides === 'object'
         ? (metadata.messageOverrides as Record<string, unknown>)
         : {};
+    // 只存小字段（正文 + 隐藏块 id）；存整份 blocks 会让 session.json 膨胀到百 KB
     const next = {
       ...previous,
       [messageId]: {
-        ...(text !== undefined ? { content: text } : {}),
-        blocks,
+        ...(override.content !== undefined
+          ? { content: override.content }
+          : {}),
+        ...(override.hiddenBlockIds?.length
+          ? { hiddenBlockIds: override.hiddenBlockIds }
+          : {}),
       },
     };
     metadata.messageOverrides = next;

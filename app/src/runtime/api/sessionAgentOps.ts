@@ -760,11 +760,11 @@ export class SessionAgentOps {
     messageId: string,
     blocks: Array<Record<string, unknown>>,
     text?: string,
-    persistOverride?: boolean
+    override?: { content?: string; hiddenBlockIds?: string[] }
   ): Promise<void> {
     return this.deps
       .getMessageMutation()
-      .updateMessageBlocks(sessionId, messageId, blocks, text, persistOverride);
+      .updateMessageBlocks(sessionId, messageId, blocks, text, override);
   }
 
   /**

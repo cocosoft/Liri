@@ -21,6 +21,12 @@ export interface ClassifierDecision {
    */
   shouldBlock: boolean;
   /**
+   * 是否需要**人工审批**（`true` 时调用方应转为 `ask`，而不是拒绝或放行）。
+   *
+   * 2026-11-11：与 `shouldBlock` 互斥；若两者同时为真，以 `shouldBlock` 为准（硬拦优先）。
+   */
+  requiresApproval?: boolean;
+  /**
    * 阻止原因
    */
   reason?: string;

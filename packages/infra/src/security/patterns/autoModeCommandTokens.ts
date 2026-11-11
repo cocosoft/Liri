@@ -20,12 +20,16 @@
 // SOFTWARE.
 
 /**
- * auto 模式**硬拦**令牌表（2026-11-11 从 `permission/classifiers/dangerous-command-patterns.ts`
+ * auto 模式的**命令令牌表**（2026-11-11 从 `permission/classifiers/dangerous-command-patterns.ts`
  * 迁入安全规则域；由 `./dangerousCommands` 统一对外导出）。
  *
+ * 两档语义（**不同档位，不得混用**）：
+ *  - `AUTO_MODE_HARD_DENY_TOKENS`：命中即 `deny`（不可逆 / 越权 / 任意代码执行 / 系统与远端）；
+ *  - `AUTO_MODE_APPROVAL_TOKENS`：命中**不拒绝**，转人工审批（常见但可能覆盖既有文件）。
+ *
  * 匹配语义与 `DANGEROUS_COMMAND_PATTERNS` 不同：本表按**命令位**匹配
- * （`containsCommandToken`，含嵌套 shell 递归），命中即 `shouldBlock: true`（deny），
- * **不是**评分/打分输入（当前无评分档：分类器只有「硬拦 / 放行」两态）。
+ * （`containsCommandToken`，含嵌套 shell 递归），**不是**评分/打分输入
+ * （当前无评分档：分类器只有「硬拦 / 审批 / 放行」三态）。
  *
  * 收录口径（P5 第二步，2026-11-11）：只收「**命中即不可逆 / 越权 / 执行任意代码 /
  * 触碰系统或远端**」的令牌。普通只读与导航命令（`ls` / `cat` / `grep` / `ps` …）
@@ -681,3 +685,16 @@ export const AUTO_MODE_HARD_DENY_TOKENS = [
   'worm ',
   'botnet ',
 ];
+
+/**
+ * auto 模式**审批**令牌表（2026-11-11，用户裁定「回补 mv / cp 的审批逻辑」）。
+ *
+ * 命中**不拒绝**，而是把决策转成 `ask`（人工确认后才执行）：
+ *  - `cp` / `mv` 可能覆盖目标或把文件搬出工作区，属"常见但可能不可逆"；
+ *  - 一刀切硬拒会打断正常开发（批量整理、备份、重命名），直接放行又绕过了
+ *    用户对文件去向的确认 ⇒ 用审批档。
+ *
+ * 注意：若同一条命令同时命中硬拦表（如 `sudo cp …`），**硬拦优先** —— 分类器先扫
+ * `AUTO_MODE_HARD_DENY_TOKENS`，再扫本表。
+ */
+export const AUTO_MODE_APPROVAL_TOKENS = ['cp ', 'mv '];

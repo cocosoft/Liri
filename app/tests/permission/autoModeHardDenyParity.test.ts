@@ -8,9 +8,19 @@
  * `dangerousCommands` 统一导出。后续若按方案收敛「普通命令」，本用例保证
  * 真危险令牌与复合命令分隔符**不会被顺手删掉**。
  */
-import { describe, expect, it } from 'bun:test';
-import { AUTO_MODE_HARD_DENY_TOKENS } from '@openliri/infra/security/patterns/dangerousCommands';
+import { afterAll, describe, expect, it } from 'bun:test';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import {
+  AUTO_MODE_APPROVAL_TOKENS,
+  AUTO_MODE_HARD_DENY_TOKENS,
+} from '@openliri/infra/security/patterns/dangerousCommands';
 import { AutoModeClassifier } from '@openliri/infra/permission/classifiers/AutoModeClassifier';
+import { PermissionMode } from '@openliri/infra/permission';
+import { PermissionManager } from '@openliri/infra/permission/PermissionManager';
+import { createPermissionContext } from '@openliri/infra/permission/types/PermissionContext';
+import type { PermissionContext } from '@openliri/infra/permission/types/PermissionContext';
 
 /** 破坏性 / 提权令牌：删除它们等于削弱 auto 档兜底 */
 const MUST_DENY = [
@@ -122,5 +132,74 @@ describe('AutoModeClassifier：收敛前后的允许 / 拦截对照', () => {
       const decision = await classifier.classify('bash', { command }, []);
       expect(decision.shouldBlock).toBe(true);
     }
+  });
+});
+
+const tmpDirs: string[] = [];
+
+afterAll(() => {
+  for (const dir of tmpDirs) {
+    try {
+      rmSync(dir, { recursive: true, force: true });
+    } catch {
+      // 忽略清理失败
+    }
+  }
+});
+
+/** 隔离规则文件，避免用例读到本机 `tool_rules.json` */
+function createIsolatedManager(): PermissionManager {
+  const dir = mkdtempSync(join(tmpdir(), 'perm-approval-test-'));
+  tmpDirs.push(dir);
+  const ruleFile = join(dir, 'tool_rules.json');
+  writeFileSync(ruleFile, '[]');
+  const pm = new PermissionManager();
+  pm.getRuleManager().setRuleSource(ruleFile);
+  pm.resetRules();
+  return pm;
+}
+
+describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
+  const classifier = new AutoModeClassifier();
+
+  it('审批表只含 cp / mv，且与硬拦表互斥', () => {
+    expect([...AUTO_MODE_APPROVAL_TOKENS].sort()).toEqual(['cp ', 'mv ']);
+    for (const token of AUTO_MODE_APPROVAL_TOKENS) {
+      expect(AUTO_MODE_HARD_DENY_TOKENS).not.toContain(token);
+    }
+  });
+
+  it('分类器标记 requiresApproval（不是 shouldBlock）', async () => {
+    for (const command of ['cp a.txt b.txt', 'mv ws/a.txt ws/b.txt']) {
+      const decision = await classifier.classify('bash', { command }, []);
+      expect(decision.shouldBlock).toBe(false);
+      expect(decision.requiresApproval).toBe(true);
+    }
+  });
+
+  it('硬拦优先：同时命中硬拦表时仍是 deny，不降级为审批', async () => {
+    const decision = await classifier.classify(
+      'bash',
+      { command: 'sudo cp a b' },
+      []
+    );
+    expect(decision.shouldBlock).toBe(true);
+    expect(decision.requiresApproval).toBeUndefined();
+  });
+
+  it('PermissionManager（auto 档）把 requiresApproval 落成 ask', async () => {
+    const pm = createIsolatedManager();
+    const input = { command: 'mv ws/a.txt ws/b.txt' };
+    const decision = await pm.checkPermission(
+      'bash',
+      input,
+      createPermissionContext({
+        toolName: 'bash',
+        input,
+        permissionMode: PermissionMode.AUTO,
+        sessionId: 'sess-approval',
+      }) as PermissionContext
+    );
+    expect(decision.type).toBe('ask');
   });
 });

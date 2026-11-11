@@ -1172,6 +1172,14 @@ export class PermissionManager {
         this.messages
       );
 
+      if (classifierDecision.requiresApproval) {
+        // 2026-11-11（P5-approval）：`cp` / `mv` 这类"常见但可能不可逆"的命令
+        // 不硬拒也不静默放行 ⇒ 转人工审批（用户可在审批卡上决定）。
+        return createAskDecision(
+          classifierDecision.reason || 'Requires approval by auto classifier'
+        );
+      }
+
       if (classifierDecision.shouldBlock) {
         // P0-2：分类器判定为阻断（deny）时保持 deny；连续拒绝只做统计，不升高为可批准
         this.denialTracker.trackDenial(toolName, context.sessionId);

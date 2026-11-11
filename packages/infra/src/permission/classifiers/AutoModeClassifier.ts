@@ -16,8 +16,11 @@ import {
 // 与 PermissionManager 的只读短路共用同一事实源（readonly-command-allowlist）。
 import { checkReadonlyCommand } from './readonly-command-allowlist';
 import { DANGEROUS_TOOL_KEYWORDS } from './dangerous-tool-keywords';
-// 2026-11-11（P5）：硬拦令牌表已迁入安全规则域，经安全模块桶（index.ts）导入
-import { AUTO_MODE_HARD_DENY_TOKENS } from '@openliri/infra/security';
+// 2026-11-11（P5）：命令令牌表已迁入安全规则域，经安全模块桶（index.ts）导入
+import {
+  AUTO_MODE_HARD_DENY_TOKENS,
+  AUTO_MODE_APPROVAL_TOKENS,
+} from '@openliri/infra/security';
 import { SENSITIVE_PATH_PATTERNS } from './sensitive-path-patterns';
 import { ENV_POLLUTION_PATTERNS } from './env-pollution-patterns';
 import { ZERO_WIDTH_PATTERNS } from './zero-width-patterns';
@@ -467,6 +470,18 @@ export class AutoModeClassifier implements IAutoModeClassifier {
     const dnsTunnelResult = detectDNSTunnel(inputString);
     if (dnsTunnelResult) {
       return dnsTunnelResult;
+    }
+
+    // 2026-11-11（P5-approval）：可能覆盖 / 搬走既有文件的命令**不硬拒**，转人工审批。
+    // 放在所有 deny 判定之后 ⇒ 同时命中硬拦（`sudo cp …`）或注入类规则时仍是 deny。
+    for (const pattern of AUTO_MODE_APPROVAL_TOKENS) {
+      if (containsCommandToken(executionSurface, pattern)) {
+        return {
+          shouldBlock: false,
+          requiresApproval: true,
+          reason: `Command requires approval: "${pattern}"`,
+        };
+      }
     }
 
     // 默认允许

@@ -30,8 +30,9 @@ export {
   ALL_UNIFIED_RULES,
   // P2-2（2026-11-03）：PowerShell 删除别名单一来源
   POWERSHELL_DELETION_ALIASES,
-  // P5（2026-11-11）：auto 模式硬拦令牌表迁入危险规则域
+  // P5（2026-11-11）：auto 模式命令令牌表（硬拦 / 审批两档）迁入危险规则域
   AUTO_MODE_HARD_DENY_TOKENS,
+  AUTO_MODE_APPROVAL_TOKENS,
 } from './dangerousCommands';
 export type { UnifiedRulePlatform } from './dangerousCommands';
 export {

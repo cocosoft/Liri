@@ -280,6 +280,8 @@ export {
   ALL_UNIFIED_RULES,
   // P2-2（2026-11-03）：PowerShell 删除别名单一来源（PowerShellTool / SandboxSecurityChecker 共用）
   POWERSHELL_DELETION_ALIASES,
+  // P5（2026-11-11）：auto 模式硬拦令牌表（按命令位匹配，命即 deny）
+  AUTO_MODE_HARD_DENY_TOKENS,
 } from './patterns';
 export type { UnifiedRulePlatform } from './patterns';
 // P2-3（2026-11-03）：只读命令目录单一来源（bash / cmd / PowerShell 按 shell 引用）

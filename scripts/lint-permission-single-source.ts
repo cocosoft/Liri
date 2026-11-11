@@ -111,9 +111,9 @@ const ALLOWLIST: Record<
       'CD07：沙箱层刻意保留独立的危险命令集合（纵深防御，方案 §3 第 4 条「不合并」）',
     rules: ['dangerous-literals'],
   },
-  'packages/infra/src/permission/classifiers/dangerous-command-patterns.ts': {
+  'packages/infra/src/security/patterns/autoModeHardDenyTokens.ts': {
     reason:
-      'auto 模式分类器的启发式词表（非硬拦截库），与 security/patterns 的规则不同用途',
+      'auto 模式**硬拦**令牌表（按命令位匹配、命即 deny）：与 security/patterns 的正则规则匹配语义不同，刻意并列；普通命令逐条收敛见方案 P5',
     rules: ['dangerous-literals'],
   },
   'packages/infra/src/security/readOnlyValidation.ts': {

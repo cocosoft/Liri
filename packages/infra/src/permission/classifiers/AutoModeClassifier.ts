@@ -16,7 +16,8 @@ import {
 // 与 PermissionManager 的只读短路共用同一事实源（readonly-command-allowlist）。
 import { checkReadonlyCommand } from './readonly-command-allowlist';
 import { DANGEROUS_TOOL_KEYWORDS } from './dangerous-tool-keywords';
-import { AUTO_MODE_DANGER_TOKENS } from './dangerous-command-patterns';
+// 2026-11-11（P5）：硬拦令牌表已迁入安全规则域，经安全模块桶（index.ts）导入
+import { AUTO_MODE_HARD_DENY_TOKENS } from '@openliri/infra/security';
 import { SENSITIVE_PATH_PATTERNS } from './sensitive-path-patterns';
 import { ENV_POLLUTION_PATTERNS } from './env-pollution-patterns';
 import { ZERO_WIDTH_PATTERNS } from './zero-width-patterns';
@@ -336,7 +337,7 @@ export class AutoModeClassifier implements IAutoModeClassifier {
       }
 
       // 检查危险命令模式（按**命令位**匹配，见 `containsCommandToken`）
-      for (const pattern of AUTO_MODE_DANGER_TOKENS) {
+      for (const pattern of AUTO_MODE_HARD_DENY_TOKENS) {
         if (containsCommandToken(executionSurface, pattern)) {
           return {
             shouldBlock: true,

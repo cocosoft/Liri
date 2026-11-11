@@ -436,3 +436,12 @@ export const DANGEROUS_BASE_COMMANDS = new Set([
   'wipefs',
   'badblocks',
 ]);
+
+/**
+ * auto 模式**硬拦**令牌（2026-11-11 自 `permission/classifiers` 迁入本域）。
+ *
+ * 与上方 `DANGEROUS_COMMAND_PATTERNS` 同属危险规则域，但**匹配语义不同**：
+ * 本表按命令位匹配（`containsCommandToken`，含嵌套 shell 递归），命中即 deny；
+ * 上方是正则/字面量规则。故两者并列导出，不合并。
+ */
+export { AUTO_MODE_HARD_DENY_TOKENS } from './autoModeHardDenyTokens';

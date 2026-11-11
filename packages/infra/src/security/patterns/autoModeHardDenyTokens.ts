@@ -20,18 +20,19 @@
 // SOFTWARE.
 
 /**
- * DANGEROUS_COMMAND_PATTERNS — 危险命令模式
- * 从 AutoModeClassifier.ts 提取（FSZ-003 拆分）。
- */
-
-/**
- * 危险命令模式列表（**auto 模式分类器的启发式评分词表**，非硬拦截库）
+ * auto 模式**硬拦**令牌表（2026-11-11 从 `permission/classifiers/dangerous-command-patterns.ts`
+ * 迁入安全规则域；由 `./dangerousCommands` 统一对外导出）。
  *
- * P2-2（2026-11-03）：改名以消除与 `security/patterns/dangerousCommands.ts`
- * `DANGEROUS_COMMAND_PATTERNS` 的**同名异义**。真正的危险命令规则只有一份，
- * 位置见 `security/patterns/dangerousCommands.ts`。
+ * 匹配语义与 `DANGEROUS_COMMAND_PATTERNS` 不同：本表按**命令位**匹配
+ * （`containsCommandToken`，含嵌套 shell 递归），命中即 `shouldBlock: true`（deny），
+ * **不是**评分/打分输入。
+ *
+ * ⚠️ 已知问题（P5 剩余待办）：本表混有 `ls`/`cat`/`git` 等普通命令，与
+ * `DANGEROUS_COMMAND_PATTERNS` 职责部分重叠。逐条分类并移除普通命令需要完整权限回归
+ * （`git push` 这类写操作不能因去掉 `git ` 令牌而在 auto 档被放行），
+ * 方案见 `dev_docs/20261111/剩余问题修复方案-20261111.md` §P5。
  */
-export const AUTO_MODE_DANGER_TOKENS = [
+export const AUTO_MODE_HARD_DENY_TOKENS = [
   // P0 紧急新增：Remove-Item 别名全覆盖
   'remove-item',
   'ri ',

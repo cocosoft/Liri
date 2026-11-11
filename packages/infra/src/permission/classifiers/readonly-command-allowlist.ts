@@ -22,7 +22,7 @@
 /**
  * READONLY_COMMAND_ALLOWLIST — auto 模式的「只读命令」短路白名单（2026-11-09）
  *
- * 背景（B4 实测）：`AUTO_MODE_DANGER_TOKENS` 实际是一份**全命令词表 + 子串匹配**
+ * 背景（B4 实测）：`AUTO_MODE_HARD_DENY_TOKENS` 实际是一份**全命令词表 + 子串匹配**
  * （`ls ` / `cat ` / `git ` / `dir ` 都在其中）⇒ auto 档把正常只读命令判 `deny`；
  * `DANGEROUS_TOOL_KEYWORDS` 还把 `grep` 等只读工具名当危险词。demand（许愿式）
  * 会话缺省 auto ⇒ 只读命令与搜索工具不可用（设计稿 D3 要求自动放行）。

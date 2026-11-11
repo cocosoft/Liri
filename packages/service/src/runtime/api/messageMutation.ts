@@ -191,14 +191,41 @@ export class MessageMutation {
      */
     const singleAssistant = targetMsg.role === 'assistant';
     if (singleAssistant) {
-      const blocks = Array.isArray(targetMsg.blocks) ? targetMsg.blocks : [];
-      const declaredToolCalls = (
-        targetMsg.metadata as { tool_calls?: unknown } | undefined
-      )?.tool_calls;
-      const hasToolCalls =
-        blocks.some((b) => (b as { type?: string }).type === 'tool_call') ||
-        (Array.isArray(declaredToolCalls) && declaredToolCalls.length > 0);
-      if (hasToolCalls) {
+      // 2026-11-11（P1）：**结构性判定** —— 以派生结果为准收集该消息声明的 toolCallId，
+      // 并确认没有 `role:'tool'` 结果引用它们。只看 `targetMsg` 会漏：投影与派生两套
+      // 数据面的字段形态不同（`blocks` 可能只在一侧出现），真机曾因此删掉带工具卡片的消息。
+      const declared = collectDeclaredToolCallIds(targetMsg);
+      let derived: Array<Record<string, unknown>> | null = null;
+      try {
+        derived =
+          ((await this.deps.getDeriveSessionMessagesFromEvents()(
+            sessionId
+          )) as Array<Record<string, unknown>> | null) ?? null;
+      } catch {
+        // @ignore-catch — 下方按 fail-closed 处理（无法证明无归属就不删）
+        derived = null;
+      }
+      if (!derived) {
+        const err = new Error(
+          'Cannot verify tool ownership; refusing to delete assistant message'
+        );
+        (err as unknown as Record<string, unknown>).statusCode = 409;
+        throw err;
+      }
+      const derivedTarget = derived.find(
+        (message) => message.id === messageId
+      );
+      if (derivedTarget) {
+        for (const id of collectDeclaredToolCallIds(derivedTarget)) {
+          declared.add(id);
+        }
+      }
+      const stillReferenced = derived.some(
+        (message) =>
+          message.role === 'tool' &&
+          declared.has(toolCallIdOf(message) ?? '')
+      );
+      if (declared.size > 0 || stillReferenced) {
         const err = new Error(
           'Assistant message with tool calls cannot be deleted individually'
         );
@@ -492,4 +519,52 @@ export class MessageMutation {
       undoResults,
     };
   }
+}
+
+/**
+ * 2026-11-11（P1）：收集一条消息**声明**的工具调用 id（两套数据面兼容）。
+ *
+ * - 请求构建面：`metadata.tool_calls[]`；
+ * - 前端展示面：`blocks[]` 的 `tool_call` / `tool_use`（id 在 `toolCallId` 或 `toolCall.id`）。
+ */
+function collectDeclaredToolCallIds(message: unknown): Set<string> {
+  const ids = new Set<string>();
+  if (!message || typeof message !== 'object') return ids;
+  const record = message as Record<string, unknown>;
+  const declared = (record.metadata as { tool_calls?: unknown } | undefined)
+    ?.tool_calls;
+  if (Array.isArray(declared)) {
+    for (const call of declared) {
+      const id = (call as { id?: unknown } | null)?.id;
+      if (typeof id === 'string' && id) ids.add(id);
+    }
+  }
+  if (Array.isArray(record.blocks)) {
+    for (const block of record.blocks) {
+      const shape = block as {
+        type?: string;
+        toolCallId?: string;
+        toolCall?: { id?: string };
+      } | null;
+      if (!shape) continue;
+      if (shape.type !== 'tool_call' && shape.type !== 'tool_use') continue;
+      const id = shape.toolCallId ?? shape.toolCall?.id;
+      if (typeof id === 'string' && id) ids.add(id);
+    }
+  }
+  return ids;
+}
+
+/** 2026-11-11（P1）：取 tool 消息引用的 toolCallId（投影 / 派生两套字段）。 */
+function toolCallIdOf(message: Record<string, unknown>): string | undefined {
+  if (typeof message.toolCallId === 'string' && message.toolCallId) {
+    return message.toolCallId;
+  }
+  const metadata = message.metadata as
+    | { toolCallId?: unknown; tool_call_id?: unknown }
+    | undefined;
+  for (const value of [metadata?.toolCallId, metadata?.tool_call_id]) {
+    if (typeof value === 'string' && value) return value;
+  }
+  return undefined;
 }

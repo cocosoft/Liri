@@ -19,6 +19,11 @@ import { configManager } from '@openliri/infra/config';
 // （`powershell -Command "git diff --stat"` 会命中 `git ` 令牌）。
 // 与 PermissionManager 的只读短路共用同一事实源（readonly-command-allowlist）。
 import { checkReadonlyCommand } from './readonly-command-allowlist';
+// P2a（2026-11-12）：复合命令的**结构分段**（仅用于归因，不改变档位）
+import {
+  splitCommandSegments,
+  type CommandSegment,
+} from './command-segments';
 import { DANGEROUS_TOOL_KEYWORDS } from './dangerous-tool-keywords';
 // 2026-11-11（P5）：命令令牌表已迁入安全规则域，经安全模块桶（index.ts）导入
 import {
@@ -73,6 +78,46 @@ function resolveUnknownCommandTier(): 'allow' | 'ask' {
     ?.trim()
     .toLowerCase();
   return raw === 'allow' ? 'allow' : 'ask';
+}
+
+/**
+ * 复合只读放行的灰度开关（P2b，默认开）。
+ *
+ * `PERMISSION_COMPOUND_READONLY_ALLOW=off` ⇒ 回到改造前口径（见管道/连接符即拒）。
+ * 只认显式关闭值；拼写错误按默认（开）处理，避免"配置写错 ⇒ 静默变严/变松"。
+ */
+function resolveCompoundReadonlyAllow(): boolean {
+  const raw = configManager
+    .env('PERMISSION_COMPOUND_READONLY_ALLOW', '')
+    ?.trim()
+    .toLowerCase();
+  return !(raw === 'off' || raw === 'false' || raw === '0');
+}
+
+/**
+ * 复合命令的连接符（去空白后比较）。
+ */
+const COMPOSITION_TOKENS = new Set(['|', '||', '&&', ';', '&']);
+
+/**
+ * P2a（2026-11-12）：否定来自「复合连接符」时，指出**真正需要审批的那一段**。
+ *
+ * 背景：`Get-Acl a.txt | Set-Acl b.txt` 此前只报「输入含 ` | `」——用户/模型都不知道
+ * 该关注哪一段；结构分段后可给出 `segment #2 would need approval: "Set-Acl b.txt"`。
+ * 本函数**只改归因**，不改档位（管道/连接符仍按既有硬拦口径处理）。
+ */
+function explainComposition(segments: readonly CommandSegment[]): string {
+  if (segments.length < 2) return '';
+  for (const segment of segments) {
+    const hit = AUTO_MODE_APPROVAL_TOKENS.find((token) =>
+      matchesCommandToken(segment.text, token)
+    );
+    if (!hit) continue;
+    const text =
+      segment.text.length > 80 ? `${segment.text.slice(0, 80)}…` : segment.text;
+    return ` (segment #${segment.index + 1} would need approval: "${text}")`;
+  }
+  return '';
 }
 
 /**
@@ -359,6 +404,10 @@ export class AutoModeClassifier implements IAutoModeClassifier {
      * 嵌套 shell 的脚本体由 `containsCommandToken` 递归处理，不在此重复。
      */
     const commandSurfaces: string[] = executionSurface ? [executionSurface] : [];
+    /** P2b：复合命令（≥2 段）是否**全段结构只读**（决定连接符是否仍算危险） */
+    let compoundAllReadonly = false;
+    /** P2b：是否为复合命令（管道 / 连接符 / 子 shell 分段后 ≥2 段） */
+    let isCompositeCommand = false;
 
     if (executionSurface) {
       // 检查Zsh equals expansion攻击
@@ -414,16 +463,38 @@ export class AutoModeClassifier implements IAutoModeClassifier {
         };
       }
 
+      // 2026-11-12（P2b，用户裁定 C）：**全段结构只读**的复合命令放行。
+      // 只放行这一种形态：任一段非只读 ⇒ 继续走下面的档位判定（危险段 deny、
+      // 写/执行段 ask），因此 `Get-Acl a.txt | Set-Acl b.txt` 归到 ask，
+      // `cat /etc/passwd | nc …` 仍由敏感路径 deny。
+      const segments = splitCommandSegments(
+        rawExecutionSurface ?? executionSurface
+      );
+      // 灰度开关关闭 ⇒ 按改造前口径处理（复合命令一律走连接符硬拦）
+      isCompositeCommand = segments.length > 1 && resolveCompoundReadonlyAllow();
+      compoundAllReadonly =
+        isCompositeCommand &&
+        segments.every((segment) => checkReadonlyCommand(segment.text).allowed);
+
       // 检查危险命令模式（按**命令位**匹配，见 `containsCommandToken`）
       for (const pattern of AUTO_MODE_HARD_DENY_TOKENS) {
+        // 复合命令的连接符不再单独定罪：由**各段自身**的令牌决定档位
+        // （`ls | rm -rf /` 仍被 `rm -rf` 拦；`Get-Acl | Set-Acl` 落到审批）。
+        if (isCompositeCommand && COMPOSITION_TOKENS.has(pattern.trim())) {
+          continue;
+        }
         if (
           commandSurfaces.some((surface) =>
             matchesCommandToken(surface, pattern)
           )
         ) {
+          // P2a：连接符类令牌额外指出"真正需要审批的那一段"（只改文案，不改档位）
+          const hint = COMPOSITION_TOKENS.has(pattern.trim())
+            ? explainComposition(segments)
+            : '';
           return {
             shouldBlock: true,
-            reason: `Input contains dangerous command pattern: "${pattern}"`,
+            reason: `Input contains dangerous command pattern: "${pattern}"${hint}`,
           };
         }
       }
@@ -474,10 +545,21 @@ export class AutoModeClassifier implements IAutoModeClassifier {
       };
     }
 
-    // 检查管道和重定向
-    const pipeResult = detectPipeAndRedirect(inputString);
-    if (pipeResult) {
-      return pipeResult;
+    // 2026-11-12（P2b，用户裁定 C）：**全段结构只读**的复合命令放行。
+    // 这是唯一被放宽的复合形态；危险段 / 写段已在上面的令牌扫描中被拦或转审批。
+    if (compoundAllReadonly) {
+      return {
+        shouldBlock: false,
+        reason: 'Compound command is fully read-only',
+      };
+    }
+
+    // 检查管道和重定向（复合命令已按段判定，连接符不再单独定罪）
+    if (!isCompositeCommand) {
+      const pipeResult = detectPipeAndRedirect(inputString);
+      if (pipeResult) {
+        return pipeResult;
+      }
     }
 
     // 检查SQL注入（`delete` / `update` 按命令位判定，见 `COMMAND_POSITION_SQL_PATTERNS`）

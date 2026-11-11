@@ -88,9 +88,11 @@ describe('AutoModeClassifier：文件载荷的正文不当作命令扫描', () =
   });
 
   it('bash 的 command 仍按原规则拦截（执行面不变）', async () => {
+    // P2b（用户裁定 C）后「全段只读」的复合命令放行 ⇒ 改用含危险段的复合命令
+    // 验证"执行面仍被扫描"，而不是靠"见管道就拒"凑结论。
     const decision = await classifier.classify(
       'bash',
-      { command: 'echo a && echo b' },
+      { command: 'echo a && sudo ls' },
       []
     );
     expect(decision.shouldBlock).toBe(true);
@@ -100,7 +102,7 @@ describe('AutoModeClassifier：文件载荷的正文不当作命令扫描', () =
   it('执行面工具（bash / code）仍整体扫描', async () => {
     const bash = await classifier.classify(
       'bash',
-      { command: 'echo a && echo b' },
+      { command: 'echo a && sudo ls' },
       []
     );
     expect(bash.shouldBlock).toBe(true);

@@ -37,6 +37,9 @@
  * `git` 也由整词令牌收敛为「丢弃工作区 / 改写历史 / 触碰远端」的子命令。
  * 新增令牌前先自问：这条命令是否可能在**不经过用户批准**的情况下造成不可逆后果？
  */
+// P1（2026-11-12）：审批档令牌由命令语义注册表派生（单一来源）
+import { approvalTokensFromSpecs } from './commandSpecs';
+
 export const AUTO_MODE_HARD_DENY_TOKENS = [
   // P0 紧急新增：Remove-Item 别名全覆盖
   'remove-item',
@@ -748,132 +751,19 @@ export const AUTO_MODE_HARD_DENY_TOKENS = [
 ];
 
 /**
- * auto 模式**审批**令牌表（2026-11-11，用户裁定「回补 mv / cp 的审批逻辑」）。
+ * auto 模式**审批**令牌表 —— 由命令语义注册表派生（P1，2026-11-12）。
  *
- * 命中**不拒绝**，而是把决策转成 `ask`（人工确认后才执行）：
- *  - `cp` / `mv` 可能覆盖目标或把文件搬出工作区，属"常见但可能不可逆"；
- *  - 一刀切硬拒会打断正常开发（批量整理、备份、重命名），直接放行又绕过了
- *    用户对文件去向的确认 ⇒ 用审批档。
+ * 口径（保留历史语义）：命中**不拒绝**，转人工审批（`ask`）：
+ *  - 文件搬运 / 写盘 / 权限位 / 归档 / 进程终止 / 依赖安装 / 容器与集群写子命令；
+ *  - 危险子形态（`rm -rf`、`chmod 777`、`sudo cp …`）仍由硬拦表先判 ⇒ 仍是 deny。
  *
- * 2026-11-11（等价性补齐）：PowerShell 的 `Copy-Item` / `Move-Item` 及其别名
- * （`cpi` / `mi`，以及 cmd 的 `copy` / `move`）与 `cp` / `mv` 是同一操作，
- * 否则换个写法就能绕过审批。
- *
- * 2026-11-11（扩容）：`rm` / `ln` / `find` / `chmod` 同样属"常见但可能不可逆"，
- * 由 deny 降为审批；但**明确危险形态仍是硬拦**（`rm -rf`、`rmdir`、`chmod 777`、
- * `chown`/`chattr`/`setfacl` …），因为硬拦表先扫。
- *
- * 2026-11-11（等价性补齐 ②）：Windows / git 侧的同一操作也必须走审批，否则换个
- * 命令名即可绕过 —— `xcopy` / `robocopy`（复制）、`ren`（移动）、`mklink`（链接）、
- * `icacls` / `attrib` / `Set-Acl`（权限位）、`git rm` / `git mv`（仓库内删除 / 移动）。
- *
- * 2026-11-11（写盘口径）：`Set-Content` / `Add-Content` / `Clear-Content` / `Out-File` /
- * `tee` 走审批 —— shell 写绕过工作区边界守卫，而重定向 `> ` / `>> ` 本来就硬拦。
- *
- * 注意：若同一条命令同时命中硬拦表（如 `sudo cp …`），**硬拦优先** —— 分类器先扫
- * `AUTO_MODE_HARD_DENY_TOKENS`，再扫本表。
+ * **新增写法只改 `commandSpecs.ts`**：`token` 自动进入本表，`equivalents` 自动进入
+ * `expandTokenAliases()` 的等价展开。此处只保留**参数形态**令牌（不属于任何命令家族）。
  */
 export const AUTO_MODE_APPROVAL_TOKENS = [
-  // 文件搬运（POSIX / cmd / PowerShell）
-  'cp ',
-  'mv ',
-  'copy ',
-  'move ',
-  'copy-item',
-  'move-item',
-  'cpi ',
-  'mi ',
-  'xcopy ',
-  'robocopy ',
-  'ren ',
-  // 文件删除 / 链接 / 条件操作 / 权限位（危险子形态仍在硬拦表）
-  'rm ',
-  'ln ',
-  'find ',
-  'chmod ',
-  'mklink ',
-  'icacls ',
-  'attrib ',
-  'set-acl',
-  // 仓库内文件操作（等价于本地 rm / mv）
-  'git rm',
-  'git mv',
-  // 2026-11-11（git 写操作口径）：**会改工作区 / 历史**的常规操作转审批；
-  // 破坏性更强的形态仍在硬拦表（`reset --hard` / `clean` / `checkout --` / `restore` /
-  // `push` / `rebase` / `branch -D` / `tag -d` / `stash drop|clear` / `core.hooksPath`）。
-  'git checkout',
-  'git switch',
-  'git reset ',
-  'git merge ',
-  'git cherry-pick',
-  'git revert ',
-  'git commit',
-  'git stash pop',
-  'git stash apply',
-  'git apply ',
-  'git am ',
-  'git tag ',
-  'git worktree add',
-  // 写盘型 cmdlet / 管道写文件（2026-11-11 口径）：shell 写**绕过工作区边界守卫**
-  // （`Write` 工具越界会确认，shell 不会），且重定向 `> ` / `>> ` 本就是硬拦
-  // ⇒ 统一转审批，避免"换个写法就静默写盘"。
-  'set-content',
-  'add-content',
-  'clear-content', // 清空文件内容（不可逆）
-  'out-file',
-  'tee ',
-  // 2026-11-11（Windows 链接等价）：`New-Item -ItemType SymbolicLink` = `mklink`（ask）
-  '-itemtype symboliclink',
-  // 属性 / 注册表值写入（与 Set-Content 同类，属写盘）
-  'set-itemproperty',
-  // 2026-11-11（P2 等价性补齐）：与上面同档但此前漏收的写法 —— 归档解压/压缩、
-  // `Tee-Object`、属性写入 cmdlet、进程终止、强写覆盖（`-Force`）、依赖安装与
-  // 远程写操作（`docker` / `kubectl` / `gh`）。`Rename-Item` / `rni` / `Set-Item` / `si`
-  // 等由 `commandAliases.ts` 的等价组展开，不在此重复枚举。
-  'expand-archive',
-  'compress-archive',
-  'export-csv',
-  'tee-object',
-  'new-itemproperty',
-  'remove-itemproperty',
-  'clear-itemproperty',
-  'stop-process',
-  'spps',
-  // 2026-11-12（P0）：下载落盘（此前只有 `http://` 触发 SSRF，无 URL 时静默放行）
-  // 与远端共享映射（可读写工作区外路径）
-  '-outfile',
-  'new-psdrive',
+  ...approvalTokensFromSpecs(),
+  // 参数形态令牌（无法用 CommandSpec 表达）
+  '-itemtype symboliclink', // `New-Item -ItemType SymbolicLink` = `mklink`（ask）
+  '-outfile', // 下载落盘（`iwr -OutFile`；此前只有 `http://` 触发 SSRF）
   ' -force', // `New-Item -Force` / `Set-Content -Force` 等覆盖既有文件的强写形态
-  'git config ', // 配置写入（`core.pager` / `core.sshCommand` / `alias.x=!…` 均为持久化执行入口）
-  'bun add ',
-  'bun install',
-  'yarn add ',
-  'pnpm add ',
-  'npm ci',
-  'npm add ',
-  // 容器 / 集群 / 代码托管：只收**会改远端或宿主**的子命令，只读查询
-  // （`docker ps|images|logs`、`kubectl get|describe|logs`）保持放行。
-  'docker run',
-  'docker exec',
-  'docker cp',
-  'docker rm',
-  'docker rmi',
-  'docker push',
-  'docker system prune',
-  'kubectl apply',
-  'kubectl create',
-  'kubectl delete',
-  'kubectl patch',
-  'kubectl replace',
-  'kubectl scale',
-  'kubectl edit',
-  'kubectl drain',
-  'kubectl cordon',
-  'kubectl rollout',
-  'kubectl exec',
-  'gh pr merge',
-  'gh release delete',
-  'gh repo delete',
-  // 注：PowerShell 写盘短别名（`ac` / `sc` / `clc` 等）**不在此枚举** ——
-  // 由 `security/patterns/commandAliases.ts` 的等价组统一展开，新增写法只改那张表。
 ];

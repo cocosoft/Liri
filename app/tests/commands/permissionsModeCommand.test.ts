@@ -28,6 +28,8 @@ import {
 } from '@openliri/infra/permission';
 import * as coreAPIModule from '../../src/runtime/api/CoreAPIImpl';
 import * as fineGrainedModule from '../../src/commands/builtin/permissions/liveFineGrainedManager';
+// P3-11：工具存在性校验的桩点（注册表在单测里未加载）
+import * as toolsModule from '@modules/tools';
 
 interface FakeRuleManager {
   addRule: (rule: PermissionRule) => void;
@@ -506,8 +508,22 @@ const fineGrainedSpy = spyOn(
   'liveFineGrainedManager'
 ).mockImplementation(() => makeFineGrainedManager() as never);
 
+/** P3-11：只认 `bash` 的工具注册表桩（未加载 ⇒ 命令层会跳过校验） */
+const toolRegistrySpy = spyOn(
+  toolsModule,
+  'getToolRegistry'
+).mockImplementation(
+  () =>
+    ({
+      getToolNames: () => ['bash'],
+      hasTool: (name: string) => name === 'bash',
+      getToolByAlias: () => undefined,
+    }) as never
+);
+
 afterAll(() => {
   fineGrainedSpy.mockRestore();
+  toolRegistrySpy.mockRestore();
 });
 
 beforeEach(() => {
@@ -743,10 +759,33 @@ describe('/permissions user 写入与绑定', () => {
     expect(rbacState.rules).toEqual([]);
   });
 
-  test('bind：未知用户被拒', async () => {
+  test('bind：未知用户 ⇒ 自动登记并按 userId 绑定（P2-8）', async () => {
     const result = await permissionsCommand.execute('user bind bob bash', {});
+    expect(result.success).toBe(true);
+    expect(result.message).toContain('自动登记');
+    expect(rbacState.users[0]).toMatchObject({ id: 'bob', name: 'bob' });
+    expect(rbacState.rules[0]).toMatchObject({ userId: 'bob' });
+  });
+
+  test('bind：工具名不存在被拒（P3-11）', async () => {
+    rbacState.users = [
+      {
+        id: 'alice',
+        name: 'alice',
+        roles: [RoleType.GUEST],
+        permissions: [],
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ];
+
+    const result = await permissionsCommand.execute(
+      'user bind alice not_a_tool',
+      {}
+    );
     expect(result.success).toBe(false);
-    expect(result.message).toContain('未找到用户: bob');
+    expect(result.message).toContain('未找到工具: not_a_tool');
+    expect(rbacState.rules).toEqual([]);
   });
 
   test('bind allow / ask：行为写入规则，默认仍是 deny', async () => {
@@ -925,6 +964,35 @@ describe('/permissions 删除能力（角色 / 用户 / 资源）', () => {
     createdAt: 1,
     updatedAt: 1,
     ...overrides,
+  });
+
+  test('role remove：admin / system 内置角色受保护（P2-7）', async () => {
+    rbacState.roles = [
+      {
+        id: 'admin',
+        name: RoleType.ADMIN,
+        permissions: [],
+        createdAt: 1,
+        updatedAt: 1,
+      },
+      {
+        id: 'system',
+        name: RoleType.SYSTEM,
+        permissions: [],
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ];
+
+    for (const name of ['admin', 'system']) {
+      const result = await permissionsCommand.execute(
+        `role remove ${name}`,
+        {}
+      );
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('不能删除');
+    }
+    expect(rbacState.roles).toHaveLength(2);
   });
 
   test('role remove：连带绑定规则，并从用户角色里摘除', async () => {

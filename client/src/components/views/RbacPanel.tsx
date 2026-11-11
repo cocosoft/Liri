@@ -26,6 +26,8 @@ const UI_ROLE_NAMES = ["admin", "user", "guest", "system"] as const;
 const UI_RESOURCE_TYPES = ["tool"] as const;
 const UI_BIND_ACTIONS = ["deny", "allow", "ask"] as const;
 const UI_BIND_OPERATIONS = ["execute", "all"] as const;
+/** P2-7：内置关键角色不可删（与 CLI 的 PROTECTED_ROLE_NAMES 同口径） */
+const UI_PROTECTED_ROLES = ["admin", "system"] as const;
 const SUBJECT_TYPES = ["role", "user", "resource"] as const;
 
 type RoleName = (typeof UI_ROLE_NAMES)[number];
@@ -104,6 +106,12 @@ function RbacPanel({ isDark }: RbacPanelProps) {
     } finally {
       setBusy(false);
     }
+  };
+
+  /** P3-12：破坏性操作二次确认（role/user/resource 删除均走这里） */
+  const confirmAndRun = (command: string, name: string) => {
+    if (!window.confirm(t("permission.rbacConfirmDelete", { name }))) return;
+    void run(command);
   };
 
   const inputCls = `px-2 py-1.5 text-xs rounded border ${
@@ -285,12 +293,22 @@ function RbacPanel({ isDark }: RbacPanelProps) {
                   {role.description ? `（${role.description}）` : ""} ·{" "}
                   {t("permission.rbacRuleCount", { count: role.ruleCount })}
                 </span>
-                <button
-                  onClick={() => run(`role remove ${role.name}`)}
-                  className="text-xs text-red-500 hover:text-red-400"
-                >
-                  {t("common.delete")}
-                </button>
+                {UI_PROTECTED_ROLES.includes(
+                  role.name as (typeof UI_PROTECTED_ROLES)[number],
+                ) ? (
+                  <span className="text-xs text-gray-500">
+                    {t("permission.rbacRoleProtected")}
+                  </span>
+                ) : (
+                  <button
+                    onClick={() =>
+                      confirmAndRun(`role remove ${role.name}`, role.name)
+                    }
+                    className="text-xs text-red-500 hover:text-red-400"
+                  >
+                    {t("common.delete")}
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -358,7 +376,9 @@ function RbacPanel({ isDark }: RbacPanelProps) {
                     ))}
                   </select>
                   <button
-                    onClick={() => run(`user remove ${user.name}`)}
+                    onClick={() =>
+                      confirmAndRun(`user remove ${user.name}`, user.name)
+                    }
                     className="text-xs text-red-500 hover:text-red-400"
                   >
                     {t("common.delete")}
@@ -419,11 +439,13 @@ function RbacPanel({ isDark }: RbacPanelProps) {
                   {t("permission.rbacRuleCount", { count: resource.ruleCount })}
                 </span>
                 <button
-                  onClick={() =>
-                    run(
-                      `resource remove ${resource.type} ${resource.path ?? resource.name}`,
-                    )
-                  }
+                  onClick={() => {
+                    const target = resource.path ?? resource.name;
+                    confirmAndRun(
+                      `resource remove ${resource.type} ${target}`,
+                      target,
+                    );
+                  }}
                   className="text-xs text-red-500 hover:text-red-400"
                 >
                   {t("common.delete")}
@@ -504,6 +526,16 @@ function RbacPanel({ isDark }: RbacPanelProps) {
           className={`text-xs mb-2 ${isDark ? "text-gray-500" : "text-gray-500"}`}
         >
           {t("permission.rbacBindHint")}
+        </p>
+        <p
+          className={`text-xs mb-2 ${isDark ? "text-gray-500" : "text-gray-500"}`}
+        >
+          {t("permission.rbacAllowStrength")}
+        </p>
+        <p
+          className={`text-xs mb-2 ${isDark ? "text-gray-500" : "text-gray-500"}`}
+        >
+          {t("permission.rbacModeNotice")}
         </p>
         {snapshot && snapshot.bindings.length > 0 ? (
           <div className="space-y-2">

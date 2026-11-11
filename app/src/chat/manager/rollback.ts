@@ -34,7 +34,10 @@ import {
   getRequestPrincipal,
 } from '@openliri/kernel/identity/requestScope';
 // 2026-11-11：判定身份位（本地身份 ⇒ admin，供 RBAC 角色绑定命中）
-import { getEffectivePermissionRole } from '@openliri/infra/permission';
+import {
+  getEffectivePermissionRole,
+  getEffectivePermissionRoles,
+} from '@openliri/infra/permission';
 import {
   RollbackIntegration,
   FileOperationTracker,
@@ -200,7 +203,11 @@ export class ChatRollback {
           checkPermissionForTool: (
             name: string,
             args: Record<string, unknown>,
-            context?: { userRole?: string; userId?: string }
+            context?: {
+              userRole?: string;
+              userRoles?: string[];
+              userId?: string;
+            }
           ) => Promise<{ allowed: boolean; reason?: string }>;
         };
         integration.setPermissionChecker(async (action, roundId) => {
@@ -211,6 +218,8 @@ export class ChatRollback {
               // 2026-11-11：身份位与聊天主链同源（本地=admin；用户级 RBAC 依赖 userId）
               userId: getRequestPrincipal().userId,
               userRole: getEffectivePermissionRole() ?? undefined,
+              // P2-6（2026-11-11）：RBAC 按角色并集判定
+              userRoles: getEffectivePermissionRoles(),
             }
           );
           return { allowed: result.allowed, reason: result.reason };

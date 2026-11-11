@@ -86,6 +86,7 @@ import type { SessionMessagesRead } from '@openliri/service/runtime/api/sessionM
 import {
   authorizeToolCall,
   getEffectivePermissionRole,
+  getEffectivePermissionRoles,
   type ToolPermissionPort,
 } from '@openliri/infra/permission';
 // B2（2026-10-30）：按轮摘要（供轮次导航补齐未加载轮次）
@@ -407,6 +408,8 @@ export class SessionAgentOps {
             // 2026-11-11：身份位与聊天主链同源（本地=admin；用户级 RBAC 依赖 userId）
             userId: getRequestPrincipal().userId,
             userRole: getEffectivePermissionRole() ?? undefined,
+            // P2-6（2026-11-11）：RBAC 按角色并集判定（多角色用户全部绑定生效）
+            userRoles: getEffectivePermissionRoles(),
           },
         }
       );

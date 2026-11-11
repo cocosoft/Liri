@@ -19,6 +19,7 @@ import { getLogger } from '@openliri/infra/monitoring';
 import {
   authorizeToolCall,
   getEffectivePermissionRole,
+  getEffectivePermissionRoles,
   PermissionManager,
   PERMISSION_MODES,
   type AuthorizeOutcome,
@@ -117,6 +118,8 @@ export async function authorizeLroToolCall(input: {
       : [];
     const workspaceRoots = taskWorkspace ? [taskWorkspace] : sessionRoots;
     const effectiveRole = getEffectivePermissionRole();
+    // P2-6（2026-11-11）：RBAC 按角色并集判定（多角色用户全部绑定生效）
+    const effectiveRoles = getEffectivePermissionRoles();
     const outcome = await authorizeToolCall(PermissionManager.getInstance(), {
       toolName: input.toolName,
       args: input.args,
@@ -125,6 +128,7 @@ export async function authorizeLroToolCall(input: {
         taskId: input.taskId,
         userId: getRequestPrincipal().userId,
         ...(effectiveRole ? { userRole: effectiveRole } : {}),
+        ...(effectiveRoles.length > 0 ? { userRoles: effectiveRoles } : {}),
         ...(permissionMode ? { permissionMode } : {}),
         ...(sessionPolicy?.approvalMode === 'auto-local'
           ? { approvalMode: 'auto-local' as const }

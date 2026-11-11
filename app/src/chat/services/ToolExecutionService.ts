@@ -92,6 +92,7 @@ import {
   assertPermissionManagerInjected,
   authorizeToolCall,
   getEffectivePermissionRole,
+  getEffectivePermissionRoles,
   resolveApprovalFingerprint,
   type ToolPermissionPort,
 } from '@openliri/infra/permission';
@@ -1040,6 +1041,8 @@ export class ToolExecutionService {
       // 多租户 P0 阶段 2：把**身份位**带进权限判定 —— 已认证请求各带各的角色；
       // 本地身份按 admin（桌面即 owner，2026-11-11 裁定）参与 RBAC 角色绑定。
       const requestRole = getEffectivePermissionRole();
+      // P2-6（2026-11-11）：RBAC 按**角色并集**判定 —— 多角色用户的第二角色起的绑定也要生效
+      const requestRoles = getEffectivePermissionRoles();
       // 2026-11-11：userId 一并传入 —— 细粒度 RBAC 的“用户级绑定”按 userId 命中；
       // 此前只传 userRole，用户级规则永远不会生效（本地身份 userId = local）。
       const requestUserId = getRequestPrincipal().userId;
@@ -1056,6 +1059,7 @@ export class ToolExecutionService {
           sessionId: toolCall.sessionId,
           userId: requestUserId,
           ...(requestRole ? { userRole: requestRole } : {}),
+          ...(requestRoles.length > 0 ? { userRoles: requestRoles } : {}),
           ...(permissionTool ? { tool: permissionTool } : {}),
           // PR-3：会话级审批模式 + 工作区边界（自动执行只放行工作区内的本地写）
           approvalMode:

@@ -27,6 +27,8 @@ import {
 } from '@openliri/infra/permission';
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { handleError } from '@openliri/infra/error';
+// P3-11（2026-11-11）：绑定前校验工具存在（与工具面同一注册表，不另建名单）
+import { getToolRegistry } from '@modules/tools';
 import { liveFineGrainedManager } from './liveFineGrainedManager.js';
 
 const ROLE_NAMES = Object.values(RoleType);
@@ -42,6 +44,16 @@ const RESOURCE_TYPES = Object.values(ResourceType);
  * `list` / `remove` / `unbind` 仍接受全部类型，用于清理历史数据。
  */
 const BINDABLE_RESOURCE_TYPES = [ResourceType.TOOL] as const;
+/**
+ * 受保护的**内置角色**（P2-7，2026-11-11）：删除会让关键映射/约定失效。
+ * - `admin`：本地身份的判定角色（`getEffectivePermissionRole` 映射目标）；
+ * - `system`：保留角色（内部/后台语义）。
+ * 其余内置角色（user / guest）可删，必要时用 `role add` 重建。
+ */
+const PROTECTED_ROLE_NAMES: readonly RoleType[] = [
+  RoleType.ADMIN,
+  RoleType.SYSTEM,
+];
 /** 工具判定只认这两个操作档（见 `checkFineGrainedRules`） */
 const BIND_OPERATIONS = [OperationType.EXECUTE, OperationType.ALL] as const;
 /** 可绑定的行为档（判定链按 deny > ask > allow 消费） */
@@ -81,6 +93,25 @@ function parseBindOperation(raw?: string): OperationType | undefined {
 function parseBindAction(raw?: string): PermissionAction | undefined {
   if (!raw) return PermissionAction.DENY;
   return BIND_ACTIONS.find((action) => action === raw);
+}
+
+/**
+ * P3-11（2026-11-11）：工具名存在性校验（绑定/添加资源前）。
+ *
+ * 返回 `undefined` ⇒ 通过（含**无法判断**的情形）；返回字符串 ⇒ 拒绝原因。
+ * 无法判断 = 工具注册表尚未加载（启动早期 / 单测）—— 此时不做假拒绝。
+ * 别名校验同源（`getToolByAlias`），避免把 `shell` 一类别名误判成不存在。
+ */
+function unresolvableToolName(toolName: string): string | undefined {
+  const registry = getToolRegistry();
+  if (registry.getToolNames().length === 0) return undefined;
+  if (registry.hasTool(toolName) || registry.getToolByAlias(toolName)) {
+    return undefined;
+  }
+  return (
+    `未找到工具: ${toolName}\n` +
+    '用 /tools list 查看（MCP / 插件工具需先加载后再绑定）'
+  );
 }
 
 /** 绑定规则（resourceId 固定为**工具名 / 资源路径**，与判定口径一致） */
@@ -211,6 +242,8 @@ async function bindRole(params: string[]): Promise<CommandResult> {
       `无效的操作: ${operationRaw}\n可用操作: ${BIND_OPERATIONS.join(', ')}`
     );
   }
+  const unresolved = unresolvableToolName(toolName);
+  if (unresolved) return usage(unresolved);
 
   try {
     const manager = liveFineGrainedManager();
@@ -298,6 +331,14 @@ async function removeRole(params: string[]): Promise<CommandResult> {
     const role = await storage.getRoleByName(roleName as RoleType);
     if (!role) return usage(`未找到角色: ${roleName}`);
 
+    // P2-7（2026-11-11）：内置关键角色不可删（删除会让本地身份的 admin 映射静默失效）
+    if (PROTECTED_ROLE_NAMES.includes(role.name)) {
+      return usage(
+        `内置角色 ${roleName} 不能删除（本地身份的判定角色映射到 admin）\n` +
+          `只需清理绑定时用 /permissions role unbind ${roleName} <工具名>`
+      );
+    }
+
     const rules = await storage.getRulesByRole(role.id);
     for (const rule of rules) await manager.deleteRule(rule.id);
 
@@ -359,6 +400,9 @@ export async function handleUserCommand(
 }
 
 const USER_NAME_PATTERN = /^[A-Za-z0-9_.-]{1,64}$/;
+/** P2-8：`user bind` 自动登记用户时的提示尾注（口径唯一） */
+const AUTO_REGISTERED_NOTE =
+  '\n（该用户此前未登记，已自动登记；名称须与登录身份 userId 一致）';
 
 async function listUsers(): Promise<CommandResult> {
   try {
@@ -470,15 +514,33 @@ async function bindUser(params: string[]): Promise<CommandResult> {
       `无效的操作: ${operationRaw}\n可用操作: ${BIND_OPERATIONS.join(', ')}`
     );
   }
+  // P2-8（2026-11-11）：用户名即登录身份 id（`Principal.userId`），先校验形状
+  if (!USER_NAME_PATTERN.test(name)) {
+    return usage(
+      '用户名只允许字母、数字、下划线、点和连字符（1-64 位）\n' +
+        '该名称必须与登录身份 userId 一致，绑定才会命中'
+    );
+  }
+  const unresolved = unresolvableToolName(toolName);
+  if (unresolved) return usage(unresolved);
 
   try {
     const manager = liveFineGrainedManager();
     const storage = manager.getStorage();
-    const user = await storage.getUserByName(name);
+    let user = await storage.getUserByName(name);
+    // P2-8（2026-11-11）：不再要求先手工 `user add` —— 直接按登录 userId 登记，
+    // 避免「绑定时报未找到用户、但其实只是没登记」的假摩擦。
+    const autoRegistered = !user;
     if (!user) {
-      return usage(
-        `未找到用户: ${name}\n先用 /permissions user list 查看，或 /permissions user add 添加`
-      );
+      user = {
+        id: name,
+        name,
+        roles: [RoleType.GUEST],
+        permissions: [],
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      await storage.saveUser(user);
     }
 
     const rules = await storage.getRulesByUser(user.id);
@@ -491,7 +553,9 @@ async function bindUser(params: string[]): Promise<CommandResult> {
     if (existing) {
       return {
         success: true,
-        message: `用户 ${name} 已绑定 ${action} ${toolName}(${operation})（规则 ${existing.id}）`,
+        message:
+          `用户 ${name} 已绑定 ${action} ${toolName}(${operation})（规则 ${existing.id}）` +
+          (autoRegistered ? AUTO_REGISTERED_NOTE : ''),
       };
     }
 
@@ -504,7 +568,9 @@ async function bindUser(params: string[]): Promise<CommandResult> {
     await manager.addRule(rule);
     return {
       success: true,
-      message: `已为用户 ${name} 绑定 ${action} ${toolName}(${operation})，规则 ${rule.id}；工具判定立即生效`,
+      message:
+        `已为用户 ${name} 绑定 ${action} ${toolName}(${operation})，规则 ${rule.id}；工具判定立即生效` +
+        (autoRegistered ? AUTO_REGISTERED_NOTE : ''),
     };
   } catch (error) {
     return failure(error, 'bindUser', '绑定失败');
@@ -662,6 +728,9 @@ async function addResource(params: string[]): Promise<CommandResult> {
   if (!BINDABLE_RESOURCE_TYPES.includes(type as ResourceType.TOOL)) {
     return usage(resourceTypeNotBindable(type));
   }
+  // P3-11：工具类资源的「路径」就是工具名 ⇒ 添加时先校验存在
+  const unresolved = unresolvableToolName(path);
+  if (unresolved) return usage(unresolved);
 
   try {
     const manager = liveFineGrainedManager();
@@ -707,6 +776,9 @@ async function bindResource(params: string[]): Promise<CommandResult> {
   if (!BINDABLE_RESOURCE_TYPES.includes(type as ResourceType.TOOL)) {
     return usage(resourceTypeNotBindable(type));
   }
+  // P3-11：工具类资源的「路径」就是工具名 ⇒ 绑定前先校验存在
+  const unresolved = unresolvableToolName(path);
+  if (unresolved) return usage(unresolved);
   const action = parseBindAction(actionRaw);
   if (!action) {
     return usage(

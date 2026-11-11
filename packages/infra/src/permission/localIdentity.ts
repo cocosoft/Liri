@@ -35,3 +35,22 @@ export function getEffectivePermissionRole(): string | null {
   if (isLocalPrincipal(principal)) return LOCAL_PERMISSION_ROLE;
   return principal.roles[0]?.trim() || null;
 }
+
+/**
+ * 权限判定用**角色集合**（P2-6，2026-11-11）。
+ *
+ * - 本地身份 ⇒ `['admin']`（与单值口径一致）；
+ * - 已认证 ⇒ `principal.roles` 全量（去空白 / 去重 / 保序，空数组则返回空）。
+ *
+ * 细粒度 RBAC 用这份集合做**并集**判定：否则多角色用户的第二个及之后角色的绑定
+ * 永远不生效。`getEffectivePermissionRole()` 仍保留给只接受主角色的消费方。
+ */
+export function getEffectivePermissionRoles(): string[] {
+  const principal = getRequestPrincipal();
+  if (isLocalPrincipal(principal)) return [LOCAL_PERMISSION_ROLE];
+  return Array.from(
+    new Set(
+      principal.roles.map((role) => role.trim()).filter((role) => role.length > 0)
+    )
+  );
+}

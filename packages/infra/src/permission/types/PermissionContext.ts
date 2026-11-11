@@ -26,6 +26,15 @@ export interface PermissionContext {
   userRole?: string;
 
   /**
+   * 用户**全部**角色（可选；P2-6，2026-11-11）。
+   *
+   * 为什么与 `userRole` 并存：`userRole` 是**主角色**（风险策略等单值消费方沿用），
+   * 而细粒度 RBAC 应按**角色并集**判定 —— 否则已认证用户的第二个及之后角色的绑定
+   * 永远不生效。缺省 ⇒ 回落到 `userRole` 单值。
+   */
+  userRoles?: string[];
+
+  /**
    * 客户端IP（可选）
    */
   clientIp?: string;
@@ -103,6 +112,8 @@ export function createPermissionContext(params: {
   userId?: string;
   /** 请求级角色（多租户 P0 阶段 2）：缺省 ⇒ `PermissionManager` 回退进程级角色 */
   userRole?: string;
+  /** P2-6（2026-11-11）：请求级**全部**角色（RBAC 按并集判定；缺省回落 `userRole`） */
+  userRoles?: string[];
   metadata?: Record<string, unknown>;
   /** PR-3：会话级审批模式（缺省 `ask`） */
   approvalMode?: 'ask' | 'auto-local';
@@ -122,6 +133,7 @@ export function createPermissionContext(params: {
     userId: params.userId,
     toolName: params.toolName,
     userRole: params.userRole,
+    userRoles: params.userRoles,
     input: params.input,
     metadata: params.metadata,
     approvalMode: params.approvalMode,

@@ -25,6 +25,7 @@ import { getLogger } from '@openliri/infra/monitoring';
 import { getToolRegistry } from '../ToolRegistry';
 import {
   getEffectivePermissionRole,
+  getEffectivePermissionRoles,
   PermissionManager,
 } from '@openliri/infra/permission';
 // 多租户 P0（2026-11-03 收敛）：请求级角色必须**显式传入**，不再由进程级角色兜底
@@ -500,6 +501,8 @@ async function executeWhitelistedTool(
       // 2026-11-11：身份位与聊天主链同源（本地=admin；用户级 RBAC 依赖 userId）
       userId: getRequestPrincipal().userId,
       userRole: getEffectivePermissionRole() ?? undefined,
+      // P2-6（2026-11-11）：RBAC 按角色并集判定
+      userRoles: getEffectivePermissionRoles(),
     });
     // ask 决策（submittedToInbox 或 isInboxApprovalEnabled 关闭未提交）一律视为拒绝
     if (!permission.allowed) {

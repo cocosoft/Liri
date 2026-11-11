@@ -98,7 +98,7 @@ const rule = (overrides: Partial<PermissionRule> = {}): PermissionRule => ({
 
 /** 走真实判定链（不 mock checkPermission），A 体系规则清空；工具固定 bash */
 function decide(
-  identity: Pick<PermissionContext, 'userId' | 'userRole'>,
+  identity: Pick<PermissionContext, 'userId' | 'userRole' | 'userRoles'>,
   mode: PermissionMode = PermissionMode.DEFAULT
 ) {
   const pm = createPermissionManager();
@@ -217,6 +217,28 @@ describe('RBAC 判定链：三路来源与隔离', () => {
 
     expect(decision.type).toBe('deny');
     expect(decision.reason).toContain('Denied by fine-grained rule');
+  });
+
+  test('多角色（P2-6）：非主角色的绑定同样生效（并集判定）', async () => {
+    state.roles = [role('admin'), role('guest')];
+    // 绑定落在**第二个**角色上：旧实现只看 roles[0] ⇒ 永远不命中
+    state.rules = [rule({ roleId: 'guest', action: PermissionAction.DENY })];
+
+    const decision = await decide({
+      userRole: 'admin',
+      userRoles: ['admin', 'guest'],
+    });
+
+    expect(decision.type).toBe('deny');
+  });
+
+  test('多角色：无 userRoles 时回落 userRole 单值（旧调用方行为不变）', async () => {
+    state.roles = [role('admin'), role('guest')];
+    state.rules = [rule({ roleId: 'guest', action: PermissionAction.DENY })];
+
+    const decision = await decide({ userRole: 'admin' });
+
+    expect(decision.type).toBe('allow');
   });
 
   test('规则只认 execute / all（operation 不匹配则不生效）', async () => {

@@ -13,7 +13,7 @@ const enRbacPermission = {
   rbacRoleDescPlaceholder: "Role description (optional)",
   rbacAddRole: "Add role",
   rbacUsers: "Users",
-  rbacUserPlaceholder: "User name",
+  rbacUserPlaceholder: "Login user name (e.g. alice)",
   rbacAddUser: "Add user",
   rbacResources: "Resources",
   rbacResourcePathPlaceholder: "Path / tool name",
@@ -25,7 +25,13 @@ const enRbacPermission = {
   rbacSubject_role: "Role",
   rbacSubject_user: "User",
   rbacSubject_resource: "Resource",
-  rbacSubjectPlaceholder: "Subject (role/user name or resource path)",
+  rbacSubjectPlaceholder: "Subject (role / login user name or tool name)",
+  rbacAllowStrength:
+    "allow only skips per-call approval; it never overrides a deny / ask from any subject.",
+  rbacModeNotice:
+    "The plan and bypass modes do not consume RBAC bindings (plan asks for everything, bypass allows everything).",
+  rbacConfirmDelete: "Delete \"{{name}}\"? Its bindings will be removed too.",
+  rbacRoleProtected: "Built-in role (cannot delete)",
   rbacToolPlaceholder: "Tool name (e.g. bash)",
   rbacRuleCount: "{{count}} bindings",
   rbacUnbind: "Unbind",

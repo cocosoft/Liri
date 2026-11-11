@@ -41,8 +41,7 @@ import {
   permissionRuleValueFromString,
 } from './types/PermissionRule';
 import { logSecurityAuditEvent, truncateCommand } from '@openliri/infra/security';
-// 多租户 P0 阶段 1：请求级角色优先、缺失回退进程级（纯函数，零依赖）
-import { resolveEffectiveRole } from '@openliri/kernel/identity/principal.js';
+// 多租户 P0 阶段 1：请求级角色由调用方显式传入（P2-6 起 RBAC 按角色并集判定）
 // 语义护栏「便宜版」（2026-10-21）：规则化意图-动作偏离检查（纯函数）
 import { feature } from '@openliri/kernel';
 import { detectIntentActionDeviation } from '@openliri/infra/utils/toolContract/intentActionDeviation';
@@ -101,6 +100,26 @@ const logger = getLogger('permission:manager');
  */
 const defaultAllowWarnedTools = new Set<string>();
 let bypassObservabilityLogged = false;
+
+/**
+ * P2-6（2026-11-11）：细粒度 RBAC 的角色集合（**并集**）。
+ *
+ * - 有 `userRoles` ⇒ 用它（去空白 / 去重 / 保序）；
+ * - 否则回落到 `userRole` 单值（旧调用方 / CLI 行为不变）；
+ * - 都没有 ⇒ 空数组 ⇒ 角色绑定不参与判定（不臆造角色）。
+ *
+ * 为什么不在 `getEffectivePermissionRole` 里做：`userRole` 仍是**主角色**，
+ * 风险策略等单值消费方依赖它；只有 RBAC 需要并集。
+ */
+function resolveFineGrainedRoles(
+  userRoles: string[] | undefined,
+  userRole: string | undefined
+): string[] {
+  const raw = userRoles?.length ? userRoles : userRole ? [userRole] : [];
+  return Array.from(
+    new Set(raw.map((role) => role.trim()).filter((role) => role.length > 0))
+  );
+}
 
 /**
  * P3（2026-11-07，方案 §2.3-4）：会话权限档**自动放行**的「每会话每来源一次」提示。
@@ -713,11 +732,14 @@ export class PermissionManager {
 
     // 2. RBAC（角色 / 用户 / 资源）：deny 优先；ask 在本档**转拒绝**（"不询问"语义）；
     //    allow 等同允许规则（放在 A 体系 allow 之后，不越过任何 deny）。
-    const effectiveRole = resolveEffectiveRole(context.userRole);
+    const effectiveRoles = resolveFineGrainedRoles(
+      context.userRoles,
+      context.userRole
+    );
     const fineGrained = await this.checkFineGrainedRules(
       toolName,
       context.userId,
-      effectiveRole ?? undefined
+      effectiveRoles
     );
     if (fineGrained.deny) {
       this.denialTracker.trackDenial(toolName);
@@ -836,11 +858,14 @@ export class PermissionManager {
     // D 体系（角色 / 用户 / 资源）规则：deny 在此立即返回（先于一切 ask/allow）；
     // ask / allow 两档在本函数后段按“ask 先于 allow”的安全顺序返回。
     // 身份位由调用方传入（本地身份经 getEffectivePermissionRole 映射为 admin，2026-11-11）。
-    const effectiveRole = resolveEffectiveRole(context.userRole);
+    const effectiveRoles = resolveFineGrainedRoles(
+      context.userRoles,
+      context.userRole
+    );
     const fineGrained = await this.checkFineGrainedRules(
       toolName,
       context.userId,
-      effectiveRole ?? undefined
+      effectiveRoles
     );
     if (fineGrained.deny) return fineGrained.deny;
 
@@ -999,11 +1024,14 @@ export class PermissionManager {
     // 2.1（2026-11-11）RBAC（角色 / 用户 / 资源）与 default 档同口径：
     // deny 先于一切 ask/allow；ask / allow 在后段按“ask 先于 allow”返回。
     // 身份位由调用方传入（本地身份映射为 admin）。
-    const effectiveRole = resolveEffectiveRole(context.userRole);
+    const effectiveRoles = resolveFineGrainedRoles(
+      context.userRoles,
+      context.userRole
+    );
     const fineGrained = await this.checkFineGrainedRules(
       toolName,
       context.userId,
-      effectiveRole ?? undefined
+      effectiveRoles
     );
     if (fineGrained.deny) return fineGrained.deny;
 
@@ -1212,15 +1240,16 @@ export class PermissionManager {
    *
    * 只认 `operation ∈ {all, execute}`：工具调用以 execute 参与判定。
    *
-   * 多租户 P0：角色/用户由**调用方显式传入**（`context.userRole` / `context.userId`），
-   * 方法内不读任何进程级字段 ⇒ 并发请求各自判定、互不覆盖（2026-11-03 收敛）。
+   * 多租户 P0：角色/用户由**调用方显式传入**（`context.userRoles` / `context.userRole` /
+   * `context.userId`），方法内不读任何进程级字段 ⇒ 并发请求各自判定、互不覆盖（2026-11-03 收敛）。
    * 本地身份由调用方经 `getEffectivePermissionRole()` 映射为 `admin`（2026-11-11 裁定）。
    * 存储走进程内单例（P2-4）；deny 指标按**真实命中主体**归因（P2-5，见 `denyAttribution`）。
+   * 角色按**并集**参与（P2-6）：每个角色的 `roleObj.permissions` + `rules.json` 绑定都收集。
    */
   private async checkFineGrainedRules(
     toolName: string,
     userId: string | undefined,
-    effectiveRole: string | undefined
+    effectiveRoles: string[]
   ): Promise<{
     deny?: PermissionDecision;
     ask?: PermissionDecision;
@@ -1236,15 +1265,14 @@ export class PermissionManager {
         source: FineGrainedDenySource;
       }> = [];
 
-      if (effectiveRole) {
-        const roleObj = await storage.getRoleByName(effectiveRole as RoleType);
-        if (roleObj) {
-          for (const rule of roleObj.permissions) {
-            collected.push({ rule, source: 'role' });
-          }
-          for (const rule of await storage.getRulesByRole(roleObj.id)) {
-            collected.push({ rule, source: 'role' });
-          }
+      for (const roleName of effectiveRoles) {
+        const roleObj = await storage.getRoleByName(roleName as RoleType);
+        if (!roleObj) continue;
+        for (const rule of roleObj.permissions) {
+          collected.push({ rule, source: 'role' });
+        }
+        for (const rule of await storage.getRulesByRole(roleObj.id)) {
+          collected.push({ rule, source: 'role' });
         }
       }
 
@@ -1285,7 +1313,7 @@ export class PermissionManager {
           describeFineGrainedDenySubject(
             denyHit.rule,
             denyHit.source,
-            effectiveRole
+            effectiveRoles[0]
           )
         );
         return {
@@ -1576,6 +1604,7 @@ export class PermissionManager {
       | 'sessionId'
       | 'userId'
       | 'userRole'
+      | 'userRoles'
       | 'metadata'
       | 'approvalMode'
       | 'permissionMode'
@@ -1633,6 +1662,8 @@ export class PermissionManager {
       userId: context?.userId,
       // 多租户 P0 阶段 2：请求级角色透传（缺失 ⇒ 本次判定无角色，角色 deny 不参与）
       userRole: context?.userRole,
+      // P2-6（2026-11-11）：全部角色透传（RBAC 按并集判定；缺省回落实体里的主角色）
+      userRoles: context?.userRoles,
       metadata: context?.metadata,
       // PR-3：会话级审批模式与工作区边界（缺失 ⇒ 与改造前一致：ask + 无自动放行）
       approvalMode: context?.approvalMode,

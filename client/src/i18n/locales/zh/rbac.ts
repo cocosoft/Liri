@@ -13,7 +13,7 @@ const zhRbacPermission = {
   rbacRoleDescPlaceholder: "角色描述（可选）",
   rbacAddRole: "添加角色",
   rbacUsers: "用户",
-  rbacUserPlaceholder: "用户名",
+  rbacUserPlaceholder: "登录用户名（如 alice）",
   rbacAddUser: "添加用户",
   rbacResources: "资源",
   rbacResourcePathPlaceholder: "路径 / 工具名",
@@ -25,7 +25,13 @@ const zhRbacPermission = {
   rbacSubject_role: "角色",
   rbacSubject_user: "用户",
   rbacSubject_resource: "资源",
-  rbacSubjectPlaceholder: "主体名（角色/用户名或资源路径）",
+  rbacSubjectPlaceholder: "主体名（角色/登录用户名或工具名）",
+  rbacAllowStrength:
+    "allow 只免去逐次审批，不会越过任何 deny / ask；其他主体的 deny 仍然优先。",
+  rbacModeNotice:
+    "「每步确认」与「全放行」档位不消费 RBAC 绑定（前者全部 ask，后者全部放行）。",
+  rbacConfirmDelete: "确定删除「{{name}}」？其绑定会一并移除。",
+  rbacRoleProtected: "内置角色（不可删除）",
   rbacToolPlaceholder: "工具名（如 bash）",
   rbacRuleCount: "{{count}} 条绑定",
   rbacUnbind: "解绑",

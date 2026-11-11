@@ -278,6 +278,7 @@ export { assertPermissionManagerInjected } from './assertPermissionInjected';
 export {
   LOCAL_PERMISSION_ROLE,
   getEffectivePermissionRole,
+  getEffectivePermissionRoles,
 } from './localIdentity';
 
 // P1（2026-11-03）：工具授权**单一入口**（Agent 主链 + HTTP/CoreAPI 路径共用）

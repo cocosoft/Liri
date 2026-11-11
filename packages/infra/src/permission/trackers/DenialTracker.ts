@@ -79,6 +79,15 @@ export class DenialTracker {
   private consecutiveCount: number = 0;
   private lastDenialTime: number = 0;
   private listeners: Array<(record: DenialRecord) => void> = [];
+  /**
+   * P0-2（2026-11-11）：按 `(sessionId, toolName)` 的连续拒绝计数。
+   *
+   * 原实现只有一个全局 `consecutiveCount` ⇒ A 工具被拒 3 次会让 B 工具（甚至另一个会话）
+   * 的判定被「连续拒绝」逻辑误伤（升 ask / 改变结论）。全局计数仅保留给统计口径。
+   */
+  private consecutiveByKey = new Map<string, number>();
+  /** 同上：每个键的最后拒绝时刻（窗口过期按键计算） */
+  private lastDenialByKey = new Map<string, number>();
 
   /**
    * OTel 拒绝计数器（惰性初始化；Meter 未就绪时 noop 兜底）
@@ -112,6 +121,12 @@ export class DenialTracker {
     this.records.push(record);
     this.consecutiveCount++;
     this.lastDenialTime = Date.now();
+    const key = this.keyOf(params.toolName, params.sessionId);
+    this.consecutiveByKey.set(
+      key,
+      (this.consecutiveByKey.get(key) ?? 0) + 1
+    );
+    this.lastDenialByKey.set(key, Date.now());
 
     // 限制记录数
     if (this.records.length > this.config.maxRecords) {
@@ -160,20 +175,57 @@ export class DenialTracker {
 
   /**
    * 记录允许
+   *
+   * 无参 ⇒ 清空全局与该工具的所有键（保持旧「任何成功都清零」语义）；
+   * 给定 `toolName`（可带 `sessionId`）⇒ 只清对应键，避免 A 工具的成功清掉 B 的计数。
    */
-  recordAllow(): void {
+  recordAllow(toolName?: string, sessionId?: string): void {
     this.consecutiveCount = 0;
+    if (!toolName) {
+      this.consecutiveByKey.clear();
+      this.lastDenialByKey.clear();
+      return;
+    }
+    if (sessionId) {
+      this.dropKey(this.keyOf(toolName, sessionId));
+      return;
+    }
+    for (const key of [...this.consecutiveByKey.keys()]) {
+      if (key.endsWith(`\u0000${toolName}`)) this.dropKey(key);
+    }
   }
 
   /**
    * 获取连续拒绝次数
+   *
+   * 无 `toolName` ⇒ 全局计数（统计口径）；给定 `toolName` ⇒ 该 `(session,tool)` 的计数。
    */
-  getConsecutiveCount(): number {
-    // 检查是否超时
-    if (Date.now() - this.lastDenialTime > this.config.windowSizeMs) {
-      this.consecutiveCount = 0;
+  getConsecutiveCount(toolName?: string, sessionId?: string): number {
+    if (!toolName) {
+      // 检查是否超时
+      if (Date.now() - this.lastDenialTime > this.config.windowSizeMs) {
+        this.consecutiveCount = 0;
+      }
+      return this.consecutiveCount;
     }
-    return this.consecutiveCount;
+    const key = this.keyOf(toolName, sessionId);
+    const last = this.lastDenialByKey.get(key) ?? 0;
+    if (Date.now() - last > this.config.windowSizeMs) {
+      this.dropKey(key);
+      return 0;
+    }
+    return this.consecutiveByKey.get(key) ?? 0;
+  }
+
+  /** 计数键：`<sessionId>\u0000<toolName>`（session 缺省按 `default`） */
+  private keyOf(toolName: string | undefined, sessionId?: string): string {
+    return `${sessionId ?? 'default'}\u0000${toolName ?? '*'}`;
+  }
+
+  /** 删除某个计数键（计数 + 时刻） */
+  private dropKey(key: string): void {
+    this.consecutiveByKey.delete(key);
+    this.lastDenialByKey.delete(key);
   }
 
   /**
@@ -352,28 +404,37 @@ export class DenialTracker {
 
   /**
    * 跟踪拒绝（兼容方法）
+   *
+   * P0-2（2026-11-11）：透传 `sessionId`（缺省 `default`），计数按 `(session,tool)` 隔离。
    */
-  trackDenial(toolName: string): void {
+  trackDenial(toolName: string, sessionId: string = 'default'): void {
     this.recordDenial({
       toolName,
       toolInput: {},
       reason: 'Denied by permission manager',
-      sessionId: 'default',
+      sessionId,
     });
   }
 
   /**
    * 跟踪成功（兼容方法）
+   *
+   * 只清该 `(session,tool)` 的连续计数（不再清空其它工具/会话）。
    */
-  trackSuccess(_toolName: string): void {
-    this.recordAllow();
+  trackSuccess(toolName?: string, sessionId?: string): void {
+    this.recordAllow(toolName, sessionId);
   }
 
   /**
    * 检查是否应该询问用户（兼容方法）
+   *
+   * P0-2：按 `(session,tool)` 判定（原实现全局计数 ⇒ 跨工具/会话串味）。
    */
-  shouldAsk(_toolName: string): boolean {
-    return this.getConsecutiveCount() >= this.config.consecutiveThreshold;
+  shouldAsk(toolName: string, sessionId: string = 'default'): boolean {
+    return (
+      this.getConsecutiveCount(toolName, sessionId) >=
+      this.config.consecutiveThreshold
+    );
   }
 
   /**

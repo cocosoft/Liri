@@ -26,8 +26,8 @@ describe('PermissionManager 规则拒绝（LRO-09 步骤 2）', () => {
   it('所有 deny 出口统一走 `_denyByRule`（不允许再各自拼文案）', () => {
     expect(SRC).toContain('private _denyByRule(');
     const calls = SRC.match(/_denyByRule\(/g) ?? [];
-    // 1 处定义 + 4 处调用（默认档 2 处 + auto 1 处 + dontAsk 1 处，2026-11-11 补齐）
-    expect(calls.length).toBe(5);
+    // 1 处定义 + 7 处调用（default 2 + auto 1 + dontAsk 2 + plan 2，2026-11-11 补齐档位等价性）
+    expect(calls.length).toBe(8);
     // 不允许再出现旧的裸构造（只带 source、不带 ruleId）
     expect(SRC).not.toContain(
       'createDenyDecision(`Denied by rule from ${denyRule.source}`);'

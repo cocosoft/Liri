@@ -257,6 +257,60 @@ describe('RBAC 判定链：三路来源与隔离', () => {
   });
 });
 
+describe('RBAC 判定链：连续拒绝不改写 deny（P0-2）', () => {
+  const repeatDeny = async (
+    mode: PermissionMode,
+    times: number
+  ): Promise<string[]> => {
+    state.roles = [role('guest')];
+    state.rules = [rule({ roleId: 'guest', action: PermissionAction.DENY })];
+
+    const pm = createPermissionManager();
+    pm.resetRules();
+    const input = { command: 'echo hello' };
+    const types: string[] = [];
+    for (let i = 0; i < times; i += 1) {
+      const decision = await pm.checkPermission(
+        'bash',
+        input,
+        createPermissionContext({
+          toolName: 'bash',
+          input,
+          permissionMode: mode,
+          sessionId: 's1',
+          userRole: 'guest',
+        })
+      );
+      types.push(decision.type);
+    }
+    return types;
+  };
+
+  test('default 档：连续 5 次命中 deny 仍是 deny（不升 ask）', async () => {
+    expect(await repeatDeny(PermissionMode.DEFAULT, 5)).toEqual(
+      Array(5).fill('deny')
+    );
+  });
+
+  test('dontAsk 档：连续 5 次命中 deny 仍是 deny（且不弹卡）', async () => {
+    expect(await repeatDeny(PermissionMode.DONT_ASK, 5)).toEqual(
+      Array(5).fill('deny')
+    );
+  });
+
+  test('plan 档：RBAC deny 仍然拒绝（P0-4，不再无条件 ask）', async () => {
+    state.roles = [role('guest')];
+    state.rules = [rule({ roleId: 'guest', action: PermissionAction.DENY })];
+
+    const decision = await decide(
+      { userRole: 'guest', userRoles: ['guest'] },
+      PermissionMode.PLAN
+    );
+
+    expect(decision.type).toBe('deny');
+  });
+});
+
 describe('RBAC 判定链：规则不可读 ⇒ fail-closed（P1-3）', () => {
   test('存储读取抛错时拒绝执行，而不是静默回落到 A 规则', async () => {
     state.roles = [role('guest')];

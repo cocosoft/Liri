@@ -108,10 +108,11 @@ describe('LRO-D1：指纹规则不得参与「整体工具」匹配', () => {
     expect(PERMISSION_MANAGER_SRC).toContain('hashApprovalFingerprint(');
     expect(PERMISSION_MANAGER_SRC).toContain('resolveApprovalFingerprint(');
     const calls = PERMISSION_MANAGER_SRC.match(/getMatchingRule\(/g) ?? [];
-    expect(calls.length).toBe(3);
+    // default 2 + auto 0 + dontAsk 2 + plan 2（2026-11-11：档位等价性补齐）
+    expect(calls.length).toBe(6);
     const forwarded = PERMISSION_MANAGER_SRC.match(/matchOptions/g) ?? [];
-    // 1 处定义 + 3 处透传
-    expect(forwarded.length).toBeGreaterThanOrEqual(4);
+    // 每个调用点各自定义并透传 ⇒ 至少 6 处（含定义）
+    expect(forwarded.length).toBeGreaterThanOrEqual(6);
   });
 });
 

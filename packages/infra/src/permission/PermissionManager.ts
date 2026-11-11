@@ -458,7 +458,7 @@ export class PermissionManager {
           hookDecision.message || 'Allowed by permission hook'
         );
       } else if (hookDecision.behavior === 'deny') {
-        this.denialTracker.trackDenial(toolName);
+        this.denialTracker.trackDenial(toolName, permissionContext.sessionId);
         decision = createDenyDecision(
           hookDecision.message || 'Denied by permission hook'
         );
@@ -487,11 +487,17 @@ export class PermissionManager {
         decision = await this.handleDontAsk(
           toolOrName,
           input,
-          permissionContext
+          permissionContext,
+          ruleContext
         );
         break;
       case PermissionMode.PLAN:
-        decision = await this.handlePlan(toolOrName, input, permissionContext);
+        decision = await this.handlePlan(
+          toolOrName,
+          input,
+          permissionContext,
+          ruleContext
+        );
         break;
       case PermissionMode.AUTO:
         decision = await this.handleAuto(
@@ -715,18 +721,18 @@ export class PermissionManager {
   private async handleDontAsk(
     toolOrName: Tool | string,
     input: Record<string, unknown>,
-    context: PermissionContext
+    context: PermissionContext,
+    ruleContext?: RuleContext
   ): Promise<PermissionDecision> {
     const toolName =
       typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
 
     // 1. A 体系工具级 deny：deny 永远优先于任何 allow（含 RBAC allow）
+    // P0-2（2026-11-11）：**显式 deny 不因「连续拒绝」升级为 ask** —— deny 可批准
+    // 等于把安全规则变成建议；计数器只用于统计/升级提示，不改变 deny 结论。
     const denyRule = this.ruleManager.getDenyRuleForTool(toolName);
     if (denyRule) {
-      this.denialTracker.trackDenial(toolName);
-      if (this.denialTracker.shouldAsk(toolName)) {
-        return createAskDecision('Too many denials, asking user');
-      }
+      this.denialTracker.trackDenial(toolName, context.sessionId);
       return this._denyByRule(toolName, denyRule);
     }
 
@@ -739,21 +745,66 @@ export class PermissionManager {
     const fineGrained = await this.checkFineGrainedRules(
       toolName,
       context.userId,
-      effectiveRoles
+      effectiveRoles,
+      context.sessionId
     );
     if (fineGrained.deny) {
-      this.denialTracker.trackDenial(toolName);
-      if (this.denialTracker.shouldAsk(toolName)) {
-        return createAskDecision('Too many denials, asking user');
-      }
+      this.denialTracker.trackDenial(toolName, context.sessionId);
       return fineGrained.deny;
     }
     if (fineGrained.ask) {
-      this.denialTracker.trackDenial(toolName);
-      if (this.denialTracker.shouldAsk(toolName)) {
-        return createAskDecision('Too many denials, asking user');
-      }
+      this.denialTracker.trackDenial(toolName, context.sessionId);
       return createDenyDecision('Dont ask mode, denying fine-grained ask');
+    }
+
+    // 2.5（P0-3，2026-11-11）：本档此前**跳过**命令级黑白名单与指纹规则 ⇒
+    // 「不询问」反而放行了用户明确 deny 的命令。以下与 default 档同序、ask 转拒绝：
+    //   - 命令黑名单 / whitelist 未命中 ⇒ deny；白名单命中 ⇒ allow（显式放行）；
+    //   - 内容 / 指纹级 deny ⇒ deny；内容 / 指纹级 ask ⇒ deny（不询问）。
+    if (isCommandToolName(toolName) && typeof input.command === 'string') {
+      const cmdDecision = checkCommandCustomRules(input.command);
+      if (cmdDecision) {
+        return cmdDecision.type === PermissionDecisionType.ASK
+          ? createDenyDecision(
+              `Dont ask mode, denying ask: ${cmdDecision.reason ?? 'command rule'}`
+            )
+          : cmdDecision;
+      }
+    }
+
+    const approvalFingerprint = hashApprovalFingerprint(
+      resolveApprovalFingerprint(toolOrName, input)
+    );
+    const matchOptions = { fingerprint: approvalFingerprint };
+    const matchingDenyRule = this.ruleManager.getMatchingRule(
+      toolName,
+      input,
+      PermissionBehavior.DENY,
+      ruleContext,
+      matchOptions
+    );
+    if (matchingDenyRule) {
+      this.denialTracker.trackDenial(toolName, context.sessionId);
+      return this._denyByRule(toolName, matchingDenyRule, approvalFingerprint);
+    }
+
+    const askRule = this.ruleManager.getAskRuleForTool(toolName, ruleContext);
+    if (askRule) {
+      return createDenyDecision(
+        `Dont ask mode, denying ask rule from ${askRule.source}`
+      );
+    }
+    const matchingAskRule = this.ruleManager.getMatchingRule(
+      toolName,
+      input,
+      PermissionBehavior.ASK,
+      ruleContext,
+      matchOptions
+    );
+    if (matchingAskRule) {
+      return createDenyDecision(
+        `Dont ask mode, denying ask rule from ${matchingAskRule.source}`
+      );
     }
 
     // 3. A 体系允许规则
@@ -764,13 +815,8 @@ export class PermissionManager {
     // 4. RBAC allow
     if (fineGrained.allow) return fineGrained.allow;
 
-    // 跟踪拒绝
-    this.denialTracker.trackDenial(toolName);
-
-    // 检查是否应该询问用户
-    if (this.denialTracker.shouldAsk(toolName)) {
-      return createAskDecision('Too many denials, asking user');
-    }
+    // 跟踪拒绝（"不询问"档不因连续拒绝改判为 ask —— 那是自相矛盾的）
+    this.denialTracker.trackDenial(toolName, context.sessionId);
 
     return createDenyDecision('Dont ask mode, denying permission');
   }
@@ -851,7 +897,7 @@ export class PermissionManager {
     // 使用新的规则管理器检查
     const denyRule = this.ruleManager.getDenyRuleForTool(toolName, ruleContext);
     if (denyRule) {
-      this.denialTracker.trackDenial(toolName);
+      this.denialTracker.trackDenial(toolName, context.sessionId);
       return this._denyByRule(toolName, denyRule);
     }
 
@@ -865,7 +911,8 @@ export class PermissionManager {
     const fineGrained = await this.checkFineGrainedRules(
       toolName,
       context.userId,
-      effectiveRoles
+      effectiveRoles,
+      context.sessionId
     );
     if (fineGrained.deny) return fineGrained.deny;
 
@@ -894,7 +941,7 @@ export class PermissionManager {
       matchOptions
     );
     if (matchingDenyRule) {
-      this.denialTracker.trackDenial(toolName);
+      this.denialTracker.trackDenial(toolName, context.sessionId);
       return this._denyByRule(toolName, matchingDenyRule, approvalFingerprint);
     }
 
@@ -981,8 +1028,55 @@ export class PermissionManager {
   private async handlePlan(
     toolOrName: Tool | string,
     input: Record<string, unknown>,
-    context: PermissionContext
+    context: PermissionContext,
+    ruleContext?: RuleContext
   ): Promise<PermissionDecision> {
+    const toolName =
+      typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
+
+    // P0-4（2026-11-11）：本档此前**无条件 ask** ⇒ 显式 deny / 命令黑名单 / RBAC deny
+    // 全部被绕过（"每步确认"比 default 更宽松，且把禁止项变成可批准）。
+    // 现在：硬 deny 仍然 deny，"每步确认"只作用于**未被禁止**的调用。
+    const denyRule = this.ruleManager.getDenyRuleForTool(toolName, ruleContext);
+    if (denyRule) {
+      this.denialTracker.trackDenial(toolName, context.sessionId);
+      return this._denyByRule(toolName, denyRule);
+    }
+
+    const effectiveRoles = resolveFineGrainedRoles(
+      context.userRoles,
+      context.userRole
+    );
+    const fineGrained = await this.checkFineGrainedRules(
+      toolName,
+      context.userId,
+      effectiveRoles,
+      context.sessionId
+    );
+    if (fineGrained.deny) return fineGrained.deny;
+
+    if (isCommandToolName(toolName) && typeof input.command === 'string') {
+      const cmdDecision = checkCommandCustomRules(input.command);
+      if (cmdDecision?.type === PermissionDecisionType.DENY) {
+        return cmdDecision;
+      }
+    }
+
+    const approvalFingerprint = hashApprovalFingerprint(
+      resolveApprovalFingerprint(toolOrName, input)
+    );
+    const matchingDenyRule = this.ruleManager.getMatchingRule(
+      toolName,
+      input,
+      PermissionBehavior.DENY,
+      ruleContext,
+      { fingerprint: approvalFingerprint }
+    );
+    if (matchingDenyRule) {
+      this.denialTracker.trackDenial(toolName, context.sessionId);
+      return this._denyByRule(toolName, matchingDenyRule, approvalFingerprint);
+    }
+
     return createAskDecision('Plan mode, requiring user approval');
   }
 
@@ -1005,19 +1099,15 @@ export class PermissionManager {
 
     // 1. 检查安全工具白名单
     if (this.classifierManager.isAllowlistedTool(toolName)) {
-      this.denialTracker.trackSuccess(toolName);
+      this.denialTracker.trackSuccess(toolName, context.sessionId);
       return createAllowDecision('Tool is on safe allowlist');
     }
 
     // 2. 检查规则
+    // P0-2（2026-11-11）：显式 deny 不因连续拒绝升级为 ask（同上）。
     const denyRule = this.ruleManager.getDenyRuleForTool(toolName, ruleContext);
     if (denyRule) {
-      this.denialTracker.trackDenial(toolName);
-
-      if (this.denialTracker.shouldAsk(toolName)) {
-        return createAskDecision('Too many denials, asking user');
-      }
-
+      this.denialTracker.trackDenial(toolName, context.sessionId);
       return this._denyByRule(toolName, denyRule);
     }
 
@@ -1031,7 +1121,8 @@ export class PermissionManager {
     const fineGrained = await this.checkFineGrainedRules(
       toolName,
       context.userId,
-      effectiveRoles
+      effectiveRoles,
+      context.sessionId
     );
     if (fineGrained.deny) return fineGrained.deny;
 
@@ -1055,7 +1146,7 @@ export class PermissionManager {
       ruleContext
     );
     if (allowRule) {
-      this.denialTracker.trackSuccess(toolName);
+      this.denialTracker.trackSuccess(toolName, context.sessionId);
       return createAllowDecision(`Allowed by rule from ${allowRule.source}`);
     }
 
@@ -1068,7 +1159,7 @@ export class PermissionManager {
     if (isCommandToolName(toolName) && typeof input.command === 'string') {
       const readonly = checkReadonlyCommand(input.command);
       if (readonly.allowed) {
-        this.denialTracker.trackSuccess(toolName);
+        this.denialTracker.trackSuccess(toolName, context.sessionId);
         return createAllowDecision(readonly.reason);
       }
     }
@@ -1082,19 +1173,14 @@ export class PermissionManager {
       );
 
       if (classifierDecision.shouldBlock) {
-        this.denialTracker.trackDenial(toolName);
-
-        if (this.denialTracker.shouldAsk(toolName)) {
-          return createAskDecision(
-            `${classifierDecision.reason} - Too many denials, asking user`
-          );
-        }
+        // P0-2：分类器判定为阻断（deny）时保持 deny；连续拒绝只做统计，不升高为可批准
+        this.denialTracker.trackDenial(toolName, context.sessionId);
 
         return createDenyDecision(
           classifierDecision.reason || 'Blocked by auto classifier'
         );
       } else {
-        this.denialTracker.trackSuccess(toolName);
+        this.denialTracker.trackSuccess(toolName, context.sessionId);
         return createAllowDecision(
           classifierDecision.reason || 'Allowed by auto classifier'
         );
@@ -1249,7 +1335,8 @@ export class PermissionManager {
   private async checkFineGrainedRules(
     toolName: string,
     userId: string | undefined,
-    effectiveRoles: string[]
+    effectiveRoles: string[],
+    sessionId?: string
   ): Promise<{
     deny?: PermissionDecision;
     ask?: PermissionDecision;
@@ -1307,7 +1394,7 @@ export class PermissionManager {
 
       const denyHit = pickRule(PermissionAction.DENY);
       if (denyHit) {
-        this.denialTracker.trackDenial(toolName);
+        this.denialTracker.trackDenial(toolName, sessionId);
         this.recordFineGrainedDeny(
           toolName,
           describeFineGrainedDenySubject(

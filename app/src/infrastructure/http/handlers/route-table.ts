@@ -7,7 +7,9 @@
 import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { checkAdminRequest } from './auth-handlers';
-import { isAdminWriteRoute } from '../adminWriteRoutes';
+import { requiresAdminApi } from '../adminWriteRoutes';
+// P1-1（2026-11-11）：暴露部署下管理面**恒**要求有效 Bearer（不受灰度开关影响）
+import { hasValidBearerSession, isExposedDeployment } from '../requestIdentity';
 import { dispatchChatSessionRoutes } from './routes/chat-session-routes';
 import { dispatchPlanFlowRoutes } from './routes/plan-flow-routes';
 import { dispatchToolMediaRoutes } from './routes/tool-media-routes';
@@ -51,12 +53,28 @@ export async function dispatchRoute(
 ): Promise<boolean> {
   const method = req.method || 'GET';
 
-  // ---- 管理写 API 鉴权（M0d：登录态非 admin → 403；无效 token → 401；无 token → 本地回环基线放行）----
-  // 「哪些路径属管理写」下沉到 `adminWriteRoutes#isAdminWriteRoute`（W26-15，2026-10-26）：
+  // ---- 管理面鉴权（读 + 写）：登录态非 admin → 403；无效 token → 401；无 token → 本地回环基线放行 ----
+  // 「哪些路径属管理面」下沉到 `adminWriteRoutes#requiresAdminApi`（W26-15，2026-10-26）：
   //   - 前缀改**段边界**匹配 ⇒ `/v1/skills` 不再误伤 `/v1/skillsets`；
   //   - 判定变纯函数 ⇒ 可单测覆盖（此前内联在调度链里，只能靠集成测试）。
   // M1（2026-08-06）：skill 管理写操作并入 admin 权限体系；T25-08 P2：能力授权；多租户 P5：租户删除。
-  if (isAdminWriteRoute(method, url)) {
+  // P1-1（2026-11-11）：RBAC 快照（`GET /v1/permissions/rbac`）纳入读侧管理面。
+  if (requiresAdminApi(method, url)) {
+    // 暴露部署（非回环绑定 / headless）：管理面**恒**要求有效 Bearer。
+    // 与 `requiresBearerSession` 的差异：后者受 `FEATURE_REQUIRE_BEARER` 灰度开关控制，
+    // 而管理面不应因灰度回退重新对远端匿名开放 ⇒ 这里独立 fail-closed（桌面回环不受影响）。
+    if (isExposedDeployment() && !(await hasValidBearerSession(req))) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: {
+            message: '管理操作需要 admin 权限',
+            type: 'authentication_error',
+          },
+        })
+      );
+      return true;
+    }
     const result = checkAdminRequest(req);
     if (result !== 'ok') {
       res.writeHead(result === 'unauthorized' ? 401 : 403, {

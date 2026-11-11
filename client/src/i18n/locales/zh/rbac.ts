@@ -8,7 +8,7 @@
 const zhRbacPermission = {
   rbacTitle: "细粒度 RBAC",
   rbacDesc:
-    "按角色 / 用户 / 资源绑定工具权限；支持 deny / allow / ask，优先级 deny > ask > allow。数据存于 permissions/{roles,users,resources,rules}.json。",
+    "按角色 / 用户 / 资源绑定工具权限；支持 deny / allow / ask，优先级 deny > ask > allow。资源绑定仅支持工具类（type=tool，路径 = 工具名）。数据存于 permissions/{roles,users,resources,rules}.json。",
   rbacRoles: "角色",
   rbacRoleDescPlaceholder: "角色描述（可选）",
   rbacAddRole: "添加角色",
@@ -21,7 +21,7 @@ const zhRbacPermission = {
   rbacBind: "绑定规则",
   rbacBindAction: "绑定",
   rbacBindHint:
-    "角色/用户填写主体名与工具名；资源填写「类型 + 路径」（工具类资源路径即工具名）。",
+    "角色/用户填写主体名与工具名；资源填写工具名（仅 tool 型资源参与判定）。",
   rbacSubject_role: "角色",
   rbacSubject_user: "用户",
   rbacSubject_resource: "资源",

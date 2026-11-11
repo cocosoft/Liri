@@ -8,7 +8,7 @@
 const enRbacPermission = {
   rbacTitle: "Fine-grained RBAC",
   rbacDesc:
-    "Bind tool permissions to roles / users / resources; supports deny / allow / ask (deny > ask > allow). Data lives in permissions/{roles,users,resources,rules}.json.",
+    "Bind tool permissions to roles / users / resources; supports deny / allow / ask (deny > ask > allow). Resource bindings are tool-only (type=tool, path = tool name). Data lives in permissions/{roles,users,resources,rules}.json.",
   rbacRoles: "Roles",
   rbacRoleDescPlaceholder: "Role description (optional)",
   rbacAddRole: "Add role",
@@ -21,7 +21,7 @@ const enRbacPermission = {
   rbacBind: "Bindings",
   rbacBindAction: "Bind",
   rbacBindHint:
-    "For role/user, fill subject and tool name; for resource, fill type + path (tool resources use the tool name as path).",
+    "For role/user, fill subject and tool name; for resource, fill the tool name (tool-only bindings participate in checks).",
   rbacSubject_role: "Role",
   rbacSubject_user: "User",
   rbacSubject_resource: "Resource",

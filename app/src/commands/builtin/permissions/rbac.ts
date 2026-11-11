@@ -2,12 +2,15 @@
  * 细粒度 RBAC 子命令（`/permissions resource|role|user`）
  *
  * 数据落点（`resolvePermissionsDir()`）：`roles.json` / `users.json` / `resources.json` / `rules.json`。
+ * **实例级策略**（与 `tool_rules.json` 同源，不按租户存储）：多租户部署下由管理面
+ * （`/v1/permissions/rbac`，读 + 写均需 admin）访问，不随租户隔离（P1-1，2026-11-11 裁定）。
  *
  * 与工具规则（`tool_rules.json`，`/permissions grant|add`）是两套数据：
  * - 工具规则：按工具名 allow / deny / ask；
  * - RBAC：规则绑定到 **角色 / 用户 / 资源**，工具调用判定时由
  *   `PermissionManager.checkFineGrainedRules` 消费，优先级 **deny > ask > allow**：
  *   deny 在一切 ask/allow 之前返回；ask 在工具级 ask 之后、allow 之前；allow 最后兜底。
+ *   资源绑定仅支持 `tool` 型（路径 = 工具名），其余类型不参与判定（add / bind 处拒绝）。
  *
  * 绑定档：`deny` / `allow` / `ask`（默认 `deny`，操作默认 `execute`）。
  */
@@ -28,6 +31,17 @@ import { liveFineGrainedManager } from './liveFineGrainedManager.js';
 
 const ROLE_NAMES = Object.values(RoleType);
 const RESOURCE_TYPES = Object.values(ResourceType);
+/**
+ * 可**添加 / 绑定**的资源类型（2026-11-11 收窄，修复「资源绑定空转」）。
+ *
+ * 判定链（`PermissionManager.checkFineGrainedRules`）只拿**工具名**去查资源规则
+ * （`getRulesByResource(toolName)`）⇒ 只有 `tool` 型（路径 = 工具名）会真正参与
+ * allow / ask / deny。其余类型（file/directory/api/command/system）当前**没有判定消费者**，
+ * 允许添加/绑定只会产生「看起来配了、实际不生效」的空绑定 ⇒ 在此明确拒绝。
+ *
+ * `list` / `remove` / `unbind` 仍接受全部类型，用于清理历史数据。
+ */
+const BINDABLE_RESOURCE_TYPES = [ResourceType.TOOL] as const;
 /** 工具判定只认这两个操作档（见 `checkFineGrainedRules`） */
 const BIND_OPERATIONS = [OperationType.EXECUTE, OperationType.ALL] as const;
 /** 可绑定的行为档（判定链按 deny > ask > allow 消费） */
@@ -556,8 +570,9 @@ async function removeUser(params: string[]): Promise<CommandResult> {
 /**
  * 资源：list / add / remove / bind / unbind
  *
- * 绑定以**资源路径**作为规则的 `resourceId`：工具类资源把路径写成工具名即可被
- * `checkFineGrainedDeny` 的 `getRulesByResource(toolName)` 命中。
+ * 绑定以**资源路径**作为规则的 `resourceId`，而判定链用**工具名**去查
+ * （`checkFineGrainedRules` 的 `getRulesByResource(toolName)`）⇒ 只有 `tool` 型
+ * （路径 = 工具名）真正生效；其余类型在 add / bind 处显式拒绝，不再产生空绑定。
  */
 export async function handleResourceCommand(
   args: string[]
@@ -578,7 +593,7 @@ export async function handleResourceCommand(
       return usage(
         '用法: /permissions resource <list|add|remove|bind|unbind>\n\n' +
           `  list                              列出资源（类型: ${RESOURCE_TYPES.join('/')}）\n` +
-          '  add <类型> <路径>                  添加资源\n' +
+          `  add <类型> <路径>                  添加资源（仅 ${BINDABLE_RESOURCE_TYPES.join('/')}，路径 = 工具名）\n` +
           '  remove <类型> <路径>               删除资源（连带其绑定规则）\n' +
           '  bind <类型> <路径> [deny|allow|ask] [execute|all] 绑定规则（默认 deny/execute）\n' +
           '  unbind <类型> <路径>               移除该资源的绑定'
@@ -588,6 +603,16 @@ export async function handleResourceCommand(
 
 function parseResourceType(raw?: string): ResourceType | undefined {
   return RESOURCE_TYPES.find((type) => type === raw);
+}
+
+/** 非 `tool` 类型的拒绝文案（添加/绑定共用，口径唯一） */
+function resourceTypeNotBindable(type: ResourceType): string {
+  return (
+    `资源类型 ${type} 不参与权限判定（判定链只按工具名查资源规则）\n` +
+    '请改用: /permissions resource add tool <工具名>（或 bind）\n' +
+    `可用类型: ${BINDABLE_RESOURCE_TYPES.join(', ')}\n` +
+    '（list / remove / unbind 仍支持全部类型，便于清理历史数据）'
+  );
 }
 
 /**
@@ -625,7 +650,7 @@ async function addResource(params: string[]): Promise<CommandResult> {
   const [typeRaw, path] = params;
   if (!typeRaw || !path) {
     return usage(
-      `用法: /permissions resource add <类型> <路径>\n可用类型: ${RESOURCE_TYPES.join(', ')}`
+      `用法: /permissions resource add <类型> <路径>\n可用类型: ${BINDABLE_RESOURCE_TYPES.join(', ')}（路径 = 工具名）`
     );
   }
   const type = parseResourceType(typeRaw);
@@ -633,6 +658,9 @@ async function addResource(params: string[]): Promise<CommandResult> {
     return usage(
       `无效的资源类型: ${typeRaw}\n可用类型: ${RESOURCE_TYPES.join(', ')}`
     );
+  }
+  if (!BINDABLE_RESOURCE_TYPES.includes(type as ResourceType.TOOL)) {
+    return usage(resourceTypeNotBindable(type));
   }
 
   try {
@@ -666,6 +694,7 @@ async function bindResource(params: string[]): Promise<CommandResult> {
   if (!typeRaw || !path) {
     return usage(
       '用法: /permissions resource bind <类型> <路径> [deny|allow|ask] [execute|all]\n' +
+        `可用类型: ${BINDABLE_RESOURCE_TYPES.join(', ')}（路径 = 工具名）\n` +
         '示例: /permissions resource bind tool bash allow'
     );
   }
@@ -674,6 +703,9 @@ async function bindResource(params: string[]): Promise<CommandResult> {
     return usage(
       `无效的资源类型: ${typeRaw}\n可用类型: ${RESOURCE_TYPES.join(', ')}`
     );
+  }
+  if (!BINDABLE_RESOURCE_TYPES.includes(type as ResourceType.TOOL)) {
+    return usage(resourceTypeNotBindable(type));
   }
   const action = parseBindAction(actionRaw);
   if (!action) {
@@ -716,7 +748,7 @@ async function bindResource(params: string[]): Promise<CommandResult> {
     await manager.addRule(rule);
     return {
       success: true,
-      message: `已为资源 ${path} 绑定 ${action}(${operation})，规则 ${rule.id}；工具类资源路径即工具名时判定立即生效`,
+      message: `已为资源 ${path} 绑定 ${action}(${operation})，规则 ${rule.id}；判定立即生效`,
     };
   } catch (error) {
     return failure(error, 'bindResource', '绑定失败');

@@ -7,7 +7,7 @@
  *   （后端经 CommandsOpsPort 复用同一个命令执行器 ⇒ 面板与 CLI 不会漂移）。
  *
  * 判定语义：绑定支持 deny / allow / ask，优先级 deny > ask > allow；
- * 资源绑定以「类型 + 路径」为标识（工具类资源路径写工具名）。
+ * 资源绑定仅支持工具类资源（`type=tool`，路径 = 工具名），其余类型不参与判定。
  */
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -21,14 +21,9 @@ import { handleClientError } from "../../utils/handleError";
 // 前端展示用的选项清单（与后端枚举同值；两个部署单元无法共享模块，
 // 因此用 UI_ 前缀区分，避免 `lint:consts` 的「同名常量跨文件」判重）
 const UI_ROLE_NAMES = ["admin", "user", "guest", "system"] as const;
-const UI_RESOURCE_TYPES = [
-  "tool",
-  "file",
-  "directory",
-  "api",
-  "command",
-  "system",
-] as const;
+// 资源仅 tool 型参与判定（路径 = 工具名）；其余类型后端 add/bind 会拒绝，
+// 因此这里不再提供，避免界面造出「配了但不生效」的空绑定。
+const UI_RESOURCE_TYPES = ["tool"] as const;
 const UI_BIND_ACTIONS = ["deny", "allow", "ask"] as const;
 const UI_BIND_OPERATIONS = ["execute", "all"] as const;
 const SUBJECT_TYPES = ["role", "user", "resource"] as const;

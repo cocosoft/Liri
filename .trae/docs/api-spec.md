@@ -644,15 +644,19 @@ body `{ objective?: string（trim 非空）, tokenBudget?: number（正有限数
 > 2026-11-11 补录：`/v1/permissions/*` 此前**未登记**在本清单（如实记录缺口）。
 > 细粒度 RBAC 的 HTTP 入口在 2026-11-03 的 P3-3 第二步被摘除，2026-11-11 **重新开放**
 > （CLI 已补齐增删绑定，面板需要同源数据）。
+> **鉴权（P1-1，2026-11-11）**：`/v1/permissions/rbac` 的 **GET 与 POST 均属管理面**（`requiresAdminApi`）：
+> 无 token 的本地回环基线放行；无效 token ⇒ 401；会话无 `admin` 权限 ⇒ 403；
+> 暴露部署（非回环绑定 / headless）下管理面**恒**要求有效 Bearer（不受 `FEATURE_REQUIRE_BEARER` 灰度影响）。
+> RBAC 与 `tool_rules.json` 同为**实例级策略**（不按租户存储）。
 
 | 方法 | 路径 | 后端状态 | 前端调用方 |
 |------|------|----------|-----------|
-| GET | `/v1/permissions/rules` | ✅ | 无前端调用方 |
-| POST | `/v1/permissions/rules` | ✅ | 无前端调用方 |
-| DELETE | `/v1/permissions/rules/{ruleId}` | ✅ | 无前端调用方 |
+| GET | `/v1/permissions/rules` | ✅ | `permissionService.listRules`（设置页） |
+| POST | `/v1/permissions/rules` | ✅ | `permissionService.addRule` |
+| DELETE | `/v1/permissions/rules/{ruleId}` | ✅ | `permissionService.deleteRule` |
 | GET | `/v1/permissions/metrics` | ✅ | 无前端调用方 |
-| GET | `/v1/permissions/rbac` | ✅ | 无前端调用方（返回 roles/users/resources/bindings 快照） |
-| POST | `/v1/permissions/rbac` | ✅ | 无前端调用方（body `{command}`，经 CommandsOpsPort 复用 CLI 实现） |
+| GET | `/v1/permissions/rbac` | ✅ | `permissionService.getRbac`（权限页 RBAC 面板；**需 admin**） |
+| POST | `/v1/permissions/rbac` | ✅ | `permissionService.runRbac`（body `{command}`，经 CommandsOpsPort 复用 CLI 实现；**需 admin**） |
 
 ### §3.24 认证
 

@@ -527,9 +527,9 @@ IDE 命令帮助:
   /permissions user bind <用户名> <工具名> [deny|allow|ask] [execute|all]   - 绑定规则
   /permissions user unbind <用户名> <工具名>               - 移除绑定
   /permissions resource list               - 列出资源
-  /permissions resource add <类型> <路径>  - 添加资源
+  /permissions resource add tool <工具名>  - 添加资源（仅 tool 型参与判定）
   /permissions resource remove <类型> <路径> - 删除资源（连带绑定）
-  /permissions resource bind <类型> <路径> [deny|allow|ask] [execute|all]   - 绑定规则
+  /permissions resource bind tool <工具名> [deny|allow|ask] [execute|all]   - 绑定规则
   /permissions resource unbind <类型> <路径>               - 移除绑定
 
 示例:

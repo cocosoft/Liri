@@ -816,6 +816,42 @@ describe('/permissions resource 写入与绑定', () => {
     expect(result.message).toContain('无效的资源类型: db');
   });
 
+  test('add：非 tool 类型被拒（判定链不消费 ⇒ 不再产生空绑定）', async () => {
+    const result = await permissionsCommand.execute(
+      'resource add file /tmp/a.txt',
+      {}
+    );
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('不参与权限判定');
+    expect(rbacState.resources).toHaveLength(0);
+  });
+
+  test('bind：非 tool 类型被拒，但历史资源仍可 remove 清理', async () => {
+    rbacState.resources = [
+      {
+        id: 'res_legacy',
+        type: 'file' as Resource['type'],
+        name: 'a.txt',
+        path: '/tmp/a.txt',
+      },
+    ];
+
+    const bound = await permissionsCommand.execute(
+      'resource bind file /tmp/a.txt',
+      {}
+    );
+    expect(bound.success).toBe(false);
+    expect(bound.message).toContain('不参与权限判定');
+    expect(rbacState.rules).toHaveLength(0);
+
+    const removed = await permissionsCommand.execute(
+      'resource remove file /tmp/a.txt',
+      {}
+    );
+    expect(removed.success).toBe(true);
+    expect(rbacState.resources).toHaveLength(0);
+  });
+
   test('bind / unbind：以资源路径作为 resourceId 写入 deny 规则', async () => {
     rbacState.resources = [
       {

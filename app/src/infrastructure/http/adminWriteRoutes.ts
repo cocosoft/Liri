@@ -1,5 +1,5 @@
 /**
- * adminWriteRoutes — 「哪些写请求必须过 admin 校验」的**唯一事实源**（W26-15，2026-10-26）
+ * adminWriteRoutes — 「哪些请求必须过 admin 校验」的**唯一事实源**（W26-15，2026-10-26）
  *
  * ## 背景
  * 该判定此前**内联**在 `handlers/route-table.ts` 的 `dispatchRoute` 里，形态是裸
@@ -30,6 +30,21 @@ const ADMIN_WRITE_METHODS: ReadonlySet<string> = new Set([
   'PUT',
   'DELETE',
 ]);
+
+/** 需要 admin 权限的**读**方法（当前只有 GET） */
+const ADMIN_READ_METHODS: ReadonlySet<string> = new Set(['GET']);
+
+/**
+ * 需要 admin 权限的**读**路径（段边界）。
+ *
+ * 2026-11-11（P1-1）：RBAC 快照会暴露全量 `roles/users/resources/bindings`
+ * （即整机权限策略），而此前 GET 完全不受管理面校验 ⇒ 任意登录用户可读。
+ *
+ * 为什么单列白名单、不卡整棵 `/v1/permissions` 读面：
+ * `/v1/permissions/rules` 与 `/metrics` 是设置页/看板的既有读入口（登录用户可见），
+ * 一并收窄会改变既有行为；本条目只覆盖真正泄露策略面的 RBAC 快照。
+ */
+const ADMIN_READ_PATHS = ['/v1/permissions/rbac'] as const;
 
 /**
  * 段边界前缀（**不带**尾斜杠；同时匹配自身与其子路径）。
@@ -85,5 +100,28 @@ export function isAdminWriteRoute(method: string, pathname: string): boolean {
   return (
     pathname.startsWith(PLUGIN_MARKETPLACE_PREFIX) &&
     PLUGIN_ADMIN_SUFFIXES.some((suffix) => pathname.endsWith(suffix))
+  );
+}
+
+/**
+ * 该请求是否属于**管理读 API**（RBAC 策略面快照，2026-11-11）。
+ *
+ * @param method - HTTP 方法（大小写不敏感；当前只认 `GET`）
+ * @param pathname - 已去查询串的路径
+ */
+export function isAdminReadRoute(method: string, pathname: string): boolean {
+  if (!ADMIN_READ_METHODS.has(method.toUpperCase())) return false;
+  return ADMIN_READ_PATHS.some((path) => matchesSegmentPrefix(pathname, path));
+}
+
+/**
+ * **管理面**（读 + 写）统一判定 —— `dispatchRoute` 的唯一调用入口。
+ *
+ * 读写分开判定的原因见 `ADMIN_READ_PATHS` 注释：收窄范围被刻意控制在
+ * 「会泄露整机策略」的读接口上。
+ */
+export function requiresAdminApi(method: string, pathname: string): boolean {
+  return (
+    isAdminWriteRoute(method, pathname) || isAdminReadRoute(method, pathname)
   );
 }

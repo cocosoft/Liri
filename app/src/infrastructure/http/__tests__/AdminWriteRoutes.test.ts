@@ -9,7 +9,11 @@
 
 import { describe, expect, it } from 'bun:test';
 
-import { isAdminWriteRoute } from '../adminWriteRoutes';
+import {
+  isAdminReadRoute,
+  isAdminWriteRoute,
+  requiresAdminApi,
+} from '../adminWriteRoutes';
 
 describe('isAdminWriteRoute（管理写 API 段边界判定）', () => {
   describe('段边界（W26-15 修复点）', () => {
@@ -106,5 +110,49 @@ describe('isAdminWriteRoute（管理写 API 段边界判定）', () => {
     it('业务接口 `POST /v1/sessions` ⇒ 不是管理写', () => {
       expect(isAdminWriteRoute('POST', '/v1/sessions')).toBe(false);
     });
+  });
+});
+
+describe('isAdminReadRoute（管理读 API，P1-1 2026-11-11）', () => {
+  it('`GET /v1/permissions/rbac` ⇒ 管理读（RBAC 策略快照）', () => {
+    expect(isAdminReadRoute('GET', '/v1/permissions/rbac')).toBe(true);
+  });
+
+  it('`GET /v1/permissions/rbac/` ⇒ 管理读（段边界含尾斜杠）', () => {
+    expect(isAdminReadRoute('GET', '/v1/permissions/rbac/')).toBe(true);
+  });
+
+  it('`GET /v1/permissions/rbacx` ⇒ **不是**管理读（前缀撞车反例）', () => {
+    expect(isAdminReadRoute('GET', '/v1/permissions/rbacx')).toBe(false);
+  });
+
+  it('`GET /v1/permissions/rules` ⇒ **不是**管理读（设置页读入口保持既有可见性）', () => {
+    expect(isAdminReadRoute('GET', '/v1/permissions/rules')).toBe(false);
+  });
+
+  it('`POST /v1/permissions/rbac` ⇒ 不是管理读（写侧由 isAdminWriteRoute 覆盖）', () => {
+    expect(isAdminReadRoute('POST', '/v1/permissions/rbac')).toBe(false);
+  });
+
+  it('方法大小写不敏感：`get /v1/permissions/rbac` ⇒ 管理读', () => {
+    expect(isAdminReadRoute('get', '/v1/permissions/rbac')).toBe(true);
+  });
+});
+
+describe('requiresAdminApi（管理面 = 读 + 写）', () => {
+  it('`GET /v1/permissions/rbac` ⇒ 需 admin', () => {
+    expect(requiresAdminApi('GET', '/v1/permissions/rbac')).toBe(true);
+  });
+
+  it('`POST /v1/permissions/rbac` ⇒ 需 admin', () => {
+    expect(requiresAdminApi('POST', '/v1/permissions/rbac')).toBe(true);
+  });
+
+  it('`GET /v1/permissions/rules` ⇒ 不需 admin（保持现状）', () => {
+    expect(requiresAdminApi('GET', '/v1/permissions/rules')).toBe(false);
+  });
+
+  it('`GET /v1/sessions` ⇒ 不需 admin', () => {
+    expect(requiresAdminApi('GET', '/v1/sessions')).toBe(false);
   });
 });

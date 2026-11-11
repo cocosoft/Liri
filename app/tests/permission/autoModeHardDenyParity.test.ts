@@ -181,6 +181,7 @@ describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
 
   it('审批表覆盖各平台的等价写法（复制 / 移动 / 删除 / 链接 / 权限位 / 写盘 / git）', () => {
     expect([...AUTO_MODE_APPROVAL_TOKENS].sort()).toEqual([
+      '-itemtype symboliclink',
       'add-content',
       'attrib ',
       'chmod ',
@@ -205,6 +206,7 @@ describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
       'robocopy ',
       'set-acl',
       'set-content',
+      'set-itemproperty',
       'tee ',
       'xcopy ',
     ]);
@@ -241,6 +243,8 @@ describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
       'Clear-Content a.txt',
       'Out-File a.txt',
       'tee a.txt',
+      'New-Item -ItemType SymbolicLink -Path link -Target target',
+      'Set-ItemProperty -Path x -Name y -Value z',
     ]) {
       const decision = await classifier.classify('bash', { command }, []);
       expect(decision.shouldBlock).toBe(false);
@@ -272,6 +276,28 @@ describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
       []
     );
     expect(normal.shouldBlock).toBe(false);
+  });
+
+  it('Windows 持久化 / 服务 / 提权等价命令硬拦，只读子命令仍放行', async () => {
+    for (const command of [
+      'schtasks /create /tn x /tr calc /sc once /st 00:00',
+      'reg add HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run /v x /d calc',
+      'sc create evil binPath= calc',
+      'wmic process call create calc',
+      'takeown /f secret.txt',
+    ]) {
+      const decision = await classifier.classify('bash', { command }, []);
+      expect(decision.shouldBlock).toBe(true);
+    }
+    for (const command of [
+      'schtasks /query /tn x',
+      'reg query HKCU\\Software',
+      'sc query evil',
+      'New-Item -ItemType Directory -Path ws',
+    ]) {
+      const decision = await classifier.classify('bash', { command }, []);
+      expect(decision.shouldBlock).toBe(false);
+    }
   });
 
   it('硬拦优先：同时命中硬拦表时仍是 deny，不降级为审批', async () => {

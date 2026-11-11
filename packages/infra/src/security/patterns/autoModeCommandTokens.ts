@@ -168,6 +168,25 @@ export const AUTO_MODE_HARD_DENY_TOKENS = [
   'at ',
   'batch ',
   'anacron',
+  // Windows 持久化 / 服务 / 提权（2026-11-11：与 Linux 的 crontab / systemctl / chown 对齐）
+  // 只读子命令（`schtasks /query`、`reg query`、`sc query`）不在此列，仍走只读/普通判定。
+  'schtasks /create',
+  'schtasks /change',
+  'schtasks /delete',
+  'schtasks /run',
+  'reg add',
+  'reg delete',
+  'reg import',
+  'sc create',
+  'sc config',
+  'sc start',
+  'sc stop',
+  'sc delete',
+  // `wmic` 整词硬拦：`wmic process call create <cmd>` 是任意执行；该工具已被微软弃用，
+  // 只读查询也一并拒（并引导改用 PowerShell CIM）。注：命令位锚定会裁掉前导空格，
+  // 故不能用 `' call create'` 这种中缀写法。
+  'wmic ',
+  'takeown ',
   'nc ',
   'netcat ',
   'telnet ',
@@ -711,4 +730,8 @@ export const AUTO_MODE_APPROVAL_TOKENS = [
   'clear-content', // 清空文件内容（不可逆）
   'out-file',
   'tee ',
+  // 2026-11-11（Windows 链接等价）：`New-Item -ItemType SymbolicLink` = `mklink`（ask）
+  '-itemtype symboliclink',
+  // 属性 / 注册表值写入（与 Set-Content 同类，属写盘）
+  'set-itemproperty',
 ];

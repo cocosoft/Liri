@@ -83,13 +83,15 @@ export function containsCommandToken(
   if (!/^[a-z0-9_]/i.test(trimmed)) {
     // 元字符令牌：**按原文**匹配（不做裁剪）—— `'. '`/`' ; '` 这类令牌的空白正是它
     // 降低误报的手段，裁成 `'.'`/`';'` 会命中任何句点/分号（真机 `node --check
-    // snake.js; Write-Output …` 因此被判危险命令）。
+    // snake.js; Write-Output …` 因此被判危险命令）。大小写不敏感（2026-11-11）：
+    // `-ItemType SymbolicLink` / `-itemtype symboliclink` 必须同样命中，否则换个
+    // 大小写就能绕过（命令位锚定分支本就带 `i` 标志，此处对齐）。
     //
     // 例外（2026-11-11）：`'.'` 是 **dot-source 命令**（`. ./env.sh`），语义在命令位；
     // 按子串匹配会把 `find . -name "*.tmp" -delete`、`tar -cf a .` 这类正常命令判死
     // （点 + 空格到处都有）⇒ 交给下方锚定分支，只在命令位命中。
     if (trimmed !== '.') {
-      return normalized.includes(token);
+      return normalized.toLowerCase().includes(token.toLowerCase());
     }
   }
   // 嵌套 shell：把脚本体当作新的命令面**递归锚定**匹配，绝不退回裸子串

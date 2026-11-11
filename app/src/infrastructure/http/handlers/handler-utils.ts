@@ -119,6 +119,18 @@ export function createHandlerCtx(): HandlerCtx {
 }
 
 /**
+ * 是否属于**服务端故障**（只有 5xx 才进 ErrorTracker）。
+ *
+ * 2026-11-11（C1）：4xx 是**预期的客户端结局** —— 例如审批项已被处理后前端再查
+ * `GET /v1/inbox/:id` ⇒ 404 `Inbox item not found`。此前一律走 `handleError`，
+ * 日志里因此出现 `[api_error] Inbox item not found`（`UNHANDLED_ERROR`, medium），
+ * 既污染错误率，也让"未处理错误"失去信号价值。
+ */
+export function isServerFaultStatus(status: number): boolean {
+  return status >= 500;
+}
+
+/**
  * 发送 JSON 格式的错误响应
  *
  * @param res - HTTP 响应对象
@@ -131,8 +143,14 @@ export function sendError(
   status = 500
 ): void {
   const message = err instanceof Error ? err.message : String(err);
-  // 统一经 handleError 记录（Logger + ErrorTracker），替代手写 logger.error
-  void handleError(err, { module: 'infrastructure:http', action: 'api_error' });
+  // 统一经 handleError 记录（Logger + ErrorTracker），替代手写 logger.error；
+  // 4xx 不记录（见 isServerFaultStatus 注释）。
+  if (isServerFaultStatus(status)) {
+    void handleError(err, {
+      module: 'infrastructure:http',
+      action: 'api_error',
+    });
+  }
   res.writeHead(status, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ error: { message, type: 'api_error' } }));
 }

@@ -179,10 +179,12 @@ function createIsolatedManager(): PermissionManager {
 describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
   const classifier = new AutoModeClassifier();
 
-  it('审批表覆盖各平台的等价写法（复制 / 移动 / 删除 / 链接 / 权限位 / git）', () => {
+  it('审批表覆盖各平台的等价写法（复制 / 移动 / 删除 / 链接 / 权限位 / 写盘 / git）', () => {
     expect([...AUTO_MODE_APPROVAL_TOKENS].sort()).toEqual([
+      'add-content',
       'attrib ',
       'chmod ',
+      'clear-content',
       'copy ',
       'copy-item',
       'cp ',
@@ -197,10 +199,13 @@ describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
       'move ',
       'move-item',
       'mv ',
+      'out-file',
       'ren ',
       'rm ',
       'robocopy ',
       'set-acl',
+      'set-content',
+      'tee ',
       'xcopy ',
     ]);
     for (const token of AUTO_MODE_APPROVAL_TOKENS) {
@@ -231,6 +236,11 @@ describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
       'powershell -NoProfile -Command "Set-Acl a.txt b"',
       'git rm a.txt',
       'git mv a.txt b.txt',
+      'Set-Content a.txt hello',
+      'Add-Content a.txt hello',
+      'Clear-Content a.txt',
+      'Out-File a.txt',
+      'tee a.txt',
     ]) {
       const decision = await classifier.classify('bash', { command }, []);
       expect(decision.shouldBlock).toBe(false);
@@ -317,6 +327,9 @@ describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
       ['git rm notes.txt', 'ask'],
       ['xcopy a b /E', 'ask'],
       ['icacls a /grant Everyone:R', 'ask'],
+      ['Set-Content a.txt hi', 'ask'],
+      ['Out-File a.txt', 'ask'],
+      ['tee a.txt', 'ask'],
       ['rm -rf build', 'deny'],
       ['chmod 777 secret.txt', 'deny'],
     ];

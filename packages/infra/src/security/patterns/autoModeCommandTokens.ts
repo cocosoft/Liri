@@ -672,6 +672,9 @@ export const AUTO_MODE_HARD_DENY_TOKENS = [
  * 命令名即可绕过 —— `xcopy` / `robocopy`（复制）、`ren`（移动）、`mklink`（链接）、
  * `icacls` / `attrib` / `Set-Acl`（权限位）、`git rm` / `git mv`（仓库内删除 / 移动）。
  *
+ * 2026-11-11（写盘口径）：`Set-Content` / `Add-Content` / `Clear-Content` / `Out-File` /
+ * `tee` 走审批 —— shell 写绕过工作区边界守卫，而重定向 `> ` / `>> ` 本来就硬拦。
+ *
  * 注意：若同一条命令同时命中硬拦表（如 `sudo cp …`），**硬拦优先** —— 分类器先扫
  * `AUTO_MODE_HARD_DENY_TOKENS`，再扫本表。
  */
@@ -700,4 +703,12 @@ export const AUTO_MODE_APPROVAL_TOKENS = [
   // 仓库内文件操作（等价于本地 rm / mv）
   'git rm',
   'git mv',
+  // 写盘型 cmdlet / 管道写文件（2026-11-11 口径）：shell 写**绕过工作区边界守卫**
+  // （`Write` 工具越界会确认，shell 不会），且重定向 `> ` / `>> ` 本就是硬拦
+  // ⇒ 统一转审批，避免"换个写法就静默写盘"。
+  'set-content',
+  'add-content',
+  'clear-content', // 清空文件内容（不可逆）
+  'out-file',
+  'tee ',
 ];

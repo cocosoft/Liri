@@ -53,7 +53,8 @@ describe('插件配置端点接线', () => {
   });
 
   it('配置写入（PUT）纳入 admin 写鉴权', () => {
-    expect(ROUTE_TABLE).toContain('isAdminWriteRoute(method, url)');
+    // P1-1（2026-11-11）：管理面判定改由 `requiresAdminApi`（读 + 写）统一入口消费
+    expect(ROUTE_TABLE).toContain('requiresAdminApi(method, url)');
     expect(ADMIN_WRITE_ROUTES).toContain("'/config'");
   });
 

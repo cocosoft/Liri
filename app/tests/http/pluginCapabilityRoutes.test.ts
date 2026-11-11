@@ -50,7 +50,8 @@ describe('能力端点接线', () => {
   it('能力授权写入（PUT）纳入 admin 写鉴权', () => {
     // 断言「注册表确实消费该判定」+「规则点名了该路径」两条
     // （只卡这一条，不影响插件安装/卸载）
-    expect(ROUTE_TABLE).toContain('isAdminWriteRoute(method, url)');
+    // P1-1（2026-11-11）：管理面判定改由 `requiresAdminApi`（读 + 写）统一入口消费
+    expect(ROUTE_TABLE).toContain('requiresAdminApi(method, url)');
     expect(ADMIN_WRITE_ROUTES).toContain("'/capabilities'");
   });
 });

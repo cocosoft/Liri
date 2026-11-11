@@ -287,6 +287,10 @@ export {
   COMMAND_EQUIVALENCE_GROUPS,
   COMMAND_ALIASES,
   expandTokenAliases,
+  // 2026-11-12（P1）：命令语义注册表（单一来源）
+  COMMAND_SPECS,
+  approvalTokensFromSpecs,
+  equivalenceGroupsFromSpecs,
 } from './patterns';
 export type { UnifiedRulePlatform } from './patterns';
 // P2-3（2026-11-03）：只读命令目录单一来源（bash / cmd / PowerShell 按 shell 引用）

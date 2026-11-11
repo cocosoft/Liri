@@ -105,6 +105,7 @@
 | GET | `/v1/system/estop` | ✅ **2026-09-02 新增** | `systemService.getEstopStatus`（全局急停状态，响应 `{ engaged, state: { reason?, engagedAt? } \| null }`） |
 | POST | `/v1/system/estop` | ✅ **2026-09-02 新增** | `systemService.engageEstop`（启用全局急停，body `{ reason? }`；暂停新消息/新 cron，不杀进行中的） |
 | DELETE | `/v1/system/estop` | ✅ **2026-09-02 新增** | `systemService.disengageEstop`（解除全局急停） |
+| POST | `/v1/system/shutdown` | ✅ **2026-11-12 新增** | 优雅关闭（先 `202 {status:"shutting_down"}`，再执行与 SIGINT/SIGTERM 相同的关闭链：flush 事件缓冲 + 为可中断会话写 `cleanShutdown` 标记后退出；宿主未接线 ⇒ `503`）。供 Windows 等"结束进程不投递信号"的平台使用 |
 
 ### §3.2 模型
 

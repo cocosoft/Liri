@@ -40,6 +40,8 @@ import { LogConfigManager } from '@openliri/infra/monitoring/logs/config/LogConf
 import {
   startMdmPrefetch,
   ensureMdmPrefetchCompleted,
+  // 2026-11-12：HTTP 优雅关闭入口的宿主侧接线（`POST /v1/system/shutdown`）
+  registerShutdownRequester,
 } from '@modules/infrastructure';
 import {
   installExitRecorder,
@@ -455,14 +457,18 @@ function checkSingletonInstance(): void {
     // @ignore-catch — 同步exit事件不支持async，日志flush fire-and-forget
     flush().catch(() => {});
   });
-  process.on('SIGINT', () => {
-    // AC-7（2026-08-20）：不在信号处理中提前执行 cleanup（删锁）。
-    // 若优雅退出链（通道 dispose/flush）卡死，锁已删而进程未死 →
-    // 新实例无法检测到旧实例 → 双实例并存（QQ WS 归属错乱、消息丢失）。
-    // 删锁统一延迟到 process.exit 触发的 'exit' 事件（必然同步执行）；
-    // 卡死时锁保留，供新实例按僵尸流程检测并接管。
-    // 同步强关 HTTP：立即释放端口（新实例可绑定）+"无监听端口"成为
-    // 退出中僵尸的可靠信号（closeAllConnections 防 keep-alive 拖住）。
+  /**
+   * 优雅关闭序列 —— `SIGINT` / `SIGTERM` / `POST /v1/system/shutdown` 共用同一份实现。
+   *
+   * AC-7（2026-08-20）：不在关闭序列中提前执行 cleanup（删锁）。
+   * 若优雅退出链（通道 dispose/flush）卡死，锁已删而进程未死 →
+   * 新实例无法检测到旧实例 → 双实例并存（QQ WS 归属错乱、消息丢失）。
+   * 删锁统一延迟到 process.exit 触发的 'exit' 事件（必然同步执行）；
+   * 卡死时锁保留，供新实例按僵尸流程检测并接管。
+   * 同步强关 HTTP：立即释放端口（新实例可绑定）+"无监听端口"成为
+   * 退出中僵尸的可靠信号（closeAllConnections 防 keep-alive 拖住）。
+   */
+  const runGracefulShutdown = () => {
     activeHttpService?.forceCloseSync();
     // T3.4: 优雅退出释放通道级 scope（注销已注册通道）
     // T1.25.4: 并行停止 llama-server（生命周期同步；allSettled 保证任一失败互不影响）
@@ -483,28 +489,13 @@ function checkSingletonInstance(): void {
         .then((m) => m.markSessionsCleanShutdown())
         .catch(() => 0),
     ]).then(() => flush().finally(() => process.exit(0)));
-  });
-  process.on('SIGTERM', () => {
-    // 同上：删锁延迟到 exit 事件；先同步强关 HTTP（AC-7）
-    activeHttpService?.forceCloseSync();
-    void Promise.allSettled([
-      gracefulChannelShutdown(),
-      gracefulLlamaShutdown(),
-      // ① P0（2026-10-10）：退出时回收 MCP stdio 子进程（清理链 + 孤儿兜底）
-      gracefulMcpShutdown(),
-      // G-10（2026-10-19）：停止主动消息扫描器并关闭队列数据库
-      gracefulProactiveShutdown(),
-      // 优雅退出（2026-09-02 排查"会话中断"补充）：先 flush 全会话事件缓冲
-      // （text-batch 落盘），避免 watch 重启/Ctrl+C 中断在途会话留下 torn/open-turn
-      import('./chat/lifecycle/shutdownHooks.js')
-        .then((m) => m.flushAllEventBuffers())
-        .catch(() => 0),
-      // M4（2026-09-17）：优雅退出前为可中断会话写 cleanShutdown 标记
-      import('./chat/lifecycle/shutdownHooks.js')
-        .then((m) => m.markSessionsCleanShutdown())
-        .catch(() => 0),
-    ]).then(() => flush().finally(() => process.exit(0)));
-  });
+  };
+
+  // 2026-11-12：HTTP 入口复用同一条关闭链 —— Windows 上结束进程不投递信号，
+  // 没有该端口就只能硬杀（下次启动把有活动的会话标 failed_stale）。
+  registerShutdownRequester(runGracefulShutdown);
+  process.on('SIGINT', runGracefulShutdown);
+  process.on('SIGTERM', runGracefulShutdown);
 }
 
 /**

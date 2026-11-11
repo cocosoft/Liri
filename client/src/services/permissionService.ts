@@ -44,6 +44,46 @@ export interface PermissionRulesResponse {
   };
 }
 
+/** 细粒度 RBAC 快照（GET /v1/permissions/rbac） */
+export interface RbacRole {
+  id: string;
+  name: string;
+  description?: string;
+  ruleCount: number;
+}
+
+export interface RbacUser {
+  id: string;
+  name: string;
+  roles: string[];
+  ruleCount: number;
+}
+
+export interface RbacResource {
+  id: string;
+  type: string;
+  name: string;
+  path?: string;
+  ruleCount: number;
+}
+
+export interface RbacBinding {
+  id: string;
+  resourceId: string;
+  operation: string;
+  action: string;
+  roleId?: string;
+  userId?: string;
+  priority: number;
+}
+
+export interface RbacSnapshot {
+  roles: RbacRole[];
+  users: RbacUser[];
+  resources: RbacResource[];
+  bindings: RbacBinding[];
+}
+
 /** 工具权限规则管理（P1-5：对应后端 /v1/permissions/rules） */
 export const permissionService = {
   async listRules(): Promise<PermissionRulesResponse> {
@@ -64,5 +104,24 @@ export const permissionService = {
 
   async deleteRule(ruleId: string): Promise<void> {
     return http.delete(ENDPOINTS.permissions.ruleById(ruleId));
+  },
+
+  /** 细粒度 RBAC 快照（角色 / 用户 / 资源 / 绑定） */
+  async getRbac(): Promise<RbacSnapshot> {
+    return http.get<RbacSnapshot>(ENDPOINTS.permissions.rbac);
+  },
+
+  /**
+   * 执行 RBAC 变更（复用 CLI 语法，如 `role bind guest bash allow`）
+   *
+   * 后端经 `CommandsOpsPort` 走同一个命令执行器 ⇒ 本面板与 CLI 行为一致。
+   */
+  async runRbac(
+    command: string,
+  ): Promise<{ success: boolean; message: string }> {
+    return http.post<{ success: boolean; message: string }>(
+      ENDPOINTS.permissions.rbac,
+      { command },
+    );
   },
 };

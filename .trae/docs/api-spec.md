@@ -639,6 +639,21 @@ body `{ objective?: string（trim 非空）, tokenBudget?: number（正有限数
 | GET | `/v1/mcp/tools` | ✅ | `mcpMarketplaceService.listTools` |
 | PATCH | `/v1/mcp/tools/{id}/toggle` | ✅ | `mcpMarketplaceService.toggleTool` |
 
+### §3.23.1 权限（工具规则 + 细粒度 RBAC）
+
+> 2026-11-11 补录：`/v1/permissions/*` 此前**未登记**在本清单（如实记录缺口）。
+> 细粒度 RBAC 的 HTTP 入口在 2026-11-03 的 P3-3 第二步被摘除，2026-11-11 **重新开放**
+> （CLI 已补齐增删绑定，面板需要同源数据）。
+
+| 方法 | 路径 | 后端状态 | 前端调用方 |
+|------|------|----------|-----------|
+| GET | `/v1/permissions/rules` | ✅ | 无前端调用方 |
+| POST | `/v1/permissions/rules` | ✅ | 无前端调用方 |
+| DELETE | `/v1/permissions/rules/{ruleId}` | ✅ | 无前端调用方 |
+| GET | `/v1/permissions/metrics` | ✅ | 无前端调用方 |
+| GET | `/v1/permissions/rbac` | ✅ | 无前端调用方（返回 roles/users/resources/bindings 快照） |
+| POST | `/v1/permissions/rbac` | ✅ | 无前端调用方（body `{command}`，经 CommandsOpsPort 复用 CLI 实现） |
+
 ### §3.24 认证
 
 | 方法 | 路径 | 后端状态 | 前端调用方 |

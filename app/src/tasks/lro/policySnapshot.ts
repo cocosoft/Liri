@@ -18,12 +18,12 @@
  * 4. **缺快照**（旧任务 / 快照损坏）⇒ 保守降级为 `ask`，不阻断恢复。
  *
  * ⚠️ 模式"宽严"用**三档**粗分（restrictive / default / permissive），不是全序：
- * 9 档模式的语义轴不同（`auto` 自动放行、`dontAsk` 自动拒绝、`plan` 只读规划），
+ * 5 档模式的语义轴不同（`auto` 自动放行、`dontAsk` 自动拒绝、`plan` 每步确认），
  * 强行排全序只会制造假精度。三档只回答一个问题：**这档会不会自动放行有副作用的调用**。
  */
 
 import {
-  PERMISSION_MODES,
+  normalizePermissionMode,
   type PermissionMode,
 } from '@openliri/infra/permission';
 import { resolveCommandPolicyVersion } from './commandPolicyVersion.js';
@@ -80,16 +80,12 @@ export interface PolicyReplay {
 
 /** 会自动放行有副作用调用的档（permissive 档） */
 const AUTO_ALLOW_MODES: ReadonlySet<PermissionMode> = new Set([
-  'acceptEdits',
   'auto',
   'bypass',
 ]);
 
 /** 不会自动放行副作用调用的档（restrictive 档） */
 const RESTRICTIVE_MODES: ReadonlySet<PermissionMode> = new Set([
-  'strict',
-  'alwaysAsk',
-  'ask',
   'dontAsk',
   'plan',
 ]);
@@ -99,11 +95,9 @@ function normalizePath(p: string): string {
   return p.replace(/[\\/]+$/, '').toLowerCase();
 }
 
-/** 归一 9 档模式；非法/缺失 ⇒ undefined（不猜） */
+/** 归一 5 档模式（收缩前的旧值按别名归一）；非法/缺失 ⇒ undefined（不猜） */
 function normalizeMode(raw: unknown): PermissionMode | undefined {
-  if (typeof raw !== 'string') return undefined;
-  const normalized = raw.trim().toLowerCase();
-  return PERMISSION_MODES.find((m) => m.toLowerCase() === normalized);
+  return normalizePermissionMode(raw);
 }
 
 /** 归一审批模式（只认 `auto-local`，其余一律 `ask` —— 与 `ChatManager.getSessionApprovalMode` 同口径） */
@@ -216,7 +210,7 @@ export function resolvePolicyReplay(args: {
 
   if (!args.snapshot) {
     // 旧任务 / 快照损坏 ⇒ 保守降级（方案 §6「缺快照保守降级 ask，不阻断」）
-    if (permissivenessTier(currentMode) > 0) patch.permissionMode = 'ask';
+    if (permissivenessTier(currentMode) > 0) patch.permissionMode = 'plan';
     else notes.push('degraded:keep-stricter-current-mode');
     if (currentApproval !== 'ask') patch.approvalMode = 'ask';
     notes.push('degraded:no-snapshot');

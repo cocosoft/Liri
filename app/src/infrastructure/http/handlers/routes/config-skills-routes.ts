@@ -50,6 +50,10 @@ import {
   handleListPermissionRules,
 } from '../permission-handlers';
 import {
+  handleGetPermissionRbac,
+  handlePermissionRbacAction,
+} from '../permission-rbac-handlers';
+import {
   handleGetSandboxConfig,
   handleGetSandboxStatus,
   handleUpdateSandboxConfig,
@@ -208,8 +212,17 @@ export async function dispatchConfigSkillsRoutes(
     );
     return true;
   }
-  // P3-3 第二步（2026-11-03）：D 体系（细粒度用户/角色/资源/grant）HTTP 入口已摘除。
-  // 存储与决策桥接（PermissionManager 的角色 deny）仍保留，待观察期后再按 CD01-CD06 处理。
+  // 2026-11-11：**撤销 P3-3 第二步**（当时摘除 D 体系 HTTP/UI 入口）。
+  // CLI 已补齐 RBAC 增删绑定，前端面板需要同源数据 ⇒ 重新开放：
+  // GET 快照 + POST 动作（写操作复用命令层实现；前缀受 adminWriteRoutes 管理面校验）。
+  if (method === 'GET' && url === '/v1/permissions/rbac') {
+    await handleGetPermissionRbac(req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/permissions/rbac') {
+    await handlePermissionRbacAction(req, res);
+    return true;
+  }
 
   // ---- Sandbox（沙箱配置与状态，S1）----
   if (method === 'GET' && url === '/v1/sandbox/config') {

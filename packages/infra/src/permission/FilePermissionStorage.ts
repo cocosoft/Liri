@@ -179,6 +179,14 @@ export class FilePermissionStorage implements PermissionStorage {
   }
 
   /**
+   * 获取全部权限规则（快照/面板用）
+   * @returns 权限规则列表
+   */
+  async getAllRules(): Promise<PermissionRule[]> {
+    return this.readFile<PermissionRule[]>(this.rulesPath);
+  }
+
+  /**
    * 根据资源获取权限规则
    * @param resourceId 资源ID
    * @returns 权限规则列表

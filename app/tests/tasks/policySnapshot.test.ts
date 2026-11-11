@@ -45,7 +45,7 @@ describe('P2：策略快照采集', () => {
   it('合法值原样归一；缺失 permissionMode ⇒ 不写该字段（= 当时无会话覆盖）', () => {
     const s = capturePolicySnapshot(
       {
-        permissionMode: ' STRICT ',
+        permissionMode: ' PLAN ',
         approvalMode: 'auto-local',
         workspaceRoots: [PRIMARY, SECOND],
       },
@@ -53,10 +53,19 @@ describe('P2：策略快照采集', () => {
     );
     expect(s.version).toBe(POLICY_SNAPSHOT_VERSION);
     expect(s.capturedAt).toBe(123);
-    expect(s.permissionMode).toBe('strict');
+    expect(s.permissionMode).toBe('plan');
     expect(s.approvalMode).toBe('auto-local');
     expect(s.workspaceRoots).toEqual([PRIMARY, SECOND]);
     expect(typeof s.commandPolicyVersion).toBe('string');
+  });
+
+  it('2026-11-11 收缩前的旧值读取时归一（STRICT ⇒ default，ask ⇒ plan）', () => {
+    expect(
+      capturePolicySnapshot({ permissionMode: ' STRICT ' }).permissionMode
+    ).toBe('default');
+    expect(
+      capturePolicySnapshot({ permissionMode: 'ask' }).permissionMode
+    ).toBe('plan');
   });
 
   it('根去重按"去尾斜杠 + 小写"归一（值保持原样，只影响是否重复收录）', () => {
@@ -81,8 +90,10 @@ describe('P2：策略快照采集', () => {
 
 describe('P2：快照恢复（不可信输入）', () => {
   it('结构合法 ⇒ 还原（含版本/时间戳/策略版本）', () => {
-    const restored = restorePolicySnapshot(snapshot({ permissionMode: 'ask' }));
-    expect(restored).toEqual(snapshot({ permissionMode: 'ask' }));
+    const restored = restorePolicySnapshot(
+      snapshot({ permissionMode: 'plan' })
+    );
+    expect(restored).toEqual(snapshot({ permissionMode: 'plan' }));
   });
 
   it('缺失 / 版本不符 / 关键字段类型错 / 审批值非法 / 权限模式非法 ⇒ undefined', () => {
@@ -116,28 +127,28 @@ describe('P2：快照恢复（不可信输入）', () => {
 });
 
 describe('P2：恢复重放（只收紧不放宽）', () => {
-  it('任务启动 strict，用户中途改 bypass ⇒ 重放回 strict（核心防漂移）', () => {
+  it('任务启动 plan，用户中途改 bypass ⇒ 重放回 plan（核心防漂移）', () => {
     const replay = resolvePolicyReplay({
-      snapshot: snapshot({ permissionMode: 'strict' }),
+      snapshot: snapshot({ permissionMode: 'plan' }),
       current: { permissionMode: 'bypass', approvalMode: 'ask' },
     });
     expect(replay.degraded).toBe(false);
-    expect(replay.patch.permissionMode).toBe('strict');
+    expect(replay.patch.permissionMode).toBe('plan');
   });
 
-  it('任务启动 bypass，用户后来收紧成 strict ⇒ 保留 strict（不把用户收紧顶回去）', () => {
+  it('任务启动 bypass，用户后来收紧成 plan ⇒ 保留 plan（不把用户收紧顶回去）', () => {
     const replay = resolvePolicyReplay({
       snapshot: snapshot({ permissionMode: 'bypass' }),
-      current: { permissionMode: 'strict' },
+      current: { permissionMode: 'plan' },
     });
     expect(replay.patch.permissionMode).toBeUndefined();
     expect(replay.notes.join()).toContain('keep-current');
   });
 
-  it('同档位取快照（任务启动姿态优先）：auto → acceptEdits 都属 permissive', () => {
+  it('同档位取快照（任务启动姿态优先）：auto / bypass 都属 permissive', () => {
     const replay = resolvePolicyReplay({
       snapshot: snapshot({ permissionMode: 'auto' }),
-      current: { permissionMode: 'acceptEdits' },
+      current: { permissionMode: 'bypass' },
     });
     expect(replay.patch.permissionMode).toBe('auto');
   });
@@ -207,18 +218,18 @@ describe('P2：恢复重放（只收紧不放宽）', () => {
 });
 
 describe('P2：缺快照的保守降级', () => {
-  it('无快照 ⇒ 审批档 ask，权限模式压到 ask（默认/放宽档）', () => {
+  it('无快照 ⇒ 审批档 ask，权限模式压到 plan（默认/放宽档）', () => {
     const replay = resolvePolicyReplay({
       snapshot: undefined,
       current: { permissionMode: 'bypass', approvalMode: 'auto-local' },
     });
     expect(replay.degraded).toBe(true);
-    expect(replay.patch.permissionMode).toBe('ask');
+    expect(replay.patch.permissionMode).toBe('plan');
     expect(replay.patch.approvalMode).toBe('ask');
   });
 
-  it('无快照但当前已是更严的档（strict/dontAsk）⇒ 不写权限模式（不放宽）', () => {
-    for (const mode of ['strict', 'alwaysAsk', 'ask', 'dontAsk', 'plan']) {
+  it('无快照但当前已是更严的档（dontAsk / plan）⇒ 不写权限模式（不放宽）', () => {
+    for (const mode of ['dontAsk', 'plan']) {
       const replay = resolvePolicyReplay({
         snapshot: undefined,
         current: { permissionMode: mode },

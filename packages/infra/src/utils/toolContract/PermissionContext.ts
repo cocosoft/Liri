@@ -3,10 +3,16 @@
  * 参考CC_CODE的权限系统设计，适应backend现有架构
  */
 
+import type { PermissionMode } from '../../common/permissionMode';
+
 /**
- * 权限模式类型
+ * 权限模式类型（2026-11-11：**不再本地定义**）
+ *
+ * 旧值域 `'default' | 'auto' | 'strict' | 'bypass'` 是第三套副本 —— 含已废弃的 `strict`，
+ * 又缺真实判定在用的 `plan` / `dontAsk`，与 `PERMISSION_MODES` 长期不一致。
+ * 现在同名转出 `common/permissionMode` 的唯一真源（5 档），消费方 import 路径不变。
  */
-export type ToolPermissionMode = 'default' | 'auto' | 'strict' | 'bypass';
+export type ToolPermissionMode = PermissionMode;
 
 /**
  * 额外工作目录类型
@@ -32,8 +38,8 @@ export type ToolPermissionRulesBySource = Record<string, any[]>;
  * 另多 5 个执行期开关）⇒ 依 §9.2 原则 2「一名一规范落点」**改名**为
  * **`ToolRuntimePermissionContext`**（权限域那份保留 `ToolPermissionContext`）。
  *
- * ⚠️ 本文件 L9 的 `PermissionMode` 亦与 `permission/PermissionMode.ts` **同名两份**
- * （待 U5 后续处置：本地应改为从 `permission` 再导出，值域须同源）。
+ * ⚠️ 本文件 L9 的 `ToolPermissionMode` 已于 2026-11-11 改为 `common/permissionMode` 的
+ * 同名转出（值域同源，5 档）；不再保留本地副本。
  */
 export interface ToolRuntimePermissionContext {
   /**

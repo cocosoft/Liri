@@ -134,6 +134,8 @@ export interface PermissionDecision {
 export interface PermissionStorage {
   saveRule(rule: PermissionRule): Promise<string>;
   getRule(id: string): Promise<PermissionRule | null>;
+  /** 全量规则（快照/面板用；按资源/角色/用户分别查会漏掉悬空绑定） */
+  getAllRules(): Promise<PermissionRule[]>;
   getRulesByResource(resourceId: string): Promise<PermissionRule[]>;
   getRulesByRole(roleId: string): Promise<PermissionRule[]>;
   getRulesByUser(userId: string): Promise<PermissionRule[]>;

@@ -19,20 +19,15 @@ export type ApprovalMode = "ask" | "auto-local";
 /**
  * P1（2026-11-04）：会话级**权限模式**（第三层；覆盖进程默认档 `PERMISSION_MODE`）。
  *
- * 取值域与后端 `@openliri/infra/common` 的 `PERMISSION_MODES` **同集合**（9 档）：
+ * 取值域与后端 `@openliri/infra/common` 的 `PERMISSION_MODES` **同集合**（2026-11-11 起 5 档）：
  * 后端对非法值 400（`permission_mode must be one of …`）⇒ 漂移会显式报错，不静默降级。
  * `null` = 清除会话覆盖、跟随进程默认档。
+ *
+ * 收缩前的 `acceptEdits` / `ask` / `alwaysAsk` / `strict` 已并入 `default` / `plan`，
+ * 后端读取旧数据时会归一，前端不再出现这四个值。
  */
 export type SessionPermissionMode =
-  | "default"
-  | "acceptEdits"
-  | "plan"
-  | "bypass"
-  | "dontAsk"
-  | "auto"
-  | "ask"
-  | "alwaysAsk"
-  | "strict";
+  "default" | "plan" | "dontAsk" | "auto" | "bypass";
 
 /**
  * 回复详略档（`/effort` 与输入区「回复设置」共用；源：会话 metadata.effortLevel）

@@ -49,6 +49,11 @@ import type {
 } from '@modules/runtime/api/CoreAPI';
 import { DEFAULT_MODEL_SENTINEL } from '@openliri/infra/constants';
 import { isMediaOutputToolName } from '@openliri/infra/utils/toolContract/toolRoles';
+// 2026-11-11：消息级 `autonomy` 的跨字段冲突契约（与 PATCH /meta 同一判定，见 infra/permission）
+import {
+  AUTONOMY_PERMISSION_CONFLICT,
+  resolveMessageAutonomyConflict,
+} from '@openliri/infra/permission';
 // P0-2（2026-10-10）：客户端流式路径接入 Execution 生命周期（`service → service` 合法；
 // 见 `.trae/specs/client-stream-execution.md`）
 // 状态机方案 阶段 2.2（2026-10-12）：SSE 兜底状态改走常量（唯一事实源 = `execution/types.ts`），
@@ -351,6 +356,37 @@ async function respond404IfSessionUnavailable(
 }
 
 /**
+ * 2026-11-11：消息级 `autonomy` 的跨字段冲突判定（与 `updateSessionMeta` 写入口同一契约）。
+ *
+ * 只判定「**本次请求真的会改出**冲突」：
+ * - 请求值与会话现值相同 ⇒ `_applyRequestAutonomy` 本就不会写库 ⇒ 冲突不是本次请求
+ *   造成的（历史脏组合仍可继续发消息，不把会话锁死）；
+ * - 会话未载入内存 ⇒ 读持久层 metadata —— 仅当请求带 `autonomy` 时发生，普通聊天零成本。
+ *
+ * @returns 冲突文案（HTTP 400 的 `error.message`）；无冲突返回 `null`
+ */
+async function findAutonomyPermissionConflict(
+  sessionId: string | undefined,
+  nextAutonomy: 'interactive' | 'demand'
+): Promise<string | null> {
+  if (!sessionId) return null;
+  const chatManager = getCoreAPI().chatManager;
+  let metadata = chatManager.getSessions().find((s) => s.id === sessionId)
+    ?.metadata as Record<string, unknown> | undefined;
+  if (!metadata) {
+    const gateway = chatManager.getSessionGateway();
+    const stored = gateway ? await gateway.getSession(sessionId) : null;
+    metadata = stored?.metadata as Record<string, unknown> | undefined;
+  }
+  // 同值 / 合法组合的判定全部收敛在契约函数里（不在此重复实现口径）
+  return resolveMessageAutonomyConflict({
+    currentAutonomy: metadata?.autonomy,
+    currentPermissionMode: metadata?.permission_mode,
+    nextAutonomy,
+  });
+}
+
+/**
  * POST /v1/chat/completions — 聊天完成请求（流式/非流式分发）
  */
 export async function handleChatCompletions(
@@ -507,6 +543,39 @@ export async function handleChatCompletions(
 
   // 多租户 P3：跨身份 / 不存在的会话统一 404 —— 必须在分流到流式处理（写 SSE 头）之前判定
   if (await respond404IfSessionUnavailable(request.session_id, res)) return;
+
+  // 2026-11-11：消息级 `autonomy` 的跨字段冲突校验 —— 与 PATCH /meta（`updateSessionMeta`）
+  // 同一契约，同样必须在写 SSE 头之前 ⇒ 冲突时能正常回 400（而不是流开始后只能报错中断）。
+  if (request.autonomy !== undefined && isAutonomyMode(request.autonomy)) {
+    const conflict = await findAutonomyPermissionConflict(
+      request.session_id,
+      request.autonomy
+    );
+    if (conflict) {
+      const error = new AppError(
+        conflict,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.MEDIUM,
+        AUTONOMY_PERMISSION_CONFLICT,
+        { sessionId: request.session_id, autonomy: request.autonomy }
+      );
+      await handleError(error, {
+        module: 'http:chat',
+        action: 'validateAutonomyPermission',
+      });
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: {
+            message: error.message,
+            type: 'invalid_request_error',
+            code: AUTONOMY_PERMISSION_CONFLICT,
+          },
+        })
+      );
+      return;
+    }
+  }
 
   if (request.stream) {
     return handleStreamingChat(res, request);

@@ -127,16 +127,37 @@ describe('指标 1：未设置 autonomy ⇒ 权限档缺省行为不变', () => 
   it('显式 permission_mode 始终优先于 demand 缺省（可收紧 / 可放宽）', () => {
     expect(
       getSessionPermissionMode(
-        lookup({ autonomy: 'demand', permission_mode: 'ask' }),
+        lookup({ autonomy: 'demand', permission_mode: 'plan' }),
         'sess-1'
       )
-    ).toBe('ask');
+    ).toBe('plan');
     expect(
       getSessionPermissionMode(
         lookup({ autonomy: 'demand', permission_mode: 'bypass' }),
         'sess-1'
       )
     ).toBe('bypass');
+  });
+
+  it('2026-11-11 收缩前的旧值读取时归一（ask / alwaysAsk ⇒ plan）', () => {
+    expect(
+      getSessionPermissionMode(
+        lookup({ autonomy: 'demand', permission_mode: 'ask' }),
+        'sess-1'
+      )
+    ).toBe('plan');
+    expect(
+      getSessionPermissionMode(
+        lookup({ autonomy: 'demand', permission_mode: 'alwaysAsk' }),
+        'sess-1'
+      )
+    ).toBe('plan');
+    expect(
+      getSessionPermissionMode(
+        lookup({ permission_mode: 'acceptEdits' }),
+        'sess-1'
+      )
+    ).toBe('default');
   });
 });
 
@@ -201,14 +222,14 @@ describe('指标 2：demand 会话在只读 / workspace 内写场景 ask 次数 
     }
   });
 
-  it('负向对照：收紧档 ask 必然计数（证明上面的零不是空转）', async () => {
+  it('负向对照：收紧档 plan 必然计数（证明上面的零不是空转）', async () => {
     const pm = createIsolatedManager();
     const before = askCount();
     const input = { file_path: 'docs/demo.md' };
     const decision = await pm.checkPermission(
       'file_read',
       input,
-      ctx('ask', input, 'file_read')
+      ctx('plan', input, 'file_read')
     );
     expect(decision.type).toBe('ask');
     expect(askCount() - before).toBeGreaterThan(0);

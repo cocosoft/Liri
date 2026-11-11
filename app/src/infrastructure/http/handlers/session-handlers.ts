@@ -44,9 +44,15 @@ import {
   normalizeTimestamp,
   validateWorkspacePathInput,
 } from './session-handlers-utils';
-import { LOCAL_REQUEST_BASE_URL, LOCAL_SERVICE_HOST } from '@openliri/kernel';
+// 2026-11-11：`AppError` 用于把自主度 × 权限档冲突映射成 400（见下方 catch）
+import {
+  AppError,
+  LOCAL_REQUEST_BASE_URL,
+  LOCAL_SERVICE_HOST,
+} from '@openliri/kernel';
 // P1（2026-11-04）：会话级权限模式（UI 第三层）的 9 档取值域（唯一真源在 infra）
 import {
+  AUTONOMY_PERMISSION_CONFLICT,
   PERMISSION_MODES,
   type PermissionMode,
 } from '@openliri/infra/permission';
@@ -1281,6 +1287,12 @@ export async function handleUpdateSessionMeta(
     res.end(JSON.stringify({ success: true }));
     ctx.broadcastEvent('session:meta_updated', { id: sessionId, ...data });
   } catch (err) {
+    // 2026-11-11：`autonomy` × `permission_mode` 互斥（许愿式 × 逐次询问档）
+    // 是**调用方组合错误**，按 400 回传（带可执行的修复指引），不能伪装成 500。
+    if (err instanceof AppError && err.code === AUTONOMY_PERMISSION_CONFLICT) {
+      sendBadRequest(res, err.message);
+      return;
+    }
     await handleError(err, { module: 'infra:http', action: 'handler_error' });
     if (!res.headersSent) {
       try {

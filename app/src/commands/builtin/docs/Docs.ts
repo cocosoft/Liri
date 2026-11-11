@@ -190,7 +190,7 @@ const DOC_SECTIONS: DocSection[] = [
       '常用操作:',
       '  /security status   - 查看安全状态',
       '  /security scan     - 执行安全扫描',
-      '  /permissions list  - 查看权限配置',
+      '  /permissions list  - 查看当前生效的权限规则',
       '',
       '安全策略可通过 /config 命令自定义调整。',
     ].join('\n'),

@@ -13,7 +13,11 @@ import { RuleManager, RuleContext } from './RuleManager';
 import { resolveApprovalFingerprint } from './approvalFingerprint';
 import { hashApprovalFingerprint } from './ApprovedCommandRegistry';
 import { DenialTracker } from './trackers/DenialTracker';
-import { PermissionMode, PERMISSION_MODES } from './PermissionMode';
+import {
+  PermissionMode,
+  PERMISSION_MODES,
+  normalizePermissionMode,
+} from './PermissionMode';
 import {
   PermissionDecision,
   PermissionDecisionType,
@@ -78,6 +82,8 @@ import { configManager } from '@openliri/infra/config';
 import { SpanStatusCode, metrics } from '@opentelemetry/api';
 import type { Span, Counter } from '@opentelemetry/api';
 import { PermissionAction, OperationType, RoleType } from './Permission';
+// 2026-11-11：细粒度 RBAC 规则（与领域模型 `PermissionRule` 同名，别名区分）
+import type { PermissionRule as FineGrainedRule } from './Permission';
 import { createFineGrainedPermissionManager } from './FineGrainedPermissionManager';
 import { permissionMetrics } from './metrics/PermissionMetricsStore';
 import { loadAllPermissionSettings } from './permissionsLoader';
@@ -198,17 +204,16 @@ function buildDenyInfo(
  * `setMode()` 覆盖（P1 后续再收敛三层优先级）。
  *
  * - 未设置 / 空串 ⇒ `default`（与改造前逐字一致）；
- * - 大小写不敏感（`DEFAULT` / `acceptEdits` 都能认）；
- * - 非法值 ⇒ 回退 `default` 并告警（不阻断启动，fail-safe）。
+ * - 大小写不敏感（`DEFAULT` / `PLAN` 都能认）；
+ * - 收缩前的旧值（`ask` / `alwaysAsk` / `acceptEdits` / `strict`）经
+ *   `normalizePermissionMode` 归一（2026-11-11），旧 `.env` 不会因升级而失效；
+ * - 其余非法值 ⇒ 回退 `default` 并告警（不阻断启动，fail-safe）。
  */
 function resolveInitialPermissionMode(): PermissionMode {
   const raw = configManager.env('PERMISSION_MODE', '')?.trim();
   if (!raw) return PermissionMode.DEFAULT;
 
-  const normalized = raw.toLowerCase();
-  const matched = PERMISSION_MODES.find(
-    (mode) => mode.toLowerCase() === normalized
-  );
+  const matched = normalizePermissionMode(raw);
   if (!matched) {
     logger.warning(
       `PERMISSION_MODE=${raw} 不是合法权限模式，已回退 default（合法值：${PERMISSION_MODES.join(' / ')}）`
@@ -462,16 +467,6 @@ export class PermissionManager {
           permissionContext
         );
         break;
-      case PermissionMode.ASK:
-        decision = await this.handleAsk(toolOrName, input, permissionContext);
-        break;
-      case PermissionMode.ALWAYS_ASK:
-        decision = await this.handleAlwaysAsk(
-          toolOrName,
-          input,
-          permissionContext
-        );
-        break;
       case PermissionMode.PLAN:
         decision = await this.handlePlan(toolOrName, input, permissionContext);
         break;
@@ -696,10 +691,46 @@ export class PermissionManager {
     const toolName =
       typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
 
-    // 检查工具是否被允许
+    // 1. A 体系工具级 deny：deny 永远优先于任何 allow（含 RBAC allow）
+    const denyRule = this.ruleManager.getDenyRuleForTool(toolName);
+    if (denyRule) {
+      this.denialTracker.trackDenial(toolName);
+      if (this.denialTracker.shouldAsk(toolName)) {
+        return createAskDecision('Too many denials, asking user');
+      }
+      return this._denyByRule(toolName, denyRule);
+    }
+
+    // 2. RBAC（角色 / 用户 / 资源）：deny 优先；ask 在本档**转拒绝**（"不询问"语义）；
+    //    allow 等同允许规则（放在 A 体系 allow 之后，不越过任何 deny）。
+    const effectiveRole = resolveEffectiveRole(context.userRole);
+    const fineGrained = await this.checkFineGrainedRules(
+      toolName,
+      context.userId,
+      effectiveRole ?? undefined
+    );
+    if (fineGrained.deny) {
+      this.denialTracker.trackDenial(toolName);
+      if (this.denialTracker.shouldAsk(toolName)) {
+        return createAskDecision('Too many denials, asking user');
+      }
+      return fineGrained.deny;
+    }
+    if (fineGrained.ask) {
+      this.denialTracker.trackDenial(toolName);
+      if (this.denialTracker.shouldAsk(toolName)) {
+        return createAskDecision('Too many denials, asking user');
+      }
+      return createDenyDecision('Dont ask mode, denying fine-grained ask');
+    }
+
+    // 3. A 体系允许规则
     if (this.permissionChecker.isToolAllowed(toolOrName, context)) {
       return createAllowDecision('Tool is allowed by permission rule');
     }
+
+    // 4. RBAC allow
+    if (fineGrained.allow) return fineGrained.allow;
 
     // 跟踪拒绝
     this.denialTracker.trackDenial(toolName);
@@ -710,36 +741,6 @@ export class PermissionManager {
     }
 
     return createDenyDecision('Dont ask mode, denying permission');
-  }
-
-  /**
-   * 处理询问模式
-   * @param toolOrName 工具对象或工具名称
-   * @param input 工具输入
-   * @param context 权限上下文
-   * @returns 权限决策
-   */
-  private async handleAsk(
-    toolOrName: Tool | string,
-    input: Record<string, unknown>,
-    context: PermissionContext
-  ): Promise<PermissionDecision> {
-    return createAskDecision('Ask mode, requiring user approval');
-  }
-
-  /**
-   * 处理总是询问模式
-   * @param toolOrName 工具对象或工具名称
-   * @param input 工具输入
-   * @param context 权限上下文
-   * @returns 权限决策
-   */
-  private async handleAlwaysAsk(
-    toolOrName: Tool | string,
-    input: Record<string, unknown>,
-    context: PermissionContext
-  ): Promise<PermissionDecision> {
-    return createAskDecision('Always ask mode, requiring user approval');
   }
 
   /**
@@ -822,18 +823,16 @@ export class PermissionManager {
       return this._denyByRule(toolName, denyRule);
     }
 
-    // D 体系角色 deny 优先（E↔A 打通）：角色**只来自请求级** `context.userRole`。
-    // 2026-11-03 收敛：进程级角色字段已删除（登录不再写全局角色，避免并发污染）；
-    // 无请求作用域的后台执行（CLI / cron）不带角色 ⇒ 角色 deny 不参与。
+    // D 体系（角色 / 用户 / 资源）规则：deny 在此立即返回（先于一切 ask/allow）；
+    // ask / allow 两档在本函数后段按“ask 先于 allow”的安全顺序返回。
+    // 2026-11-03 收敛：角色只来自请求级 `context.userRole`（无请求作用域 ⇒ 不参与）。
     const effectiveRole = resolveEffectiveRole(context.userRole);
-    if (effectiveRole) {
-      const roleDeny = await this.checkFineGrainedRoleDeny(
-        toolName,
-        input,
-        effectiveRole
-      );
-      if (roleDeny) return roleDeny;
-    }
+    const fineGrained = await this.checkFineGrainedRules(
+      toolName,
+      context.userId,
+      effectiveRole ?? undefined
+    );
+    if (fineGrained.deny) return fineGrained.deny;
 
     // P1-2: 命令内容级黑白名单（「设置→自定义规则」B 体系）—
     // 黑名单命中 deny；whitelist 模式命中 allow（覆盖工具级 ask 规则，实现"白名单免审批"）
@@ -880,6 +879,9 @@ export class PermissionManager {
       return createAskDecision(`Asked by rule from ${matchingAskRule.source}`);
     }
 
+    // D 体系 ask：排在工具级 ask 之后、allow 之前（ask 不越过 allow）
+    if (fineGrained.ask) return fineGrained.ask;
+
     const allowRule = this.ruleManager.toolAlwaysAllowedRule(
       toolName,
       ruleContext
@@ -900,6 +902,9 @@ export class PermissionManager {
         `Allowed by rule from ${matchingAllowRule.source}`
       );
     }
+
+    // D 体系 allow：所有 deny / ask 与显式 allow 之后才生效（安全兜底）
+    if (fineGrained.allow) return fineGrained.allow;
 
     // 语义护栏「便宜版」（2026-10-21）：意图-动作偏离 ⇒ 升级为 ask（**不直接拒绝**）。
     // 位置在所有显式规则之后、默认行为之前 —— 用户显式 allow/deny/ask 规则始终优先。
@@ -935,18 +940,14 @@ export class PermissionManager {
   }
 
   /**
-   * 处理计划模式
-   * @param toolOrName 工具对象或工具名称
-   * @param input 工具输入
-   * @param context 权限上下文
-   * @returns 权限决策
+   * 处理「每步确认」档（`plan`，2026-11-11 前同时承担 ask / alwaysAsk 的语义）：
+   * 每次工具调用都返回 ask，不自动放行（allow 规则也不生效）。
    */
   private async handlePlan(
     toolOrName: Tool | string,
     input: Record<string, unknown>,
     context: PermissionContext
   ): Promise<PermissionDecision> {
-    // 计划模式下，只记录工具使用，不执行
     return createAskDecision('Plan mode, requiring user approval');
   }
 
@@ -985,6 +986,16 @@ export class PermissionManager {
       return this._denyByRule(toolName, denyRule);
     }
 
+    // 2.1（2026-11-11）RBAC（角色 / 用户 / 资源）与 default 档同口径：
+    // deny 先于一切 ask/allow；ask / allow 在后段按“ask 先于 allow”返回。
+    const effectiveRole = resolveEffectiveRole(context.userRole);
+    const fineGrained = await this.checkFineGrainedRules(
+      toolName,
+      context.userId,
+      effectiveRole ?? undefined
+    );
+    if (fineGrained.deny) return fineGrained.deny;
+
     // P1-2: 命令内容级黑白名单（「设置→自定义规则」B 体系）— 与 handleDefault 一致
     // P1（2026-11-07）：命令类工具扩到 powershell/pwsh（此前只对 bash 生效）
     if (isCommandToolName(toolName) && typeof input.command === 'string') {
@@ -997,6 +1008,9 @@ export class PermissionManager {
       return createAskDecision(`Asked by rule from ${askRule.source}`);
     }
 
+    // RBAC ask：排在工具级 ask 之后、allow 之前（ask 不越过 allow）
+    if (fineGrained.ask) return fineGrained.ask;
+
     const allowRule = this.ruleManager.toolAlwaysAllowedRule(
       toolName,
       ruleContext
@@ -1005,6 +1019,9 @@ export class PermissionManager {
       this.denialTracker.trackSuccess(toolName);
       return createAllowDecision(`Allowed by rule from ${allowRule.source}`);
     }
+
+    // RBAC allow：显式绑定优先于只读短路与分类器（deny / ask 已在上面处理）
+    if (fineGrained.allow) return fineGrained.allow;
 
     // 2.5（2026-11-09，B4 follow-up）：只读命令短路。
     // 用户显式 deny / ask / allow 规则（上面）优先；这里只放行结构上只读的单一命令，
@@ -1169,51 +1186,104 @@ export class PermissionManager {
   }
 
   /**
-   * E↔A 打通：查询 D 体系（FineGrained）中**本次请求生效角色**的 deny 规则
-   * 工具以 Tool 类型资源参与决策（resourceId = toolName, operation = execute）。
-   * 直接按角色查询 storage（D 的 checkPermission 依赖 userId→roles，无 userId 时恒按 guest，
-   * 故此处按 effectiveRole 精确匹配角色规则）。
-   * 返回 deny 决策或 null（未配置/未命中 → 继续走 A 规则）。
+   * E↔A 打通：查询 D 体系（FineGrained）中**本次请求生效主体**的规则
    *
-   * 多租户 P0：角色由**调用方显式传入**（`context.userRole`），
+   * 三类绑定同权（2026-11-11 补齐 user / resource，并接入 allow / ask）：
+   * - **角色**：`roleObj.permissions` + `rules.json` 里 `roleId = roleObj.id` 的规则；
+   * - **用户**：`rules.json` 里 `userId = context.userId` 的规则；
+   * - **资源**：`rules.json` 里 `resourceId = toolName` 且未绑定角色/用户的规则
+   *   （工具类资源以工具名为标识）。
+   *
+   * 返回**一次读取**得到的决策三档（deny > ask > allow）：
+   * - `deny` 由调用方在**所有 ask/allow 之前**返回（安全排序：deny 永远优先）；
+   * - `ask` 在工具级 ask 规则之后、allow 规则之前返回（ask 不越过 allow）；
+   * - `allow` 在所有 ask 与显式 allow 规则之后返回（安全兜底：ask 仍优先于 allow）。
+   *
+   * 只认 `operation ∈ {all, execute}`：工具调用以 execute 参与判定。
+   *
+   * 多租户 P0：角色/用户由**调用方显式传入**（`context.userRole` / `context.userId`），
    * 方法内不读任何进程级字段 ⇒ 并发请求各自判定、互不覆盖（2026-11-03 收敛）。
    */
-  private async checkFineGrainedRoleDeny(
+  private async checkFineGrainedRules(
     toolName: string,
-    input: Record<string, unknown>,
-    effectiveRole: string
-  ): Promise<PermissionDecision | null> {
+    userId: string | undefined,
+    effectiveRole: string | undefined
+  ): Promise<{
+    deny?: PermissionDecision;
+    ask?: PermissionDecision;
+    allow?: PermissionDecision;
+  }> {
     try {
       const storage = createFineGrainedPermissionManager().getStorage();
-      const roleObj = await storage.getRoleByName(effectiveRole as RoleType);
-      if (!roleObj) return null;
+      const rules: FineGrainedRule[] = [];
 
-      const roleRules = [
-        ...roleObj.permissions,
-        ...(await storage.getRulesByRole(roleObj.id)),
-      ];
-      const denyRule = roleRules.find(
-        (r) =>
-          r.action === PermissionAction.DENY &&
-          (r.operation === OperationType.ALL ||
-            r.operation === OperationType.EXECUTE) &&
-          r.resourceId === toolName
+      if (effectiveRole) {
+        const roleObj = await storage.getRoleByName(effectiveRole as RoleType);
+        if (roleObj) {
+          rules.push(...roleObj.permissions);
+          rules.push(...(await storage.getRulesByRole(roleObj.id)));
+        }
+      }
+
+      if (userId) {
+        rules.push(...(await storage.getRulesByUser(userId)));
+      }
+
+      // 资源规则：同一份 `rules.json` 里，角色/用户绑定的规则也用 resourceId = 工具名，
+      // 必须排除它们，否则“给 guest 绑定”会通过资源通道命中所有人（多租户串权）。
+      const resourceRules = (await storage.getRulesByResource(toolName)).filter(
+        (rule) => !rule.roleId && !rule.userId
       );
+      rules.push(...resourceRules);
+
+      const pickRule = (action: PermissionAction): FineGrainedRule | undefined =>
+        rules
+          .filter(
+            (r) =>
+              r.action === action &&
+              (r.operation === OperationType.ALL ||
+                r.operation === OperationType.EXECUTE) &&
+              r.resourceId === toolName
+          )
+          // 与 D 体系一致：priority 数值越小优先级越高
+          .sort((a, b) => a.priority - b.priority)[0];
+
+      const denyRule = pickRule(PermissionAction.DENY);
       if (denyRule) {
         this.denialTracker.trackDenial(toolName);
-        this.recordRoleDeny(toolName, roleObj.name);
-        return createDenyDecision(
-          `Denied by role rule: ${denyRule.id} (${roleObj.name})`
+        this.recordRoleDeny(
+          toolName,
+          effectiveRole ?? denyRule.roleId ?? 'user'
         );
+        return {
+          deny: createDenyDecision(
+            `Denied by fine-grained rule: ${denyRule.id}`
+          ),
+        };
       }
+
+      const askRule = pickRule(PermissionAction.ASK);
+      const allowRule = pickRule(PermissionAction.ALLOW);
+      return {
+        ...(askRule
+          ? { ask: createAskDecision(`Asked by fine-grained rule: ${askRule.id}`) }
+          : {}),
+        ...(allowRule
+          ? {
+              allow: createAllowDecision(
+                `Allowed by fine-grained rule: ${allowRule.id}`
+              ),
+            }
+          : {}),
+      };
     } catch (error) {
-      // 角色规则查询失败不应阻塞主决策链路（fail-open 于 A 规则）
+      // 细粒度规则查询失败不应阻塞主决策链路（fail-open 于 A 规则）
       void handleError(error, {
         module: 'permission:manager',
-        action: 'check_role_rule',
+        action: 'check_fine_grained_rules',
       });
+      return {};
     }
-    return null;
   }
 
   /**
@@ -1538,7 +1608,7 @@ export class PermissionManager {
 
     // P3（2026-11-07，方案 §2.3-4）：会话权限档的**放宽档**（bypass / auto / dontAsk）
     // 会直接放行而不产生审批卡 ⇒ 必须显式标注「自动放行」，不得在日志/审计里与
-    // 「用户逐条批准」混同。仅在 allow 时标注；收紧档（plan/ask/alwaysAsk/strict）不适用。
+    // 「用户逐条批准」混同。仅在 allow 时标注；收紧档（plan）不适用。
     const effectivePermissionMode =
       permissionContext.permissionMode ?? this.mode;
     const autoSource =

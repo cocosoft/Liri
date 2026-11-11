@@ -1,10 +1,11 @@
 /**
  * P1（2026-11-04）：会话级权限模式选择器的**文案完整性**守卫。
  *
- * 为什么要有这条：9 档模式名与说明都是 `t()` 动态拼键（`chat.permission.mode.<key>`），
+ * 为什么要有这条：模式名与说明都是 `t()` 动态拼键（`chat.permission.mode.<key>`），
  * 拼错的键不会编译报错，只会在界面上直接显示 key 原文。本用例锁：
- *   ① 键集合 = 9 档且不重复（与后端 `PERMISSION_MODES` 同集合）；
- *   ② zh / en 两份语言包对每档都有非空的模式名与说明。
+ *   ① 键集合 = 5 档且不重复（与后端收缩后的 `PERMISSION_MODES` 同集合）；
+ *   ② zh / en 两份语言包对每档都有非空的模式名与说明；
+ *   ③ 文案与语义对齐：`plan` = 每步确认、`bypass` = 全自动（不再是"只读规划 / 绕过模式"）。
  *
  * 注：不渲染组件（jsdom + store mock 成本高、收益低），只校验契约数据。
  */
@@ -29,9 +30,15 @@ function permissionSection(
 }
 
 describe("P1：权限模式选择器契约", () => {
-  it("① 9 档且不重复", () => {
-    expect(PERMISSION_MODE_KEYS).toHaveLength(9);
-    expect(new Set(PERMISSION_MODE_KEYS).size).toBe(9);
+  it("① 5 档且不重复（2026-11-11 值域 9→5）", () => {
+    expect(PERMISSION_MODE_KEYS).toEqual([
+      "default",
+      "auto",
+      "plan",
+      "dontAsk",
+      "bypass",
+    ]);
+    expect(new Set(PERMISSION_MODE_KEYS).size).toBe(5);
   });
 
   it("② zh / en 均有每档的模式名与说明（非空字符串）", () => {
@@ -44,5 +51,19 @@ describe("P1：权限模式选择器契约", () => {
         expect((modeDesc?.[key] ?? "").trim().length).toBeGreaterThan(0);
       }
     }
+  });
+
+  it("③ 文案与语义对齐：plan = 每步确认，bypass = 全自动", () => {
+    const zh = permissionSection(zhBase);
+    expect(zh.mode?.["plan"]).toBe("每步确认");
+    expect(zh.mode?.["bypass"]).toBe("全自动");
+    // 收缩前的旧档位名不得回流
+    for (const legacy of ["acceptEdits", "ask", "alwaysAsk", "strict"]) {
+      expect(zh.mode?.[legacy]).toBeUndefined();
+    }
+
+    const en = permissionSection(enBase);
+    expect(en.mode?.["plan"]).toBe("Confirm every step");
+    expect(en.mode?.["bypass"]).toBe("Full auto");
   });
 });

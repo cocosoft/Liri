@@ -1,60 +1,56 @@
 /**
  * 权限管理命令实现
  * 融合快速权限管理与细粒度权限控制
+ *
+ * 2026-11-11：`resource` / `role` / `user` 三条 RBAC 子命令已补齐**写入与绑定**能力
+ * （实现见 `./rbac.ts`）。它们操作 `roles.json` / `users.json` / `resources.json` /
+ * `rules.json`，绑定支持 `deny` / `allow` / `ask`，由
+ * `PermissionManager.checkFineGrainedRules` 按 **deny > ask > allow** 消费；
+ * 工具级 allow/ask 仍走 `tool_rules.json`（`/permissions grant|add`）。
  */
 import type { CommandContext, CommandResult } from '@modules/commands';
 import {
   PERMISSION_MODES,
   PERMISSION_MODE_NAMES,
-  createFineGrainedPermissionManager,
-  PermissionAction,
-  ResourceType,
-  OperationType,
+  createPermissionRule,
+  PermissionBehavior,
+  PermissionRuleSource,
+  type PermissionRule,
 } from '@openliri/infra/permission';
-import { permissionModeIntegrationService } from '@modules/chat';
-import { completeSecuritySystem } from '@openliri/infra/security';
+import { livePermissionManager } from '../../livePermissionManager.js';
+import {
+  handleResourceCommand,
+  handleRoleCommand,
+  handleUserCommand,
+} from './rbac.js';
 
 import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('commands:builtin:permissions:Permissions');
 
-const COMMON_PERMISSIONS: Record<
-  string,
-  { description: string; enabled: boolean; scope: string }
-> = {
-  'file.read': {
-    description: '读取文件系统中的文件',
-    enabled: true,
-    scope: '文件系统',
-  },
-  'file.write': {
-    description: '写入文件到文件系统',
-    enabled: true,
-    scope: '文件系统',
-  },
-  'file.delete': {
-    description: '删除文件系统中的文件',
-    enabled: true,
-    scope: '文件系统',
-  },
-  'shell.execute': {
-    description: '执行Shell命令',
-    enabled: true,
-    scope: '系统',
-  },
-  'network.request': {
-    description: '发起网络请求',
-    enabled: true,
-    scope: '网络',
-  },
-  'mcp.connect': { description: '连接MCP服务', enabled: true, scope: '插件' },
-  'plugin.install': { description: '安装新插件', enabled: true, scope: '插件' },
-  'system.modify': {
-    description: '修改系统级设置',
-    enabled: false,
-    scope: '系统',
-  },
-};
+/** 规则事实源的最小接口（`PermissionManager.getRuleManager()` 返回的 `RuleManager`） */
+interface LiveRuleManager {
+  addRule: (rule: PermissionRule) => void;
+  removeRule: (rule: PermissionRule) => void;
+  getRules: () => PermissionRule[];
+}
+
+/**
+ * 取**判定链路共用的**规则管理器（与工具执行时判权用的是同一份 `tool_rules.json`）。
+ *
+ * 不用 `SecurityPermissionView`：它只是 `PermissionManager` 的只读视图，`addRule/removeRule`
+ * 只改本地 Map、不落盘、不参与判定。
+ */
+function liveRuleManager(): LiveRuleManager | undefined {
+  return livePermissionManager()?.getRuleManager();
+}
+
+/** 用户可写的规则行为（`passthrough` 不是规则档，不开放） */
+const RULE_BEHAVIORS = [
+  PermissionBehavior.ALLOW,
+  PermissionBehavior.DENY,
+  PermissionBehavior.ASK,
+] as const;
 
 const permissionsCommand = {
   /**
@@ -81,7 +77,7 @@ const permissionsCommand = {
       case 'list':
         return handleList(context);
       case 'show':
-        return handleShow(rest[0], context);
+        return handleShow(rest[0]);
       case 'grant':
         return handleGrant(rest, context);
       case 'revoke':
@@ -97,11 +93,11 @@ const permissionsCommand = {
       case 'remove':
         return handleRemove(rest[0]);
       case 'resource':
-        return handleResource(rest);
+        return handleResourceCommand(rest);
       case 'role':
-        return handleRole(rest);
+        return handleRoleCommand(rest);
       case 'user':
-        return handleUser(rest);
+        return handleUserCommand(rest);
       case 'help':
         return showHelp();
       default:
@@ -117,26 +113,22 @@ function showHelp(): CommandResult {
   const help = `Permissions 命令使用帮助
 
 用法:
-  /permissions list                    - 列出所有权限
-  /permissions show <权限名>           - 查看权限详情
-  /permissions grant <权限名>          - 授予权限
-  /permissions revoke <权限名>         - 撤销权限
-  /permissions status [--json]         - 显示权限状态
+  /permissions list                    - 列出当前生效的权限规则
+  /permissions show <工具名>           - 查看某个工具的规则
+  /permissions grant <工具名>          - 允许某个工具（写入 tool_rules.json）
+  /permissions revoke <工具名>         - 移除该工具的全部规则
+  /permissions status [--json]         - 显示权限模式与真实规则数量
   /permissions mode [show|set <模式>]  - 权限模式管理
-  /permissions rules [--json]          - 查看会话权限规则
-  /permissions add <动作> <类型> <资源> <操作> - 添加细粒度权限规则
-  /permissions remove <规则ID>          - 删除细粒度权限规则
-  /permissions resource add <类型> <路径> - 添加资源
-  /permissions resource list            - 列出所有资源
-  /permissions role list                - 列出所有角色
-  /permissions user list                - 列出所有用户
+  /permissions rules [--json]          - 查看真实权限规则
+  /permissions add <allow|deny|ask> <工具名> [内容模式] - 添加规则
+  /permissions remove <规则ID>          - 删除规则
+  /permissions role <list|add|remove|bind|unbind>     - 角色规则（deny/allow/ask）
+  /permissions user <list|add|remove|role|bind|unbind> - 用户规则（deny/allow/ask）
+  /permissions resource <list|add|remove|bind|unbind> - 资源规则（deny/allow/ask）
   /permissions help                     - 显示此帮助
 
 权限模式 (信任光谱):
-  plan         - 计划模式，拒绝所有执行操作，仅允许只读
-  default      - 默认模式，AI先评估，危险操作询问用户
-  acceptEdits  - 接受编辑，自动允许编辑类工具
-  bypass       - 绕过模式，跳过所有权限检查
+${PERMISSION_MODES.map((mode) => `  ${mode.padEnd(12)} - ${PERMISSION_MODE_NAMES[mode]}`).join('\n')}
 
 别名: /perm, /auth, /permission
 
@@ -145,10 +137,23 @@ function showHelp(): CommandResult {
   return { success: true, message: help };
 }
 
+/** 规则的一行展示（`rules` / `list` / `show` 共用，避免三处各写一遍） */
+function formatRuleLine(rule: PermissionRule): string {
+  const target = rule.inputFingerprint
+    ? `${rule.toolName} (指纹 ${rule.inputFingerprint.slice(0, 12)}…)`
+    : rule.contentPattern
+      ? `${rule.toolName}(${rule.contentPattern})`
+      : rule.toolName;
+  return `  - ${target}  [来源: ${rule.source}]`;
+}
+
 /**
- * 列出所有权限
+ * 列出当前生效的真实权限规则
+ *
+ * 旧实现展示的是 `COMMON_PERMISSIONS` 里的 8 条虚构权限名（`file.read` / `shell.execute` …）
+ * —— 这些名字既不参与判定、也无法授予（CS04 禁止假数据）。现直接复用 `rules` 的实现。
  */
-async function handleList(context: CommandContext): Promise<CommandResult> {
+async function handleList(_context: CommandContext): Promise<CommandResult> {
   try {
     const { logEvent } =
       await import('@openliri/service/services/analytics/index');
@@ -162,190 +167,170 @@ async function handleList(context: CommandContext): Promise<CommandResult> {
     });
   }
 
-  const simpleList = Object.entries(COMMON_PERMISSIONS)
-    .map(
-      ([name, info]) =>
-        `${name.padEnd(20)} ${info.enabled ? '[✓]' : '[✗]'} ${info.description}`
-    )
-    .join('\n');
-
-  let fineRules = '';
-  try {
-    const manager = createFineGrainedPermissionManager();
-    const storage = manager.getStorage();
-    const resources = await storage.getAllResources();
-    if (resources && resources.length > 0) {
-      const parts: string[] = [];
-      for (const resource of resources) {
-        const rules = await storage.getRulesByResource(resource.id);
-        if (rules.length > 0) {
-          parts.push(`资源: ${resource.name} (${resource.type})`);
-          for (const rule of rules) {
-            parts.push(
-              `  - ${rule.action} ${rule.operation} (优先级: ${rule.priority})`
-            );
-          }
-        }
-      }
-      if (parts.length > 0) {
-        fineRules = '\n\n细粒度权限规则:\n' + parts.join('\n');
-      }
-    }
-  } catch (err) {
-    // 忽略细粒度查询失败
-
-    handleError(err, {
-      module: 'commands:builtin:permissions:Permissions',
-      action: 'ignoreFineGrainedQueryFailed',
-    });
-  }
-
-  const mode = permissionModeIntegrationService.getPermissionMode();
-  const modeInfo = mode
-    ? `\n当前权限模式: ${(PERMISSION_MODE_NAMES as Record<string, string>)[mode] || mode}`
-    : '';
-
-  return {
-    success: true,
-    message: `常用权限列表:${modeInfo}\n\n${simpleList}${fineRules}\n\n使用 /permissions show <权限名> 查看详情\n使用 /permissions mode 查看或切换权限模式`,
-  };
+  return handleRules(false);
 }
 
 /**
- * 显示特定权限详情
+ * 显示某个工具的权限规则详情（真实 `tool_rules.json`）
  */
-async function handleShow(
-  permissionName?: string,
-  _context?: CommandContext
-): Promise<CommandResult> {
-  if (!permissionName) {
-    return { success: false, message: '用法: /permissions show <权限名>' };
+async function handleShow(toolName?: string): Promise<CommandResult> {
+  if (!toolName) {
+    return {
+      success: false,
+      message: '用法: /permissions show <工具名>\n示例: /permissions show bash',
+    };
   }
 
-  const info = COMMON_PERMISSIONS[permissionName];
-  if (info) {
+  const ruleManager = liveRuleManager();
+  if (!ruleManager) {
+    return {
+      success: false,
+      message: '权限管理器尚未初始化（首次对话后装配），暂不能读取规则',
+    };
+  }
+
+  const matched = ruleManager
+    .getRules()
+    .filter((rule) => rule.toolName === toolName);
+  if (matched.length === 0) {
     return {
       success: true,
-      message:
-        `${permissionName}\n` +
-        `- 描述: ${info.description}\n` +
-        `- 范围: ${info.scope}\n` +
-        `- 状态: ${info.enabled ? '已启用' : '已禁用'}`,
+      message: `工具 ${toolName} 当前没有规则\n查看全部: /permissions rules`,
     };
   }
 
   return {
-    success: false,
-    message: `未找到权限: ${permissionName}\n可用权限: ${Object.keys(COMMON_PERMISSIONS).join(', ')}`,
+    success: true,
+    message: `工具 ${toolName} 的规则 (${matched.length} 条):\n${matched
+      .map(formatRuleLine)
+      .join('\n')}`,
   };
 }
 
 /**
- * 授予权限
+ * 允许某个工具（真实规则：写入 `tool_rules.json`，判定链路立即生效）
+ *
+ * 2026-11-11：原实现调 `SecurityPermissionView.addRule('allow', name)` —— 参数形态都不对
+ * （该方法要 `PermissionRule` 对象），实际只往它的私有 Map 塞一条 `id=undefined` 的垃圾记录，
+ * 既不落盘也不参与判定。现改走与判定同源的 `RuleManager`。
  */
 async function handleGrant(
   args: string[],
   context: CommandContext
 ): Promise<CommandResult> {
-  const permissionName = args[0];
+  const toolName = args[0]?.trim();
 
-  if (!permissionName) {
-    return { success: false, message: '用法: /permissions grant <权限名>' };
-  }
-
-  const info = COMMON_PERMISSIONS[permissionName];
-  if (!info) {
+  if (!toolName) {
     return {
       success: false,
-      message: `未知权限: ${permissionName}\n可用权限: ${Object.keys(COMMON_PERMISSIONS).join(', ')}`,
+      message:
+        '用法: /permissions grant <工具名>\n示例: /permissions grant bash',
+    };
+  }
+
+  const ruleManager = liveRuleManager();
+  if (!ruleManager) {
+    return {
+      success: false,
+      message: '权限管理器尚未初始化（首次对话后装配），暂不能写入规则',
     };
   }
 
   try {
-    const permissionManager =
-      completeSecuritySystem.getPermissionManager() as unknown as {
-        addRule: (action: string, name: string) => void;
-      };
-    permissionManager.addRule('allow', permissionName);
+    const rule = createPermissionRule({
+      behavior: PermissionBehavior.ALLOW,
+      toolName,
+      source: PermissionRuleSource.RULE_STORE,
+    });
+    ruleManager.addRule(rule);
+    context.onDone?.(`工具 ${toolName} 已允许`, { display: 'system' });
+    return {
+      success: true,
+      message: `已允许工具 ${toolName}（规则 ${rule.id}，已写入 tool_rules.json）`,
+    };
   } catch (err) {
-    // 忽略管理器调用失败
-
     handleError(err, {
       module: 'commands:builtin:permissions:Permissions',
-      action: 'ignoreManagerCallFailed',
+      action: 'grantRule',
     });
+    return {
+      success: false,
+      message: `写入规则失败: ${err instanceof Error ? err.message : '未知错误'}`,
+    };
   }
-
-  context.onDone?.(`权限 ${permissionName} 已授予`, { display: 'system' });
-
-  return { success: true, message: `权限 ${permissionName} 已授予` };
 }
 
 /**
- * 撤销权限
+ * 移除某个工具的全部真实规则（allow / deny / ask，写入 `tool_rules.json`）
  */
 async function handleRevoke(
   args: string[],
   context: CommandContext
 ): Promise<CommandResult> {
-  const permissionName = args[0];
+  const toolName = args[0]?.trim();
 
-  if (!permissionName) {
-    return { success: false, message: '用法: /permissions revoke <权限名>' };
-  }
-
-  const info = COMMON_PERMISSIONS[permissionName];
-  if (!info) {
+  if (!toolName) {
     return {
       success: false,
-      message: `未知权限: ${permissionName}\n可用权限: ${Object.keys(COMMON_PERMISSIONS).join(', ')}`,
+      message:
+        '用法: /permissions revoke <工具名>\n示例: /permissions revoke bash',
+    };
+  }
+
+  const ruleManager = liveRuleManager();
+  if (!ruleManager) {
+    return {
+      success: false,
+      message: '权限管理器尚未初始化（首次对话后装配），暂不能修改规则',
     };
   }
 
   try {
-    const permissionManager =
-      completeSecuritySystem.getPermissionManager() as unknown as Record<
-        string,
-        unknown
-      >;
-    const rules = (permissionManager.getRules as Function)() as unknown[];
-    for (const r of rules) {
-      const rule = r as Record<string, unknown>;
-      if (rule.toolName === permissionName || rule.name === permissionName) {
-        (permissionManager.removeRule as Function)(rule.id);
-      }
+    const matched = ruleManager
+      .getRules()
+      .filter((rule) => rule.toolName === toolName);
+    if (matched.length === 0) {
+      return { success: true, message: `工具 ${toolName} 当前没有规则` };
     }
+    for (const rule of matched) ruleManager.removeRule(rule);
+    context.onDone?.(`工具 ${toolName} 的规则已撤销`, { display: 'system' });
+    return {
+      success: true,
+      message: `已移除工具 ${toolName} 的 ${matched.length} 条规则`,
+    };
   } catch (err) {
-    // 忽略
-
     handleError(err, {
       module: 'commands:builtin:permissions:Permissions',
-      action: 'ignoreError',
+      action: 'revokeRule',
     });
+    return {
+      success: false,
+      message: `移除规则失败: ${err instanceof Error ? err.message : '未知错误'}`,
+    };
   }
-
-  context.onDone?.(`权限 ${permissionName} 已撤销`, { display: 'system' });
-
-  return { success: true, message: `权限 ${permissionName} 已撤销` };
 }
 
 /**
- * 显示权限状态
+ * 显示权限状态（读**真实**规则，不读静态示例清单）
  */
 async function handleStatus(
   _context: CommandContext,
   useJson: boolean = false
 ): Promise<CommandResult> {
-  const enabledCount = Object.values(COMMON_PERMISSIONS).filter(
-    (p) => p.enabled
-  ).length;
-  const totalCount = Object.keys(COMMON_PERMISSIONS).length;
-  const currentMode = permissionModeIntegrationService.getPermissionMode();
+  const permissionManager = livePermissionManager();
+  const currentMode = permissionManager?.getMode?.() ?? null;
+  const ruleManager = liveRuleManager();
+  const rules = ruleManager?.getRules() ?? [];
+  const countBy = (behavior: PermissionBehavior): number =>
+    rules.filter((rule) => rule.behavior === behavior).length;
+
   const status = {
-    totalPermissions: totalCount,
-    enabledPermissions: enabledCount,
-    disabledPermissions: totalCount - enabledCount,
-    currentMode: currentMode || 'default',
+    currentMode: currentMode ?? null,
+    ruleManagerAvailable: ruleManager !== undefined,
+    totalRules: rules.length,
+    allowRules: countBy(PermissionBehavior.ALLOW),
+    denyRules: countBy(PermissionBehavior.DENY),
+    askRules: countBy(PermissionBehavior.ASK),
     lastUpdated: new Date().toISOString(),
   };
 
@@ -353,8 +338,8 @@ async function handleStatus(
     const { logEvent } =
       await import('@openliri/service/services/analytics/index');
     logEvent('tengu_permissions_status', {
-      total: totalCount,
-      enabled: enabledCount,
+      total: status.totalRules,
+      mode: currentMode ?? undefined,
     });
   } catch (err) {
     // analytics 非关键
@@ -369,14 +354,23 @@ async function handleStatus(
     return { success: true, message: JSON.stringify(status, null, 2) };
   }
 
+  const modeLabel = currentMode
+    ? `${currentMode} (${PERMISSION_MODE_NAMES[currentMode]})`
+    : '未初始化（首次对话后装配）';
+  const ruleSummary = ruleManager
+    ? `- 规则总数: ${status.totalRules}\n` +
+      `- 允许 (allow): ${status.allowRules}\n` +
+      `- 拒绝 (deny): ${status.denyRules}\n` +
+      `- 询问 (ask): ${status.askRules}\n` +
+      `- 规则文件: tool_rules.json`
+    : '- 规则: 不可用（权限管理器未初始化）';
+
   return {
     success: true,
     message:
       `权限状态:\n` +
-      `- 总权限数: ${status.totalPermissions}\n` +
-      `- 已启用: ${status.enabledPermissions}\n` +
-      `- 已禁用: ${status.disabledPermissions}\n` +
-      `- 权限模式: ${status.currentMode} (${PERMISSION_MODE_NAMES[status.currentMode as keyof typeof PERMISSION_MODE_NAMES] || '未知'})\n` +
+      `- 权限模式: ${modeLabel}\n` +
+      `${ruleSummary}\n` +
       `- 最后更新: ${new Date(status.lastUpdated).toLocaleString()}`,
   };
 }
@@ -388,7 +382,7 @@ async function handleMode(
   args: string[],
   useJson: boolean = false
 ): Promise<CommandResult> {
-  const currentMode = permissionModeIntegrationService.getPermissionMode();
+  const currentMode = livePermissionManager()?.getMode?.() ?? null;
 
   if (args.length === 0 || args[0] === 'show') {
     const validModes = PERMISSION_MODES.map((m) =>
@@ -408,7 +402,7 @@ async function handleMode(
 
     return {
       success: true,
-      message: `权限模式:\n\n当前模式: ${currentMode || 'default'}\n\n可用模式:\n${validModes}\n\n使用 /permissions mode set <模式名> 切换模式`,
+      message: `权限模式:\n\n当前模式: ${currentMode ?? '未初始化（首次对话后装配）'}\n\n可用模式:\n${validModes}\n\n使用 /permissions mode set <模式名> 切换模式`,
     };
   }
 
@@ -422,9 +416,16 @@ async function handleMode(
       };
     }
 
+    const permissionManager = livePermissionManager();
+    if (typeof permissionManager?.setMode !== 'function') {
+      return {
+        success: false,
+        message: '权限管理器尚未初始化（首次对话后装配），暂不能切换权限模式',
+      };
+    }
+
     try {
-      permissionModeIntegrationService.setPermissionMode(targetModeTyped);
-      completeSecuritySystem.setPermissionMode(targetModeTyped);
+      permissionManager.setMode(targetModeTyped);
 
       return {
         success: true,
@@ -441,141 +442,117 @@ async function handleMode(
   return {
     success: false,
     message:
-      '用法: /permissions mode [show|set <模式>]\n\n示例:\n  /permissions mode          显示当前模式\n  /permissions mode show     显示当前模式\n  /permissions mode set plan 切换到计划模式',
+      '用法: /permissions mode [show|set <模式>]\n\n示例:\n  /permissions mode          显示当前模式\n  /permissions mode show     显示当前模式\n  /permissions mode set plan 切换到每步确认',
   };
 }
 
 /**
- * 查看会话权限规则
+ * 查看真实权限规则（`tool_rules.json`，与工具执行判权同源）
  */
 async function handleRules(useJson: boolean = false): Promise<CommandResult> {
-  try {
-    const permissionManager =
-      completeSecuritySystem.getPermissionManager() as unknown as Record<
-        string,
-        unknown
-      >;
-    const mode = (permissionManager.getMode as Function)() as string;
-    const rules = (permissionManager.getRules as Function)() as unknown[];
-
-    if (useJson) {
-      return {
-        success: true,
-        message: JSON.stringify(
-          { mode, rules, ruleCount: rules.length },
-          null,
-          2
-        ),
-      };
-    }
-
-    const sorted = rules.reduce(
-      (acc: Record<string, string[]>, rule: unknown) => {
-        const r = rule as Record<string, unknown>;
-        const behavior = (r.behavior || r.action || 'unknown') as string;
-        const name = (r.toolName || r.name || r.id) as string;
-        if (!acc[behavior]) acc[behavior] = [];
-        const detail = r.contentPattern
-          ? `${name}(${r.contentPattern as string})`
-          : name;
-        acc[behavior].push(`  - ${detail}`);
-        return acc;
-      },
-      {} as Record<string, string[]>
-    );
-
-    const parts: string[] = [`会话权限规则 (模式: ${mode}):\n`];
-    if (sorted.allow?.length) {
-      parts.push('允许 (allow):');
-      parts.push(...sorted.allow);
-      parts.push('');
-    }
-    if (sorted.deny?.length) {
-      parts.push('拒绝 (deny):');
-      parts.push(...sorted.deny);
-      parts.push('');
-    }
-    if (sorted.ask?.length) {
-      parts.push('询问 (ask):');
-      parts.push(...sorted.ask);
-      parts.push('');
-    }
-    if (!sorted.allow && !sorted.deny && !sorted.ask) {
-      parts.push('  暂无规则');
-    }
-
-    return { success: true, message: parts.join('\n') };
-  } catch (error) {
+  const ruleManager = liveRuleManager();
+  if (!ruleManager) {
     return {
       success: false,
-      message: `查询失败: ${error instanceof Error ? error.message : '未知错误'}`,
+      message: '权限管理器尚未初始化（首次对话后装配），暂不能读取规则',
     };
   }
+
+  const mode = livePermissionManager()?.getMode?.() ?? null;
+  const rules = ruleManager.getRules();
+
+  if (useJson) {
+    return {
+      success: true,
+      message: JSON.stringify(
+        { mode, rules, ruleCount: rules.length },
+        null,
+        2
+      ),
+    };
+  }
+
+  const groups: Array<{ behavior: PermissionBehavior; label: string }> = [
+    { behavior: PermissionBehavior.ALLOW, label: '允许 (allow)' },
+    { behavior: PermissionBehavior.DENY, label: '拒绝 (deny)' },
+    { behavior: PermissionBehavior.ASK, label: '询问 (ask)' },
+  ];
+
+  const parts: string[] = [
+    `权限规则 (模式: ${mode ?? '未初始化'}, 共 ${rules.length} 条):\n`,
+  ];
+  for (const group of groups) {
+    const matched = rules.filter((rule) => rule.behavior === group.behavior);
+    if (matched.length === 0) continue;
+    parts.push(`${group.label}:`);
+    parts.push(...matched.map(formatRuleLine));
+    parts.push('');
+  }
+  if (rules.length === 0) {
+    parts.push('  暂无规则');
+  }
+
+  return { success: true, message: parts.join('\n') };
 }
 
 /**
- * 添加细粒度权限规则
+ * 添加权限规则（真实 `tool_rules.json`）
+ *
+ * 旧实现写的是细粒度 storage 的 resource 规则（没有绑定角色 ⇒ 运行时不生效），
+ * 另有一处 `addRule(action, resourceName, operation)` 参数错位（把 `execute` 当成内容模式），
+ * 用户看到"添加成功"但判定结果不变。
  */
 async function handleAdd(params: string[]): Promise<CommandResult> {
-  if (params.length < 4) {
+  const [rawBehavior, toolName] = params;
+  // 内容模式允许带空格（`add allow bash "git status"`）⇒ 余下参数整体拼接并去掉成对引号
+  const rawPattern = params.slice(2).join(' ').trim();
+  const contentPattern =
+    rawPattern.replace(/^["'](.*)["']$/, '$1') || undefined;
+
+  if (!rawBehavior || !toolName) {
     return {
       success: false,
       message:
-        '用法: /permissions add <action> <resourceType> <resourceName> <operation>\n\n示例: /permissions add allow tool bash execute',
+        '用法: /permissions add <allow|deny|ask> <工具名> [内容模式]\n\n' +
+        '示例:\n  /permissions add deny bash\n  /permissions add allow bash "git status"',
     };
   }
 
-  const [action, resourceType, resourceName, operation] = params;
+  const behavior = RULE_BEHAVIORS.find((value) => value === rawBehavior);
+  if (!behavior) {
+    return {
+      success: false,
+      message: `无效的行为: ${rawBehavior}\n可用行为: ${RULE_BEHAVIORS.join(', ')}`,
+    };
+  }
+
+  const ruleManager = liveRuleManager();
+  if (!ruleManager) {
+    return {
+      success: false,
+      message: '权限管理器尚未初始化（首次对话后装配），暂不能写入规则',
+    };
+  }
 
   try {
-    const manager = createFineGrainedPermissionManager();
-
-    let resource = await manager.getResourceByPath(
-      resourceName,
-      resourceType as ResourceType
-    );
-    if (!resource) {
-      resource = {
-        id: `resource_${Date.now()}`,
-        type: resourceType as ResourceType,
-        name: resourceName,
-        path: resourceName,
-        description: `${resourceType} ${resourceName}`,
-        parentId: undefined,
-      };
-      await manager.addResource(resource);
-    }
-
-    const rule = {
-      id: `rule_${Date.now()}`,
-      resourceId: resource.id,
-      operation: operation as OperationType,
-      action: action as PermissionAction,
-      priority: 0,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+    const rule = createPermissionRule({
+      behavior,
+      toolName,
+      ...(contentPattern ? { contentPattern } : {}),
+      source: PermissionRuleSource.RULE_STORE,
+    });
+    ruleManager.addRule(rule);
+    return {
+      success: true,
+      message: `已添加规则 ${rule.id}: ${behavior} ${toolName}${
+        contentPattern ? `(${contentPattern})` : ''
+      }`,
     };
-
-    const ruleId = await manager.addRule(rule);
-
-    try {
-      const permissionManager =
-        completeSecuritySystem.getPermissionManager() as unknown as Record<
-          string,
-          unknown
-        >;
-      (permissionManager.addRule as Function)(action, resourceName, operation);
-    } catch (err) {
-      // 可选同步失败不影响主要结果
-
-      handleError(err, {
-        module: 'commands:builtin:permissions:Permissions',
-        action: 'optionalSyncFailed',
-      });
-    }
-
-    return { success: true, message: `权限规则添加成功，ID: ${ruleId}` };
   } catch (error) {
+    handleError(error, {
+      module: 'commands:builtin:permissions:Permissions',
+      action: 'addRule',
+    });
     return {
       success: false,
       message: `添加失败: ${error instanceof Error ? error.message : '未知错误'}`,
@@ -584,204 +561,47 @@ async function handleAdd(params: string[]): Promise<CommandResult> {
 }
 
 /**
- * 删除权限规则
+ * 删除真实权限规则（按规则 ID，`/permissions rules --json` 可查）
  */
 async function handleRemove(ruleId?: string): Promise<CommandResult> {
   if (!ruleId) {
-    return { success: false, message: '用法: /permissions remove <规则ID>' };
+    return {
+      success: false,
+      message:
+        '用法: /permissions remove <规则ID>\n查看规则 ID: /permissions rules --json',
+    };
+  }
+
+  const ruleManager = liveRuleManager();
+  if (!ruleManager) {
+    return {
+      success: false,
+      message: '权限管理器尚未初始化（首次对话后装配），暂不能修改规则',
+    };
+  }
+
+  const rule = ruleManager.getRules().find((item) => item.id === ruleId);
+  if (!rule) {
+    return {
+      success: false,
+      message: `未找到规则: ${ruleId}\n查看规则 ID: /permissions rules --json`,
+    };
   }
 
   try {
-    const manager = createFineGrainedPermissionManager();
-    await manager.deleteRule(ruleId);
-
-    return { success: true, message: `权限规则删除成功，ID: ${ruleId}` };
+    ruleManager.removeRule(rule);
+    return {
+      success: true,
+      message: `已移除规则 ${rule.id} (${rule.behavior} ${rule.toolName})`,
+    };
   } catch (error) {
+    handleError(error, {
+      module: 'commands:builtin:permissions:Permissions',
+      action: 'removeRuleById',
+    });
     return {
       success: false,
       message: `删除失败: ${error instanceof Error ? error.message : '未知错误'}`,
-    };
-  }
-}
-
-/**
- * 管理资源
- */
-async function handleResource(params: string[]): Promise<CommandResult> {
-  const subCommand = params[0];
-
-  switch (subCommand) {
-    case 'add':
-      return handleResourceAdd(params.slice(1));
-    case 'list':
-      return handleResourceList();
-    default:
-      return {
-        success: false,
-        message:
-          '用法: /permissions resource <命令> [参数]\n\n命令列表:\n  add  - 添加资源\n  list - 列出所有资源\n\n示例: /permissions resource add file /path/to/file',
-      };
-  }
-}
-
-/**
- * 添加资源
- */
-async function handleResourceAdd(params: string[]): Promise<CommandResult> {
-  if (params.length < 2) {
-    return {
-      success: false,
-      message: '用法: /permissions resource add <类型> <路径>',
-    };
-  }
-
-  const [type, path] = params;
-
-  try {
-    const manager = createFineGrainedPermissionManager();
-    const resource = {
-      id: `resource_${Date.now()}`,
-      type: type as ResourceType,
-      name: path.split('/').pop() || path,
-      path,
-      description: `${type} ${path}`,
-      parentId: undefined,
-    };
-
-    const resourceId = await manager.addResource(resource);
-
-    return { success: true, message: `资源添加成功，ID: ${resourceId}` };
-  } catch (error) {
-    return {
-      success: false,
-      message: `添加失败: ${error instanceof Error ? error.message : '未知错误'}`,
-    };
-  }
-}
-
-/**
- * 列出所有资源
- */
-async function handleResourceList(): Promise<CommandResult> {
-  try {
-    const manager = createFineGrainedPermissionManager();
-    const storage = manager.getStorage();
-    const resources = await storage.getAllResources();
-
-    if (!resources || resources.length === 0) {
-      return { success: true, message: '暂无资源' };
-    }
-
-    const parts: string[] = ['资源列表:\n'];
-    for (const resource of resources) {
-      parts.push(`ID: ${resource.id}`);
-      parts.push(`类型: ${resource.type}`);
-      parts.push(`名称: ${resource.name}`);
-      parts.push(`路径: ${resource.path}`);
-      parts.push(`描述: ${resource.description}\n`);
-    }
-
-    return { success: true, message: parts.join('\n') };
-  } catch (error) {
-    return {
-      success: false,
-      message: `查询失败: ${error instanceof Error ? error.message : '未知错误'}`,
-    };
-  }
-}
-
-/**
- * 管理角色
- */
-async function handleRole(params: string[]): Promise<CommandResult> {
-  const subCommand = params[0];
-
-  switch (subCommand) {
-    case 'list':
-      return handleRoleList();
-    default:
-      return {
-        success: false,
-        message:
-          '用法: /permissions role <命令> [参数]\n\n命令列表:\n  list - 列出所有角色\n\n示例: /permissions role list',
-      };
-  }
-}
-
-/**
- * 列出所有角色
- */
-async function handleRoleList(): Promise<CommandResult> {
-  try {
-    const manager = createFineGrainedPermissionManager();
-    const storage = manager.getStorage();
-    const roles = await storage.getAllRoles();
-
-    if (!roles || roles.length === 0) {
-      return { success: true, message: '暂无角色' };
-    }
-
-    const parts: string[] = ['角色列表:\n'];
-    for (const role of roles) {
-      parts.push(`ID: ${role.id}`);
-      parts.push(`名称: ${role.name}`);
-      parts.push(`描述: ${role.description}`);
-      parts.push(`权限数: ${role.permissions.length}\n`);
-    }
-
-    return { success: true, message: parts.join('\n') };
-  } catch (error) {
-    return {
-      success: false,
-      message: `查询失败: ${error instanceof Error ? error.message : '未知错误'}`,
-    };
-  }
-}
-
-/**
- * 管理用户
- */
-async function handleUser(params: string[]): Promise<CommandResult> {
-  const subCommand = params[0];
-
-  switch (subCommand) {
-    case 'list':
-      return handleUserList();
-    default:
-      return {
-        success: false,
-        message:
-          '用法: /permissions user <命令> [参数]\n\n命令列表:\n  list - 列出所有用户\n\n示例: /permissions user list',
-      };
-  }
-}
-
-/**
- * 列出所有用户
- */
-async function handleUserList(): Promise<CommandResult> {
-  try {
-    const manager = createFineGrainedPermissionManager();
-    const storage = manager.getStorage();
-    const users = await storage.getAllUsers();
-
-    if (!users || users.length === 0) {
-      return { success: true, message: '暂无用户' };
-    }
-
-    const parts: string[] = ['用户列表:\n'];
-    for (const user of users) {
-      parts.push(`ID: ${user.id}`);
-      parts.push(`名称: ${user.name}`);
-      parts.push(`角色: ${user.roles.join(', ')}`);
-      parts.push(`权限数: ${user.permissions.length}\n`);
-    }
-
-    return { success: true, message: parts.join('\n') };
-  } catch (error) {
-    return {
-      success: false,
-      message: `查询失败: ${error instanceof Error ? error.message : '未知错误'}`,
     };
   }
 }

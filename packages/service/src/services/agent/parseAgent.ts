@@ -30,12 +30,14 @@ type NonPluginSource = Exclude<SettingSource, 'built-in' | 'plugin'>;
 
 /**
  * Agent 文件允许的权限模式清单（**是 `permission/PermissionMode` 的子集**：
- * agent frontmatter 不接受 `ask` / `alwaysAsk` / `strict` / `bypass`）⇒ 按域命名（U-20/B5-2-81）。
+ * agent frontmatter 不接受 `bypass`，避免把"无条件放行"写进可分发文件）。
+ *
+ * 2026-11-11（值域 9→5）：`acceptEdits` / `strict` / `ask` / `alwaysAsk` 已并入
+ * `default` / `plan`，故从本清单移除（旧 agent 文件会按"非法值"报出明确错误）。
  */
 export const AGENT_PERMISSION_MODES = [
   'default',
   'auto',
-  'acceptEdits',
   'dontAsk',
   'plan',
 ] as const;

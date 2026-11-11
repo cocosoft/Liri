@@ -44,8 +44,8 @@ async function withProcessMode<T>(
 }
 
 describe('P1：会话级 permissionMode 覆盖进程默认档', () => {
-  it('无会话覆盖 ⇒ 用进程默认档（alwaysAsk ⇒ ask）', async () => {
-    await withProcessMode('alwaysAsk', async (pm) => {
+  it('无会话覆盖 ⇒ 用进程默认档（plan ⇒ ask）', async () => {
+    await withProcessMode('plan', async (pm) => {
       const decision = await pm.checkPermission(PROBE_TOOL, {}, ctx());
       expect(decision.type).toBe('ask');
     });
@@ -62,19 +62,19 @@ describe('P1：会话级 permissionMode 覆盖进程默认档', () => {
     });
   });
 
-  it('会话传 alwaysAsk ⇒ 收紧进程默认档（bypass ⇒ ask）', async () => {
+  it('会话传 plan ⇒ 收紧进程默认档（bypass ⇒ ask）', async () => {
     await withProcessMode('bypass', async (pm) => {
       const decision = await pm.checkPermission(
         PROBE_TOOL,
         {},
-        ctx({ permissionMode: 'alwaysAsk' })
+        ctx({ permissionMode: 'plan' })
       );
       expect(decision.type).toBe('ask');
     });
   });
 
   it('同一实例上两个会话各自的模式互不影响（不串档）', async () => {
-    await withProcessMode('alwaysAsk', async (pm) => {
+    await withProcessMode('plan', async (pm) => {
       const a = await pm.checkPermission(
         PROBE_TOOL,
         {},
@@ -96,7 +96,7 @@ describe('P1：会话级 permissionMode 覆盖进程默认档', () => {
    * 本用例锁定该透传（判定为 allow，不触发 Inbox 提交）。
    */
   it('执行链 checkPermissionForTool 同样透传会话模式', async () => {
-    await withProcessMode('alwaysAsk', async (pm) => {
+    await withProcessMode('plan', async (pm) => {
       const r = await pm.checkPermissionForTool(
         PROBE_TOOL,
         {},
@@ -129,11 +129,11 @@ describe('P1：会话级 permissionMode 覆盖进程默认档', () => {
       expect(auto.autoApproved).toBe(true);
       expect(auto.approvalSource).toBe('permission-mode:auto');
 
-      // 收紧档（ask）⇒ 不进入自动放行标注
+      // 收紧档（plan）⇒ 不进入自动放行标注
       const ask = await pm.checkPermissionForTool(
         PROBE_TOOL,
         {},
-        { sessionId: 'sess-auto', permissionMode: 'ask' }
+        { sessionId: 'sess-auto', permissionMode: 'plan' }
       );
       expect(ask.autoApproved).toBeUndefined();
       expect(ask.approvalSource).toBeUndefined();

@@ -427,12 +427,13 @@ const securityCommand = {
       output += `  状态: ✅ Rust 原生分析器运行中\n`;
     }
 
-    // 获取模式列表
+    // 获取模式列表（2026-11-11 值域 9→5）
     const modeLabels: Record<string, string> = {
-      plan: 'plan（计划模式 - 只读，拒绝执行）',
-      default: 'default（默认模式 - AI评估后询问）',
-      acceptEdits: 'acceptEdits（接受编辑 - 自动允许）',
-      bypass: 'bypass（绕过模式 - 跳过检查）',
+      plan: 'plan（每步确认 - 每次都询问）',
+      default: 'default（默认模式 - 规则 + 风险评估）',
+      auto: 'auto（自动模式 - AI 分类器判定）',
+      dontAsk: 'dontAsk（不询问 - 需要确认的直接拒绝）',
+      bypass: 'bypass（全自动 - 跳过本层检查）',
     };
     output += `\n可用权限模式:\n`;
     for (const [mode, label] of Object.entries(modeLabels)) {

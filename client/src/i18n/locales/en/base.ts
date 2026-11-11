@@ -1013,38 +1013,29 @@ const enBase = {
       followDefaultHint:
         "No session override; judged by the process default (PERMISSION_MODE)",
       pillDefault: "Follow default",
-      pillPlan: "Read-only plan",
+      pillPlan: "Confirm every step",
       pillBypass: "Full auto",
       pillAria: "Permission: {{label}} (click to cycle)",
       showAll: "More tiers",
       collapseAll: "Fewer tiers",
       pillHint:
-        "Click to cycle: follow default → read-only plan → full auto (the ▾ on the right lists all 9 tiers)",
+        "Session permission mode (5 tiers): Default / Auto / Confirm every step / Don't ask / Full auto",
       switchFailed: "Failed to switch permission mode",
       bypassConfirmBody:
-        "Bypass mode allows tool calls unconditionally (deny rules and path boundaries still enforced by the executor). Switch anyway?",
+        "Full auto allows tool calls unconditionally (deny rules and path boundaries still enforced by the executor). Switch anyway?",
       bypassConfirm: "Switch anyway",
       mode: {
         default: "Default",
-        acceptEdits: "Accept edits",
-        plan: "Plan",
-        auto: "Auto",
-        ask: "Ask",
-        alwaysAsk: "Always ask",
+        plan: "Confirm every step",
         dontAsk: "Don't ask",
-        strict: "Strict",
-        bypass: "Bypass",
+        auto: "Auto",
+        bypass: "Full auto",
       },
       modeDesc: {
         default: "Decide by rules and tool risk, fall back to the default tier",
-        acceptEdits:
-          "Auto-approve file edits; command tools keep their own confirmation",
-        plan: "Every tool call asks you first (nothing is auto-approved)",
-        auto: "Decided by the AI classifier",
-        ask: "Ask on every call",
-        alwaysAsk: "Force asking even when a rule allows it",
+        plan: "Every tool call asks you first (allow rules do not bypass it)",
         dontAsk: "Never prompt — deny calls that need confirmation",
-        strict: "Deny most operations by default",
+        auto: "Decided by the AI classifier",
         bypass:
           "Allow at this layer; command tools keep their own confirmation gate",
       },
@@ -1057,6 +1048,25 @@ const enBase = {
       pillHint:
         "Wish mode: give a goal only — Liri plans, executes, verifies and delivers automatically (mid-run messages fold into the current plan); out-of-workspace writes, deletions and external commands still hit their safety gates.",
       switchFailed: "Failed to switch autonomy",
+    },
+    // A' v3 (2026-11-10): permission × autonomy collapsed into ONE "collaboration" 3-mode pill
+    collaboration: {
+      pillAria: "Collaboration: {{label}} (click to expand)",
+      pillHint:
+        'One switch for "how we work together": Confirm every step = ask before every tool; Auto = allow by rules and risk, still ask for out-of-scope writes, deletions and external commands; Wish mode = goal only, plan/execute/verify/deliver automatically (at most one question mid-run).',
+      menuTitle: "Collaboration",
+      step: "Confirm every step",
+      stepDesc: "Ask before every tool call (including out-of-scope ones)",
+      auto: "Auto",
+      autoDesc:
+        "Allow by rules and risk; still ask for out-of-scope writes, deletions and external commands",
+      demand: "Wish mode",
+      demandDesc:
+        "Goal only: plan/execute/verify/deliver automatically; at most one question mid-run",
+      advanced: "Advanced: pick a permission mode directly",
+      advancedHint:
+        "For troubleshooting and unattended runs; it only changes permissions, not collaboration.",
+      switchFailed: "Failed to switch collaboration",
     },
     inboxResuming: "Approved — resuming…",
     inboxHandled: "Handled",

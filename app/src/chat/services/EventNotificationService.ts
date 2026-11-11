@@ -9,18 +9,16 @@ import type {
   RequiresActionDetails,
   SimplifiedSessionState,
 } from '@openliri/infra/state/session/types';
-import type {
-  PermissionMode,
-  SessionExternalMetadata,
-} from './SessionMetadataService.js';
 
 /**
  * 事件类型
+ *
+ * 2026-11-11：`METADATA_CHANGED` / `PERMISSION_MODE_CHANGED` 随旧服务链一并删除 ——
+ * 这两个事件只有 `SessionMetadataService` / `PermissionModeIntegrationService` 会发，
+ * 而它们已删除；没有任何订阅方。
  */
 export enum EventType {
   SESSION_STATE_CHANGED = 'session_state_changed',
-  METADATA_CHANGED = 'metadata_changed',
-  PERMISSION_MODE_CHANGED = 'permission_mode_changed',
   MODEL_CHANGED = 'model_changed',
   PENDING_ACTION_CHANGED = 'pending_action_changed',
   TASK_SUMMARY_CHANGED = 'task_summary_changed',
@@ -97,36 +95,6 @@ export class EventNotificationService extends EventEmitter {
       type: EventType.SESSION_STATE_CHANGED,
       timestamp: Date.now(),
       data: { state, details },
-    };
-
-    this.emitEvent(event);
-  }
-
-  /**
-   * 发送元数据变化事件
-   */
-  emitMetadataChanged(metadata: Partial<SessionExternalMetadata>): void {
-    if (!this.enabled) return;
-
-    const event: EventData = {
-      type: EventType.METADATA_CHANGED,
-      timestamp: Date.now(),
-      data: metadata,
-    };
-
-    this.emitEvent(event);
-  }
-
-  /**
-   * 发送权限模式变化事件
-   */
-  emitPermissionModeChanged(mode: PermissionMode): void {
-    if (!this.enabled) return;
-
-    const event: EventData = {
-      type: EventType.PERMISSION_MODE_CHANGED,
-      timestamp: Date.now(),
-      data: { mode },
     };
 
     this.emitEvent(event);

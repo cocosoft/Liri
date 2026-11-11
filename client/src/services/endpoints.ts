@@ -591,6 +591,8 @@ export const ENDPOINTS = {
   permissions: {
     rules: "/v1/permissions/rules",
     ruleById: (ruleId: string) => `/v1/permissions/rules/${ruleId}`,
+    /** 细粒度 RBAC：GET 快照 / POST `{command}`（2026-11-11 重新开放） */
+    rbac: "/v1/permissions/rbac",
   },
   plugins: {
     marketplaceSearch: "/v1/plugins/marketplace/search",

@@ -23,17 +23,33 @@
  */
 
 export {
+  LEGACY_PERMISSION_MODE_ALIASES,
   PermissionMode,
   PERMISSION_MODES,
   PERMISSION_MODE_NAMES,
   PERMISSION_MODE_SYMBOLS,
   getPermissionModeDescription,
+  normalizePermissionMode,
   shouldAvoidPermissionPrompts,
 } from './PermissionMode';
+
+// 2026-11-11：自主度（许愿式）× 权限档的一致性契约（写入口唯一判定点）
+export {
+  AUTONOMY_PERMISSION_CONFLICT,
+  DEMAND_PROMPT_HEAVY_PERMISSION_MODES,
+  resolveEffectiveAutonomyPermission,
+  isDemandPermissionConflict,
+  buildAutonomyPermissionConflictMessage,
+  resolveMessageAutonomyConflict,
+  assertCoherentAutonomyPermission,
+  type AutonomyPermissionInput,
+  type EffectiveAutonomyPermission,
+} from './autonomyPermission';
 
 export {
   PermissionBehavior,
   PermissionRuleSource,
+  createPermissionRule,
 } from './types/PermissionRule';
 
 export type {
@@ -49,7 +65,6 @@ export type {
   PermissionUpdateDestination,
   PermissionUpdate,
 } from './PermissionRule';
-
 export type {
   PermissionDecisionReason,
   PermissionResult,
@@ -304,6 +319,14 @@ export {
   OperationType,
   PermissionAction,
   RoleType,
+} from './Permission';
+// 2026-11-11：细粒度 RBAC 的类型出口（`PermissionRule` 与领域模型同名 ⇒ 别名导出）
+export type {
+  PermissionStorage,
+  PermissionRule as FineGrainedPermissionRule,
+  Role,
+  User,
+  Resource,
 } from './Permission';
 
 // P33（2026-11-02）：授权强度模型（准入判定，与上面的动作拦截正交）

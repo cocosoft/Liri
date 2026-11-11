@@ -484,14 +484,14 @@ IDE 命令帮助:
 权限管理帮助:
 
 /permissions - 权限管理（别名: /perm, /auth, /permission）
-  融合快速权限操作、权限模式切换（信任光谱）、会话规则管理与细粒度权限控制
+  融合快速权限操作、权限模式切换（信任光谱）、规则管理（tool_rules.json）与细粒度 RBAC
 
 快速操作:
-  /permissions list                        - 列出所有权限
-  /permissions show <权限名>               - 查看权限详情
-  /permissions grant <权限名>              - 授予权限
-  /permissions revoke <权限名>             - 撤销权限
-  /permissions status                      - 显示权限状态
+  /permissions list                        - 列出当前生效的权限规则
+  /permissions show <工具名>               - 查看某个工具的规则
+  /permissions grant <工具名>              - 允许某个工具（写入 tool_rules.json）
+  /permissions revoke <工具名>             - 移除该工具的全部规则
+  /permissions status                      - 显示权限模式与规则数量
   /permissions status --json               - 以JSON格式显示权限状态
 
 权限模式管理（信任光谱）:
@@ -499,33 +499,49 @@ IDE 命令帮助:
   /permissions mode show                   - 显示当前权限模式
   /permissions mode set <模式>             - 切换权限模式
 
-可用模式:
-  plan         - 计划模式：拒绝所有执行操作，仅允许只读操作
-  default      - 默认模式：AI先评估风险，危险操作主动询问用户
-  acceptEdits  - 接受编辑：自动允许编辑器类工具的写入操作
-  bypass       - 绕过模式：跳过所有权限检查（谨慎使用）
+可用模式（2026-11-11 起为 5 档）:
+  plan         - 每步确认：每次工具调用都询问（allow 规则也不生效）
+  default      - 默认模式：按规则与工具风险判定，未命中时用默认档
+  auto         - 自动模式：由 AI 分类器判定
+  dontAsk      - 不询问：需要确认的调用直接拒绝（不弹窗）
+  bypass       - 全自动：跳过本层权限检查（无条件放行，谨慎使用）
 
-会话规则管理:
-  /permissions rules                       - 查看当前会话的权限规则
+规则管理:
+  /permissions rules                       - 查看真实权限规则
   /permissions rules --json                - 以JSON格式查看
 
-细粒度控制:
-  /permissions add <动作> <类型> <资源> <操作> - 添加权限规则
-  /permissions remove <规则ID>              - 删除权限规则
+规则增删:
+  /permissions add <allow|deny|ask> <工具名> [内容模式] - 添加规则
+  /permissions remove <规则ID>              - 删除规则
+
+细粒度 RBAC（数据在 roles/users/resources/rules.json；绑定 deny/allow/ask，优先级 deny > ask > allow）:
+  /permissions role list                   - 列出角色与绑定数量
+  /permissions role add <角色名> [描述]     - 添加角色（admin/user/guest/system）
+  /permissions role remove <角色名>         - 删除角色（连带绑定，并从用户角色里摘除）
+  /permissions role bind <角色名> <工具名> [deny|allow|ask] [execute|all]   - 绑定规则
+  /permissions role unbind <角色名> <工具名>               - 移除绑定
+  /permissions user list                   - 列出用户与角色
+  /permissions user add <用户名> [角色名]   - 添加用户（默认 guest）
+  /permissions user remove <用户名>          - 删除用户（连带绑定）
+  /permissions user role <用户名> <角色名>  - 修改用户角色
+  /permissions user bind <用户名> <工具名> [deny|allow|ask] [execute|all]   - 绑定规则
+  /permissions user unbind <用户名> <工具名>               - 移除绑定
+  /permissions resource list               - 列出资源
   /permissions resource add <类型> <路径>  - 添加资源
-  /permissions resource list               - 列出所有资源
-  /permissions role list                   - 列出所有角色
-  /permissions user list                   - 列出所有用户
+  /permissions resource remove <类型> <路径> - 删除资源（连带绑定）
+  /permissions resource bind <类型> <路径> [deny|allow|ask] [execute|all]   - 绑定规则
+  /permissions resource unbind <类型> <路径>               - 移除绑定
 
 示例:
   /permissions list
-  /permissions show file.write
-  /permissions grant shell.execute
+  /permissions show bash
+  /permissions grant bash
   /permissions status
   /permissions status --json
   /permissions mode set plan
   /permissions rules
-  /permissions add allow tool bash execute
+  /permissions add deny bash
+  /permissions add allow bash "git status"
     `.trim(),
     relatedCommands: ['permissions', 'perm', 'auth', 'permission'],
     relatedTools: [],

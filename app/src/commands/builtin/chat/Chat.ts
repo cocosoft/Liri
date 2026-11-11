@@ -17,6 +17,7 @@ import { getConfig, configManager } from '@openliri/infra/config/index';
 import type { ToolRegistry } from '@modules/tools';
 import { getToolManager } from '@modules/tools';
 import { ToolExecutor } from '@modules/tools';
+import { livePermissionManager } from '../../livePermissionManager.js';
 import { resolveModelRoute, RouteKey } from '@modules/ai';
 import { estimateMessagesTokens } from '@modules/ai';
 import { handleError } from '@openliri/infra/error';
@@ -90,7 +91,10 @@ export class ChatCommand {
       const toolManager = getToolManager();
       toolManager.loadBuiltinTools();
       this.toolRegistry = toolManager.getRegistry();
-      this.toolExecutor = new ToolExecutor();
+      // 2026-11-11：与主聊天链（ToolExecutionService）/ `/permissions mode` **共用同一个**
+      // PermissionManager 实例；此前 `new ToolExecutor()` 会自建一个独立实例 ⇒
+      // 命令里设的模式在这条路径上不生效。
+      this.toolExecutor = new ToolExecutor(livePermissionManager());
       this.llmClient.setToolExecutor(this.toolExecutor);
       this.llmClient.setToolRegistry(this.toolRegistry);
     }

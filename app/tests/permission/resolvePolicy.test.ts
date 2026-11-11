@@ -79,11 +79,11 @@ describe('P1：resolvePolicy 归一', () => {
     expect(byRule.evidence.source).toBe('ask-rule');
 
     const byMode = await resolvePolicy(
-      portReturning({ type: PermissionDecisionType.ASK }, 'strict'),
+      portReturning({ type: PermissionDecisionType.ASK }, 'dontAsk'),
       { toolOrName: 'bash', input: {} }
     );
     expect(byMode.reasonCode).toBe('ask-by-mode');
-    expect(byMode.evidence).toMatchObject({ source: 'mode', mode: 'strict' });
+    expect(byMode.evidence).toMatchObject({ source: 'mode', mode: 'dontAsk' });
   });
 
   it('会话级 permissionMode 优先于端口默认档（evidence.mode 反映实际生效档）', async () => {

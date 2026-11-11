@@ -3,6 +3,8 @@
  *
  * 纯数据模块：**禁止**在此 import i18next / react-i18next（测试直接读字典，避免循环依赖）。
  */
+import zhRbacPermission from "./rbac";
+
 const zhKnowledge = {
   knowledge: {
     title: "知识库",
@@ -733,6 +735,8 @@ const zhKnowledge = {
     typeSystemInstruction: "系统指令",
   },
   permission: {
+    // 细粒度 RBAC 文案独立成文件（knowledge.ts 接近 lint:size 上限）
+    ...zhRbacPermission,
     title: "权限管理",
     roles: "角色",
     users: "用户",
@@ -752,8 +756,7 @@ const zhKnowledge = {
     confirmRevoke: "确定撤销此权限？",
     scopeSuffix: "{{scope}} 权限",
     userList: "用户列表",
-    noUsersHint:
-      "暂无用户数据（细粒度用户管理可通过 CLI /permissions user 配置）",
+    noUsersHint: "暂无用户数据（可用 CLI /permissions user add 添加）",
     userDetail: "用户详情: {{username}}",
     trustLevel: "信任等级",
     trustLevelHint:
@@ -794,7 +797,7 @@ const zhKnowledge = {
     noRulesHint:
       "暂无权限规则。添加后，工具调用将按 allow/deny/ask 判定（无规则匹配时按默认行为放行或拒绝）。",
     noUsersData:
-      "暂无用户数据：细粒度用户管理可通过 CLI /permissions user 配置后，在此查看信任等级与角色。",
+      "暂无用户数据：可用 CLI /permissions user add 添加用户后，在此查看信任等级与角色。",
   },
   logs: {
     exportFailed: "导出失败",

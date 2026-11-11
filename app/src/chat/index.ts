@@ -108,11 +108,6 @@ export type {
   EventListener as EventNotificationListener,
 } from './services/EventNotificationService';
 export {
-  PermissionModeIntegrationService,
-  permissionModeIntegrationService,
-} from './services/PermissionModeIntegrationService';
-export type { PermissionModeChangedEvent } from './services/PermissionModeIntegrationService';
-export {
   SessionCheckpointService,
   getCheckpointService,
   createCheckpointService,

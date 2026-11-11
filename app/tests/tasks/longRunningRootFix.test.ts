@@ -405,7 +405,7 @@ describe('resume 可达性与字段回填', () => {
     const snapshot = {
       version: 1,
       capturedAt: 1700000000000,
-      permissionMode: 'strict',
+      permissionMode: 'plan',
       approvalMode: 'ask',
       workspaceRoots: ['D:\\work'],
       commandPolicyVersion: 'abc123',

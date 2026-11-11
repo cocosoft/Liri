@@ -40,7 +40,11 @@ import type { LiriEvent } from '@modules/session/types/events';
 import type { Message } from '@modules/session/types/message';
 import { getLogger } from '@openliri/infra/monitoring';
 // P1（2026-11-04）：会话级权限模式（UI 第三层写入）的取值域
-import type { PermissionMode } from '@openliri/infra/permission';
+// 2026-11-11：自主度 × 权限档一致性校验（写入口唯一拦截点）
+import {
+  assertCoherentAutonomyPermission,
+  type PermissionMode,
+} from '@openliri/infra/permission';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('runtime:api:CoreAPIImpl');
@@ -396,6 +400,33 @@ export class SessionTitling {
       workspacePath?: string;
     }
   ): Promise<void> {
+    // 2026-11-11：自主度 × 权限档一致性 —— **写入口唯一拦截点**，且必须早于任何
+    // 内存 / 落盘写入（校验失败不得留下半写状态）。只在本请求确实要改这两个字段时
+    // 校验：仅改 model / pinned 等字段不受历史脏组合影响。
+    if (meta.autonomy !== undefined || meta.permissionMode !== undefined) {
+      const memorySession = this.deps
+        .getChatManager()
+        .getSessions()
+        .find((s) => s.id === sessionId);
+      let currentMeta = memorySession?.metadata as
+        | Record<string, unknown>
+        | undefined;
+      if (!currentMeta) {
+        // 会话未载入内存：读持久层同一份 metadata（冷会话首写）
+        const gateway = this.deps.getChatManager().getSessionGateway();
+        const stored = gateway ? await gateway.getSession(sessionId) : null;
+        currentMeta = stored?.metadata as
+          | Record<string, unknown>
+          | undefined;
+      }
+      assertCoherentAutonomyPermission({
+        currentAutonomy: currentMeta?.autonomy,
+        currentPermissionMode: currentMeta?.permission_mode,
+        nextAutonomy: meta.autonomy,
+        nextPermissionMode: meta.permissionMode,
+      });
+    }
+
     // M1-T1.3（2026-08-31）：pinned 仅改列表分组标记，**不 touch updatedAt**——
     // 对齐 openworker conversations.py set_flags 语义：置顶/取消置顶不应导致
     // 会话在列表中因"最近更新"而重排（标题自动生成同理，由 rename 路径单独控制）。

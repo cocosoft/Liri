@@ -32,9 +32,9 @@ import MentionMenu, { type MentionItem } from "./MentionMenu";
 import { useChatDraft } from "./useChatDraft";
 // 2026-11-05（前端控制面简化 A′ v2）：输入框底栏只留「回答模式 + 权限胶囊 + ＋」，
 // 语音/发送在右；计划/执行、自动执行、详略、临时对话的入口已收敛。
+// 2026-11-10（A′ v3）：权限 × 自主度两个正交旋钮合并为**一个**「协作方式」三档胶囊。
 import ReplyModeMenu from "./ReplyModeMenu";
-import PermissionModePill from "./PermissionModePill";
-import AutonomyPill from "./AutonomyPill";
+import CollaborationPill from "./CollaborationPill";
 import { toChatMode, type ReplyMode } from "./replyModeOptions";
 import { readFileAsBase64 } from "../../utils/format";
 import { handleClientError } from "../../utils/handleError";
@@ -1380,43 +1380,23 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
                     disabled={!currentSession}
                   />
                   {/* P3（2026-11-07）：两个旋钮语义不同，用分隔线 + 分组提示区分：
-                      左＝回答模式（模型档位/工具集），右＝权限（是否放行执行） */}
+                      左＝回答模式（模型档位/工具集），右＝协作方式（谁做决定 + 要不要问） */}
                   <span
                     aria-hidden="true"
                     className="mx-0.5 h-3 w-px shrink-0 bg-gray-300 dark:bg-gray-600"
                   />
-                  <PermissionModePill
-                    sessionId={currentSession?.id}
-                    permissionMode={currentSession?.permissionMode}
-                    onChanged={(mode) => {
-                      const changedId = currentSession?.id;
-                      if (!changedId) return;
-                      useRootStore.setState((s) => ({
-                        chatSessions: s.chatSessions.map((item) =>
-                          item.id === changedId
-                            ? { ...item, permissionMode: mode }
-                            : item,
-                        ),
-                      }));
-                    }}
-                    disabled={isStreaming}
-                  />
-                  {/* B2（2026-11-09）：自主度（许愿式）—— 与权限档正交：
-                      左＝权限（是否放行执行），右＝自主度（谁来做决定：逐轮协作/全自动交付） */}
-                  <span
-                    aria-hidden="true"
-                    className="mx-0.5 h-3 w-px shrink-0 bg-gray-300 dark:bg-gray-600"
-                  />
-                  <AutonomyPill
+                  {/* A′ v3（2026-11-10）：权限 × 自主度收敛为一个三档胶囊，一次写两个字段 */}
+                  <CollaborationPill
                     sessionId={currentSession?.id}
                     autonomy={currentSession?.autonomy}
-                    onChanged={(mode) => {
+                    permissionMode={currentSession?.permissionMode}
+                    onChanged={({ autonomy, permissionMode }) => {
                       const changedId = currentSession?.id;
                       if (!changedId) return;
                       useRootStore.setState((s) => ({
                         chatSessions: s.chatSessions.map((item) =>
                           item.id === changedId
-                            ? { ...item, autonomy: mode }
+                            ? { ...item, autonomy, permissionMode }
                             : item,
                         ),
                       }));

@@ -38,6 +38,14 @@ interface PermissionModeMenuProps {
   disabled?: boolean;
   /** 内联形态：不渲染触发按钮，直接把档位列表铺开（供「更多」弹层复用） */
   inline?: boolean;
+  /**
+   * 2026-11-11：调用方要求的**附加 metadata**，与本次 `permission_mode` 合并成
+   * **同一次** PATCH（如：许愿式下选"逐次询问档"必须同时把 autonomy 收回 interactive，
+   * 否则后端 `AUTONOMY_PERMISSION_CONFLICT` 会 400）。
+   */
+  extraMeta?: (mode: SessionPermissionMode | null) => {
+    autonomy?: "interactive" | "demand";
+  };
 }
 
 export default function PermissionModeMenu({
@@ -46,6 +54,7 @@ export default function PermissionModeMenu({
   onChanged,
   disabled = false,
   inline = false,
+  extraMeta,
 }: PermissionModeMenuProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -54,8 +63,6 @@ export default function PermissionModeMenu({
   const [confirming, setConfirming] = useState<SessionPermissionMode | null>(
     null,
   );
-  /** inline 形态：是否展开「更多档位」（默认只列常用 3 档，避免弹层过高） */
-  const [showAll, setShowAll] = useState(false);
 
   const label = permissionMode
     ? t(`chat.permission.mode.${permissionMode}`)
@@ -68,6 +75,7 @@ export default function PermissionModeMenu({
       try {
         const ok = await sessionService.updateSessionMeta(sessionId, {
           permissionMode: next,
+          ...(extraMeta?.(next) ?? {}),
         });
         if (!ok) {
           // 失败必须让用户知道（不静默假装切换成功，CS03）
@@ -87,7 +95,7 @@ export default function PermissionModeMenu({
         setConfirming(null);
       }
     },
-    [sessionId, pending, onChanged, t],
+    [sessionId, pending, onChanged, extraMeta, t],
   );
 
   const handleSelect = (mode: SessionPermissionMode | null) => {
@@ -215,10 +223,7 @@ export default function PermissionModeMenu({
   );
 
   if (inline) {
-    // 常用 3 档 + 「更多档位」折叠；紧凑行只显示名称，说明见 title
-    const moreKeys = PERMISSION_MODE_KEYS.filter(
-      (mode) => mode !== "plan" && mode !== "bypass",
-    );
+    // 2026-11-11：只列 5 档（同义档已在后端合并，旧值由后端读取时归一）
     return (
       <div className="relative">
         <div
@@ -226,36 +231,7 @@ export default function PermissionModeMenu({
           aria-label={t("chat.permission.hint")}
           className="max-h-[60vh] overflow-y-auto py-1"
         >
-          {compactRow(undefined)}
-          {compactRow("plan")}
-          {compactRow("bypass")}
-          <button
-            type="button"
-            onClick={() => setShowAll((v) => !v)}
-            aria-expanded={showAll}
-            className="flex w-full items-center justify-between px-3 py-1.5 text-xs text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
-          >
-            <span>
-              {showAll
-                ? t("chat.permission.collapseAll")
-                : t("chat.permission.showAll")}
-            </span>
-            <svg
-              className={`h-3 w-3 transition-transform ${showAll ? "rotate-180" : ""}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
-          </button>
-          {showAll && moreKeys.map((mode) => compactRow(mode))}
+          {PERMISSION_MODE_KEYS.map((mode) => compactRow(mode))}
         </div>
         {confirming === "bypass" && confirmPanel}
       </div>

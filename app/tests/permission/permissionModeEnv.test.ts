@@ -42,8 +42,18 @@ describe('P1-1：PERMISSION_MODE 接线', () => {
 
   it('大小写不敏感（.env 里的 DEFAULT / 驼峰值都能认）', () => {
     expect(modeOf('DEFAULT')).toBe('default');
-    expect(modeOf('ACCEPTEDITS')).toBe('acceptEdits');
-    expect(modeOf('acceptEdits')).toBe('acceptEdits');
+    expect(modeOf('PLAN')).toBe('plan');
+    expect(modeOf('Plan')).toBe('plan');
+  });
+
+  it('收缩前的旧值读取时归一（升级不改变既有 .env 行为）', () => {
+    // ask / alwaysAsk ⇒ plan（每步确认）
+    expect(modeOf('ask')).toBe('plan');
+    expect(modeOf('alwaysAsk')).toBe('plan');
+    // acceptEdits / strict ⇒ default（无独立分支）
+    expect(modeOf('acceptEdits')).toBe('default');
+    expect(modeOf('ACCEPTEDITS')).toBe('default');
+    expect(modeOf('strict')).toBe('default');
   });
 
   it('非法值 ⇒ 回退 default（不阻断构造）', () => {

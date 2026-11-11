@@ -32,34 +32,40 @@
  * 中文名 / 符号映射与描述函数仍归本模块（属展示层，security 不需要）。
  */
 
-import { PERMISSION_MODES, PermissionMode } from '@openliri/infra/common';
+import {
+  LEGACY_PERMISSION_MODE_ALIASES,
+  PERMISSION_MODES,
+  PermissionMode,
+  normalizePermissionMode,
+} from '@openliri/infra/common';
 
-export { PERMISSION_MODES, PermissionMode };
+export {
+  LEGACY_PERMISSION_MODE_ALIASES,
+  PERMISSION_MODES,
+  PermissionMode,
+  normalizePermissionMode,
+};
 
-/** 权限模式中文名称映射 */
+/**
+ * 权限模式中文名称映射（2026-11-11 收缩为 5 档）
+ *
+ * `plan` 的语义是"每个工具调用都要你确认"，不是"只读规划"（引擎侧无只读限制）。
+ */
 export const PERMISSION_MODE_NAMES: Record<PermissionMode, string> = {
   default: '默认模式',
-  acceptEdits: '接受编辑',
-  plan: '计划模式',
-  bypass: '绕过模式',
+  plan: '每步确认',
   dontAsk: '不询问',
   auto: '自动模式',
-  ask: '询问模式',
-  alwaysAsk: '总是询问',
-  strict: '严格模式',
+  bypass: '全自动',
 };
 
 /** 权限模式符号映射 */
 export const PERMISSION_MODE_SYMBOLS: Record<PermissionMode, string> = {
   default: '',
-  acceptEdits: '✎',
   plan: '⏸',
-  bypass: '⚡',
   dontAsk: '🔇',
   auto: '🔄',
-  ask: '❓',
-  alwaysAsk: '⚠️',
-  strict: '🔒',
+  bypass: '⚡',
 };
 
 /**
@@ -82,20 +88,12 @@ export function getPermissionModeDescription(mode: PermissionMode): string {
       return '默认模式，根据规则和工具特性决定';
     case PermissionMode.AUTO:
       return '自动模式，使用AI分类器进行决策';
-    case PermissionMode.ASK:
-      return '询问模式，每次都询问用户';
-    case PermissionMode.ALWAYS_ASK:
-      return '总是询问模式，强制询问（即使有规则允许）';
     case PermissionMode.DONT_ASK:
       return '不询问模式，直接拒绝';
     case PermissionMode.BYPASS:
-      return '绕过权限检查';
+      return '绕过权限检查（无条件放行）';
     case PermissionMode.PLAN:
-      return '计划模式';
-    case PermissionMode.ACCEPT_EDITS:
-      return '接受编辑模式，自动批准编辑类操作';
-    case PermissionMode.STRICT:
-      return '严格模式，大多数操作会被默认拒绝';
+      return '每步确认，每次工具调用都询问用户';
     default:
       return '未知权限模式';
   }

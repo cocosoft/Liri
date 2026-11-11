@@ -11,13 +11,15 @@
  * （`facadeWiring` 的端口、`ToolExecutionService`、子代理升级判定）经宿主绑定绕行；
  * 收敛到纯函数后调用方直接传 `sessions`，宿主不再需要保留 8 个转发方法。
  *
- * 口径不变：`getSessionPermissionMode` 仍只认 9 个合法值（脏值 ⇒ `undefined` ⇒ 进程默认档）；
+ * 口径不变：`getSessionPermissionMode` 只认 5 个现行合法值（脏值 ⇒ `undefined` ⇒ 进程默认档）；
+ * 2026-11-11 收缩前的旧值（`ask` / `alwaysAsk` / `acceptEdits` / `strict`）**读取时归一**
+ * （并入 `plan` / `default`），旧会话不会因升级而改变行为；
  * B2（2026-11-09）唯一例外：未设置权限档的 **demand 会话**返回 `auto`（显式值仍优先）。
  * `isLastAssistantOutputFallback` 仍以结构化标记 `metadata.emptyOutputFallback` 为唯一依据（CS02）。
  */
 
 import {
-  PERMISSION_MODES,
+  normalizePermissionMode,
   type PermissionMode,
 } from '@openliri/infra/permission';
 import type { ChatSession } from '@modules/session/types/session';
@@ -82,7 +84,8 @@ export function getSessionApprovalMode(
 /**
  * 会话级权限模式（`metadata.permission_mode`）。
  *
- * 只认 9 个合法值；缺失 / 脏值 ⇒ `undefined`（回退 `PermissionManager` 的进程默认档）。
+ * 只认 5 个现行合法值；收缩前的旧值按 `normalizePermissionMode` 归一；
+ * 缺失 / 其余脏值 ⇒ `undefined`（回退 `PermissionManager` 的进程默认档）。
  */
 export function getSessionPermissionMode(
   sessions: SessionLookup,
@@ -96,8 +99,7 @@ export function getSessionPermissionMode(
     // 覆盖）。只改"未设置"时的缺省值：越界写 / 删除 / Bash 闸仍按各自策略判定（D3）。
     return meta?.autonomy === 'demand' ? 'auto' : undefined;
   }
-  const normalized = raw.trim().toLowerCase();
-  return PERMISSION_MODES.find((mode) => mode.toLowerCase() === normalized);
+  return normalizePermissionMode(raw);
 }
 
 /**

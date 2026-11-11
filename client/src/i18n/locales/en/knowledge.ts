@@ -3,6 +3,8 @@
  *
  * 纯数据模块：**禁止**在此 import i18next / react-i18next（测试直接读字典，避免循环依赖）。
  */
+import enRbacPermission from "./rbac";
+
 const enKnowledge = {
   knowledge: {
     title: "Knowledge Base",
@@ -776,6 +778,8 @@ const enKnowledge = {
     typeSystemInstruction: "System Instruction",
   },
   permission: {
+    // 细粒度 RBAC 文案独立成文件（knowledge.ts 接近 lint:size 上限）
+    ...enRbacPermission,
     title: "Permission Management",
     roles: "Roles",
     users: "Users",
@@ -795,8 +799,7 @@ const enKnowledge = {
     confirmRevoke: "Are you sure you want to revoke this permission?",
     scopeSuffix: "{{scope}} permission",
     userList: "User List",
-    noUsersHint:
-      "No user data (fine-grained user management can be configured via CLI /permissions user)",
+    noUsersHint: "No user data (add users via CLI /permissions user add)",
     userDetail: "User Details: {{username}}",
     trustLevel: "Trust Level",
     trustLevelHint:
@@ -837,7 +840,7 @@ const enKnowledge = {
     noRulesHint:
       "No permission rules yet. Once added, tool calls are judged by allow/deny/ask (when no rule matches, the default behavior allows or denies).",
     noUsersData:
-      "No user data: fine-grained user management can be configured via CLI /permissions user, then view trust levels and roles here.",
+      "No user data: add users via CLI /permissions user add, then view trust levels and roles here.",
   },
   logs: {
     exportFailed: "Export failed",

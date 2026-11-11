@@ -202,7 +202,11 @@ export class LlmChatOps {
       // 而非静默退化 —— 工具缺失时应能看到 warning 而非"模型想调工具却无工具"
       chatManager.setToolRegistry(registry);
       // P0-1: 装配权限管理器 —— 激活 ChatManager 工具执行点权限检查（工具执行审批链路）
-      chatManager.setPermissionManager(createPermissionManager());
+      // 2026-11-11：**仅缺失才装配**。`/permissions mode` 在首个对话前可能已装配一个
+      // （并把进程默认档设好）；此处无条件覆盖会丢掉那次设置，且让命令与判定不再是同一实例。
+      if (!chatManager.getPermissionManager()) {
+        chatManager.setPermissionManager(createPermissionManager());
+      }
 
       await chatManager.initialize();
 

@@ -6,13 +6,14 @@ import {
   type PermissionRule,
 } from "../../services/permissionService";
 import { handleClientError } from "../../utils/handleError";
+import RbacPanel from "./RbacPanel";
 
 function PermissionPage() {
   const { t } = useTranslation();
   const { config, loadConfig } = useConfigStore();
   const isDark = config.theme === "dark";
-  // P3-3（2026-11-03）：D 体系（细粒度用户/角色）UI 入口已摘除，本页只剩 A 体系工具规则。
-  // 按方案 §7 风险表「先隐藏 UI 入口 → 观察 → 再删 API/存储」，HTTP 与存储暂保留。
+  // 2026-11-11：撤销 P3-3 第二步 —— D 体系（细粒度 RBAC）UI 入口重新开放（见 RbacPanel）。
+  // 页面结构：上层为 A 体系工具规则（tool_rules.json），下层为 RBAC（roles/users/resources/rules.json）。
   // P1-5：工具权限规则（真实 API /v1/permissions/rules）
   const [rules, setRules] = useState<PermissionRule[]>([]);
   const [rulesSummary, setRulesSummary] = useState({
@@ -250,6 +251,9 @@ function PermissionPage() {
             </div>
           )}
         </div>
+
+        {/* 细粒度 RBAC：角色 / 用户 / 资源 / 绑定（2026-11-11 重新开放） */}
+        <RbacPanel isDark={isDark} />
       </div>
     </div>
   );

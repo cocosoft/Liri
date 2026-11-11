@@ -171,13 +171,6 @@ export function hasPermissionsToUseTool<Input extends Record<string, unknown>>(
     };
   }
 
-  if (context.mode === 'acceptEdits') {
-    return {
-      behavior: PermissionBehavior.ALLOW,
-      decisionReason: { type: 'config', source: 'acceptEdits' },
-    };
-  }
-
   if (context.mode === 'plan') {
     return {
       behavior: PermissionBehavior.ASK,

@@ -62,6 +62,72 @@ export const INBOX_STATUS_PENDING: InboxItemStatus = 'pending';
 export const INBOX_STATUS_PROCESSING: InboxItemStatus = 'processing';
 
 /**
+ * 渠道绑定（2026-11-11）：审批项要「回传渠道 / 在 IM 内解析」所需的**最小来源事实**。
+ *
+ * 为什么需要注入解析器：`inbox_items.channel_id` / `channel_session_id` / `trace_id`
+ * 此前在三处生产调用点都没人写（真机库实测 171 条全为空）⇒ `relayReplyToChannel` 无触发源、
+ * `TextApprovalParser` 也找不到待办。补齐点收敛在**本类提交路径**（唯一入口），
+ * 由宿主（app 层）注入 resolver 提供会话 → 绑定的映射；service 不得反向 import app（R00-001）。
+ */
+export interface InboxChannelBinding {
+  channelId?: string;
+  channelSessionId?: string;
+  channelConversationId?: string;
+  traceId?: string;
+}
+
+export type InboxChannelResolver = (
+  sessionId: string
+) => Promise<InboxChannelBinding | undefined>;
+
+let inboxChannelResolver: InboxChannelResolver | null = null;
+
+/**
+ * 注入 / 复位渠道绑定解析器（宿主启动期调用一次）。
+ *
+ * `null` ⇒ 不补齐（与改动前逐字一致，零行为变更）；resolver 返回 `undefined`
+ * ⇒ 视为"无法判定来源"，不臆造绑定（CS03）。
+ */
+export function setInboxChannelResolver(fn: InboxChannelResolver | null): void {
+  inboxChannelResolver = fn;
+}
+
+/** 取会话的渠道绑定（未注入 resolver / 无会话 id ⇒ `undefined`；不臆造来源，CS03） */
+async function resolveInboxChannelBinding(
+  sessionId: string | undefined
+): Promise<InboxChannelBinding | undefined> {
+  if (!inboxChannelResolver || !sessionId) return undefined;
+  return inboxChannelResolver(sessionId);
+}
+
+/**
+ * 合并渠道绑定：**显式传入的字段优先**，resolver 只补空缺（纯函数，便于单测）。
+ *
+ * 入参只要求"含四个渠道字段"（`InboxSubmitInput` 与 `InboxItem` 都满足），
+ * 返回**同样只含这四个字段**的补丁 ⇒ 调用方 `{ ...item, ...patch }` 拼接，
+ * 不会与 `id/status/createdAt/updatedAt` 的类型要求纠缠（TS2345）。
+ * 抽成独立函数而不是内联：提交路径已接近复杂度棘轮上限，再堆 `??` 会顶过阈值。
+ */
+function mergeChannelBindingFields(
+  item: Pick<
+    InboxItem,
+    'channelId' | 'channelSessionId' | 'channelConversationId' | 'traceId'
+  >,
+  binding: InboxChannelBinding | undefined
+): Pick<
+  InboxItem,
+  'channelId' | 'channelSessionId' | 'channelConversationId' | 'traceId'
+> {
+  return {
+    channelId: item.channelId ?? binding?.channelId,
+    channelSessionId: item.channelSessionId ?? binding?.channelSessionId,
+    channelConversationId:
+      item.channelConversationId ?? binding?.channelConversationId,
+    traceId: item.traceId ?? binding?.traceId,
+  };
+}
+
+/**
  * 审批过期 TTL（2026-11-04，运行态排查 P0-1）——**按类型分层**，不再全局 5 分钟。
  *
  * 实测背景：`inbox_items` 991 条审批卡里 934 条 `expired`、仅 46 条 `replied`（过期率 94%）；
@@ -675,8 +741,13 @@ export class InboxManager {
       };
 
       const id = randomUUID();
+      // 2026-11-11：渠道绑定补齐（显式字段优先；未注入 / 查不到 ⇒ 与改动前逐字一致）。
+      // 补齐后 `session_inbox_map`（下方 `if (full.channelSessionId)`）随之生效 ——
+      // 这是 IM 文本审批（`TextApprovalParser`）定位待办、以及 reply 回传的唯一纽带。
+      const binding = await resolveInboxChannelBinding(item.sessionId);
       const full: InboxItem = {
         ...item,
+        ...mergeChannelBindingFields(item, binding),
         id,
         status: 'pending',
         createdAt: now,
@@ -1692,12 +1763,23 @@ export class InboxManager {
   }
 
   /**
-   * Orphan 补偿：根据 traceId 尝试回填 channelSessionId
+   * Orphan 补偿：根据 traceId 尝试回填 channelId
    * traceId 格式: ch_trc_{channelId}_{timestamp}_{random4}
+   *
+   * 2026-11-11（留痕）：此前 `!item.traceId` 直接静默 `return false` —— 调用方会以为
+   * "补偿跑过了"，实际什么都没做（真机库：171 条 `trace_id` 全为空 ⇒ 必然 no-op）。
+   * 现在缺 traceId 时**明确告警**，把"不可修复"与"修复失败"区分开（CS03：不猜来源）。
    */
   async repairOrphan(inboxItemId: string): Promise<boolean> {
     const item = await this.get(inboxItemId);
-    if (!item || !item.traceId) return false;
+    if (!item) return false;
+    if (!item.traceId) {
+      logger.warn(
+        'repairOrphan: 缺少 trace_id，无法反查渠道（保持 _orphan，不做猜测性回填）',
+        { inboxItemId }
+      );
+      return false;
+    }
 
     const parts = item.traceId.split('_');
     if (parts.length < 3) return false;

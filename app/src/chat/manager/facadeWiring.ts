@@ -75,6 +75,11 @@ import {
 } from '@modules/tasks';
 // P2（2026-11-04，§3.3）：会话活跃长程任务 → 任务档审批（infra 端口）
 import { setActiveTaskIdResolver } from '@openliri/infra/permission';
+// 2026-11-11（渠道绑定补齐）：Inbox 提交时按会话补齐渠道绑定（写入侧见 `streamMessageFlow`）
+import {
+  setInboxChannelResolver,
+  type InboxChannelBinding,
+} from '@openliri/service/runtime/InboxManager';
 import type { MessageService } from '../services/MessageService.js';
 import type { SessionAccessFacade } from '../services/SessionAccessFacade';
 import { SessionLifecycleManager } from '../services/SessionLifecycleManager.js';
@@ -511,6 +516,15 @@ export function wireChatFacades(host: FacadeWiringHost): void {
   });
 
   // 第三阶段收敛：初始化工具执行服务
+  // 2026-11-11（渠道绑定补齐）：Inbox 提交时按会话补齐 channel_id / channel_session_id / trace_id。
+  // 数据源 = 会话内存元数据 `channelBinding`（`streamMessageFlow` 在渠道轮次写入）；
+  // 查不到 ⇒ undefined（不臆造来源，CS03）⇒ 普通会话行为与改动前逐字一致。
+  setInboxChannelResolver(async (sessionId) => {
+    const binding = host._chatSessions.get(sessionId)?.metadata?.[
+      'channelBinding'
+    ] as InboxChannelBinding | undefined;
+    return binding;
+  });
   host._toolExecutionService = new ToolExecutionService({
     getToolRegistry: () => host.toolRegistry,
     getToolIntegration: () => host.toolIntegration ?? null,

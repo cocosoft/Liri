@@ -28,6 +28,8 @@ import { emitPreparedSnapshot } from '@openliri/service/execution';
 import { guardSuspendFromEntropy } from '../../query/guardSuspend.js';
 import { lastUserMessageText } from '../taskIntent.js';
 import { selectToolsForTurn } from './streamMessageToolSelection.js';
+// 2026-11-11（渠道绑定补齐）：每轮记录渠道来源事实（供 Inbox 提交补齐 channel_id / trace_id）
+import { pickChannelBinding } from '../../channels/binding.js';
 import type { ChatOrchestratorHost } from './ChatOrchestratorHost.js';
 
 const logger = getLogger('chat:streamFlow:toolSelection');
@@ -64,6 +66,17 @@ export function selectAndObserveToolDefinitions(
   params: ToolSelectionFlowParams
 ): void {
   const { toolDefinitions, session, options, host, apiMessages } = params;
+
+  // 2026-11-11（渠道绑定补齐）：本轮入站若来自渠道，把来源事实落到会话元数据 ——
+  // 供 Inbox 提交时补齐 `channel_id` / `channel_session_id` / `trace_id`
+  //（写入点见 `channels/binding.ts`；消费点见 `facadeWiring` 注入的 resolver）。
+  // 只写非空字段；普通会话 ⇒ `undefined` ⇒ 零行为变更。
+  const channelBinding = pickChannelBinding(options?.metadata);
+  if (channelBinding) {
+    // `metadata` 在结构类型里是可选的（个别调用方不传）⇒ 按需初始化，避免非空断言
+    session.metadata ??= {};
+    session.metadata['channelBinding'] = channelBinding;
+  }
 
   // P2-1i（2026-10-10）：本轮工具集选择（任务类型优先级 + K4 执行意图提升 + D7/L2 带图保留
   // image 类 + 裁剪）外移为 `selectToolsForTurn`（判据与既有修复动因见其头注）；

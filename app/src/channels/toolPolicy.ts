@@ -13,6 +13,17 @@
  * - 开关 `CHANNEL_TOOL_POLICY` 默认关 ⇒ 返回 `undefined` ⇒ 零行为变更
  *   （**例外**：`ALWAYS_RESTRICTED_CHANNELS` 内的通道不受开关门控，见其注释）。
  * - 可见性 ≠ 授权：即便工具可见，命令执行 / 文件写入仍走审批与 PathGuard。
+ *
+ * ## 收窄工具面的**两条路径与主次**（2026-11-11 固化）
+ * - **必开守卫**：`chat/orchestrator/streamMessageToolSelection.ts` 的 `untrustedOrigin`
+ *   入参（判据 = `tools/toolEffects.ts`，与执行层拒绝**同源**）—— 任何渠道来源会话都走这条，
+ *   不可用开关关闭（T25-07 安全基线）。
+ * - **可选附加面**：本文件的 `resolveChannelTaskTypeOverride`（`messaging` 类别面，
+ *   `CHANNEL_TOOL_POLICY` 默认关；`mobile` 常开）—— 只用于"某类渠道再收紧一档"，
+ *   **不得**与守卫互为替代（类别白名单会放过 `interaction`/`channel` 里的副作用工具，
+ *   却误裁 `mcp`/`calendar`/`doc` 里的只读工具）。
+ * - 改动任一侧都必须同时验证「两条叠加后」的最终工具集
+ *   （锁在 `tests/chat/orchestrator/toolSelection.test.ts`）。
  */
 import { feature } from '@openliri/kernel';
 import { CHANNEL_CATALOG } from './ChannelCatalog';

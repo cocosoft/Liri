@@ -39,6 +39,7 @@ import {
 import {
   detectTemplateInjection,
   detectPathTraversal,
+  detectEncodedPathTraversal,
   detectPipeAndRedirect,
   detectReDoSAttack,
   detectSSRFAttack,
@@ -373,8 +374,15 @@ export class AutoModeClassifier implements IAutoModeClassifier {
       }
     }
 
-    // 检查路径遍历
-    const pathTraversalResult = detectPathTraversal(inputString);
+    // 检查路径遍历。
+    // 2026-11-11（P5 路径单一来源续）：区分**数据面**与**执行面** ——
+    //  - 数据面（`file_read` / `file_write` 的路径入参）：明文 `../` 仍按遍历拦截；
+    //  - 执行面（`command` / `code`）：`../` 是普通相对路径语法（`cp ../a b`、`cd ..`），
+    //    一律判遍历会让 `cp` / `mv` 的审批档被抢先拒绝；只拦**编码/混淆**形态
+    //    （`%2e%2e/`、`%u002e%u002e/`、`%252e%252e/` …），那才是刻意绕过路径检查。
+    const pathTraversalResult = executionSurface
+      ? detectEncodedPathTraversal(executionSurface.toLowerCase())
+      : detectPathTraversal(inputString);
     if (pathTraversalResult) {
       return pathTraversalResult;
     }

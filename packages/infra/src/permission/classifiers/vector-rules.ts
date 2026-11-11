@@ -103,34 +103,70 @@ export function detectTemplateInjection(
 }
 
 /**
- * 检测路径遍历攻击
+ * 明文相对路径片段。
+ *
+ * ⚠️ 只有**数据面**（`file_read` / `file_write` 等的路径入参）才算遍历信号；
+ * **执行面**（`command` / `code`）里 `../` 是普通相对路径语法（`cp ../a b`、`cd ..`），
+ * 一律判遍历会让审批档被抢先拒绝 —— 见 `detectEncodedPathTraversal`。
+ */
+const PLAIN_TRAVERSAL_PATTERNS = [
+  '../',
+  '..\\',
+  '/../',
+  '\\..\\',
+  '..//',
+  './/..',
+  '.../',
+  '..../',
+  '..\\..\\',
+  '../..',
+];
+
+/**
+ * 编码 / 混淆形态的遍历。出现在**任何**输入面都属"刻意绕过路径检查"的信号，
+ * 故执行面也照拦（`%2e%2e/`、`%u002e%u002e/`、`%252e%252e/` …）。
+ */
+const ENCODED_TRAVERSAL_PATTERNS = [
+  // URL编码版本
+  '%2e%2e/',
+  '%2e%2e\\',
+  '%2f%2e%2e',
+  '%5c%2e%2e',
+  // Unicode编码版本
+  '%u002e%u002e/',
+  '%u002e%u002e\\',
+  // 双重编码版本
+  '%252e%252e/',
+  '%252e%252e\\',
+];
+
+/**
+ * 检测**编码形态**的路径遍历（执行面用：不含明文 `../`）。
+ * @param input 输入字符串（调用方负责转小写）
+ */
+export function detectEncodedPathTraversal(
+  input: string
+): ClassifierDecision | null {
+  for (const pattern of ENCODED_TRAVERSAL_PATTERNS) {
+    if (input.includes(pattern)) {
+      return {
+        shouldBlock: true,
+        reason: `Input contains encoded path traversal pattern: "${pattern}"`,
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * 检测路径遍历攻击（**数据面**的严格判定：明文 + 编码形态）
  * @param input 输入字符串
  * @returns 检测结果
  */
 export function detectPathTraversal(input: string): ClassifierDecision | null {
-  // 标准路径遍历模式
   const traversalPatterns = [
-    '../',
-    '..\\',
-    '/../',
-    '\\..\\',
-    '..//',
-    './/..',
-    '.../',
-    '..../',
-    '..\\..\\',
-    '../..',
-    // URL编码版本
-    '%2e%2e/',
-    '%2e%2e\\',
-    '%2f%2e%2e',
-    '%5c%2e%2e',
-    // Unicode编码版本
-    '%u002e%u002e/',
-    '%u002e%u002e\\',
-    // 双重编码版本
-    '%252e%252e/',
-    '%252e%252e\\',
+    ...PLAIN_TRAVERSAL_PATTERNS,
+    ...ENCODED_TRAVERSAL_PATTERNS,
     // 其他变体
     '.%2e/',
     '.%2e\\',
@@ -348,15 +384,9 @@ export function detectFileInclusion(input: string): ClassifierDecision | null {
     'highlight_file(',
     'show_source(',
     'parse_ini_file(',
-    // 路径遍历变体
-    '../',
-    '..\\',
-    '/../',
-    '\\..\\',
-    '.../',
-    '..../',
-    '..\\..\\',
-    '../..',
+    // 2026-11-11（P5 路径单一来源续）：原此处内联了 `../` 等遍历变体 ⇒ 与
+    // `detectPathTraversal` 成为第二份真源，并让执行面的 `cp ../a b` 被"文件包含"误拦。
+    // 遍历统一由 `detectPathTraversal`（数据面）/ `detectEncodedPathTraversal`（执行面）判定。
     // 协议包装器
     'php://',
     'data://',

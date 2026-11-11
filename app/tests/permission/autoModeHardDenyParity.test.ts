@@ -17,6 +17,10 @@ import {
   AUTO_MODE_HARD_DENY_TOKENS,
 } from '@openliri/infra/security/patterns/dangerousCommands';
 import { AutoModeClassifier } from '@openliri/infra/permission/classifiers/AutoModeClassifier';
+import {
+  detectEncodedPathTraversal,
+  detectPathTraversal,
+} from '@openliri/infra/permission/classifiers/vector-rules';
 import { PermissionMode } from '@openliri/infra/permission';
 import { PermissionManager } from '@openliri/infra/permission/PermissionManager';
 import { createPermissionContext } from '@openliri/infra/permission/types/PermissionContext';
@@ -242,5 +246,68 @@ describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
       const decision = await classifier.classify('bash', { command }, []);
       expect(decision.shouldBlock).toBe(true);
     }
+  });
+});
+
+describe('路径遍历：执行面不再误判明文 ../（数据面仍严格）', () => {
+  const classifier = new AutoModeClassifier();
+
+  it('detectEncodedPathTraversal 只认编码形态', () => {
+    expect(detectEncodedPathTraversal('%2e%2e/secret')).not.toBeNull();
+    expect(detectEncodedPathTraversal('%252e%252e/secret')).not.toBeNull();
+    expect(detectEncodedPathTraversal('../a')).toBeNull();
+    // 数据面严格判定不变（明文也算遍历）
+    expect(detectPathTraversal('../a')).not.toBeNull();
+  });
+
+  it('执行面：cp / mv 的 ../ 转审批（不再 deny）', async () => {
+    for (const command of ['cp ../a.txt b.txt', 'mv ../a.txt b.txt']) {
+      const decision = await classifier.classify('bash', { command }, []);
+      expect(decision.shouldBlock).toBe(false);
+      expect(decision.requiresApproval).toBe(true);
+    }
+  });
+
+  it('执行面：编码形态的遍历仍拦', async () => {
+    const decision = await classifier.classify(
+      'bash',
+      { command: 'cat %252e%252e/secret' },
+      []
+    );
+    expect(decision.shouldBlock).toBe(true);
+  });
+
+  it('数据面：文件写工具的 ../ 仍按遍历拦截', async () => {
+    // 注：`file_read` 命中分类器的安全工具白名单（名字含 `read`）⇒ 不参与内容判定，
+    // 故用 `file_write` 验证数据面口径。
+    const write = await classifier.classify(
+      'file_write',
+      { file_path: '../secret.txt', content: 'x' },
+      []
+    );
+    expect(write.shouldBlock).toBe(true);
+
+    const nested = await classifier.classify(
+      'file_write',
+      { file_path: '../../secret.txt', content: 'x' },
+      []
+    );
+    expect(nested.shouldBlock).toBe(true);
+  });
+
+  it('PermissionManager（auto 档）：cp ../ ⇒ ask', async () => {
+    const pm = createIsolatedManager();
+    const input = { command: 'cp ../a.txt b.txt' };
+    const decision = await pm.checkPermission(
+      'bash',
+      input,
+      createPermissionContext({
+        toolName: 'bash',
+        input,
+        permissionMode: PermissionMode.AUTO,
+        sessionId: 'sess-approval-updir',
+      }) as PermissionContext
+    );
+    expect(decision.type).toBe('ask');
   });
 });

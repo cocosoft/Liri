@@ -789,9 +789,20 @@ export async function handleUpdateMessageBlocks(
     }
     // P2-23：blocks 必须为数组，非数组时按空处理（原实现字符串等类型直接透传）
     const blocks = Array.isArray(data.blocks) ? data.blocks : [];
+    // 2026-11-11：可选正文同步（清理历史重复提示时，需要 blocks 与 content 一起改，
+    // 否则导出 / 下一轮上下文仍读到旧文案）。非字符串按未提供处理。
+    const text = typeof data.text === 'string' ? data.text : undefined;
+    // 2026-11-11：历史消息（事件派生主源）必须走读时覆盖，否则只改投影前端不可见
+    const persistOverride = data.override === true;
 
     const coreAPI = getCoreAPI();
-    await coreAPI.updateMessageBlocks(sessionId, messageId, blocks);
+    await coreAPI.updateMessageBlocks(
+      sessionId,
+      messageId,
+      blocks,
+      text,
+      persistOverride
+    );
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true }));
@@ -1153,6 +1164,41 @@ export async function handleGenerateTitle(
           action: 'responseAlreadyEnded',
         });
       } /* res可能已结束, 忽略 */
+    }
+  }
+}
+
+/**
+ * 处理「立即复位崩溃恢复标记」请求
+ * POST /v1/sessions/:id/recover-stale
+ *
+ * 2026-11-11：启动期强杀会把空闲会话判 `failed_stale`（status=error），原实现只能等
+ * 该会话下次被使用才自愈。本入口用于**立即**清标记并复位，便于运维/联调。
+ */
+export async function handleRecoverStaleSession(
+  ctx: HandlerCtx,
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  sessionId: string
+): Promise<void> {
+  try {
+    const coreAPI = getCoreAPI();
+    if (!(await coreAPI.getSession(sessionId))) {
+      sendNotFound(res, 'Session not found');
+      return;
+    }
+    const recovered = await coreAPI.recoverStaleSession(sessionId);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, recovered }));
+    ctx.broadcastEvent('session:meta_updated', { id: sessionId });
+  } catch (err) {
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'recover_stale_error',
+    });
+    if (!res.headersSent) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
     }
   }
 }

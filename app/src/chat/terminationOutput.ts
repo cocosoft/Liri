@@ -45,6 +45,50 @@ export const AWAITING_APPROVAL_NOTICE =
   '⏸ 有工具调用正在等待你的审批：请在下方审批卡片（或收件箱）中处理后继续；' +
   '批准后会自动接着执行，无需重发消息。';
 
+/** 收尾提示去重所需的最小消息形状 */
+export interface TerminationNoticeMessage {
+  id?: string;
+  role?: string;
+  content?: unknown;
+}
+
+/**
+ * 2026-11-11：连续「等待审批」时收尾提示只保留一次（去重）。
+ *
+ * 真机 `session_mwbpcffhbe33e6fcdc`：同一轮里每暂停一次就追加一遍
+ * 「⏸ 有工具调用正在等待你的审批…」，单轮写了 7 条完全相同的 assistant 气泡。
+ * 判据：从会话末尾往前扫，跳过本轮正在收尾的消息；先遇到 `user` ⇒ 新提问，提示照常写；
+ * 先遇到 `assistant` ⇒ 看它正文是否已以同一提示结尾。仅"连续暂停且中间没有新提问"才抑制
+ * （审批卡片仍逐张出现，`metadata.finishReason` 照常落盘）。
+ */
+export function suppressDuplicateApprovalNotice<
+  T extends { suffix: string; finishReason?: string },
+>(
+  output: T,
+  messages: ReadonlyArray<TerminationNoticeMessage> | undefined,
+  currentId?: string
+): T {
+  if (output.finishReason !== 'awaiting_approval') return output;
+  if (!hasTrailingApprovalNotice(messages, currentId)) return output;
+  return { ...output, suffix: '' };
+}
+
+function hasTrailingApprovalNotice(
+  messages: ReadonlyArray<TerminationNoticeMessage> | undefined,
+  currentId?: string
+): boolean {
+  if (!messages) return false;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (message.id === currentId) continue;
+    if (message.role === 'user') return false;
+    if (message.role !== 'assistant') continue;
+    const content = typeof message.content === 'string' ? message.content : '';
+    return content.trimEnd().endsWith(AWAITING_APPROVAL_NOTICE);
+  }
+  return false;
+}
+
 /**
  * 2026-11-09：中止类收尾文案 —— **单一文案来源**（CS01）。
  *

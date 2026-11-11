@@ -11,12 +11,14 @@
 import { describe, expect, it } from 'bun:test';
 
 import {
+  AWAITING_APPROVAL_NOTICE,
   SYSTEM_ABORTED_SUFFIX,
   USER_ABORTED_SUFFIX,
   buildEmptyReplyFallback,
   hasVisibleAssistantText,
   isEmptyOutputFallbackMessage,
   resolveTerminationOutput,
+  suppressDuplicateApprovalNotice,
   type TerminationOutputInput,
 } from '../../src/chat/terminationOutput.js';
 
@@ -31,6 +33,39 @@ const base = (
   maxTotalDurationMs: 60_000,
   assistantMessageContent: '',
   ...overrides,
+});
+
+describe('2026-11-11：连续「等待审批」提示只保留一次', () => {
+  const output = {
+    suffix: `\n\n${AWAITING_APPROVAL_NOTICE}`,
+    finishReason: 'awaiting_approval',
+  };
+
+  it('上一条 assistant 已是同一提示（中间无新提问）⇒ 抑制', () => {
+    const messages = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: AWAITING_APPROVAL_NOTICE },
+      { role: 'assistant', content: '', id: 'current' },
+    ];
+    expect(
+      suppressDuplicateApprovalNotice(output, messages, 'current').suffix
+    ).toBe('');
+  });
+
+  it('中间有新的 user 消息 ⇒ 照常提示', () => {
+    const messages = [
+      { role: 'assistant', content: AWAITING_APPROVAL_NOTICE },
+      { role: 'user', content: '继续' },
+    ];
+    expect(
+      suppressDuplicateApprovalNotice(output, messages).suffix.length
+    ).toBeGreaterThan(0);
+  });
+
+  it('非 awaiting_approval ⇒ 原样返回', () => {
+    const other = { suffix: 'x', finishReason: 'completed' };
+    expect(suppressDuplicateApprovalNotice(other, []).suffix).toBe('x');
+  });
 });
 
 describe('F3：终止必须有正文', () => {

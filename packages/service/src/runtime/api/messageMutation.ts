@@ -75,11 +75,69 @@ export class MessageMutation {
   async updateMessageBlocks(
     sessionId: string,
     messageId: string,
-    blocks: Array<Record<string, unknown>>
+    blocks: Array<Record<string, unknown>>,
+    text?: string,
+    persistOverride?: boolean
   ): Promise<void> {
     await this.deps
       .getChatManager()
-      .updateMessageBlocks(sessionId, messageId, blocks);
+      .updateMessageBlocks(sessionId, messageId, blocks, text);
+    if (persistOverride) {
+      await this.persistMessageOverride(sessionId, messageId, blocks, text);
+    }
+  }
+
+  /**
+   * 2026-11-11：把本次 `blocks` / 正文写入会话元数据的**读时覆盖表**。
+   *
+   * 事件日志不可变、且 `getSessionMessages` 以事件派生为主源 ⇒ 历史消息的
+   * `updateMessageBlocks` 只写投影时前端读不到（真机：清理重复收尾提示，投影已改、界面不变）。
+   * 覆盖表由 `sessionMessagesRead` 在派生结果上读时应用（`applyMessageOverrides`）。
+   */
+  private async persistMessageOverride(
+    sessionId: string,
+    messageId: string,
+    blocks: Array<Record<string, unknown>>,
+    text?: string
+  ): Promise<void> {
+    const session = this.deps.getSessionManager().getSession(sessionId);
+    if (!session?.metadata) {
+      logger.warn('updateMessageBlocks: 会话未加载，读时覆盖未写入', {
+        sessionId,
+        messageId,
+      });
+      return;
+    }
+    const metadata = session.metadata as Record<string, unknown>;
+    const previous =
+      metadata.messageOverrides && typeof metadata.messageOverrides === 'object'
+        ? (metadata.messageOverrides as Record<string, unknown>)
+        : {};
+    const next = {
+      ...previous,
+      [messageId]: {
+        ...(text !== undefined ? { content: text } : {}),
+        blocks,
+      },
+    };
+    metadata.messageOverrides = next;
+    this.deps.getSessionManager().updateSession?.(session);
+    try {
+      const gateway = this.deps.getChatManager().getSessionGateway?.();
+      const stored = (await gateway?.getSession(sessionId)) as {
+        metadata: Record<string, unknown>;
+      } | null;
+      if (stored) {
+        stored.metadata.messageOverrides = next;
+        await gateway?.updateSession(stored);
+      }
+    } catch (err) {
+      await handleError(err, {
+        module: 'runtime:api',
+        action: 'updateMessageBlocks:persistOverride',
+        context: { sessionId, messageId },
+      });
+    }
   }
 
   /**
@@ -110,10 +168,39 @@ export class MessageMutation {
       (err as unknown as Record<string, unknown>).statusCode = 404;
       throw err;
     }
-    if (targetMsg.role !== 'user') {
-      const err = new Error('Only user messages can be deleted');
+    if (targetMsg.role !== 'user' && targetMsg.role !== 'assistant') {
+      const err = new Error('Only user or assistant messages can be deleted');
       (err as unknown as Record<string, unknown>).statusCode = 400;
       throw err;
+    }
+
+    /**
+     * 2026-11-11：**单条 assistant 删除**（受控）。
+     *
+     * 用途：清理重复的收尾提示 / 重复终稿（真机 `session_mwbpcffhbe33e6fcdc` 单轮写了
+     * 7 条相同的「⏸ 有工具调用正在等待你的审批」）。
+     *
+     * 安全边界：只允许删除**不向模型声明工具调用**的助手消息。请求构建侧只读
+     * `metadata.tool_calls`（`streamMessageLifecycle.buildApiMessagesForStream`），
+     * 删除这类消息不会让 `role: 'tool'` 结果失去归属；反之直接拒绝。
+     * `blocks` 里的 tool_call 仅用于前端展示，故只作兜底判断。
+     */
+    const singleAssistant = targetMsg.role === 'assistant';
+    if (singleAssistant) {
+      const blocks = Array.isArray(targetMsg.blocks) ? targetMsg.blocks : [];
+      const declaredToolCalls = (
+        targetMsg.metadata as { tool_calls?: unknown } | undefined
+      )?.tool_calls;
+      const hasToolCalls =
+        blocks.some((b) => (b as { type?: string }).type === 'tool_call') ||
+        (Array.isArray(declaredToolCalls) && declaredToolCalls.length > 0);
+      if (hasToolCalls) {
+        const err = new Error(
+          'Assistant message with tool calls cannot be deleted individually'
+        );
+        (err as unknown as Record<string, unknown>).statusCode = 400;
+        throw err;
+      }
     }
 
     // ── N-50（2026-09-20）修复：删除**整轮**（该提问 + 其助手/工具回复），避免遗留孤儿回复 ──
@@ -129,15 +216,18 @@ export class MessageMutation {
     // `startSeq`/`endSeq`）—— 否则被删轮次会被事件重新派生出来。
     const targetIndex = messages.findIndex((m) => m.id === messageId);
     let turnEndIndex = messages.length;
-    for (let i = targetIndex + 1; i < messages.length; i++) {
-      if (messages[i].role === 'user') {
-        turnEndIndex = i;
-        break;
+    if (!singleAssistant) {
+      for (let i = targetIndex + 1; i < messages.length; i++) {
+        if (messages[i].role === 'user') {
+          turnEndIndex = i;
+          break;
+        }
       }
     }
-    const turnMessageIds = messages
-      .slice(targetIndex, turnEndIndex)
-      .map((m) => m.id);
+    // assistant ⇒ 只删这一条；user ⇒ 仍按 N-50 口径删整轮
+    const turnMessageIds = singleAssistant
+      ? [messageId]
+      : messages.slice(targetIndex, turnEndIndex).map((m) => m.id);
 
     // N-50 墓碑（与 N-52 修复同批）：记录该轮的**事件 seq 区间** —— 派生读路径生效后，仅删
     // 投影不足以移除该轮（agg 会按事件重新派生）⇒ 读时按墓碑过滤（`_filterDeletedRanges`）。
@@ -152,12 +242,19 @@ export class MessageMutation {
       const from = idx >= 0 ? derived?.[idx]?.lastEventSeq : undefined;
       if (idx >= 0 && typeof from === 'number' && Number.isFinite(from)) {
         startSeq = from;
-        const nextUser = derived?.slice(idx + 1).find((m) => m.role === 'user');
-        const nextSeq = nextUser?.lastEventSeq;
-        endSeq =
-          typeof nextSeq === 'number' && Number.isFinite(nextSeq)
-            ? Math.max(nextSeq - 1, from)
-            : null;
+        if (singleAssistant) {
+          // 单条 assistant：墓碑只覆盖**本条**的 seq（闭区间），不波及相邻消息
+          endSeq = from;
+        } else {
+          const nextUser = derived
+            ?.slice(idx + 1)
+            .find((m) => m.role === 'user');
+          const nextSeq = nextUser?.lastEventSeq;
+          endSeq =
+            typeof nextSeq === 'number' && Number.isFinite(nextSeq)
+              ? Math.max(nextSeq - 1, from)
+              : null;
+        }
       }
     } catch (err) {
       await handleError(err, {

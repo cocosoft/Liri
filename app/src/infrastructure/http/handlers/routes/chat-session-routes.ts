@@ -61,6 +61,7 @@ import {
   handleSearchMessagesFTS,
   handleSwitchSession,
   handleUpdateMessageBlocks,
+  handleRecoverStaleSession,
   handleUpdateSessionMeta,
 } from '../session-handlers';
 import {
@@ -151,6 +152,17 @@ export async function dispatchChatSessionRoutes(
   }
   if (method === 'GET' && url === '/v1/sessions/current') {
     await handleGetCurrentSession(handlerCtx, req, res);
+    return true;
+  }
+  // 2026-11-11：立即复位启动期崩溃恢复标记（failed_stale ⇒ ERROR）
+  if (method === 'POST' && url.match(/^\/v1\/sessions\/(.+)\/recover-stale$/)) {
+    const sid = requireSessionId(
+      url,
+      /^\/v1\/sessions\/(.+)\/recover-stale$/,
+      res
+    );
+    if (sid === null) return true;
+    await handleRecoverStaleSession(handlerCtx, req, res, sid);
     return true;
   }
   // 全文搜索历史消息（须在通用 /v1/sessions/:id/messages 之前匹配）

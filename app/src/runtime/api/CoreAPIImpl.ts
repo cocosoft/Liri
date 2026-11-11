@@ -1683,15 +1683,23 @@ export class CoreAPIImpl implements CoreAPI {
     return this.sessionAgentOps.getSessionEvents(sessionId, query);
   }
 
+  async recoverStaleSession(sessionId: string): Promise<boolean> {
+    return this.sessionAgentOps.recoverStaleSession(sessionId);
+  }
+
   async updateMessageBlocks(
     sessionId: string,
     messageId: string,
-    blocks: Array<Record<string, unknown>>
+    blocks: Array<Record<string, unknown>>,
+    text?: string,
+    persistOverride?: boolean
   ): Promise<void> {
     return this.sessionAgentOps.updateMessageBlocks(
       sessionId,
       messageId,
-      blocks
+      blocks,
+      text,
+      persistOverride
     );
   }
 

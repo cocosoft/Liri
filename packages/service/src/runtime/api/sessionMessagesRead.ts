@@ -71,6 +71,8 @@ import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 // P0-4（2026-11-05）：任务分区消息（PDCA 步骤）默认不进用户面读取
 import { filterTaskPartitionMessages } from './messagePartition';
+// 2026-11-11：历史消息的读时覆盖（派生主源 + 投影改写不可见的修复）
+import { applyMessageOverrides } from './messageOverrides';
 // P3-1（2026-11-06）：已处理/已过期审批块也要留痕（否则"有文字没卡片"）
 import {
   refreshPresentApprovalBlocks,
@@ -207,7 +209,14 @@ export class SessionMessagesRead {
         // N-50（2026-09-20）：过滤"已删除轮次"（元数据墓碑的 seq 区间）——派生路径生效后
         // 仅删投影不足以移除该轮（agg 会按事件重新派生）⇒ 必须在此按 `lastEventSeq` 过滤；
         // 下方 catch 的投影回退路径依赖投影条目已由 `deleteMessage` 整轮删除。
-        const visible = this.deps.getFilterDeletedRanges()(sessionId, derived);
+        const visible = applyMessageOverrides(
+          this.deps.getFilterDeletedRanges()(sessionId, derived),
+          (
+            this.deps.getSessionManager().getSession(sessionId)?.metadata as
+              | { messageOverrides?: unknown }
+              | undefined
+          )?.messageOverrides
+        );
         await this._attachPendingApprovalBlocks(
           sessionId,
           visible as unknown as UnifiedMessage[]

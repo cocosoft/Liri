@@ -57,6 +57,8 @@ import {
 import type { PermissionMode } from '@openliri/infra/permission';
 import type { ChatManager } from '@modules/chat';
 import type { SessionManager } from '@modules/session/types/session';
+import { DataSessionStatus } from '@modules/session/types/session';
+import { clearStaleRecoveryMarkers } from '@modules/session';
 import type { DerivationDiff, LiteSessionSummary } from '@modules/session';
 import type { LiriEvent } from '@modules/session/types/events';
 import type {
@@ -724,14 +726,45 @@ export class SessionAgentOps {
       .getSessionEvents(sessionId, query);
   }
 
+  /**
+   * 2026-11-11：**立即复位**「启动期被崩溃恢复判 failed_stale」的会话（维护入口）。
+   *
+   * 启动期强杀留下的 `crashRecovery=failed_stale` 只有在会话下次被使用时才自愈；
+   * 本方法提供显式入口：清恢复标记 + 内存状态 ERROR→ACTIVE（判据与
+   * `clearStaleRecoveryMarkers` 同源，真实业务失败不受影响）。
+   */
+  async recoverStaleSession(sessionId: string): Promise<boolean> {
+    const gateway = this.deps.getChatManager().getSessionGateway();
+    const cleared = await clearStaleRecoveryMarkers(
+      gateway.getStorage(),
+      sessionId
+    );
+    const session = this.deps.getSessionManager().getSession(sessionId);
+    if (session) {
+      const metadata = session.metadata as Record<string, unknown> | undefined;
+      if (metadata?.crashRecovery !== undefined) {
+        delete metadata.crashRecovery;
+        delete metadata.crashedAt;
+        delete metadata.lastActivityBeforeCrash;
+      }
+      if (session.state === DataSessionStatus.ERROR) {
+        session.state = DataSessionStatus.ACTIVE;
+      }
+      this.deps.getSessionManager().updateSession?.(session);
+    }
+    return cleared;
+  }
+
   async updateMessageBlocks(
     sessionId: string,
     messageId: string,
-    blocks: Array<Record<string, unknown>>
+    blocks: Array<Record<string, unknown>>,
+    text?: string,
+    persistOverride?: boolean
   ): Promise<void> {
     return this.deps
       .getMessageMutation()
-      .updateMessageBlocks(sessionId, messageId, blocks);
+      .updateMessageBlocks(sessionId, messageId, blocks, text, persistOverride);
   }
 
   /**

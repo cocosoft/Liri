@@ -55,6 +55,16 @@ export function isDemandGoalIntent(text: string): boolean {
   ) {
     return false;
   }
+  // 2026-11-11：能力询问（"你可以做什么 / 你能干什么 / 你有哪些功能"）同样是纯问答。
+  // 真机 `session_mwbpcffhbe33e6fcdc`：demand 会话里这两句被判成目标 ⇒ 升级 PDCA，
+  // 同一问题因此得到**两遍回答**（流式一遍 + `pdca-final` 一遍）并多建一个项目。
+  if (
+    /(?:你|您)(?:都|还|现在)?(?:能|可以|会|支持|有)(?:帮我)?(?:做|干|提供|实现)?(?:些|点)?(?:什么|啥|哪些)/.test(
+      trimmed
+    )
+  ) {
+    return false;
+  }
   return true;
 }
 

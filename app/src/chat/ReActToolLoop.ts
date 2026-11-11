@@ -116,6 +116,7 @@ import { autoAnswerUnattended, noteDemandAsk } from './interactionAutoApprove';
 import {
   mapTerminationToGoalReason,
   resolveTerminationOutput,
+  suppressDuplicateApprovalNotice,
 } from './terminationOutput';
 // U-22/S1（2026-10-17）：reason 前钩子（清理/动态上限/检查点/上下文保护）外移
 import {
@@ -1750,8 +1751,8 @@ export class ReActToolLoop extends ReActLoop<
     const { suffix, finishReason, concurrentReasons, emptyOutputFallback } =
       this.resolveTerminationOutput();
 
-    // 无终止提示且已有消息（正文非空）⇒ 原样返回，零行为变更
-    if (!suffix && this.loopState.assistantMessage) {
+    // 无终止提示且已有消息（正文非空）⇒ 原样返回，零行为变更（`finishReason` 存在时仍需投影）
+    if (!suffix && !finishReason && this.loopState.assistantMessage) {
       return this.loopState.assistantMessage;
     }
 
@@ -1856,7 +1857,7 @@ export class ReActToolLoop extends ReActLoop<
   private resolveTerminationOutput(): ReturnType<
     typeof resolveTerminationOutput
   > {
-    return resolveTerminationOutput({
+    const output = resolveTerminationOutput({
       reason: this.getTerminationReason(),
       iteration: this.state.iteration,
       maxIterations: this.config.maxIterations,
@@ -1873,6 +1874,12 @@ export class ReActToolLoop extends ReActLoop<
         | Array<{ type: string; value?: unknown }>
         | undefined,
     });
+    // 2026-11-11：连续「等待审批」不再重复追回同一提示（真机单轮 7 条相同气泡）
+    return suppressDuplicateApprovalNotice(
+      output,
+      this.ctx.session.messages,
+      this.loopState.assistantMessage?.id
+    );
   }
 
   // ─── 私有辅助 ───────────────────────────────────────

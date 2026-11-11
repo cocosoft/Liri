@@ -47,6 +47,14 @@ describe('isDemandGoalIntent — 非目标（不拉起编排）', () => {
     expect(isDemandGoalIntent('解释一下事件循环？')).toBe(false);
   });
 
+  it('能力询问 ⇒ false（否则会升级编排，同一问题被答两遍）', () => {
+    expect(isDemandGoalIntent('你可以做什么？')).toBe(false);
+    expect(isDemandGoalIntent('哥们，你可以做些什么？')).toBe(false);
+    expect(isDemandGoalIntent('你都有哪些功能')).toBe(false);
+    // 负向对照：带明确产出请求的能力句仍是目标
+    expect(isDemandGoalIntent('你可以帮我做一个贪吃蛇吗？')).toBe(true);
+  });
+
   it('空串 / 空白 / 单字 ⇒ false', () => {
     expect(isDemandGoalIntent('')).toBe(false);
     expect(isDemandGoalIntent('   ')).toBe(false);

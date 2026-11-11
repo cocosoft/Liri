@@ -829,11 +829,22 @@ export interface CoreAPI {
     hasMore: boolean;
   }>;
 
-  /** 更新消息的 blocks 结构 */
+  /** 立即复位「启动期崩溃恢复判 failed_stale」的会话（清标记 + ERROR→ACTIVE） */
+  recoverStaleSession(sessionId: string): Promise<boolean>;
+
+  /**
+   * 更新消息的 blocks 结构。
+   *
+   * - `text`：同步正文（避免导出/下一轮仍读到旧文案）
+   * - `persistOverride`：历史消息需同时写入会话元数据的读时覆盖表
+   *   （派生读为主源时，仅写投影对前端不可见）
+   */
   updateMessageBlocks(
     sessionId: string,
     messageId: string,
-    blocks: Array<Record<string, unknown>>
+    blocks: Array<Record<string, unknown>>,
+    text?: string,
+    persistOverride?: boolean
   ): Promise<void>;
 
   /** 删除单条消息（软删除） */

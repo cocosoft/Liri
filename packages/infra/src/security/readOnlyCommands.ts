@@ -389,6 +389,12 @@ export const AUTO_MODE_READONLY_COMMANDS: ReadonlySet<string> = new Set([
   'test-path',
   'get-location',
   'select-string',
+  // 2026-11-12（P0 · 未知命令策略 B）：集群 / 容器 / 代码托管的**只读子命令**入口。
+  // 命令名在此、具体子命令由 `readonly-command-allowlist` 的参数守卫限定；
+  // 写子命令（`kubectl delete` / `docker run` / `gh pr merge`）不放行，落审批档。
+  'kubectl',
+  'docker',
+  'gh',
 ]);
 
 /**

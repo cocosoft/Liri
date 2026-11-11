@@ -10,7 +10,11 @@ import { isExecutionToolName } from '@openliri/infra/utils/toolContract/toolRole
 import {
   containsCommandToken,
   extractNestedShellBodies,
+  // 2026-11-12（P0）：`powershell -EncodedCommand` 载荷解码
+  extractEncodedBodies,
 } from './command-token-match';
+// 2026-11-12（P0）：未知命令档位的灰度开关（与 `PERMISSION_MODE` 同源读取方式）
+import { configManager } from '@openliri/infra/config';
 // 2026-11-11：嵌套 shell 的内层若是**结构只读命令**，不能按词表硬拒
 // （`powershell -Command "git diff --stat"` 会命中 `git ` 令牌）。
 // 与 PermissionManager 的只读短路共用同一事实源（readonly-command-allowlist）。
@@ -56,6 +60,20 @@ import {
 // 本地使用需 `import`（re-export 不引入本地绑定）；对外路径由下方 `export type` 保持不变。
 import type { ClassifierDecision } from './classifierDecision';
 export type { ClassifierDecision } from './classifierDecision';
+
+/**
+ * 未知命令档位（2026-11-12，P0 · 未知命令策略 B）。
+ *
+ * 默认 `ask`（fail-closed）；`PERMISSION_UNKNOWN_COMMAND_TIER=allow` 灰度回退改造前行为。
+ * 只接受显式 `allow`：拼写错误 / 空值一律按 `ask`，避免"配置写错 ⇒ 静默放宽"。
+ */
+function resolveUnknownCommandTier(): 'allow' | 'ask' {
+  const raw = configManager
+    .env('PERMISSION_UNKNOWN_COMMAND_TIER', 'ask')
+    ?.trim()
+    .toLowerCase();
+  return raw === 'allow' ? 'allow' : 'ask';
+}
 
 /**
  * 令牌**或同组等价写法**是否命中（2026-11-11，等价命令组归一表）。
@@ -193,6 +211,10 @@ function collectStringValues(value: unknown, out: string[]): void {
  * 取执行面原文（`command` / `cmd` / `code`），用于注入类检测。
  *
  * 缺失这些字段 ⇒ `undefined`（该工具没有可执行入参，注入类检测不适用）。
+ *
+ * 2026-11-12（P0）：**保留原始大小写** —— base64 载荷区分大小写，
+ * 此前在取面时统一 `toLowerCase()` 会把 `-EncodedCommand` 解成乱码，
+ * 导致解码后判定全部落空。大小写归一改由调用点按需处理。
  */
 function executionSurfaceOf(
   input: Record<string, unknown>
@@ -205,7 +227,7 @@ function executionSurfaceOf(
       parts.push(value);
     }
   }
-  return parts.length > 0 ? parts.join('\n').toLowerCase() : undefined;
+  return parts.length > 0 ? parts.join('\n') : undefined;
 }
 
 /**
@@ -309,9 +331,11 @@ export class AutoModeClassifier implements IAutoModeClassifier {
      * 读取升级成 ask。取**原文**而非 JSON 文本 —— 危险令牌按命令位锚定，JSON 的
      * `{"command":"` 前缀会让任何"句首"锚点失效（见 `containsDangerToken`）。
      */
-    const executionSurface = isExecutionToolName(lowerToolName)
+    // 2026-11-12（P0）：原文供 base64 解码（大小写敏感）；下游判定用小写面
+    const rawExecutionSurface = isExecutionToolName(lowerToolName)
       ? executionSurfaceOf(scanInput)
       : undefined;
+    const executionSurface = rawExecutionSurface?.toLowerCase();
 
     // 检查Unicode零宽字符注入
     const zeroWidthResult = detectZeroWidthCharacters(
@@ -328,6 +352,14 @@ export class AutoModeClassifier implements IAutoModeClassifier {
       return nullByteResult;
     }
 
+    /**
+     * 2026-11-12（P0 · L1/L6）：实际参与令牌判定的**命令面**集合。
+     * 原命令之外，还要带上 `powershell -EncodedCommand <base64>` 的**解码结果** ——
+     * 否则 base64 只是一串普通文本，等于给任意代码执行留后门（实测曾整体放行）。
+     * 嵌套 shell 的脚本体由 `containsCommandToken` 递归处理，不在此重复。
+     */
+    const commandSurfaces: string[] = executionSurface ? [executionSurface] : [];
+
     if (executionSurface) {
       // 检查Zsh equals expansion攻击
       const zshResult = detectZshEqualsExpansion(executionSurface);
@@ -341,22 +373,40 @@ export class AutoModeClassifier implements IAutoModeClassifier {
         return encodingResult;
       }
 
+      // 2026-11-12（P0）：编码载荷解码 —— 解不开就是"不知道它要干什么"⇒ fail-closed
+      const encoded = extractEncodedBodies(
+        rawExecutionSurface ?? executionSurface
+      );
+      if (encoded.undecodable) {
+        return {
+          shouldBlock: true,
+          reason: 'Input contains undecodable encoded command payload',
+        };
+      }
+      commandSurfaces.push(...encoded.bodies);
+
       // 嵌套 shell 的脚本体若整体是**结构只读命令**（`git diff` / `Get-Content` …），
       // 直接放行：PermissionManager 的只读短路只覆盖"单一命令"，包一层
       // `powershell -Command` / `bash -c` 就失效，随后被词表里的 `git `/`dir ` 等令牌误杀。
       // 复合命令（含管道 / 分号）仍会被 `checkReadonlyCommand` 判 false ⇒ 继续走词表。
       //
-      // 2026-11-11（P3 复查）：**仅当整条命令就是这层 shell 包装时**才适用。
+      // 2026-11-12（P3 复查）：**仅当整条命令就是这层 shell 包装时**才适用。
       // 原实现只看"串里有没有 `sh -c`"，于是 `git config --global core.sshCommand "sh -c id"`
       // 被当成"内层只读"整条放行（外层 `git config` 从未参与判定）。
       const firstWord = executionSurface.trim().split(/\s+/)[0]?.toLowerCase() ?? '';
       const isShellWrapper =
         /^(?:bash|sh|zsh|ksh|powershell|pwsh|cmd|cmd\.exe)$/.test(firstWord);
-      const nestedBodies = extractNestedShellBodies(executionSurface);
+      // 2026-11-12（P0）：脚本体必须取自**原文** —— 小写面里的 base64 是乱码，
+      // 会让只读短路误判（`-EncodedCommand <ls 的 base64>` 被判"非只读"）。
+      // 同时剔除"看起来就是 base64 载荷"的脚本体：那串不是脚本，真正的脚本在 `encoded.bodies`。
+      const nestedBodies = extractNestedShellBodies(
+        rawExecutionSurface ?? executionSurface
+      ).filter((body) => !/^[A-Za-z0-9+/=]{8,}$/.test(body.trim()));
+      const shellBodies = [...nestedBodies, ...encoded.bodies];
       if (
         isShellWrapper &&
-        nestedBodies.length > 0 &&
-        nestedBodies.every((body) => checkReadonlyCommand(body).allowed)
+        shellBodies.length > 0 &&
+        shellBodies.every((body) => checkReadonlyCommand(body).allowed)
       ) {
         return {
           shouldBlock: false,
@@ -366,7 +416,11 @@ export class AutoModeClassifier implements IAutoModeClassifier {
 
       // 检查危险命令模式（按**命令位**匹配，见 `containsCommandToken`）
       for (const pattern of AUTO_MODE_HARD_DENY_TOKENS) {
-        if (matchesCommandToken(executionSurface, pattern)) {
+        if (
+          commandSurfaces.some((surface) =>
+            matchesCommandToken(surface, pattern)
+          )
+        ) {
           return {
             shouldBlock: true,
             reason: `Input contains dangerous command pattern: "${pattern}"`,
@@ -507,13 +561,34 @@ export class AutoModeClassifier implements IAutoModeClassifier {
     // 2026-11-11（P5-approval）：可能覆盖 / 搬走既有文件的命令**不硬拒**，转人工审批。
     // 放在所有 deny 判定之后 ⇒ 同时命中硬拦（`sudo cp …`）或注入类规则时仍是 deny。
     for (const pattern of AUTO_MODE_APPROVAL_TOKENS) {
-      if (matchesCommandToken(executionSurface, pattern)) {
+      if (
+        commandSurfaces.some((surface) => matchesCommandToken(surface, pattern))
+      ) {
         return {
           shouldBlock: false,
           requiresApproval: true,
           reason: `Command requires approval: "${pattern}"`,
         };
       }
+    }
+
+    /**
+     * 2026-11-12（P0 · 未知命令策略 B，用户裁定 2026-11-12）：
+     * 走到这里说明**没有任何档位认领这条命令**。此前一律放行 ⇒ 每个未收录的 CLI 都是洞
+     * （实测 `runas` / `regsvr32` / `msiexec` / `cargo publish` 全部 ALLOW）。
+     * 现改为：**结构只读才放行，其余转人工审批**。
+     *
+     * 灰度回退：`PERMISSION_UNKNOWN_COMMAND_TIER=allow`（回到改造前行为）。
+     */
+    if (
+      resolveUnknownCommandTier() === 'ask' &&
+      !checkReadonlyCommand(executionSurface).allowed
+    ) {
+      return {
+        shouldBlock: false,
+        requiresApproval: true,
+        reason: 'Unknown command requires approval (not covered by any rule)',
+      };
     }
 
     // 默认允许

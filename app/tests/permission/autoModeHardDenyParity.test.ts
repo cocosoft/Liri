@@ -189,6 +189,7 @@ describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
     expect([...AUTO_MODE_APPROVAL_TOKENS].sort()).toEqual([
       ' -force',
       '-itemtype symboliclink',
+      '-outfile',
       'add-content',
       'attrib ',
       'bun add ',
@@ -249,6 +250,7 @@ describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
       'move-item',
       'mv ',
       'new-itemproperty',
+      'new-psdrive',
       'npm add ',
       'npm ci',
       'out-file',

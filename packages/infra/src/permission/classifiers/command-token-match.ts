@@ -70,6 +70,98 @@ function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+/**
+ * 2026-11-12（P0 · L2 词法归一）：**转义不改变语义**。
+ *
+ * 三种 shell 的转义符都能把命令名拆开而不改变"被执行者"：
+ *  - bash：`r\m -rf /`（反斜杠）；
+ *  - cmd：`r^m`（脱字符）；
+ *  - PowerShell：`` r`m ``（反引号）。
+ *
+ * 归一后**与原文并列判定**（任一命中即算命中），而不是替换原文 ——
+ * 否则 Windows 路径 `C:\Users\x` 会被剥成 `C:Usersx`，破坏路径类令牌与敏感路径判定的可读性。
+ */
+function deEscape(text: string): string {
+  return text
+    .replace(/\\([A-Za-z0-9])/g, '$1')
+    .replace(/\^([A-Za-z0-9])/g, '$1')
+    .replace(/`([A-Za-z0-9])/g, '$1');
+}
+
+/** 单条命令面上限：超长直接不展开（宁可交给 fail-closed 的未知档） */
+const MAX_SURFACE_LENGTH = 20000;
+/** 最多解码几条编码载荷（防解码炸弹） */
+const MAX_ENCODED_BODIES = 3;
+
+/**
+ * 2026-11-12（P0 · L6/L1）：提取 `powershell -EncodedCommand <base64>` 的载荷并解码。
+ *
+ * 背景（实测）：`powershell -EncodedCommand <base64>` 与 `pwsh -enc …` 此前**整体放行**
+ * —— 只把 base64 当普通文本匹配，等于给任意代码执行留了后门。
+ *
+ * 口径：
+ *  - 只认 `-EncodedCommand` 及其**无歧义前缀**（`-e` / `-en` / `-ec` / `-enc` …）；
+ *  - PowerShell 用 UTF-16LE 传脚本，bash 侧多为 UTF-8 ⇒ 两种都试，取"坏字符更少"的；
+ *  - **解码失败 ⇒ `undecodable=true`**（调用方 fail-closed，不得当成"没东西"）。
+ */
+export function extractEncodedBodies(surface: string): {
+  bodies: string[];
+  undecodable: boolean;
+} {
+  const bodies: string[] = [];
+  if (surface.length > MAX_SURFACE_LENGTH) return { bodies, undecodable: true };
+
+  const pattern =
+    /-(?:e|en|ec|enc|enco|encod|encode|encoded|encodedc|encodedco|encodedcom|encodedcomm|encodedcomma|encodedcomman|encodedcommand)\b\s+["']?([A-Za-z0-9+/=]{8,})/gi;
+  let undecodable = false;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(surface)) !== null) {
+    if (bodies.length >= MAX_ENCODED_BODIES) break;
+    const decoded = decodeBase64Payload(match[1]);
+    if (decoded) bodies.push(decoded);
+    else undecodable = true;
+  }
+  // 出现了 `-EncodedCommand` 却一条都没解出来（载荷非法 / 全被截断）⇒ 同样不放行
+  if (
+    bodies.length === 0 &&
+    /-(?:ec|enc|encodedcommand)\b/i.test(surface)
+  ) {
+    undecodable = true;
+  }
+  return { bodies, undecodable };
+}
+
+/** 有界 base64 解码（UTF-16LE / UTF-8 择一）；失败返回 null */
+function decodeBase64Payload(payload: string): string | null {
+  const cleaned = payload.replace(/[^A-Za-z0-9+/=]/g, '');
+  if (cleaned.length < 8) return null;
+  try {
+    const buffer = Buffer.from(cleaned, 'base64');
+    if (buffer.length === 0) return null;
+    // 编码判据看**字节形态**而不是"字符串里有没有坏字符"：
+    // UTF-16LE 的 ASCII 文本每隔一个字节就是 0x00（`ls -la` → 6c 00 73 00 …）；
+    // 若用"坏字符更少"来选，`ls -la` 解成 UTF-16 会得到合法但无意义的中日韩字符，
+    // 从而被误判成"非只读"（实测 `-EncodedCommand <ls 的 base64>` 因此转 ask）。
+    let zerosAtOdd = 0;
+    for (let i = 1; i < buffer.length; i += 2) {
+      if (buffer[i] === 0) zerosAtOdd += 1;
+    }
+    const looksUtf16 = zerosAtOdd * 4 >= buffer.length;
+    const text = (looksUtf16
+      ? buffer.toString('utf16le')
+      : buffer.toString('utf8')
+    )
+      .replace(/\u0000/g, '')
+      .trim();
+    if (!text) return null;
+    if (text.length > MAX_SURFACE_LENGTH) return null;
+    return text;
+  } catch {
+    // @ignore-catch — 非法 base64 视为"解码失败"，由调用方 fail-closed
+    return null;
+  }
+}
+
 /** 令牌是否出现在**命令位**（或"位置无关令牌"是否出现） */
 export function containsCommandToken(
   surface: string,
@@ -94,6 +186,21 @@ export function containsCommandToken(
       return normalized.toLowerCase().includes(token.toLowerCase());
     }
   }
+  // 2026-11-12（P0 · L2）：原文与"去转义"变体并列判定（`r\m` / `r^m` / `r`m`）
+  const variants = [normalized];
+  const deEscaped = deEscape(normalized);
+  if (deEscaped !== normalized) variants.push(deEscaped);
+  return variants.some((variant) =>
+    matchesAnchoredToken(variant, trimmed, depth)
+  );
+}
+
+/** 在**一个**命令面上做命令位锚定匹配（含嵌套 shell 递归） */
+function matchesAnchoredToken(
+  normalized: string,
+  trimmed: string,
+  depth: number
+): boolean {
   // 嵌套 shell：把脚本体当作新的命令面**递归锚定**匹配，绝不退回裸子串。
   // 2026-11-11（P3 复查）：原实现「找到脚本体就只判脚本体」⇒ `git config --global
   // core.sshCommand "sh -c id"` 这类「外壳命令 + 内层 shell 参数」的外层令牌被整段跳过
@@ -109,7 +216,7 @@ export function containsCommandToken(
     if (bodies.length > 0) {
       return (
         outerHit ||
-        bodies.some((body) => containsCommandToken(body, token, depth + 1))
+        bodies.some((body) => containsCommandToken(body, trimmed, depth + 1))
       );
     }
   }

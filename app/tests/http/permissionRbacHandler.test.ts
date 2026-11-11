@@ -40,7 +40,8 @@ function makeManager(): unknown {
 
 const fineSpy = spyOn(
   permissionModule,
-  'createFineGrainedPermissionManager'
+  // P2-4（2026-11-11）：快照改走进程内单例，桩点同步到单例访问器
+  'getFineGrainedPermissionManager'
 ).mockImplementation(() => makeManager() as never);
 
 const coreAPISpy = spyOn(coreAPIModule, 'getCoreAPI').mockReturnValue({

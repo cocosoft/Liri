@@ -292,7 +292,14 @@ export type {
 export {
   FineGrainedPermissionManager,
   createFineGrainedPermissionManager,
+  // 2026-11-11（P2-4）：工具判定热路径的单例（存储 mtime 缓存按实例存活）
+  getFineGrainedPermissionManager,
 } from './FineGrainedPermissionManager';
+// 2026-11-11（P2-5）：细粒度 deny 的归因标签（纯函数）
+export {
+  describeFineGrainedDenySubject,
+  type FineGrainedDenySource,
+} from './denyAttribution';
 export { RuleManager, deduplicateRules } from './RuleManager';
 export type { RuleContext } from './RuleManager';
 // P2-1（2026-11-03）：统一 Rule 模型（A / settings / B-command / StandingRule 只读投影）

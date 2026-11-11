@@ -314,3 +314,24 @@ export function createFineGrainedPermissionManager(
 ): FineGrainedPermissionManager {
   return new FineGrainedPermissionManager(storage);
 }
+
+/**
+ * 进程内**单例**（2026-11-11，P2-4）。
+ *
+ * 为什么需要：`FilePermissionStorage` 的 mtime 读缓存是**实例字段**，
+ * 而工具判定（`PermissionManager.checkFineGrainedRules`）每次都会创建管理器 ⇒
+ * 缓存永不命中，且构造函数还会做 4 次 `existsSync` 并打一条 INFO（每次工具调用一条）。
+ * 单例让「一次解析、后续按 mtime 复用」真正生效。
+ *
+ * 写入方（CLI / HTTP 命令层）走独立实例落盘 ⇒ 文件 mtime 变化会被本单例的
+ * `readFile` 检测到并重读，不存在「写了读不到」的窗口。
+ *
+ * 需要注入自定义存储（测试 / 多租户实验）时仍用
+ * {@link createFineGrainedPermissionManager}，不要走本单例。
+ */
+let fineGrainedSingleton: FineGrainedPermissionManager | null = null;
+
+export function getFineGrainedPermissionManager(): FineGrainedPermissionManager {
+  fineGrainedSingleton ??= new FineGrainedPermissionManager();
+  return fineGrainedSingleton;
+}

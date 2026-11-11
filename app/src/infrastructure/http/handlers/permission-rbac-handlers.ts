@@ -16,7 +16,7 @@
 import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import { createFineGrainedPermissionManager } from '@openliri/infra/permission';
+import { getFineGrainedPermissionManager } from '@openliri/infra/permission';
 
 /** 允许经 HTTP 触达的 RBAC 子域（与 CLI 的三个子命令一一对应） */
 const RBAC_AREAS = ['role', 'user', 'resource'] as const;
@@ -62,7 +62,8 @@ export interface RbacSnapshot {
  * （`!roleId && !userId`），否则会把同名的角色/用户绑定算进来。
  */
 export async function getRbacSnapshot(): Promise<RbacSnapshot> {
-  const storage = createFineGrainedPermissionManager().getStorage();
+  // P2-4（2026-11-11）：与工具判定共用**同一**管理器实例（存储 mtime 缓存才有意义）
+  const storage = getFineGrainedPermissionManager().getStorage();
   const [roles, users, resources, rules] = await Promise.all([
     storage.getAllRoles(),
     storage.getAllUsers(),

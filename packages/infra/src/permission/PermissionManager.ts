@@ -84,7 +84,11 @@ import type { Span, Counter } from '@opentelemetry/api';
 import { PermissionAction, OperationType, RoleType } from './Permission';
 // 2026-11-11：细粒度 RBAC 规则（与领域模型 `PermissionRule` 同名，别名区分）
 import type { PermissionRule as FineGrainedRule } from './Permission';
-import { createFineGrainedPermissionManager } from './FineGrainedPermissionManager';
+import { getFineGrainedPermissionManager } from './FineGrainedPermissionManager';
+import {
+  describeFineGrainedDenySubject,
+  type FineGrainedDenySource,
+} from './denyAttribution';
 import { permissionMetrics } from './metrics/PermissionMetricsStore';
 import { loadAllPermissionSettings } from './permissionsLoader';
 
@@ -577,20 +581,23 @@ export class PermissionManager {
   }
 
   /**
-   * OTel 角色 deny 计数器（惰性初始化；Meter 未就绪时 noop 兜底）
+   * OTel 细粒度 RBAC deny 计数器（惰性初始化；Meter 未就绪时 noop 兜底）
+   *
+   * 2026-11-11（P2-5）：原为「角色 deny」计数器，但判定链已覆盖用户 / 资源绑定
+   * ⇒ 改名并按**真实命中主体**（`role:` / `user:` / `resource:`）打标。
    */
-  private roleDenyCounter: Counter | null = null;
+  private fineGrainedDenyCounter: Counter | null = null;
 
   /**
-   * 确保角色 deny 计数器已创建
+   * 确保细粒度 deny 计数器已创建
    */
-  private ensureRoleDenyCounter(): void {
-    if (this.roleDenyCounter) return;
+  private ensureFineGrainedDenyCounter(): void {
+    if (this.fineGrainedDenyCounter) return;
     try {
-      this.roleDenyCounter = metrics
+      this.fineGrainedDenyCounter = metrics
         .getMeter('liri-permission')
-        .createCounter('Liri.permission.role_denies', {
-          description: '角色规则权限拒绝次数（tool+role 维度）',
+        .createCounter('Liri.permission.fine_grained_denies', {
+          description: '细粒度 RBAC 拒绝次数（tool+命中主体维度）',
         });
     } catch {
       // @ignore-catch: metrics 未初始化时不启用计数
@@ -598,17 +605,20 @@ export class PermissionManager {
   }
 
   /**
-   * 记录角色 deny 指标（每次角色规则拒绝 +1）
+   * 记录细粒度 RBAC deny 指标（每次命中 +1）
    * @param toolName 工具名称
-   * @param role 角色名
+   * @param subject 命中主体标签（`role:<id>` / `user:<id>` / `resource:<id>`）
    */
-  private recordRoleDeny(toolName: string, role: string): void {
-    this.ensureRoleDenyCounter();
-    this.roleDenyCounter?.add(1, {
+  private recordFineGrainedDeny(toolName: string, subject: string): void {
+    this.ensureFineGrainedDenyCounter();
+    this.fineGrainedDenyCounter?.add(1, {
       tool: toolName,
-      role,
+      subject,
     });
-    permissionMetrics.record('role_deny', { tool: toolName, role });
+    permissionMetrics.record('fine_grained_deny', {
+      tool: toolName,
+      subject,
+    });
   }
 
   /**
@@ -1205,6 +1215,7 @@ export class PermissionManager {
    * 多租户 P0：角色/用户由**调用方显式传入**（`context.userRole` / `context.userId`），
    * 方法内不读任何进程级字段 ⇒ 并发请求各自判定、互不覆盖（2026-11-03 收敛）。
    * 本地身份由调用方经 `getEffectivePermissionRole()` 映射为 `admin`（2026-11-11 裁定）。
+   * 存储走进程内单例（P2-4）；deny 指标按**真实命中主体**归因（P2-5，见 `denyAttribution`）。
    */
   private async checkFineGrainedRules(
     toolName: string,
@@ -1216,19 +1227,31 @@ export class PermissionManager {
     allow?: PermissionDecision;
   }> {
     try {
-      const storage = createFineGrainedPermissionManager().getStorage();
-      const rules: FineGrainedRule[] = [];
+      // P2-4（2026-11-11）：走**进程内单例**。存储的 mtime 读缓存是实例字段，
+      // 每次判定都新建管理器会让缓存永不命中（且构造函数固定 4 次 existsSync + 一条 INFO）。
+      const storage = getFineGrainedPermissionManager().getStorage();
+      // 规则与**来源**一起采集：归因要按真实绑定的那一路打标（P2-5），事后猜不准。
+      const collected: Array<{
+        rule: FineGrainedRule;
+        source: FineGrainedDenySource;
+      }> = [];
 
       if (effectiveRole) {
         const roleObj = await storage.getRoleByName(effectiveRole as RoleType);
         if (roleObj) {
-          rules.push(...roleObj.permissions);
-          rules.push(...(await storage.getRulesByRole(roleObj.id)));
+          for (const rule of roleObj.permissions) {
+            collected.push({ rule, source: 'role' });
+          }
+          for (const rule of await storage.getRulesByRole(roleObj.id)) {
+            collected.push({ rule, source: 'role' });
+          }
         }
       }
 
       if (userId) {
-        rules.push(...(await storage.getRulesByUser(userId)));
+        for (const rule of await storage.getRulesByUser(userId)) {
+          collected.push({ rule, source: 'user' });
+        }
       }
 
       // 资源规则：同一份 `rules.json` 里，角色/用户绑定的规则也用 resourceId = 工具名，
@@ -1236,44 +1259,56 @@ export class PermissionManager {
       const resourceRules = (await storage.getRulesByResource(toolName)).filter(
         (rule) => !rule.roleId && !rule.userId
       );
-      rules.push(...resourceRules);
+      for (const rule of resourceRules) {
+        collected.push({ rule, source: 'resource' });
+      }
 
-      const pickRule = (action: PermissionAction): FineGrainedRule | undefined =>
-        rules
+      const pickRule = (
+        action: PermissionAction
+      ): (typeof collected)[number] | undefined =>
+        collected
           .filter(
-            (r) =>
-              r.action === action &&
-              (r.operation === OperationType.ALL ||
-                r.operation === OperationType.EXECUTE) &&
-              r.resourceId === toolName
+            ({ rule }) =>
+              rule.action === action &&
+              (rule.operation === OperationType.ALL ||
+                rule.operation === OperationType.EXECUTE) &&
+              rule.resourceId === toolName
           )
           // 与 D 体系一致：priority 数值越小优先级越高
-          .sort((a, b) => a.priority - b.priority)[0];
+          .sort((a, b) => a.rule.priority - b.rule.priority)[0];
 
-      const denyRule = pickRule(PermissionAction.DENY);
-      if (denyRule) {
+      const denyHit = pickRule(PermissionAction.DENY);
+      if (denyHit) {
         this.denialTracker.trackDenial(toolName);
-        this.recordRoleDeny(
+        this.recordFineGrainedDeny(
           toolName,
-          effectiveRole ?? denyRule.roleId ?? 'user'
+          describeFineGrainedDenySubject(
+            denyHit.rule,
+            denyHit.source,
+            effectiveRole
+          )
         );
         return {
           deny: createDenyDecision(
-            `Denied by fine-grained rule: ${denyRule.id}`
+            `Denied by fine-grained rule: ${denyHit.rule.id}`
           ),
         };
       }
 
-      const askRule = pickRule(PermissionAction.ASK);
-      const allowRule = pickRule(PermissionAction.ALLOW);
+      const askHit = pickRule(PermissionAction.ASK);
+      const allowHit = pickRule(PermissionAction.ALLOW);
       return {
-        ...(askRule
-          ? { ask: createAskDecision(`Asked by fine-grained rule: ${askRule.id}`) }
+        ...(askHit
+          ? {
+              ask: createAskDecision(
+                `Asked by fine-grained rule: ${askHit.rule.id}`
+              ),
+            }
           : {}),
-        ...(allowRule
+        ...(allowHit
           ? {
               allow: createAllowDecision(
-                `Allowed by fine-grained rule: ${allowRule.id}`
+                `Allowed by fine-grained rule: ${allowHit.rule.id}`
               ),
             }
           : {}),

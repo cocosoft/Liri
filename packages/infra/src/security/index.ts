@@ -292,6 +292,7 @@ export {
   approvalTokensFromSpecs,
   denyTokensFromSpecs,
   equivalenceGroupsFromSpecs,
+  readonlySubcommandsFor,
 } from './patterns';
 export type { UnifiedRulePlatform } from './patterns';
 // P2-3（2026-11-03）：只读命令目录单一来源（bash / cmd / PowerShell 按 shell 引用）
@@ -307,6 +308,10 @@ export {
   POWERSHELL_READ_ONLY_COMMAND_PATTERNS,
   AUTO_MODE_READONLY_COMMANDS,
   AUTO_MODE_GIT_READONLY_SUBCOMMANDS,
+  // 2026-11-12（P1c）：集群 / 容器 / 代码托管的只读子命令（命令语义注册表引用它们）
+  AUTO_MODE_KUBECTL_READONLY_SUBCOMMANDS,
+  AUTO_MODE_DOCKER_READONLY_SUBCOMMANDS,
+  AUTO_MODE_GH_READONLY_SUBCOMMANDS,
 } from './readOnlyCommands';
 export { getRedactMiddleware } from './redact';
 // U-21（批次⑦，2026-10-17）：scanners/validators/bash/files 子入口入桶

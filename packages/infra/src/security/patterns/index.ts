@@ -46,6 +46,7 @@ export {
   approvalTokensFromSpecs,
   denyTokensFromSpecs,
   equivalenceGroupsFromSpecs,
+  readonlySubcommandsFor,
 } from './commandSpecs';
 export type {
   CommandSpec,

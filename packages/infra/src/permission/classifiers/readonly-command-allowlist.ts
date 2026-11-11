@@ -39,8 +39,8 @@
  */
 
 import {
-  AUTO_MODE_GIT_READONLY_SUBCOMMANDS,
   AUTO_MODE_READONLY_COMMANDS,
+  readonlySubcommandsFor,
 } from '@openliri/infra/security';
 import { detectPipeAndRedirect } from './vector-rules.js';
 
@@ -64,59 +64,16 @@ const FIND_DENIED_TOKENS = [
 ];
 
 /**
- * 集群 / 容器 / 代码托管 CLI 的**只读子命令**（2026-11-12，P0 · 未知命令策略 B）。
+ * 只读子命令集合（2026-11-12，P1c）：**唯一来源在 `commandSpecs.ts` 引用的
+ * `readOnlyCommands.ts` 常量**，本文件只取用，不再各留一份字面集合。
  *
  * 背景：切换到"未知命令非只读即审批"后，`kubectl get` / `docker ps` / `gh pr view`
- * 这类纯查询会被误伤。命令名只在 `AUTO_MODE_READONLY_COMMANDS` 里挂名，
- * **真正的判据是这里的子命令白名单**；未列出的子命令一律不放行（落审批档）。
+ * 这类纯查询会被误伤；未列出的子命令一律不放行（落审批档）。`git` 同理。
  */
-const KUBERNETES_READONLY_SUBCOMMANDS = new Set([
-  'get',
-  'describe',
-  'logs',
-  'top',
-  'explain',
-  'api-resources',
-  'api-versions',
-  'version',
-  'cluster-info',
-  'events',
-]);
-
-const DOCKER_READONLY_SUBCOMMANDS = new Set([
-  'ps',
-  'images',
-  'logs',
-  'inspect',
-  'version',
-  'info',
-  'stats',
-  'top',
-  'port',
-  'diff',
-  'search',
-]);
-
-/** `gh` 用「两段式子命令」判（`pr view` / `run list` …） */
-const GH_READONLY_SUBCOMMANDS = new Set([
-  'pr view',
-  'pr list',
-  'pr diff',
-  'pr checks',
-  'pr status',
-  'issue view',
-  'issue list',
-  'issue status',
-  'run list',
-  'run view',
-  'run download',
-  'repo view',
-  'release list',
-  'release view',
-  'status',
-  'auth status',
-  'config get',
-]);
+const GIT_READONLY = readonlySubcommandsFor('git');
+const KUBERNETES_READONLY = readonlySubcommandsFor('kubectl');
+const DOCKER_READONLY = readonlySubcommandsFor('docker');
+const GH_READONLY = readonlySubcommandsFor('gh');
 
 /** `gh api` 的写侧标记（出现即不放行） */
 const GH_API_WRITE_FLAGS = new Set([
@@ -151,7 +108,7 @@ function violatesArgumentGuards(
 
   if (name === 'git') {
     const subcommand = lowerArgs[0] ?? '';
-    if (AUTO_MODE_GIT_READONLY_SUBCOMMANDS.has(subcommand)) return false;
+    if (GIT_READONLY.has(subcommand)) return false;
     // `git remote` / `git remote -v|--verbose` 只列举远端，结构上不写；
     // 其余 remote 子动作（add / remove / set-url / prune …）仍不放行。
     if (subcommand === 'remote') {
@@ -165,13 +122,13 @@ function violatesArgumentGuards(
     return true;
   }
 
-  // 2026-11-12（P0）：集群 / 容器 / 代码托管 —— 只放行只读子命令
+  // 2026-11-12（P0/P1c）：集群 / 容器 / 代码托管 —— 只放行只读子命令
   if (name === 'kubectl') {
-    return !KUBERNETES_READONLY_SUBCOMMANDS.has(lowerArgs[0] ?? '');
+    return !KUBERNETES_READONLY.has(lowerArgs[0] ?? '');
   }
 
   if (name === 'docker') {
-    return !DOCKER_READONLY_SUBCOMMANDS.has(lowerArgs[0] ?? '');
+    return !DOCKER_READONLY.has(lowerArgs[0] ?? '');
   }
 
   if (name === 'gh') {
@@ -185,7 +142,7 @@ function violatesArgumentGuards(
       );
     }
     const pair = `${first} ${lowerArgs[1] ?? ''}`.trim();
-    return !GH_READONLY_SUBCOMMANDS.has(pair);
+    return !GH_READONLY.has(pair);
   }
 
   if (name === 'date') {

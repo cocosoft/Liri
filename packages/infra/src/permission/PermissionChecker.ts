@@ -782,6 +782,22 @@ export class PermissionChecker {
       // （此前只有"等待审批"徽标，用户必须另找 Inbox 卡片）。
       const inboxItemId = (submitted as { id?: string } | null | undefined)?.id;
 
+      // P1-5（2026-11-11）：**提交成功必须有 id**。此前以「submit 有返回」代「建卡成功」，
+      // 返回 null 时仍标 `submittedToInbox:true` ⇒ 上层告知用户「等待批准」，但卡不存在，
+      // 任务永久挂起。无 id ⇒ 如实降级为 ask（前端展示审批文本，可手动重试）。
+      if (!inboxItemId) {
+        logger.warn('Inbox 未返回审批卡 id ⇒ 不宣称已提交', {
+          toolName,
+          sessionId,
+          hasCommandHash: !!commandHash,
+        });
+        return createAskDecision(
+          `'${toolName}' requires approval (Inbox card was not created; retry or approve manually)`,
+          undefined,
+          { submittedToInbox: false, commandHash }
+        );
+      }
+
       // P5-1：② 呈现（卡片已落成 ⇒ 用户侧可见，含可选项与授权维度摘要）
       emitApprovalAudit(sessionId, {
         stage: 'presented',

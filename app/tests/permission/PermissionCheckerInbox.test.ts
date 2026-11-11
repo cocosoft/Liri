@@ -130,6 +130,26 @@ describe('PermissionManager 统一 Inbox 提交（P1-2）', () => {
     );
   });
 
+  it('Inbox 返回无 id ⇒ 不得宣称已提交（P1-5）', async () => {
+    // 模拟 Inbox 未真正建卡（返回 null）：此前仍标 submittedToInbox:true ⇒ 任务永久挂起
+    inboxManager.submit = (async (item: SubmittedItem) => {
+      submittedItems.push(item);
+      return null;
+    }) as unknown as typeof inboxManager.submit;
+
+    const pm = createPermissionManager();
+    pm.addRule(PermissionBehavior.ASK, 'bash');
+    const result = await pm.checkPermissionForTool(
+      'bash',
+      { command: 'rm -rf /tmp/abc' },
+      { sessionId: 'session-1' }
+    );
+
+    expect(result.decision?.behavior).toBe('ask');
+    expect(result.submittedToInbox).toBe(false);
+    expect(result.reason).toContain('not created');
+  });
+
   it('配置开关关闭 → 不提交，返回纯 ask 决策', async () => {
     process.env.PERMISSION_INBOX_APPROVAL_ENABLED = '0';
     try {

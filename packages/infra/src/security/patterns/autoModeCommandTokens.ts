@@ -734,4 +734,10 @@ export const AUTO_MODE_APPROVAL_TOKENS = [
   '-itemtype symboliclink',
   // 属性 / 注册表值写入（与 Set-Content 同类，属写盘）
   'set-itemproperty',
+  // 2026-11-11（PowerShell 写盘短别名）：`ac`=Add-Content、`sc`=Set-Content、`clc`=Clear-Content。
+  // ⚠️ `sc` 与服务控制命令同名：`sc query` 会因此转审批（`sc create` 仍是硬拦，先命中）。
+  // 取舍：宁可让只读 `sc query` 多一次确认，也不让 `sc a.txt hi` 静默写盘。
+  'ac ',
+  'sc ',
+  'clc ',
 ];

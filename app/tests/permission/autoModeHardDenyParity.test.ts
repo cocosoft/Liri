@@ -182,9 +182,11 @@ describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
   it('审批表覆盖各平台的等价写法（复制 / 移动 / 删除 / 链接 / 权限位 / 写盘 / git）', () => {
     expect([...AUTO_MODE_APPROVAL_TOKENS].sort()).toEqual([
       '-itemtype symboliclink',
+      'ac ',
       'add-content',
       'attrib ',
       'chmod ',
+      'clc ',
       'clear-content',
       'copy ',
       'copy-item',
@@ -204,6 +206,7 @@ describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
       'ren ',
       'rm ',
       'robocopy ',
+      'sc ',
       'set-acl',
       'set-content',
       'set-itemproperty',
@@ -245,6 +248,9 @@ describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
       'tee a.txt',
       'New-Item -ItemType SymbolicLink -Path link -Target target',
       'Set-ItemProperty -Path x -Name y -Value z',
+      'ac a.txt hi',
+      'sc a.txt hi',
+      'clc a.txt',
     ]) {
       const decision = await classifier.classify('bash', { command }, []);
       expect(decision.shouldBlock).toBe(false);
@@ -292,12 +298,19 @@ describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
     for (const command of [
       'schtasks /query /tn x',
       'reg query HKCU\\Software',
-      'sc query evil',
       'New-Item -ItemType Directory -Path ws',
     ]) {
       const decision = await classifier.classify('bash', { command }, []);
       expect(decision.shouldBlock).toBe(false);
     }
+    // `sc` 与 PowerShell 写盘别名同名 ⇒ 只读 `sc query` 也转审批（`sc create` 仍硬拦）。
+    const scQuery = await classifier.classify(
+      'bash',
+      { command: 'sc query evil' },
+      []
+    );
+    expect(scQuery.shouldBlock).toBe(false);
+    expect(scQuery.requiresApproval).toBe(true);
   });
 
   it('硬拦优先：同时命中硬拦表时仍是 deny，不降级为审批', async () => {

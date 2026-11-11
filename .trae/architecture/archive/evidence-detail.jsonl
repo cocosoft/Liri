@@ -8320,3 +8320,27 @@
 {"id":"CHANNEL-DINGTALK-HEARTBEAT-RACE","k":"reopenWhen","i":0,"c":"升级 dingtalk-stream 到上游修复版后回退本补丁；若再出现 readyState 报错则复检。"}
 {"id":"CHANNEL-DINGTALK-HEARTBEAT-RACE","k":"code#0","i":0,"c":"app/patches/dingtalk-stream@2.1.5.patch"}
 {"id":"CHANNEL-DINGTALK-HEARTBEAT-RACE","k":"tests#0","i":0,"c":"app/tests/channels/dingtalkRobotMessage.test.ts"}
+{"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"title","i":0,"c":"RBAC 判定链加固（2026-11-11）"}
+{"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"source","i":0,"c":"内部复查 P1-1/P1-2/P1-3/P2-4…P2-8/P3-9…P3-12"}
+{"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"reopenWhen","i":0,"c":"新增 RBAC 绑定通道或判定档位时复评；如需逐租户策略须另立 spec（当前为实例级）"}
+{"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"code#0","i":0,"c":"packages/infra/src/permission/PermissionManager.ts"}
+{"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"code#1","i":0,"c":"packages/infra/src/permission/FineGrainedPermissionManager.ts"}
+{"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"code#2","i":0,"c":"packages/infra/src/permission/denyAttribution.ts"}
+{"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"code#3","i":0,"c":"packages/infra/src/permission/localIdentity.ts"}
+{"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"code#4","i":0,"c":"packages/infra/src/permission/types/PermissionContext.ts"}
+{"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"code#5","i":0,"c":"packages/infra/src/permission/authorizeToolCall.ts"}
+{"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"code#6","i":0,"c":"packages/infra/src/permission/index.ts"}
+{"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"code#7","i":0,"c":"app/src/infrastructure/http/adminWriteRoutes.ts"}
+{"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"code#8","i":0,"c":"app/src/infrastructure/http/handlers/route-table.ts"}
+{"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"code#9","i":0,"c":"app/src/infrastructure/http/handlers/permission-rbac-handlers.ts"}
+{"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"code#10","i":0,"c":"app/src/commands/builtin/permissions/rbac.ts"}
+{"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"code#11","i":0,"c":"app/src/chat/services/ToolExecutionService.ts"}
+{"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"code#12","i":0,"c":"app/src/tools/CodeRunner/CodeRunnerTool.ts"}
+{"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"code#13","i":0,"c":"app/tests/permission/fineGrainedDecisionChain.test.ts"}
+{"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"code#14","i":0,"c":"app/tests/commands/permissionsModeCommand.test.ts"}
+{"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"code#15","i":0,"c":"app/tests/http/permissionRbacHandler.test.ts"}
+{"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"code#16","i":0,"c":"client/src/components/views/RbacPanel.tsx"}
+{"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"tests#0","i":0,"c":"app/tests/permission/fineGrainedDecisionChain.test.ts"}
+{"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"tests#1","i":0,"c":"app/tests/commands/permissionsModeCommand.test.ts"}
+{"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"tests#2","i":0,"c":"app/tests/http/permissionRbacHandler.test.ts"}
+{"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"tests#3","i":0,"c":"app/tests/permission/denyAttribution.test.ts"}

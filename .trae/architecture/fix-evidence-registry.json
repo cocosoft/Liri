@@ -17438,6 +17438,50 @@
       ],
       "changelog": [],
       "reopenWhen": "升级 dingtalk-stream 到上游修复版后回退本补丁；若再出现 readyState 报错则复检。（全文见 archive/evidence-detail.jsonl#CHANNEL-DINGTALK-HEARTBEAT-RACE）"
+    },
+    {
+      "id": "PERMISSION-RBAC-CHAIN-HARDENING",
+      "title": "RBAC 判定链加固（2026-11-11）",
+      "source": "内部复查 P1-1/P1-2/P1-3/P2-4…P2-8/P3-9…P3-12",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/infra/src/permission/PermissionManager.ts",
+        "packages/infra/src/permission/FineGrainedPermissionManager.ts",
+        "packages/infra/src/permission/denyAttribution.ts",
+        "packages/infra/src/permission/localIdentity.ts",
+        "packages/infra/src/permission/types/PermissionContext.ts",
+        "packages/infra/src/permission/authorizeToolCall.ts",
+        "packages/infra/src/permission/index.ts",
+        "app/src/infrastructure/http/adminWriteRoutes.ts",
+        "app/src/infrastructure/http/handlers/route-table.ts",
+        "app/src/infrastructure/http/handlers/permission-rbac-handlers.ts",
+        "app/src/commands/builtin/permissions/rbac.ts",
+        "app/src/chat/services/ToolExecutionService.ts",
+        "app/src/tools/CodeRunner/CodeRunnerTool.ts",
+        "app/tests/permission/fineGrainedDecisionChain.test.ts",
+        "app/tests/commands/permissionsModeCommand.test.ts",
+        "app/tests/http/permissionRbacHandler.test.ts",
+        "client/src/components/views/RbacPanel.tsx"
+      ],
+      "tests": [
+        "app/tests/permission/fineGrainedDecisionChain.test.ts",
+        "app/tests/commands/permissionsModeCommand.test.ts",
+        "app/tests/http/permissionRbacHandler.test.ts",
+        "app/tests/permission/denyAttribution.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "新增 RBAC 绑定通道或判定档位时复评；如需逐租户策略须另立 spec（当前为实例级）（全文见 archive/evidence-detail.jsonl#PERMISSION-RBAC-CHAIN-HARDENING）"
     }
   ]
 }

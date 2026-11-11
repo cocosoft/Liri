@@ -290,6 +290,7 @@ export {
   // 2026-11-12（P1）：命令语义注册表（单一来源）
   COMMAND_SPECS,
   approvalTokensFromSpecs,
+  denyTokensFromSpecs,
   equivalenceGroupsFromSpecs,
 } from './patterns';
 export type { UnifiedRulePlatform } from './patterns';

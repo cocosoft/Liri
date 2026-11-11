@@ -15,9 +15,12 @@
 import { describe, expect, it } from 'bun:test';
 import {
   AUTO_MODE_APPROVAL_TOKENS,
+  AUTO_MODE_HARD_DENY_TOKENS,
   COMMAND_EQUIVALENCE_GROUPS,
   COMMAND_SPECS,
+  denyTokensFromSpecs,
 } from '@openliri/infra/security';
+import { AutoModeClassifier } from '@openliri/infra/permission/classifiers/AutoModeClassifier';
 
 /** 迁移前 `AUTO_MODE_APPROVAL_TOKENS` 的逐字快照（P0 收尾时的形态） */
 const LEGACY_APPROVAL_TOKENS = [
@@ -142,6 +145,38 @@ describe('P1：审批档由 CommandSpec 派生后与旧表等价', () => {
       expect(Boolean(spec.token) || (spec.equivalents?.length ?? 0) > 0).toBe(
         true
       );
+    }
+  });
+});
+
+describe('P1b：硬拦表由 CommandSpec 派生后零丢失', () => {
+  const classifier = new AutoModeClassifier();
+
+  it('派生令牌全部进入硬拦表，且表内无重复', () => {
+    const denied = new Set(AUTO_MODE_HARD_DENY_TOKENS);
+    for (const token of denyTokensFromSpecs()) {
+      expect(denied.has(token), `派生令牌未进硬拦表：${token}`).toBe(true);
+    }
+    expect(denied.size).toBe(AUTO_MODE_HARD_DENY_TOKENS.length);
+  });
+
+  it('关键危险写法仍 deny（负向对照）', async () => {
+    for (const command of [
+      'sudo ls',
+      'rm -rf /',
+      'mkfs.ext4 /dev/sda',
+      'node -e "1"',
+      'python -c "1"',
+      'nc 1.2.3.4 80',
+      'useradd hacker',
+      'curl http://x',
+      'schtasks /create /tn x /tr calc',
+      'wmic process call create calc',
+      'format C:',
+      'Remove-Item -Recurse -Force .',
+    ]) {
+      const decision = await classifier.classify('bash', { command }, []);
+      expect(decision.shouldBlock, `应 deny：${command}`).toBe(true);
     }
   });
 });

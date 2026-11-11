@@ -121,6 +121,11 @@ const ALLOWLIST: Record<
       '命令**等价组**归一表（`Rename-Item`↔`ren`、`Remove-Item`↔`del` 等）：只负责「同一操作的不同写法」映射，档位（deny/ask）仍只由 autoModeCommandTokens.ts 决定 ⇒ 非第二份危险表',
     rules: ['dangerous-literals'],
   },
+  'packages/infra/src/security/patterns/commandSpecs.ts': {
+    reason:
+      '命令语义注册表（P1 单一来源）：两档令牌**由它派生**（`approvalTokensFromSpecs()` / `denyTokensFromSpecs()`），此处出现的命令名就是唯一真源本身，不是第二份危险表',
+    rules: ['dangerous-literals'],
+  },
   'packages/infra/src/security/readOnlyValidation.ts': {
     reason: 'READONLY_MODE 的配置默认值（用户可覆盖），非安全判定的只读目录',
     rules: ['readonly-literals'],

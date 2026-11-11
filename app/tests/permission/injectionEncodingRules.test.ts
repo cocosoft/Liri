@@ -179,6 +179,27 @@ describe('AutoModeClassifier：文件载荷的正文不当作命令扫描', () =
     expect(quotedText.shouldBlock).toBe(false);
   });
 
+  it('2026-11-11：嵌套 shell 内层的只读命令不再被裸子串误杀', async () => {
+    // 真机 `session_mwbpcffhbe33e6fcdc`：`'w '` 裁成 `'w'` 后命中 `powershell` 的 w、
+    // `'at '` 命中 `Path` ⇒ `Get-Content` / `Get-ChildItem` / `git diff` 全被拒（44 次 deny）。
+    const cases = [
+      'powershell -Command "Get-Content CHANGELOG.md -TotalCount 45"',
+      'powershell -NoProfile -Command "Get-ChildItem -Path C:/tmp -Recurse -Filter *.json"',
+      'powershell -NoProfile -Command "git diff --stat"',
+    ];
+    for (const command of cases) {
+      const decision = await classifier.classify('bash', { command }, []);
+      expect(decision.shouldBlock).toBe(false);
+    }
+    // 负向对照：内层仍是危险命令 ⇒ 继续拦
+    const dangerous = await classifier.classify(
+      'bash',
+      { command: 'powershell -Command "Remove-Item C:/x -Recurse"' },
+      []
+    );
+    expect(dangerous.shouldBlock).toBe(true);
+  });
+
   it('元字符令牌按原文匹配：正文里的句点 / 分号不再误报（真机 `node --check *.js`）', async () => {
     for (const command of [
       'echo snake.js; Write-Output ok',

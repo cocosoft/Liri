@@ -7,7 +7,14 @@ import { handleError } from '@openliri/infra/error';
 // 2026-11-10：注入类检测只对"入参会被执行"的工具生效（角色判据单一来源）
 import { isExecutionToolName } from '@openliri/infra/utils/toolContract/toolRoles';
 // 2026-11-10（方案①）：危险令牌按**命令位**匹配（解释器名作为参数时不误报）
-import { containsCommandToken } from './command-token-match';
+import {
+  containsCommandToken,
+  extractNestedShellBodies,
+} from './command-token-match';
+// 2026-11-11：嵌套 shell 的内层若是**结构只读命令**，不能按词表硬拒
+// （`powershell -Command "git diff --stat"` 会命中 `git ` 令牌）。
+// 与 PermissionManager 的只读短路共用同一事实源（readonly-command-allowlist）。
+import { checkReadonlyCommand } from './readonly-command-allowlist';
 import { DANGEROUS_TOOL_KEYWORDS } from './dangerous-tool-keywords';
 import { AUTO_MODE_DANGER_TOKENS } from './dangerous-command-patterns';
 import { SENSITIVE_PATH_PATTERNS } from './sensitive-path-patterns';
@@ -311,6 +318,21 @@ export class AutoModeClassifier implements IAutoModeClassifier {
       const encodingResult = detectEncodingAttack(executionSurface);
       if (encodingResult) {
         return encodingResult;
+      }
+
+      // 嵌套 shell 的脚本体若整体是**结构只读命令**（`git diff` / `Get-Content` …），
+      // 直接放行：PermissionManager 的只读短路只覆盖"单一命令"，包一层
+      // `powershell -Command` / `bash -c` 就失效，随后被词表里的 `git `/`dir ` 等令牌误杀。
+      // 复合命令（含管道 / 分号）仍会被 `checkReadonlyCommand` 判 false ⇒ 继续走词表。
+      const nestedBodies = extractNestedShellBodies(executionSurface);
+      if (
+        nestedBodies.length > 0 &&
+        nestedBodies.every((body) => checkReadonlyCommand(body).allowed)
+      ) {
+        return {
+          shouldBlock: false,
+          reason: 'Nested shell body is a read-only command',
+        };
       }
 
       // 检查危险命令模式（按**命令位**匹配，见 `containsCommandToken`）

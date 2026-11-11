@@ -34,6 +34,10 @@ describe('checkReadonlyCommand：只读命令放行', () => {
     'git log --oneline -5',
     'git diff --stat',
     'git rev-parse HEAD',
+    // 2026-11-11：`git remote` 的纯列举形态只读（add / remove / set-url 仍不放行）
+    'git remote',
+    'git remote -v',
+    'git remote --verbose',
     'Get-ChildItem docs',
     'get-content README.md',
     'Get-Item package.json',

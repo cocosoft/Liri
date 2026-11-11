@@ -85,8 +85,19 @@ function violatesArgumentGuards(
   }
 
   if (name === 'git') {
-    // 无子命令（只打印帮助）也不放行；子命令必须在只读集合内
-    return !AUTO_MODE_GIT_READONLY_SUBCOMMANDS.has(lowerArgs[0] ?? '');
+    const subcommand = lowerArgs[0] ?? '';
+    if (AUTO_MODE_GIT_READONLY_SUBCOMMANDS.has(subcommand)) return false;
+    // `git remote` / `git remote -v|--verbose` 只列举远端，结构上不写；
+    // 其余 remote 子动作（add / remove / set-url / prune …）仍不放行。
+    if (subcommand === 'remote') {
+      const rest = lowerArgs.slice(1);
+      return !(
+        rest.length === 0 ||
+        rest.every((arg) => arg === '-v' || arg === '--verbose')
+      );
+    }
+    // 无子命令（只打印帮助）也不放行；其余子命令必须在只读集合内
+    return true;
   }
 
   if (name === 'date') {

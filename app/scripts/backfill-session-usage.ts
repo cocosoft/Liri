@@ -81,6 +81,7 @@ console.log(`库内会话数（有 cost_records）：${usageTotals.size}`);
 let scanned = 0;
 let changed = 0;
 let missingUsage = 0;
+let trashedSkipped = 0;
 const samples: string[] = [];
 
 for (const bucket of readdirSync(SESSIONS_ROOT)) {
@@ -90,6 +91,14 @@ for (const bucket of readdirSync(SESSIONS_ROOT)) {
     entries = readdirSync(bucketDir);
   } catch {
     continue;
+  }
+  // `.trash` 是**软删除**会话（用户已删除，仅留回收站副本）：不参与回填。
+  // 结构：`sessions/<bucket>/.trash/<sessionId>_<ts>/session.json`（不是顶层桶）。
+  // 2026-11-11 实证：递归扫描时这里会多出 15 个"零 tokens 但有 cost_records"的文件，
+  // 看似回填缺口，实际全是回收站会话 ⇒ 显式计数，避免下次误判。
+  const trashDir = join(bucketDir, '.trash');
+  if (existsSync(trashDir)) {
+    trashedSkipped += readdirSync(trashDir).length;
   }
   for (const sessionId of entries) {
     const file = join(bucketDir, sessionId, 'session.json');
@@ -128,7 +137,9 @@ for (const bucket of readdirSync(SESSIONS_ROOT)) {
   }
 }
 
-console.log(`扫描会话文件：${scanned}，有差异：${changed}，无用量记录：${missingUsage}`);
+console.log(
+  `扫描会话文件：${scanned}，回收站跳过：${trashedSkipped}，有差异：${changed}，无用量记录：${missingUsage}`
+);
 for (const line of samples) console.log(`  ${line}`);
 console.log(
   APPLY

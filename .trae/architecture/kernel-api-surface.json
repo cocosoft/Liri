@@ -5,8 +5,8 @@
   "symbolCount": 709,
   "levelCounts": {
     "stable": 208,
-    "experimental": 128,
-    "internal": 373
+    "experimental": 126,
+    "internal": 375
   },
   "entries": [
     {
@@ -1365,10 +1365,10 @@
     "identity/principal.ts#normalizePrincipal": "experimental",
     "identity/principal.ts#parseTenantId": "experimental",
     "identity/principal.ts#principalToPermissionContext": "internal",
-    "identity/principal.ts#resolveEffectiveRole": "experimental",
+    "identity/principal.ts#resolveEffectiveRole": "internal",
     "identity/requestScope.ts#canAccessOwnerKey": "experimental",
     "identity/requestScope.ts#currentOwnerKey": "experimental",
-    "identity/requestScope.ts#getRequestPermissionRole": "experimental",
+    "identity/requestScope.ts#getRequestPermissionRole": "internal",
     "identity/requestScope.ts#getRequestPrincipal": "experimental",
     "identity/requestScope.ts#getRequestPrincipalKey": "experimental",
     "identity/requestScope.ts#isLocalPrincipal": "experimental",

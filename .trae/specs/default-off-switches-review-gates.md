@@ -171,7 +171,7 @@
 
 **沙箱 fail-open**（§2.3 末行）：维持。它**不是** featureFlag，翻转须改 `DEFAULT_LANDLOCK_CONFIG` 默认 + 全量回归 + Linux 真负向门禁，属独立立项；Windows 边界仍以 `invariants.md §6` 为准。
 
-**待用户裁定**：若要求"解释器命令必须逐条确认"，则翻转 `BASH_INTERPRETER_GUARD`（回退：`FEATURE_BASH_INTERPRETER_GUARD=false`），并接受 53 次拦截转为审批卡的摩擦。
+**用户裁定（2026-11-11）：维持默认关。** 翻转路径保留 —— 若后续明确要求"解释器命令必须逐条确认"，设 `FEATURE_BASH_INTERPRETER_GUARD=true` 即可；回退同名设 `false`。
 
 ---
 

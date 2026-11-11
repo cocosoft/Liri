@@ -1314,12 +1314,23 @@ export class PermissionManager {
           : {}),
       };
     } catch (error) {
-      // 细粒度规则查询失败不应阻塞主决策链路（fail-open 于 A 规则）
+      // P1-3（2026-11-11）：**fail-closed**。规则文件不可读 / 解析失败时，无法证明
+      // “没有任何 deny 绑定”；继续按 A 规则放行等于让 RBAC deny 静默失效
+      // （安全域不接受「读不到就当没配」）。
+      //
+      // 代价与取证：`FilePermissionStorage` 的写是 read-modify-write（无跨实例锁），
+      // 并发写窗口内可能出现瞬时解析失败 ⇒ 此时工具会被拒一次，恢复写入后自动恢复；
+      // 若长期被拒，按提示检查 `permissions/*.json` 是否为合法 JSON。
       void handleError(error, {
         module: 'permission:manager',
         action: 'check_fine_grained_rules',
       });
-      return {};
+      return {
+        deny: createDenyDecision(
+          'Denied: fine-grained RBAC rules unavailable ' +
+            '(permissions/*.json unreadable). Fix the JSON files to re-enable tools.'
+        ),
+      };
     }
   }
 

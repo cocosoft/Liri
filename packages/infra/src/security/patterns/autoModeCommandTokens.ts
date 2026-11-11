@@ -668,6 +668,10 @@ export const AUTO_MODE_HARD_DENY_TOKENS = [
  * 由 deny 降为审批；但**明确危险形态仍是硬拦**（`rm -rf`、`rmdir`、`chmod 777`、
  * `chown`/`chattr`/`setfacl` …），因为硬拦表先扫。
  *
+ * 2026-11-11（等价性补齐 ②）：Windows / git 侧的同一操作也必须走审批，否则换个
+ * 命令名即可绕过 —— `xcopy` / `robocopy`（复制）、`ren`（移动）、`mklink`（链接）、
+ * `icacls` / `attrib` / `Set-Acl`（权限位）、`git rm` / `git mv`（仓库内删除 / 移动）。
+ *
  * 注意：若同一条命令同时命中硬拦表（如 `sudo cp …`），**硬拦优先** —— 分类器先扫
  * `AUTO_MODE_HARD_DENY_TOKENS`，再扫本表。
  */
@@ -681,9 +685,19 @@ export const AUTO_MODE_APPROVAL_TOKENS = [
   'move-item',
   'cpi ',
   'mi ',
+  'xcopy ',
+  'robocopy ',
+  'ren ',
   // 文件删除 / 链接 / 条件操作 / 权限位（危险子形态仍在硬拦表）
   'rm ',
   'ln ',
   'find ',
   'chmod ',
+  'mklink ',
+  'icacls ',
+  'attrib ',
+  'set-acl',
+  // 仓库内文件操作（等价于本地 rm / mv）
+  'git rm',
+  'git mv',
 ];

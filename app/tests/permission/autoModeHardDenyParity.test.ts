@@ -179,20 +179,29 @@ function createIsolatedManager(): PermissionManager {
 describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
   const classifier = new AutoModeClassifier();
 
-  it('审批表覆盖 cp / mv 及 PowerShell / cmd 等价写法，并含删除 / 链接 / 条件操作 / 权限位', () => {
+  it('审批表覆盖各平台的等价写法（复制 / 移动 / 删除 / 链接 / 权限位 / git）', () => {
     expect([...AUTO_MODE_APPROVAL_TOKENS].sort()).toEqual([
+      'attrib ',
       'chmod ',
       'copy ',
       'copy-item',
       'cp ',
       'cpi ',
       'find ',
+      'git mv',
+      'git rm',
+      'icacls ',
       'ln ',
       'mi ',
+      'mklink ',
       'move ',
       'move-item',
       'mv ',
+      'ren ',
       'rm ',
+      'robocopy ',
+      'set-acl',
+      'xcopy ',
     ]);
     for (const token of AUTO_MODE_APPROVAL_TOKENS) {
       expect(AUTO_MODE_HARD_DENY_TOKENS).not.toContain(token);
@@ -207,12 +216,21 @@ describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
       'move a.txt b.txt',
       'cpi a.txt b.txt',
       'mi a.txt b.txt',
+      'xcopy a.txt b.txt /E',
+      'robocopy a.txt b.txt /E',
+      'ren a.txt b.txt',
       'powershell -NoProfile -Command "Copy-Item a.txt b.txt"',
       'powershell -NoProfile -Command "Move-Item a.txt b.txt"',
       'rm notes.txt',
       'ln -s a.txt link.txt',
+      'mklink link.txt a.txt',
       'find . -name "*.tmp" -delete',
       'chmod 644 run.sh',
+      'icacls a.txt /grant Everyone:R',
+      'attrib +h a.txt',
+      'powershell -NoProfile -Command "Set-Acl a.txt b"',
+      'git rm a.txt',
+      'git mv a.txt b.txt',
     ]) {
       const decision = await classifier.classify('bash', { command }, []);
       expect(decision.shouldBlock).toBe(false);
@@ -296,6 +314,9 @@ describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
       ['rm notes.txt', 'ask'],
       ['chmod +x run.sh', 'ask'],
       ['find . -name "*.tmp" -delete', 'ask'],
+      ['git rm notes.txt', 'ask'],
+      ['xcopy a b /E', 'ask'],
+      ['icacls a /grant Everyone:R', 'ask'],
       ['rm -rf build', 'deny'],
       ['chmod 777 secret.txt', 'deny'],
     ];

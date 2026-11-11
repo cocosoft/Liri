@@ -90,6 +90,16 @@ export const MS_PER_DAY = 24 * MS_PER_HOUR;
 export const PROVIDER_BALANCE_CIRCUIT_MS = 5 * MS_PER_MINUTE;
 
 /**
+ * 2026-11-11：会话级用量（`metadata.totalTokens/totalCost`）落盘去抖窗口。
+ *
+ * 用量在每个 LLM 请求后累加，逐次落盘会把会话文件写放大 ⇒ 同一会话在该窗口内
+ * 只做最后一次合并写回（内存值即时生效，不影响展示）。
+ *
+ * @kind A
+ */
+export const SESSION_USAGE_PERSIST_DEBOUNCE_MS = 2000;
+
+/**
  * G-10（2026-10-19）：主动消息**默认冷却**（毫秒）。
  *
  * 仅在用户未配置 `proactive.cooldownMs[kind]` 时生效（配置优先）；不写进判定逻辑的隐藏默认。

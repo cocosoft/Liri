@@ -1381,6 +1381,10 @@ export class ChatManagerImpl implements ChatManager {
         tokenBudget: this.tokenBudget,
         unifiedTracker: this.unifiedTracker,
         appendStreamEvent: (sid, event) => this.appendStreamEvent(sid, event),
+        // 2026-11-11：会话级用量回写（累计在 usageAccounting，去抖后经本类落盘）
+        chatSessions: this._chatSessions,
+        persistSession: (session) =>
+          this.persistSessionMetadata(session as ChatSession),
       },
       sessionId,
       usage,

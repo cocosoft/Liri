@@ -13,6 +13,8 @@
  */
 
 import { getLogger } from '@openliri/infra/monitoring';
+// 落盘去抖窗口（D-2 裸字面量规则：`*_MS = <数字>` 只能落在 constants/）
+import { SESSION_USAGE_PERSIST_DEBOUNCE_MS } from '@openliri/infra/constants';
 import type { LiriEvent } from '@modules/session/types/events';
 import { chargeSessionGoalUsage } from '@modules/tasks';
 import { buildRequestTimingData } from '../services/timingEvent';
@@ -38,6 +40,76 @@ export interface UsageAccountingPorts {
     sessionId: string,
     event: LiriEvent
   ): Promise<{ ok: boolean; reason?: string; tailSeq: number }>;
+  /**
+   * 2026-11-11：会话内存表 + 落盘回调 —— 用于回写 `metadata.totalTokens/totalCost`。
+   *
+   * 真机缺陷：此前只记预算/金额台账，从不回写会话元数据 ⇒ 列表与详情里
+   * 所有会话恒为 `totalTokens: 0 / totalCost: 0`。
+   * （两个字段以最小结构声明，避免 `chat` 层与本模块互相依赖具体会话类型。）
+   */
+  chatSessions?: ReadonlyMap<string, { metadata?: object }>;
+  persistSession?: (session: { metadata?: object }) => void | Promise<void>;
+}
+
+/** 同一会话的待落盘计时器（以会话对象为键，避免在宿主类里再加一张 Map） */
+const USAGE_PERSIST_TIMERS = new WeakMap<
+  object,
+  ReturnType<typeof setTimeout>
+>();
+
+/** 把用量累加到会话元数据并去抖落盘（会话未加载 ⇒ 跳过） */
+function accumulateSessionTotals(
+  ports: UsageAccountingPorts,
+  sessionId: string,
+  tokens: number,
+  costUsd: number
+): void {
+  const session = ports.chatSessions?.get(sessionId);
+  if (!session?.metadata) return;
+  const metadata = session.metadata as Record<string, unknown>;
+  const totals = addSessionUsageTotals(metadata, tokens, costUsd);
+  metadata.totalTokens = totals.totalTokens;
+  metadata.totalCost = totals.totalCost;
+
+  const pending = USAGE_PERSIST_TIMERS.get(session);
+  if (pending) clearTimeout(pending);
+  const timer = setTimeout(() => {
+    USAGE_PERSIST_TIMERS.delete(session);
+    Promise.resolve(ports.persistSession?.(session)).catch((err) => {
+      // @ignore-catch — 用量累计属观测面，落盘失败不得影响主流程（CS03）
+      logger.warn('会话用量落盘失败（不影响主流程）', {
+        sessionId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
+  }, SESSION_USAGE_PERSIST_DEBOUNCE_MS);
+  (timer as unknown as { unref?: () => void }).unref?.();
+  USAGE_PERSIST_TIMERS.set(session, timer);
+}
+
+/**
+ * 2026-11-11：会话级用量累计（纯函数，便于单测）。
+ *
+ * - token 取整累加；金额保留 6 位小数（避免浮点噪声累积成 `0.30000000000000004`）；
+ * - 存量字段缺失 / 非有限数字 ⇒ 按 0 起算（历史会话元数据可能没有这两个字段）。
+ */
+export function addSessionUsageTotals(
+  metadata: Record<string, unknown>,
+  tokens: number,
+  costUsd: number
+): { totalTokens: number; totalCost: number } {
+  const prevTokens = Number(metadata.totalTokens ?? 0);
+  const prevCost = Number(metadata.totalCost ?? 0);
+  const totalTokens =
+    (Number.isFinite(prevTokens) ? prevTokens : 0) +
+    (Number.isFinite(tokens) ? Math.round(tokens) : 0);
+  const totalCost =
+    Math.round(
+      ((Number.isFinite(prevCost) ? prevCost : 0) +
+        (Number.isFinite(costUsd) ? costUsd : 0)) *
+        1e6
+    ) / 1e6;
+  return { totalTokens, totalCost };
 }
 
 /**
@@ -91,13 +163,14 @@ export function recordChatResponseUsage(
   // 本方法是**同步**签名（由管线 ctx 注入调用），故不 await；`appendStreamEvent` 自带
   // try/catch 并返回 `{ok,reason}`，失败只记日志 —— 该事件是**可观测数据**，不是渲染依赖，
   // 不能因其失败影响用量记账与主流程。
+  let costUsd = 0;
   const timingData = buildRequestTimingData(usage);
   if (timingData) {
     // 债四「换算接线」（2026-10-13）：**金额**台账（`usedUsd`）与 token 口径**并行**。
     // 四参**复用 `timingData`**（缓存字段的唯一提取点 `extractCacheTokens`，CS01 不另造一份）；
     // 模型不可得 ⇒ 内部跳过并如实 warn（**不臆造金额**）。
     // ⚠️ **不改闸门**：`usedUsd` 当前不参与任何拦截/档位判定（USD 闸门 = S3，待 U3 裁定）。
-    recordTurnCostUsd(
+    costUsd = recordTurnCostUsd(
       {
         inputTokens: timingData.inputTokens ?? 0,
         outputTokens: timingData.outputTokens ?? 0,
@@ -121,4 +194,7 @@ export function recordChatResponseUsage(
       data: timingData,
     });
   }
+
+  // 2026-11-11：回写会话级累计（内存即时生效 + 去抖落盘）
+  accumulateSessionTotals(ports, sessionId, totalTokens, costUsd);
 }

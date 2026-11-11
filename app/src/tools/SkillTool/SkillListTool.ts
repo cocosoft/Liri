@@ -123,10 +123,12 @@ export class SkillListTool implements Tool {
             )
             .map((s) => ({ name: s.name, description: s.description || '' }));
           logger.info('skills_list', { total: list.length });
+          // ToolResult 契约字段是 `data`/`output`：写成 `result` 会被执行链路
+          // （ToolExecutionService 只读 `output || data`）丢弃 ⇒ 模型收到「工具执行成功，无输出」
           return {
             status: ToolExecutionStatus.SUCCESS,
             toolName: this.name,
-            result: { skills: list, total: list.length },
+            data: { skills: list, total: list.length },
           };
         } catch (err) {
           // §1.9：统一 handleError（Logger + ErrorTracker），工具失败以结构化结果返回

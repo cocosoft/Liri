@@ -237,7 +237,9 @@ export class SkillViewTool implements Tool {
 
           // 回退：prompt 型技能生成提示词
           if (skill.impl.kind === 'prompt') {
-            const prompts = await skill.impl.getPromptForCommand({}, {});
+            // 契约参数是字符串（commands/types/index.ts）：传对象会让 `${args || …}`
+            // 渲染成 [object Object]，且 `args.trim()` 直接抛 "args.trim is not a function"
+            const prompts = await skill.impl.getPromptForCommand('', {});
             const content = prompts.map((p) => p.text).join('\n');
             // P0-1：同会话同技能内容未变化 → unchanged stub
             const unchanged = this.checkUnchanged(

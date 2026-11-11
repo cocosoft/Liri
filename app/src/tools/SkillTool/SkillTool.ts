@@ -137,7 +137,12 @@ export class SkillTool implements Tool {
           enabled,
           tags: [],
           promptProvider: async (args) => {
-            const prompts = await impl.getPromptForCommand(args ?? {}, {});
+            // 契约参数是字符串（commands/types/index.ts）：传对象会让 `${args || …}`
+            // 渲染成 [object Object]，且 `args.trim()` 直接抛 "args.trim is not a function"
+            const promptArgs = Object.values(args ?? {})
+              .filter((value): value is string => typeof value === 'string')
+              .join(' ');
+            const prompts = await impl.getPromptForCommand(promptArgs, {});
             return prompts.map((p) => p.text).join('\n');
           },
         });

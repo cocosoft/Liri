@@ -116,6 +116,11 @@ const ALLOWLIST: Record<
       'auto 模式**命令位**令牌表（硬拦命中即 deny / 审批转 ask）：与 security/patterns 的正则规则匹配语义不同，刻意并列；普通命令逐条收敛见方案 P5',
     rules: ['dangerous-literals'],
   },
+  'packages/infra/src/security/patterns/commandAliases.ts': {
+    reason:
+      '命令**等价组**归一表（`Rename-Item`↔`ren`、`Remove-Item`↔`del` 等）：只负责「同一操作的不同写法」映射，档位（deny/ask）仍只由 autoModeCommandTokens.ts 决定 ⇒ 非第二份危险表',
+    rules: ['dangerous-literals'],
+  },
   'packages/infra/src/security/readOnlyValidation.ts': {
     reason: 'READONLY_MODE 的配置默认值（用户可覆盖），非安全判定的只读目录',
     rules: ['readonly-literals'],

@@ -283,7 +283,8 @@ export {
   // P5（2026-11-11）：auto 模式命令令牌表（硬拦 = deny / 审批 = ask）
   AUTO_MODE_HARD_DENY_TOKENS,
   AUTO_MODE_APPROVAL_TOKENS,
-  // 2026-11-11：命令别名归一表（规范名令牌 ⇒ 别名等价写法）
+  // 2026-11-11：命令等价组归一表（组内任一成员 ⇒ 同组等价写法）
+  COMMAND_EQUIVALENCE_GROUPS,
   COMMAND_ALIASES,
   expandTokenAliases,
 } from './patterns';

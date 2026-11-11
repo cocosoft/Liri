@@ -94,19 +94,24 @@ export function containsCommandToken(
       return normalized.toLowerCase().includes(token.toLowerCase());
     }
   }
-  // 嵌套 shell：把脚本体当作新的命令面**递归锚定**匹配，绝不退回裸子串
-  if (depth < MAX_NESTED_DEPTH) {
-    const bodies = extractNestedShellBodies(normalized);
-    if (bodies.length > 0) {
-      return bodies.some((body) =>
-        containsCommandToken(body, token, depth + 1)
-      );
-    }
-  }
+  // 嵌套 shell：把脚本体当作新的命令面**递归锚定**匹配，绝不退回裸子串。
+  // 2026-11-11（P3 复查）：原实现「找到脚本体就只判脚本体」⇒ `git config --global
+  // core.sshCommand "sh -c id"` 这类「外壳命令 + 内层 shell 参数」的外层令牌被整段跳过
+  // （`git config ` 因此漏判）。现改为 **外层锚定命中 或 任一内层命中**。
   const anchored = new RegExp(
     `(?:^|[\\n;|&(){])\\s*(?:(?:${WRAPPER_WORDS})\\s+(?:-[^\\s]+\\s+)*)*` +
       `${escapeRegExp(trimmed)}(?![a-z0-9_-])`,
     'i'
   );
-  return anchored.test(normalized);
+  const outerHit = anchored.test(normalized);
+  if (depth < MAX_NESTED_DEPTH) {
+    const bodies = extractNestedShellBodies(normalized);
+    if (bodies.length > 0) {
+      return (
+        outerHit ||
+        bodies.some((body) => containsCommandToken(body, token, depth + 1))
+      );
+    }
+  }
+  return outerHit;
 }

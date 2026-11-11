@@ -205,11 +205,25 @@ export function detectEncodingAttack(input: string): ClassifierDecision | null {
 }
 
 /**
+ * `detectSqlInjection` 中与 shell **普通子命令同形**的关键字（必须按命令位判定）。
+ *
+ * 2026-11-11（P3）：原实现一律 `input.includes(pattern)` ⇒ `kubectl delete pod x`、
+ * `gh release delete v1`、`git commit -m "update readme"` 都被记成「SQL 注入」，
+ * 归因错误会让排查绕路（真机探针实测）。改为：仅当这些关键字出现在**命令位**
+ * （`delete from …`）时才算 SQL 注入。
+ */
+const COMMAND_POSITION_SQL_PATTERNS = new Set(['delete ', 'update ']);
+
+/**
  * 检测SQL注入攻击
- * @param input 输入字符串
+ * @param input 输入字符串（JSON 文本，用于关键词扫描）
+ * @param executionSurface 执行面原文（可选；提供时 `delete` / `update` 按命令位判定）
  * @returns 检测结果
  */
-export function detectSqlInjection(input: string): ClassifierDecision | null {
+export function detectSqlInjection(
+  input: string,
+  executionSurface?: string
+): ClassifierDecision | null {
   const sqlPatterns = [
     'union select',
     'drop table',
@@ -269,7 +283,11 @@ export function detectSqlInjection(input: string): ClassifierDecision | null {
   ];
 
   for (const pattern of sqlPatterns) {
-    if (input.includes(pattern)) {
+    const hit =
+      executionSurface && COMMAND_POSITION_SQL_PATTERNS.has(pattern)
+        ? containsCommandToken(executionSurface, pattern)
+        : input.includes(pattern);
+    if (hit) {
       return {
         shouldBlock: true,
         reason: `Input contains SQL injection pattern: "${pattern}"`,

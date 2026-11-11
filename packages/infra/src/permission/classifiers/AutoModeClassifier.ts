@@ -58,12 +58,12 @@ import type { ClassifierDecision } from './classifierDecision';
 export type { ClassifierDecision } from './classifierDecision';
 
 /**
- * 令牌**或其命令别名**是否命中（2026-11-11，别名归一表）。
+ * 令牌**或同组等价写法**是否命中（2026-11-11，等价命令组归一表）。
  *
- * 先判原令牌（原始命令名的既有判定不变），再按 `COMMAND_ALIASES` 展开的别名判
- * （`set-content` ⇒ `sc`、`add-content` ⇒ `ac`、`clear-content` ⇒ `clc`、
- * `copy-item` ⇒ `cpi`、`move-item` ⇒ `mi`、`remove-item` ⇒ `ri`、`new-item` ⇒ `ni`）。
- * 这样新增别名只需改表，不必同时改两张令牌表。
+ * 先判原令牌（原始命令名的既有判定不变），再按 `COMMAND_EQUIVALENCE_GROUPS`
+ * 展开的同组写法判（`set-content` ⇒ `sc` / `add-content` / `ac` …；
+ * `ren ` ⇒ `rename-item` / `rni` / `mv` …；`remove-item` ⇒ `del` / `rd` / `rmdir` …）。
+ * 这样新增写法只需改表，不必同时改两张令牌表。
  */
 function matchesCommandToken(surface: string, token: string): boolean {
   if (containsCommandToken(surface, token)) return true;
@@ -345,8 +345,16 @@ export class AutoModeClassifier implements IAutoModeClassifier {
       // 直接放行：PermissionManager 的只读短路只覆盖"单一命令"，包一层
       // `powershell -Command` / `bash -c` 就失效，随后被词表里的 `git `/`dir ` 等令牌误杀。
       // 复合命令（含管道 / 分号）仍会被 `checkReadonlyCommand` 判 false ⇒ 继续走词表。
+      //
+      // 2026-11-11（P3 复查）：**仅当整条命令就是这层 shell 包装时**才适用。
+      // 原实现只看"串里有没有 `sh -c`"，于是 `git config --global core.sshCommand "sh -c id"`
+      // 被当成"内层只读"整条放行（外层 `git config` 从未参与判定）。
+      const firstWord = executionSurface.trim().split(/\s+/)[0]?.toLowerCase() ?? '';
+      const isShellWrapper =
+        /^(?:bash|sh|zsh|ksh|powershell|pwsh|cmd|cmd\.exe)$/.test(firstWord);
       const nestedBodies = extractNestedShellBodies(executionSurface);
       if (
+        isShellWrapper &&
         nestedBodies.length > 0 &&
         nestedBodies.every((body) => checkReadonlyCommand(body).allowed)
       ) {
@@ -418,8 +426,8 @@ export class AutoModeClassifier implements IAutoModeClassifier {
       return pipeResult;
     }
 
-    // 检查SQL注入
-    const sqlResult = detectSqlInjection(inputString);
+    // 检查SQL注入（`delete` / `update` 按命令位判定，见 `COMMAND_POSITION_SQL_PATTERNS`）
+    const sqlResult = detectSqlInjection(inputString, executionSurface);
     if (sqlResult) {
       return sqlResult;
     }

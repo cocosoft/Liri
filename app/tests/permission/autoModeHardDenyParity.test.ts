@@ -187,21 +187,39 @@ describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
 
   it('审批表覆盖各平台的等价写法（复制 / 移动 / 删除 / 链接 / 权限位 / 写盘 / git）', () => {
     expect([...AUTO_MODE_APPROVAL_TOKENS].sort()).toEqual([
+      ' -force',
       '-itemtype symboliclink',
       'add-content',
       'attrib ',
+      'bun add ',
+      'bun install',
       'chmod ',
       'clear-content',
+      'clear-itemproperty',
+      'compress-archive',
       'copy ',
       'copy-item',
       'cp ',
       'cpi ',
+      'docker cp',
+      'docker exec',
+      'docker push',
+      'docker rm',
+      'docker rmi',
+      'docker run',
+      'docker system prune',
+      'expand-archive',
+      'export-csv',
       'find ',
+      'gh pr merge',
+      'gh release delete',
+      'gh repo delete',
       'git am ',
       'git apply ',
       'git checkout',
       'git cherry-pick',
       'git commit',
+      'git config ',
       'git merge ',
       'git mv',
       'git reset ',
@@ -213,21 +231,41 @@ describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
       'git tag ',
       'git worktree add',
       'icacls ',
+      'kubectl apply',
+      'kubectl cordon',
+      'kubectl create',
+      'kubectl delete',
+      'kubectl drain',
+      'kubectl edit',
+      'kubectl exec',
+      'kubectl patch',
+      'kubectl replace',
+      'kubectl rollout',
+      'kubectl scale',
       'ln ',
       'mi ',
       'mklink ',
       'move ',
       'move-item',
       'mv ',
+      'new-itemproperty',
+      'npm add ',
+      'npm ci',
       'out-file',
+      'pnpm add ',
+      'remove-itemproperty',
       'ren ',
       'rm ',
       'robocopy ',
       'set-acl',
       'set-content',
       'set-itemproperty',
+      'spps',
+      'stop-process',
       'tee ',
+      'tee-object',
       'xcopy ',
+      'yarn add ',
     ]);
     for (const token of AUTO_MODE_APPROVAL_TOKENS) {
       expect(AUTO_MODE_HARD_DENY_TOKENS).not.toContain(token);
@@ -373,6 +411,166 @@ describe('auto 模式审批档：cp / mv 转 ask（P5-approval）', () => {
     );
     expect(decision.shouldBlock).toBe(true);
     expect(decision.requiresApproval).toBeUndefined();
+  });
+
+  /**
+   * 2026-11-11（P0，复查缺口）：Windows 账户 / 提权 / 系统加固 / 持久化 cmdlet
+   * 此前**全部放行**（探针实测 `ALLOW`）⇒ 与 Linux 侧 `useradd` / `chown` /
+   * `crontab` / `systemctl` 的硬拦口径对齐。
+   */
+  it('P0：账户 / 提权 / 系统加固 / 持久化等价写法硬拦', async () => {
+    for (const command of [
+      'net user hacker P@ss /add',
+      'net localgroup administrators hacker /add',
+      'Add-LocalGroupMember -Group Administrators -Member hacker',
+      'Set-LocalUser -Name x -Password y',
+      'Set-ExecutionPolicy Bypass -Scope Process',
+      'Set-MpPreference -DisableRealtimeMonitoring $true',
+      'Disable-WindowsOptionalFeature -Online -FeatureName x',
+      'bcdedit /set testsigning on',
+      'netsh advfirewall set allprofiles state off',
+      'Format-Volume -DriveLetter D',
+      'Initialize-Disk -Number 1',
+      'Register-ScheduledTask -TaskName x -Action y',
+      'New-Service -Name x -BinaryPathName y',
+      'certutil -decode a.txt a.exe',
+      'wsl rm -rf /',
+      'Enter-PSSession -ComputerName h',
+      'Invoke-Expression $cmd',
+      'iex $cmd',
+      'Start-Process cmd.exe',
+      'saps cmd.exe',
+      'scp a user@host:/tmp',
+      'mknod a b c',
+      'setcap cap_setuid+ep ./a',
+      'docker run --privileged alpine',
+      'docker run -v /:/h alpine',
+    ]) {
+      const decision = await classifier.classify('bash', { command }, []);
+      expect(decision.shouldBlock).toBe(true);
+    }
+  });
+
+  it('P0：一次性远端执行器 / 全局安装硬拦', async () => {
+    for (const command of [
+      'npx some-cli',
+      'bunx some-cli',
+      'npm i -g x',
+      'bun add -g x',
+      'yarn global add x',
+      'winget install x',
+      'Install-Module -Name x',
+    ]) {
+      const decision = await classifier.classify('bash', { command }, []);
+      expect(decision.shouldBlock).toBe(true);
+    }
+  });
+
+  /**
+   * 2026-11-11（P1）：等价组内各写法必须**同档**（此前 `ren` 已 ask 而
+   * `Rename-Item` 放行、`sc create` 已拦而 `New-Service` 放行）。
+   */
+  it('P1：等价组内各写法判定一致', async () => {
+    const cases: Array<[readonly string[], 'deny' | 'ask']> = [
+      [
+        ['del a.txt', 'erase a.txt', 'rd a.txt', 'rmdir a.txt', 'ri a.txt'],
+        'deny',
+      ],
+      [
+        [
+          'ren a.txt b.txt',
+          'rni a.txt b.txt',
+          'Rename-Item a.txt b.txt',
+          'mv a.txt b.txt',
+          'Move-Item a.txt b.txt',
+        ],
+        'ask',
+      ],
+      [
+        [
+          'Set-Item HKCU:\\x y',
+          'si HKCU:\\x y',
+          'Set-ItemProperty -Path x -Name y -Value z',
+          'New-ItemProperty -Path HKCU:\\x -Name y -Value z',
+          'Remove-ItemProperty -Path HKCU:\\x -Name y',
+        ],
+        'ask',
+      ],
+      [['tee a.txt', 'Tee-Object a.txt'], 'ask'],
+      [['Expand-Archive a.zip .', 'Compress-Archive a b.zip'], 'ask'],
+    ];
+    for (const [commands, expected] of cases) {
+      for (const command of commands) {
+        const decision = await classifier.classify('bash', { command }, []);
+        if (expected === 'deny') {
+          expect(decision.shouldBlock).toBe(true);
+          expect(decision.requiresApproval).toBeUndefined();
+        } else {
+          expect(decision.shouldBlock).toBe(false);
+          expect(decision.requiresApproval).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('P2：容器 / 集群 / 代码托管只收写子命令，只读查询仍放行', async () => {
+    for (const command of [
+      'docker run alpine',
+      'kubectl delete pod x',
+      'kubectl apply -f x.yaml',
+      'gh pr merge 1',
+      'gh release delete v1',
+    ]) {
+      const decision = await classifier.classify('bash', { command }, []);
+      expect(decision.shouldBlock).toBe(false);
+      expect(decision.requiresApproval).toBe(true);
+    }
+    for (const command of ['docker ps', 'kubectl get pods', 'kubectl logs x']) {
+      const decision = await classifier.classify('bash', { command }, []);
+      expect(decision.shouldBlock).toBe(false);
+      expect(decision.requiresApproval).toBeUndefined();
+    }
+  });
+
+  /**
+   * 2026-11-11（P3）：`delete` / `update` 与 shell 子命令同形，曾把
+   * `kubectl delete pod` / `gh release delete` 记成「SQL 注入」（归因错误）。
+   */
+  it('P3：`delete` / `update` 在子命令位不再记成 SQL 注入', async () => {
+    for (const command of [
+      'kubectl delete pod x',
+      'gh release delete v1',
+      'git commit -m "update readme"',
+    ]) {
+      const decision = await classifier.classify('bash', { command }, []);
+      expect(decision.reason ?? '').not.toContain('SQL injection');
+    }
+    // 命令位的真 SQL 形态仍拦
+    const sql = await classifier.classify(
+      'bash',
+      { command: 'delete from users where 1=1' },
+      []
+    );
+    expect(sql.shouldBlock).toBe(true);
+  });
+
+  it('P3：外壳命令 + 内层 shell 参数不再整条放行', async () => {
+    // 曾因"串里含 `sh -c`"被当成内层只读整条放行
+    const outer = await classifier.classify(
+      'bash',
+      { command: 'git config --global core.sshCommand "sh -c id"' },
+      []
+    );
+    expect(outer.shouldBlock).toBe(false);
+    expect(outer.requiresApproval).toBe(true);
+    // 纯 shell 包装 + 只读内层仍放行（原优化意图不变）
+    const wrapped = await classifier.classify(
+      'bash',
+      { command: 'powershell -NoProfile -Command "Get-Content a.txt"' },
+      []
+    );
+    expect(wrapped.shouldBlock).toBe(false);
+    expect(wrapped.requiresApproval).toBeUndefined();
   });
 
   it('PermissionManager（auto 档）把 requiresApproval 落成 ask', async () => {

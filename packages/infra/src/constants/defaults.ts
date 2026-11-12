@@ -79,6 +79,9 @@ export interface RuntimeDefaults {
   pdcaListDefaultLimit: number;
   /** 单页上限（500 条摘要 ≈ 数百 KB，防单请求过大） */
   pdcaListMaxLimit: number;
+  // ── sandboxPostureSnapshot（G4 围栏 M0-③：姿态快照落盘） ────────────────
+  /** 沙箱姿态快照的刷新间隔（毫秒）；围栏据此判断快照是否新鲜 */
+  sandboxPostureSnapshotIntervalMs: number;
 }
 
 /** 每 token 估算字节数（A 类换算常数；派生字段的唯一来源） */
@@ -102,7 +105,8 @@ const TOKEN_BYTES_ESTIMATE = 4;
  * `LIRI_TOOL_RESULT_PREVIEW_MAX_LENGTH` · `LIRI_TOOL_TIMEOUT_MS` ·
  * `LIRI_MAX_CONCURRENT_TOOLS` · `LIRI_MAX_TOOL_RETRIES` · `LIRI_INSIGHTS_SLOW_MS` ·
  * `LIRI_AGENTS_LIST_DEFAULT_LIMIT` · `LIRI_AGENTS_LIST_MAX_LIMIT` ·
- * `LIRI_PDCA_LIST_DEFAULT_LIMIT` · `LIRI_PDCA_LIST_MAX_LIMIT`
+ * `LIRI_PDCA_LIST_DEFAULT_LIMIT` · `LIRI_PDCA_LIST_MAX_LIMIT` ·
+ * `LIRI_SANDBOX_POSTURE_SNAPSHOT_INTERVAL_MS`
  */
 export function getRuntimeDefaults(): RuntimeDefaults {
   const apiImageMaxBase64Size = envInt(
@@ -172,5 +176,11 @@ export function getRuntimeDefaults(): RuntimeDefaults {
     // pdcaList（PDCA 列表摘要分页，2026-11-08）
     pdcaListDefaultLimit: envInt('LIRI_PDCA_LIST_DEFAULT_LIMIT', 200),
     pdcaListMaxLimit: envInt('LIRI_PDCA_LIST_MAX_LIMIT', 500),
+
+    // sandboxPostureSnapshot（G4 围栏 M0-③，2026-11-12）：姿态变化低频繁 + 需给围栏新鲜度判据
+    sandboxPostureSnapshotIntervalMs: envInt(
+      'LIRI_SANDBOX_POSTURE_SNAPSHOT_INTERVAL_MS',
+      30 * 1000
+    ),
   };
 }

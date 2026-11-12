@@ -623,6 +623,22 @@ export async function registerAllSpis(
       });
     }
 
+    // G4 M0-③（2026-11-12）：沙箱姿态与违规摘要**定期原子落盘**，供只读围栏进程消费。
+    // 为什么落文件而不是新增端口：围栏必须在主进程卡死/被降级时仍能取证，不能经主进程 API 自证。
+    // 失败不阻断启动（围栏侧按 missing / stale 处理）；读写契约见
+    // `dev_docs/20261112/G4-围栏工程形态设计-20261112.md` §3。
+    {
+      const { startSandboxPostureSnapshotWriter } =
+        await import('./sandboxPostureSnapshot');
+      startSandboxPostureSnapshotWriter({
+        // 每次现取：姿态随配置变化，不复用启动时的 `sandboxPosture` 快照
+        read: () => ({
+          posture: describeSandboxPosture(),
+          violationCount: sandboxManager.getViolations().length,
+        }),
+      });
+    }
+
     markSpiRegistered('sandbox');
   }
 

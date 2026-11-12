@@ -384,6 +384,93 @@ describe('13-P1-1 Step 2: 缺省 hard 翻转后 PDL 阻断行为', () => {
 });
 
 /**
+ * 2026-11-13（会话 `session_mwdcivrue74d4838ff`）：工具审批暂停是**一等结果态** ——
+ * 不是失败、不熔断剩余步骤、不把任务渲染成"已结束"。
+ */
+describe('2026-11-13: 审批暂停（pausedForApproval）', () => {
+  it('步骤遇 awaiting_approval ⇒ 记暂停、剩余步骤不执行、不计 failed', async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'pdl-pause-'));
+    const prevDataDir = process.env.LIRI_DATA_DIR;
+    process.env.LIRI_DATA_DIR = dataDir;
+    taskOrchestrator.setPlansDir(join(dataDir, 'plans'));
+
+    let runCount = 0;
+    const loop = {
+      reset: () => {},
+      runCollect: async () => {
+        runCount += 1;
+        return {
+          terminationReason: 'awaiting_approval',
+          totalTokens: 1,
+          turnCount: 1,
+          summary: '',
+        };
+      },
+      getLastAssistantText: () => '',
+    } as unknown as TAORLoop;
+
+    const provider = {
+      id: 'test-provider',
+      displayName: 'Test Provider',
+      chat: async () => ({
+        content: JSON.stringify({
+          mainTier: 'complex',
+          reasoning: 'r',
+          subTasks: [
+            { id: 'step-1', description: '步骤A' },
+            { id: 'step-2', description: '步骤B' },
+            { id: 'step-3', description: '步骤C' },
+          ],
+        }),
+        model: 'test-model',
+      }),
+      listModels: async () => [],
+      validateConfig: () => ({ valid: true, errors: [] }),
+    } as unknown as AIProvider;
+
+    try {
+      const pdl = new PlanDrivenLoop({
+        taorLoop: loop,
+        deps: {} as TAORLoopDeps,
+        sessionId: 's-pause',
+        enableAutoDecompose: true,
+        decomposerProvider: provider,
+        fastPathPolicy: {
+          maxSimpleTaskLength: 10,
+          dangerousIntentPatterns: [],
+        },
+      });
+      const result = await pdl.run(
+        '这是一个足够长的复杂任务描述，用于强制走分解路径而不是快速路径'
+      );
+
+      // ① 只执行了第一步：暂停后不再开新步骤/新批次
+      expect(runCount).toBe(1);
+      // ② 暂停 ≠ 失败（旧实现会把它计入 failedSteps 并触发熔断）
+      expect(result.pausedForApproval).toBe(true);
+      expect(result.failedSteps).toBe(0);
+      expect(result.stepResults[0]?.paused).toBe(true);
+      // ③ 用户可见汇总必须说"等待审批"，不能说"执行完成/未达成"
+      expect(result.summary).toContain('等待工具审批');
+      expect(result.summary).not.toContain('执行完成');
+    } finally {
+      if (prevDataDir === undefined) delete process.env.LIRI_DATA_DIR;
+      else process.env.LIRI_DATA_DIR = prevDataDir;
+      try {
+        rmSync(dataDir, {
+          recursive: true,
+          force: true,
+          maxRetries: 5,
+          retryDelay: 100,
+        });
+      } catch {
+        /* 临时目录清理失败不影响测试结论 */
+      }
+    }
+  });
+});
+
+/**
  * P0-1（2026-11-10，demand 准入门）：许愿式会话改走 PDL 后，"验收标准前置"
  * 由分解结果承接 —— 缺失即 fail-closed，不得带病开工。
  */

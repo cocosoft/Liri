@@ -18,7 +18,12 @@ import i18n from "../i18n";
 const logger = createLogger("utils:planRestore");
 
 /** 后端 Plan.status → 前端 TaskCardData.status */
-function mapPlanStatus(status: Plan["status"]): TaskCardData["status"] {
+function mapPlanStatus(
+  status: Plan["status"],
+  paused?: boolean,
+): TaskCardData["status"] {
+  // 2026-11-13：等待审批的优先级高于 status —— 否则"等用户批准"会渲染成"已结束"
+  if (paused === true) return "paused";
   // completed/failed/aborted 均代表任务已结束（无论成败），running 为执行中
   if (status === "completed" || status === "failed" || status === "aborted") {
     return "done";
@@ -48,7 +53,7 @@ function mapStepStatus(status: string): TaskCardTask["status"] {
 export function mapPlanToTaskCard(plan: Plan): TaskCardData {
   return {
     title: plan.description || i18n.t("plans.taskDecomposition"),
-    status: mapPlanStatus(plan.status),
+    status: mapPlanStatus(plan.status, plan.paused),
     planId: plan.id,
     tasks: plan.steps.map((step) => ({
       id: step.id,

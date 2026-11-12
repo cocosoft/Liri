@@ -126,6 +126,15 @@ export function formatPdcaTerminalNotice(input: {
    * 写成状态词汇会被 `lint:state-ratchet` 当成新的状态字面量出现点（需登记）。
    */
   awaitingApproval?: boolean;
+  /**
+   * 暂停来源（仅 `awaitingApproval=true` 时使用）：
+   * - `stage`（缺省）= 阶段链在等**阶段审批**；
+   * - `tool` = PDL 快路径的工具调用在等**用户批准**（审批卡片）。
+   *
+   * 为什么必须区分：两者恢复方式不同（编排面板 / 审批卡片），统一写成"等待阶段审批"
+   * 会让用户在编排面板里找一个不存在的确认入口（会话 `session_mwdcivrue74d4838ff`）。
+   */
+  approvalSource?: 'stage' | 'tool';
   completed: number;
   total: number;
   /** partial 时的未达成数 */
@@ -148,6 +157,9 @@ export function formatPdcaTerminalNotice(input: {
   }
   const suffix = extra.length > 0 ? `（${extra.join('，')}）` : '';
   if (input.awaitingApproval) {
+    if (input.approvalSource === 'tool') {
+      return `⏸ 编排任务暂停：等待**工具审批**（${progress}${suffix}）。请在审批卡片（或收件箱）处理后继续；批准后会自动续跑，剩余步骤不会被执行。`;
+    }
     return `⏸ 编排任务暂停：等待阶段审批（${progress}${suffix}）。请在编排面板确认后继续。`;
   }
   switch (input.outcome ?? 'completed') {
@@ -496,24 +508,29 @@ export class PdcaLauncher {
             // 既误导用户，也让 `stats:demand`（指标 4）把失败任务算成收敛。
             const incomplete =
               result.failedSteps > 0 || result.blockedSteps.length > 0;
+            // 2026-11-13：等待工具审批是**暂停态**，既不是完成也不是失败
+            const paused = result.pausedForApproval === true;
             await writePdcaCheckpoint(taskId, {
               taskId,
-              phase: 'execute',
-              status: aborted
-                ? 'abort'
-                : budgetExhausted || incomplete
-                  ? 'failed'
-                  : 'completed',
+              // 相位复用 LRO 的待审批相位 ⇒ 留存策略与 UI 都能识别"在等用户"
+              phase: paused ? 'stage_awaiting_approval' : 'execute',
+              status: paused
+                ? 'running'
+                : aborted
+                  ? 'abort'
+                  : budgetExhausted || incomplete
+                    ? 'failed'
+                    : 'completed',
               sessionId,
               projectId,
               description: description.slice(0, 200),
               completedAt:
-                aborted || budgetExhausted || incomplete
+                paused || aborted || budgetExhausted || incomplete
                   ? undefined
                   : new Date().toISOString(),
               abortedAt: aborted ? new Date().toISOString() : undefined,
               failedAt:
-                budgetExhausted || (!aborted && incomplete)
+                !paused && (budgetExhausted || (!aborted && incomplete))
                   ? new Date().toISOString()
                   : undefined,
               startedAt,
@@ -529,6 +546,7 @@ export class PdcaLauncher {
               stepCount: result.stepCount,
               completedSteps: result.completedSteps,
               failedSteps: result.failedSteps,
+              pausedForApproval: paused,
               totalDurationMs: result.totalDurationMs,
             });
             // 13-P1-1 Step 2（2026-10-06，`任务计划-20261004.md` §20.6）：**阻断结果回灌模型**。
@@ -565,19 +583,29 @@ export class PdcaLauncher {
             }
             // P0-5（2026-11-06）：终态回执放在**最后** —— P0-4 过滤任务步骤消息后，这是用户
             // 唯一能看到的「任务结束了、结果如何」的结论（步骤细节仍在编排面板）。
-            const terminalText = formatPdcaTerminalNotice({
-              outcome: aborted
-                ? 'aborted'
-                : budgetExhausted
-                  ? 'budget'
-                  : result.failedSteps > 0
-                    ? 'partial'
-                    : 'completed',
-              completed: result.completedSteps,
-              total: result.stepCount,
-              failed: result.failedSteps,
-              blocked: result.blockedSteps.length,
-            });
+            const terminalText = formatPdcaTerminalNotice(
+              paused
+                ? {
+                    awaitingApproval: true,
+                    approvalSource: 'tool',
+                    completed: result.completedSteps,
+                    total: result.stepCount,
+                    blocked: result.blockedSteps.length,
+                  }
+                : {
+                    outcome: aborted
+                      ? 'aborted'
+                      : budgetExhausted
+                        ? 'budget'
+                        : result.failedSteps > 0
+                          ? 'partial'
+                          : 'completed',
+                    completed: result.completedSteps,
+                    total: result.stepCount,
+                    failed: result.failedSteps,
+                    blocked: result.blockedSteps.length,
+                  }
+            );
             this._persistTerminalNotice(sessionId, taskId, terminalText);
             // P0-1（2026-11-10）：demand 分流到 PDL 快路径后不再经过 LRO 回执 ⇒
             // B3 的 `artifacts/<taskId>/delivery.md` 在此补写（同一实现，单一口径）
@@ -585,11 +613,13 @@ export class PdcaLauncher {
               persistDemandDeliveryText({
                 taskId,
                 sessionId,
-                phase: aborted
-                  ? 'abort'
-                  : budgetExhausted || result.failedSteps > 0
-                    ? 'failed'
-                    : 'completed',
+                phase: paused
+                  ? 'stage_awaiting_approval'
+                  : aborted
+                    ? 'abort'
+                    : budgetExhausted || result.failedSteps > 0
+                      ? 'failed'
+                      : 'completed',
                 text: terminalText,
               });
             }

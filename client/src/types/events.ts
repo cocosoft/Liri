@@ -355,7 +355,8 @@ export interface LiriEventMap {
     action: "write" | "update";
     taskCard?: {
       title: string;
-      status: "planning" | "executing" | "done";
+      // 2026-11-13：等待用户审批（既非执行中、也非已结束）
+      status: "planning" | "executing" | "done" | "paused";
       tasks: Array<{
         id: string;
         name: string;

@@ -144,6 +144,15 @@ export interface Plan {
   createdAt: string;
   completedAt?: string;
   sessionId: string;
+  /**
+   * 2026-11-13（PDL 暂停态）：计划**正在等待用户审批**，此时 `status` 保持 `running`
+   * （步骤未失败、计划未终态化）。
+   *
+   * 为什么用布尔而不是新增 status 取值：`paused` 属已登记的状态词汇，新增出现点要走
+   * Register-or-Fail（`lint:state-ratchet`）；而这里表达的是"running 的一个子态"，
+   * 用布尔可与 LRO 的 `stage_awaiting_approval` 相位并行、互不覆盖。
+   */
+  paused?: boolean;
   /** 所属工作空间（项目）ID，用于项目编排面板隔离；无项目归属时省略 */
   workspaceId?: string;
   /**
@@ -661,6 +670,8 @@ export class TaskOrchestrator implements ISnapshotCapable {
 
     step.status = 'running';
     plan.status = 'running';
+    // 2026-11-13：重新执行 ⇒ 清除"等待审批"子态（恢复后不得继续挂着暂停标记）
+    if (plan.paused) plan.paused = false;
 
     const task = taskRegistry.getTask(step.taskId);
     if (task && task instanceof NoteTask) {
@@ -795,6 +806,30 @@ export class TaskOrchestrator implements ISnapshotCapable {
   }
 
   /**
+   * 2026-11-13（PDL 暂停态）：把计划标记为「等待用户审批」。
+   *
+   * 与 LRO 的 `suspendPlanForApproval` 同语义：**不**把步骤判失败、**不**终态化计划，
+   * 只置 `plan.paused` 并在步骤上留一条可见原因；真实执行状态仍为 running。
+   *
+   * 为什么不做成新的 status/step 状态：见 `Plan.paused` 的注释（状态词汇 Register-or-Fail）。
+   */
+  markPlanAwaitingApproval(
+    stepId: string,
+    reason: string
+  ): PlanStep | undefined {
+    const plan = this.getPlanByStepId(stepId);
+    if (!plan) return undefined;
+    const step = plan.steps.find((s) => s.id === stepId);
+    if (!step) return undefined;
+    plan.paused = true;
+    plan.status = 'running';
+    step.result = reason;
+    this.savePlan(plan);
+    this.emitPlanProgress(plan);
+    return step;
+  }
+
+  /**
    * 标记步骤为已取消（BUG-3 修复，2026-08-23）：用户主动中止时终态化当前步骤，
    * 区别于 failed（异常中止）。幂等：已终态步骤不重复处理。
    */
@@ -853,6 +888,8 @@ export class TaskOrchestrator implements ISnapshotCapable {
    * @returns 所有步骤是否已到达终态（供调用方决定是否发 `PLAN_COMPLETED`）
    */
   private _settlePlanFinalStatus(plan: Plan): boolean {
+    // 2026-11-13：等待审批期间**不得**终态化 —— 否则"等用户批准"会被渲染成"已结束"
+    if (plan.paused) return false;
     const settled = plan.steps.every(
       (s) =>
         s.status === 'completed' ||

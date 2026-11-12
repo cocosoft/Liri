@@ -58,6 +58,18 @@ const SERVICE_PACKAGE_SRC = process.env['SERVICE_PACKAGE_SRC']
   : join(REPO_ROOT, 'packages', 'service', 'src');
 /** service 包可依赖 service / infra / core；entry/ui/app 为倒挂 */
 const SERVICE_FORBIDDEN_TARGET_LAYERS = new Set(['entry', 'ui', 'app']);
+/**
+ * P1（2026-11-12）：sandbox 物理包根（R9 扫描面）。
+ *
+ * 沙箱**层归属仍是 app**（`modules-to-layers.json`），但物理独立成包后
+ * `lint:arch` 的相对路径解析只在各自根内生效（`lint-architecture.ts` 相对导入分支），
+ * 因此"包内相对路径逃逸到 app/"这条必须由本门禁显式守（AR-3：不得因搬目录而失焦）。
+ */
+const SANDBOX_PACKAGE_SRC = process.env['SANDBOX_PACKAGE_SRC']
+  ? resolve(process.env['SANDBOX_PACKAGE_SRC'])
+  : join(REPO_ROOT, 'packages', 'sandbox', 'src');
+/** app 层包可依赖 app / service / infra / core；entry / ui 为倒挂 */
+const SANDBOX_FORBIDDEN_TARGET_LAYERS = new Set(['entry', 'ui']);
 const LAYERS_FILE = process.env['INFRA_LAYERS']
   ? resolve(process.env['INFRA_LAYERS'])
   : join(REPO_ROOT, 'scripts', 'modules-to-layers.json');
@@ -254,6 +266,15 @@ function main(): number {
     collect(SERVICE_PACKAGE_SRC, servicePackageFiles, SERVICE_PACKAGE_SRC);
   }
 
+  // R9 扫描面：sandbox 物理包（P1，2026-11-12；未建包时为空数组）
+  const sandboxPackageFiles: SourceFile[] = [];
+  if (
+    existsSync(SANDBOX_PACKAGE_SRC) &&
+    statSync(SANDBOX_PACKAGE_SRC).isDirectory()
+  ) {
+    collect(SANDBOX_PACKAGE_SRC, sandboxPackageFiles, SANDBOX_PACKAGE_SRC);
+  }
+
   const commonFiles = infraFiles.filter((f) => f.path.startsWith('common/'));
   const utilsFiles = infraFiles.filter((f) => f.path.startsWith('utils/'));
 
@@ -288,17 +309,27 @@ function main(): number {
       packageLayer: 'service',
       forbiddenLayers: SERVICE_FORBIDDEN_TARGET_LAYERS,
     }),
+    compareInfraPackageBoundary({
+      packageFiles: sandboxPackageFiles,
+      appFiles: allSrcFiles,
+      layerOf: layers,
+      rule: 'R9',
+      packageName: 'sandbox',
+      packageLayer: 'app',
+      forbiddenLayers: SANDBOX_FORBIDDEN_TARGET_LAYERS,
+    }),
     compareInfraCycles(
       findInfraCycleMembers(buildInfraEdges(infraFiles), infraModules),
       loadCycleBaseline()
     ),
   ];
 
-  console.log('=== infra 层边界契约门禁（R1–R8）===');
+  console.log('=== infra 层边界契约门禁（R1–R9）===');
   console.log(
     `infra 模块 ${infraModules.length} 个（无目录 ${missing.length}）· 生产源文件 ${infraFiles.length} 个` +
       ` · common ${commonFiles.length} / utils ${utilsFiles.length}` +
-      ` · infra 包 ${packageFiles.length} 个文件 · service 包 ${servicePackageFiles.length} 个文件`
+      ` · infra 包 ${packageFiles.length} 个文件 · service 包 ${servicePackageFiles.length} 个文件` +
+      ` · sandbox 包 ${sandboxPackageFiles.length} 个文件`
   );
   console.log('----------------------------------------');
 
@@ -318,7 +349,7 @@ function main(): number {
     );
     return 1;
   }
-  console.log('\n✅ 合规（R1–R8 无未登记违规）');
+  console.log('\n✅ 合规（R1–R9 无未登记违规）');
   return 0;
 }
 

@@ -3,9 +3,14 @@
  * 测试沙箱约束和安全检查功能
  */
 
-import { SandboxManager } from '../SandboxManager';
-import { checkDangerousCommand } from '../utils/DangerousCommandChecker';
-import { validatePathSafety, checkPathAccess } from '../utils/PathRestrictions';
+import { beforeEach, describe, expect, it } from 'bun:test';
+
+import { SandboxManager } from '@modules/sandbox/SandboxManager';
+import { checkDangerousCommand } from '@modules/sandbox/utils/DangerousCommandChecker';
+import {
+  validatePathSafety,
+  checkPathAccess,
+} from '@modules/sandbox/utils/PathRestrictions';
 
 describe('Sandbox Module Tests', () => {
   let sandboxManager: SandboxManager;

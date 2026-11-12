@@ -3097,8 +3097,8 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#0","i":0,"c":"app/src/ai/embedding/providers/LocalEmbeddingProvider.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#1","i":0,"c":"app/src/ai/providers/SpeedTestService.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#2","i":0,"c":"app/src/evals/adversarialProposer.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#3","i":0,"c":"app/src/sandbox/utils/TimeoutController.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#4","i":0,"c":"app/src/sandbox/SandboxManager.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#3","i":0,"c":"packages/sandbox/src/sandbox/utils/TimeoutController.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#4","i":0,"c":"packages/sandbox/src/sandbox/SandboxManager.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#5","i":0,"c":"app/src/session/lock/PrioritySessionLock.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#6","i":0,"c":"packages/service/src/services/mcp/transports/StreamableHttpTransport.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#7","i":0,"c":"app/src/tools/CodeRunner/CrossPlatformRunner.ts"}
@@ -5835,7 +5835,7 @@
 {"id":"A2A-SIDECAR-KILL-TREE","k":"source","i":0,"c":"dev_docs/20261010/A2A-MCP网关进程级侧车隔离-设计方案-20261010.md §8.7 边界①"}
 {"id":"A2A-SIDECAR-KILL-TREE","k":"notes","i":0,"c":"killProcessTree 实现下沉 utils（infra），sandbox 侧保留再导出；stop/超时/版本不兼容均走 killTree（可注入）。"}
 {"id":"A2A-SIDECAR-KILL-TREE","k":"code#0","i":0,"c":"packages/infra/src/utils/killProcessTree.ts"}
-{"id":"A2A-SIDECAR-KILL-TREE","k":"code#1","i":0,"c":"app/src/sandbox/utils/killProcessTree.ts"}
+{"id":"A2A-SIDECAR-KILL-TREE","k":"code#1","i":0,"c":"packages/sandbox/src/sandbox/utils/killProcessTree.ts"}
 {"id":"A2A-SIDECAR-KILL-TREE","k":"code#2","i":0,"c":"app/src/infrastructure/http/a2a/DiscoverySidecarSupervisor.ts"}
 {"id":"A2A-SIDECAR-KILL-TREE","k":"tests#0","i":0,"c":"app/tests/infrastructure/http/a2a/discoverySidecarSupervisor.test.ts"}
 {"id":"STREAM-API-MESSAGES-BUILD","k":"title","i":0,"c":"U-18/P2-1o：apiMessages 构建段外移为内层 async generator"}
@@ -5983,9 +5983,9 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-82","k":"title","i":0,"c":"U-20/B5-2-82：LSM 路径 / 沙箱退出码 / 批测清单按域命名"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-82","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-82","k":"notes","i":0,"c":"LSM 路径分属 landlock 探测与 bash 缺口提示 ⇒ KERNEL_LSM_LIST_PATH；exit 125 收敛到 landlock/types（单一事实源）；v2/v3 批测脚本各带版本前缀；基线 156→153。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-82","k":"code#0","i":0,"c":"app/src/sandbox/landlock/types.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-82","k":"code#1","i":0,"c":"app/src/sandbox/landlock/LandlockDetector.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-82","k":"code#2","i":0,"c":"app/src/sandbox/landlock/runWithLandlock.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-82","k":"code#0","i":0,"c":"packages/sandbox/src/sandbox/landlock/types.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-82","k":"code#1","i":0,"c":"packages/sandbox/src/sandbox/landlock/LandlockDetector.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-82","k":"code#2","i":0,"c":"packages/sandbox/src/sandbox/landlock/runWithLandlock.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-82","k":"code#3","i":0,"c":"app/src/tools/bash/bashLandlockGap.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-82","k":"code#4","i":0,"c":"app/src/scripts/batch-test-v2.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-82","k":"code#5","i":0,"c":"app/src/scripts/batch-test-v3.ts"}
@@ -6419,12 +6419,12 @@
 {"id":"PLUGIN-CONFIG-API","k":"changelog#0","i":0,"c":"插件配置接活：注册 /plugin-settings + GET/PUT /v1/plugins/:id/config（失败 400 不落盘）"}
 {"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"reopenWhen","i":0,"c":"读白名单/网络收紧待 macOS 实机灰度数据；Windows 兜底另立专项（AppContainer/JobObject）"}
 {"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"code#0","i":0,"c":".trae/specs/macos-sandbox-exec.md"}
-{"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"code#1","i":0,"c":"app/src/sandbox/darwin/MacOSSandboxDetector.ts"}
-{"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"code#2","i":0,"c":"app/src/sandbox/darwin/MacOSSandboxPolicy.ts"}
-{"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"code#3","i":0,"c":"app/src/sandbox/darwin/runWithSandboxExec.ts"}
-{"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"code#4","i":0,"c":"app/src/sandbox/darwin/index.ts"}
-{"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"code#5","i":0,"c":"app/src/sandbox/index.ts"}
-{"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"code#6","i":0,"c":"app/src/sandbox/landlock/config.ts"}
+{"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"code#1","i":0,"c":"packages/sandbox/src/sandbox/darwin/MacOSSandboxDetector.ts"}
+{"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"code#2","i":0,"c":"packages/sandbox/src/sandbox/darwin/MacOSSandboxPolicy.ts"}
+{"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"code#3","i":0,"c":"packages/sandbox/src/sandbox/darwin/runWithSandboxExec.ts"}
+{"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"code#4","i":0,"c":"packages/sandbox/src/sandbox/darwin/index.ts"}
+{"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"code#5","i":0,"c":"packages/sandbox/src/sandbox/index.ts"}
+{"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"code#6","i":0,"c":"packages/sandbox/src/sandbox/landlock/config.ts"}
 {"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"code#7","i":0,"c":"app/src/tools/bash/bashLandlockExec.ts"}
 {"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"code#8","i":0,"c":"app/src/tools/CodeRunner/MacOSSandboxRunner.ts"}
 {"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"code#9","i":0,"c":"app/src/tools/CodeRunner/LinuxSandboxRunner.ts"}
@@ -6442,14 +6442,14 @@
 {"id":"MACOS-SANDBOX-SELFCHECK","k":"changelog#0","i":0,"c":"新增 bun run verify:sandbox-macos：4 条断言自证 macOS 写隔离（无需人工敲命令）"}
 {"id":"WINDOWS-SANDBOX-LOW-IL","k":"reopenWhen","i":0,"c":"若要沙箱化 bash：需给用户仓库打 ACL/标签（污染风险）或改 AppContainer ⇒ 另立专项"}
 {"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#0","i":0,"c":".trae/specs/windows-sandbox.md"}
-{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#1","i":0,"c":"app/src/sandbox/win/native/win_sandbox_run.c"}
-{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#2","i":0,"c":"app/src/sandbox/win/helperPaths.ts"}
-{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#3","i":0,"c":"app/src/sandbox/win/WindowsSandboxDetector.ts"}
-{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#4","i":0,"c":"app/src/sandbox/win/runWithWinSandbox.ts"}
-{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#5","i":0,"c":"app/src/sandbox/win/index.ts"}
-{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#6","i":0,"c":"app/src/sandbox/helperBinDir.ts"}
-{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#7","i":0,"c":"app/src/sandbox/landlock/helperPaths.ts"}
-{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#8","i":0,"c":"app/src/sandbox/index.ts"}
+{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#1","i":0,"c":"packages/sandbox/src/sandbox/win/native/win_sandbox_run.c"}
+{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#2","i":0,"c":"packages/sandbox/src/sandbox/win/helperPaths.ts"}
+{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#3","i":0,"c":"packages/sandbox/src/sandbox/win/WindowsSandboxDetector.ts"}
+{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#4","i":0,"c":"packages/sandbox/src/sandbox/win/runWithWinSandbox.ts"}
+{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#5","i":0,"c":"packages/sandbox/src/sandbox/win/index.ts"}
+{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#6","i":0,"c":"packages/sandbox/src/sandbox/helperBinDir.ts"}
+{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#7","i":0,"c":"packages/sandbox/src/sandbox/landlock/helperPaths.ts"}
+{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#8","i":0,"c":"packages/sandbox/src/sandbox/index.ts"}
 {"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#9","i":0,"c":"app/src/tools/CodeRunner/WindowsSandboxRunner.ts"}
 {"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#10","i":0,"c":"app/src/tools/CodeRunner/LinuxSandboxRunner.ts"}
 {"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#11","i":0,"c":"app/scripts/build-win-sandbox.ts"}
@@ -6737,9 +6737,9 @@
 {"id":"SANDBOX-PERMISSION-HOT-RELOAD","k":"reopenWhen","i":0,"c":"再现改级别后需重启才生效"}
 {"id":"SANDBOX-PERMISSION-HOT-RELOAD","k":"notes","i":0,"c":"级别→权限位映射上提到 permissionLevel（单一事实源）；WorkspaceBase 增 updateAllowedPermissions；PUT handler 经 SPI refreshDefaultWorkspacePermissions 刷新（无工作区⇒false 不建）"}
 {"id":"SANDBOX-PERMISSION-HOT-RELOAD","k":"code#0","i":0,"c":"packages/kernel/src/core/spi/SandboxService.ts"}
-{"id":"SANDBOX-PERMISSION-HOT-RELOAD","k":"code#1","i":0,"c":"app/src/sandbox/permissionLevel.ts"}
-{"id":"SANDBOX-PERMISSION-HOT-RELOAD","k":"code#2","i":0,"c":"app/src/sandbox/WorkspaceBase.ts"}
-{"id":"SANDBOX-PERMISSION-HOT-RELOAD","k":"code#3","i":0,"c":"app/src/sandbox/scopedDefaultWorkspace.ts"}
+{"id":"SANDBOX-PERMISSION-HOT-RELOAD","k":"code#1","i":0,"c":"packages/sandbox/src/sandbox/permissionLevel.ts"}
+{"id":"SANDBOX-PERMISSION-HOT-RELOAD","k":"code#2","i":0,"c":"packages/sandbox/src/sandbox/WorkspaceBase.ts"}
+{"id":"SANDBOX-PERMISSION-HOT-RELOAD","k":"code#3","i":0,"c":"packages/sandbox/src/sandbox/scopedDefaultWorkspace.ts"}
 {"id":"SANDBOX-PERMISSION-HOT-RELOAD","k":"code#4","i":0,"c":"app/src/entrypoints/spiWiring.ts"}
 {"id":"SANDBOX-PERMISSION-HOT-RELOAD","k":"code#5","i":0,"c":"app/src/infrastructure/http/handlers/sandbox-handlers.ts"}
 {"id":"SANDBOX-PERMISSION-HOT-RELOAD","k":"tests#0","i":0,"c":"app/tests/sandbox/permissionRefresh.test.ts"}

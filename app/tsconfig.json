@@ -241,8 +241,8 @@
       "@openliri/infra/permission/*": ["../../packages/infra/src/permission/*"],
       "@modules/commands": ["commands"],
       "@modules/commands/*": ["commands/*"],
-      "@modules/sandbox": ["sandbox"],
-      "@modules/sandbox/*": ["sandbox/*"],
+      "@modules/sandbox": ["../../packages/sandbox/src/sandbox/index.ts"],
+      "@modules/sandbox/*": ["../../packages/sandbox/src/sandbox/*"],
       "@modules/vfs": ["vfs"],
       "@modules/vfs/*": ["vfs/*"],
       "@openliri/service/services/*": [
@@ -390,6 +390,22 @@
       "@shared/*": ["../../shared/*"]
     }
   },
-  "include": ["src/**/*", "tests/**/*", "../packages/kernel/src/**/*"],
-  "exclude": ["node_modules", "dist", "packages", "src/**/__tests__", "src/**/tests", "src/**/*.test.ts", "src/**/*.test.tsx", "src/**/*ModuleTest.ts"]
+  "include": [
+    "src/**/*",
+    "tests/**/*",
+    "../packages/kernel/src/**/*",
+    "../packages/sandbox/src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "packages",
+    "src/**/__tests__",
+    "src/**/tests",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/*ModuleTest.ts",
+    "../packages/sandbox/src/**/tests",
+    "../packages/sandbox/src/**/*.test.ts"
+  ]
 }

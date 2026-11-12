@@ -525,7 +525,7 @@
       "packages/infra/src/error/safeLog.ts"
     ],
     "sandbox\\WorkspaceManager": [
-      "app/src/sandbox/WorkspaceManager.ts"
+      "packages/sandbox/src/sandbox/WorkspaceManager.ts"
     ],
     "security-scan": [
       "app/src/scripts/security-scan.ts"

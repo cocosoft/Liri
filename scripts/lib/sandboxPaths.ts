@@ -15,11 +15,11 @@
 import { join } from 'node:path';
 
 /** 沙箱模块的仓库相对路径（POSIX 分隔，供以路径为键的台账/豁免表使用） */
-export const SANDBOX_SRC_REL = 'app/src/sandbox';
+export const SANDBOX_SRC_REL = 'packages/sandbox/src/sandbox';
 
 /** 沙箱源码目录（绝对路径） */
 export function sandboxSrcDir(projectDir: string): string {
-  return join(projectDir, 'app', 'src', 'sandbox');
+  return join(projectDir, 'packages', 'sandbox', 'src', 'sandbox');
 }
 
 /** 沙箱内的文件或目录（绝对路径）；`segments` 为沙箱目录内的相对片段 */

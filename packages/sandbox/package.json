@@ -1,0 +1,20 @@
+{
+  "name": "@openliri/sandbox",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liri 沙箱包 —— 沙箱执行后端（landlock / win / darwin / docker / ssh / pty）与工作区隔离。层归属仍为 app：仅 app / entry 可静态依赖；infra / service 经内核端口 ISandboxPort 消费。",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/sandbox/index.ts",
+      "import": "./src/sandbox/index.ts"
+    },
+    "./*": {
+      "types": "./src/sandbox/*.ts",
+      "import": "./src/sandbox/*.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p tsconfig.json"
+  }
+}

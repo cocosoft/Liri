@@ -123,6 +123,11 @@ export default function TaskCard({ data }: TaskCardProps) {
                 : t("chat.taskEnded", "已结束")}
             </span>
           )}
+          {status === "paused" && (
+            <span className="text-xs px-2 py-0.5 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-full">
+              {t("chat.taskPaused", "⏸ 等待审批（需要你的反馈）")}
+            </span>
+          )}
           {isExecuting && (
             <span className="text-xs px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full">
               {t("chat.taskProgressCompleted", {

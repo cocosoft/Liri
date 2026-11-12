@@ -668,7 +668,7 @@ function handleEvent(
         action: "write" | "update";
         taskCard?: {
           title: string;
-          status: "planning" | "executing" | "done";
+          status: "planning" | "executing" | "done" | "paused";
           tasks: Array<{
             id: string;
             name: string;

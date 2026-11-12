@@ -87,4 +87,18 @@ describe('P0-5 任务终态回执', () => {
     expect(text).toContain('2 阶段因依赖阻断未执行');
     expect(text).toContain('编排面板确认');
   });
+
+  it('等**工具**审批 ⇒ 指向审批卡片（不得让用户去编排面板找入口）', () => {
+    const text = formatPdcaTerminalNotice({
+      awaitingApproval: true,
+      approvalSource: 'tool',
+      completed: 1,
+      total: 3,
+    });
+    expect(text).toContain('⏸');
+    expect(text).toContain('工具审批');
+    expect(text).toContain('审批卡片');
+    expect(text).toContain('1/3 步完成');
+    expect(text).not.toContain('编排面板确认');
+  });
 });

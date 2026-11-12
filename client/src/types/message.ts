@@ -177,7 +177,11 @@ export interface CodeRunBlockData {
 export interface TaskCardData {
   title: string;
   tasks: TaskCardTask[];
-  status: "planning" | "executing" | "done";
+  /**
+   * 2026-11-13：`paused` = 任务停在**等待用户审批**（既非执行中、也非已结束）。
+   * 后端 Plan.paused / checkpoint 相位 `stage_awaiting_approval` 映射到此。
+   */
+  status: "planning" | "executing" | "done" | "paused";
   /** P2（08-09）：关联的 PlanDrivenLoop planId，用于 SSE 实时更新 */
   planId?: string;
 }

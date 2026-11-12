@@ -78,6 +78,13 @@ export interface StepResult {
   state: StepState;
   output: string;
   error?: string;
+  /**
+   * 2026-11-13（PDL 暂停态）：本步**停在等待工具审批**（不是失败）。
+   *
+   * 保留 `state='failed'` 以兼容既有呈现，但计数与文案一律按"暂停"处理
+   * （`_buildResult` 不把它计入 failedSteps）。
+   */
+  paused?: boolean;
   /** P1-3（2026-09-06）：失败路线保留——终败前已产出片段（供 P0-2 重试/终局综合引用） */
   partialOutput?: string;
   durationMs: number;
@@ -249,6 +256,13 @@ export interface PlanDrivenLoopResult {
   aborted?: boolean;
   /** run 级 token 预算耗尽（成本护栏中止；上游按 failed 收尾而非 completed） */
   budgetExhausted?: boolean;
+  /**
+   * 2026-11-13：**停在等待工具审批**（不是失败、也不是完成）。
+   *
+   * 上游据此写"暂停"回执/检查点相位（`stage_awaiting_approval`），而不是把
+   * "等用户批准"粉饰成"任务已结束"（会话 `session_mwdcivrue74d4838ff` 的用户可见问题）。
+   */
+  pausedForApproval?: boolean;
   /** 总耗时 ms */
   totalDurationMs: number;
   /** 总 token 数 */
@@ -451,6 +465,8 @@ export class PlanDrivenLoop {
   private budgetExhausted: boolean = false;
   /** 2026-11-02：连续自述"受阻"的步数（达 `MAX_CONSECUTIVE_BLOCKED_STEPS` ⇒ 熔断剩余步骤） */
   private _consecutiveBlockedSteps: number = 0;
+  /** 2026-11-13：本次 run 是否因"工具等待审批"暂停（不终态化、不熔断剩余步骤） */
+  private pausedForApproval: boolean = false;
   /**
    * P2-2（2026-11-06）：本次 run 的**完整任务源**（用户原话 + 助手计划正文）。
    *
@@ -791,11 +807,14 @@ export class PlanDrivenLoop {
     // TAOR 现在遇到"工具已提交审批"即收尾（不再空转到 maxTurns）⇒ 若仍按 completed
     // 播报，会把"等用户批准"粉饰成"任务完成"（CS06）。批准后由 resumeStream 续跑。
     if (result.terminationReason === 'awaiting_approval') {
+      // 2026-11-13：不把"等用户批准"当失败 —— 记暂停态（上游据此写暂停回执/相位）
+      this.pausedForApproval = true;
       return this._buildResult(false, [
         {
           stepId: 'direct',
           description: userMessage.slice(0, 100),
           state: 'failed',
+          paused: true,
           output: '',
           error: '等待工具审批：批准后会自动续跑（本轮不计完成）',
           durationMs: Date.now() - this.startTime,
@@ -986,6 +1005,8 @@ export class PlanDrivenLoop {
     }
     for (const batch of topoBatches) {
       if (this.aborted) break;
+      // 2026-11-13：有步骤在等用户审批 ⇒ 不再开新批次（与 LRO 的 batch 短路同口径）
+      if (this.pausedForApproval) break;
       // 2026-11-02：连续自述受阻达阈值 ⇒ 不再开新批次（熔断；剩余步下面统一置 cancelled）
       if (this._consecutiveBlockedSteps >= MAX_CONSECUTIVE_BLOCKED_STEPS) {
         cascadeAborted = true;
@@ -1089,6 +1110,8 @@ export class PlanDrivenLoop {
             depStatusById
           );
           depStatusById.set(r.task.id, st);
+          // 2026-11-13：串行批次内出现"等待审批" ⇒ 不再继续本批剩余步骤
+          if (this.pausedForApproval) break;
         }
       }
     }
@@ -1147,6 +1170,8 @@ export class PlanDrivenLoop {
       this._emitSSE('plan:completed', {
         planId: this.plan.id,
         sessionId: this.sessionId,
+        // 2026-11-13：暂停态 ⇒ 前端渲染"等待审批"而不是"已结束"
+        paused: this.pausedForApproval,
         progress: progress
           ? {
               total: progress.total,
@@ -1347,6 +1372,38 @@ export class PlanDrivenLoop {
             verdict.verdict === STEP_VERDICT_BLOCKED ||
             verdict.verdict === STEP_VERDICT_PARTIAL
           ) {
+            // 2026-11-13（暂停态，会话 `session_mwdcivrue74d4838ff`）：工具在等用户审批
+            // **不是**"本步失败" —— 不得 markStepFailed（那会让计划终态化 + 熔断后续批次），
+            // 也不得递增连续受阻计数（否则用户批准两次后剩余步骤被 STEP_CASCADE_BLOCKED 取消）。
+            if (pausedForApproval) {
+              this.pausedForApproval = true;
+              taskOrchestrator.markPlanAwaitingApproval(
+                stepId,
+                '⏸ 等待工具审批：批准后会自动续跑（未失败，剩余步骤未执行）'
+              );
+              stepOutputs.set(stepId, stepText);
+              this.totalTokens += result.totalTokens;
+              this.stepResults.push({
+                stepId,
+                description: task.description,
+                state: 'failed',
+                paused: true,
+                output: stepText.slice(0, 2000),
+                error: verdictNote,
+                partialOutput: stepText.slice(0, 2000) || undefined,
+                durationMs: duration,
+                turnCount: result.turnCount,
+                tokenCount: result.totalTokens,
+              });
+              this._notifyProgress();
+              logger.warn('步骤停在等待工具审批（不计失败、不熔断后续批次）', {
+                sessionId: this.sessionId,
+                planId: this.plan?.id,
+                stepId,
+                turnCount: result.turnCount,
+              });
+              return 'skipped';
+            }
             // 目标未达成 ⇒ 记 failed（不计完成）。不重试：缺信息/需人决策重跑同一 prompt
             // 不会改变结论，重试只会放大空转（会话导出实证：同一空转 × 5 步）。
             const failureText = degradedNote
@@ -1708,7 +1765,10 @@ export class PlanDrivenLoop {
     blockedSteps: readonly BlockedStepInfo[] = []
   ): PlanDrivenLoopResult {
     const completed = stepResults.filter((r) => r.state === 'completed').length;
-    const failed = stepResults.filter((r) => r.state === 'failed').length;
+    // 2026-11-13：等待审批的步骤不算失败（否则回执/汇总会把"等用户批"粉饰成未达成）
+    const failed = stepResults.filter(
+      (r) => r.state === 'failed' && r.paused !== true
+    ).length;
     const blocked = blockedSteps.length;
     // 2026-11-02：因"连续受阻熔断"**未执行**的步骤（既不在 stepResults，也不在依赖阻断明细）
     const cascadeSkipped = Math.max(
@@ -1717,7 +1777,10 @@ export class PlanDrivenLoop {
     );
 
     let summary: string;
-    if (decomposed) {
+    if (this.pausedForApproval) {
+      // 用户可见口径：暂停 ≠ 失败 ≠ 完成（会话 `session_mwdcivrue74d4838ff`）
+      summary = `任务暂停：等待工具审批（${completed}/${totalSteps} 步完成；批准后自动续跑，剩余步骤未执行）`;
+    } else if (decomposed) {
       // 轮数/总 token 等内部指标不进入 summary（用户可见），仅留在 StepResult 字段与日志
       // 13-P1-1 Step 2（2026-10-06）：分母改用**真实子任务数**——被阻断步骤不进 stepResults，
       // 原 `stepResults.length` 会把"2/4 被阻断"粉饰成"2/2 步骤成功"（CS06：不粉饰）。
@@ -1754,6 +1817,7 @@ export class PlanDrivenLoop {
       blockedSteps: [...blockedSteps],
       aborted: this.aborted,
       budgetExhausted: this.budgetExhausted,
+      pausedForApproval: this.pausedForApproval,
       totalDurationMs: Date.now() - this.startTime,
       totalTokens: this.totalTokens,
       stepResults,

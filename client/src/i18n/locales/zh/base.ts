@@ -795,6 +795,7 @@ const zhBase = {
     allCompleted: "全部完成",
     taskEnded: "已结束",
     taskEndedWithFailed: "已结束（{{count}} 失败）",
+    taskPaused: "⏸ 等待审批（需要你的反馈）",
     taskWaitingDeps: "等待: {{names}}",
     taskViewGraph: "查看依赖关系图（{{nodes}} 个节点, {{edges}} 条边）",
     taskPending: "等待中",

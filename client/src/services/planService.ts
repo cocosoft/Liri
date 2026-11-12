@@ -11,6 +11,8 @@ export interface Plan {
   id: string;
   description: string;
   status: "pending" | "running" | "completed" | "failed" | "aborted";
+  /** 2026-11-13：计划正在等待用户审批（status 仍为 running；见后端 Plan.paused） */
+  paused?: boolean;
   steps: PlanStep[];
   createdAt?: number;
 }

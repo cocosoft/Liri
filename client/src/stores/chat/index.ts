@@ -239,14 +239,17 @@ sseService.on("plan:completed", (data: Record<string, unknown>) => {
   if (!sessionMatch) return;
 
   const planId = data.planId as string;
+  // 2026-11-13：暂停态（等待工具审批）不得渲染成"已结束"
+  const paused = data.paused === true;
+  const finalStatus: TaskCardData["status"] = paused ? "paused" : "done";
   const store = usePlanTaskStore.getState();
   const current = store.tasks[planId];
   // F8（2026-08-25）：planTaskStore 缺失条目（SSE 断连窗口）时不再直接 return——
   // 回退扫描消息块按 planId 置 done，避免任务卡永久"执行中"
   const finalCard: TaskCardData =
     current === undefined
-      ? { planId, status: "done", title: "", tasks: [] }
-      : { ...current, status: "done" };
+      ? { planId, status: finalStatus, title: "", tasks: [] }
+      : { ...current, status: finalStatus };
   if (current) {
     store.upsert(planId, finalCard);
   }

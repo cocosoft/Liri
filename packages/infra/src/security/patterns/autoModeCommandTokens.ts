@@ -207,6 +207,14 @@ const STRUCTURAL_HARD_DENY_TOKENS = [
   // 2026-11-12（P0 · 执行体/注册类补齐，实测此前全为 ALLOW）：
   // cmd 内建 `start`、提权 `runas`、DLL/MSI 加载、内存编译、模块导入、全权限运行时
   '[reflection.assembly]::load',
+  // 2026-11-12（P6-3 绕过面复查，实测此前均为 ask）：
+  // .NET 起进程 / 写文件、WMI 方法调用、清日志、Windows Python 启动器、node 长写 -e
+  '[system.diagnostics.process]::start',
+  '[io.file]::writealltext',
+  'invoke-wmimethod',
+  'wevtutil cl',
+  'py -c',
+  'node --eval',
   'systemctl start',
   'systemctl stop',
   'systemctl restart',

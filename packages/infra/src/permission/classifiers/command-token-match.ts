@@ -20,7 +20,7 @@
 
 /** 可跳过继续扫描的外壳命令（`sudo rm -rf /` 仍要命中 `rm -rf`） */
 const WRAPPER_WORDS =
-  'sudo|doas|env|nohup|nice|ionice|time|stdbuf|xargs|exec|command';
+  'sudo|doas|env|nohup|nice|ionice|time|stdbuf|xargs|exec|command|busybox';
 
 /**
  * 嵌套 shell：命令体本身就是一段脚本（`bash -c "…"` / `powershell -Command "…"` /
@@ -190,9 +190,18 @@ export function containsCommandToken(
   const variants = [normalized];
   const deEscaped = deEscape(normalized);
   if (deEscaped !== normalized) variants.push(deEscaped);
+  // 2026-11-12（P6-3）：解释器名带版本号（`python3.11 -c`）归一为基名后再判；
+  // 否则换个版本号就绕过 `python -c` / `node -e`。
+  const deVersioned = deVersionSuffix(normalized);
+  if (!variants.includes(deVersioned)) variants.push(deVersioned);
   return variants.some((variant) =>
     matchesAnchoredToken(variant, trimmed, depth)
   );
+}
+
+/** 解释器名带版本号归一为基名（`python3` / `python3.11` ⇒ `python`） */
+function deVersionSuffix(text: string): string {
+  return text.replace(/\b(python|node|ruby|perl|php)\d+(?:\.\d+)*\b/gi, '$1');
 }
 
 /** 在**一个**命令面上做命令位锚定匹配（含嵌套 shell 递归） */

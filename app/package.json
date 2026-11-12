@@ -121,6 +121,7 @@
     "lint:gate-parity": "PYAPP_PROJECT_DIR=.. bun run ../scripts/lint-gate-parity.ts",
     "lint:permission-single-source": "PYAPP_PROJECT_DIR=.. bun run ../scripts/lint-permission-single-source.ts",
     "lint:command-coverage": "bun run scripts/lint-command-coverage.ts",
+    "lint:policy-drift": "bun run scripts/lint-policy-drift.ts",
     "stats:unknown-commands": "bun run scripts/report-unknown-commands.ts",
     "migrate:permission-rules": "bun run scripts/migrate-permission-rules.ts",
     "stats:demand": "bun run scripts/report-demand-convergence.ts",

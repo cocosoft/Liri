@@ -237,6 +237,20 @@ export const COMMAND_SPECS: readonly CommandSpec[] = [
   },
   { token: 'invoke-expression', equivalents: ['iex'], kind: 'exec', tier: 'deny' },
   { token: 'start-process', equivalents: ['saps'], kind: 'exec', tier: 'deny' },
+  // ── 硬拦档：P5-1 与沙箱危险清单对齐（2026-11-12） ───────────────────────
+  // 背景：这些命令沙箱层 `DangerousCommandChecker` 早已 deny，而 auto 档此前只落到
+  // 「未知 ⇒ ask」⇒ 同一命令两套档位（漂移审计 §13）。按**系统级不可逆**统一为 deny。
+  { token: 'killall', kind: 'proc', tier: 'deny' },
+  { token: 'mount', kind: 'priv', tier: 'deny' },
+  { token: 'umount', kind: 'priv', tier: 'deny' },
+  { token: 'swapon', kind: 'priv', tier: 'deny' },
+  { token: 'swapoff', kind: 'priv', tier: 'deny' },
+  { token: 'chroot', kind: 'priv', tier: 'deny' },
+  { token: 'iptables', kind: 'priv', tier: 'deny' },
+  { token: 'ip6tables', kind: 'priv', tier: 'deny' },
+  { token: 'init', kind: 'service', tier: 'deny' },
+  { token: 'su', kind: 'priv', tier: 'deny' },
+
   // ── 硬拦档：P1b 从 autoModeCommandTokens.ts 迁入的单命令（2026-11-12） ──
   // 结构 / 参数 / 注入类令牌仍留在 `autoModeCommandTokens.ts`（无法用命令家族表达）。
   // 注：这批存量条目暂不声明 `kind`（P2 按 OperationKind 补齐），档位仍为 deny。

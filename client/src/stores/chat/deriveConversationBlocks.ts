@@ -195,11 +195,6 @@ export function deriveConversationBlocks(
   // 关闭最后一个未 flush 的 assistant
   flushCurrent(state);
 
-  // 2026-11-12：剥离「等待审批」收尾提示（审批处理完即不再显示；改由审批卡片在 pending 时提示）
-  for (let i = 0; i < state.messages.length; i++) {
-    state.messages[i] = stripStaleApprovalNotice(state.messages[i]);
-  }
-
   return state.messages;
 }
 
@@ -1244,12 +1239,16 @@ function flushCurrent(state: BuilderState): void {
       groupId: generateGroupId(),
     });
   }
-  state.messages.push(msg);
+  // 2026-11-12：剥离「等待审批」收尾提示（审批处理完即不再显示；改由审批卡片在 pending 时提示）。
+  // 放在**唯一 flush 出口**：全量派生与增量派生（IncrementalDeriver）共用本函数，
+  // 此前只在全量派生末尾剥 ⇒ 流式/续跑时先按未剥内容渲染一帧，出现"旧提示闪现"。
+  const finalMsg = stripStaleApprovalNotice(msg);
+  state.messages.push(finalMsg);
   state.current = null;
   // 2026-08-24 中断提示链路：记录最近 flush 的 assistant 消息，
   // 供 turn/end（当前已 flush 时）挂载 finishReason 兜底
-  if (msg.role === "assistant") {
-    state.lastAssistantMsg = msg;
+  if (finalMsg.role === "assistant") {
+    state.lastAssistantMsg = finalMsg;
   }
   state.toolCallSeqMap.clear();
 }

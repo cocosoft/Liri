@@ -22,6 +22,7 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import type { StreamChunk } from "@/services/chatService";
 import { EventBasedStreamAggregator } from "../EventBasedStreamAggregator";
+import { AWAITING_APPROVAL_NOTICE } from "@shared/types";
 
 const SID = "sid-stream-test";
 
@@ -54,6 +55,22 @@ describe("EventBasedStreamAggregator — M3-1", () => {
     expect(events[0].type).toBe("turn/start");
     expect(events[1].type).toBe("assistant/text");
     expect((events[1].data as { content: string }).content).toBe("你好");
+  });
+
+  it("审批等待收尾提示的 text chunk 被丢弃（2026-11-12：不再流式闪现）", () => {
+    agg.init([], SID);
+    // 服务端以独立 text 块下发（可能带前导换行）⇒ 整块命中即丢弃，连 turn/start 都不补
+    agg.appendChunk(chunk("text", `\n\n${AWAITING_APPROVAL_NOTICE}`));
+    expect(agg.getEvents()).toEqual([]);
+  });
+
+  it("负向对照：含该提示的更长正文照常写入（只丢整块命中）", () => {
+    agg.init([], SID);
+    agg.appendChunk(chunk("text", `${AWAITING_APPROVAL_NOTICE} 但这是更长的正文`));
+    const texts = agg
+      .getEvents()
+      .filter((e) => e.type === "assistant/text");
+    expect(texts).toHaveLength(1);
   });
 
   it("thinking chunk → assistant/thinking 事件", () => {

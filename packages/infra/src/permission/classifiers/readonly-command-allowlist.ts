@@ -182,6 +182,13 @@ function violatesArgumentGuards(
     );
   }
 
+  if (name === 'select-object') {
+    // P11：计算属性 `-Property @{N='x';E={…}}` 会执行脚本块。
+    return lowerArgs.some(
+      (arg) => arg.includes('@{') || arg.includes('expression=')
+    );
+  }
+
   return false;
 }
 
@@ -232,6 +239,12 @@ export function checkReadonlyCommand(
     .replace(/\s*2?>\s*(?:nul|\/dev\/null)\b/gi, '')
     .trim();
   if (!text) return { allowed: false, reason: 'Empty command' };
+
+  // P11（2026-11-12 真机验证）：PowerShell 属性投影段（`(...).version` / `.Prop.Sub`）
+  // 只是取属性，不执行任何命令；此前被当成"未知命令"转审批。
+  if (/^\.[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*$/.test(text)) {
+    return { allowed: true, reason: 'Property projection (no execution)' };
+  }
 
   if (SHELL_COMPOSITION.test(text)) {
     return { allowed: false, reason: 'Command contains shell operators' };

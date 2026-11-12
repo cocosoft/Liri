@@ -351,6 +351,29 @@ describe('P9：会话暴露的误杀修复（session_mwcyhmmpd44e93b602）', () 
   });
 });
 
+describe('P11：真机验证暴露的只读命令（不再弹审批）', () => {
+  it('解析 JSON / 属性投影 / 文本搜索 ⇒ allow', async () => {
+    for (const command of [
+      'findstr /n "version" app\\package.json',
+      'powershell -NoProfile -Command "(Get-Content \'app\\package.json\' -Raw | ConvertFrom-Json).version"',
+      'powershell -NoProfile -Command "Get-Content app\\package.json -Raw | ConvertFrom-Json | Select-Object version"',
+    ]) {
+      const { tier } = await verdict(command);
+      expect(tier, command).toBe('allow');
+    }
+  });
+
+  it('计算属性 / 脚本块仍不放行（负向对照）', async () => {
+    for (const command of [
+      'powershell -Command "Get-Content x | Select-Object -Property @{N=\'v\';E={1}}"',
+      'powershell -Command "Get-Content x | Measure-Object -Expression { 1 }"',
+    ]) {
+      const { tier } = await verdict(command);
+      expect(tier, command).not.toBe('allow');
+    }
+  });
+});
+
 describe('P5-3：SQL 规则只收真实注入特征', () => {
   it('只读查询不再被当成注入（可转审批，但不得硬拒）', async () => {
     const { tier } = await verdict('mysql -e "select 1"');

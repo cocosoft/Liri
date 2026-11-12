@@ -402,8 +402,14 @@ export const AUTO_MODE_READONLY_COMMANDS: ReadonlySet<string> = new Set([
   'test-path',
   'get-location',
   'select-string',
-  // P9-1（2026-11-12）：管道里最常见的统计 cmdlet；`-Expression` 脚本块由参数守卫拦
+  // P9-1（2026-11-12）：管道里最常见的统计 / 解析 cmdlet（均为纯只读）
   'measure-object',
+  'convertfrom-json',
+  'convertto-json',
+  // P11（2026-11-12 真机验证）：属性投影只读；计算属性（`@{…Expression={…}}`）由参数守卫拦
+  'select-object',
+  // P11（2026-11-12 真机验证）：文本搜索只读，此前落审批
+  'findstr',
   // P6-3（2026-11-12 绕过面复查）：进程列表是纯只读 cmdlet
   'get-process',
   'get-wmiobject',

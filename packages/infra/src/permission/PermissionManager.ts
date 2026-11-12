@@ -1220,15 +1220,19 @@ export class PermissionManager {
         module: 'permission:manager',
         action: 'classifier_check',
       });
-      // P0-3（2026-10-27，权限归一化）：分类器异常是**fail-open** —— 必须留痕，
-      // 否则"安全组件坏了 ⇒ 全部放行"在日志里看不出来。
-      logger.warn('权限分类器异常，按放行处理（fail-open）', {
-        reasonCode: 'classifier_fail_open',
+      // P8（2026-11-12）：分类器异常 ⇒ **fail-closed 到 ask**（可人工批准）。
+      // 此前是 fail-open（静默放行）：分类器真抛错时（如本轮遇到的 ReferenceError）
+      // 所有"需要判定"的命令会被直接放行 —— 比"未知命令 ⇒ ask"危险得多。
+      // 只读命令已在 §2.5 短路（`checkReadonlyCommand`），不经过本分支；
+      // 故本改动只影响"本来就要判定"的命令，坏一次不至于全面放行或全面阻断。
+      logger.warn('权限分类器异常，转人工审批（fail-closed）', {
+        reasonCode: 'classifier_fail_closed_ask',
         toolName,
         error: error instanceof Error ? error.message : String(error),
       });
-      // 分类器出错时，回退到允许
-      return createAllowDecision('Classifier error, default allowing');
+      return createAskDecision(
+        'Classifier unavailable, manual approval required'
+      );
     }
   }
 

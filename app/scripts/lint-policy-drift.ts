@@ -13,7 +13,10 @@ import { join } from 'node:path';
 import { AUTO_MODE_HARD_DENY_TOKENS } from '../../packages/infra/src/security/patterns/autoModeCommandTokens';
 import { expandTokenAliases } from '../../packages/infra/src/security/patterns/commandAliases';
 
-const SANDBOX_FILE = join(import.meta.dir, '..', 'src', 'sandbox', 'utils', 'DangerousCommandChecker.ts');
+/** 负向自证可注入路径（坏输入必须 exit 1，不得假绿） */
+const SANDBOX_FILE =
+  process.env['POLICY_DRIFT_SANDBOX_FILE'] ||
+  join(import.meta.dir, '..', 'src', 'sandbox', 'utils', 'DangerousCommandChecker.ts');
 
 let text = '';
 try {
@@ -33,10 +36,27 @@ const autoDeny = new Set(
 const sandboxCommands = new Set<string>();
 const blockStart = text.indexOf('DANGEROUS_PATTERNS');
 const blockEnd = blockStart >= 0 ? text.indexOf('\n];', blockStart) : -1;
-const block = blockStart >= 0 && blockEnd > blockStart ? text.slice(blockStart, blockEnd) : '';
-for (const match of block.matchAll(/'([^']+)'/g)) {
-  const token = match[1]!.trim().toLowerCase();
+const block =
+  blockStart >= 0 && blockEnd > blockStart ? text.slice(blockStart, blockEnd) : '';
+// AR-3：解析不到清单不得当成"0 差异"。常量被改名 / 改成对象数组 / 引号风格变化
+// 时，若继续走下面的空集合分支，会打印"✅ 已对齐"并以 0 退出（假绿）。
+if (!block) {
+  console.error(
+    `❌ 解析不到 DANGEROUS_PATTERNS 数组（${SANDBOX_FILE}）—— 结构变更即视为门禁失败，不得假绿`
+  );
+  process.exit(1);
+}
+for (const match of block.matchAll(/'([^']+)'|"([^"]+)"/g)) {
+  const token = (match[1] ?? match[2] ?? '').trim().toLowerCase();
   if (/^[a-z][a-z0-9_-]*$/.test(token)) sandboxCommands.add(token);
+}
+// 清单异常小（当前 33 条）说明抽取口径已失效，同样不得当成"已对齐"。
+const SANDBOX_MIN_TOKENS = 10;
+if (sandboxCommands.size < SANDBOX_MIN_TOKENS) {
+  console.error(
+    `❌ 沙箱清单只抽到 ${sandboxCommands.size} 条（下限 ${SANDBOX_MIN_TOKENS}）—— 抽取口径可能失效`
+  );
+  process.exit(1);
 }
 
 const sandboxOnly = [...sandboxCommands]

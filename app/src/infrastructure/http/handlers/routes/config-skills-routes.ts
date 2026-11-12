@@ -92,18 +92,19 @@ import {
 } from '../skills-handlers';
 
 /**
- * dispatchConfigSkillsRoutes — config-skills-routes 领域路由分发
- * @returns true 表示已匹配并处理，false 表示未匹配
+ * Config 域路由（favicon + `/v1/config` 读 / 写 / 删）。
+ *
+ * 2026-11-12：从 `dispatchConfigSkillsRoutes` **纯搬运**提炼（行为逐字不变）——
+ * 该分发器圈复杂度已达 102（≥100 属"重尾离群"，而复杂度棘轮只允许减少），
+ * 把这一段内聚分支独立成函数即回落到阈值以下。
  */
-export async function dispatchConfigSkillsRoutes(
+async function dispatchConfigRoutes(
   req: http.IncomingMessage,
   res: http.ServerResponse,
   url: string,
-  broadcastEvent: (event: string, data: unknown) => void,
   handlerCtx: HandlerCtx
 ): Promise<boolean> {
   const method = req.method || 'GET';
-  // ---- Config ----
   if (method === 'GET' && url === '/favicon.ico') {
     await handleFavicon(handlerCtx, req, res);
     return true;
@@ -139,6 +140,23 @@ export async function dispatchConfigSkillsRoutes(
     );
     return true;
   }
+  return false;
+}
+
+/**
+ * dispatchConfigSkillsRoutes — config-skills-routes 领域路由分发
+ * @returns true 表示已匹配并处理，false 表示未匹配
+ */
+export async function dispatchConfigSkillsRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string,
+  broadcastEvent: (event: string, data: unknown) => void,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
+  const method = req.method || 'GET';
+  // ---- Config（提炼为独立分发器以控制本函数圈复杂度，行为逐字不变）----
+  if (await dispatchConfigRoutes(req, res, url, handlerCtx)) return true;
   // ---- Settings（具体端点**必须**排在通用 `/v1/settings/{namespace}` 之前）----
   //
   // P2（2026-11-03 修正）：原先这两条排在通用分支之后 ⇒ 被 `/^\/v1\/settings\/(.+)$/`

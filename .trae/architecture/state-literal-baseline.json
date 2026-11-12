@@ -1402,6 +1402,7 @@
       "packages/infra/src/performance/PerformanceReportParser.ts",
       "packages/infra/src/permission/inboxApprovalDedupe.ts",
       "packages/infra/src/permission/PermissionManager.ts",
+      "packages/infra/src/permission/manager/decisionTelemetry.ts",
       "packages/infra/src/security/SecurityAuditLogger.ts",
       "packages/infra/src/trace-recording/AITracePlugin.ts",
       "packages/infra/src/trace-recording/engine/StatsEngine.ts",

@@ -2,267 +2,64 @@
  * 权限管理器
  * 负责协调权限模式、权限检查器、拒绝跟踪器等组件，实现权限管理的核心逻辑
  */
-import {
-  PermissionChecker,
-  Tool,
-  isInboxApprovalEnabled,
-  checkCommandCustomRules,
-} from './PermissionChecker';
+import { PermissionChecker, Tool } from './PermissionChecker';
 import { RuleManager, RuleContext } from './RuleManager';
-// LRO-D1（2026-10-26）：指纹规则的匹配维度 —— 与审批落盘**同一摘要**（`hashApprovalFingerprint(resolveApprovalFingerprint(...))`）
-import { resolveApprovalFingerprint } from './approvalFingerprint';
-import { hashApprovalFingerprint } from './ApprovedCommandRegistry';
 import { DenialTracker } from './trackers/DenialTracker';
-import {
-  PermissionMode,
-  PERMISSION_MODES,
-  normalizePermissionMode,
-} from './PermissionMode';
-import {
-  PermissionDecision,
-  PermissionDecisionType,
-  PermissionDenyInfo,
-  createAllowDecision,
-  createDenyDecision,
-  createAskDecision,
-  isAllowDecision,
-  isDenyDecision,
-  isAskDecision,
-} from './types/PermissionDecision';
-import {
-  PermissionContext,
-  createPermissionContext,
-} from './types/PermissionContext';
-import { resolveRiskClass } from './types/RiskClass';
+import { PermissionMode } from './PermissionMode';
+import type { PermissionDecision } from './types/PermissionDecision';
+import type { PermissionContext } from './types/PermissionContext';
 import {
   PermissionBehavior,
   PermissionRuleSource,
-  createPermissionRule,
-  permissionRuleValueFromString,
 } from './types/PermissionRule';
-import { logSecurityAuditEvent, truncateCommand } from '@openliri/infra/security';
 // 多租户 P0 阶段 1：请求级角色由调用方显式传入（P2-6 起 RBAC 按角色并集判定）
-// 语义护栏「便宜版」（2026-10-21）：规则化意图-动作偏离检查（纯函数）
-import { feature } from '@openliri/kernel';
-import { detectIntentActionDeviation } from '@openliri/infra/utils/toolContract/intentActionDeviation';
-// PR-3a（2026-10-23）：沙箱上下文信号（执行入口注入，审批卡留证用）
-import type { SandboxExecutionSignal } from '@openliri/infra/utils/toolContract/Tool';
-import { isCommandToolName } from '@openliri/infra/utils/toolContract/toolRoles';
-import type { SecurityAuditEvent } from '@openliri/infra/security';
-import {
-  RuleMatcherPermissionContext,
-  getAllowRules,
-  getDenyRules,
-  getAskRules,
-  toolAlwaysAllowedRule,
-  getDenyRuleForTool,
-  getAskRuleForTool,
-  matchRules,
-} from './utils/RuleMatcher';
+import { RuleMatcherPermissionContext } from './utils/RuleMatcher';
 import { PermissionHookService } from './PermissionHookService';
-import type {
-  PermissionHookContext,
-  PermissionHookDecision,
-} from './types/PermissionHook';
 import {
   ClassifierManager,
   classifierManager,
 } from './classifiers/auto-mode-classifier-manager';
-// 2026-11-09（B4 follow-up）：auto 档「只读命令」短路 —— 分类器词表把 ls/cat/git
-// 等只读命令名当危险模式做子串匹配，这里先放行「单一、只读、无组合」的命令。
-import { checkReadonlyCommand } from './classifiers/readonly-command-allowlist';
 // 2026-10-23（PR-3b，CD05/CD07）：原此处导入 `SandboxIntegration` 的
 // `SandboxIntegrationService` / `sandboxIntegrationService` —— 该「沙箱自动放行」为**死接线**
 // （`autoAllowIfSandboxed` 硬编码 false 且无配置读取 ⇒ 分支恒不命中），且其"是否需要沙箱"
 // 按**工具名 includes** 猜测（CS02 违规）。已由 `sandboxExemption`（S1–S4，信号驱动）取代并删除。
 import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
-import { handleError } from '@openliri/infra/error';
 import { configManager } from '@openliri/infra/config';
-import { SpanStatusCode, metrics } from '@opentelemetry/api';
-import type { Span, Counter } from '@opentelemetry/api';
-import { PermissionAction, OperationType, RoleType } from './Permission';
-// 2026-11-11：细粒度 RBAC 规则（与领域模型 `PermissionRule` 同名，别名区分）
-import type { PermissionRule as FineGrainedRule } from './Permission';
-import { getFineGrainedPermissionManager } from './FineGrainedPermissionManager';
-import {
-  describeFineGrainedDenySubject,
-  type FineGrainedDenySource,
-} from './denyAttribution';
-import { permissionMetrics } from './metrics/PermissionMetricsStore';
+import { SpanStatusCode } from '@opentelemetry/api';
+import type { Span } from '@opentelemetry/api';
 import { loadAllPermissionSettings } from './permissionsLoader';
+// ─── P1 拆分（2026-11-12）：共享面 / 遥测 / 决策主链路 / 模式处理器 / 细粒度判定 ──
+import { recordDecisionMetric } from './manager/decisionTelemetry';
+import { checkPermissionInner } from './manager/decisionPipeline';
+import { checkFineGrainedRules } from './manager/fineGrained';
+import { ModeHandlerDeps } from './manager/modeHandlers';
+import { resolveInitialPermissionMode } from './manager/moduleScope';
+import {
+  addRule,
+  addRuleString,
+  addRules,
+  explainPermission,
+  getRules,
+  getRulesSummary,
+  getSettingsRuleEntries,
+  loadRules,
+  removeRule,
+  removeRules,
+  resetRules,
+  saveRules,
+} from './manager/rulesFacade';
+import {
+  checkPermissionForTool,
+  type ToolPermissionCallContext,
+  type ToolPermissionResult,
+} from './manager/toolPermission';
+// 兼容既有深路径消费者（`@openliri/infra/permission/PermissionManager`）：
+// `ruleLabel` 已搬到 `manager/moduleScope`，此处保留**同名转出**，导出面不变。
+export { ruleLabel } from './manager/moduleScope';
+
 
 const logger = getLogger('permission:manager');
 
-/**
- * P0-3（2026-10-27，权限归一化）：三处"静默放行"的可观测去重状态。
- * - `defaultAllowWarnedTools`：`defaultBehavior=allow` 无规则命中（按工具去重，避免刷屏）
- * - `bypassObservabilityLogged`：`bypass` 模式无条件放行（进程内只记一次）
- */
-const defaultAllowWarnedTools = new Set<string>();
-let bypassObservabilityLogged = false;
-
-/**
- * P2-6（2026-11-11）：细粒度 RBAC 的角色集合（**并集**）。
- *
- * - 有 `userRoles` ⇒ 用它（去空白 / 去重 / 保序）；
- * - 否则回落到 `userRole` 单值（旧调用方 / CLI 行为不变）；
- * - 都没有 ⇒ 空数组 ⇒ 角色绑定不参与判定（不臆造角色）。
- *
- * 为什么不在 `getEffectivePermissionRole` 里做：`userRole` 仍是**主角色**，
- * 风险策略等单值消费方依赖它；只有 RBAC 需要并集。
- */
-function resolveFineGrainedRoles(
-  userRoles: string[] | undefined,
-  userRole: string | undefined
-): string[] {
-  const raw = userRoles?.length ? userRoles : userRole ? [userRole] : [];
-  return Array.from(
-    new Set(raw.map((role) => role.trim()).filter((role) => role.length > 0))
-  );
-}
-
-/**
- * P3（2026-11-07，方案 §2.3-4）：会话权限档**自动放行**的「每会话每来源一次」提示。
- *
- * 为什么需要：放宽档（bypass / auto / dontAsk）不产生审批卡，若日志与审计不标注来源，
- * 事后无法区分「用户批准」与「档位自动放行」。按 (sessionId, source) 去重，避免长任务刷屏；
- * 条目上限 500 后整体清空（只影响提示频率，不影响判定）。
- */
-const autoAllowedNoticeKeys = new Set<string>();
-
-function logAutoAllowedOnce(
-  source: string,
-  toolName: string,
-  sessionId?: string
-): void {
-  const key = `${sessionId ?? '-'}::${source}`;
-  if (autoAllowedNoticeKeys.has(key)) return;
-  if (autoAllowedNoticeKeys.size > 500) autoAllowedNoticeKeys.clear();
-  autoAllowedNoticeKeys.add(key);
-  logger.info('permission:auto_allowed（会话权限档自动放行，非用户逐条批准）', {
-    source,
-    toolName,
-    sessionId,
-  });
-}
-
-/**
- * F-01（2026-10-28）：把 `decision.rule` 归一为**可读标签**。
- *
- * `PermissionDecision.rule` 声明为 `any`，实际常是规则**对象**；原实现 `String(rule)`
- * 直接得到 `"[object Object]"`，该串被写进审计 `matchedRules` ⇒ 安全仪表盘
- * 「越权拦截类别 Top」里出现一个叫 `[object Object]` 的类别（真机实测 211 次）。
- * 现按 id → ruleId → name → pattern → type 取第一个非空字符串，取不到则回落 `rule`。
- */
-export function ruleLabel(rule: unknown): string {
-  if (typeof rule === 'string') return rule;
-  if (rule && typeof rule === 'object') {
-    const r = rule as Record<string, unknown>;
-    for (const key of ['id', 'ruleId', 'name', 'pattern', 'type'] as const) {
-      const v = r[key];
-      if (typeof v === 'string' && v.trim()) return v;
-    }
-    return 'rule';
-  }
-  return String(rule);
-}
-
-/**
- * LRO-07（2026-10-26）：规则拒绝时告诉调用方「这条规则怎么解除」。
- *
- * 为什么必须有：deny 文案此前只写来源（且来源还被伪造成 `userSettings`），既没给出
- * 「去哪删」也没给出「删哪条」⇒ 用户只能翻盘，模型只会重复同一个被拒调用
- * （真机实测：`file_write` 连续 6 次全被拒，元数据里连 ruleId 都没有）。
- *
- * 分档依据是**真实可删性**：`ruleStore`（`tool_rules.json`）可经面板 / API 删除；
- * settings 来源是配置文件维护的只读视图，只能改文件。
- */
-function resolveRuleRemovalHint(
-  ruleId: string | undefined,
-  source: string | undefined
-): string {
-  if (source === PermissionRuleSource.RULE_STORE) {
-    return ruleId
-      ? `在「设置 → 权限管理 → 工具权限规则」删除该规则，或 DELETE /v1/permissions/rules/${ruleId}`
-      : '在「设置 → 权限管理 → 工具权限规则」删除对应规则';
-  }
-  if (source) {
-    return `在设置文件的 permissions 段修改（来源 ${source} 由配置文件维护，面板不可删除）`;
-  }
-  return '在「设置 → 权限管理 → 工具权限规则」删除对应规则';
-}
-
-/**
- * LRO-07（2026-10-26）：把 deny 决策的 `context` 收敛成**跨层 DTO**。
- *
- * 只搬运真实存在且为字符串的字段（缺省不臆造）；没有任何可回传字段 ⇒ `undefined`
- * （避免给上层一个空对象冒充"有依据"）。
- */
-function buildDenyInfo(
-  context: Record<string, unknown> | undefined
-): PermissionDenyInfo | undefined {
-  if (!context) return undefined;
-  const info: PermissionDenyInfo = {};
-  if (typeof context.ruleId === 'string') info.ruleId = context.ruleId;
-  if (typeof context.sourceKind === 'string') {
-    info.sourceKind = context.sourceKind;
-  }
-  if (typeof context.inputFingerprint === 'string') {
-    info.inputFingerprint = context.inputFingerprint;
-  }
-  if (typeof context.removableVia === 'string') {
-    info.removableVia = context.removableVia;
-  }
-  if (context.matchScope === 'tool' || context.matchScope === 'fingerprint') {
-    info.matchScope = context.matchScope;
-  }
-  return Object.keys(info).length > 0 ? info : undefined;
-}
-
-/**
- * P1-1（2026-11-04）：从 `PERMISSION_MODE` 解析**进程默认权限档**。
- *
- * 背景：方案 §1.1 实测该环境变量**全仓无读取点**（配了不生效，与 `JWT_SECRET` / `CORS_ORIGIN`
- * 同类"配置幻觉"）。这里把它接成 `PermissionManager` 的初始模式；会话级 / UI 仍可经
- * `setMode()` 覆盖。三层优先级已收敛到 `resolveEffectiveMode()`（2026-11-11）。
- *
- * - 未设置 / 空串 ⇒ `default`（与改造前逐字一致）；
- * - 大小写不敏感（`DEFAULT` / `PLAN` 都能认）；
- * - 收缩前的旧值（`ask` / `alwaysAsk` / `acceptEdits` / `strict`）经
- *   `normalizePermissionMode` 归一（2026-11-11），旧 `.env` 不会因升级而失效；
- * - 其余非法值 ⇒ 回退 `default` 并告警（不阻断启动，fail-safe）。
- */
-function resolveInitialPermissionMode(): PermissionMode {
-  const raw = configManager.env('PERMISSION_MODE', '')?.trim();
-  if (!raw) return PermissionMode.DEFAULT;
-
-  const matched = normalizePermissionMode(raw);
-  if (!matched) {
-    logger.warning(
-      `PERMISSION_MODE=${raw} 不是合法权限模式，已回退 default（合法值：${PERMISSION_MODES.join(' / ')}）`
-    );
-    return PermissionMode.DEFAULT;
-  }
-  return matched;
-}
-
-/**
- * 权限档**三层优先级**的唯一解析点（2026-11-11 收敛）。
- *
- * 1. 请求级：`PermissionContext.permissionMode`（执行入口把会话元数据 `permission_mode`
- *    放进来；CLI / 后台 / 未设置时为 undefined）；
- * 2. 实例级：`setMode()` 写入的档（初值来自 `PERMISSION_MODE`，见构造器）；
- * 3. 兜底：实例档的初值 `PermissionMode.DEFAULT`（构造器已赋值，故这里无需再兜一次）。
- *
- * 判定分支与审计标签（`permission-mode:auto` 等）**必须共用本函数** —— 否则会出现
- * "判定按会话档、标签按进程档"的错配。
- */
-function resolveEffectiveMode(
-  requestMode: PermissionMode | undefined,
-  instanceMode: PermissionMode
-): PermissionMode {
-  return requestMode ?? instanceMode;
-}
 
 /**
  * 权限管理器类
@@ -416,7 +213,7 @@ export class PermissionManager {
         span.setAttribute('decision', String(decision.type));
         getOTelTracing().endSpan(span, SpanStatusCode.OK);
       }
-      this.recordDecisionMetric(toolName, decision.type);
+      recordDecisionMetric(toolName, decision.type);
       return decision;
     } catch (error) {
       if (span) {
@@ -431,7 +228,8 @@ export class PermissionManager {
   }
 
   /**
-   * 检查工具权限（内部实现，决策主链路）
+   * 检查工具权限（内部实现，决策主链路；P1 拆分，2026-11-12：实现见
+   * `./manager/decisionPipeline` —— 钩子优先 → 五档分派 → 重试升级 → 审计）
    * @param toolOrName 工具对象或工具名称
    * @param input 工具输入
    * @param context 权限上下文（可选）
@@ -441,800 +239,41 @@ export class PermissionManager {
     toolOrName: Tool | string,
     input: Record<string, unknown>,
     context?: PermissionContext,
-    /** R07-3（2026-10-07）：非幂等工具「重试」理由（见本方法末的模式豁免升级） */
     forceAskReason?: string
   ): Promise<PermissionDecision> {
-    // 获取工具名称
-    const toolName =
-      typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
-
-    // 创建权限上下文
-    const permissionContext =
-      context ||
-      createPermissionContext({
-        toolName,
-        input,
-      });
-
-    // 创建规则上下文
-    const ruleContext: RuleContext = {
-      alwaysAllowRules: this.toolPermissionContext.alwaysAllowRules,
-      alwaysDenyRules: this.toolPermissionContext.alwaysDenyRules,
-      alwaysAskRules: this.toolPermissionContext.alwaysAskRules,
-    };
-
-    // 1. 执行权限钩子
-    const hookDecision = await this.executePermissionHooks(
-      toolName,
-      input,
-      permissionContext
-    );
-    if (hookDecision) {
-      let decision: PermissionDecision;
-      if (hookDecision.behavior === 'allow') {
-        decision = createAllowDecision(
-          hookDecision.message || 'Allowed by permission hook'
-        );
-      } else if (hookDecision.behavior === 'deny') {
-        this.denialTracker.trackDenial(toolName, permissionContext.sessionId);
-        decision = createDenyDecision(
-          hookDecision.message || 'Denied by permission hook'
-        );
-      } else {
-        decision = createAskDecision(
-          hookDecision.message || 'Ask requested by permission hook'
-        );
-      }
-      this.auditDecision(decision, toolName, input);
-      return decision;
-    }
-
-    // 2. 根据权限模式执行不同的检查逻辑
-    // （2026-10-23 PR-3b：原「沙箱自动允许」分支已删除 —— 死接线 + 按工具名猜；）
-    // （其职责由 `PermissionChecker` 风险默认档前的沙箱豁免 S1–S4 承担。）
-    // P1（2026-11-04）：**会话级模式优先于进程默认档**。执行入口把会话元数据
-    // `permission_mode` 放进 `context.permissionMode`；缺省（CLI / 后台 / 未设置）用
-    // `this.mode`（来自 `PERMISSION_MODE` 环境变量，见构造器）。不改全局单例 ⇒ 并发会话不串档。
-    // 2026-11-11：三层优先级收敛到 `resolveEffectiveMode()`（判定与审计标签共用）。
-    const effectiveMode = resolveEffectiveMode(
-      permissionContext.permissionMode,
-      this.mode
-    );
-    let decision: PermissionDecision;
-    switch (effectiveMode) {
-      case PermissionMode.BYPASS:
-        decision = this.handleBypassPermissions();
-        break;
-      case PermissionMode.DONT_ASK:
-        decision = await this.handleDontAsk(
-          toolOrName,
-          input,
-          permissionContext,
-          ruleContext
-        );
-        break;
-      case PermissionMode.PLAN:
-        decision = await this.handlePlan(
-          toolOrName,
-          input,
-          permissionContext,
-          ruleContext
-        );
-        break;
-      case PermissionMode.AUTO:
-        decision = await this.handleAuto(
-          toolOrName,
-          input,
-          permissionContext,
-          ruleContext
-        );
-        break;
-      case PermissionMode.DEFAULT:
-      default:
-        decision = await this.handleDefault(
-          toolOrName,
-          input,
-          permissionContext,
-          ruleContext
-        );
-        break;
-    }
-
-    // R07-3（2026-10-07）：非幂等工具「重试」⇒ 把**本该放行**的调用升级为 `ask`（审批）。
-    // 复用既有 ask⇒Inbox 通路（本方法调用方 `checkPermissionForTool` 提交卡片）⇒ 不新建审批机制。
-    // - D4：**只升级 `allow`** ⇒ `deny` 永不被削弱（安全姿态单调）；
-    // - D2：`bypass` / `dontAsk` 是用户/自动化**显式**"不要打断"（无人值守依赖），不覆盖
-    //   —— 否则无人值守流程会永久挂在 `awaiting_approval`。
-    if (
-      forceAskReason &&
-      decision.type === PermissionDecisionType.ALLOW &&
-      effectiveMode !== PermissionMode.BYPASS &&
-      effectiveMode !== PermissionMode.DONT_ASK
-    ) {
-      decision = createAskDecision(forceAskReason);
-      logger.info('permission:non_idempotent_retry_escalated', {
-        tool: toolName,
-        mode: effectiveMode,
-      });
-    }
-
-    this.auditDecision(decision, toolName, input);
-    return decision;
-  }
-
-  /**
-   * 执行权限钩子
-   * @param toolName 工具名称
-   * @param input 工具输入
-   * @param context 权限上下文
-   * @returns 钩子决策或null
-   */
-  private async executePermissionHooks(
-    toolName: string,
-    input: Record<string, unknown>,
-    context: PermissionContext
-  ): Promise<PermissionHookDecision | null> {
-    const hookContext: PermissionHookContext = {
-      toolName,
-      toolUseID: '',
-      input,
-      permissionMode: this.mode,
-      context,
-      abortSignal: undefined,
-    };
-
-    return await this.permissionHookService.executeHooks(hookContext);
-  }
-
-  /**
-   * OTel 决策计数器（惰性初始化；Meter 未就绪时 noop 兜底）
-   */
-  private decisionCounter: Counter | null = null;
-
-  /**
-   * 确保决策计数器已创建
-   */
-  private ensureDecisionCounter(): void {
-    if (this.decisionCounter) return;
-    try {
-      this.decisionCounter = metrics
-        .getMeter('liri-permission')
-        .createCounter('Liri.permission.decisions', {
-          description: '权限决策计数（allow/deny/ask）',
-        });
-    } catch {
-      // @ignore-catch: metrics 未初始化时不启用计数
-    }
-  }
-
-  /**
-   * 记录权限决策指标（每次决策 +1）
-   * @param toolName 工具名称
-   * @param type 决策类型
-   */
-  private recordDecisionMetric(
-    toolName: string,
-    type: PermissionDecisionType
-  ): void {
-    this.ensureDecisionCounter();
-    this.decisionCounter?.add(1, {
-      decision: String(type),
-      tool: toolName,
-    });
-    permissionMetrics.record('decision', {
-      decision: String(type),
-      tool: toolName,
-    });
-  }
-
-  /**
-   * OTel 细粒度 RBAC deny 计数器（惰性初始化；Meter 未就绪时 noop 兜底）
-   *
-   * 2026-11-11（P2-5）：原为「角色 deny」计数器，但判定链已覆盖用户 / 资源绑定
-   * ⇒ 改名并按**真实命中主体**（`role:` / `user:` / `resource:`）打标。
-   */
-  private fineGrainedDenyCounter: Counter | null = null;
-
-  /**
-   * 确保细粒度 deny 计数器已创建
-   */
-  private ensureFineGrainedDenyCounter(): void {
-    if (this.fineGrainedDenyCounter) return;
-    try {
-      this.fineGrainedDenyCounter = metrics
-        .getMeter('liri-permission')
-        .createCounter('Liri.permission.fine_grained_denies', {
-          description: '细粒度 RBAC 拒绝次数（tool+命中主体维度）',
-        });
-    } catch {
-      // @ignore-catch: metrics 未初始化时不启用计数
-    }
-  }
-
-  /**
-   * 记录细粒度 RBAC deny 指标（每次命中 +1）
-   * @param toolName 工具名称
-   * @param subject 命中主体标签（`role:<id>` / `user:<id>` / `resource:<id>`）
-   */
-  private recordFineGrainedDeny(toolName: string, subject: string): void {
-    this.ensureFineGrainedDenyCounter();
-    this.fineGrainedDenyCounter?.add(1, {
-      tool: toolName,
-      subject,
-    });
-    permissionMetrics.record('fine_grained_deny', {
-      tool: toolName,
-      subject,
-    });
-  }
-
-  /**
-   * 审计权限决策：将每次权限决策记录到安全审计日志
-   * @param decision 权限决策
-   * @param toolName 工具名称
-   * @param input 工具输入
-   */
-  private auditDecision(
-    decision: PermissionDecision,
-    toolName: string,
-    input: Record<string, unknown>
-  ): void {
-    try {
-      const command = (input.command as string) || toolName;
-      const event: SecurityAuditEvent = {
-        timestamp: new Date(),
-        command,
-        originalCommand: command,
-        truncatedResult: truncateCommand(command),
-        sessionContext: {
-          sessionId: 'permission-manager',
-          taskDescription: decision.reason,
-          currentMode: 'auto',
-        },
-        matchedRules: decision.rule ? [ruleLabel(decision.rule)] : [],
-        behavior:
-          decision.type === PermissionDecisionType.ALLOW
-            ? 'allow'
-            : decision.type === PermissionDecisionType.DENY
-              ? 'deny'
-              : 'ask',
-        decision:
-          decision.type === PermissionDecisionType.ALLOW
-            ? 'auto_allowed'
-            : decision.type === PermissionDecisionType.DENY
-              ? 'auto_denied'
-              : 'pending',
-        // P0-2：默认放行（无规则匹配空转）标记为高危，便于发现权限空转
-        riskLevel:
-          decision.type === PermissionDecisionType.DENY ||
-          decision.reason === 'No matching rules, default allowing'
-            ? 'high'
-            : 'medium',
-      };
-      logSecurityAuditEvent(event);
-    } catch (err) {
-      // 审计日志异常不应影响主流程
-    }
-  }
-
-  /**
-   * 处理绕过权限检查模式
-   * @returns 权限决策
-   */
-  private handleBypassPermissions(): PermissionDecision {
-    // P0-3（2026-10-27，权限归一化）：bypass 无条件放行且**不查 killswitch**
-    // （`BypassPermissionsKillswitch` 在决策链零调用点）。此处只加可观测，不改语义。
-    if (!bypassObservabilityLogged) {
-      bypassObservabilityLogged = true;
-      logger.warn('权限模式为 bypass：无条件放行且未校验 killswitch', {
-        reasonCode: 'bypass_no_killswitch',
-      });
-    }
-    return createAllowDecision('Bypassing permissions check');
-  }
-
-  /**
-   * 处理不询问模式
-   * @param toolOrName 工具对象或工具名称
-   * @param input 工具输入
-   * @param context 权限上下文
-   * @returns 权限决策
-   */
-  private async handleDontAsk(
-    toolOrName: Tool | string,
-    input: Record<string, unknown>,
-    context: PermissionContext,
-    ruleContext?: RuleContext
-  ): Promise<PermissionDecision> {
-    const toolName =
-      typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
-
-    // 1. A 体系工具级 deny：deny 永远优先于任何 allow（含 RBAC allow）
-    // P0-2（2026-11-11）：**显式 deny 不因「连续拒绝」升级为 ask** —— deny 可批准
-    // 等于把安全规则变成建议；计数器只用于统计/升级提示，不改变 deny 结论。
-    const denyRule = this.ruleManager.getDenyRuleForTool(toolName);
-    if (denyRule) {
-      this.denialTracker.trackDenial(toolName, context.sessionId);
-      return this._denyByRule(toolName, denyRule);
-    }
-
-    // 2. RBAC（角色 / 用户 / 资源）：deny 优先；ask 在本档**转拒绝**（"不询问"语义）；
-    //    allow 等同允许规则（放在 A 体系 allow 之后，不越过任何 deny）。
-    const effectiveRoles = resolveFineGrainedRoles(
-      context.userRoles,
-      context.userRole
-    );
-    const fineGrained = await this.checkFineGrainedRules(
-      toolName,
-      context.userId,
-      effectiveRoles,
-      context.sessionId
-    );
-    if (fineGrained.deny) {
-      this.denialTracker.trackDenial(toolName, context.sessionId);
-      return fineGrained.deny;
-    }
-    if (fineGrained.ask) {
-      this.denialTracker.trackDenial(toolName, context.sessionId);
-      return createDenyDecision('Dont ask mode, denying fine-grained ask');
-    }
-
-    // 2.5（P0-3，2026-11-11）：本档此前**跳过**命令级黑白名单与指纹规则 ⇒
-    // 「不询问」反而放行了用户明确 deny 的命令。以下与 default 档同序、ask 转拒绝：
-    //   - 命令黑名单 / whitelist 未命中 ⇒ deny；白名单命中 ⇒ allow（显式放行）；
-    //   - 内容 / 指纹级 deny ⇒ deny；内容 / 指纹级 ask ⇒ deny（不询问）。
-    if (isCommandToolName(toolName) && typeof input.command === 'string') {
-      const cmdDecision = checkCommandCustomRules(input.command);
-      if (cmdDecision) {
-        return cmdDecision.type === PermissionDecisionType.ASK
-          ? createDenyDecision(
-              `Dont ask mode, denying ask: ${cmdDecision.reason ?? 'command rule'}`
-            )
-          : cmdDecision;
-      }
-    }
-
-    const approvalFingerprint = hashApprovalFingerprint(
-      resolveApprovalFingerprint(toolOrName, input)
-    );
-    const matchOptions = { fingerprint: approvalFingerprint };
-    const matchingDenyRule = this.ruleManager.getMatchingRule(
-      toolName,
-      input,
-      PermissionBehavior.DENY,
-      ruleContext,
-      matchOptions
-    );
-    if (matchingDenyRule) {
-      this.denialTracker.trackDenial(toolName, context.sessionId);
-      return this._denyByRule(toolName, matchingDenyRule, approvalFingerprint);
-    }
-
-    const askRule = this.ruleManager.getAskRuleForTool(toolName, ruleContext);
-    if (askRule) {
-      return createDenyDecision(
-        `Dont ask mode, denying ask rule from ${askRule.source}`
-      );
-    }
-    const matchingAskRule = this.ruleManager.getMatchingRule(
-      toolName,
-      input,
-      PermissionBehavior.ASK,
-      ruleContext,
-      matchOptions
-    );
-    if (matchingAskRule) {
-      return createDenyDecision(
-        `Dont ask mode, denying ask rule from ${matchingAskRule.source}`
-      );
-    }
-
-    // 3. A 体系允许规则
-    if (this.permissionChecker.isToolAllowed(toolOrName, context)) {
-      return createAllowDecision('Tool is allowed by permission rule');
-    }
-
-    // 4. RBAC allow
-    if (fineGrained.allow) return fineGrained.allow;
-
-    // 跟踪拒绝（"不询问"档不因连续拒绝改判为 ask —— 那是自相矛盾的）
-    this.denialTracker.trackDenial(toolName, context.sessionId);
-
-    return createDenyDecision('Dont ask mode, denying permission');
-  }
-
-  /**
-   * 规则拒绝的**统一出口**（LRO-09 步骤 2，2026-10-26）。
-   *
-   * 为什么单独抽：此前两处 deny 只回 `Denied by rule from <source>`，而 `<source>` 是
-   * `RuleManager.parseRuleString()` 的**硬编码默认值**（`userSettings`），真实来源是
-   * `tool_rules.json` ⇒ 用户按提示去 `settings.json` 里找永远找不到（2026-10-26 实测）。
-   * 现在把 **ruleId + 解除入口**一并带出（文案 + 决策上下文 + 结构化日志；LRO-07）。
-   */
-  private _denyByRule(
-    toolName: string,
-    rule:
-      | { id?: string; source?: string; inputFingerprint?: string }
-      | undefined,
-    /**
-     * F5（2026-10-27）：**本次调用**的指纹摘要（`hashApprovalFingerprint(...)`）。
-     * 与 `rule.inputFingerprint` 并列落日志，才能区分"指纹级命中"与"工具级命中"
-     * —— 真机曾出现「一条 deny 笼罩整个 file_write」的误判（Liri 报告 R4）。
-     */
-    callFingerprint?: string
-  ): PermissionDecision {
-    const ruleId = rule?.id;
-    const source = rule?.source;
-    const marker = ruleId ? ` [rule=${ruleId}]` : '';
-    const from = source ? ` from ${source}` : '';
-    const removableVia = resolveRuleRemovalHint(ruleId, source);
-    // 命中维度：规则带指纹 ⇒ 指纹级（只管该参数组合）；否则工具级（管整个工具）
-    const matchScope = rule?.inputFingerprint ? 'fingerprint' : 'tool';
-    logger.warn('permission:deny', {
-      toolName,
-      ruleId,
-      ruleSource: source,
-      fingerprint: rule?.inputFingerprint,
-      callFingerprint,
-      matchScope,
-      removableVia,
-    });
-    return createDenyDecision(
-      `Denied by rule${from}${marker}（解除：${removableVia}）`,
-      rule,
+    return checkPermissionInner(
       {
-        ruleId,
-        toolName,
-        inputFingerprint: rule?.inputFingerprint,
-        callFingerprint,
-        matchScope,
-        sourceKind: source,
-        removableVia,
-      }
+        mode: this.mode,
+        toolPermissionContext: this.toolPermissionContext,
+        permissionHookService: this.permissionHookService,
+        denialTracker: this.denialTracker,
+        modeHandlerDeps: this.modeHandlerDeps(),
+      },
+      toolOrName,
+      input,
+      context,
+      forceAskReason
     );
   }
 
+  // ─── 模式处理器（P1 拆分，2026-11-12：实现见 `./manager/modeHandlers`）───────────
   /**
-   * 处理默认模式
-   * @param toolOrName 工具对象或工具名称
-   * @param input 工具输入
-   * @param context 权限上下文
-   * @param ruleContext 规则上下文
-   * @returns 权限决策
+   * 构建处理器依赖（每次调用按**当前**实例状态取，语义与拆分前逐字一致）。
+   * 刻意不缓存：`setMode` / `addRule` 等可随时改动实例状态。
    */
-  private async handleDefault(
-    toolOrName: Tool | string,
-    input: Record<string, unknown>,
-    context: PermissionContext,
-    ruleContext?: RuleContext
-  ): Promise<PermissionDecision> {
-    const toolName =
-      typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
-
-    // 检查安全工具白名单
-    if (this.classifierManager.isAllowlistedTool(toolName)) {
-      return createAllowDecision('Tool is on safe allowlist');
-    }
-
-    // 使用新的规则管理器检查
-    const denyRule = this.ruleManager.getDenyRuleForTool(toolName, ruleContext);
-    if (denyRule) {
-      this.denialTracker.trackDenial(toolName, context.sessionId);
-      return this._denyByRule(toolName, denyRule);
-    }
-
-    // D 体系（角色 / 用户 / 资源）规则：deny 在此立即返回（先于一切 ask/allow）；
-    // ask / allow 两档在本函数后段按“ask 先于 allow”的安全顺序返回。
-    // 身份位由调用方传入（本地身份经 getEffectivePermissionRole 映射为 admin，2026-11-11）。
-    const effectiveRoles = resolveFineGrainedRoles(
-      context.userRoles,
-      context.userRole
-    );
-    const fineGrained = await this.checkFineGrainedRules(
-      toolName,
-      context.userId,
-      effectiveRoles,
-      context.sessionId
-    );
-    if (fineGrained.deny) return fineGrained.deny;
-
-    // P1-2: 命令内容级黑白名单（「设置→自定义规则」B 体系）—
-    // 黑名单命中 deny；whitelist 模式命中 allow（覆盖工具级 ask 规则，实现"白名单免审批"）
-    // P1（2026-11-07）：命令类工具扩到 powershell/pwsh（此前只对 bash 生效）
-    if (isCommandToolName(toolName) && typeof input.command === 'string') {
-      const cmdDecision = checkCommandCustomRules(input.command);
-      if (cmdDecision) return cmdDecision;
-    }
-
-    // LRO-D1（2026-10-26）：**内容级 / 指纹级 deny 必须先于一切 ask / allow 评估**。
-    // 原顺序把"工具级 ask / 工具级 allow"排在内容 deny 之前 ⇒ 一条「始终允许此工具」
-    // 会静默越过针对该工具的内容 deny（安全排序不对称）。
-    // 指纹摘要与审批落盘**同源**：`hashApprovalFingerprint(resolveApprovalFingerprint(...))`。
-    const approvalFingerprint = hashApprovalFingerprint(
-      resolveApprovalFingerprint(toolOrName, input)
-    );
-    const matchOptions = { fingerprint: approvalFingerprint };
-
-    const matchingDenyRule = this.ruleManager.getMatchingRule(
-      toolName,
-      input,
-      PermissionBehavior.DENY,
-      ruleContext,
-      matchOptions
-    );
-    if (matchingDenyRule) {
-      this.denialTracker.trackDenial(toolName, context.sessionId);
-      return this._denyByRule(toolName, matchingDenyRule, approvalFingerprint);
-    }
-
-    const askRule = this.ruleManager.getAskRuleForTool(toolName, ruleContext);
-    if (askRule) {
-      return createAskDecision(`Asked by rule from ${askRule.source}`);
-    }
-
-    const matchingAskRule = this.ruleManager.getMatchingRule(
-      toolName,
-      input,
-      PermissionBehavior.ASK,
-      ruleContext,
-      matchOptions
-    );
-    if (matchingAskRule) {
-      return createAskDecision(`Asked by rule from ${matchingAskRule.source}`);
-    }
-
-    // D 体系 ask：排在工具级 ask 之后、allow 之前（ask 不越过 allow）
-    if (fineGrained.ask) return fineGrained.ask;
-
-    const allowRule = this.ruleManager.toolAlwaysAllowedRule(
-      toolName,
-      ruleContext
-    );
-    if (allowRule) {
-      return createAllowDecision(`Allowed by rule from ${allowRule.source}`);
-    }
-
-    const matchingAllowRule = this.ruleManager.getMatchingRule(
-      toolName,
-      input,
-      PermissionBehavior.ALLOW,
-      ruleContext,
-      matchOptions
-    );
-    if (matchingAllowRule) {
-      return createAllowDecision(
-        `Allowed by rule from ${matchingAllowRule.source}`
-      );
-    }
-
-    // D 体系 allow：所有 deny / ask 与显式 allow 之后才生效（安全兜底）
-    if (fineGrained.allow) return fineGrained.allow;
-
-    // 语义护栏「便宜版」（2026-10-21）：意图-动作偏离 ⇒ 升级为 ask（**不直接拒绝**）。
-    // 位置在所有显式规则之后、默认行为之前 —— 用户显式 allow/deny/ask 规则始终优先。
-    if (feature('INTENT_ACTION_DEVIATION_GUARD')) {
-      const goalText =
-        typeof context.metadata?.['goalText'] === 'string'
-          ? (context.metadata['goalText'] as string)
-          : undefined;
-      const deviation = detectIntentActionDeviation({
-        ...(goalText !== undefined ? { goalText } : {}),
-        toolName,
-        input,
-      });
-      if (deviation.deviated && deviation.reason) {
-        return createAskDecision(deviation.reason);
-      }
-    }
-
-    // 没有规则匹配，按默认行为决定（P0-2：PERMISSION_DEFAULT_BEHAVIOR=deny 时 fail-closed）
-    if (this.defaultBehavior === 'deny') {
-      return createDenyDecision('No matching rules, default denying');
-    }
-    // P0-3（2026-10-27，权限归一化）：`defaultBehavior='allow'` 属"无规则即放行"，
-    // 是与 fail-closed 相反的默认；按**工具**去重记一次，便于统计"权限空转"面。
-    if (!defaultAllowWarnedTools.has(toolName)) {
-      defaultAllowWarnedTools.add(toolName);
-      logger.warn('权限默认放行（无规则匹配，defaultBehavior=allow）', {
-        reasonCode: 'default_allow',
-        toolName,
-      });
-    }
-    return createAllowDecision('No matching rules, default allowing');
+  private modeHandlerDeps(): ModeHandlerDeps {
+    return {
+      ruleManager: this.ruleManager,
+      denialTracker: this.denialTracker,
+      classifierManager: this.classifierManager,
+      messages: this.messages,
+      defaultBehavior: this.defaultBehavior,
+      permissionChecker: this.permissionChecker,
+      checkFineGrainedRules: (toolName, userId, roles, sessionId) =>
+        this.checkFineGrainedRules(toolName, userId, roles, sessionId),
+    };
   }
 
-  /**
-   * 处理「每步确认」档（`plan`，2026-11-11 前同时承担 ask / alwaysAsk 的语义）：
-   * 每次工具调用都返回 ask，不自动放行（allow 规则也不生效）。
-   */
-  private async handlePlan(
-    toolOrName: Tool | string,
-    input: Record<string, unknown>,
-    context: PermissionContext,
-    ruleContext?: RuleContext
-  ): Promise<PermissionDecision> {
-    const toolName =
-      typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
-
-    // P0-4（2026-11-11）：本档此前**无条件 ask** ⇒ 显式 deny / 命令黑名单 / RBAC deny
-    // 全部被绕过（"每步确认"比 default 更宽松，且把禁止项变成可批准）。
-    // 现在：硬 deny 仍然 deny，"每步确认"只作用于**未被禁止**的调用。
-    const denyRule = this.ruleManager.getDenyRuleForTool(toolName, ruleContext);
-    if (denyRule) {
-      this.denialTracker.trackDenial(toolName, context.sessionId);
-      return this._denyByRule(toolName, denyRule);
-    }
-
-    const effectiveRoles = resolveFineGrainedRoles(
-      context.userRoles,
-      context.userRole
-    );
-    const fineGrained = await this.checkFineGrainedRules(
-      toolName,
-      context.userId,
-      effectiveRoles,
-      context.sessionId
-    );
-    if (fineGrained.deny) return fineGrained.deny;
-
-    if (isCommandToolName(toolName) && typeof input.command === 'string') {
-      const cmdDecision = checkCommandCustomRules(input.command);
-      if (cmdDecision?.type === PermissionDecisionType.DENY) {
-        return cmdDecision;
-      }
-    }
-
-    const approvalFingerprint = hashApprovalFingerprint(
-      resolveApprovalFingerprint(toolOrName, input)
-    );
-    const matchingDenyRule = this.ruleManager.getMatchingRule(
-      toolName,
-      input,
-      PermissionBehavior.DENY,
-      ruleContext,
-      { fingerprint: approvalFingerprint }
-    );
-    if (matchingDenyRule) {
-      this.denialTracker.trackDenial(toolName, context.sessionId);
-      return this._denyByRule(toolName, matchingDenyRule, approvalFingerprint);
-    }
-
-    return createAskDecision('Plan mode, requiring user approval');
-  }
-
-  /**
-   * 处理自动模式
-   * @param toolOrName 工具对象或工具名称
-   * @param input 工具输入
-   * @param context 权限上下文
-   * @param ruleContext 规则上下文
-   * @returns 权限决策
-   */
-  private async handleAuto(
-    toolOrName: Tool | string,
-    input: Record<string, unknown>,
-    context: PermissionContext,
-    ruleContext?: RuleContext
-  ): Promise<PermissionDecision> {
-    const toolName =
-      typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
-
-    // 1. 检查安全工具白名单
-    if (this.classifierManager.isAllowlistedTool(toolName)) {
-      this.denialTracker.trackSuccess(toolName, context.sessionId);
-      return createAllowDecision('Tool is on safe allowlist');
-    }
-
-    // 2. 检查规则
-    // P0-2（2026-11-11）：显式 deny 不因连续拒绝升级为 ask（同上）。
-    const denyRule = this.ruleManager.getDenyRuleForTool(toolName, ruleContext);
-    if (denyRule) {
-      this.denialTracker.trackDenial(toolName, context.sessionId);
-      return this._denyByRule(toolName, denyRule);
-    }
-
-    // 2.1（2026-11-11）RBAC（角色 / 用户 / 资源）与 default 档同口径：
-    // deny 先于一切 ask/allow；ask / allow 在后段按“ask 先于 allow”返回。
-    // 身份位由调用方传入（本地身份映射为 admin）。
-    const effectiveRoles = resolveFineGrainedRoles(
-      context.userRoles,
-      context.userRole
-    );
-    const fineGrained = await this.checkFineGrainedRules(
-      toolName,
-      context.userId,
-      effectiveRoles,
-      context.sessionId
-    );
-    if (fineGrained.deny) return fineGrained.deny;
-
-    // P1-2: 命令内容级黑白名单（「设置→自定义规则」B 体系）— 与 handleDefault 一致
-    // P1（2026-11-07）：命令类工具扩到 powershell/pwsh（此前只对 bash 生效）
-    if (isCommandToolName(toolName) && typeof input.command === 'string') {
-      const cmdDecision = checkCommandCustomRules(input.command);
-      if (cmdDecision) return cmdDecision;
-    }
-
-    const askRule = this.ruleManager.getAskRuleForTool(toolName, ruleContext);
-    if (askRule) {
-      return createAskDecision(`Asked by rule from ${askRule.source}`);
-    }
-
-    // RBAC ask：排在工具级 ask 之后、allow 之前（ask 不越过 allow）
-    if (fineGrained.ask) return fineGrained.ask;
-
-    const allowRule = this.ruleManager.toolAlwaysAllowedRule(
-      toolName,
-      ruleContext
-    );
-    if (allowRule) {
-      this.denialTracker.trackSuccess(toolName, context.sessionId);
-      return createAllowDecision(`Allowed by rule from ${allowRule.source}`);
-    }
-
-    // RBAC allow：显式绑定优先于只读短路与分类器（deny / ask 已在上面处理）
-    if (fineGrained.allow) return fineGrained.allow;
-
-    // 2.5（2026-11-09，B4 follow-up）：只读命令短路。
-    // 用户显式 deny / ask / allow 规则（上面）优先；这里只放行结构上只读的单一命令，
-    // 含管道/重定向/命令替换、`find -exec`、`git` 非只读子命令等继续走分类器。
-    if (isCommandToolName(toolName) && typeof input.command === 'string') {
-      const readonly = checkReadonlyCommand(input.command);
-      if (readonly.allowed) {
-        this.denialTracker.trackSuccess(toolName, context.sessionId);
-        return createAllowDecision(readonly.reason);
-      }
-    }
-
-    // 3. 使用自动分类器
-    try {
-      const classifierDecision = await this.classifierManager.classify(
-        toolName,
-        input,
-        this.messages
-      );
-
-      if (classifierDecision.requiresApproval) {
-        // 2026-11-11（P5-approval）：`cp` / `mv` 这类"常见但可能不可逆"的命令
-        // 不硬拒也不静默放行 ⇒ 转人工审批（用户可在审批卡上决定）。
-        return createAskDecision(
-          classifierDecision.reason || 'Requires approval by auto classifier'
-        );
-      }
-
-      if (classifierDecision.shouldBlock) {
-        // P0-2：分类器判定为阻断（deny）时保持 deny；连续拒绝只做统计，不升高为可批准
-        this.denialTracker.trackDenial(toolName, context.sessionId);
-
-        return createDenyDecision(
-          classifierDecision.reason || 'Blocked by auto classifier'
-        );
-      } else {
-        this.denialTracker.trackSuccess(toolName, context.sessionId);
-        return createAllowDecision(
-          classifierDecision.reason || 'Allowed by auto classifier'
-        );
-      }
-    } catch (error) {
-      await handleError(error, {
-        module: 'permission:manager',
-        action: 'classifier_check',
-      });
-      // P8（2026-11-12）：分类器异常 ⇒ **fail-closed 到 ask**（可人工批准）。
-      // 此前是 fail-open（静默放行）：分类器真抛错时（如本轮遇到的 ReferenceError）
-      // 所有"需要判定"的命令会被直接放行 —— 比"未知命令 ⇒ ask"危险得多。
-      // 只读命令已在 §2.5 短路（`checkReadonlyCommand`），不经过本分支；
-      // 故本改动只影响"本来就要判定"的命令，坏一次不至于全面放行或全面阻断。
-      logger.warn('权限分类器异常，转人工审批（fail-closed）', {
-        reasonCode: 'classifier_fail_closed_ask',
-        toolName,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return createAskDecision(
-        'Classifier unavailable, manual approval required'
-      );
-    }
-  }
 
   /**
    * 设置权限模式
@@ -1253,57 +292,31 @@ export class PermissionManager {
   }
 
   /**
-   * 添加权限规则
+   * 添加权限规则（P1 拆分，2026-11-12：实现见 `./manager/rulesFacade`）
    *
-   * LRO-07（2026-10-26）：**落盘来源必须是 `ruleStore`**。此前走 `createPermissionRule`
-   * 的默认值 `userSettings` ⇒ `tool_rules.json` 里的规则全被标成「用户设置」，
-   * deny 文案随之指错地方（磁盘上没有 settings.json）。这里显式标注真实来源。
-   * @param behavior 权限行为
-   * @param toolName 工具名称
-   * @param contentPattern 内容模式（可选）
+   * LRO-07（2026-10-26）：**落盘来源必须是 `ruleStore`**（详见 `rulesFacade.addRule`）。
    */
   addRule(
     behavior: PermissionBehavior,
     toolName: string,
     contentPattern?: string
   ): void {
-    const rule = createPermissionRule({
-      behavior,
-      toolName,
-      contentPattern,
-      source: PermissionRuleSource.RULE_STORE,
-    });
-    this.ruleManager.addRule(rule);
+    addRule(this.ruleManager, behavior, toolName, contentPattern);
   }
 
-  /**
-   * 移除权限规则
-   * @param ruleId 规则ID
-   */
+  /** 移除权限规则 */
   removeRule(ruleId: string): void {
-    const rule = this.ruleManager.getRuleById(ruleId);
-    if (rule) {
-      this.ruleManager.removeRule(rule);
-    }
+    removeRule(this.ruleManager, ruleId);
   }
 
-  /**
-   * 获取所有权限规则
-   * @returns 权限规则数组
-   */
+  /** 获取所有权限规则 */
   getRules(): any[] {
-    return this.ruleManager.getRules();
+    return getRules(this.ruleManager);
   }
 
   /**
    * PR-2（2026-10-23）：settings 文件来源的权限规则（**只读视图**，供合并展示）。
-   *
-   * 背景（方案 §3.7.2）：工具规则有两条来源 —— 运行期 `tool_rules.json`（可写）与
-   * settings `permissions.{allow,ask,deny}`（手工维护，启动时并入决策上下文）。
-   * `GET /v1/permissions/rules` 必须同时返回两者并标注 `source`，否则 UI 与用户认知不一致
-   * （用户在 settings 里写了 allow，面板却显示"默认"）。
-   *
-   * 本方法只读；写入口仍是 `tool_rules.json`（单一写路径）。
+   * 背景与只读约束见 `rulesFacade.getSettingsRuleEntries`。
    */
   getSettingsRuleEntries(): Array<{
     behavior: PermissionBehavior;
@@ -1311,30 +324,7 @@ export class PermissionManager {
     contentPattern?: string;
     source: PermissionRuleSource;
   }> {
-    const ctx = this.toolPermissionContext as unknown as {
-      alwaysAllowRules: Record<PermissionRuleSource, string[]>;
-      alwaysDenyRules: Record<PermissionRuleSource, string[]>;
-      alwaysAskRules: Record<PermissionRuleSource, string[]>;
-    };
-    return [
-      ...[
-        [PermissionBehavior.ALLOW, ctx.alwaysAllowRules] as const,
-        [PermissionBehavior.DENY, ctx.alwaysDenyRules] as const,
-        [PermissionBehavior.ASK, ctx.alwaysAskRules] as const,
-      ].flatMap(([behavior, record]) =>
-        Object.entries(record ?? {}).flatMap(([source, list]) =>
-          (list ?? []).map((raw) => {
-            const value = permissionRuleValueFromString(raw);
-            return {
-              behavior,
-              toolName: value.toolName,
-              contentPattern: value.ruleContent,
-              source: source as PermissionRuleSource,
-            };
-          })
-        )
-      ),
-    ];
+    return getSettingsRuleEntries(this.toolPermissionContext);
   }
 
   /**
@@ -1345,26 +335,8 @@ export class PermissionManager {
   }
 
   /**
-   * E↔A 打通：查询 D 体系（FineGrained）中**本次请求生效主体**的规则
-   *
-   * 三类绑定同权（2026-11-11 补齐 user / resource，并接入 allow / ask）：
-   * - **角色**：`roleObj.permissions` + `rules.json` 里 `roleId = roleObj.id` 的规则；
-   * - **用户**：`rules.json` 里 `userId = context.userId` 的规则；
-   * - **资源**：`rules.json` 里 `resourceId = toolName` 且未绑定角色/用户的规则
-   *   （工具类资源以工具名为标识）。
-   *
-   * 返回**一次读取**得到的决策三档（deny > ask > allow）：
-   * - `deny` 由调用方在**所有 ask/allow 之前**返回（安全排序：deny 永远优先）；
-   * - `ask` 在工具级 ask 规则之后、allow 规则之前返回（ask 不越过 allow）；
-   * - `allow` 在所有 ask 与显式 allow 规则之后返回（安全兜底：ask 仍优先于 allow）。
-   *
-   * 只认 `operation ∈ {all, execute}`：工具调用以 execute 参与判定。
-   *
-   * 多租户 P0：角色/用户由**调用方显式传入**（`context.userRoles` / `context.userRole` /
-   * `context.userId`），方法内不读任何进程级字段 ⇒ 并发请求各自判定、互不覆盖（2026-11-03 收敛）。
-   * 本地身份由调用方经 `getEffectivePermissionRole()` 映射为 `admin`（2026-11-11 裁定）。
-   * 存储走进程内单例（P2-4）；deny 指标按**真实命中主体**归因（P2-5，见 `denyAttribution`）。
-   * 角色按**并集**参与（P2-6）：每个角色的 `roleObj.permissions` + `rules.json` 绑定都收集。
+   * 细粒度 RBAC（D 体系）规则判定（P1 拆分，2026-11-12：实现见 `./manager/fineGrained`）
+   * @see checkFineGrainedRules 语义与安全排序说明（deny > ask > allow、fail-closed）
    */
   private async checkFineGrainedRules(
     toolName: string,
@@ -1376,123 +348,20 @@ export class PermissionManager {
     ask?: PermissionDecision;
     allow?: PermissionDecision;
   }> {
-    try {
-      // P2-4（2026-11-11）：走**进程内单例**。存储的 mtime 读缓存是实例字段，
-      // 每次判定都新建管理器会让缓存永不命中（且构造函数固定 4 次 existsSync + 一条 INFO）。
-      const storage = getFineGrainedPermissionManager().getStorage();
-      // 规则与**来源**一起采集：归因要按真实绑定的那一路打标（P2-5），事后猜不准。
-      const collected: Array<{
-        rule: FineGrainedRule;
-        source: FineGrainedDenySource;
-      }> = [];
-
-      for (const roleName of effectiveRoles) {
-        const roleObj = await storage.getRoleByName(roleName as RoleType);
-        if (!roleObj) continue;
-        for (const rule of roleObj.permissions) {
-          collected.push({ rule, source: 'role' });
-        }
-        for (const rule of await storage.getRulesByRole(roleObj.id)) {
-          collected.push({ rule, source: 'role' });
-        }
-      }
-
-      if (userId) {
-        for (const rule of await storage.getRulesByUser(userId)) {
-          collected.push({ rule, source: 'user' });
-        }
-      }
-
-      // 资源规则：同一份 `rules.json` 里，角色/用户绑定的规则也用 resourceId = 工具名，
-      // 必须排除它们，否则“给 guest 绑定”会通过资源通道命中所有人（多租户串权）。
-      const resourceRules = (await storage.getRulesByResource(toolName)).filter(
-        (rule) => !rule.roleId && !rule.userId
-      );
-      for (const rule of resourceRules) {
-        collected.push({ rule, source: 'resource' });
-      }
-
-      const pickRule = (
-        action: PermissionAction
-      ): (typeof collected)[number] | undefined =>
-        collected
-          .filter(
-            ({ rule }) =>
-              rule.action === action &&
-              (rule.operation === OperationType.ALL ||
-                rule.operation === OperationType.EXECUTE) &&
-              rule.resourceId === toolName
-          )
-          // 与 D 体系一致：priority 数值越小优先级越高
-          .sort((a, b) => a.rule.priority - b.rule.priority)[0];
-
-      const denyHit = pickRule(PermissionAction.DENY);
-      if (denyHit) {
-        this.denialTracker.trackDenial(toolName, sessionId);
-        this.recordFineGrainedDeny(
-          toolName,
-          describeFineGrainedDenySubject(
-            denyHit.rule,
-            denyHit.source,
-            effectiveRoles[0]
-          )
-        );
-        return {
-          deny: createDenyDecision(
-            `Denied by fine-grained rule: ${denyHit.rule.id}`
-          ),
-        };
-      }
-
-      const askHit = pickRule(PermissionAction.ASK);
-      const allowHit = pickRule(PermissionAction.ALLOW);
-      return {
-        ...(askHit
-          ? {
-              ask: createAskDecision(
-                `Asked by fine-grained rule: ${askHit.rule.id}`
-              ),
-            }
-          : {}),
-        ...(allowHit
-          ? {
-              allow: createAllowDecision(
-                `Allowed by fine-grained rule: ${allowHit.rule.id}`
-              ),
-            }
-          : {}),
-      };
-    } catch (error) {
-      // P1-3（2026-11-11）：**fail-closed**。规则文件不可读 / 解析失败时，无法证明
-      // “没有任何 deny 绑定”；继续按 A 规则放行等于让 RBAC deny 静默失效
-      // （安全域不接受「读不到就当没配」）。
-      //
-      // 代价与取证：`FilePermissionStorage` 的写是 read-modify-write（无跨实例锁），
-      // 并发写窗口内可能出现瞬时解析失败 ⇒ 此时工具会被拒一次，恢复写入后自动恢复；
-      // 若长期被拒，按提示检查 `permissions/*.json` 是否为合法 JSON。
-      void handleError(error, {
-        module: 'permission:manager',
-        action: 'check_fine_grained_rules',
-      });
-      return {
-        deny: createDenyDecision(
-          'Denied: fine-grained RBAC rules unavailable ' +
-            '(permissions/*.json unreadable). Fix the JSON files to re-enable tools.'
-        ),
-      };
-    }
+    return checkFineGrainedRules(
+      { denialTracker: this.denialTracker },
+      toolName,
+      userId,
+      effectiveRoles,
+      sessionId
+    );
   }
 
   /**
-   * 重置所有规则（清空内存和持久化文件）
+   * 重置所有规则（清空内存和持久化文件；实现见 `./manager/rulesFacade`）
    */
   resetRules(): void {
-    this.ruleManager.clearRules();
-    this.toolPermissionContext = {
-      alwaysAllowRules: {},
-      alwaysDenyRules: {},
-      alwaysAskRules: {},
-    };
+    this.toolPermissionContext = resetRules(this.ruleManager);
   }
 
   /**
@@ -1575,144 +444,63 @@ export class PermissionManager {
     return this.toolPermissionContext;
   }
 
-  /**
-   * 添加规则字符串到指定来源
-   * @param behavior 规则行为
-   * @param source 规则来源
-   * @param ruleString 规则字符串
-   */
+  /** 添加规则字符串到指定来源（实现见 `./manager/rulesFacade`） */
   addRuleString(
     behavior: PermissionBehavior,
     source: PermissionRuleSource,
     ruleString: string
   ): void {
-    const key =
-      behavior === PermissionBehavior.ALLOW
-        ? 'alwaysAllowRules'
-        : behavior === PermissionBehavior.DENY
-          ? 'alwaysDenyRules'
-          : 'alwaysAskRules';
-
-    if (!this.toolPermissionContext[key][source]) {
-      this.toolPermissionContext[key][source] = [];
-    }
-
-    this.toolPermissionContext[key][source]!.push(ruleString);
+    addRuleString(this.toolPermissionContext, behavior, source, ruleString);
   }
 
-  /**
-   * 保存权限规则
-   */
+  /** 保存权限规则 */
   saveRules(): void {
-    this.ruleManager.saveRules(this.ruleManager.getRules());
+    saveRules(this.ruleManager);
   }
 
-  /**
-   * 加载权限规则
-   */
+  /** 加载权限规则 */
   loadRules(): void {
-    this.ruleManager.loadRules();
+    loadRules(this.ruleManager);
   }
 
-  /**
-   * 批量添加权限规则（兼容ToolManager接口）
-   * @param rules 权限规则数组
-   * @param behavior 权限行为
-   * @param source 规则来源
-   */
+  /** 批量添加权限规则（兼容ToolManager接口；实现见 `./manager/rulesFacade`） */
   addRules(
     rules: any[],
     behavior: 'allow' | 'deny' | 'ask',
     source?: string
   ): void {
-    for (const rule of rules) {
-      const toolName = rule.name || rule.toolName;
-      if (toolName) {
-        this.addRule(
-          behavior as PermissionBehavior,
-          toolName,
-          rule.contentPattern
-        );
-      }
-    }
+    addRules(this.ruleManager, rules, behavior, source);
   }
 
-  /**
-   * 批量移除权限规则（兼容ToolManager接口）
-   * @param rules 权限规则数组
-   * @param behavior 权限行为
-   * @param source 规则来源
-   */
+  /** 批量移除权限规则（兼容ToolManager接口；实现见 `./manager/rulesFacade`） */
   removeRules(
     rules: any[],
     behavior: 'allow' | 'deny' | 'ask',
     source?: string
   ): void {
-    for (const rule of rules) {
-      const toolName = rule.name || rule.toolName;
-      if (toolName) {
-        const existingRules = this.ruleManager.getRules();
-        const ruleToRemove = existingRules.find(
-          (r) => r.toolName === toolName && r.behavior === behavior
-        );
-        if (ruleToRemove) {
-          this.ruleManager.removeRule(ruleToRemove);
-        }
-      }
-    }
+    removeRules(this.ruleManager, rules, behavior, source);
   }
 
-  /**
-   * 获取规则摘要（兼容ToolManager接口）
-   * @returns 规则摘要信息
-   */
+  /** 获取规则摘要（兼容ToolManager接口；实现见 `./manager/rulesFacade`） */
   getRulesSummary(): {
     total: number;
     allow: number;
     deny: number;
     ask: number;
   } {
-    const rules = this.ruleManager.getRules();
-    let allow = 0;
-    let deny = 0;
-    let ask = 0;
-    for (const rule of rules) {
-      switch (rule.behavior) {
-        case 'allow':
-          allow++;
-          break;
-        case 'deny':
-          deny++;
-          break;
-        case 'ask':
-          ask++;
-          break;
-      }
-    }
-    return { total: rules.length, allow, deny, ask };
+    return getRulesSummary(this.ruleManager);
   }
 
-  /**
-   * 解释权限决策（兼容ToolManager接口）
-   * @param toolName 工具名称
-   * @param input 输入参数
-   * @returns 权限解释字符串
-   */
+  /** 解释权限决策（兼容ToolManager接口；实现见 `./manager/rulesFacade`） */
   explainPermission(
     toolName: string,
     input: Record<string, unknown> = {}
   ): string {
-    const rules = this.ruleManager.getRules();
-    const toolRules = rules.filter((r) => r.toolName === toolName);
-    if (toolRules.length > 0) {
-      const rule = toolRules[0];
-      return `Permission for '${toolName}': ${rule.behavior}${rule.contentPattern ? ` - Pattern: ${rule.contentPattern}` : ''}`;
-    }
-    return `No explicit rule for '${toolName}', default behavior: ${this.mode}`;
+    return explainPermission(this.ruleManager, this.mode, toolName, input);
   }
 
   /**
-   * 检查工具权限（兼容ToolManager接口）
+   * 检查工具权限（兼容ToolManager接口；P1 拆分，2026-11-12：实现见 `./manager/toolPermission`）
    * @param toolName 工具名称
    * @param input 输入参数
    * @returns 工具权限检查结果
@@ -1720,196 +508,24 @@ export class PermissionManager {
   async checkPermissionForTool(
     toolName: string,
     input: Record<string, unknown> = {},
-    context?: Pick<
-      PermissionContext,
-      | 'sessionId'
-      | 'toolCallId'
-      | 'userId'
-      | 'userRole'
-      | 'userRoles'
-      | 'metadata'
-      | 'approvalMode'
-      | 'permissionMode'
-      | 'workspacePath'
-      | 'workspaceRoots'
-      | 'taskId'
-    > & {
-      /**
-       * PR-3a（2026-10-23）：本次执行的沙箱上下文（由执行入口注入）。
-       * 仅供审批卡留证；**不参与** allow/ask/deny 判定（豁免判定在 PR-3b）。
-       */
-      sandbox?: SandboxExecutionSignal;
-      /**
-       * R07-3（2026-10-07）：非幂等工具「重试」理由（由调用方判定后传入）。
-       * 提供 ⇒ 本该放行的决策升级为 `ask` ⇒ 走下方既有 Inbox 提交通路（见 `checkPermissionInner`）。
-       */
-      forceAskReason?: string;
-      /**
-       * PR-0（2026-10-23）：工具对象。提供 ⇒ 风险按**声明式**派生
-       * （`riskClass`/`riskClassFor`/`TOOL_EFFECTS`/`sandboxLevel`）；
-       * 缺省 ⇒ 回退已弃用的名字启发式（仅过渡，行为零变更）。
-       */
-      tool?: Tool;
-    }
-  ): Promise<{
-    allowed: boolean;
-    decision?: {
-      behavior: PermissionBehavior;
-      updatedInput?: any;
-      reason?: string;
-    };
-    reason?: string;
-    /** P1-2: 审批卡片是否已由 PermissionChecker 提交到 Inbox */
-    submittedToInbox?: boolean;
-    /** P1-2: 命令类工具的规范化 hash（批准后写入放行缓存） */
-    commandHash?: string;
-    /** U-06-5: 已提交的 Inbox 项 id（前端工具卡片就地审批用） */
-    inboxItemId?: string;
-    /**
-     * LRO-07（2026-10-26）：规则拒绝的**结构化**依据（ruleId / sourceKind /
-     * inputFingerprint / removableVia）。此前它只存在 `decision.context`，
-     * 归一化时被截断 ⇒ 工具结果拿不到「哪条规则、怎么解除」。
-     */
-    denyInfo?: PermissionDenyInfo;
-    /** P3（2026-11-07，方案 §2.3-4）：会话权限档自动放行（非用户逐条批准） */
-    autoApproved?: boolean;
-    /** 同上：来源编码（`permission-mode:bypass` / `permission-mode:auto` / …） */
-    approvalSource?: string;
-  }> {
-    // P1-2: 构造完整 PermissionContext（补 toolName/input），透传 sessionId 供统一提交
-    const permissionContext = createPermissionContext({
+    context?: ToolPermissionCallContext
+  ): Promise<ToolPermissionResult> {
+    return checkPermissionForTool(
+      {
+        mode: this.mode,
+        permissionChecker: this.permissionChecker,
+        checkPermission: (toolOrName, toolInput, permissionContext, reason) =>
+          this.checkPermission(
+            toolOrName,
+            toolInput,
+            permissionContext,
+            reason
+          ),
+      },
       toolName,
       input,
-      sessionId: context?.sessionId,
-      // 2026-11-12：透传调用 id（审批卡留证；用户拒绝时据此写终态结果并续跑）
-      toolCallId: context?.toolCallId,
-      userId: context?.userId,
-      // 多租户 P0 阶段 2：请求级角色透传（缺失 ⇒ 本次判定无角色，角色 deny 不参与）
-      userRole: context?.userRole,
-      // P2-6（2026-11-11）：全部角色透传（RBAC 按并集判定；缺省回落实体里的主角色）
-      userRoles: context?.userRoles,
-      metadata: context?.metadata,
-      // PR-3：会话级审批模式与工作区边界（缺失 ⇒ 与改造前一致：ask + 无自动放行）
-      approvalMode: context?.approvalMode,
-      // P1（2026-11-04）：会话级权限模式 —— **必须在此透传**，否则执行链（唯一真实入口
-      // `checkPermissionForTool`）断在 `createPermissionContext`，会话档位形同未接线。
-      permissionMode: context?.permissionMode,
-      workspacePath: context?.workspacePath,
-      // P1（2026-11-04，§3.6）：工作区根列表（缺省 ⇒ 边界判定回落单根 workspacePath）
-      workspaceRoots: context?.workspaceRoots,
-      // P2（§3.3）：所属长程任务（缺省 ⇒ 审批卡不提供"本任务都允许"）
-      taskId: context?.taskId,
-      // PR-3a：沙箱信号（缺失 ⇒ undefined，审批卡不写该字段 ⇒ 视为"未沙箱"）
-      sandbox: context?.sandbox,
-    });
-    const decision = await this.checkPermission(
-      context?.tool ?? toolName,
-      input,
-      permissionContext,
-      context?.forceAskReason
+      context
     );
-
-    // P3（2026-11-07，方案 §2.3-4）：会话权限档的**放宽档**（bypass / auto / dontAsk）
-    // 会直接放行而不产生审批卡 ⇒ 必须显式标注「自动放行」，不得在日志/审计里与
-    // 「用户逐条批准」混同。仅在 allow 时标注；收紧档（plan）不适用。
-    const effectivePermissionMode = resolveEffectiveMode(
-      permissionContext.permissionMode,
-      this.mode
-    );
-    const autoSource =
-      decision.type === PermissionDecisionType.ALLOW
-        ? effectivePermissionMode === PermissionMode.BYPASS
-          ? 'permission-mode:bypass'
-          : effectivePermissionMode === PermissionMode.AUTO
-            ? 'permission-mode:auto'
-            : effectivePermissionMode === PermissionMode.DONT_ASK
-              ? 'permission-mode:dontAsk'
-              : undefined
-        : undefined;
-    if (autoSource) {
-      logAutoAllowedOnce(autoSource, toolName, context?.sessionId);
-    }
-
-    // P1-2: ask 决策统一提交 Inbox 审批卡片（唯一提交点，开关控制，避免重复提交）。
-    // 提交成功 → 决策携带 submittedToInbox:true + commandHash，供上层返回 awaiting_approval；
-    // 提交失败/开关关闭 → 保留原 ask 决策（上层降级为 ask 文本）。
-    if (
-      decision.type === PermissionDecisionType.ASK &&
-      decision.context?.submittedToInbox !== true &&
-      isInboxApprovalEnabled()
-    ) {
-      try {
-        const submittedDecision = await this.permissionChecker.submitAskToInbox(
-          toolName,
-          input,
-          permissionContext,
-          resolveRiskClass(context?.tool ?? toolName, input),
-          context?.tool
-        );
-        return this._checkPermissionForToolResult(submittedDecision, toolName);
-      } catch (err) {
-        logger.warn('Failed to submit ask decision to Inbox', {
-          toolName,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-    }
-    return this._checkPermissionForToolResult(decision, toolName, autoSource);
-  }
-
-  /** P1-2: 归一化 checkPermissionForTool 返回结构（含 submittedToInbox/commandHash） */
-  private _checkPermissionForToolResult(
-    decision: PermissionDecision,
-    toolName: string,
-    /** P3（2026-11-07）：自动放行来源（会话权限档）；缺省 = 常规判定 */
-    autoSource?: string
-  ): {
-    allowed: boolean;
-    decision?: {
-      behavior: PermissionBehavior;
-      updatedInput?: any;
-      reason?: string;
-    };
-    reason?: string;
-    submittedToInbox?: boolean;
-    commandHash?: string;
-    inboxItemId?: string;
-    denyInfo?: PermissionDenyInfo;
-    /** P3（2026-11-07，方案 §2.3-4）：本次放行由会话权限档自动完成（非用户逐条批准） */
-    autoApproved?: boolean;
-    /** 同上：来源编码（`permission-mode:bypass` / `permission-mode:auto` / …） */
-    approvalSource?: string;
-  } {
-    const allowed = decision.type === 'allow';
-    const submittedToInbox = decision.context?.submittedToInbox === true;
-    const commandHash =
-      typeof decision.context?.commandHash === 'string'
-        ? (decision.context.commandHash as string)
-        : undefined;
-    const inboxItemId =
-      typeof decision.context?.inboxItemId === 'string'
-        ? (decision.context.inboxItemId as string)
-        : undefined;
-    // LRO-07：DENY 才回传结构化依据（ask/allow 的 context 里有别的字段，不可混用）
-    const denyInfo =
-      decision.type === PermissionDecisionType.DENY
-        ? buildDenyInfo(decision.context)
-        : undefined;
-    return {
-      allowed,
-      decision: {
-        behavior: decision.type as unknown as PermissionBehavior,
-        updatedInput: undefined,
-        reason: decision.reason,
-      },
-      reason: decision.reason,
-      submittedToInbox,
-      commandHash,
-      inboxItemId,
-      denyInfo,
-      // P3：只有 allow 才可能带自动来源（ask/deny 由调用方传入 undefined）
-      ...(autoSource ? { autoApproved: true, approvalSource: autoSource } : {}),
-    };
   }
 }
 

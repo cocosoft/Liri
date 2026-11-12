@@ -87,6 +87,10 @@ export interface RuntimeDefaults {
   sandboxFenceIntervalMs: number;
   /** 姿态快照超过该时长未更新即判定 `stale`（毫秒） */
   sandboxFencePostureStaleMs: number;
+  /** M2 / S1：连续多少次「无规则匹配 ⇒ 默认放行」才告警 */
+  sandboxFenceSilentAllowRunLength: number;
+  /** M2 / S2：deny 之后多久内再次出现同命令算"重试"（毫秒） */
+  sandboxFenceDenyRetryWindowMs: number;
 }
 
 /** 每 token 估算字节数（A 类换算常数；派生字段的唯一来源） */
@@ -112,7 +116,8 @@ const TOKEN_BYTES_ESTIMATE = 4;
  * `LIRI_AGENTS_LIST_DEFAULT_LIMIT` · `LIRI_AGENTS_LIST_MAX_LIMIT` ·
  * `LIRI_PDCA_LIST_DEFAULT_LIMIT` · `LIRI_PDCA_LIST_MAX_LIMIT` ·
  * `LIRI_SANDBOX_POSTURE_SNAPSHOT_INTERVAL_MS` ·
- * `LIRI_SANDBOX_FENCE_INTERVAL_MS` · `LIRI_SANDBOX_FENCE_POSTURE_STALE_MS`
+ * `LIRI_SANDBOX_FENCE_INTERVAL_MS` · `LIRI_SANDBOX_FENCE_POSTURE_STALE_MS` ·
+ * `LIRI_SANDBOX_FENCE_SILENT_ALLOW_RUN_LENGTH` · `LIRI_SANDBOX_FENCE_DENY_RETRY_WINDOW_MS`
  */
 export function getRuntimeDefaults(): RuntimeDefaults {
   const apiImageMaxBase64Size = envInt(
@@ -194,6 +199,15 @@ export function getRuntimeDefaults(): RuntimeDefaults {
     sandboxFencePostureStaleMs: envInt(
       'LIRI_SANDBOX_FENCE_POSTURE_STALE_MS',
       2 * 60 * 1000
+    ),
+    // M2 规则阈值：S1 连续 5 次；S2 60s 内同命令再出现
+    sandboxFenceSilentAllowRunLength: envInt(
+      'LIRI_SANDBOX_FENCE_SILENT_ALLOW_RUN_LENGTH',
+      5
+    ),
+    sandboxFenceDenyRetryWindowMs: envInt(
+      'LIRI_SANDBOX_FENCE_DENY_RETRY_WINDOW_MS',
+      60 * 1000
     ),
   };
 }

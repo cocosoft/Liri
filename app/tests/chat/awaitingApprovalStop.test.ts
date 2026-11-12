@@ -27,6 +27,7 @@ import {
 import {
   extractAwaitingApprovalToolCallIds,
   extractPendingToolCallsFromEvents,
+  planToolReplay,
 } from '../../src/chat/utils/pendingToolCalls.js';
 import type { LiriEvent } from '@modules/session/types/events';
 
@@ -229,5 +230,52 @@ describe('P0-1：awaiting_approval 不算"已答"（否则批准后无物可重�
       },
     ]);
     expect([...ids]).toEqual(['tc-bash']);
+  });
+});
+
+// 2026-11-12（真机 `session_mwcyhmmpd44e93b602`）：审批未落定的调用被续跑重放 ⇒
+// 同一 toolCallId 写下第二条 `awaiting_approval` tool/result（新 messageId）⇒ 重复审批卡。
+// 实证：seq 865/869（call_00_gjfuJh…）、878/882（call_00_fNPaXZ…）同 id 重复。
+describe('审批未落定 ⇒ 续跑不重放（否则重复审批卡）', () => {
+  const awaitingCalls = [
+    { id: 'tc-awaiting', name: 'bash' },
+    { id: 'tc-pending', name: 'bash' },
+  ];
+  const awaiting = new Set(['tc-awaiting', 'tc-pending']);
+
+  it('剩余调用全部未落定 ⇒ 本次空转（不重放、不写重复结果）', () => {
+    const plan = planToolReplay(awaitingCalls, awaiting, new Set());
+    expect(plan.replay).toEqual([]);
+    expect(plan.skippedPendingCount).toBe(2);
+  });
+
+  it('全部已落定 ⇒ 照旧重放（批准后必须执行）', () => {
+    const plan = planToolReplay(awaitingCalls, awaiting, awaiting);
+    expect(plan.replay.map((c) => c.id)).toEqual(['tc-awaiting', 'tc-pending']);
+    expect(plan.skippedPendingCount).toBe(0);
+  });
+
+  it('混合场景（一半已落定）⇒ 沿用原口径全量重放，不动重放锚点', () => {
+    const plan = planToolReplay(
+      awaitingCalls,
+      awaiting,
+      new Set(['tc-awaiting'])
+    );
+    expect(plan.replay.map((c) => c.id)).toEqual(['tc-awaiting', 'tc-pending']);
+    expect(plan.skippedPendingCount).toBe(0);
+  });
+
+  it('负向对照：无审批等待项时行为零变更（全部重放）', () => {
+    const plan = planToolReplay(
+      [...awaitingCalls, { id: 'tc-normal', name: 'grep' }],
+      new Set(),
+      new Set()
+    );
+    expect(plan.replay.map((c) => c.id)).toEqual([
+      'tc-awaiting',
+      'tc-pending',
+      'tc-normal',
+    ]);
+    expect(plan.skippedPendingCount).toBe(0);
   });
 });

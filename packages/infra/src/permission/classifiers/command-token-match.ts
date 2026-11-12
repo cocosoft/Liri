@@ -194,6 +194,10 @@ export function containsCommandToken(
   // 否则换个版本号就绕过 `python -c` / `node -e`。
   const deVersioned = deVersionSuffix(normalized);
   if (!variants.includes(deVersioned)) variants.push(deVersioned);
+  // 2026-11-12（P6-3）：解释器启动器夹版本参数（`py -3 -c`）归一为 `py -c` 再判，
+  // 否则在 `py` 与 `-c` 之间插一个版本号即可绕过。
+  const deVersionFlag = deInterpreterVersionFlag(normalized);
+  if (!variants.includes(deVersionFlag)) variants.push(deVersionFlag);
   return variants.some((variant) =>
     matchesAnchoredToken(variant, trimmed, depth)
   );
@@ -202,6 +206,11 @@ export function containsCommandToken(
 /** 解释器名带版本号归一为基名（`python3` / `python3.11` ⇒ `python`） */
 function deVersionSuffix(text: string): string {
   return text.replace(/\b(python|node|ruby|perl|php)\d+(?:\.\d+)*\b/gi, '$1');
+}
+
+/** 剥掉解释器启动器里的版本开关（`py -3 -c` / `python -3.11 -c` ⇒ `py -c`） */
+function deInterpreterVersionFlag(text: string): string {
+  return text.replace(/\b(py|python|node)\s+-\d+(?:\.\d+)?\s+/gi, '$1 ');
 }
 
 /** 在**一个**命令面上做命令位锚定匹配（含嵌套 shell 递归） */

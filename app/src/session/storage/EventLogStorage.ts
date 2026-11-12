@@ -717,6 +717,14 @@ export class EventLogStorage {
           const line = JSON.stringify(toWrite) + '\n';
           await fs.appendFile(this.filePath, line, 'utf-8');
           this.tailSeq = toWrite.seq as number;
+          // P10（2026-11-12）：maxTurn 缓存随写入前进，否则 turn/end 取到旧最大值（start/end 编号错位）
+          const writtenTurn = (toWrite.data as { turn?: unknown } | undefined)
+            ?.turn;
+          if (
+            typeof writtenTurn === 'number' &&
+            writtenTurn > (this.maxTurn ?? 0)
+          )
+            this.maxTurn = writtenTurn;
           // 2026-10-31：登记进程内轮次生命周期（在飞判定见 `EventLogRepair.hasRecentInFlightTurn`）
           trackTurnLifecycle(this.sessionId, toWrite);
           // A-5（2026-08-23）：写入成功 → 连续失败计数清零（熔断自动解除）

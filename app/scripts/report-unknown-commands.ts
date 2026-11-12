@@ -42,8 +42,13 @@ if (logPaths.length === 0) {
 
 const counts = new Map<string, number>();
 let matched = 0;
+/** 分类器日志条数（不含未收录分支）—— 用来区分「没跑」与「跑了但全命中」 */
+let classifierRecords = 0;
 for (const logPath of logPaths) {
   for (const line of readFileSync(logPath, 'utf8').split('\n')) {
+    if (line.includes('"module":"permission:classifier"')) {
+      if (!line.includes('permission:unknown_command')) classifierRecords += 1;
+    }
     if (!line.includes('permission:unknown_command')) continue;
     matched += 1;
     try {
@@ -59,10 +64,16 @@ for (const logPath of logPaths) {
 
 const rows = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, top);
 console.log(
-  `[unknown-commands] 扫描 ${logPaths.length} 个日志 命中=${matched} 去重命令=${counts.size}`
+  `[unknown-commands] 扫描 ${logPaths.length} 个日志 分类器记录=${classifierRecords} ` +
+    `未收录=${matched} 去重命令=${counts.size}`
 );
 if (rows.length === 0) {
-  console.log('（无未收录命令记录：要么没有 auto 档会话，要么缺口已被注册表覆盖）');
+  // CS06：0 条不等于"缺口已覆盖"。分类器没跑过时，采样窗口本身是空的。
+  console.log(
+    classifierRecords === 0
+      ? '（分类器在窗口内**未运行**：没有 auto 档命令进判定链 ⇒ 采样无意义，不是缺口覆盖的证据）'
+      : `（分类器运行 ${classifierRecords} 次，全部命中注册表 / 规则 ⇒ 窗口内无缺口）`
+  );
   process.exit(0);
 }
 console.log('命令名\t次数');

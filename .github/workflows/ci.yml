@@ -119,6 +119,12 @@ jobs:
       if: matrix.os == 'ubuntu-latest'
       run: bun run lint:scripts
 
+    # P1（2026-11-12）：沙箱拆包到 packages/sandbox 后不再被 `eslint src tests` 覆盖
+    # （flat config 以配置目录为 basePath，跨 base path 会被静默跳过）⇒ 显式补一条门禁。
+    - name: "Run sandbox package linter (P1：packages/sandbox 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:sandbox
+
     # R05-003 双源收敛（2026-10-14）：原先此处为**内联 grep**（6 名 / 按行 / 阈值写死 2034），
     # 与门禁 `lint-architecture.ts#checkConsoleBaseline`（4 名 / 按次 / 阈值 2045+10% ⇒ 上限 2250）
     # 构成**两套实现 + 两个阈值**（改一处即漂移）。现改调**同一实现** `scripts/lib/consoleCalls.ts`，

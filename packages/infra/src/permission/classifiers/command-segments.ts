@@ -103,6 +103,25 @@ export function splitCommandSegments(surface: string): CommandSegment[] {
       i += 1;
       continue;
     }
+    // P9-2（2026-11-12）：cmd 的**单** `&` 也是命令分隔符（`where a & where b`）。
+    // 只认「两侧都有空白」的形态，并排除三种非分隔语义：
+    //  - `&>`（cmd/PowerShell 重定向）、`2>&1`（句柄复制）；
+    //  - PowerShell 调用符 `& $exe` / `& 'x'` / `& (…)`；
+    // 无空白的 `a&b` 保持原样（保守，宁可少拆）。
+    if (
+      ch === '&' &&
+      surface[i + 1] !== '>' &&
+      surface[i + 1] !== '$' &&
+      surface[i + 1] !== '(' &&
+      surface[i + 1] !== "'" &&
+      surface[i + 1] !== '"' &&
+      surface[i - 1] !== '>' &&
+      /\s/.test(surface[i - 1] ?? '') &&
+      /\s/.test(surface[i + 1] ?? '')
+    ) {
+      flush('seq');
+      continue;
+    }
     if (ch === '|' && surface[i + 1] === '|') {
       flush('or');
       i += 1;

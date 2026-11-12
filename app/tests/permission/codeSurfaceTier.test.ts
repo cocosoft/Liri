@@ -40,16 +40,20 @@ describe('P4 复查：code 面不再被「未知命令」兜底', () => {
     }
   });
 
-  it('结构化 LDAP 过滤器仍 deny（shell 面启发式未放宽）', async () => {
+  it('结构化 LDAP 过滤器仍 deny（字符计数已按面关闭，见 P9-3）', async () => {
     const shell = await check('bash', {
       command: 'ldapsearch -b "dc=x" "(&(uid=a)(password=b))"',
     });
     expect(shell.deny).toBe(true);
 
+    // P9-3（2026-11-12）：命令面同样关闭「≥3 特殊字符」启发式 —— shell 语法天然含
+    // `& | = (`，该启发式会把 `dir a & dir b` 之类的只读命令判成 LDAP 注入
+    // （真机 session_mwcyhmmpd44e93b602 seq 260/781）。结构化过滤器模式仍 deny；
+    // 此形态**不再硬拒**，但各段并非只读 ⇒ 仍不得放行（落审批）。
     const shellHeuristic = await check('bash', {
       command: 'echo a=b&c=d|e*f',
     });
-    expect(shellHeuristic.deny).toBe(true);
+    expect(shellHeuristic.deny || shellHeuristic.ask).toBe(true);
   });
 
   it('危险源码仍 deny（危险面未放宽）', async () => {

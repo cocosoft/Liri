@@ -311,6 +311,46 @@ describe('P8-A2：远端写档位复核（维持硬拦，不放开）', () => {
   });
 });
 
+describe('P9：会话暴露的误杀修复（session_mwcyhmmpd44e93b602）', () => {
+  it('嵌套包装器内的只读管道 / cmd 单 & 串联 / 丢弃型重定向 ⇒ allow', async () => {
+    for (const command of [
+      'powershell -NoProfile -Command "Get-Content x | Measure-Object -Line"',
+      'dir /b %USERPROFILE%\\.pyapp 2>nul & dir /b %USERPROFILE%\\.oliri 2>nul',
+      'where sqlite3 2>nul & where bun 2>nul',
+      'cd /d "E:\\\\x" && dir /b y 2>nul & echo ---',
+    ]) {
+      const { tier } = await verdict(command);
+      expect(tier, command).toBe('allow');
+    }
+  });
+
+  it('负向对照：包装器内危险段 / LDAP 结构 / Unicode 转义仍 deny', async () => {
+    for (const command of [
+      'powershell -NoProfile -Command "Remove-Item -Recurse -Force ."',
+      'ls && rm -rf /',
+      '(|(uid=*))',
+      'echo %u0041',
+    ]) {
+      const { tier } = await verdict(command);
+      expect(tier, command).toBe('deny');
+    }
+  });
+
+  it('Measure-Object 的 -Expression 脚本块不放行（参数守卫）', async () => {
+    const { tier } = await verdict(
+      'powershell -Command "Get-Content x | Measure-Object -Expression { 1 }"'
+    );
+    expect(tier).not.toBe('allow');
+  });
+
+  it('PowerShell 变量赋值不是只读命令（保持审批）', async () => {
+    const { tier } = await verdict(
+      '$roots = @("$env:USERPROFILE\\.pyapp", "$env:USERPROFILE\\.oliri")'
+    );
+    expect(tier).toBe('ask');
+  });
+});
+
 describe('P5-3：SQL 规则只收真实注入特征', () => {
   it('只读查询不再被当成注入（可转审批，但不得硬拒）', async () => {
     const { tier } = await verdict('mysql -e "select 1"');

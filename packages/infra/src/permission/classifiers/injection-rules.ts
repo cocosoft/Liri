@@ -178,7 +178,11 @@ export function detectEncodingAttack(input: string): ClassifierDecision | null {
   }
 
   // 检查Unicode编码模式（要求完整转义序列，见 `UNICODE_ESCAPE_PATTERN`）
-  if (input.includes('%u') || UNICODE_ESCAPE_PATTERN.test(input)) {
+  // P9-4（2026-11-12）：`input.includes('%u')` 是裸子串 —— Windows 环境变量
+  // `%USERPROFILE%`（小写化后含 `%u`）会被误判为 Unicode 攻击（真机会话
+  // session_mwcyhmmpd44e93b602 seq 773/793 的纯只读 `dir` 命令因此被拒）。
+  // 收紧为完整转义 `%uXXXX`。
+  if (/%u[0-9a-f]{4}/i.test(input) || UNICODE_ESCAPE_PATTERN.test(input)) {
     return {
       shouldBlock: true,
       reason: 'Input contains Unicode encoding attack',

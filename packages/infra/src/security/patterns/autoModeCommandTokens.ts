@@ -431,6 +431,22 @@ const STRUCTURAL_HARD_DENY_TOKENS = [
   'trojan ',
   'worm ',
   'botnet ',
+  // 2026-11-12（P4 复核）：这些是**注入特征关键词**（SQL 关键字 / PHP·JS 反射与回调
+  // 函数名 / 环境变量名），不是可执行命令 —— 从 commandSpecs.ts 移回结构表，避免把
+  // "注入特征"伪装成"命令语义"。判定行为不变。
+  'UPDATE ',
+  'DELETE ',
+  'LD_PRELOAD',
+  'ReflectionClass',
+  'getMethod',
+  'invoke',
+  'call_user_func',
+  'array_filter',
+  'array_map',
+  'usort',
+  'uasort',
+  'uksort',
+  'social-engineer ',
 ];
 
 export const AUTO_MODE_HARD_DENY_TOKENS: readonly string[] = [

@@ -50,6 +50,7 @@ export async function runFence(): Promise<void> {
     startAtEof: defaults.sandboxFenceStartAtEof,
     rules: {
       silentAllowRunLength: defaults.sandboxFenceSilentAllowRunLength,
+      silentAllowDedupWindowMs: defaults.sandboxFenceSilentAllowDedupMs,
       denyRetryWindowMs: defaults.sandboxFenceDenyRetryWindowMs,
     },
   });

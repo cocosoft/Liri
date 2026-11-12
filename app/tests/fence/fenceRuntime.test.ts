@@ -74,7 +74,11 @@ function deps(dir: string, now: Date = NOW): FenceRuntimeDeps {
   return {
     paths: paths(dir),
     postureStaleAfterMs: STALE_AFTER_MS,
-    rules: { silentAllowRunLength: 3, denyRetryWindowMs: 60_000 },
+    rules: {
+      silentAllowRunLength: 3,
+      silentAllowDedupWindowMs: 10 * 60_000,
+      denyRetryWindowMs: 60_000,
+    },
     now: () => now,
   };
 }

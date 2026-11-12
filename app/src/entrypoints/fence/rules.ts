@@ -3,6 +3,9 @@
  *
  * 本步只实现设计文档 §4 的三条（默认**只观察**，不阻断）：
  * - **S1 静默放行空转**：`behavior=allow` + `riskLevel=high` + 无命中规则，连续 N 次。
+ *   2026-11-13（观察期 A 方案）：`riskLevel=high` 同时承载「deny」与「无规则默认放行」，
+ *   不能单独当"高危命令"；故再按结构化字段排除 `commandClass=read-only|non-shell`，
+ *   并对同一命令在去重窗口内只告警一次（C 方案）。
  *   依据：主进程把「无规则匹配 ⇒ 默认放行」标为 `high`（`decisionTelemetry.auditDecision`）。
  * - **S2 deny 后重试**：同一条命令（归一后）在 deny 之后 T 秒内再次出现。
  * - **S4 沙箱姿态 fail-open**：由 `runtime` 基于姿态快照的 `openRiskCodes` 变化判定（见 `runtime.ts`）。
@@ -21,12 +24,24 @@ export interface FenceAuditEvent {
   behavior: 'allow' | 'ask' | 'deny' | string;
   riskLevel: string;
   matchedRulesCount: number;
+  /**
+   * 2026-11-13（G4 A 方案）：规则覆盖情况。`uncovered` 才是"无规则匹配 ⇒ 默认放行"；
+   * 老审计行没有该字段（`undefined`）⇒ 按旧行为参与判定（历史回放语义不变）。
+   */
+  ruleCoverage?: 'matched' | 'uncovered';
+  /**
+   * 2026-11-13（G4 A 方案）：命令类别 —— 只读 / 写或执行 / 无命令入参的工具调用。
+   * 只读与非 shell 调用不构成"静默放行高风险命令"，S1 跳过。
+   */
+  commandClass?: 'read-only' | 'write-or-exec' | 'non-shell';
 }
 
 /** 规则阈值（B 类运行参数，见 `constants/defaults.ts`） */
 export interface FenceRuleConfig {
   /** S1：连续多少次「默认放行空转」才告警 */
   silentAllowRunLength: number;
+  /** S1：同一命令的告警去重窗口（毫秒）——窗口内重复命中不再写告警 */
+  silentAllowDedupWindowMs: number;
   /** S2：deny 之后多久内再次出现同命令算"重试"（毫秒） */
   denyRetryWindowMs: number;
 }
@@ -44,12 +59,14 @@ export interface FenceRuleFinding {
 export interface FenceRuleState {
   /** S1 当前连续计数（命中告警后清零，避免同一次空转刷屏） */
   silentAllowStreak: number;
+  /** S1：归一命令 → 最近一次告警时刻（毫秒；同命令去重窗口用） */
+  lastSilentAlertAt: Map<string, number>;
   /** S2：归一命令 → 最近一次 deny 时刻（毫秒） */
   deniedAt: Map<string, number>;
 }
 
-/** 已跟踪的命令上限（防 `deniedAt` 无界增长；超限丢最早插入的） */
-const MAX_TRACKED_DENIED_COMMANDS = 500;
+/** 已跟踪命令上限（防两个 Map 无界增长；超限丢最早插入的） */
+const MAX_TRACKED_RULE_COMMANDS = 500;
 
 /**
  * S4 判定的 fail-open 编码（与主进程 `sandboxPosture.ts` 的语言中立编码同源）。
@@ -62,7 +79,11 @@ export const FENCE_FAIL_OPEN_CODES: readonly string[] = [
 ];
 
 export function createFenceRuleState(): FenceRuleState {
-  return { silentAllowStreak: 0, deniedAt: new Map() };
+  return {
+    silentAllowStreak: 0,
+    lastSilentAlertAt: new Map(),
+    deniedAt: new Map(),
+  };
 }
 
 /**
@@ -96,6 +117,15 @@ export function parseAuditEvent(line: string): FenceAuditEvent | undefined {
     matchedRulesCount: Array.isArray(record.matchedRules)
       ? record.matchedRules.length
       : 0,
+    // 2026-11-13（A 方案）：只认契约内的取值；未知取值 ⇒ 不设（按老行行为处理，不猜）
+    ...(record.ruleCoverage === 'matched' || record.ruleCoverage === 'uncovered'
+      ? { ruleCoverage: record.ruleCoverage }
+      : {}),
+    ...(record.commandClass === 'read-only' ||
+    record.commandClass === 'write-or-exec' ||
+    record.commandClass === 'non-shell'
+      ? { commandClass: record.commandClass }
+      : {}),
   };
 }
 
@@ -130,25 +160,47 @@ export function evaluateAuditEvent(
   }
   if (event.behavior === 'deny' && !Number.isNaN(atMs)) {
     state.deniedAt.set(event.normalizedCommand, atMs);
-    if (state.deniedAt.size > MAX_TRACKED_DENIED_COMMANDS) {
+    if (state.deniedAt.size > MAX_TRACKED_RULE_COMMANDS) {
       const oldest = state.deniedAt.keys().next().value;
       if (oldest !== undefined) state.deniedAt.delete(oldest);
     }
   }
 
   // ── S1：默认放行空转（连续 N 次）────────────────────────────────────────
+  // 2026-11-13（A 方案）：`riskLevel=high` 同时承载「deny」与「默认放行」，不能单独当
+  // "高危命令"用。这里显式排除只读 / 非 shell 调用 —— 它们不构成"静默放行可变更状态
+  // 的命令"（实测 12/12 误报全是 grep/dir/todo_write 一类）。
   const isSilentAllow =
     event.behavior === 'allow' &&
     event.riskLevel === 'high' &&
-    event.matchedRulesCount === 0;
+    event.matchedRulesCount === 0 &&
+    event.ruleCoverage !== 'matched' &&
+    event.commandClass !== 'read-only' &&
+    event.commandClass !== 'non-shell';
   if (isSilentAllow) {
     state.silentAllowStreak += 1;
     if (state.silentAllowStreak >= config.silentAllowRunLength) {
-      findings.push({
-        kind: 'silent-allow-streak',
-        detail: `连续 ${state.silentAllowStreak} 次"无规则匹配 ⇒ 默认放行": ${previewCommand(event.command)}`,
-      });
-      // 已告警 ⇒ 重新计数（同一次空转不再逐条刷屏）
+      // 2026-11-13（C 方案）：同一命令在去重窗口内只告警一次（grep 这类高频命令曾有
+      // 一个会话 12 条的噪声）；无可用时间戳 ⇒ 不做去重（无证据不猜）。
+      const lastAlertAt = state.lastSilentAlertAt.get(event.normalizedCommand);
+      const deduped =
+        lastAlertAt !== undefined &&
+        !Number.isNaN(atMs) &&
+        atMs - lastAlertAt < config.silentAllowDedupWindowMs;
+      if (!deduped) {
+        findings.push({
+          kind: 'silent-allow-streak',
+          detail: `连续 ${state.silentAllowStreak} 次"无规则匹配 ⇒ 默认放行": ${previewCommand(event.command)}`,
+        });
+        if (!Number.isNaN(atMs)) {
+          state.lastSilentAlertAt.set(event.normalizedCommand, atMs);
+          if (state.lastSilentAlertAt.size > MAX_TRACKED_RULE_COMMANDS) {
+            const oldest = state.lastSilentAlertAt.keys().next().value;
+            if (oldest !== undefined) state.lastSilentAlertAt.delete(oldest);
+          }
+        }
+      }
+      // 已告警（或被去重）⇒ 重新计数（同一次空转不再逐条刷屏）
       state.silentAllowStreak = 0;
     }
   } else {

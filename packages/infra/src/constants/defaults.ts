@@ -96,6 +96,8 @@ export interface RuntimeDefaults {
   sandboxFencePostureStaleMs: number;
   /** M2 / S1：连续多少次「无规则匹配 ⇒ 默认放行」才告警 */
   sandboxFenceSilentAllowRunLength: number;
+  /** M2 / S1：同一命令的告警去重窗口（毫秒；窗口内重复命中不再写告警） */
+  sandboxFenceSilentAllowDedupMs: number;
   /** M2 / S2：deny 之后多久内再次出现同命令算"重试"（毫秒） */
   sandboxFenceDenyRetryWindowMs: number;
   /**
@@ -215,10 +217,15 @@ export function getRuntimeDefaults(): RuntimeDefaults {
       'LIRI_SANDBOX_FENCE_POSTURE_STALE_MS',
       2 * 60 * 1000
     ),
-    // M2 规则阈值：S1 连续 5 次；S2 60s 内同命令再出现
+    // M2 规则阈值：S1 连续 10 次（2026-11-13 观察期 C 方案：5→10 降噪）；
+    // 同一命令 10 分钟去重；S2 60s 内同命令再出现。
     sandboxFenceSilentAllowRunLength: envInt(
       'LIRI_SANDBOX_FENCE_SILENT_ALLOW_RUN_LENGTH',
-      5
+      10
+    ),
+    sandboxFenceSilentAllowDedupMs: envInt(
+      'LIRI_SANDBOX_FENCE_SILENT_ALLOW_DEDUP_MS',
+      10 * 60 * 1000
     ),
     sandboxFenceDenyRetryWindowMs: envInt(
       'LIRI_SANDBOX_FENCE_DENY_RETRY_WINDOW_MS',

@@ -82,3 +82,73 @@ describe('M0-②：权限决策审计的会话归因', () => {
     expect(defaultAllow.riskLevel).toBe('high');
   });
 });
+
+/**
+ * 2026-11-13（G4 观察期 A 方案）：把「未覆盖」与「命令类别」写成**结构化字段**。
+ *
+ * 真机证据：S1 的 12 条告警全部是 grep/dir/type/todo_write 的只读默认放行（真阳性 0/12）
+ * ⇒ 围栏不能只靠 `riskLevel=high` 判断"高危命令"。
+ */
+describe('G4 A 方案：审计事件的结构化字段（2026-11-13）', () => {
+  it('默认放行 ⇒ ruleCoverage=uncovered + riskLevel=high', () => {
+    const event = buildAuditEvent(
+      createAllowDecision('No matching rules, default allowing'),
+      'bash',
+      { command: 'grep foo' },
+      's1'
+    );
+    expect(event.ruleCoverage).toBe('uncovered');
+    expect(event.riskLevel).toBe('high');
+    expect(event.commandClass).toBe('read-only');
+  });
+
+  it('结构化标记优先（不依赖 reason 文本）', () => {
+    const event = buildAuditEvent(
+      createAllowDecision('任意文案', undefined, { ruleCoverage: 'uncovered' }),
+      'bash',
+      { command: 'bun test' },
+      's1'
+    );
+    expect(event.ruleCoverage).toBe('uncovered');
+    expect(event.riskLevel).toBe('high');
+    expect(event.commandClass).toBe('write-or-exec');
+  });
+
+  it('命中显式规则 ⇒ matched + medium（不是"空转"）', () => {
+    const event = buildAuditEvent(
+      createAllowDecision('Allowed by rule from userSettings', {
+        id: 'rule-1',
+      }),
+      'bash',
+      { command: 'ls' },
+      's1'
+    );
+    expect(event.ruleCoverage).toBe('matched');
+    expect(event.riskLevel).toBe('medium');
+    expect(event.commandClass).toBe('read-only');
+    expect(event.matchedRules).toEqual(['rule-1']);
+  });
+
+  it('无命令入参的工具调用 ⇒ non-shell（不参与"静默放行命令"判定）', () => {
+    const event = buildAuditEvent(
+      createAllowDecision('No matching rules, default allowing'),
+      'grep',
+      { pattern: 'x' },
+      's1'
+    );
+    expect(event.commandClass).toBe('non-shell');
+    expect(event.command).toBe('grep');
+  });
+
+  it('deny ⇒ high + matched（S1 不会因 deny 误报：behavior 不是 allow）', () => {
+    const event = buildAuditEvent(
+      createDenyDecision('Denied by rule'),
+      'bash',
+      { command: 'rm -rf /' },
+      's1'
+    );
+    expect(event.riskLevel).toBe('high');
+    expect(event.ruleCoverage).toBe('matched');
+    expect(event.commandClass).toBe('write-or-exec');
+  });
+});

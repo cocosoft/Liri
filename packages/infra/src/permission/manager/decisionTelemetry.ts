@@ -16,9 +16,29 @@ import {
   PermissionDecision,
   PermissionDecisionType,
 } from '../types/PermissionDecision';
+import { checkReadonlyCommand } from '../classifiers/readonly-command-allowlist';
 import { ruleLabel } from './moduleScope';
 
 // 本文件无自有 logger：审计走 logSecurityAuditEvent，计数器走 OTel meter。
+
+/**
+ * 「无规则匹配 ⇒ 默认放行」的 reason 文本（历史调用方未带结构化标记时的兼容判据）。
+ *
+ * 新调用方（`modeHandlers` 的默认放行出口）会同时带 `context.ruleCoverage='uncovered'`；
+ * 两者任一命中即视为"未覆盖"，避免只靠字符串判断（2026-11-13 G4 A 方案）。
+ */
+const DEFAULT_ALLOW_REASON = 'No matching rules, default allowing';
+
+/**
+ * 命令类别（2026-11-13，G4 观察期 A 方案）：
+ * 无命令入参 ⇒ `non-shell`；否则复用权限层的只读分类器（**单一事实源**，CS01）。
+ */
+function resolveCommandClass(
+  command: string | undefined
+): 'read-only' | 'write-or-exec' | 'non-shell' {
+  if (!command) return 'non-shell';
+  return checkReadonlyCommand(command).allowed ? 'read-only' : 'write-or-exec';
+}
 
   /**
    * OTel 决策计数器（惰性初始化；Meter 未就绪时 noop 兜底）
@@ -121,7 +141,16 @@ let fineGrainedDenyCounter: Counter | null = null;
     input: Record<string, unknown>,
     sessionId?: string
   ): SecurityAuditEvent {
-    const command = (input.command as string) || toolName;
+    const rawCommand =
+      typeof input.command === 'string' && input.command.length > 0
+        ? input.command
+        : undefined;
+    const command = rawCommand || toolName;
+    // 2026-11-13（G4 A 方案）：把「未覆盖」从 `riskLevel=high` 里拆出来（结构化字段）。
+    const uncovered =
+      decision.type === PermissionDecisionType.ALLOW &&
+      (decision.context?.['ruleCoverage'] === 'uncovered' ||
+        decision.reason === DEFAULT_ALLOW_REASON);
     return {
       timestamp: new Date(),
       command,
@@ -148,10 +177,11 @@ let fineGrainedDenyCounter: Counter | null = null;
             : 'pending',
       // P0-2：默认放行（无规则匹配空转）标记为高危，便于发现权限空转
       riskLevel:
-        decision.type === PermissionDecisionType.DENY ||
-        decision.reason === 'No matching rules, default allowing'
+        decision.type === PermissionDecisionType.DENY || uncovered
           ? 'high'
           : 'medium',
+      ruleCoverage: uncovered ? 'uncovered' : 'matched',
+      commandClass: resolveCommandClass(rawCommand),
     };
   }
 

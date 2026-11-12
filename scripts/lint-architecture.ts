@@ -22,6 +22,8 @@ import {
 } from './lib/consoleCalls';
 // 门禁可解释性（2026-11-01）：说明文案抽到 `lib/ruleWhy` 以便单测覆盖「每条 ruleId 都有解释」
 import { explainRule } from './lib/ruleWhy';
+// G1（2026-11-12）：源码扫描根单一事实源（app/src + 自动发现的 packages/*/src）
+import { resolveSourceRoots } from './lib/sourceRoots';
 
 /**
  * 测试文件排除集（2026-10-01 口径统一，用户裁定）。
@@ -4605,31 +4607,27 @@ async function main(): Promise<void> {
   const projectDir = resolve(
     process.env.PYAPP_PROJECT_DIR || resolve(__dirname, '..')
   );
-  const srcPath = resolve(projectDir, 'app', 'src');
+  // G1（2026-11-12）：**每包独立扫描根**各跑一遍全部规则（既有手法，内核/infra 先例见下），
+  // 根列表收敛到 `scripts/lib/sourceRoots.ts` **单一事实源** —— 新增/迁出包自动纳入，
+  // 不再逐个手加实例。修因：`service` 包迁出后一直没加实例 ⇒ 其文件不参与本文件规则
+  // （只有 R8 包边界守着），属 AR-3「门禁不得因搬目录而静默失焦」。
+  const sourceRoots = resolveSourceRoots(projectDir);
+  const appRoot = sourceRoots.find((root) => root.name === 'app');
 
-  if (!existsSync(srcPath)) {
-    console.error(`错误: 找不到 src 目录: ${srcPath}`);
+  if (!appRoot) {
+    const appSrc = resolve(projectDir, 'app', 'src');
+    console.error(`错误: 找不到 src 目录: ${appSrc}`);
     console.error('请在项目根目录运行或设置 PYAPP_PROJECT_DIR 环境变量');
     process.exit(2);
   }
 
-  const linter = new ArchitectureLinter(srcPath, projectDir);
-  const violations = await linter.runAll();
-  // 内核自 P4 起物理独立于 `app/src`（方案 §4-P4）。这里**以第二扫描根**再跑一遍，
-  // 而不是任其脱离扫描面：内核目录保留 `core/` 这一层，故模块归属仍解析为 `core`，
-  // 各规则口径与迁移前逐字一致（AR-3：门禁不得因搬目录而静默失焦）。
-  const kernelSrcPath = resolve(projectDir, 'packages', 'kernel', 'src');
-  if (existsSync(kernelSrcPath)) {
-    const kernelLinter = new ArchitectureLinter(kernelSrcPath, projectDir);
-    violations.push(...(await kernelLinter.runAll()));
-  }
-  // infra 物理包（P3，2026-11-01）：与内核同口径 —— **独立扫描根再跑一遍**全部规则。
+  const violations: RuleViolation[] = [];
+  // 顺序：`app` 在前、`packages` 按名升序（`sourceRoots` 已保证）。
   // 不并入 app 实例：包内文件的模块归属须相对包根解析（`external/sqlite3.ts`，与 `lint:infra`
   // 同口径），并入后会被按 `app/src/<模块>` 目录结构误判；独立根下 `relative(srcPath)` 天然正确。
-  const infraPkgSrcPath = resolve(projectDir, 'packages', 'infra', 'src');
-  if (existsSync(infraPkgSrcPath)) {
-    const infraLinter = new ArchitectureLinter(infraPkgSrcPath, projectDir);
-    violations.push(...(await infraLinter.runAll()));
+  for (const root of sourceRoots) {
+    const rootLinter = new ArchitectureLinter(root.path, projectDir);
+    violations.push(...(await rootLinter.runAll()));
   }
   // P0-5: 前端高频路径 store 订阅检查（独立扫描 client/src，不并入 app/src 扫描集）
   violations.push(...checkFrontendStoreSubscription(projectDir));

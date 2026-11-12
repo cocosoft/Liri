@@ -13,18 +13,15 @@
 
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, sep } from 'node:path';
+// G1（2026-11-12）：扫描根收敛到单一事实源（此前只扫 app+kernel+infra，service 为静默盲区）
+import { resolveSourceRootPaths } from './lib/sourceRoots';
 
 // ============ 配置 ============
 
 /** 项目根目录（scripts/ 的父目录） */
 const PROJECT_ROOT = join(import.meta.dir, '..');
-/** 扫描目录：运行时域 app/src + 内核 packages/kernel/src + infra 包 packages/infra/src */
-const SCAN_DIRS = [
-  join(PROJECT_ROOT, 'app', 'src'),
-  join(PROJECT_ROOT, 'packages', 'kernel', 'src'),
-  // P4（2026-11-01）：infra 物理包并入同一扫描面
-  join(PROJECT_ROOT, 'packages', 'infra', 'src'),
-];
+/** 扫描目录：**单一事实源**（`app/src` + 自动发现的 `packages/*\/src`） */
+const SCAN_DIRS = resolveSourceRootPaths(PROJECT_ROOT);
 /** 检查的文件扩展名 */
 const CHECK_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx']);
 /** 旧名匹配 */

@@ -383,7 +383,10 @@ export function setMessagesImpl(
               pendingApproval: approvalFlags.pendingApproval,
               inboxId: approvalFlags.inboxId,
               status: isAwaiting
-                ? block.toolCall.status
+                ? // 2026-11-12：待审批不是终态 —— 沿用落盘态可能已是 "completed"，
+                  // 会把副标题写成「已写入：…」而徽标仍是「⏳ 等待审批」（真机
+                  // `session_mwd9bnoyc7e3051cde`）。统一按进行中渲染（正在…）。
+                  "running"
                 : fullResultEntry.isError
                   ? "failed"
                   : "completed",

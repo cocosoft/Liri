@@ -18,6 +18,8 @@ import {
 import { resolveApprovalFingerprint } from './approvalFingerprint';
 // 2026-11-12：放行缓存命中判定需要「shell 工具」口径（与 chat 层 `isCommandApproved` 同源）
 import { isShellToolName } from '../utils/toolContract/toolRoles';
+// 2026-11-12：批了也跑不了的命令（结构性硬拒）不建卡，直接 deny 并给出可执行建议
+import { isUnconditionallyDeniedBashCommand } from '../security/BashSecurityAnalyzer';
 // P1（2026-11-04）：审批卡唯一构造点 + 审计②段（①段在构造点内落）
 import { buildToolApprovalCard } from './toolApprovalSubmission';
 import { emitApprovalAudit } from './approvalAudit';
@@ -742,6 +744,25 @@ export class PermissionChecker {
         sandbox: context.sandbox,
       });
       const commandHash = card.commandHash;
+
+      // 2026-11-12（真机 `session_mwd6c9ui384f78c969`）：**批了也跑不了的命令不建卡**。
+      // `echo x > file` 这类含重定向的写法会走到这里（权限层判 ask），但执行时被 Bash 安全层
+      // 「复合命令只允许全段只读」**无条件拒绝** ⇒ 用户白批一次、模型还以为命令跑过了。
+      // 这里直接 deny，并把「改用 file_write / 拆成单条」写进原因供模型改法。
+      if (
+        isShellToolName(toolName) &&
+        typeof input.command === 'string' &&
+        isUnconditionallyDeniedBashCommand(input.command)
+      ) {
+        logger.info('命令会被安全层无条件拒绝，跳过审批卡提交', {
+          toolName,
+          sessionId,
+        });
+        return createDenyDecision(
+          '该命令含重定向/命令替换/变量/后台执行等结构，Bash 安全层无条件拒绝' +
+            '（人工批准也不会放行）。请改用 file_write 写文件，或拆成单条只读命令后重试。'
+        );
+      }
 
       // 2026-11-12（真机 `session_mwd6c9ui384f78c969`）：**放行缓存已命中 ⇒ 不建卡**。
       // 批准后的续跑会在权限层重新判定同一次调用；此时缓存已写入，但原实现照样提交一张新卡

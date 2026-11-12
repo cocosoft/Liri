@@ -241,6 +241,20 @@ describe('U4 runTurnQualityPass：落事件与水位', () => {
     expect(first.signals).toBeDefined();
   });
 
+  // 2026-11-13（会话 `session_mwdcivrue74d4838ff`）：`turn/quality` 曾因
+  // `signals.durationMs: undefined` 被事件写入的**无损 JSON 校验整条拒绝**（2 条丢失）。
+  // 口径：可选字段有值才写键（JSON 里没有 undefined 这个值）。
+  it('无 metric/timing ⇒ 事件里**不出现** durationMs 键（可无损序列化）', async () => {
+    const t = turnEvents(1, 1, { toolCalls: 1 });
+    const ports = makePorts(t.events);
+    await runTurnQualityPass(ports, { sessionIds: [SID] });
+    const data = ports.log.find((e) => e.type === 'turn/quality')!.data as {
+      signals: Record<string, unknown>;
+    };
+    expect('durationMs' in data.signals).toBe(false);
+    expect(JSON.stringify(data)).not.toContain('undefined');
+  });
+
   it('E-2：三条路径各产一条**可区分来源**的事件（agent / tool / subagent）', async () => {
     const t1 = turnEvents(1, 1, {}); // 纯对话
     const t2 = turnEvents(2, t1.nextSeq, { toolCalls: 1 }); // 普通工具

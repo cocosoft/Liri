@@ -296,6 +296,17 @@ const ALLOWED_READONLY_METHODS = new Set([
   'getenumerator',
   'tolocaltime',
   'touniversaltime',
+  // 2026-11-13（会话 `session_mwdcivrue74d4838ff`）：DateTime 纯内存算术 ——
+  // `.AddHours(…)` 此前被拒（2 次），模型只能改写成更绕的写法；这些方法不触碰 I/O。
+  'addhours',
+  'addminutes',
+  'addseconds',
+  'addmilliseconds',
+  'adddays',
+  'addmonths',
+  'addyears',
+  'tounixtimeseconds',
+  'tounixtimemilliseconds',
 ]);
 
 /**
@@ -430,7 +441,7 @@ export function explainPowerShellNotAllowed(
   if (disallowedMethod) {
     return {
       reason:
-        `检测到方法调用「.${disallowedMethod}(…)」不在只读白名单；允许的纯内存方法：Substring/Trim/Split/Replace/ToLower/ToUpper/StartsWith/EndsWith/Contains/IndexOf/PadLeft/PadRight/ToString/Join/ContainsKey/GetEnumerator/ToLocalTime（其余请去掉方法链）` +
+        `检测到方法调用「.${disallowedMethod}(…)」不在只读白名单；允许的纯内存方法：Substring/Trim/Split/Replace/ToLower/ToUpper/StartsWith/EndsWith/Contains/IndexOf/PadLeft/PadRight/ToString/Join/ContainsKey/GetEnumerator/ToLocalTime/ToUniversalTime/AddHours/AddMinutes/AddSeconds/AddDays/AddMonths/AddYears（其余请去掉方法链）` +
         `｜等价单条写法：文本检索用「Select-String -Path <文件> -Pattern '<词>'」或「findstr /C:"词" <文件>」；取文件属性用「Get-Item <路径> | Select-Object Length,LastWriteTime」`,
     };
   }

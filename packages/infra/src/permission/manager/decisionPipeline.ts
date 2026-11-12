@@ -109,7 +109,7 @@ export async function checkPermissionInner(
         hookDecision.message || 'Ask requested by permission hook'
       );
     }
-    auditDecision(decision, toolName, input);
+    auditDecision(decision, toolName, input, permissionContext.sessionId);
     return decision;
   }
 
@@ -186,7 +186,7 @@ export async function checkPermissionInner(
     });
   }
 
-  auditDecision(decision, toolName, input);
+  auditDecision(decision, toolName, input, permissionContext.sessionId);
   return decision;
 }
 

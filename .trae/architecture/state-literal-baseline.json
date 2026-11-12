@@ -1778,6 +1778,7 @@
       "packages/infra/src/monitoring/integration/SystemMonitor.ts",
       "packages/infra/src/performance/SlowOperations.ts",
       "packages/infra/src/permission/classifiers/BashClassifier.ts",
+      "packages/infra/src/permission/manager/decisionTelemetry.ts",
       "packages/infra/src/runtimeHost/ExitRecorder.ts",
       "packages/infra/src/runtimeHost/health/DependencyHealthChecker.ts",
       "packages/infra/src/security/bash/CommandRegistry.ts",

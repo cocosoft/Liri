@@ -82,6 +82,11 @@ export interface RuntimeDefaults {
   // ── sandboxPostureSnapshot（G4 围栏 M0-③：姿态快照落盘） ────────────────
   /** 沙箱姿态快照的刷新间隔（毫秒）；围栏据此判断快照是否新鲜 */
   sandboxPostureSnapshotIntervalMs: number;
+  // ── sandboxFence（G4 围栏 M1：只读观察进程） ─────────────────────────────
+  /** 围栏的采样/心跳间隔（毫秒） */
+  sandboxFenceIntervalMs: number;
+  /** 姿态快照超过该时长未更新即判定 `stale`（毫秒） */
+  sandboxFencePostureStaleMs: number;
 }
 
 /** 每 token 估算字节数（A 类换算常数；派生字段的唯一来源） */
@@ -106,7 +111,8 @@ const TOKEN_BYTES_ESTIMATE = 4;
  * `LIRI_MAX_CONCURRENT_TOOLS` · `LIRI_MAX_TOOL_RETRIES` · `LIRI_INSIGHTS_SLOW_MS` ·
  * `LIRI_AGENTS_LIST_DEFAULT_LIMIT` · `LIRI_AGENTS_LIST_MAX_LIMIT` ·
  * `LIRI_PDCA_LIST_DEFAULT_LIMIT` · `LIRI_PDCA_LIST_MAX_LIMIT` ·
- * `LIRI_SANDBOX_POSTURE_SNAPSHOT_INTERVAL_MS`
+ * `LIRI_SANDBOX_POSTURE_SNAPSHOT_INTERVAL_MS` ·
+ * `LIRI_SANDBOX_FENCE_INTERVAL_MS` · `LIRI_SANDBOX_FENCE_POSTURE_STALE_MS`
  */
 export function getRuntimeDefaults(): RuntimeDefaults {
   const apiImageMaxBase64Size = envInt(
@@ -181,6 +187,13 @@ export function getRuntimeDefaults(): RuntimeDefaults {
     sandboxPostureSnapshotIntervalMs: envInt(
       'LIRI_SANDBOX_POSTURE_SNAPSHOT_INTERVAL_MS',
       30 * 1000
+    ),
+
+    // sandboxFence（G4 围栏 M1，2026-11-12）：心跳 10s；姿态 30s 刷新 ⇒ 2 分钟未更新即 stale
+    sandboxFenceIntervalMs: envInt('LIRI_SANDBOX_FENCE_INTERVAL_MS', 10 * 1000),
+    sandboxFencePostureStaleMs: envInt(
+      'LIRI_SANDBOX_FENCE_POSTURE_STALE_MS',
+      2 * 60 * 1000
     ),
   };
 }

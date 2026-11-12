@@ -186,10 +186,15 @@ export function checkBashDangerousCommand(
     }
   );
   if (matchedDangerousCommand) {
-    return blockedResult('安全检查: 检测到危险命令', {
-      reason: 'dangerous_command',
-      matchedCommand: matchedDangerousCommand,
-    });
+    // P9-5（2026-11-12）：命中的命令必须进**文案**，否则模型/用户只看到
+    // 「检测到危险命令」却无法调整（真机会话 session_mwcyhmmpd44e93b602 seq 52）。
+    return blockedResult(
+      `安全检查: 检测到危险命令「${matchedDangerousCommand}」`,
+      {
+        reason: 'dangerous_command',
+        matchedCommand: matchedDangerousCommand,
+      }
+    );
   }
 
   // B2-3（2026-10-30，issue #36）：单条 `powershell|pwsh -Command "…"` 的内层脚本
@@ -199,10 +204,19 @@ export function checkBashDangerousCommand(
   const patternTarget = isSinglePowerShellWrapperCommand(command)
     ? maskQuotedSegments(command)
     : command;
-  if (DANGEROUS_PATTERNS.some((pattern) => pattern.test(patternTarget))) {
-    return blockedResult('安全检查: 检测到危险命令模式', {
-      reason: 'dangerous_pattern',
-    });
+  const matchedPattern = DANGEROUS_PATTERNS.find((pattern) => {
+    pattern.lastIndex = 0;
+    return pattern.test(patternTarget);
+  });
+  if (matchedPattern) {
+    // P9-5：同样把命中的模式源串带进文案（此前只有布尔结论）。
+    return blockedResult(
+      `安全检查: 检测到危险命令模式「${matchedPattern.source}」`,
+      {
+        reason: 'dangerous_pattern',
+        matchedPattern: matchedPattern.source,
+      }
+    );
   }
 
   return null;

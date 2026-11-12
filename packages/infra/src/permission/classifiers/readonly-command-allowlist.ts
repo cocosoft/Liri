@@ -175,6 +175,13 @@ function violatesArgumentGuards(
     );
   }
 
+  if (name === 'measure-object') {
+    // P9-1（2026-11-12）：`-Expression { … }` 会执行脚本块，不算只读。
+    return lowerArgs.some(
+      (arg) => arg === '-expression' || arg.startsWith('-expression:')
+    );
+  }
+
   return false;
 }
 
@@ -219,7 +226,11 @@ function isInterpreterSelfCheck(
 export function checkReadonlyCommand(
   command: string
 ): ReadonlyCommandCheck {
-  const text = command.trim();
+  // P9-2（2026-11-12）：丢弃型重定向（`2>nul` / `>nul` / `>/dev/null`）不改任何文件，
+  // 先剥离再判；否则 `dir /b x 2>nul & dir /b y` 会因 `>` 被判成"会写盘"。
+  const text = command
+    .replace(/\s*2?>\s*(?:nul|\/dev\/null)\b/gi, '')
+    .trim();
   if (!text) return { allowed: false, reason: 'Empty command' };
 
   if (SHELL_COMPOSITION.test(text)) {

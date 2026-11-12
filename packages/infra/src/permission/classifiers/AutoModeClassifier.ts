@@ -544,11 +544,38 @@ export class AutoModeClassifier implements IAutoModeClassifier {
       const segments = splitCommandSegments(
         rawExecutionSurface ?? executionSurface
       );
+      /**
+       * P9-1/P9-2（2026-11-12）：复合判据不能只看「外层分出几段」。两种形态会被漏掉，
+       * 导致连接符令牌单独定罪（真机会话 session_mwcyhmmpd44e93b602 seq 167/805）：
+       *  ① 包装器内层管道：`powershell -Command "Get-Content x | Measure-Object"`（引号内不拆 ⇒ 1 段）；
+       *  ② cmd 单 `&` 串联：`where a & where b`（分段器只拆 `&&`）。
+       * 两者都按复合处理 ⇒ 连接符跳过，由各段 / 内层令牌决定档位。
+       */
+      const compositionSource = rawExecutionSurface ?? executionSurface;
+      const hasNestedBody = shellBodies.length > 0;
+      const hasCompositionToken = /(?:^|\s)(?:&&?|\|\|?|;)(?=\s|$)/.test(
+        compositionSource
+      );
       // 灰度开关关闭 ⇒ 按改造前口径处理（复合命令一律走连接符硬拦）
-      isCompositeCommand = segments.length > 1 && resolveCompoundReadonlyAllow();
+      isCompositeCommand =
+        (segments.length > 1 || hasNestedBody || hasCompositionToken) &&
+        resolveCompoundReadonlyAllow();
+      // 内层脚本体也拆段后参与「全段只读」判定。
+      // 当外层只解析出 1 段且存在内层体时，外层只是**包装器**（`powershell -Command "…"`）
+      // ⇒ 只判内层各段，否则包装器自身"非只读"会把内层全只读的形态一并否掉。
+      const nestedSegments = shellBodies.flatMap((body) =>
+        splitCommandSegments(body)
+      );
+      const readonlySegments =
+        segments.length === 1 && nestedSegments.length > 0
+          ? nestedSegments
+          : [...segments, ...nestedSegments];
       compoundAllReadonly =
         isCompositeCommand &&
-        segments.every((segment) => checkReadonlyCommand(segment.text).allowed);
+        readonlySegments.length > 1 &&
+        readonlySegments.every((segment) =>
+          checkReadonlyCommand(segment.text).allowed
+        );
 
       // 检查危险命令模式（按**命令位**匹配，见 `containsCommandToken`）
       for (const pattern of AUTO_MODE_HARD_DENY_TOKENS) {
@@ -682,10 +709,13 @@ export class AutoModeClassifier implements IAutoModeClassifier {
     }
 
     // 检查LDAP注入攻击
-    // P4 复查：源码面关闭「≥3 个特殊字符」启发式（`()`/`=`/`*` 是代码语法）；
-    // 结构化过滤器模式（`(|` / `(&` / `(!` / `))`）仍对所有面生效。
+    // P4 复查：源码面关闭「≥3 个特殊字符」启发式（`()`/`=`/`*` 是代码语法）。
+    // P9-3（2026-11-12）：**命令面同样关闭** —— shell 语法天然含 `& | = (`，≥3 即判注入
+    // 会把 `$roots = @("…")`、`cmd1 & cmd2`、`cd /d "…" && dir …` 全部误杀
+    // （真机会话 session_mwcyhmmpd44e93b602 seq 260/781）。
+    // 结构化过滤器模式（`(|` / `(&` / `(!` / `))`）与编码绕过模式仍对所有面生效。
     const ldapResult = detectLDAPInjection(inputString, {
-      skipCharHeuristic: !isCommandToolName(lowerToolName),
+      skipCharHeuristic: true,
     });
     if (ldapResult) {
       return ldapResult;

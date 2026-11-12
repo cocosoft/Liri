@@ -347,6 +347,8 @@ export const AUTO_MODE_READONLY_COMMANDS: ReadonlySet<string> = new Set([
   // 文件 / 目录查看
   'ls',
   'dir',
+  // P9-6（2026-11-12）：单条 `cd` 只改子进程工作目录，本身不写盘
+  'cd',
   'pwd',
   'cat',
   'head',
@@ -363,6 +365,8 @@ export const AUTO_MODE_READONLY_COMMANDS: ReadonlySet<string> = new Set([
   'df',
   'diff',
   'cmp',
+  // P9-2（2026-11-12）：`where` 只查找可执行文件路径，纯只读
+  'where',
   'which',
   'whereis',
   // git 本身按子命令约束（见 AUTO_MODE_GIT_READONLY_SUBCOMMANDS）
@@ -398,6 +402,8 @@ export const AUTO_MODE_READONLY_COMMANDS: ReadonlySet<string> = new Set([
   'test-path',
   'get-location',
   'select-string',
+  // P9-1（2026-11-12）：管道里最常见的统计 cmdlet；`-Expression` 脚本块由参数守卫拦
+  'measure-object',
   // P6-3（2026-11-12 绕过面复查）：进程列表是纯只读 cmdlet
   'get-process',
   'get-wmiobject',

@@ -21,6 +21,10 @@ import type {
   ApprovalAuditSink,
 } from '@openliri/infra/permission';
 import { getRuntimeCoreApi } from './coreApiProvider.js';
+import {
+  appendApprovalAuditLine,
+  buildApprovalAuditLine,
+} from './approvalAuditFileSink.js';
 
 const logger = getLogger('runtime:approvalAuditSink');
 
@@ -144,6 +148,28 @@ function enqueue(sessionId: string, event: ApprovalAuditEvent): void {
 }
 
 /**
+ * 文件落盘队列（G4 围栏 M0-④，2026-11-12）。
+ *
+ * 单文件 append-only ⇒ 用**进程级**串行链（不是按会话）：避免并发写让四段在文件里乱序。
+ * 失败只告警（观测面不得影响审批主流程）。
+ */
+let fileQueue: Promise<void> = Promise.resolve();
+
+function enqueueFileWrite(sessionId: string, event: ApprovalAuditEvent): void {
+  const line = buildApprovalAuditLine(sessionId, event);
+  fileQueue = fileQueue
+    .then(() => appendApprovalAuditLine(line))
+    .catch((e) => {
+      logger.warn('审批四段事件文件落盘失败（不影响审批主流程）', {
+        sessionId,
+        stage: event.stage,
+        approvalId: event.approvalId,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    });
+}
+
+/**
  * 安装 sink（幂等；入口启动时调用一次）。
  *
  * 返回 Promise 仅为与入口其余异步注入保持一致的调用形态（内部装配本身是同步的）。
@@ -152,6 +178,8 @@ export async function installApprovalAuditSink(): Promise<void> {
   const { setApprovalAuditSink } = await import('@openliri/infra/permission');
   const sink: ApprovalAuditSink = (sessionId, event) => {
     enqueue(sessionId, event);
+    // M0-④：同一事件再落一份 JSONL 文件（跨进程可读）；开关关闭时 sink 根本不会被调用
+    enqueueFileWrite(sessionId, event);
   };
   setApprovalAuditSink(sink);
 }

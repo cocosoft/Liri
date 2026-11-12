@@ -151,4 +151,30 @@ describe('G4 A 方案：审计事件的结构化字段（2026-11-13）', () => {
     expect(event.ruleCoverage).toBe('matched');
     expect(event.commandClass).toBe('write-or-exec');
   });
+
+  // 2026-11-13（观察期回放）：复合但全段只读的命令此前被判 write-or-exec ⇒ S1 残余噪声。
+  it('复合口径：全段只读的串联 ⇒ read-only', () => {
+    for (const command of [
+      'cd /d E:\\PY\\X && dir /b',
+      'dir /s /b *.ts | find /c /v ""',
+    ]) {
+      const event = buildAuditEvent(
+        createAllowDecision('No matching rules, default allowing'),
+        'bash',
+        { command }
+      );
+      expect(event.commandClass).toBe('read-only');
+    }
+  });
+
+  it('复合口径负向：含非只读段 / 重定向 ⇒ write-or-exec（仍参与 S1）', () => {
+    for (const command of ['cd X && node script.js', 'dir > out.txt']) {
+      const event = buildAuditEvent(
+        createAllowDecision('No matching rules, default allowing'),
+        'bash',
+        { command }
+      );
+      expect(event.commandClass).toBe('write-or-exec');
+    }
+  });
 });

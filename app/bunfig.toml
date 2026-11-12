@@ -1,7 +1,12 @@
 [test]
 # 台账 N-46：AgentTool 的单元测试会经 `getAgentRunStore()` 落盘到生产 DB
 # （`~/.pyapp/data/app.db`）⇒ 用 preload 把该单例重定向到临时库，隔离生产台账
-preload = ["./tests/setupIsolateAgentStore.ts"]
+# 2026-11-13：测试会经真实权限链写审计事件（boom / failing_tool 等 fixture）⇒
+# 第二个 preload 把 `security-audit.log` 隔离到临时目录（围栏 S1/S2 抽样不被污染）
+preload = [
+  "./tests/setupIsolateAgentStore.ts",
+  "./tests/setupIsolateSecurityAudit.ts",
+]
 pathIgnorePatterns = [
   "data/testing/**",
   "data/pyapp/knowledge/**",

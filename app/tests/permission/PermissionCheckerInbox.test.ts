@@ -244,6 +244,18 @@ describe('放行缓存已命中 ⇒ 不再建卡（2026-11-12）', () => {
     expect(result.submittedToInbox).toBe(true);
     expect(submittedItems.length).toBe(1);
   });
+
+  it('审批卡 metadata 记下 toolCallId（用户拒绝时据此写终态并续跑）', async () => {
+    const pm = createPermissionManager();
+    pm.addRule(PermissionBehavior.ASK, 'bash');
+    await pm.checkPermissionForTool(
+      'bash',
+      { command: 'net user %username%' },
+      { sessionId: 'session-card-ctx', toolCallId: 'call_ctx_1' }
+    );
+    expect(submittedItems.length).toBe(1);
+    expect(submittedItems[0].metadata?.toolCallId).toBe('call_ctx_1');
+  });
 });
 
 // 2026-11-12（真机 `session_mwd6c9ui384f78c969`）：`echo x > file` 这类含重定向的命令

@@ -148,10 +148,16 @@ export function setMessagesImpl(
       setSessionCache(cacheKey, messages);
     }
 
-    // Phase 1: 收集 tool 角色消息，建立 toolCallId → content 映射
+    // Phase 1: 收集 tool 角色消息，建立 toolCallId → { 结果文本, 是否错误 } 映射
     // 这些工具结果在后端作为独立消息持久化，前端需合并回 assistant 消息的 blocks 中
     // 同时缓存全量结果到缓存，block 中只存截断摘要
-    const toolResultsByCallId = new Map<string, string>();
+    // 2026-11-12：`isError` 一并带出 —— 续跑轮（如"用户拒绝"）的终态失败必须落到工具卡
+    // 状态上，否则卡面仍显示"已执行"（真机 `session_mwd7ywosc43b5503e3`）
+    interface ToolResultEntry {
+      content: string;
+      isError: boolean;
+    }
+    const toolResultsByCallId = new Map<string, ToolResultEntry>();
     const filteredMessages: Message[] = [];
     /**
      * N-48（2026-09-20）：暂存 tool 消息引用。
@@ -182,8 +188,16 @@ export function setMessagesImpl(
         const decoded = decodeToolResultContent(rawContent);
         // 2026-11-12：同一 toolCallId 可能有两条结果（审批占位 + 批准后的真实结果），
         // 落盘顺序不可靠 ⇒ 终态优先，避免"批准后仍按占位结果渲染等待审批卡"
-        if (preferToolResult(toolResultsByCallId.get(msg.toolCallId), decoded)) {
-          toolResultsByCallId.set(msg.toolCallId, decoded);
+        const meta = (msg.metadata ?? {}) as {
+          isError?: unknown;
+          toolResultState?: unknown;
+        };
+        const entry: ToolResultEntry = {
+          content: decoded,
+          isError: meta.isError === true || meta.toolResultState === "error",
+        };
+        if (preferToolResult(toolResultsByCallId.get(msg.toolCallId)?.content, decoded)) {
+          toolResultsByCallId.set(msg.toolCallId, entry);
           // 全量结果存入独立缓存（LRU 淘汰），不在 block 中内联
           cacheToolResult(msg.toolCallId, decoded);
         }
@@ -349,12 +363,16 @@ export function setMessagesImpl(
             block.toolCall?.id &&
             toolResultsByCallId.has(block.toolCall.id)
           ) {
-            const fullResult = toolResultsByCallId.get(block.toolCall.id)!;
+            const fullResultEntry = toolResultsByCallId.get(block.toolCall.id)!;
+            const fullResult = fullResultEntry.content;
             hasMergedResult = true;
             // U-06-5：审批等待结果带 pendingApproval + inboxId ⇒ 工具卡片就地审批
             // 2026-11-12：终态结果须**清除**该标记（否则批准后同一调用既显示"已处理"的
             // Inbox 卡、又保留"等待审批 + 批准/拒绝"的工具卡 ⇒ 两张卡）
             const approvalFlags = resolveApprovalFlags(fullResult);
+            // 2026-11-12：终态结果同时决定卡片状态（失败/成功），不能沿用流式留下的
+            // "completed"（续跑轮的工具结果由本合并写入，真机 `session_mwd7ywosc43b5503e3`）
+            const isAwaiting = approvalFlags.pendingApproval === true;
             // 只注入截断摘要到 block，全量结果通过 getToolResultFull() 按需获取
             block.toolCall = {
               ...block.toolCall,
@@ -363,6 +381,11 @@ export function setMessagesImpl(
                 fullResult.length > MAX_INLINE_RESULT_LENGTH || undefined,
               pendingApproval: approvalFlags.pendingApproval,
               inboxId: approvalFlags.inboxId,
+              status: isAwaiting
+                ? block.toolCall.status
+                : fullResultEntry.isError
+                  ? "failed"
+                  : "completed",
             };
           }
           return block;

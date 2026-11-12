@@ -185,6 +185,7 @@ export async function resolveInboxApproval(
   if (!updated) return { kind: 'update_failed' };
 
   await applyApprovalSideEffects(current, reply, selectedOption, options);
+  await applyRejectionSideEffects(current, reply, selectedOption, options);
   await recordApprovalDecision(current, reply, selectedOption);
   await resumePdcaIfApplicable(current, reply, selectedOption);
 
@@ -293,10 +294,15 @@ export async function resolveInboxApprovalsBatch(params: {
     }
   }
 
-  if (
-    (hasChatResumeTarget || hasPdcaResumeTarget) &&
-    isApprovalReply(reply, selectedOption)
-  ) {
+  // 2026-11-12：**拒绝**也要续跑一次 —— 被拒调用已由 `applyRejectionSideEffects` 标记
+  // （`markToolCallDenied`），续跑会把它重放成"用户拒绝"的终态结果交给模型改道；
+  // PDCA 步骤卡的拒绝仍由 `resumePdcaIfApplicable` 走 abort ⇒ 不进本条件。
+  const isDenyReply = reply === 'deny' || selectedOption === 'deny';
+  const chatResumeNeeded =
+    hasChatResumeTarget && (isApprovalReply(reply, selectedOption) || isDenyReply);
+  const pdcaResumeNeeded =
+    hasPdcaResumeTarget && isApprovalReply(reply, selectedOption);
+  if (chatResumeNeeded || pdcaResumeNeeded) {
     outcome.resumed = true;
     if (hasChatResumeTarget) {
       void triggerResumeAfterApproval(sessionId).catch((resumeErr: unknown) => {
@@ -365,6 +371,50 @@ async function recordApprovalDecision(
       error: e instanceof Error ? e.message : String(e),
     });
   }
+}
+
+/**
+ * 2026-11-12（真机 `session_mwd6c9ui384f78c969`）：审批卡「拒绝」后的收尾。
+ *
+ * 拒绝是**该次调用**的终态：先记 `markToolCallDenied`（续跑重放时执行层据此返回
+ * "用户拒绝"，不再执行、不再重提卡），再走**同一条续跑通道**把这条结果交给模型改道。
+ * 原实现拒绝即静默停摆：卡片变「已处理」，但工具卡仍 ⏳、会话卡在"等待审批"
+ * （`isApprovalReply` 为假 ⇒ 既不续跑、也不写终态结果）。
+ *
+ * PDCA 步骤卡不在此列 —— 拒绝由 `resumePdcaIfApplicable` 走 abort 终态。
+ */
+async function applyRejectionSideEffects(
+  current: InboxItem,
+  reply: string,
+  selectedOption: string | undefined,
+  options?: { deferResume?: boolean }
+): Promise<void> {
+  if (current.type !== 'approval' || current.source !== 'permission') return;
+  if (isApprovalReply(reply, selectedOption)) return;
+  if (reply !== 'deny' && selectedOption !== 'deny') return;
+  if (typeof current.metadata?.pdcaTaskId === 'string') return;
+  const sessionId = current.sessionId;
+  const toolCallId =
+    typeof current.metadata?.toolCallId === 'string'
+      ? current.metadata.toolCallId
+      : undefined;
+  if (!sessionId || !toolCallId) {
+    // 旧卡（本改动前创建）没有 toolCallId ⇒ 无法定位该次调用，如实记录并保持原状
+    logger.info('审批被拒但缺少 sessionId / toolCallId，无法续跑', {
+      sessionId,
+      hasToolCallId: !!toolCallId,
+    });
+    return;
+  }
+  const { markToolCallDenied } = await import('@openliri/infra/permission');
+  markToolCallDenied(sessionId, toolCallId);
+  if (options?.deferResume) return;
+  void triggerResumeAfterApproval(sessionId).catch((resumeErr: unknown) => {
+    logger.warn('审批被拒后续跑失败（前端可兜底续跑）', {
+      sessionId,
+      error: String(resumeErr),
+    });
+  });
 }
 
 /**

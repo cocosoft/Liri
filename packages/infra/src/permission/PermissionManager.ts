@@ -1723,6 +1723,7 @@ export class PermissionManager {
     context?: Pick<
       PermissionContext,
       | 'sessionId'
+      | 'toolCallId'
       | 'userId'
       | 'userRole'
       | 'userRoles'
@@ -1780,6 +1781,8 @@ export class PermissionManager {
       toolName,
       input,
       sessionId: context?.sessionId,
+      // 2026-11-12：透传调用 id（审批卡留证；用户拒绝时据此写终态结果并续跑）
+      toolCallId: context?.toolCallId,
       userId: context?.userId,
       // 多租户 P0 阶段 2：请求级角色透传（缺失 ⇒ 本次判定无角色，角色 deny 不参与）
       userRole: context?.userRole,

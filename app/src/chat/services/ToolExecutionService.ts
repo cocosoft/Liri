@@ -93,6 +93,8 @@ import {
   authorizeToolCall,
   getEffectivePermissionRole,
   getEffectivePermissionRoles,
+  // 2026-11-12：用户「拒绝」的调用 ⇒ 重放时返回终止态（不再执行/不再提卡）
+  isToolCallDenied,
   resolveApprovalFingerprint,
   type ToolPermissionPort,
 } from '@openliri/infra/permission';
@@ -1012,6 +1014,27 @@ export class ToolExecutionService {
       };
     }
 
+    // ── 2026-11-12：用户在审批卡上点了「拒绝」──
+    // 拒绝是**该调用**的终态：如实返回失败（不执行、不重提卡），由重新续跑的循环把这条结果
+    // 交给模型改道；否则模型永远收不到"被拒"这一事实，会话停在等待审批。
+    if (isToolCallDenied(toolCall.sessionId, toolCall.id)) {
+      logger.info('工具调用已被用户拒绝，返回终止态', {
+        toolName: normalizedToolCall.name,
+        toolCallId: toolCall.id,
+        sessionId: toolCall.sessionId,
+      });
+      return {
+        toolCallId: toolCall.id,
+        toolName: normalizedToolCall.name,
+        result: { denied: true, reason: 'USER_DENIED' },
+        error:
+          `用户拒绝执行该工具调用（${normalizedToolCall.name}）。` +
+          '请勿重试同一命令或用等价写法绕过；如需继续，请改用其他方式（如 file_write）或向用户说明后等待指示。',
+        failureKind: 'permission_denied',
+        metadata: { userDenied: true },
+      };
+    }
+
     // ── 权限检查 ──
     // D2（2026-10-11 用户裁定「启动 fail-fast 断言」）：权限管理器未注入是**装配异常** ⇒
     // 生产/开发路径 **fail-fast**（抛错拒绝执行，不再 fail-open 静默跳过）；测试环境保留 fail-open。
@@ -1057,6 +1080,8 @@ export class ToolExecutionService {
         args: normalizedToolCall.arguments,
         context: {
           sessionId: toolCall.sessionId,
+          // 2026-11-12：审批卡据此记下调用 id（用户拒绝时写终态结果并续跑）
+          toolCallId: toolCall.id,
           userId: requestUserId,
           ...(requestRole ? { userRole: requestRole } : {}),
           ...(requestRoles.length > 0 ? { userRoles: requestRoles } : {}),

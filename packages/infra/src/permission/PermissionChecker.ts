@@ -742,6 +742,8 @@ export class PermissionChecker {
         sessionId,
         taskId,
         sandbox: context.sandbox,
+        // 2026-11-12：记下调用 id —— 用户拒绝时据此写终态结果并续跑
+        toolCallId: context.toolCallId,
       });
       const commandHash = card.commandHash;
 

@@ -24,6 +24,8 @@ import type { PermissionMode } from './PermissionMode';
 /** 工具授权上下文（与 `PermissionManager.checkPermissionForTool` 的 `context` 同构） */
 export interface ToolAuthorizeContext {
   sessionId?: string;
+  /** 2026-11-12：本次调用 id（审批卡留证；用户拒绝时据此写终态结果并续跑） */
+  toolCallId?: string;
   userId?: string;
   userRole?: string;
   /** P2-6（2026-11-11）：全部角色（RBAC 按并集判定；缺省回落 `userRole`） */

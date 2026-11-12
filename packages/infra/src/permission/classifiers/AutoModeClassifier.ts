@@ -4,6 +4,8 @@
  */
 
 import { handleError } from '@openliri/infra/error';
+// P4（2026-11-12）：未知命令采样（同一命令名每进程只记一次）
+import { getLogger } from '@openliri/infra/monitoring';
 // 2026-11-10：注入类检测只对"入参会被执行"的工具生效（角色判据单一来源）
 import { isExecutionToolName } from '@openliri/infra/utils/toolContract/toolRoles';
 // 2026-11-10（方案①）：危险令牌按**命令位**匹配（解释器名作为参数时不误报）
@@ -111,6 +113,26 @@ const DOWNLOADER_CMDLETS = new Set([
   'invoke-webrequest',
   'invoke-restmethod',
 ]);
+
+/**
+ * 未知命令采样（P4）：同一命令名**每进程只记一次**（上限 200 条后整体清空）。
+ *
+ * 为什么需要：`未知 ⇒ ask` 之后，缺口不再以"静默放行"的形式出现，而是变成**审批噪音**；
+ * 只有把"到底有哪些未收录命令"沉淀成日志，才能每周评审补进注册表（P4 验收口径）。
+ */
+const logger = getLogger('permission:classifier');
+const unknownCommandNoticed = new Set<string>();
+
+function noticeUnknownCommand(surface: string): void {
+  const head = surface.trim().split(/\s+/)[0]?.toLowerCase().slice(0, 60) ?? '';
+  if (!head || unknownCommandNoticed.has(head)) return;
+  if (unknownCommandNoticed.size > 200) unknownCommandNoticed.clear();
+  unknownCommandNoticed.add(head);
+  logger.info(
+    'permission:unknown_command（未收录命令已转审批，供每周采样评审）',
+    { head }
+  );
+}
 
 /**
  * P2a（2026-11-12）：否定来自「复合连接符」时，指出**真正需要审批的那一段**。
@@ -707,6 +729,8 @@ export class AutoModeClassifier implements IAutoModeClassifier {
       resolveUnknownCommandTier() === 'ask' &&
       !checkReadonlyCommand(executionSurface).allowed
     ) {
+      // P4：采样未收录命令名（每进程一次），供每周评审补进注册表
+      noticeUnknownCommand(executionSurface);
       return {
         shouldBlock: false,
         requiresApproval: true,

@@ -35,6 +35,8 @@ import {
   type ScannedFile,
   type StateLiteralBaseline,
 } from './stateLiteralRatchetCore';
+// G1（2026-11-12）：源码根单一事实源
+import { resolveSourceRootPaths } from './lib/sourceRoots';
 
 const repoRoot = process.env.STATE_LITERAL_REPO_ROOT
   ? resolve(process.env.STATE_LITERAL_REPO_ROOT)
@@ -42,29 +44,17 @@ const repoRoot = process.env.STATE_LITERAL_REPO_ROOT
 const BASELINE = process.env.STATE_LITERAL_BASELINE
   ? resolve(process.env.STATE_LITERAL_BASELINE)
   : resolve(repoRoot, '.trae/architecture/state-literal-baseline.json');
-const APP_SRC = resolve(repoRoot, 'app/src');
-/** 内核自 P4 起物理独立于 `app/src`（方案 §4-P4）⇒ 同样纳入扫描面 */
-const KERNEL_SRC = resolve(repoRoot, 'packages/kernel/src');
-/** 2026-11-01：infra 物理包（R6 同源）⇒ 未建包时跳过，建包后必须纳入，避免静默盲区 */
-const INFRA_PKG_SRC = resolve(repoRoot, 'packages/infra/src');
-/**
- * 2026-11-05（P33-a）：service 物理包（R8 同源）同口径纳入。
- * P29–P32 迁入的 203 个文件此前不在扫描面内 —— 边界由 R8 守着，但状态字面量维度是静默盲区。
- */
-const SERVICE_PKG_SRC = resolve(repoRoot, 'packages/service/src');
-
+// G1（2026-11-12）：扫描根收敛到**单一事实源**（app/src + 自动发现的 packages/*/src）——
+// 迁出/新增包自动纳入，避免再次出现「P29–P32 迁入的 203 个文件此前不在扫描面内」的盲区。
 const SKIP_DIRS = new Set(['node_modules', 'dist', '__tests__', 'tests']);
 const EXTS = new Set(['.ts', '.tsx']);
 
 /** 递归收集 app/src 下的源码文件（repo 相对 POSIX 路径） */
 function collectFiles(): ScannedFile[] {
   const files: ScannedFile[] = [];
-  // 2026-11-01：`packages/infra/src` 建包后自动纳入（未建包时不存在 ⇒ 跳过，不报错）
-  // 2026-11-05（P33-a）：`packages/service/src` 同口径纳入
-  const stack = [APP_SRC, KERNEL_SRC].filter((dir) => existsSync(dir));
-  for (const pkg of [INFRA_PKG_SRC, SERVICE_PKG_SRC]) {
-    if (existsSync(pkg)) stack.push(pkg);
-  }
+  const stack = resolveSourceRootPaths(repoRoot).filter((dir) =>
+    existsSync(dir)
+  );
   while (stack.length > 0) {
     const dir = stack.pop() as string;
     for (const entry of readdirSync(dir, { withFileTypes: true })) {

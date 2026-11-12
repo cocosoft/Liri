@@ -24,21 +24,17 @@
 
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
+// G1（2026-11-12）：扫描根收敛到单一事实源（app/src + 自动发现的 packages/*/src）
+import { resolveSourceRootPaths } from './sourceRoots';
 
 /** 项目根目录：本文件位于 `scripts/lib/`，故上溯两级 */
 export const PROJECT_ROOT = join(import.meta.dir, '..', '..');
 
-/** 扫描目录（与 lint-models.ts 一致：后端 app/src + 内核 packages/kernel/src + 前端 client/src） */
+/** 扫描目录：源码根走单一事实源 + 前端（`client/src` 不是包，单独追加） */
 export const SCAN_DIRS = [
-  join(PROJECT_ROOT, 'app', 'src'),
-  // 内核自 P4 起物理独立于 `app/src`（方案 §4-P4），但仍是运行时生产代码 ⇒ 必须纳入扫描面
-  join(PROJECT_ROOT, 'packages', 'kernel', 'src'),
-  // P2（2026-11-01）：infra 物理包试点 —— 迁出的模块仍是生产代码，不纳入即静默失明
-  join(PROJECT_ROOT, 'packages', 'infra', 'src'),
-  // P33-a（2026-11-05）：service 物理包同口径纳入
-  join(PROJECT_ROOT, 'packages', 'service', 'src'),
+  ...resolveSourceRootPaths(PROJECT_ROOT),
   join(PROJECT_ROOT, 'client', 'src'),
-];
+].filter((dir) => existsSync(dir));
 
 /** 检查的文件扩展名 */
 const CHECK_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx']);

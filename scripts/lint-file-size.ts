@@ -9,6 +9,8 @@
 
 import { readFileSync, existsSync } from 'node:fs';
 import { join, relative } from 'node:path';
+// G1（2026-11-12）：源码根单一事实源
+import { resolveSourceRootPaths } from './lib/sourceRoots';
 
 // ============ 配置 ============
 
@@ -107,14 +109,10 @@ async function main(): Promise<void> {
     ? join(process.cwd(), process.env.PYAPP_PROJECT_DIR)
     : process.cwd();
   const fileSizeExceptions = loadFileSizeExceptions();
+  // G1（2026-11-12）：源码根走**单一事实源**（迁出/新增包自动纳入，不再逐包手改）；
+  // 前端与 native 目录不是包，单独追加。
   const srcDirs = [
-    join(rootDir, 'app', 'src'),
-    // 内核自 P4 起物理独立于 `app/src`（方案 §4-P4）⇒ 巨型文件规则同样适用
-    join(rootDir, 'packages', 'kernel', 'src'),
-    // P2（2026-11-01）：infra 物理包试点同样适用（迁出 ≠ 免检）
-    join(rootDir, 'packages', 'infra', 'src'),
-    // P33-a（2026-11-05）：service 物理包同样适用
-    join(rootDir, 'packages', 'service', 'src'),
+    ...resolveSourceRootPaths(rootDir),
     join(rootDir, 'client', 'src'),
     join(rootDir, 'app', 'native'),
   ];

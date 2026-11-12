@@ -16,20 +16,18 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { isAbsolute, join, sep } from 'node:path';
 import { homedir } from 'node:os';
 import { Database } from 'bun:sqlite';
+// G1（2026-11-12）：扫描根收敛到单一事实源（此前只扫 app+kernel+infra，service 为静默盲区）
+import { resolveSourceRootPaths } from './lib/sourceRoots';
 
 // ============ 配置 ============
 
 /** 项目根目录（scripts/ 的父目录） */
 const PROJECT_ROOT = join(import.meta.dir, '..');
-/** 扫描目录 */
+/** 扫描目录：源码根走单一事实源 + 前端（`client/src` 不是包，单独追加） */
 const SCAN_DIRS = [
-  join(PROJECT_ROOT, 'app', 'src'),
-  // 内核自 P4 起物理独立于 `app/src`（方案 §4-P4）⇒ 硬编码模型名同样适用
-  join(PROJECT_ROOT, 'packages', 'kernel', 'src'),
-  // P4（2026-11-01）：infra 物理包并入同一扫描面
-  join(PROJECT_ROOT, 'packages', 'infra', 'src'),
+  ...resolveSourceRootPaths(PROJECT_ROOT),
   join(PROJECT_ROOT, 'client', 'src'),
-];
+].filter((dir) => existsSync(dir));
 /** 检查的文件扩展名 */
 const CHECK_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx']);
 /**

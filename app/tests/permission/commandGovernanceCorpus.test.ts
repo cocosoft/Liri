@@ -291,6 +291,26 @@ describe('P6-4：绕过面负向对照（新增令牌不得反向放宽 / 误杀
   });
 });
 
+describe('P8-A2：远端写档位复核（维持硬拦，不放开）', () => {
+  it('git push / npm publish 仍 deny（既有守卫要求）', async () => {
+    for (const command of [
+      'git push origin main',
+      'git push --force origin main',
+      'npm publish',
+    ]) {
+      const { tier } = await verdict(command);
+      expect(tier, command).toBe('deny');
+    }
+  });
+
+  it('只读 git 子命令仍 allow（收紧不得误伤）', async () => {
+    for (const command of ['git status', 'git log -1', 'git remote -v']) {
+      const { tier } = await verdict(command);
+      expect(tier, command).toBe('allow');
+    }
+  });
+});
+
 describe('P5-3：SQL 规则只收真实注入特征', () => {
   it('只读查询不再被当成注入（可转审批，但不得硬拒）', async () => {
     const { tier } = await verdict('mysql -e "select 1"');

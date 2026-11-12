@@ -117,6 +117,34 @@ async function dispatchEventsRoute(
 }
 
 /**
+ * Session 基础 CRUD 路由（列表 / 创建 / 当前会话）。
+ *
+ * 2026-11-12：从 `dispatchChatSessionRoutes` **纯搬运**提炼（行为逐字不变）——
+ * 该分发器圈复杂度 101（≥100 属"重尾离群"，复杂度棘轮只允许减少）。
+ */
+async function dispatchSessionBasicRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
+  const method = req.method || 'GET';
+  if (method === 'GET' && url === '/v1/sessions') {
+    await handleListSessions(handlerCtx, req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/sessions') {
+    await handleCreateSession(handlerCtx, req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/sessions/current') {
+    await handleGetCurrentSession(handlerCtx, req, res);
+    return true;
+  }
+  return false;
+}
+
+/**
  * dispatchChatSessionRoutes — chat-session-routes 领域路由分发
  * @returns true 表示已匹配并处理，false 表示未匹配
  */
@@ -141,19 +169,8 @@ export async function dispatchChatSessionRoutes(
     return true;
   }
 
-  // ---- Session ----
-  if (method === 'GET' && url === '/v1/sessions') {
-    await handleListSessions(handlerCtx, req, res);
-    return true;
-  }
-  if (method === 'POST' && url === '/v1/sessions') {
-    await handleCreateSession(handlerCtx, req, res);
-    return true;
-  }
-  if (method === 'GET' && url === '/v1/sessions/current') {
-    await handleGetCurrentSession(handlerCtx, req, res);
-    return true;
-  }
+  // ---- Session（基础 CRUD 提炼为独立分发器以控制本函数圈复杂度，行为逐字不变）----
+  if (await dispatchSessionBasicRoutes(req, res, url, handlerCtx)) return true;
   // 2026-11-11：立即复位启动期崩溃恢复标记（failed_stale ⇒ ERROR）
   if (method === 'POST' && url.match(/^\/v1\/sessions\/(.+)\/recover-stale$/)) {
     const sid = requireSessionId(

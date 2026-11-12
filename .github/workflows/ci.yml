@@ -387,7 +387,9 @@ jobs:
         bun run scripts/lint-models.ts
         bun run scripts/lint-permission-single-source.ts
         # P4（2026-11-12）：命令语义覆盖率棘轮（未分类 spec 只减不增）
-        bun run scripts/lint-command-coverage.ts
+        # 2026-11-12 修正：该脚本在 `app/scripts/`，本 step 的 cwd 是**仓根** ⇒
+        # 原写法 `scripts/lint-command-coverage.ts` 必然 "Module not found"（CI 恒红）。
+        bun run app/scripts/lint-command-coverage.ts
         # P8-A3（2026-11-12）：沙箱清单 × 注册表对拍；解析失败 ⇒ exit 1（差异本身只报警）
         bun run app/scripts/lint-policy-drift.ts
 

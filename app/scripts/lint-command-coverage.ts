@@ -15,7 +15,7 @@ import { COMMAND_SPECS } from '../../packages/infra/src/security/patterns/comman
  * 基线：P1b 从历史硬拦表迁入的存量条目（当时只按名字分档，没有语义分类）。
  * **只能下调** —— 每给一批条目补上 `kind`，就同步调低此值。
  */
-const BASELINE_WITHOUT_KIND = 282;
+const BASELINE_WITHOUT_KIND = 103;
 
 const total = COMMAND_SPECS.length;
 const withoutKind = COMMAND_SPECS.filter((spec) => !spec.kind);

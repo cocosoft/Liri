@@ -11,8 +11,13 @@ import {
   createAskDecision,
 } from './types/PermissionDecision';
 import { PermissionContext } from './types/PermissionContext';
-import { hashApprovalFingerprint } from './ApprovedCommandRegistry';
+import {
+  getApprovedCommandRegistry,
+  hashApprovalFingerprint,
+} from './ApprovedCommandRegistry';
 import { resolveApprovalFingerprint } from './approvalFingerprint';
+// 2026-11-12：放行缓存命中判定需要「shell 工具」口径（与 chat 层 `isCommandApproved` 同源）
+import { isShellToolName } from '../utils/toolContract/toolRoles';
 // P1（2026-11-04）：审批卡唯一构造点 + 审计②段（①段在构造点内落）
 import { buildToolApprovalCard } from './toolApprovalSubmission';
 import { emitApprovalAudit } from './approvalAudit';
@@ -737,6 +742,34 @@ export class PermissionChecker {
         sandbox: context.sandbox,
       });
       const commandHash = card.commandHash;
+
+      // 2026-11-12（真机 `session_mwd6c9ui384f78c969`）：**放行缓存已命中 ⇒ 不建卡**。
+      // 批准后的续跑会在权限层重新判定同一次调用；此时缓存已写入，但原实现照样提交一张新卡
+      // （旧卡已 resolved ⇒ 同指纹复用查不到）⇒ 会话里残留一张永远无人处理的"待审批"卡，
+      // 前端表现为「已处理卡 + 同内容待审批卡」两张（工具本身已执行）。
+      if (
+        getApprovedCommandRegistry().isApproved(
+          sessionId,
+          commandHash,
+          undefined,
+          taskId
+        ) ||
+        // 命令名级放行（与 chat 层 `isCommandApproved` 同口径）：
+        // 仅 shell 工具、且 BashTool 安全层仍作为执行兜底
+        (isShellToolName(toolName) &&
+          getApprovedCommandRegistry().isCommandNameApproved(
+            sessionId,
+            typeof input.command === 'string' ? input.command : '',
+            taskId
+          ))
+      ) {
+        logger.info('放行缓存已命中，跳过审批卡提交', {
+          toolName,
+          sessionId,
+          hasCommandHash: !!commandHash,
+        });
+        return createAllowDecision('Approval cache hit (approved earlier)');
+      }
 
       // PR-1：提交前**先查是否已有同一指纹的待审批项**，有则复用（避免僵尸卡）。
       const existingId = inboxManager.list

@@ -25,6 +25,8 @@ import {
   dedupeToolCallBlocks,
   hasPendingApprovalCard,
   parseApprovalSignal,
+  preferToolResult,
+  resolveApprovalFlags,
 } from "../chat-message-shared";
 import type { MessageBlock } from "@/types";
 
@@ -124,6 +126,64 @@ describe("parseApprovalSignal — 审批等待信号（U-06-5）", () => {
     expect(parseApprovalSignal("plain text result")).toBeNull();
     expect(parseApprovalSignal(undefined)).toBeNull();
     expect(parseApprovalSignal({ pendingApproval: true })).toBeNull();
+  });
+});
+
+/**
+ * 2026-11-12（真机 `session_mwd632bob8d4318050`）：批准后同一调用出现**两张卡**
+ * （服务端合成的「已处理」Inbox 卡 + 工具卡上残留的「等待审批」）。
+ * 根因：审批等待标记只置位、终态结果从不清除。
+ */
+describe("resolveApprovalFlags — 终态结果清除等待标记", () => {
+  it("awaiting 结果 ⇒ 置位并带 inboxId", () => {
+    const raw = JSON.stringify({ pendingApproval: true, inboxId: "ib-1" });
+    expect(resolveApprovalFlags(raw)).toEqual({
+      pendingApproval: true,
+      inboxId: "ib-1",
+    });
+  });
+
+  it("终态结果（成功/失败/普通文本）⇒ pendingApproval 清除", () => {
+    expect(resolveApprovalFlags("目录列表…")).toEqual({
+      pendingApproval: undefined,
+      inboxId: undefined,
+    });
+    expect(resolveApprovalFlags(JSON.stringify({ output: "done" }))).toEqual({
+      pendingApproval: undefined,
+      inboxId: undefined,
+    });
+    expect(resolveApprovalFlags("⚠️ 工具执行失败: 拒绝")).toEqual({
+      pendingApproval: undefined,
+      inboxId: undefined,
+    });
+  });
+
+  it("对象形态的审批结果同样识别（事件 chunk 走对象）", () => {
+    expect(resolveApprovalFlags({ pendingApproval: true })).toEqual({
+      pendingApproval: true,
+      inboxId: undefined,
+    });
+  });
+});
+
+describe("preferToolResult — 同 toolCallId 两条结果时终态优先", () => {
+  const awaiting = JSON.stringify({ pendingApproval: true, inboxId: "ib-1" });
+  const terminal = "命令输出：file1 file2";
+
+  it("首次结果直接采用", () => {
+    expect(preferToolResult(undefined, awaiting)).toBe(true);
+  });
+
+  it("占位在前、终态在后 ⇒ 采用终态", () => {
+    expect(preferToolResult(awaiting, terminal)).toBe(true);
+  });
+
+  it("终态在前、占位在后（顺序颠倒）⇒ 保留终态", () => {
+    expect(preferToolResult(terminal, awaiting)).toBe(false);
+  });
+
+  it("两条都是终态 ⇒ 后写覆盖（原行为不变）", () => {
+    expect(preferToolResult(terminal, "另一条结果")).toBe(true);
   });
 });
 

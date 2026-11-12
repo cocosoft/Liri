@@ -26,7 +26,8 @@ import {
   switchState,
   cacheToolResult,
   truncateResult,
-  parseApprovalSignal,
+  preferToolResult,
+  resolveApprovalFlags,
   MAX_INLINE_RESULT_LENGTH,
 } from "./chat-message-shared";
 import type { MessageSet, MessageGet } from "./chat-message.types";
@@ -179,9 +180,13 @@ export function setMessagesImpl(
         // 解包 + 迭代解码（单一实现 `utils/toolResultText`），否则信封原样进入
         // `block.toolCall.result`，工具卡"结果"区显示出转义 JSON（真机实测）。
         const decoded = decodeToolResultContent(rawContent);
-        toolResultsByCallId.set(msg.toolCallId, decoded);
-        // 全量结果存入独立缓存（LRU 淘汰），不在 block 中内联
-        cacheToolResult(msg.toolCallId, decoded);
+        // 2026-11-12：同一 toolCallId 可能有两条结果（审批占位 + 批准后的真实结果），
+        // 落盘顺序不可靠 ⇒ 终态优先，避免"批准后仍按占位结果渲染等待审批卡"
+        if (preferToolResult(toolResultsByCallId.get(msg.toolCallId), decoded)) {
+          toolResultsByCallId.set(msg.toolCallId, decoded);
+          // 全量结果存入独立缓存（LRU 淘汰），不在 block 中内联
+          cacheToolResult(msg.toolCallId, decoded);
+        }
         pendingToolMessages.push(msg);
       } else if (
         Array.isArray(msg.blocks) &&
@@ -347,18 +352,17 @@ export function setMessagesImpl(
             const fullResult = toolResultsByCallId.get(block.toolCall.id)!;
             hasMergedResult = true;
             // U-06-5：审批等待结果带 pendingApproval + inboxId ⇒ 工具卡片就地审批
-            const approval = parseApprovalSignal(fullResult);
+            // 2026-11-12：终态结果须**清除**该标记（否则批准后同一调用既显示"已处理"的
+            // Inbox 卡、又保留"等待审批 + 批准/拒绝"的工具卡 ⇒ 两张卡）
+            const approvalFlags = resolveApprovalFlags(fullResult);
             // 只注入截断摘要到 block，全量结果通过 getToolResultFull() 按需获取
             block.toolCall = {
               ...block.toolCall,
               result: truncateResult(fullResult),
               _hasFullResult:
                 fullResult.length > MAX_INLINE_RESULT_LENGTH || undefined,
-              pendingApproval:
-                approval?.pendingApproval === true
-                  ? true
-                  : block.toolCall.pendingApproval,
-              inboxId: approval?.inboxId ?? block.toolCall.inboxId,
+              pendingApproval: approvalFlags.pendingApproval,
+              inboxId: approvalFlags.inboxId,
             };
           }
           return block;

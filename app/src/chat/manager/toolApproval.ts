@@ -91,6 +91,75 @@ export async function isCommandApproved(
 }
 
 /**
+ * 2026-11-12：该调用是否**仍在等用户审批**（有未处理的审批卡且放行缓存未写入）。
+ *
+ * 用途：`resumeStream` 重放 `awaiting_approval` 调用前的前置判定。重放的前提是"审批已落定"；
+ * 卡还没处理就重放 ⇒ 再执行一次 + 同指纹复用同一 Inbox 项 + 再写一条 `awaiting_approval`
+ * tool/result（新 messageId）⇒ 前端重复审批卡（真机 `session_mwd5mp8jd5fe8bce9c` /
+ * `session_mwcyhmmpd44e93b602`）。
+ *
+ * 为什么不用"messages 里的 awaiting 标记"：检查点（`checkpoint.messages`）可能只含
+ * user + assistant，**不含**那条 `awaiting_approval` 的 tool 结果 ⇒ 标记不可靠；而 Inbox 的
+ * 待审批项是用户可见、可操作的唯一事实源。
+ *
+ * 判据顺序：① 放行缓存命中 ⇒ 已落定（不是等待）；② 同指纹待审批项存在 ⇒ 等待中。
+ */
+export async function isAwaitingUserApproval(
+  ports: ToolApprovalPorts,
+  toolName: string,
+  input: Record<string, unknown>,
+  sessionId: string | undefined,
+  toolCallId?: string
+): Promise<boolean> {
+  const sid = sessionId || 'default';
+  try {
+    const tool = ports.toolRegistry?.getTool(toolName);
+    // 权限层沿用本模块的**动态 import** 约定（不把 permission/Inbox 提到启动期静态图）
+    const {
+      buildToolApprovalCard,
+      findPendingApprovalId,
+      resolveApprovalFingerprint,
+    } = await import('@openliri/infra/permission');
+    // ① 已批准（或"本会话/本任务都允许"命中）⇒ 审批已落定，续跑必须重放
+    if (
+      await isCommandApproved(
+        toolName,
+        input,
+        sid,
+        resolveApprovalFingerprint(tool ?? toolName, input)
+      )
+    ) {
+      return false;
+    }
+    // ② 与建卡同一构造点算 commandHash，再查同指纹的待审批项
+    const { inboxManager } =
+      await import('@openliri/service/runtime/InboxManager');
+    const card = buildToolApprovalCard({
+      toolOrName: tool ?? toolName,
+      input,
+      sessionId: sid,
+      toolCallId: toolCallId ?? '',
+      // 与 `submitToolApproval` 同源（`_orphan` 判定只要求非空）
+      sourceModule: 'chat-tool-approval',
+    });
+    const pendingId = await findPendingApprovalId(inboxManager, {
+      sessionId: sid,
+      toolName,
+      approvalHash: card.commandHash,
+    });
+    return !!pendingId;
+  } catch (e) {
+    // 审批链路不可用（Inbox 库/迁移未就绪）⇒ 按"未在等待"处理，续跑保持既有重放行为（不静默丢调用）
+    logger.warn('等待审批判定失败，按未等待处理', {
+      toolName,
+      sessionId: sid,
+      error: String(e),
+    });
+    return false;
+  }
+}
+
+/**
  * 提交工具审批卡片到 Inbox（P0-2 工具执行审批链路）
  *
  * ask 决策 → 会话内审批卡片（InboxBlock）→ 用户批准后：

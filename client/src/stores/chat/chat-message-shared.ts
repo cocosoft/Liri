@@ -73,30 +73,74 @@ export function hasPendingApprovalCard(
 }
 
 /**
- * U-06-5（2026-10-19）：从工具结果 JSON 文本提取审批等待信号。
+ * U-06-5（2026-10-19）：从工具结果**对象或 JSON 文本**提取审批等待信号。
  *
  * `awaiting_approval` 结果由后端返回为结构化 JSON
  * （`{ status: 'awaiting_approval', pendingApproval: true, inboxId }`），
- * 这里只认**结构化字段**（CS02：状态判断不用字符串匹配），非 JSON / 非审批结果返回 null。
+ * 这里只认**结构化字段**（CS02：状态判断不用字符串匹配），非审批结果返回 null。
  */
+export function readApprovalSignal(
+  raw: unknown,
+): { pendingApproval: true; inboxId?: string } | null {
+  let value: unknown = raw;
+  if (typeof value === "string") {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      // 非 JSON（普通文本工具结果）⇒ 无审批信号，非错误路径
+      return null;
+    }
+  }
+  if (typeof value !== "object" || value === null) return null;
+  const rec = value as { pendingApproval?: unknown; inboxId?: unknown };
+  if (rec.pendingApproval !== true) return null;
+  return {
+    pendingApproval: true,
+    inboxId: typeof rec.inboxId === "string" ? rec.inboxId : undefined,
+  };
+}
+
+/** 兼容入口：仅接受 JSON 文本的审批信号解析（既有调用方不变） */
 export function parseApprovalSignal(
   raw: unknown,
 ): { pendingApproval: true; inboxId?: string } | null {
-  if (typeof raw !== "string") return null;
-  try {
-    const parsed = JSON.parse(raw) as {
-      pendingApproval?: unknown;
-      inboxId?: unknown;
-    } | null;
-    if (parsed?.pendingApproval !== true) return null;
-    return {
-      pendingApproval: true,
-      inboxId: typeof parsed.inboxId === "string" ? parsed.inboxId : undefined,
-    };
-  } catch {
-    // 非 JSON（普通文本工具结果）⇒ 无审批信号，非错误路径
-    return null;
+  return typeof raw === "string" ? readApprovalSignal(raw) : null;
+}
+
+/**
+ * 2026-11-12：用**最近一次工具结果**刷新工具卡上的审批等待标记。
+ *
+ * 规则：结果是 `awaiting_approval` ⇒ 置位；任何**终态结果**（成功/失败/普通文本）⇒ 清除。
+ * 原实现只置位、从不清除 ⇒ 批准后同一次调用既显示服务端合成的「已处理」Inbox 卡，
+ * 又保留工具卡上的「等待审批 + 批准/拒绝」按钮 ⇒ 用户看到**两张卡**（真机
+ * `session_mwd632bob8d4318050`：1 个 tool_call、0 次重复执行，卡片却为 2 张）。
+ */
+export function resolveApprovalFlags(rawResult: unknown): {
+  pendingApproval?: boolean;
+  inboxId?: string;
+} {
+  const signal = readApprovalSignal(rawResult);
+  if (signal) {
+    return { pendingApproval: true, inboxId: signal.inboxId };
   }
+  // 终态 ⇒ 显式清除（含 inboxId：就地审批入口随之消失）
+  return { pendingApproval: undefined, inboxId: undefined };
+}
+
+/**
+ * 2026-11-12：同一 toolCallId 的两条工具结果（审批占位 + 批准后的真实结果）谁进映射表。
+ *
+ * 落盘/事件顺序不可靠（占位可能后到）⇒ 不能只靠"后写覆盖"：**终态优先**。
+ */
+export function preferToolResult(
+  previous: string | undefined,
+  next: string,
+): boolean {
+  if (previous === undefined) return true;
+  const prevAwaiting = readApprovalSignal(previous) !== null;
+  const nextAwaiting = readApprovalSignal(next) !== null;
+  // 终态结果一律采用（两条都终态时保持"后写覆盖"）；唯一拒绝：终态已被记下后，占位又迟到
+  return !nextAwaiting || prevAwaiting;
 }
 
 /** 清理全量工具结果缓存（setMessages 加载新会话前调用，防止内存泄漏） */

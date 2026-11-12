@@ -31,19 +31,26 @@ export interface PendingToolCall {
  * 从 `completedToolCallIds` 里"捞回来"，否则日志只会打印
  * 「resumeStream: 所有工具已完成，无需恢复」（真机 `session_mw458fpp3ea32a050e`）。
  *
- * tool 消息的 call id 有两个来源：顶层 `toolCallId`（内存态）与
- * `content[].toolCallId`（落盘态，见 `messages.jsonl`）——两者都兼容。
+ * tool 消息的 call id 有三个来源：顶层 `toolCallId`（内存态）、
+ * `content[].toolCallId`（事件派生消息）与 `metadata.toolCallId`（**messages.jsonl 落盘态**：
+ * 真机 `session_mwd5mp8jd5fe8bce9c` 的 tool 消息顶层无此字段，只有 metadata）——三者都兼容。
+ * 漏掉 metadata 形态 ⇒ `awaitingApprovalIds` 为空 ⇒ 续跑把未落定的调用当"普通剩余工具"重放
+ * （再次提交同一张卡、再写一条 awaiting_approval ⇒ 重复审批卡）。
  */
 export function extractAwaitingApprovalToolCallIds(
   messages: ReadonlyArray<{
     role?: string;
     content?: unknown;
     toolCallId?: string;
+    metadata?: { toolCallId?: unknown } | undefined;
   }>
 ): Set<string> {
   const ids = new Set<string>();
   for (const m of messages) {
     if (m.role !== 'tool') continue;
+    const metaId = m.metadata?.toolCallId;
+    const messageCallId =
+      m.toolCallId ?? (typeof metaId === 'string' ? metaId : undefined);
     const rawBlocks = m.content;
     const blocks: Array<{
       type?: string;
@@ -56,11 +63,11 @@ export function extractAwaitingApprovalToolCallIds(
           toolCallId?: string;
         }>)
       : typeof rawBlocks === 'string'
-        ? [{ type: 'tool_result', value: rawBlocks, toolCallId: m.toolCallId }]
+        ? [{ type: 'tool_result', value: rawBlocks, toolCallId: messageCallId }]
         : [];
     for (const block of blocks) {
       if (block?.type !== 'tool_result') continue;
-      const id = block.toolCallId ?? m.toolCallId;
+      const id = block.toolCallId ?? messageCallId;
       if (typeof id !== 'string' || !id) continue;
       if (isAwaitingApprovalPayload(block.value)) ids.add(id);
     }
@@ -69,35 +76,32 @@ export function extractAwaitingApprovalToolCallIds(
 }
 
 /**
- * 2026-11-12（真机 `session_mwcyhmmpd44e93b602`）：本次续跑**是否重放**这批剩余调用。
+ * 2026-11-12（真机 `session_mwcyhmmpd44e93b602` / `session_mwd5mp8jd5fe8bce9c`）：
+ * 本次续跑**是否重放**这批剩余调用。
  *
  * 背景：`awaiting_approval` 的 tool/result 不算终态（批准后必须重放），但重放的前提是
- * **放行缓存已写入**。此前任何一次续跑（含 `resumeCoalescer` 的"补跑一波"）都无条件重放
- * 这批调用 ⇒ 审批尚未落定时再执行一次 ⇒ 又走 `submitToolApproval`（同指纹复用同一 Inbox 项）
- * ⇒ 同一 toolCallId 写下**第二条** `awaiting_approval` tool/result（新 messageId）⇒ 前端多出
+ * **审批已落定**。此前任何一次续跑（含 `resumeCoalescer` 的"补跑一波"）都无条件重放 ⇒
+ * 审批卡还没处理就再执行一次 ⇒ 又走 `submitToolApproval`（同指纹复用同一 Inbox 项）⇒
+ * 同一 toolCallId 写下**第二条** `awaiting_approval` tool/result（新 messageId）⇒ 前端多出
  * 重复审批卡（events 实证：seq 865 → 869、878 → 882 同 id 重复）。
  *
- * 口径（只修"全都没落定"这一种，混合场景保持原行为）：
- *   - 剩余调用**全部**是"审批等待且未落定" ⇒ 本次空转（`replay: []`），卡片留着等批准；
- *   - 否则**原样全量重放**。混合场景（一半已批准、一半仍待批）刻意不改：已落定调用执行后
+ * 口径（只修"全都被卡住"这一种，混合场景保持原行为）：
+ *   - 剩余调用**全部**被待审批卡挡住 ⇒ 本次空转（`replay: []`），卡片留着等用户处理；
+ *   - 否则**原样全量重放**。混合场景（一部分已批准、一部分仍待批）刻意不改：已落定调用执行后
  *     会推进出新的 assistant 轮次，未落定调用若被跳过就失去"最后一条含 tool_calls 的消息"
  *     这一重放锚点 ⇒ 之后批准也不会执行。宁可在该窄场景保留既有的重提卡行为。
  *
- * @param candidates         已按"未完成 或 等待审批"筛过的声明调用
- * @param awaitingApprovalIds 有 `awaiting_approval` 结果的 toolCallId
- * @param approvedIds         审批已落定（放行缓存命中）的 toolCallId
- * @returns `replay` = 本次要重放的调用；`skippedPendingCount` = 被跳过的未落定数
+ * @param candidates 已按"未完成 或 等待审批"筛过的声明调用
+ * @param blockedIds 仍被未处理审批卡挡住的 toolCallId（宿主判定，见 `isAwaitingUserApproval`）
+ * @returns `replay` = 本次要重放的调用；`skippedPendingCount` = 被跳过的等待审批数
  */
 export function planToolReplay<T extends { id: string }>(
   candidates: readonly T[],
-  awaitingApprovalIds: ReadonlySet<string>,
-  approvedIds: ReadonlySet<string>
+  blockedIds: ReadonlySet<string>
 ): { replay: T[]; skippedPendingCount: number } {
-  const pending = candidates.filter(
-    (tc) => awaitingApprovalIds.has(tc.id) && !approvedIds.has(tc.id)
-  );
-  if (pending.length === candidates.length) {
-    return { replay: [], skippedPendingCount: pending.length };
+  const blocked = candidates.filter((tc) => blockedIds.has(tc.id));
+  if (blocked.length === candidates.length) {
+    return { replay: [], skippedPendingCount: blocked.length };
   }
   return { replay: [...candidates], skippedPendingCount: 0 };
 }

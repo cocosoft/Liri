@@ -136,13 +136,14 @@ export interface StreamResumeDeps {
   /** 当前工具注册表（可能为 null） */
   getToolRegistry: () => ToolRegistry | null;
   /**
-   * 2026-11-12：审批是否**已落定**（放行缓存命中）—— `awaiting_approval` 调用的重放前提。
+   * 2026-11-12：该调用是否**仍在等用户审批**（有未处理的审批卡且放行缓存未写入）——
+   * `awaiting_approval` 调用重放的前置条件。
    *
-   * 未落定就重放 ⇒ 再执行一次、再提交同一张卡（同指纹复用同一 Inbox 项）、再写一条
+   * 卡还没处理就重放 ⇒ 再执行一次、再提交同一张卡（同指纹复用同一 Inbox 项）、再写一条
    * `awaiting_approval` tool/result（新 messageId）⇒ 前端重复审批卡。故续跑前必须问它。
-   * 实现由宿主注入（`isCommandApproved` + 工具声明的授权指纹，与建卡/执行同一口径）。
+   * 实现由宿主注入（`isAwaitingUserApproval`：放行缓存 + Inbox 待审批项，与建卡同一口径）。
    */
-  isToolCallApproved: (toolCall: ToolCall) => Promise<boolean>;
+  isAwaitingUserApproval: (toolCall: ToolCall) => Promise<boolean>;
   /** 工具轮下一轮请求消息构建 */
   buildToolRoundMessages: (
     currentMessages: Record<string, unknown>[],
@@ -256,10 +257,11 @@ export class ChatStreamResume {
       const awaitingApprovalIds = extractAwaitingApprovalToolCallIds(
         session.messages
       );
-      // 2026-11-12（真机 `session_mwcyhmmpd44e93b602`）：**剩余调用全部是"审批等待且未落定"时，
-      // 本次续跑整体空转**（不重放）。原实现无条件重放 ⇒ 续跑（含 `resumeCoalescer` 的补跑一波）
-      // 再执行一次 ⇒ 同指纹复用同一 Inbox 项 + 再写一条 `awaiting_approval` tool/result
-      // （新 messageId）⇒ 前端重复审批卡。混合场景沿用原口径（见 `planToolReplay` 注释）。
+      // 2026-11-12（真机 `session_mwcyhmmpd44e93b602` / `session_mwd5mp8jd5fe8bce9c`）：
+      // **剩余调用全部仍被未处理的审批卡挡住时，本次续跑整体空转**（不重放）。原实现无条件重放
+      // ⇒ 续跑（含 `resumeCoalescer` 的补跑一波）再执行一次 ⇒ 同指纹复用同一 Inbox 项 +
+      // 再写一条 `awaiting_approval` tool/result（新 messageId）⇒ 前端重复审批卡。
+      // 混合场景沿用原口径（见 `planToolReplay` 注释）。
       let stillWaitingApproval = 0;
       for (let i = session.messages.length - 1; i >= 0; i--) {
         const msg = session.messages[i];
@@ -278,27 +280,22 @@ export class ChatStreamResume {
             !completedToolCallIds.includes(tc.id) ||
             awaitingApprovalIds.has(tc.id)
         );
-        // 仅对"等待审批"的调用问放行缓存（普通剩余调用不产生额外查询）
-        const approvedIds = new Set<string>();
+        // 逐个问宿主：这张卡是否仍未处理（检查点可能不含 `awaiting_approval` 结果 ⇒ 不能只靠本地标记）
+        const blockedIds = new Set<string>();
         for (const tc of candidates) {
-          if (!awaitingApprovalIds.has(tc.id)) continue;
           const args =
             typeof tc.function.arguments === 'string'
               ? JSON.parse(tc.function.arguments)
               : tc.function.arguments;
-          const approved = await deps.isToolCallApproved({
+          const awaiting = await deps.isAwaitingUserApproval({
             id: tc.id,
             name: tc.function.name,
             arguments: args,
             sessionId,
           });
-          if (approved) approvedIds.add(tc.id);
+          if (awaiting) blockedIds.add(tc.id);
         }
-        const plan = planToolReplay(
-          candidates,
-          awaitingApprovalIds,
-          approvedIds
-        );
+        const plan = planToolReplay(candidates, blockedIds);
         stillWaitingApproval = plan.skippedPendingCount;
         remainingToolCalls = plan.replay.map((tc) => ({
           id: tc.id,

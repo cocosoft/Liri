@@ -194,7 +194,7 @@
       "title": "沙箱边界由运行时强制执行",
       "statement": "沙箱限制必须由运行时机制（如 Landlock）强制执行，而非仅靠提示词或静态检查；失败须 fail-closed。",
       "sources": [
-        "app/src/sandbox/landlock/runWithLandlock.ts",
+        "packages/sandbox/src/sandbox/landlock/runWithLandlock.ts",
         "app/src/tools/bash/bashLandlockExec.ts"
       ],
       "tests": [

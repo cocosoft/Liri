@@ -63,7 +63,17 @@ export interface InfraBoundaryAllowlist {
 }
 
 /** 边界门禁的规则号 */
-export type BoundaryRule = 'R1' | 'R2' | 'R3' | 'R4' | 'R5' | 'R6' | 'R7' | 'R8';
+export type BoundaryRule =
+  | 'R1'
+  | 'R2'
+  | 'R3'
+  | 'R4'
+  | 'R5'
+  | 'R6'
+  | 'R7'
+  | 'R8'
+  // P1（2026-11-12）：sandbox 物理包（`packages/sandbox`）边界专用号
+  | 'R9';
 
 /** 单条规则的检查结论 */
 export interface BoundaryReport {

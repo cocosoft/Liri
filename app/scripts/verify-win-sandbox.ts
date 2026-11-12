@@ -16,7 +16,7 @@ import { promisify } from 'node:util';
 import {
   detectWindowsSandboxCapability,
   runWithWinSandbox,
-} from '../src/sandbox/win';
+} from '@modules/sandbox/win';
 
 const execFileAsync = promisify(execFile);
 const TIMEOUT_MS = 20_000;

@@ -17,12 +17,12 @@ import {
   MACOS_SANDBOX_EXEC_PATH,
   clearMacOSSandboxCapabilityCache,
   detectMacOSSandboxCapability,
-} from '../src/sandbox/darwin/MacOSSandboxDetector';
+} from '@modules/sandbox/darwin/MacOSSandboxDetector';
 import {
   buildMacOSSandboxProfile,
   toKernelPath,
-} from '../src/sandbox/darwin/MacOSSandboxPolicy';
-import { runWithSandboxExec } from '../src/sandbox/darwin/runWithSandboxExec';
+} from '@modules/sandbox/darwin/MacOSSandboxPolicy';
+import { runWithSandboxExec } from '@modules/sandbox/darwin/runWithSandboxExec';
 
 interface ProbeResult {
   name: string;

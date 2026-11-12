@@ -39,6 +39,8 @@ import type { LiriEvent, Message } from "@/types";
 import type { StreamChunk } from "@/services/chatService";
 import { createLogger } from "@/utils/logger";
 import { IncrementalDeriver } from "../deriveConversationBlocks";
+// 2026-11-12：审批等待收尾提示不进流式正文（改由审批卡片承载）
+import { stripAwaitingApprovalNotice } from "@shared/types";
 
 const logger = createLogger("stores:chat:aggregator");
 
@@ -133,6 +135,11 @@ export class EventBasedStreamAggregator {
   appendChunk(chunk: StreamChunk): void {
     switch (chunk.type) {
       case "text": {
+        // 2026-11-12：等待审批的收尾提示**不进流式正文** —— 它会先闪现再被渲染期剥离，
+        // 造成"审批已处理但仍提示等待"的错觉；提示已由审批卡片在 pending 时承载。
+        // 该提示可能与其他收尾原因并列（`⏸ …\n\n（同时检测到…）`）⇒ 先剥离，剥完无正文才整块丢弃。
+        const stripped = stripAwaitingApprovalNotice(chunk.content);
+        if (stripped.trim() === "") break;
         // 流式开始时自动追加 turn/start（如果未开启）
         if (!this.turnStarted) {
           this.startTurn();
@@ -143,7 +150,7 @@ export class EventBasedStreamAggregator {
           // 派生器按 messageId 归组，工具轮正文不再并入首轮消息
           // O2-4：透传 replace（正文取代标记，续接/重试轮）——派生层据此从零重建正文
           data: {
-            content: chunk.content,
+            content: stripped,
             messageId: chunk.messageId,
             ...(chunk.replace ? { replace: true } : {}),
           },

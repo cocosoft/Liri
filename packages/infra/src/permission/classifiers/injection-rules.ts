@@ -527,10 +527,18 @@ export function detectDeserializationAttack(
 
 /**
  * 检测LDAP注入攻击
- * @param input 输入字符串
+ *
+ * @param input 输入字符串（JSON 文本）
+ * @param options.skipCharHeuristic 关闭「≥3 个特殊字符」启发式。
+ *   **仅用于源码面**（`code` / `code_run`）：`()` `=` `*` 在代码里是语法，
+ *   实测把无害 JS `const x = [1, 2].map((n) => n * 2)` 判成 LDAP 注入（P4 复查）。
+ *   结构化过滤器模式（`(|` / `(&` / `(!` / `))` 等）**仍然生效**。
  * @returns 检测结果
  */
-export function detectLDAPInjection(input: string): ClassifierDecision | null {
+export function detectLDAPInjection(
+  input: string,
+  options: { skipCharHeuristic?: boolean } = {}
+): ClassifierDecision | null {
   const ldapPatterns = [
     // LDAP 过滤器注入：只认**结构化组合**。
     // 2026-11-11：原先还列了单字符 `*` `(` `)` `&` `|` `=` `!` `~`，等于"出现任一特殊字符
@@ -560,7 +568,7 @@ export function detectLDAPInjection(input: string): ClassifierDecision | null {
     }
   }
 
-  if (specialCharCount >= 3) {
+  if (!options.skipCharHeuristic && specialCharCount >= 3) {
     return {
       shouldBlock: true,
       reason:

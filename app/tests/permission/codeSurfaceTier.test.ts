@@ -31,11 +31,25 @@ describe('P4 复查：code 面不再被「未知命令」兜底', () => {
       "console.log('hello')",
       "print('hello')",
       'let total = 1 + 2',
+      // 源码里的 () = * 是语法，不得被「≥3 特殊字符」启发式判成 LDAP 注入
+      'const x = [1, 2].map((n) => n * 2)',
     ]) {
       const result = await check('code', { code });
       expect(result.deny, code).toBe(false);
       expect(result.ask, code).toBe(false);
     }
+  });
+
+  it('结构化 LDAP 过滤器仍 deny（shell 面启发式未放宽）', async () => {
+    const shell = await check('bash', {
+      command: 'ldapsearch -b "dc=x" "(&(uid=a)(password=b))"',
+    });
+    expect(shell.deny).toBe(true);
+
+    const shellHeuristic = await check('bash', {
+      command: 'echo a=b&c=d|e*f',
+    });
+    expect(shellHeuristic.deny).toBe(true);
   });
 
   it('危险源码仍 deny（危险面未放宽）', async () => {

@@ -14,10 +14,18 @@
  */
 
 import { afterEach, describe, expect, it } from 'bun:test';
+import { sep } from 'node:path';
 import { AutoModeClassifier } from '@openliri/infra/permission/classifiers/AutoModeClassifier';
 
 type Expect = 'deny' | 'ask' | 'allow';
 const classifier = new AutoModeClassifier();
+
+/**
+ * 2026-11-12（CI 实证）：工作区外落盘用例原先写死 Windows 分隔符，POSIX 上
+ * `..\..\outside.txt` 只是普通文件名（不含穿越）⇒ 恒判 allow，ubuntu/macos 红。
+ * 按平台拼分隔符，三平台语义一致。
+ */
+const OUTSIDE = ['..', '..', 'outside.txt'].join(sep);
 
 const b64u16 = (text: string): string =>
   Buffer.from(text, 'utf16le').toString('base64');
@@ -104,7 +112,7 @@ describe('P0 语料：写盘 / 远端 / 未知命令 ⇒ ask', () => {
   it('下载落盘与远端映射', async () => {
     for (const command of [
       // P3 后：工作区内落盘 ⇒ allow（另有专门用例），工作区外仍 ask
-      'iwr -Uri .\\local -OutFile ..\\..\\outside.txt',
+      `iwr -Uri .\\local -OutFile ${OUTSIDE}`,
       'New-PSDrive -Name X -PSProvider FileSystem -Root \\\\host\\share',
     ]) {
       const { tier } = await verdict(command);

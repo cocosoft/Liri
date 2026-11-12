@@ -10,8 +10,8 @@
  *  ③ 各方法的成败分支（失败返回 false/[]/null，不抛）。
  */
 import { describe, expect, it } from 'bun:test';
-import { DockerImageManager } from '../../src/sandbox/docker/DockerImageManager';
-import type { DockerCliResult } from '../../src/sandbox/docker/dockerCli';
+import { DockerImageManager } from '@modules/sandbox/docker/DockerImageManager';
+import type { DockerCliResult } from '@modules/sandbox/docker/dockerCli';
 
 function ok(stdout = ''): DockerCliResult {
   return { code: 0, stdout, stderr: '', ok: true, timedOut: false };

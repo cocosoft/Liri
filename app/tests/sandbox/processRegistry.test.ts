@@ -7,7 +7,7 @@
  * - `trim()` 只淘汰终态，运行中进程不会被统计压力挤掉；`pruneTerminal()` 有界回收历史。
  */
 import { describe, expect, it } from 'bun:test';
-import { ProcessRegistry } from '../../src/sandbox/ProcessRegistry';
+import { ProcessRegistry } from '@modules/sandbox/ProcessRegistry';
 
 describe('ProcessRegistry 生命周期闭环', () => {
   it('终态收敛后 active 归零', () => {

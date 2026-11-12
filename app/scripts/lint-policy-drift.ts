@@ -9,14 +9,19 @@
  * 差异里有一部分是刻意分层；硬失败会逼着把分层也"对齐"掉。
  */
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { resolve } from 'node:path';
 import { AUTO_MODE_HARD_DENY_TOKENS } from '../../packages/infra/src/security/patterns/autoModeCommandTokens';
 import { expandTokenAliases } from '../../packages/infra/src/security/patterns/commandAliases';
+import { sandboxPath } from '../../scripts/lib/sandboxPaths';
 
 /** 负向自证可注入路径（坏输入必须 exit 1，不得假绿） */
 const SANDBOX_FILE =
   process.env['POLICY_DRIFT_SANDBOX_FILE'] ||
-  join(import.meta.dir, '..', 'src', 'sandbox', 'utils', 'DangerousCommandChecker.ts');
+  sandboxPath(
+    resolve(import.meta.dir, '..', '..'),
+    'utils',
+    'DangerousCommandChecker.ts'
+  );
 
 let text = '';
 try {

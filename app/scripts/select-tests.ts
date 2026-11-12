@@ -59,6 +59,9 @@ const CODE_ROOTS = [
   'packages/kernel/src/',
   // 2026-10-25：纯内核用例迁入包内（`tests/identity/**`），改动同样要能选中测试
   'packages/kernel/tests/',
+  // P0（2026-11-12）：`sandbox` 拆包后其源码改动必须能选中测试。
+  // 当前目录尚在 `app/src/sandbox` ⇒ 本项暂为空转；搬包当天即生效（无需再改本文件）。
+  'packages/sandbox/src/',
 ];
 
 /** 允许处理的最大变更文件数；超过直接全量（防异常 diff） */

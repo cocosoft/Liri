@@ -16,7 +16,7 @@ import {
   detectMacOSSandboxCapability,
   escapeSbplString,
   toKernelPath,
-} from '../../src/sandbox/darwin';
+} from '@modules/sandbox/darwin';
 
 describe('buildMacOSSandboxProfile', () => {
   it('默认拒绝 + 读/进程放行 + 写仅白名单', () => {

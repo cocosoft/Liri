@@ -28,7 +28,7 @@ import {
   resolveLandlockConfig,
   type LandlockCapability,
   type LandlockConfig,
-} from '../../src/sandbox';
+} from '@modules/sandbox';
 
 /** 造配置：默认项 + 覆盖 */
 function cfg(over: Partial<LandlockConfig> = {}): LandlockConfig {

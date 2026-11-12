@@ -20,7 +20,7 @@ import {
   checkWhitelistAndSandbox,
 } from '../../src/tools/bash/bashSecurityGate.js';
 import { standardizeCommand } from '../../src/tools/bash/commandNormalization.js';
-import { SandboxSecurityChecker } from '../../src/sandbox/SandboxSecurityChecker.js';
+import { SandboxSecurityChecker } from '@modules/sandbox/SandboxSecurityChecker';
 import {
   describePowerShellFailure,
   evaluatePowerShellSecurity,

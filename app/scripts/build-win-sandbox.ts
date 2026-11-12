@@ -16,12 +16,11 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
+// P0（2026-11-12）：沙箱源码位置收敛到 `scripts/lib/sandboxPaths`（搬包只改一处）
+import { sandboxPath } from '../../scripts/lib/sandboxPaths';
 
 const PROJECT_ROOT = resolve(import.meta.dir, '..', '..');
-const SOURCE = join(
-  PROJECT_ROOT,
-  'app/src/sandbox/win/native/win_sandbox_run.c'
-);
+const SOURCE = sandboxPath(PROJECT_ROOT, 'win', 'native', 'win_sandbox_run.c');
 const DEFAULT_OUT = join(PROJECT_ROOT, 'bin', 'win-sandbox-run.exe');
 
 const argOutIndex = process.argv.indexOf('--out');

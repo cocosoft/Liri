@@ -695,19 +695,19 @@ jobs:
         project: app
 
     # 构建 landlock-run helper（main.c = 纯 C11 + libc；编译产物不入库）
+    # P0（2026-11-12）：不再内联写 `app/src/sandbox/...` 路径 —— 复用发布链同一构建脚本，
+    # 沙箱源码位置唯一事实源为 `scripts/lib/sandboxPaths.ts`（搬包只改一处）。
     - name: Build landlock-run helper
-      working-directory: .
       run: |
         set -eu
-        OUT="$RUNNER_TEMP/landlock-run"
-        cc -static -O2 -Wall -Wextra -o "$OUT" app/src/sandbox/landlock/native/main.c \
-          || cc -O2 -Wall -Wextra -o "$OUT" app/src/sandbox/landlock/native/main.c
+        bun run scripts/build-landlock-helper.ts --target="$RUNNER_TEMP/landlock-dist" --require
+        OUT="$RUNNER_TEMP/landlock-dist/bin/landlock-run"
         "$OUT" --probe || true
 
     # 真负向**必须执行**：SANDBOX_NEGATIVE_REQUIRE=1 ⇒ 环境不满足即**失败**（不静默跳过）
     - name: Real negative tests (required)
       env:
-        LANDLOCK_RUN_HELPER: ${{ runner.temp }}/landlock-run
+        LANDLOCK_RUN_HELPER: ${{ runner.temp }}/landlock-dist/bin/landlock-run
         SANDBOX_NEGATIVE_REQUIRE: '1'
       run: bun test tests/sandbox/negativeEnforcement.test.ts
 

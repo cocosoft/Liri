@@ -13,17 +13,17 @@
  *  ④ 端到端：配了 custom 但**没给名字** ⇒ 仍按 `INVALID_NETWORK_MODE` 拒绝（**不静默放过**）。
  */
 import { describe, expect, it } from 'bun:test';
-import { DockerSandbox } from '../../src/sandbox/docker/DockerSandbox';
-import { compileNetworkPolicy } from '../../src/sandbox/docker/NetworkPolicyEngine';
+import { DockerSandbox } from '@modules/sandbox/docker/DockerSandbox';
+import { compileNetworkPolicy } from '@modules/sandbox/docker/NetworkPolicyEngine';
 import {
   validateDockerNetworkConfig,
   type DockerNetworkConfig,
-} from '../../src/sandbox/docker/DockerNetworkPolicy';
-import type { DockerCliResult } from '../../src/sandbox/docker/dockerCli';
+} from '@modules/sandbox/docker/DockerNetworkPolicy';
+import type { DockerCliResult } from '@modules/sandbox/docker/dockerCli';
 import type {
   SandboxConfig,
   SandboxPlatform,
-} from '../../src/sandbox/SandboxTypes';
+} from '@modules/sandbox/SandboxTypes';
 
 /**
  * 脚本化假执行器：全部成功；`create` 回一个**容器 id**（B4 后 `initialize` 要求 create 有输出，

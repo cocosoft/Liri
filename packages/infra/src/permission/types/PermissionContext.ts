@@ -11,6 +11,14 @@ export interface PermissionContext {
   sessionId?: string;
 
   /**
+   * 本次工具调用的 id（可选；2026-11-12）。
+   *
+   * 用途：审批卡 metadata 记下它，用户**拒绝**时据此给该调用写终态结果并续跑
+   * （否则模型永远收不到"被拒绝"这一事实，会话停在等待审批）。
+   */
+  toolCallId?: string;
+
+  /**
    * 用户ID（可选）
    */
   userId?: string;
@@ -109,6 +117,8 @@ export function createPermissionContext(params: {
   toolName: string;
   input: Record<string, unknown>;
   sessionId?: string;
+  /** 2026-11-12：本次调用 id（审批卡留证；用户拒绝时据此写终态结果并续跑） */
+  toolCallId?: string;
   userId?: string;
   /** 请求级角色（多租户 P0 阶段 2）：缺省 ⇒ `PermissionManager` 回退进程级角色 */
   userRole?: string;
@@ -130,6 +140,7 @@ export function createPermissionContext(params: {
 }): PermissionContext {
   return {
     sessionId: params.sessionId,
+    toolCallId: params.toolCallId,
     userId: params.userId,
     toolName: params.toolName,
     userRole: params.userRole,

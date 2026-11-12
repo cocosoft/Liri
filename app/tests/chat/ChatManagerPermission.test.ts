@@ -40,6 +40,8 @@ import {
   getApprovedCommandRegistry,
   hashCommand,
 } from '@openliri/infra/permission/ApprovedCommandRegistry';
+// 2026-11-12：用户「拒绝」标记（续跑重放时返回终止态）
+import { markToolCallDenied } from '@openliri/infra/permission';
 
 /** mock 权限管理器：checkPermissionForTool 返回预设决策 */
 function makePermissionManager(decision: {
@@ -118,6 +120,22 @@ describe('ChatManager 权限三态化（P0-2/P1-2）', () => {
     } as ToolCall);
     expect(result.error).toContain('Permission denied');
     expect(result.result).toBeNull();
+  });
+
+  it('用户已拒绝（markToolCallDenied）⇒ 返回终止态，即使权限放行也不执行', async () => {
+    // 2026-11-12：拒绝是**该次调用**的终态 —— 续跑重放时不得再执行/再提卡，
+    // 否则模型永远收不到"被拒绝"，会话停在等待审批（真机 session_mwd6c9ui384f78c969）
+    cm.setPermissionManager(makePermissionManager({ allowed: true }));
+    markToolCallDenied('session-denied', 'tool-denied-1');
+    const result = await cm.executeTool({
+      id: 'tool-denied-1',
+      name: 'bash',
+      arguments: { command: 'dir' },
+      sessionId: 'session-denied',
+    } as ToolCall);
+    expect(result.error).toContain('用户拒绝执行该工具调用');
+    expect(result.failureKind).toBe('permission_denied');
+    expect(result.result).toMatchObject({ denied: true });
   });
 
   it('allow 决策 → 通过权限层继续执行（无 toolRegistry 时报执行错误）', async () => {

@@ -203,3 +203,77 @@ describe("setMessagesImpl — 孤儿 tool 结果保留（N-48）", () => {
     expect(tools.map((m) => m.toolCallId)).toEqual(["call_real_orphan"]);
   });
 });
+
+/**
+ * 2026-11-12（真机 `session_mwd7ywosc43b5503e3`）：用户在审批卡点「拒绝」后，
+ * 续跑写入的终态失败结果必须把工具卡标成 `failed`。
+ * 修复前：合并只回填 result/pendingApproval，`status` 沿用流式留下的 `completed`
+ * ⇒ 界面显示绿色"已执行"，与"被拒绝"的事实相反。
+ */
+describe("setMessagesImpl — 终态结果决定工具卡状态（2026-11-12）", () => {
+  const assistantWithTool = (): Message =>
+    msg({
+      id: "a1",
+      role: "assistant",
+      content: "执行中",
+      timestamp: 1500,
+      blocks: [
+        {
+          id: "b1",
+          type: "tool_call",
+          toolCallId: "call_denied",
+          toolCall: {
+            id: "call_denied",
+            name: "bash",
+            arguments: {},
+            status: "completed",
+          },
+        },
+      ] as never,
+    });
+
+  it("tool 消息 metadata.toolResultState=error ⇒ 工具卡 failed", () => {
+    const h = harness();
+    h.run([
+      msg({ id: "u1", role: "user", content: "看目录" }),
+      assistantWithTool(),
+      msg({
+        id: "t1",
+        role: "tool",
+        toolCallId: "call_denied",
+        timestamp: 2000,
+        content:
+          '[{"type":"tool_result","value":"⚠️ 工具执行失败: 用户拒绝执行该工具调用（bash）"}]',
+        metadata: { toolResultState: "error", isError: true } as never,
+      }),
+    ]);
+    const block = h
+      .messages()
+      .find((m) => m.role === "assistant")
+      ?.blocks?.find((b) => b.type === "tool_call");
+    expect(block?.toolCall?.status).toBe("failed");
+    // 拒绝结果不是"等待审批" ⇒ 就地审批按钮不得残留
+    expect(block?.toolCall?.pendingApproval).toBeUndefined();
+  });
+
+  it("负向对照：普通成功结果 ⇒ 工具卡 completed", () => {
+    const h = harness();
+    h.run([
+      msg({ id: "u1", role: "user", content: "看目录" }),
+      assistantWithTool(),
+      msg({
+        id: "t1",
+        role: "tool",
+        toolCallId: "call_denied",
+        timestamp: 2000,
+        content: '[{"type":"tool_result","value":"目录列表…"}]',
+        metadata: { toolResultState: "success" } as never,
+      }),
+    ]);
+    const block = h
+      .messages()
+      .find((m) => m.role === "assistant")
+      ?.blocks?.find((b) => b.type === "tool_call");
+    expect(block?.toolCall?.status).toBe("completed");
+  });
+});

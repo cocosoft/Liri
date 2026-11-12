@@ -197,6 +197,12 @@ export type {
   ApprovalScope,
   ApprovalSnapshot,
 } from './ApprovedCommandRegistry';
+// 2026-11-12：用户「拒绝」某次工具调用 —— 续跑重放时返回终止态（不再重提卡）
+export {
+  markToolCallDenied,
+  isToolCallDenied,
+  clearDeniedToolCalls,
+} from './deniedToolCalls';
 // P2（2026-11-04，方案 §3.3）：任务档审批作用域 —— 会话活跃任务解析端口
 export { setActiveTaskIdResolver, getActiveTaskId } from './activeTaskScope';
 export type { ActiveTaskIdResolver } from './activeTaskScope';

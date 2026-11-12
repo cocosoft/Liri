@@ -76,4 +76,15 @@ describe('P3：下载器落盘的工作区边界', () => {
     expect(result.deny).toBe(false);
     expect(result.ask).toBe(true);
   });
+
+  it('重定向仍 deny，但归因指出目标与边界（P4 归因）', async () => {
+    const inside = await verdict('echo hi > out.txt');
+    expect(inside.deny).toBe(true);
+    expect(inside.reason).toContain('out.txt');
+    expect(inside.reason).toContain('inside the workspace');
+
+    const outside = await verdict('echo hi > ..\\..\\outside.txt');
+    expect(outside.deny).toBe(true);
+    expect(outside.reason).toContain('outside the workspace');
+  });
 });

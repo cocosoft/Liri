@@ -104,6 +104,9 @@ function resolveCompoundReadonlyAllow(): boolean {
  */
 const COMPOSITION_TOKENS = new Set(['|', '||', '&&', ';', '&']);
 
+/** 重定向类令牌（P4 归因：说清楚"写到哪"） */
+const REDIRECT_TOKENS = new Set(['>', '>>', '<', '<<', '<<<', '>&', '2>&']);
+
 /**
  * 下载器族命令（P3）：它们的 `-OutFile` 是**明确的落盘参数**，
  * 因此可以按"目标是否在工作区内"分级，而不是一律弹审批。
@@ -153,6 +156,26 @@ function explainComposition(segments: readonly CommandSegment[]): string {
     return ` (segment #${segment.index + 1} would need approval: "${text}")`;
   }
   return '';
+}
+
+/**
+ * P4 归因：重定向否定时指出**目标**及其是否在工作区内。
+ *
+ * 只改文案，不改档位（重定向仍按既有硬拦口径 deny）；目的是让用户一眼看出
+ * "这条命令要把内容写到哪里"，而不是只看到"含 ` > `"。
+ */
+function explainRedirectTarget(surface: string): string {
+  const targets = extractWriteTargets(surface);
+  if (targets.length === 0) return '';
+  return targets
+    .slice(0, 2)
+    .map((target) => {
+      const inside = isWithinWorkingDirectory(target, process.cwd());
+      return `"${target}" ${inside ? 'inside' : 'outside'} the workspace`;
+    })
+    .join('; ')
+    .replace(/^/, ' (write target: ')
+    .concat(')');
 }
 
 /**
@@ -536,10 +559,13 @@ export class AutoModeClassifier implements IAutoModeClassifier {
             matchesCommandToken(surface, pattern)
           )
         ) {
-          // P2a：连接符类令牌额外指出"真正需要审批的那一段"（只改文案，不改档位）
-          const hint = COMPOSITION_TOKENS.has(pattern.trim())
+          // P2a/P4：连接符指出"需要审批的那一段"；重定向指出"写到哪"
+          const trimmedPattern = pattern.trim();
+          const hint = COMPOSITION_TOKENS.has(trimmedPattern)
             ? explainComposition(segments)
-            : '';
+            : REDIRECT_TOKENS.has(trimmedPattern)
+              ? explainRedirectTarget(rawExecutionSurface ?? executionSurface)
+              : '';
           return {
             shouldBlock: true,
             reason: `Input contains dangerous command pattern: "${pattern}"${hint}`,

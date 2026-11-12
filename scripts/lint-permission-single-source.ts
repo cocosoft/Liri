@@ -144,10 +144,6 @@ const ALLOWLIST: Record<
     reason: '命令分类语义（UI 折叠 / 分类），非只读安全目录',
     rules: ['readonly-literals'],
   },
-  'app/src/tools/bash/semantics/BashSemantics.ts': {
-    reason: '命令分类语义（UI 折叠 / 分类），非只读安全目录',
-    rules: ['readonly-literals'],
-  },
   'packages/infra/src/security/bash/CommandRegistry.ts': {
     reason: '命令元数据注册表（分类/危险标记），非只读安全目录',
     rules: ['readonly-literals'],

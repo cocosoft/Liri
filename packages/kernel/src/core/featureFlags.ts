@@ -103,6 +103,15 @@ export const FEATURE_FLAGS = {
   LOOP_TIME: true,
   /** 模型路由自动选择 */
   LOOP_MODEL_ROUTING: true,
+  /**
+   * G2（2026-11-13）：**循环归因 → 自适应路由**开关（默认关，**当前未接线**）。
+   *
+   * 开 ⇒ `io_loop` / `no_tool_call` 终止后，组合根可用 `decideLoopFallback()`
+   * （`app/src/query/taor/modelFallback.ts`，纯函数）决定是否注入一次反思提示；
+   * 关（默认）⇒ 判定恒为 `none`，行为与接线前逐字一致。依据
+   * `dev_docs/20261112/T2-T3-20261112.md` §T2.4；灰度 `FEATURE_MODEL_FALLBACK_ON_LOOP=true`。
+   */
+  MODEL_FALLBACK_ON_LOOP: false,
   /** Proactive Loop (Webhook) */
   LOOP_PROACTIVE: false,
   /**

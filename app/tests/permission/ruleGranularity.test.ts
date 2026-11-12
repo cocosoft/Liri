@@ -29,9 +29,13 @@ import {
 import { toolMatchesRule } from '@openliri/infra/permission/utils/RuleMatcher';
 import { shadowedRuleDetector } from '@openliri/infra/permission/utils/ShadowedRuleDetector';
 
-const PERMISSION_MANAGER_SRC = readFileSync(
+/**
+ * 2026-11-12（P1 拆分）：五档模式处理器已搬到 `permission/manager/modeHandlers.ts`，
+ * 指纹透传的 6 处 `getMatchingRule(` 调用点随之迁移 ⇒ 结构守卫改读该文件（契约不变）。
+ */
+const MODE_HANDLERS_SRC = readFileSync(
   new URL(
-    '../../../packages/infra/src/permission/PermissionManager.ts',
+    '../../../packages/infra/src/permission/manager/modeHandlers.ts',
     import.meta.url
   ),
   'utf8'
@@ -105,12 +109,12 @@ describe('LRO-D1：指纹规则不得参与「整体工具」匹配', () => {
   });
 
   it('PermissionManager 必须把指纹传给内容级匹配（结构守卫）', () => {
-    expect(PERMISSION_MANAGER_SRC).toContain('hashApprovalFingerprint(');
-    expect(PERMISSION_MANAGER_SRC).toContain('resolveApprovalFingerprint(');
-    const calls = PERMISSION_MANAGER_SRC.match(/getMatchingRule\(/g) ?? [];
+    expect(MODE_HANDLERS_SRC).toContain('hashApprovalFingerprint(');
+    expect(MODE_HANDLERS_SRC).toContain('resolveApprovalFingerprint(');
+    const calls = MODE_HANDLERS_SRC.match(/getMatchingRule\(/g) ?? [];
     // default 2 + auto 0 + dontAsk 2 + plan 2（2026-11-11：档位等价性补齐）
     expect(calls.length).toBe(6);
-    const forwarded = PERMISSION_MANAGER_SRC.match(/matchOptions/g) ?? [];
+    const forwarded = MODE_HANDLERS_SRC.match(/matchOptions/g) ?? [];
     // 每个调用点各自定义并透传 ⇒ 至少 6 处（含定义）
     expect(forwarded.length).toBeGreaterThanOrEqual(6);
   });

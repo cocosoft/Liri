@@ -191,6 +191,7 @@ const STRUCTURAL_HARD_DENY_TOKENS = [
   // 设备节点 / 文件能力（提权）
   // 一次性远端执行器 / 全局安装（供应链执行入口）
   'npm i -g',
+  // P8-A2（2026-11-12）复核：`npm publish` **维持硬拦**（供应链发布），与 `npm i -g` 同档。
   'npm publish',
   'yarn global add',
   'pnpm add -g',
@@ -363,6 +364,8 @@ const STRUCTURAL_HARD_DENY_TOKENS = [
   'mount.sshfs ',
   // 2026-11-11（P5 第二步）：`git ` 不再整体硬拦 —— 只读子命令由 readonly 短路先放行，
   // 硬拦面收敛到**会丢弃工作区 / 改写历史 / 触碰远端**的子命令。
+  // P8-A2（2026-11-12）复核：`git push` **维持硬拦** —— 既有守卫
+  // `autoModeHardDenyParity.test.ts` 明确要求「不放开 push/reset」。
   'git push',
   'git pull',
   'git clone',

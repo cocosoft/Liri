@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TaskCardData, TaskCardTask } from "../../types";
 import { usePlanTaskStore } from "../../stores/planTaskStore";
+import { useChatStore } from "../../stores/chat";
+import { hasPendingApproval } from "../../stores/chat/chat-message-shared";
 import DAGMiniMap from "./DAGMiniMap";
 import DAGFullScreen from "./DAGFullScreen";
 
@@ -64,6 +66,27 @@ export default function TaskCard({ data }: TaskCardProps) {
   );
   const merged = liveData ?? data;
 
+  /**
+   * 2026-11-13：**最后一张**任务卡在「等待审批」时不得渲染成完成态。
+   *
+   * 真机 `session_mwdcivrue74d4838ff`：审批卡在等用户点，任务卡却显示
+   * 「已完成 x/y / 已结束」⇒ 用户以为任务跑完了。只有最新卡片叠加该状态，
+   * 历史卡片保持它自己的结算态（否则回放里每张旧卡都会挂"等待审批"）。
+   */
+  const messages = useChatStore((s) => s.messages);
+  const isLatestCard = (() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const blocks = messages[i].blocks ?? [];
+      for (let j = blocks.length - 1; j >= 0; j--) {
+        const card = blocks[j].taskCard;
+        if (!card) continue;
+        return card === data || (!!data.planId && card.planId === data.planId);
+      }
+    }
+    return false;
+  })();
+  const pendingApproval = isLatestCard && hasPendingApproval(messages);
+
   const { title, tasks, status } = merged;
   const isExecuting = status === "executing";
   // 修复："全部完成"徽章仅当任务级**全部** completed 时显示——
@@ -108,39 +131,42 @@ export default function TaskCard({ data }: TaskCardProps) {
           </span>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          {isAllCompleted && (
-            <span className="text-xs px-2 py-0.5 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full">
-              {t("chat.allCompleted", "全部完成")}
-            </span>
-          )}
-          {status === "done" && !isAllCompleted && (
-            <span className="text-xs px-2 py-0.5 bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded-full">
-              {failed > 0
-                ? t("chat.taskEndedWithFailed", {
-                    count: failed,
-                    defaultValue: "已结束（{{count}} 失败）",
-                  })
-                : t("chat.taskEnded", "已结束")}
-            </span>
-          )}
-          {status === "paused" && (
+          {pendingApproval || status === "paused" ? (
             <span className="text-xs px-2 py-0.5 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-full">
               {t("chat.taskPaused", "⏸ 等待审批（需要你的反馈）")}
             </span>
-          )}
-          {isExecuting && (
-            <span className="text-xs px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full">
-              {t("chat.taskProgressCompleted", {
-                completed,
-                total,
-                defaultValue: "已完成 {{completed}}/{{total}}",
-              })}
-              {failed > 0 &&
-                `, ${t("chat.taskProgressFailed", {
-                  count: failed,
-                  defaultValue: "失败 {{count}}",
-                })}`}
-            </span>
+          ) : (
+            <>
+              {isAllCompleted && (
+                <span className="text-xs px-2 py-0.5 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full">
+                  {t("chat.allCompleted", "全部完成")}
+                </span>
+              )}
+              {status === "done" && !isAllCompleted && (
+                <span className="text-xs px-2 py-0.5 bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded-full">
+                  {failed > 0
+                    ? t("chat.taskEndedWithFailed", {
+                        count: failed,
+                        defaultValue: "已结束（{{count}} 失败）",
+                      })
+                    : t("chat.taskEnded", "已结束")}
+                </span>
+              )}
+              {isExecuting && (
+                <span className="text-xs px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full">
+                  {t("chat.taskProgressCompleted", {
+                    completed,
+                    total,
+                    defaultValue: "已完成 {{completed}}/{{total}}",
+                  })}
+                  {failed > 0 &&
+                    `, ${t("chat.taskProgressFailed", {
+                      count: failed,
+                      defaultValue: "失败 {{count}}",
+                    })}`}
+                </span>
+              )}
+            </>
           )}
           <span
             className={`text-xs text-gray-400 dark:text-gray-500 transition-transform duration-200 ${

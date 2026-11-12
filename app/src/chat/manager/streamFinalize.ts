@@ -45,6 +45,7 @@ import {
   isEmptyOutputFallbackMessage,
   isOutputBudgetExhaustedMessage,
 } from '../terminationOutput';
+import { TRANSIENT_AWAITING_APPROVAL } from '../services/ToolExecutionService';
 
 const logger = getLogger('chat:manager');
 
@@ -65,6 +66,10 @@ export interface StreamFinalizeDeps {
   endStreamSession: (sessionId: string) => void;
   /** 会话状态机收口（idle） */
   finishSessionMachine: (sessionId: string, reason: string) => void;
+  /** 会话状态机进入「需要用户操作」（等待审批） */
+  pauseSessionMachine: (sessionId: string, reason: string) => void;
+  /** 消息已落盘时按最新 metadata 收敛会话状态（2026-11-13） */
+  syncStateForMessage: (sessionId: string, message: Message) => void;
   /** 会话级中止控制器（与宿主共享同一 Map） */
   sessionAbortControllers: Map<string, AbortController>;
   /** 会话级 executionId（与宿主共享同一 Map） */
@@ -149,6 +154,11 @@ export class ChatStreamFinalize {
     if (!lastMsg || lastMsg.id !== assistantMessage.id) {
       await deps.addAndPersistMessage(session.id, assistantMessage);
     }
+    // 2026-11-13（真机 `session_mwdcivrue74d4838ff`）：出口消息多已由工具轮次落盘，上面的
+    // `addAndPersistMessage` 被跳过 ⇒ 刚挂上的 `terminationReason` 不会触发状态收敛，
+    // 会话在审批期间仍是 `active`（列表无「待审批」）。此处按最新 metadata 显式收敛一次；
+    // 无变化时 `resolveSessionStateAfterMessage` 返回 null，天然幂等。
+    deps.syncStateForMessage(session.id, assistantMessage);
 
     // P0-fix-3（2026-08-23，顺序错乱根因）：工具调用轮次的 turn/end 在此补写。
     // 时机关键：assistant/tool_call 事件由 _addAndPersistMessage 落盘时（convertMessage）生成，
@@ -211,8 +221,13 @@ export class ChatStreamFinalize {
 
     // Phase 1c: 停止流式水位监测（仅停本会话，不再误停其他并发会话）
     deps.endStreamSession(session.id);
-    // 通知会话状态变化为空闲状态
-    deps.finishSessionMachine(session.id, '工具执行完成');
+    // 2026-11-13：等待审批不是"本轮正常完成" —— 状态机应落 `requires_action`（等人点卡），
+    // 不得按普通收尾回 `idle`，否则状态机侧同样把暂停当"已结束"。
+    if (terminationReason === TRANSIENT_AWAITING_APPROVAL) {
+      deps.pauseSessionMachine(session.id, '等待审批');
+    } else {
+      deps.finishSessionMachine(session.id, '工具执行完成');
+    }
     getOTelTracing().endSpan(streamSpan, SpanStatusCode.OK);
 
     // Bug Fix: 清理 AbortController（当前流已完成，允许新请求）

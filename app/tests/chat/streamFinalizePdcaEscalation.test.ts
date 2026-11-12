@@ -71,6 +71,8 @@ function makeDeps(capture: { payload?: unknown }): StreamFinalizeDeps {
     appendStreamEvent: async () => ({}),
     endStreamSession: () => {},
     finishSessionMachine: () => {},
+    pauseSessionMachine: () => {},
+    syncStateForMessage: () => {},
     sessionAbortControllers: new Map(),
     sessionExecutionIds: new Map(),
     persistTurnSummary: () => {},

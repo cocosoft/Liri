@@ -41,6 +41,14 @@ describe('resolveGroupStatus（#29 工具组聚合状态）', () => {
     ).toBe('running');
   });
 
+  // 2026-11-13：历史合并路径会把待审批块的 status 置为 running（见
+  // `chat-message-set-messages`），原判据按 running 优先 ⇒ 组头 ✅ + 无「等待审批」徽标。
+  it('待审批块即使 status=running 也按 pending_approval（不能吞掉审批信号）', () => {
+    expect(resolveGroupStatus([call('running', true)])).toBe(
+      'pending_approval',
+    );
+  });
+
   it('有失败且无进行中 ⇒ failed', () => {
     expect(resolveGroupStatus([call('failed'), call('completed')])).toBe(
       'failed',

@@ -142,6 +142,20 @@ export const PAUSED_TURN_REASONS: ReadonlySet<string> = new Set([
   'system_aborted',
 ]);
 
+/**
+ * 2026-11-13：**正常跑完**的收尾原因 ⇒ 若会话此前停在可重开态（待审批/暂停/出错），
+ * 应收敛回 `active`。
+ *
+ * 场景：审批通过后的续跑（`resumeStream`）没有新的 user 消息，末条 assistant 正常收尾；
+ * 若只靠"用户重新发言才重开"，`requires_action` 会永久挂在列表上（审批早已处理完）。
+ */
+export const SUCCESS_TURN_REASONS: ReadonlySet<string> = new Set([
+  'stop',
+  'completed',
+  'tool_calls',
+  'tool_use',
+]);
+
 export interface TerminationOutputInput {
   /** 终止原因（唯一来源：`getTerminationReason()`） */
   reason: TerminationReason;

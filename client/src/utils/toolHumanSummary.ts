@@ -529,7 +529,7 @@ export type ToolGroupStatus =
  * 还挂着「⏳ 等待审批」。根因是原实现 `for (block) return block.toolCall.status` 只看第一块。
  *
  * 口径（自上而下短路）：有**正在执行** ⇒ running；否则有**待审批** ⇒ pending_approval；
- * 否则有**失败** ⇒ failed；否则 completed。
+ * 否则有**失败** ⇒ failed；否则 completed。待审批块**不计入 running**（2026-11-13）。
  */
 export function resolveGroupStatus(
   blocks: ReadonlyArray<{
@@ -547,8 +547,13 @@ export function resolveGroupStatus(
     if (block.type !== "tool_call") continue;
     hasTool = true;
     const tc = block.toolCall;
+    // 2026-11-13：待审批块**不算运行中**（历史合并路径会把它的 status 置为 running）
+    // ⇒ 否则"有活干就不显示等待审批"会把唯一的待审批块吞掉，组头显示 ✅/执行中。
+    if (tc?.pendingApproval) {
+      anyPending = true;
+      continue;
+    }
     if (tc?.status === "running" || block.isStreaming) anyRunning = true;
-    if (tc?.pendingApproval) anyPending = true;
     if (tc?.status === "failed") anyFailed = true;
   }
 

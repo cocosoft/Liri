@@ -156,16 +156,31 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
     // 按工具名称分组
     const groups = new Map<
       string,
-      { total: number; completed: number; running: number; failed: number }
+      {
+        total: number;
+        completed: number;
+        running: number;
+        failed: number;
+        pending: number;
+      }
     >();
     for (const b of toolCalls) {
       const name = b.toolCall?.name || "unknown";
       if (!groups.has(name)) {
-        groups.set(name, { total: 0, completed: 0, running: 0, failed: 0 });
+        groups.set(name, {
+          total: 0,
+          completed: 0,
+          running: 0,
+          failed: 0,
+          pending: 0,
+        });
       }
       const stat = groups.get(name)!;
       stat.total++;
-      if (b.toolCall?.status === "completed") stat.completed++;
+      // 2026-11-13：待审批不是完成 —— 否则组头写「已执行 N 个工具调用 · N/N」，
+      // 用户在审批暂停期间读成"跑完了"。
+      if (b.toolCall?.pendingApproval === true) stat.pending++;
+      else if (b.toolCall?.status === "completed") stat.completed++;
       else if (b.toolCall?.status === "running" || b.isStreaming)
         stat.running++;
       else if (b.toolCall?.status === "failed") stat.failed++;
@@ -176,11 +191,13 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
     let completed = 0;
     let running = 0;
     let failed = 0;
+    let pending = 0;
     for (const stat of groups.values()) {
       total += stat.total;
       completed += stat.completed;
       running += stat.running;
       failed += stat.failed;
+      pending += stat.pending;
     }
 
     return {
@@ -188,7 +205,8 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
       completed,
       running,
       failed,
-      allDone: completed + failed === total,
+      pending,
+      allDone: completed + failed === total && pending === 0,
     };
   }, [blocks]);
 
@@ -264,7 +282,10 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
                 )}
                 {!aggregateStats.allDone && (
                   <span className="text-amber-400/80 ml-1">
-                    {t("chat.executing", "执行中")}
+                    {status === "pending_approval" ||
+                    aggregateStats.pending > 0
+                      ? t("chat.pendingApproval")
+                      : t("chat.executing", "执行中")}
                   </span>
                 )}
               </span>

@@ -103,49 +103,75 @@ let fineGrainedDenyCounter: Counter | null = null;
   }
 
   /**
+   * 由决策构造安全审计事件（**纯函数**，M0-②，2026-11-12）。
+   *
+   * 为什么单独抽出：`sessionContext.sessionId` 此前硬编码 `'permission-manager'`
+   * ⇒ 审计与围栏（G4）无法把 deny 归因到**会话**。归因语义需要可单测，
+   * 故把"构造"与"落盘"分开：本函数不做任何 IO。
+   *
+   * 缺失会话 ⇒ `'unknown'`（显式未知）：不复制来源标签冒充会话，也不臆造 id。
+   * @param decision 权限决策
+   * @param toolName 工具名称
+   * @param input 工具输入
+   * @param sessionId 本次判定的真实会话 id（来自 `PermissionContext.sessionId`）
+   */
+  export function buildAuditEvent(
+    decision: PermissionDecision,
+    toolName: string,
+    input: Record<string, unknown>,
+    sessionId?: string
+  ): SecurityAuditEvent {
+    const command = (input.command as string) || toolName;
+    return {
+      timestamp: new Date(),
+      command,
+      originalCommand: command,
+      truncatedResult: truncateCommand(command),
+      sessionContext: {
+        // 空串 / 纯空白视同缺失：审计行里给一个"看着像会话"的空值比 'unknown' 更难排查
+        sessionId: sessionId?.trim() || 'unknown',
+        taskDescription: decision.reason,
+        currentMode: 'auto',
+      },
+      matchedRules: decision.rule ? [ruleLabel(decision.rule)] : [],
+      behavior:
+        decision.type === PermissionDecisionType.ALLOW
+          ? 'allow'
+          : decision.type === PermissionDecisionType.DENY
+            ? 'deny'
+            : 'ask',
+      decision:
+        decision.type === PermissionDecisionType.ALLOW
+          ? 'auto_allowed'
+          : decision.type === PermissionDecisionType.DENY
+            ? 'auto_denied'
+            : 'pending',
+      // P0-2：默认放行（无规则匹配空转）标记为高危，便于发现权限空转
+      riskLevel:
+        decision.type === PermissionDecisionType.DENY ||
+        decision.reason === 'No matching rules, default allowing'
+          ? 'high'
+          : 'medium',
+    };
+  }
+
+  /**
    * 审计权限决策：将每次权限决策记录到安全审计日志
    * @param decision 权限决策
    * @param toolName 工具名称
    * @param input 工具输入
+   * @param sessionId M0-②（2026-11-12）：真实会话 id（缺失 ⇒ 事件里为 `'unknown'`）
    */
   export function auditDecision(
     decision: PermissionDecision,
     toolName: string,
-    input: Record<string, unknown>
+    input: Record<string, unknown>,
+    sessionId?: string
   ): void {
     try {
-      const command = (input.command as string) || toolName;
-      const event: SecurityAuditEvent = {
-        timestamp: new Date(),
-        command,
-        originalCommand: command,
-        truncatedResult: truncateCommand(command),
-        sessionContext: {
-          sessionId: 'permission-manager',
-          taskDescription: decision.reason,
-          currentMode: 'auto',
-        },
-        matchedRules: decision.rule ? [ruleLabel(decision.rule)] : [],
-        behavior:
-          decision.type === PermissionDecisionType.ALLOW
-            ? 'allow'
-            : decision.type === PermissionDecisionType.DENY
-              ? 'deny'
-              : 'ask',
-        decision:
-          decision.type === PermissionDecisionType.ALLOW
-            ? 'auto_allowed'
-            : decision.type === PermissionDecisionType.DENY
-              ? 'auto_denied'
-              : 'pending',
-        // P0-2：默认放行（无规则匹配空转）标记为高危，便于发现权限空转
-        riskLevel:
-          decision.type === PermissionDecisionType.DENY ||
-          decision.reason === 'No matching rules, default allowing'
-            ? 'high'
-            : 'medium',
-      };
-      logSecurityAuditEvent(event);
+      logSecurityAuditEvent(
+        buildAuditEvent(decision, toolName, input, sessionId)
+      );
     } catch (err) {
       // 审计日志异常不应影响主流程
     }

@@ -225,6 +225,10 @@ export function detectSqlInjection(
   executionSurface?: string
 ): ClassifierDecision | null {
   const sqlPatterns = [
+    // 2026-11-12（P5-3）：只保留**真实注入特征**。此前还列了 `select 1` / `select *` /
+    // `from users` / `order by` / `left join` / `limit 1` 等「合法 SQL 的常见片段」⇒
+    // 实测把 `mysql -e "select 1"` 判成注入（只读查询被硬拒）。这类片段已移除，
+    // 危险 DDL/DML 与「永真式/堆叠语句」仍全量保留。
     'union select',
     'drop table',
     'insert into',
@@ -240,29 +244,11 @@ export function detectSqlInjection(
     ';delete from',
     ';insert into',
     ';update',
-    'select 1',
-    'select *',
-    'from users',
-    'from table',
     'where 1=1',
-    'having 1=1',
-    'order by',
-    'group by',
-    'limit 1',
-    'offset 0',
-    'union all',
-    'union distinct',
-    'cross join',
-    'inner join',
-    'left join',
-    'right join',
-    'full join',
-    'natural join',
     'exec sp_',
     'execute sp_',
     'xp_cmdshell',
     'sp_configure',
-    'declare @',
     'create table',
     'alter table',
     'truncate table',
@@ -273,13 +259,7 @@ export function detectSqlInjection(
     'grant all',
     'revoke all',
     'deny all',
-    'with encryption',
     'waitfor delay',
-    'if exists',
-    'while 1=1',
-    'begin transaction',
-    'commit transaction',
-    'rollback transaction',
   ];
 
   for (const pattern of sqlPatterns) {

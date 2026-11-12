@@ -156,6 +156,54 @@ describe('P0 语料：只读命令零新增审批（负向对照）', () => {
   });
 });
 
+describe('P5-1：与沙箱危险清单对齐（系统级不可逆 ⇒ deny）', () => {
+  it('沙箱已 deny 的命令在 auto 档同为 deny', async () => {
+    for (const command of [
+      'killall node',
+      'mount /dev/sda1 /mnt',
+      'umount /mnt',
+      'swapon -a',
+      'swapoff -a',
+      'chroot /mnt /bin/sh',
+      'iptables -L',
+      'ip6tables -L',
+      'init 0',
+      'su root',
+      'rmdir build',
+      'rd /s /q build',
+    ]) {
+      const { tier } = await verdict(command);
+      expect(tier, command).toBe('deny');
+    }
+  });
+
+  it('同前缀的普通命令不被误杀（命令位锚定负向对照）', async () => {
+    for (const command of ['subl .', 'mountvol']) {
+      const { tier } = await verdict(command);
+      expect(tier, command).not.toBe('deny');
+    }
+  });
+});
+
+describe('P5-3：SQL 规则只收真实注入特征', () => {
+  it('只读查询不再被当成注入（可转审批，但不得硬拒）', async () => {
+    const { tier } = await verdict('mysql -e "select 1"');
+    expect(tier).not.toBe('deny');
+  });
+
+  it('真实注入 / 危险 DDL 仍 deny（负向对照）', async () => {
+    for (const command of [
+      'mysql -e "union select 1"',
+      'mysql -e "or 1=1"',
+      'psql -c "drop table users"',
+      'psql -c "truncate table users"',
+    ]) {
+      const { tier } = await verdict(command);
+      expect(tier, command).toBe('deny');
+    }
+  });
+});
+
 describe('P0 语料：灰度开关（PERMISSION_UNKNOWN_COMMAND_TIER）', () => {
   it('默认 ask；显式 allow 时回到旧行为', async () => {
     const probe = 'cargo publish';

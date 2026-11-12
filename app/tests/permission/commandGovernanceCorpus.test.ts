@@ -185,6 +185,44 @@ describe('P5-1：与沙箱危险清单对齐（系统级不可逆 ⇒ deny）', 
   });
 });
 
+describe('P6-1：复查补齐的漏判（系统级不可逆 / 持久化）', () => {
+  it('卷影删除 / 内核参数 / 启动项加载 ⇒ deny', async () => {
+    for (const command of [
+      'vssadmin delete shadows /all',
+      'sysctl -w kernel.kptr_restrict=0',
+      'launchctl load /Library/LaunchDaemons/x.plist',
+    ]) {
+      const { tier } = await verdict(command);
+      expect(tier, command).toBe('deny');
+    }
+  });
+});
+
+describe('P6-2：只读误杀修复（不得反向放宽）', () => {
+  it('进程 / 网络 / 内存查看与解释器版本查询 ⇒ allow', async () => {
+    for (const command of [
+      'ps aux',
+      'netstat -an',
+      'free -m',
+      'python --version',
+      'node --version',
+    ]) {
+      const { tier } = await verdict(command);
+      expect(tier, command).toBe('allow');
+    }
+  });
+
+  it('解释器任意执行仍 deny（负向对照）', async () => {
+    for (const command of [
+      'python -c "import os; os.system(\'rm -rf /\')"',
+      "node -e \"require('child_process').execSync('id')\"",
+    ]) {
+      const { tier } = await verdict(command);
+      expect(tier, command).toBe('deny');
+    }
+  });
+});
+
 describe('P5-3：SQL 规则只收真实注入特征', () => {
   it('只读查询不再被当成注入（可转审批，但不得硬拒）', async () => {
     const { tier } = await verdict('mysql -e "select 1"');

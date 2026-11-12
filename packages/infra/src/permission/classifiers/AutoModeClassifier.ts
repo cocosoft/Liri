@@ -682,7 +682,11 @@ export class AutoModeClassifier implements IAutoModeClassifier {
     }
 
     // 检查LDAP注入攻击
-    const ldapResult = detectLDAPInjection(inputString);
+    // P4 复查：源码面关闭「≥3 个特殊字符」启发式（`()`/`=`/`*` 是代码语法）；
+    // 结构化过滤器模式（`(|` / `(&` / `(!` / `))`）仍对所有面生效。
+    const ldapResult = detectLDAPInjection(inputString, {
+      skipCharHeuristic: !isCommandToolName(lowerToolName),
+    });
     if (ldapResult) {
       return ldapResult;
     }

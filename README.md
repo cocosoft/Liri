@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.5.26-blue)
+![Version](https://img.shields.io/badge/version-0.5.27-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -459,7 +459,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.5.26**
+当前版本：**v0.5.27**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -468,15 +468,14 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.5.26 (2026-11-10)
-demand 许愿式模式、阶段契约与失败归因
+#### v0.5.27 (2026-11-12)
+命令治理与审批链路收口
 
-- ✅ **demand 许愿式自主度** - 新增会话自主度 `demand`（只给目标不写步骤）：澄清问题限一条、运行中消息并入当前计划、简单目标按规模分流到 PDL 快路径
-- ✅ **阶段契约与规划降噪** - 阶段间传结构化交付物（「已成立事实」禁止重复创建）；规划期剔除纯校验步骤；需求说明模板按 trivial / standard 分型
-- ✅ **失败可归因** - 失败步必须落 `terminationReason`，`stats:demand` 新增「阶段 × 终止原因」分布；空转熔断细分 `no_tool_call` / `io_loop`；计划级失败不再被阶段链当成功
-- ✅ **权限与审批** - 审批档收敛三档 + 会话级选择；审批作用域绑定运行中的长任务并在续跑时重放策略快照；只读命令短路
-- ✅ **运行时与结构** - 日志降噪聚合、检查点增量索引、cost 记账单次化；`packages/service` 迁包 P29–P35 并把 5 个门禁扩展到该包
-- ✅ **验证** - 全量 `bun test` 11304 pass / 0 fail，typecheck 与 55 个门禁全绿
+- ✅ **命令治理（P0–P8）** - 三档语义收敛（未收录 ⇒ 审批；重定向 / 复合命令的只读子形态随整族 deny）、封堵 8 类令牌逃逸与 launcher 版本参数绕过、只读诊断不再误拦
+- ✅ **审批链路** - 拒绝后写回终态并自动续跑、不再重放未落定审批、批准后无重复卡、审批卡归位到所属轮次
+- ✅ **会话与流式** - 流式不再闪现旧审批提示、正常工具轮不再误报「生成中断」、续跑轮补齐 turn 包裹、轮号不再回退
+- ✅ **门禁与 CI** - 修正命令覆盖率门禁路径、复杂度离群 8 → 6 回落基线；CI Test / Doc Gate / Deploy Docker 全绿（`5c4ddab20`）
+- ✅ 完整历史见 [CHANGELOG.md](CHANGELOG.md)
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

@@ -124,6 +124,14 @@ export interface StreamResumeDeps {
     sessionId: string,
     event: LiriEvent
   ) => Promise<{ ok: boolean; reason?: string; tailSeq: number }>;
+  /**
+   * 2026-11-12（真机 `session_mwd9bnoyc7e3051cde`）：事件日志中已写入的最大 turn 编号。
+   *
+   * 续跑轮也要有 `turn/start` … `turn/end` 包裹（编号 = 最大 turn + 1）；否则它的
+   * text/tool_call/tool_result 事件全落在上一个 `turn/end` 之后 ⇒ 回放侧这段没有 turn 归属
+   * （实时侧由聚合器本地补 turn/start），且缺少 `finishReason`/`terminationReason`。
+   */
+  getStreamMaxTurn: (sessionId: string) => Promise<number>;
   /** Token 追踪器（流式水位） */
   unifiedTracker: UnifiedTokenTracker;
   /** 用量记账（宿主唯一入口） */
@@ -183,6 +191,18 @@ export class ChatStreamResume {
     // 预算挂起唤醒的「重发一轮」被挡下（`resumeSuspendedSession: 流式重发失败`），再次唤醒则
     // `SimpleMutex: acquire timeout after 30000ms`。故把 `try` 前移到 `acquire` 之后，
     // **release 仍只有最外层这一处**（唯一释放点，避免双重 release 清零他人持有的锁）。
+    // 2026-11-12：续跑轮 turn 包裹状态（0 = 未开启）。开启后必须在 finally 收尾，
+    // 否则崩溃恢复会把它当成"未闭合 turn"并合成 canceled ⇒ 前端把正常续跑标成「已中断」。
+    let resumeTurnNo = 0;
+    let resumeFinishReason:
+      | 'stop'
+      | 'length'
+      | 'tool_use'
+      | 'error'
+      | 'canceled'
+      | 'yielded'
+      | undefined;
+    let resumeTerminationReason: string | undefined;
     try {
       // 中断治理（2026-08-15）：resume 时同步恢复会话状态（PAUSED → ACTIVE），
       // 避免崩溃恢复标记的 paused 会话在磁盘上永久冻结；失败不阻断检查点恢复主流程
@@ -376,6 +396,26 @@ export class ChatStreamResume {
         content: `从第 ${stepIndex} 步恢复 — 剩余 ${remainingToolCalls.length} 个工具`,
         sessionId,
       } as ChatStreamChunk;
+
+      // 2026-11-12（真机 `session_mwd9bnoyc7e3051cde`）：续跑轮此前**不写 turn/start**，
+      // 其 text/tool_call/tool_result 事件全部落在上一个 `turn/end` 之后 ⇒ 回放时这一段没有
+      // turn 归属（实时侧由聚合器本地补 turn/start，二者不对称），也没有 finishReason。
+      // 这里与流式主路径同源开启新 turn（编号 = 事件日志最大 turn + 1）。
+      try {
+        const persistedTurn = await deps.getStreamMaxTurn(sessionId);
+        const nextTurn = persistedTurn + 1;
+        const started = await deps.appendStreamEvent(sessionId, {
+          type: 'turn/start',
+          seq: 0,
+          time: Date.now(),
+          sessionId,
+          data: { turn: nextTurn },
+        });
+        if (started.ok) resumeTurnNo = nextTurn;
+      } catch {
+        // @ignore-catch — 事件追加失败不阻断续跑（CS03）；未开启 ⇒ finally 也不写 end
+        resumeTurnNo = 0;
+      }
 
       // 断线恢复动态上限（2026-09-01）：剩余工具数决定所需轮次，避免恢复的
       // 长任务在基础阈值（30 轮）内被误杀。历史轮次 + 剩余工具 + 5 轮余量。
@@ -572,6 +612,13 @@ export class ChatStreamResume {
       assistantMessage.finishReason = streamAbortController.signal.aborted
         ? 'abort'
         : 'stop';
+      // 2026-11-12：turn/end 的终态（与上面落盘消息同源；正常收尾 stop，中止 canceled）
+      resumeFinishReason = streamAbortController.signal.aborted
+        ? 'canceled'
+        : 'stop';
+      // 终止原因原样透传（与工具轮 `streamMessageToolLoop` 同口径；正常收尾为 `completed`，
+      // 前端 `getTerminationNotice` 对其不显示，不制造噪音）。此处不做字面量比较（状态词汇门禁）。
+      resumeTerminationReason = loop.getTerminationReason();
       // N-6：tool_call 事件已实时写 ⇒ 落盘时不要由 convertMessage 再生成一遍（避免重复块）
       if (toolCallEventsWritten > 0) {
         assistantMessage.metadata = {
@@ -583,6 +630,28 @@ export class ChatStreamResume {
 
       return assistantMessage;
     } finally {
+      // 2026-11-12：续跑轮收尾 —— `turn/start` 已写就必须闭合（正常 stop / 中断 canceled /
+      // 异常 error 都要写），否则崩溃恢复把这段当"未闭合 turn"合成 canceled，
+      // 前端会把正常续跑显示成「该回复已中断」。
+      if (resumeTurnNo > 0) {
+        try {
+          await deps.appendStreamEvent(sessionId, {
+            type: 'turn/end',
+            seq: 0,
+            time: Date.now(),
+            sessionId,
+            data: {
+              turn: resumeTurnNo,
+              finishReason: resumeFinishReason ?? 'error',
+              ...(resumeTerminationReason
+                ? { terminationReason: resumeTerminationReason }
+                : {}),
+            },
+          });
+        } catch {
+          // @ignore-catch — 收尾事件失败不阻断（CS03）
+        }
+      }
       mutex.release();
     }
   }

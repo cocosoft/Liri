@@ -789,6 +789,9 @@ export function wireChatFacades(host: FacadeWiringHost): void {
       host._msgPersist.addAndPersistMessage(sid, msg),
     // N-6（2026-11-06）：续跑轮实时写 assistant/tool_call 事件（回放能生成工具卡）
     appendStreamEvent: (sid, event) => host.appendStreamEvent(sid, event),
+    // 2026-11-12：续跑轮 turn 编号取自事件日志最大 turn（与流式主路径同源，避免编号回退）。
+    // 走已登记的 `_eventLogStore` 端口，不新增宿主成员（避免装配契约守卫的键表扩散）。
+    getStreamMaxTurn: (sid) => host._eventLogStore.getStreamMaxTurn(sid),
     unifiedTracker: host.unifiedTracker,
     recordChatResponseUsage: (sid, usage, requestId, model) =>
       host.recordChatResponseUsage(sid, usage, requestId, model),

@@ -36,7 +36,6 @@ const DIRNAME_ALLOWLIST: string[] = [
 const CWD_ALLOWLIST: string[] = [
   'pyapp.ts',
   'runtime/config/__tests__/ConfigHotReload.test.ts',
-  'sandbox/__tests__/WorkspaceManager.test.ts',
   'security/files/__tests__/FileSafety.test.ts',
   'tools/__tests__/FileReadIntegration.test.ts',
   '__tests__/end-to-end-smoke.test.ts',

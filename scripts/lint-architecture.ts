@@ -24,6 +24,8 @@ import {
 import { explainRule } from './lib/ruleWhy';
 // G1（2026-11-12）：源码扫描根单一事实源（app/src + 自动发现的 packages/*/src）
 import { resolveSourceRoots } from './lib/sourceRoots';
+// 2026-11-12：路径归一为 POSIX 后再匹配模块入口豁免（修 POSIX 下写死 `\` 导致的静默失焦）
+import { matchesModuleEntryDir, toSrcRelativePosix } from './lib/srcRelPath';
 
 /**
  * 测试文件排除集（2026-10-01 口径统一，用户裁定）。
@@ -1366,10 +1368,10 @@ class ArchitectureLinter {
       // lint 在仓库根运行时 relative(cwd, file) 带 'app\\' 前缀，导致
       // allowedModuleDirs（'src\\...'）豁免失效，把合法的模块入口 barrel
       // 误报为薄桶/barrel（R07-003 的 18 个薄桶全是此类误报）。
-      const rawRel = relative(process.cwd(), file);
-      const srcIdx = rawRel.indexOf('src\\');
-      const relFile = srcIdx >= 0 ? rawRel.slice(srcIdx) : rawRel;
-      if (allowedModuleDirs.some((dir) => relFile.startsWith(dir))) {
+      // 2026-11-12：归一与匹配统一走 `lib/srcRelPath` —— 原实现写死 `\`，
+      // POSIX 上 `indexOf('src\\')` 恒 -1 ⇒ 豁免全失效（静默失焦，AR-3 同类）。
+      const relFile = toSrcRelativePosix(relative(process.cwd(), file));
+      if (matchesModuleEntryDir(relFile, allowedModuleDirs)) {
         continue;
       }
 
@@ -1836,7 +1838,6 @@ class ArchitectureLinter {
       'src/memory',
       'src/plugins',
       'src/session',
-      'src/sandbox',
       'src/permission',
       'src/mcp',
       'src/llm',
@@ -3577,10 +3578,9 @@ class ArchitectureLinter {
       if (basename !== 'index.ts' && basename !== 'index.tsx') continue;
       // KB-LINT-RELPATH（2026-08-29）：relFile 归一化为 src 相对路径（同 checkBarrelFiles）——
       // 仓库根运行时避免 'app\\' 前缀导致模块入口豁免失效
-      const rawRel = relative(process.cwd(), file);
-      const srcIdx = rawRel.indexOf('src\\');
-      const relFile = srcIdx >= 0 ? rawRel.slice(srcIdx) : rawRel;
-      if (allowedModuleDirs.some((dir) => relFile.startsWith(dir))) continue;
+      // 2026-11-12：归一与匹配统一走 `lib/srcRelPath`（原实现写死 `\`，POSIX 下豁免全失效）
+      const relFile = toSrcRelativePosix(relative(process.cwd(), file));
+      if (matchesModuleEntryDir(relFile, allowedModuleDirs)) continue;
 
       const content = readFileSync(file, 'utf-8');
       // 纯 re-export 桶判定（与 checkBarrelFiles 相同逻辑）

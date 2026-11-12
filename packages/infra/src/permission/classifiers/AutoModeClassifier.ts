@@ -7,7 +7,10 @@ import { handleError } from '@openliri/infra/error';
 // P4（2026-11-12）：未知命令采样（同一命令名每进程只记一次）
 import { getLogger } from '@openliri/infra/monitoring';
 // 2026-11-10：注入类检测只对"入参会被执行"的工具生效（角色判据单一来源）
-import { isExecutionToolName } from '@openliri/infra/utils/toolContract/toolRoles';
+import {
+  isExecutionToolName,
+  isCommandToolName,
+} from '@openliri/infra/utils/toolContract/toolRoles';
 // 2026-11-10（方案①）：危险令牌按**命令位**匹配（解释器名作为参数时不误报）
 import {
   containsCommandToken,
@@ -751,7 +754,16 @@ export class AutoModeClassifier implements IAutoModeClassifier {
      *
      * 灰度回退：`PERMISSION_UNKNOWN_COMMAND_TIER=allow`（回到改造前行为）。
      */
+    /**
+     * 2026-11-12（P4 复查）：**未知命令档只对 shell 命令工具生效**。
+     *
+     * `code` / `code_run` 的入参是源码（不是命令名），此前也被这条兜底命中 ⇒
+     * `console.log('hello')` 这类无害代码在 auto 档被要求审批（P0 引入的回归）。
+     * 源码面仍有自己的扫描：注入类规则 + 编码/SSRF + `code_run` 深扫（SWC），
+     * 因此这里按"命令类工具"收窄不会放宽危险面。
+     */
     if (
+      isCommandToolName(lowerToolName) &&
       resolveUnknownCommandTier() === 'ask' &&
       !checkReadonlyCommand(executionSurface).allowed
     ) {

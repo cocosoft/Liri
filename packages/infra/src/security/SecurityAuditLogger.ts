@@ -18,6 +18,7 @@ import { join, dirname } from 'path';
 import { homedir, tmpdir } from 'os';
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
+import { productEnvKey } from '@openliri/kernel';
 
 const logger = getLogger('security:auditLogger');
 
@@ -103,9 +104,20 @@ function getAuditLogPath(): string {
 
   // BUG15 修复：优先使用 paths.ts 统一路径，不可用时 fallback 到 homedir()
   let primaryPath: string;
+  // 2026-11-13（会话 `session_mwdcivrue74d4838ff` 观察期取证）：审计目录**可重定向**。
+  // 为什么需要：测试会经由真实权限链写审计事件（实测 `boom` / `failing_tool` 等 fixture
+  // 落进用户真实 `security-audit.log`）⇒ 污染围栏 S1/S2 抽样与证据链。测试 preload
+  // 用本变量把审计面隔离到临时目录；生产不设该变量 ⇒ 行为不变。
+  const auditDirOverride = process.env[
+    productEnvKey('SECURITY_AUDIT_DIR')
+  ]?.trim();
   try {
-    const { resolveSecurityDir } = require('@openliri/infra/environment');
-    primaryPath = join(resolveSecurityDir(), 'security-audit.log');
+    if (auditDirOverride) {
+      primaryPath = join(auditDirOverride, 'security-audit.log');
+    } else {
+      const { resolveSecurityDir } = require('@openliri/infra/environment');
+      primaryPath = join(resolveSecurityDir(), 'security-audit.log');
+    }
   } catch {
     primaryPath = join(homedir(), '.trae', 'security-audit.log');
   }

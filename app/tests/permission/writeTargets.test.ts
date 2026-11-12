@@ -9,10 +9,19 @@
  */
 
 import { describe, expect, it } from 'bun:test';
+import { sep } from 'node:path';
 import { extractWriteTargets } from '@openliri/infra/permission/classifiers/write-targets';
 import { AutoModeClassifier } from '@openliri/infra/permission/classifiers/AutoModeClassifier';
 
 const classifier = new AutoModeClassifier();
+
+/**
+ * 2026-11-12（CI 实证）：用例原先写死 Windows 分隔符 `..\..\outside.txt`，
+ * 在 POSIX 上它是一个**普通文件名**（不含目录穿越）⇒ 落点仍在工作区，
+ * 断言 `ask` / `outside the workspace` 恒失败（ubuntu/macos 红、windows 绿）。
+ * 改为按平台拼分隔符：边界语义与平台一致，三平台同结论。
+ */
+const OUTSIDE = ['..', '..', 'outside.txt'].join(sep);
 
 async function verdict(command: string): Promise<{
   deny: boolean;
@@ -59,9 +68,7 @@ describe('P3：下载器落盘的工作区边界', () => {
   });
 
   it('工作区外 ⇒ ask', async () => {
-    const result = await verdict(
-      'iwr -Uri .\\local -OutFile ..\\..\\outside.txt'
-    );
+    const result = await verdict(`iwr -Uri .\\local -OutFile ${OUTSIDE}`);
     expect(result.deny).toBe(false);
     expect(result.ask).toBe(true);
   });
@@ -83,7 +90,7 @@ describe('P3：下载器落盘的工作区边界', () => {
     expect(inside.reason).toContain('out.txt');
     expect(inside.reason).toContain('inside the workspace');
 
-    const outside = await verdict('echo hi > ..\\..\\outside.txt');
+    const outside = await verdict(`echo hi > ${OUTSIDE}`);
     expect(outside.deny).toBe(true);
     expect(outside.reason).toContain('outside the workspace');
   });

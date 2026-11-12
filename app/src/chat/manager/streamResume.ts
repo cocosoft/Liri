@@ -58,7 +58,11 @@ import { stripBareExploration } from '../services/bareExplorationStripper';
 import type { MessageService } from '../services/MessageService.js';
 import type { PendingInteractionEntry } from '@openliri/infra/utils/pendingInteractions';
 // 2026-11-06（审批根因簇 P0-1）：识别「等待审批」的 tool_call —— 批准后必须重放
-import { extractAwaitingApprovalToolCallIds } from '../utils/pendingToolCalls.js';
+// 2026-11-12：`planToolReplay` —— 审批未落定的调用不得重放（否则重复写 awaiting_approval）
+import {
+  extractAwaitingApprovalToolCallIds,
+  planToolReplay,
+} from '../utils/pendingToolCalls.js';
 
 const logger = getLogger('chat:manager');
 
@@ -131,6 +135,14 @@ export interface StreamResumeDeps {
   ) => void;
   /** 当前工具注册表（可能为 null） */
   getToolRegistry: () => ToolRegistry | null;
+  /**
+   * 2026-11-12：审批是否**已落定**（放行缓存命中）—— `awaiting_approval` 调用的重放前提。
+   *
+   * 未落定就重放 ⇒ 再执行一次、再提交同一张卡（同指纹复用同一 Inbox 项）、再写一条
+   * `awaiting_approval` tool/result（新 messageId）⇒ 前端重复审批卡。故续跑前必须问它。
+   * 实现由宿主注入（`isCommandApproved` + 工具声明的授权指纹，与建卡/执行同一口径）。
+   */
+  isToolCallApproved: (toolCall: ToolCall) => Promise<boolean>;
   /** 工具轮下一轮请求消息构建 */
   buildToolRoundMessages: (
     currentMessages: Record<string, unknown>[],
@@ -244,6 +256,11 @@ export class ChatStreamResume {
       const awaitingApprovalIds = extractAwaitingApprovalToolCallIds(
         session.messages
       );
+      // 2026-11-12（真机 `session_mwcyhmmpd44e93b602`）：**剩余调用全部是"审批等待且未落定"时，
+      // 本次续跑整体空转**（不重放）。原实现无条件重放 ⇒ 续跑（含 `resumeCoalescer` 的补跑一波）
+      // 再执行一次 ⇒ 同指纹复用同一 Inbox 项 + 再写一条 `awaiting_approval` tool/result
+      // （新 messageId）⇒ 前端重复审批卡。混合场景沿用原口径（见 `planToolReplay` 注释）。
+      let stillWaitingApproval = 0;
       for (let i = session.messages.length - 1; i >= 0; i--) {
         const msg = session.messages[i];
         if (msg.role !== 'assistant') continue;
@@ -256,25 +273,66 @@ export class ChatStreamResume {
           type: string;
           function: { name: string; arguments: string };
         }>;
-        remainingToolCalls = tcs
-          .filter(
-            (tc) =>
-              !completedToolCallIds.includes(tc.id) ||
-              awaitingApprovalIds.has(tc.id)
-          )
-          .map((tc) => ({
+        const candidates = tcs.filter(
+          (tc) =>
+            !completedToolCallIds.includes(tc.id) ||
+            awaitingApprovalIds.has(tc.id)
+        );
+        // 仅对"等待审批"的调用问放行缓存（普通剩余调用不产生额外查询）
+        const approvedIds = new Set<string>();
+        for (const tc of candidates) {
+          if (!awaitingApprovalIds.has(tc.id)) continue;
+          const args =
+            typeof tc.function.arguments === 'string'
+              ? JSON.parse(tc.function.arguments)
+              : tc.function.arguments;
+          const approved = await deps.isToolCallApproved({
             id: tc.id,
             name: tc.function.name,
-            arguments:
-              typeof tc.function.arguments === 'string'
-                ? JSON.parse(tc.function.arguments)
-                : tc.function.arguments,
-          }));
+            arguments: args,
+            sessionId,
+          });
+          if (approved) approvedIds.add(tc.id);
+        }
+        const plan = planToolReplay(
+          candidates,
+          awaitingApprovalIds,
+          approvedIds
+        );
+        stillWaitingApproval = plan.skippedPendingCount;
+        remainingToolCalls = plan.replay.map((tc) => ({
+          id: tc.id,
+          name: tc.function.name,
+          arguments:
+            typeof tc.function.arguments === 'string'
+              ? JSON.parse(tc.function.arguments)
+              : tc.function.arguments,
+        }));
         accumulatedContent = typeof msg.content === 'string' ? msg.content : '';
         break;
       }
 
       if (remainingToolCalls.length === 0) {
+        if (stillWaitingApproval > 0) {
+          logger.info(
+            'resumeStream: 审批尚未落定，本次不重放（避免重复审批卡）',
+            {
+              sessionId,
+              stillWaitingApproval,
+            }
+          );
+          yield {
+            type: 'status',
+            // `task_all_done` = "本次无可执行项"（`budgetResume` 据此判非实质进展）；
+            // 文案如实说明仍在等审批，不得说"任务已全部完成"。
+            statusType: 'task_all_done',
+            content: `仍在等待审批（${stillWaitingApproval} 个工具未落定），本次续跑未执行任何工具`,
+            sessionId,
+          } as ChatStreamChunk;
+          return (
+            session.messages[session.messages.length - 1] || ({} as Message)
+          );
+        }
         logger.info('resumeStream: 所有工具已完成，无需恢复', { sessionId });
         // BUG-1 修复：此处不再 release（由最外层 finally 统一释放一次）
         yield {

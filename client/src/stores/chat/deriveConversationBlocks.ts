@@ -62,6 +62,7 @@ import {
   cacheToolResult,
   truncateResult,
   resolveApprovalFlags,
+  stripStaleApprovalNotice,
   MAX_INLINE_RESULT_LENGTH,
 } from "./chat-message-shared";
 import { createLogger } from "@/utils/logger";
@@ -193,6 +194,11 @@ export function deriveConversationBlocks(
 
   // 关闭最后一个未 flush 的 assistant
   flushCurrent(state);
+
+  // 2026-11-12：剥离「等待审批」收尾提示（审批处理完即不再显示；改由审批卡片在 pending 时提示）
+  for (let i = 0; i < state.messages.length; i++) {
+    state.messages[i] = stripStaleApprovalNotice(state.messages[i]);
+  }
 
   return state.messages;
 }

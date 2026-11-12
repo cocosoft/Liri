@@ -169,15 +169,24 @@ export function getToolHumanSummary(toolCall: ToolCall): string {
  * 原实现恒用"正在…"，已完成的调用（状态图标 `✓`）旁配"正在写入：…"语义矛盾，
  * 导出件里"已完成"的记录同样读起来像进行中。此处只在**终态**改为过去式，
  * 进行中/待执行保持"正在…"（`正在` → `已`，其余动作短语不带时态、原样保留）。
+ *
+ * 2026-11-12：`failed` 不再套过去式（见下方注释），改为「动作短语 + （失败）」。
  */
 function applyStatusTense(
   summary: string,
   status?: ToolCall["status"],
 ): string {
-  const isFinal = status === "completed" || status === "failed";
   const presentTense = i18n.t("tool.summary.tensePresent");
-  if (!isFinal || !summary.startsWith(presentTense)) return summary;
-  return `${i18n.t("tool.summary.tensePast")}${summary.slice(presentTense.length)}`;
+  const hasPresent = presentTense.length > 0 && summary.startsWith(presentTense);
+  const body = hasPresent ? summary.slice(presentTense.length) : summary;
+  // 2026-11-12（真机）：失败态不再套过去式「已执行命令…」—— 被拒绝/未执行的调用同样会
+  // 落到这里，与卡片上的 ❌ 自相矛盾。改为「动作短语 + （失败）」，既保留"做了什么"，
+  // 也不谎称已执行；`running` / 待审批保持「正在…」。
+  if (status === "failed") {
+    return `${body}${i18n.t("tool.summary.failedSuffix")}`;
+  }
+  if (status !== "completed" || !hasPresent) return summary;
+  return `${i18n.t("tool.summary.tensePast")}${body}`;
 }
 
 /** 摘要主体（不含时态） */

@@ -986,6 +986,9 @@ const enBase = {
     // P0 (2026-11-07): where the allowlist rule lands (same wording as the settings tab)
     inboxAllowlistHint:
       "Saved to Settings › Custom rules › Tool allowlist (same rule set as that page; revoke it there).",
+    // 2026-11-12: while pending, the card tells the user the turn continues automatically
+    inboxApprovalAutoContinueHint:
+      "Approving continues this turn automatically; rejecting stops the call and lets the model adapt.",
     // P0-1 (2026-11-04): how many identical approval requests were merged into this card (×N)
     inboxMergedCountHint:
       "The same request was merged {{count}} times (handle it once)",

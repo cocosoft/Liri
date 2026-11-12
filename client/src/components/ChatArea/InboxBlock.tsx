@@ -347,6 +347,13 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
             {t("chat.inboxAllowlistHint")}
           </p>
         )}
+      {/* 2026-11-12：待审批时就地说明"批准后自动继续"——原先写进助手正文，
+          处理完会残留一句"等待你的审批"与实际状态矛盾，故改由卡片承载（仅在 pending 时显示） */}
+      {isPending && data.type === "approval" && (
+        <p className="mt-2 text-[10px] leading-relaxed text-gray-500 dark:text-gray-400">
+          {t("chat.inboxApprovalAutoContinueHint")}
+        </p>
+      )}
     </div>
   );
 }

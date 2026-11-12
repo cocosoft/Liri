@@ -28,6 +28,7 @@ import {
   truncateResult,
   preferToolResult,
   resolveApprovalFlags,
+  stripStaleApprovalNotice,
   MAX_INLINE_RESULT_LENGTH,
 } from "./chat-message-shared";
 import type { MessageSet, MessageGet } from "./chat-message.types";
@@ -539,6 +540,12 @@ export function setMessagesImpl(
     //    - Phase 1.5 倒序去重的边界情况（相同 id 的多个版本）
     //    - events 派生 + legacy 修复合并后的时序错位（timestamp 同毫秒时 id 字典序与事件序无关）
     //    - 多轮合并后 user/assistant 交叉顺序异常
+    // 2026-11-12：剥离「等待审批」收尾提示正文（审批处理完即不再显示，改由审批卡片提示）；
+    // 判据走结构化 `awaiting_approval` 标记，只见于该轮助手消息。
+    for (let i = 0; i < enhancedMessages.length; i++) {
+      enhancedMessages[i] = stripStaleApprovalNotice(enhancedMessages[i]);
+    }
+
     const sortBefore = enhancedMessages.length;
     // P2-9（2026-09-27 审计）：原主键 `lastEventSeq` 对**缺失**者按 0 兜底 ⇒ 缺失方被排到
     // **最前**（无 seq 的消息可能被顶到会话开头，造成整表重排：真机实测

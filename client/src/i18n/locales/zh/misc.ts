@@ -230,6 +230,8 @@ const zhMisc = {
       listSeparator: "、",
       tensePresent: "正在",
       tensePast: "已",
+      // 2026-11-12：失败态摘要后缀（不再套"已执行…"，避免与 ❌/被拒绝矛盾）
+      failedSuffix: "（失败）",
       searchingCode: "正在搜索代码",
       searchingFiles: "正在搜索文件",
       searchingWeb: "正在网络搜索",

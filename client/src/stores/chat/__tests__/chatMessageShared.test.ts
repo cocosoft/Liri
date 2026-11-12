@@ -23,6 +23,7 @@
 import { describe, it, expect } from "vitest";
 import {
   dedupeToolCallBlocks,
+  hasPendingApproval,
   hasPendingApprovalCard,
   parseApprovalSignal,
   preferToolResult,
@@ -274,6 +275,77 @@ describe("hasPendingApprovalCard — 是否已有待处理审批卡片（P0-1）
       hasPendingApprovalCard([
         { blocks: [{ id: "b", type: "text", content: "hi" }] },
       ]),
+    ).toBe(false);
+  });
+});
+
+/**
+ * 2026-11-13（真机 `session_mwdcivrue74d4838ff`）：审批等待期间浮动栏/任务卡仍显示
+ * 「已完成 x/y / 已结束」⇒ 用户以为任务跑完了。本判定是**会话级**等待信号（结构化字段）。
+ */
+describe("hasPendingApproval — 会话是否在等待审批（2026-11-13）", () => {
+  const inbox = (
+    status: "pending" | "replied" | "expired",
+    type: "approval" | "question" = "approval",
+  ): MessageBlock =>
+    ({
+      id: `blk_inbox_${status}_${type}`,
+      type: "inbox",
+      content: "",
+      inboxData: {
+        inboxId: "ib-1",
+        type,
+        title: "工具审批: bash",
+        content: "",
+        status,
+        actions: [],
+      },
+    }) as MessageBlock;
+
+  const toolPending = (): MessageBlock =>
+    ({
+      id: "blk_tc_pending",
+      type: "tool_call",
+      content: "",
+      toolCall: { id: "tc-1", name: "bash", status: "running", pendingApproval: true },
+    }) as MessageBlock;
+
+  const awaitingAssistant = (blocks: MessageBlock[] = []) => ({
+    role: "assistant",
+    blocks,
+    metadata: { terminationReason: "awaiting_approval" },
+  });
+
+  it("工具卡 pendingApproval ⇒ true", () => {
+    expect(hasPendingApproval([{ blocks: [toolPending()] }])).toBe(true);
+  });
+
+  it("服务端合成的 pending 审批卡 ⇒ true", () => {
+    expect(hasPendingApproval([{ blocks: [inbox("pending")] }])).toBe(true);
+  });
+
+  it("无卡片时回退末条 assistant 的 awaiting_approval 收尾标记", () => {
+    expect(hasPendingApproval([awaitingAssistant()])).toBe(true);
+  });
+
+  it("审批卡已处理（replied）⇒ 历史收尾标记不得把状态永久挂成等待", () => {
+    expect(
+      hasPendingApproval([
+        awaitingAssistant([inbox("replied")]),
+      ]),
+    ).toBe(false);
+  });
+
+  it("非审批类收件项（提问 pending）⇒ 不算等待审批", () => {
+    expect(
+      hasPendingApproval([{ blocks: [inbox("pending", "question")] }]),
+    ).toBe(false);
+  });
+
+  it("空会话 / 普通完成消息 ⇒ false", () => {
+    expect(hasPendingApproval([])).toBe(false);
+    expect(
+      hasPendingApproval([{ role: "assistant", metadata: { finishReason: "stop" } }]),
     ).toBe(false);
   });
 });

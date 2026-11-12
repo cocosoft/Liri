@@ -205,6 +205,53 @@ export function stripStaleApprovalNotice<
   return { ...message, content, blocks };
 }
 
+/**
+ * 2026-11-13：会话当前是否处于「等待审批」（**结构化判定**，CS02 禁止文案匹配）。
+ *
+ * 真机 `session_mwdcivrue74d4838ff`：审批卡片已渲染，但浮动栏/任务卡仍显示
+ * 「已完成 1/6」「已结束」⇒ 用户以为任务跑完了。三处信号任一命中即视为等待：
+ *   ① 工具卡 `pendingApproval`（流式 tool_completed / 历史结果合并置位，终态结果会清除）
+ *   ② 服务端读时合成的 `inbox` 审批块 `status='pending'`
+ *   ③ 末条 assistant 的 `awaiting_approval` 收尾标记（事件 / messages.jsonl 双形状）
+ *
+ * ③ 只是兜底：若本轮审批卡已存在且已处理（replied/expired），说明审批已走完，
+ * 不能让历史收尾标记把状态永久挂成"等待审批"。
+ */
+export function hasPendingApproval(
+  messages: ReadonlyArray<{
+    role?: string;
+    blocks?: MessageBlock[];
+    finishReason?: unknown;
+    terminationReason?: unknown;
+    metadata?: Record<string, unknown>;
+  }>,
+): boolean {
+  let approvalCardResolved = false;
+  for (const message of messages) {
+    for (const block of message.blocks ?? []) {
+      if (
+        block.type === "tool_call" &&
+        block.toolCall?.pendingApproval === true
+      ) {
+        return true;
+      }
+      if (block.type !== "inbox") continue;
+      const inbox = block.inboxData;
+      // 非审批类收件项（如提问）不按"等待审批"呈现
+      if (!inbox || inbox.type !== "approval") continue;
+      if (inbox.status === "pending") return true;
+      approvalCardResolved = true;
+    }
+  }
+  if (approvalCardResolved) return false;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === "assistant") {
+      return isAwaitingApprovalTurn(messages[i]);
+    }
+  }
+  return false;
+}
+
 /** 清理全量工具结果缓存（setMessages 加载新会话前调用，防止内存泄漏） */
 export function clearToolResultCache(): void {
   toolResultFullCache.clear();

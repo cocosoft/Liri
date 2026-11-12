@@ -12,6 +12,8 @@ import type { TaskCardData } from "../../types";
 import { findLatestTaskCard } from "./taskCardSnapshot";
 // 等待态可见性（2026-09-27 Spec `wait-state-visibility.md` D5/D6）：等待态并入浮动栏
 import type { WaitState } from "./useWaitState";
+// 2026-11-13：等待审批是会话级状态（审批卡 / 工具卡 / 收尾标记三处信号，结构化判定）
+import { hasPendingApproval } from "../../stores/chat/chat-message-shared";
 
 const PHASE_LABELS: Record<string, string> = {
   analyzing: "chat.phaseAnalyzing",
@@ -188,7 +190,15 @@ export default function StatusFloatBar({
    * 等待态是**已确认在等**（后端 `yieldState='waiting'` 或 `pendingWake`），故并入"保持可见"。
    */
   const isWaiting = wait?.waiting === true;
-  const keepVisible = isActive || isWaiting;
+  /**
+   * 2026-11-13：等待审批 ≠ 已完成。此前浮动栏只看"有没有字节在流"，审批暂停时卸载或
+   * 继续显示「已完成 x/y」⇒ 用户读到"任务结束了"。审批期间保持渲染并改文案。
+   */
+  const pendingApproval = useMemo(
+    () => hasPendingApproval(messages),
+    [messages],
+  );
+  const keepVisible = isActive || isWaiting || pendingApproval;
   const [fadingOut, setFadingOut] = useState(false);
 
   /**
@@ -256,6 +266,8 @@ export default function StatusFloatBar({
   const getStatusText = (): string => {
     // UI-2：空闲但仍有活跃 PDCA ⇒ 以"编排进行中"常驻；不得沿用"正在生成"（会谎报运行态）
     if (!isActive) {
+      // 2026-11-13：等待审批优先于一切空闲文案（含旧任务卡的「已完成 x/y」）
+      if (pendingApproval) return t("chat.taskPaused");
       // 等待态（2026-09-27）：**已确认在等**（后端 yieldState/pendingWake）⇒ 不得回落成
       // "正在生成 / 编排进行中"等谎报文案（原实现即因此显示成"答完了"）
       if (isWaiting) return waitText();
@@ -301,7 +313,7 @@ export default function StatusFloatBar({
         <div className={fluid ? "w-full" : "max-w-3xl mx-auto"}>
           <div className="flex items-center gap-2.5 px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200/50 dark:border-gray-700/50 rounded-xl shadow-md cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
             {/* 状态指示点：绿色脉冲 = 运行中；等待中 = 静态蓝点（**不脉冲**，否则谎报"正在输出"）；
-                空闲但 PDCA 常驻时用静态灰点（不谎报运行态） */}
+                等待审批 = 静态琥珀点；空闲但 PDCA 常驻时用静态灰点（不谎报运行态） */}
             <span className="relative flex h-2.5 w-2.5">
               {isActive && (
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
@@ -310,9 +322,11 @@ export default function StatusFloatBar({
                 className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
                   isActive
                     ? "bg-green-500"
-                    : isWaiting
-                      ? "bg-sky-500"
-                      : "bg-gray-400"
+                    : pendingApproval
+                      ? "bg-amber-500"
+                      : isWaiting
+                        ? "bg-sky-500"
+                        : "bg-gray-400"
                 }`}
               />
             </span>
@@ -324,7 +338,8 @@ export default function StatusFloatBar({
                   {statusText}
                 </span>
               )}
-              {taskCard && <TaskProgress data={taskCard} />}
+              {/* 等待审批期间不展示「已完成 x/y」——它会被读成"任务结束" */}
+              {taskCard && !pendingApproval && <TaskProgress data={taskCard} />}
             </div>
 
             {/* 「用编排推进」入口：存在未完成 todo 且尚无进行中 PDCA 时出现

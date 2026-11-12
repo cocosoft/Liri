@@ -732,6 +732,13 @@ export function wireChatFacades(host: FacadeWiringHost): void {
     finishSessionMachine: (sid, reason) => {
       host.getSessionMachine(sid).finish(reason);
     },
+    // 2026-11-13：等待审批 ⇒ 状态机 `requires_action`（不是本轮完成）
+    pauseSessionMachine: (sid, reason) => {
+      host.getSessionMachine(sid).pause(reason);
+    },
+    // 2026-11-13：出口消息已落盘时，仍需按最新 metadata 收敛会话状态
+    syncStateForMessage: (sid, msg) =>
+      host._msgPersist.syncStateForMessage(sid, msg),
     sessionAbortControllers: host._sessionAbortControllers,
     sessionExecutionIds: host._sessionExecutionIds,
     persistTurnSummary: (session) => persistTurnSummary(session),

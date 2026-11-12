@@ -43,8 +43,12 @@ import { buildAssistantTimingData } from '../services/timingEvent';
 import { notifySessionMetaUpdated } from '../services/sessionMetaBroadcast';
 // P1-2：`awaiting_approval` 的**唯一事实源**（状态字面量棘轮要求，见 stateMachineCatalog）
 import { TRANSIENT_AWAITING_APPROVAL } from '../services/ToolExecutionService';
-// N-3（2026-11-06）：失败/可续收尾原因的**单一分类表**（与收尾文案同源，见 terminationOutput）
-import { FAILED_TURN_REASONS, PAUSED_TURN_REASONS } from '../terminationOutput';
+// N-3（2026-11-06）：失败/可续/正常收尾原因的**单一分类表**（与收尾文案同源，见 terminationOutput）
+import {
+  FAILED_TURN_REASONS,
+  PAUSED_TURN_REASONS,
+  SUCCESS_TURN_REASONS,
+} from '../terminationOutput';
 
 const logger = getLogger('chat:manager');
 
@@ -167,6 +171,12 @@ export function resolveSessionStateAfterMessage(
     next = DataSessionStatus.ERROR;
   } else if (PAUSED_TURN_REASONS.has(reason)) {
     next = DataSessionStatus.PAUSED;
+  } else if (SUCCESS_TURN_REASONS.has(reason)) {
+    // 2026-11-13：正常收尾 ⇒ 清掉上一轮留下的"待审批/已暂停/出错"标记
+    // （审批通过后的续跑没有新的 user 消息，否则徽标永久挂住）。
+    next = REOPENABLE_STATES.has(currentState)
+      ? DataSessionStatus.ACTIVE
+      : null;
   }
   // 幂等：已是目标态 ⇒ 不重复落盘/广播
   return next === currentState ? null : next;
@@ -374,6 +384,19 @@ export class ChatMessagePersistence {
         });
       }
     })();
+  }
+
+  /**
+   * 2026-11-13：消息**已落盘**（跳过 addAndPersistMessage）时，仍按最新 metadata 收敛会话状态。
+   *
+   * 真机 `session_mwdcivrue74d4838ff`：`streamFinalize` 把
+   * `terminationReason='awaiting_approval'` 挂到出口消息时，该消息多已由工具轮次落盘
+   * ⇒ 上面的状态同步不会执行，`session.json`/列表停在 `active`，审批期间看不到"待审批"。
+   */
+  syncStateForMessage(sessionId: string, message: Message): void {
+    const session = this.deps.chatSessions.get(sessionId);
+    if (!session) return;
+    this.syncConversationState(session, message);
   }
 
   /**

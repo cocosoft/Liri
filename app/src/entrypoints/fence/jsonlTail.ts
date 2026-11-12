@@ -99,6 +99,35 @@ export async function readAppendedJsonlLines(
 }
 
 /**
+ * 只取"文件末尾游标"（首轮从 EOF 起观察时用）。
+ *
+ * 语义与 {@link readAppendedJsonlLines} 保持一致：只把**最后一个完整行**算作已消费
+ * （末尾半行留给下一轮）。返回 `exists=false` 时游标为 0，调用方仍可照常发缺失告警。
+ */
+export async function readFileTail(
+  path: string,
+  deps: JsonlTailDeps = {}
+): Promise<{ exists: boolean; nextOffset: number; consumedHash: string }> {
+  const read = deps.readFile ?? ((p: string) => readFile(p));
+  let buffer: Buffer;
+  try {
+    buffer = await read(path);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return { exists: false, nextOffset: 0, consumedHash: '' };
+    }
+    throw error;
+  }
+  const lastNewline = buffer.lastIndexOf(NEWLINE);
+  const end = lastNewline < 0 ? 0 : lastNewline + 1;
+  return {
+    exists: true,
+    nextOffset: end,
+    consumedHash: consumedPrefixHash(buffer, end),
+  };
+}
+
+/**
  * 已消费前缀的短摘要。
  *
  * 续写时 `[0, end)` 不变 ⇒ 摘要不变；轮转/替换后几乎必然不同。

@@ -24,6 +24,13 @@ function envStr(name: string, fallback: string): string {
   return raw && raw.trim() ? raw.trim() : fallback;
 }
 
+/** 布尔型 B 类参数：仅 `false` / `0` / `off` 视为关（缺省/空串 ⇒ 取默认值） */
+function envBool(name: string, fallback: boolean): boolean {
+  const raw = process.env[name]?.trim().toLowerCase();
+  if (!raw) return fallback;
+  return !(raw === 'false' || raw === '0' || raw === 'off');
+}
+
 /** B 类运行参数（每次调用重新读取 env） */
 export interface RuntimeDefaults {
   // ── common.ts ──────────────────────────────────────────────────────────
@@ -91,6 +98,13 @@ export interface RuntimeDefaults {
   sandboxFenceSilentAllowRunLength: number;
   /** M2 / S2：deny 之后多久内再次出现同命令算"重试"（毫秒） */
   sandboxFenceDenyRetryWindowMs: number;
+  /**
+   * 围栏首轮是否从审计日志 **EOF** 起观察（默认开）。
+   *
+   * 开 ⇒ 不回放历史事件（观察期判据只看"当前"）；关 ⇒ 从 offset 0 回放整份日志
+   * （需要完整历史证据时使用，告警量会一次性放大）。
+   */
+  sandboxFenceStartAtEof: boolean;
 }
 
 /** 每 token 估算字节数（A 类换算常数；派生字段的唯一来源） */
@@ -117,7 +131,8 @@ const TOKEN_BYTES_ESTIMATE = 4;
  * `LIRI_PDCA_LIST_DEFAULT_LIMIT` · `LIRI_PDCA_LIST_MAX_LIMIT` ·
  * `LIRI_SANDBOX_POSTURE_SNAPSHOT_INTERVAL_MS` ·
  * `LIRI_SANDBOX_FENCE_INTERVAL_MS` · `LIRI_SANDBOX_FENCE_POSTURE_STALE_MS` ·
- * `LIRI_SANDBOX_FENCE_SILENT_ALLOW_RUN_LENGTH` · `LIRI_SANDBOX_FENCE_DENY_RETRY_WINDOW_MS`
+ * `LIRI_SANDBOX_FENCE_SILENT_ALLOW_RUN_LENGTH` · `LIRI_SANDBOX_FENCE_DENY_RETRY_WINDOW_MS` ·
+ * `LIRI_SANDBOX_FENCE_START_AT_EOF`
  */
 export function getRuntimeDefaults(): RuntimeDefaults {
   const apiImageMaxBase64Size = envInt(
@@ -209,5 +224,7 @@ export function getRuntimeDefaults(): RuntimeDefaults {
       'LIRI_SANDBOX_FENCE_DENY_RETRY_WINDOW_MS',
       60 * 1000
     ),
+    // 观察期口径（2026-11-13）：默认从 EOF 起，避免首轮把历史审计事件评估成告警
+    sandboxFenceStartAtEof: envBool('LIRI_SANDBOX_FENCE_START_AT_EOF', true),
   };
 }

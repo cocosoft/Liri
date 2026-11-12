@@ -13,7 +13,12 @@ import { dirname } from 'node:path';
 import { getLogger } from '@openliri/infra/monitoring';
 import { writeFileAtomic } from '@openliri/infra/utils/atomicFileWrite';
 
-import { readAppendedJsonlLines, type JsonlTailDeps } from './jsonlTail';
+import {
+  readAppendedJsonlLines,
+  readFileTail,
+  type JsonlTailDeps,
+  type JsonlTailResult,
+} from './jsonlTail';
 import { observeFencePosture } from './posture';
 import {
   FENCE_FAIL_OPEN_CODES,
@@ -54,6 +59,13 @@ export interface FenceRuntimeDeps extends JsonlTailDeps {
   rules: FenceRuleConfig;
   /** 注入时钟（单测用；默认 `new Date()`） */
   now?: () => Date;
+  /**
+   * 首轮从**文件末尾**起观察（默认 `false` ⇒ 从 offset 0 回放历史）。
+   *
+   * 观察期口径（2026-11-13）：回放会把整份历史审计事件评估成告警（实测首轮 226 条），
+   * 淹没 S1/S2 误报率抽样 ⇒ 生产入口传 `true`；需要完整证据时置 `false` 回放。
+   */
+  startAtEof?: boolean;
   /** 读文本文件（默认 `fs.readFile(..., 'utf8')`） */
   readTextFile?: (path: string) => Promise<string>;
   /** 原子写（默认 infra `writeFileAtomic`） */
@@ -76,6 +88,8 @@ export interface FenceHandle {
 /** 一次 tick 的内部状态（跨 tick 保留：偏移、已消费摘要、最后事件时间、告警跃迁、规则状态） */
 interface FenceState {
   offset: number;
+  /** 是否已完成首轮（决定 `startAtEof` 只生效一次） */
+  initialized: boolean;
   /** 已消费前缀的摘要（识别"同长度轮转/替换"） */
   consumedHash?: string;
   lastEventAt?: string;
@@ -90,6 +104,7 @@ interface FenceState {
 function createState(): FenceState {
   return {
     offset: 0,
+    initialized: false,
     bad: new Map(),
     rules: createFenceRuleState(),
     failOpenSignature: '',
@@ -154,12 +169,17 @@ async function runTick(
 
   // ① 审计日志：增量读（截断/轮转 ⇒ 归零并告警）
   const previousOffset = state.offset;
-  const tail = await readAppendedJsonlLines(
-    deps.paths.auditLogPath,
-    state.offset,
-    deps,
-    state.consumedHash
-  );
+  // 观察期口径（2026-11-13）：首轮可选直接从 EOF 起读 —— 否则整份历史日志会被当成"新异常"
+  const startAtEof = deps.startAtEof === true && !state.initialized;
+  state.initialized = true;
+  const tail = startAtEof
+    ? await readTailCursor(deps.paths.auditLogPath, deps)
+    : await readAppendedJsonlLines(
+        deps.paths.auditLogPath,
+        state.offset,
+        deps,
+        state.consumedHash
+      );
   state.offset = tail.nextOffset;
   state.consumedHash = tail.consumedHash;
   if (tail.truncated) {
@@ -273,6 +293,31 @@ async function runTick(
   }
 
   return { heartbeat, alerts };
+}
+
+/**
+ * 首轮从 EOF 起观察：只取游标，返回空 `lines` ⇒ 不评估、不告警历史事件。
+ *
+ * 历史证据仍可从 `security-audit.log` 直接取；`consumedHash` 照常带回，
+ * 使下一轮仍能识别"同长度轮转/替换"。
+ */
+async function readTailCursor(
+  path: string,
+  deps: JsonlTailDeps
+): Promise<JsonlTailResult> {
+  const cursor = await readFileTail(path, deps);
+  if (cursor.exists && cursor.nextOffset > 0) {
+    logger.info('围栏首轮从 EOF 起观察（不回放历史审计事件）', {
+      skippedBytes: cursor.nextOffset,
+    });
+  }
+  return {
+    exists: cursor.exists,
+    lines: [],
+    nextOffset: cursor.nextOffset,
+    truncated: false,
+    consumedHash: cursor.consumedHash,
+  };
 }
 
 async function readPosture(

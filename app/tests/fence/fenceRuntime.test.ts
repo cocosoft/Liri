@@ -336,3 +336,71 @@ describe('M2：三条观察规则（默认只观察）', () => {
     ).toHaveLength(1);
   });
 });
+
+/**
+ * 2026-11-13（观察期首轮）：`startAtEof` —— 首轮只取游标，不回放历史。
+ *
+ * 背景：真实数据首轮从 offset 0 回放，把整份审计日志评估成 **226 条**告警
+ * （`G4-围栏工程形态设计-20261112.md` §10.5），会淹没 S1/S2 误报率抽样。
+ */
+describe('M1.1：首轮从 EOF 起观察（startAtEof）', () => {
+  const silentLine = (second: number) =>
+    `${JSON.stringify({
+      timestamp: `2026-11-12T09:59:${String(second).padStart(2, '0')}.000Z`,
+      command: 'ls',
+      originalCommand: 'ls',
+      behavior: 'allow',
+      decision: 'auto_allowed',
+      riskLevel: 'high',
+      matchedRules: [],
+    })}\n`;
+
+  it('开 ⇒ 历史事件不评估、不告警；只观察启动后新增的事件', async () => {
+    const dir = makeTmpDir();
+    const fence = createFence({ ...deps(dir), startAtEof: true });
+    const history = silentLine(1) + silentLine(2) + silentLine(3);
+    writeFileSync(paths(dir).auditLogPath, history);
+
+    const first = await fence.tick();
+    expect(first.heartbeat.audit.appendedEvents).toBe(0);
+    expect(first.heartbeat.audit.offset).toBe(Buffer.byteLength(history));
+    expect(
+      first.alerts.filter((a) => a.kind === 'silent-allow-streak')
+    ).toHaveLength(0);
+
+    // 启动后新增 3 条 ⇒ 新一轮 S1 命中（历史那 3 条没有计入）
+    writeFileSync(
+      paths(dir).auditLogPath,
+      history + silentLine(4) + silentLine(5) + silentLine(6)
+    );
+    const second = await fence.tick();
+    expect(second.heartbeat.audit.appendedEvents).toBe(3);
+    expect(
+      second.alerts.filter((a) => a.kind === 'silent-allow-streak')
+    ).toHaveLength(1);
+  });
+
+  it('关（显式 false）⇒ 保留回放：历史事件照常评估（逃生路径）', async () => {
+    const dir = makeTmpDir();
+    const fence = createFence({ ...deps(dir), startAtEof: false });
+    writeFileSync(
+      paths(dir).auditLogPath,
+      silentLine(1) + silentLine(2) + silentLine(3)
+    );
+
+    const first = await fence.tick();
+    expect(first.heartbeat.audit.appendedEvents).toBe(3);
+    expect(
+      first.alerts.filter((a) => a.kind === 'silent-allow-streak')
+    ).toHaveLength(1);
+  });
+
+  it('文件缺失 ⇒ 仍发 audit-log-missing（EOF 模式不掩盖缺失）', async () => {
+    const dir = makeTmpDir();
+    const fence = createFence({ ...deps(dir), startAtEof: true });
+
+    const first = await fence.tick();
+    expect(first.heartbeat.status).toBe('no-signal');
+    expect(first.alerts.map((a) => a.kind)).toContain('audit-log-missing');
+  });
+});

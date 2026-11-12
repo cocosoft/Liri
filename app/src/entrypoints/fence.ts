@@ -47,6 +47,7 @@ export async function runFence(): Promise<void> {
     paths,
     intervalMs: defaults.sandboxFenceIntervalMs,
     postureStaleAfterMs: defaults.sandboxFencePostureStaleMs,
+    startAtEof: defaults.sandboxFenceStartAtEof,
     rules: {
       silentAllowRunLength: defaults.sandboxFenceSilentAllowRunLength,
       denyRetryWindowMs: defaults.sandboxFenceDenyRetryWindowMs,
@@ -57,6 +58,7 @@ export async function runFence(): Promise<void> {
     posturePath: paths.posturePath,
     heartbeatPath: paths.heartbeatPath,
     intervalMs: defaults.sandboxFenceIntervalMs,
+    startAtEof: defaults.sandboxFenceStartAtEof,
   });
 
   const shutdown = (signal: string): void => {

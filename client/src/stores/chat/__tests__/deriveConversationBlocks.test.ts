@@ -525,6 +525,56 @@ describe("deriveConversationBlocks — 中断提示链路 turn/end 透传（2026
   });
 });
 
+describe("deriveConversationBlocks — 待审批工具卡状态（2026-11-12）", () => {
+  const toolCard = (msgs: ReturnType<typeof deriveConversationBlocks>) =>
+    msgs
+      .flatMap((m) => m.blocks ?? [])
+      .find((b) => b.type === "tool_call")?.toolCall;
+
+  it("awaiting_approval 结果 ⇒ status=running（副标题不写「已…」，与 ⏳ 徽标一致）", () => {
+    const msgs = deriveConversationBlocks([
+      ev(1, "turn/start", { turn: 1 }),
+      ev(2, "assistant/tool_call", {
+        toolCallId: "tc-aw",
+        name: "file_write",
+        args: { file_path: "a.txt", content: "hi" },
+      }),
+      ev(3, "tool/result", {
+        callSeq: 0,
+        toolCallId: "tc-aw",
+        result: JSON.stringify({
+          status: "awaiting_approval",
+          pendingApproval: true,
+          inboxId: "ib-1",
+        }),
+      }),
+    ]);
+    const tc = toolCard(msgs);
+    expect(tc?.pendingApproval).toBe(true);
+    expect(tc?.status).toBe("running");
+  });
+
+  it("负向对照：终态失败结果 ⇒ status=failed 且清除 pendingApproval", () => {
+    const msgs = deriveConversationBlocks([
+      ev(1, "turn/start", { turn: 1 }),
+      ev(2, "assistant/tool_call", {
+        toolCallId: "tc-done",
+        name: "file_write",
+        args: { file_path: "a.txt", content: "hi" },
+      }),
+      ev(3, "tool/result", {
+        callSeq: 0,
+        toolCallId: "tc-done",
+        result: "⚠️ 工具执行失败: 用户拒绝执行该工具调用（file_write）",
+        isError: true,
+      }),
+    ]);
+    const tc = toolCard(msgs);
+    expect(tc?.pendingApproval).toBeUndefined();
+    expect(tc?.status).toBe("failed");
+  });
+});
+
 describe("deriveConversationBlocks — 审批等待提示剥离（2026-11-12）", () => {
   it("增量派生：turn/end 标 awaiting_approval 后 flush 的消息已剥掉提示（不闪现）", () => {
     const deriver = new IncrementalDeriver({ sessionId: SID });

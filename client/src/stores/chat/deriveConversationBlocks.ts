@@ -516,6 +516,12 @@ function handleEvent(
         // 2026-11-12：终态结果必须**清除**该标记，否则批准后同一调用仍显示"等待审批"
         // （服务端合成的 Inbox 卡已是"已处理"）⇒ 界面出现两张卡（真机 `session_mwd632bob8d4318050`）
         Object.assign(block.toolCall, resolveApprovalFlags(data.result));
+        // 2026-11-12：待审批不是终态 —— 上面按 `isError` 落成 "completed" 会让副标题显示
+        // 「已写入：…」而徽标仍是「⏳ 等待审批」（真机 `session_mwd9bnoyc7e3051cde`）。
+        // 结构化判据 `pendingApproval`（不解析文案，CS02）⇒ 按进行中渲染（正在…）。
+        if (block.toolCall.pendingApproval === true) {
+          block.toolCall.status = "running";
+        }
       }
       break;
     }

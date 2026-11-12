@@ -11,6 +11,7 @@ import {
   APPROVAL_BLOCK_LOOKBACK_MS,
   APPROVAL_BLOCK_MAX_RESOLVED,
   refreshPresentApprovalBlocks,
+  resolveApprovalHostIndex,
   selectApprovalItemsForBlocks,
 } from '@openliri/service/runtime/api/approvalBlockSelection';
 
@@ -68,6 +69,69 @@ describe('selectApprovalItemsForBlocks', () => {
     expect(
       selectApprovalItemsForBlocks({ pending: [], recent: [], anchorMs: NOW })
     ).toEqual([]);
+  });
+});
+
+describe('resolveApprovalHostIndex（2026-11-12：审批卡归位到发生的那一轮）', () => {
+  const msgs = [
+    { role: 'user', timestamp: 900 },
+    { role: 'assistant', timestamp: 1000 },
+    { role: 'user', timestamp: 4000 },
+    { role: 'assistant', timestamp: 5000 },
+  ];
+
+  it('创建时刻落在两轮之间 ⇒ 归到之前最近的那条 assistant', () => {
+    expect(resolveApprovalHostIndex(msgs, { createdAt: 3000 })).toBe(1);
+  });
+
+  it('创建时刻晚于最后一条 assistant ⇒ 归到最后一条', () => {
+    expect(resolveApprovalHostIndex(msgs, { createdAt: 9000 })).toBe(3);
+  });
+
+  it('创建时刻早于全部 assistant（时钟偏差/老会话）⇒ 回退第一条 assistant', () => {
+    expect(resolveApprovalHostIndex(msgs, { createdAt: 1 })).toBe(1);
+  });
+
+  it('无 assistant 消息 ⇒ -1（调用方回退 lastAssistant）', () => {
+    expect(
+      resolveApprovalHostIndex([{ role: 'user', timestamp: 1 }], {
+        createdAt: 2,
+      })
+    ).toBe(-1);
+  });
+
+  it('toolCallId 命中 ⇒ 精确归位（优先于时间锚点）', () => {
+    const withCalls = [
+      {
+        role: 'assistant',
+        timestamp: 1000,
+        blocks: [{ type: 'tool_call', toolCall: { id: 'call-a' } }],
+      },
+      {
+        role: 'assistant',
+        timestamp: 5000,
+        blocks: [{ type: 'tool_call', toolCallId: 'call-b' }],
+      },
+    ];
+    // 时间锚点本会选第 2 条（6000 晚于 5000），toolCallId 命中第 1 条
+    expect(
+      resolveApprovalHostIndex(withCalls, {
+        createdAt: 6000,
+        toolCallId: 'call-a',
+      })
+    ).toBe(0);
+    expect(
+      resolveApprovalHostIndex(withCalls, {
+        createdAt: 1,
+        toolCallId: 'call-b',
+      })
+    ).toBe(1);
+  });
+
+  it('toolCallId 未命中任何消息 ⇒ 回退时间锚点（不丢卡）', () => {
+    expect(
+      resolveApprovalHostIndex(msgs, { createdAt: 3000, toolCallId: 'nope' })
+    ).toBe(1);
   });
 });
 

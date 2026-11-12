@@ -16,7 +16,11 @@ import {
   createAskDecision,
   createDenyDecision,
 } from '@openliri/infra/permission/types/PermissionDecision';
-import { buildAuditEvent } from '@openliri/infra/permission/manager/decisionTelemetry';
+import {
+  buildAuditEvent,
+  auditDecision,
+} from '@openliri/infra/permission/manager/decisionTelemetry';
+import { permissionMetrics } from '@openliri/infra/permission/metrics/PermissionMetricsStore';
 import { logSecurityAuditEvent } from '@openliri/infra/security';
 
 describe('M0-②：权限决策审计的会话归因', () => {
@@ -213,5 +217,52 @@ describe('G4 A 方案：结构化字段必须落盘（2026-11-13）', () => {
     };
     expect(persisted.ruleCoverage).toBe('uncovered');
     expect(persisted.commandClass).toBe('read-only');
+  });
+});
+
+/**
+ * 2026-11-13：S1 只保留为异常护栏；"权限空转"的持续度量改为**非告警计数**：
+ * `ruleCoverage=uncovered` 且 `commandClass=write-or-exec` ⇒ `/v1/permissions/metrics`
+ * 的 `uncovered_mutation`（按 tool 聚合）。只读 / 非 shell / 命中规则都不计数。
+ */
+describe('权限空转计数：uncovered_mutation（2026-11-13）', () => {
+  const countUncovered = (): number =>
+    permissionMetrics
+      .snapshot()
+      .filter((p) => p.category === 'uncovered_mutation')
+      .reduce((sum, p) => sum + p.count, 0);
+
+  it('仅 uncovered + write-or-exec 计 1；只读 / 命中规则不计数', () => {
+    const before = countUncovered();
+
+    // ① 未覆盖 + 写/执行 ⇒ 计数
+    auditDecision(
+      createAllowDecision('No matching rules, default allowing'),
+      'bash',
+      { command: 'bun test x' },
+      's1'
+    );
+    // ② 未覆盖 + 只读 ⇒ 不计数
+    auditDecision(
+      createAllowDecision('No matching rules, default allowing'),
+      'bash',
+      { command: 'grep foo' },
+      's1'
+    );
+    // ③ 命中规则（非 uncovered）+ 写/执行 ⇒ 不计数
+    auditDecision(
+      createAllowDecision('Allowed by rule from userSettings', { id: 'r1' }),
+      'bash',
+      { command: 'bun test x' },
+      's1'
+    );
+
+    expect(countUncovered() - before).toBe(1);
+    const point = permissionMetrics
+      .snapshot()
+      .find(
+        (p) => p.category === 'uncovered_mutation' && p.labels.tool === 'bash'
+      );
+    expect(point).toBeDefined();
   });
 });

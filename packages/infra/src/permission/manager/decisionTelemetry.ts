@@ -206,9 +206,17 @@ let fineGrainedDenyCounter: Counter | null = null;
     sessionId?: string
   ): void {
     try {
-      logSecurityAuditEvent(
-        buildAuditEvent(decision, toolName, input, sessionId)
-      );
+      const event = buildAuditEvent(decision, toolName, input, sessionId);
+      logSecurityAuditEvent(event);
+      // 2026-11-13（G4 观察期）：权限空转的**非告警计数** —— S1 只当异常护栏，
+      // "未覆盖且可能写/执行"的持续度量走本指标（`/v1/permissions/metrics` 可查）。
+      // 只读 / 非 shell 调用不计入（它们不构成"静默放行可变更状态的命令"）。
+      if (
+        event.ruleCoverage === 'uncovered' &&
+        event.commandClass === 'write-or-exec'
+      ) {
+        permissionMetrics.record('uncovered_mutation', { tool: toolName });
+      }
     } catch (err) {
       // 审计日志异常不应影响主流程
     }

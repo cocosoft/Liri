@@ -258,6 +258,39 @@ describe('P6-3：绕过面（路径 / 别名 / 参数变体）', () => {
   });
 });
 
+describe('P6-4：绕过面负向对照（新增令牌不得反向放宽 / 误杀）', () => {
+  it('启动器夹版本参数仍 deny', async () => {
+    for (const command of [
+      'py -3 -c "print(1)"',
+      'python2727 -c "print(1)"',
+      'busybox sh -c "rm -rf /"',
+    ]) {
+      const { tier } = await verdict(command);
+      expect(tier, command).toBe('deny');
+    }
+  });
+
+  it('版本查询与只读形态不被新增令牌误杀', async () => {
+    for (const command of [
+      'py --version',
+      'python3.11 --version',
+      'python3 --version',
+      'node --check x.js',
+      'Get-WmiObject -Class Win32_Process',
+    ]) {
+      const { tier } = await verdict(command);
+      expect(tier, command).toBe('allow');
+    }
+  });
+
+  it('解释器跑脚本 / 包装器帮助仍走审批（不误降为 allow）', async () => {
+    for (const command of ['python script.py', 'busybox --help']) {
+      const { tier } = await verdict(command);
+      expect(tier, command).toBe('ask');
+    }
+  });
+});
+
 describe('P5-3：SQL 规则只收真实注入特征', () => {
   it('只读查询不再被当成注入（可转审批，但不得硬拒）', async () => {
     const { tier } = await verdict('mysql -e "select 1"');

@@ -66,7 +66,11 @@ export type {
 
 // ==================== 向后兼容导出（@deprecated — 请使用门面 API 替代） ====================
 // Bash 安全分析
-export { BashSecurityAnalyzer } from './BashSecurityAnalyzer';
+export {
+  BashSecurityAnalyzer,
+  // 2026-11-12：权限层在建审批卡前判断"批了也跑不了"的命令（结构性硬拒）
+  isUnconditionallyDeniedBashCommand,
+} from './BashSecurityAnalyzer';
 export {
   isPathTraversal,
   sanitizePath,

@@ -246,6 +246,38 @@ describe('放行缓存已命中 ⇒ 不再建卡（2026-11-12）', () => {
   });
 });
 
+// 2026-11-12（真机 `session_mwd6c9ui384f78c969`）：`echo x > file` 这类含重定向的命令
+// 审批卡能点「仅这次执行」，执行时却被 Bash 安全层「复合命令只允许全段只读」无条件拒绝
+// ⇒ 用户白批一次。现在建卡前先判，直接 deny 并给出可执行建议。
+describe('批了也跑不了的命令 ⇒ 不建卡（直接 deny）', () => {
+  it('含重定向的复合命令：deny，且不新增 Inbox 卡片', async () => {
+    const pm = createPermissionManager();
+    pm.addRule(PermissionBehavior.ASK, 'bash');
+    const result = await pm.checkPermissionForTool(
+      'bash',
+      { command: 'echo p12 > out.txt' },
+      { sessionId: 'session-redirect-deny' }
+    );
+    expect(result.allowed).toBe(false);
+    expect(result.decision?.behavior).toBe('deny');
+    expect(result.reason).toContain('file_write');
+    expect(submittedItems.length).toBe(0);
+  });
+
+  it('负向对照：可审批形态（非只读命令）仍然建卡', async () => {
+    const pm = createPermissionManager();
+    pm.addRule(PermissionBehavior.ASK, 'bash');
+    const result = await pm.checkPermissionForTool(
+      'bash',
+      { command: 'node --check app.js' },
+      { sessionId: 'session-approvable' }
+    );
+    expect(result.decision?.behavior).toBe('ask');
+    expect(result.submittedToInbox).toBe(true);
+    expect(submittedItems.length).toBe(1);
+  });
+});
+
 describe('P1-2 命令内容级黑白名单（设置→自定义规则 commandRules）', () => {
   const originalGetConfigValue = configManager.getConfigValue;
 

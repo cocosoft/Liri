@@ -292,6 +292,28 @@ function isNonReadOnlySegmentReason(reason: string): boolean {
 }
 
 /**
+ * 2026-11-12（真机 `session_mwd6c9ui384f78c969`）：该命令是否会被 Bash 安全层**无条件拒绝**
+ * （人工批准也放不了行）。
+ *
+ * 用来在**建审批卡之前**拦下"批了也跑不了"的命令：`echo x > file` 这类含重定向的写法
+ * 审批卡能点「仅这次执行」，执行时仍被"复合命令只允许全段只读"硬拒 ⇒ 用户白批一次。
+ *
+ * 口径与 `analyze` 的复合分支**逐字一致**（同一 `checkBashAllowlist` / `checkCompoundReadOnly`
+ * / `isNonReadOnlySegmentReason`）：只有"含 shell operator 且结构风险（重定向 / 命令替换 /
+ * 变量 / 后台执行 / 引号未闭合 / 空段 / 非常规命令名）"才算；"非只读命令（x）"属可审批形态，
+ * 返回 false（交人工审批）。
+ */
+export function isUnconditionallyDeniedBashCommand(command: string): boolean {
+  const trimmed = command.trim();
+  if (!trimmed) return false;
+  const allowlistCheck = checkBashAllowlist(trimmed);
+  if (allowlistCheck.safe) return false;
+  if (!allowlistCheck.reason.includes('Shell operator')) return false;
+  const verdict = checkCompoundReadOnly(trimmed);
+  return !verdict.allowed && !isNonReadOnlySegmentReason(verdict.reason);
+}
+
+/**
  * FIX-15 不回归：PowerShell 包裹命令多段出现时维持硬拒（内层脚本未经 PowerShell 链判定）。
  * 只有"整条命令仅此一条语句"且调用方显式委托时才放行（见 `delegatedSinglePowerShell`）。
  */

@@ -27,6 +27,7 @@ import {
   parseApprovalSignal,
   preferToolResult,
   resolveApprovalFlags,
+  stripStaleApprovalNotice,
 } from "../chat-message-shared";
 import type { MessageBlock } from "@/types";
 
@@ -184,6 +185,47 @@ describe("preferToolResult — 同 toolCallId 两条结果时终态优先", () =
 
   it("两条都是终态 ⇒ 后写覆盖（原行为不变）", () => {
     expect(preferToolResult(terminal, "另一条结果")).toBe(true);
+  });
+});
+
+/**
+ * 2026-11-12（真机 `session_mwd7ywosc43b5503e3`）：审批处理完后，正文里那句
+ * 「⏸ 有工具调用正在等待你的审批…」仍留在气泡，与实际状态矛盾 ⇒ 渲染期按
+ * **结构化标记**（awaiting_approval）剥离，改由审批卡片在 pending 时提示。
+ */
+describe("stripStaleApprovalNotice — 审批等待收尾提示剥离（2026-11-12）", () => {
+  const notice =
+    "⏸ 有工具调用正在等待你的审批：请在下方审批卡片（或收件箱）中处理后继续；批准后会自动接着执行，无需重发消息。";
+
+  it("带 awaiting_approval 标记 ⇒ 正文与 text 块都被剥离", () => {
+    const msg = {
+      role: "assistant",
+      content: `我来执行命令。\n\n${notice}`,
+      metadata: { terminationReason: "awaiting_approval" },
+      blocks: [
+        { type: "text", content: `我来执行命令。\n\n${notice}` },
+        { type: "tool_call", content: "" },
+      ],
+    };
+    const out = stripStaleApprovalNotice(msg);
+    expect(out.content).toBe("我来执行命令。");
+    expect(out.blocks?.[0]?.content).toBe("我来执行命令。");
+    // 非 text 块原样保留
+    expect(out.blocks?.[1]).toBe(msg.blocks[1]);
+  });
+
+  it("无 awaiting_approval 标记 ⇒ 一字不动（避免误伤普通正文）", () => {
+    const msg = {
+      role: "assistant",
+      content: `正文\n\n${notice}`,
+      metadata: {},
+    };
+    expect(stripStaleApprovalNotice(msg)).toBe(msg);
+  });
+
+  it("顶层 finishReason 标记同样生效（事件派生消息）", () => {
+    const msg = { role: "assistant", content: notice, finishReason: "awaiting_approval" };
+    expect(stripStaleApprovalNotice(msg).content).toBe("");
   });
 });
 

@@ -242,6 +242,8 @@ const enMisc = {
       listSeparator: ", ",
       tensePresent: "",
       tensePast: "",
+      // 2026-11-12: suffix for failed summaries (never "executed …" on failure)
+      failedSuffix: " (failed)",
       searchingCode: "Searching code",
       searchingFiles: "Searching files",
       searchingWeb: "Searching the web",

@@ -18,6 +18,8 @@
 import { getLogger } from '@openliri/infra/monitoring';
 import type { TerminationReason } from '@modules/query';
 import type { GoalTurnReason } from '@modules/tasks';
+// 2026-11-12：审批等待提示文案上移到 `@shared/types`（前端渲染期剥离，唯一来源）
+import { AWAITING_APPROVAL_NOTICE } from '@shared/types';
 // BUG-E 第二轮复验（2026-10-27）：可见性判定需先剥离 `<think>`（与终稿校验同源，CS01）
 import { stripThinkResponseTags } from './services/MessageContextPipeline.js';
 
@@ -40,10 +42,11 @@ export const EMPTY_OUTPUT_FALLBACK_TEXT =
  * 流式路径由 `resolveTerminationOutput('awaiting_approval')` 拼进助手消息；
  * 非流式（TAOR）路径没有 finalize 消息，由 `ChatOrchestrator` 用它补一条助手消息
  * ⇒ 两条路径的用户可见文案逐字一致，不出现第二份硬编码。
+ *
+ * 2026-11-12：文案已上移到 `@shared/types`（前端渲染期按结构化字段把它从正文剥掉，
+ * 改由审批卡片提示「批准后自动继续」）—— 此处仅**再导出**，保持既有调用点不变。
  */
-export const AWAITING_APPROVAL_NOTICE =
-  '⏸ 有工具调用正在等待你的审批：请在下方审批卡片（或收件箱）中处理后继续；' +
-  '批准后会自动接着执行，无需重发消息。';
+export { AWAITING_APPROVAL_NOTICE };
 
 /** 收尾提示去重所需的最小消息形状 */
 export interface TerminationNoticeMessage {

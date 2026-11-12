@@ -952,6 +952,9 @@ const zhBase = {
     // P0（2026-11-07）：allowlist 档的规则落点（与设置页 tab 名逐字对齐，避免两套叫法）
     inboxAllowlistHint:
       "免审批规则会写入「设置 › 自定义规则 › 工具放行」（与设置页同一份规则，可在那里撤销）。",
+    // 2026-11-12：待审批时在卡片上提示"批准后自动继续"（原先写进助手正文，处理完会残留矛盾文案）
+    inboxApprovalAutoContinueHint:
+      "批准后会自动接着执行，无需重发消息；拒绝则停止该调用并让模型改道。",
     // P0-1（2026-11-04）：同指纹审批被合并的次数（卡片右上角显示 ×N）
     inboxMergedCountHint: "同一请求已被合并 {{count}} 次（只需处理一次）",
     inboxRepliedToast: "已{{label}}",

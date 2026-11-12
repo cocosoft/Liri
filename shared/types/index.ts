@@ -169,3 +169,12 @@ export type {
   SharedShadowToolDisposition,
   SharedToolVisibilityEntry,
 } from "./tool-visibility";
+
+// ============================================================
+// 审批等待收尾提示（双端共用文案 + 前端渲染期剥离）
+// ============================================================
+
+export {
+  AWAITING_APPROVAL_NOTICE,
+  stripAwaitingApprovalNotice,
+} from "./approval-notice";

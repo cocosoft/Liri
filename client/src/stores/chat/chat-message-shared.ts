@@ -6,6 +6,8 @@
  */
 import type { MessageBlock } from "@/types";
 import i18n from "@/i18n";
+// 2026-11-12：审批等待提示文案（双端唯一来源）+ 渲染期剥离
+import { stripAwaitingApprovalNotice } from "@shared/types";
 
 /**
  * 会话切换锁：setMessages 期间挂起流式写入，避免 loadSessions 覆盖流式数据。
@@ -141,6 +143,66 @@ export function preferToolResult(
   const nextAwaiting = readApprovalSignal(next) !== null;
   // 终态结果一律采用（两条都终态时保持"后写覆盖"）；唯一拒绝：终态已被记下后，占位又迟到
   return !nextAwaiting || prevAwaiting;
+}
+
+/**
+ * 2026-11-12：该助手消息是否带「等待审批收尾」标记（结构化字段，不解析正文）。
+ *
+ * 标记落盘位置有两处：顶层 `finishReason/terminationReason`（事件派生）与
+ * `metadata.finishReason/terminationReason`（messages.jsonl 持久化形状）。
+ */
+export function isAwaitingApprovalTurn(message: {
+  role?: string;
+  finishReason?: unknown;
+  terminationReason?: unknown;
+  metadata?: Record<string, unknown>;
+}): boolean {
+  if (message.role !== "assistant") return false;
+  const meta = (message.metadata ?? {}) as {
+    finishReason?: unknown;
+    terminationReason?: unknown;
+  };
+  return (
+    message.finishReason === "awaiting_approval" ||
+    message.terminationReason === "awaiting_approval" ||
+    meta.finishReason === "awaiting_approval" ||
+    meta.terminationReason === "awaiting_approval"
+  );
+}
+
+/**
+ * 2026-11-12：把「等待审批」收尾提示从该消息里剥掉（正文 + `text` 块），其余字段原样。
+ *
+ * 为什么要剥：审批处理完（批准/拒绝）后，那句「⏸ 有工具调用正在等待你的审批…」会永久
+ * 留在气泡里，与实际状态（已处理）矛盾。提示改由**审批卡片**在 pending 时给出。
+ * 只在带结构化 `awaiting_approval` 标记的消息上动手，正文其余内容不受影响（CS02）。
+ */
+export function stripStaleApprovalNotice<
+  T extends {
+    role?: string;
+    content?: unknown;
+    blocks?: unknown;
+    finishReason?: unknown;
+    terminationReason?: unknown;
+    metadata?: Record<string, unknown>;
+  },
+>(message: T): T {
+  if (!isAwaitingApprovalTurn(message)) return message;
+  const content =
+    typeof message.content === "string"
+      ? stripAwaitingApprovalNotice(message.content)
+      : message.content;
+  const rawBlocks = message.blocks;
+  const blocks = Array.isArray(rawBlocks)
+    ? rawBlocks.map((b) => {
+        const block = b as { type?: unknown; content?: unknown };
+        if (block?.type !== "text" || typeof block.content !== "string") return b;
+        const next = stripAwaitingApprovalNotice(block.content);
+        if (next === block.content) return b;
+        return { ...(b as Record<string, unknown>), content: next };
+      })
+    : rawBlocks;
+  return { ...message, content, blocks };
 }
 
 /** 清理全量工具结果缓存（setMessages 加载新会话前调用，防止内存泄漏） */

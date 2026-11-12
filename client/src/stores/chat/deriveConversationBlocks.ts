@@ -61,7 +61,7 @@ import type { StreamChunk } from "../../services/chatService";
 import {
   cacheToolResult,
   truncateResult,
-  parseApprovalSignal,
+  resolveApprovalFlags,
   MAX_INLINE_RESULT_LENGTH,
 } from "./chat-message-shared";
 import { createLogger } from "@/utils/logger";
@@ -512,11 +512,9 @@ function handleEvent(
         block.toolCall.status = data.isError ? "failed" : "completed";
         // U-06-5：审批等待结果（awaiting_approval）携带 pendingApproval + inboxId，
         // 据此在工具卡片上渲染就地审批按钮（与 ChronologicalBlockBuilder 语义对齐）
-        const approval = parseApprovalSignal(data.result);
-        if (approval) {
-          block.toolCall.pendingApproval = true;
-          if (approval.inboxId) block.toolCall.inboxId = approval.inboxId;
-        }
+        // 2026-11-12：终态结果必须**清除**该标记，否则批准后同一调用仍显示"等待审批"
+        // （服务端合成的 Inbox 卡已是"已处理"）⇒ 界面出现两张卡（真机 `session_mwd632bob8d4318050`）
+        Object.assign(block.toolCall, resolveApprovalFlags(data.result));
       }
       break;
     }

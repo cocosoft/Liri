@@ -47,7 +47,10 @@ import {
 } from '@openliri/infra/permission/RuleManager';
 import { inboxManager } from '@openliri/service/runtime/InboxManager';
 import { unattendedMode } from '@openliri/service/runtime/UnattendedModeManager';
-import { hashCommandForExecution } from '@openliri/infra/permission/ApprovedCommandRegistry';
+import {
+  getApprovedCommandRegistry,
+  hashCommandForExecution,
+} from '@openliri/infra/permission/ApprovedCommandRegistry';
 import { configManager } from '@openliri/infra/config';
 import { resolvePermissionsDir } from '@openliri/infra/environment';
 // 2026-09-30（台账 D-132，修复 D-126 引入的 4 处回归）：`PermissionChecker` 的 runtime 依赖
@@ -200,6 +203,44 @@ describe('PermissionManager 统一 Inbox 提交（P1-2）', () => {
       { command: 'rm -rf /tmp/abc' },
       { sessionId: 'session-1' }
     );
+    expect(result.submittedToInbox).toBe(true);
+    expect(submittedItems.length).toBe(1);
+  });
+});
+
+// 2026-11-12（真机 `session_mwd6c9ui384f78c969`）：批准后的续跑会在权限层重新判定同一调用；
+// 此时放行缓存已写入，但原实现仍提交新卡（旧卡已 resolved ⇒ 同指纹复用查不到）
+// ⇒ 会话残留一张永远无人处理的"待审批"卡（界面表现为「已处理卡 + 同内容待审批卡」）。
+describe('放行缓存已命中 ⇒ 不再建卡（2026-11-12）', () => {
+  it('批准后重放同一命令：决策为 allow，且不新增 Inbox 卡片', async () => {
+    const sessionId = `session-cache-hit-${Date.now()}`;
+    const command = 'dir "E:\\tmp\\abc"';
+    getApprovedCommandRegistry().approve(
+      sessionId,
+      hashCommandForExecution(command),
+      command
+    );
+    const pm = createPermissionManager();
+    pm.addRule(PermissionBehavior.ASK, 'bash');
+    const result = await pm.checkPermissionForTool(
+      'bash',
+      { command },
+      { sessionId }
+    );
+    expect(result.allowed).toBe(true);
+    expect(result.decision?.behavior).toBe('allow');
+    expect(submittedItems.length).toBe(0);
+  });
+
+  it('负向对照：未批准过的命令仍然建卡（ask + submittedToInbox）', async () => {
+    const pm = createPermissionManager();
+    pm.addRule(PermissionBehavior.ASK, 'bash');
+    const result = await pm.checkPermissionForTool(
+      'bash',
+      { command: 'net user %username%' },
+      { sessionId: `session-no-cache-${Date.now()}` }
+    );
+    expect(result.decision?.behavior).toBe('ask');
     expect(result.submittedToInbox).toBe(true);
     expect(submittedItems.length).toBe(1);
   });

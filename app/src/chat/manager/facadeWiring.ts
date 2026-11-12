@@ -101,9 +101,11 @@ import type { SessionStateMachine } from '@openliri/infra/state/session/SessionS
 import type { ChatEventLogStore } from './eventLogStore';
 import type { ChatRequestPrep } from './requestPrep';
 import { buildTAORContextFor } from './taorContextWiring';
-import { isCommandApproved, submitToolApproval } from './toolApproval';
-// 2026-11-12：续跑前的审批落定判定需要**与建卡同口径**的授权指纹（PR-2）
-import { resolveApprovalFingerprint } from '@openliri/infra/permission';
+import {
+  isAwaitingUserApproval,
+  isCommandApproved,
+  submitToolApproval,
+} from './toolApproval';
 import { wireCodeRunnerDeps } from './codeRunnerWiring';
 import { shouldUseCodeMode, shouldUsePlanDrivenLoop } from './routing';
 // 2026-11-10：`registerWorkspacePathHost` —— 提示词侧复用同一工作区解析（注册一次）
@@ -791,17 +793,15 @@ export function wireChatFacades(host: FacadeWiringHost): void {
     recordChatResponseUsage: (sid, usage, requestId, model) =>
       host.recordChatResponseUsage(sid, usage, requestId, model),
     getToolRegistry: () => host.getToolRegistry(),
-    // 2026-11-12：`awaiting_approval` 调用的重放前提 = 放行缓存已写入（与建卡/执行同一指纹口径）
-    isToolCallApproved: async (tc) => {
-      const args = (tc.arguments ?? {}) as Record<string, unknown>;
-      const tool = host.toolRegistry?.getTool(tc.name);
-      return isCommandApproved(
+    // 2026-11-12：`awaiting_approval` 调用的重放前提 = 审批已落定（放行缓存命中或卡片已处理）
+    isAwaitingUserApproval: (tc) =>
+      isAwaitingUserApproval(
+        { toolRegistry: host.toolRegistry },
         tc.name,
-        args,
+        (tc.arguments ?? {}) as Record<string, unknown>,
         tc.sessionId,
-        resolveApprovalFingerprint(tool ?? tc.name, args)
-      );
-    },
+        tc.id
+      ),
     buildToolRoundMessages: (msgs, am, tcs, prs) =>
       host._buildToolRoundMessages(msgs, am, tcs, prs),
   });

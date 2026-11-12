@@ -231,6 +231,25 @@ describe('P0-1：awaiting_approval 不算"已答"（否则批准后无物可重�
     ]);
     expect([...ids]).toEqual(['tc-bash']);
   });
+
+  it('落盘态（顶层无 toolCallId，id 只在 metadata.toolCallId）同样能捞出', () => {
+    // 真机 `session_mwd5mp8jd5fe8bce9c` 的形状：messages.jsonl 的 tool 消息
+    // `{ role:'tool', content:[{type:'tool_result', value}], metadata:{ toolCallId } }`
+    const ids = extractAwaitingApprovalToolCallIds([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool_result',
+            value: JSON.stringify(AWAITING_PAYLOAD),
+          },
+        ],
+        metadata: { toolCallId: 'call_00_LpFCNgAmxLeYpYsKZawV9783' },
+      },
+    ]);
+    // 修复前：id 取不到 ⇒ 空集 ⇒ 续跑把未落定调用当普通剩余工具重放（重复审批卡）
+    expect([...ids]).toEqual(['call_00_LpFCNgAmxLeYpYsKZawV9783']);
+  });
 });
 
 // 2026-11-12（真机 `session_mwcyhmmpd44e93b602`）：审批未落定的调用被续跑重放 ⇒
@@ -241,26 +260,24 @@ describe('审批未落定 ⇒ 续跑不重放（否则重复审批卡）', () =>
     { id: 'tc-awaiting', name: 'bash' },
     { id: 'tc-pending', name: 'bash' },
   ];
-  const awaiting = new Set(['tc-awaiting', 'tc-pending']);
 
-  it('剩余调用全部未落定 ⇒ 本次空转（不重放、不写重复结果）', () => {
-    const plan = planToolReplay(awaitingCalls, awaiting, new Set());
+  it('剩余调用全部仍被未处理审批卡挡住 ⇒ 本次空转（不重放、不写重复结果）', () => {
+    const plan = planToolReplay(
+      awaitingCalls,
+      new Set(['tc-awaiting', 'tc-pending'])
+    );
     expect(plan.replay).toEqual([]);
     expect(plan.skippedPendingCount).toBe(2);
   });
 
-  it('全部已落定 ⇒ 照旧重放（批准后必须执行）', () => {
-    const plan = planToolReplay(awaitingCalls, awaiting, awaiting);
+  it('审批已落定（不再被卡住）⇒ 照旧重放（批准后必须执行）', () => {
+    const plan = planToolReplay(awaitingCalls, new Set());
     expect(plan.replay.map((c) => c.id)).toEqual(['tc-awaiting', 'tc-pending']);
     expect(plan.skippedPendingCount).toBe(0);
   });
 
-  it('混合场景（一半已落定）⇒ 沿用原口径全量重放，不动重放锚点', () => {
-    const plan = planToolReplay(
-      awaitingCalls,
-      awaiting,
-      new Set(['tc-awaiting'])
-    );
+  it('混合场景（一半仍待批）⇒ 沿用原口径全量重放，不动重放锚点', () => {
+    const plan = planToolReplay(awaitingCalls, new Set(['tc-awaiting']));
     expect(plan.replay.map((c) => c.id)).toEqual(['tc-awaiting', 'tc-pending']);
     expect(plan.skippedPendingCount).toBe(0);
   });
@@ -268,7 +285,6 @@ describe('审批未落定 ⇒ 续跑不重放（否则重复审批卡）', () =>
   it('负向对照：无审批等待项时行为零变更（全部重放）', () => {
     const plan = planToolReplay(
       [...awaitingCalls, { id: 'tc-normal', name: 'grep' }],
-      new Set(),
       new Set()
     );
     expect(plan.replay.map((c) => c.id)).toEqual([

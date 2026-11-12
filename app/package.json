@@ -9,7 +9,8 @@
   "bin": {
     "Liri": "./src/main.ts",
     "liri-memory": "./src/cli/index.ts",
-    "liri-ink": "./src/cli/simple-ink-cli.tsx"
+    "liri-ink": "./src/cli/simple-ink-cli.tsx",
+    "liri-fence": "./src/entrypoints/fence.ts"
   },
   "scripts": {
     "dev": "bun run --watch src/main.ts",
@@ -18,6 +19,7 @@
     "start": "bun run src/main.ts",
     "eval": "bun run src/evals/cli.ts",
     "build": "bun build src/main.ts --outdir=dist --target=bun --external imapflow --external yoga-layout",
+    "build:fence": "bun build src/entrypoints/fence.ts --outdir=dist --target=bun",
     "build:core": "bun run scripts/build-variant.ts --variant=core",
     "build:personal": "bun run scripts/build-variant.ts --variant=personal",
     "build:coding": "bun run scripts/build-variant.ts --variant=coding",

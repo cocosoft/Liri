@@ -18,8 +18,8 @@ import {
   MAX_OUTPUT_BYTES_HARD,
   MAX_OUTPUT_BYTES_SOFT,
   resolveOutputLimit,
-} from '../../src/sandbox/SandboxPolicy';
-import { PTYSandbox } from '../../src/sandbox/PTYSandbox';
+} from '@modules/sandbox/SandboxPolicy';
+import { PTYSandbox } from '@modules/sandbox/PTYSandbox';
 
 describe('B1: resolveOutputLimit —— 输出上限的唯一来源', () => {
   it('不传参数 ⇒ 取唯一来源常量（后端不再自设 1MB 之类的就地默认）', () => {

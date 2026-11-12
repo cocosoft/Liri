@@ -19,11 +19,11 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { LocalWorkspace } from '../../src/sandbox/adapters/LocalWorkspace';
+import { LocalWorkspace } from '@modules/sandbox/adapters/LocalWorkspace';
 import {
   SandboxPlatform,
   createDefaultSandboxConfig,
-} from '../../src/sandbox/SandboxTypes';
+} from '@modules/sandbox/SandboxTypes';
 
 function makeWorkspace(workingDirectory?: string): LocalWorkspace {
   return new LocalWorkspace(

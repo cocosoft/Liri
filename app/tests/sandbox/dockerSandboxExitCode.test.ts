@@ -12,12 +12,12 @@
  *  ⑤ `docker create` 非 0 ⇒ `initialize()` 失败。
  */
 import { describe, expect, it } from 'bun:test';
-import { DockerSandbox } from '../../src/sandbox/docker/DockerSandbox';
-import type { DockerCliResult } from '../../src/sandbox/docker/dockerCli';
+import { DockerSandbox } from '@modules/sandbox/docker/DockerSandbox';
+import type { DockerCliResult } from '@modules/sandbox/docker/dockerCli';
 import type {
   SandboxConfig,
   SandboxPlatform,
-} from '../../src/sandbox/SandboxTypes';
+} from '@modules/sandbox/SandboxTypes';
 
 interface Scripted {
   code: number | null;

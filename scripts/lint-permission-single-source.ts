@@ -21,6 +21,8 @@
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
+// P0（2026-11-12）：沙箱路径不再手写 —— 搬包时只改 `sandboxPaths` 一处
+import { sandboxRepoRel } from './lib/sandboxPaths';
 
 // `PYAPP_PROJECT_DIR` 仅用于**单测夹具**（指向临时工程树）；生产/CI 走脚本自身位置。
 const REPO_ROOT = process.env.PYAPP_PROJECT_DIR
@@ -106,7 +108,7 @@ const ALLOWLIST: Record<
   string,
   { reason: string; rules: Array<'dangerous-literals' | 'readonly-literals'> }
 > = {
-  'app/src/sandbox/SandboxSecurityChecker.ts': {
+  [sandboxRepoRel('SandboxSecurityChecker.ts')]: {
     reason:
       'CD07：沙箱层刻意保留独立的危险命令集合（纵深防御，方案 §3 第 4 条「不合并」）',
     rules: ['dangerous-literals'],
@@ -130,7 +132,7 @@ const ALLOWLIST: Record<
     reason: 'READONLY_MODE 的配置默认值（用户可覆盖），非安全判定的只读目录',
     rules: ['readonly-literals'],
   },
-  'app/src/sandbox/utils/DangerousCommandChecker.ts': {
+  [sandboxRepoRel('utils', 'DangerousCommandChecker.ts')]: {
     reason:
       'CD07：沙箱危险命令检查器（纵深层，`bashSecurityGate` 头注明确「并存且刻意分层」）',
     rules: ['dangerous-literals'],

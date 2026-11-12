@@ -17,13 +17,13 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { DOCKER_CONFIG_KEYS } from '../../src/sandbox/docker/index.js';
-import { SandboxPlatform } from '../../src/sandbox/SandboxTypes.js';
-import { globalWorkspaceManager } from '../../src/sandbox/WorkspaceManager.js';
+import { DOCKER_CONFIG_KEYS } from '@modules/sandbox/docker/index';
+import { SandboxPlatform } from '@modules/sandbox/SandboxTypes';
+import { globalWorkspaceManager } from '@modules/sandbox/WorkspaceManager';
 import {
   resolveFileIoToolModeHint,
   resolveSandboxExecutionSignal,
-} from '../../src/sandbox/index.js';
+} from '@modules/sandbox';
 import { RuleManager } from '@openliri/infra/permission/RuleManager';
 import { PermissionChecker } from '@openliri/infra/permission/PermissionChecker';
 import { PermissionDecisionType } from '@openliri/infra/permission/types/PermissionDecision';

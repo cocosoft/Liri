@@ -29,12 +29,12 @@
  * 空字节 / zsh equals / 环境变量污染 / 工作目录白名单；并含**正常命令通过**（防"恒拒"假绿）。
  */
 import { describe, it, expect } from 'bun:test';
-import { SandboxSecurityChecker } from '../../src/sandbox/SandboxSecurityChecker';
+import { SandboxSecurityChecker } from '@modules/sandbox/SandboxSecurityChecker';
 import {
   createDefaultSandboxConfig,
   createSandboxExecuteOptions,
   SandboxPlatform,
-} from '../../src/sandbox/SandboxTypes';
+} from '@modules/sandbox/SandboxTypes';
 
 const checker = new SandboxSecurityChecker();
 

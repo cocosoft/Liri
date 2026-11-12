@@ -19,8 +19,8 @@ import {
   scopedActiveWorkspaceCount,
   scopedDefaultWorkspaceId,
   LOCAL_DEFAULT_WORKSPACE_ID,
-} from '../../src/sandbox/scopedDefaultWorkspace.js';
-import { globalWorkspaceManager } from '../../src/sandbox/WorkspaceManager.js';
+} from '@modules/sandbox/scopedDefaultWorkspace';
+import { globalWorkspaceManager } from '@modules/sandbox/WorkspaceManager';
 import { SandboxPermission } from '@openliri/kernel/sandboxPermission.js';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import {

@@ -14,8 +14,8 @@ import { describe, expect, it } from 'bun:test';
 import {
   compileNetworkPolicy,
   type NetworkPolicyPlan,
-} from '../../src/sandbox/docker/NetworkPolicyEngine';
-import type { DockerNetworkConfig } from '../../src/sandbox/docker/DockerNetworkPolicy';
+} from '@modules/sandbox/docker/NetworkPolicyEngine';
+import type { DockerNetworkConfig } from '@modules/sandbox/docker/DockerNetworkPolicy';
 
 function plan(config: DockerNetworkConfig): NetworkPolicyPlan {
   return compileNetworkPolicy(config);

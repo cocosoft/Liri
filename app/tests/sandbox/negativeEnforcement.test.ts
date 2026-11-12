@@ -35,8 +35,8 @@ import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { LandlockDetector, runWithLandlock } from '../../src/sandbox';
-import type { LandlockPolicy } from '../../src/sandbox';
+import { LandlockDetector, runWithLandlock } from '@modules/sandbox';
+import type { LandlockPolicy } from '@modules/sandbox';
 
 const cap = await LandlockDetector.detect({
   helperPath: process.env.LANDLOCK_RUN_HELPER || 'landlock-run',

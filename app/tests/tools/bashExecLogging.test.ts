@@ -46,8 +46,8 @@ import {
   type LandlockHelperRunner,
   type PlainRunner,
 } from '../../src/tools/bash/bashLandlockExec.js';
-import { DEFAULT_LANDLOCK_CONFIG } from '../../src/sandbox';
-import type { LandlockCapability, LandlockConfig } from '../../src/sandbox';
+import { DEFAULT_LANDLOCK_CONFIG } from '@modules/sandbox';
+import type { LandlockCapability, LandlockConfig } from '@modules/sandbox';
 
 /** 造配置：默认项 + 覆盖（与 bashLandlockExec.test.ts 同构） */
 function cfg(over: Partial<LandlockConfig> = {}): LandlockConfig {

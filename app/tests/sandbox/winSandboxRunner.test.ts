@@ -11,7 +11,7 @@ import {
   runCodeRunnerWithWindowsSandbox,
 } from '../../src/tools/CodeRunner/WindowsSandboxRunner';
 import type { CodeRunnerExecOptions } from '../../src/tools/CodeRunner/CrossPlatformRunner';
-import type { LandlockConfig } from '../../src/sandbox/landlock/config';
+import type { LandlockConfig } from '@modules/sandbox/landlock/config';
 
 const opts = {
   bridge: {} as never,

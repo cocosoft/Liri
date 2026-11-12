@@ -44,7 +44,7 @@ import {
   type LandlockConfig,
   type WinSandboxRunInput,
   type WinSandboxRunResult,
-} from '../../src/sandbox';
+} from '@modules/sandbox';
 
 function cfg(over: Partial<LandlockConfig> = {}): LandlockConfig {
   return { ...DEFAULT_LANDLOCK_CONFIG, enabled: true, ...over };

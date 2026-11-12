@@ -30,7 +30,7 @@ import {
 } from '@openliri/infra/environment';
 import { buildBashLandlockPolicy } from '../../src/tools/bash/bashLandlockExec';
 import { buildBunLandlockPolicy } from '../../src/tools/CodeRunner/LinuxSandboxRunner';
-import type { LandlockFsRule } from '../../src/sandbox/landlock/types';
+import type { LandlockFsRule } from '@modules/sandbox/landlock/types';
 
 const CWD = '/w';
 const HOME = homedir();

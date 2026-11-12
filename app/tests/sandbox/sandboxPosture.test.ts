@@ -12,7 +12,7 @@
  */
 
 import { describe, expect, test } from 'bun:test';
-import { describeSandboxPosture } from '../../src/sandbox/sandboxPosture';
+import { describeSandboxPosture } from '@modules/sandbox/sandboxPosture';
 
 describe('describeSandboxPosture（#7 沙箱姿态可读化）', () => {
   test('mode=none + 两个 fail-open 默认 ⇒ 三条风险全部列出', () => {

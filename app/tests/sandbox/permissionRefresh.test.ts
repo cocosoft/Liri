@@ -11,13 +11,13 @@
 import { describe, expect, it } from 'bun:test';
 import { SandboxPermission } from '@openliri/kernel/sandboxPermission.js';
 import { resolveSandbox } from '@openliri/kernel/spi';
-import { permissionsForPermissionLevel } from '../../src/sandbox/permissionLevel';
+import { permissionsForPermissionLevel } from '@modules/sandbox/permissionLevel';
 import {
   SandboxPlatform,
   createDefaultSandboxConfig,
-} from '../../src/sandbox/SandboxTypes';
-import { LocalWorkspace } from '../../src/sandbox/adapters/LocalWorkspace';
-import { refreshScopedDefaultWorkspacePermissions } from '../../src/sandbox/scopedDefaultWorkspace';
+} from '@modules/sandbox/SandboxTypes';
+import { LocalWorkspace } from '@modules/sandbox/adapters/LocalWorkspace';
+import { refreshScopedDefaultWorkspacePermissions } from '@modules/sandbox/scopedDefaultWorkspace';
 
 describe('P1-2 级别 → 权限位映射（单一事实源）', () => {
   it('readonly / standard / full 三档', () => {

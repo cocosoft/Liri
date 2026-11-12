@@ -16,7 +16,7 @@ import {
   detectWindowsSandboxCapability,
   resolveWinSandboxHelperCandidates,
   resolveWinSandboxHelperPath,
-} from '../../src/sandbox/win';
+} from '@modules/sandbox/win';
 
 const PROJECT = 'C:\\proj';
 /** 期望路径一律用 `join()` 生成：CI 在 ubuntu/macos 也跑这些用例，写死 `\\` 会在 POSIX 上失败 */

@@ -27,10 +27,7 @@ import type {
   IcaclsResult,
   IcaclsRunner,
 } from '../../src/tools/bash/bashWindowsSandbox';
-import type {
-  WinSandboxRunInput,
-  WinSandboxRunResult,
-} from '../../src/sandbox';
+import type { WinSandboxRunInput, WinSandboxRunResult } from '@modules/sandbox';
 
 const workDir = mkdtempSync(join(tmpdir(), 'pwsh-win-sandbox-'));
 

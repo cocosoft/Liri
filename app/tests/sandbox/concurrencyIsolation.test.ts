@@ -28,13 +28,13 @@
  *     ⇒ 无共享可变状态导致的串线（用注入 runner 离线断言，跨平台稳定）。
  */
 import { describe, it, expect } from 'bun:test';
-import { ProcessRegistry } from '../../src/sandbox/ProcessRegistry';
+import { ProcessRegistry } from '@modules/sandbox/ProcessRegistry';
 import {
   execBashCommand,
   type LandlockHelperRunner,
 } from '../../src/tools/bash/bashLandlockExec';
-import { DEFAULT_LANDLOCK_CONFIG } from '../../src/sandbox';
-import type { LandlockCapability, LandlockConfig } from '../../src/sandbox';
+import { DEFAULT_LANDLOCK_CONFIG } from '@modules/sandbox';
+import type { LandlockCapability, LandlockConfig } from '@modules/sandbox';
 
 const AVAILABLE: LandlockCapability = { available: true, abi: 3 };
 const cfg: LandlockConfig = { ...DEFAULT_LANDLOCK_CONFIG, bashEnabled: true };

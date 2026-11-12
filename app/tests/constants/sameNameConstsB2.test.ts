@@ -12,7 +12,7 @@
 
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 
 import {
   COMMON_HEARTBEAT_INTERVAL,
@@ -22,9 +22,15 @@ import {
   MAX_CACHE_SIZE_BYTES,
   MAX_FILENAME_LENGTH,
 } from '@openliri/infra/constants';
+// P0（2026-11-12）：沙箱源码位置走单一事实源 —— 该模块搬包后本测试无需改
+import { sandboxPath } from '../../../scripts/lib/sandboxPaths';
 
 const APP = resolve(import.meta.dir, '../..');
+const REPO = resolve(APP, '..');
 const read = (rel: string) => readFileSync(join(APP, rel), 'utf8');
+/** 沙箱源码（相对 `app/` 的路径，交给 `read` 统一拼接） */
+const sandboxRel = (...segments: string[]) =>
+  relative(APP, sandboxPath(REPO, ...segments));
 /** 内核已物理迁出 `app/src/core` ⇒ 仓库根 `packages/kernel/src/core`（方案 §4-P4） */
 const KERNEL = resolve(APP, '..', 'packages', 'kernel', 'src', 'core');
 const readKernel = (rel: string) => readFileSync(join(KERNEL, rel), 'utf8');
@@ -345,7 +351,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
         '60_000',
       ],
       [
-        'src/sandbox/utils/TimeoutController.ts',
+        sandboxRel('utils', 'TimeoutController.ts'),
         'SANDBOX_DEFAULT_TIMEOUT_MS',
         '300000',
       ],
@@ -378,7 +384,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       expect(src).toContain(`${value};`);
     }
     // 唯一的**跨文件**消费侧：`sandbox/SandboxManager.ts` 曾从 `TimeoutController` 按旧名导入 ⇒ 同步改名（防"只改定义未改导入"）
-    const sandboxMgr = read('src/sandbox/SandboxManager.ts');
+    const sandboxMgr = read(sandboxRel('SandboxManager.ts'));
     expect(sandboxMgr).not.toMatch(/\bDEFAULT_TIMEOUT_MS/);
     expect(sandboxMgr).toContain('SANDBOX_DEFAULT_TIMEOUT_MS');
   });

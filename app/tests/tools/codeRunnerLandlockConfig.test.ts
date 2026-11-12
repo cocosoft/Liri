@@ -25,7 +25,7 @@ import {
 import { runRpcChildProcess } from '../../src/tools/CodeRunner/CrossPlatformRunner';
 import { CodeRunnerBridge } from '../../src/tools/CodeRunner/RuntimeBridge';
 import type { CodeRunResult } from '../../src/tools/CodeRunner/types';
-import type { LandlockCapability, LandlockConfig } from '../../src/sandbox';
+import type { LandlockCapability, LandlockConfig } from '@modules/sandbox';
 
 function cfg(over: Partial<LandlockConfig> = {}): LandlockConfig {
   return { ...DEFAULT_LANDLOCK_CONFIG, ...over };

@@ -17,7 +17,7 @@ import {
   isSandboxSignalUsable,
   resolveSandboxExecutionSignal,
   resolveSandboxPermissionLevel,
-} from '../../src/sandbox/sandboxExecutionSignal.js';
+} from '@modules/sandbox/sandboxExecutionSignal';
 
 describe('PR-3a 沙箱权限位解析', () => {
   it('未配置 ⇒ 默认 standard（不是 full）', () => {

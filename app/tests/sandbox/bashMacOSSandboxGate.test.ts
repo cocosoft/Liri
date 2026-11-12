@@ -7,9 +7,9 @@
 // 且 linux / 其他平台的原判据零变更（回归）。
 import { describe, expect, it } from 'bun:test';
 import { decideBashLandlockGate } from '../../src/tools/bash/bashLandlockExec';
-import { buildSandboxExecArgv } from '../../src/sandbox/darwin/runWithSandboxExec';
-import type { LandlockConfig } from '../../src/sandbox/landlock/config';
-import type { LandlockCapability } from '../../src/sandbox/landlock/types';
+import { buildSandboxExecArgv } from '@modules/sandbox/darwin/runWithSandboxExec';
+import type { LandlockConfig } from '@modules/sandbox/landlock/config';
+import type { LandlockCapability } from '@modules/sandbox/landlock/types';
 
 const onConfig: LandlockConfig = {
   enabled: true,

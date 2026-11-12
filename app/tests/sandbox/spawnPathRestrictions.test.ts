@@ -45,13 +45,13 @@ import {
   execBashCommand,
   type LandlockHelperRunner,
 } from '../../src/tools/bash/bashLandlockExec.js';
-import { buildLandlockArgv } from '../../src/sandbox/landlock/runWithLandlock.js';
+import { buildLandlockArgv } from '@modules/sandbox/landlock/runWithLandlock';
 import { buildBunLandlockPolicy } from '../../src/tools/CodeRunner/LinuxSandboxRunner.js';
 import {
   DEFAULT_LANDLOCK_CONFIG,
   type LandlockCapability,
   type LandlockConfig,
-} from '../../src/sandbox/index.js';
+} from '@modules/sandbox';
 
 const AVAILABLE: LandlockCapability = { available: true, abi: 3 };
 const CWD = '/repo/work';

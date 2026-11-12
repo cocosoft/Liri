@@ -17,6 +17,7 @@ import {
   PermissionDecisionType,
 } from '../types/PermissionDecision';
 import { checkReadonlyCommand } from '../classifiers/readonly-command-allowlist';
+import { checkCompoundReadOnly } from '../../security/compoundReadOnly';
 import { ruleLabel } from './moduleScope';
 
 // 本文件无自有 logger：审计走 logSecurityAuditEvent，计数器走 OTel meter。
@@ -32,12 +33,18 @@ const DEFAULT_ALLOW_REASON = 'No matching rules, default allowing';
 /**
  * 命令类别（2026-11-13，G4 观察期 A 方案）：
  * 无命令入参 ⇒ `non-shell`；否则复用权限层的只读分类器（**单一事实源**，CS01）。
+ *
+ * 复合口径（2026-11-13 观察期回放）：`checkReadonlyCommand` 只认**单一简单命令**，
+ * `cd X && dir /b` / `dir /s /b *.ts | find /c /v ""` 这类"全段只读"会被判 `write-or-exec`
+ * ⇒ 用既有 `checkCompoundReadOnly`（同一命令目录单一事实源）补一层；含写入段则仍为
+ * `write-or-exec`（回放实测：write-or-exec 150 → 73，S1 残余告警 1 → 0）。
  */
 function resolveCommandClass(
   command: string | undefined
 ): 'read-only' | 'write-or-exec' | 'non-shell' {
   if (!command) return 'non-shell';
-  return checkReadonlyCommand(command).allowed ? 'read-only' : 'write-or-exec';
+  if (checkReadonlyCommand(command).allowed) return 'read-only';
+  return checkCompoundReadOnly(command).allowed ? 'read-only' : 'write-or-exec';
 }
 
   /**

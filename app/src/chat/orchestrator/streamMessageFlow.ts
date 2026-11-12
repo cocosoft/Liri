@@ -150,6 +150,7 @@ import {
   sleep,
   resolveCompactionFailureAttribution,
   buildCompactionDoneData,
+  summaryMessageIdField,
   // P2-1d-1（S6 压缩段函数化）：折叠区间 / 摘要派生（纯函数）
   deriveCompactionFold,
   // P2-1d-4（S6 degradation 段函数化）：降级水位载荷构造（纯函数）
@@ -449,7 +450,7 @@ export async function* runStreamMessage(
                   data: {
                     content: summary,
                     keywords: summaryKeywords,
-                    summaryMessageId,
+                    ...summaryMessageIdField(summaryMessageId),
                     compactedRange,
                     sourceEventSeqs: compressedSeqs,
                   },

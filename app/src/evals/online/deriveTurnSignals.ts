@@ -181,7 +181,10 @@ export function deriveTurnSignals(events: LiriEvent[]): DerivedTurn[] {
           signals: {
             status,
             toolCalls: open.toolCalls,
-            durationMs: open.durationMs > 0 ? open.durationMs : undefined,
+            // 2026-11-13：可选字段**有值才写键** —— `undefined` 键会被事件写入的
+            // 无损 JSON 校验整条拒绝（会话 `session_mwdcivrue74d4838ff` 的
+            // `turn/quality` 事件就这么丢的）。
+            ...(open.durationMs > 0 ? { durationMs: open.durationMs } : {}),
             inputTokens: open.inputTokens,
             outputTokens: open.outputTokens,
           },

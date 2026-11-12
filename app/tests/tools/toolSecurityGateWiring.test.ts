@@ -309,6 +309,24 @@ describe('PowerShell allowlist：按语句动词判定', () => {
     }
   });
 
+  // 2026-11-13（会话 `session_mwdcivrue74d4838ff`）：`.AddHours(…)` 等 DateTime
+  // 纯内存算术被误杀（真机 2 次）⇒ 补进只读方法白名单；有副作用的仍拒绝。
+  it('DateTime 纯内存算术放行（AddHours/AddDays），IO 方法仍拒', async () => {
+    const { explainPowerShellNotAllowed } =
+      await import('../../src/tools/PowerShellTool/PowerShellTool.js');
+    for (const command of [
+      "(Get-Date).AddHours(-8).ToString('yyyy-MM-dd HH:mm')",
+      '(Get-Date).AddDays(-1)',
+      '(Get-Date).ToUniversalTime()',
+    ]) {
+      expect(explainPowerShellNotAllowed(command)).toBeNull();
+    }
+    // 负向对照：同一形态但方法有副作用 ⇒ 仍 fail-closed
+    expect(
+      explainPowerShellNotAllowed('(Get-Item a.md).Delete()')
+    ).not.toBeNull();
+  });
+
   it('F4：动词不在白名单时，报文给出**命中的语句与动词**', async () => {
     const { explainPowerShellNotAllowed } =
       await import('../../src/tools/PowerShellTool/PowerShellTool.js');

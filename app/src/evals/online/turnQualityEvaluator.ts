@@ -319,7 +319,10 @@ async function evaluateSession(
       signals: {
         status: item.turn.signals.status,
         toolCalls: item.turn.signals.toolCalls,
-        durationMs: item.turn.signals.durationMs,
+        // 2026-11-13：可选字段有值才写键（`undefined` 键会被事件写入整条拒绝）
+        ...(item.turn.signals.durationMs !== undefined
+          ? { durationMs: item.turn.signals.durationMs }
+          : {}),
         inputTokens: item.turn.signals.inputTokens,
         outputTokens: item.turn.signals.outputTokens,
       },

@@ -21,6 +21,7 @@ import type { RuleContext, RuleManager } from '../RuleManager';
 import { resolveApprovalFingerprint } from '../approvalFingerprint';
 import type { ClassifierManager } from '../classifiers/auto-mode-classifier-manager';
 import { checkReadonlyCommand } from '../classifiers/readonly-command-allowlist';
+import { checkCompoundReadOnly } from '../../security/compoundReadOnly';
 import type { DenialTracker } from '../trackers/DenialTracker';
 import type { PermissionContext } from '../types/PermissionContext';
 import {
@@ -303,18 +304,29 @@ export interface ModeHandlerDeps {
 
     // 语义护栏「便宜版」（2026-10-21）：意图-动作偏离 ⇒ 升级为 ask（**不直接拒绝**）。
     // 位置在所有显式规则之后、默认行为之前 —— 用户显式 allow/deny/ask 规则始终优先。
+    // 2026-11-13（观察期真机）：护栏对 `bash` 一视同仁 ⇒ `cd X && findstr … | more`
+    // 这类**结构性只读**检索被规则化误判成"会变更状态"，每查一次弹一张审批卡。
+    // 只读判据复用只读目录的单一事实源（简单命令 + 复合只读），不含任何写/执行段才跳过。
     if (feature('INTENT_ACTION_DEVIATION_GUARD')) {
-      const goalText =
-        typeof context.metadata?.['goalText'] === 'string'
-          ? (context.metadata['goalText'] as string)
-          : undefined;
-      const deviation = detectIntentActionDeviation({
-        ...(goalText !== undefined ? { goalText } : {}),
-        toolName,
-        input,
-      });
-      if (deviation.deviated && deviation.reason) {
-        return createAskDecision(deviation.reason);
+      const command =
+        typeof input['command'] === 'string' ? input['command'] : undefined;
+      const structurallyReadOnly = command
+        ? checkReadonlyCommand(command).allowed ||
+          checkCompoundReadOnly(command).allowed
+        : false;
+      if (!structurallyReadOnly) {
+        const goalText =
+          typeof context.metadata?.['goalText'] === 'string'
+            ? (context.metadata['goalText'] as string)
+            : undefined;
+        const deviation = detectIntentActionDeviation({
+          ...(goalText !== undefined ? { goalText } : {}),
+          toolName,
+          input,
+        });
+        if (deviation.deviated && deviation.reason) {
+          return createAskDecision(deviation.reason);
+        }
       }
     }
 

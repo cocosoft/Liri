@@ -16,6 +16,7 @@ import { resolveSecurityDir } from '@openliri/infra/environment';
 import { getRuntimeDefaults } from '@openliri/infra/constants/defaults';
 import { getLogger } from '@openliri/infra/monitoring';
 import { writeFileAtomic } from '@openliri/infra/utils/atomicFileWrite';
+import type { SandboxViolationEvent } from '@modules/sandbox';
 import type { SandboxPosture } from '@modules/sandbox/sandboxPosture';
 
 const logger = getLogger('sandbox:postureSnapshot');
@@ -45,26 +46,42 @@ export interface SandboxPostureSnapshot {
   openRiskCodes: string[];
   /** 同上的人类可读说明（仅供取证展示） */
   openRisks: string[];
-  /** 沙箱违规累计数（当前 `recordViolation()` 尚未接线 ⇒ 恒 0，见 M0-①） */
+  /** 沙箱违规累计数（内存保留上限见 `MAX_RECORDED_SANDBOX_VIOLATIONS`） */
   violationCount: number;
+  /** 最近若干条违规（按时间升序；供围栏取证，不落完整历史） */
+  recentViolations: Array<{
+    /** 语言中立类型编码（`write-denied` / `init-failed`） */
+    type: string;
+    message: string;
+    timestamp: string;
+  }>;
 }
 
 /** 采集源：由调用方每次现取（姿态可随配置变化，不缓存启动时的快照） */
 export interface SandboxPostureSnapshotSource {
   posture: SandboxPosture;
-  violationCount: number;
+  /** 当前内存中的违规记录（数量与最近条目均从此派生，避免计数与列表不一致） */
+  violations: ReadonlyArray<SandboxViolationEvent>;
 }
 
 /**
+ * 快照里保留的最近违规条数（只取尾部 N 条；完整历史不落盘）。
+ *
+ * 为什么是 20：围栏只做"最近是否发生越界"的判别与取证展示，
+ * 全量序列化会让 30s 一次的落盘随历史线性增长。
+ */
+export const SANDBOX_POSTURE_SNAPSHOT_RECENT_VIOLATIONS = 20;
+
+/**
  * 构造快照（**纯函数**，不做 IO）。
- * @param source 当前姿态与违规计数
+ * @param source 当前姿态与违规记录
  * @param now 采集时刻（单测注入，默认当前时间）
  */
 export function buildSandboxPostureSnapshot(
   source: SandboxPostureSnapshotSource,
   now: Date = new Date()
 ): SandboxPostureSnapshot {
-  const { posture } = source;
+  const { posture, violations } = source;
   return {
     schemaVersion: SANDBOX_POSTURE_SNAPSHOT_SCHEMA_VERSION,
     capturedAt: now.toISOString(),
@@ -79,7 +96,14 @@ export function buildSandboxPostureSnapshot(
     },
     openRiskCodes: [...posture.openRiskCodes],
     openRisks: [...posture.openRisks],
-    violationCount: source.violationCount,
+    violationCount: violations.length,
+    recentViolations: violations
+      .slice(-SANDBOX_POSTURE_SNAPSHOT_RECENT_VIOLATIONS)
+      .map((violation) => ({
+        type: violation.type,
+        message: violation.message,
+        timestamp: violation.timestamp.toISOString(),
+      })),
   };
 }
 

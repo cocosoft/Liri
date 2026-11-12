@@ -10,6 +10,7 @@ import {
   SandboxFilesystemConfig,
   SandboxNetworkConfig,
   SandboxExecuteResult,
+  MAX_RECORDED_SANDBOX_VIOLATIONS,
   createDefaultSandboxSettings,
   createDefaultSandboxConstraints,
 } from './SandboxTypes';
@@ -247,6 +248,9 @@ export class SandboxManager {
 
   /**
    * 记录沙箱违规
+   *
+   * G4 围栏 M0-①（2026-11-12）：保留最近 `MAX_RECORDED_SANDBOX_VIOLATIONS` 条
+   * （超限丢最旧）—— 违规是只增观测面，不设上限会在长跑进程里无界增长。
    */
   public recordViolation(
     event: Omit<SandboxViolationEvent, 'timestamp'>
@@ -255,6 +259,12 @@ export class SandboxManager {
       ...event,
       timestamp: new Date(),
     });
+    if (this.violations.length > MAX_RECORDED_SANDBOX_VIOLATIONS) {
+      this.violations.splice(
+        0,
+        this.violations.length - MAX_RECORDED_SANDBOX_VIOLATIONS
+      );
+    }
   }
 
   /**

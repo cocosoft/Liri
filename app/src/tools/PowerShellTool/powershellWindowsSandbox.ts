@@ -22,7 +22,7 @@ import {
   resolveTempDir,
 } from '@openliri/infra/environment';
 import { getLogger } from '@openliri/infra/monitoring';
-import { readLandlockConfig } from '@modules/sandbox';
+import { readLandlockConfig, recordSandboxViolation } from '@modules/sandbox';
 // 与 bash 同一输出上限（16MB），避免 powershell 侧再写一份常量
 import { BASH_EXEC_MAX_BUFFER_BYTES } from '../bash/bashOutputTruncate';
 import {
@@ -187,6 +187,12 @@ export async function runPowerShellInWindowsSandbox(
   /** 初始化不可用：按 failClosed 决定拒绝还是降级（与 bash 同口径） */
   const initFailure = (detail: string): PowerShellSandboxAttempt => {
     if (config.failClosed) {
+      // G4 围栏 M0-①：failClosed 下"无法施加隔离 ⇒ 拒绝执行"属沙箱拦截
+      recordSandboxViolation(
+        'init-failed',
+        'Windows 写隔离未就绪且 failClosed=true ⇒ 拒绝执行 powershell',
+        { tool: 'powershell' }
+      );
       return {
         kind: 'refused',
         message:
@@ -268,9 +274,16 @@ export async function runPowerShellCommand(
   }
   if (result.exitCode !== 0) {
     // 写被 MIC 拒绝时如实归因（与 bash 的 `［sandbox_denied: write］` 同形）
-    const suffix = isWindowsAccessDenied(result.stderr)
-      ? '［sandbox_denied: write］'
-      : '';
+    const denied = isWindowsAccessDenied(result.stderr);
+    if (denied) {
+      // G4 围栏 M0-①：写入越界记一条违规（不落命令行正文）
+      recordSandboxViolation(
+        'write-denied',
+        'powershell 写入被 Windows Low IL 沙箱拒绝',
+        { tool: 'powershell', mode: 'windows-low-il' }
+      );
+    }
+    const suffix = denied ? '［sandbox_denied: write］' : '';
     executionFailure(
       `PowerShell 退出码 ${result.exitCode ?? 'null'}${suffix}`,
       {

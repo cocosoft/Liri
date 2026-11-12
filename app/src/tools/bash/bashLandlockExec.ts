@@ -77,6 +77,8 @@ import {
   processRegistry,
   killProcessTree,
   resolveLandlockHelperPath,
+  // G4 围栏 M0-①（2026-11-12）：沙箱拒绝写入时记账（供 sandbox-posture 快照/围栏消费）
+  recordSandboxViolation,
 } from '@modules/sandbox';
 import type {
   LandlockCapability,
@@ -829,6 +831,12 @@ export async function execBashCommand(
     result.helperFailed
   ) {
     if (config.failClosed) {
+      // G4 围栏 M0-①：无法施加隔离 ⇒ 拒绝执行，记一条沙箱拦截
+      recordSandboxViolation(
+        'init-failed',
+        'Windows 沙箱 helper 自身失败且 failClosed=true ⇒ 拒绝执行 bash',
+        { tool: 'bash', mode: gate.mode }
+      );
       throw new AppError(
         `Windows 沙箱 helper 自身失败（exit 126；failClosed=true）⇒ 拒绝执行：${result.stderr.slice(0, 500)}［sandbox_denied: init］`,
         ErrorCategory.EXECUTION,
@@ -847,6 +855,12 @@ export async function execBashCommand(
   // 会触发 failClosed=false 的 plain 回退 ⇒ **逃出沙箱**。故此处显式按门控模式收窄。
   if (gate.mode === 'landlock' && isSandboxInitFailure(result.exitCode ?? -1)) {
     if (config.failClosed) {
+      // G4 围栏 M0-①：同上的"无法施加隔离 ⇒ 拒绝执行"
+      recordSandboxViolation(
+        'init-failed',
+        'Landlock 初始化失败且 failClosed=true ⇒ 拒绝执行 bash',
+        { tool: 'bash', mode: gate.mode }
+      );
       throw new AppError(
         `Landlock 沙箱初始化失败（exit 125；failClosed=true）⇒ 拒绝执行：${result.stderr.slice(0, 500)}`,
         ErrorCategory.EXECUTION,
@@ -879,6 +893,14 @@ export async function execBashCommand(
       gate.mode === 'windows-low-il' && isWindowsAccessDenied(result.stderr)
         ? 'write'
         : undefined;
+    if (sandboxDenied) {
+      // G4 围栏 M0-①：记一条违规（只进观测面，不改本函数的抛错/退出码语义）
+      recordSandboxViolation(
+        'write-denied',
+        'bash 写入被 Windows Low IL 沙箱拒绝',
+        { commandPreview, mode: gate.mode }
+      );
+    }
     // B 类可观测性缺口 ③：命令非 0 退出补 warn（exitCode + stderr 截断）
     logger.warn('bash: exec_failed', {
       commandPreview,

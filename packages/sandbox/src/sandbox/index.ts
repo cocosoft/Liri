@@ -24,6 +24,9 @@
  */
 export * from './SandboxTypes';
 export { SandboxManager } from './SandboxManager';
+// G4 围栏 M0-①（2026-11-12）：沙箱违规的**唯一写入口**（各平台拒绝点调用）
+export { recordSandboxViolation } from './sandboxViolations';
+export type { SandboxViolationKind } from './sandboxViolations';
 export {
   checkDangerousCommand,
   containsExcludedCommand,

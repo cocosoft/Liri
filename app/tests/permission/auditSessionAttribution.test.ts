@@ -9,12 +9,15 @@
  */
 
 import { describe, expect, it } from 'bun:test';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   createAllowDecision,
   createAskDecision,
   createDenyDecision,
 } from '@openliri/infra/permission/types/PermissionDecision';
 import { buildAuditEvent } from '@openliri/infra/permission/manager/decisionTelemetry';
+import { logSecurityAuditEvent } from '@openliri/infra/security';
 
 describe('M0-②：权限决策审计的会话归因', () => {
   it('传入真实会话 id ⇒ 原样写入（不再冒充来源标签）', () => {
@@ -176,5 +179,39 @@ describe('G4 A 方案：审计事件的结构化字段（2026-11-13）', () => {
       );
       expect(event.commandClass).toBe('write-or-exec');
     }
+  });
+});
+
+/**
+ * 2026-11-13（真机）：新字段只加在 `buildAuditEvent`/类型上不够 —— `logSecurityAuditEvent`
+ * 按**显式字段清单**拼 JSON，落盘时把 `ruleCoverage`/`commandClass` 丢掉了
+ * （实测新审计行两字段为空，围栏 S1 结构化判据失效）。本用例钉住"落盘也有"。
+ */
+describe('G4 A 方案：结构化字段必须落盘（2026-11-13）', () => {
+  it('logSecurityAuditEvent 写出的最后一行 JSON 含 ruleCoverage / commandClass', () => {
+    const dir = process.env.LIRI_SECURITY_AUDIT_DIR;
+    expect(dir).toBeTruthy();
+
+    logSecurityAuditEvent(
+      buildAuditEvent(
+        createAllowDecision('No matching rules, default allowing'),
+        'bash',
+        { command: 'cd /d E:\\PY\\X && dir /b' },
+        's1'
+      )
+    );
+
+    const lines = readFileSync(
+      join(dir as string, 'security-audit.log'),
+      'utf8'
+    )
+      .trim()
+      .split('\n');
+    const persisted = JSON.parse(lines[lines.length - 1] as string) as {
+      ruleCoverage?: string;
+      commandClass?: string;
+    };
+    expect(persisted.ruleCoverage).toBe('uncovered');
+    expect(persisted.commandClass).toBe('read-only');
   });
 });

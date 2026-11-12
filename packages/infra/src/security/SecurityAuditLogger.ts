@@ -246,6 +246,10 @@ export function logSecurityAuditEvent(event: SecurityAuditEvent): void {
       decision: event.decision,
       userAction: event.userAction,
       riskLevel: event.riskLevel,
+      // 2026-11-13（G4 A 方案）：结构化字段必须**显式**序列化 —— 本函数按字段清单拼 JSON，
+      // 只加类型不加上这里 ⇒ 落盘缺字段（围栏读不到，S1 判据失效）。
+      ...(event.ruleCoverage ? { ruleCoverage: event.ruleCoverage } : {}),
+      ...(event.commandClass ? { commandClass: event.commandClass } : {}),
     });
 
     appendFileSync(logPath, logEntry + '\n', 'utf-8');

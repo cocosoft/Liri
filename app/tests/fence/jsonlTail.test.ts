@@ -27,7 +27,7 @@ describe('M1：readAppendedJsonlLines', () => {
       lines: [],
       nextOffset: 0,
       truncated: false,
-      tailFingerprint: '',
+      consumedHash: '',
     });
   });
 
@@ -94,7 +94,7 @@ describe('M1：readAppendedJsonlLines', () => {
       '/a.log',
       first.nextOffset,
       { readFile: fromText(newText) },
-      first.tailFingerprint
+      first.consumedHash
     );
     expect(afterReplace.truncated).toBe(true);
     expect(afterReplace.lines).toEqual(['{"t":"2026-11-12T09:59:59.000Z"}']);

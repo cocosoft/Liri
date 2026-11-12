@@ -1672,6 +1672,7 @@
       "app/src/context/types/SystemContext.ts",
       "app/src/dream/gather/SessionContentGatherer.ts",
       "app/src/entrypoints/fence/posture.ts",
+      "app/src/entrypoints/fence/rules.ts",
       "app/src/entrypoints/spiWiring.ts",
       "app/src/hooks/executors/HookExecutor.ts",
       "app/src/hooks/executors/StopHookExecutor.ts",

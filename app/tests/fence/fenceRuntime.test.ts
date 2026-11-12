@@ -74,6 +74,7 @@ function deps(dir: string, now: Date = NOW): FenceRuntimeDeps {
   return {
     paths: paths(dir),
     postureStaleAfterMs: STALE_AFTER_MS,
+    rules: { silentAllowRunLength: 3, denyRetryWindowMs: 60_000 },
     now: () => now,
   };
 }
@@ -163,7 +164,7 @@ describe('M1：运行时 tick', () => {
       paths(dir).posturePath,
       postureRaw('2026-11-12T09:59:50.000Z')
     );
-    const line1 = `${JSON.stringify({ timestamp: '2026-11-12T09:59:40.000Z', decision: 'auto_denied' })}\n`;
+    const line1 = `${JSON.stringify({ timestamp: '2026-11-12T09:59:40.000Z', command: 'echo hi', behavior: 'allow', decision: 'auto_allowed', riskLevel: 'medium', matchedRules: ['r1'] })}\n`;
     writeFileSync(paths(dir).auditLogPath, line1);
 
     const first = await fence.tick();
@@ -172,7 +173,7 @@ describe('M1：运行时 tick', () => {
     expect(first.heartbeat.audit.lastEventAt).toBe('2026-11-12T09:59:40.000Z');
     expect(first.heartbeat.posture.state).toBe('ok');
 
-    const line2 = `${JSON.stringify({ timestamp: '2026-11-12T09:59:55.000Z', decision: 'auto_allowed' })}\n`;
+    const line2 = `${JSON.stringify({ timestamp: '2026-11-12T09:59:55.000Z', command: 'echo hi', behavior: 'allow', decision: 'auto_allowed', riskLevel: 'medium', matchedRules: ['r1'] })}\n`;
     writeFileSync(paths(dir).auditLogPath, line1 + line2);
     const second = await fence.tick();
     expect(second.heartbeat.audit.appendedEvents).toBe(1);
@@ -185,13 +186,13 @@ describe('M1：运行时 tick', () => {
     const fence = createFence(deps(dir));
     writeFileSync(
       paths(dir).auditLogPath,
-      `${JSON.stringify({ timestamp: '2026-11-12T09:59:40.000Z' })}\n`
+      `${JSON.stringify({ timestamp: '2026-11-12T09:59:40.000Z', command: 'echo hi', behavior: 'allow' })}\n`
     );
     await fence.tick();
 
     writeFileSync(
       paths(dir).auditLogPath,
-      `${JSON.stringify({ timestamp: '2026-11-12T09:59:59.000Z' })}\n`
+      `${JSON.stringify({ timestamp: '2026-11-12T09:59:59.000Z', command: 'echo hi', behavior: 'allow' })}\n`
     );
     const afterRotation = await fence.tick();
     expect(afterRotation.alerts.map((a) => a.kind)).toContain('log-rotated');
@@ -226,5 +227,112 @@ describe('M1：运行时 tick', () => {
     expect(result.heartbeat.audit.appendedEvents).toBe(1);
     expect(result.heartbeat.audit.lastEventAt).toBeUndefined();
     expect(result.alerts.map((a) => a.kind)).toContain('audit-line-invalid');
+  });
+});
+
+describe('M2：三条观察规则（默认只观察）', () => {
+  it('S1：同一 tick 内连续 3 次空转放行 ⇒ silent-allow-streak，且不重复刷屏', async () => {
+    const dir = makeTmpDir();
+    const fence = createFence(deps(dir));
+    const silent = (second: number) =>
+      `${JSON.stringify({
+        timestamp: `2026-11-12T09:59:${String(second).padStart(2, '0')}.000Z`,
+        command: 'ls',
+        originalCommand: 'ls',
+        behavior: 'allow',
+        decision: 'auto_allowed',
+        riskLevel: 'high',
+        matchedRules: [],
+      })}\n`;
+    writeFileSync(paths(dir).auditLogPath, silent(1) + silent(2) + silent(3));
+
+    const first = await fence.tick();
+    const s1 = first.alerts.filter((a) => a.kind === 'silent-allow-streak');
+    expect(s1).toHaveLength(1);
+
+    // 再追加 1 次（未满新一轮阈值）⇒ 不再告警
+    writeFileSync(
+      paths(dir).auditLogPath,
+      silent(1) + silent(2) + silent(3) + silent(4)
+    );
+    const second = await fence.tick();
+    expect(
+      second.alerts.filter((a) => a.kind === 'silent-allow-streak')
+    ).toHaveLength(0);
+  });
+
+  it('S2：deny 后同命令再次出现 ⇒ deny-retry（空白归一后比较）', async () => {
+    const dir = makeTmpDir();
+    const fence = createFence(deps(dir));
+    const line = (second: number, command: string, behavior: string) =>
+      `${JSON.stringify({
+        timestamp: `2026-11-12T09:59:${String(second).padStart(2, '0')}.000Z`,
+        command,
+        originalCommand: command,
+        behavior,
+        decision: behavior === 'deny' ? 'auto_denied' : 'auto_allowed',
+        riskLevel: 'high',
+        matchedRules: ['r1'],
+      })}\n`;
+    writeFileSync(
+      paths(dir).auditLogPath,
+      line(1, 'rm -rf /tmp/x', 'deny') + line(5, 'rm   -rf   /tmp/x', 'deny')
+    );
+
+    const result = await fence.tick();
+    expect(result.alerts.map((a) => a.kind)).toContain('deny-retry');
+  });
+
+  it('S4：姿态 fail-open 编码变化时告警一次（重复不变不刷屏，恢复后可再报）', async () => {
+    const dir = makeTmpDir();
+    const fence = createFence(deps(dir));
+    writeFileSync(
+      paths(dir).posturePath,
+      postureRaw('2026-11-12T09:59:50.000Z', {
+        openRiskCodes: ['mode-none'],
+      })
+    );
+
+    const first = await fence.tick();
+    expect(first.alerts.map((a) => a.kind)).toContain('sandbox-fail-open');
+
+    const second = await fence.tick();
+    expect(
+      second.alerts.filter((a) => a.kind === 'sandbox-fail-open')
+    ).toHaveLength(0);
+
+    // 编码集合扩大 ⇒ 再告警一次
+    writeFileSync(
+      paths(dir).posturePath,
+      postureRaw('2026-11-12T09:59:55.000Z', {
+        openRiskCodes: ['mode-none', 'landlock-fail-open'],
+      })
+    );
+    const third = await fence.tick();
+    expect(
+      third.alerts.filter((a) => a.kind === 'sandbox-fail-open')
+    ).toHaveLength(1);
+
+    // 风险清零（无 fail-open 编码）⇒ 不告警，且位被清空
+    writeFileSync(
+      paths(dir).posturePath,
+      postureRaw('2026-11-12T09:59:58.000Z', { openRiskCodes: [] })
+    );
+    const fourth = await fence.tick();
+    expect(
+      fourth.alerts.filter((a) => a.kind === 'sandbox-fail-open')
+    ).toHaveLength(0);
+
+    // 再次出现 ⇒ 可再次告警（不是一次性静音）
+    writeFileSync(
+      paths(dir).posturePath,
+      postureRaw('2026-11-12T09:59:59.000Z', {
+        openRiskCodes: ['mode-none'],
+      })
+    );
+    const fifth = await fence.tick();
+    expect(
+      fifth.alerts.filter((a) => a.kind === 'sandbox-fail-open')
+    ).toHaveLength(1);
   });
 });

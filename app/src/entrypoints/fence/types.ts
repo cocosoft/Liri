@@ -45,14 +45,18 @@ export interface FencePostureObservation {
   reason?: string;
 }
 
-/** 围栏告警类别（M1 只覆盖生命周期事件；S1–S4 规则在 M2） */
+/** 围栏告警类别（M1 = 生命周期；M2 = S1/S2/S4 三条观察规则） */
 export type FenceAlertKind =
   | 'log-rotated'
   | 'audit-log-missing'
   | 'audit-line-invalid'
   | 'posture-missing'
   | 'posture-invalid'
-  | 'posture-stale';
+  | 'posture-stale'
+  // M2
+  | 'silent-allow-streak'
+  | 'deny-retry'
+  | 'sandbox-fail-open';
 
 export interface FenceAlert {
   at: string;

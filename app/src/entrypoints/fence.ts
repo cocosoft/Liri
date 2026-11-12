@@ -47,6 +47,10 @@ export async function runFence(): Promise<void> {
     paths,
     intervalMs: defaults.sandboxFenceIntervalMs,
     postureStaleAfterMs: defaults.sandboxFencePostureStaleMs,
+    rules: {
+      silentAllowRunLength: defaults.sandboxFenceSilentAllowRunLength,
+      denyRetryWindowMs: defaults.sandboxFenceDenyRetryWindowMs,
+    },
   });
   logger.info('围栏已启动（只读观察者，不参与判定）', {
     auditLogPath: paths.auditLogPath,

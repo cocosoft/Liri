@@ -15,6 +15,14 @@ import { writeFileAtomic } from '@openliri/infra/utils/atomicFileWrite';
 
 import { readAppendedJsonlLines, type JsonlTailDeps } from './jsonlTail';
 import { observeFencePosture } from './posture';
+import {
+  FENCE_FAIL_OPEN_CODES,
+  createFenceRuleState,
+  evaluateAuditEvent,
+  parseAuditEvent,
+  type FenceRuleConfig,
+  type FenceRuleState,
+} from './rules';
 import type {
   FenceAlert,
   FenceAlertKind,
@@ -42,6 +50,8 @@ export interface FenceRuntimeDeps extends JsonlTailDeps {
   paths: FencePaths;
   /** 姿态快照超过该时长未更新 ⇒ `stale` */
   postureStaleAfterMs: number;
+  /** M2 规则阈值（S1 连续次数 / S2 重试窗口） */
+  rules: FenceRuleConfig;
   /** 注入时钟（单测用；默认 `new Date()`） */
   now?: () => Date;
   /** 读文本文件（默认 `fs.readFile(..., 'utf8')`） */
@@ -63,14 +73,27 @@ export interface FenceHandle {
   stop: () => void;
 }
 
-/** 一次 tick 的内部状态（跨 tick 保留：偏移、末端指纹、最后事件时间、告警跃迁） */
+/** 一次 tick 的内部状态（跨 tick 保留：偏移、已消费摘要、最后事件时间、告警跃迁、规则状态） */
 interface FenceState {
   offset: number;
-  /** 已消费末端的短指纹（识别"同长度轮转/替换"） */
-  tailFingerprint?: string;
+  /** 已消费前缀的摘要（识别"同长度轮转/替换"） */
+  consumedHash?: string;
   lastEventAt?: string;
   /** kind → 当前是否处于坏状态（跃迁去重） */
   bad: Map<FenceAlertKind, boolean>;
+  /** M2：S1/S2 的跨事件状态 */
+  rules: FenceRuleState;
+  /** M2：上一次的 fail-open 编码签名（S4 仅在变化时告警） */
+  failOpenSignature: string;
+}
+
+function createState(): FenceState {
+  return {
+    offset: 0,
+    bad: new Map(),
+    rules: createFenceRuleState(),
+    failOpenSignature: '',
+  };
 }
 
 /**
@@ -79,7 +102,7 @@ interface FenceState {
 export function createFence(deps: FenceRuntimeDeps): {
   tick: () => Promise<FenceTickResult>;
 } {
-  const state: FenceState = { offset: 0, bad: new Map() };
+  const state: FenceState = createState();
   return { tick: () => runTick(state, deps) };
 }
 
@@ -92,7 +115,7 @@ export function createFence(deps: FenceRuntimeDeps): {
 export function startFence(
   deps: FenceRuntimeDeps & { intervalMs: number; unref?: boolean }
 ): FenceHandle {
-  const state: FenceState = { offset: 0, bad: new Map() };
+  const state: FenceState = createState();
   const tick = async (): Promise<FenceTickResult> => {
     try {
       return await runTick(state, deps);
@@ -135,10 +158,10 @@ async function runTick(
     deps.paths.auditLogPath,
     state.offset,
     deps,
-    state.tailFingerprint
+    state.consumedHash
   );
   state.offset = tail.nextOffset;
-  state.tailFingerprint = tail.tailFingerprint;
+  state.consumedHash = tail.consumedHash;
   if (tail.truncated) {
     alerts.push({
       at,
@@ -157,12 +180,16 @@ async function runTick(
 
   let invalidLines = 0;
   for (const line of tail.lines) {
-    const timestamp = extractEventTimestamp(line);
-    if (timestamp === undefined) {
+    const event = parseAuditEvent(line);
+    if (event === undefined) {
       invalidLines++;
       continue;
     }
-    state.lastEventAt = timestamp;
+    state.lastEventAt = event.timestamp;
+    // M2：S1 / S2（事件驱动；S4 依赖姿态快照，见下方 ②）
+    for (const finding of evaluateAuditEvent(event, state.rules, deps.rules)) {
+      alerts.push({ at, kind: finding.kind, detail: finding.detail });
+    }
   }
   if (invalidLines > 0) {
     alerts.push({
@@ -198,6 +225,22 @@ async function runTick(
     posture.state === 'stale',
     `姿态快照已过期 ${posture.ageMs ?? 0}ms（阈值 ${deps.postureStaleAfterMs}ms）`
   );
+
+  // M2 / S4：fail-open 姿态（只在编码集合**变化**时告警，避免 10s 一次刷屏）
+  const failOpenCodes = (posture.openRiskCodes ?? [])
+    .filter((code) => FENCE_FAIL_OPEN_CODES.includes(code))
+    .sort();
+  const failOpenSignature = failOpenCodes.join(',');
+  if (failOpenSignature !== state.failOpenSignature) {
+    state.failOpenSignature = failOpenSignature;
+    if (failOpenSignature) {
+      alerts.push({
+        at,
+        kind: 'sandbox-fail-open',
+        detail: `姿态存在 fail-open 编码: ${failOpenSignature}`,
+      });
+    }
+  }
 
   // ③ 心跳 + 告警落盘
   const heartbeat: FenceHeartbeat = {
@@ -269,16 +312,6 @@ function pushTransition(
     alerts.push({ at, kind, detail });
   }
   state.bad.set(kind, isBad);
-}
-
-function extractEventTimestamp(line: string): string | undefined {
-  try {
-    const parsed = JSON.parse(line) as { timestamp?: unknown };
-    return typeof parsed.timestamp === 'string' ? parsed.timestamp : undefined;
-  } catch {
-    // @ignore-catch — 坏行由调用方计数并告警，这里只负责"不猜"
-    return undefined;
-  }
 }
 
 async function defaultAppend(path: string, data: string): Promise<void> {

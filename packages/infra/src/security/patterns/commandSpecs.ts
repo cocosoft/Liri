@@ -250,6 +250,10 @@ export const COMMAND_SPECS: readonly CommandSpec[] = [
   { token: 'ip6tables', kind: 'priv', tier: 'deny' },
   { token: 'init', kind: 'service', tier: 'deny' },
   { token: 'su', kind: 'priv', tier: 'deny' },
+  // P6-1 复查（2026-11-12）：46 条新探针暴露的漏判，均为系统级不可逆 / 持久化
+  { token: 'vssadmin', kind: 'delete', tier: 'deny' },
+  { token: 'sysctl', kind: 'priv', tier: 'deny' },
+  { token: 'launchctl', kind: 'service', tier: 'deny' },
 
   // ── 硬拦档：P1b 从 autoModeCommandTokens.ts 迁入的单命令（2026-11-12） ──
   // 结构 / 参数 / 注入类令牌仍留在 `autoModeCommandTokens.ts`（无法用命令家族表达）。
@@ -429,7 +433,8 @@ export const COMMAND_SPECS: readonly CommandSpec[] = [
   { token: 'ifconfig ', kind: 'net-write', tier: 'deny' },
   { token: 'ip ', kind: 'net-write', tier: 'deny' },
   { token: 'route ', kind: 'net-write', tier: 'deny' },
-  { token: 'netstat ', kind: 'net-write', tier: 'deny' },
+  // P6-2（2026-11-12 复查）：`netstat` 纯只读且已在 READ_ONLY_BASE_COMMANDS 收录，
+  // 整词 deny 会把 `netstat -an` 硬拒（只读误杀）。移除后由只读短路放行。
   { token: 'ss ', kind: 'net-write', tier: 'deny' },
   { token: 'arp ', kind: 'net-write', tier: 'deny' },
   { token: 'ping ', kind: 'net-write', tier: 'deny' },
@@ -473,10 +478,11 @@ export const COMMAND_SPECS: readonly CommandSpec[] = [
   { token: 'cmake ', kind: 'exec', tier: 'deny' },
   { token: 'autoconf ', kind: 'exec', tier: 'deny' },
   { token: 'automake ', kind: 'exec', tier: 'deny' },
-  { token: 'python ', kind: 'exec', tier: 'deny' },
+  // P6-2（2026-11-12 复查）：解释器整词不再 deny —— 任意执行由 `python -c` / `node -e`
+  // 结构令牌兜住；`python --version` 由 VERSION_ONLY_QUERY_PATTERN 放行，
+  // `python script.py` 按既有设计走「未知命令 ⇒ ask」（readOnlyCommands.ts §138 注释）。
   { token: 'perl ', kind: 'exec', tier: 'deny' },
   { token: 'ruby ', kind: 'exec', tier: 'deny' },
-  { token: 'node ', kind: 'exec', tier: 'deny' },
   { token: 'php ', kind: 'exec', tier: 'deny' },
   { token: 'lua ', kind: 'exec', tier: 'deny' },
   { token: 'tcl ', kind: 'exec', tier: 'deny' },

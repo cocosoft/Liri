@@ -72,6 +72,8 @@ export const READ_ONLY_BASE_COMMANDS: ReadonlySet<string> = new Set([
   'ps',
   'df',
   'du',
+  // P6-2（2026-11-12 复查）：内存查询同样只读，此前落「未知 ⇒ ask」
+  'free',
   'wc',
   'sort',
   'uniq',
@@ -374,6 +376,10 @@ export const AUTO_MODE_READONLY_COMMANDS: ReadonlySet<string> = new Set([
   'id',
   'groups',
   'printenv',
+  // P6-2（2026-11-12 复查）：进程 / 网络 / 内存查看均为纯只读，此前落「未知 ⇒ ask」
+  'ps',
+  'netstat',
+  'free',
   // 校验和 / 文本过滤（不落盘）
   'md5sum',
   'sha1sum',

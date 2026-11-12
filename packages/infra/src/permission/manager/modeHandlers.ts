@@ -331,7 +331,12 @@ export interface ModeHandlerDeps {
         toolName,
       });
     }
-    return createAllowDecision('No matching rules, default allowing');
+    // 2026-11-13（G4 观察期 A 方案）：结构化标记"未覆盖"——审计与围栏不再只靠 reason 文本判断。
+    return createAllowDecision(
+      'No matching rules, default allowing',
+      undefined,
+      { ruleCoverage: 'uncovered' }
+    );
   }
 
   /**

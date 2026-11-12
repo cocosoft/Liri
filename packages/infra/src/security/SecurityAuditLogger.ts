@@ -60,6 +60,23 @@ export interface SecurityAuditEvent {
   userAction?: string;
   /** 风险等级 */
   riskLevel: string;
+  /**
+   * 规则覆盖情况（2026-11-13，G4 观察期 A 方案）：
+   * `uncovered` = 无规则匹配、走默认放行；`matched` = 其余（含命中规则 / 显式决策）。
+   *
+   * 为什么单列：`riskLevel='high'` 同时承载了「deny」与「默认放行」两种语义，
+   * 围栏 S1 据此判定会把只读命令的默认放行当成"高危静默放行"（实测 12/12 误报）。
+   */
+  ruleCoverage?: 'matched' | 'uncovered';
+  /**
+   * 命令类别（2026-11-13，G4 观察期 A 方案）：
+   * - `read-only`：命令入参结构上不可能写入（唯一来源 `checkReadonlyCommand`）；
+   * - `write-or-exec`：命令入参可能写盘或执行子进程；
+   * - `non-shell`：无命令入参的工具调用（如 `todo_write` / `grep` 工具）。
+   *
+   * 围栏据此跳过只读/非 shell 调用，S1 只关注"未覆盖且可能变更状态"的调用。
+   */
+  commandClass?: 'read-only' | 'write-or-exec' | 'non-shell';
 }
 
 /** 审计日志查询过滤器 */

@@ -223,6 +223,41 @@ describe('P6-2：只读误杀修复（不得反向放宽）', () => {
   });
 });
 
+describe('P6-3：绕过面（路径 / 别名 / 参数变体）', () => {
+  it('解释器与加载器变体 ⇒ deny（不得靠改写法逃逸）', async () => {
+    for (const command of [
+      'py -c "print(1)"',
+      'python3.11 -c "print(1)"',
+      '/usr/bin/python -c "print(1)"',
+      'node --eval "1+1"',
+      'busybox rm -rf /',
+      '[System.Diagnostics.Process]::Start("calc.exe")',
+      '[IO.File]::WriteAllText("C:\\\\x","y")',
+      'Invoke-WmiMethod -Class Win32_Process -Name Create -ArgumentList calc.exe',
+      'wevtutil cl System',
+    ]) {
+      const { tier } = await verdict(command);
+      expect(tier, command).toBe('deny');
+    }
+  });
+
+  it('版本查询与只读系统信息 ⇒ allow（不误杀）', async () => {
+    for (const command of [
+      'npm --version',
+      'cargo --version',
+      'rustc --version',
+      'java -version',
+      'go version',
+      'systeminfo',
+      'tasklist',
+      'Get-Process',
+    ]) {
+      const { tier } = await verdict(command);
+      expect(tier, command).toBe('allow');
+    }
+  });
+});
+
 describe('P5-3：SQL 规则只收真实注入特征', () => {
   it('只读查询不再被当成注入（可转审批，但不得硬拒）', async () => {
     const { tier } = await verdict('mysql -e "select 1"');

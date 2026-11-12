@@ -40,6 +40,7 @@
 
 import {
   AUTO_MODE_READONLY_COMMANDS,
+  VERSION_ONLY_QUERY_PATTERN,
   readonlySubcommandsFor,
 } from '@openliri/infra/security';
 import { detectPipeAndRedirect } from './vector-rules.js';
@@ -185,9 +186,9 @@ function violatesArgumentGuards(
  * deny 累积再升级为 ask（真机 `session_mwah5033f019cafde4` 唯一 1 次 ask 即此来源）。
  *
  * 只放行**不执行代码、不写文件**的形态：
- *  - `node --version` / `node -v`；
- *  - `node --check <file>`（仅语法检查，不运行脚本）；
- *  - `python` / `python3` 的 `--version` / `-V`。
+ *  - 版本查询：`VERSION_ONLY_QUERY_PATTERN` 覆盖的全部命令（含 `npm --version` /
+ *    `java -version` / `go version`）；
+ *  - `node --check <file>`（仅语法检查，不运行脚本）。
  * `-e` / `--eval` / `-p` / `-r` / `-i` / `-m`、直接跑脚本、`-`（stdin）一律不放行。
  */
 function isInterpreterSelfCheck(
@@ -195,18 +196,17 @@ function isInterpreterSelfCheck(
   args: readonly string[]
 ): boolean {
   const lower = args.map((arg) => arg.toLowerCase());
+  // 版本查询：**单一来源** `VERSION_ONLY_QUERY_PATTERN`（P6-3 收敛，含 `java -version`
+  // 与 `go version`）；此前只硬编码 node/python 两种，`npm --version` 等仍转审批。
+  if (VERSION_ONLY_QUERY_PATTERN.test(`${name} ${lower.join(' ')}`.trim())) {
+    return true;
+  }
   if (name === 'node') {
-    if (lower.length === 1 && (lower[0] === '--version' || lower[0] === '-v')) {
-      return true;
-    }
     return (
       lower.length === 2 &&
       lower[0] === '--check' &&
       !lower[1].startsWith('-')
     );
-  }
-  if (name === 'python' || name === 'python3') {
-    return lower.length === 1 && (lower[0] === '--version' || lower[0] === '-v');
   }
   return false;
 }

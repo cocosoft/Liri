@@ -305,6 +305,14 @@ export interface SandboxViolationEvent {
 }
 
 /**
+ * 内存中保留的违规记录上限（G4 围栏 M0-①，2026-11-12）。
+ *
+ * 违规是**只增**的观测面：不设上限会在长跑进程里无界增长（且会被快照序列化）。
+ * 超出后丢弃**最旧**的记录 —— 围栏关心的是"最近发生了什么"，不是完整历史。
+ */
+export const MAX_RECORDED_SANDBOX_VIOLATIONS = 200;
+
+/**
  * 创建默认沙箱设置
  * @returns 沙箱设置
  */

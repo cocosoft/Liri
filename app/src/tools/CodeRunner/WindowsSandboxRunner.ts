@@ -48,6 +48,8 @@ import {
   processRegistry,
   readLandlockConfig,
   resolveWinSandboxHelperPath,
+  // G4 围栏 M0-①（2026-11-12）：沙箱拒绝写入/初始化拒绝时记账
+  recordSandboxViolation,
 } from '@modules/sandbox';
 import type { WindowsSandboxCapability } from '@modules/sandbox';
 import type { LandlockConfig } from '@modules/sandbox';
@@ -233,6 +235,12 @@ export async function runCodeRunnerWithWindowsSandbox(
   const semantics = classifyWinSandboxExit(result.exitCode ?? null);
   if (semantics.helperFailed) {
     if (config.failClosed) {
+      // G4 围栏 M0-①：failClosed 下"无法施加隔离 ⇒ 拒绝执行"属沙箱拦截（不改返回值）
+      recordSandboxViolation(
+        'init-failed',
+        'Windows 沙箱 helper 失败且 failClosed=true ⇒ 拒绝执行 code_run',
+        { source: 'code_run', exitCode: result.exitCode ?? null }
+      );
       return {
         ...result,
         status: 'security-rejected',
@@ -254,6 +262,11 @@ export async function runCodeRunnerWithWindowsSandbox(
     'runtime'
   );
   if (denial === 'write') {
+    // G4 围栏 M0-①：写入越界（MIC / Access Denied）记一条违规；不落脚本内容（只留平台与来源）
+    recordSandboxViolation('write-denied', 'code_run 写入被 Windows 沙箱拒绝', {
+      source: 'code_run',
+      mode: 'windows-low-il',
+    });
     logger.warn('Windows 沙箱拒绝写入（MIC / Access Denied）', {
       sandboxDenied: 'write',
     });

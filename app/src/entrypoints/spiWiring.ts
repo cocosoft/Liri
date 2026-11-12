@@ -634,7 +634,9 @@ export async function registerAllSpis(
         // 每次现取：姿态随配置变化，不复用启动时的 `sandboxPosture` 快照
         read: () => ({
           posture: describeSandboxPosture(),
-          violationCount: sandboxManager.getViolations().length,
+          // M0-①（2026-11-12）：违规记录不再是空面 —— 各平台拒绝点经
+          // `recordSandboxViolation()` 写入；数量与最近条目均由快照派生
+          violations: sandboxManager.getViolations(),
         }),
       });
     }

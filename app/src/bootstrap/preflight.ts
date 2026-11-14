@@ -63,7 +63,7 @@ import {
 import { setBridgeTaskRegistryLoader } from '@openliri/service/bridge/taskRegistryPort';
 import { setBridgePortProvider } from '@openliri/service/bridge/runtimePorts';
 import { getCoreAPI } from '../runtime/api/CoreAPIImpl';
-import { SessionManager } from '../session/SessionManager';
+import { SessionManager } from '@modules/session/SessionManager';
 import { getModelPricing } from '@openliri/infra/cost/ModelPricing';
 import type { NativeLib } from '../../native';
 import { RuleManager } from '@openliri/infra/permission';
@@ -224,7 +224,7 @@ function wireServiceDeps(): void {
   });
   // MCP 会话级 scope（P32，原 `mcp/MCPTool` 动态 import app 的 tool/ToolScopeManager）
   setMcpToolScopePortLoader(async () => {
-    const { toolScopeManager } = await import('../tool/ToolScopeManager');
+    const { toolScopeManager } = await import('@modules/tool/ToolScopeManager');
     return toolScopeManager;
   });
   // 语音工具桥接（P33，原 `voice/VoiceSession` 静态 import app 的 runtime 门面）
@@ -552,6 +552,12 @@ export async function checkFirstRunAndOnboard(): Promise<void> {
       '首次运行但当前不适合阻塞式引导（无 TTY 或 HTTP 已启动），已跳过；' +
         '请用 `/onboard` 命令或前端设置页完成配置'
     );
+    // 跳过引导 ≠ 跳过 AI 状态判定：`isOfflineMode` 默认 true（shared-state），
+    // 若此分支不判定，离线态会一直为 true ⇒ 下游 REPL 启动检查误报
+    // "AI 对话功能不可用"（2026-11-14 真机实测：实际对话可用）。
+    if (await isAIConfigured()) {
+      setOfflineMode(false);
+    }
     return;
   }
 

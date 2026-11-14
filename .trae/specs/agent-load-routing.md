@@ -55,3 +55,19 @@
 2. **按 agent 维度的负载记账**：`AgentRunLedger` 的 `AgentRunView` 需带 registry `agentId`（现在只有 `id`/`type`）；
 3. **置信度事实源**：需要"agent 在同类任务上的历史成功率"（可复用 `TaskOutcomeLedger` / PDCA 评审样本），否则"置信度路由"只能拍脑袋；
 4. 接线后按现有治理流程补默认关开关（三处登记 + 默认关登记表）。
+
+## 7. 二期已交付（③-B：Council 按议题选人）
+
+| 件 | 内容 |
+|---|---|
+| `app/src/workspace/councilSelection.ts` 🆕 | 纯函数 `selectAgentsForTopic(agents, topic)`：议题与 `expertise` 的确定性匹配（小写归一；领域词 <2 字符视为噪声）；**fail-open**（无专家命中 ⇒ 全员参会，绝不"没人可开会"）；命中时 = 命中专家 + 通才（`expertise` 为空的 agent），保持入参顺序 |
+| `CouncilOrchestrator.loadAgents(topic?)` | DB 角色 / AgentRegistry / 硬编码默认三条来源**统一**过该选择器；`startCouncil` 传入 `topic` |
+| `app/tests/workspace/councilSelection.test.ts` 🆕 | 5 条：空议题原样 / 专家+通才 / 大小写归一 / 无命中 fail-open / 短词噪声 |
+
+**这批补上了"给一个需求 → 按条件挑角色"的生产点位**（`graph-engineering-p0.md` 曾判定缺失）。
+
+### 仍未做（如实）
+
+1. **负载维度接入选人**：`AgentRunLedger` 的 `AgentRunView` 仍无 registry `agentId`（只有运行 `type`）⇒ 无法按 agent 聚合在跑数；`rankAgentsByLoad` 继续以显式 `loads` 入参可用，但 Council 选人未接负载。
+2. **置信度事实源**：同类任务历史成功率尚未按 agent 聚合（需把 `TaskOutcomeLedger` / PDCA 评审样本按 agent 归属）；未做即不打分（不猜）。
+3. `assignAgentsByGraph` 仍无生产调用方（Council 直接消费 registry 候选，不经该 API）——保留为"按需求批量分配"的现成能力。

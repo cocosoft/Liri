@@ -68,7 +68,7 @@
     "memory": "bun run src/cli/index.ts",
     "lint": "node node_modules/eslint/bin/eslint.js src tests --ext .ts",
     "lint:fix": "node node_modules/eslint/bin/eslint.js src tests --ext .ts --fix",
-    "lint:scripts": "cd .. && bun app/node_modules/eslint/bin/eslint.js --config app/eslint.scripts.config.js scripts",
+    "lint:scripts": "cd .. && node app/node_modules/eslint/bin/eslint.js --config app/eslint.scripts.config.js scripts",
     "lint:sandbox": "cd .. && node app/node_modules/eslint/bin/eslint.js --config app/eslint.sandbox.config.js packages/sandbox/src --ext .ts",
     "lint:channels": "cd .. && node app/node_modules/eslint/bin/eslint.js --config app/eslint.channels.config.js packages/channels/src --ext .ts",
     "lint:query": "cd .. && node app/node_modules/eslint/bin/eslint.js --config app/eslint.query.config.js packages/query/src --ext .ts",

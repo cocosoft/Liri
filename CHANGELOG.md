@@ -203,6 +203,21 @@
 - ✅ **macOS 假红** - `mobilePairing` 用例不再用 1ms TTL 与 runner 时钟赛跑
 <!-- EVIDENCE-VIEWS:END -->
 
+#### v0.6.1 (2026-11-14)  首发 CI 修复：断环 · BashTool cwd 回归 · macOS Intel 产物
+
+- ✅ **循环依赖归零**：`isNonTerminalStep` 抽到 `tasks/plan/planStepStatus.ts`，`planStartupResume` 与
+  `planImpactPreview` 不再互相 import（`madge --circular` 由 1 → **0**，CI 静态检查恢复）。
+- ✅ **BashTool cwd 回归**：审批指纹路径的裸 `process.cwd()` 改为 `safeProcessCwd()` ——
+  进程工作目录被删除/移走时不再抛 `ENOENT` 逃逸，恢复「无法确定工作目录」友好失败
+  （`bashCwdInvalid` 5 用例全绿；macOS / Windows CI 实测复现）。
+- ✅ **macOS Intel 产物**：`build-cli-binary` 支持 `--target`（Bun 交叉编译），macOS 作业补
+  `bun-darwin-x64`；`SHA256SUMS` 改为**合并**（build / sign 两处），同目录多产物不再互相覆盖。
+- ✅ **脚本门禁**：`scripts/**` 按 `eslint.scripts.config.js` 格式化（v0.6.0 首跑 `lint:scripts`
+  的 17 处 prettier 归零）。
+- ✅ **验证**：全量 `bun test` 12,013 用例中 11,968 pass / 44 skip / 1 fail（即上述 cwd 回归，已修，
+  单测复验 5/5）；`tsc` 0；`lint` 0 error；`madge` 0 环；`lint:scripts` 0 error。
+- ✅ **统计**：自 v0.6.0 起 2 条实质提交（fix 1 · chore 1）。
+
 #### v0.6.0 (2026-11-14)  「建议落地」方案 12 项：规划续跑 · CLI 分发 · 悬浮窗全套 · 知识与演化
 
 - ✅ **D1 外部事件适配器**：webhook → 既有事件源 → 工作项（复用事件总线，不新建第三套）。

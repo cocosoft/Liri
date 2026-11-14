@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.6.0-blue)
+![Version](https://img.shields.io/badge/version-0.6.1-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -454,7 +454,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.6.0**
+当前版本：**v0.6.1**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -463,15 +463,14 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.6.0 (2026-11-14)
-「建议落地」方案 12 项：规划续跑 · CLI 分发 · 悬浮窗全套 · 知识与演化
+#### v0.6.1 (2026-11-14)
+首发 CI 修复：断环 · BashTool cwd 回归 · macOS Intel 产物
 
-- ✅ **D1/D2/D3 事件与续跑** - webhook 外部事件适配器；重启后目标续接与计划续跑（三期接到系统级执行器，采纳既有计划、已完成步骤不重做）；三个开关默认关并三处登记
-- ✅ **D4/D7 路由与预演** - 负载感知路由原语 + Council 按议题选人；`/plan preview` 只读影响预演，副作用录制把文件变更归属到工具与计划步骤（`planId`/`stepId`）
-- ✅ **D8/D10 知识与演化** - `kg_edges` 最小本体层（非法关系拒绝）；成功轨迹蒸馏为 SOP 草案，人工批准后才注册技能
-- ✅ **G2 CLI 分发（5 期）** - 三渠道清单、单文件二进制 + `SHA256SUMS`、三平台 CI 矩阵 + 可选签名、standalone 清单、npm 按平台分包；legacy 渠道改名 `openliri-bun`
-- ✅ **G8 悬浮窗（6 期）** - 托盘入口、系统级 `Ctrl+Shift+F`、几何记忆与多显示器校正、当前会话/运行中目标、点击穿透（退出复用既有快捷键）
-- ✅ **验证与边界** - 前端 141 文件 / 990 用例全绿，后端 9 项门禁全绿；**真机验证受阻**：本机「智能应用控制」阻止 `rustc`，GUI 项待解除阻断或由 CI 产物验证
+- ✅ **循环依赖归零** - `isNonTerminalStep` 抽到 `tasks/plan/planStepStatus.ts`，续跑与影响预演不再互相 import（`madge` 1 → 0 环）
+- ✅ **BashTool cwd 回归** - 审批指纹路径改走 `safeProcessCwd()`，进程目录被删时不再让 `ENOENT` 逃逸，恢复「无法确定工作目录」友好失败
+- ✅ **macOS Intel 产物** - `build-cli-binary` 支持 `--target` 交叉编译，macOS 作业补 `bun-darwin-x64`；`SHA256SUMS` 改为合并
+- ✅ **脚本门禁** - `scripts/**` 按脚本专用 ESLint 配置格式化（v0.6.0 首跑 `lint:scripts` 的 17 处 prettier 归零）
+- ✅ **验证** - 全量 `bun test` 11,968 pass / 44 skip；`tsc` 0；`lint` 0 error；`madge` 0 环
 - ✅ 完整历史见 [CHANGELOG.md](CHANGELOG.md)
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。

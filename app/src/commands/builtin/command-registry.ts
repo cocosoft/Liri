@@ -674,6 +674,17 @@ export const memoryCommand: Command = {
   load: loadDefault('./memory/Memory.js'),
 };
 
+/** 用户偏好（G5，2026-11-14）：USER.md 的 `## 偏好` 小节 + USER_PREFERENCE 记忆 */
+export const preferencesCommand: Command = {
+  type: 'local',
+  name: 'preferences',
+  description:
+    '查看 / 添加 / 删除用户偏好（USER.md 偏好小节 + 自动沉淀的偏好记忆）',
+  aliases: ['profile', 'pref', '偏好'],
+  argumentHint: '[list] [add <文本>] [remove <文本|#id>] [help]',
+  load: loadDefault('./preferences/Preferences.js'),
+};
+
 /** 入手指引 */
 export const onboardCommand: Command = {
   type: 'local',

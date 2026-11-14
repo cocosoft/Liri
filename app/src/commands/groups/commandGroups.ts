@@ -186,7 +186,7 @@ export const COMMAND_GROUPS: Readonly<Record<string, CommandGroupSpec>> = {
 /**
  * **独立保留**的顶层命令（2026-10-30 用户裁定：务实收敛）。
  *
- * = 9 个分组父命令（含 `help`）+ 下列 18 个（含 `help` 自身去重后共 27 个顶层面）。
+ * = 9 个分组父命令（含 `help`）+ 下列 19 个（含 `help` 自身去重后共 28 个顶层面）。
  * 其中 `branch` / `diff` / `commit-push-pr` 是 **prompt 型**命令（依赖
  * `expandPromptCommand()` 按名字注入）⇒ 不能进分组，只能保留为顶层。
  */
@@ -199,6 +199,8 @@ export const KEEP_TOP_LEVEL: readonly string[] = [
   'files',
   'knowledge',
   'memory',
+  // G5（2026-11-14）：用户偏好统一入口（顶层；与 memory 并列，不进分组）
+  'preferences',
   'copy',
   'tag',
   'security',

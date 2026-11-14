@@ -87,4 +87,40 @@ describe('withDeadline', () => {
       value: 1,
     });
   });
+
+  it('unrefTimer ⇒ 超时计时器调用 unref（关闭流程不保活事件循环）', async () => {
+    const realSetTimeout = globalThis.setTimeout;
+    let unrefCalls = 0;
+    let created = 0;
+
+    globalThis.setTimeout = ((
+      fn: (...args: unknown[]) => void,
+      ms?: number,
+      ...args: unknown[]
+    ) => {
+      const handle = realSetTimeout(fn, ms, ...args);
+      if (ms === 10) {
+        created++;
+        const realUnref = handle.unref?.bind(handle);
+        handle.unref = () => {
+          unrefCalls++;
+          return realUnref?.() ?? handle;
+        };
+      }
+      return handle;
+    }) as typeof setTimeout;
+
+    try {
+      const outcome = await withDeadline(new Promise<string>(() => {}), {
+        timeoutMs: 10,
+        unrefTimer: true,
+      });
+      expect(outcome).toEqual({ kind: 'timeout' });
+    } finally {
+      globalThis.setTimeout = realSetTimeout;
+    }
+
+    expect(created).toBe(1);
+    expect(unrefCalls).toBe(1);
+  });
 });

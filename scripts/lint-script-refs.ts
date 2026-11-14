@@ -50,7 +50,7 @@ const SEGMENT_SEP = /\s*(?:&&|\|\||;|\|)\s*/;
  * `cd <dir>` 独立段 —— **会改变后续命令的 cwd** ⇒ 其后引用须按换后的基准解析。
  *
  * 2026-09-26 修**误报**：`app/package.json#lint:scripts` 写作
- * `cd .. && bun app/node_modules/eslint/bin/eslint.js …`（`app/node_modules/…` 是**相对项目根**），
+ * `cd .. && node app/node_modules/eslint/bin/eslint.js …`（`app/node_modules/…` 是**相对项目根**），
  * 而本检查器一律按 `package.json` 所在目录（`app/`）解析 ⇒ 把**存在**的文件判为"缺失"、阻断 CI。
  * 修法是**让检查器跟上 `cd`**（而非改脚本）—— 改脚本会让 eslint 的配置基准目录失配（实测 exit=2）。
  */

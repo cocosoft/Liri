@@ -34,6 +34,8 @@ import ConnectionBanner from "./components/common/ConnectionBanner";
 import QuickNoteModal from "./components/common/QuickNoteModal";
 import GlobalSearchModal from "./components/ChatArea/GlobalSearchModal";
 import { APP_EVENTS } from "./constants/events";
+// G8 二期（2026-11-14）：托盘「悬浮窗」→ JS 单点创建
+import { openFloatingWindow } from "./lib/floatingWindow";
 
 function App() {
   const { t } = useTranslation();
@@ -47,6 +49,15 @@ function App() {
   // LLM 配置引导：ready 后检测是否已配置 AI 模型
   const [showLLMGuide, setShowLLMGuide] = useState(false);
   const [llmGuideChecked, setLlmGuideChecked] = useState(false);
+
+  // G8 二期（2026-11-14）：托盘菜单「悬浮窗」→ 经事件转发到 JS 单点创建
+  useEffect(() => {
+    const open = () => {
+      void openFloatingWindow();
+    };
+    window.addEventListener("liri:toggle-floating", open);
+    return () => window.removeEventListener("liri:toggle-floating", open);
+  }, []);
 
   // D-j：全局速记浮层（Ctrl+Shift+N，由 useKeyboard 派发 open-quick-note 事件）
   const [quickNoteOpen, setQuickNoteOpen] = useState(false);

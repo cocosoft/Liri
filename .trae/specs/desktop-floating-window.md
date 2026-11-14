@@ -55,3 +55,16 @@
 2. **托盘菜单开关**：`lib.rs` 的 `create_tray_menu` 增加「悬浮窗」项（Rust 改动，需真机验证）；
 3. **内容增强**：当前会话 / 运行中目标（需在副窗口拉取会话与目标数据，或走 SSE 同步）；
 4. **窗口体验**：位置记忆、多显示器、置顶层级、点击穿透（不遮挡主窗口交互）。
+
+## 6. 二期已交付（托盘菜单项）
+
+| 件 | 内容 |
+|---|---|
+| `client/src-tauri/src/lib.rs` | 托盘菜单新增「悬浮窗」项（`show` / `hide` 之后）；菜单事件**只转发意图**：`main.eval("window.dispatchEvent(new CustomEvent('liri:toggle-floating'))")` —— 窗口构建仍由 JS 的 `openFloatingWindow` **单点实现**（不在 Rust 侧再写一份，避免双轨） |
+| `client/src/App.tsx` | 监听 `liri:toggle-floating` ⇒ `openFloatingWindow()`（已存在则 `show+setFocus`） |
+
+### 仍未做（如实）
+
+1. **系统级全局快捷键**：需 `tauri-plugin-global-shortcut`（Rust crate + npm 包）**新增外部依赖**，本批未引入；当前触发仍是应用内 `Ctrl+Shift+F` 与托盘菜单。
+2. **Rust 未编译验证**：本机无 `cargo`（不在 PATH）⇒ 只做了源码级改动与前端 typecheck/lint；首次 `tauri build` / CI 构建需确认菜单项与 `eval` 调用可编译。
+3. 内容增强（当前会话 / 运行中目标）与窗口体验（位置记忆 / 多显示器 / 点击穿透）未做。

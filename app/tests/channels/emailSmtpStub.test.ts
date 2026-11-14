@@ -9,7 +9,7 @@
  */
 import { describe, expect, it, afterEach } from 'bun:test';
 import { createServer, type Server, type Socket } from 'node:net';
-import { createEmailChannel } from '../../src/channels/email/EmailChannel';
+import { createEmailChannel } from '@modules/channels/email/EmailChannel';
 
 interface SmtpStub {
   server: Server;

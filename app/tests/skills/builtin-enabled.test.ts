@@ -10,7 +10,7 @@ import { tmpdir } from 'os';
 import {
   loadBuiltinEnabled,
   persistBuiltinEnabled,
-} from '../../src/skills/BuiltinEnabledStore';
+} from '@modules/skills/BuiltinEnabledStore';
 
 describe('BuiltinEnabledStore（3.5.7）', () => {
   let dir: string;

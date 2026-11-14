@@ -9,7 +9,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import {
   getDailyBudget,
   resetDailyBudgetForTest,
-} from '../../src/query/DailyBudgetManager';
+} from '@modules/query/DailyBudgetManager';
 
 const LIMIT = 100;
 

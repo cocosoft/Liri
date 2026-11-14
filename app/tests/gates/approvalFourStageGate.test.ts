@@ -16,7 +16,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 
 import { LIRI_EVENT_NAMES } from '../../../shared/events/eventNames';
-import { KNOWN_SESSION_EVENT_TYPES } from '../../src/session/types/knownEventTypes';
+import { KNOWN_SESSION_EVENT_TYPES } from '@modules/session/types/knownEventTypes';
 import {
   APPROVAL_STAGES,
   advanceApproval,

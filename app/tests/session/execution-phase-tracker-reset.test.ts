@@ -9,7 +9,7 @@
  * 本测试验证 reset() 后 tracker 状态回到空（该不变量正是无条件 reset 所保障的）。
  */
 import { describe, expect, test } from 'bun:test';
-import { ExecutionPhaseTracker } from '../../src/session/ExecutionPhaseTracker.js';
+import { ExecutionPhaseTracker } from '@modules/session/ExecutionPhaseTracker.js';
 
 function makeTracker() {
   const tracker = new ExecutionPhaseTracker('sess-1', () => {});

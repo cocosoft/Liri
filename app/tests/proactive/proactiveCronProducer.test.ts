@@ -8,8 +8,8 @@ import { describe, expect, it } from 'bun:test';
 import {
   buildCronProactivePayload,
   enqueueCronResultProactive,
-} from '../../src/proactive/ProactiveCronProducer';
-import type { ProactiveGatePrefs } from '../../src/proactive/types';
+} from '@modules/proactive/ProactiveCronProducer';
+import type { ProactiveGatePrefs } from '@modules/proactive/types';
 
 const NOW = Date.parse('2026-10-19T12:00:00Z');
 

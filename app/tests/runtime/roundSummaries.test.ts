@@ -19,7 +19,7 @@ import {
 } from '@openliri/service/runtime/api/roundSummaries';
 import { SessionMessagesRead } from '@openliri/service/runtime/api/sessionMessagesRead';
 import type { ChatManager } from '@modules/chat';
-import type { SessionManager } from '../../src/session/types/session.js';
+import type { SessionManager } from '@modules/session/types/session.js';
 
 function msg(
   id: string,

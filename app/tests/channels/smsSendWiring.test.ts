@@ -7,10 +7,7 @@
  * 未连接不谎报、缺凭据时连接失败。
  */
 import { describe, expect, it, beforeEach, afterEach } from 'bun:test';
-import {
-  SmsChannel,
-  createSmsChannel,
-} from '../../src/channels/sms/SmsChannel';
+import { SmsChannel, createSmsChannel } from '@modules/channels/sms/SmsChannel';
 
 const realFetch = globalThis.fetch;
 let calls: Array<{ url: string; init?: RequestInit }> = [];

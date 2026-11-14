@@ -11,9 +11,9 @@ import {
   DAILY_BUDGET_CONFIG_KEY,
   getDailyBudget,
   isValidDailyLimit,
-} from '../../../query/DailyBudgetManager';
+} from '@modules/query/DailyBudgetManager';
 // 债四 S3（2026-10-15）：展示随**主口径**（USD 轨启用 ⇒ 金额），复用同一格式化实现（CS01 不另立）。
-import { formatUsdAmount } from '../../../query/dailyBudgetSnapshot';
+import { formatUsdAmount } from '@modules/query/dailyBudgetSnapshot';
 
 const logger = getLogger('commands:builtin:budget');
 

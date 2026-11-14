@@ -20,7 +20,7 @@ import { decideSimplePath } from '../../src/tasks/PlanDrivenLoop.js';
 import { buildFastPathPolicy } from '@modules/types/fastPath';
 import { formatPdcaModeHint } from '../../src/chat/launchers/PdcaLauncher.js';
 import { PdcaLaunchCoordinator } from '../../src/chat/manager/pdcaLaunch.js';
-import type { ChatSession } from '../../src/session/types/session.js';
+import type { ChatSession } from '@modules/session/types/session.js';
 
 const POLICY = buildFastPathPolicy(null).policy;
 

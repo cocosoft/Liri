@@ -95,7 +95,7 @@ export class RecallMemoryTool {
           if (query && sessionId) {
             // 会话内召回（既有语义，保持不变）
             const { getSessionMemoryManager } =
-              await import('../../session/bootstrap/SessionSystemBootstrap.js');
+              await import('@modules/session/bootstrap/SessionSystemBootstrap.js');
             const mm = getSessionMemoryManager();
             const items = await mm.searchMemory(sessionId, query, limit);
             results = items.map(
@@ -128,7 +128,7 @@ export class RecallMemoryTool {
           } else if (sessionId) {
             // 无查询词时返回全部记忆上下文（既有语义）
             const { getSessionMemoryManager } =
-              await import('../../session/bootstrap/SessionSystemBootstrap.js');
+              await import('@modules/session/bootstrap/SessionSystemBootstrap.js');
             const mm = getSessionMemoryManager();
             const ctx = mm.getMemoryContext(sessionId);
             if (ctx) {

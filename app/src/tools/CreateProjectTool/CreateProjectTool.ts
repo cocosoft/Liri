@@ -16,7 +16,7 @@ import { handleError } from '@openliri/infra/error';
 import { resolveDataDir } from '@openliri/infra/environment';
 import { createProjectStore } from '../../workspace/ProjectStore.js';
 import { WorkItemStore } from '../../workspace/WorkItemStore.js';
-import { register } from '../../workspaces/WorkspaceRegistry.js';
+import { register } from '@modules/workspaces/WorkspaceRegistry.js';
 import { existsSync, mkdirSync, statSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { resolveProjectIdentity } from './projectName.js';

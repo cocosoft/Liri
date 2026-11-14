@@ -26,7 +26,7 @@
  * （既不置 idle 也不删除）。并覆盖 begin/end 登记的 fencing 一致性。
  */
 import { describe, it, expect } from 'bun:test';
-import { ChannelSessionManager } from '../../src/channels/session/ChannelSessionManager.js';
+import { ChannelSessionManager } from '@modules/channels/session/ChannelSessionManager.js';
 
 describe('PR3 Session safety：cleanIdle 跳过执行中的会话', () => {
   it('⑦ 陈旧 lastActivityAt 但有 activeExecutionId ⇒ 不回收、不置 idle', () => {

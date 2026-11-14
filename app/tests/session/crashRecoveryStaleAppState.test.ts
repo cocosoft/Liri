@@ -9,10 +9,10 @@
  * 一个过期会话把全局状态推到 error，前端整体呈错误态，与故障范围严重不匹配。
  */
 import { describe, it, expect, beforeEach } from 'bun:test';
-import { CrashRecoveryManager } from '../../src/session/recovery/CrashRecoveryManager';
-import { SessionStatus } from '../../src/session/types/UnifiedSession';
-import type { UnifiedSessionStorage } from '../../src/session/storage/UnifiedStorage';
-import type { UnifiedSession } from '../../src/session/types/UnifiedSession';
+import { CrashRecoveryManager } from '@modules/session/recovery/CrashRecoveryManager';
+import { SessionStatus } from '@modules/session/types/UnifiedSession';
+import type { UnifiedSessionStorage } from '@modules/session/storage/UnifiedStorage';
+import type { UnifiedSession } from '@modules/session/types/UnifiedSession';
 import {
   getAppState,
   initAppStateMachine,

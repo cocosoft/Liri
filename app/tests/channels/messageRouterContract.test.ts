@@ -35,8 +35,8 @@
  * | ⑥ | 不同账号同 messageId | **不跨账号误去重**（键作用域 = 渠道:发送者:messageId） |
  */
 import { describe, expect, it, spyOn } from 'bun:test';
-import type { MessageContext } from '../../src/channels/types/IChannel';
-import { routeChannelMessage } from '../../src/channels/routing/messageRouter';
+import type { MessageContext } from '@modules/channels/types/IChannel';
+import { routeChannelMessage } from '@modules/channels/routing/messageRouter';
 import { getExecutionManager } from '@openliri/service/execution';
 
 let seq = 0;

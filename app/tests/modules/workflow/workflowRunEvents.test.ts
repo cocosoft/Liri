@@ -22,7 +22,7 @@ import type {
 } from '../../../src/modules/workflow/index.js';
 import { DocOrchestrator } from '../../../src/modules/doc/orchestration/DocOrchestrator.js';
 import { DocOrchestratorProvider } from '../../../src/modules/doc/orchestration/DocOrchestratorProvider.js';
-import { MessageToEventMigrator } from '../../../src/session/storage/MessageToEventMigrator.js';
+import { MessageToEventMigrator } from '@modules/session/storage/MessageToEventMigrator.js';
 import type { LiriEvent } from '@modules/session/types/events';
 import type { Message } from '@modules/session/types/message';
 

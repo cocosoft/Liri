@@ -19,8 +19,8 @@ import { tmpdir } from 'os';
 import {
   FTS5SearchEngine,
   type FTSDocument,
-} from '../../src/session/FTS5SearchEngine';
-import { FTSIndexStore } from '../../src/session/persistence/FTSIndexStore';
+} from '@modules/session/FTS5SearchEngine';
+import { FTSIndexStore } from '@modules/session/persistence/FTSIndexStore';
 
 const dirs: string[] = [];
 

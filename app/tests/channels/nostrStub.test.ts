@@ -13,7 +13,7 @@ import { describe, expect, it } from 'bun:test';
 import {
   createNostrChannel,
   NostrChannel,
-} from '../../src/channels/nostr/NostrChannel';
+} from '@modules/channels/nostr/NostrChannel';
 
 describe('Nostr 通道（壳语义 + 不谎报）', () => {
   it('插件层：未就绪时 sendText 必须失败并说明原因', async () => {

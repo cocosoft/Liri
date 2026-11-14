@@ -33,7 +33,7 @@
 import { describe, it, expect } from 'bun:test';
 import { createTestHost } from './helpers';
 import { runStreamMessage } from '../../../src/chat/orchestrator/streamMessageFlow.js';
-import { createSystemAbortReason } from '../../../src/query/index.js';
+import { createSystemAbortReason } from '@modules/query';
 import type { ChatOrchestratorHost } from '../../../src/chat/orchestrator/ChatOrchestrator.js';
 
 /** 收集 text chunk 内容（string 裸文本 或 {type:'text'} 对象） */

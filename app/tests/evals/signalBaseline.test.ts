@@ -9,12 +9,12 @@
  *  ④ **与退出码无关**：本函数是纯观测（其调用点（cli）不参与 process.exit）。
  */
 import { describe, expect, it } from 'bun:test';
-import { summarizeSignal, type Baseline } from '../../src/evals/scoring';
+import { summarizeSignal, type Baseline } from '@modules/evals/scoring';
 import type {
   EvalRunSummary,
   EvalTask,
   EvalTaskResult,
-} from '../../src/evals/types';
+} from '@modules/evals/types';
 
 function fakeTask(id: string): EvalTask {
   return {

@@ -9,7 +9,7 @@
  * 阈值显式注入（3 次阻断），避免依赖默认的 10/20 而让用例随配置漂移。
  */
 import { describe, expect, it } from 'bun:test';
-import { LoopDetector } from '../../src/query/LoopDetector';
+import { LoopDetector } from '@modules/query/LoopDetector';
 
 function makeDetector(): LoopDetector {
   return new LoopDetector({

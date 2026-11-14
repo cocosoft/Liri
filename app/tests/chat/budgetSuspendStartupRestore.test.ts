@@ -17,8 +17,8 @@ import type { ChatBootstrapDeps } from '../../src/chat/manager/bootstrap.js';
 import {
   getBudgetSuspendCoordinator,
   resetBudgetSuspendForTest,
-} from '../../src/query/budgetSuspend.js';
-import type { TAORCheckpoint } from '../../src/query/types.js';
+} from '@modules/query/budgetSuspend.js';
+import type { TAORCheckpoint } from '@modules/query/types.js';
 
 const FLAG = 'FEATURE_BUDGET_SUSPEND_RESUME';
 

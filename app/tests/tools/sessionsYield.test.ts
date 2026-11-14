@@ -16,7 +16,7 @@ import {
   isSuccessfulYieldResult,
   YIELD_RESULT_STATUS,
   YIELD_TOOL_NAME,
-} from '../../src/session/yield';
+} from '@modules/session/yield';
 import type { ToolUseContext } from '../../src/tools/types/Tool';
 
 /** 测试用最小上下文（工具只读 sessionId） */

@@ -17,7 +17,7 @@ import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test';
 import {
   getBudgetSuspendCoordinator,
   resetBudgetSuspendForTest,
-} from '../../src/query/budgetSuspend';
+} from '@modules/query/budgetSuspend';
 
 const MAX_KEY = 'BUDGET_RESUME_MAX_PER_WAKE';
 
@@ -129,7 +129,7 @@ describe('Task 7：放行 ⇒ 唤醒挂起会话', () => {
 
   it('⑤ kill-switch / reset / PUT 配置变更 ⇒ handler 零调用（回调只在 relief 应用处）', async () => {
     const { getDailyBudget, resetDailyBudgetForTest } =
-      await import('../../src/query/DailyBudgetManager');
+      await import('@modules/query/DailyBudgetManager');
     resetDailyBudgetForTest();
     const budget = getDailyBudget();
     budget.setLimit(100_000);
@@ -317,7 +317,7 @@ describe('会话级收窄：放行只唤醒目标会话（其它保持挂起）'
 
   it('① 带目标 ⇒ 只唤醒该会话；更早挂起者仍挂起（经真实 budget→coordinator 接线）', async () => {
     const { getDailyBudget, resetDailyBudgetForTest } =
-      await import('../../src/query/DailyBudgetManager');
+      await import('@modules/query/DailyBudgetManager');
     resetDailyBudgetForTest();
     const c = getBudgetSuspendCoordinator();
     nowSpy.mockReturnValue(1_000);

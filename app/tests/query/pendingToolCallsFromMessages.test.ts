@@ -9,7 +9,7 @@
 //   ④ 无 tool_calls / 空数组 ⇒ 返回 []。
 
 import { describe, it, expect } from 'bun:test';
-import { extractPendingToolCallsFromMessages } from '../../src/query/taor/pendingToolCalls.js';
+import { extractPendingToolCallsFromMessages } from '@modules/query/taor/pendingToolCalls.js';
 import type { ChatMessage } from '@modules/ai/models/types.js';
 
 const assistant = (

@@ -14,13 +14,13 @@ import {
   resetBudgetReliefCardForTest,
   serializeBudgetReliefAction,
   BUTTON_CAPABLE_CHANNELS,
-} from '../../src/channels/bridge/budgetReliefCard';
+} from '@modules/channels/bridge/budgetReliefCard';
 import {
   handleBudgetReliefAction,
   parseBudgetReliefActionData,
   setBudgetReliefActionHandler,
   hasBudgetReliefActionHandler,
-} from '../../src/channels/bridge/budgetReliefAction';
+} from '@modules/channels/bridge/budgetReliefAction';
 import {
   buildBudgetSuspendedNotice,
   resolveLlmFailure,
@@ -29,9 +29,9 @@ import {
   stripBoldMarkers,
   SUSPENSION_NOTICE_MARKER,
   CHANNEL_DELIVERY_CONTRACT,
-} from '../../src/channels/routing/messageRouterContract';
-import { buildQQKeyboard } from '../../src/channels/qq/keyboard';
-import { QQ_INTENT_FULL, QQEventType } from '../../src/channels/qq/types';
+} from '@modules/channels/routing/messageRouterContract';
+import { buildQQKeyboard } from '@modules/channels/qq/keyboard';
+import { QQ_INTENT_FULL, QQEventType } from '@modules/channels/qq/types';
 
 const SID = 'session_channel_relief_1';
 

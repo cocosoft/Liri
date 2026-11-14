@@ -731,7 +731,7 @@ export class PdcaLauncher {
         let requirementId: string | undefined;
         try {
           const { createRequirementTracker } =
-            await import('../../project/RequirementTracker');
+            await import('@modules/project/RequirementTracker');
           const reqs = createRequirementTracker(projectId).list();
           requirementId =
             reqs.length > 0 ? reqs[reqs.length - 1].id : undefined;

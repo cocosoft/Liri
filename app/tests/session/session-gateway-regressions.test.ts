@@ -15,27 +15,27 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { SessionGateway } from '../../src/session/SessionGateway';
-import { SessionManager } from '../../src/session/SessionManager';
-import { EventLogStorage } from '../../src/session/storage/EventLogStorage';
-import { FileSystemUnifiedStorage } from '../../src/session/storage/FileSystemUnifiedStorage';
-import { MemoryUnifiedStorage } from '../../src/session/storage/MemoryUnifiedStorage';
-import { StorageType } from '../../src/session/storage/UnifiedStorage';
+import { SessionGateway } from '@modules/session/SessionGateway';
+import { SessionManager } from '@modules/session/SessionManager';
+import { EventLogStorage } from '@modules/session/storage/EventLogStorage';
+import { FileSystemUnifiedStorage } from '@modules/session/storage/FileSystemUnifiedStorage';
+import { MemoryUnifiedStorage } from '@modules/session/storage/MemoryUnifiedStorage';
+import { StorageType } from '@modules/session/storage/UnifiedStorage';
 import {
   getSessionParent,
   isAncestorSession,
   registerSessionLineage,
   resetSessionLineage,
-} from '../../src/session/lineage/sessionLineage';
+} from '@modules/session/lineage/sessionLineage';
 import {
   getFTS5SearchEngine,
   resetFTS5SearchEngine,
-} from '../../src/session/FTS5SearchEngine';
+} from '@modules/session/FTS5SearchEngine';
 import {
   MessageType,
   MessageRole,
-} from '../../src/session/types/UnifiedMessage';
-import type { UnifiedMessage } from '../../src/session/types/UnifiedMessage';
+} from '@modules/session/types/UnifiedMessage';
+import type { UnifiedMessage } from '@modules/session/types/UnifiedMessage';
 import type { LiriEvent } from '@modules/session/types/events';
 
 /** forkSession 测试目录布局：<dataDir>/sessions/testhash/<sessionId>/ */

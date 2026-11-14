@@ -6,7 +6,7 @@
  * 上游若改路径或字段、或本仓误改 payload ⇒ 这里先红。
  */
 import { describe, expect, it, beforeEach, afterEach } from 'bun:test';
-import { createDiscordChannel } from '../../src/channels/discord/DiscordChannel';
+import { createDiscordChannel } from '@modules/channels/discord/DiscordChannel';
 
 interface Call {
   url: string;

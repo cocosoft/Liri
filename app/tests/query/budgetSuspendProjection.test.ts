@@ -20,7 +20,7 @@ import type { StateProjectionBroadcast } from '@openliri/infra/state/engine/proj
 import {
   getBudgetSuspendCoordinator,
   resetBudgetSuspendForTest,
-} from '../../src/query/budgetSuspend';
+} from '@modules/query/budgetSuspend';
 
 const FLAG_ENV = 'FEATURE_STATE_PROJECTION_BROADCAST';
 

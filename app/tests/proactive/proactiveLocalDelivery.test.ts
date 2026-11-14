@@ -13,8 +13,8 @@ import {
   createProactiveLocalDelivery,
   PROACTIVE_NOTIFICATION_SOURCE,
   type ProactiveLocalPort,
-} from '../../src/proactive/ProactiveLocalDelivery';
-import type { ProactiveMessagePayload } from '../../src/proactive/types';
+} from '@modules/proactive/ProactiveLocalDelivery';
+import type { ProactiveMessagePayload } from '@modules/proactive/types';
 
 const NOW = Date.parse('2026-10-19T12:00:00Z');
 const HOUR_MS = 60 * 60 * 1000;

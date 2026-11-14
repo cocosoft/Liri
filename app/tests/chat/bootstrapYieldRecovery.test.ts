@@ -41,7 +41,7 @@ import {
   getYieldRegistry,
   resetYieldRegistry,
   setActiveSubagentRunProbe,
-} from '../../src/session/yield';
+} from '@modules/session/yield';
 import { setSelfWakeResumeHandler } from '../../src/tasks/selfwake/SelfWakeService';
 
 /** Bun 运行时全局：tsc 类型面未声明 `gc`，按仓内既有约定就地声明（见 tests/tools/notebook.test.ts） */

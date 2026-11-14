@@ -73,7 +73,45 @@ export type BoundaryRule =
   | 'R7'
   | 'R8'
   // P1（2026-11-12）：sandbox 物理包（`packages/sandbox`）边界专用号
-  | 'R9';
+  | 'R9'
+  // P1（2026-11-13）：channels 物理包（`packages/channels`）边界专用号
+  | 'R10'
+  // P1（2026-11-13）：query 物理包（`packages/query`）边界专用号
+  | 'R11'
+  // P1（2026-11-13）：skills 物理包（`packages/skills`）边界专用号
+  | 'R12'
+  // P1（2026-11-13）：tokenBudget 物理包（`packages/tokenBudget`）边界专用号
+  | 'R13'
+  // P1（2026-11-13）：vfs 物理包（`packages/vfs`）边界专用号
+  | 'R14'
+  // P1（2026-11-13）：compaction 物理包（`packages/compaction`）边界专用号
+  | 'R15'
+  // P1（2026-11-13）：workspaces 物理包（`packages/workspaces`）边界专用号
+  | 'R16'
+  // P1（2026-11-13）：docs 物理包（`packages/docs`）边界专用号
+  | 'R17'
+  // P1（2026-11-13）：plugin-sdk 物理包（`packages/plugin-sdk`）边界专用号
+  | 'R18'
+  // P1（2026-11-14）：governance 物理包（`packages/governance`）边界专用号
+  | 'R19'
+  // P1（2026-11-14）：dream 物理包（`packages/dream`）边界专用号
+  | 'R20'
+  // P1（2026-11-14）：evals 物理包（`packages/evals`）边界专用号
+  | 'R21'
+  // P1（2026-11-14）：proactive 物理包（`packages/proactive`）边界专用号
+  | 'R22'
+  // P1（2026-11-14）：project 物理包（`packages/project`）边界专用号
+  | 'R23'
+  // P1（2026-11-14）：subagent 物理包（`packages/subagent`）边界专用号
+  | 'R24'
+  // P1（2026-11-14）：resourceGovernor 物理包（`packages/resourceGovernor`）边界专用号
+  | 'R25'
+  // P1（2026-11-14）：tool 物理包（`packages/tool`）边界专用号
+  | 'R26'
+  // P1（2026-11-14）：context-engine 物理包（`packages/context-engine`）边界专用号
+  | 'R27'
+  // P1（2026-11-14）：buddy 物理包（`packages/buddy`）边界专用号
+  | 'R28';
 
 /** 单条规则的检查结论 */
 export interface BoundaryReport {

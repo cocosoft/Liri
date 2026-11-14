@@ -17,11 +17,11 @@ import { getLogger } from '@openliri/infra/monitoring';
 import {
   getDailyBudget,
   resetDailyBudgetForTest,
-} from '../../src/query/DailyBudgetManager';
+} from '@modules/query/DailyBudgetManager';
 import {
   checkDailyBudget,
   shouldLogBudgetDecisionAtInfo,
-} from '../../src/query/dailyBudgetGate';
+} from '@modules/query/dailyBudgetGate';
 
 const ENV_FLAG = 'FEATURE_USD_BUDGET_GATE';
 const gateLogger = getLogger('query:dailyBudgetGate');

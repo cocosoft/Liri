@@ -12,10 +12,10 @@ import { describe, expect, it } from 'bun:test';
 // 求值（含其 hoisted 的 SessionPruner import），后续引用即安全。
 // TODO: CS05-ROOTFIX — 根因是 SessionManager.ts 顶层 `new SessionManager()` 副作用，
 // 懒加载单例后本 workaround 可移除。
-import '../../src/session/SessionManager';
-import { SessionPruner } from '../../src/session/SessionPruner';
-import type { SessionStorage } from '../../src/session/SessionStorage';
-import type { Session } from '../../src/session/models/Session';
+import '@modules/session/SessionManager';
+import { SessionPruner } from '@modules/session/SessionPruner';
+import type { SessionStorage } from '@modules/session/SessionStorage';
+import type { Session } from '@modules/session/models/Session';
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;

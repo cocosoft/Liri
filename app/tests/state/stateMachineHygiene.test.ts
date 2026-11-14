@@ -9,6 +9,7 @@
 import { describe, expect, it } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { queryPath } from '../../../scripts/lib/queryPaths';
 
 const REPO_ROOT = join(import.meta.dir, '..', '..', '..');
 const read = (rel: string) => readFileSync(join(REPO_ROOT, rel), 'utf8');
@@ -45,7 +46,10 @@ describe('状态机取证隐患守卫（阶段 1.3）', () => {
   });
 
   it('预算档位：不再本地重声明（单一事实源 = dailyBudgetSnapshot）', () => {
-    const src = read('app/src/query/DailyBudgetManager.ts');
+    const src = readFileSync(
+      queryPath(REPO_ROOT, 'DailyBudgetManager.ts'),
+      'utf8'
+    );
 
     expect(src).not.toContain('type BudgetMode =');
     expect(src).toContain(

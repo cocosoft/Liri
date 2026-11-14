@@ -1,0 +1,16 @@
+{
+  "name": "@openliri/tool",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liri 工具域包 —— 工具结果注册表与工具作用域管理器（与 `tools` 同域，不含工具实现）。层归属 app：可依赖 app / service / infra / core；entry / ui 不得依赖本包，包内不得依赖 entry / ui 层（R26）。",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./src/tool/*.ts",
+      "import": "./src/tool/*.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p ../../app/tsconfig.json"
+  }
+}

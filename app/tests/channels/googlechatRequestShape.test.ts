@@ -7,7 +7,7 @@
  */
 import { describe, expect, it, beforeEach, afterEach } from 'bun:test';
 import { generateKeyPairSync } from 'node:crypto';
-import { createGoogleChatChannel } from '../../src/channels/googlechat/GoogleChatChannel';
+import { createGoogleChatChannel } from '@modules/channels/googlechat/GoogleChatChannel';
 
 interface Call {
   url: string;

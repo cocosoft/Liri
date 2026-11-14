@@ -37,10 +37,10 @@ import type { Message } from '@modules/session/types/message.js';
 import type { SessionCheckpoint } from '@modules/session/types/checkpoint';
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { TAORLoop } from '@modules/query';
-import type { TAORCheckpoint } from '../../query/types.js';
-import type { ResumeManager } from '../../query/ResumeManager.js';
-import { getBudgetSuspendCoordinator } from '../../query/budgetSuspend.js';
-import { installOrchestrationSnapshotProviders } from '../../query/orchestrationSnapshotProviders.js';
+import type { TAORCheckpoint } from '@modules/query/types.js';
+import type { ResumeManager } from '@modules/query/ResumeManager.js';
+import { getBudgetSuspendCoordinator } from '@modules/query/budgetSuspend.js';
+import { installOrchestrationSnapshotProviders } from './orchestrationSnapshotProviders.js';
 import { feature } from '@openliri/kernel';
 import type { ToolAwareClient } from '@modules/ai';
 import { mapSessionStatusToState } from '../services/ChatHelper';
@@ -290,9 +290,9 @@ export class ChatBootstrap {
     // 连线 SessionLifecycle 事件 → 记忆/心跳自动化
     try {
       const { getGlobalEventBus } =
-        await import('../../session/lifecycle/SessionLifecycleEventBus.js');
+        await import('@modules/session/lifecycle/SessionLifecycleEventBus.js');
       const { connectSessionHandlers } =
-        await import('../../session/lifecycle/SessionEventHandlers.js');
+        await import('@modules/session/lifecycle/SessionEventHandlers.js');
       connectSessionHandlers(getGlobalEventBus());
     } catch (err) {
       // 非阻塞：事件连线失败不影响主流程
@@ -428,7 +428,7 @@ export class ChatBootstrap {
    */
   private async resumePendingSessions(): Promise<void> {
     try {
-      const { resumeManager } = await import('../../query/ResumeManager.js');
+      const { resumeManager } = await import('@modules/query/ResumeManager.js');
       await this.resumePendingSessionsWith(resumeManager, 'local');
       await this.resumeTenantPendingSessions();
     } catch (e) {
@@ -454,7 +454,7 @@ export class ChatBootstrap {
     if (identities.length === 0) return;
 
     const { withScopedResumeManager } =
-      await import('../../query/scopedResumeScan.js');
+      await import('@modules/query/scopedResumeScan.js');
     for (const identity of identities) {
       try {
         await withScopedResumeManager(identity, (manager) =>

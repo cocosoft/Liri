@@ -21,8 +21,8 @@ import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { appendFile, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { EventLogStorage } from '../src/session/storage/EventLogStorage';
-import type { LiriEvent } from '../src/session/types/events';
+import { EventLogStorage } from '@modules/session/storage/EventLogStorage';
+import type { LiriEvent } from '@modules/session/types/events';
 
 /** 并发会话数（daemon 多通道压测口径） */
 const SESSIONS = 26;

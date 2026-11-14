@@ -21,12 +21,12 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { EventLogStorage } from '../../src/session/storage/EventLogStorage';
+import { EventLogStorage } from '@modules/session/storage/EventLogStorage';
 import {
   comparePrefixIsomorphic,
   findOpenTurnInPrefix,
   resolveBoundaryBeforeMessage,
-} from '../../src/session/gateway/ForkBoundary';
+} from '@modules/session/gateway/ForkBoundary';
 import type { LiriEvent, LiriEventType } from '@modules/session/types/events';
 
 const WORKTREE_HASH = 'testhash';

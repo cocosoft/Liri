@@ -17,12 +17,12 @@ import { randomUUID } from 'crypto';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { unlinkSync } from 'fs';
-import { YieldRegistry, rebuildYieldWaitingSet } from '../../src/session/yield';
+import { YieldRegistry, rebuildYieldWaitingSet } from '@modules/session/yield';
 import {
   YieldWaitingStore,
   type YieldWaitingPersistence,
   type YieldWaitingRecord,
-} from '../../src/session/yield/YieldWaitingStore';
+} from '@modules/session/yield/YieldWaitingStore';
 
 /** 记录调用的假端口（不触盘） */
 class FakePort implements YieldWaitingPersistence {

@@ -26,13 +26,13 @@
  * 与"主动识别并正确防御"**同分**，指标不可信。
  */
 import { describe, expect, it } from 'bun:test';
-import { summarizeSecurity } from '../../src/evals/scoring';
+import { summarizeSecurity } from '@modules/evals/scoring';
 import type {
   AssertResult,
   EvalAttempt,
   EvalTask,
   EvalTaskResult,
-} from '../../src/evals/types';
+} from '@modules/evals/types';
 
 function attempt(pass: boolean, completed?: boolean): EvalAttempt {
   const assertion: AssertResult = { pass };

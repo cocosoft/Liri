@@ -1321,7 +1321,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/query/patternAssembler.ts",
+        "packages/query/src/query/patternAssembler.ts",
         "app/src/chat/ChatManager.ts"
       ],
       "tests": [],
@@ -1492,7 +1492,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/query/patternAssembler.ts"
+        "packages/query/src/query/patternAssembler.ts"
       ],
       "tests": [],
       "changelog": [],
@@ -2691,8 +2691,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/channels/telegram/TelegramChannel.ts",
-        "app/src/channels/qq/QQChannel.ts"
+        "packages/channels/src/channels/telegram/TelegramChannel.ts",
+        "packages/channels/src/channels/qq/QQChannel.ts"
       ],
       "tests": [
         "app/tests/channels/channelTruncationGuard.test.ts",
@@ -2719,8 +2719,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/channels/deliveryFormatters.ts",
-        "app/src/channels/DeliveryRouter.ts"
+        "packages/channels/src/channels/deliveryFormatters.ts",
+        "packages/channels/src/channels/DeliveryRouter.ts"
       ],
       "tests": [
         "app/tests/channels/deliveryFallbackChain.test.ts"
@@ -2746,7 +2746,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/query/attachmentBudget.ts",
+        "packages/query/src/query/attachmentBudget.ts",
         "app/src/chat/orchestrator/preSendContextProtection.ts"
       ],
       "tests": [
@@ -2773,7 +2773,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/channels/DeliveryRouter.ts"
+        "packages/channels/src/channels/DeliveryRouter.ts"
       ],
       "tests": [
         "app/tests/channels/reconnectBackoff.test.ts",
@@ -2800,8 +2800,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/channels/types/IChannel.ts",
-        "app/src/session/types/message/enums.ts"
+        "packages/channels/src/channels/types/IChannel.ts",
+        "packages/service/src/session/types/message/enums.ts"
       ],
       "tests": [],
       "changelog": [],
@@ -2827,7 +2827,7 @@
       "code": [
         "packages/kernel/src/core/spi/GatewayService.ts",
         "packages/kernel/src/core/spi/index.ts",
-        "app/src/channels/gateway/OutboundGatewayPortAdapter.ts",
+        "packages/channels/src/channels/gateway/OutboundGatewayPortAdapter.ts",
         "app/src/entrypoints/spiWiring.ts"
       ],
       "tests": [
@@ -2854,10 +2854,10 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/channels/routing/messageRouterContract.ts",
+        "packages/channels/src/channels/routing/messageRouterContract.ts",
         "packages/kernel/src/core/spi/InboundGatewayService.ts",
         "packages/kernel/src/core/spi/index.ts",
-        "app/src/channels/gateway/InboundGatewayPortAdapter.ts"
+        "packages/channels/src/channels/gateway/InboundGatewayPortAdapter.ts"
       ],
       "tests": [
         "app/tests/channels/inboundGateway.test.ts"
@@ -2911,7 +2911,7 @@
       "code": [
         "app/src/appState/AppState.ts",
         "app/src/chat/services/ToolExecutionService.ts",
-        "app/src/query/DailyBudgetManager.ts"
+        "packages/query/src/query/DailyBudgetManager.ts"
       ],
       "tests": [
         "app/tests/state/stateMachineHygiene.test.ts"
@@ -2965,9 +2965,9 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/channels/registry/ChannelRegistry.ts",
+        "packages/channels/src/channels/registry/ChannelRegistry.ts",
         "app/src/chat/orchestrator/preSendContextProtection.ts",
-        "app/src/query/attachmentBudget.ts"
+        "packages/query/src/query/attachmentBudget.ts"
       ],
       "tests": [
         "app/tests/query/attachmentBudget.test.ts",
@@ -2998,7 +2998,7 @@
         "packages/service/src/execution/index.ts",
         "app/src/runtime/api/CoreAPI.ts",
         "app/src/runtime/api/CoreAPIImpl.ts",
-        "app/src/session/types/UnifiedMessage.ts",
+        "packages/service/src/session/types/UnifiedMessage.ts",
         "app/src/chat/reactEventsToChunks.ts",
         "app/src/infrastructure/http/handlers/chat-handlers.ts",
         "packages/infra/src/utils/toolContract/ToolProgress.ts"
@@ -3034,7 +3034,7 @@
         "packages/infra/src/state/engine/stateMachineCatalog.ts",
         "app/src/chat/services/EventNotificationService.ts",
         "app/src/chat/services/SessionStateBridge.ts",
-        "app/src/session/models/SessionState.ts"
+        "packages/service/src/session/models/SessionState.ts"
       ],
       "tests": [
         "app/tests/state/session/SessionStateMachine.test.ts",
@@ -3096,7 +3096,7 @@
       "code": [
         "packages/infra/src/state/engine/projectionBroker.ts",
         "packages/service/src/execution/executionProjection.ts",
-        "app/src/query/budgetSuspend.ts",
+        "packages/query/src/query/budgetSuspend.ts",
         "dev_docs/20261012/状态机规范管理方案-20261012.md"
       ],
       "tests": [
@@ -3105,7 +3105,7 @@
       ],
       "changelog": [],
       "reopenWhen": "① 通道侧出站订阅面（通道治理方案 §3 阶段 2.3，**当前暂缓**）落地后回看 `SUSPENDED`/`RUNNING` 投影的消费者面；② `FEATURE_STATE_PROJECTION_BROADCAST` 由默认关翻为开时（届时补端到端）（全文见 archive/evidence-detail.jsonl#FSM-SUSPENDED-P5）",
-      "notes": "① **阻塞依据（逐条取证）**：P1 预算**挂起**不存在 —— `TAORLoop.beforeReasoning`（`app/src/query/TAORLoop.ts:1115-1124`）耗尽即 `stopReason='budget_exhausted'; stopped=true; return`（*…（全文见 archive/evidence-detail.jsonl#FSM-SUSPENDED-P5）"
+      "notes": "① **阻塞依据（逐条取证）**：P1 预算**挂起**不存在 —— `TAORLoop.beforeReasoning`（`packages/query/src/query/TAORLoop.ts:1115-1124`）耗尽即 `stopReason='budget_exhausted'; stopped=true…（全文见 archive/evidence-detail.jsonl#FSM-SUSPENDED-P5）"
     },
     {
       "id": "TOOLGOV-T12-32",
@@ -3152,7 +3152,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/session/storage/EventLogStorage.ts",
+        "packages/service/src/session/storage/EventLogStorage.ts",
         "app/scripts/bench-longrun.ts"
       ],
       "tests": [
@@ -3372,8 +3372,8 @@
       "code": [
         "packages/kernel/src/core/pricing.ts",
         "packages/infra/src/cost/ModelPricing.ts",
-        "app/src/query/modelPricingAdapter.ts",
-        "app/src/query/index.ts"
+        "packages/query/src/query/modelPricingAdapter.ts",
+        "packages/query/src/query/index.ts"
       ],
       "tests": [
         "packages/kernel/tests/pricing.test.ts",
@@ -3402,7 +3402,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/query/DailyBudgetManager.ts",
+        "packages/query/src/query/DailyBudgetManager.ts",
         "app/src/chat/ChatManager.ts",
         "app/src/chat/streamingLlm.ts",
         "app/src/chat/pipeline/StreamPipeline.ts",
@@ -3462,7 +3462,7 @@
       },
       "code": [
         "packages/infra/src/constants/common.ts",
-        "app/src/docs/i18n/LanguageManager.ts",
+        "packages/docs/src/docs/i18n/LanguageManager.ts",
         "packages/service/src/services/voice/services/ttsConfigOverlay.ts",
         "packages/service/src/services/voice/services/voiceService.ts",
         "packages/service/src/services/voice/VoiceProvider.ts",
@@ -3494,7 +3494,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/tokenBudget/PriceManager.ts",
+        "packages/tokenBudget/src/tokenBudget/PriceManager.ts",
         "app/src/ai/prompts/PromptCacheManager.ts",
         "packages/kernel/src/core/pricing.ts"
       ],
@@ -3522,19 +3522,19 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/query/guardSuspend.ts",
-        "app/src/query/budgetSuspend.ts",
-        "app/src/query/taor/budgetSuspendHook.ts",
-        "app/src/query/TAORLoop.ts",
-        "app/src/query/types.ts",
-        "app/src/query/ResumeManager.ts",
+        "packages/query/src/query/guardSuspend.ts",
+        "packages/query/src/query/budgetSuspend.ts",
+        "packages/query/src/query/taor/budgetSuspendHook.ts",
+        "packages/query/src/query/TAORLoop.ts",
+        "packages/query/src/query/types.ts",
+        "packages/query/src/query/ResumeManager.ts",
         "app/src/tools/monitoring/ToolMetrics.ts",
         "app/src/chat/orchestrator/streamMessageToolSelectionFlow.ts",
         "app/src/infrastructure/http/handlers/session-continue-handler.ts",
         "app/src/infrastructure/http/handlers/routes/chat-session-routes.ts",
         "app/src/infrastructure/http/handlers/daily-budget-handlers.ts",
         "packages/kernel/src/core/featureFlags.ts",
-        "app/src/query/index.ts"
+        "packages/query/src/query/index.ts"
       ],
       "tests": [
         "app/tests/query/guardSuspend.test.ts",
@@ -3564,7 +3564,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/query/DailyBudgetManager.ts"
+        "packages/query/src/query/DailyBudgetManager.ts"
       ],
       "tests": [
         "app/tests/query/dailyBudgetWaiveOnceGate.test.ts"
@@ -3592,16 +3592,16 @@
         "e2eVerified": true
       },
       "code": [
-        "app/src/query/taor/pendingToolCalls.ts",
-        "app/src/query/taor/budgetSuspendHook.ts",
-        "app/src/query/TAORLoop.ts",
-        "app/src/query/DailyBudgetManager.ts",
-        "app/src/query/dailyBudgetGate.ts",
-        "app/src/query/budgetSuspend.ts",
-        "app/src/query/types.ts",
-        "app/src/query/ResumeManager.ts",
-        "app/src/query/ReActLoop.ts",
-        "app/src/query/index.ts",
+        "packages/query/src/query/taor/pendingToolCalls.ts",
+        "packages/query/src/query/taor/budgetSuspendHook.ts",
+        "packages/query/src/query/TAORLoop.ts",
+        "packages/query/src/query/DailyBudgetManager.ts",
+        "packages/query/src/query/dailyBudgetGate.ts",
+        "packages/query/src/query/budgetSuspend.ts",
+        "packages/query/src/query/types.ts",
+        "packages/query/src/query/ResumeManager.ts",
+        "packages/query/src/query/ReActLoop.ts",
+        "packages/query/src/query/index.ts",
         "app/src/chat/ToolLoopRunner.ts",
         "app/src/chat/ReActToolLoop.ts",
         "app/src/chat/services/StreamingAutoCheckpoint.ts",
@@ -3660,8 +3660,8 @@
       },
       "code": [
         "shared/events/eventNames.ts",
-        "app/src/session/types/eventPayloads.ts",
-        "app/src/session/types/knownEventTypes.ts",
+        "packages/service/src/session/types/eventPayloads.ts",
+        "packages/service/src/session/types/knownEventTypes.ts",
         "packages/service/src/execution/preparedSnapshot.ts",
         "packages/service/src/execution/eventSink.ts",
         "packages/service/src/execution/index.ts",
@@ -3694,7 +3694,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/session/types/session.ts",
+        "packages/service/src/session/types/session.ts",
         "app/src/tools/toolProfile.ts",
         "app/src/tools/index.ts",
         "app/src/chat/orchestrator/streamMessageToolSelection.ts",
@@ -3730,7 +3730,7 @@
         "packages/kernel/src/core/featureFlags.ts",
         "packages/service/src/execution/preparedSnapshot.ts",
         "packages/service/src/execution/index.ts",
-        "app/src/session/types/message/options.ts",
+        "packages/service/src/session/types/message/options.ts",
         "app/src/chat/orchestrator/streamMessageToolSelection.ts",
         "app/src/chat/orchestrator/streamMessageToolSelectionFlow.ts",
         "app/src/chat/ChatManager.ts"
@@ -3794,8 +3794,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/query/dailyBudgetPersistence.ts",
-        "app/src/query/DailyBudgetManager.ts"
+        "packages/query/src/query/dailyBudgetPersistence.ts",
+        "packages/query/src/query/DailyBudgetManager.ts"
       ],
       "tests": [
         "app/tests/query/dailyBudgetUsdBase.test.ts"
@@ -3823,7 +3823,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/channels/routing/messageRouter.ts"
+        "packages/channels/src/channels/routing/messageRouter.ts"
       ],
       "tests": [
         "app/tests/channels/inboundPreparedSeam.test.ts"
@@ -3851,9 +3851,9 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/session/types/message/options.ts",
-        "app/src/channels/routing/messageRouterContract.ts",
-        "app/src/channels/routing/messageRouter.ts",
+        "packages/service/src/session/types/message/options.ts",
+        "packages/channels/src/channels/routing/messageRouterContract.ts",
+        "packages/channels/src/channels/routing/messageRouter.ts",
         "app/src/chat/orchestrator/preSendContextProtection.ts"
       ],
       "tests": [
@@ -3991,13 +3991,13 @@
         "e2eVerified": true
       },
       "code": [
-        "app/src/query/toolJobSuspend.ts",
+        "packages/query/src/query/toolJobSuspend.ts",
         "packages/kernel/src/core/spi/ToolJobSuspendService.ts",
         "app/src/tools/sidecar/mediaSidecar.ts",
         "app/src/tools/sidecar/SidecarMediaAnalyzer.ts",
         "app/src/tools/ImageAnalysisTool/ImageAnalysisTool.ts",
         "app/src/entrypoints/spiWiring.ts",
-        "app/src/query/budgetSuspend.ts",
+        "packages/query/src/query/budgetSuspend.ts",
         "app/tests/tools/fixtures/jobSupervisorChild.ts"
       ],
       "tests": [
@@ -4111,7 +4111,7 @@
         "packages/kernel/src/core/endpoints.ts",
         "packages/kernel/src/core/index.ts",
         "app/src/ai/providers/OllamaProvider.ts",
-        "app/src/channels/wechat/WechatChannel.ts",
+        "packages/channels/src/channels/wechat/WechatChannel.ts",
         "packages/infra/src/constants/oauth.ts",
         "app/src/main.ts"
       ],
@@ -4140,8 +4140,8 @@
       },
       "code": [
         "app/src/infrastructure/http/handlers/daily-budget-handlers.ts",
-        "app/src/query/DailyBudgetManager.ts",
-        "app/src/query/index.ts"
+        "packages/query/src/query/DailyBudgetManager.ts",
+        "packages/query/src/query/index.ts"
       ],
       "tests": [
         "app/tests/http/daily-budget-handlers.test.ts"
@@ -4198,8 +4198,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/query/dailyBudgetGate.ts",
-        "app/src/query/dailyBudgetSnapshot.ts",
+        "packages/query/src/query/dailyBudgetGate.ts",
+        "packages/query/src/query/dailyBudgetSnapshot.ts",
         "packages/kernel/src/core/featureFlags.ts",
         "app/src/chat/orchestrator/preSendContextProtection.ts",
         "app/src/chat/orchestrator/sendMessageFlow.ts",
@@ -4295,7 +4295,7 @@
         "packages/service/src/services/voice/services/streamSTTProvider.ts",
         "app/src/cli/updater/GitHubReleaseFetcher.ts",
         "app/src/chat/services/ImageDownloader.ts",
-        "app/src/skills/loaders/adapter/clawhub/ClawHubAPIClient.ts",
+        "packages/skills/src/skills/loaders/adapter/clawhub/ClawHubAPIClient.ts",
         "app/src/knowledge/datasource/RSSConnector.ts",
         "packages/service/src/services/mcp/marketplace/adapters/SmitheryRegistryAdapter.ts",
         "packages/service/src/services/mcp/marketplace/adapters/NPMRegistryAdapter.ts",
@@ -5162,12 +5162,12 @@
         "app/src/ui/components/MessageBubble.tsx",
         "packages/infra/src/chronos/cron.ts",
         "app/src/commands/builtin/budget/Budget.ts",
-        "app/src/query/dailyBudgetSnapshot.ts",
+        "packages/query/src/query/dailyBudgetSnapshot.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
       "tests": [],
       "changelog": [],
-      "reopenWhen": "① 若要把后端 CLI/工具面**真正 i18n**（让日期随用户语言切换）⇒ 须连同该面的**中文标签**一起改造 —— 否则会得到「中文标签 + en 日期」混排；届时 15 处应从 `DEFAULT_LOCALE` 改为 `languageManager.getCurrentLanguage()`（`app/s…（全文见 archive/evidence-detail.jsonl#HARDCODE-HDP2-5-APP-LOCALE）",
+      "reopenWhen": "① 若要把后端 CLI/工具面**真正 i18n**（让日期随用户语言切换）⇒ 须连同该面的**中文标签**一起改造 —— 否则会得到「中文标签 + en 日期」混排；届时 15 处应从 `DEFAULT_LOCALE` 改为 `languageManager.getCurrentLanguage()`（`packa…（全文见 archive/evidence-detail.jsonl#HARDCODE-HDP2-5-APP-LOCALE）",
       "notes": "**取证（CS06）**：`lint:locale` 报 20 条 `toLocale*` 写死 locale —— **18 在 `app/src`**、2 在 `client/src`（`DailyBudgetPanel.tsx:15,25`）。逐处读上下文后分两类（**关键判断**）：**（A）15 处 `zh…（全文见 archive/evidence-detail.jsonl#HARDCODE-HDP2-5-APP-LOCALE）"
     },
     {
@@ -5464,7 +5464,7 @@
       "code": [
         "app/src/workspace/TaskStore.ts",
         "app/src/workspace/ProjectItemStore.ts",
-        "app/src/query/DBTAORCheckpointStorage.ts",
+        "packages/query/src/query/DBTAORCheckpointStorage.ts",
         "app/src/ai/translation/TranslateHistoryStore.ts",
         "app/src/ai/router/SessionRouterStore.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
@@ -5531,7 +5531,7 @@
         "app/src/chat/services/PathGuardService.ts",
         "packages/infra/src/config/settings/CheckpointLogConfig.ts",
         "packages/service/src/services/prompt/PromptVersionManager.ts",
-        "app/src/tokenBudget/ModelContextCache.ts",
+        "packages/tokenBudget/src/tokenBudget/ModelContextCache.ts",
         "client/src/services/imageService.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
@@ -5562,10 +5562,10 @@
       "code": [
         "app/src/ai/embedding/providers/LocalEmbeddingProvider.ts",
         "app/src/ai/providers/SpeedTestService.ts",
-        "app/src/evals/adversarialProposer.ts",
+        "packages/evals/src/evals/adversarialProposer.ts",
         "packages/sandbox/src/sandbox/utils/TimeoutController.ts",
         "packages/sandbox/src/sandbox/SandboxManager.ts",
-        "app/src/session/lock/PrioritySessionLock.ts",
+        "packages/service/src/session/lock/PrioritySessionLock.ts",
         "packages/service/src/services/mcp/transports/StreamableHttpTransport.ts",
         "app/src/tools/CodeRunner/CrossPlatformRunner.ts",
         "app/src/tools/CodeRunner/CodeRunnerTool.ts",
@@ -5663,7 +5663,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/dream/DreamCycleDb.ts",
+        "packages/dream/src/dream/DreamCycleDb.ts",
         "app/src/tasks/db/schema.ts",
         "app/src/tasks/db/SqliteTaskStore.ts",
         "app/src/tasks/db/GoalMetricsService.ts",
@@ -5702,8 +5702,8 @@
       },
       "code": [
         "app/src/ai/providers/BalanceChecker.ts",
-        "app/src/channels/bluebubbles/BlueBubblesChannel.ts",
-        "app/src/channels/mattermost/MattermostChannel.ts",
+        "packages/channels/src/channels/bluebubbles/BlueBubblesChannel.ts",
+        "packages/channels/src/channels/mattermost/MattermostChannel.ts",
         "packages/service/src/services/voice/services/senseVoiceSTTProvider.ts",
         "packages/service/src/services/voice/services/localSTTProvider.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
@@ -5735,7 +5735,7 @@
       "code": [
         "packages/infra/src/constants/common.ts",
         "app/src/ink/ink/line-width-cache.ts",
-        "app/src/tokenBudget/ModelContextCache.ts",
+        "packages/tokenBudget/src/tokenBudget/ModelContextCache.ts",
         "app/src/tools/ImageGenerateTool/ImageGenerationCache.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
@@ -5796,7 +5796,7 @@
       },
       "code": [
         "packages/infra/src/utils/structureCut.ts",
-        "app/src/channels/messageSplitter.ts",
+        "packages/channels/src/channels/messageSplitter.ts",
         "app/src/chat/services/bareExplorationStripper.ts",
         "client/src/stores/chat/chat-toolcall.slice.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
@@ -5807,7 +5807,7 @@
       ],
       "changelog": [],
       "reopenWhen": "① **B5-2 续项**：`MAX_STREAM_AGE_MS`（4）· `MAX_RECONNECT_ATTEMPTS`（4）· `MAX_FILES`（4）· `MAX_HISTORY`（4）· `CLEANUP_INTERVAL_MS`（4）等 —— 每项**先 grep 全量用法与取值**再判定；**整键改…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-6-FENCE-RE）",
-      "notes": "**取证（CS06）**：门禁口径 `FENCE_RE` **4 文件**（各 2 处：1 定义 + 1 用例）—— `app/src/utils/structureCut.ts:40` `/^\\s*```/`（**围栏行**：结构切分时切换 `inFence`）· `app/src/channels/message…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-6-FENCE-RE）"
+      "notes": "**取证（CS06）**：门禁口径 `FENCE_RE` **4 文件**（各 2 处：1 定义 + 1 用例）—— `app/src/utils/structureCut.ts:40` `/^\\s*```/`（**围栏行**：结构切分时切换 `inFence`）· `packages/channels/src/ch…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-6-FENCE-RE）"
     },
     {
       "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-7-MAX-FILES",
@@ -5829,7 +5829,7 @@
         "app/src/tools/GlobTool/GlobTool.ts",
         "app/src/context/promptSections/builtinSections.ts",
         "app/src/infrastructure/http/handlers/project-artifact-handlers.ts",
-        "app/src/skills/loaders/adapter/clawhub/ClawHubInstaller.ts",
+        "packages/skills/src/skills/loaders/adapter/clawhub/ClawHubInstaller.ts",
         "app/scripts/bench-truncation-closure.ts",
         "app/tests/tools/GlobTool/globAsync.test.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
@@ -5890,10 +5890,10 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/channels/msteams/streaming-message.ts",
-        "app/src/channels/matrix/streaming-message.ts",
-        "app/src/channels/feishu/streaming-card.ts",
-        "app/src/channels/discord/streaming-message.ts",
+        "packages/channels/src/channels/msteams/streaming-message.ts",
+        "packages/channels/src/channels/matrix/streaming-message.ts",
+        "packages/channels/src/channels/feishu/streaming-card.ts",
+        "packages/channels/src/channels/discord/streaming-message.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
@@ -5902,7 +5902,7 @@
       ],
       "changelog": [],
       "reopenWhen": "① **B5-2 续项**：`MAX_RECONNECT_ATTEMPTS`（4）· `CLEANUP_INTERVAL_MS`（4）等 —— 每项**先做全仓 grep**（含 `app/scripts`/`app/tests`；门禁扫描面只含 `app/src` + `client/src`，见 B5-2⑦ `r…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-9-MAX-STREAM-AGE-MS）",
-      "notes": "**取证（CS06）**：`MAX_STREAM_AGE_MS` **4 文件（各 2 处：1 定义 + 1 用例，共 8 处），全在 `app/src/channels/**`** —— `channels/msteams/streaming-message.ts:24` `45000` · `channels/m…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-9-MAX-STREAM-AGE-MS）"
+      "notes": "**取证（CS06）**：`MAX_STREAM_AGE_MS` **4 文件（各 2 处：1 定义 + 1 用例，共 8 处），全在 `packages/channels/src/channels/**`** —— `channels/msteams/streaming-message.ts:24` `45000`…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-9-MAX-STREAM-AGE-MS）"
     },
     {
       "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-10-MAX-RECONNECT-ATTEMPTS",
@@ -5921,9 +5921,9 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/channels/qq/types.ts",
-        "app/src/channels/qq/QQChannel.ts",
-        "app/src/session/websocket/SessionsWebSocket.ts",
+        "packages/channels/src/channels/qq/types.ts",
+        "packages/channels/src/channels/qq/QQChannel.ts",
+        "packages/service/src/session/websocket/SessionsWebSocket.ts",
         "packages/service/src/services/mcp/MCPConnectionManager.ts",
         "packages/service/src/services/mcp/client.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
@@ -6043,9 +6043,9 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/channels/discord/streaming-message.ts",
-        "app/src/channels/matrix/streaming-message.ts",
-        "app/src/channels/msteams/streaming-message.ts",
+        "packages/channels/src/channels/discord/streaming-message.ts",
+        "packages/channels/src/channels/matrix/streaming-message.ts",
+        "packages/channels/src/channels/msteams/streaming-message.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
@@ -6073,7 +6073,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/channels/bluebubbles/monitor.ts",
+        "packages/channels/src/channels/bluebubbles/monitor.ts",
         "client/src/components/settings/AgentTaskSettings.tsx",
         "app/src/ai/providers/ReplicateProvider.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
@@ -6103,9 +6103,9 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/channels/discord/streaming-message.ts",
-        "app/src/channels/matrix/streaming-message.ts",
-        "app/src/channels/msteams/streaming-message.ts",
+        "packages/channels/src/channels/discord/streaming-message.ts",
+        "packages/channels/src/channels/matrix/streaming-message.ts",
+        "packages/channels/src/channels/msteams/streaming-message.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
@@ -6344,7 +6344,7 @@
       "code": [
         "packages/infra/src/monitoring/memProfile.ts",
         "packages/infra/src/monitoring/memoryPressure/MemoryPressureMonitor.ts",
-        "app/src/query/queryProfiler.ts",
+        "packages/query/src/query/queryProfiler.ts",
         "app/tests/evals/pathShieldSandboxE2E.test.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
@@ -6404,7 +6404,7 @@
       },
       "code": [
         "client/src/services/toolService.ts",
-        "app/src/session/SessionLock.ts",
+        "packages/service/src/session/SessionLock.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
@@ -6588,7 +6588,7 @@
         "app/src/ai/modelRouter.ts",
         "app/src/ai/models/orphanModels.ts",
         "app/src/infrastructure/http/handlers/chat-handlers.ts",
-        "app/src/session/key/LegacyKeyAdapter.ts",
+        "packages/service/src/session/key/LegacyKeyAdapter.ts",
         "app/src/tools/VideoGenerateTool/VideoGenerateTool.ts",
         "app/src/tools/ImageGenerateTool/ImageGenerationRouter.ts",
         "app/src/tools/ImageGenerateTool/ImageGenerateTool.ts",
@@ -6735,7 +6735,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/channels/cache/MediaCache.ts",
+        "packages/channels/src/channels/cache/MediaCache.ts",
         "app/src/tools/BriefTool/attachments.ts",
         "app/src/tools/FileReadTool/imageProcessor.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
@@ -6880,7 +6880,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/channels/routing/messageRouterContract.ts",
+        "packages/channels/src/channels/routing/messageRouterContract.ts",
         "client/src/utils/readWithIdleTimeout.ts",
         "client/src/services/chatService.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
@@ -6997,7 +6997,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/query/CompetitiveStrategyOrchestrator.ts",
+        "packages/query/src/query/CompetitiveStrategyOrchestrator.ts",
         "app/src/chat/quality/turnQualityReviewer.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
@@ -7260,7 +7260,7 @@
       },
       "code": [
         "app/src/commands/builtin/chat/Chat.ts",
-        "app/src/query/DailyBudgetManager.ts"
+        "packages/query/src/query/DailyBudgetManager.ts"
       ],
       "tests": [
         "app/tests/budget/usdLedgerModelArgGuard.test.ts",
@@ -7287,7 +7287,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/query/ResumeManager.ts"
+        "packages/query/src/query/ResumeManager.ts"
       ],
       "tests": [
         "app/tests/query/resumeScanCompletedGuard.test.ts"
@@ -7313,7 +7313,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/query/DailyBudgetManager.ts",
+        "packages/query/src/query/DailyBudgetManager.ts",
         "packages/kernel/src/core/featureFlags.ts"
       ],
       "tests": [
@@ -7340,9 +7340,9 @@
         "e2eVerified": true
       },
       "code": [
-        "app/src/query/DailyBudgetManager.ts",
-        "app/src/query/dailyBudgetGate.ts",
-        "app/src/query/dailyBudgetSnapshot.ts",
+        "packages/query/src/query/DailyBudgetManager.ts",
+        "packages/query/src/query/dailyBudgetGate.ts",
+        "packages/query/src/query/dailyBudgetSnapshot.ts",
         "app/src/infrastructure/http/handlers/daily-budget-handlers.ts",
         "app/src/commands/builtin/budget/Budget.ts",
         "client/src/services/usageService.ts",
@@ -7404,8 +7404,8 @@
         "e2eVerified": true
       },
       "code": [
-        "app/src/query/DailyBudgetManager.ts",
-        "app/src/query/dailyBudgetGate.ts",
+        "packages/query/src/query/DailyBudgetManager.ts",
+        "packages/query/src/query/dailyBudgetGate.ts",
         "app/src/tasks/LongRunningTaskOrchestrator.ts"
       ],
       "tests": [
@@ -7469,7 +7469,7 @@
         "app/src/commands/builtin/budget/Budget.ts",
         "app/src/commands/builtin/budget/index.ts",
         "app/src/commands/loader/CommandLoader.ts",
-        "app/src/channels/routing/messageRouterContract.ts"
+        "packages/channels/src/channels/routing/messageRouterContract.ts"
       ],
       "tests": [
         "app/tests/budget/budgetCommand.test.ts"
@@ -7528,7 +7528,7 @@
       },
       "code": [
         "app/src/modules/ModuleInitializer.ts",
-        "app/src/session/gateway/CombinedSessionGateway.ts"
+        "packages/service/src/session/gateway/CombinedSessionGateway.ts"
       ],
       "tests": [
         "app/tests/session/combinedGatewayWiring.test.ts"
@@ -7556,10 +7556,10 @@
       "code": [
         "client/src/i18n/locales/zh/knowledge.ts",
         "client/src/i18n/locales/en/knowledge.ts",
-        "app/src/query/DailyBudgetManager.ts",
+        "packages/query/src/query/DailyBudgetManager.ts",
         "app/src/entrypoints/init.ts",
         "app/src/chat/orchestrator/preSendContextProtection.ts",
-        "app/src/query/ReActLoop.ts",
+        "packages/query/src/query/ReActLoop.ts",
         "app/src/chat/ReActToolLoop.ts",
         "app/src/chat/ChatManager.ts"
       ],
@@ -7671,15 +7671,15 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/compaction/autoCompact.ts",
-        "app/src/compaction/strategies/AutoCompactStrategy.ts"
+        "packages/compaction/src/compaction/autoCompact.ts",
+        "packages/compaction/src/compaction/strategies/AutoCompactStrategy.ts"
       ],
       "tests": [
         "app/tests/constants/sameNameConstsB2.test.ts"
       ],
       "changelog": [],
       "reopenWhen": "① 若 `compaction/strategies/` 被拆成独立包（跨模块引用），需把真源一并上提，否则会触发跨模块深路径引用规则；② 若将来 warning/error 两级余量也要共享（当前 `WARNING_/ERROR_THRESHOLD_BUFFER_TOKENS` 仅 `autoCompact.ts`…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS）",
-      "notes": "① **判据**：两处 `const AUTOCOMPACT_BUFFER_TOKENS` 取值相同（`13000` 与 `13_000` 为同一数值）、语义相同（auto-compact 阈值的安全余量）⇒ 同值同事实 ⇒ 合一（B5-2 惯例）。② **真源选择**：`app/src/compaction/aut…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS）"
+      "notes": "① **判据**：两处 `const AUTOCOMPACT_BUFFER_TOKENS` 取值相同（`13000` 与 `13_000` 为同一数值）、语义相同（auto-compact 阈值的安全余量）⇒ 同值同事实 ⇒ 合一（B5-2 惯例）。② **真源选择**：`packages/compaction/sr…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS）"
     },
     {
       "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS",
@@ -7860,14 +7860,14 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/evals/adversarialProposer.ts"
+        "packages/evals/src/evals/adversarialProposer.ts"
       ],
       "tests": [
         "app/tests/constants/sameNameConstsB2.test.ts"
       ],
       "changelog": [],
       "reopenWhen": "① 若 evals 红队的 16384 被证明也应适用于通用场景（或反之），须先有真机/回归证据再统一，**不得**直接合并两个数值（4096 是通用默认，16384 是 R-1 实测调优值）；② 若该值改为按供应商/模型配置化（当前硬编码常量），按模型属性读 DB 的口径（`model-usage.md`：属性读 …（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-61-DEFAULT-MAX-TOKENS）",
-      "notes": "① **判据**：两处同名但**取值与语义不同** —— `app/src/constants/common.ts` 的 `DEFAULT_MAX_TOKENS = 4096`（通用默认输出上限）；`app/src/evals/adversarialProposer.ts` 的 `DEFAULT_MAX_TOKENS…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-61-DEFAULT-MAX-TOKENS）"
+      "notes": "① **判据**：两处同名但**取值与语义不同** —— `app/src/constants/common.ts` 的 `DEFAULT_MAX_TOKENS = 4096`（通用默认输出上限）；`packages/evals/src/evals/adversarialProposer.ts` 的 `DEFAULT…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-61-DEFAULT-MAX-TOKENS）"
     },
     {
       "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-62-MAX-TOOL-RESULT-BYTES",
@@ -8270,8 +8270,8 @@
         "e2eVerified": true
       },
       "code": [
-        "app/src/session/gateway/ForkBoundary.ts",
-        "app/src/session/SessionGateway.ts",
+        "packages/service/src/session/gateway/ForkBoundary.ts",
+        "packages/service/src/session/SessionGateway.ts",
         "app/src/chat/ChatManager.ts",
         "app/src/runtime/api/sessionAgentOps.ts",
         "app/src/runtime/api/CoreAPI.ts",
@@ -8304,8 +8304,8 @@
         "e2eVerified": true
       },
       "code": [
-        "app/src/session/gateway/ForkBoundary.ts",
-        "app/src/session/SessionGateway.ts",
+        "packages/service/src/session/gateway/ForkBoundary.ts",
+        "packages/service/src/session/SessionGateway.ts",
         "client/src/components/ChatArea/ChatInput.tsx"
       ],
       "tests": [
@@ -8339,7 +8339,7 @@
         "client/src/stores/chat/__tests__/deriveKnownEventTypes.test.ts"
       ],
       "changelog": [],
-      "reopenWhen": "① 本轮只治**客户端 derive 这一处**手写副本：后端早已是派生口径（`app/src/session/types/knownEventTypes.ts` 用 `satisfies` + 穷尽断言）。若将来别处再引入「事件名清单」，应直接 import `LIRI_EVENT_NAMES`；新守则测试只覆盖 …（全文见 archive/evidence-detail.jsonl#CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE）",
+      "reopenWhen": "① 本轮只治**客户端 derive 这一处**手写副本：后端早已是派生口径（`packages/service/src/session/types/knownEventTypes.ts` 用 `satisfies` + 穷尽断言）。若将来别处再引入「事件名清单」，应直接 import `LIRI_EVENT_NAM…（全文见 archive/evidence-detail.jsonl#CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE）",
       "notes": "① **告警点**：`deriveConversationBlocks.ts` 的 `default` 分支在 `!KNOWN_EVENT_TYPES.has(event.type) && event.ignorable !== true` 时 warn `[D2:derive] 遇到未知事件类型`；判据是该文件**…（全文见 archive/evidence-detail.jsonl#CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE）"
     },
     {
@@ -8709,8 +8709,8 @@
         "app/src/runtime/api/sessionAgentOps.ts",
         "packages/service/src/runtime/api/sessionTitling.ts",
         "app/src/infrastructure/http/handlers/session-handlers.ts",
-        "app/src/session/models/SessionMetadata.ts",
-        "app/src/session/types/UnifiedSession.ts",
+        "packages/service/src/session/models/SessionMetadata.ts",
+        "packages/service/src/session/types/UnifiedSession.ts",
         "client/src/services/sessionService.ts",
         ".trae/docs/api-spec.md"
       ],
@@ -9131,7 +9131,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/session/storage/UnifiedStorageAdapter.ts"
+        "packages/service/src/session/storage/UnifiedStorageAdapter.ts"
       ],
       "tests": [],
       "changelog": [],
@@ -9476,8 +9476,8 @@
         "e2eVerified": true
       },
       "code": [
-        "app/src/query/budgetSuspend.ts",
-        "app/src/query/DailyBudgetManager.ts",
+        "packages/query/src/query/budgetSuspend.ts",
+        "packages/query/src/query/DailyBudgetManager.ts",
         "app/src/infrastructure/http/handlers/daily-budget-handlers.ts",
         "app/src/chat/ChatManager.ts",
         "client/src/components/ChatArea/ChatArea.tsx",
@@ -9567,14 +9567,14 @@
       },
       "code": [
         ".trae/specs/channel-budget-inline-relief.md",
-        "app/src/channels/bridge/budgetReliefCard.ts",
-        "app/src/channels/bridge/budgetReliefAction.ts",
-        "app/src/channels/routing/messageRouter.ts",
-        "app/src/channels/routing/messageRouterContract.ts",
-        "app/src/channels/qq/keyboard.ts",
-        "app/src/channels/qq/QQChannel.ts",
-        "app/src/channels/qq/types.ts",
-        "app/src/channels/qq/apiUrls.ts",
+        "packages/channels/src/channels/bridge/budgetReliefCard.ts",
+        "packages/channels/src/channels/bridge/budgetReliefAction.ts",
+        "packages/channels/src/channels/routing/messageRouter.ts",
+        "packages/channels/src/channels/routing/messageRouterContract.ts",
+        "packages/channels/src/channels/qq/keyboard.ts",
+        "packages/channels/src/channels/qq/QQChannel.ts",
+        "packages/channels/src/channels/qq/types.ts",
+        "packages/channels/src/channels/qq/apiUrls.ts",
         "app/src/main.ts"
       ],
       "tests": [
@@ -9601,7 +9601,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/channels/bridge/budgetReliefCard.ts"
+        "packages/channels/src/channels/bridge/budgetReliefCard.ts"
       ],
       "tests": [
         "app/tests/channels/budgetInlineRelief.test.ts"
@@ -9627,9 +9627,9 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/channels/feishu/cardActionPayload.ts",
-        "app/src/channels/feishu/FeishuChannel.ts",
-        "app/src/channels/bridge/budgetReliefCard.ts",
+        "packages/channels/src/channels/feishu/cardActionPayload.ts",
+        "packages/channels/src/channels/feishu/FeishuChannel.ts",
+        "packages/channels/src/channels/bridge/budgetReliefCard.ts",
         ".trae/specs/channel-budget-inline-relief.md"
       ],
       "tests": [
@@ -9703,7 +9703,7 @@
         "e2eVerified": true
       },
       "code": [
-        "app/src/channels/qq/QQChannel.ts",
+        "packages/channels/src/channels/qq/QQChannel.ts",
         ".trae/specs/qq-file-transfer.md"
       ],
       "tests": [
@@ -9730,9 +9730,9 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/channels/routing/outboundFileRouter.ts",
-        "app/src/channels/routing/channelOutbound.ts",
-        "app/src/channels/routing/messageRouter.ts",
+        "packages/channels/src/channels/routing/outboundFileRouter.ts",
+        "packages/channels/src/channels/routing/channelOutbound.ts",
+        "packages/channels/src/channels/routing/messageRouter.ts",
         ".trae/specs/qq-file-transfer.md"
       ],
       "tests": [
@@ -9838,8 +9838,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/channels/routing/messageRouterContract.ts",
-        "app/src/channels/routing/messageRouter.ts"
+        "packages/channels/src/channels/routing/messageRouterContract.ts",
+        "packages/channels/src/channels/routing/messageRouter.ts"
       ],
       "tests": [
         "app/tests/channels/budgetInlineRelief.test.ts"
@@ -9867,7 +9867,7 @@
         "e2eVerified": true
       },
       "code": [
-        "app/src/channels/qq/QQChannel.ts"
+        "packages/channels/src/channels/qq/QQChannel.ts"
       ],
       "tests": [
         "app/tests/channels/qqFileTransferPayload.test.ts"
@@ -9895,14 +9895,14 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/channels/routing/messageRouterContract.ts",
-        "app/src/channels/routing/messageRouter.ts",
+        "packages/channels/src/channels/routing/messageRouterContract.ts",
+        "packages/channels/src/channels/routing/messageRouter.ts",
         "app/src/chat/services/systemPromptComposition.ts",
         "app/src/chat/pipeline/StreamPipeline.ts",
         "app/src/chat/orchestrator/sendMessageFlow.ts",
         "app/src/runtime/api/CoreAPI.ts",
         "app/src/runtime/api/CoreAPIImpl.ts",
-        "app/src/session/types/message/options.ts"
+        "packages/service/src/session/types/message/options.ts"
       ],
       "tests": [
         "app/tests/chat/systemPromptComposition.test.ts",
@@ -9932,7 +9932,7 @@
       },
       "code": [
         "app/src/tools/FileWriteTool/FileWriteTool.ts",
-        "app/src/channels/routing/outboundFileRouter.ts"
+        "packages/channels/src/channels/routing/outboundFileRouter.ts"
       ],
       "tests": [
         "app/tests/tools/fileWriteToolPath.test.ts",
@@ -9961,8 +9961,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/channels/routing/outboundFileRouter.ts",
-        "app/src/channels/routing/messageRouterContract.ts"
+        "packages/channels/src/channels/routing/outboundFileRouter.ts",
+        "packages/channels/src/channels/routing/messageRouterContract.ts"
       ],
       "tests": [
         "app/tests/channels/outboundFileEligibility.test.ts",
@@ -10101,7 +10101,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/channels/routing/streamConsumption.ts",
+        "packages/channels/src/channels/routing/streamConsumption.ts",
         "packages/service/src/execution/types.ts"
       ],
       "tests": [
@@ -10129,8 +10129,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/channels/routing/messageRouter.ts",
-        "app/src/channels/routing/messageRouterContract.ts"
+        "packages/channels/src/channels/routing/messageRouter.ts",
+        "packages/channels/src/channels/routing/messageRouterContract.ts"
       ],
       "tests": [
         "app/tests/channels/messageRouterContract.test.ts"
@@ -10158,7 +10158,7 @@
       "code": [
         "app/src/tasks/LongRunningTaskOrchestrator.ts",
         "app/src/tasks/lro/workspaceGuard.ts",
-        "app/src/query/index.ts"
+        "packages/query/src/query/index.ts"
       ],
       "tests": [
         "app/tests/tasks/lroWorkspaceGuard.test.ts"
@@ -10184,9 +10184,9 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/query/DailyBudgetManager.ts",
-        "app/src/query/TAORLoop.ts",
-        "app/src/query/taor/roundProgress.ts"
+        "packages/query/src/query/DailyBudgetManager.ts",
+        "packages/query/src/query/TAORLoop.ts",
+        "packages/query/src/query/taor/roundProgress.ts"
       ],
       "tests": [
         "app/tests/query/dailyBudgetDiminishingProgress.test.ts"
@@ -10212,7 +10212,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/session/storage/MessageToEventMigrator.ts"
+        "packages/service/src/session/storage/MessageToEventMigrator.ts"
       ],
       "tests": [
         "app/tests/session/MessageToEventMigrator.test.ts"
@@ -10290,11 +10290,11 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/channels/routing/pendingQuestions.ts",
-        "app/src/channels/routing/messageRouter.ts",
-        "app/src/channels/routing/messageRouterContract.ts",
-        "app/src/channels/routing/streamConsumption.ts",
-        "app/src/channels/setupChannels.ts",
+        "packages/channels/src/channels/routing/pendingQuestions.ts",
+        "packages/channels/src/channels/routing/messageRouter.ts",
+        "packages/channels/src/channels/routing/messageRouterContract.ts",
+        "packages/channels/src/channels/routing/streamConsumption.ts",
+        "packages/channels/src/channels/setupChannels.ts",
         "packages/kernel/src/core/featureFlags.ts"
       ],
       "tests": [
@@ -10372,7 +10372,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/query/DailyBudgetManager.ts",
+        "packages/query/src/query/DailyBudgetManager.ts",
         "app/src/chat/orchestrator/preSendContextProtection.ts"
       ],
       "tests": [
@@ -10481,8 +10481,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/channels/routing/attachmentPolicy.ts",
-        "app/src/channels/routing/messageRouter.ts"
+        "packages/channels/src/channels/routing/attachmentPolicy.ts",
+        "packages/channels/src/channels/routing/messageRouter.ts"
       ],
       "tests": [
         "app/tests/channels/attachmentPolicy.test.ts"
@@ -10590,7 +10590,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/tokenBudget/index.ts",
+        "packages/tokenBudget/src/tokenBudget/index.ts",
         "scripts/lint-architecture.ts"
       ],
       "tests": [],
@@ -10713,7 +10713,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/skills/index.ts",
+        "packages/skills/src/skills/index.ts",
         "packages/infra/src/security/index.ts",
         "scripts/lint-architecture.ts"
       ],
@@ -10792,7 +10792,7 @@
       },
       "code": [
         "packages/kernel/src/core/cache/SessionCache.ts",
-        "app/src/dream/DreamPersistence.ts",
+        "packages/dream/src/dream/DreamPersistence.ts",
         "packages/service/src/execution/ExecutionManager.ts"
       ],
       "tests": [],
@@ -10818,7 +10818,7 @@
       },
       "code": [
         "app/src/types/schedulerLifecycle.ts",
-        "app/src/dream/DreamScheduler.ts",
+        "packages/dream/src/dream/DreamScheduler.ts",
         "packages/infra/src/monitoring/archival/archivalCronTask.ts"
       ],
       "tests": [],
@@ -10844,7 +10844,7 @@
       },
       "code": [
         "app/src/context/ProjectFileReader.ts",
-        "app/src/workspaces/WorkspaceScanner.ts",
+        "packages/workspaces/src/workspaces/WorkspaceScanner.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
       "tests": [],
@@ -10925,8 +10925,8 @@
       },
       "code": [
         "packages/infra/src/constants/xml.ts",
-        "app/src/query/index.ts",
-        "app/src/evals/processAssertions.ts",
+        "packages/query/src/query/index.ts",
+        "packages/evals/src/evals/processAssertions.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
       "tests": [],
@@ -10952,7 +10952,7 @@
       },
       "code": [
         "app/src/hooks/executors/ScriptHookExecutor.ts",
-        "app/src/query/FileTAORCheckpointStorage.ts",
+        "packages/query/src/query/FileTAORCheckpointStorage.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
       "tests": [],
@@ -10980,7 +10980,7 @@
         "packages/service/src/services/mcp/types/index.ts",
         "packages/service/src/services/mcp/MCPConnectionManager.ts",
         "packages/service/src/services/mcp/client.ts",
-        "app/src/query/PathGuard.ts",
+        "packages/query/src/query/PathGuard.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
       "tests": [],
@@ -11118,9 +11118,9 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/session/compaction/LayeredCompactor.ts",
-        "app/src/session/compaction/KeyInfoExtractor.ts",
-        "app/src/session/memory/SessionMemoryManager.ts",
+        "packages/service/src/session/compaction/LayeredCompactor.ts",
+        "packages/service/src/session/compaction/KeyInfoExtractor.ts",
+        "packages/service/src/session/memory/SessionMemoryManager.ts",
         "app/src/workspace/LiriConfigManager.ts",
         "app/src/tasks/PdcaWorkItemBridge.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
@@ -11149,8 +11149,8 @@
       "code": [
         "app/src/tools/AgentTool/strategies/VerificationStrategy.ts",
         "packages/infra/src/utils/auth.ts",
-        "app/src/vfs/drivers/DevDocsDriver.ts",
-        "app/src/vfs/drivers/McpResourcesDriver.ts",
+        "packages/vfs/src/vfs/drivers/DevDocsDriver.ts",
+        "packages/vfs/src/vfs/drivers/McpResourcesDriver.ts",
         "packages/service/src/voice/GeminiLiveAdapter.ts",
         "packages/service/src/voice/OpenAIRealtimeAdapter.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
@@ -11177,8 +11177,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/skills/BuiltinEnabledStore.ts",
-        "app/src/tokenBudget/CalibrationStore.ts",
+        "packages/skills/src/skills/BuiltinEnabledStore.ts",
+        "packages/tokenBudget/src/tokenBudget/CalibrationStore.ts",
         "app/src/tasks/dream/DreamPhases.ts",
         "packages/infra/src/state/task/TaskStateMachine.ts",
         "packages/infra/src/state/background/BackgroundTaskStateMachine.ts",
@@ -11208,7 +11208,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/evals/tasks/smoke.ts",
+        "packages/evals/src/evals/tasks/smoke.ts",
         "app/src/scripts/batch-test-all.ts",
         "packages/infra/src/utils/bash/registry.ts",
         "app/src/tools/ToolBuilder.ts",
@@ -11393,9 +11393,9 @@
       "code": [
         "packages/kernel/src/core/endpoints.ts",
         "packages/service/src/bridge/ModuleBridgeSetup.ts",
-        "app/src/channels/webhook/WebhookChannel.ts",
-        "app/src/channels/webhook/config-schema.ts",
-        "app/src/channels/bluebubbles/config-schema.ts",
+        "packages/channels/src/channels/webhook/WebhookChannel.ts",
+        "packages/channels/src/channels/webhook/config-schema.ts",
+        "packages/channels/src/channels/bluebubbles/config-schema.ts",
         "packages/infra/src/trace-recording/live/LiveViewServer.ts",
         "packages/service/src/services/mcp/MCPConnection.ts",
         "app/src/ai/ModelManagementBootstrap.ts",
@@ -11451,7 +11451,7 @@
       },
       "code": [
         "app/src/cli/config.ts",
-        "app/src/skills/loaders/adapter/SkillSearchEngine.ts",
+        "packages/skills/src/skills/loaders/adapter/SkillSearchEngine.ts",
         "app/src/chat/services/ChatHelper.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
@@ -12061,7 +12061,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/query/patternAssembler.ts",
+        "packages/query/src/query/patternAssembler.ts",
         "app/src/chat/pipeline/StreamPipeline.ts",
         "app/src/chat/services/MessageContextPipeline.ts",
         "app/src/context/index.ts"
@@ -12090,11 +12090,11 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/channels/constants.ts",
-        "app/src/channels/index.ts",
-        "app/src/channels/wecom/WeComChannel.ts",
-        "app/src/channels/yuanbao/config-schema.ts",
-        "app/src/channels/yuanbao/YuanbaoChannel.ts",
+        "packages/channels/src/channels/constants.ts",
+        "packages/channels/src/channels/index.ts",
+        "packages/channels/src/channels/wecom/WeComChannel.ts",
+        "packages/channels/src/channels/yuanbao/config-schema.ts",
+        "packages/channels/src/channels/yuanbao/YuanbaoChannel.ts",
         "app/src/commands/builtin/onboard/Onboard.ts"
       ],
       "tests": [],
@@ -12785,9 +12785,9 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/query/ReActLoop.ts",
+        "packages/query/src/query/ReActLoop.ts",
         "app/src/chat/toolResultPostProcess.ts",
-        "app/src/session/types/tool.ts",
+        "packages/service/src/session/types/tool.ts",
         "packages/infra/src/utils/toolContract/ToolResult.ts",
         "packages/infra/src/permission/PermissionManager.ts",
         "app/src/chat/services/ToolExecutionService.ts",
@@ -12802,7 +12802,7 @@
         "app/tests/query/environmentBlockedTermination.test.ts"
       ],
       "changelog": [],
-      "reopenWhen": "若出现「环境阻塞未按 2 轮收口」或「模型无效输出被误判为环境阻塞」：回看 app/src/query/ReActLoop.ts 的 classifyTurn() 与各 failureKind 生产者；回滚按提交粒度 779101f5c / a74e973f6 / 27b2460b3 / 71b0ba812 逐条 r…（全文见 archive/evidence-detail.jsonl#CIRCUIT-BREAKER-CLASSIFICATION）",
+      "reopenWhen": "若出现「环境阻塞未按 2 轮收口」或「模型无效输出被误判为环境阻塞」：回看 packages/query/src/query/ReActLoop.ts 的 classifyTurn() 与各 failureKind 生产者；回滚按提交粒度 779101f5c / a74e973f6 / 27b2460b3 / 71b…（全文见 archive/evidence-detail.jsonl#CIRCUIT-BREAKER-CLASSIFICATION）",
       "notes": "【根因·实测】file_write 连续 3 次 Denied by rule，4 秒内烧完 consecutiveInvalidTurns（max 3）⇒ circuit_breaker；根因是 tool_rules.json 同工具同指纹 allow+deny 冲突，属环境层不可自愈。【为何分型】checkCir…（全文见 archive/evidence-detail.jsonl#CIRCUIT-BREAKER-CLASSIFICATION）"
     },
     {
@@ -12907,11 +12907,11 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/query/TAORLoop.ts",
-        "app/src/query/ReActLoop.ts",
-        "app/src/query/ChatManagerTAORAdapter.ts",
-        "app/src/query/taor/types.ts",
-        "app/src/query/taor/roundResults.ts"
+        "packages/query/src/query/TAORLoop.ts",
+        "packages/query/src/query/ReActLoop.ts",
+        "packages/query/src/query/ChatManagerTAORAdapter.ts",
+        "packages/query/src/query/taor/types.ts",
+        "packages/query/src/query/taor/roundResults.ts"
       ],
       "tests": [
         "app/tests/query/taorLoopPathGuardPerCallSkip.test.ts"
@@ -13520,8 +13520,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/query/ReActLoop.ts",
-        "app/src/query/index.ts",
+        "packages/query/src/query/ReActLoop.ts",
+        "packages/query/src/query/index.ts",
         "app/src/tools/AgentTool/SubAgentEngine.ts"
       ],
       "tests": [
@@ -13579,7 +13579,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/query/ReActLoop.ts"
+        "packages/query/src/query/ReActLoop.ts"
       ],
       "tests": [
         "app/tests/query/environmentBlockedTermination.test.ts"
@@ -13634,8 +13634,8 @@
       },
       "code": [
         "app/src/chat/services/MessageService.ts",
-        "app/src/session/storage/MessageToEventMigrator.ts",
-        "app/src/session/types/eventPayloads.ts"
+        "packages/service/src/session/storage/MessageToEventMigrator.ts",
+        "packages/service/src/session/types/eventPayloads.ts"
       ],
       "tests": [
         "app/tests/session/MessageToEventMigrator.test.ts"
@@ -14006,7 +14006,7 @@
       "code": [
         "app/src/chat/services/toolCwdScope.ts",
         "app/src/chat/services/SessionLifecycleManager.ts",
-        "app/src/session/types/UnifiedSession.ts"
+        "packages/service/src/session/types/UnifiedSession.ts"
       ],
       "tests": [
         "app/tests/chat/sessionWorkspaceResolve.test.ts"
@@ -14199,7 +14199,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/session/storage/EventMessageDeriver.ts"
+        "packages/service/src/session/storage/EventMessageDeriver.ts"
       ],
       "tests": [
         "app/tests/session/EventMessageDeriver.test.ts"
@@ -14379,7 +14379,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/session/SessionPruning.ts",
+        "packages/service/src/session/SessionPruning.ts",
         "app/scripts/prune-sessions.ts",
         "app/package.json"
       ],
@@ -14407,8 +14407,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/query/FileIOLoopDetector.ts",
-        "app/src/query/TAORLoop.ts"
+        "packages/query/src/query/FileIOLoopDetector.ts",
+        "packages/query/src/query/TAORLoop.ts"
       ],
       "tests": [
         "app/tests/query/FileIOLoopDetector.test.ts"
@@ -14459,7 +14459,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/skills/loaders/sources/BundledSkillLoader.ts"
+        "packages/skills/src/skills/loaders/sources/BundledSkillLoader.ts"
       ],
       "tests": [],
       "changelog": [],
@@ -14485,7 +14485,7 @@
       "code": [
         "packages/infra/src/utils/toolContract/ToolResult.ts",
         "app/src/chat/services/ToolExecutionService.ts",
-        "app/src/query/ReActLoop.ts"
+        "packages/query/src/query/ReActLoop.ts"
       ],
       "tests": [
         "app/tests/query/environmentBlockedTermination.test.ts",
@@ -14677,8 +14677,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/query/TAORLoop.ts",
-        "app/src/query/taor/helpers.ts"
+        "packages/query/src/query/TAORLoop.ts",
+        "packages/query/src/query/taor/helpers.ts"
       ],
       "tests": [
         "app/tests/query/taorIoLoopReason.test.ts"
@@ -14731,7 +14731,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/query/FileIOLoopDetector.ts"
+        "packages/query/src/query/FileIOLoopDetector.ts"
       ],
       "tests": [
         "app/tests/query/FileIOLoopDetector.test.ts"
@@ -14861,7 +14861,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/query/FileIOLoopDetector.ts"
+        "packages/query/src/query/FileIOLoopDetector.ts"
       ],
       "tests": [
         "app/tests/query/FileIOLoopDetector.test.ts"
@@ -14943,8 +14943,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/query/TAORLoop.ts",
-        "app/src/query/taor/helpers.ts"
+        "packages/query/src/query/TAORLoop.ts",
+        "packages/query/src/query/taor/helpers.ts"
       ],
       "tests": [
         "app/tests/query/agentMaxOutputTokens.test.ts"
@@ -15002,8 +15002,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/session/storage/EventLogRepair.ts",
-        "app/src/session/storage/EventLogStorage.ts"
+        "packages/service/src/session/storage/EventLogRepair.ts",
+        "packages/service/src/session/storage/EventLogStorage.ts"
       ],
       "tests": [
         "app/tests/session/eventLogRepairInFlight.test.ts"
@@ -15115,8 +15115,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/query/TAORLoop.ts",
-        "app/src/query/taor/helpers.ts"
+        "packages/query/src/query/TAORLoop.ts",
+        "packages/query/src/query/taor/helpers.ts"
       ],
       "tests": [
         "app/tests/query/preSendBudgetGate.test.ts"
@@ -15144,8 +15144,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/query/TAORLoop.ts",
-        "app/src/query/taor/toolResultBudget.ts"
+        "packages/query/src/query/TAORLoop.ts",
+        "packages/query/src/query/taor/toolResultBudget.ts"
       ],
       "tests": [
         "app/tests/query/taorToolResultBudget.test.ts"
@@ -15455,7 +15455,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/channels/nostr/NostrChannel.ts",
+        "packages/channels/src/channels/nostr/NostrChannel.ts",
         ".trae/architecture/support-levels.json"
       ],
       "tests": [
@@ -15484,7 +15484,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/channels/signal/SignalChannel.ts"
+        "packages/channels/src/channels/signal/SignalChannel.ts"
       ],
       "tests": [
         "app/tests/channels/signalStub.test.ts"
@@ -15512,7 +15512,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/channels/sms/providerRequests.ts",
+        "packages/channels/src/channels/sms/providerRequests.ts",
         ".trae/architecture/support-levels.json"
       ],
       "tests": [
@@ -15522,7 +15522,7 @@
         "新增：SMS provider 请求构造纯函数（twilio/custom 完整，aliyun/tencent 明确拒绝）"
       ],
       "reopenWhen": "若扩展 SmsConfig（SignName/TemplateCode / SdkAppId/TemplateId）并实现 RPC / TC3 签名，应把 aliyun/tencent 分支改为真实构造并同步撤掉 support-levels.json 的 sms=experimental；真正发包需另加 fetch…（全文见 archive/evidence-detail.jsonl#SMS-PROVIDER-REQUEST-PURE）",
-      "notes": "实现：新增 app/src/channels/sms/providerRequests.ts（纯函数、零 I/O）——twilio（/Accounts/{sid}/Messages.json + Basic + form）、custom（endpoint + JSON {to,from,text}，apiKey 时 …（全文见 archive/evidence-detail.jsonl#SMS-PROVIDER-REQUEST-PURE）"
+      "notes": "实现：新增 packages/channels/src/channels/sms/providerRequests.ts（纯函数、零 I/O）——twilio（/Accounts/{sid}/Messages.json + Basic + form）、custom（endpoint + JSON {to,from,t…（全文见 archive/evidence-detail.jsonl#SMS-PROVIDER-REQUEST-PURE）"
     },
     {
       "id": "SMS-SEND-WIRING",
@@ -15541,7 +15541,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/channels/sms/SmsChannel.ts",
+        "packages/channels/src/channels/sms/SmsChannel.ts",
         ".trae/architecture/support-levels.json"
       ],
       "tests": [
@@ -15570,9 +15570,9 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/channels/sms/providerRequests.ts",
-        "app/src/channels/sms/SmsChannel.ts",
-        "app/src/channels/sms/config-schema.ts"
+        "packages/channels/src/channels/sms/providerRequests.ts",
+        "packages/channels/src/channels/sms/SmsChannel.ts",
+        "packages/channels/src/channels/sms/config-schema.ts"
       ],
       "tests": [
         "app/tests/channels/smsProviderRequests.test.ts",
@@ -15631,8 +15631,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/query/LoopDetector.ts",
-        "app/src/query/ReActLoop.ts"
+        "packages/query/src/query/LoopDetector.ts",
+        "packages/query/src/query/ReActLoop.ts"
       ],
       "tests": [
         "app/tests/query/loopDetectionEmptyResult.test.ts"
@@ -15721,9 +15721,9 @@
       },
       "code": [
         "packages/infra/src/utils/toolCallKey.ts",
-        "app/src/evals/behaviorMetrics.ts",
-        "app/src/evals/types.ts",
-        "app/src/evals/report.ts",
+        "packages/evals/src/evals/behaviorMetrics.ts",
+        "packages/evals/src/evals/types.ts",
+        "packages/evals/src/evals/report.ts",
         "app/src/chat/ReActToolLoop.ts"
       ],
       "tests": [
@@ -16717,8 +16717,8 @@
         "packages/infra/src/analytics/PerformanceMonitoringService.ts",
         "packages/infra/src/analytics/pricingSource.ts",
         "packages/infra/src/cost/index.ts",
-        "app/src/query/QueryEngine.ts",
-        "app/src/query/deps.ts",
+        "packages/query/src/query/QueryEngine.ts",
+        "packages/query/src/query/deps.ts",
         "app/tsconfig.json",
         "packages/infra/package.json"
       ],

@@ -20,16 +20,16 @@
 // SOFTWARE.
 
 import { describe, expect, it } from 'bun:test';
-import { summarizeRun, summarizeTask } from '../../src/evals/scoring';
+import { summarizeRun, summarizeTask } from '@modules/evals/scoring';
 import {
   deriveF2pP2P,
   type JunitCaseResult,
-} from '../../src/evals/repoTestJudge';
+} from '@modules/evals/repoTestJudge';
 import type {
   EvalAttempt,
   EvalTask,
   EvalTaskResult,
-} from '../../src/evals/types';
+} from '@modules/evals/types';
 
 /**
  * A2（`.trae/specs/eval-s1-real-task-baseline.md`）T2/T3：

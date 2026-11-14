@@ -7,13 +7,13 @@
 import {
   getDefaultWechatConfig,
   validateWechatConfig,
-} from '../../src/channels/wechat/config-schema';
+} from '@modules/channels/wechat/config-schema';
 import {
   getWechatAccount,
   listWechatAccountIds,
   registerWechatAccount,
   removeWechatAccount,
-} from '../../src/channels/wechat/accounts';
+} from '@modules/channels/wechat/accounts';
 import { describeChannelBasics } from './support/channelBasics';
 
 describeChannelBasics({

@@ -7,7 +7,7 @@ import { describe, expect, it } from 'bun:test';
 import {
   classifyOutboundError,
   classifyRouterError,
-} from '../../src/channels/routing/channelErrorClass';
+} from '@modules/channels/routing/channelErrorClass';
 
 function withCode(code: string): Error & { code: string } {
   const err = new Error(code) as Error & { code: string };

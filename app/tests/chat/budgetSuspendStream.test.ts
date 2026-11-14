@@ -24,11 +24,11 @@ import { ChatManagerImpl } from '../../src/chat/ChatManager.js';
 import {
   getDailyBudget,
   resetDailyBudgetForTest,
-} from '../../src/query/DailyBudgetManager';
+} from '@modules/query/DailyBudgetManager';
 import {
   getBudgetSuspendCoordinator,
   resetBudgetSuspendForTest,
-} from '../../src/query/budgetSuspend';
+} from '@modules/query/budgetSuspend';
 
 const LIMIT = 100;
 /** 每轮模型响应的**实际**用量（2026-10-15：改为**金额口径 USD** —— 档位只由 USD 产出） */

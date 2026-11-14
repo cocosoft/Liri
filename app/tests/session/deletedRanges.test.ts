@@ -31,7 +31,7 @@ import {
   addDeletedRange,
   isSeqInDeletedRanges,
   type DeletedSeqRange,
-} from '../../src/session/storage/deletedRanges';
+} from '@modules/session/storage/deletedRanges';
 
 describe('N-50 删除墓碑区间', () => {
   test('isSeqInDeletedRanges：闭区间命中，endSeq=null 表示到末尾', () => {

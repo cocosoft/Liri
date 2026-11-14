@@ -9,15 +9,18 @@
 import { describe, it, expect, beforeEach } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { queryPath } from '../../../scripts/lib/queryPaths';
 
 import {
   recordVerifierResult,
   getVerifierMetrics,
   resetVerifierMetrics,
-} from '../../src/query/taor/verifierMetrics';
+} from '@modules/query/taor/verifierMetrics';
 
 const APP_ROOT = resolve(import.meta.dir, '../..');
 const read = (rel: string) => readFileSync(join(APP_ROOT, rel), 'utf8');
+const readQuery = (rel: string) =>
+  readFileSync(queryPath(resolve(APP_ROOT, '..'), rel), 'utf8');
 
 beforeEach(() => {
   resetVerifierMetrics();
@@ -111,7 +114,7 @@ describe('G-3 验证器指标', () => {
   });
 
   it('VerifierAgent.verify 真实记账：未注入 callModel + fail-closed ⇒ 计入 ESCALATE', async () => {
-    const { VerifierAgent } = await import('../../src/query/VerifierAgent');
+    const { VerifierAgent } = await import('@modules/query/VerifierAgent');
     const agent = new VerifierAgent({ enabled: true, failClosed: true });
     const result = await agent.verify(
       { messages: [], toolResults: [], turnCount: 7, sessionId: 'g3-runtime' },
@@ -163,7 +166,7 @@ describe('G-3 主对话接线守卫', () => {
   });
 
   it('VerifierAgent 是唯一采集收口点（计时 + verdict + 输入键）', () => {
-    const src = read('src/query/VerifierAgent.ts');
+    const src = readQuery('VerifierAgent.ts');
     // ① 计时包裹内部实现（`_verifyInner` 保持原判定逻辑不变）
     expect(src).toContain(
       'const result = await this._verifyInner(input, signal)'

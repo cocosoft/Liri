@@ -12,7 +12,7 @@ import { describe, expect, it } from 'bun:test';
 import {
   auditAntiCheatSurface,
   type AntiCheatContext,
-} from '../../src/evals/antiCheatAudit';
+} from '@modules/evals/antiCheatAudit';
 
 const TMP = 'C:\\Temp';
 

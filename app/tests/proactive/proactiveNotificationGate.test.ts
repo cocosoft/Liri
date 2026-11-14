@@ -29,11 +29,11 @@ import { describe, expect, it } from 'bun:test';
 import {
   createProactiveNotificationGate,
   evaluateProactiveNotification,
-} from '../../src/proactive/ProactiveNotificationGate';
+} from '@modules/proactive/ProactiveNotificationGate';
 import type {
   ProactiveGateContext,
   ProactiveMessagePayload,
-} from '../../src/proactive/types';
+} from '@modules/proactive/types';
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;

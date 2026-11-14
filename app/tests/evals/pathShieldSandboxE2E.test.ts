@@ -38,8 +38,8 @@ import { describe, expect, test } from 'bun:test';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { resolveDbPath, resolvePyappHome } from '@openliri/infra/environment';
-import { createSandbox } from '../../src/evals/sandbox';
-import { resolveEvalRepoRoot } from '../../src/evals/sourceTask';
+import { createSandbox } from '@modules/evals/sandbox';
+import { resolveEvalRepoRoot } from '@modules/evals/sourceTask';
 
 const PATH_SHIELD_E2E_ENABLED = process.env.PERMISSION_SHIELD_E2E === '1';
 

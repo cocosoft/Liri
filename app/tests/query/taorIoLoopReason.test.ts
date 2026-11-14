@@ -13,7 +13,7 @@ import {
   buildFileIoBlockReason,
   buildFileIoWarningMessage,
   toFileIoLoopBlocked,
-} from '../../src/query/taor/helpers';
+} from '@modules/query/taor/helpers';
 
 describe('buildFileIoBlockReason', () => {
   it('带 pattern：含明细、pattern 与改道建议', () => {

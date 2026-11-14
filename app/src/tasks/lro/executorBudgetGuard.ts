@@ -12,12 +12,12 @@ import { getLogger } from '@openliri/infra/monitoring';
 import { estimateMessagesTokens } from '@modules/ai';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import type { ExecutorFn } from './contracts.js';
-import { recordDailyBudgetFromUsage } from '../../query/DailyBudgetManager';
+import { recordDailyBudgetFromUsage } from '@modules/query/DailyBudgetManager';
 // G-2/D（2026-10-11）：闸门**单一收口**（与流式/非流式 chat 同源判定），用于长程任务执行器
 import {
   checkDailyBudget,
   formatBudgetExhausted,
-} from '../../query/dailyBudgetGate';
+} from '@modules/query/dailyBudgetGate';
 
 const logger = getLogger('tasks:longRunning');
 

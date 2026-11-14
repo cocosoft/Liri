@@ -24,11 +24,11 @@ import {
 import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { SessionGateway } from '../../src/session/SessionGateway';
-import { StorageType } from '../../src/session/storage/UnifiedStorage';
-import { resetFTS5SearchEngine } from '../../src/session/FTS5SearchEngine';
-import { SessionRouter } from '../../src/session/key/SessionRouter';
-import { SessionKeyFactory } from '../../src/session/key/SessionKeyFactory';
+import { SessionGateway } from '@modules/session/SessionGateway';
+import { StorageType } from '@modules/session/storage/UnifiedStorage';
+import { resetFTS5SearchEngine } from '@modules/session/FTS5SearchEngine';
+import { SessionRouter } from '@modules/session/key/SessionRouter';
+import { SessionKeyFactory } from '@modules/session/key/SessionKeyFactory';
 import { setCoreApiAppDeps } from '../../src/runtime/api/CoreAPIImpl';
 
 const WORKTREE_HASH = 'testhash';

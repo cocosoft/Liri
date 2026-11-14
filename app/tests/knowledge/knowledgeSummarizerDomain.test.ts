@@ -22,14 +22,14 @@ import {
 import { mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import type { KnowledgeRouterOptions } from '../../src/docs/knowledge-types';
+import type { KnowledgeRouterOptions } from '@modules/docs/knowledge-types';
 import {
   resolveDomainDir,
   resolveKnowledgeDir,
 } from '@openliri/infra/environment/paths';
 import { KnowledgeSummarizer } from '../../src/knowledge/KnowledgeSummarizer';
 import { KnowledgeDigestService } from '../../src/knowledge/KnowledgeDigestService';
-import type { IKnowledgeSearch } from '../../src/docs/knowledge-types';
+import type { IKnowledgeSearch } from '@modules/docs/knowledge-types';
 
 const HOME_KEY = 'LIRI_HOME';
 

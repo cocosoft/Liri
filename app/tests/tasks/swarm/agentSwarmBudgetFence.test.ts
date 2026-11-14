@@ -11,7 +11,7 @@ import { AgentSwarm } from '../../../src/tasks/swarm/AgentSwarm';
 import {
   getDailyBudget,
   resetDailyBudgetForTest,
-} from '../../../src/query/DailyBudgetManager';
+} from '@modules/query/DailyBudgetManager';
 
 const SID = 'sess-swarm-fence';
 

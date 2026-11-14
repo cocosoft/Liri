@@ -12,13 +12,13 @@
 // 使"进程内恢复"与"跨进程重启（新实例 ⇒ 计数为 0）"行为一致。修复前断言为 true（红）。
 
 import { describe, expect, it } from 'bun:test';
-import { TAORLoop } from '../../src/query/TAORLoop';
-import type { QueryEngine } from '../../src/query/QueryEngine';
-import type { TAORCheckpoint } from '../../src/query/types';
+import { TAORLoop } from '@modules/query/TAORLoop';
+import type { QueryEngine } from '@modules/query/QueryEngine';
+import type { TAORCheckpoint } from '@modules/query/types';
 import {
   LOOP_MIN_TOKEN_DELTA,
   LOOP_DIMINISH_TURNS_THRESHOLD,
-} from '../../src/query/loop-config';
+} from '@modules/query/loop-config';
 
 interface TestableLoop {
   dailyBudget: {

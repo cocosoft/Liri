@@ -20,7 +20,7 @@
 // SOFTWARE.
 
 import { describe, expect, it } from 'bun:test';
-import { splitMessage } from '../../src/channels/messageSplitter';
+import { splitMessage } from '@modules/channels/messageSplitter';
 
 /**
  * R11 / L-11.2：共享**长文本分片器**契约。

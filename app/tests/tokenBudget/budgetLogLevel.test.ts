@@ -14,8 +14,8 @@
 import { describe, it, expect, spyOn, afterEach } from 'bun:test';
 // 被测模块经 kernel 日志门面取 logger（延迟绑定代理，按 module 缓存身份）⇒ 直接对该实例打桩
 import { getLogger } from '@openliri/kernel/loggerFacade.js';
-import { TokenBudgetController } from '../../src/tokenBudget/TokenBudgetController';
-import { shouldLogUnifiedCheckAtInfo } from '../../src/tokenBudget/UnifiedTokenTracker';
+import { TokenBudgetController } from '@modules/tokenBudget/TokenBudgetController';
+import { shouldLogUnifiedCheckAtInfo } from '@modules/tokenBudget/UnifiedTokenTracker';
 
 const CHECK_MSG = 'tokenBudget:checkBudget';
 const budgetLogger = getLogger('tokenBudget:controller');

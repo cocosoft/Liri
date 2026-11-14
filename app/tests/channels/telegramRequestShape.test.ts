@@ -9,7 +9,7 @@
  * ③ 超长文本按 `maxMessageLength` 分片（不截断丢尾）；④ 上游 `ok:false` 透传为失败结果。
  */
 import { describe, expect, it, beforeEach, afterEach } from 'bun:test';
-import { createTelegramChannel } from '../../src/channels/telegram/TelegramChannel';
+import { createTelegramChannel } from '@modules/channels/telegram/TelegramChannel';
 
 interface Call {
   url: string;

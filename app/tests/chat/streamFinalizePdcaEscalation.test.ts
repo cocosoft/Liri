@@ -22,8 +22,8 @@ import { describe, expect, it } from 'bun:test';
 import { ChatStreamFinalize } from '../../src/chat/manager/streamFinalize.js';
 import type { StreamFinalizeDeps } from '../../src/chat/manager/streamFinalize.js';
 import { EMPTY_OUTPUT_FALLBACK_TEXT } from '../../src/chat/terminationOutput.js';
-import type { Message } from '../../src/session/types/message.js';
-import type { ChatSession } from '../../src/session/types/session.js';
+import type { Message } from '@modules/session/types/message.js';
+import type { ChatSession } from '@modules/session/types/session.js';
 
 const FIRST_USER = '帮我开发超级玛丽第一关';
 const LAST_USER = '请实现第二关的代码';

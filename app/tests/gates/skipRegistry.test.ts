@@ -39,11 +39,19 @@
 import { describe, it, expect } from 'bun:test';
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join, resolve, relative } from 'node:path';
+import { resolveSourceRootPaths } from '../../../scripts/lib/sourceRoots';
 
 const REPO_ROOT = resolve(import.meta.dir, '../../..');
+/**
+ * 扫描根：`app/tests` + **全部源码根**（G1 单一事实源 `scripts/lib/sourceRoots.ts`）。
+ *
+ * 2026-11-13（query 拆包）：原先只有 `app/tests` + `app/src`；query 的 `__tests__`/`*.test.ts`
+ * 全部迁入 `app/tests/query/` 后，`app/src` 侧已无 skip 位点 —— 而物理包（`packages/*\/src`）
+ * 里的测试若不在扫描面内，属 AR-3「门禁不得因搬目录而静默失焦」⇒ 改用源码根单点。
+ */
 const SCAN_ROOTS = [
   join(REPO_ROOT, 'app', 'tests'),
-  join(REPO_ROOT, 'app', 'src'),
+  ...resolveSourceRootPaths(REPO_ROOT),
 ];
 /** 本文件自身含 skip 正则字面量 ⇒ 排除，避免自我命中（相对仓库根，正斜杠） */
 const SELF = 'app/tests/gates/skipRegistry.test.ts';
@@ -190,16 +198,16 @@ const SKIP_REGISTRY: SkipEntry[] = [
     severity: 'env' as SkipSeverity,
   })),
 
-  // ── app/src/**（不在 tests/ 下，易被治理漏掉）──────────────────
+  // ── 原 `app/src/**`（2026-11-13 query 拆包后已迁入 `app/tests/query/`）──────
   ...Array.from({ length: 10 }, (_, i) => ({
-    file: 'app/src/query/__tests__/CompactionIntegration.test.ts',
+    file: 'app/tests/query/CompactionIntegration.test.ts',
     match: 'test.skip(',
     reason: `压缩集成（第 ${i + 1} 处）—— 永久 skip：待改为可注入驱动后启用`,
     module: 'query',
     severity: 'pending' as SkipSeverity,
   })),
   ...Array.from({ length: 2 }, (_, i) => ({
-    file: 'app/src/query/LoopDetector.test.ts',
+    file: 'app/tests/query/LoopDetector.test.ts',
     match: 'test.skip(',
     reason: `循环检测（第 ${i + 1} 处）—— 永久 skip：待补驱动`,
     module: 'query',
@@ -392,11 +400,16 @@ describe('R8-S0 门禁自证：合成违规样例必须被判失败（防比较�
 });
 
 describe('R8-S3 自证：扫描确实发现站点（防"路径写错 ⇒ 空转通过"）', () => {
-  it('扫到 skip 位点（>0）且覆盖 tests/ 与 src/ 两侧', () => {
+  it('扫到 skip 位点（>0），且每个扫描根都真实存在、合计扫到测试文件', () => {
     expect(SITES.length).toBeGreaterThan(0);
     const files = new Set(SITES.map((s) => s.file));
     expect([...files].some((f) => f.startsWith('app/tests/'))).toBe(true);
-    expect([...files].some((f) => f.startsWith('app/src/'))).toBe(true);
+    // 路径漂移的真正守卫：根目录必须存在（写错 ⇒ 该根静默空转）
+    for (const root of SCAN_ROOTS) {
+      expect(existsSync(root), `扫描根不存在: ${root}`).toBe(true);
+    }
+    const scanned = SCAN_ROOTS.flatMap((root) => collectTestFiles(root));
+    expect(scanned.length).toBeGreaterThan(0);
   });
 });
 

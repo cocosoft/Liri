@@ -1,0 +1,20 @@
+{
+  "name": "@openliri/vfs",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liri AI-VFS 包 —— 挂载点注册表、路径解析与只读驱动（dev_docs / MCP resources）。层归属 app：可依赖 app / service / infra / core；entry / ui 不得依赖本包，包内不得依赖 entry / ui 层（R14）。",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/vfs/index.ts",
+      "import": "./src/vfs/index.ts"
+    },
+    "./*": {
+      "types": "./src/vfs/*.ts",
+      "import": "./src/vfs/*.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p ../../app/tsconfig.json"
+  }
+}

@@ -14,12 +14,12 @@
 import { afterEach, describe, expect, it } from 'bun:test';
 
 import { FEATURE_FLAGS, feature } from '@openliri/kernel';
-import type { TerminationReason } from '../../src/query/ReActLoop';
+import type { TerminationReason } from '@modules/query/ReActLoop';
 import {
   decideLoopFallback,
   MAX_LOOP_FALLBACKS_PER_TASK,
   type LoopFallbackInput,
-} from '../../src/query/taor/modelFallback';
+} from '@modules/query/taor/modelFallback';
 
 /** 命中态基线：开关开 + `io_loop` + 无任何守卫 */
 const ENABLED_BASE: LoopFallbackInput = {

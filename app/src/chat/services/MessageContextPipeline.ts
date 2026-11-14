@@ -15,7 +15,7 @@
 import { getLogger } from '@openliri/infra/monitoring';
 import { configManager } from '@openliri/infra/config';
 import type { ChatSession } from '@modules/session/types/session.js';
-import { toolResultRegistry } from '../../tool/ToolResultRegistry.js';
+import { toolResultRegistry } from '@modules/tool/ToolResultRegistry.js';
 import {
   estimateMessagesTokens,
   estimateMessagesTokensCooperative,

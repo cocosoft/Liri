@@ -19,8 +19,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { WorkspaceGit } from '../../workspaces/WorkspaceGit';
-import { getTeammateManager } from '../../subagent/TeammateManager';
+import { WorkspaceGit } from '@modules/workspaces/WorkspaceGit';
+import { getTeammateManager } from '@modules/subagent/TeammateManager';
 import type { AgentInput } from './types';
 import type { ToolUseContext } from '../types/ToolUseContext';
 import {

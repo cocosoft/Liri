@@ -6,7 +6,7 @@
  * 2048 字符截断、errcode 非 0 透传）。fetch 全量 mock，无真实凭据 / 无网络。
  */
 import { describe, expect, it, beforeEach, afterEach } from 'bun:test';
-import { createWecomChannel } from '../../src/channels/wecom/WeComChannel';
+import { createWecomChannel } from '@modules/channels/wecom/WeComChannel';
 
 interface Call {
   url: string;

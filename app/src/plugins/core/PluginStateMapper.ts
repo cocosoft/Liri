@@ -14,7 +14,7 @@
 
 import { PluginState } from '../types/PluginTypes';
 import { PluginStatus } from '../types/Plugin';
-import type { PluginRuntimeStatus } from '../../plugin-sdk/types';
+import type { PluginRuntimeStatus } from '@modules/plugin-sdk';
 
 /** 统一挂起状态（响应式加载：inject 声明服务缺失，等待服务注册后激活） */
 export const PLUGIN_PENDING_STATE = 'pending' as const;

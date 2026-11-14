@@ -29,9 +29,9 @@
  */
 
 import { describe, expect, it } from 'bun:test';
-import { ALL_CHANNEL_DEFS } from '../../src/channels/setupChannels';
+import { ALL_CHANNEL_DEFS } from '@modules/channels/setupChannels';
 // 字段渲染元数据已收敛至后端（4.1），契约测试直接引用后端单一来源
-import { PLATFORM_FIELDS } from '../../src/channels/config-metadata';
+import { PLATFORM_FIELDS } from '@modules/channels/config-metadata';
 
 /** 渠道 type → 模块目录名（仅不一致项需映射） */
 const TYPE_TO_DIR: Record<string, string> = {
@@ -81,7 +81,7 @@ describe('渠道三源契约（4.11）', () => {
 
     it(`[元测试] ${type} 必须存在 config-schema.ts 并导出 getDefault*Config`, async () => {
       const mod = (await import(
-        `../../src/channels/${dirFor(type)}/config-schema`
+        `@modules/channels/${dirFor(type)}/config-schema`
       )) as Record<string, unknown>;
       const getter = findDefaultGetter(mod);
       expect(
@@ -92,14 +92,14 @@ describe('渠道三源契约（4.11）', () => {
 
     it(`[一致性] ${type} schema 默认值字段 ⊆ Channel.getDefaultConfig 且值一致`, async () => {
       const schemaMod = (await import(
-        `../../src/channels/${dirFor(type)}/config-schema`
+        `@modules/channels/${dirFor(type)}/config-schema`
       )) as Record<string, unknown>;
       const getter = findDefaultGetter(schemaMod);
       expect(getter).toBeDefined();
       const schemaDefault = getter!();
 
       const indexMod = (await import(
-        `../../src/channels/${dirFor(type)}/index`
+        `@modules/channels/${dirFor(type)}/index`
       )) as Record<string, unknown>;
       const plugin = findPlugin(indexMod);
       expect(
@@ -125,7 +125,7 @@ describe('渠道三源契约（4.11）', () => {
         return; // 未显式映射的渠道走 GENERIC_FIELDS，跳过
       }
       const schemaMod = (await import(
-        `../../src/channels/${dirFor(type)}/config-schema`
+        `@modules/channels/${dirFor(type)}/config-schema`
       )) as Record<string, unknown>;
       const getter = findDefaultGetter(schemaMod);
       expect(getter).toBeDefined();

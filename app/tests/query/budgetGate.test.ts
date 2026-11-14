@@ -12,15 +12,18 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { readFileSync } from 'node:fs';
-import { evaluateBudgetGate } from '../../src/query/budgetGate';
-import { checkDailyBudget } from '../../src/query/dailyBudgetGate';
+import { resolve } from 'node:path';
+import { evaluateBudgetGate } from '@modules/query/budgetGate';
+import { checkDailyBudget } from '@modules/query/dailyBudgetGate';
 import {
   getDailyBudget,
   resetDailyBudgetForTest,
-} from '../../src/query/DailyBudgetManager';
+} from '@modules/query/DailyBudgetManager';
+import { queryPath } from '../../../scripts/lib/queryPaths';
 
+const REPO_ROOT = resolve(import.meta.dir, '../../..');
 const DAILY_GATE_SRC = readFileSync(
-  new URL('../../src/query/dailyBudgetGate.ts', import.meta.url),
+  queryPath(REPO_ROOT, 'dailyBudgetGate.ts'),
   'utf8'
 );
 // 2026-11-08：日预算收口已外移 `lro/executorBudgetGuard`（守 R04-001 行数上限）——

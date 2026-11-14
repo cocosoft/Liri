@@ -27,7 +27,7 @@
  */
 import { describe, expect, it } from 'bun:test';
 
-import { selectNamespaceWorktrees } from '../../src/workspaces/WorkspacePruner';
+import { selectNamespaceWorktrees } from '@modules/workspaces/WorkspacePruner';
 
 const WORKTREES_DIR = '/repo/worktrees';
 

@@ -26,11 +26,17 @@
 
 import { describe, expect, it } from 'bun:test';
 import { readFileSync } from 'node:fs';
-import { ChannelRegistry } from '../../src/channels/registry/ChannelRegistry';
+import { join } from 'node:path';
+// P0（2026-11-13）：通道源码位置走单一事实源（搬包后本文件零改动）
+import { channelPath } from '../../../scripts/lib/channelPaths';
+import { ChannelRegistry } from '@modules/channels/registry/ChannelRegistry';
 import type {
   ChannelId,
   IChannelPlugin,
-} from '../../src/channels/types/IChannel';
+} from '@modules/channels/types/IChannel';
+
+/** 仓库根（`app/tests/channels` → 上三级） */
+const REPO_ROOT = join(import.meta.dir, '../../..');
 
 /** 构造最小 IChannelPlugin mock（id 固定为 'testch'） */
 function makePlugin(id: string): IChannelPlugin {
@@ -152,7 +158,7 @@ describe('ChannelRegistry（4.11）', () => {
 
   it('B-2 消费方只读顶层：DeliveryRouter 不再穿透 plugin.capabilities/meta', () => {
     const src = readFileSync(
-      new URL('../../src/channels/DeliveryRouter.ts', import.meta.url),
+      channelPath(REPO_ROOT, 'DeliveryRouter.ts'),
       'utf-8'
     );
     expect(src).not.toContain('plugin?.capabilities');
@@ -179,10 +185,7 @@ describe('ChannelRegistry（4.11）', () => {
 
   it('B-4 适配器内无 ChannelSecretStore 动态 import', () => {
     const src = readFileSync(
-      new URL(
-        '../../src/channels/registry/ChannelRegistry.ts',
-        import.meta.url
-      ),
+      channelPath(REPO_ROOT, 'registry/ChannelRegistry.ts'),
       'utf-8'
     );
     expect(src).not.toContain("await import('../secrets/ChannelSecretStore')");

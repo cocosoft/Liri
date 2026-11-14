@@ -51,7 +51,8 @@ describe('Q-H2：默认语言 / 时区口径归一（zh-CN / Asia/Shanghai）', 
   it('② 决策点引用真源（不再写死字面量）', () => {
     const sites: Array<{ rel: string; decision: RegExp }> = [
       {
-        rel: 'docs/i18n/LanguageManager.ts',
+        // P1（2026-11-13）：`docs` 已迁入 packages/docs（相对 APP_SRC 上跳两级到仓库根）
+        rel: '../../packages/docs/src/docs/i18n/LanguageManager.ts',
         decision: /private currentLanguage: string = DEFAULT_LOCALE/,
       },
       {

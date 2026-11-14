@@ -11,7 +11,7 @@
 
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
-import { YIELD_RESULT_STATUS, YIELD_TOOL_NAME } from '../../session/yield';
+import { YIELD_RESULT_STATUS, YIELD_TOOL_NAME } from '@modules/session/yield';
 
 import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:SessionsYieldTool:SessionsYieldTool');

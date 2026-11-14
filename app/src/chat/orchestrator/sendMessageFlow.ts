@@ -69,11 +69,11 @@ import { trackUsage, extractModelFromResponse } from '@modules/ai';
 import { getModelPricing } from '@openliri/infra/cost';
 import { startRequest } from '../services/requestBoundary';
 // G-2/B（2026-10-11）：非流式路径的日预算闸门 —— 与流式同源（单例 + 单一收口判定）。
-import { getDailyBudget } from '../../query/DailyBudgetManager.js';
+import { getDailyBudget } from '@modules/query/DailyBudgetManager.js';
 import {
   checkDailyBudget,
   formatBudgetExhausted,
-} from '../../query/dailyBudgetGate.js';
+} from '@modules/query/dailyBudgetGate.js';
 
 import { calculateTotalCost } from '@openliri/infra/cost';
 import { compactionOrchestrator } from '@modules/context';

@@ -15,7 +15,7 @@ import {
   resolveGitExecutable,
   resolveTarExecutable,
   TAR_BIN_ENV,
-} from '../../src/evals/externalExecutables';
+} from '@modules/evals/externalExecutables';
 
 const roots: string[] = [];
 

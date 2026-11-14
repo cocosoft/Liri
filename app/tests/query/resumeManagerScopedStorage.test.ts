@@ -23,12 +23,12 @@ import {
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import type { Principal } from '@openliri/kernel/identity/principal.js';
 import { resetScopedResourcesForTest } from '@openliri/kernel/identity/scopedResources.js';
-import { resumeManager } from '../../src/query/ResumeManager.js';
-import { DBTAORCheckpointStorage } from '../../src/query/DBTAORCheckpointStorage.js';
-import { TAORPhase } from '../../src/query/types.js';
-import type { TAORCheckpoint } from '../../src/query/types.js';
-import { TokenBudgetStatus } from '../../src/tokenBudget/TokenBudgetController.js';
-import type { TokenBudgetState } from '../../src/tokenBudget/TokenBudgetController.js';
+import { resumeManager } from '@modules/query/ResumeManager.js';
+import { DBTAORCheckpointStorage } from '@modules/query/DBTAORCheckpointStorage.js';
+import { TAORPhase } from '@modules/query/types.js';
+import type { TAORCheckpoint } from '@modules/query/types.js';
+import { TokenBudgetStatus } from '@modules/tokenBudget/TokenBudgetController.js';
+import type { TokenBudgetState } from '@modules/tokenBudget/TokenBudgetController.js';
 import { purgeTenant } from '../../src/runtime/tenantPurge.js';
 
 const budgetState: TokenBudgetState = {

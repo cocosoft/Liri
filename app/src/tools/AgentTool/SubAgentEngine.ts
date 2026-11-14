@@ -34,7 +34,7 @@ import {
 } from '@modules/query';
 import type { ToolFailureKind } from '@openliri/infra/utils/toolContract/ToolResult';
 // G-01（2026-10-19）：调用**前**走与 chat 同一预算收口（此前仅"事后记账" ⇒ 批次内可透支）
-import { assertEntryBudget } from '../../query/dailyBudgetGate';
+import { assertEntryBudget } from '@modules/query/dailyBudgetGate';
 import type {
   ReasonResult,
   ActResult,

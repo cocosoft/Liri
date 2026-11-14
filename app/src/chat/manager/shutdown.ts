@@ -20,9 +20,9 @@ import { setSelfWakeResumeHandler } from '@modules/tasks';
 import {
   getYieldRegistry,
   setActiveSubagentRunProbe,
-} from '../../session/yield';
+} from '@modules/session/yield';
 import { setYieldResumeHandler } from '../yield';
-import { getBudgetSuspendCoordinator } from '../../query/budgetSuspend';
+import { getBudgetSuspendCoordinator } from '@modules/query/budgetSuspend';
 
 const logger = getLogger('chat:manager');
 

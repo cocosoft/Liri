@@ -33,9 +33,9 @@ import {
   getYieldWaitingStore,
   rebuildYieldWaitingSet,
   setActiveSubagentRunProbe,
-} from '../../session/yield';
+} from '@modules/session/yield';
 // B1-4 验收缝：仅用于类型标注（启动钩子的可注入实例）
-import type { YieldRegistry, YieldWaitingStore } from '../../session/yield';
+import type { YieldRegistry, YieldWaitingStore } from '@modules/session/yield';
 // O9/G14：把本实例的 token 追踪器注册到模块级访问器（供摘要预算等跨模块读取"父当前上下文"）
 import { setUnifiedTokenTracker } from '@modules/tokenBudget';
 // 阶段 A（A1-e）：yield 恢复通路（子代理结算 → 恢复父会话）

@@ -7,8 +7,8 @@
 //   允许执行 maxTurns 轮，第 maxTurns+1 轮前停止。
 
 import { describe, expect, it } from 'bun:test';
-import { TAORLoop } from '../../src/query/TAORLoop';
-import type { QueryEngine } from '../../src/query/QueryEngine';
+import { TAORLoop } from '@modules/query/TAORLoop';
+import type { QueryEngine } from '@modules/query/QueryEngine';
 
 /** 测试可访问的私有字段（避免使用 any） */
 interface TestableLoop {

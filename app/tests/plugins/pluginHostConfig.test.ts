@@ -38,7 +38,7 @@ import {
   decodeFrame,
   encodeFrame,
 } from '@openliri/infra/utils/sidecarIpc';
-import type { PluginContext } from '../../src/plugin-sdk/types';
+import type { PluginContext } from '@modules/plugin-sdk/types';
 
 const pluginId = 'cfg1';
 const target = {

@@ -9,9 +9,9 @@
 // 修复前：两条路径的 `persistMessages` 计数为 0（红）。
 
 import { describe, expect, it } from 'bun:test';
-import { TAORLoop } from '../../src/query/TAORLoop';
-import type { QueryEngine } from '../../src/query/QueryEngine';
-import { LOOP_DIMINISH_TURNS_THRESHOLD } from '../../src/query/loop-config';
+import { TAORLoop } from '@modules/query/TAORLoop';
+import type { QueryEngine } from '@modules/query/QueryEngine';
+import { LOOP_DIMINISH_TURNS_THRESHOLD } from '@modules/query/loop-config';
 
 interface TestableLoop {
   messages: Array<{ role: string; content: string }>;

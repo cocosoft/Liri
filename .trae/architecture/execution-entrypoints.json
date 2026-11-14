@@ -43,7 +43,7 @@
   ],
   "entries": [
     {
-      "file": "app/src/channels/routing/messageRouter.ts",
+      "file": "packages/channels/src/channels/routing/messageRouter.ts",
       "patterns": ["coreapi.chatstream", "execution.acquire"],
       "label": "渠道 Router（入站消息 → 对话轮）",
       "status": "verified",

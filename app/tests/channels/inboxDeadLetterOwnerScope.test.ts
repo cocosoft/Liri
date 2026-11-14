@@ -27,10 +27,16 @@
  */
 import { describe, expect, it } from 'bun:test';
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+// P0（2026-11-13）：通道源码位置走单一事实源（搬包后本文件零改动）
+import { channelPath } from '../../../scripts/lib/channelPaths';
 
 describe('门禁：inbox_reply_deadletter 落在租户库且带 owner_key', () => {
   const src = readFileSync(
-    new URL('../../src/channels/bridge/inboxChannelReply.ts', import.meta.url),
+    channelPath(
+      join(import.meta.dir, '../../..'),
+      'bridge/inboxChannelReply.ts'
+    ),
     'utf8'
   );
 

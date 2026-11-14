@@ -1,0 +1,20 @@
+{
+  "name": "@openliri/docs",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liri 文档包 —— 文档提供者、帮助系统、API/插件开发指南与知识库文档契约。层归属 app：可依赖 app / service / infra / core；entry / ui 不得依赖本包，包内不得依赖 entry / ui 层（R17）。",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/docs/index.ts",
+      "import": "./src/docs/index.ts"
+    },
+    "./*": {
+      "types": "./src/docs/*.ts",
+      "import": "./src/docs/*.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p ../../app/tsconfig.json"
+  }
+}

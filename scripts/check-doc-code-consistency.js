@@ -66,7 +66,7 @@ const ASSERTIONS = [
     {
         id: 'skill-service-removed',
         why: '`skills/services/skillService.ts` 已删除（P2-8 ② B 类复核，2026-10-07）；复活即违反 `Skill.impl` 必填收敛',
-        code: { file: 'app/src/skills/services/skillService.ts', absent: true },
+        code: { file: 'packages/skills/src/skills/services/skillService.ts', absent: true },
         docs: [{ file: '.trae/rules/project_rules.md', contains: /skillService\.ts[^\n]*已于 2026-10-07/ }],
     },
     {
@@ -74,7 +74,8 @@ const ASSERTIONS = [
         why: '`PatternRegistry` 必须保持 D4 订正版（描述层与选择层已一致）；旧措辞「已登记为预存语义债」若复现即为漂移回归',
         code: {
             // P2（2026-10-28）：`core/patterns/**` 已迁出内核 ⇒ 落点改为 `app/src/query/patterns/`
-            file: 'app/src/query/patterns/PatternRegistry.ts',
+            // P1（2026-11-13）：query 迁入 `packages/query` ⇒ 落点随之更新
+            file: 'packages/query/src/query/patterns/PatternRegistry.ts',
             // 正向：订正后的表述在位（引用原文时含「仍返回本 pattern」字样，故不能只做负向匹配）
             contains: /矛盾\*\*已解除\*\*/,
             // 负向：旧陈述的**结论句**（订正版写作「原"预存语义债"消除」，故该短语仅存在于旧版）
@@ -89,7 +90,7 @@ const ASSERTIONS = [
             '**与 pattern 名「long_task」相反**。装配层**刻意**登记为 unavailable（`patternAssembler` 自陈「D2 = 以运行时为准」）。' +
             '若有人以「补齐装配」为由给它接 route，会让**简单任务**误走长任务装配 ⇒ R07-1 取证（2026-10-07）要求：此处改动必须**人工决策 + 更新本断言**，不得静默「修好」',
         code: {
-            file: 'app/src/query/patternAssembler.ts',
+            file: 'packages/query/src/query/patternAssembler.ts',
             // 正向：刻意 unavailable 形态（仅 reason、无 route）仍在位
             contains: /long_task_pdl:\s*\{\s*reason:/,
             // 负向：一旦出现 route ⇒ 说明被「补齐装配」（高风险误改）

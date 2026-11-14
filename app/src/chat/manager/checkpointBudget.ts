@@ -18,8 +18,8 @@ import {
   decideCheckpointBoundary,
   isCheckpointBoundaryTool,
 } from '@modules/tools';
-import { getDailyBudget } from '../../query/DailyBudgetManager';
-import { getBudgetSuspendCoordinator } from '../../query/budgetSuspend';
+import { getDailyBudget } from '@modules/query/DailyBudgetManager';
+import { getBudgetSuspendCoordinator } from '@modules/query/budgetSuspend';
 
 const logger = getLogger('chat:checkpointBudget');
 

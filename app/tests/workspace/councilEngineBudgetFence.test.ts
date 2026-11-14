@@ -13,7 +13,7 @@ import type { CouncilAgentRole } from '../../src/workspace/CouncilTypes';
 import {
   getDailyBudget,
   resetDailyBudgetForTest,
-} from '../../src/query/DailyBudgetManager';
+} from '@modules/query/DailyBudgetManager';
 
 const SID = 'sess-council-fence';
 const agents: CouncilAgentRole[] = [

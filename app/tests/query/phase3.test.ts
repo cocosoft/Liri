@@ -9,13 +9,13 @@ import { describe, test, expect } from 'bun:test';
 import {
   ParallelToolExecutor,
   createParallelToolExecutor,
-} from '../../src/query/ParallelToolExecutor';
-import type { ToolExecutorFn } from '../../src/query/ParallelToolExecutor';
+} from '@modules/query/ParallelToolExecutor';
+import type { ToolExecutorFn } from '@modules/query/ParallelToolExecutor';
 import {
   ToolErrorCollector,
   createToolErrorCollector,
-} from '../../src/query/ToolErrorCollector';
-import type { ToolErrorRecord } from '../../src/query/ToolErrorCollector';
+} from '@modules/query/ToolErrorCollector';
+import type { ToolErrorRecord } from '@modules/query/ToolErrorCollector';
 import {
   InsightsEngine,
   insightsEngine,

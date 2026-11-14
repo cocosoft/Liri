@@ -61,6 +61,44 @@ const CODE_ROOTS = [
   'packages/kernel/tests/',
   // P0/P1（2026-11-12）：`sandbox` 已拆为 `packages/sandbox`，其源码改动必须能选中测试。
   'packages/sandbox/src/',
+  // P0（2026-11-13）：`channels` 拆包前置 —— 预置扫描根，搬包当天即生效。
+  'packages/channels/src/',
+  // P0（2026-11-13）：`query` 拆包前置 —— 同上（搬包当天即生效）。
+  'packages/query/src/',
+  // P0（2026-11-13）：`skills` 拆包前置 —— 同上（搬包当天即生效）。
+  'packages/skills/src/',
+  // P0（2026-11-13）：`tokenBudget` 拆包前置 —— 同上（搬包当天即生效）。
+  'packages/tokenBudget/src/',
+  // P0（2026-11-13）：`vfs` 拆包前置 —— 同上（搬包当天即生效）。
+  'packages/vfs/src/',
+  // P0（2026-11-13）：`compaction` 拆包前置 —— 同上（搬包当天即生效）。
+  'packages/compaction/src/',
+  // P0（2026-11-13）：`workspaces` 拆包前置 —— 同上（搬包当天即生效）。
+  'packages/workspaces/src/',
+  // P0（2026-11-13）：`docs` 拆包前置 —— 同上（搬包当天即生效）。
+  'packages/docs/src/',
+  // P0（2026-11-13）：`plugin-sdk` 拆包前置 —— 同上（搬包当天即生效）。
+  'packages/plugin-sdk/src/',
+  // P0（2026-11-14）：`governance` 拆包前置 —— 同上（搬包当天即生效）。
+  'packages/governance/src/',
+  // P0（2026-11-14）：`dream` 拆包前置 —— 同上（搬包当天即生效）。
+  'packages/dream/src/',
+  // P0（2026-11-14）：`evals` 拆包前置 —— 同上（搬包当天即生效）。
+  'packages/evals/src/',
+  // P0（2026-11-14）：`proactive` 拆包前置 —— 同上（搬包当天即生效）。
+  'packages/proactive/src/',
+  // P0（2026-11-14）：`project` 拆包前置 —— 同上（搬包当天即生效）。
+  'packages/project/src/',
+  // P0（2026-11-14）：`subagent` 拆包前置 —— 同上（搬包当天即生效）。
+  'packages/subagent/src/',
+  // P0（2026-11-14）：`resourceGovernor` 拆包前置 —— 同上（搬包当天即生效）。
+  'packages/resourceGovernor/src/',
+  // P0（2026-11-14）：`tool` 拆包前置 —— 同上（搬包当天即生效）。
+  'packages/tool/src/',
+  // P0（2026-11-14）：`context-engine` 拆包前置 —— 同上（搬包当天即生效）。
+  'packages/context-engine/src/',
+  // P0（2026-11-14）：`buddy` 拆包前置 —— 同上（搬包当天即生效）。
+  'packages/buddy/src/',
 ];
 
 /** 允许处理的最大变更文件数；超过直接全量（防异常 diff） */
@@ -277,9 +315,23 @@ export function buildImportGraph(appDir: string): {
   allTests: string[];
 } {
   const aliasRules = loadAliasRules(appDir);
+  // P1（2026-11-13）：物理包源码同样是"变更源"与"依赖方" —— 不纳入图，
+  // 改 `packages/*/src` 里的文件会因 `relToAbs` 缺失而恒判 `full`（实测：channels 拆包后
+  // 「变更 outboundFileRouter.ts ⇒ 选中其真实测试」直接退化为全量）。
+  const repoRoot = resolve(appDir, '..');
+  const packagesDir = join(repoRoot, 'packages');
+  const packageSources: string[] = [];
+  if (existsSync(packagesDir)) {
+    for (const name of readdirSync(packagesDir)) {
+      packageSources.push(
+        ...collectSourceFiles(join(packagesDir, name, 'src'))
+      );
+    }
+  }
   const files = [
     ...collectSourceFiles(join(appDir, 'src')),
     ...collectSourceFiles(join(appDir, 'tests')),
+    ...packageSources,
   ];
   const absToRel = new Map<string, string>();
   const relToAbs = new Map<string, string>();

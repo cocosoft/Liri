@@ -31,9 +31,9 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { StorageType } from '../../src/session/storage/UnifiedStorage';
-import { FileSystemUnifiedStorage } from '../../src/session/storage/FileSystemUnifiedStorage';
-import type { UnifiedMessage } from '../../src/session/types/UnifiedMessage';
+import { StorageType } from '@modules/session/storage/UnifiedStorage';
+import { FileSystemUnifiedStorage } from '@modules/session/storage/FileSystemUnifiedStorage';
+import type { UnifiedMessage } from '@modules/session/types/UnifiedMessage';
 
 /**
  * 注（2026-09-20）：本文件**可单文件运行**。此前受两条模块求值期循环导入影响，均已修复：

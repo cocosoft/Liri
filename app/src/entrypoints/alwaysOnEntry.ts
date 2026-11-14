@@ -61,15 +61,16 @@ import {
   type AlwaysOnBridgeDeps,
   type AlwaysOnProject,
 } from '@modules/tasks';
-import { checkDailyBudget } from '../query/dailyBudgetGate';
+import { checkDailyBudget } from '@modules/query/dailyBudgetGate';
 // P34（2026-11-02）：派工生命周期落库
 import { upsertTicketAssignment } from '../tasks/ticketAssignmentStore';
-import { getActiveProactiveQueue } from '../proactive/ProactiveRuntime';
-import { resolveProactiveTarget } from '../proactive/ProactiveTargetResolver';
-import { resolveProactiveGatePrefs } from '../proactive/ProactiveCronProducer';
-import { evaluateProactiveNotification } from '../proactive/ProactiveNotificationGate';
-import type { ProactiveMessagePayload } from '../proactive/types';
-import { listAll } from '../workspaces/WorkspaceRegistry';
+// P1（2026-11-14）：`proactive` 迁入 `packages/proactive`（层仍为 app）
+import { getActiveProactiveQueue } from '@modules/proactive/ProactiveRuntime';
+import { resolveProactiveTarget } from '@modules/proactive/ProactiveTargetResolver';
+import { resolveProactiveGatePrefs } from '@modules/proactive/ProactiveCronProducer';
+import { evaluateProactiveNotification } from '@modules/proactive/ProactiveNotificationGate';
+import type { ProactiveMessagePayload } from '@modules/proactive/types';
+import { listAll } from '@modules/workspaces/WorkspaceRegistry';
 // P0-2（2026-11-04，issue #35）：工作区根列表的**唯一合并口径**（与权限层/执行前同一实现；
 // 已于同日下沉 infra —— 入口不得直连 `chat` 模块，见 eslint `no-direct-module-import`）
 import { mergeWorkspaceRoots } from '@openliri/infra/utils/toolContract/workspaceRoots';

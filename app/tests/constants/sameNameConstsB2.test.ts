@@ -24,10 +24,63 @@ import {
 } from '@openliri/infra/constants';
 // P0（2026-11-12）：沙箱源码位置走单一事实源 —— 该模块搬包后本测试无需改
 import { sandboxPath } from '../../../scripts/lib/sandboxPaths';
+// P0（2026-11-13）：通道源码位置同理
+import { channelPath } from '../../../scripts/lib/channelPaths';
+// P1（2026-11-13）：会话源码位置同理（将并入 `packages/service/src/session`）
+import { sessionPath } from '../../../scripts/lib/sessionPaths';
+// P1（2026-11-13）：查询引擎源码位置同理（迁入 `packages/query/src/query`）
+import { queryPath } from '../../../scripts/lib/queryPaths';
+// P1（2026-11-13）：技能系统源码位置同理（迁入 `packages/skills/src/skills`）
+import { skillPath } from '../../../scripts/lib/skillPaths';
+// P1（2026-11-13）：Token 预算源码位置同理（迁入 `packages/tokenBudget/src/tokenBudget`）
+import { tokenBudgetPath } from '../../../scripts/lib/tokenBudgetPaths';
+// P1（2026-11-13）：上下文压缩源码位置同理（迁入 `packages/compaction/src/compaction`）
+import { compactionPath } from '../../../scripts/lib/compactionPaths';
 
 const APP = resolve(import.meta.dir, '../..');
 const REPO = resolve(APP, '..');
-const read = (rel: string) => readFileSync(join(APP, rel), 'utf8');
+/**
+ * 读源码（相对 `app/`）。
+ *
+ * P1（2026-11-13）：已迁出的模块前缀统一走 `scripts/lib/*Paths.ts` 单一事实源；
+ * 其余路径维持原口径（含 `../packages/...` 的既有写法）。
+ * 表驱动而非嵌套三元：迁包数量在增加，嵌套已到可读性上限。
+ */
+const MIGRATED_PREFIXES: ReadonlyArray<
+  [prefix: string, resolveInPackage: (repo: string, rest: string) => string]
+> = [
+  ['src/channels/', (repo, rest) => channelPath(repo, rest)],
+  ['src/session/', (repo, rest) => sessionPath(repo, rest)],
+  ['src/query/', (repo, rest) => queryPath(repo, rest)],
+  ['src/skills/', (repo, rest) => skillPath(repo, rest)],
+  ['src/tokenBudget/', (repo, rest) => tokenBudgetPath(repo, rest)],
+  ['src/compaction/', (repo, rest) => compactionPath(repo, rest)],
+  // P1（2026-11-14）：`dream` 迁入 `packages/dream`（仅本测试的 SCHEMA 守卫读它 ⇒ 内联解析，不新建 *Paths.ts）
+  [
+    'src/dream/',
+    (repo, rest) => join(repo, 'packages', 'dream', 'src', 'dream', rest),
+  ],
+  // P1（2026-11-14）：`evals` 迁入 `packages/evals`（B5-1④ / B5-2-61 两处守卫读它）
+  [
+    'src/evals/',
+    (repo, rest) => join(repo, 'packages', 'evals', 'src', 'evals', rest),
+  ],
+  // P1（2026-11-14）：`buddy` 迁入 `packages/buddy`（B5-2 眼睛常量守卫读它）
+  [
+    'src/buddy/',
+    (repo, rest) => join(repo, 'packages', 'buddy', 'src', 'buddy', rest),
+  ],
+];
+
+const read = (rel: string) => {
+  for (const [prefix, resolveInPackage] of MIGRATED_PREFIXES) {
+    if (rel.startsWith(prefix)) {
+      const rest = rel.slice(prefix.length);
+      return readFileSync(resolveInPackage(REPO, rest), 'utf8');
+    }
+  }
+  return readFileSync(join(APP, rel), 'utf8');
+};
 /** 沙箱源码（相对 `app/` 的路径，交给 `read` 统一拼接） */
 const sandboxRel = (...segments: string[]) =>
   relative(APP, sandboxPath(REPO, ...segments));

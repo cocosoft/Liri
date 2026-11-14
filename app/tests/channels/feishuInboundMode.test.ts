@@ -5,7 +5,7 @@
  * 显式 `false` 才启用 webhook（需公网回调地址）。
  */
 import { describe, expect, test } from 'bun:test';
-import { resolveFeishuInboundMode } from '../../src/channels/feishu/FeishuChannel';
+import { resolveFeishuInboundMode } from '@modules/channels/feishu/FeishuChannel';
 
 describe('resolveFeishuInboundMode', () => {
   test('未配置 useWebSocket（前端默认提交面）⇒ websocket', () => {

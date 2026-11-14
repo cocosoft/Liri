@@ -8,7 +8,7 @@
  */
 import { describe, expect, it } from 'bun:test';
 import { buildExecutedToolResultEntry } from '../../src/chat/toolResultPostProcess';
-import { classifyTurn } from '../../src/query/ReActLoop';
+import { classifyTurn } from '@modules/query/ReActLoop';
 
 const tc = { id: 'call_1', name: 'bash' };
 

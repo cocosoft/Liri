@@ -37,8 +37,8 @@ import {
   FTS_INDEX_MANIFEST_VERSION,
   FTS_SHARD_TMP_PREFIX,
   type FTSShardData,
-} from '../../src/session/persistence/FTSIndexStore';
-import type { FTSDocument } from '../../src/session/FTS5SearchEngine';
+} from '@modules/session/persistence/FTSIndexStore';
+import type { FTSDocument } from '@modules/session/FTS5SearchEngine';
 
 const dirs: string[] = [];
 

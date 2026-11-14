@@ -1859,7 +1859,7 @@
     "app/src/agent/events/index.ts -> @openliri/kernel/events/EventBus",
     "app/src/ai/telemetry/SessionSpanTracer.ts -> @openliri/kernel/SessionSpanTracer.js",
     "app/src/context/DependencyRegistry.ts -> @openliri/kernel/DependencyRegistry.js",
-    "app/src/docs/knowledge-types.ts -> @openliri/kernel/knowledge-types",
+    "packages/docs/src/docs/knowledge-types.ts -> @openliri/kernel/knowledge-types",
     "app/src/modules/index.ts -> @openliri/kernel/LazyModuleStrategy",
     "app/src/types/orchestrationEvents.ts -> @openliri/kernel/orchestrationEvents.js",
     "packages/infra/src/cost/ModelPricing.ts -> @openliri/kernel/pricing.js",

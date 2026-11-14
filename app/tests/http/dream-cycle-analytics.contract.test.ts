@@ -24,7 +24,7 @@ afterAll(() => {
   else process.env.LIRI_HOME = prevLiriHome;
 });
 
-const { getDreamCycleDb } = await import('../../src/dream/DreamCycleDb');
+const { getDreamCycleDb } = await import('@modules/dream/DreamCycleDb');
 const { handleDreamCycleAnalytics } =
   await import('../../src/infrastructure/http/handlers/memory-handlers');
 

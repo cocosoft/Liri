@@ -10,8 +10,13 @@
 import { describe, it, expect } from 'bun:test';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+// P0（2026-11-13）：通道源码位置走单一事实源（搬包后本文件零改动）
+import { channelPath } from '../../../scripts/lib/channelPaths';
 
-const SRC = resolve(__dirname, '../../src/channels/routing/messageRouter.ts');
+const SRC = channelPath(
+  resolve(__dirname, '../../..'),
+  'routing/messageRouter.ts'
+);
 
 describe('T1-9 入站 PREPARED 只读接缝（源码守卫）', () => {
   const src = readFileSync(SRC, 'utf8');

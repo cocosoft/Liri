@@ -4,13 +4,13 @@
 import {
   getDefaultZaloConfig,
   validateZaloConfig,
-} from '../../src/channels/zalo/config-schema';
+} from '@modules/channels/zalo/config-schema';
 import {
   getZaloAccount,
   listZaloAccountIds,
   registerZaloAccount,
   removeZaloAccount,
-} from '../../src/channels/zalo/accounts';
+} from '@modules/channels/zalo/accounts';
 import { describeChannelBasics } from './support/channelBasics';
 
 describeChannelBasics({

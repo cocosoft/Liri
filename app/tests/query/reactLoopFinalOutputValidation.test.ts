@@ -9,13 +9,13 @@
  *  4. **只在终稿时刻调用**：本轮有 tool_calls（`shouldContinue=true`）时不触发。
  */
 import { describe, test, expect } from 'bun:test';
-import { ReActLoop } from '../../src/query/ReActLoop';
+import { ReActLoop } from '@modules/query/ReActLoop';
 import type {
   ActResult,
   ReasonResult,
   ReActEvent,
   ReActState,
-} from '../../src/query/ReActLoop';
+} from '@modules/query/ReActLoop';
 
 interface TestResult {
   reasonCount: number;

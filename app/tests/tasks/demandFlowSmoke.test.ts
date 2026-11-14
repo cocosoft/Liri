@@ -28,7 +28,7 @@ import { taskOrchestrator } from '../../src/tasks/TaskOrchestrator';
 import type { Plan } from '../../src/tasks/TaskOrchestrator';
 import type { PdcaStatus } from '../../src/tasks/lro/contracts';
 import { closePdcaCheckpointStore } from '../../src/tasks/PdcaWorkItemBridge';
-import { resetDailyBudgetForTest } from '../../src/query/DailyBudgetManager';
+import { resetDailyBudgetForTest } from '@modules/query/DailyBudgetManager';
 import { appendSupplementToSession } from '../../src/tasks/lro/demandSupplement';
 import {
   DAILY_BUDGET_TERMINATION_REASON,

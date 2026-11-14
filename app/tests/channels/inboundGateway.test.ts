@@ -5,9 +5,9 @@
  * ② `IInboundGatewayPort`：未注册 ⇒ **未注册裁决**（不伪造接受）；适配器 ⇒ 形状搬运。
  */
 import { describe, expect, it } from 'bun:test';
-import { toInboundEnvelope } from '../../src/channels/routing/messageRouterContract.js';
+import { toInboundEnvelope } from '@modules/channels/routing/messageRouterContract.js';
 import { resolveInboundGateway } from '@openliri/kernel/spi/InboundGatewayService.js';
-import { InboundGatewayPortAdapter } from '../../src/channels/gateway/InboundGatewayPortAdapter.js';
+import { InboundGatewayPortAdapter } from '@modules/channels/gateway/InboundGatewayPortAdapter.js';
 
 describe('入站 DTO 标准化（阶段 2.4）', () => {
   it('文本消息 ⇒ payload.type=text，sender/platform 取自通道与发送者', () => {

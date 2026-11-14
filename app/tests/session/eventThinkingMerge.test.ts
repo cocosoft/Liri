@@ -10,7 +10,7 @@ import { describe, expect, it, afterEach } from 'bun:test';
 import { mkdtempSync, mkdirSync, readFileSync, existsSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { EventLogStorage } from '../../src/session/storage/EventLogStorage';
+import { EventLogStorage } from '@modules/session/storage/EventLogStorage';
 import type { LiriEvent } from '@modules/session/types/events';
 
 const HASH = 'default';

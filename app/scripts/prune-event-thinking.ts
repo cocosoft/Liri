@@ -53,7 +53,7 @@ import {
   DEFAULT_THINKING_KEEP_TURNS,
   pruneEventThinkingFile,
   type ThinkingPruneFileResult,
-} from '../src/session/storage/eventThinkingPrune';
+} from '@modules/session/storage/eventThinkingPrune';
 
 export interface PruneThinkingOptions {
   apply?: boolean;

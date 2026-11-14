@@ -41,10 +41,10 @@ import { getCoreAPI } from '../runtime/api/CoreAPIImpl.js';
 import { getConfig, configManager } from '@openliri/infra/config';
 import { modelRouter } from '@modules/ai';
 import { resolveModelRoute, RouteKey } from '@modules/ai';
-import { SubAgentManager } from '../subagent/SubAgentManager.js';
-import { SubAgentFactory } from '../subagent/SubAgentFactory.js';
+import { SubAgentManager } from '@modules/subagent/SubAgentManager';
+import { SubAgentFactory } from '@modules/subagent/SubAgentFactory';
 import { isOfflineMode } from './shared-state.js';
-import { channelRegistry } from '../channels/index.js';
+import { channelRegistry } from '@modules/channels/index.js';
 import { channelBootstrapper } from '@modules/channels';
 import { handleError } from '@openliri/infra/error';
 import { LOCAL_HTTP_HOST } from '@openliri/kernel';
@@ -640,7 +640,7 @@ export async function launchRepl(
             const { getDIContainer } = await import('@openliri/kernel');
             const { randomUUID } = await import('crypto');
             const { MessageType, MessageRole } =
-              await import('../session/types/UnifiedMessage.js');
+              await import('@modules/session/types/UnifiedMessage.js');
             const container = getDIContainer();
             if (container.has('combinedSessionGateway')) {
               const combinedGateway = container.resolve<{

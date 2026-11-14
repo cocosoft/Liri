@@ -19,13 +19,13 @@ import { join } from 'path';
 import {
   closeOwned,
   createOwned,
-} from '../../src/query/checkpointStorageLifecycle.js';
-import { TAORLoop } from '../../src/query/TAORLoop.js';
-import type { QueryEngine } from '../../src/query/QueryEngine.js';
+} from '@modules/query/checkpointStorageLifecycle.js';
+import { TAORLoop } from '@modules/query/TAORLoop.js';
+import type { QueryEngine } from '@modules/query/QueryEngine.js';
 import type {
   TAORCheckpoint,
   TAORCheckpointStorage,
-} from '../../src/query/types.js';
+} from '@modules/query/types.js';
 import { setUserDataDirOverride } from '@openliri/infra/environment';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import type { Principal } from '@openliri/kernel/identity/principal.js';

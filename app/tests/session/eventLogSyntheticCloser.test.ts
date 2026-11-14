@@ -15,8 +15,8 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { getLogger } from '@openliri/infra/monitoring';
-import { EventLogStorage } from '../../src/session/storage/EventLogStorage';
-import { deriveMessagesFromEvents } from '../../src/session/storage/EventMessageDeriver';
+import { EventLogStorage } from '@modules/session/storage/EventLogStorage';
+import { deriveMessagesFromEvents } from '@modules/session/storage/EventMessageDeriver';
 import type { LiriEvent } from '@modules/session/types/events';
 
 const HASH = 'default';

@@ -32,7 +32,7 @@ import { resolveDbPath, resolveDataSubDir } from '@openliri/infra/environment';
 import {
   isSensitiveKey,
   encryptSecret,
-} from '../src/channels/secrets/encryption';
+} from '@modules/channels/secrets/encryption';
 
 interface Row {
   id: string;

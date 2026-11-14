@@ -15,7 +15,7 @@
 
 import { getLogger } from '@openliri/infra/monitoring';
 import { withPhase } from '@openliri/infra/diagnostics';
-import { getYieldRegistry, YIELD_STATUS_RESUMED } from '../../session/yield';
+import { getYieldRegistry, YIELD_STATUS_RESUMED } from '@modules/session/yield';
 import {
   yieldSettlementListeners,
   YIELD_SETTLEMENT_RESTORED_REASON,

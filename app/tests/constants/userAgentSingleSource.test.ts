@@ -139,7 +139,7 @@ describe('HD-P1-1 · 产品 User-Agent 单一真源', () => {
       '../packages/service/src/services/voice/services/streamSTTProvider.ts',
       'src/cli/updater/GitHubReleaseFetcher.ts',
       'src/chat/services/ImageDownloader.ts',
-      'src/skills/loaders/adapter/clawhub/ClawHubAPIClient.ts',
+      '../packages/skills/src/skills/loaders/adapter/clawhub/ClawHubAPIClient.ts',
       'src/knowledge/datasource/RSSConnector.ts',
       '../packages/service/src/services/mcp/marketplace/adapters/SmitheryRegistryAdapter.ts',
       '../packages/service/src/services/mcp/marketplace/adapters/NPMRegistryAdapter.ts',

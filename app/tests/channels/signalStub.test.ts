@@ -11,7 +11,7 @@ import { describe, expect, it } from 'bun:test';
 import {
   buildSignalSendArgs,
   createSignalChannel,
-} from '../../src/channels/signal/SignalChannel';
+} from '@modules/channels/signal/SignalChannel';
 
 describe('Signal 上游 CLI 契约', () => {
   it('文本：参数为 -a <account> send -m <message> <target>', () => {

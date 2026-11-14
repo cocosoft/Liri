@@ -10,7 +10,7 @@ import {
   PRE_SEND_COMPACT_RATIO,
   ensureContextWithinBudget,
   truncateMessagesHead,
-} from '../../src/query/taor/helpers';
+} from '@modules/query/taor/helpers';
 
 const msg = (content: string) => ({ role: 'user', content }) as never;
 

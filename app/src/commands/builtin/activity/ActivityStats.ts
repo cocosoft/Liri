@@ -205,9 +205,9 @@ async function getSessionStats(): Promise<{
 }> {
   try {
     const { createStorageAdapter } =
-      await import('../../../session/StorageAdapter.js');
+      await import('@modules/session/StorageAdapter.js');
     const { MemoryStorage } =
-      await import('../../../session/storage/MemoryStorage.js');
+      await import('@modules/session/storage/MemoryStorage.js');
     const storage = createStorageAdapter(new MemoryStorage());
     const stats = await storage.getSessionStats();
     return {

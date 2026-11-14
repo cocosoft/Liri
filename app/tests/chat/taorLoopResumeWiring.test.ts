@@ -43,18 +43,18 @@ import type { ChatBootstrapDeps } from '../../src/chat/manager/bootstrap.js';
 import {
   getBudgetSuspendCoordinator,
   resetBudgetSuspendForTest,
-} from '../../src/query/budgetSuspend.js';
+} from '@modules/query/budgetSuspend.js';
 import {
   getDailyBudget,
   resetDailyBudgetForTest,
-} from '../../src/query/DailyBudgetManager.js';
+} from '@modules/query/DailyBudgetManager.js';
 import {
   handleListCheckpoints,
   handleResumeCheckpoint,
   registerTAORLoop,
   MAX_TAOR_LOOP_REGISTRY,
 } from '../../src/infrastructure/http/handlers/checkpoint-handlers';
-import type { TAORLoop } from '../../src/query/TAORLoop.js';
+import type { TAORLoop } from '@modules/query/TAORLoop.js';
 import { ChatOrchestrator } from '../../src/chat/orchestrator/ChatOrchestrator.js';
 import type { ChatOrchestratorHost } from '../../src/chat/orchestrator/ChatOrchestrator.js';
 import type { ChatSession } from '@modules/session/types/session.js';

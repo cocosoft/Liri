@@ -33,8 +33,8 @@ import {
   checkShieldedUntouched,
   evaluateProcessRules,
   resourceKeyOf,
-} from '../../src/evals/processAssertions';
-import type { ToolCallDetail } from '../../src/evals/types';
+} from '@modules/evals/processAssertions';
+import type { ToolCallDetail } from '@modules/evals/types';
 
 const read = (path: string): ToolCallDetail => ({
   name: 'file_read',

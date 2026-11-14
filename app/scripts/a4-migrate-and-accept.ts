@@ -3,8 +3,8 @@
 import { homedir } from 'os';
 import { join, dirname } from 'path';
 import { readFileSync, existsSync, readdirSync } from 'fs';
-import { EventLogStorage } from '../src/session/storage/EventLogStorage';
-import { MessageToEventMigrator } from '../src/session/storage/MessageToEventMigrator';
+import { EventLogStorage } from '@modules/session/storage/EventLogStorage';
+import { MessageToEventMigrator } from '@modules/session/storage/MessageToEventMigrator';
 import { resolveSessionsDir } from '@openliri/infra/environment';
 // 防止 Logger 未初始化导致报错：设置一个全局 logger fallback（用 console）
 const mod_logger = await import('@openliri/infra/monitoring/logs/Logger');

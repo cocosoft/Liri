@@ -407,9 +407,10 @@ export class SkillCommandLoader implements CommandLoader {
     const commands: Command[] = [];
 
     try {
-      const { SkillRegistry } = await import('../../skills/SkillRegistry.js');
+      const { SkillRegistry } =
+        await import('@modules/skills/SkillRegistry.js');
       const { BundledSkillLoader } =
-        await import('../../skills/loaders/sources/BundledSkillLoader.js');
+        await import('@modules/skills/loaders/sources/BundledSkillLoader.js');
       const registry = new SkillRegistry();
       const loader = new BundledSkillLoader();
       const loadedSkills = await loader.loadSkills();

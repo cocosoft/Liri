@@ -25,9 +25,9 @@ import { afterAll, describe, expect, test } from 'bun:test';
 import {
   FileSystemUnifiedStorage,
   purgeExpiredTrashUnder,
-} from '../../src/session/storage/FileSystemUnifiedStorage';
-import type { StorageConfig } from '../../src/session/storage/UnifiedStorage';
-import { StorageType } from '../../src/session/storage/UnifiedStorage';
+} from '@modules/session/storage/FileSystemUnifiedStorage';
+import type { StorageConfig } from '@modules/session/storage/UnifiedStorage';
+import { StorageType } from '@modules/session/storage/UnifiedStorage';
 
 const DAY = 24 * 60 * 60 * 1000;
 const TTL = 7 * DAY;

@@ -15,7 +15,7 @@ import {
   WebhookChannel,
   createWebhookChannel,
   webhookChannel,
-} from '../../src/channels/webhook/WebhookChannel';
+} from '@modules/channels/webhook/WebhookChannel';
 
 interface Received {
   url: string;

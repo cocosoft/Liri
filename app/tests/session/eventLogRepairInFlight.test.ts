@@ -17,11 +17,11 @@ import {
 } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { EventLogStorage } from '../../src/session/storage/EventLogStorage';
+import { EventLogStorage } from '@modules/session/storage/EventLogStorage';
 import {
   hasRecentInFlightTurn,
   trackTurnLifecycle,
-} from '../../src/session/storage/EventLogRepair';
+} from '@modules/session/storage/EventLogRepair';
 import type { LiriEvent } from '@modules/session/types/events';
 
 const HASH = 'default';

@@ -29,10 +29,14 @@
  */
 import { afterAll, describe, expect, it } from 'bun:test';
 import { readFileSync } from 'node:fs';
-import { QueryLogStore } from '../../src/query/QueryLogStore';
-import type { QueryLogEntry } from '../../src/query/QueryLogTypes';
+import { join } from 'node:path';
+import { QueryLogStore } from '@modules/query/QueryLogStore';
+import type { QueryLogEntry } from '@modules/query/QueryLogTypes';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import type { Principal } from '@openliri/kernel/identity/principal';
+import { queryPath } from '../../../scripts/lib/queryPaths';
+
+const REPO_ROOT = join(import.meta.dir, '../../..');
 
 const ALICE: Principal = { tenantId: 'acme', userId: 'alice', roles: ['user'] };
 const BOB: Principal = { tenantId: 'acme', userId: 'bob', roles: ['user'] };
@@ -137,10 +141,7 @@ describe('QueryLogStore：行级隔离（同租户不同用户）', () => {
 
 describe('门禁：QueryLogStore 的读写 SQL 不许漏 owner_key', () => {
   it('每个含 SELECT/INSERT/DELETE/UPDATE 的 SQL 模板都必须带 owner_key', () => {
-    const src = readFileSync(
-      new URL('../../src/query/QueryLogStore.ts', import.meta.url),
-      'utf8'
-    );
+    const src = readFileSync(queryPath(REPO_ROOT, 'QueryLogStore.ts'), 'utf8');
     const templates = [
       ...src.matchAll(/`[^`]*\$\{QUERY_LOG_TABLE\}[^`]*`/g),
     ].map((m) => m[0]);

@@ -20,14 +20,14 @@
 // SOFTWARE.
 
 import { describe, expect, it } from 'bun:test';
-import { DeliveryRouter } from '../../src/channels/DeliveryRouter';
-import type { DeliveryContent } from '../../src/channels/DeliveryRouter';
-import { DeliveryTarget } from '../../src/channels/DeliveryTarget';
+import { DeliveryRouter } from '@modules/channels/DeliveryRouter';
+import type { DeliveryContent } from '@modules/channels/DeliveryRouter';
+import { DeliveryTarget } from '@modules/channels/DeliveryTarget';
 import type {
   ChannelInterface,
   ChannelOutbound,
   ChannelRegistry,
-} from '../../src/channels/registry/ChannelRegistry';
+} from '@modules/channels/registry/ChannelRegistry';
 
 /**
  * R11 **DeliveryRouter 行为契约**（第九轮审查 §5.2 的"能力降级 / 不重复 / 隔离"维度）。

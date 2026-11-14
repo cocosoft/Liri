@@ -25,11 +25,11 @@
  */
 
 import { describe, expect, it, spyOn } from 'bun:test';
-import type { MessageContext } from '../../src/channels/types/IChannel';
+import type { MessageContext } from '@modules/channels/types/IChannel';
 import {
   routeChannelMessage,
   validateInboundFrame,
-} from '../../src/channels/routing/messageRouter';
+} from '@modules/channels/routing/messageRouter';
 import { getExecutionManager } from '@openliri/service/execution';
 
 /** 构造合法消息（messageId/sender 唯一，content 可变避免内容级去重） */

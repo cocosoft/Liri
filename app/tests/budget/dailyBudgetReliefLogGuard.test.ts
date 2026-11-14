@@ -13,14 +13,11 @@
 
 import { describe, it, expect } from 'bun:test';
 import { readFileSync } from 'fs';
-import { join } from 'path';
+import { resolve } from 'path';
+import { queryPath } from '../../../scripts/lib/queryPaths';
 
-const SRC = join(
-  __dirname,
-  '..',
-  '..',
-  'src',
-  'query',
+const SRC = queryPath(
+  resolve(__dirname, '..', '..', '..'),
   'DailyBudgetManager.ts'
 );
 

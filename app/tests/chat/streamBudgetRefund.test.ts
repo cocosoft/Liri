@@ -18,7 +18,7 @@ import { createStreamBudget } from '../../src/chat/createAgentLoop';
 import {
   TokenBudgetController,
   TokenBudgetStatus,
-} from '../../src/tokenBudget/TokenBudgetController';
+} from '@modules/tokenBudget/TokenBudgetController';
 import { resolveContextWindow } from '../../src/context';
 import { setModelWindow } from '@openliri/infra/utils/ContextWindowResolver';
 

@@ -15,8 +15,8 @@ import {
   alignChecksToCriteria,
   findUnprovableCriteria,
 } from '@modules/tasks/successCriteria';
-import { VerifierAgent } from '../../src/query/VerifierAgent.js';
-import type { VerificationInput } from '../../src/query/VerifierAgent.js';
+import { VerifierAgent } from '@modules/query/VerifierAgent.js';
+import type { VerificationInput } from '@modules/query/VerifierAgent.js';
 
 describe('parseSuccessCriteria（自由文本 → 结构化）', () => {
   it('按换行/分号切分并剥离列表标记', () => {

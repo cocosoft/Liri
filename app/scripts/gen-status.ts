@@ -27,6 +27,8 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
+// P0（2026-11-13）：通道源码位置收敛到 `scripts/lib/channelPaths`（搬包只改一处）
+import { channelPath } from '../../scripts/lib/channelPaths';
 
 const APP_DIR = resolve(import.meta.dir, '..');
 const REPO_ROOT = resolve(APP_DIR, '..');
@@ -83,13 +85,14 @@ function countDocCorpus(dir: string): number {
 }
 
 /**
- * 评测基线题目数 —— `src/evals/baseline.json` 的 `tasks` 键数（逐题登记地板）。
+ * 评测基线题目数 —— `packages/evals/src/evals/baseline.json` 的 `tasks` 键数（逐题登记地板）。
  *
  * 为什么并入本文件（2026-11-01）：README 曾写「36 题基线」，实测基线已 38 题
  * ⇒ 与工具/通道/文档语料同属「易漂移数字」。基线是 tracked 静态 JSON，可确定性计数。
  */
 function countEvalBaseline(): number {
-  const file = 'src/evals/baseline.json';
+  // P1（2026-11-14）：`evals` 已迁入 `packages/evals`（相对 app/ 上跳一级）
+  const file = '../packages/evals/src/evals/baseline.json';
   let parsed: { tasks?: Record<string, unknown> };
   try {
     parsed = JSON.parse(readSource(file)) as {
@@ -118,7 +121,10 @@ function collect(): Metric[] {
     throw new Error(`TOOL_NAMES_COUNT 解析失败: ${toolNamesFile}`);
   }
 
-  const channelFile = 'src/channels/ChannelCatalog.ts';
+  const channelFile = relative(
+    APP_DIR,
+    channelPath(REPO_ROOT, 'ChannelCatalog.ts')
+  );
   const channelCount = countMatches(
     readSource(channelFile),
     /exportKey:\s*'/g,
@@ -152,7 +158,11 @@ function collect(): Metric[] {
     {
       label: '消息通道',
       value: channelCount,
-      source: `app/${channelFile}`,
+      // P0（2026-11-13）：与工具同口径 —— 按**仓库相对路径**展示（搬包后自动跟随，不出现 `app/../`）
+      source: relative(
+        REPO_ROOT,
+        channelPath(REPO_ROOT, 'ChannelCatalog.ts')
+      ).split('\\').join('/'),
       scope: '`CHANNEL_CATALOG` 登记的通道（含编译期可裁剪者）',
     },
     {
@@ -171,7 +181,7 @@ function collect(): Metric[] {
     {
       label: '评测基线题目',
       value: countEvalBaseline(),
-      source: 'app/src/evals/baseline.json',
+      source: 'packages/evals/src/evals/baseline.json',
       scope: '`tasks` 键数（逐题登记地板）',
     },
   ];

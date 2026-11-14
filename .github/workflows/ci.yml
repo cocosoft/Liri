@@ -125,6 +125,101 @@ jobs:
       if: matrix.os == 'ubuntu-latest'
       run: bun run lint:sandbox
 
+    # P1（2026-11-13）：channels 拆包到 packages/channels 后同理补覆盖（同一 flat-config 限制）。
+    - name: "Run channels package linter (P1：packages/channels 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:channels
+
+    # P1（2026-11-13）：query 拆包到 packages/query 后同理补覆盖（同一 flat-config 限制）。
+    - name: "Run query package linter (P1：packages/query 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:query
+
+    # P1（2026-11-13）：skills 拆包到 packages/skills 后同理补覆盖（同一 flat-config 限制）。
+    - name: "Run skills package linter (P1：packages/skills 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:skills
+
+    # P1（2026-11-13）：tokenBudget 拆包到 packages/tokenBudget 后同理补覆盖。
+    - name: "Run tokenBudget package linter (P1：packages/tokenBudget 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:tokenBudget
+
+    # P1（2026-11-13）：vfs 拆包到 packages/vfs 后同理补覆盖。
+    - name: "Run vfs package linter (P1：packages/vfs 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:vfs
+
+    # P1（2026-11-13）：compaction 拆包到 packages/compaction 后同理补覆盖。
+    - name: "Run compaction package linter (P1：packages/compaction 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:compaction
+
+    # P1（2026-11-13）：workspaces 拆包到 packages/workspaces 后同理补覆盖。
+    - name: "Run workspaces package linter (P1：packages/workspaces 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:workspaces
+
+    # P1（2026-11-13）：docs 拆包到 packages/docs 后同理补覆盖。
+    - name: "Run docs package linter (P1：packages/docs 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:docs
+
+    # P1（2026-11-13）：plugin-sdk 拆包到 packages/plugin-sdk 后同理补覆盖。
+    - name: "Run plugin-sdk package linter (P1：packages/plugin-sdk 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:plugin-sdk
+
+    # P1（2026-11-14）：governance 拆包到 packages/governance 后同理补覆盖。
+    - name: "Run governance package linter (P1：packages/governance 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:governance
+
+    # P1（2026-11-14）：dream 拆包到 packages/dream 后同理补覆盖。
+    - name: "Run dream package linter (P1：packages/dream 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:dream
+
+    # P1（2026-11-14）：evals 拆包到 packages/evals 后同理补覆盖。
+    - name: "Run evals package linter (P1：packages/evals 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:evals
+
+    # P1（2026-11-14）：proactive 拆包到 packages/proactive 后同理补覆盖。
+    - name: "Run proactive package linter (P1：packages/proactive 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:proactive
+
+    # P1（2026-11-14）：project 拆包到 packages/project 后同理补覆盖。
+    - name: "Run project package linter (P1：packages/project 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:project
+
+    # P1（2026-11-14）：subagent 拆包到 packages/subagent 后同理补覆盖。
+    - name: "Run subagent package linter (P1：packages/subagent 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:subagent
+
+    # P1（2026-11-14）：resourceGovernor 拆包到 packages/resourceGovernor 后同理补覆盖。
+    - name: "Run resourceGovernor package linter (P1：packages/resourceGovernor 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:resourceGovernor
+
+    # P1（2026-11-14）：tool 拆包到 packages/tool 后同理补覆盖。
+    - name: "Run tool package linter (P1：packages/tool 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:tool
+
+    # P1（2026-11-14）：context-engine 拆包到 packages/context-engine 后同理补覆盖。
+    - name: "Run context-engine package linter (P1：packages/context-engine 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:context-engine
+
+    # P1（2026-11-14）：buddy 拆包到 packages/buddy 后同理补覆盖。
+    - name: "Run buddy package linter (P1：packages/buddy 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:buddy
+
     # R05-003 双源收敛（2026-10-14）：原先此处为**内联 grep**（6 名 / 按行 / 阈值写死 2034），
     # 与门禁 `lint-architecture.ts#checkConsoleBaseline`（4 名 / 按次 / 阈值 2045+10% ⇒ 上限 2250）
     # 构成**两套实现 + 两个阈值**（改一处即漂移）。现改调**同一实现** `scripts/lib/consoleCalls.ts`，

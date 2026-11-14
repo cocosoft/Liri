@@ -84,7 +84,7 @@
       "title": "执行入口契约一致（渠道 / 客户端）",
       "statement": "渠道路径与客户端流式路径在执行身份、写前记账、失败关闭上遵循同一契约（客户端经灰度 `CLIENT_STREAM_EXECUTION` 接入）。",
       "sources": [
-        "app/src/channels/routing/messageRouter.ts",
+        "packages/channels/src/channels/routing/messageRouter.ts",
         "app/src/infrastructure/http/handlers/chat-handlers.ts"
       ],
       "tests": [
@@ -152,8 +152,8 @@
       "statement": "新增事件类型必须在事件名 / 后端载荷 / 登记清单三处同批声明，漏一处即编译失败。",
       "sources": [
         "shared/events/eventNames.ts",
-        "app/src/session/types/eventPayloads.ts",
-        "app/src/session/types/knownEventTypes.ts"
+        "packages/service/src/session/types/eventPayloads.ts",
+        "packages/service/src/session/types/knownEventTypes.ts"
       ],
       "tests": ["app/tests/chat/eventTypeParity.test.ts"],
       "level": "static",

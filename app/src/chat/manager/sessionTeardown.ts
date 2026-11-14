@@ -112,7 +112,7 @@ export class ChatSessionTeardown {
   private async disposeToolSessionScope(sessionId: string): Promise<void> {
     try {
       const { toolScopeManager } =
-        await import('../../tool/ToolScopeManager.js');
+        await import('@modules/tool/ToolScopeManager.js');
       await toolScopeManager.disposeSession(sessionId);
     } catch (e) {
       logger.warn('deleteSession:释放会话级工具作用域失败', {
@@ -285,7 +285,7 @@ export class ChatSessionTeardown {
   private async clearSessionTaorCheckpoints(sessionId: string): Promise<void> {
     try {
       // 沿用 bootstrap 既有惯例：动态 import 避免新增静态跨模块边（chat → query 同层）
-      const { resumeManager } = await import('../../query/ResumeManager.js');
+      const { resumeManager } = await import('@modules/query/ResumeManager.js');
       const removed = await resumeManager.clearSession(sessionId);
       if (removed > 0) {
         logger.info('deleteSession:taor 检查点已清理', {
@@ -317,7 +317,7 @@ export class ChatSessionTeardown {
     void (async () => {
       try {
         const { getBudgetSuspendCoordinator } =
-          await import('../../query/budgetSuspend.js');
+          await import('@modules/query/budgetSuspend.js');
         const coordinator = getBudgetSuspendCoordinator();
         for (const sessionId of sessionIds) coordinator.release(sessionId);
       } catch (e) {

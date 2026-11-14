@@ -32,7 +32,7 @@ import {
   formatVfsPath,
   parseVfsPath,
   vfsRelativePath,
-} from '../../src/vfs/VfsPath.js';
+} from '@modules/vfs/VfsPath.js';
 
 function expectVfsCode(fn: () => unknown, code: string): void {
   try {

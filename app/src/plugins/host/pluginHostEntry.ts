@@ -27,8 +27,7 @@ import {
   decodeFrame,
   encodeFrame,
 } from '@openliri/infra/utils/sidecarIpc';
-import { createPluginContext } from '../../plugin-sdk/core';
-import type { PluginContext } from '../../plugin-sdk/types';
+import { createPluginContext, type PluginContext } from '@modules/plugin-sdk';
 import {
   PLUGIN_HOST_CHILD_METHOD,
   PLUGIN_HOST_EVENT,

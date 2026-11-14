@@ -9,7 +9,7 @@
  * ⑤ **`limitUsd` 无默认值**：未配置 ⇒ `undefined`（**不臆造**，`§12 Q-U3` 未裁定）；显式配置才生效。
  */
 import { describe, it, expect } from 'bun:test';
-import { DailyBudgetManager } from '../../src/query/DailyBudgetManager.js';
+import { DailyBudgetManager } from '@modules/query/DailyBudgetManager.js';
 
 /** 本地自然日字符串（与 `_getToday()` 同口径） */
 function localDate(offsetDays = 0): string {

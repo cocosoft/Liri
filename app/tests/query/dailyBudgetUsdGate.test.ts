@@ -21,13 +21,16 @@ import { join } from 'node:path';
 import {
   getDailyBudget,
   resetDailyBudgetForTest,
-} from '../../src/query/DailyBudgetManager';
+} from '@modules/query/DailyBudgetManager';
 import {
   checkDailyBudget,
   formatBudget,
   formatBudgetExhausted,
   formatUsdAmount,
-} from '../../src/query/dailyBudgetGate';
+} from '@modules/query/dailyBudgetGate';
+import { queryPath } from '../../../scripts/lib/queryPaths';
+
+const REPO_ROOT = join(import.meta.dir, '../../..');
 
 const ENV_TOKENS = 'LIRI_DAILY_BUDGET_TOKENS';
 const ENV_USD = 'LIRI_DAILY_BUDGET_USD';
@@ -166,12 +169,12 @@ describe('S3 · Token 轨降级为观测告警（Plan A 核心）', () => {
 describe('S3 · 源码守卫（防回流到「双轨从严」/「Token 拦停」）', () => {
   it('闸门判定式**不得**再出现 Token 轨 conjunct（`tokenAllowed && !usdExceeded`）', () => {
     const src = readFileSync(
-      join(import.meta.dir, '../../src/query/dailyBudgetGate.ts'),
+      queryPath(REPO_ROOT, 'dailyBudgetGate.ts'),
       'utf8'
     );
     // P2 待办 2/2（2026-11-04）：判定式与拒绝理由收敛到 `budgetGate`（唯一实现）
     const verdictSrc = readFileSync(
-      join(import.meta.dir, '../../src/query/budgetGate.ts'),
+      queryPath(REPO_ROOT, 'budgetGate.ts'),
       'utf8'
     );
     expect(src).not.toContain('tokenAllowed && !usdExceeded');

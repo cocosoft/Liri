@@ -82,6 +82,28 @@ export default [
           // 编排模式目录（原 `packages/kernel/src/core/patterns`）：纯目录 + 选择器，
           // 无实例/无生命周期（`chat → query` 只取 featureFlag 与选择器纯函数）。
           '\\/query\\/patterns$',
+          // P1（2026-11-13，channels 拆包）：`channels/binding` 是**纯叶子**
+          // （只读会话 metadata 的纯函数，零依赖/零生命周期）；chat 每轮调用它，
+          // 若改走 `@modules/channels` 桶会把整个通道面（26 通道实现）拉进对话热路径
+          // ⇒ 与 `channels/ChannelCatalog` 的"规范子入口"同口径，按文件名精确豁免。
+          '\\/channels\\/binding$',
+          // P1（2026-11-13，session 并入 `packages/service`）：`session/yield` 是**产出/续跑注册表**
+          // 的窄子入口（chat 的 ReAct 循环与恢复链每轮读写它）；走 `@modules/session` 桶会把
+          // 整个会话面（网关 / FTS / EventLog）拉进对话热路径，与 `channels/binding` 同口径豁免。
+          '\\/session\\/yield$',
+          // P1（2026-11-13，query 拆包）：以下 8 个子路径是**窄功能入口**（预算闸门 / 预算挂起 /
+          // 附件预算 / 定价适配 / 单轮预检 / 熵守卫 / 预算快照 / 工具任务挂起 SPI）。
+          // 拆包前它们以**相对路径**被 chat / tasks / commands / workspace 直连（不经过桶），
+          // 迁入 `packages/query` 后必须走别名 —— 若改走 `@modules/query` 桶，会把 TAORLoop /
+          // QueryEngine / 全量检查点存储拉进这些热路径（与 `query/patterns`、`session/yield` 同口径）。
+          '\\/query\\/dailyBudgetGate$',
+          '\\/query\\/budgetSuspend$',
+          '\\/query\\/attachmentBudget$',
+          '\\/query\\/modelPricingAdapter$',
+          '\\/query\\/turnUsdPreflight$',
+          '\\/query\\/guardSuspend$',
+          '\\/query\\/dailyBudgetSnapshot$',
+          '\\/query\\/toolJobSuspend$',
         ],
       }],
       'no-restricted-imports': ['warn', {

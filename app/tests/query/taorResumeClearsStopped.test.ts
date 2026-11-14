@@ -14,9 +14,9 @@
 // —— "恢复 ⇒ 循环再度可运行"。同步复位 abort 控制器，避免把上一轮的取消信号带进恢复轮。
 
 import { describe, expect, it } from 'bun:test';
-import { TAORLoop } from '../../src/query/TAORLoop';
-import type { QueryEngine } from '../../src/query/QueryEngine';
-import type { TAORCheckpoint } from '../../src/query/types';
+import { TAORLoop } from '@modules/query/TAORLoop';
+import type { QueryEngine } from '@modules/query/QueryEngine';
+import type { TAORCheckpoint } from '@modules/query/types';
 
 interface TestableLoop {
   stopped: boolean;

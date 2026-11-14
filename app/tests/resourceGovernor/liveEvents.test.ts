@@ -12,7 +12,7 @@ import { describe, expect, it } from 'bun:test';
 import {
   RESOURCE_GOVERNOR_SSE_EVENT,
   buildResourceGovernorPayload,
-} from '../../src/resourceGovernor/index';
+} from '@modules/resourceGovernor';
 
 describe('liveEvents：前端下发契约', () => {
   it('事件名与前端订阅字面量一致', () => {

@@ -27,7 +27,7 @@ import {
 import {
   listMessageSegments,
   planMessageSplit,
-} from '../../src/session/storage/messageSegments.js';
+} from '@modules/session/storage/messageSegments.js';
 
 let root: string;
 

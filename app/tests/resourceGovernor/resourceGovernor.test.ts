@@ -8,7 +8,7 @@ import {
   ResourceGovernor,
   getResourceGovernor,
   resetResourceGovernorForTest,
-} from '../../src/resourceGovernor/index';
+} from '@modules/resourceGovernor';
 
 const ENV = 'FEATURE_RESOURCE_GOVERNOR';
 const ORIGINAL = process.env[ENV];

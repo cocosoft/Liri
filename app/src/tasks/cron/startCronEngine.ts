@@ -84,7 +84,7 @@ function createCronDispatchDelivery(): (
     //    ChannelSession.conversationId 正是此值，用 find() 按 conversationId 匹配
     if (job.sessionKey) {
       const { channelSessionManager } =
-        await import('../../channels/session/ChannelSessionManager');
+        await import('@modules/channels/session/ChannelSessionManager');
       const sessions = channelSessionManager.find({
         conversationId: job.sessionKey,
       });
@@ -110,7 +110,7 @@ function createCronDispatchDelivery(): (
     let droppedByProactiveGate = false;
     try {
       const { enqueueCronResultProactive } =
-        await import('../../proactive/ProactiveCronProducer');
+        await import('@modules/proactive/ProactiveCronProducer');
       const queued = await enqueueCronResultProactive({
         job: { id: job.id, name: job.name },
         result,
@@ -125,7 +125,7 @@ function createCronDispatchDelivery(): (
         return;
       }
       const { getActiveProactiveQueue } =
-        await import('../../proactive/ProactiveRuntime');
+        await import('@modules/proactive/ProactiveRuntime');
       droppedByProactiveGate = getActiveProactiveQueue() !== null;
     } catch (err) {
       await handleError(err, {
@@ -161,7 +161,7 @@ function createCronDispatchDelivery(): (
     } catch {
       // 通知中心不可用 → 最后 resort: local log
       const { getDeliveryRouter } =
-        await import('../../channels/DeliveryRouter');
+        await import('@modules/channels/DeliveryRouter');
       await getDeliveryRouter().deliverLocal({
         format: 'text',
         content: message,

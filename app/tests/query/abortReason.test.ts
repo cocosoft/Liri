@@ -21,7 +21,7 @@ import {
   createSystemAbortReason,
   isAbortReason,
   isSystemAbortReason,
-} from '../../src/query/ReActLoop.js';
+} from '@modules/query/ReActLoop.js';
 // 品牌标记是 provider 侧的包装辅助（非 `@modules/query` 出口），直接从下沉后的家引入
 import { markAsExpectedAbort } from '@openliri/infra/error/abortReason';
 

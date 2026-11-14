@@ -4,13 +4,13 @@
 import {
   getDefaultBlueBubblesConfig,
   validateBlueBubblesConfig,
-} from '../../src/channels/bluebubbles/config-schema';
+} from '@modules/channels/bluebubbles/config-schema';
 import {
   getBlueBubblesAccount,
   listBlueBubblesAccountIds,
   registerBlueBubblesAccount,
   removeBlueBubblesAccount,
-} from '../../src/channels/bluebubbles/accounts';
+} from '@modules/channels/bluebubbles/accounts';
 import { describeChannelBasics } from './support/channelBasics';
 
 describeChannelBasics({

@@ -6,13 +6,13 @@
 import {
   getDefaultTwitterConfig,
   validateTwitterConfig,
-} from '../../src/channels/twitter/config-schema';
+} from '@modules/channels/twitter/config-schema';
 import {
   getTwitterAccount,
   listTwitterAccountIds,
   registerTwitterAccount,
   removeTwitterAccount,
-} from '../../src/channels/twitter/accounts';
+} from '@modules/channels/twitter/accounts';
 import { describeChannelBasics } from './support/channelBasics';
 
 describeChannelBasics({

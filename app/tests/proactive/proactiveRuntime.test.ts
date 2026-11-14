@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import {
   startProactiveRuntime,
   stopProactiveRuntime,
-} from '../../src/proactive/ProactiveRuntime';
+} from '@modules/proactive/ProactiveRuntime';
 
 const dirs: string[] = [];
 

@@ -53,15 +53,15 @@ import type { StreamMessageOptions } from '@modules/session/types/message.js';
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { ToolDefinition } from '@modules/ai';
 // R16：日预算改为**进程共享单例**（与 TAORLoop 闸门同源），定义在 query/DailyBudgetManager。
-import { getDailyBudget } from '../../query/DailyBudgetManager.js';
-import { estimateAttachmentsTokens } from '../../query/attachmentBudget.js';
-import { estimateTurnCostUsd } from '../../query/modelPricingAdapter.js';
-import { evaluateTurnUsdPreflight } from '../../query/turnUsdPreflight.js';
+import { getDailyBudget } from '@modules/query/DailyBudgetManager.js';
+import { estimateAttachmentsTokens } from '@modules/query/attachmentBudget.js';
+import { estimateTurnCostUsd } from '@modules/query/modelPricingAdapter.js';
+import { evaluateTurnUsdPreflight } from '@modules/query/turnUsdPreflight.js';
 import { feature } from '@openliri/kernel';
 import {
   checkDailyBudget,
   formatBudgetExhausted,
-} from '../../query/dailyBudgetGate.js';
+} from '@modules/query/dailyBudgetGate.js';
 // R16 硬阻断：预算耗尽时抛业务异常（§1.9 业务异常必须 throw new AppError）
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 

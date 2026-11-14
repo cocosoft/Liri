@@ -26,8 +26,8 @@ import { CronJobStore } from '../../src/tasks/cron/CronJobStore.js';
 import { SqliteTaskStore } from '../../src/tasks/db/SqliteTaskStore.js';
 import { GoalMetricsService } from '../../src/tasks/db/GoalMetricsService.js';
 import { UsageStatsService } from '../../src/ai/models/UsageStatsService.js';
-import { SkillDB } from '../../src/skills/persistence/SkillDB.js';
-import { ChannelRegistry } from '../../src/channels/registry/ChannelRegistry.js';
+import { SkillDB } from '@modules/skills/persistence/SkillDB.js';
+import { ChannelRegistry } from '@modules/channels/registry/ChannelRegistry.js';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import type { Principal } from '@openliri/kernel/identity/principal.js';
 import {

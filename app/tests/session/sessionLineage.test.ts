@@ -18,7 +18,7 @@ import {
   registerSessionLineage,
   resetSessionLineage,
   rebuildSessionLineage,
-} from '../../src/session/lineage/sessionLineage';
+} from '@modules/session/lineage/sessionLineage';
 
 describe('会话血缘链 isAncestorSession（O10b / Tier1）', () => {
   beforeEach(() => {

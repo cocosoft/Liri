@@ -9,7 +9,7 @@
  * 取数侧由 `typecheck` 与既有派生读路径回归（`tests/session`、`tests/chat`）守护。
  */
 import { describe, test, expect } from 'bun:test';
-import { diffDerivationMessages } from '../../src/session/storage/EventMessageDeriver';
+import { diffDerivationMessages } from '@modules/session/storage/EventMessageDeriver';
 
 describe('diffDerivationMessages（G4 比对语义）', () => {
   test('两侧一致 ⇒ mismatch=false 且差集为空、seq 一致', () => {

@@ -9,11 +9,16 @@
  * ## 本门禁的判据（实测口径，不靠约定）
  * 「可回放事件」的唯一事实源 = `shared/events/eventNames.ts` 的 `LIRI_EVENT_NAMES`（54 个）。
  * 因此违规形态被精确定义为：
- * > `app/src` 里出现 `.emit('<某个会话事件名>')` —— 即把**会话事件**发到进程内总线。
+ * > 源码根（`app/src` 与各 packages 包的 `src`）里出现 `.emit('<某个会话事件名>')`
+ * > —— 即把**会话事件**发到进程内总线。
  *
  * 实测（2026-10-28）：`app/src` 共 **519** 处字符串 `.emit(...)`，与 54 个会话事件名
  * **零交集** ⇒ 现状合规（总线自带独立命名空间：`tool:completed` 这类信号，本就不是可回放事件）。
  * 本门禁把这个"零交集"钉死：将来谁新增 `eventBus.emit('assistant/text', …)` 就红。
+ *
+ * P0（2026-11-14，governance 迁包）：扫描面**原先只含 `app/src`** ⇒ 迁包后文件脱离扫描面，
+ * 且"防空转"下界（emit > 100）随之跌破。现改走**源码根单一事实源**（`scripts/lib/sourceRoots.ts`），
+ * 迁包不再收缩守卫覆盖。
  *
  * ## 已知限制（如实声明）
  * 只做**文本级**扫描：模板串 / 变量名（`.emit(name, …)`）不可判定 —— 但会话事件名是稳定字面量，
@@ -24,8 +29,11 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import { LIRI_EVENT_NAMES } from '../../../shared/events/eventNames';
+// P0（2026-11-14）：扫描根走**单一事实源**（原先只扫 `app/src`，迁包即脱离本守卫）
+import { resolveSourceRoots } from '../../../scripts/lib/sourceRoots';
 
-const SRC_ROOT = resolve(import.meta.dir, '../../src');
+const REPO = resolve(import.meta.dir, '../../..');
+const SOURCE_ROOTS = resolveSourceRoots(REPO);
 
 function walkTs(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -67,13 +75,15 @@ const SESSION_EVENT_NAMES: ReadonlySet<string> = new Set<string>(
   LIRI_EVENT_NAMES as readonly string[]
 );
 
-const SOURCES = walkTs(SRC_ROOT).map((abs) => ({
-  file: abs.slice(SRC_ROOT.length + 1).replace(/\\/g, '/'),
-  text: readFileSync(abs, 'utf8'),
-}));
+const SOURCES = SOURCE_ROOTS.flatMap((root) =>
+  walkTs(root.path).map((abs) => ({
+    file: `${root.name}:${abs.slice(root.path.length + 1).replace(/\\/g, '/')}`,
+    text: readFileSync(abs, 'utf8'),
+  }))
+);
 
 describe('L3 write-back · 会话事件不得走进程内总线', () => {
-  it('`app/src` 内没有把会话事件名发给 EventBus 的调用点', () => {
+  it('源码根内没有把会话事件名发给 EventBus 的调用点', () => {
     // 防空转：扫描面与 emit 面都必须非空
     expect(SOURCES.length).toBeGreaterThan(500);
     expect(countStringEmits(SOURCES)).toBeGreaterThan(100);

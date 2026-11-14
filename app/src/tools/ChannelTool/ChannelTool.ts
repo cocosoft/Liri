@@ -247,7 +247,7 @@ export class ChannelTool extends BaseTool {
         const limit = logLimit || 50;
         try {
           const { ChannelLogManager } =
-            await import('../../channels/log/ChannelLogManager');
+            await import('@modules/channels/log/ChannelLogManager');
           const logManager = new ChannelLogManager();
           const logs = logManager.query({
             channelId: channel as any,

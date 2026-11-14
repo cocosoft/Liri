@@ -586,6 +586,19 @@ export const FEATURE_FLAGS = {
    */
   REQUIRE_BEARER: true,
 
+  // ───── 长程目标：重启后续接（D2+，2026-11-14；默认关 = 零行为变更）─────
+  /**
+   * D2+：**重启后为未达终态目标登记一次续跑**（默认关）。
+   *
+   * 开 ⇒ 启动期扫描"最近 24h 内推进过"的 `active`/`blocked` 目标（最多 5 个，按最近更新
+   * 倒序），各登记一次 `goal-startup:<goalId>:<updatedAt>` 唤醒；到点由既有 selfWake
+   * 执行器注入 `continue_goal` 指令并续跑会话。
+   * 关（默认）⇒ 不扫描、不登记 —— 与改动前逐字一致（真机库实测有 128 个历史非终态目标，
+   * 默认开会在每次启动时自动消耗 5 轮模型调用，必须显式 opt-in）。
+   * `FEATURE_GOAL_STARTUP_RESUME=true`。
+   */
+  GOAL_STARTUP_RESUME: false,
+
   // ───── 性能与监控 ─────
   /** 内存监控 */
   MEMORY_MONITORING: true,

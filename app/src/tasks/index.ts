@@ -504,6 +504,17 @@ export {
   enqueueIdleContinuation,
   IDLE_CONTINUE_TASK_PREFIX,
 } from './goal/goalIdleContinuation';
+// D2+（2026-11-14）：重启后未达终态目标的**跨会话续接**（启动期登记一次唤醒）
+export {
+  isStartupGoalResumeTask,
+  enqueueStartupGoalResumes,
+  resolveStartupGoalResume,
+  STARTUP_RESUME_TASK_PREFIX,
+} from './goal/goalStartupResume';
+export type {
+  StartupResumeReport,
+  StartupResumeTarget,
+} from './goal/goalStartupResume';
 export {
   settleGoalForRun,
   settleGoalForTurn,

@@ -6,6 +6,9 @@ import App from "./App";
 import "./index.css";
 import { getOTelTracing } from "./monitoring/otel";
 import { createLogger } from "@/utils/logger";
+// G8（2026-11-14）：全局悬浮窗入口（`?floating=1`）
+import { FloatingPanel } from "./components/Floating/FloatingPanel";
+import { isFloatingEntry } from "./lib/floatingWindow";
 
 const logger = createLogger("main");
 
@@ -40,10 +43,21 @@ window.addEventListener("error", (event) => {
   });
 });
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
-  </React.StrictMode>,
-);
+// G8（2026-11-14）：副窗口入口 —— `index.html?floating=1` 只渲染悬浮面板，
+// 不挂 Router / App（悬浮窗不承担主界面的路由与初始化链路）。
+const root = ReactDOM.createRoot(document.getElementById("root")!);
+if (isFloatingEntry(window.location.search)) {
+  root.render(
+    <React.StrictMode>
+      <FloatingPanel />
+    </React.StrictMode>,
+  );
+} else {
+  root.render(
+    <React.StrictMode>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </React.StrictMode>,
+  );
+}

@@ -316,6 +316,13 @@ const enMisc = {
       output: "Output",
     },
   },
+  // G8 (2026-11-14): global floating window
+  floating: {
+    title: "Liri · Background",
+    empty: "No running operations.",
+    close: "Close floating window",
+    backToMain: "Back to main window",
+  },
 };
 
 export default enMisc;

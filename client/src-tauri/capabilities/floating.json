@@ -1,0 +1,16 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "floating",
+  "description": "G8 全局悬浮窗：只开放窗口自身的最小能力（显示/聚焦/关闭/拖拽）",
+  "windows": [
+    "floating"
+  ],
+  "permissions": [
+    "core:default",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-close",
+    "core:window:allow-set-focus",
+    "core:window:allow-start-dragging"
+  ]
+}

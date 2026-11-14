@@ -1,0 +1,98 @@
+name: Release CLI Packages
+
+# G2 剩余（2026-11-14）：npm / Scoop / Homebrew 分发。
+# 与 `release.yml`（Tauri 桌面安装包）并行、互不依赖；仅在发版 tag 运行。
+#
+# 产物：
+#   1. `liri-cli-<version>.tgz`（含 `dist/main.js` + `Liri.cmd`）→ GitHub Release 资产
+#   2. 三份渠道清单（`packaging/**`，由脚本按真实 sha256 重新生成）→ 工作流 artifact
+#   3. npm 发布（仅当配置 `NPM_TOKEN`；否则跳过并留日志）
+#
+# 如实边界：Scoop bucket / Homebrew tap 的 PR 仍需人工提交；本工作流只产出可直接提交的清单。
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: Package CLI (npm / scoop / brew)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build CLI bundle
+        run: bun run build
+
+      - name: Stage artifact
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          STAGE="liri-cli-${VERSION}"
+          mkdir -p "release/${STAGE}/dist"
+          cp dist/main.js "release/${STAGE}/dist/main.js"
+          # Windows 启动器（Scoop manifest 的 bin 指向它；内容只用 bun 跑 dist/main.js）
+          printf '@echo off\r\nbun "%%~dp0dist\\main.js" %%*\r\n' > "release/${STAGE}/Liri.cmd"
+          tar -czf "release/${STAGE}.tgz" -C release "${STAGE}"
+          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
+
+      - name: Generate manifests (真实 sha256)
+        run: |
+          bun run ../scripts/gen-package-manifests.ts \
+            --version "$VERSION" \
+            --artifact "release/liri-cli-${VERSION}.tgz" \
+            --download-base "https://github.com/${{ github.repository }}/releases/download"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: liri-cli-${{ env.VERSION }}
+          path: |
+            app/release/liri-cli-${{ env.VERSION }}.tgz
+            packaging/npm/package.json
+            packaging/scoop/liri.json
+            packaging/homebrew/liri.rb
+
+      - name: Attach archive to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release upload "v${VERSION}" "release/liri-cli-${VERSION}.tgz" --clobber || \
+            echo "⚠️ Release v${VERSION} 尚未创建（release.yml 可能仍在跑）⇒ 仅保留工作流 artifact"
+
+      - name: Publish to npm (optional)
+        # 未配置 `NPM_TOKEN` ⇒ 步骤内自行跳过（step `if` 无法读 secrets 值）
+        continue-on-error: true
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${NPM_TOKEN:-}" ]; then
+            echo "⚠️ 未配置 NPM_TOKEN ⇒ 跳过 npm 发布（清单已作为 artifact 产出）"
+            exit 0
+          fi
+          mkdir -p packaging/npm/dist
+          cp dist/main.js packaging/npm/dist/main.js
+          printf '//registry.npmjs.org/:_authToken=%s\n' "$NPM_TOKEN" > "$HOME/.npmrc"
+          npm publish packaging/npm --access public

@@ -99,7 +99,8 @@ import type {
 import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI.js';
 import type { SessionMetadata } from '@modules/session/types/session.js';
 import type { SessionCheckpoint } from '@modules/session/types/checkpoint.js';
-import { DataSessionStatus } from '@openliri/kernel';
+// D3 三期（2026-11-14）：`feature` 用于"系统级续跑"默认关开关
+import { DataSessionStatus, feature } from '@openliri/kernel';
 import { extractPendingToolCallsFromEvents } from '../utils/pendingToolCalls.js';
 import type { StreamingAutoCheckpoint } from '../services/StreamingAutoCheckpoint.js';
 import type { SessionLifecycleManager } from '../services/SessionLifecycleManager.js';
@@ -384,6 +385,39 @@ export class ChatRecovery {
             planId: target.planId,
           });
           return { ok: false, error: 'session_busy' };
+        }
+        // D3 三期（2026-11-14）：`PLAN_SYSTEM_RESUME` 开 ⇒ 交给执行器**采纳既有计划**；
+        // 未装配 coordinator / 会话忙 / launcher 不可用 ⇒ 回退一期消息注入（不静默丢唤醒）。
+        if (feature('PLAN_SYSTEM_RESUME')) {
+          const coordinator = (
+            this.deps as ChatRecoveryDeps & {
+              _pdcaLaunch?: {
+                resumePlan: (input: {
+                  sessionId: string;
+                  planId: string;
+                  description: string;
+                }) => boolean;
+              };
+            }
+          )._pdcaLaunch;
+          const resumed =
+            coordinator?.resumePlan({
+              sessionId,
+              planId: target.planId,
+              description: target.description,
+            }) ?? false;
+          if (resumed) {
+            logger.info('计划重启续接：系统级续跑已交给 PDL', {
+              sessionId,
+              planId: target.planId,
+              resetSteps: target.resetSteps,
+            });
+            return { ok: true };
+          }
+          logger.warn('计划重启续接：系统级续跑未启动，回退消息注入', {
+            sessionId,
+            planId: target.planId,
+          });
         }
         logger.info('计划重启续接执行', {
           sessionId,

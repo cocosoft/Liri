@@ -317,6 +317,8 @@ export async function enqueueStartupPlanResumes(
 export interface PlanResumeTarget {
   planId: string;
   sessionId: string;
+  /** 计划描述（系统级续跑时作为 PDL 的计划源） */
+  description: string;
   instruction: string;
   /** 本次复位的崩溃残留 `running` 步骤数（0 = 无残留） */
   resetSteps: number;
@@ -356,6 +358,7 @@ export async function resolveStartupPlanResume(params: {
   return {
     planId: latest.id,
     sessionId: latest.sessionId,
+    description: latest.description,
     instruction: buildPlanResumeInstruction(
       latest,
       params.resolveEffect ? { resolveEffect: params.resolveEffect } : undefined

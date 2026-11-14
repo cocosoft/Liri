@@ -42,7 +42,7 @@ gci -Recurse -Include *.ts,*.tsx | % { if ($(gc $_.FullName -Raw) -notmatch "MIT
 > 改这一行的口径时，须同批更新该断言表。
 > 改默认值时必须**同批**更新本表 + 断言表，并在台账登记理由。
 >
-> 清单规模：**24 项**（23 项字面默认值断言 + 1 项自动默认 `LIRI_PLUGIN_REQUIRE_SIGNATURE`；2026-11-14 D2+ 新增 `GOAL_STARTUP_RESUME`（**默认关**，重启后目标续接）、D3 新增 `PLAN_STARTUP_RESUME`（**默认关**，重启后计划续跑）；2026-10-26 起：A2/A4/A5 新增三个默认关的 Bash 安全姿态灰度开关；PR2 新增 `EXECUTION_TWO_PHASE_CANCEL`；**P0-3 新增 `CODE_RUN_DEEP_SCAN_STRICT`、P0-2 新增 `CLIENT_STREAM_EXECUTION`；§6-#11 新增 `REQUIRE_BEARER`；T25-07 新增 `CHANNEL_UNTRUSTED_TAINT`（**默认开**，渠道来源 Taint）；T25-08 新增 `PLUGIN_THIRD_PARTY_INPROCESS`（默认关，第三方插件准入闸）与 `PLUGIN_HOST_PROCESS`（**默认开**，第三方插件子进程宿主）；T25-08 P2 新增 `LIRI_PLUGIN_REQUIRE_SIGNATURE`（**信任锚存在即开**，第三方插件清单签名闸）**）。
+> 清单规模：**25 项**（24 项字面默认值断言 + 1 项自动默认 `LIRI_PLUGIN_REQUIRE_SIGNATURE`；2026-11-14 D2+ 新增 `GOAL_STARTUP_RESUME`（**默认关**，重启后目标续接）、D3 新增 `PLAN_STARTUP_RESUME`（**默认关**，重启后计划续跑）、`PLAN_SYSTEM_RESUME`（**默认关**，续跑走执行器采纳既有计划）；2026-10-26 起：A2/A4/A5 新增三个默认关的 Bash 安全姿态灰度开关；PR2 新增 `EXECUTION_TWO_PHASE_CANCEL`；**P0-3 新增 `CODE_RUN_DEEP_SCAN_STRICT`、P0-2 新增 `CLIENT_STREAM_EXECUTION`；§6-#11 新增 `REQUIRE_BEARER`；T25-07 新增 `CHANNEL_UNTRUSTED_TAINT`（**默认开**，渠道来源 Taint）；T25-08 新增 `PLUGIN_THIRD_PARTY_INPROCESS`（默认关，第三方插件准入闸）与 `PLUGIN_HOST_PROCESS`（**默认开**，第三方插件子进程宿主）；T25-08 P2 新增 `LIRI_PLUGIN_REQUIRE_SIGNATURE`（**信任锚存在即开**，第三方插件清单签名闸）**）。
 
 | 开关 | 默认 | 生效语义 | 回退方式 | 触发条件（何时重开） |
 |------|:----:|---------|---------|:----:|
@@ -63,6 +63,7 @@ gci -Recurse -Include *.ts,*.tsx | % { if ($(gc $_.FullName -Raw) -notmatch "MIT
 | `EXECUTION_TWO_PHASE_CANCEL` | `false` | 两段式取消（`CANCEL_REQUESTED`→`abort()`→grace→`CANCELLED`；**未确认则保留 lease**，后续消息排队；PR2） | `FEATURE_EXECUTION_TWO_PHASE_CANCEL=true` | §2-#10 |
 | `CODE_RUN_DEEP_SCAN_STRICT` | `false` | code_run **深扫未完成即拒绝**（SWC 原生 CallExpression 深扫 `skipped`/`failed` ⇒ `security-rejected`；**默认关时保留"跳过"行为但结果带出 `scanStatus`**；P0-3） | `FEATURE_CODE_RUN_DEEP_SCAN_STRICT=true` | §2-#12 |
 | `CLIENT_STREAM_EXECUTION` | `false` | 客户端 `/v1/chat/stream` **接入 Execution**（SSE 入口 `acquire` + 注入 `executionId` ⇒ 工具写前记账 + fail-closed；终态 `complete`/`fail`；P0-2） | `FEATURE_CLIENT_STREAM_EXECUTION=true` | §2-#13 |
+| `PLAN_SYSTEM_RESUME` | `false` | **计划续跑走系统级**（D3 三期）：开 ⇒ 启动期唤醒命中时调用 `PdcaLaunchCoordinator.resumePlan`，由 `PlanDrivenLoop` 采纳既有计划继续执行（不新建计划、已完成步骤不重做、失败/取消步骤不重跑）；关（默认）⇒ 保持一期"消息注入"式续跑 | `FEATURE_PLAN_SYSTEM_RESUME=true`（显式 opt-in；关 = 一期行为） | §2-#19 |
 | `PLAN_STARTUP_RESUME` | `false` | **重启后计划续跑**（D3）：启动期扫描 `running` 且**心跳过期**（>10min）但仍在 24h 内推进过的计划（按心跳倒序、单次最多 5 个），各登记一次 `plan-startup:<planId>:<heartbeatMs>` 唤醒；到点由既有 selfWake 执行器注入「计划续接」指令（剩余步骤 + 依赖，要求不新建计划）并续跑会话，同时把崩溃残留的 `running` 步骤复位为 `pending`；触发前二次校验「仍可续且心跳未变」 | `FEATURE_PLAN_STARTUP_RESUME=true`（显式 opt-in；关 = 不扫描 / 不登记 / 不解析） | §2-#18 |
 | `GOAL_STARTUP_RESUME` | `false` | **重启后目标续接**（D2+）：启动期扫描"最近 24h 内推进过"的 `active`/`blocked` 目标（按最近更新倒序、单次最多 5 个），各登记一次 `goal-startup:<goalId>:<updatedAt>` 唤醒；到点由既有 selfWake 执行器注入 `continue_goal` 并续跑会话。触发前二次校验"仍非终态且期间无推进"（陈旧唤醒作废） | `FEATURE_GOAL_STARTUP_RESUME=true`（显式 opt-in；关 = 不扫描/不续跑，历史遗留唤醒也作废） | 目标被重启打断成为常见诉求时 |
 | `REQUIRE_BEARER` | `true` | **非回环暴露面必须带登录态**（`LIRI_HTTP_HOST` 非回环 或 `headless` 变体 ⇒ 无有效 `Bearer` 一律 401，不再回落本机身份；`/v1/health*`、`/v1/a2a*` 豁免；桌面/CLI 回环不受影响） | `FEATURE_REQUIRE_BEARER=false`（灰度回退旧行为） | — |

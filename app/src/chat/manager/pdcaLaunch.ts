@@ -301,6 +301,59 @@ export class PdcaLaunchCoordinator {
   }
 
   /**
+   * D3 三期（2026-11-14）：**系统级续跑**既有计划。
+   *
+   * 与 `maybeLaunch` 的区别：不重新分解、不新建计划，直接把 `planId` 交给
+   * `PlanDrivenLoop`（`opts.resumePlanId`）采纳既有计划继续执行。
+   *
+   * @returns 是否已交给 launcher（`false` = 未装配 launcher / 会话已有 launch 在途）
+   */
+  resumePlan(params: {
+    sessionId: string;
+    planId: string;
+    /** 计划描述（作为本次 PDL 的"计划源"，用于步骤 prompt 回锚） */
+    description: string;
+  }): boolean {
+    const launcher = this.deps.getPdcaLauncher();
+    if (!launcher) {
+      logger.warn('计划系统级续跑跳过：PDCA launcher 未装配', {
+        sessionId: params.sessionId,
+        planId: params.planId,
+      });
+      return false;
+    }
+    if (this.deps.launchingSessions.has(params.sessionId)) {
+      logger.warn('计划系统级续跑跳过：会话已有 launch 在途', {
+        sessionId: params.sessionId,
+        planId: params.planId,
+      });
+      return false;
+    }
+    this.deps.launchingSessions.add(params.sessionId);
+    void launcher
+      .launch(
+        // projectId：启动期无请求作用域 ⇒ 空串（PDL 内部仍会用会话解析 workspaceId）
+        '',
+        params.description,
+        params.sessionId,
+        params.description,
+        true,
+        { resumePlanId: params.planId }
+      )
+      .catch((err: unknown) => {
+        logger.warn('计划系统级续跑失败', {
+          sessionId: params.sessionId,
+          planId: params.planId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      })
+      .finally(() => {
+        this.deps.launchingSessions.delete(params.sessionId);
+      });
+    return true;
+  }
+
+  /**
    * P0-1（2026-09-06，A1）：PDCA launch 统一出口（同轮串联）。
    *
    * 含：会话级 launch 锁（防重复卡片）、分流决策 trace（SSE + task_audit_log）、

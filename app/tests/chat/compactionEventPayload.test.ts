@@ -15,7 +15,7 @@
 
 import { describe, it, expect } from 'bun:test';
 import { buildCompactionDoneData } from '../../src/chat/orchestrator/streamMessageFlow.js';
-import { sanitizeEvent } from '../../src/session/storage/eventSanitize.js';
+import { sanitizeEvent } from '@modules/session/storage/eventSanitize.js';
 import type { LiriEvent } from '@modules/session/types/events.js';
 import type { LiriEventMap } from '@modules/session/types/eventPayloads.js';
 

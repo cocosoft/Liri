@@ -44,7 +44,7 @@
       "app/src/commands/builtin/brief.ts"
     ],
     "BuddyDream": [
-      "app/src/buddy/dreamIntegration.ts"
+      "packages/buddy/src/buddy/dreamIntegration.ts"
     ],
     "ChannelCommand": [
       "app/src/commands/channel/ChannelCommand.ts"
@@ -270,8 +270,8 @@
       "packages/infra/src/config/settings/userSettings.ts"
     ],
     "Workspace": [
-      "app/src/workspaces/commands/lifecycle.ts",
-      "app/src/workspaces/commands/session.ts"
+      "packages/workspaces/src/workspaces/commands/lifecycle.ts",
+      "packages/workspaces/src/workspaces/commands/session.ts"
     ],
     "agent-events": [
       "app/src/agent/events/index.ts"
@@ -319,7 +319,7 @@
       "app/src/scripts/batch-test.ts"
     ],
     "buddy\\conditional": [
-      "app/src/buddy/conditional.ts"
+      "packages/buddy/src/buddy/conditional.ts"
     ],
     "chat\\services\\SecurityService": [
       "app/src/chat/services/SecurityService.ts"
@@ -401,7 +401,7 @@
       "app/src/cli/exitHandler.ts"
     ],
     "governance\\managers\\GovernanceManager": [
-      "app/src/governance/managers/GovernanceManager.ts"
+      "packages/governance/src/governance/managers/GovernanceManager.ts"
     ],
     "gracefulShutdown": [
       "packages/infra/src/utils/gracefulShutdown.ts"
@@ -510,7 +510,7 @@
       "app/src/pyapp.ts"
     ],
     "query\\deps": [
-      "app/src/query/deps.ts"
+      "packages/query/src/query/deps.ts"
     ],
     "remote\\RemoteFileSyncService": [
       "app/src/remote/RemoteFileSyncService.ts"
@@ -519,7 +519,7 @@
       "app/src/entrypoints/repl.ts"
     ],
     "resourceGovernor": [
-      "app/src/resourceGovernor/index.ts"
+      "packages/resourceGovernor/src/resourceGovernor/index.ts"
     ],
     "safeLog": [
       "packages/infra/src/error/safeLog.ts"
@@ -564,25 +564,25 @@
       "app/src/cli/handlers/sessionHandler.ts"
     ],
     "session\\maintenance\\SessionMaintenance": [
-      "app/src/session/maintenance/SessionMaintenance.ts"
+      "packages/service/src/session/maintenance/SessionMaintenance.ts"
     ],
     "session\\persistence\\SessionPersistenceManager": [
-      "app/src/session/persistence/SessionPersistenceManager.ts"
+      "packages/service/src/session/persistence/SessionPersistenceManager.ts"
     ],
     "session\\storage\\StorageFactory": [
-      "app/src/session/storage/StorageFactory.ts"
+      "packages/service/src/session/storage/StorageFactory.ts"
     ],
     "skills": [
-      "app/src/skills/cli/skills.ts"
+      "packages/skills/src/skills/cli/skills.ts"
     ],
     "subagent\\SubAgentFactory": [
-      "app/src/subagent/SubAgentFactory.ts"
+      "packages/subagent/src/subagent/SubAgentFactory.ts"
     ],
     "subagent\\SubAgentManager": [
-      "app/src/subagent/SubAgentManager.ts"
+      "packages/subagent/src/subagent/SubAgentManager.ts"
     ],
     "subagent\\backends\\TeammateBackend": [
-      "app/src/subagent/backends/TeammateBackend.ts"
+      "packages/subagent/src/subagent/backends/TeammateBackend.ts"
     ],
     "test-performance": [
       "packages/infra/src/performance/test-performance.ts"

@@ -449,7 +449,7 @@
 {"id":"MODE-A1","k":"source","i":0,"c":"21 模式对标复查报告 11–16"}
 {"id":"MODE-A1","k":"reopenWhen","i":0,"c":"出现『协作策略需可配置/可测试』的真实需求时"}
 {"id":"MODE-A1","k":"notes","i":0,"c":"报告判定 ⚠️ 部分（决策点仍散在 ChatManager）；本行**沿用报告结论**（未逐条回仓复核）。"}
-{"id":"MODE-A1","k":"code#0","i":0,"c":"app/src/query/patternAssembler.ts"}
+{"id":"MODE-A1","k":"code#0","i":0,"c":"packages/query/src/query/patternAssembler.ts"}
 {"id":"MODE-A1","k":"code#1","i":0,"c":"app/src/chat/ChatManager.ts"}
 {"id":"MODE-A2","k":"title","i":0,"c":"21 模式 A2：多智能体协作层缺失"}
 {"id":"MODE-A2","k":"source","i":0,"c":"21 模式对标复查报告 09–16"}
@@ -487,7 +487,7 @@
 {"id":"MODE-A8","k":"source","i":0,"c":"21 模式对标复查报告 09/15"}
 {"id":"MODE-A8","k":"reopenWhen","i":0,"c":"为 unavailable 模式接线时（见方案 P2-7）"}
 {"id":"MODE-A8","k":"notes","i":0,"c":"最后一公里已闭环（instantiatePattern）；2/5 ready、3/5 unavailable（三段式原因）。"}
-{"id":"MODE-A8","k":"code#0","i":0,"c":"app/src/query/patternAssembler.ts"}
+{"id":"MODE-A8","k":"code#0","i":0,"c":"packages/query/src/query/patternAssembler.ts"}
 {"id":"MODE-A9","k":"title","i":0,"c":"21 模式 A9：未提交改动堆积"}
 {"id":"MODE-A9","k":"source","i":0,"c":"21 模式对标复查报告 02/12"}
 {"id":"MODE-A9","k":"reopenWhen","i":0,"c":"每次发版复查：`git rev-list --left-right --count origin/main...HEAD` 非 0（本地领先未推送）或 `git status --porcelain` 非空（工作区有未提交改动）时"}
@@ -956,8 +956,8 @@
 {"id":"CHANGOV-SPLIT-COVERAGE","k":"notes","i":2,"c":"escapeHtml`（避免切坏 HTML 实体/围栏）。**QQ**：被动回复字段**每片各消费一次**（`consumePassiveReplyFields` 的 `msg_seq` 递增，超窗/超 seq 上限自动降级主动消息 —— 与该实现既有设计一致）。③ **测试**：新增 `"}
 {"id":"CHANGOV-SPLIT-COVERAGE","k":"notes","i":3,"c":"tests/channels/channelTruncationGuard.test.ts`（全 `src/channels/**` **源码扫描**：不得再出现 `.slice(0, *.maxMessageLength)` 截断写法 + 扫描面非空自证）；分片器本身由既有 `tests/channels/messageSplitter.test.ts` "}
 {"id":"CHANGOV-SPLIT-COVERAGE","k":"notes","i":4,"c":"覆盖；`bun test tests/channels/` **302 pass / 0 fail**（含 16 文件）。④ **未做**：未接真实 Telegram/QQ 平台做端到端（`e2eVerified=false`）。"}
-{"id":"CHANGOV-SPLIT-COVERAGE","k":"code#0","i":0,"c":"app/src/channels/telegram/TelegramChannel.ts"}
-{"id":"CHANGOV-SPLIT-COVERAGE","k":"code#1","i":0,"c":"app/src/channels/qq/QQChannel.ts"}
+{"id":"CHANGOV-SPLIT-COVERAGE","k":"code#0","i":0,"c":"packages/channels/src/channels/telegram/TelegramChannel.ts"}
+{"id":"CHANGOV-SPLIT-COVERAGE","k":"code#1","i":0,"c":"packages/channels/src/channels/qq/QQChannel.ts"}
 {"id":"CHANGOV-SPLIT-COVERAGE","k":"tests#0","i":0,"c":"app/tests/channels/channelTruncationGuard.test.ts"}
 {"id":"CHANGOV-SPLIT-COVERAGE","k":"tests#1","i":0,"c":"app/tests/channels/messageSplitter.test.ts"}
 {"id":"CHANGOV-FALLBACK-DECLARED","k":"title","i":0,"c":"通道治理 阶段 1.2：出站降级链**声明驱动**（按 `ChannelMeta`/`ChannelCapabilities` 跳过不支持格式）"}
@@ -968,8 +968,8 @@
 {"id":"CHANGOV-FALLBACK-DECLARED","k":"notes","i":2,"c":"plugin.meta.markdownCapable` 派生）并把 `support` 透传降级递归 ⇒ 明确声明不支持的格式**直接跳过**；`_nextLowerFormat(f, support?)` 改用该纯函数（取候选首项）。③ **零行为变更保证**：`support` 缺省 / 通道未声明 ⇒ 一律视为支持 ⇒ 与既有逐级尝试**完全等价**"}
 {"id":"CHANGOV-FALLBACK-DECLARED","k":"notes","i":3,"c":"（仅当通道**显式**声明 `false` 才跳级）。④ `DELIVERY_FORMAT_CHAIN` 仍是顺序**单一事实源**（`DeliveryRouter` 已不再直接引用 ⇒ 同步移除该 import，避免未用导入）。⑤ **测试** `tests/channels/deliveryFallbackChain.test.ts` **6 例**（顺"}
 {"id":"CHANGOV-FALLBACK-DECLARED","k":"notes","i":4,"c":"序不变 / 全支持等价 / markdown 不支持跳级 / interactive 不支持 / 未知格式空序列 / `text` 恒兜底）；`bun test tests/channels/` **306 pass / 0 fail**。e2eVerified=false（未接真实平台做降级端到端）。"}
-{"id":"CHANGOV-FALLBACK-DECLARED","k":"code#0","i":0,"c":"app/src/channels/deliveryFormatters.ts"}
-{"id":"CHANGOV-FALLBACK-DECLARED","k":"code#1","i":0,"c":"app/src/channels/DeliveryRouter.ts"}
+{"id":"CHANGOV-FALLBACK-DECLARED","k":"code#0","i":0,"c":"packages/channels/src/channels/deliveryFormatters.ts"}
+{"id":"CHANGOV-FALLBACK-DECLARED","k":"code#1","i":0,"c":"packages/channels/src/channels/DeliveryRouter.ts"}
 {"id":"CHANGOV-FALLBACK-DECLARED","k":"tests#0","i":0,"c":"app/tests/channels/deliveryFallbackChain.test.ts"}
 {"id":"CHANGOV-ATTACHMENT-BUDGET","k":"title","i":0,"c":"通道治理 阶段 1.3：附件字节 → 日预算预留（防富媒体绕过 R16 硬闸门）"}
 {"id":"CHANGOV-ATTACHMENT-BUDGET","k":"source","i":0,"c":"dev_docs/20261012/通道治理方案-20261012.md §3 阶段 1.3（2026-10-12）"}
@@ -980,7 +980,7 @@
 {"id":"CHANGOV-ATTACHMENT-BUDGET","k":"notes","i":3,"c":" DTO `SendMessageOptions.attachments`（`session/types/message/enums.ts:132` 的 `MessageAttachment`，含 `size?`），由上传/工厂路径填充。④ **测试** `tests/query/attachmentBudget.test.ts` **5 例**（常量 / "}
 {"id":"CHANGOV-ATTACHMENT-BUDGET","k":"notes","i":4,"c":"向上取整 / 缺省与非法值 ⇒ 0 / 列表合计 / 10MB 量级）。⑤ **DTO 统一（本阶段首句）未做（如实）**：`channels/types/IChannel.ts:86` 与 `session/types/message/enums.ts:132` 各有一个**同名不同物**的 `MessageAttachment`（入站通道附件 vs 会话"}
 {"id":"CHANGOV-ATTACHMENT-BUDGET","k":"notes","i":5,"c":"消息附件）⇒ 合并属**跨层重构**，本轮不做（需先裁定归属，对齐 TG-1 的域边界做法）。e2eVerified=false。"}
-{"id":"CHANGOV-ATTACHMENT-BUDGET","k":"code#0","i":0,"c":"app/src/query/attachmentBudget.ts"}
+{"id":"CHANGOV-ATTACHMENT-BUDGET","k":"code#0","i":0,"c":"packages/query/src/query/attachmentBudget.ts"}
 {"id":"CHANGOV-ATTACHMENT-BUDGET","k":"code#1","i":0,"c":"app/src/chat/orchestrator/preSendContextProtection.ts"}
 {"id":"CHANGOV-ATTACHMENT-BUDGET","k":"tests#0","i":0,"c":"app/tests/query/attachmentBudget.test.ts"}
 {"id":"CHANGOV-OUTBOUND-BACKOFF","k":"title","i":0,"c":"通道治理 阶段 1.4：出站重连**退避重试**（复用 withRetry 的指数退避 + jitter；失败只影响投递）"}
@@ -991,7 +991,7 @@
 {"id":"CHANGOV-OUTBOUND-BACKOFF","k":"notes","i":2,"c":"_prepareChannel` 转成 `DeliveryResult{success:false}`，**不回退主任务状态**。④ **契约测试更新（有意变更，如实）**：`deliveryRouterContract` 的 D6b 断言由精确文案 `'自动重连失败'` 改为**前缀匹配**（新文案含退避说明），并**新增 `connectCalls "}
 {"id":"CHANGOV-OUTBOUND-BACKOFF","k":"notes","i":3,"c":"=== 3`**（= maxRetries+1，验证**有界**重试）。⑤ **测试** `tests/channels/reconnectBackoff.test.ts` **4 例**（先败后成 / 始终失败有界 / 可重试网络错误 / 首次即成功）；`bun test tests/channels/ "}
 {"id":"CHANGOV-OUTBOUND-BACKOFF","k":"notes","i":4,"c":"tests/query/attachmentBudget.test.ts` **315 pass / 0 fail**。e2eVerified=false。"}
-{"id":"CHANGOV-OUTBOUND-BACKOFF","k":"code#0","i":0,"c":"app/src/channels/DeliveryRouter.ts"}
+{"id":"CHANGOV-OUTBOUND-BACKOFF","k":"code#0","i":0,"c":"packages/channels/src/channels/DeliveryRouter.ts"}
 {"id":"CHANGOV-OUTBOUND-BACKOFF","k":"tests#0","i":0,"c":"app/tests/channels/reconnectBackoff.test.ts"}
 {"id":"CHANGOV-OUTBOUND-BACKOFF","k":"tests#1","i":0,"c":"app/tests/channels/deliveryRouterContract.test.ts"}
 {"id":"CHANGOV-DTO-OWNERSHIP","k":"title","i":0,"c":"通道治理 阶段 1.3 裁定：两个同名 `MessageAttachment` **归属保持独立**（协议层 vs 会话领域层；禁合并 / 禁断言互换）"}
@@ -1001,8 +1001,8 @@
 {"id":"CHANGOV-DTO-OWNERSHIP","k":"notes","i":1,"c":"type`/`name`/`url`/`data`/`size`/`contentType`/`metadata`，供存储与前端）。② **裁定（对齐既有判例）**：`enums.ts:130` 已规定 `DataAttachment`（协议/存储向）与领域模型**形状不等价、勿直接互换** ⇒ 同类判例已存在 ⇒ 本次 **保持独立**、**严禁合并**与"}
 {"id":"CHANGOV-DTO-OWNERSHIP","k":"notes","i":2,"c":"**类型断言互换**；跨层**必须写显式适配函数**（`fileId→id`、`fileName→name`、`mimeType→contentType`，并补 `type`）。③ **落地**：两处类型各加**双向边界注释**（含裁定日期与理由）。④ **合并（跨层重构）已明确否决**（非遗留、非待办）。**零行为改动、无自动化测试**。"}
 {"id":"CHANGOV-DTO-OWNERSHIP","k":"notes","i":3,"c":"e2eVerified=false。"}
-{"id":"CHANGOV-DTO-OWNERSHIP","k":"code#0","i":0,"c":"app/src/channels/types/IChannel.ts"}
-{"id":"CHANGOV-DTO-OWNERSHIP","k":"code#1","i":0,"c":"app/src/session/types/message/enums.ts"}
+{"id":"CHANGOV-DTO-OWNERSHIP","k":"code#0","i":0,"c":"packages/channels/src/channels/types/IChannel.ts"}
+{"id":"CHANGOV-DTO-OWNERSHIP","k":"code#1","i":0,"c":"packages/service/src/session/types/message/enums.ts"}
 {"id":"CHANGOV-GATEWAY-PORT","k":"title","i":0,"c":"通道治理 阶段 2.1：出站网关**端口化**（core 侧 `IOutboundGatewayPort` + channels 适配器 + 组合根装配）"}
 {"id":"CHANGOV-GATEWAY-PORT","k":"source","i":0,"c":"dev_docs/20261012/通道治理方案-20261012.md §3 阶段 2.1（Port Layer Only，2026-10-12）"}
 {"id":"CHANGOV-GATEWAY-PORT","k":"reopenWhen","i":0,"c":"改端口契约（DTO / 方法）、改 `DeliveryRouter` 出站语义、或进程外通道插件接入时"}
@@ -1014,7 +1014,7 @@
 {"id":"CHANGOV-GATEWAY-PORT","k":"notes","i":5,"c":"bun test tests/channels/` **312 pass / 0 fail**；`lint:arch` **0 违规**（新增 `channels→core` 为**合法下行**）。e2eVerified=false。"}
 {"id":"CHANGOV-GATEWAY-PORT","k":"code#0","i":0,"c":"packages/kernel/src/core/spi/GatewayService.ts"}
 {"id":"CHANGOV-GATEWAY-PORT","k":"code#1","i":0,"c":"packages/kernel/src/core/spi/index.ts"}
-{"id":"CHANGOV-GATEWAY-PORT","k":"code#2","i":0,"c":"app/src/channels/gateway/OutboundGatewayPortAdapter.ts"}
+{"id":"CHANGOV-GATEWAY-PORT","k":"code#2","i":0,"c":"packages/channels/src/channels/gateway/OutboundGatewayPortAdapter.ts"}
 {"id":"CHANGOV-GATEWAY-PORT","k":"code#3","i":0,"c":"app/src/entrypoints/spiWiring.ts"}
 {"id":"CHANGOV-GATEWAY-PORT","k":"tests#0","i":0,"c":"app/tests/channels/outboundGatewayPort.test.ts"}
 {"id":"CHANGOV-INBOUND-DTO-PORT","k":"title","i":0,"c":"通道治理 阶段 2.4：入站 DTO 标准化（`InboundEnvelope` + `toInboundEnvelope`）+ 入站网关端口（UW 预留）"}
@@ -1027,10 +1027,10 @@
 {"id":"CHANGOV-INBOUND-DTO-PORT","k":"notes","i":4,"c":"routeChannelMessage` 的 `coreAPI` + 多回调在彼处组装）⇒ **本期不注册**，`resolveInboundGateway()` 恒返回 `accepted:false` + `reason:'inbound gateway not registered'`（**不伪造接受**）。**刻意不做默认委托**：凭空构造无 `"}
 {"id":"CHANGOV-INBOUND-DTO-PORT","k":"notes","i":5,"c":"coreAPI` 的路由 = 伪造能力（CS04/CS05）。④ **测试** `tests/channels/inboundGateway.test.ts` **5 例**（文本映射 / 非文本归 file / 附件映射与键省略 / 未注册裁决 / 适配器形状搬运）；`bun test tests/channels/` **317 pass / 0 "}
 {"id":"CHANGOV-INBOUND-DTO-PORT","k":"notes","i":6,"c":"fail**；`lint:arch` **0 违规**（新增 `channels→core` 为合法下行）。⑤ **未接线（如实）**：端口本期**无生产消费者**；入站 `PREPARED` 接缝（状态转移可观测）**未做** —— 依赖状态机方案的 PREPARED 落盘能力。e2eVerified=false。"}
-{"id":"CHANGOV-INBOUND-DTO-PORT","k":"code#0","i":0,"c":"app/src/channels/routing/messageRouterContract.ts"}
+{"id":"CHANGOV-INBOUND-DTO-PORT","k":"code#0","i":0,"c":"packages/channels/src/channels/routing/messageRouterContract.ts"}
 {"id":"CHANGOV-INBOUND-DTO-PORT","k":"code#1","i":0,"c":"packages/kernel/src/core/spi/InboundGatewayService.ts"}
 {"id":"CHANGOV-INBOUND-DTO-PORT","k":"code#2","i":0,"c":"packages/kernel/src/core/spi/index.ts"}
-{"id":"CHANGOV-INBOUND-DTO-PORT","k":"code#3","i":0,"c":"app/src/channels/gateway/InboundGatewayPortAdapter.ts"}
+{"id":"CHANGOV-INBOUND-DTO-PORT","k":"code#3","i":0,"c":"packages/channels/src/channels/gateway/InboundGatewayPortAdapter.ts"}
 {"id":"CHANGOV-INBOUND-DTO-PORT","k":"tests#0","i":0,"c":"app/tests/channels/inboundGateway.test.ts"}
 {"id":"FSM-CATALOG-P1","k":"title","i":0,"c":"状态机规范管理 阶段 1：状态机**定义目录**（`StateMachineCatalog`）+ 目录↔源码**防漂移**断言"}
 {"id":"FSM-CATALOG-P1","k":"source","i":0,"c":"dev_docs/20261012/状态机规范管理方案-20261012.md §3 阶段 1（2026-10-12）"}
@@ -1056,7 +1056,7 @@
 {"id":"FSM-CATALOG-HYGIENE","k":"notes","i":6,"c":"e2eVerified=false。"}
 {"id":"FSM-CATALOG-HYGIENE","k":"code#0","i":0,"c":"app/src/appState/AppState.ts"}
 {"id":"FSM-CATALOG-HYGIENE","k":"code#1","i":0,"c":"app/src/chat/services/ToolExecutionService.ts"}
-{"id":"FSM-CATALOG-HYGIENE","k":"code#2","i":0,"c":"app/src/query/DailyBudgetManager.ts"}
+{"id":"FSM-CATALOG-HYGIENE","k":"code#2","i":0,"c":"packages/query/src/query/DailyBudgetManager.ts"}
 {"id":"FSM-CATALOG-HYGIENE","k":"tests#0","i":0,"c":"app/tests/state/stateMachineHygiene.test.ts"}
 {"id":"FSM-CATALOG-GATE14","k":"title","i":0,"c":"状态机规范管理 阶段 1.4：状态机**登记硬门禁**（`lint:arch` → R09-006，error）+ 显式豁免清单 + 规则条文"}
 {"id":"FSM-CATALOG-GATE14","k":"source","i":0,"c":"dev_docs/20261012/状态机规范管理方案-20261012.md §4 阶段 1.4（2026-10-12）"}
@@ -1085,9 +1085,9 @@
 {"id":"CHANGOV-TYPECHECK-1323","k":"notes","i":5,"c":"StreamPipeline.registerImages()` 只追加「图片路径文本」）⇒ 其开销确实不计入 `msgTokens`，**非重复计数**。③ **验证**：`tsc --noEmit` / `typecheck:scripts` / `typecheck:root-scripts` **三工程全绿**；`bun test "}
 {"id":"CHANGOV-TYPECHECK-1323","k":"notes","i":6,"c":"tests/state tests/channels tests/query` **678 pass / 0 fail**。④ **未接线（如实，不谎称已覆盖）**：**通道侧**入站附件（`MessageContext.attachments`）**当前未**被 `routeChannelMessage`（`messageRouter.ts:512` 的 "}
 {"id":"CHANGOV-TYPECHECK-1323","k":"notes","i":7,"c":"`chatStream({...})`）透传 ⇒ 该路径仍在预算闸门之外；且通道侧 `MessageAttachment` 与会话侧同名不同物（禁断言互换）⇒ 须经 DTO 形状搬运（通道治理 阶段 2.4）后再接线（已写入 `query/attachmentBudget.ts` 头注）。e2eVerified=false。"}
-{"id":"CHANGOV-TYPECHECK-1323","k":"code#0","i":0,"c":"app/src/channels/registry/ChannelRegistry.ts"}
+{"id":"CHANGOV-TYPECHECK-1323","k":"code#0","i":0,"c":"packages/channels/src/channels/registry/ChannelRegistry.ts"}
 {"id":"CHANGOV-TYPECHECK-1323","k":"code#1","i":0,"c":"app/src/chat/orchestrator/preSendContextProtection.ts"}
-{"id":"CHANGOV-TYPECHECK-1323","k":"code#2","i":0,"c":"app/src/query/attachmentBudget.ts"}
+{"id":"CHANGOV-TYPECHECK-1323","k":"code#2","i":0,"c":"packages/query/src/query/attachmentBudget.ts"}
 {"id":"CHANGOV-TYPECHECK-1323","k":"tests#0","i":0,"c":"app/tests/query/attachmentBudget.test.ts"}
 {"id":"CHANGOV-TYPECHECK-1323","k":"tests#1","i":0,"c":"app/tests/channels/deliveryFallbackChain.test.ts"}
 {"id":"FSM-TOOLSTATUS-P2","k":"title","i":0,"c":"状态机规范管理 阶段 2：工具调用状态**单一事实源**（收敛 5 份分叉契约）+ chunk/SSE 层**去裸值**"}
@@ -1108,7 +1108,7 @@
 {"id":"FSM-TOOLSTATUS-P2","k":"code#1","i":0,"c":"packages/service/src/execution/index.ts"}
 {"id":"FSM-TOOLSTATUS-P2","k":"code#2","i":0,"c":"app/src/runtime/api/CoreAPI.ts"}
 {"id":"FSM-TOOLSTATUS-P2","k":"code#3","i":0,"c":"app/src/runtime/api/CoreAPIImpl.ts"}
-{"id":"FSM-TOOLSTATUS-P2","k":"code#4","i":0,"c":"app/src/session/types/UnifiedMessage.ts"}
+{"id":"FSM-TOOLSTATUS-P2","k":"code#4","i":0,"c":"packages/service/src/session/types/UnifiedMessage.ts"}
 {"id":"FSM-TOOLSTATUS-P2","k":"code#5","i":0,"c":"app/src/chat/reactEventsToChunks.ts"}
 {"id":"FSM-TOOLSTATUS-P2","k":"code#6","i":0,"c":"app/src/infrastructure/http/handlers/chat-handlers.ts"}
 {"id":"FSM-TOOLSTATUS-P2","k":"code#7","i":0,"c":"packages/infra/src/utils/toolContract/ToolProgress.ts"}
@@ -1139,7 +1139,7 @@
 {"id":"FSM-SESSIONSTATE-P3","k":"code#3","i":0,"c":"packages/infra/src/state/engine/stateMachineCatalog.ts"}
 {"id":"FSM-SESSIONSTATE-P3","k":"code#4","i":0,"c":"app/src/chat/services/EventNotificationService.ts"}
 {"id":"FSM-SESSIONSTATE-P3","k":"code#5","i":0,"c":"app/src/chat/services/SessionStateBridge.ts"}
-{"id":"FSM-SESSIONSTATE-P3","k":"code#6","i":0,"c":"app/src/session/models/SessionState.ts"}
+{"id":"FSM-SESSIONSTATE-P3","k":"code#6","i":0,"c":"packages/service/src/session/models/SessionState.ts"}
 {"id":"FSM-SESSIONSTATE-P3","k":"tests#0","i":0,"c":"app/tests/state/session/SessionStateMachine.test.ts"}
 {"id":"FSM-SESSIONSTATE-P3","k":"tests#1","i":0,"c":"app/tests/state/stateMachineCatalog.test.ts"}
 {"id":"FSM-PROJECTION-P4","k":"title","i":0,"c":"状态机规范管理 阶段 4：四原语**只读投影** + 异步 Outbound Broker（telemetry-gated，复用 `globalEventBus`）"}
@@ -1174,7 +1174,7 @@
 {"id":"FSM-SUSPENDED-P5","k":"title","i":0,"c":"状态机规范管理 阶段 5（SUSPENDED 投影 / Freeze-and-Resume 联动）—— **前置已由债二专项落地（2026-10-12），本阶段实质达成**"}
 {"id":"FSM-SUSPENDED-P5","k":"source","i":0,"c":"dev_docs/20261012/状态机规范管理方案-20261012.md §4 阶段 5（2026-10-13 复查：前置齐备、SUSPENDED 已有生产者）"}
 {"id":"FSM-SUSPENDED-P5","k":"reopenWhen","i":0,"c":"① 通道侧出站订阅面（通道治理方案 §3 阶段 2.3，**当前暂缓**）落地后回看 `SUSPENDED`/`RUNNING` 投影的消费者面；② `FEATURE_STATE_PROJECTION_BROADCAST` 由默认关翻为开时（届时补端到端）"}
-{"id":"FSM-SUSPENDED-P5","k":"notes","i":0,"c":"① **阻塞依据（逐条取证）**：P1 预算**挂起**不存在 —— `TAORLoop.beforeReasoning`（`app/src/query/TAORLoop.ts:1115-1124`）耗尽即 `stopReason='budget_exhausted'; stopped=true; return`（**静默中止**，仅补 `"}
+{"id":"FSM-SUSPENDED-P5","k":"notes","i":0,"c":"① **阻塞依据（逐条取证）**：P1 预算**挂起**不存在 —— `TAORLoop.beforeReasoning`（`packages/query/src/query/TAORLoop.ts:1115-1124`）耗尽即 `stopReason='budget_exhausted'; stopped=true; return`（**静默中止**，仅补 `"}
 {"id":"FSM-SUSPENDED-P5","k":"notes","i":1,"c":"logExhaustionAbort` 应用日志、**不给用户出路**）；P2 上游 `.trae/specs/long-task-suspend-resume.md` 其 v0.1 为**立项稿·未排期·未头脑风暴**，§5 明写「**在此之前不动任何产品代码**」；P3 `SUSPENDED` 投影**无生产者**（P1 缺失 ⇒ 无挂起态可投影；已由 "}
 {"id":"FSM-SUSPENDED-P5","k":"notes","i":2,"c":"`FSM-PROJECTION-P4` 的测试锁「当前不可达」）⇒ 本阶段**按设计与上游裁定不可执行**，故**零产品代码改动**（CS05/CS06：不虚造挂起态、不伪造进度）。② **2026-10-12 进展（用户裁定「启动债二专项」）**：上游 spec 已完成**头脑风暴（跳过问答，按回仓取证逐条定案）**并**升级为 v1.1 定案稿**，含 "}
 {"id":"FSM-SUSPENDED-P5","k":"notes","i":3,"c":"D1–D8 八项定案 + fresh builder 自检订正（原 D4「复用 `cost:dailyBudgetUpdated`」经核实**只走 HTTP SSE、进程内订阅不到**且含 kill-switch 误唤醒 ⇒ 订正为**进程内回调**；原 D2 只覆盖 batch ⇒ 订正为**分链落各自既有检查点**；D3 明确取值来源；D7 补「真再跑」"}
@@ -1187,13 +1187,13 @@
 {"id":"FSM-SUSPENDED-P5","k":"notes","i":10,"c":"app/tests/channels/channelBudgetNotice.test.ts`）⇒ **本方案不再实现第二套**（CS01）。⑤ **唯一残留缺口（如实）**：**通道侧**为文案、**非可交互**（按钮/回调）—— 属通道侧（需出站交互面 + 入站回调，落通道治理 阶段 2.3/2.4 范围），**不属**本方案内核改造。⑥ 本条目 `"}
 {"id":"FSM-SUSPENDED-P5","k":"notes","i":11,"c":"fixed=false` + 空 `tests`，沿用本台账既有「未修复/阻塞」条目形式（对照 `MODE-*` 系列）；**待该专项实施落地后**再按四段生命周期更新（`fixed`/`testVerified`）。⑦ **2026-10-13 复查更新（状态由「阻塞」改为「实质达成」）**：债二专项已全量落地并**默认开**（`"}
 {"id":"FSM-SUSPENDED-P5","k":"notes","i":12,"c":"FEATURE_BUDGET_SUSPEND_RESUME: true`；spec v1.9；证据 `BUDGET-SUSPEND-RESUME`，两链「撞限 → 放行 → 真续跑」真实 E2E 实证）⇒ 原 P1/P2/P3 三项前置**全部消除**：P1 挂起已实现（流式 + taor 两条链）；P2 上游 spec 已实施；**P3 `"}
-{"id":"FSM-SUSPENDED-P5","k":"notes","i":13,"c":"SUSPENDED` 投影已有生产者** —— `app/src/query/budgetSuspend.ts` 在 `suspend()` / 唤醒成功时 `publishStateProjection({primitive:'SUSPENDED'|'RUNNING'})`（配套单测 `"}
+{"id":"FSM-SUSPENDED-P5","k":"notes","i":13,"c":"SUSPENDED` 投影已有生产者** —— `packages/query/src/query/budgetSuspend.ts` 在 `suspend()` / 唤醒成功时 `publishStateProjection({primitive:'SUSPENDED'|'RUNNING'})`（配套单测 `"}
 {"id":"FSM-SUSPENDED-P5","k":"notes","i":14,"c":"app/tests/query/budgetSuspendProjection.test.ts`）。**故 5.1（`SUSPENDED` 投影可达）实质达成；5.2 的口径已由债二 spec §4.3 取代**（不再实现第二套）。**如实边界**：① 投影广播仍受 `FEATURE_STATE_PROJECTION_BROADCAST`（**默认关**）门"}
 {"id":"FSM-SUSPENDED-P5","k":"notes","i":15,"c":"控 ⇒ 本条目 `e2eVerified` 保持 **false**（债二的两链续跑已 e2e，但**投影广播路径**未 e2e）；② 出站订阅面（通道阶段 2.3）**暂缓** ⇒ 投影仍**无生产消费者**（UW，已在 `projectionBroker.ts` 头注如实标注）；③ 同步订正 `projectionBroker.ts` 中「`"}
 {"id":"FSM-SUSPENDED-P5","k":"notes","i":16,"c":"SUSPENDED` 无生产者 / 不可达」的过时注释（2026-10-13）。"}
 {"id":"FSM-SUSPENDED-P5","k":"code#0","i":0,"c":"packages/infra/src/state/engine/projectionBroker.ts"}
 {"id":"FSM-SUSPENDED-P5","k":"code#1","i":0,"c":"packages/service/src/execution/executionProjection.ts"}
-{"id":"FSM-SUSPENDED-P5","k":"code#2","i":0,"c":"app/src/query/budgetSuspend.ts"}
+{"id":"FSM-SUSPENDED-P5","k":"code#2","i":0,"c":"packages/query/src/query/budgetSuspend.ts"}
 {"id":"FSM-SUSPENDED-P5","k":"code#3","i":0,"c":"dev_docs/20261012/状态机规范管理方案-20261012.md"}
 {"id":"FSM-SUSPENDED-P5","k":"tests#0","i":0,"c":"app/tests/query/budgetSuspendProjection.test.ts"}
 {"id":"FSM-SUSPENDED-P5","k":"tests#1","i":0,"c":"app/tests/execution/projectionBroadcast.test.ts"}
@@ -1215,7 +1215,7 @@
 {"id":"DEBT1-T310","k":"notes","i":3,"c":"events.jsonl`）⇒ 改动前 **4 fail**（seek 起点未走 idx）/ 1 pass（边界语义本就等价）→ 改动后 **6 pass / 0 fail**；回归 `EventLogStorage` + `eventLogRepairChain` + `eventLogCacheLru` + `"}
 {"id":"DEBT1-T310","k":"notes","i":4,"c":"externalDeleteReadPaths` + `messageProjectionAppendSkip` **49 pass / 0 fail**。**基准（F1c，实测）**：规模 ×10 ⇒ `getTailSeq` P50 ×1.2、`readBySeq` P50 ×1.0（改动前末条 `readBySeq` 为 ×11.8 全扫）⇒ 与规模解"}
 {"id":"DEBT1-T310","k":"notes","i":5,"c":"耦；两条目标路径均已纳入 `app/scripts/bench-longrun.ts`。**如实残余**：`getTailSeq` 现会读整份 `events.idx`（≈N/256 行）以定位末区间 ⇒ 严格为 **O(N/256)** 而非纯 O(log N)（与 `read` 既有路径同源）；「跨进程 idx 大幅落后」分支无专测。"}
-{"id":"DEBT1-T310","k":"code#0","i":0,"c":"app/src/session/storage/EventLogStorage.ts"}
+{"id":"DEBT1-T310","k":"code#0","i":0,"c":"packages/service/src/session/storage/EventLogStorage.ts"}
 {"id":"DEBT1-T310","k":"code#1","i":0,"c":"app/scripts/bench-longrun.ts"}
 {"id":"DEBT1-T310","k":"tests#0","i":0,"c":"app/tests/session/eventLogIndexedTailReads.test.ts"}
 {"id":"DEBT1-T310","k":"changelog#0","i":0,"c":"CHANGELOG.md"}
@@ -1357,17 +1357,17 @@
 {"id":"DEBT4-S1S2","k":"reopenWhen","i":0,"c":"① S3（闸门切金额）接入本适配器后回看本条目；② U3（USD 默认上限）定案后；③ 定价事实源（`model_registry`）/core SPI 形状变更时"}
 {"id":"DEBT4-S1S2","k":"notes","i":0,"c":"**S1（core 换算内核：复用/下沉，非新写 —— CS01）**：`core/pricing.ts` 新增/下沉 `resolveTimeBasedPricing`（原在 `cost/ModelPricing.ts`）、`DEFAULT_MODEL_PRICING`（cost 内联兜底价**原样下沉**，**值不变**）、`"}
 {"id":"DEBT4-S1S2","k":"notes","i":1,"c":"projectRegistryPricing`（`getPricingFromRegistry` 的纯逻辑部分下沉，避免「判了却不符」的双源）；`calculateCost`/`calculateTotalCost` **原已存在 ⇒ 直接复用**。`cost/ModelPricing.ts` 改为**委托/转出**（行为不变），兜底改引下沉后的常量。"}
-{"id":"DEBT4-S1S2","k":"notes","i":2,"c":"**S2（query 取价适配器）**：新增 `app/src/query/modelPricingAdapter.ts` —— `ModelPricingLookup`（**可注入假定价**端口）/`resolveModelPricing`（core SPI `resolveAiAccess().getModelPricing()` 取价 → core 纯"}
+{"id":"DEBT4-S1S2","k":"notes","i":2,"c":"**S2（query 取价适配器）**：新增 `packages/query/src/query/modelPricingAdapter.ts` —— `ModelPricingLookup`（**可注入假定价**端口）/`resolveModelPricing`（core SPI `resolveAiAccess().getModelPricing()` 取价 → core 纯"}
 {"id":"DEBT4-S1S2","k":"notes","i":3,"c":"投影；查无/零价 ⇒ 回落兜底并置 `unknownModel: true`，**如实标注不静默** = Q-U5）/`estimateTurnCostUsd`（复用 core `calculateTotalCost` 四参形状 = Q-U4，**不含 `cost_multiplier`**）。**分层合规自证**：`grep '@modules/cost|"}
-{"id":"DEBT4-S1S2","k":"notes","i":4,"c":"from '../cost'` 扫 `app/src/query/**` ⇒ **零真实 import**（仅命中 2 处注释文字）；`lint:arch` **0 error**。**验证**：新增测试 **17 例**；`typecheck` 3 工程 0 错；`lint:size`（`core/pricing.ts` <500 行，cost 文件反而变"}
+{"id":"DEBT4-S1S2","k":"notes","i":4,"c":"from '../cost'` 扫 `packages/query/src/query/**` ⇒ **零真实 import**（仅命中 2 处注释文字）；`lint:arch` **0 error**。**验证**：新增测试 **17 例**；`typecheck` 3 工程 0 错；`lint:size`（`core/pricing.ts` <500 行，cost 文件反而变"}
 {"id":"DEBT4-S1S2","k":"notes","i":5,"c":"短）/`fn-size`/`complexity` 未增长；`lint:doc-code`/`lint:fix-evidence`/`lint:models`（0 违规）/`version:check` 全绿；`tests/{cost,query,budget,cost-metrics}` **399 pass / 1 skip（预存 `.skip`）/ 0"}
 {"id":"DEBT4-S1S2","k":"notes","i":6,"c":" fail**。**⚠️ 如实边界（重要）**：本批**未接线闸门** —— `DailyBudgetManager`/`checkDailyBudget`/开关/状态文件/配置键**均未改**，适配器**仅有单测消费方**（经 `@modules/query` 桶导出——**2026-10-13 补记：现已有生产消费者**，见 `"}
 {"id":"DEBT4-S1S2","k":"notes","i":7,"c":"DEBT4-USD-WIRING` 的 `recordTurnCostUsd` 复用 `estimateTurnCostUsd`；「仅有单测消费方」为**本条落地时**的状态，如实保留）⇒ **生产闸门仍走现行 Token 口径，零行为变更**（闸门改动 = S3，未做）；**未实现 U3**（`DEFAULT_MODEL_PRICING` 是既有「未知模型"}
 {"id":"DEBT4-S1S2","k":"notes","i":8,"c":"兜底单价」，**不是** USD 预算默认上限；未新增任何 USD 预算默认值）。**另注**：`RegistryPricingSource` 是为规避 core 内类型环而定义的最小结构类型，与 SPI DTO 存在字段级重复（如后续要彻底消重需评估 DTO 归位，本切片未触碰 `core/spi`）。"}
 {"id":"DEBT4-S1S2","k":"code#0","i":0,"c":"packages/kernel/src/core/pricing.ts"}
 {"id":"DEBT4-S1S2","k":"code#1","i":0,"c":"packages/infra/src/cost/ModelPricing.ts"}
-{"id":"DEBT4-S1S2","k":"code#2","i":0,"c":"app/src/query/modelPricingAdapter.ts"}
-{"id":"DEBT4-S1S2","k":"code#3","i":0,"c":"app/src/query/index.ts"}
+{"id":"DEBT4-S1S2","k":"code#2","i":0,"c":"packages/query/src/query/modelPricingAdapter.ts"}
+{"id":"DEBT4-S1S2","k":"code#3","i":0,"c":"packages/query/src/query/index.ts"}
 {"id":"DEBT4-S1S2","k":"tests#0","i":0,"c":"packages/kernel/tests/pricing.test.ts"}
 {"id":"DEBT4-S1S2","k":"tests#1","i":0,"c":"app/tests/query/modelPricingAdapter.test.ts"}
 {"id":"DEBT4-S1S2","k":"changelog#0","i":0,"c":"CHANGELOG.md"}
@@ -1390,7 +1390,7 @@
 {"id":"DEBT4-USD-WIRING","k":"notes","i":12,"c":"**S3**，受 `Q-U3` 未裁定挡住）⇒ 「是否拦截」与改动前**逐字一致**；② **行为新增（非零变更，如实）**：状态文件 `daily-budget-state.json` 的 `usedUsd` 由「恒 0」变为**真实累计**（`debtUsd` 仍无自增点，S4 未做）；③ **自定义 `ExecutorFn` 路径不记金额**（编排器看"}
 {"id":"DEBT4-USD-WIRING","k":"notes","i":13,"c":"不到执行器的实际模型；`ExecutorResult` 无 `model` 字段）⇒ 只记 token；④ 非 chat 路径**不含缓存两项**（`extractCacheTokens` 属 `ai` 层，query→ai 会成模块级环 ⇒ 按缺失处理，不臆造）；⑤ `e2eVerified=false`（chat 记账点经**源码守卫**而非端到端行为断"}
 {"id":"DEBT4-USD-WIRING","k":"notes","i":14,"c":"言）。"}
-{"id":"DEBT4-USD-WIRING","k":"code#0","i":0,"c":"app/src/query/DailyBudgetManager.ts"}
+{"id":"DEBT4-USD-WIRING","k":"code#0","i":0,"c":"packages/query/src/query/DailyBudgetManager.ts"}
 {"id":"DEBT4-USD-WIRING","k":"code#1","i":0,"c":"app/src/chat/ChatManager.ts"}
 {"id":"DEBT4-USD-WIRING","k":"code#2","i":0,"c":"app/src/chat/streamingLlm.ts"}
 {"id":"DEBT4-USD-WIRING","k":"code#3","i":0,"c":"app/src/chat/pipeline/StreamPipeline.ts"}
@@ -1426,7 +1426,7 @@
 {"id":"HARDCODE-QH2-LOCALE-TZ","k":"notes","i":8,"c":"typecheck` 3 工程 0 错；门禁 `lint:arch` **0 error**（分层违规 0）/`fn-size`/`complexity` 未增长 /`lint:doc-code` 绿。**如实边界**：① 本轮只归一**「产品默认口径」**；`commands/**` 里大量 `toLocaleString('zh-CN')` **展示格式"}
 {"id":"HARDCODE-QH2-LOCALE-TZ","k":"notes","i":9,"c":"化**未动（属另一类：**格式化 locale ≠ 产品默认语言**，且改动面大 ⇒ 归 HD-P2 评估）；② 前端时区兜底仍为**前端本地常量**（≠ 引用后端真源，物理不可共享）⇒ 由测试锁同值；③ `e2eVerified=false`（口径类改动，靠单测 + 源码守卫）。"}
 {"id":"HARDCODE-QH2-LOCALE-TZ","k":"code#0","i":0,"c":"packages/infra/src/constants/common.ts"}
-{"id":"HARDCODE-QH2-LOCALE-TZ","k":"code#1","i":0,"c":"app/src/docs/i18n/LanguageManager.ts"}
+{"id":"HARDCODE-QH2-LOCALE-TZ","k":"code#1","i":0,"c":"packages/docs/src/docs/i18n/LanguageManager.ts"}
 {"id":"HARDCODE-QH2-LOCALE-TZ","k":"code#2","i":0,"c":"packages/service/src/services/voice/services/ttsConfigOverlay.ts"}
 {"id":"HARDCODE-QH2-LOCALE-TZ","k":"code#3","i":0,"c":"packages/service/src/services/voice/services/voiceService.ts"}
 {"id":"HARDCODE-QH2-LOCALE-TZ","k":"code#4","i":0,"c":"packages/service/src/services/voice/VoiceProvider.ts"}
@@ -1447,7 +1447,7 @@
 {"id":"HARDCODE-HDP0-1-FALLBACK-PRICE","k":"notes","i":5,"c":"。**先红后绿（可证伪）**：临时把真源改为 `3.5` **并**复现旧硬编码副本（`inputPer1M: 3`）⇒ **3 fail / 1 pass**；双双还原 ⇒ **4 pass / 0 fail**。**回归**：`tests/{cost,tokenBudget,ai,query,budget}` **677 pass / 1 skip（预存"}
 {"id":"HARDCODE-HDP0-1-FALLBACK-PRICE","k":"notes","i":6,"c":"）/ 0 fail**；`typecheck` 3 工程 0 错；`lint:arch` **0 error**（分层违规 0）。**如实边界**：① 真源数值仍为**硬编码常量**（这是 Q-U5 已裁定接受的**兜底**口径，与『模型属性应读 DB』不同域）；② `PriceManager` 注册表路径的 `cacheWrite/cacheRead = "}
 {"id":"HARDCODE-HDP0-1-FALLBACK-PRICE","k":"notes","i":7,"c":"0` 与兜底不一致（**既有**行为，本片未改，已列 `reopenWhen` ③）；③ `contextWindow: 200000` 的同处硬编码**未动**（属模型属性红线域 ⇒ 归 HD-P2）；④ `e2eVerified=false`（常量收敛 + 单测/守卫即可判定）。"}
-{"id":"HARDCODE-HDP0-1-FALLBACK-PRICE","k":"code#0","i":0,"c":"app/src/tokenBudget/PriceManager.ts"}
+{"id":"HARDCODE-HDP0-1-FALLBACK-PRICE","k":"code#0","i":0,"c":"packages/tokenBudget/src/tokenBudget/PriceManager.ts"}
 {"id":"HARDCODE-HDP0-1-FALLBACK-PRICE","k":"code#1","i":0,"c":"app/src/ai/prompts/PromptCacheManager.ts"}
 {"id":"HARDCODE-HDP0-1-FALLBACK-PRICE","k":"code#2","i":0,"c":"packages/kernel/src/core/pricing.ts"}
 {"id":"HARDCODE-HDP0-1-FALLBACK-PRICE","k":"tests#0","i":0,"c":"app/tests/cost/fallbackPricingSingleSource.test.ts"}
@@ -1465,19 +1465,19 @@
 {"id":"T3-12-GUARD-SUSPEND","k":"notes","i":8,"c":"version:check` 全绿；新增测试 **28 例**（19+3+6）；`tests/{query,chat,http,state,session,tools,execution,budget}` **2334 pass / 0 fail**；`TAORLoop.ts` 维持 **1999 行**（净零：+9 行等量删 9 空行）。**如实遗留**："}
 {"id":"T3-12-GUARD-SUSPEND","k":"notes","i":9,"c":"① **前端/通道侧「继续」按钮与卡片未做**（超出本次范围）；② **stream 链 guard 挂起无 `checkpointRef`**（熵门禁接线点无检查点访问权 ⇒ `/suspend` 该字段为 `null`，续跑依赖既有流式自动检查点链）；③ guard 挂起为**进程内语义**（重启需重新触发，且不会被启动扫描恢复）；④ 「无进展 / 断路"}
 {"id":"T3-12-GUARD-SUSPEND","k":"notes","i":10,"c":"器」路径**未单独接线**（既有 abort 语义不变）；⑤ 未做真实端到端（`e2eVerified=false`）。"}
-{"id":"T3-12-GUARD-SUSPEND","k":"code#0","i":0,"c":"app/src/query/guardSuspend.ts"}
-{"id":"T3-12-GUARD-SUSPEND","k":"code#1","i":0,"c":"app/src/query/budgetSuspend.ts"}
-{"id":"T3-12-GUARD-SUSPEND","k":"code#2","i":0,"c":"app/src/query/taor/budgetSuspendHook.ts"}
-{"id":"T3-12-GUARD-SUSPEND","k":"code#3","i":0,"c":"app/src/query/TAORLoop.ts"}
-{"id":"T3-12-GUARD-SUSPEND","k":"code#4","i":0,"c":"app/src/query/types.ts"}
-{"id":"T3-12-GUARD-SUSPEND","k":"code#5","i":0,"c":"app/src/query/ResumeManager.ts"}
+{"id":"T3-12-GUARD-SUSPEND","k":"code#0","i":0,"c":"packages/query/src/query/guardSuspend.ts"}
+{"id":"T3-12-GUARD-SUSPEND","k":"code#1","i":0,"c":"packages/query/src/query/budgetSuspend.ts"}
+{"id":"T3-12-GUARD-SUSPEND","k":"code#2","i":0,"c":"packages/query/src/query/taor/budgetSuspendHook.ts"}
+{"id":"T3-12-GUARD-SUSPEND","k":"code#3","i":0,"c":"packages/query/src/query/TAORLoop.ts"}
+{"id":"T3-12-GUARD-SUSPEND","k":"code#4","i":0,"c":"packages/query/src/query/types.ts"}
+{"id":"T3-12-GUARD-SUSPEND","k":"code#5","i":0,"c":"packages/query/src/query/ResumeManager.ts"}
 {"id":"T3-12-GUARD-SUSPEND","k":"code#6","i":0,"c":"app/src/tools/monitoring/ToolMetrics.ts"}
 {"id":"T3-12-GUARD-SUSPEND","k":"code#7","i":0,"c":"app/src/chat/orchestrator/streamMessageToolSelectionFlow.ts"}
 {"id":"T3-12-GUARD-SUSPEND","k":"code#8","i":0,"c":"app/src/infrastructure/http/handlers/session-continue-handler.ts"}
 {"id":"T3-12-GUARD-SUSPEND","k":"code#9","i":0,"c":"app/src/infrastructure/http/handlers/routes/chat-session-routes.ts"}
 {"id":"T3-12-GUARD-SUSPEND","k":"code#10","i":0,"c":"app/src/infrastructure/http/handlers/daily-budget-handlers.ts"}
 {"id":"T3-12-GUARD-SUSPEND","k":"code#11","i":0,"c":"packages/kernel/src/core/featureFlags.ts"}
-{"id":"T3-12-GUARD-SUSPEND","k":"code#12","i":0,"c":"app/src/query/index.ts"}
+{"id":"T3-12-GUARD-SUSPEND","k":"code#12","i":0,"c":"packages/query/src/query/index.ts"}
 {"id":"T3-12-GUARD-SUSPEND","k":"tests#0","i":0,"c":"app/tests/query/guardSuspend.test.ts"}
 {"id":"T3-12-GUARD-SUSPEND","k":"tests#1","i":0,"c":"app/tests/query/guardSuspendHook.test.ts"}
 {"id":"T3-12-GUARD-SUSPEND","k":"tests#2","i":0,"c":"app/tests/http/sessionContinue.contract.test.ts"}
@@ -1490,7 +1490,7 @@
 {"id":"WAIVE-ONCE-DEBT","k":"notes","i":2,"c":"recordUsage(tokens, sessionId)` 的同会话消费分支传 `tokens`；显式失效入口 `consumeWaiveOnce()` 无金额 ⇒ 不计欠账，且该入口**仅测试调用**）；跨日扣回由既有 `_rolloverIfNeeded()`（`todayUsed = carriedDebt; debtTokens = 0`）承接，"}
 {"id":"WAIVE-ONCE-DEBT","k":"notes","i":3,"c":"**无需新增机制**（CS01）。**先红后绿（`git stash` 反证）**：仅 stash `DailyBudgetManager.ts` ⇒ 新增用例 ⑦ 以 `Expected 1234 / Received 0` 失败（12 pass / 1 fail）；恢复实现 ⇒ **13 pass / 0 fail**。**验证**：`typecheck"}
 {"id":"WAIVE-ONCE-DEBT","k":"notes","i":4,"c":"` 0 错；门禁全绿；`tests/{query,chat,http,state,session,tools,execution,budget}` **2334 pass / 0 fail**。**行为变更披露**：修后欠账**真正生效** ⇒ 使用 `waive-once` 放行后的次日可用额度会按实际消耗扣回（这正是文档既有承诺；此前因缺陷并未发生）。"}
-{"id":"WAIVE-ONCE-DEBT","k":"code#0","i":0,"c":"app/src/query/DailyBudgetManager.ts"}
+{"id":"WAIVE-ONCE-DEBT","k":"code#0","i":0,"c":"packages/query/src/query/DailyBudgetManager.ts"}
 {"id":"WAIVE-ONCE-DEBT","k":"tests#0","i":0,"c":"app/tests/query/dailyBudgetWaiveOnceGate.test.ts"}
 {"id":"WAIVE-ONCE-DEBT","k":"changelog#0","i":0,"c":"CHANGELOG.md"}
 {"id":"BUDGET-SUSPEND-RESUME","k":"title","i":0,"c":"长程任务「预算挂起—续跑」：撞限挂起 + relief 唤醒 + 两链续跑 + SUSPENDED 投影（含 F1/F2/F4 三项前置缺陷修复 + E2E-1 互斥锁泄漏根因修复 + B3-1/B3-2/B3-3 三项续跑缺陷修复 + 会话删除清理 taor 检查点；**v1.7 开关翻为默认开**）"}
@@ -1581,16 +1581,16 @@
 {"id":"BUDGET-SUSPEND-RESUME","k":"notes","i":77,"c":"恢复（`dailyLimit 500000` / relief 撤销 / 挂起清零 / 实例已停）。**（v1.9 追加）M1 认领语义收紧 = 先认领者独占**（用户裁定，消除 v1.8 残余）：`canExecute(sessionId?)` 仅当 `_waiverGrantedForSession === null` 时认领（已有认领者**不覆盖**；"}
 {"id":"BUDGET-SUSPEND-RESUME","k":"notes","i":78,"c":"无 sessionId 不认领）⇒ 后到会话不再在 TTL 窗口内夺走消费归属（通行证为**单次**豁免 ⇒ 由**最先**放行者负责消费）。锁定测试 `app/tests/query/dailyBudgetWaiveOnceGate.test.ts` **M1-⑥**（先红后绿：11 pass/1 fail → 12 pass/0 fail）；广域 `"}
 {"id":"BUDGET-SUSPEND-RESUME","k":"notes","i":79,"c":"tests/{query,chat}` **832 pass / 1 fail**（既存环境型）。"}
-{"id":"BUDGET-SUSPEND-RESUME","k":"code#0","i":0,"c":"app/src/query/taor/pendingToolCalls.ts"}
-{"id":"BUDGET-SUSPEND-RESUME","k":"code#1","i":0,"c":"app/src/query/taor/budgetSuspendHook.ts"}
-{"id":"BUDGET-SUSPEND-RESUME","k":"code#2","i":0,"c":"app/src/query/TAORLoop.ts"}
-{"id":"BUDGET-SUSPEND-RESUME","k":"code#3","i":0,"c":"app/src/query/DailyBudgetManager.ts"}
-{"id":"BUDGET-SUSPEND-RESUME","k":"code#4","i":0,"c":"app/src/query/dailyBudgetGate.ts"}
-{"id":"BUDGET-SUSPEND-RESUME","k":"code#5","i":0,"c":"app/src/query/budgetSuspend.ts"}
-{"id":"BUDGET-SUSPEND-RESUME","k":"code#6","i":0,"c":"app/src/query/types.ts"}
-{"id":"BUDGET-SUSPEND-RESUME","k":"code#7","i":0,"c":"app/src/query/ResumeManager.ts"}
-{"id":"BUDGET-SUSPEND-RESUME","k":"code#8","i":0,"c":"app/src/query/ReActLoop.ts"}
-{"id":"BUDGET-SUSPEND-RESUME","k":"code#9","i":0,"c":"app/src/query/index.ts"}
+{"id":"BUDGET-SUSPEND-RESUME","k":"code#0","i":0,"c":"packages/query/src/query/taor/pendingToolCalls.ts"}
+{"id":"BUDGET-SUSPEND-RESUME","k":"code#1","i":0,"c":"packages/query/src/query/taor/budgetSuspendHook.ts"}
+{"id":"BUDGET-SUSPEND-RESUME","k":"code#2","i":0,"c":"packages/query/src/query/TAORLoop.ts"}
+{"id":"BUDGET-SUSPEND-RESUME","k":"code#3","i":0,"c":"packages/query/src/query/DailyBudgetManager.ts"}
+{"id":"BUDGET-SUSPEND-RESUME","k":"code#4","i":0,"c":"packages/query/src/query/dailyBudgetGate.ts"}
+{"id":"BUDGET-SUSPEND-RESUME","k":"code#5","i":0,"c":"packages/query/src/query/budgetSuspend.ts"}
+{"id":"BUDGET-SUSPEND-RESUME","k":"code#6","i":0,"c":"packages/query/src/query/types.ts"}
+{"id":"BUDGET-SUSPEND-RESUME","k":"code#7","i":0,"c":"packages/query/src/query/ResumeManager.ts"}
+{"id":"BUDGET-SUSPEND-RESUME","k":"code#8","i":0,"c":"packages/query/src/query/ReActLoop.ts"}
+{"id":"BUDGET-SUSPEND-RESUME","k":"code#9","i":0,"c":"packages/query/src/query/index.ts"}
 {"id":"BUDGET-SUSPEND-RESUME","k":"code#10","i":0,"c":"app/src/chat/ToolLoopRunner.ts"}
 {"id":"BUDGET-SUSPEND-RESUME","k":"code#11","i":0,"c":"app/src/chat/ReActToolLoop.ts"}
 {"id":"BUDGET-SUSPEND-RESUME","k":"code#12","i":0,"c":"app/src/chat/services/StreamingAutoCheckpoint.ts"}
@@ -1644,8 +1644,8 @@
 {"id":"PREPARED-SNAPSHOT-PERSIST","k":"notes","i":14,"c":"路径）—— **如实标注、不伪造**；③ **未改** `ExecutionManager.recover()`（其操作 `execution_events` **DB**，与「会话事件重放」是**两条路径**，`main.ts:1626` 取证）；④ `e2eVerified=false`（未做跨进程崩溃 → 重放端到端）。**零行为变更口径**：仅新增 "}
 {"id":"PREPARED-SNAPSHOT-PERSIST","k":"notes","i":15,"c":"1 类 log-only 会话事件；工具可见面与模型请求内容**不变**。"}
 {"id":"PREPARED-SNAPSHOT-PERSIST","k":"code#0","i":0,"c":"shared/events/eventNames.ts"}
-{"id":"PREPARED-SNAPSHOT-PERSIST","k":"code#1","i":0,"c":"app/src/session/types/eventPayloads.ts"}
-{"id":"PREPARED-SNAPSHOT-PERSIST","k":"code#2","i":0,"c":"app/src/session/types/knownEventTypes.ts"}
+{"id":"PREPARED-SNAPSHOT-PERSIST","k":"code#1","i":0,"c":"packages/service/src/session/types/eventPayloads.ts"}
+{"id":"PREPARED-SNAPSHOT-PERSIST","k":"code#2","i":0,"c":"packages/service/src/session/types/knownEventTypes.ts"}
 {"id":"PREPARED-SNAPSHOT-PERSIST","k":"code#3","i":0,"c":"packages/service/src/execution/preparedSnapshot.ts"}
 {"id":"PREPARED-SNAPSHOT-PERSIST","k":"code#4","i":0,"c":"packages/service/src/execution/eventSink.ts"}
 {"id":"PREPARED-SNAPSHOT-PERSIST","k":"code#5","i":0,"c":"packages/service/src/execution/index.ts"}
@@ -1671,7 +1671,7 @@
 {"id":"TOOLGOV-TG4-PROFILE","k":"notes","i":10,"c":"fail**。**门禁**：`typecheck` 3 工程 **0 错**；`lint:arch` **0 error**（5 条**既有** warning 未增）；`lint:fn-size` / `lint:complexity` **未增长**；`lint:doc-code` / `lint:fix-evidence` / `"}
 {"id":"TOOLGOV-TG4-PROFILE","k":"notes","i":11,"c":"version:check` **全绿**。**如实边界**：① **实时重放路径未接线** —— 本批交付「落盘 + 读回契约 + 重放独立性测试」；把落盘快照**强制套用**到 resume/replay 主链（需异步读 `events.jsonl` 并覆盖实时工具面）属**行为变更** ⇒ 列为 spec §11 待裁定（R-A 宿主 resume 入"}
 {"id":"TOOLGOV-TG4-PROFILE","k":"notes","i":12,"c":"口 / R-B 每轮覆盖），**未臆造**主链行为；② 能力标签**仅登记 `media` / `coding`**（原文点名者），扩充须有依据；③ **可见性 ≠ 授权**（追加类别只改模型可见面；命令执行 / 写盘仍走既有审批与 PathGuard）；④ `e2eVerified=false`（未做真实会话端到端）。"}
-{"id":"TOOLGOV-TG4-PROFILE","k":"code#0","i":0,"c":"app/src/session/types/session.ts"}
+{"id":"TOOLGOV-TG4-PROFILE","k":"code#0","i":0,"c":"packages/service/src/session/types/session.ts"}
 {"id":"TOOLGOV-TG4-PROFILE","k":"code#1","i":0,"c":"app/src/tools/toolProfile.ts"}
 {"id":"TOOLGOV-TG4-PROFILE","k":"code#2","i":0,"c":"app/src/tools/index.ts"}
 {"id":"TOOLGOV-TG4-PROFILE","k":"code#3","i":0,"c":"app/src/chat/orchestrator/streamMessageToolSelection.ts"}
@@ -1699,7 +1699,7 @@
 {"id":"PREPARED-REPLAY-FORCE","k":"code#0","i":0,"c":"packages/kernel/src/core/featureFlags.ts"}
 {"id":"PREPARED-REPLAY-FORCE","k":"code#1","i":0,"c":"packages/service/src/execution/preparedSnapshot.ts"}
 {"id":"PREPARED-REPLAY-FORCE","k":"code#2","i":0,"c":"packages/service/src/execution/index.ts"}
-{"id":"PREPARED-REPLAY-FORCE","k":"code#3","i":0,"c":"app/src/session/types/message/options.ts"}
+{"id":"PREPARED-REPLAY-FORCE","k":"code#3","i":0,"c":"packages/service/src/session/types/message/options.ts"}
 {"id":"PREPARED-REPLAY-FORCE","k":"code#4","i":0,"c":"app/src/chat/orchestrator/streamMessageToolSelection.ts"}
 {"id":"PREPARED-REPLAY-FORCE","k":"code#5","i":0,"c":"app/src/chat/orchestrator/streamMessageToolSelectionFlow.ts"}
 {"id":"PREPARED-REPLAY-FORCE","k":"code#6","i":0,"c":"app/src/chat/ChatManager.ts"}
@@ -1748,8 +1748,8 @@
 {"id":"DEBT4-S5-USD-BASE","k":"notes","i":10,"c":"线已做**（**2026-10-13 补记**，见 `DEBT4-USD-WIRING`）：当初列出的入口**均已补 `model`** —— chat 主链 `ChatManager.recordChatResponseUsage` + 非 chat 四处（`TranslationService:163,357,504` · `"}
 {"id":"DEBT4-S5-USD-BASE","k":"notes","i":11,"c":"SubAgentEngine:815` · `AgentTool:1418` · LRO 默认执行器）；`CliChat` 复核为**零直接记账调用**（`recordUsage|settleFor|recordDailyBudget` 零命中）⇒ 无需改；仍**只记 token 不记金额**者 = 自定义 `ExecutorFn` 路径（编排器看不到其实际"}
 {"id":"DEBT4-S5-USD-BASE","k":"notes","i":12,"c":"模型，见该条目边界 ③）；④ `recordUsdUsage` **现有生产消费者**（消掉本条「仅测试消费」的 UW 标注）；⑤ `e2eVerified=false`。"}
-{"id":"DEBT4-S5-USD-BASE","k":"code#0","i":0,"c":"app/src/query/dailyBudgetPersistence.ts"}
-{"id":"DEBT4-S5-USD-BASE","k":"code#1","i":0,"c":"app/src/query/DailyBudgetManager.ts"}
+{"id":"DEBT4-S5-USD-BASE","k":"code#0","i":0,"c":"packages/query/src/query/dailyBudgetPersistence.ts"}
+{"id":"DEBT4-S5-USD-BASE","k":"code#1","i":0,"c":"packages/query/src/query/DailyBudgetManager.ts"}
 {"id":"DEBT4-S5-USD-BASE","k":"tests#0","i":0,"c":"app/tests/query/dailyBudgetUsdBase.test.ts"}
 {"id":"DEBT4-S5-USD-BASE","k":"changelog#0","i":0,"c":"CHANGELOG.md"}
 {"id":"CHANGOV-T19-INBOUND-PREPARED","k":"title","i":0,"c":"T1-9 / 通道治理 §2.4：**入站 PREPARED 接缝**（只读上报；受 `STATE_PROJECTION_BROADCAST`，**默认关 ⇒ 零行为变更**）"}
@@ -1765,7 +1765,7 @@
 {"id":"CHANGOV-T19-INBOUND-PREPARED","k":"notes","i":7,"c":"极大（渠道/去重/限流/会话/LLM/出站 + 十余个 stub），端到端单测成本远超本接缝（**一行只读上报**）的价值；其**载荷契约**另有真实断言（`tests/execution/projectionBroadcast.test.ts` 的键集/门控用例）。**门禁**：`typecheck` 3 工程 **0 错**；`lint:arch` "}
 {"id":"CHANGOV-T19-INBOUND-PREPARED","k":"notes","i":8,"c":"**0 error**（5 条**既有** warning 未增）；`lint:complexity` **未增长**（实测 ≥40 仍 75）；`lint:doc-code` / `lint:fix-evidence` 全绿。**如实边界**：① 该接缝**当前无真实消费者**（出站订阅面暂缓，与 `execution` / `orchestration`"}
 {"id":"CHANGOV-T19-INBOUND-PREPARED","k":"notes","i":9,"c":" 域同）—— **如实标注、不伪造「已下发」**；② `e2eVerified=false`（未做真实通道消息端到端）；③ 开关默认关 ⇒ 生产行为不变。"}
-{"id":"CHANGOV-T19-INBOUND-PREPARED","k":"code#0","i":0,"c":"app/src/channels/routing/messageRouter.ts"}
+{"id":"CHANGOV-T19-INBOUND-PREPARED","k":"code#0","i":0,"c":"packages/channels/src/channels/routing/messageRouter.ts"}
 {"id":"CHANGOV-T19-INBOUND-PREPARED","k":"tests#0","i":0,"c":"app/tests/channels/inboundPreparedSeam.test.ts"}
 {"id":"CHANGOV-T19-INBOUND-PREPARED","k":"changelog#0","i":0,"c":"CHANGELOG.md"}
 {"id":"CHANGOV-T16-INBOUND-ATTACH-BUDGET","k":"title","i":0,"c":"T1-6 / 通道治理 §1.3：**入站附件进入 R16 日预算预留口径**（新增专用入参 `attachmentSizes`；**不复用** `images`）"}
@@ -1782,9 +1782,9 @@
 {"id":"CHANGOV-T16-INBOUND-ATTACH-BUDGET","k":"notes","i":7,"c":"状**逐字等价**。**验证**：新增 `app/tests/channels/inboundAttachmentBudget.test.ts` **4 例**（源码守卫：只取 `size` 且**不**把通道附件塞进 `images` · 端口与选项均声明该入参 · 预算侧**两口径相加** · **求和语义**：`400B + 800B ⇒ 100 + "}
 {"id":"CHANGOV-T16-INBOUND-ATTACH-BUDGET","k":"notes","i":8,"c":"200`（缺 `size` 按 0））；`typecheck` 3 工程 **0 错**。**如实边界**：① **非图像附件**的口径扩展（MIME 分类/上限）**未做**（现按 `size` 保守折算，见 `reopenWhen`）；② 仅覆盖**渠道入站**（前端 HTTP 路径原本即携 `images`）；③ 该入参**不在** 17 项 `"}
 {"id":"CHANGOV-T16-INBOUND-ATTACH-BUDGET","k":"notes","i":9,"c":"SAFETY_SWITCHES`；④ `e2eVerified=false`（未做真实通道带附件消息端到端）。"}
-{"id":"CHANGOV-T16-INBOUND-ATTACH-BUDGET","k":"code#0","i":0,"c":"app/src/session/types/message/options.ts"}
-{"id":"CHANGOV-T16-INBOUND-ATTACH-BUDGET","k":"code#1","i":0,"c":"app/src/channels/routing/messageRouterContract.ts"}
-{"id":"CHANGOV-T16-INBOUND-ATTACH-BUDGET","k":"code#2","i":0,"c":"app/src/channels/routing/messageRouter.ts"}
+{"id":"CHANGOV-T16-INBOUND-ATTACH-BUDGET","k":"code#0","i":0,"c":"packages/service/src/session/types/message/options.ts"}
+{"id":"CHANGOV-T16-INBOUND-ATTACH-BUDGET","k":"code#1","i":0,"c":"packages/channels/src/channels/routing/messageRouterContract.ts"}
+{"id":"CHANGOV-T16-INBOUND-ATTACH-BUDGET","k":"code#2","i":0,"c":"packages/channels/src/channels/routing/messageRouter.ts"}
 {"id":"CHANGOV-T16-INBOUND-ATTACH-BUDGET","k":"code#3","i":0,"c":"app/src/chat/orchestrator/preSendContextProtection.ts"}
 {"id":"CHANGOV-T16-INBOUND-ATTACH-BUDGET","k":"tests#0","i":0,"c":"app/tests/channels/inboundAttachmentBudget.test.ts"}
 {"id":"CHANGOV-T16-INBOUND-ATTACH-BUDGET","k":"changelog#0","i":0,"c":"CHANGELOG.md"}
@@ -1875,13 +1875,13 @@
 {"id":"TOOLGOV-TG2-C2-JOB-SUSPEND","k":"notes","i":17,"c":" 仍 75）/`lint:invariants`/`lint:entrypoints`/`lint:fix-evidence` 全绿。**如实边界（不粉饰）**：① **默认零行为变更**（双开关默认关；开关关时 `register/release` 为 **no-op**，L2 仍走 `WorkerGuard`/同步侧车端口）；② 「冻结思考树」的落地形态"}
 {"id":"TOOLGOV-TG2-C2-JOB-SUSPEND","k":"notes","i":18,"c":" = **登记 + 投影 + 调用方不推进轮次**（**未**释放侧车连接）；③ 端到端用**夹具 worker**，真实 `mediaSidecar` 的作业模式由**注入端口单测**覆盖（避免 e2e 引入 python/sharp 重依赖）⇒ 「真实 media 侧车子进程 e2e」**未做**；④ 首批实现者**仅**媒体侧车 L2 分析；⑤ 开关为"}
 {"id":"TOOLGOV-TG2-C2-JOB-SUSPEND","k":"notes","i":19,"c":"**功能灰度**，不在 17 项 `SAFETY_SWITCHES` 内。"}
-{"id":"TOOLGOV-TG2-C2-JOB-SUSPEND","k":"code#0","i":0,"c":"app/src/query/toolJobSuspend.ts"}
+{"id":"TOOLGOV-TG2-C2-JOB-SUSPEND","k":"code#0","i":0,"c":"packages/query/src/query/toolJobSuspend.ts"}
 {"id":"TOOLGOV-TG2-C2-JOB-SUSPEND","k":"code#1","i":0,"c":"packages/kernel/src/core/spi/ToolJobSuspendService.ts"}
 {"id":"TOOLGOV-TG2-C2-JOB-SUSPEND","k":"code#2","i":0,"c":"app/src/tools/sidecar/mediaSidecar.ts"}
 {"id":"TOOLGOV-TG2-C2-JOB-SUSPEND","k":"code#3","i":0,"c":"app/src/tools/sidecar/SidecarMediaAnalyzer.ts"}
 {"id":"TOOLGOV-TG2-C2-JOB-SUSPEND","k":"code#4","i":0,"c":"app/src/tools/ImageAnalysisTool/ImageAnalysisTool.ts"}
 {"id":"TOOLGOV-TG2-C2-JOB-SUSPEND","k":"code#5","i":0,"c":"app/src/entrypoints/spiWiring.ts"}
-{"id":"TOOLGOV-TG2-C2-JOB-SUSPEND","k":"code#6","i":0,"c":"app/src/query/budgetSuspend.ts"}
+{"id":"TOOLGOV-TG2-C2-JOB-SUSPEND","k":"code#6","i":0,"c":"packages/query/src/query/budgetSuspend.ts"}
 {"id":"TOOLGOV-TG2-C2-JOB-SUSPEND","k":"code#7","i":0,"c":"app/tests/tools/fixtures/jobSupervisorChild.ts"}
 {"id":"TOOLGOV-TG2-C2-JOB-SUSPEND","k":"tests#0","i":0,"c":"app/tests/query/toolJobSuspend.test.ts"}
 {"id":"TOOLGOV-TG2-C2-JOB-SUSPEND","k":"tests#1","i":0,"c":"app/tests/tools/sidecar/mediaSidecarJobMode.test.ts"}
@@ -1964,7 +1964,7 @@
 {"id":"HARDCODE-HDP0-2-ENDPOINTS","k":"code#0","i":0,"c":"packages/kernel/src/core/endpoints.ts"}
 {"id":"HARDCODE-HDP0-2-ENDPOINTS","k":"code#1","i":0,"c":"packages/kernel/src/core/index.ts"}
 {"id":"HARDCODE-HDP0-2-ENDPOINTS","k":"code#2","i":0,"c":"app/src/ai/providers/OllamaProvider.ts"}
-{"id":"HARDCODE-HDP0-2-ENDPOINTS","k":"code#3","i":0,"c":"app/src/channels/wechat/WechatChannel.ts"}
+{"id":"HARDCODE-HDP0-2-ENDPOINTS","k":"code#3","i":0,"c":"packages/channels/src/channels/wechat/WechatChannel.ts"}
 {"id":"HARDCODE-HDP0-2-ENDPOINTS","k":"code#4","i":0,"c":"packages/infra/src/constants/oauth.ts"}
 {"id":"HARDCODE-HDP0-2-ENDPOINTS","k":"code#5","i":0,"c":"app/src/main.ts"}
 {"id":"HARDCODE-HDP0-2-ENDPOINTS","k":"tests#0","i":0,"c":"app/tests/core/endpointsSingleSource.test.ts"}
@@ -1985,8 +1985,8 @@
 {"id":"DEBT4-USD-ENDPOINT-IO","k":"notes","i":10,"c":"spied config）⇒ `e2eVerified=false`（已入 `修复证据登记.md` §2）；② **USD 仍不参与任何拦截**（闸门 = `USD-4`，未做）⇒ 行为与改动前**逐字一致**（新增字段只读 + 新增可选入参）；③ `usedUsd` / `debtUsd` 由 S5/S8 既有记账链写入（本片**未改**其累加逻辑）；④ "}
 {"id":"DEBT4-USD-ENDPOINT-IO","k":"notes","i":11,"c":"未新增 feature flag（USD 闸门开关 `FEATURE_USD_BUDGET_GATE` 属 USD-4）。"}
 {"id":"DEBT4-USD-ENDPOINT-IO","k":"code#0","i":0,"c":"app/src/infrastructure/http/handlers/daily-budget-handlers.ts"}
-{"id":"DEBT4-USD-ENDPOINT-IO","k":"code#1","i":0,"c":"app/src/query/DailyBudgetManager.ts"}
-{"id":"DEBT4-USD-ENDPOINT-IO","k":"code#2","i":0,"c":"app/src/query/index.ts"}
+{"id":"DEBT4-USD-ENDPOINT-IO","k":"code#1","i":0,"c":"packages/query/src/query/DailyBudgetManager.ts"}
+{"id":"DEBT4-USD-ENDPOINT-IO","k":"code#2","i":0,"c":"packages/query/src/query/index.ts"}
 {"id":"DEBT4-USD-ENDPOINT-IO","k":"tests#0","i":0,"c":"app/tests/http/daily-budget-handlers.test.ts"}
 {"id":"DEBT4-USD3-PANEL","k":"title","i":0,"c":"债四 **USD-3**：前端「日限额」面板 —— **金额上限编辑** + **金额用量展示** + 换算说明（留空 = 不启用）"}
 {"id":"DEBT4-USD3-PANEL","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §6.3（USD-3）+ §6.3 落地状态「白盒契约」（后端 USD-1/USD-2 已落地）"}
@@ -2031,8 +2031,8 @@
 {"id":"DEBT4-USD4-GATE","k":"notes","i":14,"c":"处自身缺陷（如实）**：单例在**首次取用**时才 `resolveDailyBudgetConfig()` ⇒ 若在设 `LIRI_DAILY_BUDGET_USD` 之前就取单例，金额轨显示「未配置」⇒ 3 个用例会**因错误原因通过**；已改为「先设 env 再取单例」并在文件内写明该顺序不变量。**如实边界**：① **端到端未做** —— 未在真机"}
 {"id":"DEBT4-USD4-GATE","k":"notes","i":15,"c":"走「面板填写 ⇒ `PUT` ⇒ 闸门真的按金额拦 ⇒ SSE 回刷」（`e2eVerified=false`，已入 `修复证据登记.md` §2）；② **金额轨无本轮预估**（结算侧口径与判定侧同步纯读时间线不同）⇒ 金额轨按**已结算** `usedUsd` 判定，理论上存在「本轮结算前」的窗口 —— 该窗口由 Token 轨同步预扣**部分**闭合，"}
 {"id":"DEBT4-USD4-GATE","k":"notes","i":16,"c":"**未**做金额侧预扣（如需要，须先有「发送前可得金额」的同源口径，见 `reopenWhen` ②）；③ **开关默认关** ⇒ 本次交付对默认用户**零行为变更**；④ 未改 `DailyBudgetManager` 的记账/日切/放行逻辑（金额轨纯读）。"}
-{"id":"DEBT4-USD4-GATE","k":"code#0","i":0,"c":"app/src/query/dailyBudgetGate.ts"}
-{"id":"DEBT4-USD4-GATE","k":"code#1","i":0,"c":"app/src/query/dailyBudgetSnapshot.ts"}
+{"id":"DEBT4-USD4-GATE","k":"code#0","i":0,"c":"packages/query/src/query/dailyBudgetGate.ts"}
+{"id":"DEBT4-USD4-GATE","k":"code#1","i":0,"c":"packages/query/src/query/dailyBudgetSnapshot.ts"}
 {"id":"DEBT4-USD4-GATE","k":"code#2","i":0,"c":"packages/kernel/src/core/featureFlags.ts"}
 {"id":"DEBT4-USD4-GATE","k":"code#3","i":0,"c":"app/src/chat/orchestrator/preSendContextProtection.ts"}
 {"id":"DEBT4-USD4-GATE","k":"code#4","i":0,"c":"app/src/chat/orchestrator/sendMessageFlow.ts"}
@@ -2118,7 +2118,7 @@
 {"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#7","i":0,"c":"packages/service/src/services/voice/services/streamSTTProvider.ts"}
 {"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#8","i":0,"c":"app/src/cli/updater/GitHubReleaseFetcher.ts"}
 {"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#9","i":0,"c":"app/src/chat/services/ImageDownloader.ts"}
-{"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#10","i":0,"c":"app/src/skills/loaders/adapter/clawhub/ClawHubAPIClient.ts"}
+{"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#10","i":0,"c":"packages/skills/src/skills/loaders/adapter/clawhub/ClawHubAPIClient.ts"}
 {"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#11","i":0,"c":"app/src/knowledge/datasource/RSSConnector.ts"}
 {"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#12","i":0,"c":"packages/service/src/services/mcp/marketplace/adapters/SmitheryRegistryAdapter.ts"}
 {"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#13","i":0,"c":"packages/service/src/services/mcp/marketplace/adapters/NPMRegistryAdapter.ts"}
@@ -2741,7 +2741,7 @@
 {"id":"HARDCODE-HDP2-5-APP-LOCALE","k":"title","i":1,"c":"lint:locale` 基线 **15 → 6 键**"}
 {"id":"HARDCODE-HDP2-5-APP-LOCALE","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §2.5/§8（`lint:locale`：`toLocale*(…, \"zh-CN\")` 忽略语言）+ §11 `Q-H2`（默认口径 `zh-CN`/`Asia/Shanghai`）+ §9（先红后绿 + 独立提交 + 台账）"}
 {"id":"HARDCODE-HDP2-5-APP-LOCALE","k":"reopenWhen","i":0,"c":"① 若要把后端 CLI/工具面**真正 i18n**（让日期随用户语言切换）⇒ 须连同该面的**中文标签**一起改造 —— 否则会得到「中文标签 + en 日期」混排；届时 15 处应从 `DEFAULT_LOCALE` 改为 `languageManager.getCurrentLanguage()`（`"}
-{"id":"HARDCODE-HDP2-5-APP-LOCALE","k":"reopenWhen","i":1,"c":"app/src/docs/i18n/LanguageManager.ts`，app 层；**`chronos`=infra 不得引用它**，见 R00-001 ⇒ 若需要，须先在 infra 层立真源）；② 若前端 `formatUsd`（`client/src/components/usage/DailyBudgetPanel.tsx`）改为跟随语言 ⇒ "}
+{"id":"HARDCODE-HDP2-5-APP-LOCALE","k":"reopenWhen","i":1,"c":"packages/docs/src/docs/i18n/LanguageManager.ts`，app 层；**`chronos`=infra 不得引用它**，见 R00-001 ⇒ 若需要，须先在 infra 层立真源）；② 若前端 `formatUsd`（`client/src/components/usage/DailyBudgetPanel.tsx`）改为跟随语言 ⇒ "}
 {"id":"HARDCODE-HDP2-5-APP-LOCALE","k":"reopenWhen","i":2,"c":"后端 `formatUsdAmount` **须同批**改（跨部署同口径契约）；③ 若 `chronos` 的 cron 描述要整体 i18n ⇒ 须连同同文件英文 `DAY_NAMES` 一并改造（注释已写明）；④ 若 `DD-P2-5` 之后新增 `toLocale*(…, 'zh-CN')` ⇒ 门禁立即阻断（基线已收紧到 6 键）。"}
 {"id":"HARDCODE-HDP2-5-APP-LOCALE","k":"notes","i":0,"c":"**取证（CS06）**：`lint:locale` 报 20 条 `toLocale*` 写死 locale —— **18 在 `app/src`**、2 在 `client/src`（`DailyBudgetPanel.tsx:15,25`）。逐处读上下文后分两类（**关键判断**）：**（A）15 处 `zh-CN`** —— 周围文案**全为硬编码"}
 {"id":"HARDCODE-HDP2-5-APP-LOCALE","k":"notes","i":1,"c":"中文**（`创建`/`更新`/`保存时间`/`记忆文件列表`/`Liri 对话记录`/`日期`/`Cron: …`），即该面**未 i18n** ⇒ 写死 `zh-CN` 与文案**口径一致**；**（B）3 处 `en-US`** —— ① `chronos/cron.ts:318`（`formatLocalTime`；同文件 `DAY_NAMES` 为英"}
@@ -2768,7 +2768,7 @@
 {"id":"HARDCODE-HDP2-5-APP-LOCALE","k":"code#8","i":0,"c":"app/src/ui/components/MessageBubble.tsx"}
 {"id":"HARDCODE-HDP2-5-APP-LOCALE","k":"code#9","i":0,"c":"packages/infra/src/chronos/cron.ts"}
 {"id":"HARDCODE-HDP2-5-APP-LOCALE","k":"code#10","i":0,"c":"app/src/commands/builtin/budget/Budget.ts"}
-{"id":"HARDCODE-HDP2-5-APP-LOCALE","k":"code#11","i":0,"c":"app/src/query/dailyBudgetSnapshot.ts"}
+{"id":"HARDCODE-HDP2-5-APP-LOCALE","k":"code#11","i":0,"c":"packages/query/src/query/dailyBudgetSnapshot.ts"}
 {"id":"HARDCODE-HDP2-5-APP-LOCALE","k":"code#12","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-R05-003-CONSOLE-SINGLE-SOURCE","k":"title","i":0,"c":"硬编码治理 · **`R05-003`（Console 调用基线）双源收敛**：门禁与 CI 原为**两套实现 + 两个阈值**（门禁 4 名/按次/`2045+10%`⇒上限 2250 vs CI 内联 `grep` 6 名/按行/写死 2034）⇒ 收敛为**单一实现** `scripts/lib/consoleCalls.ts` + **单一真源** "}
 {"id":"HARDCODE-R05-003-CONSOLE-SINGLE-SOURCE","k":"title","i":1,"c":"`scripts/console-baseline.json`（`count 2034`/`threshold 0`），并删去门禁的硬编码默认值与 `process.cwd()` 定位（`AR-2` 同型）"}
@@ -3023,7 +3023,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-TABLE-NAME","k":"notes","i":7,"c":"**B5-1 的 1/5 子项**（余 4 项见 `reopenWhen` ①）；② **未做真机走查**（`e2eVerified=false`）；③ 未跑全量 `bun test`（仅相关域 `tests/ai`+`src/ai`；`workspace`/`query` 侧**无既有测试命中**）⇒ 已如实标注。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-TABLE-NAME","k":"code#0","i":0,"c":"app/src/workspace/TaskStore.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-TABLE-NAME","k":"code#1","i":0,"c":"app/src/workspace/ProjectItemStore.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-TABLE-NAME","k":"code#2","i":0,"c":"app/src/query/DBTAORCheckpointStorage.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-TABLE-NAME","k":"code#2","i":0,"c":"packages/query/src/query/DBTAORCheckpointStorage.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-TABLE-NAME","k":"code#3","i":0,"c":"app/src/ai/translation/TranslateHistoryStore.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-TABLE-NAME","k":"code#4","i":0,"c":"app/src/ai/router/SessionRouterStore.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-TABLE-NAME","k":"code#5","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -3058,7 +3058,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"reopenWhen","i":2,"c":"巧合 ⇒ 若将来要做 TTL 集中配置（如统一可配置项），须先证「同一失效时机」；③ 副本写回 ⇒ 守卫或棘轮门禁（基线 257）立即阻断。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"notes","i":0,"c":"**取证（CS06）**：`CACHE_TTL_MS` ×7 —— `app/src/ai/models/ActiveModelService.ts:41` `30_000`（启用模型定价记录缓存）· `app/src/ai/translation/LanguageDetector.ts:33` `5 * 60 * 1000`（语种检测结果缓存）· `"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"notes","i":1,"c":"app/src/chat/services/PathGuardService.ts:47` `30_000`（路径存在性缓存）· `app/src/config/settings/CheckpointLogConfig.ts:32` `3_000`（config.json 读取缓存）· `"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"notes","i":2,"c":"packages/service/src/services/prompt/PromptVersionManager.ts:26` `30_000`（prompt overrides 缓存）· `app/src/tokenBudget/ModelContextCache.ts:20` `5 * 60 * 1000`（模型上下文窗口缓存）· `"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"notes","i":2,"c":"packages/service/src/services/prompt/PromptVersionManager.ts:26` `30_000`（prompt overrides 缓存）· `packages/tokenBudget/src/tokenBudget/ModelContextCache.ts:20` `5 * 60 * 1000`（模型上下文窗口缓存）· `"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"notes","i":3,"c":"client/src/services/imageService.ts:350` `30_000`（前端图片请求缓存）。**判定**：**无一处是同一事实的副本**（缓存对象与失效语义各不相同；数值相同属巧合）⇒ 属「**命名太泛**」⇒ 处置 = **按域改名消歧**、**不强行合一**（对齐 B5-1①② 判定）。**落地**（7 文件各 2 处裸 "}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"notes","i":4,"c":"token；全仓核验更长名 `DEFAULT_CACHE_TTL_MS` / `TOOL_SUPPORT_CACHE_TTL_MS` / `SEARCH_CACHE_TTL_MS` **不含**裸 token ⇒ `replace_all` 不误伤）：`ACTIVE_MODEL_CACHE_TTL_MS` · `"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"notes","i":5,"c":"LANGUAGE_DETECTION_CACHE_TTL_MS` · `PATH_GUARD_CACHE_TTL_MS` · `CHECKPOINT_LOG_CACHE_TTL_MS` · `PROMPT_VERSION_CACHE_TTL_MS` · `MODEL_CONTEXT_CACHE_TTL_MS` · `"}
@@ -3072,7 +3072,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"code#2","i":0,"c":"app/src/chat/services/PathGuardService.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"code#3","i":0,"c":"packages/infra/src/config/settings/CheckpointLogConfig.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"code#4","i":0,"c":"packages/service/src/services/prompt/PromptVersionManager.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"code#5","i":0,"c":"app/src/tokenBudget/ModelContextCache.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"code#5","i":0,"c":"packages/tokenBudget/src/tokenBudget/ModelContextCache.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"code#6","i":0,"c":"client/src/services/imageService.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"code#7","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"code#8","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
@@ -3096,10 +3096,10 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"notes","i":11,"c":"变**任何超时数值。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#0","i":0,"c":"app/src/ai/embedding/providers/LocalEmbeddingProvider.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#1","i":0,"c":"app/src/ai/providers/SpeedTestService.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#2","i":0,"c":"app/src/evals/adversarialProposer.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#2","i":0,"c":"packages/evals/src/evals/adversarialProposer.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#3","i":0,"c":"packages/sandbox/src/sandbox/utils/TimeoutController.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#4","i":0,"c":"packages/sandbox/src/sandbox/SandboxManager.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#5","i":0,"c":"app/src/session/lock/PrioritySessionLock.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#5","i":0,"c":"packages/service/src/session/lock/PrioritySessionLock.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#6","i":0,"c":"packages/service/src/services/mcp/transports/StreamableHttpTransport.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#7","i":0,"c":"app/src/tools/CodeRunner/CrossPlatformRunner.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#8","i":0,"c":"app/src/tools/CodeRunner/CodeRunnerTool.ts"}
@@ -3175,7 +3175,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-2-SCHEMA-DDL","k":"notes","i":9,"c":"**）**0**；守卫 **18 pass / 0 fail**；相关域（`tests/constants`+`tests|src` 的 `tasks`/`modules`/`dream`/`calendar` 与 7 个被改类名）**570 pass / 0 fail**；4 硬编码门禁全 **exit 0**。**如实边界**：① **未做真机走查**（"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-2-SCHEMA-DDL","k":"notes","i":10,"c":"`e2eVerified=false`）；② 未跑全量 `bun test`；③ **未改任何 DDL/表名**（仅标识符）⇒ 存量 SQLite 库不受影响；④ 本片是 B5-2 **第二项**（余项见 `reopenWhen` ①）。**收尾如实登记**：守卫该例的「导出面断言」原钉 import/export **语句单行形态**，被提交前钩子的 `"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-2-SCHEMA-DDL","k":"notes","i":11,"c":"eslint --fix` 把长 import 折成多行后**短暂变红（17 pass / 1 fail）** ⇒ 已**放宽为标识符断言**（并留注「不钉单行形态」），复跑 **18 pass / 0 fail**；此为**测试断言脆性、非产品缺陷**（同类教训见 B5-1② 的 `=` 后尾空格、B5-1③ 的按 prettier 重排）。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-2-SCHEMA-DDL","k":"code#0","i":0,"c":"app/src/dream/DreamCycleDb.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-2-SCHEMA-DDL","k":"code#0","i":0,"c":"packages/dream/src/dream/DreamCycleDb.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-2-SCHEMA-DDL","k":"code#1","i":0,"c":"app/src/tasks/db/schema.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-2-SCHEMA-DDL","k":"code#2","i":0,"c":"app/src/tasks/db/SqliteTaskStore.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-2-SCHEMA-DDL","k":"code#3","i":0,"c":"app/src/tasks/db/GoalMetricsService.ts"}
@@ -3205,8 +3205,8 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-3-REQUEST-TIMEOUT-MS","k":"notes","i":7,"c":" fail**；相关域（`tests/constants`+`tests|src` 的 `channels`/`ai`/`services`/`voice` 与 5 个被改类名）**624 pass / 0 fail**；4 硬编码门禁全 **exit 0**。**如实边界**：① `channels/**` 属 **CD07 关键域**（通道/工具注册）⇒"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-3-REQUEST-TIMEOUT-MS","k":"notes","i":8,"c":" 本片**仅改名、未删实现、未改数值**；② **未做真机走查**（`e2eVerified=false`）；③ 未跑全量 `bun test`；④ 同族三处「长名」**不在本键、未动**（见 `reopenWhen` ②）；⑤ 本片是 B5-2 **第三项**。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-3-REQUEST-TIMEOUT-MS","k":"code#0","i":0,"c":"app/src/ai/providers/BalanceChecker.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-3-REQUEST-TIMEOUT-MS","k":"code#1","i":0,"c":"app/src/channels/bluebubbles/BlueBubblesChannel.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-3-REQUEST-TIMEOUT-MS","k":"code#2","i":0,"c":"app/src/channels/mattermost/MattermostChannel.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-3-REQUEST-TIMEOUT-MS","k":"code#1","i":0,"c":"packages/channels/src/channels/bluebubbles/BlueBubblesChannel.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-3-REQUEST-TIMEOUT-MS","k":"code#2","i":0,"c":"packages/channels/src/channels/mattermost/MattermostChannel.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-3-REQUEST-TIMEOUT-MS","k":"code#3","i":0,"c":"packages/service/src/services/voice/services/senseVoiceSTTProvider.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-3-REQUEST-TIMEOUT-MS","k":"code#4","i":0,"c":"packages/service/src/services/voice/services/localSTTProvider.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-3-REQUEST-TIMEOUT-MS","k":"code#5","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -3231,7 +3231,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-4-MAX-CACHE-SIZE","k":"notes","i":9,"c":"**vendored 面已改动**（记 `reopenWhen` ②b）；⑤ 本片是 B5-2 **第四项**。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-4-MAX-CACHE-SIZE","k":"code#0","i":0,"c":"packages/infra/src/constants/common.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-4-MAX-CACHE-SIZE","k":"code#1","i":0,"c":"app/src/ink/ink/line-width-cache.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-4-MAX-CACHE-SIZE","k":"code#2","i":0,"c":"app/src/tokenBudget/ModelContextCache.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-4-MAX-CACHE-SIZE","k":"code#2","i":0,"c":"packages/tokenBudget/src/tokenBudget/ModelContextCache.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-4-MAX-CACHE-SIZE","k":"code#3","i":0,"c":"app/src/tools/ImageGenerateTool/ImageGenerationCache.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-4-MAX-CACHE-SIZE","k":"code#4","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-4-MAX-CACHE-SIZE","k":"code#5","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
@@ -3263,7 +3263,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-6-FENCE-RE","k":"reopenWhen","i":1,"c":"署单元双写实现」（未处理，如实登记）**：`app/src/chat/services/bareExplorationStripper.ts` 与 `client/src/stores/chat/chat-toolcall.slice.ts` **各有一份同名同实现的 `splitSentencesPreservingFences`**（同一「围栏块整体占位"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-6-FENCE-RE","k":"reopenWhen","i":2,"c":"保护」算法 + 同一 `\\u0000FENCE{n}\\u0000` 占位协议）⇒ 属方案 §4.2 类**双写**；本片**只消歧常量名**、**未改该双写**（跨 client/app 无法共享模块；若治理须单独立片：抽**协议/契约测试**钉住两侧一致，或抽共享规格文档）；③ **同族子串「非本键」**：`"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-6-FENCE-RE","k":"reopenWhen","i":3,"c":"streaming/scrubbers/StreamingContextScrubber.ts` 的 `CONTEXT_FENCE_REPLACEMENT` 含 `FENCE_RE` 子串但**非本键**（门禁按标识符精确匹配）⇒ **未动**；④ 副本写回（任一处重新出现 `const FENCE_RE = `）⇒ 守卫或棘轮门禁（基线 249）立即阻断。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-6-FENCE-RE","k":"notes","i":0,"c":"**取证（CS06）**：门禁口径 `FENCE_RE` **4 文件**（各 2 处：1 定义 + 1 用例）—— `app/src/utils/structureCut.ts:40` `/^\\s*```/`（**围栏行**：结构切分时切换 `inFence`）· `app/src/channels/messageSplitter.ts:38` `"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-6-FENCE-RE","k":"notes","i":0,"c":"**取证（CS06）**：门禁口径 `FENCE_RE` **4 文件**（各 2 处：1 定义 + 1 用例）—— `app/src/utils/structureCut.ts:40` `/^\\s*```/`（**围栏行**：结构切分时切换 `inFence`）· `packages/channels/src/channels/messageSplitter.ts:38` `"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-6-FENCE-RE","k":"notes","i":1,"c":"/^\\s*```/`（**围栏行**：分片时按行切换围栏态）· `app/src/chat/services/bareExplorationStripper.ts:38` `/```[\\s\\S]*?```/g`（**围栏块**，**函数内局部**）· `client/src/stores/chat/chat-toolcall.slice.ts:1387` `"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-6-FENCE-RE","k":"notes","i":2,"c":"/```[\\s\\S]*?```/g`（**围栏块**，**函数内局部**）。**判定**：4 处**分属 4 个模块**且**语义分两类**（行检测 vs 块匹配；后者还需 `g` 标志）⇒ 属「**命名太泛**」⇒ **按域改名消歧**（不按语义合并成 2 个名字 —— 那会在**新的键**上再次撞名，门禁棘轮会拦）。**落地**：`"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-6-FENCE-RE","k":"notes","i":3,"c":"STRUCTURE_CUT_FENCE_RE` · `MESSAGE_SPLITTER_FENCE_RE` · `BARE_EXPLORATION_FENCE_RE` · `CHAT_TOOLCALL_FENCE_RE`；**4 个正则字面量一字未改** ⇒ **零行为变化**；4 处**均无 `export`** ⇒ 无消费面。**⚠️ 重要观察（如实，未"}
@@ -3272,7 +3272,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-6-FENCE-RE","k":"notes","i":6,"c":"const FENCE_RE = ` 且各含**确切新名 + 正则字面量钉住**。**验证**：`typecheck`（app 三 tsconfig）**0** 且 `typecheck`（**client**）**0**；守卫 **22 pass / 0 fail**；app 侧相关域 **1260 pass / 0 fail**；**client 全量 "}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-6-FENCE-RE","k":"notes","i":7,"c":"`vitest` 73 文件全绿**；4 硬编码门禁全 **exit 0**。**如实边界**：① **未做真机走查**（`e2eVerified=false`）；② 未跑全量 `bun test`（app 侧仅相关域）；③ **双写未治理**（只记 `reopenWhen` ②）；④ 本片是 B5-2 **第六项**。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-6-FENCE-RE","k":"code#0","i":0,"c":"packages/infra/src/utils/structureCut.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-6-FENCE-RE","k":"code#1","i":0,"c":"app/src/channels/messageSplitter.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-6-FENCE-RE","k":"code#1","i":0,"c":"packages/channels/src/channels/messageSplitter.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-6-FENCE-RE","k":"code#2","i":0,"c":"app/src/chat/services/bareExplorationStripper.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-6-FENCE-RE","k":"code#3","i":0,"c":"client/src/stores/chat/chat-toolcall.slice.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-6-FENCE-RE","k":"code#4","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -3297,7 +3297,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-7-MAX-FILES","k":"code#0","i":0,"c":"app/src/tools/GlobTool/GlobTool.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-7-MAX-FILES","k":"code#1","i":0,"c":"app/src/context/promptSections/builtinSections.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-7-MAX-FILES","k":"code#2","i":0,"c":"app/src/infrastructure/http/handlers/project-artifact-handlers.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-7-MAX-FILES","k":"code#3","i":0,"c":"app/src/skills/loaders/adapter/clawhub/ClawHubInstaller.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-7-MAX-FILES","k":"code#3","i":0,"c":"packages/skills/src/skills/loaders/adapter/clawhub/ClawHubInstaller.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-7-MAX-FILES","k":"code#4","i":0,"c":"app/scripts/bench-truncation-closure.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-7-MAX-FILES","k":"code#5","i":0,"c":"app/tests/tools/GlobTool/globAsync.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-7-MAX-FILES","k":"code#6","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -3329,7 +3329,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-9-MAX-STREAM-AGE-MS","k":"reopenWhen","i":0,"c":"① **B5-2 续项**：`MAX_RECONNECT_ATTEMPTS`（4）· `CLEANUP_INTERVAL_MS`（4）等 —— 每项**先做全仓 grep**（含 `app/scripts`/`app/tests`；门禁扫描面只含 `app/src` + `client/src`，见 B5-2⑦ `reopenWhen` ②）再判定；**整键"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-9-MAX-STREAM-AGE-MS","k":"reopenWhen","i":1,"c":"改完才消键**；② **四个渠道的「流存活窗口」是各上游约束**（Teams 45s / 飞书 60s / Matrix 300s / Discord 900s）⇒ **不得归一**；若将来做「渠道流式参数集中化」须**先证四个上游窗口语义可统一**（当前无证据）⇒ 已记；③ `channels/**` 属 **CD07 关键域** ⇒ 本片**仅改名、未删"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-9-MAX-STREAM-AGE-MS","k":"reopenWhen","i":2,"c":"实现、未改数值**；④ 副本写回（任一处重新出现 `const MAX_STREAM_AGE_MS = `）⇒ 守卫或棘轮门禁（基线 246）立即阻断。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-9-MAX-STREAM-AGE-MS","k":"notes","i":0,"c":"**取证（CS06）**：`MAX_STREAM_AGE_MS` **4 文件（各 2 处：1 定义 + 1 用例，共 8 处），全在 `app/src/channels/**`** —— `channels/msteams/streaming-message.ts:24` `45000` · `"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-9-MAX-STREAM-AGE-MS","k":"notes","i":0,"c":"**取证（CS06）**：`MAX_STREAM_AGE_MS` **4 文件（各 2 处：1 定义 + 1 用例，共 8 处），全在 `packages/channels/src/channels/**`** —— `channels/msteams/streaming-message.ts:24` `45000` · `"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-9-MAX-STREAM-AGE-MS","k":"notes","i":1,"c":"channels/matrix/streaming-message.ts:24` `300000` · `channels/feishu/streaming-card.ts:24` `60000` · `channels/discord/streaming-message.ts:24` `900000`；四处**注释同形**（`/** 流最大存活时间（毫秒）"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-9-MAX-STREAM-AGE-MS","k":"notes","i":2,"c":" */`）⇒ 同一**概念**在四个渠道各有**上游不同的取值**。**判定**：取值**全不同**且受**各上游平台约束** ⇒ 属「**命名太泛**」⇒ **按渠道改名消歧**、**不得归一**（归一即改行为）。**全仓核验（按 B5-2⑦/⑧ 教训）**：该名**全仓仅这 4 文件 ×2**（含 `app/scripts`/`app/tests`/`"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-9-MAX-STREAM-AGE-MS","k":"notes","i":3,"c":"client` 均已扫）⇒ **无同族超长名**（`[A-Za-z0-9_]MAX_STREAM_AGE_MS` 0 命中）⇒ `replace_all` 不误伤；4 处**均无 `export`** ⇒ 无消费面。**落地**：`MSTEAMS_MAX_STREAM_AGE_MS` · `MATRIX_MAX_STREAM_AGE_MS` · `"}
@@ -3337,10 +3337,10 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-9-MAX-STREAM-AGE-MS","k":"notes","i":5,"c":"HARDCODE_GATE_BASELINE_WRITE=1` **下调基线至 246 键**。**守卫**（第 **25** 例）：4 文件均不含 `const MAX_STREAM_AGE_MS = ` 且各含**确切新名 + 取值钉住**。**验证**：`typecheck`（app 三 tsconfig，含 scripts）**0**；守卫 **25"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-9-MAX-STREAM-AGE-MS","k":"notes","i":6,"c":" pass / 0 fail**；相关域（`tests/constants`+`tests/channels`+`src/channels` 与 `streaming-*`）**355 pass / 0 fail**；4 硬编码门禁全 **exit 0**。**如实边界**：① `channels/**` 属 **CD07 关键域** ⇒ **仅改名、未删实"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-9-MAX-STREAM-AGE-MS","k":"notes","i":7,"c":"现、未改数值**；② **未做真机渠道走查**（4 个渠道的真实流式消息行为**未验**）⇒ `e2eVerified=false`；③ 未跑全量 `bun test`（app 侧仅相关域）；④ **未跑 client**（无 client 侧改动）；⑤ 本片是 B5-2 **第九项**。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-9-MAX-STREAM-AGE-MS","k":"code#0","i":0,"c":"app/src/channels/msteams/streaming-message.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-9-MAX-STREAM-AGE-MS","k":"code#1","i":0,"c":"app/src/channels/matrix/streaming-message.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-9-MAX-STREAM-AGE-MS","k":"code#2","i":0,"c":"app/src/channels/feishu/streaming-card.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-9-MAX-STREAM-AGE-MS","k":"code#3","i":0,"c":"app/src/channels/discord/streaming-message.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-9-MAX-STREAM-AGE-MS","k":"code#0","i":0,"c":"packages/channels/src/channels/msteams/streaming-message.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-9-MAX-STREAM-AGE-MS","k":"code#1","i":0,"c":"packages/channels/src/channels/matrix/streaming-message.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-9-MAX-STREAM-AGE-MS","k":"code#2","i":0,"c":"packages/channels/src/channels/feishu/streaming-card.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-9-MAX-STREAM-AGE-MS","k":"code#3","i":0,"c":"packages/channels/src/channels/discord/streaming-message.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-9-MAX-STREAM-AGE-MS","k":"code#4","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-9-MAX-STREAM-AGE-MS","k":"code#5","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-9-MAX-STREAM-AGE-MS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -3364,9 +3364,9 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-10-MAX-RECONNECT-ATTEMPTS","k":"notes","i":9,"c":"WS_MAX_RECONNECT_ATTEMPTS` 仍在（防误并入同族前缀名）」。**验证**：`typecheck`（app 三 tsconfig，含 scripts）**0**；守卫 **26 pass / 0 fail**；相关域（`tests/constants`+`tests|src` 的 `channels`/`session`/`mcp`/`"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-10-MAX-RECONNECT-ATTEMPTS","k":"notes","i":10,"c":"services` 与 `QQChannel`/`SessionsWebSocket`/`MCPConnectionManager`）**697 pass / 0 fail**；4 硬编码门禁全 **exit 0**。**如实边界**：① `channels/**` 属 **CD07 关键域**、`session/**`/`services/mcp/**` "}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-10-MAX-RECONNECT-ATTEMPTS","k":"notes","i":11,"c":"属敏感面 ⇒ **仅改名、未删实现、未改数值**；② **未做真机走查**（QQ/会话 WS/MCP 的真实重连行为**未验**）⇒ `e2eVerified=false`；③ 未跑全量 `bun test`；④ **未跑 client**（无 client 侧改动）；⑤ 本片是 B5-2 **第十项**。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-10-MAX-RECONNECT-ATTEMPTS","k":"code#0","i":0,"c":"app/src/channels/qq/types.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-10-MAX-RECONNECT-ATTEMPTS","k":"code#1","i":0,"c":"app/src/channels/qq/QQChannel.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-10-MAX-RECONNECT-ATTEMPTS","k":"code#2","i":0,"c":"app/src/session/websocket/SessionsWebSocket.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-10-MAX-RECONNECT-ATTEMPTS","k":"code#0","i":0,"c":"packages/channels/src/channels/qq/types.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-10-MAX-RECONNECT-ATTEMPTS","k":"code#1","i":0,"c":"packages/channels/src/channels/qq/QQChannel.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-10-MAX-RECONNECT-ATTEMPTS","k":"code#2","i":0,"c":"packages/service/src/session/websocket/SessionsWebSocket.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-10-MAX-RECONNECT-ATTEMPTS","k":"code#3","i":0,"c":"packages/service/src/services/mcp/MCPConnectionManager.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-10-MAX-RECONNECT-ATTEMPTS","k":"code#4","i":0,"c":"packages/service/src/services/mcp/client.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-10-MAX-RECONNECT-ATTEMPTS","k":"code#5","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -3422,9 +3422,9 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-14-MIN-INITIAL-CHARS","k":"reopenWhen","i":0,"c":"① 承接 **B5-2 续项**（先全仓 grep，整键改完才消键）；② 若三渠道首帧阈值日后要**集中到渠道契约真源**（如 `channels/<kind>/contract`）⇒ 属架构选择，须单独裁定；③ 副本写回 ⇒ 守卫或棘轮（241 键）阻断。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-14-MIN-INITIAL-CHARS","k":"notes","i":0,"c":"取证：3 处同名 `MIN_INITIAL_CHARS` **全为文件内私有**（全仓仅 6 处命中，均在这 3 文件：定义 1 + 用法 1；无 export/消费面）；取值各异（Discord 10 · Matrix 15 · MS Teams 20）⇒ 按渠道消歧、**数值一字未改**、**零跨文件复改**。效果：242 → 241 键。验证："}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-14-MIN-INITIAL-CHARS","k":"notes","i":1,"c":"typecheck 0 · 守卫 30 pass/0 fail · 5 门禁 exit 0。边界：e2eVerified=false、未跑全量。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-14-MIN-INITIAL-CHARS","k":"code#0","i":0,"c":"app/src/channels/discord/streaming-message.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-14-MIN-INITIAL-CHARS","k":"code#1","i":0,"c":"app/src/channels/matrix/streaming-message.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-14-MIN-INITIAL-CHARS","k":"code#2","i":0,"c":"app/src/channels/msteams/streaming-message.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-14-MIN-INITIAL-CHARS","k":"code#0","i":0,"c":"packages/channels/src/channels/discord/streaming-message.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-14-MIN-INITIAL-CHARS","k":"code#1","i":0,"c":"packages/channels/src/channels/matrix/streaming-message.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-14-MIN-INITIAL-CHARS","k":"code#2","i":0,"c":"packages/channels/src/channels/msteams/streaming-message.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-14-MIN-INITIAL-CHARS","k":"code#3","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-14-MIN-INITIAL-CHARS","k":"code#4","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-14-MIN-INITIAL-CHARS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -3433,7 +3433,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-15-POLL-INTERVAL-MS","k":"reopenWhen","i":0,"c":"① 承接 **B5-2 续项**（先全仓 grep，整键改完才消键）；② 若三处轮询间隔日后要**集中到轮询契约真源**（如统一的 `polling` 工具）⇒ 属架构选择，须单独裁定；③ 副本写回 ⇒ 守卫或棘轮（240 键）阻断。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-15-POLL-INTERVAL-MS","k":"notes","i":0,"c":"取证：3 处同名 `POLL_INTERVAL_MS` **全为文件内私有**（全仓 7 处 = 定义 1 + 用法 ×3，无 export 面）；取值 8000/5000/2000 分属三域 ⇒ 按域消歧、**数值一字未改**、**零跨文件复改**。本片跨 app/client 双侧（两侧 tsconfig 均验）。同族非本键 `POLL_INTERVAL"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-15-POLL-INTERVAL-MS","k":"notes","i":1,"c":"` ×3 未动。效果：241 → 240 键。验证：typecheck 0 · 守卫 31 pass/0 fail · 5 门禁 exit 0。边界：未跑全量。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-15-POLL-INTERVAL-MS","k":"code#0","i":0,"c":"app/src/channels/bluebubbles/monitor.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-15-POLL-INTERVAL-MS","k":"code#0","i":0,"c":"packages/channels/src/channels/bluebubbles/monitor.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-15-POLL-INTERVAL-MS","k":"code#1","i":0,"c":"client/src/components/settings/AgentTaskSettings.tsx"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-15-POLL-INTERVAL-MS","k":"code#2","i":0,"c":"app/src/ai/providers/ReplicateProvider.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-15-POLL-INTERVAL-MS","k":"code#3","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -3444,9 +3444,9 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-16-DEFAULT-THROTTLE-MS","k":"reopenWhen","i":0,"c":"① 承接 **B5-2 续项**（先全仓 grep，整键改完才消键）；② 若三渠道节流日后要**集中到渠道契约真源**（如 `channels/<kind>/contract`）⇒ 属架构选择，须单独裁定；③ 副本写回 ⇒ 守卫或棘轮（239 键）阻断。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-16-DEFAULT-THROTTLE-MS","k":"notes","i":0,"c":"取证：3 处同名 `DEFAULT_THROTTLE_MS` **全为文件内私有**（全仓 6 处 = 定义 1 + 用法 1 ×3，无 export 面）；取值 800/1000/1500 各受渠道上游限流约束 ⇒ 按渠道消歧、**数值一字未改**、**零跨文件复改**。同族非本键 `STREAMING_UPDATE_THROTTLE_MS`（飞书）未动。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-16-DEFAULT-THROTTLE-MS","k":"notes","i":1,"c":"效果：240 → 239 键。验证：typecheck 0 · 守卫 32 pass/0 fail · channels 域 324 pass · 5 门禁 exit 0。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-16-DEFAULT-THROTTLE-MS","k":"code#0","i":0,"c":"app/src/channels/discord/streaming-message.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-16-DEFAULT-THROTTLE-MS","k":"code#1","i":0,"c":"app/src/channels/matrix/streaming-message.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-16-DEFAULT-THROTTLE-MS","k":"code#2","i":0,"c":"app/src/channels/msteams/streaming-message.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-16-DEFAULT-THROTTLE-MS","k":"code#0","i":0,"c":"packages/channels/src/channels/discord/streaming-message.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-16-DEFAULT-THROTTLE-MS","k":"code#1","i":0,"c":"packages/channels/src/channels/matrix/streaming-message.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-16-DEFAULT-THROTTLE-MS","k":"code#2","i":0,"c":"packages/channels/src/channels/msteams/streaming-message.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-16-DEFAULT-THROTTLE-MS","k":"code#3","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-16-DEFAULT-THROTTLE-MS","k":"code#4","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-16-DEFAULT-THROTTLE-MS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -3533,7 +3533,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-24-ENABLED","k":"notes","i":1,"c":"PATH_SHIELD_E2E_ENABLED`）。效果：232 → 231 键。验证：typecheck 0 · 守卫 40 pass · 域测试 378 pass · 5 门禁 exit 0。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-24-ENABLED","k":"code#0","i":0,"c":"packages/infra/src/monitoring/memProfile.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-24-ENABLED","k":"code#1","i":0,"c":"packages/infra/src/monitoring/memoryPressure/MemoryPressureMonitor.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-24-ENABLED","k":"code#2","i":0,"c":"app/src/query/queryProfiler.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-24-ENABLED","k":"code#2","i":0,"c":"packages/query/src/query/queryProfiler.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-24-ENABLED","k":"code#3","i":0,"c":"app/tests/evals/pathShieldSandboxE2E.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-24-ENABLED","k":"code#4","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-24-ENABLED","k":"code#5","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
@@ -3553,10 +3553,10 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-26-DEFAULT-TIMEOUT","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05 + SB03/SB05"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-26-DEFAULT-TIMEOUT","k":"reopenWhen","i":0,"c":"① 承接 **B5-2 续项**（先全仓 grep，整键改完才消键）；② `httpUtils` 的 `DEFAULT_TIMEOUT` 零外部消费者 ⇒ 是否「假真源」待裁定；③ 副本写回 ⇒ 守卫或棘轮（229 键）阻断。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-26-DEFAULT-TIMEOUT","k":"notes","i":0,"c":"取证：3 处同名 `DEFAULT_TIMEOUT` 均 `30_000`，但语义分属两域 ⇒ 按域消歧、**取值一字未改**：① `client/src/services/httpUtils.ts` **保留原名**（零导入消费者）；② `toolService.ts` ⇒ `TOOL_CALL_DEFAULT_TIMEOUT_MS`；③ `"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-26-DEFAULT-TIMEOUT","k":"notes","i":1,"c":"app/src/session/SessionLock.ts`（**CD07 关键域**）⇒ `SESSION_LOCK_ACQUIRE_TIMEOUT_MS`（避开既有 `SESSION_LOCK_DEFAULT_TIMEOUT_MS`）。效果：230 → 229 键。验证：app/client typecheck 0 · 守卫 42 pass · "}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-26-DEFAULT-TIMEOUT","k":"notes","i":1,"c":"packages/service/src/session/SessionLock.ts`（**CD07 关键域**）⇒ `SESSION_LOCK_ACQUIRE_TIMEOUT_MS`（避开既有 `SESSION_LOCK_DEFAULT_TIMEOUT_MS`）。效果：230 → 229 键。验证：app/client typecheck 0 · 守卫 42 pass · "}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-26-DEFAULT-TIMEOUT","k":"notes","i":2,"c":"session 域 311 pass · 5 门禁 exit 0。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-26-DEFAULT-TIMEOUT","k":"code#0","i":0,"c":"client/src/services/toolService.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-26-DEFAULT-TIMEOUT","k":"code#1","i":0,"c":"app/src/session/SessionLock.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-26-DEFAULT-TIMEOUT","k":"code#1","i":0,"c":"packages/service/src/session/SessionLock.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-26-DEFAULT-TIMEOUT","k":"code#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-26-DEFAULT-TIMEOUT","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-26-DEFAULT-TIMEOUT","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -3643,7 +3643,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#2","i":0,"c":"app/src/ai/modelRouter.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#3","i":0,"c":"app/src/ai/models/orphanModels.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#4","i":0,"c":"app/src/infrastructure/http/handlers/chat-handlers.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#5","i":0,"c":"app/src/session/key/LegacyKeyAdapter.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#5","i":0,"c":"packages/service/src/session/key/LegacyKeyAdapter.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#6","i":0,"c":"app/src/tools/VideoGenerateTool/VideoGenerateTool.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#7","i":0,"c":"app/src/tools/ImageGenerateTool/ImageGenerationRouter.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#8","i":0,"c":"app/src/tools/ImageGenerateTool/ImageGenerateTool.ts"}
@@ -3700,7 +3700,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-36-IMAGE-EXTENSIONS","k":"reopenWhen","i":1,"c":"）⇒ 若未来确认某两域语义同事实，可走合一流程另案收敛，**不得**在本次消歧中合并；⑤ FileReadTool 的导出面 `IMAGE_EXTENSIONS_LIST` 保留（对外契约），其数据源已改 `FILE_READ_IMAGE_EXTENSIONS`。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-36-IMAGE-EXTENSIONS","k":"notes","i":0,"c":"**自证**：app typecheck 0 · 守卫第 52 例（MediaCache / attachments / imageProcessor 三文件无裸 `IMAGE_EXTENSIONS =` 定义 + 新名与使用处逐字钉住 + 导出面 `IMAGE_EXTENSIONS_LIST` 数据源改新名）52 pass · `lint:consts` "}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-36-IMAGE-EXTENSIONS","k":"notes","i":1,"c":"重新播种基线：`同名常量:IMAGE_EXTENSIONS` **3→0**（219→218 键），且可下调键仅此一个（无意外新增）· 门禁族 6 把 exit 0（含 drift）。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-36-IMAGE-EXTENSIONS","k":"code#0","i":0,"c":"app/src/channels/cache/MediaCache.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-36-IMAGE-EXTENSIONS","k":"code#0","i":0,"c":"packages/channels/src/channels/cache/MediaCache.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-36-IMAGE-EXTENSIONS","k":"code#1","i":0,"c":"app/src/tools/BriefTool/attachments.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-36-IMAGE-EXTENSIONS","k":"code#2","i":0,"c":"app/src/tools/FileReadTool/imageProcessor.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-36-IMAGE-EXTENSIONS","k":"code#3","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -3759,7 +3759,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-41-STREAM-IDLE-TIMEOUT-MS","k":"notes","i":0,"c":"**自证**：app typecheck 0 · client typecheck 0 · 守卫第 57 例（app 契约真源标注 + 取值钉住 + client 无裸 `STREAM_IDLE_TIMEOUT_MS` 定义 + `SSE_IDLE_TIMEOUT_MS` 改名 + 默认参数 + import + 两使用点 + `chatService.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-41-STREAM-IDLE-TIMEOUT-MS","k":"notes","i":1,"c":"` 全文件无旧名残留）57 pass · `lint:consts` 重新播种基线：`同名常量:STREAM_IDLE_TIMEOUT_MS` **2→0**（214→213 键），且可下调键仅此一个（无意外新增）· 门禁族 6 把 exit 0（含 drift）· 改名后取值（300_000）与行为零变化；`configManager.env('"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-41-STREAM-IDLE-TIMEOUT-MS","k":"notes","i":2,"c":"STREAM_IDLE_TIMEOUT_MS')`（streamMessageFlow.ts）为 env 键名字符串、非常量定义，不受本键影响。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-41-STREAM-IDLE-TIMEOUT-MS","k":"code#0","i":0,"c":"app/src/channels/routing/messageRouterContract.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-41-STREAM-IDLE-TIMEOUT-MS","k":"code#0","i":0,"c":"packages/channels/src/channels/routing/messageRouterContract.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-41-STREAM-IDLE-TIMEOUT-MS","k":"code#1","i":0,"c":"client/src/utils/readWithIdleTimeout.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-41-STREAM-IDLE-TIMEOUT-MS","k":"code#2","i":0,"c":"client/src/services/chatService.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-41-STREAM-IDLE-TIMEOUT-MS","k":"code#3","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -3810,7 +3810,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-45-REVIEW-GUIDELINES","k":"reopenWhen","i":2,"c":"REVIEW_GUIDELINES` 为「助手回复正文复核」数组（`.join('\\n')` 后注入，含 failClosed 精神：证据不足输出 ESCALATE）⇒ 改名 `TURN_REVIEW_GUIDELINES`。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-45-REVIEW-GUIDELINES","k":"notes","i":0,"c":"**自证**：app typecheck 0（三 tsconfig 全绿）· 守卫第 61 例（query 侧无裸定义 + `RESEARCH_REVIEW_GUIDELINES` 模板字符串头 + 使用点；chat 侧无裸定义 + `TURN_REVIEW_GUIDELINES` 数组头 + 使用点）61 pass / 577 expect · `"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-45-REVIEW-GUIDELINES","k":"notes","i":1,"c":"lint:consts` 重新播种基线：`同名常量:REVIEW_GUIDELINES` **2→0**（210→209 键），且可下调键仅此一个（无意外新增）· 门禁族 6 把 exit 0（含 drift）· 两处均为文件内私有（Grep 确认无跨文件引用），改名后取值与行为零变化。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-45-REVIEW-GUIDELINES","k":"code#0","i":0,"c":"app/src/query/CompetitiveStrategyOrchestrator.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-45-REVIEW-GUIDELINES","k":"code#0","i":0,"c":"packages/query/src/query/CompetitiveStrategyOrchestrator.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-45-REVIEW-GUIDELINES","k":"code#1","i":0,"c":"app/src/chat/quality/turnQualityReviewer.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-45-REVIEW-GUIDELINES","k":"code#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-45-REVIEW-GUIDELINES","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
@@ -3919,7 +3919,7 @@
 {"id":"BUDGET-USD-LEDGER","k":"notes","i":2,"c":"clearRelief 不对称而静默，致 unlock-today 放行不可追溯）。③ **验证**：新增 2 个源码守卫（usdLedgerModelArgGuard：正向断言两处调用均带 model + 负向断言不存在缺参形态；dailyBudgetReliefLogGuard：relief_applied 存在 / relief_revoked 对称 "}
 {"id":"BUDGET-USD-LEDGER","k":"notes","i":3,"c":"/ kind+expiresAt+effectiveLimit 三字段齐备），本批 5 例 pass；typecheck 0 错；lint:arch 0 错；6 门禁 exit 0。④ **如实缺口（e2eVerified=false）**：修复需重启应用方可生效，本期未做「重启后对账闭合」的端到端复核（运行中进程仍执行旧代码）。"}
 {"id":"BUDGET-USD-LEDGER","k":"code#0","i":0,"c":"app/src/commands/builtin/chat/Chat.ts"}
-{"id":"BUDGET-USD-LEDGER","k":"code#1","i":0,"c":"app/src/query/DailyBudgetManager.ts"}
+{"id":"BUDGET-USD-LEDGER","k":"code#1","i":0,"c":"packages/query/src/query/DailyBudgetManager.ts"}
 {"id":"BUDGET-USD-LEDGER","k":"tests#0","i":0,"c":"app/tests/budget/usdLedgerModelArgGuard.test.ts"}
 {"id":"BUDGET-USD-LEDGER","k":"tests#1","i":0,"c":"app/tests/budget/dailyBudgetReliefLogGuard.test.ts"}
 {"id":"BUDGET-GHOST-RESUME","k":"title","i":0,"c":"Durable Resume 幽灵恢复根除：启动扫描过滤 phase=completed 的检查点（原被反复唤醒致会话轮次/消息重复累加）"}
@@ -3931,7 +3931,7 @@
 {"id":"BUDGET-GHOST-RESUME","k":"notes","i":1,"c":"恢复 8 次）。② **根因性质**：属状态检测缺口 —— 收尾态本应由持久化 phase 标记判定，而扫描侧未消费该标记。③ **修法**：scanPending 内新增 latest.phase === 'completed' 的显式跳过（仅在有 checkpoint 日志开关时打 info 说明跳过原因，保持可观测），与既有 suspend / "}
 {"id":"BUDGET-GHOST-RESUME","k":"notes","i":2,"c":"goal / 过期判据并列、互不覆盖。④ **验证**：新增行为回归 3 例（completed 不入候选；未收尾的仍入候选；suspend / goal / 过期仍按既有判据排除——防本次改动覆盖原判据），pass；typecheck 0 错；lint:arch 0 错；6 门禁 exit 0。⑤ **如实缺口（e2eVerified=false）**：未"}
 {"id":"BUDGET-GHOST-RESUME","k":"notes","i":3,"c":"在真实进程重启序列下端到端复跑「启动 → 不再恢复」全链；本次以隔离行为用例覆盖判据。⑥ 会话级残留（50 个检查点 + taor_checkpoints 行）已随该诊断会话的删除级联清除（2026-10-15）。"}
-{"id":"BUDGET-GHOST-RESUME","k":"code#0","i":0,"c":"app/src/query/ResumeManager.ts"}
+{"id":"BUDGET-GHOST-RESUME","k":"code#0","i":0,"c":"packages/query/src/query/ResumeManager.ts"}
 {"id":"BUDGET-GHOST-RESUME","k":"tests#0","i":0,"c":"app/tests/query/resumeScanCompletedGuard.test.ts"}
 {"id":"BUDGET-USD-RESTORE","k":"title","i":0,"c":"USD 日限额启用前置修复：initDailyBudget 漏传 usedUsd/debtUsd 致 restore 回落内存 0（USD 台账重启即清零、限额可被重启绕过），同批将 USD_BUDGET_GATE 静态默认改为 true"}
 {"id":"BUDGET-USD-RESTORE","k":"source","i":0,"c":"用户裁定（2026-10-15：「先启用 USD 日限额」→ 静态默认 true + 额度 $10/天）——真机实证状态文件 usedUsd=0.863076 而 API 返回 usedUsd:0，定位为 restore 漏传；上位口径见 .trae/specs/unified-budget-and-accounting.md（债四 S5 / "}
@@ -3944,7 +3944,7 @@
 {"id":"BUDGET-USD-RESTORE","k":"notes","i":3,"c":"化为 config 扁平键 costControl.dailyBudgetUSD，本次取值 $10/天。④ **验证**：新增行为回归 2 例（同日恢复 ⇒ usedUsd/debtUsd 如实回填；跨日恢复 ⇒ 已用归零、欠账计入新的一天）+ 源码守卫 1 例（断言 initDailyBudget 的 restore 必须透传两字段），pass；"}
 {"id":"BUDGET-USD-RESTORE","k":"notes","i":4,"c":"typecheck 0 错；lint:arch 0 错；6 门禁 exit 0。⑤ **如实缺口（e2eVerified=false）**：USD 闸门生效需重启应用，本期未做「重启 → 限额拦截」端到端复核；且运行中进程仍执行旧代码（GET /v1/cost/daily-budget 显示 usedUsd=0.863076 为旧代码内存态）。⑥ **观察项"}
 {"id":"BUDGET-USD-RESTORE","k":"notes","i":5,"c":"**：token 轨上限 50 万/天 vs 当日实耗 1318 万（约 26 倍）⇒ 恒 locked，仅靠 relief: unlock-today 放行；该口径是否调整待用户裁定，不在本条目范围内。"}
-{"id":"BUDGET-USD-RESTORE","k":"code#0","i":0,"c":"app/src/query/DailyBudgetManager.ts"}
+{"id":"BUDGET-USD-RESTORE","k":"code#0","i":0,"c":"packages/query/src/query/DailyBudgetManager.ts"}
 {"id":"BUDGET-USD-RESTORE","k":"code#1","i":0,"c":"packages/kernel/src/core/featureFlags.ts"}
 {"id":"BUDGET-USD-RESTORE","k":"tests#0","i":0,"c":"app/tests/budget/dailyBudgetUsdRestore.test.ts"}
 {"id":"BUDGET-USD-PRIMARY","k":"title","i":0,"c":"日预算闸门主口径切金额（债四 S3）：Token 轨降级为观测告警，USD 为唯一硬闸门；未配 limitUsd 回落 Token 口径"}
@@ -3964,9 +3964,9 @@
 {"id":"BUDGET-USD-PRIMARY","k":"notes","i":9,"c":"：app 侧受影响面 241 例 pass / 0 fail（含 usdGate 11 例新契约 + 防回流源码守卫）；client 侧 vitest 20 例 pass；`typecheck`（app 三 tsconfig + client）全 exit 0；`i18n:check` 100% 一致；6 门禁族（"}
 {"id":"BUDGET-USD-PRIMARY","k":"notes","i":10,"c":"arch/unref/fix-evidence/consts/evidence-linewidth/evidence-views-drift）全 exit 0。⑨ **如实缺口（e2eVerified=false）**：未做「真机重启 → 金额闸门拦截 → relief 放行 → 续跑」端到端复核；且运行中进程仍执行旧代码，需重启方生效。⑩ 旧「USD-4 "}
 {"id":"BUDGET-USD-PRIMARY","k":"notes","i":11,"c":"双轨从严」契约与用例已随本片**作废并改写**（文件仍为 `dailyBudgetUsdGate.test.ts`，头注已改述为 S3 单轨契约）。"}
-{"id":"BUDGET-USD-PRIMARY","k":"code#0","i":0,"c":"app/src/query/DailyBudgetManager.ts"}
-{"id":"BUDGET-USD-PRIMARY","k":"code#1","i":0,"c":"app/src/query/dailyBudgetGate.ts"}
-{"id":"BUDGET-USD-PRIMARY","k":"code#2","i":0,"c":"app/src/query/dailyBudgetSnapshot.ts"}
+{"id":"BUDGET-USD-PRIMARY","k":"code#0","i":0,"c":"packages/query/src/query/DailyBudgetManager.ts"}
+{"id":"BUDGET-USD-PRIMARY","k":"code#1","i":0,"c":"packages/query/src/query/dailyBudgetGate.ts"}
+{"id":"BUDGET-USD-PRIMARY","k":"code#2","i":0,"c":"packages/query/src/query/dailyBudgetSnapshot.ts"}
 {"id":"BUDGET-USD-PRIMARY","k":"code#3","i":0,"c":"app/src/infrastructure/http/handlers/daily-budget-handlers.ts"}
 {"id":"BUDGET-USD-PRIMARY","k":"code#4","i":0,"c":"app/src/commands/builtin/budget/Budget.ts"}
 {"id":"BUDGET-USD-PRIMARY","k":"code#5","i":0,"c":"client/src/services/usageService.ts"}
@@ -4016,8 +4016,8 @@
 {"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"notes","i":9,"c":"dailyBudgetGate.test.ts` 显式 `setLimit(DEFAULT_DAILY_BUDGET_TOKENS)` 使断言与机器无关。⑦ **真机确认**：清空金额上限 ⇒ `unit=tokens · mode=normal`（Token 口径不产档位），同一入口 `POST /v1/translate` **未被预算拦**（Token"}
 {"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"notes","i":10,"c":" 越界不再拦）；恢复 `limitUsd=10` ⇒ `unit=usd · mode=normal`。⑧ **验证**：受影响面 **275 例 pass / 0 fail**；app typecheck exit 0；6 门禁族全 exit 0。⑨ **如实缺口**：前端面板在「未配置金额上限」（`unit=tokens`）时仍以「日上限」措辞展示该阈值"}
 {"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"notes","i":11,"c":" ⇒ 措辞误导（reopenWhen ④），本次未改前端。"}
-{"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"code#0","i":0,"c":"app/src/query/DailyBudgetManager.ts"}
-{"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"code#1","i":0,"c":"app/src/query/dailyBudgetGate.ts"}
+{"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"code#0","i":0,"c":"packages/query/src/query/DailyBudgetManager.ts"}
+{"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"code#1","i":0,"c":"packages/query/src/query/dailyBudgetGate.ts"}
 {"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"code#2","i":0,"c":"app/src/tasks/LongRunningTaskOrchestrator.ts"}
 {"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"tests#0","i":0,"c":"app/tests/query/dailyBudgetGate.test.ts"}
 {"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"tests#1","i":0,"c":"app/tests/query/dailyBudgetUsdGate.test.ts"}
@@ -4057,7 +4057,7 @@
 {"id":"BUDGET-CLI-CHANNEL-WORDING","k":"code#0","i":0,"c":"app/src/commands/builtin/budget/Budget.ts"}
 {"id":"BUDGET-CLI-CHANNEL-WORDING","k":"code#1","i":0,"c":"app/src/commands/builtin/budget/index.ts"}
 {"id":"BUDGET-CLI-CHANNEL-WORDING","k":"code#2","i":0,"c":"app/src/commands/loader/CommandLoader.ts"}
-{"id":"BUDGET-CLI-CHANNEL-WORDING","k":"code#3","i":0,"c":"app/src/channels/routing/messageRouterContract.ts"}
+{"id":"BUDGET-CLI-CHANNEL-WORDING","k":"code#3","i":0,"c":"packages/channels/src/channels/routing/messageRouterContract.ts"}
 {"id":"BUDGET-CLI-CHANNEL-WORDING","k":"tests#0","i":0,"c":"app/tests/budget/budgetCommand.test.ts"}
 {"id":"BUDGET-E2E-FOUND-DEFECTS","k":"title","i":0,"c":"真机 E2E 发现的四处缺陷修复：面板 Token 阈值输入绑定错（回显 50 且保存覆盖真值 30,000,000）、无闸门按基座取值、i18n 星号字面渲染、冗余「当前有效上限」卡；CLI 同步"}
 {"id":"BUDGET-E2E-FOUND-DEFECTS","k":"source","i":0,"c":"用户 2026-10-15 指令「先补全 e2e 验证」—— 真机验证（浏览器面板 ×2 态 + 运行中应用的 POST /v1/commands/execute 跑 /budget status ×2 态）据此发现"}
@@ -4112,7 +4112,7 @@
 {"id":"SESSION-COMBINED-GATEWAY-INIT","k":"notes","i":21,"c":"现在 **`15:16:13.802`**，即由该次写入触发而非启动期（本次启动只有「已注册到 DI 容器（懒引导）」与 `模块初始化完成: session (1ms)`）；紧接 `sendMessage: 按归属 Agent 写入`（`15:16:13.803`，owner=default）；trace `"}
 {"id":"SESSION-COMBINED-GATEWAY-INIT","k":"notes","i":22,"c":"ch_trc_qq_1792077373515_f7a9` 的 `shared_session` = ok（该阶段耗时 302ms，即首用的引导开销），`shared-context/messages.jsonl` 由 1 行增至 2 行（第 2 行 content=hi、metadata.channel=qq）⇒ 懒引导在生产首次使用时确实生效。"}
 {"id":"SESSION-COMBINED-GATEWAY-INIT","k":"code#0","i":0,"c":"app/src/modules/ModuleInitializer.ts"}
-{"id":"SESSION-COMBINED-GATEWAY-INIT","k":"code#1","i":0,"c":"app/src/session/gateway/CombinedSessionGateway.ts"}
+{"id":"SESSION-COMBINED-GATEWAY-INIT","k":"code#1","i":0,"c":"packages/service/src/session/gateway/CombinedSessionGateway.ts"}
 {"id":"SESSION-COMBINED-GATEWAY-INIT","k":"tests#0","i":0,"c":"app/tests/session/combinedGatewayWiring.test.ts"}
 {"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"title","i":0,"c":"预算口径遗留清理：删死 i18n 键 `cost.dailyLimitEffectiveLimit`、统一内部日志哨兵/注释到金额闸门口径、并更正 `formatBudgetExhausted` Token 分支的「死面」误判"}
 {"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"source","i":0,"c":"台账 reopenWhen 遗留三项（用户 2026-10-15 指令「清理台账 reopenWhen 遗留」）"}
@@ -4130,10 +4130,10 @@
 {"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"notes","i":8,"c":"dailyBudgetSse.contract）；`lint:locale` PASS；6 门禁族 exit 0。"}
 {"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"code#0","i":0,"c":"client/src/i18n/locales/zh/knowledge.ts"}
 {"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"code#1","i":0,"c":"client/src/i18n/locales/en/knowledge.ts"}
-{"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"code#2","i":0,"c":"app/src/query/DailyBudgetManager.ts"}
+{"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"code#2","i":0,"c":"packages/query/src/query/DailyBudgetManager.ts"}
 {"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"code#3","i":0,"c":"app/src/entrypoints/init.ts"}
 {"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"code#4","i":0,"c":"app/src/chat/orchestrator/preSendContextProtection.ts"}
-{"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"code#5","i":0,"c":"app/src/query/ReActLoop.ts"}
+{"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"code#5","i":0,"c":"packages/query/src/query/ReActLoop.ts"}
 {"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"code#6","i":0,"c":"app/src/chat/ReActToolLoop.ts"}
 {"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"code#7","i":0,"c":"app/src/chat/ChatManager.ts"}
 {"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"tests#0","i":0,"c":"app/tests/query/budgetSuspendTaor.test.ts"}
@@ -4178,13 +4178,13 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS","k":"source","i":0,"c":"硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；基线 `.trae/architecture/hardcode-gate-baseline.json` 队列"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS","k":"reopenWhen","i":0,"c":"① 若 `compaction/strategies/` 被拆成独立包（跨模块引用），需把真源一并上提，否则会触发跨模块深路径引用规则；② 若将来 warning/error 两级余量也要共享（当前 `WARNING_/ERROR_THRESHOLD_BUFFER_TOKENS` 仅 `autoCompact.ts` 内部使用），按同一口径上提到真源再引用；"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS","k":"reopenWhen","i":1,"c":"③ 若阈值改为按模型/上下文窗口配置化，须同步两处消费点并补契约测试。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS","k":"notes","i":0,"c":"① **判据**：两处 `const AUTOCOMPACT_BUFFER_TOKENS` 取值相同（`13000` 与 `13_000` 为同一数值）、语义相同（auto-compact 阈值的安全余量）⇒ 同值同事实 ⇒ 合一（B5-2 惯例）。② **真源选择**：`app/src/compaction/autoCompact.ts`（同模块核心，且该"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS","k":"notes","i":1,"c":"文件本就集中了 `WARNING_/ERROR_/MANUAL_COMPACT_BUFFER_TOKENS` 等同族常量）改为导出；`app/src/compaction/strategies/AutoCompactStrategy.ts` 删除私有一份、改 `import { AUTOCOMPACT_BUFFER_TOKENS } from '"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS","k":"notes","i":0,"c":"① **判据**：两处 `const AUTOCOMPACT_BUFFER_TOKENS` 取值相同（`13000` 与 `13_000` 为同一数值）、语义相同（auto-compact 阈值的安全余量）⇒ 同值同事实 ⇒ 合一（B5-2 惯例）。② **真源选择**：`packages/compaction/src/compaction/autoCompact.ts`（同模块核心，且该"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS","k":"notes","i":1,"c":"文件本就集中了 `WARNING_/ERROR_/MANUAL_COMPACT_BUFFER_TOKENS` 等同族常量）改为导出；`packages/compaction/src/compaction/strategies/AutoCompactStrategy.ts` 删除私有一份、改 `import { AUTOCOMPACT_BUFFER_TOKENS } from '"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS","k":"notes","i":2,"c":"../autoCompact'`（同模块内相对引用，不引入跨模块深路径）。**取值一字未改**（`13_000`）。③ **无环校验**：`autoCompact.ts` 仅 `import type` 自 `@modules/session/types/chat`，不引用策略侧 ⇒ 新边 `strategies → autoCompact` 不构成环；提交"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS","k":"notes","i":3,"c":"钩子的依赖校验器给出「循环依赖: 0」。④ 守卫：`sameNameConstsB2.test.ts` 新增 `B5-2-54`。⑤ 棘轮：基线键由 2 归零（198→195 键，与本批另两簇一并播种）。⑥ 验证：`tsc` exit 0；守卫测试文件 **75 例全绿**；`lint:consts` / `lint:arch` / `lint:unref`"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS","k":"notes","i":4,"c":" 全 exit 0。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS","k":"code#0","i":0,"c":"app/src/compaction/autoCompact.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS","k":"code#1","i":0,"c":"app/src/compaction/strategies/AutoCompactStrategy.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS","k":"code#0","i":0,"c":"packages/compaction/src/compaction/autoCompact.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS","k":"code#1","i":0,"c":"packages/compaction/src/compaction/strategies/AutoCompactStrategy.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"title","i":0,"c":"`SAFE_ENV_VARS` ×2 按域消歧（异值异域：托管设置白名单 / bash 继承白名单，取值一字未改）⇒ 同名常量:SAFE_ENV_VARS 2>0"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"source","i":0,"c":"硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；基线 `.trae/architecture/hardcode-gate-baseline.json` 队列"}
@@ -4256,11 +4256,11 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-61-DEFAULT-MAX-TOKENS","k":"source","i":0,"c":"硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；基线 `.trae/architecture/hardcode-gate-baseline.json` 队列"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-61-DEFAULT-MAX-TOKENS","k":"reopenWhen","i":0,"c":"① 若 evals 红队的 16384 被证明也应适用于通用场景（或反之），须先有真机/回归证据再统一，**不得**直接合并两个数值（4096 是通用默认，16384 是 R-1 实测调优值）；② 若该值改为按供应商/模型配置化（当前硬编码常量），按模型属性读 DB 的口径（`model-usage.md`：属性读 `model_registry`）另立条目"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-61-DEFAULT-MAX-TOKENS","k":"reopenWhen","i":1,"c":"，并撤销本真源；③ 若 `constants/common.ts#DEFAULT_MAX_TOKENS` 长期无消费者，按 CD05 先标记观察再定去留（本项未删）。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-61-DEFAULT-MAX-TOKENS","k":"notes","i":0,"c":"① **判据**：两处同名但**取值与语义不同** —— `app/src/constants/common.ts` 的 `DEFAULT_MAX_TOKENS = 4096`（通用默认输出上限）；`app/src/evals/adversarialProposer.ts` 的 `DEFAULT_MAX_TOKENS = 16_384`（**红队提案单次输出"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-61-DEFAULT-MAX-TOKENS","k":"notes","i":0,"c":"① **判据**：两处同名但**取值与语义不同** —— `app/src/constants/common.ts` 的 `DEFAULT_MAX_TOKENS = 4096`（通用默认输出上限）；`packages/evals/src/evals/adversarialProposer.ts` 的 `DEFAULT_MAX_TOKENS = 16_384`（**红队提案单次输出"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-61-DEFAULT-MAX-TOKENS","k":"notes","i":1,"c":"上限**，其文档注释已记录 R-1 真机调优依据：8192 会让快模型推理耗尽 ⇒ 提案 0 条，16384 ⇒ 12 条）。数值不同、用途不同 ⇒ 异值异域 ⇒ 按域消歧：evals 侧改 `ADVERSARIAL_DEFAULT_MAX_TOKENS`（与同文件既有 `ADVERSARIAL_DEFAULT_TIMEOUT_MS` 前缀一致，含声明 + "}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-61-DEFAULT-MAX-TOKENS","k":"notes","i":2,"c":"唯一消费点 `opts.maxTokens ?? …` + 1 处 `{@link}` 文档引用）。**保留通用真源名不改**。② 取证：该 evals 常量全仓**无外部 importer**（仅本文件内 2 处引用）⇒ 改名影响面封闭。③ 守卫：`sameNameConstsB2.test.ts` 新增 `B5-2-61`。④ **棘轮状态（如实）**："}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-61-DEFAULT-MAX-TOKENS","k":"notes","i":3,"c":"`lint:consts` 已给出「基线 2 → 当前 0」，但**本轮基线播种被跳过**（命令被取消）⇒ 基线文件尚未下调；门禁判 PASS 且提示可下调。⑤ 验证：app `tsc` exit 0；**80 例全绿**；`lint:consts` / `lint:arch` / `lint:unref` 全 exit 0。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-61-DEFAULT-MAX-TOKENS","k":"code#0","i":0,"c":"app/src/evals/adversarialProposer.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-61-DEFAULT-MAX-TOKENS","k":"code#0","i":0,"c":"packages/evals/src/evals/adversarialProposer.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-61-DEFAULT-MAX-TOKENS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-62-MAX-TOOL-RESULT-BYTES","k":"title","i":0,"c":"`MAX_TOOL_RESULT_BYTES` ×2 按域消歧（异值异域：上下文注入上限 400_000 / 存储落盘阈值 1_000_000，取值一字未改）⇒ 同名常量:MAX_TOOL_RESULT_BYTES 2>0"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-62-MAX-TOOL-RESULT-BYTES","k":"source","i":0,"c":"硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；基线 `.trae/architecture/hardcode-gate-baseline.json` 队列"}
@@ -4477,11 +4477,11 @@
 {"id":"FORK-BOUNDARY-BEFORE-MESSAGE","k":"notes","i":8,"c":"；app + client `tsc --noEmit` 均 0。⑤ 前端同步：`ChatInput` 不再需要客户端启发式 ⇒ 统一传 `truncateBeforeMessageId`，并在 fork 成功后**清 `editTarget`**（否则 `streamMessage` 会拿**旧会话**的 messageId 去截新会话，产生 404 噪音"}
 {"id":"FORK-BOUNDARY-BEFORE-MESSAGE","k":"notes","i":9,"c":"）；**删除** `client/src/stores/chat/branchBoundary.ts` 及其 4 例测试（边界判据下沉后端，客户端自算不可信：`lastEventSeq` 常为 null、`withPaginationSeq` 合成的是分页游标、写盘 tail 戳可能落在未闭合 turn 内）。⑥ 门禁：`lint:consts` / `"}
 {"id":"FORK-BOUNDARY-BEFORE-MESSAGE","k":"notes","i":10,"c":"lint:arch` / `lint:unref` / `lint:fix-evidence` / `lint:evidence-linewidth` / `lint:evidence-views-drift` **全绿**。⑦ **过程中被自身的门禁挡住一次（如实记录）**：给 `SessionGateway.ts` 加守卫后该文件达 **2027 行**"}
-{"id":"FORK-BOUNDARY-BEFORE-MESSAGE","k":"notes","i":11,"c":"，触发 R04-001「单文件 ≤2000 行」**error** ⇒ 把边界解析助手外迁为 `app/src/session/gateway/ForkBoundary.ts`（与 `LiteSessionLister` / `GatewayFtsIndex` 同批外迁惯例，「只搬不改」），宿主回到 **1988 行**、`lint:arch` 复绿（错误 "}
+{"id":"FORK-BOUNDARY-BEFORE-MESSAGE","k":"notes","i":11,"c":"，触发 R04-001「单文件 ≤2000 行」**error** ⇒ 把边界解析助手外迁为 `packages/service/src/session/gateway/ForkBoundary.ts`（与 `LiteSessionLister` / `GatewayFtsIndex` 同批外迁惯例，「只搬不改」），宿主回到 **1988 行**、`lint:arch` 复绿（错误 "}
 {"id":"FORK-BOUNDARY-BEFORE-MESSAGE","k":"notes","i":12,"c":"0 / 警告 5，警告均为存量）。⑧ **2026-10-16 补记（本批 `FORK-PREFIX-WINDOW`）**：本条 ①（降级路径可能回显旧消息）的**实际可达性**经实测修正 —— 85 个会话中 24 个无 `events.jsonl` 的会话 user 消息数全为 0（空壳）；61 个双存会话里仅 `sess_001` 存在「user 消息"}
 {"id":"FORK-BOUNDARY-BEFORE-MESSAGE","k":"notes","i":13,"c":"缺事件」，且其回退也因窗口误判被拒 ⇒ 当时**未复现**「回显旧消息」；真正命中并可证的是两类窗口误判（详见 `FORK-PREFIX-WINDOW`）。"}
-{"id":"FORK-BOUNDARY-BEFORE-MESSAGE","k":"code#0","i":0,"c":"app/src/session/gateway/ForkBoundary.ts"}
-{"id":"FORK-BOUNDARY-BEFORE-MESSAGE","k":"code#1","i":0,"c":"app/src/session/SessionGateway.ts"}
+{"id":"FORK-BOUNDARY-BEFORE-MESSAGE","k":"code#0","i":0,"c":"packages/service/src/session/gateway/ForkBoundary.ts"}
+{"id":"FORK-BOUNDARY-BEFORE-MESSAGE","k":"code#1","i":0,"c":"packages/service/src/session/SessionGateway.ts"}
 {"id":"FORK-BOUNDARY-BEFORE-MESSAGE","k":"code#2","i":0,"c":"app/src/chat/ChatManager.ts"}
 {"id":"FORK-BOUNDARY-BEFORE-MESSAGE","k":"code#3","i":0,"c":"app/src/runtime/api/sessionAgentOps.ts"}
 {"id":"FORK-BOUNDARY-BEFORE-MESSAGE","k":"code#4","i":0,"c":"app/src/runtime/api/CoreAPI.ts"}
@@ -4513,14 +4513,14 @@
 {"id":"FORK-PREFIX-WINDOW","k":"notes","i":13,"c":"]` 漂移必被发现 / 截在轮边界 ⇒ ended early / 缺末条 turn/end 被修复合成 ⇒ 内容漂移仍判否）；扩展 `forkBoundaryBeforeMessage.test.ts` +4 例（长会话全量 fork、长会话 truncateBeforeMessageId、标题锁落/不落）。**负向对照**：临时把 `iterEvents"}
 {"id":"FORK-PREFIX-WINDOW","k":"notes","i":14,"c":"` 降级为旧的窗口读 ⇒ **7 例转红**（三项判据全部命中），改回即绿。`bun test tests/session` **329 例绿**；app + client `tsc --noEmit` 均 0。⑧ 探针产生的分支会话已全部用 API 删除。⑨ **本批自身的一次工具失误（如实记录）**：追加写入点行时用了 `-NoNewline`，而上一行"}
 {"id":"FORK-PREFIX-WINDOW","k":"notes","i":15,"c":"末尾（上批留下）本无换行 ⇒ 两行 JSON 被粘连、`readJsonl` 解析失败；已按「在最后一个对象前补换行 + 文件末尾补换行」修复（本条即修复后写入）。另：本明细首版在 JSON 字符串里裸写了 ASCII 双引号（CS08 老坑，`退化为\"截断片段自比\"` 处）⇒ 整体重写为中文引号「」。"}
-{"id":"FORK-PREFIX-WINDOW","k":"code#0","i":0,"c":"app/src/session/gateway/ForkBoundary.ts"}
-{"id":"FORK-PREFIX-WINDOW","k":"code#1","i":0,"c":"app/src/session/SessionGateway.ts"}
+{"id":"FORK-PREFIX-WINDOW","k":"code#0","i":0,"c":"packages/service/src/session/gateway/ForkBoundary.ts"}
+{"id":"FORK-PREFIX-WINDOW","k":"code#1","i":0,"c":"packages/service/src/session/SessionGateway.ts"}
 {"id":"FORK-PREFIX-WINDOW","k":"code#2","i":0,"c":"client/src/components/ChatArea/ChatInput.tsx"}
 {"id":"FORK-PREFIX-WINDOW","k":"tests#0","i":0,"c":"app/tests/session/forkPrefixPaging.test.ts"}
 {"id":"FORK-PREFIX-WINDOW","k":"tests#1","i":0,"c":"app/tests/session/forkBoundaryBeforeMessage.test.ts"}
 {"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"title","i":0,"c":"客户端 derive 的「已知事件类型」判据去手写副本（承 D-57 单一事实源）：消掉每轮刷屏的「遇到未知事件类型」误报（真机 61 会话累计 ≈3775 条）并补守则测试"}
 {"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"source","i":0,"c":"用户 2026-10-16「请排查前端未识别 session/title 事件类型的告警」（承 FORK-PREFIX-WINDOW 的 reopenWhen ③）"}
-{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"reopenWhen","i":0,"c":"① 本轮只治**客户端 derive 这一处**手写副本：后端早已是派生口径（`app/src/session/types/knownEventTypes.ts` 用 `satisfies` + 穷尽断言）。若将来别处再引入「事件名清单」，应直接 import `LIRI_EVENT_NAMES`；新守则测试只覆盖 derive 这一处，不构成全局门禁。② "}
+{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"reopenWhen","i":0,"c":"① 本轮只治**客户端 derive 这一处**手写副本：后端早已是派生口径（`packages/service/src/session/types/knownEventTypes.ts` 用 `satisfies` + 穷尽断言）。若将来别处再引入「事件名清单」，应直接 import `LIRI_EVENT_NAMES`；新守则测试只覆盖 derive 这一处，不构成全局门禁。② "}
 {"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"reopenWhen","i":1,"c":"`client/src/components/Trajectory/TrajectoryFilter.tsx` 的事件筛选下拉是**展示用子集**（非「已知/未知」判据），不随名单扩张 —— 有意为之；若要求筛选覆盖全部类型需另行评估（未处理）。③ 20 个缺失类型在 shared 自注里均为 log-only / 不入消息 surface，且 `"}
 {"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"reopenWhen","i":2,"c":"assistant/code_run` 另有显式 `case` ⇒ 本轮**无 UI 内容丢失**，只治噪音与「诊断信号失效」。④ 已确认的本轮遗留（与本条无关）：真机 `net::ERR_ABORTED /v1/events`（新建会话时旧 SSE 流被主动断开，属良性）。⑤ **2026-10-16 已收口**：② 的轨迹面板轨迹筛选覆盖问题已修（类型按"}
 {"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"reopenWhen","i":3,"c":"钮改动态候选 + 标签单一实现，真机 13 个 chip、点选 383→31/383），详见 `TRAJECTORY-TYPE-FILTER-DYNAMIC`。"}
@@ -4774,8 +4774,8 @@
 {"id":"TOOLVIS-P4B-TOOLPROFILE","k":"code#4","i":0,"c":"app/src/runtime/api/sessionAgentOps.ts"}
 {"id":"TOOLVIS-P4B-TOOLPROFILE","k":"code#5","i":0,"c":"packages/service/src/runtime/api/sessionTitling.ts"}
 {"id":"TOOLVIS-P4B-TOOLPROFILE","k":"code#6","i":0,"c":"app/src/infrastructure/http/handlers/session-handlers.ts"}
-{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"code#7","i":0,"c":"app/src/session/models/SessionMetadata.ts"}
-{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"code#8","i":0,"c":"app/src/session/types/UnifiedSession.ts"}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"code#7","i":0,"c":"packages/service/src/session/models/SessionMetadata.ts"}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"code#8","i":0,"c":"packages/service/src/session/types/UnifiedSession.ts"}
 {"id":"TOOLVIS-P4B-TOOLPROFILE","k":"code#9","i":0,"c":"client/src/services/sessionService.ts"}
 {"id":"TOOLVIS-P4B-TOOLPROFILE","k":"code#10","i":0,"c":".trae/docs/api-spec.md"}
 {"id":"TOOLVIS-P4B-TOOLPROFILE","k":"tests#0","i":0,"c":"app/tests/tools/toolProfile.test.ts"}
@@ -5087,7 +5087,7 @@
 {"id":"SESSION-ADAPTER-METADATA-BRIDGE","k":"notes","i":9,"c":"**缓存路径**上也是安全的（`models/SessionMetadata.ts` 的构造器与 `toJSON` 均含 `pinned`），本桥是唯一缺口且无消费者；③ 本片**不改行为**（纯注释）⇒ 零风险。【验证】`bun run typecheck` 0 错 · `bun test tests/session` **332 pass / 0 "}
 {"id":"SESSION-ADAPTER-METADATA-BRIDGE","k":"notes","i":10,"c":"fail**（受扰域回归）· 门禁 `consts`/`arch`/`unref`/`exit`/`refs`/`models` + `lint:fix-evidence` / `evidence-linewidth` / `evidence-views-drift` / `doc-code` 全绿。【如实边界】无单测改动（改的是注释，且**不该**为「无消"}
 {"id":"SESSION-ADAPTER-METADATA-BRIDGE","k":"notes","i":11,"c":"费者的桥」新写断言 —— 那会把死面固化成期望）；本条目**不**主张该桥可删（明确反对：CD07）。"}
-{"id":"SESSION-ADAPTER-METADATA-BRIDGE","k":"code#0","i":0,"c":"app/src/session/storage/UnifiedStorageAdapter.ts"}
+{"id":"SESSION-ADAPTER-METADATA-BRIDGE","k":"code#0","i":0,"c":"packages/service/src/session/storage/UnifiedStorageAdapter.ts"}
 {"id":"LINTCAPS-CONSISTENCY-GATE","k":"title","i":0,"c":"新建能力声明静态一致性门禁 lint:capabilities（C1–C7）；并修 capabilities.default.yaml 4 处废弃 token（code→coding）"}
 {"id":"LINTCAPS-CONSISTENCY-GATE","k":"source","i":0,"c":"兑现 `LINTMODELS-CAPABILITY-SCOPE` 的 reopenWhen ② ——「应另立一个按 tracked 事实源（`capabilities.default.yaml`）做静态一致性检查的门禁，而不是复活 `lint:models` 的能力覆盖子检查」（后者输入是用户启用模型 ⇒ CI 恒未执行）"}
 {"id":"LINTCAPS-CONSISTENCY-GATE","k":"reopenWhen","i":0,"c":"① 若 `ALL_TASK_TYPES` 新增任务类型而 `taskMappings` 未登记 ⇒ C7 变红 —— **这是设计意图**（不是缺陷）：补一条映射行即可（`requiredCapabilities` 可为空数组，参 `knowledge_compile`）；② 若把 `capabilities[].taskTypes` 从「描述性 / UI "}
@@ -5363,8 +5363,8 @@
 {"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"notes","i":18,"c":"出 A（B 因已被唤醒而 release，如期消失）。影响面：挂起清单出现**幽灵条目**（重启即消失）、全局放行会尝试唤醒已不存在的会话 ⇒ 唤醒失败回滚 + warn（无害但噪音）。判据：v1.6 的「幽灵挂起」只治理了**检查点**导致的重启重登记，未覆盖**删除时的内存登记**。**未在本片顺手修**（避免夹带，属独立变更）。\n【另一如实说明】热重载"}
 {"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"notes","i":19,"c":"使启动扫描按 spec §4.4 重新登记了用户的存量挂起会话（`restored_budget_suspend`，只登记不续跑）—— 属既有设计、非本片引入；该会话现有一条**只唤醒它自己**的「继续」入口（本片修复后不再连带唤醒别人）。\n【本片不作变更的面】`'loop'`（上下文窗口预算）仍不挂起、guard 挂起仍不由 relief 唤醒；上述两类的"}
 {"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"notes","i":20,"c":"入口条件仍由各自判据决定（见 reopenWhen ④）。"}
-{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"code#0","i":0,"c":"app/src/query/budgetSuspend.ts"}
-{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"code#1","i":0,"c":"app/src/query/DailyBudgetManager.ts"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"code#0","i":0,"c":"packages/query/src/query/budgetSuspend.ts"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"code#1","i":0,"c":"packages/query/src/query/DailyBudgetManager.ts"}
 {"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"code#2","i":0,"c":"app/src/infrastructure/http/handlers/daily-budget-handlers.ts"}
 {"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"code#3","i":0,"c":"app/src/chat/ChatManager.ts"}
 {"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"code#4","i":0,"c":"client/src/components/ChatArea/ChatArea.tsx"}
@@ -5439,9 +5439,9 @@
 {"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"notes","i":8,"c":"card` 且成败文案如实。`budgetInlineRelief.test.ts` 同步（负向样例由 `feishu` 改为仍在白名单外的 `slack`）⇒ 该文件 **26 例**。两文件 **45 pass / 0 fail**；全量 **6651 pass / 0 fail**（6693 tests / 748 files）；`tsc` 0 错；`"}
 {"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"notes","i":9,"c":"lint:arch` 违规 0；`lint:size` 0 错；`lint:doc-code` 绿。\n【如实边界】① 飞书**无真机验证**（本机未配置/未启用）⇒ `e2eVerified=false`。② 长连接模式帧内**不回** toast（契约未文档化）。③ 其余 10 个通道未做（白名单外不发按钮）。④ `toast.type` 只用官方示例里的"}
 {"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"notes","i":10,"c":" `info`（枚举未获权威文档 ⇒ 不臆造 `success`/`error`）。"}
-{"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"code#0","i":0,"c":"app/src/channels/feishu/cardActionPayload.ts"}
-{"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"code#1","i":0,"c":"app/src/channels/feishu/FeishuChannel.ts"}
-{"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"code#2","i":0,"c":"app/src/channels/bridge/budgetReliefCard.ts"}
+{"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"code#0","i":0,"c":"packages/channels/src/channels/feishu/cardActionPayload.ts"}
+{"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"code#1","i":0,"c":"packages/channels/src/channels/feishu/FeishuChannel.ts"}
+{"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"code#2","i":0,"c":"packages/channels/src/channels/bridge/budgetReliefCard.ts"}
 {"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"code#3","i":0,"c":".trae/specs/channel-budget-inline-relief.md"}
 {"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"tests#0","i":0,"c":"app/tests/channels/feishuCardAction.test.ts"}
 {"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"tests#1","i":0,"c":"app/tests/channels/budgetInlineRelief.test.ts"}
@@ -5496,7 +5496,7 @@
 {"id":"QQ-FILE-UPLOAD-MEDIA-PAYLOAD","k":"notes","i":12,"c":"filePath:\"E:\\\\…\\\\app\\\\package.json\"}`** → `全链路完成`；全程**无** `QQ 媒体上传失败`、**无**「未能发送」反馈文本。**判据验真（防假阳性）**：`setupChannels.onOutboundFile` 只在 `sendFile` 返回 `success:false` 时 `throw`，而 `"}
 {"id":"QQ-FILE-UPLOAD-MEDIA-PAYLOAD","k":"notes","i":13,"c":"outboundFileRouter` 只有 `onOutboundFile` **不抛**才记「成功」；`success` 又来自 `sendQQMediaMessage` 的 `resp.ok` ⇒ 该条「成功」**同时**证明「上传 200（JSON + `file_data`）」与「发送 200（`media.file_info`）」。本次真机样本为"}
 {"id":"QQ-FILE-UPLOAD-MEDIA-PAYLOAD","k":"notes","i":14,"c":" **12KB 小文件**。"}
-{"id":"QQ-FILE-UPLOAD-MEDIA-PAYLOAD","k":"code#0","i":0,"c":"app/src/channels/qq/QQChannel.ts"}
+{"id":"QQ-FILE-UPLOAD-MEDIA-PAYLOAD","k":"code#0","i":0,"c":"packages/channels/src/channels/qq/QQChannel.ts"}
 {"id":"QQ-FILE-UPLOAD-MEDIA-PAYLOAD","k":"code#1","i":0,"c":".trae/specs/qq-file-transfer.md"}
 {"id":"QQ-FILE-UPLOAD-MEDIA-PAYLOAD","k":"tests#0","i":0,"c":"app/tests/channels/qqFileTransferPayload.test.ts"}
 {"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"title","i":0,"c":"QQ 出站文件「可外发资格」收窄：由「存在 + 非禁区」改为「**交付面内** 或 **本轮新产出**」，其余**静默忽略** —— 修「回复回显既有路径即被当投递意图」的频繁误触发"}
@@ -5517,9 +5517,9 @@
 {"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"notes","i":9,"c":"号链接需开发者模式/管理员，用例打印 `[skip]` 说明）。全量 `bun test` **6671 pass / 0 fail**（6713 tests / 751 files）；`tsc --noEmit` 0；`lint:arch` 违规 0；`lint:size` 0 错；`lint:doc-code` 绿。\n【如实边界】① **真机未复测**（"}
 {"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"notes","i":10,"c":"正向/反向判据见 `reopenWhen` ①）。② 收窄的**代价**：面外的旧文档不再自动外发（`reopenWhen` ③）—— 这是「消噪」与「能力」之间的取舍，本片选了消噪。③「本轮新产出」依赖 `mtime`（`reopenWhen` ④）。④ 上一条目 `QQ-FILE-UPLOAD-MEDIA-PAYLOAD` 的 `"}
 {"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"notes","i":11,"c":"e2eVerified=true` 指的是「**上传/发送口径**正确」——本片后**其复测所用样本不再触发**（预期，spec v3 已注明），要复测外发能力需换**合规样本**。"}
-{"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"code#0","i":0,"c":"app/src/channels/routing/outboundFileRouter.ts"}
-{"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"code#1","i":0,"c":"app/src/channels/routing/channelOutbound.ts"}
-{"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"code#2","i":0,"c":"app/src/channels/routing/messageRouter.ts"}
+{"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"code#0","i":0,"c":"packages/channels/src/channels/routing/outboundFileRouter.ts"}
+{"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"code#1","i":0,"c":"packages/channels/src/channels/routing/channelOutbound.ts"}
+{"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"code#2","i":0,"c":"packages/channels/src/channels/routing/messageRouter.ts"}
 {"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"code#3","i":0,"c":".trae/specs/qq-file-transfer.md"}
 {"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"tests#0","i":0,"c":"app/tests/channels/outboundFileEligibility.test.ts"}
 {"id":"BALANCE-WARN-DEDUPE","k":"title","i":0,"c":"余额查询的**持续性告警**收敛为「只记一次」：进程内闸门（首次记 / 重复不记）+ **恢复即清记忆**"}
@@ -5591,14 +5591,14 @@
 {"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"notes","i":21,"c":"01:56:43.160` `budgetSuspend:resumed{kind:unlock-today}` + `resume_summary{woken:[…154A]}` ⇒ **只唤醒该会话**并续跑，`suspend.count` 归 0。\n【本片真机缺口闭合】此前 `e2eVerified=false` 的唯一原因是「按钮点击须真人在客户端点"}
 {"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"notes","i":22,"c":"」；本次已真机点击，且顺带暴露出并修复了一个**只在真机可见**的缺陷（`finishReason` 在 CoreAPI 出口被降级为 `stop` ⇒ 发卡判据永不成立 ⇒ 卡片根本不发）。用户可见效果：QQ 里收到「今日预算已用完」卡片 + 两个按钮（临时提额 / 今日解除），点「今日解除」后会话自动续跑。"}
 {"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"code#0","i":0,"c":".trae/specs/channel-budget-inline-relief.md"}
-{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"code#1","i":0,"c":"app/src/channels/bridge/budgetReliefCard.ts"}
-{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"code#2","i":0,"c":"app/src/channels/bridge/budgetReliefAction.ts"}
-{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"code#3","i":0,"c":"app/src/channels/routing/messageRouter.ts"}
-{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"code#4","i":0,"c":"app/src/channels/routing/messageRouterContract.ts"}
-{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"code#5","i":0,"c":"app/src/channels/qq/keyboard.ts"}
-{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"code#6","i":0,"c":"app/src/channels/qq/QQChannel.ts"}
-{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"code#7","i":0,"c":"app/src/channels/qq/types.ts"}
-{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"code#8","i":0,"c":"app/src/channels/qq/apiUrls.ts"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"code#1","i":0,"c":"packages/channels/src/channels/bridge/budgetReliefCard.ts"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"code#2","i":0,"c":"packages/channels/src/channels/bridge/budgetReliefAction.ts"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"code#3","i":0,"c":"packages/channels/src/channels/routing/messageRouter.ts"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"code#4","i":0,"c":"packages/channels/src/channels/routing/messageRouterContract.ts"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"code#5","i":0,"c":"packages/channels/src/channels/qq/keyboard.ts"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"code#6","i":0,"c":"packages/channels/src/channels/qq/QQChannel.ts"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"code#7","i":0,"c":"packages/channels/src/channels/qq/types.ts"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"code#8","i":0,"c":"packages/channels/src/channels/qq/apiUrls.ts"}
 {"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"code#9","i":0,"c":"app/src/main.ts"}
 {"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"tests#0","i":0,"c":"app/tests/channels/budgetInlineRelief.test.ts"}
 {"id":"CHANNEL-RELIEF-BUTTON-GATE","k":"title","i":0,"c":"通道就地放行的按钮**按白名单**给：入站回调未接线的通道不得给按钮（防「点了没反应」的假按钮）（白名单**内**路径真机已证）"}
@@ -5616,7 +5616,7 @@
 {"id":"CHANNEL-RELIEF-BUTTON-GATE","k":"notes","i":6,"c":"原文比较 ⇒ **首段含换行**的条目必然假红（该条 `notes` 首段在 `。` 后即换行）；`gen --verify-against` 早已用同一口径（它归一化的是旧表一侧）。修法：`scripts/migrate-evidence-to-jsonl.ts` **仅**把归档侧按同一口径归一化后再断言（只影响空白；内容层面的漂移仍照旧拦截）。该修复"}
 {"id":"CHANNEL-RELIEF-BUTTON-GATE","k":"notes","i":7,"c":"**独立成提交**，与本片功能改动分离。【真机（2026-10-17 09:56，QQ）】`qq` 在白名单内 ⇒ 挂起卡片**带按钮真实发出**，用户点击后 `INTERACTION_CREATE` → `relief_applied{targetSessionId}` → `budgetSuspend:resumed` 全通 ⇒ 白名单**内**路径闭环"}
 {"id":"CHANNEL-RELIEF-BUTTON-GATE","k":"notes","i":8,"c":"。白名单**外**路径（防「假按钮」的实际防线）仍为单测级（`feishu`→已接线后移出样例；当前样例为 `slack`）。"}
-{"id":"CHANNEL-RELIEF-BUTTON-GATE","k":"code#0","i":0,"c":"app/src/channels/bridge/budgetReliefCard.ts"}
+{"id":"CHANNEL-RELIEF-BUTTON-GATE","k":"code#0","i":0,"c":"packages/channels/src/channels/bridge/budgetReliefCard.ts"}
 {"id":"CHANNEL-RELIEF-BUTTON-GATE","k":"tests#0","i":0,"c":"app/tests/channels/budgetInlineRelief.test.ts"}
 {"id":"COREAPI-FINISH-REASON-BUDGET-SUSPEND","k":"title","i":0,"c":"`chatStream` 出口的 `finishReason` 回落读 `metadata.finishReason` —— 修「预算挂起被降级为 `stop`」导致通道侧**不发挂起卡片**（真机才发现）"}
 {"id":"COREAPI-FINISH-REASON-BUDGET-SUSPEND","k":"source","i":0,"c":"真机复测 `CHANNEL-BUDGET-INLINE-RELIEF`（用户裁定「真机测预算挂起卡片」）时发现：09:53 首次实测挂起成立却**没有卡片**；09:56 修复后同一路径四步全通"}
@@ -5648,8 +5648,8 @@
 {"id":"CHANNEL-RELIEF-CARD-COPY-DEDUPE","k":"notes","i":3,"c":"需重发」的完整出路。\n【验证】`tests/channels/budgetInlineRelief.test.ts` 新增 8 例（验收 8）：内核提示块形态拆分 / 正文即提示块 / 正文含 `⏸` 不误切 / 去星号 / 发卡成功且无正文 ⇒ `null`（杜绝重复发送）/ 发卡成功且有正文 ⇒ 只发正文 / 发卡失败 ⇒ 完整出路且无 `**` / 卡"}
 {"id":"CHANNEL-RELIEF-CARD-COPY-DEDUPE","k":"notes","i":4,"c":"片文案与内核提示同用行首 `⏸`。该文件 34 pass；全量 `bun test` **6694 pass / 0 fail**（6736 tests / 753 files）；`tsc --noEmit` 0；`lint:arch` 违规 0；`lint:size` 0 错误；`lint:consts` PASS。\n【如实边界】见 reopenWhen "}
 {"id":"CHANNEL-RELIEF-CARD-COPY-DEDUPE","k":"notes","i":5,"c":"①-④（尤其真机未复测）。"}
-{"id":"CHANNEL-RELIEF-CARD-COPY-DEDUPE","k":"code#0","i":0,"c":"app/src/channels/routing/messageRouterContract.ts"}
-{"id":"CHANNEL-RELIEF-CARD-COPY-DEDUPE","k":"code#1","i":0,"c":"app/src/channels/routing/messageRouter.ts"}
+{"id":"CHANNEL-RELIEF-CARD-COPY-DEDUPE","k":"code#0","i":0,"c":"packages/channels/src/channels/routing/messageRouterContract.ts"}
+{"id":"CHANNEL-RELIEF-CARD-COPY-DEDUPE","k":"code#1","i":0,"c":"packages/channels/src/channels/routing/messageRouter.ts"}
 {"id":"CHANNEL-RELIEF-CARD-COPY-DEDUPE","k":"tests#0","i":0,"c":"app/tests/channels/budgetInlineRelief.test.ts"}
 {"id":"CHANNEL-RELIEF-CARD-COPY-DEDUPE","k":"changelog#0","i":0,"c":"fix(channels): 预算挂起收尾不再重复发同一段文本（发卡成功即跳过，只留模型正文），纯文本兜底去掉 Markdown 星号"}
 {"id":"QQ-FILE-UPLOAD-FILE-NAME","k":"title","i":0,"c":"QQ 二进制上传补 `file_name`（官方必填）—— 修附件气泡显示「未命名」"}
@@ -5663,7 +5663,7 @@
 {"id":"QQ-FILE-UPLOAD-FILE-NAME","k":"notes","i":4,"c":"真机（修复后，2026-10-17 11:02:55）】同一路径再发一次：`outbound_files 单文件发送成功`，filePath = `C:\\Users\\csdnc\\.pyapp\\output\\Liri-代码库扫描报告-20261017.md`；用户截图气泡标题已是 **`Liri-代码库扫描报告-20261017.md` / 9.22KB**（"}
 {"id":"QQ-FILE-UPLOAD-FILE-NAME","k":"notes","i":5,"c":"此前为「未命名」）⇒ 修复点闭合。\n【附带发现（另案）】同一轮模型在正文里声称「`broadcast send channel=qq` 返回 {sent:false}」并据此宣告发送失败——但 `ChannelTool` 只有 list/status/connect/disconnect/health/logs，**不存在** send/broadcast "}
 {"id":"QQ-FILE-UPLOAD-FILE-NAME","k":"notes","i":6,"c":"动作，日志中也没有该调用 ⇒ 属模型臆造（文件实际在 1 秒后由通道出站路由成功投递）。\n【如实边界】见 reopenWhen ①-③（尤其 5MB 直传上限）。"}
-{"id":"QQ-FILE-UPLOAD-FILE-NAME","k":"code#0","i":0,"c":"app/src/channels/qq/QQChannel.ts"}
+{"id":"QQ-FILE-UPLOAD-FILE-NAME","k":"code#0","i":0,"c":"packages/channels/src/channels/qq/QQChannel.ts"}
 {"id":"QQ-FILE-UPLOAD-FILE-NAME","k":"tests#0","i":0,"c":"app/tests/channels/qqFileTransferPayload.test.ts"}
 {"id":"QQ-FILE-UPLOAD-FILE-NAME","k":"changelog#0","i":0,"c":"fix(channels/qq): 本地文件二进制上传补 file_name（官方必填），修 QQ 附件显示「未命名」"}
 {"id":"CHANNEL-DELIVERY-CONTRACT","k":"title","i":0,"c":"通道入站注入「投递契约」（`runtimeSystemNote`，按请求）：附件由通道自动投递，模型不得臆断发送状态"}
@@ -5678,14 +5678,14 @@
 {"id":"CHANNEL-DELIVERY-CONTRACT","k":"notes","i":4,"c":"composeSystemPrompt`（CS01），避免接第三段时漂移。\n【验证】`tests/chat/systemPromptComposition.test.ts` 5 例（顺序固定：基础 → 自定义 → 运行时补充；空值不产出空段）；`tests/channels/budgetInlineRelief.test.ts` 新增验收 9（契约三要素）。"}
 {"id":"CHANNEL-DELIVERY-CONTRACT","k":"notes","i":5,"c":"全量 `bun test` **6702 pass / 0 fail**（6744 tests / 754 files）；`tsc --noEmit` 0；`lint:arch` 违规 0；`lint:size` 0 错误；`lint:consts` PASS；`lint:doc-code` PASS。\n【如实边界】见 reopenWhen ①-④（尤其未做"}
 {"id":"CHANNEL-DELIVERY-CONTRACT","k":"notes","i":6,"c":"真机复测、system 消息一旦持久化契约会静默失效）。"}
-{"id":"CHANNEL-DELIVERY-CONTRACT","k":"code#0","i":0,"c":"app/src/channels/routing/messageRouterContract.ts"}
-{"id":"CHANNEL-DELIVERY-CONTRACT","k":"code#1","i":0,"c":"app/src/channels/routing/messageRouter.ts"}
+{"id":"CHANNEL-DELIVERY-CONTRACT","k":"code#0","i":0,"c":"packages/channels/src/channels/routing/messageRouterContract.ts"}
+{"id":"CHANNEL-DELIVERY-CONTRACT","k":"code#1","i":0,"c":"packages/channels/src/channels/routing/messageRouter.ts"}
 {"id":"CHANNEL-DELIVERY-CONTRACT","k":"code#2","i":0,"c":"app/src/chat/services/systemPromptComposition.ts"}
 {"id":"CHANNEL-DELIVERY-CONTRACT","k":"code#3","i":0,"c":"app/src/chat/pipeline/StreamPipeline.ts"}
 {"id":"CHANNEL-DELIVERY-CONTRACT","k":"code#4","i":0,"c":"app/src/chat/orchestrator/sendMessageFlow.ts"}
 {"id":"CHANNEL-DELIVERY-CONTRACT","k":"code#5","i":0,"c":"app/src/runtime/api/CoreAPI.ts"}
 {"id":"CHANNEL-DELIVERY-CONTRACT","k":"code#6","i":0,"c":"app/src/runtime/api/CoreAPIImpl.ts"}
-{"id":"CHANNEL-DELIVERY-CONTRACT","k":"code#7","i":0,"c":"app/src/session/types/message/options.ts"}
+{"id":"CHANNEL-DELIVERY-CONTRACT","k":"code#7","i":0,"c":"packages/service/src/session/types/message/options.ts"}
 {"id":"CHANNEL-DELIVERY-CONTRACT","k":"tests#0","i":0,"c":"app/tests/chat/systemPromptComposition.test.ts"}
 {"id":"CHANNEL-DELIVERY-CONTRACT","k":"tests#1","i":0,"c":"app/tests/channels/budgetInlineRelief.test.ts"}
 {"id":"CHANNEL-DELIVERY-CONTRACT","k":"changelog#0","i":0,"c":"fix(channels): 通道入站注入投递契约（runtimeSystemNote），禁止模型臆断「已发送/发送失败」"}
@@ -5702,7 +5702,7 @@
 {"id":"FILE-WRITE-RESOLVED-PATH","k":"notes","i":6,"c":"。全量 `bun test` **6709 pass / 0 fail**（6751 tests / 755 files）；`tsc --noEmit` 0；`lint:arch` 违规 0；`lint:size` 0 错误；`lint:consts` PASS；`lint:doc-code` PASS。\n【如实边界】见 reopenWhen ①-④（尤其未"}
 {"id":"FILE-WRITE-RESOLVED-PATH","k":"notes","i":7,"c":"做真机复测；工作区根仍留着三轮测试产物 `通道投递测试*.md`）。"}
 {"id":"FILE-WRITE-RESOLVED-PATH","k":"code#0","i":0,"c":"app/src/tools/FileWriteTool/FileWriteTool.ts"}
-{"id":"FILE-WRITE-RESOLVED-PATH","k":"code#1","i":0,"c":"app/src/channels/routing/outboundFileRouter.ts"}
+{"id":"FILE-WRITE-RESOLVED-PATH","k":"code#1","i":0,"c":"packages/channels/src/channels/routing/outboundFileRouter.ts"}
 {"id":"FILE-WRITE-RESOLVED-PATH","k":"tests#0","i":0,"c":"app/tests/tools/fileWriteToolPath.test.ts"}
 {"id":"FILE-WRITE-RESOLVED-PATH","k":"tests#1","i":0,"c":"app/tests/channels/outboundFileEligibility.test.ts"}
 {"id":"FILE-WRITE-RESOLVED-PATH","k":"changelog#0","i":0,"c":"fix(tools/channels): file_write 回执给实际绝对路径；出站提取认 `~/` —— 修「写了却发不出」"}
@@ -5717,8 +5717,8 @@
 {"id":"CHANNEL-FILE-CONTENT-DEDUPE","k":"notes","i":3,"c":"静默跳过**（不是失败，不产生用户可见噪音）；去重放在**数量截断之前** ⇒ 重复副本不占 2 个配额；读盘失败退回「按路径处理」（不因去重漏发）。② `CHANNEL_DELIVERY_CONTRACT` 增一句「**不要为了投递而复制文件**（文件在哪个目录就写哪个路径即可）；同一份内容只写**一个**路径」。\n【验证】新增 2 例（同内容双路径 ⇒ "}
 {"id":"CHANNEL-FILE-CONTENT-DEDUPE","k":"notes","i":4,"c":"只发首个且 `skipped` 为空；不同内容 ⇒ 两个都发）+ 1 例契约（含「不要为了投递而复制文件」）。既有「超过 2 个 ⇒ 前 2 个」用例因去重先于截断而改为**互不相同**的内容（注释已写明顺序语义）。全量 `bun test` **6712 pass / 0 fail**（6754 tests / 755 files）；`tsc "}
 {"id":"CHANNEL-FILE-CONTENT-DEDUPE","k":"notes","i":5,"c":"--noEmit` 0；`lint:arch` 违规 0；`lint:size` 0 错误；`lint:consts` PASS；`lint:doc-code` PASS。\n【如实边界】见 reopenWhen ①-④（尤其未做真机复测）。"}
-{"id":"CHANNEL-FILE-CONTENT-DEDUPE","k":"code#0","i":0,"c":"app/src/channels/routing/outboundFileRouter.ts"}
-{"id":"CHANNEL-FILE-CONTENT-DEDUPE","k":"code#1","i":0,"c":"app/src/channels/routing/messageRouterContract.ts"}
+{"id":"CHANNEL-FILE-CONTENT-DEDUPE","k":"code#0","i":0,"c":"packages/channels/src/channels/routing/outboundFileRouter.ts"}
+{"id":"CHANNEL-FILE-CONTENT-DEDUPE","k":"code#1","i":0,"c":"packages/channels/src/channels/routing/messageRouterContract.ts"}
 {"id":"CHANNEL-FILE-CONTENT-DEDUPE","k":"tests#0","i":0,"c":"app/tests/channels/outboundFileEligibility.test.ts"}
 {"id":"CHANNEL-FILE-CONTENT-DEDUPE","k":"tests#1","i":0,"c":"app/tests/channels/budgetInlineRelief.test.ts"}
 {"id":"CHANNEL-FILE-CONTENT-DEDUPE","k":"changelog#0","i":0,"c":"fix(channels): 出站附件按内容去重（MD5）+ 契约禁止「为投递而复制文件」，修重复附件"}
@@ -5757,7 +5757,7 @@
 {"id":"CHANNEL-QUESTION-FAIL-CLOSED-TIMER","k":"source","i":0,"c":"dev_docs/20261017/P0与BRL-002修复计划-20261017.md §6/§8"}
 {"id":"CHANNEL-QUESTION-FAIL-CLOSED-TIMER","k":"reopenWhen","i":0,"c":"渠道交互问答 Stage 2 或占位配额策略变化时重开"}
 {"id":"CHANNEL-QUESTION-FAIL-CLOSED-TIMER","k":"notes","i":0,"c":"新增 ABORT_REASONS.CHANNEL_INTERACTION_UNSUPPORTED；占位定时器在 finally 清理并等待发送完成。"}
-{"id":"CHANNEL-QUESTION-FAIL-CLOSED-TIMER","k":"code#0","i":0,"c":"app/src/channels/routing/streamConsumption.ts"}
+{"id":"CHANNEL-QUESTION-FAIL-CLOSED-TIMER","k":"code#0","i":0,"c":"packages/channels/src/channels/routing/streamConsumption.ts"}
 {"id":"CHANNEL-QUESTION-FAIL-CLOSED-TIMER","k":"code#1","i":0,"c":"packages/service/src/execution/types.ts"}
 {"id":"CHANNEL-QUESTION-FAIL-CLOSED-TIMER","k":"tests#0","i":0,"c":"app/tests/channels/streamConsumptionQuestion.test.ts"}
 {"id":"CHANNEL-QUESTION-FAIL-CLOSED-TIMER","k":"tests#1","i":0,"c":"app/tests/channels/streamConsumptionPlaceholder.test.ts"}
@@ -5765,8 +5765,8 @@
 {"id":"CHANNEL-MESSAGEID-PASSTHROUGH","k":"source","i":0,"c":"dev_docs/20261017/P0与BRL-002修复计划-20261017.md §7/§8"}
 {"id":"CHANNEL-MESSAGEID-PASSTHROUGH","k":"reopenWhen","i":0,"c":"渠道平台 messageId 不再唯一或出现跨会话碰撞时重开"}
 {"id":"CHANNEL-MESSAGEID-PASSTHROUGH","k":"notes","i":0,"c":"与 chat-handlers 对齐，ChatManager 可复用写前落盘的用户消息 id；supportsQuestionAnswer 透传供 Stage2 使用。"}
-{"id":"CHANNEL-MESSAGEID-PASSTHROUGH","k":"code#0","i":0,"c":"app/src/channels/routing/messageRouter.ts"}
-{"id":"CHANNEL-MESSAGEID-PASSTHROUGH","k":"code#1","i":0,"c":"app/src/channels/routing/messageRouterContract.ts"}
+{"id":"CHANNEL-MESSAGEID-PASSTHROUGH","k":"code#0","i":0,"c":"packages/channels/src/channels/routing/messageRouter.ts"}
+{"id":"CHANNEL-MESSAGEID-PASSTHROUGH","k":"code#1","i":0,"c":"packages/channels/src/channels/routing/messageRouterContract.ts"}
 {"id":"CHANNEL-MESSAGEID-PASSTHROUGH","k":"tests#0","i":0,"c":"app/tests/channels/messageRouterContract.test.ts"}
 {"id":"LRO-STEP-CONSTRAINTS-WORKSPACE","k":"title","i":0,"c":"U-03b/U-08/U-09/LRO-08/LRO-16：步骤禁问/禁管道/交付口径 + 工具路径越界拒绝"}
 {"id":"LRO-STEP-CONSTRAINTS-WORKSPACE","k":"source","i":0,"c":"dev_docs/20261017/未完成任务清单-20261017.md U-03b/U-08/U-09/U-28"}
@@ -5774,21 +5774,21 @@
 {"id":"LRO-STEP-CONSTRAINTS-WORKSPACE","k":"notes","i":0,"c":"workspaceGuard 复用 PATH_ARG_KEYS；越界返回工具错误而非中断任务；交付声明强制区分已实测/未实测。"}
 {"id":"LRO-STEP-CONSTRAINTS-WORKSPACE","k":"code#0","i":0,"c":"app/src/tasks/LongRunningTaskOrchestrator.ts"}
 {"id":"LRO-STEP-CONSTRAINTS-WORKSPACE","k":"code#1","i":0,"c":"app/src/tasks/lro/workspaceGuard.ts"}
-{"id":"LRO-STEP-CONSTRAINTS-WORKSPACE","k":"code#2","i":0,"c":"app/src/query/index.ts"}
+{"id":"LRO-STEP-CONSTRAINTS-WORKSPACE","k":"code#2","i":0,"c":"packages/query/src/query/index.ts"}
 {"id":"LRO-STEP-CONSTRAINTS-WORKSPACE","k":"tests#0","i":0,"c":"app/tests/tasks/lroWorkspaceGuard.test.ts"}
 {"id":"BUDGET-DIMINISHING-PROGRESS","k":"title","i":0,"c":"U-10：低 Token 增量但有新工具结果/产物时不再判定收益递减"}
 {"id":"BUDGET-DIMINISHING-PROGRESS","k":"source","i":0,"c":"dev_docs/20261017/未完成任务清单-20261017.md U-10"}
 {"id":"BUDGET-DIMINISHING-PROGRESS","k":"reopenWhen","i":0,"c":"收益递减改用统一进度指标或引入真实产物度量时重开"}
 {"id":"BUDGET-DIMINISHING-PROGRESS","k":"notes","i":0,"c":"RoundProgressTracker 从 TAORLoop 外移（同时把 TAORLoop 压回 1909 行）；写类工具按 WRITE_TOOLS 计产物。"}
-{"id":"BUDGET-DIMINISHING-PROGRESS","k":"code#0","i":0,"c":"app/src/query/DailyBudgetManager.ts"}
-{"id":"BUDGET-DIMINISHING-PROGRESS","k":"code#1","i":0,"c":"app/src/query/TAORLoop.ts"}
-{"id":"BUDGET-DIMINISHING-PROGRESS","k":"code#2","i":0,"c":"app/src/query/taor/roundProgress.ts"}
+{"id":"BUDGET-DIMINISHING-PROGRESS","k":"code#0","i":0,"c":"packages/query/src/query/DailyBudgetManager.ts"}
+{"id":"BUDGET-DIMINISHING-PROGRESS","k":"code#1","i":0,"c":"packages/query/src/query/TAORLoop.ts"}
+{"id":"BUDGET-DIMINISHING-PROGRESS","k":"code#2","i":0,"c":"packages/query/src/query/taor/roundProgress.ts"}
 {"id":"BUDGET-DIMINISHING-PROGRESS","k":"tests#0","i":0,"c":"app/tests/query/dailyBudgetDiminishingProgress.test.ts"}
 {"id":"MIGRATOR-READ-FAILURE-SPLIT","k":"title","i":0,"c":"U-11：readAllMessages 用 null 表示读取失败，空文件与失败分别告警"}
 {"id":"MIGRATOR-READ-FAILURE-SPLIT","k":"source","i":0,"c":"dev_docs/20261017/未完成任务清单-20261017.md U-11"}
 {"id":"MIGRATOR-READ-FAILURE-SPLIT","k":"reopenWhen","i":0,"c":"迁移改为事件源直读或不再读取 messages.jsonl 时重开"}
 {"id":"MIGRATOR-READ-FAILURE-SPLIT","k":"notes","i":0,"c":"空文件提示检查内容；读取失败提示权限/磁盘；均跳过迁移且不产生半成品事件。"}
-{"id":"MIGRATOR-READ-FAILURE-SPLIT","k":"code#0","i":0,"c":"app/src/session/storage/MessageToEventMigrator.ts"}
+{"id":"MIGRATOR-READ-FAILURE-SPLIT","k":"code#0","i":0,"c":"packages/service/src/session/storage/MessageToEventMigrator.ts"}
 {"id":"MIGRATOR-READ-FAILURE-SPLIT","k":"tests#0","i":0,"c":"app/tests/session/MessageToEventMigrator.test.ts"}
 {"id":"STREAM-FALLBACK-DEDUPE","k":"title","i":0,"c":"P8：带业务码的失败只保留 error chunk，避免与「未能生成回复」重复"}
 {"id":"STREAM-FALLBACK-DEDUPE","k":"source","i":0,"c":"dev_docs/20261011/token日限额全面排查与前端管理页优化方案-20261011.md §2.8"}
@@ -5806,11 +5806,11 @@
 {"id":"CHANNEL-QUESTION-ANSWER-STAGE2","k":"source","i":0,"c":"dev_docs/20261017/P0与BRL-002修复计划-20261017.md §8.3"}
 {"id":"CHANNEL-QUESTION-ANSWER-STAGE2","k":"reopenWhen","i":0,"c":"渠道需要卡片/按钮式回答或跨进程多实例部署时重开"}
 {"id":"CHANNEL-QUESTION-ANSWER-STAGE2","k":"notes","i":0,"c":"CHANNEL_QUESTION_ANSWER 默认 false；仅 interactive 渠道；resolve 失败保留待答可重试。"}
-{"id":"CHANNEL-QUESTION-ANSWER-STAGE2","k":"code#0","i":0,"c":"app/src/channels/routing/pendingQuestions.ts"}
-{"id":"CHANNEL-QUESTION-ANSWER-STAGE2","k":"code#1","i":0,"c":"app/src/channels/routing/messageRouter.ts"}
-{"id":"CHANNEL-QUESTION-ANSWER-STAGE2","k":"code#2","i":0,"c":"app/src/channels/routing/messageRouterContract.ts"}
-{"id":"CHANNEL-QUESTION-ANSWER-STAGE2","k":"code#3","i":0,"c":"app/src/channels/routing/streamConsumption.ts"}
-{"id":"CHANNEL-QUESTION-ANSWER-STAGE2","k":"code#4","i":0,"c":"app/src/channels/setupChannels.ts"}
+{"id":"CHANNEL-QUESTION-ANSWER-STAGE2","k":"code#0","i":0,"c":"packages/channels/src/channels/routing/pendingQuestions.ts"}
+{"id":"CHANNEL-QUESTION-ANSWER-STAGE2","k":"code#1","i":0,"c":"packages/channels/src/channels/routing/messageRouter.ts"}
+{"id":"CHANNEL-QUESTION-ANSWER-STAGE2","k":"code#2","i":0,"c":"packages/channels/src/channels/routing/messageRouterContract.ts"}
+{"id":"CHANNEL-QUESTION-ANSWER-STAGE2","k":"code#3","i":0,"c":"packages/channels/src/channels/routing/streamConsumption.ts"}
+{"id":"CHANNEL-QUESTION-ANSWER-STAGE2","k":"code#4","i":0,"c":"packages/channels/src/channels/setupChannels.ts"}
 {"id":"CHANNEL-QUESTION-ANSWER-STAGE2","k":"code#5","i":0,"c":"packages/kernel/src/core/featureFlags.ts"}
 {"id":"CHANNEL-QUESTION-ANSWER-STAGE2","k":"tests#0","i":0,"c":"app/tests/channels/pendingQuestions.test.ts"}
 {"id":"SECRET-SCANNER-NEW-PREFIXES","k":"title","i":0,"c":"U-27：识别 sk-proj-/sk-svcacct-/sk-ant- 密钥"}
@@ -5828,7 +5828,7 @@
 {"id":"BUDGET-WAIVER-USD-PRECHECK","k":"title","i":0,"c":"U-12/T3-7：waive-once 放行前按价表估算金额预占（pending debt），落账按实际替换"}
 {"id":"BUDGET-WAIVER-USD-PRECHECK","k":"source","i":0,"c":"dev_docs/20261017/未完成任务清单-20261017.md U-12（用户裁定：改为事务预检）"}
 {"id":"BUDGET-WAIVER-USD-PRECHECK","k":"notes","i":0,"c":"预占只加 debtUsd（不提前动 usedUsd）；同会话重复预检替换不累加；未配置上限或估算为 0 不预占。"}
-{"id":"BUDGET-WAIVER-USD-PRECHECK","k":"code#0","i":0,"c":"app/src/query/DailyBudgetManager.ts"}
+{"id":"BUDGET-WAIVER-USD-PRECHECK","k":"code#0","i":0,"c":"packages/query/src/query/DailyBudgetManager.ts"}
 {"id":"BUDGET-WAIVER-USD-PRECHECK","k":"code#1","i":0,"c":"app/src/chat/orchestrator/preSendContextProtection.ts"}
 {"id":"BUDGET-WAIVER-USD-PRECHECK","k":"tests#0","i":0,"c":"app/tests/query/dailyBudgetWaiverPrecheck.test.ts"}
 {"id":"A2A-SIDECAR-KILL-TREE","k":"title","i":0,"c":"U-16：A2A 发现面 sidecar 取消/超时复用进程树强杀"}
@@ -5853,8 +5853,8 @@
 {"id":"CHANNEL-ATTACHMENT-MIME-POLICY","k":"title","i":0,"c":"U-26：入站附件 MIME 分类 + 单附件/条数上限（超限不预留且留痕）"}
 {"id":"CHANNEL-ATTACHMENT-MIME-POLICY","k":"source","i":0,"c":"dev_docs/20261017/未完成任务清单-20261017.md U-26（五方案总览 §8.2）"}
 {"id":"CHANNEL-ATTACHMENT-MIME-POLICY","k":"notes","i":0,"c":"MIME 缺省按扩展名归类；未知类型走 other 最严档；缺 size 接受（不臆造）。"}
-{"id":"CHANNEL-ATTACHMENT-MIME-POLICY","k":"code#0","i":0,"c":"app/src/channels/routing/attachmentPolicy.ts"}
-{"id":"CHANNEL-ATTACHMENT-MIME-POLICY","k":"code#1","i":0,"c":"app/src/channels/routing/messageRouter.ts"}
+{"id":"CHANNEL-ATTACHMENT-MIME-POLICY","k":"code#0","i":0,"c":"packages/channels/src/channels/routing/attachmentPolicy.ts"}
+{"id":"CHANNEL-ATTACHMENT-MIME-POLICY","k":"code#1","i":0,"c":"packages/channels/src/channels/routing/messageRouter.ts"}
 {"id":"CHANNEL-ATTACHMENT-MIME-POLICY","k":"tests#0","i":0,"c":"app/tests/channels/attachmentPolicy.test.ts"}
 {"id":"TOOL-READ-OUTPUT-FALLBACK-FASTPATH-UI","k":"title","i":0,"c":"U-23 余：裸名回读 output/ 兜底 + fast-path 判据设置 UI"}
 {"id":"TOOL-READ-OUTPUT-FALLBACK-FASTPATH-UI","k":"source","i":0,"c":"dev_docs/dailys/20261001/pending-tasks-consolidated-20261001.md T-④02 / T-②05"}
@@ -5880,7 +5880,7 @@
 {"id":"ARCH-R03-002-TOKENBUDGET-ENTRIES","k":"title","i":0,"c":"U-21 批次④：tokenBudget 两键改走 @modules/tokenBudget 桶"}
 {"id":"ARCH-R03-002-TOKENBUDGET-ENTRIES","k":"source","i":0,"c":"dev_docs/20261004/p0-pending-proposals-20261004.md P0-6；scripts/lint-architecture.ts D-3-c"}
 {"id":"ARCH-R03-002-TOKENBUDGET-ENTRIES","k":"notes","i":0,"c":"桶增补 Status/Params/State/getDefault + UnifiedTokenTracker/registry/thresholds/SubAgentTokenBridge 再导出；R03-002 违规 0。"}
-{"id":"ARCH-R03-002-TOKENBUDGET-ENTRIES","k":"code#0","i":0,"c":"app/src/tokenBudget/index.ts"}
+{"id":"ARCH-R03-002-TOKENBUDGET-ENTRIES","k":"code#0","i":0,"c":"packages/tokenBudget/src/tokenBudget/index.ts"}
 {"id":"ARCH-R03-002-TOKENBUDGET-ENTRIES","k":"code#1","i":0,"c":"scripts/lint-architecture.ts"}
 {"id":"ORCH-SNAPSHOT-CAPABLE-ASSESS","k":"title","i":0,"c":"U-14 评估：Council/PDCA 不接入 ISnapshotCapable（无消费者；触发条件已落盘）"}
 {"id":"ORCH-SNAPSHOT-CAPABLE-ASSESS","k":"source","i":0,"c":"dev_docs/20261012/长程任务编排链路优化方案-20261012.md §3 替代采纳④"}
@@ -5903,7 +5903,7 @@
 {"id":"ARCH-R03-002-SKILLS-SECURITY-CLOSE","k":"title","i":0,"c":"U-21 收尾：skills 3 键 + security 4 键收口；D-3-c 结项（11 收口/5 保留）"}
 {"id":"ARCH-R03-002-SKILLS-SECURITY-CLOSE","k":"source","i":0,"c":"dev_docs/20261004/p0-pending-proposals-20261004.md P0-6；scripts/lint-architecture.ts D-3-c"}
 {"id":"ARCH-R03-002-SKILLS-SECURITY-CLOSE","k":"notes","i":0,"c":"保留 5 键均有环/空壳理由；复核日 2027-01-31。R03-002 0 违规。"}
-{"id":"ARCH-R03-002-SKILLS-SECURITY-CLOSE","k":"code#0","i":0,"c":"app/src/skills/index.ts"}
+{"id":"ARCH-R03-002-SKILLS-SECURITY-CLOSE","k":"code#0","i":0,"c":"packages/skills/src/skills/index.ts"}
 {"id":"ARCH-R03-002-SKILLS-SECURITY-CLOSE","k":"code#1","i":0,"c":"packages/infra/src/security/index.ts"}
 {"id":"ARCH-R03-002-SKILLS-SECURITY-CLOSE","k":"code#2","i":0,"c":"scripts/lint-architecture.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-69","k":"title","i":0,"c":"U-20/B5-2-69：媒体根目录 3 组同名常量收敛到 core/mediaRoots"}
@@ -5922,19 +5922,19 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-72-73","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-72-73","k":"notes","i":0,"c":"语义/取值不同 ⇒ 不改值、按域改名（APPROVAL/SESSION_CACHE_MAX_ENTRIES、DREAM/EXECUTION_MAX_RECORDS）；基线 175→173。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-72-73","k":"code#1","i":0,"c":"packages/kernel/src/core/cache/SessionCache.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-72-73","k":"code#2","i":0,"c":"app/src/dream/DreamPersistence.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-72-73","k":"code#2","i":0,"c":"packages/dream/src/dream/DreamPersistence.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-72-73","k":"code#3","i":0,"c":"packages/service/src/execution/ExecutionManager.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-74","k":"title","i":0,"c":"U-20/B5-2-74：SCHEDULER_CHECK_INTERVAL_MS 收敛到 types/schedulerLifecycle"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-74","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-74","k":"notes","i":0,"c":"两处语义一致（cron 每分钟检查）⇒ 统一为 60s 常量；基线 173→172。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-74","k":"code#0","i":0,"c":"app/src/types/schedulerLifecycle.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-74","k":"code#1","i":0,"c":"app/src/dream/DreamScheduler.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-74","k":"code#1","i":0,"c":"packages/dream/src/dream/DreamScheduler.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-74","k":"code#2","i":0,"c":"packages/infra/src/monitoring/archival/archivalCronTask.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-75","k":"title","i":0,"c":"U-20/B5-2-75：MAX_FILE_CHARS 按域改名"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-75","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-75","k":"notes","i":0,"c":"两处取值不同（项目文件 10k / 工作区扫描 12k）⇒ 不改值，改名为 PROJECT_FILE_MAX_CHARS 与 WORKSPACE_FILE_MAX_CHARS；基线 172→171。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-75","k":"code#0","i":0,"c":"app/src/context/ProjectFileReader.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-75","k":"code#1","i":0,"c":"app/src/workspaces/WorkspaceScanner.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-75","k":"code#1","i":0,"c":"packages/workspaces/src/workspaces/WorkspaceScanner.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-75","k":"code#2","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-76","k":"title","i":0,"c":"U-20/B5-2-76：KEYBINDING_ACTIONS 同名异义消歧"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-76","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
@@ -5955,14 +5955,14 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-78","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-78","k":"notes","i":0,"c":"xml.ts 的 FORK_DIRECTIVE_PREFIX 全仓零消费（CD01/CD02 已核查）⇒ 删除；evals 的 READ_TOOLS 与 query/tool-constants 同值 ⇒ 改由 query 桶导入；基线 167→165。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-78","k":"code#0","i":0,"c":"packages/infra/src/constants/xml.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-78","k":"code#1","i":0,"c":"app/src/query/index.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-78","k":"code#2","i":0,"c":"app/src/evals/processAssertions.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-78","k":"code#1","i":0,"c":"packages/query/src/query/index.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-78","k":"code#2","i":0,"c":"packages/evals/src/evals/processAssertions.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-78","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-79","k":"title","i":0,"c":"U-20/B5-2-79：DANGEROUS_PATTERNS / STORAGE_DIR 按域消歧"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-79","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-79","k":"notes","i":0,"c":"hook 脚本硬拦截正则 vs bash 工具静态策略；安全存储绝对路径 vs TAOR 子目录名 ⇒ 分别改名（仅重命名，不改判定）；基线 165→163。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-79","k":"code#0","i":0,"c":"app/src/hooks/executors/ScriptHookExecutor.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-79","k":"code#1","i":0,"c":"app/src/query/FileTAORCheckpointStorage.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-79","k":"code#1","i":0,"c":"packages/query/src/query/FileTAORCheckpointStorage.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-79","k":"code#2","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-80","k":"title","i":0,"c":"U-20/B5-2-80：MCP 重连退避收敛与 PathGuard 别名集按域命名"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-80","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
@@ -5970,7 +5970,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-80","k":"code#0","i":0,"c":"packages/service/src/services/mcp/types/index.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-80","k":"code#1","i":0,"c":"packages/service/src/services/mcp/MCPConnectionManager.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-80","k":"code#2","i":0,"c":"packages/service/src/services/mcp/client.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-80","k":"code#3","i":0,"c":"app/src/query/PathGuard.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-80","k":"code#3","i":0,"c":"packages/query/src/query/PathGuard.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-80","k":"code#4","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"title","i":0,"c":"U-20/B5-2-81：PERMISSION_MODES / SCHEMA_VERSION 按域命名，EMAIL_PATTERN 收敛"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
@@ -6008,9 +6008,9 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-85","k":"title","i":0,"c":"U-20/B5-2-85：压缩阈值 / 记忆模板与文件 / PDCA 表名按域命名"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-85","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-85","k":"notes","i":0,"c":"两处 DEFAULT_THRESHOLD 阈值语义不同（80/60）；两份不同内容的记忆模板同名；memory.md 与 memory.json 分属会话记忆与工作区配置；PDCA 表与 session_checkpoints 不同表；基线 145→141。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-85","k":"code#0","i":0,"c":"app/src/session/compaction/LayeredCompactor.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-85","k":"code#1","i":0,"c":"app/src/session/compaction/KeyInfoExtractor.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-85","k":"code#2","i":0,"c":"app/src/session/memory/SessionMemoryManager.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-85","k":"code#0","i":0,"c":"packages/service/src/session/compaction/LayeredCompactor.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-85","k":"code#1","i":0,"c":"packages/service/src/session/compaction/KeyInfoExtractor.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-85","k":"code#2","i":0,"c":"packages/service/src/session/memory/SessionMemoryManager.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-85","k":"code#3","i":0,"c":"app/src/workspace/LiriConfigManager.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-85","k":"code#4","i":0,"c":"app/src/tasks/PdcaWorkItemBridge.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-85","k":"code#5","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
@@ -6019,16 +6019,16 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"notes","i":0,"c":"VERIFICATION_AGENT_TYPE 同模块内同值 ⇒ 收敛到 AgentTool/constants；auth 的 CONFIG_FILE 是绝对路径 ⇒ USER_CONFIG_PATH；两个 VFS 驱动的列表上限/挂载 scheme 按驱动命名；Gemini 与 OpenAI 实时适配器重连延迟按适配器加前缀；基线 141→135。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#0","i":0,"c":"app/src/tools/AgentTool/strategies/VerificationStrategy.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#1","i":0,"c":"packages/infra/src/utils/auth.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#2","i":0,"c":"app/src/vfs/drivers/DevDocsDriver.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#3","i":0,"c":"app/src/vfs/drivers/McpResourcesDriver.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#2","i":0,"c":"packages/vfs/src/vfs/drivers/DevDocsDriver.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#3","i":0,"c":"packages/vfs/src/vfs/drivers/McpResourcesDriver.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#4","i":0,"c":"packages/service/src/voice/GeminiLiveAdapter.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#5","i":0,"c":"packages/service/src/voice/OpenAIRealtimeAdapter.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#6","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-87","k":"title","i":0,"c":"U-20/B5-2-87：存储文件名 / 注册表前缀 / 梦境只读集 / 工具搜索默认窗口"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-87","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-87","k":"notes","i":0,"c":"builtin-enabled.json 与 calibration.json 分属技能与预算标定；task/background 注册表前缀不同；梦境阶段只读集与并发分区只读集用途不同；工具搜索的函数内默认窗口改名以免与解析器 fallback 混淆；基线 135→131。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-87","k":"code#0","i":0,"c":"app/src/skills/BuiltinEnabledStore.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-87","k":"code#1","i":0,"c":"app/src/tokenBudget/CalibrationStore.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-87","k":"code#0","i":0,"c":"packages/skills/src/skills/BuiltinEnabledStore.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-87","k":"code#1","i":0,"c":"packages/tokenBudget/src/tokenBudget/CalibrationStore.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-87","k":"code#2","i":0,"c":"app/src/tasks/dream/DreamPhases.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-87","k":"code#3","i":0,"c":"packages/infra/src/state/task/TaskStateMachine.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-87","k":"code#4","i":0,"c":"packages/infra/src/state/background/BackgroundTaskStateMachine.ts"}
@@ -6038,7 +6038,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-88","k":"title","i":0,"c":"U-20/B5-2-88：仓库根 / 危险命令集 / 工具默认值按域命名"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-88","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-88","k":"notes","i":0,"c":"evals 冒烟任务与批测脚本各自解析仓库根 ⇒ EVAL_/BATCH_TEST_ 前缀；utils/bash/registry 的命令名集合与 bashCommandPolicy 的字符串前缀表同名异形 ⇒ DANGEROUS_COMMAND_NAMES；ToolBuilder 本地默认值 ⇒ BUILDER_TOOL_DEFAULTS；基线 131→128。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-88","k":"code#0","i":0,"c":"app/src/evals/tasks/smoke.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-88","k":"code#0","i":0,"c":"packages/evals/src/evals/tasks/smoke.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-88","k":"code#1","i":0,"c":"app/src/scripts/batch-test-all.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-88","k":"code#2","i":0,"c":"packages/infra/src/utils/bash/registry.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-88","k":"code#3","i":0,"c":"app/src/tools/ToolBuilder.ts"}
@@ -6103,9 +6103,9 @@
 {"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"notes","i":0,"c":"core/endpoints 新增 WILDCARD_BIND_HOST（仅绑定语义）、DEFAULT_BLUEBUBBLES_SERVER_URL、DEFAULT_BOOTSTRAP_LLAMACPP_BASE_URL；bridge/回环判定、webhook、BlueBubbles、LiveView、MCP OAuth、引导记录 7 文件改引用；lint:endpoints 79→72。"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#0","i":0,"c":"packages/kernel/src/core/endpoints.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#1","i":0,"c":"packages/service/src/bridge/ModuleBridgeSetup.ts"}
-{"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#2","i":0,"c":"app/src/channels/webhook/WebhookChannel.ts"}
-{"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#3","i":0,"c":"app/src/channels/webhook/config-schema.ts"}
-{"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#4","i":0,"c":"app/src/channels/bluebubbles/config-schema.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#2","i":0,"c":"packages/channels/src/channels/webhook/WebhookChannel.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#3","i":0,"c":"packages/channels/src/channels/webhook/config-schema.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#4","i":0,"c":"packages/channels/src/channels/bluebubbles/config-schema.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#5","i":0,"c":"packages/infra/src/trace-recording/live/LiveViewServer.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#6","i":0,"c":"packages/service/src/services/mcp/MCPConnection.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#7","i":0,"c":"app/src/ai/ModelManagementBootstrap.ts"}
@@ -6121,7 +6121,7 @@
 {"id":"HARDCODE-ENDPOINTS-B5-2-96","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8 阶段②；lint:endpoints 白名单收敛"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-96","k":"notes","i":0,"c":"cli 配置 websocket 绑定默认改用 WILDCARD_BIND_HOST；技能源 SSRF 回环判定与本地 LLM 端点判定改用 LOCAL_SERVICE_HOST/LOCAL_HTTP_HOST/WILDCARD_BIND_HOST（行为不变）；lint:endpoints 70→67。"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-96","k":"code#0","i":0,"c":"app/src/cli/config.ts"}
-{"id":"HARDCODE-ENDPOINTS-B5-2-96","k":"code#1","i":0,"c":"app/src/skills/loaders/adapter/SkillSearchEngine.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-96","k":"code#1","i":0,"c":"packages/skills/src/skills/loaders/adapter/SkillSearchEngine.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-96","k":"code#2","i":0,"c":"app/src/chat/services/ChatHelper.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-96","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-97","k":"title","i":0,"c":"U-20/2-97：请求占位 origin 收敛到端点真源"}
@@ -6268,7 +6268,7 @@
 {"id":"PATTERN-REACHABLE-RETENTION-PROBE","k":"title","i":0,"c":"架构报告 G2/G10 落地：pattern 可达性自描述 + 截断路径保留度探针"}
 {"id":"PATTERN-REACHABLE-RETENTION-PROBE","k":"source","i":0,"c":"Liri架构缺口分析报告-AgenticDesignPatterns-20261017.md G2/G10（工作区外）"}
 {"id":"PATTERN-REACHABLE-RETENTION-PROBE","k":"notes","i":0,"c":"① PatternInstantiation.ready 分支补 reachable（事实源 PatternSelector#PATTERN_SELECTION_RULES）与 featureGate（patternFeatureFlag + feature）；目录层既有字段不变。② StreamPipeline._truncateApiMessages 与 MessageContextPipeline.truncateByPreciseTokens 记录被丢弃原文，调用既有 measureRetention 对照保留文本，低于 DEFAULT_RETENTION_WARN_RATIO 时 logger.warn（只告警，不改截断决策）。③ measureRetention/DEFAULT_RETENTION_WARN_RATIO 经 @modules/context 统一出口导出（R03-002）。"}
-{"id":"PATTERN-REACHABLE-RETENTION-PROBE","k":"code#0","i":0,"c":"app/src/query/patternAssembler.ts"}
+{"id":"PATTERN-REACHABLE-RETENTION-PROBE","k":"code#0","i":0,"c":"packages/query/src/query/patternAssembler.ts"}
 {"id":"PATTERN-REACHABLE-RETENTION-PROBE","k":"code#1","i":0,"c":"app/src/chat/pipeline/StreamPipeline.ts"}
 {"id":"PATTERN-REACHABLE-RETENTION-PROBE","k":"code#2","i":0,"c":"app/src/chat/services/MessageContextPipeline.ts"}
 {"id":"PATTERN-REACHABLE-RETENTION-PROBE","k":"code#3","i":0,"c":"app/src/context/index.ts"}
@@ -6276,11 +6276,11 @@
 {"id":"U20-B5-2-100-CHANNEL-URLS","k":"title","i":0,"c":"U-20 B5-2-100：通道域厂商站点 / 默认 API 基址单一事实源"}
 {"id":"U20-B5-2-100-CHANNEL-URLS","k":"source","i":0,"c":".trae/architecture/hardcode-gate-baseline.json（lint:consts）"}
 {"id":"U20-B5-2-100-CHANNEL-URLS","k":"notes","i":0,"c":"新增 channels/constants.ts（WECOM_VENDOR_SITE_URL / YUANBAO_VENDOR_SITE_URL / YUANBAO_API_BASE_URL），经 channels/index 统一出口；WeComChannel、yuanbao config-schema、YuanbaoChannel、Onboard 引导页改引用常量（7 处字面量 → 3 常量）。门禁 lint:consts 由 85 降至 82，基线同步删除 3 组同值 host。"}
-{"id":"U20-B5-2-100-CHANNEL-URLS","k":"code#0","i":0,"c":"app/src/channels/constants.ts"}
-{"id":"U20-B5-2-100-CHANNEL-URLS","k":"code#1","i":0,"c":"app/src/channels/index.ts"}
-{"id":"U20-B5-2-100-CHANNEL-URLS","k":"code#2","i":0,"c":"app/src/channels/wecom/WeComChannel.ts"}
-{"id":"U20-B5-2-100-CHANNEL-URLS","k":"code#3","i":0,"c":"app/src/channels/yuanbao/config-schema.ts"}
-{"id":"U20-B5-2-100-CHANNEL-URLS","k":"code#4","i":0,"c":"app/src/channels/yuanbao/YuanbaoChannel.ts"}
+{"id":"U20-B5-2-100-CHANNEL-URLS","k":"code#0","i":0,"c":"packages/channels/src/channels/constants.ts"}
+{"id":"U20-B5-2-100-CHANNEL-URLS","k":"code#1","i":0,"c":"packages/channels/src/channels/index.ts"}
+{"id":"U20-B5-2-100-CHANNEL-URLS","k":"code#2","i":0,"c":"packages/channels/src/channels/wecom/WeComChannel.ts"}
+{"id":"U20-B5-2-100-CHANNEL-URLS","k":"code#3","i":0,"c":"packages/channels/src/channels/yuanbao/config-schema.ts"}
+{"id":"U20-B5-2-100-CHANNEL-URLS","k":"code#4","i":0,"c":"packages/channels/src/channels/yuanbao/YuanbaoChannel.ts"}
 {"id":"U20-B5-2-100-CHANNEL-URLS","k":"code#5","i":0,"c":"app/src/commands/builtin/onboard/Onboard.ts"}
 {"id":"U17-P2-TAIL-STRUCTURE","k":"title","i":0,"c":"U-17 P2 收尾：尾部结构恢复点（findStructuralResume）与围栏补齐"}
 {"id":"U17-P2-TAIL-STRUCTURE","k":"source","i":0,"c":"dev_docs/20261010/AST语法觉知型上下文回收引擎-设计方案-20261010.md §8.6"}
@@ -6470,15 +6470,15 @@
 {"id":"ROOTCLEAN-PROBE-SCRIPT-RETIRED","k":"code#0","i":0,"c":"packages/infra/src/environment/paths.ts"}
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"title","i":0,"c":"熔断分型：environment_blocked 与 circuit_breaker 分流（LRO-09 步骤 1a–4）"}
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"source","i":0,"c":"用户 2026-10-26 指令「好的，从 LRO-01 开始」/「好的，执行吧」；依据 dev_docs/20261026/长程任务失败排查工作计划-20261026.md §3-R3；实测证据 dev_docs/20261026/证据/（04:17:23-27 日志 + tool_rules.json 同指纹 allow+deny）"}
-{"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"reopenWhen","i":0,"c":"若出现「环境阻塞未按 2 轮收口」或「模型无效输出被误判为环境阻塞」：回看 app/src/query/ReActLoop.ts 的 classifyTurn() 与各 failureKind 生产者；回滚按提交粒度 779101f5c / a74e973f6 / 27b2460b3 / 71b0ba812 逐条 revert"}
+{"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"reopenWhen","i":0,"c":"若出现「环境阻塞未按 2 轮收口」或「模型无效输出被误判为环境阻塞」：回看 packages/query/src/query/ReActLoop.ts 的 classifyTurn() 与各 failureKind 生产者；回滚按提交粒度 779101f5c / a74e973f6 / 27b2460b3 / 71b0ba812 逐条 revert"}
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"notes","i":0,"c":"【根因·实测】file_write 连续 3 次 Denied by rule，4 秒内烧完 consecutiveInvalidTurns（max 3）⇒ circuit_breaker；根因是 tool_rules.json 同工具同指纹 allow+deny 冲突，属环境层不可自愈。"}
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"notes","i":1,"c":"【为何分型】checkCircuitBreaker 原只看 status===\"error\"：模型非法 tool_call、权限/安全拒绝、工具自身报错共用同一预算，最不可自愈的最快烧完。分类只读结构化字段 status+failureKind，禁解析 error 文本（CS02）。"}
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"notes","i":2,"c":"【拍板 2026-10-26】阈值 2（maxConsecutiveBlockedTurns，0=禁用）；ruleId 只给用户与日志（随 error 文本进终止文案，不注入模型可见输入）；不自动续跑，用户处理后重发。"}
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"notes","i":3,"c":"【落点取舍】classifyTurn 与 ToolResultEntry 同文件（新建文件会让 status/blocked 成为 lint:state-ratchet 未报备新增）；ToolFailureKind 单一事实源在 utils/toolContract/ToolResult.ts（infra），session/types/tool.ts re-export。"}
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"notes","i":4,"c":"【如实缺口 e2eVerified=false】未接真实会话验证「规则拒绝→2 轮→终止文案」全链；步骤 4 的 BashTool 用例为源码级断言 + 纯函数触发前提，未跑真实 bash 执行。"}
-{"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#0","i":0,"c":"app/src/query/ReActLoop.ts"}
+{"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#0","i":0,"c":"packages/query/src/query/ReActLoop.ts"}
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#1","i":0,"c":"app/src/chat/toolResultPostProcess.ts"}
-{"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#2","i":0,"c":"app/src/session/types/tool.ts"}
+{"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#2","i":0,"c":"packages/service/src/session/types/tool.ts"}
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#3","i":0,"c":"packages/infra/src/utils/toolContract/ToolResult.ts"}
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#4","i":0,"c":"packages/infra/src/permission/PermissionManager.ts"}
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#5","i":0,"c":"app/src/chat/services/ToolExecutionService.ts"}
@@ -6530,11 +6530,11 @@
 {"id":"TAOR-FAILURE-KIND-PARITY","k":"notes","i":1,"c":"【改法】executeTools 契约与 ChatManagerTAORAdapter 结果构造补 failureKind；PathGuard 跳过项标 safety_blocked；映射抽到 ReActLoop.toToolResultEntries（与 ToolResultEntry 同处，避开 lint:state-ratchet 的新文件 error 字面量）。"}
 {"id":"TAOR-FAILURE-KIND-PARITY","k":"notes","i":2,"c":"【体量】TAORLoop.ts 本次曾到 2018 行（R04-001 上限 2000）⇒ 跳过回填抽到 query/taor/roundResults.ts、结果映射移到 ReActLoop，最终 1995 行。"}
 {"id":"TAOR-FAILURE-KIND-PARITY","k":"notes","i":3,"c":"【如实缺口】① failureKind 未落盘（仅内存 ToolResultEntry）⇒ 恢复/续跑无法据分类短路，属 LRO-13 设计范畴，未提前实现（无消费者）；② SubAgentLoop（AgentTool/SubAgentEngine）走 {ok,content} 契约，未分类；③ aborted/timeout 仍按 progress 计（旧语义保留）。"}
-{"id":"TAOR-FAILURE-KIND-PARITY","k":"code#0","i":0,"c":"app/src/query/TAORLoop.ts"}
-{"id":"TAOR-FAILURE-KIND-PARITY","k":"code#1","i":0,"c":"app/src/query/ReActLoop.ts"}
-{"id":"TAOR-FAILURE-KIND-PARITY","k":"code#2","i":0,"c":"app/src/query/ChatManagerTAORAdapter.ts"}
-{"id":"TAOR-FAILURE-KIND-PARITY","k":"code#3","i":0,"c":"app/src/query/taor/types.ts"}
-{"id":"TAOR-FAILURE-KIND-PARITY","k":"code#4","i":0,"c":"app/src/query/taor/roundResults.ts"}
+{"id":"TAOR-FAILURE-KIND-PARITY","k":"code#0","i":0,"c":"packages/query/src/query/TAORLoop.ts"}
+{"id":"TAOR-FAILURE-KIND-PARITY","k":"code#1","i":0,"c":"packages/query/src/query/ReActLoop.ts"}
+{"id":"TAOR-FAILURE-KIND-PARITY","k":"code#2","i":0,"c":"packages/query/src/query/ChatManagerTAORAdapter.ts"}
+{"id":"TAOR-FAILURE-KIND-PARITY","k":"code#3","i":0,"c":"packages/query/src/query/taor/types.ts"}
+{"id":"TAOR-FAILURE-KIND-PARITY","k":"code#4","i":0,"c":"packages/query/src/query/taor/roundResults.ts"}
 {"id":"TAOR-FAILURE-KIND-PARITY","k":"tests#0","i":0,"c":"app/tests/query/taorLoopPathGuardPerCallSkip.test.ts"}
 {"id":"TOOL-EMPTY-RESULT-MARKER","k":"title","i":0,"c":"成功但无任何输出的命令调用标 emptyResult 并提示（bash/powershell 同一口径）"}
 {"id":"TOOL-EMPTY-RESULT-MARKER","k":"source","i":0,"c":"2026-10-26 用户指令「先处理 LRO-10 剩余的 empty_result 问题」；依据计划 §10.3 第 5 项；代码取证 BashTool 成功返回分支与 PowerShellTool execute 成功分支"}
@@ -6728,8 +6728,8 @@
 {"id":"SUBAGENT-ROUND-BREAKER","k":"source","i":0,"c":"排查计划 §11.2 P2-1 / Liri 报告 D 项"}
 {"id":"SUBAGENT-ROUND-BREAKER","k":"reopenWhen","i":0,"c":"再现子代理跑到 maxTurns 才停、且失败工具未归因"}
 {"id":"SUBAGENT-ROUND-BREAKER","k":"notes","i":0,"c":"① 阈值改引用 ReActLoop 常量（invalid 3 / blocked 2）；② executeToolCall 的 ok 反映 result.success，并透传 failureKind；③ finalize 透传熔断终态 lastError"}
-{"id":"SUBAGENT-ROUND-BREAKER","k":"code#0","i":0,"c":"app/src/query/ReActLoop.ts"}
-{"id":"SUBAGENT-ROUND-BREAKER","k":"code#1","i":0,"c":"app/src/query/index.ts"}
+{"id":"SUBAGENT-ROUND-BREAKER","k":"code#0","i":0,"c":"packages/query/src/query/ReActLoop.ts"}
+{"id":"SUBAGENT-ROUND-BREAKER","k":"code#1","i":0,"c":"packages/query/src/query/index.ts"}
 {"id":"SUBAGENT-ROUND-BREAKER","k":"code#2","i":0,"c":"app/src/tools/AgentTool/SubAgentEngine.ts"}
 {"id":"SUBAGENT-ROUND-BREAKER","k":"tests#0","i":0,"c":"app/tests/tools/AgentTool/subAgentCircuitBreaker.test.ts"}
 {"id":"SANDBOX-PERMISSION-HOT-RELOAD","k":"title","i":0,"c":"改沙箱级别即时生效（刷新默认工作区权限位）"}
@@ -6747,7 +6747,7 @@
 {"id":"ABORTED-TURN-NEUTRAL","k":"source","i":0,"c":"排查计划 §11.2 P2-2（classifyTurn 只把 error 计失败，中止按 progress 清零掩盖卡死）"}
 {"id":"ABORTED-TURN-NEUTRAL","k":"reopenWhen","i":0,"c":"再现「中止→失败→中止」循环始终不触发熔断"}
 {"id":"ABORTED-TURN-NEUTRAL","k":"notes","i":0,"c":"classifyTurn 新增 aborted（全 aborted/timeout）；checkCircuitBreaker 对该结果既不计失败也不清零；混入成功=progress、混入 error 仍按失败分型"}
-{"id":"ABORTED-TURN-NEUTRAL","k":"code#0","i":0,"c":"app/src/query/ReActLoop.ts"}
+{"id":"ABORTED-TURN-NEUTRAL","k":"code#0","i":0,"c":"packages/query/src/query/ReActLoop.ts"}
 {"id":"ABORTED-TURN-NEUTRAL","k":"tests#0","i":0,"c":"app/tests/query/environmentBlockedTermination.test.ts"}
 {"id":"BARE-SESSION-COMPILED-CWD","k":"title","i":0,"c":"编译版裸会话改用会话级 workspace"}
 {"id":"BARE-SESSION-COMPILED-CWD","k":"source","i":0,"c":"排查计划 §11.2 P2-4（裸会话回落 resolveProjectRoot）"}
@@ -6762,8 +6762,8 @@
 {"id":"FAILURE-KIND-PERSISTED","k":"reopenWhen","i":0,"c":"再现重启后无法判断某工具调用的失败分类"}
 {"id":"FAILURE-KIND-PERSISTED","k":"notes","i":0,"c":"构造处（createToolResultMessage）把 failureKind 写进失败消息 metadata；投影（MessageToEventMigrator）经 isToolFailureKind 守卫后写入 tool/result 事件；非法/缺省不写键（防 D1 无损 JSON 拒绝）"}
 {"id":"FAILURE-KIND-PERSISTED","k":"code#0","i":0,"c":"app/src/chat/services/MessageService.ts"}
-{"id":"FAILURE-KIND-PERSISTED","k":"code#1","i":0,"c":"app/src/session/storage/MessageToEventMigrator.ts"}
-{"id":"FAILURE-KIND-PERSISTED","k":"code#2","i":0,"c":"app/src/session/types/eventPayloads.ts"}
+{"id":"FAILURE-KIND-PERSISTED","k":"code#1","i":0,"c":"packages/service/src/session/storage/MessageToEventMigrator.ts"}
+{"id":"FAILURE-KIND-PERSISTED","k":"code#2","i":0,"c":"packages/service/src/session/types/eventPayloads.ts"}
 {"id":"FAILURE-KIND-PERSISTED","k":"tests#0","i":0,"c":"app/tests/session/MessageToEventMigrator.test.ts"}
 {"id":"PS-READONLY-METHOD-ALLOWLIST","k":"title","i":0,"c":"PS 方法调用收窄到只读字符串白名单"}
 {"id":"PS-READONLY-METHOD-ALLOWLIST","k":"source","i":0,"c":"排查计划 §12.4（需安全评审项；Liri R2 的 83 次拒绝）"}
@@ -6874,7 +6874,7 @@
 {"id":"LIRI-BUG-B","k":"notes","i":0,"c":"getOrLoadSession 的 metadata 仅新建会话时生效；新增 _applyRequestWorkspacePath 在缓存命中与存储加载两分支补落盘，值判定收敛 resolveRequestWorkspaceUpdate（只认绝对路径、同值不写库）"}
 {"id":"LIRI-BUG-B","k":"code#0","i":0,"c":"app/src/chat/services/toolCwdScope.ts"}
 {"id":"LIRI-BUG-B","k":"code#1","i":0,"c":"app/src/chat/services/SessionLifecycleManager.ts"}
-{"id":"LIRI-BUG-B","k":"code#2","i":0,"c":"app/src/session/types/UnifiedSession.ts"}
+{"id":"LIRI-BUG-B","k":"code#2","i":0,"c":"packages/service/src/session/types/UnifiedSession.ts"}
 {"id":"LIRI-BUG-B","k":"tests#0","i":0,"c":"app/tests/chat/sessionWorkspaceResolve.test.ts"}
 {"id":"LIRI-BUG-C","k":"title","i":0,"c":"输出预算硬编码 4096 ⇒ 大文件写入参数整点截断"}
 {"id":"LIRI-BUG-C","k":"source","i":0,"c":"dev_docs/20261027/Liri-bug分析报告-20261027.md §八 BUG-C；app.log 四次 outputTokens=4096"}
@@ -6927,7 +6927,7 @@
 {"id":"LIRI-BUG-G","k":"source","i":0,"c":"dev_docs/20261027/Liri-bug分析报告-20261027.md §8.6「兜底标记的对外可见性」；真机 session_mvqstue8ecef7606df"}
 {"id":"LIRI-BUG-G","k":"reopenWhen","i":0,"c":"再出现 messages.jsonl 带 metadata（emptyOutputFallback / workspacePath）而 GET /v1/sessions/:id/messages 返回 null"}
 {"id":"LIRI-BUG-G","k":"notes","i":0,"c":"只补元数据，内容仍以事件聚合为准；覆盖分支本已 ...proj 带入 metadata，本处与之对齐。复验：同一接口返回 metadata.emptyOutputFallback=true，用户消息恢复 workspacePath"}
-{"id":"LIRI-BUG-G","k":"code#0","i":0,"c":"app/src/session/storage/EventMessageDeriver.ts"}
+{"id":"LIRI-BUG-G","k":"code#0","i":0,"c":"packages/service/src/session/storage/EventMessageDeriver.ts"}
 {"id":"LIRI-BUG-G","k":"tests#0","i":0,"c":"app/tests/session/EventMessageDeriver.test.ts"}
 {"id":"SHARED-TASK-STORE","k":"title","i":0,"c":"任务存储改为进程级共享实例（按库路径分桶），并修复两处从未 init 导致的死路径"}
 {"id":"SHARED-TASK-STORE","k":"source","i":0,"c":"dev_docs/error_repairs/预存错误与待处理问题.md D-100（2026-09-30 登记 / 2026-10-31 修复）"}
@@ -6981,7 +6981,7 @@
 {"id":"SESSION-DATA-RETENTION","k":"notes","i":1,"c":"话内文件最新 mtime；新增 buildPruningConfig（缺省 enabled=false / dryRun=true）；新增 scripts/prune-sessions.ts（bun run prune:sessions，缺省演练，--apply 需 config.dataRetention.enabled=true 联锁）；删除一律软删除到"}
 {"id":"SESSION-DATA-RETENTION","k":"notes","i":2,"c":" <sessionsDir>/.trash。验证：typecheck 绿、新单测 6 例（大小/天数/软删除/会话数/缺省值/覆盖）、隔离 LIRI_HOME 端到端 apply 实移 1 个会话到 .trash、--apply 在 enabled=false 时 exit 2、lint:startup-graph 维持、lint:scripts 0。取舍（"}
 {"id":"SESSION-DATA-RETENTION","k":"notes","i":3,"c":"如实）：dataRetention 未声明进 GlobalConfig —— 该文件在启动面静态图内，新增类型会突破字节棘轮；ConfigManager 以整份已加载对象回写，未知键不被剥离。"}
-{"id":"SESSION-DATA-RETENTION","k":"code#0","i":0,"c":"app/src/session/SessionPruning.ts"}
+{"id":"SESSION-DATA-RETENTION","k":"code#0","i":0,"c":"packages/service/src/session/SessionPruning.ts"}
 {"id":"SESSION-DATA-RETENTION","k":"code#1","i":0,"c":"app/scripts/prune-sessions.ts"}
 {"id":"SESSION-DATA-RETENTION","k":"code#2","i":0,"c":"app/package.json"}
 {"id":"SESSION-DATA-RETENTION","k":"tests#0","i":0,"c":"app/tests/session/sessionPruning.test.ts"}
@@ -6991,8 +6991,8 @@
 {"id":"FILE-IO-LOOP-QUERY-KEY","k":"notes","i":0,"c":"根因：FileIOLoopDetector 的判定键只有「路径 + 分页区域(offset/limit)」，glob/grep 的 pattern 不在键内 ⇒ 同一目录下 4 个不同 pattern 的检索被累计成「连续读同一文件 ×4」；TAORLoop 命中后直接 stopped=true / stopReason=aborted，整轮终止。修法："}
 {"id":"FILE-IO-LOOP-QUERY-KEY","k":"notes","i":1,"c":"checkBeforeAccess 增加可选 querySignature（跨文件交替检测的键同样带上），TAORLoop 传入 args.pattern。真循环仍被拦（同 pattern ×4 阻断用例保留）。验证：FileIOLoopDetector 单测 6 例（新增 3 例：不同 pattern 不拦 / 同 pattern 仍拦 / 两目录交替不判"}
 {"id":"FILE-IO-LOOP-QUERY-KEY","k":"notes","i":2,"c":"循环）、tests/query 450 例全绿、typecheck 绿、eslint 0 error（仅既有 complexity 警告）。"}
-{"id":"FILE-IO-LOOP-QUERY-KEY","k":"code#0","i":0,"c":"app/src/query/FileIOLoopDetector.ts"}
-{"id":"FILE-IO-LOOP-QUERY-KEY","k":"code#1","i":0,"c":"app/src/query/TAORLoop.ts"}
+{"id":"FILE-IO-LOOP-QUERY-KEY","k":"code#0","i":0,"c":"packages/query/src/query/FileIOLoopDetector.ts"}
+{"id":"FILE-IO-LOOP-QUERY-KEY","k":"code#1","i":0,"c":"packages/query/src/query/TAORLoop.ts"}
 {"id":"FILE-IO-LOOP-QUERY-KEY","k":"tests#0","i":0,"c":"app/tests/query/FileIOLoopDetector.test.ts"}
 {"id":"CMD-ALIAS-CP-CONFLICT","k":"title","i":0,"c":"命令别名 cp 双重声明：checkpoint 与 copy 撞车 ⇒ 每次装配报错并拒绝登记"}
 {"id":"CMD-ALIAS-CP-CONFLICT","k":"source","i":0,"c":"真机 app.log（2026-10-31T03-04 窗口）：CommandRegistry 命令别名冲突 ⇒ 拒绝登记该别名（onConflict=error）28 次，meta 恒为 command=checkpoint / alias=cp / occupiedBy=copy"}
@@ -7008,7 +7008,7 @@
 {"id":"CMD-NAME-DEBUG-CONFLICT","k":"notes","i":0,"c":"根因：BundledSkillLoader 的 debug 技能声明 userInvocable=true，SkillCommandLoader 会把它登记成斜杠命令；内置命令 /debug 已先注册同名 ⇒ CommandRegistry 取 onConflict=error，每次装配记 error 并拒绝该技能命令。取舍（本轮裁定口径：保持 /debug"}
 {"id":"CMD-NAME-DEBUG-CONFLICT","k":"notes","i":1,"c":" 现状、不改变用户可见命令面）：把该技能改为 userInvocable=false —— 技能仍可由模型经 Skill 工具按名调用，用户侧 /debug 继续归内置命令，冲突源消除。备选（未采用）：把技能改名 debug-issue（新增一个用户可见命令）；或改内置命令名（改动面更大）。验证：typecheck 绿；tests/skills + "}
 {"id":"CMD-NAME-DEBUG-CONFLICT","k":"notes","i":2,"c":"tests/commands 136 例全绿；eslint 0。"}
-{"id":"CMD-NAME-DEBUG-CONFLICT","k":"code#0","i":0,"c":"app/src/skills/loaders/sources/BundledSkillLoader.ts"}
+{"id":"CMD-NAME-DEBUG-CONFLICT","k":"code#0","i":0,"c":"packages/skills/src/skills/loaders/sources/BundledSkillLoader.ts"}
 {"id":"TURN-AWAITING-APPROVAL-NEUTRAL","k":"title","i":0,"c":"越界且已提交审批的失败轮改为熔断中性态（新增 failureKind=workspace_escape_pending_approval）"}
 {"id":"TURN-AWAITING-APPROVAL-NEUTRAL","k":"source","i":0,"c":"台账 §16；真机 app.log：reActLoop:all-tools-failed 42 次全为工作区越界（file_read/glob 指向仓库根），且错误文案已写明已提交审批申请"}
 {"id":"TURN-AWAITING-APPROVAL-NEUTRAL","k":"reopenWhen","i":0,"c":"再出现「等用户批准期间 invalid 预算被耗尽导致整轮熔断」或「越界失败被当成模型无效输出计数」"}
@@ -7018,7 +7018,7 @@
 {"id":"TURN-AWAITING-APPROVAL-NEUTRAL","k":"notes","i":3,"c":"--update 收编新出现点（净 -1 条陈旧项）；fn-size / complexity 棘轮维持；eslint 0 error。"}
 {"id":"TURN-AWAITING-APPROVAL-NEUTRAL","k":"code#0","i":0,"c":"packages/infra/src/utils/toolContract/ToolResult.ts"}
 {"id":"TURN-AWAITING-APPROVAL-NEUTRAL","k":"code#1","i":0,"c":"app/src/chat/services/ToolExecutionService.ts"}
-{"id":"TURN-AWAITING-APPROVAL-NEUTRAL","k":"code#2","i":0,"c":"app/src/query/ReActLoop.ts"}
+{"id":"TURN-AWAITING-APPROVAL-NEUTRAL","k":"code#2","i":0,"c":"packages/query/src/query/ReActLoop.ts"}
 {"id":"TURN-AWAITING-APPROVAL-NEUTRAL","k":"tests#0","i":0,"c":"app/tests/query/environmentBlockedTermination.test.ts"}
 {"id":"TURN-AWAITING-APPROVAL-NEUTRAL","k":"tests#1","i":0,"c":"app/tests/chat/toolFailureKindWiring.test.ts"}
 {"id":"POWERSHELL-TRUST-LEVEL","k":"title","i":0,"c":"PowerShell 安全链接入工作区信任分级（与 Bash 同源；只放宽白名单未命中的非危险命令）"}
@@ -7082,8 +7082,8 @@
 {"id":"TAOR-IO-LOOP-OBSERVABILITY","k":"reopenWhen","i":0,"c":"再出现「同一路径/pattern 反复被拦却无可用线索」，或拦截语义改为 steering 改道（另一口径）"}
 {"id":"TAOR-IO-LOOP-OBSERVABILITY","k":"notes","i":0,"c":"口径（用户 2026-10-31 裁定）：维持 abort 整轮，仅补可观测。实现：helpers 新增 buildFileIoBlockReason（纯函数，带单测）+ toFileIoLoopBlocked（提取 pattern、记日志、产出拦截条目）；TAORLoop 改为一次调用（受 R04-001 2000 行上限约束，不外联展开，现 1996 行"}
 {"id":"TAOR-IO-LOOP-OBSERVABILITY","k":"notes","i":1,"c":"）。"}
-{"id":"TAOR-IO-LOOP-OBSERVABILITY","k":"code#0","i":0,"c":"app/src/query/TAORLoop.ts"}
-{"id":"TAOR-IO-LOOP-OBSERVABILITY","k":"code#1","i":0,"c":"app/src/query/taor/helpers.ts"}
+{"id":"TAOR-IO-LOOP-OBSERVABILITY","k":"code#0","i":0,"c":"packages/query/src/query/TAORLoop.ts"}
+{"id":"TAOR-IO-LOOP-OBSERVABILITY","k":"code#1","i":0,"c":"packages/query/src/query/taor/helpers.ts"}
 {"id":"TAOR-IO-LOOP-OBSERVABILITY","k":"tests#0","i":0,"c":"app/tests/query/taorIoLoopReason.test.ts"}
 {"id":"MEDIA-SIDECAR-APPERROR","k":"title","i":0,"c":"MediaSidecarRpcError 改继承 AppError（R01-002 ERROR 阻断解除）"}
 {"id":"MEDIA-SIDECAR-APPERROR","k":"source","i":0,"c":"提交前架构门禁 ERROR：app/src/tools/sidecar/mediaCapabilities.ts 的 MediaSidecarRpcError 直接 extends Error（自建错误层，R01-002）"}
@@ -7097,7 +7097,7 @@
 {"id":"IO-CYCLE-ABS-REL-UNIFY","k":"reopenWhen","i":0,"c":"再出现「同一文件被判为多个文件交替」，或检测器需要按真实 cwd 做绝对化（届时改为在调用方解析）"}
 {"id":"IO-CYCLE-ABS-REL-UNIFY","k":"notes","i":0,"c":"根因：recentFiles 按原始字符串入键（仅反斜杠归一），模型在绝对/相对写法间切换 ⇒ 同一文件计成 2 个键、各 3 次 ⇒ 交替循环判定命中并 abort 整轮。修复：入键前用 isSameAccessTarget 归一到已有键（查询签名必须相同 —— 不同 pattern 是不同查询，保持 2026-10-31 既有口径；路径相等或按 / 边界"}
 {"id":"IO-CYCLE-ABS-REL-UNIFY","k":"notes","i":1,"c":"的尾部匹配）。阴性对照：还原旧行为后 abs/rel 交替 6 次被阻断（用例转红）；修复后不警告不阻断，而真正不同的两文件交替仍拦。"}
-{"id":"IO-CYCLE-ABS-REL-UNIFY","k":"code#0","i":0,"c":"app/src/query/FileIOLoopDetector.ts"}
+{"id":"IO-CYCLE-ABS-REL-UNIFY","k":"code#0","i":0,"c":"packages/query/src/query/FileIOLoopDetector.ts"}
 {"id":"IO-CYCLE-ABS-REL-UNIFY","k":"tests#0","i":0,"c":"app/tests/query/FileIOLoopDetector.test.ts"}
 {"id":"VIDEO-METADATA-FFPROBE","k":"title","i":0,"c":"视频元信息时长改由 ffprobe 探测（不可用⇒null+durationUnavailable，不伪造 0）"}
 {"id":"VIDEO-METADATA-FFPROBE","k":"source","i":0,"c":"功能缺口 P0（台账 2026-10-31 排期）：video-handlers.ts 的 duration 硬编码 null（TODO: 需 ffprobe），而 ffmpegWrapper.probe 早已存在且 VideoProcessor 在用"}
@@ -7128,7 +7128,7 @@
 {"id":"IO-REPEAT-ONLY-RULE","k":"source","i":0,"c":"真机 app.log（2026-10-31，6k 行内 8 次）：[IO_CYCLE] 2 个文件交替 = output/** 与 01_work/**（两个不同目录的正常探索）、C:/…/workspace 与 .（同一目录两种写法）"}
 {"id":"IO-REPEAT-ONLY-RULE","k":"reopenWhen","i":0,"c":"再出现「两个不同目标交替被终止整轮」，或需要把 cwd 注入检测器以归一 `.` 写法"}
 {"id":"IO-REPEAT-ONLY-RULE","k":"notes","i":0,"c":"旧启发式「最近 10 次里 2–3 个键各 ≥3 次 ⇒ 交替循环」误伤探索。新判据：单个 target 在窗口内 ≥ blockThreshold(4) 才拦，且放在连续读写判定之后（连续场景保留更具体的「连续读/写 ×N」文案）。另：裸 `.` 无 cwd 不可比较 ⇒ 不计入（漏检不误检）；前导 ./ 归一。"}
-{"id":"IO-REPEAT-ONLY-RULE","k":"code#0","i":0,"c":"app/src/query/FileIOLoopDetector.ts"}
+{"id":"IO-REPEAT-ONLY-RULE","k":"code#0","i":0,"c":"packages/query/src/query/FileIOLoopDetector.ts"}
 {"id":"IO-REPEAT-ONLY-RULE","k":"tests#0","i":0,"c":"app/tests/query/FileIOLoopDetector.test.ts"}
 {"id":"MAIL-DELETE-AS-READ-NOTICE","k":"title","i":0,"c":"邮件删除后如实提示「仅标记已读」（前端承接服务端 data.note）"}
 {"id":"MAIL-DELETE-AS-READ-NOTICE","k":"source","i":0,"c":"取证 2026-10-31：DELETE /v1/mail/:id 不删邮件、只 markRead 并回 data.note；OfficeMailPage 只判 ok===false，不读 message/note ⇒ 用户以为已删除、下次同步又出现且无任何提示"}
@@ -7153,8 +7153,8 @@
 {"id":"TAOR-OUTPUT-CAP-8192","k":"reopenWhen","i":0,"c":"若传输层默认 max_tokens 调整或模型支持「推理与工具参数分预算」，可回调 TAOR_DEFAULT_MAX_OUTPUT_TOKENS。"}
 {"id":"TAOR-OUTPUT-CAP-8192","k":"notes","i":0,"c":"修复：_collectCallModel 每轮透传 resolveAgentMaxOutputTokens（有效值 > budgetConfig > 8192）；C1 翻倍改走 nextDoubledOutputCap（与默认同源，封顶 64k），去掉两处硬编码 4096/64000。未改压缩/恢复语义；用户显式 "}
 {"id":"TAOR-OUTPUT-CAP-8192","k":"notes","i":1,"c":"budgetConfig.maxOutputTokens 仍优先。TAORLoop 仍为 2000 行（R04-001 上限）。"}
-{"id":"TAOR-OUTPUT-CAP-8192","k":"code#0","i":0,"c":"app/src/query/TAORLoop.ts"}
-{"id":"TAOR-OUTPUT-CAP-8192","k":"code#1","i":0,"c":"app/src/query/taor/helpers.ts"}
+{"id":"TAOR-OUTPUT-CAP-8192","k":"code#0","i":0,"c":"packages/query/src/query/TAORLoop.ts"}
+{"id":"TAOR-OUTPUT-CAP-8192","k":"code#1","i":0,"c":"packages/query/src/query/taor/helpers.ts"}
 {"id":"TAOR-OUTPUT-CAP-8192","k":"tests#0","i":0,"c":"app/tests/query/agentMaxOutputTokens.test.ts"}
 {"id":"TAOR-OUTPUT-CAP-8192","k":"changelog#0","i":0,"c":"修复：agent 轮默认输出上限提至 8192，大参数 file_write/file_edit 不再被 4096 截断"}
 {"id":"GREP-CACHE-INVALIDATE-ON-WRITE","k":"title","i":0,"c":"写入成功后失效 grep 重复短路缓存（写后同 pattern 复查不再回陈旧零命中）"}
@@ -7173,8 +7173,8 @@
 {"id":"EVENTLOG-INFLIGHT-NO-SYNTH-CLOSER","k":"reopenWhen","i":0,"c":"若引入真正跨进程的在飞租约（写者心跳文件），可把进程内登记表替换为该租约；届时需重估 60 分钟窗口。"}
 {"id":"EVENTLOG-INFLIGHT-NO-SYNTH-CLOSER","k":"notes","i":0,"c":"口径 A（用户裁定）：EventLogStorage.append 成功后 trackTurnLifecycle（turn/start 记、turn/end 清）；commitInterruptedRepair 见窗口内未闭合轮即跳过（debug 留痕）。进程崩溃 ⇒ 表随进程消失 ⇒ 下次启动照常修复；超 60 分钟的未闭合轮按泄漏处理（异常中断不写 "}
 {"id":"EVENTLOG-INFLIGHT-NO-SYNTH-CLOSER","k":"notes","i":1,"c":"end），避免永久不修。torn-tail 截断不受影响（独立方法）。"}
-{"id":"EVENTLOG-INFLIGHT-NO-SYNTH-CLOSER","k":"code#0","i":0,"c":"app/src/session/storage/EventLogRepair.ts"}
-{"id":"EVENTLOG-INFLIGHT-NO-SYNTH-CLOSER","k":"code#1","i":0,"c":"app/src/session/storage/EventLogStorage.ts"}
+{"id":"EVENTLOG-INFLIGHT-NO-SYNTH-CLOSER","k":"code#0","i":0,"c":"packages/service/src/session/storage/EventLogRepair.ts"}
+{"id":"EVENTLOG-INFLIGHT-NO-SYNTH-CLOSER","k":"code#1","i":0,"c":"packages/service/src/session/storage/EventLogStorage.ts"}
 {"id":"EVENTLOG-INFLIGHT-NO-SYNTH-CLOSER","k":"tests#0","i":0,"c":"app/tests/session/eventLogRepairInFlight.test.ts"}
 {"id":"EVENTLOG-INFLIGHT-NO-SYNTH-CLOSER","k":"changelog#0","i":0,"c":"修复：崩溃修复不再给在飞会话补 canceled 结束事件（消除同一 turn 双 end）"}
 {"id":"FILEREAD-CHAR-CAP","k":"title","i":0,"c":"file_read 增加单次返回字符闸（超长单行不再把请求推到百万 tokens）"}
@@ -7203,8 +7203,8 @@
 {"id":"PRE-SEND-BUDGET-GATE","k":"reopenWhen","i":0,"c":"若工具结果预算统一层（ToolResultBudget/ToolResultStorageHook）接线完成，可把本闸降为兜底并调低触发频率。"}
 {"id":"PRE-SEND-BUDGET-GATE","k":"notes","i":0,"c":"实现：beforeReasoning 调 ensureContextWithinBudget（helpers）——发送前 estimateMessagesTokens 估算本轮 messages，达 resolveContextWindow×0.7 即先 queryEngine.compactIfNeeded；无 sessionId/窗口无效直通。顺带把 "}
 {"id":"PRE-SEND-BUDGET-GATE","k":"notes","i":1,"c":"C1 truncateHeadForRetry 外迁 helpers.truncateMessagesHead（逻辑与日志不变），TAORLoop 1990 行。"}
-{"id":"PRE-SEND-BUDGET-GATE","k":"code#0","i":0,"c":"app/src/query/TAORLoop.ts"}
-{"id":"PRE-SEND-BUDGET-GATE","k":"code#1","i":0,"c":"app/src/query/taor/helpers.ts"}
+{"id":"PRE-SEND-BUDGET-GATE","k":"code#0","i":0,"c":"packages/query/src/query/TAORLoop.ts"}
+{"id":"PRE-SEND-BUDGET-GATE","k":"code#1","i":0,"c":"packages/query/src/query/taor/helpers.ts"}
 {"id":"PRE-SEND-BUDGET-GATE","k":"tests#0","i":0,"c":"app/tests/query/preSendBudgetGate.test.ts"}
 {"id":"PRE-SEND-BUDGET-GATE","k":"changelog#0","i":0,"c":"新增：TAOR 发送前体积闸（窗口 70% 先压缩），减少上下文溢出 400 与重复压缩"}
 {"id":"TOOL-RESULT-BUDGET-WIRED","k":"title","i":0,"c":"TAOR/LRO 工具结果入上下文前体积闸（超 50k 落盘 + 预览，复用 chat 侧同一实现）"}
@@ -7212,8 +7212,8 @@
 {"id":"TOOL-RESULT-BUDGET-WIRED","k":"reopenWhen","i":0,"c":"若需按模型窗口动态调整单条/单轮阈值，或 services/toolResultStorage 两套未接线实现被正式收编（其 applyToolResultBudget 只拼「已保存到 …」文案、并不写盘 ⇒ 不可直接接线）。"}
 {"id":"TOOL-RESULT-BUDGET-WIRED","k":"notes","i":0,"c":"实现：TAORLoop.act() 在结果转 messages 之前调 taor/toolResultBudget.shrinkOversizedRawResults，复用 tools/services/ToolResultPersister.prepareToolResultsForContext（同 50k 单条 / 200k 单轮阈值、同安全预览、同落"}
 {"id":"TOOL-RESULT-BUDGET-WIRED","k":"notes","i":1,"c":"盘目录、同路径引用文案）；未超限者引用不变、零开销。未接 services/toolResultStorage：其 ToolResultStorageHook 零消费者，且落盘只写文案不写文件（会给模型假路径）。TAORLoop 1994 行（R04-001 上限 2000）。"}
-{"id":"TOOL-RESULT-BUDGET-WIRED","k":"code#0","i":0,"c":"app/src/query/TAORLoop.ts"}
-{"id":"TOOL-RESULT-BUDGET-WIRED","k":"code#1","i":0,"c":"app/src/query/taor/toolResultBudget.ts"}
+{"id":"TOOL-RESULT-BUDGET-WIRED","k":"code#0","i":0,"c":"packages/query/src/query/TAORLoop.ts"}
+{"id":"TOOL-RESULT-BUDGET-WIRED","k":"code#1","i":0,"c":"packages/query/src/query/taor/toolResultBudget.ts"}
 {"id":"TOOL-RESULT-BUDGET-WIRED","k":"tests#0","i":0,"c":"app/tests/query/taorToolResultBudget.test.ts"}
 {"id":"TOOL-RESULT-BUDGET-WIRED","k":"changelog#0","i":0,"c":"修复：TAOR/LRO 工具结果超预算自动落盘并回填预览，抑制大结果导致的上下文溢出"}
 {"id":"CI-GATE-PARITY","k":"title","i":0,"c":"门禁对等：10 条本地门禁补进 CI + 元门禁 lint:gate-parity（漏登记即红）"}
@@ -7314,7 +7314,7 @@
 {"id":"NOSTR-HONEST-FAILURE","k":"reopenWhen","i":0,"c":"若补齐 relay 传输 + secp256k1 签名，应把 sendTextMessage 改为真实发布结果并撤掉 support-levels.json 的 nostr=experimental 覆盖（本用例的「未就绪必失败」断言需同步改为真实失败路径）。"}
 {"id":"NOSTR-HONEST-FAILURE","k":"notes","i":0,"c":"修复：sendTextMessage 按 sendDirectMessage 真实返回值判定，未就绪返回 success=false + 明确原因（无 WebSocket 传输层）。新增 3 例：插件层不谎报；类层未 connect 时 publishEvent/sendDirectMessage 返回 null；connect 后 DM 走 kind=4 "}
 {"id":"NOSTR-HONEST-FAILURE","k":"notes","i":1,"c":"并 emit event:published。用 overrides 把 nostr 标 experimental（不按 core 宣称）。通道 core 24、community 2、experimental 1。"}
-{"id":"NOSTR-HONEST-FAILURE","k":"code#0","i":0,"c":"app/src/channels/nostr/NostrChannel.ts"}
+{"id":"NOSTR-HONEST-FAILURE","k":"code#0","i":0,"c":"packages/channels/src/channels/nostr/NostrChannel.ts"}
 {"id":"NOSTR-HONEST-FAILURE","k":"code#1","i":0,"c":".trae/architecture/support-levels.json"}
 {"id":"NOSTR-HONEST-FAILURE","k":"tests#0","i":0,"c":"app/tests/channels/nostrStub.test.ts"}
 {"id":"NOSTR-HONEST-FAILURE","k":"changelog#0","i":0,"c":"修复：Nostr 通道不再谎报发送成功（壳实现如实失败，等级降为 experimental）"}
@@ -7323,15 +7323,15 @@
 {"id":"CHANNEL-REQUEST-SHAPE-STUBS-5","k":"reopenWhen","i":0,"c":"若 signal-cli 改参数顺序/旗标（-a / send / -m），本用例会先红；若改为 HTTP/JSON-RPC 传输，应改为网络桩并同步更新本项。"}
 {"id":"CHANNEL-REQUEST-SHAPE-STUBS-5","k":"notes","i":0,"c":"实现：抽出并导出 buildSignalSendArgs(account, message, target) = [-a, account, send, -m, message, target]，文本与图片（正文加 [图片] 前缀）共用；sendText/sendImage 前置 account 校验，缺失即返回失败（不调起 CLI）。用例 4 例：文本参数"}
 {"id":"CHANNEL-REQUEST-SHAPE-STUBS-5","k":"notes","i":1,"c":"、图片参数、缺 account 失败、config.validate({}) fail-closed。通道 core 16→25、community 1（sms）、experimental 1（nostr）。"}
-{"id":"CHANNEL-REQUEST-SHAPE-STUBS-5","k":"code#0","i":0,"c":"app/src/channels/signal/SignalChannel.ts"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS-5","k":"code#0","i":0,"c":"packages/channels/src/channels/signal/SignalChannel.ts"}
 {"id":"CHANNEL-REQUEST-SHAPE-STUBS-5","k":"tests#0","i":0,"c":"app/tests/channels/signalStub.test.ts"}
 {"id":"CHANNEL-REQUEST-SHAPE-STUBS-5","k":"changelog#0","i":0,"c":"修复/新增：Signal 上游 CLI 参数契约可测化，缺 account 时如实失败"}
 {"id":"SMS-PROVIDER-REQUEST-PURE","k":"title","i":0,"c":"SMS provider 请求构造抽成纯函数（twilio/custom 完整；aliyun/tencent 明确拒绝）"}
 {"id":"SMS-PROVIDER-REQUEST-PURE","k":"source","i":0,"c":"取证 2026-11-01：SmsChannel.sendMessage 只 emit 事件并返回 true，不发任何 HTTP，endpoint 配置从未使用 ⇒ 各 provider 请求形状无处可测，也无法接线。"}
 {"id":"SMS-PROVIDER-REQUEST-PURE","k":"reopenWhen","i":0,"c":"若扩展 SmsConfig（SignName/TemplateCode / SdkAppId/TemplateId）并实现 RPC / TC3 签名，应把 aliyun/tencent 分支改为真实构造并同步撤掉 support-levels.json 的 sms=experimental；真正发包需另加 fetch/https 桩。"}
-{"id":"SMS-PROVIDER-REQUEST-PURE","k":"notes","i":0,"c":"实现：新增 app/src/channels/sms/providerRequests.ts（纯函数、零 I/O）——twilio（/Accounts/{sid}/Messages.json + Basic + form）、custom（endpoint + JSON {to,from,text}，apiKey 时 Bearer）、未知 provider 与"}
+{"id":"SMS-PROVIDER-REQUEST-PURE","k":"notes","i":0,"c":"实现：新增 packages/channels/src/channels/sms/providerRequests.ts（纯函数、零 I/O）——twilio（/Accounts/{sid}/Messages.json + Basic + form）、custom（endpoint + JSON {to,from,text}，apiKey 时 Bearer）、未知 provider 与"}
 {"id":"SMS-PROVIDER-REQUEST-PURE","k":"notes","i":1,"c":" aliyun/tencent 一律 ok:false 且说明缺什么（不返回半成品）。6 例覆盖。sendMessage 行为未改（仍不发 HTTP），overrides 把 sms 标 experimental。通道 core 25 / community 0 / experimental 2。"}
-{"id":"SMS-PROVIDER-REQUEST-PURE","k":"code#0","i":0,"c":"app/src/channels/sms/providerRequests.ts"}
+{"id":"SMS-PROVIDER-REQUEST-PURE","k":"code#0","i":0,"c":"packages/channels/src/channels/sms/providerRequests.ts"}
 {"id":"SMS-PROVIDER-REQUEST-PURE","k":"code#1","i":0,"c":".trae/architecture/support-levels.json"}
 {"id":"SMS-PROVIDER-REQUEST-PURE","k":"tests#0","i":0,"c":"app/tests/channels/smsProviderRequests.test.ts"}
 {"id":"SMS-PROVIDER-REQUEST-PURE","k":"changelog#0","i":0,"c":"新增：SMS provider 请求构造纯函数（twilio/custom 完整，aliyun/tencent 明确拒绝）"}
@@ -7340,7 +7340,7 @@
 {"id":"SMS-SEND-WIRING","k":"reopenWhen","i":0,"c":"若扩展 SmsConfig 支持 SignName/TemplateCode 与 SdkAppId/TemplateId 并实现签名，需把 aliyun/tencent 分支从「不可构造」改为真实请求；若上游协议变（Twilio Messages.json 路径/字段），providerRequests 纯函数测试会先红。"}
 {"id":"SMS-SEND-WIRING","k":"notes","i":0,"c":"修复：SmsChannel 增 configure() / lastError；sendMessage 用 buildSmsProviderRequest 构造后真实 fetch，未连接/不可构造/非 2xx/网络异常一律 false 并写原因（不可构造不 emit error，避免无监听崩溃）；插件 onConnect 应用配置并在 connect 失败时"}
 {"id":"SMS-SEND-WIRING","k":"notes","i":1,"c":"抛错，sendTextMessage 如实返回。新增 6 例。撤掉 overrides 的 sms=experimental（已可用）⇒ core。通道 core 26 / community 0 / experimental 1（nostr）。"}
-{"id":"SMS-SEND-WIRING","k":"code#0","i":0,"c":"app/src/channels/sms/SmsChannel.ts"}
+{"id":"SMS-SEND-WIRING","k":"code#0","i":0,"c":"packages/channels/src/channels/sms/SmsChannel.ts"}
 {"id":"SMS-SEND-WIRING","k":"code#1","i":0,"c":".trae/architecture/support-levels.json"}
 {"id":"SMS-SEND-WIRING","k":"tests#0","i":0,"c":"app/tests/channels/smsSendWiring.test.ts"}
 {"id":"SMS-SEND-WIRING","k":"changelog#0","i":0,"c":"修复：SMS 接线真实发送（twilio/custom），发送与连接结果不再谎报"}
@@ -7349,9 +7349,9 @@
 {"id":"SMS-ALIYUN-RPC","k":"reopenWhen","i":0,"c":"若阿里云签名机制（RPC 1.0 / HMAC-SHA1）变更，或短信模板需改为多变量（非 {content}）时重开"}
 {"id":"SMS-ALIYUN-RPC","k":"notes","i":0,"c":"按官方签名机制实现：参数按 key 排序 -> percentEncode -> stringToSign=POST&%2F&... -> HMAC-SHA1(secret+\"&\") -> Base64；用 node:crypto，无新增依赖。模板参数固定 {\"content\": text}，模板须含 ${content}。测试侧用独立 "}
 {"id":"SMS-ALIYUN-RPC","k":"notes","i":1,"c":"percentEncode + HMAC-SHA1 复算签名，并固定 now/nonce。腾讯云（TC3 / SdkAppId / TemplateId）仍明确拒绝。顺带：connect() 去掉无监听的 emit(error)，失败统一走 lastError。"}
-{"id":"SMS-ALIYUN-RPC","k":"code#0","i":0,"c":"app/src/channels/sms/providerRequests.ts"}
-{"id":"SMS-ALIYUN-RPC","k":"code#1","i":0,"c":"app/src/channels/sms/SmsChannel.ts"}
-{"id":"SMS-ALIYUN-RPC","k":"code#2","i":0,"c":"app/src/channels/sms/config-schema.ts"}
+{"id":"SMS-ALIYUN-RPC","k":"code#0","i":0,"c":"packages/channels/src/channels/sms/providerRequests.ts"}
+{"id":"SMS-ALIYUN-RPC","k":"code#1","i":0,"c":"packages/channels/src/channels/sms/SmsChannel.ts"}
+{"id":"SMS-ALIYUN-RPC","k":"code#2","i":0,"c":"packages/channels/src/channels/sms/config-schema.ts"}
 {"id":"SMS-ALIYUN-RPC","k":"tests#0","i":0,"c":"app/tests/channels/smsProviderRequests.test.ts"}
 {"id":"SMS-ALIYUN-RPC","k":"tests#1","i":0,"c":"app/tests/channels/smsSendWiring.test.ts"}
 {"id":"SMS-ALIYUN-RPC","k":"changelog#0","i":0,"c":"SMS 通道：接入阿里云短信真实发送（RPC 签名），配置新增 signName / templateCode / regionId"}
@@ -7369,8 +7369,8 @@
 {"id":"BUG4-LOOP-GUARD-REGRESSION","k":"source","i":0,"c":"dev_docs/20261031/deepseek建议.md Bug 4 的第二、三项（失败升级策略 / 上下文锚定）在复核中判定为「既有机制已覆盖」，但缺专属回归用例"}
 {"id":"BUG4-LOOP-GUARD-REGRESSION","k":"reopenWhen","i":0,"c":"若 LoopDetector 改为「结果内容参与 generic_repeat 判定」或阈值默认值调整时重开"}
 {"id":"BUG4-LOOP-GUARD-REGRESSION","k":"notes","i":0,"c":"正向：同工具同参数、每次结果为空 ⇒ 达阈值（2 警告 / 3 阻断）即 generic_repeat 熔断，空结果不会刷新历史。负向：同工具不同参数（同样空结果）⇒ 不熔断，正常分页读取不被误杀；失败结果同样计入重复。未改任何生产代码。"}
-{"id":"BUG4-LOOP-GUARD-REGRESSION","k":"code#0","i":0,"c":"app/src/query/LoopDetector.ts"}
-{"id":"BUG4-LOOP-GUARD-REGRESSION","k":"code#1","i":0,"c":"app/src/query/ReActLoop.ts"}
+{"id":"BUG4-LOOP-GUARD-REGRESSION","k":"code#0","i":0,"c":"packages/query/src/query/LoopDetector.ts"}
+{"id":"BUG4-LOOP-GUARD-REGRESSION","k":"code#1","i":0,"c":"packages/query/src/query/ReActLoop.ts"}
 {"id":"BUG4-LOOP-GUARD-REGRESSION","k":"tests#0","i":0,"c":"app/tests/query/loopDetectionEmptyResult.test.ts"}
 {"id":"BUG4-LOOP-GUARD-REGRESSION","k":"changelog#0","i":0,"c":"补 Bug 4 回归网：空结果与失败结果均计入无进展判定（参数级区分，不误杀分页读取）"}
 {"id":"READ-FILE-ANCHOR","k":"title","i":0,"c":"已读文件锚定：跨轮重读同一文件时注入纠偏（Bug 4 第三项落地）"}
@@ -7398,9 +7398,9 @@
 {"id":"EVAL-STALLED-REPEAT","k":"notes","i":0,"c":"④ = 相邻两次调用「工具名 + 归一化参数」完全相同的次数，与循环守卫 maxRepeatedRounds: 3 同口径；仅观测，不接入 isAsExpected/基线（沿用 A2 明文\"不得作为门禁\"）。归一化口径收敛到 utils/toolCallKey（键排序/超长截断 200/循环引用退化为空串），ReActToolLoop 的私有副本删除，避免多"}
 {"id":"EVAL-STALLED-REPEAT","k":"notes","i":1,"c":"处各写一份。报告行追加「重复N」。"}
 {"id":"EVAL-STALLED-REPEAT","k":"code#0","i":0,"c":"packages/infra/src/utils/toolCallKey.ts"}
-{"id":"EVAL-STALLED-REPEAT","k":"code#1","i":0,"c":"app/src/evals/behaviorMetrics.ts"}
-{"id":"EVAL-STALLED-REPEAT","k":"code#2","i":0,"c":"app/src/evals/types.ts"}
-{"id":"EVAL-STALLED-REPEAT","k":"code#3","i":0,"c":"app/src/evals/report.ts"}
+{"id":"EVAL-STALLED-REPEAT","k":"code#1","i":0,"c":"packages/evals/src/evals/behaviorMetrics.ts"}
+{"id":"EVAL-STALLED-REPEAT","k":"code#2","i":0,"c":"packages/evals/src/evals/types.ts"}
+{"id":"EVAL-STALLED-REPEAT","k":"code#3","i":0,"c":"packages/evals/src/evals/report.ts"}
 {"id":"EVAL-STALLED-REPEAT","k":"code#4","i":0,"c":"app/src/chat/ReActToolLoop.ts"}
 {"id":"EVAL-STALLED-REPEAT","k":"tests#0","i":0,"c":"app/tests/evals/resilienceMetric.test.ts"}
 {"id":"EVAL-STALLED-REPEAT","k":"tests#1","i":0,"c":"app/tests/evals/behaviorMetrics.test.ts"}
@@ -7897,8 +7897,8 @@
 {"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"code#3","i":0,"c":"packages/infra/src/analytics/PerformanceMonitoringService.ts"}
 {"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"code#4","i":0,"c":"packages/infra/src/analytics/pricingSource.ts"}
 {"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"code#5","i":0,"c":"packages/infra/src/cost/index.ts"}
-{"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"code#6","i":0,"c":"app/src/query/QueryEngine.ts"}
-{"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"code#7","i":0,"c":"app/src/query/deps.ts"}
+{"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"code#6","i":0,"c":"packages/query/src/query/QueryEngine.ts"}
+{"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"code#7","i":0,"c":"packages/query/src/query/deps.ts"}
 {"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"code#8","i":0,"c":"app/tsconfig.json"}
 {"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"code#9","i":0,"c":"packages/infra/package.json"}
 {"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"tests#0","i":0,"c":"app/tests/analytics/analyticsIdentityBuckets.test.ts"}

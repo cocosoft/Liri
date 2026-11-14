@@ -20,6 +20,8 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+// P1（2026-11-13）：会话源码位置走单一事实源（搬包后本文件零改动）
+import { sessionPath } from '../../../scripts/lib/sessionPaths';
 // L2/L3（2026-10-05 P1-18）：载荷**字段级**跨端校验所需的**两端真实类型**
 // （`import type` ⇒ 运行期擦除，`bun test` 不加载任何一端实现；仅供 `tsc` 做编译期断言）。
 import type { LiriEventMap as AppEventMap } from '@modules/session/types/eventPayloads';
@@ -29,7 +31,7 @@ const REPO_ROOT = join(import.meta.dir, '../../..');
 /** 事件名单一事实源 */
 const SHARED = join(REPO_ROOT, 'shared/events/eventNames.ts');
 /** 后端载荷映射 */
-const APP_PAYLOADS = join(REPO_ROOT, 'app/src/session/types/eventPayloads.ts');
+const APP_PAYLOADS = sessionPath(REPO_ROOT, 'types/eventPayloads.ts');
 /** 前端载荷映射（与事件名联合同文件） */
 const CLIENT = join(REPO_ROOT, 'client/src/types/events.ts');
 

@@ -1,0 +1,20 @@
+{
+  "name": "@openliri/query",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liri 查询引擎包 —— TAOR / ReAct 循环、上下文与预算治理、查询日志与检查点。层归属 app：可依赖 app / service / infra / core；entry / ui 不得依赖本包，包内不得依赖 entry / ui 层（R11）。",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/query/index.ts",
+      "import": "./src/query/index.ts"
+    },
+    "./*": {
+      "types": "./src/query/*.ts",
+      "import": "./src/query/*.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p ../../app/tsconfig.json"
+  }
+}

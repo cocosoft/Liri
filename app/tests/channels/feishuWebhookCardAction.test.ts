@@ -14,9 +14,9 @@
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'bun:test';
 
-import { createFeishuChannel } from '../../src/channels/feishu/FeishuChannel';
-import { setBudgetReliefActionHandler } from '../../src/channels/bridge/budgetReliefAction';
-import { serializeBudgetReliefAction } from '../../src/channels/bridge/budgetReliefCard';
+import { createFeishuChannel } from '@modules/channels/feishu/FeishuChannel';
+import { setBudgetReliefActionHandler } from '@modules/channels/bridge/budgetReliefAction';
+import { serializeBudgetReliefAction } from '@modules/channels/bridge/budgetReliefCard';
 
 /** 固定高位端口（本仓既有测试惯例：`acpContract` / `voice-e2e` 亦起真实端口） */
 const WEBHOOK_PORT = 18089;

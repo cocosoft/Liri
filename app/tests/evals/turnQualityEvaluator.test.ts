@@ -7,10 +7,10 @@
  * 断言"未注入复核器 ⇒ **零 LLM 调用**"是规格 D3 的硬约束，故桩上计数。
  */
 import { describe, expect, it } from 'bun:test';
-import type { LiriEvent } from '../../src/session/types/events';
-import { deriveTurnSignals } from '../../src/evals/online/deriveTurnSignals';
-import { runTurnQualityPass } from '../../src/evals/online/turnQualityEvaluator';
-import { MAX_REVIEWS_PER_IDLE } from '../../src/evals/online/weights';
+import type { LiriEvent } from '@modules/session/types/events';
+import { deriveTurnSignals } from '@modules/evals/online/deriveTurnSignals';
+import { runTurnQualityPass } from '@modules/evals/online/turnQualityEvaluator';
+import { MAX_REVIEWS_PER_IDLE } from '@modules/evals/online/weights';
 
 const SID = 's1';
 

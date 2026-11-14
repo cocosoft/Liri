@@ -11,7 +11,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import {
   getBudgetSuspendCoordinator,
   resetBudgetSuspendForTest,
-} from '../../src/query/budgetSuspend.js';
+} from '@modules/query/budgetSuspend.js';
 import {
   registerScopedSnapshotProvider,
   resetScopedSnapshotProvidersForTest,

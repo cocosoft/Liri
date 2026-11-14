@@ -16,10 +16,10 @@
  */
 
 import { describe, it, expect, beforeEach } from 'bun:test';
-import { CrashRecoveryManager } from '../../src/session/recovery/CrashRecoveryManager';
-import { SessionStatus } from '../../src/session/types/UnifiedSession';
-import type { UnifiedSessionStorage } from '../../src/session/storage/UnifiedStorage';
-import type { UnifiedSession } from '../../src/session/types/UnifiedSession';
+import { CrashRecoveryManager } from '@modules/session/recovery/CrashRecoveryManager';
+import { SessionStatus } from '@modules/session/types/UnifiedSession';
+import type { UnifiedSessionStorage } from '@modules/session/storage/UnifiedStorage';
+import type { UnifiedSession } from '@modules/session/types/UnifiedSession';
 import {
   initAppStateMachine,
   markAppIdle,

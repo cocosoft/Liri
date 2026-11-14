@@ -6,7 +6,7 @@
  * 上游若改路径或字段、或本仓误改 payload ⇒ 这里先红。
  */
 import { describe, expect, it, beforeEach, afterEach } from 'bun:test';
-import { createSlackChannel } from '../../src/channels/slack/SlackChannel';
+import { createSlackChannel } from '@modules/channels/slack/SlackChannel';
 
 interface Call {
   url: string;

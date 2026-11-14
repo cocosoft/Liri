@@ -42,7 +42,7 @@ import {
   getYieldRegistry,
   rebuildYieldWaitingSet,
   resetYieldRegistry,
-} from '../../src/session/yield';
+} from '@modules/session/yield';
 
 /** Bun 运行时全局（tsc 类型面未声明 `gc`，按仓内既有约定就地声明） */
 declare const Bun: { gc(force: boolean): void };

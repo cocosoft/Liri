@@ -30,7 +30,7 @@ import type { ChatManager } from '@modules/chat';
 import {
   getDailyBudget,
   resetDailyBudgetForTest,
-} from '../../src/query/DailyBudgetManager';
+} from '@modules/query/DailyBudgetManager';
 import { SessionTitling } from '@openliri/service/runtime/api/sessionTitling';
 import { registerRuntimeTitleGeneratorFactory } from '@openliri/service/runtime/api/runtimeAgentPort';
 import { getTitleGenerator } from '@modules/agent';

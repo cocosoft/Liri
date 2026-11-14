@@ -553,7 +553,7 @@ async function tryDynamicRegister(
 
     // 2. 注册到 ChannelBootstrapper
     const { channelBootstrapper } =
-      await import('../../../channels/bootstrap/ChannelBootstrapper');
+      await import('@modules/channels/bootstrap/ChannelBootstrapper');
     channelBootstrapper.registerPluginChannel(channelType, () => plugin);
 
     // 3. 写入配置（合并前端传入的凭据）

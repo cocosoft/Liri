@@ -32,7 +32,7 @@ import {
   yieldSettlementListeners,
   type YieldResumerDeps,
 } from '../../src/chat/yield';
-import { getYieldRegistry, resetYieldRegistry } from '../../src/session/yield';
+import { getYieldRegistry, resetYieldRegistry } from '@modules/session/yield';
 
 /** Bun 运行时全局（tsc 类型面未声明 `gc`，按仓内既有约定就地声明） */
 declare const Bun: { gc(force: boolean): void };

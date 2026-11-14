@@ -11,7 +11,7 @@
  */
 
 import { describe, expect, it } from 'bun:test';
-import { interactiveToMarkdown } from '../../src/channels/deliveryFormatters';
+import { interactiveToMarkdown } from '@modules/channels/deliveryFormatters';
 
 describe('W-1 出站卡片收敛：interactive → markdown', () => {
   it('渲染 title / content / buttons / fallback', () => {

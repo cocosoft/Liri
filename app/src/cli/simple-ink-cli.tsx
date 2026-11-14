@@ -219,9 +219,9 @@ const App = () => {
   useEffect(() => {
     const initializeServices = async () => {
       try {
-        const { SkillRegistry } = await import('../skills/SkillRegistry');
+        const { SkillRegistry } = await import('@modules/skills/SkillRegistry');
         const { BundledSkillLoader } =
-          await import('../skills/loaders/sources/BundledSkillLoader');
+          await import('@modules/skills/loaders/sources/BundledSkillLoader');
         const registry = new SkillRegistry();
         const loader = new BundledSkillLoader();
         const loadedSkills = await loader.loadSkills();

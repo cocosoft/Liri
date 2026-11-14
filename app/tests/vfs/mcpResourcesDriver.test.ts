@@ -31,8 +31,8 @@
 import { describe, expect, it } from 'bun:test';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { AppError } from '@openliri/infra/error';
-import { McpResourcesDriver } from '../../src/vfs/drivers/McpResourcesDriver.js';
-import { parseVfsPath } from '../../src/vfs/VfsPath.js';
+import { McpResourcesDriver } from '@modules/vfs/drivers/McpResourcesDriver.js';
+import { parseVfsPath } from '@modules/vfs/VfsPath.js';
 
 /** 桩资源条目（只需驱动实际读取的字段） */
 interface StubResource {

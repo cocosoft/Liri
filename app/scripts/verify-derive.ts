@@ -6,8 +6,8 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { deriveMessagesFromEvents } from '../src/session/storage/EventMessageDeriver';
-import { splitJsonLine } from '../src/session/storage/EventLogStorage';
+import { deriveMessagesFromEvents } from '@modules/session/storage/EventMessageDeriver';
+import { splitJsonLine } from '@modules/session/storage/EventLogStorage';
 
 const sid = process.argv[2];
 if (!sid) {

@@ -10,7 +10,7 @@ import { describe, expect, it, afterEach } from 'bun:test';
 import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { PrioritySessionLock } from '../../src/session/lock/PrioritySessionLock';
+import { PrioritySessionLock } from '@modules/session/lock/PrioritySessionLock';
 
 const lockDirs: string[] = [];
 afterEach(() => {

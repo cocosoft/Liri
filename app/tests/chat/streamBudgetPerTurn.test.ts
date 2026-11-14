@@ -19,7 +19,7 @@ import { addLogHandler } from '@openliri/infra/monitoring/logs/Logger';
 import {
   getDailyBudget,
   resetDailyBudgetForTest,
-} from '../../src/query/DailyBudgetManager';
+} from '@modules/query/DailyBudgetManager';
 
 /** 日预算上限（测试用极小值，便于 2 轮内耗尽） */
 const LIMIT = 100;

@@ -1,0 +1,1988 @@
+/**
+ * 统一会话网关
+ * 整合所有Session相关模块，提供统一入口
+ */
+
+import { randomUUID } from 'crypto';
+import path from 'path';
+
+import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
+import { SpanStatusCode } from '@opentelemetry/api';
+import { handleError } from '@openliri/infra/error';
+import {
+  resolveSessionsDir,
+  resolveDataDir,
+  resolveWorktreeHash,
+} from '@openliri/infra/environment';
+// 多租户 P1：按请求身份选择存储实例（本地身份 ⇒ 原实例，零变更）
+import {
+  getRequestPrincipal,
+  isLocalPrincipal,
+} from '@openliri/kernel/identity/requestScope.js';
+import { canAccessSession } from '@openliri/infra/security/identity';
+import { ownerOf } from '@openliri/infra/security/identity';
+import { ScopedStorageRegistry } from './gateway/ScopedStorageRegistry.js';
+// 2026-10-01 B14 C′ 步：原经 `@modules/context` 桶取用 ⇒ 改指 infra（`utils/`），
+// 解除 `session -> context`(app) 倒挂的一半（另一半 resolveContextWindow 见 D 步）。
+// 依赖 A′/B′：Context 家族已下沉类型中心、AsyncContextStorage 已迁 utils/。
+import { asyncContextStorage } from '@openliri/infra/utils/AsyncContextStorage';
+// 2026-10-01 B14b 步 3：原经 `@modules/context`(app) 取用 ⇒ 改指 infra（该实现已迁
+// `utils/ContextWindowResolver`，其 app 耦合已由该文件自持的 infra 级窗口缓存解除）。
+// ⇒ 本文件的**两条 `@modules/context` 取用**清零（第三条相对路径类型导入见下方 L29）。
+import { resolveContextWindow } from '@openliri/infra/utils/ContextWindowResolver';
+// 2026-10-01（子批 F `runtime -> query` 收口）：B13 当年判定 `FileCheckpointStorage`
+// "app 耦合、不可下沉"（其引 `chat/types/checkpoint`）—— 该前提**随 B11 失效**
+// （`checkpoint.ts` 已迁 `session/types/`(service)）⇒ 该文件已**下沉本模块** `session/storage/`，
+// B13 的 CoreAPI 门面 `getCheckpointCleanup()` 随之**作废**，本处回归**同模块直连**。
+import { FileCheckpointStorage } from './storage/FileCheckpointStorage.js';
+// 大文件拆分（spec file-size-debt-partition-plan §32 批 C2）：轻量会话扫描簇外迁
+import {
+  listLiteSessions,
+  type LiteSessionSummary,
+} from './gateway/LiteSessionLister.js';
+// 大文件拆分（spec §34 批 C3）：FTS5 分片索引簇外迁（存储/引擎/定时器/重建/检索）
+import { SessionGatewayFtsIndex } from './gateway/GatewayFtsIndex.js';
+// 大文件拆分（R04-001 文件行数门禁）：fork 前置的**源会话**解析与校验外迁
+// （边界解析 / 未闭合轮次校验 / 前缀同构校验；一律分页读全前缀，免受 read() 的 1000 条窗口截断）
+import {
+  resolveBoundaryBeforeMessage,
+  findOpenTurnInPrefix,
+  comparePrefixIsomorphic,
+} from './gateway/ForkBoundary.js';
+// 2026-10-01 B14b 步 3：本条为**相对路径**类型导入，此前未被识别为 `session -> context` 边
+// （写的是 `../context/...` 而非 `@modules/context`），故 B14 长期未清零的**真实根因**在此。
+// 依 B′ 步已确立约定改指类型中心（core）⇒ `session -> context` 的「文件 × 模块」对**整条消失**。
+// P1（2026-11-13，session 并入 `packages/service`）：相对路径 `../types/context` 会随搬包断链
+// ⇒ 改走模块别名（`types` 为 core 层类型中心，service→core 合法）。
+import type { SessionContext } from '@modules/types/context';
+import {
+  createTranscriptManager,
+  TranscriptManager,
+} from './TranscriptManager.js';
+import type { TranscriptManagerConfig } from './TranscriptManager.js';
+import {
+  createRemoteSessionManager,
+  RemoteSessionManager,
+} from './remote/RemoteSessionManager.js';
+import type {
+  RemoteSessionConfig,
+  RemoteSessionCallbacks,
+} from './remote/RemoteSessionManager.js';
+import {
+  createSessionsWebSocket,
+  SessionsWebSocket,
+} from './websocket/SessionsWebSocket.js';
+import type {
+  SessionsWebSocketConfig,
+  SessionsWebSocketCallbacks,
+} from './websocket/SessionsWebSocket.js';
+import { StorageFactory } from './storage/StorageFactory.js';
+import { EventLogStorage } from './storage/EventLogStorage';
+// O10b（v7.1）：Tier1 血缘链（fork 时登记，供控制面祖先判定）
+import {
+  registerSessionLineage,
+  wouldCreateLineageCycle,
+  getLineageDepth,
+  MAX_LINEAGE_HOPS,
+} from './lineage/sessionLineage';
+import type { UnifiedSessionStorage } from './storage/UnifiedStorage.js';
+import type { StorageConfig } from './storage/UnifiedStorage.js';
+
+// 确保 FILESYSTEM 存储实现被注册（SessionGateway 默认使用）
+import './storage/FileSystemUnifiedStorage.js';
+
+import {
+  CrashRecoveryManager,
+  CLEAN_SHUTDOWN_MARKER,
+} from './recovery/CrashRecoveryManager.js';
+import type { CrashRecoveryResult } from './recovery/CrashRecoveryManager.js';
+import type { SessionRebuildStats } from './recovery/RecoveryOrchestrator.js';
+
+import { SessionType, SessionStatus } from './types/UnifiedSession.js';
+import { StorageType } from './storage/UnifiedStorage.js';
+import type {
+  UnifiedSession,
+  SessionFilter,
+  SessionStats,
+  CreateSessionParams,
+} from './types/UnifiedSession.js';
+import type {
+  UnifiedMessage,
+  MessageType,
+  MessageRole,
+  SDKMessage,
+  PermissionRequest,
+  PermissionResponse,
+} from './types/UnifiedMessage.js';
+import type { Transcript } from './types/Transcript.js';
+import type { FTSSearchResult } from './FTS5SearchEngine.js';
+
+import { SessionTokenTracker } from './TokenTracker.js';
+import type { PruningDecider } from './pruning/PruningDecider.js';
+import type { PruningResult } from './pruning/PruningStrategy.js';
+import type { SessionCompactionBridge } from './compaction/SessionCompactionBridge.js';
+import { createWiredCompactionBridge } from './compaction/ServiceAdapters.js';
+import { SessionKeyFactory } from './key/SessionKeyFactory.js';
+import type { SessionKeyFactoryConfig } from './key/SessionKeyFactory.js';
+import { SessionRouter } from './key/SessionRouter.js';
+import type { SessionSource } from './key/SessionSource.js';
+import {
+  SessionLifecycleEventBus,
+  createSessionLifecycleEvent,
+} from './lifecycle/index.js';
+import { SessionStore } from './SessionStore.js';
+import type { SessionStoreOptions } from './SessionStore.js';
+import { SessionPruner } from './SessionPruner.js';
+// D3（2026-09-22）：制品级保留（traces / checkpoints / rollback snapshots）
+import { ensureArtifactRetentionScheduler } from './ArtifactRetention.js';
+import type { PrunerOptions, PruneResult } from './SessionPruner.js';
+import { SessionLock } from './SessionLock.js';
+import type { LockOptions, LockAcquireResult } from './SessionLock.js';
+import { PriorityManager } from './qos/PriorityManager.js';
+import type {
+  SessionPriorityLevel,
+  SessionPriority,
+  QoSLevel,
+} from './qos/SessionPriority.js';
+import { QoSEnforcer } from './qos/QoSEnforcer.js';
+import { BudgetTracker } from './budget/BudgetTracker.js';
+import { BudgetEnforcer } from './budget/BudgetEnforcer.js';
+import type {
+  SessionTokenBudgetConfig,
+  BudgetDecision,
+  BudgetPeriod,
+} from './budget/BudgetTypes.js';
+import { SessionArchiver } from './archive/SessionArchiver.js';
+import type { ArchivableSession } from './archive/SessionArchiver.js';
+import type {
+  ArchiveResult,
+  ArchiveTrigger,
+  ArchiveMetadata,
+} from './archive/ArchiveTypes.js';
+import { UnifiedStorageAdapter } from './storage/UnifiedStorageAdapter.js';
+
+const logger = getLogger('session:gateway');
+
+/**
+ * 网关配置
+ */
+export interface SessionGatewayConfig {
+  storageConfig?: StorageConfig;
+  transcriptConfig?: TranscriptManagerConfig;
+  remoteConfig?: {
+    wsUrl?: string;
+    orgUuid?: string;
+  };
+  keyFactoryConfig?: SessionKeyFactoryConfig;
+  wireServices?: boolean;
+}
+
+/**
+ * 统一的错误文本化（避免各处重复三元）
+ */
+function errText(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+/**
+ * 会话网关
+ */
+export class SessionGateway {
+  private storage: UnifiedSessionStorage;
+  /**
+   * 多租户 P1（2026-10-21）：按身份懒建的**租户分区**存储实例。
+   * 本地身份（桌面 / CLI / 后台 / 无请求作用域）永远走 `this.storage`，行为与改造前完全一致。
+   * 实现见 `gateway/ScopedStorageRegistry.ts`（本文件已触达 2000 行上限）。
+   */
+  private scopedStores: ScopedStorageRegistry;
+  private transcriptManager: TranscriptManager;
+  private remoteSessions: Map<string, RemoteSessionManager> = new Map();
+  private webSockets: Map<string, SessionsWebSocket> = new Map();
+  private config: SessionGatewayConfig;
+
+  private tokenTracker: SessionTokenTracker | null = null;
+  private pruningDecider: PruningDecider | null = null;
+  private compactionBridge: SessionCompactionBridge | null = null;
+  private keyFactory: SessionKeyFactory | null = null;
+  private sessionRouter: SessionRouter | null = null;
+  private eventBus: SessionLifecycleEventBus | null = null;
+  private crashRecoveryManager: CrashRecoveryManager;
+  /**
+   * P2-7（2026-09-25）：崩溃恢复**结果缓存**（同时充当幂等标志）。
+   * 非 null ⇒ 已真正执行过一次；重复调用返回同一结果（不重复扫描，也不伪造空结果）。
+   */
+  private _crashRecoveryResult: CrashRecoveryResult | null = null;
+  /**
+   * P2-4（2026-09-26）：崩溃恢复的 **in-flight 去重** promise。
+   *
+   * 原实现是"检查 `_crashRecoveryResult` → 执行 → 赋值"的**非同步 check-then-act** ——
+   * 两个并发的 `initialize()` / `recoverAfterCrash()` 会同时通过检查 ⇒ **双扫**
+   * （重复 `markAppError` + 重复 `session:paused` SSE）。可达路径（代码面确认）：
+   * 同一批**并行工具调用**里多个 `SessionsTool` 实例各自
+   * `gateway.initialize()`；`CombinedSessionGateway` 亦循环 await 各网关。
+   */
+  private crashRecoveryInFlight: Promise<CrashRecoveryResult> | null = null;
+  private initialized = false;
+  /**
+   * FTS5 分片索引（大文件拆分，spec §34）：存储层/引擎/落盘定时器/重建与检索
+   * 已外迁 `session/gateway/GatewayFtsIndex.ts`；本类只持有其门面。
+   */
+  private readonly fts: SessionGatewayFtsIndex;
+
+  // Phase A: 从 SessionManager 收敛的组件
+  private sessionStore: SessionStore | null = null;
+  private pruner: SessionPruner | null = null;
+  private prunerInterval: ReturnType<typeof setInterval> | null = null;
+  private lock: SessionLock | null = null;
+  private priorityManager: PriorityManager | null = null;
+  private qosEnforcer: QoSEnforcer | null = null;
+  private budgetTracker: BudgetTracker | null = null;
+  private budgetEnforcer: BudgetEnforcer | null = null;
+  private archiver: SessionArchiver | null = null;
+
+  constructor(config?: SessionGatewayConfig) {
+    this.config = config ?? {};
+
+    this.storage = StorageFactory.createStorage(
+      this.config.storageConfig ?? {
+        type: StorageType.FILESYSTEM,
+        basePath: resolveSessionsDir(),
+      }
+    );
+    // FTS 簇门面（依赖已就绪的 storage；构造期无 IO —— 与拆分前一致）
+    this.fts = new SessionGatewayFtsIndex({ storage: this.storage });
+    // 多租户 P1：身份分区存储注册表（本地身份恒返回上面这个共享实例）
+    this.scopedStores = new ScopedStorageRegistry(this.storage);
+    // P0-0-2：打印 SessionGateway 构造处 basePath 冻结点实例值（评审#3 增量一）
+    // P2-3：basePath 空串不生效（?? 不拦截空串），统一回退默认目录。
+    const gatewayBasePath = this.storage.getStorageInfo()?.basePath;
+    logger.info('SessionGateway:构造 basePath 实例值', {
+      basePath:
+        gatewayBasePath && gatewayBasePath.trim()
+          ? gatewayBasePath
+          : resolveSessionsDir(),
+    });
+    // P0-0-1：启动日志打印分区键 hash 实际值（评审#3 增量一），
+    // 与 resolveSessionsDir() 实际值对照，根治"分区错位"类问题排查无证据。
+    logger.info('SessionGateway:分区键 hash 实际值', {
+      worktreeHash: resolveWorktreeHash(),
+      sessionsDir: resolveSessionsDir(),
+    });
+
+    this.transcriptManager = createTranscriptManager(
+      this.storage,
+      this.config.transcriptConfig
+    );
+
+    this.crashRecoveryManager = new CrashRecoveryManager({
+      storage: this.storage,
+    });
+
+    if (this.config.keyFactoryConfig) {
+      this.keyFactory = new SessionKeyFactory(this.config.keyFactoryConfig);
+    }
+
+    if (this.config.wireServices) {
+      const tracker = new SessionTokenTracker();
+      // P2-2.8 Phase 2: 订阅 COST_RECORDED 实现被动数据同步
+      tracker.subscribeToCostEvents();
+      this.setTokenTracker(tracker);
+      this.setCompactionBridge(createWiredCompactionBridge());
+      this.ensureSessionRouterWired();
+    }
+  }
+
+  /**
+   * 设置令牌追踪器
+   */
+  setTokenTracker(tracker: SessionTokenTracker): void {
+    this.tokenTracker = tracker;
+  }
+
+  /**
+   * 设置修剪决策器
+   */
+  setPruningDecider(decider: PruningDecider): void {
+    this.pruningDecider = decider;
+  }
+
+  /**
+   * 设置压缩桥接
+   */
+  setCompactionBridge(bridge: SessionCompactionBridge): void {
+    this.compactionBridge = bridge;
+  }
+
+  /**
+   * 设置会话 Key 工厂
+   */
+  setKeyFactory(factory: SessionKeyFactory): void {
+    this.keyFactory = factory;
+  }
+
+  /**
+   * 设置会话路由器
+   */
+  setSessionRouter(router: SessionRouter): void {
+    this.sessionRouter = router;
+  }
+
+  /**
+   * 获取会话路由器
+   */
+  getSessionRouter(): SessionRouter | null {
+    return this.sessionRouter;
+  }
+
+  /**
+   * 设置生命周期事件总线
+   */
+  setEventBus(bus: SessionLifecycleEventBus): void {
+    this.eventBus = bus;
+  }
+
+  /**
+   * 获取生命周期事件总线
+   */
+  getEventBus(): SessionLifecycleEventBus | null {
+    return this.eventBus;
+  }
+
+  /**
+   * 一键注入真实服务（TokenTracker + CompactionBridge + **SessionRouter**）
+   * 适用于 ChatManager / SessionHandler 等使用方，免去手动装配。
+   *
+   * ⚠️ 订正（2026-10-06）：原 JSDoc 列了 `CheckpointService` 但实现从未注入 ⇒ 已据实删除该表述
+   * （需要时由调用方 `setCheckpointService()`）。
+   */
+  wireWithRealServices(): this {
+    const tracker = new SessionTokenTracker();
+    // P2-2.8 Phase 2: 订阅 COST_RECORDED 实现被动数据同步
+    tracker.subscribeToCostEvents();
+    this.setTokenTracker(tracker);
+    this.setCompactionBridge(createWiredCompactionBridge());
+    this.ensureSessionRouterWired();
+    return this;
+  }
+
+  /**
+   * 接线「按来源解析会话键」—— 注入 `SessionRouter`（**需 `keyFactory` 已就绪**，幂等）。
+   *
+   * U7/§21.6（2026-10-06，用户裁定「接线」）：此前 `sessionRouter` **恒为 `null`**
+   * （无 `new SessionRouter`、无 `setSessionRouter` 调用）⇒ `createSession` 的
+   * `sessionSource` 分支（`createSession:662`）**永不生效**。
+   *
+   * ⚠️ **行为中性（如实）**：该分支还要求调用方传入 `params.sessionSource` 且**未传 `id`**；
+   * 当前生产**无此类调用方**（渠道侧自建会话键，见 `channels/routing/messageRouter.ts:549-551`）
+   * ⇒ 本注入**不改变任何现有行为**，只是让"设计好的能力"从"恒 null 的死分支"变为"可被调用方启用"。
+   *
+   * ⚠️ **语义订正（如实，勿误读为"确定性"）**：`SessionRouter.route()` 产出的键
+   * **内含 `timestamp + uuid`**（`SessionKeyFactory.create()`）⇒ **同一来源两次调用得到不同 id**。
+   * 其真实收益是「键**结构化**」—— 带 `userId`/`chatType` 段，可被 `SessionRouter.resolve()`
+   * / `resolveShared()` **反解**（键格式 `sess:<userId>:<chatType>:<ts>:<uuid>`）。
+   */
+  private ensureSessionRouterWired(): void {
+    if (this.keyFactory && !this.sessionRouter) {
+      this.setSessionRouter(new SessionRouter(this.keyFactory));
+    }
+  }
+
+  /**
+   * 设置会话缓存层
+   */
+  setSessionStore(store: SessionStore): void {
+    this.sessionStore = store;
+  }
+
+  /**
+   * 获取会话缓存层
+   */
+  getSessionStore(): SessionStore | null {
+    return this.sessionStore;
+  }
+
+  /**
+   * 设置会话修剪器
+   */
+  setSessionPruner(pruner: SessionPruner): void {
+    this.pruner = pruner;
+  }
+
+  /**
+   * 设置并发锁
+   */
+  setSessionLock(lock: SessionLock): void {
+    this.lock = lock;
+  }
+
+  /**
+   * 设置优先级管理器
+   */
+  setPriorityManager(manager: PriorityManager): void {
+    this.priorityManager = manager;
+  }
+
+  /**
+   * 获取优先级管理器
+   */
+  getPriorityManager(): PriorityManager | null {
+    return this.priorityManager;
+  }
+
+  /**
+   * 设置 QoS 执行器
+   */
+  setQoSEnforcer(enforcer: QoSEnforcer): void {
+    this.qosEnforcer = enforcer;
+  }
+
+  /**
+   * 获取 QoS 执行器
+   */
+  getQoSEnforcer(): QoSEnforcer | null {
+    return this.qosEnforcer;
+  }
+
+  /**
+   * 设置令牌预算追踪器
+   */
+  setBudgetTracker(tracker: BudgetTracker): void {
+    this.budgetTracker = tracker;
+  }
+
+  /**
+   * 获取令牌预算追踪器
+   */
+  getBudgetTracker(): BudgetTracker | null {
+    return this.budgetTracker;
+  }
+
+  /**
+   * 设置令牌预算执行器
+   */
+  setBudgetEnforcer(enforcer: BudgetEnforcer): void {
+    this.budgetEnforcer = enforcer;
+  }
+
+  /**
+   * 获取令牌预算执行器
+   */
+  getBudgetEnforcer(): BudgetEnforcer | null {
+    return this.budgetEnforcer;
+  }
+
+  /**
+   * 设置会话归档器
+   */
+  setSessionArchiver(archiver: SessionArchiver): void {
+    this.archiver = archiver;
+  }
+
+  /**
+   * 一键注入所有服务
+   * 在 wireWithRealServices 基础上，自动装配缓存、修剪、锁、优先级/QoS、预算、归档等所有组件
+   */
+  wireWithFullServices(options?: {
+    storeOptions?: SessionStoreOptions;
+    prunerOptions?: PrunerOptions;
+  }): this {
+    this.wireWithRealServices();
+
+    const adapter = new UnifiedStorageAdapter(this.storage);
+    this.setSessionStore(
+      new SessionStore({
+        storage: adapter,
+        ...options?.storeOptions,
+      })
+    );
+
+    this.setSessionPruner(
+      new SessionPruner(
+        adapter,
+        options?.prunerOptions,
+        // 联动清理被剪枝会话的检查点（按 sessionId 精确匹配，不匹配则无操作）
+        (id: string) => new FileCheckpointStorage().deleteSessionCheckpoints(id)
+      )
+    );
+    this.setSessionLock(new SessionLock());
+    this.setPriorityManager(new PriorityManager());
+    this.setQoSEnforcer(new QoSEnforcer());
+
+    const budgetTracker = new BudgetTracker();
+    this.setBudgetTracker(budgetTracker);
+    this.setBudgetEnforcer(new BudgetEnforcer(budgetTracker));
+
+    this.setSessionArchiver(new SessionArchiver());
+
+    return this;
+  }
+
+  /**
+   * 当前请求作用域的存储实例（多租户 P1，2026-10-21）—— 委托 `ScopedStorageRegistry`。
+   * 本地身份 ⇒ 构造时的 `this.storage`（行为与改造前一致）；已认证身份 ⇒ 独立分区实例。
+   */
+  private async store(): Promise<UnifiedSessionStorage> {
+    return this.scopedStores.forCurrentPrincipal();
+  }
+
+  /**
+   * 初始化网关
+   */
+  async initialize(): Promise<void> {
+    if (this.initialized) return;
+
+    await this.storage.initialize();
+    await this.transcriptManager.initialize();
+    // P2-7（2026-09-25）：崩溃恢复抽为**幂等内部入口** —— `initialize()`（懒调用路径）
+    // 与 public `recoverAfterCrash()`（启动期编排路径）共用，保证"只真正执行一次"。
+    await this.runCrashRecoveryOnce();
+
+    await this.fts.rebuildIndex();
+    this.fts.startPersistence();
+
+    // 迁移：为已有 session 计算 roundCount（幂等）
+    await this.fts.migrateRoundCount();
+    // P1-5（2026-11-05）：存量会话补齐 `messageCount`（后台，不阻塞启动；失败仅记日志）
+    void this.fts.backfillConversationCounts().catch(() => {});
+
+    if (this.eventBus) {
+      // FTS 索引维护监听（message:created / session:deleted / messages:deleted）
+      // 已随 FTS 簇外迁（spec §34）；装配时机与顺序不变
+      this.fts.wireLifecycleListeners(this.eventBus);
+    }
+
+    // 启动定时修剪 + 制品保留（2026-11-04，附录 B1：两者解耦）
+    //
+    // 原实现把 `runArtifactRetention()` 绑在 `if (this.pruner)` 里，而 `pruner` 只由
+    // `wireWithFullServices()` 注入、该方法**无生产调用点**；而且 `initialize()` 本身是
+    // 懒调用（实测启动后本进程从未进入这里）⇒ 保留任务从未执行：
+    // `data/traces` 15.1 GB、8 天前的 `trace_2026-10-27.jsonl` 仍在、日志「制品保留」0 次。
+    // 现在：修剪仍按 pruner 是否存在决定（`executePrune()` 内部已判空），
+    // 制品保留改由进程级幂等调度器负责（bootstrap 也会启动它，重复调用无副作用）。
+    await this.executePrune();
+    this.startPruneInterval();
+    ensureArtifactRetentionScheduler();
+
+    // 初始化归档器
+    if (this.archiver) {
+      await this.archiver.initialize();
+    }
+
+    // H3 修复：initialized 标记置到方法末尾。此前在首个 await 之前置 true，
+    // 若任一步初始化抛错，半初始化状态永久锁死（再次调用直接 return）。
+    // 现置于末尾，任一步失败则 initialized 仍为 false，下次调用可完整重试。
+    this.initialized = true;
+  }
+
+  /**
+   * 创建会话
+   */
+  async createSession(
+    params: CreateSessionParams & {
+      userId?: string;
+      chatType?: string;
+      sessionSource?: SessionSource;
+    } = {}
+  ): Promise<UnifiedSession> {
+    const otel = getOTelTracing();
+    const span = otel.startSpan('SessionGateway.createSession');
+    const startedAt = Date.now();
+    // 入口日志：记录创建请求的参数摘要（排除大字段），用于排查 id 来源与重复创建
+    logger.debug('createSession:入口', {
+      id: params.id ?? null,
+      type: params.type ?? SessionType.LOCAL,
+      title: params.title ?? null,
+      userId: params.userId ?? null,
+      sessionSource: params.sessionSource ?? null,
+      chatType: params.chatType ?? null,
+      metadataKeys: params.metadata ? Object.keys(params.metadata) : [],
+    });
+
+    try {
+      let sessionId = params.id;
+
+      if (!sessionId && this.sessionRouter && params.sessionSource) {
+        sessionId = this.sessionRouter.route(params.sessionSource);
+        logger.debug('createSession:sessionId 由 sessionRouter 路由生成', {
+          sessionId,
+          sessionSource: params.sessionSource,
+        });
+      } else if (!sessionId && this.keyFactory) {
+        sessionId = this.keyFactory
+          .create({
+            userId: params.userId,
+            chatType: params.chatType as any,
+          })
+          .toString();
+        logger.debug('createSession:sessionId 由 keyFactory 生成', {
+          sessionId,
+          userId: params.userId,
+          chatType: params.chatType,
+        });
+      }
+
+      sessionId = sessionId ?? randomUUID();
+      if (params.id && params.id === sessionId) {
+        logger.debug('createSession:使用调用方指定 id', { sessionId });
+      } else if (sessionId && !params.id) {
+        logger.debug('createSession:fallback randomUUID 生成', { sessionId });
+      }
+      const now = Date.now();
+      // 多租户 P1：请求身份 → 会话归属（本地身份不写；调用方已显式给出则不覆盖）
+      const sessionOwner =
+        params.metadata?.owner ?? ownerOf(getRequestPrincipal());
+
+      const session: UnifiedSession = {
+        id: sessionId,
+        type: params.type ?? SessionType.LOCAL,
+        title: params.title,
+        createdAt: now,
+        updatedAt: now,
+        lastActivityAt: now,
+        status: SessionStatus.ACTIVE,
+        metadata: {
+          ...params.metadata,
+          sessionType: params.type ?? SessionType.LOCAL,
+          ...(sessionOwner ? { owner: sessionOwner } : {}),
+        },
+      };
+
+      // 多租户 P1：按当前身份选存储实例（本地 ⇒ this.storage）
+      const store = await this.store();
+      // 落盘前：检查是否重复创建（同 id 已存在）
+      const preExists = await store.sessionIdExists(sessionId);
+      // R1-3 修复：preExists 时升级 warn——存储层 createSession 对同 id 静默覆盖
+      // （sessions.set + persistSession，且清空消息缓存）。若调用方重复提交同一 id
+      // 会覆盖既有会话，warn 便于排查（不做行为变更，避免破坏既有幂等语义）。
+      if (preExists) {
+        logger.warn('createSession:检测到同 id 会话已存在，即将覆盖', {
+          sessionId,
+        });
+      } else {
+        logger.debug('createSession:落盘前存在性检查通过', {
+          sessionId,
+          preExists,
+        });
+      }
+      await store.createSession(session);
+      logger.debug('createSession:storage.createSession 完成', {
+        sessionId,
+        costMs: Date.now() - startedAt,
+      });
+
+      this.eventBus?.emit(
+        createSessionLifecycleEvent('session:created', session.id, {
+          sessionKey: session.id,
+          metadata: { userId: params.userId, type: params.type },
+        })
+      );
+      logger.debug('createSession:已 emit session:created 事件', {
+        sessionId: session.id,
+      });
+
+      logger.info('会话已创建', {
+        sessionId: session.id,
+        preExists,
+        costMs: Date.now() - startedAt,
+      });
+      otel.endSpan(span);
+      return session;
+    } catch (e) {
+      logger.warn('createSession:失败', {
+        params: {
+          id: params.id ?? null,
+          type: params.type,
+          userId: params.userId,
+        },
+        error: e instanceof Error ? e.message : String(e),
+        costMs: Date.now() - startedAt,
+      });
+      otel.recordError(span, e instanceof Error ? e : new Error(String(e)));
+      otel.endSpan(span, SpanStatusCode.ERROR);
+      await handleError(e, {
+        module: 'session:gateway',
+        action: 'createSession',
+        rethrow: true,
+      });
+      throw e;
+    }
+  }
+
+  /**
+   * D3（2026-08-24）：事件级 fork——从任意历史 seq（boundary）fork 出子会话
+   *
+   * 流程：
+   *   1. 读源会话 + 源事件（read 自动触发 D4 崩溃修复，保证复制一致性）
+   *   2. 定 boundary：显式 `boundary`（默认 = tailSeq，须为 [1..tailSeq] 内整数），
+   *      或由 `truncateBeforeMessageId` 在源事件上解析（见 `resolveBoundaryBeforeMessage`）
+   *   3. open turn 校验：seq ≤ boundary 内存在未闭合 turn/start → 拒绝
+   *   4. createSession 建子会话（metadata 注入 parentSessionId/seedLength 血缘）
+   *   5. copyPrefixTo 复制 [1..boundary] 前缀事件（保留原 seq，子会话继承祖先 seq 空间）；
+   *      `boundary === 0`（截断点之前无历史）⇒ 零种子，不复制
+   *
+   * 返回结果对象（不抛错，对齐本类既有模式）；HTTP 层据此映射 4xx/201
+   */
+  async forkSession(
+    sourceId: string,
+    options: {
+      boundary?: number;
+      childTitle?: string;
+      childId?: string;
+      /**
+       * 「编辑并另存为分支」：只保留该消息**之前**的历史（在源会话事件上解析边界）。
+       * 传入时**优先于** `boundary`；解析不出（消息不在事件日志）即失败，不猜测。
+       */
+      truncateBeforeMessageId?: string;
+    } = {}
+  ): Promise<{
+    success: boolean;
+    session?: UnifiedSession;
+    boundary?: number;
+    copied?: number;
+    error?: string;
+  }> {
+    const otel = getOTelTracing();
+    const span = otel.startSpan('SessionGateway.forkSession');
+    const startedAt = Date.now();
+    logger.debug('forkSession:入口', {
+      sourceId,
+      boundary: options.boundary ?? null,
+      truncateBeforeMessageId: options.truncateBeforeMessageId ?? null,
+      childTitle: options.childTitle ?? null,
+    });
+
+    try {
+      const source = await this.getSession(sourceId);
+      if (!source) {
+        return {
+          success: false,
+          error: `source session not found: ${sourceId}`,
+        };
+      }
+
+      // 事件日志路径与存储层对齐：从 storageConfig.basePath（<root>/sessions/<hash>）
+      // 派生 sessionsRoot=<root>/sessions + worktreeHash=<hash>；未配置 basePath 时回退到
+      // **worktreeHash 单一真源**（N-52 同族修复，2026-09-22）—— 原为字面量 `'default'`，
+      // 会让 sourceLog 指向空分区 ⇒ `read()` 空、`tailSeq=0` ⇒ fork 恒被 `invalid boundary` 拒绝。
+      const basePath = this.config.storageConfig?.basePath;
+      const sessionsRoot = basePath ? path.dirname(basePath) : undefined;
+      const worktreeHash = basePath
+        ? path.basename(basePath)
+        : resolveWorktreeHash();
+      const sourceLog = new EventLogStorage(
+        sourceId,
+        worktreeHash,
+        sessionsRoot
+      );
+      const tailSeq = await sourceLog.getTailSeq();
+
+      // boundary 的两条来源：① 显式 seq（缺省 = tailSeq，须在 [1..tailSeq] 内）；
+      // ② 「编辑点之前」—— 按源事件解析（优先），`0` = 截断点之前无历史 ⇒ 零种子 fork。
+      // 两处解析/校验一律**分页读全前缀**（`read()` 缺省 limit=1000 会截断 ⇒ 长会话误判，
+      // 见 gateway/ForkBoundary.ts 头注与台账 FORK-PREFIX-WINDOW）。
+      let boundary: number;
+      if (options.truncateBeforeMessageId) {
+        const resolved = await resolveBoundaryBeforeMessage(
+          sourceLog,
+          options.truncateBeforeMessageId
+        );
+        if (resolved === null) {
+          return {
+            success: false,
+            error: `truncate-before message not in event log: ${options.truncateBeforeMessageId}`,
+          };
+        }
+        boundary = resolved;
+        logger.debug('forkSession:截断边界由源事件解析', {
+          sourceId,
+          truncateBeforeMessageId: options.truncateBeforeMessageId,
+          boundary,
+          tailSeq,
+        });
+      } else {
+        boundary = options.boundary ?? tailSeq;
+        if (
+          !Number.isInteger(boundary) ||
+          boundary <= 0 ||
+          boundary > tailSeq
+        ) {
+          return {
+            success: false,
+            error: `invalid boundary: ${boundary} (tailSeq=${tailSeq})`,
+          };
+        }
+      }
+
+      // open turn 校验：boundary 落在未闭合轮次内 → 拒绝（复制残缺 turn 无意义）
+      const openTurn =
+        boundary > 0 ? await findOpenTurnInPrefix(sourceLog, boundary) : null;
+      if (openTurn) {
+        return {
+          success: false,
+          error: `open turn at seq ${openTurn.seq} blocks fork boundary ${boundary}`,
+        };
+      }
+
+      // P1-10（C 判据，2026-09-25）：建边**前置**校验 —— 防血缘环与超深链。
+      // 环的两个来源：① 显式 `childId` 已是 source 的**祖先** ⇒ 新边让两者互为祖先
+      // （控制面 Tier1 会互相授予控制权）；② 自环（`childId === sourceId`）。
+      // 深链：新边后深度超过 `MAX_LINEAGE_HOPS` ⇒ `isAncestorSession` 会判否，
+      // 与其建一条"查不到"的边，不如建边即拒绝。
+      if (
+        options.childId &&
+        wouldCreateLineageCycle(options.childId, sourceId)
+      ) {
+        return {
+          success: false,
+          error: `fork would create lineage cycle: child=${options.childId} parent=${sourceId}`,
+        };
+      }
+      const sourceDepth = getLineageDepth(sourceId);
+      if (sourceDepth + 1 > MAX_LINEAGE_HOPS) {
+        return {
+          success: false,
+          error: `fork exceeds max lineage hops: ${sourceDepth} + 1 > ${MAX_LINEAGE_HOPS}`,
+        };
+      }
+
+      // 创建子会话（血缘注入 metadata，复用 createSession 的落盘 + session:created 事件）
+      //
+      // 2026-10-16：**显式给标题起名时锁标题**（「另存为分支」的 `分支：X`）。子会话若不带
+      // 任何标题标记，`SessionTitling.shouldAutoTitle()` 判其可自动命名 ⇒ 首轮先被**占位标题**
+      // （取首条用户消息）覆盖、再被 **LLM 精化**覆盖 ⇒ 分支身份在标题上消失（真机三段标题链：
+      // `分支：边界终验需求澄清` → `你好-边界终验-分支B` → `边界终验分支B验证`）。
+      // 口径**复用** `SessionTitling.renameSession(source='user')` 的字段组合（titleStage='manual'
+      // + titleLocked=true + titleAutoGenerated=true + metadata.title），不新增机制（CS01）。
+      // 未给 childTitle 的 fork（如程序化建分支）保持原行为，不锁。
+      const branchTitle =
+        typeof options.childTitle === 'string' &&
+        options.childTitle.trim() !== ''
+          ? options.childTitle
+          : undefined;
+      const child = await this.createSession({
+        id: options.childId,
+        title: options.childTitle,
+        metadata: {
+          parentSessionId: sourceId,
+          seedLength: boundary,
+          ...(branchTitle
+            ? {
+                titleStage: 'manual',
+                titleLocked: true,
+                titleAutoGenerated: true,
+                title: branchTitle,
+              }
+            : {}),
+        },
+      });
+
+      // 复制前缀事件到子会话（保留原 seq）
+      const childLog = new EventLogStorage(
+        child.id,
+        worktreeHash,
+        sessionsRoot
+      );
+      const copy = await sourceLog.copyPrefixTo(childLog, boundary);
+      if (!copy.ok) {
+        // H9 修复：复制失败时回滚已创建的子会话（deleteSession 软删除），
+        // 避免孤儿子会话残留（无血缘事件、后续 fork 校验不一致）。
+        // 血缘此时**尚未登记**（M-2 后置）⇒ 不产生悬挂边。
+        await this.rollbackForkedChild(child.id, 'copy-failed');
+        return {
+          success: false,
+          session: child,
+          boundary,
+          copied: copy.copied,
+          error: `copy prefix failed: ${copy.reason ?? 'unknown'}`,
+        };
+      }
+
+      // P1-10（A 判据，2026-09-25）：**声明 = 事实** —— 实际复制上界必须等于请求边界。
+      // 严格口径（用户裁定）：不一致即回滚拒绝。触发场景：源存在 seq 空洞、
+      // 损坏行被 repair 跳过、或源在复制期间被截断 ⇒ 子会话的实际种子长度短于声明。
+      if (copy.maxCopiedSeq !== boundary) {
+        await this.rollbackForkedChild(child.id, 'boundary-mismatch');
+        return {
+          success: false,
+          session: child,
+          boundary,
+          copied: copy.copied,
+          error: `fork boundary mismatch: requested=${boundary} actual=${copy.maxCopiedSeq}`,
+        };
+      }
+
+      // P1-10（A-③④）：落盘血缘（`metadata`）必须与真实来源/边界一致 —— 在登记内存血缘
+      // **之前**校验。二者是两处独立写入（createSession 落盘 vs 本模块 Map 登记），
+      // 一旦漂移，内存血缘**无撤销 API** ⇒ 必须前置失败（fail-closed）。
+      const childMeta = child.metadata as
+        | { parentSessionId?: string; seedLength?: number }
+        | undefined;
+      if (
+        childMeta?.parentSessionId !== sourceId ||
+        childMeta?.seedLength !== copy.maxCopiedSeq
+      ) {
+        await this.rollbackForkedChild(child.id, 'metadata-mismatch');
+        return {
+          success: false,
+          session: child,
+          boundary,
+          copied: copy.copied,
+          error:
+            `fork metadata mismatch: parentSessionId=${childMeta?.parentSessionId ?? 'null'}` +
+            ` seedLength=${childMeta?.seedLength ?? 'null'}`,
+        };
+      }
+
+      // P1-10（B 判据）：前缀**逐条同构** —— 内容一致，而非仅"上界一致"。
+      // 两侧**重读磁盘**（不复用入口的内存快照）：`copyPrefixTo` 内部先
+      // `ensureRepairChecked()` 修复源（torn-tail 截断），重读才与复制时的真实内容对齐。
+      // 2026-10-16：改为两侧惰性游标**分页**比对 —— 原实现各读一份 `read()` 窗口（默认 1000）
+      // ⇒ 长前缀下"比较"退化为对截断片段的自比（校验失效），见 ForkBoundary.ts 头注。
+      const iso = await comparePrefixIsomorphic(sourceLog, childLog, boundary);
+      if (!iso.ok) {
+        await this.rollbackForkedChild(child.id, 'prefix-not-isomorphic');
+        return {
+          success: false,
+          session: child,
+          boundary,
+          copied: copy.copied,
+          error: `fork prefix mismatch: ${iso.detail ?? 'unknown'}`,
+        };
+      }
+
+      // O10b / **M-2（2026-09-22）**：血缘登记**后置到复制成功之后**。
+      //
+      // 修复前登记在 `copyPrefixTo` **之前**（原 `:746`），而失败分支只 `deleteSession(child.id)`
+      // 回滚会话、**不撤销血缘**（全仓亦无 `unregisterSessionLineage`）⇒ 留下
+      // "子会话已软删、血缘仍指向它"的**悬挂边**：控制面 Tier1 祖先判定会据此把
+      // 一个已不存在的会话当成合法祖先链的一环。
+      //
+      // 现口径：**只有 fork 真正成功才建立血缘** ⇒ 失败即无血缘、无悬挂边。
+      registerSessionLineage(child.id, sourceId);
+
+      logger.info('会话 fork 完成', {
+        sourceId,
+        childId: child.id,
+        boundary,
+        copied: copy.copied,
+        costMs: Date.now() - startedAt,
+      });
+      otel.endSpan(span);
+      return {
+        success: true,
+        session: child,
+        boundary,
+        copied: copy.copied,
+      };
+    } catch (e) {
+      logger.warn('forkSession:失败', {
+        sourceId,
+        options,
+        error: e instanceof Error ? e.message : String(e),
+        costMs: Date.now() - startedAt,
+      });
+      otel.recordError(span, e instanceof Error ? e : new Error(String(e)));
+      otel.endSpan(span, SpanStatusCode.ERROR);
+      await handleError(e, {
+        module: 'session:gateway',
+        action: 'forkSession',
+      }).catch(() => {});
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : String(e),
+      };
+    }
+  }
+
+  /**
+   * P1-10（2026-09-25）：fork 失败时回滚已创建的子会话 —— H9 语义的**单一实现**。
+   *
+   * 只在**登记血缘之前**的失败点调用：血缘后置登记（M-2）保证"失败即无血缘"，
+   * 故此处无需（也无 API）撤销血缘。
+   */
+  private async rollbackForkedChild(
+    childId: string,
+    reason: string
+  ): Promise<void> {
+    await this.deleteSession(childId).catch((rollbackErr) => {
+      logger.warn('forkSession:回滚子会话失败', {
+        childId,
+        reason,
+        error:
+          rollbackErr instanceof Error
+            ? rollbackErr.message
+            : String(rollbackErr),
+      });
+    });
+  }
+
+  /**
+   * 获取会话
+   */
+  async getSession(sessionId: string): Promise<UnifiedSession | null> {
+    return (await this.store()).getSession(sessionId);
+  }
+
+  /**
+   * 在异步上下文中注入会话信息后执行回调
+   * 深层调用链可通过 getCurrentSessionContext() 获取当前会话
+   */
+  async runWithSession<T>(
+    sessionId: string,
+    userId: string,
+    fn: () => Promise<T>,
+    extra?: { agentName?: string; channelType?: string }
+  ): Promise<T> {
+    const ctx: SessionContext = {
+      type: 'session',
+      createdAt: new Date(),
+      sessionId,
+      userId,
+      agentName: extra?.agentName,
+      channelType: extra?.channelType,
+    };
+    return asyncContextStorage.run({ session: ctx }, fn);
+  }
+
+  /**
+   * 更新会话
+   */
+  async updateSession(session: UnifiedSession): Promise<void> {
+    // M4（2026-09-17）：会话重新激活（ACTIVE/RUNNING）时清除 cleanShutdown 标记——
+    // 避免"上次优雅关闭"标记残留掩盖后续真实崩溃（恢复被跳过的误判）。
+    if (
+      (session.status === SessionStatus.ACTIVE ||
+        session.status === SessionStatus.RUNNING) &&
+      session.metadata?.[CLEAN_SHUTDOWN_MARKER] === true
+    ) {
+      delete session.metadata[CLEAN_SHUTDOWN_MARKER];
+    }
+    session.updatedAt = Date.now();
+    session.lastActivityAt = Date.now();
+    await (await this.store()).updateSession(session);
+    // M2：直写 storage 后失效 SessionStore 缓存对应 key（底层共用同一存储实例）
+    this.sessionStore?.invalidate(session.id);
+  }
+
+  /**
+   * M4（2026-09-17）：优雅关闭时为可中断会话写 cleanShutdown 标记（委托 CrashRecoveryManager）
+   */
+  async markCleanShutdown(): Promise<number> {
+    return this.crashRecoveryManager.markCleanShutdown();
+  }
+
+  /**
+   * 删除会话
+   */
+  async deleteSession(sessionId: string): Promise<void> {
+    const startedAt = Date.now();
+    logger.debug('deleteSession:入口，新链存储', { sessionId });
+
+    const store = await this.store();
+    const messages = await store.getMessages(sessionId);
+    // BUG-3 修复：删除前记录 messageIds，供 FTS5 索引清理使用——
+    // 原实现监听器在删除后重新 getMessages 得到空数组，导致索引残留（幽灵数据）。
+    const messageIds = messages.map((m) => m.id);
+    logger.debug('deleteSession:已读取消息（删除前）', {
+      sessionId,
+      messageCount: messages.length,
+      messageIds,
+    });
+
+    await store.deleteSession(sessionId);
+    logger.debug('deleteSession:storage.deleteSession 完成', {
+      sessionId,
+      costMs: Date.now() - startedAt,
+    });
+    // M2：直写 storage 删除后失效 SessionStore 缓存对应 key
+    this.sessionStore?.invalidate(sessionId);
+
+    await this.transcriptManager.deleteTranscript(sessionId);
+    logger.debug('deleteSession:transcript 已删除', {
+      sessionId,
+    });
+
+    // BUG-3 修复：事件名统一为复数 messages:deleted（原单数 message:deleted 孤发无人消费），
+    // 携带 messageIds 供 :456 监听器清理 FTS5 索引。
+    this.eventBus?.emit(
+      createSessionLifecycleEvent('messages:deleted', sessionId, {
+        sessionKey: sessionId,
+        metadata: { messageIds, messageCount: messages.length },
+      })
+    );
+    logger.debug('deleteSession:已 emit messages:deleted 事件', {
+      sessionId,
+      messageCount: messages.length,
+    });
+
+    this.eventBus?.emit(
+      createSessionLifecycleEvent('session:deleted', sessionId, {
+        sessionKey: sessionId,
+        metadata: { messageIds, messageCount: messages.length },
+      })
+    );
+    logger.debug('deleteSession:已 emit session:deleted 事件', {
+      sessionId,
+      messageCount: messages.length,
+    });
+
+    const remoteSession = this.remoteSessions.get(sessionId);
+    if (remoteSession) {
+      remoteSession.disconnect();
+      this.remoteSessions.delete(sessionId);
+      logger.info('deleteSession:已断开远程会话连接', { sessionId });
+    }
+
+    const ws = this.webSockets.get(sessionId);
+    if (ws) {
+      ws.close();
+      this.webSockets.delete(sessionId);
+      logger.info('deleteSession:已关闭 WebSocket 订阅', { sessionId });
+    }
+
+    logger.info('deleteSession:完成', {
+      sessionId,
+      messageCount: messages.length,
+      costMs: Date.now() - startedAt,
+    });
+  }
+
+  /**
+   * 列出会话（全量加载）
+   */
+  async listSessions(filter?: SessionFilter): Promise<UnifiedSession[]> {
+    const sessions = await (await this.store()).listSessions(filter);
+    // A1 临时对话：temporary 会话不入历史列表（仍可按 id 加载/恢复）
+    // P3-1（2026-09-26）：显式 `includeTemporary: true` 时**不过滤** —— 启动期血缘重建需要全量会话。
+    // （`includeTemporary` 是本层语义，存储层不消费未知键 ⇒ 直接透传即可，存储实现只读它认识的字段。）
+    if (filter?.includeTemporary === true) return sessions;
+    return sessions.filter((s) => s.metadata?.temporary !== true);
+  }
+
+  /**
+   * 轻量列出会话元数据 — 只扫描文件头 64KB，不加载完整 JSON
+   * 比 listSessions 快 5-10x，适合侧边栏列表渲染
+   *
+   * 实现已外迁 `session/gateway/LiteSessionLister.ts`（大文件拆分，spec §32 批 C2）；
+   * 本方法保留为**对外契约入口**（薄委托）。
+   */
+  async listLiteSessions(): Promise<LiteSessionSummary[]> {
+    return listLiteSessions(await this.store());
+  }
+
+  /**
+   * 搜索会话
+   */
+  async searchSessions(query: string): Promise<UnifiedSession[]> {
+    const store = await this.store();
+    const hits = await store.searchSessions(query);
+    // 多租户 P1：FTS 索引是**进程级单实例**（不按身份分桶）⇒ 非本地身份必须按归属过滤，
+    // 否则会搜到本机其他身份的会话标题。本地身份 ⇒ 原样返回（零行为变更）。
+    const principal = getRequestPrincipal();
+    if (isLocalPrincipal(principal)) return hits;
+    return hits.filter((s) => canAccessSession(s.metadata?.owner, principal));
+  }
+
+  /**
+   * 发送消息
+   */
+  async sendMessage(sessionId: string, message: UnifiedMessage): Promise<void> {
+    await (await this.store()).addMessage(sessionId, message);
+    await this.transcriptManager.recordMessage(sessionId, message);
+
+    // A1 临时对话：temporary 会话不进入 FTS 全文索引（完整隐身）
+    const isTemporary =
+      (await this.getSession(sessionId))?.metadata?.temporary === true;
+
+    // M5 修复：直接调 indexMessageToFTS（幂等，index() 是 Map.set）——
+    // FTS 索引此前依赖 eventBus 上 'message:created' 装配时序，晚装配即永不进索引，
+    // indexMessageToFTS 在 initialize 之外无调用点（死代码）。
+    if (!isTemporary) {
+      await this.fts.indexMessage(sessionId, message);
+    }
+    // M2：直写 storage 追加消息后失效 SessionStore 消息缓存
+    this.sessionStore?.invalidate(sessionId);
+
+    this.eventBus?.emit(
+      createSessionLifecycleEvent('message:created', sessionId, {
+        sessionKey: sessionId,
+        metadata: {
+          messageId: message.id,
+          type: message.type,
+          role: message.role,
+          content: message.content,
+          temporary: isTemporary,
+        },
+      })
+    );
+
+    // L5：touchSession 节流合并——命中内存 Map 时免 getSession+updateSession 双 IO
+    const touched = await (await this.store()).touchSession(sessionId);
+    if (!touched) {
+      const session = await this.getSession(sessionId);
+      if (session) {
+        session.lastActivityAt = Date.now();
+        await this.updateSession(session);
+      }
+    }
+    this.sessionStore?.invalidate(sessionId);
+  }
+
+  /**
+   * 恢复会话状态（PAUSED → ACTIVE）。
+   * 中断治理（2026-08-15）：接通 CrashRecoveryManager.resumeSession 的恢复出口，
+   * 供前端 resume / 会话重新激活时调用，paused 会话不再永久冻结。
+   */
+  async resumeSession(sessionId: string): Promise<UnifiedSession | null> {
+    return this.crashRecoveryManager.resumeSession(sessionId);
+  }
+
+  /**
+   * P2-7（2026-09-25）：**真正执行一次**崩溃恢复（幂等内部入口）。
+   *
+   * `initialize()`（懒调用路径）与 public {@link recoverAfterCrash}（启动期恢复编排路径）共用本方法
+   * ⇒ 两条路径**不会重复扫描**；结果被缓存，重复调用返回**同一份结果**（而非伪造"检查了 0 个会话"）。
+   */
+  private async runCrashRecoveryOnce(): Promise<CrashRecoveryResult> {
+    if (this._crashRecoveryResult) return this._crashRecoveryResult;
+
+    // P2-4 修复（2026-09-26）：先查 **in-flight** 再执行。
+    // 原实现直接执行 ⇒ 并发调用同时通过上面的缓存检查 ⇒ 双扫。
+    if (!this.crashRecoveryInFlight) {
+      this.crashRecoveryInFlight = this.doRunCrashRecovery();
+    }
+    return this.crashRecoveryInFlight;
+  }
+
+  /** 真正执行一次崩溃恢复（由 {@link runCrashRecoveryOnce} 保证并发下只执行一次） */
+  private async doRunCrashRecovery(): Promise<CrashRecoveryResult> {
+    await this.crashRecoveryManager.initialize();
+    const crashResult = await this.crashRecoveryManager.recoverAfterCrash();
+    this._crashRecoveryResult = crashResult;
+    if (crashResult.totalChecked > 0) {
+      logger.info('会话崩溃恢复完毕', {
+        totalChecked: crashResult.totalChecked,
+        paused: crashResult.pausedSessions,
+        failed: crashResult.failedSessions,
+      });
+    }
+    return crashResult;
+  }
+
+  /**
+   * P2-7（2026-09-25）：崩溃恢复的**显式入口**（幂等），供启动期恢复编排层主动触发。
+   *
+   * 修复前该逻辑内联在 `initialize()` 中，而 `initialize()` 是**懒调用** ⇒ 用户若始终不触发
+   * 会话路径（只开控制面 / 只看项目页），崩溃会话**永不恢复**，而 yield 侧却已在启动期回放
+   * ⇒ 时机不对称。本方法先保证存储初始化，再执行（或复用缓存结果）。
+   */
+  async recoverAfterCrash(): Promise<CrashRecoveryResult> {
+    await this.initialize();
+    return this.runCrashRecoveryOnce();
+  }
+
+  /**
+   * P2-7（2026-09-25）：会话**派生状态**重建入口（全量 / 单会话）。
+   *
+   * 复用既有重建实现（`rebuildFTSIndex` / `migrateRoundCount` / `indexMessageToFTS`），
+   * **不新造重建算法**；单会话失败不中断整体（逐条记入 `failures`）。
+   */
+  async rebuildDerivedState(opts?: {
+    sessionId?: string;
+  }): Promise<SessionRebuildStats> {
+    await this.initialize();
+    const failures: Array<{ sessionId?: string; error: string }> = [];
+
+    if (!opts?.sessionId) {
+      // 全量：复用既有两个幂等实现
+      const sessions = await (await this.store()).listSessions();
+      let ftsIndexed = 0;
+      try {
+        ftsIndexed = await this.fts.rebuildIndex();
+      } catch (err) {
+        failures.push({ error: errText(err) });
+      }
+      const migrated = await this.fts.migrateRoundCount();
+      if (migrated.error) failures.push({ error: migrated.error });
+      return {
+        scopes: sessions.length,
+        ftsDocs: ftsIndexed,
+        roundCountFixed: migrated.migrated,
+        failures,
+      };
+    }
+
+    // 单会话
+    const sessionId = opts.sessionId;
+    let ftsDocs = 0;
+    let roundCountFixed = 0;
+    try {
+      const messages = await (await this.store()).getMessages(sessionId);
+      for (const msg of messages) await this.fts.indexMessage(sessionId, msg);
+      ftsDocs = messages.length;
+
+      // P1-5（2026-11-05）：计数（roundCount / messageCount）校正收敛到 FTS 簇（幂等）
+      roundCountFixed = (await this.fts.syncSessionCounts(sessionId)) ? 1 : 0;
+    } catch (err) {
+      failures.push({ sessionId, error: errText(err) });
+    }
+    return { scopes: 1, ftsDocs, roundCountFixed, failures };
+  }
+
+  /**
+   * 获取消息
+   */
+  async getMessages(
+    sessionId: string,
+    options?: { limit?: number; offset?: number }
+  ): Promise<UnifiedMessage[]> {
+    return (await this.store()).getMessages(sessionId, options);
+  }
+
+  /**
+   * 更新消息（按 ID 替换，不追加）
+   */
+  async updateMessage(
+    sessionId: string,
+    messageId: string,
+    message: UnifiedMessage
+  ): Promise<void> {
+    await (await this.store()).updateMessage(sessionId, messageId, message);
+  }
+
+  /**
+   * 软删除单条消息 + 发布事件
+   */
+  async deleteMessage(sessionId: string, messageId: string): Promise<void> {
+    await (await this.store()).deleteMessage(sessionId, messageId);
+    // M2：直写 storage 删除消息后失效 SessionStore 消息缓存
+    this.sessionStore?.invalidate(sessionId);
+    this.eventBus?.emit(
+      createSessionLifecycleEvent('messages:deleted', sessionId, {
+        metadata: { messageIds: [messageId] },
+      })
+    );
+  }
+
+  /**
+   * 批量软删除消息 + 发布事件
+   */
+  async deleteMessages(sessionId: string, messageIds: string[]): Promise<void> {
+    await (await this.store()).deleteMessages(sessionId, messageIds);
+    // M2：直写 storage 批量删除消息后失效 SessionStore 消息缓存
+    this.sessionStore?.invalidate(sessionId);
+    if (messageIds.length > 0) {
+      this.eventBus?.emit(
+        createSessionLifecycleEvent('messages:deleted', sessionId, {
+          metadata: { messageIds },
+        })
+      );
+    }
+  }
+
+  /**
+   * 加载Transcript
+   */
+  async loadTranscript(sessionId: string): Promise<Transcript | null> {
+    return this.transcriptManager.loadTranscript(sessionId);
+  }
+
+  /**
+   * 创建WebSocket连接
+   */
+  createWebSocket(
+    sessionId: string,
+    config: {
+      url: string;
+      getAccessToken: () => string;
+      orgUuid?: string;
+    },
+    callbacks: SessionsWebSocketCallbacks
+  ): SessionsWebSocket {
+    const existingWs = this.webSockets.get(sessionId);
+    if (existingWs) {
+      existingWs.close();
+    }
+
+    const wsConfig: SessionsWebSocketConfig = {
+      url: config.url,
+      sessionId,
+      orgUuid: config.orgUuid,
+      getAccessToken: config.getAccessToken,
+    };
+
+    const ws = createSessionsWebSocket(wsConfig, callbacks);
+    this.webSockets.set(sessionId, ws);
+    return ws;
+  }
+
+  /**
+   * 创建远程会话
+   */
+  createRemoteSession(
+    config: RemoteSessionConfig,
+    callbacks: RemoteSessionCallbacks
+  ): RemoteSessionManager {
+    const existingRemote = this.remoteSessions.get(config.sessionId);
+    if (existingRemote) {
+      existingRemote.disconnect();
+    }
+
+    const remoteSession = createRemoteSessionManager(config, callbacks);
+    this.remoteSessions.set(config.sessionId, remoteSession);
+    return remoteSession;
+  }
+
+  /**
+   * 获取会话统计
+   */
+  async getSessionStats(sessionId?: string): Promise<SessionStats> {
+    if (sessionId) {
+      return (await this.store()).getSessionStats(sessionId);
+    }
+
+    const sessions = await this.listSessions();
+    const stats: SessionStats = {
+      totalSessions: sessions.length,
+      activeSessions: sessions.filter((s) => s.status === SessionStatus.ACTIVE)
+        .length,
+      archivedSessions: sessions.filter(
+        (s) => s.status === SessionStatus.ARCHIVED
+      ).length,
+      averageSessionDuration: 0,
+      totalMessages: 0,
+    };
+
+    let totalDuration = 0;
+    for (const session of sessions) {
+      const sessionStats = await (
+        await this.store()
+      ).getSessionStats(session.id);
+      totalDuration += sessionStats.averageSessionDuration;
+      stats.totalMessages += sessionStats.totalMessages;
+    }
+
+    if (sessions.length > 0) {
+      stats.averageSessionDuration = totalDuration / sessions.length;
+    }
+
+    return stats;
+  }
+
+  /**
+   * 获取Transcript统计
+   */
+  async getTranscriptStats(sessionId: string) {
+    return this.transcriptManager.getTranscriptStats(sessionId);
+  }
+
+  /**
+   * 搜索Transcript
+   */
+  async searchTranscript(sessionId: string, query: string) {
+    return this.transcriptManager.searchTranscript(sessionId, query);
+  }
+
+  /**
+   * 全文搜索消息（基于 FTS5SearchEngine）
+   * @param query 搜索关键词
+   * @param sessionId 按会话过滤（可选）
+   * @param limit 最大结果数
+   * @param allowedSessionIds 作用域下推（N-66，可选）：仅返回这些会话内的命中
+   *   —— 由调用方按 `moduleType` 预先算好，谓词在**引擎内**生效（**早于 limit 截断**），
+   *   因此不会出现"本作用域确有命中，却被全局前 N 条挤出"的漏显。
+   *   优先级高于 `sessionId`；两者都不传时保持全局语义。
+   * @returns 搜索结果列表
+   *
+   * 分片重构 §11.3：改为**异步** —— 作用域已知 ⇒ 只读这些片（1 片或 N 片）；
+   * 都不传 ⇒ 全局扇出（并发上限 + 总超时；超时返回已收集的部分结果并告警）。
+   */
+  async searchMessagesFTS(
+    query: string,
+    sessionId?: string,
+    limit?: number,
+    allowedSessionIds?: Set<string>
+  ): Promise<FTSSearchResult[]> {
+    // 实现已外迁 `session/gateway/GatewayFtsIndex.ts`（spec §34）；本方法保留为对外契约入口
+    return this.fts.search(query, sessionId, limit, allowedSessionIds);
+  }
+
+  /**
+   * 记录令牌用量
+   */
+  recordTokenUsage(
+    sessionId: string,
+    input: {
+      promptTokens?: number;
+      completionTokens?: number;
+      cacheReadTokens?: number;
+      cacheCreationTokens?: number;
+      totalTokens?: number;
+    }
+  ): void {
+    if (!this.tokenTracker) return;
+    this.tokenTracker.recordUsage(sessionId, {
+      inputTokens: input.promptTokens ?? 0,
+      outputTokens: input.completionTokens ?? 0,
+      cacheReadInputTokens: input.cacheReadTokens,
+      cacheCreationInputTokens: input.cacheCreationTokens,
+    });
+  }
+
+  /**
+   * 获取令牌用量
+   */
+  getTokenUsage(sessionId: string) {
+    return this.tokenTracker?.getUsage(sessionId) ?? null;
+  }
+
+  /**
+   * 检查是否需要修剪上下文
+   * @returns 修剪结果，若无修剪决策器则返回 null
+   */
+  async checkPruning(sessionId: string): Promise<PruningResult | null> {
+    if (!this.pruningDecider) return null;
+
+    const session = await this.getSession(sessionId);
+    if (!session) return null;
+
+    const messages = await this.getMessages(sessionId);
+    const tokenUsage = this.tokenTracker?.getUsage(sessionId);
+    // P1-fix（H2）：totalTokens 已是累计值（TokenTracker.accumulateTokenUsage
+    // 累加 input/output/cache 等），再叠加 inputTokens + outputTokens 导致
+    // 约 3 倍重复计数，触发过早修剪。
+    const totalTokens = tokenUsage?.totalTokens ?? 0;
+
+    const decision = this.pruningDecider.decide({
+      session: {
+        id: sessionId,
+        messages:
+          messages as never as import('../session/models/SessionMessage').SessionMessage[],
+        metadata:
+          session.metadata as never as import('../session/models/SessionMetadata').SessionMetadata,
+        createdAt: new Date(session.createdAt),
+        updatedAt: new Date(session.updatedAt),
+      } as import('../session/models/Session').Session,
+      tokenUsage: totalTokens,
+      // L3-fix: 从模型注册表解析上下文窗口（model_registry 事实来源），
+      // 原 200000 硬编码违反 model-usage 规则（模型属性必须读 DB）。
+      modelContextWindow: resolveContextWindow(
+        (session.metadata as { model?: string } | undefined)?.model ?? ''
+      ).tokens,
+    });
+
+    if (decision.action === 'skip') return null;
+
+    return {
+      prunedMessageCount: decision.results.reduce(
+        (s, r) => s + r.prunedMessageCount,
+        0
+      ),
+      prunedTokenEstimate: decision.results.reduce(
+        (s, r) => s + r.prunedTokenEstimate,
+        0
+      ),
+      messagesRemaining: decision.results.reduce(
+        (s, r) => s + r.messagesRemaining,
+        0
+      ),
+      reason: decision.reason,
+    };
+  }
+
+  /**
+   * 执行会话压缩
+   */
+  async compactSession(
+    sessionId: string,
+    model?: string
+  ): Promise<{
+    success: boolean;
+    record?: import('../session/compaction/CompactionRecord').CompactionRecord;
+    error?: string;
+  } | null> {
+    if (!this.compactionBridge) return null;
+
+    logger.debug('compactSession:SessionGateway 入口，compactionBridge 链', {
+      sessionId,
+    });
+
+    const session = await this.getSession(sessionId);
+    if (!session) return { success: false, error: 'Session not found' };
+
+    const messages = await this.getMessages(sessionId);
+    const sessionLike = {
+      id: sessionId,
+      messages:
+        messages as never as import('../session/models/SessionMessage').SessionMessage[],
+      metadata:
+        session.metadata as never as import('../session/models/SessionMetadata').SessionMetadata,
+      createdAt: new Date(session.createdAt),
+      updatedAt: new Date(session.updatedAt),
+    } as import('../session/models/Session').Session;
+
+    const preResult = await this.compactionBridge.beforeCompact(
+      sessionLike,
+      model ?? ''
+    );
+
+    if (!preResult.proceed) {
+      return { success: false, error: preResult.reason };
+    }
+
+    const record = await this.compactionBridge.performCompact(
+      sessionLike,
+      model ?? '',
+      'manual'
+    );
+
+    return { success: record.success, record, error: record.error };
+  }
+
+  /**
+   * 获取压缩历史
+   */
+  getCompactionHistory(sessionId: string) {
+    return this.compactionBridge?.getCompactionHistory(sessionId) ?? [];
+  }
+
+  // ========== 缓存层 ==========
+
+  /**
+   * 获取缓存统计
+   */
+  getCacheStats(): {
+    sessions: number;
+    metadata: number;
+    messages: number;
+  } | null {
+    return this.sessionStore?.getCacheStats() ?? null;
+  }
+
+  // ========== 修剪逻辑 ==========
+
+  /**
+   * 内部：执行一次修剪
+   */
+  private async executePrune(): Promise<PruneResult | null> {
+    if (!this.pruner) return null;
+    return this.pruner.prune();
+  }
+
+  /**
+   * 内部：启动定时修剪
+   *
+   * D3（2026-09-22）起同一节拍曾一并驱动**制品保留**；2026-11-04（附录 B1）已把保留
+   * 拆到 `ensureArtifactRetentionScheduler()`（进程级幂等调度器），本方法只负责会话修剪。
+   */
+  private startPruneInterval(intervalMs: number = 300_000): void {
+    this.stopPruneInterval();
+    this.prunerInterval = setInterval(async () => {
+      try {
+        await this.executePrune();
+      } catch (err) {
+        await handleError(err, {
+          module: 'sessions:gateway',
+          action: '定时修剪执行失败',
+        });
+      }
+    }, intervalMs);
+    this.prunerInterval.unref();
+  }
+
+  /**
+   * 内部：停止定时修剪
+   */
+  private stopPruneInterval(): void {
+    if (this.prunerInterval) {
+      clearInterval(this.prunerInterval);
+      this.prunerInterval = null;
+    }
+  }
+
+  /**
+   * 立即执行修剪
+   */
+  async pruneNow(): Promise<PruneResult | null> {
+    return this.executePrune();
+  }
+
+  /**
+   * 获取修剪预估
+   */
+  async getPruneEstimate(): Promise<{
+    total: number;
+    ageCandidates: number;
+    countCandidates: number;
+    activeSessions: number;
+  } | null> {
+    if (!this.pruner) return null;
+    return this.pruner.getPruneEstimate();
+  }
+
+  /**
+   * 设置修剪选项
+   */
+  setPrunerOptions(options: Partial<PrunerOptions>): void {
+    this.pruner?.updateOptions(options);
+  }
+
+  // ========== 并发锁 ==========
+
+  /**
+   * 获取会话锁
+   */
+  getSessionLock(): SessionLock | null {
+    return this.lock;
+  }
+
+  /**
+   * 获取锁
+   */
+  async acquireLock(
+    sessionId: string,
+    options?: LockOptions
+  ): Promise<LockAcquireResult> {
+    if (!this.lock) {
+      this.lock = new SessionLock(options);
+    }
+    return this.lock.acquire(sessionId, options?.timeout);
+  }
+
+  /**
+   * 释放锁
+   */
+  async releaseLock(sessionId: string): Promise<boolean> {
+    if (!this.lock) return false;
+    return this.lock.release(sessionId);
+  }
+
+  /**
+   * 检查会话是否被锁定
+   */
+  async isLocked(sessionId: string): Promise<boolean> {
+    if (!this.lock) return false;
+    return this.lock.isLocked(sessionId);
+  }
+
+  // ========== 优先级 / QoS ==========
+
+  /**
+   * 设置会话优先级
+   */
+  setSessionPriority(
+    sessionId: string,
+    level: SessionPriorityLevel,
+    qos?: QoSLevel
+  ): void {
+    if (!this.priorityManager) {
+      this.priorityManager = new PriorityManager();
+    }
+    this.priorityManager.setPriority(sessionId, level, qos);
+
+    if (this.qosEnforcer) {
+      const priority = this.priorityManager.getPriority(sessionId);
+      this.qosEnforcer.registerSession(sessionId, priority);
+      this.qosEnforcer.updatePriority(sessionId, priority);
+    }
+  }
+
+  /**
+   * 获取会话优先级
+   */
+  getSessionPriority(sessionId: string): SessionPriority {
+    if (!this.priorityManager) {
+      this.priorityManager = new PriorityManager();
+    }
+    return this.priorityManager.getPriority(sessionId);
+  }
+
+  // ========== 令牌预算 ==========
+
+  /**
+   * 设置会话预算
+   */
+  setSessionBudget(sessionId: string, config: SessionTokenBudgetConfig): void {
+    if (!this.budgetEnforcer) {
+      const tracker = new BudgetTracker();
+      this.budgetTracker = tracker;
+      this.budgetEnforcer = new BudgetEnforcer(tracker);
+    }
+    this.budgetEnforcer.setBudgetConfig(sessionId, config);
+  }
+
+  /**
+   * 记录词元消耗
+   */
+  recordTokenConsumption(
+    sessionId: string,
+    tokens: number,
+    period: BudgetPeriod = 'per_session'
+  ): void {
+    this.budgetTracker?.recordConsumption(sessionId, tokens, period);
+  }
+
+  /**
+   * 检查预算
+   */
+  checkBudget(sessionId: string, estimatedTokens?: number): BudgetDecision {
+    if (!this.budgetEnforcer) {
+      return {
+        action: 'allow' as const,
+        reason: 'No budget configured',
+        currentUsage: 0,
+        limit: 0,
+        percentage: 0,
+      };
+    }
+    return this.budgetEnforcer.evaluate(sessionId, estimatedTokens);
+  }
+
+  /**
+   * 检查是否可在预算内继续
+   */
+  canProceedWithBudget(sessionId: string, estimatedTokens?: number): boolean {
+    if (!this.budgetEnforcer) return true;
+    return this.budgetEnforcer.canProceed(sessionId, estimatedTokens);
+  }
+
+  // ========== 归档 ==========
+
+  /**
+   * 归档会话
+   */
+  async archiveSession(
+    sessionId: string,
+    trigger: ArchiveTrigger = 'manual'
+  ): Promise<ArchiveResult | null> {
+    if (!this.archiver) return null;
+
+    const session = await this.getSession(sessionId);
+    if (!session) {
+      return {
+        sessionId,
+        success: false,
+        archivedAt: Date.now(),
+        error: 'Session not found',
+      };
+    }
+
+    const messages = await this.getMessages(sessionId);
+
+    const archivable: ArchivableSession = {
+      id: sessionId,
+      status: session.status,
+      messageCount: messages.length,
+      totalTokens: this.tokenTracker?.getUsage(sessionId)?.totalTokens ?? 0,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
+      lastActivityAt: session.lastActivityAt,
+      toUnifiedSession: () => session,
+      toUnifiedMessages: () => messages,
+    };
+
+    return this.archiver.archiveSession(archivable, trigger);
+  }
+
+  /**
+   * 列出已归档的会话
+   */
+  async listArchivedSessions(): Promise<ArchiveMetadata[]> {
+    if (!this.archiver) return [];
+    return this.archiver.listArchived();
+  }
+
+  /**
+   * 获取归档统计
+   */
+  async getArchiveStats(): Promise<{
+    count: number;
+    totalSize: number;
+    oldestArchive: number;
+    newestArchive: number;
+  } | null> {
+    if (!this.archiver) return null;
+    return this.archiver.getStorageStats();
+  }
+
+  /**
+   * 清理旧会话
+   */
+  async cleanupOldSessions(maxAge: number): Promise<void> {
+    await this.transcriptManager.cleanupOldTranscripts(maxAge);
+  }
+
+  /**
+   * 关闭网关
+   */
+  async close(): Promise<void> {
+    this.initialized = false;
+
+    this.fts.stopPersistence();
+
+    // 停止定时修剪
+    this.stopPruneInterval();
+
+    // 停止自动归档
+    this.archiver?.stopAutoArchive();
+
+    // 释放所有锁
+    await this.lock?.releaseAll();
+
+    // KB-FTS-CLOSE-LOG（2026-08-29）：关闭时 FTS 索引持久化失败静默 → 索引损坏无从排查。
+    // §8-4：落盘只写脏片；await 保证关闭前索引真正写完（日志由 flush 按 trigger 记）。
+    await this.fts.flush('close');
+
+    for (const remoteSession of this.remoteSessions.values()) {
+      remoteSession.disconnect();
+    }
+    this.remoteSessions.clear();
+
+    for (const ws of this.webSockets.values()) {
+      ws.close();
+    }
+    this.webSockets.clear();
+
+    // H2 修复：关闭前先落盘 storage 的 pending 写队列（storage.close 内部 flush），
+    // 再关闭 transcriptManager，避免写队列中最后的消息在进程退出时丢失。
+    await this.storage.close();
+    await this.transcriptManager.close();
+  }
+
+  /**
+   * 获取存储实例
+   */
+  getStorage(): UnifiedSessionStorage {
+    return this.storage;
+  }
+
+  /**
+   * 获取Transcript管理器
+   */
+  getTranscriptManager(): TranscriptManager {
+    return this.transcriptManager;
+  }
+
+  /**
+   * 获取远程会话管理器
+   */
+  getRemoteSession(sessionId: string): RemoteSessionManager | undefined {
+    return this.remoteSessions.get(sessionId);
+  }
+
+  /**
+   * 获取WebSocket
+   */
+  getWebSocket(sessionId: string): SessionsWebSocket | undefined {
+    return this.webSockets.get(sessionId);
+  }
+}
+
+/**
+ * 创建会话网关
+ */
+export function createSessionGateway(
+  config?: SessionGatewayConfig
+): SessionGateway {
+  return new SessionGateway(config);
+}

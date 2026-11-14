@@ -99,6 +99,8 @@
       "@openliri/infra/oauth/*": ["../../packages/infra/src/oauth/*"],
       "croner": ["../node_modules/croner"],
       "axios": ["../node_modules/axios"],
+      "dingtalk-stream": ["../node_modules/dingtalk-stream"],
+      "@larksuiteoapi/node-sdk": ["../node_modules/@larksuiteoapi/node-sdk"],
       "lru-cache": ["../node_modules/lru-cache"],
       "zod": ["../node_modules/zod"],
       "zod/*": ["../node_modules/zod/*"],
@@ -166,8 +168,14 @@
       "@modelcontextprotocol/sdk/*": [
         "../node_modules/@modelcontextprotocol/sdk/dist/esm/*"
       ],
-      "@modules/plugin-sdk": ["plugin-sdk"],
-      "@modules/plugin-sdk/*": ["plugin-sdk/*"],
+      "@modules/plugin-sdk": ["../../packages/plugin-sdk/src/plugin-sdk/index.ts"],
+      "@modules/plugin-sdk/*": ["../../packages/plugin-sdk/src/plugin-sdk/*"],
+      "@modules/governance": [
+        "../../packages/governance/src/governance/index.ts"
+      ],
+      "@modules/governance/*": ["../../packages/governance/src/governance/*"],
+      "@modules/dream": ["../../packages/dream/src/dream/index.ts"],
+      "@modules/dream/*": ["../../packages/dream/src/dream/*"],
       "@modules/ai": ["ai"],
       "@modules/ai/*": ["ai/*"],
       "@modules/agent": ["agent"],
@@ -176,17 +184,22 @@
       "@modules/lsp/*": ["lsp/*"],
       "@modules/plugins": ["plugins"],
       "@modules/plugins/*": ["plugins/*"],
-      "@modules/skills": ["skills"],
-      "@modules/skills/*": ["skills/*"],
+      "@modules/skills": ["../../packages/skills/src/skills/index.ts"],
+      "@modules/skills/*": ["../../packages/skills/src/skills/*"],
       "@modules/tools": ["tools"],
       "@modules/tools/*": ["tools/*"],
       "@modules/cli": ["cli"],
       "@modules/cli/*": ["cli/*"],
       "@modules/chat": ["chat"],
       "@modules/chat/*": ["chat/*"],
-      "@modules/compaction": ["compaction"],
-      "@modules/channels": ["channels"],
-      "@modules/channels/*": ["channels/*"],
+      "@modules/compaction": [
+        "../../packages/compaction/src/compaction/index.ts"
+      ],
+      "@modules/compaction/*": ["../../packages/compaction/src/compaction/*"],
+      "@modules/channels": [
+        "../../packages/channels/src/channels/index.ts"
+      ],
+      "@modules/channels/*": ["../../packages/channels/src/channels/*"],
       "@openliri/infra/memory": [
         "../../packages/infra/src/memory/index.ts"
       ],
@@ -194,8 +207,17 @@
         "../../packages/infra/src/memory/index.ts"
       ],
       "@openliri/infra/memory/*": ["../../packages/infra/src/memory/*"],
-      "@modules/evals": ["evals"],
-      "@modules/evals/*": ["evals/*"],
+      "@modules/evals": ["../../packages/evals/src/evals/index.ts"],
+      "@modules/evals/*": ["../../packages/evals/src/evals/*"],
+      "@modules/proactive/*": ["../../packages/proactive/src/proactive/*"],
+      "@modules/project/*": ["../../packages/project/src/project/*"],
+      "@modules/tool/*": ["../../packages/tool/src/tool/*"],
+      "@modules/context-engine": [
+        "../../packages/context-engine/src/context-engine/index.ts"
+      ],
+      "@modules/context-engine/*": [
+        "../../packages/context-engine/src/context-engine/*"
+      ],
       "@openliri/infra/security": [
         "../../packages/infra/src/security/index.ts"
       ],
@@ -215,8 +237,10 @@
       "@openliri/infra/error/*": ["../../packages/infra/src/error/*"],
       "@modules/context": ["context"],
       "@modules/context/*": ["context/*"],
-      "@modules/tokenBudget": ["tokenBudget"],
-      "@modules/tokenBudget/*": ["tokenBudget/*"],
+      "@modules/tokenBudget": [
+        "../../packages/tokenBudget/src/tokenBudget/index.ts"
+      ],
+      "@modules/tokenBudget/*": ["../../packages/tokenBudget/src/tokenBudget/*"],
       "@modules/modules": ["modules"],
       "@modules/modules/*": ["modules/*"],
       "@modules/infrastructure": ["infrastructure"],
@@ -243,8 +267,8 @@
       "@modules/commands/*": ["commands/*"],
       "@modules/sandbox": ["../../packages/sandbox/src/sandbox/index.ts"],
       "@modules/sandbox/*": ["../../packages/sandbox/src/sandbox/*"],
-      "@modules/vfs": ["vfs"],
-      "@modules/vfs/*": ["vfs/*"],
+      "@modules/vfs": ["../../packages/vfs/src/vfs/index.ts"],
+      "@modules/vfs/*": ["../../packages/vfs/src/vfs/*"],
       "@openliri/service/services/*": [
         "../../packages/service/src/services/*"
       ],
@@ -257,8 +281,8 @@
       "@openliri/service/ports/*": [
         "../../packages/service/src/ports/*"
       ],
-      "@modules/buddy": ["buddy"],
-      "@modules/buddy/*": ["buddy/*"],
+      "@modules/buddy": ["../../packages/buddy/src/buddy/index.ts"],
+      "@modules/buddy/*": ["../../packages/buddy/src/buddy/*"],
       "@openliri/infra/chronos": [
         "../../packages/infra/src/chronos/index.ts"
       ],
@@ -266,14 +290,16 @@
         "../../packages/infra/src/chronos/index.ts"
       ],
       "@openliri/infra/chronos/*": ["../../packages/infra/src/chronos/*"],
-      "@modules/docs": ["docs"],
-      "@modules/docs/*": ["docs/*"],
+      "@modules/docs": ["../../packages/docs/src/docs/index.ts"],
+      "@modules/docs/*": ["../../packages/docs/src/docs/*"],
       "@modules/hooks": ["hooks"],
       "@modules/hooks/*": ["hooks/*"],
-      "@modules/query": ["query"],
-      "@modules/query/*": ["query/*"],
-      "@modules/session": ["session"],
-      "@modules/session/*": ["session/*"],
+      "@modules/query": ["../../packages/query/src/query/index.ts"],
+      "@modules/query/*": ["../../packages/query/src/query/*"],
+      "@modules/session": [
+        "../../packages/service/src/session/index.ts"
+      ],
+      "@modules/session/*": ["../../packages/service/src/session/*"],
       "@modules/state": ["system/state"],
       "@modules/state/*": ["system/state/*"],
       "@modules/appState": ["appState"],
@@ -364,8 +390,7 @@
       "@modules/runtime/*": ["runtime/*"],
       "@modules/types": ["types"],
       "@modules/types/*": ["types/*"],
-      "@modules/subagent": ["subagent"],
-      "@modules/subagent/*": ["subagent/*"],
+      "@modules/subagent/*": ["../../packages/subagent/src/subagent/*"],
       "@modules/acp": ["acp"],
       "@modules/acp/*": ["acp/*"],
       "@modules/voice": ["voice"],
@@ -374,10 +399,16 @@
       "@modules/components/*": ["components/*"],
       "@modules/workspace": ["workspace"],
       "@modules/workspace/*": ["workspace/*"],
-      "@modules/workspaces": ["workspaces"],
-      "@modules/workspaces/*": ["workspaces/*"],
-      "@modules/resourceGovernor": ["resourceGovernor"],
-      "@modules/resourceGovernor/*": ["resourceGovernor/*"],
+      "@modules/workspaces": [
+        "../../packages/workspaces/src/workspaces/index.ts"
+      ],
+      "@modules/workspaces/*": ["../../packages/workspaces/src/workspaces/*"],
+      "@modules/resourceGovernor": [
+        "../../packages/resourceGovernor/src/resourceGovernor/index.ts"
+      ],
+      "@modules/resourceGovernor/*": [
+        "../../packages/resourceGovernor/src/resourceGovernor/*"
+      ],
       "@openliri/service/execution": [
         "../../packages/service/src/execution/index.ts"
       ],
@@ -394,7 +425,27 @@
     "src/**/*",
     "tests/**/*",
     "../packages/kernel/src/**/*",
-    "../packages/sandbox/src/**/*"
+    "../packages/sandbox/src/**/*",
+    "../packages/channels/src/**/*",
+    "../packages/query/src/**/*",
+    "../packages/skills/src/**/*",
+    "../packages/tokenBudget/src/**/*",
+    "../packages/vfs/src/**/*",
+    "../packages/compaction/src/**/*",
+    "../packages/workspaces/src/**/*",
+    "../packages/docs/src/**/*",
+    "../packages/plugin-sdk/src/**/*",
+    "../packages/governance/src/**/*",
+    "../packages/dream/src/**/*",
+    "../packages/evals/src/**/*",
+    "../packages/proactive/src/**/*",
+    "../packages/project/src/**/*",
+    "../packages/subagent/src/**/*",
+    "../packages/resourceGovernor/src/**/*",
+    "../packages/tool/src/**/*",
+    "../packages/context-engine/src/**/*",
+    "../packages/buddy/src/**/*",
+    "../packages/service/src/session/**/*"
   ],
   "exclude": [
     "node_modules",
@@ -406,6 +457,46 @@
     "src/**/*.test.tsx",
     "src/**/*ModuleTest.ts",
     "../packages/sandbox/src/**/tests",
-    "../packages/sandbox/src/**/*.test.ts"
+    "../packages/sandbox/src/**/*.test.ts",
+    "../packages/channels/src/**/tests",
+    "../packages/channels/src/**/*.test.ts",
+    "../packages/query/src/**/tests",
+    "../packages/query/src/**/*.test.ts",
+    "../packages/skills/src/**/tests",
+    "../packages/skills/src/**/*.test.ts",
+    "../packages/tokenBudget/src/**/tests",
+    "../packages/tokenBudget/src/**/*.test.ts",
+    "../packages/vfs/src/**/tests",
+    "../packages/vfs/src/**/*.test.ts",
+    "../packages/compaction/src/**/tests",
+    "../packages/compaction/src/**/*.test.ts",
+    "../packages/workspaces/src/**/tests",
+    "../packages/workspaces/src/**/*.test.ts",
+    "../packages/docs/src/**/tests",
+    "../packages/docs/src/**/*.test.ts",
+    "../packages/plugin-sdk/src/**/tests",
+    "../packages/plugin-sdk/src/**/*.test.ts",
+    "../packages/governance/src/**/tests",
+    "../packages/governance/src/**/*.test.ts",
+    "../packages/dream/src/**/tests",
+    "../packages/dream/src/**/*.test.ts",
+    "../packages/evals/src/**/tests",
+    "../packages/evals/src/**/*.test.ts",
+    "../packages/proactive/src/**/tests",
+    "../packages/proactive/src/**/*.test.ts",
+    "../packages/project/src/**/tests",
+    "../packages/project/src/**/*.test.ts",
+    "../packages/subagent/src/**/tests",
+    "../packages/subagent/src/**/*.test.ts",
+    "../packages/resourceGovernor/src/**/tests",
+    "../packages/resourceGovernor/src/**/*.test.ts",
+    "../packages/tool/src/**/tests",
+    "../packages/tool/src/**/*.test.ts",
+    "../packages/context-engine/src/**/tests",
+    "../packages/context-engine/src/**/*.test.ts",
+    "../packages/buddy/src/**/tests",
+    "../packages/buddy/src/**/*.test.ts",
+    "../packages/service/src/session/**/tests",
+    "../packages/service/src/session/**/*.test.ts"
   ]
 }

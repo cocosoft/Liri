@@ -11,7 +11,7 @@
  */
 import { describe, expect, it, afterEach } from 'bun:test';
 
-import { resolveFeatureGate } from '../../src/query/featureGate';
+import { resolveFeatureGate } from '@modules/query/featureGate';
 
 const FLAG = 'SELF_VERIFY_PATTERN' as const;
 

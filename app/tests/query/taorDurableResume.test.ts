@@ -18,17 +18,17 @@ import type { ChatMessage } from '../../src/ai/models/types.js';
 import {
   extractPendingToolCallsFromMessages,
   buildBudgetResumePrompt,
-} from '../../src/query/taor/pendingToolCalls.js';
-import { MemoryCheckpointStorage } from '../../src/query/taor/MemoryCheckpointStorage.js';
-import { ResumeManager } from '../../src/query/ResumeManager.js';
+} from '@modules/query/taor/pendingToolCalls.js';
+import { MemoryCheckpointStorage } from '@modules/query/taor/MemoryCheckpointStorage.js';
+import { ResumeManager } from '@modules/query/ResumeManager.js';
 import {
   getBudgetSuspendCoordinator,
   resetBudgetSuspendForTest,
-} from '../../src/query/budgetSuspend.js';
-import { TAORPhase } from '../../src/query/types.js';
-import type { TAORCheckpoint } from '../../src/query/types.js';
-import { TokenBudgetStatus } from '../../src/tokenBudget/TokenBudgetController.js';
-import type { TokenBudgetState } from '../../src/tokenBudget/TokenBudgetController.js';
+} from '@modules/query/budgetSuspend.js';
+import { TAORPhase } from '@modules/query/types.js';
+import type { TAORCheckpoint } from '@modules/query/types.js';
+import { TokenBudgetStatus } from '@modules/tokenBudget/TokenBudgetController.js';
+import type { TokenBudgetState } from '@modules/tokenBudget/TokenBudgetController.js';
 
 const budgetState: TokenBudgetState = {
   status: TokenBudgetStatus.NORMAL,

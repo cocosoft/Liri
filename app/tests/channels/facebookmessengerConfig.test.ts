@@ -6,13 +6,13 @@ import { describe, expect, it } from 'bun:test';
 import {
   getDefaultFacebookMessengerConfig,
   validateFacebookMessengerConfig,
-} from '../../src/channels/facebookmessenger/config-schema';
+} from '@modules/channels/facebookmessenger/config-schema';
 import {
   getFacebookMessengerAccount,
   listFacebookMessengerAccountIds,
   registerFacebookMessengerAccount,
   removeFacebookMessengerAccount,
-} from '../../src/channels/facebookmessenger/accounts';
+} from '@modules/channels/facebookmessenger/accounts';
 import { describeChannelBasics } from './support/channelBasics';
 
 describeChannelBasics({

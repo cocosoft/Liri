@@ -38,7 +38,7 @@
  */
 
 import { describe, it, expect, afterEach } from 'bun:test';
-import { createSystemAbortReason } from '../../../src/query/ReActLoop.js';
+import { createSystemAbortReason } from '@modules/query/ReActLoop.js';
 import { isAbortReason } from '@openliri/infra/error/abortReason';
 import { ErrorSeverity, type AppError } from '@openliri/infra/error/types';
 import { OllamaProvider } from '../../../src/ai/providers/OllamaProvider.js';

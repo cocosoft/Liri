@@ -16,7 +16,7 @@ import {
   createWorkspaceSnapshot,
   restoreWorkspaceSnapshot,
   listWorkspaceSnapshots,
-} from '../../../src/workspaces/apply/WorkspaceSnapshot';
+} from '@modules/workspaces/apply/WorkspaceSnapshot';
 
 let repo: string;
 

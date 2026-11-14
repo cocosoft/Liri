@@ -29,16 +29,16 @@ import {
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { SessionGateway } from '../../src/session/SessionGateway';
-import { StorageType } from '../../src/session/storage/UnifiedStorage';
+import { SessionGateway } from '@modules/session/SessionGateway';
+import { StorageType } from '@modules/session/storage/UnifiedStorage';
 import {
   getSessionParent,
   resetSessionLineage,
-} from '../../src/session/lineage/sessionLineage';
+} from '@modules/session/lineage/sessionLineage';
 import {
   getFTS5SearchEngine,
   resetFTS5SearchEngine,
-} from '../../src/session/FTS5SearchEngine';
+} from '@modules/session/FTS5SearchEngine';
 import type { LiriEvent, LiriEventType } from '@modules/session/types/events';
 
 const WORKTREE_HASH = 'testhash';

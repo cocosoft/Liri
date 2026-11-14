@@ -28,7 +28,7 @@ import { ToolExecutionStatus } from '../../src/tools/types/ToolResult';
 import {
   getDailyBudget,
   resetDailyBudgetForTest,
-} from '../../src/query/DailyBudgetManager';
+} from '@modules/query/DailyBudgetManager';
 
 const APP_SRC = join(import.meta.dir, '..', '..', 'src');
 const SID = 'sess-t11';

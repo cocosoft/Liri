@@ -18,12 +18,12 @@ import {
   resolveAttentionTier,
   toInboxMetadata,
   type AttentionFacts,
-} from '../../src/proactive/attention';
-import { evaluateProactiveNotification } from '../../src/proactive/ProactiveNotificationGate';
+} from '@modules/proactive/attention';
+import { evaluateProactiveNotification } from '@modules/proactive/ProactiveNotificationGate';
 import type {
   ProactiveGateContext,
   ProactiveMessagePayload,
-} from '../../src/proactive/types';
+} from '@modules/proactive/types';
 
 const NOW = Date.parse('2026-10-19T12:00:00Z'); // 20:00 Asia/Shanghai
 

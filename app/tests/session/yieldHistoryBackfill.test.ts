@@ -6,7 +6,7 @@
  * 普通收尾（stop）不受影响（不补任何 finishReason）。
  */
 import { describe, expect, it } from 'bun:test';
-import { deriveMessagesFromEvents } from '../../src/session/storage/EventMessageDeriver';
+import { deriveMessagesFromEvents } from '@modules/session/storage/EventMessageDeriver';
 import type { LiriEvent } from '@modules/session/types/events';
 
 function ev(

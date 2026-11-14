@@ -29,9 +29,9 @@ import type { TerminationReason, SteeringEntry } from '@modules/query';
 import type { SteeringSource } from '@modules/session/types/eventPayloads';
 import { createPathGuard } from '@modules/query';
 // G-1（2026-10-11）：日预算闸门单一收口（逐轮复检用；与 `@modules/query` 同层，沿用既有直引形态）
-import { checkDailyBudget } from '../query/dailyBudgetGate.js';
+import { checkDailyBudget } from '@modules/query/dailyBudgetGate.js';
 // Task 5（债二-预算挂起续跑）：日预算耗尽挂起落点（协调器 + 特性开关）
-import { getBudgetSuspendCoordinator } from '../query/budgetSuspend.js';
+import { getBudgetSuspendCoordinator } from '@modules/query/budgetSuspend.js';
 import { feature } from '@openliri/kernel';
 import type {
   ReActLoopConfig,
@@ -65,7 +65,7 @@ import {
   renderFragment,
   FRAGMENT_KIND_FIELD,
 } from '@modules/context';
-import { registerYieldFromResults } from '../session/yield';
+import { registerYieldFromResults } from '@modules/session/yield';
 // M-7（2026-09-22）：续接指令文案**单一来源**（续接指令随 `agentIncompleteTurn.ts` 外移）
 // 保留子路径直连（不走 `@modules/tasks` 桶）：桶求值期 tasks 桶可能仍在循环中未初始化
 // ⇒ 走桶会触发 `ReferenceError: Cannot access 'CONTINUATION_TEMPLATES' before initialization`
@@ -418,7 +418,7 @@ export class ReActToolLoop extends ReActLoop<
   /**
    * G-1（2026-10-11）：**对话类**入口的每日预算**逐轮**复检（S3 后硬闸门=金额轨）。
    *
-   * 对齐 `TAORLoop.beforeReasoning`（`app/src/query/TAORLoop.ts:1099-1128`）的语义：每轮模型
+   * 对齐 `TAORLoop.beforeReasoning`（`packages/query/src/query/TAORLoop.ts:1099-1128`）的语义：每轮模型
    * 请求前判定一次；`allowed === false` ⇒ 由骨架置 `budget_exhausted` 相位并 `finalize`
    * （**不抛错**，与 `maxIterations` 达上限同类收束）。
    *

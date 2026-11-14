@@ -3,9 +3,9 @@
 // 派生器单元测试：事件聚合 + 投影覆盖 + 排序（Phase 2 P2-1/P2-4）
 
 import { describe, expect, it, spyOn } from 'bun:test';
-import { deriveMessagesFromEvents } from '../../src/session/storage/EventMessageDeriver';
+import { deriveMessagesFromEvents } from '@modules/session/storage/EventMessageDeriver';
 import type { LiriEvent } from '@modules/session/types/events';
-import type { DerivedMessage } from '../../src/session/storage/EventMessageDeriver';
+import type { DerivedMessage } from '@modules/session/storage/EventMessageDeriver';
 
 function ev(
   seq: number,

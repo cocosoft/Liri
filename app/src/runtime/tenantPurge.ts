@@ -157,7 +157,7 @@ export async function purgeTenant(
   });
 
   await runStep(report, 'channels', async () => {
-    const channels = await import('../channels/setupChannels.js');
+    const channels = await import('@modules/channels/setupChannels.js');
     report.removed.tenantChannels =
       await channels.stopTenantChannels(ownerPrefix);
   });
@@ -180,7 +180,7 @@ export async function purgeTenant(
 
   // ── 2. 清进程内账本（日预算 / 危险命令放行缓存）──
   await runStep(report, 'dailyBudget', async () => {
-    const budget = await import('../query/DailyBudgetManager.js');
+    const budget = await import('@modules/query/DailyBudgetManager.js');
     report.removed.dailyBudgets = budget.forgetDailyBudgetForTenant(normalized);
   });
 
@@ -199,7 +199,7 @@ export async function purgeTenant(
     const { CredentialStore } =
       await import('../ai/credentials/CredentialStore.js');
     const { forgetScopedStoragesForTenant } =
-      await import('../session/gateway/ScopedStorageRegistry.js');
+      await import('@modules/session/gateway/ScopedStorageRegistry.js');
     const { costTracker } = await import('@openliri/infra/cost/CostTracker');
     const { forgetAlwaysOnQuotaForTenant } =
       await import('../tasks/alwayson/AlwaysOnQuota.js');
@@ -219,7 +219,7 @@ export async function purgeTenant(
   // ── 3. 清共享单库里的归属行（配置/凭据、定时任务、任务流）──
   await runStep(report, 'channelConfigs', async () => {
     const { ChannelRegistry } =
-      await import('../channels/registry/ChannelRegistry.js');
+      await import('@modules/channels/registry/ChannelRegistry.js');
     const registry = new ChannelRegistry(resolveDbPath());
     try {
       await registry.initPersistence();
@@ -270,7 +270,7 @@ export async function purgeTenant(
   });
 
   await runStep(report, 'skillUsageRecords', async () => {
-    const { SkillDB } = await import('../skills/persistence/SkillDB.js');
+    const { SkillDB } = await import('@modules/skills/persistence/SkillDB.js');
     const db = new SkillDB();
     try {
       report.removed.skillUsageRecords =

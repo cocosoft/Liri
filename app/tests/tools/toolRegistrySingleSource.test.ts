@@ -40,12 +40,16 @@
 import { readdirSync, readFileSync, type Dirent } from 'node:fs';
 import { join, relative } from 'node:path';
 import { describe, expect, it } from 'bun:test';
+// P0（2026-11-13）：扫描根走**单一事实源** —— 原先只扫 `app/src`，包迁出后即脱离本守卫
+// （`governance/managers/GovernanceManager.ts` 正是本守卫盯的点位之一）⇒ 改为 app + packages/*/src。
+import { resolveSourceRoots } from '../../../scripts/lib/sourceRoots';
 
-const SRC_DIR = join(import.meta.dir, '../../src');
+const REPO = join(import.meta.dir, '../../..');
+const SOURCE_ROOTS = resolveSourceRoots(REPO);
 
-/** 允许"创建注册表"的文件 + **理由**（其余一律视为第二注册表 ⇒ 漂移） */
+/** 允许"创建注册表"的文件 + **理由**（其余一律视为第二注册表 ⇒ 漂移）；键 = `<根名>:<根内相对路径>` */
 const ALLOWED: Record<string, string> = {
-  'tools/ToolRegistry.ts':
+  'app:tools/ToolRegistry.ts':
     '唯一单例工厂（`getToolRegistry()` 内部 + `createToolRegistry()` 工厂）',
 };
 
@@ -71,7 +75,8 @@ function walk(dir: string, out: string[] = []): string[] {
 /**
  * 扫描"创建注册表"的源文件（行级；跳过注释行）。
  *
- * **惰性 + 进程内缓存**（2026-10-12 修复 flaky）：本守卫要扫全部 `src/**`（~3900 个 .ts/.tsx）
+ * **惰性 + 进程内缓存**（2026-10-12 修复 flaky）：本守卫要扫全部源码根（`app/src` 与各包 `src`，
+ * ~3900+ 个 .ts/.tsx）
  * 并读取文件内容，整批并发下单次即需数秒；原实现**每个 `it` 各扫一次（3×）** ⇒ 逼近/越过 bun
  * 默认 5s 超时（实测单跑 5776ms 超时、静置单文件 1.35s）。⇒ 三个断言现共用**一次**扫描。
  * 另加**快速预筛**（`new ToolRegistry(` / `createToolRegistry(` 均含 `ToolRegistry(`）⇒ 大多数
@@ -83,20 +88,22 @@ function findRegistrySites(): string[] {
   if (cachedSites) return cachedSites;
 
   const hits: string[] = [];
-  for (const abs of walk(SRC_DIR)) {
-    const content = readFileSync(abs, 'utf-8');
-    if (!content.includes('ToolRegistry(')) continue; // 快速预筛：不含目标子串 ⇒ 整体跳过
-    const rel = relative(SRC_DIR, abs).replace(/\\/g, '/');
-    for (const line of content.split('\n')) {
-      const t = line.trim();
-      if (t.startsWith('//') || t.startsWith('*') || t.startsWith('/*'))
-        continue;
-      if (
-        /new\s+ToolRegistry\s*\(/.test(line) ||
-        /createToolRegistry\s*\(/.test(line)
-      ) {
-        hits.push(rel);
-        break;
+  for (const root of SOURCE_ROOTS) {
+    for (const abs of walk(root.path)) {
+      const content = readFileSync(abs, 'utf-8');
+      if (!content.includes('ToolRegistry(')) continue; // 快速预筛：不含目标子串 ⇒ 整体跳过
+      const rel = `${root.name}:${relative(root.path, abs).replace(/\\/g, '/')}`;
+      for (const line of content.split('\n')) {
+        const t = line.trim();
+        if (t.startsWith('//') || t.startsWith('*') || t.startsWith('/*'))
+          continue;
+        if (
+          /new\s+ToolRegistry\s*\(/.test(line) ||
+          /createToolRegistry\s*\(/.test(line)
+        ) {
+          hits.push(rel);
+          break;
+        }
       }
     }
   }

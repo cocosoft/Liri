@@ -37,12 +37,8 @@ import {
   judgeSanityOk,
   summarizeSecurity,
   summarizeTask,
-} from '../../src/evals/scoring';
-import type {
-  AssertResult,
-  EvalAttempt,
-  EvalTask,
-} from '../../src/evals/types';
+} from '@modules/evals/scoring';
+import type { AssertResult, EvalAttempt, EvalTask } from '@modules/evals/types';
 
 function mkTask(id: string, opts: Partial<EvalTask> = {}): EvalTask {
   return {

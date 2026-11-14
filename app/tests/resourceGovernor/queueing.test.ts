@@ -15,8 +15,8 @@
  */
 import { afterEach, describe, expect, it } from 'bun:test';
 
-import { ResourceGovernor } from '../../src/resourceGovernor/index';
-import type { GovernanceEvent } from '../../src/resourceGovernor/index';
+import { ResourceGovernor } from '@modules/resourceGovernor';
+import type { GovernanceEvent } from '@modules/resourceGovernor';
 
 const ENV = 'FEATURE_RESOURCE_GOVERNOR';
 const ORIGINAL = process.env[ENV];

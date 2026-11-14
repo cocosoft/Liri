@@ -28,7 +28,7 @@ export async function wireReplyEffectRuntime(): Promise<void> {
   wired = true;
   try {
     const { setReplyEffectPort } =
-      await import('../channels/bridge/inboxChannelReply.js');
+      await import('@modules/channels/bridge/inboxChannelReply.js');
     const {
       createDefaultReplyDispatchDeps,
       enqueueReplyEffect,

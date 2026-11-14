@@ -11,7 +11,7 @@ import { describe, expect, it } from 'bun:test';
 import {
   createChatManagerTAORDeps,
   type ChatManagerTAORContext,
-} from '../../src/query/ChatManagerTAORAdapter.js';
+} from '@modules/query/ChatManagerTAORAdapter.js';
 import type { ChatMessage } from '../../src/ai/models/types.js';
 
 interface Persisted {

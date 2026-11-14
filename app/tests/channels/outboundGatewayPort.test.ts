@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'bun:test';
 import { resolveOutboundGateway } from '@openliri/kernel/spi/GatewayService.js';
-import { OutboundGatewayPortAdapter } from '../../src/channels/gateway/OutboundGatewayPortAdapter.js';
+import { OutboundGatewayPortAdapter } from '@modules/channels/gateway/OutboundGatewayPortAdapter.js';
 
 describe('出站网关端口（阶段 2.1 · Port Layer Only）', () => {
   it('未注册 ⇒ 空操作代理以**失败结果**作答（不伪造成功，不造默认值）', async () => {

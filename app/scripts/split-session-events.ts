@@ -59,7 +59,7 @@ import {
   eventSegmentFileName,
   listEventSegmentsSync,
   planEventSplit,
-} from '../src/session/storage/eventSegments';
+} from '@modules/session/storage/eventSegments';
 
 export type EventSplitStatus =
   | 'ok'

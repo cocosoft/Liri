@@ -5,7 +5,7 @@
  * 一律按 `open_id` 发送会导致会话目标发送失败。
  */
 import { describe, expect, test } from 'bun:test';
-import { resolveFeishuReceiveIdType } from '../../src/channels/feishu/FeishuChannel';
+import { resolveFeishuReceiveIdType } from '@modules/channels/feishu/FeishuChannel';
 
 describe('resolveFeishuReceiveIdType', () => {
   test('会话 id（oc_…）⇒ chat_id', () => {

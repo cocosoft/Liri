@@ -12,7 +12,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { applySessionScopeFilter } from '../../src/infrastructure/http/handlers/session-handlers';
-import { readLiteSessionMeta } from '../../src/session/storage/LiteSessionReader';
+import { readLiteSessionMeta } from '@modules/session/storage/LiteSessionReader';
 
 type Row = { id: string; metadata?: Record<string, unknown> };
 const readMd = (r: Row) => r.metadata;

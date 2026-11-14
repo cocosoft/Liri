@@ -26,11 +26,15 @@
  */
 import { afterAll, describe, expect, it } from 'bun:test';
 import { readFileSync } from 'node:fs';
-import { DBTAORCheckpointStorage } from '../../src/query/DBTAORCheckpointStorage';
-import { TAORPhase, type TAORCheckpoint } from '../../src/query/types';
-import { TokenBudgetStatus } from '../../src/tokenBudget/TokenBudgetController';
+import { join } from 'node:path';
+import { DBTAORCheckpointStorage } from '@modules/query/DBTAORCheckpointStorage';
+import { TAORPhase, type TAORCheckpoint } from '@modules/query/types';
+import { TokenBudgetStatus } from '@modules/tokenBudget/TokenBudgetController';
 import type { Principal } from '@openliri/kernel/identity/principal';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
+import { queryPath } from '../../../scripts/lib/queryPaths';
+
+const REPO_ROOT = join(import.meta.dir, '../../..');
 
 const ALICE: Principal = { tenantId: 'acme', userId: 'alice', roles: ['user'] };
 const BOB: Principal = { tenantId: 'acme', userId: 'bob', roles: ['user'] };
@@ -131,7 +135,7 @@ describe('DBTAORCheckpointStorage：行级隔离', () => {
 describe('门禁：DBTAORCheckpointStorage 的读写 SQL 不许漏 owner_key', () => {
   it('除 cleanup 的跨用户清理外，每条读写 SQL 都必须带 owner_key', () => {
     const src = readFileSync(
-      new URL('../../src/query/DBTAORCheckpointStorage.ts', import.meta.url),
+      queryPath(REPO_ROOT, 'DBTAORCheckpointStorage.ts'),
       'utf8'
     );
     const templates = [

@@ -15,9 +15,10 @@ const logger = getLogger('entrypoints:tenantChannels');
 export async function startTenantChannelsForHeadless(): Promise<void> {
   try {
     const { channelRegistry } =
-      await import('../channels/registry/ChannelRegistry');
+      await import('@modules/channels/registry/ChannelRegistry');
     await channelRegistry.initPersistence();
-    const { lazyConnectChannels } = await import('../channels/setupChannels');
+    const { lazyConnectChannels } =
+      await import('@modules/channels/setupChannels');
     // 后台连接（不阻塞信号等待）；`tenantOnly` ⇒ 只挑归属非空的配置
     lazyConnectChannels({ tenantOnly: true }).catch((err) => {
       logger.error('租户通道后台连接异常', { error: String(err) });

@@ -15,7 +15,7 @@ import {
 } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { SessionLock } from '../../src/session/SessionLock';
+import { SessionLock } from '@modules/session/SessionLock';
 
 const lockDirs: string[] = [];
 afterEach(() => {

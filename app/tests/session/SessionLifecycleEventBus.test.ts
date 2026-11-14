@@ -5,7 +5,7 @@
 //   与父类「最新 N 条」契约相反。修复：子类补 result.reverse() 对齐父类语义。
 
 import { describe, expect, it } from 'bun:test';
-import { SessionLifecycleEventBus } from '../../src/session/lifecycle/SessionLifecycleEventBus';
+import { SessionLifecycleEventBus } from '@modules/session/lifecycle/SessionLifecycleEventBus';
 
 describe('H8: getHistory 对齐父类「最新 N 条」契约', () => {
   it('limit=1 时返回最新一条（而非最旧一条）', () => {

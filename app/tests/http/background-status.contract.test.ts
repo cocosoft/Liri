@@ -31,7 +31,7 @@
 import { afterAll, describe, expect, spyOn, test } from 'bun:test';
 import type http from 'http';
 import type { HandlerCtx } from '../../src/infrastructure/http/handlers/handler-utils';
-import * as growthPersistence from '../../src/buddy/growthPersistence';
+import * as growthPersistence from '@modules/buddy/growthPersistence';
 import * as backgroundTaskEvent from '@openliri/infra/monitoring/BackgroundTaskEvent';
 import { CoreAPIImpl } from '../../src/runtime/api/CoreAPIImpl';
 

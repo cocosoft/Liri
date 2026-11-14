@@ -32,8 +32,8 @@ import type {
 } from '@modules/session/types/message.js';
 import type { ChatSession } from '@modules/session/types/session.js';
 
-import { getYieldRegistry } from '../../session/yield';
-import { ImplicitEngineHook } from '../../project/ImplicitEngineHook';
+import { getYieldRegistry } from '@modules/session/yield';
+import { ImplicitEngineHook } from '@modules/project/ImplicitEngineHook';
 import {
   isCapabilityDirectIntent,
   isDemandGoalIntent,

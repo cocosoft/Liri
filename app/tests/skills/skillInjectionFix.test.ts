@@ -8,13 +8,13 @@ import { describe, it, expect } from 'bun:test';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { SkillRegistry } from '../../src/skills/SkillRegistry';
-import { SkillInjectionService } from '../../src/skills/services/SkillInjectionService';
+import { SkillRegistry } from '@modules/skills/SkillRegistry';
+import { SkillInjectionService } from '@modules/skills/services/SkillInjectionService';
 import {
   SkillSource,
   SkillLoadMethod,
   type Skill,
-} from '../../src/skills/types';
+} from '@modules/skills/types';
 import { SkillTool } from '../../src/tools/SkillTool/SkillTool';
 import { ToolLazyWrapper } from '../../src/tools/utils/ToolLazyWrapper';
 import { LazyModuleLoader } from '@openliri/kernel';
@@ -136,7 +136,7 @@ describe('T2 展示=可执行（BUG-2）', () => {
 describe('T3b SkillTool 动态描述（BUG-6）', () => {
   it('getInfo 描述包含已注册 prompt 技能名清单', async () => {
     // 动态 import 避免顶层循环依赖（skillSingletons 构造 SkillRegistry 的 TDZ）
-    const { skillRegistry } = await import('../../src/skills/skillSingletons');
+    const { skillRegistry } = await import('@modules/skills/skillSingletons');
     // 向全局 registry 注册临时技能，测完清理（避免污染其他用例）
     try {
       skillRegistry.register(makePromptSkill('zz-fix-test-skill'));
@@ -340,7 +340,7 @@ describe('SK-2 内置技能只含可执行（prompt）型', () => {
   });
 
   it('同名遮蔽消除：注册表 prompt 型技能在同步后接管同名（loop）', async () => {
-    const { skillRegistry } = await import('../../src/skills/skillSingletons');
+    const { skillRegistry } = await import('@modules/skills/skillSingletons');
     try {
       skillRegistry.register(makePromptSkill('loop'));
       const tool = new SkillTool();

@@ -1,0 +1,16 @@
+{
+  "name": "@openliri/project",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liri 项目域包 —— 项目上下文/产物/历史/需求追踪/隐式意图/迁移。层归属 app：可依赖 app / service / infra / core；entry / ui 不得依赖本包，包内不得依赖 entry / ui 层（R23）。",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./src/project/*.ts",
+      "import": "./src/project/*.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p ../../app/tsconfig.json"
+  }
+}

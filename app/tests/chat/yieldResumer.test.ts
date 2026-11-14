@@ -13,7 +13,7 @@ import {
   getYieldRegistry,
   resetYieldRegistry,
   YIELD_STATUS_RESUMED,
-} from '../../src/session/yield';
+} from '@modules/session/yield';
 import {
   handleYieldSettlement,
   setYieldResumeHandler,

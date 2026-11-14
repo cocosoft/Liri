@@ -13,11 +13,11 @@ import { describe, expect, it } from 'bun:test';
 import {
   buildTenantEntries,
   wrapHandlerWithOwnerScope,
-} from '../../src/channels/setupChannels';
+} from '@modules/channels/setupChannels';
 import type {
   IChannelPlugin,
   MessageContext,
-} from '../../src/channels/types/IChannel';
+} from '@modules/channels/types/IChannel';
 import type { Principal } from '@openliri/kernel/identity/principal';
 import {
   getRequestPrincipal,

@@ -29,7 +29,7 @@ import {
   yieldSettlementListeners,
   type YieldResumerDeps,
 } from '../../src/chat/yield';
-import { getYieldRegistry, resetYieldRegistry } from '../../src/session/yield';
+import { getYieldRegistry, resetYieldRegistry } from '@modules/session/yield';
 import {
   currentPhase,
   recentPhases,

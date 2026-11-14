@@ -10,7 +10,7 @@ import { describe, it, expect, beforeEach, spyOn } from 'bun:test';
 import { getLogger } from '@openliri/infra/monitoring';
 import { ReActToolLoop } from '../../src/chat/ReActToolLoop.js';
 import { reactEventsToChunks } from '../../src/chat/reactEventsToChunks.js';
-import type { ReActEvent } from '../../src/query/ReActLoop.js';
+import type { ReActEvent } from '@modules/query/ReActLoop.js';
 import type { ToolLoopContext } from '../../src/chat/ToolLoopRunner.js';
 import type { ChatResponse, ChatMessage } from '@modules/ai';
 // R2（2026-09-16）：用全局 LogHandler 捕获日志，断言 compact_steady_state_skip 分支被真实执行

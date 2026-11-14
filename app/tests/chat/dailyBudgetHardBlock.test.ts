@@ -27,7 +27,7 @@ import {
 import {
   getDailyBudget,
   resetDailyBudgetForTest,
-} from '../../src/query/DailyBudgetManager';
+} from '@modules/query/DailyBudgetManager';
 
 /**
  * R16 **日预算硬阻断**（2026-10-09，用户裁定「超限即拒发」）：

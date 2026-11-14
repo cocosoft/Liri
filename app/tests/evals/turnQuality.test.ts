@@ -15,13 +15,13 @@ import {
   TOOL_CALLS_HARD_MAX,
   DURATION_HARD_MS,
   OUTPUT_TOKENS_HARD,
-} from '../../src/evals/online/weights';
+} from '@modules/evals/online/weights';
 import {
   isSuspicious,
   nextLowScoreStreak,
   scoreTurn,
-} from '../../src/evals/online/turnQuality';
-import type { TurnQualitySignals } from '../../src/evals/online/types';
+} from '@modules/evals/online/turnQuality';
+import type { TurnQualitySignals } from '@modules/evals/online/types';
 
 /** 构造一份"干净"的已完成轮（各分量满值） */
 function signals(over: Partial<TurnQualitySignals> = {}): TurnQualitySignals {

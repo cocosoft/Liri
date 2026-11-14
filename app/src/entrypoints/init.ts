@@ -152,7 +152,8 @@ export async function init(): Promise<void> {
   // 需在 ensureDataDirectories 之后（数据目录就绪），且早于任何模型调用（早于模块初始化）。
   // 文件缺失/损坏由持久化层吞掉 ⇒ 从 0 起算，不阻塞启动。
   try {
-    const { initDailyBudget } = await import('../query/DailyBudgetManager.js');
+    const { initDailyBudget } =
+      await import('@modules/query/DailyBudgetManager.js');
     await initDailyBudget();
   } catch (error) {
     logger.warning('日预算状态恢复失败（不影响启动）', {
@@ -434,7 +435,7 @@ async function startDeferredPrefetches(): Promise<void> {
         try {
           const govCfg = await import('../../config/governance.json');
           if ((govCfg.default as { enabled?: boolean })?.enabled !== false) {
-            await import('../governance/managers/GovernanceManager');
+            await import('@modules/governance/managers/GovernanceManager');
           }
         } catch {
           // 配置文件加载失败或 governance 已禁用，跳过
@@ -471,7 +472,7 @@ async function startDeferredPrefetches(): Promise<void> {
       // 预加载会话网关（替代 SessionManager）
       (async () => {
         try {
-          await import('../session/SessionGateway.js');
+          await import('@modules/session/SessionGateway.js');
         } catch (error) {
           // 忽略预加载错�?
         }
@@ -481,7 +482,7 @@ async function startDeferredPrefetches(): Promise<void> {
       (async () => {
         try {
           const { getGlobalEventBus } =
-            await import('../session/lifecycle/SessionLifecycleEventBus.js');
+            await import('@modules/session/lifecycle/SessionLifecycleEventBus.js');
           const { SessionStateBridge } =
             await import('../chat/services/SessionStateBridge.js');
           const bridge = new SessionStateBridge(getGlobalEventBus());
@@ -502,7 +503,7 @@ async function startDeferredPrefetches(): Promise<void> {
         try {
           const { startBackgroundHousekeeping, stopBackgroundHousekeeping } =
             await import('@openliri/infra/chronos/maintenance/ChronosBackgroundHousekeeping');
-          const { DreamEngine } = await import('../dream/DreamEngine.js');
+          const { DreamEngine } = await import('@modules/dream/DreamEngine.js');
           // BUG-9（2026-10-19）：把“是否存在活跃流式会话”注入空闲检测 ——
           // 长任务运行中不再被误判为空闲（此前只看 USER_INTERACTION）。
           const { getCoreAPI } = await import('../runtime/api/CoreAPIImpl.js');
@@ -510,7 +511,7 @@ async function startDeferredPrefetches(): Promise<void> {
             initBuddyDreamIntegration,
             initBuddyTaskGrowthIntegration,
             initBuddyCronFeedbackIntegration,
-          } = await import('../buddy/dreamIntegration.js');
+          } = await import('@modules/buddy/dreamIntegration');
           startBackgroundHousekeeping({
             createDreamEngine: () =>
               new DreamEngine(undefined, () => {
@@ -542,7 +543,7 @@ async function startDeferredPrefetches(): Promise<void> {
       (async () => {
         try {
           const { ensureArtifactRetentionScheduler } =
-            await import('../session/ArtifactRetention.js');
+            await import('@modules/session/ArtifactRetention.js');
           ensureArtifactRetentionScheduler();
         } catch (error) {
           logger.debug('制品保留调度器启动失败（非关键）', { error });
@@ -553,13 +554,13 @@ async function startDeferredPrefetches(): Promise<void> {
       (async () => {
         try {
           const { SessionGateway } =
-            await import('../session/SessionGateway.js');
+            await import('@modules/session/SessionGateway.js');
           const { SessionManagerAdapter } =
-            await import('../session/SessionManagerAdapter.js');
+            await import('@modules/session/SessionManagerAdapter.js');
           const { SessionSupervisor } =
-            await import('../session/maintenance/SessionSupervisor.js');
+            await import('@modules/session/maintenance/SessionSupervisor.js');
           const { createSupervisorStore } =
-            await import('../session/maintenance/SessionStoreAdapter.js');
+            await import('@modules/session/maintenance/SessionStoreAdapter.js');
           const { FileCheckpointStorage } = await import('@modules/session');
           const gateway = new SessionGateway();
           const adapter = new SessionManagerAdapter(gateway);
@@ -735,7 +736,7 @@ async function startDeferredPrefetches(): Promise<void> {
       (async () => {
         try {
           const { knowledgeDocsProvider, fileDocsProvider } =
-            await import('../docs/FileDocsProvider.js');
+            await import('@modules/docs/FileDocsProvider.js');
           const { KnowledgeSummarizer } =
             await import('../knowledge/KnowledgeSummarizer.js');
           const { setKnowledgeQueryProvider } =
@@ -867,7 +868,7 @@ async function startDeferredPrefetches(): Promise<void> {
                   try {
                     // 获取所有当前有效的实体 ID（基于知识库文档标题）
                     const { knowledgeDocsProvider } =
-                      await import('../docs/FileDocsProvider.js');
+                      await import('@modules/docs/FileDocsProvider.js');
                     const docs = await knowledgeDocsProvider.buildIndex();
                     const validIds = new Set(
                       docs.map((d) =>
@@ -921,7 +922,7 @@ async function startDeferredPrefetches(): Promise<void> {
       // 预加载文档系统
       (async () => {
         try {
-          await import('../docs/HelpSystem.js');
+          await import('@modules/docs/HelpSystem.js');
         } catch (error) {
           // 忽略预加载错误
         }
@@ -942,7 +943,7 @@ async function startDeferredPrefetches(): Promise<void> {
       (async () => {
         try {
           const { initBuiltinSkills } =
-            await import('../skills/BuiltinSkillBootstrap.js');
+            await import('@modules/skills/BuiltinSkillBootstrap.js');
           await initBuiltinSkills();
           logger.info('内置技能初始化完成');
         } catch (error) {
@@ -999,11 +1000,11 @@ async function startDeferredPrefetches(): Promise<void> {
       // 初始化技能生命周期（辅助组件 DB 持久化 + 事件订阅）
       (async () => {
         try {
-          const { skillRegistry } = await import('../skills/index.js');
+          const { skillRegistry } = await import('@modules/skills');
           const { registerPromptSections } = await import('@modules/context');
           registerPromptSections();
           const { getSkillDB, initializeSkillLifecycle } =
-            await import('../skills/persistence/index.js');
+            await import('@modules/skills/persistence/index.js');
           const skillDB = getSkillDB();
           // T3.7：返回清理函数，应用关闭时回收技能辅助组件的 Registry 事件监听
           const disposeSkillLifecycle = await initializeSkillLifecycle(
@@ -1021,9 +1022,9 @@ async function startDeferredPrefetches(): Promise<void> {
       (async () => {
         try {
           const { ClawHubAdapter } =
-            await import('../skills/loaders/adapter/clawhub/ClawHubAdapter.js');
+            await import('@modules/skills/loaders/adapter/clawhub/ClawHubAdapter.js');
           const { thirdPartyAdapterRegistry, getSkillHub, skillRegistry } =
-            await import('../skills/index.js');
+            await import('@modules/skills');
           const { registerPromptSections } = await import('@modules/context');
           registerPromptSections();
           const adapter = ClawHubAdapter.getInstance();

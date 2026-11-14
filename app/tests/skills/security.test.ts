@@ -11,16 +11,16 @@ import { tmpdir } from 'os';
 import {
   validateSkillId,
   sanitizeSkillId,
-} from '../../src/skills/loaders/adapter/safeSkillId';
+} from '@modules/skills/loaders/adapter/safeSkillId';
 import {
   parseSkillPermissions,
   validateSkillPermissions,
   hasSensitivePermission,
   SKILL_PERMISSIONS,
-} from '../../src/skills/loaders/adapter/SkillPermission';
-import { SkillSearchEngine } from '../../src/skills/loaders/adapter/SkillSearchEngine';
-import type { SearchEngineAdapter } from '../../src/skills/loaders/adapter/SkillSearchEngine';
-import type { ThirdPartySkillSearchResult } from '../../src/skills/loaders/adapter/ThirdPartySkillAdapter';
+} from '@modules/skills/loaders/adapter/SkillPermission';
+import { SkillSearchEngine } from '@modules/skills/loaders/adapter/SkillSearchEngine';
+import type { SearchEngineAdapter } from '@modules/skills/loaders/adapter/SkillSearchEngine';
+import type { ThirdPartySkillSearchResult } from '@modules/skills/loaders/adapter/ThirdPartySkillAdapter';
 
 /** 最小假适配器 */
 function makeAdapter(dir: string): SearchEngineAdapter {

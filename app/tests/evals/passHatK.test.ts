@@ -28,9 +28,9 @@ import {
   passHatK,
   summarizeRun,
   summarizeTask,
-} from '../../src/evals/scoring';
-import { writeReport } from '../../src/evals/report';
-import type { EvalAttempt, EvalTask } from '../../src/evals/types';
+} from '@modules/evals/scoring';
+import { writeReport } from '@modules/evals/report';
+import type { EvalAttempt, EvalTask } from '@modules/evals/types';
 
 /**
  * 论文 A1（`.trae/specs/eval-pass-hat-k-reliability.md`）：`passHatK` 组合式估计 + 可靠性曲线。

@@ -14,7 +14,7 @@ import {
   recordSkippedToolCall,
   type ToolRoundResults,
 } from '../../src/chat/toolResultPostProcess.js';
-import type { ToolCallEntry } from '../../src/query/ReActLoop.js';
+import type { ToolCallEntry } from '@modules/query/ReActLoop.js';
 import { standardizeCommand } from '../../src/tools/bash/commandNormalization.js';
 
 const POST_PROCESS_SRC = readFileSync(

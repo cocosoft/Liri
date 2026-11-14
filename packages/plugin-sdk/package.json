@@ -1,0 +1,20 @@
+{
+  "name": "@openliri/plugin-sdk",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liri 插件 SDK 包 —— 第三方插件开发者的唯一公开 SDK（类型、纯函数、清单校验与分类/通道契约）。层归属 app：可依赖 app / service / infra / core；entry / ui 不得依赖本包，包内不得依赖 entry / ui 层（R18）。",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/plugin-sdk/index.ts",
+      "import": "./src/plugin-sdk/index.ts"
+    },
+    "./*": {
+      "types": "./src/plugin-sdk/*.ts",
+      "import": "./src/plugin-sdk/*.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p ../../app/tsconfig.json"
+  }
+}

@@ -200,7 +200,9 @@ export class ListPeersTool extends BaseTool<ListPeersInput, ListPeersOutput> {
 
     // 检查 teammates
     try {
-      const { getTeammateManager } = require('../../subagent/TeammateManager');
+      const {
+        getTeammateManager,
+      } = require('@modules/subagent/TeammateManager');
       const manager = getTeammateManager();
       const teammates = manager.getActiveTeammates();
 

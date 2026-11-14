@@ -27,7 +27,7 @@ import type {
 import { messageProjector } from '@modules/context';
 import { handleError } from '@openliri/infra/error';
 import { resolveToolEffect } from '@modules/tools';
-import { assertEntryBudget } from '../../query/dailyBudgetGate';
+import { assertEntryBudget } from '@modules/query/dailyBudgetGate';
 import { stripThinkResponseTags } from '../services/MessageContextPipeline';
 
 export interface SendDowngradePorts {

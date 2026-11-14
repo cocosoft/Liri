@@ -18,7 +18,7 @@ import { describe, expect, it } from 'bun:test';
 // 以"config 链下游"身份完整求值，后续 LoopDetector 引用即命中缓存。
 // TODO: CS05-ROOTFIX — 根因是 loop-config 与 @openliri/infra/config 循环依赖，收敛后移除
 import '@openliri/infra/config';
-import { createLoopDetector } from '../../src/query/LoopDetector.js';
+import { createLoopDetector } from '@modules/query/LoopDetector.js';
 
 describe('D5: LOOP_OBSERVE_ONLY 旁路 critical 阻断', () => {
   it('no_tool_call 达 critical（≥15 轮）时观测模式返回 {stuck:false}', () => {

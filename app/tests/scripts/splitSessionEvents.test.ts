@@ -26,12 +26,12 @@ import {
   eventSegmentFileName,
   listEventSegmentsSync,
   planEventSplit,
-} from '../../src/session/storage/eventSegments.js';
+} from '@modules/session/storage/eventSegments.js';
 import {
   scanSessions,
   splitSessionEvents,
 } from '../../scripts/split-session-events.js';
-import { EventLogStorage } from '../../src/session/storage/EventLogStorage';
+import { EventLogStorage } from '@modules/session/storage/EventLogStorage';
 import type { LiriEvent } from '@modules/session/types/events';
 
 let root: string;

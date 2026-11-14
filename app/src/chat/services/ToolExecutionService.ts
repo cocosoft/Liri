@@ -26,7 +26,7 @@ import {
 import { ErrorHandler, feature } from '@openliri/kernel';
 import { convergenceDetector } from '../services/ConvergenceDetector.js';
 import { eventNotificationService } from '../services/EventNotificationService.js';
-import { toolResultRegistry } from '../../tool/ToolResultRegistry.js';
+import { toolResultRegistry } from '@modules/tool/ToolResultRegistry.js';
 import { resolveDataDir } from '@openliri/infra/environment';
 import { isUsableDirectory, resolveToolCwd } from './toolCwdScope';
 // G8（2026-11-03）：会话工作区不可用时向事件流投影一次提示（界面可见）
@@ -118,7 +118,7 @@ export const DEFAULT_SLOW_TOOL_WARN_MS = 15_000;
  * O3-2：工具耗时告警阈值（ms）。
  *
  * 事实来源：env `TOOL_SLOW_WARN_MS`，**经 `configManager.env()` 统一读取**（遵循架构规则
- * R05-012「env 统一出入口」；与 [PathGuard.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/query/PathGuard.ts)
+ * R05-012「env 统一出入口」；与 [PathGuard.ts](file:///e:/PY/Documents/CODES/PY_APP/packages/query/src/query/PathGuard.ts)
  * 的既有做法一致）。缺失/非法 ⇒ 默认 15s；纯函数（入参可注入便于单测）。
  */
 export function resolveSlowToolWarnMs(

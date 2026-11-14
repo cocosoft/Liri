@@ -1,0 +1,16 @@
+{
+  "name": "@openliri/proactive",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liri 主动式消息包 —— 主动消息 DTO / 通知门禁 / 推送队列 / 投递适配器。层归属 app：可依赖 app / service / infra / core；entry / ui 不得依赖本包，包内不得依赖 entry / ui 层（R22）。",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./src/proactive/*.ts",
+      "import": "./src/proactive/*.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p ../../app/tsconfig.json"
+  }
+}

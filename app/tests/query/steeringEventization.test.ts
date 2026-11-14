@@ -35,17 +35,17 @@
  *  4. `TAORLoop.onSteering` **确实落事件**（每条一条），且观测面缺失时**如实不落**（不伪造）。
  */
 import { describe, expect, it } from 'bun:test';
-import { ReActLoop } from '../../src/query/ReActLoop';
+import { ReActLoop } from '@modules/query/ReActLoop';
 import type {
   ActResult,
   ReasonResult,
   ReActEvent,
   ReActState,
   SteeringEntry,
-} from '../../src/query/ReActLoop';
-import { TAORLoop } from '../../src/query/TAORLoop';
-import type { QueryEngine } from '../../src/query/QueryEngine';
-import { KNOWN_SESSION_EVENT_TYPES } from '../../src/session/types/knownEventTypes';
+} from '@modules/query/ReActLoop';
+import { TAORLoop } from '@modules/query/TAORLoop';
+import type { QueryEngine } from '@modules/query/QueryEngine';
+import { KNOWN_SESSION_EVENT_TYPES } from '@modules/session/types/knownEventTypes';
 
 // ─── 1. 登记 ────────────────────────────────────────────────────────────────
 

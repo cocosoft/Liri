@@ -26,12 +26,12 @@ import {
   registerToolJobSuspendSpi,
   resolveToolJobSuspend,
 } from '@openliri/kernel/spi/ToolJobSuspendService.js';
-import { createToolJobSuspendPort } from '../../../src/query/toolJobSuspend.js';
+import { createToolJobSuspendPort } from '@modules/query/toolJobSuspend.js';
 import {
   getBudgetSuspendCoordinator,
   resetBudgetSuspendForTest,
   type SuspendKind,
-} from '../../../src/query/budgetSuspend.js';
+} from '@modules/query/budgetSuspend.js';
 import {
   globalEventBus,
   SystemEvents,

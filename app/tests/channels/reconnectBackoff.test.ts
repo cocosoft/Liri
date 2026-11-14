@@ -8,7 +8,7 @@
  * 本用例以**注入短退避**（5ms/20ms）验证重试语义，保持离线、快速、确定。
  */
 import { describe, expect, it } from 'bun:test';
-import { reconnectWithBackoff } from '../../src/channels/DeliveryRouter.js';
+import { reconnectWithBackoff } from '@modules/channels/DeliveryRouter.js';
 
 /** 短退避：maxRetries=2 ⇒ 最多 3 次尝试，总等待 < 100ms */
 const FAST = { maxRetries: 2, initialDelayMs: 5, maxDelayMs: 20 };

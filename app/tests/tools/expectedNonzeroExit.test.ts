@@ -16,7 +16,7 @@ import {
   isExpectedNonzeroExit,
   lastCommandSegment,
 } from '../../src/tools/bash/exitSemantics';
-import { classifyTurn } from '../../src/query/ReActLoop';
+import { classifyTurn } from '@modules/query/ReActLoop';
 
 describe('isExpectedNonzeroExit：检查/测试类命令的非零退出', () => {
   const yes = (command: string, exitCode = 1): void => {

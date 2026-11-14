@@ -51,8 +51,8 @@ import {
   setToolRegistry,
   type ToolRegistry,
 } from '../../../src/tools/ToolRegistry';
-import { createPathGuard } from '../../../src/query/PathGuard';
-import { PATH_ARG_KEYS } from '../../../src/query/tool-constants';
+import { createPathGuard } from '@modules/query/PathGuard';
+import { PATH_ARG_KEYS } from '@modules/query/tool-constants';
 import { ToolResultBudget } from '../../../src/context/budget/ToolResultBudget';
 import type { Tool } from '../../../src/tools/types/Tool';
 import type { ToolFactory } from '../../../src/tools/ToolFactory';

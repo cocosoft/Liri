@@ -21,7 +21,7 @@ import { join } from 'path';
 import { PdcaLaunchCoordinator } from '../../src/chat/manager/pdcaLaunch.js';
 import { createProjectStore } from '../../src/workspace/ProjectStore.js';
 import { WorkItemStore } from '../../src/workspace/WorkItemStore.js';
-import type { ChatSession } from '../../src/session/types/session.js';
+import type { ChatSession } from '@modules/session/types/session.js';
 
 let root: string;
 let prevDataDir: string | undefined;

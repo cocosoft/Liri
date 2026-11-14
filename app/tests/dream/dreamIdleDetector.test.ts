@@ -4,7 +4,7 @@
  * 回归点：此前只监听 `USER_INTERACTION`，长任务运行中仍会触发梦境。
  */
 import { afterEach, describe, expect, it } from 'bun:test';
-import { DreamIdleDetector } from '../../src/dream/DreamIdleDetector';
+import { DreamIdleDetector } from '@modules/dream';
 
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));

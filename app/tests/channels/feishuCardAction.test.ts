@@ -12,12 +12,12 @@ import { describe, it, expect, afterEach, vi } from 'bun:test';
 import {
   extractFeishuCardAction,
   buildFeishuCardActionResponse,
-} from '../../src/channels/feishu/cardActionPayload';
+} from '@modules/channels/feishu/cardActionPayload';
 import {
   handleBudgetReliefAction,
   setBudgetReliefActionHandler,
-} from '../../src/channels/bridge/budgetReliefAction';
-import { serializeBudgetReliefAction } from '../../src/channels/bridge/budgetReliefCard';
+} from '@modules/channels/bridge/budgetReliefAction';
+import { serializeBudgetReliefAction } from '@modules/channels/bridge/budgetReliefCard';
 
 const SID = 'c2c_feishu_session_1';
 

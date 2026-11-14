@@ -12,8 +12,8 @@ import {
   resolvePatternProvider,
   resolveAssemblyProviders,
   findUnboundProviders,
-} from '../../src/query/patternAssembly';
-import { instantiatePattern } from '../../src/query/patternAssembler';
+} from '@modules/query/patternAssembly';
+import { instantiatePattern } from '@modules/query/patternAssembler';
 import {
   selectPattern,
   listPatterns,

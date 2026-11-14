@@ -7,11 +7,11 @@
 // 落点复用既有轮间安全点：`saveCheckpoint('guard_suspend')` + `coordinator.suspend(kind='guard')`。
 
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { handleTaorGuardSuspend } from '../../src/query/taor/budgetSuspendHook.js';
+import { handleTaorGuardSuspend } from '@modules/query/taor/budgetSuspendHook.js';
 import {
   getBudgetSuspendCoordinator,
   resetBudgetSuspendForTest,
-} from '../../src/query/budgetSuspend.js';
+} from '@modules/query/budgetSuspend.js';
 
 const FLAG = 'FEATURE_GUARD_SUSPEND';
 

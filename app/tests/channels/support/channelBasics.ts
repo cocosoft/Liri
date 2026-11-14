@@ -15,7 +15,7 @@
  */
 import { describe, expect, it } from 'bun:test';
 
-import { CHANNEL_CATALOG } from '../../../src/channels/ChannelCatalog';
+import { CHANNEL_CATALOG } from '@modules/channels/ChannelCatalog';
 
 export interface ChannelBasics {
   /** 通道 type（与 `CHANNEL_CATALOG` 一致） */

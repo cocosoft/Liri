@@ -5,8 +5,8 @@
 //   直至 64k 封顶（max_output 翻倍逻辑的残留状态污染）。修复：reset() 置 undefined 回到基线。
 
 import { describe, expect, it } from 'bun:test';
-import { TAORLoop } from '../../src/query/TAORLoop';
-import type { QueryEngine } from '../../src/query/QueryEngine';
+import { TAORLoop } from '@modules/query/TAORLoop';
+import type { QueryEngine } from '@modules/query/QueryEngine';
 
 /** 测试可访问的私有字段（避免使用 any） */
 interface TestableLoop {

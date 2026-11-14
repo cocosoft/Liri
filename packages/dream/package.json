@@ -1,0 +1,20 @@
+{
+  "name": "@openliri/dream",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liri 梦境包 —— 空闲触发的记忆整理/反思循环（engine/scheduler/persistence/cycle DB/metrics）。层归属 app：可依赖 app / service / infra / core；entry / ui 不得依赖本包，包内不得依赖 entry / ui 层（R20）。",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/dream/index.ts",
+      "import": "./src/dream/index.ts"
+    },
+    "./*": {
+      "types": "./src/dream/*.ts",
+      "import": "./src/dream/*.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p ../../app/tsconfig.json"
+  }
+}

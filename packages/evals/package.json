@@ -1,0 +1,20 @@
+{
+  "name": "@openliri/evals",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liri 评测包 —— Agent 评测框架（runner/scoring/sandbox/反作弊/对抗样本）。层归属 app：可依赖 app / service / infra / core；entry / ui 不得依赖本包，包内不得依赖 entry / ui 层（R21）。",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/evals/index.ts",
+      "import": "./src/evals/index.ts"
+    },
+    "./*": {
+      "types": "./src/evals/*.ts",
+      "import": "./src/evals/*.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p ../../app/tsconfig.json"
+  }
+}

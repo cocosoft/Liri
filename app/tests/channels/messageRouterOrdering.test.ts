@@ -7,9 +7,9 @@
  * 约束：串行化的**登记点**必须与消息到达同步，不能等到前置步骤完成后再登记。
  */
 import { describe, expect, it, spyOn } from 'bun:test';
-import type { MessageContext } from '../../src/channels/types/IChannel';
-import { routeChannelMessage } from '../../src/channels/routing/messageRouter';
-import { getPairingStore } from '../../src/channels/policy/PairingStore';
+import type { MessageContext } from '@modules/channels/types/IChannel';
+import { routeChannelMessage } from '@modules/channels/routing/messageRouter';
+import { getPairingStore } from '@modules/channels/policy/PairingStore';
 
 let seq = 0;
 

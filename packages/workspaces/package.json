@@ -1,0 +1,20 @@
+{
+  "name": "@openliri/workspaces",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liri 工作区包 —— 工作区注册/扫描、Git 操作、worktree 剪枝与自动驾驶运行器。层归属 app：可依赖 app / service / infra / core；entry / ui 不得依赖本包，包内不得依赖 entry / ui 层（R16）。",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/workspaces/index.ts",
+      "import": "./src/workspaces/index.ts"
+    },
+    "./*": {
+      "types": "./src/workspaces/*.ts",
+      "import": "./src/workspaces/*.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p ../../app/tsconfig.json"
+  }
+}

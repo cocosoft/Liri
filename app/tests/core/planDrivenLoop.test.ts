@@ -19,8 +19,8 @@ import {
 // T-②05（2026-10-03）：默认阈值事实源已下沉 core（原 `SIMPLE_TASK_MAX_LENGTH` 为本地硬编码常量）
 import { DEFAULT_FAST_PATH_MAX_LENGTH } from '../../src/types/fastPath';
 import { MAX_SUBTASKS } from '../../src/ai/router/TaskDecomposer';
-import type { TAORLoop } from '../../src/query/TAORLoop';
-import type { TAORLoopDeps } from '../../src/query/TAORLoop';
+import type { TAORLoop } from '@modules/query/TAORLoop';
+import type { TAORLoopDeps } from '@modules/query/TAORLoop';
 // 13-P2-2（2026-10-05）：行为反馈回流
 import { TaskOutcomeLedger } from '../../src/tasks/behaviorFeedback';
 // 13-P1-1 Step 2：分解路径（PDL 阻断行为）+ 计划持久化隔离

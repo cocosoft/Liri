@@ -30,7 +30,7 @@ import type {
   ToolResult,
 } from '../types';
 import { createToolResult, ErrorLevel } from '../types/ToolResult';
-import { getTeammateManager } from '../../subagent/TeammateManager';
+import { getTeammateManager } from '@modules/subagent/TeammateManager';
 import type {
   Message,
   MessageRole,

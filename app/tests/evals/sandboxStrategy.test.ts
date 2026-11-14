@@ -33,8 +33,8 @@ import {
   forEachItemWithFreshSandbox,
   freshSandbox,
   sharedSandbox,
-} from '../../src/evals/sandboxStrategy';
-import type { EvalSandbox } from '../../src/evals/sandbox';
+} from '@modules/evals/sandboxStrategy';
+import type { EvalSandbox } from '@modules/evals/sandbox';
 
 /** 假沙箱 + 记录 stop 调用（`id` 用于区分"是否重建"） */
 function makeSandboxFactory(stops: number[]) {

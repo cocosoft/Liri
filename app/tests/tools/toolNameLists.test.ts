@@ -29,10 +29,10 @@ import {
 import {
   READ_TOOLS as QUERY_READ_TOOLS,
   WRITE_TOOLS as QUERY_WRITE_TOOLS,
-} from '../../src/query/tool-constants';
+} from '@modules/query/tool-constants';
 // 2026-09-30（防漂移复发）：以下四处"按工具名登记的清单"经台账 D-39/D-44 清理/订正过，
 // 同样纳入守卫 —— 它们此前**不在受检名单**内 ⇒ 再次漂移不会被发现。
-import { EXTERNAL_FETCH_TOOLS } from '../../src/query/ReActLoop';
+import { EXTERNAL_FETCH_TOOLS } from '@modules/query/ReActLoop';
 import { MEMORABLE_TOOLS } from '../../src/hooks/postSampling/MemoryExtractionHook';
 import {
   COMPLEXITY_READ_TOOLS,

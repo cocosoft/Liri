@@ -19,9 +19,9 @@ const logger = getLogger('entrypoints:channelRuntime');
 export async function startChannelRuntime(): Promise<void> {
   try {
     const { setupChannelsFromConfig, lazyConnectChannels } =
-      await import('../channels/setupChannels');
+      await import('@modules/channels/setupChannels');
     const { channelRegistry } =
-      await import('../channels/registry/ChannelRegistry');
+      await import('@modules/channels/registry/ChannelRegistry');
 
     await channelRegistry.initPersistence();
     logger.info('通道持久化初始化完成');
@@ -36,10 +36,11 @@ export async function startChannelRuntime(): Promise<void> {
     // 端口缺省**不注册**时通道侧会如实回 `{code:1}` 并 warn（不静默，见 `budgetReliefAction`）。
     try {
       const { setBudgetReliefActionHandler } =
-        await import('../channels/bridge/budgetReliefAction');
+        await import('@modules/channels/bridge/budgetReliefAction');
       const { getBudgetSuspendCoordinator } =
-        await import('../query/budgetSuspend');
-      const { getDailyBudget } = await import('../query/DailyBudgetManager');
+        await import('@modules/query/budgetSuspend');
+      const { getDailyBudget } =
+        await import('@modules/query/DailyBudgetManager');
       setBudgetReliefActionHandler(async ({ sessionId, kind }) => {
         // **复核**（守 spec §D3 边界）：按 `sessionId` 反查确处于**有效**挂起态才放行
         // —— 按钮数据可被伪造/陈旧，不能只信它自报。

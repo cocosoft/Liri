@@ -6,7 +6,7 @@
  * 3. 普通业务错误（如撤回目标）不重试。
  */
 import { describe, expect, it } from 'bun:test';
-import { createFeishuChannel } from '../../src/channels/feishu/FeishuChannel';
+import { createFeishuChannel } from '@modules/channels/feishu/FeishuChannel';
 
 interface FakeClient {
   im: {

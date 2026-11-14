@@ -121,7 +121,7 @@ export async function* runStreamToolLoop(
     const firstAssistantContent = String(assistantMessage.content ?? '');
 
     const { toolResultRegistry } =
-      await import('../../tool/ToolResultRegistry');
+      await import('@modules/tool/ToolResultRegistry');
     const rollbackRoundId = toolResultRegistry.nextRound(session.id);
     if (!session.metadata.roundIndex) session.metadata.roundIndex = {};
     session.metadata.roundIndex[userMessageId] = rollbackRoundId;

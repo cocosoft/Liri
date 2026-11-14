@@ -10,7 +10,7 @@
  */
 import { describe, expect, it, afterEach } from 'bun:test';
 import { createServer, type Server, type Socket } from 'node:net';
-import { createIrcChannel } from '../../src/channels/irc/IrcChannel';
+import { createIrcChannel } from '@modules/channels/irc/IrcChannel';
 
 interface IrcStub {
   server: Server;

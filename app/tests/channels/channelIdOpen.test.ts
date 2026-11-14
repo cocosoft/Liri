@@ -7,16 +7,16 @@
  */
 import { describe, it, expect } from 'bun:test';
 
-import { CHANNEL_CATALOG } from '../../src/channels/ChannelCatalog.js';
-import { DeliveryTarget } from '../../src/channels/DeliveryTarget.js';
+import { CHANNEL_CATALOG } from '@modules/channels/ChannelCatalog.js';
+import { DeliveryTarget } from '@modules/channels/DeliveryTarget.js';
 import {
   KNOWN_CHANNEL_IDS,
   parseChannelId,
-} from '../../src/channels/types/IChannel.js';
+} from '@modules/channels/types/IChannel.js';
 import type {
   ChannelId,
   KnownChannelId,
-} from '../../src/channels/types/IChannel.js';
+} from '@modules/channels/types/IChannel.js';
 
 describe('B-3 ChannelId 开放标识', () => {
   it('已知清单与目录双向一致，且目录无重复 type', () => {

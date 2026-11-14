@@ -5,8 +5,8 @@
  * 退回纯文本且不阻塞消息处理。
  */
 import { describe, expect, test } from 'bun:test';
-import { createFeishuChannel } from '../../src/channels/feishu/FeishuChannel';
-import type { MessageContext } from '../../src/channels/types';
+import { createFeishuChannel } from '@modules/channels/feishu/FeishuChannel';
+import type { MessageContext } from '@modules/channels/types';
 import type { RegisterFileResult } from '@openliri/service/services/file/types';
 
 type DownloadFn = (

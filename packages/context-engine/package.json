@@ -1,0 +1,20 @@
+{
+  "name": "@openliri/context-engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liri 上下文引擎包 —— 上下文条目注册 / 查询 / 结果聚合（占位上下文管理器）。层归属 app：可依赖 app / service / infra / core；entry / ui 不得依赖本包，包内不得依赖 entry / ui 层（R27）。",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/context-engine/index.ts",
+      "import": "./src/context-engine/index.ts"
+    },
+    "./*": {
+      "types": "./src/context-engine/*.ts",
+      "import": "./src/context-engine/*.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p ../../app/tsconfig.json"
+  }
+}

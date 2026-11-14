@@ -31,7 +31,7 @@ import {
 import {
   getDailyBudget,
   resetDailyBudgetForTest,
-} from '../../src/query/DailyBudgetManager';
+} from '@modules/query/DailyBudgetManager';
 import { AppError } from '@openliri/infra/error';
 
 // 隔离计划持久化目录：避免污染用户数据（~/.pyapp/data/plans/）

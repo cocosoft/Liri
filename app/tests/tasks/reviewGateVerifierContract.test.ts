@@ -37,7 +37,7 @@ import {
   DefaultReviewGate,
   type ReviewGateContext,
 } from '../../src/tasks/review/ReviewGate';
-import { VerifierAgent } from '../../src/query/VerifierAgent';
+import { VerifierAgent } from '@modules/query/VerifierAgent';
 import type { AgentIsolation } from '@modules/agent';
 
 const EVIDENCE_TOKEN = 'EVIDENCE_TOKEN_9f3c';

@@ -6,7 +6,7 @@
  * "Messages with role 'tool' must be a response to a preceding message with 'tool_calls'"}}`
  */
 import { describe, expect, it } from 'bun:test';
-import { summarizeReasoningError } from '../../src/query/reasoningErrorSummary';
+import { summarizeReasoningError } from '@modules/query/reasoningErrorSummary';
 
 describe('summarizeReasoningError', () => {
   it('工具/结果配对破坏 ⇒ 协议类文案（不含原始 JSON）', () => {

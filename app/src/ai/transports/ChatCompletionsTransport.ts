@@ -13,7 +13,7 @@ import type {
   NormalizedUsage,
   TransportRequestParams,
 } from './types';
-import { isThinkingModeModel } from '../../query/ThinkingMode.js';
+import { isThinkingModeModel } from '@modules/query/ThinkingMode.js';
 import { toReasoningEffort } from '../clients/thinking.js';
 
 const logger = getLogger('ai:transports:chat-completions');

@@ -19,7 +19,7 @@ import {
   setDemandAskPersistHook,
   setDemandAutoAnswerNoticeHook,
 } from '../../src/chat/interactionAutoApprove';
-import { SessionMetadata } from '../../src/session/models/SessionMetadata';
+import { SessionMetadata } from '@modules/session/models/SessionMetadata';
 
 const INTERACTIVE_TOOL = { requiresUserInteraction: () => true };
 /** 每会话一份独立元数据（`noteDemandAsk` 会置位 `demandAskUsed`，共用对象会串扰） */

@@ -7,8 +7,8 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ProactivePushQueue } from '../../src/proactive/ProactivePushQueue';
-import type { ProactiveMessagePayload } from '../../src/proactive/types';
+import { ProactivePushQueue } from '@modules/proactive/ProactivePushQueue';
+import type { ProactiveMessagePayload } from '@modules/proactive/types';
 
 const NOW = Date.parse('2026-10-19T12:00:00Z');
 

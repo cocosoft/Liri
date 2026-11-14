@@ -9,10 +9,10 @@
  */
 import { describe, it, expect } from 'bun:test';
 
-import { clearStaleRecoveryMarkers } from '../../src/session/recovery/CrashRecoveryManager';
-import { SessionStatus } from '../../src/session/types/UnifiedSession';
-import type { UnifiedSessionStorage } from '../../src/session/storage/UnifiedStorage';
-import type { UnifiedSession } from '../../src/session/types/UnifiedSession';
+import { clearStaleRecoveryMarkers } from '@modules/session/recovery/CrashRecoveryManager';
+import { SessionStatus } from '@modules/session/types/UnifiedSession';
+import type { UnifiedSessionStorage } from '@modules/session/storage/UnifiedStorage';
+import type { UnifiedSession } from '@modules/session/types/UnifiedSession';
 
 function createFakeStorage(
   sessions: Map<string, UnifiedSession>

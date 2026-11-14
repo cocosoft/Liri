@@ -22,7 +22,7 @@ import { buildRequestTimingData } from '../services/timingEvent';
 import {
   getDailyBudget,
   recordTurnCostUsd,
-} from '../../query/DailyBudgetManager';
+} from '@modules/query/DailyBudgetManager';
 
 const logger = getLogger('chat:manager');
 

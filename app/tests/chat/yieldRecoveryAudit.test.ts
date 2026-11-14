@@ -21,7 +21,7 @@ import { mkdtempSync, mkdirSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { EventLogStorage } from '../../src/session/storage/EventLogStorage';
+import { EventLogStorage } from '@modules/session/storage/EventLogStorage';
 import type { LiriEvent } from '@modules/session/types/events';
 import {
   handleYieldSettlement,
@@ -32,7 +32,7 @@ import {
   yieldSettlementListeners,
   type YieldResumerDeps,
 } from '../../src/chat/yield';
-import { getYieldRegistry, resetYieldRegistry } from '../../src/session/yield';
+import { getYieldRegistry, resetYieldRegistry } from '@modules/session/yield';
 
 const SESSION = 'sess-b4-1';
 const WORKTREE = 'wt-b4-1';

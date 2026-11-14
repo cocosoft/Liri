@@ -28,7 +28,7 @@
  * 无进展/疲劳轮仍是 success:true，不应计入熔断。
  */
 import { describe, it, expect } from 'bun:test';
-import { CircuitBreaker } from '../../src/query/CircuitBreaker';
+import { CircuitBreaker } from '@modules/query/CircuitBreaker';
 
 function makeBreaker() {
   return new CircuitBreaker({

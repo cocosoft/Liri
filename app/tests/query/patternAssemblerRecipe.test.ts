@@ -11,9 +11,9 @@ import { describe, it, expect } from 'bun:test';
 import {
   instantiatePattern,
   verifierConfigForRecipe,
-} from '../../src/query/patternAssembler.js';
+} from '@modules/query/patternAssembler.js';
 import type { PatternAssemblerId } from '@modules/query/patterns';
-import { VerifierAgent } from '../../src/query/VerifierAgent.js';
+import { VerifierAgent } from '@modules/query/VerifierAgent.js';
 
 function selection(assembler: PatternAssemblerId, name?: string): never {
   return {

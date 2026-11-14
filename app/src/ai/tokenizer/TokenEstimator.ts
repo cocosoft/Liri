@@ -21,7 +21,7 @@ import { getLogger } from '@openliri/infra/monitoring';
 import { TOOL_RESULT_MAX_LENGTH } from '@openliri/infra/utils/toolResultLimits';
 
 // Bun 全局在本仓的类型声明是「按需最小子集」（见 `src/ink/ink/global.d.ts`，不含 `hash`）。
-// 此处按需补充本模块用到的 `Bun.hash`，与 `src/buddy/companion.ts` 同法（模块作用域，不污染全局）。
+// 此处按需补充本模块用到的 `Bun.hash`，与 `packages/buddy/src/buddy/companion.ts` 同法（模块作用域，不污染全局）。
 declare const Bun: { hash: (s: string) => bigint };
 
 const logger = getLogger('ai:tokenizer');

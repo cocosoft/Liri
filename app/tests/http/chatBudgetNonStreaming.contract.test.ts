@@ -17,7 +17,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import {
   getDailyBudget,
   resetDailyBudgetForTest,
-} from '../../src/query/DailyBudgetManager';
+} from '@modules/query/DailyBudgetManager';
 import { invokeLlm } from '../../src/chat/orchestrator/sendMessageFlow';
 import type { SendMessageContext } from '../../src/chat/orchestrator/sendMessageFlow';
 import { buildChatErrorResponse } from '../../src/runtime/api/llmChatOps';

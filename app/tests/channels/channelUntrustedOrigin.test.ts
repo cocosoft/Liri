@@ -11,8 +11,8 @@
 //   → streamMessageToolLoop 给会话打 `origin='channel'` → ToolExecutionService 执行前拒绝。
 import { describe, expect, it } from 'bun:test';
 import { FEATURE_FLAGS } from '@openliri/kernel';
-import { isUntrustedChannelOrigin } from '../../src/channels/toolPolicy';
-import { CHANNEL_READONLY_TOOLS_CONTRACT } from '../../src/channels/routing/messageRouterContract';
+import { isUntrustedChannelOrigin } from '@modules/channels/toolPolicy';
+import { CHANNEL_READONLY_TOOLS_CONTRACT } from '@modules/channels/routing/messageRouterContract';
 import {
   isBlockedForUntrustedOrigin,
   resolveToolEffect,

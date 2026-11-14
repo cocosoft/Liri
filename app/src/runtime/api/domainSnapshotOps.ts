@@ -150,8 +150,8 @@ export class DomainSnapshotOps {
   }
 
   // ---- 梦境（HTTP 等 service 侧消费；见 CoreAPI 声明处沿革 D-87）----
-  // 路径用**相对 2 段**（`../../dream/X`）：R03-002 对 `parts.length < 3` 直接跳过；
-  // 若改用 `@modules/dream/X` 别名会被 R03-002 判违规（`dream` 有 index.ts）。
+  // 2026-11-14（dream 迁入 packages/dream）：改 `@modules/dream/<叶子>` 按需动态导入 ——
+  // 走桶会把 engine/scheduler/unified cycle 整条面拉进 HTTP 路径；叶子键已登记 canonicalEntryKeys。
 
   async listDreamCycles(params: {
     page: number;
@@ -162,8 +162,8 @@ export class DomainSnapshotOps {
     endTime?: number;
     sortOrder?: 'asc' | 'desc';
   }): Promise<object> {
-    const { DreamPersistence } = await import('../../dream/DreamPersistence');
-    return new DreamPersistence().listCycles(params);
+    const dreamPersistence = await import('@modules/dream/DreamPersistence');
+    return new dreamPersistence.DreamPersistence().listCycles(params);
   }
 
   async queryDreamCycles(filter: {
@@ -173,7 +173,7 @@ export class DomainSnapshotOps {
     status?: string;
     limit?: number;
   }): Promise<{ cycles: unknown; stats: unknown }> {
-    const { getDreamCycleDb } = await import('../../dream/DreamCycleDb');
+    const { getDreamCycleDb } = await import('@modules/dream/DreamCycleDb');
     const db = await getDreamCycleDb();
     const [cycles, stats] = await Promise.all([
       db.queryCycles(filter),
@@ -183,12 +183,12 @@ export class DomainSnapshotOps {
   }
 
   async getDreamCycle(cycleId: string): Promise<unknown | null> {
-    const { DreamPersistence } = await import('../../dream/DreamPersistence');
-    return new DreamPersistence().getCycle(cycleId);
+    const dreamPersistence = await import('@modules/dream/DreamPersistence');
+    return new dreamPersistence.DreamPersistence().getCycle(cycleId);
   }
 
   async readDreamMetrics(): Promise<unknown | null> {
-    const { readMetrics } = await import('../../dream/DreamMetrics');
+    const { readMetrics } = await import('@modules/dream/DreamMetrics');
     return readMetrics();
   }
 
@@ -1944,9 +1944,9 @@ export class DomainSnapshotOps {
         projectId: string,
         since?: string | undefined
       ) => {
-        // ⚠️ `project` 域**无 `@modules/project` 别名** ⇒ 用 **2 段相对路径**（同时规避 R03-002）
+        // P1（2026-11-14）：`project` 已迁 `packages/project`，走别名动态导入
         const { createProjectHistoryStore } =
-          await import('../../project/ProjectHistoryStore');
+          await import('@modules/project/ProjectHistoryStore');
         return createProjectHistoryStore(projectId).getGrouped(since);
       },
 
@@ -1954,9 +1954,9 @@ export class DomainSnapshotOps {
       getProjectArtifactStore: async (
         storeDir: string
       ): Promise<ProjectArtifactStorePort> => {
-        // ⚠️ `project` 域**无 `@modules/project` 别名** ⇒ 用 **2 段相对路径**（同时规避 R03-002）
+        // P1（2026-11-14）：`project` 已迁 `packages/project`，走别名动态导入
         const { ProjectArtifactStore } =
-          await import('../../project/ProjectArtifactStore');
+          await import('@modules/project/ProjectArtifactStore');
         const store = new ProjectArtifactStore(storeDir);
         // 句柄方法保持 app 侧**同步**形态（规则 37）
         return {
@@ -1969,7 +1969,7 @@ export class DomainSnapshotOps {
       },
       parseProjectRulesFile: async (rulesPath: string) => {
         const { ProjectContextService } =
-          await import('../../project/ProjectContextService');
+          await import('@modules/project/ProjectContextService');
         return ProjectContextService.parseRulesFile(rulesPath);
       },
       persistImplicitEngine: async (
@@ -1978,12 +1978,12 @@ export class DomainSnapshotOps {
         projectsDir: string
       ) => {
         const { ImplicitEngineHook } =
-          await import('../../project/ImplicitEngineHook');
+          await import('@modules/project/ImplicitEngineHook');
         return ImplicitEngineHook.persist(projectId, text, projectsDir);
       },
       migrateLegacyFiles: async () => {
         const { migrateLegacyFiles } =
-          await import('../../project/MigrationService');
+          await import('@modules/project/MigrationService');
         return migrateLegacyFiles();
       },
       migrateWorktrees: async (
@@ -1991,7 +1991,7 @@ export class DomainSnapshotOps {
         workspaceId?: string
       ) => {
         const { migrateWorktrees } =
-          await import('../../project/MigrationService');
+          await import('@modules/project/MigrationService');
         return migrateWorktrees(worktrees as never, workspaceId);
       },
     };

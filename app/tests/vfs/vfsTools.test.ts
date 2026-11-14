@@ -41,8 +41,8 @@ import { ListVfsTool } from '../../src/tools/ListVfsTool/ListVfsTool.js';
 import { StatVfsTool } from '../../src/tools/StatVfsTool/StatVfsTool.js';
 import { WriteVfsTool } from '../../src/tools/WriteVfsTool/WriteVfsTool.js';
 import type { ToolUseContext } from '../../src/tools/types/ToolUseContext.js';
-import { DevDocsDriver } from '../../src/vfs/drivers/DevDocsDriver.js';
-import { vfsMountRegistry } from '../../src/vfs/VfsMountRegistry.js';
+import { DevDocsDriver } from '@modules/vfs/drivers/DevDocsDriver.js';
+import { vfsMountRegistry } from '@modules/vfs/VfsMountRegistry.js';
 
 /** 测试专用挂载 scheme（避免与生产 `dev_docs` 装配冲突） */
 const SCHEME = 'vfs_pilot_test';

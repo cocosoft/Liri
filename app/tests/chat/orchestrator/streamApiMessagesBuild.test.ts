@@ -10,7 +10,7 @@
 import { describe, expect, it } from 'bun:test';
 import { buildStreamApiMessages } from '../../../src/chat/orchestrator/streamMessageApiMessagesBuild';
 import type { ChatStreamChunk } from '../../../src/runtime/api/CoreAPI';
-import type { Message } from '../../../src/session/types/message';
+import type { Message } from '@modules/session/types/message';
 
 const NO_MESSAGES: Message[] = [];
 

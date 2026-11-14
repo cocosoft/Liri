@@ -46,8 +46,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ReadVfsTool } from '../../src/tools/ReadVfsTool/ReadVfsTool.js';
 import type { ToolUseContext } from '../../src/tools/types/ToolUseContext.js';
-import { DevDocsDriver } from '../../src/vfs/drivers/DevDocsDriver.js';
-import { vfsMountRegistry } from '../../src/vfs/VfsMountRegistry.js';
+import { DevDocsDriver } from '@modules/vfs/drivers/DevDocsDriver.js';
+import { vfsMountRegistry } from '@modules/vfs/VfsMountRegistry.js';
 
 /** 测试专用 scheme（与生产 `dev_docs` 及其他用例隔离） */
 const SCHEME = 'vfs_symlink_test';

@@ -18,7 +18,7 @@ import {
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import type { Principal } from '@openliri/kernel/identity/principal.js';
 import { UsageStatsService } from '../../src/ai/models/UsageStatsService.js';
-import { SkillDB } from '../../src/skills/persistence/SkillDB.js';
+import { SkillDB } from '@modules/skills/persistence/SkillDB.js';
 
 const ALICE: Principal = { tenantId: 'acme', userId: 'alice', roles: ['user'] };
 const BOB: Principal = {

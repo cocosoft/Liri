@@ -18,12 +18,12 @@ import {
   setMobileOutboundSink,
   MOBILE_MAX_TEXT_LENGTH,
   type MobileOutboundPayload,
-} from '../../src/channels/mobile/MobileChannel';
+} from '@modules/channels/mobile/MobileChannel';
 import {
   getChannelCatalogEntry,
   CHANNEL_CATALOG,
-} from '../../src/channels/ChannelCatalog';
-import { KNOWN_CHANNEL_IDS } from '../../src/channels/types/IChannel';
+} from '@modules/channels/ChannelCatalog';
+import { KNOWN_CHANNEL_IDS } from '@modules/channels/types/IChannel';
 
 afterEach(() => {
   setMobileOutboundSink(null);

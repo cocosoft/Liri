@@ -15,9 +15,9 @@
 import { describe, it, expect } from 'bun:test';
 import { SessionMessagesRead } from '@openliri/service/runtime/api/sessionMessagesRead';
 import type { EventLogStorage } from '@modules/session';
-import type { LiriEvent } from '../../src/session/types/events.js';
+import type { LiriEvent } from '@modules/session/types/events.js';
 import type { ChatManager } from '@modules/chat';
-import type { SessionManager } from '../../src/session/types/session.js';
+import type { SessionManager } from '@modules/session/types/session.js';
 
 const SID = 'session_verify_test';
 

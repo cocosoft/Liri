@@ -26,7 +26,7 @@ import {
   buildPruningConfig,
   type DataRetentionConfig,
   type PruningConfig,
-} from '../src/session/SessionPruning';
+} from '@modules/session/SessionPruning';
 
 /** 读取 `dataRetention` 段（缺失/损坏 ⇒ undefined，按缺省策略） */
 function readRetention(

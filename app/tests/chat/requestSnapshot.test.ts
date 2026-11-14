@@ -36,7 +36,7 @@ import { afterEach, describe, expect, test } from 'bun:test';
 import { mkdtempSync, mkdirSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { EventLogStorage } from '../../src/session/storage/EventLogStorage';
+import { EventLogStorage } from '@modules/session/storage/EventLogStorage';
 import {
   RequestSnapshotService,
   type ModelInputSnapshot,

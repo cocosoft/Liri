@@ -14,8 +14,8 @@ import { describe, expect, it } from 'bun:test';
 import {
   CompetitiveStrategyOrchestrator,
   runResearchOrchestration,
-} from '../../src/query/CompetitiveStrategyOrchestrator';
-import type { ResearchCallModel } from '../../src/query/CompetitiveStrategyOrchestrator';
+} from '@modules/query/CompetitiveStrategyOrchestrator';
+import type { ResearchCallModel } from '@modules/query/CompetitiveStrategyOrchestrator';
 
 const TASK = '研究：对比两种方案在多语言产品本地化中的可行性并给出选型建议';
 

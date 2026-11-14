@@ -28,10 +28,10 @@
  *（React key 冲突 / 渲染两次，即 N-51 症状）。本组测试守护收敛后的不变式。
  */
 import { describe, expect, test } from 'bun:test';
-import { StorageType } from '../../src/session/storage/UnifiedStorage';
-import { MemoryUnifiedStorage } from '../../src/session/storage/MemoryUnifiedStorage';
-import { StorageFactory } from '../../src/session/storage/StorageFactory';
-import type { UnifiedMessage } from '../../src/session/types/UnifiedMessage';
+import { StorageType } from '@modules/session/storage/UnifiedStorage';
+import { MemoryUnifiedStorage } from '@modules/session/storage/MemoryUnifiedStorage';
+import { StorageFactory } from '@modules/session/storage/StorageFactory';
+import type { UnifiedMessage } from '@modules/session/types/UnifiedMessage';
 
 /**
  * 注（2026-09-20）：存储注册已收敛到 `StorageFactory`（单一注册中枢），实现模块不再反向 import

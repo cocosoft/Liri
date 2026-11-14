@@ -1,0 +1,20 @@
+{
+  "name": "@openliri/compaction",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liri 上下文压缩包 —— 压缩策略 / 编排 / 指标与自动压缩服务。层归属 app：可依赖 app / service / infra / core；entry / ui 不得依赖本包，包内不得依赖 entry / ui 层（R15）。",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/compaction/index.ts",
+      "import": "./src/compaction/index.ts"
+    },
+    "./*": {
+      "types": "./src/compaction/*.ts",
+      "import": "./src/compaction/*.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p ../../app/tsconfig.json"
+  }
+}

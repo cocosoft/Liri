@@ -141,7 +141,7 @@ import { normalizeExecutorResult } from './lro/contracts.js';
 import { watchSlowModelCall } from './lro/modelCallTrace.js';
 // R16（台账 L-14）：任务/子代理**非 chat 管线**的模型用量计入每日预算
 // （此路径不经 `ChatManager.recordChatResponseUsage`，故在默认执行器单点记账）。
-import { recordDailyBudgetFromUsage } from '../query/DailyBudgetManager';
+import { recordDailyBudgetFromUsage } from '@modules/query/DailyBudgetManager';
 // G-2/D（2026-10-11）：闸门**单一收口**（与流式/非流式 chat 同源判定），用于长程任务执行器
 // 2026-11-08：整段外移 `./lro/executorBudgetGuard`（守住 R04-001 行数上限），语义逐字未变。
 import { guardExecutorWithDailyBudget } from './lro/executorBudgetGuard.js';

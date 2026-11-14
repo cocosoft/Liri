@@ -29,7 +29,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { EventLogStorage } from '../src/session/storage/EventLogStorage';
+import { EventLogStorage } from '@modules/session/storage/EventLogStorage';
 
 const BASE_EVENTS = 5_000;
 const SCALES = [1, 10];

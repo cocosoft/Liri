@@ -20,7 +20,7 @@ import {
   type ContextBudgetInput,
   type GoalBudgetInput,
   type SummaryBudgetInput,
-} from '../../src/tokenBudget/BudgetPolicy';
+} from '@modules/tokenBudget/BudgetPolicy';
 
 beforeEach(() => {
   resetBudgetPolicies();

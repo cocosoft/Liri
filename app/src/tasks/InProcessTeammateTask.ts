@@ -107,7 +107,7 @@ export class InProcessTeammateTask extends BaseTask {
 
     try {
       const { InProcessTeammateBackend } =
-        await import('../subagent/backends/InProcessTeammateBackend');
+        await import('@modules/subagent/backends/InProcessTeammateBackend');
 
       const backend = new InProcessTeammateBackend();
       const handle = await backend.spawn({
@@ -154,7 +154,7 @@ export class InProcessTeammateTask extends BaseTask {
     if (this.teammateBackendHandle) {
       try {
         const { InProcessTeammateBackend } =
-          await import('../subagent/backends/InProcessTeammateBackend');
+          await import('@modules/subagent/backends/InProcessTeammateBackend');
 
         const backend = new InProcessTeammateBackend();
         await backend.kill(this.teammateBackendHandle);

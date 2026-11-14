@@ -15,12 +15,10 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import {
   createPluginContext,
   getInjectedServiceIds,
-} from '../../plugin-sdk/core';
-import type {
-  Plugin as SdkPlugin,
-  PluginContext,
-  ToolRegistration,
-} from '../../plugin-sdk/types';
+  type Plugin as SdkPlugin,
+  type PluginContext,
+  type ToolRegistration,
+} from '@modules/plugin-sdk';
 import {
   KernelServiceRegistry,
   KernelServiceId,

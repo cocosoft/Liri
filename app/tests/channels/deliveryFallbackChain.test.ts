@@ -12,7 +12,7 @@ import {
   DELIVERY_FORMAT_CHAIN,
   resolveDeliveryFallbacks,
   type DeliveryFormatSupport,
-} from '../../src/channels/deliveryFormatters.js';
+} from '@modules/channels/deliveryFormatters.js';
 
 const ALL: DeliveryFormatSupport = { interactive: true, markdown: true };
 

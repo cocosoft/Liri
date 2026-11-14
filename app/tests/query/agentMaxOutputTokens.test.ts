@@ -12,7 +12,7 @@ import {
   TAOR_DEFAULT_MAX_OUTPUT_TOKENS,
   nextDoubledOutputCap,
   resolveAgentMaxOutputTokens,
-} from '../../src/query/taor/helpers';
+} from '@modules/query/taor/helpers';
 
 describe('TAOR 输出上限解析', () => {
   it('未翻倍且未配置 ⇒ 默认高于传输层 4096（防大参数截断）', () => {

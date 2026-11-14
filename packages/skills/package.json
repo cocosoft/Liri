@@ -1,0 +1,20 @@
+{
+  "name": "@openliri/skills",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liri 技能系统包 —— 技能注册表 / 加载器 / 第三方源适配 / 注入与持久化。层归属 app：可依赖 app / service / infra / core；entry / ui 不得依赖本包，包内不得依赖 entry / ui 层（R12）。",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/skills/index.ts",
+      "import": "./src/skills/index.ts"
+    },
+    "./*": {
+      "types": "./src/skills/*.ts",
+      "import": "./src/skills/*.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p ../../app/tsconfig.json"
+  }
+}

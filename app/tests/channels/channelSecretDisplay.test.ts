@@ -20,8 +20,8 @@ import { setUserDataDirOverride } from '@openliri/infra/environment';
 import {
   ChannelSecretStore,
   initRegistry,
-} from '../../src/channels/secrets/ChannelSecretStore';
-import { encryptSecret } from '../../src/channels/secrets/encryption';
+} from '@modules/channels/secrets/ChannelSecretStore';
+import { encryptSecret } from '@modules/channels/secrets/encryption';
 
 /** 伪造 registry：只需要 getConfig / getAllConfigs（见 ChannelSecretStore 的最小接口） */
 function fakeRegistry(

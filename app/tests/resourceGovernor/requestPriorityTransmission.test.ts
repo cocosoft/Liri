@@ -20,7 +20,7 @@ import {
   REQUEST_PRIORITIES,
   parseRequestPriority,
 } from '../../src/types/requestPriority';
-import { ResourceGovernor } from '../../src/resourceGovernor/index';
+import { ResourceGovernor } from '@modules/resourceGovernor';
 
 const ENV = 'FEATURE_RESOURCE_GOVERNOR';
 const ORIGINAL = process.env[ENV];

@@ -1,0 +1,20 @@
+{
+  "name": "@openliri/governance",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liri 治理包 —— 治理管理器、策略/配置/审计与规则建议引擎。层归属 app：可依赖 app / service / infra / core；entry / ui 不得依赖本包，包内不得依赖 entry / ui 层（R19）。",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/governance/index.ts",
+      "import": "./src/governance/index.ts"
+    },
+    "./*": {
+      "types": "./src/governance/*.ts",
+      "import": "./src/governance/*.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p ../../app/tsconfig.json"
+  }
+}

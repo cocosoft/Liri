@@ -33,19 +33,37 @@
  *  ② `ChatSessionTeardown.deleteSession` / `clearAllSessions` 会回收会话级 scope；
  *  ③ `SessionPruner.prune()`（只删存储、不经 teardown 的旁路）同样回收。
  */
-import { afterEach, describe, expect, it, spyOn } from 'bun:test';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  spyOn,
+} from 'bun:test';
 
 import { ChatSessionTeardown } from '../../src/chat/manager/sessionTeardown.js';
 import type { ChatSessionTeardownDeps } from '../../src/chat/manager/sessionTeardown.js';
-import { SessionPruner } from '../../src/session/SessionPruner.js';
-import type { SessionStorage } from '../../src/session/SessionStorage.js';
+import { SessionPruner } from '@modules/session/SessionPruner.js';
+import type { SessionStorage } from '@modules/session/SessionStorage.js';
 import {
   ToolScopeManager,
   toolScopeManager,
-} from '../../src/tool/ToolScopeManager.js';
+} from '@modules/tool/ToolScopeManager.js';
+// P1（2026-11-13）：剪枝侧已改经推送注入端口取 scope 回收器 ⇒ 本文件需注册真实实现
+import { registerToolScopeDisposer } from '@modules/session/toolScopePort.js';
 import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
 
 const restores: Array<() => void> = [];
+
+beforeAll(() => {
+  registerToolScopeDisposer(toolScopeManager);
+});
+
+afterAll(() => {
+  registerToolScopeDisposer(undefined);
+});
 
 afterEach(() => {
   while (restores.length > 0) restores.pop()?.();

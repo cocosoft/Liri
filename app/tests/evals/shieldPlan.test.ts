@@ -29,7 +29,7 @@ import { describe, expect, test } from 'bun:test';
 import {
   collectShieldedPaths,
   verifyShieldApplied,
-} from '../../src/evals/shieldPlan';
+} from '@modules/evals/shieldPlan';
 
 describe('collectShieldedPaths：跨任务取并集', () => {
   test('去空、去重、保持声明顺序；无声明 ⇒ 空', () => {

@@ -25,8 +25,8 @@
 import { afterAll, describe, expect, it } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { CheckpointDatabase } from '../../src/chat/services/CheckpointDatabase';
-import type { SessionCheckpoint } from '../../src/session/types/checkpoint';
-import { DataSessionStatus } from '../../src/session/types/session';
+import type { SessionCheckpoint } from '@modules/session/types/checkpoint';
+import { DataSessionStatus } from '@modules/session/types/session';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import type { Principal } from '@openliri/kernel/identity/principal';
 

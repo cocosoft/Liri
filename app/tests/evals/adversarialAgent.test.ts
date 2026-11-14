@@ -19,11 +19,11 @@ import {
   parseAdversarialProposals,
   runAdversarialPhase,
   type AdversarialProposal,
-} from '../../src/evals/adversarialAgent';
+} from '@modules/evals/adversarialAgent';
 import {
   auditAntiCheatSurface,
   type AntiCheatContext,
-} from '../../src/evals/antiCheatAudit';
+} from '@modules/evals/antiCheatAudit';
 
 /** 干净基线：报告目录已屏蔽、声明=生效、bash 无内核约束 */
 const makeCtx = (over: Partial<AntiCheatContext> = {}): AntiCheatContext => ({

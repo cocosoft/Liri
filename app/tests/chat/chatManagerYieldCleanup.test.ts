@@ -29,7 +29,7 @@
 import { afterEach, describe, expect, it } from 'bun:test';
 
 import { ChatManagerImpl } from '../../src/chat/ChatManager.js';
-import { getYieldRegistry, resetYieldRegistry } from '../../src/session/yield';
+import { getYieldRegistry, resetYieldRegistry } from '@modules/session/yield';
 
 describe('B1-6：实例 cleanup 清空模块级等待集', () => {
   afterEach(() => {

@@ -57,7 +57,7 @@ async function handleGateway(): Promise<CommandResult> {
   let gatewayInfo: string;
   try {
     const { channelRegistry } =
-      await import('../../../channels/registry/ChannelRegistry');
+      await import('@modules/channels/registry/ChannelRegistry');
     const stats = channelRegistry.getStats();
     const channels = channelRegistry.getAll();
     const statuses = channelRegistry.getAllStatuses();
@@ -93,7 +93,7 @@ async function handleChannels(): Promise<CommandResult> {
   let channelsInfo: string;
   try {
     const { channelRegistry } =
-      await import('../../../channels/registry/ChannelRegistry');
+      await import('@modules/channels/registry/ChannelRegistry');
     const all = channelRegistry.getAll();
     const active = all.filter((ch) => ch.connected);
     channelsInfo = [

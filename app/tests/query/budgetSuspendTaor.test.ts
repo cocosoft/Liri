@@ -8,18 +8,18 @@
 // 重启后**不自动续跑**（静默烧额度）；普通 `auto` 检查点仍照旧被扫描（不误伤）。
 
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { handleTaorBudgetExhaustion } from '../../src/query/taor/budgetSuspendHook.js';
+import { handleTaorBudgetExhaustion } from '@modules/query/taor/budgetSuspendHook.js';
 import {
   getBudgetSuspendCoordinator,
   resetBudgetSuspendForTest,
-} from '../../src/query/budgetSuspend.js';
-import { ResumeManager } from '../../src/query/ResumeManager.js';
-import { MemoryCheckpointStorage } from '../../src/query/taor/MemoryCheckpointStorage.js';
-import { TAORPhase } from '../../src/query/types.js';
-import type { TAORCheckpoint } from '../../src/query/types.js';
+} from '@modules/query/budgetSuspend.js';
+import { ResumeManager } from '@modules/query/ResumeManager.js';
+import { MemoryCheckpointStorage } from '@modules/query/taor/MemoryCheckpointStorage.js';
+import { TAORPhase } from '@modules/query/types.js';
+import type { TAORCheckpoint } from '@modules/query/types.js';
 import { addLogHandler } from '@openliri/infra/monitoring/logs/Logger';
-import { TokenBudgetStatus } from '../../src/tokenBudget/TokenBudgetController.js';
-import type { TokenBudgetState } from '../../src/tokenBudget/TokenBudgetController.js';
+import { TokenBudgetStatus } from '@modules/tokenBudget/TokenBudgetController.js';
+import type { TokenBudgetState } from '@modules/tokenBudget/TokenBudgetController.js';
 
 const FLAG = 'FEATURE_BUDGET_SUSPEND_RESUME';
 

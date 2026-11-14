@@ -5,12 +5,12 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 
-import { QueryLogStore } from '../../src/query/QueryLogStore';
+import { QueryLogStore } from '@modules/query/QueryLogStore';
 import type {
   QueryLogEntry,
   QueryLogFilter,
   QueryLogStats,
-} from '../../src/query/QueryLogTypes';
+} from '@modules/query/QueryLogTypes';
 
 /**
  * 创建一条测试日志条目（不含 id）

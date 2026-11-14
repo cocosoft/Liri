@@ -20,7 +20,7 @@ import {
   resetSessionLineage,
   wouldCreateLineageCycle,
   type LineageRebuildEntry,
-} from '../../src/session/lineage/sessionLineage';
+} from '@modules/session/lineage/sessionLineage';
 
 /** 造 `n` 跳链：`s1→s0`、`s2→s1` … `sn→s(n-1)`（`s0` 不在入参 ⇒ 链头） */
 function chainEntries(n: number): LineageRebuildEntry[] {

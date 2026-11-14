@@ -9,7 +9,7 @@
  */
 import { describe, expect, it } from 'bun:test';
 import { createHmac } from 'node:crypto';
-import { buildSmsProviderRequest } from '../../src/channels/sms/providerRequests';
+import { buildSmsProviderRequest } from '@modules/channels/sms/providerRequests';
 
 const base = {
   to: '+8613900000000',

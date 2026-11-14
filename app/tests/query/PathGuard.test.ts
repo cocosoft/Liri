@@ -10,7 +10,7 @@
  *  - 静态写名单仍生效（`denyWrite ⊃ denyRead`，lockfile 只拦写）。
  */
 import { describe, expect, it } from 'bun:test';
-import { createPathGuard } from '../../src/query/PathGuard';
+import { createPathGuard } from '@modules/query/PathGuard';
 
 /** 模拟"注册表派生解析器"：按工具名返回其声明的入参名；未声明 ⇒ null（未注册） */
 const stubResolver =

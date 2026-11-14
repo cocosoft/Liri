@@ -4,13 +4,13 @@
 import {
   getDefaultMattermostConfig,
   validateMattermostConfig,
-} from '../../src/channels/mattermost/config-schema';
+} from '@modules/channels/mattermost/config-schema';
 import {
   getMattermostAccount,
   listMattermostAccountIds,
   registerMattermostAccount,
   removeMattermostAccount,
-} from '../../src/channels/mattermost/accounts';
+} from '@modules/channels/mattermost/accounts';
 import { describeChannelBasics } from './support/channelBasics';
 
 describeChannelBasics({

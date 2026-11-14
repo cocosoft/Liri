@@ -14,7 +14,7 @@ import {
   getYieldToolCallId,
   YieldRegistry,
   YIELD_STATUS_RESUMED,
-} from '../../src/session/yield';
+} from '@modules/session/yield';
 
 describe('isYieldedTurnEnd（turn 收尾判定）', () => {
   test('yielded 标记 + finishReason=yielded ⇒ true', () => {

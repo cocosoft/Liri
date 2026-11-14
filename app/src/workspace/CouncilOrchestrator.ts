@@ -29,8 +29,8 @@ import aiService, {
   AIMessageRole,
 } from '@modules/ai';
 // G-01（2026-10-19）：非 chat 管线的预算判定与记账（与 chat 同一收口，不新增第三口）
-import { assertEntryBudget } from '../query/dailyBudgetGate';
-import { recordDailyBudgetFromUsage } from '../query/DailyBudgetManager';
+import { assertEntryBudget } from '@modules/query/dailyBudgetGate';
+import { recordDailyBudgetFromUsage } from '@modules/query/DailyBudgetManager';
 import { getAgentRoleStore } from './AgentRoleStore.js';
 import { getAgentRegistry } from '@modules/agent';
 import type { AgentDefinition } from '@modules/agent';

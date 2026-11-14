@@ -34,10 +34,10 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { SkillRegistry } from '../../src/skills/SkillRegistry';
-import { SkillInjectionService } from '../../src/skills/services/SkillInjectionService';
-import { SkillSource, SkillLoadMethod } from '../../src/skills/types';
-import type { Skill } from '../../src/skills/types';
+import { SkillRegistry } from '@modules/skills/SkillRegistry';
+import { SkillInjectionService } from '@modules/skills/services/SkillInjectionService';
+import { SkillSource, SkillLoadMethod } from '@modules/skills/types';
+import type { Skill } from '@modules/skills/types';
 
 function makePromptSkill(
   name: string,

@@ -22,6 +22,7 @@ import {
   PermissionRuleSource,
 } from '@openliri/infra/permission';
 import type { PermissionRule, StandingRule } from '@openliri/infra/permission';
+import { skillPath } from '../../../scripts/lib/skillPaths';
 
 const REPO_ROOT = join(process.cwd(), '..');
 
@@ -146,15 +147,7 @@ describe('P3-4：权限速查表由统一 Rule 模型生成', () => {
 
   it('内置技能 update-config 不再手抄 A/B 行（只内插生成结果）', () => {
     const src = readFileSync(
-      join(
-        REPO_ROOT,
-        'app',
-        'src',
-        'skills',
-        'loaders',
-        'sources',
-        'BundledSkillLoader.ts'
-      ),
+      skillPath(REPO_ROOT, 'loaders/sources/BundledSkillLoader.ts'),
       'utf8'
     );
     expect(src).toContain('${renderRuleSourceDocRows()}');

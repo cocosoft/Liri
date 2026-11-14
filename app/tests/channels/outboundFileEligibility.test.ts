@@ -27,7 +27,7 @@ import {
   expandTildePath,
   extractLocalFilePaths,
   filterSendableFiles,
-} from '../../src/channels/routing/outboundFileRouter';
+} from '@modules/channels/routing/outboundFileRouter';
 
 let root = '';
 const savedLiriHome = process.env['LIRI_HOME'];

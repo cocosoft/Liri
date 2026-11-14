@@ -11,7 +11,7 @@ import { getConfigManager } from '@openliri/infra/config';
 import {
   getDailyBudget,
   resetDailyBudgetForTest,
-} from '../../src/query/DailyBudgetManager';
+} from '@modules/query/DailyBudgetManager';
 import { BudgetCommand } from '../../src/commands/builtin/budget/Budget';
 
 const LIMIT = 100;

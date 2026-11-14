@@ -9,8 +9,8 @@
  */
 import { describe, expect, it } from 'bun:test';
 import { resolveSessionStateAfterMessage } from '../../src/chat/manager/messagePersistence';
-import { DataSessionStatus } from '../../src/session/types/session';
-import type { Message } from '../../src/session/types/message';
+import { DataSessionStatus } from '@modules/session/types/session';
+import type { Message } from '@modules/session/types/message';
 
 type Probe = Pick<Message, 'role' | 'metadata' | 'finishReason'>;
 

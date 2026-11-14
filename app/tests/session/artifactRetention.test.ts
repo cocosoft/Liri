@@ -26,7 +26,7 @@ import {
 } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { runArtifactRetention } from '../../src/session/ArtifactRetention';
+import { runArtifactRetention } from '@modules/session/ArtifactRetention';
 // 目录名唯一真源在探针模块；此处 import 用于**防漂移断言**（避免两处字面量各自演化）
 import { LOOP_PROBE_DIR_NAME } from '@openliri/infra/diagnostics/loopProbe/loopProbe';
 

@@ -30,7 +30,7 @@ import { InboxManager } from '@openliri/service/runtime/InboxManager';
 import {
   getQueryLogStore,
   resetQueryLogStore,
-} from '../../src/query/QueryLogStore';
+} from '@modules/query/QueryLogStore';
 import { getLLMTracker } from '@openliri/infra/monitoring/llm/getLLMTracker';
 import { BalanceStore } from '../../src/ai/providers/BalanceStore';
 import {

@@ -10,8 +10,8 @@ import { describe, it, expect, afterAll } from 'bun:test';
 import { mkdirSync, rmSync, writeFileSync, readFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { RequirementTracker } from '../../src/project/RequirementTracker';
-import { ImplicitEngineHook } from '../../src/project/ImplicitEngineHook';
+import { RequirementTracker } from '@modules/project/RequirementTracker';
+import { ImplicitEngineHook } from '@modules/project/ImplicitEngineHook';
 
 const root = join(tmpdir(), `req-tracker-test-${Date.now()}`);
 const projectId = 'p-req-test';

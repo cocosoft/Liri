@@ -19,7 +19,7 @@ import { getConfigManager } from '@openliri/infra/config';
 import {
   getDailyBudget,
   resetDailyBudgetForTest,
-} from '../../src/query/DailyBudgetManager';
+} from '@modules/query/DailyBudgetManager';
 
 const CONFIG_KEY = 'costControl.dailyTokenBudget';
 /** 债四 USD-2：USD 上限的**独立**持久化键（与 Token 键并列、互不替代） */

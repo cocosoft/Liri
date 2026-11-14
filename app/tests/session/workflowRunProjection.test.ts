@@ -12,8 +12,8 @@
 
 import { describe, expect, it } from 'bun:test';
 
-import { MessageToEventMigrator } from '../../src/session/storage/MessageToEventMigrator';
-import { deriveMessagesFromEvents } from '../../src/session/storage/EventMessageDeriver';
+import { MessageToEventMigrator } from '@modules/session/storage/MessageToEventMigrator';
+import { deriveMessagesFromEvents } from '@modules/session/storage/EventMessageDeriver';
 import type { Message } from '@modules/session/types/message';
 import type { LiriEvent } from '@modules/session/types/events';
 

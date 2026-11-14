@@ -34,7 +34,7 @@ import {
   resolveDailyBudgetConfig,
   DEFAULT_DAILY_BUDGET_TOKENS,
   type DailyBudgetConfigValue,
-} from '../../src/query/DailyBudgetManager';
+} from '@modules/query/DailyBudgetManager';
 
 const CONFIG_KEY = 'costControl.dailyTokenBudget';
 

@@ -25,11 +25,11 @@ import {
   getDiscoveredTools,
 } from '@modules/tools';
 import { emitPreparedSnapshot } from '@openliri/service/execution';
-import { guardSuspendFromEntropy } from '../../query/guardSuspend.js';
+import { guardSuspendFromEntropy } from '@modules/query/guardSuspend.js';
 import { lastUserMessageText } from '../taskIntent.js';
 import { selectToolsForTurn } from './streamMessageToolSelection.js';
 // 2026-11-11（渠道绑定补齐）：每轮记录渠道来源事实（供 Inbox 提交补齐 channel_id / trace_id）
-import { pickChannelBinding } from '../../channels/binding.js';
+import { pickChannelBinding } from '@modules/channels/binding.js';
 import type { ChatOrchestratorHost } from './ChatOrchestratorHost.js';
 
 const logger = getLogger('chat:streamFlow:toolSelection');

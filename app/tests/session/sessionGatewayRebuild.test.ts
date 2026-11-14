@@ -9,10 +9,10 @@ import { describe, test, expect, afterEach, beforeEach, spyOn } from 'bun:test';
 import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { SessionGateway } from '../../src/session/SessionGateway';
-import { StorageType } from '../../src/session/storage/UnifiedStorage';
-import { CrashRecoveryManager } from '../../src/session/recovery/CrashRecoveryManager';
-import { resetFTS5SearchEngine } from '../../src/session/FTS5SearchEngine';
+import { SessionGateway } from '@modules/session/SessionGateway';
+import { StorageType } from '@modules/session/storage/UnifiedStorage';
+import { CrashRecoveryManager } from '@modules/session/recovery/CrashRecoveryManager';
+import { resetFTS5SearchEngine } from '@modules/session/FTS5SearchEngine';
 
 const WORKTREE_HASH = 'testhash';
 const gateways: SessionGateway[] = [];

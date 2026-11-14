@@ -6,7 +6,7 @@
  * `waive-once` 放行前用价表估算金额并预占 pending debt；实际落账时替换估计值。
  */
 import { describe, it, expect } from 'bun:test';
-import { DailyBudgetManager } from '../../src/query/DailyBudgetManager.js';
+import { DailyBudgetManager } from '@modules/query/DailyBudgetManager.js';
 
 describe('DailyBudgetManager.preAuthorizeWaiverUsd', () => {
   it('已配置 USD 上限 ⇒ 预占 debtUsd', () => {

@@ -7,7 +7,7 @@
  * 锁定：不再“只记日志然后等后端超时”；用户能看到问题，执行以明确原因中止。
  */
 import { describe, it, expect } from 'bun:test';
-import { consumeStreamChunks } from '../../src/channels/routing/streamConsumption.js';
+import { consumeStreamChunks } from '@modules/channels/routing/streamConsumption.js';
 import type { ChatStreamChunk } from '../../src/runtime/api/CoreAPI.js';
 
 function makeDeps(

@@ -35,11 +35,11 @@ import { mkdtempSync, writeFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { FileCheckpointStorage } from '../../src/session/storage/FileCheckpointStorage.js';
+import { FileCheckpointStorage } from '@modules/session/storage/FileCheckpointStorage.js';
 import {
   CHECKPOINT_UNLINK_MAX_ATTEMPTS,
   unlinkCheckpointFileWithRetry,
-} from '../../src/session/storage/FileCheckpointStorage.js';
+} from '@modules/session/storage/FileCheckpointStorage.js';
 
 describe('FileCheckpointStorage.deleteSessionCheckpoints', () => {
   let dir: string;

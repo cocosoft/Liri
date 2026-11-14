@@ -39,11 +39,11 @@ import { afterEach, describe, expect, it, spyOn } from 'bun:test';
 
 import { ChatSessionTeardown } from '../../src/chat/manager/sessionTeardown.js';
 import type { ChatSessionTeardownDeps } from '../../src/chat/manager/sessionTeardown.js';
-import { ResumeManager } from '../../src/query/ResumeManager.js';
+import { ResumeManager } from '@modules/query/ResumeManager.js';
 import {
   getBudgetSuspendCoordinator,
   resetBudgetSuspendForTest,
-} from '../../src/query/budgetSuspend.js';
+} from '@modules/query/budgetSuspend.js';
 import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
 
 /** 轮询等待异步 fire-and-forget 清理落地（动态 import + 清理均为异步） */

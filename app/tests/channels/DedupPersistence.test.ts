@@ -28,7 +28,7 @@ import { describe, it, expect, afterAll } from 'bun:test';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { unlinkSync, existsSync } from 'fs';
-import { DedupStore } from '../../src/channels/dedup/DedupStore.js';
+import { DedupStore } from '@modules/channels/dedup/DedupStore.js';
 import {
   attachDedupStore,
   hydrateFromDedupStore,
@@ -36,7 +36,7 @@ import {
   claimMessage,
   finalizeMessage,
   releaseProcessing,
-} from '../../src/channels/dedup/index.js';
+} from '@modules/channels/dedup/index.js';
 
 const dbPath = join(
   tmpdir(),

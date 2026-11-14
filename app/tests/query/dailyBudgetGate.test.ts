@@ -24,11 +24,8 @@ import {
   DEFAULT_DAILY_BUDGET_TOKENS,
   getDailyBudget,
   resetDailyBudgetForTest,
-} from '../../src/query/DailyBudgetManager';
-import {
-  checkDailyBudget,
-  formatBudget,
-} from '../../src/query/dailyBudgetGate';
+} from '@modules/query/DailyBudgetManager';
+import { checkDailyBudget, formatBudget } from '@modules/query/dailyBudgetGate';
 
 /**
  * G-1 前置 / D-k 接缝：日预算闸门**单一收口** `checkDailyBudget`。

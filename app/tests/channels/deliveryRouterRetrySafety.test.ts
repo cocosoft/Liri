@@ -5,8 +5,8 @@
  * 超时/连接重置等**不确定态**必须立即停止，避免同一条消息发两遍。
  */
 import { describe, expect, it } from 'bun:test';
-import { DeliveryRouter } from '../../src/channels/DeliveryRouter';
-import type { DeliveryContent } from '../../src/channels/DeliveryRouter';
+import { DeliveryRouter } from '@modules/channels/DeliveryRouter';
+import type { DeliveryContent } from '@modules/channels/DeliveryRouter';
 
 type TrySendFormat = (
   channel: unknown,

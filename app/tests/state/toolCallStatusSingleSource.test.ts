@@ -12,6 +12,8 @@
 import { describe, expect, it } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+// P1（2026-11-13）：会话源码位置走单一事实源（搬包后本文件零改动）
+import { sessionRepoRel } from '../../../scripts/lib/sessionPaths';
 
 const REPO_ROOT = join(import.meta.dir, '..', '..', '..');
 const read = (rel: string) => readFileSync(join(REPO_ROOT, rel), 'utf8');
@@ -22,7 +24,7 @@ function countOccurrences(haystack: string, needle: string): number {
 }
 
 const CORE_API = 'app/src/runtime/api/CoreAPI.ts';
-const UNIFIED_MESSAGE = 'app/src/session/types/UnifiedMessage.ts';
+const UNIFIED_MESSAGE = sessionRepoRel('types/UnifiedMessage.ts');
 const CHUNK_MAPPER = 'app/src/chat/reactEventsToChunks.ts';
 const SSE_HANDLER = 'app/src/infrastructure/http/handlers/chat-handlers.ts';
 const CORE_API_IMPL = 'app/src/runtime/api/CoreAPIImpl.ts';

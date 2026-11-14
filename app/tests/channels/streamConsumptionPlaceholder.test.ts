@@ -8,7 +8,7 @@
  * onOutbound 失败不阻断主流程。
  */
 import { describe, it, expect } from 'bun:test';
-import { consumeStreamChunks } from '../../src/channels/routing/streamConsumption.js';
+import { consumeStreamChunks } from '@modules/channels/routing/streamConsumption.js';
 import type { ChatStreamChunk } from '../../src/runtime/api/CoreAPI.js';
 
 function makeDeps(

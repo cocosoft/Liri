@@ -13,8 +13,8 @@
  * MIT License - Copyright (c) 2026 190615273@qq.com
  */
 import { describe, expect, it } from 'bun:test';
-import { TAORLoop } from '../../src/query/TAORLoop';
-import type { QueryEngine } from '../../src/query/QueryEngine';
+import { TAORLoop } from '@modules/query/TAORLoop';
+import type { QueryEngine } from '@modules/query/QueryEngine';
 
 /** 测试可访问的私有成员（沿用本目录既有 Testable 写法，避免 `any`） */
 interface ActResult {

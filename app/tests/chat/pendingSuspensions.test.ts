@@ -5,7 +5,7 @@
  * 多问排序 / 空事件；以及证伪点——仅凭**结构化 questionId** 配对，不做文案匹配。
  */
 import { describe, it, expect } from 'bun:test';
-import type { LiriEvent } from '../../src/session/types/events.js';
+import type { LiriEvent } from '@modules/session/types/events.js';
 import {
   projectPendingSuspensions,
   planSuspensionSettlement,

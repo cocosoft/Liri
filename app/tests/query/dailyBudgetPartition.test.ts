@@ -17,8 +17,8 @@ import { runWithPrincipal } from '@openliri/kernel/identity/requestScope';
 import {
   getDailyBudget,
   resetDailyBudgetForTest,
-} from '../../src/query/DailyBudgetManager';
-import { dailyBudgetStatePath } from '../../src/query/dailyBudgetPersistence';
+} from '@modules/query/DailyBudgetManager';
+import { dailyBudgetStatePath } from '@modules/query/dailyBudgetPersistence';
 
 const ALICE: Principal = {
   tenantId: 'acme',

@@ -20,7 +20,7 @@
 // SOFTWARE.
 
 import { describe, expect, it } from 'bun:test';
-import { MultiAccountManager } from '../../src/channels/accounts';
+import { MultiAccountManager } from '@modules/channels/accounts';
 
 /**
  * R11 **多账号隔离契约**（第九轮审查 §5.2："多账号同时运行时，凭证和会话状态是否隔离"）。

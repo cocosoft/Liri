@@ -521,7 +521,7 @@ export class ChatOrchestrator {
 
         // 注入注册表查询工具（有工具历史 或 C 阶段切窗发生时）
         const { toolResultRegistry } =
-          await import('../../tool/ToolResultRegistry');
+          await import('@modules/tool/ToolResultRegistry');
         if (
           toolResultRegistry.getRoundCount(session.id) > 0 ||
           (ctx as { windowed?: boolean }).windowed === true
@@ -747,7 +747,7 @@ export class ChatOrchestrator {
             });
             try {
               const { createChatManagerTAORDeps } =
-                await import('../../query/ChatManagerTAORAdapter');
+                await import('@modules/query/ChatManagerTAORAdapter');
               const taorLoop = this.host.getOrCreateTAORLoop(session.id) as {
                 reset(): void;
                 /** 2026-11-09：会话取消源桥接（见下方 onTurnAbort） */

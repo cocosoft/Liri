@@ -9,7 +9,7 @@
  * - UI 渲染器据此做类型化解析，配合 `parseToolOutput` 使用
  */
 
-import type { KnowledgeRoute } from '../../docs/knowledge-types.js';
+import type { KnowledgeRoute } from '@modules/docs/knowledge-types.js';
 
 /** 知识搜索输出 —— 工具 result 直接是 KnowledgeRoute[]（数组，非对象包裹） */
 export type KnowledgeSearchOutput = KnowledgeRoute[];

@@ -11,6 +11,10 @@
  * 未注册时返回 `undefined`，消费方按「组合根不可用」降级（只留日志，不抛错）。
  */
 
+import type { AutoCompactServiceRefPort } from './compactPorts';
+import type { EmbeddingRefPort } from './embeddingPorts';
+import type { SessionCheckpointRefPort } from './sessionCheckpointPorts';
+
 /** 会话的最小结构（组合根侧的真实类型 `UnifiedSession` 可结构赋值过来） */
 export interface RuntimeSessionLike {
   metadata?: object;
@@ -58,6 +62,15 @@ export interface RuntimeChatManagerPort {
 export interface RuntimeCoreApiPort {
   chatManager?: RuntimeChatManagerPort;
   getTaskOpsPort?(): Promise<RuntimeTaskOpsPort>;
+  /**
+   * P1（2026-11-13，session 并入 service）：`session/bootstrap/SessionSystemBootstrap`
+   * 的同步门面（原 `getCoreAPI().getGlobalEmbeddingManager()`）。
+   */
+  getGlobalEmbeddingManager?(): EmbeddingRefPort;
+  /** `session/compaction/ServiceAdapters` 的同步门面（原 `getCoreAPI().createAutoCompactService()`） */
+  createAutoCompactService?(): AutoCompactServiceRefPort;
+  /** `session/compaction/ServiceAdapters` 的同步门面（原 `getCoreAPI().getSessionCheckpointRef()`） */
+  getSessionCheckpointRef?(): SessionCheckpointRefPort;
 }
 
 type RuntimeCoreApiProvider = () => RuntimeCoreApiPort | undefined;

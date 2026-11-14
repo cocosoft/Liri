@@ -19,7 +19,7 @@ import type http from 'http';
 
 import { ChatManagerImpl } from '../../src/chat/ChatManager.js';
 import { handleListCheckpoints } from '../../src/infrastructure/http/handlers/checkpoint-handlers';
-import type { TAORLoop } from '../../src/query/TAORLoop.js';
+import type { TAORLoop } from '@modules/query/TAORLoop.js';
 import type { PendingInteractionEntry } from '@openliri/infra/utils/pendingInteractions';
 import { SessionScopedRegistry } from '@openliri/infra/utils/SessionScopedRegistry';
 

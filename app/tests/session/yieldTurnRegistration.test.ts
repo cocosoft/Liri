@@ -12,7 +12,7 @@ import {
   registerYieldFromResults,
   setActiveSubagentRunProbe,
   YIELD_TOOL_NAME,
-} from '../../src/session/yield';
+} from '@modules/session/yield';
 
 describe('registerYieldFromResults（两条链路共用的 yield 登记）', () => {
   beforeEach(() => {

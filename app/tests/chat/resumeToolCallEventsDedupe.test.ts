@@ -10,9 +10,9 @@ import { afterAll, describe, expect, it } from 'bun:test';
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { EventLogStorage } from '../../src/session/storage/EventLogStorage.js';
+import { EventLogStorage } from '@modules/session/storage/EventLogStorage.js';
 import { ChatMessagePersistence } from '../../src/chat/manager/messagePersistence';
-import type { Message } from '../../src/session/types/message';
+import type { Message } from '@modules/session/types/message';
 
 const dir = mkdtempSync(join(tmpdir(), 'n6-resume-events-'));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));

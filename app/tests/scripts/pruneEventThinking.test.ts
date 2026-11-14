@@ -24,7 +24,7 @@ import { join } from 'path';
 import {
   planThinkingPrune,
   pruneEventThinkingFile,
-} from '../../src/session/storage/eventThinkingPrune.js';
+} from '@modules/session/storage/eventThinkingPrune.js';
 import { pruneEventThinking } from '../../scripts/prune-event-thinking.js';
 
 let root: string;

@@ -35,7 +35,7 @@ import {
   isMessageProcessed,
   getDedupStats,
   MESSAGE_PROCESSING_STATES,
-} from '../../src/channels/dedup/index.js';
+} from '@modules/channels/dedup/index.js';
 
 /** 唯一 id，避免共享模块级状态相互干扰 */
 let seq = 0;

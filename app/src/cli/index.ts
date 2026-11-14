@@ -40,10 +40,10 @@ import { join, resolve } from 'path';
 import { exec as nodeExec } from 'child_process';
 import { promisify } from 'util';
 import { initHooksCommand } from '@modules/hooks';
-import { getHelpSystem } from '../docs/HelpSystem';
-import { getToolGuideSystem } from '../docs/ToolGuide';
-import { getPluginDevGuideSystem } from '../docs/PluginDevGuide';
-import { getApiDocSystem } from '../docs/ApiDocs';
+import { getHelpSystem } from '@modules/docs/HelpSystem';
+import { getToolGuideSystem } from '@modules/docs/ToolGuide';
+import { getPluginDevGuideSystem } from '@modules/docs/PluginDevGuide';
+import { getApiDocSystem } from '@modules/docs/ApiDocs';
 import { getPerformanceAnalyzer } from '@openliri/infra/monitoring/performance';
 import { getLogger, flush } from '@openliri/infra/monitoring/logs/Logger';
 import { handleError as recordError } from '@openliri/infra/error';
@@ -561,9 +561,9 @@ program
       console.log();
 
       // 使用新的 SkillRegistry
-      const { SkillRegistry } = await import('../skills/SkillRegistry');
+      const { SkillRegistry } = await import('@modules/skills/SkillRegistry');
       const { BundledSkillLoader } =
-        await import('../skills/loaders/sources/BundledSkillLoader');
+        await import('@modules/skills/loaders/sources/BundledSkillLoader');
       const registry = new SkillRegistry();
       const loader = new BundledSkillLoader();
       const skillsList = await loader.loadSkills();

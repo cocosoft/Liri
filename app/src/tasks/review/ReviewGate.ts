@@ -216,7 +216,7 @@ export class DefaultReviewGate implements ReviewGate {
       this._verifyOncePromise = (async () => {
         try {
           const { verifyProject } =
-            await import('../../query/verifyProject.js');
+            await import('@modules/query/verifyProject.js');
           const result = await Promise.race([
             verifyProject(),
             new Promise<string>((_, reject) =>

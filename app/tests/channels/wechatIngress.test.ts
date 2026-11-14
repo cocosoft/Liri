@@ -15,7 +15,7 @@ import {
   buildWechatReply,
   parseWechatXML,
   verifyWechatSignature,
-} from '../../src/channels/wechat/WechatChannel';
+} from '@modules/channels/wechat/WechatChannel';
 
 const TOKEN = 'test-token';
 const TIMESTAMP = '1700000000';

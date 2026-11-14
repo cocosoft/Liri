@@ -9,7 +9,7 @@ import { describe, expect, it, beforeAll, afterAll } from 'bun:test';
 import { readFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { shrinkOversizedRawResults } from '../../src/query/taor/toolResultBudget';
+import { shrinkOversizedRawResults } from '@modules/query/taor/toolResultBudget';
 import {
   SINGLE_RESULT_LIMIT_CHARS,
   PREVIEW_CHARS,

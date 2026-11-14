@@ -58,7 +58,7 @@ import {
   MESSAGE_SEGMENT_MAX_BYTES as DEFAULT_MAX_BYTES,
   MESSAGE_SEGMENT_MAX_LINES as DEFAULT_MAX_LINES,
   planMessageSplit,
-} from '../src/session/storage/messageSegments';
+} from '@modules/session/storage/messageSegments';
 
 /** 会话切分状态 */
 export type SplitStatus =

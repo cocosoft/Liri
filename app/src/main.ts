@@ -505,14 +505,15 @@ function checkSingletonInstance(): void {
 async function gracefulChannelShutdown(): Promise<void> {
   // 先停渠道实时监控（清探测循环与退避定时器），再释放通道 scope
   const { getChannelRealtimeMonitor } =
-    await import('./channels/monitoring/ChannelRealtimeMonitor');
+    await import('@modules/channels/monitoring/ChannelRealtimeMonitor');
   getChannelRealtimeMonitor().stop();
   const { channelBootstrapper } =
-    await import('./channels/bootstrap/ChannelBootstrapper');
+    await import('@modules/channels/bootstrap/ChannelBootstrapper');
   await channelBootstrapper.disposeAll();
   // 多租户 P3：租户通道实例不在 bootstrapper 里 ⇒ 单独断开（失败不影响退出）
   try {
-    const { stopTenantChannels } = await import('./channels/setupChannels');
+    const { stopTenantChannels } =
+      await import('@modules/channels/setupChannels');
     await stopTenantChannels();
   } catch {
     // @ignore-catch — 租户通道断开失败不阻塞退出
@@ -561,7 +562,7 @@ async function gracefulMcpShutdown(): Promise<void> {
 async function gracefulProactiveShutdown(): Promise<void> {
   try {
     const { stopProactiveRuntime } =
-      await import('./proactive/ProactiveRuntime.js');
+      await import('@modules/proactive/ProactiveRuntime');
     await stopProactiveRuntime();
   } catch (err) {
     // @ignore-catch — 主动消息运行时停止失败不阻塞应用退出
@@ -1510,7 +1511,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
     // 关闭（`FEATURE_PROACTIVE=false`）时不建表、不启动扫描器、不投递。
     await wrapInit('ProactiveRuntime', async () => {
       const { startProactiveRuntime } =
-        await import('./proactive/ProactiveRuntime.js');
+        await import('@modules/proactive/ProactiveRuntime');
       if (await startProactiveRuntime()) {
         logger.info('主动消息运行时已启动');
       }
@@ -1735,9 +1736,10 @@ export async function launch(options: LaunchOptions): Promise<void> {
       // PR4 遗留-⑨（2026-10-09，`.trae/specs/dedup-message-state.md`）：去重**处理态落盘** +
       // 启动期 hydrate —— 跨重启仍能阻断同 `messageId` 的渠道重传（防重启窗口内重复计费）。
       // 写盘为 best-effort；未接入 ⇒ 纯内存（默认零行为变更）。
-      const { getDedupStore } = await import('./channels/dedup/DedupStore.js');
+      const { getDedupStore } =
+        await import('@modules/channels/dedup/DedupStore.js');
       const { hydrateFromDedupStore } =
-        await import('./channels/dedup/index.js');
+        await import('@modules/channels/dedup/index.js');
       await hydrateFromDedupStore(getDedupStore());
     });
 

@@ -9,12 +9,12 @@
  */
 import { describe, expect, it } from 'bun:test';
 
-import type { ChatSession } from '../../src/session/types/session';
+import type { ChatSession } from '@modules/session/types/session';
 import { DataSessionStatus } from '@openliri/kernel';
 import type { Principal } from '@openliri/kernel/identity/principal';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope';
 import { SessionLifecycleManager } from '../../src/chat/services/SessionLifecycleManager';
-import type { SessionGateway } from '../../src/session/SessionGateway';
+import type { SessionGateway } from '@modules/session/SessionGateway';
 import type { SessionAccessFacade } from '../../src/chat/services/SessionAccessFacade';
 import type { HookChainManager } from '../../src/hooks';
 import type { MessageService } from '../../src/chat/services/MessageService';

@@ -18,7 +18,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { createQQChannel } from '../../src/channels/qq/QQChannel';
+import { createQQChannel } from '@modules/channels/qq/QQChannel';
 
 const realFetch = globalThis.fetch;
 

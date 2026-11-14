@@ -730,4 +730,25 @@ export async function registerAllSpis(
     const { getTitleGenerator } = await import('@modules/agent');
     registerRuntimeTitleGeneratorFactory(() => getTitleGenerator());
   }
+
+  // ---- channels 组合根端口（拆包前置 P0，2026-11-13）----
+  // `channels` 迁入 `packages/channels` 后不再直连 app 单例：入站路由所需的
+  // `chatStream` / `resolveInteraction` 经注入缝取实现（同 P37 推送模型）。
+  {
+    const { registerChannelCoreApiProvider } =
+      await import('@modules/channels/runtimePorts');
+    const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
+    registerChannelCoreApiProvider(() => getCoreAPI());
+  }
+
+  // ---- session 工具作用域端口（P1，2026-11-13）----
+  // `session` 并入 `packages/service` 后不再动态 import app 的 `tool/ToolScopeManager`
+  // （否则断链 + service→app 倒挂）；剪枝时的会话级 scope 回收经此注入。
+  {
+    const { registerToolScopeDisposer } =
+      await import('@modules/session/toolScopePort');
+    const { toolScopeManager } =
+      await import('@modules/tool/ToolScopeManager.js');
+    registerToolScopeDisposer(toolScopeManager);
+  }
 }

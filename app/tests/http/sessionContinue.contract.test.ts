@@ -18,7 +18,7 @@ import * as coreAPIModule from '../../src/runtime/api/CoreAPIImpl';
 import {
   getBudgetSuspendCoordinator,
   resetBudgetSuspendForTest,
-} from '../../src/query/budgetSuspend';
+} from '@modules/query/budgetSuspend';
 
 const FLAG = 'FEATURE_GUARD_SUSPEND';
 

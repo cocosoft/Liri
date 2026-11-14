@@ -14,13 +14,13 @@ import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import {
   getBudgetSuspendCoordinator,
   resetBudgetSuspendForTest,
-} from '../../src/query/budgetSuspend';
+} from '@modules/query/budgetSuspend';
 import {
   isGuardSuspendEnabled,
   registerGuardSuspend,
   guardSuspendFromEntropy,
   continueSuspendedSession,
-} from '../../src/query/guardSuspend';
+} from '@modules/query/guardSuspend';
 
 const FLAG = 'FEATURE_GUARD_SUSPEND';
 

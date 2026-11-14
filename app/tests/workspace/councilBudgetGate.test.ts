@@ -17,7 +17,7 @@ import { CouncilOrchestrator } from '../../src/workspace/CouncilOrchestrator';
 import {
   getDailyBudget,
   resetDailyBudgetForTest,
-} from '../../src/query/DailyBudgetManager';
+} from '@modules/query/DailyBudgetManager';
 
 const SID = 'sess-council-budget';
 const agents = [{ agentId: 'a1', name: 'A1', expertise: [], weight: 1 }];

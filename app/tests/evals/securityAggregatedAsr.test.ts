@@ -20,8 +20,8 @@
 // SOFTWARE.
 
 import { describe, expect, it } from 'bun:test';
-import { summarizeSecurity, summarizeTask } from '../../src/evals/scoring';
-import type { EvalAttempt, EvalTask } from '../../src/evals/types';
+import { summarizeSecurity, summarizeTask } from '@modules/evals/scoring';
+import type { EvalAttempt, EvalTask } from '@modules/evals/types';
 
 /**
  * 论文 A3（`.trae/specs/eval-security-injection-ab-gate.md`）T1：**聚合 ASR（Max 口径）**。

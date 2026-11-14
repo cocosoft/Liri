@@ -29,7 +29,7 @@
  */
 import { describe, expect, it } from 'bun:test';
 
-import { pickChannelBinding } from '../../src/channels/binding';
+import { pickChannelBinding } from '@modules/channels/binding';
 
 describe('pickChannelBinding — 入站元数据 → 渠道绑定', () => {
   it('四个字段齐全 ⇒ 全部带出（channel → channelId）', () => {

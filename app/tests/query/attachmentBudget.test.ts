@@ -9,7 +9,7 @@ import {
   ATTACHMENT_BYTES_PER_TOKEN,
   estimateAttachmentTokens,
   estimateAttachmentsTokens,
-} from '../../src/query/attachmentBudget.js';
+} from '@modules/query/attachmentBudget.js';
 
 describe('附件 → 预算折算（阶段 1.3）', () => {
   it('折算比常量 = 4 bytes/token（保守下限）', () => {

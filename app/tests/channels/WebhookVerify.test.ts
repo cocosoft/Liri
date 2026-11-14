@@ -25,7 +25,7 @@
  */
 
 import { describe, expect, it } from 'bun:test';
-import { verifyWebhookRequest } from '../../src/channels/webhook/WebhookChannel';
+import { verifyWebhookRequest } from '@modules/channels/webhook/WebhookChannel';
 
 const SECRET = 'whsec_test_123';
 

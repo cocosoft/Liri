@@ -415,7 +415,7 @@ export class WriteProjectFileTool {
           try {
             if (isDeliverablePath(targetRelative)) {
               const { ProjectArtifactStore } =
-                await import('../../project/ProjectArtifactStore.js');
+                await import('@modules/project/ProjectArtifactStore');
               const artifactStore = new ProjectArtifactStore(
                 join(resolveDataDir(), 'projects')
               );

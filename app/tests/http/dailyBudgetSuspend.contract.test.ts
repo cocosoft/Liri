@@ -18,7 +18,7 @@ import {
   getBudgetSuspendCoordinator,
   resetBudgetSuspendForTest,
   SUSPEND_TTL_MS,
-} from '../../src/query/budgetSuspend';
+} from '@modules/query/budgetSuspend';
 
 function createReq(method: string, url: string): http.IncomingMessage {
   return { method, url } as unknown as http.IncomingMessage;

@@ -15,7 +15,7 @@ import { describe, expect, it } from 'bun:test';
 import {
   createChatManagerTAORDeps,
   type ChatManagerTAORContext,
-} from '../../src/query/ChatManagerTAORAdapter.js';
+} from '@modules/query/ChatManagerTAORAdapter.js';
 
 const SID = 'sess-interaction';
 const FIVE_MIN_MS = 5 * 60 * 1000;

@@ -9,8 +9,8 @@ import { describe, expect, it } from 'bun:test';
 import {
   resolveProactiveTarget,
   type ProactiveTargetConfigPort,
-} from '../../src/proactive/ProactiveTargetResolver';
-import { buildCronProactivePayload } from '../../src/proactive/ProactiveCronProducer';
+} from '@modules/proactive/ProactiveTargetResolver';
+import { buildCronProactivePayload } from '@modules/proactive/ProactiveCronProducer';
 
 function port(values: Record<string, unknown>): ProactiveTargetConfigPort {
   return {

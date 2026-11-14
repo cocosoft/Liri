@@ -34,7 +34,7 @@ import { join } from 'node:path';
 import {
   FileCheckpointStorage,
   resetCheckpointEvictLogThrottleForTest,
-} from '../../src/session/storage/FileCheckpointStorage';
+} from '@modules/session/storage/FileCheckpointStorage';
 import { getLogger } from '@openliri/infra/monitoring';
 import { CHECKPOINT_MAX_AUTO } from '@modules/session/types/checkpoint';
 import type { SessionCheckpoint } from '@modules/session/types/checkpoint';

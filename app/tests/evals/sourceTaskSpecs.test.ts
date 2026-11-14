@@ -43,8 +43,8 @@ import {
   discoverSourceCandidates,
   resolveEvalRepoRoot,
   stubFromSource,
-} from '../../src/evals/sourceTask';
-import { sourceTaskSpecs } from '../../src/evals/tasks/source-derived';
+} from '@modules/evals/sourceTask';
+import { sourceTaskSpecs } from '@modules/evals/tasks/source-derived';
 
 const repoRoot = resolveEvalRepoRoot();
 

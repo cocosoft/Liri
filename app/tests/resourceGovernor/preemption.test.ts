@@ -19,8 +19,8 @@ import { afterEach, describe, expect, it } from 'bun:test';
 import {
   ResourceGovernor,
   selectPreemptionVictim,
-} from '../../src/resourceGovernor/index';
-import type { InFlightEntry } from '../../src/resourceGovernor/index';
+} from '@modules/resourceGovernor';
+import type { InFlightEntry } from '@modules/resourceGovernor';
 
 const ENV = 'FEATURE_RESOURCE_GOVERNOR';
 const ORIGINAL = process.env[ENV];

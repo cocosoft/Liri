@@ -39,7 +39,7 @@ import {
   type ContextEntry,
   type ContextQuery,
   type ContextResult,
-} from '../context-engine/ContextEngine';
+} from '@modules/context-engine';
 import type { ContextData } from './types/ContextData';
 import type { Context } from './types/Context';
 

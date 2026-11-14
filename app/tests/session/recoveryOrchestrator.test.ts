@@ -9,9 +9,9 @@ import { describe, test, expect } from 'bun:test';
 import {
   RecoveryOrchestrator,
   type RecoveryPorts,
-} from '../../src/session/recovery/RecoveryOrchestrator';
-import type { CrashRecoveryResult } from '../../src/session/recovery/CrashRecoveryManager';
-import type { LineageRebuildStats } from '../../src/session/lineage/sessionLineage';
+} from '@modules/session/recovery/RecoveryOrchestrator';
+import type { CrashRecoveryResult } from '@modules/session/recovery/CrashRecoveryManager';
+import type { LineageRebuildStats } from '@modules/session/lineage/sessionLineage';
 
 function crashResult(): CrashRecoveryResult {
   return {

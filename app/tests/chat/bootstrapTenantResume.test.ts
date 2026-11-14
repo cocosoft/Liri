@@ -22,17 +22,17 @@ import {
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import type { Principal } from '@openliri/kernel/identity/principal.js';
 import { resetScopedResourcesForTest } from '@openliri/kernel/identity/scopedResources.js';
-import { DBTAORCheckpointStorage } from '../../src/query/DBTAORCheckpointStorage.js';
-import { withScopedResumeManager } from '../../src/query/scopedResumeScan.js';
-import { TAORPhase } from '../../src/query/types.js';
-import type { TAORCheckpoint } from '../../src/query/types.js';
-import { TokenBudgetStatus } from '../../src/tokenBudget/TokenBudgetController.js';
-import type { TokenBudgetState } from '../../src/tokenBudget/TokenBudgetController.js';
+import { DBTAORCheckpointStorage } from '@modules/query/DBTAORCheckpointStorage.js';
+import { withScopedResumeManager } from '@modules/query/scopedResumeScan.js';
+import { TAORPhase } from '@modules/query/types.js';
+import type { TAORCheckpoint } from '@modules/query/types.js';
+import { TokenBudgetStatus } from '@modules/tokenBudget/TokenBudgetController.js';
+import type { TokenBudgetState } from '@modules/tokenBudget/TokenBudgetController.js';
 import { AuthUserStore } from '../../src/infrastructure/http/auth/AuthUserStore.js';
 import { __setAuthUserStoreForTest } from '../../src/infrastructure/http/handlers/auth-handlers.js';
 import { ChatBootstrap } from '../../src/chat/manager/bootstrap.js';
 import type { ChatBootstrapDeps } from '../../src/chat/manager/bootstrap.js';
-import type { TAORLoop } from '../../src/query/TAORLoop.js';
+import type { TAORLoop } from '@modules/query/TAORLoop.js';
 
 const budgetState: TokenBudgetState = {
   status: TokenBudgetStatus.NORMAL,

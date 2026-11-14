@@ -16,12 +16,12 @@ import {
   checkVarianceSampling,
   compareRunVariance,
   formatRunVariance,
-} from '../../src/evals/runVariance';
+} from '@modules/evals/runVariance';
 import type {
   EvalAttempt,
   EvalTask,
   EvalTaskResult,
-} from '../../src/evals/types';
+} from '@modules/evals/types';
 
 /** 用 pass^1 造一条结果（attempts 只为形状完整；噪声数可指定） */
 function result(

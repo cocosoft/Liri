@@ -37,15 +37,15 @@ import {
   countSelfVerification,
   countStalledRepeats,
   draftingRatio,
-} from '../../src/evals/behaviorMetrics';
-import { writeReport } from '../../src/evals/report';
-import { isAsExpected } from '../../src/evals/scoring';
+} from '@modules/evals/behaviorMetrics';
+import { writeReport } from '@modules/evals/report';
+import { isAsExpected } from '@modules/evals/scoring';
 import type {
   EvalRunSummary,
   EvalTask,
   EvalTaskResult,
   ToolCallRecord,
-} from '../../src/evals/types';
+} from '@modules/evals/types';
 
 function call(name: string, args?: Record<string, unknown>): ToolCallRecord {
   return { name, args };

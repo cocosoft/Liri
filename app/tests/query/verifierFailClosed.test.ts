@@ -13,8 +13,8 @@
  * `failClosed:false` / `FEATURE_VERIFIER_FAIL_CLOSED=false` 回退旧行为（灰度）。
  */
 import { describe, it, expect } from 'bun:test';
-import { VerifierAgent } from '../../src/query/VerifierAgent.js';
-import type { VerificationInput } from '../../src/query/VerifierAgent.js';
+import { VerifierAgent } from '@modules/query/VerifierAgent.js';
+import type { VerificationInput } from '@modules/query/VerifierAgent.js';
 
 const INPUT: VerificationInput = {
   messages: [{ role: 'user', content: 'do it' }],

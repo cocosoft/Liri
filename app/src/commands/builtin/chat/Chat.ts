@@ -22,8 +22,8 @@ import { resolveModelRoute, RouteKey } from '@modules/ai';
 import { estimateMessagesTokens } from '@modules/ai';
 import { handleError } from '@openliri/infra/error';
 // G-2/M（2026-10-11，Spec §5-D-1 M）：CLI `/chat` 的日预算闸门与计账
-import { recordDailyBudgetFromUsage } from '../../../query/DailyBudgetManager';
-import { resolveEntryBudgetDenial } from '../../../query/dailyBudgetGate';
+import { recordDailyBudgetFromUsage } from '@modules/query/DailyBudgetManager';
+import { resolveEntryBudgetDenial } from '@modules/query/dailyBudgetGate';
 
 const logger = getLogger('Chat');
 

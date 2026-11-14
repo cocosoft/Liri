@@ -22,8 +22,8 @@
 import { describe, expect, it } from 'bun:test';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
-import { CHANNEL_CATALOG } from '../../src/channels/ChannelCatalog';
-import type { ChannelCapabilities } from '../../src/channels/types';
+import { CHANNEL_CATALOG } from '@modules/channels/ChannelCatalog';
+import type { ChannelCapabilities } from '@modules/channels/types';
 
 /**
  * R11 **通道能力契约矩阵**（第九轮审查 §5.2）。

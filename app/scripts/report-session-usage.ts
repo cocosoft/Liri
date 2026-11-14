@@ -26,7 +26,7 @@
  */
 
 import type { LiriEvent } from '@modules/session/types/events';
-import { EventLogStorage } from '../src/session/storage/EventLogStorage';
+import { EventLogStorage } from '@modules/session/storage/EventLogStorage';
 
 /** 单次请求的用量样本（来自 `metric/timing` stage='request'） */
 export interface RequestUsageSample {

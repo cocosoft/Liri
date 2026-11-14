@@ -471,7 +471,7 @@ export class ChatStreamResume {
       );
 
       const { toolResultRegistry } =
-        await import('../../tool/ToolResultRegistry.js');
+        await import('@modules/tool/ToolResultRegistry.js');
       const toolLoopCtx = {
         session,
         options: {},

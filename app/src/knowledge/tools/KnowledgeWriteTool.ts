@@ -29,7 +29,7 @@ import { Tool, ToolParam, ToolInfo } from '../../tools/types/Tool';
 import { ToolResult, ToolExecutionStatus } from '../../tools/types/ToolResult';
 import { ToolUseContext } from '../../tools/types/ToolUseContext';
 import { KnowledgeBaseWriter } from '../KnowledgeBaseWriter';
-import { knowledgeDocsProvider } from '../../docs/FileDocsProvider';
+import { knowledgeDocsProvider } from '@modules/docs/FileDocsProvider';
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { globalEventBus } from '@openliri/kernel';

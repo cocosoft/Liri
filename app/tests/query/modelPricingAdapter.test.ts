@@ -16,8 +16,8 @@ import { describe, it, expect } from 'bun:test';
 import {
   resolveModelPricing,
   estimateTurnCostUsd,
-} from '../../src/query/modelPricingAdapter';
-import type { ModelPricingLookup } from '../../src/query/modelPricingAdapter';
+} from '@modules/query/modelPricingAdapter';
+import type { ModelPricingLookup } from '@modules/query/modelPricingAdapter';
 import { DEFAULT_MODEL_PRICING } from '@openliri/kernel/pricing';
 
 /** 已知模型 DTO（结构满足 AI SPI 的 `AiModelPricingDto`） */

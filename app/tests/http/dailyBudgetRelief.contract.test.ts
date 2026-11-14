@@ -20,7 +20,7 @@ import { getConfigManager } from '@openliri/infra/config';
 import {
   getDailyBudget,
   resetDailyBudgetForTest,
-} from '../../src/query/DailyBudgetManager';
+} from '@modules/query/DailyBudgetManager';
 
 /** 最小 req：仅满足 `readBody` 的 `data`/`end` 契约（注册 `end` 时才派发）。 */
 function createReq(

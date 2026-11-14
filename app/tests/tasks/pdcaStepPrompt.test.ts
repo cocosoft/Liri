@@ -9,8 +9,8 @@
 
 import { describe, expect, it } from 'bun:test';
 import { PlanDrivenLoop } from '../../src/tasks/PlanDrivenLoop';
-import type { TAORLoopDeps } from '../../src/query/TAORLoop';
-import type { TAORLoop } from '../../src/query/TAORLoop';
+import type { TAORLoopDeps } from '@modules/query/TAORLoop';
+import type { TAORLoop } from '@modules/query/TAORLoop';
 
 type PromptBuilder = {
   _buildStepPrompt: (

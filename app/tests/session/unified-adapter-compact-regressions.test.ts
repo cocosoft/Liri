@@ -2,11 +2,11 @@
 // Copyright (c) 2026 190615273@qq.com
 
 import { describe, it, expect } from 'bun:test';
-import { UnifiedStorageAdapter } from '../../src/session/storage/UnifiedStorageAdapter';
-import type { UnifiedSessionStorage } from '../../src/session/storage/UnifiedStorage';
+import { UnifiedStorageAdapter } from '@modules/session/storage/UnifiedStorageAdapter';
+import type { UnifiedSessionStorage } from '@modules/session/storage/UnifiedStorage';
 import { AppError } from '@openliri/infra/error/types';
-import { createChatManagerTAORDeps } from '../../src/query/ChatManagerTAORAdapter';
-import type { ChatManagerTAORContext } from '../../src/query/ChatManagerTAORAdapter';
+import { createChatManagerTAORDeps } from '@modules/query/ChatManagerTAORAdapter';
+import type { ChatManagerTAORContext } from '@modules/query/ChatManagerTAORAdapter';
 
 /**
  * M3 回归：UnifiedStorageAdapter.compactSession 由静默 no-op 改为显式抛

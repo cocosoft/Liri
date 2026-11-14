@@ -8,7 +8,7 @@ import { afterAll, describe, expect, test } from 'bun:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PairingStore } from '../../src/channels/policy/PairingStore';
+import { PairingStore } from '@modules/channels/policy/PairingStore';
 
 const dirs: string[] = [];
 

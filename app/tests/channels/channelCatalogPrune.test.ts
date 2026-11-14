@@ -16,7 +16,7 @@ import {
   CHANNEL_CATALOG,
   describeChannelUnavailable,
   isChannelDroppedByBuild,
-} from '../../src/channels/ChannelCatalog.js';
+} from '@modules/channels/ChannelCatalog.js';
 
 describe('ChannelCatalog · 编译期裁剪（DROP_CHANNEL_FEISHU / DROP_CHANNELS_ALL）', () => {
   it('飞书条目随开关有无（默认保留）', () => {

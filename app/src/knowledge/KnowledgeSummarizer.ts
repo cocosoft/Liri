@@ -32,7 +32,10 @@
 
 import { getDefaultDigestService } from '@modules/knowledge/KnowledgeDigestService';
 import { getLogger } from '@openliri/infra/monitoring';
-import type { IKnowledgeSearch, KnowledgeRoute } from '../docs/knowledge-types';
+import type {
+  IKnowledgeSearch,
+  KnowledgeRoute,
+} from '@modules/docs/knowledge-types';
 import type {
   KnowledgeSummary,
   KnowledgeQueryResult as KQR,

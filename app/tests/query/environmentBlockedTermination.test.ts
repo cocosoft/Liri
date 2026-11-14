@@ -8,13 +8,13 @@
  * 拍板结论（2026-10-26）：阻塞阈值 **2**；ruleId 只给用户与日志；**不自动**续跑。
  */
 import { describe, expect, spyOn, test } from 'bun:test';
-import { ReActLoop, classifyTurn } from '../../src/query/ReActLoop';
+import { ReActLoop, classifyTurn } from '@modules/query/ReActLoop';
 import type {
   ActResult,
   ReasonResult,
   ReActEvent,
   ReActState,
-} from '../../src/query/ReActLoop';
+} from '@modules/query/ReActLoop';
 import { resolveTerminationOutput } from '../../src/chat/terminationOutput.js';
 import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
 

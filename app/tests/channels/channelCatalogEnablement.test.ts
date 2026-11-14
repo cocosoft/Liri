@@ -11,7 +11,7 @@ import { describe, expect, it } from 'bun:test';
 import {
   CHANNEL_CATALOG,
   getChannelCatalogEntry,
-} from '../../src/channels/ChannelCatalog.js';
+} from '@modules/channels/ChannelCatalog.js';
 
 /** 期望判据语义：`all` = 全部凭据必须存在；`any` = 任一存在即可 */
 const EXPECTED: Record<string, { credentials: string[]; mode: 'all' | 'any' }> =

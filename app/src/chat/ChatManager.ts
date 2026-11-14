@@ -134,7 +134,7 @@ import { createCheckpointService } from './services/SessionCheckpointService.js'
 import { PlainTextCheckpoint } from './services/PlainTextCheckpoint.js';
 import { isCheckpointLogEnabled } from '@openliri/infra/config';
 import { HookChainManager } from '@modules/hooks';
-import { toolResultRegistry } from '../tool/ToolResultRegistry.js';
+import { toolResultRegistry } from '@modules/tool/ToolResultRegistry.js';
 import { ToolAwareClient } from '@modules/ai';
 import { trackUsage } from '@modules/ai';
 import {
@@ -239,7 +239,7 @@ import type { StopHookReason } from '@modules/query';
 import { TAORLoop } from '@modules/query';
 import { createChatAgentLoop } from './createAgentLoop.js';
 // B1-4 验收缝：仅用于类型标注（启动钩子的可注入实例）
-import type { YieldRegistry, YieldWaitingStore } from '../session/yield';
+import type { YieldRegistry, YieldWaitingStore } from '@modules/session/yield';
 // B1-4 验收缝：仅用于类型标注（启动钩子的可注入实例）
 import type { SettlementOutbox } from './yield/SettlementOutbox';
 // F2（2026-10-12，预算挂起续跑 Task 3）：活跃 TAORLoop 注册表入口（经 infrastructure barrel）。
@@ -670,7 +670,7 @@ export class ChatManagerImpl implements ChatManager {
       shouldPersistRecalculatedTotal(before, after),
     getCheckpointService: () => this._checkpointService,
     scanBudgetSuspendCheckpoints: async () => {
-      const { resumeManager } = await import('../query/ResumeManager.js');
+      const { resumeManager } = await import('@modules/query/ResumeManager.js');
       return resumeManager.scanBudgetSuspends();
     },
     installBudgetSuspendResume: () =>

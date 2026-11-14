@@ -26,8 +26,8 @@ import { CredentialStore } from '../../src/ai/credentials/CredentialStore.js';
 import {
   ScopedStorageRegistry,
   forgetScopedStoragesForTenant,
-} from '../../src/session/gateway/ScopedStorageRegistry.js';
-import type { UnifiedSessionStorage } from '../../src/session/storage/UnifiedStorage.js';
+} from '@modules/session/gateway/ScopedStorageRegistry.js';
+import type { UnifiedSessionStorage } from '@modules/session/storage/UnifiedStorage.js';
 import { costTracker } from '@openliri/infra/cost/CostTracker';
 import { purgeTenant } from '../../src/runtime/tenantPurge.js';
 

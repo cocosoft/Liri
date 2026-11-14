@@ -2108,6 +2108,21 @@ class ArchitectureLinter {
       'tasks/phases',
       'tasks/successCriteria',
       'query/patterns',
+      // P1（2026-11-14）：`project` 迁包后按需加载 `workspace` 的三个仓储（`ProjectStore` 在迁移路径、
+      // `ProjectItemStore`/`WorkItemStore` 在需求证据与迁移路径）；走 `@modules/workspace` 桶会把工作区
+      // 注册/扫描整面拉进这些按需路径 ⇒ 与 `tasks/goal` 同属「桶精确化」子入口。
+      'workspace/ProjectItemStore',
+      'workspace/ProjectStore',
+      'workspace/WorkItemStore',
+      // P1（2026-11-14）：`subagent` 迁包后 `TeammateManager` 读取并发上限（`tasks/limits` 零 I/O）。
+      // 走 `@modules/tasks` 桶会把 PlanDrivenLoop 等整条任务链拉进子代理管理器。
+      'tasks/limits',
+      // P1（2026-11-14）：`buddy` 迁包后 3 个**按需**子入口（梦境日志 / 成长持久化 / 梦境接线）由
+      // `domainSnapshotOps` 与 `init.ts` 动态加载；走 `@modules/buddy` 桶会把 sprites/notifications 等
+      // 渲染与通知面一并拉进启动链路 ⇒ 与 `tasks/goal` 同属「桶精确化」子入口。
+      'buddy/dreamLogStore',
+      'buddy/growthPersistence',
+      'buddy/dreamIntegration',
       // P2（2026-10-28）：身份化存储作用域 / 会话归属 / 输出护栏注册表从内核迁入 infra/security；
       // 三者都是**零 I/O 的纯策略实现**（无出向依赖，仅用 kernel 的 principal/requestScope 契约），
       // 走 `@modules/security` 桶会连带拉入鉴权/审计等重面 ⇒ 目录级/文件级规范子入口
@@ -2173,6 +2188,13 @@ class ArchitectureLinter {
       // 拉进 HTTP 启动路径（同 spec §3.7 记录的懒加载动机）⇒ 与 `core/spi`、`tasks/goal` 同属规范子入口。
       // 命名保持 PascalCase，以复用 eslint `module-registry/no-direct-module-import` 的 PascalCase 兜底。
       'channels/ChannelCatalog',
+      // P1（2026-11-13，session 并入 `packages/service`）：`runtime/api` 的取用面按**精确子路径**
+      // 直连 —— `storage`（EventLog / 消息投影）与 `ExecutionPhaseTracker`（标题/阶段）都是
+      // 窄接口。改走 `@modules/session` 桶会把整个会话面（网关 / FTS / 全量事件类型）拉进
+      // runtime 的启动面。搬包前这两条边在 `packages/service` 扫描根下不可见（session 不在该根内），
+      // 迁入后由本白名单显式登记（与 `channels/ChannelCatalog`、`core/taskStatus` 同口径）。
+      'session/storage',
+      'session/ExecutionPhaseTracker',
       // 零依赖叶子子入口（2026-10-01，台账 D-163）：`core/taskStatus` 只含 `TaskStatus`
       // 枚举 + `isTerminalTaskStatus`（**无任何 import**），但消费方横跨 core/infra/app
       // （`state/task/TaskStateMachine` 构造状态转移表、`core/Coordinator`、`tasks/*`）。
@@ -2258,6 +2280,13 @@ class ArchitectureLinter {
       'components/ui', // 保留：同上
       'knowledge/frontmatter', // 保留：改走 @modules/knowledge 桶会经 knowledge/tools 回到 docs/FileDocsProvider 自身（自环）——见上
       'governance/managers', // 保留：改走 @modules/governance 桶构成 tools ↔ governance 双向环——见上
+      // 2026-11-14（dream 迁入 packages/dream）：4 个**叶子**入口 —— 消费点均为**动态/按需**加载
+      // （`ep/init` 预加载、`runtime/api/domainSnapshotOps` HTTP 按需、测试），走 `@modules/dream` 桶会把
+      // engine / scheduler / unified cycle 整条面拉进处理器路径与启动图。
+      'dream/DreamEngine',
+      'dream/DreamPersistence',
+      'dream/DreamCycleDb',
+      'dream/DreamMetrics',
     ]);
 
     // 目标模块无 index.ts（无统一出口）→ 子路径导入是唯一方式，非违规（2026-08-29）

@@ -6,13 +6,13 @@
 import {
   getDefaultClaudeConfig,
   validateClaudeConfig,
-} from '../../src/channels/claude/config-schema';
+} from '@modules/channels/claude/config-schema';
 import {
   getClaudeAccount,
   listClaudeAccountIds,
   registerClaudeAccount,
   removeClaudeAccount,
-} from '../../src/channels/claude/accounts';
+} from '@modules/channels/claude/accounts';
 import { describeChannelBasics } from './support/channelBasics';
 
 describeChannelBasics({

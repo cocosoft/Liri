@@ -13,8 +13,8 @@
  *  ② 本轮无 usage ⇒ **不记账**（fail-open，不误杀）。
  */
 import { describe, expect, it } from 'bun:test';
-import { TAORLoop } from '../../src/query/TAORLoop';
-import type { QueryEngine } from '../../src/query/QueryEngine';
+import { TAORLoop } from '@modules/query/TAORLoop';
+import type { QueryEngine } from '@modules/query/QueryEngine';
 
 /** 测试可访问的私有成员（避免使用 any；沿用 L1 用例的 Testable 写法） */
 interface TestableLoop {

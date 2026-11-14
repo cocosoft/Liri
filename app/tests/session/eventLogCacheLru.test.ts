@@ -18,7 +18,7 @@
  */
 import { describe, test, expect } from 'bun:test';
 import { ChatEventLogStore } from '../../src/chat/manager/eventLogStore';
-import { EventLogStorage } from '../../src/session/storage/EventLogStorage';
+import { EventLogStorage } from '@modules/session/storage/EventLogStorage';
 
 /** 承载私有字段的最小 host（原型方法经 Reflect 以它为 this 调用） */
 interface CacheHost {

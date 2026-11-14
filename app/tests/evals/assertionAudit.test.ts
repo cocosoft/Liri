@@ -12,8 +12,8 @@ import { mkdtempSync, readFileSync, rmSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'bun:test';
-import { auditAssertions } from '../../src/evals/assertionAudit';
-import type { EvalTask, EquivalentVariantKind } from '../../src/evals/types';
+import { auditAssertions } from '@modules/evals/assertionAudit';
+import type { EvalTask, EquivalentVariantKind } from '@modules/evals/types';
 
 const root = mkdtempSync(join(tmpdir(), 'a6-audit-'));
 const ctx = {

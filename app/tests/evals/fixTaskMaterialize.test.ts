@@ -37,13 +37,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 
-import { buildFixTask } from '../../src/evals/fixTaskMaterialize';
-import { resolveGitExecutable } from '../../src/evals/externalExecutables';
+import { buildFixTask } from '@modules/evals/fixTaskMaterialize';
+import { resolveGitExecutable } from '@modules/evals/externalExecutables';
 import {
   discoverFixCommits,
   selectFixCandidates,
-} from '../../src/evals/fixTaskScreening';
-import type { EvalContext, EvalTask } from '../../src/evals/types';
+} from '@modules/evals/fixTaskScreening';
+import type { EvalContext, EvalTask } from '@modules/evals/types';
 
 const execFileAsync = promisify(execFile);
 const scratchRoots: string[] = [];

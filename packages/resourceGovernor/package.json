@@ -1,0 +1,20 @@
+{
+  "name": "@openliri/resourceGovernor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liri 资源治理包 —— 在飞会话登记 / 并发上限观测 / 抢占与排队（P26-1）。层归属 app：可依赖 app / service / infra / core；entry / ui 不得依赖本包，包内不得依赖 entry / ui 层（R25）。",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/resourceGovernor/index.ts",
+      "import": "./src/resourceGovernor/index.ts"
+    },
+    "./*": {
+      "types": "./src/resourceGovernor/*.ts",
+      "import": "./src/resourceGovernor/*.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p ../../app/tsconfig.json"
+  }
+}

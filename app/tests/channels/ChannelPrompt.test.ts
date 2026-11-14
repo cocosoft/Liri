@@ -8,7 +8,7 @@ import {
   getAllChannelPrompts,
   renderChannelPrompt,
   registerChannelPrompt,
-} from '../../src/channels/platform/ChannelPromptTemplates';
+} from '@modules/channels/platform/ChannelPromptTemplates';
 
 describe('ChannelPromptTemplates', () => {
   describe('getChannelPrompt', () => {

@@ -29,7 +29,7 @@
  */
 import { describe, expect, it } from 'bun:test';
 
-import { evaluateTurnUsdPreflight } from '../../src/query/turnUsdPreflight';
+import { evaluateTurnUsdPreflight } from '@modules/query/turnUsdPreflight';
 
 describe('evaluateTurnUsdPreflight', () => {
   it('usd：已用 + 本轮估算 > 上限 ⇒ 拒绝，并给出预估占比', () => {

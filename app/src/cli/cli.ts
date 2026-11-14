@@ -4,7 +4,7 @@
 import { getUIEnhancer } from '../ui/UIEnhancer';
 import { getToolManager } from '@modules/tools';
 import { profileReport } from '@openliri/infra/performance/StartupProfiler';
-import { SkillRegistry } from '../skills/SkillRegistry';
+import { SkillRegistry } from '@modules/skills/SkillRegistry';
 import { BundledSkillLoader } from '@modules/skills';
 
 import { getLogger } from '@openliri/infra/monitoring';

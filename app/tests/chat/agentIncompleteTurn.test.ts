@@ -21,7 +21,7 @@ import {
   type AgentIncompleteTurnDeps,
   type IncompleteRetries,
 } from '../../src/chat/agentIncompleteTurn.js';
-import type { ReasonResult, ToolCallEntry } from '../../src/query/ReActLoop.js';
+import type { ReasonResult, ToolCallEntry } from '@modules/query/ReActLoop.js';
 import type { ToolLoopContext } from '../../src/chat/ToolLoopRunner.js';
 import { CONTINUATION_TEMPLATES } from '@openliri/infra/constants/goalTemplates';
 

@@ -23,10 +23,10 @@ import {
 } from '../../src/infrastructure/http/handlers/auth-handlers.js';
 import { withRequestIdentity } from '../../src/infrastructure/http/requestIdentity.js';
 
-import type { ChatSession } from '../../src/session/types/session';
+import type { ChatSession } from '@modules/session/types/session';
 import { DataSessionStatus } from '@openliri/kernel';
 import { SessionLifecycleManager } from '../../src/chat/services/SessionLifecycleManager';
-import type { SessionGateway } from '../../src/session/SessionGateway';
+import type { SessionGateway } from '@modules/session/SessionGateway';
 import type { SessionAccessFacade } from '../../src/chat/services/SessionAccessFacade';
 import type { HookChainManager } from '../../src/hooks';
 import type { MessageService } from '../../src/chat/services/MessageService';

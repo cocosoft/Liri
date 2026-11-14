@@ -28,9 +28,15 @@ const repoRoot = process.env.ENTRYPOINTS_REPO_ROOT
 const REGISTRY = process.env.ENTRYPOINTS_REGISTRY
   ? resolve(process.env.ENTRYPOINTS_REGISTRY)
   : resolve(repoRoot, '.trae/architecture/execution-entrypoints.json');
-const SCAN_ROOT = process.env.ENTRYPOINTS_SCAN_ROOT
-  ? resolve(process.env.ENTRYPOINTS_SCAN_ROOT)
-  : resolve(repoRoot, 'app/src');
+const SCAN_ROOTS: string[] = process.env.ENTRYPOINTS_SCAN_ROOT
+  ? [resolve(process.env.ENTRYPOINTS_SCAN_ROOT)]
+  : [
+      resolve(repoRoot, 'app/src'),
+      // P1（2026-11-13）：`channels` 迁入 `packages/channels` 后，其入站路由入口
+      // （`routing/messageRouter.ts`）仍在登记表里 —— 不纳入扫描面会被判成"登记漂移"
+      // （AR-3：门禁不得因搬目录而失焦）。
+      resolve(repoRoot, 'packages/channels/src'),
+    ];
 
 interface Pattern {
   id: string;
@@ -101,7 +107,7 @@ function collectTs(dir: string, out: string[] = []): string[] {
 
 const norm = (p: string): string => relative(repoRoot, p).split('\\').join('/');
 
-const files = collectTs(SCAN_ROOT);
+const files = SCAN_ROOTS.flatMap((root) => collectTs(root));
 const found = new Map<string, Set<string>>(); // file -> patternIds
 for (const file of files) {
   const content = readFileSync(file, 'utf8');

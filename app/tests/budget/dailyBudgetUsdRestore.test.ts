@@ -12,8 +12,11 @@
 
 import { describe, it, expect } from 'bun:test';
 import { readFileSync } from 'fs';
-import { join } from 'path';
-import { DailyBudgetManager } from '../../src/query/DailyBudgetManager.js';
+import { resolve } from 'path';
+import { DailyBudgetManager } from '@modules/query/DailyBudgetManager.js';
+import { queryPath } from '../../../scripts/lib/queryPaths';
+
+const REPO_ROOT = resolve(__dirname, '..', '..', '..');
 
 describe('USD 台账：restore 往返（重启不丢）', () => {
   it('① 同一天恢复 ⇒ usedUsd / debtUsd 如实回填（不再恒为 0）', () => {
@@ -44,7 +47,7 @@ describe('USD 台账：restore 往返（重启不丢）', () => {
 
   it('③ 源码守卫：恢复实现必须透传 usedUsd / debtUsd（且启动路径确实走它）', () => {
     const src = readFileSync(
-      join(__dirname, '..', '..', 'src', 'query', 'DailyBudgetManager.ts'),
+      queryPath(REPO_ROOT, 'DailyBudgetManager.ts'),
       'utf-8'
     );
     // 2026-10-21（多租户 P1）：恢复逻辑抽为**唯一实现** `restorePersistedState`

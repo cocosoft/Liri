@@ -11,7 +11,7 @@ import {
 } from '@openliri/infra/permission/PermissionManager';
 // P1（2026-11-04）：判定唯一出口（归一为 PolicyDecision）
 import { resolvePolicy } from '@openliri/infra/permission';
-import { GovernanceManager } from '../governance/managers/GovernanceManager';
+import { GovernanceManager } from '@modules/governance/managers/GovernanceManager';
 import { ToolHookManager } from '@modules/hooks';
 import { ToolHookContext } from '../hooks/types/ToolHooks';
 import { v4 as uuidv4 } from 'uuid';
@@ -30,7 +30,7 @@ import {
 import type { ToolExecutionStats, ToolExecutionLog } from './types/ToolTypes';
 import { getOTelTracing } from '@openliri/infra/monitoring/otel/OTelTracing';
 import { Span, SpanStatusCode } from '@opentelemetry/api';
-import { toolScopeManager } from '../tool/ToolScopeManager';
+import { toolScopeManager } from '@modules/tool/ToolScopeManager';
 
 export interface ToolResultBlock {
   toolCallId: string;
@@ -1036,7 +1036,8 @@ export class ToolExecutor {
     }
     if (!sessionId) return;
     try {
-      const { getQueryLogStore } = await import('../query/QueryLogStore.js');
+      const { getQueryLogStore } =
+        await import('@modules/query/QueryLogStore.js');
       await getQueryLogStore()
         .log({
           sessionId,

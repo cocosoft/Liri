@@ -11,7 +11,7 @@
  * 提取路径，该处**无自动化守卫**，改动需手工核对（已记台账）。
  */
 import { describe, expect, it } from 'bun:test';
-import { createFileIOLoopDetector } from '../../src/query/FileIOLoopDetector';
+import { createFileIOLoopDetector } from '@modules/query/FileIOLoopDetector';
 
 describe('FileIOLoopDetector：清单与真实注册名对齐后真正生效', () => {
   it('真实读工具 file_read 连续读同一文件+同区域：第 3 次警告、第 4 次阻断', () => {

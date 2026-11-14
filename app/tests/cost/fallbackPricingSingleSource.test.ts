@@ -14,8 +14,10 @@ import { describe, it, expect } from 'bun:test';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { DEFAULT_MODEL_PRICING } from '@openliri/kernel/pricing';
-import { PriceManager } from '../../src/tokenBudget/PriceManager';
+import { PriceManager } from '@modules/tokenBudget/PriceManager';
+import { tokenBudgetPath } from '../../../scripts/lib/tokenBudgetPaths';
 
+const REPO_ROOT = join(import.meta.dir, '..', '..', '..');
 const SRC = join(import.meta.dir, '..', '..', 'src');
 const INFRA_SRC = join(
   import.meta.dir,
@@ -42,6 +44,11 @@ function readInfra(rel: string): string {
   return readStripped(join(INFRA_SRC, rel));
 }
 
+/** 已迁入 `packages/tokenBudget` 的源码（P1 拆包，2026-11-13） */
+function readTokenBudget(rel: string): string {
+  return readStripped(tokenBudgetPath(REPO_ROOT, rel));
+}
+
 describe('HD-P0-1：兜底价单一真源（core `DEFAULT_MODEL_PRICING`）', () => {
   it('① 行为：未登记模型的回落价 == core 真源（四项逐字相等）', () => {
     const r = new PriceManager().getPriceSync('__hd_p0_1_unknown_model__');
@@ -60,14 +67,14 @@ describe('HD-P0-1：兜底价单一真源（core `DEFAULT_MODEL_PRICING`）', ()
   });
 
   it('② 三处均引用真源（含 S1 已收编的 `cost/ModelPricing.ts`，防回退）', () => {
-    for (const rel of [
-      'tokenBudget/PriceManager.ts',
-      'ai/prompts/PromptCacheManager.ts',
-    ]) {
-      expect(readSrc(rel), `${rel} 未引用 core 兜底价真源`).toContain(
-        'DEFAULT_MODEL_PRICING'
-      );
-    }
+    expect(
+      readSrc('ai/prompts/PromptCacheManager.ts'),
+      'ai/prompts/PromptCacheManager.ts 未引用 core 兜底价真源'
+    ).toContain('DEFAULT_MODEL_PRICING');
+    expect(
+      readTokenBudget('PriceManager.ts'),
+      'tokenBudget/PriceManager.ts 未引用 core 兜底价真源'
+    ).toContain('DEFAULT_MODEL_PRICING');
     // `cost/ModelPricing.ts` 已于 P19 迁入 infra 包
     expect(
       readInfra('cost/ModelPricing.ts'),
@@ -76,7 +83,7 @@ describe('HD-P0-1：兜底价单一真源（core `DEFAULT_MODEL_PRICING`）', ()
   });
 
   it('③ 收编点不再各写一份数值（源码守卫：默认块内无旧字面量）', () => {
-    const pm = readSrc('tokenBudget/PriceManager.ts');
+    const pm = readTokenBudget('PriceManager.ts');
     expect(pm).not.toMatch(/inputPer1M:\s*3\b/);
     expect(pm).not.toMatch(/outputPer1M:\s*15\b/);
     expect(pm).not.toMatch(/cacheWritePer1M:\s*3\.75/);

@@ -9,7 +9,7 @@
 import { describe, expect, it } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { FileDocsProvider } from '../../src/docs/FileDocsProvider';
+import { FileDocsProvider } from '@modules/docs/FileDocsProvider';
 
 const APP_DIR = process.cwd();
 const STATUS_FILE = join(APP_DIR, '..', 'STATUS.md');

@@ -21,7 +21,7 @@
 
 # Spec：学习反馈闭环（Agentic 模式 #9 Learning and Adaptation）
 
-- **状态**：**M1 + M2 已落地（2026-11-15）**；M3（`evals --gate` 卡口与语料合入）仍为待办
+- **状态**：**M1 + M2 + M3（种子物料化与 `--gate` 卡口）已落地（2026-11-15）**；后续见 §5-M4
 - **来源**：`dev_docs/20261114/今日计划-2026-11-14.md` §4.1 逐项审计 —— 21 模式中 **#9 是唯一"部分"级缺口**（其余三处为有条件实现：#4 自校验档 / #17 ToT / #21 探索）
 - **关联 spec**：`online-quality-evaluation.md`（U4 在线打分，已有实现）· `cross-path-evaluation-write-side.md`（三路评价写入面，结论：**互不相通**）
 - **一句话**：把「有信号（turn/quality）→ 有离线评测（evals）→ 有制品（SOP）」三段接成**受控**闭环，中间补上缺失的**归因层**与**候选台账**。
@@ -49,7 +49,8 @@
 **目标（可验证）**
 - **G1 信号可达**：任意一次低分事件可在**一次命令**内定位到具体会话/轮次/证据（不改事件契约，只加读取面）。
 - **G2 归因可解释**：每个候选带**归因证据**（命中的信号分量 + 相关工具名/错误码），不接受"模型说它不好"当唯一依据。
-- **G3 制品可验证**：只有**经 `evals --gate` 未回归**的候选才允许进入待批准队列；评测用例类候选必须落为**可复跑语料**。
+- **G3 制品可验证**：进入语料的候选必须是**可复跑**的（`learning-case-*` L1 任务）；新增任务须在
+  `baseline.json` 登记后才能通过 `--gate`（未登记 ⇒ 门禁阻断）。批准与 `--gate` 的先后由人工掌握（§5-M3）。
 - **G4 上线受控**：任何改变模型行为的制品必须**人工批准**；带 `expiresAt` 与一键回滚。
 - **G5 闭环可度量**：拒绝率、采纳率、回归拦截数三者可查（沿用 `SopDraftStore.computeSopDraftStats` 的口径：未决不计入分母）。
 - **G6 主链零影响**：不增每轮 LLM 调用、不增 TTFB（沿用 U4 的"空闲期异步"裁定）。
@@ -100,8 +101,16 @@
 - 统计（M2）：`LearningCandidateStats { total, pending, verified, approved, rejected, rejectedShare }`
   （`rejectedShare = rejected / total`；无候选时为 `null`，不伪造 0%）
 
-### S4 离线验证（复用 `--gate`）
-- `eval_case`：新增语料必须能在**离线模式**复跑；合入前跑 `evals --gate`，对 `baseline.json` 回归则**阻断**（复用现有机制，不新造）。
+### S4 离线验证（复用 `--gate`；M3 已落地物料化 + 卡口）
+- **种子 → 语料（手工两步）**：
+  1. 人工给 `approved-cases.jsonl` 的 `expectation` 补**可逐字比对的判定片段**（不是整段自然语言期望）；
+  2. 执行 `bun run gen:learning-eval-cases -- --write`（在 `app/` 下；默认只预览）⇒ 生成
+     `packages/evals/src/evals/tasks/learning-cases.json`（**入库前人工脱敏**）。
+- **题集**：`tasks/learning-cases.ts` 在导入时读取该 JSON，按种子生成 `learning-case-<seedId>` 任务；
+  判据为 L1「回答包含期望片段」（空白归一后逐字比对），**不做语义相似度/LLM 判分**（与 `smoke.ts` 同口径）。
+- **卡口（复用既有 `checkGate`，不新造）**：新增任务在 `baseline.json` 中**未登记** ⇒ `--gate` 直接失败
+  （「基线中未登记该任务」）⇒ 必须跑一次记录 `pass^1` 后再登记基线，这是人的第二道门。
+- **跳过规则**（不编造判据）：已撤销 / `expectation` 为空 / `input` 为空 ⇒ 不成题，并按原因计数上报。
 - `sop`：以"批准后 SKILL.md 是否被真实调用 ≥N 次且未伴随低分"作为观察期判据（观察窗默认 7 天，可配）。
 - `prompt_snippet`：本阶段**不进入验证**（无注入面），只入库待议。
 
@@ -115,8 +124,8 @@
 ### S6 度量（拒绝占比回流）
 - **M1 + M2 已落地**：`LearningCandidateStats { total, pending, verified, approved, rejected, rejectedShare }`
   （四态计数；`rejectedShare = rejected / total`；无候选 ⇒ `null`）。
-- M3 计划：`gateBlocked`（被 `--gate` 拦下的候选数）；`rejectedShare` 连续 N 次高于阈值 ⇒
-  下调该 `category` 的候选产出（阈值上调），避免噪声候选淹没评审。
+- **仍待办**：`gateBlocked`（被 `--gate` 拦下的候选数，需从跑批报告回写台账）；`rejectedShare`
+  连续 N 次高于阈值 ⇒ 下调该 `category` 的候选产出（阈值上调），避免噪声候选淹没评审。
 
 ---
 
@@ -139,7 +148,8 @@
 | `gate?` | `{checkedAt, kind:'structural'}` | 结构化校验记录（`verified` 起有值） |
 | `expiresAt?` | number | 批准有效期（`approved` 起有值，默认 now + 30 天） |
 
-批准产物：`approved-cases.jsonl`（一行一条，`expectation` 恒为 `null`；撤销只写 `revokedAt`，不删行）。
+批准产物：`approved-cases.jsonl`（一行一条；M2 写入时 `expectation` 为 `null`，人工补齐后由
+`gen:learning-eval-cases` 物料化为 `learning-cases.json`；撤销只写 `revokedAt`，不删行）。
 
 > 取词带 `lc_` 前缀的理由与 `sop_` 相同：`pending` / `rejected` 是跨域通用词，直接登记会污染状态词汇表
 > （同 `SopDraftStore` 头部注释的既有裁定；`lint:state-ratchet` 会拦裸字面量）。
@@ -174,16 +184,35 @@
 | 轮次 ↔ 输入 | `collectTurnUserInputs()`（`userMessageSeq` 精确匹配，缺省取该 `turn/start` 之前最近一条） |
 | 命令 | `verify / approve / revoke <id> <原因> / export`；`scan` 读取类型加 `user/message` |
 
-**仍为零行为变更**：不写提示词、不装技能、**不改 `packages/evals` 语料**；种子只是待人工补期望的中间产物。
+**M2 时为零行为变更**：不写提示词、不装技能、**不改 `packages/evals` 语料**；种子只是待人工补期望的中间产物。
+（M3 起由**人工**脚本把补齐期望的种子落为语料，见下节。）
 
-### 5-M3 之后（需再裁定）
+### 5-M3 种子物料化与 `--gate` 卡口（已落地）
 
-`eval_case` 自动合入语料 + `evals --gate` 卡口（需模型与长耗时，人工执行）；`prompt_snippet` 注入面（另立红线 spec）；
-`sop` 观察期自动度量；到期未复核自动转 `lc_rejected`；`repeated_question` 需要事件契约扩展。
+| 件 | 落点 |
+|---|---|
+| 种子读取/过滤（纯函数） | `packages/evals/src/evals/tasks/learning-cases.ts` 的 `selectLearningCaseRecords()`（撤销 / 无期望 / 无输入 三类跳过；id 升序） |
+| 种子 → 题集 | `buildLearningCaseTasks()` / `toLearningCaseTask()`：`learning-case-<seedId>`，L1「回答包含期望片段」（空白归一） |
+| 语料文件 | `tasks/learning-cases.json`（**当前为空数组** ⇒ 对既有跑批零影响；由脚本生成，不入库前须人工脱敏） |
+| 转换脚本 | `app/scripts/gen-learning-eval-cases.ts`（`bun run gen:learning-eval-cases`；**默认只预览**，`--write` 才落盘；坏行计数上报） |
+| 题集接线 | `tasks/index.ts` 追加 `...learningCaseTasks` |
+| 卡口 | **复用** `checkGate`：未在 `baseline.json` 登记的新任务 ⇒ `--gate` 直接失败；登记需人工跑一次记录 `pass^1` |
+
+**为什么判据只做逐字比对**：`EvalTask` 的 L1/L2 是确定性断言，L3（LLM-as-judge）在本仓**未实现**
+（`types.ts` 头部口径）。用语义相似度当判据等于把"模型说它好"当唯一依据（违反 G2）⇒ 只接受
+**可逐字比对的片段**；语义类语料需先另立 L3 spec。
+
+**M3 验收（实测）**：新增 10 条单测全绿（跳过规则 3 + 断言口径 3 + 加载/构建 4）；
+脚本以 fixture 实测：3 条输入（含 1 坏行）⇒ 可成题 1 / 跳过 2（撤销 1、无期望 1），`--write` 产物与预期一致。
+
+### 5-M4 之后（需再裁定）
+
+`prompt_snippet` 注入面（另立红线 spec）；`sop` 观察期自动度量；到期未复核自动转 `lc_rejected`；
+`gateBlocked` 回写台账；`repeated_question` 需要事件契约扩展。
 
 ---
 
-## 6. 验收与门禁（M1 + M2）
+## 6. 验收与门禁（M1 + M2 + M3）
 
 | 项 | 判据 | 状态 |
 |---|---|---|
@@ -191,10 +220,13 @@
 | 状态词汇合规 | 只用 `lc_*` 前缀；命令层不写 `'error'`/`'text'` 等词汇表裸字面量 | ✅ |
 | 数据落盘 | 写入后可重读；`save` 幂等且不改写已决状态 | ✅ |
 | 批准前置 | 未 `verified` 的 `approve` 返回 `null` 且不写种子（命令层明确报错） | ✅ |
-| 种子可回溯 | 种子行 `expectation` 恒为 `null`、含该轮 `input`（若可取）；撤销只写 `revokedAt` 不删行 | ✅ |
-| 可回滚 | `revoke` 后候选转 `lc_rejected`；`/learn export` 显示有效 / 已撤销条数 | ✅ |
-| 零行为变更 | 无提示词/技能写入；`packages/evals` 语料零改动；`--gate` 仍由人工执行 | ✅ |
-| 变异验证 | 反转归因判定 ⇒ 相关单测转红（例如把 `verdict=REJECT` 分支去掉，`verifier_reject` 用例必红）；去掉 `verified` 前置 ⇒ 批准用例必红 | ✅（人工核对口径） |
+| 种子可回溯 | 种子行 `expectation` 由人工补、含该轮 `input`（若可取）；撤销只写 `revokedAt` 不删行 | ✅ |
+| 可回滚 | `revoke` 后候选转 `lc_rejected`；`/learn export` 显示有效 / 已撤销 / 可成题条数 | ✅ |
+| 语料可复现 | 同一 JSONL 两次转换产物逐字一致（id 升序 + 固定字段 + 原子写） | ✅ |
+| 不编造判据 | 无 `expectation` / 已撤销 / 无 `input` ⇒ 不成题，按原因计数上报 | ✅ |
+| 卡口 fail-closed | 未登记基线的新任务 ⇒ `--gate` 失败；语料文件存在但非数组 ⇒ 抛出 | ✅ |
+| 零行为变更 | 无提示词/技能写入；语料初始为空（0 条）⇒ 既有跑批逐字不变；`--gate` 由人工执行 | ✅ |
+| 变异验证 | 反转归因判定 ⇒ 相关单测转红（例如把 `verdict=REJECT` 分支去掉，`verifier_reject` 用例必红）；去掉 `verified` 前置 ⇒ 批准用例必红；把跳过规则去掉一条 ⇒ 语料用例必红 | ✅（人工核对口径） |
 
 ---
 
@@ -210,20 +242,27 @@
 
 ---
 
-## 8. 采用的默认裁定（用户两次回复均未逐条选择，按最保守口径执行）
+## 8. 采用的默认裁定（用户多次回复均未逐条选择，按最保守口径执行）
 
 **M1**
 1. **M1 不写 `eval_case` 语料文件** —— 只入库候选，不碰 `packages/evals` 语料（零行为变更优先）。
 2. **`prompt_snippet` 整类移出 M1** —— 无注入面，留到后续另立红线 spec。
 3. **观察期 7 天 / `expiresAt` 30 天** —— 保留为后续默认值（M1 未启用到期逻辑）。
 
-**M2（本轮「执行吧」同口径）**
+**M2（「执行吧」同口径）**
 4. **候选取库不自动落 `packages/evals` 语料** —— `approve` 只追加本地 `approved-cases.jsonl` **种子**，
    `expectation: null` 由人工补；合入与 `--gate` 由人工执行（避免本批引入模型依赖与长耗时门禁）。
 5. **批准前置 = 结构化校验，不是 `--gate`** —— `verify` 只查 id 可复算 / 分数 0..1 / 证据非空；
    `--gate` 卡口与"批准链接线顺序"留到 M3，在 spec 明写而非代码里留半成品。
 6. **`revoke` 必须写原因**，且种子行只标记 `revokedAt`、**不删行**（保留审计与可回滚）。
 7. **不扩事件契约** —— `repeated_question` 仍暂缓（`input` 配对复用既有 `turn/start` / `user/message` 字段）。
+
+**M3（本轮「执行吧」同口径）**
+8. **判据只做逐字比对** —— `learning-case-*` 用 L1「回答包含期望片段」（空白归一），不引入 L3 LLM 判分
+   （本仓 L3 未实现；语义判据需另立 spec，避免把"模型说它好"当唯一依据）。
+9. **语料初始为空数组入库** —— `learning-cases.json` 落 `[]`：既把读取/接线/卡口打通，又保证既有跑批**零变化**；
+   真实种子由人工 `--write` 落盘（默认只预览，防误提交隐私数据）。
+10. **不自动登记基线** —— 复用 `checkGate` 的「基线中未登记该任务」阻断；登记阈值由人工跑一次后录入。
 
 ---
 

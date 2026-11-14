@@ -365,15 +365,16 @@ export function createLearnCommand(deps: LearnCommandDeps) {
 
     export(): CommandResult {
       const cases = deps.store.listApprovedCases();
-      const active = cases.filter((c) => c.revokedAt === undefined).length;
-      const revoked = cases.length - active;
+      const active = cases.filter((c) => c.revokedAt === undefined);
+      const ready = active.filter((c) => (c.expectation ?? '').trim());
       return ok(
         [
           `语料种子：${deps.store.getApprovedCasesPath()}`,
-          `  条数 ${cases.length}（有效 ${active} / 已撤销 ${revoked}）`,
-          '  每行 expectation 为 null：需人工补齐期望后再合入 evals 语料并跑 --gate。',
+          `  条数 ${cases.length}（有效 ${active.length} / 已撤销 ${cases.length - active.length}）`,
+          `  可成题 ${ready.length}（expectation 已填且未撤销）`,
+          '  物料化：补 expectation 后执行 bun app/scripts/gen-learning-eval-cases.ts -- --write（落盘前先脱敏），再跑 evals --gate。',
         ].join('\n'),
-        { total: cases.length, active, revoked }
+        { total: cases.length, active: active.length, ready: ready.length }
       );
     },
   };

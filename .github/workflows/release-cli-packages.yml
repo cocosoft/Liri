@@ -148,3 +148,54 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           gh release upload "v${VERSION}" app/dist/cli-bin/* --clobber || \
             echo "⚠️ Release v${VERSION} 尚未创建 ⇒ 仅保留工作流 artifact"
+
+  # G2 剩余四期（2026-11-14）：standalone 清单（去 bun 前置）。
+  # 只有矩阵产物**齐全**才出清单：`gen-package-manifests.ts --standalone` 缺平台即退出 1。
+  # 合并后的 `SHA256SUMS` 覆盖各作业单独那份（后者只是构建期自检）。
+  standalone-manifests:
+    name: Standalone manifests (去 bun 前置)
+    needs: [cli-binaries]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Download binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: liri-cli-bin-*
+          path: cli-bin
+          merge-multiple: true
+
+      - name: Render standalone manifests (真实 sha256)
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          bun run scripts/gen-package-manifests.ts \
+            --standalone \
+            --version "$VERSION" \
+            --assets cli-bin \
+            --download-base "https://github.com/${{ github.repository }}/releases/download"
+
+      - name: Upload standalone manifests
+        uses: actions/upload-artifact@v4
+        with:
+          name: liri-standalone-manifests
+          path: packaging/standalone/**
+
+      - name: Attach manifests to GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          gh release upload "v${VERSION}" \
+            packaging/standalone/SHA256SUMS \
+            packaging/standalone/scoop/liri.json \
+            packaging/standalone/homebrew/liri.rb \
+            --clobber || echo "⚠️ Release v${VERSION} 尚未创建 ⇒ 仅保留工作流 artifact"

@@ -95,5 +95,26 @@
 - **未真实签名**：仓库无证书、本机无凭据 ⇒ `signtool` / `codesign` 命令**从未执行**，只用例锁定"计划推导"；**CI 未真跑**（首次发版观察）；
 - **Linux 不签名**：无通用二进制签名标准，`resolveSigningPlan` 如实 `skip`（不引入 GPG 分发）；
 - **macOS 未公证**：仅 `codesign` + 校验；`notarytool` 公证需 Apple 账号与 zip 打包，未做；
-- **清单仍声明 bun 前置**：`packaging/**` 未出 `--standalone` 变体（矩阵产物就绪后再切）；
+- **清单仍声明 bun 前置**：`packaging/**` 未出 `--standalone` 变体（矩阵产物就绪后再切）。（**已由 §8 补齐**：standalone 清单在发版期按真实产物生成）
 - **产物未在本机重新构建**：本期只新增签名脚本与 CI 作业；`bun build --compile` 已实测过一次（§6），签名后产物未复测。
+
+## 8. 四期已交付（standalone 清单：去掉 bun 前置）
+
+矩阵能产出四份单文件二进制后，清单层才有资格去掉 `bun` 前置。本期把这条链路接成**只认真实产物**：
+
+| 件 | 内容 |
+|---|---|
+| `scripts/gen-package-manifests.ts` | ➕ `parseStandaloneName`（只认 `liri-<platform>-<arch>[.exe]`）/ `resolveStandaloneAssets`（按必需清单核对，**缺哪个报哪个**）/ `renderScoopStandaloneManifest`（无 `depends`）/ `renderHomebrewStandaloneFormula`（`on_macos` 分 arm/intel + `on_linux`，无 `depends_on "bun"`）/ `renderStandaloneManifests`（三文件 + 合并 `SHA256SUMS`，复用 `build-cli-binary` 的渲染）；CLI ➕ `--standalone --assets <dir>`（**无 `--placeholder`**，缺平台即退出 1） |
+| `app/tests/packaging/standaloneManifests.test.ts` 🆕 | 7 条：命名解析 / 齐全与排序 / 缺平台只报缺失 / Scoop 无依赖且 url+hash 正确 / Homebrew 无 `depends_on "bun"` 且三分支齐全 / 合并 `SHA256SUMS` 确定性 / 渲染 fail-fast |
+| `.github/workflows/release-cli-packages.yml` | ➕ `standalone-manifests`（`needs: cli-binaries`）：下载三平台 artifact → 按**真实 sha256** 生成 → 上传 artifact → 附到 Release |
+| `.gitignore` | ➕ `packaging/standalone/`（发版期生成物，**不入库**，避免坏链接进仓库） |
+
+**已本地实测（2026-11-14）**：
+- 缺平台：`--standalone --assets app/dist/cli-bin`（本机只有 win32-x64）⇒ **退出 1**，输出 `liri-darwin-arm64, liri-darwin-x64, liri-linux-x64`，且**不创建输出目录**；
+- 齐全：用临时目录放 4 个产物 ⇒ 生成 3 个文件（`scoop/liri.json` / `homebrew/liri.rb` / `SHA256SUMS`）后已清理。
+
+**边界（如实）**：
+- **npm 变体不做**：npm 去运行时前置需按平台分包（`optionalDependencies` + 主包探测），属独立设计；当前 `packaging/npm` 仍以 `bun` 为前置；
+- **未真实发版**：清单由 CI 在 tag 时生成，**本机未发布**、Release 上传步骤未真跑；
+- **Homebrew 安装写法未在真实 tap 校验**：`bin.install Dir["*"].first => "liri"` 依赖"下载物即单文件可执行"这一事实，需首次发版在 macOS/Linux 实机安装验证；
+- 单文件二进制**仍未签名**（§7 只接线，凭据待配）⇒ standalone 渠道暂时分发未签名二进制。

@@ -1,7 +1,15 @@
 import type { CommandContext, CommandResult } from '@modules/commands';
-import { taskRegistry } from '@modules/tasks';
+import {
+  taskRegistry,
+  taskOrchestrator,
+  buildPlanImpactPreview,
+  renderPlanImpactPreview,
+  selectPlanForPreview,
+} from '@modules/tasks';
 import { TaskStatus } from '@modules/tasks/types.js';
 import { NoteTask } from '@modules/tasks';
+// D7 二期（2026-11-14）：副作用解析的唯一事实源
+import { resolveToolEffect } from '@modules/tools';
 
 function statusIcon(s: TaskStatus): string {
   switch (s) {
@@ -53,6 +61,8 @@ export default {
         return this.handleClear(context);
       case 'execute':
         return this.handleExecute(context);
+      case 'preview':
+        return this.handlePreview(parts.slice(1), context);
       default:
         return this.handleHelp();
     }
@@ -234,6 +244,51 @@ export default {
     };
   },
 
+  /**
+   * D7 二期（2026-11-14）：**影响预演** —— 只读计划台账，不执行任何工具、不写文件。
+   *
+   * 选择：指定 planId（支持唯一前缀）> 本会话最近未终态计划 > 本会话最近计划。
+   * 无候选 / 前缀歧义 ⇒ 如实报错（不虚构计划）。
+   */
+  async handlePreview(
+    args: string[],
+    context: CommandContext
+  ): Promise<CommandResult> {
+    await taskOrchestrator.initialize();
+    const plans = taskOrchestrator.getAllPlans();
+    const picked = selectPlanForPreview(plans, {
+      ...(context.sessionId ? { sessionId: context.sessionId } : {}),
+      ...(args[0] ? { planId: args[0] } : {}),
+    });
+
+    if (picked.ambiguous) {
+      return {
+        success: false,
+        type: 'error',
+        error: `计划 id 前缀不唯一：${picked.ambiguous.join(', ')}`,
+      };
+    }
+    if (!picked.plan) {
+      return {
+        success: true,
+        type: 'text',
+        message:
+          '未找到可预演的计划（本会话暂无计划；可用 /plan preview <planId> 指定）。',
+        data: { totalPlans: plans.length },
+      };
+    }
+
+    const preview = buildPlanImpactPreview(picked.plan, {
+      resolveEffect: (name) => resolveToolEffect(name)?.sideEffect,
+    });
+    return {
+      success: true,
+      type: 'text',
+      message: renderPlanImpactPreview(preview),
+      data: preview,
+    };
+  },
+
   async handleHelp(): Promise<CommandResult> {
     return {
       success: true,
@@ -247,6 +302,7 @@ export default {
         '/plan remove <编号> - 移除任务（支持编号或ID）',
         '/plan clear       - 清空计划',
         '/plan execute     - 执行计划',
+        '/plan preview [id] - 影响预演（只读：进度/副作用/产物/风险，不执行）',
         '/plan help        - 显示此帮助信息',
         '',
         '示例:',

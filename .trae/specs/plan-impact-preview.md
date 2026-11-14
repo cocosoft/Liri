@@ -60,3 +60,18 @@
 2. **evals 沙箱扩展**：把"计划"作为输入跑在隔离 workspace（现有 `EvalSandbox` 以提示词任务为输入），并输出"沙箱内真实副作用清单"；
 3. **回放**：基于副作用流水的可重放/可对比执行（幂等工具才允许自动重放，复用 `canReplayAfterUnknown`）；
 4. 用户入口：`/plan preview` 或客户端计划面板（届时再评估命令面/接口面）。
+
+## 6. 二期已交付（用户入口 `/plan preview`）
+
+| 件 | 内容 |
+|---|---|
+| `app/src/tasks/plan/planPreviewSelection.ts` 🆕 | 纯函数 `selectPlanForPreview`：指定 `planId`（精确 > 唯一前缀 > 歧义报错）> 本会话**未终态优先** > 最近心跳；无候选 ⇒ 空结果 |
+| `app/src/commands/builtin/plan/Plan.ts` | ➕ `/plan preview [planId]`：`taskOrchestrator.initialize()` → 选计划 → `buildPlanImpactPreview`（注入 `resolveToolEffect`）→ `renderPlanImpactPreview`；**只读**，不执行工具、不写文件 |
+| `app/tests/tasks/plan/planPreviewSelection.test.ts` 🆕 | 4 条：未终态优先 / 全终态取最近 / 精确+唯一前缀+歧义 / 会话过滤与空候选 |
+
+### 仍未做（如实）
+
+1. **副作用录制**：工具级"将要/已经改变什么"流水仍未落盘（当前预演只有 `toolOutcomes` 的工具名/结局与 `artifacts` 路径）；
+2. **沙箱内真实预演**：`EvalSandbox` 扩展未做；
+3. **回放/对比**：无副作用流水 ⇒ 无可重放/可对比的基础；
+4. 客户端面板入口（当前仅 CLI 命令）。

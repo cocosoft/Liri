@@ -90,16 +90,19 @@ Orchestrator 只负责驱动循环、执行工具、感知结果，推理决策�
 
 ### 3.1 状态管理统一
 
-- **`system/state/`**（别名 `@modules/state`，位于 `app/src/system/state/`）**为唯一状态管理层**，禁止使用其他状态管理实现
+- **`system/state/`**（别名 `@modules/state`，位于 `packages/infra/src/system/state/`）**为唯一状态管理层**，禁止使用其他状态管理实现
 - **订正（2026-10-24）**：本节原写「`core/state/` 为唯一状态层」——该目录在 core 物理剥离后**不存在**
-  （`packages/kernel/src/core/state` 实测不存在）；状态层实际在 `app/src/system/state/`，导入别名为 `@modules/state`。
+  （`packages/kernel/src/core/state` 实测不存在）；状态层实际在 `packages/infra/src/system/state/`，导入别名为 `@modules/state`。
   原「现有 `state/` 必须迁移到 `core/state/`」的迁移指令已随该订正失效（迁移早已完成，方向相反）。
-- 所有状态相关导入必须从 `@modules/state/` 引入
+- **订正（2026-11-14）**：状态层随后续 infra 物理包化落到 `packages/infra/src/system/state/`；
+  **代码内统一用 `@openliri/infra/system/state`**。`@modules/state` 别名当前指向 `app/src/system/state`（已不存在）⇒
+  仅存量注释提及，勿在新代码中使用。
+- 所有状态相关导入必须从 `@openliri/infra/system/state`（或既有别名 `@modules/state/*` 的存量点）引入
 - 禁止新增 `Store` / `StateManager` 的独立实现
 
 ### 3.2 代码复用收敛
 
-- 通用工具函数（`sleep`、`deepClone`、`deepMerge`、`formatDate` 等）必须集中在 `src/utils/common.ts`
+- 通用工具函数（`sleep`、`deepClone`、`deepMerge`、`formatDate` 等）必须集中在 `packages/infra/src/utils/common.ts`
 - 禁止在各模块中重复实现相同功能的工具函数
 - 发现重复代码立即整合到公共工具文件
 
@@ -133,7 +136,7 @@ Orchestrator 只负责驱动循环、执行工具、感知结果，推理决策�
   - **Tier 1 `MicroCompactionEngine`**（`applyMicroCompaction`）：轻量、有损、无摘要（`warn` 时先试）
   - **Tier 2 `SnipEngine`**（`snipMessages`）：裁剪中段（`warn` / `trigger` 时）
   - **Tier 3 `CompactionOrchestrator`**：LLM 摘要 + **迭代折叠**（`trigger` 且 Tier 2 无效时；超时上限见模块常量）
-- **B 侧 · 命令 / HTTP 端点 / 会话边界**（`@modules/compaction`，`app/src/compaction/`）：`AutoCompactService` · `reactiveCompact` · `partialCompact` · `sessionMemoryCompact` 等按各自触发面执行
+- **B 侧 · 命令 / HTTP 端点 / 会话边界**（`@modules/compaction`，`packages/compaction/src/compaction/`）：`AutoCompactService` · `reactiveCompact` · `partialCompact` · `sessionMemoryCompact` 等按各自触发面执行
   （两侧**触发时机互不重叠** ⇒ 非"同一场景两条都跑"，2026-09-28 核查结论见 spec `compaction-duplicate-subsystems.md` §7）
 - **评估唯一入口**：统一走 `UnifiedTokenTracker.checkBeforeRequest`（`skip` / `warn` / `trigger`），**不得另立第二套阈值判据**（阈值以 `tokenBudget/TokenBudgetController.ts` 为事实源）
 - 所有压缩操作必须记录原始 Token 数与压缩后 Token 数；`context/compaction` 事件载荷的口径见 `session/types/eventPayloads.ts`
@@ -150,9 +153,9 @@ Orchestrator 只负责驱动循环、执行工具、感知结果，推理决策�
 
 ### 3.9 安全模块整合规范
 
-- `security/` 为安全功能的唯一实现目录
+- `packages/infra/src/security/` 为安全功能的唯一实现目录
 - `tools/security/`、`chat/security/`、`bridge/security/` 仅引用不实现
-- 所有安全分析逻辑收敛到 `security/` 下的统一模块
+- 所有安全分析逻辑收敛到 `packages/infra/src/security/` 下的统一模块
 - 消除 `CompleteSecuritySystem.ts` 与 `BashSecurityAnalyzer.ts` 的功能重叠
 - 安全审计接口统一由 `security/` 导出
 
@@ -287,7 +290,7 @@ main.ts → launch()
   `infrastructure/http/handlers/trace-handlers`、`commands/builtin/trace-recording`、
   `tools/TraceRecordingTool`）。token 校准的消费方是 `UnifiedTokenTracker.recordTimingUsage()`
   （数据源 = `metric/timing` 载荷），**不再订阅** `traceUsageListeners`。
-- **保留/清理策略**：**唯一实现**是 `src/session/ArtifactRetention.ts`
+- **保留/清理策略**：**唯一实现**是 `packages/service/src/session/ArtifactRetention.ts`
   （`traceKeepDays = 7`，按 mtime 判龄，匹配 `trace_*.jsonl`；由 `SessionGateway.startPruneInterval`
   的 5 分钟节拍驱动）。`TraceWriter` **只轮换不删除** —— 新增第二套清理机制违反 §3.11 实现唯一性。
 - **凭据处置**：落盘前剥离凭据 —— 敏感请求/响应头整值脱敏（`sanitizeHeaders`），
@@ -334,7 +337,7 @@ app/docs/
 
 ### 4.3 文件文档与代码集成
 
-- `src/docs/FileDocsProvider.ts` 提供从 `app/docs/` 文件夹动态加载 Markdown 文档的能力
+- `packages/docs/src/docs/FileDocsProvider.ts` 提供从 `app/docs/` 文件夹动态加载 Markdown 文档的能力
 - 启动时自动加载 `app/docs/` 下所有 `.md` 文件到帮助系统，支持 `/help` 和 `/docs` 命令直接访问
 - 当新增文档文件时，**无需修改代码**即可被 `/docs <标题>` 和 `/docs search <关键词>` 检索到
 - 导航索引文件（各目录下的 `index.md`）是用户浏览的主要入口，新增文件时务必更新

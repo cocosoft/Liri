@@ -48,7 +48,7 @@
 
 ## §2 Tauri IPC 命令清单（Rust → 前端）
 
-**定义位置**: [client/src-tauri/src/lib.rs](file:///e:/PY/CODES/PY_APP/client/src-tauri/src/lib.rs) `invoke_handler`
+**定义位置**: [client/src-tauri/src/lib.rs](file:///e:/PY/Documents/CODES/PY_APP/client/src-tauri/src/lib.rs) `invoke_handler`
 
 ### §2.1 已注册命令（22个）
 
@@ -92,8 +92,8 @@
 ## §3 HTTP API 清单（Node.js 后端 → 前端）
 
 **定义位置**:
-- 主路由: [LocalHTTPService.ts](file:///e:/PY/CODES/PY_APP/app/src/infrastructure/http/LocalHTTPService.ts)
-- 子路由: [ModelManagementAPI.ts](file:///e:/PY/CODES/PY_APP/app/src/ai/ModelManagementAPI.ts)（通过 `tryHandleRoute` 挂载）
+- 主路由: [LocalHTTPService.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/infrastructure/http/LocalHTTPService.ts)
+- 子路由: [ModelManagementAPI.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/ai/ModelManagementAPI.ts)（通过 `tryHandleRoute` 挂载）
 
 ### §3.1 系统
 

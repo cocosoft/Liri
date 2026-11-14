@@ -365,7 +365,8 @@ Barrel 文件（仅做 re-export 的 `index.ts`）不利于 tree-shaking，且�
 
 > 来源：`dev_docs/20260809/架构暴胀分析与收敛规范.md` AR01-AR06 / GR01-GR07
 > 生效日期：2026-08-09
-> 检查覆盖：P1 阶段（lint-architecture.ts 扩展 6 项检查），当前部分规则无自动检查
+> 检查覆盖：`lint:arch`（20+ 项）+ `lint:infra`（物理包边界 **R1–R28**）+ `ci` 链 **78 条**门禁
+> （`lint:gate-parity` 断言 CI 覆盖 77 + 登记豁免 1）；规则与门禁的对应关系见文末「物理包边界门禁（R9–R28）」。
 
 ### R06-001 [MUST] Handler 注册模式（AR02）
 
@@ -680,7 +681,7 @@ await m.trace('send', async () => { ... });  // OTel span（自动追踪）
 
 ## R12 Agent 能力回归门禁（MUST）
 
-> 背景：20+ 项架构 lint 只保证**结构不腐化**，无法保证**能力不回退**。2026-09-12 引入评测体系（`app/src/evals/`，入口 `bun run eval --model=<模型名>`），以 `pass^k`（k 次全通过）作为可用性门槛。**首次运行即抓出两个真实缺陷**（台账 O32：多级写入被误拦 + 伪成功；O35：危险文件 DENY 运行时不可达）—— 说明该门禁不可省。
+> 背景：20+ 项架构 lint 只保证**结构不腐化**，无法保证**能力不回退**。2026-09-12 引入评测体系（`packages/evals/src/evals/`，入口 `bun run eval --model=<模型名>`），以 `pass^k`（k 次全通过）作为可用性门槛。**首次运行即抓出两个真实缺陷**（台账 O32：多级写入被误拦 + 伪成功；O35：危险文件 DENY 运行时不可达）—— 说明该门禁不可省。
 
 ### R12-001 [MUST] 能力相关改动必须过 `pass^k` 门禁
 
@@ -688,7 +689,7 @@ await m.trace('send', async () => { ... });  // OTel span（自动追踪）
 
 ```bash
 cd app
-bun run eval --model=<模型名> --gate            # 与 app/src/evals/baseline.json 比对；有回归则 exit 1
+bun run eval --model=<模型名> --gate            # 与 packages/evals/src/evals/baseline.json 比对；有回归则 exit 1
 bun run eval --model=<模型名> --k=4 --gate      # 关键任务建议 k≥4（采集 pass^k，区分"从未做对"与"不稳定"）
 ```
 
@@ -732,7 +733,7 @@ bun run eval --model=<模型名> --k=4 --gate      # 关键任务建议 k≥4（
 
 ### R14 [MUST] 错误级别的"声明"与"落盘级别"必须一致（单一映射）
 
-`ErrorCodes[k].level`（`CRITICAL/ERROR/WARN`）是**声明**；它经 `AppError.fromCode → levelToSeverity` 折叠为 `severity` 后**不落实例**。落盘级别只能由 [`error/handleError.ts#resolveErrorLogLevel`](file:///e:/PY/Documents/CODES/PY_APP/app/src/error/handleError.ts)（**单一事实源**）从 `severity`（＋ `UNHANDLED_ERROR` 例外）反推。**禁止在任何调用点内联该映射或硬编码错误日志级别。**
+`ErrorCodes[k].level`（`CRITICAL/ERROR/WARN`）是**声明**；它经 `AppError.fromCode → levelToSeverity` 折叠为 `severity` 后**不落实例**。落盘级别只能由 [`error/handleError.ts#resolveErrorLogLevel`](file:///e:/PY/Documents/CODES/PY_APP/packages/infra/src/error/handleError.ts)（**单一事实源**）从 `severity`（＋ `UNHANDLED_ERROR` 例外）反推。**禁止在任何调用点内联该映射或硬编码错误日志级别。**
 
 - 判定：`bun test tests/error/errorLogLevel.test.ts`（含于 `bun test` / `ci` 链，**阻断级**）——核心是**全表穷尽往返**：对 `ErrorCodes` **每一个**码断言 `def.level → severity → 日志级别` 与声明一致。
 - **为什么是测试而非独立 lint 脚本（如实）**：该不变量需要**真实 import** `ErrorCodes`、`AppError.fromCode`、`resolveErrorLogLevel`；而仓库根的 `scripts/*.ts` 无法解析 app 的 `@modules/*` 别名（根脚本历来只做纯文本扫描）。放在 `app/tests/**` 可正常解析，且 `bun test` 本就在 `ci` 链内 ⇒ 门禁效力等价。
@@ -924,14 +925,31 @@ bun run eval --model=<模型名> --k=4 --gate      # 关键任务建议 k≥4（
 | R03-001 | `monitoring/health/HealthChecker.ts` | 监控模块健康检查，标准实现 | 永久 |
 | R03-001 | `channels/line/LineChannel.ts` | 误报：UserProfileCache 为私有内联类，非独立基础设施 | 永久 |
 
+## 物理包边界门禁（R9–R28）—— 与本文 R 号的命名空间说明
+
+- **事实源**：`app/scripts/lint-infra-boundary.ts` + `app/scripts/infraBoundaryCore.ts`；
+  运行 `bun run lint:infra`（`ci` 链内，**阻断级**）。
+- ⚠️ **两套 R 号互不相干**：本文的 `R01–R15` 是**架构合规规则**（文档规则）；
+  `lint:infra` 的 `R9–R28` 是**逐包边界检查项编号**（脚本内 `BoundaryRule` 联合类型）。
+  两套都出现过 R9–R15，**禁止跨命名空间互相引用**；查某个包的边界结论请直接看脚本输出
+  （形如 `--- R28 buddy 物理包边界（packages/buddy）（检查 N 处）---`）。
+- **逐包 ESLint 门禁**：每个成包另有 `lint:<pkg>`（当前 20 个：sandbox / channels / query / skills /
+  tokenBudget / vfs / compaction / workspaces / docs / plugin-sdk / governance / dream / evals /
+  proactive / project / subagent / resourceGovernor / tool / context-engine / buddy），与 `lint:arch` /
+  `lint:infra` 同批在 `ci` 链内；`lint:gate-parity` 断言 CI 覆盖（当前 **78 条**：77 覆盖 + 1 豁免）。
+- **新增成包时**（下一个可用边界号 **R29**）：`lint-infra-boundary.ts` 加常量 + 扫描块 + report 条目，
+  并同批加 `app/eslint.<pkg>.config.js`、`lint:<pkg>` 脚本、`.github/workflows/ci.yml` step 与
+  `lint:gate-parity` 期望值；包清单以 `packages/` 实测为准（当前 23 个包）。
+
 ---
 
 ## 规则版本
 
 | 项目 | 值 |
 |------|-----|
-| 版本 | 1.6.1 |
+| 版本 | 1.7.0 |
 | 创建 | 2026-06-09 |
+| 更新 | 2026-11-14 — 补「物理包边界门禁（R9–R28）」命名空间说明（与本文 R 号互不引用；事实源 `lint:infra`，当前 20 条 `lint:<pkg>`、`ci` 78 条）；订正 `evals` 与 `error/handleError` 的物理路径（迁包后分别在 `packages/evals` / `packages/infra`）；检查覆盖口径改为实测门禁数 |
 | 更新 | 2026-10-12 — 新增 **R09-006 状态机定义必须登记（编译期硬门禁，error）**（状态机规范管理方案 阶段 1.4；配套 `lint:arch` → R09-006 + 显式豁免清单 `scripts/state-machine-allowlist.json`；实测未登记枚举/状态数组 ⇒ 门禁红、构建阻断） |
 | 更新 | 2026-09-25 — 新增 **R14 错误级别声明与落盘一致性**（全表穷尽往返断言，`bun test tests/error/errorLogLevel.test.ts` 阻断级；背景见台账附带发现 12 与待办 ⑬） |
 | 更新 | 2026-09-25 — 新增 **R13 定时器生命周期**（R13-001 模块顶层 `setInterval` 必须 unref，`bun run lint:unref` 阻断级并入 `ci`；R13-002 存量 149 处收敛清单）；背景见台账附带发现 7，与既有 `lint:exit` 互补（治标 vs 治本） |

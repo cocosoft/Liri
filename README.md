@@ -62,7 +62,7 @@ Liri 是一个运行在终端中的 **AI 智能助手**。你用它做什么？
 | 层级 | 技术 |
 |------|------|
 | **运行时** | Bun（必需） |
-| **语言** | TypeScript（约百万行级：`app/src` + `packages/kernel/src` + `client/src`，不含测试与脚本）+ Rust（≈2.5 千行原生模块：`app/native`） |
+| **语言** | TypeScript（约百万行级：`app/src` + `packages/*/src`（23 个包） + `client/src`，不含测试与脚本）+ Rust（≈2.5 千行原生模块：`app/native`） |
 | **终端 UI** | React + Ink |
 | **AI 接口** | DeepSeek API（默认），支持多 Provider 切换（OpenAI、Gemini 等） |
 | **协议层** | ACP（Agent Communication Protocol）+ MCP + LSP |
@@ -390,42 +390,37 @@ bun run service:dev       # 开发模式（无需编译，直接 bun run）
 ```
 Liri/                            # 工程根目录
 ├── app/                         # 主应用（TypeScript + Bun）
-│   ├── src/                     # 源代码
-│   │   ├── main.ts              # 应用启动入口（launch 函数）
-│   │   ├── entrypoints/         # 运行模式入口
-│   │   │   ├── repl.ts          # REPL 模式
-│   │   │   └── mcp.ts           # MCP Server 模式
+│   ├── src/                     # 应用源码（34 个顶层目录；分层以 scripts/modules-to-layers.json 为准）
+│   │   ├── main.ts              # 应用启动入口（launch 统一分发）
+│   │   ├── pyapp.ts             # 编译入口（chdir + 根目录解析）
+│   │   ├── entrypoints/         # 运行模式入口（repl / mcp / http-server / always-on）
 │   │   ├── modules/             # 模块系统（注册表 + 初始化 + 延迟加载）
-│   │   ├── session/             # 会话管理
-│   │   ├── permission/          # 权限控制（AutoMode 分类器等）
-│   │   ├── cache/               # 缓存抽象
-│   │   ├── tokenBudget/         # Token 预算控制
+│   │   ├── bootstrap/           # 启动引导（preflight / 变体注入 / 启动流水线）
 │   │   ├── chat/                # 对话 / 流式 / 工具循环
-│   │   ├── query/               # TAOR 查询引擎
-│   │   ├── knowledge/           # 知识库与检索
-│   │   ├── state/               # 应用状态
-│   │   ├── acp/                 # Agent Communication Protocol
-│   │   ├── ai/                  # AI 模型适配层
-│   │   ├── agent/               # AI Agent 核心
 │   │   ├── tools/               # 内置工具实现（数量见 STATUS.md）
-│   │   ├── channels/            # 消息通道（全量见 STATUS.md）
-│   │   ├── mcp/                 # MCP 协议实现
-│   │   ├── security/            # 安全防护体系（5 层）
-│   │   ├── plugins/             # 插件系统
-│   │   ├── skills/              # 技能系统
-│   │   ├── memory/              # 记忆与知识库
-│   │   ├── monitoring/          # 可观测性
-│   │   ├── sandbox/             # 沙箱环境
-│   │   ├── chronos/             # 定时任务调度
-│   │   ├── cli/                 # 命令行交互
-│   │   ├── bridge/              # 远程桥接控制
-│   │   ├── config/              # 配置管理
-│   │   ├── daemon/              # 守护进程
-│   │   ├── bootstrap/           # 启动引导
-│   │   └── context/             # 上下文引擎
+│   │   ├── ai/                  # 模型适配 / 路由 / Provider
+│   │   ├── agent/               # Agent 核心与编排
+│   │   ├── tasks/               # 目标 / 计划 / 编排 / 持久队列
+│   │   ├── knowledge/           # 知识库 / 检索 / 知识图谱
+│   │   ├── context/             # 上下文管理（context-engine 已迁出）
+│   │   ├── commands/ cli/ ui/ ink/         # 命令与终端交互
+│   │   ├── infrastructure/      # HTTP / A2A / 装配
+│   │   ├── runtime/             # CoreAPI 组合根（service 层）
+│   │   ├── workspace/ plugins/ hooks/      # 工作区 / 插件 / 钩子
+│   │   └── …                    # 其余目录：appState / auto-reply / components / flows /
+│   │                            #   keybindings / lsp / promptSuggestion / remote / scripts /
+│   │                            #   subagents / testing / types / vim / wizard
 │   ├── native/                  # Rust 原生模块（FFI）
 │   ├── docs/                    # 完整中文文档
 │   └── package.json
+├── packages/                    # 已物理拆包的模块（共 23 个；说明符仍为 @modules/<m>）
+│   ├── core 层：kernel
+│   ├── infra 层：infra
+│   ├── service 层：service / channels
+│   └── app 层（19 个）：buddy / compaction / context-engine / docs / dream / evals /
+│                        governance / plugin-sdk / proactive / project / query /
+│                        resourceGovernor / sandbox / skills / subagent / tokenBudget /
+│                        tool / vfs / workspaces
 ├── client/                      # 桌面客户端（Tauri v2 + React）
 └── .github/workflows/           # CI/CD 自动化
 ```

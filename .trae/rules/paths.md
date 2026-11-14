@@ -6,7 +6,7 @@ description: 文件路径使用规范与统一路径管理规则，适用于所�
 
 > 所有涉及磁盘读写、数据持久化、配置文件加载等需要文件路径操作的场景，遵循本规则。
 >
-> **详细规范说明见**：[`.trae/docs/路径使用规范.md`](file:///e:/PY/CODES/PY_APP/.trae/docs/路径使用规范.md)
+> **详细规范说明见**：[`.trae/docs/路径使用规范.md`](file:///e:/PY/Documents/CODES/PY_APP/.trae/docs/路径使用规范.md)
 
 ---
 
@@ -90,5 +90,5 @@ description: 文件路径使用规范与统一路径管理规则，适用于所�
 
 **参考文档**：
 - [environment/paths.ts](file:///e:/PY/Documents/CODES/PY_APP/packages/infra/src/environment/paths.ts) — 路径管理中心
-- [pyapp.ts](file:///e:/PY/CODES/PY_APP/app/src/pyapp.ts) — 启动引导层
-- [project_rules.md §1.13](file:///e:/PY/CODES/PY_APP/.trae/rules/project_rules.md) — 路径与依赖管理规范
+- [pyapp.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/pyapp.ts) — 启动引导层
+- [project_rules.md §1.13](file:///e:/PY/Documents/CODES/PY_APP/.trae/rules/project_rules.md) — 路径与依赖管理规范

@@ -14,6 +14,8 @@ import {
   projectAgentGraph,
   type AgentLike,
 } from '@openliri/kernel';
+// D4（2026-11-14）：负载感知路由（纯函数；仅 `routeByLoad: true` 时参与选择）
+import { rankAgentsByLoad } from '../routing/loadAwareRouting';
 
 const logger = getLogger('AgentRegistry');
 
@@ -79,6 +81,25 @@ export interface AgentAssignment {
   agentIds: string[];
   /** 该目标的候选池（按优先级降序，**未截断**；供改派与"为什么选它"复核） */
   candidates: AgentDefinition[];
+  /**
+   * D4（2026-11-14）：启用负载路由时，因达到在跑上限被排除的 agent id。
+   * 未启用负载路由 ⇒ 缺省（不写空数组，避免与"确实没有饱和者"混淆）。
+   */
+  atCapacity?: string[];
+}
+
+/**
+ * 按图分配的**可选**路由参数（D4 一期，2026-11-14）。
+ *
+ * 缺省（不传 / `routeByLoad !== true`）⇒ 与改动前**逐字一致**（纯 `priority` 降序）。
+ */
+export interface AssignByGraphOptions {
+  /** 是否按负载重排候选（默认 false = 零行为变更） */
+  routeByLoad?: boolean;
+  /** `agentId → 在跑数`（缺项视为 0；缺省 = 全零 ⇒ 顺序与 `discoverAgents` 一致） */
+  loads?: ReadonlyMap<string, number>;
+  /** 单个 agent 的在跑上限（达到 ⇒ 不参与本次选择） */
+  maxInFlightPerAgent?: number;
 }
 
 /** 分配结果 + 落好 `assignedTo` 边的系统图 */
@@ -289,8 +310,10 @@ export class AgentRegistry {
    */
   assignAgentsByGraph(
     targets: readonly AgentAssignmentTarget[],
-    sessionId?: string
+    sessionId?: string,
+    options?: AssignByGraphOptions
   ): AgentAssignmentResult {
+    const loadRouting = options?.routeByLoad === true;
     const assignments: AgentAssignment[] = targets.map((target) => {
       const criteria: DiscoverCriteria = {
         ...(target.expertise && target.expertise.length > 0
@@ -303,10 +326,28 @@ export class AgentRegistry {
       };
       const candidates = this.discoverAgents(criteria, sessionId);
       const limit = target.limit ?? 1;
+
+      // D4（2026-11-14）：负载感知重排 —— **仅显式开启时生效**；缺省与改动前逐字一致。
+      // 全零负载时顺序与 `discoverAgents` 相同（稳定排序），故不影响既有断言。
+      if (!loadRouting) {
+        return {
+          targetId: target.targetId,
+          agentIds: candidates.slice(0, limit).map((agent) => agent.agentId),
+          candidates,
+        };
+      }
+      const { ranked, atCapacity } = rankAgentsByLoad(
+        candidates,
+        options?.loads ?? new Map<string, number>(),
+        options?.maxInFlightPerAgent === undefined
+          ? {}
+          : { maxInFlightPerAgent: options.maxInFlightPerAgent }
+      );
       return {
         targetId: target.targetId,
-        agentIds: candidates.slice(0, limit).map((agent) => agent.agentId),
+        agentIds: ranked.slice(0, limit).map((agent) => agent.agentId),
         candidates,
+        atCapacity: atCapacity.map((agent) => agent.agentId),
       };
     });
 

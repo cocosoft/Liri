@@ -1251,7 +1251,12 @@ export class ToolExecutionService {
           toolCall.sessionId
         );
         if (integration) {
-          const op: FileOperation = { path: filePath, type: 'modified' };
+          // D7 三期（2026-11-14）：带上工具名 ⇒ 副作用流水可按「工具 → 文件变更」归属
+          const op: FileOperation = {
+            path: filePath,
+            type: 'modified',
+            toolName: normalizedToolCall.name,
+          };
           integration.onToolBeforeExecute(op).catch((err) => {
             logger.warn('回滚：文件操作前追踪失败', { error: String(err) });
             handleError(err, {
@@ -1272,7 +1277,11 @@ export class ToolExecutionService {
               const parentIntegration =
                 this.deps.rollbackIntegrations.get(parentId);
               if (parentIntegration) {
-                const op: FileOperation = { path: filePath, type: 'modified' };
+                const op: FileOperation = {
+                  path: filePath,
+                  type: 'modified',
+                  toolName: normalizedToolCall.name,
+                };
                 parentIntegration.onToolBeforeExecute(op).catch((err) => {
                   logger.debug('子Agent操作继承失败', {
                     error: String(err),

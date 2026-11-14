@@ -18,6 +18,7 @@ import { spawn, execFileSync, type ChildProcess } from 'child_process';
 import { promises as fs } from 'fs';
 import { join, isAbsolute } from 'path';
 import { resolveTempDir } from '@openliri/infra/environment';
+import { CODE_RUNNER_EXIT_WATCHDOG_MS } from '@openliri/infra/constants';
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
@@ -35,6 +36,17 @@ const FRAME_LIMIT_BYTES = 256 * 1024;
 const STDERR_LIMIT_BYTES = 256 * 1024;
 /** 两阶段终止优雅等待（ms） */
 const KILL_GRACE_MS = 2000;
+/**
+ * 退出事件兜底轮询间隔（ms）—— 唯一事实来源在 `@openliri/infra/constants`
+ * （`LIRI_CODE_RUNNER_EXIT_WATCHDOG_MS` 可覆盖，默认 250）。
+ *
+ * 2026-11-15（CI 实测 macOS 偶发）：子进程已退出且 `exitCode` 已可读，但 `exit` 事件
+ * 偶发不投递 ⇒ 等待方永久挂起（`G1-A2` 用例固定卡到 20s 测试超时）。轮询 `exitCode`
+ * 补齐这一路，不依赖事件投递时序。
+ */
+const EXIT_WATCHDOG_INTERVAL_MS = CODE_RUNNER_EXIT_WATCHDOG_MS;
+/** 两阶段 kill 之后的强制结算宽限（ms）：信号已发仍无 exit ⇒ 判超时，Promise 不得永久挂起 */
+const EXIT_FORCE_SETTLE_GRACE_MS = KILL_GRACE_MS + 1000;
 
 export interface CodeRunnerExecOptions {
   sessionId: string;
@@ -98,15 +110,16 @@ export async function runRpcChildProcess(
     /** G1-A2：真实退出码（`exit` 事件带出；未退出即 settle 时为 null） */
     let lastExitCode: number | null = null;
 
-    const killTimer = setTimeout(() => {
-      killedByTimeout = true;
-      twoPhaseKill(child);
-    }, timeoutMs);
+    let killTimer: ReturnType<typeof setTimeout> | undefined;
+    let exitWatchdog: ReturnType<typeof setInterval> | undefined;
+    let forceSettleTimer: ReturnType<typeof setTimeout> | undefined;
 
     const settle = (status: CodeRunResult['status'], error?: string): void => {
       if (settled) return;
       settled = true;
-      clearTimeout(killTimer);
+      if (killTimer) clearTimeout(killTimer);
+      if (exitWatchdog) clearInterval(exitWatchdog);
+      if (forceSettleTimer) clearTimeout(forceSettleTimer);
       twoPhaseKill(child);
       resolvePromise({
         status,
@@ -119,6 +132,43 @@ export async function runRpcChildProcess(
         ...(lastExitCode !== null ? { exitCode: lastExitCode } : {}),
       });
     };
+
+    /**
+     * 子进程退出结算（`exit` / `close` 事件与 `exitCode` 轮询共用）。
+     *
+     * G1-A2：先记退出码 —— `settle` 会立即 resolve，必须在它之前落值。
+     */
+    function observeExit(code: number | null): void {
+      lastExitCode = code;
+      if (settled) return;
+      if (killedByTimeout) {
+        settle('timeout', 'code runner timed out');
+      } else if (code !== 0) {
+        settle('failed', `code runner exited with code ${code}`);
+      } else {
+        settle('failed', 'code runner exited without done()');
+      }
+    }
+
+    killTimer = setTimeout(() => {
+      killedByTimeout = true;
+      twoPhaseKill(child);
+    }, timeoutMs);
+
+    // 2026-11-15：退出事件兜底 —— 事件偶发不投递时按 `exitCode` 补齐（见常量注释）
+    exitWatchdog = setInterval(() => {
+      if (settled) return;
+      const code = child.exitCode;
+      if (code !== null) observeExit(code);
+    }, EXIT_WATCHDOG_INTERVAL_MS);
+    // 计时器不得反向保活事件循环
+    exitWatchdog.unref?.();
+
+    // 强制结算兜底：两阶段 kill 后仍无 exit ⇒ 判超时（Promise 不得永久挂起）
+    forceSettleTimer = setTimeout(() => {
+      settle('timeout', 'code runner timed out (no exit event)');
+    }, timeoutMs + EXIT_FORCE_SETTLE_GRACE_MS);
+    forceSettleTimer.unref?.();
 
     // ─── stdout：JSON 帧解析 → 分发 RPC ───
     let stdoutBuffer = '';
@@ -212,18 +262,9 @@ export async function runRpcChildProcess(
     });
 
     // ─── 进程退出兜底 ───
-    child.on('exit', (code) => {
-      // G1-A2：先记退出码 —— `settle` 会立即 resolve，必须在它之前落值
-      lastExitCode = code;
-      if (settled) return;
-      if (killedByTimeout) {
-        settle('timeout', 'code runner timed out');
-      } else if (code !== 0) {
-        settle('failed', `code runner exited with code ${code}`);
-      } else {
-        settle('failed', 'code runner exited without done()');
-      }
-    });
+    // `exit` 为主；`close` 补 stdio 关闭时序差异（Bun 各平台不一致），两者共用同一结算
+    child.on('exit', observeExit);
+    child.on('close', observeExit);
     child.on('error', (error) => {
       if (settled) return;
       settle('failed', `spawn error: ${error.message}`);

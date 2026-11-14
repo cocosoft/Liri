@@ -60,6 +60,8 @@ export const REQUEST_TIMEOUT = B.requestTimeoutMs;
  * `app/src/bootstrap/shutdownHooks.ts` 落实）。
  */
 export const SHUTDOWN_HOOK_TIMEOUT_MS = B.shutdownHookTimeoutMs;
+/** @kind B —— CodeRunner 子进程「退出事件缺失」时的 `exitCode` 轮询间隔（毫秒） */
+export const CODE_RUNNER_EXIT_WATCHDOG_MS = B.codeRunnerExitWatchdogMs;
 /** @kind B */
 export const MAX_CACHE_SIZE_BYTES = B.maxCacheSizeBytes;
 /** @kind B —— 洞察报告「慢操作」展示阈值（毫秒；超此值的调用计入 slowCalls） */

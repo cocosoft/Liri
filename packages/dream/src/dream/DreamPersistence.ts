@@ -329,8 +329,7 @@ export class DreamPersistence {
     // fire-and-forget + 降级，删 JSON 后毫秒级内 DB 仍含被删行属已知窗口）
     void (async () => {
       try {
-        const { mirrorPruneToDb } =
-          await import('./DreamCycleDb.js');
+        const { mirrorPruneToDb } = await import('./DreamCycleDb.js');
         await mirrorPruneToDb(CYCLES_MAX_AGE_MS, CYCLES_MAX);
       } catch (err) {
         void handleError(err instanceof Error ? err : new Error(String(err)), {

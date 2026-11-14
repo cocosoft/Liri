@@ -484,6 +484,7 @@
       "app/src/commands/builtin/rewind/Rewind.ts",
       "app/src/commands/builtin/session/index.ts",
       "app/src/commands/builtin/skill/index.ts",
+      "app/src/commands/builtin/sop/Sop.ts",
       "app/src/commands/builtin/statusline/Statusline.ts",
       "app/src/commands/builtin/stickers/Stickers.ts",
       "app/src/commands/builtin/tag/Tag.ts",

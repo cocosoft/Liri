@@ -138,6 +138,8 @@ export class BuiltinCommandLoader implements CommandLoader {
         name: 'preferences',
         aliases: ['profile', 'pref'],
       },
+      // D10（2026-11-14）：成功轨迹 → SOP 草案（蒸馏只产草案，批准才写技能）
+      { path: '../builtin/command-registry.js', name: 'sop' },
       { path: '../builtin/command-registry.js', name: 'hooks' },
       { path: '../builtin/command-registry.js', name: 'mcp' },
       { path: '../builtin/command-registry.js', name: 'plugins' },

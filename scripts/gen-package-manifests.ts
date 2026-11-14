@@ -14,17 +14,22 @@
  *   bun run scripts/gen-package-manifests.ts --version 0.5.28 --artifact dist/liri-cli.tgz
  *   bun run scripts/gen-package-manifests.ts --version 0.5.28 --artifact <path> --check
  *   bun run scripts/gen-package-manifests.ts --version 0.5.28 --placeholder
+ *   bun run scripts/gen-package-manifests.ts --standalone --version 0.5.28 --assets app/dist/cli-bin
  *
  * `--check`：只校验**已提交**的清单与产物哈希是否一致（不一致 ⇒ 退出 1，不写盘）。
  * `--placeholder`：不读产物，哈希写 64 个 0（**仅用于提交仓库内的清单占位**；发版作业会用真实哈希覆写）。
+ * `--standalone`：读**真实单文件二进制**目录，渲染**去 bun 前置**的 Scoop / Homebrew 清单 + 合并
+ * `SHA256SUMS`（输出到 `packaging/standalone/**`，不入库）；缺平台即退出 1（不产出坏链接）。
  *
  * **如实边界**：清单能保证"字段与哈希正确"，**不能**保证各渠道商店端到端可用
  * （Homebrew tap / Scoop bucket 需人工提 PR；npm 发布需 `NPM_TOKEN`）。见 spec §3。
  */
 
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
+// 复用校验和渲染（唯一实现，避免两套 `<hash>  <name>` 格式）
+import { renderSha256Sums } from './build-cli-binary';
 
 /** 仓库根（脚本位于 `scripts/`） */
 const REPO_ROOT = resolve(import.meta.dir, '..');
@@ -154,6 +159,184 @@ export function renderAllManifests(input: ManifestInput): Record<string, string>
   };
 }
 
+/* ===================================================================
+ *  G2 剩余四期（2026-11-14）：**standalone 变体**（单文件二进制 ⇒ 去掉 bun 前置）
+ *  ---------------------------------------------------------------
+ *  只在“已经有真实二进制产物”时生成：`collectStandaloneAssets` 对缺失平台**如实报错**，
+ *  不产出占位清单（缺平台的 manifest 发出去就是坏链接）。
+ *  产物命名与 `build-cli-binary.ts` 的 `defaultOutfile()` 同源：`liri-<platform>-<arch>[.exe]`。
+ *  npm 变体**不做**：npm 需按平台分包（optionalDependencies）才能去运行时前置，见 spec §8。
+ * =================================================================== */
+
+/** standalone 清单输出路径（相对仓库根；不提交仓库，发版作业随 Release 上传） */
+export const STANDALONE_MANIFEST_PATHS = {
+  scoop: 'packaging/standalone/scoop/liri.json',
+  homebrew: 'packaging/standalone/homebrew/liri.rb',
+  sums: 'packaging/standalone/SHA256SUMS',
+} as const;
+
+export type StandalonePlatform = 'win32' | 'darwin' | 'linux';
+export type StandaloneArch = 'x64' | 'arm64';
+
+export interface StandaloneAsset {
+  name: string;
+  platform: StandalonePlatform;
+  arch: StandaloneArch;
+  sha256: string;
+}
+
+/** 单文件二进制必须覆盖的平台/架构（缺一不发 standalone 清单） */
+export const REQUIRED_STANDALONE_TARGETS: ReadonlyArray<
+  readonly [StandalonePlatform, StandaloneArch]
+> = [
+  ['win32', 'x64'],
+  ['darwin', 'arm64'],
+  ['darwin', 'x64'],
+  ['linux', 'x64'],
+];
+
+/** 从文件名解析 `<platform>-<arch>`（非本命名 ⇒ null，不猜） */
+export function parseStandaloneName(
+  fileName: string
+): { platform: StandalonePlatform; arch: StandaloneArch } | null {
+  const match = /^liri-(win32|darwin|linux)-(x64|arm64)(?:\.exe)?$/.exec(
+    fileName
+  );
+  if (!match) return null;
+  return {
+    platform: match[1] as StandalonePlatform,
+    arch: match[2] as StandaloneArch,
+  };
+}
+
+/**
+ * 归一化为资产表（纯函数）：按必需清单核对，**缺哪个平台就报哪个**。
+ * @returns `assets`（按 platform → arch 升序）+ `missing`（空 = 齐全）
+ */
+export function resolveStandaloneAssets(
+  entries: ReadonlyArray<{ name: string; sha256: string }>
+): { assets: StandaloneAsset[]; missing: string[] } {
+  const assets: StandaloneAsset[] = [];
+  for (const entry of entries) {
+    const parsed = parseStandaloneName(entry.name);
+    if (parsed) assets.push({ name: entry.name, sha256: entry.sha256, ...parsed });
+  }
+  const missing = REQUIRED_STANDALONE_TARGETS.filter(
+    ([platform, arch]) =>
+      !assets.some((a) => a.platform === platform && a.arch === arch)
+  ).map(([platform, arch]) => `liri-${platform}-${arch}`);
+  assets.sort(
+    (a, b) =>
+      a.platform.localeCompare(b.platform) || a.arch.localeCompare(b.arch)
+  );
+  return { assets, missing };
+}
+
+export interface StandaloneInput {
+  version: string;
+  assets: ReadonlyArray<StandaloneAsset>;
+  downloadBase?: string;
+}
+
+function assetUrl(input: StandaloneInput, asset: StandaloneAsset): string {
+  const base = input.downloadBase ?? DEFAULT_DOWNLOAD_BASE;
+  return `${base}/v${input.version}/${asset.name}`;
+}
+
+function assetOf(
+  input: StandaloneInput,
+  platform: StandalonePlatform,
+  arch: StandaloneArch
+): StandaloneAsset {
+  const found = input.assets.find(
+    (a) => a.platform === platform && a.arch === arch
+  );
+  if (!found) {
+    // 调用方（resolveStandaloneAssets）已拦截缺失；这里再 fail-fast 一次，不产出坏清单
+    throw new Error(`standalone 资产缺失：liri-${platform}-${arch}`);
+  }
+  return found;
+}
+
+/** Scoop（standalone）：**无 `depends`**，直接落盘 exe 并暴露 `liri` */
+export function renderScoopStandaloneManifest(input: StandaloneInput): string {
+  const win = assetOf(input, 'win32', 'x64');
+  return `${JSON.stringify(
+    {
+      $schema:
+        'https://raw.githubusercontent.com/ScoopInstaller/Scoop/master/schema.json',
+      version: input.version,
+      description: 'Liri — AI 私人助手（CLI，单文件二进制）',
+      homepage: 'https://openliri.com',
+      license: 'MIT',
+      architecture: {
+        '64bit': { url: assetUrl(input, win), hash: win.sha256 },
+      },
+      bin: [[win.name, 'liri']],
+      checkver: { github: 'https://github.com/openliri/Liri' },
+      '//': '由 scripts/gen-package-manifests.ts --standalone 生成；不含 bun 前置。',
+    },
+    null,
+    2
+  )}\n`;
+}
+
+/** Homebrew（standalone）：按平台分支给 url/sha256，**无 `depends_on "bun"`** */
+export function renderHomebrewStandaloneFormula(
+  input: StandaloneInput
+): string {
+  const macArm = assetOf(input, 'darwin', 'arm64');
+  const macX64 = assetOf(input, 'darwin', 'x64');
+  const linux = assetOf(input, 'linux', 'x64');
+  return `# 由 scripts/gen-package-manifests.ts --standalone 生成；不含 bun 前置。
+class Liri < Formula
+  desc "Liri — AI 私人助手（CLI，单文件二进制）"
+  homepage "https://openliri.com"
+  version "${input.version}"
+  license "MIT"
+
+  on_macos do
+    if Hardware::CPU.arm?
+      url "${assetUrl(input, macArm)}"
+      sha256 "${macArm.sha256}"
+    else
+      url "${assetUrl(input, macX64)}"
+      sha256 "${macX64.sha256}"
+    end
+  end
+
+  on_linux do
+    url "${assetUrl(input, linux)}"
+    sha256 "${linux.sha256}"
+  end
+
+  def install
+    # 下载物即单文件可执行（文件名带平台后缀）⇒ 统一装成 liri
+    bin.install Dir["*"].first => "liri"
+  end
+
+  test do
+    assert_match "Liri", shell_output("#{bin}/liri --version 2>&1", 0)
+  end
+end
+`;
+}
+
+/** 渲染 standalone 清单 + 合并校验和（纯函数） */
+export function renderStandaloneManifests(
+  input: StandaloneInput
+): Record<string, string> {
+  return {
+    [STANDALONE_MANIFEST_PATHS.scoop]: renderScoopStandaloneManifest(input),
+    [STANDALONE_MANIFEST_PATHS.homebrew]:
+      renderHomebrewStandaloneFormula(input),
+    [STANDALONE_MANIFEST_PATHS.sums]: renderSha256Sums(
+      input.assets.map((a) => ({ name: a.name, sha256: a.sha256 }))
+    ),
+  };
+}
+
+
 function parseArgs(argv: string[]): {
   version: string;
   artifact: string;
@@ -178,7 +361,58 @@ function parseArgs(argv: string[]): {
   };
 }
 
+/**
+ * `--standalone` 分支：从**已有二进制产物目录**读取真实哈希，渲染去 bun 前置的清单。
+ *
+ * 与主流程的差别：**没有 `--placeholder`** —— 缺平台或目录为空即退出 1（不产出坏链接）。
+ */
+function runStandalone(argv: string[]): number {
+  const get = (name: string): string | undefined => {
+    const i = argv.indexOf(`--${name}`);
+    return i >= 0 ? argv[i + 1] : undefined;
+  };
+  const version = get('version');
+  const assetsDir = get('assets');
+  if (!version || !assetsDir) {
+    console.error(
+      '用法：bun run scripts/gen-package-manifests.ts --standalone --version <v> --assets <dir> [--download-base <url>]'
+    );
+    return 1;
+  }
+  const dirAbs = isAbsolute(assetsDir) ? assetsDir : join(REPO_ROOT, assetsDir);
+  if (!existsSync(dirAbs)) {
+    console.error(`❌ 产物目录不存在：${assetsDir}`);
+    return 1;
+  }
+
+  const entries = readdirSync(dirAbs)
+    .filter((name) => parseStandaloneName(name) !== null)
+    .map((name) => ({ name, sha256: sha256OfFile(join(dirAbs, name)) }));
+  const { assets, missing } = resolveStandaloneAssets(entries);
+  if (missing.length > 0) {
+    console.error(
+      `❌ standalone 资产缺失（不发不完整清单）：${missing.join(', ')}`
+    );
+    return 1;
+  }
+
+  const downloadBase = get('download-base');
+  const rendered = renderStandaloneManifests({
+    version,
+    assets,
+    ...(downloadBase ? { downloadBase } : {}),
+  });
+  for (const [rel, content] of Object.entries(rendered)) {
+    const abs = join(REPO_ROOT, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, content, 'utf-8');
+    console.log(`✅ 已生成 ${rel}`);
+  }
+  return 0;
+}
+
 function main(argv: string[]): number {
+  if (argv.includes('--standalone')) return runStandalone(argv);
   const args = parseArgs(argv);
   if (!args) {
     console.error(

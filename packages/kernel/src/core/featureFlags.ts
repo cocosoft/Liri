@@ -613,6 +613,16 @@ export const FEATURE_FLAGS = {
    */
   PLAN_STARTUP_RESUME: false,
 
+  /**
+   * D3 三期（2026-11-14）：计划续跑走**系统级**（默认关）。
+   *
+   * 开 ⇒ 启动期唤醒命中时调用 `PdcaLaunchCoordinator.resumePlan`，由 `PlanDrivenLoop`
+   * 采纳既有计划继续执行（不新建计划、不重做已完成步骤）；
+   * 关（默认）⇒ 保持一期"消息注入"式续跑（模型自行继续，可能新建计划）。
+   * `FEATURE_PLAN_SYSTEM_RESUME=true`。
+   */
+  PLAN_SYSTEM_RESUME: false,
+
   // ───── 性能与监控 ─────
   /** 内存监控 */
   MEMORY_MONITORING: true,

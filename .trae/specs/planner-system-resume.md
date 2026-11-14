@@ -57,3 +57,16 @@
 | 投影保真 | 步骤 id、依赖 id、result、acceptanceCriteria 原样保留（1 条） |
 | 空计划 | `buildResumeDecomposition` 抛错（1 条） |
 | 零回归 | 缺省（无 `resumePlanId`）路径与改动前一致：全量 `tests/tasks` 绿 |
+
+## 7. 三期已交付（接线 + 默认关开关）
+
+| 件 | 内容 |
+|---|---|
+| `PdcaLaunchCoordinator.resumePlan({ sessionId, planId, description })` 🆕 | 装配闸门：launcher 未装配 / 会话已有 launch 在途 ⇒ `false`；成功 ⇒ `launcher.launch('', description, sessionId, description, true, { resumePlanId })`，并把启动锁在 promise settle 后释放 |
+| `PlanResumeTarget.description` | 启动期续跑目标新增计划描述（系统级续跑作为 PDL 计划源） |
+| `recovery.ts` 计划续接分支 | `feature('PLAN_SYSTEM_RESUME')` 开 ⇒ 先尝试 `resumePlan`；成功 ⇒ 直接返回（不再注入消息）；未启动 ⇒ 记 warn 并**回退一期消息注入** |
+| `PLAN_SYSTEM_RESUME`（默认关） | 三处登记 + 默认关登记表 §2-#19 + kernel 体量基线 +9（仅声明与注释） |
+| `app/tests/chat/pdcaLaunchResumePlan.test.ts` 🆕 | 3 条：未装配 / 会话忙 / 成功透传 + 锁释放 |
+
+**为什么默认关**：系统级续跑会**自动接管**会话执行（不经用户消息），属自主行为；默认关时与一期逐字一致。
+

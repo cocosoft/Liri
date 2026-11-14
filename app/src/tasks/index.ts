@@ -579,6 +579,9 @@ export type {
   PlanImpactRisk,
   ToolSideEffectClass,
 } from './plan/planImpactPreview';
+// D7 二期（2026-11-14）：`/plan preview` 的计划选择（纯函数）
+export { selectPlanForPreview } from './plan/planPreviewSelection';
+export type { SelectPlanForPreviewResult } from './plan/planPreviewSelection';
 export {
   settleGoalForRun,
   settleGoalForTurn,

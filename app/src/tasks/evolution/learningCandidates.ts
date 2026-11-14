@@ -119,6 +119,8 @@ export interface LearningApprovedCase {
    */
   expectation: string | null;
   approvedAt: number;
+  /** 批准有效期（到期未复核 ⇒ 不进语料；由 `expireOverdue` 标记 `revokedAt`） */
+  expiresAt?: number;
   /** 撤销时间（撤销后由本字段标记，不从文件删除） */
   revokedAt?: number;
 }
@@ -149,6 +151,9 @@ export const LEARNING_APPROVAL_DAYS = 30;
 
 /** 语料种子文件名（与候选同目录） */
 export const LEARNING_APPROVED_CASES_FILE = 'approved-cases.jsonl';
+
+/** 到期未复核的备注（`expireOverdue` 写入；与人工撤销区分开） */
+export const LEARNING_EXPIRED_NOTE = '已过期（批准后未复核）';
 
 /** 候选 id：会话 + 轮次 + 类别**确定性哈希**（同一轮同类只会有一条） */
 export function computeLearningCandidateId(
@@ -294,6 +299,7 @@ export class LearningCandidateStore {
       input: candidate.input ?? null,
       expectation: null,
       approvedAt: now,
+      expiresAt,
     };
     if (!this.appendApprovedCase(seed)) return null;
     const next: LearningCandidate = {
@@ -318,16 +324,28 @@ export class LearningCandidateStore {
     now: number = Date.now()
   ): LearningCandidate {
     if (candidate.status !== LEARNING_CANDIDATE_APPROVED) return candidate;
-    this.markApprovedCaseRevoked(candidate.id, now);
     const reason = note.trim();
-    const next: LearningCandidate = {
-      ...candidate,
-      status: LEARNING_CANDIDATE_REJECTED,
-      decidedAt: now,
-      note: reason ? `已撤销（${reason}）` : '已撤销',
-    };
-    this.writeFile(this.filePath(candidate.id), next);
-    return next;
+    return this.closeApproved(
+      candidate,
+      reason ? `已撤销（${reason}）` : '已撤销',
+      now
+    );
+  }
+
+  /**
+   * 到期收口（M4，**惰性**）：已过 `expiresAt` 仍未复核的批准 ⇒ `lc_rejected` + 种子写 `revokedAt`。
+   *
+   * **不新增定时器**：由 `/learn list|stats|export` 在读路径顺带执行（集中在一处，避免各处各扫一遍）。
+   * 到期是"未复核"的客观结果，不是人工决定 ⇒ 备注固定为 {@link LEARNING_EXPIRED_NOTE}。
+   *
+   * @returns 本次过期的条数（0 = 无变化）
+   */
+  expireOverdue(now: number = Date.now()): number {
+    const expired = findExpiredApproved(this.list(), now);
+    for (const candidate of expired) {
+      this.closeApproved(candidate, LEARNING_EXPIRED_NOTE, now);
+    }
+    return expired.length;
   }
 
   /** 语料种子文件路径（供 `/learn export` 展示） */
@@ -379,6 +397,23 @@ export class LearningCandidateStore {
       });
       return false;
     }
+  }
+
+  /** 已批准 → 已拒绝（撤销 / 过期共用）：先标种子，再落候选状态 */
+  private closeApproved(
+    candidate: LearningCandidate,
+    note: string,
+    now: number
+  ): LearningCandidate {
+    this.markApprovedCaseRevoked(candidate.id, now);
+    const next: LearningCandidate = {
+      ...candidate,
+      status: LEARNING_CANDIDATE_REJECTED,
+      decidedAt: now,
+      note,
+    };
+    this.writeFile(this.filePath(candidate.id), next);
+    return next;
   }
 
   /** 给同 id 的种子行补 `revokedAt`（整文件原子重写；损坏行原样保留） */
@@ -477,6 +512,23 @@ export function computeLearningCandidateStats(
     rejected,
     rejectedShare: items.length > 0 ? rejected / items.length : null,
   };
+}
+
+/**
+ * 已到期未复核的批准（M4，纯函数；**不改写**）。
+ *
+ * 只认结构化字段 `expiresAt`（CS02）；没有 `expiresAt` 的历史候选视为"无期限"，不参与判定。
+ */
+export function findExpiredApproved(
+  items: readonly LearningCandidate[],
+  now: number
+): LearningCandidate[] {
+  return items.filter(
+    (item) =>
+      item.status === LEARNING_CANDIDATE_APPROVED &&
+      item.expiresAt !== undefined &&
+      item.expiresAt <= now
+  );
 }
 
 /**

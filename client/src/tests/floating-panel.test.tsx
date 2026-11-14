@@ -18,6 +18,8 @@ const closeFloatingWindow = vi.fn(async () => {});
 const focusMainWindow = vi.fn(async () => {});
 // G8 窗口体验（2026-11-14）：面板挂载即初始化几何（测试里空实现，避免触达 Tauri）
 const initFloatingWindowGeometry = vi.fn(async () => {});
+// G8 点击穿透（2026-11-14）：默认成功；个别用例改成失败
+const setFloatingPassthrough = vi.fn(async (_enabled: boolean) => true);
 
 // G8 内容增强（2026-11-14）：上下文加载走 mock，避免真实 HTTP
 let mockContext: FloatingContext = {
@@ -31,6 +33,7 @@ vi.mock("../lib/floatingWindow", () => ({
   closeFloatingWindow: () => closeFloatingWindow(),
   focusMainWindow: () => focusMainWindow(),
   initFloatingWindowGeometry: () => initFloatingWindowGeometry(),
+  setFloatingPassthrough: (enabled: boolean) => setFloatingPassthrough(enabled),
 }));
 
 vi.mock("../lib/floatingContext", () => ({
@@ -45,6 +48,8 @@ describe("FloatingPanel", () => {
     closeFloatingWindow.mockClear();
     focusMainWindow.mockClear();
     loadFloatingContext.mockClear();
+    setFloatingPassthrough.mockClear();
+    setFloatingPassthrough.mockResolvedValue(true);
     mockContext = {
       session: { id: "sess-1", title: "会话 A" },
       goals: [],
@@ -135,5 +140,31 @@ describe("FloatingPanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "刷新" }));
     await waitFor(() => expect(loadFloatingContext).toHaveBeenCalledTimes(2));
+  });
+
+  it("点击穿透：成功后显示退出提示并禁用按钮（不持久化）", async () => {
+    render(<FloatingPanel />);
+    const button = screen.getByRole("button", { name: "穿透" });
+    fireEvent.click(button);
+
+    await waitFor(() =>
+      expect(setFloatingPassthrough).toHaveBeenCalledWith(true),
+    );
+    expect(
+      await screen.findByText("点击穿透中 · 按 Ctrl+Shift+F 退出"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "穿透" })).toBeDisabled();
+  });
+
+  it("点击穿透：环境不支持 ⇒ 如实提示失败（不显示穿透中）", async () => {
+    setFloatingPassthrough.mockResolvedValue(false);
+    render(<FloatingPanel />);
+    fireEvent.click(screen.getByRole("button", { name: "穿透" }));
+
+    expect(
+      await screen.findByText("当前环境不支持点击穿透"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("点击穿透中 · 按 Ctrl+Shift+F 退出")).toBeNull();
+    expect(screen.getByRole("button", { name: "穿透" })).not.toBeDisabled();
   });
 });

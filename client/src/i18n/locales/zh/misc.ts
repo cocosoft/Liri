@@ -319,6 +319,11 @@ const zhMisc = {
     unavailable: "暂时读不到上下文（后端不可达）",
     refresh: "刷新",
     tokensUnit: "tokens",
+    // G8 点击穿透（2026-11-14）
+    passthrough: "穿透",
+    passthroughHint: "开启后鼠标点击落到下层应用（按 Ctrl+Shift+F 退出）",
+    passthroughOn: "点击穿透中 · 按 Ctrl+Shift+F 退出",
+    passthroughFailed: "当前环境不支持点击穿透",
   },
 };
 

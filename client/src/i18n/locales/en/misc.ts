@@ -331,6 +331,12 @@ const enMisc = {
     unavailable: "Context unavailable (backend unreachable)",
     refresh: "Refresh",
     tokensUnit: "tokens",
+    // G8 click-through (2026-11-14)
+    passthrough: "Through",
+    passthroughHint:
+      "Clicks pass to the app underneath (press Ctrl+Shift+F to exit)",
+    passthroughOn: "Click-through on · press Ctrl+Shift+F to exit",
+    passthroughFailed: "Click-through is not supported in this environment",
   },
 };
 

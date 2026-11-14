@@ -103,7 +103,7 @@
 **边界（如实）**：
 - **未真机验证**：本机无 `cargo`、无窗口自动化 ⇒ 只做了 `tsc` + `eslint` + 977 条 vitest（含 11 条几何用例）；`availableMonitors` / `onMoved` 等 Tauri 调用未在真实桌面跑过；
 - **跨 DPI 混合缩放未验证**：按各显示器 `scaleFactor` 换算逻辑像素，缩放大跨度（100%/200% 混排）需真机校准；
-- **点击穿透未做**：需先定 UX（穿透后如何退出穿透），本批不做；
+- **点击穿透已由 §10 交付**（进入点按钮、退出复用 `Ctrl+Shift+F`）；
 - **内容增强已由 §9 补齐**（当前会话 + 运行中目标）。
 
 ## 9. 五期已交付（内容增强：当前会话 + 运行中目标）
@@ -124,3 +124,25 @@
 - **会话标题来自列表 API**：`chatSessions` 不持久化 ⇒ 必须请求 `/v1/sessions`（悬浮窗打开时一次，聚焦/手动时再取）；
 - **只展示会话级目标**（`task_goals`）：PDCA `/goal` 的 `goal_metrics` 按 `goalService` 既有边界**不混放**；
 - **不轮询**：主窗口切换会话后，悬浮窗需**重新聚焦或点刷新**才同步（有意为之，避免副窗口常驻定时器）。
+
+## 10. 六期已交付（点击穿透）
+
+穿透态下窗口**不接收鼠标事件**（点击落到下层应用），因此关键在**退出路径不能依赖点击该窗口**。
+
+| 件 | 内容 |
+|---|---|
+| `client/src/lib/floatingWindow.ts` | 🆕 `setFloatingPassthrough(enabled)`（`setIgnoreCursorEvents`；非 Tauri / 窗口不存在 / 平台不支持 ⇒ **如实返回 `false`**）；`openFloatingWindow` 对已存在窗口**先关闭穿透**再 show+focus ⇒ 复用既有 `Ctrl+Shift+F` / 托盘「悬浮窗」作为**退出路径** |
+| `client/src/components/Floating/FloatingPanel.tsx` | 头部新增「穿透」按钮；成功后显示**退出提示横幅**（`点击穿透中 · 按 Ctrl+Shift+F 退出`）、按钮置灰；失败显示「当前环境不支持点击穿透」；收到 `focus` 即复位本地状态（外部已关闭穿透，避免残留横幅） |
+| `capabilities/default.json` / `floating.json` | ➕ `core:window:allow-set-ignore-cursor-events`（主窗口退出穿透 / 悬浮窗自身进入穿透） |
+| i18n `zh/en misc.ts` | ➕ 4 项（穿透 / 提示 / 穿透中 / 不支持） |
+| `client/src/tests/floating-window.test.ts` / `floating-panel.test.tsx` | ➕ 1 条（非 Tauri 返回 false）+ 2 条（成功显示横幅并禁用按钮 / 失败如实提示且按钮仍可用） |
+
+**UX 取舍（为什么这样设计）**：
+- **进入**靠点面板按钮（此刻窗口仍可点）；
+- **退出**靠 `Ctrl+Shift+F`（系统级 + 应用内，已存在）或托盘「悬浮窗」—— 二者都走 `openFloatingWindow`，其中已内置"关闭穿透"；
+- **瞬态、不持久化**：关闭/重开窗口一定是可点击的，避免"下次打开无法操作"。
+
+**边界（如实）**：
+- **未真机验证**：`setIgnoreCursorEvents` 的平台差异（macOS/Windows/Linux）未实测；不可用时界面如实提示，不会静默假装成功；
+- **穿透期间无法拖动/关闭/看操作细节**（鼠标事件不进入该窗口）⇒ 必须先退出穿透；
+- **不新增全局快捷键**：退出复用既有 `Ctrl+Shift+F`，避免再占一个系统级组合键。

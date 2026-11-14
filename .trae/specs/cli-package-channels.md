@@ -53,3 +53,24 @@
 2. **签名与校验**：产物签名（与插件签名闸同批评估）、`bun` 版本下限校验；
 3. **单文件二进制**：`bun build --compile` 的 win/mac/linux 交叉编译矩阵（可去掉 bun 前置）；
 4. **CI 真跑**：workflow 首次发版观察（上传 artifact、Release 附档、npm 发布、清单校验）。
+
+## 6. 二期已交付（单文件二进制 + 校验和）
+
+| 件 | 内容 |
+|---|---|
+| `scripts/build-cli-binary.ts` 🆕 | `bun build --compile` 产出**自带运行时**的单文件可执行（默认 `app/dist/cli-bin/liri-<os>-<arch>[.exe]`），并在同目录写 `SHA256SUMS`（`<sha256>  <name>`，按名升序）；纯函数 `defaultOutfile` / `parseBuildArgs` / `renderSha256Sums` / `sha256Of` |
+| `app/tests/packaging/cliBinary.test.ts` 🆕 | 4 条：平台产物名 / 参数解析与覆盖 / 空值不静默 / 校验和渲染确定 |
+
+**实测（2026-11-14，win32-x64）**：`bun run scripts/build-cli-binary.ts` 成功 —— `4762 modules`，
+`bundle 551ms` + `compile 536ms`，产物 `app/dist/cli-bin/liri-win32-x64.exe`，
+`SHA256SUMS` = `57f1858d…36cec`。
+
+**运行验证受环境限制（如实）**：本机 Windows「应用程序控制策略」阻止执行新建 exe
+（`应用程序控制策略已阻止此文件`）⇒ **只验证了构建与哈希**，未验证二进制可运行。
+
+### 仍未做（如实）
+
+1. **产物签名**：仓库无签名证书/密钥；`SHA256SUMS` 只做完整性校验，**不等于签名**（签名需发版侧配置，与插件签名闸同批评估）；
+2. **交叉编译矩阵**：`bun build --compile` 只能产出**当前平台**产物 ⇒ 需 CI 三平台矩阵（win/mac/linux 各跑一次本脚本）后才谈"三渠道去 bun 前置"；
+3. **清单 standalone 变体**：`packaging/**` 目前仍声明 `bun` 前置；去前置需在矩阵产物就绪后新增 `--standalone` 渲染（避免提前去掉前置却发不出二进制）；
+4. **真实发布凭据**：`NPM_TOKEN` / tap / bucket 账号仍未配置。

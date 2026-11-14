@@ -10,6 +10,8 @@
  *
  * **一期不引入新外部依赖**：系统级全局快捷键需 `tauri-plugin-global-shortcut`（Rust crate + npm 包），
  * 列入二期（见 `.trae/specs/desktop-floating-window.md` §5）；一期入口为主窗口内 `Ctrl+Shift+F`。
+ * **二期（2026-11-14）已接**：Rust 侧注册系统级 `Ctrl+Shift+F`，触发时仍只派发
+ * `liri:toggle-floating` 事件 ⇒ 窗口创建**仍由本文件的 `openFloatingWindow` 单点实现**。
  *
  * 浏览器（非 Tauri）环境下所有操作均为安全 no-op（返回 `unsupported`），便于前端单测与 Web 预览。
  */

@@ -21,6 +21,8 @@ tauri = { version = "2.11", features = ["tray-icon", "devtools"] }
 tauri-plugin-shell = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-process = "2"
+# G8 三期（2026-11-14）：系统级全局快捷键（应用未聚焦也能唤起悬浮窗）
+tauri-plugin-global-shortcut = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }

@@ -1756,6 +1756,18 @@ export async function launch(options: LaunchOptions): Promise<void> {
       }
     });
 
+    // D3（2026-11-14）：**持久 DAG 的计划续跑** —— 与目标续接并列，为"被重启打断"的计划
+    // （running + 心跳过期 + 24h 内）各登记一次唤醒（`plan-startup:<planId>:<heartbeatMs>`）。
+    // 只登记不执行；触发时再校验"仍可续且心跳未变"（期间有推进 ⇒ 作废）。
+    // 默认关（`FEATURE_PLAN_STARTUP_RESUME=true` 开启）⇒ 未开启时零行为。
+    await wrapInit('PlanResume', async () => {
+      const { enqueueStartupPlanResumes } = await import('@modules/tasks');
+      const report = await enqueueStartupPlanResumes();
+      if (report.scanned > 0) {
+        logger.info('计划重启续接扫描完成', { ...report });
+      }
+    });
+
     // PDCA：检查点索引**异步预热** + 启动扫描（标记残留的运行中任务为 abort）
     //
     // ⚠️ 位置很关键（2026-09-29 实测，台账「另案 ⑦」）：必须放在**模式分发之前** ——

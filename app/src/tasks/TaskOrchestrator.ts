@@ -129,12 +129,20 @@ export const STEP_STATUS_PENDING: PlanStep['status'] = 'pending';
 export const PLAN_STATUS_FAILED: Plan['status'] = 'failed';
 
 /**
+ * 计划**运行中**取值（D3，2026-11-14）：供 `plan/planStartupResume.ts` 等复用，
+ * 避免状态字面量扩散到新文件（`lint:state-ratchet` Register-or-Fail）。
+ */
+export const PLAN_STATUS_RUNNING: Plan['status'] = 'running';
+
+/**
  * 计划步骤**终态**取值（P2-1，2026-11-04）：同 `STEP_STATUS_PENDING`，供
  * `lro/logSummary.ts` 的每任务汇总计数复用，避免状态字面量在新文件里二次出现。
  */
 export const STEP_STATUS_COMPLETED: PlanStep['status'] = 'completed';
 export const STEP_STATUS_FAILED: PlanStep['status'] = 'failed';
 export const STEP_STATUS_CANCELLED: PlanStep['status'] = 'cancelled';
+/** 步骤**运行中**取值（D3，2026-11-14）：同 `STEP_STATUS_PENDING` 的复用口径。 */
+export const STEP_STATUS_RUNNING: PlanStep['status'] = 'running';
 
 export interface Plan {
   id: string;
@@ -579,6 +587,35 @@ export class TaskOrchestrator implements ISnapshotCapable {
     const plan = this.plans.get(planId);
     if (!plan) return [];
     return plan.steps.filter((s) => s.status === 'pending');
+  }
+
+  /**
+   * D3（2026-11-14）：把**心跳过期**的 running 步骤复位为 pending（崩溃残留的可恢复语义）。
+   *
+   * 为什么需要：`ensureInitializedSync` 只终结"无活跃步骤"的 ghost 计划；若崩溃时正好有步骤
+   * 处于 `running`，计划会永久停在 running 且无人推进。复位后才能被 `planStartupResume` 续跑。
+   *
+   * 安全口径：心跳仍新鲜（≤ ghost 宽限，默认 10 分钟）⇒ 一律不动（可能与在跑执行打架）。
+   *
+   * @returns 复位条数
+   */
+  resetStaleRunningSteps(planId: string, now: number = Date.now()): number {
+    const plan = this.plans.get(planId);
+    if (!plan) return 0;
+    const heartbeatMs = Date.parse(plan.lastHeartbeatAt ?? plan.createdAt);
+    const stale =
+      !Number.isFinite(heartbeatMs) ||
+      now - heartbeatMs > this.resolveGhostGraceMs();
+    if (!stale) return 0;
+
+    let reset = 0;
+    for (const step of plan.steps) {
+      if (step.status !== STEP_STATUS_RUNNING) continue;
+      step.status = STEP_STATUS_PENDING;
+      reset += 1;
+    }
+    if (reset > 0) this.savePlan(plan);
+    return reset;
   }
 
   /**

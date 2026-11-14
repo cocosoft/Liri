@@ -546,6 +546,27 @@ export type {
   StartupResumeReport,
   StartupResumeTarget,
 } from './goal/goalStartupResume';
+// D3（2026-11-14）：持久 DAG 的重启续跑（启动期登记一次唤醒；触发走既有 selfWake 执行器）
+export {
+  buildPlanResumeInstruction,
+  buildPlanResumeTaskId,
+  enqueueStartupPlanResumes,
+  isStartupPlanResumeTask,
+  isPlanResumable,
+  parsePlanResumeTaskId,
+  PLAN_RESUME_MAX_PLANS,
+  PLAN_RESUME_STALE_AFTER_MINUTES,
+  PLAN_STARTUP_RESUME_TASK_PREFIX,
+  planHeartbeatMs,
+  resolveStartupPlanResume,
+  selectResumablePlans,
+} from './plan/planStartupResume';
+export type {
+  PlanResumeReport,
+  PlanResumeScheduler,
+  PlanResumeSource,
+  PlanResumeTarget,
+} from './plan/planStartupResume';
 export {
   settleGoalForRun,
   settleGoalForTurn,

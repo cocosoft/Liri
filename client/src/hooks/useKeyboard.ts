@@ -4,6 +4,8 @@ import { APP_EVENTS } from "@/constants/events";
 import { useChatStore } from "../stores/chat";
 import { useSessionStore } from "../stores/sessionStore";
 import { useNavigationStore } from "../stores/navigationStore";
+// G8（2026-11-14）：全局悬浮窗（Tauri WebviewWindow；浏览器环境 no-op）
+import { openFloatingWindow } from "@/lib/floatingWindow";
 
 const shortcutMap: Record<
   string,
@@ -55,6 +57,13 @@ export function useKeyboard() {
       if (isCtrl && e.shiftKey && key === shortcutMap["quick-note"].key) {
         e.preventDefault();
         window.dispatchEvent(new CustomEvent(APP_EVENTS.openQuickNote));
+        return;
+      }
+
+      // G8（2026-11-14）：Ctrl+Shift+F 打开/聚焦全局悬浮窗（非 Tauri 环境为安全 no-op）
+      if (isCtrl && e.shiftKey && key === "f") {
+        e.preventDefault();
+        void openFloatingWindow();
         return;
       }
 

@@ -304,6 +304,13 @@ const zhMisc = {
       output: "输出",
     },
   },
+  // G8（2026-11-14）：全局悬浮窗
+  floating: {
+    title: "Liri · 后台状态",
+    empty: "暂无进行中的操作。",
+    close: "关闭悬浮窗",
+    backToMain: "回到主窗口",
+  },
 };
 
 export default zhMisc;

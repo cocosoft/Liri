@@ -10,7 +10,8 @@
  *   bun scripts/codemod-core-imports.ts --check    # 只检查（有残留 ⇒ exit 1，供 CI 用）
  *
  * 扫描面（只改**被 app 构建/测试覆盖**的源码，避免误改历史归档与文档）：
- *   app/src、app/tests、app/scripts、app/packages、app/_archive
+ *   app/src、app/tests、app/scripts、app/packages
+ *   （2026-11-14：`app/_archive` 已整体删除 —— 归档本体是文档级参考，且不进 tsconfig/lint 面）
  *
  * ❗ 迁移期注意事项：本脚本只改**引号内的说明符**，不改注释里的示例（注释属于叙事，不是依赖）。
  */
@@ -24,13 +25,7 @@ const repoRoot = process.env['CODEMOD_REPO_ROOT']
   ? join(process.env['CODEMOD_REPO_ROOT'])
   : join(import.meta.dir, '..');
 
-const ROOTS = [
-  'app/src',
-  'app/tests',
-  'app/scripts',
-  'app/packages',
-  'app/_archive',
-];
+const ROOTS = ['app/src', 'app/tests', 'app/scripts', 'app/packages'];
 const EXTS = ['.ts', '.tsx'];
 
 /** 只匹配**引号内**的说明符：`'@modules/core…'` / `"@modules/core…"` */

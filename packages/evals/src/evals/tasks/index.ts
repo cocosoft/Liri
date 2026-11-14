@@ -24,6 +24,7 @@
  *
  * - `smoke.ts`：4 条冒烟（含 1 条控制任务，用于判分器自检）
  * - `liri-core.ts`：自研核心链路（含 L2 过程断言）
+ * - `learning-cases.ts`：线上低分轮种子物料化（M3；文件为空时贡献 0 条）
  *
  * 公开题集（SWE-bench Verified / τ-bench / AgentDojo）需本地下载，按计划另行接入。
  */
@@ -32,9 +33,11 @@ import type { EvalTask } from '@modules/evals/types.js';
 import { smokeTasks } from '@modules/evals/tasks/smoke.js';
 import { liriCoreTasks } from '@modules/evals/tasks/liri-core.js';
 import { securityTasks } from '@modules/evals/tasks/security-injection.js';
+import { learningCaseTasks } from '@modules/evals/tasks/learning-cases.js';
 
 export const allTasks: EvalTask[] = [
   ...smokeTasks,
   ...liriCoreTasks,
   ...securityTasks,
+  ...learningCaseTasks,
 ];

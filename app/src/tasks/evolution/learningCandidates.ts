@@ -111,8 +111,13 @@ export interface LearningApprovedCase {
   evidence: string[];
   /** 该轮用户输入（取不到为 `null`） */
   input: string | null;
-  /** 期望答案：**M2 不自动生成**，人工合入 eval 语料时补齐 */
-  expectation: null;
+  /**
+   * 期望片段：**M2 恒写 `null`**（不生成答案，CS04）。
+   *
+   * 人工补齐后由 `gen:learning-eval-cases` 物料化为 L1 评测任务；判据是「回答包含该片段」
+   * （空白归一后逐字比对）⇒ 请填**可逐字比对的判定片段**，不要填整段自然语言期望。
+   */
+  expectation: string | null;
   approvedAt: number;
   /** 撤销时间（撤销后由本字段标记，不从文件删除） */
   revokedAt?: number;

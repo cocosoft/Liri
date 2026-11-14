@@ -108,10 +108,12 @@ fn create_app_menu(app: &tauri::AppHandle) -> Result<Menu<tauri::Wry>, tauri::Er
 fn create_tray_menu(app: &tauri::AppHandle) -> Result<Menu<tauri::Wry>, tauri::Error> {
     let show = MenuItem::with_id(app, "show", "显示窗口", true, None::<&str>)?;
     let hide = MenuItem::with_id(app, "hide", "隐藏窗口", true, None::<&str>)?;
+    // G8 二期（2026-11-14）：悬浮窗开关（真正的创建/聚焦在 JS 单点实现，Rust 只转发意图）
+    let floating = MenuItem::with_id(app, "floating", "悬浮窗", true, None::<&str>)?;
     let separator = MenuItem::with_id(app, "sep", "---", false, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
 
-    Menu::with_items(app, &[&show, &hide, &separator, &quit])
+    Menu::with_items(app, &[&show, &hide, &floating, &separator, &quit])
 }
 
 /// 初始化 tracing：控制台 + 文件双输出。
@@ -190,6 +192,15 @@ pub fn run() {
                         "hide" => {
                             if let Some(win) = window {
                                 let _ = win.hide();
+                            }
+                        }
+                        // G8 二期：悬浮窗 —— 转发到主窗口 JS（`openFloatingWindow` 是唯一创建点，
+                        // 避免在 Rust 侧再写一份窗口构建逻辑）
+                        "floating" => {
+                            if let Some(win) = window {
+                                let _ = win.eval(
+                                    "window.dispatchEvent(new CustomEvent('liri:toggle-floating'));",
+                                );
                             }
                         }
                         "quit" => {

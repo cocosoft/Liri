@@ -146,3 +146,31 @@
 - **未真机验证**：`setIgnoreCursorEvents` 的平台差异（macOS/Windows/Linux）未实测；不可用时界面如实提示，不会静默假装成功；
 - **穿透期间无法拖动/关闭/看操作细节**（鼠标事件不进入该窗口）⇒ 必须先退出穿透；
 - **不新增全局快捷键**：退出复用既有 `Ctrl+Shift+F`，避免再占一个系统级组合键。
+
+## 11. 真机验证记录（2026-11-14：本机被系统策略阻断）
+
+**结论：本机无法完成 GUI 真机验证**（不是代码问题，是 Windows 安全策略阻止编译）。
+
+| 项 | 结果 |
+|---|---|
+| MSVC Build Tools | ✅ 已存在（VS 2022 BuildTools + `VC.Tools.x86.x64`） |
+| Rust 工具链 | ✅ 已安装：rustup 1.29.3 + `stable-x86_64-pc-windows-msvc` 1.100.0（默认工具链已设） |
+| 安装注意 | `rustup-init` 默认下载路径在本机**停滞**（0 字节进度）⇒ 必须 `RUSTUP_USE_CURL=1` 才成功；`--no-modify-path` 不改系统 PATH |
+| **阻断** | ❌ **Smart App Control 阻止 `rustc.exe`**：事件日志 `Microsoft-Windows-CodeIntegrity/Operational` 3077 / 3033 / 3118 —— `rustc.exe` 加载 `rustc_driver-*.dll` 未达签名级别（Policy ID `{0283ac0f-…}`），进程退出码 `0xC0E90002` ⇒ **`cargo check` / `tauri dev` 均无法进行** |
+| 现存二进制 | `client/src-tauri/target/release/liri_client.exe` 构建于 **2026-09-10**（早于本轮全部改动）⇒ 启动它也验证不到 G8 四/五/六期 |
+
+**本机已完成的替代核对（可复核）**：
+1. `capabilities/{default,floating}.json` 的 **24 条权限 id 全部命中** `client/src-tauri/gen/schemas/desktop-schema.json` 的 `const` 清单；
+2. `Cargo.lock` **无** `tauri-plugin-global-shortcut` 条目 ⇒ 印证"未重生成"；
+3. 前端 `tsc` 0 错误 / `eslint` 0 error / `vitest` 141 文件 / 990 用例全绿。
+
+**待真机项（解除阻断后逐条验）**：
+1. `Ctrl+Shift+F` 系统级唤起（未聚焦时）+ 注册失败仅告警；
+2. 悬浮窗几何记忆（移动/缩放后重开）+ 拔副屏后自动回到主屏；
+3. 当前会话 / 运行中目标在副窗口的真实 HTTP 读取（后端不可达时显示"暂时读不到"）；
+4. 点击穿透进入 + `Ctrl+Shift+F` 退出（穿透期间点击落到下层应用）；
+5. `Cargo.lock` 生成 `tauri-plugin-global-shortcut` 条目后提交。
+
+**解除方式（需用户决定，均不在本批擅自动手）**：
+- 关闭 Windows「智能应用控制」（设置 → 隐私和安全性 → Windows 安全中心 → 应用和浏览器控制）；**该开关关闭后不可再开启**（除重装系统）；
+- 或在另一台未启用该策略的机器 / 由 CI（tag 触发 `release.yml`）构建安装包后再真机验证。

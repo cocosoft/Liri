@@ -50,6 +50,11 @@ COPY app/package.json app/bun.lock* ./
 #   error: Couldn't find patch file: 'patches/dingtalk-stream@2.1.5.patch'
 # 补丁属依赖树的一部分，必须与清单同层复制（否则 install 层缓存也跟着错）。
 COPY app/patches ./patches
+# 2026-11-14（P1-1）：`xlsx` 改走仓库内定点源包 `file:../vendor/xlsx-0.20.2.tgz`
+# （去掉 `cdn.sheetjs.com` 这一构建期外部单点）。源包属依赖树的一部分 ⇒ 必须与清单
+# 同层复制：WORKDIR=/app，`../vendor` 即 `/vendor`。缺这层时 frozen install 直接失败
+# （Deploy Docker run #1875 实测：`bun install --frozen-lockfile` exit 1）。
+COPY vendor /vendor
 # 2026-08-17 修复：原 `bun install --frozen-lockfile ... || bun install` 静默降级会掩盖
 # install 失败（依赖树不完整 → bun build 报模块缺失）。frozen-lockfile 失败必须显式报错暴露根因。
 RUN bun install --frozen-lockfile --no-progress

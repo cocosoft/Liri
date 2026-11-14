@@ -41,6 +41,8 @@ export interface RuntimeDefaults {
   heartbeatIntervalMs: number;
   connectionTimeoutMs: number;
   requestTimeoutMs: number;
+  /** 优雅退出**单条清理钩子**的执行上界（毫秒）；超时记为一条超时并继续后续钩子 */
+  shutdownHookTimeoutMs: number;
   maxLogFileSizeBytes: number;
   maxCacheSizeBytes: number;
   cacheExpiryMs: number;
@@ -118,7 +120,8 @@ const TOKEN_BYTES_ESTIMATE = 4;
  * 环境变量（未设置 / 非法 ⇒ 回退默认值）：
  * `LIRI_SESSION_TIMEOUT_MS` · `LIRI_MAX_CONCURRENT_TASKS` · `LIRI_MAX_RETRY_COUNT` ·
  * `LIRI_RETRY_DELAY_MS` · `LIRI_HEARTBEAT_INTERVAL_MS` · `LIRI_CONNECTION_TIMEOUT_MS` ·
- * `LIRI_REQUEST_TIMEOUT_MS` · `LIRI_MAX_LOG_FILE_SIZE` · `LIRI_MAX_CACHE_SIZE_BYTES` ·
+ * `LIRI_REQUEST_TIMEOUT_MS` · `LIRI_SHUTDOWN_HOOK_TIMEOUT_MS` ·
+ * `LIRI_MAX_LOG_FILE_SIZE` · `LIRI_MAX_CACHE_SIZE_BYTES` ·
  * `LIRI_CACHE_EXPIRY_MS` · `LIRI_DEFAULT_PORT` · `LIRI_DEFAULT_HOST` ·
  * `LIRI_MAX_FILE_SIZE` · `LIRI_MAX_PATH_LENGTH` · `LIRI_MAX_FILENAME_LENGTH` ·
  * `LIRI_DEFAULT_MAX_TOKENS` · `LIRI_API_IMAGE_MAX_BASE64_SIZE` · `LIRI_IMAGE_MAX_WIDTH` ·
@@ -152,6 +155,7 @@ export function getRuntimeDefaults(): RuntimeDefaults {
     heartbeatIntervalMs: envInt('LIRI_HEARTBEAT_INTERVAL_MS', 30 * 1000),
     connectionTimeoutMs: envInt('LIRI_CONNECTION_TIMEOUT_MS', 10 * 1000),
     requestTimeoutMs: envInt('LIRI_REQUEST_TIMEOUT_MS', 60 * 1000),
+    shutdownHookTimeoutMs: envInt('LIRI_SHUTDOWN_HOOK_TIMEOUT_MS', 8 * 1000),
     maxLogFileSizeBytes: envInt('LIRI_MAX_LOG_FILE_SIZE', 10 * 1024 * 1024),
     maxCacheSizeBytes: envInt('LIRI_MAX_CACHE_SIZE_BYTES', 100 * 1024 * 1024),
     cacheExpiryMs: envInt('LIRI_CACHE_EXPIRY_MS', 24 * 60 * 60 * 1000),

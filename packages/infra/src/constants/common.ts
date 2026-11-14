@@ -53,6 +53,13 @@ export const COMMON_HEARTBEAT_INTERVAL = B.heartbeatIntervalMs;
 export const CONNECTION_TIMEOUT = B.connectionTimeoutMs;
 /** @kind B */
 export const REQUEST_TIMEOUT = B.requestTimeoutMs;
+/**
+ * @kind B —— 优雅退出**单条清理钩子**的执行上界（毫秒）。
+ *
+ * 退出链必须有界：任一钩子卡死不得让进程无限挂起（`withDeadline` + `unref` 统一在
+ * `app/src/bootstrap/shutdownHooks.ts` 落实）。
+ */
+export const SHUTDOWN_HOOK_TIMEOUT_MS = B.shutdownHookTimeoutMs;
 /** @kind B */
 export const MAX_CACHE_SIZE_BYTES = B.maxCacheSizeBytes;
 /** @kind B —— 洞察报告「慢操作」展示阈值（毫秒；超此值的调用计入 slowCalls） */

@@ -31,7 +31,12 @@ import {
   writeUserMd,
   readUserMd,
 } from '@openliri/service/services/soul/UserReader';
-import { detectUnifiedProviders } from '@modules/ai';
+import {
+  detectUnifiedProviders,
+  detectLocalModelServices,
+  ensureLocalModelProviderRegistered,
+  type DetectedLocalService,
+} from '@modules/ai';
 // B5-2-100+：引导页厂商链接与通道实现共用同一事实源
 import {
   WECOM_VENDOR_SITE_URL,
@@ -522,6 +527,53 @@ function detectExistingConfig(): {
 }
 
 /**
+ * 打印「本机已检测到的本地模型服务」（G1，2026-11-14）
+ *
+ * 本地条目排在云端供应商之前（序号从 1 起），调用方用返回数组做序号映射。
+ * 探测只读、超时即视为不可用，不阻塞引导。
+ */
+async function printLocalServiceOptions(): Promise<DetectedLocalService[]> {
+  const services = await detectLocalModelServices();
+  for (let i = 0; i < services.length; i++) {
+    const s = services[i];
+    console.log(
+      `  ${i + 1}. ${s.displayName} · 本地已检测到（${s.models.length} 个模型，无需 API Key）`
+    );
+    const preview = s.models.slice(0, 3).join(', ');
+    const more = s.models.length > 3 ? ' …' : '';
+    console.log(`     └ 模型: ${preview}${more}`);
+    console.log('');
+  }
+  return services;
+}
+
+/**
+ * 本地服务一键接入（免 Key）：注册 provider + 同步真实模型到 model_registry
+ */
+async function activateLocalService(
+  service: DetectedLocalService
+): Promise<void> {
+  console.log(`\n  ⏳ 正在接入 ${service.displayName}...`);
+  const ok = await ensureLocalModelProviderRegistered(service);
+  if (!ok) {
+    console.log('  ⚠️ 本地服务接入失败，请确认服务仍在运行后重试。');
+    console.log('  稍后可运行 /onboard model 重新配置\n');
+    return;
+  }
+  if (service.providerType === 'ollama') {
+    setConfigValue('ai.provider', 'ollama');
+  }
+  console.log(
+    `  ✅ 已接入 ${service.displayName}（${service.models.length} 个模型，无需 API Key）`
+  );
+  console.log('  💡 可在「模型管理 → 任务分工」中指定具体模型\n');
+  showHintIfNeeded(
+    OnboardHintKey.FIRST_SETUP_COMPLETE,
+    HINT_SOUL_CUSTOMIZATION
+  );
+}
+
+/**
  * 分段独立重配：仅 AI 模型与密钥（1 步）
  */
 async function runModelSection(
@@ -546,6 +598,10 @@ async function runModelSection(
   }
   console.log('');
 
+  // G1：本机已在跑的本地模型服务优先展示（免 Key、开箱即用）
+  const localServices = await printLocalServiceOptions();
+  const localCount = localServices.length;
+
   const providerKeys = Object.keys(PROVIDER_INFO);
   for (let i = 0; i < providerKeys.length; i++) {
     const key = providerKeys[i];
@@ -553,7 +609,7 @@ async function runModelSection(
     const isRecommended = recommended !== '' && key === recommended;
     const badge = isRecommended ? ' ★推荐' : '';
     const freeTag = info.hasFreeTier ? ' ✅ 免费额度' : '';
-    console.log(`  ${i + 1}. ${info.name}${badge}${freeTag}`);
+    console.log(`  ${localCount + i + 1}. ${info.name}${badge}${freeTag}`);
     console.log(`     ├ 价格: ${info.price}`);
     if (info.freeQuota) {
       console.log(`     ├ 免费: ${info.freeQuota}`);
@@ -564,8 +620,9 @@ async function runModelSection(
   console.log('  s. 跳过 — 暂不配置，进入离线模式');
   console.log('');
 
+  const maxChoice = localCount + providerKeys.length;
   const providerChoice = await askQuestion(
-    `  请选择 (1-${providerKeys.length}, 默认 1): `,
+    `  请选择 (1-${maxChoice}, 默认 1): `,
     rl
   );
 
@@ -574,14 +631,34 @@ async function runModelSection(
     return [];
   }
 
+  const isSkip =
+    providerChoice.toLowerCase() === 'skip' ||
+    providerChoice.toLowerCase() === 's';
+
+  if (isSkip) {
+    console.log('\n  ⏭️ 已跳过 AI 配置，将进入离线模式。');
+    console.log('  稍后可通过 /onboard 重新配置。\n');
+    return [];
+  }
+
+  // 直接回车 = 采用第 1 项（本地优先；无本地时回落首个云端供应商）
+  if (providerChoice === '' && localCount > 0) {
+    await activateLocalService(localServices[0]);
+    return [];
+  }
+
+  const choiceIdx = parseInt(providerChoice, 10);
+
+  // 本地服务：一键接入后直接返回（无需 API Key）
+  if (!Number.isNaN(choiceIdx) && choiceIdx >= 1 && choiceIdx <= localCount) {
+    await activateLocalService(localServices[choiceIdx - 1]);
+    return [];
+  }
+
   let selectedProvider = providerKeys[0];
 
-  if (
-    providerChoice.toLowerCase() !== 'skip' &&
-    providerChoice.toLowerCase() !== 's' &&
-    providerChoice !== ''
-  ) {
-    const idx = parseInt(providerChoice, 10) - 1;
+  if (!Number.isNaN(choiceIdx)) {
+    const idx = choiceIdx - localCount - 1;
     if (idx >= 0 && idx < providerKeys.length) {
       selectedProvider = providerKeys[idx];
     }
@@ -1192,6 +1269,10 @@ export async function runOnboard(
     }
     console.log('');
 
+    // G1：本机已在跑的本地模型服务优先展示（免 Key、开箱即用）
+    const localServices = await printLocalServiceOptions();
+    const localCount = localServices.length;
+
     const providerKeys = Object.keys(PROVIDER_INFO);
     for (let i = 0; i < providerKeys.length; i++) {
       const key = providerKeys[i];
@@ -1200,7 +1281,7 @@ export async function runOnboard(
       const isCurrent = existingConfig.provider === key;
       const badge = isCurrent ? ' ★当前' : isRecommended ? ' ★推荐' : '';
       const freeTag = info.hasFreeTier ? ' ✅ 免费额度' : '';
-      console.log(`  ${i + 1}. ${info.name}${badge}${freeTag}`);
+      console.log(`  ${localCount + i + 1}. ${info.name}${badge}${freeTag}`);
       console.log(`     ├ 价格: ${info.price}`);
       if (info.freeQuota) {
         console.log(`     ├ 免费: ${info.freeQuota}`);
@@ -1211,8 +1292,9 @@ export async function runOnboard(
     console.log('  s. 跳过 — 暂不配置，进入离线模式');
     console.log('');
 
+    const maxChoice = localCount + providerKeys.length;
     const providerChoice = await askQuestion(
-      `  请选择 (1-${providerKeys.length}, 默认 1): `,
+      `  请选择 (1-${maxChoice}, 默认 1): `,
       rl
     );
 
@@ -1230,15 +1312,28 @@ export async function runOnboard(
       return [];
     }
 
-    let selectedProvider = providerKeys[0];
-    // 按列表序号映射（消除固定 1→deepseek/2→anthropic/3→openai 的硬编码）
+    // 直接回车 = 采用第 1 项（本地优先；无本地时回落首个云端供应商）
+    if (providerChoice === '' && localCount > 0) {
+      await activateLocalService(localServices[0]);
+      return [];
+    }
+
     const choiceIdx = Number(providerChoice);
+
+    // 本地服务：一键接入后直接返回（无需 API Key）
+    if (!Number.isNaN(choiceIdx) && choiceIdx >= 1 && choiceIdx <= localCount) {
+      await activateLocalService(localServices[choiceIdx - 1]);
+      return [];
+    }
+
+    let selectedProvider = providerKeys[0];
+    // 按列表序号映射（本地条目占前 localCount 位）
     if (
       !Number.isNaN(choiceIdx) &&
-      choiceIdx >= 1 &&
-      choiceIdx <= providerKeys.length
+      choiceIdx > localCount &&
+      choiceIdx <= maxChoice
     ) {
-      selectedProvider = providerKeys[choiceIdx - 1];
+      selectedProvider = providerKeys[choiceIdx - localCount - 1];
     }
 
     const providerInfo = PROVIDER_INFO[selectedProvider];

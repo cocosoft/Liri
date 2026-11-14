@@ -25,19 +25,14 @@
 import { feature } from '@openliri/kernel';
 import { getLogger } from '@openliri/infra/monitoring';
 import { getCg3SelfWakeService } from '@modules/tasks/Cg3Bootstrap';
-import {
-  PLAN_STATUS_RUNNING,
-  STEP_STATUS_CANCELLED,
-  STEP_STATUS_COMPLETED,
-  STEP_STATUS_FAILED,
-  type Plan,
-} from '../TaskOrchestrator';
+import { PLAN_STATUS_RUNNING, type Plan } from '../TaskOrchestrator';
 import {
   buildPlanImpactPreview,
   hasRecordedImpact,
   renderPlanImpactPreview,
   type PlanImpactOptions,
 } from './planImpactPreview';
+import { isNonTerminalStep } from './planStepStatus';
 
 const logger = getLogger('tasks:plan:startupResume');
 
@@ -61,15 +56,6 @@ export const PLAN_RESUME_FRESH_WINDOW_HOURS = 24;
  * 心跳仍新鲜 ⇒ 可能正在执行（其它进程/线程）⇒ 绝不登记续跑。
  */
 export const PLAN_RESUME_STALE_AFTER_MINUTES = 10;
-
-/** 计划中**未终态**的步骤状态判定（纯函数） */
-export function isNonTerminalStep(step: { status: string }): boolean {
-  return (
-    step.status !== STEP_STATUS_COMPLETED &&
-    step.status !== STEP_STATUS_FAILED &&
-    step.status !== STEP_STATUS_CANCELLED
-  );
-}
 
 /** 计划心跳（ms；缺失/非法 ⇒ `NaN`，由调用方按"不可判"处理） */
 export function planHeartbeatMs(plan: {

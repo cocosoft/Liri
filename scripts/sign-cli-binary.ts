@@ -32,10 +32,21 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, isAbsolute, join } from 'node:path';
-import { defaultOutfile, renderSha256Sums, sha256Of } from './build-cli-binary';
+import {
+  defaultOutfile,
+  parseSha256Sums,
+  renderSha256Sums,
+  sha256Of,
+} from './build-cli-binary';
 
 const REPO_ROOT = join(import.meta.dir, '..');
 
@@ -97,7 +108,9 @@ export function resolveSigningPlan(
 
   if (platform === 'win32') {
     if (!options.winCertPath) {
-      return skip('未配置 Windows 代码签名证书（LIRI_SIGN_WIN_CERT_PFX_BASE64）');
+      return skip(
+        '未配置 Windows 代码签名证书（LIRI_SIGN_WIN_CERT_PFX_BASE64）'
+      );
     }
     if (!options.winCertPassword) {
       return skip(
@@ -321,11 +334,16 @@ async function main(argv: string[]): Promise<number> {
       console.log('✅ 签名并校验通过');
     }
 
-    // 签名会改变字节 ⇒ 校验和必须在签名**之后**重算
-    const sums = renderSha256Sums([
-      { name: basename(filePath), sha256: sha256Of(filePath) },
-    ]);
+    // 签名会改变字节 ⇒ 校验和必须在签名**之后**重算；同目录可能有多个平台产物 ⇒ 合并而非覆盖
     const sumsPath = join(dirname(filePath), 'SHA256SUMS');
+    const previous = existsSync(sumsPath)
+      ? parseSha256Sums(readFileSync(sumsPath, 'utf-8'))
+      : [];
+    const merged = [
+      ...previous.filter((entry) => entry.name !== basename(filePath)),
+      { name: basename(filePath), sha256: sha256Of(filePath) },
+    ];
+    const sums = renderSha256Sums(merged);
     writeFileSync(sumsPath, sums, 'utf-8');
     console.log(`✅ 已重算校验和：${sumsPath}`);
     console.log(sums.trim());

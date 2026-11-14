@@ -124,6 +124,12 @@ jobs:
       - name: Build single-file binary
         run: bun run scripts/build-cli-binary.ts
 
+      # G2 七期（2026-11-14）：macOS runner 是 arm64，原生只有 darwin-arm64；
+      # Homebrew / npm 分包还需要 darwin-x64 ⇒ 用 Bun 交叉编译补这一份（SHA256SUMS 会合并）。
+      - name: Build cross-target binary (macOS Intel)
+        if: runner.os == 'macOS'
+        run: bun run scripts/build-cli-binary.ts --target=bun-darwin-x64
+
       - name: Sign (optional; 未配置证书 ⇒ 如实跳过并重算 SHA256SUMS)
         env:
           LIRI_SIGN_WIN_CERT_PFX_BASE64: ${{ secrets.LIRI_SIGN_WIN_CERT_PFX_BASE64 }}

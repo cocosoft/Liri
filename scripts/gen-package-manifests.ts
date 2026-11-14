@@ -29,7 +29,14 @@
  */
 
 import { createHash } from 'node:crypto';
-import { existsSync, copyFileSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  copyFileSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 // 复用校验和渲染（唯一实现，避免两套 `<hash>  <name>` 格式）
 import { renderSha256Sums } from './build-cli-binary';
@@ -155,7 +162,9 @@ export function renderNpmPackageJson(input: ManifestInput): string {
 }
 
 /** 渲染全部清单（纯函数） */
-export function renderAllManifests(input: ManifestInput): Record<string, string> {
+export function renderAllManifests(
+  input: ManifestInput
+): Record<string, string> {
   return {
     [MANIFEST_PATHS.scoop]: renderScoopManifest(input),
     [MANIFEST_PATHS.homebrew]: renderHomebrewFormula(input),
@@ -223,7 +232,8 @@ export function resolveStandaloneAssets(
   const assets: StandaloneAsset[] = [];
   for (const entry of entries) {
     const parsed = parseStandaloneName(entry.name);
-    if (parsed) assets.push({ name: entry.name, sha256: entry.sha256, ...parsed });
+    if (parsed)
+      assets.push({ name: entry.name, sha256: entry.sha256, ...parsed });
   }
   const missing = REQUIRED_STANDALONE_TARGETS.filter(
     ([platform, arch]) =>
@@ -431,8 +441,7 @@ export function renderNpmPlatformPackageJson(
       os: [target.platform],
       cpu: [target.arch],
       files: [target.binaryName],
-      '//':
-        '由 scripts/gen-package-manifests.ts --standalone-npm 生成，勿手改；只承载本平台二进制。',
+      '//': '由 scripts/gen-package-manifests.ts --standalone-npm 生成，勿手改；只承载本平台二进制。',
     },
     null,
     2
@@ -455,8 +464,7 @@ export function renderNpmStandaloneRootPackageJson(version: string): string {
       files: ['bin/liri.js'],
       optionalDependencies,
       engines: { node: '>=18' },
-      '//':
-        '由 scripts/gen-package-manifests.ts --standalone-npm 生成，勿手改；平台二进制在 @openliri/cli-* 平台包内。',
+      '//': '由 scripts/gen-package-manifests.ts --standalone-npm 生成，勿手改；平台二进制在 @openliri/cli-* 平台包内。',
     },
     null,
     2
@@ -473,14 +481,11 @@ export function renderNpmStandaloneTree(
     [`${NPM_STANDALONE_ROOT}/bin/liri.js`]: renderNpmStandaloneLauncher(),
   };
   for (const target of npmPlatformTargets()) {
-    tree[
-      `${NPM_STANDALONE_ROOT}/packages/${target.packageName}/package.json`
-    ] = renderNpmPlatformPackageJson(version, target);
+    tree[`${NPM_STANDALONE_ROOT}/packages/${target.packageName}/package.json`] =
+      renderNpmPlatformPackageJson(version, target);
   }
   return tree;
 }
-
-
 
 function parseArgs(argv: string[]): {
   version: string;
@@ -640,9 +645,7 @@ function main(argv: string[]): number {
   const input: ManifestInput = {
     version: args.version,
     artifactName: `liri-cli-${args.version}.tgz`,
-    sha256: args.placeholder
-      ? '0'.repeat(64)
-      : sha256OfFile(args.artifact),
+    sha256: args.placeholder ? '0'.repeat(64) : sha256OfFile(args.artifact),
     ...(args.downloadBase ? { downloadBase: args.downloadBase } : {}),
   };
   const rendered = renderAllManifests(input);

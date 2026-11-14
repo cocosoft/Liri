@@ -18,6 +18,8 @@ release/
 # G2 四期/五期：standalone 清单与 npm 分包树由发版作业按真实二进制生成（不提交仓库，避免坏链接/大文件入库）
 packaging/standalone/
 packaging/standalone-npm/
+# Bun 交叉编译（`bun build --compile --target=…`）下载的运行时缓存
+.bun-cache/
 
 # IDE
 .idea/

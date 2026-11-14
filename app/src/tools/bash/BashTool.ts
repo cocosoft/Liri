@@ -331,11 +331,16 @@ export class BashTool extends BaseTool {
     const { isCallAllowedByPersistedRules } =
       await import('@openliri/infra/permission/PermissionManager');
     // G3：带上工作区根 —— 命令级「本工作区永久信任」规则只在同一根下命中
+    // 2026-11-14（CI 回归修复）：必须走 `safeProcessCwd()` —— 裸 `process.cwd()` 在
+    // "进程工作目录已被删除/移走"时会直接抛 ENOENT，从审批指纹路径冒出去，
+    // 绕过下方 cwd 先验的「无法确定工作目录」友好失败（macOS/Windows CI 实测复现）。
+    // 取不到根 ⇒ 传空列表：规则不命中 ⇒ 不放行（fail-closed）。
+    const processRoot = safeProcessCwd();
     const ruleHit = isCallAllowedByPersistedRules(
       'bash',
       { command },
       undefined,
-      [process.cwd()]
+      processRoot ? [processRoot] : []
     );
     return { hash, bypassAsk: ruleHit, source: ruleHit ? 'rule' : 'none' };
   }

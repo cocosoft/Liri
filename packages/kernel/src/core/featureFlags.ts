@@ -599,6 +599,20 @@ export const FEATURE_FLAGS = {
    */
   GOAL_STARTUP_RESUME: false,
 
+  // ───── 持久 DAG：计划重启续跑（D3，2026-11-14；默认关 = 零行为变更）─────
+  /**
+   * D3：**重启后为被中断的计划登记一次续跑**（默认关）。
+   *
+   * 开 ⇒ 启动期扫描"running 且心跳过期（>10min）但仍在 24h 内推进过"的计划（最多 5 个，
+   * 按心跳倒序），各登记一次 `plan-startup:<planId>:<heartbeatMs>` 唤醒；到点由既有
+   * selfWake 执行器注入"计划续接"指令（剩余步骤 + 依赖）并续跑会话，同时把崩溃残留的
+   * `running` 步骤复位为 `pending`。
+   * 关（默认）⇒ 不扫描、不登记、不解析 —— 与改动前逐字一致（历史未终态计划可能很多，
+   * 默认开会在每次启动自动消耗模型调用，必须显式 opt-in）。
+   * `FEATURE_PLAN_STARTUP_RESUME=true`。
+   */
+  PLAN_STARTUP_RESUME: false,
+
   // ───── 性能与监控 ─────
   /** 内存监控 */
   MEMORY_MONITORING: true,

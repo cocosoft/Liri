@@ -61,6 +61,11 @@ import {
   resolveStartupGoalResume,
 } from '@modules/tasks';
 import { takeIdleContinuationInstruction } from '@modules/tasks';
+// D3（2026-11-14）：持久 DAG 的重启续跑（计划级；与目标续接**同一执行器**）
+import {
+  isStartupPlanResumeTask,
+  resolveStartupPlanResume,
+} from '@modules/tasks';
 import { getSubAgentEngine } from '@modules/tools';
 import {
   RecoveryOrchestrator,
@@ -358,6 +363,36 @@ export class ChatRecovery {
       // D2+（2026-11-14）：重启续接 —— 与 idle 续接**共用执行器与模板**，闸门不同：
       // ① 目标仍存在、非终态、归属会话一致，且 `updatedAt` 未变（期间已有推进 ⇒ 陈旧唤醒作废）；
       // ② 会话此刻确实空闲（与 idle 同一判据）。
+      // D3（2026-11-14）：计划级重启续接 —— 闸门与目标续接同源（仍可续 / 会话空闲），
+      // 差别只在"续跑内容"：注入计划剩余步骤指令，并要求不新建计划。
+      if (isStartupPlanResumeTask(taskId)) {
+        const target = await resolveStartupPlanResume({ taskId });
+        if (!target || target.sessionId !== sessionId) {
+          logger.info(
+            '计划重启续接跳过：计划已不可续（终态 / 陈旧唤醒 / 会话不符）',
+            { sessionId, taskId }
+          );
+          return { ok: false, error: 'plan_not_resumable' };
+        }
+        if (hasActiveRuns(sessionId)) {
+          logger.info('计划重启续接跳过：会话仍忙（有在途子代理 run）', {
+            sessionId,
+            planId: target.planId,
+          });
+          return { ok: false, error: 'session_busy' };
+        }
+        logger.info('计划重启续接执行', {
+          sessionId,
+          planId: target.planId,
+          resetSteps: target.resetSteps,
+        });
+        // 指令经 `resumeSessionInternally → streamMessage` 作为用户消息落盘
+        //（§1.6「模型可见 ⇔ 已落盘」；不新建事件类型）
+        return this.resumeSessionInternally(sessionId, target.instruction, {
+          systemResume: true,
+          planId: target.planId,
+        });
+      }
       if (isStartupGoalResumeTask(taskId)) {
         const target = await resolveStartupGoalResume({ taskId });
         if (!target || target.sessionId !== sessionId) {

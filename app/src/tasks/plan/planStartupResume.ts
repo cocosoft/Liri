@@ -32,6 +32,12 @@ import {
   STEP_STATUS_FAILED,
   type Plan,
 } from '../TaskOrchestrator';
+import {
+  buildPlanImpactPreview,
+  hasRecordedImpact,
+  renderPlanImpactPreview,
+  type PlanImpactOptions,
+} from './planImpactPreview';
 
 const logger = getLogger('tasks:plan:startupResume');
 
@@ -161,11 +167,18 @@ function stepNumber(plan: Plan, stepId: string): number {
 }
 
 /**
- * 渲染"计划续接"指令（**纯函数**：同一计划 ⇒ 逐字相同）。
+ * 渲染"计划续接"指令（**纯函数**：同一计划 + 同一副作用声明 ⇒ 逐字相同）。
  *
  * 只写计划事实（描述 / 进度 / 剩余步骤 / 依赖），不臆造"上次做到哪一步"。
+ * D7（2026-11-14）：有历史台账时追加「上次执行影响」段落（产物 / 副作用类别 / 拦截计数），
+ * 让续跑的模型知道"这些副作用上次已经发生过"，避免重复外部动作。
+ *
+ * @param impactOptions 工具副作用解析（**注入**，避免 tasks→tools 循环依赖）
  */
-export function buildPlanResumeInstruction(plan: Plan): string {
+export function buildPlanResumeInstruction(
+  plan: Plan,
+  impactOptions?: PlanImpactOptions
+): string {
   const remaining = plan.steps.filter(isNonTerminalStep);
   const done = plan.steps.length - remaining.length;
   const lines: string[] = [
@@ -192,6 +205,12 @@ export function buildPlanResumeInstruction(plan: Plan): string {
     '2. 动手前先核对当前代码/文件状态，若与计划已不符，以实际状态为准并说明偏离；',
     '3. 全部完成后简要汇报产出与偏离点。'
   );
+
+  // D7：有历史台账才追加影响段落（无台账不塞空段落）
+  const preview = buildPlanImpactPreview(plan, impactOptions);
+  if (hasRecordedImpact(preview)) {
+    lines.push('', renderPlanImpactPreview(preview));
+  }
   return lines.join('\n');
 }
 
@@ -313,6 +332,8 @@ export async function resolveStartupPlanResume(params: {
   taskId: string;
   source?: PlanResumeSource;
   now?: number;
+  /** D7：工具副作用解析（注入；缺省 ⇒ 影响段落里该部分计为 unknown） */
+  resolveEffect?: PlanImpactOptions['resolveEffect'];
 }): Promise<PlanResumeTarget | null> {
   if (!feature('PLAN_STARTUP_RESUME')) return null;
   const parsed = parsePlanResumeTaskId(params.taskId);
@@ -335,7 +356,10 @@ export async function resolveStartupPlanResume(params: {
   return {
     planId: latest.id,
     sessionId: latest.sessionId,
-    instruction: buildPlanResumeInstruction(latest),
+    instruction: buildPlanResumeInstruction(
+      latest,
+      params.resolveEffect ? { resolveEffect: params.resolveEffect } : undefined
+    ),
     resetSteps,
   };
 }

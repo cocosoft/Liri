@@ -567,6 +567,18 @@ export type {
   PlanResumeSource,
   PlanResumeTarget,
 } from './plan/planStartupResume';
+// D7（2026-11-14）：计划影响预演（零执行；历史台账 + 工具副作用声明）
+export {
+  buildPlanImpactPreview,
+  hasRecordedImpact,
+  renderPlanImpactPreview,
+} from './plan/planImpactPreview';
+export type {
+  PlanImpactOptions,
+  PlanImpactPreview,
+  PlanImpactRisk,
+  ToolSideEffectClass,
+} from './plan/planImpactPreview';
 export {
   settleGoalForRun,
   settleGoalForTurn,

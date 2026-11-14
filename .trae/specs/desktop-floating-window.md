@@ -83,4 +83,25 @@
 - **无新增 capability**：注册走 Rust API，不经 JS 插件命令 ⇒ `capabilities/*.json` 权限不扩；
 - **快捷键不可配置**：固定 `Ctrl+Shift+F`；与主窗口内快捷键**同键**，同时触发两次也只等价于「新建 → 聚焦」（`openFloatingWindow` 幂等）；
 - **Rust 未编译验证**：本机无 `cargo` ⇒ 仅源码级改动 + 前端 `tsc`/`eslint`/`vitest`（139 文件 / 966 用例）全绿；**`Cargo.lock` 未在本机重生成**（首次 `cargo build` / `tauri build` 自动补全）；
-- 仍**不做**：快捷键用户可配置、内容增强（当前会话 / 运行中目标）、窗口体验（位置记忆 / 多显示器 / 点击穿透）。
+- 仍**不做**：快捷键用户可配置、内容增强（当前会话 / 运行中目标）、点击穿透（位置记忆与多显示器校正**已由 §8 补齐**）。
+
+## 8. 四期已交付（窗口体验：几何记忆 + 多显示器边界校正）
+
+| 件 | 内容 |
+|---|---|
+| `client/src/lib/floatingGeometry.ts` 🆕 | 纯函数 `parseFloatingGeometry` / `serializeFloatingGeometry`（取整）/ `clampToMonitors` / `isRectVisible` + `loadFloatingGeometry` / `saveFloatingGeometry`（`localStorage`，键 `liri-floating-geometry`）；坐标统一为**逻辑像素** |
+| `client/src/lib/floatingWindow.ts` | `openFloatingWindow` 新建前恢复**上次几何**并夹进可见显示器（无历史 ⇒ 维持"默认尺寸 + 居中"）；🆕 `initFloatingWindowGeometry()`：在悬浮窗自身内挂载时校正一次 + `onMoved`/`onResized` 防抖 300ms 写回 |
+| `client/src/components/Floating/FloatingPanel.tsx` | 挂载即 `initFloatingWindowGeometry()`（非悬浮窗/非 Tauri ⇒ no-op） |
+| `capabilities/default.json` / `floating.json` | ➕ `core:window:allow-available-monitors`（主窗口创建前取显示器）/ `allow-outer-position` `allow-inner-size` `allow-scale-factor` `allow-set-position`（悬浮窗自身读几何与自校正）—— **仍为最小权限**，未加拖拽/穿透类新能力 |
+| `client/src/tests/floating-geometry.test.ts` 🆕 | 11 条：解析容错（空/坏 JSON/缺字段/非正尺寸）/ 序列化往返 / 屏内原样 / 部分越界夹到最小可见 / 上边界拉回 / 尺寸超屏收缩 / 副屏保持 / 全屏外居中兜底 / 无显示器原样 / `isRectVisible` 交集语义 + 无信息不误判 |
+
+**边界校正规则（确定性）**：
+- 与任何显示器**都无交集**（拔掉副屏）⇒ 居中到**第一个**显示器，避免只剩一条缝；
+- 否则目标屏 = 中心点所在 > 重叠最大 > 第一个；尺寸不超过目标屏；
+- 位置保证**水平至少 48px 可见** + **标题栏不高于屏幕上边界**（拖拽区始终可达）。
+
+**边界（如实）**：
+- **未真机验证**：本机无 `cargo`、无窗口自动化 ⇒ 只做了 `tsc` + `eslint` + 977 条 vitest（含 11 条几何用例）；`availableMonitors` / `onMoved` 等 Tauri 调用未在真实桌面跑过；
+- **跨 DPI 混合缩放未验证**：按各显示器 `scaleFactor` 换算逻辑像素，缩放大跨度（100%/200% 混排）需真机校准；
+- **点击穿透未做**：需先定 UX（穿透后如何退出穿透），本批不做；
+- **内容增强未做**：悬浮窗仍只展示 `OperationStatusBar`（当前会话 / 运行中目标仍待做）。

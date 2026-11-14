@@ -16,11 +16,24 @@
  * 浏览器（非 Tauri）环境下所有操作均为安全 no-op（返回 `unsupported`），便于前端单测与 Web 预览。
  */
 
+// G8 窗口体验（2026-11-14）：几何记忆 + 多显示器边界校正（纯函数，无 Tauri 依赖）
+import {
+  clampToMonitors,
+  FLOATING_DEFAULT_SIZE,
+  isRectVisible,
+  loadFloatingGeometry,
+  saveFloatingGeometry,
+  type Rect,
+} from "./floatingGeometry";
+
 /** 副窗口 label（Tauri 内唯一） */
 export const FLOATING_WINDOW_LABEL = "floating";
 
 /** 副窗口入口查询参数（`index.html?floating=1`） */
 export const FLOATING_QUERY_KEY = "floating";
+
+/** G8 窗口体验（2026-11-14）：拖动/缩放后写回几何的防抖（ms） */
+export const FLOATING_GEOMETRY_SAVE_DEBOUNCE_MS = 300;
 
 export type OpenFloatingResult = "opened" | "focused" | "unsupported";
 
@@ -40,6 +53,9 @@ export function isFloatingEntry(search: string): boolean {
 /**
  * 打开（或聚焦）悬浮窗。
  *
+ * G8 窗口体验（2026-11-14）：新建时优先恢复**上次几何**并做多显示器边界校正；
+ * 无历史几何 ⇒ 维持一期行为（默认尺寸 + 居中）。
+ *
  * @returns `opened` 新建 / `focused` 已存在并聚焦 / `unsupported` 非 Tauri 环境
  */
 export async function openFloatingWindow(): Promise<OpenFloatingResult> {
@@ -53,20 +69,102 @@ export async function openFloatingWindow(): Promise<OpenFloatingResult> {
     return "focused";
   }
 
+  const geometry = await resolveCreateGeometry();
   new WebviewWindow(FLOATING_WINDOW_LABEL, {
     url: `index.html?${FLOATING_QUERY_KEY}=1`,
     title: "Liri",
-    width: 360,
-    height: 220,
+    ...FLOATING_DEFAULT_SIZE,
     minWidth: 280,
     minHeight: 160,
     resizable: true,
     decorations: false,
     alwaysOnTop: true,
     skipTaskbar: true,
-    center: true,
+    ...(geometry
+      ? { x: geometry.x, y: geometry.y, width: geometry.width, height: geometry.height }
+      : { center: true }),
   });
   return "opened";
+}
+
+/** 读取「显示器可见区（逻辑像素）」，供创建前夹取使用 */
+async function readMonitorRects(): Promise<Rect[]> {
+  const { availableMonitors } = await import("@tauri-apps/api/window");
+  const monitors = await availableMonitors();
+  return monitors.map((m) => ({
+    x: m.position.x / m.scaleFactor,
+    y: m.position.y / m.scaleFactor,
+    width: m.size.width / m.scaleFactor,
+    height: m.size.height / m.scaleFactor,
+  }));
+}
+
+/** 新建窗口时的几何：无历史 ⇒ null（走默认居中）；有历史 ⇒ 夹进可见显示器 */
+async function resolveCreateGeometry(): Promise<Rect | null> {
+  const stored = loadFloatingGeometry();
+  if (!stored) return null;
+  try {
+    return clampToMonitors(stored, await readMonitorRects());
+  } catch {
+    // @ignore-catch — 显示器信息不可读（权限/平台差异）⇒ 用历史几何，仍比丢失位置好
+    return stored;
+  }
+}
+
+/**
+ * 在**悬浮窗自身**内初始化几何（G8 窗口体验）：挂载时校正一次 + 拖动/缩放后防抖保存。
+ *
+ * 必须在悬浮窗 webview 内调用（`getCurrentWebviewWindow()`）；非悬浮窗/非 Tauri ⇒ no-op。
+ */
+export async function initFloatingWindowGeometry(): Promise<void> {
+  if (!isTauriRuntime()) return;
+  const { getCurrentWebviewWindow } = await import(
+    "@tauri-apps/api/webviewWindow"
+  );
+  const win = getCurrentWebviewWindow();
+  if (win.label !== FLOATING_WINDOW_LABEL) return;
+
+  const readGeometry = async (): Promise<Rect> => {
+    const factor = await win.scaleFactor();
+    const position = (await win.outerPosition()).toLogical(factor);
+    const size = (await win.innerSize()).toLogical(factor);
+    return {
+      x: position.x,
+      y: position.y,
+      width: size.width,
+      height: size.height,
+    };
+  };
+
+  // 显示器变化（拔掉副屏 / 分辨率变）后窗口可能整体在屏外 ⇒ 校正一次
+  try {
+    const current = await readGeometry();
+    const monitors = await readMonitorRects();
+    if (!isRectVisible(current, monitors)) {
+      const clamped = clampToMonitors(current, monitors);
+      const { LogicalPosition } = await import("@tauri-apps/api/dpi");
+      await win.setPosition(
+        new LogicalPosition(Math.round(clamped.x), Math.round(clamped.y))
+      );
+    }
+  } catch {
+    // @ignore-catch — 校正失败不阻断窗口展示（用户仍可手动拖回）
+  }
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const persist = () => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      void readGeometry()
+        .then(saveFloatingGeometry)
+        .catch(() => {
+          // @ignore-catch — 读取失败只影响"下次恢复位置"
+        });
+    }, FLOATING_GEOMETRY_SAVE_DEBOUNCE_MS);
+  };
+
+  await win.onMoved(persist);
+  await win.onResized(persist);
 }
 
 /** 关闭当前悬浮窗（非 Tauri / 窗口不存在 ⇒ no-op） */

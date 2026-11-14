@@ -11,8 +11,8 @@
 
 | 子系统 | 规模 | 已核到的活消费者 |
 |---|---|---|
-| [`app/src/compaction/`](../app/src/compaction) | **23 个文件** | `chat/ChatManager.ts:327`、`chat/services/ContextCompactor.ts:33`、`query/ContextCollapse.ts:9`、`query/ReactiveCompact.ts:12`、`session/compaction/ServiceAdapters.ts:1`、`commands/builtin/compact/Compact.ts:15` |
-| [`app/src/context/compaction/`](../app/src/context/compaction) | 7 个文件 | `@modules/context` 的 `compactionOrchestrator`（被 `chat` / `query` 消费） |
+| [`packages/compaction/src/compaction/`](../../packages/compaction/src/compaction) | **23 个文件** | `chat/ChatManager.ts:327`、`chat/services/ContextCompactor.ts:33`、`query/ContextCollapse.ts:9`、`query/ReactiveCompact.ts:12`、`session/compaction/ServiceAdapters.ts:1`、`commands/builtin/compact/Compact.ts:15` |
+| [`app/src/context/compaction/`](../../app/src/context/compaction) | 7 个文件 | `@modules/context` 的 `compactionOrchestrator`（被 `chat` / `query` 消费） |
 
 **命名几乎一一对应**，这本身就是"同义重复实现"的强信号：
 

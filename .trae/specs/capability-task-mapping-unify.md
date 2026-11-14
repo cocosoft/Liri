@@ -19,7 +19,7 @@
 1. **无效能力键**：modelRouter 将 `text_to_video`/`image_to_video` 任务映射到同名能力键，但标准能力集合（yaml 23 键 + types.ts `CapabilityKey` enum）**不存在这两个键**（视频仅 `video_generation`）→ 这两个任务的**能力路由永远匹配不到模型**（resolve 时能力 fallback 失效）。
 2. **任务命名分叉**：yaml/DB taskMappings 用 `voice`（合并）、`code`；modelRouter 用 `tts`/`stt`、`coding`。合并逻辑 `{...DEFAULT, ...newMapping}` 使 `voice`/`code` 进入 mapping 但 `ALL_TASK_TYPES`（19 个）无对应 task → 双向脏数据。
 3. **task 覆盖缺失**：19 个 task 中 `ocr`/`text_to_video`/`image_to_video`/`reranking`/`vision`/`tts`/`stt`/`knowledge_compile` 在 yaml/DB taskMappings **无映射** → 校验（`validateTaskAssignment`）对这些任务缺失/用无效键。
-4. **前端英文标签（i18n 未接线）**：`CapabilitySelector.tsx` 调用 `getDisplayName(cap)` **未传 `t`** → [capabilityService.ts](file:///E:/PY/CODES/PY_APP/client/src/services/capabilityService.ts) 翻译分支短路，恒回退英文 `labelFallback`；分类名同。且 i18n `capability.*` 键大量缺失（缺 context_caching/batch_api/reranking/moderation/audio_input/video_input/image_editing/code_execution 等），**desc 键格式不一致**（yaml `capability.xxx.desc` vs zh.ts `xxxDesc`）。
+4. **前端英文标签（i18n 未接线）**：`CapabilitySelector.tsx` 调用 `getDisplayName(cap)` **未传 `t`** → [capabilityService.ts](file:///E:/PY/Documents/CODES/PY_APP/client/src/services/capabilityService.ts) 翻译分支短路，恒回退英文 `labelFallback`；分类名同。且 i18n `capability.*` 键大量缺失（缺 context_caching/batch_api/reranking/moderation/audio_input/video_input/image_editing/code_execution 等），**desc 键格式不一致**（yaml `capability.xxx.desc` vs zh.ts `xxxDesc`）。
 
 ## 2. 决策（用户已确认 2026-08-10）
 

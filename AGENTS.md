@@ -12,7 +12,7 @@
 | 优先级 | 文件 | 用途 |
 |:---:|------|------|
 | 1 | [PY_APP.md](.trae/rules/PY_APP.md) | 通用行为准则（先思考再编码、简洁优先、外科手术、目标驱动、证据驱动） |
-| 2 | [coding-standards.md](.trae/rules/coding-standards.md) | 编码铁律 CS01-CS06（归一化检查、禁止字符串匹配状态、回退最小化、Mock 零容忍、根因优先） |
+| 2 | [coding-standards.md](.trae/rules/coding-standards.md) | 编码铁律 CS01-CS08（归一化检查、禁止字符串匹配状态、回退最小化、Mock 零容忍、根因优先、证据驱动、依赖收敛、机器可读文本引号） |
 | 3 | [task-execution.md](.trae/rules/task-execution.md) | 任务执行规范 TE01-TE10（工具调用上限、静默超时报告、完成总结模板、路径收敛） |
 
 ### 第二层：领域规范（按任务类型加载）
@@ -20,8 +20,8 @@
 | 场景 | 文件 | 用途 |
 |------|------|------|
 | 架构/重构/审查 | [architecture.md](.trae/rules/architecture.md) | 架构设计原则（Harness 驱动、TAOR 循环、双轨制禁止） |
-| 架构合规检查 | [architecture-compliance.md](.trae/rules/architecture-compliance.md) | 架构合规规则 R01-R05（基础设施复用、数据模型统一、模块边界、文件组织） |
-| 前端开发 | [frontend.md](.trae/rules/frontend.md) | 前端规范（React 18 + TS + TailwindCSS + Zustand） |
+| 架构合规检查 | [architecture-compliance.md](.trae/rules/architecture-compliance.md) | 架构合规规则 R00–R15（基础设施复用、数据模型统一、模块边界、文件组织）+ 物理包边界门禁 **R9–R28**（见 `lint:infra`） |
+| 前端开发 | [frontend.md](.trae/rules/frontend.md) | 前端规范（React 19 + TS + TailwindCSS + Zustand） |
 | 模型/AI 相关 | [model-usage.md](.trae/rules/model-usage.md) | 模型使用规则（DB 唯一事实来源、禁止硬编码模型名/属性表） |
 | 路径/存储操作 | [paths.md](.trae/rules/paths.md) | 路径使用规范（三层分离架构、统一入口 `environment/paths.ts`） |
 | 版本规划 | [versioning.md](.trae/rules/versioning.md) | 版本管理规范 |
@@ -87,9 +87,9 @@
 ## 规则体系说明
 
 - **规则分级**：MUST（违反即阻断）> SHOULD（需登记例外）> MAY（建议）
-- **规则文件总数**：14 个（`.trae/rules/`）
-- **可执行检查**：`bun run lint:arch`（`scripts/lint-architecture.ts`，20+ 项检查）
-- **CI 门禁**：`.github/workflows/ci.yml` → `arch-check` job
+- **规则文件总数**：16 个（`.trae/rules/`；含 `code-deletion.md` CD01–CD07 与 `session-budget.md` SB01–SB11）
+- **可执行检查**：`bun run lint:arch`（`scripts/lint-architecture.ts`，20+ 项检查）+ `bun run lint:infra`（物理包边界 **R1–R28**）
+- **CI 门禁**：`.github/workflows/ci.yml`（`lint:gate-parity` 覆盖 **78 条** ci 门禁：77 覆盖 + 1 登记豁免 `test:guarded`）
 - **例外管理**：`scripts/layer-exceptions.json`（带过期衰减机制）
 - **架构治理文档**：`dev_docs/20260809/`（分析报告，非规则源）
 

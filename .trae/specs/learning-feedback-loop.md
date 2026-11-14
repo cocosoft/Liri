@@ -21,7 +21,7 @@
 
 # Spec：学习反馈闭环（Agentic 模式 #9 Learning and Adaptation）
 
-- **状态**：**M1 + M2 + M3（种子物料化与 `--gate` 卡口）已落地（2026-11-15）**；后续见 §5-M4
+- **状态**：**M1 + M2 + M3（种子物料化与 `--gate` 卡口）+ M4（到期收口）已落地（2026-11-15）**；后续见 §5-M5
 - **来源**：`dev_docs/20261114/今日计划-2026-11-14.md` §4.1 逐项审计 —— 21 模式中 **#9 是唯一"部分"级缺口**（其余三处为有条件实现：#4 自校验档 / #17 ToT / #21 探索）
 - **关联 spec**：`online-quality-evaluation.md`（U4 在线打分，已有实现）· `cross-path-evaluation-write-side.md`（三路评价写入面，结论：**互不相通**）
 - **一句话**：把「有信号（turn/quality）→ 有离线评测（evals）→ 有制品（SOP）」三段接成**受控**闭环，中间补上缺失的**归因层**与**候选台账**。
@@ -118,8 +118,10 @@
 - **M1 已落地**：`/learn list` · `show <id>` · `scan [会话数]` · `reject <id> [原因]` · `stats`
 - **M2 已落地**：`verify <id>`（结构化校验）· `approve <id>`（写 `expiresAt` = now + 30 天 + 追加种子行）·
   `revoke <id> <原因>`（种子行标记 `revokedAt`，不删行）· `export`（展示种子路径与条数）
-- **未落地（记录为待办）**：到期未复核**自动**转 `lc_rejected`（需调度缝，本批不做，避免新增定时器）；
-  反向操作句柄目前只有"撤销 + 种子里标记"，SKILL.md 卸载不在本闭环内
+- **M4 已落地（到期收口）**：`expiresAt` 到点未复核的批准 ⇒ `lc_rejected` + 备注
+  `已过期（批准后未复核）` + 种子写 `revokedAt`；由 `list` / `stats` / `export` **惰性**触发
+  （不起定时器）。已入语料的题**不会**因过期消失（过期只决定"能否进入语料"）。
+- **反向操作句柄**：撤销（人工，必填原因）与过期（客观）共用同一收口路径；SKILL.md 卸载不在本闭环内
 
 ### S6 度量（拒绝占比回流）
 - **M1 + M2 已落地**：`LearningCandidateStats { total, pending, verified, approved, rejected, rejectedShare }`
@@ -148,8 +150,8 @@
 | `gate?` | `{checkedAt, kind:'structural'}` | 结构化校验记录（`verified` 起有值） |
 | `expiresAt?` | number | 批准有效期（`approved` 起有值，默认 now + 30 天） |
 
-批准产物：`approved-cases.jsonl`（一行一条；M2 写入时 `expectation` 为 `null`，人工补齐后由
-`gen:learning-eval-cases` 物料化为 `learning-cases.json`；撤销只写 `revokedAt`，不删行）。
+批准产物：`approved-cases.jsonl`（一行一条；记录 `expiresAt`；M2 写入时 `expectation` 为 `null`，
+人工补齐后由 `gen:learning-eval-cases` 物料化为 `learning-cases.json`；撤销 / 过期只写 `revokedAt`，不删行）。
 
 > 取词带 `lc_` 前缀的理由与 `sop_` 相同：`pending` / `rejected` 是跨域通用词，直接登记会污染状态词汇表
 > （同 `SopDraftStore` 头部注释的既有裁定；`lint:state-ratchet` 会拦裸字面量）。
@@ -205,14 +207,29 @@
 **M3 验收（实测）**：新增 10 条单测全绿（跳过规则 3 + 断言口径 3 + 加载/构建 4）；
 脚本以 fixture 实测：3 条输入（含 1 坏行）⇒ 可成题 1 / 跳过 2（撤销 1、无期望 1），`--write` 产物与预期一致。
 
-### 5-M4 之后（需再裁定）
+### 5-M4 批准到期收口（已落地）
 
-`prompt_snippet` 注入面（另立红线 spec）；`sop` 观察期自动度量；到期未复核自动转 `lc_rejected`；
-`gateBlocked` 回写台账；`repeated_question` 需要事件契约扩展。
+| 件 | 落点 |
+|---|---|
+| 到期判定（纯函数） | `findExpiredApproved(items, now)`：只认同为 `approved` 且有 `expiresAt` 且 `<= now`（无 `expiresAt` 的历史候选视为无期限） |
+| 收口 | `LearningCandidateStore.expireOverdue(now)`：`lc_approved → lc_rejected` + 备注 `已过期（批准后未复核）` + 种子写 `revokedAt`（幂等） |
+| 共性重构 | `revoke` 与 `expireOverdue` 共用 `closeApproved()`（先标种子、再落候选状态） |
+| 触发 | `/learn list` · `stats` · `export` 读路径惰性执行，并在输出里报告本次过期条数（**不新增定时器**） |
+| 种子 | `approved-cases.jsonl` 起记录 `expiresAt`；`selectLearningCaseRecords(records, now)` 以 `expired` 原因跳过过期种子 |
+
+**边界**：过期是"未复核"的客观结果，备注固定、不接受自定义原因（人工撤销才是 `已撤销（原因）`）；
+已进入 `learning-cases.json` 的题不因过期被删（回归题按基线继续跑）。
+
+**M4 验收（实测）**：新增 4 条单测全绿（台账收口与边界 1 + 命令惰性收口 1 + 语料过期跳过 2）。
+
+### 5-M5 之后（需再裁定）
+
+`prompt_snippet` 注入面（另立红线 spec）；`sop` 观察期自动度量；`gateBlocked` 回写台账；
+`repeated_question` 需要事件契约扩展。
 
 ---
 
-## 6. 验收与门禁（M1 + M2 + M3）
+## 6. 验收与门禁（M1 + M2 + M3 + M4）
 
 | 项 | 判据 | 状态 |
 |---|---|---|
@@ -222,6 +239,8 @@
 | 批准前置 | 未 `verified` 的 `approve` 返回 `null` 且不写种子（命令层明确报错） | ✅ |
 | 种子可回溯 | 种子行 `expectation` 由人工补、含该轮 `input`（若可取）；撤销只写 `revokedAt` 不删行 | ✅ |
 | 可回滚 | `revoke` 后候选转 `lc_rejected`；`/learn export` 显示有效 / 已撤销 / 可成题条数 | ✅ |
+| 到期收口 | `expiresAt <= now` 的批准 ⇒ `lc_rejected` + 固定备注 + 种子 `revokedAt`；差 1ms 不触发；重复执行幂等 | ✅ |
+| 过期不入语料 | `selectLearningCaseRecords(records, now)` 以 `expired` 跳过；已入库题不受影响 | ✅ |
 | 语料可复现 | 同一 JSONL 两次转换产物逐字一致（id 升序 + 固定字段 + 原子写） | ✅ |
 | 不编造判据 | 无 `expectation` / 已撤销 / 无 `input` ⇒ 不成题，按原因计数上报 | ✅ |
 | 卡口 fail-closed | 未登记基线的新任务 ⇒ `--gate` 失败；语料文件存在但非数组 ⇒ 抛出 | ✅ |
@@ -263,6 +282,11 @@
 9. **语料初始为空数组入库** —— `learning-cases.json` 落 `[]`：既把读取/接线/卡口打通，又保证既有跑批**零变化**；
    真实种子由人工 `--write` 落盘（默认只预览，防误提交隐私数据）。
 10. **不自动登记基线** —— 复用 `checkGate` 的「基线中未登记该任务」阻断；登记阈值由人工跑一次后录入。
+
+**M4（本轮「执行吧」同口径）**
+11. **到期收口不做定时器** —— 由 `list` / `stats` / `export` 读路径惰性执行（`expireOverdue`），
+    避免为"到期"新增调度缝；过期备注固定为 `已过期（批准后未复核）`，与人工撤销（带原因）区分。
+12. **过期只拦"进入语料"，不删已入库题** —— 回归题一旦入库就按基线继续跑；撤销/过期只改台账与种子标记。
 
 ---
 

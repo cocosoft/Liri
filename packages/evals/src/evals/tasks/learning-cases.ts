@@ -59,6 +59,8 @@ export interface LearningCaseRecord {
   input: string | null;
   /** 人工填写的期望片段（为空 ⇒ 不成题） */
   expectation: string | null;
+  /** 批准有效期（已过期 ⇒ 不成题；缺省视为无期限） */
+  expiresAt?: number;
   /** 撤销时间（有值 ⇒ 不进语料） */
   revokedAt?: number;
 }
@@ -66,7 +68,7 @@ export interface LearningCaseRecord {
 /** 未进入语料的种子及原因（如实上报，不静默吞掉） */
 export interface LearningCaseSkip {
   id: string;
-  reason: 'revoked' | 'no-expectation' | 'no-input';
+  reason: 'revoked' | 'expired' | 'no-expectation' | 'no-input';
 }
 
 /** 评测任务 id 前缀（与既有 `file-create` / `control-judge-sanity` 等区分） */
@@ -98,12 +100,14 @@ export interface LearningCaseSelection {
 }
 
 /**
- * 过滤种子（纯函数）：撤销 / 无期望 / 无输入 三类跳过，其余按 id 升序。
+ * 过滤种子（纯函数）：撤销 / 过期 / 无期望 / 无输入 四类跳过，其余按 id 升序。
  *
- * 幂等且确定：同一输入永远得到同一输出（落盘文件可 diff）。
+ * `now` 只用于判定 `expiresAt`（注入 ⇒ 可测）；**已入语料的题不会因批准过期而消失** ——
+ * 过期只决定"能否**进入**语料"，已入库的回归题按基线继续跑。
  */
 export function selectLearningCaseRecords(
-  records: readonly LearningCaseRecord[]
+  records: readonly LearningCaseRecord[],
+  now: number = Date.now()
 ): LearningCaseSelection {
   const eligible: LearningCaseRecord[] = [];
   const skipped: LearningCaseSkip[] = [];
@@ -112,6 +116,8 @@ export function selectLearningCaseRecords(
     const input = (record.input ?? '').trim();
     if (record.revokedAt !== undefined) {
       skipped.push({ id: record.id, reason: 'revoked' });
+    } else if (record.expiresAt !== undefined && record.expiresAt <= now) {
+      skipped.push({ id: record.id, reason: 'expired' });
     } else if (!expectation) {
       skipped.push({ id: record.id, reason: 'no-expectation' });
     } else if (!input) {
@@ -149,11 +155,12 @@ export function toLearningCaseTask(record: LearningCaseRecord): EvalTask {
   };
 }
 
-/** 种子集合 → 题集 + 跳过清单（纯函数） */
+/** 种子集合 → 题集 + 跳过清单（纯函数；`now` 透传给过期判定） */
 export function buildLearningCaseTasks(
-  records: readonly LearningCaseRecord[]
+  records: readonly LearningCaseRecord[],
+  now: number = Date.now()
 ): { tasks: EvalTask[]; skipped: LearningCaseSkip[] } {
-  const { eligible, skipped } = selectLearningCaseRecords(records);
+  const { eligible, skipped } = selectLearningCaseRecords(records, now);
   return { tasks: eligible.map(toLearningCaseTask), skipped };
 }
 

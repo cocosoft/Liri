@@ -134,6 +134,7 @@ export type {
 export {
   computeLearningCandidateId,
   computeLearningCandidateStats,
+  findExpiredApproved,
   isStructurallyVerifiable,
   LEARNING_APPROVAL_DAYS,
   LEARNING_APPROVED_CASES_FILE,
@@ -141,6 +142,7 @@ export {
   LEARNING_CANDIDATE_PENDING,
   LEARNING_CANDIDATE_REJECTED,
   LEARNING_CANDIDATE_VERIFIED,
+  LEARNING_EXPIRED_NOTE,
   LearningCandidateStore,
 } from './evolution/learningCandidates';
 export type {

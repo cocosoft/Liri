@@ -25,6 +25,7 @@ import {
   LEARNING_CANDIDATE_PENDING,
   LEARNING_CANDIDATE_REJECTED,
   LEARNING_CANDIDATE_VERIFIED,
+  LEARNING_EXPIRED_NOTE,
   LearningCandidateStore,
   type TurnQualityPayload,
 } from '@modules/tasks';
@@ -307,6 +308,7 @@ describe('LearningCandidateStore（S3 台账）', () => {
     expect(seeds).toHaveLength(1);
     expect(seeds[0].expectation).toBeNull();
     expect(seeds[0].input).toBe('为什么我的命令被拒绝了？');
+    expect(seeds[0].expiresAt).toBe(approved?.expiresAt);
     expect(seeds[0].revokedAt).toBeUndefined();
     // 一行一条（JSONL 追加，不覆盖）
     const lines = readFileSync(s.getApprovedCasesPath(), 'utf-8')
@@ -335,6 +337,37 @@ describe('LearningCandidateStore（S3 台账）', () => {
     s.save(content('not-a-hash'), 1);
     expect(s.markVerified(s.list()[0])).toBeNull();
     expect(s.list()[0].status).toBe(LEARNING_CANDIDATE_PENDING);
+  });
+
+  it('到期收口：过期批准转 rejected 并标记种子 revokedAt；未到期不动', () => {
+    const s = store();
+    s.save(verifiableContent('s1', 3), 1);
+    s.save(verifiableContent('s2', 4), 2);
+    const early = s.list().find((c) => c.sessionId === 's1')!;
+    const late = s.list().find((c) => c.sessionId === 's2')!;
+    const earlyApproved = s.approve(s.markVerified(early, 10)!, 100)!;
+    s.approve(s.markVerified(late, 20)!, 200);
+
+    // 差 1ms 还不算过期（边界）
+    expect(s.expireOverdue(earlyApproved.expiresAt! - 1)).toBe(0);
+    expect(
+      s.list().filter((c) => c.status === LEARNING_CANDIDATE_APPROVED)
+    ).toHaveLength(2);
+
+    expect(s.expireOverdue(earlyApproved.expiresAt!)).toBe(1);
+    const expiredOne = s.list().find((c) => c.sessionId === 's1')!;
+    expect(expiredOne.status).toBe(LEARNING_CANDIDATE_REJECTED);
+    expect(expiredOne.note).toBe(LEARNING_EXPIRED_NOTE);
+
+    const seeds = s.listApprovedCases();
+    expect(seeds.find((c) => c.id === earlyApproved.id)!.revokedAt).toBe(
+      earlyApproved.expiresAt
+    );
+    const stillApproved = seeds.find((c) => c.sessionId === 's2')!;
+    expect(stillApproved.revokedAt).toBeUndefined();
+
+    // 幂等：再跑一次不重复改写
+    expect(s.expireOverdue(earlyApproved.expiresAt!)).toBe(0);
   });
 });
 
@@ -437,6 +470,22 @@ describe('createLearnCommand（命令层）', () => {
     expect(revoked.success).toBe(true);
     expect(store.list()[0].status).toBe(LEARNING_CANDIDATE_REJECTED);
     expect(store.listApprovedCases()[0].revokedAt).toBeDefined();
+  });
+
+  it('list 惰性收口：过期批准转拒绝并给出提示', async () => {
+    const { store, cmd } = setup([
+      ev('turn/start', 1, { turn: 1 }),
+      ev('turn/quality', 2, quality({ turnNumber: 1, score: 0.2 })),
+    ]);
+    await cmd.execute('scan 1', {} as never);
+    const verified = store.markVerified(store.list()[0], 1)!;
+    store.approve(verified, 2); // expiresAt 落在 1970 ⇒ 相对真实 now 已过期
+
+    const res = await cmd.execute('list', {} as never);
+    expect(res.success).toBe(true);
+    expect(String(res.message)).toContain('已自动过期 1 条批准');
+    expect(store.list()[0].status).toBe(LEARNING_CANDIDATE_REJECTED);
+    expect((res.data as { rejected: number }).rejected).toBe(1);
   });
 
   it('scan 产出候选后 list 可见，reject 后台账与统计同步', async () => {

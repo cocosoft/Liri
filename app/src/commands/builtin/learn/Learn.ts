@@ -20,6 +20,7 @@
  *   `/learn export`            展示语料种子文件与条数
  *
  * **仍不改变模型行为**：不写提示词、不装技能；`evals --gate` 与语料合入由人工执行（spec §5-M3）。
+ * M4（到期收口）：`list` / `stats` / `export` 在读路径**惰性**把过期批准转 `lc_rejected`（不起定时器）。
  */
 
 import type { CommandContext, CommandResult } from '@modules/commands';
@@ -159,6 +160,7 @@ export function createLearnCommand(deps: LearnCommandDeps) {
     },
 
     list(): CommandResult {
+      const expired = deps.store.expireOverdue();
       const items = deps.store.list();
       const stats = computeLearningCandidateStats(items);
       const actionable = items.filter(
@@ -180,6 +182,9 @@ export function createLearnCommand(deps: LearnCommandDeps) {
           body,
           '',
           `统计：${statsLine(stats)}`,
+          ...(expired > 0
+            ? [`已自动过期 ${expired} 条批准（超过有效期未复核）`]
+            : []),
           '候选本身不改行为：verify → approve 只导出语料种子（expectation 由人工补），revoke 可回滚。',
         ].join('\n'),
         stats
@@ -187,8 +192,10 @@ export function createLearnCommand(deps: LearnCommandDeps) {
     },
 
     stats(): CommandResult {
+      const expired = deps.store.expireOverdue();
       const stats = computeLearningCandidateStats(deps.store.list());
-      return ok(statsLine(stats), stats);
+      const prefix = expired > 0 ? `已自动过期 ${expired} 条批准；` : '';
+      return ok(`${prefix}${statsLine(stats)}`, stats);
     },
 
     show(payload: string): CommandResult {
@@ -364,6 +371,7 @@ export function createLearnCommand(deps: LearnCommandDeps) {
     },
 
     export(): CommandResult {
+      const expired = deps.store.expireOverdue();
       const cases = deps.store.listApprovedCases();
       const active = cases.filter((c) => c.revokedAt === undefined);
       const ready = active.filter((c) => (c.expectation ?? '').trim());
@@ -371,7 +379,8 @@ export function createLearnCommand(deps: LearnCommandDeps) {
         [
           `语料种子：${deps.store.getApprovedCasesPath()}`,
           `  条数 ${cases.length}（有效 ${active.length} / 已撤销 ${cases.length - active.length}）`,
-          `  可成题 ${ready.length}（expectation 已填且未撤销）`,
+          `  可成题 ${ready.length}（expectation 已填、未撤销、未过期）`,
+          ...(expired > 0 ? [`已自动过期 ${expired} 条批准`] : []),
           '  物料化：补 expectation 后执行 bun app/scripts/gen-learning-eval-cases.ts -- --write（落盘前先脱敏），再跑 evals --gate。',
         ].join('\n'),
         { total: cases.length, active: active.length, ready: ready.length }

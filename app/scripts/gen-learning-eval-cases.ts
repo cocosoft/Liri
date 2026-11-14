@@ -90,7 +90,7 @@ console.log(
   `读取 ${records.length} 条（坏行 ${invalidLines}）｜可成题 ${eligible.length} 条`
 );
 console.log(
-  `跳过 ${skipped.length} 条：已撤销 ${reasonCount('revoked')} / 无期望 ${reasonCount('no-expectation')} / 无输入 ${reasonCount('no-input')}`
+  `跳过 ${skipped.length} 条：已撤销 ${reasonCount('revoked')} / 已过期 ${reasonCount('expired')} / 无期望 ${reasonCount('no-expectation')} / 无输入 ${reasonCount('no-input')}`
 );
 for (const item of skipped) {
   console.log(`  - ${item.id}：${item.reason}`);

@@ -52,7 +52,7 @@ function ctx(finalText: string): EvalContext {
 }
 
 describe('selectLearningCaseRecords（跳过规则 + 确定性）', () => {
-  it('三类跳过：已撤销 / 无期望 / 无输入，其余按 id 升序', () => {
+  it('已撤销 / 无期望 / 无输入 跳过，其余按 id 升序', () => {
     const { eligible, skipped } = selectLearningCaseRecords([
       seed({ id: 'b2', expectation: 'OK' }),
       seed({ id: 'a1', expectation: 'OK' }),
@@ -80,6 +80,27 @@ describe('selectLearningCaseRecords（跳过规则 + 确定性）', () => {
       seed({ id: 'w1', input: '   ' }),
     ]);
     expect(eligible).toHaveLength(0);
+  });
+
+  it('过期种子不成题（now 由调用方注入）；未到期照常成题', () => {
+    const { eligible, skipped } = selectLearningCaseRecords(
+      [
+        seed({ id: 'x1', expiresAt: 100 }),
+        seed({ id: 'x2', expiresAt: 300 }),
+        seed({ id: 'x3' }),
+      ],
+      200
+    );
+    expect(eligible.map((r) => r.id)).toEqual(['x2', 'x3']);
+    expect(skipped).toEqual([{ id: 'x1', reason: 'expired' }]);
+  });
+
+  it('撤销优先于过期（同一行只报一个原因）', () => {
+    const { skipped } = selectLearningCaseRecords(
+      [seed({ id: 'y', revokedAt: 50, expiresAt: 100 })],
+      200
+    );
+    expect(skipped).toEqual([{ id: 'y', reason: 'revoked' }]);
   });
 });
 

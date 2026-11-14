@@ -138,5 +138,22 @@ Scoop / Homebrew 已在 §8 去掉 `bun` 前置；npm 侧需要另一种做法 �
 **边界（如实）**：
 - **未真实发布**：`NPM_TOKEN` 未配置，`npm publish` 未执行；平台包名 `@openliri/cli-*` 需先在 npm 注册 scope；
 - **启动器未在真实安装树验证**：`require.resolve('<平台包>/<二进制>')` 依赖 npm 把二进制原样装入包内，需首次发布后 `npm i -g openliri` 实机验证；
-- **旧 npm 渠道未撤**：`packaging/npm`（bun 前置单包）仍在，两者会争用同名包 `openliri` ⇒ 切 standalone 前需二者择一（本批不切换，避免"清单已切、发布未通"）；
+- **旧 npm 渠道未撤**：`packaging/npm`（bun 前置单包）仍在，两者会争用同名包 `openliri` ⇒ 切 standalone 前需二者择一（本批不切换，避免"清单已切、发布未通"）。（**已由 §10 解决**：legacy 改名 `openliri-bun`）
 - 二进制**仍未签名**（§7 凭据待配）。
+
+## 10. 六期已交付（npm 渠道命名收敛：消除同名包冲突）
+
+§9 遗留的冲突：legacy（bun 前置）与 standalone（分包）都要用包名 `openliri`，同时发布会互相覆盖。
+
+**取舍**：`openliri` 留给 **standalone**（未来方向），legacy 改名 **`openliri-bun`**（保留可用回退，不删除 —— 无证书/凭据期间它是唯一"已能装"的 npm 渠道）。
+
+| 件 | 内容 |
+|---|---|
+| `scripts/gen-package-manifests.ts` | `renderNpmPackageJson` 的 `name` `openliri` → **`openliri-bun`**（唯一改动点；standalone 主包 `renderNpmStandaloneRootPackageJson` 仍为 `openliri`） |
+| `packaging/npm/package.json` | 由 `--placeholder` 重新生成（仅 `name` 变化），**防漂移用例**继续成立 |
+| `app/tests/packaging/npmStandalone.test.ts` | ➕ 1 条**冲突门禁**：legacy = `openliri-bun`、standalone = `openliri`（两者不得相等） |
+
+**边界（如实）**：
+- **未真实发布**：两个包名都未在 npm 上创建；改名只体现在清单与工作流产物，**首次发布时才会真正生效**；
+- **legacy 未删除**：`packaging/npm` 与 `package` 作业里的 npm 发布步骤保留（可回退路径），待 standalone 实机验证通过后再评估下线（届时按 `code-deletion.md` CD01–CD06 走流程）；
+- 安装名会变：用户需按渠道区分（`npm i -g openliri` = 单文件二进制版；`npm i -g openliri-bun` = 需 Bun 运行时版），需在发版说明中写清。

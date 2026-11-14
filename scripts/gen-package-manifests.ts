@@ -138,7 +138,8 @@ end
 export function renderNpmPackageJson(input: ManifestInput): string {
   return `${JSON.stringify(
     {
-      name: 'openliri',
+      // G2 六期（2026-11-14）：让出 `openliri` 给 standalone 分包渠道（bun 前置单包改名）
+      name: 'openliri-bun',
       version: input.version,
       description: 'Liri — AI 私人助手（CLI；需 Bun 运行时）',
       homepage: 'https://openliri.com',

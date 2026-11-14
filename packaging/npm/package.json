@@ -1,5 +1,5 @@
 {
-  "name": "openliri",
+  "name": "openliri-bun",
   "version": "0.5.28",
   "description": "Liri — AI 私人助手（CLI；需 Bun 运行时）",
   "homepage": "https://openliri.com",

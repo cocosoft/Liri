@@ -17,6 +17,7 @@ import { describe, expect, it } from 'bun:test';
 import {
   NPM_STANDALONE_ROOT,
   npmPlatformTargets,
+  renderNpmPackageJson,
   renderNpmPlatformPackageJson,
   renderNpmStandaloneLauncher,
   renderNpmStandaloneRootPackageJson,
@@ -109,5 +110,20 @@ describe('npm standalone 变体', () => {
     expect(renderNpmStandaloneTree(VERSION)).toEqual(
       renderNpmStandaloneTree(VERSION)
     );
+  });
+
+  it('两个 npm 渠道包名不冲突（legacy 让出 openliri）', () => {
+    const legacy = JSON.parse(
+      renderNpmPackageJson({
+        version: VERSION,
+        artifactName: `liri-cli-${VERSION}.tgz`,
+        sha256: '0'.repeat(64),
+      })
+    ) as Record<string, unknown>;
+    const standalone = JSON.parse(
+      renderNpmStandaloneRootPackageJson(VERSION)
+    ) as Record<string, unknown>;
+    expect(legacy['name']).toBe('openliri-bun');
+    expect(standalone['name']).toBe('openliri');
   });
 });

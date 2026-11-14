@@ -277,7 +277,9 @@ async function rpcSendMessage(
     port,
     text,
     undefined,
-    returnImmediately ? 0 : deps.maxWaitMs()
+    returnImmediately ? 0 : deps.maxWaitMs(),
+    // D5：协商与否由 REST/RPC 共用入口判定（缺省 false = 不写 liri.* 字段）
+    deps.acceptUncertainty === true
   );
   // `SendMessageResponse` 为 oneof（task | message）：本仓委派**恒产出任务** ⇒ 返回 `task` 分支
   rpcResult(res, id, { task });

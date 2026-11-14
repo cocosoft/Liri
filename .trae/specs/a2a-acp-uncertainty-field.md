@@ -1,6 +1,7 @@
 # A2A / ACP 载荷：不确定性与推理轨迹（D5）—— 协议 spec
 
-> **状态**：📝 spec 先行（2026-11-14），待实现。实现前须评审本文件字段名与协商方式。
+> **状态**：✅ 一期已实现（2026-11-14）：契约/归一化/协商/ACP 透传/A2A 注入缝均已落地并有 12 条回归；
+> **产出方（provider）尚未接线**（缺省 `null` ⇒ 生产环境不写任何 `liri.*` 字段，见 §7）。
 > **来源**：`dev_docs/20261113/建议落地方案-20261114.md` §2 波段二 **D5**。
 > **关联规则**：GR02（同一语义只一套实现）、CS02（状态判定不用文案）、CS04（不造假数据）、
 > §1.6（模型可见输入必须落盘）、R02（不新建事件类型/存储）。
@@ -109,8 +110,24 @@ interface LiriTraceStep {
 
 ## 7. 未做 / 风险（如实）
 
+- **产出方未接线（关键）**：A2A 侧通过 `setA2AUncertaintyProvider()` 注入真实信号；
+  当前**没有任何装配点注入** ⇒ 生产响应恒不含 `liri.*`（符合 CS04：不造假）。
+  接入方式：在委派执行完成处（`ChatManager` 自评 / `VerifierAgent` 结果）调用该 setter；
+- **A2A 任务级汇总**：`lastUncertaintyFromMessages()` 已提供（纯函数），但"消息级写入 + 任务级汇总"
+  需随产出方一起接线；`GET /v1/a2a/tasks/{id}` 的持久化 metadata 依赖端口存储合并（当前未做）；
 - **不保证置信度准确**：`self_report` 可能过自信；因此 `method` 必填、消费方据此决定是否复核；
 - **不传原始 CoT**：只传步骤摘要；需要原始推理时仍走既有 `agent_thought_chunk`（流式、受权限约束）；
 - **不做跨端校准**：多智能体场景若要"同行评审置信度"，另立 spec（D4/D3 依赖）；
-- **ACP `_meta` 键名**待与上游 ACP 实现核对（本仓当前 `types.ts` 未使用 `_meta`；若上游禁用扩展位，
+- **ACP `_meta` 键名**待与上游 ACP 实现核对（本仓 `types.ts` 原先未使用 `_meta`；若上游禁用扩展位，
   改为 `AcpRuntimeCapabilities.supportsUncertainty` + 独立 `status` 事件文本摘要）。
+
+## 8. 实现落点（2026-11-14）
+
+| 落点 | 内容 |
+|---|---|
+| `app/src/types/uncertainty.ts` | 键名/扩展 URI/边界常量；`normalizeUncertainty` / `normalizeTrace`（越界丢弃、20 条、200 字、无脱敏不传文本）/ `attachUncertaintyMetadata`（空信号不写键）/ `acceptsUncertainty` / `lastUncertaintyFromMessages` |
+| `app/src/acp/runtime/types.ts` | `done._meta?`、`AcpRuntimeCapabilities.supportsUncertainty?` |
+| `app/src/acp/control-plane/manager.turn-stream.ts` | `TurnStreamResult.uncertaintyMeta?`（最后一个 `done._meta` 透传） |
+| `app/src/infrastructure/http/handlers/routes/a2a-routes.ts` | `setA2AUncertaintyProvider` 注入缝；`runDelegation(..., acceptUncertainty)` 仅在协商 + 有信号时合并 metadata；REST 读 `X-Liri-Uncertainty` |
+| `a2a-rpc-contract.ts` / `a2a-rpc.ts` | `A2ARpcDeps.acceptUncertainty?`，`SendMessage` 与 REST 共用同一协商结果 |
+| `app/tests/types/uncertainty.test.ts` | 12 例：归一化边界 / 合并 / 协商 / ACP 透传 / A2A 注入（含"未协商、无产出方、越界值 ⇒ 无键"） |

@@ -685,6 +685,17 @@ export const preferencesCommand: Command = {
   load: loadDefault('./preferences/Preferences.js'),
 };
 
+/** 成功轨迹 → SOP 草案（D10，2026-11-14）：蒸馏只产草案，批准才写技能 */
+export const sopCommand: Command = {
+  type: 'local',
+  name: 'sop',
+  description: '成功轨迹 → SOP 草案（人工批准后才注册为技能）',
+  aliases: ['sops', 'sopdraft'],
+  argumentHint:
+    '[list] [distill [n]] [show <id>] [approve <id>] [reject <id> [原因]] [stats]',
+  load: loadDefault('./sop/Sop.js'),
+};
+
 /** 入手指引 */
 export const onboardCommand: Command = {
   type: 'local',

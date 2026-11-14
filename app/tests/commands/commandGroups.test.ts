@@ -2,7 +2,7 @@
  * P3（2026-10-30）：命令顶层收敛 —— 分组表与加载器隐藏口径
  *
  * 契约（用户裁定）：
- * - 顶层 = 8 个分组父命令 + 16 个独立保留（`KEEP_TOP_LEVEL`）共 **24** 个；
+ * - 顶层 = 9 个分组父命令 + 20 个独立保留（`KEEP_TOP_LEVEL`）共 **29** 个；
  * - 其余命令**仍注册、仍可执行**，只是 `isHidden: true`（不进 `/help` 与补全）；
  * - 每个隐藏命令要么能经「`/分组 <子命令>`」到达，要么在 `HIDDEN_ONLY` 里给出理由；
  * - 分组改写只认表内子命令（父命令自身的 `status`/`branch` 等语义不被改写）。
@@ -29,8 +29,8 @@ const delegatedTargets = new Set(
   Object.values(COMMAND_GROUPS).flatMap((g) => Object.values(g.subcommands))
 );
 
-describe('顶层清单（28 个）', () => {
-  it('= 9 个分组父命令 + 19 个独立保留（含 prompt 型 3 个）', () => {
+describe('顶层清单（29 个）', () => {
+  it('= 9 个分组父命令 + 20 个独立保留（含 prompt 型 3 个；D10 新增 sop）', () => {
     expect(Object.keys(COMMAND_GROUPS).sort()).toEqual([
       'config',
       'diagnose',
@@ -42,9 +42,9 @@ describe('顶层清单（28 个）', () => {
       'usage',
       'work',
     ]);
-    expect(KEEP_TOP_LEVEL.length).toBe(20);
+    expect(KEEP_TOP_LEVEL.length).toBe(21);
     // 集合去重（help 同时是父命令与保留项）
-    expect(visible.size).toBe(28);
+    expect(visible.size).toBe(29);
   });
 
   it('可见名全部已注册（拼错 ⇒ 顶层出现空位）', () => {

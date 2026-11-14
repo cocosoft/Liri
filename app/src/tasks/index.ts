@@ -87,6 +87,37 @@ export type {
   EvolutionRunResult,
   EvolutionDeps,
 } from './evolution/AdaptationEvolutionService';
+// D10（2026-11-14）：成功轨迹 → SOP 草案（蒸馏纯函数 / 草案存储 / 轨迹来源）
+export {
+  buildSopDraft,
+  buildSopMarkdown,
+  computeSopDraftId,
+  distillSopDrafts,
+  sopTitle,
+} from './evolution/sopDistill';
+export type {
+  SopDraftContent,
+  SopTrajectory,
+  SopTrajectoryStep,
+} from './evolution/sopDistill';
+export {
+  SopDraftStore,
+  computeSopDraftStats,
+  sopSkillName,
+  SOP_DRAFT_APPROVED,
+  SOP_DRAFT_PENDING,
+  SOP_DRAFT_REJECTED,
+} from './evolution/SopDraftStore';
+export type {
+  SopDraft,
+  SopDraftStats,
+  SopDraftStatus,
+} from './evolution/SopDraftStore';
+export {
+  readCompletedPlanTrajectories,
+  SOP_MAX_TRAJECTORIES,
+  toSopTrajectory,
+} from './evolution/sopPlanSource';
 export { scheduleTopoBatches, computeTopoSkips } from './topoBatches';
 export type {
   TopoBatchTask,

@@ -66,7 +66,8 @@ import {
   isStartupPlanResumeTask,
   resolveStartupPlanResume,
 } from '@modules/tasks';
-import { getSubAgentEngine } from '@modules/tools';
+// D7（2026-11-14）：`resolveToolEffect` = 计划影响预演的副作用解析（唯一事实源 tools/toolEffects）
+import { getSubAgentEngine, resolveToolEffect } from '@modules/tools';
 import {
   RecoveryOrchestrator,
   getLineageSize,
@@ -366,7 +367,10 @@ export class ChatRecovery {
       // D3（2026-11-14）：计划级重启续接 —— 闸门与目标续接同源（仍可续 / 会话空闲），
       // 差别只在"续跑内容"：注入计划剩余步骤指令，并要求不新建计划。
       if (isStartupPlanResumeTask(taskId)) {
-        const target = await resolveStartupPlanResume({ taskId });
+        const target = await resolveStartupPlanResume({
+          taskId,
+          resolveEffect: (name) => resolveToolEffect(name)?.sideEffect,
+        });
         if (!target || target.sessionId !== sessionId) {
           logger.info(
             '计划重启续接跳过：计划已不可续（终态 / 陈旧唤醒 / 会话不符）',

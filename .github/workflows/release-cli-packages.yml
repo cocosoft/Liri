@@ -199,3 +199,56 @@ jobs:
             packaging/standalone/scoop/liri.json \
             packaging/standalone/homebrew/liri.rb \
             --clobber || echo "⚠️ Release v${VERSION} 尚未创建 ⇒ 仅保留工作流 artifact"
+
+  # G2 剩余五期（2026-11-14）：npm standalone（按平台分包，去 bun 前置）。
+  # 发布顺序：先平台包 `@openliri/cli-*`，再主包 `openliri`（主包 optionalDependencies 指向它们）。
+  npm-standalone:
+    name: npm standalone packages (去 bun 前置)
+    needs: [cli-binaries]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Download binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: liri-cli-bin-*
+          path: cli-bin
+          merge-multiple: true
+
+      - name: Render npm package tree (真实二进制就位)
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          bun run scripts/gen-package-manifests.ts \
+            --standalone-npm \
+            --version "$VERSION" \
+            --assets cli-bin
+
+      - name: Upload npm packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: liri-npm-standalone
+          path: packaging/standalone-npm/**
+
+      - name: Publish to npm (optional)
+        # 未配置 `NPM_TOKEN` ⇒ 步骤内自行跳过（step `if` 无法读 secrets 值）
+        continue-on-error: true
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${NPM_TOKEN:-}" ]; then
+            echo "⚠️ 未配置 NPM_TOKEN ⇒ 跳过 npm 发布（包树已作为 artifact 产出）"
+            exit 0
+          fi
+          printf '//registry.npmjs.org/:_authToken=%s\n' "$NPM_TOKEN" > "$HOME/.npmrc"
+          for dir in packaging/standalone-npm/packages/@openliri/*/; do
+            npm publish "$dir" --access public
+          done
+          npm publish packaging/standalone-npm --access public

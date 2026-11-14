@@ -114,7 +114,29 @@
 - 齐全：用临时目录放 4 个产物 ⇒ 生成 3 个文件（`scoop/liri.json` / `homebrew/liri.rb` / `SHA256SUMS`）后已清理。
 
 **边界（如实）**：
-- **npm 变体不做**：npm 去运行时前置需按平台分包（`optionalDependencies` + 主包探测），属独立设计；当前 `packaging/npm` 仍以 `bun` 为前置；
+- **npm 变体不做**：npm 去运行时前置需按平台分包（`optionalDependencies` + 主包探测），属独立设计；当前 `packaging/npm` 仍以 `bun` 为前置。（**已由 §9 补齐**：standalone 分包树在发版期生成）
 - **未真实发版**：清单由 CI 在 tag 时生成，**本机未发布**、Release 上传步骤未真跑；
 - **Homebrew 安装写法未在真实 tap 校验**：`bin.install Dir["*"].first => "liri"` 依赖"下载物即单文件可执行"这一事实，需首次发版在 macOS/Linux 实机安装验证；
 - 单文件二进制**仍未签名**（§7 只接线，凭据待配）⇒ standalone 渠道暂时分发未签名二进制。
+
+## 9. 五期已交付（npm standalone 变体：按平台分包）
+
+Scoop / Homebrew 已在 §8 去掉 `bun` 前置；npm 侧需要另一种做法 —— **主包 + 平台包**
+（与 esbuild / swc 同类），否则单包无法同时携带四个平台的二进制。
+
+| 件 | 内容 |
+|---|---|
+| `scripts/gen-package-manifests.ts` | ➕ `npmPlatformTargets`（平台表**唯一事实源 = `REQUIRED_STANDALONE_TARGETS`**）/ `renderNpmStandaloneLauncher`（Node CJS 启动器：按 `process.platform-arch` 解析平台包二进制、`spawnSync` 透传 argv/退出码，不支持或缺包即报错退出 1）/ `renderNpmPlatformPackageJson`（`os`/`cpu` 限定 + `files` 只含二进制）/ `renderNpmStandaloneRootPackageJson`（**零 `dependencies`**，`optionalDependencies` 串联四个平台包，`engines.node >=18`）/ `renderNpmStandaloneTree`；CLI ➕ `--standalone-npm --version --assets`（把二进制**复制进各自平台包**，无占位模式，缺平台退出 1） |
+| `app/tests/packaging/npmStandalone.test.ts` 🆕 | 6 条：平台包清单与排序 / `os`+`cpu` 限定 / 主包零依赖与 optionalDependencies 完整性 / 启动器平台表同源且**不含 bun** / 包树路径 / 渲染确定性 |
+| `.github/workflows/release-cli-packages.yml` | ➕ `npm-standalone`（`needs: cli-binaries`）：下载产物 → 生成包树 → 上传 artifact → 有 `NPM_TOKEN` 时**先发平台包再发主包**（否则步骤内跳过） |
+| `.gitignore` | ➕ `packaging/standalone-npm/`（生成物 + 二进制，不入库） |
+
+**已本地实测（2026-11-14）**：
+- 缺平台：`--standalone-npm --assets app/dist/cli-bin` ⇒ **退出 1**，列出 3 个缺失，且**不创建输出目录**；
+- 齐全：临时目录放 4 个产物 ⇒ 生成 6 个清单文件 + 4 个二进制就位（10 个文件）后已清理。
+
+**边界（如实）**：
+- **未真实发布**：`NPM_TOKEN` 未配置，`npm publish` 未执行；平台包名 `@openliri/cli-*` 需先在 npm 注册 scope；
+- **启动器未在真实安装树验证**：`require.resolve('<平台包>/<二进制>')` 依赖 npm 把二进制原样装入包内，需首次发布后 `npm i -g openliri` 实机验证；
+- **旧 npm 渠道未撤**：`packaging/npm`（bun 前置单包）仍在，两者会争用同名包 `openliri` ⇒ 切 standalone 前需二者择一（本批不切换，避免"清单已切、发布未通"）；
+- 二进制**仍未签名**（§7 凭据待配）。

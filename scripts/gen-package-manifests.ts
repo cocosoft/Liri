@@ -15,18 +15,21 @@
  *   bun run scripts/gen-package-manifests.ts --version 0.5.28 --artifact <path> --check
  *   bun run scripts/gen-package-manifests.ts --version 0.5.28 --placeholder
  *   bun run scripts/gen-package-manifests.ts --standalone --version 0.5.28 --assets app/dist/cli-bin
+ *   bun run scripts/gen-package-manifests.ts --standalone-npm --version 0.5.28 --assets app/dist/cli-bin
  *
  * `--check`：只校验**已提交**的清单与产物哈希是否一致（不一致 ⇒ 退出 1，不写盘）。
  * `--placeholder`：不读产物，哈希写 64 个 0（**仅用于提交仓库内的清单占位**；发版作业会用真实哈希覆写）。
  * `--standalone`：读**真实单文件二进制**目录，渲染**去 bun 前置**的 Scoop / Homebrew 清单 + 合并
  * `SHA256SUMS`（输出到 `packaging/standalone/**`，不入库）；缺平台即退出 1（不产出坏链接）。
+ * `--standalone-npm`：生成**按平台分包**的 npm 包树（主包启动器 + `@openliri/cli-*` 平台包，
+ * 二进制复制进各自包；输出到 `packaging/standalone-npm/**`，不入库）；缺平台即退出 1。
  *
  * **如实边界**：清单能保证"字段与哈希正确"，**不能**保证各渠道商店端到端可用
  * （Homebrew tap / Scoop bucket 需人工提 PR；npm 发布需 `NPM_TOKEN`）。见 spec §3。
  */
 
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, copyFileSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 // 复用校验和渲染（唯一实现，避免两套 `<hash>  <name>` 格式）
 import { renderSha256Sums } from './build-cli-binary';
@@ -336,6 +339,147 @@ export function renderStandaloneManifests(
   };
 }
 
+/* ===================================================================
+ *  G2 剩余五期（2026-11-14）：**npm standalone 变体**（按平台分包，去 bun 前置）
+ *  ---------------------------------------------------------------
+ *  做法（与 esbuild / swc 同类）：
+ *   主包 `openliri`（`bin/liri.js` 启动器，零运行时依赖）
+ *     + 平台包 `@openliri/cli-<platform>-<arch>`（`os` / `cpu` 限定，只装匹配平台）
+ *   主包用 `optionalDependencies` 串联 ⇒ npm 自动跳过不匹配的平台包。
+ *  启动器**平台表与 `REQUIRED_STANDALONE_TARGETS` 同源**（单一事实源，避免漂移）。
+ * =================================================================== */
+
+/** npm standalone 产物根（相对仓库根；发版期生成，不入库） */
+export const NPM_STANDALONE_ROOT = 'packaging/standalone-npm';
+
+export interface NpmPlatformTarget {
+  platform: StandalonePlatform;
+  arch: StandaloneArch;
+  /** 平台包名（`@openliri/cli-<platform>-<arch>`） */
+  packageName: string;
+  /** 包内二进制文件名（Windows 带 `.exe`） */
+  binaryName: string;
+}
+
+/** 平台包清单（单一事实源 = {@link REQUIRED_STANDALONE_TARGETS}） */
+export function npmPlatformTargets(): NpmPlatformTarget[] {
+  return REQUIRED_STANDALONE_TARGETS.map(([platform, arch]) => ({
+    platform,
+    arch,
+    packageName: `@openliri/cli-${platform}-${arch}`,
+    binaryName: platform === 'win32' ? 'liri.exe' : 'liri',
+  })).sort((a, b) => a.packageName.localeCompare(b.packageName));
+}
+
+/** 启动器（Node CJS）：按 `process.platform-arch` 找平台包并透传 argv/退出码 */
+export function renderNpmStandaloneLauncher(): string {
+  const table = npmPlatformTargets()
+    .map(
+      (t) =>
+        `  "${t.platform}-${t.arch}": { pkg: "${t.packageName}", bin: "${t.binaryName}" },`
+    )
+    .join('\n');
+  return `#!/usr/bin/env node
+// 由 scripts/gen-package-manifests.ts --standalone-npm 生成，勿手改。
+// 平台表与构建矩阵同源（scripts/gen-package-manifests.ts 的 REQUIRED_STANDALONE_TARGETS）。
+"use strict";
+
+const { spawnSync } = require("node:child_process");
+
+const TARGETS = {
+${table}
+};
+
+const key = process.platform + "-" + process.arch;
+const target = TARGETS[key];
+if (!target) {
+  console.error(
+    "Liri CLI 不支持当前平台：" + key + "（支持：" + Object.keys(TARGETS).join(", ") + "）"
+  );
+  process.exit(1);
+}
+
+let binaryPath;
+try {
+  binaryPath = require.resolve(target.pkg + "/" + target.bin);
+} catch (err) {
+  console.error(
+    "Liri CLI 缺少平台包 " + target.pkg +
+      "（可选依赖未安装；常见原因：npm install --no-optional 或平台不匹配）"
+  );
+  process.exit(1);
+}
+
+const result = spawnSync(binaryPath, process.argv.slice(2), { stdio: "inherit" });
+process.exit(result.status === null ? 1 : result.status);
+`;
+}
+
+/** 平台包 `package.json`（`os`/`cpu` 限定 ⇒ npm 只装匹配平台） */
+export function renderNpmPlatformPackageJson(
+  version: string,
+  target: NpmPlatformTarget
+): string {
+  return `${JSON.stringify(
+    {
+      name: target.packageName,
+      version,
+      description: `Liri CLI 单文件二进制（${target.platform}-${target.arch}）`,
+      homepage: 'https://openliri.com',
+      license: 'MIT',
+      os: [target.platform],
+      cpu: [target.arch],
+      files: [target.binaryName],
+      '//':
+        '由 scripts/gen-package-manifests.ts --standalone-npm 生成，勿手改；只承载本平台二进制。',
+    },
+    null,
+    2
+  )}\n`;
+}
+
+/** 主包 `package.json`（零运行时依赖 + optionalDependencies 串联平台包） */
+export function renderNpmStandaloneRootPackageJson(version: string): string {
+  const optionalDependencies = Object.fromEntries(
+    npmPlatformTargets().map((t) => [t.packageName, version])
+  );
+  return `${JSON.stringify(
+    {
+      name: 'openliri',
+      version,
+      description: 'Liri — AI 私人助手（CLI，单文件二进制）',
+      homepage: 'https://openliri.com',
+      license: 'MIT',
+      bin: { Liri: 'bin/liri.js' },
+      files: ['bin/liri.js'],
+      optionalDependencies,
+      engines: { node: '>=18' },
+      '//':
+        '由 scripts/gen-package-manifests.ts --standalone-npm 生成，勿手改；平台二进制在 @openliri/cli-* 平台包内。',
+    },
+    null,
+    2
+  )}\n`;
+}
+
+/** 渲染 npm standalone 包树（纯函数：路径 → 内容；二进制由调用方复制） */
+export function renderNpmStandaloneTree(
+  version: string
+): Record<string, string> {
+  const tree: Record<string, string> = {
+    [`${NPM_STANDALONE_ROOT}/package.json`]:
+      renderNpmStandaloneRootPackageJson(version),
+    [`${NPM_STANDALONE_ROOT}/bin/liri.js`]: renderNpmStandaloneLauncher(),
+  };
+  for (const target of npmPlatformTargets()) {
+    tree[
+      `${NPM_STANDALONE_ROOT}/packages/${target.packageName}/package.json`
+    ] = renderNpmPlatformPackageJson(version, target);
+  }
+  return tree;
+}
+
+
 
 function parseArgs(argv: string[]): {
   version: string;
@@ -411,7 +555,74 @@ function runStandalone(argv: string[]): number {
   return 0;
 }
 
+/**
+ * `--standalone-npm` 分支：把平台二进制复制进各自平台包，并渲染主包 + 启动器。
+ *
+ * 与 `--standalone` 同样**没有占位模式**：缺平台即退出 1。
+ */
+function runStandaloneNpm(argv: string[]): number {
+  const get = (name: string): string | undefined => {
+    const i = argv.indexOf(`--${name}`);
+    return i >= 0 ? argv[i + 1] : undefined;
+  };
+  const version = get('version');
+  const assetsDir = get('assets');
+  if (!version || !assetsDir) {
+    console.error(
+      '用法：bun run scripts/gen-package-manifests.ts --standalone-npm --version <v> --assets <dir>'
+    );
+    return 1;
+  }
+  const dirAbs = isAbsolute(assetsDir) ? assetsDir : join(REPO_ROOT, assetsDir);
+  if (!existsSync(dirAbs)) {
+    console.error(`❌ 产物目录不存在：${assetsDir}`);
+    return 1;
+  }
+
+  const entries = readdirSync(dirAbs)
+    .filter((name) => parseStandaloneName(name) !== null)
+    .map((name) => ({ name, sha256: sha256OfFile(join(dirAbs, name)) }));
+  const { assets, missing } = resolveStandaloneAssets(entries);
+  if (missing.length > 0) {
+    console.error(
+      `❌ standalone 资产缺失（不发不完整包）：${missing.join(', ')}`
+    );
+    return 1;
+  }
+
+  for (const [rel, content] of Object.entries(
+    renderNpmStandaloneTree(version)
+  )) {
+    const abs = join(REPO_ROOT, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, content, 'utf-8');
+    console.log(`✅ 已生成 ${rel}`);
+  }
+
+  for (const target of npmPlatformTargets()) {
+    const asset = assets.find(
+      (a) => a.platform === target.platform && a.arch === target.arch
+    );
+    if (!asset) {
+      console.error(`❌ 缺少 ${target.platform}-${target.arch} 产物`);
+      return 1;
+    }
+    const dest = join(
+      REPO_ROOT,
+      NPM_STANDALONE_ROOT,
+      'packages',
+      target.packageName,
+      target.binaryName
+    );
+    mkdirSync(dirname(dest), { recursive: true });
+    copyFileSync(join(dirAbs, asset.name), dest);
+    console.log(`✅ 已就位 ${target.packageName}/${target.binaryName}`);
+  }
+  return 0;
+}
+
 function main(argv: string[]): number {
+  if (argv.includes('--standalone-npm')) return runStandaloneNpm(argv);
   if (argv.includes('--standalone')) return runStandalone(argv);
   const args = parseArgs(argv);
   if (!args) {

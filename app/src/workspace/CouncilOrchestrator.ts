@@ -32,6 +32,8 @@ import aiService, {
 import { assertEntryBudget } from '@modules/query/dailyBudgetGate';
 import { recordDailyBudgetFromUsage } from '@modules/query/DailyBudgetManager';
 import { getAgentRoleStore } from './AgentRoleStore.js';
+// D4 二期 · ③-B（2026-11-14）：按议题选人（纯函数，fail-open）
+import { selectAgentsForTopic } from './councilSelection.js';
 import { getAgentRegistry } from '@modules/agent';
 import type { AgentDefinition } from '@modules/agent';
 
@@ -217,8 +219,8 @@ export class CouncilOrchestrator {
     agents?: CouncilAgentRole[],
     config: CouncilConfig = { maxRounds: 3 }
   ): Promise<CouncilSession> {
-    // 未传入 agents 时，从数据库加载（无数据则使用硬编码默认值）
-    const resolvedAgents = agents ?? (await this.loadAgents());
+    // 未传入 agents 时按**议题**从候选池选人（D4 二期 · ③-B；无数据时使用硬编码默认值）
+    const resolvedAgents = agents ?? (await this.loadAgents(topic));
     /**
      * G-7（2026-10-18）：Agent 映射改为**按 run 的局部上下文**（原为实例字段 `_agentsMap`）。
      *
@@ -277,19 +279,22 @@ export class CouncilOrchestrator {
   /**
    * 从数据库加载启用的 Agent 角色，无数据时尝试 AgentRegistry，最后回退到硬编码默认值
    */
-  private async loadAgents(): Promise<CouncilAgentRole[]> {
+  private async loadAgents(topic?: string): Promise<CouncilAgentRole[]> {
     try {
       const store = getAgentRoleStore();
       const rows = await store.listEnabled();
 
       if (rows.length > 0) {
-        return rows.map((row) => ({
-          agentId: row.agentId,
-          name: row.name,
-          expertise: row.expertise,
-          weight: row.weight,
-          systemPrompt: row.systemPrompt,
-        }));
+        return selectAgentsForTopic(
+          rows.map((row) => ({
+            agentId: row.agentId,
+            name: row.name,
+            expertise: row.expertise,
+            weight: row.weight,
+            systemPrompt: row.systemPrompt,
+          })),
+          topic
+        );
       }
     } catch (_err) {
       void handleError(
@@ -304,12 +309,12 @@ export class CouncilOrchestrator {
     const registry = getAgentRegistry();
     const registered = registry.discoverAgents();
     if (registered.length > 0) {
-      return registered.map(toCouncilAgentRole);
+      return selectAgentsForTopic(registered.map(toCouncilAgentRole), topic);
     }
 
     // 最后回退到硬编码默认值
     logger.warn('AgentRegistry 为空，使用硬编码默认 Agent 列表');
-    return DEFAULT_AGENTS;
+    return selectAgentsForTopic(DEFAULT_AGENTS, topic);
   }
 
   /**

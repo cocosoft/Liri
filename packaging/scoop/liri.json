@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/ScoopInstaller/Scoop/master/schema.json",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "Liri — AI 私人助手（CLI）",
   "homepage": "https://openliri.com",
   "license": "MIT",
@@ -9,9 +9,9 @@
   ],
   "architecture": {
     "64bit": {
-      "url": "https://github.com/openliri/Liri/releases/download/v0.6.1/liri-cli-0.6.1.tgz",
+      "url": "https://github.com/openliri/Liri/releases/download/v0.6.2/liri-cli-0.6.2.tgz",
       "hash": "0000000000000000000000000000000000000000000000000000000000000000",
-      "extract_dir": "liri-cli-0.6.1"
+      "extract_dir": "liri-cli-0.6.2"
     }
   },
   "bin": [

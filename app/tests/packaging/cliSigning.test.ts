@@ -14,6 +14,7 @@
  */
 
 import { describe, expect, it } from 'bun:test';
+import { defaultOutfile } from '../../../scripts/build-cli-binary';
 import {
   DEFAULT_TIMESTAMP_URL,
   normalizePlatform,
@@ -134,7 +135,8 @@ describe('sign-cli-binary 纯函数', () => {
   it('参数解析：缺省按当前平台产物；非法平台 ⇒ null', () => {
     const parsed = parseSignArgs([], 'win32');
     expect(parsed?.platform).toBe('win32');
-    expect(parsed?.file).toBe('app/dist/cli-bin/liri-win32-x64.exe');
+    // 产物名跟**运行平台**走（此前硬编码 win32 产物名 ⇒ Linux/macOS CI 必红）
+    expect(parsed?.file).toBe(defaultOutfile());
     expect(parseSignArgs(['--platform', 'plan9'])).toBeNull();
     expect(parseSignArgs(['--file', ' '])).toBeNull();
   });

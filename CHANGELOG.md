@@ -203,6 +203,13 @@
 - ✅ **macOS 假红** - `mobilePairing` 用例不再用 1ms TTL 与 runner 时钟赛跑
 <!-- EVIDENCE-VIEWS:END -->
 
+#### v0.6.2 (2026-11-14)  CI 测试平台化修正（Linux / macOS 必红）
+
+- ✅ **平台相关断言**：`cliSigning` 的参数解析用例把产物名**硬编码为 win32** ⇒ Linux / macOS runner 必红；
+  改为与 `defaultOutfile()` 比对（跟运行平台走）。
+- ✅ **验证**：本机全量 `bun test` **12,013 用例 / 11,969 pass / 44 skip / 0 fail**；`tsc` 0。
+- ✅ **统计**：自 v0.6.1 起 2 条实质提交（fix 1 · chore 1）。
+
 #### v0.6.1 (2026-11-14)  首发 CI 修复：断环 · BashTool cwd 回归 · macOS Intel 产物
 
 - ✅ **循环依赖归零**：`isNonTerminalStep` 抽到 `tasks/plan/planStepStatus.ts`，`planStartupResume` 与

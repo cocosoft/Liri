@@ -15,6 +15,9 @@ target/
 release/
 # `bun pm pack` 的产物（packages/kernel 下用；320KB 二进制，绝不入库）
 *.tgz
+# 例外：vendor/ 下的**定点依赖源包**必须入库 —— SheetJS 只在自己 CDN 发布（不入 npm），
+# xlsx 走 `file:../vendor/…tgz` 以去掉构建期的外部网络单点；integrity 仍由 lockfile 的 sha512 校验
+!vendor/*.tgz
 # G2 四期/五期：standalone 清单与 npm 分包树由发版作业按真实二进制生成（不提交仓库，避免坏链接/大文件入库）
 packaging/standalone/
 packaging/standalone-npm/

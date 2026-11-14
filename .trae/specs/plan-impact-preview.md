@@ -75,3 +75,18 @@
 2. **沙箱内真实预演**：`EvalSandbox` 扩展未做；
 3. **回放/对比**：无副作用流水 ⇒ 无可重放/可对比的基础；
 4. 客户端面板入口（当前仅 CLI 命令）。
+
+## 7. 三期已交付（副作用录制 · 一期：工具→文件变更归属）
+
+| 件 | 内容 |
+|---|---|
+| `packages/infra/src/security/rollback/types.ts` | `FileChange` ➕ `toolName?`（归属键；缺省 = 旧数据 / Shell 检测） |
+| `packages/infra/src/security/rollback/FileOperationTracker.ts` | `FileOperation` ➕ `toolName?`（两处 `roundChanges.set` 同步落库）＋ 🆕 `getRoundChanges()`（读侧入口，返回按路径升序的浅拷贝） |
+| `app/src/chat/services/ToolExecutionService.ts` | 两处 `onToolBeforeExecute` 调用带上 `toolName: normalizedToolCall.name`（file_write / file_edit 及其子 Agent 继承路径） |
+| `app/src/tasks/plan/sideEffectLog.ts` 🆕 | 纯函数 `buildSideEffectLog`（按工具分组 / 未归属单列 / 五类 totals / 路径去重升序）+ `renderSideEffectLog`（确定性渲染） |
+| `app/tests/tasks/plan/sideEffectLog.test.ts` 🆕 | 4 条：分组与排序 / totals 与 paths / 渲染确定性 / 空流水如实提示 |
+
+**边界（如实）**：
+- 归属只覆盖 **file_write / file_edit**（既有回滚追踪面）；`bash` 的文件副作用经 `detectShellSideEffects` 进入同一轮台账，**无 toolName** ⇒ 计入 `unattributed`（不硬塞）；
+- 尚未接到 `/plan preview`（计划与"轮级文件变更"之间没有映射键）；回放对照与沙箱预演仍未做；
+- 录制是**轮内内存台账**（随快照落盘），没有新增独立的会话级流水文件。

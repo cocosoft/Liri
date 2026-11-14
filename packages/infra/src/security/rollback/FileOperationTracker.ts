@@ -72,6 +72,7 @@ export class FileOperationTracker {
       this.roundChanges.set(operation.path, {
         path: operation.path,
         type: 'created',
+        ...(operation.toolName ? { toolName: operation.toolName } : {}),
       });
       return;
     }
@@ -110,7 +111,19 @@ export class FileOperationTracker {
       hash,
       originalSize: operation.originalSize,
       originalMtime: operation.originalMtime,
+      ...(operation.toolName ? { toolName: operation.toolName } : {}),
     });
+  }
+
+  /**
+   * D7 三期（2026-11-14）：读取**本轮已记录**的文件变更（副作用录制的读侧入口）。
+   *
+   * 返回浅拷贝（调用方改写不影响台账）；顺序按路径升序（确定性）。
+   */
+  getRoundChanges(): FileChange[] {
+    return [...this.roundChanges.values()].sort((a, b) =>
+      a.path.localeCompare(b.path)
+    );
   }
 
   /**
@@ -416,6 +429,9 @@ export class FileOperationTracker {
 export interface FileOperation {
   /** 文件绝对路径 */
   path: string;
+
+  /** D7 三期（2026-11-14）：产生该操作的工具名（可选；缺省 = 未标注） */
+  toolName?: string;
 
   /** 操作类型 */
   type: 'created' | 'deleted' | 'modified' | 'renamed' | 'moved';

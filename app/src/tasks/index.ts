@@ -582,6 +582,17 @@ export type {
 // D7 二期（2026-11-14）：`/plan preview` 的计划选择（纯函数）
 export { selectPlanForPreview } from './plan/planPreviewSelection';
 export type { SelectPlanForPreviewResult } from './plan/planPreviewSelection';
+// D7 三期（2026-11-14）：副作用流水聚合（工具/计划维度）
+export {
+  buildSideEffectLog,
+  collectPlanSideEffects,
+  renderSideEffectLog,
+} from './plan/sideEffectLog';
+export type {
+  RecordedFileOp,
+  SideEffectLog,
+  SnapshotLike,
+} from './plan/sideEffectLog';
 export {
   settleGoalForRun,
   settleGoalForTurn,

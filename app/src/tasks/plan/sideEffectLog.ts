@@ -112,6 +112,37 @@ export function buildSideEffectLog(
   };
 }
 
+/** 轮快照的最小面（`RoundSnapshot.changedFiles` 的结构子集） */
+export interface SnapshotLike {
+  changedFiles: ReadonlyArray<RecordedFileOp & { planId?: string }>;
+}
+
+/**
+ * 从**轮快照**里挑出归属某计划的文件变更（纯函数）。
+ *
+ * 口径：只认 `planId` 精确相等的条目（无 planId 的旧数据不计入，不猜归属）；
+ * 输出按 `path` → `type` 升序（确定性）。
+ */
+export function collectPlanSideEffects(
+  snapshots: ReadonlyArray<SnapshotLike>,
+  planId: string
+): RecordedFileOp[] {
+  const out: RecordedFileOp[] = [];
+  for (const snapshot of snapshots) {
+    for (const change of snapshot.changedFiles) {
+      if (change.planId !== planId) continue;
+      out.push({
+        path: change.path,
+        type: change.type,
+        ...(change.toolName ? { toolName: change.toolName } : {}),
+      });
+    }
+  }
+  return out.sort(
+    (a, b) => a.path.localeCompare(b.path) || a.type.localeCompare(b.type)
+  );
+}
+
 /** 渲染为人读文本（供 `/plan preview` / 面板复用；确定性） */
 export function renderSideEffectLog(log: SideEffectLog): string {
   const lines = ['## 文件副作用（本轮）'];

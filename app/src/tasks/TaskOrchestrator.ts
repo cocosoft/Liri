@@ -619,6 +619,24 @@ export class TaskOrchestrator implements ISnapshotCapable {
   }
 
   /**
+   * D7 三期（2026-11-14）：取该会话**当前正在执行**的计划步骤（无 ⇒ `null`）。
+   *
+   * 供工具执行层把「文件变更」归属到具体计划/步骤（副作用流水的计划维度）。
+   * 同步：内部按需从磁盘加载（与 `createPlan` 同口径）。
+   */
+  getRunningStepForSession(
+    sessionId: string
+  ): { planId: string; stepId: string } | null {
+    this.ensureInitializedSync();
+    for (const plan of this.plans.values()) {
+      if (plan.sessionId !== sessionId) continue;
+      const step = plan.steps.find((s) => s.status === STEP_STATUS_RUNNING);
+      if (step) return { planId: plan.id, stepId: step.id };
+    }
+    return null;
+  }
+
+  /**
    * 获取计划进度
    */
   getPlanProgress(planId: string): PlanProgress | undefined {

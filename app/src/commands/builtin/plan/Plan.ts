@@ -5,6 +5,9 @@ import {
   buildPlanImpactPreview,
   renderPlanImpactPreview,
   selectPlanForPreview,
+  buildSideEffectLog,
+  renderSideEffectLog,
+  collectPlanSideEffects,
 } from '@modules/tasks';
 import { TaskStatus } from '@modules/tasks/types.js';
 import { NoteTask } from '@modules/tasks';
@@ -281,11 +284,29 @@ export default {
     const preview = buildPlanImpactPreview(picked.plan, {
       resolveEffect: (name) => resolveToolEffect(name)?.sideEffect,
     });
+
+    // D7 三期（2026-11-14）：附加"该计划的真实文件副作用"（来自轮快照；无 planId 归属的旧数据不计入）
+    let message = renderPlanImpactPreview(preview);
+    let sideEffects = null as ReturnType<typeof buildSideEffectLog> | null;
+    if (context.sessionId) {
+      try {
+        const { listSessionSnapshots } =
+          await import('@openliri/infra/security/rollback');
+        const snapshots = await listSessionSnapshots(context.sessionId);
+        const ops = collectPlanSideEffects(snapshots, picked.plan.id);
+        if (ops.length > 0) {
+          sideEffects = buildSideEffectLog(ops);
+          message += `\n\n${renderSideEffectLog(sideEffects)}`;
+        }
+      } catch {
+        // @ignore-catch — 快照不可读只影响附加信息，不阻断预演（主结论仍来自计划台账）
+      }
+    }
     return {
       success: true,
       type: 'text',
-      message: renderPlanImpactPreview(preview),
-      data: preview,
+      message,
+      data: { ...preview, sideEffects },
     };
   },
 

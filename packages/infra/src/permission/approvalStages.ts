@@ -171,6 +171,8 @@ export const APPROVAL_REPLY_TO_DECISION = {
   allowlist_call: 'allow_always',
   allowlist_tool: 'allow_always',
   allowlist_command: 'allow_always',
+  // G3（2026-11-14）：命令级「本工作区永久信任」（精确命令 + 工作区作用域）
+  allowlist_workspace_command: 'allow_always',
 } as const satisfies Record<string, ApprovalDecisionValue>;
 
 /**

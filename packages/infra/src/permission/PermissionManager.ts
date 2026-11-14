@@ -552,11 +552,16 @@ export function isCallAllowedByPersistedRules(
   toolName: string,
   input: Record<string, unknown>,
   /** 测试可注入（生产缺省 = 单例的 checker；与审批写规则同一实例） */
-  checker?: Pick<PermissionChecker, 'isToolAllowed'>
+  checker?: Pick<PermissionChecker, 'isToolAllowed'>,
+  /** G3：本次调用所处的工作区根（命令级「本工作区永久信任」规则据此过滤） */
+  workspaceRoots?: string[]
 ): boolean {
   try {
     const target = checker ?? PermissionManager.getInstance().getPermissionChecker();
-    return target.isToolAllowed(toolName, { input } as PermissionContext);
+    return target.isToolAllowed(toolName, {
+      input,
+      workspaceRoots,
+    } as PermissionContext);
   } catch {
     // @ignore-catch — 规则不可读仅影响"是否免审批"，硬拦截层照旧执行
     return false;

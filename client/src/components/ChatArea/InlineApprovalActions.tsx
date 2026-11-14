@@ -38,6 +38,8 @@ const TIER_ORDER = [
   "approve_task",
   "allowlist_call",
   "allowlist_command",
+  // G3（2026-11-14）：本工作区永久信任（精确命令 + 工作区作用域）
+  "allowlist_workspace_command",
   "allowlist_tool",
   "deny",
   "reject",
@@ -51,6 +53,7 @@ const TIER_LABEL_KEYS: Record<TierReply, string> = {
   approve_task: "chat.inboxReplyApproveTask",
   allowlist_call: "chat.inboxReplyAllowAlways",
   allowlist_command: "chat.inboxReplyAllowCommand",
+  allowlist_workspace_command: "chat.inboxReplyAllowWorkspaceCommand",
   allowlist_tool: "chat.inboxReplyAllowTool",
   deny: "chat.inboxReplyReject",
   reject: "chat.inboxReplyReject",

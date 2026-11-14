@@ -924,7 +924,11 @@ export class PermissionChecker {
       undefined,
       PermissionBehavior.DENY
     );
-    const options = this._ruleMatchOptions(toolOrName, context.input ?? {});
+    const options = this._ruleMatchOptions(
+      toolOrName,
+      context.input ?? {},
+      context
+    );
     return denyRules.some((rule) =>
       isRuleMatch(rule, toolName, context.input, options)
     );
@@ -938,12 +942,15 @@ export class PermissionChecker {
    */
   private _ruleMatchOptions(
     toolOrName: Tool | string,
-    input: Record<string, unknown>
+    input: Record<string, unknown>,
+    context?: PermissionContext
   ): RuleMatchOptions {
     return {
       fingerprint: hashApprovalFingerprint(
         resolveApprovalFingerprint(toolOrName, input)
       ),
+      // G3：命令级「本工作区永久信任」规则按调用方的工作区根做作用域过滤
+      workspaceRoots: context?.workspaceRoots,
     };
   }
 
@@ -963,7 +970,11 @@ export class PermissionChecker {
       undefined,
       PermissionBehavior.ASK
     );
-    const options = this._ruleMatchOptions(toolOrName, context.input ?? {});
+    const options = this._ruleMatchOptions(
+      toolOrName,
+      context.input ?? {},
+      context
+    );
     return askRules.some((rule) =>
       isRuleMatch(rule, toolName, context.input, options)
     );
@@ -985,7 +996,11 @@ export class PermissionChecker {
       undefined,
       PermissionBehavior.ALLOW
     );
-    const options = this._ruleMatchOptions(toolOrName, context.input ?? {});
+    const options = this._ruleMatchOptions(
+      toolOrName,
+      context.input ?? {},
+      context
+    );
     return allowRules.some((rule) =>
       isRuleMatch(rule, toolName, context.input, options)
     );
@@ -1006,7 +1021,7 @@ export class PermissionChecker {
     const toolName =
       typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
     const rules = this.ruleManager.getRules();
-    const options = this._ruleMatchOptions(toolOrName, input ?? {});
+    const options = this._ruleMatchOptions(toolOrName, input ?? {}, context);
     for (const rule of rules) {
       if (isRuleMatch(rule, toolName, input, options)) {
         switch (rule.behavior) {

@@ -114,6 +114,17 @@ function isFingerprintAllowReply(
   return reply === 'allowlist_call' || selectedOption === 'allowlist_call';
 }
 
+/** G3：「本工作区永久信任」——精确命令 + 工作区作用域（仅命令类审批卡下发该档） */
+function isWorkspaceCommandAllowReply(
+  reply: string,
+  selectedOption?: string
+): boolean {
+  return (
+    reply === 'allowlist_workspace_command' ||
+    selectedOption === 'allowlist_workspace_command'
+  );
+}
+
 /**
  * PR-2：按回复值解析放行缓存档位（`approve_session` ⇒ 不过期；`approve_task` ⇒ 仅本任务）。
  *
@@ -483,6 +494,10 @@ async function applyApprovalSideEffects(
     const commandLevel =
       reply === 'allowlist_command' || selectedOption === 'allowlist_command';
     await persistAllowlistRule(current, commandLevel);
+  }
+  // G3（2026-11-14）：命令级「本工作区永久信任」—— 精确命令 + 工作区作用域
+  if (isWorkspaceCommandAllowReply(reply, selectedOption)) {
+    await persistWorkspaceCommandRule(current);
   }
   // PR-2：「始终允许」= 工具 + 参数指纹（只落摘要，不落明文参数）
   if (isFingerprintAllowReply(reply, selectedOption)) {
@@ -1073,6 +1088,52 @@ async function persistAllowlistRule(
     toolName,
     commandLevel,
     contentPattern,
+    sessionId: current.sessionId,
+  });
+}
+
+/**
+ * G3（2026-11-14）：持久化「本工作区永久信任」规则 —— **精确命令**（`^…$`）+ 工作区根。
+ *
+ * 与 `allowlist_command`（前 2 token 前缀、全局）的差异：
+ * - 只放行**完全相同的命令文本**（多一个参数就不命中）；
+ * - 只在写入时的工作区根下生效（换目录不命中）；
+ * - 危险命令仍受硬拦截层与 `BASH_APPROVAL_STRICT` 的既有约束（本档只影响"是否重复弹 ask"）。
+ */
+async function persistWorkspaceCommandRule(current: {
+  metadata?: Record<string, unknown>;
+  sessionId?: string;
+}): Promise<void> {
+  const toolName = current.metadata?.toolName as string | undefined;
+  const command =
+    typeof current.metadata?.command === 'string'
+      ? (current.metadata.command as string).trim()
+      : '';
+  if (!toolName || !command) {
+    logger.warn('「本工作区永久信任」持久化跳过：缺少 toolName 或 command', {
+      sessionId: current.sessionId,
+    });
+    return;
+  }
+  const workspaceRoot = process.cwd();
+  const { PermissionManager } =
+    await import('@openliri/infra/permission/PermissionManager');
+  const { createPermissionRule, PermissionBehavior, PermissionRuleSource } =
+    await import('@openliri/infra/permission/types/PermissionRule');
+
+  const ruleManager = PermissionManager.getInstance().getRuleManager();
+  ruleManager.addRule(
+    createPermissionRule({
+      behavior: PermissionBehavior.ALLOW,
+      toolName,
+      contentPattern: `^${escapeRegExp(command)}$`,
+      workspaceRoot,
+      source: PermissionRuleSource.RULE_STORE,
+    })
+  );
+  logger.info('「本工作区永久信任」规则已持久化', {
+    toolName,
+    workspaceRoot,
     sessionId: current.sessionId,
   });
 }

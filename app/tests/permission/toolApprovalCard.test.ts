@@ -40,7 +40,7 @@ describe('P1：审批卡唯一构造点', () => {
     expect(afterExecute.approvalId).not.toBe(beforeDecision.approvalId);
   });
 
-  it('命令类工具 ⇒ 四档选项（仅这次 / 命令级 / 工具级 / 拒绝）', () => {
+  it('命令类工具 ⇒ 五档选项（仅这次 / 命令级 / 本工作区永久信任 / 工具级 / 拒绝）', () => {
     const card = buildToolApprovalCard({
       toolOrName: 'bash',
       input: { command: 'ls' },
@@ -49,6 +49,7 @@ describe('P1：审批卡唯一构造点', () => {
     expect(card.options).toEqual([
       'approve',
       'allowlist_command',
+      'allowlist_workspace_command',
       'allowlist_tool',
       'deny',
     ]);
@@ -117,14 +118,20 @@ describe('P1：审批卡唯一构造点', () => {
  * `buildApprovalOptions`（唯一真源），下面锁死四类判定。
  */
 describe('P0：审批卡选项唯一真源 buildApprovalOptions', () => {
-  it('命令类 + 有命令文本 ⇒ 三档 + 拒绝', () => {
+  it('命令类 + 有命令文本 ⇒ 四档 + 拒绝', () => {
     expect(
       buildApprovalOptions({
         toolName: 'bash',
         command: 'node -e "console.log(1)"',
         risk: RiskClass.SHELL,
       })
-    ).toEqual(['approve', 'allowlist_command', 'allowlist_tool', 'deny']);
+    ).toEqual([
+      'approve',
+      'allowlist_command',
+      'allowlist_workspace_command',
+      'allowlist_tool',
+      'deny',
+    ]);
   });
 
   it('命令类但命令为空 ⇒ 退化为指纹档（避免空 contentPattern 变成整工具放行）', () => {

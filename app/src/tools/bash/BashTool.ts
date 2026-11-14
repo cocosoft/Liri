@@ -330,7 +330,13 @@ export class BashTool extends BaseTool {
 
     const { isCallAllowedByPersistedRules } =
       await import('@openliri/infra/permission/PermissionManager');
-    const ruleHit = isCallAllowedByPersistedRules('bash', { command });
+    // G3：带上工作区根 —— 命令级「本工作区永久信任」规则只在同一根下命中
+    const ruleHit = isCallAllowedByPersistedRules(
+      'bash',
+      { command },
+      undefined,
+      [process.cwd()]
+    );
     return { hash, bypassAsk: ruleHit, source: ruleHit ? 'rule' : 'none' };
   }
 

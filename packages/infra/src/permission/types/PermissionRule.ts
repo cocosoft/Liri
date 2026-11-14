@@ -98,6 +98,14 @@ export interface PermissionRule {
   contentPattern?: string;
 
   /**
+   * G3（2026-11-14）：命令级「本工作区永久信任」的作用域根（规范化绝对路径）。
+   *
+   * 存在时，规则**只在**调用方给出且相等的工作区根下命中（见 `RuleMatchOptions.workspaceRoots`）；
+   * 缺省 = 全局规则 —— 既有 `allowlist_command` / `allowlist_tool` 行为不变。
+   */
+  workspaceRoot?: string;
+
+  /**
    * PR-2（2026-10-23）：参数指纹摘要（`hashApprovalFingerprint(resolveApprovalFingerprint(...))`）。
    *
    * 存在时表示该规则是「始终允许」档：仅当本次调用的指纹摘要与之**完全相等**才命中，
@@ -137,6 +145,8 @@ export function createPermissionRule(params: {
   contentPattern?: string;
   /** PR-2：「始终允许」档的参数指纹摘要 */
   inputFingerprint?: string;
+  /** G3：命令级「本工作区永久信任」的作用域根 */
+  workspaceRoot?: string;
   source?: PermissionRuleSource;
   priority?: number;
 }): PermissionRule {
@@ -147,6 +157,7 @@ export function createPermissionRule(params: {
     toolName: params.toolName,
     contentPattern: params.contentPattern,
     inputFingerprint: params.inputFingerprint,
+    workspaceRoot: params.workspaceRoot,
     source: params.source || PermissionRuleSource.USER_SETTINGS,
     priority: params.priority || 1,
     createdAt: now,
@@ -178,6 +189,12 @@ export interface RuleMatchOptions {
    * @default true
    */
   enableGlob?: boolean;
+  /**
+   * G3（2026-11-14）：本次调用所处的工作区根（`PermissionContext.workspaceRoots`）。
+   *
+   * 仅对带 `workspaceRoot` 的规则生效；未提供 ⇒ 这类规则**不匹配**（fail-closed）。
+   */
+  workspaceRoots?: string[];
   /**
    * PR-2（2026-10-23）：本次调用的**参数指纹摘要**（`hashApprovalFingerprint`）。
    *
@@ -257,6 +274,14 @@ export function permissionRuleValueToString(
 }
 
 /**
+ * G3：工作区根归一化 —— 统一分隔符、去尾斜杠、小写（Windows 路径大小写不敏感）。
+ * 只用于**相等比较**，不解析符号链接（规则与调用方都取同一进程的工作目录）。
+ */
+function normalizeWorkspaceRoot(root: string): string {
+  return root.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+}
+
+/**
  * 检查权限规则是否匹配工具和输入
  * @param rule 权限规则
  * @param toolName 工具名称
@@ -284,6 +309,16 @@ export function isRuleMatch(
   } else {
     // 精确匹配
     if (rule.toolName !== toolName) {
+      return false;
+    }
+  }
+
+  // G3：「本工作区永久信任」规则先过作用域闸 —— 根不等（或调用方未给根）⇒ 不匹配（fail-closed）。
+  // 归一化后比较：Windows 大小写不敏感、分隔符统一。
+  if (rule.workspaceRoot) {
+    const ruleRoot = normalizeWorkspaceRoot(rule.workspaceRoot);
+    const roots = options.workspaceRoots ?? [];
+    if (!roots.some((root) => normalizeWorkspaceRoot(root) === ruleRoot)) {
       return false;
     }
   }

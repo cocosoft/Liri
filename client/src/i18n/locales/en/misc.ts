@@ -322,6 +322,15 @@ const enMisc = {
     empty: "No running operations.",
     close: "Close floating window",
     backToMain: "Back to main window",
+    // G8 content enrichment (2026-11-14)
+    currentSession: "Current session",
+    noSession: "No session selected",
+    untitledSession: "Untitled session",
+    goals: "Active goals",
+    noGoals: "No active goals",
+    unavailable: "Context unavailable (backend unreachable)",
+    refresh: "Refresh",
+    tokensUnit: "tokens",
   },
 };
 

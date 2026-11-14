@@ -26,6 +26,8 @@ import {
 } from "./moduleContextSlice";
 import { loggingMiddleware } from "../middleware/logging";
 import { createLogger } from "@/utils/logger";
+// G8 内容增强（2026-11-14）：persist 键与悬浮窗读取端同源（跨文件复用 ⇒ 上收 constants/storage）
+import { STORAGE_KEYS } from "@/constants/storage";
 
 const logger = createLogger("root-store");
 
@@ -145,7 +147,7 @@ export const useRootStore = create<RootState>()(
         ...createModuleContextSlice(...args),
       })),
       {
-        name: "liri-root-store",
+        name: STORAGE_KEYS.rootStore,
         version: 4,
 
         /** 仅持久化需要跨会话保留的状态 */

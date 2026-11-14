@@ -104,4 +104,23 @@
 - **未真机验证**：本机无 `cargo`、无窗口自动化 ⇒ 只做了 `tsc` + `eslint` + 977 条 vitest（含 11 条几何用例）；`availableMonitors` / `onMoved` 等 Tauri 调用未在真实桌面跑过；
 - **跨 DPI 混合缩放未验证**：按各显示器 `scaleFactor` 换算逻辑像素，缩放大跨度（100%/200% 混排）需真机校准；
 - **点击穿透未做**：需先定 UX（穿透后如何退出穿透），本批不做；
-- **内容增强未做**：悬浮窗仍只展示 `OperationStatusBar`（当前会话 / 运行中目标仍待做）。
+- **内容增强已由 §9 补齐**（当前会话 + 运行中目标）。
+
+## 9. 五期已交付（内容增强：当前会话 + 运行中目标）
+
+悬浮窗是**独立 webview**，拿不到主窗口内存 store ⇒ 数据全部走**既有单一来源**（不新建状态源）：
+
+| 件 | 内容 |
+|---|---|
+| `client/src/lib/floatingContext.ts` 🆕 | 纯函数 `readPersistedCurrentSessionId`（读根 store 持久化快照的 `state.currentSessionId`）/ `pickSessionTitle`（只在**同一 id** 命中时取标题，否则 `null`）/ `buildFloatingContext`（目标归一：去空白、预算缺省 `null`）+ IO 入口 `loadFloatingContext`（`sessionService.list()` + `goalService.list({ activeOnly: true })`；失败 ⇒ `unavailable`，**不伪装成"没有目标"**） |
+| `client/src/components/Floating/useFloatingContext.ts` 🆕 | 刷新时机 = **挂载 + 窗口聚焦 + 手动**；**不做后台轮询**（副窗口不常驻定时器） |
+| `client/src/components/Floating/FloatingPanel.tsx` | 头部下新增「当前会话」+「运行中目标」区块（目标显示 `已用/预算 tokens`），并带「刷新」按钮 |
+| `client/src/constants/storage.ts` / `stores/root-store/index.ts` | persist 键上收 `STORAGE_KEYS.rootStore`（主窗口写入端与悬浮窗读取端**同源**，防改名漂移） |
+| i18n `zh/en misc.ts` | `floating.*` ➕ 9 项（当前会话 / 未选择 / 未命名 / 目标 / 无目标 / 不可用 / 刷新 / tokens） |
+| `client/src/tests/floating-context.test.ts` 🆕 + `floating-panel.test.tsx` | 5 条纯函数用例（快照容错 / 标题命中 / 无会话不回落 / 目标归一 / unavailable 透传）+ 4 条面板用例（会话与目标渲染 / 空态 / 不可用态 / 手动刷新） |
+
+**边界（如实）**：
+- **未真机验证**：`sessionService.list()` / `goalService.list()` 在副窗口内的真实调用未跑（测试用 mock），后端不可达时界面显示"暂时读不到"；
+- **会话标题来自列表 API**：`chatSessions` 不持久化 ⇒ 必须请求 `/v1/sessions`（悬浮窗打开时一次，聚焦/手动时再取）；
+- **只展示会话级目标**（`task_goals`）：PDCA `/goal` 的 `goal_metrics` 按 `goalService` 既有边界**不混放**；
+- **不轮询**：主窗口切换会话后，悬浮窗需**重新聚焦或点刷新**才同步（有意为之，避免副窗口常驻定时器）。

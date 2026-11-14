@@ -132,6 +132,12 @@ export class BuiltinCommandLoader implements CommandLoader {
       { path: '../builtin/command-registry.js', name: 'doctor' },
       { path: '../builtin/command-registry.js', name: 'fast' },
       { path: '../builtin/command-registry.js', name: 'memory' },
+      // G5（2026-11-14）：用户偏好统一入口（USER.md `## 偏好` + USER_PREFERENCE 记忆）
+      {
+        path: '../builtin/command-registry.js',
+        name: 'preferences',
+        aliases: ['profile', 'pref'],
+      },
       { path: '../builtin/command-registry.js', name: 'hooks' },
       { path: '../builtin/command-registry.js', name: 'mcp' },
       { path: '../builtin/command-registry.js', name: 'plugins' },

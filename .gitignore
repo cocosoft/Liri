@@ -15,8 +15,9 @@ target/
 release/
 # `bun pm pack` 的产物（packages/kernel 下用；320KB 二进制，绝不入库）
 *.tgz
-# G2 四期：standalone 清单由发版作业按真实二进制哈希生成（不提交仓库，避免坏链接入库）
+# G2 四期/五期：standalone 清单与 npm 分包树由发版作业按真实二进制生成（不提交仓库，避免坏链接/大文件入库）
 packaging/standalone/
+packaging/standalone-npm/
 
 # IDE
 .idea/

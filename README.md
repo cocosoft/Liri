@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.6.1-blue)
+![Version](https://img.shields.io/badge/version-0.6.2-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -454,7 +454,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.6.1**
+当前版本：**v0.6.2**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -463,14 +463,11 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.6.1 (2026-11-14)
-首发 CI 修复：断环 · BashTool cwd 回归 · macOS Intel 产物
+#### v0.6.2 (2026-11-14)
+CI 测试平台化修正（Linux / macOS 必红）
 
-- ✅ **循环依赖归零** - `isNonTerminalStep` 抽到 `tasks/plan/planStepStatus.ts`，续跑与影响预演不再互相 import（`madge` 1 → 0 环）
-- ✅ **BashTool cwd 回归** - 审批指纹路径改走 `safeProcessCwd()`，进程目录被删时不再让 `ENOENT` 逃逸，恢复「无法确定工作目录」友好失败
-- ✅ **macOS Intel 产物** - `build-cli-binary` 支持 `--target` 交叉编译，macOS 作业补 `bun-darwin-x64`；`SHA256SUMS` 改为合并
-- ✅ **脚本门禁** - `scripts/**` 按脚本专用 ESLint 配置格式化（v0.6.0 首跑 `lint:scripts` 的 17 处 prettier 归零）
-- ✅ **验证** - 全量 `bun test` 11,968 pass / 44 skip；`tsc` 0；`lint` 0 error；`madge` 0 环
+- ✅ **平台相关断言** - `cliSigning` 参数解析用例不再硬编码 win32 产物名，改为与 `defaultOutfile()` 比对（跟运行平台走）
+- ✅ **验证** - 本机全量 `bun test` 12,013 用例 / 11,969 pass / 44 skip / 0 fail；`tsc` 0
 - ✅ 完整历史见 [CHANGELOG.md](CHANGELOG.md)
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。

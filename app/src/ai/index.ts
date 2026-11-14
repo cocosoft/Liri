@@ -299,6 +299,15 @@ export {
 } from './providers/detectUnifiedProviders';
 export type { UnifiedProviderConfig } from './providers/detectUnifiedProviders';
 
+// G1（2026-11-14）：本地模型服务探测 + 一键接入（onboard 免 Key 路径的唯一入口）
+export { detectLocalModelServices } from './local/detectLocalServices.js';
+export type {
+  DetectedLocalService,
+  LocalServiceKind,
+  LocalServiceSpec,
+} from './local/detectLocalServices.js';
+export { ensureLocalModelProviderRegistered } from './local/registerLocalModelProvider.js';
+
 export {
   SpeedTestService,
   testEndpoints,

@@ -33,7 +33,7 @@
 
 | 标识 | 支持等级 | 专属测试证据 |
 |---|---|---|
-| `mobile` | core | `app/tests/channels/mobileAudit.test.ts`（测试文件名） |
+| `mobile` | core | `app/tests/channels/mobileApprovalAction.test.ts`（测试文件名） |
 | `telegram` | core | `app/tests/channels/telegramRequestShape.test.ts`（测试文件名） |
 | `discord` | core | `app/tests/channels/discordRequestShape.test.ts`（测试文件名） |
 | `qq` | core | `app/tests/channels/qqFileTransferPayload.test.ts`（测试文件名） |

@@ -311,7 +311,20 @@ async function isAIConfigured(): Promise<boolean> {
       await import('../ai/providers/ProviderManager.js');
     const providerManager = getProviderManager();
     const dbProviders = await providerManager.listProviders({ isActive: true });
-    return dbProviders.some((p) => isValidApiKey(p.apiKey));
+    if (dbProviders.some((p) => isValidApiKey(p.apiKey))) return true;
+
+    // G1（2026-11-14）：本地模型服务免 Key —— `requiresAuth=false` 的 provider
+    // 只要已注册真实模型即可用（Ollama / llama.cpp / LM Studio / LocalAI）。
+    // 判定仍以 DB 为唯一来源，不做网络探测（启动路径不得加 TTFB）。
+    const localProviderIds = dbProviders
+      .filter((p) => !p.requiresAuth)
+      .map((p) => p.id);
+    if (localProviderIds.length === 0) return false;
+    const { modelPricingService } =
+      await import('../ai/models/ModelPricingService.js');
+    await modelPricingService.initialize();
+    const models = await modelPricingService.getAllPricing();
+    return models.some((m) => localProviderIds.includes(m.providerId));
   } catch {
     return false;
   }

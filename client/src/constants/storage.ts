@@ -12,4 +12,11 @@
 export const STORAGE_KEYS = {
   /** 鉴权令牌（登录后写入；`httpUtils` 据此加 `Authorization` 头、`chatService` 走 SSE 时读） */
   authToken: "liri-auth-token",
+  /**
+   * 根 store 的 persist 键（`stores/root-store/index.ts` 写入）。
+   *
+   * G8 内容增强（2026-11-14）：**悬浮窗是独立 webview**，拿不到主窗口的内存 store ⇒
+   * 从同一份持久化快照里读 `currentSessionId`（两处必须同源，故上收此处）。
+   */
+  rootStore: "liri-root-store",
 } as const;

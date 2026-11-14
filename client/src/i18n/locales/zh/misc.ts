@@ -310,6 +310,15 @@ const zhMisc = {
     empty: "暂无进行中的操作。",
     close: "关闭悬浮窗",
     backToMain: "回到主窗口",
+    // G8 内容增强（2026-11-14）
+    currentSession: "当前会话",
+    noSession: "未选择会话",
+    untitledSession: "未命名会话",
+    goals: "运行中目标",
+    noGoals: "暂无运行中目标",
+    unavailable: "暂时读不到上下文（后端不可达）",
+    refresh: "刷新",
+    tokensUnit: "tokens",
   },
 };
 

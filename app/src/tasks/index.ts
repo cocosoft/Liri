@@ -119,6 +119,7 @@ export {
   toSopTrajectory,
 } from './evolution/sopPlanSource';
 // M1（2026-11-15）：学习反馈闭环 —— 低分轮归因 + 候选台账（只读，不产生行为变更）
+// M2（2026-11-15）：结构化校验 → 批准 → 语料种子导出 / 撤销
 export {
   attributeBadcase,
   collectTurnToolObservations,
@@ -133,19 +134,27 @@ export type {
 export {
   computeLearningCandidateId,
   computeLearningCandidateStats,
+  isStructurallyVerifiable,
+  LEARNING_APPROVAL_DAYS,
+  LEARNING_APPROVED_CASES_FILE,
+  LEARNING_CANDIDATE_APPROVED,
   LEARNING_CANDIDATE_PENDING,
   LEARNING_CANDIDATE_REJECTED,
+  LEARNING_CANDIDATE_VERIFIED,
   LearningCandidateStore,
 } from './evolution/learningCandidates';
 export type {
+  LearningApprovedCase,
   LearningCandidate,
   LearningCandidateContent,
+  LearningCandidateGate,
   LearningCandidateSaveResult,
   LearningCandidateStats,
   LearningCandidateStatus,
 } from './evolution/learningCandidates';
 export {
   buildLearningCandidates,
+  collectTurnUserInputs,
   LEARNING_SCAN_MAX_CANDIDATES,
 } from './evolution/learningScan';
 export type { BuildLearningCandidatesOptions } from './evolution/learningScan';

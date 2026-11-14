@@ -21,7 +21,7 @@
 
 # Spec：学习反馈闭环（Agentic 模式 #9 Learning and Adaptation）
 
-- **状态**：📝 **草案（2026-11-15，待评审；本文件不含已落地代码）**
+- **状态**：**M1 + M2 已落地（2026-11-15）**；M3（`evals --gate` 卡口与语料合入）仍为待办
 - **来源**：`dev_docs/20261114/今日计划-2026-11-14.md` §4.1 逐项审计 —— 21 模式中 **#9 是唯一"部分"级缺口**（其余三处为有条件实现：#4 自校验档 / #17 ToT / #21 探索）
 - **关联 spec**：`online-quality-evaluation.md`（U4 在线打分，已有实现）· `cross-path-evaluation-write-side.md`（三路评价写入面，结论：**互不相通**）
 - **一句话**：把「有信号（turn/quality）→ 有离线评测（evals）→ 有制品（SOP）」三段接成**受控**闭环，中间补上缺失的**归因层**与**候选台账**。
@@ -85,15 +85,20 @@
 - `repeated_question` **暂缓**：需要"同题配对"的结构化信号，现有事件只有 `replyToId` / `questionId`，
   按 CS02 不做文案相似度猜测（若要做，先扩事件契约）
 
-### S3 制品化（已落地 M1，台账）
+### S3 制品化（已落地 M1 台账 + M2 批准链）
 - `app/src/tasks/evolution/learningCandidates.ts`：**JSON 文件台账**，与 `SopDraftStore` 同构
   （`~/.pyapp/data/learning-candidates/learning-candidate_<id>.json`，原子写 tmp + rename），
   **不新增数据库表**（R02：不新建第二套存储 —— spec 初稿写的 DB 表已按此订正）
 - id = `sha256(sessionId#turnNumber#category)` 前 12 位 ⇒ 同轮同类只会有一条（重复扫描幂等）
-- 状态：`lc_pending` → `lc_rejected`（**M1 只有这两态**；`verified` / `approved` 属 M2，
-  不预留空分支，避免"看起来接了实际不可用"）
-- 统计：`rejectedShare = rejected / total`（M1 无 `approved`，沿用 SOP 的"拒绝率"会恒为 1 ⇒
-  那是指标造假；无候选时为 `null`，不伪造 0%）
+- 状态（M2 四态）：`lc_pending` → `lc_verified`（**结构化校验**：id 可复算 / 分数 0..1 / 证据非空，
+  不跑模型、不跑 evals）→ `lc_approved`（写 `expiresAt` = now + 30 天，并追加语料种子行）；
+  `revoke` 走 `lc_approved → lc_rejected`（种子行写 `revokedAt`，**不删行**）
+- 语料种子：同目录 `approved-cases.jsonl`，一行一条（`id/sessionId/turnNumber/category/score/evidence/input/expectation/approvedAt`）；
+  **`expectation` 恒为 `null`** —— 期望答案必须人工补，本阶段不生成答案（CS04）
+- 轮次 ↔ 用户输入：`collectTurnUserInputs`（`turn/start.userMessageSeq` 精确匹配，缺省取该 `turn/start`
+  之前最近一条 `user/message`），取不到就不写 `input`（不伪造）
+- 统计（M2）：`LearningCandidateStats { total, pending, verified, approved, rejected, rejectedShare }`
+  （`rejectedShare = rejected / total`；无候选时为 `null`，不伪造 0%）
 
 ### S4 离线验证（复用 `--gate`）
 - `eval_case`：新增语料必须能在**离线模式**复跑；合入前跑 `evals --gate`，对 `baseline.json` 回归则**阻断**（复用现有机制，不新造）。
@@ -102,19 +107,20 @@
 
 ### S5 受控上线（人工门控 + 可回滚）
 - **M1 已落地**：`/learn list` · `show <id>` · `scan [会话数]` · `reject <id> [原因]` · `stats`
-  —— **没有 `approve`**（命令层显式拒绝并说明"批准链在 M2 随 `evals --gate` 落地"）。
-- M2 计划：批准时记录 `expiresAt`（默认 30 天）与反向操作句柄（删除生成语料 / 卸载 SKILL.md）；
-  到期未复核自动转 `lc_rejected` 并提示。
+- **M2 已落地**：`verify <id>`（结构化校验）· `approve <id>`（写 `expiresAt` = now + 30 天 + 追加种子行）·
+  `revoke <id> <原因>`（种子行标记 `revokedAt`，不删行）· `export`（展示种子路径与条数）
+- **未落地（记录为待办）**：到期未复核**自动**转 `lc_rejected`（需调度缝，本批不做，避免新增定时器）；
+  反向操作句柄目前只有"撤销 + 种子里标记"，SKILL.md 卸载不在本闭环内
 
 ### S6 度量（拒绝占比回流）
-- **M1 已落地**：`LearningCandidateStats { total, pending, rejected, rejectedShare }`
-  （`rejectedShare = rejected / total`；无候选 ⇒ `null`）。
-- M2 计划：`gateBlocked`（被 `--gate` 拦下的候选数）；`rejectedShare` 连续 N 次高于阈值 ⇒
+- **M1 + M2 已落地**：`LearningCandidateStats { total, pending, verified, approved, rejected, rejectedShare }`
+  （四态计数；`rejectedShare = rejected / total`；无候选 ⇒ `null`）。
+- M3 计划：`gateBlocked`（被 `--gate` 拦下的候选数）；`rejectedShare` 连续 N 次高于阈值 ⇒
   下调该 `category` 的候选产出（阈值上调），避免噪声候选淹没评审。
 
 ---
 
-## 4. 数据模型（M1 已落地：JSON 文件，非 DB 表）
+## 4. 数据模型（M1 + M2 已落地：JSON 文件，非 DB 表）
 
 单条候选一个文件：`learning-candidate_<id>.json`（原子写 tmp + rename，与 `SopDraftStore` 同构）。
 
@@ -127,15 +133,22 @@
 | `score` | number | 该轮合成分（来源 `turn/quality`） |
 | `evidence` | string[] | 归因证据（信号分量、工具名、错误码） |
 | `summary` | string | 单行展示文案（只拼结构化字段） |
-| `status` | string | `lc_pending` / `lc_rejected`（M1 两态） |
-| `createdAt` / `decidedAt?` / `note?` | number / number / string | 生命周期与拒绝原因 |
+| `input?` | string | 该轮用户输入（`turn/start` 与 `user/message` 结构化配对；取不到则缺省） |
+| `status` | string | `lc_pending` / `lc_verified` / `lc_approved` / `lc_rejected`（M2 四态） |
+| `createdAt` / `decidedAt?` / `note?` | number / number / string | 生命周期与拒绝/撤销原因 |
+| `gate?` | `{checkedAt, kind:'structural'}` | 结构化校验记录（`verified` 起有值） |
+| `expiresAt?` | number | 批准有效期（`approved` 起有值，默认 now + 30 天） |
+
+批准产物：`approved-cases.jsonl`（一行一条，`expectation` 恒为 `null`；撤销只写 `revokedAt`，不删行）。
 
 > 取词带 `lc_` 前缀的理由与 `sop_` 相同：`pending` / `rejected` 是跨域通用词，直接登记会污染状态词汇表
 > （同 `SopDraftStore` 头部注释的既有裁定；`lint:state-ratchet` 会拦裸字面量）。
 
 ---
 
-## 5. 最小可行第一步（M1，已落地）
+## 5. 分步落地
+
+### 5-M1 最小可行第一步（已落地）
 
 | 件 | 落点 |
 |---|---|
@@ -150,20 +163,38 @@
 `lint:consts` / `lint:state-ratchet` / `lint:fn-size` / `lint:size` / `lint:unref` / `lint:entrypoints` /
 `lint:command-coverage` / `lint:doc-code` 全绿。**零行为变更**：不改 `turn/quality` 写入路径、不写语料、不装技能。
 
-**M2 之后**（需再裁定）：`eval_case` 自动生成语料 + `--gate` 卡口；`prompt_snippet` 注入面（另立红线 spec）；
-`sop` 观察期自动度量；`repeated_question` 需要事件契约扩展。
+### 5-M2 批准链与语料种子（已落地）
+
+| 件 | 落点 |
+|---|---|
+| 状态扩四态 | `learningCandidates.ts`：`lc_verified` / `lc_approved` + `gate` / `expiresAt` |
+| 结构化校验 | `isStructurallyVerifiable()`（id 可复算 / 分数 0..1 / 证据非空；**零 LLM、零 evals**） |
+| 批准 → 种子 | `approve()`：先写 `approved-cases.jsonl` 再翻状态（种子失败则不批准）；`expectation: null` |
+| 撤销 | `revoke()`：`lc_approved → lc_rejected`，种子行写 `revokedAt`（不删行） |
+| 轮次 ↔ 输入 | `collectTurnUserInputs()`（`userMessageSeq` 精确匹配，缺省取该 `turn/start` 之前最近一条） |
+| 命令 | `verify / approve / revoke <id> <原因> / export`；`scan` 读取类型加 `user/message` |
+
+**仍为零行为变更**：不写提示词、不装技能、**不改 `packages/evals` 语料**；种子只是待人工补期望的中间产物。
+
+### 5-M3 之后（需再裁定）
+
+`eval_case` 自动合入语料 + `evals --gate` 卡口（需模型与长耗时，人工执行）；`prompt_snippet` 注入面（另立红线 spec）；
+`sop` 观察期自动度量；到期未复核自动转 `lc_rejected`；`repeated_question` 需要事件契约扩展。
 
 ---
 
-## 6. 验收与门禁（M1）
+## 6. 验收与门禁（M1 + M2）
 
 | 项 | 判据 | 状态 |
 |---|---|---|
 | 归因可解释 | 每条候选 `evidence` 非空；5 类各 1 例 | ✅ |
 | 状态词汇合规 | 只用 `lc_*` 前缀；命令层不写 `'error'`/`'text'` 等词汇表裸字面量 | ✅ |
-| 数据落盘 | 写入后可重读；`save` 幂等且不改写已拒绝状态 | ✅ |
-| 零行为变更 | 无 `approve`；不改 `turn/quality` 写入路径；`evals` 语料零改动 | ✅ |
-| 变异验证 | 反转归因判定 ⇒ 相关单测转红（例如把 `verdict=REJECT` 分支去掉，`verifier_reject` 用例必红） | ✅（人工核对口径） |
+| 数据落盘 | 写入后可重读；`save` 幂等且不改写已决状态 | ✅ |
+| 批准前置 | 未 `verified` 的 `approve` 返回 `null` 且不写种子（命令层明确报错） | ✅ |
+| 种子可回溯 | 种子行 `expectation` 恒为 `null`、含该轮 `input`（若可取）；撤销只写 `revokedAt` 不删行 | ✅ |
+| 可回滚 | `revoke` 后候选转 `lc_rejected`；`/learn export` 显示有效 / 已撤销条数 | ✅ |
+| 零行为变更 | 无提示词/技能写入；`packages/evals` 语料零改动；`--gate` 仍由人工执行 | ✅ |
+| 变异验证 | 反转归因判定 ⇒ 相关单测转红（例如把 `verdict=REJECT` 分支去掉，`verifier_reject` 用例必红）；去掉 `verified` 前置 ⇒ 批准用例必红 | ✅（人工核对口径） |
 
 ---
 
@@ -179,14 +210,20 @@
 
 ---
 
-## 8. M1 采用的默认裁定（用户回复"创建吧"时未逐条选择，按最保守口径执行）
+## 8. 采用的默认裁定（用户两次回复均未逐条选择，按最保守口径执行）
 
+**M1**
 1. **M1 不写 `eval_case` 语料文件** —— 只入库候选，不碰 `packages/evals` 语料（零行为变更优先）。
-2. **`prompt_snippet` 整类移出 M1** —— 无注入面，留到 M2 另立红线 spec。
-3. **观察期 7 天 / `expiresAt` 30 天** —— 保留为 M2 默认值（M1 未启用到期逻辑）。
+2. **`prompt_snippet` 整类移出 M1** —— 无注入面，留到后续另立红线 spec。
+3. **观察期 7 天 / `expiresAt` 30 天** —— 保留为后续默认值（M1 未启用到期逻辑）。
 
-**留给 M2 的三个裁定**：① 候选取库（`eval_case` 是否自动落语料）；② 批准链与 `--gate` 卡口的接线顺序；
-③ 是否扩事件契约以支持 `repeated_question`。
+**M2（本轮「执行吧」同口径）**
+4. **候选取库不自动落 `packages/evals` 语料** —— `approve` 只追加本地 `approved-cases.jsonl` **种子**，
+   `expectation: null` 由人工补；合入与 `--gate` 由人工执行（避免本批引入模型依赖与长耗时门禁）。
+5. **批准前置 = 结构化校验，不是 `--gate`** —— `verify` 只查 id 可复算 / 分数 0..1 / 证据非空；
+   `--gate` 卡口与"批准链接线顺序"留到 M3，在 spec 明写而非代码里留半成品。
+6. **`revoke` 必须写原因**，且种子行只标记 `revokedAt`、**不删行**（保留审计与可回滚）。
+7. **不扩事件契约** —— `repeated_question` 仍暂缓（`input` 配对复用既有 `turn/start` / `user/message` 字段）。
 
 ---
 

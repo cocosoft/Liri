@@ -49,6 +49,43 @@ function summarize(
 }
 
 /**
+ * 轮次 → 该轮用户输入（**结构化配对**，不做文案猜测）。
+ *
+ * 依据两条既有字段：
+ * - `turn/start.userMessageSeq`（有则按 `seq` 精确取 `user/message.content`）；
+ * - 否则取该 `turn/start` **之前最近一条** `user/message`（会话事件按 `seq` 升序）。
+ *
+ * 取不到就不登记（`input` 是可选证据，不伪造）。
+ */
+export function collectTurnUserInputs(
+  events: readonly LiriEvent[]
+): Map<number, string> {
+  const contentBySeq = new Map<number, string>();
+  let lastContent: string | null = null;
+  const inputs = new Map<number, string>();
+  for (const event of events) {
+    if (event.type === 'user/message') {
+      const payload = event.data as LiriEventMap['user/message'];
+      if (typeof payload.content === 'string' && payload.content.trim()) {
+        contentBySeq.set(event.seq, payload.content);
+        lastContent = payload.content;
+      }
+      continue;
+    }
+    if (event.type !== 'turn/start') continue;
+    const payload = event.data as LiriEventMap['turn/start'];
+    if (inputs.has(payload.turn)) continue;
+    const bySeq =
+      payload.userMessageSeq === undefined
+        ? undefined
+        : contentBySeq.get(payload.userMessageSeq);
+    const content = bySeq ?? lastContent;
+    if (content) inputs.set(payload.turn, content);
+  }
+  return inputs;
+}
+
+/**
  * 从会话事件生成候选（纯函数）。
  *
  * 判定链路：`turn/quality` 分数 < `scoreCutoff` ⇒ 归因（带该轮工具观测）⇒ 候选内容。
@@ -60,6 +97,7 @@ export function buildLearningCandidates(
   const { sessionId, events, scoreCutoff } = options;
   const limit = options.limit ?? LEARNING_SCAN_MAX_CANDIDATES;
   const toolsByTurn = collectTurnToolObservations(events);
+  const inputsByTurn = collectTurnUserInputs(events);
 
   /** 轮次 → 最后一轮质量事件（重评覆盖） */
   const latestByTurn = new Map<number, LiriEventMap['turn/quality']>();
@@ -76,6 +114,7 @@ export function buildLearningCandidates(
       quality,
       tools: toolsByTurn.get(turnNumber) ?? [],
     });
+    const input = inputsByTurn.get(turnNumber);
     candidates.push({
       id: computeLearningCandidateId(
         sessionId,
@@ -93,6 +132,7 @@ export function buildLearningCandidates(
         quality.score,
         attribution.evidence
       ),
+      ...(input ? { input } : {}),
     });
   }
 

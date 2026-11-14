@@ -64,6 +64,13 @@ export async function openFloatingWindow(): Promise<OpenFloatingResult> {
 
   const existing = await WebviewWindow.getByLabel(FLOATING_WINDOW_LABEL);
   if (existing) {
+    // G8 点击穿透（2026-11-14）：再次唤起 = 退出穿透（穿透态下窗口收不到点击，
+    // 必须有"不用点窗口"的退出路径 ⇒ 复用既有 Ctrl+Shift+F / 托盘入口）
+    try {
+      await existing.setIgnoreCursorEvents(false);
+    } catch {
+      // @ignore-catch — 退出穿透失败不应阻断"显示并聚焦"这一主要目的
+    }
     await existing.show();
     await existing.setFocus();
     return "focused";
@@ -81,7 +88,12 @@ export async function openFloatingWindow(): Promise<OpenFloatingResult> {
     alwaysOnTop: true,
     skipTaskbar: true,
     ...(geometry
-      ? { x: geometry.x, y: geometry.y, width: geometry.width, height: geometry.height }
+      ? {
+          x: geometry.x,
+          y: geometry.y,
+          width: geometry.width,
+          height: geometry.height,
+        }
       : { center: true }),
   });
   return "opened";
@@ -118,9 +130,8 @@ async function resolveCreateGeometry(): Promise<Rect | null> {
  */
 export async function initFloatingWindowGeometry(): Promise<void> {
   if (!isTauriRuntime()) return;
-  const { getCurrentWebviewWindow } = await import(
-    "@tauri-apps/api/webviewWindow"
-  );
+  const { getCurrentWebviewWindow } =
+    await import("@tauri-apps/api/webviewWindow");
   const win = getCurrentWebviewWindow();
   if (win.label !== FLOATING_WINDOW_LABEL) return;
 
@@ -144,7 +155,7 @@ export async function initFloatingWindowGeometry(): Promise<void> {
       const clamped = clampToMonitors(current, monitors);
       const { LogicalPosition } = await import("@tauri-apps/api/dpi");
       await win.setPosition(
-        new LogicalPosition(Math.round(clamped.x), Math.round(clamped.y))
+        new LogicalPosition(Math.round(clamped.x), Math.round(clamped.y)),
       );
     }
   } catch {
@@ -165,6 +176,31 @@ export async function initFloatingWindowGeometry(): Promise<void> {
 
   await win.onMoved(persist);
   await win.onResized(persist);
+}
+
+/**
+ * 开关悬浮窗的**点击穿透**（G8，2026-11-14）。
+ *
+ * 穿透态下窗口不接收鼠标事件（点击落到下层应用），因此**退出路径不依赖点击该窗口**：
+ * 再按一次 `Ctrl+Shift+F`（系统级/应用内）或点托盘「悬浮窗」⇒ {@link openFloatingWindow}
+ * 会先关闭穿透再显示聚焦（见函数内注释）。
+ *
+ * @returns `true` 已应用；`false` 非 Tauri / 窗口不存在 / 平台不支持（如实返回，不假装成功）
+ */
+export async function setFloatingPassthrough(
+  enabled: boolean,
+): Promise<boolean> {
+  if (!isTauriRuntime()) return false;
+  const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
+  const target = await WebviewWindow.getByLabel(FLOATING_WINDOW_LABEL);
+  if (!target) return false;
+  try {
+    await target.setIgnoreCursorEvents(enabled);
+    return true;
+  } catch {
+    // @ignore-catch — 平台不支持该 API ⇒ 如实返回 false（界面据此提示，不静默成功）
+    return false;
+  }
 }
 
 /** 关闭当前悬浮窗（非 Tauri / 窗口不存在 ⇒ no-op） */

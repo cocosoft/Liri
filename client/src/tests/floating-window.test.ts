@@ -15,6 +15,7 @@ import {
   isFloatingEntry,
   isTauriRuntime,
   openFloatingWindow,
+  setFloatingPassthrough,
   FLOATING_WINDOW_LABEL,
 } from "../lib/floatingWindow";
 
@@ -39,5 +40,10 @@ describe("floatingWindow（无 Tauri 运行时）", () => {
 
   it("窗口 label 固定为 floating（与 capabilities/floating.json 对齐）", () => {
     expect(FLOATING_WINDOW_LABEL).toBe("floating");
+  });
+
+  it("非 Tauri ⇒ 点击穿透如实返回 false（不假装成功）", async () => {
+    await expect(setFloatingPassthrough(true)).resolves.toBe(false);
+    await expect(setFloatingPassthrough(false)).resolves.toBe(false);
   });
 });

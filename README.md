@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.5.28-blue)
+![Version](https://img.shields.io/badge/version-0.6.0-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -454,7 +454,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.5.28**
+当前版本：**v0.6.0**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -463,14 +463,15 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.5.28 (2026-11-14)
-app 层 20 个模块物理拆包与包边界门禁收口
+#### v0.6.0 (2026-11-14)
+「建议落地」方案 12 项：规划续跑 · CLI 分发 · 悬浮窗全套 · 知识与演化
 
-- ✅ **物理拆包（20 轮）** - 逐模块迁入 `packages/<pkg>/src/<module>`（说明符仍为 `@modules/<module>`），`packages/` 现 23 个包；配套 20 个逐包 ESLint 配置与 `lint:<pkg>`
-- ✅ **包边界门禁** - `lint:infra` 扩至 **R1–R28**（跨包逃逸、桶出口单一、依赖方向、行宽/行数），`lint:gate-parity` 纳入 CI **78 条**
-- ✅ **基线随迁同步** - state-literal / hardcode / logger-name / kernel-api-surface / evidence 基线键一次迁移，全量测试 11,775 pass / 0 fail
-- ✅ **启动修复** - 非 TTY 首次运行补判 AI 配置态，消除「AI 对话功能不可用」假阴性提示
-- ✅ **文档治理** - README/AGENTS/规则与架构文档按物理包路径订正，补齐规则索引与包边界命名空间说明
+- ✅ **D1/D2/D3 事件与续跑** - webhook 外部事件适配器；重启后目标续接与计划续跑（三期接到系统级执行器，采纳既有计划、已完成步骤不重做）；三个开关默认关并三处登记
+- ✅ **D4/D7 路由与预演** - 负载感知路由原语 + Council 按议题选人；`/plan preview` 只读影响预演，副作用录制把文件变更归属到工具与计划步骤（`planId`/`stepId`）
+- ✅ **D8/D10 知识与演化** - `kg_edges` 最小本体层（非法关系拒绝）；成功轨迹蒸馏为 SOP 草案，人工批准后才注册技能
+- ✅ **G2 CLI 分发（5 期）** - 三渠道清单、单文件二进制 + `SHA256SUMS`、三平台 CI 矩阵 + 可选签名、standalone 清单、npm 按平台分包；legacy 渠道改名 `openliri-bun`
+- ✅ **G8 悬浮窗（6 期）** - 托盘入口、系统级 `Ctrl+Shift+F`、几何记忆与多显示器校正、当前会话/运行中目标、点击穿透（退出复用既有快捷键）
+- ✅ **验证与边界** - 前端 141 文件 / 990 用例全绿，后端 9 项门禁全绿；**真机验证受阻**：本机「智能应用控制」阻止 `rustc`，GUI 项待解除阻断或由 CI 产物验证
 - ✅ 完整历史见 [CHANGELOG.md](CHANGELOG.md)
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。

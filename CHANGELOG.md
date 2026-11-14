@@ -203,6 +203,35 @@
 - ✅ **macOS 假红** - `mobilePairing` 用例不再用 1ms TTL 与 runner 时钟赛跑
 <!-- EVIDENCE-VIEWS:END -->
 
+#### v0.6.0 (2026-11-14)  「建议落地」方案 12 项：规划续跑 · CLI 分发 · 悬浮窗全套 · 知识与演化
+
+- ✅ **D1 外部事件适配器**：webhook → 既有事件源 → 工作项（复用事件总线，不新建第三套）。
+- ✅ **D2/D3 重启续跑**：目标跨会话续接（`GOAL_STARTUP_RESUME`）与计划重启续跑（`PLAN_STARTUP_RESUME`）；
+  三期把续跑接到**系统级执行器**（`PLAN_SYSTEM_RESUME`，`PlanDrivenLoop` 采纳既有计划，已完成步骤不重做、
+  失败/取消步骤不重跑）；三个开关**默认关**并三处登记。
+- ✅ **D4 负载感知路由 + Council 按议题选人**：`rankAgentsByLoad` / `selectAgentsForTopic`（确定性、fail-open；
+  负载维度接入与置信度事实源仍未做）。
+- ✅ **D7 影响预演与副作用录制**：`/plan preview` 只读预演（选定计划 / 受影响工具 / 产物 / 风险定级）；
+  副作用录制给文件变更加上**工具名与计划/步骤归属**（`planId`/`stepId`），预演可追加该计划的真实文件副作用；
+  快照不可读只影响附加段落，不阻断主结论。
+- ✅ **D8/D10 知识与演化**：`kg_edges` 最小本体层（关系规范化 + 非法关系拒绝）、成功轨迹蒸馏为 SOP 草案
+  （**人工批准后**才注册技能）。
+- ✅ **G2 CLI 分发（5 期）**：Scoop / Homebrew / npm 三渠道清单生成；单文件二进制（`bun build --compile` +
+  `SHA256SUMS`）；三平台 CI 矩阵 + 可选签名接线（未配凭据如实跳过）；standalone 清单（去 bun 前置）；
+  npm 按平台分包（`@openliri/cli-*`，主包零依赖），legacy 渠道改名 `openliri-bun` 让出 `openliri`。
+- ✅ **G3/G4/G5/G6**：命令级「本工作区永久信任」审批档、`/rewind` 改接既有截断 + 文件级联回滚、
+  `/preferences` 统一查看/修改偏好、手机端审批联动（审批卡片 + 按钮回写）。
+- ✅ **G8 悬浮窗（6 期）**：零依赖浮窗 + 托盘入口 + **系统级** `Ctrl+Shift+F`（`tauri-plugin-global-shortcut`）+
+  几何记忆与多显示器边界校正 + 当前会话/运行中目标 + 点击穿透（退出复用既有快捷键，不新增系统级组合键）。
+- ✅ **其他**：A2A 载荷不确定性与推理轨迹字段（D5，默认不发）、onboard 一键接入本机 Ollama / LM Studio / LocalAI（免 Key）。
+- ✅ **验证**：前端 `tsc` / `eslint` 绿、`vitest` **141 文件 / 990 用例**；后端门禁
+  `lint` / `lint:arch` / `lint:infra` / `lint:state-ratchet` / `lint:consts` / `lint:size` / `lint:fn-size` /
+  `lint:kernel` / `lint:doc-code` 全绿。
+- ✅ **真机验证受阻（如实）**：本机 Windows「智能应用控制」阻止 `rustc.exe`（CodeIntegrity 3077/3033/3118，
+  退出码 `0xC0E90002`）⇒ GUI 项（快捷键/几何/穿透）待解除阻断或由 CI 构建后验证；CLI 单文件二进制的
+  运行验证同样受该策略限制。
+- ✅ **统计**：自 v0.5.28 起 33 条实质提交（feat 29 · fix 2 · docs 2）。
+
 #### v0.5.28 (2026-11-14)  app 层 20 个模块物理拆包与包边界门禁收口
 
 - ✅ **物理拆包（20 轮）**：`app/src` 内 20 个模块逐轮 `git mv` 至 `packages/<pkg>/src/<module>`，import 说明符保持 `@modules/<module>` 不破面；

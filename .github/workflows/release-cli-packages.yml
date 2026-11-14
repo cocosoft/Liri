@@ -7,8 +7,10 @@ name: Release CLI Packages
 #   1. `liri-cli-<version>.tgz`（含 `dist/main.js` + `Liri.cmd`）→ GitHub Release 资产
 #   2. 三份渠道清单（`packaging/**`，由脚本按真实 sha256 重新生成）→ 工作流 artifact
 #   3. npm 发布（仅当配置 `NPM_TOKEN`；否则跳过并留日志）
+#   4. **三平台单文件二进制**（G2 三期：win/mac/linux 矩阵原生构建 + 可选签名 + `SHA256SUMS`）
 #
 # 如实边界：Scoop bucket / Homebrew tap 的 PR 仍需人工提交；本工作流只产出可直接提交的清单。
+# 签名证书/凭据来自仓库 secrets，**未配置即如实跳过**（不伪造已签名）。
 
 on:
   push:
@@ -96,3 +98,53 @@ jobs:
           cp dist/main.js packaging/npm/dist/main.js
           printf '//registry.npmjs.org/:_authToken=%s\n' "$NPM_TOKEN" > "$HOME/.npmrc"
           npm publish packaging/npm --access public
+
+  # G2 剩余三期（2026-11-14）：三平台单文件二进制。
+  # `bun build --compile` 只能产出**当前平台**产物 ⇒ 用矩阵在各自 OS 原生构建。
+  # 签名凭据来自 secrets：未配置时 `sign-cli-binary.ts` 打印跳过原因并继续（产物为未签名）。
+  cli-binaries:
+    name: CLI binary (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Install dependencies
+        working-directory: app
+        run: bun install --frozen-lockfile
+
+      - name: Build single-file binary
+        run: bun run scripts/build-cli-binary.ts
+
+      - name: Sign (optional; 未配置证书 ⇒ 如实跳过并重算 SHA256SUMS)
+        env:
+          LIRI_SIGN_WIN_CERT_PFX_BASE64: ${{ secrets.LIRI_SIGN_WIN_CERT_PFX_BASE64 }}
+          LIRI_SIGN_WIN_CERT_PASSWORD: ${{ secrets.LIRI_SIGN_WIN_CERT_PASSWORD }}
+          LIRI_SIGN_MAC_IDENTITY: ${{ secrets.LIRI_SIGN_MAC_IDENTITY }}
+          LIRI_SIGN_MAC_CERT_P12_BASE64: ${{ secrets.LIRI_SIGN_MAC_CERT_P12_BASE64 }}
+          LIRI_SIGN_MAC_CERT_PASSWORD: ${{ secrets.LIRI_SIGN_MAC_CERT_PASSWORD }}
+        run: bun run scripts/sign-cli-binary.ts
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: liri-cli-bin-${{ matrix.os }}
+          path: app/dist/cli-bin/*
+
+      - name: Attach binary to GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          gh release upload "v${VERSION}" app/dist/cli-bin/* --clobber || \
+            echo "⚠️ Release v${VERSION} 尚未创建 ⇒ 仅保留工作流 artifact"

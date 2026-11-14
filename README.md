@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.5.27-blue)
+![Version](https://img.shields.io/badge/version-0.5.28-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -454,7 +454,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.5.27**
+当前版本：**v0.5.28**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -463,13 +463,14 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.5.27 (2026-11-12)
-命令治理与审批链路收口
+#### v0.5.28 (2026-11-14)
+app 层 20 个模块物理拆包与包边界门禁收口
 
-- ✅ **命令治理（P0–P8）** - 三档语义收敛（未收录 ⇒ 审批；重定向 / 复合命令的只读子形态随整族 deny）、封堵 8 类令牌逃逸与 launcher 版本参数绕过、只读诊断不再误拦
-- ✅ **审批链路** - 拒绝后写回终态并自动续跑、不再重放未落定审批、批准后无重复卡、审批卡归位到所属轮次
-- ✅ **会话与流式** - 流式不再闪现旧审批提示、正常工具轮不再误报「生成中断」、续跑轮补齐 turn 包裹、轮号不再回退
-- ✅ **门禁与 CI** - 修正命令覆盖率门禁路径、复杂度离群 8 → 6 回落基线；CI Test / Doc Gate / Deploy Docker 全绿（`5c4ddab20`）
+- ✅ **物理拆包（20 轮）** - 逐模块迁入 `packages/<pkg>/src/<module>`（说明符仍为 `@modules/<module>`），`packages/` 现 23 个包；配套 20 个逐包 ESLint 配置与 `lint:<pkg>`
+- ✅ **包边界门禁** - `lint:infra` 扩至 **R1–R28**（跨包逃逸、桶出口单一、依赖方向、行宽/行数），`lint:gate-parity` 纳入 CI **78 条**
+- ✅ **基线随迁同步** - state-literal / hardcode / logger-name / kernel-api-surface / evidence 基线键一次迁移，全量测试 11,775 pass / 0 fail
+- ✅ **启动修复** - 非 TTY 首次运行补判 AI 配置态，消除「AI 对话功能不可用」假阴性提示
+- ✅ **文档治理** - README/AGENTS/规则与架构文档按物理包路径订正，补齐规则索引与包边界命名空间说明
 - ✅ 完整历史见 [CHANGELOG.md](CHANGELOG.md)
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。

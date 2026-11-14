@@ -203,6 +203,22 @@
 - ✅ **macOS 假红** - `mobilePairing` 用例不再用 1ms TTL 与 runner 时钟赛跑
 <!-- EVIDENCE-VIEWS:END -->
 
+#### v0.5.28 (2026-11-14)  app 层 20 个模块物理拆包与包边界门禁收口
+
+- ✅ **物理拆包（20 轮）**：`app/src` 内 20 个模块逐轮 `git mv` 至 `packages/<pkg>/src/<module>`，import 说明符保持 `@modules/<module>` 不破面；
+  `packages/` 现 23 个包（core 1 · infra 1 · service 2 · app 19）。
+- ✅ **逐包质量门禁**：新增 20 个逐包 ESLint 配置与 `lint:<pkg>` 脚本，`lint:gate-parity` 校验覆盖，CI 门禁 **78 条**（77 覆盖 + 1 登记豁免 `test:guarded`）。
+- ✅ **包边界规则**：`lint:infra` 扩至 **R1–R28**（跨包逃逸、桶出口单一、依赖方向、行宽/行数、infra 内环棘轮），负向自证（探针 2 条违规 exit 1 → 删除后复绿）。
+- ✅ **基线同步**：state-literal / hardcode / logger-name / kernel-api-surface / evidence 基线键随迁包一次迁移；
+  `scripts/modules-to-layers.json` 零改动（层归属按模块名延续）。
+- ✅ **验证**：`typecheck` 0；全量 `bun test` 11,775 pass / 44 skip / 0 fail；`bun run ci` exit 0；
+  远端 CI Test / Kernel CI / Doc Gate / Deploy Docker 全绿（`084dfaf11`）。
+- ✅ **启动修复**：非 TTY 首次运行分支补判 AI 配置态（`isAIConfigured()` → `setOfflineMode(false)`），
+  消除「AI 对话功能不可用」假阴性提示（真机实测：实际可对话）。
+- ✅ **文档治理**：README / AGENTS / 规则与架构文档按物理包路径订正；补齐规则文件索引 5 项、
+  `CS01–CS08` / `R00–R15` 口径、包边界门禁 R9–R28 命名空间说明；修正 14 处失效绝对根路径。
+- ✅ **统计**：自 v0.5.27 起 27 条实质提交（fix 12 · feat 7 · refactor 5 · chore 2 · docs 1）。
+
 #### v0.5.27 (2026-11-12)  命令治理与审批链路收口
 
 - ✅ **命令治理（P0–P8）**：权限三档语义收敛（未收录命令 ⇒ 审批；重定向/复合命令的只读子形态随整族 deny）、封堵 8 类令牌逃逸与 launcher 版本参数绕过、只读诊断与 JSON 处理不再误拦、策略漂移门禁解析失败 fail-closed。

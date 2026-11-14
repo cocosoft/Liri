@@ -65,6 +65,22 @@
 
 ### 仍未做（如实）
 
-1. **系统级全局快捷键**：需 `tauri-plugin-global-shortcut`（Rust crate + npm 包）**新增外部依赖**，本批未引入；当前触发仍是应用内 `Ctrl+Shift+F` 与托盘菜单。
+1. **系统级全局快捷键**：需 `tauri-plugin-global-shortcut`（Rust crate + npm 包）**新增外部依赖**，本批未引入；当前触发仍是应用内 `Ctrl+Shift+F` 与托盘菜单。（**已由 §7 三期补齐**）
 2. **Rust 未编译验证**：本机无 `cargo`（不在 PATH）⇒ 只做了源码级改动与前端 typecheck/lint；首次 `tauri build` / CI 构建需确认菜单项与 `eval` 调用可编译。
 3. 内容增强（当前会话 / 运行中目标）与窗口体验（位置记忆 / 多显示器 / 点击穿透）未做。
+
+## 7. 三期已交付（系统级全局快捷键）
+
+把触发面从「应用内 + 托盘」扩到**系统级**：应用未聚焦（最小化 / 在托盘）时 `Ctrl+Shift+F` 仍可唤起悬浮窗。
+
+| 件 | 内容 |
+|---|---|
+| `client/src-tauri/Cargo.toml` | ➕ `tauri-plugin-global-shortcut = "2"`（官方 Tauri 2 插件；**唯一新增外部依赖**） |
+| `client/src-tauri/src/lib.rs` | ➕ `floating_shortcut()`（`Ctrl+Shift+F`，与主窗口内一致）；➕ `dispatch_toggle_floating()`（托盘菜单与全局快捷键**共用**，仍只 `eval` 派发 `liri:toggle-floating`）；插件在 `Builder` 上注册 handler（仅 `ShortcutState::Pressed`）；`setup` 内 `global_shortcut().register(...)`，**失败只 `warn`**（被其他应用占用也不阻断启动） |
+| `client/src/lib/floatingWindow.ts` | 文档口径更新（二期已接；窗口创建仍单点在本文件） |
+
+**边界（如实）**：
+- **无新增 capability**：注册走 Rust API，不经 JS 插件命令 ⇒ `capabilities/*.json` 权限不扩；
+- **快捷键不可配置**：固定 `Ctrl+Shift+F`；与主窗口内快捷键**同键**，同时触发两次也只等价于「新建 → 聚焦」（`openFloatingWindow` 幂等）；
+- **Rust 未编译验证**：本机无 `cargo` ⇒ 仅源码级改动 + 前端 `tsc`/`eslint`/`vitest`（139 文件 / 966 用例）全绿；**`Cargo.lock` 未在本机重生成**（首次 `cargo build` / `tauri build` 自动补全）；
+- 仍**不做**：快捷键用户可配置、内容增强（当前会话 / 运行中目标）、窗口体验（位置记忆 / 多显示器 / 点击穿透）。

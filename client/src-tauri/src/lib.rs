@@ -26,6 +26,7 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Manager,
 };
+use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 use tracing::info;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -105,6 +106,19 @@ fn create_app_menu(app: &tauri::AppHandle) -> Result<Menu<tauri::Wry>, tauri::Er
     Menu::with_items(app, &[&file_menu, &edit_menu, &view_menu, &help_menu])
 }
 
+/// G8 三期（2026-11-14）：悬浮窗的**系统级**快捷键（`Ctrl+Shift+F`，与主窗口内一致）。
+fn floating_shortcut() -> Shortcut {
+    Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyF)
+}
+
+/// 把「切换悬浮窗」的意图转发到主窗口 JS —— `openFloatingWindow` 是**唯一创建点**，
+/// Rust 侧不重复实现窗口构建逻辑（托盘菜单与全局快捷键共用本函数）。
+fn dispatch_toggle_floating(app: &tauri::AppHandle) {
+    if let Some(win) = app.get_webview_window("main") {
+        let _ = win.eval("window.dispatchEvent(new CustomEvent('liri:toggle-floating'));");
+    }
+}
+
 fn create_tray_menu(app: &tauri::AppHandle) -> Result<Menu<tauri::Wry>, tauri::Error> {
     let show = MenuItem::with_id(app, "show", "显示窗口", true, None::<&str>)?;
     let hide = MenuItem::with_id(app, "hide", "隐藏窗口", true, None::<&str>)?;
@@ -163,6 +177,18 @@ pub fn run() {
         // updater 插件已禁用（无更新服务器）
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
+        // G8 三期（2026-11-14）：系统级全局快捷键 —— 应用未聚焦时也能唤起悬浮窗
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(|app, shortcut, event| {
+                    if shortcut == &floating_shortcut()
+                        && event.state() == ShortcutState::Pressed
+                    {
+                        dispatch_toggle_floating(app);
+                    }
+                })
+                .build(),
+        )
         .manage(AppState::default())
         .manage(ConfigState::default())
         .setup(|app| {
@@ -175,6 +201,11 @@ pub fn run() {
             session_state.init_storage(sessions_path);
 
             let handle = app.handle();
+
+            // G8 三期：注册失败（快捷键被其他应用占用等）只告警，不阻断启动
+            if let Err(err) = handle.global_shortcut().register(floating_shortcut()) {
+                tracing::warn!("注册全局快捷键 Ctrl+Shift+F 失败: {}", err);
+            }
 
             let menu = create_tray_menu(handle)?;
             let _tray = TrayIconBuilder::new()
@@ -196,13 +227,7 @@ pub fn run() {
                         }
                         // G8 二期：悬浮窗 —— 转发到主窗口 JS（`openFloatingWindow` 是唯一创建点，
                         // 避免在 Rust 侧再写一份窗口构建逻辑）
-                        "floating" => {
-                            if let Some(win) = window {
-                                let _ = win.eval(
-                                    "window.dispatchEvent(new CustomEvent('liri:toggle-floating'));",
-                                );
-                            }
-                        }
+                        "floating" => dispatch_toggle_floating(app),
                         "quit" => {
                             app.exit(0);
                         }

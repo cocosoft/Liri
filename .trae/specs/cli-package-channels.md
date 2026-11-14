@@ -70,7 +70,30 @@
 
 ### 仍未做（如实）
 
-1. **产物签名**：仓库无签名证书/密钥；`SHA256SUMS` 只做完整性校验，**不等于签名**（签名需发版侧配置，与插件签名闸同批评估）；
-2. **交叉编译矩阵**：`bun build --compile` 只能产出**当前平台**产物 ⇒ 需 CI 三平台矩阵（win/mac/linux 各跑一次本脚本）后才谈"三渠道去 bun 前置"；
-3. **清单 standalone 变体**：`packaging/**` 目前仍声明 `bun` 前置；去前置需在矩阵产物就绪后新增 `--standalone` 渲染（避免提前去掉前置却发不出二进制）；
-4. **真实发布凭据**：`NPM_TOKEN` / tap / bucket 账号仍未配置。
+1. **产物签名**：仓库无签名证书/密钥；`SHA256SUMS` 只做完整性校验，**不等于签名**（签名需发版侧配置，与插件签名闸同批评估）。（**已由 §7 接线**，证书/凭据仍待发版侧提供）
+2. **交叉编译矩阵**：`bun build --compile` 只能产出**当前平台**产物 ⇒ 需 CI 三平台矩阵（win/mac/linux 各跑一次本脚本）后才谈"三渠道去 bun 前置"。（**矩阵已由 §7 落地**）
+3. **清单 standalone 变体**：`packaging/**` 目前仍声明 `bun` 前置；去前置需在矩阵产物就绪后新增 `--standalone` 渲染（避免提前去掉前置却发不出二进制）。
+4. **真实发布凭据**：`NPM_TOKEN` / tap / bucket 账号仍未配置。（**签名 secrets 已由 §7 登记**，值仍待配置）
+
+## 7. 三期已交付（三平台矩阵 + 签名接线）
+
+| 件 | 内容 |
+|---|---|
+| `scripts/sign-cli-binary.ts` 🆕 | 纯函数 `resolveSigningPlan(platform, file, options)` + `normalizePlatform` / `parseSignArgs` / `readSigningEnv`；CLI：未配置凭据 ⇒ 打印**跳过原因**继续（退出 0），已配置 ⇒ 逐条执行签名/校验命令（任一失败退出 1）；**签名后重算 `SHA256SUMS`**（签名改变字节） |
+| `app/tests/packaging/cliSigning.test.ts` 🆕 | 11 条：平台归一化 / Windows 缺口令与缺证书跳过 / 签名+verify 命令序列与默认时间戳 / 自定义时间戳 / macOS 有身份无 p12 / 有 p12 的 keychain 导入顺序 / p12 缺口令跳过 / Linux 跳过 / 参数解析 / env 空串视为未配置 |
+| `.github/workflows/release-cli-packages.yml` | ➕ `cli-binaries` 作业：`matrix.os = ubuntu / macos / windows` 三平台**原生**构建（`bun build --compile` 不支持交叉产出）→ 可选签名 → 上传 artifact → 附到 Release |
+
+**签名凭据（发版侧 secrets，仓库内不含任何证书）**：
+
+| secret | 用途 |
+|---|---|
+| `LIRI_SIGN_WIN_CERT_PFX_BASE64` / `LIRI_SIGN_WIN_CERT_PASSWORD` | Windows Authenticode（`signtool`，时间戳默认 DigiCert） |
+| `LIRI_SIGN_MAC_IDENTITY` | macOS 签名身份（`Developer ID Application: …`） |
+| `LIRI_SIGN_MAC_CERT_P12_BASE64` / `LIRI_SIGN_MAC_CERT_PASSWORD` | macOS `.p12`（可选；提供则建临时 keychain 导入） |
+
+**边界（如实）**：
+- **未真实签名**：仓库无证书、本机无凭据 ⇒ `signtool` / `codesign` 命令**从未执行**，只用例锁定"计划推导"；**CI 未真跑**（首次发版观察）；
+- **Linux 不签名**：无通用二进制签名标准，`resolveSigningPlan` 如实 `skip`（不引入 GPG 分发）；
+- **macOS 未公证**：仅 `codesign` + 校验；`notarytool` 公证需 Apple 账号与 zip 打包，未做；
+- **清单仍声明 bun 前置**：`packaging/**` 未出 `--standalone` 变体（矩阵产物就绪后再切）；
+- **产物未在本机重新构建**：本期只新增签名脚本与 CI 作业；`bun build --compile` 已实测过一次（§6），签名后产物未复测。

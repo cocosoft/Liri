@@ -12,7 +12,11 @@
  * - 可用 `setMobileOutboundSink()` 替换（测试 / 二期系统推送）；
  * - **无可用 sink 时不伪成功**（CS04）：返回 `success:false`，由投递层记录失败。
  *
- * 能力声明：`interactive=false`（首版走文本审批，见 `channels/bridge/TextApprovalParser.ts`）；
+ * 能力声明：`interactive=true`（G6，2026-11-14）：
+ * - 出站：SSE `data.card` **原样**携带 `InteractiveCard`（审批请求 / 结果卡）；
+ * - 入站：卡片按钮的 `value` 原样 POST 回 `POST /v1/channels/mobile/messages` 的
+ *   `action` 字段 ⇒ `MobileApprovalAction` ⇒ `resolveInboxApproval`（唯一实现）；
+ * - 文本「同意 / 拒绝」仍可用（`channels/bridge/TextApprovalParser.ts`，无卡片时的兜底）。
  * 权限档位：入站**强制**按 `messaging` 任务面裁剪（不含执行类）—— 本通道属
  * `toolPolicy.ts` 的 `ALWAYS_RESTRICTED_CHANNELS`，**不受** `CHANNEL_TOOL_POLICY` 灰度开关门控
  * （2026-10-20：远程不可信来源，安全约束不能挂在默认关闭的开关上）。
@@ -46,9 +50,10 @@ export interface MobileOutboundPayload {
   /**
    * `kind='card'` 时**原样**携带卡片 JSON（`InteractiveCard` 唯一形状）。
    *
-   * 前端按 `buttons[].value` 决定动作：移动端不新增端点族 ——
-   * 预算放行等动作直接打**统一端点**（如 `POST /v1/cost/daily-budget/relief`），
-   * 不经过通道入站回调（`变体矩阵方案.md` §2.6 ③）。
+   * 前端按 `buttons[].value` 决定动作（`变体矩阵方案.md` §2.6 ③「不新增端点族」）：
+   * - 审批动作（`{"a":"inbox-approval","i":…,"d":…}`）⇒ 原样 POST 回
+   *   `POST /v1/channels/mobile/messages` 的 `action` 字段（设备 token 只在该端点校验）；
+   * - 其它动作（如预算放行）⇒ 直接打既有**统一端点**（`POST /v1/cost/daily-budget/relief`）。
    */
   card?: InteractiveCard;
   /** 目标设备（可选；多设备时前端按此过滤） */
@@ -103,7 +108,9 @@ const MOBILE_CAPABILITIES: ChannelCapabilities = {
   threading: false,
   reactions: false,
   // 2026-10-21：支持**卡片出站**（SSE 原样携带 `InteractiveCard`）。
-  // 入站按钮不走通道回调，而是前端直打统一端点（§2.6 ③）⇒ 无需 `TextApprovalParser` 承接按钮。
+  // G6（2026-11-14）：卡片按钮的**入站动作**已接线 —— 按钮 value 走
+  // `mobile/messages` 的 `action` 字段（设备 token 只在该端点校验），而非直接打
+  // `POST /v1/inbox/:id/reply`（后者是 Bearer / api-key 鉴权，设备凭据进不去）。
   interactive: true,
   voiceCall: false,
   fileUpload: false,

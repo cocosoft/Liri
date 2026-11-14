@@ -42,3 +42,14 @@ export type {
 } from './MobilePairingService.js';
 export { recordMobileAudit, buildMobileAuditPayload } from './MobileAudit.js';
 export type { MobileAuditEvent, MobileAuditPayload } from './MobileAudit.js';
+// G6（2026-11-14）：卡片按钮 → 审批动作的入站解析与落定（复用 inbox approval 单一实现）
+export {
+  parseMobileApprovalActionBody,
+  resolveMobileApprovalAction,
+  MOBILE_APPROVAL_RESOLVE_FAILED,
+} from './MobileApprovalAction.js';
+export type {
+  MobileApprovalActionInput,
+  MobileApprovalActionParse,
+  MobileApprovalResolveResult,
+} from './MobileApprovalAction.js';

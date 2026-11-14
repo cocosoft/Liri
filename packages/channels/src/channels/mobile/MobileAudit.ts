@@ -35,16 +35,26 @@ export type MobileAuditEvent =
       kind: 'auth_denied';
       deviceId: string;
       reason: string;
+    }
+  | {
+      /** G6：卡片按钮的审批动作（同意/拒绝）—— 与文本审批同属"执行放行"类，必须可追溯 */
+      kind: 'approval_action';
+      deviceId: string;
+      inboxItemId: string;
+      decision: 'approve' | 'deny';
+      /** `resolveInboxApproval` 的结局（`ok` / `expired` / `already_processed` …） */
+      outcome: string;
+      success: boolean;
     };
 
 /**
  * 审计载荷（**纯函数输出**：便于单测，不触发文件 IO）。
  *
- * `type` 取 `AuditEventType` 的**字符串值**（`authentication` / `data_access`），
- * 由 `recordMobileAudit` 再映射为枚举成员。
+ * `type` 取 `AuditEventType` 的**字符串值**（`authentication` / `data_access` /
+ * `approval_action`），由 `recordMobileAudit` 再映射为枚举成员。
  */
 export interface MobileAuditPayload {
-  type: 'authentication' | 'data_access';
+  type: 'authentication' | 'data_access' | 'approval_action';
   severity: 'info' | 'warning';
   actor: string;
   action: string;
@@ -92,6 +102,25 @@ export function buildMobileAuditPayload(
     };
   }
 
+  if (event.kind === 'approval_action') {
+    return {
+      type: 'approval_action',
+      severity: event.success ? 'info' : 'warning',
+      actor: event.deviceId,
+      action: `mobile.approval.${event.decision}`,
+      resource: 'channel:mobile',
+      success: event.success,
+      ...(event.success ? {} : { failureReason: event.outcome }),
+      details: {
+        channel: 'mobile',
+        deviceId: event.deviceId,
+        inboxItemId: event.inboxItemId,
+        decision: event.decision,
+        outcome: event.outcome,
+      },
+    };
+  }
+
   return {
     type: 'authentication',
     severity: 'warning',
@@ -124,7 +153,9 @@ export async function recordMobileAudit(
     await service.log(
       payload.type === 'authentication'
         ? AuditEventType.AUTHENTICATION
-        : AuditEventType.DATA_ACCESS,
+        : payload.type === 'approval_action'
+          ? AuditEventType.APPROVAL_ACTION
+          : AuditEventType.DATA_ACCESS,
       payload.severity,
       payload.actor,
       payload.action,

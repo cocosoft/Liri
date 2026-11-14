@@ -39,6 +39,8 @@ import {
 } from './a2a/discoverySidecarLifecycle';
 import {
   verifyRequestAuth,
+  extractBearerToken,
+  isMobileDeviceTokenPath,
   seedKnowledgeBaseIfEmpty,
   startCompileScheduler,
 } from './LocalHTTPServiceHelpers';
@@ -122,6 +124,31 @@ export class LocalHTTPService {
    */
   private verifyRequestAuth(req: http.IncomingMessage): boolean {
     return verifyRequestAuth(req, this.apiSecret);
+  }
+
+  /**
+   * G6（2026-11-14）：移动端**设备 token** 的传输层受理（仅 `mobile/messages` 一个路径）。
+   *
+   * 设备 token 既不是共享密钥也不是登录会话 ⇒ 原两道门恒 401，移动端入站与审批动作
+   * 实际不可用（真机实测）。这里只做"**是否让请求进入 handler**"的前置判定：
+   * 真正的设备鉴权与串号校验仍在 `handleMobileInboundMessage`
+   * （`authorizeMobileRequest`，含 401/403 与审计）⇒ 双重校验、fail-closed。
+   */
+  private async verifyMobileDeviceToken(
+    req: http.IncomingMessage,
+    url: string
+  ): Promise<boolean> {
+    if (!isMobileDeviceTokenPath(url)) return false;
+    const token = extractBearerToken(req);
+    if (!token) return false;
+    try {
+      const { mobileDeviceTokenStore } =
+        await import('@modules/channels/mobile');
+      return mobileDeviceTokenStore.verify(token) !== null;
+    } catch {
+      // 通道模块不可用（如裁剪构建）⇒ 不放行（fail-closed）
+      return false;
+    }
   }
 
   /**
@@ -402,9 +429,15 @@ export class LocalHTTPService {
 
     // 共享密钥校验：确保请求来自被授权的 Tauri 客户端；
     // 兼容登录会话：携带有效 Bearer 登录 token 的请求同样放行（M0d）。
+    // G6（2026-11-14）：移动端设备 token 仅对 `/v1/channels/mobile/messages` 放行
+    // （见 `verifyMobileDeviceToken` 的收窄口径）。
     // 加固部署专项（2026-08-30）：/v1/events SSE 白名单已移除 —— 前端改用 fetch + ReadableStream，
     // 可携带 X-API-Key/Bearer 头 ⇒ 与普通请求走同一鉴权，不再豁免。
-    if (!this.verifyRequestAuth(req) && !(await resolveSession())) {
+    if (
+      !this.verifyRequestAuth(req) &&
+      !(await resolveSession()) &&
+      !(await this.verifyMobileDeviceToken(req, url))
+    ) {
       sendUnauthorized();
       return;
     }

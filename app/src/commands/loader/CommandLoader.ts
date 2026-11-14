@@ -140,6 +140,8 @@ export class BuiltinCommandLoader implements CommandLoader {
       },
       // D10（2026-11-14）：成功轨迹 → SOP 草案（蒸馏只产草案，批准才写技能）
       { path: '../builtin/command-registry.js', name: 'sop' },
+      // M1（2026-11-15）：学习候选（低分轮归因；只读 + 拒绝，不产生行为变更）
+      { path: '../builtin/command-registry.js', name: 'learn' },
       { path: '../builtin/command-registry.js', name: 'hooks' },
       { path: '../builtin/command-registry.js', name: 'mcp' },
       { path: '../builtin/command-registry.js', name: 'plugins' },

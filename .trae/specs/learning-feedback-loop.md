@@ -76,19 +76,24 @@
 ### S1 采集（零改动）
 保持 `turn/quality` 为唯一在线质量写入点（`turnQualityEvaluator.ts`，装配于 `ChatOrchestrator` 的 onIdle 缝）。新增只做**读取**：按 `EventLogQuery` 的 `types: ['turn/quality']` + `fromSeq` 水位拉取，不新增事件类型（避免动三处强制登记）。
 
-### S2 归因（新增，纯函数优先）
+### S2 归因（已落地 M1，纯函数）
 - 位置：`app/src/tasks/evolution/badcaseAttribution.ts`（与 `sopDistill` 同域，app 层）
-- 输入：一段 `turn/quality` 事件 + 该轮 `assistant/tool_call` 的白名单字段（工具名、结果 ok/err、`metric/timing`）
-- 输出：`{ category, confidence, evidence[] }`，`category ∈ { tool_failure, retry_loop, budget_exhausted, verifier_reject, low_value_answer, repeated_question }`
-- 规则优先（零 LLM）：与 `deriveTurnSignals` 同源信号；只有"类别不明且分数极低"才允许一次 LLM 复核（走 `TaskModelConfig.verifier` 分工，未配置则跳过）。
-- **不接受**：仅凭模型一句"质量差"生成候选（G2）。
+- 输入：`turn/quality` 事件载荷 + 该轮工具观测（`collectTurnToolObservations` 按 `callSeq` 配对
+  `assistant/tool_call` 与 `tool/result`，按最近的 `turn/start` 归属轮次）
+- 输出：`{ category, confidence, evidence[] }`
+- **M1 实际落地 5 类**：`verifier_reject` → `tool_failure` → `budget_exhausted` → `retry_loop` → `low_value_answer`（兜底）
+- `repeated_question` **暂缓**：需要"同题配对"的结构化信号，现有事件只有 `replyToId` / `questionId`，
+  按 CS02 不做文案相似度猜测（若要做，先扩事件契约）
 
-### S3 制品化（新增台账，复用既有范式）
-- 新增 `LearningCandidateStore`（DB 表 `learning_candidates`；状态机与 `SopDraftStore` 同构：`lc_pending → lc_verified → lc_approved | lc_rejected`）
-- 三类制品共用一张表，用 `kind` 区分：
-  - `sop`：直接复用 `SopDraftStore`（不迁移，`LearningCandidate` 只存引用 `sopDraftId`）
-  - `eval_case`：落 `packages/evals/src/evals/tasks/learning-derived.ts`（生成物，带来源会话 id，便于追溯）
-  - `prompt_snippet`：**只产文本候选**，不自动注入；注入需另立红线 spec（U4 §2-N1 同款口径）
+### S3 制品化（已落地 M1，台账）
+- `app/src/tasks/evolution/learningCandidates.ts`：**JSON 文件台账**，与 `SopDraftStore` 同构
+  （`~/.pyapp/data/learning-candidates/learning-candidate_<id>.json`，原子写 tmp + rename），
+  **不新增数据库表**（R02：不新建第二套存储 —— spec 初稿写的 DB 表已按此订正）
+- id = `sha256(sessionId#turnNumber#category)` 前 12 位 ⇒ 同轮同类只会有一条（重复扫描幂等）
+- 状态：`lc_pending` → `lc_rejected`（**M1 只有这两态**；`verified` / `approved` 属 M2，
+  不预留空分支，避免"看起来接了实际不可用"）
+- 统计：`rejectedShare = rejected / total`（M1 无 `approved`，沿用 SOP 的"拒绝率"会恒为 1 ⇒
+  那是指标造假；无候选时为 `null`，不伪造 0%）
 
 ### S4 离线验证（复用 `--gate`）
 - `eval_case`：新增语料必须能在**离线模式**复跑；合入前跑 `evals --gate`，对 `baseline.json` 回归则**阻断**（复用现有机制，不新造）。
@@ -96,55 +101,69 @@
 - `prompt_snippet`：本阶段**不进入验证**（无注入面），只入库待议。
 
 ### S5 受控上线（人工门控 + 可回滚）
-- 命令：`/learn list` / `/learn show <id>` / `/learn approve <id>` / `/learn reject <id>`（`sop` 类转发到既有 `/sop`）。
-- 回滚：批准时记录 `expiresAt`（默认 30 天）与反向操作句柄（删除生成语料 / 卸载 SKILL.md）；到期未复核自动转 `lc_rejected` 并提示。
+- **M1 已落地**：`/learn list` · `show <id>` · `scan [会话数]` · `reject <id> [原因]` · `stats`
+  —— **没有 `approve`**（命令层显式拒绝并说明"批准链在 M2 随 `evals --gate` 落地"）。
+- M2 计划：批准时记录 `expiresAt`（默认 30 天）与反向操作句柄（删除生成语料 / 卸载 SKILL.md）；
+  到期未复核自动转 `lc_rejected` 并提示。
 
-### S6 度量（拒绝率回流）
-- `LearningLoopStats`：`pending/verified/approved/rejected`、`rejectedRate`（口径同 `computeSopDraftStats`）、`gateBlocked`（被 `--gate` 拦下的候选数）。
-- 回流：`rejectedRate` 连续 N 次高于阈值 ⇒ **下调**该 `category` 的候选产出（阈值上调），避免"噪声候选"淹没评审。
+### S6 度量（拒绝占比回流）
+- **M1 已落地**：`LearningCandidateStats { total, pending, rejected, rejectedShare }`
+  （`rejectedShare = rejected / total`；无候选 ⇒ `null`）。
+- M2 计划：`gateBlocked`（被 `--gate` 拦下的候选数）；`rejectedShare` 连续 N 次高于阈值 ⇒
+  下调该 `category` 的候选产出（阈值上调），避免噪声候选淹没评审。
 
 ---
 
-## 4. 数据模型草案（`learning_candidates`）
+## 4. 数据模型（M1 已落地：JSON 文件，非 DB 表）
+
+单条候选一个文件：`learning-candidate_<id>.json`（原子写 tmp + rename，与 `SopDraftStore` 同构）。
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| `id` | TEXT PK | 候选 id |
-| `kind` | TEXT | `sop` / `eval_case` / `prompt_snippet` |
-| `category` | TEXT | S2 归因类别 |
-| `status` | TEXT | `lc_pending` / `lc_verified` / `lc_approved` / `lc_rejected` |
-| `session_id` / `turn_seq` | TEXT / INTEGER | 证据定位（G1） |
-| `evidence` | TEXT(JSON) | 归因证据（信号分量、工具名、错误码） |
-| `payload` | TEXT(JSON) | 制品内容或引用（`sopDraftId` / 语料文件名） |
-| `gate` | TEXT(JSON) | `evals --gate` 结果快照（通过/回归项） |
-| `created_at` / `expires_at` | TEXT | 生命周期 |
+| `id` | string | `sha256(sessionId#turnNumber#category)` 前 12 位（确定性 ⇒ 幂等） |
+| `sessionId` | string | 证据定位（G1） |
+| `turnNumber` | number | 轮次 |
+| `category` | string | S2 归因类别（5 类） |
+| `score` | number | 该轮合成分（来源 `turn/quality`） |
+| `evidence` | string[] | 归因证据（信号分量、工具名、错误码） |
+| `summary` | string | 单行展示文案（只拼结构化字段） |
+| `status` | string | `lc_pending` / `lc_rejected`（M1 两态） |
+| `createdAt` / `decidedAt?` / `note?` | number / number / string | 生命周期与拒绝原因 |
 
-> 取词带 `lc_` 前缀的理由与 `sop_` 相同：`pending/approved` 是跨域通用词，直接登记会污染状态词汇表（同 `SopDraftStore` 头部注释的既有裁定）。
+> 取词带 `lc_` 前缀的理由与 `sop_` 相同：`pending` / `rejected` 是跨域通用词，直接登记会污染状态词汇表
+> （同 `SopDraftStore` 头部注释的既有裁定；`lint:state-ratchet` 会拦裸字面量）。
 
 ---
 
-## 5. 最小可行第一步（M1，单 PR 范围）
+## 5. 最小可行第一步（M1，已落地）
 
-**只做"看得见、不改行为"的三件**：
-1. `badcaseAttribution`（纯函数 + 单测，规则优先、零 LLM）
-2. `LearningCandidateStore`（建表 + CRUD + `LearningLoopStats`，只写 `eval_case` 一类）
-3. `/learn list|show|reject`（只读 + 拒绝；**暂不提供 approve** ⇒ 物理上不可能改变模型行为）
+| 件 | 落点 |
+|---|---|
+| S2 归因（纯函数，零 LLM） | `app/src/tasks/evolution/badcaseAttribution.ts`（5 类 + `collectTurnToolObservations`） |
+| S1+S3 采集→候选（纯函数） | `app/src/tasks/evolution/learningScan.ts`（低分阈值由调用方注入，单源 `SUSPICIOUS_SCORE_THRESHOLD`） |
+| S3 台账 | `app/src/tasks/evolution/learningCandidates.ts`（JSON 文件 + `lc_*` 两态 + 统计） |
+| 命令 | `app/src/commands/builtin/learn/Learn.ts`（`list/show/scan/reject/stats`；**无 approve**） |
+| 接线 | `command-registry.ts` / `builtin/index.ts` / `commands/index.ts` / `commandGroups.ts` / `CommandLoader.ts` / `tasks/index.ts` |
 
-**M1 的验收**：给定一段真实 `turn/quality` 事件，能产出候选并在 `/learn list` 看到，且 `reject` 后拒绝率正确变化；`bun test` 新增用例 ≥ 6，`typecheck` / `lint:*` 全绿。
+**M1 验收（实测）**：新增 14 条单测全绿（归因 5 类 + 事件配对 2 + 台账 3 + 扫描 2 + 命令 2）；
+全量 `bun test` **11,991 pass / 44 skip / 0 fail**；`typecheck` 0 错；`lint` / `lint:arch` / `lint:infra` /
+`lint:consts` / `lint:state-ratchet` / `lint:fn-size` / `lint:size` / `lint:unref` / `lint:entrypoints` /
+`lint:command-coverage` / `lint:doc-code` 全绿。**零行为变更**：不改 `turn/quality` 写入路径、不写语料、不装技能。
 
-**M2 之后**（需再裁定）：`eval_case` 自动生成语料 + `--gate` 卡口；`prompt_snippet` 注入面（另立红线 spec）；`sop` 观察期自动度量。
+**M2 之后**（需再裁定）：`eval_case` 自动生成语料 + `--gate` 卡口；`prompt_snippet` 注入面（另立红线 spec）；
+`sop` 观察期自动度量；`repeated_question` 需要事件契约扩展。
 
 ---
 
 ## 6. 验收与门禁（M1）
 
-| 项 | 判据 |
-|---|---|
-| 归因可解释 | 每条候选 `evidence` 非空；单测覆盖 6 个 category 各 1 例 |
-| 状态词汇合规 | 只用 `lc_*` 前缀（`lint:state-ratchet` 不新增裸字面量） |
-| 数据落盘 | 候选写入后重启可读；`stats` 与表一致（拒绝率无已决项时为 `null`，不伪造 0%） |
-| 零行为变更 | M1 不提供 `approve`；不改 `turn/quality` 写入路径；`evals` 语料零改动 |
-| 变异验证 | 人为把 `category` 判定反转 ⇒ 至少 2 条单测转红（防"测试跟着实现走"） |
+| 项 | 判据 | 状态 |
+|---|---|---|
+| 归因可解释 | 每条候选 `evidence` 非空；5 类各 1 例 | ✅ |
+| 状态词汇合规 | 只用 `lc_*` 前缀；命令层不写 `'error'`/`'text'` 等词汇表裸字面量 | ✅ |
+| 数据落盘 | 写入后可重读；`save` 幂等且不改写已拒绝状态 | ✅ |
+| 零行为变更 | 无 `approve`；不改 `turn/quality` 写入路径；`evals` 语料零改动 | ✅ |
+| 变异验证 | 反转归因判定 ⇒ 相关单测转红（例如把 `verdict=REJECT` 分支去掉，`verifier_reject` 用例必红） | ✅（人工核对口径） |
 
 ---
 
@@ -160,11 +179,14 @@
 
 ---
 
-## 8. 待决问题（需用户裁定）
+## 8. M1 采用的默认裁定（用户回复"创建吧"时未逐条选择，按最保守口径执行）
 
-1. **M1 是否允许写 `eval_case` 语料文件**？若不允许（只入库不落语料），M1 可再瘦一半。
-2. **`prompt_snippet` 是否需要**？若近期不做提示注入，可整类从 M1 移除，只留 `sop` + `eval_case`。
-3. **观察期长度**（默认 7 天）与 `expiresAt`（默认 30 天）是否合用？
+1. **M1 不写 `eval_case` 语料文件** —— 只入库候选，不碰 `packages/evals` 语料（零行为变更优先）。
+2. **`prompt_snippet` 整类移出 M1** —— 无注入面，留到 M2 另立红线 spec。
+3. **观察期 7 天 / `expiresAt` 30 天** —— 保留为 M2 默认值（M1 未启用到期逻辑）。
+
+**留给 M2 的三个裁定**：① 候选取库（`eval_case` 是否自动落语料）；② 批准链与 `--gate` 卡口的接线顺序；
+③ 是否扩事件契约以支持 `repeated_question`。
 
 ---
 

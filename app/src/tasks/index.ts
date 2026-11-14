@@ -118,6 +118,37 @@ export {
   SOP_MAX_TRAJECTORIES,
   toSopTrajectory,
 } from './evolution/sopPlanSource';
+// M1（2026-11-15）：学习反馈闭环 —— 低分轮归因 + 候选台账（只读，不产生行为变更）
+export {
+  attributeBadcase,
+  collectTurnToolObservations,
+} from './evolution/badcaseAttribution';
+export type {
+  AttributionInput,
+  AttributionResult,
+  AttributionToolObservation,
+  BadcaseCategory,
+  TurnQualityPayload,
+} from './evolution/badcaseAttribution';
+export {
+  computeLearningCandidateId,
+  computeLearningCandidateStats,
+  LEARNING_CANDIDATE_PENDING,
+  LEARNING_CANDIDATE_REJECTED,
+  LearningCandidateStore,
+} from './evolution/learningCandidates';
+export type {
+  LearningCandidate,
+  LearningCandidateContent,
+  LearningCandidateSaveResult,
+  LearningCandidateStats,
+  LearningCandidateStatus,
+} from './evolution/learningCandidates';
+export {
+  buildLearningCandidates,
+  LEARNING_SCAN_MAX_CANDIDATES,
+} from './evolution/learningScan';
+export type { BuildLearningCandidatesOptions } from './evolution/learningScan';
 export { scheduleTopoBatches, computeTopoSkips } from './topoBatches';
 export type {
   TopoBatchTask,

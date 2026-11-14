@@ -696,6 +696,17 @@ export const sopCommand: Command = {
   load: loadDefault('./sop/Sop.js'),
 };
 
+/** 学习候选（M1，2026-11-15）：低分轮归因 → 候选台账；只读 + 拒绝，不产生行为变更 */
+export const learnCommand: Command = {
+  type: 'local',
+  name: 'learn',
+  description: '学习候选（低分轮归因；M1 只读，无 approve）',
+  aliases: ['learning'],
+  argumentHint:
+    '[list] [scan [会话数]] [show <id>] [reject <id> [原因]] [stats]',
+  load: loadDefault('./learn/Learn.js'),
+};
+
 /** 入手指引 */
 export const onboardCommand: Command = {
   type: 'local',

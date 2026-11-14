@@ -37,6 +37,7 @@
 *.zip binary
 *.tar binary
 *.gz binary
+*.tgz binary
 *.exe binary
 *.dll binary
 *.so binary

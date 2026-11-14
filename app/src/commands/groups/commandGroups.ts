@@ -203,6 +203,8 @@ export const KEEP_TOP_LEVEL: readonly string[] = [
   'preferences',
   // D10（2026-11-14）：成功轨迹 → SOP 草案（人工批准后注册技能）
   'sop',
+  // M1（2026-11-15）：学习候选（低分轮归因；只读 + 拒绝，顶层与 sop 并列）
+  'learn',
   'copy',
   'tag',
   'security',

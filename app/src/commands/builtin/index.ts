@@ -60,6 +60,7 @@ export { fastCommand } from './command-registry.js';
 export { memoryCommand } from './command-registry.js';
 export { preferencesCommand } from './command-registry.js';
 export { sopCommand } from './command-registry.js';
+export { learnCommand } from './command-registry.js';
 export { hooksCommand } from './command-registry.js';
 export { mcpCommand } from './command-registry.js';
 export { pluginsCommand } from './command-registry.js';

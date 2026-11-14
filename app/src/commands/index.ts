@@ -131,6 +131,7 @@ export { fastCommand } from './builtin/command-registry.js';
 export { memoryCommand } from './builtin/command-registry.js';
 export { preferencesCommand } from './builtin/command-registry.js';
 export { sopCommand } from './builtin/command-registry.js';
+export { learnCommand } from './builtin/command-registry.js';
 export { hooksCommand } from './builtin/command-registry.js';
 export { mcpCommand } from './builtin/command-registry.js';
 export { pluginsCommand } from './builtin/command-registry.js';

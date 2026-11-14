@@ -29,8 +29,8 @@ const delegatedTargets = new Set(
   Object.values(COMMAND_GROUPS).flatMap((g) => Object.values(g.subcommands))
 );
 
-describe('顶层清单（29 个）', () => {
-  it('= 9 个分组父命令 + 20 个独立保留（含 prompt 型 3 个；D10 新增 sop）', () => {
+describe('顶层清单（30 个）', () => {
+  it('= 9 个分组父命令 + 21 个独立保留（含 prompt 型 3 个；D10 新增 sop、M1 新增 learn）', () => {
     expect(Object.keys(COMMAND_GROUPS).sort()).toEqual([
       'config',
       'diagnose',
@@ -42,9 +42,9 @@ describe('顶层清单（29 个）', () => {
       'usage',
       'work',
     ]);
-    expect(KEEP_TOP_LEVEL.length).toBe(21);
+    expect(KEEP_TOP_LEVEL.length).toBe(22);
     // 集合去重（help 同时是父命令与保留项）
-    expect(visible.size).toBe(29);
+    expect(visible.size).toBe(30);
   });
 
   it('可见名全部已注册（拼错 ⇒ 顶层出现空位）', () => {

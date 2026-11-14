@@ -90,3 +90,24 @@
 - 归属只覆盖 **file_write / file_edit**（既有回滚追踪面）；`bash` 的文件副作用经 `detectShellSideEffects` 进入同一轮台账，**无 toolName** ⇒ 计入 `unattributed`（不硬塞）；
 - 尚未接到 `/plan preview`（计划与"轮级文件变更"之间没有映射键）；回放对照与沙箱预演仍未做；
 - 录制是**轮内内存台账**（随快照落盘），没有新增独立的会话级流水文件。
+
+## 8. 三期续（计划 ↔ 轮次映射 · `/plan preview` 显示真实文件副作用）
+
+承接 §7 的缺口「计划与轮级文件变更之间没有映射键」：给轮台账补 `planId`/`stepId`，并让
+`/plan preview` 从**该会话的轮快照**里挑出属于所选计划的变更。
+
+| 件 | 内容 |
+|---|---|
+| `packages/infra/src/security/rollback/types.ts` | `FileChange` ➕ `planId?` / `stepId?`（与 §7 的 `toolName?` 同批落库，均为可选） |
+| `packages/infra/src/security/rollback/FileOperationTracker.ts` | `FileOperation` ➕ `planId?` / `stepId?`；两处 `roundChanges.set` 条件展开（未标注不写空键） |
+| `app/src/tasks/TaskOrchestrator.ts` | 🆕 `getRunningStepForSession(sessionId)`：同步 `ensureInitializedSync()`，在该会话的计划里找**唯一** `running` 步骤 ⇒ `{ planId, stepId }`；无则 `null` |
+| `app/src/chat/services/ToolExecutionService.ts` | 回滚追踪块先取 `getRunningStepForSession(toolCall.sessionId)`，两处 `FileOperation`（本会话 + 父会话继承）条件带上 `planId`/`stepId` |
+| `app/src/tasks/plan/sideEffectLog.ts` | 🆕 `SnapshotLike` + `collectPlanSideEffects(snapshots, planId)`：**只认 `planId` 精确相等**（无 `planId` 的旧数据/Shell 检测不计入，不猜归属），输出按 `path → type` 升序 |
+| `app/src/commands/builtin/plan/Plan.ts` | `handlePreview` 追加：动态 `import('@openliri/infra/security/rollback')` → `listSessionSnapshots(sessionId)` → `collectPlanSideEffects` → 非空才追加 `renderSideEffectLog`；`data` 增 `sideEffects` |
+| `app/tests/tasks/plan/sideEffectLog.test.ts` | ➕ 4 条：只认 `planId` 精确相等 / 保留 `toolName` / `path→type` 升序 / 无匹配给空数组 |
+
+**边界（如实）**：
+- 归属来源是**运行中步骤**（`running`）；同一计划内若同时有多个 `running` 步骤（异常残留），只取**首个** —— 不臆造并行归属；
+- 快照不可读（目录缺失等）**只影响附加段落**，预演主结论仍来自计划台账；失败被 `@ignore-catch` 显式标注；
+- 仍**不做**：回放对照（需真实流水与幂等判定）、沙箱内真实预演、客户端面板入口；
+- `bash` 的文件副作用仍旧无归属（`detectShellSideEffects` 不经过工具执行层），如实留在 `unattributed`。

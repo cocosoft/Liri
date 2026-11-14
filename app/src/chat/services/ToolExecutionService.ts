@@ -63,6 +63,8 @@ import {
 import type { Tool } from '../../tools/types/Tool';
 import { estimateTokens } from '@modules/ai';
 import { configManager } from '@openliri/infra/config';
+// D7 三期（2026-11-14）：把文件副作用归属到"当前正在执行的计划步骤"（无则不属于任何计划）
+import { taskOrchestrator } from '@modules/tasks';
 import { withToolTimeout } from './ToolTimeoutWrapper.js';
 import {
   createFileStateCacheWithSizeLimit,
@@ -1243,6 +1245,10 @@ export class ToolExecutionService {
       normalizedToolCall.name === FILE_WRITE_TOOL_NAME ||
       normalizedToolCall.name === FILE_EDIT_TOOL_NAME
     ) {
+      // D7 三期（2026-11-14）：把变更归属到"当前正在执行的计划步骤"（无则不属于任何计划）
+      const runningStep = toolCall.sessionId
+        ? taskOrchestrator.getRunningStepForSession(toolCall.sessionId)
+        : null;
       const filePath = normalizedToolCall.arguments?.file_path as
         | string
         | undefined;
@@ -1256,6 +1262,9 @@ export class ToolExecutionService {
             path: filePath,
             type: 'modified',
             toolName: normalizedToolCall.name,
+            ...(runningStep
+              ? { planId: runningStep.planId, stepId: runningStep.stepId }
+              : {}),
           };
           integration.onToolBeforeExecute(op).catch((err) => {
             logger.warn('回滚：文件操作前追踪失败', { error: String(err) });
@@ -1281,6 +1290,9 @@ export class ToolExecutionService {
                   path: filePath,
                   type: 'modified',
                   toolName: normalizedToolCall.name,
+                  ...(runningStep
+                    ? { planId: runningStep.planId, stepId: runningStep.stepId }
+                    : {}),
                 };
                 parentIntegration.onToolBeforeExecute(op).catch((err) => {
                   logger.debug('子Agent操作继承失败', {

@@ -63,6 +63,12 @@ export interface FileChange {
    */
   toolName?: string;
 
+  /** D7 三期（2026-11-14）：所属**计划** id（计划执行期内的工具操作才有） */
+  planId?: string;
+
+  /** D7 三期（2026-11-14）：所属**计划步骤** id（同上） */
+  stepId?: string;
+
   /** 修改前的备份路径 */
   backupPath?: string;
 

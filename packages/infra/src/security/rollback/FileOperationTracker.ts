@@ -73,6 +73,8 @@ export class FileOperationTracker {
         path: operation.path,
         type: 'created',
         ...(operation.toolName ? { toolName: operation.toolName } : {}),
+        ...(operation.planId ? { planId: operation.planId } : {}),
+        ...(operation.stepId ? { stepId: operation.stepId } : {}),
       });
       return;
     }
@@ -112,6 +114,8 @@ export class FileOperationTracker {
       originalSize: operation.originalSize,
       originalMtime: operation.originalMtime,
       ...(operation.toolName ? { toolName: operation.toolName } : {}),
+      ...(operation.planId ? { planId: operation.planId } : {}),
+      ...(operation.stepId ? { stepId: operation.stepId } : {}),
     });
   }
 
@@ -432,6 +436,10 @@ export interface FileOperation {
 
   /** D7 三期（2026-11-14）：产生该操作的工具名（可选；缺省 = 未标注） */
   toolName?: string;
+
+  /** D7 三期（2026-11-14）：计划归属（计划执行期的工具操作才有；缺省 = 非计划路径） */
+  planId?: string;
+  stepId?: string;
 
   /** 操作类型 */
   type: 'created' | 'deleted' | 'modified' | 'renamed' | 'moved';

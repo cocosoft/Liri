@@ -157,3 +157,34 @@ Scoop / Homebrew 已在 §8 去掉 `bun` 前置；npm 侧需要另一种做法 �
 - **未真实发布**：两个包名都未在 npm 上创建；改名只体现在清单与工作流产物，**首次发布时才会真正生效**；
 - **legacy 未删除**：`packaging/npm` 与 `package` 作业里的 npm 发布步骤保留（可回退路径），待 standalone 实机验证通过后再评估下线（届时按 `code-deletion.md` CD01–CD06 走流程）；
 - 安装名会变：用户需按渠道区分（`npm i -g openliri` = 单文件二进制版；`npm i -g openliri-bun` = 需 Bun 运行时版），需在发版说明中写清。
+
+## 11. 七期已交付（CI 实跑发现的缺口：macOS Intel 产物缺失）
+
+**v0.6.0 首次 CI 实跑（2026-11-14）结果**：`Release CLI Packages` 失败，失败点是两个新作业的 `Render ...` 步骤：
+
+| 作业 | 结果 |
+|---|---|
+| `Package CLI (npm / scoop / brew)` | ✅ success |
+| `CLI binary (ubuntu-latest / macos-latest / windows-latest)` | ✅ 三个全部 success |
+| `Standalone manifests (去 bun 前置)` | ❌ failure @ `Render standalone manifests (真实 sha256)` |
+| `npm standalone packages (去 bun 前置)` | ❌ failure @ `Render npm package tree (真实二进制就位)` |
+
+**根因（不是清单逻辑错）**：GitHub 的 `macos-latest` runner 是 **arm64**，原生构建只能产出 `liri-darwin-arm64`；
+`resolveStandaloneAssets` / `--standalone-npm` 按设计**缺平台即拒绝**（fail-closed）⇒ 缺 `liri-darwin-x64` 时如实报错退出。
+这正是 §8/§9「不产出坏链接」的预期行为，暴露的是**构建矩阵覆盖不全**。
+
+**修复（七期）**：
+
+| 件 | 内容 |
+|---|---|
+| `scripts/build-cli-binary.ts` | ➕ `--target=<bun-target>`（同时支持 `--target value`）：`parseBunTarget` 校验目标、`outfileForTarget` 按目标推导产物名（与资产命名同源）；`SHA256SUMS` 改为**合并**（`parseSha256Sums`），同一目录多次构建不互相覆盖 |
+| `scripts/sign-cli-binary.ts` | 签名后重算校验和同样**合并**（原先只写单条，会丢掉同目录另一份） |
+| `.github/workflows/release-cli-packages.yml` | macOS 作业追加一步 `--target=bun-darwin-x64`，补齐 Intel 产物 |
+| `app/tests/packaging/cliBinary.test.ts` | ➕ 4 条：target 解析（含 `windows`→`win32` 与 `-musl` 后缀）/ 产物名 / `--target` 两种写法 + 非法值拒绝 / `SHA256SUMS` 解析往返 |
+
+**本机实测（2026-11-14）**：`bun run scripts/build-cli-binary.ts --target=bun-linux-x64 --outfile app/dist/cli-tmp/liri-linux-x64`
+→ `bundle 4762 modules` + `compile` 成功，产物 **147,765,424 字节**，`SHA256SUMS` = `875b0264…aa14`（临时目录已清理）。
+
+**验证**：`tsc` 0（含 scripts 两套 tsconfig）、`tests/packaging` **39 用例**全绿、`eslint` 0 error。
+
+**待 CI 复验（如实）**：v0.6.0 的 tag 已指向修复前的提交 ⇒ 需 **v0.6.1（或等价新 tag）** 才能确认 macOS 交叉产物真正落盘、两个 Render 作业转绿。

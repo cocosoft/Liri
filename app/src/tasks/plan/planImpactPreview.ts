@@ -17,7 +17,7 @@
  */
 
 import { type Plan, STEP_STATUS_COMPLETED } from '../TaskOrchestrator';
-import { isNonTerminalStep } from './planStartupResume';
+import { isNonTerminalStep } from './planStepStatus';
 
 /** 工具副作用类别（与 `tools/toolEffects.ts` 的 `ToolSideEffect` 同值域） */
 export type ToolSideEffectClass = 'none' | 'local' | 'external';

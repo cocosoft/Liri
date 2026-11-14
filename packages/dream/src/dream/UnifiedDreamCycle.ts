@@ -31,12 +31,12 @@
 import type {
   DreamCycleRecord,
   DreamTriggerSource,
-} from '@modules/dream/types';
-import { mirrorCycleToDb } from '@modules/dream/DreamCycleDb.js';
-import { SessionContentGatherer } from '@modules/dream/gather/SessionContentGatherer';
-import { KnowledgeScanner } from '@modules/dream/gather/KnowledgeScanner';
-import { PersonalityReflector } from '@modules/dream/reflect/PersonalityReflector';
-import { DreamPersistence } from '@modules/dream/DreamPersistence';
+} from './types.js';
+import { mirrorCycleToDb } from './DreamCycleDb.js';
+import { SessionContentGatherer } from './gather/SessionContentGatherer.js';
+import { KnowledgeScanner } from './gather/KnowledgeScanner.js';
+import { PersonalityReflector } from './reflect/PersonalityReflector.js';
+import { DreamPersistence } from './DreamPersistence.js';
 import { executeAutoDream, runKnowledgeRain } from '@openliri/infra/chronos';
 import {
   resolveDataSubDir,
@@ -53,7 +53,7 @@ import {
   DreamTransaction,
   fileTx,
   TxOperation,
-} from '@modules/dream/DreamTransaction';
+} from './DreamTransaction.js';
 import { join } from 'path';
 import { mkdir, writeFile, unlink } from 'fs/promises';
 
@@ -494,7 +494,7 @@ export class UnifiedDreamCycle {
 
       // 冷存储归档：60 天无更新的记忆移入冷存储
       try {
-        const { pruneOldMemories } = await import('@modules/dream/ColdStorage');
+        const { pruneOldMemories } = await import('./ColdStorage.js');
         const { getMemoryManager } =
           await import('@openliri/infra/memory/MemoryManager');
         const mm = getMemoryManager();
@@ -600,7 +600,7 @@ export class UnifiedDreamCycle {
     void mirrorCycleToDb(record);
 
     // 记录监控指标
-    const { recordCycleMetrics } = await import('@modules/dream/DreamMetrics');
+    const { recordCycleMetrics } = await import('./DreamMetrics.js');
     await recordCycleMetrics({
       source,
       status,

@@ -25,14 +25,14 @@
  * 当条件满足时触发 DreamEngine 执行梦境。
  */
 
-import { DreamIdleDetector } from '@modules/dream/DreamIdleDetector';
-import { DreamPersistence } from '@modules/dream/DreamPersistence';
+import { DreamIdleDetector } from './DreamIdleDetector.js';
+import { DreamPersistence } from './DreamPersistence.js';
 import { computeNextCronRunMs } from '@modules/tasks';
 import type {
   DreamSchedulerConfig,
   DreamTriggerSource,
-} from '@modules/dream/types';
-import { DEFAULT_DREAM_SCHEDULER_CONFIG } from '@modules/dream/types';
+} from './types.js';
+import { DEFAULT_DREAM_SCHEDULER_CONFIG } from './types.js';
 import { getLogger } from '@openliri/infra/monitoring';
 import type { SchedulerLifecycle } from '@modules/types/schedulerLifecycle';
 import { SCHEDULER_CHECK_INTERVAL_MS } from '@modules/types/schedulerLifecycle';

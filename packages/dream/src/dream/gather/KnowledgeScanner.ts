@@ -30,7 +30,7 @@ import { join, relative } from 'path';
 import { createHash } from 'crypto';
 import { resolvePyappHome } from '@openliri/infra/environment';
 import { AtomicWriter } from '@modules/session';
-import type { KnowledgeDelta } from '@modules/dream/types';
+import type { KnowledgeDelta } from '../types.js';
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 

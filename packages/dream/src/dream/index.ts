@@ -22,19 +22,19 @@
  * 梦境引擎模块导出
  */
 
-export { DreamEngine } from '@modules/dream/DreamEngine';
-export { DreamScheduler } from '@modules/dream/DreamScheduler';
-export { DreamIdleDetector } from '@modules/dream/DreamIdleDetector';
-export { DreamPhaseManager } from '@modules/dream/DreamPhaseManager';
-export { DreamPersistence } from '@modules/dream/DreamPersistence';
+export { DreamEngine } from './DreamEngine.js';
+export { DreamScheduler } from './DreamScheduler.js';
+export { DreamIdleDetector } from './DreamIdleDetector.js';
+export { DreamPhaseManager } from './DreamPhaseManager.js';
+export { DreamPersistence } from './DreamPersistence.js';
 
 export type {
   DreamPhase,
   DreamTriggerSource,
   DreamSchedulerConfig,
   DreamRecord,
-} from '@modules/dream/types';
-export { DEFAULT_DREAM_SCHEDULER_CONFIG } from '@modules/dream/types';
+} from './types.js';
+export { DEFAULT_DREAM_SCHEDULER_CONFIG } from './types.js';
 
 // D1-Step2：自主运行计划契约 + 执行 deny 规则
 export {
@@ -44,11 +44,11 @@ export {
   type DreamPlan,
   type DreamPlanMeta,
   type DreamPlanValidation,
-} from '@modules/dream/plan/DreamPlanContract';
+} from './plan/DreamPlanContract.js';
 export {
   AUTONOMOUS_DENY_COMMAND_PREFIXES,
   AUTONOMOUS_DENY_TOOLS,
   isDeniedByAutonomousRules,
   isDeniedToolByAutonomousRules,
   checkAutonomousOperation,
-} from '@modules/dream/execution/DreamDenyRules';
+} from './execution/DreamDenyRules.js';

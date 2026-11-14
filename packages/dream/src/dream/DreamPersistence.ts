@@ -31,7 +31,7 @@ import type {
   DreamRecord,
   DreamCycleRecord,
   DreamCycleSummary,
-} from '@modules/dream/types';
+} from './types.js';
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
@@ -330,7 +330,7 @@ export class DreamPersistence {
     void (async () => {
       try {
         const { mirrorPruneToDb } =
-          await import('@modules/dream/DreamCycleDb.js');
+          await import('./DreamCycleDb.js');
         await mirrorPruneToDb(CYCLES_MAX_AGE_MS, CYCLES_MAX);
       } catch (err) {
         void handleError(err instanceof Error ? err : new Error(String(err)), {

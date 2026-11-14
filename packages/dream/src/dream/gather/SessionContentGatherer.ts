@@ -29,7 +29,7 @@ import { readdir, stat, readFile } from 'fs/promises';
 import { join } from 'path';
 import { resolveSessionsDir } from '@openliri/infra/environment';
 import { handleError } from '@openliri/infra/error';
-import type { SessionDigest } from '@modules/dream/types';
+import type { SessionDigest } from '../types.js';
 
 interface ReadSessionOpts {
   maxTokens?: number;

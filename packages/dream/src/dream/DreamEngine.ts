@@ -25,15 +25,15 @@
  * 负责任务调度、阶段编排和状态持久化，实际梦境执行委托给 AutoDream。
  */
 
-import { DreamScheduler } from '@modules/dream/DreamScheduler';
-import { DreamPhaseManager } from '@modules/dream/DreamPhaseManager';
-import { DreamPersistence } from '@modules/dream/DreamPersistence';
-import { UnifiedDreamCycle } from '@modules/dream/UnifiedDreamCycle';
+import { DreamScheduler } from './DreamScheduler.js';
+import { DreamPhaseManager } from './DreamPhaseManager.js';
+import { DreamPersistence } from './DreamPersistence.js';
+import { UnifiedDreamCycle } from './UnifiedDreamCycle.js';
 import type {
   DreamSchedulerConfig,
   DreamTriggerSource,
   DreamCycleRecord,
-} from '@modules/dream/types';
+} from './types.js';
 import {
   initAutoDream,
   abortAutoDream,
@@ -79,7 +79,7 @@ export class DreamEngine {
 
     // 恢复未完成的检查点
     const { recoverCheckpoints } =
-      await import('@modules/dream/DreamCheckpoint');
+      await import('./DreamCheckpoint.js');
     const recovery = await recoverCheckpoints();
     if (recovery.recovered > 0 || recovery.cleaned > 0) {
       logger.info(

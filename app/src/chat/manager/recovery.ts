@@ -55,6 +55,11 @@ import {
   isIdleContinuationTask,
   resolveIdleContinuation,
 } from '@modules/tasks';
+// D2+（2026-11-14）：重启后未达终态目标的跨会话续接（启动期登记，触发走同一执行器）
+import {
+  isStartupGoalResumeTask,
+  resolveStartupGoalResume,
+} from '@modules/tasks';
 import { takeIdleContinuationInstruction } from '@modules/tasks';
 import { getSubAgentEngine } from '@modules/tools';
 import {
@@ -350,6 +355,48 @@ export class ChatRecovery {
       //    已完成 / 触顶 / 判停 / 期间又有新结算 ⇒ 该唤醒作废（no-op）；
       // ② 会话**此刻确实空闲**（无在途子代理 run）—— 与 yield 登记守卫同源判据。
       // 注：账户级串行由 `ChatOrchestrator` 的会话 mutex 保证（同会话 turn 不会交错）。
+      // D2+（2026-11-14）：重启续接 —— 与 idle 续接**共用执行器与模板**，闸门不同：
+      // ① 目标仍存在、非终态、归属会话一致，且 `updatedAt` 未变（期间已有推进 ⇒ 陈旧唤醒作废）；
+      // ② 会话此刻确实空闲（与 idle 同一判据）。
+      if (isStartupGoalResumeTask(taskId)) {
+        const target = await resolveStartupGoalResume({ taskId });
+        if (!target || target.sessionId !== sessionId) {
+          logger.info(
+            '目标重启续接跳过：目标已不可续（终态 / 陈旧唤醒 / 会话不符）',
+            {
+              sessionId,
+              taskId,
+            }
+          );
+          return { ok: false, error: 'goal_not_continuable' };
+        }
+        if (hasActiveRuns(sessionId)) {
+          logger.info('目标重启续接跳过：会话仍忙（有在途子代理 run）', {
+            sessionId,
+            goalId: target.goalId,
+          });
+          return { ok: false, error: 'session_busy' };
+        }
+        logger.info('目标重启续接执行', {
+          sessionId,
+          goalId: target.goalId,
+          streak: target.streak,
+        });
+        // 与 idle 续接同源：渲染与落盘成对（`goal/injected{channel:'user_message'}`），
+        // 返回正文即注入正文（§1.6 红线：模型看到了什么必须可重建）。
+        const continuationText = await takeIdleContinuationInstruction({
+          sessionId,
+          goalId: target.goalId,
+          objective: target.objective,
+          streak: target.streak,
+          realignToObjective: target.updatedReason === 'manual',
+        });
+        return this.resumeSessionInternally(sessionId, continuationText, {
+          systemResume: true,
+          goalId: target.goalId,
+          idleContinuation: true,
+        });
+      }
       if (isIdleContinuationTask(taskId)) {
         const target = await resolveIdleContinuation({ taskId });
         if (!target) {

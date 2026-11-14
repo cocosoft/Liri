@@ -1743,6 +1743,19 @@ export async function launch(options: LaunchOptions): Promise<void> {
       await hydrateFromDedupStore(getDedupStore());
     });
 
+    // D2+（2026-11-14）：目标**跨会话续接** —— 恢复编排完成后，为"未达终态"的目标
+    // （`active` / `blocked`）各登记**一次**续跑唤醒（`goal-startup:<goalId>:<updatedAt>`）。
+    // 执行器已由上方 Recovery 的 `bootstrapRecovery` 装配（`setSelfWakeResumeHandler`），
+    // 此处只登记、不直接跑；触发时再按"目标仍非终态且期间无推进"二次校验（有界、可作废）。
+    // 未启用 CG3（无 SelfWake）或无未终结目标 ⇒ 零行为。
+    await wrapInit('GoalResume', async () => {
+      const { enqueueStartupGoalResumes } = await import('@modules/tasks');
+      const report = await enqueueStartupGoalResumes();
+      if (report.scanned > 0) {
+        logger.info('目标重启续接扫描完成', { ...report });
+      }
+    });
+
     // PDCA：检查点索引**异步预热** + 启动扫描（标记残留的运行中任务为 abort）
     //
     // ⚠️ 位置很关键（2026-09-29 实测，台账「另案 ⑦」）：必须放在**模式分发之前** ——

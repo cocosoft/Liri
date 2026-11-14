@@ -2,7 +2,7 @@
 alwaysApply: true
 ---
 # Liri 项目规则文档
-**版本**: 7.30.0 | **更新**: 2026-11-14
+**版本**: 7.31.0 | **更新**: 2026-11-14
 
 ## §1 基础规则
 
@@ -42,7 +42,7 @@ gci -Recurse -Include *.ts,*.tsx | % { if ($(gc $_.FullName -Raw) -notmatch "MIT
 > 改这一行的口径时，须同批更新该断言表。
 > 改默认值时必须**同批**更新本表 + 断言表，并在台账登记理由。
 >
-> 清单规模：**22 项**（2026-10-26 起；A2/A4/A5 新增三个默认关的 Bash 安全姿态灰度开关；PR2 新增 `EXECUTION_TWO_PHASE_CANCEL`；**P0-3 新增 `CODE_RUN_DEEP_SCAN_STRICT`、P0-2 新增 `CLIENT_STREAM_EXECUTION`；§6-#11 新增 `REQUIRE_BEARER`；T25-07 新增 `CHANNEL_UNTRUSTED_TAINT`（**默认开**，渠道来源 Taint）；T25-08 新增 `PLUGIN_THIRD_PARTY_INPROCESS`（默认关，第三方插件准入闸）与 `PLUGIN_HOST_PROCESS`（**默认开**，第三方插件子进程宿主）；T25-08 P2 新增 `LIRI_PLUGIN_REQUIRE_SIGNATURE`（**信任锚存在即开**，第三方插件清单签名闸）**）。
+> 清单规模：**23 项**（22 项字面默认值断言 + 1 项自动默认 `LIRI_PLUGIN_REQUIRE_SIGNATURE`；2026-11-14 D2+ 新增 `GOAL_STARTUP_RESUME`（**默认关**，重启后目标续接）；2026-10-26 起：A2/A4/A5 新增三个默认关的 Bash 安全姿态灰度开关；PR2 新增 `EXECUTION_TWO_PHASE_CANCEL`；**P0-3 新增 `CODE_RUN_DEEP_SCAN_STRICT`、P0-2 新增 `CLIENT_STREAM_EXECUTION`；§6-#11 新增 `REQUIRE_BEARER`；T25-07 新增 `CHANNEL_UNTRUSTED_TAINT`（**默认开**，渠道来源 Taint）；T25-08 新增 `PLUGIN_THIRD_PARTY_INPROCESS`（默认关，第三方插件准入闸）与 `PLUGIN_HOST_PROCESS`（**默认开**，第三方插件子进程宿主）；T25-08 P2 新增 `LIRI_PLUGIN_REQUIRE_SIGNATURE`（**信任锚存在即开**，第三方插件清单签名闸）**）。
 
 | 开关 | 默认 | 生效语义 | 回退方式 | 触发条件（何时重开） |
 |------|:----:|---------|---------|:----:|
@@ -63,6 +63,7 @@ gci -Recurse -Include *.ts,*.tsx | % { if ($(gc $_.FullName -Raw) -notmatch "MIT
 | `EXECUTION_TWO_PHASE_CANCEL` | `false` | 两段式取消（`CANCEL_REQUESTED`→`abort()`→grace→`CANCELLED`；**未确认则保留 lease**，后续消息排队；PR2） | `FEATURE_EXECUTION_TWO_PHASE_CANCEL=true` | §2-#10 |
 | `CODE_RUN_DEEP_SCAN_STRICT` | `false` | code_run **深扫未完成即拒绝**（SWC 原生 CallExpression 深扫 `skipped`/`failed` ⇒ `security-rejected`；**默认关时保留"跳过"行为但结果带出 `scanStatus`**；P0-3） | `FEATURE_CODE_RUN_DEEP_SCAN_STRICT=true` | §2-#12 |
 | `CLIENT_STREAM_EXECUTION` | `false` | 客户端 `/v1/chat/stream` **接入 Execution**（SSE 入口 `acquire` + 注入 `executionId` ⇒ 工具写前记账 + fail-closed；终态 `complete`/`fail`；P0-2） | `FEATURE_CLIENT_STREAM_EXECUTION=true` | §2-#13 |
+| `GOAL_STARTUP_RESUME` | `false` | **重启后目标续接**（D2+）：启动期扫描"最近 24h 内推进过"的 `active`/`blocked` 目标（按最近更新倒序、单次最多 5 个），各登记一次 `goal-startup:<goalId>:<updatedAt>` 唤醒；到点由既有 selfWake 执行器注入 `continue_goal` 并续跑会话。触发前二次校验"仍非终态且期间无推进"（陈旧唤醒作废） | `FEATURE_GOAL_STARTUP_RESUME=true`（显式 opt-in；关 = 不扫描/不续跑，历史遗留唤醒也作废） | 目标被重启打断成为常见诉求时 |
 | `REQUIRE_BEARER` | `true` | **非回环暴露面必须带登录态**（`LIRI_HTTP_HOST` 非回环 或 `headless` 变体 ⇒ 无有效 `Bearer` 一律 401，不再回落本机身份；`/v1/health*`、`/v1/a2a*` 豁免；桌面/CLI 回环不受影响） | `FEATURE_REQUIRE_BEARER=false`（灰度回退旧行为） | — |
 | `CHANNEL_UNTRUSTED_TAINT` | `true` | **渠道来源 Taint**：通道入站驱动的会话打标 `origin='channel'`（只升不降）⇒ `sideEffect !== 'none'` 的工具（bash/写文件/子代理/网络发送…，判定复用 `tools/toolEffects.ts`；未声明效果 fail-closed）一律拒绝；桌面/REPL/CLI 零变更（T25-07） | `FEATURE_CHANNEL_UNTRUSTED_TAINT=false`（灰度回退旧行为） | — |
 | `PLUGIN_THIRD_PARTY_INPROCESS` | `false` | **第三方插件准入闸**：`~/.pyapp/plugins/installed/**` 等文件/安装型插件默认**不在主进程内加载**（它们在主进程 `import` 执行 ⇒ 可读 `.env` / spawn 子进程）；单插件放行走 `LIRI_PLUGIN_TRUSTED_IDS`；第一方 bundled 插件不受影响（T25-08 P0） | `FEATURE_PLUGIN_THIRD_PARTY_INPROCESS=true`（整体回到旧行为，自担风险） | §2-#16 |

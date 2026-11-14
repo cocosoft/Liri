@@ -98,13 +98,24 @@ export type AcpRuntimeEvent =
       status?: string;
       title?: string;
     }
-  | { type: 'done'; stopReason?: string }
+  | {
+      type: 'done';
+      stopReason?: string;
+      /**
+       * D5（2026-11-14）：ACP 约定的扩展位。
+       * 仅在客户端协商（`clientCapabilities._meta['liri.uncertainty'] === true`）时携带
+       * `liri.uncertainty` / `liri.traceSteps`；未协商 ⇒ 不出现该字段。
+       */
+      _meta?: Record<string, unknown>;
+    }
   | { type: 'error'; message: string; code?: string; retryable?: boolean };
 
 export interface AcpRuntimeCapabilities {
   supportsModes?: boolean;
   supportsConfigOptions?: boolean;
   supportsAttachments?: boolean;
+  /** D5：是否支持在 `done._meta` 返回不确定性（默认不设置 = 不支持 ⇒ 不写字段） */
+  supportsUncertainty?: boolean;
   maxPromptLength?: number;
 }
 

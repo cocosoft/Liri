@@ -20,6 +20,8 @@ export interface TurnStreamResult {
   toolCalls: AcpRuntimeEvent[];
   error?: string;
   stopReason?: string;
+  /** D5：最后一个 `done` 事件的 `_meta`（未协商 ⇒ `undefined`，不伪造） */
+  uncertaintyMeta?: Record<string, unknown>;
 }
 
 export async function consumeTurnStream(
@@ -32,6 +34,7 @@ export async function consumeTurnStream(
   const toolCalls: AcpRuntimeEvent[] = [];
   let error: string | undefined;
   let stopReason: string | undefined;
+  let uncertaintyMeta: Record<string, unknown> | undefined;
 
   for await (const event of eventIterable) {
     events.push(event);
@@ -63,6 +66,7 @@ export async function consumeTurnStream(
 
       case 'done':
         stopReason = event.stopReason;
+        if (event._meta) uncertaintyMeta = event._meta;
         handler?.onDone?.(event.stopReason);
         break;
 
@@ -80,6 +84,7 @@ export async function consumeTurnStream(
     toolCalls,
     error,
     stopReason,
+    ...(uncertaintyMeta ? { uncertaintyMeta } : {}),
   };
 }
 

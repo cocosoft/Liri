@@ -53,6 +53,8 @@ describe('parseAutonomyPolicy', () => {
       alwayson: false,
       dream: false,
       fs: false,
+      // D1（2026-11-14）：外部事件来源默认关
+      external: false,
     });
     expect(config.admission.cron?.listedUnaddressed).toBe('inferred');
     expect(config.rules).toEqual(VALID.rules);

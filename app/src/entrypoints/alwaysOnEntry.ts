@@ -830,6 +830,64 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
   }
 
   /**
+   * D1（2026-11-14）：外部事件来源（webhook / GitHub issue / 邮件轮询共用入口）。
+   *
+   * 仅在策略显式开启 `sources.external` 时注册；未启用 ⇒ 不注册来源、不注入受理端口
+   * ⇒ `POST /v1/events/external` 回 503（默认零行为变更）。
+   * 执行面沿用 `alwayson_discovery`（只读）+ prompt 明令禁止改文件。
+   */
+  if (autonomyPolicy.config.sources.external === true) {
+    try {
+      const { startExternalEventPipeline } =
+        await import('../tasks/sources/externalEventWiring');
+      const externalSessionRef: { id?: string } = {};
+      await startExternalEventPipeline({
+        executeTicket: async (ticket) => {
+          const payload = (ticket.payload ?? {}) as Record<string, unknown>;
+          const triggerId =
+            typeof ticket.triggerId === 'string' ? ticket.triggerId : '';
+          const summary = JSON.stringify(payload).slice(0, 2000);
+
+          let sessionId = externalSessionRef.id;
+          if (sessionId) {
+            const alive =
+              (await chatManager.loadSession(sessionId)) ??
+              (await chatManager.getSessionGateway().getSession(sessionId));
+            if (!alive) sessionId = undefined;
+          }
+          if (!sessionId) {
+            const session = await chatManager.createSession({
+              title: '触发 · 外部事件',
+              description: '外部系统推送触发的事件分析会话',
+              tags: ['trigger', 'external'],
+            });
+            sessionId = session.id;
+            externalSessionRef.id = sessionId;
+          }
+
+          let tokens = 0;
+          const output = await sendPrompt(
+            sessionId,
+            `外部事件（${triggerId}）：${summary}。只做分析与建议；不要修改任何文件。`,
+            {
+              onUsage: (usage) => {
+                tokens += usage.totalTokens ?? 0;
+              },
+            },
+            { taskType: 'alwayson_discovery' }
+          );
+          return { success: true, output, tokens, sessionId };
+        },
+      });
+      logger.info('External Source 注册完成');
+    } catch (error) {
+      logger.warn('External Source 注册失败（不影响 AlwaysOn）', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  /**
    * 目标达成自评（2026-10-20 产品裁定启用）：多一次**只读**模型调用。
    *
    * - 预算：先过 `checkDailyBudget`（硬闸门单一收口）；locked ⇒ 不评估（`unverified`），

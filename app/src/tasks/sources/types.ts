@@ -18,7 +18,12 @@
 export type ThreadKey = string & { readonly __brand: 'ThreadKey' };
 
 /** 事件类型（新增来源时必须在此登记，禁止散落裸字符串） */
-export const SOURCE_EVENT_TYPES = ['cron_tick', 'file_changed'] as const;
+export const SOURCE_EVENT_TYPES = [
+  'cron_tick',
+  'file_changed',
+  // D1（2026-11-14）：外部系统推送（webhook；GitHub issue / 邮件轮询接入时复用本类型）
+  'external_event',
+] as const;
 export type SourceEventType = (typeof SOURCE_EVENT_TYPES)[number];
 
 /** 来源侧投递的一条入站事件 */
@@ -62,6 +67,7 @@ export interface EventSource {
 export const THREAD_KEY_PREFIX = {
   cron: 'cron',
   fs: 'fs',
+  external: 'external',
 } as const;
 
 /** 构造线程键（`<域>:<外部 id>`） */

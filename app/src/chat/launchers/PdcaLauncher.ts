@@ -268,7 +268,12 @@ export class PdcaLauncher {
      * B2（2026-11-09）：`demand` = 会话处于许愿式自主度 —— 阶段审批自动放行
      * （`StageOrchestrator.autoApproveStages`），子编排器执行"验收标准前置"校验。
      */
-    opts?: { forceDecompose?: boolean; demand?: boolean }
+    opts?: {
+      forceDecompose?: boolean;
+      demand?: boolean;
+      /** D3 二期：按既有计划续跑（系统级；缺省 ⇒ 既有行为） */
+      resumePlanId?: string;
+    }
   ): Promise<void> {
     const otel = getOTelTracing();
     const span = otel.startSpan('chat:pdcaLaunch', {
@@ -348,6 +353,9 @@ export class PdcaLauncher {
             // P0-1（2026-11-10，demand 准入门）：许愿式会话走 PDL 时，验收标准前置
             // 由分解结果承接（缺失即 `PLAN_CRITERIA_MISSING`，不再强制上阶段链）
             demand: opts?.demand === true,
+            // D3 二期（2026-11-14）：按既有计划续跑（系统级）——传入后 PDL 采纳该计划，
+            // 不再走复杂度门/分解/createPlan；缺省 ⇒ 既有行为
+            ...(opts?.resumePlanId ? { resumePlanId: opts.resumePlanId } : {}),
             onModeDecided: (mode) => {
               this._persistModeHint(sessionId, taskId, mode);
             },

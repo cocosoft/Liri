@@ -32,7 +32,17 @@ import {
   MAX_SUBTASKS,
 } from '@modules/ai/router/TaskDecomposer.js';
 import type { DecompositionResult } from '@modules/ai/router/TaskDecomposer.js';
-import { taskOrchestrator } from './TaskOrchestrator.js';
+import {
+  taskOrchestrator,
+  STEP_STATUS_CANCELLED,
+  STEP_STATUS_COMPLETED,
+  STEP_STATUS_FAILED,
+} from './TaskOrchestrator.js';
+// D3 二期（2026-11-14）：既有计划 → 可执行投影（系统级续跑）
+import {
+  buildResumeDecomposition,
+  isPlanResumableByExecutor,
+} from './plan/planResumeExecution';
 import {
   parseStepVerdict,
   STEP_VERDICT_BLOCKED,
@@ -137,6 +147,16 @@ export interface PlanDrivenLoopConfig {
   }) => void;
   /** 是否启用 LLM 自动分解（默认 false，需显式开启） */
   enableAutoDecompose?: boolean;
+  /**
+   * D3 二期（2026-11-14）：**按既有计划续跑**（系统级）。
+   *
+   * 设置后 `run()` 不再走复杂度门 / 分解 / `createPlan`，而是采纳该计划：
+   * 已结束步骤跳过、未终态步骤按既有依赖拓扑继续执行（崩溃残留的 `running` 步骤先复位）。
+   * 计划不存在或已无未完成步骤 ⇒ 记日志并回退既有路径（不静默假装续跑）。
+   *
+   * 缺省（`undefined`）⇒ 与改动前逐字一致。
+   */
+  resumePlanId?: string;
   /**
    * Teamwork P2b（2026-09-06）：历史 pitfall 检索注入（P1-2 读取点）——分解任务首步
    * 启动前取同类失败经验注入 prompt；未注入/返回空则零变化。
@@ -437,6 +457,8 @@ export class PlanDrivenLoop {
   /** Teamwork P2b：本次 decompose run 检索到的同类失败经验（注入首步 prompt） */
   private _pitfallContext: string = '';
   private enableAutoDecompose: boolean;
+  /** D3 二期：按既有计划续跑（`undefined` = 既有行为） */
+  private resumePlanId?: string;
   private decomposer?: TaskDecomposer;
   private onStepProgress?: (progress: PlanProgress) => void;
   private onStepComplete?: (result: StepResult) => void;
@@ -488,6 +510,7 @@ export class PlanDrivenLoop {
     this.recordPitfall = config.recordPitfall;
     this.pitfallRetriever = config.pitfallRetriever;
     this.enableAutoDecompose = config.enableAutoDecompose === true;
+    this.resumePlanId = config.resumePlanId;
     this.onStepProgress = config.onStepProgress;
     this.onStepComplete = config.onStepComplete;
     // T-②05：判据在构造时**定一次**（注入优先；否则读 GlobalConfig.fastPath，缺省回退默认）
@@ -551,7 +574,38 @@ export class PlanDrivenLoop {
         'message.length': userMessage.length,
         enableAutoDecompose: this.enableAutoDecompose,
         hasDecomposer: !!this.decomposer,
+        ...(this.resumePlanId ? { resumePlanId: this.resumePlanId } : {}),
       });
+
+      // D3 二期（2026-11-14）：系统级续跑 —— 采纳既有计划，跳过复杂度门/分解/新建计划。
+      // 计划不可续（不存在 / 全终态）⇒ 如实记日志并**回退**既有路径（不静默假装已续跑）。
+      if (this.resumePlanId) {
+        const adopted = await this._adoptExistingPlan(this.resumePlanId);
+        if (adopted) {
+          span.addEvent('planDrivenLoop.resumePlan', {
+            planId: adopted.plan.id,
+            stepCount: adopted.plan.steps.length,
+          });
+          logger.info('按既有计划续跑（系统级）', {
+            sessionId: this.sessionId,
+            planId: adopted.plan.id,
+            stepCount: adopted.plan.steps.length,
+          });
+          this.onModeDecided?.('decomposed');
+          return this._recordOutcome(
+            'decomposed',
+            await this._executeDecomposed(
+              userMessage,
+              adopted.decomposition,
+              adopted.plan
+            )
+          );
+        }
+        logger.warn('计划续跑跳过：计划不存在或已无未完成步骤，回退既有路径', {
+          sessionId: this.sessionId,
+          planId: this.resumePlanId,
+        });
+      }
       // 复杂度判定门：简单任务跳过分解，直接执行（T-②05：阈值取本次生效判据）
       // 13-P2-2：接**最小回流点**——简单路径近期失败率偏高 ⇒ 不走近路（升级为分解/经典路径）
       // LRO-11（2026-10-26）：长任务信号（forceDecompose）**压过**长度门。
@@ -865,10 +919,31 @@ export class PlanDrivenLoop {
     ]);
   }
 
+  /**
+   * D3 二期：取既有计划并投影为可执行分解结果（系统级续跑）。
+   *
+   * 口径：先复位崩溃残留的 `running` 步骤（与启动期续跑同源），再判断是否仍有未终态步骤；
+   * 不可续 ⇒ `null`（调用方回退既有路径，不静默假装续跑）。
+   */
+  private async _adoptExistingPlan(planId: string): Promise<{
+    plan: Plan;
+    decomposition: DecompositionResult;
+  } | null> {
+    await taskOrchestrator.initialize();
+    const plan = taskOrchestrator.getPlan(planId);
+    if (!plan) return null;
+    taskOrchestrator.resetStaleRunningSteps(planId);
+    const current = taskOrchestrator.getPlan(planId) ?? plan;
+    if (!isPlanResumableByExecutor(current)) return null;
+    return { plan: current, decomposition: buildResumeDecomposition(current) };
+  }
+
   /** 分解后逐步执行 */
   private async _executeDecomposed(
     userMessage: string,
-    decomposition: DecompositionResult
+    decomposition: DecompositionResult,
+    /** D3 二期：采纳的既有计划（设置 ⇒ 不新建计划，已结束步骤跳过） */
+    existingPlan?: Plan
   ): Promise<PlanDrivenLoopResult> {
     // S0 冻结（2026-08-13）：上限以 TaskDecomposer.MAX_SUBTASKS 为唯一事实来源
     const subtasks = decomposition.subTasks.slice(0, MAX_SUBTASKS);
@@ -885,36 +960,42 @@ export class PlanDrivenLoop {
         .map((depId) => idxById.get(depId))
         .filter((idx): idx is number => typeof idx === 'number')
     );
-    // P0-1（2026-11-10，demand 准入门）：**验收标准前置**由分解结果承接。
-    // 许愿式会话没有人在环上兜底 ⇒ 某步缺失可判定验收标准就不允许开工（与阶段链
-    // 子 PDCA 的 `PLAN_CRITERIA_MISSING` 同口径）；非 demand 会话保持原行为（undefined）。
-    const acceptance = this.demand
-      ? subtasks.map((t) => (t.acceptanceCriteria ?? '').trim())
-      : undefined;
-    if (acceptance) {
-      const missing = acceptance
-        .map((c, index) => (c ? -1 : index))
-        .filter((index) => index >= 0);
-      if (missing.length > 0) {
-        throw new AppError(
-          'demand 计划缺少可判定的验收标准',
-          ErrorCategory.VALIDATION,
-          ErrorSeverity.HIGH,
-          'PLAN_CRITERIA_MISSING',
-          { missingSteps: missing.map((index) => index + 1) }
-        );
+    if (existingPlan) {
+      // D3 二期：采纳既有计划 —— 不新建、不改写步骤（状态由执行路径逐步推进）；
+      // demand 的"验收标准前置"在计划创建时已校验过，此处不重复拦截。
+      this.plan = existingPlan;
+    } else {
+      // P0-1（2026-11-10，demand 准入门）：**验收标准前置**由分解结果承接。
+      // 许愿式会话没有人在环上兜底 ⇒ 某步缺失可判定验收标准就不允许开工（与阶段链
+      // 子 PDCA 的 `PLAN_CRITERIA_MISSING` 同口径）；非 demand 会话保持原行为（undefined）。
+      const acceptance = this.demand
+        ? subtasks.map((t) => (t.acceptanceCriteria ?? '').trim())
+        : undefined;
+      if (acceptance) {
+        const missing = acceptance
+          .map((c, index) => (c ? -1 : index))
+          .filter((index) => index >= 0);
+        if (missing.length > 0) {
+          throw new AppError(
+            'demand 计划缺少可判定的验收标准',
+            ErrorCategory.VALIDATION,
+            ErrorSeverity.HIGH,
+            'PLAN_CRITERIA_MISSING',
+            { missingSteps: missing.map((index) => index + 1) }
+          );
+        }
       }
-    }
 
-    this.plan = taskOrchestrator.createPlan(
-      userMessage.slice(0, 200),
-      subtasks.map((t) => t.description),
-      this.sessionId,
-      undefined,
-      acceptance,
-      workspaceId,
-      dependsOnIdx
-    );
+      this.plan = taskOrchestrator.createPlan(
+        userMessage.slice(0, 200),
+        subtasks.map((t) => t.description),
+        this.sessionId,
+        undefined,
+        acceptance,
+        workspaceId,
+        dependsOnIdx
+      );
+    }
 
     // B5（架构归一 Step4）：Plan 阶段在持久层可见——createPlan 完成后回写 phase:'plan'。
     // 此前快速路径启动即在 PdcaLauncher 写 'execute'，真正 createPlan 时刻被抹掉，
@@ -984,6 +1065,21 @@ export class PlanDrivenLoop {
     const depStatusById = new Map<string, TopoTaskStatus>();
     // P0-1：每步真实产出捕获（stepId → 末条 assistant 文本），供前驱注入/审计/重试引用
     const stepOutputs = new Map<string, string>();
+    // D3 二期：采纳计划时，**已结束步骤**只回填前驱状态/产出（不执行）——
+    // completed ⇒ ok；failed/cancelled ⇒ skipped（与原硬依赖阻断语义一致）
+    if (existingPlan) {
+      for (const step of existingPlan.steps) {
+        if (step.status === STEP_STATUS_COMPLETED) {
+          depStatusById.set(step.id, 'ok');
+          if (step.result) stepOutputs.set(step.id, step.result);
+        } else if (
+          step.status === STEP_STATUS_FAILED ||
+          step.status === STEP_STATUS_CANCELLED
+        ) {
+          depStatusById.set(step.id, 'skipped');
+        }
+      }
+    }
     // 13-P1-1 Step 2（2026-10-06，§20.6）：被阻断步骤明细 —— 回灌为模型可见内容（见 `_buildResult`）
     const blockedSteps: BlockedStepInfo[] = [];
     // 2026-11-02（长程任务空转熔断）：连续自述受阻的步数达到阈值 ⇒ 提前终止剩余步骤。
@@ -1030,6 +1126,13 @@ export class PlanDrivenLoop {
         const i = subtasks.findIndex((t) => t.id === topoTask.id);
         if (i < 0) continue;
         const stepId = this.plan?.steps[i]?.id || subtasks[i].id;
+        // D3 二期：采纳既有计划时，**已结束步骤不执行**（completed/skipped 已在批次前回填）
+        if (
+          subtasks[i].status === STEP_STATUS_COMPLETED ||
+          subtasks[i].status === 'skipped'
+        ) {
+          continue;
+        }
         const skipReason = depSkips.get(topoTask.id);
         if (skipReason) {
           // 13-P1-1：硬依赖失败 ⇒ 本步**不执行**，如实标注（plan 步标 cancelled + 明确原因）

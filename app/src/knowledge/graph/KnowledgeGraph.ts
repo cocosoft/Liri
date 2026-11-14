@@ -41,6 +41,10 @@ import { resolveTenantDbPath } from '@openliri/infra/environment';
 import { getRequestPrincipalKey } from '@openliri/kernel/identity/requestScope.js';
 import { SimpleMutex } from '@openliri/kernel';
 import type { EdgeSchema } from '@modules/knowledge/schema/SchemaLoader';
+import {
+  normalizeRelationType,
+  validateEdgeAgainstSchemas,
+} from '@modules/knowledge/graph/ontology';
 
 const logger = getLogger('knowledge:graph:knowledgeGraph');
 
@@ -57,7 +61,7 @@ export interface Edge {
   from: string;
   /** 目标实体 ID */
   to: string;
-  /** 关系类型 */
+  /** 关系类型（写入时已规范化为规范名，见 `normalizeRelationType`） */
   type: string;
   /** 方向：directed（有向）| symmetric（对称） */
   direction: 'directed' | 'symmetric';
@@ -149,6 +153,8 @@ export class KnowledgeGraph {
   private dbMutex = new SimpleMutex();
   /** 可选的关系类型 schema 映射，用于 addEdge 校验 */
   private edgeSchemas?: Map<string, EdgeSchema>;
+  /** 可选的已声明实体种类，用于端点校验时跳过未声明 kind（见 ontology.ts） */
+  private entityKinds?: ReadonlySet<string>;
 
   /**
    * @param dbPath 显式库路径（测试/特定装配用）；缺省**按当前身份**解析
@@ -168,11 +174,18 @@ export class KnowledgeGraph {
   /**
    * 设置关系类型 schema 映射
    * 设置后，addEdge 会自动校验 edge.type 和端点类型是否合法
+   * （未知关系类型 / 端点 kind 与 schema 不符 ⇒ 抛 `KG_INVALID_EDGE_TYPE` / `KG_INVALID_EDGE_ENDPOINT`）
    *
    * @param schemas 从 SchemaLoader.loadEdges() 获取的 edge schema 映射
+   * @param entityKinds 已声明实体种类（`loadEntities()` 的 keys）。提供后，
+   *   端点 kind 不在其中 ⇒ 跳过端点校验（避免误杀 `wiki` 等非 schema 实体）
    */
-  setEdgeSchemas(schemas: Map<string, EdgeSchema>): void {
+  setEdgeSchemas(
+    schemas: Map<string, EdgeSchema>,
+    entityKinds?: ReadonlySet<string>
+  ): void {
     this.edgeSchemas = schemas;
+    this.entityKinds = entityKinds;
   }
 
   /**
@@ -295,52 +308,39 @@ export class KnowledgeGraph {
   }): Promise<Edge> {
     if (!this.db) await this.init();
 
+    // 关系名规范化（D8）：别名/大小写/空格/连字符统一到规范名 ⇒ 同一事实只有一种写法
+    const type = normalizeRelationType(edge.type);
+
+    // 本体校验（仅在调用方注册 schema 后生效）：未知关系类型 / 端点 kind 不符 ⇒ 拒绝
+    if (this.edgeSchemas) {
+      const verdict = validateEdgeAgainstSchemas(
+        this.edgeSchemas,
+        { type, from: edge.from, to: edge.to },
+        this.entityKinds
+      );
+      if (!verdict.ok) {
+        throw new AppError(
+          verdict.message,
+          ErrorCategory.VALIDATION,
+          ErrorSeverity.HIGH,
+          verdict.code,
+          { module: 'KnowledgeGraph', ...verdict.detail }
+        );
+      }
+    }
+
     const now = Date.now();
     const fullEdge: Edge = {
       id: `edge_${randomUUID().slice(0, 8)}_${now}`,
       from: edge.from,
       to: edge.to,
-      type: edge.type,
+      type,
       direction: edge.direction || 'directed',
       domain: edge.domain || '',
       attributes: edge.attributes || {},
       createdAt: now,
       updatedAt: now,
     };
-
-    // Schema 校验：检查 edge.type 是否在已注册的 edge schema 中
-    if (this.edgeSchemas) {
-      const schema = this.edgeSchemas.get(edge.type);
-      if (!schema) {
-        const knownTypes = Array.from(this.edgeSchemas.keys()).join(', ');
-        throw new AppError(
-          `未知的关系类型 "${edge.type}"，已知类型: ${knownTypes}`,
-          ErrorCategory.VALIDATION,
-          ErrorSeverity.HIGH,
-          'KG_INVALID_EDGE_TYPE',
-          { module: 'KnowledgeGraph' }
-        );
-      }
-
-      // 校验端点类型：解析实体 ID 提取 kind，与 schema.endpoints 比对
-      const fromParsed = KnowledgeGraph.parseEntityId(edge.from);
-      const toParsed = KnowledgeGraph.parseEntityId(edge.to);
-
-      if (fromParsed && fromParsed.kind !== schema.endpoints.from) {
-        logger.warning('边源端点类型不匹配 schema', {
-          expected: schema.endpoints.from,
-          actual: fromParsed.kind,
-          edgeType: edge.type,
-        });
-      }
-      if (toParsed && toParsed.kind !== schema.endpoints.to) {
-        logger.warning('边目标端点类型不匹配 schema', {
-          expected: schema.endpoints.to,
-          actual: toParsed.kind,
-          edgeType: edge.type,
-        });
-      }
-    }
 
     await this.dbMutex.run<void>(() => {
       return new Promise((resolve, reject) => {
@@ -448,10 +448,10 @@ export class KnowledgeGraph {
       params.push(filters.to);
     }
 
-    // 按关系类型过滤
+    // 按关系类型过滤（与写入同口径规范化：用别名/大小写查询也能命中规范名）
     if (filters.type) {
       conditions.push('edge_type = ?');
-      params.push(filters.type);
+      params.push(normalizeRelationType(filters.type));
     }
 
     // 按域过滤

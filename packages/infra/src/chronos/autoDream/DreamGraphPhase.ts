@@ -106,7 +106,7 @@ export async function runDreamGraphPhase(
 
   const graph = resolveKnowledgeGraph().createGraph(resolveDbPath()) as {
     init(): Promise<void>;
-    setEdgeSchemas(schemas: unknown): void;
+    setEdgeSchemas(schemas: unknown, entityKinds?: ReadonlySet<string>): void;
     queryEdges(query: unknown): Promise<unknown[]>;
     addEdge(edge: unknown): Promise<unknown>;
     close(): Promise<void>;
@@ -152,10 +152,14 @@ export async function runDreamGraphPhase(
       // 加载域 schema，注册 edge 类型（使 addEdge 校验通过）
       const schemaLoader = resolveKnowledgeGraph().createSchemaLoader(
         domain
-      ) as { loadAll(): Promise<{ edges: unknown }> } | null;
+      ) as {
+        loadAll(): Promise<{ edges: unknown; entities: Map<string, unknown> }>;
+      } | null;
       if (!schemaLoader) continue;
-      const { edges: edgeSchemas } = await schemaLoader.loadAll();
-      graph.setEdgeSchemas(edgeSchemas);
+      const { edges: edgeSchemas, entities } = await schemaLoader.loadAll();
+      // 实体种类一并注册：wiki 页 ID 为 `domain:wiki:*`，不在 entities.yaml 声明内
+      // ⇒ 跳过端点校验，避免 wiki_link 被 schema 的 note→note 约束误拒（D8）
+      graph.setEdgeSchemas(edgeSchemas, new Set(entities.keys()));
 
       for (const file of mdFiles) {
         const filePath = join(wikiDir, file);

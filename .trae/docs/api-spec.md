@@ -101,6 +101,7 @@
 |------|------|----------|-----------|
 | GET | `/health` | ✅ | `chatService.checkHealth`（免认证） |
 | GET | `/v1/events` | ✅ | 无明确前端调用方（SSE 事件总线） |
+| POST | `/v1/events/external` | ✅ **2026-11-14 新增（默认关）** | 外部系统推送入口（D1）：头 `X-Liri-Signature: sha256=<hex>`（HMAC-SHA256，密钥 `LIRI_EXTERNAL_EVENT_SECRET`）、`X-Liri-Event-Id`（幂等键，必填）、`X-Liri-Thread-Id`（可选串行域）；body 为 JSON 对象。成功 `202 {success,eventId}`；`503 EXTERNAL_EVENTS_DISABLED`（流水线未启用）/ `401` 签名不符 / `409` 重复 / `429` 超速率 / `413` 超 64KB。未启用 `autonomy.policy.sources.external` 时端点恒 503（零行为） |
 | POST | `/v1/system/sleep/resolve` | ✅ **2026-08-14 新增** | `systemService.resolveSleep`（休眠恢复用户决策，body `{ runMissed: boolean }`） |
 | GET | `/v1/system/estop` | ✅ **2026-09-02 新增** | `systemService.getEstopStatus`（全局急停状态，响应 `{ engaged, state: { reason?, engagedAt? } \| null }`） |
 | POST | `/v1/system/estop` | ✅ **2026-09-02 新增** | `systemService.engageEstop`（启用全局急停，body `{ reason? }`；暂停新消息/新 cron，不杀进行中的） |

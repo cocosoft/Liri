@@ -785,7 +785,7 @@ data: {"type":"done","result":{...}}
 | **GET** | `/v1/inbox` | 列出 Inbox 项（支持 ?sessionId=&status=&type=&limit=&offset=） |
 | **GET** | `/v1/inbox/count` | 获取待处理数量（支持 ?sessionId=） |
 | **GET** | `/v1/inbox/:id` | 获取单个 Inbox 项 |
-| **POST** | `/v1/inbox/:id/reply` | 回复 Inbox 项（body: { reply, selectedOption? }）。**M2-T2.1**：批准类答复（approve/allowlist_tool/allowlist_command）由后端 fire-and-forget 续跑——checkpoint/resume 优先，无自动检查点时从 events.jsonl 尾部重建未完成 turn（已答工具跳过，对齐 openworker `_unanswered_trailing_tool_calls`）；前端不再负责续跑决策。双渠道并发答复由 DB 级 CAS（pending→processing）保证 first-responder-wins，二次答复返回 `already_processed`/`concurrent_conflict` |
+| **POST** | `/v1/inbox/:id/reply` | 回复 Inbox 项（body: { reply, selectedOption? }）。**M2-T2.1**：批准类答复（approve/allowlist_tool/allowlist_command/allowlist_workspace_command）由后端 fire-and-forget 续跑——checkpoint/resume 优先，无自动检查点时从 events.jsonl 尾部重建未完成 turn（已答工具跳过，对齐 openworker `_unanswered_trailing_tool_calls`）；前端不再负责续跑决策。**G3（2026-11-14）**：`allowlist_workspace_command` = 命令级「本工作区永久信任」（精确命令文本 `^…$` + 工作区根作用域，写入 `tool_rules.json`）。双渠道并发答复由 DB 级 CAS（pending→processing）保证 first-responder-wins，二次答复返回 `already_processed`/`concurrent_conflict` |
 | **POST** | `/v1/inbox/approve-all` | **P1-1（2026-11-06）批量审批**：body `{ sessionId, reply?（缺省 approve）, toolName? }` ⇒ 落地该会话全部 `type=approval` 的 pending 项，**只触发一次**续跑（逐项 `deferResume`，避免 N 次续跑争会话互斥）。返回 `{ applied, sessionId, resolved[], skipped[{id,kind}], resumed }`；`applied=false` 表示无一项落地（全过期/已处理） |
 
 **InboxItem 数据结构**：

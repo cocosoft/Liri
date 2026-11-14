@@ -37,6 +37,7 @@ const REPLY_LABEL_KEYS: Record<string, string> = {
   allowlist_call: "chat.inboxReplyAllowAlways",
   allowlist_tool: "chat.inboxReplyAllowTool",
   allowlist_command: "chat.inboxReplyAllowCommand",
+  allowlist_workspace_command: "chat.inboxReplyAllowWorkspaceCommand",
   reject: "chat.inboxReplyReject",
   deny: "chat.inboxReplyReject",
 };
@@ -174,7 +175,8 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
         reply === "approve_task" ||
         reply === "allowlist_call" ||
         reply === "allowlist_tool" ||
-        reply === "allowlist_command";
+        reply === "allowlist_command" ||
+        reply === "allowlist_workspace_command";
       // U-06-4（2026-10-19）：续跑完成由后端广播 `session:continued`，
       // 刷新由 useNotificationSSE 统一处理；此处只维护"续跑中"提示，
       // 不再固定 sleep 3s 后全量重拉（绕过游标且与真实完成时间无关）。

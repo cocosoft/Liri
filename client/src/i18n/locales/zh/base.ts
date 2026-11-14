@@ -943,6 +943,7 @@ const zhBase = {
     inboxReplyReject: "拒绝",
     inboxReplyAllowTool: "以后整个工具免审批",
     inboxReplyAllowCommand: "以后这个命令免审批",
+    inboxReplyAllowWorkspaceCommand: "本工作区永久信任此命令",
     // PR-2（2026-10-23）：四档审批 —— 本会话都允许 / 始终允许（工具+参数指纹）
     inboxReplyApproveSession: "本会话都允许",
     // P2（2026-11-04，§3.3）：长程任务进行中的任务档授权（任务结束即失效）

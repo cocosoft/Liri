@@ -59,6 +59,7 @@ export function deduplicateRules(rules: PermissionRule[]): PermissionRule[] {
       rule.toolName,
       rule.contentPattern ?? '',
       rule.inputFingerprint ?? '',
+      rule.workspaceRoot ?? '',
     ].join('|');
     const existing = seen.get(key);
     if (!existing) {
@@ -252,7 +253,8 @@ export class RuleManager {
       r.source === rule.source &&
       r.toolName === rule.toolName &&
       (r.contentPattern ?? null) === (rule.contentPattern ?? null) &&
-      (r.inputFingerprint ?? null) === (rule.inputFingerprint ?? null);
+      (r.inputFingerprint ?? null) === (rule.inputFingerprint ?? null) &&
+      (r.workspaceRoot ?? null) === (rule.workspaceRoot ?? null);
 
     const existingIdx = this.rules.findIndex(
       (r) => sameKey(r) && r.behavior === rule.behavior

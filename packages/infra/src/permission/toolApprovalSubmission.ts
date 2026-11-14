@@ -100,7 +100,14 @@ export function buildApprovalOptions(params: {
   const command = params.command ?? '';
   const isCommandTool = isCommandToolName(toolName) && command.trim().length > 0;
   return isCommandTool
-    ? ['approve', 'allowlist_command', 'allowlist_tool', 'deny']
+    ? [
+        'approve',
+        'allowlist_command',
+        // G3（2026-11-14）：命令级「本工作区永久信任」—— 精确命令 + 工作区作用域
+        'allowlist_workspace_command',
+        'allowlist_tool',
+        'deny',
+      ]
     : risk === RiskClass.EXTERNAL
       ? ['approve', 'deny']
       : ['approve', 'allowlist_call', 'deny'];

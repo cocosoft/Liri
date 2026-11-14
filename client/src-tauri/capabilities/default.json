@@ -10,6 +10,7 @@
     "core:webview:allow-create-webview-window",
     "core:window:allow-show",
     "core:window:allow-set-focus",
+    "core:window:allow-available-monitors",
     "shell:allow-open",
     "dialog:default",
     "dialog:allow-ask",

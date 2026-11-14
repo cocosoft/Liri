@@ -15,10 +15,13 @@ import { fireEvent, render, screen } from "@testing-library/react";
 
 const closeFloatingWindow = vi.fn(async () => {});
 const focusMainWindow = vi.fn(async () => {});
+// G8 窗口体验（2026-11-14）：面板挂载即初始化几何（测试里空实现，避免触达 Tauri）
+const initFloatingWindowGeometry = vi.fn(async () => {});
 
 vi.mock("../lib/floatingWindow", () => ({
   closeFloatingWindow: () => closeFloatingWindow(),
   focusMainWindow: () => focusMainWindow(),
+  initFloatingWindowGeometry: () => initFloatingWindowGeometry(),
 }));
 
 import { FloatingPanel } from "../components/Floating/FloatingPanel";

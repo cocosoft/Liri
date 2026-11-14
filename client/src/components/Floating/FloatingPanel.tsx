@@ -9,14 +9,24 @@
  * 不新建状态源（CS01）；组件本身不做任何后台轮询。
  */
 
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { OperationStatusBar } from "../common/OperationStatusBar";
 import { useOperationProgressStore } from "../../stores/operationProgressStore";
-import { closeFloatingWindow, focusMainWindow } from "../../lib/floatingWindow";
+import {
+  closeFloatingWindow,
+  focusMainWindow,
+  initFloatingWindowGeometry,
+} from "../../lib/floatingWindow";
 
 export function FloatingPanel() {
   const { t } = useTranslation();
   const operationCount = useOperationProgressStore((s) => s.operations.length);
+
+  // G8 窗口体验（2026-11-14）：几何记忆 + 多显示器边界校正（非悬浮窗/非 Tauri ⇒ no-op）
+  useEffect(() => {
+    void initFloatingWindowGeometry();
+  }, []);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 select-none">

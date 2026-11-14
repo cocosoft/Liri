@@ -1,12 +1,14 @@
 /**
- * 学习反馈闭环 M1（2026-11-15）
+ * 学习反馈闭环（2026-11-15，M1 + M2）
  *
- * 钉住三件事：
+ * 钉住四件事：
  * ① **归因只看结构化字段**（5 类；证据随行）；
  * ② **候选台账幂等**（同会话同轮同类 ⇒ 同 id；重复扫描不新增）；
- * ③ **M1 不提供 approve** —— 命令层显式拒绝，物理上不可能改变模型行为。
+ * ③ **M1 不提供 approve** —— 由 M2 的 `verify → approve` 链路取代：
+ *    未校验不能批准、批准只写语料**种子**（`expectation: null`）、撤销只标记不删行；
+ * ④ **轮次 ↔ 用户输入的结构化配对**（`turn/start` 与 `user/message`，不做文案猜测）。
  */
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'bun:test';
@@ -16,10 +18,13 @@ import {
   attributeBadcase,
   buildLearningCandidates,
   collectTurnToolObservations,
+  collectTurnUserInputs,
   computeLearningCandidateId,
   computeLearningCandidateStats,
+  LEARNING_CANDIDATE_APPROVED,
   LEARNING_CANDIDATE_PENDING,
   LEARNING_CANDIDATE_REJECTED,
+  LEARNING_CANDIDATE_VERIFIED,
   LearningCandidateStore,
   type TurnQualityPayload,
 } from '@modules/tasks';
@@ -175,6 +180,35 @@ describe('collectTurnToolObservations（事件配对）', () => {
   });
 });
 
+describe('collectTurnUserInputs（轮次 ↔ 用户输入的结构化配对）', () => {
+  it('取 turn/start 之前最近一条 user/message（无 userMessageSeq 时）', () => {
+    const events = [
+      ev('user/message', 1, { content: '第一个问题' }),
+      ev('turn/start', 2, { turn: 1 }),
+      ev('turn/quality', 3, quality({ turnNumber: 1, score: 0.2 })),
+      ev('user/message', 4, { content: '第二个问题' }),
+      ev('turn/start', 5, { turn: 2 }),
+    ];
+    const inputs = collectTurnUserInputs(events);
+    expect(inputs.get(1)).toBe('第一个问题');
+    expect(inputs.get(2)).toBe('第二个问题');
+  });
+
+  it('有 userMessageSeq 时按 seq 精确取（不取最近一条）', () => {
+    const events = [
+      ev('user/message', 1, { content: 'A' }),
+      ev('user/message', 2, { content: 'B' }),
+      ev('turn/start', 3, { turn: 1, userMessageSeq: 1 }),
+    ];
+    expect(collectTurnUserInputs(events).get(1)).toBe('A');
+  });
+
+  it('没有用户消息 ⇒ 不登记（不伪造空串）', () => {
+    const events = [ev('turn/start', 1, { turn: 1 })];
+    expect(collectTurnUserInputs(events).size).toBe(0);
+  });
+});
+
 describe('LearningCandidateStore（S3 台账）', () => {
   let dir: string | undefined;
   afterEach(() => {
@@ -228,6 +262,80 @@ describe('LearningCandidateStore（S3 台账）', () => {
     expect(stats.rejected).toBe(1);
     expect(stats.rejectedShare).toBeCloseTo(0.5, 5);
   });
+
+  /** 可校验的候选（id 必须能由公式复算，否则结构化校验会拒绝） */
+  function verifiableContent(sessionId = 's1', turnNumber = 3) {
+    return {
+      ...content(
+        computeLearningCandidateId(sessionId, turnNumber, 'tool_failure')
+      ),
+      sessionId,
+      turnNumber,
+      input: '为什么我的命令被拒绝了？',
+    };
+  }
+
+  it('统计：四态分别计数（verified / rejected 各 1）', () => {
+    const s = store();
+    s.save(verifiableContent('s1', 3), 1);
+    s.save(verifiableContent('s2', 4), 2);
+    const first = s.list().find((c) => c.sessionId === 's1')!;
+    const second = s.list().find((c) => c.sessionId === 's2')!;
+    s.markVerified(first, 10);
+    s.reject(second, '误报');
+    const stats = computeLearningCandidateStats(s.list());
+    expect(stats.total).toBe(2);
+    expect(stats.pending).toBe(0);
+    expect(stats.verified).toBe(1);
+    expect(stats.approved).toBe(0);
+    expect(stats.rejected).toBe(1);
+  });
+
+  it('verify → approve → revoke 全链：种子一行、expectation 为 null、撤销只标记不删行', () => {
+    const s = store();
+    s.save(verifiableContent(), 1);
+
+    const verified = s.markVerified(s.list()[0], 100);
+    expect(verified?.status).toBe(LEARNING_CANDIDATE_VERIFIED);
+    expect(verified?.gate).toEqual({ checkedAt: 100, kind: 'structural' });
+
+    const approved = s.approve(verified!, 200);
+    expect(approved?.status).toBe(LEARNING_CANDIDATE_APPROVED);
+    expect(approved?.expiresAt).toBeGreaterThan(200);
+
+    const seeds = s.listApprovedCases();
+    expect(seeds).toHaveLength(1);
+    expect(seeds[0].expectation).toBeNull();
+    expect(seeds[0].input).toBe('为什么我的命令被拒绝了？');
+    expect(seeds[0].revokedAt).toBeUndefined();
+    // 一行一条（JSONL 追加，不覆盖）
+    const lines = readFileSync(s.getApprovedCasesPath(), 'utf-8')
+      .trim()
+      .split('\n');
+    expect(lines).toHaveLength(1);
+
+    const revoked = s.revoke(approved!, '误批', 300);
+    expect(revoked.status).toBe(LEARNING_CANDIDATE_REJECTED);
+    expect(revoked.note).toContain('已撤销');
+    const afterRevoke = s.listApprovedCases();
+    expect(afterRevoke).toHaveLength(1);
+    expect(afterRevoke[0].revokedAt).toBe(300);
+  });
+
+  it('未校验不能批准：pending ⇒ approve 返回 null 且不写种子', () => {
+    const s = store();
+    s.save(verifiableContent(), 1);
+    expect(s.approve(s.list()[0])).toBeNull();
+    expect(s.listApprovedCases()).toHaveLength(0);
+    expect(s.list()[0].status).toBe(LEARNING_CANDIDATE_PENDING);
+  });
+
+  it('结构化校验拒绝 id 不可复算的候选（不改状态）', () => {
+    const s = store();
+    s.save(content('not-a-hash'), 1);
+    expect(s.markVerified(s.list()[0])).toBeNull();
+    expect(s.list()[0].status).toBe(LEARNING_CANDIDATE_PENDING);
+  });
 });
 
 describe('buildLearningCandidates（采集 → 归因 → 候选）', () => {
@@ -280,11 +388,55 @@ describe('createLearnCommand（命令层）', () => {
     return { store, cmd };
   }
 
-  it('拒绝 approve（M1 不提供，避免误以为能改变行为）', async () => {
-    const { cmd } = setup();
-    const res = await cmd.execute('approve abc', {} as never);
+  it('approve 前置校验：未校验 ⇒ 失败并提示先 verify', async () => {
+    const { store, cmd } = setup([
+      ev('turn/start', 1, { turn: 1 }),
+      ev('turn/quality', 2, quality({ turnNumber: 1, score: 0.2 })),
+    ]);
+    await cmd.execute('scan 1', {} as never);
+    const id = store.list()[0].id;
+
+    const res = await cmd.execute(`approve ${id}`, {} as never);
     expect(res.success).toBe(false);
-    expect(String(res.error)).toContain('M1 不提供 /learn approve');
+    expect(String(res.error)).toContain('需先 /learn verify');
+    expect(store.list()[0].status).toBe(LEARNING_CANDIDATE_PENDING);
+    expect(store.listApprovedCases()).toHaveLength(0);
+  });
+
+  it('verify → approve → export → revoke：种子一行、撤销需原因且只标记', async () => {
+    const { store, cmd } = setup([
+      ev('user/message', 1, { content: '为什么构建失败？' }),
+      ev('turn/start', 2, { turn: 1 }),
+      ev('turn/quality', 3, quality({ turnNumber: 1, score: 0.2 })),
+    ]);
+    await cmd.execute('scan 1', {} as never);
+    const id = store.list()[0].id;
+    expect(store.list()[0].input).toBe('为什么构建失败？');
+
+    const verified = await cmd.execute(`verify ${id}`, {} as never);
+    expect(verified.success).toBe(true);
+    expect(store.list()[0].status).toBe(LEARNING_CANDIDATE_VERIFIED);
+
+    const approved = await cmd.execute(`approve ${id}`, {} as never);
+    expect(approved.success).toBe(true);
+    expect(store.list()[0].status).toBe(LEARNING_CANDIDATE_APPROVED);
+    const seeds = store.listApprovedCases();
+    expect(seeds).toHaveLength(1);
+    expect(seeds[0].expectation).toBeNull();
+    expect(seeds[0].input).toBe('为什么构建失败？');
+
+    const exported = await cmd.execute('export', {} as never);
+    expect(exported.success).toBe(true);
+    expect((exported.data as { total: number }).total).toBe(1);
+
+    // 撤销必须写原因
+    const noReason = await cmd.execute(`revoke ${id}`, {} as never);
+    expect(noReason.success).toBe(false);
+
+    const revoked = await cmd.execute(`revoke ${id} 误批`, {} as never);
+    expect(revoked.success).toBe(true);
+    expect(store.list()[0].status).toBe(LEARNING_CANDIDATE_REJECTED);
+    expect(store.listApprovedCases()[0].revokedAt).toBeDefined();
   });
 
   it('scan 产出候选后 list 可见，reject 后台账与统计同步', async () => {

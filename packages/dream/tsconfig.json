@@ -1,4 +1,10 @@
 {
+  // 说明（2026-11-14，P0-1 子项 2 实测结论）：本包 `typecheck` **必须走宿主 app tsconfig**。
+  // 原因：dream 属于 app 层（R20 允许依赖 app），其 import 闭包经由 `@modules/*` 引到
+  // `app/src/ai/providers`、`app/packages/office/email` 等文件；这些文件依赖宿主的
+  // 全局类型环境（`@types/bun` 的 `Bun` 全局、`@types/nodemailer`、app 侧的 `imapflow` 等）。
+  // 仅以本文件为入口编译 ⇒ 会以 TS2867 / TS2307 / TS7016 报错（已实测）。
+  // 若要真正独立编译，前置是先把 app 层依赖反转成端口（独立议题，不在本次范围）。
   "extends": "../../app/tsconfig.json",
   "compilerOptions": {
     "noEmit": true,

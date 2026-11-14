@@ -31,7 +31,7 @@ import { readdir, readFile, unlink } from 'fs/promises';
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { isCheckpointLogEnabled } from '@openliri/infra/config';
-import type { DreamCycleRecord } from '@modules/dream/types';
+import type { DreamCycleRecord } from './types.js';
 
 const logger = getLogger('dream:checkpoint');
 
@@ -82,7 +82,7 @@ export async function recoverCheckpoints(): Promise<{
   let cleaned = 0;
 
   // 动态导入 DreamPersistence（避免循环依赖）
-  const { DreamPersistence } = await import('@modules/dream/DreamPersistence');
+  const { DreamPersistence } = await import('./DreamPersistence.js');
   const persistence = new DreamPersistence();
 
   // 读取 cycles 目录中已有的记录 ID，用于判断 written_all 是否完整

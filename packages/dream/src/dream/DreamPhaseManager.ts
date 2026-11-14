@@ -24,7 +24,7 @@
  * 管理梦境三阶段（light → deep → rem）的执行顺序和门控条件。
  */
 
-import type { DreamPhase } from '@modules/dream/types';
+import type { DreamPhase } from './types.js';
 import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('dream:dreamPhaseManager');
 

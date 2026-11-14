@@ -9,12 +9,149 @@
       "types": "./src/dream/index.ts",
       "import": "./src/dream/index.ts"
     },
-    "./*": {
-      "types": "./src/dream/*.ts",
-      "import": "./src/dream/*.ts"
-    }
+    "./ColdStorage": {
+      "types": "./src/dream/ColdStorage.ts",
+      "import": "./src/dream/ColdStorage.ts"
+    },
+    "./ColdStorage.js": {
+      "types": "./src/dream/ColdStorage.ts",
+      "import": "./src/dream/ColdStorage.ts"
+    },
+    "./DreamCheckpoint": {
+      "types": "./src/dream/DreamCheckpoint.ts",
+      "import": "./src/dream/DreamCheckpoint.ts"
+    },
+    "./DreamCheckpoint.js": {
+      "types": "./src/dream/DreamCheckpoint.ts",
+      "import": "./src/dream/DreamCheckpoint.ts"
+    },
+    "./DreamCycleDb": {
+      "types": "./src/dream/DreamCycleDb.ts",
+      "import": "./src/dream/DreamCycleDb.ts"
+    },
+    "./DreamCycleDb.js": {
+      "types": "./src/dream/DreamCycleDb.ts",
+      "import": "./src/dream/DreamCycleDb.ts"
+    },
+    "./DreamEngine": {
+      "types": "./src/dream/DreamEngine.ts",
+      "import": "./src/dream/DreamEngine.ts"
+    },
+    "./DreamEngine.js": {
+      "types": "./src/dream/DreamEngine.ts",
+      "import": "./src/dream/DreamEngine.ts"
+    },
+    "./DreamIdleDetector": {
+      "types": "./src/dream/DreamIdleDetector.ts",
+      "import": "./src/dream/DreamIdleDetector.ts"
+    },
+    "./DreamIdleDetector.js": {
+      "types": "./src/dream/DreamIdleDetector.ts",
+      "import": "./src/dream/DreamIdleDetector.ts"
+    },
+    "./DreamMetrics": {
+      "types": "./src/dream/DreamMetrics.ts",
+      "import": "./src/dream/DreamMetrics.ts"
+    },
+    "./DreamMetrics.js": {
+      "types": "./src/dream/DreamMetrics.ts",
+      "import": "./src/dream/DreamMetrics.ts"
+    },
+    "./DreamPersistence": {
+      "types": "./src/dream/DreamPersistence.ts",
+      "import": "./src/dream/DreamPersistence.ts"
+    },
+    "./DreamPersistence.js": {
+      "types": "./src/dream/DreamPersistence.ts",
+      "import": "./src/dream/DreamPersistence.ts"
+    },
+    "./DreamPhaseManager": {
+      "types": "./src/dream/DreamPhaseManager.ts",
+      "import": "./src/dream/DreamPhaseManager.ts"
+    },
+    "./DreamPhaseManager.js": {
+      "types": "./src/dream/DreamPhaseManager.ts",
+      "import": "./src/dream/DreamPhaseManager.ts"
+    },
+    "./DreamScheduler": {
+      "types": "./src/dream/DreamScheduler.ts",
+      "import": "./src/dream/DreamScheduler.ts"
+    },
+    "./DreamScheduler.js": {
+      "types": "./src/dream/DreamScheduler.ts",
+      "import": "./src/dream/DreamScheduler.ts"
+    },
+    "./DreamTransaction": {
+      "types": "./src/dream/DreamTransaction.ts",
+      "import": "./src/dream/DreamTransaction.ts"
+    },
+    "./DreamTransaction.js": {
+      "types": "./src/dream/DreamTransaction.ts",
+      "import": "./src/dream/DreamTransaction.ts"
+    },
+    "./UnifiedDreamCycle": {
+      "types": "./src/dream/UnifiedDreamCycle.ts",
+      "import": "./src/dream/UnifiedDreamCycle.ts"
+    },
+    "./UnifiedDreamCycle.js": {
+      "types": "./src/dream/UnifiedDreamCycle.ts",
+      "import": "./src/dream/UnifiedDreamCycle.ts"
+    },
+    "./types": {
+      "types": "./src/dream/types.ts",
+      "import": "./src/dream/types.ts"
+    },
+    "./types.js": {
+      "types": "./src/dream/types.ts",
+      "import": "./src/dream/types.ts"
+    },
+    "./execution/DreamDenyRules": {
+      "types": "./src/dream/execution/DreamDenyRules.ts",
+      "import": "./src/dream/execution/DreamDenyRules.ts"
+    },
+    "./execution/DreamDenyRules.js": {
+      "types": "./src/dream/execution/DreamDenyRules.ts",
+      "import": "./src/dream/execution/DreamDenyRules.ts"
+    },
+    "./gather/KnowledgeScanner": {
+      "types": "./src/dream/gather/KnowledgeScanner.ts",
+      "import": "./src/dream/gather/KnowledgeScanner.ts"
+    },
+    "./gather/KnowledgeScanner.js": {
+      "types": "./src/dream/gather/KnowledgeScanner.ts",
+      "import": "./src/dream/gather/KnowledgeScanner.ts"
+    },
+    "./gather/SessionContentGatherer": {
+      "types": "./src/dream/gather/SessionContentGatherer.ts",
+      "import": "./src/dream/gather/SessionContentGatherer.ts"
+    },
+    "./gather/SessionContentGatherer.js": {
+      "types": "./src/dream/gather/SessionContentGatherer.ts",
+      "import": "./src/dream/gather/SessionContentGatherer.ts"
+    },
+    "./plan/DreamPlanContract": {
+      "types": "./src/dream/plan/DreamPlanContract.ts",
+      "import": "./src/dream/plan/DreamPlanContract.ts"
+    },
+    "./plan/DreamPlanContract.js": {
+      "types": "./src/dream/plan/DreamPlanContract.ts",
+      "import": "./src/dream/plan/DreamPlanContract.ts"
+    },
+    "./reflect/PersonalityReflector": {
+      "types": "./src/dream/reflect/PersonalityReflector.ts",
+      "import": "./src/dream/reflect/PersonalityReflector.ts"
+    },
+    "./reflect/PersonalityReflector.js": {
+      "types": "./src/dream/reflect/PersonalityReflector.ts",
+      "import": "./src/dream/reflect/PersonalityReflector.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@openliri/infra": "file:../infra",
+    "@openliri/kernel": "file:../kernel"
   },
   "scripts": {
-    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p ../../app/tsconfig.json"
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p tsconfig.json"
   }
 }

@@ -1,0 +1,17 @@
+{
+  "name": "openliri",
+  "version": "0.5.28",
+  "description": "Liri — AI 私人助手（CLI；需 Bun 运行时）",
+  "homepage": "https://openliri.com",
+  "license": "MIT",
+  "bin": {
+    "Liri": "dist/main.js"
+  },
+  "files": [
+    "dist/main.js"
+  ],
+  "engines": {
+    "bun": ">=1.4.2"
+  },
+  "//": "由 scripts/gen-package-manifests.ts 生成，勿手改；发版作业把 dist/main.js 复制到本目录后 npm publish。"
+}

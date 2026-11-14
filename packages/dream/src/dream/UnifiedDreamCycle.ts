@@ -28,10 +28,7 @@
  * 阶段 4: Index — 刷新索引、发布事件、通知 Buddy
  */
 
-import type {
-  DreamCycleRecord,
-  DreamTriggerSource,
-} from './types.js';
+import type { DreamCycleRecord, DreamTriggerSource } from './types.js';
 import { mirrorCycleToDb } from './DreamCycleDb.js';
 import { SessionContentGatherer } from './gather/SessionContentGatherer.js';
 import { KnowledgeScanner } from './gather/KnowledgeScanner.js';
@@ -49,11 +46,7 @@ import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { broadcastEvent } from '@modules/infrastructure';
-import {
-  DreamTransaction,
-  fileTx,
-  TxOperation,
-} from './DreamTransaction.js';
+import { DreamTransaction, fileTx, TxOperation } from './DreamTransaction.js';
 import { join } from 'path';
 import { mkdir, writeFile, unlink } from 'fs/promises';
 

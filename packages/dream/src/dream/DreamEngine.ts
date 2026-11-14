@@ -78,8 +78,7 @@ export class DreamEngine {
     this.started = true;
 
     // 恢复未完成的检查点
-    const { recoverCheckpoints } =
-      await import('./DreamCheckpoint.js');
+    const { recoverCheckpoints } = await import('./DreamCheckpoint.js');
     const recovery = await recoverCheckpoints();
     if (recovery.recovered > 0 || recovery.cleaned > 0) {
       logger.info(

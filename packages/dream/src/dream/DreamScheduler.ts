@@ -28,10 +28,7 @@
 import { DreamIdleDetector } from './DreamIdleDetector.js';
 import { DreamPersistence } from './DreamPersistence.js';
 import { computeNextCronRunMs } from '@modules/tasks';
-import type {
-  DreamSchedulerConfig,
-  DreamTriggerSource,
-} from './types.js';
+import type { DreamSchedulerConfig, DreamTriggerSource } from './types.js';
 import { DEFAULT_DREAM_SCHEDULER_CONFIG } from './types.js';
 import { getLogger } from '@openliri/infra/monitoring';
 import type { SchedulerLifecycle } from '@modules/types/schedulerLifecycle';

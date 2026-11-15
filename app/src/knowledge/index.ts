@@ -31,7 +31,6 @@
  *   - IndexManager 纯文本索引
  *   - EmbeddingService 向量嵌入
  *   - AutoRagService 分级检索
- *   - QueryFeedbackPipeline 查询反哺
  */
 
 export { KnowledgeRouter, getKnowledgeRouter } from './KnowledgeRouter';
@@ -170,9 +169,6 @@ export {
   migrateKnowledgeSchema,
   migrateDirectory,
 } from './KnowledgeSchemaMigration';
-
-export { QueryFeedbackPipeline } from './QueryFeedbackPipeline';
-export type { FeedbackResult } from './QueryFeedbackPipeline';
 
 export {
   KnowledgeSearchTool,

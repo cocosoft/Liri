@@ -1627,6 +1627,27 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 
 **与 §47 #5 的关系**：§47 记**文件级**例外（"`streamMessageFlow.ts` 不可降 <2000"）维持；本 §48 补**函数级**停止点的**逐条判据**（控制流耦合）——二者**同源不重复**（前者答"为何文件仍超阈值"，后者答"为何函数停在此点"）。
 
+---
+
+## 49. 收尾记录：`chat/ChatManager.ts`（P2-1，2026-11-15，**已落地**）
+
+> 背景：该文件自 §1 的 **6729 行** 经 A 批～E 批（`chatmanager-split-phase1.md`）降至 **1995 行**，只剩 5 行余量 ⇒ 任何正常改动都会撞 R04-001（2000）。
+
+**本次动作（只搬不改）**：把「会话级瞬时状态」三张 per-session 表外移到 [`manager/sessionRuntimeState.ts`](../../app/src/chat/manager/sessionRuntimeState.ts) —— 工具轮次计数 / 会话状态机映射 / 一次性续跑意图；`ChatManager` 保留同名字段转发。新增 4 例单测（`app/tests/chat/sessionRuntimeState.test.ts`）。
+
+**实测**
+
+| 指标 | 拆分前 | 拆分后 | 说明 |
+|---|:--:|---:|---|
+| `ChatManager.ts` 行数 | 1995 | **1988** | 门禁计数 1989；余量 ≈ 11 行 |
+| `chat` 测试 | 1011 pass | 1011 pass + 新增 4 例 | 0 fail |
+
+**关键约束（本次实证）**：`getToolRound` / `incToolRound` 是 `wireChatFacades` 的**宿主端口**，由 `wiringHostGuard` 在构造期断言。初次把它们一并删除 ⇒ `wireChatFacades: 宿主端口缺失`，**44 例测试失败**。故薄委派方法必须保留（已在类内注释标注）。
+
+**停止点判据（为何不再拆）**：剩余成员几乎全是「装配契约面」——① 公开接口（`ChatManagerInterface` / 测试按名 mock）；② `wiringHostGuard` 断言的宿主端口；③ 一行委派（R06-006 禁止再包一层）。继续拆只会产生**更多**薄转发，净收益为负。
+
+**替代约束（已落到代码注释）**：`ChatManager` 类注释写明「新增逻辑一律落 `chat/manager/*`，不在此内联」。**重开判据**：① 出现必须在该文件内实现的新职责，且无法外置；② 或 `wiringHostGuard` 的端口清单收缩后余量回升。
+
 
 
 

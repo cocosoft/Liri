@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "note": "bash 命令分类的期望结果（P3-2/T2a+T2b）。判定实现 = packages/infra/src/security/BashSecurityAnalyzer（TypeScript 降级路径；生产在 preflight 注入原生分析器）。新增/修改分类规则必须同步本文件。",
+  "cases": [
+    {
+      "command": "git log --oneline -20",
+      "expected": "allow",
+      "why": "既有只读子命令"
+    },
+    {
+      "command": "git log --shortstat --pretty=format:\"\"",
+      "expected": "allow",
+      "why": "会话曾报「被当成删除」，实测一直 allow；锁住不回退"
+    },
+    {
+      "command": "git diff --stat",
+      "expected": "allow",
+      "why": "既有只读子命令"
+    },
+    {
+      "command": "git status --short",
+      "expected": "allow",
+      "why": "既有只读子命令"
+    },
+    {
+      "command": "git rev-list --count HEAD",
+      "expected": "allow",
+      "why": "T2a 新增：只写 stdout，会话里每次弹审批的来源"
+    },
+    {
+      "command": "git shortlog -sne --all",
+      "expected": "allow",
+      "why": "T2a 新增：只写 stdout，会话里每次弹审批的来源"
+    },
+    {
+      "command": "git ls-tree -r HEAD",
+      "expected": "allow",
+      "why": "T2a 新增：只写 stdout"
+    },
+    {
+      "command": "git tag v1",
+      "expected": "ask",
+      "why": "tag 可创建引用（写）⇒ 必须转人工，不得被只读集合放过"
+    },
+    {
+      "command": "findstr /i foo bar.txt",
+      "expected": "allow",
+      "why": "只读检索"
+    },
+    {
+      "command": "dir /b",
+      "expected": "allow",
+      "why": "只读列目录"
+    },
+    {
+      "command": "bash -lc \"git log --oneline -3\"",
+      "expected": "allow",
+      "why": "T2b：剥壳后按内层只读命令判定"
+    },
+    {
+      "command": "sh -c 'git status --short'",
+      "expected": "allow",
+      "why": "T2b：单引号脚本同样剥壳"
+    },
+    {
+      "command": "cmd /c \"dir /b\"",
+      "expected": "allow",
+      "why": "T2b：cmd /c 剥壳"
+    },
+    {
+      "command": "env NO_COLOR=1 git log",
+      "expected": "allow",
+      "why": "T2b：env 仅携带已登记的无害赋值"
+    },
+    {
+      "command": "env LD_PRELOAD=/tmp/x.so git log",
+      "expected": "ask",
+      "why": "T2b：影响代码加载的赋值不剥壳，且命中环境变量注入模式"
+    },
+    {
+      "command": "bash -lc \"rm -rf /\"",
+      "expected": "deny",
+      "why": "T2b 安全边界：剥壳不得放大权限，危险命令仍硬拒"
+    },
+    {
+      "command": "git log --oneline | powershell -Command \"Measure-Object\"",
+      "expected": "deny",
+      "why": "复合命令里的 PowerShell 包裹未经 PS 安全链判定（与真机 session 症状一致）"
+    },
+    {
+      "command": "bash -lc \"git log --oneline | powershell -Command \\\"Measure-Object\\\"\"",
+      "expected": "deny",
+      "why": "T2b：剥壳后内层同样是未委托的 PS 包裹 ⇒ 维持 deny"
+    },
+    {
+      "command": "powershell -Command \"Get-ChildItem\"",
+      "expected": "ask",
+      "why": "分析器层不剥 PS（内层需 app 层 PowerShell 安全链判定）；单条由 gate 委托后可放行"
+    }
+  ]
+}

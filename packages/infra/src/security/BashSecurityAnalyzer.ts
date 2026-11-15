@@ -13,6 +13,11 @@ import {
   checkCompoundReadOnly,
   type CompoundReadOnlyVerdict,
 } from './compoundReadOnly';
+// P3-2/T2b（2026-11-16）：先剥壳再判定（`bash -lc` / `sh -c` / `cmd /c` / `env`）
+import { unwrapShellCommand } from './shellUnwrap';
+
+/** 剥壳递归上限（`env bash -lc "…"` 这类双层已足够；再深一律按原判） */
+const MAX_SHELL_UNWRAP_DEPTH = 2;
 
 /**
  * 原生分析器句柄。**三态**：`undefined` = 未尝试加载；`null` = 加载失败/不可用；函数 = 可用。
@@ -469,7 +474,9 @@ export class BashSecurityAnalyzer {
   analyze(
     command: string,
     trustLevel?: string,
-    options: { delegatedSinglePowerShell?: boolean } = {}
+    options: { delegatedSinglePowerShell?: boolean } = {},
+    /** 剥壳递归深度（内部使用；调用方无需传） */
+    depth = 0
   ): SecurityAnalysisResult {
     if (!command) {
       return {
@@ -489,6 +496,27 @@ export class BashSecurityAnalyzer {
         riskLevel: 'low',
         matchedPatterns: [],
       };
+    }
+
+    // P3-2/T2b（2026-11-16）：**先剥壳再判定** —— 分类器此前看的是外层壳
+    // （`bash` / `cmd` / `env`），`bash -lc "git log"`、`cmd /c "dir /b"` 因此落
+    // 「未知命令 ⇒ 转人工」。剥壳后按**内层命令**走完整的原判定链（只读 / 危险命令 /
+    // 审批均不变）；`powershell|pwsh` 不在此剥（由 PowerShell 安全链判定）。
+    if (depth < MAX_SHELL_UNWRAP_DEPTH && !options.delegatedSinglePowerShell) {
+      const unwrapped = unwrapShellCommand(trimmedCommand);
+      if (unwrapped.ok && unwrapped.command.trim() !== trimmedCommand) {
+        const inner = this.analyze(unwrapped.command, trustLevel, {}, depth + 1);
+        return {
+          ...inner,
+          message: inner.message
+            ? `（经 ${unwrapped.wrapper} 包裹）${inner.message}`
+            : inner.message,
+          matchedPatterns: [
+            ...inner.matchedPatterns,
+            `shell-wrapper-unwrapped: ${unwrapped.wrapper}`,
+          ],
+        };
+      }
     }
 
     // P3-3: allowlist 前缀匹配 —— 含 shell operator 的复合命令**先做逐段只读判定**

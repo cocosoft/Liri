@@ -28,6 +28,14 @@ export {
   type ProjectFiles,
 } from './ProjectFileReader';
 export { type SystemPromptParts } from './PromptTemplates';
+// 红线 S3（2026-11-15）：prompt_snippet 动态段（默认关闭；只作 extra 段追加）
+export {
+  buildPromptSnippetSection,
+  isPromptSnippetEnabled,
+  promptSnippetWorkspaceId,
+  PROMPT_SNIPPET_ENABLE_ENV,
+  PROMPT_SNIPPET_SECTION_NAME,
+} from './promptSections/promptSnippetSection';
 export {
   ProjectRulesLoaderImpl,
   createProjectRulesLoader,

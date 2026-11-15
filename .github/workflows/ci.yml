@@ -296,14 +296,20 @@ jobs:
       #   ① 失败时**自动重试一次**（覆盖率不是正确性门禁，正确性由上一行的 Run tests 承担）；
       #   ② 把失败用例提升为 annotation（job 日志接口对匿名读取返回 403，只能靠 annotation 定位）；
       #   ③ 无论成败都打印尾部日志，避免"红了但没线索"。
+      #
+      # 2026-11-15 根因补齐（实证 run 43681798826 / commit 62f08d2d6）：失败用例是
+      # `windowStartForBudget — C-3 配对硬约束`（≈16s），两次尝试都超时；而上一条
+      # 「Run tests」带 `--timeout 30000` 全绿 ⇒ 差异是本步骤**未带** `--timeout`
+      # （bun 默认 5s，覆盖率插桩下长用例必超）。⇒ 两次调用同补 `--timeout 30000`，
+      # 与 Run tests 同口径；retry 保留（隔离真实抖动）。
       run: |
         set +e
         LOG="$RUNNER_TEMP/coverage.log"
-        bun test --coverage --coverage-reporter=lcov tests/ > "$LOG" 2>&1
+        bun test --coverage --coverage-reporter=lcov tests/ --timeout 30000 > "$LOG" 2>&1
         code=$?
         if [ "$code" -ne 0 ]; then
           echo "::warning::coverage run failed (exit $code)；重试一次（历史 #2027/#2031 同一提交的 Run tests 全绿）"
-          bun test --coverage --coverage-reporter=lcov tests/ >> "$LOG" 2>&1
+          bun test --coverage --coverage-reporter=lcov tests/ --timeout 30000 >> "$LOG" 2>&1
           code=$?
         fi
         tail -n 60 "$LOG"

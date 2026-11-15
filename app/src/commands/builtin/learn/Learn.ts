@@ -382,6 +382,7 @@ export function createLearnCommand(deps: LearnCommandDeps) {
           `  可成题 ${ready.length}（expectation 已填、未撤销、未过期）`,
           ...(expired > 0 ? [`已自动过期 ${expired} 条批准`] : []),
           '  物料化：补 expectation 后执行 bun app/scripts/gen-learning-eval-cases.ts -- --write（落盘前先脱敏），再跑 evals --gate。',
+          '  回归审计：bun run report:learning-regressions（读最近一次跑批报告；有回归 ⇒ 非 0 退出）。',
         ].join('\n'),
         { total: cases.length, active: active.length, ready: ready.length }
       );

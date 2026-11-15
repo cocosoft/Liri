@@ -146,11 +146,23 @@ export const VERSION_ONLY_QUERY_PATTERN: RegExp =
 // ─── bash：git 只读 ──────────────────────────────────────────
 
 /**
- * git 只读子命令（**完整命令**正则，用于复合只读串联）
- * 消费方：`compoundReadOnly.checkCompoundReadOnly`
+ * git 只读子命令（**完整命令**正则，用于复合只读串联与单条只读判定）
+ * 消费方：`compoundReadOnly.checkCompoundReadOnly`（单条与串联共用同一判据，FIX-16）
+ *
+ * P3-2/T2a（2026-11-16）：补入 `rev-list` / `shortlog` / `ls-tree` / `cat-file` /
+ * `describe` / `name-rev` / `for-each-ref` / `blame` —— 实测（计划 §2.2）显示
+ * `git rev-list --count HEAD`、`git shortlog -sne --all` 落在「未知命令 ⇒ 转人工」，
+ * 而它们只写 stdout，与已放行的 `log` / `show` 同族。
+ *
+ * ⚠️ **刻意不含**（虽在同文件的 `GIT_READ_ONLY_SUBCOMMANDS` 中，但那个集合是
+ * `readOnlyValidation` 的 token 级视图，含可写子命令）：
+ * `tag` / `branch` / `remote` / `config` / `notes` / `bisect` / `stash`（可增删改）、
+ * `archive` / `bundle`（`-o` 落文件）、`reflog`（`expire`/`delete` 写）、
+ * `grep`（`--open-files-in-pager` 可执行任意程序）。
+ * 两份清单**不得合并**（合并等于放开写能力）。
  */
 export const GIT_READ_ONLY_PATTERN: RegExp =
-  /^git(?:\s+(?:-C\s+(?:"[^"]*"|'[^']*'|[^\s]+)|--no-pager|--no-optional-locks))*\s+(status|log|diff|show|rev-parse|branch\s+--list|--version)(\s|$)/i;
+  /^git(?:\s+(?:-C\s+(?:"[^"]*"|'[^']*'|[^\s]+)|--no-pager|--no-optional-locks))*\s+(status|log|diff|show|rev-parse|rev-list|shortlog|ls-tree|cat-file|describe|name-rev|for-each-ref|blame|branch\s+--list|--version)(\s|$)/i;
 
 /**
  * git 只读子命令（**token 级**集合，用于 `readOnlyValidation` 的参数扫描）

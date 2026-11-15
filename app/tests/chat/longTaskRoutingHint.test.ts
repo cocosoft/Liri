@@ -70,7 +70,6 @@ function makeCoordinator(hints: string[]) {
     getPdcaLauncher: () => null,
     shouldUsePlanDrivenLoop: () => true,
     shouldUseCodeMode: () => false,
-    getStreamTailSeq: async () => 1,
     appendStreamEvent: async () => undefined,
     persistSessionMetadata: async () => {},
     recentUserText: () => '帮我做个超级玛丽两关',

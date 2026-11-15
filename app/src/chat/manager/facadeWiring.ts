@@ -650,7 +650,6 @@ export function wireChatFacades(host: FacadeWiringHost): void {
     getPdcaLauncher: () => host._pdcaLauncher,
     shouldUsePlanDrivenLoop: (msg) => shouldUsePlanDrivenLoop(msg),
     shouldUseCodeMode: (msg) => shouldUseCodeMode(msg),
-    getStreamTailSeq: (sid) => host.getStreamTailSeq(sid),
     appendStreamEvent: (sid, event) => host.appendStreamEvent(sid, event),
     persistSessionMetadata: (session) => host.persistSessionMetadata(session),
     recentUserText: (session, n) => recentUserText(session, n),

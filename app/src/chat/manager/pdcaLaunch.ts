@@ -127,9 +127,7 @@ export interface PdcaLaunchDeps {
   shouldUsePlanDrivenLoop: (message: string) => boolean;
   /** Code Mode 判定（长任务信号闸门） */
   shouldUseCodeMode: (message: string) => boolean;
-  /** 事件 seq 分配（宿主唯一入口） */
-  getStreamTailSeq: (sessionId: string) => Promise<number>;
-  /** 事件写入（宿主唯一入口） */
+  /** 事件写入（宿主唯一入口；`seq` 传 0 ⇒ 由 `EventLog.append` 原子分配） */
   appendStreamEvent: (sessionId: string, event: LiriEvent) => Promise<unknown>;
   /** 持久化会话 metadata（projectId 落盘） */
   persistSessionMetadata: (session: ChatSession) => Promise<void>;
@@ -562,16 +560,17 @@ export class PdcaLaunchCoordinator {
   /**
    * 编排模式**决策轨迹**落 session 事件（log-only，**不入消息 surface**）。
    *
-   * 与 `persistPdcaSnapshot` 同法：seq 由 `tailSeq` 分配、写入走**唯一入口** `appendStreamEvent`。
+   * 与 `persistPdcaSnapshot` 同法：写入走**唯一入口** `appendStreamEvent`；`seq` 传 **0**
+   * 交 `EventLog.append` 在 mutex 内原子分配（自行 `tail+1` 会与并发写者撞号，
+   * 撞号按幂等丢弃 ⇒ 轨迹静默丢失；2026-11-15 修正）。
    */
   private async persistPatternDecision(
     sessionId: string,
     data: LiriEventData<'pattern/decision'>
   ): Promise<void> {
-    const ts = await this.deps.getStreamTailSeq(sessionId);
     await this.deps.appendStreamEvent(sessionId, {
       type: 'pattern/decision',
-      seq: ts + 1,
+      seq: 0,
       time: Date.now(),
       sessionId,
       data,
@@ -588,10 +587,9 @@ export class PdcaLaunchCoordinator {
     message: string,
     reasons?: string[]
   ): Promise<void> {
-    const ts = await this.deps.getStreamTailSeq(session.id);
     await this.deps.appendStreamEvent(session.id, {
       type: 'assistant/pdca_workflow',
-      seq: ts + 1,
+      seq: 0,
       time: Date.now(),
       sessionId: session.id,
       data: {

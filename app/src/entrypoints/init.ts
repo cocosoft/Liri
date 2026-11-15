@@ -648,7 +648,9 @@ async function startDeferredPrefetches(): Promise<void> {
             logger.warning('启动时清理过期记忆失败', { error });
           }
 
-          // 注册定时清理（每 6 小时），保存引用以便退出时清理
+          // 注册定时清理（每 6 小时），保存引用以便退出时清理。
+          // P2-2：`unref()` —— 记忆清理属**可放弃的周期性维护**，而 init 会被 CLI/REPL 路径导入；
+          // 不 unref 会让"只跑一次就结束"的 CLI 进程被这个 6h 定时器挂住（lint:unref 存量项）。
           backgroundTimers.push(
             setInterval(
               async () => {
@@ -662,7 +664,7 @@ async function startDeferredPrefetches(): Promise<void> {
                 }
               },
               6 * 60 * 60 * 1000
-            )
+            ).unref()
           );
 
           // 检查旧目录残留记忆文件（问题 2）

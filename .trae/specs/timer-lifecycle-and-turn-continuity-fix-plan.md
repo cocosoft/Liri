@@ -452,3 +452,31 @@ UI/终端组件与“活跃操作超时”类定时器。它们与进程保活/�
 **回归风险与护栏**：6 处 `unref:false` 站点保留原“保活”语义（无行为变化）；14 处迁移为“原写法 + 受管句柄 +
 可回收”，2 处（core 层心跳）保持原生句柄并补 `unref`；差异仅在进程退出时不再被挂住。
 基线归零后，任何新增裸 `setInterval` 都会直接阻断。
+
+---
+
+## 9. 存量收敛：函数作用域未 unref **10 → 7**（P2-2，2026-11-15）
+
+> 判据来自 `scripts/lint-unref.ts` 输出：属**可放弃的周期性观测/维护**且宿主**可能被 CLI/脚本 import** ⇒ 补 `unref()`；
+> 仅由服务实例独占（守护进程有 HTTP/WS server 保活）⇒ **无需处理**。逐处人工判定，不做一刀切。
+
+**A. 已补 `unref()`（3 处）**
+
+| 站点 | 判据 |
+|---|---|
+| `app/src/entrypoints/init.ts:653` | 记忆定期清理（每 6h）；`init` 被 CLI/REPL 路径导入 ⇒ 不 unref 会把「跑一次就结束」的 CLI 挂住 |
+| `app/src/infrastructure/http/handlers/channel-handlers.ts:623` | 待发送回复重试（15s 轮询，队列空即自停）；属可放弃维护 |
+| `packages/infra/src/monitoring/archival/archivalCronTask.ts:108` | 归档调度（infra **导出函数**，宿主可能是脚本）；调用方忘记 `stop()` 时不应挂住进程 |
+
+**B. 判定「无需处理」（7 处，附理由）**——全部是**连接级**心跳或**显式启停**且仅在服务实例内启动：
+
+| 站点 | 理由 |
+|---|---|
+| `chat-handlers.ts:784` · `llama-handlers.ts:330` · `orchestration-handlers.ts:98` | SSE **连接级**保活心跳，随 `res` 关闭/`writableEnded` 自行 `clearInterval`；进程由 HTTP server 保活 |
+| `edgeTTSTransport.ts:339` | `startHeartbeat(conn)` 返回句柄，连接级心跳，调用方负责清理 |
+| `WakeWebSocketServer.ts:208` | `startHeartbeat(client)` 连接级，`stopHeartbeat` 有清理入口 |
+| `QQChannel.ts:1330` | Bot 心跳，`heartbeatTimer` + `stopHeartbeat` 清理；实例不 `start` 不创建定时器 |
+| `DependencyHealthChecker.ts:284` | `startPeriodicCheck()` **显式**启动，类内有 `stop`；运行时宿主独占 |
+
+**门禁结果**：`lint:unref` = setInterval 152 处（合规 **145** / 顶层未 unref 0 / 类作用域违规 0 / 函数作用域未 unref **7**），
+告警不阻断；`tsc --noEmit` exit 0。

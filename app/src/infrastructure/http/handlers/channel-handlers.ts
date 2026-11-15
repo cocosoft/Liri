@@ -660,6 +660,9 @@ function bindInboundHandler(channelType: string, plugin: IChannelPlugin): void {
         _retryTimer = null;
       }
     }, 15_000);
+    // P2-2：`unref()` —— 待发送回复重试属**可放弃的周期性维护**（队列空即自停）；
+    // 不 unref 时，只短暂挂载过该模块的 CLI/脚本会被这个 15s 轮询挂住（lint:unref 存量项）。
+    _retryTimer.unref();
   }
 
   inbound.setMessageHandler(async (message) => {

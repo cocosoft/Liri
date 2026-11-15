@@ -21,7 +21,7 @@
 
 # Spec：学习反馈闭环（Agentic 模式 #9 Learning and Adaptation）
 
-- **状态**：**M1 ~ M7 已落地（2026-11-15）**；后续见 §5-M8
+- **状态**：**M1 ~ M8 已落地（2026-11-15）**；后续见 §5-M9
 - **来源**：`dev_docs/20261114/今日计划-2026-11-14.md` §4.1 逐项审计 —— 21 模式中 **#9 是唯一"部分"级缺口**（其余三处为有条件实现：#4 自校验档 / #17 ToT / #21 探索）
 - **关联 spec**：`learning-gate-regression-audit.md`（M6 真实回归审计）· `sop-observation-metrics.md`（M7 SOP 观察期度量）· `online-quality-evaluation.md`（U4 在线打分）· `cross-path-evaluation-write-side.md`（三路评价写入面，结论：**互不相通**）
 - **一句话**：把「有信号（turn/quality）→ 有离线评测（evals）→ 有制品（SOP）」三段接成**受控**闭环，中间补上缺失的**归因层**与**候选台账**。
@@ -132,8 +132,10 @@
 - **M6 已落地（真实回归拦截数）**：`auditLearningCaseGate(reportTasks, baselineTasks)` 读最近一次跑批报告，
   按**与 `--gate` 同一份判据**（`checkTaskAgainstBaseline`）给出 通过 / 回归（`passK` / `pass1`）/ 未登记；
   命令 `bun run report:learning-regressions`（有回归 ⇒ 退出码 1）。详见 `learning-gate-regression-audit.md`。
-- **仍待办**：`rejectedShare` 连续 N 次高于阈值 ⇒ 下调该 `category` 的候选产出（阈值上调），
-  避免噪声候选淹没评审。
+- **M8 已落地（`rejectedShare` 阈值回流）**：按类别统计**已决**候选（`lc_approved` + `lc_rejected`），
+  样本 ≥ 10 且拒绝占比 ≥ 80% ⇒ 在 `/learn scan` 时把该类别低分阈值**下调 0.1**（下限 0.1，
+  即更严、产出的候选更少）；扫描输出逐条点名收紧的类别，`/learn stats` 展示各类别占比。
+  **纯派生、不落盘**（不新增策略文件）；未收紧的类别与旧口径逐字一致。
 
 ---
 
@@ -274,14 +276,26 @@
 **M7 验收（实测）**：新增 12 条单测全绿（采集 4：run 口径 / 窗口 / 无 turn/start / 重评覆盖；
 汇总与判定 4；命令 4：未批准 / supported / flagged / 非法天数）。
 
-### 5-M8 之后（需再裁定）
+### 5-M8 拒绝占比阈值回流（已落地）
 
-`prompt_snippet` 注入面（另立红线 spec）；`rejectedShare` 阈值回流；
-`repeated_question` 需要事件契约扩展。
+| 件 | 落点 |
+|---|---|
+| 分组（纯函数） | `computeCategoryDecisions(items)`：只算已决（approved + rejected），按拒绝占比降序 |
+| 收紧建议（纯函数） | `suggestCategoryCutoffs(items, {baseCutoff})`：样本 ≥ `LEARNING_POLICY_MIN_DECIDED`(10) 且占比 ≥ `LEARNING_POLICY_REJECTION_SHARE`(0.8) ⇒ `base - 0.1`，下限 `LEARNING_POLICY_CUTOFF_FLOOR`(0.1) |
+| 语义 | 产候选条件是「分数 < 阈值」⇒ **阈值越低越严**；"收紧"= 下调，不是上调 |
+| 应用 | `/learn scan` 把 `cutoffs` 传给 `buildLearningCandidates`，并在输出点名收紧的类别；`/learn stats` 展示各类别占比 |
+| 边界 | 纯派生（每次扫描从台账重算）；不写策略文件、不改台账；未达门槛的类别行为不变 |
+
+**M8 验收（实测）**：新增 4 条单测全绿（只算已决 / 样本不足不收紧 + 下调与下限 /
+扫描侧按类别生效且其它类别不受影响 / 命令输出点名与非成题）。
+
+### 5-M9 之后（需再裁定）
+
+`prompt_snippet` 注入面（另立红线 spec）；`repeated_question` 需要事件契约扩展。
 
 ---
 
-## 6. 验收与门禁（M1 ~ M7）
+## 6. 验收与门禁（M1 ~ M8）
 
 | 项 | 判据 | 状态 |
 |---|---|---|
@@ -301,6 +315,7 @@
 | 真实回归可查 | `auditLearningCaseGate` 与 `checkGate` 共用判据；`report:learning-regressions` 有回归 ⇒ 退出码 1 | ✅ |
 | 全局门禁不变 | `checkTaskAgainstBaseline` 抽取后 `checkGate` 输出逐字不变（既有门禁用例全绿） | ✅ |
 | SOP 观察期可查 | `/sop observe` 只算 `op=run`、按轮 join `turn/quality`；缺质量事件如实留白；未批准拒绝观测 | ✅ |
+| 阈值回流可查 | 样本 ≥ 10 且拒绝占比 ≥ 80% ⇒ 该类别阈值下调 0.1（下限 0.1）；扫描输出点名；其它类别不变 | ✅ |
 | 零行为变更 | 无提示词/技能写入；语料初始为空（0 条）⇒ 既有跑批逐字不变；`--gate` 由人工执行 | ✅ |
 | 变异验证 | 反转归因判定 ⇒ 相关单测转红（例如把 `verdict=REJECT` 分支去掉，`verifier_reject` 用例必红）；去掉 `verified` 前置 ⇒ 批准用例必红；把跳过规则去掉一条 ⇒ 语料用例必红 | ✅（人工核对口径） |
 
@@ -358,6 +373,10 @@
 15. **SOP 观察期用会话事件、不用 `skills-usage.json`** —— 后者只有聚合计数（无逐次时间/会话关联），
     无法按观察窗切片；改用 `assistant/tool_call` + `turn/quality` 按轮 join（只读、零新埋点）。
 16. **缺质量事件的轮次如实留白**（`unscoredTurns`），不计通过也不计低分；判定顺序低分优先于次数不足。
+
+**M8（同口径）**
+17. **阈值回流是纯派生、不落盘** —— 每次扫描从台账重算；"收紧"= 低分阈值**下调**（越小越严），
+    并设下限 0.1，避免把候选产出压到 0；扫描输出必须点名被收紧的类别（不静默改行为）。
 
 ---
 

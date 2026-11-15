@@ -27,12 +27,16 @@ import type { CommandContext, CommandResult } from '@modules/commands';
 import type { LiriEvent, LiriEventType } from '@modules/session/types/events';
 import {
   buildLearningCandidates,
+  computeCategoryDecisions,
   computeLearningCandidateStats,
   LEARNING_CANDIDATE_APPROVED,
   LEARNING_CANDIDATE_PENDING,
   LEARNING_CANDIDATE_REJECTED,
   LEARNING_CANDIDATE_VERIFIED,
+  LEARNING_POLICY_MIN_DECIDED,
+  LEARNING_POLICY_REJECTION_SHARE,
   LearningCandidateStore,
+  suggestCategoryCutoffs,
   type LearningCandidate,
   type LearningCandidateStats,
 } from '@modules/tasks';
@@ -193,9 +197,24 @@ export function createLearnCommand(deps: LearnCommandDeps) {
 
     stats(): CommandResult {
       const expired = deps.store.expireOverdue();
-      const stats = computeLearningCandidateStats(deps.store.list());
+      const items = deps.store.list();
+      const stats = computeLearningCandidateStats(items);
+      const policies = computeCategoryDecisions(items);
+      const categoryLines = policies.map(
+        (p) =>
+          `  ${p.category}：已决 ${p.decided}（拒绝 ${p.rejected}，占比 ${(p.rejectedShare * 100).toFixed(0)}%）`
+      );
       const prefix = expired > 0 ? `已自动过期 ${expired} 条批准；` : '';
-      return ok(`${prefix}${statsLine(stats)}`, stats);
+      return ok(
+        [
+          `${prefix}${statsLine(stats)}`,
+          ...(categoryLines.length > 0
+            ? ['按类别（仅已决）：', ...categoryLines]
+            : []),
+          `阈值回流门槛：样本 ≥ ${LEARNING_POLICY_MIN_DECIDED} 且拒绝占比 ≥ ${LEARNING_POLICY_REJECTION_SHARE}（在 /learn scan 时应用）`,
+        ].join('\n'),
+        stats
+      );
     },
 
     show(payload: string): CommandResult {
@@ -240,6 +259,9 @@ export function createLearnCommand(deps: LearnCommandDeps) {
       }
 
       const cutoff = await deps.readScoreCutoff();
+      const policy = suggestCategoryCutoffs(deps.store.list(), {
+        baseCutoff: cutoff,
+      });
       let created = 0;
       let existing = 0;
       let scannedTurns = 0;
@@ -256,6 +278,7 @@ export function createLearnCommand(deps: LearnCommandDeps) {
           sessionId,
           events,
           scoreCutoff: cutoff,
+          categoryCutoffs: policy.cutoffs,
         });
         for (const c of candidates) {
           if (deps.store.save(c) === 'created') created++;
@@ -264,9 +287,19 @@ export function createLearnCommand(deps: LearnCommandDeps) {
       }
 
       const stats = computeLearningCandidateStats(deps.store.list());
+      const tightened = policy.policies.filter((p) => p.cutoff !== null);
+      const policyLine =
+        tightened.length > 0
+          ? `已按拒绝占比收紧 ${tightened.length} 个类别：${tightened
+              .map((p) => `${p.category} → ${p.cutoff}`)
+              .join(
+                '；'
+              )}（样本 ≥ ${LEARNING_POLICY_MIN_DECIDED}、拒绝占比 ≥ ${LEARNING_POLICY_REJECTION_SHARE}）`
+          : `阈值回流：暂无类别达到收紧条件（样本 ≥ ${LEARNING_POLICY_MIN_DECIDED} 且拒绝占比 ≥ ${LEARNING_POLICY_REJECTION_SHARE}）`;
       return ok(
         [
           `已扫描 ${scannedTurns} 个会话（低分阈值 ${cutoff}）：新增候选 ${created} 条，已存在 ${existing} 条。`,
+          policyLine,
           `统计：${statsLine(stats)}`,
           '用 /learn list 查看；/learn reject <id> 拒绝。',
         ].join('\n'),

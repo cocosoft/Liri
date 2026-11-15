@@ -19,6 +19,7 @@ import {
   buildLearningCandidates,
   collectTurnToolObservations,
   collectTurnUserInputs,
+  computeCategoryDecisions,
   computeLearningCandidateId,
   computeLearningCandidateStats,
   LEARNING_CANDIDATE_APPROVED,
@@ -27,6 +28,7 @@ import {
   LEARNING_CANDIDATE_VERIFIED,
   LEARNING_EXPIRED_NOTE,
   LearningCandidateStore,
+  suggestCategoryCutoffs,
   type TurnQualityPayload,
 } from '@modules/tasks';
 import { createLearnCommand } from '../../../src/commands/builtin/learn/Learn';
@@ -339,6 +341,46 @@ describe('LearningCandidateStore（S3 台账）', () => {
     expect(s.list()[0].status).toBe(LEARNING_CANDIDATE_PENDING);
   });
 
+  it('阈值回流：只统计已决候选（pending / verified 不计入分母）', () => {
+    const s = store();
+    s.save({ ...content('a1'), category: 'tool_failure' }, 1);
+    s.save({ ...content('b2'), category: 'retry_loop' }, 2);
+    s.reject(s.list().find((c) => c.id === 'a1')!, '噪声');
+
+    const policies = computeCategoryDecisions(s.list());
+    expect(policies).toHaveLength(1);
+    expect(policies[0]).toMatchObject({
+      category: 'tool_failure',
+      decided: 1,
+      rejected: 1,
+      rejectedShare: 1,
+      cutoff: null,
+    });
+  });
+
+  it('阈值回流：样本不足不收紧；达标后下调 0.1 且不低于下限', () => {
+    const s = store();
+    for (let i = 0; i < 9; i++) {
+      s.save({ ...content(`r${i}`), turnNumber: i + 1 }, i);
+    }
+    for (const c of s.list()) s.reject(c);
+    expect(
+      suggestCategoryCutoffs(s.list(), { baseCutoff: 0.45 }).cutoffs
+    ).toEqual({});
+
+    s.save({ ...content('r9'), turnNumber: 10 }, 100);
+    s.reject(s.list().find((c) => c.id === 'r9')!);
+    expect(
+      suggestCategoryCutoffs(s.list(), { baseCutoff: 0.45 }).cutoffs
+        .tool_failure
+    ).toBeCloseTo(0.35, 5);
+    // 下限：0.15 - 0.1 = 0.05 ⇒ 取 0.1（不把阈值压到产不出候选）
+    expect(
+      suggestCategoryCutoffs(s.list(), { baseCutoff: 0.15 }).cutoffs
+        .tool_failure
+    ).toBeCloseTo(0.1, 5);
+  });
+
   it('到期收口：过期批准转 rejected 并标记种子 revokedAt；未到期不动', () => {
     const s = store();
     s.save(verifiableContent('s1', 3), 1);
@@ -402,6 +444,40 @@ describe('buildLearningCandidates（采集 → 归因 → 候选）', () => {
       scoreCutoff: 0.45,
     });
     expect(candidates).toHaveLength(0);
+  });
+
+  it('按类别收紧：被收紧类别的轻度低分不再成题，其它类别不受影响', () => {
+    const events = [
+      ev('turn/start', 1, { turn: 1 }),
+      ev('assistant/tool_call', 2, {
+        toolCallId: 'c1',
+        name: 'Bash',
+        args: {},
+        callSeq: 3,
+      }),
+      ev('tool/result', 3, {
+        callSeq: 3,
+        toolCallId: 'c1',
+        result: 'denied',
+        isError: true,
+      }),
+      ev('turn/quality', 4, quality({ turnNumber: 1, score: 0.4 })),
+      ev('turn/start', 5, { turn: 2 }),
+      ev('turn/quality', 6, quality({ turnNumber: 2, score: 0.4 })),
+    ];
+    // 基线 0.45：两轮 0.40 都成题（tool_failure + low_value_answer）
+    expect(
+      buildLearningCandidates({ sessionId: 's1', events, scoreCutoff: 0.45 })
+    ).toHaveLength(2);
+    // 只收紧 tool_failure 到 0.35 ⇒ 0.40 不再成题；low_value_answer 保留
+    const tightened = buildLearningCandidates({
+      sessionId: 's1',
+      events,
+      scoreCutoff: 0.45,
+      categoryCutoffs: { tool_failure: 0.35 },
+    });
+    expect(tightened).toHaveLength(1);
+    expect(tightened[0].category).toBe('low_value_answer');
   });
 });
 
@@ -486,6 +562,45 @@ describe('createLearnCommand（命令层）', () => {
     expect(String(res.message)).toContain('已自动过期 1 条批准');
     expect(store.list()[0].status).toBe(LEARNING_CANDIDATE_REJECTED);
     expect((res.data as { rejected: number }).rejected).toBe(1);
+  });
+
+  it('scan 应用阈值回流：输出点名收紧类别，轻度低分不再成题', async () => {
+    const { store, cmd } = setup([
+      ev('turn/start', 1, { turn: 1 }),
+      ev('assistant/tool_call', 2, {
+        toolCallId: 'c1',
+        name: 'Bash',
+        args: {},
+        callSeq: 3,
+      }),
+      ev('tool/result', 3, {
+        callSeq: 3,
+        toolCallId: 'c1',
+        result: 'denied',
+        isError: true,
+      }),
+      ev('turn/quality', 4, quality({ turnNumber: 1, score: 0.4 })),
+    ]);
+
+    // 10 条同类别已决且全被拒 ⇒ 拒绝占比 100%，触发收紧
+    for (let i = 0; i < 10; i++) {
+      store.save({
+        id: `seed${i}`,
+        sessionId: 's0',
+        turnNumber: i + 1,
+        category: 'tool_failure',
+        score: 0.3,
+        evidence: ['score=0.30'],
+        summary: `seed ${i}`,
+      });
+      store.reject(store.list().find((c) => c.id === `seed${i}`)!);
+    }
+
+    const res = await cmd.execute('scan 1', {} as never);
+    expect(String(res.message)).toContain('已按拒绝占比收紧');
+    expect(String(res.message)).toContain('tool_failure → 0.35');
+    // 0.40 在 0.35 之上 ⇒ 该类别不再成题
+    expect((res.data as { created: number }).created).toBe(0);
   });
 
   it('scan 产出候选后 list 可见，reject 后台账与统计同步', async () => {

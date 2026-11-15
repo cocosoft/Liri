@@ -149,6 +149,7 @@ export type {
   TurnQualityPayload,
 } from './evolution/badcaseAttribution';
 export {
+  computeCategoryDecisions,
   computeLearningCandidateId,
   computeLearningCandidateStats,
   findExpiredApproved,
@@ -160,7 +161,12 @@ export {
   LEARNING_CANDIDATE_REJECTED,
   LEARNING_CANDIDATE_VERIFIED,
   LEARNING_EXPIRED_NOTE,
+  LEARNING_POLICY_CUTOFF_FLOOR,
+  LEARNING_POLICY_CUTOFF_STEP,
+  LEARNING_POLICY_MIN_DECIDED,
+  LEARNING_POLICY_REJECTION_SHARE,
   LearningCandidateStore,
+  suggestCategoryCutoffs,
 } from './evolution/learningCandidates';
 export type {
   LearningApprovedCase,
@@ -170,6 +176,8 @@ export type {
   LearningCandidateSaveResult,
   LearningCandidateStats,
   LearningCandidateStatus,
+  LearningCategoryPolicy,
+  LearningPolicySuggestion,
 } from './evolution/learningCandidates';
 export {
   buildLearningCandidates,

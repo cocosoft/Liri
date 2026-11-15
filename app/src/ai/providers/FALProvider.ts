@@ -43,6 +43,8 @@ import { getLogger } from '@openliri/infra/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { randomUUID } from 'crypto';
 import { normalizeByCaps } from '../media-generation/index.js';
+// P3-2（2026-11-15）：视频模型/能力解析外移（纯函数，含单测 `tests/ai/falVideoModelPlan.test.ts`）
+import { resolveFalVideoModelPlan } from './falVideoModelPlan.js';
 
 const logger = getLogger('ai:fal-provider');
 
@@ -445,17 +447,12 @@ export class FALProvider extends BaseAIProvider {
     params: VideoGenerationParams
   ): Promise<VideoGenerationResult> {
     const startTime = Date.now();
-    const modelId =
-      params.model ||
-      this.options.defaultModel ||
-      FAL_VIDEO_MODELS[0]?.id ||
-      '';
-    // FAL_VIDEO_MODELS 仅作能力提示，模型不在列表中时使用默认值
-    const modelConfig = FAL_VIDEO_MODELS.find((m) => m.id === modelId);
-    const caps = modelConfig?.capabilities || {
-      durations: [5, 10],
-      aspectRatios: ['16:9'],
-    };
+    // P3-2（2026-11-15）：模型/能力解析外移为纯函数（`falVideoModelPlan.ts`，含单测）
+    const { modelId, modelConfig, caps } = resolveFalVideoModelPlan(
+      params.model,
+      this.options.defaultModel,
+      FAL_VIDEO_MODELS
+    );
 
     const apiKey = this.apiKey || this.resolveApiKey();
     if (!apiKey) {

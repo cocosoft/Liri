@@ -71,6 +71,50 @@ export type ColorType = 'foreground' | 'background';
 const RGB_REGEX = /^rgb\(\s?(\d+),\s?(\d+),\s?(\d+)\s?\)$/;
 const ANSI_REGEX = /^ansi256\(\s?(\d+)\s?\)$/;
 
+/**
+ * P3-2（复杂度清理）：`ansi:` 命名色 → chalk 着色（前景 / 背景各一套，逐字对应原 switch）。
+ *
+ * 用箭头包装而非直接存 `chalk.red`：chalk 的样式属性是构建器，惰性包装保证每次调用
+ * 读取的是**当次** `chalk.level`（`tuneChalkLevelsOnce()` 可能在首次调用时调级）。
+ */
+const ANSI_FOREGROUND: Readonly<Record<string, (s: string) => string>> = {
+  black: (s) => chalk.black(s),
+  red: (s) => chalk.red(s),
+  green: (s) => chalk.green(s),
+  yellow: (s) => chalk.yellow(s),
+  blue: (s) => chalk.blue(s),
+  magenta: (s) => chalk.magenta(s),
+  cyan: (s) => chalk.cyan(s),
+  white: (s) => chalk.white(s),
+  blackBright: (s) => chalk.blackBright(s),
+  redBright: (s) => chalk.redBright(s),
+  greenBright: (s) => chalk.greenBright(s),
+  yellowBright: (s) => chalk.yellowBright(s),
+  blueBright: (s) => chalk.blueBright(s),
+  magentaBright: (s) => chalk.magentaBright(s),
+  cyanBright: (s) => chalk.cyanBright(s),
+  whiteBright: (s) => chalk.whiteBright(s),
+};
+
+const ANSI_BACKGROUND: Readonly<Record<string, (s: string) => string>> = {
+  black: (s) => chalk.bgBlack(s),
+  red: (s) => chalk.bgRed(s),
+  green: (s) => chalk.bgGreen(s),
+  yellow: (s) => chalk.bgYellow(s),
+  blue: (s) => chalk.bgBlue(s),
+  magenta: (s) => chalk.bgMagenta(s),
+  cyan: (s) => chalk.bgCyan(s),
+  white: (s) => chalk.bgWhite(s),
+  blackBright: (s) => chalk.bgBlackBright(s),
+  redBright: (s) => chalk.bgRedBright(s),
+  greenBright: (s) => chalk.bgGreenBright(s),
+  yellowBright: (s) => chalk.bgYellowBright(s),
+  blueBright: (s) => chalk.bgBlueBright(s),
+  magentaBright: (s) => chalk.bgMagentaBright(s),
+  cyanBright: (s) => chalk.bgCyanBright(s),
+  whiteBright: (s) => chalk.bgWhiteBright(s),
+};
+
 export const colorize = (
   str: string,
   color: string | undefined,
@@ -83,58 +127,10 @@ export const colorize = (
 
   if (color.startsWith('ansi:')) {
     const value = color.substring('ansi:'.length);
-    switch (value) {
-      case 'black':
-        return type === 'foreground' ? chalk.black(str) : chalk.bgBlack(str);
-      case 'red':
-        return type === 'foreground' ? chalk.red(str) : chalk.bgRed(str);
-      case 'green':
-        return type === 'foreground' ? chalk.green(str) : chalk.bgGreen(str);
-      case 'yellow':
-        return type === 'foreground' ? chalk.yellow(str) : chalk.bgYellow(str);
-      case 'blue':
-        return type === 'foreground' ? chalk.blue(str) : chalk.bgBlue(str);
-      case 'magenta':
-        return type === 'foreground'
-          ? chalk.magenta(str)
-          : chalk.bgMagenta(str);
-      case 'cyan':
-        return type === 'foreground' ? chalk.cyan(str) : chalk.bgCyan(str);
-      case 'white':
-        return type === 'foreground' ? chalk.white(str) : chalk.bgWhite(str);
-      case 'blackBright':
-        return type === 'foreground'
-          ? chalk.blackBright(str)
-          : chalk.bgBlackBright(str);
-      case 'redBright':
-        return type === 'foreground'
-          ? chalk.redBright(str)
-          : chalk.bgRedBright(str);
-      case 'greenBright':
-        return type === 'foreground'
-          ? chalk.greenBright(str)
-          : chalk.bgGreenBright(str);
-      case 'yellowBright':
-        return type === 'foreground'
-          ? chalk.yellowBright(str)
-          : chalk.bgYellowBright(str);
-      case 'blueBright':
-        return type === 'foreground'
-          ? chalk.blueBright(str)
-          : chalk.bgBlueBright(str);
-      case 'magentaBright':
-        return type === 'foreground'
-          ? chalk.magentaBright(str)
-          : chalk.bgMagentaBright(str);
-      case 'cyanBright':
-        return type === 'foreground'
-          ? chalk.cyanBright(str)
-          : chalk.bgCyanBright(str);
-      case 'whiteBright':
-        return type === 'foreground'
-          ? chalk.whiteBright(str)
-          : chalk.bgWhiteBright(str);
-    }
+    // P3-2（复杂度清理）：16 个命名色由 switch 改为查表（映射逐字对应原 case）
+    const table = type === 'foreground' ? ANSI_FOREGROUND : ANSI_BACKGROUND;
+    const paint = table[value];
+    return paint ? paint(str) : str;
   }
 
   if (color.startsWith('#')) {

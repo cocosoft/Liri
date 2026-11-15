@@ -389,6 +389,10 @@ export class ChatOrchestrator {
       throw new Error('No session found or created');
     }
 
+    // #4（2026-11-15，`.trae/specs/self-verify-turn-surface.md` §3.2）：**轮首**验证线路判定
+    // （与流式入口同一实现；门控默认关 ⇒ 不建循环，命中意图时落 `turn_dispatch` 决策）
+    this.host.applyVerifyRecipeForTurn?.(session.id, safeContent);
+
     // Session Mutex
     let mutex = this.host.sessionMutexes.get(sessionId);
     if (!mutex) {

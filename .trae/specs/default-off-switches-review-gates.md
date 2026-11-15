@@ -190,7 +190,7 @@
 | **O2** | `resourceGovernor/index.ts` `admit()`/`release()` | 新增**与开关无关**的观测集 `observedInflight` + 峰值访问器 `observedPeakInflight` + `logger.debug('resourceGovernor:inflight_at_limit')`（每次达/超上限一条，供出现次数计数） | #4 | ✅ **已落地**（2026-10-09） |
 | **O3** | `query/VerifierAgent.ts` / `query/TAORLoop.ts` | **既有**：`验证完成`（含 `turnCount`/`verdict`，`:373`）· `验证循环已达上限，强制升级`（`:316`）· TAORLoop `REJECT/ESCALATE`（含 `cycleCount`，`:953/:963`） | `iterative_refine` 判据 | ✅ **既有**（无需改） |
 | **O4** | `tasks/PlanDrivenLoop.ts` `:780` · `ai/router/OrchEngine.ts` `:194` | 新增 `logger.debug('pdl:topo_batches')` / `logger.debug('orch:topo_batches')`（批数 + 批宽分布 + 最大批宽） | `parallel_distributed` 判据 | ✅ **已落地**（2026-10-09） |
-| **O5** | `chat/ChatManager.ts` `_persistPatternDecision`（`:3958`） | **既有**会话事件 `pattern/decision`（含 `sessionId` + `selected` + `featureGate.enabled`，`researchIntent \|\| verifyIntent` 时落一条）。**聚合方式**：查 `pattern/decision` 事件中 `data.selected=='self_verify'` 者，按 `sessionId` 去重计数 ⇒ **无需新增代码**（事件已是聚合来源，CS01） | #11 | ✅ **既有**（无需改） |
+| **O5** | `chat/ChatManager.ts` `_persistPatternDecision`（`:3958`）→ **2026-11-15 起主落点为** `chat/manager/verifyRecipeTurn.ts`（轮首判定） | 会话事件 `pattern/decision`（含 `sessionId` + `selected` + `featureGate.enabled`）。**聚合方式**：查该事件中 `data.selected=='self_verify'\|'iterative_refine'` 者，按 `sessionId` 去重计数。**2026-11-15 观测面订正**：原落点只在 PDCA 长任务闸门内（`site='research_dispatch'`）⇒ 普通轮永不落盘、判据① 结构性采不到样（本机 118 份 `events.jsonl` / 162.1 MB 实测 **0 条**）⇒ 已把判定前移到**每轮入口**，落 `site='turn_dispatch'`（`.trae/specs/self-verify-turn-surface.md`） | #11 | ✅ **已落地**（2026-11-15，`turn_dispatch`；`research_dispatch` 保留） |
 
 **净结果**：需补的 **3 个观测点（O1-B2 / O2 / O4）已落地**；**O1-B1 / O3 / O5 经复核为既有信号**（CS01：不重复造）。
 

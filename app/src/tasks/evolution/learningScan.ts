@@ -33,6 +33,12 @@ export interface BuildLearningCandidatesOptions {
   events: readonly LiriEvent[];
   /** 低分阈值（低于此分才产候选；生产传 `SUSPICIOUS_SCORE_THRESHOLD`） */
   scoreCutoff: number;
+  /**
+   * 按类别的**收紧阈值**（S6 阈值回流；缺省 = 不收紧）。
+   *
+   * 由 `suggestCategoryCutoffs()` 派生；只对该类别生效，其余类别仍用 `scoreCutoff`。
+   */
+  categoryCutoffs?: Partial<Record<BadcaseCategory, number>>;
   /** 单会话上限（默认 {@link LEARNING_SCAN_MAX_CANDIDATES}） */
   limit?: number;
 }
@@ -109,11 +115,14 @@ export function buildLearningCandidates(
 
   const candidates: LearningCandidateContent[] = [];
   for (const [turnNumber, quality] of latestByTurn) {
-    if (quality.score >= scoreCutoff) continue;
     const attribution = attributeBadcase({
       quality,
       tools: toolsByTurn.get(turnNumber) ?? [],
     });
+    // S6 阈值回流：该类别被收紧时用更严的阈值；未收紧的类别行为与旧口径逐字一致
+    const cutoff =
+      options.categoryCutoffs?.[attribution.category] ?? scoreCutoff;
+    if (quality.score >= cutoff) continue;
     const input = inputsByTurn.get(turnNumber);
     candidates.push({
       id: computeLearningCandidateId(

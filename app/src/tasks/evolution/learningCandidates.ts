@@ -155,6 +155,18 @@ export const LEARNING_APPROVED_CASES_FILE = 'approved-cases.jsonl';
 /** 到期未复核的备注（`expireOverdue` 写入；与人工撤销区分开） */
 export const LEARNING_EXPIRED_NOTE = '已过期（批准后未复核）';
 
+/** 阈值回流：至少多少条**已决**候选才评估（样本不足不收紧） */
+export const LEARNING_POLICY_MIN_DECIDED = 10;
+
+/** 阈值回流：拒绝占比达到多少才收紧 */
+export const LEARNING_POLICY_REJECTION_SHARE = 0.8;
+
+/** 阈值回流：每次收紧的步长（低分阈值**下调**量；阈值越低产出的候选越少） */
+export const LEARNING_POLICY_CUTOFF_STEP = 0.1;
+
+/** 阈值回流：下调后的阈值下限（再低就没有候选可产） */
+export const LEARNING_POLICY_CUTOFF_FLOOR = 0.1;
+
 /** 候选 id：会话 + 轮次 + 类别**确定性哈希**（同一轮同类只会有一条） */
 export function computeLearningCandidateId(
   sessionId: string,
@@ -529,6 +541,96 @@ export function findExpiredApproved(
       item.expiresAt !== undefined &&
       item.expiresAt <= now
   );
+}
+
+/** 单类别已决统计（阈值回流的输入） */
+export interface LearningCategoryPolicy {
+  category: BadcaseCategory;
+  /** 已决条数（approved + rejected；pending / verified 不计） */
+  decided: number;
+  rejected: number;
+  /** 该类别已决候选里被拒绝的占比（0..1） */
+  rejectedShare: number;
+  /** 收紧后的低分阈值；未收紧 ⇒ `null` */
+  cutoff: number | null;
+}
+
+/** 阈值回流建议 */
+export interface LearningPolicySuggestion {
+  /** 仅含被收紧的类别（可直接传给 `buildLearningCandidates` 的 `categoryCutoffs`） */
+  cutoffs: Partial<Record<BadcaseCategory, number>>;
+  policies: LearningCategoryPolicy[];
+}
+
+/**
+ * 按类别汇总**已决**候选（纯函数）。
+ *
+ * 只认 `lc_approved` / `lc_rejected`：`lc_pending` 尚未决定、`lc_verified` 只是通过结构校验，
+ * 计入会稀释拒绝占比（口径与 `computeSopDraftStats` 的「未决不计入分母」一致）。
+ */
+export function computeCategoryDecisions(
+  items: readonly LearningCandidate[]
+): LearningCategoryPolicy[] {
+  const grouped = new Map<
+    BadcaseCategory,
+    { decided: number; rejected: number }
+  >();
+  for (const item of items) {
+    if (
+      item.status !== LEARNING_CANDIDATE_APPROVED &&
+      item.status !== LEARNING_CANDIDATE_REJECTED
+    ) {
+      continue;
+    }
+    const entry = grouped.get(item.category) ?? { decided: 0, rejected: 0 };
+    entry.decided += 1;
+    if (item.status === LEARNING_CANDIDATE_REJECTED) entry.rejected += 1;
+    grouped.set(item.category, entry);
+  }
+  return [...grouped.entries()]
+    .map(([category, { decided, rejected }]) => ({
+      category,
+      decided,
+      rejected,
+      rejectedShare: rejected / decided,
+      cutoff: null,
+    }))
+    .sort((a, b) => b.rejectedShare - a.rejectedShare || b.decided - a.decided);
+}
+
+/**
+ * 阈值回流（S6，纯函数）：拒绝占比高且样本充足 ⇒ **收紧**该类别（低分阈值下调）。
+ *
+ * 语义提醒：产候选的条件是「分数 < 阈值」⇒ 阈值**越低**越严、产出的候选越少；
+ * 因此"收紧"是 `baseCutoff - step`（不低于 `LEARNING_POLICY_CUTOFF_FLOOR`），不是加。
+ *
+ * 只做**派生建议**：不写台账、不落盘；由 `/learn scan` 在扫描时应用并在输出里点名收紧的类别。
+ */
+export function suggestCategoryCutoffs(
+  items: readonly LearningCandidate[],
+  options: {
+    baseCutoff: number;
+    minDecided?: number;
+    rejectionShare?: number;
+  }
+): LearningPolicySuggestion {
+  const minDecided = options.minDecided ?? LEARNING_POLICY_MIN_DECIDED;
+  const shareGate = options.rejectionShare ?? LEARNING_POLICY_REJECTION_SHARE;
+  const cutoffs: Partial<Record<BadcaseCategory, number>> = {};
+  const policies = computeCategoryDecisions(items).map((policy) => {
+    const tightened =
+      policy.decided >= minDecided && policy.rejectedShare >= shareGate
+        ? Math.max(
+            LEARNING_POLICY_CUTOFF_FLOOR,
+            Math.round(
+              (options.baseCutoff - LEARNING_POLICY_CUTOFF_STEP) * 100
+            ) / 100
+          )
+        : null;
+    if (tightened !== null) cutoffs[policy.category] = tightened;
+    return { ...policy, cutoff: tightened };
+  });
+  return { cutoffs, policies };
 }
 
 /**

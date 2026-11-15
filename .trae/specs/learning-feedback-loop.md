@@ -21,9 +21,9 @@
 
 # Spec：学习反馈闭环（Agentic 模式 #9 Learning and Adaptation）
 
-- **状态**：**M1 + M2 + M3 + M4 + M5 + M6 已落地（2026-11-15）**；后续见 §5-M7
+- **状态**：**M1 ~ M7 已落地（2026-11-15）**；后续见 §5-M8
 - **来源**：`dev_docs/20261114/今日计划-2026-11-14.md` §4.1 逐项审计 —— 21 模式中 **#9 是唯一"部分"级缺口**（其余三处为有条件实现：#4 自校验档 / #17 ToT / #21 探索）
-- **关联 spec**：`learning-gate-regression-audit.md`（M6 真实回归审计）· `online-quality-evaluation.md`（U4 在线打分）· `cross-path-evaluation-write-side.md`（三路评价写入面，结论：**互不相通**）
+- **关联 spec**：`learning-gate-regression-audit.md`（M6 真实回归审计）· `sop-observation-metrics.md`（M7 SOP 观察期度量）· `online-quality-evaluation.md`（U4 在线打分）· `cross-path-evaluation-write-side.md`（三路评价写入面，结论：**互不相通**）
 - **一句话**：把「有信号（turn/quality）→ 有离线评测（evals）→ 有制品（SOP）」三段接成**受控**闭环，中间补上缺失的**归因层**与**候选台账**。
 
 ---
@@ -111,7 +111,8 @@
 - **卡口（复用既有 `checkGate`，不新造）**：新增任务在 `baseline.json` 中**未登记** ⇒ `--gate` 直接失败
   （「基线中未登记该任务」）⇒ 必须跑一次记录 `pass^1` 后再登记基线，这是人的第二道门。
 - **跳过规则**（不编造判据）：已撤销 / `expectation` 为空 / `input` 为空 ⇒ 不成题，并按原因计数上报。
-- `sop`：以"批准后 SKILL.md 是否被真实调用 ≥N 次且未伴随低分"作为观察期判据（观察窗默认 7 天，可配）。
+- `sop`：**M7 已落地** —— `/sop observe <id> [天数]` 用会话事件 join 判定「执行 ≥N 次且未伴随低分」；
+  口径与数据源取证见 [`sop-observation-metrics.md`](./sop-observation-metrics.md)。
 - `prompt_snippet`：本阶段**不进入验证**（无注入面），只入库待议。
 
 ### S5 受控上线（人工门控 + 可回滚）
@@ -258,14 +259,29 @@
 （3 条语料：1 通过 / 1 双项回归 / 1 未登记，另有 1 条非语料任务）⇒ 只报 3 条语料违规、退出码 1；
 "报告未包含学习语料"路径 ⇒ 明确提示且退出码 0。
 
-### 5-M7 之后（需再裁定）
+### 5-M7 SOP 观察期度量（已落地，独立 spec）
 
-`prompt_snippet` 注入面（另立红线 spec）；`sop` 观察期自动度量；`rejectedShare` 阈值回流；
+详见 [`sop-observation-metrics.md`](./sop-observation-metrics.md)。要点：
+
+| 件 | 落点 |
+|---|---|
+| 纯函数 | `app/src/tasks/evolution/sopObservation.ts`：`collectSopSkillObservations` / `summarizeSopObservations` / `judgeSopObservation` |
+| 数据源 | 会话事件 `assistant/tool_call`（`skill` + `op=run` + `args.name`）与 `turn/quality`（按轮 join）；**不用** `skills-usage.json`（只有聚合计数，无逐次时间/会话关联） |
+| 命令 | `/sop observe <id> [天数]`（默认 7 天、N=5）；未批准草案拒绝观测；只读 |
+| 三态 | 有低分 ⇒ `flagged`（优先）；次数 `< N` ⇒ `insufficient`；否则 `supported` |
+| 单源 | 低分阈值复用 `SUSPICIOUS_SCORE_THRESHOLD`；技能名由 `sopSkillName()` 决定 |
+
+**M7 验收（实测）**：新增 12 条单测全绿（采集 4：run 口径 / 窗口 / 无 turn/start / 重评覆盖；
+汇总与判定 4；命令 4：未批准 / supported / flagged / 非法天数）。
+
+### 5-M8 之后（需再裁定）
+
+`prompt_snippet` 注入面（另立红线 spec）；`rejectedShare` 阈值回流；
 `repeated_question` 需要事件契约扩展。
 
 ---
 
-## 6. 验收与门禁（M1 + M2 + M3 + M4 + M5 + M6）
+## 6. 验收与门禁（M1 ~ M7）
 
 | 项 | 判据 | 状态 |
 |---|---|---|
@@ -284,6 +300,7 @@
 | 不改基线 | 脚本只读 `baseline.json`（`--baseline=` 可覆盖），登记动作始终人工 | ✅ |
 | 真实回归可查 | `auditLearningCaseGate` 与 `checkGate` 共用判据；`report:learning-regressions` 有回归 ⇒ 退出码 1 | ✅ |
 | 全局门禁不变 | `checkTaskAgainstBaseline` 抽取后 `checkGate` 输出逐字不变（既有门禁用例全绿） | ✅ |
+| SOP 观察期可查 | `/sop observe` 只算 `op=run`、按轮 join `turn/quality`；缺质量事件如实留白；未批准拒绝观测 | ✅ |
 | 零行为变更 | 无提示词/技能写入；语料初始为空（0 条）⇒ 既有跑批逐字不变；`--gate` 由人工执行 | ✅ |
 | 变异验证 | 反转归因判定 ⇒ 相关单测转红（例如把 `verdict=REJECT` 分支去掉，`verifier_reject` 用例必红）；去掉 `verified` 前置 ⇒ 批准用例必红；把跳过规则去掉一条 ⇒ 语料用例必红 | ✅（人工核对口径） |
 
@@ -336,6 +353,11 @@
 14. **回归口径只认 `--gate` 的判据** —— 抽出 `checkTaskAgainstBaseline` 供两边共用，不写第二套比较；
     `report:learning-regressions` **只读**跑批报告与基线，**不写台账**（避免第二套存储），
     "可查"= 命令可见 + 非 0 退出码可挂 CI。
+
+**M7（同口径）**
+15. **SOP 观察期用会话事件、不用 `skills-usage.json`** —— 后者只有聚合计数（无逐次时间/会话关联），
+    无法按观察窗切片；改用 `assistant/tool_call` + `turn/quality` 按轮 join（只读、零新埋点）。
+16. **缺质量事件的轮次如实留白**（`unscoredTurns`），不计通过也不计低分；判定顺序低分优先于次数不足。
 
 ---
 

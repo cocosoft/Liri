@@ -118,6 +118,23 @@ export {
   SOP_MAX_TRAJECTORIES,
   toSopTrajectory,
 } from './evolution/sopPlanSource';
+// M7（2026-11-15）：SOP 观察期度量（只读会话事件；不新增埋点、不改事件契约）
+export {
+  collectSopSkillObservations,
+  judgeSopObservation,
+  summarizeSopObservations,
+  SOP_OBSERVATION_EVENTS,
+  SOP_OBSERVATION_MIN_USES,
+  SOP_OBSERVATION_SESSIONS,
+  SOP_OBSERVATION_WINDOW_DAYS,
+} from './evolution/sopObservation';
+export type {
+  SopObservation,
+  SopObservationJudgement,
+  SopObservationVerdict,
+  SopObservationWindow,
+  SopTurnObservation,
+} from './evolution/sopObservation';
 // M1（2026-11-15）：学习反馈闭环 —— 低分轮归因 + 候选台账（只读，不产生行为变更）
 // M2（2026-11-15）：结构化校验 → 批准 → 语料种子导出 / 撤销
 export {

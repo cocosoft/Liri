@@ -54,7 +54,6 @@ export interface TaorContextWiringHost {
     sessionId: string,
     event: LiriEvent
   ): Promise<{ ok: boolean; reason?: string; tailSeq: number }>;
-  getStreamTailSeq(sessionId: string): Promise<number>;
   flushPendingPersists(): Promise<void>;
 }
 
@@ -67,7 +66,6 @@ const TAOR_CONTEXT_HOST_KEYS = [
   'messageService',
   '_msgPersist',
   'appendStreamEvent',
-  'getStreamTailSeq',
   'flushPendingPersists',
 ] as const;
 
@@ -114,7 +112,6 @@ export function buildTAORContextFor(
       host._msgPersist.addAndPersistMessage(sid, message);
     },
     appendStreamEvent: (sid, event) => host.appendStreamEvent(sid, event),
-    getStreamTailSeq: (sid) => host.getStreamTailSeq(sid),
     flushPendingPersists: () => host.flushPendingPersists(),
   });
 }

@@ -143,8 +143,8 @@ export class StreamingLlm {
       | 'assistant/question',
     data: unknown
   ): Promise<void> {
-    const { appendStreamEvent, getStreamTailSeq } = this.deps.getCtx();
-    if (!appendStreamEvent || !getStreamTailSeq) return;
+    const { appendStreamEvent } = this.deps.getCtx();
+    if (!appendStreamEvent) return;
     try {
       await appendStreamEvent(this.deps.getCtx().session.id, {
         type,

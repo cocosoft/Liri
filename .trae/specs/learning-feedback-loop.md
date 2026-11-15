@@ -289,15 +289,15 @@
 **M8 验收（实测）**：新增 4 条单测全绿（只算已决 / 样本不足不收紧 + 下调与下限 /
 扫描侧按类别生效且其它类别不受影响 / 命令输出点名与非成题）。
 
-### 5-M9 待裁定项（注入面 S1~S4 已落地）
+### 5-M9 待裁定项（注入面 S1~S5 已落地）
 
 | 项 | 状态 |
 |---|---|
-| `prompt_snippet` 注入面 | 🟢 **S1 ~ S4 已落地**（[`prompt-snippet-injection-redline.md`](./prompt-snippet-injection-redline.md)：台账 / 只读命令 / **默认关闭**接线 / 写命令与观察期）；创建草稿命令未提供 |
+| `prompt_snippet` 注入面 | 🟢 **S1 ~ S5 已落地**（[`prompt-snippet-injection-redline.md`](./prompt-snippet-injection-redline.md)：台账 / 只读命令 / **默认关闭**接线 / 写命令与观察期 / 人工撰写正文的草稿命令） |
 | `repeated_question` 归因 | ⏸ 需扩事件契约（会动事件三处登记），未开 spec |
 
-> 注入面 S1~S4 已落地（台账 / 只读命令 / **默认关闭**接线 / 写命令 + 惰性收口 + 观察期）；
-> 开关关闭时运行时行为零变化。剩下：创建草稿命令（待裁定正文来源）与 `repeated_question`。
+> 注入面 S1~S5 已落地（台账 / 只读命令 / **默认关闭**接线 / 写命令 + 惰性收口 + 观察期 / 人工撰写正文的草稿命令）；
+> 开关关闭时运行时行为零变化。仅剩 `repeated_question`（需扩事件契约）。
 
 ---
 

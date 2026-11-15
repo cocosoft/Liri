@@ -1,6 +1,6 @@
 # Spec（红线）：`prompt_snippet` 注入面
 
-- **状态**：🔴 **仅设计，不落地代码**（2026-11-15）。开工前须先裁定 §7 的待决项。
+- **状态**：🟠 **S1 已落地（台账 + 纯函数，未接线）**；S2~S4 未开工（2026-11-15）
 - **来源**：`.trae/specs/learning-feedback-loop.md` §5-M9（把学习候选变成**可注入提示片段**）
 - **性质**：本面会**直接改变模型行为** ⇒ 比 SOP / 语料更危险，单独设红线，不并入主 spec 的自动推进。
 
@@ -126,21 +126,26 @@ ps_draft ──人工 approve──▶ ps_active ──到期/撤销──▶ ps
 
 | 步 | 内容 | 行为变更 |
 |---|---|---|
-| **S1** | 台账 + 纯函数（校验/渲染/预算/过期），**不接线** | 零 |
-| **S2** | `/learn snippet list/show/preview`（只预览渲染文本，不注入） | 零 |
-| **S3** | 装配层接一个**默认关闭**的动态段 + kill switch + 上述 G-1/G-2/G-5 | 开关打开才变 |
-| **S4** | 到期惰性收口 + 观察期度量（复用 `/sop observe` 的 join 口径） | 零（只读） |
+| **S1** | 台账 + 纯函数（校验/渲染/预算/过期），**不接线** | ✅ 已落地（零行为变更） |
+| **S2** | `/learn snippet list/show/preview`（只预览渲染文本，不注入） | ⏸ 未开工 |
+| **S3** | 装配层接一个**默认关闭**的动态段 + kill switch + 上述 G-1/G-2/G-5 | ⏸ 未开工 |
+| **S4** | 到期惰性收口 + 观察期度量（复用 `/sop observe` 的 join 口径） | ⏸ 未开工（收口函数已在 S1 提供，未接入命令） |
 
 > 与 M1 同款纪律：**先只读、后写；先默认关闭、后按需打开**。
 
-## 7. 待决项（开工前必须由人裁定）
+## 7. 待决项（用户回复「按这个方案开始 S1」⇒ 采用下列默认值，S1 按此落地）
 
-1. **注入位置**：`custom.md` 之前 vs 之后？（本 spec 默认"之前"）
-2. **作用域**：仅项目级、还是允许用户级全局？（默认仅项目级）
-3. **额度**：单条 800 / 总量 2000 / 条数 3 是否合适？
-4. **有效期**：默认 14 天是否合适？到期是"不注入"还是"自动转 `ps_revoked` 并提示"？
-5. **命令归属**：`/learn snippet ...` 还是新开 `/snippet ...`？
-6. **与 evals 联动**：是否要求片段生效前先有对应 `learning-case-*` 语料通过 `--gate`（更强，但把两条链耦合）？
+| # | 待决 | **裁定（默认值）** |
+|---|---|---|
+| 1 | 注入位置 | 动态段末尾、`custom.md` **之前** |
+| 2 | 作用域 | **仅项目级**（`workspaceId` 必填；全局暂不支持） |
+| 3 | 额度 | 单条 **800** 字符 / 生效总量 **2000** / 同时 **3** 条 |
+| 4 | 有效期 | 默认 **14 天**；到期**不注入**并由读路径惰性转 `ps_revoked` |
+| 5 | 命令归属 | **`/learn snippet ...`**（与候选台账同域；S2 落地） |
+| 6 | 与 evals 联动 | **不强制**（片段生效不要求先有语料过 `--gate`）；观察期度量放 S4 |
+| 7 | 审批人 | 命令操作者标识；缺省 `cli`，不允许空 |
+
+> 上述裁定可随时改：数值都在常量里，且有 `G-3` 单测钉住边界。
 
 ## 8. 反例（明确不做）
 
@@ -158,3 +163,23 @@ ps_draft ──人工 approve──▶ ps_active ──到期/撤销──▶ ps
 | `promptEvolution`（4k overlay） | **不合并**：那是演化产物，本面是候选产物，两者互不覆盖 |
 | `SkillInjectionService` | 不并入：技能走 user message，本面走 system 动态段 |
 | `learning-feedback-loop.md` M1~M8 | 片段来源只能是已批准候选（`lc_approved`） |
+
+---
+
+## 10. S1 落点与验收（已实测）
+
+| 件 | 落点 |
+|---|---|
+| 台账 + 纯函数 | `app/src/tasks/evolution/promptSnippet.ts`（校验 / 渲染 / 预算 / 过期 / 台账） |
+| 导出 | `app/src/tasks/index.ts`（barrel；**无消费者** ⇒ 零接线） |
+| 单测 | `app/tests/tasks/evolution/promptSnippet.test.ts`（20 条） |
+| 未接线证明 | `PromptAssembler` / `builtinSections` / `SECTION_NAMES` **零改动**（git diff 不含这三个文件） |
+
+**S1 实测**：20 条单测全绿（校验 10：空/超限边界 + 9 类红线 + 不误杀；渲染 5；
+台账 5）；全量 `bun test` **12,060 pass / 44 skip / 0 fail**；`typecheck` 0 错；`lint` 0 error；
+`lint:arch` / `infra` / `consts` / `state-ratchet` / `fn-size` / `size` / `doc-code` / `invariants` /
+`fix-evidence` / `workflows` / `unref` / `entrypoints` / `command-coverage` / `logger-name` / `case` /
+`refs` / `evals` / `scripts` / `exit` 全绿。
+
+**S1 明确没做的事**：没有装配接线、没有命令、没有配置开关（G-5 的"默认关闭"要等 S3 才有开关可关）。
+⇒ 本步**不改变任何运行时行为**。

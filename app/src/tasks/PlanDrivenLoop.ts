@@ -58,6 +58,8 @@ import {
   computeTopoSkips,
   type TopoTaskStatus,
 } from './topoBatches.js';
+// P3-2：分解路径的纯辅助（避免主文件越过 R04-001 的 2000 行上限）
+import { seedDepStatusFromExistingPlan } from './planDrivenDecomposed.js';
 // T-②05（2026-10-03）：分流判据配置化 —— 默认值/纯构造在 core 单一事实源，运行时解析在 fastPathPolicy
 import {
   buildFastPathPolicy,
@@ -960,78 +962,31 @@ export class PlanDrivenLoop {
         .map((depId) => idxById.get(depId))
         .filter((idx): idx is number => typeof idx === 'number')
     );
-    if (existingPlan) {
-      // D3 二期：采纳既有计划 —— 不新建、不改写步骤（状态由执行路径逐步推进）；
-      // demand 的"验收标准前置"在计划创建时已校验过，此处不重复拦截。
-      this.plan = existingPlan;
-    } else {
-      // P0-1（2026-11-10，demand 准入门）：**验收标准前置**由分解结果承接。
-      // 许愿式会话没有人在环上兜底 ⇒ 某步缺失可判定验收标准就不允许开工（与阶段链
-      // 子 PDCA 的 `PLAN_CRITERIA_MISSING` 同口径）；非 demand 会话保持原行为（undefined）。
-      const acceptance = this.demand
-        ? subtasks.map((t) => (t.acceptanceCriteria ?? '').trim())
-        : undefined;
-      if (acceptance) {
-        const missing = acceptance
-          .map((c, index) => (c ? -1 : index))
-          .filter((index) => index >= 0);
-        if (missing.length > 0) {
-          throw new AppError(
-            'demand 计划缺少可判定的验收标准',
-            ErrorCategory.VALIDATION,
-            ErrorSeverity.HIGH,
-            'PLAN_CRITERIA_MISSING',
-            { missingSteps: missing.map((index) => index + 1) }
-          );
-        }
-      }
-
-      this.plan = taskOrchestrator.createPlan(
-        userMessage.slice(0, 200),
-        subtasks.map((t) => t.description),
-        this.sessionId,
-        undefined,
-        acceptance,
-        workspaceId,
-        dependsOnIdx
-      );
-    }
+    // P3-2（复杂度清理）：计划创建 / 验收标准前置校验外移（**逐字搬迁**）
+    this._preparePlanForSubtasks({
+      userMessage,
+      subtasks,
+      workspaceId,
+      dependsOnIdx,
+      existingPlan,
+    });
 
     // B5（架构归一 Step4）：Plan 阶段在持久层可见——createPlan 完成后回写 phase:'plan'。
     // 此前快速路径启动即在 PdcaLauncher 写 'execute'，真正 createPlan 时刻被抹掉，
     // checkpoint 从不出现 'plan'（两套体系一套在另一套影子下）。执行前再切回 'execute'。
-    if (this.taskId) {
-      await writePdcaCheckpoint(this.taskId, {
-        taskId: this.taskId,
-        phase: 'plan',
-        status: 'running',
-        sessionId: this.sessionId,
-        projectId: this.projectId,
-        // P0-1（2026-11-10）：demand 走 PDL 后，检查点必须自带自主度身份 ——
-        // 否则 `stats:demand`（指标 4）会把许愿式任务算成 interactive。
-        ...(this.demand ? { demand: true } : {}),
-      });
-    }
+    await this._writeDecomposedPhaseCheckpoint('plan');
 
     logger.info('PlanDrivenLoop 开始执行', {
       sessionId: this.sessionId,
-      planId: this.plan.id,
+      // 计划已由上一步创建/采纳 ⇒ 此处必然非空（拆分方法后 TS 不再跨方法收窄）
+      planId: this.plan!.id,
       stepCount: subtasks.length,
       // P0-1 遥测（2026-09-06）：有依赖的步骤数——验证 dependsOn 落库与拓扑可达性
       depStepCount: dependsOnIdx.filter((d) => d.length > 0).length,
     });
 
     // Teamwork P2b（2026-09-06）：同类历史 pitfall 检索（注入首步 prompt；无则空）
-    this._pitfallContext = this.pitfallRetriever
-      ? this.pitfallRetriever({ description: userMessage })
-      : '';
-    if (this._pitfallContext) {
-      logger.info('pitfall 检索注入首步', {
-        sessionId: this.sessionId,
-        planId: this.plan.id,
-        contextLength: this._pitfallContext.length,
-      });
-    }
+    this._loadPitfallContext(userMessage);
 
     // P2（08-09）：广播 TaskCard 初始数据到前端
     this._broadcastTaskCard(subtasks);
@@ -1067,19 +1022,7 @@ export class PlanDrivenLoop {
     const stepOutputs = new Map<string, string>();
     // D3 二期：采纳计划时，**已结束步骤**只回填前驱状态/产出（不执行）——
     // completed ⇒ ok；failed/cancelled ⇒ skipped（与原硬依赖阻断语义一致）
-    if (existingPlan) {
-      for (const step of existingPlan.steps) {
-        if (step.status === STEP_STATUS_COMPLETED) {
-          depStatusById.set(step.id, 'ok');
-          if (step.result) stepOutputs.set(step.id, step.result);
-        } else if (
-          step.status === STEP_STATUS_FAILED ||
-          step.status === STEP_STATUS_CANCELLED
-        ) {
-          depStatusById.set(step.id, 'skipped');
-        }
-      }
-    }
+    seedDepStatusFromExistingPlan(existingPlan, depStatusById, stepOutputs);
     // 13-P1-1 Step 2（2026-10-06，§20.6）：被阻断步骤明细 —— 回灌为模型可见内容（见 `_buildResult`）
     const blockedSteps: BlockedStepInfo[] = [];
     // 2026-11-02（长程任务空转熔断）：连续自述受阻的步数达到阈值 ⇒ 提前终止剩余步骤。
@@ -1088,17 +1031,7 @@ export class PlanDrivenLoop {
     let cascadeAborted = false;
 
     // B5（架构归一 Step4）：计划已创建，进入执行前切回 phase:'execute'。
-    if (this.taskId) {
-      await writePdcaCheckpoint(this.taskId, {
-        taskId: this.taskId,
-        phase: 'execute',
-        status: 'running',
-        sessionId: this.sessionId,
-        projectId: this.projectId,
-        // P0-1（2026-11-10）：同上，执行快照同样自带 demand 身份
-        ...(this.demand ? { demand: true } : {}),
-      });
-    }
+    await this._writeDecomposedPhaseCheckpoint('execute');
     for (const batch of topoBatches) {
       if (this.aborted) break;
       // 2026-11-13：有步骤在等用户审批 ⇒ 不再开新批次（与 LRO 的 batch 短路同口径）
@@ -1324,6 +1257,94 @@ export class PlanDrivenLoop {
       subtasks.length,
       blockedSteps
     );
+  }
+
+  /**
+   * P3-2（复杂度清理）：创建/采纳计划 + demand 验收标准前置校验（从 `_executeDecomposed`
+   * **逐字外移**）：既有计划直接采纳；否则先校验 demand 每步都有可判定验收标准，再建计划。
+   */
+  private _preparePlanForSubtasks(params: {
+    userMessage: string;
+    subtasks: DecompositionResult['subTasks'];
+    workspaceId: string | undefined;
+    dependsOnIdx: number[][];
+    existingPlan?: Plan;
+  }): void {
+    const { userMessage, subtasks, workspaceId, dependsOnIdx, existingPlan } =
+      params;
+
+    if (existingPlan) {
+      // D3 二期：采纳既有计划 —— 不新建、不改写步骤（状态由执行路径逐步推进）；
+      // demand 的"验收标准前置"在计划创建时已校验过，此处不重复拦截。
+      this.plan = existingPlan;
+      return;
+    }
+
+    // P0-1（2026-11-10，demand 准入门）：**验收标准前置**由分解结果承接。
+    // 许愿式会话没有人在环上兜底 ⇒ 某步缺失可判定验收标准就不允许开工（与阶段链
+    // 子 PDCA 的 `PLAN_CRITERIA_MISSING` 同口径）；非 demand 会话保持原行为（undefined）。
+    const acceptance = this.demand
+      ? subtasks.map((t) => (t.acceptanceCriteria ?? '').trim())
+      : undefined;
+    if (acceptance) {
+      const missing = acceptance
+        .map((c, index) => (c ? -1 : index))
+        .filter((index) => index >= 0);
+      if (missing.length > 0) {
+        throw new AppError(
+          'demand 计划缺少可判定的验收标准',
+          ErrorCategory.VALIDATION,
+          ErrorSeverity.HIGH,
+          'PLAN_CRITERIA_MISSING',
+          { missingSteps: missing.map((index) => index + 1) }
+        );
+      }
+    }
+
+    this.plan = taskOrchestrator.createPlan(
+      userMessage.slice(0, 200),
+      subtasks.map((t) => t.description),
+      this.sessionId,
+      undefined,
+      acceptance,
+      workspaceId,
+      dependsOnIdx
+    );
+  }
+
+  /**
+   * P3-2：分解路径的 PDCA 相位回写（`plan` → `execute`）。
+   *
+   * P0-1（2026-11-10）：demand 走 PDL 后，检查点必须自带自主度身份 ——
+   * 否则 `stats:demand`（指标 4）会把许愿式任务算成 interactive。
+   */
+  private async _writeDecomposedPhaseCheckpoint(
+    phase: 'plan' | 'execute'
+  ): Promise<void> {
+    if (!this.taskId) return;
+    await writePdcaCheckpoint(this.taskId, {
+      taskId: this.taskId,
+      phase,
+      status: 'running',
+      sessionId: this.sessionId,
+      projectId: this.projectId,
+      ...(this.demand ? { demand: true } : {}),
+    });
+  }
+
+  /** P3-2：同类历史 pitfall 检索并注入首步 prompt（从 `_executeDecomposed` 逐字外移） */
+  private _loadPitfallContext(userMessage: string): void {
+    this._pitfallContext = this.pitfallRetriever
+      ? this.pitfallRetriever({ description: userMessage })
+      : '';
+    if (this._pitfallContext) {
+      logger.info('pitfall 检索注入首步', {
+        sessionId: this.sessionId,
+        // 本方法只在计划创建/采纳之后调用 ⇒ `plan` 必然非空
+        planId: this.plan!.id,
+        contextLength: this._pitfallContext.length,
+      });
+    }
   }
 
   /**

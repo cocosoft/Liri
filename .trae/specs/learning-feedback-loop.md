@@ -35,7 +35,7 @@
 | 在线质量信号 | `packages/evals/src/evals/online/turnQualityEvaluator.ts`（启发式为主 + 仅可疑轮 LLM 复核） | 空闲期 `runTurnQualityPass`，落 `turn/quality` 会话事件 | 仅 `AutoDream` 经 `ISessionQualityPort` 读**汇总** | 分数**未被任何"改进动作"消费** ⇒ 只度量不改进 |
 | 离线评测 | `packages/evals/src/evals/{cli,runner,scoring,repoTestJudge}.ts`，`baseline.json` / `signal-baseline.json` 支持 `--gate` 回归阻断 | 人写的静态语料 `evals/tasks/{liri-core,security-injection,source-derived,smoke}.ts` | 发布前 CI/手动 | 语料是**静态 TS 文件**，没有"线上 badcase → 语料"的入库通道（审计 grep `UserSimulator`/`goldenDataset`/`trajectoryPipeline` 全仓 0 命中） |
 | 制品通道 | `app/src/tasks/evolution/sopDistill.ts`（确定性蒸馏）→ `SopDraftStore`（`sop_pending/approved/rejected`）→ `/sop approve` → 写 SKILL.md | 已完成 PDCA 计划 | 人工批准后才生效 | 只覆盖 **SOP** 一种制品；拒绝率有统计但**无回流**到蒸馏策略 |
-| 知识反哺 | `app/src/knowledge/QueryFeedbackPipeline.ts`（高频话题 → LLM 生成 wiki 页） | 无 | 无 | **零实例化**（`grep 'new QueryFeedbackPipeline'` 全仓 0 命中）⇒ 死代码，不构成闭环 |
+| 知识反哺 | ~~`app/src/knowledge/QueryFeedbackPipeline.ts`~~（**2026-11-15 已删除**：零消费者，按 CD01–CD06 分两步摘出口 → 删实现） | 无 | 无 | **零实例化**（全仓 0 命中）⇒ 死代码，不构成闭环；清理已完成 |
 | 离线进化 | `packages/dream`（五阶段周期：收集/分析/生成/写回记忆与 SOUL） | 定时/空闲 | 记忆与人格文件 | 与 `turn/quality` 的**分数维度**只在汇总层耦合，不产生可验证制品 |
 
 **结论**：三段能力都在，但中间缺两件东西 ——
@@ -61,7 +61,7 @@
 - **N3**：不引入第二套评分框架（复用 `turnQuality` 与 `VerifierAgent`，CS01）。
 - **N4**：不新造调度器（复用 `IdleScaleMonitor.onIdle` 与既有 cron）。
 - **N5**：不做 UI（先命令 + 报告；有真实诉求再谈面板）。
-- **N6**：不把 `QueryFeedbackPipeline` 复活 —— 它的产物是"知识页"，与"改进制品"不同域；本 spec 只把它作为**反例**记录（死代码来源），清理另案。
+- **N6**：不把 `QueryFeedbackPipeline` 复活 —— 它的产物是"知识页"，与"改进制品"不同域；本 spec 只把它作为**反例**记录（死代码来源）。**2026-11-15**：该类已按 `code-deletion` 流程删除（先摘 barrel 出口 `55147b364`，再删实现），不再存在。
 
 ---
 

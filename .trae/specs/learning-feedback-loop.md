@@ -418,3 +418,27 @@
 | `SopDraftStore` | `sop` 类候选的既有台账（不迁移、不并行维护） |
 | `IdleScaleMonitor.onIdle` | 唯一的触发缝（不新造调度） |
 | `EventLogQuery` + `fromSeq` 水位 | 采集不重评、不漏评（同 U4 手法） |
+
+---
+
+## 10. 复评记录（2026-11-15，审计口径）
+
+**背景**：21 模式审计表 #9 的原因写的是「在线闭环不成立」。M1~M10 落地后该理由**已失效**，本轮据实测复评。
+
+| 判据 | 实测 | 结论 |
+|---|---|---|
+| 闭环是否有**真实实现**（非设计稿） | `turn/quality`（只读）→ `badcaseAttribution`（6 类）→ `learningScan` → `LearningCandidateStore`（`lc_*` 四态 + 到期收口）→ `/learn approve` → `approved-cases.jsonl` → `gen:learning-eval-cases` → `learning-cases.json` → `evals --gate` → `rejectedShare` 回流 | ✅ 全链在册，单测覆盖（`learningFeedback.test.ts` 39 条） |
+| 「需人工批准」是否为缺口 | 是 **G4 上线受控**的**设计**（N1 明确不做无门控自我修改） | ❌ 不是缺口 |
+| 是否有真实使用数据 | 台账目录 `~/.pyapp/data/learning-candidates/` **不存在**；`packages/evals/.../learning-cases.json` = `[]`；片段目录不存在 | ⚠️ **零使用**（工具就绪、无人跑过 `/learn scan`） |
+
+**裁定**：审计口径由「部分」改为「**达标（人工门控；零使用数据已如实记录）**」——
+能力与门禁都在，是否产生候选取决于真实低分会话与人工扫描，属**运行数据**而非实现缺口。
+
+**复评触发条件**（出现即需要复核本口径，R12-1 §2.14 规则 5）：
+
+1. 台账出现候选但**拒绝占比持续 ≥80%** 且阈值回流已下调至下限 0.1（说明归因或阈值失真）；
+2. `/learn scan` 连续命中**同一类别**且人工复核判定「归因错误」≥3 例；
+3. `learning-cases.json` 出现条目后 `--gate` 出现**误拦**（已登记基线仍被判未登记）。
+
+**未做**：不翻转 `prompt_snippet` 注入开关（S1~S5 默认关）；不因"零使用"新增引导自动化（无诉求，CS03）。
+

@@ -222,6 +222,15 @@ export {
   LEARNING_SCAN_MAX_CANDIDATES,
 } from './evolution/learningScan';
 export type { BuildLearningCandidatesOptions } from './evolution/learningScan';
+// 2026-11-15：编排模式决策只读统计（判据① 度量；/patterns stats 的数据源）
+export {
+  PATTERN_DECISION_GATE_MIN_SESSIONS,
+  summarizePatternDecisions,
+} from './evolution/patternDecisionStats';
+export type {
+  PatternDecisionSessionInput,
+  PatternDecisionSummary,
+} from './evolution/patternDecisionStats';
 export { scheduleTopoBatches, computeTopoSkips } from './topoBatches';
 export type {
   TopoBatchTask,

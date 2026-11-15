@@ -707,6 +707,16 @@ export const learnCommand: Command = {
   load: loadDefault('./learn/Learn.js'),
 };
 
+/** 编排模式决策只读统计（2026-11-15）：`verify` 意图命中会话数 = 登记表 §2 #11 判据① */
+export const patternsCommand: Command = {
+  type: 'local',
+  name: 'patterns',
+  description: '编排模式决策统计（只读；判据①：verify 意图命中会话数）',
+  aliases: ['pattern'],
+  argumentHint: '[stats [会话数]] [help]',
+  load: loadDefault('./patterns/Patterns.js'),
+};
+
 /** 入手指引 */
 export const onboardCommand: Command = {
   type: 'local',

@@ -205,6 +205,8 @@ export const KEEP_TOP_LEVEL: readonly string[] = [
   'sop',
   // M1（2026-11-15）：学习候选（低分轮归因；只读 + 拒绝，顶层与 sop 并列）
   'learn',
+  // 2026-11-15：编排模式决策只读统计（与 learn 同属观测面，顶层）
+  'patterns',
   'copy',
   'tag',
   'security',

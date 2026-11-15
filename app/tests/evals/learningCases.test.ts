@@ -1,11 +1,12 @@
 /**
- * 学习种子 → evals 语料（M3，2026-11-15）
+ * 学习种子 → evals 语料（M3 + M5，2026-11-15）
  *
- * 钉住四件事：
- * ① **跳过规则**：已撤销 / 无 `expectation` / 无 `input` 一律不成题（不编造判据）；
+ * 钉住五件事：
+ * ① **跳过规则**：已撤销 / 已过期 / 无 `expectation` / 无 `input` 一律不成题（不编造判据）；
  * ② **确定性**：可成题与跳过清单都按 id 升序（落盘可 diff）；
  * ③ **判据口径**：L1「回答包含期望片段」（空白归一后逐字比对），不做语义相似度；
- * ④ **fail-closed**：语料文件存在但不是数组 ⇒ 抛出（不静默退化成空题集）。
+ * ④ **fail-closed**：语料文件存在但不是数组 ⇒ 抛出（不静默退化成空题集）；
+ * ⑤ **基线登记核对**（M5）：未登记的题会被 `--gate` 阻断，按任务 id 如实列出。
  */
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -15,6 +16,7 @@ import { afterEach, describe, expect, it } from 'bun:test';
 import type { EvalContext } from '@modules/evals/types';
 import {
   buildLearningCaseTasks,
+  checkCaseBaseline,
   learningCaseTaskId,
   loadLearningCaseRecords,
   normalizeCaseText,
@@ -129,6 +131,47 @@ describe('toLearningCaseTask（L1 断言口径）', () => {
   it('normalizeCaseText 只压空白（不改大小写/标点）', () => {
     expect(normalizeCaseText('  A  B\tC\nD ')).toBe('A B C D');
     expect(normalizeCaseText('OK')).not.toBe(normalizeCaseText('ok'));
+  });
+});
+
+describe('checkCaseBaseline（M5：语料 vs 基线登记表）', () => {
+  it('全部登记 ⇒ blocked 为空', () => {
+    const report = checkCaseBaseline(
+      [seed({ id: 'a1' }), seed({ id: 'b2' })],
+      [learningCaseTaskId('a1'), learningCaseTaskId('b2')]
+    );
+    expect(report).toEqual({ total: 2, registered: 2, blocked: [] });
+  });
+
+  it('未登记 ⇒ 按任务 id 列出（会被 --gate 阻断）', () => {
+    const report = checkCaseBaseline(
+      [seed({ id: 'a1' }), seed({ id: 'b2' })],
+      [learningCaseTaskId('a1')]
+    );
+    expect(report.registered).toBe(1);
+    expect(report.blocked).toEqual([learningCaseTaskId('b2')]);
+  });
+
+  it('撤销 / 过期 / 缺期望的种子不计入分母', () => {
+    const report = checkCaseBaseline(
+      [
+        seed({ id: 'a1' }),
+        seed({ id: 'r1', revokedAt: 1 }),
+        seed({ id: 'x1', expiresAt: 10 }),
+        seed({ id: 'e1', expectation: null }),
+      ],
+      [learningCaseTaskId('a1')],
+      100
+    );
+    expect(report).toEqual({ total: 1, registered: 1, blocked: [] });
+  });
+
+  it('空语料 ⇒ 全 0（空语料天然通过）', () => {
+    expect(checkCaseBaseline([], [])).toEqual({
+      total: 0,
+      registered: 0,
+      blocked: [],
+    });
   });
 });
 

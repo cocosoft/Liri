@@ -164,6 +164,42 @@ export function buildLearningCaseTasks(
   return { tasks: eligible.map(toLearningCaseTask), skipped };
 }
 
+/** 基线登记核对结果（M5：**纯读侧**，不跑模型、不改文件） */
+export interface CaseBaselineReport {
+  /** 应进入语料的题数（已过滤撤销 / 过期 / 缺期望 / 缺输入） */
+  total: number;
+  /** 已在 `baseline.json` 登记 */
+  registered: number;
+  /**
+   * 未登记 ⇒ 会被 `checkGate` 以「基线中未登记该任务」**阻断**（即 `gateBlocked`）。
+   *
+   * 这是"登记缺口"而不是"回归拦截"：真实回归数只能在跑批报告里读到（仍待办，见 spec §5-M6）。
+   */
+  blocked: string[];
+}
+
+/**
+ * 核对语料与基线登记表（M5，纯函数）。
+ *
+ * @param registeredTaskIds `baseline.json` 的 `tasks` 键（评测任务 id）
+ */
+export function checkCaseBaseline(
+  records: readonly LearningCaseRecord[],
+  registeredTaskIds: Iterable<string>,
+  now: number = Date.now()
+): CaseBaselineReport {
+  const registered = new Set(registeredTaskIds);
+  const taskIds = selectLearningCaseRecords(records, now).eligible.map((r) =>
+    learningCaseTaskId(r.id)
+  );
+  const blocked = taskIds.filter((id) => !registered.has(id));
+  return {
+    total: taskIds.length,
+    registered: taskIds.length - blocked.length,
+    blocked,
+  };
+}
+
 /** 语料文件绝对路径（与本文件同目录） */
 export function learningCasesFilePath(): string {
   return resolve(import.meta.dir, LEARNING_CASES_FILE);

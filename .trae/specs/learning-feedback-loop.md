@@ -23,7 +23,7 @@
 
 - **状态**：**M1 ~ M8 已落地（2026-11-15）**；后续见 §5-M9
 - **来源**：`dev_docs/20261114/今日计划-2026-11-14.md` §4.1 逐项审计 —— 21 模式中 **#9 是唯一"部分"级缺口**（其余三处为有条件实现：#4 自校验档 / #17 ToT / #21 探索）
-- **关联 spec**：`learning-gate-regression-audit.md`（M6 真实回归审计）· `sop-observation-metrics.md`（M7 SOP 观察期度量）· `online-quality-evaluation.md`（U4 在线打分）· `cross-path-evaluation-write-side.md`（三路评价写入面，结论：**互不相通**）
+- **关联 spec**：`learning-gate-regression-audit.md`（M6 真实回归审计）· `sop-observation-metrics.md`（M7 SOP 观察期度量）· `prompt-snippet-injection-redline.md`（M9 红线设计，未落地）· `online-quality-evaluation.md`（U4 在线打分）· `cross-path-evaluation-write-side.md`（三路评价写入面，结论：**互不相通**）
 - **一句话**：把「有信号（turn/quality）→ 有离线评测（evals）→ 有制品（SOP）」三段接成**受控**闭环，中间补上缺失的**归因层**与**候选台账**。
 
 ---
@@ -289,9 +289,14 @@
 **M8 验收（实测）**：新增 4 条单测全绿（只算已决 / 样本不足不收紧 + 下调与下限 /
 扫描侧按类别生效且其它类别不受影响 / 命令输出点名与非成题）。
 
-### 5-M9 之后（需再裁定）
+### 5-M9 待裁定项（**仅设计，未落地代码**）
 
-`prompt_snippet` 注入面（另立红线 spec）；`repeated_question` 需要事件契约扩展。
+| 项 | 状态 |
+|---|---|
+| `prompt_snippet` 注入面 | 🔴 **红线 spec 已开**：[`prompt-snippet-injection-redline.md`](./prompt-snippet-injection-redline.md)（只设计；含 7 项待裁定的开工前置问题，未写任何代码） |
+| `repeated_question` 归因 | ⏸ 需扩事件契约（会动事件三处登记），未开 spec |
+
+> 两者都**不会**在本轮自动推进：注入面改变模型行为、事件契约改动面最大，均需先由人裁定再开工。
 
 ---
 

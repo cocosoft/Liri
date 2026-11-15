@@ -62,6 +62,15 @@ export const PROMPT_SNIPPET_DEFAULT_APPROVER = 'cli';
 /** 到期收口的备注（客观结果，与人工撤销区分） */
 export const PROMPT_SNIPPET_EXPIRED_NOTE = '已过期（批准后未复核）';
 
+/** 观察期默认窗（天；与 SOP 观察期同口径） */
+export const PROMPT_SNIPPET_OBSERVATION_DAYS = 7;
+
+/** 观察期最小样本（轮次数；不足不下结论） */
+export const PROMPT_SNIPPET_MIN_OBSERVED_TURNS = 20;
+
+/** 观察期单次扫描的会话数上限 */
+export const PROMPT_SNIPPET_OBSERVATION_SESSIONS = 20;
+
 const SNIPPET_FILE_PREFIX = 'prompt-snippet_';
 
 /** 片段内容（不含状态与生命周期） */
@@ -298,6 +307,59 @@ export function findExpiredSnippets(
       item.expiresAt !== undefined &&
       item.expiresAt <= now
   );
+}
+
+/** 观察期汇总（只统计观察窗内、片段生效之后的轮次） */
+export interface SnippetObservation {
+  turns: number;
+  lowScoreTurns: number;
+}
+
+/** 观察期判定三态（与 SOP 观察期同口径） */
+export type SnippetObservationVerdict =
+  | 'supported'
+  | 'insufficient'
+  | 'flagged';
+
+/** 观察期判定结果 */
+export interface SnippetObservationJudgement {
+  verdict: SnippetObservationVerdict;
+  reasons: string[];
+}
+
+/** 汇总观察样本（纯函数）：分数低于阈值的轮次计为「伴随低分」 */
+export function summarizeSnippetObservation(
+  scores: readonly { score: number }[],
+  scoreCutoff: number
+): SnippetObservation {
+  let lowScoreTurns = 0;
+  for (const { score } of scores) {
+    if (score < scoreCutoff) lowScoreTurns++;
+  }
+  return { turns: scores.length, lowScoreTurns };
+}
+
+/** 判定（纯函数）：有低分 ⇒ flagged（优先）；样本不足 ⇒ insufficient；否则 supported */
+export function judgeSnippetObservation(
+  observation: SnippetObservation,
+  minTurns: number = PROMPT_SNIPPET_MIN_OBSERVED_TURNS
+): SnippetObservationJudgement {
+  if (observation.lowScoreTurns > 0) {
+    return {
+      verdict: 'flagged',
+      reasons: [`${observation.lowScoreTurns}/${observation.turns} 轮伴随低分`],
+    };
+  }
+  if (observation.turns < minTurns) {
+    return {
+      verdict: 'insufficient',
+      reasons: [`观察窗内仅 ${observation.turns} 轮（需 ≥ ${minTurns} 轮）`],
+    };
+  }
+  return {
+    verdict: 'supported',
+    reasons: [`观察窗内 ${observation.turns} 轮，未见低分`],
+  };
 }
 
 /** 片段台账（JSON 文件，与候选 / SOP 草案同构：一文件一条 + 原子写） */

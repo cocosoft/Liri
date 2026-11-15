@@ -24,11 +24,14 @@
  */
 
 import type { CommandContext, CommandResult } from '@modules/commands';
+import { MS_PER_DAY } from '@openliri/infra/constants';
 import type { LiriEvent, LiriEventType } from '@modules/session/types/events';
+import type { LiriEventMap } from '@modules/session/types/eventPayloads';
 import {
   buildLearningCandidates,
   computeCategoryDecisions,
   computeLearningCandidateStats,
+  judgeSnippetObservation,
   LEARNING_CANDIDATE_APPROVED,
   LEARNING_CANDIDATE_PENDING,
   LEARNING_CANDIDATE_REJECTED,
@@ -37,11 +40,16 @@ import {
   LEARNING_POLICY_REJECTION_SHARE,
   LearningCandidateStore,
   PROMPT_SNIPPET_ACTIVE,
+  PROMPT_SNIPPET_DEFAULT_APPROVER,
+  PROMPT_SNIPPET_OBSERVATION_DAYS,
+  PROMPT_SNIPPET_OBSERVATION_SESSIONS,
   PromptSnippetStore,
   renderPromptSnippetSection,
   suggestCategoryCutoffs,
+  summarizeSnippetObservation,
   type LearningCandidate,
   type LearningCandidateStats,
+  type PromptSnippet,
 } from '@modules/tasks';
 
 const LEARN_USAGE = [
@@ -57,7 +65,10 @@ const LEARN_USAGE = [
   '  /learn stats              仅看统计',
   '  /learn snippet [list]     片段台账（只读）',
   '  /learn snippet show <id>  查看片段详情（来源/证据/有效期）',
+  '  /learn snippet approve <id> [审批人] 批准草稿（唯一生效动作；默认 14 天）',
+  '  /learn snippet revoke <id> <原因>    撤销生效片段（下一轮即不再注入）',
   '  /learn snippet preview [项目] 预览渲染结果（只渲染，未接入装配）',
+  '  /learn snippet observe <id> [天数] 观察期度量（默认 7 天 / 需 ≥ 20 轮）',
 ].join('\n');
 
 /** 扫描时读取的事件类型（最小面；水位由 `turn/quality` 决定） */
@@ -145,6 +156,28 @@ function resolveCandidate(
     };
   }
   return { candidate: matches[0] };
+}
+
+/** 解析唯一片段（前缀匹配；歧义/未命中 ⇒ `item: null` + 文案） */
+function resolveSnippet(
+  store: PromptSnippetStore,
+  idOrPrefix: string
+): { item: PromptSnippet | null; error?: string } {
+  if (!idOrPrefix) return { item: null, error: `缺少片段 id\n${LEARN_USAGE}` };
+  const matches = store.find(idOrPrefix);
+  if (matches.length === 0) {
+    return {
+      item: null,
+      error: `未找到片段：${idOrPrefix}（用 /learn snippet list 查看）`,
+    };
+  }
+  if (matches.length > 1) {
+    return {
+      item: null,
+      error: `片段 id 前缀「${idOrPrefix}」不唯一：${matches.map((m) => m.id).join(', ')}`,
+    };
+  }
+  return { item: matches[0] };
 }
 
 export function createLearnCommand(deps: LearnCommandDeps) {
@@ -430,17 +463,26 @@ export function createLearnCommand(deps: LearnCommandDeps) {
       );
     },
 
-    /** `/learn snippet <list|show|preview>`（S2：**只读**，装配层未接线） */
-    snippet(payload: string): CommandResult {
+    /** `/learn snippet <list|show|approve|revoke|preview|observe>`（S4：写操作 + 观察期度量） */
+    async snippet(payload: string): Promise<CommandResult> {
       const [sub = 'list', ...rest] = payload.split(/\s+/);
       const arg = rest.join(' ').trim();
       if (sub === 'list' || sub === '') return this.snippetList();
       if (sub === 'show') return this.snippetShow(arg);
+      if (sub === 'approve') return this.snippetApprove(arg);
+      if (sub === 'revoke') return this.snippetRevoke(arg);
       if (sub === 'preview') return this.snippetPreview(arg);
+      if (sub === 'observe') return await this.snippetObserve(arg);
       return fail(`未知 snippet 子命令：${sub}\n${LEARN_USAGE}`);
     },
 
+    /** 到期收口（惰性；读路径统一调用） */
+    expireSnippets(): number {
+      return deps.snippetStore.expireOverdue();
+    },
+
     snippetList(): CommandResult {
+      const expired = this.expireSnippets();
       const items = deps.snippetStore.list();
       const active = items.filter(
         (item) => item.status === PROMPT_SNIPPET_ACTIVE
@@ -454,15 +496,17 @@ export function createLearnCommand(deps: LearnCommandDeps) {
           `prompt_snippet 台账（${deps.snippetStore.getDir()}）：`,
           rows.length > 0
             ? rows.join('\n')
-            : '  （暂无片段；S2 只读，创建/批准在 S3 接线后可用）',
+            : '  （暂无片段；创建草稿尚未提供命令——片段正文必须人工撰写，见 spec §5-M9）',
           '',
           `统计：生效 ${active} / 共 ${items.length}`,
+          ...(expired > 0 ? [`已自动过期 ${expired} 条片段（未复核）`] : []),
         ].join('\n'),
         { total: items.length, active }
       );
     },
 
     snippetShow(payload: string): CommandResult {
+      this.expireSnippets();
       if (!payload) return fail(`缺少片段 id\n${LEARN_USAGE}`);
       const matches = deps.snippetStore.find(payload);
       if (matches.length === 0) {
@@ -497,6 +541,7 @@ export function createLearnCommand(deps: LearnCommandDeps) {
     },
 
     snippetPreview(payload: string): CommandResult {
+      this.expireSnippets();
       const workspaceId = payload.trim();
       const items = workspaceId
         ? deps.snippetStore
@@ -512,16 +557,138 @@ export function createLearnCommand(deps: LearnCommandDeps) {
           : '';
       return ok(
         [
-          `预览（只渲染，未接入装配）：${workspaceId ? `项目 ${workspaceId}` : '全部项目'}`,
+          `预览（渲染结果）：${workspaceId ? `项目 ${workspaceId}` : '全部项目'}`,
           rendered.injected.length > 0 ? '' : '  无生效片段（渲染结果为空串）',
           ...(rendered.injected.length > 0 ? [rendered.text, ''] : []),
           `注入 ${rendered.injected.length} 条 / ${rendered.chars} 字符${skipLine}`,
-          'S2 只预览：装配层未接线，模型行为不受影响。',
+          'S2 只预览：真正是否注入取决于总开关 LIRI_PROMPT_SNIPPET（默认关闭）。',
         ].join('\n'),
         {
           injected: rendered.injected,
           chars: rendered.chars,
           skipped: rendered.skipped.length,
+        }
+      );
+    },
+
+    snippetApprove(payload: string): CommandResult {
+      const [idOrPrefix = '', ...approverParts] = payload.split(/\s+/);
+      const found = resolveSnippet(deps.snippetStore, idOrPrefix);
+      if (!found.item) return fail(found.error ?? '片段不可用');
+      const item = found.item;
+      if (item.status === PROMPT_SNIPPET_ACTIVE) {
+        return ok(`片段 ${item.id} 已生效（未重复批准）`);
+      }
+      const approver =
+        approverParts.join(' ').trim() || PROMPT_SNIPPET_DEFAULT_APPROVER;
+      const updated = deps.snippetStore.approve(item, approver);
+      if (!updated) {
+        return fail(
+          `片段 ${item.id} 批准失败（需草稿态、正文过红线、来源非空、审批人非空；当前 ${item.status}）`
+        );
+      }
+      return ok(
+        [
+          `已批准片段 ${updated.id}（审批人 ${updated.approvedBy}）`,
+          `  有效期至：${new Date(updated.expiresAt ?? Date.now()).toISOString()}`,
+          '注入还需总开关 LIRI_PROMPT_SNIPPET=1；可先用 /learn snippet preview 查看渲染结果。',
+        ].join('\n'),
+        { id: updated.id, expiresAt: updated.expiresAt }
+      );
+    },
+
+    snippetRevoke(payload: string): CommandResult {
+      const [idOrPrefix = '', ...reasonParts] = payload.split(/\s+/);
+      const reason = reasonParts.join(' ').trim();
+      if (!reason) {
+        return fail(
+          `撤销必须写原因：/learn snippet revoke <id> <原因>\n${LEARN_USAGE}`
+        );
+      }
+      const found = resolveSnippet(deps.snippetStore, idOrPrefix);
+      if (!found.item) return fail(found.error ?? '片段不可用');
+      if (found.item.status !== PROMPT_SNIPPET_ACTIVE) {
+        return fail(
+          `片段 ${found.item.id} 未生效（当前 ${found.item.status}），无需撤销`
+        );
+      }
+      const updated = deps.snippetStore.revoke(found.item, reason);
+      return ok(
+        `已撤销片段 ${updated.id}（${updated.note ?? '已撤销'}）；下一轮起不再注入`,
+        { id: updated.id, status: updated.status }
+      );
+    },
+
+    /**
+     * 观察期度量（**只读**）：片段生效后观察窗内的轮次与低分轮。
+     *
+     * 口径：`since = max(approvedAt, now - days)`；只取 `turn/quality` 的 `score`（结构化字段）。
+     * 判定：有低分 ⇒ `flagged`；轮次 < 20 ⇒ `insufficient`；否则 `supported`。
+     */
+    async snippetObserve(payload: string): Promise<CommandResult> {
+      const [idOrPrefix = '', daysRaw = ''] = payload.split(/\s+/);
+      const found = resolveSnippet(deps.snippetStore, idOrPrefix);
+      if (!found.item) return fail(found.error ?? '片段不可用');
+      const item = found.item;
+      if (item.status !== PROMPT_SNIPPET_ACTIVE) {
+        return fail(
+          `片段 ${item.id} 未生效（当前 ${item.status}）：观察期只针对生效片段`
+        );
+      }
+      const days = daysRaw ? Number(daysRaw) : PROMPT_SNIPPET_OBSERVATION_DAYS;
+      if (!Number.isInteger(days) || days <= 0) {
+        return fail(`观察天数必须是正整数：${daysRaw}`);
+      }
+
+      const now = Date.now();
+      const since = Math.max(
+        item.approvedAt ?? item.createdAt,
+        now - days * MS_PER_DAY
+      );
+
+      let sessionIds: string[];
+      try {
+        sessionIds = await deps.listSessionIds(
+          PROMPT_SNIPPET_OBSERVATION_SESSIONS
+        );
+      } catch (e) {
+        return fail(
+          `读取会话列表失败：${e instanceof Error ? e.message : String(e)}`
+        );
+      }
+
+      const cutoff = await deps.readScoreCutoff();
+      const scores: Array<{ score: number }> = [];
+      for (const sessionId of sessionIds) {
+        let events: LiriEvent[];
+        try {
+          events = await deps.readEvents(sessionId, SCAN_EVENTS_PER_SESSION);
+        } catch {
+          // @ignore-catch — 单会话读取失败 ⇒ 跳过（不中断观测）
+          continue;
+        }
+        for (const event of events) {
+          if (event.type !== 'turn/quality' || event.time < since) continue;
+          const data = event.data as LiriEventMap['turn/quality'];
+          if (typeof data.score === 'number')
+            scores.push({ score: data.score });
+        }
+      }
+
+      const observation = summarizeSnippetObservation(scores, cutoff);
+      const judgement = judgeSnippetObservation(observation);
+      return ok(
+        [
+          `片段观察期度量：${item.id}`,
+          `  观察窗：最近 ${days} 天（自 ${new Date(since).toISOString()} 起）｜扫描会话 ${sessionIds.length} 个｜低分阈值 ${cutoff}`,
+          `  观察轮次：${observation.turns}｜伴随低分：${observation.lowScoreTurns}`,
+          `  判定：${judgement.verdict} —— ${judgement.reasons.join('；')}`,
+        ].join('\n'),
+        {
+          id: item.id,
+          turns: observation.turns,
+          lowScoreTurns: observation.lowScoreTurns,
+          verdict: judgement.verdict,
         }
       );
     },

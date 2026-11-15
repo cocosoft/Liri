@@ -1,6 +1,6 @@
 # Spec（红线）：`prompt_snippet` 注入面
 
-- **状态**：🟢 **S1 + S2 + S3 已落地（默认关闭的装配接线）**；S4 未开工（2026-11-15）
+- **状态**：🟢 **S1 ~ S4 已落地**（台账/只读命令/默认关闭接线/写命令与观察期度量）；创建草稿命令未提供（见 §10.4）（2026-11-15）
 - **来源**：`.trae/specs/learning-feedback-loop.md` §5-M9（把学习候选变成**可注入提示片段**）
 - **性质**：本面会**直接改变模型行为** ⇒ 比 SOP / 语料更危险，单独设红线，不并入主 spec 的自动推进。
 
@@ -129,7 +129,7 @@ ps_draft ──人工 approve──▶ ps_active ──到期/撤销──▶ ps
 | **S1** | 台账 + 纯函数（校验/渲染/预算/过期），**不接线** | ✅ 已落地（零行为变更） |
 | **S2** | `/learn snippet list/show/preview`（只预览渲染文本，不注入） | ✅ 已落地（只读） |
 | **S3** | 装配层接一个**默认关闭**的动态段 + kill switch + 上述 G-1/G-2/G-5 | ✅ 已落地（开关关闭时零变化） |
-| **S4** | 到期惰性收口 + 观察期度量（复用 `/sop observe` 的 join 口径） | ⏸ 未开工（收口函数已在 S1 提供，未接入命令） |
+| **S4** | 到期惰性收口 + 观察期度量（复用 `/sop observe` 的 join 口径） | ✅ 已落地（写命令 + 惰性收口 + 观察期） |
 
 > 与 M1 同款纪律：**先只读、后写；先默认关闭、后按需打开**。
 
@@ -224,3 +224,18 @@ ps_draft ──人工 approve──▶ ps_active ──到期/撤销──▶ ps
 
 **S3 明确没做**：没有 `approve/revoke/expire` 命令（仍需直接调用 store API 才会产生生效片段）；
 没有 UI；没有观察期度量（S4）。
+
+### 10.4 S4 落点与验收（已实测）
+
+| 件 | 落点 |
+|---|---|
+| 写命令 | `/learn snippet approve <id> [审批人]`（草稿 → 生效，写 `expiresAt`）/ `revoke <id> <原因>`（生效 → 撤销） |
+| 惰性收口 | `list` / `show` / `preview` / `observe` 入口统一调用 `store.expireOverdue()`；`list` 输出「已自动过期 N 条」 |
+| 观察期 | `observe <id> [天数]`：`since = max(approvedAt, now - 天数)`，只取 `turn/quality.score`；**有低分 ⇒ flagged（优先）**、轮次 < 20 ⇒ `insufficient`、否则 `supported` |
+| 纯函数 | `summarizeSnippetObservation` / `judgeSnippetObservation`（阈值由调用方注入，单源 `SUSPICIOUS_SCORE_THRESHOLD`） |
+
+**未提供（明确记录）**：**创建草稿的斜杠命令**。片段正文必须人工撰写；由候选自动生成正文等于编造
+（CS04），因此不提供 `draft <候选id>` 自动生成路径。当前创建只能经 store API（S1），待裁定"正文由谁写"后再补命令。
+
+**S4 实测**：新增 3 条命令级单测（approve/revoke 与必填原因、observe 的 supported 与 flagged、
+list 惰性过期）；`/learn` 单测合计 **33 条全绿**；全量 `bun test` **12,071 pass / 44 skip / 0 fail**。

@@ -139,6 +139,7 @@ export type {
 export {
   computePromptSnippetId,
   findExpiredSnippets,
+  judgeSnippetObservation,
   PromptSnippetStore,
   PROMPT_SNIPPET_ACTIVE,
   PROMPT_SNIPPET_DEFAULT_APPROVER,
@@ -146,11 +147,15 @@ export {
   PROMPT_SNIPPET_EXPIRED_NOTE,
   PROMPT_SNIPPET_MAX_ACTIVE,
   PROMPT_SNIPPET_MAX_CHARS,
+  PROMPT_SNIPPET_MIN_OBSERVED_TURNS,
+  PROMPT_SNIPPET_OBSERVATION_DAYS,
+  PROMPT_SNIPPET_OBSERVATION_SESSIONS,
   PROMPT_SNIPPET_REVOKED,
   PROMPT_SNIPPET_TOTAL_MAX_CHARS,
   PROMPT_SNIPPET_TTL_DAYS,
   renderPromptSnippetBlock,
   renderPromptSnippetSection,
+  summarizeSnippetObservation,
   validatePromptSnippet,
 } from './evolution/promptSnippet';
 export type {
@@ -162,6 +167,9 @@ export type {
   PromptSnippetStatus,
   PromptSnippetValidation,
   PromptSnippetViolation,
+  SnippetObservation,
+  SnippetObservationJudgement,
+  SnippetObservationVerdict,
 } from './evolution/promptSnippet';
 // M1（2026-11-15）：学习反馈闭环 —— 低分轮归因 + 候选台账（只读，不产生行为变更）
 // M2（2026-11-15）：结构化校验 → 批准 → 语料种子导出 / 撤销

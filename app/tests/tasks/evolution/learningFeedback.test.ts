@@ -28,6 +28,7 @@ import {
   LEARNING_CANDIDATE_VERIFIED,
   LEARNING_EXPIRED_NOTE,
   LearningCandidateStore,
+  PROMPT_SNIPPET_ACTIVE,
   PromptSnippetStore,
   suggestCategoryCutoffs,
   type TurnQualityPayload,
@@ -641,7 +642,7 @@ describe('createLearnCommand（命令层）', () => {
 
     const preview = await cmd.execute('snippet preview', {} as never);
     expect(String(preview.message)).toContain('无生效片段');
-    expect(String(preview.message)).toContain('未接入装配');
+    expect(String(preview.message)).toContain('LIRI_PROMPT_SNIPPET');
 
     expect((await cmd.execute('snippet show nope', {} as never)).success).toBe(
       false
@@ -689,5 +690,141 @@ describe('createLearnCommand（命令层）', () => {
     // 作用域过滤：换一个项目 ⇒ 无片段
     const other = await cmd.execute('snippet preview ws2', {} as never);
     expect((other.data as { injected: string[] }).injected).toEqual([]);
+  });
+
+  it('snippet approve / revoke：批准需草稿，撤销需原因且只对生效片段', async () => {
+    const now = Date.now();
+    const { snippetStore, cmd } = setup();
+    snippetStore.save(
+      {
+        workspaceId: 'ws1',
+        text: '回答前先确认是否已有同名工具。',
+        sourceCandidateIds: ['c1'],
+        evidence: ['score=0.30'],
+        title: '先查重',
+      },
+      now - 10_000
+    );
+    const draft = snippetStore.list()[0];
+
+    const approved = await cmd.execute(
+      `snippet approve ${draft.id} bob`,
+      {} as never
+    );
+    expect(approved.success).toBe(true);
+    expect(snippetStore.list()[0].status).toBe(PROMPT_SNIPPET_ACTIVE);
+    expect(snippetStore.list()[0].approvedBy).toBe('bob');
+
+    // 撤销必须写原因
+    const noReason = await cmd.execute(
+      `snippet revoke ${draft.id}`,
+      {} as never
+    );
+    expect(noReason.success).toBe(false);
+
+    const revoked = await cmd.execute(
+      `snippet revoke ${draft.id} 误批`,
+      {} as never
+    );
+    expect(revoked.success).toBe(true);
+    expect(snippetStore.list()[0].status).toBe('ps_revoked');
+  });
+
+  it('snippet observe：25 轮无低分 ⇒ supported；含低分 ⇒ flagged', async () => {
+    const now = Date.now();
+    const qualityEvents = (scores: number[]): LiriEvent[] =>
+      scores.map(
+        (score, i) =>
+          ({
+            type: 'turn/quality',
+            seq: i + 1,
+            time: now - 5_000 + i,
+            sessionId: 's1',
+            data: {
+              turnNumber: i + 1,
+              score,
+              evaluatorVersion: 'v1',
+              components: {
+                completion: 1,
+                verdict: 0.5,
+                toolThrash: 1,
+                cost: 1,
+              },
+              signals: {
+                status: 'completed',
+                toolCalls: 1,
+                inputTokens: 10,
+                outputTokens: 10,
+              },
+              reviewed: false,
+            },
+          }) as unknown as LiriEvent
+      );
+
+    const first = setup(qualityEvents(Array.from({ length: 25 }, () => 0.9)));
+    first.snippetStore.save(
+      {
+        workspaceId: 'ws1',
+        text: '回答前先确认是否已有同名工具。',
+        sourceCandidateIds: ['c1'],
+        evidence: ['e'],
+        title: 't',
+      },
+      now - 10_000
+    );
+    const active = first.snippetStore.approve(
+      first.snippetStore.list()[0],
+      'bob',
+      now - 60_000
+    )!;
+    const supported = await first.cmd.execute(
+      `snippet observe ${active.id}`,
+      {} as never
+    );
+    expect(String(supported.message)).toContain('判定：supported');
+    expect((supported.data as { turns: number }).turns).toBe(25);
+
+    const second = setup(qualityEvents([0.9, 0.9, 0.2]));
+    second.snippetStore.save(
+      {
+        workspaceId: 'ws1',
+        text: '回答前先确认是否已有同名工具。',
+        sourceCandidateIds: ['c1'],
+        evidence: ['e'],
+        title: 't',
+      },
+      now - 10_000
+    );
+    const flaggedActive = second.snippetStore.approve(
+      second.snippetStore.list()[0],
+      'bob',
+      now - 60_000
+    )!;
+    const flagged = await second.cmd.execute(
+      `snippet observe ${flaggedActive.id}`,
+      {} as never
+    );
+    expect(String(flagged.message)).toContain('判定：flagged');
+  });
+
+  it('snippet list：过期生效片段在读路径被惰性收口', async () => {
+    const now = Date.now();
+    const { snippetStore, cmd } = setup();
+    snippetStore.save(
+      {
+        workspaceId: 'ws1',
+        text: '回答前先确认是否已有同名工具。',
+        sourceCandidateIds: ['c1'],
+        evidence: ['e'],
+        title: 't',
+      },
+      now - 100_000
+    );
+    // 用很久以前的时间批准 ⇒ expiresAt 已过
+    snippetStore.approve(snippetStore.list()[0], 'bob', now - 30 * 86_400_000);
+
+    const listed = await cmd.execute('snippet list', {} as never);
+    expect(String(listed.message)).toContain('已自动过期 1 条片段');
+    expect(snippetStore.list()[0].status).toBe('ps_revoked');
   });
 });

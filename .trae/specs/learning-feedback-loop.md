@@ -289,14 +289,15 @@
 **M8 验收（实测）**：新增 4 条单测全绿（只算已决 / 样本不足不收紧 + 下调与下限 /
 扫描侧按类别生效且其它类别不受影响 / 命令输出点名与非成题）。
 
-### 5-M9 待裁定项（**仅设计，未落地代码**）
+### 5-M9 待裁定项（注入面已落地 S1；其余未开工）
 
 | 项 | 状态 |
 |---|---|
-| `prompt_snippet` 注入面 | 🔴 **红线 spec 已开**：[`prompt-snippet-injection-redline.md`](./prompt-snippet-injection-redline.md)（只设计；含 7 项待裁定的开工前置问题，未写任何代码） |
+| `prompt_snippet` 注入面 | 🟠 **S1 已落地**（[`prompt-snippet-injection-redline.md`](./prompt-snippet-injection-redline.md)：台账 + 纯函数，**未接线**）；S2~S4 未开工 |
 | `repeated_question` 归因 | ⏸ 需扩事件契约（会动事件三处登记），未开 spec |
 
-> 两者都**不会**在本轮自动推进：注入面改变模型行为、事件契约改动面最大，均需先由人裁定再开工。
+> 注入面只落地 S1（台账 + 纯函数、**未接线**）⇒ 运行时行为零变化；S2~S4 与 `repeated_question`
+> 都需再裁定后才继续。
 
 ---
 

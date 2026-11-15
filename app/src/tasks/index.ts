@@ -135,6 +135,34 @@ export type {
   SopObservationWindow,
   SopTurnObservation,
 } from './evolution/sopObservation';
+// 红线 S1（2026-11-15）：prompt_snippet 台账与渲染（**不接线**；装配层零改动）
+export {
+  computePromptSnippetId,
+  findExpiredSnippets,
+  PromptSnippetStore,
+  PROMPT_SNIPPET_ACTIVE,
+  PROMPT_SNIPPET_DEFAULT_APPROVER,
+  PROMPT_SNIPPET_DRAFT,
+  PROMPT_SNIPPET_EXPIRED_NOTE,
+  PROMPT_SNIPPET_MAX_ACTIVE,
+  PROMPT_SNIPPET_MAX_CHARS,
+  PROMPT_SNIPPET_REVOKED,
+  PROMPT_SNIPPET_TOTAL_MAX_CHARS,
+  PROMPT_SNIPPET_TTL_DAYS,
+  renderPromptSnippetBlock,
+  renderPromptSnippetSection,
+  validatePromptSnippet,
+} from './evolution/promptSnippet';
+export type {
+  PromptSnippet,
+  PromptSnippetContent,
+  PromptSnippetRender,
+  PromptSnippetSaveResult,
+  PromptSnippetSkipReason,
+  PromptSnippetStatus,
+  PromptSnippetValidation,
+  PromptSnippetViolation,
+} from './evolution/promptSnippet';
 // M1（2026-11-15）：学习反馈闭环 —— 低分轮归因 + 候选台账（只读，不产生行为变更）
 // M2（2026-11-15）：结构化校验 → 批准 → 语料种子导出 / 撤销
 export {

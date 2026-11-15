@@ -132,6 +132,8 @@ export { memoryCommand } from './builtin/command-registry.js';
 export { preferencesCommand } from './builtin/command-registry.js';
 export { sopCommand } from './builtin/command-registry.js';
 export { learnCommand } from './builtin/command-registry.js';
+// 2026-11-15：编排模式决策只读统计（/patterns stats）
+export { patternsCommand } from './builtin/command-registry.js';
 export { hooksCommand } from './builtin/command-registry.js';
 export { mcpCommand } from './builtin/command-registry.js';
 export { pluginsCommand } from './builtin/command-registry.js';

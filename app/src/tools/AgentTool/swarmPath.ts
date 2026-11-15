@@ -133,6 +133,108 @@ export interface BuildSwarmExecutorOptions {
   taskDescriptors?: Map<string, SwarmTaskDescriptor>;
 }
 
+/** 单次 executor 调用的台账标识（worker 调用才同时具备 batchId + taskKey）。 */
+interface WorkerCallIds {
+  batchId?: string;
+  taskKey?: string;
+  agentType?: string;
+}
+
+/**
+ * O12-1 fail-closed：描述符解析失败 ⇒ 落 `failed` 行（不留 running 残留）并抛出原始原因。
+ * 抛出后由 AgentSwarm 记入 feedback（汇总行 `[FAIL] <desc>: 执行失败: <原因>` 可见）。
+ */
+async function failClosedOnDescriptorError(
+  reason: string,
+  ids: WorkerCallIds
+): Promise<never> {
+  const { batchId, taskKey, agentType } = ids;
+  if (batchId && taskKey) {
+    await getAgentRunStore().startRun({
+      toolCallId: `${batchId}::${taskKey}`,
+      agentId: batchId,
+      name: taskKey,
+      agentType: agentType ?? 'general',
+      status: 'running',
+      batchId,
+      taskKey,
+    });
+    await getAgentRunStore().settleRun(`${batchId}::${taskKey}`, 'failed', {
+      error: reason,
+    });
+  }
+  logger.warn('swarm 子任务描述符解析失败（fail-closed，不执行）', {
+    batchId: batchId ?? null,
+    taskKey: taskKey ?? null,
+    subagentType: agentType ?? null,
+    reason,
+  });
+  throw new Error(reason);
+}
+
+/**
+ * O6⑥：worker 调用开启台账行（`batchId::taskKey` 为主键）；未携带 taskKey 的调用不落。
+ */
+async function startWorkerRun(
+  ids: WorkerCallIds,
+  descriptorSource: string | undefined
+): Promise<void> {
+  const { batchId, taskKey, agentType } = ids;
+  if (!batchId || !taskKey) return;
+  await getAgentRunStore().startRun({
+    toolCallId: `${batchId}::${taskKey}`,
+    agentId: batchId,
+    name: taskKey,
+    // O12-2：落盘**真实类型**（修复前恒 'general'）
+    agentType: agentType ?? 'general',
+    // O19：来源落盘（解析链命中时才有值；未指定 subagent_type 的 worker 留空）
+    descriptorSource,
+    status: 'running',
+    batchId,
+    taskKey,
+  });
+}
+
+/**
+ * P0-B（2026-09-21）：worker 工具池**空集 fail-closed**（落 failed 行 + 告警 + 抛出）。
+ *
+ * worker 池 = `类别池（类别由 AgentSwarm 硬编码）∩ allowedTools − deniedTools`，
+ * 而 O7 两段校验用的是 `getAllTools()`（**父级全量**）⇒ "校验通过 ≠ worker 池非空"。
+ * 例：`allowedTools: ['file_write','bash']` 校验通过，但
+ * `{grep,glob,file_read} ∩ {file_write,bash}` = 空集 ⇒ 修复前 worker 会在**无任何工具**
+ * 的情况下跑满 20 轮，无警告、无降级、无报错，最后照常落 `completed`
+ *（N-41 修掉的"静默空池"在 swarm 路径的同族复现）。
+ */
+async function assertWorkerToolsetNonEmpty(args: {
+  toolset: { instances: Map<string, Tool> };
+  ids: WorkerCallIds;
+  declaredCategories?: string[];
+  allowedTools?: string[];
+  deniedTools?: string[];
+}): Promise<void> {
+  const { toolset, ids, declaredCategories, allowedTools, deniedTools } = args;
+  if (toolset.instances.size > 0) return;
+
+  const { batchId, taskKey } = ids;
+  const emptyPoolReason =
+    'worker 工具池为空：类别池与 allowedTools 无交集' +
+    `（declaredCategories=[${(declaredCategories ?? []).join(',')}]，` +
+    `allowedTools=${allowedTools ? `[${allowedTools.join(',')}]` : '未限制'}）`;
+  if (batchId && taskKey) {
+    await getAgentRunStore().settleRun(`${batchId}::${taskKey}`, 'failed', {
+      error: emptyPoolReason,
+    });
+  }
+  logger.warn('swarm worker 工具池为空（fail-closed，不执行）', {
+    batchId: batchId ?? null,
+    taskKey: taskKey ?? null,
+    declaredCategories: declaredCategories ?? null,
+    allowedTools: allowedTools ?? null,
+    deniedTools: deniedTools ?? null,
+  });
+  throw new Error(emptyPoolReason);
+}
+
 /**
  * 构造 swarm executor（O6⑥ 逐任务落盘 / O12 解析链与契约贯通）。
  *
@@ -222,47 +324,15 @@ export function buildSwarmExecutor(
     const isWorkerCall =
       taskKey !== undefined && (declaredCategories?.length ?? 0) > 0;
     const resolved = taskKey ? taskDescriptors?.get(taskKey) : undefined;
+    const ids: WorkerCallIds = { batchId, taskKey, agentType };
 
     // O12-1 fail-closed：解析失败 ⇒ 该任务**不执行**、落 `failed` 行（不留 running 残留）；
     // 抛出 ⇒ AgentSwarm 记入 feedback（汇总行 `[FAIL] <desc>: 执行失败: <原因>` 可见）
     if (resolved?.error) {
-      if (batchId && taskKey) {
-        await getAgentRunStore().startRun({
-          toolCallId: `${batchId}::${taskKey}`,
-          agentId: batchId,
-          name: taskKey,
-          agentType: agentType ?? 'general',
-          status: 'running',
-          batchId,
-          taskKey,
-        });
-        await getAgentRunStore().settleRun(`${batchId}::${taskKey}`, 'failed', {
-          error: resolved.error,
-        });
-      }
-      logger.warn('swarm 子任务描述符解析失败（fail-closed，不执行）', {
-        batchId: batchId ?? null,
-        taskKey: taskKey ?? null,
-        subagentType: agentType ?? null,
-        reason: resolved.error,
-      });
-      throw new Error(resolved.error);
+      await failClosedOnDescriptorError(resolved.error, ids);
     }
 
-    if (batchId && taskKey) {
-      await getAgentRunStore().startRun({
-        toolCallId: `${batchId}::${taskKey}`,
-        agentId: batchId,
-        name: taskKey,
-        // O12-2：落盘**真实类型**（修复前恒 'general'）
-        agentType: agentType ?? 'general',
-        // O19：来源落盘（解析链命中时才有值；未指定 subagent_type 的 worker 留空）
-        descriptorSource: resolved?.source,
-        status: 'running',
-        batchId,
-        taskKey,
-      });
-    }
+    await startWorkerRun(ids, resolved?.source);
 
     const toolset = isWorkerCall
       ? // D-48：把**该任务**的定义侧禁用项传给工具集构造（`resolved` 已按 taskKey 取到）
@@ -276,31 +346,15 @@ export function buildSwarmExecutor(
         };
 
     // P0-B（2026-09-21）：worker 工具池**空集 fail-closed**。
-    // worker 池 = `类别池（类别由 AgentSwarm 硬编码）∩ allowedTools − deniedTools`，
-    // 而 O7 两段校验用的是 `getAllTools()`（**父级全量**）⇒ "校验通过 ≠ worker 池非空"。
-    // 例：`allowedTools: ['file_write','bash']` 校验通过，但
-    // `{grep,glob,file_read} ∩ {file_write,bash}` = 空集 ⇒ 修复前 worker 会在**无任何工具**
-    // 的情况下跑满 20 轮，无警告、无降级、无报错，最后照常落 `completed`
-    //（N-41 修掉的"静默空池"在 swarm 路径的同族复现）。
     // 仅在 `isWorkerCall` 时检查：verifier / synthesizer 的 instances 本就为空，不可误伤。
-    if (isWorkerCall && toolset.instances.size === 0) {
-      const emptyPoolReason =
-        'worker 工具池为空：类别池与 allowedTools 无交集' +
-        `（declaredCategories=[${(declaredCategories ?? []).join(',')}]，` +
-        `allowedTools=${allowedTools ? `[${allowedTools.join(',')}]` : '未限制'}）`;
-      if (batchId && taskKey) {
-        await getAgentRunStore().settleRun(`${batchId}::${taskKey}`, 'failed', {
-          error: emptyPoolReason,
-        });
-      }
-      logger.warn('swarm worker 工具池为空（fail-closed，不执行）', {
-        batchId: batchId ?? null,
-        taskKey: taskKey ?? null,
-        declaredCategories: declaredCategories ?? null,
-        allowedTools: allowedTools ?? null,
-        deniedTools: deniedTools ?? null,
+    if (isWorkerCall) {
+      await assertWorkerToolsetNonEmpty({
+        toolset,
+        ids,
+        declaredCategories,
+        allowedTools,
+        deniedTools,
       });
-      throw new Error(emptyPoolReason);
     }
 
     const result = await deps.engine.execute({

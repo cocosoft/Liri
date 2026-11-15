@@ -585,12 +585,32 @@ export class LlamaCppServerManager {
     valid: boolean;
     errors: string[];
   } {
-    const errors: string[] = [];
+    // P3-2（复杂度清理）：按字段组外移（错误收集**顺序**与文案逐字未变：
+    // model → port → gpuLayers → contextWindow → kvCache → threads → batchSize →
+    // temperature → topK → topP → repeatPenalty → flashAttn）
+    const errors: string[] = [
+      ...this.validateModelPath(partial),
+      ...this.validateCapacity(partial),
+      ...this.validateRuntime(partial),
+      ...this.validateSampling(partial),
+    ];
 
+    return { valid: errors.length === 0, errors };
+  }
+
+  /** 模型路径存在性（P3-2：从 `validateConfig` 外移） */
+  private validateModelPath(partial: Partial<LlamaServerConfig>): string[] {
+    const errors: string[] = [];
     const model = partial.model ?? this.config.model;
     if (model && !existsSync(model)) {
       errors.push(`GGUF 模型不存在: ${model}`);
     }
+    return errors;
+  }
+
+  /** 端口 / 显存相关容量（端口范围、GPU 层数、上下文窗口） */
+  private validateCapacity(partial: Partial<LlamaServerConfig>): string[] {
+    const errors: string[] = [];
 
     const port = partial.port ?? this.config.port;
     if (!Number.isInteger(port) || port < 1 || port > 65535) {
@@ -607,6 +627,13 @@ export class LlamaCppServerManager {
       errors.push(`上下文窗口无效: ${contextWindow}（应 >= 512）`);
     }
 
+    return errors;
+  }
+
+  /** 运行时档位（KV cache 档位、线程数、批大小） */
+  private validateRuntime(partial: Partial<LlamaServerConfig>): string[] {
+    const errors: string[] = [];
+
     const kvCache = partial.kvCache ?? this.config.kvCache;
     if (!(kvCache in KV_CACHE_TYPE)) {
       errors.push(`KV cache 档位无效: ${kvCache}（应为 low/medium/high）`);
@@ -621,6 +648,13 @@ export class LlamaCppServerManager {
     if (!Number.isInteger(batchSize) || batchSize < 0) {
       errors.push(`批大小无效: ${batchSize}（应为 >= 0 的整数，0=自动）`);
     }
+
+    return errors;
+  }
+
+  /** 采样参数与 flash-attn（温度、top-k、top-p、repeat-penalty、flash-attn） */
+  private validateSampling(partial: Partial<LlamaServerConfig>): string[] {
+    const errors: string[] = [];
 
     const temperature = partial.temperature ?? this.config.temperature;
     if (
@@ -661,7 +695,7 @@ export class LlamaCppServerManager {
       errors.push(`flash-attn 无效: ${flashAttn}（应为 off/on/auto）`);
     }
 
-    return { valid: errors.length === 0, errors };
+    return errors;
   }
 
   /** 合并配置：configProvider → 环境变量 LLAMA_CPP_PORT/LLAMA_CPP_MODEL → 默认值 */

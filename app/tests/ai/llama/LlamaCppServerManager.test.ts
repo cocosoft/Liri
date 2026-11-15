@@ -399,6 +399,70 @@ describe('validateConfig（扩展字段校验）', () => {
     });
     expect(r.valid).toBe(true);
   });
+
+  // P3-2（复杂度清理）：补齐此前未覆盖的边界（路径存在性 / 端口 / 层数 / 上下文 /
+  // 线程 / 批大小 / repeat-penalty），并锁定**多错并发时的字段顺序**（外移分段时最易被改坏）。
+  it('边界校验：模型路径不存在与数值越界均拒绝', () => {
+    const mgr = new LlamaCppServerManager(() => ({}));
+
+    expect(
+      mgr.validateConfig({ model: '__definitely_missing__.gguf' }).errors[0]
+    ).toContain('GGUF 模型不存在');
+    expect(mgr.validateConfig({ port: 70000 }).valid).toBe(false);
+    expect(mgr.validateConfig({ port: 1.5 }).valid).toBe(false);
+    expect(mgr.validateConfig({ gpuLayers: -1 }).valid).toBe(false);
+    expect(mgr.validateConfig({ contextWindow: 511 }).valid).toBe(false);
+    expect(mgr.validateConfig({ threads: 1.5 }).valid).toBe(false);
+    expect(mgr.validateConfig({ batchSize: -1 }).valid).toBe(false);
+    expect(mgr.validateConfig({ repeatPenalty: -0.1 }).valid).toBe(false);
+  });
+
+  it('模型文件存在 ⇒ 不产生模型路径错误', () => {
+    const mgr = new LlamaCppServerManager(() => ({}));
+    const modelPath = touchValidGguf('llama-validate-ok.gguf');
+
+    const r = mgr.validateConfig({ model: modelPath });
+    expect(r.valid).toBe(true);
+  });
+
+  it('多错并发 ⇒ 按字段固定顺序收集（model → port → … → flashAttn）', () => {
+    const mgr = new LlamaCppServerManager(() => ({}));
+
+    const r = mgr.validateConfig({
+      model: '__definitely_missing__.gguf',
+      port: 0,
+      gpuLayers: -1,
+      contextWindow: 1,
+      kvCache: 'ultra' as never,
+      threads: -1,
+      batchSize: -1,
+      temperature: 9,
+      topK: 0,
+      topP: 9,
+      repeatPenalty: -1,
+      flashAttn: 'maybe' as never,
+    });
+
+    expect(r.valid).toBe(false);
+    const expectedOrder = [
+      'GGUF 模型不存在',
+      '端口无效',
+      'GPU 层数无效',
+      '上下文窗口无效',
+      'KV cache 档位无效',
+      '线程数无效',
+      '批大小无效',
+      '温度无效',
+      'top-k 无效',
+      'top-p 无效',
+      'repeat-penalty 无效',
+      'flash-attn 无效',
+    ];
+    expect(r.errors).toHaveLength(expectedOrder.length);
+    expectedOrder.forEach((msg, i) => {
+      expect(r.errors[i]).toContain(msg);
+    });
+  });
 });
 
 describe('start（拉起子进程）', () => {

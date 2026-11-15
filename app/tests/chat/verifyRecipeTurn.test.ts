@@ -30,7 +30,7 @@ const REFINE_TEXT = '帮我把这份报告多轮打磨一下';
 /** 无意图 */
 const PLAIN_TEXT = '解释一下依赖注入是什么';
 
-/** 假 ports（记录副作用次数；tail=7 ⇒ 期望 seq=8） */
+/** 假 ports（记录副作用次数；`seq` 恒为 0 = 交日志原子分配） */
 function fakePorts(over: Partial<TurnVerifyRecipePorts> = {}) {
   const calls = {
     created: 0,
@@ -50,7 +50,6 @@ function fakePorts(over: Partial<TurnVerifyRecipePorts> = {}) {
     resetVerifierConfigIfActive: () => {
       calls.reset += 1;
     },
-    getStreamTailSeq: async () => 7,
     appendStreamEvent: async (_sessionId, event) => {
       calls.events.push(event);
       return undefined;
@@ -136,7 +135,7 @@ describe('runTurnVerifyRecipe（判定 → 应用 → 落决策）', () => {
     expect(calls.events).toHaveLength(1);
     const event = calls.events[0] as LiriEvent;
     expect(event.type).toBe('pattern/decision');
-    expect(event.seq).toBe(8); // tail 7 + 1
+    expect(event.seq).toBe(0); // 交 EventLog 在 mutex 内原子分配（勿自行 tail+1）
     const data = event.data as {
       site: string;
       selected: string;

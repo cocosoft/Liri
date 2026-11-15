@@ -65,9 +65,12 @@ export interface TurnVerifyRecipePorts {
   };
   /** 撤销**已存在**循环上的配方（不新建；门控关闭 / 未命中时用） */
   resetVerifierConfigIfActive(sessionId: string): void;
-  /** 事件 seq 分配（宿主唯一入口） */
-  getStreamTailSeq(sessionId: string): Promise<number>;
-  /** 事件写入（宿主唯一入口） */
+  /**
+   * 事件写入（宿主唯一入口）。
+   *
+   * ⚠️ 事件 `seq` 必须传 **0** —— 由 `EventLog.append` 在 mutex 内**原子分配**；
+   * 若自行 `tail+1`，会与同轮紧随其后的 `turn/start` 撞号（撞号按幂等丢弃，事件静默丢失）。
+   */
   appendStreamEvent(sessionId: string, event: LiriEvent): Promise<unknown>;
 }
 
@@ -89,7 +92,6 @@ export interface TurnVerifyApplyResult {
 export interface TurnVerifyHostPorts {
   getOrCreateTAORLoop(sessionId: string): unknown;
   resetVerifierConfigIfActive(sessionId: string): void;
-  getStreamTailSeq(sessionId: string): Promise<number>;
   appendStreamEvent(sessionId: string, event: LiriEvent): Promise<unknown>;
 }
 
@@ -105,7 +107,6 @@ export function applyTurnVerifyRecipeForHost(
         host.getOrCreateTAORLoop(sid) as TurnVerifyConfigSink,
       resetVerifierConfigIfActive: (sid) =>
         host.resetVerifierConfigIfActive(sid),
-      getStreamTailSeq: (sid) => host.getStreamTailSeq(sid),
       appendStreamEvent: (sid, event) => host.appendStreamEvent(sid, event),
     },
     sessionId,
@@ -238,10 +239,11 @@ async function persistTurnVerifyDecision(
   applied: boolean
 ): Promise<void> {
   try {
-    const tail = await ports.getStreamTailSeq(sessionId);
     await ports.appendStreamEvent(sessionId, {
       type: 'pattern/decision',
-      seq: tail + 1,
+      // seq 0 ⇒ 交 `EventLog.append` 在 mutex 内原子分配（本事件与同轮 `turn/start` 相邻，
+      // 自行 `tail+1` 必撞号；撞号按幂等丢弃 ⇒ 轨迹静默丢失）
+      seq: 0,
       time: Date.now(),
       sessionId,
       data: buildTurnVerifyDecision(plan, applied),

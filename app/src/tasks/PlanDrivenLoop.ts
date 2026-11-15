@@ -1389,35 +1389,17 @@ export class PlanDrivenLoop {
       // 前驱先执行；无文本/无依赖则不注入，遵守 B2 每步独立上下文的防污染意图）
       // 13-P1-1 Step 1（2026-10-06，§20.6）：前驱 failed/skipped 而本步仍执行（soft 缺省）时，
       // 由 `buildPredecessorSummary` 改为**显式标注** [DEPENDENCY_DEGRADED]（CS03-002）。
-      const { summary: predecessorSummary, degraded: degradedDeps } =
-        buildPredecessorSummary(
-          (task.dependsOn ?? []).map((depId) => {
-            const depIdx = idxById.get(depId);
-            if (depIdx === undefined || depIdx >= subtasks.length) {
-              return { description: depId, output: '' };
-            }
-            const depStepId = this.plan?.steps[depIdx]?.id;
-            return {
-              description: subtasks[depIdx]?.description ?? depId,
-              output: depStepId ? (stepOutputs.get(depStepId) ?? '') : '',
-              status: depStatusById.get(depId),
-            };
-          })
-        );
-      const degradedNote = degradedDeps.length
-        ? `[DEPENDENCY_DEGRADED] 前驱 ${degradedDeps.join('、')} 未产出可用结果，本步在输入不完整的情况下继续执行`
-        : '';
-      if (degradedNote) {
-        logger.warn(
-          '步骤在依赖降级（前驱失败/被阻断）下继续执行（13-P1-1 Step 1）',
-          {
-            sessionId: this.sessionId,
-            planId: this.plan?.id,
-            stepId,
-            degradedDeps,
-          }
-        );
-      }
+      // P3-2（复杂度清理）：依赖前驱上下文组装外移为 `_buildStepDependencyContext`
+      //（**逐字搬迁**，注入口径与降级标注文案不变）
+      const { predecessorSummary, degradedNote } =
+        this._buildStepDependencyContext({
+          task,
+          subtasks,
+          idxById,
+          stepOutputs,
+          depStatusById,
+          stepId,
+        });
 
       let lastErr: unknown;
       // P0-2（2026-09-06）：失败类型门控重试——aborted 不重试；其余失败注入 objection 重跑 1 次
@@ -1722,6 +1704,57 @@ export class PlanDrivenLoop {
 
     this._notifyProgress();
     return 'ok';
+  }
+
+  /**
+   * P3-2（复杂度清理）：构建**依赖前驱上下文**（从 `_executeOneStep` 逐字外移）。
+   *
+   * 只注入确实已产出的前驱文本（无文本/无依赖则不注入，遵守 B2 每步独立上下文的防污染意图）；
+   * 前驱 failed/skipped 而无产出时由 `buildPredecessorSummary` 产出 `[DEPENDENCY_DEGRADED]`
+   * 标注，并在此转成一行可拼进失败文案的说明。
+   */
+  private _buildStepDependencyContext(params: {
+    task: { dependsOn?: string[] };
+    subtasks: DecompositionResult['subTasks'];
+    idxById: Map<string, number>;
+    stepOutputs: Map<string, string>;
+    depStatusById: ReadonlyMap<string, TopoTaskStatus>;
+    stepId: string;
+  }): { predecessorSummary: string; degradedNote: string } {
+    const { task, subtasks, idxById, stepOutputs, depStatusById, stepId } =
+      params;
+
+    const { summary: predecessorSummary, degraded: degradedDeps } =
+      buildPredecessorSummary(
+        (task.dependsOn ?? []).map((depId) => {
+          const depIdx = idxById.get(depId);
+          if (depIdx === undefined || depIdx >= subtasks.length) {
+            return { description: depId, output: '' };
+          }
+          const depStepId = this.plan?.steps[depIdx]?.id;
+          return {
+            description: subtasks[depIdx]?.description ?? depId,
+            output: depStepId ? (stepOutputs.get(depStepId) ?? '') : '',
+            status: depStatusById.get(depId),
+          };
+        })
+      );
+    const degradedNote = degradedDeps.length
+      ? `[DEPENDENCY_DEGRADED] 前驱 ${degradedDeps.join('、')} 未产出可用结果，本步在输入不完整的情况下继续执行`
+      : '';
+    if (degradedNote) {
+      logger.warn(
+        '步骤在依赖降级（前驱失败/被阻断）下继续执行（13-P1-1 Step 1）',
+        {
+          sessionId: this.sessionId,
+          planId: this.plan?.id,
+          stepId,
+          degradedDeps,
+        }
+      );
+    }
+
+    return { predecessorSummary, degradedNote };
   }
 
   /** 构建步骤执行的 prompt（P0-1：可注入依赖前驱产出摘要；P0-2：可携带上次失败 objection） */

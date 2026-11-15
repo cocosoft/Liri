@@ -24,7 +24,10 @@ import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@openliri/infra/error';
 import { resolveDataDir } from '@openliri/infra/environment';
 import { getSessionOwner } from '@openliri/service/execution';
-import { resolveIsolatedFileTarget } from '../utils/isolatedFileIo';
+import {
+  resolveIsolatedFileTarget,
+  type IsolatedFileTarget,
+} from '../utils/isolatedFileIo';
 import { createProjectStore } from '../../workspace/ProjectStore.js';
 import { WorkItemStore } from '../../workspace/WorkItemStore.js';
 import {
@@ -90,6 +93,117 @@ function getStores() {
  */
 function failResult(message: string, errorLevel: ErrorLevel): ToolResult<null> {
   return failProjectTool(message, errorLevel);
+}
+
+/**
+ * P3-2（复杂度清理）：**沙箱边界围栏**（从 `execute` 逐字外移）。
+ *
+ * 两条路都必须过词法围栏（`resolve` 已消解 `..`，宿主与隔离环境口径一致）：
+ * - 隔离分支：目标不在宿主，`exists/realpath` 不适用 ⇒ 只做词法围栏；
+ * - 宿主分支：sandbox 不存在则自动创建，已存在文件做 realpath 包含判定，
+ *   新文件**先**做归一化路径围栏（必须在 mkdir 之前，避免越界路径先在 sandbox 外建目录），
+ *   再逐级 realpath 校验 sandbox 之下的各级目录（T-⑥14 / T-④02 根因修复口径）。
+ *
+ * @returns 越界拒绝结果；`null` ⇒ 允许继续写入。
+ */
+function enforceSandboxBoundary(params: {
+  projectId: string;
+  targetRelative: string;
+  sandboxPath: string;
+  rawPath: string;
+  isolated: IsolatedFileTarget | null;
+  /** 越界拒绝前的 span 标记（原实现在此处置 OK，不改语义） */
+  markSpanOk: () => void;
+}): ToolResult<null> | null {
+  const {
+    projectId,
+    targetRelative,
+    sandboxPath,
+    rawPath,
+    isolated,
+    markSpanOk,
+  } = params;
+  // **词法**围栏（`resolve` 已消解 `..`）：两条路都必须过（宿主与隔离环境一致）
+  const sandboxAbs = resolve(sandboxPath);
+  const isLexicallyInside = (p: string): boolean =>
+    p === sandboxAbs ||
+    p.startsWith(sandboxAbs + '\\') ||
+    p.startsWith(sandboxAbs + '/');
+
+  // 越界拒绝：**落 `error`**（原仅写 newMessages ⇒ 载荷 null 且无 error = 失败不可判定）
+  const rejectOutOfSandbox = (): ToolResult<null> => {
+    markSpanOk();
+    logger.warn('安全拒绝：写入路径超出项目文件夹范围', {
+      projectId,
+      path: targetRelative,
+    });
+    return failResult(
+      '安全拒绝：文件路径超出项目文件夹范围',
+      ErrorLevel.RECOVERABLE
+    );
+  };
+
+  if (isolated) {
+    // 隔离分支：只做**词法**围栏（目标不在宿主，exists/realpath 校验不适用；
+    // 落点由适配器在容器/远端创建，目录由 `io.mkdir` 递归建）。
+    if (!isLexicallyInside(rawPath)) {
+      return rejectOutOfSandbox();
+    }
+    return null;
+  }
+
+  // 确保 sandbox 存在（P0-3: 不存在则自动创建，与上传接口行为对齐；
+  // 自动建项目 delaySandbox 场景首次写入时在此落点创建）
+  if (!existsSync(sandboxPath)) {
+    mkdirSync(sandboxPath, { recursive: true });
+    logger.info('自动创建项目文件夹', {
+      projectId,
+      sandboxPath,
+    });
+  }
+
+  // realpath 校验（sandbox 必须存在才能调用 realpath）
+  const realSandbox = realpathSync(sandboxPath);
+  // 路径包含判定（保留既有 `\\` / `/` 双写口径）；**sandbox 根自身视为在内**
+  const isInsideSandbox = (p: string): boolean =>
+    p === realSandbox ||
+    p.startsWith(realSandbox + '\\') ||
+    p.startsWith(realSandbox + '/');
+
+  // 如果目标文件已存在，检查是否在 sandbox 内
+  if (existsSync(rawPath)) {
+    if (!isInsideSandbox(realpathSync(rawPath))) {
+      return rejectOutOfSandbox();
+    }
+    return null;
+  }
+
+  // 新文件：**先做归一化路径围栏**——必须在 mkdir 之前，
+  // 避免越界路径被 `mkdirSync(recursive)` 先在 sandbox 外创建目录
+  if (!isLexicallyInside(rawPath)) {
+    return rejectOutOfSandbox();
+  }
+  const parentDir = dirname(rawPath);
+  if (!existsSync(parentDir)) {
+    mkdirSync(parentDir, { recursive: true });
+  }
+  // T-⑥14 / T-④02 根因修复（2026-10-03）：逐级 realpath **只校验 sandbox 之下**的各级目录。
+  // 原实现把 sandbox 根自身也纳入判定，而 `realSandbox.startsWith(realSandbox + sep)`
+  // **恒为 false** ⇒ 循环走到根时必然拒绝 ⇒ **新文件写入一律被拒**（实测该会话 40+ 次
+  // `write_project_file` 全部落此分支，返回"无 error 的空载荷"= 与 T-④02 描述的
+  // "静默失败：不抛错、返回空对象、文件不落地"逐字吻合）。
+  let checkDir = parentDir;
+  while (checkDir.length > realSandbox.length) {
+    if (existsSync(checkDir)) {
+      if (!isInsideSandbox(realpathSync(checkDir))) {
+        return rejectOutOfSandbox();
+      }
+    }
+    const next = dirname(checkDir);
+    if (next === checkDir) break;
+    checkDir = next;
+  }
+  return null;
 }
 
 export class WriteProjectFileTool {
@@ -227,84 +341,17 @@ export class WriteProjectFileTool {
           // §12.15（2026-10-23）：项目 sandbox 已被挂载进隔离环境 ⇒ 写入经适配器
           // （宿主 `node:fs` 不参与）；未挂载 / 本地工作区 ⇒ `null`，保持既有宿主路径。
           const isolated = resolveIsolatedFileTarget(rawPath);
-          // **词法**围栏（`resolve` 已消解 `..`）：两条路都必须过（宿主与隔离环境一致）
-          const sandboxAbs = resolve(sandboxPath);
-          const isLexicallyInside = (p: string): boolean =>
-            p === sandboxAbs ||
-            p.startsWith(sandboxAbs + '\\') ||
-            p.startsWith(sandboxAbs + '/');
-
-          // 越界拒绝：**落 `error`**（原仅写 newMessages ⇒ 载荷 null 且无 error = 失败不可判定）
-          const rejectOutOfSandbox = (): ToolResult<null> => {
-            span.setStatus({ code: SpanStatusCode.OK });
-            logger.warn('安全拒绝：写入路径超出项目文件夹范围', {
-              projectId,
-              path: targetRelative,
-            });
-            return failResult(
-              '安全拒绝：文件路径超出项目文件夹范围',
-              ErrorLevel.RECOVERABLE
-            );
-          };
-
-          if (isolated) {
-            // 隔离分支：只做**词法**围栏（目标不在宿主，exists/realpath 校验不适用；
-            // 落点由适配器在容器/远端创建，目录由 `io.mkdir` 递归建）。
-            if (!isLexicallyInside(rawPath)) {
-              return rejectOutOfSandbox();
-            }
-          } else {
-            // 确保 sandbox 存在（P0-3: 不存在则自动创建，与上传接口行为对齐；
-            // 自动建项目 delaySandbox 场景首次写入时在此落点创建）
-            if (!existsSync(sandboxPath)) {
-              mkdirSync(sandboxPath, { recursive: true });
-              logger.info('自动创建项目文件夹', {
-                projectId,
-                sandboxPath,
-              });
-            }
-
-            // realpath 校验（sandbox 必须存在才能调用 realpath）
-            const realSandbox = realpathSync(sandboxPath);
-            // 路径包含判定（保留既有 `\\` / `/` 双写口径）；**sandbox 根自身视为在内**
-            const isInsideSandbox = (p: string): boolean =>
-              p === realSandbox ||
-              p.startsWith(realSandbox + '\\') ||
-              p.startsWith(realSandbox + '/');
-
-            // 如果目标文件已存在，检查是否在 sandbox 内
-            if (existsSync(rawPath)) {
-              if (!isInsideSandbox(realpathSync(rawPath))) {
-                return rejectOutOfSandbox();
-              }
-            } else {
-              // 新文件：**先做归一化路径围栏**——必须在 mkdir 之前，
-              // 避免越界路径被 `mkdirSync(recursive)` 先在 sandbox 外创建目录
-              if (!isLexicallyInside(rawPath)) {
-                return rejectOutOfSandbox();
-              }
-              const parentDir = dirname(rawPath);
-              if (!existsSync(parentDir)) {
-                mkdirSync(parentDir, { recursive: true });
-              }
-              // T-⑥14 / T-④02 根因修复（2026-10-03）：逐级 realpath **只校验 sandbox 之下**的各级目录。
-              // 原实现把 sandbox 根自身也纳入判定，而 `realSandbox.startsWith(realSandbox + sep)`
-              // **恒为 false** ⇒ 循环走到根时必然拒绝 ⇒ **新文件写入一律被拒**（实测该会话 40+ 次
-              // `write_project_file` 全部落此分支，返回"无 error 的空载荷"= 与 T-④02 描述的
-              // "静默失败：不抛错、返回空对象、文件不落地"逐字吻合）。
-              let checkDir = parentDir;
-              while (checkDir.length > realSandbox.length) {
-                if (existsSync(checkDir)) {
-                  if (!isInsideSandbox(realpathSync(checkDir))) {
-                    return rejectOutOfSandbox();
-                  }
-                }
-                const next = dirname(checkDir);
-                if (next === checkDir) break;
-                checkDir = next;
-              }
-            }
-          }
+          // P3-2（复杂度清理）：越界围栏（隔离 / 宿主两条路）整体外移为
+          // `enforceSandboxBoundary(...)`（**逐字搬迁**，判定顺序与拒绝文案不变）。
+          const boundaryReject = enforceSandboxBoundary({
+            projectId,
+            targetRelative,
+            sandboxPath,
+            rawPath,
+            isolated,
+            markSpanOk: () => span.setStatus({ code: SpanStatusCode.OK }),
+          });
+          if (boundaryReject) return boundaryReject;
 
           // source_file 优先：从盘读（0 输出 token）；隔离环境下源文件也可能在环境内
           let effectiveContent: string;

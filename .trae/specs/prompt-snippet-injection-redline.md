@@ -1,6 +1,6 @@
 # Spec（红线）：`prompt_snippet` 注入面
 
-- **状态**：🟢 **S1 ~ S4 已落地**（台账/只读命令/默认关闭接线/写命令与观察期度量）；创建草稿命令未提供（见 §10.4）（2026-11-15）
+- **状态**：🟢 **S1 ~ S5 已落地**（台账 / 只读命令 / 默认关闭接线 / 写命令与观察期 / 人工撰写来源草稿）（2026-11-15）
 - **来源**：`.trae/specs/learning-feedback-loop.md` §5-M9（把学习候选变成**可注入提示片段**）
 - **性质**：本面会**直接改变模型行为** ⇒ 比 SOP / 语料更危险，单独设红线，不并入主 spec 的自动推进。
 
@@ -130,6 +130,7 @@ ps_draft ──人工 approve──▶ ps_active ──到期/撤销──▶ ps
 | **S2** | `/learn snippet list/show/preview`（只预览渲染文本，不注入） | ✅ 已落地（只读） |
 | **S3** | 装配层接一个**默认关闭**的动态段 + kill switch + 上述 G-1/G-2/G-5 | ✅ 已落地（开关关闭时零变化） |
 | **S4** | 到期惰性收口 + 观察期度量（复用 `/sop observe` 的 join 口径） | ✅ 已落地（写命令 + 惰性收口 + 观察期） |
+| **S5** | 创建草稿命令（正文由人工给出、来源必须是已批准候选） | ✅ 已落地（不自动生成正文） |
 
 > 与 M1 同款纪律：**先只读、后写；先默认关闭、后按需打开**。
 
@@ -147,6 +148,7 @@ ps_draft ──人工 approve──▶ ps_active ──到期/撤销──▶ ps
 | 8 | **kill switch 形态**（S3） | **环境变量** `LIRI_PROMPT_SNIPPET`：仅 `1` / `true` 打开；其它值（含未设置）= 关闭 |
 | 9 | **S3 作用域** | **只允许当前项目命中**：`workspaceId` 必须等于 `promptSnippetWorkspaceId()`（项目根 → 正斜杠 + 小写），创建侧必须复用同一函数 |
 | 10 | 会话内冻结（S3 偏离） | **不冻结**：片段只在批准/撤销/到期时变化，等价稳定；优先保证「撤销下一轮即生效」（§4.6），该偏离已记录 |
+| 11 | **草稿正文来源**（S5） | **必须由命令一次性给出**（`/learn snippet draft <候选id> <正文>`）；**不做**"由候选自动拼正文"（等于编造，CS04）。来源候选必须为 `lc_approved` |
 
 > 上述裁定可随时改：数值都在常量里，且有 `G-3` 单测钉住边界。
 
@@ -234,8 +236,20 @@ ps_draft ──人工 approve──▶ ps_active ──到期/撤销──▶ ps
 | 观察期 | `observe <id> [天数]`：`since = max(approvedAt, now - 天数)`，只取 `turn/quality.score`；**有低分 ⇒ flagged（优先）**、轮次 < 20 ⇒ `insufficient`、否则 `supported` |
 | 纯函数 | `summarizeSnippetObservation` / `judgeSnippetObservation`（阈值由调用方注入，单源 `SUSPICIOUS_SCORE_THRESHOLD`） |
 
-**未提供（明确记录）**：**创建草稿的斜杠命令**。片段正文必须人工撰写；由候选自动生成正文等于编造
-（CS04），因此不提供 `draft <候选id>` 自动生成路径。当前创建只能经 store API（S1），待裁定"正文由谁写"后再补命令。
+**创建草稿（S5 已补齐）**：`/learn snippet draft <候选id> <正文>` —— 正文必须由命令一次性给出，
+来源候选必须为 `lc_approved`；**不提供**"由候选自动拼正文"的路径（等于编造，CS04）。
 
 **S4 实测**：新增 3 条命令级单测（approve/revoke 与必填原因、observe 的 supported 与 flagged、
 list 惰性过期）；`/learn` 单测合计 **33 条全绿**；全量 `bun test` **12,071 pass / 44 skip / 0 fail**。
+
+### 10.5 S5 落点与验收（已实测）
+
+| 件 | 落点 |
+|---|---|
+| 命令 | `/learn snippet draft <候选id> <正文>`：来源必须是 `lc_approved`；`workspaceId` 用 `promptSnippetWorkspaceId()`（与注入侧同源） |
+| 校验 | 正文走 `validatePromptSnippet`（红线内容 ⇒ 拒绝并列出原因）；缺正文 ⇒ 用法提示 |
+| 幂等 | 内容哈希同 id ⇒ 第二次返回「草稿已存在（未重复创建）」 |
+| 不自动生成 | 无"由候选摘要拼正文"分支；证据只从候选复制（只读归因） |
+
+**S5 实测**：新增 1 条命令级单测（未批准候选拒绝 / 红线正文拒绝 / 正常创建为 `ps_draft` 且来源正确）；
+`/learn` 单测合计 **34 条全绿**；全量 `bun test` **12,072 pass / 44 skip / 0 fail**。

@@ -31,6 +31,7 @@ import {
   buildLearningCandidates,
   computeCategoryDecisions,
   computeLearningCandidateStats,
+  computePromptSnippetId,
   judgeSnippetObservation,
   LEARNING_CANDIDATE_APPROVED,
   LEARNING_CANDIDATE_PENDING,
@@ -47,10 +48,13 @@ import {
   renderPromptSnippetSection,
   suggestCategoryCutoffs,
   summarizeSnippetObservation,
+  validatePromptSnippet,
   type LearningCandidate,
   type LearningCandidateStats,
   type PromptSnippet,
 } from '@modules/tasks';
+// 片段作用域键（项目根归一）；创建与注入必须同源，避免两套键
+import { promptSnippetWorkspaceId } from '@modules/context';
 
 const LEARN_USAGE = [
   '用法：',
@@ -65,6 +69,7 @@ const LEARN_USAGE = [
   '  /learn stats              仅看统计',
   '  /learn snippet [list]     片段台账（只读）',
   '  /learn snippet show <id>  查看片段详情（来源/证据/有效期）',
+  '  /learn snippet draft <候选id> <正文> 以已批准候选为来源创建草稿（正文必须人工撰写）',
   '  /learn snippet approve <id> [审批人] 批准草稿（唯一生效动作；默认 14 天）',
   '  /learn snippet revoke <id> <原因>    撤销生效片段（下一轮即不再注入）',
   '  /learn snippet preview [项目] 预览渲染结果（只渲染，未接入装配）',
@@ -468,6 +473,7 @@ export function createLearnCommand(deps: LearnCommandDeps) {
       const [sub = 'list', ...rest] = payload.split(/\s+/);
       const arg = rest.join(' ').trim();
       if (sub === 'list' || sub === '') return this.snippetList();
+      if (sub === 'draft') return this.snippetDraft(arg);
       if (sub === 'show') return this.snippetShow(arg);
       if (sub === 'approve') return this.snippetApprove(arg);
       if (sub === 'revoke') return this.snippetRevoke(arg);
@@ -568,6 +574,55 @@ export function createLearnCommand(deps: LearnCommandDeps) {
           chars: rendered.chars,
           skipped: rendered.skipped.length,
         }
+      );
+    },
+
+    /**
+     * 创建草稿（S5）：以**已批准候选**为来源，正文必须由命令一次性给出（人工撰写）。
+     *
+     * 为什么不做自动生成：由候选摘要拼正文等于编造判据（CS04）；`text` 必填且走同一套红线校验。
+     */
+    snippetDraft(payload: string): CommandResult {
+      const [candidateId = '', ...textParts] = payload.split(/\s+/);
+      const text = textParts.join(' ').trim();
+      if (!candidateId || !text) {
+        return fail(
+          `用法：/learn snippet draft <候选id> <正文>\n${LEARN_USAGE}`
+        );
+      }
+      const found = resolveCandidate(deps.store, candidateId);
+      if (!found.candidate) return fail(found.error ?? '候选不可用');
+      const candidate = found.candidate;
+      if (candidate.status !== LEARNING_CANDIDATE_APPROVED) {
+        return fail(
+          `候选 ${candidate.id} 未批准（当前 ${candidate.status}）：片段来源必须是已批准候选`
+        );
+      }
+      const content = {
+        workspaceId: promptSnippetWorkspaceId(),
+        text,
+        sourceCandidateIds: [candidate.id],
+        evidence: [...candidate.evidence],
+        title: candidate.summary,
+      };
+      const saved = deps.snippetStore.save(content);
+      if (saved === 'invalid') {
+        const violations = validatePromptSnippet(text).violations.map(
+          (v) => v.message
+        );
+        return fail(`片段正文未通过红线：${violations.join('；')}`);
+      }
+      const id = computePromptSnippetId(content);
+      return ok(
+        [
+          saved === 'created'
+            ? `已创建草稿 ${id}`
+            : `草稿已存在：${id}（未重复创建）`,
+          `  来源候选：${candidate.id}`,
+          `  项目：${content.workspaceId}`,
+          '下一步：/learn snippet preview 查看渲染；确认无误后 /learn snippet approve <id>。',
+        ].join('\n'),
+        { id, created: saved === 'created' }
       );
     },
 

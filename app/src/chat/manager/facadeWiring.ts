@@ -746,7 +746,6 @@ export function wireChatFacades(host: FacadeWiringHost): void {
     getStreamMaxTurn: (sid) => host._eventLogStore.getStreamMaxTurn(sid),
     getToolRound: (sid) => host.getToolRound(sid),
     hasTurnEnded: (sid, turn) => host._eventLogStore.hasTurnEnded(sid, turn),
-    getStreamTailSeq: (sid) => host.getStreamTailSeq(sid),
     appendStreamEvent: (sid, event) => host.appendStreamEvent(sid, event),
     endStreamSession: (sid) => host.unifiedTracker.endStreamSession(sid),
     finishSessionMachine: (sid, reason) => {

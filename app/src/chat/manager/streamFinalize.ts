@@ -58,9 +58,7 @@ export interface StreamFinalizeDeps {
   getToolRound: (sessionId: string) => number;
   /** 该 turn 是否已写过 `turn/end`（单写者幂等守卫） */
   hasTurnEnded: (sessionId: string, turn: number) => boolean;
-  /** 事件日志尾部 seq */
-  getStreamTailSeq: (sessionId: string) => Promise<number>;
-  /** 事件写入唯一入口 */
+  /** 事件写入唯一入口（`seq` 传 0 ⇒ 由 `EventLog.append` 原子分配） */
   appendStreamEvent: (sessionId: string, event: LiriEvent) => Promise<unknown>;
   /** 停止流式水位监测（仅本会话） */
   endStreamSession: (sessionId: string) => void;

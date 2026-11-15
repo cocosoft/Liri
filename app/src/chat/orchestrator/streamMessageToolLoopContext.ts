@@ -200,7 +200,6 @@ export function buildToolLoopContext(
         sid,
         ev as Parameters<ChatOrchestratorHost['appendStreamEvent']>[1]
       ),
-    getStreamTailSeq: (sid: string) => host.getStreamTailSeq(sid),
     // A 缺口修复（2026-09-02，P3-7f 基准）：工具轮正文聚合缓冲透传——
     // 与主回复流共用同一 text-batch 缓冲，工具轮 text chunk 不再逐条落盘
     bufferTextChunk: (sid: string, messageId: string, content: string) =>

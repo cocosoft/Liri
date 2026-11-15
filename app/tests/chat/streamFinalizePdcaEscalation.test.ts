@@ -67,7 +67,6 @@ function makeDeps(capture: { payload?: unknown }): StreamFinalizeDeps {
     getStreamMaxTurn: async () => 0,
     getToolRound: () => 0,
     hasTurnEnded: () => true,
-    getStreamTailSeq: async () => 0,
     appendStreamEvent: async () => ({}),
     endStreamSession: () => {},
     finishSessionMachine: () => {},

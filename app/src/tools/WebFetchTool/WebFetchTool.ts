@@ -31,6 +31,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { checkSsrf, describeSsrfBlock } from './ssrf.js';
+// P3-2（2026-11-15）：正文读取/截断外移（纯 IO，含单测 `tests/tools/webFetchResponse.test.ts`）
+import { readResponseContent } from './webFetchResponse.js';
 import {
   describeOutboundFailure,
   outboundFetch,
@@ -313,21 +315,11 @@ export class WebFetchTool extends BaseTool {
         );
       }
 
-      const contentType = response.headers.get('content-type') || '';
-      let content: string;
-
-      if (contentType.includes('application/json')) {
-        const jsonData = await response.json();
-        content = JSON.stringify(jsonData, null, 2);
-      } else {
-        content = await response.text();
-      }
-
-      if (content.length > maxContentLength) {
-        content =
-          content.substring(0, maxContentLength) +
-          `\n\n[Content truncated. Original length: ${content.length} characters]`;
-      }
+      // P3-2（2026-11-15）：正文读取/截断外移为纯 IO 函数（`webFetchResponse.ts`，含单测）
+      const { content, contentType } = await readResponseContent(
+        response,
+        maxContentLength
+      );
 
       const responseHeaders: Record<string, string> = {};
       response.headers.forEach((value, key) => {

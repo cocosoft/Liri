@@ -130,7 +130,7 @@
 | `video_analysis` | community | —（无专属测试） |
 | `video_display` | community | —（无专属测试） |
 | `video_generate` | core | `app/tests/tools/VideoGenerateTool.test.ts`（测试文件名） |
-| `web_fetch` | core | `app/tests/tools/webFetchSsrf.test.ts`（测试文件名） |
+| `web_fetch` | core | `app/tests/tools/webFetchResponse.test.ts`（测试文件名） |
 | `web_search` | community | —（无专属测试） |
 | `worktree` | community | —（无专属测试） |
 | `write_project_file` | core | `app/tests/tools/writeProjectFile-failure.test.ts`（测试文件名） |

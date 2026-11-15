@@ -1396,7 +1396,7 @@ export async function* runStreamMessage(
             sessionId: session.id,
             data: requestTiming,
           });
-          if (timingAppend.reason && timingAppend.reason !== 'duplicate-seq') {
+          if (!timingAppend.ok) {
             logger.warn('metric/timing 事件追加失败（请求延迟）', {
               sessionId: session.id,
               reason: timingAppend.reason,

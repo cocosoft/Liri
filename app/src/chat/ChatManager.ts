@@ -1040,7 +1040,7 @@ export class ChatManagerImpl implements ChatManager {
    *
    * 实现 ChatOrchestratorHost 接口，供 streamMessageFlow 在每个 chunk yield 前调用。
    * - 失败不阻断流式（CS03）
-   * - duplicate-seq 视为正常幂等，不告警
+   * - `session-dir-missing` 视为主动放弃，不告警
    * - 首次使用时若需迁移旧数据，触发迁移
    */
   async appendStreamEvent(

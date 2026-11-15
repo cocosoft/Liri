@@ -80,11 +80,7 @@ export async function recordEvolutionApplied(params: {
       sessionId: params.sessionId,
       data,
     });
-    if (
-      !result.ok &&
-      result.reason !== 'duplicate-seq' &&
-      result.reason !== 'session-dir-missing'
-    ) {
+    if (!result.ok && result.reason !== 'session-dir-missing') {
       logger.warn('演化审计事件追加失败', {
         sessionId: params.sessionId,
         scope: params.scope,

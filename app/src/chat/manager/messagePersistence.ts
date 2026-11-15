@@ -410,7 +410,7 @@ export class ChatMessagePersistence {
    *   5. 逐条 append（不批量，避免阻塞主路径）
    *
    * 失败处理：
-   *   - append 返回 duplicate-seq：正常幂等情况，不告警
+   *   - append 返回 `session-dir-missing`：主动放弃（会话已被删除），不告警
    *   - append 返回其他失败：记 warn 日志，不抛错
    */
   async appendEventsForMessage(
@@ -533,7 +533,6 @@ export class ChatMessagePersistence {
       }
       if (
         !result.ok &&
-        result.reason !== 'duplicate-seq' &&
         // TB-14/E1-a：会话已被外部进程删除 ⇒ 主动放弃落盘，非真实写失败（不告警/不触发对账）
         result.reason !== 'session-dir-missing'
       ) {
@@ -563,7 +562,7 @@ export class ChatMessagePersistence {
         sessionId,
         data: timingData,
       });
-      if (!timingResult.ok && timingResult.reason !== 'duplicate-seq') {
+      if (!timingResult.ok) {
         logger.warn('metric/timing 事件追加失败（回合级耗时）', {
           sessionId,
           messageId: message.id,

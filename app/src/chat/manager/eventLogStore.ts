@@ -251,7 +251,7 @@ export class ChatEventLogStore {
    *
    * 实现 `ChatOrchestratorHost` 接口，供 `streamMessageFlow` 在每个 chunk yield 前调用。
    * - 失败不阻断流式（CS03）
-   * - duplicate-seq 视为正常幂等，不告警
+   * - `session-dir-missing` 视为主动放弃，不告警
    * - 首次使用时若需迁移旧数据，触发迁移
    */
   async appendStreamEvent(
@@ -283,7 +283,6 @@ export class ChatEventLogStore {
       const result = await eventLog.append(event);
       if (
         !result.ok &&
-        result.reason !== 'duplicate-seq' &&
         // TB-14/E1-a：会话已被外部进程删除 ⇒ 主动放弃落盘，非真实写失败（不告警/不触发对账）
         result.reason !== 'session-dir-missing'
       ) {

@@ -489,31 +489,9 @@ export class CronScheduler implements SchedulerLifecycle {
         name: job.name,
       });
 
-      // P2-10: Cron 防注入扫描 — 执行前检查 prompt 安全性
-      if (job.prompt) {
-        const { CronInjectionScanner } =
-          await import('@openliri/infra/chronos/CronInjectionScanner');
-        const scanner = new CronInjectionScanner();
-        const scanResult = scanner.scan(job.prompt, 'strict');
-        if (!scanResult.safe) {
-          const threatList = scanResult.threats
-            .map((t) => `${t.name}: ${t.match}`)
-            .join('; ');
-          logger.error('[CronScheduler] 注入检测拦截', {
-            jobId: job.id,
-            name: job.name,
-            threats: threatList,
-          });
-          await this.store.updateJobState(job.id, 'failed');
-          return {
-            success: false,
-            output: '',
-            finalResponse: '',
-            error: `Cron injection blocked: ${threatList}`,
-            durationMs: Date.now() - startTime,
-          };
-        }
-      }
+      // P2-10：Cron 防注入扫描（P3-2 外移为独立方法；命中即返回拦截结果）
+      const injected = await this.rejectOnInjectedPrompt(job, startTime);
+      if (injected) return injected;
 
       // P3-2: 跨进程调度锁 — 防止多实例重复触发同一任务
       const { createCronLock } = await import('../CrossProcessLock');
@@ -599,55 +577,8 @@ export class CronScheduler implements SchedulerLifecycle {
     // DB 写失败 → runJob reject → tick 的 fire-and-forget 无 .catch → unhandled rejection
     // + 执行结果未落盘。整体包 try/catch：失败记录日志不抛，结果仍返回（至少已产出）。
     try {
-      // NEW-BUG-4 fix: 从 DB 重读 consecutiveErrors，避免使用内存中的 stale 值
-      //（recoverInterruptedJobs 已通过 atomicRecoverJob 更新 DB，但 job 对象未刷新）
-      const freshJob = await this.store.getJob(job.id);
-      const prevErrorCount =
-        freshJob?.consecutiveErrors ?? job.consecutiveErrors ?? 0;
-      const prevSkippedCount =
-        freshJob?.consecutiveSkipped ?? job.consecutiveSkipped ?? 0;
-      const maxErrors = job.maxConsecutiveErrors ?? 10;
-
-      // 持久化执行结果
-      await this.store.markJobRun(job.id, result.success, result.error);
-
-      if (result.success) {
-        // 成功：重置连续错误计数
-        await this.store.updateConsecutiveErrors(job.id, 0, 0, 0);
-
-        // BUG-3 fix: 成功后计算并更新下次运行时间（was: 执行前提前更新，失败时会错过调度）
-        const nextRun = this.computeNextRun(job);
-        if (nextRun) {
-          await this.store.updateNextRun(job.id, nextRun);
-        }
-      } else {
-        // 失败：递增连续错误计数
-        const newErrors = prevErrorCount + 1;
-        await this.store.updateConsecutiveErrors(
-          job.id,
-          newErrors,
-          prevSkippedCount,
-          job.scheduleErrorCount ?? 0
-        );
-
-        // 达到阈值自动禁用
-        if (newErrors >= maxErrors) {
-          const reason = `连续失败 ${newErrors} 次（上限 ${maxErrors}）`;
-          await this.store.disableJob(job.id, reason);
-          logger.warning(`[CronScheduler] 作业已自动禁用: ${reason}`, {
-            jobId: job.id,
-            name: job.name,
-          });
-        }
-
-        // 失败告警（独立于自动禁用，提前触发）
-        if (this.alertService) {
-          this.alertService.check(job, newErrors, prevSkippedCount);
-        }
-      }
-
-      // 更新重复计数
-      await this.store.incrementRepeatCompleted(job.id);
+      // P3-2（2026-11-15）：结果落库段外移为 `persistRunOutcome`（判据集中、无投递耦合）
+      await this.persistRunOutcome(job, result);
 
       // 投递结果（静默任务跳过通知）
       let deliveryError: string | undefined;
@@ -746,6 +677,102 @@ export class CronScheduler implements SchedulerLifecycle {
       // 落盘失败不吞执行结果，仍返回给调用方（结果至少已产出）
       return result;
     }
+  }
+
+  /**
+   * P2-10：Cron 防注入扫描（从 `runJob` 外移，P3-2 降复杂度）。
+   *
+   * 命中 strict 规则 ⇒ **不执行作业**：置 `failed`、记 error 日志，并返回可直接交给调用方的
+   * 拦截结果；未命中（含无 prompt）返回 `null` 表示放行。
+   */
+  private async rejectOnInjectedPrompt(
+    job: CronJob,
+    startTime: number
+  ): Promise<CronJobResult | null> {
+    if (!job.prompt) return null;
+
+    const { CronInjectionScanner } =
+      await import('@openliri/infra/chronos/CronInjectionScanner');
+    const scanner = new CronInjectionScanner();
+    const scanResult = scanner.scan(job.prompt, 'strict');
+    if (scanResult.safe) return null;
+
+    const threatList = scanResult.threats
+      .map((t) => `${t.name}: ${t.match}`)
+      .join('; ');
+    logger.error('[CronScheduler] 注入检测拦截', {
+      jobId: job.id,
+      name: job.name,
+      threats: threatList,
+    });
+    await this.store.updateJobState(job.id, 'failed');
+    return {
+      success: false,
+      output: '',
+      finalResponse: '',
+      error: `Cron injection blocked: ${threatList}`,
+      durationMs: Date.now() - startTime,
+    };
+  }
+
+  /**
+   * 执行结果落库（从 `runJob` 外移，P3-2 降复杂度）。
+   *
+   * 顺序即契约：**先重读 DB**（NEW-BUG-4：`recoverInterruptedJobs` 经 `atomicRecoverJob` 更新过
+   * DB，内存 `job` 可能 stale）→ 写执行结果 → 成功则清零并算下次运行 / 失败则递增计数（达阈值
+   * 自动禁用 + 告警）→ 最后统一递增重复计数。
+   */
+  private async persistRunOutcome(
+    job: CronJob,
+    result: CronJobResult
+  ): Promise<void> {
+    const freshJob = await this.store.getJob(job.id);
+    const prevErrorCount =
+      freshJob?.consecutiveErrors ?? job.consecutiveErrors ?? 0;
+    const prevSkippedCount =
+      freshJob?.consecutiveSkipped ?? job.consecutiveSkipped ?? 0;
+    const maxErrors = job.maxConsecutiveErrors ?? 10;
+
+    // 持久化执行结果
+    await this.store.markJobRun(job.id, result.success, result.error);
+
+    if (result.success) {
+      // 成功：重置连续错误计数
+      await this.store.updateConsecutiveErrors(job.id, 0, 0, 0);
+
+      // BUG-3 fix: 成功后计算并更新下次运行时间（was: 执行前提前更新，失败时会错过调度）
+      const nextRun = this.computeNextRun(job);
+      if (nextRun) {
+        await this.store.updateNextRun(job.id, nextRun);
+      }
+    } else {
+      // 失败：递增连续错误计数
+      const newErrors = prevErrorCount + 1;
+      await this.store.updateConsecutiveErrors(
+        job.id,
+        newErrors,
+        prevSkippedCount,
+        job.scheduleErrorCount ?? 0
+      );
+
+      // 达到阈值自动禁用
+      if (newErrors >= maxErrors) {
+        const reason = `连续失败 ${newErrors} 次（上限 ${maxErrors}）`;
+        await this.store.disableJob(job.id, reason);
+        logger.warning(`[CronScheduler] 作业已自动禁用: ${reason}`, {
+          jobId: job.id,
+          name: job.name,
+        });
+      }
+
+      // 失败告警（独立于自动禁用，提前触发）
+      if (this.alertService) {
+        this.alertService.check(job, newErrors, prevSkippedCount);
+      }
+    }
+
+    // 更新重复计数
+    await this.store.incrementRepeatCompleted(job.id);
   }
 
   /** 带超时的作业执行 */

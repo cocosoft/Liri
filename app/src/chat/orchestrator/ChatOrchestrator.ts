@@ -273,11 +273,11 @@ export class ChatOrchestrator {
                 readEvents: (sid, query) =>
                   this.host.readSessionEvents(sid, query),
                 appendEvent: async (sid, ev) => {
-                  const tail = await this.host.getStreamTailSeq(sid);
                   await this.host.appendStreamEvent(sid, {
                     type: ev.type,
                     schemaVersion: 1,
-                    seq: tail + 1,
+                    // seq 0 ⇒ 原子分配（空闲期复核与用户新一轮并发，tail+1 会撞号被丢弃）
+                    seq: 0,
                     time: Date.now(),
                     sessionId: sid,
                     data: ev.data,

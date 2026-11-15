@@ -146,11 +146,12 @@ export class StreamingLlm {
     const { appendStreamEvent, getStreamTailSeq } = this.deps.getCtx();
     if (!appendStreamEvent || !getStreamTailSeq) return;
     try {
-      const ts = await getStreamTailSeq(this.deps.getCtx().session.id);
       await appendStreamEvent(this.deps.getCtx().session.id, {
         type,
         schemaVersion: 1,
-        seq: ts + 1,
+        // seq 0 ⇒ 原子分配（工具轮 chunk 事件与 tool/result 落盘并发，tail+1 会撞号被丢弃；
+        // 同 `streamMessageToolLoop` 的 P3-7a 口径）
+        seq: 0,
         time: Date.now(),
         sessionId: this.deps.getCtx().session.id,
         // P1-3：工具轮 chunk 事件携带预分配的 assistant 消息 id

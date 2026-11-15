@@ -217,6 +217,7 @@ export type {
 } from './evolution/learningCandidates';
 export {
   buildLearningCandidates,
+  collectRepeatTurns,
   collectTurnUserInputs,
   LEARNING_SCAN_MAX_CANDIDATES,
 } from './evolution/learningScan';

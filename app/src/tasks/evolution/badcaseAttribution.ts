@@ -22,12 +22,13 @@ import type { LiriEventMap } from '@modules/session/types/eventPayloads';
 /** `turn/quality` 事件载荷（取自事件契约，**不复制形状**） */
 export type TurnQualityPayload = LiriEventMap['turn/quality'];
 
-/** 归因类别（M1 五类；语义见 spec §3-S2） */
+/** 归因类别（六类；语义见 spec §3-S2 / §5-M10） */
 export type BadcaseCategory =
   | 'tool_failure'
   | 'retry_loop'
   | 'budget_exhausted'
   | 'verifier_reject'
+  | 'repeated_question'
   | 'low_value_answer';
 
 /** 该轮的工具观测（由 `assistant/tool_call` + `tool/result` 配对得到） */
@@ -43,6 +44,13 @@ export interface AttributionInput {
   quality: TurnQualityPayload;
   /** 该轮工具观测；缺省 ⇒ 跳过工具类判定（不猜） */
   tools?: readonly AttributionToolObservation[];
+  /**
+   * 重复提问信号（M10）：由 `user/message.replyToId` 派生 —— 同一 assistant 回答被第 N 条
+   * 用户消息指向（N ≥ 2）时，该用户消息触发的轮次记为重复提问。
+   *
+   * 缺省 ⇒ 不判定（不猜）；只认结构化字段，不做文本相似度（CS02）。
+   */
+  repeat?: { replyCount: number };
 }
 
 /** 归因结果 */
@@ -60,6 +68,9 @@ const VERDICT_REJECT = 'REJECT';
 const TOOL_THRASH_CUTOFF = 0.5;
 /** 触发"打转"判定所需的最少工具调用数（低于此数属正常多步任务） */
 const MIN_TOOL_CALLS_FOR_THRASH = 6;
+
+/** 判为「重复提问」所需的最少指向次数（同一 assistant 回答被 ≥2 条用户消息指向） */
+const REPEAT_REPLY_MIN_COUNT = 2;
 
 /** 分数格式（证据里保留两位，便于人工比对） */
 function fixed2(value: number): string {
@@ -105,6 +116,12 @@ export function attributeBadcase(input: AttributionInput): AttributionResult {
   ) {
     evidence.push('review=budget-skipped');
     return { category: 'budget_exhausted', confidence: 0.7, evidence };
+  }
+
+  // M10：同一回答被 ≥2 条用户消息追问 ⇒ 用户已在用行为表达"上一轮没答好"
+  if (input.repeat && input.repeat.replyCount >= REPEAT_REPLY_MIN_COUNT) {
+    evidence.push(`reply_to_same_answer=${input.repeat.replyCount}`);
+    return { category: 'repeated_question', confidence: 0.8, evidence };
   }
 
   if (

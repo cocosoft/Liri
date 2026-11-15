@@ -7,7 +7,7 @@
  * ③ 单提供者冻结/恢复失败**不阻断**其它提供者（CS03：只留痕）；
  * ④ 注销后不再参与；未知 kind 的旧句柄静默跳过。
  */
-import { afterEach, describe, expect, it } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import {
   freezeSessionSnapshot,
   getScopedSnapshotProviderCount,
@@ -15,6 +15,13 @@ import {
   resetScopedSnapshotProvidersForTest,
   restoreSessionSnapshot,
 } from '@openliri/infra/state/engine/sessionSnapshot';
+
+// CI（ubuntu）实测：编排装配点会把 2 个提供者注册进**全局**注册表，而 bun 各平台
+// 的文件执行顺序不同 ⇒ 首个用例的「无提供者 ⇒ null」变成顺序依赖（本地 win/mac 绿、
+// ubuntu 红，期望 0 实得 2）。判定应只依赖本文件自己的行为 ⇒ 每个用例前复位。
+beforeEach(() => {
+  resetScopedSnapshotProvidersForTest();
+});
 
 afterEach(() => {
   resetScopedSnapshotProvidersForTest();

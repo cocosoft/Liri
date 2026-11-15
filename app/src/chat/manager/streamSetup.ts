@@ -81,22 +81,8 @@ export class ChatStreamSetup {
     options?: StreamMessageOptions
   ): Promise<StreamSetupResult> {
     const deps = this.deps;
-    // 清理用户输入，防止XSS和隐藏字符攻击
-    content = recursivelySanitizeUnicode(content) as string;
-
-    // 验证输入安全性
-    const validationResult = securityService.validateInput(content);
-    if (!validationResult.valid) {
-      logger.warn('用户输入包含敏感数据，已自动脱敏处理', {
-        module: 'chat:manager',
-        action: 'streamMessage',
-      });
-      content = securityService.sanitize(content);
-      securityService.logSecurityError({
-        type: SensitiveErrorType.SENSITIVE_DATA_DETECTED,
-        message: '用户输入包含敏感数据，已自动脱敏处理',
-      });
-    }
+    // 清理用户输入 + 验证输入安全性
+    content = this._sanitizeInput(content);
 
     // 获取或创建会话
     const sessionId = options?.sessionId || deps.currentSessionId();
@@ -147,17 +133,7 @@ export class ChatStreamSetup {
     // ToolRunner 检查 / Agent 桥接）；内部 controller 仍是唯一"会话级"句柄（新请求顶替旧流语义不变）。
     // 外部 signal 随请求生命周期 GC，`once` 监听无需显式摘除。
     const externalSignal = options?.signal;
-    if (externalSignal) {
-      if (externalSignal.aborted) {
-        streamAbortController.abort(externalSignal.reason);
-      } else {
-        externalSignal.addEventListener(
-          'abort',
-          () => streamAbortController.abort(externalSignal.reason),
-          { once: true }
-        );
-      }
-    }
+    this._relayExternalSignal(streamAbortController, externalSignal);
 
     // P2-1: 初始化流式自动检查点（局部实例随流式上下文传递，非全局字段）
     const streamingCheckpoint = new StreamingAutoCheckpoint(
@@ -169,20 +145,7 @@ export class ChatStreamSetup {
     const mutex = deps.getOrCreateMutex(session.id);
 
     // 触发 ChatPreMessage Hook
-    const preMsgResult = await deps.executePreMessageHook({
-      event: 'chat.pre-message',
-      data: { message: content, sessionId: session.id },
-      sessionId: session.id,
-    });
-    for (const hr of preMsgResult.before) {
-      if (
-        hr.data &&
-        typeof hr.data === 'object' &&
-        'message' in (hr.data as Record<string, unknown>)
-      ) {
-        content = (hr.data as Record<string, string>).message;
-      }
-    }
+    content = await this._applyPreMessageHook(content, session.id);
 
     // 创建用户消息（前端写前落盘后按 id 复用，避免重复持久化）
     let userMessage: Message;
@@ -191,40 +154,7 @@ export class ChatStreamSetup {
           | Message
           | undefined)
       : undefined;
-    const prevRoundCount = session.metadata.roundCount ?? 0;
-    session.metadata.roundCount = prevRoundCount + 1;
-    const fromInternal = options?._fromInternal === true;
-    if (!fromInternal) {
-      // Buddy 成长：用户发起对话才计数（内部调用不计入，精确"用户真实对话轮数"）
-      void import('@modules/buddy')
-        .then(({ recordUserSession }) => recordUserSession())
-        .catch((err) =>
-          logger.warn('Buddy 用户对话轮次埋点失败', { error: String(err) })
-        );
-    }
-    if (fromInternal) {
-      // 现场调试断点：内部调用触发时醒目提示（默认日志级别可见）
-      logger.info(
-        '[内部调用断点] _fromInternal=true，本轮不计入 userSessions',
-        {
-          sessionId: session.id,
-          roundCountFrom: prevRoundCount,
-          roundCountTo: session.metadata.roundCount,
-          source: options?._fromInternalSource ?? 'unknown',
-        }
-      );
-    }
-    logger[fromInternal ? 'debug' : 'info']('用户对话轮次+1（流式）', {
-      sessionId: session.id,
-      roundCountFrom: prevRoundCount,
-      roundCountTo: session.metadata.roundCount,
-      model: options?.model ?? null,
-      contentLength: content.length,
-      prePersisted: !!prePersisted,
-      messageId: options?.messageId ?? null,
-      _fromInternal: options?._fromInternal ?? false,
-      source: fromInternal ? 'internal' : 'user',
-    });
+    this._bumpRoundCount(session, options, content, !!prePersisted);
     if (prePersisted) {
       userMessage = prePersisted;
     } else {
@@ -267,5 +197,118 @@ export class ChatStreamSetup {
       userMessage,
       streamSpan,
     };
+  }
+
+  /**
+   * 输入净化 + 敏感数据脱敏（从 `prepare` 原样外移）。
+   */
+  private _sanitizeInput(content: string): string {
+    // 清理用户输入，防止XSS和隐藏字符攻击
+    let sanitized = recursivelySanitizeUnicode(content) as string;
+
+    // 验证输入安全性
+    const validationResult = securityService.validateInput(sanitized);
+    if (!validationResult.valid) {
+      logger.warn('用户输入包含敏感数据，已自动脱敏处理', {
+        module: 'chat:manager',
+        action: 'streamMessage',
+      });
+      sanitized = securityService.sanitize(sanitized);
+      securityService.logSecurityError({
+        type: SensitiveErrorType.SENSITIVE_DATA_DETECTED,
+        message: '用户输入包含敏感数据，已自动脱敏处理',
+      });
+    }
+    return sanitized;
+  }
+
+  /**
+   * 外部 signal 中继到会话 controller（从 `prepare` 原样外移）。
+   */
+  private _relayExternalSignal(
+    controller: AbortController,
+    externalSignal?: AbortSignal
+  ): void {
+    if (!externalSignal) return;
+    if (externalSignal.aborted) {
+      controller.abort(externalSignal.reason);
+    } else {
+      externalSignal.addEventListener(
+        'abort',
+        () => controller.abort(externalSignal.reason),
+        { once: true }
+      );
+    }
+  }
+
+  /**
+   * 触发 ChatPreMessage Hook，取最后一处 `data.message` 作为改写后的内容
+   * （从 `prepare` 原样外移）。
+   */
+  private async _applyPreMessageHook(
+    content: string,
+    sessionId: string
+  ): Promise<string> {
+    const preMsgResult = await this.deps.executePreMessageHook({
+      event: 'chat.pre-message',
+      data: { message: content, sessionId },
+      sessionId,
+    });
+    let hooked = content;
+    for (const hr of preMsgResult.before) {
+      if (
+        hr.data &&
+        typeof hr.data === 'object' &&
+        'message' in (hr.data as Record<string, unknown>)
+      ) {
+        hooked = (hr.data as Record<string, string>).message;
+      }
+    }
+    return hooked;
+  }
+
+  /**
+   * 用户对话轮次记账 + Buddy 成长埋点 + 调试断点日志（从 `prepare` 原样外移）。
+   */
+  private _bumpRoundCount(
+    session: ChatSession,
+    options: StreamMessageOptions | undefined,
+    content: string,
+    prePersisted: boolean
+  ): void {
+    const prevRoundCount = session.metadata.roundCount ?? 0;
+    session.metadata.roundCount = prevRoundCount + 1;
+    const fromInternal = options?._fromInternal === true;
+    if (!fromInternal) {
+      // Buddy 成长：用户发起对话才计数（内部调用不计入，精确"用户真实对话轮数"）
+      void import('@modules/buddy')
+        .then(({ recordUserSession }) => recordUserSession())
+        .catch((err) =>
+          logger.warn('Buddy 用户对话轮次埋点失败', { error: String(err) })
+        );
+    }
+    if (fromInternal) {
+      // 现场调试断点：内部调用触发时醒目提示（默认日志级别可见）
+      logger.info(
+        '[内部调用断点] _fromInternal=true，本轮不计入 userSessions',
+        {
+          sessionId: session.id,
+          roundCountFrom: prevRoundCount,
+          roundCountTo: session.metadata.roundCount,
+          source: options?._fromInternalSource ?? 'unknown',
+        }
+      );
+    }
+    logger[fromInternal ? 'debug' : 'info']('用户对话轮次+1（流式）', {
+      sessionId: session.id,
+      roundCountFrom: prevRoundCount,
+      roundCountTo: session.metadata.roundCount,
+      model: options?.model ?? null,
+      contentLength: content.length,
+      prePersisted,
+      messageId: options?.messageId ?? null,
+      _fromInternal: options?._fromInternal ?? false,
+      source: fromInternal ? 'internal' : 'user',
+    });
   }
 }

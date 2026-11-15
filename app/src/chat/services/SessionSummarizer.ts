@@ -61,21 +61,7 @@ export class SessionSummarizer {
       if (!projectId) return;
 
       // S2: 惰性迁移
-      try {
-        const { ProjectItemStore } =
-          await import('../../workspace/ProjectItemStore.js');
-        const itemStore = new ProjectItemStore(projectId);
-        if (itemStore.needsMigration()) {
-          await itemStore.initialize();
-          const { migrated } = await itemStore.migrateFromLegacy();
-          if (migrated > 0) {
-            logger.info('S2 惰性迁移完成', { projectId, migrated });
-          }
-          await itemStore.close();
-        }
-      } catch {
-        /* 迁移失败不影响 */
-      }
+      await this._migrateLegacyIfNeeded(projectId);
 
       const messages = session.messages ?? [];
       let lastUserContent = '';
@@ -133,60 +119,14 @@ export class SessionSummarizer {
       }
 
       // ─── 1. 会话摘要（LLM 优先，提取式兜底） ───
-      const userBrief = lastUserContent.slice(0, 500).replace(/\n/g, ' ');
-      const aiBrief = assistantContent.slice(0, 500).replace(/\n/g, ' ');
-
-      let summary = lastUserContent
-        ? `用户问"${userBrief.slice(0, 80)}${lastUserContent.length > 80 ? '...' : ''}" — AI 回应：${aiBrief.slice(0, 120)}${assistantContent.length > 120 ? '...' : ''}`
-        : aiBrief.slice(0, 200);
-
-      // 尝试 LLM 摘要
-      if (this.llmClient) {
-        const _summarizeStart = Date.now();
-        try {
-          const llmResponse = await this.llmClient.chat([
-            {
-              role: 'system' as const,
-              content:
-                '你是一个项目助理。用1-2句话概括以下对话的核心内容（不含任何前缀，直接输出摘要）：',
-            },
-            {
-              role: 'user' as const,
-              content: `用户：${userBrief}\nAI：${aiBrief}`,
-            },
-          ]);
-          // Token 追踪：ToolAwareClient.chat 直调 provider 不经过 Pipeline，需显式上报
-          void trackUsage(llmResponse, {
-            model: extractModelFromResponse(llmResponse, 'unknown'),
-            providerId: this.llmClient.providerId,
-            latencyMs: Date.now() - _summarizeStart,
-            sessionId: session.id,
-          });
-          const llmSummary = (llmResponse.content as string)?.trim();
-          if (llmSummary && llmSummary.length > 5) {
-            summary = llmSummary;
-          }
-        } catch (llmErr) {
-          // KB-SUMM-LLM（2026-08-29）：LLM 摘要失败回退提取式——质量降级事件需可排查
-          logger.warn('LLM 摘要生成失败，回退提取式', {
-            sessionId: session.id,
-            error: llmErr instanceof Error ? llmErr.message : String(llmErr),
-          });
-        }
-      }
+      const summary = await this._generateSessionSummary(
+        session.id,
+        lastUserContent,
+        assistantContent
+      );
 
       // ─── 2. 决策检测 ───
-      let decision: string | null = null;
-      const decisionKeywords =
-        /(决定|选择|采用|确定|选定)(?!不了|不下来|哪个|什么|谁|怎样|如何)/;
-      if (decisionKeywords.test(lastUserContent)) {
-        const decisionMatch = lastUserContent.match(
-          /(?:决定|选择|采用|确定|选定).{0,50}/
-        );
-        if (decisionMatch) {
-          decision = `用户决定：${decisionMatch[0].slice(0, 100)}`;
-        }
-      }
+      const decision = this._detectDecision(lastUserContent);
 
       // ─── 3. 持久化 ───
       const entry: SummaryEntry = {
@@ -292,6 +232,92 @@ ${llmPhaseSummary}`;
         /* span 可能已结束 */
       }
     }
+  }
+
+  /**
+   * S2：惰性迁移（从 `summarize` 原样外移）。迁移失败不影响摘要主流程。
+   */
+  private async _migrateLegacyIfNeeded(projectId: string): Promise<void> {
+    try {
+      const { ProjectItemStore } =
+        await import('../../workspace/ProjectItemStore.js');
+      const itemStore = new ProjectItemStore(projectId);
+      if (itemStore.needsMigration()) {
+        await itemStore.initialize();
+        const { migrated } = await itemStore.migrateFromLegacy();
+        if (migrated > 0) {
+          logger.info('S2 惰性迁移完成', { projectId, migrated });
+        }
+        await itemStore.close();
+      }
+    } catch {
+      /* 迁移失败不影响 */
+    }
+  }
+
+  /**
+   * 1. 会话摘要：LLM 优先，提取式兜底（从 `summarize` 原样外移）。
+   */
+  private async _generateSessionSummary(
+    sessionId: string,
+    lastUserContent: string,
+    assistantContent: string
+  ): Promise<string> {
+    const userBrief = lastUserContent.slice(0, 500).replace(/\n/g, ' ');
+    const aiBrief = assistantContent.slice(0, 500).replace(/\n/g, ' ');
+
+    let summary = lastUserContent
+      ? `用户问"${userBrief.slice(0, 80)}${lastUserContent.length > 80 ? '...' : ''}" — AI 回应：${aiBrief.slice(0, 120)}${assistantContent.length > 120 ? '...' : ''}`
+      : aiBrief.slice(0, 200);
+
+    // 尝试 LLM 摘要
+    if (this.llmClient) {
+      const _summarizeStart = Date.now();
+      try {
+        const llmResponse = await this.llmClient.chat([
+          {
+            role: 'system' as const,
+            content:
+              '你是一个项目助理。用1-2句话概括以下对话的核心内容（不含任何前缀，直接输出摘要）：',
+          },
+          {
+            role: 'user' as const,
+            content: `用户：${userBrief}\nAI：${aiBrief}`,
+          },
+        ]);
+        // Token 追踪：ToolAwareClient.chat 直调 provider 不经过 Pipeline，需显式上报
+        void trackUsage(llmResponse, {
+          model: extractModelFromResponse(llmResponse, 'unknown'),
+          providerId: this.llmClient.providerId,
+          latencyMs: Date.now() - _summarizeStart,
+          sessionId,
+        });
+        const llmSummary = (llmResponse.content as string)?.trim();
+        if (llmSummary && llmSummary.length > 5) {
+          summary = llmSummary;
+        }
+      } catch (llmErr) {
+        // KB-SUMM-LLM（2026-08-29）：LLM 摘要失败回退提取式——质量降级事件需可排查
+        logger.warn('LLM 摘要生成失败，回退提取式', {
+          sessionId,
+          error: llmErr instanceof Error ? llmErr.message : String(llmErr),
+        });
+      }
+    }
+    return summary;
+  }
+
+  /**
+   * 2. 决策检测（从 `summarize` 原样外移，判定正则未改动）。
+   */
+  private _detectDecision(lastUserContent: string): string | null {
+    const decisionKeywords =
+      /(决定|选择|采用|确定|选定)(?!不了|不下来|哪个|什么|谁|怎样|如何)/;
+    if (!decisionKeywords.test(lastUserContent)) return null;
+    const decisionMatch = lastUserContent.match(
+      /(?:决定|选择|采用|确定|选定).{0,50}/
+    );
+    return decisionMatch ? `用户决定：${decisionMatch[0].slice(0, 100)}` : null;
   }
 
   /**

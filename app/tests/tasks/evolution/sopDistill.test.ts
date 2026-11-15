@@ -24,6 +24,7 @@ import {
   buildSopDraft,
   buildSopMarkdown,
   distillSopDrafts,
+  type SopDraftContent,
   type SopTrajectory,
 } from '../../../src/tasks/evolution/sopDistill';
 import {
@@ -37,9 +38,25 @@ import {
   readCompletedPlanTrajectories,
   toSopTrajectory,
 } from '../../../src/tasks/evolution/sopPlanSource';
+import type { LiriEvent } from '@modules/session/types/events';
 import { createSopCommand } from '../../../src/commands/builtin/sop/Sop';
 
 const tempDirs: string[] = [];
+
+/** `/sop` 命令依赖；观察期度量（M7）在 D10 用例里不参与 ⇒ 默认给空实现 */
+function makeSopCommand(
+  store: SopDraftStore,
+  distill: (limit: number) => SopDraftContent[],
+  observe: { sessions?: string[]; events?: LiriEvent[] } = {}
+) {
+  return createSopCommand({
+    store,
+    distill,
+    listSessionIds: async () => observe.sessions ?? [],
+    readEvents: async () => observe.events ?? [],
+    readScoreCutoff: async () => 0.45,
+  });
+}
 
 function makeDirs(): { drafts: string; skills: string } {
   const root = mkdtempSync(join(tmpdir(), 'sop-draft-'));
@@ -224,10 +241,9 @@ describe('/sop 命令：HITL 全链路（注入临时目录）', () => {
   it('distill → list → reject → stats；approve 才写技能', async () => {
     const { drafts, skills } = makeDirs();
     const store = new SopDraftStore(drafts, skills);
-    const command = createSopCommand({
-      store,
-      distill: (limit) => distillSopDrafts([TRAJECTORY], limit),
-    });
+    const command = makeSopCommand(store, (limit) =>
+      distillSopDrafts([TRAJECTORY], limit)
+    );
 
     const distilled = await command.execute('distill 3', {} as never);
     expect(distilled.success).toBe(true);
@@ -248,10 +264,9 @@ describe('/sop 命令：HITL 全链路（注入临时目录）', () => {
   it('批准写入技能；已拒绝的草案不可再批准', async () => {
     const { drafts, skills } = makeDirs();
     const store = new SopDraftStore(drafts, skills);
-    const command = createSopCommand({
-      store,
-      distill: (limit) => distillSopDrafts([TRAJECTORY], limit),
-    });
+    const command = makeSopCommand(store, (limit) =>
+      distillSopDrafts([TRAJECTORY], limit)
+    );
     await command.execute('distill', {} as never);
     const draft = store.list()[0];
 
@@ -270,10 +285,7 @@ describe('/sop 命令：HITL 全链路（注入临时目录）', () => {
 
   it('无成功轨迹时如实报告（不伪造草案）', async () => {
     const { drafts, skills } = makeDirs();
-    const command = createSopCommand({
-      store: new SopDraftStore(drafts, skills),
-      distill: () => [],
-    });
+    const command = makeSopCommand(new SopDraftStore(drafts, skills), () => []);
     const result = await command.execute('distill', {} as never);
     expect(result.success).toBe(true);
     expect(result.message).toContain('未找到可蒸馏的成功轨迹');

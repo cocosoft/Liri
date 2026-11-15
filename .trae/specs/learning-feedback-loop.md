@@ -321,7 +321,7 @@
 
 | 项 | 判据 | 状态 |
 |---|---|---|
-| 归因可解释 | 每条候选 `evidence` 非空；6 类各 1 例 | ✅ |
+| 归因可解释 | 每条候选 `evidence` ≥ 1 条，且每条形如 `sessionId#turnNumber`（可定位到事件）；**6 类各 1 例**，类别名逐字命中 `LearningCategory` 枚举值（如 `repeated_question` / `tool_error_loop`） | ✅ |
 | 状态词汇合规 | 只用 `lc_*` 前缀；命令层不写 `'error'`/`'text'` 等词汇表裸字面量 | ✅ |
 | 数据落盘 | 写入后可重读；`save` 幂等且不改写已决状态 | ✅ |
 | 批准前置 | 未 `verified` 的 `approve` 返回 `null` 且不写种子（命令层明确报错） | ✅ |

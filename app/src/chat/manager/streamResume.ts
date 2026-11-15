@@ -164,6 +164,89 @@ export interface StreamResumeDeps {
   ) => Record<string, unknown>[];
 }
 
+/**
+ * P3-2（复杂度清理）：**重建剩余工具调用**（从 `resume` 逐字外移）。
+ *
+ * 语义未变：从后往前找最后一条声明了 `tool_calls` 的 assistant 消息，按
+ * `completedToolCallIds`（已答）与 `awaitingApprovalIds`（待审批仍需重放）筛出候选，
+ * 再逐个问宿主「这张卡是否仍未处理」——**全部仍未落定则本次整体不重放**
+ * （否则同指纹复用 Inbox 项 + 重复写 `awaiting_approval` ⇒ 前端重复审批卡）。
+ */
+async function rebuildRemainingToolCalls(params: {
+  sessionId: string;
+  messages: Message[];
+  completedToolCallIds: string[];
+  awaitingApprovalIds: ReadonlySet<string>;
+  isAwaitingUserApproval: StreamResumeDeps['isAwaitingUserApproval'];
+}): Promise<{
+  accumulatedContent: string;
+  remainingToolCalls: ParsedToolCall[];
+  stillWaitingApproval: number;
+}> {
+  const {
+    sessionId,
+    messages,
+    completedToolCallIds,
+    awaitingApprovalIds,
+    isAwaitingUserApproval,
+  } = params;
+
+  let accumulatedContent = '';
+  let remainingToolCalls: ParsedToolCall[] = [];
+  // 2026-11-12（真机 `session_mwcyhmmpd44e93b602` / `session_mwd5mp8jd5fe8bce9c`）：
+  // **剩余调用全部仍被未处理的审批卡挡住时，本次续跑整体空转**（不重放）。原实现无条件重放
+  // ⇒ 续跑（含 `resumeCoalescer` 的补跑一波）再执行一次 ⇒ 同指纹复用同一 Inbox 项 +
+  // 再写一条 `awaiting_approval` tool/result（新 messageId）⇒ 前端重复审批卡。
+  // 混合场景沿用原口径（见 `planToolReplay` 注释）。
+  let stillWaitingApproval = 0;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (msg.role !== 'assistant') continue;
+    // N-15：声明可能在 `metadata.tool_calls`，也可能只在顶层 `tool_calls`（事件派生消息）⇒
+    // 统一走 `declaredToolCallsOf`，否则重建不出剩余调用（续跑"所有工具已完成"假象）。
+    const declared = declaredToolCallsOf(msg);
+    if (!declared) continue;
+    const tcs = declared as Array<{
+      id: string;
+      type: string;
+      function: { name: string; arguments: string };
+    }>;
+    const candidates = tcs.filter(
+      (tc) =>
+        !completedToolCallIds.includes(tc.id) || awaitingApprovalIds.has(tc.id)
+    );
+    // 逐个问宿主：这张卡是否仍未处理（检查点可能不含 `awaiting_approval` 结果 ⇒ 不能只靠本地标记）
+    const blockedIds = new Set<string>();
+    for (const tc of candidates) {
+      const args =
+        typeof tc.function.arguments === 'string'
+          ? JSON.parse(tc.function.arguments)
+          : tc.function.arguments;
+      const awaiting = await isAwaitingUserApproval({
+        id: tc.id,
+        name: tc.function.name,
+        arguments: args,
+        sessionId,
+      });
+      if (awaiting) blockedIds.add(tc.id);
+    }
+    const plan = planToolReplay(candidates, blockedIds);
+    stillWaitingApproval = plan.skippedPendingCount;
+    remainingToolCalls = plan.replay.map((tc) => ({
+      id: tc.id,
+      name: tc.function.name,
+      arguments:
+        typeof tc.function.arguments === 'string'
+          ? JSON.parse(tc.function.arguments)
+          : tc.function.arguments,
+    }));
+    accumulatedContent = typeof msg.content === 'string' ? msg.content : '';
+    break;
+  }
+
+  return { accumulatedContent, remainingToolCalls, stillWaitingApproval };
+}
+
 export class ChatStreamResume {
   constructor(private readonly deps: StreamResumeDeps) {}
 
@@ -268,8 +351,6 @@ export class ChatStreamResume {
       deps.sessionAbortControllers.set(sessionId, streamAbortController);
 
       // 3. 找到最后一条含 tool_calls 的 assistant 消息，提取剩余工具
-      let accumulatedContent = '';
-      let remainingToolCalls: ParsedToolCall[] = [];
       // 2026-11-06（审批根因簇 P0-1）：`awaiting_approval` 的 tool/result 虽已落盘，
       // 但**不是终态**——审批通过后必须重放。原实现只按 completedToolCallIds 过滤，
       // 而待审批调用的结果以"成功形状"落盘 ⇒ 被视为已完成 ⇒ 日志打印
@@ -277,57 +358,15 @@ export class ChatStreamResume {
       const awaitingApprovalIds = extractAwaitingApprovalToolCallIds(
         session.messages
       );
-      // 2026-11-12（真机 `session_mwcyhmmpd44e93b602` / `session_mwd5mp8jd5fe8bce9c`）：
-      // **剩余调用全部仍被未处理的审批卡挡住时，本次续跑整体空转**（不重放）。原实现无条件重放
-      // ⇒ 续跑（含 `resumeCoalescer` 的补跑一波）再执行一次 ⇒ 同指纹复用同一 Inbox 项 +
-      // 再写一条 `awaiting_approval` tool/result（新 messageId）⇒ 前端重复审批卡。
-      // 混合场景沿用原口径（见 `planToolReplay` 注释）。
-      let stillWaitingApproval = 0;
-      for (let i = session.messages.length - 1; i >= 0; i--) {
-        const msg = session.messages[i];
-        if (msg.role !== 'assistant') continue;
-        // N-15：声明可能在 `metadata.tool_calls`，也可能只在顶层 `tool_calls`（事件派生消息）⇒
-        // 统一走 `declaredToolCallsOf`，否则重建不出剩余调用（续跑"所有工具已完成"假象）。
-        const declared = declaredToolCallsOf(msg);
-        if (!declared) continue;
-        const tcs = declared as Array<{
-          id: string;
-          type: string;
-          function: { name: string; arguments: string };
-        }>;
-        const candidates = tcs.filter(
-          (tc) =>
-            !completedToolCallIds.includes(tc.id) ||
-            awaitingApprovalIds.has(tc.id)
-        );
-        // 逐个问宿主：这张卡是否仍未处理（检查点可能不含 `awaiting_approval` 结果 ⇒ 不能只靠本地标记）
-        const blockedIds = new Set<string>();
-        for (const tc of candidates) {
-          const args =
-            typeof tc.function.arguments === 'string'
-              ? JSON.parse(tc.function.arguments)
-              : tc.function.arguments;
-          const awaiting = await deps.isAwaitingUserApproval({
-            id: tc.id,
-            name: tc.function.name,
-            arguments: args,
-            sessionId,
-          });
-          if (awaiting) blockedIds.add(tc.id);
-        }
-        const plan = planToolReplay(candidates, blockedIds);
-        stillWaitingApproval = plan.skippedPendingCount;
-        remainingToolCalls = plan.replay.map((tc) => ({
-          id: tc.id,
-          name: tc.function.name,
-          arguments:
-            typeof tc.function.arguments === 'string'
-              ? JSON.parse(tc.function.arguments)
-              : tc.function.arguments,
-        }));
-        accumulatedContent = typeof msg.content === 'string' ? msg.content : '';
-        break;
-      }
+      // P3-2（复杂度清理）：剩余调用重建外移为 `rebuildRemainingToolCalls`（**逐字搬迁**）
+      const { accumulatedContent, remainingToolCalls, stillWaitingApproval } =
+        await rebuildRemainingToolCalls({
+          sessionId,
+          messages: session.messages,
+          completedToolCallIds,
+          awaitingApprovalIds,
+          isAwaitingUserApproval: deps.isAwaitingUserApproval,
+        });
 
       if (remainingToolCalls.length === 0) {
         if (stillWaitingApproval > 0) {

@@ -15,10 +15,10 @@
 
 外层 `ChatEventLogStore.appendStreamEvent()` 另加一种：`exception`（L315–L322）。
 
-**关键订正**：`duplicate-seq` / `out-of-order` **今天已不存在** —— H11 起 seq 冲突走「自动纠正」（L667–L704，`logger.warn` 后重分配），不丢事件。但两处口径仍是旧的：
+**关键订正**：`duplicate-seq` / `out-of-order` **今天已不存在** —— H11 起 seq 冲突走「自动纠正」（L667–L704，`logger.warn` 后重分配），不丢事件。审计时发现两处口径仍是旧的（**均已按 §3-F4 修正**）：
 
-- 文件头守卫说明（L12–L14）仍写「拒绝并返回 duplicate-seq/out-of-order」「重复 seq 幂等，文件不变」；
-- `appendStreamEvent` 仍保留死条件 `result.reason !== 'duplicate-seq'`（L284–L289）——该 reason 在当前实现中**永不产生**（全仓 `reason: 'duplicate-seq'` 命中 0 处）。
+- 文件头守卫说明（L12–L14）曾写「拒绝并返回 duplicate-seq/out-of-order」「重复 seq 幂等，文件不变」；
+- `appendStreamEvent` 曾保留死条件 `result.reason !== 'duplicate-seq'`（L284–L289）——该 reason 在当前实现中**永不产生**（全仓 `reason: 'duplicate-seq'` 命中 0 处）。
 
 ## §2 逐点判定
 
@@ -34,12 +34,28 @@
 | D8 | `EventLogStorage.ts:1086-1116` + `MessageToEventMigrator.ts:257-274` | `appendBatch` 部分拒绝 | 由调用方判定 | migrator 已 `logger.error` + 清理半成品 | 合法 |
 | D9 | `client/src` 事件回放 | 未穷尽（`getStreamMaxTurn` 注释提到历史「重复回放整块丢弃」） | 待查 | 待查 | **未覆盖**（见 §4） |
 
-## §3 建议修复（最小改动）
+## §3 处置与落地状态（2026-11-15）
 
-- **F1（对应 D1/D2）**：`invalid-event` 从「只 warn」升级为 `handleError(AppError, HIGH, EVENT_APPEND_INVALID)`，与 `write-error` 同一条观测链；错误码区分「载荷不可序列化」与「未知事件类型」。
-- **F2（对应 D5）**：至少让**模型可见输入类**事件（`user/message`、`assistant/*`、`tool/result`、`context/*`）在 `ok === false` 时进入同一告警链，而非依赖调用点自觉。
-- **F3（对应 D6）**：把「缓冲合并」写进 `project_rules.md` §1.6 的允许形态（合并 ≠ 丢弃，flush 后仍有等价内容）。
-- **F4（对应 D7）**：重写 `EventLogStorage` 头部守卫注释；删除 `appendStreamEvent` 的死条件 `duplicate-seq`。
+- **F1（D1/D2）已实施**：`invalid-event` 改为走告警链 —— 新增
+  `packages/service/src/session/storage/eventAppendRejection.ts#reportInvalidAppend()`
+  （日志 + `AppError(VALIDATION, HIGH)` → `handleError` ⇒ ErrorTracker / OTel / `error:occurred`），
+  错误码区分 `EVENT_APPEND_INVALID_PAYLOAD` 与 `EVENT_APPEND_UNKNOWN_TYPE`。
+  外置为独立模块的原因：`EventLogStorage.ts` 原为 1998 行（R04-001 上限 2000），内联会把文件撑破。
+- **F4（D7）已实施**：重写 `EventLogStorage` 头部守卫说明与 `append()` JSDoc；从
+  `EventLogAppendResult.reason` 联合移除 `'duplicate-seq' | 'out-of-order'`，并清掉 9 处
+  「`reason !== 'duplicate-seq'`」死条件（`eventLogStore` / `messagePersistence` /
+  `streamMessageFlow` / `GoalEvents` / `EvolutionAudit` / `SelfWakeAudit` /
+  `YieldRecoveryAudit` / `RequestSnapshotService` / `WorkflowRunEvents`）。
+  类型一旦收窄，残留比较会直接编译失败（防回流）。
+- **F2（D5）未做**：模型可见输入在 `ok === false` 时统一升级告警需先定「哪些类型算模型可见」的口径，
+  留给下一档。
+- **F3（D6）未做**：「缓冲合并 ≠ 丢弃」尚未写进 `project_rules.md` §1.6。
+
+### 未加回归用例（如实）
+
+`reportInvalidAppend` 的观测面是 `handleError`/ErrorTracker，仓库内**无** mock 该模块的既有范式
+（grep `mock.module('@openliri/infra/error')` 命中 0），为此新建一套 mock 基建属过度工程 ⇒
+本次以「返回契约不变（`ok:false` + `reason:'invalid-event'`）」+ typecheck 作为验收，观测面待真机日志复核。
 
 ## §4 如实边界（未覆盖）
 

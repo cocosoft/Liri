@@ -149,7 +149,7 @@ async function appendRunEvent<T extends WorkflowRunEventType>(
       sessionId,
       data,
     });
-    if (!result.ok && result.reason !== 'duplicate-seq') {
+    if (!result.ok) {
       logger.warn('工作流事件追加失败', {
         sessionId,
         type,

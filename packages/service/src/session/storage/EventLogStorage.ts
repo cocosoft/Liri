@@ -8,10 +8,11 @@
  * 存储路径：~/.pyapp/data/sessions/<worktreeHash>/<sessionId>/events.jsonl
  * 格式：每行一个 LiriEvent 的 JSON（JSONL）
  *
- * 守卫规则：
- *   1. append(event)：若 event.seq <= tailSeq，拒绝并返回 duplicate-seq/out-of-order
- *   2. 重复 seq 写入幂等（返回 duplicate-seq，文件不变）
- *   3. 乱序 seq（小于 tailSeq）拒绝
+ * 守卫规则（2026-11-15 订正：原文写「重复/乱序 seq 拒绝」，与 H11 起的实现不符）：
+ *   1. `seq <= 0` → mutex 内原子分配；`0 < seq <= tailSeq` → **自动纠正**（`logger.warn`），
+ *      **不丢弃**事件，`data.callSeq` 同步改写（A1 闭环：callSeq 恒等于事件 seq）
+ *   2. 故 `duplicate-seq` / `out-of-order` **不再产生**；失败原因只有 `invalid-event` /
+ *      `session-dir-missing` / `write-error`
  *
  * 性能：
  *   - tailSeq 内存缓存（懒加载），避免每次 append 读盘
@@ -54,6 +55,7 @@ import {
 import { EventLogRepair, trackTurnLifecycle } from './EventLogRepair';
 // P1-3（2026-11-04）：文件级单写者队列（同一 events.jsonl 的多实例串行）
 import { enqueueFileWrite } from './fileWriteQueue';
+import { reportInvalidAppend } from './eventAppendRejection';
 import {
   eventFilePathsInOrder,
   hasEventData,
@@ -147,10 +149,8 @@ export interface EventLogQuery {
 export interface EventLogAppendResult {
   /** 是否成功 */
   ok: boolean;
-  /** 失败原因 */
+  /** 失败原因（`duplicate-seq` / `out-of-order` 已不存在：seq 冲突走自动纠正，不拒绝） */
   reason?:
-    | 'duplicate-seq'
-    | 'out-of-order'
     | 'write-error'
     | 'invalid-event'
     /** TB-14/E1-a：会话目录已不存在（被外部进程软删除）⇒ 主动放弃落盘，非真实写失败 */
@@ -557,7 +557,7 @@ export class EventLogStorage {
    * 追加一个事件
    *
    * 守卫：
-   *   - seq <= tailSeq → 返回 duplicate-seq 或 out-of-order，文件不变
+   *   - `seq <= 0` → mutex 内原子分配；`0 < seq <= tailSeq` → 自动纠正（**不丢事件**）
    *   - 写入失败 → 返回 write-error，不抛错
    *
    * 并发：
@@ -585,12 +585,12 @@ export class EventLogStorage {
         // ② 冻结对象与落盘对象一致，杜绝内存/磁盘不一致（数出同源）
         const sanitized = sanitizeEvent(event);
         if (!sanitized.ok) {
-          logger.warn('event-log: 事件未通过无损 JSON 校验，拒绝写入', {
-            sessionId: this.sessionId,
-            eventSeq: event.seq,
-            eventType: event.type,
-            reason: sanitized.reason,
-          });
+          reportInvalidAppend(
+            this.sessionId,
+            event,
+            sanitized.reason ?? '未能给出原因',
+            'EVENT_APPEND_INVALID_PAYLOAD'
+          );
           const tailSeq = await this.getTailSeq();
           return { ok: false, reason: 'invalid-event', tailSeq };
         }
@@ -600,12 +600,12 @@ export class EventLogStorage {
         // （TS 层已保证类型，此处防御运行时动态构造的事件）
         const writable = assertEventWritable(frozen);
         if (!writable.ok) {
-          logger.warn('event-log: 写入未知事件类型，拒绝写入', {
-            sessionId: this.sessionId,
-            eventSeq: frozen.seq,
-            eventType: frozen.type,
-            reason: writable.reason,
-          });
+          reportInvalidAppend(
+            this.sessionId,
+            frozen,
+            writable.reason,
+            'EVENT_APPEND_UNKNOWN_TYPE'
+          );
           const tailSeq = await this.getTailSeq();
           return { ok: false, reason: 'invalid-event', tailSeq };
         }

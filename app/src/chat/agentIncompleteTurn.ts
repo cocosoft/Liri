@@ -175,6 +175,41 @@ export interface AgentIncompleteTurnDeps {
   setPhaseOutputBudgetExhausted: () => void;
 }
 
+/** 不完整回合类别（`null` = 完整回合） */
+type IncompleteTurnKind =
+  | 'empty'
+  | 'reasoning'
+  | 'planning'
+  | 'truncated'
+  | 'malformed'
+  | null;
+
+/**
+ * 不完整回合**分类**（从 `onIncompleteTurn` 外移，纯函数、判据顺序逐字不变；P3-2 降复杂度）。
+ *
+ * 判据顺序即优先级（先前置者胜出）：
+ *   ① 截断（`finishReason=max_tokens`）
+ *   ② 正文是工具调用标记残渣
+ *   ③ 空回复 / ④ 只思考无可见答案 / ⑤ 只计划不行动
+ */
+function classifyIncompleteTurn(
+  result: ReasonResult<ToolLoopContext>,
+  text: string,
+  hadThinking: boolean
+): IncompleteTurnKind {
+  // 修复（2026-09-03）：输出被长度限制截断（finishReason=max_tokens）是最常见的
+  // "任务中断"伪装——模型没写完就被预算打断且未产出 tool_calls。此前该信号被
+  // reason() 改写为 'stop' 且此处无截断分支 → 直接 finalize → 用户看到"才提要求就中断"。
+  if (result.finishReason === 'max_tokens') return 'truncated';
+  // 2026-11-06：工具调用被写成正文标记（DSML 残渣 / `<bash">`）⇒ 本轮零工具执行，
+  // 正文是垃圾。旧判据会当"已完成"直接交付，且这段垃圾还会被 PDCA 当成任务描述。
+  if (LEAKED_TOOL_MARKUP_RE.test(text)) return 'malformed';
+  if (!text && !hadThinking) return 'empty'; // 空回复
+  if (!text && hadThinking) return 'reasoning'; // 只思考未给出可见答案
+  if (text && PLANNING_ONLY_RE.test(text)) return 'planning'; // 只描述计划未行动（保守启发式）
+  return null;
+}
+
 /** 对标 openclaw（2026-09-01）：不完整回合检测——空回复 / 只思考无答案 / 只计划不行动，
  *  注入重试指令（每类最多 1 次，防死循环）让骨架再给一次机会。 */
 export async function onIncompleteTurn(
@@ -207,29 +242,7 @@ export async function onIncompleteTurn(
   const hadThinking =
     deps.lastRoundHadThinking || (rawText.length > 0 && text.length === 0);
 
-  let kind:
-    | 'empty'
-    | 'reasoning'
-    | 'planning'
-    | 'truncated'
-    | 'malformed'
-    | null = null;
-  // 修复（2026-09-03）：输出被长度限制截断（finishReason=max_tokens）是最常见的
-  // "任务中断"伪装——模型没写完就被预算打断且未产出 tool_calls。此前该信号被
-  // reason() 改写为 'stop' 且此处无截断分支 → 直接 finalize → 用户看到"才提要求就中断"。
-  if (result.finishReason === 'max_tokens') {
-    kind = 'truncated';
-  } else if (LEAKED_TOOL_MARKUP_RE.test(text)) {
-    // 2026-11-06：工具调用被写成正文标记（DSML 残渣 / `<bash">`）⇒ 本轮零工具执行，
-    // 正文是垃圾。旧判据会当"已完成"直接交付，且这段垃圾还会被 PDCA 当成任务描述。
-    kind = 'malformed';
-  } else if (!text && !hadThinking) {
-    kind = 'empty'; // 空回复
-  } else if (!text && hadThinking) {
-    kind = 'reasoning'; // 只思考未给出可见答案
-  } else if (text && PLANNING_ONLY_RE.test(text)) {
-    kind = 'planning'; // 只描述计划未行动（保守启发式）
-  }
+  const kind = classifyIncompleteTurn(result, text, hadThinking);
   if (!kind) return false;
   // R4（2026-09-16）：已注入强制收尾 steering（接近上限）后，截断输出**不再续接重发**——
   // 续接会用放大后的 maxTokens 重发并加剧上下文膨胀；此时直接取当前部分文本作为最终

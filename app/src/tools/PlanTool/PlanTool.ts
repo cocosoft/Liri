@@ -457,159 +457,7 @@ export class PlanTool extends BaseTool<
         }
 
         case 'execute': {
-          const plan = this.plans.get(input.plan_id!);
-          if (!plan) {
-            result = {
-              success: false,
-              message: `Plan not found: ${input.plan_id!}`,
-            };
-          } else {
-            const executionResults: unknown[] = [];
-            const errors: string[] = [];
-            const tools: readonly Tool[] = context?.options?.tools || [];
-
-            const sortedSteps = this.topologicalSort(plan.steps);
-
-            for (const step of sortedSteps) {
-              if (onProgress) {
-                onProgress({
-                  toolUseID: input.plan_id!,
-                  data: {
-                    type: 'text',
-                    value: `执行步骤: ${step.name}`,
-                  } as unknown as ToolProgressData,
-                });
-              }
-
-              let stepResult: unknown;
-
-              try {
-                if (step.type === 'tool') {
-                  const toolName =
-                    (step.params?.tool_name as string) || step.name;
-                  const toolArgs = step.params?.tool_args || {};
-                  const tool = tools.find((t) => {
-                    const toolObj = t as unknown as Record<string, unknown>;
-                    const tName = (toolObj.name as string)?.toLowerCase();
-                    const tAliases: string[] =
-                      (toolObj.aliases as string[])?.map((a: string) =>
-                        a.toLowerCase()
-                      ) || [];
-                    const searchName = toolName.toLowerCase();
-                    return (
-                      tName === searchName || tAliases.includes(searchName)
-                    );
-                  });
-
-                  if (tool) {
-                    const auth = await authorizeToolCall(
-                      PermissionManager.getInstance(),
-                      {
-                        toolName: tool.name,
-                        args: toolArgs as Record<string, unknown>,
-                        context: {
-                          ...(context.sessionId
-                            ? { sessionId: context.sessionId }
-                            : {}),
-                          userId: getRequestPrincipal().userId,
-                          userRoles: getEffectivePermissionRoles(),
-                        },
-                      }
-                    );
-                    stepResult = auth.allowed
-                      ? await tool.execute(toolArgs, context)
-                      : createToolResult(null, {
-                          success: false,
-                          error:
-                            auth.kind === 'ask'
-                              ? `工具 ${tool.name} 需要人工审批：${auth.reason ?? '等待批准'}`
-                              : `工具 ${tool.name} 被权限拒绝：${auth.reason ?? '不在允许范围内'}`,
-                        });
-                  } else {
-                    throw new AppError(
-                      `工具未找到: ${toolName}`,
-                      ErrorCategory.EXECUTION,
-                      ErrorSeverity.HIGH,
-                      '1000'
-                    );
-                  }
-                } else if (step.type === 'command') {
-                  const command = step.params?.command || '';
-                  if (!command) {
-                    throw new AppError(
-                      '命令步骤缺少 command 参数',
-                      ErrorCategory.EXECUTION,
-                      ErrorSeverity.HIGH,
-                      '1000'
-                    );
-                  }
-                  const bashTool = tools.find((t) => {
-                    const name = (
-                      (t as unknown as Record<string, unknown>).name as string
-                    )?.toLowerCase();
-                    return name === 'bash';
-                  });
-                  if (bashTool) {
-                    stepResult = await bashTool.execute(
-                      { command, description: step.description || step.name },
-                      context
-                    );
-                  } else {
-                    throw new AppError(
-                      'Bash 工具未找到，无法执行命令',
-                      ErrorCategory.EXECUTION,
-                      ErrorSeverity.HIGH,
-                      '1000'
-                    );
-                  }
-                } else {
-                  stepResult = {
-                    success: true,
-                    message: `步骤 ${step.name} (${step.type}) 已跳过`,
-                  };
-                }
-
-                executionResults.push({
-                  step_id: step.id,
-                  step_name: step.name,
-                  status: 'completed',
-                  result: stepResult,
-                  timestamp: new Date().toISOString(),
-                });
-              } catch (error: unknown) {
-                executionResults.push({
-                  step_id: step.id,
-                  step_name: step.name,
-                  status: 'failed',
-                  error: (error as Error).message,
-                  timestamp: new Date().toISOString(),
-                });
-                errors.push((error as Error).message);
-                break;
-              }
-            }
-
-            const hasErrors = errors.length > 0;
-            const updatedPlan: PlanData = {
-              ...plan,
-              status: hasErrors ? 'active' : 'completed',
-              updated_at: new Date().toISOString(),
-            };
-            this.plans.set(input.plan_id!, updatedPlan);
-
-            result = {
-              success: !hasErrors,
-              message: hasErrors
-                ? `计划执行部分完成，${errors.length} 个步骤失败: ${errors.join('; ')}`
-                : `计划执行成功: ${input.plan_id!}`,
-              execution_result: {
-                plan_id: input.plan_id!,
-                steps: executionResults,
-                completed_at: new Date().toISOString(),
-                has_errors: hasErrors,
-              },
-            };
-          }
+          result = await this._executePlan(input, context, onProgress);
           break;
         }
 
@@ -636,6 +484,173 @@ export class PlanTool extends BaseTool<
         }
       );
     }
+  }
+
+  /**
+   * execute 分支（从 `execute` 原样外移）：按依赖拓扑逐步执行并汇总结果。
+   */
+  private async _executePlan(
+    input: PlanToolInput,
+    context: ToolUseContext,
+    onProgress?: ToolCallProgress<ToolProgressData>
+  ): Promise<PlanToolOutput> {
+    const plan = this.plans.get(input.plan_id!);
+    if (!plan) {
+      return {
+        success: false,
+        message: `Plan not found: ${input.plan_id!}`,
+      };
+    }
+
+    const executionResults: unknown[] = [];
+    const errors: string[] = [];
+    const tools: readonly Tool[] = context?.options?.tools || [];
+
+    const sortedSteps = this.topologicalSort(plan.steps);
+
+    for (const step of sortedSteps) {
+      if (onProgress) {
+        onProgress({
+          toolUseID: input.plan_id!,
+          data: {
+            type: 'text',
+            value: `执行步骤: ${step.name}`,
+          } as unknown as ToolProgressData,
+        });
+      }
+
+      let stepResult: unknown;
+
+      try {
+        stepResult = await this._executeStep(step, tools, context);
+
+        executionResults.push({
+          step_id: step.id,
+          step_name: step.name,
+          status: 'completed',
+          result: stepResult,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error: unknown) {
+        executionResults.push({
+          step_id: step.id,
+          step_name: step.name,
+          status: 'failed',
+          error: (error as Error).message,
+          timestamp: new Date().toISOString(),
+        });
+        errors.push((error as Error).message);
+        break;
+      }
+    }
+
+    const hasErrors = errors.length > 0;
+    const updatedPlan: PlanData = {
+      ...plan,
+      status: hasErrors ? 'active' : 'completed',
+      updated_at: new Date().toISOString(),
+    };
+    this.plans.set(input.plan_id!, updatedPlan);
+
+    return {
+      success: !hasErrors,
+      message: hasErrors
+        ? `计划执行部分完成，${errors.length} 个步骤失败: ${errors.join('; ')}`
+        : `计划执行成功: ${input.plan_id!}`,
+      execution_result: {
+        plan_id: input.plan_id!,
+        steps: executionResults,
+        completed_at: new Date().toISOString(),
+        has_errors: hasErrors,
+      },
+    };
+  }
+
+  /**
+   * 单步执行分派（从 `execute` 原样外移）：tool 步骤走逐次授权，command 步骤走 bash，
+   * 其余类型直接跳过。
+   */
+  private async _executeStep(
+    step: PlanStep,
+    tools: readonly Tool[],
+    context: ToolUseContext
+  ): Promise<unknown> {
+    if (step.type === 'tool') {
+      const toolName = (step.params?.tool_name as string) || step.name;
+      const toolArgs = step.params?.tool_args || {};
+      const tool = tools.find((t) => {
+        const toolObj = t as unknown as Record<string, unknown>;
+        const tName = (toolObj.name as string)?.toLowerCase();
+        const tAliases: string[] =
+          (toolObj.aliases as string[])?.map((a: string) => a.toLowerCase()) ||
+          [];
+        const searchName = toolName.toLowerCase();
+        return tName === searchName || tAliases.includes(searchName);
+      });
+
+      if (!tool) {
+        throw new AppError(
+          `工具未找到: ${toolName}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
+      }
+
+      const auth = await authorizeToolCall(PermissionManager.getInstance(), {
+        toolName: tool.name,
+        args: toolArgs as Record<string, unknown>,
+        context: {
+          ...(context.sessionId ? { sessionId: context.sessionId } : {}),
+          userId: getRequestPrincipal().userId,
+          userRoles: getEffectivePermissionRoles(),
+        },
+      });
+      return auth.allowed
+        ? await tool.execute(toolArgs, context)
+        : createToolResult(null, {
+            success: false,
+            error:
+              auth.kind === 'ask'
+                ? `工具 ${tool.name} 需要人工审批：${auth.reason ?? '等待批准'}`
+                : `工具 ${tool.name} 被权限拒绝：${auth.reason ?? '不在允许范围内'}`,
+          });
+    }
+
+    if (step.type === 'command') {
+      const command = step.params?.command || '';
+      if (!command) {
+        throw new AppError(
+          '命令步骤缺少 command 参数',
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
+      }
+      const bashTool = tools.find((t) => {
+        const name = (
+          (t as unknown as Record<string, unknown>).name as string
+        )?.toLowerCase();
+        return name === 'bash';
+      });
+      if (!bashTool) {
+        throw new AppError(
+          'Bash 工具未找到，无法执行命令',
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
+      }
+      return bashTool.execute(
+        { command, description: step.description || step.name },
+        context
+      );
+    }
+
+    return {
+      success: true,
+      message: `步骤 ${step.name} (${step.type}) 已跳过`,
+    };
   }
 }
 

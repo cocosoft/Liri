@@ -28,6 +28,7 @@ import {
   LEARNING_CANDIDATE_VERIFIED,
   LEARNING_EXPIRED_NOTE,
   LearningCandidateStore,
+  PromptSnippetStore,
   suggestCategoryCutoffs,
   type TurnQualityPayload,
 } from '@modules/tasks';
@@ -488,13 +489,15 @@ describe('createLearnCommand（命令层）', () => {
   function setup(events: LiriEvent[] = []) {
     dir = mkdtempSync(join(tmpdir(), 'learn-cmd-'));
     const store = new LearningCandidateStore(dir);
+    const snippetStore = new PromptSnippetStore(join(dir, 'snippets'));
     const cmd = createLearnCommand({
       store,
+      snippetStore,
       listSessionIds: async () => ['s1'],
       readEvents: async () => events,
       readScoreCutoff: async () => 0.45,
     });
-    return { store, cmd };
+    return { store, snippetStore, cmd };
   }
 
   it('approve 前置校验：未校验 ⇒ 失败并提示先 verify', async () => {
@@ -626,5 +629,65 @@ describe('createLearnCommand（命令层）', () => {
     // 前缀不匹配 ⇒ 明确失败（不静默成功）
     const missing = await cmd.execute('reject 第', {} as never);
     expect(missing.success).toBe(false);
+  });
+
+  it('snippet 只读：空台账、preview 空串、未知子命令与未知 id 均明确失败', async () => {
+    const { cmd } = setup();
+
+    const listed = await cmd.execute('snippet list', {} as never);
+    expect(listed.success).toBe(true);
+    expect(String(listed.message)).toContain('暂无片段');
+    expect((listed.data as { total: number }).total).toBe(0);
+
+    const preview = await cmd.execute('snippet preview', {} as never);
+    expect(String(preview.message)).toContain('无生效片段');
+    expect(String(preview.message)).toContain('未接入装配');
+
+    expect((await cmd.execute('snippet show nope', {} as never)).success).toBe(
+      false
+    );
+    expect((await cmd.execute('snippet bogus', {} as never)).success).toBe(
+      false
+    );
+  });
+
+  it('snippet preview：只有已批准且未过期的片段被渲染，草稿跳过', async () => {
+    const { snippetStore, cmd } = setup();
+    const base = {
+      workspaceId: 'ws1',
+      sourceCandidateIds: ['cand1'],
+      evidence: ['score=0.30'],
+      title: '先查重',
+    };
+    snippetStore.save({ ...base, text: '回答前先确认是否已有同名工具。' }, 1);
+    const active = snippetStore.approve(
+      snippetStore.list()[0],
+      'alice',
+      Date.now()
+    )!;
+    snippetStore.save(
+      { ...base, title: '草稿', text: '草稿内容不该注入。' },
+      2
+    );
+
+    const listed = await cmd.execute('snippet list', {} as never);
+    expect(String(listed.message)).toContain(active.id);
+    expect((listed.data as { active: number }).active).toBe(1);
+
+    const shown = await cmd.execute(`snippet show ${active.id}`, {} as never);
+    expect(String(shown.message)).toContain('来源候选：cand1');
+    expect(String(shown.message)).toContain('批准人：alice');
+
+    const preview = await cmd.execute('snippet preview ws1', {} as never);
+    expect(String(preview.message)).toContain('PROMPT_SNIPPET:BEGIN');
+    expect(String(preview.message)).toContain('回答前先确认是否已有同名工具。');
+    expect(String(preview.message)).not.toContain('草稿内容不该注入');
+    expect((preview.data as { injected: string[] }).injected).toEqual([
+      active.id,
+    ]);
+
+    // 作用域过滤：换一个项目 ⇒ 无片段
+    const other = await cmd.execute('snippet preview ws2', {} as never);
+    expect((other.data as { injected: string[] }).injected).toEqual([]);
   });
 });

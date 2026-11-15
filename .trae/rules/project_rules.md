@@ -2,7 +2,7 @@
 alwaysApply: true
 ---
 # Liri 项目规则文档
-**版本**: 7.31.0 | **更新**: 2026-11-14
+**版本**: 7.32.0 | **更新**: 2026-11-15
 
 ## §1 基础规则
 
@@ -158,6 +158,10 @@ chatCoordinator().setMessages(messages);
   3. `ALL_SESSION_EVENT_TYPES` 登记清单 —— 由 `knownEventTypes.ts` 末尾的**穷尽断言**强制（漏登记 ⇒ `TS2322: Type 'true' is not assignable to type 'never'`）。
 - ❌ 禁止：把提示词、工具/技能清单、注入上下文、检索结果等**模型可见输入**只写进内存或投影（`messages.jsonl`），而不落为事件。
 - ❌ 禁止：事件类型变更只改类型联合/载荷而不改登记清单（或反之）。
+- **事件 `seq` 必须传 `0`**（2026-11-15 新增，实证 11 处返工）：由 `EventLog.append` 在 **mutex 内原子分配**；
+  ❌ 禁止自行 `getStreamTailSeq() + 1` —— 同一会话的事件写入者是**并发**的（流式主循环 / 工具轮 / 空闲期复核 /
+  后台标题 / PDCA），自行取尾号会在并发下撞号，而 `append` 对 `duplicate-seq` 按**幂等丢弃且不告警** ⇒ 事件静默丢失。
+  历史坑：`streamMessageToolLoop` 的 P3-7a（`tool/result` 并发）与 2026-11-15 的 11 处批量收敛（`e24f4dbda` / `5d25223fb` / `bd8cdc56c` / `9a9826b98`）。
 - **为什么需要**：这是轨迹视图、回放与审计"可复现"的前提 —— 缺了它，"模型当时看到了什么"无法回答，且新增输入可绕过事件日志而**不被任何机制发现**（本约束在参照仓库以仓库级 `AGENTS.md` 红线强制同一语义）。
 
 **验收**：`bun run typecheck` 必须能捕获漏登记（改 ①/② 而不改 ③ ⇒ 编译失败，已实测：移除一个登记项即报 `TS2322`）；涉及模型可见输入的功能变更，须在方案/PR 中给出对应的事件类型。
@@ -366,6 +370,7 @@ import { resolveOutputDir, resolveDbPath } from '@openliri/infra/environment';  
 ---
 
 ## §2 版本历史
+- **v7.32.0**: §1.6 新增**事件 `seq` 约定**（纯文档，**无行为变更**）—— 事件写入必须传 `seq: 0`，由 `EventLog.append` 在 mutex 内**原子分配**；❌ 禁止 `getStreamTailSeq() + 1`（同一会话写入者并发：流式主循环 / 工具轮 / 空闲期复核 / 后台标题 / PDCA）⇒ 撞号后 `duplicate-seq` 按**幂等丢弃且不告警**，事件静默丢失。来源：2026-11-15 实测收敛 **11 处**同类写法（`e24f4dbda` / `5d25223fb` / `bd8cdc56c`，随后 `9a9826b98` 删掉 4 个无消费者注入口）；更早的 `streamMessageToolLoop` P3-7a 已记录同一坑。
 - **v7.30.0**: 文档治理（物理包化后的地址订正，**纯文档，无行为变更**）—— §1.6 规则文件索引补齐 5 行（`PY_APP.md` / `task-execution.md` / `session-budget.md` / `version-consistency.md` / `model-usage.md`，索引此前与 `.trae/rules/` 实际 16 个文件不一致），`coding-standards` 范围 `CS01-CS07` → **`CS01-CS08`**，架构合规范围 `R01–R06` → **`R00–R15`** 并注明物理包边界门禁 **R1–R28**（`bun run lint:infra`）；§1.14 通道唯一实现层 `src/channels/` → `packages/channels/src/channels/`；§1.15 `BundledSkillLoader` / `skills/builtin` 与 `verifyProject.ts` 路径 → `packages/skills` / `packages/query`
 - **v7.29.0**: §1.4 **`BASH_APPROVED_REVALIDATE` 语义订正（如实）** —— 该项自 **2026-11-06（P0-3）** 起为 **legacy 别名（全仓无读取点）**：硬拦截层自 S1-2（2026-10-11）已恒定执行，而「批准只免审批交互」现由 `BashTool` 直接按 `isApproved` 判定。旧实现把默认值 `true` 读成"再弹一次 ask"，导致**批准后立刻重弹同一张卡**（真机 `session_mw4sdx7ma4abe32ea4`：批准 → 30ms 后 `security_analyzer_ask` → 再弹卡，无限审批环）。**默认值与 `SAFETY_SWITCHES` 断言不变**，仅订正文档语义（`lint:doc-code` 通过）。
 - **v7.28.0**: §1.4 安全开关清单 **21 → 22 项**，新增 **`LIRI_PLUGIN_REQUIRE_SIGNATURE`**（默认值**由信任锚存在性决定**：随包 `app/trusted-keys/*.pem` 随安装包分发 ⇒ 安装版默认开）—— 承接 **T25-08 P2**：插件清单签名闸此前已默认生效（「信任锚即意图」），但**未进本表、不受 `lint:doc-code` 断言保护**（其默认值非 `featureFlags.ts` 字面量，`SAFETY_SWITCHES` 覆盖不到）。同步：新增 `PLUGIN_SIGNATURE_ASSERTIONS` 3 条断言（env 名 / 「信任锚即意图」默认语义 / 随包公钥真实存在）

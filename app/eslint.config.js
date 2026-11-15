@@ -48,6 +48,10 @@ export default [
       // ⇒ 高于 P99、只对**真离群**发信号，防止新代码继续堆复杂度。
       // 数据与可行性评估见 `dev_docs/20261009/复查任务计划.md §1.9`。
       complexity: ['warn', 40],
+      // 2026-11-15（P3-2 附带）：重复 `case` 标签 ⇒ 后者**不可达**（静默死代码）。
+      // 实证：`BaseAIProvider.parseAnthropicSSELine` 曾有两个 `case 'content_block_delta'`
+      // ⇒ 工具参数 `input_json_delta` 累积分支永不执行（已修）。全仓当时仅此 1 处。
+      'no-duplicate-case': 'error',
       'module-registry/no-direct-module-import': ['error', {
         // B2-3（2026-09-23）：`goalTemplates` 是**跨模块共享的纯常量模块**
         // （零依赖、无实例/无生命周期、不需 ModuleRegistry 管理）⇒ 显式豁免直连。

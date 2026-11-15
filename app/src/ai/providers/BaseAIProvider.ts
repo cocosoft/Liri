@@ -1638,6 +1638,22 @@ export abstract class BaseAIProvider implements AIProvider {
             content: delta.thinking as string,
           });
         }
+        // Anthropic 的 tool_use delta 子类型：参数是**分片到达**的 partial_json，
+        // 必须按 index 累积到 pendingToolCalls（message_delta 收尾时统一 JSON.parse）。
+        // ⚠️ 2026-11-15（P3-2 附带缺陷修复）：本块此前是**另一个** `case 'content_block_delta'`
+        // —— 重复的 case 标签使这段成为**不可达代码** ⇒ 工具参数永远累积不到（收尾组装拿到空串）。
+        // 已并入同一 case；`no-duplicate-case` 规则同批开启，防再犯。
+        if (
+          deltaType === 'input_json_delta' &&
+          delta.partial_json &&
+          pendingToolCalls
+        ) {
+          const idx = (json.index as number) || 0;
+          const pending = pendingToolCalls.get(idx);
+          if (pending) {
+            pending.arguments += delta.partial_json as string;
+          }
+        }
         break;
       }
 
@@ -1653,23 +1669,6 @@ export abstract class BaseAIProvider implements AIProvider {
             name: (contentBlock.name as string) || '',
             arguments: '',
           });
-        }
-        break;
-      }
-
-      case 'content_block_delta': {
-        // Anthropic 的 tool_use delta 子类型
-        const delta = (json.delta || {}) as Record<string, unknown>;
-        if (
-          (delta.type as string) === 'input_json_delta' &&
-          delta.partial_json &&
-          pendingToolCalls
-        ) {
-          const idx = (json.index as number) || 0;
-          const pending = pendingToolCalls.get(idx);
-          if (pending) {
-            pending.arguments += delta.partial_json as string;
-          }
         }
         break;
       }

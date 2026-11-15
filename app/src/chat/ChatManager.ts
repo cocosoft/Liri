@@ -1493,10 +1493,10 @@ export class ChatManagerImpl implements ChatManager {
     sessionId: string,
     data: LiriEventData<'assistant/doc_workflow'>
   ): Promise<void> {
-    const ts = await this.getStreamTailSeq(sessionId);
     await this.appendStreamEvent(sessionId, {
       type: 'assistant/doc_workflow',
-      seq: ts + 1,
+      // seq 0 ⇒ 原子分配（工具进度回调与流式写者并发，tail+1 会撞号被丢弃）
+      seq: 0,
       time: Date.now(),
       sessionId,
       data,

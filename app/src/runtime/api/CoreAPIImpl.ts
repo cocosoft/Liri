@@ -1176,10 +1176,10 @@ export class CoreAPIImpl implements CoreAPI {
           } as ChatStreamChunk;
           // 写事件（回放重建；失败不阻断流）
           try {
-            const ts = await this.chatManager.getStreamTailSeq(finalSessionId);
             await this.chatManager.appendStreamEvent(finalSessionId, {
               type: 'assistant/deliverable',
-              seq: ts + 1,
+              // seq 0 ⇒ 原子分配（收尾写者与后台任务并发，tail+1 会撞号被丢弃）
+              seq: 0,
               time: Date.now(),
               sessionId: finalSessionId,
               data: deliverable,
@@ -1222,10 +1222,10 @@ export class CoreAPIImpl implements CoreAPI {
           } as ChatStreamChunk;
           // 写事件（回放重建；失败不阻断流）
           try {
-            const ts = await this.chatManager.getStreamTailSeq(finalSessionId);
             await this.chatManager.appendStreamEvent(finalSessionId, {
               type: 'assistant/diff',
-              seq: ts + 1,
+              // seq 0 ⇒ 原子分配（同 deliverable：并发写者下 tail+1 会撞号被丢弃）
+              seq: 0,
               time: Date.now(),
               sessionId: finalSessionId,
               data: {

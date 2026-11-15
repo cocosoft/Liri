@@ -195,10 +195,10 @@ export class ChatStreamFinalize {
           yieldRegistry.updateTurn(session.id, turn, yieldPending);
         }
         if (!deps.hasTurnEnded(session.id, turn)) {
-          const ts = await deps.getStreamTailSeq(session.id);
           await deps.appendStreamEvent(session.id, {
             type: 'turn/end',
-            seq: ts + 1,
+            // seq 0 ⇒ 原子分配（收尾可能与后台写者并发，tail+1 会撞号被丢弃）
+            seq: 0,
             time: Date.now(),
             sessionId: session.id,
             data: {

@@ -21,9 +21,9 @@
 
 # Spec：学习反馈闭环（Agentic 模式 #9 Learning and Adaptation）
 
-- **状态**：**M1 + M2 + M3（种子物料化与 `--gate` 卡口）+ M4（到期收口）+ M5（`gateBlocked` 登记缺口）已落地（2026-11-15）**；后续见 §5-M6
+- **状态**：**M1 + M2 + M3 + M4 + M5 + M6 已落地（2026-11-15）**；后续见 §5-M7
 - **来源**：`dev_docs/20261114/今日计划-2026-11-14.md` §4.1 逐项审计 —— 21 模式中 **#9 是唯一"部分"级缺口**（其余三处为有条件实现：#4 自校验档 / #17 ToT / #21 探索）
-- **关联 spec**：`online-quality-evaluation.md`（U4 在线打分，已有实现）· `cross-path-evaluation-write-side.md`（三路评价写入面，结论：**互不相通**）
+- **关联 spec**：`learning-gate-regression-audit.md`（M6 真实回归审计）· `online-quality-evaluation.md`（U4 在线打分）· `cross-path-evaluation-write-side.md`（三路评价写入面，结论：**互不相通**）
 - **一句话**：把「有信号（turn/quality）→ 有离线评测（evals）→ 有制品（SOP）」三段接成**受控**闭环，中间补上缺失的**归因层**与**候选台账**。
 
 ---
@@ -128,7 +128,9 @@
   （四态计数；`rejectedShare = rejected / total`；无候选 ⇒ `null`）。
 - **M5 已落地（`gateBlocked` = 登记缺口）**：`checkCaseBaseline(records, baselineTaskIds)` 纯读侧比对
   「应入语料的题」与 `baseline.json` 的 `tasks` 键 ⇒ 未登记的题由脚本逐条列出（它们会被 `--gate` 阻断）。
-  **口径边界**：这是"登记缺口"，不是"回归拦截"；真实回归数只能从跑批报告读，仍待办（§5-M6）。
+- **M6 已落地（真实回归拦截数）**：`auditLearningCaseGate(reportTasks, baselineTasks)` 读最近一次跑批报告，
+  按**与 `--gate` 同一份判据**（`checkTaskAgainstBaseline`）给出 通过 / 回归（`passK` / `pass1`）/ 未登记；
+  命令 `bun run report:learning-regressions`（有回归 ⇒ 退出码 1）。详见 `learning-gate-regression-audit.md`。
 - **仍待办**：`rejectedShare` 连续 N 次高于阈值 ⇒ 下调该 `category` 的候选产出（阈值上调），
   避免噪声候选淹没评审。
 
@@ -240,14 +242,30 @@
 **M5 验收（实测）**：新增 4 条单测全绿（全登记 / 部分未登记 / 过滤后分母 / 空语料）；
 脚本以 fixture 实测（2 条种子 + 只登记 1 条）⇒ 正确列出 `learning-case-bb22` 未登记。
 
-### 5-M6 之后（需再裁定）
+### 5-M6 真实回归审计（已落地，独立 spec）
 
-`prompt_snippet` 注入面（另立红线 spec）；`sop` 观察期自动度量；真实回归拦截数回写台账；
-`rejectedShare` 阈值回流；`repeated_question` 需要事件契约扩展。
+详见 [`learning-gate-regression-audit.md`](./learning-gate-regression-audit.md)。要点：
+
+| 件 | 落点 |
+|---|---|
+| 判据抽取（**唯一实现**） | `scoring.ts` 的 `checkTaskAgainstBaseline()`：`checkGate` 改为调用它，输出逐字不变 |
+| 审计（纯函数） | `tasks/learning-cases.ts` 的 `auditLearningCaseGate(reportTasks, baselineTasks)` ⇒ `{ total, passed, failures[{id, kind, message}] }` |
+| 命令 | `bun run report:learning-regressions`（默认取 `dev_docs/evals` 最新报告；`--report=` / `--baseline=` 可指定） |
+| 退出码 | 0 无回归（含"报告未包含学习语料"）/ 1 有回归或未登记 / 2 输入缺失或不可解析 |
+| 边界 | 只读、不跑模型、不改基线、不写台账；非 `learning-case-*` 任务不参与 |
+
+**M6 验收（实测）**：新增 7 条单测全绿（判据 3 + 审计 4）；脚本以 fixture 实测
+（3 条语料：1 通过 / 1 双项回归 / 1 未登记，另有 1 条非语料任务）⇒ 只报 3 条语料违规、退出码 1；
+"报告未包含学习语料"路径 ⇒ 明确提示且退出码 0。
+
+### 5-M7 之后（需再裁定）
+
+`prompt_snippet` 注入面（另立红线 spec）；`sop` 观察期自动度量；`rejectedShare` 阈值回流；
+`repeated_question` 需要事件契约扩展。
 
 ---
 
-## 6. 验收与门禁（M1 + M2 + M3 + M4 + M5）
+## 6. 验收与门禁（M1 + M2 + M3 + M4 + M5 + M6）
 
 | 项 | 判据 | 状态 |
 |---|---|---|
@@ -264,6 +282,8 @@
 | 卡口 fail-closed | 未登记基线的新任务 ⇒ `--gate` 失败；语料文件存在但非数组 ⇒ 抛出 | ✅ |
 | 登记缺口可查 | `checkCaseBaseline` 与 `baseline.json` 的 `tasks` 比对，逐条列出未登记任务；分母与语料同一套跳过规则 | ✅ |
 | 不改基线 | 脚本只读 `baseline.json`（`--baseline=` 可覆盖），登记动作始终人工 | ✅ |
+| 真实回归可查 | `auditLearningCaseGate` 与 `checkGate` 共用判据；`report:learning-regressions` 有回归 ⇒ 退出码 1 | ✅ |
+| 全局门禁不变 | `checkTaskAgainstBaseline` 抽取后 `checkGate` 输出逐字不变（既有门禁用例全绿） | ✅ |
 | 零行为变更 | 无提示词/技能写入；语料初始为空（0 条）⇒ 既有跑批逐字不变；`--gate` 由人工执行 | ✅ |
 | 变异验证 | 反转归因判定 ⇒ 相关单测转红（例如把 `verdict=REJECT` 分支去掉，`verifier_reject` 用例必红）；去掉 `verified` 前置 ⇒ 批准用例必红；把跳过规则去掉一条 ⇒ 语料用例必红 | ✅（人工核对口径） |
 
@@ -311,6 +331,11 @@
 **M5（本轮「执行吧」同口径）**
 13. **`gateBlocked` 只算"登记缺口"** —— 纯读侧比对语料与 `baseline.json` 的 `tasks` 键（不跑模型、
     不改基线）；真实回归拦截数需读跑批报告，留给 §5-M6，避免用近似口径冒充"回归数"。
+
+**M6（「先开 spec 再动手」同口径）**
+14. **回归口径只认 `--gate` 的判据** —— 抽出 `checkTaskAgainstBaseline` 供两边共用，不写第二套比较；
+    `report:learning-regressions` **只读**跑批报告与基线，**不写台账**（避免第二套存储），
+    "可查"= 命令可见 + 非 0 退出码可挂 CI。
 
 ---
 

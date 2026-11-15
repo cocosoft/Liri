@@ -42,6 +42,11 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { EvalTask } from '@modules/evals/types.js';
+import {
+  checkTaskAgainstBaseline,
+  type BaselineEntry,
+  type TaskGateViolationKind,
+} from '@modules/evals/scoring.js';
 
 /**
  * 种子记录（**只取本模块需要的字段**）。
@@ -198,6 +203,72 @@ export function checkCaseBaseline(
     registered: taskIds.length - blocked.length,
     blocked,
   };
+}
+
+/** 报告中的单条任务（只取门禁判定所需字段；`attempts` 缺省按空数组处理） */
+export interface GateReportTask {
+  id: string;
+  pass1: number;
+  passK: boolean;
+  attempts?: readonly { asExpected: boolean }[];
+}
+
+/** 学习语料的一条门禁违规 */
+export interface LearningCaseGateFailure {
+  id: string;
+  kind: TaskGateViolationKind;
+  message: string;
+}
+
+/** 学习语料的门禁审计结果 */
+export interface LearningCaseGateAudit {
+  /** 参与判定的学习语料题数（报告里 id 命中前缀的条目） */
+  total: number;
+  /** 无违规的题数 */
+  passed: number;
+  failures: LearningCaseGateFailure[];
+}
+
+/**
+ * 审计一次跑批报告里**学习语料**的门禁结果（M6，纯函数；零副作用）。
+ *
+ * 判据与 `checkGate` **完全共用**（`checkTaskAgainstBaseline`，CS01）；非 `learning-case-*`
+ * 的任务不参与 —— 本审计只回答"学习语料有没有退化"，不冒充全局门禁结论。
+ *
+ * @param baselineTasks `baseline.json` 的 `tasks` 字段（未登记 ⇒ 记为 `unregistered` 违规）
+ */
+export function auditLearningCaseGate(
+  reportTasks: readonly GateReportTask[],
+  baselineTasks: Record<string, BaselineEntry>
+): LearningCaseGateAudit {
+  let total = 0;
+  let passed = 0;
+  const failures: LearningCaseGateFailure[] = [];
+  for (const task of reportTasks) {
+    if (!task.id.startsWith(LEARNING_CASE_TASK_PREFIX)) continue;
+    total++;
+    const violations = checkTaskAgainstBaseline(
+      task.id,
+      {
+        pass1: task.pass1,
+        passK: task.passK,
+        attempts: task.attempts ?? [],
+      },
+      baselineTasks[task.id]
+    );
+    if (violations.length === 0) {
+      passed++;
+      continue;
+    }
+    for (const violation of violations) {
+      failures.push({
+        id: task.id,
+        kind: violation.kind,
+        message: violation.message,
+      });
+    }
+  }
+  return { total, passed, failures };
 }
 
 /** 语料文件绝对路径（与本文件同目录） */

@@ -394,6 +394,57 @@ export interface Baseline {
   tasks: Record<string, BaselineEntry>;
 }
 
+/** 门禁违规种类（`checkTaskAgainstBaseline` 唯一判据） */
+export type TaskGateViolationKind = 'unregistered' | 'passK' | 'pass1';
+
+/** 单条门禁违规（`message` 为报告文案，逐字与历史 `checkGate` 输出一致） */
+export interface TaskGateViolation {
+  kind: TaskGateViolationKind;
+  message: string;
+}
+
+/**
+ * 单任务门禁判定（R12-001）。
+ *
+ * **唯一判据处**：`checkGate`（跑批）与学习语料审计（`auditLearningCaseGate`）共用，
+ * 避免出现"看起来差不多"的第二套比较（CS01）。
+ *
+ * @returns 违规列表（空数组 = 通过）；顺序固定：未登记 ⇒ 单条；否则 `pass^k` 在前、`pass^1` 在后
+ */
+export function checkTaskAgainstBaseline(
+  taskId: string,
+  stats: {
+    pass1: number;
+    passK: boolean;
+    attempts: readonly { asExpected: boolean }[];
+  },
+  required: BaselineEntry | undefined
+): TaskGateViolation[] {
+  if (!required) {
+    return [
+      {
+        kind: 'unregistered',
+        message: `${taskId}: 基线中未登记该任务（新增任务须先登记基线）`,
+      },
+    ];
+  }
+  const violations: TaskGateViolation[] = [];
+  const asExpectedCount = stats.attempts.filter((a) => a.asExpected).length;
+  if (required.requirePassK && !stats.passK) {
+    violations.push({
+      kind: 'passK',
+      message: `${taskId}: pass^k 未达标（符合期望 ${asExpectedCount}/${stats.attempts.length}）`,
+    });
+  }
+  if (stats.pass1 < required.minPass1) {
+    violations.push({
+      kind: 'pass1',
+      message: `${taskId}: pass^1 ${(stats.pass1 * 100).toFixed(0)}% < 基线 ${(required.minPass1 * 100).toFixed(0)}%`,
+    });
+  }
+  return violations;
+}
+
 /**
  * 门禁比对：返回**回归项**列表（空数组 = 通过）。
  *
@@ -413,23 +464,16 @@ export function checkGate(
   }
 
   for (const result of summary.tasks) {
-    const id = result.task.id;
-    const required = baseline.tasks[id];
-    if (!required) {
-      failures.push(`${id}: 基线中未登记该任务（新增任务须先登记基线）`);
-      continue;
-    }
-    const asExpectedCount = result.attempts.filter((a) => a.asExpected).length;
-    if (required.requirePassK && !result.passK) {
-      failures.push(
-        `${id}: pass^k 未达标（符合期望 ${asExpectedCount}/${result.attempts.length}）`
-      );
-    }
-    if (result.pass1 < required.minPass1) {
-      failures.push(
-        `${id}: pass^1 ${(result.pass1 * 100).toFixed(0)}% < 基线 ${(required.minPass1 * 100).toFixed(0)}%`
-      );
-    }
+    const violations = checkTaskAgainstBaseline(
+      result.task.id,
+      {
+        pass1: result.pass1,
+        passK: result.passK,
+        attempts: result.attempts,
+      },
+      baseline.tasks[result.task.id]
+    );
+    for (const violation of violations) failures.push(violation.message);
   }
 
   return failures;

@@ -38,7 +38,6 @@ function makeDeps(options: { launcher: 'none' | 'ok'; busy?: boolean }): {
         : null,
     shouldUsePlanDrivenLoop: () => true,
     shouldUseCodeMode: () => false,
-    getStreamTailSeq: async () => 0,
     appendStreamEvent: async () => ({}),
     persistSessionMetadata: async () => {},
     recentUserText: () => '',

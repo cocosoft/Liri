@@ -33,7 +33,6 @@ function makeCoordinator() {
     getPdcaLauncher: () => null,
     shouldUsePlanDrivenLoop: () => true,
     shouldUseCodeMode: () => false,
-    getStreamTailSeq: async () => 1,
     appendStreamEvent: async () => undefined,
     persistSessionMetadata: async (session) => {
       persisted.push(String(session.metadata?.projectId ?? ''));

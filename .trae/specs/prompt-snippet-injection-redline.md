@@ -1,6 +1,6 @@
 # Spec（红线）：`prompt_snippet` 注入面
 
-- **状态**：🟠 **S1 + S2 已落地（台账/纯函数 + 只读命令，未接线）**；S3~S4 未开工（2026-11-15）
+- **状态**：🟢 **S1 + S2 + S3 已落地（默认关闭的装配接线）**；S4 未开工（2026-11-15）
 - **来源**：`.trae/specs/learning-feedback-loop.md` §5-M9（把学习候选变成**可注入提示片段**）
 - **性质**：本面会**直接改变模型行为** ⇒ 比 SOP / 语料更危险，单独设红线，不并入主 spec 的自动推进。
 
@@ -128,7 +128,7 @@ ps_draft ──人工 approve──▶ ps_active ──到期/撤销──▶ ps
 |---|---|---|
 | **S1** | 台账 + 纯函数（校验/渲染/预算/过期），**不接线** | ✅ 已落地（零行为变更） |
 | **S2** | `/learn snippet list/show/preview`（只预览渲染文本，不注入） | ✅ 已落地（只读） |
-| **S3** | 装配层接一个**默认关闭**的动态段 + kill switch + 上述 G-1/G-2/G-5 | ⏸ 未开工 |
+| **S3** | 装配层接一个**默认关闭**的动态段 + kill switch + 上述 G-1/G-2/G-5 | ✅ 已落地（开关关闭时零变化） |
 | **S4** | 到期惰性收口 + 观察期度量（复用 `/sop observe` 的 join 口径） | ⏸ 未开工（收口函数已在 S1 提供，未接入命令） |
 
 > 与 M1 同款纪律：**先只读、后写；先默认关闭、后按需打开**。
@@ -144,6 +144,9 @@ ps_draft ──人工 approve──▶ ps_active ──到期/撤销──▶ ps
 | 5 | 命令归属 | **`/learn snippet ...`**（与候选台账同域；S2 落地） |
 | 6 | 与 evals 联动 | **不强制**（片段生效不要求先有语料过 `--gate`）；观察期度量放 S4 |
 | 7 | 审批人 | 命令操作者标识；缺省 `cli`，不允许空 |
+| 8 | **kill switch 形态**（S3） | **环境变量** `LIRI_PROMPT_SNIPPET`：仅 `1` / `true` 打开；其它值（含未设置）= 关闭 |
+| 9 | **S3 作用域** | **只允许当前项目命中**：`workspaceId` 必须等于 `promptSnippetWorkspaceId()`（项目根 → 正斜杠 + 小写），创建侧必须复用同一函数 |
+| 10 | 会话内冻结（S3 偏离） | **不冻结**：片段只在批准/撤销/到期时变化，等价稳定；优先保证「撤销下一轮即生效」（§4.6），该偏离已记录 |
 
 > 上述裁定可随时改：数值都在常量里，且有 `G-3` 单测钉住边界。
 
@@ -198,3 +201,26 @@ ps_draft ──人工 approve──▶ ps_active ──到期/撤销──▶ ps
 
 **S2 明确没做**：没有 `approve` / `revoke` / `expire` 子命令（写操作留给 S3/S4）；
 没有读取 `~/.pyapp/data/prompt-snippets` 之外的任何来源；没有装配接线。
+
+### 10.3 S3 落点与验收（已实测）
+
+| 件 | 落点 |
+|---|---|
+| 动态段 | `app/src/context/promptSections/promptSnippetSection.ts`：`isPromptSnippetEnabled` / `promptSnippetWorkspaceId` / `buildPromptSnippetSection` |
+| 出口 | `app/src/context/index.ts`（`@modules/context` 桶） |
+| 唯一接线点 | `app/src/chat/services/MessageContextPipeline.ts`：`extraDynamicSections.push(...)`（追加，不在 `SECTION_NAMES` 里新增段） |
+| kill switch | `LIRI_PROMPT_SNIPPET`（仅 `1` / `true` 打开；经 `configManager.env` 读取，不直接读 `process.env`） |
+| 作用域 | `workspaceId === promptSnippetWorkspaceId()`（项目根 → 正斜杠 + 小写） |
+
+**G-1 只增不改**：`SECTION_NAMES` / `builtinSections` / `PromptAssembler` **零改动**；段只作 extra 追加。
+
+**G-2 缓存不破**：`cacheBreak: true` ⇒ 落在 `CACHE_BOUNDARY` 之后的动态区；稳定前缀的输入集合不变。
+
+**G-5 默认关闭**：开关未设置时 `buildPromptSnippetSection()` 返回 `null`，调用方**不追加任何段**
+⇒ 装配输入与今天逐字一致（由 S3 单测钉住；装配层既有用例全绿）。
+
+**S3 实测**：新增 6 条单测（开关 5 种取值、关闭时 null、命中作用域含包裹标记且 `cacheBreak: true`、
+作用域不匹配 null、空片段 null、路径归一）；全量 `bun test` **12,068 pass / 44 skip / 0 fail**。
+
+**S3 明确没做**：没有 `approve/revoke/expire` 命令（仍需直接调用 store API 才会产生生效片段）；
+没有 UI；没有观察期度量（S4）。

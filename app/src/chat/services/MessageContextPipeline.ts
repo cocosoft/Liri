@@ -42,6 +42,8 @@ import { handleError } from '@openliri/infra/error';
 import {
   DEFAULT_RETENTION_WARN_RATIO,
   measureRetention,
+  // 红线 S3（2026-11-15）：prompt_snippet 动态段（默认关闭）
+  buildPromptSnippetSection,
 } from '@modules/context';
 
 const logger = getLogger('chat:context-pipeline');
@@ -1137,6 +1139,12 @@ export async function assembleContextualSystemPrompt(
         '图像链式操作指南（image 工具被裁剪时移除）'
       )
     );
+  }
+  // 红线 S3（2026-11-15）：prompt_snippet —— **默认关闭**（LIRI_PROMPT_SNIPPET=1 才注入）；
+  // 关闭时返回 null ⇒ 不追加任何段，装配结果与今天逐字一致。
+  const promptSnippetSection = buildPromptSnippetSection();
+  if (promptSnippetSection) {
+    extraDynamicSections.push(promptSnippetSection);
   }
 
   const prompt = await assembleSystemPrompt({

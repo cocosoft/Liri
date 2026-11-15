@@ -680,7 +680,6 @@ export function wireChatFacades(host: FacadeWiringHost): void {
         // 2026-11-03 既有语义：门控关闭时只撤销**已存在**实例（不得为此新建循环）
         resetVerifierConfigIfActive: (sid) =>
           host._taorLoops.get(sid)?.resetVerifierConfig(),
-        getStreamTailSeq: (sid) => host.getStreamTailSeq(sid),
         appendStreamEvent: (sid, event) => host.appendStreamEvent(sid, event),
       },
       sessionId,

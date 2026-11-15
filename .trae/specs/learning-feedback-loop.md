@@ -21,9 +21,9 @@
 
 # Spec：学习反馈闭环（Agentic 模式 #9 Learning and Adaptation）
 
-- **状态**：**M1 ~ M8 已落地（2026-11-15）**；后续见 §5-M9
+- **状态**：**M1 ~ M10 已落地（2026-11-15）**
 - **来源**：`dev_docs/20261114/今日计划-2026-11-14.md` §4.1 逐项审计 —— 21 模式中 **#9 是唯一"部分"级缺口**（其余三处为有条件实现：#4 自校验档 / #17 ToT / #21 探索）
-- **关联 spec**：`learning-gate-regression-audit.md`（M6 真实回归审计）· `sop-observation-metrics.md`（M7 SOP 观察期度量）· `prompt-snippet-injection-redline.md`（M9 红线设计，未落地）· `online-quality-evaluation.md`（U4 在线打分）· `cross-path-evaluation-write-side.md`（三路评价写入面，结论：**互不相通**）
+- **关联 spec**：`learning-gate-regression-audit.md`（M6 真实回归审计）· `sop-observation-metrics.md`（M7 SOP 观察期度量）· `prompt-snippet-injection-redline.md`（M9 注入面，S1~S5 已落地）· `online-quality-evaluation.md`（U4 在线打分）· `cross-path-evaluation-write-side.md`（三路评价写入面，结论：**互不相通**）
 - **一句话**：把「有信号（turn/quality）→ 有离线评测（evals）→ 有制品（SOP）」三段接成**受控**闭环，中间补上缺失的**归因层**与**候选台账**。
 
 ---
@@ -82,9 +82,11 @@
 - 输入：`turn/quality` 事件载荷 + 该轮工具观测（`collectTurnToolObservations` 按 `callSeq` 配对
   `assistant/tool_call` 与 `tool/result`，按最近的 `turn/start` 归属轮次）
 - 输出：`{ category, confidence, evidence[] }`
-- **M1 实际落地 5 类**：`verifier_reject` → `tool_failure` → `budget_exhausted` → `retry_loop` → `low_value_answer`（兜底）
-- `repeated_question` **暂缓**：需要"同题配对"的结构化信号，现有事件只有 `replyToId` / `questionId`，
-  按 CS02 不做文案相似度猜测（若要做，先扩事件契约）
+- **实际落地 6 类**：`verifier_reject` → `tool_failure` → `budget_exhausted` → `repeated_question`（M10）
+  → `retry_loop` → `low_value_answer`（兜底）
+- `repeated_question`（**M10 已落地，零契约改动**）：用既有 `user/message.replyToId` 派生 ——
+  同一 assistant 回答被第 N（≥2）条用户消息指向 ⇒ 该用户消息之后最近的 `turn/start` 记为重复提问；
+  **不做文本相似度**（CS02）。盲区：用户不点"回复"时判不出（产出是保守下界）。
 
 ### S3 制品化（已落地 M1 台账 + M2 批准链）
 - `app/src/tasks/evolution/learningCandidates.ts`：**JSON 文件台账**，与 `SopDraftStore` 同构
@@ -148,7 +150,7 @@
 | `id` | string | `sha256(sessionId#turnNumber#category)` 前 12 位（确定性 ⇒ 幂等） |
 | `sessionId` | string | 证据定位（G1） |
 | `turnNumber` | number | 轮次 |
-| `category` | string | S2 归因类别（5 类） |
+| `category` | string | S2 归因类别（M10 起 6 类） |
 | `score` | number | 该轮合成分（来源 `turn/quality`） |
 | `evidence` | string[] | 归因证据（信号分量、工具名、错误码） |
 | `summary` | string | 单行展示文案（只拼结构化字段） |
@@ -289,23 +291,37 @@
 **M8 验收（实测）**：新增 4 条单测全绿（只算已决 / 样本不足不收紧 + 下调与下限 /
 扫描侧按类别生效且其它类别不受影响 / 命令输出点名与非成题）。
 
-### 5-M9 待裁定项（注入面 S1~S5 已落地）
+### 5-M10 `repeated_question` 归因（已落地，零契约改动）
+
+| 件 | 落点 |
+|---|---|
+| 信号派生（纯函数） | `learningScan.ts` 的 `collectRepeatTurns(events)`：按 `user/message.replyToId` 计数，第 ≥2 次指向同一回答时给该用户消息之后最近的 `turn/start` 打标 |
+| 归因 | `badcaseAttribution.ts`：`AttributionInput.repeat = { replyCount }`；判定序在 `budget_exhausted` 之后、`retry_loop` 之前；证据 `reply_to_same_answer=N`，置信度 0.8 |
+| 口径 | ≥2 次（用户裁定）；缺 `replyToId` ⇒ 不判定；回指到**已知用户消息**不计（那不是对同一回答追问） |
+| 契约 | **零改动**：事件类型 / 载荷 / 客户端镜像 / 平齐测试均未动 |
+
+**盲区（如实记录）**：只在用户显式"回复某条消息"后再次追问时命中；普通连续追问无 `replyToId` ⇒ 判不出。
+因此该类别的产出是**保守下界**；若覆盖率长期偏低，再讨论"入口显式标记"（需扩契约，另立 spec）。
+
+**M10 验收（实测）**：新增 5 条单测（归因命中与证据 / 计数只从第 2 次起 / 无 `replyToId` 不判定 /
+回指已知用户消息不计 / 全链候选出现 `repeated_question`）；`/learn` 单测合计 39 条全绿。
+
+### 5-M9 注入面（S1~S5 已落地）
 
 | 项 | 状态 |
 |---|---|
 | `prompt_snippet` 注入面 | 🟢 **S1 ~ S5 已落地**（[`prompt-snippet-injection-redline.md`](./prompt-snippet-injection-redline.md)：台账 / 只读命令 / **默认关闭**接线 / 写命令与观察期 / 人工撰写正文的草稿命令） |
-| `repeated_question` 归因 | ⏸ 需扩事件契约（会动事件三处登记），未开 spec |
+| `repeated_question` 归因 | 🟢 **M10 已落地**（见上节；零契约改动，产出为保守下界） |
 
-> 注入面 S1~S5 已落地（台账 / 只读命令 / **默认关闭**接线 / 写命令 + 惰性收口 + 观察期 / 人工撰写正文的草稿命令）；
-> 开关关闭时运行时行为零变化。仅剩 `repeated_question`（需扩事件契约）。
+> 至此 M1~M10 全部落地。注入面默认关闭 ⇒ 开关未打开时运行时行为零变化。
 
 ---
 
-## 6. 验收与门禁（M1 ~ M8）
+## 6. 验收与门禁（M1 ~ M10）
 
 | 项 | 判据 | 状态 |
 |---|---|---|
-| 归因可解释 | 每条候选 `evidence` 非空；5 类各 1 例 | ✅ |
+| 归因可解释 | 每条候选 `evidence` 非空；6 类各 1 例 | ✅ |
 | 状态词汇合规 | 只用 `lc_*` 前缀；命令层不写 `'error'`/`'text'` 等词汇表裸字面量 | ✅ |
 | 数据落盘 | 写入后可重读；`save` 幂等且不改写已决状态 | ✅ |
 | 批准前置 | 未 `verified` 的 `approve` 返回 `null` 且不写种子（命令层明确报错） | ✅ |
@@ -321,6 +337,7 @@
 | 真实回归可查 | `auditLearningCaseGate` 与 `checkGate` 共用判据；`report:learning-regressions` 有回归 ⇒ 退出码 1 | ✅ |
 | 全局门禁不变 | `checkTaskAgainstBaseline` 抽取后 `checkGate` 输出逐字不变（既有门禁用例全绿） | ✅ |
 | SOP 观察期可查 | `/sop observe` 只算 `op=run`、按轮 join `turn/quality`；缺质量事件如实留白；未批准拒绝观测 | ✅ |
+| 重复提问可解释 | 只由 `user/message.replyToId` 的 ≥2 次指向派生；证据含 `reply_to_same_answer=N`；无 `replyToId` 不判定 | ✅ |
 | 阈值回流可查 | 样本 ≥ 10 且拒绝占比 ≥ 80% ⇒ 该类别阈值下调 0.1（下限 0.1）；扫描输出点名；其它类别不变 | ✅ |
 | 零行为变更 | 无提示词/技能写入；语料初始为空（0 条）⇒ 既有跑批逐字不变；`--gate` 由人工执行 | ✅ |
 | 变异验证 | 反转归因判定 ⇒ 相关单测转红（例如把 `verdict=REJECT` 分支去掉，`verifier_reject` 用例必红）；去掉 `verified` 前置 ⇒ 批准用例必红；把跳过规则去掉一条 ⇒ 语料用例必红 | ✅（人工核对口径） |
@@ -383,6 +400,11 @@
 **M8（同口径）**
 17. **阈值回流是纯派生、不落盘** —— 每次扫描从台账重算；"收紧"= 低分阈值**下调**（越小越严），
     并设下限 0.1，避免把候选产出压到 0；扫描输出必须点名被收紧的类别（不静默改行为）。
+
+**M10（讨论后裁定）**
+18. **`repeated_question` 用 D 派生配对，不扩事件契约** —— 只认 `user/message.replyToId`，
+    同一 assistant 回答被 **≥2** 条用户消息指向即判重复；**不做文本相似度**（CS02）。
+    盲区（用户不点"回复"时判不出）如实写进 spec，产出是保守下界；若覆盖率不足再谈扩契约。
 
 ---
 

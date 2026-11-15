@@ -2,7 +2,7 @@
  * 学习反馈闭环（2026-11-15，M1 + M2）
  *
  * 钉住四件事：
- * ① **归因只看结构化字段**（5 类；证据随行）；
+ * ① **归因只看结构化字段**（6 类；证据随行）；
  * ② **候选台账幂等**（同会话同轮同类 ⇒ 同 id；重复扫描不新增）；
  * ③ **M1 不提供 approve** —— 由 M2 的 `verify → approve` 链路取代：
  *    未校验不能批准、批准只写语料**种子**（`expectation: null`）、撤销只标记不删行；
@@ -17,6 +17,7 @@ import type { LiriEvent } from '@modules/session/types/events';
 import {
   attributeBadcase,
   buildLearningCandidates,
+  collectRepeatTurns,
   collectTurnToolObservations,
   collectTurnUserInputs,
   computeCategoryDecisions,
@@ -129,6 +130,17 @@ describe('attributeBadcase（S2 归因，纯函数）', () => {
     expect(high.category).toBe('low_value_answer');
     expect(low.confidence).toBeGreaterThan(high.confidence);
   });
+
+  it('同一回答被 ≥2 条用户消息追问 ⇒ repeated_question（M10）', () => {
+    const r = attributeBadcase({
+      quality: quality(),
+      repeat: { replyCount: 2 },
+    });
+    expect(r.category).toBe('repeated_question');
+    expect(r.evidence.some((e) => e.includes('reply_to_same_answer=2'))).toBe(
+      true
+    );
+  });
 });
 
 describe('collectTurnToolObservations（事件配对）', () => {
@@ -211,6 +223,40 @@ describe('collectTurnUserInputs（轮次 ↔ 用户输入的结构化配对）',
   it('没有用户消息 ⇒ 不登记（不伪造空串）', () => {
     const events = [ev('turn/start', 1, { turn: 1 })];
     expect(collectTurnUserInputs(events).size).toBe(0);
+  });
+});
+
+describe('collectRepeatTurns（M10：replyToId 派生，零契约改动）', () => {
+  it('只为第 2 条及以后指向同一回答的用户消息所属轮次打标', () => {
+    const events = [
+      ev('user/message', 1, { content: 'A', replyToId: 'm1' }),
+      ev('turn/start', 2, { turn: 1 }),
+      ev('user/message', 3, { content: 'B', replyToId: 'm1' }),
+      ev('turn/start', 4, { turn: 2 }),
+      ev('user/message', 5, { content: 'C' }),
+      ev('turn/start', 6, { turn: 3 }),
+    ];
+    expect([...collectRepeatTurns(events).entries()]).toEqual([[2, 2]]);
+  });
+
+  it('没有 replyToId ⇒ 不判定（不猜）', () => {
+    const events = [
+      ev('user/message', 1, { content: 'A' }),
+      ev('turn/start', 2, { turn: 1 }),
+    ];
+    expect(collectRepeatTurns(events).size).toBe(0);
+  });
+
+  it('回指到已知用户消息 ⇒ 不计（那不是对同一回答追问）', () => {
+    const events = [
+      ev('user/message', 1, { content: 'A', messageId: 'u1' }),
+      ev('turn/start', 2, { turn: 1 }),
+      ev('user/message', 3, { content: 'B', replyToId: 'u1' }),
+      ev('turn/start', 4, { turn: 2 }),
+      ev('user/message', 5, { content: 'C', replyToId: 'u1' }),
+      ev('turn/start', 6, { turn: 3 }),
+    ];
+    expect(collectRepeatTurns(events).size).toBe(0);
   });
 });
 
@@ -446,6 +492,27 @@ describe('buildLearningCandidates（采集 → 归因 → 候选）', () => {
       scoreCutoff: 0.45,
     });
     expect(candidates).toHaveLength(0);
+  });
+
+  it('重复提问轮次 ⇒ repeated_question（M10 全链）', () => {
+    const events = [
+      ev('user/message', 1, { content: '怎么配置代理？', replyToId: 'm1' }),
+      ev('turn/start', 2, { turn: 1 }),
+      ev('turn/quality', 3, quality({ turnNumber: 1, score: 0.3 })),
+      ev('user/message', 4, {
+        content: '还是不行，怎么配置代理？',
+        replyToId: 'm1',
+      }),
+      ev('turn/start', 5, { turn: 2 }),
+      ev('turn/quality', 6, quality({ turnNumber: 2, score: 0.3 })),
+    ];
+    const categories = buildLearningCandidates({
+      sessionId: 's1',
+      events,
+      scoreCutoff: 0.45,
+    }).map((c) => c.category);
+    expect(categories).toContain('repeated_question');
+    expect(categories).toContain('low_value_answer');
   });
 
   it('按类别收紧：被收紧类别的轻度低分不再成题，其它类别不受影响', () => {

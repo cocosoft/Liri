@@ -91,6 +91,53 @@ export function collectTurnUserInputs(
   return inputs;
 }
 
+/** 判为「重复提问」的最少指向次数（同一 assistant 回答被 ≥2 条用户消息指向） */
+const REPEAT_MIN_REPLIES = 2;
+
+/**
+ * 轮次 → 重复提问的指向次数（纯函数，M10）。
+ *
+ * 口径（**零契约改动**）：只用既有 `user/message.replyToId`。同一条 assistant 消息被第 N 条
+ * 用户消息指向（N ≥ 2）时，**该用户消息之后最近的 `turn/start`** 记为重复提问轮次。
+ * 指向的对象若是**已知的用户消息**（其 `messageId` 已出现过）⇒ 不计（用户回复自己的话不是
+ * "对同一回答追问"）。
+ *
+ * 盲区（如实记录）：用户不点"回复"时没有 `replyToId` ⇒ 判不出（产出是保守下界）；
+ * 不做文本相似度判断（CS02）。
+ */
+export function collectRepeatTurns(
+  events: readonly LiriEvent[]
+): Map<number, number> {
+  const ordinals = new Map<string, number>();
+  const ordinalByUserSeq = new Map<number, number>();
+  /** 已出现过的用户消息 id（回指到它们的 `replyToId` 不计） */
+  const userMessageIds = new Set<string>();
+  let lastUser: { seq: number } | null = null;
+  const repeats = new Map<number, number>();
+
+  for (const event of events) {
+    if (event.type === 'user/message') {
+      const payload = event.data as LiriEventMap['user/message'];
+      lastUser = { seq: event.seq };
+      if (payload.messageId) userMessageIds.add(payload.messageId);
+      if (payload.replyToId && !userMessageIds.has(payload.replyToId)) {
+        const next = (ordinals.get(payload.replyToId) ?? 0) + 1;
+        ordinals.set(payload.replyToId, next);
+        ordinalByUserSeq.set(event.seq, next);
+      }
+      continue;
+    }
+    if (event.type !== 'turn/start') continue;
+    const payload = event.data as LiriEventMap['turn/start'];
+    if (lastUser) {
+      const ordinal = ordinalByUserSeq.get(lastUser.seq) ?? 0;
+      if (ordinal >= REPEAT_MIN_REPLIES) repeats.set(payload.turn, ordinal);
+    }
+    lastUser = null; // 一条用户消息只归属它之后最近的一个 turn/start
+  }
+  return repeats;
+}
+
 /**
  * 从会话事件生成候选（纯函数）。
  *
@@ -104,6 +151,7 @@ export function buildLearningCandidates(
   const limit = options.limit ?? LEARNING_SCAN_MAX_CANDIDATES;
   const toolsByTurn = collectTurnToolObservations(events);
   const inputsByTurn = collectTurnUserInputs(events);
+  const repeatsByTurn = collectRepeatTurns(events);
 
   /** 轮次 → 最后一轮质量事件（重评覆盖） */
   const latestByTurn = new Map<number, LiriEventMap['turn/quality']>();
@@ -118,6 +166,9 @@ export function buildLearningCandidates(
     const attribution = attributeBadcase({
       quality,
       tools: toolsByTurn.get(turnNumber) ?? [],
+      ...(repeatsByTurn.has(turnNumber)
+        ? { repeat: { replyCount: repeatsByTurn.get(turnNumber)! } }
+        : {}),
     });
     // S6 阈值回流：该类别被收紧时用更严的阈值；未收紧的类别行为与旧口径逐字一致
     const cutoff =

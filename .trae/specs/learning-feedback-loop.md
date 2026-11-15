@@ -21,7 +21,7 @@
 
 # Spec：学习反馈闭环（Agentic 模式 #9 Learning and Adaptation）
 
-- **状态**：**M1 + M2 + M3（种子物料化与 `--gate` 卡口）+ M4（到期收口）已落地（2026-11-15）**；后续见 §5-M5
+- **状态**：**M1 + M2 + M3（种子物料化与 `--gate` 卡口）+ M4（到期收口）+ M5（`gateBlocked` 登记缺口）已落地（2026-11-15）**；后续见 §5-M6
 - **来源**：`dev_docs/20261114/今日计划-2026-11-14.md` §4.1 逐项审计 —— 21 模式中 **#9 是唯一"部分"级缺口**（其余三处为有条件实现：#4 自校验档 / #17 ToT / #21 探索）
 - **关联 spec**：`online-quality-evaluation.md`（U4 在线打分，已有实现）· `cross-path-evaluation-write-side.md`（三路评价写入面，结论：**互不相通**）
 - **一句话**：把「有信号（turn/quality）→ 有离线评测（evals）→ 有制品（SOP）」三段接成**受控**闭环，中间补上缺失的**归因层**与**候选台账**。
@@ -126,8 +126,11 @@
 ### S6 度量（拒绝占比回流）
 - **M1 + M2 已落地**：`LearningCandidateStats { total, pending, verified, approved, rejected, rejectedShare }`
   （四态计数；`rejectedShare = rejected / total`；无候选 ⇒ `null`）。
-- **仍待办**：`gateBlocked`（被 `--gate` 拦下的候选数，需从跑批报告回写台账）；`rejectedShare`
-  连续 N 次高于阈值 ⇒ 下调该 `category` 的候选产出（阈值上调），避免噪声候选淹没评审。
+- **M5 已落地（`gateBlocked` = 登记缺口）**：`checkCaseBaseline(records, baselineTaskIds)` 纯读侧比对
+  「应入语料的题」与 `baseline.json` 的 `tasks` 键 ⇒ 未登记的题由脚本逐条列出（它们会被 `--gate` 阻断）。
+  **口径边界**：这是"登记缺口"，不是"回归拦截"；真实回归数只能从跑批报告读，仍待办（§5-M6）。
+- **仍待办**：`rejectedShare` 连续 N 次高于阈值 ⇒ 下调该 `category` 的候选产出（阈值上调），
+  避免噪声候选淹没评审。
 
 ---
 
@@ -222,14 +225,29 @@
 
 **M4 验收（实测）**：新增 4 条单测全绿（台账收口与边界 1 + 命令惰性收口 1 + 语料过期跳过 2）。
 
-### 5-M5 之后（需再裁定）
+### 5-M5 `gateBlocked` 登记缺口（已落地，纯读侧）
 
-`prompt_snippet` 注入面（另立红线 spec）；`sop` 观察期自动度量；`gateBlocked` 回写台账；
-`repeated_question` 需要事件契约扩展。
+| 件 | 落点 |
+|---|---|
+| 比对（纯函数） | `checkCaseBaseline(records, registeredTaskIds, now)` ⇒ `{ total, registered, blocked[] }`（分母复用同一套跳过规则） |
+| 数据源 | `baseline.json` 的 `tasks` 键（评测任务 id）；`--baseline=<path>` 可覆盖（测试/临时基线） |
+| 呈现 | `gen:learning-eval-cases` 的预览与落盘都打印「应入语料 / 已登记 / 未登记」并逐条列出未登记的 `learning-case-<id>` |
+| 不改基线 | 脚本只读基线；登记仍是人工（跑一次记录 `pass^1` 后写 `baseline.json`） |
+
+**口径边界（重要）**：`gateBlocked` 统计的是**登记缺口**（未登记 ⇒ 门禁必然阻断），**不是**回归拦截数。
+真实回归（`pass^1 < minPass1` / `pass^k` 未达标）只能从 `evals` 跑批报告读取，回写台账仍在 §5-M6。
+
+**M5 验收（实测）**：新增 4 条单测全绿（全登记 / 部分未登记 / 过滤后分母 / 空语料）；
+脚本以 fixture 实测（2 条种子 + 只登记 1 条）⇒ 正确列出 `learning-case-bb22` 未登记。
+
+### 5-M6 之后（需再裁定）
+
+`prompt_snippet` 注入面（另立红线 spec）；`sop` 观察期自动度量；真实回归拦截数回写台账；
+`rejectedShare` 阈值回流；`repeated_question` 需要事件契约扩展。
 
 ---
 
-## 6. 验收与门禁（M1 + M2 + M3 + M4）
+## 6. 验收与门禁（M1 + M2 + M3 + M4 + M5）
 
 | 项 | 判据 | 状态 |
 |---|---|---|
@@ -244,6 +262,8 @@
 | 语料可复现 | 同一 JSONL 两次转换产物逐字一致（id 升序 + 固定字段 + 原子写） | ✅ |
 | 不编造判据 | 无 `expectation` / 已撤销 / 无 `input` ⇒ 不成题，按原因计数上报 | ✅ |
 | 卡口 fail-closed | 未登记基线的新任务 ⇒ `--gate` 失败；语料文件存在但非数组 ⇒ 抛出 | ✅ |
+| 登记缺口可查 | `checkCaseBaseline` 与 `baseline.json` 的 `tasks` 比对，逐条列出未登记任务；分母与语料同一套跳过规则 | ✅ |
+| 不改基线 | 脚本只读 `baseline.json`（`--baseline=` 可覆盖），登记动作始终人工 | ✅ |
 | 零行为变更 | 无提示词/技能写入；语料初始为空（0 条）⇒ 既有跑批逐字不变；`--gate` 由人工执行 | ✅ |
 | 变异验证 | 反转归因判定 ⇒ 相关单测转红（例如把 `verdict=REJECT` 分支去掉，`verifier_reject` 用例必红）；去掉 `verified` 前置 ⇒ 批准用例必红；把跳过规则去掉一条 ⇒ 语料用例必红 | ✅（人工核对口径） |
 
@@ -287,6 +307,10 @@
 11. **到期收口不做定时器** —— 由 `list` / `stats` / `export` 读路径惰性执行（`expireOverdue`），
     避免为"到期"新增调度缝；过期备注固定为 `已过期（批准后未复核）`，与人工撤销（带原因）区分。
 12. **过期只拦"进入语料"，不删已入库题** —— 回归题一旦入库就按基线继续跑；撤销/过期只改台账与种子标记。
+
+**M5（本轮「执行吧」同口径）**
+13. **`gateBlocked` 只算"登记缺口"** —— 纯读侧比对语料与 `baseline.json` 的 `tasks` 键（不跑模型、
+    不改基线）；真实回归拦截数需读跑批报告，留给 §5-M6，避免用近似口径冒充"回归数"。
 
 ---
 

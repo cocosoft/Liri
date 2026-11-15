@@ -23,6 +23,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { dirname, join, resolve } from 'path';
 import { resolveDataSubDir } from '@openliri/infra/environment';
 import {
+  checkCaseBaseline,
   LEARNING_CASES_FILE,
   selectLearningCaseRecords,
   type LearningCaseRecord,
@@ -36,10 +37,10 @@ if (args.includes('--help') || args.includes('-h')) {
       # 预览：读种子台账，报告可成题 / 跳过条数（不写文件）
   bun run scripts/gen-learning-eval-cases.ts -- --write
       # 落盘到 packages/evals/src/evals/tasks/learning-cases.json
-  bun run scripts/gen-learning-eval-cases.ts -- --in=<jsonl> --out=<json>
+  bun run scripts/gen-learning-eval-cases.ts -- --in=<jsonl> --out=<json> --baseline=<json>
 
-跳过规则：已撤销 / expectation 为空 / input 为空。
-落盘后：bun run eval -- --gate（新任务须先在 baseline.json 登记，否则门禁阻断）。`);
+跳过规则：已撤销 / 已过期 / expectation 为空 / input 为空。
+落盘后：bun run eval -- --gate（未在 baseline.json 登记的题会被门禁阻断）。`);
   process.exit(0);
 }
 
@@ -61,6 +62,9 @@ const outPath =
     '../../packages/evals/src/evals/tasks',
     LEARNING_CASES_FILE
   );
+const baselinePath =
+  argValue('baseline') ||
+  resolve(import.meta.dir, '../../packages/evals/src/evals/baseline.json');
 
 if (!existsSync(inPath)) {
   console.error(`未找到种子文件：${inPath}`);
@@ -94,6 +98,27 @@ console.log(
 );
 for (const item of skipped) {
   console.log(`  - ${item.id}：${item.reason}`);
+}
+
+// 基线登记核对（M5：纯读侧，不跑模型）—— 未登记会被 checkGate 以「基线中未登记该任务」阻断
+if (existsSync(baselinePath)) {
+  const baseline = JSON.parse(readFileSync(baselinePath, 'utf-8')) as {
+    tasks?: Record<string, unknown>;
+  };
+  const report = checkCaseBaseline(records, Object.keys(baseline.tasks ?? {}));
+  console.log(
+    `\n基线登记：应入语料 ${report.total} 条，已登记 ${report.registered}，未登记 ${report.blocked.length}`
+  );
+  for (const taskId of report.blocked) {
+    console.log(`  - ${taskId}（会被 --gate 阻断）`);
+  }
+  if (report.blocked.length > 0) {
+    console.log(
+      '  登记方式：跑一次记录 pass^1 后写进 baseline.json 的 tasks（人工操作，本脚本不改基线）。'
+    );
+  }
+} else {
+  console.log(`\n基线文件不存在，跳过登记核对：${baselinePath}`);
 }
 
 if (!write) {

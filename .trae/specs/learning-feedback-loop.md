@@ -293,11 +293,11 @@
 
 | 项 | 状态 |
 |---|---|
-| `prompt_snippet` 注入面 | 🟠 **S1 已落地**（[`prompt-snippet-injection-redline.md`](./prompt-snippet-injection-redline.md)：台账 + 纯函数，**未接线**）；S2~S4 未开工 |
+| `prompt_snippet` 注入面 | 🟠 **S1 + S2 已落地**（[`prompt-snippet-injection-redline.md`](./prompt-snippet-injection-redline.md)：台账/纯函数 + 只读命令，**未接线**）；S3~S4 未开工 |
 | `repeated_question` 归因 | ⏸ 需扩事件契约（会动事件三处登记），未开 spec |
 
-> 注入面只落地 S1（台账 + 纯函数、**未接线**）⇒ 运行时行为零变化；S2~S4 与 `repeated_question`
-> 都需再裁定后才继续。
+> 注入面已落地 S1 + S2（台账/纯函数 + 只读命令，**未接线**）⇒ 运行时行为零变化；
+> S3（默认关闭的装配接线）与 `repeated_question` 都需再裁定后才继续。
 
 ---
 

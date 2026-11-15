@@ -36,6 +36,9 @@ import {
   LEARNING_POLICY_MIN_DECIDED,
   LEARNING_POLICY_REJECTION_SHARE,
   LearningCandidateStore,
+  PROMPT_SNIPPET_ACTIVE,
+  PromptSnippetStore,
+  renderPromptSnippetSection,
   suggestCategoryCutoffs,
   type LearningCandidate,
   type LearningCandidateStats,
@@ -52,6 +55,9 @@ const LEARN_USAGE = [
   '  /learn export             展示语料种子文件与条数',
   '  /learn reject <id> [原因] 拒绝候选',
   '  /learn stats              仅看统计',
+  '  /learn snippet [list]     片段台账（只读）',
+  '  /learn snippet show <id>  查看片段详情（来源/证据/有效期）',
+  '  /learn snippet preview [项目] 预览渲染结果（只渲染，未接入装配）',
 ].join('\n');
 
 /** 扫描时读取的事件类型（最小面；水位由 `turn/quality` 决定） */
@@ -72,6 +78,8 @@ const DEFAULT_SCAN_SESSIONS = 5;
 /** 命令依赖（测试注入；生产用默认实现） */
 export interface LearnCommandDeps {
   store: LearningCandidateStore;
+  /** prompt_snippet 台账（S2：只读） */
+  snippetStore: PromptSnippetStore;
   /** 列出最近更新的会话 id（磁盘层） */
   listSessionIds: (limit: number) => Promise<string[]>;
   /** 读某会话的事件（只读） */
@@ -159,6 +167,7 @@ export function createLearnCommand(deps: LearnCommandDeps) {
       if (action === 'approve') return this.approve(payload);
       if (action === 'revoke') return this.revoke(payload);
       if (action === 'export') return this.export();
+      if (action === 'snippet') return this.snippet(payload);
       if (action === 'stats') return this.stats();
       return fail(`未知子命令：${action}\n${LEARN_USAGE}`);
     },
@@ -420,11 +429,108 @@ export function createLearnCommand(deps: LearnCommandDeps) {
         { total: cases.length, active: active.length, ready: ready.length }
       );
     },
+
+    /** `/learn snippet <list|show|preview>`（S2：**只读**，装配层未接线） */
+    snippet(payload: string): CommandResult {
+      const [sub = 'list', ...rest] = payload.split(/\s+/);
+      const arg = rest.join(' ').trim();
+      if (sub === 'list' || sub === '') return this.snippetList();
+      if (sub === 'show') return this.snippetShow(arg);
+      if (sub === 'preview') return this.snippetPreview(arg);
+      return fail(`未知 snippet 子命令：${sub}\n${LEARN_USAGE}`);
+    },
+
+    snippetList(): CommandResult {
+      const items = deps.snippetStore.list();
+      const active = items.filter(
+        (item) => item.status === PROMPT_SNIPPET_ACTIVE
+      ).length;
+      const rows = items.map(
+        (item) =>
+          `  [${item.status}] ${item.id}  ${item.title}  ← ${item.workspaceId}`
+      );
+      return ok(
+        [
+          `prompt_snippet 台账（${deps.snippetStore.getDir()}）：`,
+          rows.length > 0
+            ? rows.join('\n')
+            : '  （暂无片段；S2 只读，创建/批准在 S3 接线后可用）',
+          '',
+          `统计：生效 ${active} / 共 ${items.length}`,
+        ].join('\n'),
+        { total: items.length, active }
+      );
+    },
+
+    snippetShow(payload: string): CommandResult {
+      if (!payload) return fail(`缺少片段 id\n${LEARN_USAGE}`);
+      const matches = deps.snippetStore.find(payload);
+      if (matches.length === 0) {
+        return fail(`未找到片段：${payload}（用 /learn snippet list 查看）`);
+      }
+      if (matches.length > 1) {
+        return fail(
+          `片段 id 前缀「${payload}」不唯一：${matches.map((m) => m.id).join(', ')}`
+        );
+      }
+      const item = matches[0];
+      return ok(
+        [
+          `片段 ${item.id}（v${item.version}）`,
+          `  状态：${item.status}`,
+          `  项目：${item.workspaceId}`,
+          `  标题：${item.title}`,
+          `  来源候选：${item.sourceCandidateIds.join(', ')}`,
+          `  证据：${item.evidence.join('；')}`,
+          `  创建：${new Date(item.createdAt).toISOString()}`,
+          ...(item.approvedBy ? [`  批准人：${item.approvedBy}`] : []),
+          ...(item.expiresAt
+            ? [`  有效期至：${new Date(item.expiresAt).toISOString()}`]
+            : []),
+          ...(item.note ? [`  备注：${item.note}`] : []),
+          '',
+          '正文：',
+          item.text,
+        ].join('\n'),
+        { id: item.id, status: item.status }
+      );
+    },
+
+    snippetPreview(payload: string): CommandResult {
+      const workspaceId = payload.trim();
+      const items = workspaceId
+        ? deps.snippetStore
+            .list()
+            .filter((item) => item.workspaceId === workspaceId)
+        : deps.snippetStore.list();
+      const rendered = renderPromptSnippetSection(items);
+      const skipLine =
+        rendered.skipped.length > 0
+          ? `；跳过 ${rendered.skipped.length} 条：${rendered.skipped
+              .map((s) => `${s.id}:${s.reason}`)
+              .join('、')}`
+          : '';
+      return ok(
+        [
+          `预览（只渲染，未接入装配）：${workspaceId ? `项目 ${workspaceId}` : '全部项目'}`,
+          rendered.injected.length > 0 ? '' : '  无生效片段（渲染结果为空串）',
+          ...(rendered.injected.length > 0 ? [rendered.text, ''] : []),
+          `注入 ${rendered.injected.length} 条 / ${rendered.chars} 字符${skipLine}`,
+          'S2 只预览：装配层未接线，模型行为不受影响。',
+        ].join('\n'),
+        {
+          injected: rendered.injected,
+          chars: rendered.chars,
+          skipped: rendered.skipped.length,
+        }
+      );
+    },
   };
 }
 
 const learnCommand = createLearnCommand({
   store: new LearningCandidateStore(),
+  snippetStore: new PromptSnippetStore(),
   listSessionIds: async (limit) => {
     const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
     return await getCoreAPI().getChatManager().listRecentSessionIds(limit);

@@ -1,6 +1,6 @@
 # Spec（红线）：`prompt_snippet` 注入面
 
-- **状态**：🟠 **S1 已落地（台账 + 纯函数，未接线）**；S2~S4 未开工（2026-11-15）
+- **状态**：🟠 **S1 + S2 已落地（台账/纯函数 + 只读命令，未接线）**；S3~S4 未开工（2026-11-15）
 - **来源**：`.trae/specs/learning-feedback-loop.md` §5-M9（把学习候选变成**可注入提示片段**）
 - **性质**：本面会**直接改变模型行为** ⇒ 比 SOP / 语料更危险，单独设红线，不并入主 spec 的自动推进。
 
@@ -127,7 +127,7 @@ ps_draft ──人工 approve──▶ ps_active ──到期/撤销──▶ ps
 | 步 | 内容 | 行为变更 |
 |---|---|---|
 | **S1** | 台账 + 纯函数（校验/渲染/预算/过期），**不接线** | ✅ 已落地（零行为变更） |
-| **S2** | `/learn snippet list/show/preview`（只预览渲染文本，不注入） | ⏸ 未开工 |
+| **S2** | `/learn snippet list/show/preview`（只预览渲染文本，不注入） | ✅ 已落地（只读） |
 | **S3** | 装配层接一个**默认关闭**的动态段 + kill switch + 上述 G-1/G-2/G-5 | ⏸ 未开工 |
 | **S4** | 到期惰性收口 + 观察期度量（复用 `/sop observe` 的 join 口径） | ⏸ 未开工（收口函数已在 S1 提供，未接入命令） |
 
@@ -183,3 +183,18 @@ ps_draft ──人工 approve──▶ ps_active ──到期/撤销──▶ ps
 
 **S1 明确没做的事**：没有装配接线、没有命令、没有配置开关（G-5 的"默认关闭"要等 S3 才有开关可关）。
 ⇒ 本步**不改变任何运行时行为**。
+
+### 10.1 S2 落点与验收（已实测）
+
+| 件 | 落点 |
+|---|---|
+| 命令 | `app/src/commands/builtin/learn/Learn.ts`：`snippet list` / `snippet show <id>` / `snippet preview [项目]` |
+| 依赖注入 | `LearnCommandDeps.snippetStore`（生产 `new PromptSnippetStore()`；测试注入临时目录） |
+| 只读证据 | 三个子命令只调用 `list/find/render`，**不调用** `save/approve/revoke/expireOverdue` |
+| 未接线证据 | 装配层三个文件仍未改动 |
+
+**S2 实测**：新增 2 条命令级单测（空台账与错误路径、草稿不渲染 + 作用域过滤）；
+`/learn` 单测合计 30 条全绿；`preview` 输出明确标注「只渲染，未接入装配 ⇒ 模型行为不受影响」。
+
+**S2 明确没做**：没有 `approve` / `revoke` / `expire` 子命令（写操作留给 S3/S4）；
+没有读取 `~/.pyapp/data/prompt-snippets` 之外的任何来源；没有装配接线。

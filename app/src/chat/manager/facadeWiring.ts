@@ -93,6 +93,8 @@ import { ToolExecutionService } from '../services/ToolExecutionService.js';
 import type { ChatRecovery } from './recovery';
 import { PdcaLauncher } from '../launchers/PdcaLauncher';
 import { PdcaLaunchCoordinator } from './pdcaLaunch';
+// #4（2026-11-15，`.trae/specs/self-verify-turn-surface.md`）：轮首验证线路判定
+import { applyTurnVerifyRecipeForHost } from './verifyRecipeTurn';
 import { ChatStreamSetup } from './streamSetup';
 import { ChatMessagePersistence } from './messagePersistence';
 import { ChatStreamFinalize } from './streamFinalize';
@@ -201,6 +203,11 @@ export interface FacadeWiringHost {
     sessionId: string,
     opts?: { maxTurnsMultiplier?: number; privateInstance?: boolean }
   ): TAORLoop;
+  /**
+   * #4（2026-11-15）：轮首验证线路判定端口（**由本文件的 wiring 装配**，见
+   * `wireChatFacades`；`OrchestratorWiringHost` 侧为可选成员）。
+   */
+  applyVerifyRecipeForTurn?(sessionId: string, text: string): void;
   createSession(params: CreateSessionParams): Promise<ChatSession>;
   /** LRO-06：`ProjectStore` 实例缓存（`getSessionWorkspacePath` 端口直连所需） */
   _projectSandboxStoreRef: { current?: ProjectStoreLike };
@@ -328,6 +335,8 @@ const FACADE_HOST_OUTPUT_KEYS = [
   '_msgPersist',
   '_streamFinalize',
   '_streamResume',
+  // #4（2026-11-15）：轮首验证线路判定端口（本函数赋值）
+  'applyVerifyRecipeForTurn',
 ] as const;
 
 /**
@@ -641,10 +650,6 @@ export function wireChatFacades(host: FacadeWiringHost): void {
     getPdcaLauncher: () => host._pdcaLauncher,
     shouldUsePlanDrivenLoop: (msg) => shouldUsePlanDrivenLoop(msg),
     shouldUseCodeMode: (msg) => shouldUseCodeMode(msg),
-    getOrCreateTAORLoop: (sid) => host._getOrCreateTAORLoop(sid),
-    // 2026-11-03（缺口 #1）：门控关闭时撤销配方 —— 只对**已存在**的循环生效（不新建）
-    resetVerifierConfigIfActive: (sid) =>
-      host._taorLoops.get(sid)?.resetVerifierConfig(),
     getStreamTailSeq: (sid) => host.getStreamTailSeq(sid),
     appendStreamEvent: (sid, event) => host.appendStreamEvent(sid, event),
     persistSessionMetadata: (session) => host.persistSessionMetadata(session),
@@ -664,6 +669,23 @@ export function wireChatFacades(host: FacadeWiringHost): void {
       );
     },
   });
+
+  // #4（2026-11-15，`.trae/specs/self-verify-turn-surface.md` §3.2）：**轮首**验证线路判定端口。
+  // 装在宿主上（与 `_pdcaLaunch` 同法）⇒ `ChatManager` 本体不新增成员（R04-001 触顶）。
+  // 门控 `SELF_VERIFY_PATTERN` 默认关 ⇒ 不建循环、配方不变；命中意图时落 `turn_dispatch` 决策。
+  host.applyVerifyRecipeForTurn = (sessionId, text) =>
+    applyTurnVerifyRecipeForHost(
+      {
+        getOrCreateTAORLoop: (sid) => host._getOrCreateTAORLoop(sid),
+        // 2026-11-03 既有语义：门控关闭时只撤销**已存在**实例（不得为此新建循环）
+        resetVerifierConfigIfActive: (sid) =>
+          host._taorLoops.get(sid)?.resetVerifierConfig(),
+        getStreamTailSeq: (sid) => host.getStreamTailSeq(sid),
+        appendStreamEvent: (sid, event) => host.appendStreamEvent(sid, event),
+      },
+      sessionId,
+      text
+    );
 
   // 流式请求准备段（U-22/S2 外移）：注入 host 端口，方法体在 `chat/manager/streamSetup.ts`。
   host._streamSetup = new ChatStreamSetup({

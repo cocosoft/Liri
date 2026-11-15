@@ -26,19 +26,11 @@ import { statSync } from 'node:fs';
 
 import { getLogger } from '@openliri/infra/monitoring';
 import { patternFeatureFlag, selectPattern } from '@modules/query/patterns';
-import {
-  instantiatePattern,
-  resolveFeatureGate,
-  verifierConfigForRecipe,
-} from '@modules/query';
+import { instantiatePattern, resolveFeatureGate } from '@modules/query';
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { LiriEvent, LiriEventData } from '@modules/session/types/events';
 
-import {
-  hasRefineIntent,
-  hasResearchIntent,
-  hasVerifyIntent,
-} from '../taskIntent';
+import { hasResearchIntent } from '../taskIntent';
 import { shouldEscalateLongTask } from '../longTaskEscalation';
 import { isDemandSession } from '../autonomy';
 import { createProjectStore } from '../../workspace/ProjectStore.js';
@@ -125,11 +117,7 @@ function sanitizeProjectName(
     : text;
 }
 
-/** TAORLoop 上本簇唯一使用的接缝（self_verify 配方落点） */
-export interface VerifierConfigSink {
-  applyVerifierConfig(config: ReturnType<typeof verifierConfigForRecipe>): void;
-}
-
+/** 协调器注入依赖（全 getter/闭包 ⇒ 无字段初始化顺序陷阱） */
 export interface PdcaLaunchDeps {
   /** 会话级 launch 锁（宿主持有；防同会话重复卡片） */
   launchingSessions: Set<string>;
@@ -139,13 +127,6 @@ export interface PdcaLaunchDeps {
   shouldUsePlanDrivenLoop: (message: string) => boolean;
   /** Code Mode 判定（长任务信号闸门） */
   shouldUseCodeMode: (message: string) => boolean;
-  /** 取/建该会话的 TAORLoop（self_verify 配方落点） */
-  getOrCreateTAORLoop: (sessionId: string) => VerifierConfigSink;
-  /**
-   * 2026-11-03：撤销该会话**已存在**的 TAORLoop 上的验证器配方（门控关闭时）。
-   * 实例不存在 ⇒ no-op（**不得**为此新建循环）。
-   */
-  resetVerifierConfigIfActive: (sessionId: string) => void;
   /** 事件 seq 分配（宿主唯一入口） */
   getStreamTailSeq: (sessionId: string) => Promise<number>;
   /** 事件写入（宿主唯一入口） */
@@ -385,16 +366,14 @@ export class PdcaLaunchCoordinator {
     // A1（2026-10-01，`.trae/specs/pattern-executable-assembly.md` §3.3）：模式规则收敛到
     // `selectPattern`（单一事实源）——本层不再重述「研究 → competitive_strategy」，只
     // ① 用任务特征构造 spec ② 读装配入口标识决定去向。
+    //
+    // #4（2026-11-15，`.trae/specs/self-verify-turn-surface.md` §3.4）：**验证线路**（verify /
+    // refine）的判定与配方应用已前移到**每轮入口**（`chat/manager/verifyRecipeTurn.ts`）——
+    // 同一 `lastUserContent` ⇒ 结论相同，故本层只承担研究分流，不再重复判定/应用。
     const researchIntent = hasResearchIntent(lastUserContent || '');
-    const verifyIntent = hasVerifyIntent(lastUserContent || '');
-    // 2026-11-03（`pattern-wiring-closure.md` §13）：多轮精修意图 = 验证线路的 `deep` 档位信号
-    // （与 verify 同一 route，仅配方 intensity 不同）⇒ 必须一并传入选择层，否则该档位不可达。
-    const refineIntent = hasRefineIntent(lastUserContent || '');
     const researchPattern = selectPattern({
       complexity: 'complex',
       research: researchIntent,
-      verify: verifyIntent,
-      refine: refineIntent,
     });
     // A8 最后一公里（2026-10-04，`.trae/specs/pattern-assembly-runtime.md` §4.1）：
     // 装配描述不再由本层**裸读 assembler 字符串比较**，改经装配入口 `instantiatePattern`
@@ -410,44 +389,11 @@ export class PdcaLaunchCoordinator {
     const patternGateEnabled = patternFeature
       ? resolveFeatureGate(patternFeature)
       : true;
-    let verifyApplied = false;
-    if (
-      patternGateEnabled &&
-      researchInstantiation?.status === 'ready' &&
-      researchInstantiation.route === 'verify'
-    ) {
-      const recipeVerifierConfig = verifierConfigForRecipe(
-        researchInstantiation.recipe
-      );
-      this.deps
-        .getOrCreateTAORLoop(session.id)
-        .applyVerifierConfig(recipeVerifierConfig);
-      verifyApplied = true;
-      logger.info('pattern 配方应用（验证线路 ⇒ 验证器配置）', {
-        sessionId: session.id,
-        pattern: researchPattern?.name,
-        intensity: researchInstantiation.recipe.intensity ?? 'standard',
-        verifyPolicy: researchInstantiation.recipe.verifyPolicy,
-        budgetPolicy: researchInstantiation.recipe.budgetPolicy,
-        verifier: recipeVerifierConfig,
-      });
-    } else if (
-      researchInstantiation?.status === 'ready' &&
-      researchInstantiation.route === 'verify'
-    ) {
-      // 2026-11-03：门控关闭 ⇒ **撤销**此前应用的配方。
-      // 只停止写入是不够的（configure 是合并式长期生效）⇒ 会话会继续按旧档位判定。
-      this.deps.resetVerifierConfigIfActive(session.id);
-      logger.info('pattern 门控已关闭，撤销验证器配方', {
-        sessionId: session.id,
-        pattern: researchPattern?.name,
-      });
-    }
     const researchMode =
       patternGateEnabled &&
       researchInstantiation?.status === 'ready' &&
       researchInstantiation.route === 'research';
-    if (researchIntent || verifyIntent || refineIntent) {
+    if (researchIntent) {
       this.persistPatternDecision(session.id, {
         site: 'research_dispatch',
         selected: researchPattern?.name ?? null,
@@ -464,7 +410,7 @@ export class PdcaLaunchCoordinator {
               },
             }
           : {}),
-        applied: researchMode || verifyApplied,
+        applied: researchMode,
       }).catch((e: unknown) => {
         // @ignore-catch — 轨迹落盘失败不影响编排分流（CS03）
         logger.debug('pattern:decision_persist_failed', { error: String(e) });

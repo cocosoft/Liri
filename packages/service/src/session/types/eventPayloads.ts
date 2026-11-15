@@ -802,8 +802,15 @@ export interface LiriEventMap {
    * 「模型可见 ⇔ 已落盘」红线所迫；它记录的是**编排决策**，不宣称对红线有贡献。
    */
   'pattern/decision': {
-    /** 决策发生点（闭集；将来新增 pattern 消费点须**同批**扩此联合，否则轨迹不完整） */
-    site: 'research_dispatch';
+    /**
+     * 决策发生点（闭集；将来新增 pattern 消费点须**同批**扩此联合，否则轨迹不完整）
+     *
+     * - `research_dispatch`：PDCA 长任务升级闸门内的研究分流（`PdcaLaunchCoordinator.maybeLaunch`）；
+     * - `turn_dispatch`（2026-11-15，`.trae/specs/self-verify-turn-surface.md`）：
+     *   **每轮入口**的验证线路判定（`chat/manager/verifyRecipeTurn.ts`）—— 仅在命中
+     *   verify / refine 意图时落一条（低频），供 `SELF_VERIFY_PATTERN` 默认关判据① 度量。
+     */
+    site: 'research_dispatch' | 'turn_dispatch';
     /** 选择层产出的模式名（`null` = 无匹配，**如实记录**，不臆造） */
     selected: string | null;
     /** 装配状态（仅 `selected` 非空时给出） */

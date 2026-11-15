@@ -38,9 +38,6 @@ function makeDeps(options: { launcher: 'none' | 'ok'; busy?: boolean }): {
         : null,
     shouldUsePlanDrivenLoop: () => true,
     shouldUseCodeMode: () => false,
-    getOrCreateTAORLoop: () =>
-      ({}) as unknown as ReturnType<PdcaLaunchDeps['getOrCreateTAORLoop']>,
-    resetVerifierConfigIfActive: () => {},
     getStreamTailSeq: async () => 0,
     appendStreamEvent: async () => ({}),
     persistSessionMetadata: async () => {},

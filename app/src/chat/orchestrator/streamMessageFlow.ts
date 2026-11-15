@@ -208,6 +208,8 @@ export async function* runStreamMessage(
   } = await prepareStream(host, content, options);
 
   const streamSpan = ctx.streamSpan;
+  // #4（2026-11-15，`self-verify-turn-surface.md`）：轮首验证线路判定（门控默认关 ⇒ 零变更）
+  host.applyVerifyRecipeForTurn?.(session.id, ctx.content);
   const streamAbortController = ctx.streamAbortController;
   const streamingCheckpoint = ctx.streamingCheckpoint;
   const mutex = ctx.mutex;

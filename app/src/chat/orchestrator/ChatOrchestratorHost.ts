@@ -229,6 +229,14 @@ export interface ChatOrchestratorHost {
   shouldUseTAORLoop(sessionId: string): boolean;
   getOrCreateTAORLoop(sessionId: string): unknown;
   /**
+   * #4（2026-11-15，`.trae/specs/self-verify-turn-surface.md`）：**轮首**判定 verify/refine 意图，
+   * 按 `SELF_VERIFY_PATTERN` 门控应用/撤销验证线路配方并落 `pattern/decision`
+   * （site=`turn_dispatch`）。实现见 `ChatManager.applyVerifyRecipeForTurn`。
+   *
+   * 声明为**可选**：既有测试桩 host 未实现该缝时行为不变（不判定、不落事件）。
+   */
+  applyVerifyRecipeForTurn?(sessionId: string, text: string): void;
+  /**
    * G-T3-1（2026-10-12，预算挂起续跑）：**一次性消费**续跑意图。
    *
    * `resumeSuspendedSession` 的 taor 分支在触发执行入口前登记意图 ⇒ 委托路径据此

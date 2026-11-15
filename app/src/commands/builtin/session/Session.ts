@@ -3,6 +3,209 @@ import type { CommandContext } from '@modules/commands';
 
 import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('commands:builtin:session:Session');
+/** 命令返回值（与 `/session` 既有契约一致） */
+type CommandResult = { type: 'text'; value: string };
+/** 会话管理器（`createChatManager()` 的返回类型） */
+type ChatManagerLike = ReturnType<typeof createChatManager>;
+
+/**
+ * P3-2（复杂度清理）：以下 6 个 `handle*` 是从 `call` 的 `if (subcommand === …)`
+ * 分支**逐字外移**的子命令实现；`call` 只保留分派与未知子命令兜底。
+ */
+async function handleList(
+  chatManager: ChatManagerLike
+): Promise<CommandResult> {
+  try {
+    const sessions = chatManager.getSessions();
+
+    if (sessions.length === 0) {
+      return {
+        type: 'text',
+        value: 'No sessions found. Use /session create to create one.',
+      };
+    }
+
+    let output = 'Available Sessions\n==================\n\n';
+    for (const session of sessions) {
+      const currentSession = chatManager.getCurrentSession();
+      const isCurrent = currentSession?.id === session.id;
+      output += `${isCurrent ? '→ ' : '  '}${session.id.padEnd(20)} - ${session.title || 'Untitled'}\n`;
+      output += `    Created: ${new Date(session.createdAt).toLocaleString()}\n`;
+      output += `    Messages: ${session.messages.length}\n\n`;
+    }
+    output += `Total: ${sessions.length} sessions`;
+
+    return { type: 'text', value: output };
+  } catch (error) {
+    return {
+      type: 'text',
+      value: `Error: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+}
+
+async function handleCreate(
+  chatManager: ChatManagerLike,
+  parts: string[]
+): Promise<CommandResult> {
+  const title = parts.slice(1).join(' ');
+  if (!title) {
+    return {
+      type: 'text',
+      value:
+        'Error: Please specify session title\nUsage: /session create <title>',
+    };
+  }
+
+  try {
+    const session = await chatManager.createSession({ title });
+    return {
+      type: 'text',
+      value: `Session created successfully!\nID: ${session.id}\nTitle: ${session.title}`,
+    };
+  } catch (error) {
+    return {
+      type: 'text',
+      value: `Error creating session: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+}
+
+async function handleSwitch(
+  chatManager: ChatManagerLike,
+  parts: string[]
+): Promise<CommandResult> {
+  const sessionId = parts[1];
+  if (!sessionId) {
+    return {
+      type: 'text',
+      value:
+        'Error: Please specify session ID\nUsage: /session switch <session_id>',
+    };
+  }
+
+  try {
+    // 2026-09-25（附带发现 8）：必须 `await` —— 本方法 async，切到不存在会话时会**抛**
+    // `AppError(ENTITY_NOT_FOUND, 404)`；原先不 await，下方的 try/catch 抓不到（同步 try 包
+    // 异步调用），错误会泄漏为 unhandledRejection，且用户看不到"会话不存在"。
+    await chatManager.switchSession(sessionId);
+    const session = chatManager.getCurrentSession();
+    return {
+      type: 'text',
+      value: `Switched to session:\nID: ${sessionId}\nTitle: ${session?.title || 'Untitled'}`,
+    };
+  } catch (error) {
+    return {
+      type: 'text',
+      value: `Error switching session: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+}
+
+async function handleDelete(
+  chatManager: ChatManagerLike,
+  parts: string[]
+): Promise<CommandResult> {
+  const sessionId = parts[1];
+  if (!sessionId) {
+    return {
+      type: 'text',
+      value:
+        'Error: Please specify session ID\nUsage: /session delete <session_id>',
+    };
+  }
+
+  try {
+    // BUG-3：deleteSession 已 async（持久化删除失败 reject），需 await 才能捕获
+    await chatManager.deleteSession(sessionId);
+    return {
+      type: 'text',
+      value: `Session ${sessionId} deleted successfully!`,
+    };
+  } catch (error) {
+    return {
+      type: 'text',
+      value: `Error deleting session: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+}
+
+async function handleInfo(
+  chatManager: ChatManagerLike,
+  parts: string[]
+): Promise<CommandResult> {
+  const sessionId = parts[1];
+  if (!sessionId) {
+    return {
+      type: 'text',
+      value:
+        'Error: Please specify session ID\nUsage: /session info <session_id>',
+    };
+  }
+
+  try {
+    const sessions = chatManager.getSessions();
+    const session = sessions.find((s) => s.id === sessionId);
+
+    if (!session) {
+      return {
+        type: 'text',
+        value: `Error: Session not found: ${sessionId}`,
+      };
+    }
+
+    const currentSession = chatManager.getCurrentSession();
+    const isCurrent = currentSession?.id === session.id;
+
+    let output = `Session Info: ${session.id}\n`;
+    output += '==================\n\n';
+    output += `Title: ${session.title || 'Untitled'}\n`;
+    output += `Current: ${isCurrent ? 'Yes' : 'No'}\n`;
+    output += `Created: ${new Date(session.createdAt).toLocaleString()}\n`;
+    output += `Last Modified: ${session.lastModifiedAt ? new Date(session.lastModifiedAt).toLocaleString() : 'N/A'}\n`;
+    output += `Messages: ${session.messages.length}\n`;
+    if (session.metadata) {
+      output += 'Metadata: ' + JSON.stringify(session.metadata, null, 2) + '\n';
+    }
+
+    return { type: 'text', value: output };
+  } catch (error) {
+    return {
+      type: 'text',
+      value: `Error: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+}
+
+async function handleCurrent(
+  chatManager: ChatManagerLike
+): Promise<CommandResult> {
+  try {
+    const session = chatManager.getCurrentSession();
+
+    if (!session) {
+      return {
+        type: 'text',
+        value: 'No current session. Use /session create to create one.',
+      };
+    }
+
+    let output = 'Current Session\n==================\n\n';
+    output += `ID: ${session.id}\n`;
+    output += `Title: ${session.title || 'Untitled'}\n`;
+    output += `Created: ${new Date(session.createdAt).toLocaleString()}\n`;
+    output += `Last Modified: ${session.lastModifiedAt ? new Date(session.lastModifiedAt).toLocaleString() : 'N/A'}\n`;
+    output += `Messages: ${session.messages.length}\n`;
+
+    return { type: 'text', value: output };
+  } catch (error) {
+    return {
+      type: 'text',
+      value: `Error: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+}
+
 const call = async (
   args: string,
   _context?: CommandContext
@@ -37,184 +240,17 @@ Examples:
   const chatManager = createChatManager();
   await chatManager.initialize();
 
-  if (subcommand === 'list') {
-    try {
-      const sessions = chatManager.getSessions();
+  if (subcommand === 'list') return handleList(chatManager);
 
-      if (sessions.length === 0) {
-        return {
-          type: 'text',
-          value: 'No sessions found. Use /session create to create one.',
-        };
-      }
+  if (subcommand === 'create') return handleCreate(chatManager, parts);
 
-      let output = 'Available Sessions\n==================\n\n';
-      for (const session of sessions) {
-        const currentSession = chatManager.getCurrentSession();
-        const isCurrent = currentSession?.id === session.id;
-        output += `${isCurrent ? '→ ' : '  '}${session.id.padEnd(20)} - ${session.title || 'Untitled'}\n`;
-        output += `    Created: ${new Date(session.createdAt).toLocaleString()}\n`;
-        output += `    Messages: ${session.messages.length}\n\n`;
-      }
-      output += `Total: ${sessions.length} sessions`;
+  if (subcommand === 'switch') return handleSwitch(chatManager, parts);
 
-      return { type: 'text', value: output };
-    } catch (error) {
-      return {
-        type: 'text',
-        value: `Error: ${error instanceof Error ? error.message : String(error)}`,
-      };
-    }
-  }
+  if (subcommand === 'delete') return handleDelete(chatManager, parts);
 
-  if (subcommand === 'create') {
-    const title = parts.slice(1).join(' ');
-    if (!title) {
-      return {
-        type: 'text',
-        value:
-          'Error: Please specify session title\nUsage: /session create <title>',
-      };
-    }
+  if (subcommand === 'info') return handleInfo(chatManager, parts);
 
-    try {
-      const session = await chatManager.createSession({ title });
-      return {
-        type: 'text',
-        value: `Session created successfully!\nID: ${session.id}\nTitle: ${session.title}`,
-      };
-    } catch (error) {
-      return {
-        type: 'text',
-        value: `Error creating session: ${error instanceof Error ? error.message : String(error)}`,
-      };
-    }
-  }
-
-  if (subcommand === 'switch') {
-    const sessionId = parts[1];
-    if (!sessionId) {
-      return {
-        type: 'text',
-        value:
-          'Error: Please specify session ID\nUsage: /session switch <session_id>',
-      };
-    }
-
-    try {
-      // 2026-09-25（附带发现 8）：必须 `await` —— 本方法 async，切到不存在会话时会**抛**
-      // `AppError(ENTITY_NOT_FOUND, 404)`；原先不 await，下方的 try/catch 抓不到（同步 try 包
-      // 异步调用），错误会泄漏为 unhandledRejection，且用户看不到"会话不存在"。
-      await chatManager.switchSession(sessionId);
-      const session = chatManager.getCurrentSession();
-      return {
-        type: 'text',
-        value: `Switched to session:\nID: ${sessionId}\nTitle: ${session?.title || 'Untitled'}`,
-      };
-    } catch (error) {
-      return {
-        type: 'text',
-        value: `Error switching session: ${error instanceof Error ? error.message : String(error)}`,
-      };
-    }
-  }
-
-  if (subcommand === 'delete') {
-    const sessionId = parts[1];
-    if (!sessionId) {
-      return {
-        type: 'text',
-        value:
-          'Error: Please specify session ID\nUsage: /session delete <session_id>',
-      };
-    }
-
-    try {
-      // BUG-3：deleteSession 已 async（持久化删除失败 reject），需 await 才能捕获
-      await chatManager.deleteSession(sessionId);
-      return {
-        type: 'text',
-        value: `Session ${sessionId} deleted successfully!`,
-      };
-    } catch (error) {
-      return {
-        type: 'text',
-        value: `Error deleting session: ${error instanceof Error ? error.message : String(error)}`,
-      };
-    }
-  }
-
-  if (subcommand === 'info') {
-    const sessionId = parts[1];
-    if (!sessionId) {
-      return {
-        type: 'text',
-        value:
-          'Error: Please specify session ID\nUsage: /session info <session_id>',
-      };
-    }
-
-    try {
-      const sessions = chatManager.getSessions();
-      const session = sessions.find((s) => s.id === sessionId);
-
-      if (!session) {
-        return {
-          type: 'text',
-          value: `Error: Session not found: ${sessionId}`,
-        };
-      }
-
-      const currentSession = chatManager.getCurrentSession();
-      const isCurrent = currentSession?.id === session.id;
-
-      let output = `Session Info: ${session.id}\n`;
-      output += '==================\n\n';
-      output += `Title: ${session.title || 'Untitled'}\n`;
-      output += `Current: ${isCurrent ? 'Yes' : 'No'}\n`;
-      output += `Created: ${new Date(session.createdAt).toLocaleString()}\n`;
-      output += `Last Modified: ${session.lastModifiedAt ? new Date(session.lastModifiedAt).toLocaleString() : 'N/A'}\n`;
-      output += `Messages: ${session.messages.length}\n`;
-      if (session.metadata) {
-        output +=
-          'Metadata: ' + JSON.stringify(session.metadata, null, 2) + '\n';
-      }
-
-      return { type: 'text', value: output };
-    } catch (error) {
-      return {
-        type: 'text',
-        value: `Error: ${error instanceof Error ? error.message : String(error)}`,
-      };
-    }
-  }
-
-  if (subcommand === 'current') {
-    try {
-      const session = chatManager.getCurrentSession();
-
-      if (!session) {
-        return {
-          type: 'text',
-          value: 'No current session. Use /session create to create one.',
-        };
-      }
-
-      let output = 'Current Session\n==================\n\n';
-      output += `ID: ${session.id}\n`;
-      output += `Title: ${session.title || 'Untitled'}\n`;
-      output += `Created: ${new Date(session.createdAt).toLocaleString()}\n`;
-      output += `Last Modified: ${session.lastModifiedAt ? new Date(session.lastModifiedAt).toLocaleString() : 'N/A'}\n`;
-      output += `Messages: ${session.messages.length}\n`;
-
-      return { type: 'text', value: output };
-    } catch (error) {
-      return {
-        type: 'text',
-        value: `Error: ${error instanceof Error ? error.message : String(error)}`,
-      };
-    }
-  }
+  if (subcommand === 'current') return handleCurrent(chatManager);
 
   return {
     type: 'text',

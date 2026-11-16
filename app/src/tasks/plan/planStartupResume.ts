@@ -22,7 +22,8 @@
  * 判定与 IO 分离（R06-006 GR03）：选择器 / 指令渲染 / taskId 编解码均为**纯函数**，IO 经参数注入。
  */
 
-import { feature } from '@openliri/kernel';
+// 2026-11-16：用户可配门控（设置页可关）—— 只取叶子模块
+import { resolveFeatureGate } from '@modules/query/featureGate';
 import { getLogger } from '@openliri/infra/monitoring';
 import { getCg3SelfWakeService } from '@modules/tasks/Cg3Bootstrap';
 import { PLAN_STATUS_RUNNING, type Plan } from '../TaskOrchestrator';
@@ -254,7 +255,7 @@ export async function enqueueStartupPlanResumes(
     skipped: 0,
     deferred: 0,
   };
-  if (!feature('PLAN_STARTUP_RESUME')) return report;
+  if (!resolveFeatureGate('PLAN_STARTUP_RESUME')) return report;
 
   const scheduler =
     params.scheduler !== undefined
@@ -323,7 +324,7 @@ export async function resolveStartupPlanResume(params: {
   /** D7：工具副作用解析（注入；缺省 ⇒ 影响段落里该部分计为 unknown） */
   resolveEffect?: PlanImpactOptions['resolveEffect'];
 }): Promise<PlanResumeTarget | null> {
-  if (!feature('PLAN_STARTUP_RESUME')) return null;
+  if (!resolveFeatureGate('PLAN_STARTUP_RESUME')) return null;
   const parsed = parsePlanResumeTaskId(params.taskId);
   if (!parsed) return null;
 

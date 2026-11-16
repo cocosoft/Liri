@@ -152,6 +152,15 @@ const enSettings = {
     featuresSwarmVerifyRetry: "Multi-agent verification retry",
     featuresSwarmVerifyRetryDesc:
       "When on, a sub-task the verifier explicitly rejects is re-run once with the feedback (extra token cost, capped at 20k per retry). On by default; turning it off disables the retry.",
+    featuresPlanStartupResume: "Resume plans after restart",
+    featuresPlanStartupResumeDesc:
+      "When on, plans that were still running within the last 24 hours (with a stale heartbeat) are picked up again after a restart (up to 5 at a time). On by default; turning it off disables automatic resume.",
+    featuresPlanSystemResume: "Resume plans via the executor",
+    featuresPlanSystemResumeDesc:
+      "When on, resuming adopts the existing plan and continues it (no new plan, completed steps are not redone); when off, it falls back to injecting a continuation message. On by default.",
+    featuresGoalStartupResume: "Resume goals after restart",
+    featuresGoalStartupResumeDesc:
+      "When on, active goals advanced within the last 24 hours are picked up again after a restart (up to 5 at a time). On by default; turning it off disables automatic resume.",
     // 2026-11-03 P0: autonomous run budget (relaxed defaults, user-tunable)
     autonomyLimitsTitle: "Autonomous run budget",
     autonomyLimitsDesc:

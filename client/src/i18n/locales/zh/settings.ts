@@ -149,6 +149,15 @@ const zhSettings = {
     featuresSwarmVerifyRetry: "多代理验证重试",
     featuresSwarmVerifyRetryDesc:
       "开启后，验证器明确判定未通过时，对应子任务会带着反馈再执行一轮（额外消耗 token，单次上限 20k）。默认开启，关闭后不重试。",
+    featuresPlanStartupResume: "重启后计划续跑",
+    featuresPlanStartupResumeDesc:
+      "开启后，重启时会把最近 24 小时内仍在进行、且心跳已过期的计划重新接上（单次最多 5 个）。默认开启，关闭后重启不再自动续跑。",
+    featuresPlanSystemResume: "计划续跑走执行器",
+    featuresPlanSystemResumeDesc:
+      "开启后，续跑由执行器直接采纳既有计划继续（不新建计划、已完成步骤不重做）；关闭后回到「注入一条续接消息」的旧方式。默认开启。",
+    featuresGoalStartupResume: "重启后目标续接",
+    featuresGoalStartupResumeDesc:
+      "开启后，重启时会把最近 24 小时内推进过的进行中目标接上继续推进（单次最多 5 个）。默认开启，关闭后重启不再自动续接。",
     // 2026-11-03 P0：自主执行运行预算（默认放宽，可按需调整）
     autonomyLimitsTitle: "自主执行运行预算",
     autonomyLimitsDesc:

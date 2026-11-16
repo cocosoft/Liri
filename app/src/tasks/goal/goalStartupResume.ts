@@ -24,7 +24,8 @@
  * 租户用户的目标在其租户库，重启后由该用户下一次会话/结算照常推进。
  */
 
-import { feature } from '@openliri/kernel';
+// 2026-11-16：用户可配门控（设置页可关）—— 只取叶子模块
+import { resolveFeatureGate } from '@modules/query/featureGate';
 import { getCg3SelfWakeService } from '@modules/tasks/Cg3Bootstrap';
 import {
   getTaskGoalStore,
@@ -151,7 +152,7 @@ export async function enqueueStartupGoalResumes(
   };
   // 默认关（`FEATURE_GOAL_STARTUP_RESUME=false`）：真机库有大量历史非终态目标，
   // 默认自动续跑会在每次启动消耗模型调用 ⇒ 必须显式 opt-in（见 featureFlags 注释）。
-  if (!feature('GOAL_STARTUP_RESUME')) return report;
+  if (!resolveFeatureGate('GOAL_STARTUP_RESUME')) return report;
   const scheduler =
     params.scheduler !== undefined
       ? params.scheduler
@@ -222,7 +223,7 @@ export async function resolveStartupGoalResume(params: {
   store?: StartupGoalSource;
 }): Promise<StartupResumeTarget | null> {
   // 开关关闭 ⇒ 即使有历史遗留的 pending 唤醒也不再续跑（kill switch 语义）
-  if (!feature('GOAL_STARTUP_RESUME')) return null;
+  if (!resolveFeatureGate('GOAL_STARTUP_RESUME')) return null;
   const parsed = parseStartupResumeTaskId(params.taskId);
   if (!parsed) return null;
   const store = params.store ?? getTaskGoalStore();

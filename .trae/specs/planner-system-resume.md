@@ -70,3 +70,5 @@
 
 **为什么默认关**：系统级续跑会**自动接管**会话执行（不经用户消息），属自主行为；默认关时与一期逐字一致。
 
+> **订正（2026-11-16）**：`PLAN_SYSTEM_RESUME` 已按**用户裁定**翻转为默认 `true`（21 模式 #6 Planning，与 `PLAN_STARTUP_RESUME` 同批）；判据未逐项取证，属**裁定翻转**；回退 `FEATURE_PLAN_SYSTEM_RESUME=false`（回到一期消息注入）。详见 `default-off-switches-review-gates.md §2.4.5`。
+

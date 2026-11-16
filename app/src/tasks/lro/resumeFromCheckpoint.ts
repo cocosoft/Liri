@@ -26,6 +26,7 @@ import { parseSuccessCriteria } from '@modules/tasks/successCriteria';
 // 2026-11-09：恢复时把 cwd 对齐会话工作区（真机 `pdca_mw8txe5r` 的空目录根因）
 import { alignTaskWorkspace, type AgentIsolation } from '@modules/agent';
 import {
+  evaluateResumeGate,
   planTurnsExtensionDecision,
   shouldReRollExtendedStep,
 } from './pureDecisions.js';
@@ -161,34 +162,22 @@ async function resumeFromCheckpointCore(
   const ckStatus = ck.status as string | undefined;
   const replanPending = Boolean(ck.replanPending);
   const replanFailCount = Number(ck.replanFailCount) || 0;
-  const isTerminal = (st?: string): boolean =>
-    st === 'completed' || st === 'abort' || st === 'failed';
-  const replanResumable =
-    ckStatus === 'failed' &&
-    replanPending &&
-    replanFailCount < replanMaxRetries();
-  // 2026-10-17（M2 可达性修复）：启动扫描 `scanAndAbortStalePdcaTasks` 会把**崩溃遗留**
-  // 的活跃任务写成 `status:'abort'`，但保留非终态 phase（execute/review/decide）。
-  // 旧判据把该组合当终态一律拒绝 ⇒ P0(M2) 的步骤快照在生产没有有效消费路径。
-  // 放行条件严格限定：status=abort **且** 步骤快照非空，且满足任一
-  //   ① `abortedBy='startup_scan'`（2026-11-08 真机 `pdca_mw7d3dq3`：扫描为满足
-  //      /goal list 的 phase 过滤已把 phase 落 abort ⇒ 必须靠标记识别，否则不可续跑）；
-  //   ② phase 仍非终态（旧格式检查点，无标记）。
-  const crashAborted = ck.abortedBy === 'startup_scan';
-  const interruptedByScan =
-    ckStatus === 'abort' &&
-    steps.length > 0 &&
-    (crashAborted || !isTerminal(phase));
-  const refuseResume =
-    (isTerminal(phase) && !crashAborted) ||
-    (isTerminal(ckStatus) && !replanResumable && !interruptedByScan);
-  if (refuseResume) {
+  // P3-2（2026-11-16）：判据原样外移到纯函数 `evaluateResumeGate`（含逐字文案）。
+  const gate = evaluateResumeGate({
+    phase,
+    status: ckStatus,
+    replanPending,
+    replanFailCount,
+    replanMaxRetries: replanMaxRetries(),
+    stepCount: steps.length,
+    abortedBy: ck.abortedBy,
+  });
+  const replanResumable = gate.replanResumable;
+  if (gate.refuse) {
     throw new AppError(
-      `任务 ${deps.taskId} 已处于终态（phase=${phase}, status=${ckStatus ?? '-'}）${
-        ckStatus === 'failed' && !replanPending
-          ? '，且 replan 已达上限/未挂起，需人工介入'
-          : '，不可恢复'
-      }`,
+      `任务 ${deps.taskId} 已处于终态（phase=${phase}, status=${
+        ckStatus ?? '-'
+      }）${gate.refuseDetail}`,
       ErrorCategory.EXECUTION,
       ErrorSeverity.HIGH,
       'PDCA_RESUME_TERMINAL',

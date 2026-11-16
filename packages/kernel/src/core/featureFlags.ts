@@ -580,18 +580,17 @@ export const FEATURE_FLAGS = {
    */
   REQUIRE_BEARER: true,
 
-  // ───── 长程目标：重启后续接（D2+，2026-11-14；默认关 = 零行为变更）─────
+  // ───── 长程目标：重启后续接（D2+，2026-11-14；2026-11-16 起默认开）─────
   /**
-   * D2+：**重启后为未达终态目标登记一次续跑**（默认关）。
+   * D2+：**重启后为未达终态目标登记一次续跑**（**2026-11-16 起默认开**）。
    *
    * 开 ⇒ 启动期扫描"最近 24h 内推进过"的 `active`/`blocked` 目标（最多 5 个，按最近更新
    * 倒序），各登记一次 `goal-startup:<goalId>:<updatedAt>` 唤醒；到点由既有 selfWake
-   * 执行器注入 `continue_goal` 指令并续跑会话。
-   * 关（默认）⇒ 不扫描、不登记 —— 与改动前逐字一致（真机库实测有 128 个历史非终态目标，
-   * 默认开会在每次启动时自动消耗 5 轮模型调用，必须显式 opt-in）。
-   * `FEATURE_GOAL_STARTUP_RESUME=true`。
+   * 执行器注入 `continue_goal` 指令并续跑会话。**翻转依据**：用户裁定 2026-11-16（21 模式 #11 Goal）；
+   * 实测本机 4052 个目标中 24h 内 active/blocked **0 个** ⇒ 启动开销有界（另有 24h 窗口 + 单次 5 个）。
+   * 回退 `FEATURE_GOAL_STARTUP_RESUME=false` ⇒ 不扫描、不登记。
    */
-  GOAL_STARTUP_RESUME: false,
+  GOAL_STARTUP_RESUME: true,
 
   // ───── 持久 DAG：计划重启续跑（D3，2026-11-14；2026-11-16 起默认开）─────
   /**

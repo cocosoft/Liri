@@ -38,6 +38,15 @@ const fixture = JSON.parse(
 describe('bash 分类 parity（fixture 驱动）', () => {
   const analyzer = new BashSecurityAnalyzer();
 
+  // G3（2026-11-17）：用例规模下界 —— 只增不减，防「删用例让门禁变绿」
+  it('fixture 至少 40 条（覆盖 allow / ask / deny 三档）', () => {
+    expect(fixture.cases.length).toBeGreaterThanOrEqual(40);
+    const behaviors = new Set(fixture.cases.map((c) => c.expected));
+    expect(behaviors.has('allow')).toBe(true);
+    expect(behaviors.has('ask')).toBe(true);
+    expect(behaviors.has('deny')).toBe(true);
+  });
+
   for (const c of fixture.cases) {
     it(`${c.expected.toUpperCase()} · ${c.command}`, () => {
       expect(analyzer.analyze(c.command).behavior).toBe(c.expected);

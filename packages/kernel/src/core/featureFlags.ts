@@ -390,12 +390,9 @@ export const FEATURE_FLAGS = {
   SNIP: false,
 
   // ───── 状态管理 ─────
-  /** 响应式上下文压缩 */
-  REACTIVE_COMPACT: false,
-  /** 上下文折叠 */
-  CONTEXT_COLLAPSE: false,
-  /** 历史消息裁剪 */
-  HISTORY_SNIP: false,
+  // 2026-11-16：`REACTIVE_COMPACT` / `CONTEXT_COLLAPSE` / `HISTORY_SNIP` 三个**零消费方死开关**已删除
+  // （按 `code-deletion.md` CD01–CD06 核查：全仓无 `feature()` 读取点、无 env/变体/配置/客户端引用；
+  // 压缩实现 `ReactiveCompact` / `ContextCollapseStrategy` 等不受影响，它们由各自触发面驱动）。
   /** 后台会话支持 */
   BG_SESSIONS: false,
   /** 溢出测试工具 */

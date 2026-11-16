@@ -1764,7 +1764,6 @@
       "packages/infra/src/security/bash/commentLabel.ts",
       "packages/infra/src/security/bash/sedEditParser.ts",
       "packages/infra/src/security/bash/sedValidation.ts",
-      "packages/infra/src/security/BashSecurityAnalyzer.ts",
       "packages/infra/src/security/git/gitSafety.ts",
       "packages/infra/src/security/injection/ContextFileScanner.ts",
       "packages/infra/src/security/permission/PermissionContext.ts",

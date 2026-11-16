@@ -327,6 +327,86 @@ const POWERSHELL_WRAPPER_COMMANDS: ReadonlySet<string> = new Set([
   'pwsh',
 ]);
 
+/**
+ * P3-2（2026-11-16，用户裁定）：可剥壳的壳族（与 `shellUnwrap` 支持面一致）。
+ *
+ * `powershell` / `pwsh` **不在**其中：其内层脚本由 PowerShell 安全链判定
+ * （`delegatedSinglePowerShell`），本层不得越权下结论。
+ */
+const UNWRAPPABLE_SHELLS: ReadonlySet<string> = new Set([
+  'bash',
+  'sh',
+  'zsh',
+  'dash',
+  'ksh',
+  'fish',
+  'cmd',
+  'env',
+]);
+
+/**
+ * 壳操作符探针（与 `BashAllowlistMatcher.SHELL_OPERATORS` 同口径）。
+ *
+ * 用途：**含操作符的复合命令**不走"壳包裹不可解析 ⇒ deny"这条短路，改由复合只读判定
+ * 处理（它会区分"全段只读 / 非只读段 / 结构风险"，并给出"等价单条写法"提示）。
+ */
+const SHELL_OPERATOR_PROBE = /[;&|><`$\r\n]/;
+
+/**
+ * P3-2（2026-11-16，用户裁定）：命令是否为「壳包裹形态、但内层**解析不出**」。
+ *
+ * 动机：剥壳失败时旧实现落回原判定链 ⇒ `bash` / `cmd` 这类外层壳不在只读白名单 ⇒
+ * **ask**（一次点击即可放行）。攻击者只要构造"解析不了"的形态（路径壳、
+ * 多余位置参数、`cmd /k`、`env -i`、超深嵌套）就能把"未知"变成"可批准"。
+ *
+ * 口径：能确定是壳族、且参数形态表示**要执行内层命令**时返回壳名；否则返回 null
+ * （裸壳名、版本/帮助查询、`env VAR=1` 只打印 —— 这些不构成"内层命令不可证只读"）。
+ */
+function isUnresolvableShellWrapper(command: string): string | null {
+  const trimmed = command.trim();
+  if (!trimmed) return null;
+  const sp = trimmed.search(/\s/);
+  if (sp < 0) return null; // 裸壳名（`bash` / `env`）：维持原判
+  const rawBase = trimmed.slice(0, sp);
+  const base = rawBase.toLowerCase();
+  const rest = trimmed.slice(sp + 1).trim();
+  if (!rest) return null;
+  // 版本 / 帮助查询不执行内层命令（解析不出也不升级为 deny）
+  if (/^(?:--version|-version|-V|-\?|--help|\/\?)$/i.test(rest)) return null;
+
+  // 路径形态（`/bin/bash`、`C:\Windows\System32\cmd.exe`）：同样是壳执行
+  if (/[/\\]/.test(base)) {
+    const file = (base.split(/[/\\]/).pop() ?? '').replace(/\.exe$/i, '');
+    return UNWRAPPABLE_SHELLS.has(file) ? file : null;
+  }
+  if (!UNWRAPPABLE_SHELLS.has(base)) return null;
+
+  if (base === 'env') {
+    // `env VAR=1`（仅打印）不算内层命令；其余（含 `-i` 等开关）都视为"要执行内层"
+    const hasCommand = rest
+      .split(/\s+/)
+      .some((t) => !/^[A-Za-z_][A-Za-z0-9_]*=/.test(t));
+    return hasCommand ? base : null;
+  }
+  return base;
+}
+
+/** 壳包裹不可解析时的统一硬拒结论（fail-closed；带可执行原因） */
+function shellWrapperDeny(
+  wrapper: string,
+  reason: string | undefined
+): SecurityAnalysisResult {
+  return {
+    safe: false,
+    behavior: 'deny',
+    riskLevel: 'high',
+    message:
+      `命令被拒绝：疑似壳包裹（${wrapper}）但无法解析内层命令（${reason ?? '形态不支持'}）。` +
+      '无法证明内层只读，请改为单条命令直接执行（去掉壳与位置参数）。',
+    matchedPatterns: [`shell-wrapper-unresolvable: ${reason ?? 'unsupported'}`],
+  } as SecurityAnalysisResult;
+}
+
 /** FIX-16（2026-10-27）：单条只读命令的放行结论（与 `compoundReadOnly` 同一只读族）。 */
 const SINGLE_READONLY_ALLOW: SecurityAnalysisResult = Object.freeze({
   safe: true,
@@ -516,6 +596,27 @@ export class BashSecurityAnalyzer {
             `shell-wrapper-unwrapped: ${unwrapped.wrapper}`,
           ],
         };
+      }
+      // P3-2（2026-11-16，用户裁定）：壳形态但**解析不出内层** ⇒ 硬拒（原先落 ask）。
+      // 攻击者可用"路径壳 / 多余位置参数 / cmd /k / env -i"把未知降级为"一次点击可批准"。
+      // 含 shell 操作符的复合命令不走这里：交下方复合只读判定（它会给出"等价单条写法"提示）。
+      if (!unwrapped.ok && !SHELL_OPERATOR_PROBE.test(trimmedCommand)) {
+        const wrapper = isUnresolvableShellWrapper(trimmedCommand);
+        if (wrapper) return shellWrapperDeny(wrapper, unwrapped.reason);
+      }
+    } else if (
+      depth >= MAX_SHELL_UNWRAP_DEPTH &&
+      !options.delegatedSinglePowerShell
+    ) {
+      // 超过剥壳上限时内层仍是壳 ⇒ 同样无法证只读，硬拒（不再留 ask 口子）
+      if (!SHELL_OPERATOR_PROBE.test(trimmedCommand)) {
+        const wrapper = isUnresolvableShellWrapper(trimmedCommand);
+        if (wrapper) {
+          return shellWrapperDeny(
+            wrapper,
+            `嵌套深度超过剥壳上限（${MAX_SHELL_UNWRAP_DEPTH} 层）`
+          );
+        }
       }
     }
 

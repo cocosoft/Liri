@@ -74,8 +74,38 @@
     },
     {
       "command": "env LD_PRELOAD=/tmp/x.so git log",
-      "expected": "ask",
-      "why": "T2b：影响代码加载的赋值不剥壳，且命中环境变量注入模式"
+      "expected": "deny",
+      "why": "T2b：影响代码加载的赋值不剥壳 ⇒ P3-2 起升级为硬拒（壳形态但内层不可解析）"
+    },
+    {
+      "command": "bash -lc 'git log' extra",
+      "expected": "deny",
+      "why": "P3-2：壳参数形态不支持（多余位置参数）⇒ fail-closed 硬拒，不再转审批"
+    },
+    {
+      "command": "/bin/bash -lc \"git log\"",
+      "expected": "deny",
+      "why": "P3-2：路径形态壳不剥壳 ⇒ 内层不可证只读 ⇒ 硬拒"
+    },
+    {
+      "command": "cmd /k dir",
+      "expected": "deny",
+      "why": "P3-2：cmd /k 保留会话并执行 ⇒ 不可解析 ⇒ 硬拒"
+    },
+    {
+      "command": "env -i bash -lc \"rm -rf /\"",
+      "expected": "deny",
+      "why": "P3-2：env 带开关不剥壳 ⇒ 内层危险命令不得降级为审批"
+    },
+    {
+      "command": "bash -lc \"bash -lc \\\"bash -lc 'rm -rf /'\\\"\"",
+      "expected": "deny",
+      "why": "P3-2：嵌套超过剥壳上限（2 层）⇒ 不得留 ask 口子"
+    },
+    {
+      "command": "bash -lc \"unterminated",
+      "expected": "deny",
+      "why": "P3-2：引号未闭合 ⇒ 解析不出内层 ⇒ 硬拒"
     },
     {
       "command": "bash -lc \"rm -rf /\"",

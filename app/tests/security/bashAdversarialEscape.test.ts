@@ -160,24 +160,35 @@ describe('壳剥壳：包裹不得放大权限', () => {
     }
   });
 
-  it('不支持的壳形态一律不剥壳（fail-closed，仍转人工）', () => {
-    const unsupported = [
+  it('不支持的壳形态一律硬拒（P3-2 用户裁定：不再留 ask 口子）', () => {
+    const unresolvable = [
       "/bin/bash -lc 'git log'", // 路径形态
       "bash -lc 'git log' extra", // 多余位置参数
       'bash -lc"git log"', // 开关与脚本体粘连
       'cmd /k dir', // cmd /k（非 /c）
-      "powershell -Command 'Remove-Item -Recurse /'", // PS 由专用链判定
       'sh -c', // 缺脚本
+      `bash -lc "unterminated`, // 引号未闭合
     ];
-    for (const command of unsupported) {
-      expectNotAllow(command);
+    for (const command of unresolvable) {
+      expect(behaviorOf(command)).toBe('deny');
     }
+    // PowerShell 仍由专用链判定（本层不越权下 deny 结论）
+    expectNotAllow("powershell -Command 'Remove-Item -Recurse /'");
   });
 
-  it('多层嵌套（超剥壳上限）也不得 allow', () => {
-    expectNotAllow(`bash -lc "bash -lc \\"bash -lc 'rm -rf /'\\""`);
-    expectNotAllow('env -i bash -lc "rm -rf /"');
-    expectNotAllow('env NO_COLOR=1 env NO_COLOR=1 bash -lc "rm -rf /"');
+  it('多层嵌套（超剥壳上限）一律硬拒', () => {
+    expect(behaviorOf(`bash -lc "bash -lc \\"bash -lc 'rm -rf /'\\""`)).toBe(
+      'deny'
+    );
+    expect(behaviorOf('env -i bash -lc "rm -rf /"')).toBe('deny');
+    expect(
+      behaviorOf('env NO_COLOR=1 env NO_COLOR=1 bash -lc "rm -rf /"')
+    ).toBe('deny');
+  });
+
+  it('非壳族的未知命令仍维持 ask（不误伤普通命令）', () => {
+    expect(behaviorOf('bun test 2>&1')).toBe('ask');
+    expect(behaviorOf('node script.js')).toBe('ask');
   });
 
   it('剥壳不得把只读命令变成未知命令（避免误伤）', () => {

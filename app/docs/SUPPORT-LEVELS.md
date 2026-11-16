@@ -88,7 +88,7 @@
 | `file_read` | core | `app/tests/tools/FileReadTool.test.ts`（测试文件名） |
 | `file_write` | core | `app/tests/tools/fileWriteReadBeforeWrite.test.ts`（测试文件名） |
 | `glob` | core | `app/tests/tools/GlobTool/GlobTool-braces.test.ts`（测试文件名） |
-| `grep` | core | `app/tests/tools/GrepTool/grepAsync.test.ts`（测试文件名） |
+| `grep` | core | `app/tests/commands/grepArgsParity.test.ts`（测试文件名） |
 | `image` | core | `app/tests/tools/imageSafetyFilter.test.ts`（测试文件名） |
 | `image_analysis` | community | —（无专属测试） |
 | `image_display` | community | —（无专属测试） |

@@ -27,6 +27,7 @@ import { AIMessageRole } from '@modules/ai';
 import {
   resolvePyappHome,
   resolveDataSubDir,
+  resolveDomainDir,
 } from '@openliri/infra/environment';
 import { globalEventBus } from '@openliri/kernel';
 import { FileRegistry } from '@openliri/service/services/file/FileRegistry';
@@ -223,6 +224,8 @@ export interface CompileOptions {
   lint?: boolean;
   /** 编译时使用的模型名，默认使用 aiService 的默认模型 */
   model?: string;
+  /** 编译目标域；未指定时写入全局 knowledge 目录 */
+  domain?: string;
 }
 
 export interface CompileResult {
@@ -301,7 +304,12 @@ export class KnowledgeCompiler {
   async compile(options: CompileOptions = {}): Promise<CompileResult> {
     enterPhase('knowledge:compile');
     try {
-      const { force = false, model } = options;
+      const { force = false, model, domain } = options;
+      this.knowledgeRoot = domain
+        ? resolveDomainDir(domain)
+        : join(resolvePyappHome(), 'knowledge');
+      this.rawDir = join(this.knowledgeRoot, 'raw');
+      this.indexManager = new IndexManager(this.knowledgeRoot);
 
       // 编译模型解析：显式通过模型路由（DB 唯一事实来源）解析，
       // 任务类型 knowledge_compile（模型管理 → 任务分工可配置），
@@ -520,7 +528,7 @@ export class KnowledgeCompiler {
       if (shouldLint && result.pagesCreated > 0) {
         try {
           const linter = new WikiLinter(defaultRules);
-          const lintReport = await linter.run(this.knowledgeRoot);
+          const lintReport = await linter.run(this.knowledgeRoot, domain);
           const { error, warning } = lintReport.summary;
           // C4（2026-11-05）：lint 错误数棘轮（只减不增）。
           // 首轮采纳当前值为基线；高于基线 ⇒ 判本次编译失败（进 result.errors + error 日志）；

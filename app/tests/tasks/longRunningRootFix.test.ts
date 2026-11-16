@@ -522,6 +522,94 @@ describe('resume 可达性与字段回填', () => {
   });
 });
 
+// 特征化（P3-2）：把「终态闸门」逐格锁住，供后续原样外移为纯函数时对照。
+// 判据现状见 `resumeFromCheckpointCore`：refuseResume = 终态 phase（无启动扫描标记）
+// 或 终态 status（不满足 replan 续跑、且非启动扫描中断）。
+describe('resume 终态闸门（特征化决策表）', () => {
+  const refuse = (ck: Record<string, unknown>) =>
+    resumeFromCheckpoint(ck, makeResumeDeps(String(ck.taskId)).deps);
+
+  it('status=completed（phase 非终态）⇒ 拒绝，提示「不可恢复」', async () => {
+    await expect(
+      refuse({ taskId: 'gate-completed', status: 'completed' })
+    ).rejects.toThrow(
+      /已处于终态（phase=execute, status=completed），不可恢复/
+    );
+  });
+
+  it('status=failed 但 replanPending=false ⇒ 拒绝，提示需人工介入', async () => {
+    await expect(
+      refuse({
+        taskId: 'gate-failed-nopending',
+        status: 'failed',
+        replanPending: false,
+      })
+    ).rejects.toThrow(/replan 已达上限\/未挂起，需人工介入/);
+  });
+
+  it('status=failed + replanPending + 失败计数达上限（3）⇒ 拒绝；文案仍按 replanPending 判（现状）', async () => {
+    await expect(
+      refuse({
+        taskId: 'gate-failed-limit',
+        status: 'failed',
+        replanPending: true,
+        replanFailCount: 3,
+      })
+    ).rejects.toThrow(/已处于终态（phase=execute, status=failed），不可恢复/);
+  });
+
+  it('status=failed + replanPending + 失败计数未达上限（2）⇒ 放行', async () => {
+    const { deps, state } = makeResumeDeps('gate-failed-open');
+    const result = await resumeFromCheckpoint(
+      {
+        taskId: 'gate-failed-open',
+        status: 'failed',
+        replanPending: true,
+        replanFailCount: 2,
+        description: '可续跑任务',
+      },
+      deps
+    );
+    expect(result).toBe('ran');
+    expect(state.loopRan).toBe(true);
+  });
+
+  it('status=abort 但无步骤快照 ⇒ 拒绝（无快照不足以续跑）', async () => {
+    await expect(
+      refuse({ taskId: 'gate-abort-nosteps', status: 'abort', steps: [] })
+    ).rejects.toThrow(/已处于终态（phase=execute, status=abort），不可恢复/);
+  });
+
+  it('终态 phase 优先于 status：即便 replan 可续跑也拒绝', async () => {
+    await expect(
+      refuse({
+        taskId: 'gate-phase-wins',
+        phase: 'abort',
+        status: 'failed',
+        replanPending: true,
+        replanFailCount: 0,
+        steps: [{ id: 's1', description: '步骤1', status: 'pending' }],
+      })
+    ).rejects.toThrow(/已处于终态（phase=abort, status=failed），不可恢复/);
+  });
+
+  it('status 缺失但 phase 终态 ⇒ 仍拒绝，文案用 - 占位（错误码/文案口径不变）', async () => {
+    await expect(
+      refuse({ taskId: 'gate-nostatus', phase: 'abort', status: undefined })
+    ).rejects.toThrow(/已处于终态（phase=abort, status=-），不可恢复/);
+  });
+
+  it('status 缺失且 phase 非终态 ⇒ 不拒绝（沿用旧存档续跑语义）', async () => {
+    const { deps, state } = makeResumeDeps('gate-nostatus-open');
+    const result = await resumeFromCheckpoint(
+      { taskId: 'gate-nostatus-open', steps: [] },
+      deps
+    );
+    expect(result).toBe('ran');
+    expect(state.loopRan).toBe(true);
+  });
+});
+
 describe('escalate 收尾的 phase 投影（2026-11-08 真机 pdca_mw79lfjh）', () => {
   /** 造一个"全部步骤终态 + 某步 escalate"的计划（直接驱动终态裁决段） */
   function makeEscalatedOrchestrator(taskId: string): {

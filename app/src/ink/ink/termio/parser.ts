@@ -83,39 +83,12 @@ function parseCSIParams(paramStr: string): number[] {
   return paramStr.split(/[;:]/).map((s) => (s === '' ? 0 : parseInt(s, 10)));
 }
 
-/** Parse a raw CSI sequence (e.g., "\x1b[31m") into an action */
-function parseCSI(rawSequence: string): Action | null {
-  const inner = rawSequence.slice(2);
-  if (inner.length === 0) return null;
-
-  const finalByte = inner.charCodeAt(inner.length - 1);
-  const beforeFinal = inner.slice(0, -1);
-
-  let privateMode = '';
-  let paramStr = beforeFinal;
-  let intermediate = '';
-
-  if (beforeFinal.length > 0 && '?>='.includes(beforeFinal[0]!)) {
-    privateMode = beforeFinal[0]!;
-    paramStr = beforeFinal.slice(1);
-  }
-
-  const intermediateMatch = paramStr.match(/([^0-9;:]+)$/);
-  if (intermediateMatch) {
-    intermediate = intermediateMatch[1]!;
-    paramStr = paramStr.slice(0, -intermediate.length);
-  }
-
-  const params = parseCSIParams(paramStr);
-  const p0 = params[0] ?? 1;
-  const p1 = params[1] ?? 1;
-
-  // SGR (Select Graphic Rendition)
-  if (finalByte === CSI.SGR && privateMode === '') {
-    return { type: 'sgr', params: paramStr };
-  }
-
-  // Cursor movement
+/** Cursor movement 段（P3-2，2026-11-16：由 `parseCSI` **原样外移**，映射与顺序不变）。 */
+function parseCursorMovementCSI(
+  finalByte: number,
+  p0: number,
+  p1: number
+): Action | null {
   if (finalByte === CSI.CUU) {
     return {
       type: 'cursor',
@@ -155,6 +128,90 @@ function parseCSI(rawSequence: string): Action | null {
   if (finalByte === CSI.VPA) {
     return { type: 'cursor', action: { type: 'row', row: p0 } };
   }
+  return null;
+}
+
+/** DEC 私有模式段（P3-2，2026-11-16：由 `parseCSI` **原样外移**，映射与顺序不变）。 */
+function parsePrivateModeCSI(
+  finalByte: number,
+  privateMode: string,
+  p0: number
+): Action | null {
+  if (privateMode === '?' && (finalByte === CSI.SM || finalByte === CSI.RM)) {
+    const enabled = finalByte === CSI.SM;
+
+    if (p0 === DEC.CURSOR_VISIBLE) {
+      return {
+        type: 'cursor',
+        action: enabled ? { type: 'show' } : { type: 'hide' },
+      };
+    }
+    if (p0 === DEC.ALT_SCREEN_CLEAR || p0 === DEC.ALT_SCREEN) {
+      return { type: 'mode', action: { type: 'alternateScreen', enabled } };
+    }
+    if (p0 === DEC.BRACKETED_PASTE) {
+      return { type: 'mode', action: { type: 'bracketedPaste', enabled } };
+    }
+    if (p0 === DEC.MOUSE_NORMAL) {
+      return {
+        type: 'mode',
+        action: { type: 'mouseTracking', mode: enabled ? 'normal' : 'off' },
+      };
+    }
+    if (p0 === DEC.MOUSE_BUTTON) {
+      return {
+        type: 'mode',
+        action: { type: 'mouseTracking', mode: enabled ? 'button' : 'off' },
+      };
+    }
+    if (p0 === DEC.MOUSE_ANY) {
+      return {
+        type: 'mode',
+        action: { type: 'mouseTracking', mode: enabled ? 'any' : 'off' },
+      };
+    }
+    if (p0 === DEC.FOCUS_EVENTS) {
+      return { type: 'mode', action: { type: 'focusEvents', enabled } };
+    }
+  }
+  return null;
+}
+
+/** Parse a raw CSI sequence (e.g., "\x1b[31m") into an action */
+function parseCSI(rawSequence: string): Action | null {
+  const inner = rawSequence.slice(2);
+  if (inner.length === 0) return null;
+
+  const finalByte = inner.charCodeAt(inner.length - 1);
+  const beforeFinal = inner.slice(0, -1);
+
+  let privateMode = '';
+  let paramStr = beforeFinal;
+  let intermediate = '';
+
+  if (beforeFinal.length > 0 && '?>='.includes(beforeFinal[0]!)) {
+    privateMode = beforeFinal[0]!;
+    paramStr = beforeFinal.slice(1);
+  }
+
+  const intermediateMatch = paramStr.match(/([^0-9;:]+)$/);
+  if (intermediateMatch) {
+    intermediate = intermediateMatch[1]!;
+    paramStr = paramStr.slice(0, -intermediate.length);
+  }
+
+  const params = parseCSIParams(paramStr);
+  const p0 = params[0] ?? 1;
+  const p1 = params[1] ?? 1;
+
+  // SGR (Select Graphic Rendition)
+  if (finalByte === CSI.SGR && privateMode === '') {
+    return { type: 'sgr', params: paramStr };
+  }
+
+  // Cursor movement（P3-2：原样外移到 parseCursorMovementCSI）
+  const cursorMovement = parseCursorMovementCSI(finalByte, p0, p1);
+  if (cursorMovement) return cursorMovement;
 
   // Erase
   if (finalByte === CSI.ED) {
@@ -197,44 +254,9 @@ function parseCSI(rawSequence: string): Action | null {
     return { type: 'cursor', action: { type: 'style', ...styleInfo } };
   }
 
-  // Private modes
-  if (privateMode === '?' && (finalByte === CSI.SM || finalByte === CSI.RM)) {
-    const enabled = finalByte === CSI.SM;
-
-    if (p0 === DEC.CURSOR_VISIBLE) {
-      return {
-        type: 'cursor',
-        action: enabled ? { type: 'show' } : { type: 'hide' },
-      };
-    }
-    if (p0 === DEC.ALT_SCREEN_CLEAR || p0 === DEC.ALT_SCREEN) {
-      return { type: 'mode', action: { type: 'alternateScreen', enabled } };
-    }
-    if (p0 === DEC.BRACKETED_PASTE) {
-      return { type: 'mode', action: { type: 'bracketedPaste', enabled } };
-    }
-    if (p0 === DEC.MOUSE_NORMAL) {
-      return {
-        type: 'mode',
-        action: { type: 'mouseTracking', mode: enabled ? 'normal' : 'off' },
-      };
-    }
-    if (p0 === DEC.MOUSE_BUTTON) {
-      return {
-        type: 'mode',
-        action: { type: 'mouseTracking', mode: enabled ? 'button' : 'off' },
-      };
-    }
-    if (p0 === DEC.MOUSE_ANY) {
-      return {
-        type: 'mode',
-        action: { type: 'mouseTracking', mode: enabled ? 'any' : 'off' },
-      };
-    }
-    if (p0 === DEC.FOCUS_EVENTS) {
-      return { type: 'mode', action: { type: 'focusEvents', enabled } };
-    }
-  }
+  // Private modes（P3-2：原样外移到 parsePrivateModeCSI）
+  const privateModeAction = parsePrivateModeCSI(finalByte, privateMode, p0);
+  if (privateModeAction) return privateModeAction;
 
   return { type: 'unknown', sequence: rawSequence };
 }

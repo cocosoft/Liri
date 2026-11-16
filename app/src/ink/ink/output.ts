@@ -6,7 +6,6 @@ import {
 } from '@alcalzone/ansi-tokenize';
 import { logForDebugging } from '../utils/debug.js';
 import { getGraphemeSegmenter } from '@openliri/infra/utils/intl';
-import sliceAnsi from '../utils/sliceAnsi.js';
 import { reorderBidi } from './bidi.js';
 import { type Rectangle, unionRect } from './layout/geometry.js';
 import {
@@ -23,7 +22,7 @@ import {
   shiftRows,
 } from './screen.js';
 import { stringWidth } from './stringWidth.js';
-import { widestLine } from './widest-line.js';
+import { applyClipToWrite, type Clip } from './writeClip.js';
 
 /**
  * A grapheme cluster with precomputed terminal width, styleId, and hyperlink.
@@ -88,12 +87,9 @@ type ClipOperation = {
   clip: Clip;
 };
 
-export type Clip = {
-  x1: number | undefined;
-  x2: number | undefined;
-  y1: number | undefined;
-  y2: number | undefined;
-};
+// `Clip` 与应用段（write × clip）已外移到 `writeClip.ts`（2026-11-17，P3-2 复杂度外移）；
+// 此处保留再导出，避免既有引用面漂移。
+export type { Clip };
 
 /**
  * Intersect two clips. `undefined` on an axis means unbounded; the other
@@ -396,82 +392,20 @@ export default class Output {
 
         case 'write': {
           const { text, softWrap } = operation;
-          let { x, y } = operation;
-          let lines = text.split('\n');
-          let swFrom = 0;
-          let prevContentEnd = 0;
-
-          const clip = clips.at(-1);
-
-          if (clip) {
-            const clipHorizontally =
-              typeof clip?.x1 === 'number' && typeof clip?.x2 === 'number';
-
-            const clipVertically =
-              typeof clip?.y1 === 'number' && typeof clip?.y2 === 'number';
-
-            // If text is positioned outside of clipping area altogether,
-            // skip to the next operation to avoid unnecessary calculations
-            if (clipHorizontally) {
-              const width = widestLine(text);
-
-              if (x + width <= clip.x1! || x >= clip.x2!) {
-                continue;
-              }
-            }
-
-            if (clipVertically) {
-              const height = lines.length;
-
-              if (y + height <= clip.y1! || y >= clip.y2!) {
-                continue;
-              }
-            }
-
-            if (clipHorizontally) {
-              lines = lines.map((line) => {
-                const from = x < clip.x1! ? clip.x1! - x : 0;
-                const width = stringWidth(line);
-                const to = x + width > clip.x2! ? clip.x2! - x : width;
-                let sliced = sliceAnsi(line, from, to);
-                // Wide chars (CJK, emoji) occupy 2 cells. When `to` lands
-                // on the first cell of a wide char, sliceAnsi includes the
-                // entire glyph and the result overflows clip.x2 by one cell,
-                // writing a SpacerTail into the adjacent sibling. Re-slice
-                // one cell earlier; wide chars are exactly 2 cells, so a
-                // single retry always fits.
-                if (stringWidth(sliced) > to - from) {
-                  sliced = sliceAnsi(line, from, to - 1);
-                }
-                return sliced;
-              });
-
-              if (x < clip.x1!) {
-                x = clip.x1!;
-              }
-            }
-
-            if (clipVertically) {
-              const from = y < clip.y1! ? clip.y1! - y : 0;
-              const height = lines.length;
-              const to = y + height > clip.y2! ? clip.y2! - y : height;
-
-              // If the first visible line is a soft-wrap continuation, we
-              // need the clipped previous line's content end so
-              // screen.softWrap[lineY] correctly records the join point
-              // even though that line's cells were never written.
-              if (softWrap && from > 0 && softWrap[from] === true) {
-                prevContentEnd = x + stringWidth(lines[from - 1]!);
-              }
-
-              lines = lines.slice(from, to);
-              swFrom = from;
-
-              if (y < clip.y1!) {
-                y = clip.y1!;
-              }
-            }
+          // 2026-11-17（P3-2）：clip 应用段外移到 `writeClip.ts#applyClipToWrite`
+          // （判定顺序与边界写法逐字未改；整条被裁掉时返回 null ≈ 原 `continue`）。
+          const clipped = applyClipToWrite(
+            operation.x,
+            operation.y,
+            text,
+            softWrap,
+            clips.at(-1)
+          );
+          if (!clipped) {
+            continue;
           }
+          const { x, y, lines, swFrom } = clipped;
+          let prevContentEnd = clipped.prevContentEnd;
 
           const swBits = screen.softWrap;
           let offsetY = 0;

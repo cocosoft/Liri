@@ -322,7 +322,7 @@
 | 1 | `OUTPUT_GUARD` | `report:output-guard-corpus`：接入点 **6**（终稿×2 / 流式 chunk×1 / 工具回传×1 / 文件写入×2）⇒ 判据①**达标**；语料改写 **31 / 3388 文件**（0.91%，基线 47）⇒ 判据②**未达标**（阈值 ≤5） | ① 达标 · ② 未达标 | 维持 |
 | 2 | `OUTPUT_GUARD_BLOCK` | 仅在 #1 开启时生效，无独立收益 | 跟随 #1 | 维持 |
 | 3 | `OUTPUT_GUARD_KEEP_ORIGINAL` | 开 = 未打码原文落入本地事件日志 | 登记即「显式 opt-in，无默认开计划」 | 维持 |
-| 4 | `RESOURCE_GOVERNOR` | 组合根**已注入**抢占回调（`BootPipelineIntegrator`：`setResourceGovernorPreemptHandler` → `abortSessionStream`）+ SSE 观察者 ⇒ 开 = **真实抢占**（>8 在飞且存在低优先跨会话即中止该流）；O2 `observedPeakInflight` 仅进程内、**无持久化出口** ⇒ 判据①当前无读数 | ① 无读数 · ②③ 无事件 | 维持（要采读数须先加出口，非本批） |
+| 4 | `RESOURCE_GOVERNOR` | 组合根**已注入**抢占回调（`BootPipelineIntegrator`：`setResourceGovernorPreemptHandler` → `abortSessionStream`）+ SSE 观察者 ⇒ 开 = **真实抢占**（>8 在飞且存在低优先跨会话即中止该流）；O2 读数（峰值 / 撞限次数）**与开关无关**，取数口 `GET /v1/diagnostics/resource-governor`（2026-11-17 补齐，此前仅进程内、无出口） | ① 读数可取（**尚无真实样本**）· ②③ 无事件 | 维持 |
 | 5 | `PRO_SECURITY_SUITE` | **全仓零读取点**（仅常量 + `SAFETY_SWITCHES` / `featureGate` 断言）⇒ 开 = 无任何行为 | 生效面未展开 | 维持（表行已改标「无生效面 · 不属待翻」） |
 | 6 | `UNATTENDED_MODE` | 开 = `ask_user_question` 自动代答（`resolveUnattendedAnswers`）+ 计划自动审批 | 前置「无人值守审批策略」未定 | 维持 |
 | 8 | `BASH_INTERPRETER_GUARD` | 开 = 白名单内的 node/bun/python 等转**人工确认**（本仓大量 `bun run` 会加摩擦）；O1-B2 现有采样无解释器绕过白名单证据 | 2026-11-11 已裁定维持；无新事件 | 维持 |
@@ -347,7 +347,7 @@
 | **O1-B1** | `tools/bash/BashTool.ts`（已批准放行点，`:534`） | 既有 `logger.info('已批准命令放行', { revalidated })` | #7 | ✅ **既有**（无需改） |
 | **O1-B2** | `tools/bash/BashTool.ts`（解释器即将执行点） | 新增 `logger.debug('bash:interpreter_command_allowed')` | #8 | ✅ **已落地**（2026-10-09） |
 | **O1-B3** | `permission/ApprovedCommandRegistry.ts` `isCommandNameApproved` | 新增 `logger.debug('命令名级放行命中')` | #9 | ✅ **已落地**（2026-10-09） |
-| **O2** | `resourceGovernor/index.ts` `admit()`/`release()` | 新增**与开关无关**的观测集 `observedInflight` + 峰值访问器 `observedPeakInflight` + `logger.debug('resourceGovernor:inflight_at_limit')`（每次达/超上限一条，供出现次数计数） | #4 | ✅ **已落地**（2026-10-09） |
+| **O2** | `resourceGovernor/index.ts` `admit()`/`release()` | 新增**与开关无关**的观测集 `observedInflight` + 峰值访问器 `observedPeakInflight` + 撞限计数 `observedLimitHits` + `logger.debug('resourceGovernor:inflight_at_limit')`；**取数口** `GET /v1/diagnostics/resource-governor`（2026-11-17，返回 `enabled/limit/inflightCount/observedPeakInflight/observedLimitHits`，默认关也可读） | #4 | ✅ **已落地**（2026-10-09 观测点 / 2026-11-17 补读数出口） |
 | **O3** | `query/VerifierAgent.ts` / `query/TAORLoop.ts` | **既有**：`验证完成`（含 `turnCount`/`verdict`，`:373`）· `验证循环已达上限，强制升级`（`:316`）· TAORLoop `REJECT/ESCALATE`（含 `cycleCount`，`:953/:963`） | `iterative_refine` 判据 | ✅ **既有**（无需改） |
 | **O4** | `tasks/PlanDrivenLoop.ts` `:780` · `ai/router/OrchEngine.ts` `:194` | 新增 `logger.debug('pdl:topo_batches')` / `logger.debug('orch:topo_batches')`（批数 + 批宽分布 + 最大批宽） | `parallel_distributed` 判据 | ✅ **已落地**（2026-10-09） |
 | **O5** | `chat/ChatManager.ts` `_persistPatternDecision`（`:3958`）→ **2026-11-15 起主落点为** `chat/manager/verifyRecipeTurn.ts`（轮首判定） | 会话事件 `pattern/decision`（含 `sessionId` + `selected` + `featureGate.enabled`）。**聚合方式**：查该事件中 `data.selected=='self_verify'\|'iterative_refine'` 者，按 `sessionId` 去重计数。**2026-11-15 观测面订正**：原落点只在 PDCA 长任务闸门内（`site='research_dispatch'`）⇒ 普通轮永不落盘、判据① 结构性采不到样（本机 118 份 `events.jsonl` / 162.1 MB 实测 **0 条**）⇒ 已把判定前移到**每轮入口**，落 `site='turn_dispatch'`（`.trae/specs/self-verify-turn-surface.md`） | #11 | ✅ **已落地**（2026-11-15，`turn_dispatch`；`research_dispatch` 保留） |
@@ -359,7 +359,7 @@
 1. **O2 的峰值来自"准入—释放"配对**：若某会话 `admit` 后从未 `release`（异常路径），观测集会同 `inflight` 一样滞留 —— 与既有语义同源，**非本轮引入**。
 2. **O1-B3 只证明"命令名级命中"，不直接证明"参数不同"**：当前观测记录 `baseCommand` 命中；"同名**不同参**"的严格判定需比对批准 hash 与本次 hash（本表据其为**代理信号**，严格判定留待触发条件满足时的复评批次）。
 3. **O3 的"轮次"以 `cycleCount` / `turnCount` 表达**：`maxCycles` 用尽在实现中表现为 **ESCALATE**（`VerifierAgent.ts:315-327`），非 REJECT ⇒ `iterative_refine` 判据应读**"强制升级"频次**，非"REJECT 比例"（对 `P0-触发条件补全方案` §二-D1 的**如实修正**）。
-4. **观测为 `debug` 级**：受日志查看器（设置 → 日志）的 DEBUG 开关控制；季度复评前需确认该级别已开启（否则无采样）。
+4. **观测为 `debug` 级**：受日志查看器（设置 → 日志）的 DEBUG 开关控制；季度复评前需确认该级别已开启（否则无采样）。**O2 例外（2026-11-17）**：峰值与撞限次数经 `GET /v1/diagnostics/resource-governor` 直接读取，**不依赖日志级别**；但计数为**进程内**累计，进程重启即清零 ⇒ 复评取数须在**同一进程**内完成（或用日志做跨重启佐证）。
 
 ---
 

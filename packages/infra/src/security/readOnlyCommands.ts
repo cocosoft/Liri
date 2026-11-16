@@ -101,7 +101,9 @@ export const BASH_READ_ONLY_PREFIX_PATTERNS: readonly RegExp[] = [
   /^grep\b/i,
   /^find\b/i,
   /^locate\b/i,
-  /^git\s+(status|diff|log|branch|show|rev-parse|remote|config|blame)\b/i,
+  // P3-2（2026-11-16）：git 从"前缀白名单"移出，改由 `isGitReadOnlyCommand` 做**参数级**判定
+  // （`git config k v` / `git remote add` / `git branch -D` 曾因整族前缀放行而落 allow；
+  //  `git -c core.pager=… log` 更可注入 pager 执行任意程序）。见该函数注释。
   /^echo\b/i,
   /^printf\b/i,
   /^wc\b/i,
@@ -162,7 +164,50 @@ export const VERSION_ONLY_QUERY_PATTERN: RegExp =
  * 两份清单**不得合并**（合并等于放开写能力）。
  */
 export const GIT_READ_ONLY_PATTERN: RegExp =
-  /^git(?:\s+(?:-C\s+(?:"[^"]*"|'[^']*'|[^\s]+)|--no-pager|--no-optional-locks))*\s+(status|log|diff|show|rev-parse|rev-list|shortlog|ls-tree|cat-file|describe|name-rev|for-each-ref|blame|branch\s+--list|--version)(\s|$)/i;
+  /^git(?:\s+(?:-C\s+(?:"[^"]*"|'[^']*'|[^\s]+)|--no-pager|--no-optional-locks))*\s+(status|log|diff|show|rev-parse|rev-list|shortlog|ls-tree|cat-file|describe|name-rev|for-each-ref|blame|branch\s+--list|--version)(\s|$)/;
+
+/**
+ * P3-2（2026-11-16）：git 只读判定中**禁止出现**的参数（参数级禁区）。
+ *
+ * 三类会把「只读」变成「写盘 / 执行外部程序 / 注入配置」：
+ *  - 写文件：`--output=<file>`（`git log/diff` 直接落盘）；
+ *  - 执行外部程序：`--ext-diff`（外部 diff 驱动）、`--paginate`（分页器）、
+ *    `--open-files-in-pager`、`--exec-path`；
+ *  - 注入配置：全局 `-c key=value` —— 可设 `core.pager=sh -c id` / `alias.x=!cmd` /
+ *    `core.hooksPath=…`，等价于任意命令执行（**本条即"pager 风险"的根因**；
+ *    旧实现里 `GIT_READ_ONLY_PATTERN` 带 `/i`，把 `-c` 当成了合法的 `-C` 切目录开关）。
+ *
+ * ⚠️ **大小写敏感**：`-C <dir>`（切目录）是合法只读全局参数，不能被 `-c` 的规则误伤；
+ * 也刻意**不**收录 `-p`（`git log -p` 是常见的补丁输出开关，与全局 `git -p` 语义不同）。
+ */
+export const GIT_READ_ONLY_FORBIDDEN_ARGS: RegExp =
+  /(?:^|\s)(?:--output|--ext-diff|--paginate|--open-files-in-pager|--exec-path|--config-env|-c)(?:\s|=|$)/;
+
+/**
+ * P3-2（2026-11-16）：收窄后的「配置 / 远端 / 分支」**查询**形态。
+ *
+ * 旧前缀 `/^git\s+(…|branch|remote|config|blame)\b/i` 把整族当只读 ⇒
+ * `git config --global user.name x`、`git remote add origin …`、`git branch -D main`
+ * 全部落 `allow`（可写！）。此处只保留结构上不可能写的查询形态。
+ */
+export const GIT_READ_ONLY_QUERY_PATTERN: RegExp =
+  /^git(?:\s+(?:-C\s+(?:"[^"]*"|'[^']*'|[^\s]+)))*\s+(?:config\s+(?:--get|--get-all|--get-regexp|--list|-l)\b|remote\s+(?:-v|--verbose|show|get-url)\b|branch(?:\s+(?:--list|-a|--all|-r|--remotes|-v|-vv|--show-current))?\s*$)/;
+
+/**
+ * P3-2（2026-11-16）：git 只读判定的**统一入口**（allowlist 前缀链 / 复合只读共用一份判据）。
+ *
+ * 顺序：先过参数禁区（写盘 / 执行 / 注入配置），再看子命令白名单或收窄后的查询形态。
+ * 返回 false **不等于** deny —— 调用方会继续走原分类链（未知命令 ⇒ 转人工审批）。
+ */
+export function isGitReadOnlyCommand(command: string): boolean {
+  const trimmed = command.trim();
+  if (!trimmed) return false;
+  if (GIT_READ_ONLY_FORBIDDEN_ARGS.test(trimmed)) return false;
+  return (
+    GIT_READ_ONLY_PATTERN.test(trimmed) ||
+    GIT_READ_ONLY_QUERY_PATTERN.test(trimmed)
+  );
+}
 
 /**
  * git 只读子命令（**token 级**集合，用于 `readOnlyValidation` 的参数扫描）

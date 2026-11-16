@@ -188,30 +188,53 @@ describe('emitToolCallEnd', () => {
     expect(ctx.pendingEvents[1].toolCall?.status).toBe('failed');
   });
 
-  it('文件写入成功 ⇒ 提取路径、登记交付物、缓存命中时产出 diff 并清理缓存', () => {
+  it('文件写入成功 ⇒ 提取路径并登记交付物；读取失败也清理缓存', () => {
     const { ctx, artifacts } = makeCtx();
-    const dir = mkdtempSync(join(tmpdir(), 'coreapi-end-'));
-    const file = join(dir, 'b.txt');
-    writeFileSync(file, 'new', 'utf-8');
-    ctx.fileOldContentCache.set(file, 'old');
+    // 路径提取正则只认 Windows 绝对路径（生产实现如此）⇒ 用合成路径，保证跨平台可判
+    const winPath = 'C:\\tmp\\coreapi-end\\b.txt';
+    ctx.fileOldContentCache.set(winPath, 'old');
 
     emitToolCallEnd(
       'file_write',
       'tc-3',
-      { ok: true, result: `已写入 ${file}` },
+      { ok: true, result: `已写入 ${winPath}` },
       ctx
     );
 
     expect(ctx.pendingEvents[1].toolCall?.arguments).toEqual({
-      file_path: file,
+      file_path: winPath,
     });
     expect(artifacts).toHaveLength(1);
-    expect(ctx.pendingFileDiffs).toEqual([
-      { file, diff: '-a\n+b', additions: 1, deletions: 1 },
-    ]);
-    // 无论 diff 成败，缓存条目都必须清理
-    expect(ctx.fileOldContentCache.has(file)).toBe(false);
+    // 该合成路径在磁盘上不存在 ⇒ diff 读取失败（被 catch），但仍必须清理缓存
+    expect(ctx.fileOldContentCache.has(winPath)).toBe(false);
+    expect(ctx.pendingFileDiffs).toEqual([]);
   });
+
+  it.skipIf(process.platform !== 'win32')(
+    '文件写入成功且文件真实存在 ⇒ 产出 unified diff',
+    () => {
+      const { ctx } = makeCtx();
+      const dir = mkdtempSync(join(tmpdir(), 'coreapi-end-'));
+      const file = join(dir, 'b.txt');
+      writeFileSync(file, 'new', 'utf-8');
+      ctx.fileOldContentCache.set(file, 'old');
+
+      emitToolCallEnd(
+        'file_write',
+        'tc-3b',
+        { ok: true, result: `已写入 ${file}` },
+        ctx
+      );
+
+      expect(ctx.pendingEvents[1].toolCall?.arguments).toEqual({
+        file_path: file,
+      });
+      expect(ctx.pendingFileDiffs).toEqual([
+        { file, diff: '-a\n+b', additions: 1, deletions: 1 },
+      ]);
+      expect(ctx.fileOldContentCache.has(file)).toBe(false);
+    }
+  );
 
   it('tool:completed 缓存命中 ⇒ 结果注入完成卡片并出栈', () => {
     const { ctx } = makeCtx();

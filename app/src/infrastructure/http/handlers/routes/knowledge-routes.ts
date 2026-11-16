@@ -91,14 +91,14 @@ import {
 } from '../team-handlers';
 
 /**
- * dispatchKnowledgeRoutes — knowledge-routes 领域路由分发
- * @returns true 表示已匹配并处理，false 表示未匹配
+ * 编排（orchestration / swarm / 模型绑定）段（P3-2，2026-11-16：由下方分发函数
+ * **原样外移**，匹配顺序不变）。
+ * @returns true 表示已匹配并处理
  */
-export async function dispatchKnowledgeRoutes(
+async function dispatchOrchestrationRoutes(
   req: http.IncomingMessage,
   res: http.ServerResponse,
   url: string,
-  broadcastEvent: (event: string, data: unknown) => void,
   handlerCtx: HandlerCtx
 ): Promise<boolean> {
   const method = req.method || 'GET';
@@ -170,7 +170,20 @@ export async function dispatchKnowledgeRoutes(
     await handleUpdateAgentModelBindings(handlerCtx, req, res, workspaceId);
     return true;
   }
+  return false;
+}
 
+/**
+ * 知识库集合与文档基础段（列表 / 单文档 / 原文预览 / 搜索 / 新增 / bases CRUD 与克隆）
+ * （P3-2，2026-11-16：由下方分发函数**原样外移**，匹配顺序不变）。
+ * @returns true 表示已匹配并处理
+ */
+async function dispatchKnowledgeCollectionRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string
+): Promise<boolean> {
+  const method = req.method || 'GET';
   // ---- Knowledge ----
   if (method === 'GET' && url === '/v1/knowledge') {
     await handleListKnowledge(req, res);
@@ -239,6 +252,20 @@ export async function dispatchKnowledgeRoutes(
     );
     return true;
   }
+  return false;
+}
+
+/**
+ * 知识管道段（入库 / 编译 / 血缘 / 原始文件 / 健康 / 配置 / 数据源 / 图谱）
+ * （P3-2，2026-11-16：由下方分发函数**原样外移**，匹配顺序不变）。
+ * @returns true 表示已匹配并处理
+ */
+async function dispatchKnowledgePipelineRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string
+): Promise<boolean> {
+  const method = req.method || 'GET';
   if (method === 'POST' && url === '/v1/knowledge/save-from-chat') {
     await handleSaveFromChat(req, res);
     return true;
@@ -318,6 +345,20 @@ export async function dispatchKnowledgeRoutes(
     }
     return true;
   }
+  return false;
+}
+
+/**
+ * 知识快照 / 回收站 / 导出导入 / 批处理段（P3-2，2026-11-16：由下方分发函数**原样外移**，
+ * 匹配顺序不变 —— 回收站精确 POST 仍在 startsWith 的 GET/DELETE 之前）。
+ * @returns true 表示已匹配并处理
+ */
+async function dispatchKnowledgeSnapshotRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string
+): Promise<boolean> {
+  const method = req.method || 'GET';
   if (method === 'GET' && url.startsWith('/v1/knowledge/snapshots')) {
     await handleListSnapshots(req, res);
     return true;
@@ -375,7 +416,19 @@ export async function dispatchKnowledgeRoutes(
     await handleBatchTagKnowledge(req, res);
     return true;
   }
+  return false;
+}
 
+/**
+ * FAQ 段（P3-2，2026-11-16：由下方分发函数**原样外移**，匹配顺序不变）。
+ * @returns true 表示已匹配并处理
+ */
+async function dispatchFaqRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string
+): Promise<boolean> {
+  const method = req.method || 'GET';
   // ---- FAQ ----
   if (
     method === 'GET' &&
@@ -424,7 +477,20 @@ export async function dispatchKnowledgeRoutes(
     await handleDeleteFAQ(req, res);
     return true;
   }
+  return false;
+}
 
+/**
+ * 知识通用写段（带负向预查的 PUT / DELETE）（P3-2，2026-11-16：由下方分发函数
+ * **原样外移**，匹配顺序不变 —— 仍在 bases / docs 具体路由之后）。
+ * @returns true 表示已匹配并处理
+ */
+async function dispatchKnowledgeGenericRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string
+): Promise<boolean> {
+  const method = req.method || 'GET';
   // ---- Knowledge (generic) ----
   if (method === 'PUT' && url.match(/^\/v1\/knowledge\/(?!bases|docs)(.+)$/)) {
     await handleUpdateKnowledge(
@@ -442,7 +508,20 @@ export async function dispatchKnowledgeRoutes(
     );
     return true;
   }
+  return false;
+}
 
+/**
+ * 团队（teams）段（P3-2，2026-11-16：由下方分发函数**原样外移**，匹配顺序不变）。
+ * @returns true 表示已匹配并处理
+ */
+async function dispatchTeamRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
+  const method = req.method || 'GET';
   // ---- Teams ----
   if (method === 'GET' && url.match(/^\/v1\/workspaces\/(.+)\/teams$/)) {
     const workspaceId = url.match(/^\/v1\/workspaces\/(.+)\/teams$/)![1];
@@ -524,5 +603,27 @@ export async function dispatchKnowledgeRoutes(
     );
     return true;
   }
+  return false;
+}
+
+/**
+ * dispatchKnowledgeRoutes — knowledge-routes 领域路由分发
+ * @returns true 表示已匹配并处理，false 表示未匹配
+ */
+export async function dispatchKnowledgeRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string,
+  broadcastEvent: (event: string, data: unknown) => void,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
+  // P3-2（2026-11-16）：各分段原样外移；调用顺序与匹配顺序一致
+  if (await dispatchOrchestrationRoutes(req, res, url, handlerCtx)) return true;
+  if (await dispatchKnowledgeCollectionRoutes(req, res, url)) return true;
+  if (await dispatchKnowledgePipelineRoutes(req, res, url)) return true;
+  if (await dispatchKnowledgeSnapshotRoutes(req, res, url)) return true;
+  if (await dispatchFaqRoutes(req, res, url)) return true;
+  if (await dispatchKnowledgeGenericRoutes(req, res, url)) return true;
+  if (await dispatchTeamRoutes(req, res, url, handlerCtx)) return true;
   return false;
 }

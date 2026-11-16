@@ -663,13 +663,13 @@ export const FEATURE_FLAGS = {
 
   // ───── 编排模式：自校验（2026-10-07，`pattern-wiring-closure.md` §4「P1」）─────
   /**
-   * `self_verify` 模式总开关（**默认关闭**）。
+   * `self_verify` 模式总开关（**2026-11-16 起默认开启**）。
    *
-   * 开启后：`complex + 自校验意图` 的任务将由该模式命中，并把配方落到**既有** VerifierAgent
-   * （`verifyPolicy:'blocking'` + `failClosed:true` + `maxCycles:2`）⇒ 回合质量判定**更严**
-   * （可能增加重试）。**默认关**是刻意的（不静默改变既有编排行为）；命中 ≠ 启用。
+   * 开启后：`complex + 自校验意图` 命中该模式 ⇒ 配方落到既有 VerifierAgent（`failClosed:true` + `maxCycles:2`），
+   * 判定更严、可能多一轮重试；其余回合零变化。**翻转 = 用户裁定 2026-11-16 的显式豁免**（§2 #11 三判据未达标：
+   * ①0/20 会话，②③需先开才能采）。**回退**：`FEATURE_SELF_VERIFY_PATTERN=false` 或设置页关闭（§2.4.3）。
    */
-  SELF_VERIFY_PATTERN: false,
+  SELF_VERIFY_PATTERN: true,
   /**
    * E-1（2026-10-18）：**swarm verifier 判不过时回灌 worker 重试一轮**（默认关 = 零行为变更）。
    *

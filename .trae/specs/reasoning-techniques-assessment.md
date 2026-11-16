@@ -34,7 +34,7 @@
 | 形态 | 实现 | 等价参数 | 生效条件 |
 |---|---|---|---|
 | 多候选 + 对抗批评 + 选优 | `packages/query/src/query/CompetitiveStrategyOrchestrator.ts`（`ParallelAgentScheduler` 生成 → `VerifierAgent` 批评 → `ResultAggregator(BEST_SELECTION)` 选优，`rejected[]` 保留 objection） | **宽度 ≈ 2 / 深度 1** | 研究意图 **且** `COMPETITIVE_STRATEGY`（默认关） |
-| 验证-重生成循环 | `packages/query/src/query/TAORLoop.ts#applyVerifierConfig` + `verifierConfigForRecipe`（`blocking` ⇒ `failClosed` + `maxCycles 2 \| 4`） | **宽度 1 / 深度 2~4** | `SELF_VERIFY_PATTERN`（默认关；2026-11-15 起生效面前移到每轮入口） |
+| 验证-重生成循环 | `packages/query/src/query/TAORLoop.ts#applyVerifierConfig` + `verifierConfigForRecipe`（`blocking` ⇒ `failClosed` + `maxCycles 2 \| 4`） | **宽度 1 / 深度 2~4** | `SELF_VERIFY_PATTERN`（**2026-11-16 起默认开**：用户裁定翻转，判据①②③ 未达标属显式豁免，见 `default-off-switches-review-gates.md §2.4.3`；2026-11-15 起生效面前移到每轮入口） |
 | 模型侧思考 | `ThinkingMode.ts`（模型能力 → 请求参数） | 不属搜索 | 由模型能力决定 |
 
 **不做**：显式 ToT 搜索树（跨层状态 + 扩展/评估/剪枝/回溯）。

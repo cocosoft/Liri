@@ -43,13 +43,14 @@ import {
 import { guardFinalOutput } from '../finalOutputGuard.js';
 // BUG-E 补口（2026-10-27 真机复验）：TAOR 路径末轮无可见文本时补同源兜底
 import {
-  AWAITING_APPROVAL_NOTICE,
   SYSTEM_ABORTED_SUFFIX,
   USER_ABORTED_SUFFIX,
   buildEmptyReplyFallback,
   hasVisibleAssistantText,
   isEmptyOutputFallbackMessage,
 } from '../terminationOutput.js';
+// P3-2/T1（2026-11-16）：「等待审批」提示的唯一写入口（本轮扫描去重）
+import { ensureAwaitingApprovalNotice } from './awaitingApprovalNotice.js';
 import {
   lintMermaidBlocks,
   formatMermaidIssues,
@@ -873,26 +874,24 @@ export class ChatOrchestrator {
               // 2026-11-06（审批根因簇 P0-2）：TAOR 在"工具已提交审批"时立即收尾，
               // 但 finalize 不产出消息 ⇒ 不补一条用户可见提示的话，用户只看到一片空白
               //（且会被下方 BUG-E 兜底误报成"本次未能生成回复"）。文案与流式路径同源。
+              //
+              // P3-2/T1（2026-11-16）：判据收敛到 `awaitingApprovalNotice` 的**本轮扫描**。
+              // 原「只看末条 assistant 的 finishReason」会被续跑先落的 assistant(tool_calls)
+              // 绕过 ⇒ 真机 `session_mwgj38hv0f7434c756` 写了 79 条同提示。
               if (awaitingApproval) {
-                const alreadyNotified =
-                  (
-                    lastAssistant?.metadata as
-                      | Record<string, unknown>
-                      | undefined
-                  )?.finishReason === 'awaiting_approval';
-                if (!alreadyNotified) {
-                  const noticeMsg =
+                const notice = ensureAwaitingApprovalNotice({
+                  messages: updatedSession?.messages,
+                  sessionId: session.id,
+                  currentId: assistantMessage?.id,
+                  createAssistantMessage: (content, options) =>
                     this.host.messageService.createAssistantMessage(
-                      AWAITING_APPROVAL_NOTICE,
-                      { sessionId: session.id }
-                    );
-                  noticeMsg.metadata = {
-                    ...(noticeMsg.metadata ?? {}),
-                    finishReason: 'awaiting_approval',
-                  };
-                  this.host.addAndPersistMessage(session.id, noticeMsg);
-                  assistantMessage = noticeMsg;
-                }
+                      content,
+                      options
+                    ),
+                  addAndPersistMessage: (sessionId, message) =>
+                    this.host.addAndPersistMessage(sessionId, message),
+                });
+                if (notice) assistantMessage = notice;
               } else if (
                 cancelledSuffix &&
                 !hasVisibleAssistantText(

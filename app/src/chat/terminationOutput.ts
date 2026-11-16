@@ -48,6 +48,15 @@ export const EMPTY_OUTPUT_FALLBACK_TEXT =
  */
 export { AWAITING_APPROVAL_NOTICE };
 
+/**
+ * 「等待审批」的 `finishReason` 取值 —— **唯一命名来源**。
+ *
+ * P3-2/T1（2026-11-16）：判据与落盘都要用它，禁止在新代码里再写字面量
+ *（state 字面量棘轮 Register-or-Fail；两条路径的判据必须同源，见
+ * `orchestrator/awaitingApprovalNotice.ts` 头注）。
+ */
+export const AWAITING_APPROVAL_FINISH_REASON = 'awaiting_approval' as const;
+
 /** 收尾提示去重所需的最小消息形状 */
 export interface TerminationNoticeMessage {
   id?: string;

@@ -42,6 +42,7 @@ import {
   handleOrchestrationMetrics,
   handlePathGuardMetrics,
   handlePathGuardMetricsReset,
+  handleResourceGovernorSnapshot,
   handleSessionsSummary,
   handleStartupError,
 } from '../monitoring-handlers';
@@ -165,6 +166,11 @@ export async function dispatchMonitorCommandRoutes(
   // 启动错误日志
   if (method === 'GET' && url === '/v1/diagnostics/startup-error') {
     await handleStartupError(handlerCtx, req, res);
+    return true;
+  }
+  // 跨会话资源治理读数（登记表 §2-#4 判据①取数口；默认关也可读，只观测不决策）
+  if (method === 'GET' && url === '/v1/diagnostics/resource-governor') {
+    await handleResourceGovernorSnapshot(handlerCtx, req, res);
     return true;
   }
   // 前端错误上报

@@ -140,6 +140,8 @@ export class ResourceGovernor {
   private readonly observedInflight = new Set<string>();
   /** O2：观测到的在飞会话峰值（`reset()` 清零） */
   private observedPeak = 0;
+  /** O2：达到/超过上限的**次数**（`reset()` 清零；与开关无关） */
+  private observedLimitHitCount = 0;
 
   constructor(options: ResourceGovernorOptions = {}) {
     this.maxInflight = normalizeMax(
@@ -188,21 +190,39 @@ export class ResourceGovernor {
   }
 
   /**
+   * O2：**撞限次数**（进程内，与开关无关；`reset()` 清零）。
+   *
+   * 与 `observedPeakInflight` 一起承载触发条件①的后半句「`inflight_at_limit` 出现 ≥3 次」——
+   * 无需开启 DEBUG 日志即可读（出口见 `GET /v1/diagnostics/resource-governor`）。
+   */
+  get observedLimitHits(): number {
+    return this.observedLimitHitCount;
+  }
+
+  /** 开关当前值（读数为只读观测，调用方需知道 `snapshot()`/`count()` 是否有意义） */
+  get enabled(): boolean {
+    return governorEnabled();
+  }
+
+  /**
    * O2：并发峰值观测（**与开关无关**）—— 仅维护观测集 + 峰值 + debug 日志，
    * **不参与决策、不写入 `inflight`** ⇒ 零行为变更。
    *
    * 两条可读信号：① `observedPeakInflight`（峰值，供访问器读取）；② 每次**达到/超过上限**
-   * 记一条 `resourceGovernor:inflight_at_limit`（供触发条件①"峰值 in-flight ≥ 上限**出现次数**"计数）。
+   * 记一条 `resourceGovernor:inflight_at_limit` 并把 `observedLimitHits` +1
+   * （供触发条件①"峰值 in-flight ≥ 上限**出现次数**"计数；计数不依赖 DEBUG 级别日志）。
    */
   private observeInflight(sessionId: string): void {
     this.observedInflight.add(sessionId);
     const current = this.observedInflight.size;
     if (current > this.observedPeak) this.observedPeak = current;
     if (current >= this.maxInflight) {
+      this.observedLimitHitCount += 1;
       logger.debug('resourceGovernor:inflight_at_limit', {
         current,
         peak: this.observedPeak,
         limit: this.maxInflight,
+        hits: this.observedLimitHitCount,
       });
     }
   }
@@ -417,6 +437,7 @@ export class ResourceGovernor {
     // O2（2026-10-09）：观测结构一并清零（测试用）。
     this.observedInflight.clear();
     this.observedPeak = 0;
+    this.observedLimitHitCount = 0;
   }
 }
 

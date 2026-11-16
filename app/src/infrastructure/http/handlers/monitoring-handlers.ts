@@ -819,6 +819,46 @@ export async function handlePathGuardMetricsReset(
   }
 }
 
+// ── 跨会话资源治理读数（O2 出口）────────────────────
+
+/**
+ * GET /v1/diagnostics/resource-governor
+ *
+ * 触发条件登记表 §2-#4 判据①的**取数口**：`observedPeakInflight`（峰值）与
+ * `observedLimitHits`（撞限次数）**与 `RESOURCE_GOVERNOR` 开关无关**（治理器内始终维护）
+ * ⇒ 默认关时也可读；`inflightCount` 仅开关开时有意义（关时恒 0）⇒ 一并带出 `enabled` 供判读。
+ *
+ * 分层纪律：治理器归 **app 层**，与 `daily-budget-handlers` 同构 —— 端点命中时才**动态导入**
+ * （避免 service → app 静态依赖，也避免把治理面拉进启动图）。
+ */
+export async function handleResourceGovernorSnapshot(
+  _ctx: HandlerCtx,
+  _req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { getResourceGovernor } = await import('@modules/resourceGovernor');
+    const governor = getResourceGovernor();
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(
+      JSON.stringify({
+        enabled: governor.enabled,
+        limit: governor.limit,
+        inflightCount: governor.count(),
+        observedPeakInflight: governor.observedPeakInflight,
+        observedLimitHits: governor.observedLimitHits,
+      })
+    );
+  } catch (error) {
+    await handleError(error, {
+      module: 'infra:handler:monitoring',
+      action: 'resource_governor_snapshot',
+    });
+    res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: '读取资源治理读数失败' }));
+  }
+}
+
 // ── 启动错误日志查询 ──────────────────────────────────
 
 /**

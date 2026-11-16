@@ -137,9 +137,10 @@ const enSettings = {
     featuresAlwaysOnDesc:
       "AI discovers and executes tasks autonomously when idle (Always-On + SelfWake)",
     // 2026-11-03: verification-line gate (backend SELF_VERIFY_PATTERN; env wins over this toggle)
+    // 2026-11-16: backend default flipped to ON by user ruling (registry §2.4.3); this panel follows
     featuresSelfVerifyPattern: "Self-verify / multi-round refine",
     featuresSelfVerifyPatternDesc:
-      "When on, tasks that ask for self-checking or multi-round polishing go through the verification line (stricter turn-quality verdicts, more retries). Off by default; behavior is unchanged while off.",
+      "When on, tasks that ask for self-checking or multi-round polishing go through the verification line (stricter turn-quality verdicts, more retries). On by default; turning it off restores the previous behavior.",
     // 2026-11-03 (#3): research orchestration gate (backend COMPETITIVE_STRATEGY; env wins)
     featuresCompetitiveStrategy: "Research orchestration (candidates + review)",
     featuresCompetitiveStrategyDesc:

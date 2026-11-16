@@ -134,9 +134,10 @@ const zhSettings = {
     featuresAlwaysOnDesc:
       "启用后 AI 可在闲置时自主发现并执行任务（Always-On + SelfWake）",
     // 2026-11-03：验证线路总门控（后端 SELF_VERIFY_PATTERN；env 优先于本开关）
+    // 2026-11-16：后端已按用户裁定翻为**默认开**（登记表 §2.4.3），本面板默认值同步为开
     featuresSelfVerifyPattern: "自校验 / 多轮精修线路",
     featuresSelfVerifyPatternDesc:
-      "开启后，要求自检或需要多轮打磨的任务会走验证线路（更严的回合质量判定、更多重试）。默认关闭，关闭时行为与之前一致。",
+      "开启后，要求自检或需要多轮打磨的任务会走验证线路（更严的回合质量判定、更多重试）。默认开启，关闭后恢复旧行为。",
     // 2026-11-03（缺口 #3）：研究编排门控（后端 COMPETITIVE_STRATEGY；env 优先于本开关）
     featuresCompetitiveStrategy: "研究编排（候选生成 + 对抗评审）",
     featuresCompetitiveStrategyDesc:

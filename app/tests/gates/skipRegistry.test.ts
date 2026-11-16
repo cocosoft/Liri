@@ -190,6 +190,14 @@ const SKIP_REGISTRY: SkipEntry[] = [
     module: 'tools',
     severity: 'platform',
   },
+  {
+    file: 'app/tests/runtime/coreapi-tool-call-chunks.test.ts',
+    match: "it.skipIf(process.platform !== 'win32')",
+    reason:
+      '工具结果里的文件路径提取只认 Windows 绝对路径（生产实现如此）⇒ 「真实文件 + 产出 diff」只能在 Windows 复现；跨平台的路径提取与缓存清理断言常态执行',
+    module: 'runtime',
+    severity: 'platform',
+  },
   ...Array.from({ length: 5 }, (_, i) => ({
     file: 'app/tests/tools/repl.integration.test.ts',
     match: '!pythonAvailable',

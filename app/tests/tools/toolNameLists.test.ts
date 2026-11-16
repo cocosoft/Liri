@@ -347,8 +347,22 @@ describe('角色/步骤工具清单守卫：必须派生自 TOOL_CATEGORIES', ()
     expect([...agentTools].filter((n) => DRIFTED_NAMES.includes(n))).toEqual(
       []
     );
-    // 规模合理性：agent 为全集，避免"派生为空集"也能骗过上面的包含断言
-    expect(agentTools.size).toBeGreaterThan(30);
+    // 规模合理性：防空集（"派生为空集"也能骗过上面的包含断言）。
+    // ⚠️ 2026-11-16：`TOOL_DISCLOSURE_STRICT` 翻为默认开 ⇒ agent 面按预算裁到 25，
+    // 不再是"全集"；全集规模由下一条用例（显式关 = 回退路径）单独锁定。
+    expect(agentTools.size).toBeGreaterThan(10);
+  });
+
+  it('显式关（回退路径）⇒ agent 面回到全集规模（>30）', () => {
+    const ENV_KEY = 'FEATURE_TOOL_DISCLOSURE_STRICT';
+    const prev = process.env[ENV_KEY];
+    process.env[ENV_KEY] = 'false';
+    try {
+      expect(getRealToolNamesForTask('agent').length).toBeGreaterThan(30);
+    } finally {
+      if (prev === undefined) delete process.env[ENV_KEY];
+      else process.env[ENV_KEY] = prev;
+    }
   });
 
   it('src/tasks/** 里不得再手写漂移工具名字面量（角色工具必须派生）', () => {

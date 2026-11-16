@@ -209,6 +209,23 @@
 
 ---
 
+### 2.4.4 翻转记录（2026-11-16）—— `TOOL_DISCLOSURE_STRICT`（21 模式 #5 Tool Use）
+
+> 触发：用户指令「继续执行 21 模式 #5 的开关翻转」（该行在 21 模式表里没有门控开关，经确认对象 = 工具披露面严格预算）。
+
+**前置如实说明**：本项**此前未登记在本表 §2**（它不属于"安全开关"，也不在 `REGISTRATION_REQUIRED_FLAGS`）—— 属**登记遗漏**；本轮翻转后它是**默认开**，故不补登记为默认关项，仅在此留翻转记录与回退方式。
+
+| 项 | 读数 |
+|---|---|
+| 翻转前默认 | `false`（`featureFlags.ts`） |
+| 翻转后默认 | `true`；回退 `FEATURE_TOOL_DISCLOSURE_STRICT=false` |
+| 影响面 | 仅 `coding` / `agent` 两个任务面的**工具下发面**（不删工具、不改授权）：实测 coding **40 → 25** 个（provider 4226 → 2663 token）、agent **46 → 25** 个（4811 → 2815 token）；`default` 面不变（13 / 1512）；未列入者仍注册、可经 `tool_search` 检索 |
+| 棘轮 | `.trae/architecture/tool-disclosure-baseline.json` 的 `perTask.coding/agent` 已按 `bun run measure:tool-disclosure --update` 下调锁定（40/4226 → 25/2663；46/4811 → 25/2815） |
+| 用例同步 | `tests/tools/toolDisclosureStrict.test.ts`：原「默认关 ⇒ 不截断」改为「默认开 ⇒ 有预算」+「显式关（回退路径）⇒ 不截断」 |
+| 风险 | 模型每轮可见工具变少（被裁者需 `tool_search` 检索后调用）⇒ 若真机出现"该场景常用工具不可见"的样本，先回退再评估 `STRICT_DISCLOSURE_BUDGETS` / `STRICT_DISCLOSURE_PRIORITY` |
+
+---
+
 ## 3. 观测点 O1–O5（触发条件可操作化的**使能步**）
 
 > 口径：**均不新增开关、不改默认值、不改决策**；仅让触发条件"可读"。

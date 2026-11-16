@@ -1010,7 +1010,7 @@ export function getRealToolNamesForTask(
 }
 
 // ============================================================
-// 严格披露预算（P0-1，2026-10-30；`FEATURE_TOOL_DISCLOSURE_STRICT`，默认关）
+// 严格披露预算（P0-1，2026-10-30；`FEATURE_TOOL_DISCLOSURE_STRICT`，**2026-11-16 起默认开**）
 //
 // 背景（实测）：AC-16 的门禁只覆盖 `default`/`chat`；`coding` / `agent` 面没有上限，
 // 真机单轮 68 个工具 / 105.2 KB schema（≈30k–42k token），而 29 个会话 32 127 次调用
@@ -1018,6 +1018,7 @@ export function getRealToolNamesForTask(
 //   - 恒集（`getMandatoryTools()`）永远保留；
 //   - 其余按 `STRICT_DISCLOSURE_PRIORITY` 顺序取到预算为止；
 //   - 未列入者**仍注册可调用**（模型可经 `tool_search` 检索），不是删除。
+// 回退：`FEATURE_TOOL_DISCLOSURE_STRICT=false`（env）⇒ 与本预算引入前逐字一致。
 // ============================================================
 
 /** 严格披露预算：任务类型 → 最多可见工具数（只对**开启开关**时生效） */

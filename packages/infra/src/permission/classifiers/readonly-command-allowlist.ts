@@ -41,6 +41,7 @@
 import {
   AUTO_MODE_READONLY_COMMANDS,
   VERSION_ONLY_QUERY_PATTERN,
+  GIT_READ_ONLY_FORBIDDEN_ARGS,
   readonlySubcommandsFor,
 } from '@openliri/infra/security';
 import { detectPipeAndRedirect } from './vector-rules.js';
@@ -108,6 +109,11 @@ function violatesArgumentGuards(
   }
 
   if (name === 'git') {
+    // P3-2（2026-11-16）：参数禁区优先 —— `--output=` / `--ext-diff` / 全局 `-c`（pager 注入）
+    // 等写盘或执行形态，即使子命令在只读集合内也不得短路放行。
+    if (GIT_READ_ONLY_FORBIDDEN_ARGS.test([name, ...args].join(' '))) {
+      return true;
+    }
     const subcommand = lowerArgs[0] ?? '';
     if (GIT_READONLY.has(subcommand)) return false;
     // `git remote` / `git remote -v|--verbose` 只列举远端，结构上不写；

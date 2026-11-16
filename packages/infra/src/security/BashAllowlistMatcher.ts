@@ -10,6 +10,7 @@ import {
   BASH_READ_ONLY_PREFIX_PATTERNS,
   POWERSHELL_READ_ONLY_PREFIX_PATTERNS,
   VERSION_ONLY_QUERY_PATTERN,
+  isGitReadOnlyCommand,
 } from './readOnlyCommands';
 // P1-3（2026-11-06）：丢弃/合并型重定向不算 shell operator（与 compoundReadOnly 同口径）
 import { stripHarmlessRedirects } from './compoundReadOnly';
@@ -89,6 +90,11 @@ export function checkBashAllowlist(command: string): AllowlistResult {
   }
 
   // 2. Allow known safe commands
+  // P3-2（2026-11-16）：git 需**参数级**判定（`-c core.pager=…` / `--output=` / `config k v`
+  // 等写/执行形态不得因"整族前缀"被放行），故先走统一入口再进前缀链。
+  if (isGitReadOnlyCommand(trimmed)) {
+    return { safe: true, reason: 'Command matches known-safe pattern' };
+  }
   for (const prefix of readOnlyPrefixes) {
     if (prefix.test(trimmed)) {
       return { safe: true, reason: 'Command matches known-safe pattern' };
@@ -126,6 +132,7 @@ export function checkBashAllowlist(command: string): AllowlistResult {
 export function isReadOnlyBashCommand(command: string): boolean {
   if (!command || command.trim().length === 0) return false;
   if (SHELL_OPERATORS.test(command.trim())) return false;
+  if (isGitReadOnlyCommand(command.trim())) return true;
 
   for (const prefix of readOnlyPrefixes) {
     if (prefix.test(command.trim())) return true;

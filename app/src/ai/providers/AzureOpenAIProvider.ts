@@ -27,20 +27,17 @@ import { ChatCompletionsTransport } from '../transports/ChatCompletionsTransport
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 
 import { getLogger } from '@openliri/infra/monitoring';
+import {
+  collectPendingToolCalls,
+  type PendingToolCall,
+} from './streamToolCalls';
 const logger = getLogger('ai\providers\AzureOpenAIProvider');
-
-/** 累积中的 tool_call 分片（同一 index 跨片合并） */
-type AzurePendingToolCall = {
-  id: string;
-  name: string;
-  arguments: string;
-};
 
 /** 流式 SSE 解析的累积状态 */
 type AzureStreamState = {
   fullContent: string;
   lastUsage: ChatResponse['usage'] | undefined;
-  pendingToolCalls: Map<number, AzurePendingToolCall>;
+  pendingToolCalls: Map<number, PendingToolCall>;
   stopReason: 'stop' | 'tool_calls' | 'max_tokens';
   toolCalls: ParsedToolCall[];
 };
@@ -262,9 +259,7 @@ export class AzureOpenAIProvider extends BaseAIProvider {
 
     if (finishReason === 'tool_calls' && state.pendingToolCalls.size > 0) {
       state.stopReason = 'tool_calls';
-      state.toolCalls = AzureOpenAIProvider.collectToolCalls(
-        state.pendingToolCalls
-      );
+      state.toolCalls = collectPendingToolCalls(state.pendingToolCalls);
     } else if (finishReason === 'max_tokens' || finishReason === 'length') {
       state.stopReason = 'max_tokens';
     }
@@ -274,7 +269,7 @@ export class AzureOpenAIProvider extends BaseAIProvider {
 
   /** 按 index 合并 tool_calls 分片（id / name / arguments 逐片累积） */
   private static accumulateToolCallDeltas(
-    pendingToolCalls: Map<number, AzurePendingToolCall>,
+    pendingToolCalls: Map<number, PendingToolCall>,
     streamToolCalls: Array<Record<string, unknown>>
   ): void {
     for (const tc of streamToolCalls) {
@@ -291,29 +286,6 @@ export class AzureOpenAIProvider extends BaseAIProvider {
         if (func.arguments) pending.arguments += func.arguments as string;
       }
     }
-  }
-
-  /** 把累积的 tool_calls 收敛为按 index 升序的调用列表，参数非法 JSON 时保留原文 */
-  private static collectToolCalls(
-    pendingToolCalls: Map<number, AzurePendingToolCall>
-  ): ParsedToolCall[] {
-    return Array.from(pendingToolCalls.entries())
-      .sort(([a], [b]) => a - b)
-      .map(([_, tc]) => {
-        try {
-          return {
-            id: tc.id,
-            name: tc.name,
-            arguments: JSON.parse(tc.arguments) as Record<string, unknown>,
-          };
-        } catch {
-          return {
-            id: tc.id,
-            name: tc.name,
-            arguments: { _raw: tc.arguments },
-          };
-        }
-      });
   }
 
   async listModels(): Promise<string[]> {

@@ -31,8 +31,22 @@ import { MessagesApiTransport } from '../transports/AnthropicMessagesTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
 import { ANTHROPIC_API_BASE_URL } from '@openliri/kernel';
+import {
+  collectPendingToolCalls,
+  type PendingToolCall,
+} from './streamToolCalls';
 
 const logger = getLogger('ai:anthropic');
+
+/** 流式事件解析的累积状态 */
+type AnthropicStreamState = {
+  fullContent: string;
+  /** 流式 tool_use 累积（按 index 合并分片） */
+  pendingToolCalls: Map<number, PendingToolCall>;
+  stopReason: 'stop' | 'tool_calls' | 'max_tokens';
+  toolCalls: ParsedToolCall[];
+  lastUsage: ChatResponse['usage'] | undefined;
+};
 
 const BETA_HEADERS = {
   STRUCTURED_OUTPUTS: 'structured-outputs-2024-08-01',
@@ -212,15 +226,13 @@ export class AnthropicProvider extends BaseAIProvider {
       const decoder = new TextDecoder();
       let buffer = '';
       let currentEvent = '';
-      let fullContent = '';
-      // 流式 tool_use 累积（按 index 合并分片）
-      const pendingToolCalls = new Map<
-        number,
-        { id: string; name: string; arguments: string }
-      >();
-      let stopReason: 'stop' | 'tool_calls' | 'max_tokens' = 'stop';
-      let toolCalls: ParsedToolCall[] = [];
-      let lastUsage: ChatResponse['usage'] | undefined;
+      const state: AnthropicStreamState = {
+        fullContent: '',
+        pendingToolCalls: new Map(),
+        stopReason: 'stop',
+        toolCalls: [],
+        lastUsage: undefined,
+      };
 
       try {
         while (true) {
@@ -239,120 +251,12 @@ export class AnthropicProvider extends BaseAIProvider {
               if (!data) continue;
 
               try {
-                const parsed = JSON.parse(data) as Record<string, unknown>;
-                const type = parsed.type as string;
-
-                switch (type) {
-                  case 'content_block_start': {
-                    const contentBlock = (parsed.content_block || {}) as Record<
-                      string,
-                      unknown
-                    >;
-                    if (contentBlock.type === 'tool_use') {
-                      const idx = (parsed.index as number) || 0;
-                      pendingToolCalls.set(idx, {
-                        id: (contentBlock.id as string) || '',
-                        name: (contentBlock.name as string) || '',
-                        arguments: '',
-                      });
-                    }
-                    break;
-                  }
-
-                  case 'content_block_delta': {
-                    const delta = (parsed.delta || {}) as Record<
-                      string,
-                      unknown
-                    >;
-                    const deltaType = delta.type as string | undefined;
-
-                    if (deltaType === 'text_delta' && delta.text) {
-                      fullContent += delta.text as string;
-                      yield delta.text as string;
-                    } else if (
-                      deltaType === 'thinking_delta' &&
-                      delta.thinking
-                    ) {
-                      yield {
-                        type: 'thinking',
-                        content: delta.thinking as string,
-                      };
-                    } else if (
-                      deltaType === 'input_json_delta' &&
-                      delta.partial_json
-                    ) {
-                      // Anthropic tool_use 参数累积
-                      const idx = (parsed.index as number) || 0;
-                      const pending = pendingToolCalls.get(idx);
-                      if (pending) {
-                        pending.arguments += delta.partial_json as string;
-                      }
-                    }
-                    break;
-                  }
-
-                  case 'message_delta': {
-                    const delta = (parsed.delta || {}) as Record<
-                      string,
-                      unknown
-                    >;
-                    const msgStopReason = delta.stop_reason as
-                      | string
-                      | undefined;
-
-                    // tool_use 停止 → 组装 tool_calls
-                    if (
-                      msgStopReason === 'tool_use' &&
-                      pendingToolCalls.size > 0
-                    ) {
-                      stopReason = 'tool_calls';
-                      toolCalls = Array.from(pendingToolCalls.entries())
-                        .sort(([a], [b]) => a - b)
-                        .map(([_, tc]) => {
-                          try {
-                            return {
-                              id: tc.id,
-                              name: tc.name,
-                              arguments: JSON.parse(tc.arguments) as Record<
-                                string,
-                                unknown
-                              >,
-                            };
-                          } catch {
-                            return {
-                              id: tc.id,
-                              name: tc.name,
-                              arguments: { _raw: tc.arguments },
-                            };
-                          }
-                        });
-                    } else if (msgStopReason === 'max_tokens') {
-                      stopReason = 'max_tokens';
-                    }
-
-                    // 用量
-                    const usage = parsed.usage as
-                      | Record<string, number>
-                      | undefined;
-                    if (usage) {
-                      lastUsage = {
-                        prompt_tokens: usage.input_tokens || 0,
-                        completion_tokens: usage.output_tokens || 0,
-                        total_tokens:
-                          (usage.input_tokens || 0) +
-                          (usage.output_tokens || 0),
-                        cache_read_input_tokens:
-                          usage.cache_read_input_tokens || 0,
-                        cache_creation_input_tokens:
-                          usage.cache_creation_input_tokens || 0,
-                      };
-                    }
-                    break;
-                  }
-
-                  case 'message_stop':
-                    // 流结束标记，无需额外处理
-                    break;
+                const emitted = AnthropicProvider.applyStreamEvent(data, state);
+                if (emitted.text) {
+                  yield emitted.text;
+                }
+                if (emitted.thinking) {
+                  yield { type: 'thinking', content: emitted.thinking };
                 }
               } catch (err) {
                 // JSON 解析失败，跳过该行
@@ -362,10 +266,10 @@ export class AnthropicProvider extends BaseAIProvider {
         }
 
         return {
-          content: fullContent,
-          stop_reason: stopReason,
-          tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
-          usage: lastUsage || {
+          content: state.fullContent,
+          stop_reason: state.stopReason,
+          tool_calls: state.toolCalls.length > 0 ? state.toolCalls : undefined,
+          usage: state.lastUsage || {
             prompt_tokens: 0,
             completion_tokens: 0,
             total_tokens: 0,
@@ -388,6 +292,90 @@ export class AnthropicProvider extends BaseAIProvider {
       );
       throw expectedAbort ? markAsExpectedAbort(wrapped) : wrapped;
     }
+  }
+
+  /**
+   * 处理一条 `data: ` 事件载荷：按事件类型累积正文 / 思考 / tool_use 分片 / 停止原因 / 用量。
+   * 需要 yield 的增量以返回值交给调用方（生成器内统一 yield，便于特征化测试）。
+   */
+  private static applyStreamEvent(
+    data: string,
+    state: AnthropicStreamState
+  ): { text?: string; thinking?: string } {
+    const parsed = JSON.parse(data) as Record<string, unknown>;
+    const type = parsed.type as string;
+
+    switch (type) {
+      case 'content_block_start': {
+        const contentBlock = (parsed.content_block || {}) as Record<
+          string,
+          unknown
+        >;
+        if (contentBlock.type === 'tool_use') {
+          const idx = (parsed.index as number) || 0;
+          state.pendingToolCalls.set(idx, {
+            id: (contentBlock.id as string) || '',
+            name: (contentBlock.name as string) || '',
+            arguments: '',
+          });
+        }
+        break;
+      }
+
+      case 'content_block_delta': {
+        const delta = (parsed.delta || {}) as Record<string, unknown>;
+        const deltaType = delta.type as string | undefined;
+
+        if (deltaType === 'text_delta' && delta.text) {
+          const text = delta.text as string;
+          state.fullContent += text;
+          return { text };
+        } else if (deltaType === 'thinking_delta' && delta.thinking) {
+          return { thinking: delta.thinking as string };
+        } else if (deltaType === 'input_json_delta' && delta.partial_json) {
+          // Anthropic tool_use 参数累积
+          const idx = (parsed.index as number) || 0;
+          const pending = state.pendingToolCalls.get(idx);
+          if (pending) {
+            pending.arguments += delta.partial_json as string;
+          }
+        }
+        break;
+      }
+
+      case 'message_delta': {
+        const delta = (parsed.delta || {}) as Record<string, unknown>;
+        const msgStopReason = delta.stop_reason as string | undefined;
+
+        // tool_use 停止 → 组装 tool_calls
+        if (msgStopReason === 'tool_use' && state.pendingToolCalls.size > 0) {
+          state.stopReason = 'tool_calls';
+          state.toolCalls = collectPendingToolCalls(state.pendingToolCalls);
+        } else if (msgStopReason === 'max_tokens') {
+          state.stopReason = 'max_tokens';
+        }
+
+        // 用量
+        const usage = parsed.usage as Record<string, number> | undefined;
+        if (usage) {
+          state.lastUsage = {
+            prompt_tokens: usage.input_tokens || 0,
+            completion_tokens: usage.output_tokens || 0,
+            total_tokens:
+              (usage.input_tokens || 0) + (usage.output_tokens || 0),
+            cache_read_input_tokens: usage.cache_read_input_tokens || 0,
+            cache_creation_input_tokens: usage.cache_creation_input_tokens || 0,
+          };
+        }
+        break;
+      }
+
+      case 'message_stop':
+        // 流结束标记，无需额外处理
+        break;
+    }
+
+    return {};
   }
 
   /**

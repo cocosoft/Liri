@@ -180,6 +180,12 @@ jobs:
       if: matrix.os == 'ubuntu-latest'
       run: bun run lint:dream
 
+    # P0-1 子项 1（2026-11-14）延伸：dream 公开子路径白名单（对齐 kernel K07），
+    # 防"删了文件忘删导出"与"加了深路径 import 没登记 exports"在独立发布后炸掉。
+    - name: "Run dream exports allowlist (P0-1：公开子路径白名单)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:dream-exports
+
     # P1（2026-11-14）：evals 拆包到 packages/evals 后同理补覆盖。
     - name: "Run evals package linter (P1：packages/evals 覆盖)"
       if: matrix.os == 'ubuntu-latest'

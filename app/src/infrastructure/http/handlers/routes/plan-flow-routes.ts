@@ -63,15 +63,14 @@ import {
 } from '../kanban-handlers';
 
 /**
- * dispatchPlanFlowRoutes — plan-flow-routes 领域路由分发
- * @returns true 表示已匹配并处理，false 表示未匹配
+ * Plans & Flows（含模式目录）段（P3-2，2026-11-16：由下方分发函数**原样外移**，
+ * 匹配顺序不变）。
+ * @returns true 表示已匹配并处理
  */
-export async function dispatchPlanFlowRoutes(
+async function dispatchPlanFlowPlanRoutes(
   req: http.IncomingMessage,
   res: http.ServerResponse,
-  url: string,
-  _broadcastEvent: (event: string, data: unknown) => void,
-  _handlerCtx: HandlerCtx
+  url: string
 ): Promise<boolean> {
   const method = req.method || 'GET';
   // ---- Plans & Flows (编排) ----
@@ -129,7 +128,20 @@ export async function dispatchPlanFlowRoutes(
     await handleGetFlow(req, res, url.match(/^\/v1\/flows\/([^/]+)$/)![1]);
     return true;
   }
+  return false;
+}
 
+/**
+ * PDCA 段（含研究模式入口）（P3-2，2026-11-16：由下方分发函数**原样外移**，
+ * 匹配顺序不变 —— `/v1/pdca/decisions` 仍先于任务详情）。
+ * @returns true 表示已匹配并处理
+ */
+async function dispatchPlanFlowPdcaRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string
+): Promise<boolean> {
+  const method = req.method || 'GET';
   // ---- PDCA (长程任务编排) ----
   if (method === 'POST' && url === '/v1/pdca/start') {
     await handlePdcaStart(req, res);
@@ -203,7 +215,19 @@ export async function dispatchPlanFlowRoutes(
     await handlePdcaMetrics(req, res);
     return true;
   }
+  return false;
+}
 
+/**
+ * Kanban 段（P3-2，2026-11-16：由下方分发函数**原样外移**，匹配顺序不变）。
+ * @returns true 表示已匹配并处理
+ */
+async function dispatchPlanFlowKanbanRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string
+): Promise<boolean> {
+  const method = req.method || 'GET';
   // ---- Kanban ----
   if (method === 'GET' && url === '/v1/kanban') {
     await handleKanbanList(req, res);
@@ -229,5 +253,23 @@ export async function dispatchPlanFlowRoutes(
     );
     return true;
   }
+  return false;
+}
+
+/**
+ * dispatchPlanFlowRoutes — plan-flow-routes 领域路由分发
+ * @returns true 表示已匹配并处理，false 表示未匹配
+ */
+export async function dispatchPlanFlowRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string,
+  _broadcastEvent: (event: string, data: unknown) => void,
+  _handlerCtx: HandlerCtx
+): Promise<boolean> {
+  // P3-2（2026-11-16）：三段原样外移，调用顺序与匹配顺序一致
+  if (await dispatchPlanFlowPlanRoutes(req, res, url)) return true;
+  if (await dispatchPlanFlowPdcaRoutes(req, res, url)) return true;
+  if (await dispatchPlanFlowKanbanRoutes(req, res, url)) return true;
   return false;
 }

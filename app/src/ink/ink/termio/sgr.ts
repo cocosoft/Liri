@@ -5,7 +5,7 @@
  * Handles both semicolon (;) and colon (:) separated parameters.
  */
 
-import type { NamedColor, TextStyle, UnderlineStyle } from './types.js';
+import type { Color, NamedColor, TextStyle, UnderlineStyle } from './types.js';
 import { defaultStyle } from './types.js';
 
 const NAMED_COLORS: NamedColor[] = [
@@ -122,6 +122,38 @@ function parseExtendedColor(
     }
   }
   return null;
+}
+
+/** 扩展色码 → 目标字段（38 前景 / 48 背景 / 58 下划线色） */
+const EXTENDED_COLOR_FIELDS: Record<number, 'fg' | 'bg' | 'underlineColor'> = {
+  38: 'fg',
+  48: 'bg',
+  58: 'underlineColor',
+};
+
+/**
+ * P3-2（2026-11-16）：扩展色段（38/48/58）**原样外移** —— 三处同构分支合一。
+ *
+ * @returns 目标字段、颜色与需前进的参数个数（分号写法 256 色 3 个 / 真彩色 5 个，
+ *          冒号写法一律 1 个）；非扩展色或分量残缺 ⇒ null（调用方按未知码跳过）
+ */
+function resolveExtendedColor(
+  params: Param[],
+  idx: number,
+  code: number
+): {
+  field: 'fg' | 'bg' | 'underlineColor';
+  color: Color;
+  advance: number;
+} | null {
+  const field = EXTENDED_COLOR_FIELDS[code];
+  if (!field) return null;
+  const c = parseExtendedColor(params, idx);
+  if (!c) return null;
+  const color: Color =
+    'index' in c ? { type: 'indexed', index: c.index } : { type: 'rgb', ...c };
+  const advance = params[idx]!.colon ? 1 : 'index' in c ? 3 : 5;
+  return { field, color, advance };
 }
 
 export function applySGR(paramStr: string, style: TextStyle): TextStyle {
@@ -263,36 +295,12 @@ export function applySGR(paramStr: string, style: TextStyle): TextStyle {
       continue;
     }
 
-    if (code === 38) {
-      const c = parseExtendedColor(params, i);
-      if (c) {
-        s.fg =
-          'index' in c
-            ? { type: 'indexed', index: c.index }
-            : { type: 'rgb', ...c };
-        i += p.colon ? 1 : 'index' in c ? 3 : 5;
-        continue;
-      }
-    }
-    if (code === 48) {
-      const c = parseExtendedColor(params, i);
-      if (c) {
-        s.bg =
-          'index' in c
-            ? { type: 'indexed', index: c.index }
-            : { type: 'rgb', ...c };
-        i += p.colon ? 1 : 'index' in c ? 3 : 5;
-        continue;
-      }
-    }
-    if (code === 58) {
-      const c = parseExtendedColor(params, i);
-      if (c) {
-        s.underlineColor =
-          'index' in c
-            ? { type: 'indexed', index: c.index }
-            : { type: 'rgb', ...c };
-        i += p.colon ? 1 : 'index' in c ? 3 : 5;
+    // 扩展色（38/48/58，P3-2：原样外移到 resolveExtendedColor）
+    if (code === 38 || code === 48 || code === 58) {
+      const resolved = resolveExtendedColor(params, i, code);
+      if (resolved) {
+        s[resolved.field] = resolved.color;
+        i += resolved.advance;
         continue;
       }
     }

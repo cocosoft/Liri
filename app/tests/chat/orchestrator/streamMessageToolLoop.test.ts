@@ -75,10 +75,12 @@ let longTaskCalls: Array<Record<string, unknown>>;
 beforeEach(() => {
   script = {};
   longTaskCalls = [];
-  restoreLoop = spyOn(
+  const spy = spyOn(
     createAgentLoopModule,
     'createChatAgentLoop'
   ).mockImplementation(() => makeFakeLoop(script) as never);
+  // 必须显式 mockRestore：调用 spy 只会执行假实现，不会还原模块导出
+  restoreLoop = () => spy.mockRestore();
 });
 afterEach(() => {
   restoreLoop?.();

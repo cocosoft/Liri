@@ -48,8 +48,8 @@
 | 15 | `SWARM_VERIFY_RETRY` | false | ① verifier **明确判不过**的 worker 占比与「回灌后转通过」比例**可观测**（灰度期基线，见 `AgentSwarm` 的 `retried` 字段）；② 回灌增量 token 占批次 worker 用量**可量化且 ≤10%**；③ 至少 **1 个发布周期**的灰度观察记录；④ 独立 token 上限（默认 20k）未出现"预算半途耗尽导致回灌被系统性跳过" | 季度 / 事件 | `featureFlags.ts`（`SWARM_VERIFY_RETRY`）· E-1（`dev_docs/20261018/待修复任务清单-20261018.md`） |
 | 16 | `PLUGIN_THIRD_PARTY_INPROCESS` | false | ① **T25-08 P1 子进程宿主上线并验收通过**（插件读不到宿主 `process.env`、崩溃不杀主进程、能力经白名单 RPC）；② 市场/安装链路已按 `capabilities` 声明授权；③ 宿主不可用时的降级路径已验证（**不得**静默回到进程内执行） | 事件（与 P1 联动） | `featureFlags.ts`（`PLUGIN_THIRD_PARTY_INPROCESS`）· `.trae/specs/plugin-process-isolation.md` |
 | 17 | `GOAL_STARTUP_RESUME` | false | ① **真实事件**：重启后存在"被中断但用户明确想继续"的目标（用户主动询问"怎么没继续"或手工续跑 ≥3 次）；② 24h 新鲜窗口 + 单次 5 个上限下**误续跑率**可观测且 ≈0（误续跑 = 已放弃目标被拉起）；③ 续跑消耗的 token 有会话级台账可查（`session_cost_summaries`） | 事件 / 季度 | `featureFlags.ts`（`GOAL_STARTUP_RESUME`）· `app/src/tasks/goal/goalStartupResume.ts` · `project_rules.md §1.4` |
-| 19 | `PLAN_SYSTEM_RESUME` | false | ① **真实事件**：一期消息注入式续跑出现"新建了计划、原计划台账停在 running"（用户可见进度错乱）≥3 次；② 系统级续跑在真机验证中**已完成步骤零重做**、剩余步骤按 DAG 推进；③ 失败/取消步骤"不重跑"的语义经用户确认（或另立需求改为重试）；④ 与 `PLAN_STARTUP_RESUME` 的开关组合（仅 #19 关 / 全开）各观察 1 个发布周期 | 事件 / 季度 | `featureFlags.ts`（`PLAN_SYSTEM_RESUME`）· `.trae/specs/planner-system-resume.md` · `project_rules.md §1.4` |
-| 18 | `PLAN_STARTUP_RESUME` | false | ① **真实事件**：重启后存在"被中断但用户明确想继续"的计划（用户主动要求续跑 ≥3 次，或计划面板里长期停在 running）；② 「心跳过期 >10min + 24h 窗口 + 单次 5 个」下**误续跑率**可观测且 ≈0（误续跑 = 已放弃计划被拉起）；③ 续跑后模型**未重复执行已完成步骤**的比例可观测（指令质量）；④ 真实按 DAG 复用计划的二期入口上线后复评 | 事件 / 季度 | `featureFlags.ts`（`PLAN_STARTUP_RESUME`）· `app/src/tasks/plan/planStartupResume.ts` · `.trae/specs/planner-resumable-dag.md` · `project_rules.md §1.4` |
+| 19 | ~~`PLAN_SYSTEM_RESUME`~~ | ✅ **已翻转 → `true`（用户裁定 2026-11-16）** | **不再是默认关项**。四条判据未逐项取证（无真实事件样本）⇒ 记为**裁定翻转**；回退 `FEATURE_PLAN_SYSTEM_RESUME=false`（回到一期消息注入）。详见 **§2.4.5** | — | `featureFlags.ts` · `.trae/specs/planner-system-resume.md` · `project_rules.md §1.4` |
+| 18 | ~~`PLAN_STARTUP_RESUME`~~ | ✅ **已翻转 → `true`（用户裁定 2026-11-16）** | **不再是默认关项**。判据①部分成立（实测 21 份 `running` 计划长期停在 running，但 >24h 超窗）；②③ 未取证 ⇒ 记为**裁定翻转**；有界性保留：心跳过期 >10min + 24h 窗口 + 单次 5 个。回退 `FEATURE_PLAN_STARTUP_RESUME=false`。详见 **§2.4.5** | — | `featureFlags.ts` · `app/src/tasks/plan/planStartupResume.ts` · `.trae/specs/planner-resumable-dag.md` · `project_rules.md §1.4` |
 
 **未列入（如实边界）**：`iterative_refine` / `parallel_distributed` 的**装配触发条件**已有（`pattern-wiring-closure.md §5/§6`），属"pattern 装配"而非"默认关开关"，本表**不重复登记**（同源去重，§2.14 规则 5）；其**可操作化判据已落入** `pattern-wiring-closure.md **§11**`（2026-10-09 追加，引用 O3/O4）。
 
@@ -223,6 +223,23 @@
 | 棘轮 | `.trae/architecture/tool-disclosure-baseline.json` 的 `perTask.coding/agent` 已按 `bun run measure:tool-disclosure --update` 下调锁定（40/4226 → 25/2663；46/4811 → 25/2815） |
 | 用例同步 | `tests/tools/toolDisclosureStrict.test.ts`：原「默认关 ⇒ 不截断」改为「默认开 ⇒ 有预算」+「显式关（回退路径）⇒ 不截断」 |
 | 风险 | 模型每轮可见工具变少（被裁者需 `tool_search` 检索后调用）⇒ 若真机出现"该场景常用工具不可见"的样本，先回退再评估 `STRICT_DISCLOSURE_BUDGETS` / `STRICT_DISCLOSURE_PRIORITY` |
+
+---
+
+### 2.4.5 翻转记录（2026-11-16）—— `PLAN_STARTUP_RESUME`（#18）+ `PLAN_SYSTEM_RESUME`（#19）（21 模式 #6 Planning）
+
+> 触发：用户指令「继续执行 21 模式 #6 的开关翻转」；确认范围 = **两个一起翻**（STARTUP 负责发现并登记唤醒，SYSTEM 负责按既有计划续跑；只开 STARTUP 会退回一期消息注入）。
+
+| 项 | 读数 / 处置 |
+|---|---|
+| 翻转前默认 | 两者均 `false`（`featureFlags.ts`） |
+| 翻转后默认 | 两者均 `true`；回退 `FEATURE_PLAN_STARTUP_RESUME=false` / `FEATURE_PLAN_SYSTEM_RESUME=false` |
+| 判据①（#18） | **部分成立**：本机 931 份计划中 `status=running` **21 份**（均长期停在 running），但心跳**全部 >24h**（超窗） |
+| 判据②③（#18） | **未取证**：需真实重启样本才能测「误续跑率」与「已完成步骤零重做」 |
+| 判据①–④（#19） | **未取证**：无"一期续跑新建计划 / 台账停在 running"的真实事件样本 |
+| 结论 | **裁定翻转**（不是判据达标后的翻转）；判据保留为**回退后复评**依据 |
+| 启动开销（有界性） | 扫描上限 5 个/次 + 心跳过期 >10min + 24h 新鲜窗口 + 触发前二次校验（仍 running 且有未终态步骤且心跳未变，否则作废）；**当下可续跑 0 份** ⇒ 本次启动不会产生额外模型调用 |
+| 同步面 | `featureFlags.ts` 注释、`project_rules.md §1.4` 两行（默认/回退/语义）、`check-doc-code-consistency.js` 的 `SAFETY_SWITCHES`（`def: true` + why 改为"已翻为默认开，回退须同批改断言"）、`app/tests/tasks/plan/planStartupResume.test.ts` 的注释（用例本身显式设 env，不受默认值影响） |
 
 ---
 

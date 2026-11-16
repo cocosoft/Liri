@@ -596,29 +596,27 @@ export const FEATURE_FLAGS = {
    */
   GOAL_STARTUP_RESUME: false,
 
-  // ───── 持久 DAG：计划重启续跑（D3，2026-11-14；默认关 = 零行为变更）─────
+  // ───── 持久 DAG：计划重启续跑（D3，2026-11-14；2026-11-16 起默认开）─────
   /**
-   * D3：**重启后为被中断的计划登记一次续跑**（默认关）。
+   * D3：**重启后为被中断的计划登记一次续跑**（2026-11-16 起默认开）。
    *
    * 开 ⇒ 启动期扫描"running 且心跳过期（>10min）但仍在 24h 内推进过"的计划（最多 5 个，
    * 按心跳倒序），各登记一次 `plan-startup:<planId>:<heartbeatMs>` 唤醒；到点由既有
    * selfWake 执行器注入"计划续接"指令（剩余步骤 + 依赖）并续跑会话，同时把崩溃残留的
-   * `running` 步骤复位为 `pending`。
-   * 关（默认）⇒ 不扫描、不登记、不解析 —— 与改动前逐字一致（历史未终态计划可能很多，
-   * 默认开会在每次启动自动消耗模型调用，必须显式 opt-in）。
-   * `FEATURE_PLAN_STARTUP_RESUME=true`。
+   * `running` 步骤复位为 `pending`。**翻转依据**：用户裁定 2026-11-16（21 模式 #6 Planning）；
+   * 实测本机 931 份计划中当下可续跑 0 份 ⇒ 启动开销有界（另有 24h 窗口 + 10min 过期 + 单次 5 个）。
+   * 回退 `FEATURE_PLAN_STARTUP_RESUME=false` ⇒ 不扫描、不登记、不解析。
    */
-  PLAN_STARTUP_RESUME: false,
+  PLAN_STARTUP_RESUME: true,
 
   /**
-   * D3 三期（2026-11-14）：计划续跑走**系统级**（默认关）。
+   * D3 三期（2026-11-14；**2026-11-16 起默认开**）：计划续跑走**系统级**。
    *
    * 开 ⇒ 启动期唤醒命中时调用 `PdcaLaunchCoordinator.resumePlan`，由 `PlanDrivenLoop`
-   * 采纳既有计划继续执行（不新建计划、不重做已完成步骤）；
-   * 关（默认）⇒ 保持一期"消息注入"式续跑（模型自行继续，可能新建计划）。
-   * `FEATURE_PLAN_SYSTEM_RESUME=true`。
+   * 采纳既有计划继续执行（不新建计划、不重做已完成步骤、失败/取消步骤不重跑）；
+   * 回退 `FEATURE_PLAN_SYSTEM_RESUME=false` ⇒ 保持一期"消息注入"式续跑（模型自行继续）。
    */
-  PLAN_SYSTEM_RESUME: false,
+  PLAN_SYSTEM_RESUME: true,
 
   // ───── 性能与监控 ─────
   /** 内存监控 */

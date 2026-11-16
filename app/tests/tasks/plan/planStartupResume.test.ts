@@ -107,7 +107,7 @@ function fakeScheduler(): PlanResumeScheduler & {
 
 const prevFlag = process.env['FEATURE_PLAN_STARTUP_RESUME'];
 
-// 该能力默认关 ⇒ 用例内显式开启（与 D2+ 同一手法）
+// 该能力 2026-11-16 起默认开（用户裁定）；用例内仍显式设置以固定环境（与 D2+ 同一手法）
 beforeEach(() => {
   process.env['FEATURE_PLAN_STARTUP_RESUME'] = 'true';
   resetStartupPlanResumesForTest();

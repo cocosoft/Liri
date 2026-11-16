@@ -28,6 +28,8 @@
 新增开关 `PLAN_STARTUP_RESUME`（默认 `false`，`FEATURE_PLAN_STARTUP_RESUME=true` 开启）——
 与 D2+ 同因：真机库存在大量历史未终态计划，默认自动续跑会在每次启动消耗模型调用。
 
+> **订正（2026-11-16）**：本开关已按**用户裁定**翻转为默认 `true`（21 模式 #6 Planning）；判据①②③ 未逐项取证，属**裁定翻转**；有界性不变（心跳过期 >10min + 24h 窗口 + 单次 5 个），回退 `FEATURE_PLAN_STARTUP_RESUME=false`。详见 `default-off-switches-review-gates.md §2.4.5`。
+
 同批登记（三处 + 默认关登记表）：`featureFlags.ts` · `project_rules.md §1.4` · `check-doc-code-consistency.js` `SAFETY_SWITCHES` · `default-off-switches-review-gates.md §2-#18`。
 
 ## 4. 边界（如实）

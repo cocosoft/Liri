@@ -251,6 +251,46 @@
       "command": "git log --pretty=format:%h -n 5",
       "expected": "allow",
       "why": "T2c 正向：取值型开关（--pretty= / -n）不影响副作用面，保持只读"
+    },
+    {
+      "command": "npm --version",
+      "expected": "allow",
+      "why": "G3 第 2 个 bin（npm）：仅版本查询进只读链"
+    },
+    {
+      "command": "npm ls",
+      "expected": "ask",
+      "why": "G3 第 2 个 bin：只读查询目前仍走审批（未做只读放行，见 §9.7 发现）"
+    },
+    {
+      "command": "npm view react version",
+      "expected": "ask",
+      "why": "G3 第 2 个 bin：只读查询目前仍走审批"
+    },
+    {
+      "command": "npm config get registry",
+      "expected": "ask",
+      "why": "G3 第 2 个 bin：config 查询与写入同属 ask（未按参数分级）"
+    },
+    {
+      "command": "npm config set registry https://evil.example",
+      "expected": "ask",
+      "why": "G3 第 2 个 bin：写配置仍须人工（未被误放行为只读）"
+    },
+    {
+      "command": "npm run build",
+      "expected": "ask",
+      "why": "G3 第 2 个 bin：脚本执行等价任意命令 ⇒ 必须审批"
+    },
+    {
+      "command": "bun pm ls",
+      "expected": "ask",
+      "why": "G3 第 2 个 bin：bun 只读查询同样未放行"
+    },
+    {
+      "command": "bunx cowsay hi",
+      "expected": "ask",
+      "why": "G3 第 2 个 bin（**缺口登记**）：commandSpecs 声明 npx/bunx 为 deny，但分析器实测 ask；需在 G3 核实由哪一层生效后再对齐"
     }
   ]
 }

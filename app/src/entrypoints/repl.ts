@@ -27,7 +27,7 @@
 import { createInterface } from 'readline';
 import chalk from 'chalk';
 import { commandExecutor } from '../commands/executor/index.js';
-import type { CommandContext } from '../commands/types/index.js';
+import type { CommandContext, CommandResult } from '../commands/types/index.js';
 import type { ChatManager } from '../chat/ChatManager.js';
 import { providerRegistry } from '@modules/ai';
 import { getToolManager } from '@modules/tools';
@@ -493,75 +493,14 @@ export async function launchRepl(
     try {
       if (trimmedLine.startsWith('.scene ') || trimmedLine === '.scene') {
         // 运行时切换场景信任级别
-        const sceneName = trimmedLine.startsWith('.scene ')
-          ? trimmedLine.slice(7).trim()
-          : '';
-        if (!sceneName) {
-          const current = configManager.getConfigValue<{
-            defaultTrustLevel?: string;
-          }>('permission')?.defaultTrustLevel;
-          const label =
-            current === 'chat'
-              ? '聊天'
-              : current === 'work'
-                ? '工作'
-                : current === 'development'
-                  ? '开发'
-                  : '未设置';
-          ui.showInfo(`当前场景: ${label}${current ? ` (${current})` : ''}`);
-          ui.showInfo('使用 /scene <chat|work|development> 切换场景');
-        } else {
-          const validLevels = ['chat', 'work', 'development'] as const;
-          if (
-            !validLevels.includes(sceneName as (typeof validLevels)[number])
-          ) {
-            ui.showError(
-              `无效场景: ${sceneName}。可选: chat, work, development`
-            );
-          } else {
-            const currentConfig =
-              configManager.getConfigValue<Record<string, unknown>>(
-                'permission'
-              ) || {};
-            configManager.setConfigValue('permission', {
-              ...currentConfig,
-              defaultTrustLevel: sceneName,
-            });
-            const label =
-              sceneName === 'chat'
-                ? '聊天'
-                : sceneName === 'work'
-                  ? '工作'
-                  : '开发';
-            ui.showSuccess(`场景已切换至: ${label} (${sceneName})`);
-          }
-        }
+        handleSceneCommand(trimmedLine, ui);
         rl.prompt();
         return;
       }
 
       if (trimmedLine.startsWith('.model ')) {
         // 运行时切换模型
-        const modelName = trimmedLine.slice(7).trim();
-        if (!modelName) {
-          ui.showInfo(
-            `当前模型: ${modelRouter.getCurrentModel() || '(未设置)'}`
-          );
-        } else {
-          // 将模型名转换为 UUID 存储，保持 DB 一致性
-          try {
-            const { modelPricingService } =
-              await import('../ai/models/ModelPricingService');
-            await modelPricingService.initialize();
-            const record = await modelPricingService.getPricing(modelName);
-            const modelId = record?.id || modelName;
-            await modelRouter.setCurrentModel(modelId);
-          } catch (err) {
-            // @ignore-catch: 模型查找失败，使用原始模型名
-            await modelRouter.setCurrentModel(modelName);
-          }
-          ui.showSuccess(`模型已切换至: ${modelName}，重启对话后生效`);
-        }
+        await handleModelCommand(trimmedLine, ui);
         rl.prompt();
         return;
       }
@@ -587,25 +526,7 @@ export async function launchRepl(
         profileCheckpoint('repl_execute_command_end');
         loading.stop();
 
-        if (result.success) {
-          if (result.message) {
-            console.log('\n' + chalk.yellow('⚙️ System: ') + result.message);
-          } else if (result.value) {
-            console.log('\n' + chalk.yellow('⚙️ System: ') + result.value);
-          } else if (result.data) {
-            console.log(
-              '\n' +
-                chalk.yellow('⚙️ System: ') +
-                JSON.stringify(result.data, null, 2)
-            );
-          }
-        } else {
-          ui.showError(result.error || '命令执行失败');
-          // 提供更具体的错误提示
-          if (result.error?.includes('Command not found')) {
-            ui.showInfo('提示: 使用 /help 查看可用命令');
-          }
-        }
+        reportCommandResult(result, ui);
       } else {
         isProcessing = true;
 
@@ -1023,6 +944,120 @@ export async function executeFromPipe(): Promise<void> {
   } finally {
     rl.close();
     profileCheckpoint('execute_from_pipe_end');
+  }
+}
+
+// ── REPL 点命令与命令结果输出（原为行处理器内联段，逐字外移） ─────────────
+
+type ReplUi = ReturnType<typeof getUIEnhancer>;
+
+/** `.scene` 需要的配置读写面（默认取全局 configManager；Proxy 单例不便打桩，故留注入点） */
+export type SceneConfigPort = {
+  getConfigValue<T = unknown>(key: string): T | undefined;
+  setConfigValue<T = unknown>(key: string, value: T): void;
+};
+
+/** `.model` 需要的模型读写面（同上） */
+export type ModelRouterPort = {
+  getCurrentModel(): string | null;
+  setCurrentModel(model: string): Promise<void>;
+};
+
+/**
+ * `.scene` 点命令：查看 / 切换默认信任级别。
+ * 无参数 ⇒ 显示当前场景与用法；非法级别 ⇒ 报错并列出可选值。
+ */
+export function handleSceneCommand(
+  line: string,
+  ui: ReplUi,
+  config: SceneConfigPort = configManager
+): void {
+  const sceneName = line.startsWith('.scene ') ? line.slice(7).trim() : '';
+  if (!sceneName) {
+    const current = config.getConfigValue<{
+      defaultTrustLevel?: string;
+    }>('permission')?.defaultTrustLevel;
+    const label =
+      current === 'chat'
+        ? '聊天'
+        : current === 'work'
+          ? '工作'
+          : current === 'development'
+            ? '开发'
+            : '未设置';
+    ui.showInfo(`当前场景: ${label}${current ? ` (${current})` : ''}`);
+    ui.showInfo('使用 /scene <chat|work|development> 切换场景');
+    return;
+  }
+
+  const validLevels = ['chat', 'work', 'development'] as const;
+  if (!validLevels.includes(sceneName as (typeof validLevels)[number])) {
+    ui.showError(`无效场景: ${sceneName}。可选: chat, work, development`);
+    return;
+  }
+
+  const currentConfig =
+    config.getConfigValue<Record<string, unknown>>('permission') || {};
+  config.setConfigValue('permission', {
+    ...currentConfig,
+    defaultTrustLevel: sceneName,
+  });
+  const label =
+    sceneName === 'chat' ? '聊天' : sceneName === 'work' ? '工作' : '开发';
+  ui.showSuccess(`场景已切换至: ${label} (${sceneName})`);
+}
+
+/**
+ * `.model` 点命令：查看 / 切换模型。
+ * 切换时把模型名转换为 UUID 存储以保持 DB 一致性；查找失败则原样保存模型名。
+ */
+export async function handleModelCommand(
+  line: string,
+  ui: ReplUi,
+  router: ModelRouterPort = modelRouter
+): Promise<void> {
+  const modelName = line.slice(7).trim();
+  if (!modelName) {
+    ui.showInfo(`当前模型: ${router.getCurrentModel() || '(未设置)'}`);
+    return;
+  }
+
+  // 将模型名转换为 UUID 存储，保持 DB 一致性
+  try {
+    const { modelPricingService } =
+      await import('../ai/models/ModelPricingService');
+    await modelPricingService.initialize();
+    const record = await modelPricingService.getPricing(modelName);
+    const modelId = record?.id || modelName;
+    await router.setCurrentModel(modelId);
+  } catch (err) {
+    // @ignore-catch: 模型查找失败，使用原始模型名
+    await router.setCurrentModel(modelName);
+  }
+  ui.showSuccess(`模型已切换至: ${modelName}，重启对话后生效`);
+}
+
+/** 斜杠命令结果输出：成功按 message / value / data 依次降级打印，失败给具体提示 */
+export function reportCommandResult(result: CommandResult, ui: ReplUi): void {
+  if (result.success) {
+    if (result.message) {
+      console.log('\n' + chalk.yellow('⚙️ System: ') + result.message);
+    } else if (result.value) {
+      console.log('\n' + chalk.yellow('⚙️ System: ') + result.value);
+    } else if (result.data) {
+      console.log(
+        '\n' +
+          chalk.yellow('⚙️ System: ') +
+          JSON.stringify(result.data, null, 2)
+      );
+    }
+    return;
+  }
+
+  ui.showError(result.error || '命令执行失败');
+  // 提供更具体的错误提示
+  if (result.error?.includes('Command not found')) {
+    ui.showInfo('提示: 使用 /help 查看可用命令');
   }
 }
 

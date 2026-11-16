@@ -256,6 +256,37 @@
 | 判据取证 | ①"判不过 worker 占比 / 回灌后转通过比例"、②"回灌 token 占比 ≤10%"、③"灰度 1 个发布周期"、④"预算未半途耗尽" —— 真机**无 verifier 明确判不过的样本**（9 份在用 `events.jsonl` 仅 3 处 `swarm` 文本命中，非续跑样本）⇒ **均未取证**，记为**裁定翻转** |
 | 同步面 | `featureFlags.ts` 注释、`AgentSwarm.ts` 的 `enableVerifyRetry` 注释（"默认开 + 回退"）；本项不在 `SAFETY_SWITCHES` / `project_rules §1.4`（非安全开关），`lint:doc-code` 断言数不变 |
 
+### 2.4.7 复评记录（2026-11-16）—— Memory Management（21 模式 #8）：**维持默认关**
+
+> 触发：用户指令「继续执行 21 模式 #8 的开关翻转」；经取证与复述后，用户裁定 **维持默认关**。
+
+**① 对象甄别（本模式相关默认关项）**
+
+| 开关 | 消费方 | 结论 |
+|---|---|---|
+| `REACTIVE_COMPACT` | **全仓零读取点**（仅声明） | 死开关，翻转无效 ⇒ 不作为对象 |
+| `CONTEXT_COLLAPSE` | 同上 | 同上 |
+| `HISTORY_SNIP` | 同上 | 同上 |
+| `CONTEXT_COMPACTION_ESCALATION` | `app/src/context/compaction/CompactionOrchestrator.ts:824`（唯一消费点） | **唯一可执行对象** |
+
+> ⚠️ **新发现（如实，本轮未处理）**：上表三个零消费方开关属**死开关**（声明在案、无读取点）。按 `code-deletion.md` CD01–CD06，删除须走「先摘入口 → 观察 → 再删实现」流程，**本轮不动**；如需清理，另立独立提交。
+
+**② 取证读数（`bun run evidence:compaction-escalation`，2026-11-16 实测）**
+
+| 指标 | 读数 | 阈值 |
+|---|---|---|
+| 可升级面（`decision=skip`） | **0** | ≥ 200 |
+| 升级次数（`compaction:escalated`） | 0 | — |
+| 压缩事件数（shadow 观测） | 0 | — |
+| Tier-3 降幅中位数（升级配对 / 全部） | 无样本 | ≥ 25% |
+| 升级后 3 轮内中断率 | 不可判定（需 `events.jsonl` 的 `turn/end`） | — |
+
+**③ 裁定与后续**
+
+- **结论：维持 `false`**（用户裁定 2026-11-16；与脚本自身结论「样本不足 ⇒ 维持默认关」一致）。
+- **翻转前提（何时重开）**：可升级面 ≥ 200 且 Tier-3 降幅中位数 ≥ 25% 且升级后 3 轮内中断率可判定并可接受；届时按 G-05 口径复评，**不得据小样本翻默认**。
+- **回退/开启方式（不变）**：`FEATURE_CONTEXT_COMPACTION_ESCALATION=true`（运维/灰度可先行）。
+
 ---
 
 ## 3. 观测点 O1–O5（触发条件可操作化的**使能步**）

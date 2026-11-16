@@ -45,7 +45,7 @@
 | 12 | `CODE_RUN_DEEP_SCAN_STRICT` | false | ① **真实事件**：深扫不可用（原生模块缺失 / 平台缺库）期间出现**危险调用漏检**；② 原生深扫在**目标交付环境**稳定可用（`scanStatus='ran'` 比例达 100%）；③ 用户要求"code_run 深扫必须完成" | 事件 / 与 P0-3 联动 | `featureFlags.ts:326` · `.trae/specs/security-decision-verdict.md` |
 | 13 | `CLIENT_STREAM_EXECUTION` | false | ① **真实事件**：客户端 `/v1/chat/stream` 出现**未记账工具调用**或**崩溃后重复副作用**（无 executionId 导致）；② 前端/第三方调用方**回归清单通过**（`ChatRequest.executionId` 注入兼容）；③ 与渠道路径记账口径对齐验证（终态事件同构） | 事件 / 与 P0-2 联动 | `featureFlags.ts:338` · `.trae/specs/client-stream-execution.md` |
 | 14 | `CHANNEL_TOOL_POLICY` | false | ① 远程通道会话中 `bash` / `file_write` 等执行/写盘工具的调用率与审批拒绝率**可观测**（灰度期基线）；② `messaging` 任务面在灰度期**无「模型自述工具不可用」类反馈**（否则该通道需补类别）；③ 至少 **1 个发布周期**的灰度观察记录 | 季度 / 事件 | `featureFlags.ts`（`CHANNEL_TOOL_POLICY`）· G-2（`dev_docs/20261018/待修复任务清单-20261018.md`） |
-| 15 | `SWARM_VERIFY_RETRY` | false | ① verifier **明确判不过**的 worker 占比与「回灌后转通过」比例**可观测**（灰度期基线，见 `AgentSwarm` 的 `retried` 字段）；② 回灌增量 token 占批次 worker 用量**可量化且 ≤10%**；③ 至少 **1 个发布周期**的灰度观察记录；④ 独立 token 上限（默认 20k）未出现"预算半途耗尽导致回灌被系统性跳过" | 季度 / 事件 | `featureFlags.ts`（`SWARM_VERIFY_RETRY`）· E-1（`dev_docs/20261018/待修复任务清单-20261018.md`） |
+| 15 | ~~`SWARM_VERIFY_RETRY`~~ | ✅ **已翻转 → `true`（用户裁定 2026-11-16）** | **不再是默认关项**。四条判据未逐项取证（真机无 verifier 明确判不过的样本）⇒ 记为**裁定翻转**；增量 token 受 **20k 独立上限**约束，超限即不回灌。回退 `FEATURE_SWARM_VERIFY_RETRY=false`。详见 **§2.4.6** | — | `featureFlags.ts` · `app/src/tasks/swarm/AgentSwarm.ts` · E-1 |
 | 16 | `PLUGIN_THIRD_PARTY_INPROCESS` | false | ① **T25-08 P1 子进程宿主上线并验收通过**（插件读不到宿主 `process.env`、崩溃不杀主进程、能力经白名单 RPC）；② 市场/安装链路已按 `capabilities` 声明授权；③ 宿主不可用时的降级路径已验证（**不得**静默回到进程内执行） | 事件（与 P1 联动） | `featureFlags.ts`（`PLUGIN_THIRD_PARTY_INPROCESS`）· `.trae/specs/plugin-process-isolation.md` |
 | 17 | `GOAL_STARTUP_RESUME` | false | ① **真实事件**：重启后存在"被中断但用户明确想继续"的目标（用户主动询问"怎么没继续"或手工续跑 ≥3 次）；② 24h 新鲜窗口 + 单次 5 个上限下**误续跑率**可观测且 ≈0（误续跑 = 已放弃目标被拉起）；③ 续跑消耗的 token 有会话级台账可查（`session_cost_summaries`） | 事件 / 季度 | `featureFlags.ts`（`GOAL_STARTUP_RESUME`）· `app/src/tasks/goal/goalStartupResume.ts` · `project_rules.md §1.4` |
 | 19 | ~~`PLAN_SYSTEM_RESUME`~~ | ✅ **已翻转 → `true`（用户裁定 2026-11-16）** | **不再是默认关项**。四条判据未逐项取证（无真实事件样本）⇒ 记为**裁定翻转**；回退 `FEATURE_PLAN_SYSTEM_RESUME=false`（回到一期消息注入）。详见 **§2.4.5** | — | `featureFlags.ts` · `.trae/specs/planner-system-resume.md` · `project_rules.md §1.4` |
@@ -240,6 +240,21 @@
 | 结论 | **裁定翻转**（不是判据达标后的翻转）；判据保留为**回退后复评**依据 |
 | 启动开销（有界性） | 扫描上限 5 个/次 + 心跳过期 >10min + 24h 新鲜窗口 + 触发前二次校验（仍 running 且有未终态步骤且心跳未变，否则作废）；**当下可续跑 0 份** ⇒ 本次启动不会产生额外模型调用 |
 | 同步面 | `featureFlags.ts` 注释、`project_rules.md §1.4` 两行（默认/回退/语义）、`check-doc-code-consistency.js` 的 `SAFETY_SWITCHES`（`def: true` + why 改为"已翻为默认开，回退须同批改断言"）、`app/tests/tasks/plan/planStartupResume.test.ts` 的注释（用例本身显式设 env，不受默认值影响） |
+
+---
+
+### 2.4.6 翻转记录（2026-11-16）—— `SWARM_VERIFY_RETRY`（#15）（21 模式 #7 Multi-Agent）
+
+> 触发：用户指令「继续执行 21 模式 #7 的开关翻转」。多智能体相关默认关项中，只有本项属"编排行为"开关（`TEAM_*` / `PRO_SWARM` 属工具可见性与变体集，不在本表）；消费点唯一：`app/src/tools/AgentTool/swarmPath.ts:560`。
+
+| 项 | 读数 / 处置 |
+|---|---|
+| 翻转前默认 | `false`；回灌关闭时 verifier 判不过即 `verify:'failed'`，不重试 |
+| 翻转后默认 | `true`；回退 `FEATURE_SWARM_VERIFY_RETRY=false` |
+| 行为变更 | **仅**在 verifier 给出明确 `pass:false`（含 feedback）时，把 feedback 回灌原 worker **重试 1 次**并重新门禁；verifier 自身故障 / 输出不可解析 / worker 超时 / 批次取消**均不回灌** |
+| 成本上界 | 回灌增量 token 受 **`DEFAULT_SWARM_VERIFY_RETRY_TOKEN_BUDGET = 20_000`** 独立上限约束，超限即跳过 |
+| 判据取证 | ①"判不过 worker 占比 / 回灌后转通过比例"、②"回灌 token 占比 ≤10%"、③"灰度 1 个发布周期"、④"预算未半途耗尽" —— 真机**无 verifier 明确判不过的样本**（9 份在用 `events.jsonl` 仅 3 处 `swarm` 文本命中，非续跑样本）⇒ **均未取证**，记为**裁定翻转** |
+| 同步面 | `featureFlags.ts` 注释、`AgentSwarm.ts` 的 `enableVerifyRetry` 注释（"默认开 + 回退"）；本项不在 `SAFETY_SWITCHES` / `project_rules §1.4`（非安全开关），`lint:doc-code` 断言数不变 |
 
 ---
 

@@ -47,7 +47,7 @@
 | 14 | `CHANNEL_TOOL_POLICY` | false | ① 远程通道会话中 `bash` / `file_write` 等执行/写盘工具的调用率与审批拒绝率**可观测**（灰度期基线）；② `messaging` 任务面在灰度期**无「模型自述工具不可用」类反馈**（否则该通道需补类别）；③ 至少 **1 个发布周期**的灰度观察记录 | 季度 / 事件 | `featureFlags.ts`（`CHANNEL_TOOL_POLICY`）· G-2（`dev_docs/20261018/待修复任务清单-20261018.md`） |
 | 15 | ~~`SWARM_VERIFY_RETRY`~~ | ✅ **已翻转 → `true`（用户裁定 2026-11-16）** | **不再是默认关项**。四条判据未逐项取证（真机无 verifier 明确判不过的样本）⇒ 记为**裁定翻转**；增量 token 受 **20k 独立上限**约束，超限即不回灌。回退 `FEATURE_SWARM_VERIFY_RETRY=false`。详见 **§2.4.6** | — | `featureFlags.ts` · `app/src/tasks/swarm/AgentSwarm.ts` · E-1 |
 | 16 | `PLUGIN_THIRD_PARTY_INPROCESS` | false | ① **T25-08 P1 子进程宿主上线并验收通过**（插件读不到宿主 `process.env`、崩溃不杀主进程、能力经白名单 RPC）；② 市场/安装链路已按 `capabilities` 声明授权；③ 宿主不可用时的降级路径已验证（**不得**静默回到进程内执行） | 事件（与 P1 联动） | `featureFlags.ts`（`PLUGIN_THIRD_PARTY_INPROCESS`）· `.trae/specs/plugin-process-isolation.md` |
-| 17 | `GOAL_STARTUP_RESUME` | false | ① **真实事件**：重启后存在"被中断但用户明确想继续"的目标（用户主动询问"怎么没继续"或手工续跑 ≥3 次）；② 24h 新鲜窗口 + 单次 5 个上限下**误续跑率**可观测且 ≈0（误续跑 = 已放弃目标被拉起）；③ 续跑消耗的 token 有会话级台账可查（`session_cost_summaries`） | 事件 / 季度 | `featureFlags.ts`（`GOAL_STARTUP_RESUME`）· `app/src/tasks/goal/goalStartupResume.ts` · `project_rules.md §1.4` |
+| 17 | ~~`GOAL_STARTUP_RESUME`~~ | ✅ **已翻转 → `true`（用户裁定 2026-11-16）** | **不再是默认关项**。判据①②③ 未逐项取证（实测本机 4052 个目标中 24h 内 `active`/`blocked` **0 个**）⇒ 记为**裁定翻转**；有界性保留：24h 新鲜窗口 + 单次 5 个 + 触发前二次校验。回退 `FEATURE_GOAL_STARTUP_RESUME=false`。详见 **§2.4.8** | — | `featureFlags.ts` · `app/src/tasks/goal/goalStartupResume.ts` · `project_rules.md §1.4` |
 | 19 | ~~`PLAN_SYSTEM_RESUME`~~ | ✅ **已翻转 → `true`（用户裁定 2026-11-16）** | **不再是默认关项**。四条判据未逐项取证（无真实事件样本）⇒ 记为**裁定翻转**；回退 `FEATURE_PLAN_SYSTEM_RESUME=false`（回到一期消息注入）。详见 **§2.4.5** | — | `featureFlags.ts` · `.trae/specs/planner-system-resume.md` · `project_rules.md §1.4` |
 | 18 | ~~`PLAN_STARTUP_RESUME`~~ | ✅ **已翻转 → `true`（用户裁定 2026-11-16）** | **不再是默认关项**。判据①部分成立（实测 21 份 `running` 计划长期停在 running，但 >24h 超窗）；②③ 未取证 ⇒ 记为**裁定翻转**；有界性保留：心跳过期 >10min + 24h 窗口 + 单次 5 个。回退 `FEATURE_PLAN_STARTUP_RESUME=false`。详见 **§2.4.5** | — | `featureFlags.ts` · `app/src/tasks/plan/planStartupResume.ts` · `.trae/specs/planner-resumable-dag.md` · `project_rules.md §1.4` |
 
@@ -291,6 +291,21 @@
 - **结论：维持 `false`**（用户裁定 2026-11-16；与脚本自身结论「样本不足 ⇒ 维持默认关」一致）。
 - **翻转前提（何时重开）**：可升级面 ≥ 200 且 Tier-3 降幅中位数 ≥ 25% 且升级后 3 轮内中断率可判定并可接受；届时按 G-05 口径复评，**不得据小样本翻默认**。
 - **回退/开启方式（不变）**：`FEATURE_CONTEXT_COMPACTION_ESCALATION=true`（运维/灰度可先行）。
+
+---
+
+### 2.4.8 翻转记录（2026-11-16）—— `GOAL_STARTUP_RESUME`（#17）（21 模式 #11 Goal Setting）
+
+> 触发：用户指令「执行吧」（承接 #8 收口后「是否直接跳到 #11（Goal Setting）」的选项），对象 = `GOAL_STARTUP_RESUME`。
+
+| 项 | 读数 / 处置 |
+|---|---|
+| 翻转前默认 | `false`（不扫描、不登记、不续跑） |
+| 翻转后默认 | `true`；回退 `FEATURE_GOAL_STARTUP_RESUME=false` |
+| 行为变更 | 启动期扫描「最近 24h 内推进过」的 `active`/`blocked` 目标（按最近更新倒序、单次最多 5 个），各登记一次 `goal-startup:<goalId>:<updatedAt>` 唤醒 → 到点注入 `continue_goal` 续跑会话；触发前二次校验「仍非终态且期间无推进」，陈旧唤醒作废 |
+| 判据取证（本机 `task_goals` 实测） | 总数 **4052**（`cancelled` 3056 · `failed` 766 · `active` 229 · `completed` 1）；**24h 内 `active`/`blocked` = 0** ⇒ 本次启动**不会**拉起任何目标，也无额外模型调用 |
+| 结论 | **裁定翻转**（判据①②③ 未逐项取证：无误续跑率 / token 台账样本）；判据保留为**回退后复评**依据 |
+| 同步面 | `featureFlags.ts` 注释（含实测读数）、`project_rules §1.4` 行、`check-doc-code-consistency.js` 的 `SAFETY_SWITCHES`（`def: true`）、`goalStartupResume.test.ts` 的注释（用例仍显式设 env） |
 
 ---
 

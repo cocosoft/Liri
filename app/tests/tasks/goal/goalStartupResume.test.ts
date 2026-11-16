@@ -75,7 +75,7 @@ function source(goals: TaskGoal[]): StartupGoalSource {
 }
 
 beforeEach(() => {
-  // 该能力默认关（`FEATURE_GOAL_STARTUP_RESUME=false`）⇒ 用例内显式开启
+  // 该能力 2026-11-16 起默认开（用户裁定）；用例内仍显式设置以固定环境
   process.env['FEATURE_GOAL_STARTUP_RESUME'] = 'true';
   resetStartupGoalResumesForTest();
 });

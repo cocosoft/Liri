@@ -146,6 +146,7 @@ applyTurnVerifyRecipe(ports, sessionId, text): { applied, reset, decision? }
 1. **已裁定（2026-11-15，用户）**：推进方式 = **补生效面**（而非只补观测面或只订正口径）。
 2. **已裁定（2026-11-15，用户）**：按 spec 全量落地（P1 ~ P6），接受 `site` 新增 `'turn_dispatch'`。
 3. **留待后续**：A/B 质量提升（判据②）与重试增量（判据③）—— 本 spec 只让 ①②③ 的**取材可跑**，不翻转默认值。
+   - **订正（2026-11-16）**：默认值已由**用户裁定**翻转为 `true`（判据①②③ 均未达标，属**显式豁免**，非本 spec 所做）；回退 `FEATURE_SELF_VERIFY_PATTERN=false` 或设置页关闭。记录见 `default-off-switches-review-gates.md §2.4.3`。
 
 ---
 

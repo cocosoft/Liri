@@ -145,20 +145,16 @@ async function dispatchSessionBasicRoutes(
 }
 
 /**
- * dispatchChatSessionRoutes — chat-session-routes 领域路由分发
- * @returns true 表示已匹配并处理，false 表示未匹配
+ * Chat 完成端点段（P3-2，2026-11-16：由下方分发函数**原样外移**，匹配顺序不变）。
+ * @returns true 表示已匹配并处理
  */
-export async function dispatchChatSessionRoutes(
+async function dispatchSessionChatRoutes(
   req: http.IncomingMessage,
   res: http.ServerResponse,
   url: string,
-  broadcastEvent: (event: string, data: unknown) => void,
   handlerCtx: HandlerCtx
 ): Promise<boolean> {
   const method = req.method || 'GET';
-  // ---- SSE Event Bus（提炼为独立分发器以控制本函数圈复杂度，行为逐字不变）----
-  if (await dispatchEventsRoute(req, res, url)) return true;
-
   // ---- Chat ----
   if (method === 'POST' && url === '/v1/chat/completions') {
     await handleChatCompletions(handlerCtx, req, res);
@@ -168,9 +164,21 @@ export async function dispatchChatSessionRoutes(
     await handleQuestionAnswer(handlerCtx, req, res);
     return true;
   }
+  return false;
+}
 
-  // ---- Session（基础 CRUD 提炼为独立分发器以控制本函数圈复杂度，行为逐字不变）----
-  if (await dispatchSessionBasicRoutes(req, res, url, handlerCtx)) return true;
+/**
+ * 会话消息段（恢复标记 / 全文搜索 / 时间线 / 消息增删与截断 / 流式状态）
+ * （P3-2，2026-11-16：由下方分发函数**原样外移**，匹配顺序不变）。
+ * @returns true 表示已匹配并处理
+ */
+async function dispatchSessionMessageRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
+  const method = req.method || 'GET';
   // 2026-11-11：立即复位启动期崩溃恢复标记（failed_stale ⇒ ERROR）
   if (method === 'POST' && url.match(/^\/v1\/sessions\/(.+)\/recover-stale$/)) {
     const sid = requireSessionId(
@@ -266,6 +274,21 @@ export async function dispatchChatSessionRoutes(
     await handleSessionStreamingStatus(handlerCtx, req, res, sid);
     return true;
   }
+  return false;
+}
+
+/**
+ * 检查点 / 续跑段（latest 三方法、resume、continue）（P3-2，2026-11-16：由下方分发函数
+ * **原样外移**，匹配顺序不变）。
+ * @returns true 表示已匹配并处理
+ */
+async function dispatchSessionCheckpointResumeRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
+  const method = req.method || 'GET';
   if (
     method === 'GET' &&
     url.match(/^\/v1\/sessions\/(.+)\/checkpoints\/latest$/)
@@ -319,6 +342,22 @@ export async function dispatchChatSessionRoutes(
     await handleContinueSession(res, sid);
     return true;
   }
+  return false;
+}
+
+/**
+ * 会话生命周期段（详情 / 切换 / 重命名 / 标题 / 元数据 / 压缩 / 批删 / 修剪）
+ * （P3-2，2026-11-16：由下方分发函数**原样外移**，匹配顺序不变 —— 泛型 `([^/]+)$`
+ * 仍在各子路径路由之后）。
+ * @returns true 表示已匹配并处理
+ */
+async function dispatchSessionLifecycleRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
+  const method = req.method || 'GET';
   // BUG-4 修复：泛型路由改为 ([^/]+)，避免贪婪吞掉子路径路由
   // （原 (.+) 会让 /v1/sessions/abc/memory 被此处匹配为 sid=abc/memory，随后被
   // 白名单校验拒绝恒 400，导致 :id/memory 功能不可达。改为单段匹配后，
@@ -374,6 +413,21 @@ export async function dispatchChatSessionRoutes(
     await handlePruneSession(handlerCtx, req, res);
     return true;
   }
+  return false;
+}
+
+/**
+ * 会话可观测段（记忆 / 事件导出与事件流 / 统计 / fork / 删除会话与清空）
+ * （P3-2，2026-11-16：由下方分发函数**原样外移**，匹配顺序不变）。
+ * @returns true 表示已匹配并处理
+ */
+async function dispatchSessionObservabilityRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
+  const method = req.method || 'GET';
   if (method === 'GET' && url.match(/^\/v1\/sessions\/(.+)\/memory$/)) {
     const sid = requireSessionId(url, /^\/v1\/sessions\/(.+)\/memory$/, res);
     if (sid === null) return true;
@@ -426,7 +480,20 @@ export async function dispatchChatSessionRoutes(
     await handleClearAllSessions(handlerCtx, req, res);
     return true;
   }
+  return false;
+}
 
+/**
+ * 转向（Steering）段（P3-2，2026-11-16：由下方分发函数**原样外移**，匹配顺序不变）。
+ * @returns true 表示已匹配并处理
+ */
+async function dispatchSessionSteerRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
+  const method = req.method || 'GET';
   // ---- Steering (Phase 3) ----
   if (method === 'POST' && url.match(/^\/v1\/sessions\/(.+)\/steer$/)) {
     const sid = requireSessionId(url, /^\/v1\/sessions\/(.+)\/steer$/, res);
@@ -434,5 +501,36 @@ export async function dispatchChatSessionRoutes(
     await handleSteerSession(req, res, handlerCtx, sid);
     return true;
   }
+  return false;
+}
+
+/**
+ * dispatchChatSessionRoutes — chat-session-routes 领域路由分发
+ * @returns true 表示已匹配并处理，false 表示未匹配
+ */
+export async function dispatchChatSessionRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string,
+  broadcastEvent: (event: string, data: unknown) => void,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
+  // P3-2（2026-11-16）：各分段原样外移；调用顺序与匹配顺序一致
+  // ---- SSE Event Bus ----
+  if (await dispatchEventsRoute(req, res, url)) return true;
+  // ---- Chat ----
+  if (await dispatchSessionChatRoutes(req, res, url, handlerCtx)) return true;
+  // ---- Session（基础 CRUD）----
+  if (await dispatchSessionBasicRoutes(req, res, url, handlerCtx)) return true;
+  // ---- Session 消息 / 检查点续跑 / 生命周期 / 可观测 / 转向 ----
+  if (await dispatchSessionMessageRoutes(req, res, url, handlerCtx))
+    return true;
+  if (await dispatchSessionCheckpointResumeRoutes(req, res, url, handlerCtx))
+    return true;
+  if (await dispatchSessionLifecycleRoutes(req, res, url, handlerCtx))
+    return true;
+  if (await dispatchSessionObservabilityRoutes(req, res, url, handlerCtx))
+    return true;
+  if (await dispatchSessionSteerRoutes(req, res, url, handlerCtx)) return true;
   return false;
 }

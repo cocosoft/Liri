@@ -264,12 +264,17 @@
 
 | 开关 | 消费方 | 结论 |
 |---|---|---|
-| `REACTIVE_COMPACT` | **全仓零读取点**（仅声明） | 死开关，翻转无效 ⇒ 不作为对象 |
+| `REACTIVE_COMPACT` | **全仓零读取点**（仅声明） | 死开关 ⇒ **已于 2026-11-16 删除**（`featureFlags.ts` 独立提交；见下方清理记录） |
 | `CONTEXT_COLLAPSE` | 同上 | 同上 |
 | `HISTORY_SNIP` | 同上 | 同上 |
 | `CONTEXT_COMPACTION_ESCALATION` | `app/src/context/compaction/CompactionOrchestrator.ts:824`（唯一消费点） | **唯一可执行对象** |
 
-> ⚠️ **新发现（如实，本轮未处理）**：上表三个零消费方开关属**死开关**（声明在案、无读取点）。按 `code-deletion.md` CD01–CD06，删除须走「先摘入口 → 观察 → 再删实现」流程，**本轮不动**；如需清理，另立独立提交。
+> **死开关清理记录（2026-11-16，用户裁定后执行）**：按 `code-deletion.md` CD01–CD06 核查后删除上述三项：
+> ① 全仓无 `feature('REACTIVE_COMPACT'|'CONTEXT_COLLAPSE'|'HISTORY_SNIP')` 读取点；
+> ② 无 `FEATURE_*` 环境变量名、无构建变体 / 配置注册 / 客户端设置项引用；
+> ③ 压缩实现（`packages/compaction` 的 `reactiveCompact`、`packages/query/ReactiveCompact.ts`、
+> `ContextCollapseStrategy`、`contextCollapse` 服务）**不读取**这些开关，由各自触发面驱动 ⇒ 删声明不影响能力；
+> ④ 回滚：`git revert <sha>`（仅删除 `featureFlags.ts` 的三个键与注释）。
 
 **② 取证读数（`bun run evidence:compaction-escalation`，2026-11-16 实测）**
 

@@ -711,7 +711,8 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     const items: Array<[string, string, string]> = [
       ['src/tools/GlobTool/GlobTool.ts', 'GLOB_TOOL_MAX_FILES', '100'],
       [
-        'src/context/promptSections/builtinSections.ts',
+        // P3-2（2026-11-16）：projectContext 文件列表组装外移，常量随之迁移（取值不变）
+        'src/context/promptSections/projectContextParts.ts',
         'BUILTIN_SECTION_MAX_FILES',
         '20',
       ],

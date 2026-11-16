@@ -307,7 +307,7 @@ const REVIEW_GATE_REGISTRY = '.trae/specs/default-off-switches-review-gates.md';
 
 /**
  * 「登记完整性」断言（2026-10-09，`P0-触发条件补全方案` §四-4.1）：
- * **每个默认关项**（默认关的安全开关 + 模式门控 `SELF_VERIFY_PATTERN`）必须在触发条件
+ * **每个默认关项**（默认关的安全开关 + 模式门控（如 `COMPETITIVE_STRATEGY`））必须在触发条件
  * 登记表中有条目 —— 防"永久搁置"（`development-workflow.md §2.14 规则 5` / R12-1）。
  *
  * ⚠️ 只查「**有没有登记**」；**不查触发条件内容**（散文语义不可机械化 —— §2.14 规则 5 明文
@@ -315,7 +315,8 @@ const REVIEW_GATE_REGISTRY = '.trae/specs/default-off-switches-review-gates.md';
  */
 const REGISTRATION_REQUIRED_FLAGS = [
     ...SAFETY_SWITCHES.filter((s) => s.def === false).map((s) => s.name),
-    'SELF_VERIFY_PATTERN',
+    // 2026-11-16：`SELF_VERIFY_PATTERN` 按用户裁定翻转为默认 `true`（登记表 §2 #11 / §2.4.3），
+    // 不再是默认关项 ⇒ 从本清单移除（登记表行保留，改为记「已翻转 + 回退方式」）。
 ];
 
 const REGISTRATION_ASSERTIONS = [

@@ -35,8 +35,12 @@ describe('resolveFeatureGate：env > 用户设置 > feature()', () => {
     expect(resolveFeatureGate(FLAG, () => true)).toBe(true);
   });
 
-  it('无 env + 用户未设置 ⇒ 回落静态默认（SELF_VERIFY_PATTERN 默认 false）', () => {
-    expect(resolveFeatureGate(FLAG, () => undefined)).toBe(false);
+  it('无 env + 用户未设置 ⇒ 回落静态默认（2026-11-16 起 SELF_VERIFY_PATTERN 默认 true）', () => {
+    expect(resolveFeatureGate(FLAG, () => undefined)).toBe(true);
+  });
+
+  it('翻转为默认开后，用户显式关闭仍生效（回退路径）', () => {
+    expect(resolveFeatureGate(FLAG, () => false)).toBe(false);
   });
 
   it('未登记开关 ⇒ 不读用户设置（零行为变化）', () => {

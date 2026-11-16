@@ -41,7 +41,7 @@
 | 8 | `BASH_INTERPRETER_GUARD` | false | ① **真实事件**：出现解释器内联执行（`node -e`/`python -c`/`bun -e`）绕过白名单的证据（观测 O1-B2）；② 用户要求"解释器命令必须确认" | ② 事件 | `featureFlags.ts:292` · `project_rules.md:57` |
 | 9 | ~~`BASH_APPROVAL_STRICT`~~ | ✅ **已翻转 → `true`（安全基线）** | **不再是默认关项**；治理见 **§2.2** | — | 用户裁定 2026-10-31（B3 结构化签名已收窄同名放行；真实日志「命令名级放行命中」= 0） |
 | 10 | `EXECUTION_TWO_PHASE_CANCEL` | false | ① **真实事件**：取消后底层仍写入/产生副作用（取消不彻底）；② 并发下出现"取消即释放 ⇒ 双跑/重复计费" | 事件 / 季度 | `featureFlags.ts:310` · `execution-lifecycle-ownership.md:158` |
-| 11 | `SELF_VERIFY_PATTERN` | false | 须**同时**满足：① `verify` 意图命中 **≥20 会话**（观测 O5）；② 开启后 A/B 显示质量提升**可量化**；③ 重试增量**可接受**（建议 ≤10%） | 埋点落地后下一季度 | `pattern-wiring-closure.md §9-3` |
+| 11 | ~~`SELF_VERIFY_PATTERN`~~ | ✅ **已翻转 → `true`（用户裁定 2026-11-16）** | **不再是默认关项**。翻转时三条判据**均未达标**（①实测 `verify` 意图命中 **0 会话** < 20；②③ 需开关先开才能采）⇒ 记为**显式豁免裁定**，判据保留为**回退后复评**依据。回退：`FEATURE_SELF_VERIFY_PATTERN=false`（env 最高优先）或设置页「功能开关」关闭。详见 **§2.4.3** | — | `pattern-wiring-closure.md §9-3` |
 | 12 | `CODE_RUN_DEEP_SCAN_STRICT` | false | ① **真实事件**：深扫不可用（原生模块缺失 / 平台缺库）期间出现**危险调用漏检**；② 原生深扫在**目标交付环境**稳定可用（`scanStatus='ran'` 比例达 100%）；③ 用户要求"code_run 深扫必须完成" | 事件 / 与 P0-3 联动 | `featureFlags.ts:326` · `.trae/specs/security-decision-verdict.md` |
 | 13 | `CLIENT_STREAM_EXECUTION` | false | ① **真实事件**：客户端 `/v1/chat/stream` 出现**未记账工具调用**或**崩溃后重复副作用**（无 executionId 导致）；② 前端/第三方调用方**回归清单通过**（`ChatRequest.executionId` 注入兼容）；③ 与渠道路径记账口径对齐验证（终态事件同构） | 事件 / 与 P0-2 联动 | `featureFlags.ts:338` · `.trae/specs/client-stream-execution.md` |
 | 14 | `CHANNEL_TOOL_POLICY` | false | ① 远程通道会话中 `bash` / `file_write` 等执行/写盘工具的调用率与审批拒绝率**可观测**（灰度期基线）；② `messaging` 任务面在灰度期**无「模型自述工具不可用」类反馈**（否则该通道需补类别）；③ 至少 **1 个发布周期**的灰度观察记录 | 季度 / 事件 | `featureFlags.ts`（`CHANNEL_TOOL_POLICY`）· G-2（`dev_docs/20261018/待修复任务清单-20261018.md`） |
@@ -175,6 +175,37 @@
 **沙箱 fail-open**（§2.3 末行）：维持。它**不是** featureFlag，翻转须改 `DEFAULT_LANDLOCK_CONFIG` 默认 + 全量回归 + Linux 真负向门禁，属独立立项；Windows 边界仍以 `invariants.md §6` 为准。
 
 **用户裁定（2026-11-11）：维持默认关。** 翻转路径保留 —— 若后续明确要求"解释器命令必须逐条确认"，设 `FEATURE_BASH_INTERPRETER_GUARD=true` 即可；回退同名设 `false`。
+
+---
+
+### 2.4.3 翻转记录（2026-11-16）—— `SELF_VERIFY_PATTERN`（#11）**按用户裁定翻转，判据未达标**
+
+> 触发：用户指令「先处理 21 模式 #4 的开关翻转」；经复述「三条判据均未满足」后，用户裁定 **按裁定翻转（记豁免）**。
+
+**① 取证（如实，2026-11-16 实测）**
+
+| 判据 | 读数 | 判定 |
+|---|---|---|
+| ① `verify` 意图命中 **≥20 会话**（O5） | `~/.pyapp/data/sessions` 在用 `events.jsonl` **9 份**（含 `.trash` 共 63 份 / `.trash` 外合计 1.1 MB）⇒ `pattern/decision` 事件 **0 条** ⇒ `selected=='self_verify'` 去重会话 **0** | **未达标**（0 / 20） |
+| ② 开启后 A/B 质量提升**可量化** | 无 A/B 采集路径（`self-verify-turn-surface.md` §N5 明确不做 A/B 框架） | **无法判定**（需开关先开） |
+| ③ 重试增量**可接受（≤10%）** | 同上，需开关先开才有 `maxCycles` 触发的重试样本 | **无法判定** |
+
+**② 落地（代码面）**
+
+| 落点 | 改动 |
+|---|---|
+| `packages/kernel/src/core/featureFlags.ts` | `SELF_VERIFY_PATTERN: false → true`（注释改写为翻转依据 + 豁免性质 + 回退） |
+| `client/src/components/views/SettingsPage.tsx` | 设置页缺键默认 `selfVerifyPattern: false → true`（与后端一致，避免"显示关 / 实际开"） |
+| `scripts/check-doc-code-consistency.js` | 从 `REGISTRATION_REQUIRED_FLAGS` 移除该项（不再是默认关项 ⇒ 原 `NAME: false` 断言失效） |
+| `app/tests/query/featureGate.test.ts` | 默认回落断言改为 `true`，并新增「用户显式关闭仍生效（回退路径）」 |
+
+**③ 行为影响与回退（必须可撤回）**
+
+- 影响面**仅限命中 verify/refine 意图的回合**：这些回合改走 `failClosed:true` + `maxCycles 2`（refine 为 4），判定更严、可能多一轮重试；其余回合逐字不变。
+- **回退（不改代码）**：`FEATURE_SELF_VERIFY_PATTERN=false`（env，优先级最高）或设置页「功能开关 → 自我验证」关闭。
+- **判据的后续用途**：①②③ 不再作为"能否开"的门槛（已开），转为**回退后重新开启**的复评依据；若出现"failClosed 导致正常回合被判失败 / 重试显著上升"，先回退再按 ②③ 取证。
+
+> **如实边界**：这是一次**显式豁免裁定**，不是"判据达标后的翻转"。登记表 §2 #11 行与 `featureFlags.ts` 注释均已写明，避免后续把"已翻转"误读为"已验证"。
 
 ---
 

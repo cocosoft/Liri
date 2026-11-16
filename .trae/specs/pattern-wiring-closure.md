@@ -244,6 +244,8 @@ PATTERN_SELECTION_RULES = [
 **行为边界（如实）**：三者均受**既有**约束 —— 验证线路仍受 `SELF_VERIFY_PATTERN`（默认 `false`）门控，
 `long_task_pdl` 仍由快速路径判定 ⇒ **默认路径零变化**；`maxCycles=4` 仅在门控开启且命中精修意图时生效。
 
+> **订正（2026-11-16）**：`SELF_VERIFY_PATTERN` 已按**用户裁定**翻转为默认 `true`——三条判据（≥20 会话 / A/B 可量化 / 重试 ≤10%）**均未达标**，属**显式豁免裁定**，不是"验证通过后的翻转"；回退 `FEATURE_SELF_VERIFY_PATTERN=false` 或设置页关闭。详见 `default-off-switches-review-gates.md §2.4.3`。上文「默认 `false` 门控」仅描述该次翻转**之前**的边界。
+
 **状态**：`3 ready`（`competitive_strategy` / `iterative_refine` / `self_verify`）+ `2 unavailable`
 （`long_task_pdl` / `parallel_distributed`，均带**结构字段** `drivenBy`）。`drivenBy` 与 `status` **正交**，
 面板据此换徽标（结构判定，非文案匹配，CS02）。

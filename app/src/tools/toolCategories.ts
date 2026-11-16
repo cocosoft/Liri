@@ -22,6 +22,8 @@ import type {
 import { getLogger } from '@openliri/infra/monitoring';
 import { feature } from '@openliri/kernel';
 import type { FeatureFlag } from '@openliri/kernel';
+// 2026-11-16：用户可配门控（设置页可关）—— 只取叶子模块，不拉整个 query barrel
+import { resolveFeatureGate } from '@modules/query/featureGate';
 
 const logger = getLogger('tools:categories');
 
@@ -1061,11 +1063,12 @@ export const STRICT_DISCLOSURE_PRIORITY: readonly string[] = [
  * 当前任务类型下的严格披露预算（未开开关 / 该任务无预算 ⇒ `undefined`）。
  *
  * 单一判定入口：`filterToolsByTask` 与 `getRealToolNamesForTask` 都走这里。
+ * 2026-11-16：改用用户可配门控（设置页「工具披露预算」；env `FEATURE_TOOL_DISCLOSURE_STRICT` 优先）。
  */
 export function resolveDisclosureBudget(
   taskType: string | undefined
 ): number | undefined {
-  if (!feature('TOOL_DISCLOSURE_STRICT')) return undefined;
+  if (!resolveFeatureGate('TOOL_DISCLOSURE_STRICT')) return undefined;
   return STRICT_DISCLOSURE_BUDGETS[taskType ?? DEFAULT_TASK_KEY];
 }
 

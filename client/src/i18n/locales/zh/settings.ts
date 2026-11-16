@@ -142,6 +142,13 @@ const zhSettings = {
     featuresCompetitiveStrategy: "研究编排（候选生成 + 对抗评审）",
     featuresCompetitiveStrategyDesc:
       "开启后，研究型复杂任务会先做候选方案生成与对抗评审（成本更高）。默认关闭。",
+    // 2026-11-16：翻转后的「用户可关」回退路径（后端默认开，env 优先）
+    featuresToolDisclosureStrict: "工具披露预算（收紧）",
+    featuresToolDisclosureStrictDesc:
+      "开启后，编码 / 代理任务下发给模型的工具清单会按优先级截断（核心工具始终保留，其余仍可按需检索到）。默认开启，关闭后恢复全量下发。",
+    featuresSwarmVerifyRetry: "多代理验证重试",
+    featuresSwarmVerifyRetryDesc:
+      "开启后，验证器明确判定未通过时，对应子任务会带着反馈再执行一轮（额外消耗 token，单次上限 20k）。默认开启，关闭后不重试。",
     // 2026-11-03 P0：自主执行运行预算（默认放宽，可按需调整）
     autonomyLimitsTitle: "自主执行运行预算",
     autonomyLimitsDesc:

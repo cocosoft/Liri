@@ -145,6 +145,13 @@ const enSettings = {
     featuresCompetitiveStrategy: "Research orchestration (candidates + review)",
     featuresCompetitiveStrategyDesc:
       "When on, research-type complex tasks first generate candidate approaches and run an adversarial review (higher cost). Off by default.",
+    // 2026-11-16: user-facing rollback path for the flipped defaults (backend defaults on; env wins)
+    featuresToolDisclosureStrict: "Tool disclosure budget (tightened)",
+    featuresToolDisclosureStrictDesc:
+      "When on, the tool list exposed to the model for coding/agent tasks is trimmed by priority (core tools always kept; the rest stay retrievable on demand). On by default; turning it off restores the full list.",
+    featuresSwarmVerifyRetry: "Multi-agent verification retry",
+    featuresSwarmVerifyRetryDesc:
+      "When on, a sub-task the verifier explicitly rejects is re-run once with the feedback (extra token cost, capped at 20k per retry). On by default; turning it off disables the retry.",
     // 2026-11-03 P0: autonomous run budget (relaxed defaults, user-tunable)
     autonomyLimitsTitle: "Autonomous run budget",
     autonomyLimitsDesc:

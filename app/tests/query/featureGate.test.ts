@@ -55,4 +55,32 @@ describe('resolveFeatureGate：env > 用户设置 > feature()', () => {
       false
     );
   });
+
+  // 2026-11-16：21 模式翻转后登记为「用户可关」的回退路径（env 之外的第二条路）
+  it('TOOL_DISCLOSURE_STRICT / SWARM_VERIFY_RETRY 已登记 ⇒ 用户可关；未设置回落默认 true', () => {
+    expect(resolveFeatureGate('TOOL_DISCLOSURE_STRICT', () => false)).toBe(
+      false
+    );
+    expect(resolveFeatureGate('TOOL_DISCLOSURE_STRICT', () => undefined)).toBe(
+      true
+    );
+    expect(resolveFeatureGate('SWARM_VERIFY_RETRY', () => false)).toBe(false);
+    expect(resolveFeatureGate('SWARM_VERIFY_RETRY', () => undefined)).toBe(
+      true
+    );
+  });
+
+  it('env 对上述两项仍最高优先（运维可强制开启/关闭）', () => {
+    process.env['FEATURE_TOOL_DISCLOSURE_STRICT'] = 'false';
+    process.env['FEATURE_SWARM_VERIFY_RETRY'] = 'false';
+    try {
+      expect(resolveFeatureGate('TOOL_DISCLOSURE_STRICT', () => true)).toBe(
+        false
+      );
+      expect(resolveFeatureGate('SWARM_VERIFY_RETRY', () => true)).toBe(false);
+    } finally {
+      delete process.env['FEATURE_TOOL_DISCLOSURE_STRICT'];
+      delete process.env['FEATURE_SWARM_VERIFY_RETRY'];
+    }
+  });
 });

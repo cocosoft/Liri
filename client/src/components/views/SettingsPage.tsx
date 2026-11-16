@@ -795,6 +795,10 @@ function SettingsPage() {
                       selfVerifyPattern: true,
                       // 2026-11-03：与后端 `FEATURE_FLAGS.COMPETITIVE_STRATEGY`（默认关）一致
                       competitiveStrategy: false,
+                      // 2026-11-16：与后端 `FEATURE_FLAGS.TOOL_DISCLOSURE_STRICT` / `SWARM_VERIFY_RETRY`（均默认开）一致；
+                      // 这两项是翻转后的「用户可关」回退路径（后端经 `resolveFeatureGate` 读取）
+                      toolDisclosureStrict: true,
+                      swarmVerifyRetry: true,
                       // 合并而非整体替换：`config.features` 缺键时保留上述默认
                       ...((config.features as Record<string, unknown>) || {}),
                     }) as unknown as Parameters<

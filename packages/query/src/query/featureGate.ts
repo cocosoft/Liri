@@ -32,6 +32,9 @@ const USER_CONFIG_KEYS: Readonly<Partial<Record<FeatureFlag, string>>> = {
   SELF_VERIFY_PATTERN: 'selfVerifyPattern',
   // 2026-11-03（缺口 #3）：研究编排（competitive_strategy）同属"桌面默认不可达"的门控
   COMPETITIVE_STRATEGY: 'competitiveStrategy',
+  // 2026-11-16：21 模式翻转后需保留"用户可关"的回退路径（env 之外的第二条路）
+  TOOL_DISCLOSURE_STRICT: 'toolDisclosureStrict',
+  SWARM_VERIFY_RETRY: 'swarmVerifyRetry',
 };
 
 /** 用户设置的读取器（测试可注入） */

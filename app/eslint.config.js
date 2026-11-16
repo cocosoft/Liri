@@ -108,6 +108,12 @@ export default [
           '\\/query\\/guardSuspend$',
           '\\/query\\/dailyBudgetSnapshot$',
           '\\/query\\/toolJobSuspend$',
+          // 2026-11-16（用户可配门控）：`query/featureGate` 是**零实例、零生命周期**的纯叶子
+          // （只依赖 kernel 的 `feature()` 与 infra 的 `configManager`），是"env > 用户设置 > 默认"
+          // 的唯一解析入口；chat（恢复链）/ tasks（启动期续跑扫描与二次校验）每轮现读它。
+          // 若改走 `@modules/query` 桶，会把 TAORLoop / QueryEngine 等整条查询面拉进启动与恢复热路径
+          // ⇒ 与上面 8 个 query 窄入口、`query/patterns` 同口径，按文件名精确豁免。
+          '\\/query\\/featureGate$',
         ],
       }],
       'no-restricted-imports': ['warn', {

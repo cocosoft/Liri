@@ -20,6 +20,12 @@ interface FeatureFlags {
   toolDisclosureStrict: boolean;
   /** 2026-11-16：多代理 verifier 重试（后端 `SWARM_VERIFY_RETRY`，默认开） */
   swarmVerifyRetry: boolean;
+  /** 2026-11-16：重启后计划续跑（后端 `PLAN_STARTUP_RESUME`，默认开） */
+  planStartupResume: boolean;
+  /** 2026-11-16：计划续跑走系统级执行器（后端 `PLAN_SYSTEM_RESUME`，默认开） */
+  planSystemResume: boolean;
+  /** 2026-11-16：重启后目标续接（后端 `GOAL_STARTUP_RESUME`，默认开） */
+  goalStartupResume: boolean;
 }
 
 interface FeatureFlagsPanelProps {
@@ -114,6 +120,22 @@ function FeatureFlagsPanel({
       key: "swarmVerifyRetry",
       labelKey: "settings.featuresSwarmVerifyRetry",
       descriptionKey: "settings.featuresSwarmVerifyRetryDesc",
+    },
+    // 2026-11-16：启动期续跑三项（重启后生效；已登记的唤醒在触发前二次校验时同样受本开关约束）
+    {
+      key: "planStartupResume",
+      labelKey: "settings.featuresPlanStartupResume",
+      descriptionKey: "settings.featuresPlanStartupResumeDesc",
+    },
+    {
+      key: "planSystemResume",
+      labelKey: "settings.featuresPlanSystemResume",
+      descriptionKey: "settings.featuresPlanSystemResumeDesc",
+    },
+    {
+      key: "goalStartupResume",
+      labelKey: "settings.featuresGoalStartupResume",
+      descriptionKey: "settings.featuresGoalStartupResumeDesc",
     },
   ];
 

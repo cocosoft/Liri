@@ -83,4 +83,17 @@ describe('resolveFeatureGate：env > 用户设置 > feature()', () => {
       delete process.env['FEATURE_SWARM_VERIFY_RETRY'];
     }
   });
+
+  // 2026-11-16：启动期续跑三项同为「用户可关」回退路径
+  it('PLAN_STARTUP_RESUME / PLAN_SYSTEM_RESUME / GOAL_STARTUP_RESUME 已登记 ⇒ 用户可关；未设置回落默认 true', () => {
+    const flags = [
+      'PLAN_STARTUP_RESUME',
+      'PLAN_SYSTEM_RESUME',
+      'GOAL_STARTUP_RESUME',
+    ] as const;
+    for (const flag of flags) {
+      expect(resolveFeatureGate(flag, () => false)).toBe(false);
+      expect(resolveFeatureGate(flag, () => undefined)).toBe(true);
+    }
+  });
 });

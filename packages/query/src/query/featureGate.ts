@@ -35,6 +35,10 @@ const USER_CONFIG_KEYS: Readonly<Partial<Record<FeatureFlag, string>>> = {
   // 2026-11-16：21 模式翻转后需保留"用户可关"的回退路径（env 之外的第二条路）
   TOOL_DISCLOSURE_STRICT: 'toolDisclosureStrict',
   SWARM_VERIFY_RETRY: 'swarmVerifyRetry',
+  // 2026-11-16：启动期续跑三项（扫描与触发前二次校验都现读 ⇒ 关闭后已登记的唤醒也会作废）
+  PLAN_STARTUP_RESUME: 'planStartupResume',
+  PLAN_SYSTEM_RESUME: 'planSystemResume',
+  GOAL_STARTUP_RESUME: 'goalStartupResume',
 };
 
 /** 用户设置的读取器（测试可注入） */

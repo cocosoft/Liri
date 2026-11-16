@@ -99,8 +99,10 @@ import type {
 import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI.js';
 import type { SessionMetadata } from '@modules/session/types/session.js';
 import type { SessionCheckpoint } from '@modules/session/types/checkpoint.js';
-// D3 三期（2026-11-14）：`feature` 用于"系统级续跑"默认关开关
-import { DataSessionStatus, feature } from '@openliri/kernel';
+// D3 三期（2026-11-14）：系统级续跑的门控；2026-11-16 起走用户可配版（env > 设置页 > 默认）
+import { DataSessionStatus } from '@openliri/kernel';
+// 2026-11-16：用户可配门控（设置页可关）—— 只取叶子模块
+import { resolveFeatureGate } from '@modules/query/featureGate';
 import { extractPendingToolCallsFromEvents } from '../utils/pendingToolCalls.js';
 import type { StreamingAutoCheckpoint } from '../services/StreamingAutoCheckpoint.js';
 import type { SessionLifecycleManager } from '../services/SessionLifecycleManager.js';
@@ -388,7 +390,8 @@ export class ChatRecovery {
         }
         // D3 三期（2026-11-14）：`PLAN_SYSTEM_RESUME` 开 ⇒ 交给执行器**采纳既有计划**；
         // 未装配 coordinator / 会话忙 / launcher 不可用 ⇒ 回退一期消息注入（不静默丢唤醒）。
-        if (feature('PLAN_SYSTEM_RESUME')) {
+        // 2026-11-16：改读用户可配门控（设置页「计划续跑走执行器」可关；env 优先）。
+        if (resolveFeatureGate('PLAN_SYSTEM_RESUME')) {
           const coordinator = (
             this.deps as ChatRecoveryDeps & {
               _pdcaLaunch?: {

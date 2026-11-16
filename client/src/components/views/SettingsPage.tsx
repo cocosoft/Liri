@@ -799,6 +799,11 @@ function SettingsPage() {
                       // 这两项是翻转后的「用户可关」回退路径（后端经 `resolveFeatureGate` 读取）
                       toolDisclosureStrict: true,
                       swarmVerifyRetry: true,
+                      // 2026-11-16：启动期续跑三项（后端均默认开）；关闭后下次启动不再扫描，
+                      // 已登记的唤醒也会在触发前二次校验时作废
+                      planStartupResume: true,
+                      planSystemResume: true,
+                      goalStartupResume: true,
                       // 合并而非整体替换：`config.features` 缺键时保留上述默认
                       ...((config.features as Record<string, unknown>) || {}),
                     }) as unknown as Parameters<

@@ -241,6 +241,7 @@
 | 结论 | **裁定翻转**（不是判据达标后的翻转）；判据保留为**回退后复评**依据 |
 | 启动开销（有界性） | 扫描上限 5 个/次 + 心跳过期 >10min + 24h 新鲜窗口 + 触发前二次校验（仍 running 且有未终态步骤且心跳未变，否则作废）；**当下可续跑 0 份** ⇒ 本次启动不会产生额外模型调用 |
 | 同步面 | `featureFlags.ts` 注释、`project_rules.md §1.4` 两行（默认/回退/语义）、`check-doc-code-consistency.js` 的 `SAFETY_SWITCHES`（`def: true` + why 改为"已翻为默认开，回退须同批改断言"）、`app/tests/tasks/plan/planStartupResume.test.ts` 的注释（用例本身显式设 env，不受默认值影响） |
+| 用户可配（2026-11-16 追加） | 两者均已登记 `query/featureGate.ts` 的 `USER_CONFIG_KEYS`（`planStartupResume` / `planSystemResume`）⇒ 设置页「重启后计划续跑」「计划续跑走执行器」可关；消费点 `planStartupResume.ts`（扫描 + 触发前二次校验）与 `chat/manager/recovery.ts` 由 `feature()` 改为 `resolveFeatureGate()`（env 仍最高优先）。关闭后：下次启动不扫描，已登记的唤醒在二次校验处作废 |
 
 ---
 
@@ -308,6 +309,7 @@
 | 判据取证（本机 `task_goals` 实测） | 总数 **4052**（`cancelled` 3056 · `failed` 766 · `active` 229 · `completed` 1）；**24h 内 `active`/`blocked` = 0** ⇒ 本次启动**不会**拉起任何目标，也无额外模型调用 |
 | 结论 | **裁定翻转**（判据①②③ 未逐项取证：无误续跑率 / token 台账样本）；判据保留为**回退后复评**依据 |
 | 同步面 | `featureFlags.ts` 注释（含实测读数）、`project_rules §1.4` 行、`check-doc-code-consistency.js` 的 `SAFETY_SWITCHES`（`def: true`）、`goalStartupResume.test.ts` 的注释（用例仍显式设 env） |
+| 用户可配（2026-11-16 追加） | 已登记 `query/featureGate.ts` 的 `USER_CONFIG_KEYS`（键 `goalStartupResume`）⇒ 设置页「重启后目标续接」可关；`goalStartupResume.ts` 的扫描与二次校验均改为 `resolveFeatureGate()`（env 仍最高优先）。关闭后：下次启动不扫描，历史遗留唤醒同样作废 |
 
 ---
 

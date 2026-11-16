@@ -21,7 +21,7 @@ import { randomUUID } from 'crypto';
 
 import { OrchestrationEventType, deriveParallelEndData } from '@modules/agent';
 import { resolveModelRoute, RouteKey } from '@modules/ai';
-import { feature } from '@openliri/kernel';
+import { resolveFeatureGate } from '@modules/query/featureGate';
 import {
   renderFragment,
   resolveContextWindowAsync,
@@ -556,8 +556,9 @@ export async function runSwarmPath(
         // 不传 isolation：本路径 executor 为只读子代理调用（适配器不透传隔离资源），
         // 而 createAgentIsolation() 会同步落盘 `~/.pyapp/workspaces/<id>` 空目录且默认不清理。
         enableVerify: agentInput.verify === true,
-        // E-1（2026-10-18）：verifier 明确判不过 ⇒ 回灌 worker 重试一轮（开关默认关）
-        enableVerifyRetry: feature('SWARM_VERIFY_RETRY'),
+        // E-1（2026-10-18）：verifier 明确判不过 ⇒ 回灌 worker 重试一轮
+        // （2026-11-16 起默认开；设置页「多代理验证重试」可关，env 优先）
+        enableVerifyRetry: resolveFeatureGate('SWARM_VERIFY_RETRY'),
         enableSynthesize: agentInput.synthesize === true,
         signal: swarmAbort.signal,
         // G-02（2026-10-19）：批次级预算熔断的会话归因（缺省由 AgentSwarm 用 'swarm'）

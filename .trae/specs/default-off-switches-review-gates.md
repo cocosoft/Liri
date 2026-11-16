@@ -223,6 +223,7 @@
 | 棘轮 | `.trae/architecture/tool-disclosure-baseline.json` 的 `perTask.coding/agent` 已按 `bun run measure:tool-disclosure --update` 下调锁定（40/4226 → 25/2663；46/4811 → 25/2815） |
 | 用例同步 | `tests/tools/toolDisclosureStrict.test.ts`：原「默认关 ⇒ 不截断」改为「默认开 ⇒ 有预算」+「显式关（回退路径）⇒ 不截断」 |
 | 风险 | 模型每轮可见工具变少（被裁者需 `tool_search` 检索后调用）⇒ 若真机出现"该场景常用工具不可见"的样本，先回退再评估 `STRICT_DISCLOSURE_BUDGETS` / `STRICT_DISCLOSURE_PRIORITY` |
+| 用户可配（2026-11-16 追加） | 已登记 `query/featureGate.ts` 的 `USER_CONFIG_KEYS`（键 `toolDisclosureStrict`）⇒ 设置页「工具披露预算（收紧）」可关，**每轮重解析、即时生效**；优先级 `FEATURE_TOOL_DISCLOSURE_STRICT` env > 用户设置 > 静态默认。消费点 `toolCategories.resolveDisclosureBudget` 由 `feature()` 改为 `resolveFeatureGate()` |
 
 ---
 
@@ -255,6 +256,7 @@
 | 成本上界 | 回灌增量 token 受 **`DEFAULT_SWARM_VERIFY_RETRY_TOKEN_BUDGET = 20_000`** 独立上限约束，超限即跳过 |
 | 判据取证 | ①"判不过 worker 占比 / 回灌后转通过比例"、②"回灌 token 占比 ≤10%"、③"灰度 1 个发布周期"、④"预算未半途耗尽" —— 真机**无 verifier 明确判不过的样本**（9 份在用 `events.jsonl` 仅 3 处 `swarm` 文本命中，非续跑样本）⇒ **均未取证**，记为**裁定翻转** |
 | 同步面 | `featureFlags.ts` 注释、`AgentSwarm.ts` 的 `enableVerifyRetry` 注释（"默认开 + 回退"）；本项不在 `SAFETY_SWITCHES` / `project_rules §1.4`（非安全开关），`lint:doc-code` 断言数不变 |
+| 用户可配（2026-11-16 追加） | 已登记 `query/featureGate.ts` 的 `USER_CONFIG_KEYS`（键 `swarmVerifyRetry`）⇒ 设置页「多代理验证重试」可关；消费点 `swarmPath.ts` 由 `feature()` 改为 `resolveFeatureGate()`（env 仍最高优先） |
 
 ### 2.4.7 复评记录（2026-11-16）—— Memory Management（21 模式 #8）：**维持默认关**
 

@@ -31,11 +31,11 @@
 
 | # | 项 | 当前默认 | 触发条件（可操作判据） | 复评节奏 | 依据 |
 |:-:|---|:--:|---|---|---|
-| 1 | `OUTPUT_GUARD` | false | ① 护栏接入点 **≥4**（含流式 chunk / 工具回传 / 文件写入；**现 6，G-8 已达标**：终稿×2 / 流式 chunk×1 / 工具回传×1 / 文件写入×2，2026-10-18 `report:output-guard-corpus` 实测）；② 语料改写文件数 **≤5**（**现 45**，同报表实测；2026-10-07 基线 47，`guardrails-dual-side.md §10.3`）**持续 ≥1 发布周期**；③ 真实泄漏事故或用户明确要求"默认打码"；④ `project_rules §1.3` 由"无正式用户"变更为"引入用户" | ①② 季度 · ③④ 事件 | `guardrails-dual-side.md §11` |
+| 1 | `OUTPUT_GUARD` | false | ① 护栏接入点 **≥4**（含流式 chunk / 工具回传 / 文件写入；**现 6，G-8 已达标**：终稿×2 / 流式 chunk×1 / 工具回传×1 / 文件写入×2，2026-11-16 `report:output-guard-corpus` 复测仍为 6）；② 语料改写文件数 **≤5**（**现 31 / 3388 文件**，改写面 0.91%，同报表 2026-11-16 实测；2026-10-07 基线 47，`guardrails-dual-side.md §10.3`）**持续 ≥1 发布周期**；③ 真实泄漏事故或用户明确要求"默认打码"；④ `project_rules §1.3` 由"无正式用户"变更为"引入用户" | ①② 季度 · ③④ 事件 | `guardrails-dual-side.md §11` |
 | 2 | `OUTPUT_GUARD_BLOCK` | false | **跟随 #1**：`OUTPUT_GUARD` 满足且用户要求"发现即阻断" | 随 #1 | `featureFlags.ts:256` |
 | 3 | `OUTPUT_GUARD_KEEP_ORIGINAL` | false | **显式 opt-in（无"默认开"计划）**：需 FP 排查且接受"未打码内容落本地事件日志" | 事件 | `guardrails-dual-side.md §10.6` |
 | 4 | `RESOURCE_GOVERNOR` | false | ① 观测（O2）：`observedPeakInflight` **≥8**，且 `resourceGovernor:inflight_at_limit` 日志在窗口内出现 **≥3 次**；② 用户要求"后台任务不得挤占人工对话"；③ `project_rules §1.3` 引入正式用户后出现投诉 | ① 季度 · ②③ 事件 | `resource-governance-default-and-granularity-assessment.md §2.3` |
-| 5 | `PRO_SECURITY_SUITE` | false | ① 用户/企业场景明确要求高级安全套件；② 出现合规/审计要求。**⚠️ 前置**：其生效面在代码中**未展开**（仅常量，`featureFlags.ts:404`）⇒ 复评前须先定义"套件包含什么" | 事件 | `featureFlags.ts:404` |
+| 5 | `PRO_SECURITY_SUITE` | false | ① 用户/企业场景明确要求高级安全套件；② 出现合规/审计要求。**⚠️ 前置**：其生效面在代码中**未展开**（仅常量，`featureFlags.ts:727`）⇒ 复评前须先定义"套件包含什么"。**2026-11-16 复核**：全仓**零读取点**（仅常量声明 + `SAFETY_SWITCHES` / `featureGate` 断言）⇒ 开 = **无任何行为**；本项**不属"待翻"**，翻转前须先定义生效面 | 事件 | `featureFlags.ts:727` |
 | 6 | `UNATTENDED_MODE` | false | ① 用户要求无人值守自动运行（定时/调度驱动）；**前置**：无人在场时的审批策略须先定（与 Ch.13 HITL 冲突面） | 事件 | `featureFlags.ts:92` |
 | 7 | ~~`BASH_APPROVED_REVALIDATE`~~ | ✅ **已翻转 → `true`（安全基线）** | **不再是默认关项**；治理见 **§2.2** | — | 第九轮审查 §七（用户裁定 2026-10-09） |
 | 8 | `BASH_INTERPRETER_GUARD` | false | ① **真实事件**：出现解释器内联执行（`node -e`/`python -c`/`bun -e`）绕过白名单的证据（观测 O1-B2）；② 用户要求"解释器命令必须确认" | ② 事件 | `featureFlags.ts:292` · `project_rules.md:57` |
@@ -46,7 +46,7 @@
 | 13 | `CLIENT_STREAM_EXECUTION` | false | ① **真实事件**：客户端 `/v1/chat/stream` 出现**未记账工具调用**或**崩溃后重复副作用**（无 executionId 导致）；② 前端/第三方调用方**回归清单通过**（`ChatRequest.executionId` 注入兼容）；③ 与渠道路径记账口径对齐验证（终态事件同构） | 事件 / 与 P0-2 联动 | `featureFlags.ts:338` · `.trae/specs/client-stream-execution.md` |
 | 14 | `CHANNEL_TOOL_POLICY` | false | ① 远程通道会话中 `bash` / `file_write` 等执行/写盘工具的调用率与审批拒绝率**可观测**（灰度期基线）；② `messaging` 任务面在灰度期**无「模型自述工具不可用」类反馈**（否则该通道需补类别）；③ 至少 **1 个发布周期**的灰度观察记录 | 季度 / 事件 | `featureFlags.ts`（`CHANNEL_TOOL_POLICY`）· G-2（`dev_docs/20261018/待修复任务清单-20261018.md`） |
 | 15 | ~~`SWARM_VERIFY_RETRY`~~ | ✅ **已翻转 → `true`（用户裁定 2026-11-16）** | **不再是默认关项**。四条判据未逐项取证（真机无 verifier 明确判不过的样本）⇒ 记为**裁定翻转**；增量 token 受 **20k 独立上限**约束，超限即不回灌。回退 `FEATURE_SWARM_VERIFY_RETRY=false`。详见 **§2.4.6** | — | `featureFlags.ts` · `app/src/tasks/swarm/AgentSwarm.ts` · E-1 |
-| 16 | `PLUGIN_THIRD_PARTY_INPROCESS` | false | ① **T25-08 P1 子进程宿主上线并验收通过**（插件读不到宿主 `process.env`、崩溃不杀主进程、能力经白名单 RPC）；② 市场/安装链路已按 `capabilities` 声明授权；③ 宿主不可用时的降级路径已验证（**不得**静默回到进程内执行） | 事件（与 P1 联动） | `featureFlags.ts`（`PLUGIN_THIRD_PARTY_INPROCESS`）· `.trae/specs/plugin-process-isolation.md` |
+| 16 | `PLUGIN_THIRD_PARTY_INPROCESS` | false | **语义订正（2026-11-16）：本项是"逃生闸"，不是"待翻功能"**—— 开 = 第三方插件回到**主进程内** `import` 执行（可读 `.env` / spawn 子进程）= **弱化隔离**。① 前置（P1 子进程宿主）**已达成**（`PLUGIN_HOST_PROCESS` 默认开）；② 市场/安装链路按 `capabilities` 授权；③ 宿主不可用时的降级路径已验证（**不得**静默回进程内）。⇒ **不设"默认开"计划**；放行单个插件请用 `LIRI_PLUGIN_TRUSTED_IDS` | 事件（与 P1 联动） | `featureFlags.ts`（`PLUGIN_THIRD_PARTY_INPROCESS`）· `.trae/specs/plugin-process-isolation.md` |
 | 17 | ~~`GOAL_STARTUP_RESUME`~~ | ✅ **已翻转 → `true`（用户裁定 2026-11-16）** | **不再是默认关项**。判据①②③ 未逐项取证（实测本机 4052 个目标中 24h 内 `active`/`blocked` **0 个**）⇒ 记为**裁定翻转**；有界性保留：24h 新鲜窗口 + 单次 5 个 + 触发前二次校验。回退 `FEATURE_GOAL_STARTUP_RESUME=false`。详见 **§2.4.8** | — | `featureFlags.ts` · `app/src/tasks/goal/goalStartupResume.ts` · `project_rules.md §1.4` |
 | 19 | ~~`PLAN_SYSTEM_RESUME`~~ | ✅ **已翻转 → `true`（用户裁定 2026-11-16）** | **不再是默认关项**。四条判据未逐项取证（无真实事件样本）⇒ 记为**裁定翻转**；回退 `FEATURE_PLAN_SYSTEM_RESUME=false`（回到一期消息注入）。详见 **§2.4.5** | — | `featureFlags.ts` · `.trae/specs/planner-system-resume.md` · `project_rules.md §1.4` |
 | 18 | ~~`PLAN_STARTUP_RESUME`~~ | ✅ **已翻转 → `true`（用户裁定 2026-11-16）** | **不再是默认关项**。判据①部分成立（实测 21 份 `running` 计划长期停在 running，但 >24h 超窗）；②③ 未取证 ⇒ 记为**裁定翻转**；有界性保留：心跳过期 >10min + 24h 窗口 + 单次 5 个。回退 `FEATURE_PLAN_STARTUP_RESUME=false`。详见 **§2.4.5** | — | `featureFlags.ts` · `app/src/tasks/plan/planStartupResume.ts` · `.trae/specs/planner-resumable-dag.md` · `project_rules.md §1.4` |
@@ -306,6 +306,31 @@
 | 判据取证（本机 `task_goals` 实测） | 总数 **4052**（`cancelled` 3056 · `failed` 766 · `active` 229 · `completed` 1）；**24h 内 `active`/`blocked` = 0** ⇒ 本次启动**不会**拉起任何目标，也无额外模型调用 |
 | 结论 | **裁定翻转**（判据①②③ 未逐项取证：无误续跑率 / token 台账样本）；判据保留为**回退后复评**依据 |
 | 同步面 | `featureFlags.ts` 注释（含实测读数）、`project_rules §1.4` 行、`check-doc-code-consistency.js` 的 `SAFETY_SWITCHES`（`def: true`）、`goalStartupResume.test.ts` 的注释（用例仍显式设 env） |
+
+---
+
+### 2.4.9 复评记录（2026-11-16）—— 剩余 **12 项**逐项复评，**全部维持默认关**（用户裁定）
+
+> 触发：用户指令「按登记表逐项处理剩余的默认关项」。先给「12 项 × 实测读数 × 判据结论 × 建议」清单，用户裁定 **全部维持**（不翻任何项）。
+
+| # | 项 | 本轮取证（2026-11-16） | 判据结论 | 处置 |
+|:-:|---|---|---|---|
+| 1 | `OUTPUT_GUARD` | `report:output-guard-corpus`：接入点 **6**（终稿×2 / 流式 chunk×1 / 工具回传×1 / 文件写入×2）⇒ 判据①**达标**；语料改写 **31 / 3388 文件**（0.91%，基线 47）⇒ 判据②**未达标**（阈值 ≤5） | ① 达标 · ② 未达标 | 维持 |
+| 2 | `OUTPUT_GUARD_BLOCK` | 仅在 #1 开启时生效，无独立收益 | 跟随 #1 | 维持 |
+| 3 | `OUTPUT_GUARD_KEEP_ORIGINAL` | 开 = 未打码原文落入本地事件日志 | 登记即「显式 opt-in，无默认开计划」 | 维持 |
+| 4 | `RESOURCE_GOVERNOR` | 组合根**已注入**抢占回调（`BootPipelineIntegrator`：`setResourceGovernorPreemptHandler` → `abortSessionStream`）+ SSE 观察者 ⇒ 开 = **真实抢占**（>8 在飞且存在低优先跨会话即中止该流）；O2 `observedPeakInflight` 仅进程内、**无持久化出口** ⇒ 判据①当前无读数 | ① 无读数 · ②③ 无事件 | 维持（要采读数须先加出口，非本批） |
+| 5 | `PRO_SECURITY_SUITE` | **全仓零读取点**（仅常量 + `SAFETY_SWITCHES` / `featureGate` 断言）⇒ 开 = 无任何行为 | 生效面未展开 | 维持（表行已改标「无生效面 · 不属待翻」） |
+| 6 | `UNATTENDED_MODE` | 开 = `ask_user_question` 自动代答（`resolveUnattendedAnswers`）+ 计划自动审批 | 前置「无人值守审批策略」未定 | 维持 |
+| 8 | `BASH_INTERPRETER_GUARD` | 开 = 白名单内的 node/bun/python 等转**人工确认**（本仓大量 `bun run` 会加摩擦）；O1-B2 现有采样无解释器绕过白名单证据 | 2026-11-11 已裁定维持；无新事件 | 维持 |
+| 10 | `EXECUTION_TWO_PHASE_CANCEL` | 两段式主体未开；注：P36-b 的 `ownershipDecision.action === 'queue'` 分支**已复用**其有界等待实现（`messageRouter`） | ① 无真实事件 | 维持 |
+| 12 | `CODE_RUN_DEEP_SCAN_STRICT` | 开 = `scanStatus='skipped'/'failed'` 一律 `security-rejected`；`scanStatus` 有输出字段但**无跨环境统计** | ② 需目标环境 `ran` 达 100%，无数据 | 维持 |
+| 13 | `CLIENT_STREAM_EXECUTION` | 客户端**不发** `execution_id`（由服务端 `acquire` 注入）；开 = 客户端流式并入租约链路（拿不到租约 ⇒ 409 `SESSION_BUSY`） | ② 前端回归清单未跑 | 维持 |
+| 14 | `CHANNEL_TOOL_POLICY` | 必开守卫 `CHANNEL_UNTRUSTED_TAINT` 已恒拦副作用工具（与开关无关）；本开关只叠加 `messaging` 类目面，而该面会**误裁** `mcp`/`calendar`/`doc` 只读工具；`mobile` 已常开 | ① 灰度基线无数据 | 维持 |
+| 16 | `PLUGIN_THIRD_PARTY_INPROCESS` | 开 = 第三方插件回**主进程** `import`（可读 `.env` / spawn）= **弱化隔离**；前置已由 `PLUGIN_HOST_PROCESS`（默认开）承担 | 语义为逃生闸，无默认开合理性 | 维持（表行已改标「逃生闸 · 无默认开计划」） |
+
+**同步面**：本批**未改任何默认值** ⇒ `featureFlags.ts` / `project_rules §1.4` / `check-doc-code-consistency.js` 的 `SAFETY_SWITCHES` **三处零变更**（`bun run lint:doc-code` 复核一致）；仅本表读数与标签订正。
+
+**回退方式（不变）**：逐项 `FEATURE_<NAME>=true` 即可灰度开启（#1 族须先开 `OUTPUT_GUARD`）。
 
 ---
 

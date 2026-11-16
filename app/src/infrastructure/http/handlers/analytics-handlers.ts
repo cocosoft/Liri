@@ -257,17 +257,66 @@ export async function handleAnalyticsDashboard(
 
     const events = analyticsService!.getEvents();
     const stats = analyticsService!.getStats();
+    const { toolEvents, errorEvents, perfEvents, llmEvents } =
+      categorizeEvents(events);
+    const { topTools, uniqueCount } = buildTopTools(toolEvents);
+    const topErrors = buildTopErrors(errorEvents);
+    const latencies = collectLatencies(perfEvents, performanceMonitorService);
 
-    const toolEvents = events.filter((e) =>
+    // Token 用量（来自 costTracker，即使 events 为空也有数据）；无数据时回退成本库
+    const totals = await applyCostDbFallback(
+      sumModelUsage(costTracker!.getModelUsage())
+    );
+
+    const persisted = await loadPersistedDashboardStats();
+    // 使用独立累计器作为工具调用数据的回退（不受事件队列清空影响）
+    const toolCallStats = analyticsService!.getToolCallStats();
+
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(
+      JSON.stringify(
+        buildDashboardPayload({
+          totals,
+          llmEventCount: llmEvents.length,
+          toolEventCount: toolEvents.length,
+          errorEventCount: errorEvents.length,
+          totalEventCount: events.length,
+          uniqueToolCount: uniqueCount,
+          topTools,
+          topErrors,
+          latencies,
+          toolCallStats,
+          persisted,
+          stats,
+        })
+      )
+    );
+  } catch (_err) {
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify(buildEmptyDashboardPayload()));
+  }
+}
+
+// ── 面板聚合（原为处理器内联段，逐字外移） ─────────────────────────
+
+/** 事件分类：工具 / 错误 / 性能 / LLM */
+export function categorizeEvents(events: unknown[]): {
+  toolEvents: unknown[];
+  errorEvents: unknown[];
+  perfEvents: unknown[];
+  llmEvents: unknown[];
+} {
+  return {
+    toolEvents: events.filter((e) =>
       ['tool_call', 'tool_execute', 'tool_result'].includes(
         asEvent(e).type ?? ''
       )
-    );
-    const errorEvents = events.filter((e) =>
+    ),
+    errorEvents: events.filter((e) =>
       ['error', 'api_error'].includes(asEvent(e).type ?? '')
-    );
-    const perfEvents = events.filter((e) => asEvent(e).type === 'performance');
-    const llmEvents = events.filter((e) =>
+    ),
+    perfEvents: events.filter((e) => asEvent(e).type === 'performance'),
+    llmEvents: events.filter((e) =>
       [
         'llm_request',
         'api_call',
@@ -275,271 +324,339 @@ export async function handleAnalyticsDashboard(
         'query_start',
         'query_complete',
       ].includes(asEvent(e).type ?? '')
-    );
+    ),
+  };
+}
 
-    // 工具调用统计
-    const toolCounts = new Map<string, number>();
-    for (const e of toolEvents) {
-      const evt = e as Record<string, unknown>;
-      // 埋点统一写 metadata.tool_name（ToolExecutor/ToolRegistry/QueryEngine 三处一致）；
-      // 早期可能混用 toolName，故两者都读
-      const name =
-        ((evt.metadata as Record<string, unknown>)?.tool_name as string) ||
-        ((evt.metadata as Record<string, unknown>)?.toolName as string) ||
-        (evt.name as string) ||
-        'unknown';
-      toolCounts.set(name, (toolCounts.get(name) || 0) + 1);
-    }
-    const topTools = Array.from(toolCounts.entries())
+/** 工具调用统计：按名聚合、降序取前 10；uniqueCount 为去重后的**全量**名数 */
+export function buildTopTools(toolEvents: unknown[]): {
+  topTools: Array<{ name: string; count: number }>;
+  uniqueCount: number;
+} {
+  const toolCounts = new Map<string, number>();
+  for (const e of toolEvents) {
+    const evt = e as Record<string, unknown>;
+    // 埋点统一写 metadata.tool_name（ToolExecutor/ToolRegistry/QueryEngine 三处一致）；
+    // 早期可能混用 toolName，故两者都读
+    const name =
+      ((evt.metadata as Record<string, unknown>)?.tool_name as string) ||
+      ((evt.metadata as Record<string, unknown>)?.toolName as string) ||
+      (evt.name as string) ||
+      'unknown';
+    toolCounts.set(name, (toolCounts.get(name) || 0) + 1);
+  }
+  return {
+    topTools: Array.from(toolCounts.entries())
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
+      .slice(0, 10),
+    uniqueCount: toolCounts.size,
+  };
+}
 
-    // 错误统计
-    const errorTypeCounts = new Map<string, number>();
-    for (const e of errorEvents) {
-      const evt = e as Record<string, unknown>;
-      const errType =
-        ((evt.metadata as Record<string, unknown>)?.errorType as string) ||
-        (evt.name as string) ||
-        'unknown';
-      errorTypeCounts.set(errType, (errorTypeCounts.get(errType) || 0) + 1);
-    }
-    const topErrors = Array.from(errorTypeCounts.entries())
-      .map(([type, count]) => ({ type, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
-
-    // 延迟数据
-    const latencies = perfEvents
-      .map((e) => asEvent(e).metadata?.metricValue)
-      .filter((v): v is number => typeof v === 'number' && v > 0)
-      .sort((a, b) => a - b);
-
-    if (performanceMonitorService) {
-      const perfService = performanceMonitorService.getInstance();
-      const allPerfMetrics = perfService.getAllMetrics();
-      const perfDurations = allPerfMetrics
-        .map((m) => m.duration)
-        .filter((d) => d > 0)
-        .sort((a, b) => a - b);
-      if (perfDurations.length > 0) {
-        latencies.push(...perfDurations);
-        latencies.sort((a, b) => a - b);
-      }
-    }
-
-    // Token 用量（来自 costTracker，即使 events 为空也有数据）
-    const modelUsage = costTracker!.getModelUsage();
-    let totalInputTokens = 0,
-      totalOutputTokens = 0,
-      totalCostUSD = 0,
-      totalRequests = 0;
-    for (const usage of Object.values(modelUsage)) {
-      totalInputTokens += usage.inputTokens;
-      totalOutputTokens += usage.outputTokens;
-      totalCostUSD += usage.costUSD;
-      totalRequests += usage.requestCount || 0;
-    }
-
-    // 当 costTracker 无数据时，从**本请求身份**的成本库回退
-    if (totalRequests === 0) {
-      const costRepo = await getCostRepository();
-      if (costRepo) {
-        try {
-          await ensureCostRepository(costRepo);
-          const todayStart = getStartOfToday();
-          const dbResult = await costRepo.getAggregatedCosts({
-            startTime: todayStart,
-          });
-          if (dbResult.totalRequests > 0) {
-            totalInputTokens = dbResult.totalInputTokens;
-            totalOutputTokens = dbResult.totalOutputTokens;
-            totalCostUSD = dbResult.totalCostUSD;
-            totalRequests = dbResult.totalRequests;
-            logger.info('分析面板 Token/成本数据从 costRepository DB 回退', {
-              totalRequests,
-              totalCostUSD,
-            });
-          }
-        } catch (err) {
-          void handleError(err, {
-            module: 'infrastructure:http:analytics',
-            action: 'fallbackCostDB',
-          });
-        }
-      }
-    }
-
-    // 工具调用统计：优先持久化 query_logs（重启不清零），回退内存累计器
-    let persistedToolStats: QueryToolStatsDto | null = null;
-    try {
-      persistedToolStats = await (
-        await getCoreAPI().getQueryOpsPort()
-      ).getToolStats();
-    } catch (err) {
-      // 查询日志不可用时回退内存统计
-      void handleError(err, {
-        module: 'infrastructure:http:analytics',
-        action: 'loadPersistedToolStats',
-      });
-    }
-    // 使用独立累计器作为工具调用数据的回退（不受事件队列清空影响）
-    const toolCallStats = analyticsService!.getToolCallStats();
-
-    // 错误统计：优先持久化 query_logs（重启不清零），回退内存事件
-    let persistedErrorStats: QueryErrorStatsDto | null = null;
-    try {
-      persistedErrorStats = await (
-        await getCoreAPI().getQueryOpsPort()
-      ).getErrorStats();
-    } catch (err) {
-      void handleError(err, {
-        module: 'infrastructure:http:analytics',
-        action: 'loadPersistedErrorStats',
-      });
-    }
-
-    // 延迟百分位：优先持久化 model_usage_logs.latency_ms（重启不清零），回退内存
-    let persistedLatencyStats: LatencyStatsDto | null = null;
-    try {
-      const aiOps = await getCoreAPI().getAiOpsPort();
-      await aiOps.initUsageStats();
-      persistedLatencyStats = await aiOps.getLatencyStats();
-    } catch (err) {
-      void handleError(err, {
-        module: 'infrastructure:http:analytics',
-        action: 'loadPersistedLatencyStats',
-      });
-    }
-
-    // 会话统计：优先持久化 session_cost_summaries（重启不清零），回退内存
-    let persistedSessionCount: { total: number; active: number } | null = null;
-    try {
-      const { getCostRecordRepository } = await import('@openliri/infra/cost');
-      const repo = getCostRecordRepository();
-      persistedSessionCount = {
-        total: await repo.countSessionSummaries(),
-        active: await repo.countActiveSessionSummaries(),
-      };
-    } catch (err) {
-      void handleError(err, {
-        module: 'infrastructure:http:analytics',
-        action: 'loadPersistedSessionCount',
-      });
-    }
-
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(
-      JSON.stringify({
-        tokens: {
-          totalInputTokens,
-          totalOutputTokens,
-          totalTokens: totalInputTokens + totalOutputTokens,
-          totalLLMRequests:
-            llmEvents.length > 0 ? llmEvents.length : totalRequests,
-        },
-        tools: {
-          totalToolCalls:
-            persistedToolStats && persistedToolStats.totalToolCalls > 0
-              ? persistedToolStats.totalToolCalls
-              : toolEvents.length > 0
-                ? toolEvents.length
-                : toolCallStats.totalCalls,
-          uniqueToolsUsed:
-            persistedToolStats && persistedToolStats.uniqueToolsUsed > 0
-              ? persistedToolStats.uniqueToolsUsed
-              : toolEvents.length > 0
-                ? toolCounts.size
-                : toolCallStats.uniqueTools,
-          topTools:
-            persistedToolStats && persistedToolStats.topTools.length > 0
-              ? persistedToolStats.topTools
-              : toolEvents.length > 0
-                ? topTools
-                : toolCallStats.topTools,
-        },
-        errors: {
-          totalErrors:
-            persistedErrorStats && persistedErrorStats.totalCalls > 0
-              ? persistedErrorStats.totalErrors
-              : errorEvents.length,
-          errorRate:
-            persistedErrorStats && persistedErrorStats.totalCalls > 0
-              ? persistedErrorStats.errorRate
-              : events.length > 0
-                ? Math.round((errorEvents.length / events.length) * 10000) / 100
-                : 0,
-          topErrors:
-            persistedErrorStats && persistedErrorStats.topErrors.length > 0
-              ? persistedErrorStats.topErrors
-              : topErrors,
-        },
-        performance: {
-          averageLatencyMs:
-            persistedLatencyStats && persistedLatencyStats.sampleCount > 0
-              ? persistedLatencyStats.averageLatencyMs
-              : latencies.length > 0
-                ? Math.round(
-                    (latencies.reduce((a, b) => a + b, 0) / latencies.length) *
-                      100
-                  ) / 100
-                : 0,
-          p50LatencyMs:
-            persistedLatencyStats && persistedLatencyStats.sampleCount > 0
-              ? persistedLatencyStats.p50LatencyMs
-              : calcPercentile(latencies, 50),
-          p95LatencyMs:
-            persistedLatencyStats && persistedLatencyStats.sampleCount > 0
-              ? persistedLatencyStats.p95LatencyMs
-              : calcPercentile(latencies, 95),
-          p99LatencyMs:
-            persistedLatencyStats && persistedLatencyStats.sampleCount > 0
-              ? persistedLatencyStats.p99LatencyMs
-              : calcPercentile(latencies, 99),
-          totalMetrics:
-            persistedLatencyStats && persistedLatencyStats.sampleCount > 0
-              ? persistedLatencyStats.sampleCount
-              : latencies.length,
-        },
-        cost: { totalCostUSD: Math.round(totalCostUSD * 10000) / 10000 },
-        session: {
-          totalEvents: stats.totalEvents,
-          totalSessions:
-            persistedSessionCount && persistedSessionCount.total > 0
-              ? persistedSessionCount.total
-              : stats.totalSessions,
-          activeSessions:
-            persistedSessionCount && persistedSessionCount.total > 0
-              ? persistedSessionCount.active
-              : stats.activeSessions,
-        },
-        generatedAt: Date.now(),
-      })
-    );
-  } catch (_err) {
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(
-      JSON.stringify({
-        tokens: {
-          totalInputTokens: 0,
-          totalOutputTokens: 0,
-          totalTokens: 0,
-          totalLLMRequests: 0,
-        },
-        tools: { totalToolCalls: 0, uniqueToolsUsed: 0, topTools: [] },
-        errors: { totalErrors: 0, errorRate: 0, topErrors: [] },
-        performance: {
-          averageLatencyMs: 0,
-          p50LatencyMs: 0,
-          p95LatencyMs: 0,
-          p99LatencyMs: 0,
-          totalMetrics: 0,
-        },
-        cost: { totalCostUSD: 0 },
-        session: { totalEvents: 0, totalSessions: 0, activeSessions: 0 },
-        generatedAt: Date.now(),
-      })
-    );
+/** 错误统计：按类型聚合、降序取前 10 */
+export function buildTopErrors(
+  errorEvents: unknown[]
+): Array<{ type: string; count: number }> {
+  const errorTypeCounts = new Map<string, number>();
+  for (const e of errorEvents) {
+    const evt = e as Record<string, unknown>;
+    const errType =
+      ((evt.metadata as Record<string, unknown>)?.errorType as string) ||
+      (evt.name as string) ||
+      'unknown';
+    errorTypeCounts.set(errType, (errorTypeCounts.get(errType) || 0) + 1);
   }
+  return Array.from(errorTypeCounts.entries())
+    .map(([type, count]) => ({ type, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+}
+
+/** 延迟样本：性能事件正数值 + 性能监控服务的历史时长（并入后重排） */
+export function collectLatencies(
+  perfEvents: unknown[],
+  perfService: typeof performanceMonitorService
+): number[] {
+  const latencies = perfEvents
+    .map((e) => asEvent(e).metadata?.metricValue)
+    .filter((v): v is number => typeof v === 'number' && v > 0)
+    .sort((a, b) => a - b);
+
+  if (perfService) {
+    const perfInstance = perfService.getInstance();
+    const allPerfMetrics = perfInstance.getAllMetrics();
+    const perfDurations = allPerfMetrics
+      .map((m) => m.duration)
+      .filter((d) => d > 0)
+      .sort((a, b) => a - b);
+    if (perfDurations.length > 0) {
+      latencies.push(...perfDurations);
+      latencies.sort((a, b) => a - b);
+    }
+  }
+
+  return latencies;
+}
+
+/** Token / 成本合计（来自 costTracker.modelUsage） */
+export type DashboardTotals = {
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalCostUSD: number;
+  totalRequests: number;
+};
+
+export function sumModelUsage(
+  modelUsage: ReturnType<NonNullable<typeof costTracker>['getModelUsage']>
+): DashboardTotals {
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
+  let totalCostUSD = 0;
+  let totalRequests = 0;
+  for (const usage of Object.values(modelUsage)) {
+    totalInputTokens += usage.inputTokens;
+    totalOutputTokens += usage.outputTokens;
+    totalCostUSD += usage.costUSD;
+    totalRequests += usage.requestCount || 0;
+  }
+  return { totalInputTokens, totalOutputTokens, totalCostUSD, totalRequests };
+}
+
+/** 当 costTracker 无数据时，从**本请求身份**的成本库回退 */
+async function applyCostDbFallback(
+  totals: DashboardTotals
+): Promise<DashboardTotals> {
+  if (totals.totalRequests !== 0) return totals;
+
+  const costRepo = await getCostRepository();
+  if (!costRepo) return totals;
+
+  try {
+    await ensureCostRepository(costRepo);
+    const todayStart = getStartOfToday();
+    const dbResult = await costRepo.getAggregatedCosts({
+      startTime: todayStart,
+    });
+    if (dbResult.totalRequests > 0) {
+      logger.info('分析面板 Token/成本数据从 costRepository DB 回退', {
+        totalRequests: dbResult.totalRequests,
+        totalCostUSD: dbResult.totalCostUSD,
+      });
+      return {
+        totalInputTokens: dbResult.totalInputTokens,
+        totalOutputTokens: dbResult.totalOutputTokens,
+        totalCostUSD: dbResult.totalCostUSD,
+        totalRequests: dbResult.totalRequests,
+      };
+    }
+  } catch (err) {
+    void handleError(err, {
+      module: 'infrastructure:http:analytics',
+      action: 'fallbackCostDB',
+    });
+  }
+  return totals;
+}
+
+/** 持久化优先的四组统计（取不到 ⇒ 对应项为 null，面板回退内存） */
+async function loadPersistedDashboardStats(): Promise<{
+  toolStats: QueryToolStatsDto | null;
+  errorStats: QueryErrorStatsDto | null;
+  latencyStats: LatencyStatsDto | null;
+  sessionCount: { total: number; active: number } | null;
+}> {
+  // 工具调用统计：优先持久化 query_logs（重启不清零），回退内存累计器
+  let toolStats: QueryToolStatsDto | null = null;
+  try {
+    toolStats = await (await getCoreAPI().getQueryOpsPort()).getToolStats();
+  } catch (err) {
+    // 查询日志不可用时回退内存统计
+    void handleError(err, {
+      module: 'infrastructure:http:analytics',
+      action: 'loadPersistedToolStats',
+    });
+  }
+
+  // 错误统计：优先持久化 query_logs（重启不清零），回退内存事件
+  let errorStats: QueryErrorStatsDto | null = null;
+  try {
+    errorStats = await (await getCoreAPI().getQueryOpsPort()).getErrorStats();
+  } catch (err) {
+    void handleError(err, {
+      module: 'infrastructure:http:analytics',
+      action: 'loadPersistedErrorStats',
+    });
+  }
+
+  // 延迟百分位：优先持久化 model_usage_logs.latency_ms（重启不清零），回退内存
+  let latencyStats: LatencyStatsDto | null = null;
+  try {
+    const aiOps = await getCoreAPI().getAiOpsPort();
+    await aiOps.initUsageStats();
+    latencyStats = await aiOps.getLatencyStats();
+  } catch (err) {
+    void handleError(err, {
+      module: 'infrastructure:http:analytics',
+      action: 'loadPersistedLatencyStats',
+    });
+  }
+
+  // 会话统计：优先持久化 session_cost_summaries（重启不清零），回退内存
+  let sessionCount: { total: number; active: number } | null = null;
+  try {
+    const { getCostRecordRepository } = await import('@openliri/infra/cost');
+    const repo = getCostRecordRepository();
+    sessionCount = {
+      total: await repo.countSessionSummaries(),
+      active: await repo.countActiveSessionSummaries(),
+    };
+  } catch (err) {
+    void handleError(err, {
+      module: 'infrastructure:http:analytics',
+      action: 'loadPersistedSessionCount',
+    });
+  }
+
+  return { toolStats, errorStats, latencyStats, sessionCount };
+}
+
+/** 面板载荷：各组「持久化优先、否则内存聚合」的取值合并 */
+export function buildDashboardPayload(input: {
+  totals: DashboardTotals;
+  llmEventCount: number;
+  toolEventCount: number;
+  errorEventCount: number;
+  totalEventCount: number;
+  uniqueToolCount: number;
+  topTools: Array<{ name: string; count: number }>;
+  topErrors: Array<{ type: string; count: number }>;
+  latencies: number[];
+  toolCallStats: {
+    totalCalls: number;
+    uniqueTools: number;
+    topTools: Array<{ name: string; count: number }>;
+  };
+  persisted: Awaited<ReturnType<typeof loadPersistedDashboardStats>>;
+  stats: { totalEvents: number; totalSessions: number; activeSessions: number };
+}): Record<string, unknown> {
+  const { totals, latencies, persisted, stats } = input;
+  const {
+    toolStats: persistedToolStats,
+    errorStats: persistedErrorStats,
+    latencyStats: persistedLatencyStats,
+    sessionCount: persistedSessionCount,
+  } = persisted;
+  const toolCallStats = input.toolCallStats;
+
+  return {
+    tokens: {
+      totalInputTokens: totals.totalInputTokens,
+      totalOutputTokens: totals.totalOutputTokens,
+      totalTokens: totals.totalInputTokens + totals.totalOutputTokens,
+      totalLLMRequests:
+        input.llmEventCount > 0 ? input.llmEventCount : totals.totalRequests,
+    },
+    tools: {
+      totalToolCalls:
+        persistedToolStats && persistedToolStats.totalToolCalls > 0
+          ? persistedToolStats.totalToolCalls
+          : input.toolEventCount > 0
+            ? input.toolEventCount
+            : toolCallStats.totalCalls,
+      uniqueToolsUsed:
+        persistedToolStats && persistedToolStats.uniqueToolsUsed > 0
+          ? persistedToolStats.uniqueToolsUsed
+          : input.toolEventCount > 0
+            ? input.uniqueToolCount
+            : toolCallStats.uniqueTools,
+      topTools:
+        persistedToolStats && persistedToolStats.topTools.length > 0
+          ? persistedToolStats.topTools
+          : input.toolEventCount > 0
+            ? input.topTools
+            : toolCallStats.topTools,
+    },
+    errors: {
+      totalErrors:
+        persistedErrorStats && persistedErrorStats.totalCalls > 0
+          ? persistedErrorStats.totalErrors
+          : input.errorEventCount,
+      errorRate:
+        persistedErrorStats && persistedErrorStats.totalCalls > 0
+          ? persistedErrorStats.errorRate
+          : input.totalEventCount > 0
+            ? Math.round(
+                (input.errorEventCount / input.totalEventCount) * 10000
+              ) / 100
+            : 0,
+      topErrors:
+        persistedErrorStats && persistedErrorStats.topErrors.length > 0
+          ? persistedErrorStats.topErrors
+          : input.topErrors,
+    },
+    performance: {
+      averageLatencyMs:
+        persistedLatencyStats && persistedLatencyStats.sampleCount > 0
+          ? persistedLatencyStats.averageLatencyMs
+          : latencies.length > 0
+            ? Math.round(
+                (latencies.reduce((a, b) => a + b, 0) / latencies.length) * 100
+              ) / 100
+            : 0,
+      p50LatencyMs:
+        persistedLatencyStats && persistedLatencyStats.sampleCount > 0
+          ? persistedLatencyStats.p50LatencyMs
+          : calcPercentile(latencies, 50),
+      p95LatencyMs:
+        persistedLatencyStats && persistedLatencyStats.sampleCount > 0
+          ? persistedLatencyStats.p95LatencyMs
+          : calcPercentile(latencies, 95),
+      p99LatencyMs:
+        persistedLatencyStats && persistedLatencyStats.sampleCount > 0
+          ? persistedLatencyStats.p99LatencyMs
+          : calcPercentile(latencies, 99),
+      totalMetrics:
+        persistedLatencyStats && persistedLatencyStats.sampleCount > 0
+          ? persistedLatencyStats.sampleCount
+          : latencies.length,
+    },
+    cost: { totalCostUSD: Math.round(totals.totalCostUSD * 10000) / 10000 },
+    session: {
+      totalEvents: stats.totalEvents,
+      totalSessions:
+        persistedSessionCount && persistedSessionCount.total > 0
+          ? persistedSessionCount.total
+          : stats.totalSessions,
+      activeSessions:
+        persistedSessionCount && persistedSessionCount.total > 0
+          ? persistedSessionCount.active
+          : stats.activeSessions,
+    },
+    generatedAt: Date.now(),
+  };
+}
+
+/** 聚合失败时的零值载荷（保持前端字段齐全） */
+function buildEmptyDashboardPayload(): Record<string, unknown> {
+  return {
+    tokens: {
+      totalInputTokens: 0,
+      totalOutputTokens: 0,
+      totalTokens: 0,
+      totalLLMRequests: 0,
+    },
+    tools: { totalToolCalls: 0, uniqueToolsUsed: 0, topTools: [] },
+    errors: { totalErrors: 0, errorRate: 0, topErrors: [] },
+    performance: {
+      averageLatencyMs: 0,
+      p50LatencyMs: 0,
+      p95LatencyMs: 0,
+      p99LatencyMs: 0,
+      totalMetrics: 0,
+    },
+    cost: { totalCostUSD: 0 },
+    session: { totalEvents: 0, totalSessions: 0, activeSessions: 0 },
+    generatedAt: Date.now(),
+  };
 }

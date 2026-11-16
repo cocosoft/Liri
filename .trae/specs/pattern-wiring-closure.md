@@ -259,7 +259,8 @@ PATTERN_SELECTION_RULES = [
 作为**用户可配门控的唯一解析入口**（`FEATURE_<name>` env > `config.features.<key>` > `feature()`；
 未登记开关逐字走 `feature()`，零行为变化），三个消费点统一改用它：`instantiatePattern`、
 `listPatternCatalog`（`/v1/patterns` 门控行）、`chat/manager/pdcaLaunch`（实际生效判定）；
-设置页「功能开关」新增「自校验 / 多轮精修线路」（**默认关**，与 `FEATURE_FLAGS` 一致）。
+设置页「功能开关」新增「自校验 / 多轮精修线路」（**默认关**，与 `FEATURE_FLAGS` 一致；**2026-11-16 已按用户裁定翻为默认开** —— 见
+`default-off-switches-review-gates.md §2.4.3`，设置页默认值与 zh/en 文案同批更新）。
 真机实测：`PUT /v1/config/features {selfVerifyPattern:true}` ⇒ `/v1/patterns` 的
 `self_verify.featureGate.enabled=true`；恢复配置后回到 `false`。
 

@@ -666,16 +666,16 @@ export const FEATURE_FLAGS = {
    */
   SELF_VERIFY_PATTERN: true,
   /**
-   * E-1（2026-10-18）：**swarm verifier 判不过时回灌 worker 重试一轮**（默认关 = 零行为变更）。
+   * E-1（2026-10-18）：**swarm verifier 判不过时回灌 worker 重试一轮**（**2026-11-16 起默认开**）。
    *
    * 开 ⇒ `AgentSwarm` 仅在 verifier 给出**明确** `pass:false`（含 feedback）时，把 feedback 回灌
    * 原 worker 重试 **1 次**并重新门禁（独立 token 上限 20k，超限即跳过；verifier 自身故障 /
    * 输出不可解析 / worker 超时 / 批次取消 均不回灌）。
-   * 关（默认）⇒ 与现状逐字一致（判不过即 `verify:'failed'`，不重试）。
-   * `FEATURE_SWARM_VERIFY_RETRY=true`。
-   * 触发条件见 `.trae/specs/default-off-switches-review-gates.md` §2 #15。
+   * **翻转依据**：用户裁定 2026-11-16（21 模式 #7 Multi-Agent）；真机无 verifier 判不过样本
+   * ⇒ 记为裁定翻转；增量 token 受 20k 独立上限约束。
+   * 回退 `FEATURE_SWARM_VERIFY_RETRY=false` ⇒ 判不过即 `verify:'failed'`，不重试（§2 #15 / §2.4.6）。
    */
-  SWARM_VERIFY_RETRY: false,
+  SWARM_VERIFY_RETRY: true,
 
   // ───── 图像工具（Image Tools） ─────
   /** 多后端图像生成 Provider 模式 */

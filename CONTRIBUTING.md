@@ -31,6 +31,18 @@
 
 > 数字（工具 / 通道 / 模块）**只在 [STATUS.md](./STATUS.md) 出现**，README 不写死；改了事实源务必 `cd app && bun run gen:status`。
 
+## 内部编号速查（读日志 / 提交信息时会遇到）
+
+代码、门禁输出与提交信息里大量使用内部编号；它们都是**可点开的事实源**，不要当成黑话跳过。
+
+| 编号 | 含义 | 事实源 |
+|---|---|---|
+| `P3-2` | 复杂度告警削减批次：先补特征化测试 → 原样外移 → 等价自检 → 独立提交（提交信息形如 `refactor(...)：…（P3-2 复杂度 N）`） | `cd app && bun run lint:complexity`；`git log` |
+| `R04-001` | 单文件行数上限 2000 行（`ARCH_MAX_LINES` 可覆盖；超限须在 `scripts/layer-exceptions.json` 登记豁免） | `scripts/lint-architecture.ts`、`scripts/lint-file-size.ts` |
+| `CD01`–`CD07` | 代码删除安全流程：删之前必须走完六步核查，关键模块禁止以「无静态引用」为删除依据 | [.trae/rules/code-deletion.md](./.trae/rules/code-deletion.md) |
+| `CS01`–`CS08` | 编码铁律：归一化检查 / 状态判定禁字符串匹配 / 回退最小化 / Mock 零容忍 / 根因优先 / 证据驱动 / 依赖收敛 / JSON 内用中文引号 | [.trae/rules/coding-standards.md](./.trae/rules/coding-standards.md) |
+| `R00-003` | 动态导入（`import('…')` / `require('…')`）的跨层检查：门禁**仅上报不阻断** ⇒ 删除/重构前必须手工补搜动态入口 | [.trae/rules/architecture-compliance.md](./.trae/rules/architecture-compliance.md) §R06-008 |
+
 ## 版本号管理规范
 
 本项目遵循 [SemVer 语义化版本规范](https://semver.org/lang/zh-CN/)（`主版本.次版本.修订号`），版本号在 `app/package.json` 的 `version` 字段中集中管理。

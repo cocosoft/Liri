@@ -245,7 +245,7 @@
       "app/src/components/ui/toolUIs/TaskOutputTool/UI.tsx",
       "app/src/components/ui/toolUIs/TodoWriteTool/UI.tsx",
       "app/src/components/ui/Wizard.tsx",
-      "app/src/context/promptSections/builtinSections.ts",
+      "app/src/context/promptSections/projectContextParts.ts",
       "app/src/hooks/usePrStatus.ts",
       "app/src/infrastructure/http/handlers/agent1-handlers.ts",
       "app/src/infrastructure/http/handlers/council-handlers.ts",

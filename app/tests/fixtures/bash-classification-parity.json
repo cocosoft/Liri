@@ -290,7 +290,7 @@
     {
       "command": "bunx cowsay hi",
       "expected": "ask",
-      "why": "G3 第 2 个 bin（**缺口登记**）：commandSpecs 声明 npx/bunx 为 deny，但分析器实测 ask；需在 G3 核实由哪一层生效后再对齐"
+      "why": "G3 第 2 个 bin（口径已核实）：analyzer 三态为 ask；auto 模式下由 AUTO_MODE_HARD_DENY_TOKENS 升为 deny（commandSpecs tier=deny 供令牌表派生，属不同层，自洽）"
     }
   ]
 }

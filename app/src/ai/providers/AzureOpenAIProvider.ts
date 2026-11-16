@@ -29,6 +29,22 @@ import { TransportProviderAdapter } from '../transports/TransportProviderAdapter
 import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('ai\providers\AzureOpenAIProvider');
 
+/** 累积中的 tool_call 分片（同一 index 跨片合并） */
+type AzurePendingToolCall = {
+  id: string;
+  name: string;
+  arguments: string;
+};
+
+/** 流式 SSE 解析的累积状态 */
+type AzureStreamState = {
+  fullContent: string;
+  lastUsage: ChatResponse['usage'] | undefined;
+  pendingToolCalls: Map<number, AzurePendingToolCall>;
+  stopReason: 'stop' | 'tool_calls' | 'max_tokens';
+  toolCalls: ParsedToolCall[];
+};
+
 export class AzureOpenAIProvider extends BaseAIProvider {
   private config: ProviderConfig;
   private readonly adapter: TransportProviderAdapter;
@@ -71,20 +87,7 @@ export class AzureOpenAIProvider extends BaseAIProvider {
     messages: ChatMessage[],
     options?: ChatOptions
   ): AsyncGenerator<string | ThinkingProviderChunk, ChatResponse, unknown> {
-    const apiKey =
-      this.resolveApiKey() ||
-      (this.config.apiKey as string) ||
-      configManager.env('AZURE_OPENAI_API_KEY') ||
-      '';
-    const endpoint =
-      (this.config.baseUrl as string) ||
-      configManager.env('AZURE_OPENAI_ENDPOINT') ||
-      '';
-    const deployment = (this.config.deployment as string) || '';
-    const apiVersion =
-      (this.config.apiVersion as string) || '2024-02-15-preview';
-
-    const url = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
+    const { apiKey, deployment, url } = this.resolveConnection();
 
     const requestBody = this.adapter.buildRequest({
       model: deployment,
@@ -131,14 +134,13 @@ export class AzureOpenAIProvider extends BaseAIProvider {
 
       const decoder = new TextDecoder();
       let buffer = '';
-      let fullContent = '';
-      let lastUsage: ChatResponse['usage'] | undefined;
-      const pendingToolCalls = new Map<
-        number,
-        { id: string; name: string; arguments: string }
-      >();
-      let stopReason: 'stop' | 'tool_calls' | 'max_tokens' = 'stop';
-      let toolCalls: ParsedToolCall[] = [];
+      const state: AzureStreamState = {
+        fullContent: '',
+        lastUsage: undefined,
+        pendingToolCalls: new Map(),
+        stopReason: 'stop',
+        toolCalls: [],
+      };
 
       while (true) {
         const { done, value } = await this.readStreamChunkWithTimeout(reader);
@@ -156,75 +158,12 @@ export class AzureOpenAIProvider extends BaseAIProvider {
           if (data === '[DONE]') break;
 
           try {
-            const parsed = JSON.parse(data) as Record<string, unknown>;
-            const usage = parsed['usage'] as ChatResponse['usage'] | undefined;
-            if (usage) lastUsage = usage;
-
-            const choice = (parsed.choices as Record<string, unknown>[])?.[0];
-            const delta = choice?.delta as Record<string, unknown> | undefined;
-            const finishReason = choice?.finish_reason as string | undefined;
-
-            const reasoningContent = delta?.['reasoning_content'] as
-              | string
-              | undefined;
-            if (reasoningContent) {
-              yield { type: 'thinking', content: reasoningContent };
+            const emitted = AzureOpenAIProvider.applyStreamPayload(data, state);
+            if (emitted.thinking) {
+              yield { type: 'thinking', content: emitted.thinking };
             }
-
-            const content = delta?.content as string | undefined;
-            if (content) {
-              fullContent += content;
-              yield content;
-            }
-
-            const streamToolCalls = delta?.tool_calls as
-              | Array<Record<string, unknown>>
-              | undefined;
-            if (streamToolCalls) {
-              for (const tc of streamToolCalls) {
-                const idx = tc.index as number;
-                const func = tc.function as Record<string, unknown> | undefined;
-                let pending = pendingToolCalls.get(idx);
-                if (!pending) {
-                  pending = { id: '', name: '', arguments: '' };
-                  pendingToolCalls.set(idx, pending);
-                }
-                if (tc.id) pending.id = tc.id as string;
-                if (func) {
-                  if (func.name) pending.name = func.name as string;
-                  if (func.arguments)
-                    pending.arguments += func.arguments as string;
-                }
-              }
-            }
-
-            if (finishReason === 'tool_calls' && pendingToolCalls.size > 0) {
-              stopReason = 'tool_calls';
-              toolCalls = Array.from(pendingToolCalls.entries())
-                .sort(([a], [b]) => a - b)
-                .map(([_, tc]) => {
-                  try {
-                    return {
-                      id: tc.id,
-                      name: tc.name,
-                      arguments: JSON.parse(tc.arguments) as Record<
-                        string,
-                        unknown
-                      >,
-                    };
-                  } catch {
-                    return {
-                      id: tc.id,
-                      name: tc.name,
-                      arguments: { _raw: tc.arguments },
-                    };
-                  }
-                });
-            } else if (
-              finishReason === 'max_tokens' ||
-              finishReason === 'length'
-            ) {
-              stopReason = 'max_tokens';
+            if (emitted.content) {
+              yield emitted.content;
             }
           } catch (err) {
             // skip malformed SSE lines
@@ -233,11 +172,11 @@ export class AzureOpenAIProvider extends BaseAIProvider {
       }
 
       return {
-        content: fullContent,
+        content: state.fullContent,
         model: deployment,
-        stop_reason: stopReason,
-        tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
-        usage: lastUsage,
+        stop_reason: state.stopReason,
+        tool_calls: state.toolCalls.length > 0 ? state.toolCalls : undefined,
+        usage: state.lastUsage,
       };
     } catch (error) {
       if (error instanceof AppError) throw error;
@@ -251,6 +190,130 @@ export class AzureOpenAIProvider extends BaseAIProvider {
       );
       throw expectedAbort ? markAsExpectedAbort(wrapped) : wrapped;
     }
+  }
+
+  /**
+   * 解析连接参数（鉴权 / 部署名 / 完整 URL）。
+   * 流式与一次性请求共用同一回退链，避免两处各自拼装产生漂移。
+   */
+  private resolveConnection(): {
+    apiKey: string;
+    deployment: string;
+    url: string;
+  } {
+    const apiKey =
+      this.resolveApiKey() ||
+      (this.config.apiKey as string) ||
+      configManager.env('AZURE_OPENAI_API_KEY') ||
+      '';
+    const endpoint =
+      (this.config.baseUrl as string) ||
+      configManager.env('AZURE_OPENAI_ENDPOINT') ||
+      '';
+    const deployment = (this.config.deployment as string) || '';
+    const apiVersion =
+      (this.config.apiVersion as string) || '2024-02-15-preview';
+
+    return {
+      apiKey,
+      deployment,
+      url: `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`,
+    };
+  }
+
+  /**
+   * 处理一条 `data: ` 载荷：累积正文、思考、tool_calls 分片与终止原因。
+   * 需要 yield 的增量以返回值交给调用方（生成器内统一 yield，便于特征化测试）。
+   */
+  private static applyStreamPayload(
+    data: string,
+    state: AzureStreamState
+  ): { thinking?: string; content?: string } {
+    const parsed = JSON.parse(data) as Record<string, unknown>;
+    const usage = parsed['usage'] as ChatResponse['usage'] | undefined;
+    if (usage) state.lastUsage = usage;
+
+    const choice = (parsed.choices as Record<string, unknown>[])?.[0];
+    const delta = choice?.delta as Record<string, unknown> | undefined;
+    const finishReason = choice?.finish_reason as string | undefined;
+
+    let thinking: string | undefined;
+    const reasoningContent = delta?.['reasoning_content'] as string | undefined;
+    if (reasoningContent) {
+      thinking = reasoningContent;
+    }
+
+    let content: string | undefined;
+    const contentDelta = delta?.content as string | undefined;
+    if (contentDelta) {
+      state.fullContent += contentDelta;
+      content = contentDelta;
+    }
+
+    const streamToolCalls = delta?.tool_calls as
+      | Array<Record<string, unknown>>
+      | undefined;
+    if (streamToolCalls) {
+      AzureOpenAIProvider.accumulateToolCallDeltas(
+        state.pendingToolCalls,
+        streamToolCalls
+      );
+    }
+
+    if (finishReason === 'tool_calls' && state.pendingToolCalls.size > 0) {
+      state.stopReason = 'tool_calls';
+      state.toolCalls = AzureOpenAIProvider.collectToolCalls(
+        state.pendingToolCalls
+      );
+    } else if (finishReason === 'max_tokens' || finishReason === 'length') {
+      state.stopReason = 'max_tokens';
+    }
+
+    return { thinking, content };
+  }
+
+  /** 按 index 合并 tool_calls 分片（id / name / arguments 逐片累积） */
+  private static accumulateToolCallDeltas(
+    pendingToolCalls: Map<number, AzurePendingToolCall>,
+    streamToolCalls: Array<Record<string, unknown>>
+  ): void {
+    for (const tc of streamToolCalls) {
+      const idx = tc.index as number;
+      const func = tc.function as Record<string, unknown> | undefined;
+      let pending = pendingToolCalls.get(idx);
+      if (!pending) {
+        pending = { id: '', name: '', arguments: '' };
+        pendingToolCalls.set(idx, pending);
+      }
+      if (tc.id) pending.id = tc.id as string;
+      if (func) {
+        if (func.name) pending.name = func.name as string;
+        if (func.arguments) pending.arguments += func.arguments as string;
+      }
+    }
+  }
+
+  /** 把累积的 tool_calls 收敛为按 index 升序的调用列表，参数非法 JSON 时保留原文 */
+  private static collectToolCalls(
+    pendingToolCalls: Map<number, AzurePendingToolCall>
+  ): ParsedToolCall[] {
+    return Array.from(pendingToolCalls.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([_, tc]) => {
+        try {
+          return {
+            id: tc.id,
+            name: tc.name,
+            arguments: JSON.parse(tc.arguments) as Record<string, unknown>,
+          };
+        } catch {
+          return {
+            id: tc.id,
+            name: tc.name,
+            arguments: { _raw: tc.arguments },
+          };
+        }
+      });
   }
 
   async listModels(): Promise<string[]> {
@@ -276,20 +339,7 @@ export class AzureOpenAIProvider extends BaseAIProvider {
     options?: ChatOptions,
     stream?: boolean
   ): Promise<ChatResponse> {
-    const apiKey =
-      this.resolveApiKey() ||
-      (this.config.apiKey as string) ||
-      configManager.env('AZURE_OPENAI_API_KEY') ||
-      '';
-    const endpoint =
-      (this.config.baseUrl as string) ||
-      configManager.env('AZURE_OPENAI_ENDPOINT') ||
-      '';
-    const deployment = (this.config.deployment as string) || '';
-    const apiVersion =
-      (this.config.apiVersion as string) || '2024-02-15-preview';
-
-    const url = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
+    const { apiKey, deployment, url } = this.resolveConnection();
 
     const requestBody = this.adapter.buildRequest({
       model: deployment,

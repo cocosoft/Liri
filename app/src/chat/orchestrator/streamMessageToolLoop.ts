@@ -47,6 +47,11 @@ import type { makeEventEmitter } from './streamMessageEvents.js';
 
 const logger = getLogger('chat:streamFlow');
 
+/** 心跳间隔：工具轮静默超过该时长即产出执行阶段 chunk */
+const TOOL_LOOP_HEARTBEAT_MS = 5000;
+/** 心跳 steps 截断上限（避免长任务心跳体积线性增长；totalSteps 保留真实计数） */
+const MAX_HEARTBEAT_STEPS = 30;
+
 export interface StreamToolLoopInput {
   host: ChatOrchestratorHost;
   session: ChatSession;
@@ -178,8 +183,6 @@ export async function* runStreamToolLoop(
     let heartbeatAt = 0;
     // F4（2026-09-04）：工具轮 LLM/工具执行静默 >5s（无事件产出，如长 TTFB）
     // 时由 keepalive 心跳保持 SSE 活性 + 进度可见，防前端"无字节超时"误断
-    const HB_MS = 5000;
-    const MAX_HEARTBEAT_STEPS = 30;
     const HB_TOKEN = Symbol('hb');
     const runIter = loop
       .run({
@@ -195,7 +198,10 @@ export async function* runStreamToolLoop(
     let pendingNext: ReturnType<typeof runIter.next> | null = null;
     while (true) {
       if (!pendingNext) pendingNext = runIter.next();
-      const delayMs = Math.max(0, HB_MS - (Date.now() - lastEventAt));
+      const delayMs = Math.max(
+        0,
+        TOOL_LOOP_HEARTBEAT_MS - (Date.now() - lastEventAt)
+      );
       let hbHandle: ReturnType<typeof setTimeout> | undefined;
       const hbTimer = new Promise<typeof HB_TOKEN>((resolve) => {
         hbHandle = setTimeout(() => resolve(HB_TOKEN), delayMs);
@@ -206,27 +212,14 @@ export async function* runStreamToolLoop(
       ]);
       if (raced === HB_TOKEN) {
         const hb = loop.getHeartbeatData();
-        const fullSteps = (hb?.completedToolNames ?? []).map((name) => ({
-          name,
-          status: 'done' as const,
-        }));
-        const truncated = fullSteps.length > MAX_HEARTBEAT_STEPS;
-        yield {
-          type: 'execution_phase',
-          content: '正在处理，请稍候...',
+        yield buildExecutionPhaseChunk({
           sessionId: session.id,
-          executionPhase: {
-            phase: 'implementing' as const,
-            progress: hb?.totalCompletedToolCount ?? 0,
-            description: '任务执行中，正在等待模型/工具响应...',
-            steps: truncated
-              ? fullSteps.slice(-MAX_HEARTBEAT_STEPS)
-              : fullSteps,
-            totalSteps: fullSteps.length,
-            truncated,
-            currentStep: '',
-          },
-        } as ChatStreamChunk;
+          content: '正在处理，请稍候...',
+          description: '任务执行中，正在等待模型/工具响应...',
+          progress: hb?.totalCompletedToolCount ?? 0,
+          completedToolNames: hb?.completedToolNames,
+          currentStep: '',
+        });
         lastEventAt = Date.now();
         continue;
       }
@@ -240,14 +233,7 @@ export async function* runStreamToolLoop(
       // T1.2 诊断（2026-08-23，[DUP: 前缀）：记录工具事件产出，观察同 callId 是否重复。
       // 根因背景：SSE 层 tool_start/tool_end 序列被重复发送（前端收到 2 遍），
       // 但 events 层（appendStreamEvent）唯一——两条路径独立，此处日志定位产出侧。
-      if (event.type === 'tool_start' || event.type === 'tool_end') {
-        logger.debug('[DUP:streamFlow] 工具事件产出', {
-          sessionId: session.id,
-          eventType: event.type,
-          callId: (event as { callId: string }).callId,
-          ts: Date.now(),
-        });
-      }
+      logToolEventDebug(session.id, event as ToolLoopEvent);
       for (const chunk of reactEventsToChunks(event, session.id)) {
         yield chunk;
       }
@@ -260,35 +246,13 @@ export async function* runStreamToolLoop(
       //   turn/start → text/thinking → assistant/tool_call → tool/result → turn/end
       // 与 _finalizeStreamMessage 落盘时 convertMessage 生成的事件按 id 去重（不会重复写）。
       if (event.type === 'tool_start') {
-        try {
-          const tArgs =
-            (event as { input?: Record<string, unknown> }).input ?? {};
-          const tCallId = (event as { callId: string }).callId;
-          // P3-7a（2026-09-02）：seq/callSeq 传 0 交由 append 在 mutex 内原子分配
-          // （data.callSeq<=0 自动填分配值，A1 闭环）。此前 getStreamTailSeq+1 与
-          // tool/result 落盘并发读到同一 tailSeq → duplicate-seq 反复纠正。
-          // tool_call 事件自带 messageId + callSeq（A1）；_toolCallSeqMap 由
-          // ChatManager.appendStreamEvent 同步维护（toolCallId → event.seq），可重建
-          const appendRes = await host.appendStreamEvent(session.id, {
-            type: 'assistant/tool_call',
-            schemaVersion: 1,
-            seq: 0,
-            time: Date.now(),
-            sessionId: session.id,
-            data: {
-              toolCallId: tCallId,
-              name: (event as { name: string }).name,
-              args: tArgs,
-              messageId: assistantMessageId,
-              callSeq: 0,
-            },
-          });
-          // T2.3（2026-08-23）：记录 tool_call 事件 seq（append 分配的原子值），
-          // 供 ReActToolLoop 构造 toolResultMsg 时写入 metadata.callSeq（闭环 A1③）
-          toolCallSeqMap.set(tCallId, appendRes?.tailSeq ?? 0);
-        } catch {
-          // @ignore-catch — 事件追加失败不阻断工具循环（CS03）
-        }
+        await persistToolCallStartEvent({
+          host,
+          sessionId: session.id,
+          event: event as ToolLoopEvent,
+          assistantMessageId,
+          toolCallSeqMap,
+        });
       }
       // Fix4（2026-09-05）：acting_start（"执行 N 个工具调用"）落 assistant/status 事件——
       // 此前该状态仅作为 SSE status chunk 到前端（reactEventsToChunks acting_start→status，
@@ -336,41 +300,13 @@ export async function* runStreamToolLoop(
       // 只看到 tool_call 卡片干等、误以为任务卡死。
       if (event.type === 'tool_start' || event.type === 'tool_end') {
         const now = Date.now();
-        if (now - heartbeatAt >= 5000) {
+        if (now - heartbeatAt >= TOOL_LOOP_HEARTBEAT_MS) {
           heartbeatAt = now;
-          const hb = loop.getHeartbeatData();
-          const toolStartName =
-            event.type === 'tool_start'
-              ? (event as { name?: string }).name
-              : undefined;
-          // 5. steps 截断：仅保留最近 MAX_HEARTBEAT_STEPS 条，避免长任务心跳体积线性增长
-          //   （对齐旧类 ToolLoopRunner._buildExecutionSteps；totalSteps 保留真实计数）
-          const fullSteps = hb.completedToolNames.map((name) => ({
-            name,
-            status: 'done' as const,
-          }));
-          const truncated = fullSteps.length > MAX_HEARTBEAT_STEPS;
-          const steps = truncated
-            ? fullSteps.slice(-MAX_HEARTBEAT_STEPS)
-            : fullSteps;
-          yield {
-            type: 'execution_phase',
-            content: toolStartName
-              ? `正在执行 ${toolStartName}`
-              : '正在执行工具',
+          yield buildToolHeartbeatChunk({
             sessionId: session.id,
-            executionPhase: {
-              phase: 'implementing' as const,
-              progress: hb.totalCompletedToolCount,
-              description: toolStartName
-                ? `正在执行 ${toolStartName}，请稍候...`
-                : '正在执行工具调用',
-              steps,
-              totalSteps: fullSteps.length,
-              truncated,
-              currentStep: toolStartName ?? '',
-            },
-          } as ChatStreamChunk;
+            event: event as ToolLoopEvent,
+            heartbeat: loop.getHeartbeatData(),
+          });
         }
       }
     }
@@ -524,4 +460,123 @@ export async function* runStreamToolLoop(
   }
 
   return { assistantMessage, terminationReason: toolLoopTermination };
+}
+
+// ── 事件副作用辅助（原为循环体内联代码，逐字外移以便特征化） ──────────────
+
+/** 循环内事件的最小读取面（仅类型层收窄，无运行期改行为） */
+type ToolLoopEvent = {
+  type: string;
+  callId?: string;
+  name?: string;
+  toolCount?: number;
+  input?: Record<string, unknown>;
+};
+
+/**
+ * 组装执行阶段心跳 chunk（两条心跳路径共用）。
+ * steps 截断只保留最近 MAX_HEARTBEAT_STEPS 条，避免长任务心跳体积线性增长；
+ * totalSteps 保留真实计数（对齐旧类 ToolLoopRunner._buildExecutionSteps）。
+ */
+function buildExecutionPhaseChunk(params: {
+  sessionId: string;
+  content: string;
+  description: string;
+  progress: number;
+  completedToolNames?: readonly string[];
+  currentStep: string;
+}): ChatStreamChunk {
+  const fullSteps = (params.completedToolNames ?? []).map((name) => ({
+    name,
+    status: 'done' as const,
+  }));
+  const truncated = fullSteps.length > MAX_HEARTBEAT_STEPS;
+  return {
+    type: 'execution_phase',
+    content: params.content,
+    sessionId: params.sessionId,
+    executionPhase: {
+      phase: 'implementing' as const,
+      progress: params.progress,
+      description: params.description,
+      steps: truncated ? fullSteps.slice(-MAX_HEARTBEAT_STEPS) : fullSteps,
+      totalSteps: fullSteps.length,
+      truncated,
+      currentStep: params.currentStep,
+    },
+  } as ChatStreamChunk;
+}
+
+/** tool_start / tool_end 触发的心跳 chunk（文案随工具名变化） */
+function buildToolHeartbeatChunk(params: {
+  sessionId: string;
+  event: ToolLoopEvent;
+  heartbeat: {
+    completedToolNames?: readonly string[];
+    totalCompletedToolCount: number;
+  };
+}): ChatStreamChunk {
+  const toolStartName =
+    params.event.type === 'tool_start' ? params.event.name : undefined;
+  return buildExecutionPhaseChunk({
+    sessionId: params.sessionId,
+    content: toolStartName ? `正在执行 ${toolStartName}` : '正在执行工具',
+    description: toolStartName
+      ? `正在执行 ${toolStartName}，请稍候...`
+      : '正在执行工具调用',
+    progress: params.heartbeat.totalCompletedToolCount,
+    completedToolNames: params.heartbeat.completedToolNames,
+    currentStep: toolStartName ?? '',
+  });
+}
+
+/** T1.2 诊断：记录工具事件产出，观察同 callId 是否重复（仅 tool_start / tool_end） */
+function logToolEventDebug(sessionId: string, event: ToolLoopEvent): void {
+  if (event.type === 'tool_start' || event.type === 'tool_end') {
+    logger.debug('[DUP:streamFlow] 工具事件产出', {
+      sessionId,
+      eventType: event.type,
+      callId: event.callId,
+      ts: Date.now(),
+    });
+  }
+}
+
+/**
+ * tool_start 到达时立即落盘 assistant/tool_call（工具轮内实时入轨）。
+ *
+ * 时机关键：若等到 _finalizeStreamMessage 落盘时才写，tool_call 事件会晚于
+ * tool/result 和 turn/end，回放时工具调用与结果错位。
+ * P3-7a：seq/callSeq 传 0 交由 append 在 mutex 内原子分配（data.callSeq<=0 自动填分配值）。
+ * T2.3：记录 append 分配的 seq，供 ReActToolLoop 构造 toolResultMsg 时写入
+ * metadata.callSeq（闭环 A1③）。
+ */
+async function persistToolCallStartEvent(params: {
+  host: ChatOrchestratorHost;
+  sessionId: string;
+  event: ToolLoopEvent;
+  assistantMessageId: string;
+  toolCallSeqMap: Map<string, number>;
+}): Promise<void> {
+  try {
+    const tArgs = params.event.input ?? {};
+    const tCallId = params.event.callId as string;
+    const appendRes = await params.host.appendStreamEvent(params.sessionId, {
+      type: 'assistant/tool_call',
+      schemaVersion: 1,
+      seq: 0,
+      time: Date.now(),
+      sessionId: params.sessionId,
+      data: {
+        toolCallId: tCallId,
+        name: params.event.name as string,
+        args: tArgs,
+        messageId: params.assistantMessageId,
+        callSeq: 0,
+      },
+    });
+    params.toolCallSeqMap.set(tCallId, appendRes?.tailSeq ?? 0);
+  } catch {
+    // @ignore-catch — 事件追加失败不阻断工具循环（CS03）
+  }
 }

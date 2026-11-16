@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ConfigSection,
@@ -33,6 +33,31 @@ interface TrustedWorkspacesPanelProps {
   isDark: boolean;
 }
 
+/** 存储态：`GET /v1/config/permission` 原样返回持久化 section ⇒ 字段可能缺失（用户可手改配置文件） */
+type StoredPermissionConfig = Partial<PermissionConfig> &
+  Record<string, unknown>;
+
+/**
+ * 归一化存储态配置：缺失字段补默认，**保留未知字段**。
+ *
+ * 为什么必须有：真机 `~/.pyapp/config.json` 的 `permission` 段是 `{ "defaultTrustLevel": "chat" }`
+ * ——既无 `mode` 也无 `trustedWorkspaces` ⇒ 直接渲染会在 `.map()` 处抛
+ * "Cannot read properties of undefined (reading 'map')"（整页被 ErrorBoundary 接管）。
+ *
+ * 为什么用展开保留未知键：保存走 `PUT /v1/config/permission`（整块写回），
+ * 若只挑已知字段会把手写的 `defaultTrustLevel` 等一起抹掉。
+ */
+function normalizePermissionConfig(value: unknown): PermissionConfig {
+  const raw = (value ?? {}) as StoredPermissionConfig;
+  return {
+    ...raw,
+    mode: raw.mode ?? "default",
+    trustedWorkspaces: Array.isArray(raw.trustedWorkspaces)
+      ? raw.trustedWorkspaces
+      : [],
+  } as PermissionConfig;
+}
+
 function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
   const { t } = useTranslation();
   const [permission, setPermission] = useState<PermissionConfig>({
@@ -45,14 +70,14 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
   const [newPath, setNewPath] = useState("");
   const [newLevel, setNewLevel] = useState<WorkspaceTrustLevel>("development");
 
-  /** 加载权限配置 */
+  /** 加载权限配置（存储态可能缺字段 ⇒ 归一化后再入 state） */
   const loadConfig = async () => {
     try {
-      const res = await http.get<{ key: string; value: PermissionConfig }>(
+      const res = await http.get<{ key: string; value: unknown }>(
         "/v1/config/permission",
       );
       if (res?.value) {
-        setPermission(res.value);
+        setPermission(normalizePermissionConfig(res.value));
       }
     } catch (e) {
       handleClientError(e, {
@@ -132,10 +157,14 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
     development: "settings.wsLevelDevelopment",
   };
 
-  // 首次渲染时加载
-  useState(() => {
-    loadConfig();
-  });
+  // 首次渲染时加载（必须在 useEffect 里：在 useState 初始化器中跑副作用会触发
+  // "state update on a component that hasn't mounted yet"，且每次渲染都重新发请求）
+  useEffect(() => {
+    void loadConfig();
+    // 只在挂载时拉一次：`loadConfig` 每次渲染重建（不在依赖里），若随它重跑会覆盖
+    // 用户尚未保存的编辑；语言切换也不应重拉配置。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <ConfigSection isDark={isDark}>

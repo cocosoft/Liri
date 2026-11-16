@@ -198,6 +198,58 @@ describe("P2.5 — 端到端测试：UI 配置 → 安全检查生效", () => {
         expect(screen.getByText("已保存")).toBeTruthy();
       });
     });
+
+    // 回归（2026-11-17）：真机 `~/.pyapp/config.json` 的 permission 段只有
+    // `{ defaultTrustLevel: "chat" }`（无 mode / 无 trustedWorkspaces）⇒ 曾整页崩在
+    // "Cannot read properties of undefined (reading 'map')"。存储态字段必须按可选处理。
+    it("存储配置缺 mode/trustedWorkspaces ⇒ 不崩、显示空态", async () => {
+      mockGet.mockResolvedValue({
+        key: "permission",
+        value: { defaultTrustLevel: "chat" },
+      });
+
+      render(<TrustedWorkspacesPanel isDark={false} />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(
+            "尚未添加信任工作区。添加后 AI 在该目录内的操作将减少安全拦截。",
+          ),
+        ).toBeTruthy();
+      });
+      // 缺 mode ⇒ 回落「默认」模式
+      expect(screen.getByText("默认")).toBeTruthy();
+    });
+
+    it("存储配置缺字段时保存仍保留未知字段（defaultTrustLevel 不被抹掉）", async () => {
+      const user = userEvent.setup();
+      mockGet.mockResolvedValue({
+        key: "permission",
+        value: { defaultTrustLevel: "chat" },
+      });
+      mockPut.mockResolvedValue(undefined);
+
+      render(<TrustedWorkspacesPanel isDark={false} />);
+
+      await waitFor(() => {
+        expect(mockGet).toHaveBeenCalled();
+      });
+
+      await user.click(screen.getByText("保存配置"));
+
+      await waitFor(() => {
+        expect(mockPut).toHaveBeenCalled();
+      });
+      const [, body] = mockPut.mock.calls[0] as [
+        string,
+        { value: Record<string, unknown> },
+      ];
+      expect(body.value).toMatchObject({
+        mode: "default",
+        trustedWorkspaces: [],
+        defaultTrustLevel: "chat",
+      });
+    });
   });
 
   describe("CustomRulesPanel", () => {

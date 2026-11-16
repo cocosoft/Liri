@@ -167,21 +167,48 @@ export const GIT_READ_ONLY_PATTERN: RegExp =
   /^git(?:\s+(?:-C\s+(?:"[^"]*"|'[^']*'|[^\s]+)|--no-pager|--no-optional-locks))*\s+(status|log|diff|show|rev-parse|rev-list|shortlog|ls-tree|cat-file|describe|name-rev|for-each-ref|blame|branch\s+--list|--version)(\s|$)/;
 
 /**
- * P3-2（2026-11-16）：git 只读判定中**禁止出现**的参数（参数级禁区）。
+ * P3-2（2026-11-16）：git 只读判定中**禁止出现**的参数（参数级禁区，**单一事实源**）。
  *
  * 三类会把「只读」变成「写盘 / 执行外部程序 / 注入配置」：
  *  - 写文件：`--output=<file>`（`git log/diff` 直接落盘）；
  *  - 执行外部程序：`--ext-diff`（外部 diff 驱动）、`--paginate`（分页器）、
  *    `--open-files-in-pager`、`--exec-path`；
+ *    **T2c（2026-11-17）新增 `--textconv` / `--filters`** —— 二者都会调用仓库配置里的
+ *    转换器（textconv / clean-smudge 过滤器）= 执行外部程序（探针实测此前为 allow：
+ *    `git show --textconv HEAD`、`git cat-file --filters HEAD:x` 均被放行）；
  *  - 注入配置：全局 `-c key=value` —— 可设 `core.pager=sh -c id` / `alias.x=!cmd` /
  *    `core.hooksPath=…`，等价于任意命令执行（**本条即"pager 风险"的根因**；
  *    旧实现里 `GIT_READ_ONLY_PATTERN` 带 `/i`，把 `-c` 当成了合法的 `-C` 切目录开关）。
  *
  * ⚠️ **大小写敏感**：`-C <dir>`（切目录）是合法只读全局参数，不能被 `-c` 的规则误伤；
  * 也刻意**不**收录 `-p`（`git log -p` 是常见的补丁输出开关，与全局 `git -p` 语义不同）。
+ * ⚠️ `--no-textconv` / `--no-ext-diff` 等 `--no-*` 反形态**不在**本表（它们是关闭开关，
+ * 正则要求标志前是空白，`no-` 前缀天然不命中）。
  */
-export const GIT_READ_ONLY_FORBIDDEN_ARGS: RegExp =
-  /(?:^|\s)(?:--output|--ext-diff|--paginate|--open-files-in-pager|--exec-path|--config-env|-c)(?:\s|=|$)/;
+export const GIT_READ_ONLY_DENIED_FLAGS: readonly string[] = [
+  '--output',
+  '--ext-diff',
+  '--paginate',
+  '--open-files-in-pager',
+  '--exec-path',
+  '--config-env',
+  '--textconv',
+  '--filters',
+  '-c',
+];
+
+/**
+ * 由 `GIT_READ_ONLY_DENIED_FLAGS` **派生**的禁区正则（不手写第二份列表）。
+ *
+ * `maxPositional`（T2c 评估结论，**刻意不设上限**）：git 只读子命令的位置参数是
+ * pathspec（`git log -- path/to/file`），数量不影响副作用面；真正危险的是"执行外部程序 /
+ * 落盘 / 注入配置"，已由本禁区表覆盖 ⇒ 收紧位置参数数量只会造成误报。
+ */
+export const GIT_READ_ONLY_FORBIDDEN_ARGS: RegExp = new RegExp(
+  `(?:^|\\s)(?:${GIT_READ_ONLY_DENIED_FLAGS.map((f) =>
+    f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  ).join('|')})(?:\\s|=|$)`
+);
 
 /**
  * P3-2（2026-11-16）：收窄后的「配置 / 远端 / 分支」**查询**形态。

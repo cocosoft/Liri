@@ -56,6 +56,17 @@ import { ChatCompletionsTransport } from '../transports/ChatCompletionsTransport
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
 import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider';
+// P3-2（2026-11-17）：流式 tool_calls 累积 / 失败分类分别外移（行为逐字不变）
+import {
+  finalizeStreamToolCalls,
+  mergeToolCallFragments,
+  type PendingToolCall,
+} from './streamToolCalls';
+import {
+  classifyStreamFailure,
+  shouldRetryStreamFailure,
+  type StreamFailureClassification,
+} from './openaiStreamFailure';
 import { randomUUID } from 'crypto';
 import { OPENAI_API_V1_BASE_URL } from '@openliri/kernel';
 
@@ -73,62 +84,6 @@ function resolveModelTimeoutMs(): number {
   const raw = configManager.env('AI_MODEL_TIMEOUT_MS');
   const parsed = raw ? Number(raw) : NaN;
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 300_000;
-}
-
-/**
- * 提取 fetch 底层连接错误的 cause（undici/Bun 将 DNS/连接错误包装为
- * 通用 TypeError/Error 消息，真实原因在 cause 或错误自身的 code 中：
- * code=ENOTFOUND/ECONNREFUSED/EAI_AGAIN/ETIMEDOUT/ConnectionRefused 等）。
- * 实现在 BaseAIProvider.extractFetchCause（兼容 undici + Bun 两种结构），
- * 此处仅定义类型供 describeFetchError 使用，避免双份实现（CS01 归一化）。
- */
-interface FetchCause {
-  code: string;
-  hostname: string;
-  port: number;
-}
-
-/**
- * 将 fetch cause 映射为可执行的中文诊断提示（附 host/port）。
- * 兼容 undici（ENOTFOUND/ECONNREFUSED...）与 Bun（ConnectionRefused，无 hostname/port）。
- */
-function describeFetchError(cause: FetchCause, url: string): string {
-  const host =
-    cause.hostname ||
-    (() => {
-      try {
-        return new URL(url).host;
-      } catch {
-        return url;
-      }
-    })();
-  const port = cause.port ? `:${cause.port}` : '';
-
-  switch (cause.code) {
-    case 'ENOTFOUND':
-      return `DNS 解析失败（${host}${port} 无法解析）。请检查：
-1. 域名/地址拼写是否正确（当前: ${host}）
-2. 本机网络能否访问该地址（是否需要代理）
-3. 本机 DNS 是否正常`;
-    case 'EAI_AGAIN':
-      return `DNS 临时解析失败（${host}${port}），网络可能波动，请稍后重试`;
-    case 'ECONNREFUSED':
-      return `连接被拒绝（${host}${port}）。请检查：
-1. 端口是否正确（当前: ${port || '(默认端口)'}）
-2. 目标服务是否在运行
-3. 是否有防火墙/代理拦截`;
-    case 'ConnectionRefused':
-      // Bun 将 DNS 解析失败/连接被拒绝/TCP 重置统一归为此错误码，且不附 hostname/port
-      return `连接失败（${host}${port}）。Bun 将 DNS 解析失败、连接被拒绝与 TCP 重置统一归为此类，请检查：
-1. 域名/地址是否可访问（当前: ${host}${port}）
-2. 本机网络/代理是否正常
-3. 目标服务是否在运行、端口是否正确（当前连接地址: ${host}${port || '(默认端口)'}）`;
-    case 'ETIMEDOUT':
-    case 'UND_ERR_CONNECT_TIMEOUT':
-      return `连接超时（${host}${port}）。请检查网络连通性或代理配置`;
-    default:
-      return `网络连接失败（${host}${port}, ${cause.code}）`;
-  }
 }
 
 export class OpenAIProvider extends BaseAIProvider {
@@ -436,34 +391,15 @@ export class OpenAIProvider extends BaseAIProvider {
           }
         );
 
-        if (!response.ok) {
-          const errorBody = await response.text();
-          throw new AppError(
-            `OpenAI stream error (${response.status}): ${errorBody}`,
-            ErrorCategory.EXECUTION,
-            ErrorSeverity.HIGH,
-            '1000'
-          );
-        }
-
-        const reader = response.body?.getReader();
-        if (!reader) {
-          throw new AppError(
-            'OpenAI stream: no response body',
-            ErrorCategory.EXECUTION,
-            ErrorSeverity.HIGH,
-            '1000'
-          );
-        }
+        // 响应就绪断言（状态码 / body reader）自本方法原样外移，P3-2（2026-11-17）
+        await this._requireOkStreamResponse(response);
+        const reader = this._requireStreamReader(response);
 
         const decoder = new TextDecoder();
         let buffer = '';
         let lastUsage: import('@modules/ai').ChatResponse['usage'] | undefined;
         // 流式 tool_calls 累积（按 index 合并分片）
-        const pendingToolCalls = new Map<
-          number,
-          { id: string; name: string; arguments: string }
-        >();
+        const pendingToolCalls = new Map<number, PendingToolCall>();
         let stopReason: 'stop' | 'tool_calls' | 'max_tokens' = 'stop';
         let toolCalls: ParsedToolCall[] = [];
         // N-1（2026-11-06）：截断时已收到但未写完的工具调用（参数为半截 JSON，不执行）
@@ -518,70 +454,26 @@ export class OpenAIProvider extends BaseAIProvider {
                 yield content;
               }
 
-              // 流式 tool_calls 累积（按 index 合并分片）
+              // 流式 tool_calls 累积（按 index 合并分片；合并语义见
+              // `streamToolCalls.mergeToolCallFragments`）
               const streamToolCalls = delta?.tool_calls as
                 | Array<Record<string, unknown>>
                 | undefined;
               if (streamToolCalls) {
-                for (const tc of streamToolCalls) {
-                  const idx = tc.index as number;
-                  const func = tc.function as
-                    | Record<string, unknown>
-                    | undefined;
-
-                  let pending = pendingToolCalls.get(idx);
-                  if (!pending) {
-                    pending = { id: '', name: '', arguments: '' };
-                    pendingToolCalls.set(idx, pending);
-                  }
-                  if (tc.id) pending.id = tc.id as string;
-                  if (func) {
-                    if (func.name) pending.name = func.name as string;
-                    if (func.arguments)
-                      pending.arguments += func.arguments as string;
-                  }
-                }
+                mergeToolCallFragments(streamToolCalls, pendingToolCalls);
               }
 
-              // 记录 finish_reason，处理 tool_calls 完成
-              if (finishReason === 'tool_calls' && pendingToolCalls.size > 0) {
-                stopReason = 'tool_calls';
-                toolCalls = Array.from(pendingToolCalls.entries())
-                  .sort(([a], [b]) => a - b)
-                  .map(([_, tc]) => {
-                    try {
-                      return {
-                        id: tc.id,
-                        name: tc.name,
-                        arguments: JSON.parse(tc.arguments) as Record<
-                          string,
-                          unknown
-                        >,
-                      };
-                    } catch {
-                      return {
-                        id: tc.id,
-                        name: tc.name,
-                        arguments: { _raw: tc.arguments },
-                      };
-                    }
-                  });
-              } else if (
-                finishReason === 'max_tokens' ||
-                finishReason === 'length'
-              ) {
-                stopReason = 'max_tokens';
-                // N-1（2026-11-06 真机长程任务）：截断常发生在**工具参数**里（实测 `file_write`
-                // 写大文件时被 8192 输出上限整点截断）。此前这些半截调用被静默丢弃 ⇒ 重试时
-                // 模型不知道自己在写哪个文件，改去做 `dir /b`，任务在原地中断。
-                // 现在把"名字 + 半截参数"如实上报（`_raw`），**由上层决定如何使用，绝不执行**。
-                partialToolCalls = Array.from(pendingToolCalls.values())
-                  .filter((tc) => tc.name)
-                  .map((tc) => ({
-                    id: tc.id,
-                    name: tc.name,
-                    arguments: { _raw: tc.arguments, _partial: true },
-                  }));
+              // 记录 finish_reason，处理 tool_calls 完成（截断语义见
+              // `streamToolCalls.finalizeStreamToolCalls`）
+              const finalized = finalizeStreamToolCalls(
+                finishReason,
+                pendingToolCalls
+              );
+              if (finalized) {
+                stopReason = finalized.stopReason;
+                toolCalls = finalized.toolCalls ?? toolCalls;
+                partialToolCalls =
+                  finalized.partialToolCalls ?? partialToolCalls;
               }
             } catch (err) {
               // skip malformed SSE lines
@@ -600,48 +492,21 @@ export class OpenAIProvider extends BaseAIProvider {
         };
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const errorMessage = (error as Error).message || String(error);
-        // 提取 fetch 底层 cause（ENOTFOUND/ECONNREFUSED/EAI_AGAIN/ConnectionRefused 等）：
-        // undici/Bun 只给 "Was there a typo..." / "Unable to connect..." 通用消息，
-        // 真实原因（DNS/端口/超时）藏在 TypeError.cause 或错误自身 code 里，需展开为可执行提示。
         const fetchCause = BaseAIProvider.extractFetchCause(error);
-        const diagnostic = fetchCause
-          ? describeFetchError(fetchCause, `${this.baseUrl}/chat/completions`)
-          : errorMessage;
-        // socket 被对端关闭且尚未产出内容：重试整个请求（attempt 0 → 1）
-        const isSocketClosed =
-          /socket.*(closed|reset)|connection.*(closed|reset)/i.test(
-            errorMessage
-          );
-        // 超时检测：AbortSignal.timeout 触发的 DOMException（TimeoutError / "The operation timed out."）
-        // 或底层 ETIMEDOUT。发生在响应头/首块到达前（fullContent 为空）时，视为 Provider 瞬时故障
-        // （如智谱偶发请求挂起无响应头，重发通常立即成功），与连接中断同策略重试一次。
-        const isTimeout =
-          (error instanceof DOMException && error.name === 'TimeoutError') ||
-          /timed out|timeout|ETIMEDOUT|UND_ERR_HEADERS_TIMEOUT|UND_ERR_BODY_TIMEOUT/i.test(
-            errorMessage
-          );
-        // SSL/TLS 证书错误检测（2026-08-24 增强）：CDN 边缘节点可能瞬态返回
-        // 不完整证书链（Bun BoringSSL 报 unknown certificate verification error），
-        // 该错误同样发生在响应头到达前（fullContent 为空），重发通常立即成功，
-        // 与连接中断/超时同策略重试一次（实测 DeepSeek 偶发 SSL 验证失败可重试恢复）。
-        const isSSLError = /certificate|ssl|tls|unable to verify/i.test(
-          errorMessage
-        );
-        // SSL 错误详细诊断（2026-08-24）：记录 CA 注入状态、运行时与耗时，
-        // 便于复现排查 CDN 瞬态证书链问题（unknown certificate verification error）
-        const sslDetail = isSSLError
-          ? {
-              ...BaseAIProvider.getCaCertDiagnostic(),
-              runtime: typeof Bun === 'undefined' ? 'node' : 'bun',
-              elapsedMs: Date.now() - streamStartMs,
-              errorName: (error as Error)?.name ?? typeof error,
-            }
-          : undefined;
+        // 失败分类（连接中断 / 超时 / SSL 瞬态）见 `openaiStreamFailure`
+        const failure = classifyStreamFailure(error, {
+          fetchCause,
+          endpointUrl: `${this.baseUrl}/chat/completions`,
+          streamStartMs,
+        });
+        const { errorMessage, isTimeout, isSSLError, sslDetail } = failure;
         if (
-          attempt < MAX_STREAM_ATTEMPTS - 1 &&
-          (isSocketClosed || isTimeout || isSSLError) &&
-          fullContent.length === 0
+          shouldRetryStreamFailure(
+            failure,
+            attempt,
+            MAX_STREAM_ATTEMPTS,
+            fullContent.length
+          )
         ) {
           logger.warn('流式请求中断（首块前），重试请求', {
             providerId: this.id,
@@ -667,25 +532,7 @@ export class OpenAIProvider extends BaseAIProvider {
           attempt: attempt + 1,
           sslDetail,
         });
-        const userHint = isSSLError
-          ? `SSL 证书验证失败。请尝试以下操作：\n` +
-            `1. 设置环境变量 NODE_EXTRA_CA_CERTS 指向系统 CA 证书文件\n` +
-            `   （如 Git\\mingw64\\ssl\\cert.pem 或 curl\\ca-bundle.crt）\n` +
-            `2. 如在代理环境下使用，请确认代理证书已加入信任列表\n` +
-            `原始错误: ${errorMessage}`
-          : diagnostic;
-        // 诊断增强：错误消息附带 Provider 标识与端点 host，便于定位是哪个供应商/网关
-        // 2026-09-25 §6.8：预期中止**不是"流失败"** —— 文案逐字保留（用户可见诊断与
-        // errorRecovery 的 errorCategory 判定均不变），但 severity 降为 LOW 并携带
-        // 「预期中断」品牌，使 handleError（唯一错误入口）统一降噪（不告警 / 不计错误统计）。
-        const expectedAbort = isAbortReason(error);
-        const wrapped = new AppError(
-          `OpenAI stream failed: ${userHint}（Provider: ${this.id} / ${this.endpointHost()}）`,
-          ErrorCategory.EXECUTION,
-          expectedAbort ? ErrorSeverity.LOW : ErrorSeverity.HIGH,
-          '1000'
-        );
-        throw expectedAbort ? markAsExpectedAbort(wrapped) : wrapped;
+        throw this._wrapStreamFailure(error, failure);
       }
     }
 
@@ -696,6 +543,67 @@ export class OpenAIProvider extends BaseAIProvider {
       ErrorSeverity.HIGH,
       '1000'
     );
+  }
+
+  /**
+   * 流式响应状态码断言（自 `chatStreamInternal` 原样外移，P3-2，2026-11-17）。
+   */
+  private async _requireOkStreamResponse(response: Response): Promise<void> {
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new AppError(
+        `OpenAI stream error (${response.status}): ${errorBody}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
+    }
+  }
+
+  /** 取响应体 reader（缺失即失败 —— 流式响应必须有 body），原样外移自 `chatStreamInternal` */
+  private _requireStreamReader(
+    response: Response
+  ): ReadableStreamDefaultReader<Uint8Array> {
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new AppError(
+        'OpenAI stream: no response body',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
+    }
+    return reader;
+  }
+
+  /**
+   * 流失败的最终包装（自 `chatStreamInternal` 的 catch 段原样外移，P3-2，2026-11-17）：
+   * 生成用户提示（SSL 专项 / 底层诊断文案），并附 Provider 标识与端点 host 便于定位。
+   */
+  private _wrapStreamFailure(
+    error: unknown,
+    failure: StreamFailureClassification
+  ): AppError {
+    const { errorMessage, diagnostic, isSSLError } = failure;
+    const userHint = isSSLError
+      ? `SSL 证书验证失败。请尝试以下操作：\n` +
+        `1. 设置环境变量 NODE_EXTRA_CA_CERTS 指向系统 CA 证书文件\n` +
+        `   （如 Git\\mingw64\\ssl\\cert.pem 或 curl\\ca-bundle.crt）\n` +
+        `2. 如在代理环境下使用，请确认代理证书已加入信任列表\n` +
+        `原始错误: ${errorMessage}`
+      : diagnostic;
+    // 诊断增强：错误消息附带 Provider 标识与端点 host，便于定位是哪个供应商/网关
+    // 2026-09-25 §6.8：预期中止**不是"流失败"** —— 文案逐字保留（用户可见诊断与
+    // errorRecovery 的 errorCategory 判定均不变），但 severity 降为 LOW 并携带
+    // 「预期中断」品牌，使 handleError（唯一错误入口）统一降噪（不告警 / 不计错误统计）。
+    const expectedAbort = isAbortReason(error);
+    const wrapped = new AppError(
+      `OpenAI stream failed: ${userHint}（Provider: ${this.id} / ${this.endpointHost()}）`,
+      ErrorCategory.EXECUTION,
+      expectedAbort ? ErrorSeverity.LOW : ErrorSeverity.HIGH,
+      '1000'
+    );
+    return expectedAbort ? markAsExpectedAbort(wrapped) : wrapped;
   }
 
   /**

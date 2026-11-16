@@ -96,6 +96,46 @@ type InternalState = {
   buffer: string;
 };
 
+/**
+ * 当前位置是否为 OSC/DCS/APC 的字符串终结符 `ESC \`（ST）。
+ *
+ * P3-2（2026-11-16）：原在 osc / dcs / apc 三个 case 里各写一份同一判据，
+ * 外移为纯函数（行为不变；边界 `i + 1 < data.length` 保持"不跨输入判断"）。
+ */
+function isStringTerminatorAt(data: string, i: number): boolean {
+  return (
+    data.charCodeAt(i) === C0.ESC &&
+    i + 1 < data.length &&
+    data.charCodeAt(i + 1) === ESC_TYPE.ST
+  );
+}
+
+/**
+ * 当前位置是否为 X10 鼠标事件前缀（`CSI M` + 3 个原始载荷字节）。
+ *
+ * 判据（详见 `tokenize` 内 csi 分支的历史注释）：
+ * - 仅在 `x10Mouse` 开启（stdin）时成立；
+ * - `M` 必须紧邻 `CSI`（`i - seqStart === 2`，SGR 鼠标会有 `<` 参数位）；
+ * - 三个载荷槽必须是 `>= 0x20`（控制字节说明这是相邻的 CSI DL，不是鼠标事件）。
+ *
+ * P3-2（2026-11-16）：纯判据外移，`tokenize` 只保留游标推进。
+ */
+function isX10MouseSequence(
+  data: string,
+  i: number,
+  seqStart: number,
+  x10Mouse: boolean
+): boolean {
+  return (
+    x10Mouse &&
+    data.charCodeAt(i) === 0x4d /* M */ &&
+    i - seqStart === 2 &&
+    (i + 1 >= data.length || data.charCodeAt(i + 1) >= 0x20) &&
+    (i + 2 >= data.length || data.charCodeAt(i + 2) >= 0x20) &&
+    (i + 3 >= data.length || data.charCodeAt(i + 3) >= 0x20)
+  );
+}
+
 function tokenize(
   input: string,
   initialState: State,
@@ -225,14 +265,7 @@ function tokenize(
         // fails and the event buffers until the next keypress absorbs it.
         // Fixing this requires latin1 stdin; X10's 223-coord cap is exactly
         // why SGR was invented, and no-SGR terminals at 162+ cols are rare.
-        if (
-          x10Mouse &&
-          code === 0x4d /* M */ &&
-          i - seqStart === 2 &&
-          (i + 1 >= data.length || data.charCodeAt(i + 1) >= 0x20) &&
-          (i + 2 >= data.length || data.charCodeAt(i + 2) >= 0x20) &&
-          (i + 3 >= data.length || data.charCodeAt(i + 3) >= 0x20)
-        ) {
+        if (isX10MouseSequence(data, i, seqStart, x10Mouse)) {
           if (i + 4 <= data.length) {
             i += 4;
             emitSequence(data.slice(seqStart, i));
@@ -271,11 +304,7 @@ function tokenize(
         if (code === C0.BEL) {
           i++;
           emitSequence(data.slice(seqStart, i));
-        } else if (
-          code === C0.ESC &&
-          i + 1 < data.length &&
-          data.charCodeAt(i + 1) === ESC_TYPE.ST
-        ) {
+        } else if (isStringTerminatorAt(data, i)) {
           i += 2;
           emitSequence(data.slice(seqStart, i));
         } else {
@@ -288,11 +317,7 @@ function tokenize(
         if (code === C0.BEL) {
           i++;
           emitSequence(data.slice(seqStart, i));
-        } else if (
-          code === C0.ESC &&
-          i + 1 < data.length &&
-          data.charCodeAt(i + 1) === ESC_TYPE.ST
-        ) {
+        } else if (isStringTerminatorAt(data, i)) {
           i += 2;
           emitSequence(data.slice(seqStart, i));
         } else {

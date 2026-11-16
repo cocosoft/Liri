@@ -195,6 +195,10 @@ export function unwrapShellCommand(command: string): UnwrapResult {
       idx += 1;
     }
     if (idx >= tokens.length) return fail('env 后无命令');
+    // P3-2（2026-11-16，用户裁定）：`env -i …` / `env -u VAR …` 这类**开关形态**不剥壳。
+    // 旧实现把 `-i` 当成内层命令（`inner = '-i bash -lc "…"'`）⇒ 剥壳"成功"却解析出垃圾，
+    // 内层危险命令随后落 ask（一次点击即可放行）。开关会改变环境语义 ⇒ 一律 fail-closed。
+    if (tokens[idx].value.startsWith('-')) return fail('env 带开关，不剥壳');
     const inner = tailCommand(command, tokens, idx);
     if (!inner) return fail('env 后无命令');
     return { ok: true, command: inner, wrapper: 'env' };

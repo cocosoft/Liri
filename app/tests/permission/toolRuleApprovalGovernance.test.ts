@@ -101,7 +101,7 @@ describe('R3：规则来源侧与分组字段', () => {
     expect(isApprovalOriginatedRule(legacyAllow)).toBe(false);
   });
 
-  it('序列化带分组字段：approvedAt 回落 createdAt；approvedBy / hitCount 如实为 null', () => {
+  it('序列化带分组字段：approvedAt 回落 createdAt；approvedBy 如实 null；hitCount 来自命中计数', () => {
     const createdAt = new Date('2026-11-17T00:00:00.000Z');
     const approvedAt = new Date('2026-11-17T01:00:00.000Z');
     const approvalRule: PermissionRule = {
@@ -121,7 +121,9 @@ describe('R3：规则来源侧与分组字段', () => {
     expect(serialized['origin']).toBe('approval');
     expect(serialized['approvedAt']).toBe(approvedAt.toISOString());
     expect(serialized['approvedBy']).toBeNull();
-    expect(serialized['hitCount']).toBeNull();
+    // R5：命中计数来自规则命中统计；随机 id 必然未命中 ⇒ 0 / null
+    expect(serialized['hitCount']).toBe(0);
+    expect(serialized['lastHitAt']).toBeNull();
     expect(serialized['readOnly']).toBe(true);
 
     // 旧审批规则（无 approvedAt）⇒ 回落 createdAt

@@ -28,6 +28,7 @@ import type {
 import type { RuleMatcherPermissionContext } from '../utils/RuleMatcher';
 import type { Tool } from '../PermissionChecker';
 import { auditDecision } from './decisionTelemetry';
+import { recordRuleHit } from '../ruleHitStats';
 import {
   ModeHandlerDeps,
   handleAuto,
@@ -167,6 +168,11 @@ export async function checkPermissionInner(
       );
       break;
   }
+
+  // 按规则维度的命中计数（R3 hitCount / ⑤ 90 天未命中的数据源）：
+  // 只统计"决策由某条规则给出"的真实判定；`simulate` 不经过本函数 ⇒ 不计数。
+  const matchedRuleId = (decision.rule as { id?: string } | undefined)?.id;
+  if (matchedRuleId) recordRuleHit(matchedRuleId);
 
   // R07-3（2026-10-07）：非幂等工具「重试」⇒ 把**本该放行**的调用升级为 `ask`（审批）。
   // 复用既有 ask⇒Inbox 通路（本方法调用方 `checkPermissionForTool` 提交卡片）⇒ 不新建审批机制。

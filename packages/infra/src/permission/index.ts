@@ -365,6 +365,23 @@ export type {
   UnknownCommandReport,
   UnknownCommandSampleRow,
 } from './classifiers/unknownCommandDigest';
+// R5（2026-11-17）：按**规则**维度的命中计数（R3 hitCount / ⑤「90 天未命中」的数据源）
+export {
+  recordRuleHit,
+  getRuleHitEntry,
+  readRuleHitStats,
+  flushRuleHitStats,
+  buildRuleHitReport,
+  resolveRuleHitStatsPath,
+  resetRuleHitStatsForTest,
+  RULE_HIT_STALE_DAYS,
+} from './ruleHitStats';
+export type {
+  RuleHitEntry,
+  RuleHitStatsSnapshot,
+  RuleHitReport,
+  StaleRuleInfo,
+} from './ruleHitStats';
 export type {
   SimulatePermissionDeps,
   SimulatePermissionRequest,

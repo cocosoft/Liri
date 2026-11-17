@@ -50,6 +50,9 @@ import {
   setApprovalPauseEnabled,
   APPROVAL_PAUSE_CONFIG_KEY,
   readUnknownCommandDigest,
+  getRuleHitEntry,
+  readRuleHitStats,
+  buildRuleHitReport,
   SIMULATABLE_PERMISSION_MODES,
   isSimulatablePermissionMode,
   type CommandRulesSettings,
@@ -73,6 +76,8 @@ export function serializeRule(rule: PermissionRule): Record<string, unknown> {
   const approvedAt = approvalOriginated
     ? (rule.approvedAt ?? rule.createdAt)
     : null;
+  // R5：按规则维度的命中统计（决策链真实判定写入；从未命中 ⇒ 0 / null）
+  const hit = getRuleHitEntry(rule.id);
   return {
     id: rule.id,
     behavior: rule.behavior,
@@ -95,8 +100,9 @@ export function serializeRule(rule: PermissionRule): Record<string, unknown> {
         : (approvedAt ?? null),
     // 如实：审批记录未保存批准者身份（本地审批无身份字段）⇒ null，不编造
     approvedBy: null,
-    // 如实：按规则维度的命中计数尚未落库（R4 补）⇒ null，不用工具级计数冒充
-    hitCount: null,
+    // R5：命中次数 / 最近命中（决策链真实判定计数；从未命中 ⇒ 0 / null）
+    hitCount: hit?.count ?? 0,
+    lastHitAt: hit ? new Date(hit.lastHitAt).toISOString() : null,
     priority: rule.priority,
     createdAt:
       rule.createdAt instanceof Date
@@ -173,7 +179,7 @@ export async function handleListPermissionRules(
         approvalRules: {
           count: approvalRules.length,
           rules: approvalRules.map(serializeRule),
-          note: '审批卡生成的持久化放行：只可撤销（DELETE），不可编辑；approvedBy / hitCount 暂未落库，如实返回 null',
+          note: '审批卡生成的持久化放行：只可撤销（DELETE），不可编辑；approvedBy 未落库（如实 null），hitCount 来自规则命中计数',
         },
         // R3：「暂停全部持久化放行」当前状态（开启后审批规则不参与判定，仍可逐条撤销）
         approvalPause: {
@@ -617,11 +623,21 @@ export async function handleGetPermissionRulesHealth(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const health = PermissionManager.getInstance()
-      .getRuleManager()
-      .getRuleFileHealth();
+    const ruleManager = PermissionManager.getInstance().getRuleManager();
+    const health = ruleManager.getRuleFileHealth();
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ generatedAt: Date.now(), ...health }));
+    res.end(
+      JSON.stringify({
+        generatedAt: Date.now(),
+        ...health,
+        // R5：按规则维度的命中统计 + 「90 天未命中」报告。
+        // 观察期不足 90 天 ⇒ `observationComplete: false` 且 `staleRules: []`（不误报）。
+        ruleHits: buildRuleHitReport(
+          ruleManager.getRules(),
+          readRuleHitStats()
+        ),
+      })
+    );
   } catch (err) {
     sendError(res, err);
   }

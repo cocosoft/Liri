@@ -75,8 +75,18 @@ allow 规则有预算（`permission.userRuleAllowBudget`，默认 50）。
 - 桌面设置页：`GET /v1/permissions/rules` → `unknownCommandSuggestions`
   `{sinceDays, headCount, sampleCount, topHeads[]}`，无样本 ⇒ `null`（不显示 0 值噪音）。
 
-## 6. 尚未覆盖（如实记录）
+## 6. 规则命中计数与「90 天未命中」
 
-- **按规则 id 的命中计数**（`hitCount`）与「90 天未命中提示」尚未实现：
-  需要独立的规则命中计数器（当前 `PermissionMetricsStore` 只按工具/原因聚合），
-  不能用本流水线的采样计数冒充。
+`/v1/permissions/rules` 每条规则带 `hitCount / lastHitAt`（决策链真实判定计数，
+`simulate` 不计数）；`GET /v1/permissions/rules/health` 的 `ruleHits` 给出
+`{staleDays: 90, countingSince, observationDays, observationComplete, staleRules[]}`。
+
+- 判定：`now - (lastHitAt ?? createdAt) ≥ 90 天` ⇒ 建议清理；
+- **观察期闸**：开始计数不足 90 天 ⇒ `observationComplete: false` 且 `staleRules: []`
+  —— 不把"还没开始计数"误报成"规则没用"；
+- 数据：`<pyapp-home>/data/permission/rule_hits.json`（节流写盘，崩溃最多丢 5s）。
+
+## 7. 尚未覆盖（如实记录）
+
+- `approvedBy`（批准者）仍为 `null`：审批记录没有身份字段（本地审批无 actor）。
+- 规则的**命中计数**为观测数据：崩溃最多丢最后 5s，且不跨机器聚合。

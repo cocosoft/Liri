@@ -16,6 +16,8 @@
  */
 
 import { getLogger } from '@openliri/infra/monitoring';
+// P3（2026-11-17）：批量合并开关走权限域环境变量（不放内核 featureFlags —— 内核体量已锁）
+import { configManager } from '@openliri/infra/config';
 import { isShellToolName } from '@openliri/infra/utils/toolContract/toolRoles';
 import type { ToolRegistry } from '@modules/tools';
 import type {
@@ -181,7 +183,7 @@ export async function submitToolApproval(
   approvalSnapshot?: ApprovalSnapshot
 ): Promise<string | null> {
   try {
-    const { inboxManager } =
+    const { inboxManager, INBOX_STATUS_PENDING } =
       await import('@openliri/service/runtime/InboxManager');
     // P1（2026-11-04）：审批卡构造收敛到 infra 的**唯一构造点**（与判定前路径同一实现，
     // 见 `packages/infra/src/permission/toolApprovalSubmission.ts`）。此前两处各拼一份，
@@ -216,6 +218,57 @@ export async function submitToolApproval(
         inboxItemId: existingId,
       });
       return existingId;
+    }
+
+    // P3（2026-11-17）：**同工具 + 同风险**的多次 ask 合并到一张在途卡（默认关）。
+    // 开关：`PERMISSION_APPROVAL_BATCH=true`（权限域环境变量；只认显式 true，拼写错误按关）。
+    // 合并只发生在内存合并簿（`approvalBatch`），批准时由 inboxApproval 一次写多条放行缓存；
+    // 进程重启丢批 ⇒ 对应调用仍 awaiting（fail-closed），不会误放行。
+    const approvalBatchEnabled =
+      configManager.env('PERMISSION_APPROVAL_BATCH')?.trim().toLowerCase() ===
+      'true';
+    if (approvalBatchEnabled) {
+      const { canBatchApproval, addApprovalBatchEntry, getApprovalBatchSize } =
+        await import('@openliri/service/runtime/approvalBatch');
+      const pending = await inboxManager.list({
+        sessionId: sid,
+        status: INBOX_STATUS_PENDING,
+        type: 'approval',
+        limit: 20,
+      });
+      for (const item of pending.items) {
+        const meta = (item.metadata ?? {}) as Record<string, unknown>;
+        if (
+          !canBatchApproval({
+            enabled: true,
+            pendingCount: getApprovalBatchSize(item.id),
+            candidateToolName: meta.toolName,
+            candidateRisk: meta.risk,
+            candidateIsWorkspaceScope: meta.kind === 'workspace-scope',
+            toolName,
+            risk: String(card.risk),
+          })
+        ) {
+          continue;
+        }
+        if (
+          addApprovalBatchEntry(item.id, {
+            commandHash: card.commandHash,
+            ...(typeof input.command === 'string'
+              ? { command: input.command }
+              : {}),
+            fingerprintHash: card.fingerprintHash,
+          })
+        ) {
+          logger.info('审批已合并到在途卡（P3 批量合并）', {
+            toolName,
+            sessionId: sid,
+            inboxItemId: item.id,
+            batched: getApprovalBatchSize(item.id),
+          });
+          return item.id;
+        }
+      }
     }
 
     // P5-1：① 申请（只在新卡真正要建时开链）

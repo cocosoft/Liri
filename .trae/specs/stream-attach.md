@@ -176,6 +176,8 @@ if (method === 'GET' && url.match(/^\/v1\/sessions\/(.+)\/attach$/)) {
 - 选项 A（本 spec 默认）：保持现状，先只上端点与 tee。范围最小、零行为变化，但**刷新场景仍接不回来**。
 - 选项 B：新增 `client_disconnect_grace_ms`（默认 `0` = 行为不变）。`>0` 时断开后不立即 abort，等 attach 接管；超时才 abort。风险：孤儿运行（用户以为停了）、资源占用。
 - 建议：A 先落地并验证；B 单独评审、默认关闭，且需同时定"孤儿运行"的兜底（grace 到期 abort + UI 明示）。
+  2026-11-18 现状：A 已落地（`926d1bf50` / `78f16071f` / `476b117b7`）；B 的子 spec 见
+  [`stream-attach-grace.md`](./stream-attach-grace.md)（待评审，未实现）。
 
 **D2**：`from_seq` 语义按"帧序号"（本 spec）还是按已有 `events.jsonl` 的 `seq`？建议帧序号（帧才是 attach 要重放的对象）。
 

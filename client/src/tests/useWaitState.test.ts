@@ -134,6 +134,49 @@ describe("useWaitState（轮询策略）", () => {
     expect(mocks.getSessionRuntimeStatus).toHaveBeenCalledTimes(1);
   });
 
+  it("后端仍在跑、本页未接入 ⇒ remoteStreaming=true 且继续轮询", async () => {
+    mocks.getSessionRuntimeStatus.mockResolvedValue({ streaming: true });
+
+    const { result } = renderHook(() => useWaitState("s8", false));
+    await act(async () => {});
+    expect(result.current.remoteStreaming).toBe(true);
+    expect(result.current.waiting).toBe(false);
+
+    await act(async () => {
+      vi.advanceTimersByTime(WAIT_POLL_MS);
+    });
+    expect(mocks.getSessionRuntimeStatus).toHaveBeenCalledTimes(2);
+  });
+
+  it("后台运行结束 ⇒ remoteStreaming 转 false 并停止轮询", async () => {
+    mocks.getSessionRuntimeStatus
+      .mockResolvedValueOnce({ streaming: true })
+      .mockResolvedValue({ streaming: false });
+
+    const { result } = renderHook(() => useWaitState("s9", false));
+    await act(async () => {});
+    expect(result.current.remoteStreaming).toBe(true);
+
+    await act(async () => {
+      vi.advanceTimersByTime(WAIT_POLL_MS);
+    });
+    expect(result.current.remoteStreaming).toBe(false);
+
+    const calls = mocks.getSessionRuntimeStatus.mock.calls.length;
+    await act(async () => {
+      vi.advanceTimersByTime(WAIT_POLL_MS * 3);
+    });
+    expect(mocks.getSessionRuntimeStatus).toHaveBeenCalledTimes(calls);
+  });
+
+  it("本页正在流式 ⇒ 不报 remoteStreaming（输出已接入本页）", async () => {
+    mocks.getSessionRuntimeStatus.mockResolvedValue({ streaming: true });
+
+    const { result } = renderHook(() => useWaitState("s10", true));
+    await act(async () => {});
+    expect(result.current.remoteStreaming).toBe(false);
+  });
+
   it("等待中 seconds 按秒递增（本地计时）", async () => {
     mocks.getSessionRuntimeStatus.mockResolvedValue({
       streaming: false,

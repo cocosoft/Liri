@@ -24,6 +24,8 @@ import {
   isDemandAutoAllowEnabled,
   isDemandHardDenyCommand,
 } from '../demandHardDeny';
+// B3 余项（2026-11-17）：每会话自动放行配额（默认不限）+ 摘要日志
+import { consumeDemandAutoAllow } from '../demandAutoAllowQuota';
 import { extractWriteTargets } from '../classifiers/write-targets';
 import { splitCommandSegments } from '../classifiers/command-segments';
 import { isWithinWorkingDirectory } from '../filesystem';
@@ -555,15 +557,26 @@ export interface ModeHandlerDeps {
             writeOutsideWorkspace: hasWriteTargetOutsideWorkspace(context),
           })
         ) {
-          deps.denialTracker.trackSuccess(toolName, context.sessionId);
-          logger.info('permission:demand_auto_allow', {
-            toolName,
+          // B3 余项：每会话配额（默认 0 = 不限）；用尽 ⇒ **回落 ask**（不 deny，
+          // 也不改变非 demand 会话）。计数同时驱动周期摘要日志。
+          const quota = consumeDemandAutoAllow({
             sessionId: context.sessionId,
-            reason: classifierDecision.reason,
+            toolName,
           });
-          return createAllowDecision(
-            `demand: 自动放行（${classifierDecision.reason || 'approved'}）`
-          );
+          if (quota.allowed) {
+            deps.denialTracker.trackSuccess(toolName, context.sessionId);
+            logger.info('permission:demand_auto_allow', {
+              toolName,
+              sessionId: context.sessionId,
+              reason: classifierDecision.reason,
+              autoAllowCount: quota.count,
+              autoAllowLimit: quota.limit,
+            });
+            return createAllowDecision(
+              `demand: 自动放行（${classifierDecision.reason || 'approved'}）`
+            );
+          }
+          // 落到下面的 createAskDecision（quota 命中告警已在配额模块内落一次）
         }
         return createAskDecision(
           classifierDecision.reason || 'Requires approval by auto classifier'

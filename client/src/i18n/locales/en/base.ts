@@ -529,6 +529,8 @@ const enBase = {
     runBeatAge: "last heartbeat {{seconds}}s ago",
     runStalled:
       "⚠️ No backend heartbeat for {{seconds}}s — the connection may be down (waiting for auto-reconnect)",
+    remoteStreamingLabel:
+      "This session is still running in the background (live output is not attached to this page)",
     yieldUnresolved:
       "This turn yielded but could not auto-resume (app restart or lost settlement). Just send a message to continue.",
     // PR-3c (2026-10-23): persistent global trust level notice (Q-31 / §9-17)

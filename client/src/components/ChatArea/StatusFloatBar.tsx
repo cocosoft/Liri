@@ -196,6 +196,11 @@ export default function StatusFloatBar({
    */
   const isWaiting = wait?.waiting === true;
   /**
+   * 2026-11-18（Run HUD）：后端报告本会话仍在运行，但本页面没接入该流
+   * （刷新 / 切走再回来）。此前这种情形直接卸载浮动栏 ⇒ 界面退回"答完了"的样子。
+   */
+  const remoteStreaming = wait?.remoteStreaming === true;
+  /**
    * 2026-11-13：等待审批 ≠ 已完成。此前浮动栏只看"有没有字节在流"，审批暂停时卸载或
    * 继续显示「已完成 x/y」⇒ 用户读到"任务结束了"。审批期间保持渲染并改文案。
    */
@@ -203,7 +208,8 @@ export default function StatusFloatBar({
     () => hasPendingApproval(messages),
     [messages],
   );
-  const keepVisible = isActive || isWaiting || pendingApproval;
+  const keepVisible =
+    isActive || isWaiting || pendingApproval || remoteStreaming;
   /**
    * 2026-11-18（Run HUD）：运行秒表 + 后端心跳年龄。
    * 原状态条只有一句静态「AI 正在生成回复」—— 一个字不变的 UI 和真死掉的 UI
@@ -283,6 +289,8 @@ export default function StatusFloatBar({
       // 等待态（2026-09-27）：**已确认在等**（后端 yieldState/pendingWake）⇒ 不得回落成
       // "正在生成 / 编排进行中"等谎报文案（原实现即因此显示成"答完了"）
       if (isWaiting) return waitText();
+      // 2026-11-18：后端仍在跑、本页未接入 ⇒ 如实说明"在后台运行"，不谎报"已完成"
+      if (remoteStreaming) return t("chat.remoteStreamingLabel");
       if (pdca?.visible) return t("chat.pdcaIdle");
       // 空闲且仅"用编排推进"入口常驻：左侧不谎报运行态也不与右侧入口文案重复，
       // 未完成进度由 TaskProgress（已完成 x/y）承担
@@ -332,7 +340,8 @@ export default function StatusFloatBar({
         <div className={fluid ? "w-full" : "max-w-3xl mx-auto"}>
           <div className="flex items-center gap-2.5 px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200/50 dark:border-gray-700/50 rounded-xl shadow-md cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
             {/* 状态指示点：绿色脉冲 = 运行中；停滞 = 静态琥珀（不脉冲，不得谎报"仍在输出"）；
-                等待中 = 静态蓝点；等待审批 = 静态琥珀点；空闲但 PDCA 常驻时用静态灰点 */}
+                等待中 / 后台运行（本页未接入）= 静态蓝点；等待审批 = 静态琥珀点；
+                空闲但 PDCA 常驻时用静态灰点 */}
             <span className="relative flex h-2.5 w-2.5">
               {isActive && !runClock.stalled && (
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
@@ -347,7 +356,9 @@ export default function StatusFloatBar({
                         ? "bg-amber-500"
                         : isWaiting
                           ? "bg-sky-500"
-                          : "bg-gray-400"
+                          : remoteStreaming
+                            ? "bg-sky-500"
+                            : "bg-gray-400"
                 }`}
               />
             </span>

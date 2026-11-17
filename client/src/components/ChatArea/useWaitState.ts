@@ -15,8 +15,11 @@
  * 轮询策略（D3/D4，按后端成本分级）：
  * - `sessionId` / `isStreaming` 变化 ⇒ 立即拉一次（沿用既有语义：让出结束本轮流、续跑再结束）；
  * - **仅在等待中**每 `WAIT_POLL_MS` 再拉（`yieldState='waiting'` 走内存 registry，很便宜）；
+ * - **后台运行中**（`streaming=true` 且本页面未接入该流）同样每 `WAIT_POLL_MS` 再拉 ——
+ *   否则刷新 / 切会话回来后只拉一次，后续「它还在跑 / 已经停了」的变化全部看不到
+ *   （2026-11-18 用户反馈「以为你挂了」的根因之一）；
  * - `unresolved` ⇒ **停止轮询**（后端该分支要读 200 条事件尾，不可高频）；
- * - 非等待态 ⇒ 不轮询（流式期间的反馈由 SSE 承担）。
+ * - 非等待态且非后台运行 ⇒ 不轮询（流式期间的反馈由 SSE 承担）。
  *
  * 与 `useThinkingPhase` 同范式（共享钩子 + 纯函数可单测 + 本地计时不落 store）。
  */
@@ -45,6 +48,15 @@ export interface DerivedWaitState {
 export interface WaitState extends DerivedWaitState {
   /** 已等待秒数（本地计时，从进入等待态起算） */
   seconds: number;
+  /**
+   * 后端报告本会话仍在运行，而本页面**没有接入**该流
+   * （刷新 / 切到别的会话再回来 / 后台批次仍在本会话上跑）。
+   *
+   * 2026-11-18（Run HUD）：此前该情形下浮动栏直接卸载，界面退回"答完了"的样子 ——
+   * 用户据此以为进程挂了。这里只如实陈述"还在跑、但本页看不到实时输出"，
+   * 不伪造进度，也不提供后端尚不支持的"接入"动作。
+   */
+  remoteStreaming: boolean;
 }
 
 /**
@@ -106,8 +118,10 @@ export function useWaitState(
         if (cancelled) return;
         setStatus(s);
         const d = deriveWaitState(s, isStreaming);
-        // 仅"等待中且非 unresolved"继续轮询（unresolved 的查询在服务端更贵）
-        if (d.waiting && !d.unresolved) {
+        // 仅"等待中且非 unresolved"继续轮询（unresolved 的查询在服务端更贵）；
+        // 2026-11-18：后台运行中（本页未接入）也要继续观察，直到后端自己停下。
+        const remoteRunning = s.streaming === true && !isStreaming;
+        if ((d.waiting && !d.unresolved) || remoteRunning) {
           timerId = window.setTimeout(tick, WAIT_POLL_MS);
         }
       } catch (e) {
@@ -128,6 +142,9 @@ export function useWaitState(
   }, [sessionId, isStreaming]);
 
   const derived = deriveWaitState(status, isStreaming);
+  // 后端在跑、本页未接入（deriveWaitState 的等待态与它互斥：前者要求本地不在流式中，
+  // 且后端 streaming=false —— 故此处仅以后端 streaming 为准，不重复判断 waiting）
+  const remoteStreaming = status?.streaming === true && !isStreaming;
 
   // 进入/离开等待态 ⇒ 记录起点（不落 store）
   useEffect(() => {
@@ -154,5 +171,5 @@ export function useWaitState(
     return () => window.clearInterval(timer);
   }, [derived.waiting]);
 
-  return { ...derived, seconds };
+  return { ...derived, seconds, remoteStreaming };
 }

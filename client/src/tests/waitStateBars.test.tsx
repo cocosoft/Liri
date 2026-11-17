@@ -31,6 +31,7 @@ describe("StatusFloatBar —— 等待态（2026-09-27）", () => {
           waiting: true,
           reason: "selfwake",
           unresolved: false,
+          remoteStreaming: false,
           seconds: 3,
         }}
       />,
@@ -46,6 +47,7 @@ describe("StatusFloatBar —— 等待态（2026-09-27）", () => {
           waiting: true,
           reason: "selfwake",
           unresolved: false,
+          remoteStreaming: false,
           triggerAt: Date.now() + 90_000,
           seconds: 12,
         }}
@@ -61,6 +63,7 @@ describe("StatusFloatBar —— 等待态（2026-09-27）", () => {
           waiting: true,
           reason: "selfwake",
           unresolved: false,
+          remoteStreaming: false,
           seconds: 42,
         }}
       />,
@@ -75,6 +78,7 @@ describe("StatusFloatBar —— 等待态（2026-09-27）", () => {
           waiting: true,
           reason: "yield",
           unresolved: false,
+          remoteStreaming: false,
           seconds: 7,
         }}
       />,
@@ -89,6 +93,7 @@ describe("StatusFloatBar —— 等待态（2026-09-27）", () => {
           waiting: true,
           reason: "selfwake",
           unresolved: false,
+          remoteStreaming: false,
           seconds: 1,
         }}
       />,

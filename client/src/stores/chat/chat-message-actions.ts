@@ -5,7 +5,7 @@
  * 均为围绕 messages 的轻量操作，通过 set/get 读写 store。
  */
 import { sessionService } from "@/services/sessionService";
-import { truncateMessages } from "@/services/chatService";
+import { chatService, truncateMessages } from "@/services/chatService";
 import { useFeatureFlagStore } from "@/stores/featureFlags";
 import { handleClientError } from "@/utils/handleError";
 import { createLogger } from "@/utils/logger";
@@ -624,6 +624,107 @@ export function resumeRecoveryImpl(
 ): void {
   set({ recoverySessionId: null });
   // 不清除后端检查点 — resume 端点需要它来恢复生成器状态
+}
+
+/**
+ * 只读接入本会话正在后台运行的这一轮（2026-11-18，Spec `.trae/specs/stream-attach.md` §6）。
+ *
+ * **设计取舍（实现唯一性）**：不在本地另建一套渲染管线。attach 只把状态类 chunk
+ * （`status` / `execution_phase`）写进既有 store 字段；正文渲染仍以**服务端落盘**
+ * 为唯一来源 —— 接入结束（或失败）时拉一次消息做增量刷新。
+ *
+ * 与发送路径的边界：不发送消息、不动 `isSending`/输入区；只登记 `streamControllers`
+ * 与 `isStreaming`，使「停止」按钮与运行态标识继续按既有语义工作。
+ */
+export async function attachStreamImpl(
+  set: MessageSet,
+  get: MessageGet,
+  sessionId: string,
+): Promise<void> {
+  const sid = sessionId;
+  if (!sid) return;
+  if (get().streamControllers[sid] || get().pausedStreams[sid]) {
+    logger.debug("attachStream: 本会话已有本地流/挂起流，跳过接入", {
+      sessionId: sid,
+    });
+    return;
+  }
+
+  const controller = new AbortController();
+  set({
+    isStreaming: true,
+    error: null,
+    errorCode: null,
+    streamControllers: { ...get().streamControllers, [sid]: controller },
+    activeStreamSessionId: sid,
+  });
+
+  let failure: string | null = null;
+  try {
+    for await (const chunk of chatService.attachStream(sid, {
+      signal: controller.signal,
+    })) {
+      if (chunk.type === "status" && chunk.content) {
+        set({ streamingStatus: chunk.content });
+      } else if (chunk.type === "execution_phase" && chunk.executionPhase) {
+        const ep = chunk.executionPhase;
+        set({
+          executionPhase: {
+            phase: ep.phase as
+              | "analyzing"
+              | "designing"
+              | "implementing"
+              | "verifying"
+              | "presenting"
+              | null,
+            progress: ep.progress,
+            description: ep.description,
+          },
+        });
+      } else if (chunk.type === "error") {
+        failure = chunk.errorCode ?? "UNKNOWN";
+        set({ error: chunk.content, errorCode: chunk.errorCode ?? null });
+      }
+    }
+  } catch (e) {
+    if (!(e instanceof DOMException && e.name === "AbortError")) {
+      handleClientError(e, {
+        module: "stores:chat:message",
+        action: "attachStream",
+      });
+    }
+  } finally {
+    const nextControllers = removeStreamController(
+      get().streamControllers,
+      sid,
+      controller,
+    );
+    set({
+      isStreaming: Object.keys(nextControllers).length > 0,
+      streamingStatus: "",
+      executionPhase: null,
+      streamControllers: nextControllers,
+      ...(get().activeStreamSessionId === sid &&
+      nextControllers[sid] === undefined
+        ? { activeStreamSessionId: null }
+        : {}),
+    });
+
+    // 正文唯一来源 = 服务端落盘：成功/失败都做一次增量刷新（失败时也要把界面拉回真相）
+    try {
+      const msgs = await sessionService.getMessages(sid);
+      if (get().messages[0]?.session_id === sid) {
+        get().mergeRefreshedMessages(msgs);
+      }
+    } catch (e) {
+      handleClientError(
+        e,
+        { module: "stores:chat:message", action: "attachStream:refresh" },
+        "warn",
+      );
+    }
+    logger.info("attachStream: 接入结束", { sessionId: sid, failure });
+  }
 }
 
 /**

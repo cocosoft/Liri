@@ -292,6 +292,8 @@ export const ENDPOINTS = {
     messagesSearch: "/v1/sessions/messages/search",
     batchDelete: "/v1/sessions/batch-delete",
     streaming: (sessionId: string) => `/v1/sessions/${sessionId}/streaming`,
+    /** 只读接入正在输出的这一轮（Spec `.trae/specs/stream-attach.md`）；查询串由调用方拼 */
+    attach: (sessionId: string) => `/v1/sessions/${sessionId}/attach`,
     compact: (sessionId: string) => `/v1/sessions/${sessionId}/compact`,
     prune: "/v1/sessions/prune",
     memory: (sessionId: string) => `/v1/sessions/${sessionId}/memory`,

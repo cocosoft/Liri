@@ -511,6 +511,12 @@ const zhBase = {
     runStalled:
       "⚠️ 已 {{seconds}} 秒未收到后端心跳，连接可能已中断（正在等待自动重连）",
     remoteStreamingLabel: "会话仍在后台运行（本页面未接入实时输出）",
+    // 只读接入（2026-11-18，Spec `.trae/specs/stream-attach.md`）
+    attachStreamCta: "接入",
+    attachStreamHint: "接入这一轮正在后台运行的输出",
+    attachFailureNoActiveRun: "本轮已结束（或超出接入窗口），已刷新为落盘内容",
+    attachFailureCursorGap: "漏过的输出已超出可回放窗口，已刷新为落盘内容",
+    attachFailureTooMany: "本会话的接入数已达上限，请稍后再试",
     yieldUnresolved:
       "本轮已让出，但未能自动恢复（可能因应用重启或子任务结算丢失）。直接发送消息即可继续。",
     // PR-3c（2026-10-23）：全局信任级别常驻提示（Q-31 / §9-17）

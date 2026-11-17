@@ -241,6 +241,17 @@ export async function createStreamReader(
   );
 }
 
+/**
+ * 流式请求的非 2xx 错误：带上 `status`，调用方按**状态码**分支
+ * （不再解析 `HTTP 404` 文案判状态，CS02）。2026-11-18：attach 端点需要区分
+ * 404/409/429 ⇒ 在此之前只能字符串匹配。
+ */
+function streamStatusError(status: number): Error {
+  const err = new Error(`HTTP ${status}`) as Error & { status?: number };
+  err.status = status;
+  return err;
+}
+
 /** Tauri：Channel 队列模拟 reader（Start/Chunk/End/Error 事件 → read() 拉取） */
 function createTauriStreamReader(
   core: NonNullable<Awaited<ReturnType<typeof getTauriCore>>>,
@@ -275,7 +286,7 @@ function createTauriStreamReader(
       case "start": {
         // HTTP 非 2xx 视为错误（对齐 fetch 分支 response.ok 检查）
         if (evt.status < 200 || evt.status >= 300) {
-          streamError = new Error(`HTTP ${evt.status}`);
+          streamError = streamStatusError(evt.status);
           settle();
         }
         break;
@@ -357,7 +368,7 @@ async function createFetchStreamReader(
     body,
     signal,
   });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  if (!response.ok) throw streamStatusError(response.status);
   if (!response.body) throw new Error("No response body");
   return response.body.getReader() as unknown as StreamReader;
 }

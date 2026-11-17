@@ -184,6 +184,8 @@ export default function StatusFloatBar({
   const executionPhase = useChatStore((s) => s.executionPhase);
   const messages = useChatStore((s) => s.messages);
   const stopMessage = useChatStore((s) => s.stopMessage);
+  // 2026-11-18：只读接入后台正在运行的这一轮（Spec `.trae/specs/stream-attach.md` §6）
+  const attachSessionStream = useChatStore((s) => s.attachSessionStream);
 
   const [showTaskPanel, setShowTaskPanel] = useState(false);
 
@@ -394,6 +396,24 @@ export default function StatusFloatBar({
               {/* 等待审批期间不展示「已完成 x/y」——它会被读成"任务结束" */}
               {taskCard && !pendingApproval && <TaskProgress data={taskCard} />}
             </div>
+
+            {/* 2026-11-18：后端仍在跑、本页未接入 ⇒ 提供**只读**「接入」入口
+                （接入只带回状态与后续帧；正文仍以落盘为准，不伪造连续输出） */}
+            {remoteStreaming && sessionId && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void attachSessionStream(sessionId);
+                }}
+                aria-label={t("chat.attachStreamCta")}
+                title={t("chat.attachStreamHint")}
+                className="shrink-0 flex items-center gap-1 px-2 py-0.5 text-xs rounded-md text-sky-600 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-900/30 transition-colors"
+              >
+                <span>⇥</span>
+                <span>{t("chat.attachStreamCta")}</span>
+              </button>
+            )}
 
             {/* 「用编排推进」入口：存在未完成 todo 且尚无进行中 PDCA 时出现
                 （与徽标互斥；stopPropagation 避免误触任务面板） */}

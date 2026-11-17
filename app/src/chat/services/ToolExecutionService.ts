@@ -10,8 +10,6 @@
  * 依赖注入：所有 ChatManager 实例依赖通过构造函数注入，服务本身无状态。
  */
 
-import fs from 'fs';
-import { join } from 'path';
 import {
   getLogger,
   getOTelTracing,
@@ -27,7 +25,6 @@ import { ErrorHandler, feature } from '@openliri/kernel';
 import { convergenceDetector } from '../services/ConvergenceDetector.js';
 import { eventNotificationService } from '../services/EventNotificationService.js';
 import { toolResultRegistry } from '@modules/tool/ToolResultRegistry.js';
-import { resolveDataDir } from '@openliri/infra/environment';
 import { isUsableDirectory, resolveToolCwd } from './toolCwdScope';
 // G8（2026-11-03）：会话工作区不可用时向事件流投影一次提示（界面可见）
 import type { LiriEvent } from '@modules/session/types/events';
@@ -40,7 +37,6 @@ import {
   findWorkspaceEscapeInRoots,
   PATH_ARG_KEYS,
 } from '@openliri/infra/utils/toolContract';
-import type { ToolName } from '@openliri/infra/constants/toolNames.generated';
 import {
   FILE_WRITE_TOOL_NAME,
   FILE_EDIT_TOOL_NAME,
@@ -70,6 +66,8 @@ import { tryHandleLocalQueryTool } from './localQueryTools';
 import { evaluateToolPreflight } from './toolPreflight';
 // T3 stage 3（2026-11-17）：权限闸门（注入断言 / authorizeToolCall / ask·deny 四出口）
 import { applyToolPermissionGate } from './permissionGate';
+// T3 stage 4（2026-11-17）：图像输入路径守卫（补全 / 最接近修正 / 无参照拒绝）
+import { guardImageInputPath } from './imagePathGuard';
 import {
   createFileStateCacheWithSizeLimit,
   type FileStateCache,
@@ -1000,151 +998,19 @@ export class ToolExecutionService {
       }
     }
 
-    // ── 图像路径校验 ──
-    // 2026-09-29（P2-3 / T2）：真名由 `satisfies readonly ToolName[]` 编译期校验（拼错 ⇒ typecheck 报错）
-    const IMAGE_INPUT_TOOL_NAME_LIST = [
-      'image_analysis',
-      'image',
-    ] as const satisfies readonly ToolName[];
-    const IMAGE_INPUT_TOOLS = new Set<string>(IMAGE_INPUT_TOOL_NAME_LIST);
-    const IMAGE_TOOL_NAME_LIST = [
-      ...IMAGE_INPUT_TOOL_NAME_LIST,
-      'image_svg_generate',
-      'canvas',
-    ] as const satisfies readonly ToolName[];
-    const IMAGE_TOOL_NAMES = new Set<string>(IMAGE_TOOL_NAME_LIST);
-    if (IMAGE_INPUT_TOOLS.has(normalizedToolCall.name) && toolCall.sessionId) {
-      const args = normalizedToolCall.arguments;
-      let inputPath = (args.inputPath || args.file_path || args.path) as
-        | string
-        | undefined;
-
-      if (!inputPath && normalizedToolCall.name === 'canvas') {
-        const elements = args.elements as Array<{ src?: string }> | undefined;
-        if (Array.isArray(elements) && elements.length > 0 && elements[0].src) {
-          inputPath = elements[0].src;
-        }
-      }
-
-      if (!inputPath) {
-        const ctx = this.deps.imageContextService.getImageContext(
-          toolCall.sessionId
-        );
-        if (ctx) {
-          if (normalizedToolCall.name === 'image') {
-            inputPath =
-              ctx.lastEditedImage?.filePath ||
-              ctx.lastGeneratedImage?.filePath ||
-              ctx.lastAnalyzedImage?.filePath;
-          } else {
-            inputPath =
-              ctx.lastAnalyzedImage?.filePath ||
-              ctx.lastGeneratedImage?.filePath ||
-              ctx.lastEditedImage?.filePath;
-          }
-          if (inputPath) {
-            logger.info('工具调用 inputPath 为空，从 imageContext 自动补全', {
-              toolCallId: toolCall.id,
-              toolName: normalizedToolCall.name,
-              sessionId: toolCall.sessionId,
-              autoFilledPath: inputPath,
-            });
-            normalizedToolCall.arguments = { ...args, inputPath };
-          }
-        }
-      }
-
-      if (inputPath) {
-        let knownPaths = this.deps.imageContextService.getKnownImagePaths(
-          toolCall.sessionId
-        );
-
-        try {
-          const session = this.deps.chatSessions.get(toolCall.sessionId);
-          const projectId = session?.metadata?.projectId as string | undefined;
-          if (projectId) {
-            const { createProjectStore } =
-              await import('../../workspace/ProjectStore.js');
-            const { WorkItemStore } =
-              await import('../../workspace/WorkItemStore.js');
-            const store = createProjectStore(
-              resolveDataDir(),
-              new WorkItemStore(resolveDataDir())
-            );
-            const project = store.get(projectId);
-            if (project?.sandboxPath && fs.existsSync(project.sandboxPath)) {
-              const SANDBOX_IMAGE_EXTS = [
-                '.png',
-                '.jpg',
-                '.jpeg',
-                '.svg',
-                '.webp',
-              ];
-              const collect = (dir: string, depth: number): string[] => {
-                if (depth > 3) return [];
-                let out: string[] = [];
-                let entries: import('fs').Dirent[] = [];
-                try {
-                  entries = fs.readdirSync(dir, { withFileTypes: true });
-                } catch {
-                  return out;
-                }
-                for (const e of entries) {
-                  if (out.length >= 200) break;
-                  const full = join(dir, e.name);
-                  if (e.isDirectory()) {
-                    if (e.name.startsWith('_')) continue;
-                    out = out.concat(collect(full, depth + 1));
-                  } else if (
-                    e.isFile() &&
-                    SANDBOX_IMAGE_EXTS.some((x) =>
-                      e.name.toLowerCase().endsWith(x)
-                    )
-                  ) {
-                    out.push(full);
-                  }
-                }
-                return out;
-              };
-              knownPaths = knownPaths.concat(collect(project.sandboxPath, 0));
-            }
-          }
-        } catch {
-          // @ignore-catch
-        }
-
-        if (knownPaths.length > 0 && !knownPaths.includes(inputPath)) {
-          const closestPath = this.deps.imageContextService.findClosestPath(
-            inputPath,
-            knownPaths
-          );
-
-          if (closestPath) {
-            logger.warn('工具调用路径不匹配，自动修正为最接近的已知路径', {
-              toolCallId: toolCall.id,
-              toolName: normalizedToolCall.name,
-              sessionId: toolCall.sessionId,
-              inputPath,
-              correctedPath: closestPath,
-            });
-            normalizedToolCall.arguments = { ...args, inputPath: closestPath };
-          } else {
-            logger.error('工具调用路径不在已知集合中，拒绝执行', {
-              toolCallId: toolCall.id,
-              toolName: normalizedToolCall.name,
-              sessionId: toolCall.sessionId,
-              inputPath,
-              knownPaths,
-            });
-            return {
-              toolCallId: toolCall.id,
-              toolName: normalizedToolCall.name,
-              result: null,
-              error: `Invalid path: ${inputPath} is not in known image paths. Available paths: ${knownPaths.join(', ')}`,
-            };
-          }
-        }
-      }
+    // ── 图像路径校验（T3 stage 4，2026-11-17：实现外移 `./imagePathGuard`，行为逐字保留）──
+    // inputPath 补全 / 最接近路径修正 / 无参照拒绝 三段均不变；修正结果回填入参。
+    const imageGuard = await guardImageInputPath({
+      toolCall,
+      args: normalizedToolCall.arguments,
+      deps: {
+        imageContextService: this.deps.imageContextService,
+        getSession: (sessionId) => this.deps.chatSessions.get(sessionId),
+      },
+    });
+    if (imageGuard.result) return imageGuard.result;
+    if (imageGuard.patchedArgs) {
+      normalizedToolCall.arguments = imageGuard.patchedArgs;
     }
 
     // ── 工具执行 ──

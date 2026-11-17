@@ -1006,6 +1006,42 @@ const zhSettings = {
     toolsRulesCommandsHint:
       "由审批卡「以后这个命令免审批」写入：工具 + 命令前缀匹配（仅对同一前缀的命令生效）；这里可逐条撤销。",
     toolsRulesCommandsEmpty: "暂无命令级免审批记录",
+    // R3/R5（2026-11-17）：命中统计 / 审批分组 / 暂停开关 / 未收录命令 / 影响预演
+    toolsRulesHitCount: "命中 {{count}} 次",
+    toolsRulesHitNever: "尚未命中",
+    toolsRulesLastHit: "最近命中 {{time}}",
+    toolsRulesApprovals: "审批生成的放行 · {{count}}",
+    toolsRulesApprovalsHint:
+      "由审批卡「始终允许」写入（按工具 + 参数指纹 / 本工作区信任）：只读展示，只能撤销，不能编辑。",
+    toolsRulesApprovalsEmpty: "暂无审批生成的放行",
+    toolsRulesWorkspaceTrust: "本工作区永久信任 · {{count}}",
+    toolsRulesPauseLabel: "暂停全部持久化放行",
+    toolsRulesPauseHint:
+      "开启后审批卡不再新增放行，已生成的放行规则也不参与判定（列表保留，可逐条撤销）。",
+    toolsRulesPauseEnabled: "已暂停",
+    toolsRulesUnknownTitle:
+      "近 {{days}} 天有 {{headCount}} 个未收录命令被转审批（共 {{sampleCount}} 次）",
+    toolsRulesUnknownHint: "给常用命令加一条规则，可减少重复审批。",
+    toolsRulesUnknownAdd: "去添加规则",
+    toolsRulesAddTitle: "新增命令规则",
+    toolsRulesAddSave: "保存规则",
+    toolsRulesAddCancel: "取消",
+    toolsRulesImpactTitle:
+      "⚠ 该规则会让 {{count}} 条基准命令从询问/允许变为拒绝",
+    toolsRulesImpactConfirm: "仍然保存",
+    toolsRulesImpactCancel: "取消",
+    toolsRulesHealthCheck: "检查规则健康",
+    toolsRulesHealthChecking: "检查中…",
+    toolsRulesHealthOk:
+      "规则文件正常（内存 {{memory}} 条规则 / 冲突 {{conflicts}} 处）",
+    toolsRulesHealthParseError: "规则文件无法解析：{{error}}",
+    toolsRulesHealthExternalChange:
+      "规则文件被外部修改（磁盘内容与已加载内容不一致）",
+    toolsRulesHealthDuplicates: "存在 {{count}} 条重复规则",
+    toolsRulesHealthObservation:
+      "命中统计观察期 {{days}}/{{staleDays}} 天，暂不判定「未命中」",
+    toolsRulesHealthNoStale: "近 {{days}} 天没有长期未命中的规则",
+    toolsRulesHealthStale: "近 {{days}} 天未命中 · {{count}}",
     toolsRulesFromSettings: "来自 settings",
     toolsRulesFromSettingsHint:
       "该规则写在 settings 文件的 permissions.{allow,ask,deny} 里（启动时并入决策）—— 本面板只读展示，请在 settings 文件中修改。",

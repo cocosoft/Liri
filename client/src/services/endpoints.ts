@@ -591,6 +591,10 @@ export const ENDPOINTS = {
   permissions: {
     rules: "/v1/permissions/rules",
     ruleById: (ruleId: string) => `/v1/permissions/rules/${ruleId}`,
+    /** R0/R5：规则文件健康视图（只读；含规则命中统计 `ruleHits`） */
+    rulesHealth: "/v1/permissions/rules/health",
+    /** R3：一键暂停全部持久化放行（body `{enabled}`） */
+    approvalsPause: "/v1/permissions/approvals/pause",
     /** 细粒度 RBAC：GET 快照 / POST `{command}`（2026-11-11 重新开放） */
     rbac: "/v1/permissions/rbac",
   },

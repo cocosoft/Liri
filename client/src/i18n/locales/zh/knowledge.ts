@@ -796,6 +796,12 @@ const zhKnowledge = {
     addRule: "添加",
     noRulesHint:
       "暂无权限规则。添加后，工具调用将按 allow/deny/ask 判定（无规则匹配时按默认行为放行或拒绝）。",
+    // R5（2026-11-17）：影响预演阻断（409 impact）—— 需用户显式确认后才写入
+    impactBlockedTitle:
+      "该规则会让 {{count}} 条基准命令从询问/允许变为拒绝（尚未写入）",
+    impactBlockedHint: "如确认无误可再次确认添加；取消则不会写入任何规则。",
+    impactBlockedConfirm: "仍然添加",
+    impactBlockedCancel: "取消",
     noUsersData:
       "暂无用户数据：可用 CLI /permissions user add 添加用户后，在此查看信任等级与角色。",
   },

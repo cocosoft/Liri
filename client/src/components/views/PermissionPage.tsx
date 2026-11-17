@@ -3,7 +3,9 @@ import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 import {
   permissionService,
+  readRuleWriteFailure,
   type PermissionRule,
+  type RuleImpactPreview,
 } from "../../services/permissionService";
 import { handleClientError } from "../../utils/handleError";
 import RbacPanel from "./RbacPanel";
@@ -34,6 +36,16 @@ function PermissionPage() {
     isValid: boolean;
     suggestions: string[];
   } | null>(null);
+  /**
+   * R5（2026-11-17）：影响预演阻断。
+   *
+   * 后端在"新规则会把基准命令从 ask/allow 变 deny"时返回 409（**未写任何状态**），
+   * 需显式 `confirmImpact=true` 重试 ⇒ 此处先展示清单，用户确认后再提交。
+   */
+  const [impactBlocked, setImpactBlocked] = useState<{
+    message: string;
+    impact: RuleImpactPreview;
+  } | null>(null);
 
   useEffect(() => {
     loadConfig();
@@ -55,7 +67,7 @@ function PermissionPage() {
     }
   };
 
-  const addRule = async () => {
+  const addRule = async (confirmImpact = false) => {
     const toolName = ruleToolName.trim();
     if (!toolName) return;
     try {
@@ -63,11 +75,19 @@ function PermissionPage() {
         ruleBehavior,
         toolName,
         ruleContentPattern.trim() || undefined,
+        confirmImpact ? { confirmImpact: true } : undefined,
       );
       setRuleToolName("");
       setRuleContentPattern("");
+      setImpactBlocked(null);
       await loadRules();
     } catch (e) {
+      const failure = readRuleWriteFailure(e);
+      // 影响预演阻断：展示清单等用户显式确认（不做"静默重试"）
+      if (failure?.impact?.degraded && !confirmImpact) {
+        setImpactBlocked({ message: failure.message, impact: failure.impact });
+        return;
+      }
       handleClientError(e, { module: "permission:page", action: "addRule" });
     }
   };
@@ -159,6 +179,49 @@ function PermissionPage() {
             </div>
           )}
 
+          {/* R5：影响预演阻断（409 impact，尚未写入）—— 确认后带 confirmImpact 重试 */}
+          {impactBlocked && (
+            <div
+              className={`mb-4 p-3 rounded-lg text-xs ${
+                isDark
+                  ? "bg-amber-900/30 text-amber-400"
+                  : "bg-amber-50 text-amber-700"
+              }`}
+            >
+              <p className="font-medium mb-1">
+                {t("permission.impactBlockedTitle", {
+                  count: impactBlocked.impact.degradedCommands.length,
+                })}
+              </p>
+              <ul className="list-disc pl-4 space-y-0.5">
+                {impactBlocked.impact.degradedCommands.map((command) => (
+                  <li key={command}>
+                    <code>{command}</code>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-1">{t("permission.impactBlockedHint")}</p>
+              <div className="flex gap-2 mt-2">
+                <button
+                  onClick={() => void addRule(true)}
+                  className="px-2 py-0.5 text-xs bg-amber-600 hover:bg-amber-700 text-white rounded"
+                >
+                  {t("permission.impactBlockedConfirm")}
+                </button>
+                <button
+                  onClick={() => setImpactBlocked(null)}
+                  className={`px-2 py-0.5 text-xs rounded border ${
+                    isDark
+                      ? "border-gray-600 text-gray-300"
+                      : "border-gray-300 text-gray-700"
+                  }`}
+                >
+                  {t("permission.impactBlockedCancel")}
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-2 mb-4">
             <select
               value={ruleBehavior}
@@ -184,7 +247,7 @@ function PermissionPage() {
               className={`flex-1 px-2 py-1.5 text-xs rounded border ${isDark ? "bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-500" : "bg-white border-gray-300 text-gray-800 placeholder-gray-400"}`}
             />
             <button
-              onClick={addRule}
+              onClick={() => void addRule()}
               disabled={!ruleToolName.trim()}
               className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded"
             >

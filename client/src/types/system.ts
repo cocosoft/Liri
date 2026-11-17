@@ -10,6 +10,15 @@
 export interface ApiError {
   code: number;
   message: string;
+  /**
+   * 后端结构化错误体（`{ error: { code, message, ... } }` 的解析结果）。
+   *
+   * 为什么需要：`message` 只能承载一句话，而部分写接口的**分支决策**依赖结构化字段
+   * （如规则写接口 409 的 `error.code === 'impact'` + `error.impact`）。仅靠 message
+   * 字符串判断属于「用文案做状态判断」（`CS02`），故保留原始解析结果。
+   * 非 JSON 错误体 / 非对象时缺省。
+   */
+  payload?: unknown;
 }
 
 /** 统一 API 响应包装 */

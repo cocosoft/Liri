@@ -1068,7 +1068,7 @@ const enBase = {
         "Allow by rules and risk; still ask for out-of-scope writes, deletions and external commands",
       demand: "Wish mode",
       demandDesc:
-        "Goal only: plan/execute/verify/deliver automatically; at most one question mid-run",
+        "Goal only: plan/execute/verify/deliver automatically; asks only for dangerous commands, out-of-workspace writes and real ambiguity",
       advanced: "Advanced: pick a permission mode directly",
       advancedHint:
         "For troubleshooting and unattended runs; it only changes permissions, not collaboration.",

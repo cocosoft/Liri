@@ -20,6 +20,8 @@ import {
 } from './command-token-match';
 // 2026-11-12（P0）：未知命令档位的灰度开关（与 `PERMISSION_MODE` 同源读取方式）
 import { configManager } from '@openliri/infra/config';
+// P2-A（2026-11-17）：未知命令结构化采样（本地 JSONL，供评审补白名单）
+import { appendUnknownCommandSample } from './unknownCommandSamples';
 // 2026-11-11：嵌套 shell 的内层若是**结构只读命令**，不能按词表硬拒
 // （`powershell -Command "git diff --stat"` 会命中 `git ` 令牌）。
 // 与 PermissionManager 的只读短路共用同一事实源（readonly-command-allowlist）。
@@ -134,6 +136,13 @@ function noticeUnknownCommand(surface: string): void {
   if (!head || unknownCommandNoticed.has(head)) return;
   if (unknownCommandNoticed.size > 200) unknownCommandNoticed.clear();
   unknownCommandNoticed.add(head);
+  // P2-A（2026-11-17）：结构化采样落本地 JSONL，供每周评审补白名单/规则
+  // （只记录，不参与判定；见 `unknownCommandSamples.ts`）。
+  appendUnknownCommandSample({
+    head,
+    at: Date.now(),
+    surface: surface.trim().slice(0, 120),
+  });
   logger.info(
     'permission:unknown_command（未收录命令已转审批，供每周采样评审）',
     { head }

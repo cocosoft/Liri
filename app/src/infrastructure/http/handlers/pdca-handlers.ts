@@ -975,6 +975,9 @@ function buildCheckpointStatusView(
         id: (rec.planId as string) || taskId,
         description: (rec.description as string) ?? '',
         steps,
+        // G5-D2（2026-11-18）：验收子态随读模型透出（内存路径的 `plan` 自带该字段；
+        // 缺省 ⇒ `undefined`，JSON 序列化时省略，旧数据行为不变）
+        acceptance: rec.acceptance as string | undefined,
       }
     : undefined;
   const baseProgress = steps ? deriveCheckpointProgress(steps) : undefined;

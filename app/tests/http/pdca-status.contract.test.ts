@@ -203,6 +203,21 @@ await writePdcaCheckpoint('pdca_st_evidence', {
   ],
 });
 
+// G5-D2（2026-11-18）：验收子态随读模型透出（已执行待验收：步骤全完成但计划仍在跑）。
+await writePdcaCheckpoint('pdca_st_pending_acceptance', {
+  taskId: 'pdca_st_pending_acceptance',
+  planId: 'plan_st_pending_acceptance',
+  phase: 'decide',
+  status: 'running',
+  description: '已执行待验收的跨重启任务',
+  sessionId: 'sess_st',
+  acceptance: 'pending',
+  steps: [
+    makeStep('s1', '调研', 'completed'),
+    makeStep('s2', '实现', 'completed'),
+  ],
+});
+
 describe('GET /v1/pdca/:taskId 契约（1-5 P2 跨重启详情适配）', () => {
   test('活跃 checkpoint：构造 plan{steps} 原样透传 + progress 推导（1c1r → 50%）', async () => {
     const { status, body } = await call('pdca_st_active');
@@ -248,6 +263,18 @@ describe('GET /v1/pdca/:taskId 契约（1-5 P2 跨重启详情适配）', () => 
     expect(progress.total).toBe(2);
     expect(progress.percent).toBe(100);
     expect(progress.artifactGated).toBe(false);
+  });
+
+  // G5-D2（2026-11-18）：待验收子态随检查点读模型透出；旧检查点缺省不编造。
+  test('待验收任务：plan.acceptance 透出；旧检查点缺省 ⇒ undefined', async () => {
+    const pending = await call('pdca_st_pending_acceptance');
+    expect(pending.status).toBe(200);
+    const pendingPlan = pending.body.plan as { acceptance?: string };
+    expect(pendingPlan.acceptance).toBe('pending');
+
+    const legacy = await call('pdca_st_active');
+    const legacyPlan = legacy.body.plan as { acceptance?: string };
+    expect(legacyPlan.acceptance).toBeUndefined();
   });
 
   test('无 steps checkpoint：省略 plan/progress，不编造', async () => {

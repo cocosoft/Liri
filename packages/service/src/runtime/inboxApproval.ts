@@ -1028,13 +1028,62 @@ async function runResumeOnce(sessionId: string): Promise<void> {
 }
 
 /**
- * R3/F2：暂停持久化放行时跳过写入（全局暂停，或**本会话**被暂停）。
+ * F2：从会话元数据取「本次审批所属的工作区根」，供**按工作区暂停**判定写入点。
+ *
+ * 来源与 B1「允许本会话访问 `<root>`」追加的字段同源（`metadata.workspaceRoots`），
+ * 并以 `metadata.workspacePath`（会话绑定的文件夹）兜底。
+ *
+ * 如实边界：读不到（无 provider / 无会话 / 读取失败）⇒ `undefined` —— 调用方退化为
+ * **只按全局/会话级**判定，与判定口"无上下文只按 global"同一口径，不阻断审批写入。
+ */
+export async function readSessionWorkspaceRoots(
+  sessionId?: string
+): Promise<string[] | undefined> {
+  if (!sessionId) return undefined;
+  try {
+    const chatManager = getRuntimeCoreApi()?.chatManager;
+    if (!chatManager) return undefined;
+    const session =
+      (await chatManager.loadSession?.(sessionId)) ??
+      (await chatManager.getSessionGateway?.()?.getSession(sessionId));
+    const metadata = (session?.metadata ?? {}) as Record<string, unknown>;
+    const roots = Array.isArray(metadata['workspaceRoots'])
+      ? metadata['workspaceRoots'].filter(
+          (value): value is string =>
+            typeof value === 'string' && value.trim().length > 0
+        )
+      : [];
+    const boundPath =
+      typeof metadata['workspacePath'] === 'string' &&
+      metadata['workspacePath'].trim().length > 0
+        ? [metadata['workspacePath']]
+        : [];
+    const all = [...roots, ...boundPath];
+    return all.length > 0 ? all : undefined;
+  } catch (error) {
+    logger.warn('读取会话工作区根失败（暂停判定退化为只按全局/会话）', {
+      sessionId,
+      error: String(error),
+    });
+    return undefined;
+  }
+}
+
+/**
+ * R3/F2：暂停持久化放行时跳过写入（全局 / 本会话 / **本工作区**任一命中）。
  *
  * 注意只跳过"新增规则"：已存在的审批规则由判定读取口过滤，
  * 列表里仍可见、可逐条撤销（不做破坏性删除）。
  */
-function shouldSkipApprovalRuleWrite(sessionId?: string): boolean {
-  if (!isApprovalPauseActiveFor({ sessionId })) return false;
+async function shouldSkipApprovalRuleWrite(
+  sessionId?: string
+): Promise<boolean> {
+  // 全局 / 会话级命中时无需读会话元数据（省一次 IO）；否则再按工作区根判定
+  if (!isApprovalPauseActiveFor({ sessionId })) {
+    const workspaceRoots = await readSessionWorkspaceRoots(sessionId);
+    if (!workspaceRoots) return false;
+    if (!isApprovalPauseActiveFor({ sessionId, workspaceRoots })) return false;
+  }
   logger.info('「暂停持久化放行」已生效，跳过审批规则写入', { sessionId });
   return true;
 }
@@ -1050,7 +1099,7 @@ async function persistFingerprintRule(current: {
   metadata?: Record<string, unknown>;
   sessionId?: string;
 }): Promise<void> {
-  if (shouldSkipApprovalRuleWrite(current.sessionId)) return;
+  if (await shouldSkipApprovalRuleWrite(current.sessionId)) return;
   const target = parseFingerprintAllowTarget(current.metadata);
   if (!target) {
     logger.warn('「始终允许」持久化跳过：缺少工具名或参数指纹', {
@@ -1100,7 +1149,7 @@ async function persistAllowlistRule(
   current: { metadata?: Record<string, unknown>; sessionId?: string },
   commandLevel: boolean
 ): Promise<void> {
-  if (shouldSkipApprovalRuleWrite(current.sessionId)) return;
+  if (await shouldSkipApprovalRuleWrite(current.sessionId)) return;
   const toolName = current.metadata?.toolName as string | undefined;
   if (!toolName) {
     logger.warn('白名单持久化跳过：缺少 toolName', {
@@ -1156,7 +1205,7 @@ async function persistWorkspaceCommandRule(current: {
   metadata?: Record<string, unknown>;
   sessionId?: string;
 }): Promise<void> {
-  if (shouldSkipApprovalRuleWrite(current.sessionId)) return;
+  if (await shouldSkipApprovalRuleWrite(current.sessionId)) return;
   const toolName = current.metadata?.toolName as string | undefined;
   const command =
     typeof current.metadata?.command === 'string'

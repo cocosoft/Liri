@@ -41,6 +41,7 @@ import { resolvePyappHome } from '@openliri/infra/environment';
 import { getLogger } from '@openliri/infra/monitoring';
 
 import { resolveRuleOrigin, type PermissionRule } from './types/PermissionRule';
+import { filterPausedApprovalRules } from './approvalPause';
 
 const logger = getLogger('permission:ruleHitStats');
 
@@ -251,8 +252,12 @@ export function buildRuleHitReport(
   }
 
   const threshold = now - staleDays * MILLIS_PER_DAY;
+  // F2（2026-11-17）：暂停「持久化放行」期间，审批生成规则**不参与判定** ⇒ 也不该被
+  // 报成「未命中」。否则暂停越久，健康视图越像"这些规则该删"——把"有意不用"误报成"没用"。
+  // 只按**全局**暂停判定：报告没有会话 / 工作区上下文，不臆造细粒度结论。
+  const considered = filterPausedApprovalRules(rules);
   const staleRules: StaleRuleInfo[] = [];
-  for (const rule of rules) {
+  for (const rule of considered) {
     const entry = stats.rules[rule.id];
     const createdAt =
       rule.createdAt instanceof Date

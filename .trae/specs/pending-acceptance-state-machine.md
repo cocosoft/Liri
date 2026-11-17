@@ -1,7 +1,9 @@
 # Pending Acceptance（待验收）状态机 —— 设计（G5，2026-11-18）
 
-> 前置：[LRO 状态枚举一页纸](./lro-state-enumeration.md)（G2）。本文只讲**怎么落**，
-> 不改代码、不改默认值；事实全部来自源码（行号在文内）。
+> 状态：🟢 **D1–D5 已实施（2026-11-18）**，端到端用例已补；两个开关默认关闭，
+> 关闭时行为与改造前逐字一致。实施记录与提交号见 **§10**。
+> 前置：[LRO 状态枚举一页纸](./lro-state-enumeration.md)（G2）。本文只讲**怎么落**；
+> 事实全部来自源码（行号在文内）。
 
 ---
 
@@ -132,3 +134,32 @@ interface Plan {
 | 契约 | `GET /v1/pdca/:id` 透出 `acceptance`；检查点读写往返保留该字段 |
 | 端到端 | 目标门超时 ⇒ `running + pending`、回执为「⏸ 已执行，待验收」、`/resume` 可续 |
 | 门禁 | `bun test`、`lint:state-ratchet`（不得新增状态词汇）、`lint:arch`、`lint:fn-size` |
+
+---
+
+## 10. 实施记录（2026-11-18）
+
+| 阶段 | 提交 | 落点（实测） |
+|---|---|---|
+| D1 | `4e96fe8d6` | `Plan.acceptance` + `PLAN_ACCEPTANCE_*`（`TaskOrchestrator.ts`）；目标门写值（`lro/goalConvergence.ts`）；检查点载荷（`lro/checkpointPersist.ts`）与续跑回填（`lro/resumeFromCheckpoint.ts`） |
+| D2 | `47a0af431` | `formatPdcaReceipt` 增 `pendingAcceptance` 分支（`lro/terminalReceipt.ts`）；检查点读模型透出 `plan.acceptance`（`infrastructure/http/handlers/pdca-handlers.ts`） |
+| D3 | `7c55cbcae` | `isPendingAcceptanceEnabled()`（`lro/portResolvers.ts`）；`pendingAcceptance` 结论 + 编排循环早退（`LongRunningTaskOrchestrator.ts`）；`emitPdcaPendingAcceptanceReceipt`；启动扫描加白（`pdca-handlers.ts`） |
+| D4 | `f37d6f002` | 客户端 `Plan.acceptance` / `TaskCardData.acceptance` / `mapPlanToTaskCard`；`TaskCard` 徽标；i18n `chat.taskPendingAcceptance`（zh/en） |
+| D5 | `2ca233cd2` | `PDCA_GOAL_BLIND_REVIEW`（默认关）+ 盲审 prompt/systemPrompt；`GoalEvaluateInput.steps[].acceptanceCriteria` 投影 |
+| 端到端 | `7afffa163` | `tests/tasks/lroExecuteDecideRounds.test.ts`：未决 + 开关开 ⇒ `decide/running/pending` + 回执 + 检查点 + `/resume` 复现 |
+
+**与 §9 的对应（如实）**
+
+- 单测/契约/端到端/门禁四项均已有对应用例（`tests/tasks/goalConvergenceAcceptance.test.ts`、
+  `tests/tasks/review/GoalEvaluateGate.test.ts`、`tests/http/pdca-{receipt,status.contract,checkpoint-liveness.contract}.test.ts`、
+  `tests/tasks/lroExecuteDecideRounds.test.ts`；客户端 `src/utils/__tests__/planRestoreAcceptance.test.ts` + i18n parity）。
+- 全量门禁基线（2026-11-18）：后端 `13062 pass / 42 skip / 0 fail`；客户端 `1032 pass`（146 files）。
+- **未做（明确）**：真实模型环境下的超时/降级长跑观测（端到端用桩替代副模型，未消耗真实调用）；
+  若开启 `PDCA_PENDING_ACCEPTANCE=true` 灰度，须按 §5 观察"验收前崩溃/重启"路径的实际表现。
+
+**开关与回退（不变）**
+
+| 开关 | 默认 | 开启效果 | 回退 |
+|---|:--:|---|---|
+| `PDCA_PENDING_ACCEPTANCE` | `false` | 目标门未决 ⇒ `acceptance='pending'`、计划保持 `running` | 设 `false`/删除即回到"未决 ⇒ completed" |
+| `PDCA_GOAL_BLIND_REVIEW` | `false` | 评估改盲审口径（原始需求 + 验收标准 + 产物证据） | 设 `false`/删除即回原 prompt |

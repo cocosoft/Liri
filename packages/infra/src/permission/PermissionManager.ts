@@ -659,13 +659,19 @@ export function isCallAllowedByPersistedRules(
   /** 测试可注入（生产缺省 = 单例的 checker；与审批写规则同一实例） */
   checker?: Pick<PermissionChecker, 'isToolAllowed'>,
   /** G3：本次调用所处的工作区根（命令级「本工作区永久信任」规则据此过滤） */
-  workspaceRoots?: string[]
+  workspaceRoots?: string[],
+  /**
+   * F2（2026-11-17）：本次调用的会话 id —— 「按会话暂停持久化放行」时，
+   * 审批生成的规则不得再折算成 `bypassAsk`（否则暂停会话里照样免审批）。
+   */
+  sessionId?: string
 ): boolean {
   try {
     const target = checker ?? PermissionManager.getInstance().getPermissionChecker();
     return target.isToolAllowed(toolName, {
       input,
       workspaceRoots,
+      sessionId,
     } as PermissionContext);
   } catch {
     // @ignore-catch — 规则不可读仅影响"是否免审批"，硬拦截层照旧执行

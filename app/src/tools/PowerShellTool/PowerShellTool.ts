@@ -665,7 +665,9 @@ function buildPowerShellApprovalContext(
 async function isPowerShellPreApproved(
   command: string,
   sessionId: string | undefined,
-  scope: ApprovalScope
+  scope: ApprovalScope,
+  /** F2：本次调用所处的工作区根（与 bash 同口径；缺省 ⇒ 仅全局/会话级暂停生效） */
+  workspaceRoots?: string[]
 ): Promise<boolean> {
   const hash = hashCommandForExecution(command);
   if (
@@ -680,7 +682,14 @@ async function isPowerShellPreApproved(
   }
   const { isCallAllowedByPersistedRules } =
     await import('@openliri/infra/permission/PermissionManager');
-  return isCallAllowedByPersistedRules('powershell', { command });
+  // F2：带上工作区根与会话 id —— 暂停（全局 / 本会话 / 本工作区）时不得折算成"免审批"
+  return isCallAllowedByPersistedRules(
+    'powershell',
+    { command },
+    undefined,
+    workspaceRoots,
+    sessionId
+  );
 }
 
 /** PowerShell 安全链的「阻断结果」映射（ask 未获批 ⇒ 带 requireApproval，进入审批卡） */
@@ -1082,7 +1091,8 @@ export class PowerShellTool extends BaseTool {
       const preApproved = await isPowerShellPreApproved(
         command,
         context.sessionId,
-        approval.scope
+        approval.scope,
+        workingDirectory ? [workingDirectory] : []
       );
       const securityBlock = buildPowerShellSecurityBlock(decision, {
         preApproved,

@@ -511,7 +511,12 @@ export interface ModeHandlerDeps {
       const classifierDecision = await deps.classifierManager.classify(
         toolName,
         input,
-        deps.messages
+        deps.messages,
+        // R4（2026-11-17）：采样上下文（只进采样记录，不影响判定）
+        {
+          permissionMode: context.permissionMode,
+          ...(context.autonomy ? { autonomy: context.autonomy } : {}),
+        }
       );
 
       if (classifierDecision.requiresApproval) {

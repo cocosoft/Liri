@@ -19,6 +19,8 @@ import { getLogger } from '@openliri/infra/monitoring';
 // #28（2026-10-30）：任务回写内容只取可读字段（工具结果契约类型，避免裸字面量）
 import type { ToolResult } from '@openliri/infra/utils/toolContract';
 import { isCommandToolName } from '@openliri/infra/utils/toolContract/toolRoles';
+// R4（2026-11-17）：审批入参预览先去敏（与采样共用同一出口）
+import { buildRedactedInputPreview } from '@openliri/infra/security';
 // 2026-11-08（第三十八轮）：审批卡选项集的**唯一真源**（P0 三档），LRO 步骤卡不再自写一份
 import {
   buildApprovalOptions,
@@ -1357,7 +1359,7 @@ async function submitStepApprovalCards(args: {
           approvalFingerprintPreview: previewApprovalFingerprint(fingerprint),
           approvalScopeKind: 'once',
           command: command || undefined,
-          inputPreview: JSON.stringify(input).slice(0, 200),
+          inputPreview: buildRedactedInputPreview(input, 200),
           // 2026-11-08：作用域/快照随卡落库 —— 缺了会让批准记录 `scopeBound:false`，
           // 执行端按 fail-closed 判不命中（"批了不生效"）。
           ...(approvalScope ? { approvalScope } : {}),

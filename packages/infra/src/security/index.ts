@@ -329,6 +329,13 @@ export { parseForSecurity, isDangerousCommand } from './bash/BashAST';
 export { getReadProtectionService } from './files/ReadProtectionService';
 export type { RedactResult, ObjectRedactResult } from './redact';
 export type { RedactStats } from './redact';
+// R4（2026-11-17）：文本去敏的唯一出口（采样 / 审批预览共用，含黄金样本单测）
+export {
+  redactSensitiveText,
+  buildRedactedInputPreview,
+  SENSITIVE_TEXT_PLACEHOLDER,
+} from './redact';
+export type { SensitiveTextRedactResult } from './redact';
 // A3（2026-10-09）：敏感环境变量剥离单一事实源（供 BashTool spawn / hooks 脚本执行复用）
 // 第九轮审查 §五（2026-10-09）：新增**调用方 env** 清理（执行控制键 + 敏感键）
 export {

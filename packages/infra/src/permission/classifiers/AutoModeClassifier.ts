@@ -20,8 +20,11 @@ import {
 } from './command-token-match';
 // 2026-11-12（P0）：未知命令档位的灰度开关（与 `PERMISSION_MODE` 同源读取方式）
 import { configManager } from '@openliri/infra/config';
-// P2-A（2026-11-17）：未知命令结构化采样（本地 JSONL，供评审补白名单）
-import { appendUnknownCommandSample } from './unknownCommandSamples';
+// P2-A（2026-11-17）；R4（2026-11-17）：未知命令结构化采样（本地 JSONL，供评审补白名单）
+import {
+  sampleUnknownCommand,
+  type UnknownCommandBlockedBy,
+} from './unknownCommandSamples';
 // 2026-11-11：嵌套 shell 的内层若是**结构只读命令**，不能按词表硬拒
 // （`powershell -Command "git diff --stat"` 会命中 `git ` 令牌）。
 // 与 PermissionManager 的只读短路共用同一事实源（readonly-command-allowlist）。
@@ -123,30 +126,46 @@ const DOWNLOADER_CMDLETS = new Set([
 ]);
 
 /**
- * 未知命令采样（P4）：同一命令名**每进程只记一次**（上限 200 条后整体清空）。
+ * 分类器可见的**采样上下文**（R4，2026-11-17）：权限档与自主度由判定链传入。
  *
- * 为什么需要：`未知 ⇒ ask` 之后，缺口不再以"静默放行"的形式出现，而是变成**审批噪音**；
- * 只有把"到底有哪些未收录命令"沉淀成日志，才能每周评审补进注册表（P4 验收口径）。
+ * 为什么不从 classify 的现有入参推导：`classify(toolName, input, messages)` 只有工具与
+ * 入参，`permissionMode` / `autonomy` 属会话上下文 —— 由 `modeHandlers` 显式传入，
+ * 采样记录才能回答"这次 ask 发生在哪个档位下"。
  */
-const logger = getLogger('permission:classifier');
-const unknownCommandNoticed = new Set<string>();
+export interface ClassifierContext {
+  permissionMode?: string;
+  autonomy?: string;
+}
 
-function noticeUnknownCommand(surface: string): void {
-  const head = surface.trim().split(/\s+/)[0]?.toLowerCase().slice(0, 60) ?? '';
-  if (!head || unknownCommandNoticed.has(head)) return;
-  if (unknownCommandNoticed.size > 200) unknownCommandNoticed.clear();
-  unknownCommandNoticed.add(head);
-  // P2-A（2026-11-17）：结构化采样落本地 JSONL，供每周评审补白名单/规则
-  // （只记录，不参与判定；见 `unknownCommandSamples.ts`）。
-  appendUnknownCommandSample({
-    head,
-    at: Date.now(),
-    surface: surface.trim().slice(0, 120),
+const logger = getLogger('permission:classifier');
+
+/**
+ * 未收录命令采样（P4；R4 起补归因/片段/上下文）。
+ *
+ * 旧实现取整条命令的**首 token** ⇒ `cd x && liri-probe` 会被记成 `cd`（已知命令），
+ * 真正的缺口反而看不到。现在按 `splitCommandSegments` 找到第一个**结构上非只读**的段，
+ * 用它做 surface 并记录 1 起的 `segmentIndex`。
+ */
+function recordUnknownCommandSample(
+  surface: string,
+  toolName: string,
+  context: ClassifierContext | undefined,
+  blockedBy: UnknownCommandBlockedBy = 'classifier'
+): void {
+  const segments = splitCommandSegments(surface);
+  const target =
+    segments.find((segment) => !checkReadonlyCommand(segment.text).allowed) ??
+    segments[0];
+  sampleUnknownCommand({
+    surface: target?.text ?? surface,
+    toolName,
+    ...(context?.permissionMode
+      ? { permissionMode: context.permissionMode }
+      : {}),
+    ...(context?.autonomy ? { autonomy: context.autonomy } : {}),
+    ...(target ? { segmentIndex: target.index + 1 } : {}),
+    blockedBy,
   });
-  logger.info(
-    'permission:unknown_command（未收录命令已转审批，供每周采样评审）',
-    { head }
-  );
 }
 
 /**
@@ -214,12 +233,14 @@ export interface IAutoModeClassifier {
    * @param toolName 工具名称
    * @param input 工具输入
    * @param messages 对话历史
+   * @param context 采样上下文（R4：权限档 / 自主度；不影响判定，只进采样记录）
    * @returns 分类决策
    */
   classify(
     toolName: string,
     input: Record<string, unknown>,
-    messages: Array<{ role: string; content: string }>
+    messages: Array<{ role: string; content: string }>,
+    context?: ClassifierContext
   ): Promise<ClassifierDecision>;
 
   /**
@@ -360,12 +381,14 @@ export class AutoModeClassifier implements IAutoModeClassifier {
    * @param toolName 工具名称
    * @param input 工具输入
    * @param messages 对话历史
+   * @param context 采样上下文（R4：权限档 / 自主度；不影响判定）
    * @returns 分类决策
    */
   async classify(
     toolName: string,
     input: Record<string, unknown>,
-    messages: Array<{ role: string; content: string }>
+    messages: Array<{ role: string; content: string }>,
+    context?: ClassifierContext
   ): Promise<ClassifierDecision> {
     const startTime = Date.now();
 
@@ -380,7 +403,7 @@ export class AutoModeClassifier implements IAutoModeClassifier {
       }
 
       // 简单的启发式规则
-      const decision = this.heuristicClassify(toolName, input);
+      const decision = this.heuristicClassify(toolName, input, context);
 
       return {
         ...decision,
@@ -414,11 +437,13 @@ export class AutoModeClassifier implements IAutoModeClassifier {
    * 启发式分类
    * @param toolName 工具名称
    * @param input 工具输入
+   * @param context 采样上下文（R4；只进采样记录，不影响判定）
    * @returns 分类决策
    */
   private heuristicClassify(
     toolName: string,
-    input: Record<string, unknown>
+    input: Record<string, unknown>,
+    context?: ClassifierContext
   ): ClassifierDecision {
     const lowerToolName = toolName.toLowerCase();
 
@@ -810,8 +835,12 @@ export class AutoModeClassifier implements IAutoModeClassifier {
       resolveUnknownCommandTier() === 'ask' &&
       !checkReadonlyCommand(executionSurface).allowed
     ) {
-      // P4：采样未收录命令名（每进程一次），供每周评审补进注册表
-      noticeUnknownCommand(executionSurface);
+      // P4：采样未收录命令名，供每周评审补进注册表；R4 起定位"真正需要审批的那一段"
+      recordUnknownCommandSample(
+        rawExecutionSurface ?? executionSurface,
+        toolName,
+        context
+      );
       return {
         shouldBlock: false,
         requiresApproval: true,

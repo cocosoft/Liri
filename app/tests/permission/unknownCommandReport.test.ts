@@ -8,12 +8,14 @@
  * - 路径优先级：显式 > env > `LIRI_HOME` 或 `~/.pyapp`。
  */
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
-import { homedir } from 'node:os';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
   aggregateUnknownCommands,
   parseArgs,
+  readUnknownCommandLogText,
   resolveSampleLogPath,
 } from '../../../scripts/report-unknown-commands';
 
@@ -100,6 +102,50 @@ describe('resolveSampleLogPath', () => {
     );
     process.env.PERMISSION_UNKNOWN_COMMAND_LOG = '/env/log.jsonl';
     expect(resolveSampleLogPath()).toBe('/env/log.jsonl');
+  });
+});
+
+describe('readUnknownCommandLogText（R4 轮转产物一并读取）', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'unknown-report-'));
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('活跃文件 + 同目录轮转产物合并；不相关文件忽略', () => {
+    const active = join(dir, 'unknown-commands.jsonl');
+    writeFileSync(active, `${line('active-cli', NOW)}\n`);
+    writeFileSync(
+      join(dir, 'unknown-commands.2026-10.jsonl'),
+      `${line('oct-cli', NOW - 30 * DAY)}\n`
+    );
+    writeFileSync(
+      join(dir, 'unknown-commands.2026-10.1794000000000.jsonl'),
+      `${line('oct-cli2', NOW - 29 * DAY)}\n`
+    );
+    writeFileSync(join(dir, 'other.jsonl'), `${line('other', NOW)}\n`);
+
+    const report = aggregateUnknownCommands(readUnknownCommandLogText(active), {
+      now: NOW,
+    });
+    expect(report.rows.map((r) => r.head).sort()).toEqual([
+      'active-cli',
+      'oct-cli',
+      'oct-cli2',
+    ]);
+  });
+
+  it('活跃文件不存在、仅有轮转产物 ⇒ 仍能读到样本', () => {
+    const active = join(dir, 'unknown-commands.jsonl');
+    writeFileSync(
+      join(dir, 'unknown-commands.2026-10.jsonl'),
+      `${line('oct-cli', NOW)}\n`
+    );
+    expect(readUnknownCommandLogText(active)).toContain('oct-cli');
   });
 });
 

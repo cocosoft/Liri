@@ -11,6 +11,7 @@ import { permissionMetrics } from '../metrics/PermissionMetricsStore';
 import type {
   IAutoModeClassifier,
   ClassifierDecision,
+  ClassifierContext,
 } from './AutoModeClassifier';
 
 /**
@@ -70,12 +71,14 @@ export class ClassifierManager {
    * @param toolName 工具名称
    * @param input 工具输入
    * @param messages 对话历史
+   * @param context 采样上下文（R4：权限档 / 自主度；不影响判定与缓存键）
    * @returns 分类决策
    */
   async classify(
     toolName: string,
     input: Record<string, unknown>,
-    messages: Array<{ role: string; content: string }> = []
+    messages: Array<{ role: string; content: string }> = [],
+    context?: ClassifierContext
   ): Promise<ClassifierDecision> {
     // Otel span：每次分类预测可观测（OTel 未初始化时 noop 兜底，不影响主链路）
     let span: Span | null = null;
@@ -88,7 +91,12 @@ export class ClassifierManager {
     }
 
     try {
-      const decision = await this.classifyInner(toolName, input, messages);
+      const decision = await this.classifyInner(
+        toolName,
+        input,
+        messages,
+        context
+      );
       if (span) {
         span.setAttribute('shouldBlock', decision.shouldBlock);
         span.setAttribute('unavailable', String(decision.unavailable ?? false));
@@ -113,12 +121,14 @@ export class ClassifierManager {
    * @param toolName 工具名称
    * @param input 工具输入
    * @param messages 对话历史
+   * @param context 采样上下文（R4；只进采样记录，不影响判定与缓存键）
    * @returns 分类决策
    */
   private async classifyInner(
     toolName: string,
     input: Record<string, unknown>,
-    messages: Array<{ role: string; content: string }> = []
+    messages: Array<{ role: string; content: string }> = [],
+    context?: ClassifierContext
   ): Promise<ClassifierDecision> {
     if (!this.config.enabled) {
       return {
@@ -136,7 +146,12 @@ export class ClassifierManager {
 
     // 使用分类器
     const classifier = this.getClassifier();
-    const decision = await classifier.classify(toolName, input, messages);
+    const decision = await classifier.classify(
+      toolName,
+      input,
+      messages,
+      context
+    );
 
     // 缓存结果
     if (this.config.cacheEnabled) {

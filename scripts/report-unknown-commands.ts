@@ -14,9 +14,9 @@
  *
  * 退出码：0 = 正常（含"文件不存在/无样本"）；1 = 参数错误。
  */
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 
 export interface UnknownCommandSample {
   head: string;
@@ -131,6 +131,33 @@ export function resolveSampleLogPath(cliOverride?: string): string {
   return join(home, 'data', 'permission', 'unknown-commands.jsonl');
 }
 
+/**
+ * 读取活跃文件 + 同目录下的**轮转产物**（`<base>.<YYYY-MM>[-<epoch>].jsonl`）。
+ *
+ * R4 起采样按 5 MB / 按月轮转；周报若只读活跃文件，会在月初漏掉上一月的样本。
+ * 不存在的文件跳过（不报错）；目录不存在 ⇒ 只返回空串。
+ */
+export function readUnknownCommandLogText(logPath: string): string {
+  const dir = dirname(logPath);
+  const fileName = basename(logPath);
+  const base = basename(logPath, '.jsonl');
+  const parts: string[] = [];
+  if (existsSync(logPath)) parts.push(readFileSync(logPath, 'utf8'));
+  if (!existsSync(dir)) return parts.join('');
+  const rotated = readdirSync(dir)
+    .filter(
+      (entry) =>
+        entry !== fileName &&
+        entry.startsWith(`${base}.`) &&
+        entry.endsWith('.jsonl')
+    )
+    .sort();
+  for (const entry of rotated) {
+    parts.push(readFileSync(join(dir, entry), 'utf8'));
+  }
+  return parts.join('');
+}
+
 function formatTime(ms: number): string {
   return new Date(ms).toISOString().replace('T', ' ').slice(0, 16);
 }
@@ -217,15 +244,17 @@ function main(): void {
   }
 
   const logPath = resolveSampleLogPath(opts.log);
-  if (!existsSync(logPath)) {
+  // R4：一并读取轮转产物（`<base>.<YYYY-MM>[-<epoch>].jsonl`），避免月初漏掉上月样本
+  const text = readUnknownCommandLogText(logPath);
+  if (!text.trim()) {
     console.log(
-      `[unknown-commands] 采样文件不存在：${logPath}\n` +
+      `[unknown-commands] 采样文件不存在或无样本：${logPath}\n` +
         '（尚未出现"未收录命令转审批"：要么白名单已覆盖，要么还没触发采样）'
     );
     return;
   }
 
-  const report = aggregateUnknownCommands(readFileSync(logPath, 'utf8'), {
+  const report = aggregateUnknownCommands(text, {
     sinceDays: opts.sinceDays,
     top: opts.top,
   });

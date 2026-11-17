@@ -49,6 +49,8 @@ import type {
 } from '@modules/runtime/api/CoreAPI';
 import { DEFAULT_MODEL_SENTINEL } from '@openliri/infra/constants';
 import { isMediaOutputToolName } from '@openliri/infra/utils/toolContract/toolRoles';
+// T3（2026-11-17）：SSE 数据帧的唯一构造点（从本文件的 switch / usage 收尾块原样搬出）
+import { buildStreamChunkFrame, writeStreamTail } from './chatStreamFrames';
 // 2026-11-11：消息级 `autonomy` 的跨字段冲突契约（与 PATCH /meta 同一判定，见 infra/permission）
 import {
   AUTONOMY_PERMISSION_CONFLICT,
@@ -733,6 +735,113 @@ async function handleNormalChat(
 }
 
 /**
+ * P0-2 / P36-b（T3，2026-11-17）：客户端流式入场的**执行记账 + 归属等待**。
+ *
+ * 从 `handleStreamingChat` 的 `try` 头部**原样搬出**（零行为变更）：
+ * `CLIENT_STREAM_EXECUTION` 记账、`MESSAGE_OWNERSHIP` 归属判定、`queue` 判定的有界等待。
+ *
+ * 返回 `null` ⇒ 已按 409 `SESSION_BUSY` 回写响应，调用方直接收尾。
+ */
+async function acquireStreamExecution(
+  request: ChatCompletionRequest,
+  res: http.ServerResponse
+): Promise<{
+  executionId?: string;
+  settle: (ok: boolean, reason?: string) => void;
+} | null> {
+  const clientSessionId = request.session_id;
+  const executionManager =
+    feature('CLIENT_STREAM_EXECUTION') && clientSessionId
+      ? getExecutionManager()
+      : undefined;
+  // P36-b（2026-11-02）：入场时读"谁持有会话"（只读投影；灰度关 ⇒ 零开销/零行为）
+  const ownershipOwner =
+    feature('MESSAGE_OWNERSHIP') && clientSessionId
+      ? await getSessionOwner(clientSessionId)
+      : undefined;
+  let executionLease: ExecutionLease | undefined =
+    executionManager && clientSessionId
+      ? executionManager.acquire(
+          clientSessionId,
+          request.message_id,
+          ownershipOwner?.ticketId,
+          request.workspace_path
+        )
+      : undefined;
+  /** P36-b-4：本条消息的归属判定（无持有者信息 ⇒ undefined = 不参与行为判定） */
+  let ownershipDecision: ReturnType<typeof resolveMessageOwnership> | undefined;
+  if (ownershipOwner && executionLease && clientSessionId) {
+    // `isCurrent()` 才是权威的"是否被占"：领取失败 ⇒ 本条以 QUEUED 排队（既有语义）
+    ownershipDecision = resolveMessageOwnership({
+      occupied: !executionLease.isCurrent(),
+      ownerKind: ownershipOwner.kind,
+    });
+    emitOwnershipDecision({
+      sessionId: clientSessionId,
+      executionId: executionLease.executionId,
+      decision: ownershipDecision,
+      ownerKind: ownershipOwner.kind,
+      ...(ownershipOwner.ticketId
+        ? { ownerTicketId: ownershipOwner.ticketId }
+        : {}),
+      ...(request.message_id ? { messageId: request.message_id } : {}),
+    });
+  }
+  // P36-b-4（2026-11-02）：`queue` 判定 ⇒ **有界等待**所有权（与渠道路径同一实现）；
+  // 超时仍拿不到 ⇒ 如实拒绝（409 / `SESSION_BUSY`），**不静默并发**启动第二个执行。
+  // 灰度：仅在 `MESSAGE_OWNERSHIP` 开（决定存在）且 `CLIENT_STREAM_EXECUTION` 开（有租约）时生效。
+  if (
+    ownershipDecision?.action === 'queue' &&
+    executionManager &&
+    clientSessionId &&
+    executionLease &&
+    !executionLease.isCurrent()
+  ) {
+    const waited = await waitForOwnership(
+      () =>
+        executionManager.acquire(
+          clientSessionId,
+          request.message_id,
+          ownershipOwner?.ticketId,
+          request.workspace_path
+        ),
+      { waitMs: OWNERSHIP_WAIT_MS, pollMs: OWNERSHIP_POLL_MS },
+      executionLease
+    );
+    executionLease = waited.lease;
+    if (!waited.admitted) {
+      executionLease.release();
+      res.writeHead(409, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: {
+            message: '会话正被自主执行占用（已等待超时），请稍后重试',
+            type: 'session_busy',
+            code: 'SESSION_BUSY',
+          },
+        })
+      );
+      return null;
+    }
+  }
+  let executionSettled = false;
+  /** 结算本次执行（幂等；fencing：被顶替/已终结 ⇒ 忽略，绝不改写新执行） */
+  const settle = (ok: boolean, reason?: string): void => {
+    if (!executionManager || !executionLease || executionSettled) return;
+    executionSettled = true;
+    try {
+      if (ok) executionManager.complete(executionLease.executionId);
+      else
+        executionManager.fail(executionLease.executionId, reason ?? 'unknown');
+    } catch {
+      // @ignore-catch — fencing：执行已被顶替/已终结（STALE）⇒ 忽略
+    }
+    executionLease.release();
+  };
+  return { executionId: executionLease?.executionId, settle };
+}
+
+/**
  * 处理流式聊天完成请求
  */
 async function handleStreamingChat(
@@ -907,100 +1016,12 @@ async function handleStreamingChat(
   let settleExecution: (ok: boolean, reason?: string) => void = () => {};
   try {
     const coreAPI = getCoreAPI();
-    const clientSessionId = request.session_id;
-    const executionManager =
-      feature('CLIENT_STREAM_EXECUTION') && clientSessionId
-        ? getExecutionManager()
-        : undefined;
-    // P36-b（2026-11-02）：入场时读"谁持有会话"（只读投影；灰度关 ⇒ 零开销/零行为）
-    const ownershipOwner =
-      feature('MESSAGE_OWNERSHIP') && clientSessionId
-        ? await getSessionOwner(clientSessionId)
-        : undefined;
-    let executionLease: ExecutionLease | undefined =
-      executionManager && clientSessionId
-        ? executionManager.acquire(
-            clientSessionId,
-            request.message_id,
-            ownershipOwner?.ticketId,
-            request.workspace_path
-          )
-        : undefined;
-    /** P36-b-4：本条消息的归属判定（无持有者信息 ⇒ undefined = 不参与行为判定） */
-    let ownershipDecision:
-      | ReturnType<typeof resolveMessageOwnership>
-      | undefined;
-    if (ownershipOwner && executionLease && clientSessionId) {
-      // `isCurrent()` 才是权威的"是否被占"：领取失败 ⇒ 本条以 QUEUED 排队（既有语义）
-      ownershipDecision = resolveMessageOwnership({
-        occupied: !executionLease.isCurrent(),
-        ownerKind: ownershipOwner.kind,
-      });
-      emitOwnershipDecision({
-        sessionId: clientSessionId,
-        executionId: executionLease.executionId,
-        decision: ownershipDecision,
-        ownerKind: ownershipOwner.kind,
-        ...(ownershipOwner.ticketId
-          ? { ownerTicketId: ownershipOwner.ticketId }
-          : {}),
-        ...(request.message_id ? { messageId: request.message_id } : {}),
-      });
-    }
-    // P36-b-4（2026-11-02）：`queue` 判定 ⇒ **有界等待**所有权（与渠道路径同一实现）；
-    // 超时仍拿不到 ⇒ 如实拒绝（409 / `SESSION_BUSY`），**不静默并发**启动第二个执行。
-    // 灰度：仅在 `MESSAGE_OWNERSHIP` 开（决定存在）且 `CLIENT_STREAM_EXECUTION` 开（有租约）时生效。
-    if (
-      ownershipDecision?.action === 'queue' &&
-      executionManager &&
-      clientSessionId &&
-      executionLease &&
-      !executionLease.isCurrent()
-    ) {
-      const waited = await waitForOwnership(
-        () =>
-          executionManager.acquire(
-            clientSessionId,
-            request.message_id,
-            ownershipOwner?.ticketId,
-            request.workspace_path
-          ),
-        { waitMs: OWNERSHIP_WAIT_MS, pollMs: OWNERSHIP_POLL_MS },
-        executionLease
-      );
-      executionLease = waited.lease;
-      if (!waited.admitted) {
-        executionLease.release();
-        res.writeHead(409, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({
-            error: {
-              message: '会话正被自主执行占用（已等待超时），请稍后重试',
-              type: 'session_busy',
-              code: 'SESSION_BUSY',
-            },
-          })
-        );
-        return;
-      }
-    }
-    let executionSettled = false;
-    /** 结算本次执行（幂等；fencing：被顶替/已终结 ⇒ 忽略，绝不改写新执行） */
-    settleExecution = (ok: boolean, reason?: string): void => {
-      if (!executionManager || !executionLease || executionSettled) return;
-      executionSettled = true;
-      try {
-        if (ok) executionManager.complete(executionLease.executionId);
-        else
-          executionManager.fail(
-            executionLease.executionId,
-            reason ?? 'unknown'
-          );
-      } catch {
-        // @ignore-catch — fencing：执行已被顶替/已终结（STALE）⇒ 忽略
-      }
-      executionLease.release();
-    };
+    // T3（2026-11-17）：入场执行记账 + 归属等待**原样搬运**到 `acquireStreamExecution`
+    // （`null` ⇒ 已回写 409 SESSION_BUSY，直接收尾）。
+    const acquired = await acquireStreamExecution(request, res);
+    if (!acquired) return;
+    settleExecution = acquired.settle;
+    const executionId = acquired.executionId;
     const chatRequest: ChatRequest = {
       content: userMessage.content,
       stream: true,
@@ -1008,7 +1029,7 @@ async function handleStreamingChat(
       messageId: request.message_id,
       assistantMessageId: request.assistant_message_id,
       // P0-2：执行标识外显（与渠道路径同一条记账链路；未开启灰度 ⇒ undefined = 零行为变更）
-      executionId: executionLease?.executionId,
+      executionId,
       metadata: buildRequestMetadata(request),
       images: request.images,
       model: request.model,
@@ -1091,247 +1112,29 @@ async function handleStreamingChat(
       // AB-25：用流内真实会话 ID 回填（chunk.sessionId 恒为 ChatManager 会话 ID）
       if (chunk.sessionId) activeSessionId = chunk.sessionId;
 
-      switch (chunk.type) {
-        case 'text':
-          if (chunk.content) {
-            res.write(
-              `data: ${JSON.stringify({
-                id: responseId,
-                object: 'chat.completion.chunk',
-                created,
-                model,
-                ...(chunk.messageId
-                  ? { __pyapp_message_id: chunk.messageId }
-                  : {}),
-                choices: [
-                  {
-                    index: 0,
-                    delta: { content: chunk.content },
-                    finish_reason: null,
-                  },
-                ],
-              })}\n\n`
-            );
-            safeFlush(res);
-          }
-          break;
-        case 'thinking':
-        case 'status':
-          if (chunk.content) {
-            res.write(
-              `data: ${JSON.stringify({
-                id: responseId,
-                object: 'chat.completion.chunk',
-                created,
-                model,
-                __pyapp_type: chunk.type,
-                ...(chunk.statusType
-                  ? { __pyapp_status_type: chunk.statusType }
-                  : {}),
-                ...(chunk.phase ? { __pyapp_phase: chunk.phase } : {}),
-                ...(chunk.toolCallId
-                  ? { __pyapp_tool_call_id: chunk.toolCallId }
-                  : {}),
-                ...(chunk.messageId
-                  ? { __pyapp_message_id: chunk.messageId }
-                  : {}),
-                choices: [
-                  {
-                    index: 0,
-                    delta: { content: chunk.content },
-                    finish_reason: null,
-                  },
-                ],
-              })}\n\n`
-            );
-            safeFlush(res);
-          }
-          break;
-        case 'error':
-          if (chunk.content) {
-            res.write(
-              `data: ${JSON.stringify({
-                id: responseId,
-                object: 'chat.completion.chunk',
-                created,
-                model,
-                __pyapp_type: 'error',
-                __pyapp_error_code: chunk.errorCode || 'UNKNOWN',
-                choices: [
-                  {
-                    index: 0,
-                    delta: { content: chunk.content },
-                    finish_reason: 'error',
-                  },
-                ],
-              })}\n\n`
-            );
-            safeFlush(res);
-          }
-          break;
-        case 'tool_call':
-          if (chunk.toolCall) {
-            const sseData: Record<string, unknown> = {
-              id: responseId,
-              object: 'chat.completion.chunk',
-              created,
-              model,
-              __pyapp_type: 'tool_call',
-              __pyapp_tool_status:
-                chunk.toolCall.status || TOOL_CALL_INITIAL_STATUS,
-              choices: [
-                {
-                  index: 0,
-                  delta: {
-                    content: '',
-                    tool_calls: [
-                      {
-                        id: chunk.toolCall.id,
-                        type: 'function',
-                        function: {
-                          name: chunk.toolCall.name,
-                          arguments: JSON.stringify(chunk.toolCall.arguments),
-                        },
-                      },
-                    ],
-                  },
-                  finish_reason: null,
-                },
-              ],
-            };
-            // 转发 _meta（如 create_project 的导航建议）
-            if (chunk._meta) {
-              sseData.__pyapp_meta = chunk._meta;
-            }
-            res.write(`data: ${JSON.stringify(sseData)}\n\n`);
-            safeFlush(res);
-          }
-          break;
-        case 'question':
-          if (chunk.questionData) {
-            logger.info('[SSE] Writing question chunk', {
-              questionId: chunk.questionData.questionId,
-              question: chunk.questionData.question?.slice(0, 40),
-              options: chunk.questionData.options?.length,
-            });
-            res.write(
-              `data: ${JSON.stringify({
-                id: responseId,
-                object: 'chat.completion.chunk',
-                created,
-                model,
-                __pyapp_type: 'question',
-                __pyapp_question: chunk.questionData,
-                choices: [
-                  { index: 0, delta: { content: '' }, finish_reason: null },
-                ],
-              })}\n\n`
-            );
-            safeFlush(res);
-          }
-          break;
-        case 'todo':
-          if (chunk.todoData) {
-            res.write(
-              `data: ${JSON.stringify({
-                id: responseId,
-                object: 'chat.completion.chunk',
-                created,
-                model,
-                __pyapp_type: 'todo',
-                __pyapp_todo: chunk.todoData,
-                choices: [
-                  { index: 0, delta: { content: '' }, finish_reason: null },
-                ],
-              })}\n\n`
-            );
-            safeFlush(res);
-          }
-          break;
-        case 'deliverable':
-          // V-22（2026-09-14）：此前该 chunk 在 SSE 写出侧**既无 case 也无 default**
-          // ⇒ 交付物被静默丢弃，前端「进入工作模式」入口因此永不可达
-          //（消费侧 EventBasedStreamAggregator / deriveConversationBlocks 早已就绪，
-          //  缺的只是这一跳的线格式：__pyapp_type + __pyapp_deliverable）
-          if (chunk.deliverableData) {
-            res.write(
-              `data: ${JSON.stringify({
-                id: responseId,
-                object: 'chat.completion.chunk',
-                created,
-                model,
-                __pyapp_type: 'deliverable',
-                __pyapp_deliverable: chunk.deliverableData,
-                choices: [
-                  {
-                    index: 0,
-                    delta: { content: chunk.content || '' },
-                    finish_reason: null,
-                  },
-                ],
-              })}\n\n`
-            );
-            safeFlush(res);
-          }
-          break;
-        case 'done':
-          // 从 done chunk 捕获实际的 finishReason，替换后续硬编码
-          if (chunk.finishReason) {
-            chunkFinishReason = chunk.finishReason;
-          }
-          if (chunk.terminationReason) {
-            chunkTerminationReason = chunk.terminationReason;
-          }
-          if (chunk.usage) {
-            streamUsage = chunk.usage;
-          }
-          break;
-        case 'execution_phase':
-          // AB-9 修复：ToolLoopRunner 心跳 execution_phase 此前无 SSE 分支被 switch 吞掉，
-          // 工具执行进度到不了前端。此处按结构化数据转发（__pyapp_execution_phase）。
-          if (chunk.executionPhase) {
-            res.write(
-              `data: ${JSON.stringify({
-                id: responseId,
-                object: 'chat.completion.chunk',
-                created,
-                model,
-                __pyapp_type: 'execution_phase',
-                __pyapp_execution_phase: chunk.executionPhase,
-                choices: [
-                  {
-                    index: 0,
-                    delta: { content: chunk.content || '' },
-                    finish_reason: null,
-                  },
-                ],
-              })}\n\n`
-            );
-            safeFlush(res);
-          }
-          break;
-        case 'doc_workflow':
-          if (chunk.docWorkflowData) {
-            res.write(
-              `data: ${JSON.stringify({
-                id: responseId,
-                object: 'chat.completion.chunk',
-                created,
-                model,
-                __pyapp_type: 'doc_workflow',
-                __pyapp_doc_workflow: chunk.docWorkflowData,
-                choices: [
-                  {
-                    index: 0,
-                    delta: { content: chunk.content || '' },
-                    finish_reason: null,
-                  },
-                ],
-              })}\n\n`
-            );
-            safeFlush(res);
-          }
-          break;
+      if (chunk.type === 'done') {
+        // 从 done chunk 捕获实际的 finishReason，替换后续硬编码
+        if (chunk.finishReason) {
+          chunkFinishReason = chunk.finishReason;
+        }
+        if (chunk.terminationReason) {
+          chunkTerminationReason = chunk.terminationReason;
+        }
+        if (chunk.usage) {
+          streamUsage = chunk.usage;
+        }
+      } else {
+        // T3（2026-11-17）：帧构造**原样搬运**到 `chatStreamFrames.buildStreamChunkFrame`
+        // （唯一实现；线格式逐字不变）。
+        const frame = buildStreamChunkFrame(chunk, {
+          id: responseId,
+          created,
+          model,
+        });
+        if (frame) {
+          res.write(frame);
+          safeFlush(res);
+        }
       }
 
       result = await generator.next();
@@ -1350,50 +1153,19 @@ async function handleStreamingChat(
       settleExecution(false, 'client_disconnected');
       return;
     }
-    if (streamUsage) {
-      const usageData: Record<string, unknown> = {
-        id: responseId,
-        object: 'chat.completion.chunk',
-        created,
-        model,
-        __pyapp_type: 'usage',
-        usage: {
-          prompt_tokens: streamUsage.inputTokens,
-          completion_tokens: streamUsage.outputTokens,
-          total_tokens: streamUsage.totalTokens,
-          estimated_cost_usd: streamUsage.estimatedCostUsd,
-          cache_read_input_tokens: streamUsage.cacheReadInputTokens,
-          cache_creation_input_tokens: streamUsage.cacheCreationInputTokens,
-        },
-        choices: [{ index: 0, delta: {}, finish_reason: finalFinishReason }],
-      };
-      if (autoCreatedProjectMeta) {
-        usageData.__pyapp_meta = autoCreatedProjectMeta;
-      }
-      // 2026-11-03 P1：终止判定（与 `turn/end.terminationReason` 同源）——
-      // 前端据此在当轮消息内显示「为什么停下」，不再只存在于事件日志。
-      if (chunkTerminationReason) {
-        usageData.__pyapp_termination_reason = chunkTerminationReason;
-      }
-      res.write(`data: ${JSON.stringify(usageData)}\n\n`);
-      safeFlush(res);
-    } else {
-      const doneData: Record<string, unknown> = {
-        id: responseId,
-        object: 'chat.completion.chunk',
-        created,
-        model,
-        choices: [{ index: 0, delta: {}, finish_reason: finalFinishReason }],
-      };
-      if (autoCreatedProjectMeta) {
-        doneData.__pyapp_meta = autoCreatedProjectMeta;
-      }
-      if (chunkTerminationReason) {
-        doneData.__pyapp_termination_reason = chunkTerminationReason;
-      }
-      res.write(`data: ${JSON.stringify(doneData)}\n\n`);
-      safeFlush(res);
-    }
+    // T3（2026-11-17）：usage / done 帧写出**原样搬运**到 `writeStreamTail`
+    // （字段与判定顺序逐字不变）。
+    writeStreamTail({
+      write: (frame) => {
+        res.write(frame);
+        safeFlush(res);
+      },
+      meta: { id: responseId, created, model },
+      finishReason: finalFinishReason,
+      usage: streamUsage,
+      autoCreatedProjectMeta,
+      terminationReason: chunkTerminationReason,
+    });
 
     res.write('data: [DONE]\n\n');
     safeFlush(res);

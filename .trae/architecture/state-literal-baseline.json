@@ -527,6 +527,7 @@
       "app/src/infrastructure/http/a2a/DiscoverySidecarSupervisor.ts",
       "app/src/infrastructure/http/handlers/analytics-handlers.ts",
       "app/src/infrastructure/http/handlers/chat-handlers.ts",
+      "app/src/infrastructure/http/handlers/chatStreamFrames.ts",
       "app/src/infrastructure/http/handlers/commands-handlers.ts",
       "app/src/infrastructure/http/handlers/cron-handlers.ts",
       "app/src/infrastructure/http/handlers/error-report-handlers.ts",

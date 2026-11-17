@@ -206,6 +206,61 @@ export function stripStaleApprovalNotice<
 }
 
 /**
+ * 2026-11-17：按 `inboxId` 汇总审批卡状态（只认结构化字段，CS02 不做文案匹配）。
+ *
+ * - `pending`：仍待用户处理；
+ * - `resolved`：已处理 / 已过期（服务端读时合成，非 pending 即视为已落定）。
+ *
+ * 同一 `inboxId` 既出现过 pending 又出现过终态时，终态优先（以最后一次合成状态为准的
+ * 保守口径：只要出现过终态就不再算等待）。
+ */
+export function collectApprovalInboxIds(
+  messages: ReadonlyArray<{ blocks?: MessageBlock[] }>,
+): { pending: Set<string>; resolved: Set<string> } {
+  const pending = new Set<string>();
+  const resolved = new Set<string>();
+  for (const message of messages) {
+    for (const block of message.blocks ?? []) {
+      if (block.type !== "inbox") continue;
+      const inbox = block.inboxData;
+      // 非审批类收件项（如提问）不参与"等待审批"判定
+      if (!inbox || inbox.type !== "approval") continue;
+      const inboxId = inbox.inboxId;
+      if (typeof inboxId !== "string" || !inboxId) continue;
+      if (inbox.status === "pending") {
+        if (!resolved.has(inboxId)) pending.add(inboxId);
+      } else {
+        pending.delete(inboxId);
+        resolved.add(inboxId);
+      }
+    }
+  }
+  return { pending, resolved };
+}
+
+let resolvedInboxIdsCache: {
+  messages: unknown;
+  ids: ReadonlySet<string>;
+} | null = null;
+
+/**
+ * 已处理/已过期审批的 `inboxId` 集合（供工具卡收起 ⏳ 徽标与就地审批按钮）。
+ *
+ * 以 `messages` **数组引用**为缓存键：zustand 更新会替换数组 ⇒ 每次数据变化只算一遍，
+ * 避免每张工具卡各扫一遍全量消息（长会话下是 O(卡片数 × 消息数)）。
+ */
+export function resolvedApprovalInboxIds(
+  messages: ReadonlyArray<{ blocks?: MessageBlock[] }>,
+): ReadonlySet<string> {
+  if (resolvedInboxIdsCache?.messages === messages) {
+    return resolvedInboxIdsCache.ids;
+  }
+  const ids = collectApprovalInboxIds(messages).resolved;
+  resolvedInboxIdsCache = { messages, ids };
+  return ids;
+}
+
+/**
  * 2026-11-13：会话当前是否处于「等待审批」（**结构化判定**，CS02 禁止文案匹配）。
  *
  * 真机 `session_mwdcivrue74d4838ff`：审批卡片已渲染，但浮动栏/任务卡仍显示
@@ -232,20 +287,8 @@ export function hasPendingApproval(
    * 再判定工具卡上的 `pendingApproval` —— 审批过期/被拒后不会再写终态工具结果，
    * 该标记会永久残留；此前先命中它就 return true，从不与卡片状态对账 ⇒ 界面永远「等待审批」。
    */
-  const pendingInboxIds = new Set<string>();
-  const resolvedInboxIds = new Set<string>();
-  for (const message of messages) {
-    for (const block of message.blocks ?? []) {
-      if (block.type !== "inbox") continue;
-      const inbox = block.inboxData;
-      // 非审批类收件项（如提问）不按"等待审批"呈现
-      if (!inbox || inbox.type !== "approval") continue;
-      const inboxId = inbox.inboxId;
-      if (typeof inboxId !== "string" || !inboxId) continue;
-      if (inbox.status === "pending") pendingInboxIds.add(inboxId);
-      else resolvedInboxIds.add(inboxId);
-    }
-  }
+  const { pending: pendingInboxIds, resolved: resolvedInboxIds } =
+    collectApprovalInboxIds(messages);
   // ① 审批卡仍待处理 ⇒ 会话确实在等用户
   if (pendingInboxIds.size > 0) return true;
 

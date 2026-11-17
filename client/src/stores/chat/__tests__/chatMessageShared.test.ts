@@ -22,12 +22,14 @@
 // T1.1（2026-08-23）：dedupeToolCallBlocks 合并去重测试
 import { describe, it, expect } from "vitest";
 import {
+  collectApprovalInboxIds,
   dedupeToolCallBlocks,
   hasPendingApproval,
   hasPendingApprovalCard,
   parseApprovalSignal,
   preferToolResult,
   resolveApprovalFlags,
+  resolvedApprovalInboxIds,
   stripStaleApprovalNotice,
 } from "../chat-message-shared";
 import type { MessageBlock } from "@/types";
@@ -401,5 +403,54 @@ describe("hasPendingApproval — 会话是否在等待审批（2026-11-13）", (
         { role: "assistant", blocks: [toolPending("ib-1"), otherCard] },
       ]),
     ).toBe(true);
+  });
+});
+
+/**
+ * 2026-11-17：工具卡按 `inboxId` 对账所需的索引（收起 ⏳ 徽标 / 就地审批按钮）。
+ */
+describe("collectApprovalInboxIds / resolvedApprovalInboxIds（2026-11-17）", () => {
+  const inboxBlock = (
+    inboxId: string,
+    status: "pending" | "replied" | "expired",
+    type: "approval" | "question" = "approval",
+  ): MessageBlock =>
+    ({
+      id: `blk_${inboxId}_${status}`,
+      type: "inbox",
+      content: "",
+      inboxData: { inboxId, type, title: "x", content: "", status, actions: [] },
+    }) as MessageBlock;
+
+  it("分别收集 pending 与 resolved；非审批类（提问）忽略", () => {
+    const { pending, resolved } = collectApprovalInboxIds([
+      { blocks: [inboxBlock("a", "pending")] },
+      { blocks: [inboxBlock("b", "expired"), inboxBlock("c", "replied")] },
+      { blocks: [inboxBlock("q", "pending", "question")] },
+    ]);
+    expect([...pending]).toEqual(["a"]);
+    expect([...resolved].sort()).toEqual(["b", "c"]);
+  });
+
+  it("同一 inboxId 既出现 pending 又出现终态 ⇒ 终态优先（不再算等待）", () => {
+    const { pending, resolved } = collectApprovalInboxIds([
+      { blocks: [inboxBlock("a", "pending")] },
+      { blocks: [inboxBlock("a", "expired")] },
+    ]);
+    expect(pending.size).toBe(0);
+    expect(resolved.has("a")).toBe(true);
+  });
+
+  it("resolvedApprovalInboxIds：同数组引用复用缓存，不同引用重算", () => {
+    const first = [{ blocks: [inboxBlock("a", "expired")] }] as Array<{
+      blocks?: MessageBlock[];
+    }>;
+    expect(resolvedApprovalInboxIds(first).has("a")).toBe(true);
+
+    const second = [{ blocks: [inboxBlock("z", "replied")] }] as Array<{
+      blocks?: MessageBlock[];
+    }>;
+    expect(resolvedApprovalInboxIds(second).has("z")).toBe(true);
+    expect(resolvedApprovalInboxIds(second).has("a")).toBe(false);
   });
 });

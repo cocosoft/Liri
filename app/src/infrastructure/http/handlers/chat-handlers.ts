@@ -63,10 +63,7 @@ import {
   openAttach,
 } from './streamAttachHub';
 // 2026-11-18（Spec `.trae/specs/stream-attach-grace.md`）：断开后的「中止 / 后台继续」判定
-import {
-  resolveDisconnectAction,
-  shouldAbortWhenGraceExpires,
-} from './streamDisconnectGrace';
+import { createGracefulDetach } from './streamDisconnectGrace';
 // 2026-11-11：消息级 `autonomy` 的跨字段冲突契约（与 PATCH /meta 同一判定，见 infra/permission）
 import {
   AUTONOMY_PERMISSION_CONFLICT,
@@ -947,60 +944,27 @@ async function handleStreamingChat(
   /**
    * 2026-11-18（Spec `.trae/specs/stream-attach-grace.md` §3）：**泵与 HTTP 响应解耦**。
    *
-   * - `detached=false`：写 `res` + flush，再旁路 publish —— 与改动前逐字等价；
-   * - `detached=true`：只 publish（帧进 attach hub），不碰已关闭的 res，循环**继续**；
+   * - 未 detached：写 `res` + flush（旁路帧始终 publish 给 attach hub）；
+   * - detached：只 publish，不碰已关闭的 res，循环**继续**推进生成器；
    * - `graceMs=0`（默认）：永远不会进入 detached，断开即中止（既有语义）。
    */
   const graceMs = CLIENT_DISCONNECT_GRACE_MS;
-  let detached = false;
-  let graceTimer: ReturnType<typeof setTimeout> | undefined;
-  /** 本轮是否已收尾（收尾后的 `close` 属正常完结，不得再 arm 宽限或中止） */
-  let runFinished = false;
+  const detachCtl = request.session_id
+    ? createGracefulDetach({
+        graceMs,
+        sessionId: request.session_id,
+        onDetach: () => clearInterval(keepaliveInterval),
+        onAbort: () => abortSessionOnClose(activeSessionId),
+        hasSubscribers,
+      })
+    : null;
 
   const writeFrame = (frame: string): void => {
     // 旁路先登记：attach 客户端的顺序只由 publish 顺序决定，与 res 是否存活无关
     attachRun?.publish(frame);
-    if (detached || res.destroyed || res.writableEnded) return;
+    if (detachCtl?.isDetached() || res.destroyed || res.writableEnded) return;
     res.write(frame);
     safeFlush(res);
-  };
-
-  /**
-   * 客户端断开时尝试"进入后台继续"。返回 true = 已 detach（调用方**不得**再中止本轮）。
-   */
-  const tryDetachFromResponse = (reason: 'close' | 'loop'): boolean => {
-    // 已收尾：`res.end()` 之后触发的 close 属正常完结，直接视为"无需处理"
-    if (runFinished) return true;
-    const action = resolveDisconnectAction(graceMs, detached);
-    if (action.kind === 'continue') return true;
-    if (action.kind === 'abort') return false;
-    detached = true;
-    clearInterval(keepaliveInterval);
-    logger.info('SSE 客户端断开，进入后台继续（宽限期内等待接入）', {
-      sessionId: request.session_id,
-      graceMs: action.graceMs,
-      reason,
-    });
-    graceTimer = setTimeout(() => {
-      const sid = request.session_id ?? '';
-      if (!shouldAbortWhenGraceExpires(hasSubscribers(sid))) {
-        logger.info('attach 宽限期结束：已有订阅者接管，本轮继续', {
-          sessionId: sid,
-        });
-        return;
-      }
-      logger.info('attach 宽限期结束且无人接入，中止本轮', {
-        sessionId: sid,
-        graceMs,
-      });
-      try {
-        getCoreAPI().chatManager?.abortSessionStream(activeSessionId ?? '');
-      } catch {
-        // @ignore-catch — 中止失败不改变"不再等待"的决定
-      }
-    }, action.graceMs);
-    (graceTimer as unknown as { unref?: () => void }).unref?.();
-    return true;
   };
 
   // S1: 客户端断开时通知后端中止工具执行 — 补全 close → AbortController 链路
@@ -1009,7 +973,7 @@ async function handleStreamingChat(
   res.on('close', () => {
     clearInterval(keepaliveInterval);
     streamSpan.addEvent('sse.client.disconnected');
-    if (tryDetachFromResponse('close')) return;
+    if (detachCtl?.tryDetach('close')) return;
     abortSessionOnClose(activeSessionId);
   });
 
@@ -1180,7 +1144,7 @@ async function handleStreamingChat(
       // P1-2: 客户端断开时立即停止流式输出，避免后续 res.write() 抛出 EPIPE
       // 2026-11-18：宽限期 > 0 ⇒ 转入后台继续泵（帧只进 attach hub），不中止本轮
       if (res.destroyed || res.writableEnded) {
-        if (tryDetachFromResponse('loop')) {
+        if (detachCtl?.tryDetach('loop')) {
           // 已 detach：继续推进生成器（不写 res、不 abort）
         } else {
           logger.info('SSE 客户端已断开，停止流式输出', {
@@ -1236,7 +1200,7 @@ async function handleStreamingChat(
     const finalFinishReason = chunkFinishReason || 'stop';
     // 2026-11-18：detached（宽限期内后台推进）不算"客户端断开"——尾部帧仍要进 attach hub，
     // 落盘与执行结算按正常收尾处理。
-    if (!detached && (res.destroyed || res.writableEnded)) {
+    if (!detachCtl?.isDetached() && (res.destroyed || res.writableEnded)) {
       getEventNotificationService().off('tool:completed', onToolCompleted);
       getEventNotificationService().off(
         'project:auto_created',
@@ -1276,7 +1240,8 @@ async function handleStreamingChat(
     otel.endSpan(streamSpan, SpanStatusCode.OK);
     // P0-2：正常完成 ⇒ 结算执行（COMPLETED）；未开启灰度 ⇒ no-op
     settleExecution(true);
-    if (!detached && !res.destroyed && !res.writableEnded) res.end();
+    if (!detachCtl?.isDetached() && !res.destroyed && !res.writableEnded)
+      res.end();
   } catch (err) {
     // P0-2：异常 ⇒ 结算执行（FAILED）；未开启灰度 ⇒ no-op
     settleExecution(false, err instanceof Error ? err.message : 'unknown');
@@ -1295,7 +1260,8 @@ async function handleStreamingChat(
       action: 'chat_stream_request',
     });
     // P1-2: 若客户端已断开，不尝试写入（detached 例外：错误帧仍要进 attach hub）
-    if (!detached && (res.destroyed || res.writableEnded)) return;
+    if (!detachCtl?.isDetached() && (res.destroyed || res.writableEnded))
+      return;
     writeFrame(
       `data: ${JSON.stringify({
         id: responseId,
@@ -1319,11 +1285,11 @@ async function handleStreamingChat(
       })}\n\n`
     );
     writeFrame('data: [DONE]\n\n');
-    if (!detached && !res.destroyed && !res.writableEnded) res.end();
+    if (!detachCtl?.isDetached() && !res.destroyed && !res.writableEnded)
+      res.end();
   } finally {
     // 2026-11-18（attach）：宽限定时器与 run 收口——三条出口（正常 / 断开 / 异常）统一
-    if (graceTimer) clearTimeout(graceTimer);
-    runFinished = true;
+    detachCtl?.finish();
     attachRun?.end();
   }
 }
@@ -1660,20 +1626,33 @@ export async function handleResumeChat(
   // SSE 头（与 handleStreamingChat 一致）
   res.writeHead(200, SSE_RESPONSE_HEADERS);
 
-  // K4b（2026-09-06）：仅流式中才中止（正常收尾的 close 不误伤后台 PDL）
-  res.on('close', () => {
-    abortSessionOnClose(sessionId);
-  });
-
   // 2026-11-18（Spec `.trae/specs/stream-attach.md` §12 限制 1 的收口）：
   // 续跑流同样接入只读 attach —— 否则「断线 → 续跑」产生的这一轮对 attach 恒 404。
   // runId 用独立前缀，避免与 `/v1/chat/completions` 的 `chatcmpl-*` 混淆。
   const attachRun = beginRun(sessionId, `resume-${randomUUID().slice(0, 8)}`);
+
+  // 2026-11-18（Spec `.trae/specs/stream-attach-grace.md` §11.2 的 P2）：续跑流同样支持
+  // "断开后在宽限期内后台继续"——与主链路共用同一个控制器（判定口径不得分叉）。
+  const detachCtl = createGracefulDetach({
+    graceMs: CLIENT_DISCONNECT_GRACE_MS,
+    sessionId,
+    onAbort: () => abortSessionOnClose(sessionId),
+    hasSubscribers,
+  });
+
   const writeFrame = (frame: string): void => {
+    attachRun.publish(frame);
+    if (detachCtl.isDetached() || res.destroyed || res.writableEnded) return;
     res.write(frame);
     safeFlush(res);
-    attachRun.publish(frame);
   };
+
+  // K4b（2026-09-06）：仅流式中才中止（正常收尾的 close 不误伤后台 PDL）
+  // 2026-11-18：宽限期 > 0 时改为"进入后台"，中止由宽限定时器兜底
+  res.on('close', () => {
+    if (detachCtl.tryDetach('close')) return;
+    abortSessionOnClose(sessionId);
+  });
 
   try {
     const coreAPI = getCoreAPI();
@@ -1684,7 +1663,10 @@ export async function handleResumeChat(
 
     let result = await generator.next();
     while (!result.done) {
-      if (res.destroyed || res.writableEnded) break;
+      if (res.destroyed || res.writableEnded) {
+        // 宽限期内转入后台继续泵；grace=0 时保持既有"断开即停"
+        if (!detachCtl.tryDetach('loop')) break;
+      }
 
       // P1 修复：统一 OpenAI 兼容包装（此前对象 chunk 平铺发送，前端解析丢失内容）
       const data = serializeResumeChunk(
@@ -1696,20 +1678,21 @@ export async function handleResumeChat(
       result = await generator.next();
     }
 
-    if (!res.destroyed && !res.writableEnded) {
+    if (detachCtl.isDetached() || (!res.destroyed && !res.writableEnded)) {
       writeFrame('data: [DONE]\n\n');
     }
   } catch (err) {
     await handleError(err, { module: 'infra:http', action: 'resume_chat' });
-    if (!res.destroyed && !res.writableEnded) {
+    if (detachCtl.isDetached() || (!res.destroyed && !res.writableEnded)) {
       writeFrame(
         `data: ${JSON.stringify({ __pyapp_type: 'error', content: '恢复失败' })}\n\n`
       );
     }
   } finally {
     // 三条出口（正常 / 异常 / 客户端断开）统一收口本轮
+    detachCtl.finish();
     attachRun.end();
-    if (!res.destroyed && !res.writableEnded) {
+    if (!detachCtl.isDetached() && !res.destroyed && !res.writableEnded) {
       res.end();
     }
   }

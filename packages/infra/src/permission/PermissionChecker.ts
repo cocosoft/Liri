@@ -28,7 +28,7 @@ import {
   type PendingApprovalLookup,
 } from './inboxApprovalDedupe';
 import { PermissionBehavior, isRuleMatch } from './types/PermissionRule';
-import type { RuleMatchOptions } from './types/PermissionRule';
+import type { RuleMatchOptions, PermissionRule } from './types/PermissionRule';
 import {
   RiskClass,
   inferRiskClass,
@@ -983,6 +983,36 @@ export class PermissionChecker {
   }
 
   /**
+   * 命中的**工具级/内容级** allow 规则（无 ⇒ `null`）。
+   *
+   * R3/R5（2026-11-17）：带规则归属返回，供命中计数与决策归因；判定口径与
+   * `isToolAllowed` 完全一致（同一实现）。
+   *
+   * 注：走 `getRulesByBehavior` ⇒ 「暂停全部持久化放行」时审批规则同样不参与
+   * （此前直接读 `getRules` 会绕过该过滤）。
+   */
+  findAllowRule(
+    toolOrName: Tool | string,
+    context: PermissionContext
+  ): PermissionRule | null {
+    const toolName =
+      typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
+    const allowRules = this.ruleManager.getRulesByBehavior(
+      PermissionBehavior.ALLOW
+    );
+    const options = this._ruleMatchOptions(
+      toolOrName,
+      context.input ?? {},
+      context
+    );
+    return (
+      allowRules.find((rule) =>
+        isRuleMatch(rule, toolName, context.input, options)
+      ) ?? null
+    );
+  }
+
+  /**
    * 检查工具是否被允许
    * @param toolOrName 工具对象或工具名称
    * @param context 权限上下文
@@ -992,20 +1022,7 @@ export class PermissionChecker {
     toolOrName: Tool | string,
     context: PermissionContext
   ): boolean {
-    const toolName =
-      typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
-    const allowRules = this.ruleManager.getRules(
-      undefined,
-      PermissionBehavior.ALLOW
-    );
-    const options = this._ruleMatchOptions(
-      toolOrName,
-      context.input ?? {},
-      context
-    );
-    return allowRules.some((rule) =>
-      isRuleMatch(rule, toolName, context.input, options)
-    );
+    return this.findAllowRule(toolOrName, context) !== null;
   }
 
   /**

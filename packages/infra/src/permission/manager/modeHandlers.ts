@@ -163,7 +163,8 @@ export interface ModeHandlerDeps {
     const askRule = deps.ruleManager.getAskRuleForTool(toolName, ruleContext);
     if (askRule) {
       return createDenyDecision(
-        `Dont ask mode, denying ask rule from ${askRule.source}`
+        `Dont ask mode, denying ask rule from ${askRule.source}`,
+        askRule
       );
     }
     const matchingAskRule = deps.ruleManager.getMatchingRule(
@@ -175,13 +176,18 @@ export interface ModeHandlerDeps {
     );
     if (matchingAskRule) {
       return createDenyDecision(
-        `Dont ask mode, denying ask rule from ${matchingAskRule.source}`
+        `Dont ask mode, denying ask rule from ${matchingAskRule.source}`,
+        matchingAskRule
       );
     }
 
-    // 3. A 体系允许规则
-    if (deps.permissionChecker.isToolAllowed(toolOrName, context)) {
-      return createAllowDecision('Tool is allowed by permission rule');
+    // 3. A 体系允许规则（带规则归属：R3 命中计数需要 ruleId）
+    const allowedRule = deps.permissionChecker.findAllowRule(
+      toolOrName,
+      context
+    );
+    if (allowedRule) {
+      return createAllowDecision('Tool is allowed by permission rule', allowedRule);
     }
 
     // 4. RBAC allow
@@ -271,7 +277,7 @@ export interface ModeHandlerDeps {
 
     const askRule = deps.ruleManager.getAskRuleForTool(toolName, ruleContext);
     if (askRule) {
-      return createAskDecision(`Asked by rule from ${askRule.source}`);
+      return createAskDecision(`Asked by rule from ${askRule.source}`, askRule);
     }
 
     const matchingAskRule = deps.ruleManager.getMatchingRule(
@@ -282,7 +288,10 @@ export interface ModeHandlerDeps {
       matchOptions
     );
     if (matchingAskRule) {
-      return createAskDecision(`Asked by rule from ${matchingAskRule.source}`);
+      return createAskDecision(
+        `Asked by rule from ${matchingAskRule.source}`,
+        matchingAskRule
+      );
     }
 
     // D 体系 ask：排在工具级 ask 之后、allow 之前（ask 不越过 allow）
@@ -293,7 +302,10 @@ export interface ModeHandlerDeps {
       ruleContext
     );
     if (allowRule) {
-      return createAllowDecision(`Allowed by rule from ${allowRule.source}`);
+      return createAllowDecision(
+        `Allowed by rule from ${allowRule.source}`,
+        allowRule
+      );
     }
 
     const matchingAllowRule = deps.ruleManager.getMatchingRule(
@@ -305,7 +317,8 @@ export interface ModeHandlerDeps {
     );
     if (matchingAllowRule) {
       return createAllowDecision(
-        `Allowed by rule from ${matchingAllowRule.source}`
+        `Allowed by rule from ${matchingAllowRule.source}`,
+        matchingAllowRule
       );
     }
 
@@ -477,7 +490,7 @@ export interface ModeHandlerDeps {
 
     const askRule = deps.ruleManager.getAskRuleForTool(toolName, ruleContext);
     if (askRule) {
-      return createAskDecision(`Asked by rule from ${askRule.source}`);
+      return createAskDecision(`Asked by rule from ${askRule.source}`, askRule);
     }
 
     // RBAC ask：排在工具级 ask 之后、allow 之前（ask 不越过 allow）
@@ -489,7 +502,10 @@ export interface ModeHandlerDeps {
     );
     if (allowRule) {
       deps.denialTracker.trackSuccess(toolName, context.sessionId);
-      return createAllowDecision(`Allowed by rule from ${allowRule.source}`);
+      return createAllowDecision(
+        `Allowed by rule from ${allowRule.source}`,
+        allowRule
+      );
     }
 
     // RBAC allow：显式绑定优先于只读短路与分类器（deny / ask 已在上面处理）

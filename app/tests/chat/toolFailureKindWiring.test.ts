@@ -25,6 +25,12 @@ const EXEC_SERVICE_SRC = readFileSync(
   new URL('../../src/chat/services/ToolExecutionService.ts', import.meta.url),
   'utf8'
 );
+// T3 stage 2（2026-11-17）：入口预检守卫（含用户「拒绝」终态）外移至该模块
+// ⇒ 固定 `permission_denied` 生产者的源码计数必须一并统计两个文件（下同）。
+const PREFLIGHT_SRC = readFileSync(
+  new URL('../../src/chat/services/toolPreflight.ts', import.meta.url),
+  'utf8'
+);
 const TOOL_LOOP_SRC = readFileSync(
   new URL('../../src/chat/ReActToolLoop.ts', import.meta.url),
   'utf8'
@@ -82,10 +88,13 @@ describe('failureKind 生产者接线（LRO-09 步骤 1b）', () => {
 
   it('权限生产者：DENY / 审批未能提交固定 permission_denied；工作区越界按灰度开关分型', () => {
     const hits =
-      EXEC_SERVICE_SRC.match(/failureKind: 'permission_denied'/g) ?? [];
+      (EXEC_SERVICE_SRC + PREFLIGHT_SRC).match(
+        /failureKind: 'permission_denied'/g
+      ) ?? [];
     // FIX-10（2026-10-27）原有三处；B1（2026-10-30，issue #35）把"工作区越界"改为
     // 随 `FEATURE_WORKSPACE_MULTI_ROOT` 分型 ⇒ 固定 permission_denied 只剩两处。
     // 2026-11-12：新增"用户在该调用上点了拒绝"的终止态（同样固定 permission_denied）⇒ 三处。
+    // T3（2026-11-17）：该处随入口预检外移到 `toolPreflight.ts`，故两文件合并计数仍为三处。
     expect(hits.length).toBe(3);
     // 开启多根 ⇒ 越界按「是否已提交审批」二分（2026-10-31，台账 §16）：
     //   已提交审批 ⇒ workspace_escape_pending_approval（熔断分型中性，等批准不烧 invalid 预算）

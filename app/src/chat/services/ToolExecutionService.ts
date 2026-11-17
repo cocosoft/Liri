@@ -49,7 +49,6 @@ import {
 // R07-3（2026-10-07）：非幂等工具「重试」判定（唯一实现 = tools/toolEffects）
 // S2-6（2026-10-11）：工具调用统一指标（工具名/结果/耗时/入参字节/估算 tokens）—— 唯一实现 = tools/monitoring
 import {
-  isBlockedForUntrustedOrigin,
   isNonIdempotentRetry,
   recordToolInvocation,
   // 2026-11-02：工具级重试预算（幂等声明 ⇒ 允许盲目重试；非幂等/未声明 ⇒ 禁止）
@@ -68,6 +67,8 @@ import { taskOrchestrator } from '@modules/tasks';
 import { withToolTimeout } from './ToolTimeoutWrapper.js';
 // T3（2026-11-17）：本地查询工具（get_tool_result / session_lookup / list_tool_calls）短路
 import { tryHandleLocalQueryTool } from './localQueryTools';
+// T3 stage 2（2026-11-17）：入口预检守卫（渠道来源 Taint / 用户「拒绝」终态）
+import { evaluateToolPreflight } from './toolPreflight';
 import {
   createFileStateCacheWithSizeLimit,
   type FileStateCache,
@@ -97,8 +98,6 @@ import {
   authorizeToolCall,
   getEffectivePermissionRole,
   getEffectivePermissionRoles,
-  // 2026-11-12：用户「拒绝」的调用 ⇒ 重放时返回终止态（不再执行/不再提卡）
-  isToolCallDenied,
   resolveApprovalFingerprint,
   type ToolPermissionPort,
 } from '@openliri/infra/permission';
@@ -882,52 +881,13 @@ export class ToolExecutionService {
     });
     if (localQueryResult) return localQueryResult;
 
-    // ── T25-07（2026-10-25 用户裁定）：渠道来源 Taint（不可信输入）──
-    // 会话由外部通道入站驱动 ⇒ `sideEffect !== 'none'` 的工具一律拒绝（external + local）。
-    // 判定复用 `tools/toolEffects.ts`（唯一事实源，不按工具名硬编码）；未声明效果（MCP/插件）fail-closed。
-    if (
-      feature('CHANNEL_UNTRUSTED_TAINT') &&
-      this._isUntrustedSession(toolCall.sessionId) &&
-      isBlockedForUntrustedOrigin(normalizedToolCall.name)
-    ) {
-      logger.warn(
-        'chat:untrusted_origin_blocked — 渠道来源会话拒绝副作用工具',
-        {
-          toolName: normalizedToolCall.name,
-          toolCallId: toolCall.id,
-          sessionId: toolCall.sessionId,
-        }
-      );
-      return {
-        toolCallId: toolCall.id,
-        toolName: normalizedToolCall.name,
-        result: { blocked: true, reason: 'UNTRUSTED_ORIGIN' },
-        error:
-          `该会话由外部通道入站驱动（不可信来源），已拒绝执行有副作用的工具「${normalizedToolCall.name}」。` +
-          '如需执行，请在桌面端 / REPL 继续该会话。',
-      };
-    }
-
-    // ── 2026-11-12：用户在审批卡上点了「拒绝」──
-    // 拒绝是**该调用**的终态：如实返回失败（不执行、不重提卡），由重新续跑的循环把这条结果
-    // 交给模型改道；否则模型永远收不到"被拒"这一事实，会话停在等待审批。
-    if (isToolCallDenied(toolCall.sessionId, toolCall.id)) {
-      logger.info('工具调用已被用户拒绝，返回终止态', {
-        toolName: normalizedToolCall.name,
-        toolCallId: toolCall.id,
-        sessionId: toolCall.sessionId,
-      });
-      return {
-        toolCallId: toolCall.id,
-        toolName: normalizedToolCall.name,
-        result: { denied: true, reason: 'USER_DENIED' },
-        error:
-          `用户拒绝执行该工具调用（${normalizedToolCall.name}）。` +
-          '请勿重试同一命令或用等价写法绕过；如需继续，请改用其他方式（如 file_write）或向用户说明后等待指示。',
-        failureKind: 'permission_denied',
-        metadata: { userDenied: true },
-      };
-    }
+    // ── 预检守卫（T3 stage 2，2026-11-17：实现外移 `./toolPreflight`，行为逐字保留）──
+    // 顺序不变：渠道来源 Taint（不可信输入）→ 用户「拒绝」终态，均先于权限链。
+    const preflightResult = evaluateToolPreflight({
+      toolCall,
+      isUntrustedSession: () => this._isUntrustedSession(toolCall.sessionId),
+    });
+    if (preflightResult) return preflightResult;
 
     // ── 权限检查 ──
     // D2（2026-10-11 用户裁定「启动 fail-fast 断言」）：权限管理器未注入是**装配异常** ⇒

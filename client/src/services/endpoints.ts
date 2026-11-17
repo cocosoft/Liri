@@ -619,6 +619,8 @@ export const ENDPOINTS = {
   sandbox: {
     config: "/v1/sandbox/config",
     status: "/v1/sandbox/status",
+    /** S0：命令执行沙箱只读探针（诊断面；`?refresh=1` 强制重测） */
+    probe: "/v1/diagnostics/sandbox/probe",
   },
   semantic: {
     index: "/v1/semantic/index",

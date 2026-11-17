@@ -123,6 +123,12 @@
 > `LazyModuleStrategy` 的 lsp 条目）均已无 loader thunk。**但发现 1 处测试消费者** ——
 > `tests/performance/benchmark.test.ts:12` 相对导入 `LSPServerConfigRegistry` ⇒ 删除前置未满足。
 > 下次复核的删除清单与顺序见 `tool-sidecar-isolation.md §13.7`。
+>
+> **2026-11-18 收口（S6，结论：已删除）**：先摘最后两处**测试**消费者
+> （`benchmark.test.ts` 的注册表基准块、`spawnCwdGuard.test.ts` 的 LSPClient 用例）⇒
+> CD01–CD04 全清（`@modules/lsp` 0 导入、懒加载表无 lsp、`requestOnDemandModule` 全仓零调用）⇒
+> 按 CD06 独立提交删除 `app/src/lsp/**`（14 文件）+ `tsconfig` 别名 + eslint 覆写。
+> 被删清单与回滚方式见 `tool-sidecar-isolation.md §13.8`（`git revert` 该提交即可复原）。
 
 **证据（CD01/CD02 专项）**：静态引用近零 —— `@modules/lsp` 全仓仅 4 处（`tools/lsp/LSPToolIntegration.ts:15` 取校验函数、`app/tsconfig.json:38-39` 路径别名、`modules/ImportManager.ts:107` 别名映射、`tests/tools/lspRequestTimeout.test.ts:37` 注释），且 `createLSPToolIntegration` 在 `tools/lsp/**` 外**无消费者**。**但存在字面量动态 thunk**：`core/LazyModuleStrategy.ts:364` 的 `lsp: () => import('../lsp/index.js')`（模块声明 `ON_DEMAND`，`:149-153`）；触发链 `ModuleInitializer.requestOnDemandModule()`（`:410-427`；`:402-405` 已登记 G-C5）**全仓零调用**，且 `lsp` 被 `getDeferredModuleIds` 排除（`:403-412`）。
 **影响**：零（当前无运行时接入路径）；但属 **CD01/CD02 盲区命中** —— "静态看不见动态" ⇒ **不得**以"静态零引用"为删据。

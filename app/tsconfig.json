@@ -180,8 +180,6 @@
       "@modules/ai/*": ["ai/*"],
       "@modules/agent": ["agent"],
       "@modules/agent/*": ["agent/*"],
-      "@modules/lsp": ["lsp"],
-      "@modules/lsp/*": ["lsp/*"],
       "@modules/plugins": ["plugins"],
       "@modules/plugins/*": ["plugins/*"],
       "@modules/skills": ["../../packages/skills/src/skills/index.ts"],

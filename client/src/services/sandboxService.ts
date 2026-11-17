@@ -78,6 +78,47 @@ export interface SandboxStatus {
   activeWorkspaceCount: number;
 }
 
+/**
+ * 命令执行沙箱（`sandbox.landlock.*`）当前生效配置。
+ *
+ * 默认值由后端 `readLandlockConfig()` 补齐（`enabled=true / bashEnabled=false /
+ * failClosed=false / 路径=[]`），前端不另存一份默认值。
+ */
+export interface SandboxLandlockConfig {
+  enabled: boolean;
+  bashEnabled: boolean;
+  failClosed: boolean;
+  bashExtraWritablePaths: string[];
+}
+
+/**
+ * 命令执行沙箱探针结论（`GET /v1/diagnostics/sandbox/probe`，S0）。
+ *
+ * `effective` 是后端用**真实门控**（`decideBashLandlockGate`）加 helper 可执行性事实
+ * 归一化后的结论；前端只渲染，不再推断。
+ */
+export interface SandboxProbe {
+  generatedAt: string;
+  platform: string;
+  config: SandboxLandlockConfig;
+  evalForced: boolean;
+  gate: { mode: string; reason: string; message?: string };
+  effective: "off" | "plain" | "isolated" | "refuse";
+  helper: {
+    kind: "landlock-run" | "sandbox-exec" | "win-sandbox-run" | "none";
+    required: boolean;
+    present: boolean | null;
+    /** `null` = 本平台无执行探测契约（不得当成可用/不可用） */
+    runnable: boolean | null;
+    reasonCode: string;
+    detail?: string;
+    path?: string;
+  };
+  coverage: { write: boolean; read: boolean; network: boolean };
+  affectedTools: string[];
+  notes: string[];
+}
+
 /** 沙箱配置与状态服务（S1：对应后端 /v1/sandbox/*） */
 export const sandboxService = {
   /** 获取沙箱配置 */
@@ -109,6 +150,52 @@ export const sandboxService = {
       return await http.get<SandboxStatus>(ENDPOINTS.sandbox.status);
     } catch (e) {
       handleClientError(e, { module: "services:sandbox", action: "getStatus" });
+      throw e;
+    }
+  },
+
+  /**
+   * S0：命令执行沙箱只读探针。
+   *
+   * @param refresh `true` ⇒ 后端先清三平台探测器缓存再探测（保存开关后必须用，否则回显旧结论）
+   */
+  async getCommandSandboxProbe(refresh = false): Promise<SandboxProbe> {
+    try {
+      const url = refresh
+        ? `${ENDPOINTS.sandbox.probe}?refresh=1`
+        : ENDPOINTS.sandbox.probe;
+      return await http.get<SandboxProbe>(url);
+    } catch (e) {
+      handleClientError(e, {
+        module: "services:sandbox",
+        action: "getCommandSandboxProbe",
+      });
+      throw e;
+    }
+  },
+
+  /**
+   * S3：写 `sandbox.landlock.*`（四个字段的补丁语义）。
+   *
+   * 走 `PUT /v1/config/sandbox`（点号配置段，设置方案 §11.2）：服务端做绝对路径 /
+   * 根目录 / 应用数据目录保护校验，并在写后清探测器缓存。`forceWithReason` 是
+   * 放行应用数据目录子树时必须给出的显式理由（会被写入审计）。
+   */
+  async updateLandlockConfig(
+    patch: Partial<SandboxLandlockConfig>,
+    options: { forceWithReason?: string } = {},
+  ): Promise<void> {
+    try {
+      const value: Record<string, unknown> = { landlock: patch };
+      if (options.forceWithReason) {
+        value.forceWithReason = options.forceWithReason;
+      }
+      await http.put<unknown>(ENDPOINTS.config.byKey("sandbox"), { value });
+    } catch (e) {
+      handleClientError(e, {
+        module: "services:sandbox",
+        action: "updateLandlockConfig",
+      });
       throw e;
     }
   },

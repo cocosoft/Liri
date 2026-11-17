@@ -8,6 +8,7 @@ import {
   type SandboxPermissionLevel,
 } from "../../services/sandboxService";
 import { handleClientError } from "../../utils/handleError";
+import CommandSandboxPanel from "./sandbox/CommandSandboxPanel";
 
 /** 权限级别选项（与后端 PERMISSION_SANDBOX_DEFAULT 一致） */
 const PERMISSION_LEVELS: Array<{
@@ -245,6 +246,9 @@ function SandboxPage() {
                 </div>
               </div>
             </div>
+
+            {/* S3（2026-11-17）：命令执行沙箱四项可写（probe 前置 + 危险确认） */}
+            <CommandSandboxPanel isDark={isDark} />
 
             {/* 运行时状态 */}
             <div className={`${cardClass} mb-6`}>

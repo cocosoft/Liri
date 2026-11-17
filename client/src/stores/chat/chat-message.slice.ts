@@ -40,6 +40,7 @@ import {
   checkAbortRecoveryImpl,
   dismissRecoveryImpl,
   resumeRecoveryImpl,
+  attachStreamImpl,
   continueGenerationImpl,
   loadOlderMessagesImpl,
 } from "./chat-message-actions";
@@ -406,6 +407,11 @@ export const createMessageSlice: StateCreator<
 
     resumeRecovery: (sessionId: string) => {
       resumeRecoveryImpl(messageSet, messageGet, sessionId);
+    },
+
+    // 只读接入正在后台运行的这一轮（2026-11-18，Spec `.trae/specs/stream-attach.md`）
+    attachSessionStream: async (sessionId: string) => {
+      return attachStreamImpl(messageSet, messageGet, sessionId);
     },
 
     // ── 阶段2 断连挂起-恢复 ──

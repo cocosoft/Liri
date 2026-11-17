@@ -224,5 +224,12 @@ if (method === 'GET' && url.match(/^\/v1\/sessions\/(.+)\/attach$/)) {
 
 1. `handleResumeChat`（`POST /v1/sessions/:id/resume`）的续跑流**未**接入 tee ⇒ 对"续跑产生的这一轮" attach 会 404。补接线时只需同样收拢其 3 个 `res.write` 写点。
 2. 进程重启后一律 404（内存态，见 §7）。
-3. 客户端「接入」按钮与 `attachStream` 消费端尚未实现（§6 属第二阶段）。
+3. **客户端接入只带状态，不逐 token 渲染正文**（2026-11-18 第二阶段落地时的取舍）：
+   - 已实现：`GET .../attach` 消费（`chatService.attachStream`）、`StatusFloatBar` 的「接入」按钮（`wait.remoteStreaming` 时可见）、`attachStreamImpl`；
+   - 接入期间只把 `status` / `execution_phase` 写进既有 store 字段（状态栏可见「工具执行中 / 阶段」），
+     正文**不在本地另拼**（实现唯一性）；接入结束或失败时拉一次落盘消息做增量刷新 ——
+     即"接入 = 看得到它在干活 + 结束后正文补齐"，**不是**逐 token 打字效果；
+   - 若要做逐 token 接入，需把 `streamMessageImpl` 的"消费生成器 → 渲染/落盘"抽成可复用函数
+     （当前 900 行函数内耦合了聚合器/保存队列/rAF 批处理），属独立重构，须单独立项评审。
+
 

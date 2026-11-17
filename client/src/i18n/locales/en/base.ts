@@ -531,6 +531,15 @@ const enBase = {
       "⚠️ No backend heartbeat for {{seconds}}s — the connection may be down (waiting for auto-reconnect)",
     remoteStreamingLabel:
       "This session is still running in the background (live output is not attached to this page)",
+    // Read-only attach (2026-11-18, Spec `.trae/specs/stream-attach.md`)
+    attachStreamCta: "Attach",
+    attachStreamHint: "Attach to the output this turn is still producing",
+    attachFailureNoActiveRun:
+      "This turn has ended (or is out of the attach window); messages were refreshed",
+    attachFailureCursorGap:
+      "Missed output is out of the replay window; messages were refreshed",
+    attachFailureTooMany:
+      "Attachment limit reached for this session; try again later",
     yieldUnresolved:
       "This turn yielded but could not auto-resume (app restart or lost settlement). Just send a message to continue.",
     // PR-3c (2026-10-23): persistent global trust level notice (Q-31 / §9-17)

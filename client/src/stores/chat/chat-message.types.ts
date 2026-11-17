@@ -155,6 +155,11 @@ export interface MessageSlice {
   dismissRecovery: () => void;
   /** P2-6: 用户确认恢复 — 关闭提示并继续之前被中止的会话 */
   resumeRecovery: (sessionId: string) => void;
+  /**
+   * 只读接入本会话正在后台运行的这一轮（2026-11-18，Spec `.trae/specs/stream-attach.md` §6）。
+   * 只写状态类字段 + 结束后增量刷新消息；不另建渲染管线、不发送消息。
+   */
+  attachSessionStream: (sessionId: string) => Promise<void>;
   /** 阶段2: 标记会话流已挂起（消费者收到 paused chunk 时调用） */
   pauseStream: (sessionId: string) => void;
   /** 阶段2: 恢复挂起流（自动/手动），使其从检查点续传 */

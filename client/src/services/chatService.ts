@@ -718,6 +718,30 @@ if (typeof window !== "undefined") {
   }
 }
 
+/** attach 端点的结构化失败原因（CS02：按 HTTP 状态码映射，不解析响应文案） */
+export type AttachFailure =
+  "no_active_run" | "cursor_gap" | "too_many_attachments";
+
+/**
+ * 状态码 ⇒ attach 失败原因；非 attach 专属状态（如 500 / 网络错误）返回 null
+ * （调用方按普通请求失败处理）。
+ */
+export function attachFailureForStatus(
+  status: number | undefined,
+): AttachFailure | null {
+  if (status === 404) return "no_active_run";
+  if (status === 409) return "cursor_gap";
+  if (status === 429) return "too_many_attachments";
+  return null;
+}
+
+/** attach 失败原因 ⇒ i18n 键（静态映射，避免动态拼 key） */
+const ATTACH_FAILURE_KEYS: Record<AttachFailure, string> = {
+  no_active_run: "chat.attachFailureNoActiveRun",
+  cursor_gap: "chat.attachFailureCursorGap",
+  too_many_attachments: "chat.attachFailureTooMany",
+};
+
 export const chatService = {
   startBackend: async (): Promise<BackendStatus> => {
     logger.info("[startBackend] 前端发起启动后端请求");
@@ -1405,6 +1429,135 @@ export const chatService = {
   },
 
   /**
+   * 只读接入正在输出的这一轮（Spec `.trae/specs/stream-attach.md` §6）。
+   *
+   * 与 `streamMessage` 的区别：不发送任何消息、不写后端状态，只是把后端**已经产出**的
+   * 同一批 SSE 帧接回本页（可带 `fromSeq` 续传）。帧格式与主链路逐字一致 ⇒ 复用
+   * `parseSseChunk`；`id:` 行是 attach 专有的帧序号，忽略；`attach_meta` 为未知
+   * `__pyapp_type`，`parseSseChunk` 返回 null 自然跳过。
+   *
+   * 失败（404/409/429）一律产出 `error` chunk（`errorCode` 前缀 `ATTACH_`），
+   * 由调用方决定"重拉落盘消息"，绝不伪造连续输出。
+   */
+  attachStream: async function* (
+    sessionId: string,
+    options?: {
+      /** 已消费帧数（0 = 从头回放） */
+      fromSeq?: number;
+      /** 上次收到的 runId；本轮已更换 ⇒ 后端 409 */
+      runId?: string;
+      signal?: AbortSignal;
+    },
+  ): AsyncGenerator<StreamChunk, void, unknown> {
+    const params = new URLSearchParams({
+      from_seq: String(options?.fromSeq ?? 0),
+    });
+    if (options?.runId) params.set("run_id", options.runId);
+
+    const { createStreamReader } = await import("./httpClient");
+    let reader: Awaited<ReturnType<typeof createStreamReader>>;
+    try {
+      reader = await createStreamReader(
+        `${ENDPOINTS.session.attach(sessionId)}?${params.toString()}`,
+        {
+          method: "GET",
+          headers: buildAuthHeaders(),
+          signal: options?.signal,
+        },
+      );
+    } catch (e) {
+      const failure = attachFailureForStatus(
+        (e as { status?: number })?.status,
+      );
+      if (failure) {
+        logger.info("[attachStream] 后端拒绝接入", { sessionId, failure });
+        yield {
+          type: "error",
+          content: i18n.t(ATTACH_FAILURE_KEYS[failure]),
+          errorCode: `ATTACH_${failure.toUpperCase()}`,
+        };
+        return;
+      }
+      throw e;
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = "";
+    const pendingData: string[] = [];
+    // 新连接 ⇒ 重置该会话的心跳基线（Run HUD 的「最后心跳」不得沿用旧连接）
+    resetStreamHeartbeat(sessionId);
+
+    try {
+      while (true) {
+        const { done, value } = await readWithIdleTimeout(
+          reader,
+          SSE_IDLE_TIMEOUT_MS,
+        );
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) {
+            if (pendingData.length === 0) continue;
+            const payload = pendingData.join("\n");
+            pendingData.length = 0;
+            if (payload === "[DONE]") {
+              yield { type: "done", content: "" };
+              return;
+            }
+            try {
+              const parsed = parseSseChunk(
+                JSON.parse(payload) as Record<string, unknown>,
+              );
+              if (parsed) yield parsed;
+            } catch {
+              /* skip malformed */
+            }
+            continue;
+          }
+          if (trimmed.startsWith("data:")) {
+            pendingData.push(trimmed.slice(5).trimStart());
+          } else if (isSseHeartbeatComment(trimmed)) {
+            // attach 端点自带 15s 心跳（与主链路同款注释行）⇒ 登记为本会话存活凭证
+            noteStreamHeartbeat(sessionId);
+          }
+          // `id: <seq>` 与其余 SSE 字段不参与解析（游标由调用方按需自行推进）
+        }
+      }
+      // 流结束未收到 [DONE]：如实告知"非正常收尾"（同主链路判定口径）
+      yield {
+        type: "error",
+        content: i18n.t("chat.streamInterrupted"),
+        errorCode: "STREAM_INTERRUPTED",
+      };
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      if (e instanceof DOMException && e.name === "TimeoutError") {
+        yield {
+          type: "error",
+          content: i18n.t("chat.error.streamTimeout"),
+          errorCode: "TIMEOUT",
+        };
+        return;
+      }
+      handleClientError(e, {
+        module: "services:chat",
+        action: "attachStream",
+      });
+      yield {
+        type: "error",
+        content: i18n.t("chat.error.requestFailed", {
+          detail: friendlyErrorSummary(e),
+        }),
+        errorCode: "STREAM_INTERRUPTED",
+      };
+    }
+  },
+
+  /**
    * P2-2: 带自动重连的流式消息发送
    * 包装 streamMessage，断开时自动从检查点恢复，最多重试 3 次。
    */
@@ -1478,9 +1631,7 @@ export const chatService = {
           while (true) {
             const { done, value } = await readWithIdleTimeout(
               reader,
-              resumeFirstChunk
-                ? FIRST_CHUNK_TIMEOUT_MS
-                : SSE_IDLE_TIMEOUT_MS,
+              resumeFirstChunk ? FIRST_CHUNK_TIMEOUT_MS : SSE_IDLE_TIMEOUT_MS,
             );
             if (done) break;
             resumeFirstChunk = false;

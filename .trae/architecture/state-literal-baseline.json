@@ -1665,7 +1665,7 @@
       "app/src/ink/ink/termio/osc.ts",
       "app/src/ink/ink/termio/parser.ts",
       "app/src/ink/ink/termio/types.ts",
-      "app/src/ink/repl/ReplApp.tsx",
+      "app/src/ink/repl/toolCallCards.ts",
       "app/src/knowledge/KnowledgeCompiler.ts",
       "app/src/lsp/IntelligentLSPAnalyzer.ts",
       "app/src/lsp/LSPDiagnosticRegistry.ts",

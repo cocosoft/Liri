@@ -852,8 +852,10 @@ const zhSettings = {
     projectsDirTitle: "项目存放位置",
     projectsDirDesc:
       "新建项目时默认把工作目录放在这里（每个项目一个子目录）。与「数据目录」分开：数据目录存配置、会话和附件，这里存你的代码和产物。",
-    projectsDirEnv: "环境变量 LIRI_PROJECTS_DIR 已设置 → {{dir}}（优先于本设置）",
-    projectsDirHint: "仅影响此后新建的项目；已有项目的路径不会被改动。留空并应用即恢复默认。",
+    projectsDirEnv:
+      "环境变量 LIRI_PROJECTS_DIR 已设置 → {{dir}}（优先于本设置）",
+    projectsDirHint:
+      "仅影响此后新建的项目；已有项目的路径不会被改动。留空并应用即恢复默认。",
     projectsDirSaveFailed: "保存失败",
     dataMigrateExisting: "迁移现有数据",
     dataMigrating: "正在迁移数据，请稍候...",
@@ -1023,6 +1025,15 @@ const zhSettings = {
       "近 {{days}} 天有 {{headCount}} 个未收录命令被转审批（共 {{sampleCount}} 次）",
     toolsRulesUnknownHint: "给常用命令加一条规则，可减少重复审批。",
     toolsRulesUnknownAdd: "去添加规则",
+    toolsRulesAllowBudget: "用户手建 allow 规则 {{used}}/{{limit}}",
+    toolsRulesAllowBudgetHint:
+      "已达上限：新增 allow 规则会被拒绝；如需更多，请提高配置 permission.userRuleAllowBudget（1–1000）。",
+    toolsRulesBCommandRules: "B 体系命令策略（{{mode}}）· 只读",
+    toolsRulesBCommandRulesHint:
+      "来自 config.json#permission.customRules.commandRules，在 bash / powershell 判定链直接生效；本面板只读展示，修改请走 PUT /v1/config/permission。",
+    toolsRulesBCommandRulesEmpty: "未配置黑 / 白名单",
+    toolsRulesBCommandModeBlacklist: "黑名单模式",
+    toolsRulesBCommandModeWhitelist: "白名单模式",
     toolsRulesAddTitle: "新增命令规则",
     toolsRulesAddSave: "保存规则",
     toolsRulesAddCancel: "取消",

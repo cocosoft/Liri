@@ -261,6 +261,51 @@ describe("ToolRulesSection — 影响预演 409 ⇒ 二次确认", () => {
   });
 });
 
+describe("ToolRulesSection — allow 预算与 B 体系只读视图", () => {
+  it("达到 allow 预算上限 ⇒ 高亮并提示提高配置", async () => {
+    listRules.mockResolvedValue({
+      rules: [],
+      summary: SUMMARY,
+      allowBudget: { limit: 2, used: 2 },
+    });
+
+    render(<ToolRulesSection isDark={false} />);
+
+    await waitFor(() => {
+      expect(screen.getByText("用户手建 allow 规则 2/2")).toBeDefined();
+    });
+    // 超限提示给出配置项（这是后端 409 的同一口径，提前说清楚）
+    expect(screen.getByText(/permission.userRuleAllowBudget/)).toBeDefined();
+    // 未配置 B 体系命令策略 ⇒ 不渲染只读块
+    expect(screen.queryByText(/B 体系命令策略/)).toBeNull();
+  });
+
+  it("B 体系命令规则 ⇒ 只读展示模式与黑/白名单", async () => {
+    listRules.mockResolvedValue({
+      rules: [],
+      summary: SUMMARY,
+      commandRules: {
+        readOnly: true,
+        source: "commandRules",
+        mode: "whitelist",
+        blacklist: [{ pattern: "rm -rf" }],
+        whitelist: [{ pattern: "git" }],
+        note: "",
+      },
+    });
+
+    render(<ToolRulesSection isDark={false} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/B 体系命令策略（白名单模式）/)).toBeDefined();
+    });
+    expect(screen.getByText("命令黑名单")).toBeDefined();
+    expect(screen.getByText("rm -rf")).toBeDefined();
+    expect(screen.getByText("命令白名单")).toBeDefined();
+    expect(screen.getByText("git")).toBeDefined();
+  });
+});
+
 describe("ToolRulesSection — 规则健康：观察期未满不出「未命中」结论", () => {
   it("observationComplete=false ⇒ 只显示观察期进度", async () => {
     getRulesHealth.mockResolvedValue({

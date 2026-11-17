@@ -1061,6 +1061,12 @@ const enSettings = {
     toolsRulesHitCount: "Hit {{count}} times",
     toolsRulesHitNever: "Not hit yet",
     toolsRulesLastHit: "Last hit {{time}}",
+    // R0/R3 (2026-11-17): scope badge + approval time (returned by the API, previously unconsumed)
+    toolsRulesScopeSession: "This session",
+    toolsRulesScopeWorkspace: "This workspace",
+    toolsRulesScopeTool: "Tool-wide",
+    toolsRulesScopeGlobal: "Global",
+    toolsRulesApprovedAt: "Approved {{time}}",
     toolsRulesApprovals: "Approval-generated allows · {{count}}",
     toolsRulesApprovalsHint:
       "Written by the “always allow” action on approval cards (per tool + input fingerprint / workspace trust): read-only here — revoke only, no editing.",

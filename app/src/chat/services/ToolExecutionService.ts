@@ -37,10 +37,6 @@ import {
   findWorkspaceEscapeInRoots,
   PATH_ARG_KEYS,
 } from '@openliri/infra/utils/toolContract';
-import {
-  FILE_WRITE_TOOL_NAME,
-  FILE_EDIT_TOOL_NAME,
-} from '@openliri/infra/constants';
 // R07-3（2026-10-07）：非幂等工具「重试」判定（唯一实现 = tools/toolEffects）
 // S2-6（2026-10-11）：工具调用统一指标（工具名/结果/耗时/入参字节/估算 tokens）—— 唯一实现 = tools/monitoring
 import {
@@ -68,6 +64,8 @@ import { evaluateToolPreflight } from './toolPreflight';
 import { applyToolPermissionGate } from './permissionGate';
 // T3 stage 4（2026-11-17）：图像输入路径守卫（补全 / 最接近修正 / 无参照拒绝）
 import { guardImageInputPath } from './imagePathGuard';
+// T3 stage 5（2026-11-17）：文件操作前回滚追踪（fire-and-forget）
+import { trackFileOpBeforeExecute } from './rollbackTracker';
 import {
   createFileStateCacheWithSizeLimit,
   type FileStateCache,
@@ -80,10 +78,7 @@ import type {
 } from '@modules/session/types/tool.js';
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { ImageContextService } from '../services/ImageContextService.js';
-import type {
-  RollbackIntegration,
-  FileOperation,
-} from '@openliri/infra/security';
+import type { RollbackIntegration } from '@openliri/infra/security';
 // S1-1（2026-10-11）：审批作用域 / 快照类型（**仅类型导入**，运行时判定在 permission 层）
 // LRO-07（2026-10-26）：deny 结构化依据（ruleId/来源/解除入口）⇒ 进工具结果 metadata
 import type {
@@ -929,74 +924,19 @@ export class ToolExecutionService {
       ...(permissionAutoInfo ?? {}),
     });
 
-    // ── 回滚：文件操作前追踪 ──
-    if (
-      normalizedToolCall.name === FILE_WRITE_TOOL_NAME ||
-      normalizedToolCall.name === FILE_EDIT_TOOL_NAME
-    ) {
-      // D7 三期（2026-11-14）：把变更归属到"当前正在执行的计划步骤"（无则不属于任何计划）
-      const runningStep = toolCall.sessionId
-        ? taskOrchestrator.getRunningStepForSession(toolCall.sessionId)
-        : null;
-      const filePath = normalizedToolCall.arguments?.file_path as
-        | string
-        | undefined;
-      if (filePath && toolCall.sessionId) {
-        const integration = this.deps.rollbackIntegrations.get(
-          toolCall.sessionId
-        );
-        if (integration) {
-          // D7 三期（2026-11-14）：带上工具名 ⇒ 副作用流水可按「工具 → 文件变更」归属
-          const op: FileOperation = {
-            path: filePath,
-            type: 'modified',
-            toolName: normalizedToolCall.name,
-            ...(runningStep
-              ? { planId: runningStep.planId, stepId: runningStep.stepId }
-              : {}),
-          };
-          integration.onToolBeforeExecute(op).catch((err) => {
-            logger.warn('回滚：文件操作前追踪失败', { error: String(err) });
-            handleError(err, {
-              module: 'chat:toolExecution',
-              action: 'rollback:onToolBeforeExecute',
-            }).catch(() => {});
-          });
-        }
-
-        this.deps.sessionGateway
-          .getSession(toolCall.sessionId)
-          .then((rawSess) => {
-            const sess = rawSess as ChatSession | null | undefined;
-            const parentId = sess?.metadata?.parentSessionId as
-              | string
-              | undefined;
-            if (parentId) {
-              const parentIntegration =
-                this.deps.rollbackIntegrations.get(parentId);
-              if (parentIntegration) {
-                const op: FileOperation = {
-                  path: filePath,
-                  type: 'modified',
-                  toolName: normalizedToolCall.name,
-                  ...(runningStep
-                    ? { planId: runningStep.planId, stepId: runningStep.stepId }
-                    : {}),
-                };
-                parentIntegration.onToolBeforeExecute(op).catch((err) => {
-                  logger.debug('子Agent操作继承失败', {
-                    error: String(err),
-                    parentSessionId: parentId,
-                  });
-                });
-              }
-            }
-          })
-          .catch(() => {
-            // 非关键路径
-          });
-      }
-    }
+    // ── 回滚：文件操作前追踪（T3 stage 5，2026-11-17：实现外移 `./rollbackTracker`）──
+    // fire-and-forget 语义不变：同步返回、后台追踪、失败只记日志。
+    trackFileOpBeforeExecute({
+      toolCall,
+      args: normalizedToolCall.arguments,
+      deps: {
+        rollbackIntegrations: this.deps.rollbackIntegrations,
+        getSession: (sessionId) =>
+          this.deps.sessionGateway.getSession(sessionId),
+        getRunningStep: (sessionId) =>
+          taskOrchestrator.getRunningStepForSession(sessionId),
+      },
+    });
 
     // ── 图像路径校验（T3 stage 4，2026-11-17：实现外移 `./imagePathGuard`，行为逐字保留）──
     // inputPath 补全 / 最接近路径修正 / 无参照拒绝 三段均不变；修正结果回填入参。

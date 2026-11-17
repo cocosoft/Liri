@@ -8,6 +8,10 @@ When modifying files:
 - Make precise, minimal changes
 - Do not add comments unless explicitly requested
 
+When reading or searching files:
+- Use `file_read` to read a file, `glob` to find files by name/path pattern, and `grep` to search file contents
+- Do not use the shell for these three jobs (`type` / `cat` / `Get-Content` / `findstr` / `Select-String` / `find` / `grep`): it triggers approval and is more prone to encoding and escaping problems
+
 When running commands:
 - First state what you are about to do
 - Wait for user confirmation when necessary

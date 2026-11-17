@@ -42,7 +42,7 @@
       "locale": "zh-CN",
       "source": "app/src/context/promptSections/builtinSections.ts",
       "file": "sections/toolUse.md",
-      "sha256": "0217bbbdb043c57c7f5e66aec84476d29ce02f7dbd415e8d0cdda9632111a9ef"
+      "sha256": "fcb1ff6618611a7fb68ff283a5176dacb360f7fcc081a4bdf0215f320139ee4a"
     },
     {
       "id": "section:toolIntegrity",

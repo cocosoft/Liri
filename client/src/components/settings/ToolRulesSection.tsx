@@ -496,6 +496,10 @@ export default function ToolRulesSection({ isDark }: Props) {
   return (
     <div className="py-2 space-y-3">
       <p className={`text-xs ${muted}`}>{t("settings.toolsRulesHint")}</p>
+      {/* B2（2026-11-17）：结构形态（for / if / $env:）为何没有「一键记住」的如实说明 */}
+      <p className={`text-[11px] ${muted}`}>
+        {t("settings.toolsRulesStructuralHint")}
+      </p>
 
       {/* R2b：allow 预算用量（后端超限即 409，这里提前把额度说清楚） */}
       {allowBudget && (

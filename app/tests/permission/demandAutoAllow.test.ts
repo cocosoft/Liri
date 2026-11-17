@@ -171,4 +171,22 @@ describe('handleAuto：许愿式不再逐条弹审批（且安全边界不回退
     );
     expect(decision.type).toBe(PermissionDecisionType.DENY);
   });
+
+  it('⑦ demand + 硬拒命令（runas）⇒ 仍 ask（B3 兜底）', async () => {
+    const decision = await decide('runas /user:Administrator cmd', 'demand');
+    expect(decision.type).toBe(PermissionDecisionType.ASK);
+  });
+
+  it('⑧ killswitch 关闭 ⇒ demand 下未知命令也回退为 ask', async () => {
+    const key = 'LIRI_DEMAND_AUTO_ALLOW';
+    const prev = process.env[key];
+    process.env[key] = 'false';
+    try {
+      const decision = await decide('some-unknown-cli --list', 'demand');
+      expect(decision.type).toBe(PermissionDecisionType.ASK);
+    } finally {
+      if (prev === undefined) delete process.env[key];
+      else process.env[key] = prev;
+    }
+  });
 });

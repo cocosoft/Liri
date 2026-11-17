@@ -19,6 +19,11 @@ import {
 } from '../PermissionChecker';
 // P0（2026-11-17）：许愿式的执行侧契约（demand 下非危险 ask 降级为自动放行）
 import { shouldAutoAllowUnderDemand } from '../autonomyPermission';
+// B3（2026-11-17）：demand 硬拒词表 + killswitch（提权/安装/解释器/发布等保持 ask）
+import {
+  isDemandAutoAllowEnabled,
+  isDemandHardDenyCommand,
+} from '../demandHardDeny';
 import { extractWriteTargets } from '../classifiers/write-targets';
 import { splitCommandSegments } from '../classifiers/command-segments';
 import { isWithinWorkingDirectory } from '../filesystem';
@@ -515,7 +520,14 @@ export interface ModeHandlerDeps {
         // P0（2026-11-17）：许愿式（demand）承诺"中途最多问一次" —— 非危险且**无工作区外写**
         // 的命令不再逐条打断（真机会话 session_mwk2fakzf30b34b448：19 张卡里 12 张属此类）。
         // deny 档（危险命令 / 敏感路径）在上方已返回，不受本降级影响。
+        // 2026-11-17（B3）：demand 专用硬拒词表 + killswitch ——
+        // 提权/安装/计划任务/解释器/发布等不进分类器危险词表的命令**保持 ask**；
+        // `<prefix>DEMAND_AUTO_ALLOW=false` 可整体回退到 P0 前行为。
         if (
+          isDemandAutoAllowEnabled() &&
+          !isDemandHardDenyCommand(
+            typeof input.command === 'string' ? input.command : ''
+          ) &&
           shouldAutoAllowUnderDemand({
             autonomy: context.autonomy,
             requiresApproval: true,

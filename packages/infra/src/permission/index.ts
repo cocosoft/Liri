@@ -323,12 +323,22 @@ export {
   addRuleChecked,
   updateRuleChecked,
   removeRuleChecked,
+  // R2b（2026-11-17）：导入（全量校验后一次落盘）+ allow 护栏（危险命令头 / 预算）
+  importRulesChecked,
+  countUserAllowRules,
+  readUserRuleAllowBudget,
+  findDangerousCommandHead,
+  extractCommandHead,
+  USER_RULE_ALLOW_BUDGET_KEY,
+  DEFAULT_USER_RULE_ALLOW_BUDGET,
 } from './manager/ruleCrud';
 export type {
   AddRuleInput,
   UpdateRulePatch,
   RuleWriteErrorCode,
   RuleWriteResult,
+  RuleImportEntry,
+  RuleImportResult,
 } from './manager/ruleCrud';
 // R0（2026-11-17）：权限判定只读模拟（设置页「模拟」；复用真实判定链，不复制匹配逻辑）
 export {

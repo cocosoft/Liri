@@ -6,6 +6,12 @@
  */
 import { describe, test, expect } from 'bun:test';
 import { LoopDetector } from '@modules/query/LoopDetector';
+// 阈值由 `loop-config.ts` 从环境/配置读取（默认 3/5，但本机 config 可能覆盖为 8/15）
+// ⇒ 用例按**生效值**驱动轮次，不硬编码 3 / 5（2026-11-17：原硬编码版本因此永久 skip）
+import {
+  LOOP_NO_TOOL_CALL_CRITICAL,
+  LOOP_NO_TOOL_CALL_WARNING,
+} from '@modules/query';
 
 type DetectionResult = ReturnType<LoopDetector['detect']>;
 
@@ -160,14 +166,15 @@ describe('LoopDetector', () => {
   });
 
   describe('no_tool_call', () => {
-    test.skip('连续 3 轮无工具调用应触发 warning', () => {
+    test('连续无工具调用达到警告阈值 ⇒ 触发 warning', () => {
       const detector = new LoopDetector();
 
-      detector.recordTurn(false);
-      detector.recordTurn(false);
+      for (let i = 0; i < LOOP_NO_TOOL_CALL_WARNING - 1; i++) {
+        detector.recordTurn(false);
+      }
 
       const result = detector.detectNoToolCallLoop();
-      expect(result.stuck).toBe(false); // 还没到 3 轮
+      expect(result.stuck).toBe(false); // 还没到阈值
 
       detector.recordTurn(false);
       const result2 = detector.detectNoToolCallLoop();
@@ -177,10 +184,10 @@ describe('LoopDetector', () => {
       expect(result2.detector).toBe('no_tool_call');
     });
 
-    test.skip('连续 5 轮无工具调用应触发 critical', () => {
+    test('连续无工具调用达到阻断阈值 ⇒ 触发 critical', () => {
       const detector = new LoopDetector();
 
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < LOOP_NO_TOOL_CALL_CRITICAL; i++) {
         detector.recordTurn(false);
       }
 

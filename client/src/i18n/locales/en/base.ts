@@ -827,6 +827,8 @@ const enBase = {
     taskEnded: "Ended",
     taskEndedWithFailed: "Ended ({{count}} failed)",
     taskPaused: "⏸ Waiting for approval (needs your feedback)",
+    taskPendingAcceptance:
+      "⏸ Pending acceptance ({{completed}}/{{total}} completed)",
     taskWaitingDeps: "Waiting: {{names}}",
     taskViewGraph: "View dependency graph ({{nodes}} nodes, {{edges}} edges)",
     taskPending: "Pending",

@@ -87,8 +87,14 @@ export default function TaskCard({ data }: TaskCardProps) {
   })();
   const pendingApproval = isLatestCard && hasPendingApproval(messages);
 
-  const { title, tasks, status } = merged;
+  const { title, tasks, status, acceptance } = merged;
   const isExecuting = status === "executing";
+  /**
+   * G5-D4（2026-11-18）：**已执行待验收**（后端 `Plan.acceptance='pending'`）。
+   * 此时步骤通常全部完成、计划仍 running ⇒ 不能显示成普通"执行中"进度，
+   * 也不能亮"全部完成"（目标门尚未给结论）。
+   */
+  const isPendingAcceptance = isExecuting && acceptance === "pending";
   // 修复："全部完成"徽章仅当任务级**全部** completed 时显示——
   // 原实现只看卡片级 status==="done"，与 freezeAll 一刀切 done 叠加后，
   // 中止/含 failed 的任务卡也亮"全部完成"徽章，与任务列表状态自相矛盾。
@@ -159,7 +165,17 @@ export default function TaskCard({ data }: TaskCardProps) {
                     : t("chat.taskEnded", "已结束")}
                 </span>
               )}
-              {isExecuting && (
+              {/* G5-D4：已执行待验收 —— 不能显示成普通"执行中/已完成" */}
+              {isPendingAcceptance && (
+                <span className="text-xs px-2 py-0.5 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-full">
+                  {t("chat.taskPendingAcceptance", {
+                    completed,
+                    total,
+                    defaultValue: "⏸ 待验收（已完成 {{completed}}/{{total}}）",
+                  })}
+                </span>
+              )}
+              {isExecuting && !isPendingAcceptance && (
                 <span className="text-xs px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full">
                   {t("chat.taskProgressCompleted", {
                     completed,

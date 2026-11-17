@@ -40,6 +40,7 @@ const updateRule = vi.fn();
 const deleteRule = vi.fn();
 const getRulesHealth = vi.fn();
 const setApprovalPause = vi.fn();
+const updateApprovalPause = vi.fn();
 vi.mock("../../../services/permissionService", async (importOriginal) => {
   const actual =
     await importOriginal<
@@ -54,11 +55,13 @@ vi.mock("../../../services/permissionService", async (importOriginal) => {
       deleteRule: (...a: unknown[]) => deleteRule(...a),
       getRulesHealth: (...a: unknown[]) => getRulesHealth(...a),
       setApprovalPause: (...a: unknown[]) => setApprovalPause(...a),
+      updateApprovalPause: (...a: unknown[]) => updateApprovalPause(...a),
     },
   };
 });
 
 import { HTTPClientError } from "../../../services/httpClient";
+import { useRootStore } from "../../../stores/root-store";
 import ToolRulesSection from "../ToolRulesSection";
 
 const ENTRIES: SharedToolVisibilityEntry[] = [
@@ -118,6 +121,15 @@ beforeEach(() => {
     configKey: "permission.approvalPause",
     message: "",
   });
+  updateApprovalPause.mockReset().mockResolvedValue({
+    enabled: false,
+    global: true,
+    sessions: [],
+    configKey: "permission.pauseApprovalPersistence",
+    message: "",
+  });
+  // F2：按会话暂停依赖"当前会话"；每个用例从"无活跃会话"起跑
+  useRootStore.setState({ currentSessionId: null });
 });
 
 describe("ToolRulesSection — 空数据如实降级", () => {
@@ -129,10 +141,10 @@ describe("ToolRulesSection — 空数据如实降级", () => {
     });
     // `unknownCommandSuggestions` 缺省（= null）⇒ 不出现提示块
     expect(screen.queryByText(/未收录命令/)).toBeNull();
-    // `approvalPause` 缺省 ⇒ 不给"可暂停"的假承诺
-    expect((screen.getByRole("checkbox") as HTMLInputElement).disabled).toBe(
-      true,
-    );
+    // `approvalPause` 缺省 ⇒ 不给"可暂停"的假承诺（全局 + 仅当前会话两个开关都禁用）
+    const boxes = screen.getAllByRole("checkbox") as HTMLInputElement[];
+    expect(boxes).toHaveLength(2);
+    expect(boxes.every((box) => box.disabled)).toBe(true);
     // 审批分组为空 ⇒ 如实显示空态
     expect(screen.getByText("暂无审批生成的放行")).toBeDefined();
   });
@@ -257,6 +269,110 @@ describe("ToolRulesSection — 影响预演 409 ⇒ 二次确认", () => {
       expect(addRule).toHaveBeenLastCalledWith("ask", "bash", undefined, {
         confirmImpact: true,
       });
+    });
+  });
+});
+
+describe("ToolRulesSection — F2：暂停粒度（全局 / 仅当前会话）", () => {
+  const PAUSE = (sessions: string[], global = false) => ({
+    enabled: global,
+    global,
+    sessions,
+    configKey: "permission.pauseApprovalPersistence",
+  });
+
+  it("勾选「仅对当前会话暂停」⇒ 以当前会话 id 写入 sessions", async () => {
+    useRootStore.setState({ currentSessionId: "sess-1" });
+    listRules.mockResolvedValue({
+      rules: [],
+      summary: SUMMARY,
+      approvalPause: PAUSE([]),
+    });
+
+    render(<ToolRulesSection isDark={false} />);
+
+    const boxes = await waitFor(() => {
+      const found = screen.getAllByRole("checkbox") as HTMLInputElement[];
+      expect(found).toHaveLength(2);
+      return found;
+    });
+    const sessionBox = boxes[1];
+    expect(sessionBox.disabled).toBe(false);
+    expect(sessionBox.checked).toBe(false);
+
+    fireEvent.click(sessionBox);
+
+    await waitFor(() => {
+      expect(updateApprovalPause).toHaveBeenCalledWith({
+        sessions: ["sess-1"],
+      });
+    });
+  });
+
+  it("当前会话已在 sessions 中 ⇒ 取消勾选会移除该 id（其他会话保留）", async () => {
+    useRootStore.setState({ currentSessionId: "sess-1" });
+    listRules.mockResolvedValue({
+      rules: [],
+      summary: SUMMARY,
+      approvalPause: PAUSE(["sess-1", "sess-2"]),
+    });
+
+    render(<ToolRulesSection isDark={false} />);
+
+    const boxes = await waitFor(() => {
+      const found = screen.getAllByRole("checkbox") as HTMLInputElement[];
+      expect(found).toHaveLength(2);
+      return found;
+    });
+    expect(boxes[1].checked).toBe(true);
+
+    fireEvent.click(boxes[1]);
+
+    await waitFor(() => {
+      expect(updateApprovalPause).toHaveBeenCalledWith({
+        sessions: ["sess-2"],
+      });
+    });
+  });
+
+  it("无活跃会话 ⇒ 会话开关禁用（不给点了没反应的假交互）", async () => {
+    listRules.mockResolvedValue({
+      rules: [],
+      summary: SUMMARY,
+      approvalPause: PAUSE([]),
+    });
+
+    render(<ToolRulesSection isDark={false} />);
+
+    const boxes = await waitFor(() => {
+      const found = screen.getAllByRole("checkbox") as HTMLInputElement[];
+      expect(found).toHaveLength(2);
+      return found;
+    });
+    expect(boxes[0].disabled).toBe(false); // 全局开关可用
+    expect(boxes[1].disabled).toBe(true); // 会话开关禁用
+    expect(screen.getByText("当前没有活跃会话")).toBeDefined();
+  });
+
+  it("全局开关 ⇒ 只写 global（旧语义不变）", async () => {
+    listRules.mockResolvedValue({
+      rules: [],
+      summary: SUMMARY,
+      approvalPause: PAUSE([], false),
+    });
+
+    render(<ToolRulesSection isDark={false} />);
+
+    const boxes = await waitFor(() => {
+      const found = screen.getAllByRole("checkbox") as HTMLInputElement[];
+      expect(found).toHaveLength(2);
+      return found;
+    });
+
+    fireEvent.click(boxes[0]);
+
+    await waitFor(() => {
+      expect(updateApprovalPause).toHaveBeenCalledWith({ global: true });
     });
   });
 });

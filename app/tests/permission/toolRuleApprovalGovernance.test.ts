@@ -36,6 +36,9 @@ import {
   removeRuleChecked,
 } from '@openliri/infra/permission/manager/ruleCrud';
 import { APPROVAL_PAUSE_CONFIG_KEY } from '@openliri/infra/permission/approvalPause';
+import { PermissionChecker } from '@openliri/infra/permission/PermissionChecker';
+import type { PermissionContext } from '@openliri/infra/permission/types/PermissionContext';
+import { PermissionDecisionType } from '@openliri/infra/permission/types/PermissionDecision';
 
 import {
   serializeRule,
@@ -71,6 +74,16 @@ afterEach(() => {
   configSpy?.mockRestore();
   configSpy = undefined;
 });
+
+/** 把暂停配置读值替换为任意形状（布尔 / `{global, sessions}`） */
+function stubPauseConfig(value: unknown): void {
+  configSpy = spyOn(getConfigManager(), 'getValue').mockImplementation(((
+    key: string
+  ) =>
+    key === APPROVAL_PAUSE_CONFIG_KEY
+      ? value
+      : undefined) as unknown as typeof configManager.getValue);
+}
 
 describe('R3：规则来源侧与分组字段', () => {
   it('显式 origin 优先；旧规则按匹配条件推导（不臆造）', () => {
@@ -296,6 +309,162 @@ describe('R3：暂停全部持久化放行', () => {
       expect(ok.captured.status).toBe(200);
       expect(JSON.parse(ok.captured.body).enabled).toBe(true);
       expect(setValueSpy).toHaveBeenCalledWith(APPROVAL_PAUSE_CONFIG_KEY, true);
+    } finally {
+      setValueSpy.mockRestore();
+    }
+  });
+});
+
+/**
+ * F2（2026-11-17）：暂停粒度细化。
+ *
+ * 锁四件事：
+ * 1. **判定口全覆盖**：命令级（`contentPattern`）审批规则此前直读 `getRules()` 绕过暂停 ⇒
+ *    现在所有读取口（allow / deny / ask / 内容级）统一过滤；
+ * 2. **按会话**：只对命中会话生效，其他会话与"无会话上下文"的路径不受影响；
+ * 3. **列表不受影响**：规则仍可见、可撤销（暂停不是删除）；
+ * 4. **写接口**：`{global, sessions}` 整体写入 + 非法入参 400，旧 `{enabled}` 形状兼容。
+ */
+describe('F2：暂停粒度（全局 / 按会话）', () => {
+  let dir: string;
+  let manager: RuleManager;
+  let checker: PermissionChecker;
+  let approvalCommandRule: PermissionRule;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'liri-rule-pause-f2-'));
+    manager = new RuleManager();
+    manager.setRuleSource(join(dir, 'tool_rules.json'));
+    manager.loadRules();
+    checker = new PermissionChecker(manager);
+
+    approvalCommandRule = createPermissionRule({
+      behavior: PermissionBehavior.ALLOW,
+      toolName: 'bash',
+      contentPattern: 'git status',
+      origin: 'approval',
+    });
+    manager.addRule(approvalCommandRule);
+    manager.addRule(
+      createPermissionRule({
+        behavior: PermissionBehavior.DENY,
+        toolName: 'danger_tool',
+        origin: 'approval',
+      })
+    );
+    manager.addRule(
+      createPermissionRule({
+        behavior: PermissionBehavior.ASK,
+        toolName: 'ask_tool',
+        origin: 'approval',
+      })
+    );
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  const ctx = (sessionId?: string): PermissionContext =>
+    ({ toolName: 'bash', sessionId, input: {} }) as PermissionContext;
+  const ctxOf = (toolName: string, sessionId?: string): PermissionContext =>
+    ({ toolName, sessionId, input: {} }) as PermissionContext;
+
+  it('全局暂停 ⇒ 命令级审批规则不再放行（此前直读 getRules 会绕过过滤）', () => {
+    const input = { command: 'git status' };
+
+    stubPauseConfig(false);
+    expect(
+      checker.checkContentSpecificRules('bash', input, ctx('s1'))?.type
+    ).toBe(PermissionDecisionType.ALLOW);
+
+    configSpy?.mockRestore();
+    stubPauseConfig(true);
+    expect(
+      checker.checkContentSpecificRules('bash', input, ctx('s1'))
+    ).toBeNull();
+  });
+
+  it('按会话暂停 ⇒ 只对命中会话生效；其他会话 / 无会话上下文照常', () => {
+    stubPauseConfig({ global: false, sessions: ['s1'] });
+    const input = { command: 'git status' };
+
+    expect(
+      checker.checkContentSpecificRules('bash', input, ctx('s1'))
+    ).toBeNull();
+    expect(
+      checker.checkContentSpecificRules('bash', input, ctx('s2'))?.type
+    ).toBe(PermissionDecisionType.ALLOW);
+    // 无会话上下文（后台/无人值守）⇒ 只按 global，不被某个会话的暂停顺带收紧
+    expect(
+      checker.checkContentSpecificRules('bash', input, ctx(undefined))?.type
+    ).toBe(PermissionDecisionType.ALLOW);
+  });
+
+  it('审批生成的 deny / ask 规则同样受暂停约束（工具级读取口）', () => {
+    stubPauseConfig(true);
+    expect(
+      checker.isToolDenied('danger_tool', ctxOf('danger_tool', 's1'))
+    ).toBe(false);
+    expect(checker.isToolAskRequired('ask_tool', ctxOf('ask_tool', 's1'))).toBe(
+      false
+    );
+
+    configSpy?.mockRestore();
+    stubPauseConfig(false);
+    expect(
+      checker.isToolDenied('danger_tool', ctxOf('danger_tool', 's1'))
+    ).toBe(true);
+    expect(checker.isToolAskRequired('ask_tool', ctxOf('ask_tool', 's1'))).toBe(
+      true
+    );
+  });
+
+  it('列表视图不受暂停影响（仍可逐条撤销）', () => {
+    stubPauseConfig(true);
+    expect(manager.getRules().map((rule) => rule.id)).toContain(
+      approvalCommandRule.id
+    );
+  });
+
+  it('写接口：{global, sessions} 整体写入并去重去空白；非法入参 400', async () => {
+    const setValueSpy = spyOn(
+      getConfigManager(),
+      'setValue'
+    ).mockImplementation(
+      (() => undefined) as unknown as typeof configManager.setValue
+    );
+    try {
+      const ok = captureRes();
+      await handleSetApprovalPause(
+        makeReq({ global: false, sessions: [' s1 ', '', 's1'] }),
+        ok.res
+      );
+      expect(ok.captured.status).toBe(200);
+      expect(JSON.parse(ok.captured.body).sessions).toEqual(['s1']);
+      expect(setValueSpy).toHaveBeenCalledWith(APPROVAL_PAUSE_CONFIG_KEY, {
+        global: false,
+        sessions: ['s1'],
+      });
+
+      // 旧形状兼容：只改全局
+      const legacy = captureRes();
+      await handleSetApprovalPause(makeReq({ enabled: false }), legacy.res);
+      expect(legacy.captured.status).toBe(200);
+      expect(JSON.parse(legacy.captured.body).enabled).toBe(false);
+
+      const badBodies: unknown[] = [
+        {},
+        { sessions: 's1' },
+        { sessions: [1] },
+        { global: 'yes' },
+        { sessions: ['x'.repeat(129)] },
+      ];
+      for (const bad of badBodies) {
+        const res = captureRes();
+        await handleSetApprovalPause(makeReq(bad), res.res);
+        expect(res.captured.status).toBe(400);
+      }
     } finally {
       setValueSpy.mockRestore();
     }

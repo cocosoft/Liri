@@ -23,6 +23,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { SharedToolVisibilityEntry } from "@shared/types";
 import { toolService } from "../../services/toolService";
+import { useRootStore } from "../../stores/root-store";
 import {
   permissionService,
   readRuleWriteFailure,
@@ -63,6 +64,8 @@ function isToolLevelRule(rule: PermissionRule): boolean {
 
 export default function ToolRulesSection({ isDark }: Props) {
   const { t } = useTranslation();
+  // F2：按会话暂停需要"当前会话"（设置页与聊天共用根 store）
+  const currentSessionId = useRootStore((s) => s.currentSessionId);
   const [entries, setEntries] = useState<SharedToolVisibilityEntry[]>([]);
   const [rules, setRules] = useState<PermissionRule[]>([]);
   const [approvalPause, setApprovalPause] = useState<ApprovalPauseState | null>(
@@ -270,18 +273,47 @@ export default function ToolRulesSection({ isDark }: Props) {
     }
   };
 
-  /** R3：一键暂停 / 恢复全部持久化放行 */
+  /** R3：全局暂停 / 恢复全部持久化放行（保留既有会话级条目） */
   const toggleApprovalPause = async () => {
     if (!approvalPause || busy) return;
+    const globalPaused = approvalPause.global ?? approvalPause.enabled;
     setBusy("approvalPause");
     setError(null);
     try {
-      await permissionService.setApprovalPause(!approvalPause.enabled);
+      await permissionService.updateApprovalPause({ global: !globalPaused });
       await reload();
     } catch (e) {
       handleClientError(e, {
         module: "components:settings:ToolRules",
         action: "toggleApprovalPause",
+      });
+      setError(t("settings.toolsRulesSaveFailed"));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  /**
+   * F2：只对**当前会话**暂停（其他会话不受影响）。
+   *
+   * 会话 id 来自根 store（设置页与聊天同一 store）；无活跃会话 ⇒ 控件禁用，
+   * 不给"点了没反应"的假交互。
+   */
+  const toggleSessionPause = async () => {
+    if (!approvalPause || !currentSessionId || busy) return;
+    const paused = approvalPause.sessions ?? [];
+    const nextSessions = paused.includes(currentSessionId)
+      ? paused.filter((id) => id !== currentSessionId)
+      : [...paused, currentSessionId];
+    setBusy("approvalPause");
+    setError(null);
+    try {
+      await permissionService.updateApprovalPause({ sessions: nextSessions });
+      await reload();
+    } catch (e) {
+      handleClientError(e, {
+        module: "components:settings:ToolRules",
+        action: "toggleSessionPause",
       });
       setError(t("settings.toolsRulesSaveFailed"));
     } finally {
@@ -664,17 +696,17 @@ export default function ToolRulesSection({ isDark }: Props) {
         })}
       </div>
 
-      {/* R3：审批放行总开关（作用范围=审批生成的规则；仍可逐条撤销） */}
+      {/* R3/F2：审批放行开关（全局 + 仅当前会话；作用范围=审批生成的规则；仍可逐条撤销） */}
       <div className={`flex items-center gap-2 rounded px-3 py-1.5 ${rowBg}`}>
         <label className="flex items-center gap-2 text-xs flex-1 cursor-pointer">
           <input
             type="checkbox"
-            checked={approvalPause?.enabled ?? false}
+            checked={approvalPause?.global ?? approvalPause?.enabled ?? false}
             disabled={!approvalPause || busy !== null}
             onChange={() => void toggleApprovalPause()}
           />
           <span>{t("settings.toolsRulesPauseLabel")}</span>
-          {approvalPause?.enabled && (
+          {(approvalPause?.global ?? approvalPause?.enabled) && (
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400">
               {t("settings.toolsRulesPauseEnabled")}
             </span>
@@ -686,6 +718,35 @@ export default function ToolRulesSection({ isDark }: Props) {
       </div>
       <p className={`text-[11px] ${muted}`}>
         {t("settings.toolsRulesPauseHint")}
+      </p>
+
+      {/* F2：仅当前会话暂停（其它会话/后台任务不受影响） */}
+      <div className={`flex items-center gap-2 rounded px-3 py-1.5 ${rowBg}`}>
+        <label className="flex items-center gap-2 text-xs flex-1 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={
+              !!currentSessionId &&
+              (approvalPause?.sessions ?? []).includes(currentSessionId)
+            }
+            disabled={!approvalPause || !currentSessionId || busy !== null}
+            onChange={() => void toggleSessionPause()}
+          />
+          <span>{t("settings.toolsRulesPauseSessionLabel")}</span>
+          {!currentSessionId && (
+            <span className={`text-[10px] ${muted}`}>
+              {t("settings.toolsRulesPauseSessionNoSession")}
+            </span>
+          )}
+        </label>
+        <span className={`text-[10px] ${muted}`}>
+          {t("settings.toolsRulesPauseSessionCount", {
+            count: approvalPause?.sessions?.length ?? 0,
+          })}
+        </span>
+      </div>
+      <p className={`text-[11px] ${muted}`}>
+        {t("settings.toolsRulesPauseSessionHint")}
       </p>
 
       <div className="pt-1">

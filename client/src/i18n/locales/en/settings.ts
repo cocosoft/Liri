@@ -1070,6 +1070,11 @@ const enSettings = {
     toolsRulesPauseHint:
       "When on, approval cards no longer add allows and existing approval-generated rules stop applying (they stay listed and can still be revoked one by one).",
     toolsRulesPauseEnabled: "Paused",
+    toolsRulesPauseSessionLabel: "Pause for the current session only",
+    toolsRulesPauseSessionNoSession: "No active session",
+    toolsRulesPauseSessionCount: "Paused sessions · {{count}}",
+    toolsRulesPauseSessionHint:
+      "Lets only the current session ignore approval-generated allows (other sessions and background tasks are unaffected); the entry stops matching once the session ends — uncheck to remove it any time.",
     toolsRulesUnknownTitle:
       "{{headCount}} unknown commands went through approval in the last {{days}} days ({{sampleCount}} times)",
     toolsRulesUnknownHint:

@@ -1021,6 +1021,11 @@ const zhSettings = {
     toolsRulesPauseHint:
       "开启后审批卡不再新增放行，已生成的放行规则也不参与判定（列表保留，可逐条撤销）。",
     toolsRulesPauseEnabled: "已暂停",
+    toolsRulesPauseSessionLabel: "仅对当前会话暂停",
+    toolsRulesPauseSessionNoSession: "当前没有活跃会话",
+    toolsRulesPauseSessionCount: "按会话暂停 · {{count}}",
+    toolsRulesPauseSessionHint:
+      "只让「当前会话」忽略审批放行（其他会话与后台任务不受影响）；会话结束后该条目不再命中，可随时取消勾选移除。",
     toolsRulesUnknownTitle:
       "近 {{days}} 天有 {{headCount}} 个未收录命令被转审批（共 {{sampleCount}} 次）",
     toolsRulesUnknownHint: "给常用命令加一条规则，可减少重复审批。",

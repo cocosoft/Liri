@@ -47,7 +47,8 @@ import {
   readUserRuleAllowBudget,
   readCommandRulesConfig,
   isApprovalPauseEnabled,
-  setApprovalPauseEnabled,
+  readApprovalPauseState,
+  setApprovalPauseState,
   APPROVAL_PAUSE_CONFIG_KEY,
   readUnknownCommandDigest,
   getRuleHitEntry,
@@ -183,8 +184,11 @@ export async function handleListPermissionRules(
           note: '审批卡生成的持久化放行：只可撤销（DELETE），不可编辑；approvedBy 未落库（如实 null），hitCount 来自规则命中计数',
         },
         // R3：「暂停全部持久化放行」当前状态（开启后审批规则不参与判定，仍可逐条撤销）
+        // F2：`enabled` 保持=全局（旧客户端兼容）；`sessions` 为按会话暂停的会话 id 列表
         approvalPause: {
           enabled: isApprovalPauseEnabled(),
+          global: isApprovalPauseEnabled(),
+          sessions: readApprovalPauseState().sessions,
           configKey: APPROVAL_PAUSE_CONFIG_KEY,
         },
         // R5：本周未收录命令摘要（设置页提示 + "去添加规则"跳转；无样本 ⇒ null，不编造 0）
@@ -605,12 +609,17 @@ export async function handleImportPermissionRules(
 }
 
 /**
- * 「暂停全部持久化放行」开关 POST /v1/permissions/approvals/pause（R3，2026-11-17）
+ * 「暂停持久化放行」开关 POST /v1/permissions/approvals/pause（R3 落地；F2 粒度细化）
  *
- * body: `{ enabled: boolean }`
+ * body（三选一，可组合）：
+ * - `{ enabled: boolean }`（旧形状）⇒ 只改**全局**，保留既有会话级条目；
+ * - `{ global?: boolean, sessions?: string[] }` ⇒ 整体写入（`sessions` 是"按会话暂停"的 id 列表）。
  *
  * 开启后：① 审批卡不再新增放行规则；② 已存在的审批生成规则不参与判定
  * （规则仍在列表里可见、可逐条撤销）。判定口实时读配置，故只需广播配置变更事件。
+ *
+ * 如实边界：`sessions` 只按**会话 id 精确匹配**；拿不到会话上下文的路径（后台/无人值守）
+ * 只受 `global` 影响，不会被某个会话的暂停"顺带收紧"。
  */
 export async function handleSetApprovalPause(
   req: http.IncomingMessage,
@@ -619,13 +628,67 @@ export async function handleSetApprovalPause(
   try {
     const body = await readRequestBody(req);
     const parsed = JSON.parse(body) as Record<string, unknown> | null;
-    const enabled = parsed?.['enabled'];
-    if (typeof enabled !== 'boolean') {
+    if (
+      parsed === null ||
+      typeof parsed !== 'object' ||
+      Array.isArray(parsed)
+    ) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'enabled 必须是布尔值' } }));
+      res.end(JSON.stringify({ error: { message: '请求体必须是对象' } }));
       return;
     }
-    const next = setApprovalPauseEnabled(enabled);
+
+    const legacyEnabled = parsed['enabled'];
+    const hasGlobal = parsed['global'] !== undefined;
+    const hasSessions = parsed['sessions'] !== undefined;
+    if (!hasGlobal && !hasSessions && typeof legacyEnabled !== 'boolean') {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: { message: '必须提供 enabled（布尔）或 global / sessions' },
+        })
+      );
+      return;
+    }
+
+    const current = readApprovalPauseState();
+    const global = hasGlobal
+      ? parsed['global']
+      : typeof legacyEnabled === 'boolean'
+        ? legacyEnabled
+        : current.global;
+    if (typeof global !== 'boolean') {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'global 必须是布尔值' } }));
+      return;
+    }
+
+    const rawSessions = hasSessions ? parsed['sessions'] : current.sessions;
+    if (
+      !Array.isArray(rawSessions) ||
+      !rawSessions.every((value) => typeof value === 'string')
+    ) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({ error: { message: 'sessions 必须是字符串数组' } })
+      );
+      return;
+    }
+    const sessions = rawSessions.map((value) => value.trim()).filter(Boolean);
+    if (sessions.some((value) => value.length > 128)) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({ error: { message: '单个会话 id 不能超过 128 字符' } })
+      );
+      return;
+    }
+    if (sessions.length > 200) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'sessions 最多 200 条' } }));
+      return;
+    }
+
+    const next = setApprovalPauseState({ global, sessions });
     broadcastEvent('config:updated', {
       key: APPROVAL_PAUSE_CONFIG_KEY,
       value: next,
@@ -633,11 +696,15 @@ export async function handleSetApprovalPause(
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(
       JSON.stringify({
-        enabled: next,
+        enabled: next.global,
+        global: next.global,
+        sessions: next.sessions,
         configKey: APPROVAL_PAUSE_CONFIG_KEY,
-        message: next
+        message: next.global
           ? '已暂停全部持久化放行（审批生成的规则不再生效，可逐条撤销）'
-          : '已恢复持久化放行',
+          : next.sessions.length > 0
+            ? `已按会话暂停 ${next.sessions.length} 个（其他会话不受影响）`
+            : '已恢复持久化放行',
       })
     );
   } catch (err) {

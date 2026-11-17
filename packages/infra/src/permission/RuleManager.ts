@@ -30,7 +30,7 @@ import {
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
-import { isApprovalPauseEnabled } from './approvalPause';
+import { filterPausedApprovalRules } from './approvalPause';
 
 const logger = getLogger('permission:ruleManager');
 
@@ -828,9 +828,9 @@ export class RuleManager {
 
     // R3（2026-11-17）：「暂停全部持久化放行」开启 ⇒ 审批生成规则**不参与判定**。
     // 只在**判定读取口**过滤（`getRules()` 不受影响）⇒ 列表/健康视图仍可见、可逐条撤销。
-    if (isApprovalPauseEnabled()) {
-      rules = rules.filter((rule) => !isApprovalOriginatedRule(rule));
-    }
+    // F2：本方法拿不到会话上下文 ⇒ 只按**全局**暂停过滤；带会话的判定由
+    // `PermissionChecker` 用 `filterPausedApprovalRules(rules, { sessionId })` 再过滤一次（幂等）。
+    rules = filterPausedApprovalRules(rules);
 
     // 按优先级排序
     return rules.sort((a, b) => b.priority - a.priority);

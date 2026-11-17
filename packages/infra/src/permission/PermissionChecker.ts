@@ -29,6 +29,8 @@ import {
 } from './inboxApprovalDedupe';
 import { PermissionBehavior, isRuleMatch } from './types/PermissionRule';
 import type { RuleMatchOptions, PermissionRule } from './types/PermissionRule';
+// R3/F2（2026-11-17）：「暂停持久化放行」的判定口过滤（全局 / 会话级，同一实现）
+import { filterPausedApprovalRules } from './approvalPause';
 import {
   RiskClass,
   inferRiskClass,
@@ -922,9 +924,9 @@ export class PermissionChecker {
   isToolDenied(toolOrName: Tool | string, context: PermissionContext): boolean {
     const toolName =
       typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
-    const denyRules = this.ruleManager.getRules(
-      undefined,
-      PermissionBehavior.DENY
+    const denyRules = filterPausedApprovalRules(
+      this.ruleManager.getRules(undefined, PermissionBehavior.DENY),
+      { sessionId: context.sessionId }
     );
     const options = this._ruleMatchOptions(
       toolOrName,
@@ -968,9 +970,9 @@ export class PermissionChecker {
   ): boolean {
     const toolName =
       typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
-    const askRules = this.ruleManager.getRules(
-      undefined,
-      PermissionBehavior.ASK
+    const askRules = filterPausedApprovalRules(
+      this.ruleManager.getRules(undefined, PermissionBehavior.ASK),
+      { sessionId: context.sessionId }
     );
     const options = this._ruleMatchOptions(
       toolOrName,
@@ -989,7 +991,8 @@ export class PermissionChecker {
    * `isToolAllowed` 完全一致（同一实现）。
    *
    * 注：走 `getRulesByBehavior` ⇒ 「暂停全部持久化放行」时审批规则同样不参与
-   * （此前直接读 `getRules` 会绕过该过滤）。
+   * （此前直接读 `getRules` 会绕过该过滤）；F2 起再按**本次会话**补一次过滤
+   * （全局暂停已在 `getRulesByBehavior` 内处理，这里处理会话级）。
    */
   findAllowRule(
     toolOrName: Tool | string,
@@ -997,8 +1000,9 @@ export class PermissionChecker {
   ): PermissionRule | null {
     const toolName =
       typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
-    const allowRules = this.ruleManager.getRulesByBehavior(
-      PermissionBehavior.ALLOW
+    const allowRules = filterPausedApprovalRules(
+      this.ruleManager.getRulesByBehavior(PermissionBehavior.ALLOW),
+      { sessionId: context.sessionId }
     );
     const options = this._ruleMatchOptions(
       toolOrName,
@@ -1039,7 +1043,11 @@ export class PermissionChecker {
   ): PermissionDecision | null {
     const toolName =
       typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
-    const rules = this.ruleManager.getRules();
+    // R3/F2：内容级（命令名 / 前缀 / 正则）规则也在暂停范围内 —— 审批卡的
+    // 「以后这个命令免审批」写的就是这一类，此前直读 `getRules()` 会绕过过滤。
+    const rules = filterPausedApprovalRules(this.ruleManager.getRules(), {
+      sessionId: context.sessionId,
+    });
     const options = this._ruleMatchOptions(toolOrName, input ?? {}, context);
     for (const rule of rules) {
       if (isRuleMatch(rule, toolName, input, options)) {

@@ -10,11 +10,13 @@
  * 3. **未命中判定**：`now - (lastHitAt ?? createdAt) >= 90 天`；
  * 4. **观察期闸**：开始计数不足 90 天 ⇒ 不产出"未命中"结论（不误报）。
  */
-import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { configManager, getConfigManager } from '@openliri/infra/config';
+import { APPROVAL_PAUSE_CONFIG_KEY } from '@openliri/infra/permission/approvalPause';
 import { PermissionManager } from '@openliri/infra/permission/PermissionManager';
 import {
   PermissionBehavior,
@@ -117,6 +119,38 @@ describe('R5：90 天未命中报告（纯函数）', () => {
     expect(report.observationComplete).toBe(true);
     expect(report.staleRules.map((r) => r.ruleId)).toHaveLength(1);
     expect(report.staleRules[0]!.lastHitAt).toBeNull();
+  });
+
+  it('F2：全局暂停时审批生成规则不计入「未命中」（有意不用 ≠ 没用）', () => {
+    const userRule = rule();
+    const approvalRule = rule({ origin: 'approval' });
+    const spy = spyOn(getConfigManager(), 'getValue').mockImplementation(((
+      key: string
+    ) =>
+      key === APPROVAL_PAUSE_CONFIG_KEY
+        ? true
+        : undefined) as unknown as typeof configManager.getValue);
+    try {
+      const report = buildRuleHitReport(
+        [userRule, approvalRule],
+        stats(NOW - 200 * DAY),
+        NOW
+      );
+      // 用户规则照常判定；审批生成规则在暂停期间不参与判定 ⇒ 不列
+      expect(report.staleRules.map((r) => r.ruleId)).toEqual([userRule.id]);
+    } finally {
+      spy.mockRestore();
+    }
+
+    // 未暂停 ⇒ 两条都照常列入
+    const resumed = buildRuleHitReport(
+      [userRule, approvalRule],
+      stats(NOW - 200 * DAY),
+      NOW
+    );
+    expect(resumed.staleRules.map((r) => r.ruleId).sort()).toEqual(
+      [userRule.id, approvalRule.id].sort()
+    );
   });
 
   it('最近 90 天内命中过 ⇒ 不算未命中；新建不久的规则也不算', () => {

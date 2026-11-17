@@ -41,6 +41,8 @@ import { isCommandToolName } from '@openliri/infra/utils/toolContract/toolRoles'
 import type { ToolSandboxLevel } from '@openliri/infra/utils/toolContract/Tool';
 import { findWorkspaceEscapeInRoots } from '@openliri/infra/utils/toolContract/pathBoundary';
 import { PATH_ARG_KEYS } from '@openliri/infra/utils/toolContract/pathArgs';
+// R4（2026-11-17）：审批审计的入参预览先去敏（与采样共用同一出口）
+import { buildRedactedInputPreview } from '@openliri/infra/security';
 // P2（§3.3）：会话活跃长程任务（任务档审批选项的可用性判定）
 import { getActiveTaskId } from './activeTaskScope';
 // PR-3b（2026-10-23）：沙箱豁免判定（纯函数，§3.9.4 S1–S4）
@@ -820,7 +822,7 @@ export class PermissionChecker {
         approvalId: card.approvalId,
         toolName,
         risk: card.risk,
-        inputPreview: JSON.stringify(input).slice(0, 200),
+        inputPreview: buildRedactedInputPreview(input, 200),
       });
 
       const submitted = await inboxManager.submit({

@@ -271,13 +271,16 @@ export async function submitToolApproval(
       }
     }
 
+    // R4（2026-11-17）：审计入参预览先去敏（动态 import：不改启动期 eager 依赖，见文件头）
+    const { buildRedactedInputPreview } =
+      await import('@openliri/infra/security');
     // P5-1：① 申请（只在新卡真正要建时开链）
     emitApprovalAudit(sid, {
       stage: 'requested',
       approvalId: card.approvalId,
       toolName,
       risk: card.risk,
-      inputPreview: JSON.stringify(input).slice(0, 200),
+      inputPreview: buildRedactedInputPreview(input, 200),
     });
 
     const submitted = await inboxManager.submit(

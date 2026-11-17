@@ -17,11 +17,13 @@
  *   allowlist_tool / deny`；其余 `approve / allowlist_call / deny`；`EXTERNAL` 只给
  *   `approve / deny`（外部副作用不提供永久放行）；
  * - `risk` 由 `resolveRiskClass()` 统一派生（传工具对象走声明，只传名字退回旧启发式）；
- * - `inputPreview` 统一截断 300 字符。
+ * - `inputPreview` 统一截断 300 字符，且**先去敏**（R4：与采样共用 `redactSensitiveText`）。
  */
 
 import type { SandboxExecutionSignal } from '@openliri/infra/utils/toolContract/Tool';
 import { isCommandToolName } from '@openliri/infra/utils/toolContract/toolRoles';
+// R4（2026-11-17）：审批预览与采样共用同一去敏出口（密钥不落 Inbox / 审计）
+import { buildRedactedInputPreview } from '@openliri/infra/security';
 
 import {
   resolveApprovalFingerprint,
@@ -150,7 +152,7 @@ export function buildToolApprovalCard(
 
   const approvalId = newApprovalId();
 
-  const previewText = JSON.stringify(input).slice(0, INPUT_PREVIEW_MAX_CHARS);
+  const previewText = buildRedactedInputPreview(input, INPUT_PREVIEW_MAX_CHARS);
   const message =
     (params.approvalReason ? `${params.approvalReason}\n` : '') +
     `工具 '${toolName}' 请求执行（风险等级: ${risk}）\n` +

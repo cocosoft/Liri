@@ -75,7 +75,12 @@ import { getResourceGovernor } from '@modules/resourceGovernor';
 import { DEFAULT_REQUEST_PRIORITY } from '@modules/types/requestPriority';
 import type { ToolAwareClient } from '@modules/ai';
 import type { ToolRegistry } from '@modules/tools';
-import type { ChatMessage, ToolDefinition, ParsedToolCall } from '@modules/ai';
+import type {
+  ChatMessage,
+  ChatResponse,
+  ToolDefinition,
+  ParsedToolCall,
+} from '@modules/ai';
 import type {
   ChatStreamChunk,
   QuestionData,
@@ -148,6 +153,8 @@ async function raceStreamHeartbeat<T>(
 
 // 2026-10-19（CI 断环）：宿主端口已下沉到叶子模块 `./ChatOrchestratorHost`。
 import type { ChatOrchestratorHost } from './ChatOrchestratorHost.js';
+// T3（2026-11-17）：阶段函数的编排上下文类型（`type` 导入，运行时零依赖）
+import type { SendMessageContext } from './sendMessageFlow.js';
 
 export type { ChatOrchestratorHost } from './ChatOrchestratorHost.js';
 
@@ -490,76 +497,8 @@ export class ChatOrchestrator {
 
         // 工具定义（P1，2026-11-04）：按会话 `metadata.chatMode` 过滤工具集 ——
         // 目前只有 `creative` 做减法（去掉终端类工具）。缺失/脏值 ⇒ auto（零行为变更）。
-        const chatModePolicy = resolveChatModePolicy(
-          (session.metadata as Record<string, unknown> | undefined)?.chatMode
-        );
-        const registry = this.host.getToolRegistry();
-        const visibleSchemas = registry
-          ? filterToolSchemasByChatMode(
-              registry.getToolSchemas(),
-              chatModePolicy
-            )
-          : [];
-        ctx.toolDefinitions = registry
-          ? this.host.buildToolDefinitions(visibleSchemas)
-          : [];
-        // TR-12-B（2026-09-22）：本轮工具清单落事件（引用式去重）——§1.6 红线。
-        // P1：落**过滤后**的清单（模型可见 ⇔ 已落盘）。
-        if (registry && visibleSchemas.length > 0) {
-          this.host.recordToolsSnapshot(session.id, visibleSchemas);
-        }
-
-        // 模型档位（P1）：用户显式选过模型 ⇒ 尊重（`options.model` 非空即跳过）；
-        // 未选（服务端自发轮次）⇒ 按模式档位解析：`deep`/`code` 走 coding 档，其余 chat 档。
-        if (ctx.options && !ctx.options.model) {
-          const { resolveModelRoute, RouteKey } =
-            await import('../../ai/router/resolveModelRoute');
-          const route =
-            chatModePolicy.routeKey === 'coding'
-              ? RouteKey.CODING
-              : RouteKey.CHAT;
-          const routedModel = await resolveModelRoute(route, {
-            sessionId: session.id,
-          });
-          if (routedModel) ctx.options.model = routedModel;
-        }
-
-        // 注入注册表查询工具（有工具历史 或 C 阶段切窗发生时）
-        const { toolResultRegistry } =
-          await import('@modules/tool/ToolResultRegistry');
-        if (
-          toolResultRegistry.getRoundCount(session.id) > 0 ||
-          (ctx as { windowed?: boolean }).windowed === true
-        ) {
-          ctx.toolDefinitions.push(
-            {
-              type: 'function',
-              function: {
-                name: 'get_tool_result',
-                description: '获取工具执行结果',
-                parameters: { type: 'object', properties: {} },
-              },
-            } as ToolDefinition,
-            {
-              type: 'function',
-              function: {
-                name: 'list_tool_calls',
-                description: '列出工具调用',
-                parameters: { type: 'object', properties: {} },
-              },
-            } as ToolDefinition
-          );
-        }
-        // C 阶段（P1）：分页切窗生效 → 提供 session_lookup 取回被切原文
-        if ((ctx as { windowed?: boolean }).windowed === true) {
-          const lookupTool = this.host.getSessionLookupTool?.();
-          if (lookupTool) {
-            ctx.toolDefinitions.push(lookupTool);
-            logger.info('send:注入 session_lookup（分页切窗生效，C 阶段）', {
-              sessionId: session.id,
-            });
-          }
-        }
+        // T3（2026-11-17）：整块**原样搬运**到 `_assembleSendTurnTools`（圈复杂度外移）。
+        await this._assembleSendTurnTools(ctx, session);
 
         // 阶段 2: 系统提示
         await assembleSystemPrompt(ctx);
@@ -592,95 +531,15 @@ export class ChatOrchestrator {
         // P0-1② 覆盖面补齐（2026-10-04）：**无工具回合**的终稿 mermaid 校验。
         // 非流式：返回值尚未交给调用方 ⇒ 可直接替换，无需 supersede。
         // 有工具回合仍由工具循环内的原钩子负责（本条不介入）。
-        if (!response.tool_calls || response.tool_calls.length === 0) {
-          const guardResult = await guardFinalOutput(
-            String(assistantMessage.content ?? ''),
-            {
-              lint: lintMermaidBlocks,
-              // 13-P2-1：统一输出护栏（默认空注册 ⇒ 行为与原状一致）
-              outputGuards: getOutputGuardRegistry().list(),
-              renderInstruction: (issues) =>
-                renderGoalTemplate('mermaid_repair', {
-                  issues: formatMermaidIssues(issues),
-                }),
-              emitValidationInjected: async (issues, instruction) => {
-                await this.host.appendStreamEvent(session.id, {
-                  type: 'validation/injected',
-                  schemaVersion: 1,
-                  seq: 0,
-                  time: Date.now(),
-                  sessionId: session.id,
-                  data: {
-                    kind: 'mermaid',
-                    issues,
-                    channel: 'steering',
-                    text: instruction,
-                  },
-                });
-              },
-              repair: async (instruction) => {
-                // 同源修复：复用同一 `invokeLlm`（CS01：不另起第二套装配）
-                const repairCtx = {
-                  ...ctx,
-                  apiMessages: [
-                    ...ctx.apiMessages,
-                    {
-                      role: 'user',
-                      content: renderFragment(
-                        createFragment({ kind: 'steering', text: instruction })
-                      ),
-                    },
-                  ],
-                };
-                const { response: repairResp } = await invokeLlm(
-                  repairCtx as typeof ctx,
-                  activeClient
-                );
-                return repairResp.content ?? null;
-              },
-            }
-          );
-          if (guardResult.blocked) {
-            // 13-P2-1：统一护栏阻断 ⇒ 以安全替代文本作为终稿（不再做 mermaid 修复）
-            assistantMessage.content = guardResult.text;
-            response.content = guardResult.text;
-            await this.host.updateMessageBlocks(
-              session.id,
-              assistantMessage.id,
-              [{ type: 'text', content: guardResult.text }],
-              guardResult.text
-            );
-            logger.warn('sendMessage:no_tool_final_output_blocked', {
-              sessionId: session.id,
-              reason: guardResult.blockReason,
-            });
-          } else if (guardResult.repaired || guardResult.redacted) {
-            assistantMessage.content = guardResult.text;
-            response.content = guardResult.text;
-            await this.host.updateMessageBlocks(
-              session.id,
-              assistantMessage.id,
-              [{ type: 'text', content: guardResult.text }],
-              guardResult.text
-            );
-            logger.info('sendMessage:no_tool_final_output_repaired', {
-              sessionId: session.id,
-              issueCount: guardResult.issues.length,
-              repaired: guardResult.repaired,
-              redacted: guardResult.redacted === true,
-              guardIssueCount: guardResult.guardIssues?.length ?? 0,
-            });
-          }
-          // PC-1：护栏命中（打码/阻断）⇒ 下发前端（未命中 ⇒ 内部不下发）
-          notifyOutputGuardResult(session.id, assistantMessage.id, guardResult);
-          // P4：改写**持久留痕**（默认仅元数据；原文需 `OUTPUT_GUARD_KEEP_ORIGINAL=true`）
-          await appendOutputGuardAudit(
-            (event) => this.host.appendStreamEvent(session.id, event),
-            session.id,
-            assistantMessage.id,
-            guardResult
-          );
-        }
+        // T3（2026-11-17）：整块**原样搬运**到 `_guardNoToolFinalOutput`（圈复杂度外移）。
+        await this._guardNoToolFinalOutput(
+          ctx,
+          session,
+          response,
+          assistantMessage,
+          activeClient,
+          invokeLlm
+        );
 
         // 阶段 7: 用量通知
         notifyUsage(ctx, response, Date.now() - llmStartTime);
@@ -784,20 +643,8 @@ export class ChatOrchestrator {
               }
               // N-42：把首响应的工具调用交给 TAOR 作**首轮 ACT** 执行
               // （`ParsedToolCall.arguments` 是 JSON 字符串，需转对象，与降级路径同法）
-              taorLoop.seedPendingToolCalls(
-                response.tool_calls.map((tc) => {
-                  let parsed: Record<string, unknown> = {};
-                  try {
-                    parsed =
-                      typeof tc.arguments === 'string'
-                        ? (JSON.parse(tc.arguments) as Record<string, unknown>)
-                        : ((tc.arguments ?? {}) as Record<string, unknown>);
-                  } catch {
-                    // @ignore-catch 非法 JSON 参数交工具自身校验报错，不阻断委托
-                  }
-                  return { id: tc.id, name: tc.name, input: parsed };
-                })
-              );
+              // T3（2026-11-17）：解析分支**原样搬运**到 `_seedTAORPendingToolCalls`。
+              this._seedTAORPendingToolCalls(taorLoop, response.tool_calls);
               const taorContext = this.host.buildTAORContext(
                 session.id,
                 ctx.toolDefinitions,
@@ -811,40 +658,17 @@ export class ChatOrchestrator {
                 (tc) => tc.id
               );
               const deps = createChatManagerTAORDeps(taorContext);
-              const taorMessages: ChatMessage[] = ctx.apiMessages.map((m) => ({
-                role: (m.role as ChatMessage['role']) || 'user',
-                content:
-                  typeof m.content === 'string'
-                    ? m.content
-                    : JSON.stringify(m.content),
-                ...(m.tool_call_id
-                  ? { tool_call_id: m.tool_call_id as string }
-                  : {}),
-                ...(m.tool_calls
-                  ? { tool_calls: m.tool_calls as ChatMessage['tool_calls'] }
-                  : {}),
-              }));
+              // T3（2026-11-17）：消息映射**原样搬运**到 `_toTaorMessages`。
+              const taorMessages: ChatMessage[] = this._toTaorMessages(
+                ctx.apiMessages
+              );
               // 2026-11-09：把本轮会话取消源桥接到 TAOR —— 客户端断开 / 看门狗中止时，
               // 循环不再继续「模型→工具」空转（此前只有工具内部拿到 signal，循环照跑）。
-              const onTurnAbort = () => {
-                void taorLoop.abort();
-              };
-              if (turnAbort) {
-                if (turnAbort.signal.aborted) {
-                  onTurnAbort();
-                } else {
-                  turnAbort.signal.addEventListener('abort', onTurnAbort, {
-                    once: true,
-                  });
-                }
-              }
+              // T3（2026-11-17）：桥接/解绑**原样搬运**到 `_bridgeTaorAbort`。
+              const detachAbort = this._bridgeTaorAbort(taorLoop, turnAbort);
               const taorResult = await taorLoop
                 .runCollect({ messages: taorMessages, deps })
-                .finally(() => {
-                  turnAbort?.signal.removeEventListener('abort', onTurnAbort);
-                });
-              const awaitingApproval =
-                taorResult.terminationReason === 'awaiting_approval';
+                .finally(detachAbort);
               logger.info('sendMessage TAORLoop 完成', {
                 sessionId: session.id,
                 turns: taorResult.turnCount,
@@ -862,86 +686,15 @@ export class ChatOrchestrator {
                 : undefined;
               if (lastAssistant) assistantMessage = lastAssistant;
 
-              // 2026-11-09：取消 ≠ 生成失败 —— 非流式本轮被中止（连接中断 / 会话关闭 / 按请求
-              // 停止）时，若末条 assistant 无可见正文，补一条与流式**同源**的收尾文案
-              //（`terminationOutput.ts` 的导出常量，CS01），不得落 BUG-E「本次未能生成回复」兜底。
-              const cancelledSuffix = turnAbort?.signal.aborted
-                ? SYSTEM_ABORTED_SUFFIX
-                : taorResult.stopReason === 'aborted'
-                  ? USER_ABORTED_SUFFIX
-                  : undefined;
-
-              // 2026-11-06（审批根因簇 P0-2）：TAOR 在"工具已提交审批"时立即收尾，
-              // 但 finalize 不产出消息 ⇒ 不补一条用户可见提示的话，用户只看到一片空白
-              //（且会被下方 BUG-E 兜底误报成"本次未能生成回复"）。文案与流式路径同源。
-              //
-              // P3-2/T1（2026-11-16）：判据收敛到 `awaitingApprovalNotice` 的**本轮扫描**。
-              // 原「只看末条 assistant 的 finishReason」会被续跑先落的 assistant(tool_calls)
-              // 绕过 ⇒ 真机 `session_mwgj38hv0f7434c756` 写了 79 条同提示。
-              if (awaitingApproval) {
-                const notice = ensureAwaitingApprovalNotice({
-                  messages: updatedSession?.messages,
-                  sessionId: session.id,
-                  currentId: assistantMessage?.id,
-                  createAssistantMessage: (content, options) =>
-                    this.host.messageService.createAssistantMessage(
-                      content,
-                      options
-                    ),
-                  addAndPersistMessage: (sessionId, message) =>
-                    this.host.addAndPersistMessage(sessionId, message),
-                });
-                if (notice) assistantMessage = notice;
-              } else if (
-                cancelledSuffix &&
-                !hasVisibleAssistantText(
-                  lastAssistant?.content as
-                    | string
-                    | Array<{ type: string; value?: unknown }>
-                    | undefined
-                )
-              ) {
-                const cancelMsg =
-                  this.host.messageService.createAssistantMessage(
-                    cancelledSuffix.trim(),
-                    { sessionId: session.id }
-                  );
-                cancelMsg.metadata = {
-                  ...(cancelMsg.metadata ?? {}),
-                  finishReason: turnAbort?.signal.aborted
-                    ? 'system_aborted'
-                    : 'aborted',
-                };
-                this.host.addAndPersistMessage(session.id, cancelMsg);
-                assistantMessage = cancelMsg;
-              } else if (
-                !cancelledSuffix &&
-                !isEmptyOutputFallbackMessage(lastAssistant)
-              ) {
-                // BUG-E 补口（2026-10-27 真机复验）：TAOR 的 finalize 不产出消息 ⇒ 末轮
-                // "无可见文本"时返回值 content 为空（实测 13:57:17Z `stopReason=diminishing_returns`
-                // + HTTP `contentLength=0`，用户零答复）。与 ReAct 路径同源兜底（同一常量/判据）。
-                // 已是兜底消息则不重复追加（幂等）。
-                const emptyFallback = buildEmptyReplyFallback(
-                  lastAssistant?.content as
-                    | string
-                    | Array<{ type: string; value?: unknown }>
-                    | undefined
-                );
-                if (emptyFallback) {
-                  const fallbackMsg =
-                    this.host.messageService.createAssistantMessage(
-                      emptyFallback.content,
-                      { sessionId: session.id }
-                    );
-                  fallbackMsg.metadata = {
-                    ...(fallbackMsg.metadata ?? {}),
-                    ...emptyFallback.metadata,
-                  };
-                  this.host.addAndPersistMessage(session.id, fallbackMsg);
-                  assistantMessage = fallbackMsg;
-                }
-              }
+              // T3（2026-11-17）：收尾补文案三分支**原样搬运**到 `_settleTaorTurnOutput`。
+              assistantMessage = this._settleTaorTurnOutput({
+                session,
+                updatedSession,
+                lastAssistant,
+                assistantMessage,
+                taorResult,
+                turnAbort,
+              });
             } catch (err) {
               await handleError(err, {
                 module: 'chat:ChatManager',
@@ -1055,6 +808,363 @@ export class ChatOrchestrator {
         this.host.sessionAbortControllers.delete(session.id);
       }
     });
+  }
+
+  /**
+   * T3（2026-11-17）：本轮**工具集 / 模型档位**装配。
+   *
+   * 从 `sendMessage` 的 `mutex.run` 回调**原样搬出**（零行为变更），用于把该回调的圈复杂度
+   * 降到阈值内：
+   * ① 按会话 `metadata.chatMode` 过滤工具集（只有 `creative` 做减法）；
+   * ② 落"本轮工具清单"事件（§1.6，落**过滤后**的清单）；
+   * ③ 未显式选模型时按模式档位解析（`deep`/`code` 走 coding 档，其余 chat 档）；
+   * ④ 有工具历史 / 分页切窗时注入 `get_tool_result`、`list_tool_calls`、`session_lookup`。
+   */
+  private async _assembleSendTurnTools(
+    ctx: SendMessageContext,
+    session: ChatSession
+  ): Promise<void> {
+    const chatModePolicy = resolveChatModePolicy(
+      (session.metadata as Record<string, unknown> | undefined)?.chatMode
+    );
+    const registry = this.host.getToolRegistry();
+    const visibleSchemas = registry
+      ? filterToolSchemasByChatMode(registry.getToolSchemas(), chatModePolicy)
+      : [];
+    ctx.toolDefinitions = registry
+      ? this.host.buildToolDefinitions(visibleSchemas)
+      : [];
+    // TR-12-B（2026-09-22）：本轮工具清单落事件（引用式去重）——§1.6 红线。
+    // P1：落**过滤后**的清单（模型可见 ⇔ 已落盘）。
+    if (registry && visibleSchemas.length > 0) {
+      this.host.recordToolsSnapshot(session.id, visibleSchemas);
+    }
+
+    // 模型档位（P1）：用户显式选过模型 ⇒ 尊重（`options.model` 非空即跳过）；
+    // 未选（服务端自发轮次）⇒ 按模式档位解析：`deep`/`code` 走 coding 档，其余 chat 档。
+    if (ctx.options && !ctx.options.model) {
+      const { resolveModelRoute, RouteKey } =
+        await import('../../ai/router/resolveModelRoute');
+      const route =
+        chatModePolicy.routeKey === 'coding' ? RouteKey.CODING : RouteKey.CHAT;
+      const routedModel = await resolveModelRoute(route, {
+        sessionId: session.id,
+      });
+      if (routedModel) ctx.options.model = routedModel;
+    }
+
+    // 注入注册表查询工具（有工具历史 或 C 阶段切窗发生时）
+    const { toolResultRegistry } =
+      await import('@modules/tool/ToolResultRegistry');
+    if (
+      toolResultRegistry.getRoundCount(session.id) > 0 ||
+      ctx.windowed === true
+    ) {
+      ctx.toolDefinitions.push(
+        {
+          type: 'function',
+          function: {
+            name: 'get_tool_result',
+            description: '获取工具执行结果',
+            parameters: { type: 'object', properties: {} },
+          },
+        } as ToolDefinition,
+        {
+          type: 'function',
+          function: {
+            name: 'list_tool_calls',
+            description: '列出工具调用',
+            parameters: { type: 'object', properties: {} },
+          },
+        } as ToolDefinition
+      );
+    }
+    // C 阶段（P1）：分页切窗生效 → 提供 session_lookup 取回被切原文
+    if (ctx.windowed === true) {
+      const lookupTool = this.host.getSessionLookupTool?.();
+      if (lookupTool) {
+        ctx.toolDefinitions.push(lookupTool);
+        logger.info('send:注入 session_lookup（分页切窗生效，C 阶段）', {
+          sessionId: session.id,
+        });
+      }
+    }
+  }
+
+  /**
+   * T3（2026-11-17）：**无工具回合**的终稿 mermaid 校验 + 有界修复。
+   *
+   * 从 `sendMessage` 的 `mutex.run` 回调**原样搬出**（零行为变更）。非流式返回值尚未交给
+   * 调用方 ⇒ 可直接替换，无需 supersede；有工具回合仍由工具循环内的原钩子负责（本条不介入）。
+   */
+  private async _guardNoToolFinalOutput(
+    ctx: SendMessageContext,
+    session: ChatSession,
+    response: ChatResponse,
+    assistantMessage: Message,
+    activeClient: ToolAwareClient,
+    invokeLlm: typeof import('./sendMessageFlow.js').invokeLlm
+  ): Promise<void> {
+    if (response.tool_calls && response.tool_calls.length > 0) return;
+    const guardResult = await guardFinalOutput(
+      String(assistantMessage.content ?? ''),
+      {
+        lint: lintMermaidBlocks,
+        // 13-P2-1：统一输出护栏（默认空注册 ⇒ 行为与原状一致）
+        outputGuards: getOutputGuardRegistry().list(),
+        renderInstruction: (issues) =>
+          renderGoalTemplate('mermaid_repair', {
+            issues: formatMermaidIssues(issues),
+          }),
+        emitValidationInjected: async (issues, instruction) => {
+          await this.host.appendStreamEvent(session.id, {
+            type: 'validation/injected',
+            schemaVersion: 1,
+            seq: 0,
+            time: Date.now(),
+            sessionId: session.id,
+            data: {
+              kind: 'mermaid',
+              issues,
+              channel: 'steering',
+              text: instruction,
+            },
+          });
+        },
+        repair: async (instruction) => {
+          // 同源修复：复用同一 `invokeLlm`（CS01：不另起第二套装配）
+          const repairCtx = {
+            ...ctx,
+            apiMessages: [
+              ...ctx.apiMessages,
+              {
+                role: 'user',
+                content: renderFragment(
+                  createFragment({ kind: 'steering', text: instruction })
+                ),
+              },
+            ],
+          };
+          const { response: repairResp } = await invokeLlm(
+            repairCtx as typeof ctx,
+            activeClient
+          );
+          return repairResp.content ?? null;
+        },
+      }
+    );
+    if (guardResult.blocked) {
+      // 13-P2-1：统一护栏阻断 ⇒ 以安全替代文本作为终稿（不再做 mermaid 修复）
+      assistantMessage.content = guardResult.text;
+      response.content = guardResult.text;
+      await this.host.updateMessageBlocks(
+        session.id,
+        assistantMessage.id,
+        [{ type: 'text', content: guardResult.text }],
+        guardResult.text
+      );
+      logger.warn('sendMessage:no_tool_final_output_blocked', {
+        sessionId: session.id,
+        reason: guardResult.blockReason,
+      });
+    } else if (guardResult.repaired || guardResult.redacted) {
+      assistantMessage.content = guardResult.text;
+      response.content = guardResult.text;
+      await this.host.updateMessageBlocks(
+        session.id,
+        assistantMessage.id,
+        [{ type: 'text', content: guardResult.text }],
+        guardResult.text
+      );
+      logger.info('sendMessage:no_tool_final_output_repaired', {
+        sessionId: session.id,
+        issueCount: guardResult.issues.length,
+        repaired: guardResult.repaired,
+        redacted: guardResult.redacted === true,
+        guardIssueCount: guardResult.guardIssues?.length ?? 0,
+      });
+    }
+    // PC-1：护栏命中（打码/阻断）⇒ 下发前端（未命中 ⇒ 内部不下发）
+    notifyOutputGuardResult(session.id, assistantMessage.id, guardResult);
+    // P4：改写**持久留痕**（默认仅元数据；原文需 `OUTPUT_GUARD_KEEP_ORIGINAL=true`）
+    await appendOutputGuardAudit(
+      (event) => this.host.appendStreamEvent(session.id, event),
+      session.id,
+      assistantMessage.id,
+      guardResult
+    );
+  }
+
+  /**
+   * T3（2026-11-17）：N-42 首轮 ACT —— 外部已产生的工具调用交给 TAOR。
+   *
+   * `ParsedToolCall.arguments` 是 JSON 字符串，需转对象（与降级路径同法）；
+   * 非法 JSON 交工具自身校验报错，不阻断委托。原样搬出，零行为变更。
+   */
+  private _seedTAORPendingToolCalls(
+    taorLoop: {
+      seedPendingToolCalls(
+        calls: Array<{
+          id: string;
+          name: string;
+          input: Record<string, unknown>;
+        }>
+      ): void;
+    },
+    toolCalls: ParsedToolCall[]
+  ): void {
+    taorLoop.seedPendingToolCalls(
+      toolCalls.map((tc) => {
+        let parsed: Record<string, unknown> = {};
+        try {
+          parsed =
+            typeof tc.arguments === 'string'
+              ? (JSON.parse(tc.arguments) as Record<string, unknown>)
+              : ((tc.arguments ?? {}) as Record<string, unknown>);
+        } catch {
+          // @ignore-catch 非法 JSON 参数交工具自身校验报错，不阻断委托
+        }
+        return { id: tc.id, name: tc.name, input: parsed };
+      })
+    );
+  }
+
+  /** T3（2026-11-17）：`ctx.apiMessages` → TAOR `ChatMessage[]`（原样搬出，零行为变更） */
+  private _toTaorMessages(
+    apiMessages: Record<string, unknown>[]
+  ): ChatMessage[] {
+    return apiMessages.map((m) => ({
+      role: (m.role as ChatMessage['role']) || 'user',
+      content:
+        typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
+      ...(m.tool_call_id ? { tool_call_id: m.tool_call_id as string } : {}),
+      ...(m.tool_calls
+        ? { tool_calls: m.tool_calls as ChatMessage['tool_calls'] }
+        : {}),
+    }));
+  }
+
+  /**
+   * T3（2026-11-17）：把本轮会话取消源桥接到 TAOR —— 客户端断开 / 看门狗中止时，
+   * 循环不再继续「模型→工具」空转（此前只有工具内部拿到 signal，循环照跑）。
+   *
+   * 返回解绑函数（循环结束后移除监听）。原样搬出，零行为变更。
+   */
+  private _bridgeTaorAbort(
+    taorLoop: { abort(saveCheckpoint?: boolean): Promise<void> },
+    turnAbort: AbortController | undefined
+  ): () => void {
+    const onTurnAbort = () => {
+      void taorLoop.abort();
+    };
+    if (turnAbort) {
+      if (turnAbort.signal.aborted) {
+        onTurnAbort();
+      } else {
+        turnAbort.signal.addEventListener('abort', onTurnAbort, {
+          once: true,
+        });
+      }
+    }
+    return () => turnAbort?.signal.removeEventListener('abort', onTurnAbort);
+  }
+
+  /**
+   * T3（2026-11-17）：TAOR 收尾的**用户可见补文案**（三选一，优先级不可颠倒）。
+   *
+   * 从 `sendMessage` 的 `mutex.run` 回调**原样搬出**（零行为变更）：
+   * ① 审批暂停 ⇒ 补"等待审批"提示（判据经 `ensureAwaitingApprovalNotice` 本轮扫描）；
+   * ② 本轮被中止且末条 assistant 无可见正文 ⇒ 补同源中止文案；
+   * ③ 末轮无可见文本（BUG-E）⇒ 补同源兜底文案（幂等）。
+   */
+  private _settleTaorTurnOutput(args: {
+    session: ChatSession;
+    updatedSession: ChatSession | undefined;
+    lastAssistant: Message | undefined;
+    assistantMessage: Message;
+    taorResult: { stopReason: string; terminationReason?: string };
+    turnAbort: AbortController | undefined;
+  }): Message {
+    const { session, updatedSession, lastAssistant, taorResult, turnAbort } =
+      args;
+    const awaitingApproval =
+      taorResult.terminationReason === 'awaiting_approval';
+    let assistantMessage = args.assistantMessage;
+
+    // 2026-11-09：取消 ≠ 生成失败 —— 非流式本轮被中止（连接中断 / 会话关闭 / 按请求
+    // 停止）时，若末条 assistant 无可见正文，补一条与流式**同源**的收尾文案
+    //（`terminationOutput.ts` 的导出常量，CS01），不得落 BUG-E「本次未能生成回复」兜底。
+    const cancelledSuffix = turnAbort?.signal.aborted
+      ? SYSTEM_ABORTED_SUFFIX
+      : taorResult.stopReason === 'aborted'
+        ? USER_ABORTED_SUFFIX
+        : undefined;
+
+    // 2026-11-06（审批根因簇 P0-2）：TAOR 在"工具已提交审批"时立即收尾，
+    // 但 finalize 不产出消息 ⇒ 不补一条用户可见提示的话，用户只看到一片空白
+    //（且会被下方 BUG-E 兜底误报成"本次未能生成回复"）。文案与流式路径同源。
+    //
+    // P3-2/T1（2026-11-16）：判据收敛到 `awaitingApprovalNotice` 的**本轮扫描**。
+    // 原「只看末条 assistant 的 finishReason」会被续跑先落的 assistant(tool_calls)
+    // 绕过 ⇒ 真机 `session_mwgj38hv0f7434c756` 写了 79 条同提示。
+    if (awaitingApproval) {
+      const notice = ensureAwaitingApprovalNotice({
+        messages: updatedSession?.messages,
+        sessionId: session.id,
+        currentId: assistantMessage?.id,
+        createAssistantMessage: (content, options) =>
+          this.host.messageService.createAssistantMessage(content, options),
+        addAndPersistMessage: (sessionId, message) =>
+          this.host.addAndPersistMessage(sessionId, message),
+      });
+      if (notice) assistantMessage = notice;
+    } else if (
+      cancelledSuffix &&
+      !hasVisibleAssistantText(
+        lastAssistant?.content as
+          | string
+          | Array<{ type: string; value?: unknown }>
+          | undefined
+      )
+    ) {
+      const cancelMsg = this.host.messageService.createAssistantMessage(
+        cancelledSuffix.trim(),
+        { sessionId: session.id }
+      );
+      cancelMsg.metadata = {
+        ...(cancelMsg.metadata ?? {}),
+        finishReason: turnAbort?.signal.aborted ? 'system_aborted' : 'aborted',
+      };
+      this.host.addAndPersistMessage(session.id, cancelMsg);
+      assistantMessage = cancelMsg;
+    } else if (
+      !cancelledSuffix &&
+      !isEmptyOutputFallbackMessage(lastAssistant)
+    ) {
+      // BUG-E 补口（2026-10-27 真机复验）：TAOR 的 finalize 不产出消息 ⇒ 末轮
+      // "无可见文本"时返回值 content 为空（实测 13:57:17Z `stopReason=diminishing_returns`
+      // + HTTP `contentLength=0`，用户零答复）。与 ReAct 路径同源兜底（同一常量/判据）。
+      // 已是兜底消息则不重复追加（幂等）。
+      const emptyFallback = buildEmptyReplyFallback(
+        lastAssistant?.content as
+          | string
+          | Array<{ type: string; value?: unknown }>
+          | undefined
+      );
+      if (emptyFallback) {
+        const fallbackMsg = this.host.messageService.createAssistantMessage(
+          emptyFallback.content,
+          { sessionId: session.id }
+        );
+        fallbackMsg.metadata = {
+          ...(fallbackMsg.metadata ?? {}),
+          ...emptyFallback.metadata,
+        };
+        this.host.addAndPersistMessage(session.id, fallbackMsg);
+        assistantMessage = fallbackMsg;
+      }
+    }
+    return assistantMessage;
   }
 
   /**

@@ -214,13 +214,9 @@ const SKIP_REGISTRY: SkipEntry[] = [
     module: 'query',
     severity: 'pending' as SkipSeverity,
   })),
-  ...Array.from({ length: 2 }, (_, i) => ({
-    file: 'app/tests/query/LoopDetector.test.ts',
-    match: 'test.skip(',
-    reason: `循环检测（第 ${i + 1} 处）—— 永久 skip：待补驱动`,
-    module: 'query',
-    severity: 'pending' as SkipSeverity,
-  })),
+  // 2026-11-17：`app/tests/query/LoopDetector.test.ts` 的 2 处 skip 已修复并启用 ——
+  // 根因是用例把阈值硬编码成 3 / 5，而阈值由 `loop-config.ts` 从环境/配置读取
+  // （本机 config 覆盖为 8 / 15）⇒ 按生效常量驱动轮次后常态执行。
 ];
 
 /** 递归收集 `.test.ts`（排除本文件） */

@@ -131,7 +131,14 @@ export default function TaskCard({ data }: TaskCardProps) {
           </span>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          {pendingApproval || status === "paused" ? (
+          {/*
+            2026-11-17（用户实测：审批过期后仍常驻「等待审批」）：
+            徽标只认**真实待审批**（`hasPendingApproval` 按 inboxId 与审批卡对账）。
+            历史上的 `status === "paused"` 会在任务以失败/中止收尾后永久残留
+            （真机：失败回执已出，卡片仍写"等待审批"）⇒ 不再单独触发徽标；
+            无待审批的 paused 卡按「已结束」结算呈现，不再谎报在等。
+          */}
+          {pendingApproval ? (
             <span className="text-xs px-2 py-0.5 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-full">
               {t("chat.taskPaused", "⏸ 等待审批（需要你的反馈）")}
             </span>
@@ -142,7 +149,7 @@ export default function TaskCard({ data }: TaskCardProps) {
                   {t("chat.allCompleted", "全部完成")}
                 </span>
               )}
-              {status === "done" && !isAllCompleted && (
+              {(status === "done" || status === "paused") && !isAllCompleted && (
                 <span className="text-xs px-2 py-0.5 bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded-full">
                   {failed > 0
                     ? t("chat.taskEndedWithFailed", {

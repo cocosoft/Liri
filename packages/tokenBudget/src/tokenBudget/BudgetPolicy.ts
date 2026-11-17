@@ -26,11 +26,13 @@
  * 子代理摘要 `summaryTrim`），但入口分散、阈值与公式各写各的 ⇒ 没有任何一处能回答
  * "某作用域的预算是多少、为何是这个数"。
  *
- * 本层只做三件事：**契约** + **注册表** + **既有三处的登记**（**登记既有、不重写算法**）：
+ * 本层只做三件事：**契约** + **注册表** + **既有若干处的登记**（**登记既有、不重写算法**）：
  * - `context.compression-levels` —— 由 `UNIFIED_THRESHOLDS` **派生**（阈值数值**引用常量**，不复制）；
  * - `goal.limit` —— 任务级触顶判定（原内联于 `goalBudget.chargeGoalUsage`）；
  * - `subagent.summary-chars` —— 子代理摘要字符预算（公式与常量自 `summaryTrim` **迁入**，
- *   **G14 取数口径与夹取区间逐字保留**）。
+ *   **G14 取数口径与夹取区间逐字保留**）；
+ * - `compaction.auto-trigger` —— 自动压缩触发预算（2026-11-18 追加，源 `compaction-duplicate-subsystems.md`
+ *   的 D-6-b：压缩侧阈值此前未登记；**只读评估**，不改 `packages/compaction` 的判定）。
  *
  * ⚠️ **边界（避免误读）**：本层是**只读评估**（`evaluate` 为纯计算、无 IO、无副作用），
  * **不改变** `TokenBudgetController` / `goalBudget` / `summaryTrim` 的既有判定与副作用
@@ -52,10 +54,10 @@ const logger = getLogger('tokenBudget:policy');
 // 便于消费方一处取用（避免二次转发 import）
 export { TokenBudgetStatus, UNIFIED_THRESHOLDS };
 
-/** 预算作用域（本层只登记这三类） */
-export type BudgetScope = 'context' | 'goal' | 'subagent';
+/** 预算作用域（本层只登记这四类） */
+export type BudgetScope = 'context' | 'goal' | 'subagent' | 'compaction';
 
-/** 一次评估结果（**单位由 scope 约定**：`context`/`goal` = tokens，`subagent` = chars） */
+/** 一次评估结果（**单位由 scope 约定**：`context`/`goal`/`compaction` = tokens，`subagent` = chars） */
 export interface BudgetEvaluation {
   scope: BudgetScope;
   /** 预算（`goal` 未设预算时语义为"不限" ⇒ 调用方据 `ratio === undefined` 判定） */
@@ -109,6 +111,14 @@ export interface GoalBudgetInput {
 export interface ContextBudgetInput {
   currentTokens: number;
   maxTokens: number;
+}
+
+/** 压缩预算评估输入（2026-11-18 追加；`D-6-b`） */
+export interface CompactionBudgetInput {
+  /** 当前占用 tokens（压缩判定用的估算值由调用方给出，本层不做估算） */
+  tokenUsage: number;
+  /** 有效上下文窗口（已扣除输出预留）；未知/非正 ⇒ 无法评估 */
+  effectiveContextWindow: number;
 }
 
 // ==================== 注册表 ====================
@@ -239,7 +249,50 @@ export function evaluateContextBudget(
   return { scope: 'context', budget: maxTokens, ratio, status };
 }
 
-// ==================== 三处登记（模块加载时完成；幂等） ====================
+/**
+ * `compaction.auto-trigger`：自动压缩的触发预算（**只读登记**，不改 `packages/compaction` 行为）。
+ *
+ * 口径（与 `packages/compaction/src/compaction/utils.ts` 的 P1-3-c **同一常量源**）：
+ * - `budget` = `有效窗口 × COMPACT_DEEP(0.85)` —— 自动压缩触发点；
+ * - `ratio` = `tokenUsage / 有效窗口`；`status` 与 `context.compression-levels` 同映射
+ *   （`≥1 EXCEEDED` / `≥CRITICAL(0.92) CRITICAL` / `≥WARNING(0.75) WARNING`）；
+ * - 窗口未知/非正 ⇒ `budget=Infinity`、`ratio=undefined`、`NORMAL`（不臆测）。
+ *
+ * ⚠️ 手动压缩的硬上限（`有效窗口 − 3000`）**有意不登记**：它是"为操作预留绝对空间"，
+ * 不是比例压缩档（见 `utils.ts` 头注的未纳入理由）。
+ */
+export function evaluateCompactionBudget(
+  input: CompactionBudgetInput
+): BudgetEvaluation {
+  const { tokenUsage, effectiveContextWindow } = input;
+  const hasWindow =
+    typeof effectiveContextWindow === 'number' &&
+    Number.isFinite(effectiveContextWindow) &&
+    effectiveContextWindow > 0;
+  if (!hasWindow) {
+    return {
+      scope: 'compaction',
+      budget: Number.POSITIVE_INFINITY,
+      ratio: undefined,
+      status: TokenBudgetStatus.NORMAL,
+    };
+  }
+  const ratio = tokenUsage / effectiveContextWindow;
+  let status = TokenBudgetStatus.NORMAL;
+  if (ratio >= 1) status = TokenBudgetStatus.EXCEEDED;
+  else if (ratio >= UNIFIED_THRESHOLDS.CRITICAL)
+    status = TokenBudgetStatus.CRITICAL;
+  else if (ratio >= UNIFIED_THRESHOLDS.WARNING)
+    status = TokenBudgetStatus.WARNING;
+  return {
+    scope: 'compaction',
+    budget: effectiveContextWindow * UNIFIED_THRESHOLDS.COMPACT_DEEP,
+    ratio,
+    status,
+  };
+}
+
+// ==================== 内置登记（模块加载时完成；幂等） ====================
 
 registerBudgetPolicy<ContextBudgetInput>({
   id: 'context.compression-levels',
@@ -264,6 +317,14 @@ registerBudgetPolicy<SummaryBudgetInput>({
     budget: evaluateSummaryCharBudget(input),
     status: TokenBudgetStatus.NORMAL,
   }),
+});
+
+// 2026-11-18（D-6-b 收口）：压缩侧阈值纳入同一登记面（只读登记；未改 utils 的判定与返回值）
+registerBudgetPolicy<CompactionBudgetInput>({
+  id: 'compaction.auto-trigger',
+  scope: 'compaction',
+  description: '自动压缩触发预算（有效窗口 × COMPACT_DEEP）；只读登记',
+  evaluate: evaluateCompactionBudget,
 });
 
 logger.debug('预算策略层已就绪', { policies: order.slice() });

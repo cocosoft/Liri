@@ -121,6 +121,7 @@ import { setTaskWorkspaceResolver } from '@modules/agent';
 // B 批外移（2026-11-05）：会话元数据 / 文本投影改为纯函数直调（宿主不再保留转发方法）
 import {
   getSessionApprovalMode,
+  getSessionAutonomy,
   getSessionPermissionMode,
   getSessionWorkspaceId,
   isLastAssistantOutputFallback,
@@ -594,6 +595,8 @@ export function wireChatFacades(host: FacadeWiringHost): void {
     // P1（2026-11-04）：会话级权限模式（缺省 ⇒ 进程默认档）
     getSessionPermissionMode: (sid) =>
       getSessionPermissionMode(host._chatSessions, sid),
+    // P0（2026-11-17）：会话自主度 —— 许愿式（demand）在权限层兑现"中途最多问一次"
+    getSessionAutonomy: (sid) => getSessionAutonomy(host._chatSessions, sid),
     isCommandApproved: (toolName, input, sid, approvalFingerprint) =>
       isCommandApproved(toolName, input, sid, approvalFingerprint),
     sessionLookup: (args) => host._eventLogStore.sessionLookup(args),

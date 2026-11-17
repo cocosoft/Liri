@@ -17,6 +17,11 @@ import {
   Tool,
   checkCommandCustomRules,
 } from '../PermissionChecker';
+// P0（2026-11-17）：许愿式的执行侧契约（demand 下非危险 ask 降级为自动放行）
+import { shouldAutoAllowUnderDemand } from '../autonomyPermission';
+import { extractWriteTargets } from '../classifiers/write-targets';
+import { splitCommandSegments } from '../classifiers/command-segments';
+import { isWithinWorkingDirectory } from '../filesystem';
 import type { RuleContext, RuleManager } from '../RuleManager';
 import { resolveApprovalFingerprint } from '../approvalFingerprint';
 import type { ClassifierManager } from '../classifiers/auto-mode-classifier-manager';
@@ -507,6 +512,26 @@ export interface ModeHandlerDeps {
       if (classifierDecision.requiresApproval) {
         // 2026-11-11（P5-approval）：`cp` / `mv` 这类"常见但可能不可逆"的命令
         // 不硬拒也不静默放行 ⇒ 转人工审批（用户可在审批卡上决定）。
+        // P0（2026-11-17）：许愿式（demand）承诺"中途最多问一次" —— 非危险且**无工作区外写**
+        // 的命令不再逐条打断（真机会话 session_mwk2fakzf30b34b448：19 张卡里 12 张属此类）。
+        // deny 档（危险命令 / 敏感路径）在上方已返回，不受本降级影响。
+        if (
+          shouldAutoAllowUnderDemand({
+            autonomy: context.autonomy,
+            requiresApproval: true,
+            writeOutsideWorkspace: hasWriteTargetOutsideWorkspace(context),
+          })
+        ) {
+          deps.denialTracker.trackSuccess(toolName, context.sessionId);
+          logger.info('permission:demand_auto_allow', {
+            toolName,
+            sessionId: context.sessionId,
+            reason: classifierDecision.reason,
+          });
+          return createAllowDecision(
+            `demand: 自动放行（${classifierDecision.reason || 'approved'}）`
+          );
+        }
         return createAskDecision(
           classifierDecision.reason || 'Requires approval by auto classifier'
         );
@@ -545,3 +570,82 @@ export interface ModeHandlerDeps {
       );
     }
   }
+
+/**
+ * P0（2026-11-17）：**写类命令**（目标无法从参数可靠界定）—— demand 下仍转人工。
+ *
+ * `extractWriteTargets` 只识别下载器具名参数与重定向；`cp`/`mv`/`rm` 等的目标
+ * 可能落在工作区外 ⇒ 不能因为"demand"就自动放行（安全姿态不回退）。
+ */
+const DEMAND_WRITE_COMMANDS: ReadonlySet<string> = new Set([
+  'cp',
+  'mv',
+  'rm',
+  'del',
+  'erase',
+  'rd',
+  'rmdir',
+  'ren',
+  'rename',
+  'mkdir',
+  'md',
+  'touch',
+  'tee',
+  'ln',
+  'copy',
+  'move',
+  'xcopy',
+  'robocopy',
+  'mklink',
+  'copy-item',
+  'move-item',
+  'remove-item',
+  'rename-item',
+  'new-item',
+  'set-content',
+  'add-content',
+  'clear-content',
+  'set-item',
+  'set-itemproperty',
+  'new-itemproperty',
+  'remove-itemproperty',
+  'expand-archive',
+  'compress-archive',
+  'out-file',
+  'tee-object',
+]);
+
+/**
+ * P0（2026-11-17）：命令是否声明了**会话工作区之外**的写目标（或本身是写类命令）。
+ *
+ * - 无命令面 / 无写目标 ⇒ `false`（只读命令，可被 demand 自动放行）；
+ * - 写类命令（目标无法可靠界定）⇒ `true`（保持人工）；
+ * - 取不到工作区边界（无 `workspaceRoots` 也无 `workspacePath`）⇒ `true`（fail-closed）。
+ */
+function hasWriteTargetOutsideWorkspace(context: PermissionContext): boolean {
+  const command = context.input?.command;
+  if (typeof command !== 'string' || !command.trim()) return false;
+  const segments = splitCommandSegments(command);
+  const writeHead = segments.some((segment) =>
+    DEMAND_WRITE_COMMANDS.has(
+      (segment.text.trim().split(/\s+/)[0] ?? '').toLowerCase()
+    )
+  );
+  if (writeHead) return true;
+  const targets = extractWriteTargets(command);
+  if (targets.length === 0) return false;
+  const roots = (context.workspaceRoots ?? []).filter(
+    (root): root is string => typeof root === 'string' && root.length > 0
+  );
+  const effectiveRoots =
+    roots.length > 0
+      ? roots
+      : context.workspacePath
+        ? [context.workspacePath]
+        : [];
+  if (effectiveRoots.length === 0) return true;
+  return targets.some(
+    (target) =>
+      !effectiveRoots.some((root) => isWithinWorkingDirectory(target, root))
+  );
+}

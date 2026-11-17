@@ -309,6 +309,13 @@ export interface ToolExecutionDeps {
    * 以**每次调用传参**的方式生效，不改全局单例（并发会话不串档）。
    */
   getSessionPermissionMode?: (sessionId?: string) => PermissionMode | undefined;
+  /**
+   * P0（2026-11-17）：会话自主度（`metadata.autonomy`）。
+   *
+   * `demand`（许愿式）⇒ 权限层把分类器的非危险 `ask` 降级为自动放行
+   * （工作区外写仍人工），兑现"中途最多问一次"。未注入 ⇒ `interactive`（零行为变更）。
+   */
+  getSessionAutonomy?: (sessionId?: string) => 'interactive' | 'demand';
   isCommandApproved(
     toolName: string,
     args: Record<string, unknown>,
@@ -1110,6 +1117,9 @@ export class ToolExecutionService {
           sandbox: resolveSandboxExecutionSignal({
             modeHint: resolveFileIoToolModeHint(permissionTool?.sandboxLevel),
           }),
+          // P0（2026-11-17）：许愿式（demand）的"中途最多问一次" —— 权限层据此把
+          // 非危险 ask 降级为自动放行（工作区外写仍人工）。
+          autonomy: this.deps.getSessionAutonomy?.(toolCall.sessionId),
           forceAskReason: this._resolveNonIdempotentRetryReason(
             normalizedToolCall.name,
             normalizedToolCall.arguments,

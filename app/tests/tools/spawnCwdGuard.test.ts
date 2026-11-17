@@ -3,10 +3,13 @@
  *
  * 背景：`dev_docs/20261103/工具cwd无效根因与修复方案-20261103.md` §7.2。BashTool / PowerShellTool
  * 已在 spawn 前判定 cwd；但 `LocalBashTask`（长程任务）、`CliRunner`（子 agent CLI）、
- * `LSPClient`（LSP server）、`REPLToolImpl` 仍直接 `spawn(…, { cwd })` ⇒ 同一无效目录会被
+ * `REPLToolImpl` 仍直接 `spawn(…, { cwd })` ⇒ 同一无效目录会被
  * libuv 报成 `ENOENT … uv_spawn '<shell>'`（"可执行文件缺失"），把排查方向带偏。
  *
- * 本文件 pin 住：**单一判定实现**（`describeUnusableSpawnCwd`）+ 三条链的拒绝形态。
+ * 本文件 pin 住：**单一判定实现**（`describeUnusableSpawnCwd`）+ 各链的拒绝形态。
+ *
+ * 2026-11-18（S6）：轨 B `app/src/lsp/LSPClient` 进入删除流程（零运行时消费者），
+ * 其「LSP 工作目录」拒绝用例先行移除（该链随实现一并下线）。
  */
 import { describe, it, expect } from 'bun:test';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -15,7 +18,6 @@ import { join } from 'node:path';
 
 import { describeUnusableSpawnCwd } from '@openliri/infra/utils/cwd';
 import { CliRunner } from '../../src/agent/cli-runner/index';
-import { createLSPClient } from '../../src/lsp/LSPClient';
 import { REPLToolImpl } from '../../src/tools/repl/REPLToolImpl';
 
 function missingDir(): string {
@@ -66,13 +68,6 @@ describe('G1：各 spawn 链的拒绝形态', () => {
     expect(result.stdout).toBe('');
     expect(result.stderr).toContain('子进程工作目录');
     expect(result.stderr).toContain('不是可执行文件缺失');
-  });
-
-  it('LSPClient.start ⇒ 在 spawn 前 reject 可操作错误', async () => {
-    const client = createLSPClient('guard-test');
-    await expect(
-      client.start('bun', ['--version'], { cwd: missingDir() })
-    ).rejects.toThrow(/LSP 工作目录/);
   });
 
   it('REPLToolImpl.startREPL ⇒ 在 spawn 前抛出可操作错误', async () => {

@@ -1561,11 +1561,13 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(files).not.toMatch(/(^|[^_A-Za-z])const IMAGE_EXTS\s*=/);
     expect(files).toContain('const FILES_IMAGE_EXTS = new Set([');
     expect(files).toContain('FILES_IMAGE_EXTS.has(ext)');
-    const tool = read('src/chat/services/ToolExecutionService.ts');
+    // T3 stage 4（2026-11-17）：沙箱图片收集段随「图像路径守卫」外移到 imagePathGuard.ts
+    //（同名消歧意图不变：与 files-handlers 的 FILES_IMAGE_EXTS 异值异域）。
+    const tool = read('src/chat/services/imagePathGuard.ts');
     expect(tool).not.toMatch(/(^|[^_A-Za-z])const IMAGE_EXTS\s*=/);
-    // prettier 可能把数组折行 ⇒ 只断声明首行
+    // prettier 在模块顶层把 5 项数组收成一行 ⇒ 断言声明首行与值集末项
     expect(tool).toContain('const SANDBOX_IMAGE_EXTS = [');
-    expect(tool).toContain("'.webp',");
+    expect(tool).toContain("'.webp'");
     expect(tool).toContain('SANDBOX_IMAGE_EXTS.some((x) =>');
   });
 

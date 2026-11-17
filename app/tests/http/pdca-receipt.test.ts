@@ -127,6 +127,29 @@ describe('formatPdcaReceipt — 终态回执文案', () => {
   });
 });
 
+// G5-D2（2026-11-18）：已执行待验收 —— 步骤全完成也不能报「✅ 完成」。
+describe('formatPdcaReceipt — 待验收', () => {
+  it('pendingAcceptance ⇒ ⏸ 已执行待验收，不出现「长程任务完成」', () => {
+    const text = formatPdcaReceipt({
+      taskId: 'pdca_demo',
+      phase: 'decide',
+      completed: 4,
+      total: 4,
+      failed: 0,
+      pendingAcceptance: true,
+    });
+    expect(text).toContain('待验收');
+    expect(text).toContain('4/4 步');
+    expect(text).not.toContain('长程任务完成');
+  });
+
+  it('未标注 pendingAcceptance ⇒ 全部完成仍走既有 ✅ 完成（默认行为不变）', () => {
+    const text = formatPdcaReceipt({ ...base, phase: 'completed' });
+    expect(text).toContain('长程任务完成');
+    expect(text).not.toContain('待验收');
+  });
+});
+
 // B3（2026-11-09）：交付回执的增量事实 —— 存在即展示，缺失不造占位。
 describe('formatPdcaReceipt — 交付分段', () => {
   it('无交付事实 ⇒ 文案与既有口径逐字一致（不追加空段）', () => {

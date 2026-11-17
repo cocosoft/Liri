@@ -145,3 +145,31 @@ t2b grace 到期仍无人接入 ⇒ abortSessionStream（消息以当前部分�
 1. 宽限期内若**另一个窗口**先 attach，而原页面刷新回来又 attach —— 允许两个订阅者（hub 上限 3），是否需要"最后接入者优先"？建议：不需要，只读多端天然共存。
 2. `handleResumeChat` 的宽限是否与主链路同批？建议：主链路先行（P1），resume 作为 P2 独立提交（它已接 tee，不接宽限只是"刷新后不能接回续跑轮"）。
 3. 是否需要把 `detached` 状态暴露到 `GET /streaming`（如 `detached: true`）？建议：暂不暴露——`streaming + 本页无流` 已能推出 UI 需要的全部信息（G6）。
+
+## 12. 实施记录（2026-11-18，P1 = 主链路）
+
+按 §3 落地，`grace=0` 分支保持原样（I1）。
+
+| 项 | 落点 |
+|---|---|
+| 配置 | `packages/infra/src/constants/defaults.ts`：`clientDisconnectGraceMs`（`LIRI_CLIENT_DISCONNECT_GRACE_MS`，默认 `0`）；`common.ts` 导出 `CLIENT_DISCONNECT_GRACE_MS`（`@kind B`） |
+| 纯函数判定 | `handlers/streamDisconnectGrace.ts`（`resolveDisconnectAction` / `shouldAbortWhenGraceExpires`） |
+| 订阅查询 | `handlers/streamAttachHub.ts#hasSubscribers` |
+| 泵解耦 | `chat-handlers.ts#handleStreamingChat`：`writeFrame` = 先 publish、再（未 detached 时）写 res；新增 `detached` / `graceTimer` / `runFinished` / `tryDetachFromResponse` |
+| 断开分支 | `res.on('close')` 与循环内 `destroyed` 分支统一走 `tryDetachFromResponse`；宽限到期且 `!hasSubscribers(sid)` 才 `abortSessionStream` |
+| 收尾 | `finally` 清定时器 + `runFinished=true` + `attachRun.end()`；尾部/错误帧在 detached 下仍进 hub |
+| 单测 | `__tests__/streamDisconnectGrace.test.ts`（6 条）+ hub `hasSubscribers`（1 条） |
+
+**行为变化（仅在 `grace > 0` 时）**：
+
+- 刷新后本轮**继续推进**（不再立即中止），帧累计在 attach hub；
+- 宽限期内有人 attach ⇒ 跑到自然结束（**完整正文落盘**，不是刷新时刻的部分文本）；
+- 宽限到期无人接入 ⇒ 中止（与今天结果一致，只是晚了 `grace` 毫秒）；
+- 期间互斥锁仍被本轮持有（`SimpleMutex` 30s 超时口径不变）⇒ 用户马上发新消息会排队/失败，属已知代价。
+
+**未做**：`handleResumeChat` 的宽限（P2，独立提交）；自动接入（§6 建议不做）；
+`detached` 未暴露到 `/streaming`（§11.3）。
+
+**门禁备注**：`handleStreamingChat` 圈复杂度由 <40 升到 50（`eslint` warning，非 error）；
+`lint:complexity` 重尾棘轮（≥100）未增长，通过。
+

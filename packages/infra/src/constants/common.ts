@@ -62,6 +62,15 @@ export const REQUEST_TIMEOUT = B.requestTimeoutMs;
 export const SHUTDOWN_HOOK_TIMEOUT_MS = B.shutdownHookTimeoutMs;
 /** @kind B —— CodeRunner 子进程「退出事件缺失」时的 `exitCode` 轮询间隔（毫秒） */
 export const CODE_RUNNER_EXIT_WATCHDOG_MS = B.codeRunnerExitWatchdogMs;
+/**
+ * 客户端断开后给 attach 接管的宽限期（毫秒）。
+ *
+ * `0`（默认）= 断开立即中止本轮；`>0` = 断开后继续推进生成器、帧只进 attach hub。
+ * Spec：`.trae/specs/stream-attach-grace.md`。
+ *
+ * @kind B
+ */
+export const CLIENT_DISCONNECT_GRACE_MS = B.clientDisconnectGraceMs;
 /** @kind B */
 export const MAX_CACHE_SIZE_BYTES = B.maxCacheSizeBytes;
 /** @kind B —— 洞察报告「慢操作」展示阈值（毫秒；超此值的调用计入 slowCalls） */

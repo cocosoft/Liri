@@ -192,6 +192,15 @@ export function beginRun(sessionId: string, runId: string): RunHandle {
 }
 
 /**
+ * 该会话当前是否有 attach 订阅者（宽限期内判断"是否有人接管"用，只读）。
+ * 2026-11-18：Spec `.trae/specs/stream-attach-grace.md` §3.2。
+ */
+export function hasSubscribers(sessionId: string): boolean {
+  const entry = runs.get(sessionId);
+  return entry !== undefined && entry.sinks.size > 0;
+}
+
+/**
  * 打开 attach：校验游标/run 身份/订阅数并给出回放快照。
  * 失败一律显式（404/409/429），调用方不得伪造"连续"。
  */

@@ -49,6 +49,8 @@ export interface GoalEvaluateInput {
     review?: string;
     /** 本步产物路径台账（LRO-12）：评估时回读最终产物内容作为取证 */
     artifacts?: string[];
+    /** G5-D5（2026-11-18）：本步**验收标准**（盲审口径下作为判定依据之一） */
+    acceptanceCriteria?: string;
   }>;
 }
 
@@ -112,6 +114,16 @@ export function isGoalEvaluateEnabled(): boolean {
   return configManager.env('PDCA_GOAL_EVALUATE') !== 'false';
 }
 
+/**
+ * G5-D5（2026-11-18，`specs/pending-acceptance-state-machine.md` §7-D5）：**盲审**口径 ——
+ * 只依据「原始需求 + 验收标准 + 最终产物证据」判定，不采信执行者 / 历史审查的自我声明。
+ *
+ * 默认关闭（`PDCA_GOAL_BLIND_REVIEW=true` 开启）：关闭时评估 prompt 与改造前逐字一致。
+ */
+export function isGoalBlindReviewEnabled(): boolean {
+  return configManager.env('PDCA_GOAL_BLIND_REVIEW') === 'true';
+}
+
 /** 截断文本并显式标注（避免模型把"截断"误读成"内容缺失"） */
 function truncateText(text: string, max: number): string {
   const trimmed = text.trim();
@@ -160,14 +172,24 @@ export function collectArtifactEvidence(
   return chunks.join('\n\n');
 }
 
-/** 组装目标级评估 prompt（步骤完成情况 + 最终产物取证） */
+/** 组装目标级评估 prompt（步骤完成情况 + 最终产物取证；`blindReview` 开启时用盲审口径） */
 function buildGoalEvaluatePrompt(
   input: GoalEvaluateInput,
-  evidence: string
+  evidence: string,
+  blindReview = false
 ): string {
   const stepsSummary = input.steps
     .map((s) => {
       const lines = [`- [${s.status}] ${s.description}`];
+      // G5-D5：盲审把「验收标准」列为判定依据（默认关闭 ⇒ 与既有 prompt 逐字一致）
+      if (blindReview && s.acceptanceCriteria?.trim()) {
+        lines.push(
+          `  验收标准: ${truncateText(
+            s.acceptanceCriteria,
+            STEP_RESULT_MAX_CHARS
+          )}`
+        );
+      }
       if (s.result?.trim()) {
         lines.push(
           `  最终执行结果: ${truncateText(s.result, STEP_RESULT_MAX_CHARS)}`
@@ -184,14 +206,23 @@ function buildGoalEvaluatePrompt(
     .join('\n');
 
   return [
-    `评估以下任务目标是否已真正达成（基于步骤最终执行结果与最终产物取证）。`,
-    `目标: ${input.goal}`,
+    blindReview
+      ? `盲审：仅依据「原始需求 + 验收标准 + 最终产物证据」评估任务目标是否真正达成（只读，不得修改任何文件）。`
+      : `评估以下任务目标是否已真正达成（基于步骤最终执行结果与最终产物取证）。`,
+    blindReview
+      ? `原始需求（只读，不得改写）: ${input.goal}`
+      : `目标: ${input.goal}`,
     `步骤执行摘要:\n${stepsSummary}`,
     evidence ? `最终产物证据（评估前回读的工作区文件内容）:\n${evidence}` : '',
     `判定要点：`,
     `1. 所有步骤虽已标记完成，但最终结果/产物是否真正实现目标？`,
     `2. 是否存在"步骤全过但目标未实现"的假完成？`,
-    `判定口径（硬约束）：`,
+    blindReview ? `判定口径（盲审，硬约束）：` : `判定口径（硬约束）：`,
+    ...(blindReview
+      ? [
+          `- 本次为盲审：不采信执行者/历史审查的自我声明，只认「验收标准」与「最终产物证据」。`,
+        ]
+      : []),
     `- 「当轮审查」是那一轮的历史快照，**可能已被后续步骤修复**；不得仅凭历史审查文本判定未收敛。`,
     `- 以「最终执行结果」与「最终产物证据」为准：缺陷在最终产物中已不存在 ⇒ 视为已修复。`,
     `- 只有最终证据仍能确认缺陷存在时，才输出 converged=false，并在 reason 中引用具体证据。`,
@@ -264,12 +295,24 @@ export class GoalEvaluateGate {
       ctx.isolation?.workspace,
       input.steps.flatMap((s) => s.artifacts ?? [])
     );
-    const prompt = buildGoalEvaluatePrompt(input, evidence);
+    // G5-D5（2026-11-18）：盲审口径开关（默认关闭 ⇒ prompt 与改造前逐字一致）
+    const blindReview = isGoalBlindReviewEnabled();
+    const prompt = buildGoalEvaluatePrompt(input, evidence, blindReview);
+    if (blindReview) {
+      // 可核对：开启盲审时留一条信号（评估结论的 reason 仍照常随 review_samples 落库）
+      logger.info('目标级评估启用盲审口径', {
+        stepCount: input.steps.length,
+        evidenceChars: evidence.length,
+      });
+    }
     try {
       const raced = await Promise.race([
         ctx.executor({
           systemPrompt:
             '你是一个目标收敛评估器。基于步骤最终执行结果与最终产物证据判断任务目标是否真正达成。只读操作，不修改任何文件。' +
+            (blindReview
+              ? '本次为盲审：只依据「原始需求 + 验收标准 + 最终产物证据」，不采信执行者/历史审查的自我声明。'
+              : '') +
             '历史审查文本可能已被后续步骤修复，不得据此判定未收敛。' +
             '证据不足时输出 converged=null（跳过结论）。' +
             '输出 JSON 格式：{"converged":true|false|null,"confidence":0-1,"reason":"简要说明"}',

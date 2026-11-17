@@ -106,6 +106,8 @@ export async function runGoalConvergenceGate(
         // 2026-11-09（真机 `pdca_mw8nknox`）：带上产物台账 ⇒ 目标门可回读**最终产物**取证，
         // 避免仅凭历史审查文本判未收敛（假失败 + 全量 replan）。
         artifacts: s.artifacts,
+        // G5-D5（2026-11-18）：验收标准随评估输入下发（盲审口径下作为判定依据）
+        acceptanceCriteria: s.acceptanceCriteria,
       })),
     },
     deps.ctx

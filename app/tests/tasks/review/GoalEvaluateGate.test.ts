@@ -15,6 +15,7 @@ import { resolveTaskWorkspace } from '@modules/agent';
 import {
   GoalEvaluateGate,
   collectArtifactEvidence,
+  isGoalBlindReviewEnabled,
   isGoalEvaluateEnabled,
 } from '../../../src/tasks/review/GoalEvaluateGate';
 import type { GoalEvaluateContext } from '../../../src/tasks/review/GoalEvaluateGate';
@@ -154,6 +155,84 @@ describe('GoalEvaluateGate（P1-3）', () => {
       expect(capturedPrompt).toContain('converged=null');
     } finally {
       rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  // G5-D5（2026-11-18）：盲审口径 —— 默认关闭时 prompt 与既有口径一致；开启后
+  // 只读「原始需求 + 验收标准 + 产物证据」，不采信执行者/历史审查的自述。
+  test('盲审默认关闭（未配置环境变量）', () => {
+    delete process.env.PDCA_GOAL_BLIND_REVIEW;
+    expect(isGoalBlindReviewEnabled()).toBe(false);
+  });
+
+  test('盲审关闭 ⇒ prompt 保持既有口径（无盲审段落/验收标准行）', async () => {
+    delete process.env.PDCA_GOAL_BLIND_REVIEW;
+    let capturedPrompt = '';
+    const ctx = fakeContext(async (params) => {
+      capturedPrompt = params.userPrompt;
+      return JSON.stringify({
+        converged: true,
+        confidence: 0.9,
+        reason: '已达成',
+      });
+    });
+    await gate.evaluate(
+      {
+        goal: '实现 worktree 隔离闭环',
+        steps: [
+          {
+            description: '创建 worktree',
+            status: 'completed',
+            result: 'done',
+            acceptanceCriteria: 'git worktree 可创建并可回灌 diff',
+          },
+        ],
+      },
+      ctx
+    );
+    expect(capturedPrompt).not.toContain('盲审');
+    expect(capturedPrompt).not.toContain('验收标准');
+    expect(capturedPrompt).toContain('目标: 实现 worktree 隔离闭环');
+    expect(capturedPrompt).toContain('判定口径（硬约束）');
+  });
+
+  test('盲审开启 ⇒ 原始需求/验收标准/不采信自述进入 prompt 与 systemPrompt', async () => {
+    process.env.PDCA_GOAL_BLIND_REVIEW = 'true';
+    try {
+      let capturedPrompt = '';
+      let capturedSystem = '';
+      const ctx = fakeContext(async (params) => {
+        capturedPrompt = params.userPrompt;
+        capturedSystem = params.systemPrompt;
+        return JSON.stringify({
+          converged: true,
+          confidence: 0.9,
+          reason: '按验收标准核对通过',
+        });
+      });
+      await gate.evaluate(
+        {
+          goal: '实现 worktree 隔离闭环',
+          steps: [
+            {
+              description: '创建 worktree',
+              status: 'completed',
+              result: 'done',
+              acceptanceCriteria: 'git worktree 可创建并可回灌 diff',
+            },
+          ],
+        },
+        ctx
+      );
+      expect(capturedPrompt).toContain('盲审');
+      expect(capturedPrompt).toContain('原始需求（只读，不得改写）');
+      expect(capturedPrompt).toContain(
+        '验收标准: git worktree 可创建并可回灌 diff'
+      );
+      expect(capturedPrompt).toContain('不采信执行者/历史审查的自我声明');
+      expect(capturedSystem).toContain('本次为盲审');
+    } finally {
+      delete process.env.PDCA_GOAL_BLIND_REVIEW;
     }
   });
 

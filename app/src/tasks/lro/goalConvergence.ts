@@ -22,7 +22,12 @@ import {
   handleError,
 } from '@openliri/infra/error';
 
-import { taskOrchestrator, PLAN_STATUS_FAILED } from '../TaskOrchestrator';
+import {
+  taskOrchestrator,
+  PLAN_STATUS_FAILED,
+  PLAN_ACCEPTANCE_ACCEPTED,
+  PLAN_ACCEPTANCE_REJECTED,
+} from '../TaskOrchestrator';
 import type { Plan } from '../TaskOrchestrator';
 import { readPdcaCheckpoint, writePdcaCheckpoint } from '../PdcaWorkItemBridge';
 import {
@@ -102,6 +107,14 @@ export async function runGoalConvergenceGate(
     confidence: goalConv.confidence,
     reason: goalConv.reason,
   });
+  // G5-D1（2026-11-18）：目标门给出**明确**结论时落验收子态（纯数据，不改控制流）。
+  // `undefined`（评估失败/超时/降级）保持缺省 —— 消费方按「缺省 = accepted」兼容旧数据；
+  // 「未决 ⇒ pending」的开关化属 D3，本期默认关闭、行为逐字不变。
+  if (goalConv.converged === true) {
+    plan.acceptance = PLAN_ACCEPTANCE_ACCEPTED;
+  } else if (goalConv.converged === false) {
+    plan.acceptance = PLAN_ACCEPTANCE_REJECTED;
+  }
   // 2026-11-09：成功路径也留一条可断言记录（验收脚本据此确认"目标门确实执行过"，
   // 避免场景 A 在评估从未到达时被"没有未收敛标记"误判为通过）。
   logger.info('目标级评估完成', {

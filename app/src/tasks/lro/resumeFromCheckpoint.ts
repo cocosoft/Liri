@@ -341,6 +341,10 @@ async function resumeFromCheckpointCore(
     }
   });
   restored.status = 'running';
+  // G5-D1（2026-11-18）：验收子态随快照恢复 —— 缺省 ⇒ 保持 undefined（旧数据视作 accepted）；
+  // 已有结论不被续跑改写（设计 §4-③）。
+  const ckAcceptance = ck.acceptance as Plan['acceptance'] | undefined;
+  if (ckAcceptance) restored.acceptance = ckAcceptance;
 
   deps.setPlanId(restored.id);
   deps.setSessionId(sessionId || null);

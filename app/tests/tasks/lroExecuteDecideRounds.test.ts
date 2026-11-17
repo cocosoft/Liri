@@ -20,12 +20,19 @@ taskOrchestrator.setPlansDir(mkdtempSync(join(tmpdir(), 'plans-roundguards-')));
 const dataDir = mkdtempSync(join(tmpdir(), 'pdca-roundguards-'));
 process.env.LIRI_DATA_DIR = dataDir;
 
+// G5 端到端用例需要读回检查点与捕获回执（在 env 就绪后再解析模块）
+const { readPdcaCheckpoint, closePdcaCheckpointStore } =
+  await import('../../src/tasks/PdcaWorkItemBridge');
+const { setPdcaReceiptSink } =
+  await import('../../src/tasks/lro/terminalReceipt');
+
 const ENV_KEYS = [
   'TASK_GOAL_MAX_STEPS',
   'TASK_GOAL_MAX_TURNS',
   'TASK_GOAL_STALL_ROUNDS',
   'PDCA_GOAL_EVALUATE',
   'PDCA_AUTO_REPLAN',
+  'PDCA_PENDING_ACCEPTANCE',
 ] as const;
 
 afterEach(() => {
@@ -33,6 +40,8 @@ afterEach(() => {
 });
 
 afterAll(() => {
+  setPdcaReceiptSink(undefined);
+  closePdcaCheckpointStore();
   delete process.env.LIRI_DATA_DIR;
   try {
     rmSync(dataDir, {
@@ -48,9 +57,14 @@ afterAll(() => {
 
 interface OrchestratorUnderTest {
   planId: string | null;
+  goalEvaluateGate: { evaluate: (...args: unknown[]) => Promise<unknown> };
+  getTaskId: () => string;
   executeAllSteps: () => Promise<Plan>;
   autoDecideStep: (stepId: string) => Promise<unknown>;
   _runExecuteDecideLoop: () => Promise<{ phase: string }>;
+  resumeFromCheckpoint: (
+    ck: Record<string, unknown>
+  ) => Promise<{ phase: string }>;
 }
 
 function makeOrchestrator(): OrchestratorUnderTest {
@@ -180,5 +194,66 @@ describe('_runExecuteDecideLoop 轮级守卫既有行为', () => {
     expect(decided).toEqual([done.id]);
     expect(plan.status).toBe('completed');
     expect(status.phase).toBe('completed');
+  });
+
+  /**
+   * G5 端到端（设计 §9）：目标门**未决**（超时/降级）+ 开关开 ⇒
+   * 计划保持 `running + acceptance=pending`（不置 completed）、回执为「⏸ 待验收」、
+   * 检查点可读回该子态，且 `/resume` 不被终态判据拒绝、可再次进入待验收。
+   */
+  it('目标门未决 + PDCA_PENDING_ACCEPTANCE=true ⇒ 待验收（端到端）', async () => {
+    process.env.PDCA_PENDING_ACCEPTANCE = 'true';
+    delete process.env.PDCA_GOAL_EVALUATE; // 目标门开启（默认）
+    const receipts: string[] = [];
+    setPdcaReceiptSink(({ text }) => receipts.push(text));
+    try {
+      const o = makeOrchestrator();
+      const plan = taskOrchestrator.createPlan(
+        '待验收端到端',
+        ['步骤A'],
+        'session-pending-acceptance'
+      );
+      o.planId = plan.id;
+      // 真实入口（runFullPdca / resume）在进循环前把计划置 running
+      plan.status = 'running';
+      plan.steps[0].status = 'completed';
+      plan.steps[0].decision = 'approved';
+      o.executeAllSteps = async () => plan;
+      o.goalEvaluateGate = {
+        evaluate: async () => ({
+          converged: undefined,
+          confidence: 0,
+          reason: '评估超时',
+          evaluated: false,
+        }),
+      };
+
+      const status = await o._runExecuteDecideLoop();
+
+      expect(status.phase).toBe('decide');
+      expect(plan.status).toBe('running');
+      expect(plan.acceptance).toBe('pending');
+      expect(plan.completedAt).toBeUndefined();
+
+      const taskId = o.getTaskId();
+      const ck = await readPdcaCheckpoint(taskId);
+      expect(ck?.acceptance).toBe('pending');
+      expect(ck?.status).toBe('running');
+      expect(ck?.phase).toBe('decide');
+
+      expect(receipts.some((t) => t.includes('待验收'))).toBe(true);
+      expect(receipts.some((t) => t.includes('长程任务完成'))).toBe(false);
+
+      // /resume 可续：同检查点恢复不被终态判据拒绝；仍未决 ⇒ 再次待验收
+      const resumed = await o.resumeFromCheckpoint(
+        ck as Record<string, unknown>
+      );
+      expect(resumed.phase).toBe('decide');
+      const resumedPlan = taskOrchestrator.getPlan(o.planId as string);
+      expect(resumedPlan?.status).toBe('running');
+      expect(resumedPlan?.acceptance).toBe('pending');
+    } finally {
+      setPdcaReceiptSink(undefined);
+    }
   });
 });

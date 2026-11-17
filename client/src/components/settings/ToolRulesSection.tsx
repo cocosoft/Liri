@@ -31,31 +31,23 @@ import {
   type ApprovalPauseState,
   type CommandRulesView,
   type PermissionRule,
-  type PermissionRuleScope,
   type PermissionRulesHealth,
-  type RuleImpactPreview,
   type UnknownCommandSuggestions,
 } from "../../services/permissionService";
 import { handleClientError } from "../../utils/handleError";
+import { ApprovedBadge, HitBadge, ScopeBadge } from "./toolRules/RuleBadges";
+import UnknownCommandPanel from "./toolRules/UnknownCommandPanel";
+import ImpactConfirmPanel, {
+  type PendingImpact,
+} from "./toolRules/ImpactConfirmPanel";
+import RuleDraftForm, { type RuleDraft } from "./toolRules/RuleDraftForm";
+import ApprovalPausePanel from "./toolRules/ApprovalPausePanel";
+import RuleHealthPanel from "./toolRules/RuleHealthPanel";
 
 type Behavior = "default" | "allow" | "ask" | "deny";
 
 interface Props {
   isDark: boolean;
-}
-
-/** 影响预演阻断后的待确认动作（409 未写任何状态 ⇒ 重试即重新提交同一意图） */
-interface PendingImpact {
-  message: string;
-  impact: RuleImpactPreview;
-  retry: () => Promise<void>;
-}
-
-/** 未收录命令 → 新增命令规则的表单草稿 */
-interface RuleDraft {
-  behavior: "allow" | "ask" | "deny";
-  toolName: string;
-  contentPattern: string;
 }
 
 /** 工具级规则（整工具生效；指纹/内容规则不在此列；只读的 settings 规则也不在此列） */
@@ -419,6 +411,22 @@ export default function ToolRulesSection({ isDark }: Props) {
     await pending.retry();
   };
 
+  /** 未收录命令点「去添加规则」：以命令名为 `contentPattern` 打开新增表单 */
+  const pickUnknownCommand = (head: string) => {
+    setDraft({
+      // 未收录命令的语义就是「每次都要问」；默认给 allow 才是减少审批的本意，
+      // 但保存前表单可见可改（deny/ask 都允许）
+      behavior: "allow",
+      toolName: "",
+      contentPattern: head,
+    });
+  };
+
+  /** 新增表单草稿的受控更新（只改传入字段） */
+  const updateDraft = (patch: Partial<RuleDraft>) => {
+    setDraft((current) => (current ? { ...current, ...patch } : current));
+  };
+
   /** R0/R5：规则文件健康 + 命中统计（按需拉取，避免每次进 tab 多打一个只读接口） */
   const checkHealth = async () => {
     if (healthBusy) return;
@@ -477,80 +485,6 @@ export default function ToolRulesSection({ isDark }: Props) {
     return null;
   };
 
-  /**
-   * R5：命中统计徽标。
-   *
-   * `hitCount` 缺省（settings 来源）⇒ 不渲染（不显示假 0）；
-   * `0` ⇒ 「尚未命中」；`>0` ⇒ 次数 + 最近命中时间（tooltip）。
-   */
-  const hitBadge = (rule: PermissionRule | undefined) => {
-    if (!rule || rule.hitCount === undefined) return null;
-    const lastHit = rule.lastHitAt
-      ? new Date(rule.lastHitAt).toLocaleString()
-      : null;
-    return (
-      <span
-        className={`text-[10px] shrink-0 ${muted}`}
-        title={
-          lastHit
-            ? t("settings.toolsRulesLastHit", { time: lastHit })
-            : t("settings.toolsRulesHitNever")
-        }
-      >
-        {rule.hitCount > 0
-          ? t("settings.toolsRulesHitCount", { count: rule.hitCount })
-          : t("settings.toolsRulesHitNever")}
-      </span>
-    );
-  };
-
-  /**
-   * R0：规则作用域（后端派生字段）—— 让用户看清"这条规则管多大范围"。
-   * 缺省（旧接口 / settings 来源）⇒ 不渲染，不猜。
-   */
-  const scopeLabel = (scope?: PermissionRuleScope): string | null => {
-    switch (scope) {
-      case "session":
-        return t("settings.toolsRulesScopeSession");
-      case "workspace":
-        return t("settings.toolsRulesScopeWorkspace");
-      case "tool":
-        return t("settings.toolsRulesScopeTool");
-      case "global":
-        return t("settings.toolsRulesScopeGlobal");
-      default:
-        return null;
-    }
-  };
-
-  const scopeBadge = (rule: PermissionRule) => {
-    const label = scopeLabel(rule.scope);
-    if (!label) return null;
-    return (
-      <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-500/15 text-gray-500 dark:text-gray-400 shrink-0">
-        {label}
-      </span>
-    );
-  };
-
-  /** R3：审批时间（审批生成规则才有；缺省 ⇒ 不渲染） */
-  const approvedLabel = (rule: PermissionRule): string | null => {
-    if (!rule.approvedAt) return null;
-    const at = new Date(rule.approvedAt);
-    if (Number.isNaN(at.getTime())) return null;
-    return t("settings.toolsRulesApprovedAt", { time: at.toLocaleString() });
-  };
-
-  const approvedBadge = (rule: PermissionRule) => {
-    const label = approvedLabel(rule);
-    if (!label) return null;
-    return (
-      <span className={`text-[10px] shrink-0 ${muted}`} title={label}>
-        {label}
-      </span>
-    );
-  };
-
   if (loading) {
     return (
       <p className={`py-3 text-xs ${muted}`}>
@@ -591,152 +525,35 @@ export default function ToolRulesSection({ isDark }: Props) {
       )}
 
       {/* R5：近 N 天被转审批的未收录命令（后端无样本 ⇒ null，此处不渲染） */}
-      {unknownSuggestions && unknownSuggestions.headCount > 0 && (
-        <div
-          className={`rounded-lg p-3 space-y-1 ${
-            isDark ? "bg-amber-500/10" : "bg-amber-50"
-          }`}
-        >
-          <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
-            {t("settings.toolsRulesUnknownTitle", {
-              days: unknownSuggestions.sinceDays,
-              headCount: unknownSuggestions.headCount,
-              sampleCount: unknownSuggestions.sampleCount,
-            })}
-          </p>
-          <p className={`text-[11px] ${muted}`}>
-            {t("settings.toolsRulesUnknownHint")}
-          </p>
-          <div className="flex flex-wrap gap-1 pt-1">
-            {unknownSuggestions.topHeads.map((entry) => (
-              <button
-                key={entry.head}
-                type="button"
-                title={entry.latestSurface}
-                onClick={() =>
-                  setDraft({
-                    // 未收录命令的语义就是「每次都要问」；默认给 allow 才是减少审批的本意，
-                    // 但保存前表单可见可改（deny/ask 都允许）
-                    behavior: "allow",
-                    toolName: "",
-                    contentPattern: entry.head,
-                  })
-                }
-                className={`text-[11px] px-2 py-0.5 rounded border ${
-                  isDark
-                    ? "border-amber-500/40 text-amber-300 hover:bg-amber-500/10"
-                    : "border-amber-400 text-amber-700 hover:bg-amber-100"
-                }`}
-              >
-                <code>{entry.head}</code> ×{entry.count} ·{" "}
-                {t("settings.toolsRulesUnknownAdd")}
-              </button>
-            ))}
-          </div>
-        </div>
+      {unknownSuggestions && (
+        <UnknownCommandPanel
+          isDark={isDark}
+          suggestions={unknownSuggestions}
+          onPick={pickUnknownCommand}
+        />
       )}
 
       {/* 影响预演阻断（409 impact）：确认后才带 confirmImpact=true 重试 */}
       {pendingImpact && (
-        <div
-          className={`rounded-lg p-3 space-y-1 border ${
-            isDark
-              ? "border-amber-500/40 bg-amber-500/10"
-              : "border-amber-400 bg-amber-50"
-          }`}
-        >
-          <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
-            {t("settings.toolsRulesImpactTitle", {
-              count: pendingImpact.impact.degradedCommands.length,
-            })}
-          </p>
-          <ul className={`text-[11px] list-disc pl-4 ${muted}`}>
-            {pendingImpact.impact.degradedCommands.map((command) => (
-              <li key={command}>
-                <code>{command}</code>
-              </li>
-            ))}
-          </ul>
-          <p className={`text-[11px] ${muted}`}>{pendingImpact.message}</p>
-          <div className="flex gap-2 pt-1">
-            <button
-              type="button"
-              onClick={() => void confirmPendingImpact()}
-              disabled={busy !== null}
-              className="px-2 py-0.5 text-[11px] rounded bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50"
-            >
-              {t("settings.toolsRulesImpactConfirm")}
-            </button>
-            <button
-              type="button"
-              onClick={() => setPendingImpact(null)}
-              className={`px-2 py-0.5 text-[11px] rounded border ${inputBg}`}
-            >
-              {t("settings.toolsRulesImpactCancel")}
-            </button>
-          </div>
-        </div>
+        <ImpactConfirmPanel
+          isDark={isDark}
+          pending={pendingImpact}
+          busy={busy !== null}
+          onConfirm={() => void confirmPendingImpact()}
+          onCancel={() => setPendingImpact(null)}
+        />
       )}
 
       {/* 未收录命令点「去添加规则」后展开；工具名需用户填（后端样本只记命令原文，不猜方言） */}
       {draft && (
-        <div className={`rounded-lg p-3 space-y-2 ${rowBg}`}>
-          <p className={`text-xs font-medium ${muted}`}>
-            {t("settings.toolsRulesAddTitle")}
-          </p>
-          <div className="flex gap-2">
-            <select
-              value={draft.behavior}
-              onChange={(e) =>
-                setDraft({
-                  ...draft,
-                  behavior: e.target.value as RuleDraft["behavior"],
-                })
-              }
-              className={`px-1.5 py-0.5 text-xs rounded border ${inputBg}`}
-              aria-label={t("settings.toolsRulesAddTitle")}
-            >
-              <option value="allow">
-                {t("settings.toolsRulesBehaviorAllow")}
-              </option>
-              <option value="ask">{t("settings.toolsRulesBehaviorAsk")}</option>
-              <option value="deny">
-                {t("settings.toolsRulesBehaviorDeny")}
-              </option>
-            </select>
-            <input
-              value={draft.toolName}
-              onChange={(e) => setDraft({ ...draft, toolName: e.target.value })}
-              placeholder={t("permission.toolNamePlaceholder")}
-              className={`flex-1 px-2 py-1 text-xs rounded border ${inputBg}`}
-            />
-            <input
-              value={draft.contentPattern}
-              onChange={(e) =>
-                setDraft({ ...draft, contentPattern: e.target.value })
-              }
-              placeholder={t("permission.contentPatternPlaceholder")}
-              className={`flex-1 px-2 py-1 text-xs rounded border ${inputBg}`}
-            />
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => void saveDraft()}
-              disabled={busy !== null || !draft.toolName.trim()}
-              className="px-2 py-0.5 text-[11px] rounded bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
-            >
-              {t("settings.toolsRulesAddSave")}
-            </button>
-            <button
-              type="button"
-              onClick={() => setDraft(null)}
-              className={`px-2 py-0.5 text-[11px] rounded border ${inputBg}`}
-            >
-              {t("settings.toolsRulesAddCancel")}
-            </button>
-          </div>
-        </div>
+        <RuleDraftForm
+          isDark={isDark}
+          draft={draft}
+          busy={busy !== null}
+          onChange={updateDraft}
+          onSave={() => void saveDraft()}
+          onCancel={() => setDraft(null)}
+        />
       )}
 
       <input
@@ -758,7 +575,7 @@ export default function ToolRulesSection({ isDark }: Props) {
               className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm ${rowBg}`}
             >
               <code className="text-xs break-all flex-1">{entry.name}</code>
-              {hitBadge(ruleOf(entry.name))}
+              <HitBadge rule={ruleOf(entry.name)} isDark={isDark} />
               {risk && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400">
                   {risk}
@@ -806,114 +623,20 @@ export default function ToolRulesSection({ isDark }: Props) {
         })}
       </div>
 
-      {/* R3/F2：审批放行开关（全局 + 仅当前会话；作用范围=审批生成的规则；仍可逐条撤销） */}
-      <div className={`flex items-center gap-2 rounded px-3 py-1.5 ${rowBg}`}>
-        <label className="flex items-center gap-2 text-xs flex-1 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={approvalPause?.global ?? approvalPause?.enabled ?? false}
-            disabled={!approvalPause || busy !== null}
-            onChange={() => void toggleApprovalPause()}
-          />
-          <span>{t("settings.toolsRulesPauseLabel")}</span>
-          {(approvalPause?.global ?? approvalPause?.enabled) && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400">
-              {t("settings.toolsRulesPauseEnabled")}
-            </span>
-          )}
-        </label>
-        <span className={`text-[10px] ${muted}`}>
-          {t("settings.toolsRulesApprovals", { count: approvalRules.length })}
-        </span>
-      </div>
-      <p className={`text-[11px] ${muted}`}>
-        {t("settings.toolsRulesPauseHint")}
-      </p>
-
-      {/* F2：仅当前会话暂停（其它会话/后台任务不受影响） */}
-      <div className={`flex items-center gap-2 rounded px-3 py-1.5 ${rowBg}`}>
-        <label className="flex items-center gap-2 text-xs flex-1 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={
-              !!currentSessionId &&
-              (approvalPause?.sessions ?? []).includes(currentSessionId)
-            }
-            disabled={!approvalPause || !currentSessionId || busy !== null}
-            onChange={() => void toggleSessionPause()}
-          />
-          <span>{t("settings.toolsRulesPauseSessionLabel")}</span>
-          {!currentSessionId && (
-            <span className={`text-[10px] ${muted}`}>
-              {t("settings.toolsRulesPauseSessionNoSession")}
-            </span>
-          )}
-        </label>
-        <span className={`text-[10px] ${muted}`}>
-          {t("settings.toolsRulesPauseSessionCount", {
-            count: approvalPause?.sessions?.length ?? 0,
-          })}
-        </span>
-      </div>
-      <p className={`text-[11px] ${muted}`}>
-        {t("settings.toolsRulesPauseSessionHint")}
-      </p>
-
-      {/* F2：按工作区暂停（只影响该根下的调用；已暂停的根可在此逐个移除） */}
-      {approvalPause && (
-        <>
-          <div
-            className={`flex items-center gap-2 rounded px-3 py-1.5 ${rowBg}`}
-          >
-            <label className="flex items-center gap-2 text-xs flex-1 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={currentWorkspacePaused}
-                disabled={!currentWorkspacePath || busy !== null}
-                onChange={() => void toggleCurrentWorkspacePause()}
-              />
-              <span>{t("settings.toolsRulesPauseWorkspaceLabel")}</span>
-              {!currentWorkspacePath && (
-                <span className={`text-[10px] ${muted}`}>
-                  {t("settings.toolsRulesPauseWorkspaceNoPath")}
-                </span>
-              )}
-            </label>
-            <span className={`text-[10px] ${muted}`}>
-              {t("settings.toolsRulesPauseWorkspaceCount", {
-                count: pausedWorkspaceRoots.length,
-              })}
-            </span>
-          </div>
-          <p className={`text-[11px] ${muted}`}>
-            {t("settings.toolsRulesPauseWorkspaceHint")}
-          </p>
-          {pausedWorkspaceRoots.length > 0 && (
-            <div className="space-y-1">
-              {pausedWorkspaceRoots.map((root) => (
-                <div
-                  key={root}
-                  className={`flex items-center gap-2 px-3 py-1 rounded text-[11px] ${rowBg}`}
-                >
-                  <code className="break-all flex-1">{root}</code>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void setPausedWorkspaces(
-                        pausedWorkspaceRoots.filter((item) => item !== root),
-                      )
-                    }
-                    disabled={busy !== null}
-                    className="text-red-400 hover:text-red-600 shrink-0 disabled:opacity-50"
-                  >
-                    {t("common.delete")}
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </>
-      )}
+      {/* R3/F2：审批放行开关（全局 / 仅当前会话 / 按工作区；作用范围=审批生成的规则） */}
+      <ApprovalPausePanel
+        isDark={isDark}
+        pause={approvalPause}
+        currentSessionId={currentSessionId}
+        currentWorkspacePath={currentWorkspacePath}
+        currentWorkspacePaused={currentWorkspacePaused}
+        approvalCount={approvalRules.length}
+        busy={busy !== null}
+        onToggleGlobal={() => void toggleApprovalPause()}
+        onToggleSession={() => void toggleSessionPause()}
+        onToggleWorkspace={() => void toggleCurrentWorkspacePause()}
+        onSetWorkspaces={(next) => void setPausedWorkspaces(next)}
+      />
 
       <div className="pt-1">
         <p className={`text-xs font-medium ${muted}`}>
@@ -941,9 +664,9 @@ export default function ToolRulesSection({ isDark }: Props) {
                     {rule.inputFingerprint?.slice(0, 12)}
                   </span>
                 </code>
-                {scopeBadge(rule)}
-                {approvedBadge(rule)}
-                {hitBadge(rule)}
+                <ScopeBadge rule={rule} />
+                <ApprovedBadge rule={rule} isDark={isDark} />
+                <HitBadge rule={rule} isDark={isDark} />
                 <button
                   type="button"
                   onClick={() => void deleteRule(rule)}
@@ -980,9 +703,9 @@ export default function ToolRulesSection({ isDark }: Props) {
                   {rule.toolName}
                   <span className={`ml-2 ${muted}`}>{rule.contentPattern}</span>
                 </code>
-                {scopeBadge(rule)}
-                {approvedBadge(rule)}
-                {hitBadge(rule)}
+                <ScopeBadge rule={rule} />
+                <ApprovedBadge rule={rule} isDark={isDark} />
+                <HitBadge rule={rule} isDark={isDark} />
                 <button
                   type="button"
                   onClick={() => void deleteRule(rule)}
@@ -1024,9 +747,9 @@ export default function ToolRulesSection({ isDark }: Props) {
                     {rule.workspaceRoot}
                   </span>
                 )}
-                {scopeBadge(rule)}
-                {approvedBadge(rule)}
-                {hitBadge(rule)}
+                <ScopeBadge rule={rule} />
+                <ApprovedBadge rule={rule} isDark={isDark} />
+                <HitBadge rule={rule} isDark={isDark} />
                 <button
                   type="button"
                   onClick={() => void deleteRule(rule)}
@@ -1097,86 +820,12 @@ export default function ToolRulesSection({ isDark }: Props) {
       )}
 
       {/* R0/R5：规则文件健康 + 命中统计（按需触发；观察期未满不判定「未命中」） */}
-      <div className="pt-1 space-y-1">
-        <button
-          type="button"
-          onClick={() => void checkHealth()}
-          disabled={healthBusy}
-          className={`px-2 py-0.5 text-[11px] rounded border ${inputBg} disabled:opacity-50`}
-        >
-          {healthBusy
-            ? t("settings.toolsRulesHealthChecking")
-            : t("settings.toolsRulesHealthCheck")}
-        </button>
-        {health && (
-          <div className={`space-y-0.5 text-[11px] ${muted}`}>
-            {health.parseError ? (
-              <p className="text-red-600 dark:text-red-400">
-                {t("settings.toolsRulesHealthParseError", {
-                  error: health.parseError,
-                })}
-              </p>
-            ) : (
-              <p>
-                {t("settings.toolsRulesHealthOk", {
-                  memory: health.memoryRuleCount,
-                  conflicts: health.conflicts.length,
-                })}
-              </p>
-            )}
-            {health.externalChangeDetected && (
-              <p className="text-amber-600 dark:text-amber-400">
-                {t("settings.toolsRulesHealthExternalChange")}
-              </p>
-            )}
-            {health.duplicateCount > 0 && (
-              <p>
-                {t("settings.toolsRulesHealthDuplicates", {
-                  count: health.duplicateCount,
-                })}
-              </p>
-            )}
-            {health.ruleHits.observationComplete ? (
-              health.ruleHits.staleRules.length === 0 ? (
-                <p>
-                  {t("settings.toolsRulesHealthNoStale", {
-                    days: health.ruleHits.staleDays,
-                  })}
-                </p>
-              ) : (
-                <div className="space-y-0.5">
-                  <p>
-                    {t("settings.toolsRulesHealthStale", {
-                      days: health.ruleHits.staleDays,
-                      count: health.ruleHits.staleRules.length,
-                    })}
-                  </p>
-                  <ul className="list-disc pl-4">
-                    {health.ruleHits.staleRules.map((rule) => (
-                      <li key={rule.ruleId}>
-                        <code>{rule.toolName}</code>
-                        <span className="ml-1">{rule.behavior}</span>
-                        <span className="ml-1">
-                          {rule.lastHitAt
-                            ? new Date(rule.lastHitAt).toLocaleDateString()
-                            : t("settings.toolsRulesHitNever")}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )
-            ) : (
-              <p>
-                {t("settings.toolsRulesHealthObservation", {
-                  days: health.ruleHits.observationDays,
-                  staleDays: health.ruleHits.staleDays,
-                })}
-              </p>
-            )}
-          </div>
-        )}
-      </div>
+      <RuleHealthPanel
+        isDark={isDark}
+        health={health}
+        busy={healthBusy}
+        onCheck={() => void checkHealth()}
+      />
     </div>
   );
 }

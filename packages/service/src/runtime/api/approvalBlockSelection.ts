@@ -64,6 +64,46 @@ export function selectApprovalItemsForBlocks<T extends ApprovalBlockItemShape>(p
   return [...byId.values()].sort((a, b) => a.createdAt - b.createdAt);
 }
 
+/**
+ * 2026-11-17（用户实测：审批已过期却长期显示「等待审批」）：
+ * 选出**绑定了 toolCallId** 的已处理/已过期审批项 —— **不受 2h 窗口限制**。
+ *
+ * 为什么需要：`selectApprovalItemsForBlocks` 只合成「窗口内」的已处理项；窗口外的卡片
+ * 下次读消息时不再出现，而工具卡上的 `pendingApproval` 仍残留（审批过期不会写终态结果）
+ * ⇒ 前端永远在等一张看不见的卡。把这类卡按 `toolCallId` **精确归位**合成后，前端即可
+ * 按 `inboxId` 对账把残留标记清掉（见 `hasPendingApproval`）。
+ *
+ * 与窗口版的区别只在"是否看时间"：仍然按 `createdAt` 升序、按上限截断，避免历史噪声。
+ */
+export function selectResolvedApprovalsLinkedToToolCalls<
+  T extends ApprovalBlockItemShape & { metadata?: { toolCallId?: unknown } },
+>(params: {
+  recent: readonly T[];
+  /** 单次最多合成多少条（与窗口版同一默认上限） */
+  maxResolved?: number;
+}): T[] {
+  const maxResolved = params.maxResolved ?? APPROVAL_BLOCK_MAX_RESOLVED;
+  return params.recent
+    .filter((item) => {
+      if (item.status !== 'replied' && item.status !== 'expired') return false;
+      const toolCallId = item.metadata?.toolCallId;
+      return typeof toolCallId === 'string' && toolCallId.length > 0;
+    })
+    .sort((a, b) => a.createdAt - b.createdAt)
+    .slice(-maxResolved);
+}
+
+/** 合并两批审批项（按 id 去重，保持 `createdAt` 升序） */
+export function mergeApprovalBlocks<T extends ApprovalBlockItemShape>(
+  ...groups: ReadonlyArray<readonly T[]>
+): T[] {
+  const byId = new Map<string, T>();
+  for (const group of groups) {
+    for (const item of group) byId.set(item.id, item);
+  }
+  return [...byId.values()].sort((a, b) => a.createdAt - b.createdAt);
+}
+
 /** 参与就地刷新的最小消息形态（只有 `blocks` 会被读到/改写） */
 export interface ApprovalBlockMessageLike {
   blocks?: unknown;

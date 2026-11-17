@@ -66,6 +66,8 @@ import { configManager } from '@openliri/infra/config';
 // D7 三期（2026-11-14）：把文件副作用归属到"当前正在执行的计划步骤"（无则不属于任何计划）
 import { taskOrchestrator } from '@modules/tasks';
 import { withToolTimeout } from './ToolTimeoutWrapper.js';
+// T3（2026-11-17）：本地查询工具（get_tool_result / session_lookup / list_tool_calls）短路
+import { tryHandleLocalQueryTool } from './localQueryTools';
 import {
   createFileStateCacheWithSizeLimit,
   type FileStateCache,
@@ -873,129 +875,12 @@ export class ToolExecutionService {
       arguments: toolCall.arguments as Record<string, unknown>,
     };
 
-    // ── 本地查询工具 ──
-    if (normalizedToolCall.name === 'get_tool_result') {
-      const targetId = normalizedToolCall.arguments.tool_call_id as string;
-      const stored = toolResultRegistry.findByCallId(targetId);
-      logger.info('LLM 查询工具结果', {
-        toolCallId: toolCall.id,
-        targetId,
-        found: !!stored,
-      });
-      if (!stored) {
-        return {
-          toolCallId: toolCall.id,
-          toolName: normalizedToolCall.name,
-          result: { found: false, toolCallId: targetId },
-          error: undefined,
-        };
-      }
-      return {
-        toolCallId: toolCall.id,
-        toolName: normalizedToolCall.name,
-        result: { found: true, toolCall: stored },
-        error: undefined,
-      };
-    }
-
-    // ── C 阶段（2026-09-02，P1）：session_lookup — 按事件区间取回被切早期原文 ──
-    if (normalizedToolCall.name === 'session_lookup') {
-      const args = normalizedToolCall.arguments as {
-        sessionId?: string;
-        fromSeq?: number;
-        toSeq?: number;
-        offset?: number;
-        limit?: number;
-      };
-      if (!this.deps.sessionLookup) {
-        return {
-          toolCallId: toolCall.id,
-          toolName: normalizedToolCall.name,
-          result: {
-            ok: false,
-            error:
-              'session_lookup 未在当前运行环境注册（分层关闭或非会话上下文）',
-          },
-          error: undefined,
-        };
-      }
-      const sessionId = args.sessionId || this.deps.currentSessionId || '';
-      const lookup = await this.deps.sessionLookup({
-        sessionId,
-        fromSeq: args.fromSeq,
-        toSeq: args.toSeq,
-        offset: args.offset,
-        limit: args.limit,
-      });
-      return {
-        toolCallId: toolCall.id,
-        toolName: normalizedToolCall.name,
-        result: {
-          ok: lookup.ok,
-          ...(lookup.ok
-            ? { content: lookup.content ?? '', nextFromSeq: lookup.nextFromSeq }
-            : { error: lookup.reason ?? '取回失败' }),
-        },
-        error: undefined,
-      };
-    }
-
-    if (normalizedToolCall.name === 'list_tool_calls') {
-      const targetRound = normalizedToolCall.arguments.round as
-        | number
-        | undefined;
-      const sessionId =
-        (normalizedToolCall.arguments.sessionId as string) ||
-        this.deps.currentSessionId ||
-        '';
-      let calls: Array<{
-        toolCallId: string;
-        toolName: string;
-        round: number;
-        hasError: boolean;
-        timestamp: number;
-      }>;
-      if (targetRound && sessionId) {
-        calls = toolResultRegistry
-          .listByRound(sessionId, targetRound)
-          .map((c) => ({
-            toolCallId: c.toolCallId,
-            toolName: c.toolName,
-            round: c.round,
-            hasError: !!c.result.error,
-            timestamp: c.timestamp,
-          }));
-      } else if (sessionId) {
-        calls = toolResultRegistry.listBySession(sessionId).map((c) => ({
-          toolCallId: c.toolCallId,
-          toolName: c.toolName,
-          round: c.round,
-          hasError: !!c.result.error,
-          timestamp: c.timestamp,
-        }));
-      } else {
-        calls = toolResultRegistry
-          .listAll()
-          .map((c) => ({
-            toolCallId: c.toolCallId,
-            toolName: c.toolName,
-            round: c.round,
-            hasError: !!c.result.error,
-            timestamp: c.timestamp,
-          }))
-          .slice(0, 50);
-      }
-      return {
-        toolCallId: toolCall.id,
-        toolName: normalizedToolCall.name,
-        result: {
-          toolCalls: calls,
-          total: calls.length,
-          sessionId: sessionId || undefined,
-        },
-        error: undefined,
-      };
-    }
+    // ── 本地查询工具（T3，2026-11-17：实现外移 `./localQueryTools`，行为逐字保留）──
+    const localQueryResult = await tryHandleLocalQueryTool(normalizedToolCall, {
+      sessionLookup: this.deps.sessionLookup,
+      currentSessionId: this.deps.currentSessionId,
+    });
+    if (localQueryResult) return localQueryResult;
 
     // ── T25-07（2026-10-25 用户裁定）：渠道来源 Taint（不可信输入）──
     // 会话由外部通道入站驱动 ⇒ `sideEffect !== 'none'` 的工具一律拒绝（external + local）。

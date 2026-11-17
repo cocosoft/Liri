@@ -1057,6 +1057,43 @@ const enSettings = {
     toolsRulesCommandsHint:
       "Written by the approval card’s “Never ask for this command”: matches a tool + command prefix (only commands sharing that prefix); revoke entries here.",
     toolsRulesCommandsEmpty: "No command-level entries",
+    // R3/R5 (2026-11-17): hit statistics / approval group / pause switch / unknown commands / impact preview
+    toolsRulesHitCount: "Hit {{count}} times",
+    toolsRulesHitNever: "Not hit yet",
+    toolsRulesLastHit: "Last hit {{time}}",
+    toolsRulesApprovals: "Approval-generated allows · {{count}}",
+    toolsRulesApprovalsHint:
+      "Written by the “always allow” action on approval cards (per tool + input fingerprint / workspace trust): read-only here — revoke only, no editing.",
+    toolsRulesApprovalsEmpty: "No approval-generated allows",
+    toolsRulesWorkspaceTrust: "Permanent trust for this workspace · {{count}}",
+    toolsRulesPauseLabel: "Pause all persisted allows",
+    toolsRulesPauseHint:
+      "When on, approval cards no longer add allows and existing approval-generated rules stop applying (they stay listed and can still be revoked one by one).",
+    toolsRulesPauseEnabled: "Paused",
+    toolsRulesUnknownTitle:
+      "{{headCount}} unknown commands went through approval in the last {{days}} days ({{sampleCount}} times)",
+    toolsRulesUnknownHint:
+      "Add a rule for frequently used commands to reduce repeated approvals.",
+    toolsRulesUnknownAdd: "Add a rule",
+    toolsRulesAddTitle: "New command rule",
+    toolsRulesAddSave: "Save rule",
+    toolsRulesAddCancel: "Cancel",
+    toolsRulesImpactTitle:
+      "⚠ This rule would turn {{count}} baseline commands from ask/allow into deny",
+    toolsRulesImpactConfirm: "Save anyway",
+    toolsRulesImpactCancel: "Cancel",
+    toolsRulesHealthCheck: "Check rule health",
+    toolsRulesHealthChecking: "Checking…",
+    toolsRulesHealthOk:
+      "Rule file looks fine ({{memory}} rules in memory / {{conflicts}} conflicts)",
+    toolsRulesHealthParseError: "Rule file cannot be parsed: {{error}}",
+    toolsRulesHealthExternalChange:
+      "Rule file changed externally (on-disk content differs from the loaded one)",
+    toolsRulesHealthDuplicates: "{{count}} duplicate rules",
+    toolsRulesHealthObservation:
+      "Hit statistics observation window {{days}}/{{staleDays}} days — not judging “stale” yet",
+    toolsRulesHealthNoStale: "No rules went unused in the last {{days}} days",
+    toolsRulesHealthStale: "Unused in the last {{days}} days · {{count}}",
     toolsRulesFromSettings: "From settings",
     toolsRulesFromSettingsHint:
       "This rule lives in the settings file under permissions.{allow,ask,deny} (merged at startup) — shown read-only here; edit the settings file to change it.",

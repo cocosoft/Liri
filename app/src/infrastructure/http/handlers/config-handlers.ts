@@ -28,6 +28,8 @@ import { refreshCheckpointLogConfig } from '@openliri/infra/config';
 // 2026-11-03：配置写入后通知**进程内**订阅方（此前只有 SSE 的 `config:updated`，
 // 后端自己的运行时（如 AlwaysOn）收不到 ⇒ `features.alwaysOn` 是死开关）。
 import { globalEventBus } from '@openliri/kernel';
+// R1（2026-11-17）：工具规则不得经通用配置段写入（唯一入口 /v1/permissions/rules）
+import { findToolRuleField } from './config-permission-guard';
 
 const logger = getLogger('http:config');
 
@@ -81,6 +83,25 @@ export async function handleSetConfig(
   try {
     const body = await ctx.readRequestBody(req);
     const { value } = JSON.parse(body);
+    // R1（2026-11-17）：`permission` 段只承载 B 体系命令规则 / 信任配置；
+    // 工具规则（A 体系）唯一写入口是 `/v1/permissions/rules` ⇒ 混写直接拒绝（不静默落库）。
+    if (key === 'permission') {
+      const hit = findToolRuleField(value);
+      if (hit) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            error: {
+              message: `permission 配置段不接受工具规则字段「${hit.field}」（位置：${hit.path}）；工具规则请使用 /v1/permissions/rules`,
+              field: hit.field,
+              path: hit.path,
+              writeEntry: '/v1/permissions/rules',
+            },
+          })
+        );
+        return;
+      }
+    }
     const { configManager } = await import('@openliri/infra/config');
     configManager.setConfigValue(key, value);
     // P2（08-09）：检查点日志开关变更时刷新缓存

@@ -502,6 +502,10 @@ body `{ objective?: string（trim 非空）, tokenBudget?: number（正有限数
 
 ### §3.15 配置
 
+> `PUT /v1/config/{key}` 是**通用配置段写入**。其中 `permission` 段只承载 B 体系命令黑白名单、
+> 受信任工作区与信任档；工具规则（A 体系）唯一写入口为 `/v1/permissions/rules`
+> （混写工具规则字段会 400，见 §3.23.1「写入口分工」）。
+
 | 方法 | 路径 | 后端状态 | 前端调用方 |
 |------|------|----------|-----------|
 | GET | `/v1/config` | ✅ | `configService.list` |
@@ -650,6 +654,12 @@ body `{ objective?: string（trim 非空）, tokenBudget?: number（正有限数
 > 无 token 的本地回环基线放行；无效 token ⇒ 401；会话无 `admin` 权限 ⇒ 403；
 > 暴露部署（非回环绑定 / headless）下管理面**恒**要求有效 Bearer（不受 `FEATURE_REQUIRE_BEARER` 灰度影响）。
 > RBAC 与 `tool_rules.json` 同为**实例级策略**（不按租户存储）。
+>
+> **写入口分工（R1，2026-11-17）**：工具规则（A 体系，落 `tool_rules.json`）的**唯一**写入口是
+> `POST/DELETE /v1/permissions/rules`；`PUT /v1/config/permission` 承载的是 **B 体系**命令黑白名单、
+> 受信任工作区与信任档（`config.json#permission`），**不是**工具规则入口。
+> 后端对 `permission` 段中出现的工具规则字段（`contentPattern` / `inputFingerprint` /
+> `workspaceRoot` / `behavior`）直接 **400** 并返回 `writeEntry`，防止出现"改 A 生效 B"的第二套存储。
 
 | 方法 | 路径 | 后端状态 | 前端调用方 |
 |------|------|----------|-----------|

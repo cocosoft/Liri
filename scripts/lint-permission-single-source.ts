@@ -165,6 +165,39 @@ function fail(msg: string): never {
   process.exit(1);
 }
 
+// ─── ④ 工具规则「HTTP 写入口唯一」（R1，2026-11-17）────────────────────────────
+//
+// 治理方案 §3.1（修正版）：工具规则（A 体系，落 `tool_rules.json`）的唯一写入口是
+// `POST/DELETE /v1/permissions/rules`；`PUT /v1/config/{key}` 是**通用配置段写入**
+// （`permission` 段 = B 体系命令规则 / 信任工作区 / 信任档），两者不得混写。
+// 判据（仅扫 HTTP 层，故不会误伤文档/技能里的路径提及）：
+//   ④a HTTP 层出现 `tool_rules.json` 字面量 ⇒ 规则库路径只属于 `RuleManager`；
+//   ④b `/v1/permissions/rules` 只允许出现在唯一写入口与其**唯一路由注册点** ⇒
+//       新增第二套端点/转发路径会被点名（`PUT /v1/config/{key}` 的混写在运行时由
+//       `config-permission-guard` 拒绝并指回本入口）。
+const TOOL_RULE_HTTP_PREFIX = 'app/src/infrastructure/http/';
+const TOOL_RULE_HTTP_ENTRY =
+  'app/src/infrastructure/http/handlers/permission-handlers.ts';
+/** 允许出现工具规则写路径的文件：实现 + 路由注册点（唯一） */
+const TOOL_RULE_HTTP_ENTRY_FILES = new Set([
+  TOOL_RULE_HTTP_ENTRY,
+  'app/src/infrastructure/http/handlers/routes/config-skills-routes.ts',
+]);
+const RULE_STORE_PATH_LITERAL = 'tool_rules.json';
+/**
+ * 路由注册形态（`url === '/v1/permissions/rules'` / `startsWith(...)`）。
+ * 只认"路由判定"用法：错误提示文案里「请使用 /v1/permissions/rules」属正常指路，不算第二套路由。
+ */
+const RULE_WRITE_ROUTE_RE =
+  /(?:===|startsWith\s*\()\s*['"]\/v1\/permissions\/rules['"]/g;
+
+/** 去注释后的代码文本：④ 只判**代码**，不判注释里的路径说明（如「落盘 permissions/tool_rules.json」） */
+function stripComments(text: string): string {
+  return text
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+}
+
 /** 递归收集 `.ts`（排除 `.test.ts` / `node_modules`） */
 function walk(dir: string, out: string[]): void {
   for (const entry of readdirSync(dir)) {
@@ -222,6 +255,27 @@ for (const file of files) {
   const text = readFileSync(file, 'utf-8');
   const allow = ALLOWLIST[rel];
   const allowedRules = new Set(allow?.rules ?? []);
+
+  // ④ 工具规则「HTTP 写入口唯一」（R1，2026-11-17）
+  if (rel.startsWith(TOOL_RULE_HTTP_PREFIX)) {
+    const code = stripComments(text);
+    if (
+      rel !== TOOL_RULE_HTTP_ENTRY &&
+      code.includes(RULE_STORE_PATH_LITERAL)
+    ) {
+      violations.push(
+        `${rel}: HTTP 层不得出现「${RULE_STORE_PATH_LITERAL}」（规则库路径只属于 RuleManager；写入口唯一为 ${TOOL_RULE_HTTP_ENTRY}）`
+      );
+    }
+    if (
+      !TOOL_RULE_HTTP_ENTRY_FILES.has(rel) &&
+      [...code.matchAll(RULE_WRITE_ROUTE_RE)].length > 0
+    ) {
+      violations.push(
+        `${rel}: HTTP 层注册了工具规则写路径「/v1/permissions/rules」⇒ 唯一实现为 ${TOOL_RULE_HTTP_ENTRY}，路由只在 routes/config-skills-routes.ts 注册`
+      );
+    }
+  }
 
   // ① 同名常量在非规范文件里以字面集合声明
   for (const m of text.matchAll(DECLARATION_RE)) {
@@ -283,6 +337,6 @@ if (violations.length > 0) {
 }
 
 console.log(
-  `✅ [permission-single-source] 扫描 ${files.length} 个源文件：危险表 / 只读目录各仅一份（豁免 ${Object.keys(ALLOWLIST).length} 处，均带理由）`
+  `✅ [permission-single-source] 扫描 ${files.length} 个源文件：危险表 / 只读目录各仅一份、工具规则 HTTP 写入口唯一（豁免 ${Object.keys(ALLOWLIST).length} 处，均带理由）`
 );
 process.exit(0);

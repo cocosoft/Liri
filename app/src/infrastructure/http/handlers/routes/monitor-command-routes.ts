@@ -128,7 +128,62 @@ export async function dispatchMonitorCommandRoutes(
   handlerCtx: HandlerCtx
 ): Promise<boolean> {
   const method = req.method || 'GET';
-  // ---- Monitor ----
+  // ---- Monitor（观测读数 -> 诊断读数 -> 会话读数，顺序与拆分前一致）----
+  if (await dispatchMonitorCoreRoutes(method, url, req, res, handlerCtx))
+    return true;
+  if (await dispatchMonitorDiagnosticsRoutes(method, url, req, res, handlerCtx))
+    return true;
+  if (await dispatchMonitorSessionsRoutes(method, url, req, res, handlerCtx))
+    return true;
+  // ---- Inbox ----
+  if (await dispatchInboxRoutes(method, url, req, res, handlerCtx)) return true;
+
+  // ---- Notifications ----
+  if (await dispatchNotificationRoutes(method, url, req, res, handlerCtx))
+    return true;
+
+  // ---- OTel / 编排链路 / 基础设施 / Analytics ----
+  if (await dispatchObservabilityRoutes(method, url, req, res, handlerCtx))
+    return true;
+
+  // ---- Security ----
+  if (await dispatchSecurityRoutes(method, url, req, res, handlerCtx))
+    return true;
+
+  // ---- Workflow Templates ----
+  if (await dispatchWorkflowTemplateRoutes(method, url, req, res, handlerCtx))
+    return true;
+
+  // ---- Council ----
+  if (await dispatchCouncilRoutes(method, url, req, res, handlerCtx))
+    return true;
+
+  // ---- 编排智能 ----
+  if (await dispatchOrchIntelligenceRoutes(method, url, req, res, handlerCtx))
+    return true;
+
+  // ---- 规则管理 ----
+  if (await dispatchRuleRoutes(method, url, req, res, handlerCtx)) return true;
+
+  // ---- 瓶颈感知 / Commands ----
+  if (await dispatchCommandRoutes(method, url, req, res, handlerCtx))
+    return true;
+
+  return false;
+}
+
+/**
+ * T3（2026-11-17）：Monitor 观测读数（原样搬出 `dispatchMonitorCommandRoutes`）。
+ * 顺序不变：summary -> metrics -> alerts -> alerts/:id/acknowledge -> logs。
+ * @returns true 表示已匹配并处理
+ */
+async function dispatchMonitorCoreRoutes(
+  method: string,
+  url: string,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
   if (method === 'GET' && url === '/v1/monitor/summary') {
     await handleMonitorSummary(handlerCtx, req, res);
     return true;
@@ -154,6 +209,19 @@ export async function dispatchMonitorCommandRoutes(
     await handleMonitorLogs(handlerCtx, req, res);
     return true;
   }
+  return false;
+}
+
+/**
+ * T3（2026-11-17）：诊断 / 指标 / 错误统计 / 状态聚合 / Trace / 日志导出（原样搬出）。
+ */
+async function dispatchMonitorDiagnosticsRoutes(
+  method: string,
+  url: string,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
   // 路径幻觉守卫指标
   if (method === 'GET' && url === '/v1/metrics/path-guard') {
     await handlePathGuardMetrics(handlerCtx, req, res);
@@ -197,6 +265,20 @@ export async function dispatchMonitorCommandRoutes(
     await handleExportLogs(handlerCtx, req, res);
     return true;
   }
+  return false;
+}
+
+/**
+ * T3（2026-11-17）：Monitor 会话读数 + 健康报告（原样搬出；顺序不变）。
+ * 注意：`/v1/monitor/sessions/summary` 仍先被 `sessions/:id` 正则分支捕获（现状保留）。
+ */
+async function dispatchMonitorSessionsRoutes(
+  method: string,
+  url: string,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
   if (method === 'GET' && url === '/v1/monitor/sessions') {
     await handleMonitorSessions(handlerCtx, req, res);
     return true;
@@ -215,8 +297,19 @@ export async function dispatchMonitorCommandRoutes(
     await handleSessionsSummary(handlerCtx, req, res);
     return true;
   }
+  return false;
+}
 
-  // ---- Inbox ----
+/**
+ * T3（2026-11-17）：Inbox（原样搬出；精确匹配仍在 `/v1/inbox/` 前缀分支之前）。
+ */
+async function dispatchInboxRoutes(
+  method: string,
+  url: string,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
   if (url === '/v1/inbox' && method === 'GET') {
     await handleListInbox(req, res, handlerCtx);
     return true;
@@ -244,8 +337,19 @@ export async function dispatchMonitorCommandRoutes(
       return true;
     }
   }
+  return false;
+}
 
-  // ---- Notifications ----
+/**
+ * T3（2026-11-17）：Notifications（原样搬出；保留字前缀仍在 id 分支之前）。
+ */
+async function dispatchNotificationRoutes(
+  method: string,
+  url: string,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
   if (url === '/v1/notifications/unread-count' && method === 'GET') {
     await handleUnreadCount(req, res, handlerCtx);
     return true;
@@ -296,7 +400,19 @@ export async function dispatchMonitorCommandRoutes(
       }
     }
   }
+  return false;
+}
 
+/**
+ * T3（2026-11-17）：OTel / 编排链路 / 基础设施 / Analytics（原样搬出）。
+ */
+async function dispatchObservabilityRoutes(
+  method: string,
+  url: string,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
   if (method === 'GET' && url === '/v1/monitor/otel/metrics') {
     await handleOTelMetrics(handlerCtx, req, res);
     return true;
@@ -310,14 +426,24 @@ export async function dispatchMonitorCommandRoutes(
     await handleInfrastructureStatus(handlerCtx, req, res);
     return true;
   }
-
   // ---- Analytics ----
   if (method === 'GET' && url === '/v1/analytics/dashboard') {
     await handleAnalyticsDashboard(handlerCtx, req, res);
     return true;
   }
+  return false;
+}
 
-  // ---- Security ----
+/**
+ * T3（2026-11-17）：Security（原样搬出）。
+ */
+async function dispatchSecurityRoutes(
+  method: string,
+  url: string,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
   if (method === 'GET' && url === '/v1/security/dashboard') {
     await handleSecurityDashboard(handlerCtx, req, res);
     return true;
@@ -326,8 +452,19 @@ export async function dispatchMonitorCommandRoutes(
     await handleQueryAuditLogs(handlerCtx, req, res);
     return true;
   }
+  return false;
+}
 
-  // ---- Workflow Templates ----
+/**
+ * T3（2026-11-17）：Workflow Templates（原样搬出；精确在前、带参在后）。
+ */
+async function dispatchWorkflowTemplateRoutes(
+  method: string,
+  url: string,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
   if (method === 'GET' && url === '/v1/workflows/templates') {
     await handleListWorkflowTemplates(handlerCtx, req, res);
     return true;
@@ -362,8 +499,19 @@ export async function dispatchMonitorCommandRoutes(
     await handleDeleteWorkflowTemplate(handlerCtx, req, res, templateId);
     return true;
   }
+  return false;
+}
 
-  // ---- Council ----
+/**
+ * T3（2026-11-17）：Council（原样搬出；顺序不变）。
+ */
+async function dispatchCouncilRoutes(
+  method: string,
+  url: string,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
   if (method === 'GET' && url.match(/^\/v1\/workspaces\/(.+)\/council$/)) {
     const workspaceId = url.match(/^\/v1\/workspaces\/(.+)\/council$/)![1];
     await handleListCouncils(handlerCtx, req, res, workspaceId);
@@ -405,8 +553,19 @@ export async function dispatchMonitorCommandRoutes(
     await handleSubmitStatement(handlerCtx, req, res, sessionId);
     return true;
   }
+  return false;
+}
 
-  // ---- 编排智能 ----
+/**
+ * T3（2026-11-17）：编排智能（原样搬出）。
+ */
+async function dispatchOrchIntelligenceRoutes(
+  method: string,
+  url: string,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
   if (
     method === 'POST' &&
     url.match(/^\/v1\/workspaces\/(.+)\/intelligence\/impact$/)
@@ -456,8 +615,19 @@ export async function dispatchMonitorCommandRoutes(
     await handleGetResources(handlerCtx, req, res);
     return true;
   }
+  return false;
+}
 
-  // ---- 规则管理 ----
+/**
+ * T3（2026-11-17）：规则管理（原样搬出；顺序不变）。
+ */
+async function dispatchRuleRoutes(
+  method: string,
+  url: string,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
   if (method === 'GET' && url.match(/^\/v1\/workspaces\/(.+)\/rules$/)) {
     const match = url.match(/^\/v1\/workspaces\/(.+)\/rules$/)!;
     const workspaceId = match[1];
@@ -517,7 +687,19 @@ export async function dispatchMonitorCommandRoutes(
     );
     return true;
   }
+  return false;
+}
 
+/**
+ * T3（2026-11-17）：瓶颈感知与 Commands（原样搬出；顺序不变）。
+ */
+async function dispatchCommandRoutes(
+  method: string,
+  url: string,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
   // ---- 瓶颈感知 ----
   if (
     method === 'POST' &&

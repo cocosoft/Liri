@@ -1012,6 +1012,12 @@ const zhSettings = {
     toolsRulesHitCount: "命中 {{count}} 次",
     toolsRulesHitNever: "尚未命中",
     toolsRulesLastHit: "最近命中 {{time}}",
+    // R0/R3（2026-11-17）：作用域徽标与审批时间（后端已返回，此前未消费）
+    toolsRulesScopeSession: "仅本次会话",
+    toolsRulesScopeWorkspace: "仅本工作区",
+    toolsRulesScopeTool: "工具级",
+    toolsRulesScopeGlobal: "全局",
+    toolsRulesApprovedAt: "审批于 {{time}}",
     toolsRulesApprovals: "审批生成的放行 · {{count}}",
     toolsRulesApprovalsHint:
       "由审批卡「始终允许」写入（按工具 + 参数指纹 / 本工作区信任）：只读展示，只能撤销，不能编辑。",

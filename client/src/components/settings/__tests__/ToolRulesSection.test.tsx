@@ -273,6 +273,70 @@ describe("ToolRulesSection — 影响预演 409 ⇒ 二次确认", () => {
   });
 });
 
+describe("ToolRulesSection — 作用域与审批时间（R0/R3 字段）", () => {
+  it("审批生成的工作区规则显示作用域徽标与审批时间", async () => {
+    listRules.mockResolvedValue({
+      rules: [
+        {
+          id: "r-ws",
+          behavior: "allow",
+          toolName: "bash",
+          workspaceRoot: "e:/proj",
+          source: "user",
+          priority: 0,
+          createdAt: null,
+          updatedAt: null,
+          origin: "approval",
+          readOnly: true,
+          scope: "workspace",
+          approvedAt: new Date("2026-11-17T10:00:00Z").toISOString(),
+          hitCount: 0,
+          lastHitAt: null,
+        },
+      ],
+      summary: { ...SUMMARY, total: 1, allow: 1 },
+      approvalRules: undefined,
+      approvalPause: undefined,
+    });
+
+    render(<ToolRulesSection isDark={false} />);
+
+    await waitFor(() => {
+      expect(screen.getByText("仅本工作区")).toBeDefined();
+    });
+    expect(screen.getByText(/审批于/)).toBeDefined();
+  });
+
+  it("缺 scope / approvedAt ⇒ 不渲染徽标（不猜、不显示假时间）", async () => {
+    listRules.mockResolvedValue({
+      rules: [
+        {
+          id: "r-user",
+          behavior: "allow",
+          toolName: "bash",
+          contentPattern: "git status",
+          source: "user",
+          priority: 0,
+          createdAt: null,
+          updatedAt: null,
+          origin: "user",
+          hitCount: undefined,
+        },
+      ],
+      summary: { ...SUMMARY, total: 1, allow: 1 },
+    });
+
+    render(<ToolRulesSection isDark={false} />);
+
+    await waitFor(() => {
+      expect(screen.getByText("git status")).toBeDefined();
+    });
+    expect(screen.queryByText(/审批于/)).toBeNull();
+    expect(screen.queryByText("仅本工作区")).toBeNull();
+    expect(screen.queryByText("全局")).toBeNull();
+  });
+});
+
 describe("ToolRulesSection — F2：暂停粒度（全局 / 会话 / 工作区）", () => {
   const PAUSE = (
     sessions: string[],

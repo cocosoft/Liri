@@ -31,6 +31,7 @@ import {
   type ApprovalPauseState,
   type CommandRulesView,
   type PermissionRule,
+  type PermissionRuleScope,
   type PermissionRulesHealth,
   type RuleImpactPreview,
   type UnknownCommandSuggestions,
@@ -503,6 +504,53 @@ export default function ToolRulesSection({ isDark }: Props) {
     );
   };
 
+  /**
+   * R0：规则作用域（后端派生字段）—— 让用户看清"这条规则管多大范围"。
+   * 缺省（旧接口 / settings 来源）⇒ 不渲染，不猜。
+   */
+  const scopeLabel = (scope?: PermissionRuleScope): string | null => {
+    switch (scope) {
+      case "session":
+        return t("settings.toolsRulesScopeSession");
+      case "workspace":
+        return t("settings.toolsRulesScopeWorkspace");
+      case "tool":
+        return t("settings.toolsRulesScopeTool");
+      case "global":
+        return t("settings.toolsRulesScopeGlobal");
+      default:
+        return null;
+    }
+  };
+
+  const scopeBadge = (rule: PermissionRule) => {
+    const label = scopeLabel(rule.scope);
+    if (!label) return null;
+    return (
+      <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-500/15 text-gray-500 dark:text-gray-400 shrink-0">
+        {label}
+      </span>
+    );
+  };
+
+  /** R3：审批时间（审批生成规则才有；缺省 ⇒ 不渲染） */
+  const approvedLabel = (rule: PermissionRule): string | null => {
+    if (!rule.approvedAt) return null;
+    const at = new Date(rule.approvedAt);
+    if (Number.isNaN(at.getTime())) return null;
+    return t("settings.toolsRulesApprovedAt", { time: at.toLocaleString() });
+  };
+
+  const approvedBadge = (rule: PermissionRule) => {
+    const label = approvedLabel(rule);
+    if (!label) return null;
+    return (
+      <span className={`text-[10px] shrink-0 ${muted}`} title={label}>
+        {label}
+      </span>
+    );
+  };
+
   if (loading) {
     return (
       <p className={`py-3 text-xs ${muted}`}>
@@ -893,6 +941,8 @@ export default function ToolRulesSection({ isDark }: Props) {
                     {rule.inputFingerprint?.slice(0, 12)}
                   </span>
                 </code>
+                {scopeBadge(rule)}
+                {approvedBadge(rule)}
                 {hitBadge(rule)}
                 <button
                   type="button"
@@ -930,6 +980,8 @@ export default function ToolRulesSection({ isDark }: Props) {
                   {rule.toolName}
                   <span className={`ml-2 ${muted}`}>{rule.contentPattern}</span>
                 </code>
+                {scopeBadge(rule)}
+                {approvedBadge(rule)}
                 {hitBadge(rule)}
                 <button
                   type="button"
@@ -972,6 +1024,8 @@ export default function ToolRulesSection({ isDark }: Props) {
                     {rule.workspaceRoot}
                   </span>
                 )}
+                {scopeBadge(rule)}
+                {approvedBadge(rule)}
                 {hitBadge(rule)}
                 <button
                   type="button"

@@ -22,6 +22,8 @@ import {
   normalizePermissionMode,
   type PermissionMode,
 } from '@openliri/infra/permission';
+// P2-B（2026-11-17）：本地会话缺省 auto-local 的灰度总闸
+import { feature } from '@openliri/kernel';
 import type { ChatSession } from '@modules/session/types/session';
 
 import { isEmptyOutputFallbackMessage } from '../terminationOutput';
@@ -69,16 +71,23 @@ export function isSessionWorkspaceStrict(
 /**
  * 会话级审批模式（`metadata.approvalMode`）。
  *
- * 只认白名单值：`auto-local` ⇒ 自动执行；其余（含缺失 / 脏值）一律 `ask` —— 不因未知取值放宽。
+ * P2-B（2026-11-17）：**本地桌面会话缺省走 `auto-local`**（工作区内写免问；只读本就放行），
+ * 显式 `ask` / `auto-local` 仍优先。渠道 / 无人值守会话保持 `ask`（不因"本机默认"放宽）。
+ * 后端开关 `FEATURE_SESSION_AUTO_LOCAL` 仍是总闸（关 ⇒ 全部 `ask`）。
  */
 export function getSessionApprovalMode(
   sessions: SessionLookup,
   sessionId?: string
 ): 'ask' | 'auto-local' {
   if (!sessionId) return 'ask';
-  return metaOf(sessions.get(sessionId))?.approvalMode === 'auto-local'
-    ? 'auto-local'
-    : 'ask';
+  const session = sessions.get(sessionId);
+  const meta = metaOf(session);
+  const declared = meta?.approvalMode;
+  if (declared === 'auto-local' || declared === 'ask') return declared;
+  const isLocalSession =
+    (session as { type?: unknown } | undefined)?.type === 'local' ||
+    meta?.sessionType === 'local';
+  return isLocalSession && feature('SESSION_AUTO_LOCAL') ? 'auto-local' : 'ask';
 }
 
 /**

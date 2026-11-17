@@ -20,6 +20,8 @@ import {
   INBOX_STATUS_PROCESSING,
   type InboxItem,
 } from './InboxManager.js';
+// P3（2026-11-17）：批量合并簿（批准时一次写多条放行缓存）
+import { drainApprovalBatch } from './approvalBatch.js';
 import {
   APPROVAL_REPLY_TO_DECISION,
   // P2-4（2026-11-07）：命令指纹档字面量（`'once'` 的真语义 = TTL 窗口内可复用）
@@ -448,7 +450,11 @@ async function applyApprovalSideEffects(
     await applyWorkspaceScopeApproval(current, reply, selectedOption, options);
     return;
   }
-  if (!isApprovalReply(reply, selectedOption)) return;
+  if (!isApprovalReply(reply, selectedOption)) {
+    // P3（2026-11-17）：拒绝/其它回复 ⇒ 丢弃合并簿（不会写放行缓存，调用保持 awaiting）
+    drainApprovalBatch(current.id);
+    return;
+  }
 
   const commandHash = current.metadata?.commandHash as string | undefined;
   const command = current.metadata?.command as string | undefined;
@@ -489,6 +495,23 @@ async function applyApprovalSideEffects(
     scopeBound: !!approvalScope,
     hasSnapshot: !!approvalSnapshot,
   });
+
+  // P3（2026-11-17）：批量合并的条目一并写入放行缓存（作用域档沿用主条目）。
+  // 只写 registry；白名单类规则仍只对主条目生效（批量条目按"仅本次/同档"放行，避免一次点击扩散多条规则）。
+  for (const entry of drainApprovalBatch(current.id)) {
+    getApprovedCommandRegistry().approve(
+      current.sessionId,
+      entry.commandHash,
+      entry.command,
+      scopeKind !== 'once' ? { scopeKind, taskId } : undefined
+    );
+    logger.info('批量审批条目已写入放行缓存', {
+      sessionId: current.sessionId,
+      commandHash: entry.commandHash,
+      scopeKind,
+      fingerprintHash: entry.fingerprintHash,
+    });
+  }
 
   if (isAllowlistReply(reply, selectedOption)) {
     const commandLevel =

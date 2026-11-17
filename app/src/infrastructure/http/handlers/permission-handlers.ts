@@ -39,8 +39,10 @@ import {
   shadowedRuleDetector,
   permissionMetrics,
   PermissionManager,
+  readCommandRulesConfig,
   SIMULATABLE_PERMISSION_MODES,
   isSimulatablePermissionMode,
+  type CommandRulesSettings,
   type SimulatablePermissionMode,
 } from '@openliri/infra/permission';
 
@@ -82,6 +84,29 @@ export function serializeRule(rule: PermissionRule): Record<string, unknown> {
 }
 
 /**
+ * B 体系命令规则的**只读视图**（R1.5，2026-11-17）。
+ *
+ * 为什么必须出现在治理视图里（评审 P0-2）：`permission.customRules.commandRules`
+ * 是**第三套在生效**的命令规则存储（`commandRulePolicy` / `checkCommandCustomRules`
+ * 在 bash / powershell 判定链生效），只展示 `tool_rules.json` 会让用户以为"没配规则"。
+ *
+ * 只读：写入口仍是 `PUT /v1/config/permission`（B 体系），本期不迁移、不双写。
+ */
+export function buildCommandRulesView(
+  settings: CommandRulesSettings | undefined
+): Record<string, unknown> | null {
+  if (!settings) return null;
+  return {
+    readOnly: true,
+    source: 'commandRules',
+    mode: settings.mode,
+    blacklist: settings.blacklist,
+    whitelist: settings.whitelist,
+    note: 'B 体系命令级策略（config.json#permission.customRules.commandRules）；只读展示，写入仍走 PUT /v1/config/permission',
+  };
+}
+
+/**
  * 列出工具权限规则 GET /v1/permissions/rules
  * 附带影子规则（遮蔽冲突）检测结果：deny 被更宽泛规则遮蔽时提示，防止权限配置漏洞
  */
@@ -114,6 +139,8 @@ export async function handleListPermissionRules(
       JSON.stringify({
         rules: [...rules.map(serializeRule), ...settingsRules],
         summary,
+        // R1.5：B 体系命令规则（只读；来源=commandRules）—— 不配置时为 null
+        commandRules: buildCommandRulesView(readCommandRulesConfig()),
         shadowDetection: {
           shadowedCount: shadowDetection.shadowedCount,
           isValid: shadowDetection.isValid,
@@ -387,6 +414,8 @@ export async function handleSimulatePermissionRule(
         decision: result.decision,
         reason: result.reason,
         matchedRules: result.matchedRules.map(serializeRule),
+        // R1.5：B 体系命令黑白名单的结论（区分"A 体系规则拦"还是"命令级策略拦"）
+        customRuleVerdict: result.customRuleVerdict,
         evaluated: result.evaluated,
       })
     );

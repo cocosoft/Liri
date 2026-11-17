@@ -14,7 +14,10 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { RuleManager } from '@openliri/infra/permission/RuleManager';
+import {
+  RuleManager,
+  buildRuleConflictKey,
+} from '@openliri/infra/permission/RuleManager';
 import {
   describePermissionRuleScope,
   isApprovalOriginatedRule,
@@ -172,6 +175,34 @@ describe('R0：规则文件健康视图（纯只读）', () => {
     expect(health.conflicts[0]!.ids.sort()).toEqual(['r1', 'r2']);
     // 同键同行为才算重复；allow/deny 不算
     expect(health.duplicateCount).toBe(0);
+  });
+
+  it('跨来源同键不同行为 ⇒ 也报冲突（冲突键不含 source，评审 P0-3）', () => {
+    writeRulesFile(file, [
+      rule('r1', {
+        behavior: 'allow',
+        contentPattern: '^git ',
+        source: 'ruleStore',
+      }),
+      rule('r2', {
+        behavior: 'deny',
+        contentPattern: '^git ',
+        source: 'userSettings',
+      }),
+    ]);
+
+    const health = manager.getRuleFileHealth();
+    expect(health.conflicts).toHaveLength(1);
+    expect(health.conflicts[0]!.behaviors.sort()).toEqual(['allow', 'deny']);
+  });
+
+  it('冲突键：只含匹配维度（工具/内容/指纹/工作区根），不含来源与行为', () => {
+    const base = { toolName: 'bash', contentPattern: '^git ' };
+    expect(buildRuleConflictKey(base)).toBe('bash|^git ||');
+    // 含 workspaceRoot ⇒ 不同工作区不误报
+    expect(buildRuleConflictKey(base)).not.toBe(
+      buildRuleConflictKey({ ...base, workspaceRoot: 'E:/work' })
+    );
   });
 
   it('同键同行为的重复条目 ⇒ duplicateCount 计数', () => {

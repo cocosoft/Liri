@@ -16,7 +16,11 @@
  *   仅"资源=工具名"的绑定与身份无关，但本版为保证"不误报 deny"仍按跳过处理。
  */
 import type { ClassifierManager } from '../classifiers/auto-mode-classifier-manager';
-import type { PermissionChecker } from '../PermissionChecker';
+import { isCommandToolName } from '@openliri/infra/utils/toolContract/toolRoles';
+import {
+  checkCommandCustomRules,
+  type PermissionChecker,
+} from '../PermissionChecker';
 import type { PermissionMode } from '../PermissionMode';
 import type { RuleContext, RuleManager } from '../RuleManager';
 import { DenialTracker } from '../trackers/DenialTracker';
@@ -66,6 +70,12 @@ export interface SimulatePermissionRequest {
   workspaceRoots?: string[];
 }
 
+/** B 体系（`permission.customRules.commandRules`）对本次命令的结论（只读展示） */
+export interface CustomRuleVerdictView {
+  behavior: 'allow' | 'ask' | 'deny';
+  reason: string;
+}
+
 /** 模拟结果（只读 DTO） */
 export interface SimulatePermissionResult {
   /** 最终判定 */
@@ -76,6 +86,13 @@ export interface SimulatePermissionResult {
   mode: PermissionMode;
   /** 命中规则的完整列表（按 deny / ask / allow 顺序，各取首个命中） */
   matchedRules: PermissionRule[];
+  /**
+   * R1.5（2026-11-17）：B 体系命令黑白名单对本次命令的结论。
+   *
+   * 与判定链**同一读取点**（`checkCommandCustomRules`）—— 用于区分"被 A 体系规则拦"
+   * 还是"被命令级黑白名单拦"。非命令工具 / 未配置 ⇒ `null`。
+   */
+  customRuleVerdict: CustomRuleVerdictView | null;
   /** 未参与模拟的部分（如实标注） */
   evaluated: {
     rbac: 'skipped';
@@ -241,6 +258,30 @@ export async function simulatePermissionDecision(
     reason: decision.reason,
     mode,
     matchedRules,
+    customRuleVerdict: resolveCustomRuleVerdict(
+      request.toolName,
+      request.input
+    ),
     evaluated: { rbac: 'skipped', hooks: 'skipped' },
+  };
+}
+
+/** B 体系命令规则结论（与判定链同一读取点；非命令工具 ⇒ null） */
+function resolveCustomRuleVerdict(
+  toolName: string,
+  input: Record<string, unknown>
+): CustomRuleVerdictView | null {
+  const command = typeof input['command'] === 'string' ? input['command'] : undefined;
+  if (!isCommandToolName(toolName) || command === undefined) return null;
+  const decision = checkCommandCustomRules(command);
+  if (!decision) return null;
+  return {
+    behavior:
+      decision.type === PermissionDecisionType.ALLOW
+        ? 'allow'
+        : decision.type === PermissionDecisionType.DENY
+          ? 'deny'
+          : 'ask',
+    reason: decision.reason,
   };
 }

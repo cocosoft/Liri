@@ -431,6 +431,10 @@ export const AUTO_MODE_READONLY_COMMANDS: ReadonlySet<string> = new Set([
   // 文件 / 目录查看
   'ls',
   'dir',
+  // 2026-11-17（真机会话 session_mwk2fakzf30b34b448）：Windows 的 `type` 是 `cat` 的等价物，
+  // 此前遗漏 ⇒ 单条 `type x` 与 `cd /d X && type y` 全部落「未知命令 ⇒ ask」
+  //（该会话 19 张审批卡中 10 张由此产生）。
+  'type',
   // P9-6（2026-11-12）：单条 `cd` 只改子进程工作目录，本身不写盘
   'cd',
   'pwd',
@@ -497,6 +501,23 @@ export const AUTO_MODE_READONLY_COMMANDS: ReadonlySet<string> = new Set([
   // P6-3（2026-11-12 绕过面复查）：进程列表是纯只读 cmdlet
   'get-process',
   'get-wmiobject',
+  // 2026-11-17（真机会话 session_mwk2fakzf30b34b448）：保守补齐**纯查询** cmdlet ——
+  // 同一 `Get-*` 家族里 `Get-CimInstance` / `Get-PSDrive` 此前未收录 ⇒ 落「未知 ⇒ ask」。
+  // 只收录"只读属性/状态查询"（不含 `Set-*` / `New-*` / `Remove-*` / `Invoke-*`）。
+  'get-ciminstance',
+  'get-psdrive',
+  'get-service',
+  'get-itemproperty',
+  'get-acl',
+  'get-member',
+  'get-command',
+  'get-help',
+  'get-date',
+  'get-filehash',
+  'get-host',
+  'resolve-path',
+  'split-path',
+  'join-path',
   // 2026-11-12（P0 · 未知命令策略 B）：集群 / 容器 / 代码托管的**只读子命令**入口。
   // 命令名在此、具体子命令由 `readonly-command-allowlist` 的参数守卫限定；
   // 写子命令（`kubectl delete` / `docker run` / `gh pr merge`）不放行，落审批档。

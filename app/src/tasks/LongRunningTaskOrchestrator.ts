@@ -187,7 +187,10 @@ import {
   projectPdcaMetrics,
 } from './lro/reporting.js';
 import type { PdcaReportView } from './lro/reporting.js';
-import { emitPdcaReceiptFromAudit } from './lro/terminalReceipt.js';
+import {
+  emitPdcaReceiptFromAudit,
+  emitPdcaPendingAcceptanceReceipt,
+} from './lro/terminalReceipt.js';
 import { takeOneShotDegradation } from './lro/failureRecovery.js';
 // B8（2026-11-09，设计稿 §5-3）：日预算耗尽 ⇒ 立即停止（与步骤侧共用终止原因真源）
 import { budgetStopped } from './lro/failureRecovery.js';
@@ -1346,6 +1349,24 @@ export class LongRunningTaskOrchestrator {
           resumeFromCheckpoint: (ck) => this.resumeFromCheckpoint(ck),
         });
         if (convergence.kind === 'replanned') return convergence.status;
+        if (convergence.kind === 'pendingAcceptance') {
+          // G5-D3（2026-11-18）：已执行待验收 —— **不进入终态裁决**（不置 completed/failed）。
+          // 落 `decide` 相位（携带 running + acceptance=pending 的检查点），并发一条
+          // 「⏸ 已执行，待验收」回执；用户经 `/resume` 重跑目标门收口。
+          await this.setPhase('decide');
+          emitPdcaPendingAcceptanceReceipt({
+            taskId: this.taskId,
+            sessionId: this._sessionId,
+            plan: this.requirePlan(),
+            hasPushChannel: Boolean(this._onTaskMessage),
+          });
+          logger.info('[orchestrator] PDCA 已执行待验收：保持 running', {
+            taskId: this.taskId,
+            planId: this.planId,
+            iterations,
+          });
+          return this.getStatus();
+        }
         if (convergence.kind === 'unconverged') {
           // 2026-11-07：不得把 `allDone` 改回 false（否则 escalate 的 replanPending 被终态覆盖，
           // 真机 `pdca_mw6cygbp`）⇒ 未收敛改由 `failureReason` 参与终态裁决。

@@ -278,6 +278,25 @@ describe('启动扫描：`status IS NULL` 不再被静默跳过', () => {
     expect(result.resumable).toHaveLength(0);
   });
 
+  // G5-D3（2026-11-18）：已执行待验收（acceptance='pending'）不是崩溃遗留 ——
+  // 计划仍 running、步骤全终态，只差目标门结论 ⇒ 保留供 `/resume` 收口。
+  test('acceptance=pending + running ⇒ 保留（不 abort、不计入可续跑清单）', async () => {
+    checkpoints.set('pdca_pending_acceptance', {
+      taskId: 'pdca_pending_acceptance',
+      sessionId: 'sess-scan',
+      phase: 'decide',
+      status: 'running',
+      acceptance: 'pending',
+      steps: [{ id: 's1', description: '实现', status: 'completed' }],
+    });
+
+    const result = await scanAndAbortStalePdcaTasks();
+
+    expect(result.aborted).toBe(0);
+    expect(result.resumable).toHaveLength(0);
+    expect(written).toHaveLength(0);
+  });
+
   test('内存里有活跃编排器 ⇒ 跳过（启动竞态回归）', async () => {
     checkpoints.set('pdca_live', {
       taskId: 'pdca_live',

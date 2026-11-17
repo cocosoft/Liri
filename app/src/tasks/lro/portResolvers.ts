@@ -105,3 +105,14 @@ export function replanMaxRetries(): number {
 export function isAutoReplanEnabled(): boolean {
   return configManager.env('PDCA_AUTO_REPLAN') === 'true';
 }
+
+/**
+ * G5-D3（2026-11-18，`specs/pending-acceptance-state-machine.md` §3）：目标门**未决**
+ * （超时/降级/未给明确 bool）时是否落「待验收」而不是直接放行完成。
+ *
+ * 默认关闭：行为与改造前逐字一致（`converged===undefined` ⇒ 走 completed）；
+ * 开启后 `acceptance='pending'`、计划保持 `running`，由 `/resume` 或目标门重跑收口。
+ */
+export function isPendingAcceptanceEnabled(): boolean {
+  return configManager.env('PDCA_PENDING_ACCEPTANCE') === 'true';
+}

@@ -526,6 +526,37 @@ export function emitPdcaReceiptFromAudit(
 }
 
 /**
+ * G5-D3（2026-11-18）：**待验收回执**（目标门未决 ⇒ 计划保持 running）。
+ *
+ * 只投影既有事实（步骤状态计数 + 产物台账 + `unverified`），不推断"达成"；
+ * `/resume` 是收口入口（重跑目标门 ⇒ 明确结论后才落 completed/failed）。
+ * 有推送通道时由通道承载（与 `paused` 同一口径）。
+ */
+export function emitPdcaPendingAcceptanceReceipt(input: {
+  taskId: string;
+  sessionId?: string | null;
+  plan?: Plan;
+  hasPushChannel: boolean;
+}): void {
+  const steps = input.plan?.steps ?? [];
+  const facts: PdcaReceiptFacts = {
+    taskId: input.taskId,
+    phase: 'decide',
+    completed: steps.filter((s) => s.status === STEP_STATUS_COMPLETED).length,
+    total: steps.length,
+    failed: steps.filter((s) => s.status === STEP_STATUS_FAILED).length,
+    pendingAcceptance: true,
+    ...collectDeliveryFacts(input.plan),
+    nextSteps: [`POST /v1/pdca/${input.taskId}/resume 续跑并重新验收`],
+  };
+  emitPdcaReceipt({
+    ...facts,
+    sessionId: input.sessionId ?? input.plan?.sessionId,
+    hasPushChannel: input.hasPushChannel,
+  });
+}
+
+/**
  * 中止回执（`writeAbortCheckpoint` 落点）：用户拒绝审批 / 手动中止时也要有结论。
  *
  * 2026-11-08（真机 `pdca_mw6vej5m`）：拒绝审批后任务 `phase=abort`、检查点 aborted，

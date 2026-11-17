@@ -161,6 +161,48 @@ describe('G5-D1：目标门结论 → Plan.acceptance', () => {
     await runGoalConvergenceGate(deps);
     expect(plan.acceptance).toBe('rejected');
   });
+
+  // G5-D3（2026-11-18）：开关化 —— 未决 ⇒ 待验收（默认关闭时行为不变，见上一条）。
+  it('开关开 + converged === undefined ⇒ pendingAcceptance，计划保持 running', async () => {
+    process.env.PDCA_AUTO_REPLAN = 'false';
+    process.env.PDCA_PENDING_ACCEPTANCE = 'true';
+    try {
+      const { plan, outcome } = await runGate(undefined);
+      expect(outcome.kind).toBe('pendingAcceptance');
+      expect(plan.acceptance).toBe('pending');
+      // 不置 completed、不判失败：留给 /resume 重跑目标门收口
+      expect(plan.status).toBe('running');
+    } finally {
+      delete process.env.PDCA_PENDING_ACCEPTANCE;
+    }
+  });
+
+  it('开关开 + converged === true ⇒ 仍 accepted 并走原终态（不被未决逻辑影响）', async () => {
+    process.env.PDCA_AUTO_REPLAN = 'false';
+    process.env.PDCA_PENDING_ACCEPTANCE = 'true';
+    try {
+      const { plan, outcome } = await runGate(true);
+      expect(outcome.kind).toBe('continue');
+      expect(plan.acceptance).toBe('accepted');
+    } finally {
+      delete process.env.PDCA_PENDING_ACCEPTANCE;
+    }
+  });
+
+  it('开关开但评估关闭 ⇒ 走原路径（不落 pending，避免「永远待验收」）', async () => {
+    process.env.PDCA_AUTO_REPLAN = 'false';
+    process.env.PDCA_PENDING_ACCEPTANCE = 'true';
+    process.env.PDCA_GOAL_EVALUATE = 'false';
+    try {
+      const { plan, outcome, calls } = await runGate(undefined);
+      expect(calls).toBe(0);
+      expect(outcome.kind).toBe('continue');
+      expect(plan.acceptance).toBeUndefined();
+    } finally {
+      delete process.env.PDCA_PENDING_ACCEPTANCE;
+      delete process.env.PDCA_GOAL_EVALUATE;
+    }
+  });
 });
 
 describe('G5-D1：检查点载荷与续跑回填', () => {

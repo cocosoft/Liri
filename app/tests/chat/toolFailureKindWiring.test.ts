@@ -37,6 +37,11 @@ const PERMISSION_GATE_SRC = readFileSync(
   new URL('../../src/chat/services/permissionGate.ts', import.meta.url),
   'utf8'
 );
+// T3 stage 6（2026-11-17）：工作区越界分型随严格边界守卫外移到该模块。
+const WORKSPACE_GUARD_SRC = readFileSync(
+  new URL('../../src/chat/services/workspaceBoundaryGuard.ts', import.meta.url),
+  'utf8'
+);
 const TOOL_LOOP_SRC = readFileSync(
   new URL('../../src/chat/ReActToolLoop.ts', import.meta.url),
   'utf8'
@@ -106,9 +111,12 @@ describe('failureKind 生产者接线（LRO-09 步骤 1b）', () => {
     // 开启多根 ⇒ 越界按「是否已提交审批」二分（2026-10-31，台账 §16）：
     //   已提交审批 ⇒ workspace_escape_pending_approval（熔断分型中性，等批准不烧 invalid 预算）
     //   仅被拒     ⇒ workspace_escape（可恢复，不计入 environment_blocked 的 2 轮熔断）
-    expect(EXEC_SERVICE_SRC).toContain("? 'workspace_escape_pending_approval'");
-    expect(EXEC_SERVICE_SRC).toContain(": 'workspace_escape'");
-    expect(EXEC_SERVICE_SRC).toContain(": 'permission_denied'");
+    // T3 stage 6（2026-11-17）：越界分型随严格边界守卫外移到 workspaceBoundaryGuard.ts
+    expect(WORKSPACE_GUARD_SRC).toContain(
+      "? 'workspace_escape_pending_approval'"
+    );
+    expect(WORKSPACE_GUARD_SRC).toContain(": 'workspace_escape'");
+    expect(WORKSPACE_GUARD_SRC).toContain(": 'permission_denied'");
   });
 
   it('LRO-07：规则拒绝的结构化依据进工具结果（metadata.permissionDeny）', () => {

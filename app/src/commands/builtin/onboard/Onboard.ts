@@ -1151,26 +1151,7 @@ export async function runOnboard(
   } else {
     // 非交互环境检测：无 TTY 时跳过交互式向导
     if (!process.stdin.isTTY) {
-      console.log('');
-      console.log('╔════════════════════════════════════════════════╗');
-      console.log('║        Liri 配置向导                         ║');
-      console.log('╚════════════════════════════════════════════════╝');
-      console.log('');
-      console.log('检测到非交互环境（无 TTY），无法运行交互式配置向导。');
-      console.log('');
-      console.log('请通过以下方式完成配置：');
-      console.log('  1. 手动编辑 .env 文件，设置 API 密钥（任选一种方式）：');
-      console.log('     - 方式一（大厂专用变量名）: DEEPSEEK_API_KEY=sk-xxx');
-      console.log(
-        '     - 方式二（统一格式，支持任意供应商）: PROVIDER_xxx_KEY=sk-xxx'
-      );
-      console.log('  2. 手动编辑 ~/.pyapp/SOUL.md 设置 AI 人格');
-      console.log('  3. 手动编辑 ~/.pyapp/USER.md 设置用户档案');
-      console.log('');
-      console.log('快速入门文档：');
-      console.log('  /help onboard — 查看配置指引');
-      console.log('  /config list  — 查看当前配置');
-      console.log('');
+      printNonInteractiveGuide();
       return [];
     }
 
@@ -1182,25 +1163,11 @@ export async function runOnboard(
   }
 
   try {
-    console.log('');
-    console.log('╔════════════════════════════════════════════════╗');
-    console.log('║        Liri 配置向导                         ║');
-    console.log('╚════════════════════════════════════════════════╝');
-    console.log('');
-    console.log('本向导帮助您快速完成 AI 模型与个性化配置。');
-    console.log('输入 "skip" 跳过当前步骤，"exit" 退出向导。');
-    console.log('');
+    printOnboardWelcome();
 
     // 分段独立重配：直接跳转到指定 section
-    if (section === 'model') {
-      return await runModelSection(rl, cwd, 1, 1);
-    }
-    if (section === 'soul') {
-      return await runSoulSection(rl);
-    }
-    if (section === 'channel') {
-      return await runChannelSection(rl, cwd);
-    }
+    const sectionResult = await runSelectedOnboardSection(section, rl, cwd);
+    if (sectionResult) return sectionResult;
 
     // ========== 选择模式: Quick / Full ==========
     // 检测现有配置，提供 "保留/重配" 指引（对标 OpenClaw/Hermes）
@@ -1209,259 +1176,50 @@ export async function runOnboard(
       existingConfig.provider !== null || existingConfig.apiKeyConfigured;
 
     if (hasExistingConfig) {
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('  检测到已有配置');
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('');
-      if (existingConfig.provider) {
-        console.log(`  当前 AI 提供商: ${existingConfig.provider}`);
-      }
-      if (existingConfig.apiKeyConfigured) {
-        console.log(`  当前 API 密钥:  ${existingConfig.apiKeyMasked}`);
-      }
-      console.log('');
-      console.log('  每次提示会显示当前值作为默认。');
-      console.log('  直接按 Enter 保持当前设置，或输入新值重新配置。');
+      printExistingConfigNotice(existingConfig);
     }
 
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('  选择配置模式');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('');
-    console.log('  1. 快速配置（推荐）— 只用配置 AI 模型和密钥即可开始');
-    console.log('     AI 人格和用户档案使用默认值，稍后可手动调整');
-    console.log('  2. 完整配置 — 除 AI 配置外，还会引导设置 AI 人格、');
-    console.log('     用户档案和消息通道');
-    console.log('');
-
-    const modeChoice = await askQuestion('  请选择 (1/2, 默认 1): ', rl);
-
-    if (modeChoice.toLowerCase() === 'exit') {
-      console.log('\n  已退出向导。输入 /onboard 可重新启动。\n');
-      return [];
-    }
-
-    const isQuickMode = modeChoice !== '2';
-    const totalSteps = isQuickMode ? 3 : 5;
-
-    if (!isQuickMode) {
-      console.log('');
-      console.log('╔════════════════════════════════════════════════╗');
-      console.log(`║        Liri 配置向导（共 ${totalSteps} 步）         ║`);
-      console.log('╚════════════════════════════════════════════════╝');
-      console.log('');
-    }
+    const mode = await promptOnboardMode(rl);
+    if (mode.exit) return [];
+    const { isQuickMode, totalSteps } = mode;
 
     // ========== Step 1: 选择 AI 模型 ==========
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log(`  步骤 1/${totalSteps}: 选择 AI 模型`);
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('');
-    const recommended = resolveRecommendedProvider();
-    const recName = recommended ? PROVIDER_INFO[recommended]?.name : '';
-    if (recName) {
-      console.log(`  Liri 需要 AI 模型来回答问题。${recName} 推荐首选：`);
-      if (PROVIDER_INFO[recommended]?.hasFreeTier) {
-        console.log('  ✅ 提供免费额度，无需付费即可开始使用');
-      }
-    } else {
-      console.log('  Liri 需要 AI 模型来回答问题。请选择一家 AI 服务商：');
-    }
-    console.log('');
-
-    // G1：本机已在跑的本地模型服务优先展示（免 Key、开箱即用）
-    const localServices = await printLocalServiceOptions();
-    const localCount = localServices.length;
-
-    const providerKeys = Object.keys(PROVIDER_INFO);
-    for (let i = 0; i < providerKeys.length; i++) {
-      const key = providerKeys[i];
-      const info = PROVIDER_INFO[key];
-      const isRecommended = recommended !== '' && key === recommended;
-      const isCurrent = existingConfig.provider === key;
-      const badge = isCurrent ? ' ★当前' : isRecommended ? ' ★推荐' : '';
-      const freeTag = info.hasFreeTier ? ' ✅ 免费额度' : '';
-      console.log(`  ${localCount + i + 1}. ${info.name}${badge}${freeTag}`);
-      console.log(`     ├ 价格: ${info.price}`);
-      if (info.freeQuota) {
-        console.log(`     ├ 免费: ${info.freeQuota}`);
-      }
-      console.log(`     └ 申请: ${info.signupUrl}`);
-      console.log('');
-    }
-    console.log('  s. 跳过 — 暂不配置，进入离线模式');
-    console.log('');
-
-    const maxChoice = localCount + providerKeys.length;
-    const providerChoice = await askQuestion(
-      `  请选择 (1-${maxChoice}, 默认 1): `,
-      rl
+    const selection = await selectProviderForOnboard(
+      rl,
+      totalSteps,
+      existingConfig.provider
     );
-
-    if (providerChoice.toLowerCase() === 'exit') {
-      console.log('\n  已退出向导。输入 /onboard 可重新启动。\n');
-      return [];
-    }
-
-    if (
-      providerChoice.toLowerCase() === 'skip' ||
-      providerChoice.toLowerCase() === 's'
-    ) {
-      console.log('\n  ⏭️ 已跳过 AI 配置，将进入离线模式。');
-      console.log('  稍后可通过 /onboard 重新配置。\n');
-      return [];
-    }
-
-    // 直接回车 = 采用第 1 项（本地优先；无本地时回落首个云端供应商）
-    if (providerChoice === '' && localCount > 0) {
-      await activateLocalService(localServices[0]);
-      return [];
-    }
-
-    const choiceIdx = Number(providerChoice);
-
-    // 本地服务：一键接入后直接返回（无需 API Key）
-    if (!Number.isNaN(choiceIdx) && choiceIdx >= 1 && choiceIdx <= localCount) {
-      await activateLocalService(localServices[choiceIdx - 1]);
-      return [];
-    }
-
-    let selectedProvider = providerKeys[0];
-    // 按列表序号映射（本地条目占前 localCount 位）
-    if (
-      !Number.isNaN(choiceIdx) &&
-      choiceIdx > localCount &&
-      choiceIdx <= maxChoice
-    ) {
-      selectedProvider = providerKeys[choiceIdx - localCount - 1];
-    }
-
-    const providerInfo = PROVIDER_INFO[selectedProvider];
-    console.log(`\n  ✅ 已选择: ${providerInfo.name}\n`);
+    if (selection.kind !== 'selected') return [];
+    const { provider: selectedProvider, info: providerInfo } = selection;
 
     // ========== Step 2: 输入 API 密钥 ==========
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log(`  步骤 2/${totalSteps}: 输入 API 密钥`);
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('');
-    console.log(`  获取 ${providerInfo.name} API 密钥只需 3 步：`);
-    console.log(`  1. 打开 ${providerInfo.signupUrl}`);
-    console.log(`  2. 注册/登录账号`);
-    console.log(`  3. 创建并复制 API 密钥`);
-    console.log('');
-
-    const apiKey = await askQuestion(
-      `  请粘贴 API 密钥（留空跳过）:\n  > `,
-      rl
+    const keyResult = await promptApiKeyForOnboard(
+      rl,
+      providerInfo,
+      totalSteps
     );
-
-    if (apiKey.toLowerCase() === 'exit') {
-      console.log('\n  已退出向导。输入 /onboard 可重新启动。\n');
-      return [];
-    }
-
-    if (!apiKey) {
-      console.log('\n  ⏭️ 未输入 API 密钥，将进入离线模式。');
-      console.log('  稍后可通过 /onboard 重新配置。\n');
-      return [];
-    }
-
-    console.log('');
+    if (keyResult.kind !== 'ok') return [];
+    const apiKey = keyResult.apiKey;
 
     // ========== Step 3: 验证连接 ==========
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log(`  步骤 3/${totalSteps}: 验证与完成`);
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('');
-    console.log('  ⏳ 正在验证 API 密钥...');
-    console.log('');
-
-    const isValid = await testApiConnection(selectedProvider, apiKey);
-
-    if (isValid) {
-      console.log('  ✅ API 密钥验证通过！');
-    } else {
-      console.log('  ⚠️ API 密钥验证失败（网络或密钥无效）。');
-      console.log('  密钥将保存，您稍后可重试。');
-    }
-    console.log('');
+    const isValid = await verifyProviderKey(
+      selectedProvider,
+      apiKey,
+      totalSteps
+    );
 
     // 保存配置到运行时和 .env
-    console.log('  ⏳ 正在保存配置...');
-
-    const configKey = `ai.${selectedProvider}.apiKey`;
-    let saveOk = true;
-
-    try {
-      setConfigValue('ai.provider', selectedProvider);
-      setConfigValue(configKey, apiKey);
-      console.log('  ✅ 配置已保存到运行时');
-    } catch (e) {
-      console.log(
-        `  ⚠️ 运行时配置保存失败: ${e instanceof Error ? e.message : String(e)}`
-      );
-      saveOk = false;
-    }
-
-    // 写入 .env 文件
-    const envWritten = writeKeyToEnv(providerInfo.envKey, apiKey);
-    if (envWritten) {
-      console.log('  ✅ API 密钥已写入 .env 文件（重启后自动生效）');
-    } else {
-      console.log('  ⚠️ .env 文件写入失败，密钥仅在本次会话有效');
-      saveOk = false;
-    }
-
-    // 刷新 Provider 密钥（立即生效，无需重启）
-    try {
-      const { providerRegistry } = await import('@modules/ai');
-      if (providerRegistry.has(selectedProvider)) {
-        const provider = providerRegistry.get(selectedProvider);
-        provider.setApiKey?.(apiKey);
-      }
-    } catch (e) {
-      logger.warn('无法刷新 Provider 密钥，重启后生效', { error: String(e) });
-    }
-
-    // 初始化目录（兼容旧版）
-    const dirs = ['config', 'data', 'logs'];
-    for (const dir of dirs) {
-      const dirPath = join(cwd, dir);
-      if (!existsSync(dirPath)) {
-        mkdirSync(dirPath, { recursive: true });
-      }
-    }
-
-    console.log('');
-
-    // 完成
-    console.log('╔════════════════════════════════════════════════╗');
-    if (isValid) {
-      console.log('║        ✅ 配置完成！                           ║');
-    } else {
-      console.log('║        ⚠️ 配置完成（密钥待验证）               ║');
-    }
-    console.log('╚════════════════════════════════════════════════╝');
-    console.log('');
+    await persistProviderConfig({
+      provider: selectedProvider,
+      providerInfo,
+      apiKey,
+      isValid,
+      cwd,
+    });
 
     // Quick 模式：到此为止，跳过 SOUL/USER 和通道设置
     if (isQuickMode) {
-      console.log('  💡 AI 人格和用户档案使用默认值。');
-      console.log('     手动编辑：~/.pyapp/SOUL.md 和 ~/.pyapp/USER.md');
-      console.log('     或运行 /onboard 选择完整配置重新设置');
-      console.log('');
-      console.log('  现在您可以：');
-      console.log('  • 直接输入问题开始 AI 对话');
-      console.log('  • /help 查看所有命令');
-      console.log('  • /config list 查看配置');
-      console.log('  • /onboard 重新运行完整向导');
-      console.log('');
-
-      showHintIfNeeded(
-        OnboardHintKey.SOUL_CUSTOMIZATION,
-        HINT_SOUL_CUSTOMIZATION
-      );
-
+      finishQuickOnboard();
       return [];
     }
 
@@ -1469,132 +1227,552 @@ export async function runOnboard(
     await runSoulSetup(rl, totalSteps);
 
     // ========== Step 5（可选）: 配置消息通道 ==========
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log(`  步骤 5/${totalSteps}（可选）: 配置消息通道`);
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('');
-    console.log('  Liri 支持连接 QQ/Telegram 等消息平台，');
-    console.log('  让您在这些平台上与 AI 对话。');
-    console.log('');
+    await runOptionalChannelSetup(rl, totalSteps);
 
-    const wantChannel = await askQuestion('  是否要配置消息通道？(y/N): ', rl);
-
-    if (
-      wantChannel.toLowerCase() === 'y' ||
-      wantChannel.toLowerCase() === 'yes'
-    ) {
-      const channelKeys = Object.keys(CHANNEL_INFO);
-
-      console.log('');
-      for (let i = 0; i < channelKeys.length; i++) {
-        const key = channelKeys[i];
-        const info = CHANNEL_INFO[key];
-        console.log(`  ${i + 1}. ${info.name}`);
-        console.log(`     申请: ${info.signupUrl}`);
-        console.log('');
-      }
-      console.log('  s. 跳过');
-      console.log('');
-
-      const channelChoice = await askQuestion(
-        `  请选择要配置的通道 (1-${channelKeys.length}): `,
-        rl
-      );
-
-      if (
-        channelChoice.toLowerCase() !== 'skip' &&
-        channelChoice.toLowerCase() !== 's' &&
-        channelChoice !== ''
-      ) {
-        const idx = parseInt(channelChoice, 10) - 1;
-        if (idx >= 0 && idx < channelKeys.length) {
-          const selectedKey = channelKeys[idx];
-          const info = CHANNEL_INFO[selectedKey];
-
-          console.log(`\n  ✅ 已选择: ${info.name}`);
-          console.log(`  🔗 申请地址: ${info.signupUrl}`);
-          console.log('');
-
-          const envValues: Record<string, string> = {};
-
-          for (const envVar of info.envVars) {
-            const value = await askQuestion(`  请输入 ${envVar.label}: `, rl);
-            if (
-              value &&
-              value.toLowerCase() !== 'skip' &&
-              value.toLowerCase() !== 'exit'
-            ) {
-              envValues[envVar.key] = value;
-            }
-          }
-
-          if (Object.keys(envValues).length > 0) {
-            console.log('');
-            console.log('  ⏳ 正在保存通道配置...');
-
-            let allWritten = true;
-            for (const [key, value] of Object.entries(envValues)) {
-              const written = writeKeyToEnv(key, value);
-              if (!written) allWritten = false;
-            }
-
-            if (allWritten) {
-              console.log('  ✅ 通道配置已保存到 .env 文件');
-            }
-
-            // 尝试热连接
-            console.log('  ⏳ 正在尝试连接...');
-            try {
-              const { channelBootstrapper } =
-                await import('@modules/channels/bootstrap/ChannelBootstrapper');
-              const factory = channelBootstrapper.getPluginFactory(
-                info.channelType
-              );
-              if (factory) {
-                const plugin = factory();
-                if (plugin) {
-                  const connectConfig: Record<string, string> = {};
-                  for (const envVar of info.envVars) {
-                    connectConfig[
-                      envVar.key.replace(/^[A-Z_]+_/, '').toLowerCase()
-                    ] = envValues[envVar.key];
-                  }
-                  await plugin.lifecycle.connect(connectConfig);
-                  const { channelRegistry } = await import('@modules/channels');
-                  channelRegistry.register(plugin);
-                  console.log(`  ✅ ${info.name} 已连接！`);
-                  console.log('  💡 输入 /channel list 查看通道状态');
-                }
-              }
-            } catch (err) {
-              console.log(
-                '  ⚠️ 重启后自动连接（或运行 /channel connect 手动连接）'
-              );
-            }
-          }
-        }
-      }
-    }
-
-    console.log('');
-    console.log('  现在您可以：');
-    console.log('  • 直接输入问题开始 AI 对话');
-    console.log('  • /channel list — 查看消息通道状态');
-    console.log('  • /help 查看所有命令');
-    console.log('  • /config list 查看配置');
-    console.log('');
-
-    showHintIfNeeded(
-      OnboardHintKey.SOUL_CUSTOMIZATION,
-      HINT_SOUL_CUSTOMIZATION
-    );
-
+    printOnboardCompletion();
     return [];
   } finally {
     if (ownRl) {
       rl.close();
     }
   }
+}
+
+type ProviderInfo = (typeof PROVIDER_INFO)[string];
+
+interface OnboardModeChoice {
+  exit: boolean;
+  isQuickMode: boolean;
+  totalSteps: number;
+}
+
+type ProviderSelection =
+  | { kind: 'exit' }
+  | { kind: 'skip' }
+  | { kind: 'activated' }
+  | { kind: 'selected'; provider: string; info: ProviderInfo };
+
+type ApiKeyPromptResult =
+  | { kind: 'exit' }
+  | { kind: 'skip' }
+  | { kind: 'ok'; apiKey: string };
+
+/**
+ * T3（2026-11-17）：无 TTY 时的手动配置指引（原样搬出 `runOnboard`）。
+ */
+function printNonInteractiveGuide(): void {
+  console.log('');
+  console.log('╔════════════════════════════════════════════════╗');
+  console.log('║        Liri 配置向导                         ║');
+  console.log('╚════════════════════════════════════════════════╝');
+  console.log('');
+  console.log('检测到非交互环境（无 TTY），无法运行交互式配置向导。');
+  console.log('');
+  console.log('请通过以下方式完成配置：');
+  console.log('  1. 手动编辑 .env 文件，设置 API 密钥（任选一种方式）：');
+  console.log('     - 方式一（大厂专用变量名）: DEEPSEEK_API_KEY=sk-xxx');
+  console.log(
+    '     - 方式二（统一格式，支持任意供应商）: PROVIDER_xxx_KEY=sk-xxx'
+  );
+  console.log('  2. 手动编辑 ~/.pyapp/SOUL.md 设置 AI 人格');
+  console.log('  3. 手动编辑 ~/.pyapp/USER.md 设置用户档案');
+  console.log('');
+  console.log('快速入门文档：');
+  console.log('  /help onboard — 查看配置指引');
+  console.log('  /config list  — 查看当前配置');
+  console.log('');
+}
+
+/**
+ * T3（2026-11-17）：向导欢迎页（原样搬出）。
+ */
+function printOnboardWelcome(): void {
+  console.log('');
+  console.log('╔════════════════════════════════════════════════╗');
+  console.log('║        Liri 配置向导                         ║');
+  console.log('╚════════════════════════════════════════════════╝');
+  console.log('');
+  console.log('本向导帮助您快速完成 AI 模型与个性化配置。');
+  console.log('输入 "skip" 跳过当前步骤，"exit" 退出向导。');
+  console.log('');
+}
+
+/**
+ * T3（2026-11-17）：分段独立重配（原样搬出；`undefined` ⇒ 返回 `null` 继续主流程）。
+ */
+async function runSelectedOnboardSection(
+  section: 'model' | 'soul' | 'channel' | undefined,
+  rl: import('readline').Interface,
+  cwd: string
+): Promise<string[] | null> {
+  if (section === 'model') {
+    return await runModelSection(rl, cwd, 1, 1);
+  }
+  if (section === 'soul') {
+    return await runSoulSection(rl);
+  }
+  if (section === 'channel') {
+    return await runChannelSection(rl, cwd);
+  }
+  return null;
+}
+
+/**
+ * T3（2026-11-17）：已有配置提示（原样搬出）。
+ */
+function printExistingConfigNotice(
+  existingConfig: ReturnType<typeof detectExistingConfig>
+): void {
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('  检测到已有配置');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('');
+  if (existingConfig.provider) {
+    console.log(`  当前 AI 提供商: ${existingConfig.provider}`);
+  }
+  if (existingConfig.apiKeyConfigured) {
+    console.log(`  当前 API 密钥:  ${existingConfig.apiKeyMasked}`);
+  }
+  console.log('');
+  console.log('  每次提示会显示当前值作为默认。');
+  console.log('  直接按 Enter 保持当前设置，或输入新值重新配置。');
+}
+
+/**
+ * T3（2026-11-17）：模式选择（原样搬出；`exit` ⇒ `exit: true`）。
+ */
+async function promptOnboardMode(
+  rl: import('readline').Interface
+): Promise<OnboardModeChoice> {
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('  选择配置模式');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('');
+  console.log('  1. 快速配置（推荐）— 只用配置 AI 模型和密钥即可开始');
+  console.log('     AI 人格和用户档案使用默认值，稍后可手动调整');
+  console.log('  2. 完整配置 — 除 AI 配置外，还会引导设置 AI 人格、');
+  console.log('     用户档案和消息通道');
+  console.log('');
+
+  const modeChoice = await askQuestion('  请选择 (1/2, 默认 1): ', rl);
+
+  if (modeChoice.toLowerCase() === 'exit') {
+    console.log('\n  已退出向导。输入 /onboard 可重新启动。\n');
+    return { exit: true, isQuickMode: true, totalSteps: 3 };
+  }
+
+  const isQuickMode = modeChoice !== '2';
+  const totalSteps = isQuickMode ? 3 : 5;
+
+  if (!isQuickMode) {
+    console.log('');
+    console.log('╔════════════════════════════════════════════════╗');
+    console.log(`║        Liri 配置向导（共 ${totalSteps} 步）         ║`);
+    console.log('╚════════════════════════════════════════════════╝');
+    console.log('');
+  }
+
+  return { exit: false, isQuickMode, totalSteps };
+}
+
+/**
+ * T3（2026-11-17）：Step 1 —— 选择 AI 模型 / 本地服务（原样搬出）。
+ */
+async function selectProviderForOnboard(
+  rl: import('readline').Interface,
+  totalSteps: number,
+  currentProvider: string | null
+): Promise<ProviderSelection> {
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log(`  步骤 1/${totalSteps}: 选择 AI 模型`);
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('');
+  const recommended = resolveRecommendedProvider();
+  const recName = recommended ? PROVIDER_INFO[recommended]?.name : '';
+  if (recName) {
+    console.log(`  Liri 需要 AI 模型来回答问题。${recName} 推荐首选：`);
+    if (PROVIDER_INFO[recommended]?.hasFreeTier) {
+      console.log('  ✅ 提供免费额度，无需付费即可开始使用');
+    }
+  } else {
+    console.log('  Liri 需要 AI 模型来回答问题。请选择一家 AI 服务商：');
+  }
+  console.log('');
+
+  // G1：本机已在跑的本地模型服务优先展示（免 Key、开箱即用）
+  const localServices = await printLocalServiceOptions();
+  const localCount = localServices.length;
+
+  const providerKeys = Object.keys(PROVIDER_INFO);
+  for (let i = 0; i < providerKeys.length; i++) {
+    const key = providerKeys[i];
+    const info = PROVIDER_INFO[key];
+    const isRecommended = recommended !== '' && key === recommended;
+    const isCurrent = currentProvider === key;
+    const badge = isCurrent ? ' ★当前' : isRecommended ? ' ★推荐' : '';
+    const freeTag = info.hasFreeTier ? ' ✅ 免费额度' : '';
+    console.log(`  ${localCount + i + 1}. ${info.name}${badge}${freeTag}`);
+    console.log(`     ├ 价格: ${info.price}`);
+    if (info.freeQuota) {
+      console.log(`     ├ 免费: ${info.freeQuota}`);
+    }
+    console.log(`     └ 申请: ${info.signupUrl}`);
+    console.log('');
+  }
+  console.log('  s. 跳过 — 暂不配置，进入离线模式');
+  console.log('');
+
+  const maxChoice = localCount + providerKeys.length;
+  const providerChoice = await askQuestion(
+    `  请选择 (1-${maxChoice}, 默认 1): `,
+    rl
+  );
+
+  if (providerChoice.toLowerCase() === 'exit') {
+    console.log('\n  已退出向导。输入 /onboard 可重新启动。\n');
+    return { kind: 'exit' };
+  }
+
+  if (
+    providerChoice.toLowerCase() === 'skip' ||
+    providerChoice.toLowerCase() === 's'
+  ) {
+    console.log('\n  ⏭️ 已跳过 AI 配置，将进入离线模式。');
+    console.log('  稍后可通过 /onboard 重新配置。\n');
+    return { kind: 'skip' };
+  }
+
+  // 直接回车 = 采用第 1 项（本地优先；无本地时回落首个云端供应商）
+  if (providerChoice === '' && localCount > 0) {
+    await activateLocalService(localServices[0]);
+    return { kind: 'activated' };
+  }
+
+  const choiceIdx = Number(providerChoice);
+
+  // 本地服务：一键接入后直接返回（无需 API Key）
+  if (!Number.isNaN(choiceIdx) && choiceIdx >= 1 && choiceIdx <= localCount) {
+    await activateLocalService(localServices[choiceIdx - 1]);
+    return { kind: 'activated' };
+  }
+
+  let selectedProvider = providerKeys[0];
+  // 按列表序号映射（本地条目占前 localCount 位）
+  if (
+    !Number.isNaN(choiceIdx) &&
+    choiceIdx > localCount &&
+    choiceIdx <= maxChoice
+  ) {
+    selectedProvider = providerKeys[choiceIdx - localCount - 1];
+  }
+
+  const providerInfo = PROVIDER_INFO[selectedProvider];
+  console.log(`\n  ✅ 已选择: ${providerInfo.name}\n`);
+
+  return { kind: 'selected', provider: selectedProvider, info: providerInfo };
+}
+
+/**
+ * T3（2026-11-17）：Step 2 —— 输入 API 密钥（原样搬出）。
+ */
+async function promptApiKeyForOnboard(
+  rl: import('readline').Interface,
+  providerInfo: ProviderInfo,
+  totalSteps: number
+): Promise<ApiKeyPromptResult> {
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log(`  步骤 2/${totalSteps}: 输入 API 密钥`);
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('');
+  console.log(`  获取 ${providerInfo.name} API 密钥只需 3 步：`);
+  console.log(`  1. 打开 ${providerInfo.signupUrl}`);
+  console.log(`  2. 注册/登录账号`);
+  console.log(`  3. 创建并复制 API 密钥`);
+  console.log('');
+
+  const apiKey = await askQuestion(`  请粘贴 API 密钥（留空跳过）:\n  > `, rl);
+
+  if (apiKey.toLowerCase() === 'exit') {
+    console.log('\n  已退出向导。输入 /onboard 可重新启动。\n');
+    return { kind: 'exit' };
+  }
+
+  if (!apiKey) {
+    console.log('\n  ⏭️ 未输入 API 密钥，将进入离线模式。');
+    console.log('  稍后可通过 /onboard 重新配置。\n');
+    return { kind: 'skip' };
+  }
+
+  console.log('');
+
+  return { kind: 'ok', apiKey };
+}
+
+/**
+ * T3（2026-11-17）：Step 3 —— 验证 API 密钥（原样搬出）。
+ */
+async function verifyProviderKey(
+  provider: string,
+  apiKey: string,
+  totalSteps: number
+): Promise<boolean> {
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log(`  步骤 3/${totalSteps}: 验证与完成`);
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('');
+  console.log('  ⏳ 正在验证 API 密钥...');
+  console.log('');
+
+  const isValid = await testApiConnection(provider, apiKey);
+
+  if (isValid) {
+    console.log('  ✅ API 密钥验证通过！');
+  } else {
+    console.log('  ⚠️ API 密钥验证失败（网络或密钥无效）。');
+    console.log('  密钥将保存，您稍后可重试。');
+  }
+  console.log('');
+
+  return isValid;
+}
+
+/**
+ * T3（2026-11-17）：保存配置到运行时与 .env，并刷新 Provider 密钥（原样搬出）。
+ */
+async function persistProviderConfig(options: {
+  provider: string;
+  providerInfo: ProviderInfo;
+  apiKey: string;
+  isValid: boolean;
+  cwd: string;
+}): Promise<void> {
+  const { provider, providerInfo, apiKey, isValid, cwd } = options;
+
+  console.log('  ⏳ 正在保存配置...');
+
+  const configKey = `ai.${provider}.apiKey`;
+  let saveOk = true;
+
+  try {
+    setConfigValue('ai.provider', provider);
+    setConfigValue(configKey, apiKey);
+    console.log('  ✅ 配置已保存到运行时');
+  } catch (e) {
+    console.log(
+      `  ⚠️ 运行时配置保存失败: ${e instanceof Error ? e.message : String(e)}`
+    );
+    saveOk = false;
+  }
+
+  // 写入 .env 文件
+  const envWritten = writeKeyToEnv(providerInfo.envKey, apiKey);
+  if (envWritten) {
+    console.log('  ✅ API 密钥已写入 .env 文件（重启后自动生效）');
+  } else {
+    console.log('  ⚠️ .env 文件写入失败，密钥仅在本次会话有效');
+    saveOk = false;
+  }
+
+  // 刷新 Provider 密钥（立即生效，无需重启）
+  try {
+    const { providerRegistry } = await import('@modules/ai');
+    if (providerRegistry.has(provider)) {
+      const entry = providerRegistry.get(provider);
+      entry.setApiKey?.(apiKey);
+    }
+  } catch (e) {
+    logger.warn('无法刷新 Provider 密钥，重启后生效', { error: String(e) });
+  }
+
+  // 初始化目录（兼容旧版）
+  const dirs = ['config', 'data', 'logs'];
+  for (const dir of dirs) {
+    const dirPath = join(cwd, dir);
+    if (!existsSync(dirPath)) {
+      mkdirSync(dirPath, { recursive: true });
+    }
+  }
+
+  console.log('');
+
+  // 完成
+  console.log('╔════════════════════════════════════════════════╗');
+  if (isValid) {
+    console.log('║        ✅ 配置完成！                           ║');
+  } else {
+    console.log('║        ⚠️ 配置完成（密钥待验证）               ║');
+  }
+  console.log('╚════════════════════════════════════════════════╝');
+  console.log('');
+}
+
+/**
+ * T3（2026-11-17）：Quick 模式收尾（原样搬出）。
+ */
+function finishQuickOnboard(): void {
+  console.log('  💡 AI 人格和用户档案使用默认值。');
+  console.log('     手动编辑：~/.pyapp/SOUL.md 和 ~/.pyapp/USER.md');
+  console.log('     或运行 /onboard 选择完整配置重新设置');
+  console.log('');
+  console.log('  现在您可以：');
+  console.log('  • 直接输入问题开始 AI 对话');
+  console.log('  • /help 查看所有命令');
+  console.log('  • /config list 查看配置');
+  console.log('  • /onboard 重新运行完整向导');
+  console.log('');
+
+  showHintIfNeeded(OnboardHintKey.SOUL_CUSTOMIZATION, HINT_SOUL_CUSTOMIZATION);
+}
+
+/**
+ * T3（2026-11-17）：Step 5（可选）—— 配置消息通道（原样搬出）。
+ */
+async function runOptionalChannelSetup(
+  rl: import('readline').Interface,
+  totalSteps: number
+): Promise<void> {
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log(`  步骤 5/${totalSteps}（可选）: 配置消息通道`);
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('');
+  console.log('  Liri 支持连接 QQ/Telegram 等消息平台，');
+  console.log('  让您在这些平台上与 AI 对话。');
+  console.log('');
+
+  const wantChannel = await askQuestion('  是否要配置消息通道？(y/N): ', rl);
+
+  if (
+    wantChannel.toLowerCase() !== 'y' &&
+    wantChannel.toLowerCase() !== 'yes'
+  ) {
+    return;
+  }
+
+  const channelKeys = Object.keys(CHANNEL_INFO);
+
+  console.log('');
+  for (let i = 0; i < channelKeys.length; i++) {
+    const key = channelKeys[i];
+    const info = CHANNEL_INFO[key];
+    console.log(`  ${i + 1}. ${info.name}`);
+    console.log(`     申请: ${info.signupUrl}`);
+    console.log('');
+  }
+  console.log('  s. 跳过');
+  console.log('');
+
+  const channelChoice = await askQuestion(
+    `  请选择要配置的通道 (1-${channelKeys.length}): `,
+    rl
+  );
+
+  if (
+    channelChoice.toLowerCase() === 'skip' ||
+    channelChoice.toLowerCase() === 's' ||
+    channelChoice === ''
+  ) {
+    return;
+  }
+
+  const idx = parseInt(channelChoice, 10) - 1;
+  // 非数字输入得到 NaN —— 与原实现 `idx >= 0 && idx < len` 同口径（NaN 视为越界）
+  if (!(idx >= 0 && idx < channelKeys.length)) return;
+
+  const info = CHANNEL_INFO[channelKeys[idx]];
+
+  console.log(`\n  ✅ 已选择: ${info.name}`);
+  console.log(`  🔗 申请地址: ${info.signupUrl}`);
+  console.log('');
+
+  const envValues = await promptChannelEnvValues(info, rl);
+
+  if (Object.keys(envValues).length > 0) {
+    await saveAndConnectChannel(info, envValues);
+  }
+}
+
+/**
+ * T3（2026-11-17）：逐项收集通道环境变量（原样搬出 Step 5 内层循环）。
+ */
+async function promptChannelEnvValues(
+  info: (typeof CHANNEL_INFO)[string],
+  rl: import('readline').Interface
+): Promise<Record<string, string>> {
+  const envValues: Record<string, string> = {};
+
+  for (const envVar of info.envVars) {
+    const value = await askQuestion(`  请输入 ${envVar.label}: `, rl);
+    if (
+      value &&
+      value.toLowerCase() !== 'skip' &&
+      value.toLowerCase() !== 'exit'
+    ) {
+      envValues[envVar.key] = value;
+    }
+  }
+
+  return envValues;
+}
+
+/**
+ * T3（2026-11-17）：写入通道配置并尝试热连接（原样搬出 Step 5 内层逻辑）。
+ */
+async function saveAndConnectChannel(
+  info: (typeof CHANNEL_INFO)[string],
+  envValues: Record<string, string>
+): Promise<void> {
+  console.log('');
+  console.log('  ⏳ 正在保存通道配置...');
+
+  let allWritten = true;
+  for (const [key, value] of Object.entries(envValues)) {
+    const written = writeKeyToEnv(key, value);
+    if (!written) allWritten = false;
+  }
+
+  if (allWritten) {
+    console.log('  ✅ 通道配置已保存到 .env 文件');
+  }
+
+  // 尝试热连接
+  console.log('  ⏳ 正在尝试连接...');
+  try {
+    const { channelBootstrapper } =
+      await import('@modules/channels/bootstrap/ChannelBootstrapper');
+    const factory = channelBootstrapper.getPluginFactory(info.channelType);
+    if (factory) {
+      const plugin = factory();
+      if (plugin) {
+        const connectConfig: Record<string, string> = {};
+        for (const envVar of info.envVars) {
+          connectConfig[envVar.key.replace(/^[A-Z_]+_/, '').toLowerCase()] =
+            envValues[envVar.key];
+        }
+        await plugin.lifecycle.connect(connectConfig);
+        const { channelRegistry } = await import('@modules/channels');
+        channelRegistry.register(plugin);
+        console.log(`  ✅ ${info.name} 已连接！`);
+        console.log('  💡 输入 /channel list 查看通道状态');
+      }
+    }
+  } catch {
+    console.log('  ⚠️ 重启后自动连接（或运行 /channel connect 手动连接）');
+  }
+}
+
+/**
+ * T3（2026-11-17）：完整向导收尾（原样搬出）。
+ */
+function printOnboardCompletion(): void {
+  console.log('');
+  console.log('  现在您可以：');
+  console.log('  • 直接输入问题开始 AI 对话');
+  console.log('  • /channel list — 查看消息通道状态');
+  console.log('  • /help 查看所有命令');
+  console.log('  • /config list 查看配置');
+  console.log('');
+
+  showHintIfNeeded(OnboardHintKey.SOUL_CUSTOMIZATION, HINT_SOUL_CUSTOMIZATION);
 }
 
 /**

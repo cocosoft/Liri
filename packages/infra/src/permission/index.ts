@@ -310,6 +310,7 @@ export {
 export {
   RuleManager,
   deduplicateRules,
+  buildRuleConflictKey,
   collectRuleKeyConflicts,
 } from './RuleManager';
 export type {

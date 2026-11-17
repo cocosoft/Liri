@@ -131,24 +131,41 @@ export function deduplicateRules(rules: PermissionRule[]): PermissionRule[] {
 }
 
 /**
- * 收集"同一匹配键、不同行为"的冲突（R0 健康视图，纯函数）。
+ * 冲突检测键（R1.5，2026-11-17；对外评审 P0-3）。
  *
- * 键口径与 `addRule#sameKey` 一致（**不含 behavior**）：运行期 `addRule` 已互斥，
- * 本函数主要抓**手工编辑 `tool_rules.json`** 产生的 allow/deny 并存 —— 那种情况下
- * 判定结果由规则顺序隐式决定，用户完全不可见。
+ * 与运行期的两套键**刻意不同**（三者各司其职，见治理方案 §11.2）：
+ * - `addRule#sameKey`（含 `source`）：运行期同键互斥，"改用户规则不静默删审批规则"；
+ * - `deduplicateRules`（含 `source` + `behavior`）：文件级去重；
+ * - **本函数**（不含 `source` / `behavior`，含 `workspaceRoot`）：**只报告冲突** ——
+ *   同一次调用上「用户 allow + 审批 deny」也会互相遮蔽，只按来源分组会漏报。
+ */
+export function buildRuleConflictKey(rule: {
+  toolName: string;
+  contentPattern?: string;
+  inputFingerprint?: string;
+  workspaceRoot?: string;
+}): string {
+  return [
+    rule.toolName,
+    rule.contentPattern ?? '',
+    rule.inputFingerprint ?? '',
+    rule.workspaceRoot ?? '',
+  ].join('|');
+}
+
+/**
+ * 收集"同一匹配键、不同行为"的冲突（R0 健康视图；键口径见 `buildRuleConflictKey`，纯函数）。
+ *
+ * 运行期 `addRule` 已按 `(source + 匹配条件)` 互斥，本函数主要抓：
+ * ① **手工编辑 `tool_rules.json`** 产生的 allow/deny 并存；
+ * ② **跨来源**（用户规则 vs 审批生成）同键异行为 —— 判定结果由顺序隐式决定，用户完全不可见。
  */
 export function collectRuleKeyConflicts(
   rules: PermissionRule[]
 ): RuleKeyConflict[] {
   const byKey = new Map<string, { behaviors: string[]; ids: string[] }>();
   for (const rule of rules) {
-    const key = [
-      rule.source,
-      rule.toolName,
-      rule.contentPattern ?? '',
-      rule.inputFingerprint ?? '',
-      rule.workspaceRoot ?? '',
-    ].join('|');
+    const key = buildRuleConflictKey(rule);
     const entry = byKey.get(key) ?? { behaviors: [], ids: [] };
     const behavior = String(rule.behavior);
     if (!entry.behaviors.includes(behavior)) entry.behaviors.push(behavior);

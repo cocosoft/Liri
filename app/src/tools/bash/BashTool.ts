@@ -340,7 +340,9 @@ export class BashTool extends BaseTool {
       'bash',
       { command },
       undefined,
-      processRoot ? [processRoot] : []
+      processRoot ? [processRoot] : [],
+      // F2：会话级暂停时，审批规则不得再折算成"免审批"（否则暂停形同虚设）
+      sessionId
     );
     return { hash, bypassAsk: ruleHit, source: ruleHit ? 'rule' : 'none' };
   }

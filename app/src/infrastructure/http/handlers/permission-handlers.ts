@@ -42,6 +42,9 @@ import {
   addRuleChecked,
   updateRuleChecked,
   removeRuleChecked,
+  importRulesChecked,
+  countUserAllowRules,
+  readUserRuleAllowBudget,
   readCommandRulesConfig,
   SIMULATABLE_PERMISSION_MODES,
   isSimulatablePermissionMode,
@@ -145,6 +148,11 @@ export async function handleListPermissionRules(
         summary,
         // R1.5：B 体系命令规则（只读；来源=commandRules）—— 不配置时为 null
         commandRules: buildCommandRulesView(readCommandRulesConfig()),
+        // R2b：allow 预算用量（超限时写接口 409，前端据此提示"显式提高配置"）
+        allowBudget: {
+          limit: readUserRuleAllowBudget(),
+          used: countUserAllowRules(rules),
+        },
         shadowDetection: {
           shadowedCount: shadowDetection.shadowedCount,
           isValid: shadowDetection.isValid,
@@ -164,7 +172,7 @@ export async function handleListPermissionRules(
   }
 }
 
-/** 写失败 → HTTP 状态码（R2：冲突/损坏 409；只读 403；不存在 404；参数 400） */
+/** 写失败 → HTTP 状态码（R2：冲突/损坏/预算 409；危险命令头/只读 403；不存在 404；参数 400） */
 function sendRuleWriteFailure(
   res: http.ServerResponse,
   failure: Extract<RuleWriteResult, { ok: false }>
@@ -172,7 +180,7 @@ function sendRuleWriteFailure(
   const status =
     failure.code === 'not-found'
       ? 404
-      : failure.code === 'readonly'
+      : failure.code === 'readonly' || failure.code === 'dangerous'
         ? 403
         : failure.code === 'invalid'
           ? 400
@@ -402,6 +410,92 @@ export async function handleDeletePermissionRule(
     }
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ message: '权限规则已删除' }));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
+ * 规则导出载荷（R2b）。
+ *
+ * 只含**用户手建**规则：审批卡生成的持久化放行（指纹 / 本工作区信任）**不导出**
+ * —— 那类放行绑定本机指纹与路径，回灌到别的环境既无效也容易被误当白名单。
+ */
+export function buildRulesExport(rules: PermissionRule[]): {
+  version: number;
+  exportedAt: string;
+  rules: Array<{
+    behavior: string;
+    toolName: string;
+    contentPattern?: string;
+  }>;
+} {
+  return {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    rules: rules
+      .filter((rule) => !isApprovalOriginatedRule(rule))
+      .map((rule) => ({
+        behavior: String(rule.behavior),
+        toolName: rule.toolName,
+        ...(rule.contentPattern !== undefined
+          ? { contentPattern: rule.contentPattern }
+          : {}),
+      })),
+  };
+}
+
+/**
+ * 导出工具权限规则 GET /v1/permissions/rules/export（R2b）
+ *
+ * 只读；返回可直接喂给导入接口的 JSON（备份 / 迁移 / 回滚用）。
+ */
+export async function handleExportPermissionRules(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const rules = PermissionManager.getInstance()
+      .getRuleManager()
+      .getRules() as PermissionRule[];
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify(buildRulesExport(rules)));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
+ * 导入工具权限规则 POST /v1/permissions/rules/import（R2b）
+ *
+ * body: `{ rules: [{ behavior, toolName, contentPattern? }, ...] }`
+ *
+ * 先**全量校验**再一次性落盘：重复跳过、冲突/非法/危险命令头/预算超限 ⇒ 零写入。
+ */
+export async function handleImportPermissionRules(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const body = await readRequestBody(req);
+    const parsed = JSON.parse(body) as Record<string, unknown> | null;
+    const result = importRulesChecked(
+      PermissionManager.getInstance().getRuleManager(),
+      parsed?.['rules']
+    );
+    if (!result.ok) {
+      sendRuleWriteFailure(res, result);
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(
+      JSON.stringify({
+        message: '权限规则已导入',
+        importedCount: result.imported.length,
+        imported: result.imported.map(serializeRule),
+        skipped: result.skipped,
+      })
+    );
   } catch (err) {
     sendError(res, err);
   }

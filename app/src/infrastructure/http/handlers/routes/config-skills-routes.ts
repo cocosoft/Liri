@@ -46,8 +46,10 @@ import { handleGetDataDirectory } from '../chat-handlers';
 import {
   handleAddPermissionRule,
   handleDeletePermissionRule,
+  handleExportPermissionRules,
   handleGetPermissionMetrics,
   handleGetPermissionRulesHealth,
+  handleImportPermissionRules,
   handleListPermissionRules,
   handleSimulatePermissionRule,
   handleUpdatePermissionRule,
@@ -252,6 +254,15 @@ async function dispatchPermissionRoutes(
   }
   if (method === 'POST' && url === '/v1/permissions/rules/simulate') {
     await handleSimulatePermissionRule(req, res);
+    return true;
+  }
+  // R2b（2026-11-17）：规则备份 / 回灌（导出只含用户手建规则；导入先全量校验再落盘）
+  if (method === 'GET' && url === '/v1/permissions/rules/export') {
+    await handleExportPermissionRules(req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/permissions/rules/import') {
+    await handleImportPermissionRules(req, res);
     return true;
   }
   if (method === 'POST' && url === '/v1/permissions/rules') {

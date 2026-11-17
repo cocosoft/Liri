@@ -343,14 +343,18 @@
 | **S4 ○** | 同源门禁（T1-11）：经 `MCPToolBridge` 注册；PathGuard/权限/结果上限同源；Landlock 显式 N/A | 注册接线 + 测试 | 中 | `services/mcp/MCPToolBridge.ts:113`、`services/mcp/McpToolWrapper.ts`、`chat/ReActToolLoop.ts:1145`、`context/budget/ToolResultBudget.ts:30` |
 | **S5 ○** | P2 媒体侧车：`vision_worker` 受管化 + `sharp` 先收一处（`ImageInputRouter`） | ① `TOOL_SIDECAR_MEDIA`；② worker 受管；③ sharp 收口一处 | 中（`sharp` 主路径改造面） | `ai/python/{StdioBridge,WorkerGuard,vision_worker.py}`、`tools/ImageAnalysisTool/ImageAnalysisTool.ts:170-190`、`tools/ImageGenerateTool/ImageInputRouter.ts:212,245` |
 | **S6 ✅** | （观察期后）按 CD06 物理删除被替代实现（若确认无消费者） | **独立删除提交**（记录清单 + 回滚哈希） | 中（不可逆） | `app/src/lsp/**`（2026-11-18 已删，见 §13.8）；轨 A `tools/lsp/**` 保留 |
-| **S7 ★** | 收尾回填（文档，零代码）：见下方"待回填" | 文档 | 低 | `CHANGELOG.md:82`、五方案总览 §2/§8.1、工具方案 §5 |
+| **S7 ✅** | 收尾回填（文档，零代码） | 文档 | 低 | 2026-11-18 逐项核对：1 无需改动 / 2·3 属本地 dev_docs / 4 已在册 / 5 已随 S6 落地 |
 
-**待回填项（主循环据此回填台账/总览）**
-1. `CHANGELOG.md:82` 的"（未落地）"→ "已落地（2026-10-10，`utils/sidecarIpc.ts`）"，与 D10 §8.5 消矛盾。
-2. 五方案总览 §2 `T1-10`/`T1-11` 状态：由"未落地（仅盘点与裁定）"→ "**已出 spec**（`.trae/specs/tool-sidecar-isolation.md` v1.0 待批准）"。
-3. 工具方案 §5 阶段 2.2 实施状态：补"靶点已裁定 + 前置（D10 P1 基座）已具备 + 本 spec 已产出"。
-4. 台账：为 `TOOLGOV-SIDECAR-TARGETS`（靶点裁定，`CHANGELOG.md:82`）后续补本 spec 的 `reopenWhen`（"改侧车 IPC 基座 / 靶点 / 开关语义时"）。
-5. （可选）`dead-code-and-unwired-items-rulings.md`：登记轨 B `app/src/lsp/**` 常驻管理器"当前无生产消费者"（**只登记不删**，CD07）。
+**待回填项（主循环据此回填台账/总览）** —— **2026-11-18 逐项核对**：
+
+1. ✅ **无需改动**（原判断有误）：`CHANGELOG.md` 并无「D10 P1 未落地」表述，早在 `CHANGELOG.md:1047`
+   已如实订正（"该任务无需改动 CHANGELOG"）。
+2/3. 📄 **属 `dev_docs/**` 本地文档面**（不入库）：五方案总览 / 工具方案的状态回填按本地文档维护，
+   本仓库不改；口径以本 spec §13 与台账为准。
+4. ✅ **已在册**：`TOOLGOV-SIDECAR-TARGETS` 的 `reopenWhen` 已存在
+   （"改侧车靶点排序、或 D10 P1（通用 IPC 基座）落地/变更时"）。
+5. ✅ **已落地**：`dead-code-and-unwired-items-rulings.md` 的 UW-5 已登记，并于 2026-11-18 随 S6
+   删除更新为「已删除」（见 §13.8）。
 
 ---
 
@@ -358,7 +362,7 @@
 
 1. ~~**本文待用户批准**（HARD-GATE：批准前不写产品代码）~~ → **已批准并落地**（S1/S3/S5 已实现，见 §13；原文保留以存证）。
 2. 已按 §11 切片推进：S0/S1/S3/S4/S5 完成；S2（双轨收敛）**复核后改用独立条目**（见 §13.2）；**S6 已于 2026-11-18 完成**（§13.8）。
-3. 联动：S6 删除已完成；S1 落地后的回填 1–4 仍待 S7（文档零代码）。
+3. 联动：S6 删除已完成；**S7 文档回填已于 2026-11-18 逐项核对收口**（见 §11 待回填项）。
 
 ---
 

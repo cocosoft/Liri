@@ -72,6 +72,62 @@ export async function dispatchAuthAccessRoutes(
   handlerCtx: HandlerCtx
 ): Promise<boolean> {
   const method = req.method || 'GET';
+  // ---- Auth / OAuth Provider / API Keys ----
+  if (await dispatchAuthAndKeyRoutes(method, url, req, res)) return true;
+
+  // ---- File Open/Read/Paths/Resolve/Preview ----
+  if (await dispatchFileAccessRoutes(method, url, req, res, handlerCtx))
+    return true;
+
+  // ---- Agent Roles / Agent Control ----
+  if (await dispatchAgentRoutes(method, url, req, res, handlerCtx)) return true;
+
+  // ---- Health ----
+  if (await dispatchHealthRoute(method, url, res)) return true;
+
+  // ---- Media Subtitle ----
+  if (await dispatchMediaRoutes(method, url, req, res)) return true;
+
+  // ---- Model Management API (Providers / Usage / Balance / Pricing) ----
+  const handled = await (
+    await getCoreAPI().getAiOpsPort()
+  ).tryHandleAiModelRoute(req, res);
+  if (handled) return true;
+
+  // ---- Office / doc 模块 API ----
+  if (await dispatchOfficeDocRoutes(method, url, req, res)) return true;
+
+  // ---- Office / mail 模块 API ----
+  if (await dispatchMailRoutes(method, url, req, res)) return true;
+
+  // ---- Office / calendar 模块 API ----
+  if (await dispatchCalendarRoutes(method, url, req, res)) return true;
+
+  // ---- Git Context (Phase 3) ----
+  if (method === 'GET' && url === '/v1/git/status') {
+    // 2026-09-30（台账 D-85，C1「口径 C」）：改经 CoreAPI 门面取值，消除 service → app 跨层引用。
+    // 行为逐字保持：非仓库 → { isGitRepo: false }；仓库且 status 为 null → { isGitRepo: true }。
+    const snapshot = await getCoreAPI().getGitContextSnapshot();
+    const payload = snapshot.isGitRepo
+      ? { isGitRepo: true, ...(snapshot.status ?? {}) }
+      : { isGitRepo: false };
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify(payload));
+    return true;
+  }
+  return false;
+}
+
+/**
+ * T3（2026-11-17）：Auth / OAuth Provider / API Keys 三段（原样搬出 `dispatchAuthAccessRoutes`）。
+ * @returns true 表示已匹配并处理
+ */
+async function dispatchAuthAndKeyRoutes(
+  method: string,
+  url: string,
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<boolean> {
   // ---- Auth ----
   if (method === 'POST' && url === '/v1/auth/login') {
     await handleAuthLogin(req, res);
@@ -123,8 +179,20 @@ export async function dispatchAuthAccessRoutes(
     await handleDeleteApiKey(req, res, url.match(/^\/v1\/apikeys\/(.+)$/)![1]);
     return true;
   }
+  return false;
+}
 
-  // ---- File Open/Read/Paths/Resolve/Preview ----
+/**
+ * T3（2026-11-17）：文件打开 / 读取 / 路径 / 预览 / 流式（原样搬出）。
+ * `handlerCtx` 与拆分前同口径透传。
+ */
+async function dispatchFileAccessRoutes(
+  method: string,
+  url: string,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
   if (method === 'GET' && url === '/api/file/open') {
     await handleFileOpen(handlerCtx, req, res);
     return true;
@@ -155,8 +223,19 @@ export async function dispatchAuthAccessRoutes(
     await handleFileHtmlServe(req, res);
     return true;
   }
+  return false;
+}
 
-  // ---- Agent Roles ----
+/**
+ * T3（2026-11-17）：Agent Roles 与 Agent Control（原样搬出；顺序不变 —— 精确在前、带参在后）。
+ */
+async function dispatchAgentRoutes(
+  method: string,
+  url: string,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
   if (method === 'GET' && url === '/v1/agent-roles') {
     await handleListAgentRoles(handlerCtx, req, res);
     return true;
@@ -213,8 +292,15 @@ export async function dispatchAuthAccessRoutes(
     await handleStopAgent(handlerCtx, req, res, agentId);
     return true;
   }
+  return false;
+}
 
-  // ---- Health ----
+/** T3（2026-11-17）：健康检查（原样搬出；指标缺失不影响 200）。 */
+async function dispatchHealthRoute(
+  method: string,
+  url: string,
+  res: http.ServerResponse
+): Promise<boolean> {
   if (method === 'GET' && url === '/health') {
     let dream;
     try {
@@ -229,8 +315,16 @@ export async function dispatchAuthAccessRoutes(
     );
     return true;
   }
+  return false;
+}
 
-  // ---- Media Subtitle ----
+/** T3（2026-11-17）：媒体字幕生成 / 下载（原样搬出）。 */
+async function dispatchMediaRoutes(
+  method: string,
+  url: string,
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<boolean> {
   if (method === 'POST' && url === '/v1/media/subtitle') {
     await handleMediaSubtitleGenerate(req, res);
     return true;
@@ -246,14 +340,16 @@ export async function dispatchAuthAccessRoutes(
     );
     return true;
   }
+  return false;
+}
 
-  // ---- Model Management API (Providers / Usage / Balance / Pricing) ----
-  const handled = await (
-    await getCoreAPI().getAiOpsPort()
-  ).tryHandleAiModelRoute(req, res);
-  if (handled) return true;
-
-  // ---- Office / doc 模块 API ----
+/** T3（2026-11-17）：Office CLI 与 doc 模块 API（原样搬出）。 */
+async function dispatchOfficeDocRoutes(
+  method: string,
+  url: string,
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<boolean> {
   if (method === 'GET' && url === '/v1/officecli/status') {
     const { handleOfficeCLIStatus } = await import('@modules/doc');
     await handleOfficeCLIStatus(req, res);
@@ -314,8 +410,16 @@ export async function dispatchAuthAccessRoutes(
     await handleDocGraph(req, res);
     return true;
   }
+  return false;
+}
 
-  // ---- Office / mail 模块 API ----
+/** T3（2026-11-17）：mail 模块 API（原样搬出；`config` 精确匹配先于泛匹配）。 */
+async function dispatchMailRoutes(
+  method: string,
+  url: string,
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<boolean> {
   if (method === 'GET' && url === '/v1/mail/status') {
     const { handleMailStatus } = await import('@modules/doc');
     await handleMailStatus(req, res);
@@ -379,8 +483,16 @@ export async function dispatchAuthAccessRoutes(
     await handleMailRefresh(req, res);
     return true;
   }
+  return false;
+}
 
-  // ---- Office / calendar 模块 API ----
+/** T3（2026-11-17）：calendar 模块 API（原样搬出；精确匹配在前、带参在后）。 */
+async function dispatchCalendarRoutes(
+  method: string,
+  url: string,
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<boolean> {
   // 精确匹配在前，避免被 startsWith 误匹配
   if (method === 'GET' && url === '/v1/calendar/status') {
     const { handleCalendarStatus } = await import('@modules/doc');
@@ -435,19 +547,6 @@ export async function dispatchAuthAccessRoutes(
   if (method === 'GET' && url.startsWith('/v1/calendar/merged')) {
     const { handleCalendarMerged } = await import('@modules/doc');
     await handleCalendarMerged(req, res);
-    return true;
-  }
-
-  // ---- Git Context (Phase 3) ----
-  if (method === 'GET' && url === '/v1/git/status') {
-    // 2026-09-30（台账 D-85，C1「口径 C」）：改经 CoreAPI 门面取值，消除 service → app 跨层引用。
-    // 行为逐字保持：非仓库 → { isGitRepo: false }；仓库且 status 为 null → { isGitRepo: true }。
-    const snapshot = await getCoreAPI().getGitContextSnapshot();
-    const payload = snapshot.isGitRepo
-      ? { isGitRepo: true, ...(snapshot.status ?? {}) }
-      : { isGitRepo: false };
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify(payload));
     return true;
   }
   return false;

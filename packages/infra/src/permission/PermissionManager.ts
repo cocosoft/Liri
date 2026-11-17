@@ -11,6 +11,7 @@ import type { PermissionContext } from './types/PermissionContext';
 import {
   PermissionBehavior,
   PermissionRuleSource,
+  createPermissionRule,
 } from './types/PermissionRule';
 // 多租户 P0 阶段 1：请求级角色由调用方显式传入（P2-6 起 RBAC 按角色并集判定）
 import { RuleMatcherPermissionContext } from './utils/RuleMatcher';
@@ -56,9 +57,18 @@ import {
 // R0（2026-11-17）：只读模拟（复用 handleAuto / handleDefault，不复制匹配逻辑）
 import {
   simulatePermissionDecision,
+  isSimulatablePermissionMode,
   type SimulatePermissionRequest,
   type SimulatePermissionResult,
 } from './manager/simulate';
+// R5（2026-11-17）：保存前「规则影响预演」（基准命令前后对比，不写任何状态）
+import {
+  baselineCommandsForTool,
+  summarizeRuleImpact,
+  type RuleImpactCandidate,
+  type RuleImpactPreview,
+  type RuleImpactSample,
+} from './manager/ruleImpact';
 // 兼容既有深路径消费者（`@openliri/infra/permission/PermissionManager`）：
 // `ruleLabel` 已搬到 `manager/moduleScope`，此处保留**同名转出**，导出面不变。
 export { ruleLabel } from './manager/moduleScope';
@@ -554,6 +564,73 @@ export class PermissionManager {
       },
       request
     );
+  }
+
+  /**
+   * R5（2026-11-17）：**保存前「规则影响预演」**（治理方案 §11.6-④）。
+   *
+   * 对候选规则跑一组基准命令的「写前 / 写后」判定（写后 = 内存沙箱），
+   * 返回是否有基准从 `ask`/`allow` 变 `deny`（可能把自己 / agent 锁死）。
+   *
+   * - **不写任何状态**：沙箱 `RuleManager.createInMemory()` + `simulatePermissionDecision`
+   *   的真实判定链；不写规则文件、不写命中计数、不动生产实例；
+   * - 非命令类工具没有基准清单 ⇒ `null`（不猜"无影响"）。
+   */
+  async previewRuleImpact(
+    candidate: RuleImpactCandidate
+  ): Promise<RuleImpactPreview | null> {
+    const commands = baselineCommandsForTool(candidate.toolName);
+    if (commands.length === 0) return null;
+
+    const mode = isSimulatablePermissionMode(this.mode) ? this.mode : 'default';
+    const candidateRule = createPermissionRule({
+      behavior: candidate.behavior,
+      toolName: candidate.toolName,
+      ...(candidate.contentPattern !== undefined
+        ? { contentPattern: candidate.contentPattern }
+        : {}),
+      source: PermissionRuleSource.RULE_STORE,
+    });
+    const sandboxRuleManager = RuleManager.createInMemory([
+      ...this.ruleManager.getRules(),
+      candidateRule,
+    ]);
+
+    const beforeDeps = {
+      ruleManager: this.ruleManager,
+      permissionChecker: this.permissionChecker,
+      classifierManager: this.classifierManager,
+      toolPermissionContext: this.toolPermissionContext,
+      defaultBehavior: this.defaultBehavior,
+      mode: this.mode,
+    };
+    const afterDeps = {
+      ...beforeDeps,
+      ruleManager: sandboxRuleManager,
+      permissionChecker: new PermissionChecker(sandboxRuleManager),
+    };
+
+    const samples: RuleImpactSample[] = [];
+    for (const command of commands) {
+      const input = { command };
+      const before = await simulatePermissionDecision(beforeDeps, {
+        toolName: candidate.toolName,
+        input,
+        mode,
+      });
+      const after = await simulatePermissionDecision(afterDeps, {
+        toolName: candidate.toolName,
+        input,
+        mode,
+      });
+      samples.push({
+        toolName: candidate.toolName,
+        command,
+        before: before.decision,
+        after: after.decision,
+      });
+    }
+    return summarizeRuleImpact(mode, samples);
   }
 }
 

@@ -382,6 +382,19 @@ export type {
   RuleHitReport,
   StaleRuleInfo,
 } from './ruleHitStats';
+// R5（2026-11-17）：保存前「规则影响预演」（基准命令前后对比；内存沙箱，不写状态）
+export {
+  baselineCommandsForTool,
+  summarizeRuleImpact,
+  RULE_IMPACT_BASELINE,
+} from './manager/ruleImpact';
+export type {
+  RuleImpactCandidate,
+  RuleImpactCase,
+  RuleImpactDecision,
+  RuleImpactPreview,
+  RuleImpactSample,
+} from './manager/ruleImpact';
 export type {
   SimulatePermissionDeps,
   SimulatePermissionRequest,

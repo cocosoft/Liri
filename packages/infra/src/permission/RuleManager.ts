@@ -3,6 +3,7 @@
  * 负责管理权限规则的加载、保存、添加、删除等操作
  */
 import { join, dirname } from 'path';
+import { tmpdir } from 'node:os';
 import {
   existsSync,
   mkdirSync,
@@ -230,6 +231,24 @@ export function findDuplicateRules(
  * 规则管理器类
  */
 export class RuleManager {
+  /**
+   * R5（2026-11-17）：用给定规则集构造**内存态**实例（不读盘、不写盘）。
+   *
+   * 用途：保存前「规则影响预演」（`PermissionManager#previewRuleImpact`）——
+   * 在候选规则生效**之前**跑基准命令对比判定，绝不触碰生产实例与规则文件。
+   * 因为 `ruleSource` 指向一个不存在的临时路径 ⇒ 后续 `checkExternalChanges` 不会重载覆盖。
+   */
+  static createInMemory(rules: PermissionRule[]): RuleManager {
+    const manager = new RuleManager();
+    manager.ruleSource = join(
+      tmpdir(),
+      `liri-rule-preview-${randomIdSuffix(8)}.json`
+    );
+    manager.rules = rules.map((rule) => ({ ...rule }));
+    manager.rulesFileHash = null;
+    return manager;
+  }
+
   /**
    * 权限规则数组
    */

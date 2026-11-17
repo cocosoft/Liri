@@ -91,7 +91,7 @@
 |---|---|---|
 | S1 `sessionAgentOps.ts`（会话/工具/代理/文件 ops + `executeTool`，~680 行外迁） | ✅ 2026-10-09 | 2522→2148（未过 2000） |
 | S3 `llmChatOps.ts`（`ensureLLMClientInitialized` + `resolveSmartModel` + `chat`，~256 行外迁） | ✅ 2026-10-09 | 2148→**1898 ⇒ <2000**；**豁免 FSZ-007 已移除（8→7）** |
-| S2 `chatStreamOps.ts`（~770 行，**风险较高**） | ⏳ 未实施（**可选**） | 达标已由 S1+S3 完成 ⇒ S2 转为**可维护性**性质 |
+| S2 `chatStreamOps.ts`（~770 行，**风险较高**） | ⏳ 未实施（**可选**） | 达标已由 S1+S3 完成 ⇒ S2 转为**可维护性**性质。**2026-11-18 状态复核**：该文件**从未创建**（全仓仅本 spec 提及）；`chatStream` 的 usage 累加 / 错误文案解析已于 2026-11-17（T3）外移 `runtime/api/chatStreamTurnHelpers.ts` ⇒ S2 的剩余面进一步缩小，仍按「可选」保留 |
 
 **S1 验证**：`typecheck` ✅ · 全量 `bun test` 5137 pass/0 fail · `lint:arch` ✅ 0 错 · `lint:size` ✅ 0 错。
 **S3 验证（2026-10-09）**：`typecheck` ✅ · 全量 `bun test` **5137 pass / 36 skip / 0 fail** · `lint:arch` ✅ 0 错 · `lint:size` ✅ 0 错（**7 例外**，FSZ-007 已移除）· `lint`(eslint) ✅ 0 errors。

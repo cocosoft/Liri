@@ -1593,6 +1593,16 @@ export async function handleResumeChat(
     abortSessionOnClose(sessionId);
   });
 
+  // 2026-11-18（Spec `.trae/specs/stream-attach.md` §12 限制 1 的收口）：
+  // 续跑流同样接入只读 attach —— 否则「断线 → 续跑」产生的这一轮对 attach 恒 404。
+  // runId 用独立前缀，避免与 `/v1/chat/completions` 的 `chatcmpl-*` 混淆。
+  const attachRun = beginRun(sessionId, `resume-${randomUUID().slice(0, 8)}`);
+  const writeFrame = (frame: string): void => {
+    res.write(frame);
+    safeFlush(res);
+    attachRun.publish(frame);
+  };
+
   try {
     const coreAPI = getCoreAPI();
     const generator = coreAPI.chatManager!.resumeStream(
@@ -1609,25 +1619,24 @@ export async function handleResumeChat(
         result.value as string | ChatStreamChunk
       );
       if (data !== null) {
-        res.write(`data: ${data}\n\n`);
-        safeFlush(res);
+        writeFrame(`data: ${data}\n\n`);
       }
       result = await generator.next();
     }
 
     if (!res.destroyed && !res.writableEnded) {
-      res.write('data: [DONE]\n\n');
-      safeFlush(res);
+      writeFrame('data: [DONE]\n\n');
     }
   } catch (err) {
     await handleError(err, { module: 'infra:http', action: 'resume_chat' });
     if (!res.destroyed && !res.writableEnded) {
-      res.write(
+      writeFrame(
         `data: ${JSON.stringify({ __pyapp_type: 'error', content: '恢复失败' })}\n\n`
       );
-      safeFlush(res);
     }
   } finally {
+    // 三条出口（正常 / 异常 / 客户端断开）统一收口本轮
+    attachRun.end();
     if (!res.destroyed && !res.writableEnded) {
       res.end();
     }

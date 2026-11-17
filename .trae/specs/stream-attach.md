@@ -222,7 +222,9 @@ if (method === 'GET' && url.match(/^\/v1\/sessions\/(.+)\/attach$/)) {
 
 **已知限制（如实记录）**：
 
-1. `handleResumeChat`（`POST /v1/sessions/:id/resume`）的续跑流**未**接入 tee ⇒ 对"续跑产生的这一轮" attach 会 404。补接线时只需同样收拢其 3 个 `res.write` 写点。
+1. ~~`handleResumeChat`（`POST /v1/sessions/:id/resume`）的续跑流未接入 tee ⇒ 对"续跑产生的这一轮" attach 会 404。~~
+   **2026-11-18 已收口**：续跑流同样 `beginRun` + `writeFrame` + `finally end()`，
+   runId 前缀 `resume-*`（与 `chatcmpl-*` 区分）。
 2. 进程重启后一律 404（内存态，见 §7）。
 3. **客户端接入只带状态，不逐 token 渲染正文**（2026-11-18 第二阶段落地时的取舍）：
    - 已实现：`GET .../attach` 消费（`chatService.attachStream`）、`StatusFloatBar` 的「接入」按钮（`wait.remoteStreaming` 时可见）、`attachStreamImpl`；

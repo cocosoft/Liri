@@ -302,12 +302,18 @@ describe("hasPendingApproval — 会话是否在等待审批（2026-11-13）", (
       },
     }) as MessageBlock;
 
-  const toolPending = (): MessageBlock =>
+  const toolPending = (inboxId?: string): MessageBlock =>
     ({
       id: "blk_tc_pending",
       type: "tool_call",
       content: "",
-      toolCall: { id: "tc-1", name: "bash", status: "running", pendingApproval: true },
+      toolCall: {
+        id: "tc-1",
+        name: "bash",
+        status: "running",
+        pendingApproval: true,
+        ...(inboxId ? { inboxId } : {}),
+      },
     }) as MessageBlock;
 
   const awaitingAssistant = (blocks: MessageBlock[] = []) => ({
@@ -347,5 +353,53 @@ describe("hasPendingApproval — 会话是否在等待审批（2026-11-13）", (
     expect(
       hasPendingApproval([{ role: "assistant", metadata: { finishReason: "stop" } }]),
     ).toBe(false);
+  });
+
+  /**
+   * 2026-11-17（用户实测）：界面**一直**显示「⏸ 等待审批（需要你的反馈）」，
+   * 但审批面板不存在（卡片已是「已超时过期 / 已处理」）。
+   *
+   * 根因：`tool_call.pendingApproval` 由「awaiting_approval 占位结果」置位，
+   * 审批过期/被拒后**不会再写终态结果** ⇒ 该标记永久残留；而 `hasPendingApproval`
+   * 先看到它就 return true，**从不**与同 `inboxId` 的审批卡状态对账。
+   */
+  it("审批卡已过期 + 工具卡残留 pendingApproval（同 inboxId）⇒ false", () => {
+    expect(
+      hasPendingApproval([
+        { role: "assistant", blocks: [toolPending("ib-1"), inbox("expired")] },
+      ]),
+    ).toBe(false);
+  });
+
+  it("审批卡已处理 + 工具卡残留 pendingApproval（同 inboxId）⇒ false", () => {
+    expect(
+      hasPendingApproval([
+        { role: "assistant", blocks: [toolPending("ib-1"), inbox("replied")] },
+      ]),
+    ).toBe(false);
+  });
+
+  it("审批卡仍 pending + 工具卡 pendingApproval（同 inboxId）⇒ true", () => {
+    expect(
+      hasPendingApproval([
+        { role: "assistant", blocks: [toolPending("ib-1"), inbox("pending")] },
+      ]),
+    ).toBe(true);
+  });
+
+  it("已处理卡的 inboxId 与工具卡不同 ⇒ 仍按工具卡等待（不误伤别的调用）", () => {
+    const otherCard = {
+      ...inbox("expired"),
+      id: "blk_inbox_other",
+      inboxData: {
+        ...(inbox("expired") as { inboxData: Record<string, unknown> }).inboxData,
+        inboxId: "ib-other",
+      },
+    } as MessageBlock;
+    expect(
+      hasPendingApproval([
+        { role: "assistant", blocks: [toolPending("ib-1"), otherCard] },
+      ]),
+    ).toBe(true);
   });
 });

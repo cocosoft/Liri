@@ -361,6 +361,20 @@ export async function launchRepl(
     ui.showWarning('Cron 调度器已启动（默认执行模式 — 无 AI Provider 可用）');
   }
 
+  // R5（2026-11-17）：本周未收录命令的**非阻塞**提示（失败 / 无样本 ⇒ 静默，不拖慢启动）
+  void (async () => {
+    try {
+      const { readUnknownCommandDigest, formatUnknownCommandNotice } =
+        await import('@openliri/infra/permission');
+      const notice = formatUnknownCommandNotice(
+        readUnknownCommandDigest({ sinceDays: 7, top: 1 })
+      );
+      if (notice) ui.showWarning(notice);
+    } catch {
+      // @ignore-catch — 启动提示属旁路观测（CS03：不因此影响启动）
+    }
+  })();
+
   if (!finalConfig.useLegacyRepl) {
     getStartupChainProfiler().markPhaseStart('context_init');
     getStartupChainProfiler().markPhaseEnd('context_init');

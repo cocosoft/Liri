@@ -663,7 +663,7 @@ body `{ objective?: string（trim 非空）, tokenBudget?: number（正有限数
 
 | 方法 | 路径 | 后端状态 | 前端调用方 |
 |------|------|----------|-----------|
-| GET | `/v1/permissions/rules` | ✅ | `permissionService.listRules`（设置页；R3 起返回 `approvalRules` 分组 + `approvalPause` 状态，每条含 `origin/approvedAt/approvedBy/hitCount`） |
+| GET | `/v1/permissions/rules` | ✅ | `permissionService.listRules`（设置页；R3 起返回 `approvalRules` 分组 + `approvalPause` 状态，每条含 `origin/approvedAt/approvedBy/hitCount`；R5 起含 `unknownCommandSuggestions`（本周未收录命令摘要，无样本 ⇒ `null`）） |
 | POST | `/v1/permissions/rules` | ✅ | `permissionService.addRule`（冲突 409 + `conflicts`；`force=true` 才「后写为准」） |
 | PUT | `/v1/permissions/rules/{ruleId}` | ✅ | 无前端调用方（只允许改 `behavior` / `contentPattern`；审批规则 403；冲突/重复/损坏 409） |
 | DELETE | `/v1/permissions/rules/{ruleId}` | ✅ | `permissionService.deleteRule`（不存在 ⇒ 200 幂等；审批规则删除 = 撤销放行） |

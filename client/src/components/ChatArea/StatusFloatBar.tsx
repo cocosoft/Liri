@@ -12,6 +12,8 @@ import type { TaskCardData } from "../../types";
 import { findLatestTaskCard } from "./taskCardSnapshot";
 // 等待态可见性（2026-09-27 Spec `wait-state-visibility.md` D5/D6）：等待态并入浮动栏
 import type { WaitState } from "./useWaitState";
+// 2026-11-18（用户反馈「看不出你在运行，以为挂了」）：运行秒表 + 后端心跳年龄 + 停滞判定
+import { useRunClock } from "../../hooks/useRunClock";
 // 2026-11-13：等待审批是会话级状态（审批卡 / 工具卡 / 收尾标记三处信号，结构化判定）
 import { hasPendingApproval } from "../../stores/chat/chat-message-shared";
 
@@ -149,11 +151,14 @@ function TaskMiniPanel({
  */
 export default function StatusFloatBar({
   fluid = false,
+  sessionId,
   pdca,
   orchestrate,
   wait,
 }: {
   fluid?: boolean;
+  /** 当前会话 id —— 心跳按会话分键（多会话并行时不得用别的会话的心跳作证） */
+  sessionId?: string;
   /** UI-2（2026-09-23）：PDCA 编排徽标（可见性/展开态由 ChatArea 与 usePdcaEntry 提供） */
   pdca?: { visible: boolean; open: boolean; onToggle: () => void };
   /** 「用编排推进（启动 PDCA）」入口（判据/动作由 ChatArea 与 usePdcaStartEntry 提供）：
@@ -199,6 +204,13 @@ export default function StatusFloatBar({
     [messages],
   );
   const keepVisible = isActive || isWaiting || pendingApproval;
+  /**
+   * 2026-11-18（Run HUD）：运行秒表 + 后端心跳年龄。
+   * 原状态条只有一句静态「AI 正在生成回复」—— 一个字不变的 UI 和真死掉的 UI
+   * 在屏幕上长得一样（用户原话："我以为你挂了"）。这里给出可核对的时间证据，
+   * 并在心跳静默超阈值时显式切到「可能已断」而不是继续假装正常。
+   */
+  const runClock = useRunClock(sessionId);
   const [fadingOut, setFadingOut] = useState(false);
 
   /**
@@ -277,6 +289,13 @@ export default function StatusFloatBar({
       if (orchestrate?.visible) return "";
       return t("chat.streamingLabel");
     }
+    if (runClock.stalled) {
+      // 心跳静默超阈值（默认 90s）⇒ 直说"可能已断"，不得继续显示"正在生成"：
+      // 继续显示正常文案正是用户被误导的来源。
+      return t("chat.runStalled", {
+        seconds: runClock.beatAgeSeconds ?? 0,
+      });
+    }
     if (isUploading) return t("chat.uploading");
     if (isSending && !isStreaming) return t("chat.sending");
     if (executionPhase?.phase) {
@@ -312,21 +331,23 @@ export default function StatusFloatBar({
       >
         <div className={fluid ? "w-full" : "max-w-3xl mx-auto"}>
           <div className="flex items-center gap-2.5 px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200/50 dark:border-gray-700/50 rounded-xl shadow-md cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-            {/* 状态指示点：绿色脉冲 = 运行中；等待中 = 静态蓝点（**不脉冲**，否则谎报"正在输出"）；
-                等待审批 = 静态琥珀点；空闲但 PDCA 常驻时用静态灰点（不谎报运行态） */}
+            {/* 状态指示点：绿色脉冲 = 运行中；停滞 = 静态琥珀（不脉冲，不得谎报"仍在输出"）；
+                等待中 = 静态蓝点；等待审批 = 静态琥珀点；空闲但 PDCA 常驻时用静态灰点 */}
             <span className="relative flex h-2.5 w-2.5">
-              {isActive && (
+              {isActive && !runClock.stalled && (
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
               )}
               <span
                 className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
-                  isActive
-                    ? "bg-green-500"
-                    : pendingApproval
-                      ? "bg-amber-500"
-                      : isWaiting
-                        ? "bg-sky-500"
-                        : "bg-gray-400"
+                  runClock.stalled
+                    ? "bg-amber-500"
+                    : isActive
+                      ? "bg-green-500"
+                      : pendingApproval
+                        ? "bg-amber-500"
+                        : isWaiting
+                          ? "bg-sky-500"
+                          : "bg-gray-400"
                 }`}
               />
             </span>
@@ -336,6 +357,27 @@ export default function StatusFloatBar({
               {statusText && (
                 <span className="text-sm text-gray-600 dark:text-gray-300 truncate">
                   {statusText}
+                </span>
+              )}
+              {/* 2026-11-18（Run HUD）：时间证据 —— 运行秒表 + 最后心跳年龄。
+                  只显示真实测量值：没收到过心跳就不显示「N 秒前」（不猜）。 */}
+              {isActive && (
+                <span className="ml-2 shrink-0 text-xs text-gray-400 dark:text-gray-500 tabular-nums">
+                  {t("chat.runElapsed", { seconds: runClock.elapsedSeconds })}
+                  {runClock.beatAgeSeconds !== null && (
+                    <span
+                      className={
+                        runClock.stalled
+                          ? "text-amber-600 dark:text-amber-400"
+                          : undefined
+                      }
+                    >
+                      {" · "}
+                      {t("chat.runBeatAge", {
+                        seconds: runClock.beatAgeSeconds,
+                      })}
+                    </span>
+                  )}
                 </span>
               )}
               {/* 等待审批期间不展示「已完成 x/y」——它会被读成"任务结束" */}

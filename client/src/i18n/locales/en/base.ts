@@ -524,6 +524,11 @@ const enBase = {
     waitingSelfwake:
       "⏳ Waiting ({{seconds}}s elapsed) — will resume automatically",
     waitingYield: "⏳ Waiting for subtask settlement ({{seconds}}s elapsed)",
+    // Run-state visibility (2026-11-18): run stopwatch + backend heartbeat evidence
+    runElapsed: "Running {{seconds}}s",
+    runBeatAge: "last heartbeat {{seconds}}s ago",
+    runStalled:
+      "⚠️ No backend heartbeat for {{seconds}}s — the connection may be down (waiting for auto-reconnect)",
     yieldUnresolved:
       "This turn yielded but could not auto-resume (app restart or lost settlement). Just send a message to continue.",
     // PR-3c (2026-10-23): persistent global trust level notice (Q-31 / §9-17)

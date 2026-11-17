@@ -18,6 +18,11 @@ import { DAILY_BUDGET_EXCEEDED } from "../error/errorCodes";
 import { APP_EVENTS } from "@/constants/events";
 import { STORAGE_KEYS } from "@/constants/storage";
 import { ENDPOINTS } from "./endpoints";
+import {
+  isSseHeartbeatComment,
+  noteStreamHeartbeat,
+  resetStreamHeartbeat,
+} from "./streamHeartbeat";
 
 const logger = createLogger("chatService");
 
@@ -916,6 +921,10 @@ export const chatService = {
       const decoder = new TextDecoder();
       let buffer = "";
 
+      // 2026-11-18（Run HUD）：新一轮流开始 ⇒ 清空该会话上一轮的心跳基线，
+      // 否则「最后心跳 N 秒前」会用到旧连接的时间戳（伪造活性证据）。
+      resetStreamHeartbeat(sessionId);
+
       try {
         let parseFailCount = 0;
 
@@ -1203,6 +1212,10 @@ export const chatService = {
             // 兼容 `data:` 与 `data: ` 前缀（SSE 规范允许无空格）
             if (trimmed.startsWith("data:")) {
               pendingData.push(trimmed.slice(5).trimStart());
+            } else if (isSseHeartbeatComment(trimmed)) {
+              // 2026-11-18（Run HUD）：后端每 15s 的 `: heartbeat` 保活注释行
+              // 就是链路存活凭证 —— 此前被当作"其他字段"丢弃，UI 无从显示心跳。
+              noteStreamHeartbeat(sessionId);
             }
             // 其他 SSE 字段（event:/id:/retry:）忽略
           }
@@ -1449,6 +1462,8 @@ export const chatService = {
           const decoder = new TextDecoder();
           let buffer = "";
           const pendingData: string[] = [];
+          // 2026-11-18（Run HUD）：恢复连接开启 ⇒ 重置本会话心跳基线（旧连接的时间戳不再有效）
+          resetStreamHeartbeat(sessionId);
           // 竞态排查：恢复路径事件统计——[DONE]/流结束/残留 flush 时打印，
           // 便于确认恢复链路上事件是否丢失或重复（对比主链路事件数）
           let resumeEventCount = 0;
@@ -1503,6 +1518,9 @@ export const chatService = {
               // 兼容 `data:` 与 `data: ` 前缀（SSE 规范允许无空格）
               if (trimmed.startsWith("data:")) {
                 pendingData.push(trimmed.slice(5).trimStart());
+              } else if (isSseHeartbeatComment(trimmed)) {
+                // 2026-11-18（Run HUD）：恢复链路同样登记后端心跳（续传后 UI 仍需存活凭证）
+                noteStreamHeartbeat(sessionId);
               }
               // 其他 SSE 字段（event:/id:/retry:）忽略
             }

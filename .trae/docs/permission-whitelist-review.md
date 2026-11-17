@@ -65,7 +65,9 @@ bun run scripts/report-unknown-commands.ts --since 7 --top 50 --json
   —— 只读、只能撤销；出事时可用 `POST /v1/permissions/approvals/pause` 一键暂停。
 
 护栏：危险命令头（`rm -rf` / `git push` / `npm install` …）**禁止建 allow**；
-allow 规则有预算（`permission.userRuleAllowBudget`，默认 50）。
+allow 规则有预算（`permission.userRuleAllowBudget`，默认 50）；
+保存前会跑**影响预演**（基准命令写前/写后对比），若把基准从 `ask`/`allow` 变 `deny`
+⇒ 写接口 409 `code=impact`，需显式 `confirmImpact=true` 再写（防把自己/agent 锁死）。
 
 ## 5. 启动提示与设置页
 

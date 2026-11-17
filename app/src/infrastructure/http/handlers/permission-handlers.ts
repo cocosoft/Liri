@@ -58,6 +58,7 @@ import {
   type CommandRulesSettings,
   type RuleWriteResult,
   type SimulatablePermissionMode,
+  type RuleImpactPreview,
 } from '@openliri/infra/permission';
 
 const VALID_BEHAVIORS: string[] = ['allow', 'deny', 'ask'];
@@ -244,6 +245,25 @@ function sendRuleWriteFailure(
   );
 }
 
+/**
+ * R5：影响预演发现"基准变差" ⇒ 409（**未写任何状态**），需显式 `confirmImpact=true` 重试。
+ */
+function sendRuleImpactBlocked(
+  res: http.ServerResponse,
+  impact: RuleImpactPreview
+): void {
+  res.writeHead(409, { 'Content-Type': 'application/json' });
+  res.end(
+    JSON.stringify({
+      error: {
+        code: 'impact',
+        message: `该规则会把 ${impact.degradedCommands.length} 条基准命令从 ask/allow 变为 deny；如确认请带 confirmImpact=true 重试`,
+        impact,
+      },
+    })
+  );
+}
+
 /** 审批生成字段（`inputFingerprint` / `workspaceRoot`）不得经手写规则伪造 */
 function rejectsApprovalFields(body: Record<string, unknown>): string | null {
   for (const field of ['inputFingerprint', 'workspaceRoot'] as const) {
@@ -256,10 +276,14 @@ function rejectsApprovalFields(body: Record<string, unknown>): string | null {
 
 /**
  * 添加工具权限规则 POST /v1/permissions/rules
- * body: { behavior: 'allow' | 'deny' | 'ask', toolName: string, contentPattern?: string, force?: boolean }
+ * body: { behavior: 'allow' | 'deny' | 'ask', toolName: string, contentPattern?: string,
+ *         force?: boolean, confirmImpact?: boolean }
  *
  * R2：冲突（同键不同行为）⇒ 409 + `conflicts`；`force=true` 表示「后写为准」，
  * 但**不能**覆盖审批生成的规则。规则文件损坏 ⇒ 409（不覆盖最后可用数据）。
+ *
+ * R5（§11.6-④）：写前跑基准命令影响预演；若把基准从 ask/allow 变 deny ⇒ 409 + `impact`，
+ * 需显式 `confirmImpact=true` 再写（防把自己/agent 锁死）。
  */
 export async function handleAddPermissionRule(
   req: http.IncomingMessage,
@@ -268,7 +292,7 @@ export async function handleAddPermissionRule(
   try {
     const body = await readRequestBody(req);
     const parsed = JSON.parse(body) as Record<string, unknown>;
-    const { behavior, toolName, contentPattern, force } = parsed;
+    const { behavior, toolName, contentPattern, force, confirmImpact } = parsed;
 
     const approvalFieldError = rejectsApprovalFields(parsed);
     if (approvalFieldError) {
@@ -282,6 +306,7 @@ export async function handleAddPermissionRule(
       typeof behavior !== 'string' ||
       !VALID_BEHAVIORS.includes(behavior) ||
       (force !== undefined && typeof force !== 'boolean') ||
+      (confirmImpact !== undefined && typeof confirmImpact !== 'boolean') ||
       (contentPattern !== undefined && typeof contentPattern !== 'string')
     ) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -289,24 +314,35 @@ export async function handleAddPermissionRule(
         JSON.stringify({
           error: {
             message:
-              'behavior 必须为 allow/deny/ask，toolName 必填字符串；contentPattern 为字符串，force 为布尔',
+              'behavior 必须为 allow/deny/ask，toolName 必填字符串；contentPattern 为字符串，force / confirmImpact 为布尔',
           },
         })
       );
       return;
     }
 
-    const result = addRuleChecked(
-      PermissionManager.getInstance().getRuleManager(),
-      {
-        behavior: behavior as PermissionBehavior,
-        toolName,
-        ...(typeof contentPattern === 'string' && contentPattern
-          ? { contentPattern }
-          : {}),
-        ...(force === true ? { force: true } : {}),
-      }
-    );
+    const manager = PermissionManager.getInstance();
+    // R5：保存前冒烟自检（内存沙箱，不写任何状态）
+    const impact = await manager.previewRuleImpact({
+      behavior: behavior as PermissionBehavior,
+      toolName,
+      ...(typeof contentPattern === 'string' && contentPattern
+        ? { contentPattern }
+        : {}),
+    });
+    if (impact?.degraded && confirmImpact !== true) {
+      sendRuleImpactBlocked(res, impact);
+      return;
+    }
+
+    const result = addRuleChecked(manager.getRuleManager(), {
+      behavior: behavior as PermissionBehavior,
+      toolName,
+      ...(typeof contentPattern === 'string' && contentPattern
+        ? { contentPattern }
+        : {}),
+      ...(force === true ? { force: true } : {}),
+    });
     if (!result.ok) {
       sendRuleWriteFailure(res, result);
       return;
@@ -316,6 +352,7 @@ export async function handleAddPermissionRule(
       JSON.stringify({
         message: '权限规则已添加',
         rule: serializeRule(result.rule),
+        impact,
       })
     );
   } catch (err) {
@@ -355,10 +392,11 @@ export async function handleUpdatePermissionRule(
       res.end(JSON.stringify({ error: { message: approvalFieldError } }));
       return;
     }
-    const { behavior, contentPattern } = parsed;
+    const { behavior, contentPattern, confirmImpact } = parsed;
     if (
       parsed['toolName'] !== undefined ||
       parsed['force'] !== undefined ||
+      (confirmImpact !== undefined && typeof confirmImpact !== 'boolean') ||
       (behavior !== undefined &&
         (typeof behavior !== 'string' ||
           !VALID_BEHAVIORS.includes(behavior))) ||
@@ -371,7 +409,7 @@ export async function handleUpdatePermissionRule(
         JSON.stringify({
           error: {
             message:
-              '只允许改 behavior / contentPattern（null 清除）；toolName 不可修改；force 仅用于新增',
+              '只允许改 behavior / contentPattern（null 清除）与 confirmImpact；toolName 不可修改；force 仅用于新增',
           },
         })
       );
@@ -387,18 +425,37 @@ export async function handleUpdatePermissionRule(
       return;
     }
 
-    const result = updateRuleChecked(
-      PermissionManager.getInstance().getRuleManager(),
-      ruleId,
-      {
-        ...(typeof behavior === 'string'
-          ? { behavior: behavior as PermissionBehavior }
-          : {}),
-        ...(contentPattern !== undefined
-          ? { contentPattern: contentPattern as string | null }
-          : {}),
+    const manager = PermissionManager.getInstance();
+    // R5：编辑同样做影响预演（用"改后"的行为/内容作为候选；规则不存在 ⇒ 交给 updateRuleChecked 报 404）
+    const existing = manager
+      .getRuleManager()
+      .getRules()
+      .find((rule) => rule.id === ruleId);
+    let impact = null;
+    if (existing && !isApprovalOriginatedRule(existing)) {
+      impact = await manager.previewRuleImpact({
+        behavior:
+          (behavior as PermissionBehavior | undefined) ?? existing.behavior,
+        toolName: existing.toolName,
+        contentPattern:
+          contentPattern === undefined
+            ? existing.contentPattern
+            : (contentPattern as string | null) || undefined,
+      });
+      if (impact?.degraded && confirmImpact !== true) {
+        sendRuleImpactBlocked(res, impact);
+        return;
       }
-    );
+    }
+
+    const result = updateRuleChecked(manager.getRuleManager(), ruleId, {
+      ...(typeof behavior === 'string'
+        ? { behavior: behavior as PermissionBehavior }
+        : {}),
+      ...(contentPattern !== undefined
+        ? { contentPattern: contentPattern as string | null }
+        : {}),
+    });
     if (!result.ok) {
       sendRuleWriteFailure(res, result);
       return;
@@ -408,6 +465,7 @@ export async function handleUpdatePermissionRule(
       JSON.stringify({
         message: '权限规则已更新',
         rule: serializeRule(result.rule),
+        impact,
       })
     );
   } catch (err) {

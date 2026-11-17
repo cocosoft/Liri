@@ -1075,6 +1075,11 @@ const enSettings = {
     toolsRulesPauseSessionCount: "Paused sessions · {{count}}",
     toolsRulesPauseSessionHint:
       "Lets only the current session ignore approval-generated allows (other sessions and background tasks are unaffected); the entry stops matching once the session ends — uncheck to remove it any time.",
+    toolsRulesPauseWorkspaceLabel: "Pause for the current workspace only",
+    toolsRulesPauseWorkspaceNoPath: "The current session has no folder bound",
+    toolsRulesPauseWorkspaceCount: "Paused workspaces · {{count}}",
+    toolsRulesPauseWorkspaceHint:
+      "Lets calls under this folder ignore approval-generated allows (roots are compared in one canonical form: separators and case are insensitive); uncheck or remove entries any time.",
     toolsRulesUnknownTitle:
       "{{headCount}} unknown commands went through approval in the last {{days}} days ({{sampleCount}} times)",
     toolsRulesUnknownHint:

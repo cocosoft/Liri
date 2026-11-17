@@ -128,8 +128,8 @@ beforeEach(() => {
     configKey: "permission.pauseApprovalPersistence",
     message: "",
   });
-  // F2：按会话暂停依赖"当前会话"；每个用例从"无活跃会话"起跑
-  useRootStore.setState({ currentSessionId: null });
+  // F2：细粒度暂停依赖"当前会话 / 当前工作区"；每个用例从未绑定起跑
+  useRootStore.setState({ currentSessionId: null, chatSessions: [] });
 });
 
 describe("ToolRulesSection — 空数据如实降级", () => {
@@ -273,11 +273,16 @@ describe("ToolRulesSection — 影响预演 409 ⇒ 二次确认", () => {
   });
 });
 
-describe("ToolRulesSection — F2：暂停粒度（全局 / 仅当前会话）", () => {
-  const PAUSE = (sessions: string[], global = false) => ({
+describe("ToolRulesSection — F2：暂停粒度（全局 / 会话 / 工作区）", () => {
+  const PAUSE = (
+    sessions: string[],
+    global = false,
+    workspaces: string[] = [],
+  ) => ({
     enabled: global,
     global,
     sessions,
+    workspaces,
     configKey: "permission.pauseApprovalPersistence",
   });
 
@@ -293,7 +298,7 @@ describe("ToolRulesSection — F2：暂停粒度（全局 / 仅当前会话）",
 
     const boxes = await waitFor(() => {
       const found = screen.getAllByRole("checkbox") as HTMLInputElement[];
-      expect(found).toHaveLength(2);
+      expect(found).toHaveLength(3);
       return found;
     });
     const sessionBox = boxes[1];
@@ -321,7 +326,7 @@ describe("ToolRulesSection — F2：暂停粒度（全局 / 仅当前会话）",
 
     const boxes = await waitFor(() => {
       const found = screen.getAllByRole("checkbox") as HTMLInputElement[];
-      expect(found).toHaveLength(2);
+      expect(found).toHaveLength(3);
       return found;
     });
     expect(boxes[1].checked).toBe(true);
@@ -346,7 +351,7 @@ describe("ToolRulesSection — F2：暂停粒度（全局 / 仅当前会话）",
 
     const boxes = await waitFor(() => {
       const found = screen.getAllByRole("checkbox") as HTMLInputElement[];
-      expect(found).toHaveLength(2);
+      expect(found).toHaveLength(3);
       return found;
     });
     expect(boxes[0].disabled).toBe(false); // 全局开关可用
@@ -365,7 +370,7 @@ describe("ToolRulesSection — F2：暂停粒度（全局 / 仅当前会话）",
 
     const boxes = await waitFor(() => {
       const found = screen.getAllByRole("checkbox") as HTMLInputElement[];
-      expect(found).toHaveLength(2);
+      expect(found).toHaveLength(3);
       return found;
     });
 
@@ -373,6 +378,96 @@ describe("ToolRulesSection — F2：暂停粒度（全局 / 仅当前会话）",
 
     await waitFor(() => {
       expect(updateApprovalPause).toHaveBeenCalledWith({ global: true });
+    });
+  });
+
+  it("勾选「仅对当前工作区暂停」⇒ 以当前会话绑定的路径写入 workspaces", async () => {
+    useRootStore.setState({
+      currentSessionId: "sess-1",
+      chatSessions: [
+        { id: "sess-1", title: "t", workspacePath: "E:\\Proj" },
+      ] as never,
+    });
+    listRules.mockResolvedValue({
+      rules: [],
+      summary: SUMMARY,
+      approvalPause: PAUSE([]),
+    });
+
+    render(<ToolRulesSection isDark={false} />);
+
+    const boxes = await waitFor(() => {
+      const found = screen.getAllByRole("checkbox") as HTMLInputElement[];
+      expect(found).toHaveLength(3);
+      return found;
+    });
+    const workspaceBox = boxes[2];
+    expect(workspaceBox.disabled).toBe(false);
+    expect(workspaceBox.checked).toBe(false);
+
+    fireEvent.click(workspaceBox);
+
+    await waitFor(() => {
+      expect(updateApprovalPause).toHaveBeenCalledWith({
+        workspaces: ["E:\\Proj"],
+      });
+    });
+  });
+
+  it("服务端归一化后的根与当前路径等价 ⇒ 勾选态为已暂停，点击后移除", async () => {
+    useRootStore.setState({
+      currentSessionId: "sess-1",
+      chatSessions: [
+        { id: "sess-1", title: "t", workspacePath: "E:\\Proj\\" },
+      ] as never,
+    });
+    listRules.mockResolvedValue({
+      rules: [],
+      summary: SUMMARY,
+      approvalPause: PAUSE([], false, ["e:/proj"]),
+    });
+
+    render(<ToolRulesSection isDark={false} />);
+
+    const boxes = await waitFor(() => {
+      const found = screen.getAllByRole("checkbox") as HTMLInputElement[];
+      expect(found).toHaveLength(3);
+      return found;
+    });
+    expect(boxes[2].checked).toBe(true);
+
+    fireEvent.click(boxes[2]);
+
+    await waitFor(() => {
+      expect(updateApprovalPause).toHaveBeenCalledWith({ workspaces: [] });
+    });
+  });
+
+  it("未绑定工作区 ⇒ 工作区开关禁用并如实提示；已暂停的根可在列表移除", async () => {
+    listRules.mockResolvedValue({
+      rules: [],
+      summary: SUMMARY,
+      approvalPause: PAUSE([], false, ["e:/a", "e:/b"]),
+    });
+
+    render(<ToolRulesSection isDark={false} />);
+
+    const boxes = await waitFor(() => {
+      const found = screen.getAllByRole("checkbox") as HTMLInputElement[];
+      expect(found).toHaveLength(3);
+      return found;
+    });
+    expect(boxes[2].disabled).toBe(true);
+    expect(screen.getByText("当前会话未绑定文件夹")).toBeDefined();
+    expect(screen.getByText("e:/a")).toBeDefined();
+    expect(screen.getByText("e:/b")).toBeDefined();
+
+    fireEvent.click(screen.getAllByText("删除")[0]);
+
+    await waitFor(() => {
+      expect(updateApprovalPause).toHaveBeenCalledWith({
+        workspaces: ["e:/b"],
+      });
     });
   });
 });

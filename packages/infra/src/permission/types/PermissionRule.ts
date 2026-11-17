@@ -374,8 +374,11 @@ export function permissionRuleValueToString(
 /**
  * G3：工作区根归一化 —— 统一分隔符、去尾斜杠、小写（Windows 路径大小写不敏感）。
  * 只用于**相等比较**，不解析符号链接（规则与调用方都取同一进程的工作目录）。
+ *
+ * 2026-11-17（F2）：导出为**唯一实现** —— 规则匹配与「按工作区暂停」共用同一归一化，
+ * 避免两处各写一套导致「暂停了却没生效」。
  */
-function normalizeWorkspaceRoot(root: string): string {
+export function normalizeWorkspaceRoot(root: string): string {
   return root.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
 }
 

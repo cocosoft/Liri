@@ -357,7 +357,7 @@ export {
   setApprovalPauseEnabled,
   setApprovalPauseState,
 } from './approvalPause';
-export type { ApprovalPauseState } from './approvalPause';
+export type { ApprovalPauseScope, ApprovalPauseState } from './approvalPause';
 // R5（2026-11-17）：未知命令采样摘要（周报 CLI / 设置页 / 启动提示同一实现）
 export {
   readUnknownCommandDigest,

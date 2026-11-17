@@ -63,6 +63,8 @@ export interface ApprovalPauseState {
   global?: boolean;
   /** 按会话暂停的会话 id 列表（F2） */
   sessions?: string[];
+  /** 按工作区根暂停的根路径列表（F2；服务端归一化后返回） */
+  workspaces?: string[];
   configKey: string;
 }
 
@@ -355,11 +357,13 @@ export const permissionService = {
    * R3/F2：写入暂停状态。
    *
    * - `{ global }` ⇒ 全局暂停（等于旧 `enabled` 语义，保留既有会话级条目）；
-   * - `{ sessions }` ⇒ 按会话暂停（整体替换，其他会话不受影响）。
+   * - `{ sessions }` ⇒ 按会话暂停（整体替换，其他会话不受影响）；
+   * - `{ workspaces }` ⇒ 按工作区根暂停（整体替换；根由服务端统一归一化后比较）。
    */
   async updateApprovalPause(patch: {
     global?: boolean;
     sessions?: string[];
+    workspaces?: string[];
   }): Promise<ApprovalPauseState & { message: string }> {
     return http.post<ApprovalPauseState & { message: string }>(
       ENDPOINTS.permissions.approvalsPause,

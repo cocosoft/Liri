@@ -31,6 +31,7 @@ import type { HandlerCtx } from '../handler-utils';
 import { isValidSessionIdFormat, sendInvalidSessionId } from '../handler-utils';
 import { handleEvents } from '../../LocalHTTPServiceSSE';
 import {
+  handleAttachStream,
   handleChatCompletions,
   handleLatestCheckpoint,
   handleQuestionAnswer,
@@ -272,6 +273,13 @@ async function dispatchSessionMessageRoutes(
     const sid = requireSessionId(url, /^\/v1\/sessions\/(.+)\/streaming$/, res);
     if (sid === null) return true;
     await handleSessionStreamingStatus(handlerCtx, req, res, sid);
+    return true;
+  }
+  // 2026-11-18（Spec `.trae/specs/stream-attach.md`）：只读接入正在输出的这一轮（SSE）
+  if (method === 'GET' && url.match(/^\/v1\/sessions\/(.+)\/attach$/)) {
+    const sid = requireSessionId(url, /^\/v1\/sessions\/(.+)\/attach$/, res);
+    if (sid === null) return true;
+    await handleAttachStream(handlerCtx, req, res, sid);
     return true;
   }
   return false;

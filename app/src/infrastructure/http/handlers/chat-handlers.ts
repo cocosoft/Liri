@@ -51,6 +51,13 @@ import { DEFAULT_MODEL_SENTINEL } from '@openliri/infra/constants';
 import { isMediaOutputToolName } from '@openliri/infra/utils/toolContract/toolRoles';
 // T3（2026-11-17）：SSE 数据帧的唯一构造点（从本文件的 switch / usage 收尾块原样搬出）
 import { buildStreamChunkFrame, writeStreamTail } from './chatStreamFrames';
+// 2026-11-18（Spec `.trae/specs/stream-attach.md`）：只读 attach 的帧旁路
+import {
+  ATTACH_HEARTBEAT_MS,
+  ATTACH_SLOW_CLIENT_MAX_BUFFER,
+  beginRun,
+  openAttach,
+} from './streamAttachHub';
 // 2026-11-11：消息级 `autonomy` 的跨字段冲突契约（与 PATCH /meta 同一判定，见 infra/permission）
 import {
   AUTONOMY_PERMISSION_CONFLICT,
@@ -74,7 +81,7 @@ import {
   OWNERSHIP_WAIT_MS,
   type ExecutionLease,
 } from '@openliri/service/execution';
-import { feature } from '@openliri/kernel';
+import { feature, LOCAL_REQUEST_BASE_URL } from '@openliri/kernel';
 
 const logger = getLogger('http:chat');
 
@@ -103,6 +110,18 @@ function safeFlush(r: http.ServerResponse): void {
     // 客户端已断开，静默忽略
   }
 }
+
+/**
+ * SSE 响应头（流式聊天 `POST /v1/chat/completions` 与只读接入 `GET .../attach` 共用）。
+ * 2026-11-18：原为 chat 流内联字面量，attach 需逐字一致 ⇒ 抽常量，避免两处漂移。
+ */
+const SSE_RESPONSE_HEADERS = {
+  'Content-Type': 'text/event-stream; charset=utf-8',
+  'Cache-Control': 'no-cache',
+  Connection: 'keep-alive',
+  'X-Accel-Buffering': 'no',
+  'Transfer-Encoding': 'chunked',
+} as const;
 
 /**
  * P1（2026-11-04）：请求体 ⇒ `ChatRequest.metadata` 的**唯一**构造点（流式 / 非流式共用）。
@@ -873,13 +892,7 @@ async function handleStreamingChat(
     hasImages: !!request.images?.length,
   });
 
-  res.writeHead(200, {
-    'Content-Type': 'text/event-stream; charset=utf-8',
-    'Cache-Control': 'no-cache',
-    Connection: 'keep-alive',
-    'X-Accel-Buffering': 'no',
-    'Transfer-Encoding': 'chunked',
-  });
+  res.writeHead(200, SSE_RESPONSE_HEADERS);
 
   // 禁用响应缓冲，确保 SSE 数据立即发送
   safeFlush(res);
@@ -921,8 +934,24 @@ async function handleStreamingChat(
   const created = Math.floor(Date.now() / 1000);
   const model = request.model || DEFAULT_MODEL_SENTINEL;
 
+  /**
+   * 2026-11-18（Spec `.trae/specs/stream-attach.md` §5.2）：帧旁路 tee。
+   *
+   * 主链路仍是 `res.write(frame)` + `safeFlush(res)`（字节与顺序逐字不变），
+   * 旁路把**同一个字符串**交给 attach hub，供只读 attach 端点回放/转发。
+   * 无会话 id 的请求（旧协议）⇒ 不 tee，attach 对这条流返回 404。
+   */
+  const attachRun = request.session_id
+    ? beginRun(request.session_id, responseId)
+    : null;
+  const writeFrame = (frame: string): void => {
+    res.write(frame);
+    safeFlush(res);
+    attachRun?.publish(frame);
+  };
+
   // 发送 role 和状态事件
-  res.write(
+  writeFrame(
     `data: ${JSON.stringify({
       id: responseId,
       object: 'chat.completion.chunk',
@@ -933,9 +962,8 @@ async function handleStreamingChat(
       ],
     })}\n\n`
   );
-  safeFlush(res);
 
-  res.write(
+  writeFrame(
     `data: ${JSON.stringify({
       id: responseId,
       object: 'chat.completion.chunk',
@@ -952,7 +980,6 @@ async function handleStreamingChat(
       ],
     })}\n\n`
   );
-  safeFlush(res);
 
   /** 生图完成事件 → SSE 转发（含结构化 resultData 用于前端渲染） */
   const onToolCompleted = (evt: { type: string; data: unknown }) => {
@@ -972,7 +999,7 @@ async function handleStreamingChat(
     ) {
       // P1-2: 检查客户端是否断开，避免 EPIPE
       if (res.destroyed || res.writableEnded) return;
-      res.write(
+      writeFrame(
         `data: ${JSON.stringify({
           id: responseId,
           object: 'chat.completion.chunk',
@@ -992,7 +1019,6 @@ async function handleStreamingChat(
           ],
         })}\n\n`
       );
-      safeFlush(res);
     }
   };
 
@@ -1042,7 +1068,7 @@ async function handleStreamingChat(
       /** 上下文水位监测 → SSE context_state 事件桥接 */
       onProgress: (event) => {
         if (event.watermarkState) {
-          res.write(
+          writeFrame(
             `data: ${JSON.stringify({
               id: responseId,
               object: 'chat.completion.chunk',
@@ -1059,7 +1085,6 @@ async function handleStreamingChat(
               watermarkState: event.watermarkState,
             })}\n\n`
           );
-          safeFlush(res);
         }
       },
     };
@@ -1132,8 +1157,7 @@ async function handleStreamingChat(
           model,
         });
         if (frame) {
-          res.write(frame);
-          safeFlush(res);
+          writeFrame(frame);
         }
       }
 
@@ -1156,10 +1180,7 @@ async function handleStreamingChat(
     // T3（2026-11-17）：usage / done 帧写出**原样搬运**到 `writeStreamTail`
     // （字段与判定顺序逐字不变）。
     writeStreamTail({
-      write: (frame) => {
-        res.write(frame);
-        safeFlush(res);
-      },
+      write: writeFrame,
       meta: { id: responseId, created, model },
       finishReason: finalFinishReason,
       usage: streamUsage,
@@ -1167,8 +1188,7 @@ async function handleStreamingChat(
       terminationReason: chunkTerminationReason,
     });
 
-    res.write('data: [DONE]\n\n');
-    safeFlush(res);
+    writeFrame('data: [DONE]\n\n');
     getEventNotificationService().off('tool:completed', onToolCompleted);
     getEventNotificationService().off(
       'project:auto_created',
@@ -1206,7 +1226,7 @@ async function handleStreamingChat(
     });
     // P1-2: 若客户端已断开，不尝试写入
     if (res.destroyed || res.writableEnded) return;
-    res.write(
+    writeFrame(
       `data: ${JSON.stringify({
         id: responseId,
         object: 'chat.completion.chunk',
@@ -1228,10 +1248,11 @@ async function handleStreamingChat(
         ],
       })}\n\n`
     );
-    safeFlush(res);
-    res.write('data: [DONE]\n\n');
-    safeFlush(res);
+    writeFrame('data: [DONE]\n\n');
     res.end();
+  } finally {
+    // 2026-11-18（attach）：三条出口（正常 / 客户端断开 / 异常）统一收口本轮
+    attachRun?.end();
   }
 }
 
@@ -1272,6 +1293,109 @@ export async function handleSessionStreamingStatus(
     res.writeHead(500, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Internal server error' }));
   }
+}
+
+/**
+ * GET /v1/sessions/:id/attach?from_seq=N[&run_id=…] — 只读接入正在输出的这一轮
+ *
+ * Spec：`.trae/specs/stream-attach.md` §4（契约）/ §5.3（实现点）。
+ *
+ * 与主链路的唯一区别：attach **只写自己的 res**，绝不调用 `abortSessionStream` ——
+ * 订阅端断开只是少了一个观察者，不得中止本轮（验收项 4）。
+ */
+export async function handleAttachStream(
+  _ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  sessionId: string
+): Promise<void> {
+  const query = new URL(req.url || '/', LOCAL_REQUEST_BASE_URL);
+  const rawFromSeq = query.searchParams.get('from_seq');
+  const fromSeq =
+    rawFromSeq === null || rawFromSeq.trim() === '' ? 0 : Number(rawFromSeq);
+  if (!Number.isInteger(fromSeq) || fromSeq < 0) {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        error: {
+          type: 'invalid_request_error',
+          code: 'invalid_from_seq',
+          message: 'from_seq 必须是非负整数',
+        },
+      })
+    );
+    return;
+  }
+
+  const opened = openAttach(
+    sessionId,
+    fromSeq,
+    query.searchParams.get('run_id') ?? undefined
+  );
+  if (!opened.ok) {
+    res.writeHead(opened.status, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(opened.body));
+    return;
+  }
+
+  res.writeHead(200, SSE_RESPONSE_HEADERS);
+  if (res.socket) res.socket.setNoDelay(true);
+
+  let heartbeat: ReturnType<typeof setInterval> | undefined;
+  let unsubscribe: (() => void) | undefined;
+  const writeRaw = (chunk: string): void => {
+    if (res.destroyed || res.writableEnded) return;
+    res.write(chunk);
+    safeFlush(res);
+  };
+  const finish = (): void => {
+    if (heartbeat) clearInterval(heartbeat);
+    if (!res.writableEnded) res.end();
+  };
+  res.on('close', () => {
+    unsubscribe?.();
+    if (heartbeat) clearInterval(heartbeat);
+  });
+
+  const { snapshot } = opened;
+  writeRaw(snapshot.metaFrame);
+  snapshot.replay.forEach((frame, i) => {
+    writeRaw(`id: ${snapshot.fromSeq + i}\n${frame}`);
+  });
+
+  // 本轮已结束（保留期内）：回放已含尾部帧，回放完即关闭；无 `[DONE]` 表示本轮非正常收尾，
+  // 客户端沿用既有判定（缺 `[DONE]` ⇒ 异常结束），这里不伪造终止帧。
+  if (snapshot.ended) {
+    finish();
+    return;
+  }
+
+  unsubscribe = opened.addSink({
+    write(seq, frame) {
+      if (res.destroyed || res.writableEnded) return false;
+      // 慢订阅端（积压超限）⇒ 断开该订阅，由客户端凭最后 id 重连；绝不拖慢主链路
+      if (res.writableLength > ATTACH_SLOW_CLIENT_MAX_BUFFER) return false;
+      res.write(`id: ${seq}\n${frame}`);
+      safeFlush(res);
+      return true;
+    },
+    close() {
+      finish();
+    },
+  });
+
+  heartbeat = setInterval(
+    () => writeRaw(': heartbeat\n\n'),
+    ATTACH_HEARTBEAT_MS
+  );
+  (heartbeat as unknown as { unref?: () => void }).unref?.();
+  logger.debug('attach 已接入', {
+    sessionId,
+    runId: snapshot.runId,
+    fromSeq,
+    nextSeq: snapshot.nextSeq,
+    replayCount: snapshot.replay.length,
+  });
 }
 
 /**
@@ -1462,13 +1586,7 @@ export async function handleResumeChat(
   if (await respond404IfSessionUnavailable(sessionId, res)) return;
 
   // SSE 头（与 handleStreamingChat 一致）
-  res.writeHead(200, {
-    'Content-Type': 'text/event-stream; charset=utf-8',
-    'Cache-Control': 'no-cache',
-    Connection: 'keep-alive',
-    'X-Accel-Buffering': 'no',
-    'Transfer-Encoding': 'chunked',
-  });
+  res.writeHead(200, SSE_RESPONSE_HEADERS);
 
   // K4b（2026-09-06）：仅流式中才中止（正常收尾的 close 不误伤后台 PDL）
   res.on('close', () => {

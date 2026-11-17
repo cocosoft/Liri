@@ -206,3 +206,23 @@ if (method === 'GET' && url.match(/^\/v1\/sessions\/(.+)\/attach$/)) {
 | 内存增长 | 帧数/字节双上限 + 保留期定时清理（§4.4） |
 | 会话内容越权 | 与 `/messages` 同级：需要同一 API key + 会话 id；本地单主体模型，不新增暴露面（沿用 `LocalHTTPService` 鉴权） |
 | 误以为"刷新也能接回" | D1 未选 B 前，UI 不得承诺"刷新可接回"；404 文案必须说"已结束" |
+
+## 12. 实施记录（2026-11-18，P1 = 端点 + tee）
+
+按 §8 建议选 **A**：只上端点与 tee，**不改** `close → abort` 语义。
+
+| 项 | 落点 |
+|---|---|
+| 帧缓冲/订阅/游标 | `app/src/infrastructure/http/handlers/streamAttachHub.ts`（新增，含 §4.4 常量） |
+| 主链路 tee | `chat-handlers.ts#handleStreamingChat`：新增 `attachRun` + `writeFrame`，6 个写点收拢；`finally` 统一 `end()` |
+| SSE 响应头去重 | 同文件常量 `SSE_RESPONSE_HEADERS`（chat 流与 `handleResumeChat`、attach 共用） |
+| handler | `chat-handlers.ts#handleAttachStream`（只写自己的 `res`，**不**调用 `abortSessionStream`） |
+| 路由 | `routes/chat-session-routes.ts`：`GET /^\/v1\/sessions\/(.+)\/attach$/`（紧邻 `/streaming`） |
+| 单测 | `handlers/__tests__/streamAttachHub.test.ts`（13 条）+ `attachStreamHandler.test.ts`（5 条） |
+
+**已知限制（如实记录）**：
+
+1. `handleResumeChat`（`POST /v1/sessions/:id/resume`）的续跑流**未**接入 tee ⇒ 对"续跑产生的这一轮" attach 会 404。补接线时只需同样收拢其 3 个 `res.write` 写点。
+2. 进程重启后一律 404（内存态，见 §7）。
+3. 客户端「接入」按钮与 `attachStream` 消费端尚未实现（§6 属第二阶段）。
+

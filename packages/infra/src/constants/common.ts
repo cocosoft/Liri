@@ -89,6 +89,21 @@ export const MINUTES_PER_DAY = 24 * 60;
 export const MS_PER_DAY = 24 * MS_PER_HOUR;
 
 /**
+ * 2026-11-18：聊天流只读 attach（Spec `.trae/specs/stream-attach.md`）的两个节奏值。
+ *
+ * - 心跳：与主链路 SSE 保活（`chat-handlers.ts` 的 15000ms 定时器）对齐，
+ *   订阅端凭它判断"链路是否还活着"；
+ * - 保留：本轮结束后缓冲再保留一段时间，覆盖"刚结束才接入"的竞态（仍可拿到全量 + `[DONE]`）。
+ *
+ * 两者都不随环境变化（非 `defaults.ts` 的 B 类），故为 A 类。
+ *
+ * @kind A
+ */
+export const STREAM_ATTACH_HEARTBEAT_MS = 15_000;
+/** @kind A */
+export const STREAM_ATTACH_RETENTION_MS = 60_000;
+
+/**
  * 供应商「余额/配额不足」（402）短期熔断窗口。
  *
  * 语义：窗口内对同一 provider 直接 fail-fast，不再发注定 402 的请求；

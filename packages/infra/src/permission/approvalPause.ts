@@ -158,11 +158,18 @@ export function filterPausedApprovalRules(
  * 整体写入暂停状态并留审计日志（去重 + 去空白 + 工作区根归一化；
  * 无会话/工作区级条目时仍写纯布尔，保持配置可读）。
  *
+ * 审计口径：仓库对**规则治理类**变更的既有惯例是结构化 logger 事件
+ * （同 `permission:allow_budget_exceeded` / `permission:rule_written`），
+ * 不走 `approvalAudit` 的四段审批事件流（那是"一条审批链"的 requested/presented/
+ * decided/recorded，塞入非审批事件会破坏其 stage 联合语义）。
+ * 日志带 **before/after**，便于回答"谁在什么时候把暂停打开了、从什么状态改到什么状态"。
+ *
  * 规则过滤是**实时读配置**，故无需额外失效缓存；HTTP 层负责广播 `config:changed`。
  */
 export function setApprovalPauseState(
   next: ApprovalPauseState
 ): ApprovalPauseState {
+  const previous = readApprovalPauseState();
   const normalized = normalizeState(next);
   // 无细粒度条目 ⇒ 仍写**纯布尔**（旧形状，便于手改/回滚）
   const value =
@@ -175,10 +182,9 @@ export function setApprovalPauseState(
         };
   configManager.setValue(APPROVAL_PAUSE_CONFIG_KEY, value);
   logger.info('permission:approval_pause_changed', {
-    global: normalized.global,
-    sessionCount: normalized.sessions.length,
-    workspaceCount: normalized.workspaces.length,
     configKey: APPROVAL_PAUSE_CONFIG_KEY,
+    before: previous,
+    after: normalized,
   });
   return normalized;
 }

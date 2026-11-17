@@ -31,6 +31,8 @@ import {
   getActiveTaskId,
   resolveApprovalDecision,
   resolveRecordScope,
+  // R3（2026-11-17）：「暂停全部持久化放行」—— 三个审批写入点共用同一开关
+  isApprovalPauseEnabled,
   type ApprovalScope,
   type ApprovalSnapshot,
 } from '@openliri/infra/permission';
@@ -1025,6 +1027,18 @@ async function runResumeOnce(sessionId: string): Promise<void> {
 }
 
 /**
+ * R3：暂停持久化放行时跳过写入。
+ *
+ * 注意只跳过"新增规则"：已存在的审批规则由 `RuleManager#getRulesByBehavior` 在判定口过滤，
+ * 列表里仍可见、可逐条撤销（不做破坏性删除）。
+ */
+function shouldSkipApprovalRuleWrite(sessionId?: string): boolean {
+  if (!isApprovalPauseEnabled()) return false;
+  logger.info('「暂停全部持久化放行」已开启，跳过审批规则写入', { sessionId });
+  return true;
+}
+
+/**
  * PR-2：「始终允许」—— 持久化「工具 + 参数指纹」allow 规则。
  *
  * 只写 `metadata.approvalFingerprintHash`（提交审批时算好的摘要），**不落明文参数**；
@@ -1035,6 +1049,7 @@ async function persistFingerprintRule(current: {
   metadata?: Record<string, unknown>;
   sessionId?: string;
 }): Promise<void> {
+  if (shouldSkipApprovalRuleWrite(current.sessionId)) return;
   const target = parseFingerprintAllowTarget(current.metadata);
   if (!target) {
     logger.warn('「始终允许」持久化跳过：缺少工具名或参数指纹', {
@@ -1059,6 +1074,12 @@ async function persistFingerprintRule(current: {
       toolName,
       inputFingerprint,
       source: PermissionRuleSource.RULE_STORE,
+      // R3：来源侧 + 审批时间 + 放行缓存键（撤销时精确清缓存）
+      origin: 'approval',
+      approvedAt: new Date(),
+      ...(typeof current.metadata?.commandHash === 'string'
+        ? { approvalCommandHash: current.metadata.commandHash }
+        : {}),
     })
   );
   logger.info('「始终允许」规则已持久化（工具 + 参数指纹）', {
@@ -1078,6 +1099,7 @@ async function persistAllowlistRule(
   current: { metadata?: Record<string, unknown>; sessionId?: string },
   commandLevel: boolean
 ): Promise<void> {
+  if (shouldSkipApprovalRuleWrite(current.sessionId)) return;
   const toolName = current.metadata?.toolName as string | undefined;
   if (!toolName) {
     logger.warn('白名单持久化跳过：缺少 toolName', {
@@ -1105,6 +1127,12 @@ async function persistAllowlistRule(
       toolName,
       contentPattern,
       source: PermissionRuleSource.RULE_STORE,
+      // R3：白名单放行同样属审批生成（只读、可撤销；不计入用户 allow 预算）
+      origin: 'approval',
+      approvedAt: new Date(),
+      ...(typeof current.metadata?.commandHash === 'string'
+        ? { approvalCommandHash: current.metadata.commandHash }
+        : {}),
     })
   );
   logger.info('白名单规则已持久化', {
@@ -1127,6 +1155,7 @@ async function persistWorkspaceCommandRule(current: {
   metadata?: Record<string, unknown>;
   sessionId?: string;
 }): Promise<void> {
+  if (shouldSkipApprovalRuleWrite(current.sessionId)) return;
   const toolName = current.metadata?.toolName as string | undefined;
   const command =
     typeof current.metadata?.command === 'string'
@@ -1152,6 +1181,12 @@ async function persistWorkspaceCommandRule(current: {
       contentPattern: `^${escapeRegExp(command)}$`,
       workspaceRoot,
       source: PermissionRuleSource.RULE_STORE,
+      // R3：来源侧 + 审批时间（撤销时同时清会话放行缓存）
+      origin: 'approval',
+      approvedAt: new Date(),
+      ...(typeof current.metadata?.commandHash === 'string'
+        ? { approvalCommandHash: current.metadata.commandHash }
+        : {}),
     })
   );
   logger.info('「本工作区永久信任」规则已持久化', {

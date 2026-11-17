@@ -28,7 +28,7 @@
  */
 
 import type http from 'http';
-import { sendError, readRequestBody } from './handler-utils';
+import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
 import {
   PermissionBehavior,
   PermissionRule,
@@ -46,6 +46,9 @@ import {
   countUserAllowRules,
   readUserRuleAllowBudget,
   readCommandRulesConfig,
+  isApprovalPauseEnabled,
+  setApprovalPauseEnabled,
+  APPROVAL_PAUSE_CONFIG_KEY,
   SIMULATABLE_PERMISSION_MODES,
   isSimulatablePermissionMode,
   type CommandRulesSettings,
@@ -64,6 +67,11 @@ const VALID_BEHAVIORS: string[] = ['allow', 'deny', 'ask'];
  * - `readOnly`：审批卡生成的持久化放行（指纹 / 本工作区信任）不可编辑、只能撤销。
  */
 export function serializeRule(rule: PermissionRule): Record<string, unknown> {
+  const approvalOriginated = isApprovalOriginatedRule(rule);
+  // 审批时间：显式 approvedAt 优先，旧规则回落 createdAt；非审批规则 ⇒ null
+  const approvedAt = approvalOriginated
+    ? (rule.approvedAt ?? rule.createdAt)
+    : null;
   return {
     id: rule.id,
     behavior: rule.behavior,
@@ -77,7 +85,17 @@ export function serializeRule(rule: PermissionRule): Record<string, unknown> {
     source: rule.source,
     // R0：作用域（session | workspace | tool | global）与只读标记
     scope: describePermissionRuleScope(rule),
-    readOnly: isApprovalOriginatedRule(rule),
+    readOnly: approvalOriginated,
+    // R3（2026-11-17）：来源侧（审批生成 / 用户手建）+ 审批分组字段
+    origin: approvalOriginated ? 'approval' : 'user',
+    approvedAt:
+      approvedAt instanceof Date
+        ? approvedAt.toISOString()
+        : (approvedAt ?? null),
+    // 如实：审批记录未保存批准者身份（本地审批无身份字段）⇒ null，不编造
+    approvedBy: null,
+    // 如实：按规则维度的命中计数尚未落库（R4 补）⇒ null，不用工具级计数冒充
+    hitCount: null,
     priority: rule.priority,
     createdAt:
       rule.createdAt instanceof Date
@@ -142,10 +160,25 @@ export async function handleListPermissionRules(
       readOnly: true,
     }));
     res.writeHead(200, { 'Content-Type': 'application/json' });
+    // R3：审批生成规则的**分组视图**（列表仍保留扁平 `rules`，分组是派生只读视图）
+    const approvalRules = rules.filter((rule) =>
+      isApprovalOriginatedRule(rule)
+    );
     res.end(
       JSON.stringify({
         rules: [...rules.map(serializeRule), ...settingsRules],
         summary,
+        // R3：来源=审批 的分组（作用域 / 工具 / 指纹摘要 / 审批时间 / 命中次数见各条字段）
+        approvalRules: {
+          count: approvalRules.length,
+          rules: approvalRules.map(serializeRule),
+          note: '审批卡生成的持久化放行：只可撤销（DELETE），不可编辑；approvedBy / hitCount 暂未落库，如实返回 null',
+        },
+        // R3：「暂停全部持久化放行」当前状态（开启后审批规则不参与判定，仍可逐条撤销）
+        approvalPause: {
+          enabled: isApprovalPauseEnabled(),
+          configKey: APPROVAL_PAUSE_CONFIG_KEY,
+        },
         // R1.5：B 体系命令规则（只读；来源=commandRules）—— 不配置时为 null
         commandRules: buildCommandRulesView(readCommandRulesConfig()),
         // R2b：allow 预算用量（超限时写接口 409，前端据此提示"显式提高配置"）
@@ -494,6 +527,47 @@ export async function handleImportPermissionRules(
         importedCount: result.imported.length,
         imported: result.imported.map(serializeRule),
         skipped: result.skipped,
+      })
+    );
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
+ * 「暂停全部持久化放行」开关 POST /v1/permissions/approvals/pause（R3，2026-11-17）
+ *
+ * body: `{ enabled: boolean }`
+ *
+ * 开启后：① 审批卡不再新增放行规则；② 已存在的审批生成规则不参与判定
+ * （规则仍在列表里可见、可逐条撤销）。判定口实时读配置，故只需广播配置变更事件。
+ */
+export async function handleSetApprovalPause(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const body = await readRequestBody(req);
+    const parsed = JSON.parse(body) as Record<string, unknown> | null;
+    const enabled = parsed?.['enabled'];
+    if (typeof enabled !== 'boolean') {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'enabled 必须是布尔值' } }));
+      return;
+    }
+    const next = setApprovalPauseEnabled(enabled);
+    broadcastEvent('config:updated', {
+      key: APPROVAL_PAUSE_CONFIG_KEY,
+      value: next,
+    });
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(
+      JSON.stringify({
+        enabled: next,
+        configKey: APPROVAL_PAUSE_CONFIG_KEY,
+        message: next
+          ? '已暂停全部持久化放行（审批生成的规则不再生效，可逐条撤销）'
+          : '已恢复持久化放行',
       })
     );
   } catch (err) {

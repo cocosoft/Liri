@@ -124,6 +124,27 @@ export interface PermissionRule {
   priority: number;
 
   /**
+   * R3（2026-11-17）：规则**来源侧**（谁产生的）—— 与 `source`（存储位置）正交。
+   *
+   * - `'approval'`：审批卡产生（「始终允许」指纹 / 「本工作区永久信任」/ 白名单放行）；
+   * - `'user'`：用户在设置页手建 / 导入；
+   * - 缺省：旧规则文件无此字段 —— 由 `resolveRuleOrigin` 按匹配条件**推导**
+   *   （指纹 / 工作区根 ⇒ approval；其余 ⇒ user），不臆造。
+   */
+  origin?: 'user' | 'approval';
+
+  /** R3：审批时间（仅 `origin='approval'`；旧规则缺省时 UI 回落 `createdAt`） */
+  approvedAt?: Date;
+
+  /**
+   * R3：审批时写入放行缓存（`ApprovedCommandRegistry`）用的命令摘要。
+   *
+   * 撤销规则时据此**精确清掉**该命令的会话放行记录（摘要与指纹不同源：
+   * 前者是命令执行键 `hashCommandForExecution(command)`，后者是参数指纹）。
+   */
+  approvalCommandHash?: string;
+
+  /**
    * 创建时间
    */
   createdAt: Date;
@@ -149,6 +170,12 @@ export function createPermissionRule(params: {
   workspaceRoot?: string;
   source?: PermissionRuleSource;
   priority?: number;
+  /** R3：来源侧（审批卡产生 ⇒ 'approval'；用户手建 ⇒ 'user'） */
+  origin?: 'user' | 'approval';
+  /** R3：审批时间（仅审批产生时写） */
+  approvedAt?: Date;
+  /** R3：审批放行缓存的命令摘要（撤销时精确清缓存用） */
+  approvalCommandHash?: string;
 }): PermissionRule {
   const now = new Date();
   return {
@@ -160,6 +187,11 @@ export function createPermissionRule(params: {
     workspaceRoot: params.workspaceRoot,
     source: params.source || PermissionRuleSource.USER_SETTINGS,
     priority: params.priority || 1,
+    ...(params.origin ? { origin: params.origin } : {}),
+    ...(params.approvedAt ? { approvedAt: params.approvedAt } : {}),
+    ...(params.approvalCommandHash
+      ? { approvalCommandHash: params.approvalCommandHash }
+      : {}),
     createdAt: now,
     updatedAt: now,
   };
@@ -196,20 +228,39 @@ export function describePermissionRuleScope(rule: {
 }
 
 /**
- * 是否**由审批卡产生**的持久化放行（R0 只读展示的 `readOnly` 依据）。
+ * 推导规则**来源侧**（R3，2026-11-17）。
  *
- * 现状判据（2026-11-17 核对写入点）：审批的「始终允许」写 `inputFingerprint` 规则
- * 且 `source` 与用户规则同为 `ruleStore`；「本工作区永久信任」写 `workspaceRoot` 规则。
- * 因此**目前**这两种形态只可能由审批生成 ⇒ 标记只读（可撤销、不可编辑）。
- * R2 若放开用户自建指纹规则，须改为显式持久化 `source: approval` 再判定（届时本函数同步调整）。
+ * 显式 `origin` 优先（R3 起三个审批写入点都会写）；旧规则文件无该字段 ⇒ 按匹配条件
+ * 如实推导：指纹 / 工作区根只可能由审批卡产生 ⇒ `approval`；其余 ⇒ `user`。
+ *
+ * 如实边界：旧版的**白名单放行**（`allowlist_tool` / `allowlist_command`）在磁盘上与
+ * 用户手建规则**无法区分**（同为 tool 级 / 内容级 allow）⇒ 按 `user` 计，不猜。
+ */
+export function resolveRuleOrigin(rule: {
+  origin?: 'user' | 'approval';
+  contentPattern?: string;
+  inputFingerprint?: string;
+  workspaceRoot?: string;
+}): 'user' | 'approval' {
+  if (rule.origin) return rule.origin;
+  return rule.inputFingerprint || rule.workspaceRoot ? 'approval' : 'user';
+}
+
+/**
+ * 是否**由审批卡产生**的持久化放行（R0 只读展示的 `readOnly` 依据；R3 起含显式 `origin`）。
+ *
+ * 判据：显式 `origin='approval'`，或审批的既有形态 —— 「始终允许」的 `inputFingerprint`
+ * 与「本工作区永久信任」的 `workspaceRoot`（旧规则文件没有 origin 字段，需保持只读语义）。
+ * R3 起三个审批写入点（指纹 / 白名单 / 工作区信任）都会显式写 `origin='approval'`。
  */
 export function isApprovalOriginatedRule(rule: {
+  origin?: 'user' | 'approval';
   /** 普通规则的匹配条件（存在即非审批形态；仅为让调用方可直接传规则对象） */
   contentPattern?: string;
   inputFingerprint?: string;
   workspaceRoot?: string;
 }): boolean {
-  return Boolean(rule.inputFingerprint || rule.workspaceRoot);
+  return resolveRuleOrigin(rule) === 'approval';
 }
 
 /**

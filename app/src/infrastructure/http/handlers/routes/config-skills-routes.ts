@@ -51,6 +51,7 @@ import {
   handleGetPermissionRulesHealth,
   handleImportPermissionRules,
   handleListPermissionRules,
+  handleSetApprovalPause,
   handleSimulatePermissionRule,
   handleUpdatePermissionRule,
 } from '../permission-handlers';
@@ -263,6 +264,11 @@ async function dispatchPermissionRoutes(
   }
   if (method === 'POST' && url === '/v1/permissions/rules/import') {
     await handleImportPermissionRules(req, res);
+    return true;
+  }
+  // R3（2026-11-17）：暂停 / 恢复全部持久化放行（审批生成的规则不再生效，仍可逐条撤销）
+  if (method === 'POST' && url === '/v1/permissions/approvals/pause') {
+    await handleSetApprovalPause(req, res);
     return true;
   }
   if (method === 'POST' && url === '/v1/permissions/rules') {

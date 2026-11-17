@@ -346,6 +346,12 @@ export {
   SIMULATABLE_PERMISSION_MODES,
   isSimulatablePermissionMode,
 } from './manager/simulate';
+// R3（2026-11-17）：「暂停全部持久化放行」开关（判定口过滤审批生成规则 + 审批写入点跳过）
+export {
+  APPROVAL_PAUSE_CONFIG_KEY,
+  isApprovalPauseEnabled,
+  setApprovalPauseEnabled,
+} from './approvalPause';
 export type {
   SimulatePermissionDeps,
   SimulatePermissionRequest,

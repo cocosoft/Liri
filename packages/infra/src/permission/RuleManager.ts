@@ -178,6 +178,52 @@ export function collectRuleKeyConflicts(
 }
 
 /**
+ * 找出**同键不同行为**的既有规则（R2 写入口校验，纯函数）。
+ *
+ * `force` 覆盖前必须先用它判断"被覆盖的是不是审批生成规则"（那种规则只可撤销、不可编辑）。
+ */
+export function findConflictingRules(
+  rules: PermissionRule[],
+  candidate: {
+    toolName: string;
+    contentPattern?: string;
+    inputFingerprint?: string;
+    workspaceRoot?: string;
+    behavior: PermissionBehavior;
+  },
+  options: { excludeId?: string } = {}
+): PermissionRule[] {
+  const key = buildRuleConflictKey(candidate);
+  return rules.filter(
+    (rule) =>
+      rule.id !== options.excludeId &&
+      String(rule.behavior) !== String(candidate.behavior) &&
+      buildRuleConflictKey(rule) === key
+  );
+}
+
+/** 找出**同键同行为**的重复规则（R2 写入口校验；saveRules 也会去重，这里提前报错更可解释） */
+export function findDuplicateRules(
+  rules: PermissionRule[],
+  candidate: {
+    toolName: string;
+    contentPattern?: string;
+    inputFingerprint?: string;
+    workspaceRoot?: string;
+    behavior: PermissionBehavior;
+  },
+  options: { excludeId?: string } = {}
+): PermissionRule[] {
+  const key = buildRuleConflictKey(candidate);
+  return rules.filter(
+    (rule) =>
+      rule.id !== options.excludeId &&
+      String(rule.behavior) === String(candidate.behavior) &&
+      buildRuleConflictKey(rule) === key
+  );
+}
+
+/**
  * 规则管理器类
  */
 export class RuleManager {

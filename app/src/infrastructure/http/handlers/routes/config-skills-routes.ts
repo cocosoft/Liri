@@ -50,6 +50,7 @@ import {
   handleGetPermissionRulesHealth,
   handleListPermissionRules,
   handleSimulatePermissionRule,
+  handleUpdatePermissionRule,
 } from '../permission-handlers';
 import {
   handleGetPermissionRbac,
@@ -255,6 +256,15 @@ async function dispatchPermissionRoutes(
   }
   if (method === 'POST' && url === '/v1/permissions/rules') {
     await handleAddPermissionRule(req, res);
+    return true;
+  }
+  // R2（2026-11-17）：编辑规则（只允许 behavior / contentPattern；审批规则 403）
+  if (method === 'PUT' && url.match(/^\/v1\/permissions\/rules\/(.+)$/)) {
+    await handleUpdatePermissionRule(
+      req,
+      res,
+      url.match(/^\/v1\/permissions\/rules\/(.+)$/)![1]
+    );
     return true;
   }
   if (method === 'DELETE' && url.match(/^\/v1\/permissions\/rules\/(.+)$/)) {

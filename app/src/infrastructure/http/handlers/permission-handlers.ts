@@ -39,10 +39,14 @@ import {
   shadowedRuleDetector,
   permissionMetrics,
   PermissionManager,
+  addRuleChecked,
+  updateRuleChecked,
+  removeRuleChecked,
   readCommandRulesConfig,
   SIMULATABLE_PERMISSION_MODES,
   isSimulatablePermissionMode,
   type CommandRulesSettings,
+  type RuleWriteResult,
   type SimulatablePermissionMode,
 } from '@openliri/infra/permission';
 
@@ -160,9 +164,49 @@ export async function handleListPermissionRules(
   }
 }
 
+/** 写失败 → HTTP 状态码（R2：冲突/损坏 409；只读 403；不存在 404；参数 400） */
+function sendRuleWriteFailure(
+  res: http.ServerResponse,
+  failure: Extract<RuleWriteResult, { ok: false }>
+): void {
+  const status =
+    failure.code === 'not-found'
+      ? 404
+      : failure.code === 'readonly'
+        ? 403
+        : failure.code === 'invalid'
+          ? 400
+          : 409;
+  res.writeHead(status, { 'Content-Type': 'application/json' });
+  res.end(
+    JSON.stringify({
+      error: {
+        code: failure.code,
+        message: failure.message,
+        ...(failure.conflicts
+          ? { conflicts: failure.conflicts.map(serializeRule) }
+          : {}),
+      },
+    })
+  );
+}
+
+/** 审批生成字段（`inputFingerprint` / `workspaceRoot`）不得经手写规则伪造 */
+function rejectsApprovalFields(body: Record<string, unknown>): string | null {
+  for (const field of ['inputFingerprint', 'workspaceRoot'] as const) {
+    if (body[field] !== undefined) {
+      return `${field} 由审批卡生成，不可手写；请通过审批卡产生或在列表里撤销`;
+    }
+  }
+  return null;
+}
+
 /**
  * 添加工具权限规则 POST /v1/permissions/rules
- * body: { behavior: 'allow' | 'deny' | 'ask', toolName: string, contentPattern?: string }
+ * body: { behavior: 'allow' | 'deny' | 'ask', toolName: string, contentPattern?: string, force?: boolean }
+ *
+ * R2：冲突（同键不同行为）⇒ 409 + `conflicts`；`force=true` 表示「后写为准」，
+ * 但**不能**覆盖审批生成的规则。规则文件损坏 ⇒ 409（不覆盖最后可用数据）。
  */
 export async function handleAddPermissionRule(
   req: http.IncomingMessage,
@@ -170,35 +214,149 @@ export async function handleAddPermissionRule(
 ): Promise<void> {
   try {
     const body = await readRequestBody(req);
-    const { behavior, toolName, contentPattern } = JSON.parse(body);
+    const parsed = JSON.parse(body) as Record<string, unknown>;
+    const { behavior, toolName, contentPattern, force } = parsed;
 
+    const approvalFieldError = rejectsApprovalFields(parsed);
+    if (approvalFieldError) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: approvalFieldError } }));
+      return;
+    }
     if (
       typeof toolName !== 'string' ||
-      !toolName ||
+      !toolName.trim() ||
       typeof behavior !== 'string' ||
-      !VALID_BEHAVIORS.includes(behavior)
+      !VALID_BEHAVIORS.includes(behavior) ||
+      (force !== undefined && typeof force !== 'boolean') ||
+      (contentPattern !== undefined && typeof contentPattern !== 'string')
     ) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
           error: {
-            message: 'behavior 必须为 allow/deny/ask，toolName 必填字符串',
+            message:
+              'behavior 必须为 allow/deny/ask，toolName 必填字符串；contentPattern 为字符串，force 为布尔',
           },
         })
       );
       return;
     }
 
-    const manager = PermissionManager.getInstance();
-    manager.addRule(
-      behavior as PermissionBehavior,
-      toolName,
-      typeof contentPattern === 'string' && contentPattern
-        ? contentPattern
-        : undefined
+    const result = addRuleChecked(
+      PermissionManager.getInstance().getRuleManager(),
+      {
+        behavior: behavior as PermissionBehavior,
+        toolName,
+        ...(typeof contentPattern === 'string' && contentPattern
+          ? { contentPattern }
+          : {}),
+        ...(force === true ? { force: true } : {}),
+      }
     );
+    if (!result.ok) {
+      sendRuleWriteFailure(res, result);
+      return;
+    }
     res.writeHead(201, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ message: '权限规则已添加' }));
+    res.end(
+      JSON.stringify({
+        message: '权限规则已添加',
+        rule: serializeRule(result.rule),
+      })
+    );
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
+ * 编辑工具权限规则 PUT /v1/permissions/rules/{ruleId}（R2）
+ *
+ * 只允许改 `behavior` / `contentPattern`（`null` = 清除内容条件）；`toolName` 不可改
+ * （身份稳定，改工具名请删除后新建）。审批生成的规则 403（可 DELETE 撤销）。
+ */
+export async function handleUpdatePermissionRule(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  ruleId: string
+): Promise<void> {
+  try {
+    const body = await readRequestBody(req);
+    const parsed = JSON.parse(body) as Record<string, unknown>;
+
+    if (ruleId.startsWith('settings:')) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: {
+            message: 'settings 来源的规则为只读（请在 settings 文件中修改）',
+          },
+        })
+      );
+      return;
+    }
+    const approvalFieldError = rejectsApprovalFields(parsed);
+    if (approvalFieldError) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: approvalFieldError } }));
+      return;
+    }
+    const { behavior, contentPattern } = parsed;
+    if (
+      parsed['toolName'] !== undefined ||
+      parsed['force'] !== undefined ||
+      (behavior !== undefined &&
+        (typeof behavior !== 'string' ||
+          !VALID_BEHAVIORS.includes(behavior))) ||
+      (contentPattern !== undefined &&
+        contentPattern !== null &&
+        typeof contentPattern !== 'string')
+    ) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: {
+            message:
+              '只允许改 behavior / contentPattern（null 清除）；toolName 不可修改；force 仅用于新增',
+          },
+        })
+      );
+      return;
+    }
+    if (behavior === undefined && contentPattern === undefined) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: { message: '至少提供 behavior 或 contentPattern 之一' },
+        })
+      );
+      return;
+    }
+
+    const result = updateRuleChecked(
+      PermissionManager.getInstance().getRuleManager(),
+      ruleId,
+      {
+        ...(typeof behavior === 'string'
+          ? { behavior: behavior as PermissionBehavior }
+          : {}),
+        ...(contentPattern !== undefined
+          ? { contentPattern: contentPattern as string | null }
+          : {}),
+      }
+    );
+    if (!result.ok) {
+      sendRuleWriteFailure(res, result);
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        message: '权限规则已更新',
+        rule: serializeRule(result.rule),
+      })
+    );
   } catch (err) {
     sendError(res, err);
   }
@@ -206,6 +364,9 @@ export async function handleAddPermissionRule(
 
 /**
  * 删除工具权限规则 DELETE /v1/permissions/rules/{ruleId}
+ *
+ * 审批生成的规则删除 = **撤销持久化放行**（审计里标 `revocation=true`）；
+ * 不存在 ⇒ 200 幂等（旧客户端重复删除不报错）；规则文件损坏 ⇒ 409。
  */
 export async function handleDeletePermissionRule(
   _req: http.IncomingMessage,
@@ -226,8 +387,19 @@ export async function handleDeletePermissionRule(
       );
       return;
     }
-    const manager = PermissionManager.getInstance();
-    manager.removeRule(ruleId);
+    const result = removeRuleChecked(
+      PermissionManager.getInstance().getRuleManager(),
+      ruleId
+    );
+    if (!result.ok) {
+      if (result.code === 'not-found') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ message: '权限规则不存在（已幂等处理）' }));
+        return;
+      }
+      sendRuleWriteFailure(res, result);
+      return;
+    }
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ message: '权限规则已删除' }));
   } catch (err) {

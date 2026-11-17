@@ -84,6 +84,14 @@ export async function checkPermissionInner(
     alwaysAllowRules: deps.toolPermissionContext.alwaysAllowRules,
     alwaysDenyRules: deps.toolPermissionContext.alwaysDenyRules,
     alwaysAskRules: deps.toolPermissionContext.alwaysAskRules,
+    // F2（2026-11-17）：把本次判定的会话 / 工作区根带进规则读取口 ——
+    // 否则「按会话 / 按工作区暂停持久化放行」在真实判定链里不生效（只有全局过滤）。
+    pauseScope: {
+      sessionId: permissionContext.sessionId,
+      ...(permissionContext.workspaceRoots
+        ? { workspaceRoots: permissionContext.workspaceRoots }
+        : {}),
+    },
   };
 
   // 1. 执行权限钩子

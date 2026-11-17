@@ -30,7 +30,10 @@ import {
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
-import { filterPausedApprovalRules } from './approvalPause';
+import {
+  filterPausedApprovalRules,
+  type ApprovalPauseScope,
+} from './approvalPause';
 
 const logger = getLogger('permission:ruleManager');
 
@@ -96,6 +99,14 @@ export interface RuleContext {
    * 总是询问的规则（按来源分组）
    */
   alwaysAskRules: Partial<Record<PermissionRuleSource, string[]>>;
+  /**
+   * F2（2026-11-17）：本次判定的暂停上下文（会话 / 工作区根）。
+   *
+   * 由 `decisionPipeline` / `simulate` 从 `PermissionContext` 取下并挂在这里，
+   * `getRulesByBehavior` 据此过滤审批生成规则 ⇒ **真实判定链**的会话级 / 工作区级
+   * 「暂停持久化放行」才能生效（缺省 ⇒ 只按全局暂停）。
+   */
+  pauseScope?: ApprovalPauseScope;
 }
 
 /**
@@ -828,9 +839,8 @@ export class RuleManager {
 
     // R3（2026-11-17）：「暂停全部持久化放行」开启 ⇒ 审批生成规则**不参与判定**。
     // 只在**判定读取口**过滤（`getRules()` 不受影响）⇒ 列表/健康视图仍可见、可逐条撤销。
-    // F2：本方法拿不到会话上下文 ⇒ 只按**全局**暂停过滤；带会话的判定由
-    // `PermissionChecker` 用 `filterPausedApprovalRules(rules, { sessionId })` 再过滤一次（幂等）。
-    rules = filterPausedApprovalRules(rules);
+    // F2：按 `context.pauseScope`（会话 / 工作区根）过滤；缺省 ⇒ 只按**全局**暂停。
+    rules = filterPausedApprovalRules(rules, context?.pauseScope);
 
     // 按优先级排序
     return rules.sort((a, b) => b.priority - a.priority);

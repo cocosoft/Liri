@@ -9,11 +9,13 @@
  *    规则 deny ⇒ deny、只读命令短路 ⇒ allow、指纹规则按同一指纹命中；
  * 2. **只读**：不执行工具、不写规则文件、不污染真实拒绝计数。
  */
-import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { configManager, getConfigManager } from '@openliri/infra/config';
+import { APPROVAL_PAUSE_CONFIG_KEY } from '@openliri/infra/permission/approvalPause';
 import { PermissionManager } from '@openliri/infra/permission/PermissionManager';
 import {
   PermissionBehavior,
@@ -188,5 +190,69 @@ describe('R0：权限判定模拟（只读、复用真实判定链）', () => {
         mode: 'bypass',
       })
     ).rejects.toThrow('不支持的模拟权限档');
+  });
+});
+
+/**
+ * F2（2026-11-17）：模拟与真实链**同口径**地应用「按工作区暂停」。
+ *
+ * 缺口现场：模拟请求本来就带 `workspaceRoots`，但规则上下文没把暂停范围带进去 ⇒
+ * 同一命令"模拟说 deny、真实链说 allow"（或反之），模拟失去参考价值。
+ */
+describe('F2：模拟按工作区暂停（与真实链同口径）', () => {
+  let dir: string;
+  let manager: PermissionManager;
+  let configSpy: ReturnType<typeof spyOn> | undefined;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'liri-rule-simulate-pause-'));
+    manager = new PermissionManager();
+    manager.getRuleManager().setRuleSource(join(dir, 'tool_rules.json'));
+    manager.getRuleManager().loadRules();
+    manager.setToolPermissionContext({
+      alwaysAllowRules: {},
+      alwaysDenyRules: {},
+      alwaysAskRules: {},
+    });
+    manager.setMode('default');
+    // 审批生成的工具级 deny（暂停后应被忽略）
+    manager.getRuleManager().addRule(
+      createPermissionRule({
+        behavior: PermissionBehavior.DENY,
+        toolName: 'bash',
+        origin: 'approval',
+        source: PermissionRuleSource.RULE_STORE,
+      })
+    );
+  });
+
+  afterEach(() => {
+    configSpy?.mockRestore();
+    configSpy = undefined;
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('工作区在暂停列表 ⇒ 模拟忽略审批规则；其他根仍 deny', async () => {
+    configSpy = spyOn(getConfigManager(), 'getValue').mockImplementation(((
+      key: string
+    ) =>
+      key === APPROVAL_PAUSE_CONFIG_KEY
+        ? { global: false, sessions: [], workspaces: ['e:/proj'] }
+        : undefined) as unknown as typeof configManager.getValue);
+
+    const paused = await manager.simulatePermission({
+      toolName: 'bash',
+      input: { command: 'git status' },
+      workspaceRoots: ['E:\\Proj\\'],
+    });
+    expect(paused.decision).toBe('allow');
+    expect(paused.matchedRules).toHaveLength(0);
+
+    const other = await manager.simulatePermission({
+      toolName: 'bash',
+      input: { command: 'git status' },
+      workspaceRoots: ['e:/other'],
+    });
+    expect(other.decision).toBe('deny');
   });
 });

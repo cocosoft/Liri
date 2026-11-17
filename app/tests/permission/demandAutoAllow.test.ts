@@ -40,6 +40,10 @@ import {
   type PermissionDecision,
 } from '../../../packages/infra/src/permission/types/PermissionDecision';
 import type { ModeHandlerDeps } from '../../../packages/infra/src/permission/manager/modeHandlers';
+import {
+  ENV_DEMAND_AUTO_ALLOW_MAX,
+  resetDemandAutoAllowQuota,
+} from '../../../packages/infra/src/permission/demandAutoAllowQuota';
 
 const WORKSPACE = process.platform === 'win32' ? 'C:\\work' : '/work';
 
@@ -79,13 +83,15 @@ function makeDeps(
 async function decide(
   command: string,
   autonomy: 'interactive' | 'demand' | undefined,
-  deps: ModeHandlerDeps = makeDeps()
+  deps: ModeHandlerDeps = makeDeps(),
+  sessionId?: string
 ): Promise<PermissionDecision> {
   const context = createPermissionContext({
     toolName: 'bash',
     input: { command },
     permissionMode: 'auto',
     workspacePath: WORKSPACE,
+    ...(sessionId ? { sessionId } : {}),
     ...(autonomy ? { autonomy } : {}),
   });
   return handleAuto(deps, 'bash', { command }, context);
@@ -187,6 +193,43 @@ describe('handleAuto：许愿式不再逐条弹审批（且安全边界不回退
     } finally {
       if (prev === undefined) delete process.env[key];
       else process.env[key] = prev;
+    }
+  });
+
+  it('⑨ 每会话配额用尽 ⇒ 回落 ask；别的会话不受影响（B3 余项）', async () => {
+    resetDemandAutoAllowQuota();
+    const prev = process.env[ENV_DEMAND_AUTO_ALLOW_MAX];
+    process.env[ENV_DEMAND_AUTO_ALLOW_MAX] = '1';
+    try {
+      const first = await decide(
+        'some-unknown-cli --list',
+        'demand',
+        makeDeps(),
+        'quota-session-a'
+      );
+      expect(first.type).toBe(PermissionDecisionType.ALLOW);
+
+      // 同会话第二次：配额已用尽 ⇒ 回到 ask（不 deny）
+      const second = await decide(
+        'some-unknown-cli --list',
+        'demand',
+        makeDeps(),
+        'quota-session-a'
+      );
+      expect(second.type).toBe(PermissionDecisionType.ASK);
+
+      // 另一个会话的配额独立
+      const other = await decide(
+        'some-unknown-cli --list',
+        'demand',
+        makeDeps(),
+        'quota-session-b'
+      );
+      expect(other.type).toBe(PermissionDecisionType.ALLOW);
+    } finally {
+      if (prev === undefined) delete process.env[ENV_DEMAND_AUTO_ALLOW_MAX];
+      else process.env[ENV_DEMAND_AUTO_ALLOW_MAX] = prev;
+      resetDemandAutoAllowQuota();
     }
   });
 });

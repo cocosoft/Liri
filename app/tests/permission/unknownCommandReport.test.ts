@@ -66,6 +66,8 @@ describe('aggregateUnknownCommands', () => {
       rows: [],
       skipped: 0,
       total: 0,
+      // R5：窗口内计数（与 total 同口径扩展，供 `--fail-over` / 设置页摘要复用）
+      windowTotal: 0,
     });
   });
 });
@@ -166,5 +168,20 @@ describe('parseArgs', () => {
 
   it('非法 --top ⇒ 抛错（退出码 1 由 main 处理）', () => {
     expect(() => parseArgs(['--top', '0'])).toThrow('--top');
+  });
+
+  it('R5：解析 --fail-over（非负整数）', () => {
+    expect(parseArgs(['--fail-over', '20'])).toEqual({
+      top: 20,
+      json: false,
+      failOver: 20,
+    });
+    expect(parseArgs(['--fail-over', '0'])).toEqual({
+      top: 20,
+      json: false,
+      failOver: 0,
+    });
+    expect(() => parseArgs(['--fail-over', '-1'])).toThrow('--fail-over');
+    expect(() => parseArgs(['--fail-over', 'x'])).toThrow('--fail-over');
   });
 });

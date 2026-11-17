@@ -352,6 +352,19 @@ export {
   isApprovalPauseEnabled,
   setApprovalPauseEnabled,
 } from './approvalPause';
+// R5（2026-11-17）：未知命令采样摘要（周报 CLI / 设置页 / 启动提示同一实现）
+export {
+  readUnknownCommandDigest,
+  buildUnknownCommandDigest,
+  summarizeUnknownCommandText,
+  readUnknownCommandLogText,
+  formatUnknownCommandNotice,
+} from './classifiers/unknownCommandDigest';
+export type {
+  UnknownCommandDigest,
+  UnknownCommandReport,
+  UnknownCommandSampleRow,
+} from './classifiers/unknownCommandDigest';
 export type {
   SimulatePermissionDeps,
   SimulatePermissionRequest,

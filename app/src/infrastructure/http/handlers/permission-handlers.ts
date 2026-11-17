@@ -49,6 +49,7 @@ import {
   isApprovalPauseEnabled,
   setApprovalPauseEnabled,
   APPROVAL_PAUSE_CONFIG_KEY,
+  readUnknownCommandDigest,
   SIMULATABLE_PERMISSION_MODES,
   isSimulatablePermissionMode,
   type CommandRulesSettings,
@@ -179,6 +180,11 @@ export async function handleListPermissionRules(
           enabled: isApprovalPauseEnabled(),
           configKey: APPROVAL_PAUSE_CONFIG_KEY,
         },
+        // R5：本周未收录命令摘要（设置页提示 + "去添加规则"跳转；无样本 ⇒ null，不编造 0）
+        unknownCommandSuggestions: readUnknownCommandDigest({
+          sinceDays: 7,
+          top: 5,
+        }),
         // R1.5：B 体系命令规则（只读；来源=commandRules）—— 不配置时为 null
         commandRules: buildCommandRulesView(readCommandRulesConfig()),
         // R2b：allow 预算用量（超限时写接口 409，前端据此提示"显式提高配置"）

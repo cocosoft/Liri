@@ -818,6 +818,25 @@ async function launchDaemon(options: LaunchOptions): Promise<void> {
     });
   }
 
+  // R5（2026-11-17）：本周未收录命令的**非阻塞**提示（DAEMON 无 UI ⇒ 只记日志；
+  // 桌面端由 `GET /v1/permissions/rules` 的 `unknownCommandSuggestions` 提供给设置页）
+  void (async () => {
+    try {
+      const { readUnknownCommandDigest, formatUnknownCommandNotice } =
+        await import('@openliri/infra/permission');
+      const digest = readUnknownCommandDigest({ sinceDays: 7, top: 1 });
+      const notice = formatUnknownCommandNotice(digest);
+      if (notice && digest) {
+        logger.warn(notice, {
+          headCount: digest.headCount,
+          sampleCount: digest.sampleCount,
+        });
+      }
+    } catch {
+      // @ignore-catch — 启动提示属旁路观测（CS03：不因此影响常驻）
+    }
+  })();
+
   // 通道运行时（2026-11-05）：与 REPL 共用同一实现 —— 否则 daemon 下渠道永不注册/连接
   const { startChannelRuntime: startChannelsForDaemon } =
     await import('./entrypoints/channelRuntime');

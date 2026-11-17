@@ -103,6 +103,21 @@ export function getSessionPermissionMode(
 }
 
 /**
+ * P0（2026-11-17）：会话自主度（`metadata.autonomy`）。
+ *
+ * 仅 `demand` 会在权限层产生行为（非危险 ask ⇒ 自动放行，工作区外写仍人工）；
+ * 其余（缺省 / 脏值）一律 `interactive` ⇒ 与改造前逐字一致。
+ */
+export function getSessionAutonomy(
+  sessions: SessionLookup,
+  sessionId?: string
+): 'interactive' | 'demand' {
+  if (!sessionId) return 'interactive';
+  const meta = metaOf(sessions.get(sessionId));
+  return meta?.autonomy === 'demand' ? 'demand' : 'interactive';
+}
+
+/**
  * 最近 N 条 user 消息文本（换行拼接）—— 裸会话升级判定**共用**的取数口径。
  *
  * 任务轮内模型可能 `ask_user_question` 澄清，澄清答复会占住"最后一条 user"位置使任务原句

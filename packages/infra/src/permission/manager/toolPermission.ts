@@ -54,6 +54,7 @@ export type ToolPermissionCallContext = Pick<
   | 'workspacePath'
   | 'workspaceRoots'
   | 'taskId'
+  | 'autonomy'
 > & {
   /**
    * PR-3a（2026-10-23）：本次执行的沙箱上下文（由执行入口注入）。
@@ -137,6 +138,8 @@ export async function checkPermissionForTool(
     taskId: context?.taskId,
     // PR-3a：沙箱信号（缺失 ⇒ undefined，审批卡不写该字段 ⇒ 视为"未沙箱"）
     sandbox: context?.sandbox,
+    // P0（2026-11-17）：会话自主度（仅 demand 参与判定：未知/非危险命令不逐条询问）
+    autonomy: context?.autonomy,
   });
   const decision = await deps.checkPermission(
     context?.tool ?? toolName,

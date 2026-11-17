@@ -226,24 +226,48 @@ export function hasPendingApproval(
     metadata?: Record<string, unknown>;
   }>,
 ): boolean {
-  let approvalCardResolved = false;
+  /**
+   * 2026-11-17（用户实测：提示常驻但审批面板不存在）：
+   * 先按 `inboxId` 对账**审批卡的实际状态**（服务端读时合成 pending / replied / expired），
+   * 再判定工具卡上的 `pendingApproval` —— 审批过期/被拒后不会再写终态工具结果，
+   * 该标记会永久残留；此前先命中它就 return true，从不与卡片状态对账 ⇒ 界面永远「等待审批」。
+   */
+  const pendingInboxIds = new Set<string>();
+  const resolvedInboxIds = new Set<string>();
   for (const message of messages) {
     for (const block of message.blocks ?? []) {
-      if (
-        block.type === "tool_call" &&
-        block.toolCall?.pendingApproval === true
-      ) {
-        return true;
-      }
       if (block.type !== "inbox") continue;
       const inbox = block.inboxData;
       // 非审批类收件项（如提问）不按"等待审批"呈现
       if (!inbox || inbox.type !== "approval") continue;
-      if (inbox.status === "pending") return true;
-      approvalCardResolved = true;
+      const inboxId = inbox.inboxId;
+      if (typeof inboxId !== "string" || !inboxId) continue;
+      if (inbox.status === "pending") pendingInboxIds.add(inboxId);
+      else resolvedInboxIds.add(inboxId);
     }
   }
-  if (approvalCardResolved) return false;
+  // ① 审批卡仍待处理 ⇒ 会话确实在等用户
+  if (pendingInboxIds.size > 0) return true;
+
+  // ①' 工具卡 pendingApproval：其 `inboxId` 对应的卡已处理/已过期 ⇒ 该标记是残留，跳过
+  for (const message of messages) {
+    for (const block of message.blocks ?? []) {
+      if (
+        block.type !== "tool_call" ||
+        block.toolCall?.pendingApproval !== true
+      )
+        continue;
+      const inboxId = block.toolCall.inboxId;
+      if (typeof inboxId === "string" && resolvedInboxIds.has(inboxId)) {
+        continue;
+      }
+      return true;
+    }
+  }
+
+  // ③ 兜底：若本轮审批卡已存在且已处理（replied/expired），说明审批已走完，
+  // 不能让历史收尾标记把状态永久挂成"等待审批"。
+  if (resolvedInboxIds.size > 0) return false;
   for (let i = messages.length - 1; i >= 0; i--) {
     if (messages[i].role === "assistant") {
       return isAwaitingApprovalTurn(messages[i]);

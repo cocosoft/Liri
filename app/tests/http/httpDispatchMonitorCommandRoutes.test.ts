@@ -49,6 +49,8 @@ import * as orchIntelligenceHandlers from '../../src/infrastructure/http/handler
 import * as ruleHandlers from '../../src/infrastructure/http/handlers/rule-handlers';
 import * as bottleneckHandlers from '../../src/infrastructure/http/handlers/bottleneck-handlers';
 import * as commandsHandlers from '../../src/infrastructure/http/handlers/commands-handlers';
+// S0（2026-11-17）：沙箱探针（诊断面）
+import * as sandboxProbe from '../../src/infrastructure/http/handlers/sandbox-probe';
 import type { HandlerCtx } from '../../src/infrastructure/http/handlers/handler-utils';
 import { dispatchMonitorCommandRoutes } from '../../src/infrastructure/http/handlers/routes/monitor-command-routes';
 
@@ -269,7 +271,16 @@ describe('dispatchMonitorCommandRoutes：路由接线与顺序（特征化）', 
     expect(secDashboard.mock.calls).toHaveLength(1);
   });
 
-  it('⑧ 未匹配 ⇒ false 且不调用任何 handler', async () => {
+  it('⑧ 沙箱探针（S0）走诊断面：GET /v1/diagnostics/sandbox/probe', async () => {
+    const probe = stub(sandboxProbe, 'handleGetSandboxProbe');
+
+    expect(await dispatch('/v1/diagnostics/sandbox/probe')).toBe(true);
+    expect(probe.mock.calls).toHaveLength(1);
+    // 与其它诊断 handler 同口径：只拿 req / res，不读 handlerCtx
+    expect(probe.mock.calls[0]).toHaveLength(2);
+  });
+
+  it('⑨ 未匹配 ⇒ false 且不调用任何 handler', async () => {
     const summary = stub(monitoringHandlers, 'handleMonitorSummary');
     const list = stub(inboxHandlers, 'handleListInbox');
     const commands = stub(commandsHandlers, 'handleListCommands');

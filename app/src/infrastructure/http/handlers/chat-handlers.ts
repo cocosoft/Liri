@@ -47,7 +47,10 @@ import type {
   ChatRequest,
   ChatStreamChunk,
 } from '@modules/runtime/api/CoreAPI';
-import { DEFAULT_MODEL_SENTINEL } from '@openliri/infra/constants';
+import {
+  DEFAULT_MODEL_SENTINEL,
+  CLIENT_DISCONNECT_GRACE_MS,
+} from '@openliri/infra/constants';
 import { isMediaOutputToolName } from '@openliri/infra/utils/toolContract/toolRoles';
 // T3（2026-11-17）：SSE 数据帧的唯一构造点（从本文件的 switch / usage 收尾块原样搬出）
 import { buildStreamChunkFrame, writeStreamTail } from './chatStreamFrames';
@@ -56,8 +59,14 @@ import {
   ATTACH_HEARTBEAT_MS,
   ATTACH_SLOW_CLIENT_MAX_BUFFER,
   beginRun,
+  hasSubscribers,
   openAttach,
 } from './streamAttachHub';
+// 2026-11-18（Spec `.trae/specs/stream-attach-grace.md`）：断开后的「中止 / 后台继续」判定
+import {
+  resolveDisconnectAction,
+  shouldAbortWhenGraceExpires,
+} from './streamDisconnectGrace';
 // 2026-11-11：消息级 `autonomy` 的跨字段冲突契约（与 PATCH /meta 同一判定，见 infra/permission）
 import {
   AUTONOMY_PERMISSION_CONFLICT,
@@ -922,14 +931,6 @@ async function handleStreamingChat(
   // 到达后回填，保证 close 时能按真实会话 ID 中止流，避免互斥锁泄漏
   let activeSessionId = request.session_id;
 
-  // S1: 客户端断开时通知后端中止工具执行 — 补全 close → AbortController 链路
-  // K4b（2026-09-06）：仅流式中才中止（正常收尾的 close 不误伤后台 PDL）
-  res.on('close', () => {
-    clearInterval(keepaliveInterval);
-    streamSpan.addEvent('sse.client.disconnected');
-    abortSessionOnClose(activeSessionId);
-  });
-
   const responseId = `chatcmpl-${randomUUID().slice(0, 8)}`;
   const created = Math.floor(Date.now() / 1000);
   const model = request.model || DEFAULT_MODEL_SENTINEL;
@@ -937,18 +938,80 @@ async function handleStreamingChat(
   /**
    * 2026-11-18（Spec `.trae/specs/stream-attach.md` §5.2）：帧旁路 tee。
    *
-   * 主链路仍是 `res.write(frame)` + `safeFlush(res)`（字节与顺序逐字不变），
-   * 旁路把**同一个字符串**交给 attach hub，供只读 attach 端点回放/转发。
    * 无会话 id 的请求（旧协议）⇒ 不 tee，attach 对这条流返回 404。
    */
   const attachRun = request.session_id
     ? beginRun(request.session_id, responseId)
     : null;
+
+  /**
+   * 2026-11-18（Spec `.trae/specs/stream-attach-grace.md` §3）：**泵与 HTTP 响应解耦**。
+   *
+   * - `detached=false`：写 `res` + flush，再旁路 publish —— 与改动前逐字等价；
+   * - `detached=true`：只 publish（帧进 attach hub），不碰已关闭的 res，循环**继续**；
+   * - `graceMs=0`（默认）：永远不会进入 detached，断开即中止（既有语义）。
+   */
+  const graceMs = CLIENT_DISCONNECT_GRACE_MS;
+  let detached = false;
+  let graceTimer: ReturnType<typeof setTimeout> | undefined;
+  /** 本轮是否已收尾（收尾后的 `close` 属正常完结，不得再 arm 宽限或中止） */
+  let runFinished = false;
+
   const writeFrame = (frame: string): void => {
+    // 旁路先登记：attach 客户端的顺序只由 publish 顺序决定，与 res 是否存活无关
+    attachRun?.publish(frame);
+    if (detached || res.destroyed || res.writableEnded) return;
     res.write(frame);
     safeFlush(res);
-    attachRun?.publish(frame);
   };
+
+  /**
+   * 客户端断开时尝试"进入后台继续"。返回 true = 已 detach（调用方**不得**再中止本轮）。
+   */
+  const tryDetachFromResponse = (reason: 'close' | 'loop'): boolean => {
+    // 已收尾：`res.end()` 之后触发的 close 属正常完结，直接视为"无需处理"
+    if (runFinished) return true;
+    const action = resolveDisconnectAction(graceMs, detached);
+    if (action.kind === 'continue') return true;
+    if (action.kind === 'abort') return false;
+    detached = true;
+    clearInterval(keepaliveInterval);
+    logger.info('SSE 客户端断开，进入后台继续（宽限期内等待接入）', {
+      sessionId: request.session_id,
+      graceMs: action.graceMs,
+      reason,
+    });
+    graceTimer = setTimeout(() => {
+      const sid = request.session_id ?? '';
+      if (!shouldAbortWhenGraceExpires(hasSubscribers(sid))) {
+        logger.info('attach 宽限期结束：已有订阅者接管，本轮继续', {
+          sessionId: sid,
+        });
+        return;
+      }
+      logger.info('attach 宽限期结束且无人接入，中止本轮', {
+        sessionId: sid,
+        graceMs,
+      });
+      try {
+        getCoreAPI().chatManager?.abortSessionStream(activeSessionId ?? '');
+      } catch {
+        // @ignore-catch — 中止失败不改变"不再等待"的决定
+      }
+    }, action.graceMs);
+    (graceTimer as unknown as { unref?: () => void }).unref?.();
+    return true;
+  };
+
+  // S1: 客户端断开时通知后端中止工具执行 — 补全 close → AbortController 链路
+  // K4b（2026-09-06）：仅流式中才中止（正常收尾的 close 不误伤后台 PDL）
+  // 2026-11-18：宽限期 > 0 时改为"进入后台"，中止由宽限定时器兜底（Spec §3.2）
+  res.on('close', () => {
+    clearInterval(keepaliveInterval);
+    streamSpan.addEvent('sse.client.disconnected');
+    if (tryDetachFromResponse('close')) return;
+    abortSessionOnClose(activeSessionId);
+  });
 
   // 发送 role 和状态事件
   writeFrame(
@@ -1115,23 +1178,28 @@ async function handleStreamingChat(
 
     while (!result.done) {
       // P1-2: 客户端断开时立即停止流式输出，避免后续 res.write() 抛出 EPIPE
+      // 2026-11-18：宽限期 > 0 ⇒ 转入后台继续泵（帧只进 attach hub），不中止本轮
       if (res.destroyed || res.writableEnded) {
-        logger.info('SSE 客户端已断开，停止流式输出', {
-          sessionId: request.session_id,
-        });
-        // P2-10 修复：客户端断开时必须关闭 async generator + 中止底层 LLM 流，
-        // 否则 streamMessage 的会话互斥锁（SimpleMutex）永不释放，
-        // 后续同一会话请求会 SimpleMutex: acquire timeout after 30000ms。
-        try {
-          coreAPI.chatManager?.abortSessionStream(activeSessionId ?? '');
-        } catch {
-          // @ignore-catch — 中止操作本身不应抛出；即使失败也继续关闭生成器
+        if (tryDetachFromResponse('loop')) {
+          // 已 detach：继续推进生成器（不写 res、不 abort）
+        } else {
+          logger.info('SSE 客户端已断开，停止流式输出', {
+            sessionId: request.session_id,
+          });
+          // P2-10 修复：客户端断开时必须关闭 async generator + 中止底层 LLM 流，
+          // 否则 streamMessage 的会话互斥锁（SimpleMutex）永不释放，
+          // 后续同一会话请求会 SimpleMutex: acquire timeout after 30000ms。
+          try {
+            coreAPI.chatManager?.abortSessionStream(activeSessionId ?? '');
+          } catch {
+            // @ignore-catch — 中止操作本身不应抛出；即使失败也继续关闭生成器
+          }
+          await Promise.race([
+            generator.return(undefined as never),
+            new Promise<void>((r) => setTimeout(r, 5000)),
+          ]);
+          break;
         }
-        await Promise.race([
-          generator.return(undefined as never),
-          new Promise<void>((r) => setTimeout(r, 5000)),
-        ]);
-        break;
       }
       const chunk = result.value as ChatStreamChunk;
       // AB-25：用流内真实会话 ID 回填（chunk.sessionId 恒为 ChatManager 会话 ID）
@@ -1166,7 +1234,9 @@ async function handleStreamingChat(
 
     // 发送 usage 和 done（使用捕获的 finishReason 而非硬编码 'stop'）
     const finalFinishReason = chunkFinishReason || 'stop';
-    if (res.destroyed || res.writableEnded) {
+    // 2026-11-18：detached（宽限期内后台推进）不算"客户端断开"——尾部帧仍要进 attach hub，
+    // 落盘与执行结算按正常收尾处理。
+    if (!detached && (res.destroyed || res.writableEnded)) {
       getEventNotificationService().off('tool:completed', onToolCompleted);
       getEventNotificationService().off(
         'project:auto_created',
@@ -1206,7 +1276,7 @@ async function handleStreamingChat(
     otel.endSpan(streamSpan, SpanStatusCode.OK);
     // P0-2：正常完成 ⇒ 结算执行（COMPLETED）；未开启灰度 ⇒ no-op
     settleExecution(true);
-    res.end();
+    if (!detached && !res.destroyed && !res.writableEnded) res.end();
   } catch (err) {
     // P0-2：异常 ⇒ 结算执行（FAILED）；未开启灰度 ⇒ no-op
     settleExecution(false, err instanceof Error ? err.message : 'unknown');
@@ -1224,8 +1294,8 @@ async function handleStreamingChat(
       module: 'infra:http',
       action: 'chat_stream_request',
     });
-    // P1-2: 若客户端已断开，不尝试写入
-    if (res.destroyed || res.writableEnded) return;
+    // P1-2: 若客户端已断开，不尝试写入（detached 例外：错误帧仍要进 attach hub）
+    if (!detached && (res.destroyed || res.writableEnded)) return;
     writeFrame(
       `data: ${JSON.stringify({
         id: responseId,
@@ -1249,9 +1319,11 @@ async function handleStreamingChat(
       })}\n\n`
     );
     writeFrame('data: [DONE]\n\n');
-    res.end();
+    if (!detached && !res.destroyed && !res.writableEnded) res.end();
   } finally {
-    // 2026-11-18（attach）：三条出口（正常 / 客户端断开 / 异常）统一收口本轮
+    // 2026-11-18（attach）：宽限定时器与 run 收口——三条出口（正常 / 断开 / 异常）统一
+    if (graceTimer) clearTimeout(graceTimer);
+    runFinished = true;
     attachRun?.end();
   }
 }

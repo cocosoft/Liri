@@ -45,6 +45,13 @@ export interface RuntimeDefaults {
   shutdownHookTimeoutMs: number;
   /** CodeRunner 子进程「退出事件缺失」时的 `exitCode` 轮询间隔（毫秒） */
   codeRunnerExitWatchdogMs: number;
+  /**
+   * 客户端断开后给 attach 接管的宽限期（毫秒）。
+   *
+   * `0`（默认）= 断开立即中止本轮（既有语义）；`>0` = 断开后继续推进生成器、
+   * 帧只进 attach hub，宽限内无人接入才中止。Spec：`.trae/specs/stream-attach-grace.md`。
+   */
+  clientDisconnectGraceMs: number;
   maxLogFileSizeBytes: number;
   maxCacheSizeBytes: number;
   cacheExpiryMs: number;
@@ -123,7 +130,7 @@ const TOKEN_BYTES_ESTIMATE = 4;
  * `LIRI_SESSION_TIMEOUT_MS` · `LIRI_MAX_CONCURRENT_TASKS` · `LIRI_MAX_RETRY_COUNT` ·
  * `LIRI_RETRY_DELAY_MS` · `LIRI_HEARTBEAT_INTERVAL_MS` · `LIRI_CONNECTION_TIMEOUT_MS` ·
  * `LIRI_REQUEST_TIMEOUT_MS` · `LIRI_SHUTDOWN_HOOK_TIMEOUT_MS` ·
- * `LIRI_CODE_RUNNER_EXIT_WATCHDOG_MS` ·
+ * `LIRI_CODE_RUNNER_EXIT_WATCHDOG_MS` · `LIRI_CLIENT_DISCONNECT_GRACE_MS` ·
  * `LIRI_MAX_LOG_FILE_SIZE` · `LIRI_MAX_CACHE_SIZE_BYTES` ·
  * `LIRI_CACHE_EXPIRY_MS` · `LIRI_DEFAULT_PORT` · `LIRI_DEFAULT_HOST` ·
  * `LIRI_MAX_FILE_SIZE` · `LIRI_MAX_PATH_LENGTH` · `LIRI_MAX_FILENAME_LENGTH` ·
@@ -160,6 +167,8 @@ export function getRuntimeDefaults(): RuntimeDefaults {
     requestTimeoutMs: envInt('LIRI_REQUEST_TIMEOUT_MS', 60 * 1000),
     shutdownHookTimeoutMs: envInt('LIRI_SHUTDOWN_HOOK_TIMEOUT_MS', 8 * 1000),
     codeRunnerExitWatchdogMs: envInt('LIRI_CODE_RUNNER_EXIT_WATCHDOG_MS', 250),
+    // Spec `.trae/specs/stream-attach-grace.md` §4：默认 0 = 断开即中止（零行为变化）
+    clientDisconnectGraceMs: envInt('LIRI_CLIENT_DISCONNECT_GRACE_MS', 0),
     maxLogFileSizeBytes: envInt('LIRI_MAX_LOG_FILE_SIZE', 10 * 1024 * 1024),
     maxCacheSizeBytes: envInt('LIRI_MAX_CACHE_SIZE_BYTES', 100 * 1024 * 1024),
     cacheExpiryMs: envInt('LIRI_CACHE_EXPIRY_MS', 24 * 60 * 60 * 1000),

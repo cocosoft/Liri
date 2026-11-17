@@ -14,6 +14,7 @@ import {
   ATTACH_MAX_SUBSCRIBERS,
   __resetAttachHubForTest,
   beginRun,
+  hasSubscribers,
   openAttach,
   type AttachSink,
 } from '../streamAttachHub';
@@ -231,6 +232,27 @@ describe('订阅与收口', () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.snapshot.nextSeq).toBe(1);
+  });
+
+  it('hasSubscribers：订阅时有、退订/结束/无 run 时无（宽限期判定用）', () => {
+    expect(hasSubscribers(SID)).toBe(false);
+
+    const run = beginRun(SID, 'run-1');
+    run.publish(frame(0));
+    const opened = openAttach(SID, 1);
+    expect(opened.ok).toBe(true);
+    if (!opened.ok) return;
+
+    const sink = makeSink();
+    const unsubscribe = opened.addSink(sink);
+    expect(hasSubscribers(SID)).toBe(true);
+
+    unsubscribe();
+    expect(hasSubscribers(SID)).toBe(false);
+
+    opened.addSink(sink);
+    run.end();
+    expect(hasSubscribers(SID)).toBe(false);
   });
 
   it('新 run 顶替旧 run：旧订阅端被关闭，旧句柄不得写入新缓冲', () => {

@@ -144,6 +144,18 @@ export const STEP_STATUS_CANCELLED: PlanStep['status'] = 'cancelled';
 /** 步骤**运行中**取值（D3，2026-11-14）：同 `STEP_STATUS_PENDING` 的复用口径。 */
 export const STEP_STATUS_RUNNING: PlanStep['status'] = 'running';
 
+/**
+ * 计划**验收子态**取值（G5-D1，2026-11-18）：同 `STEP_STATUS_*` 的复用口径 ——
+ * 供 `lro/goalConvergence.ts`、`lro/checkpointPersist.ts` 等复用，避免字面量扩散
+ * （`lint:state-ratchet` Register-or-Fail）。
+ */
+export const PLAN_ACCEPTANCE_PENDING: NonNullable<Plan['acceptance']> =
+  'pending';
+export const PLAN_ACCEPTANCE_ACCEPTED: NonNullable<Plan['acceptance']> =
+  'accepted';
+export const PLAN_ACCEPTANCE_REJECTED: NonNullable<Plan['acceptance']> =
+  'rejected';
+
 export interface Plan {
   id: string;
   description: string;
@@ -161,6 +173,18 @@ export interface Plan {
    * 用布尔可与 LRO 的 `stage_awaiting_approval` 相位并行、互不覆盖。
    */
   paused?: boolean;
+  /**
+   * G5-D1（2026-11-18，`specs/pending-acceptance-state-machine.md`）：**验收子态**.
+   *
+   * - `accepted`：目标门给出 `converged === true`（可正常落 `completed`）；
+   * - `rejected`：目标门给出 `converged === false`（走既有 retry/escalate，不另立流程）；
+   * - `pending`：已执行、结论未决（目标门超时/降级；D3 开关化后才会写入）；
+   * - **缺省**：旧数据 / 未评估 ⇒ 一律视作 `accepted`（零行为变更）。
+   *
+   * 与 `paused` 同一手法：只做 `running` 的子态，**不新增 `status` 取值**
+   * （否则触发 `lint:state-ratchet` 的 Register-or-Fail）。
+   */
+  acceptance?: 'pending' | 'accepted' | 'rejected';
   /** 所属工作空间（项目）ID，用于项目编排面板隔离；无项目归属时省略 */
   workspaceId?: string;
   /**

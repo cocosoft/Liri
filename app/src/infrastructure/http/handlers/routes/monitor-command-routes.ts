@@ -52,6 +52,8 @@ import {
 } from '../error-report-handlers';
 import { handleStateAll } from '../state-handlers';
 import { handleTraceStats } from '../trace-handlers';
+// S0（2026-11-17）：命令执行沙箱只读探针（诊断面；设置方案 §11.2 归位）
+import { handleGetSandboxProbe } from '../sandbox-probe';
 import {
   handleAnalyticsDashboard,
   handleHealthReport,
@@ -239,6 +241,12 @@ async function dispatchMonitorDiagnosticsRoutes(
   // 跨会话资源治理读数（登记表 §2-#4 判据①取数口；默认关也可读，只观测不决策）
   if (method === 'GET' && url === '/v1/diagnostics/resource-governor') {
     await handleResourceGovernorSnapshot(handlerCtx, req, res);
+    return true;
+  }
+  // S0（2026-11-17）：命令执行沙箱只读探针（present / runnable / effective + 原因码；
+  // `?refresh=1` 清缓存重测）。只读诊断，不写配置、不改判定。
+  if (method === 'GET' && url === '/v1/diagnostics/sandbox/probe') {
+    await handleGetSandboxProbe(req, res);
     return true;
   }
   // 前端错误上报

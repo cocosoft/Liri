@@ -672,6 +672,17 @@ body `{ objective?: string（trim 非空）, tokenBudget?: number（正有限数
 | GET | `/v1/permissions/rbac` | ✅ | `permissionService.getRbac`（权限页 RBAC 面板；**需 admin**） |
 | POST | `/v1/permissions/rbac` | ✅ | `permissionService.runRbac`（body `{command}`，经 CommandsOpsPort 复用 CLI 实现；**需 admin**） |
 
+### §3.23.2 命令执行沙箱（只读诊断）
+
+> S0（2026-11-17）：设置页需要如实回答"当前配置下命令会不会真的被沙箱约束"。
+> 判定与执行链**同一来源**（`decideBashLandlockGate`），本接口**只读**：
+> 不写配置、不改判定；`?refresh=1` 清探测器缓存后重测（默认用缓存）。
+> 覆盖范围：同一组开关管 `bash` / `powershell` / `code_run`，且三平台首版**只隔离写**。
+
+| 方法 | 路径 | 后端状态 | 前端调用方 |
+|------|------|----------|-----------|
+| GET | `/v1/diagnostics/sandbox/probe` | ✅ | 无前端调用方（返回 `effective` + `helper.present/runnable` + 机读 `reasonCode`；Windows 无 `--probe` 契约为 `runnable:null`） |
+
 ### §3.24 认证
 
 | 方法 | 路径 | 后端状态 | 前端调用方 |

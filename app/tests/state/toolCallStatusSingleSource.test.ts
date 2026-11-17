@@ -27,6 +27,7 @@ const CORE_API = 'app/src/runtime/api/CoreAPI.ts';
 const UNIFIED_MESSAGE = sessionRepoRel('types/UnifiedMessage.ts');
 const CHUNK_MAPPER = 'app/src/chat/reactEventsToChunks.ts';
 const SSE_HANDLER = 'app/src/infrastructure/http/handlers/chat-handlers.ts';
+const SSE_FRAMES = 'app/src/infrastructure/http/handlers/chatStreamFrames.ts';
 const CORE_API_IMPL = 'app/src/runtime/api/CoreAPIImpl.ts';
 const TOOL_PROGRESS = 'packages/infra/src/utils/toolContract/ToolProgress.ts';
 const EXECUTION_EXIT = 'packages/service/src/execution/index.ts';
@@ -72,11 +73,18 @@ describe('工具调用状态单源守卫（阶段 2.1/2.2）', () => {
     expect(countOccurrences(src, ": 'completed'")).toBe(0);
   });
 
-  it('SSE 桥接（chat-handlers）兜底状态来自共享常量', () => {
-    const src = read(SSE_HANDLER);
-    // 1 处 import + 2 处兜底（两条 SSE 路径）
-    expect(countOccurrences(src, 'TOOL_CALL_INITIAL_STATUS')).toBe(3);
-    expect(countOccurrences(src, "|| 'running'")).toBe(0);
+  it('SSE 桥接（chat-handlers / chatStreamFrames）兜底状态来自共享常量', () => {
+    // T3（2026-11-17）：chunk → SSE 帧构造外移到 `chatStreamFrames.ts` ⇒ SSE 桥接现有两处：
+    // 主循环（tool_call 帧）在 frames 模块，resume 回放仍在 handler。
+    const handler = read(SSE_HANDLER);
+    // 1 处 import + 1 处兜底（resume 回放路径）
+    expect(countOccurrences(handler, 'TOOL_CALL_INITIAL_STATUS')).toBe(2);
+    expect(countOccurrences(handler, "|| 'running'")).toBe(0);
+
+    const frames = read(SSE_FRAMES);
+    // 1 处 import + 1 处兜底（tool_call 数据帧）
+    expect(countOccurrences(frames, 'TOOL_CALL_INITIAL_STATUS')).toBe(2);
+    expect(countOccurrences(frames, "|| 'running'")).toBe(0);
   });
 
   it('CoreAPIImpl 不再把工具调用状态断言降级为裸 string', () => {

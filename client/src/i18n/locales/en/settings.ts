@@ -1038,6 +1038,10 @@ const enSettings = {
       "L1 · Tool allowlist (tool_rules.json): decides whether to ask. The approval card's 「never ask for this command / this tool」 writes here, and each entry can be revoked here.",
     toolsRulesHint:
       "Tool-level list: Allow = run without asking; Ask = prompt every time; Deny = block outright (deny always wins, allowlists cannot override). Stored in the same tool_rules.json the decision path reads — effective immediately. Rules created from approval cards also show up below.",
+    // B2 (2026-11-17): why structural forms (for / if / $env:) have no one-click remember —
+    // rules match the raw command with a regex, so allowing the form means trusting any loop body.
+    toolsRulesStructuralHint:
+      "Structural forms such as `for` / `if` / `$env:` ask every time by default (the loop or branch body cannot be verified statically). To cut the interruptions: split them into single commands (use file_read / glob / grep for reads, finds and searches), or pin one exact command with 「trust this workspace permanently」. Allowing the whole form with a regex such as `^for` means trusting any loop body — use it with care.",
     toolsRulesSearch: "Search tool name…",
     toolsRulesLoading: "Loading tools and rules…",
     toolsRulesLoadFailed: "Failed to load tool rules",

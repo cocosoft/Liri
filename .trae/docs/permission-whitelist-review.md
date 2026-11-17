@@ -69,6 +69,27 @@ allow 规则有预算（`permission.userRuleAllowBudget`，默认 50）；
 保存前会跑**影响预演**（基准命令写前/写后对比），若把基准从 `ask`/`allow` 变 `deny`
 ⇒ 写接口 409 `code=impact`，需显式 `confirmImpact=true` 再写（防把自己/agent 锁死）。
 
+### 4.1 结构形态（`for` / `if` / `$env:`）能不能「记住」？（B2，2026-11-17）
+
+**先看代码事实**（决定答案的不是文案，而是匹配语义）：
+
+| 维度 | 事实 | 落点 |
+|---|---|---|
+| 为什么保持 ask | 循环体 / 分支体 / 变量展开无法静态确认，分类器不放开结构判定 | `BashSecurityAnalyzer` / auto 分类器 |
+| `contentPattern` 语义 | **正则**，对 bash 的**命令原文**（`input.command`）做 `test`，另以 `JSON.stringify(input)` 兜底 | `types/PermissionRule.ts#isRuleMatch` |
+| 「始终允许」指纹 | bash **未声明** `approvalFingerprint` ⇒ 全参数稳定 JSON，**不参数化**（换参数即换指纹，不命中） | `approvalFingerprint.ts` |
+
+**结论（对用户的可交付口径）**
+
+1. **可以**用正则规则整体放行该形态（如 `^for\b`），但一条规则覆盖**任意循环体/分支体**
+   ⇒ 等于放弃这层保护；因此不提供「结构形态一键记住」入口，界面上只给如实说明。
+2. 「始终允许」（指纹档）对它**无效**：bash 的指纹是全参数 JSON，换一行参数就重新询问。
+3. 可交付的收敛路径（按推荐度）：
+   - **拆成单条命令**：读/找/搜用 `file_read` / `glob` / `grep`（提示层已收敛）；判断存在性用单条 `Test-Path`；
+   - **固化精确命令**：审批卡「本工作区永久信任」= 精确命令 + 工作区根（归一化比较），出事可逐条撤销；
+   - **确需循环**再自建 `contentPattern` 正则 allow，并接受「整类放行」的代价。
+4. 复核手段：规则行展示 `hitCount / lastHitAt`，可据此判断这类整体放行是否被过度使用。
+
 ## 5. 启动提示与设置页
 
 - REPL 启动：`ui.showWarning('本周 N 个未收录命令导致 M 次审批（最多：xxx）；可在「设置 → 权限管理」添加 allow 规则')`

@@ -39,6 +39,7 @@ import {
 import type { RuleMatcherPermissionContext } from '../utils/RuleMatcher';
 import { hashApprovalFingerprint } from '../ApprovedCommandRegistry';
 import { resolveApprovalFingerprint } from '../approvalFingerprint';
+import type { ApprovalPauseScope } from '../approvalPause';
 import { handleAuto, handleDefault, type ModeHandlerDeps } from './modeHandlers';
 
 /** 可模拟的权限档（其余档位没有"规则判定"语义，不提供模拟） */
@@ -113,12 +114,15 @@ export interface SimulatePermissionDeps {
 
 /** 规则上下文（与 `decisionPipeline` 同构：settings 来源规则并入口径一致） */
 function toRuleContext(
-  toolPermissionContext: RuleMatcherPermissionContext
+  toolPermissionContext: RuleMatcherPermissionContext,
+  pauseScope?: ApprovalPauseScope
 ): RuleContext {
   return {
     alwaysAllowRules: toolPermissionContext.alwaysAllowRules,
     alwaysDenyRules: toolPermissionContext.alwaysDenyRules,
     alwaysAskRules: toolPermissionContext.alwaysAskRules,
+    // F2：模拟与真实链同口径 —— 带上请求里的工作区根，否则「按工作区暂停」在模拟里不生效
+    ...(pauseScope ? { pauseScope } : {}),
   };
 }
 
@@ -198,7 +202,12 @@ export async function simulatePermissionDecision(
     autonomy: request.autonomy,
     workspaceRoots: request.workspaceRoots,
   });
-  const ruleContext = toRuleContext(deps.toolPermissionContext);
+  const ruleContext = toRuleContext(
+    deps.toolPermissionContext,
+    request.workspaceRoots
+      ? { workspaceRoots: request.workspaceRoots }
+      : undefined
+  );
 
   // 与真实判定链**同一处理器**；差异仅在依赖侧：新建拒绝跟踪器（不污染真实计数），
   // RBAC 回调返回空（无请求级身份可用）。

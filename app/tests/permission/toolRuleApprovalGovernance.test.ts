@@ -39,6 +39,12 @@ import { APPROVAL_PAUSE_CONFIG_KEY } from '@openliri/infra/permission/approvalPa
 import { PermissionChecker } from '@openliri/infra/permission/PermissionChecker';
 import type { PermissionContext } from '@openliri/infra/permission/types/PermissionContext';
 import { PermissionDecisionType } from '@openliri/infra/permission/types/PermissionDecision';
+import { PermissionMode } from '@openliri/infra/permission/PermissionMode';
+import {
+  checkPermissionInner,
+  type DecisionPipelineDeps,
+} from '@openliri/infra/permission/manager/decisionPipeline';
+import { DenialTracker } from '@openliri/infra/permission/trackers/DenialTracker';
 
 import {
   serializeRule,
@@ -520,5 +526,101 @@ describe('F2：暂停粒度（全局 / 按会话）', () => {
     } finally {
       setValueSpy.mockRestore();
     }
+  });
+});
+
+/**
+ * F2（2026-11-17）：**真实决策主链路**的暂停生效性。
+ *
+ * 为什么单独锁：会话级 / 工作区级暂停的过滤点若只挂在 `PermissionChecker` 的便捷方法上，
+ * 真实判定（`checkPermissionInner` → `handleDefault` → `RuleManager` 单规则查询）会绕过它
+ * ⇒ 设置页开关"看似生效、实际不生效"。本组用例走真实 pipeline（依赖替身仅限
+ * classifier / hook / RBAC 三条外部边），断言 `RuleContext.pauseScope` 的接线。
+ */
+describe('F2：真实决策主链路按会话/工作区暂停', () => {
+  let dir: string;
+  let manager: RuleManager;
+  let checker: PermissionChecker;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'liri-rule-pipeline-'));
+    manager = new RuleManager();
+    manager.setRuleSource(join(dir, 'tool_rules.json'));
+    manager.loadRules();
+    checker = new PermissionChecker(manager);
+    // 审批生成的 deny 规则：暂停后应被忽略（工具回落到默认 allow）
+    manager.addRule(
+      createPermissionRule({
+        behavior: PermissionBehavior.DENY,
+        toolName: 'danger_tool',
+        origin: 'approval',
+      })
+    );
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  async function decide(context: PermissionContext) {
+    const denialTracker = new DenialTracker();
+    const deps = {
+      mode: PermissionMode.DEFAULT,
+      toolPermissionContext: {
+        alwaysAllowRules: {},
+        alwaysDenyRules: {},
+        alwaysAskRules: {},
+      },
+      permissionHookService: { executeHooks: async () => null },
+      denialTracker,
+      modeHandlerDeps: {
+        ruleManager: manager,
+        denialTracker,
+        classifierManager: { isAllowlistedTool: () => false },
+        messages: [],
+        defaultBehavior: 'allow',
+        permissionChecker: checker,
+        checkFineGrainedRules: async () => ({}),
+      },
+    } as unknown as DecisionPipelineDeps;
+    return checkPermissionInner(deps, 'danger_tool', {}, context);
+  }
+
+  const context = (sessionId?: string, workspaceRoots?: string[]) =>
+    ({
+      toolName: 'danger_tool',
+      input: {},
+      sessionId,
+      ...(workspaceRoots ? { workspaceRoots } : {}),
+    }) as PermissionContext;
+
+  it('未暂停 ⇒ 审批 deny 规则在真实链路生效', async () => {
+    stubPauseConfig(false);
+    expect((await decide(context('s1'))).type).toBe(
+      PermissionDecisionType.DENY
+    );
+  });
+
+  it('会话暂停 ⇒ 本会话忽略审批 deny；其他会话仍拒', async () => {
+    stubPauseConfig({ global: false, sessions: ['s1'], workspaces: [] });
+    expect((await decide(context('s1'))).type).toBe(
+      PermissionDecisionType.ALLOW
+    );
+    expect((await decide(context('s2'))).type).toBe(
+      PermissionDecisionType.DENY
+    );
+  });
+
+  it('工作区暂停 ⇒ 该根下忽略审批 deny；其他根/无根仍拒', async () => {
+    stubPauseConfig({ global: false, sessions: [], workspaces: ['e:/proj'] });
+    expect((await decide(context('s1', ['E:\\Proj\\']))).type).toBe(
+      PermissionDecisionType.ALLOW
+    );
+    expect((await decide(context('s1', ['e:/other']))).type).toBe(
+      PermissionDecisionType.DENY
+    );
+    expect((await decide(context('s1'))).type).toBe(
+      PermissionDecisionType.DENY
+    );
   });
 });

@@ -318,6 +318,18 @@ export type {
   RuleFileHealth,
   RuleKeyConflict,
 } from './RuleManager';
+// R2（2026-11-17）：工具规则写入口的**唯一校验/落盘内核**（冲突/损坏/只读/审计）
+export {
+  addRuleChecked,
+  updateRuleChecked,
+  removeRuleChecked,
+} from './manager/ruleCrud';
+export type {
+  AddRuleInput,
+  UpdateRulePatch,
+  RuleWriteErrorCode,
+  RuleWriteResult,
+} from './manager/ruleCrud';
 // R0（2026-11-17）：权限判定只读模拟（设置页「模拟」；复用真实判定链，不复制匹配逻辑）
 export {
   simulatePermissionDecision,

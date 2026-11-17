@@ -31,6 +31,12 @@ const PREFLIGHT_SRC = readFileSync(
   new URL('../../src/chat/services/toolPreflight.ts', import.meta.url),
   'utf8'
 );
+// T3 stage 3（2026-11-17）：权限闸门（DENY / 审批通道不可用两处固定 permission_denied）外移
+// ⇒ 源码计数再并入该模块。
+const PERMISSION_GATE_SRC = readFileSync(
+  new URL('../../src/chat/services/permissionGate.ts', import.meta.url),
+  'utf8'
+);
 const TOOL_LOOP_SRC = readFileSync(
   new URL('../../src/chat/ReActToolLoop.ts', import.meta.url),
   'utf8'
@@ -88,13 +94,14 @@ describe('failureKind 生产者接线（LRO-09 步骤 1b）', () => {
 
   it('权限生产者：DENY / 审批未能提交固定 permission_denied；工作区越界按灰度开关分型', () => {
     const hits =
-      (EXEC_SERVICE_SRC + PREFLIGHT_SRC).match(
+      (EXEC_SERVICE_SRC + PREFLIGHT_SRC + PERMISSION_GATE_SRC).match(
         /failureKind: 'permission_denied'/g
       ) ?? [];
     // FIX-10（2026-10-27）原有三处；B1（2026-10-30，issue #35）把"工作区越界"改为
     // 随 `FEATURE_WORKSPACE_MULTI_ROOT` 分型 ⇒ 固定 permission_denied 只剩两处。
     // 2026-11-12：新增"用户在该调用上点了拒绝"的终止态（同样固定 permission_denied）⇒ 三处。
-    // T3（2026-11-17）：该处随入口预检外移到 `toolPreflight.ts`，故两文件合并计数仍为三处。
+    // T3（2026-11-17）：三处随守卫/权限闸门外移到 `toolPreflight.ts` / `permissionGate.ts`，
+    // 故按三文件合并计数仍为三处（结构断言意图不变）。
     expect(hits.length).toBe(3);
     // 开启多根 ⇒ 越界按「是否已提交审批」二分（2026-10-31，台账 §16）：
     //   已提交审批 ⇒ workspace_escape_pending_approval（熔断分型中性，等批准不烧 invalid 预算）
@@ -107,7 +114,8 @@ describe('failureKind 生产者接线（LRO-09 步骤 1b）', () => {
   it('LRO-07：规则拒绝的结构化依据进工具结果（metadata.permissionDeny）', () => {
     // 此前 `decision.context` 在 checkPermissionForTool 归一化时被截断 ⇒ 工具结果 metadata 为 null，
     // 模型/用户只能看到一句 reason。这里钉住"结构化字段必须被搬进 ToolResult.metadata"。
-    expect(EXEC_SERVICE_SRC).toContain(
+    // T3（2026-11-17）：该映射随权限闸门外移到 `permissionGate.ts`。
+    expect(PERMISSION_GATE_SRC).toContain(
       'metadata: { permissionDeny: permissionResult.denyInfo }'
     );
     // P1（2026-11-03）：类型声明已随判定收敛到唯一入口 `authorizeToolCall`

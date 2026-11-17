@@ -23,14 +23,11 @@ import {
 } from '@openliri/infra/error';
 import { ErrorHandler } from '@openliri/kernel';
 import { convergenceDetector } from '../services/ConvergenceDetector.js';
-import { eventNotificationService } from '../services/EventNotificationService.js';
 import { toolResultRegistry } from '@modules/tool/ToolResultRegistry.js';
 import { resolveToolCwd } from './toolCwdScope';
 // G8（2026-11-03）：会话工作区不可用时向事件流投影一次提示（界面可见）
 import type { LiriEvent } from '@modules/session/types/events';
-// T3 stage 3（2026-11-17）：`getRequestPrincipal` 随权限闸门外移至 `./permissionGate`
-import { ToolExecutionStatus } from '@openliri/infra/utils/toolContract/ToolResult';
-import { isMediaOutputToolName } from '@openliri/infra/utils/toolContract/toolRoles';
+// T3 stage 7（2026-11-17）：媒体交付事件随图像结果登记外移至 `./imageResultRegistration`
 // U-02 v2 / P3（2026-10-20）：工作区边界参数字段（与 LRO 共用同一纯函数，实现落 utils 避免 chat↔tasks 环）
 import { PATH_ARG_KEYS } from '@openliri/infra/utils/toolContract';
 // R07-3（2026-10-07）：非幂等工具「重试」判定（唯一实现 = tools/toolEffects）
@@ -73,6 +70,9 @@ export {
   formatWorkspaceInvalidError,
   formatWorkspaceRootsHint,
 } from './workspaceBoundaryGuard';
+// T3 stage 7（2026-11-17）：工具「需要审批」结果整形 + 图像结果登记/媒体事件
+import { resolveToolApprovalOutcome } from './toolApprovalOutcome';
+import { registerImageToolResults } from './imageResultRegistration';
 import {
   createFileStateCacheWithSizeLimit,
   type FileStateCache,
@@ -95,11 +95,8 @@ import type {
 } from '@openliri/infra/permission';
 // D2（2026-10-11）：权限管理器注入断言（生产 fail-fast，G9）
 // T3 stage 3（2026-11-17）：权限闸门（注入断言 / authorizeToolCall / 四条出口）已外移
-// `./permissionGate` ⇒ 本文件只保留与其结果相关的 `resolveApprovalFingerprint` 等。
-import {
-  resolveApprovalFingerprint,
-  type ToolPermissionPort,
-} from '@openliri/infra/permission';
+// `./permissionGate`；审批结果整形与指纹计算外移 `./toolApprovalOutcome`。
+import type { ToolPermissionPort } from '@openliri/infra/permission';
 
 /**
  * **工具执行瞬态**状态（状态机方案 阶段 1.3 取证抽出；消除裸字面量，CS02）。
@@ -1001,106 +998,52 @@ export class ToolExecutionService {
           onProgress
         );
 
-        // 工具返回"需要审批"
-        if (
-          (toolResult as { requireApproval?: boolean }).requireApproval ===
-            true ||
-          (toolResult as { status?: string }).status ===
-            (ToolExecutionStatus.REQUIRES_APPROVAL as string)
-        ) {
-          const approvalReason = (toolResult as { approvalReason?: string })
-            .approvalReason;
-          // S1-1：若工具在结果 metadata 中声明了审批作用域（如 BashTool 的 cwd/env/平台），
-          // 随卡片提交 ⇒ 批准时写入放行缓存 ⇒ 执行端作用域不一致即不命中（fail-closed）。
-          const approvalScope = (
-            toolResult as { metadata?: { approvalScope?: ApprovalScope } }
-          ).metadata?.approvalScope;
-          const approvalSnapshot = (
-            toolResult as { metadata?: { approvalSnapshot?: ApprovalSnapshot } }
-          ).metadata?.approvalSnapshot;
-          // PR-1（2026-10-23）：已批准过**同一指纹** ⇒ 不再建卡，直接复跑一次
-          // （工具内部会命中 `isToolCallApproved` 并真正执行；仅重试一次，避免递归）。
-          if (
-            await this.deps.isCommandApproved(
-              normalizedToolCall.name,
-              normalizedToolCall.arguments,
-              toolCall.sessionId,
-              resolveApprovalFingerprint(
-                (() => {
-                  try {
-                    const lookup = (
-                      this.deps.getToolRegistry() as {
-                        getTool?: (n: string) => Tool | undefined;
-                      } | null
-                    )?.getTool?.(normalizedToolCall.name);
-                    return lookup ?? normalizedToolCall.name;
-                  } catch {
-                    return normalizedToolCall.name;
-                  }
-                })(),
-                normalizedToolCall.arguments
-              )
-            )
-          ) {
-            logger.info('工具级审批已命中放行缓存，直接复跑（不再建卡）', {
-              toolName: normalizedToolCall.name,
-              toolCallId: toolCall.id,
-            });
-            const retried = await registry.executeTool(
+        // 工具返回"需要审批"（T3 stage 7，2026-11-17：实现外移 `./toolApprovalOutcome`）
+        // 已批准指纹复跑 / 提交审批卡 / 提交失败回传工具错误，三段口径不变。
+        const approvalOutcome = await resolveToolApprovalOutcome({
+          toolCall,
+          args: normalizedToolCall.arguments,
+          toolResult,
+          executeAgain: () =>
+            registry.executeTool(
               {
                 toolName: normalizedToolCall.name,
                 input: normalizedToolCall.arguments,
               },
               context,
               onProgress
-            );
-            return {
-              toolCallId: toolCall.id,
-              toolName: normalizedToolCall.name,
-              result: retried.data ?? retried.output,
-              error:
-                typeof retried.error === 'string' ? retried.error : undefined,
-            };
-          }
-          const submitted = await this.deps.submitToolApproval(
-            normalizedToolCall.name,
-            normalizedToolCall.arguments,
-            toolCall.sessionId,
-            toolCall.id,
-            approvalReason,
-            approvalScope,
-            approvalSnapshot
-          );
-          if (submitted) {
-            return {
-              toolCallId: toolCall.id,
-              toolName: normalizedToolCall.name,
-              result: {
-                status: TRANSIENT_AWAITING_APPROVAL,
-                message: `工具 '${normalizedToolCall.name}' 需要审批（${
-                  approvalReason || '高风险操作'
-                }），已提交审批卡片等待用户批准。用户批准后可继续执行，请勿编造替代方案。`,
-                pendingApproval: true,
-                // U-06-5：Inbox 项 id —— 前端工具卡片就地审批
-                inboxId: submitted,
-              },
-              error: undefined,
-            };
-          }
-          const rawError =
-            typeof toolResult.error === 'string'
-              ? toolResult.error
-              : toolResult.metadata?.error
-                ? String(toolResult.metadata.error)
-                : undefined;
-          return {
-            toolCallId: toolCall.id,
-            toolName: normalizedToolCall.name,
-            result:
-              (toolResult as { output?: string }).output || toolResult.data,
-            error: rawError,
-          };
-        }
+            ),
+          deps: {
+            isCommandApproved: (name, callArgs, sessionId, fingerprint) =>
+              this.deps.isCommandApproved(
+                name,
+                callArgs,
+                sessionId,
+                fingerprint
+              ),
+            submitToolApproval: (
+              name,
+              callArgs,
+              sessionId,
+              toolCallId,
+              reason,
+              scope,
+              snapshot
+            ) =>
+              this.deps.submitToolApproval(
+                name,
+                callArgs,
+                sessionId,
+                toolCallId,
+                reason,
+                scope,
+                snapshot
+              ),
+            resolveRegisteredTool: (name) => this._resolveRegisteredTool(name),
+            awaitingApprovalStatus: TRANSIENT_AWAITING_APPROVAL,
+          },
+        });
+        if (approvalOutcome) return approvalOutcome;
 
         // 检查错误
         let error: string | undefined;
@@ -1116,59 +1059,15 @@ export class ToolExecutionService {
               : JSON.stringify(toolResult.metadata.error);
         }
 
-        // 注册图像工具输出路径
-        const resultData = toolResult.data as
-          | Record<string, unknown>
-          | undefined;
-        if (resultData && !error && toolCall.sessionId) {
-          const extractedPaths =
-            this.deps.imageContextService.extractImagePathsFromResult(
-              normalizedToolCall.name,
-              resultData
-            );
-          if (extractedPaths.length > 0) {
-            this.deps.imageContextService.registerImagePaths(
-              toolCall.sessionId,
-              extractedPaths
-            );
-          }
-
-          this.deps.imageContextService.updateImageContext(
-            toolCall.sessionId,
-            normalizedToolCall.name,
-            normalizedToolCall.arguments,
-            resultData
-          );
-
-          if (
-            (normalizedToolCall.name === 'glob' ||
-              normalizedToolCall.name === 'FileSearch') &&
-            Array.isArray(resultData) &&
-            toolCall.sessionId
-          ) {
-            const searchPath =
-              (normalizedToolCall.arguments?.path as string) || process.cwd();
-            this.deps.imageContextService.confirmedPaths.addDirectoryListing(
-              searchPath,
-              resultData as string[]
-            );
-          }
-
-          if (
-            // A-4（2026-10-18）：媒体交付类工具改走角色集合；`create_project` 是该工具**自身契约**
-            // （导航建议 + 会话关联），不属角色判定，保留显式比较。
-            isMediaOutputToolName(normalizedToolCall.name) ||
-            normalizedToolCall.name === 'create_project'
-          ) {
-            eventNotificationService.emitCustomEvent('tool:completed', {
-              toolName: normalizedToolCall.name,
-              sessionId: toolCall.sessionId,
-              toolCallId: toolCall.id,
-              images: (resultData as Record<string, unknown>).images,
-              resultData,
-            });
-          }
-        }
+        // 注册图像工具输出路径 + 媒体交付事件
+        // （T3 stage 7，2026-11-17：实现外移 `./imageResultRegistration`，判据口径不变）
+        registerImageToolResults({
+          toolCall,
+          args: normalizedToolCall.arguments,
+          resultData: toolResult.data as Record<string, unknown> | undefined,
+          hasError: Boolean(error),
+          deps: { imageContextService: this.deps.imageContextService },
+        });
 
         return {
           toolCallId: toolCall.id,

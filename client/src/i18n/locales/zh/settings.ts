@@ -1026,6 +1026,11 @@ const zhSettings = {
     toolsRulesPauseSessionCount: "按会话暂停 · {{count}}",
     toolsRulesPauseSessionHint:
       "只让「当前会话」忽略审批放行（其他会话与后台任务不受影响）；会话结束后该条目不再命中，可随时取消勾选移除。",
+    toolsRulesPauseWorkspaceLabel: "仅对当前工作区暂停",
+    toolsRulesPauseWorkspaceNoPath: "当前会话未绑定文件夹",
+    toolsRulesPauseWorkspaceCount: "按工作区暂停 · {{count}}",
+    toolsRulesPauseWorkspaceHint:
+      "只让该文件夹下的调用忽略审批放行（根按统一格式比较：分隔符与大小写不敏感）；不确定时可随时取消或从列表移除。",
     toolsRulesUnknownTitle:
       "近 {{days}} 天有 {{headCount}} 个未收录命令被转审批（共 {{sampleCount}} 次）",
     toolsRulesUnknownHint: "给常用命令加一条规则，可减少重复审批。",

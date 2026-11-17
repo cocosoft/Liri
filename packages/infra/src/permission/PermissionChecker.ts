@@ -926,7 +926,7 @@ export class PermissionChecker {
       typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
     const denyRules = filterPausedApprovalRules(
       this.ruleManager.getRules(undefined, PermissionBehavior.DENY),
-      { sessionId: context.sessionId }
+      { sessionId: context.sessionId, workspaceRoots: context.workspaceRoots }
     );
     const options = this._ruleMatchOptions(
       toolOrName,
@@ -972,7 +972,7 @@ export class PermissionChecker {
       typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
     const askRules = filterPausedApprovalRules(
       this.ruleManager.getRules(undefined, PermissionBehavior.ASK),
-      { sessionId: context.sessionId }
+      { sessionId: context.sessionId, workspaceRoots: context.workspaceRoots }
     );
     const options = this._ruleMatchOptions(
       toolOrName,
@@ -1002,7 +1002,7 @@ export class PermissionChecker {
       typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
     const allowRules = filterPausedApprovalRules(
       this.ruleManager.getRulesByBehavior(PermissionBehavior.ALLOW),
-      { sessionId: context.sessionId }
+      { sessionId: context.sessionId, workspaceRoots: context.workspaceRoots }
     );
     const options = this._ruleMatchOptions(
       toolOrName,
@@ -1047,6 +1047,7 @@ export class PermissionChecker {
     // 「以后这个命令免审批」写的就是这一类，此前直读 `getRules()` 会绕过过滤。
     const rules = filterPausedApprovalRules(this.ruleManager.getRules(), {
       sessionId: context.sessionId,
+      workspaceRoots: context.workspaceRoots,
     });
     const options = this._ruleMatchOptions(toolOrName, input ?? {}, context);
     for (const rule of rules) {

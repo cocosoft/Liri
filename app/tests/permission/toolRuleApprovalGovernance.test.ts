@@ -427,6 +427,34 @@ describe('F2：暂停粒度（全局 / 按会话）', () => {
     );
   });
 
+  it('按工作区暂停 ⇒ 根归一化后相等才生效（分隔符/大小写/尾斜杠不敏感）', () => {
+    stubPauseConfig({
+      global: false,
+      sessions: [],
+      workspaces: ['E:\\Projects\\Demo\\'],
+    });
+    const input = { command: 'git status' };
+    const inRoot: PermissionContext = {
+      toolName: 'bash',
+      input,
+      workspaceRoots: ['e:/projects/demo'],
+    } as PermissionContext;
+    const otherRoot: PermissionContext = {
+      toolName: 'bash',
+      input,
+      workspaceRoots: ['e:/projects/other'],
+    } as PermissionContext;
+
+    expect(checker.checkContentSpecificRules('bash', input, inRoot)).toBeNull();
+    expect(
+      checker.checkContentSpecificRules('bash', input, otherRoot)?.type
+    ).toBe(PermissionDecisionType.ALLOW);
+    // 未提供根 ⇒ 不命中工作区级暂停（只按 global）
+    expect(
+      checker.checkContentSpecificRules('bash', input, ctx('s1'))?.type
+    ).toBe(PermissionDecisionType.ALLOW);
+  });
+
   it('写接口：{global, sessions} 整体写入并去重去空白；非法入参 400', async () => {
     const setValueSpy = spyOn(
       getConfigManager(),
@@ -445,6 +473,7 @@ describe('F2：暂停粒度（全局 / 按会话）', () => {
       expect(setValueSpy).toHaveBeenCalledWith(APPROVAL_PAUSE_CONFIG_KEY, {
         global: false,
         sessions: ['s1'],
+        workspaces: [],
       });
 
       // 旧形状兼容：只改全局
@@ -453,12 +482,35 @@ describe('F2：暂停粒度（全局 / 按会话）', () => {
       expect(legacy.captured.status).toBe(200);
       expect(JSON.parse(legacy.captured.body).enabled).toBe(false);
 
+      // 工作区级：服务端归一化后落库（分隔符/大小写/尾斜杠）
+      const ws = captureRes();
+      await handleSetApprovalPause(
+        makeReq({ workspaces: ['E:\\Projects\\Demo\\'] }),
+        ws.res
+      );
+      expect(ws.captured.status).toBe(200);
+      expect(JSON.parse(ws.captured.body).workspaces).toEqual([
+        'e:/projects/demo',
+      ]);
+      // bun:test 无 `toHaveBeenLastCalledWith` ⇒ 直接读最后一次调用
+      expect(setValueSpy.mock.calls.at(-1)).toEqual([
+        APPROVAL_PAUSE_CONFIG_KEY,
+        {
+          global: false,
+          sessions: [],
+          workspaces: ['e:/projects/demo'],
+        },
+      ]);
+
       const badBodies: unknown[] = [
         {},
         { sessions: 's1' },
         { sessions: [1] },
         { global: 'yes' },
         { sessions: ['x'.repeat(129)] },
+        { workspaces: 'e:/proj' },
+        { workspaces: [1] },
+        { workspaces: ['x'.repeat(513)] },
       ];
       for (const bad of badBodies) {
         const res = captureRes();

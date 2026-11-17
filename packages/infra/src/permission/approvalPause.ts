@@ -29,23 +29,27 @@
  *
  * 粒度（F2）：
  * - `global`：实例级（本机全部会话）；
- * - `sessions`：按**会话 id** 暂停（其它会话不受影响；会话结束后条目自然不再命中，可手动移除）。
+ * - `sessions`：按**会话 id** 暂停（其它会话不受影响；会话结束后条目自然不再命中，可手动移除）；
+ * - `workspaces`：按**工作区根**暂停（在该根下的调用忽略审批放行；根按 `normalizeWorkspaceRoot`
+ *   归一化后比较 —— 与「本工作区永久信任」规则同一口径）。
  *
  * 配置形状（`config.json#permission.pauseApprovalPersistence`，向后兼容旧布尔值）：
  * ```jsonc
  * false                                        // 未暂停（旧形状 / 空状态写回的就是它）
  * true                                         // 全局暂停（旧形状）
- * { "global": false, "sessions": ["sess_x"] }  // 仅暂停某些会话
+ * { "global": false, "sessions": ["sess_x"], "workspaces": ["e:/proj"] }
  * ```
  *
  * 职责边界：本模块只回答"这次判定要不要忽略审批规则"，不负责匹配规则本身
- * （匹配仍走 `isRuleMatch`）；调用方必须把 **会话上下文** 传进来，缺省 ⇒ 只按 `global`。
+ * （匹配仍走 `isRuleMatch`）；调用方必须把 **会话 / 工作区上下文** 传进来，
+ * 缺省 ⇒ 只按 `global`。
  */
 import { configManager } from '@openliri/infra/config';
 import { getLogger } from '@openliri/infra/monitoring';
 
 import {
   isApprovalOriginatedRule,
+  normalizeWorkspaceRoot,
   type PermissionRule,
 } from './types/PermissionRule';
 
@@ -54,31 +58,50 @@ const logger = getLogger('permission:approvalPause');
 /** 配置键（`GET /v1/config/permission.pauseApprovalPersistence` 同源） */
 export const APPROVAL_PAUSE_CONFIG_KEY = 'permission.pauseApprovalPersistence';
 
-/** 暂停状态（`global` 与 `sessions` 是「或」关系：任一命中即暂停） */
+/** 暂停状态（`global` / `sessions` / `workspaces` 是「或」关系：任一命中即暂停） */
 export interface ApprovalPauseState {
   /** 实例级暂停（本机全部会话） */
   global: boolean;
   /** 按会话暂停（会话 id 列表） */
   sessions: string[];
+  /** 按工作区根暂停（归一化后的根路径列表） */
+  workspaces: string[];
+}
+
+/** 判定上下文（会话 id / 本次调用所处的所有工作区根） */
+export interface ApprovalPauseScope {
+  sessionId?: string;
+  workspaceRoots?: string[];
 }
 
 /** 规范化任意配置值为状态（非法/缺失 ⇒ 未暂停；不抛） */
 function normalizeState(raw: unknown): ApprovalPauseState {
-  if (raw === true) return { global: true, sessions: [] };
+  if (raw === true) return { global: true, sessions: [], workspaces: [] };
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
-    return { global: false, sessions: [] };
+    return { global: false, sessions: [], workspaces: [] };
   }
   const obj = raw as Record<string, unknown>;
-  const rawSessions = Array.isArray(obj['sessions']) ? obj['sessions'] : [];
+  const strings = (value: unknown): string[] =>
+    Array.isArray(value)
+      ? value.filter((item): item is string => typeof item === 'string')
+      : [];
   const sessions = [
     ...new Set(
-      rawSessions
-        .filter((value): value is string => typeof value === 'string')
+      strings(obj['sessions'])
         .map((value) => value.trim())
         .filter((value) => value.length > 0)
     ),
   ];
-  return { global: obj['global'] === true, sessions };
+  const workspaces = [
+    ...new Set(
+      strings(obj['workspaces'])
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0)
+        .map(normalizeWorkspaceRoot)
+        .filter((value) => value.length > 0)
+    ),
+  ];
+  return { global: obj['global'] === true, sessions, workspaces };
 }
 
 /** 读取当前暂停状态（旧布尔配置自动归一） */
@@ -88,7 +111,7 @@ export function readApprovalPauseState(): ApprovalPauseState {
   );
 }
 
-/** 是否**全局**暂停（旧接口语义；会话级判定请用 `isApprovalPauseActiveFor`） */
+/** 是否**全局**暂停（旧接口语义；会话/工作区级判定请用 `isApprovalPauseActiveFor`） */
 export function isApprovalPauseEnabled(): boolean {
   return readApprovalPauseState().global;
 }
@@ -97,18 +120,23 @@ export function isApprovalPauseEnabled(): boolean {
  * 本次判定是否应忽略审批生成的规则。
  *
  * - `global=true` ⇒ 是；
- * - 传入 `sessionId` 且命中 `sessions` ⇒ 是；
- * - 无 `sessionId`（后台/无人值守等拿不到会话的路径）⇒ **只按 `global`**（如实边界：
- *   会话级暂停不扩散到无上下文的路径，避免"一个会话暂停导致全局收紧"）。
+ * - `sessionId` 命中 `sessions` ⇒ 是；
+ * - `workspaceRoots` 任一（归一化后）命中 `workspaces` ⇒ 是；
+ * - 上下文缺省（后台/无人值守等）⇒ **只按 `global`**（如实边界：会话/工作区级暂停
+ *   不扩散到无上下文的路径，避免"一个会话暂停导致全局收紧"）。
  */
-export function isApprovalPauseActiveFor(scope?: {
-  sessionId?: string;
-}): boolean {
+export function isApprovalPauseActiveFor(
+  scope?: ApprovalPauseScope
+): boolean {
   const state = readApprovalPauseState();
   if (state.global) return true;
   const sessionId = scope?.sessionId?.trim();
-  if (!sessionId) return false;
-  return state.sessions.includes(sessionId);
+  if (sessionId && state.sessions.includes(sessionId)) return true;
+  const roots = scope?.workspaceRoots ?? [];
+  if (state.workspaces.length === 0 || roots.length === 0) return false;
+  return roots.some((root) =>
+    state.workspaces.includes(normalizeWorkspaceRoot(root))
+  );
 }
 
 /**
@@ -119,7 +147,7 @@ export function isApprovalPauseActiveFor(scope?: {
  */
 export function filterPausedApprovalRules(
   rules: PermissionRule[],
-  scope?: { sessionId?: string }
+  scope?: ApprovalPauseScope
 ): PermissionRule[] {
   if (rules.length === 0) return rules;
   if (!isApprovalPauseActiveFor(scope)) return rules;
@@ -127,7 +155,8 @@ export function filterPausedApprovalRules(
 }
 
 /**
- * 整体写入暂停状态并留审计日志（`sessions` 去重 + 去空白；无会话级条目时仍写纯布尔，保持配置可读）。
+ * 整体写入暂停状态并留审计日志（去重 + 去空白 + 工作区根归一化；
+ * 无会话/工作区级条目时仍写纯布尔，保持配置可读）。
  *
  * 规则过滤是**实时读配置**，故无需额外失效缓存；HTTP 层负责广播 `config:changed`。
  */
@@ -135,25 +164,32 @@ export function setApprovalPauseState(
   next: ApprovalPauseState
 ): ApprovalPauseState {
   const normalized = normalizeState(next);
-  // 无会话级条目 ⇒ 仍写**纯布尔**（旧形状，便于手改/回滚）；有会话级 ⇒ 写对象
+  // 无细粒度条目 ⇒ 仍写**纯布尔**（旧形状，便于手改/回滚）
   const value =
-    normalized.sessions.length === 0
+    normalized.sessions.length === 0 && normalized.workspaces.length === 0
       ? normalized.global
-      : { global: normalized.global, sessions: normalized.sessions };
+      : {
+          global: normalized.global,
+          sessions: normalized.sessions,
+          workspaces: normalized.workspaces,
+        };
   configManager.setValue(APPROVAL_PAUSE_CONFIG_KEY, value);
   logger.info('permission:approval_pause_changed', {
     global: normalized.global,
     sessionCount: normalized.sessions.length,
+    workspaceCount: normalized.workspaces.length,
     configKey: APPROVAL_PAUSE_CONFIG_KEY,
   });
   return normalized;
 }
 
-/** 设置**全局**暂停（保留既有会话级条目；旧调用方语义不变） */
+/** 设置**全局**暂停（保留既有会话/工作区级条目；旧调用方语义不变） */
 export function setApprovalPauseEnabled(enabled: boolean): boolean {
+  const current = readApprovalPauseState();
   setApprovalPauseState({
     global: enabled,
-    sessions: readApprovalPauseState().sessions,
+    sessions: current.sessions,
+    workspaces: current.workspaces,
   });
   return enabled;
 }

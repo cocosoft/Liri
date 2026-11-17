@@ -62,10 +62,27 @@ function isToolLevelRule(rule: PermissionRule): boolean {
   return !rule.readOnly && !rule.inputFingerprint && !rule.contentPattern;
 }
 
+/**
+ * F2：工作区根归一化（**镜像**后端 `normalizeWorkspaceRoot`：统一分隔符 / 去尾斜杠 / 小写）。
+ *
+ * 为什么客户端也要一份：UI 要判断"当前工作区是否已在暂停列表里"（勾选态），
+ * 而服务端返回的是归一化后的根；两个部署单元无法共享模块 ⇒ 同值由注释钉住。
+ * 写入时仍发**原始路径**，归一化以服务端为准。
+ */
+function normalizeRootForCompare(root: string): string {
+  return root.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+}
+
 export default function ToolRulesSection({ isDark }: Props) {
   const { t } = useTranslation();
   // F2：按会话暂停需要"当前会话"（设置页与聊天共用根 store）
   const currentSessionId = useRootStore((s) => s.currentSessionId);
+  // F2：当前会话绑定的工作区根（未绑定 ⇒ undefined，控件禁用并如实提示）
+  const currentWorkspacePath = useRootStore((s) => {
+    const id = s.currentSessionId;
+    if (!id) return undefined;
+    return s.chatSessions?.find((session) => session.id === id)?.workspacePath;
+  });
   const [entries, setEntries] = useState<SharedToolVisibilityEntry[]>([]);
   const [rules, setRules] = useState<PermissionRule[]>([]);
   const [approvalPause, setApprovalPause] = useState<ApprovalPauseState | null>(
@@ -321,6 +338,42 @@ export default function ToolRulesSection({ isDark }: Props) {
     }
   };
 
+  /**
+   * F2：按**工作区根**暂停 / 恢复。
+   *
+   * `setWorkspaces` 是整体替换（服务端语义）：调用方传入完整列表，避免"加一个却清空其他"。
+   */
+  const setPausedWorkspaces = async (workspaces: string[]) => {
+    if (!approvalPause || busy) return;
+    setBusy("approvalPause");
+    setError(null);
+    try {
+      await permissionService.updateApprovalPause({ workspaces });
+      await reload();
+    } catch (e) {
+      handleClientError(e, {
+        module: "components:settings:ToolRules",
+        action: "setPausedWorkspaces",
+      });
+      setError(t("settings.toolsRulesSaveFailed"));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const toggleCurrentWorkspacePause = async () => {
+    if (!currentWorkspacePath) return;
+    const paused = approvalPause?.workspaces ?? [];
+    const target = normalizeRootForCompare(currentWorkspacePath);
+    const already = paused.some(
+      (root) => normalizeRootForCompare(root) === target,
+    );
+    const next = already
+      ? paused.filter((root) => normalizeRootForCompare(root) !== target)
+      : [...paused, currentWorkspacePath];
+    await setPausedWorkspaces(next);
+  };
+
   /** 保存「未收录命令 → 新增规则」表单；409 影响预演 ⇒ 二次确认 */
   const saveDraft = async (confirmImpact = false) => {
     if (!draft) return;
@@ -403,6 +456,15 @@ export default function ToolRulesSection({ isDark }: Props) {
 
   const muted = isDark ? "text-gray-400" : "text-gray-500";
   const rowBg = isDark ? "bg-gray-800/60" : "bg-gray-50";
+  // F2：按工作区暂停（列表为服务端归一化后的根；勾选态用归一化比较）
+  const pausedWorkspaceRoots = approvalPause?.workspaces ?? [];
+  const currentWorkspacePaused =
+    !!currentWorkspacePath &&
+    pausedWorkspaceRoots.some(
+      (root) =>
+        normalizeRootForCompare(root) ===
+        normalizeRootForCompare(currentWorkspacePath),
+    );
   const inputBg = isDark
     ? "bg-gray-800 border-gray-600 text-gray-200"
     : "bg-white border-gray-300 text-gray-800";
@@ -748,6 +810,62 @@ export default function ToolRulesSection({ isDark }: Props) {
       <p className={`text-[11px] ${muted}`}>
         {t("settings.toolsRulesPauseSessionHint")}
       </p>
+
+      {/* F2：按工作区暂停（只影响该根下的调用；已暂停的根可在此逐个移除） */}
+      {approvalPause && (
+        <>
+          <div
+            className={`flex items-center gap-2 rounded px-3 py-1.5 ${rowBg}`}
+          >
+            <label className="flex items-center gap-2 text-xs flex-1 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={currentWorkspacePaused}
+                disabled={!currentWorkspacePath || busy !== null}
+                onChange={() => void toggleCurrentWorkspacePause()}
+              />
+              <span>{t("settings.toolsRulesPauseWorkspaceLabel")}</span>
+              {!currentWorkspacePath && (
+                <span className={`text-[10px] ${muted}`}>
+                  {t("settings.toolsRulesPauseWorkspaceNoPath")}
+                </span>
+              )}
+            </label>
+            <span className={`text-[10px] ${muted}`}>
+              {t("settings.toolsRulesPauseWorkspaceCount", {
+                count: pausedWorkspaceRoots.length,
+              })}
+            </span>
+          </div>
+          <p className={`text-[11px] ${muted}`}>
+            {t("settings.toolsRulesPauseWorkspaceHint")}
+          </p>
+          {pausedWorkspaceRoots.length > 0 && (
+            <div className="space-y-1">
+              {pausedWorkspaceRoots.map((root) => (
+                <div
+                  key={root}
+                  className={`flex items-center gap-2 px-3 py-1 rounded text-[11px] ${rowBg}`}
+                >
+                  <code className="break-all flex-1">{root}</code>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void setPausedWorkspaces(
+                        pausedWorkspaceRoots.filter((item) => item !== root),
+                      )
+                    }
+                    disabled={busy !== null}
+                    className="text-red-400 hover:text-red-600 shrink-0 disabled:opacity-50"
+                  >
+                    {t("common.delete")}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
 
       <div className="pt-1">
         <p className={`text-xs font-medium ${muted}`}>

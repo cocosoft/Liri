@@ -46,7 +46,6 @@ import {
   countUserAllowRules,
   readUserRuleAllowBudget,
   readCommandRulesConfig,
-  isApprovalPauseEnabled,
   readApprovalPauseState,
   setApprovalPauseState,
   APPROVAL_PAUSE_CONFIG_KEY,
@@ -173,6 +172,8 @@ export async function handleListPermissionRules(
     const approvalRules = rules.filter((rule) =>
       isApprovalOriginatedRule(rule)
     );
+    // F2：暂停状态只读一次（避免同一响应里多次读配置）
+    const approvalPauseState = readApprovalPauseState();
     res.end(
       JSON.stringify({
         rules: [...rules.map(serializeRule), ...settingsRules],
@@ -183,12 +184,13 @@ export async function handleListPermissionRules(
           rules: approvalRules.map(serializeRule),
           note: '审批卡生成的持久化放行：只可撤销（DELETE），不可编辑；approvedBy 未落库（如实 null），hitCount 来自规则命中计数',
         },
-        // R3：「暂停全部持久化放行」当前状态（开启后审批规则不参与判定，仍可逐条撤销）
-        // F2：`enabled` 保持=全局（旧客户端兼容）；`sessions` 为按会话暂停的会话 id 列表
+        // R3：「暂停持久化放行」当前状态（开启后审批规则不参与判定，仍可逐条撤销）
+        // F2：`enabled` 保持=全局（旧客户端兼容）；`sessions` / `workspaces` 为细粒度暂停列表
         approvalPause: {
-          enabled: isApprovalPauseEnabled(),
-          global: isApprovalPauseEnabled(),
-          sessions: readApprovalPauseState().sessions,
+          enabled: approvalPauseState.global,
+          global: approvalPauseState.global,
+          sessions: approvalPauseState.sessions,
+          workspaces: approvalPauseState.workspaces,
           configKey: APPROVAL_PAUSE_CONFIG_KEY,
         },
         // R5：本周未收录命令摘要（设置页提示 + "去添加规则"跳转；无样本 ⇒ null，不编造 0）
@@ -609,17 +611,46 @@ export async function handleImportPermissionRules(
 }
 
 /**
+ * F2：细粒度暂停列表（`sessions` / `workspaces`）的通用校验。
+ *
+ * 只做**形状/规模**校验（字符串数组、单条长度、条数上限）；去重与工作区根归一化
+ * 交给 `setApprovalPauseState`（唯一实现，避免两处口径不一致）。
+ */
+function parsePauseList(
+  raw: unknown,
+  field: 'sessions' | 'workspaces',
+  maxEntryLength: number
+): { ok: true; value: string[] } | { ok: false; message: string } {
+  if (!Array.isArray(raw) || !raw.every((value) => typeof value === 'string')) {
+    return { ok: false, message: `${field} 必须是字符串数组` };
+  }
+  const values = raw.map((value) => value.trim()).filter(Boolean);
+  if (values.some((value) => value.length > maxEntryLength)) {
+    return {
+      ok: false,
+      message: `单个 ${field} 条目不能超过 ${maxEntryLength} 字符`,
+    };
+  }
+  if (values.length > 200) {
+    return { ok: false, message: `${field} 最多 200 条` };
+  }
+  return { ok: true, value: values };
+}
+
+/**
  * 「暂停持久化放行」开关 POST /v1/permissions/approvals/pause（R3 落地；F2 粒度细化）
  *
- * body（三选一，可组合）：
- * - `{ enabled: boolean }`（旧形状）⇒ 只改**全局**，保留既有会话级条目；
- * - `{ global?: boolean, sessions?: string[] }` ⇒ 整体写入（`sessions` 是"按会话暂停"的 id 列表）。
+ * body（可组合）：
+ * - `{ enabled: boolean }`（旧形状）⇒ 只改**全局**，保留既有会话/工作区级条目；
+ * - `{ global?: boolean, sessions?: string[], workspaces?: string[] }` ⇒ 整体写入
+ *   （`sessions` = 按会话暂停的 id 列表；`workspaces` = 按工作区根暂停，服务端归一化后落库）。
  *
  * 开启后：① 审批卡不再新增放行规则；② 已存在的审批生成规则不参与判定
  * （规则仍在列表里可见、可逐条撤销）。判定口实时读配置，故只需广播配置变更事件。
  *
- * 如实边界：`sessions` 只按**会话 id 精确匹配**；拿不到会话上下文的路径（后台/无人值守）
- * 只受 `global` 影响，不会被某个会话的暂停"顺带收紧"。
+ * 如实边界：`sessions` 只按**会话 id 精确匹配**、`workspaces` 只按**归一化后的根相等**匹配；
+ * 拿不到会话/工作区上下文的路径（后台/无人值守）只受 `global` 影响，不会被某个会话或
+ * 某个工作区的暂停"顺带收紧"。
  */
 export async function handleSetApprovalPause(
   req: http.IncomingMessage,
@@ -641,11 +672,20 @@ export async function handleSetApprovalPause(
     const legacyEnabled = parsed['enabled'];
     const hasGlobal = parsed['global'] !== undefined;
     const hasSessions = parsed['sessions'] !== undefined;
-    if (!hasGlobal && !hasSessions && typeof legacyEnabled !== 'boolean') {
+    const hasWorkspaces = parsed['workspaces'] !== undefined;
+    if (
+      !hasGlobal &&
+      !hasSessions &&
+      !hasWorkspaces &&
+      typeof legacyEnabled !== 'boolean'
+    ) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
-          error: { message: '必须提供 enabled（布尔）或 global / sessions' },
+          error: {
+            message:
+              '必须提供 enabled（布尔）或 global / sessions / workspaces',
+          },
         })
       );
       return;
@@ -664,31 +704,28 @@ export async function handleSetApprovalPause(
     }
 
     const rawSessions = hasSessions ? parsed['sessions'] : current.sessions;
-    if (
-      !Array.isArray(rawSessions) ||
-      !rawSessions.every((value) => typeof value === 'string')
-    ) {
+    const sessions = parsePauseList(rawSessions, 'sessions', 128);
+    if (!sessions.ok) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({ error: { message: 'sessions 必须是字符串数组' } })
-      );
-      return;
-    }
-    const sessions = rawSessions.map((value) => value.trim()).filter(Boolean);
-    if (sessions.some((value) => value.length > 128)) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({ error: { message: '单个会话 id 不能超过 128 字符' } })
-      );
-      return;
-    }
-    if (sessions.length > 200) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'sessions 最多 200 条' } }));
+      res.end(JSON.stringify({ error: { message: sessions.message } }));
       return;
     }
 
-    const next = setApprovalPauseState({ global, sessions });
+    const rawWorkspaces = hasWorkspaces
+      ? parsed['workspaces']
+      : current.workspaces;
+    const workspaces = parsePauseList(rawWorkspaces, 'workspaces', 512);
+    if (!workspaces.ok) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: workspaces.message } }));
+      return;
+    }
+
+    const next = setApprovalPauseState({
+      global,
+      sessions: sessions.value,
+      workspaces: workspaces.value,
+    });
     broadcastEvent('config:updated', {
       key: APPROVAL_PAUSE_CONFIG_KEY,
       value: next,
@@ -699,11 +736,12 @@ export async function handleSetApprovalPause(
         enabled: next.global,
         global: next.global,
         sessions: next.sessions,
+        workspaces: next.workspaces,
         configKey: APPROVAL_PAUSE_CONFIG_KEY,
         message: next.global
           ? '已暂停全部持久化放行（审批生成的规则不再生效，可逐条撤销）'
-          : next.sessions.length > 0
-            ? `已按会话暂停 ${next.sessions.length} 个（其他会话不受影响）`
+          : next.sessions.length > 0 || next.workspaces.length > 0
+            ? `已按会话暂停 ${next.sessions.length} 个、按工作区暂停 ${next.workspaces.length} 个（其他范围不受影响）`
             : '已恢复持久化放行',
       })
     );

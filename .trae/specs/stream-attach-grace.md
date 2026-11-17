@@ -167,9 +167,19 @@ t2b grace 到期仍无人接入 ⇒ abortSessionStream（消息以当前部分�
 - 宽限到期无人接入 ⇒ 中止（与今天结果一致，只是晚了 `grace` 毫秒）；
 - 期间互斥锁仍被本轮持有（`SimpleMutex` 30s 超时口径不变）⇒ 用户马上发新消息会排队/失败，属已知代价。
 
-**未做**：`handleResumeChat` 的宽限（P2，独立提交）；自动接入（§6 建议不做）；
-`detached` 未暴露到 `/streaming`（§11.3）。
+**未做**：自动接入（§6 建议不做）；`detached` 未暴露到 `/streaming`（§11.3）。
 
-**门禁备注**：`handleStreamingChat` 圈复杂度由 <40 升到 50（`eslint` warning，非 error）；
+**门禁备注**：`handleStreamingChat` 圈复杂度由 <40 升到 56（`eslint` warning，非 error）；
 `lint:complexity` 重尾棘轮（≥100）未增长，通过。
+
+### 12.1 P2（续跑流，2026-11-18 同日补）
+
+- 把 §3.2 的判定抽成 **`createGracefulDetach`**（同一控制器：幂等 detach、宽限定时器、
+  收尾清理），主链路与续跑流共用 —— 避免两处各写一份导致 grace 口径分叉（CS01）。
+- `chat-handlers.ts#handleResumeChat`：`writeFrame` 同样先 publish 再（未 detached 时）写 res；
+  `close` / 循环内 `destroyed` 统一走控制器；`finally` 清定时器 + `attachRun.end()`。
+- 单测：`streamDisconnectGrace.test.ts` 增 4 条控制器用例（grace=0 不后台、幂等 detach、
+  有订阅者不中止、finish 后不再 arm）。
+- 全量回归：`app` 13088 pass / 0 fail / 42 skip（1565 文件）。
+
 

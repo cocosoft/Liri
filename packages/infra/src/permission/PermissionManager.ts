@@ -53,6 +53,12 @@ import {
   type ToolPermissionCallContext,
   type ToolPermissionResult,
 } from './manager/toolPermission';
+// R0（2026-11-17）：只读模拟（复用 handleAuto / handleDefault，不复制匹配逻辑）
+import {
+  simulatePermissionDecision,
+  type SimulatePermissionRequest,
+  type SimulatePermissionResult,
+} from './manager/simulate';
 // 兼容既有深路径消费者（`@openliri/infra/permission/PermissionManager`）：
 // `ruleLabel` 已搬到 `manager/moduleScope`，此处保留**同名转出**，导出面不变。
 export { ruleLabel } from './manager/moduleScope';
@@ -525,6 +531,28 @@ export class PermissionManager {
       toolName,
       input,
       context
+    );
+  }
+
+  /**
+   * R0（2026-11-17）：**只读模拟**一次权限判定（设置页「模拟」入口）。
+   *
+   * 复用真实判定链的同一处理器（`handleAuto` / `handleDefault`，见
+   * `./manager/simulate`），不执行工具、不写审计、不污染拒绝计数。
+   */
+  async simulatePermission(
+    request: SimulatePermissionRequest
+  ): Promise<SimulatePermissionResult> {
+    return simulatePermissionDecision(
+      {
+        ruleManager: this.ruleManager,
+        permissionChecker: this.permissionChecker,
+        classifierManager: this.classifierManager,
+        toolPermissionContext: this.toolPermissionContext,
+        defaultBehavior: this.defaultBehavior,
+        mode: this.mode,
+      },
+      request
     );
   }
 }

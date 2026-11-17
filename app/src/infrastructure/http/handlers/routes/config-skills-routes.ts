@@ -47,7 +47,9 @@ import {
   handleAddPermissionRule,
   handleDeletePermissionRule,
   handleGetPermissionMetrics,
+  handleGetPermissionRulesHealth,
   handleListPermissionRules,
+  handleSimulatePermissionRule,
 } from '../permission-handlers';
 import {
   handleGetPermissionRbac,
@@ -239,6 +241,16 @@ async function dispatchPermissionRoutes(
   }
   if (method === 'GET' && url === '/v1/permissions/rules') {
     await handleListPermissionRules(req, res);
+    return true;
+  }
+  // R0（2026-11-17）：规则文件健康视图 + 只读模拟 —— 具体子路径必须先于
+  // `DELETE /v1/permissions/rules/(.+)` 的通用段（否则 `health` / `simulate` 会被当成 ruleId）。
+  if (method === 'GET' && url === '/v1/permissions/rules/health') {
+    await handleGetPermissionRulesHealth(req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/permissions/rules/simulate') {
+    await handleSimulatePermissionRule(req, res);
     return true;
   }
   if (method === 'POST' && url === '/v1/permissions/rules') {

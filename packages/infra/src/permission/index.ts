@@ -307,8 +307,28 @@ export {
   describeFineGrainedDenySubject,
   type FineGrainedDenySource,
 } from './denyAttribution';
-export { RuleManager, deduplicateRules } from './RuleManager';
-export type { RuleContext } from './RuleManager';
+export {
+  RuleManager,
+  deduplicateRules,
+  collectRuleKeyConflicts,
+} from './RuleManager';
+export type {
+  RuleContext,
+  RuleFileHealth,
+  RuleKeyConflict,
+} from './RuleManager';
+// R0（2026-11-17）：权限判定只读模拟（设置页「模拟」；复用真实判定链，不复制匹配逻辑）
+export {
+  simulatePermissionDecision,
+  SIMULATABLE_PERMISSION_MODES,
+  isSimulatablePermissionMode,
+} from './manager/simulate';
+export type {
+  SimulatePermissionDeps,
+  SimulatePermissionRequest,
+  SimulatePermissionResult,
+  SimulatablePermissionMode,
+} from './manager/simulate';
 // P2-1（2026-11-03）：统一 Rule 模型（A / settings / B-command / StandingRule 只读投影）
 export {
   permissionRulesToUnified,

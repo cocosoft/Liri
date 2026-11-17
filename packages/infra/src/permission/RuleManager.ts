@@ -3,7 +3,13 @@
  * 负责管理权限规则的加载、保存、添加、删除等操作
  */
 import { join, dirname } from 'path';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 // C1（2026-10-09）：规则 id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { createHash } from 'crypto';
@@ -23,6 +29,52 @@ import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('permission:ruleManager');
+
+/**
+ * 同一匹配键、**不同行为**的冲突（R0 健康视图）。
+ *
+ * 键与 `addRule` 的 `sameKey` 同口径（`source + toolName + contentPattern +
+ * inputFingerprint + workspaceRoot`）：同键不同 behavior 时判定结果由顺序隐式决定，
+ * 用户不可见 ⇒ 必须显式暴露。运行期 `addRule` 已互斥，这里主要抓**手工编辑文件**。
+ */
+export interface RuleKeyConflict {
+  /** 冲突键（`|` 拼接的可读形式） */
+  key: string;
+  /** 该键上出现过的行为（去重，保持首见顺序） */
+  behaviors: string[];
+  /** 该键上的规则 id（含历史手工条目，可能为空串 id） */
+  ids: string[];
+}
+
+/**
+ * 规则文件健康快照（R0，纯只读；`GET /v1/permissions/rules/health` 的数据源）。
+ */
+export interface RuleFileHealth {
+  /** 规则文件绝对路径 */
+  path: string;
+  /** 文件是否存在 */
+  exists: boolean;
+  /** 文件字节数（读不到 ⇒ null，不编造） */
+  sizeBytes: number | null;
+  /** 文件最后修改时间 ISO（读不到 ⇒ null） */
+  lastModified: string | null;
+  /** 当前**磁盘**内容 hash（文件不存在 / 不可读 ⇒ null） */
+  fileHash: string | null;
+  /** 内存已加载内容的 hash（上次 load/save 时记录） */
+  loadedHash: string | null;
+  /** 磁盘与内存 hash 不一致 ⇒ 有外部修改尚未按 30s 轮询重载 */
+  externalChangeDetected: boolean;
+  /** 文件 JSON 解析/形状错误（无错 ⇒ null） */
+  parseError: string | null;
+  /** 文件里的规则条数（解析失败 ⇒ null） */
+  fileRuleCount: number | null;
+  /** 内存里生效的规则条数 */
+  memoryRuleCount: number;
+  /** 重复条目数（同键同行为，会被加载/保存时去重） */
+  duplicateCount: number;
+  /** 同键不同行为的冲突（优先按文件内容判定；文件不可解析时按内存规则） */
+  conflicts: RuleKeyConflict[];
+}
 
 /**
  * 规则上下文接口
@@ -76,6 +128,36 @@ export function deduplicateRules(rules: PermissionRule[]): PermissionRule[] {
     }
   }
   return Array.from(seen.values());
+}
+
+/**
+ * 收集"同一匹配键、不同行为"的冲突（R0 健康视图，纯函数）。
+ *
+ * 键口径与 `addRule#sameKey` 一致（**不含 behavior**）：运行期 `addRule` 已互斥，
+ * 本函数主要抓**手工编辑 `tool_rules.json`** 产生的 allow/deny 并存 —— 那种情况下
+ * 判定结果由规则顺序隐式决定，用户完全不可见。
+ */
+export function collectRuleKeyConflicts(
+  rules: PermissionRule[]
+): RuleKeyConflict[] {
+  const byKey = new Map<string, { behaviors: string[]; ids: string[] }>();
+  for (const rule of rules) {
+    const key = [
+      rule.source,
+      rule.toolName,
+      rule.contentPattern ?? '',
+      rule.inputFingerprint ?? '',
+      rule.workspaceRoot ?? '',
+    ].join('|');
+    const entry = byKey.get(key) ?? { behaviors: [], ids: [] };
+    const behavior = String(rule.behavior);
+    if (!entry.behaviors.includes(behavior)) entry.behaviors.push(behavior);
+    entry.ids.push(rule.id ?? '');
+    byKey.set(key, entry);
+  }
+  return Array.from(byKey.entries())
+    .filter(([, entry]) => entry.behaviors.length > 1)
+    .map(([key, entry]) => ({ key, ...entry }));
 }
 
 /**
@@ -473,6 +555,67 @@ export class RuleManager {
    */
   getRuleSource(): string {
     return this.ruleSource;
+  }
+
+  /**
+   * R0（2026-11-17）：规则文件健康快照 —— **纯只读**，不触发重载、不写文件。
+   *
+   * 与 `checkExternalChanges()` 的分工：那个是"发现外部修改后自动重载"，本方法只**报告**
+   * 当前事实（磁盘 hash / 内存 hash / 解析错误 / 同键冲突），供设置页与排障使用；
+   * 若此处也顺手重载，健康视图就永远看不到"外部已改、内存未跟"的中间态。
+   */
+  getRuleFileHealth(): RuleFileHealth {
+    const exists = existsSync(this.ruleSource);
+    let sizeBytes: number | null = null;
+    let lastModified: string | null = null;
+    if (exists) {
+      try {
+        const stat = statSync(this.ruleSource);
+        sizeBytes = stat.size;
+        lastModified = stat.mtime.toISOString();
+      } catch {
+        // @ignore-catch: 元数据不可读时保持 null（不编造大小/时间），文件内容另行判定
+      }
+    }
+
+    const content = this.readRulesFileSnapshot();
+    const fileHash = content === null ? null : this.computeHash(content);
+
+    let parseError: string | null = null;
+    let fileRules: PermissionRule[] | null = null;
+    if (content !== null) {
+      try {
+        const parsed: unknown = JSON.parse(content);
+        if (!Array.isArray(parsed)) {
+          throw new Error('规则文件顶层必须是数组');
+        }
+        fileRules = parsed as PermissionRule[];
+      } catch (error) {
+        parseError = error instanceof Error ? error.message : String(error);
+      }
+    }
+
+    // 冲突 / 重复以**文件内容**为准（手工改文件正是要抓的场景）；
+    // 文件缺失或解析失败时回落到内存规则，避免"文件坏了 ⇒ 健康视图一片空白"。
+    const inspected = fileRules ?? this.rules;
+
+    return {
+      path: this.ruleSource,
+      exists,
+      sizeBytes,
+      lastModified,
+      fileHash,
+      loadedHash: this.rulesFileHash,
+      externalChangeDetected:
+        fileHash !== null &&
+        this.rulesFileHash !== null &&
+        fileHash !== this.rulesFileHash,
+      parseError,
+      fileRuleCount: fileRules ? fileRules.length : null,
+      memoryRuleCount: this.rules.length,
+      duplicateCount: inspected.length - deduplicateRules(inspected).length,
+      conflicts: collectRuleKeyConflicts(inspected),
+    };
   }
 
   /**

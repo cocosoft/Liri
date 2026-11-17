@@ -43,6 +43,8 @@ const GROUPS: ReadonlyArray<readonly string[]> = [
   [
     'handleGetPermissionMetrics',
     'handleListPermissionRules',
+    'handleGetPermissionRulesHealth',
+    'handleSimulatePermissionRule',
     'handleAddPermissionRule',
     'handleDeletePermissionRule',
     'handleGetPermissionRbac',
@@ -90,7 +92,7 @@ const GROUPS: ReadonlyArray<readonly string[]> = [
 ];
 
 describe('config-skills 路由清单', () => {
-  it('50 个 handler 各被调用一次（漏项 = 路由丢失）', () => {
+  it('52 个 handler 各被调用一次（漏项 = 路由丢失）', () => {
     for (const group of GROUPS) {
       for (const handler of group) {
         expect(countCalls(handler)).toBe(1);

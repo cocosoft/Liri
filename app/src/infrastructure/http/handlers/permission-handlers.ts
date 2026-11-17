@@ -32,17 +32,29 @@ import { sendError, readRequestBody } from './handler-utils';
 import {
   PermissionBehavior,
   PermissionRule,
+  describePermissionRuleScope,
+  isApprovalOriginatedRule,
 } from '@openliri/infra/permission/types/PermissionRule';
 import {
   shadowedRuleDetector,
   permissionMetrics,
   PermissionManager,
+  SIMULATABLE_PERMISSION_MODES,
+  isSimulatablePermissionMode,
+  type SimulatablePermissionMode,
 } from '@openliri/infra/permission';
 
 const VALID_BEHAVIORS: string[] = ['allow', 'deny', 'ask'];
 
-/** 序列化规则（Date → ISO 字符串，供 JSON 传输） */
-function serializeRule(rule: PermissionRule): Record<string, unknown> {
+/**
+ * 序列化规则（Date → ISO 字符串，供 JSON 传输）。
+ *
+ * R0（2026-11-17，治理方案 §3.2/§3.3）：补 `scope` 与 `readOnly` —— 两者都是**派生字段**，
+ * 不落盘、不改判定语义：
+ * - `scope`：按匹配条件推导（见 `describePermissionRuleScope`）；
+ * - `readOnly`：审批卡生成的持久化放行（指纹 / 本工作区信任）不可编辑、只能撤销。
+ */
+export function serializeRule(rule: PermissionRule): Record<string, unknown> {
   return {
     id: rule.id,
     behavior: rule.behavior,
@@ -51,7 +63,12 @@ function serializeRule(rule: PermissionRule): Record<string, unknown> {
     // PR-2（2026-10-23）：「始终允许」规则（工具 + 参数指纹）—— 前端据此展示/撤销，
     // 只暴露摘要（32 hex），原始参数从未落库
     inputFingerprint: rule.inputFingerprint,
+    // G3（2026-11-14）：「本工作区永久信任」的作用域根
+    workspaceRoot: rule.workspaceRoot,
     source: rule.source,
+    // R0：作用域（session | workspace | tool | global）与只读标记
+    scope: describePermissionRuleScope(rule),
+    readOnly: isApprovalOriginatedRule(rule),
     priority: rule.priority,
     createdAt:
       rule.createdAt instanceof Date
@@ -85,6 +102,8 @@ export async function handleListPermissionRules(
       toolName: r.toolName,
       contentPattern: r.contentPattern,
       source: r.source,
+      // R0：settings 来源同为只读视图，作用域按匹配条件推导（无 workspaceRoot/指纹 ⇒ 工具级或全局）
+      scope: describePermissionRuleScope(r),
       priority: 0,
       createdAt: null,
       updatedAt: null,
@@ -207,6 +226,168 @@ export async function handleGetPermissionMetrics(
         generatedAt: Date.now(),
         total: metrics.reduce((sum, m) => sum + m.count, 0),
         metrics,
+      })
+    );
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
+ * 规则文件健康视图 GET /v1/permissions/rules/health（R0，2026-11-17）
+ *
+ * **纯只读**：不重载、不写文件、不改判定。用于回答"规则文件是否被改过 / 是否损坏 /
+ * 是否存在同键不同行为的冲突"—— 这些此前只能翻日志（治理方案 G8）。
+ */
+export async function handleGetPermissionRulesHealth(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const health = PermissionManager.getInstance()
+      .getRuleManager()
+      .getRuleFileHealth();
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ generatedAt: Date.now(), ...health }));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/** 通过校验后的模拟请求体（失败分支见 `parseSimulateBody` 的 `{ ok: false }`） */
+type ParsedSimulateBody = {
+  toolName: string;
+  input: Record<string, unknown>;
+  mode?: SimulatablePermissionMode;
+  autonomy?: 'interactive' | 'demand';
+  workspaceRoots?: string[];
+};
+
+/**
+ * 解析并校验模拟请求体。
+ *
+ * 支持两种写法（R0 单条）：
+ * - 命令糖：`{ command: 'git status', toolName?: 'bash' }`（toolName 缺省 `bash`）
+ * - 完整入参：`{ toolName: 'file_read', input: { path: '...' } }`
+ */
+function parseSimulateBody(
+  raw: Record<string, unknown>
+): { ok: true; value: ParsedSimulateBody } | { ok: false; message: string } {
+  const rawToolName =
+    typeof raw['toolName'] === 'string' ? raw['toolName'].trim() : '';
+  const command =
+    typeof raw['command'] === 'string' ? raw['command'] : undefined;
+  const rawInput = raw['input'];
+  if (
+    rawInput !== undefined &&
+    (rawInput === null ||
+      typeof rawInput !== 'object' ||
+      Array.isArray(rawInput))
+  ) {
+    return { ok: false, message: 'input 必须是对象' };
+  }
+  const input: Record<string, unknown> = {
+    ...((rawInput as Record<string, unknown> | undefined) ?? {}),
+  };
+  if (command !== undefined) input['command'] = command;
+  if (!command && Object.keys(input).length === 0) {
+    return { ok: false, message: '必须提供 command 字符串或 input 对象' };
+  }
+  const toolName = rawToolName || (command !== undefined ? 'bash' : '');
+  if (!toolName) {
+    return {
+      ok: false,
+      message: 'toolName 必填（提供 command 时缺省为 bash）',
+    };
+  }
+
+  const mode = raw['mode'];
+  if (
+    mode !== undefined &&
+    (typeof mode !== 'string' || !isSimulatablePermissionMode(mode))
+  ) {
+    return {
+      ok: false,
+      message: `mode 仅支持 ${SIMULATABLE_PERMISSION_MODES.join(' / ')}`,
+    };
+  }
+
+  const autonomy = raw['autonomy'];
+  if (
+    autonomy !== undefined &&
+    autonomy !== 'interactive' &&
+    autonomy !== 'demand'
+  ) {
+    return { ok: false, message: 'autonomy 仅支持 interactive / demand' };
+  }
+
+  const rawRoots = raw['workspaceRoots'];
+  if (
+    rawRoots !== undefined &&
+    (!Array.isArray(rawRoots) ||
+      rawRoots.some((root) => typeof root !== 'string'))
+  ) {
+    return { ok: false, message: 'workspaceRoots 必须是字符串数组' };
+  }
+
+  return {
+    ok: true,
+    value: {
+      toolName,
+      input,
+      ...(mode !== undefined ? { mode } : {}),
+      ...(autonomy !== undefined ? { autonomy } : {}),
+      ...(rawRoots !== undefined
+        ? { workspaceRoots: rawRoots as string[] }
+        : {}),
+    },
+  };
+}
+
+/**
+ * 模拟一次权限判定 POST /v1/permissions/rules/simulate（R0，2026-11-17）
+ *
+ * 只读：**不执行任何工具**，也不写审计/计数；判定复用 `handleAuto` / `handleDefault`
+ * 的同一实现（见 `PermissionManager#simulatePermission`）。
+ *
+ * 注：该路径在 `adminWriteRoutes` 的 `/v1/permissions` 前缀下 ⇒ POST 需管理面校验
+ * （本机无 Bearer 时既有语义直接放行，桌面端行为不变）。
+ */
+export async function handleSimulatePermissionRule(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const body = await readRequestBody(req);
+    const parsedRaw: unknown = JSON.parse(body);
+    if (
+      parsedRaw === null ||
+      typeof parsedRaw !== 'object' ||
+      Array.isArray(parsedRaw)
+    ) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: '请求体必须是 JSON 对象' } }));
+      return;
+    }
+    const parsed = parseSimulateBody(parsedRaw as Record<string, unknown>);
+    if (!parsed.ok) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: parsed.message } }));
+      return;
+    }
+
+    const result = await PermissionManager.getInstance().simulatePermission(
+      parsed.value
+    );
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(
+      JSON.stringify({
+        toolName: parsed.value.toolName,
+        mode: result.mode,
+        decision: result.decision,
+        reason: result.reason,
+        matchedRules: result.matchedRules.map(serializeRule),
+        evaluated: result.evaluated,
       })
     );
   } catch (err) {

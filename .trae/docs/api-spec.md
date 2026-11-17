@@ -656,6 +656,8 @@ body `{ objective?: string（trim 非空）, tokenBudget?: number（正有限数
 | GET | `/v1/permissions/rules` | ✅ | `permissionService.listRules`（设置页） |
 | POST | `/v1/permissions/rules` | ✅ | `permissionService.addRule` |
 | DELETE | `/v1/permissions/rules/{ruleId}` | ✅ | `permissionService.deleteRule` |
+| GET | `/v1/permissions/rules/health` | ✅ | 无前端调用方（R0 只读：规则文件 hash/外部修改/损坏/冲突） |
+| POST | `/v1/permissions/rules/simulate` | ✅ | 无前端调用方（R0 只读模拟：命中规则 + 最终 allow/ask/deny，不执行工具） |
 | GET | `/v1/permissions/metrics` | ✅ | 无前端调用方 |
 | GET | `/v1/permissions/rbac` | ✅ | `permissionService.getRbac`（权限页 RBAC 面板；**需 admin**） |
 | POST | `/v1/permissions/rbac` | ✅ | `permissionService.runRbac`（body `{command}`，经 CommandsOpsPort 复用 CLI 实现；**需 admin**） |

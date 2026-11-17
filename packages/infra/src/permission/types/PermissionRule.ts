@@ -166,6 +166,53 @@ export function createPermissionRule(params: {
 }
 
 /**
+ * 规则作用域（R0，2026-11-17，治理方案 §3.2）。
+ *
+ * 语义是**授权范围**（对哪一片调用生效），与 `unifiedRule.ts` 的匹配粒度
+ * （`tool | call | command | path | task`）不是同一根轴，故不复用后者。
+ * - `session`：本次会话临时放行（内存 `ApprovedCommandRegistry`，**不落规则文件**）
+ * - `workspace`：仅当前工作区（规则带 `workspaceRoot`，G3「本工作区永久信任」）
+ * - `tool`：整个工具放行（无内容条件、无指纹）
+ * - `global`：命令级 / 指纹级规则，全局生效
+ */
+export type PermissionRuleScope = 'session' | 'workspace' | 'tool' | 'global';
+
+/**
+ * 推导规则作用域（R0）。
+ *
+ * 旧规则文件里没有 `scope` 字段 ⇒ **按匹配条件如实推导**，不写入文件（R0 纯只读）：
+ * 若一律标成 `workspace`，会把"全局生效的命令级规则"显示成"仅本工作区"，
+ * 与真实判定范围相反（`isRuleMatch` 只在 `workspaceRoot` 存在时才做作用域闸）。
+ */
+export function describePermissionRuleScope(rule: {
+  contentPattern?: string;
+  inputFingerprint?: string;
+  workspaceRoot?: string;
+}): PermissionRuleScope {
+  if (rule.workspaceRoot) return 'workspace';
+  if (rule.inputFingerprint) return 'global';
+  if (!rule.contentPattern) return 'tool';
+  return 'global';
+}
+
+/**
+ * 是否**由审批卡产生**的持久化放行（R0 只读展示的 `readOnly` 依据）。
+ *
+ * 现状判据（2026-11-17 核对写入点）：审批的「始终允许」写 `inputFingerprint` 规则
+ * 且 `source` 与用户规则同为 `ruleStore`；「本工作区永久信任」写 `workspaceRoot` 规则。
+ * 因此**目前**这两种形态只可能由审批生成 ⇒ 标记只读（可撤销、不可编辑）。
+ * R2 若放开用户自建指纹规则，须改为显式持久化 `source: approval` 再判定（届时本函数同步调整）。
+ */
+export function isApprovalOriginatedRule(rule: {
+  /** 普通规则的匹配条件（存在即非审批形态；仅为让调用方可直接传规则对象） */
+  contentPattern?: string;
+  inputFingerprint?: string;
+  workspaceRoot?: string;
+}): boolean {
+  return Boolean(rule.inputFingerprint || rule.workspaceRoot);
+}
+
+/**
  * 权限规则值（用于规则解析）
  */
 export interface PermissionRuleValue {

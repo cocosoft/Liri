@@ -13,6 +13,12 @@ export interface Plan {
   status: "pending" | "running" | "completed" | "failed" | "aborted";
   /** 2026-11-13：计划正在等待用户审批（status 仍为 running；见后端 Plan.paused） */
   paused?: boolean;
+  /**
+   * G5-D4（2026-11-18）：**验收子态**（镜像后端 `Plan.acceptance`）。
+   * `pending` = 已执行、目标门未决 ⇒ 任务卡显示「待验收」而不是"执行中"；
+   * 缺省 = 旧数据/已验收（视作 accepted）。
+   */
+  acceptance?: "pending" | "accepted" | "rejected";
   steps: PlanStep[];
   createdAt?: number;
 }

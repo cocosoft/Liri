@@ -54,6 +54,8 @@ export function mapPlanToTaskCard(plan: Plan): TaskCardData {
   return {
     title: plan.description || i18n.t("plans.taskDecomposition"),
     status: mapPlanStatus(plan.status, plan.paused),
+    // G5-D4（2026-11-18）：验收子态透出（缺省 ⇒ undefined，旧计划行为不变）
+    ...(plan.acceptance ? { acceptance: plan.acceptance } : {}),
     planId: plan.id,
     tasks: plan.steps.map((step) => ({
       id: step.id,

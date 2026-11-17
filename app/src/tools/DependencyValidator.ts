@@ -3,8 +3,8 @@
  * 验证模块间的依赖关系，检测循环依赖和缺失依赖
  */
 
-import { readFileSync, existsSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'fs';
+import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import {
   resolveProjectRoot,
@@ -682,6 +682,9 @@ async function runDependencyValidation(): Promise<void> {
       resolveDataSubDir('reports'),
       'dependency_validation_report.md'
     );
+    // 2026-11-18 根因修复：`resolveDataSubDir` 只拼路径、**不建目录** —— 首次运行（`reports/`
+    // 不存在）时 `writeFileSync` 抛 ENOENT，验证内容全绿却以退出码 1 结束（误报"验证失败"）。
+    mkdirSync(dirname(reportPath), { recursive: true });
     writeFileSync(reportPath, report);
 
     logger.info(`\n依赖关系报告已保存到: ${reportPath}`);

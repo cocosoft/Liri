@@ -296,6 +296,17 @@ export async function scanAndAbortStalePdcaTasks(): Promise<{
       continue;
     }
 
+    // G5-D3（2026-11-18）：**已执行待验收**（`acceptance='pending'`）不是崩溃遗留 ——
+    // 计划仍是 running、步骤全终态，只差目标门结论 ⇒ 保留供 `/resume` 收口。
+    // 不加此白名单，`running + decide` 的检查点会在下次启动被误标 abort（设计 §4-⑦）。
+    if (ck.acceptance === 'pending') {
+      logger.info('PDCA 待验收任务已保留（不按崩溃遗留 abort）', {
+        taskId,
+        phase: ck.phase as string | undefined,
+      });
+      continue;
+    }
+
     // 2026-11-08（真机 `pdca_mw6umn2e`）：本函数文档写的是"标记**无活跃 orchestrator** 的
     // running 任务为 abort"，但实现一直没查这一条 —— 真机撞到竞态：daemon 启动的同时
     // （HTTP 已可接受请求）用户就发起了任务，`runFullPdca` 正在内存里跑，紧随其后的启动扫描

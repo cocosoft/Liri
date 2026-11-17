@@ -487,15 +487,17 @@ export const FEATURE_FLAGS = {
    */
   WORKSPACE_MULTI_ROOT: false,
   /**
-   * PR-3（2026-10-23）：**会话级自动执行（仅只读 + 本地写）**（默认关）。
+   * PR-3（2026-10-23）：**会话级自动执行（仅只读 + 本地写）**。
    *
    * 开 ⇒ 会话元数据 `approvalMode='auto-local'` 时，**风险默认档**里的 READ 之外，
    * 「WRITE_LOCAL 且全部路径入参都在会话工作区内」也自动放行（审计 `approval:auto`）；
    * SHELL / EXTERNAL / UNDECLARED / 工作区外写仍走人工审批。
-   * 关（默认）⇒ 与改造前完全一致（零行为变更）。
-   * `FEATURE_SESSION_AUTO_LOCAL=true`。
+   *
+   * P2-B（2026-11-17）：**默认改为开** —— 长程任务的主要打断源是"工作区内正常写也要问"。
+   * 灰度由会话来源收敛：仅**本地桌面会话**缺省 `auto-local`（`sessionAccessors`），
+   * 渠道 / 无人值守会话保持 `ask`；如需整体回退，设 `FEATURE_SESSION_AUTO_LOCAL=false`。
    */
-  SESSION_AUTO_LOCAL: false,
+  SESSION_AUTO_LOCAL: true,
 
   // ───── Execution 生命周期（PR2，2026-10-09；默认关 = 零行为变更的灰度开关）─────
   /**

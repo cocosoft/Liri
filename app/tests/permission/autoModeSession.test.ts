@@ -63,7 +63,8 @@ afterEach(() => {
 
 describe('PR-3：会话级 auto-local（仅只读 + 本地写）', () => {
   it('① 开关关 ⇒ 会话声明 auto-local 也照常 ask', async () => {
-    delete process.env[FLAG];
+    // P2-B（2026-11-17）：开关默认改为开 ⇒ 本用例显式置关，语义不变
+    process.env[FLAG] = 'false';
     const d = await decide(
       fileWriteLike,
       { file_path: 'inside.txt', content: 'x' },

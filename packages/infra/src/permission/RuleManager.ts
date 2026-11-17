@@ -24,9 +24,12 @@ import {
   permissionRuleValueToString,
   isRuleMatch,
   isToolNameMatch,
+  isApprovalOriginatedRule,
 } from './types/PermissionRule';
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
+
+import { isApprovalPauseEnabled } from './approvalPause';
 
 const logger = getLogger('permission:ruleManager');
 
@@ -301,6 +304,10 @@ export class RuleManager {
           }
           if (typeof rule.updatedAt === 'string') {
             rule.updatedAt = new Date(rule.updatedAt);
+          }
+          // R3：审批时间同样按 Date 还原（缺失 ⇒ 保持 undefined，UI 回落 createdAt）
+          if (typeof rule.approvedAt === 'string') {
+            rule.approvedAt = new Date(rule.approvedAt);
           }
         });
 
@@ -798,6 +805,12 @@ export class RuleManager {
       }
 
       rules = [...rules, ...contextRules];
+    }
+
+    // R3（2026-11-17）：「暂停全部持久化放行」开启 ⇒ 审批生成规则**不参与判定**。
+    // 只在**判定读取口**过滤（`getRules()` 不受影响）⇒ 列表/健康视图仍可见、可逐条撤销。
+    if (isApprovalPauseEnabled()) {
+      rules = rules.filter((rule) => !isApprovalOriginatedRule(rule));
     }
 
     // 按优先级排序

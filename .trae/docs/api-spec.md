@@ -663,7 +663,7 @@ body `{ objective?: string（trim 非空）, tokenBudget?: number（正有限数
 
 | 方法 | 路径 | 后端状态 | 前端调用方 |
 |------|------|----------|-----------|
-| GET | `/v1/permissions/rules` | ✅ | `permissionService.listRules`（设置页） |
+| GET | `/v1/permissions/rules` | ✅ | `permissionService.listRules`（设置页；R3 起返回 `approvalRules` 分组 + `approvalPause` 状态，每条含 `origin/approvedAt/approvedBy/hitCount`） |
 | POST | `/v1/permissions/rules` | ✅ | `permissionService.addRule`（冲突 409 + `conflicts`；`force=true` 才「后写为准」） |
 | PUT | `/v1/permissions/rules/{ruleId}` | ✅ | 无前端调用方（只允许改 `behavior` / `contentPattern`；审批规则 403；冲突/重复/损坏 409） |
 | DELETE | `/v1/permissions/rules/{ruleId}` | ✅ | `permissionService.deleteRule`（不存在 ⇒ 200 幂等；审批规则删除 = 撤销放行） |
@@ -671,6 +671,7 @@ body `{ objective?: string（trim 非空）, tokenBudget?: number（正有限数
 | POST | `/v1/permissions/rules/simulate` | ✅ | 无前端调用方（R0 只读模拟：命中规则 + 最终 allow/ask/deny，不执行工具） |
 | GET | `/v1/permissions/rules/export` | ✅ | 无前端调用方（R2b 备份：`{version:1, exportedAt, rules}`，**不含**审批卡生成的指纹 / 工作区信任规则） |
 | POST | `/v1/permissions/rules/import` | ✅ | 无前端调用方（R2b 回灌：body `{rules:[{behavior,toolName,contentPattern?}]}`；先全量校验再落盘，重复跳过、冲突/非法/预算 ⇒ 零写入） |
+| POST | `/v1/permissions/approvals/pause` | ✅ | 无前端调用方（R3 一键收紧：body `{enabled:boolean}` ⇒ `permission.pauseApprovalPersistence`；开启后审批规则不参与判定、也不再新增，仍可逐条撤销） |
 | GET | `/v1/permissions/metrics` | ✅ | 无前端调用方 |
 | GET | `/v1/permissions/rbac` | ✅ | `permissionService.getRbac`（权限页 RBAC 面板；**需 admin**） |
 | POST | `/v1/permissions/rbac` | ✅ | `permissionService.runRbac`（body `{command}`，经 CommandsOpsPort 复用 CLI 实现；**需 admin**） |

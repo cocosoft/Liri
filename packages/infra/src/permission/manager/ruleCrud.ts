@@ -42,6 +42,7 @@ import { isCommandToolName } from '@openliri/infra/utils/toolContract/toolRoles'
 
 import type { RuleManager } from '../RuleManager';
 import { findConflictingRules, findDuplicateRules } from '../RuleManager';
+import { getApprovedCommandRegistry } from '../ApprovedCommandRegistry';
 import {
   PermissionBehavior,
   PermissionRuleSource,
@@ -418,7 +419,12 @@ export function updateRuleChecked(
   return { ok: true, rule: updated };
 }
 
-/** 删除/撤销工具规则（审批规则走本入口撤销；审计标出是否为撤销放行） */
+/**
+ * 删除/撤销工具规则（审批规则走本入口撤销；审计标出是否为撤销放行）
+ *
+ * R3：撤销审批生成的规则时，**同时**清掉该命令在会话放行缓存里的条目
+ * （`approvalCommandHash` 由审批写入点记录）—— 否则会出现"规则删了、本次会话仍在放行"。
+ */
 export function removeRuleChecked(
   ruleManager: RuleManager,
   ruleId: string
@@ -432,6 +438,12 @@ export function removeRuleChecked(
     return { ok: false, code: 'not-found', message: `规则不存在：${ruleId}` };
   }
   ruleManager.removeRule(existing);
+  const clearedApprovalCache =
+    isApprovalOriginatedRule(existing) && existing.approvalCommandHash
+      ? getApprovedCommandRegistry().revokeByCommandHash(
+          existing.approvalCommandHash
+        )
+      : 0;
   logger.info('permission:rule_removed', {
     ruleId,
     behavior: String(existing.behavior),
@@ -439,7 +451,9 @@ export function removeRuleChecked(
     contentPattern: existing.contentPattern,
     inputFingerprint: existing.inputFingerprint,
     workspaceRoot: existing.workspaceRoot,
+    origin: existing.origin,
     revocation: isApprovalOriginatedRule(existing),
+    clearedApprovalCache,
   });
   return { ok: true, rule: existing };
 }

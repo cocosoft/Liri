@@ -613,6 +613,33 @@ export class ApprovedCommandRegistry {
   }
 
   /**
+   * R3（2026-11-17）：撤销某条审批生成的规则时，按**命令摘要**清除对应的放行缓存。
+   *
+   * 为什么需要：规则（持久化 allow）与会话放行缓存是**两层**授权 —— 只删规则时，
+   * 若当前会话仍持有同命令的 `approve_session` 缓存，用户会看到"撤销了却还在放行"。
+   * 摘要来自审批卡写入规则时记录的 `approvalCommandHash`（与指纹不同源）。
+   * 只清**当前身份可见**的条目（多租户 P3 口径，与 `clearSession` 一致）。
+   *
+   * @returns 清除的记录数
+   */
+  revokeByCommandHash(commandHash: string): number {
+    if (!commandHash) return 0;
+    let removed = 0;
+    for (const [sessionId, sessionMap] of this.store) {
+      const entry = sessionMap.get(commandHash);
+      if (entry && canAccessOwnerKey(entry.ownerKey)) {
+        sessionMap.delete(commandHash);
+        removed++;
+      }
+      if (sessionMap.size === 0) this.store.delete(sessionId);
+    }
+    if (removed > 0) {
+      logger.info('审批放行缓存已按规则撤销', { commandHash, removed });
+    }
+    return removed;
+  }
+
+  /**
    * 多租户 P5：按**归属键前缀**清除放行记录（删除租户 / 移除成员时调用）
    * 只删 `ownerKey` 匹配前缀的条目，其他身份与本机记录不受影响。
    *

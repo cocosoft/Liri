@@ -5749,7 +5749,7 @@
     },
     {
       "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-5-CACHE-TTL",
-      "title": "硬编码治理 · **「同名常量」B5-2 第五项**：`CACHE_TTL` ×4 按域消歧（2 处 app + **2 处 client**；取值 60s×2 / 30min / 5min，前一 60s 对分属不同子系统故不合一）⇒ `lint:consts` **251 → 250 键（−1）**",
+      "title": "硬编码治理 · **「同名常量」B5-2 第五项**：`CACHE_TTL` ×4 按域消歧（2 处 app + **2 处 client**；取值 60s×2 / 30min / 5min，前一 60s 对分属不同子系统故不合一）⇒ `lint:consts` **251 → 250 键（−1）**（2026-11-18：`app/src/lsp/schemas.ts` 随 S6 删除 ⇒ 现余 3 处）",
       "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8（①同名常量，**异值类** ⇒ 按域重命名消歧）+ CS01/CS05 + B5-1①–⑤ / B5-2①–④（同批次判定口径）",
       "stages": {
         "discovered": true,
@@ -5765,7 +5765,6 @@
       },
       "code": [
         "app/src/ink/ink/line-width-cache.ts",
-        "app/src/lsp/schemas.ts",
         "client/src/components/views/media/thumbCache.ts",
         "client/src/services/capabilityService.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",

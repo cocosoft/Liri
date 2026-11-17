@@ -347,7 +347,6 @@ export default [
       'src/oauth/**',
       'src/streaming/**',
       'src/cache/**',
-      'src/lsp/**',
       'src/scripts/**',
       'src/diagnostics/**',
       'src/media/**',

@@ -102,6 +102,10 @@ infra 禁止依赖：entry、ui、app、service
 - 2026-11-02 复核（CD01–CD04）：代码面仍零消费者，但**测试** `tests/performance/benchmark.test.ts:12`
   仍导入 `LSPServerConfigRegistry` ⇒ 删除前置未满足，**观察期延长、不删**
   （详见 `tool-sidecar-isolation.md §13.7`）。
+- **2026-11-18 收口（S6）**：两处测试消费者已先行摘除（`benchmark` 的注册表基准块、
+  `spawnCwdGuard` 的 LSPClient 用例）⇒ CD01–CD04 全清；`app/src/lsp/**`（14 文件）、
+  `tsconfig` 的 `@modules/lsp` 别名、`eslint.config.js` 的 `src/lsp/**` 覆写已按 CD06 独立提交删除。
+  详见 `tool-sidecar-isolation.md §13.8`。
 
 ## 7. 升降级规则（未来变更的判据）
 

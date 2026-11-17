@@ -342,7 +342,7 @@
 | **S3 ○** | 崩溃隔离 + 取消下传（注入假子进程测试） | ① 崩溃结算/重启；② 取消 notify 帧 + 本地结算 | 中 | supervisor、侧车进程、工具执行入口（`ToolUseContext.abortController`）、`tests/**` |
 | **S4 ○** | 同源门禁（T1-11）：经 `MCPToolBridge` 注册；PathGuard/权限/结果上限同源；Landlock 显式 N/A | 注册接线 + 测试 | 中 | `services/mcp/MCPToolBridge.ts:113`、`services/mcp/McpToolWrapper.ts`、`chat/ReActToolLoop.ts:1145`、`context/budget/ToolResultBudget.ts:30` |
 | **S5 ○** | P2 媒体侧车：`vision_worker` 受管化 + `sharp` 先收一处（`ImageInputRouter`） | ① `TOOL_SIDECAR_MEDIA`；② worker 受管；③ sharp 收口一处 | 中（`sharp` 主路径改造面） | `ai/python/{StdioBridge,WorkerGuard,vision_worker.py}`、`tools/ImageAnalysisTool/ImageAnalysisTool.ts:170-190`、`tools/ImageGenerateTool/ImageInputRouter.ts:212,245` |
-| **S6 ○** | （观察期后）按 CD06 物理删除被替代实现（若确认无消费者） | **独立删除提交**（记录清单 + 回滚哈希） | 中（不可逆） | `tools/lsp/**`、`app/src/lsp/**`（视观察结论） |
+| **S6 ✅** | （观察期后）按 CD06 物理删除被替代实现（若确认无消费者） | **独立删除提交**（记录清单 + 回滚哈希） | 中（不可逆） | `app/src/lsp/**`（2026-11-18 已删，见 §13.8）；轨 A `tools/lsp/**` 保留 |
 | **S7 ★** | 收尾回填（文档，零代码）：见下方"待回填" | 文档 | 低 | `CHANGELOG.md:82`、五方案总览 §2/§8.1、工具方案 §5 |
 
 **待回填项（主循环据此回填台账/总览）**
@@ -357,8 +357,8 @@
 ## §12 下一步
 
 1. ~~**本文待用户批准**（HARD-GATE：批准前不写产品代码）~~ → **已批准并落地**（S1/S3/S5 已实现，见 §13；原文保留以存证）。
-2. 已按 §11 切片推进：S0/S1/S3/S4/S5 完成；S2（双轨收敛）**复核后改用独立条目**（见 §13.2）；S6 未做（依赖观察期）。
-3. 联动：S1 落地后的回填 1–4 仍未做（§11 待回填项仍未勾）；S2 观察期结束再决定 S6 删除范围。
+2. 已按 §11 切片推进：S0/S1/S3/S4/S5 完成；S2（双轨收敛）**复核后改用独立条目**（见 §13.2）；**S6 已于 2026-11-18 完成**（§13.8）。
+3. 联动：S6 删除已完成；S1 落地后的回填 1–4 仍待 S7（文档零代码）。
 
 ---
 
@@ -373,7 +373,7 @@
 | **S5** 媒体侧车（`vision_worker` 受管 + `sharp` 收口一处） | ✅ | `SidecarMediaAnalyzer` / `mediaSidecarLifecycle` / `ImageInputRouter` / `ImageAnalysisTool`；开关 `featureFlags.ts:680` |
 | **S2** LSP 双轨收敛 | ✅ **可执行部分已完成（2026-10-31，§13.6）** | 按 §13.2 改判：不再"接线"，改为去掉轨 B 的生产依赖（校验下沉 `tools/lsp/validation.ts` + 摘 3 个运行时/构建入口） |
 | **S4** 与内置工具同源门禁（注册/PathGuard/权限/结果上限） | ✅ | `tests/tools/sidecar/sidecarSameSourceGate.test.ts`（「保名派」：同一 loader 链 → 同一 `ToolRegistry`；PathGuard 由 `resolveToolParamNames` 注册表驱动判定；`maxResultSizeChars` 与内置 deep-equal；Landlock 显式 N/A） |
-| **S6** 物理删除被替代实现 | ⏳ **观察期（2026-10-31 起，2026-11-02 复核后延长）** | 轨 B 零代码消费者（§13.6 + §13.7 复核）；**尚有 1 处测试消费者**（`tests/performance/benchmark.test.ts` 的 `LSPServerConfigRegistry`）⇒ 不满足删除前置；观察期后按 CD06 独立删除提交 |
+| **S6** 物理删除被替代实现 | ✅ **已完成（2026-11-18，§13.8）** | 前置的两处测试消费者已先摘；CD01–CD04 全清 ⇒ 按 CD06 独立提交删除 `app/src/lsp/**`（14 文件）+ tsconfig 别名 + eslint 覆写；轨 A `tools/lsp/**` 保留 |
 
 ### 13.2 S2 前置的重新裁定（**关键**）
 
@@ -461,3 +461,41 @@
 3. 按 CD06 **独立提交**删除 `app/src/lsp/**`，提交信息附被删清单 + 回滚哈希；
 4. 同批评估 `packages/kernel/src/core/LazyModuleStrategy.ts` 的 `lsp` 元数据条目与
    `app/src/modules/ModuleDefinitions.ts` 的 `lsp` 模块声明是否一并清理。
+
+### 13.8 S6 实施记录（2026-11-18，CD01–CD06 全清）
+
+**结论：前置满足，轨 B `app/src/lsp/**` 已删除**。观察期自 2026-10-31 起（2026-11-02 延长），
+期间无 `@modules/lsp` 导入需求、无 LSP 工具异常。
+
+**① 先摘消费者（独立提交 `fb390649f`）**
+
+| 消费者 | 处置 |
+|---|---|
+| `tests/performance/benchmark.test.ts` | 移除 `LSPServerConfigRegistry` 基准块（Gateway/Notebook 基准保留） |
+| `tests/tools/spawnCwdGuard.test.ts` | 移除 `src/lsp/LSPClient` 的「LSP 工作目录」用例（该 spawn 链随实现下线） |
+
+**② CD01–CD04 复核（删除前最后一次取证）**
+
+| 项 | 结果 |
+|---|---|
+| CD01 静态/动态导入 | `@modules/lsp` **0 处代码导入**；`import('…lsp…')` 仅存在于 `app/src/lsp/` 自身；测试消费者 **0** |
+| CD02 构建 / 懒加载入口 | `bootstrap/generatedLazyLoaders.ts` 无 lsp；`build-variant.ts` 的 `BASE_LAZY_LOADERS` 已无 lsp；`ImportManager` 别名已删；`LazyModuleStrategy.ts` 的 `lsp` **仅元数据**（无 loader thunk） |
+| CD03 DI / 运行时发现 | `ModuleInitializer.requestOnDemandModule()` / `core.requestModule()` **全仓零调用**（G-C5 已登记）；loaderRegistry 无 lsp 条目 ⇒ 即便被调用也 fail-closed |
+| CD04 测试 / 变体 / 运行模式 | 测试 0（①）；变体清单无 lsp；CLI/REPL/MCP/DAEMON 各模式均无入口 |
+
+**③ 删除（CD06 独立提交）**
+
+| 被删 / 改动 | 内容 |
+|---|---|
+| `app/src/lsp/**` | 14 文件（`EnhancedLSPManager` / `IntelligentLSPAnalyzer` / `LSPClient` / `LSPServerConfigRegistry` / `LSPServerManager` / `LSPServerInstance` / `LSPDiagnosticRegistry` / `LSPDiagnosticDisplay` / `DiagnosticsContextAdapter` / `passiveFeedback` / `index` / `schemas.ts` / `schemas.md` / `types.ts`） |
+| `app/tsconfig.json` | 移除 `@modules/lsp` / `@modules/lsp/*` 路径别名 |
+| `app/eslint.config.js` | 移除 `src/lsp/**` 文件覆写项 |
+
+**④ 保留（明确）**
+
+- 轨 A `app/src/tools/lsp/**`（工具面实现，`LSPToolAdapter` 的消费者）**不删**；
+- `packages/kernel/.../LazyModuleStrategy.ts` 的 `lsp` 元数据与 `ModuleDefinitions.ts` 的 `lsp` 模块声明
+  **保留**（元数据无 loader；`lsp` 工具仍由轨 A / 侧车提供，模块 id 供工具面门控与初始化顺序使用）。
+
+**回滚**：`git revert <本提交>` 可完整复原 14 文件与两处配置（删除提交为独立、不含功能改动）。
+

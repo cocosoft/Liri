@@ -652,11 +652,11 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     }
   });
 
-  test('B5-2⑤：`CACHE_TTL` ×4 已按域消歧（取值一字未改）', () => {
-    // 4 处同名 `CACHE_TTL`：ink 行宽缓存 60s · LSP schema 缓存 60s · 缩略图 30min · 能力列表 5min
+  test('B5-2⑤：`CACHE_TTL` 按域消歧（取值一字未改；2026-11-18 起余 3 处）', () => {
+    // 原 4 处同名 `CACHE_TTL`：ink 行宽缓存 60s · LSP schema 缓存 60s · 缩略图 30min · 能力列表 5min。
+    // 2026-11-18（S6）：轨 B `src/lsp/schemas.ts` 随 `app/src/lsp/**` 按 CD06 删除 ⇒ 该处断言移除。
     const items: Array<[string, string, string]> = [
       ['src/ink/ink/line-width-cache.ts', 'LINE_WIDTH_CACHE_TTL_MS', '60000'],
-      ['src/lsp/schemas.ts', 'LSP_SCHEMA_CACHE_TTL_MS', '60000'],
       [
         '../client/src/components/views/media/thumbCache.ts',
         'THUMB_CACHE_TTL_MS',

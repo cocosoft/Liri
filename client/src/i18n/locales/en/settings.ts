@@ -1075,6 +1075,15 @@ const enSettings = {
     toolsRulesUnknownHint:
       "Add a rule for frequently used commands to reduce repeated approvals.",
     toolsRulesUnknownAdd: "Add a rule",
+    toolsRulesAllowBudget: "User-created allow rules {{used}}/{{limit}}",
+    toolsRulesAllowBudgetHint:
+      "Limit reached: new allow rules will be rejected. Raise permission.userRuleAllowBudget (1–1000) if you need more.",
+    toolsRulesBCommandRules: "B-system command policy ({{mode}}) · read-only",
+    toolsRulesBCommandRulesHint:
+      "Comes from config.json#permission.customRules.commandRules and applies directly in the bash / powershell decision chain; shown read-only here — change it via PUT /v1/config/permission.",
+    toolsRulesBCommandRulesEmpty: "No black/whitelist configured",
+    toolsRulesBCommandModeBlacklist: "blacklist mode",
+    toolsRulesBCommandModeWhitelist: "whitelist mode",
     toolsRulesAddTitle: "New command rule",
     toolsRulesAddSave: "Save rule",
     toolsRulesAddCancel: "Cancel",

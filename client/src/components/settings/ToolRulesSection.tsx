@@ -26,7 +26,9 @@ import { toolService } from "../../services/toolService";
 import {
   permissionService,
   readRuleWriteFailure,
+  type AllowBudget,
   type ApprovalPauseState,
+  type CommandRulesView,
   type PermissionRule,
   type PermissionRulesHealth,
   type RuleImpactPreview,
@@ -69,6 +71,12 @@ export default function ToolRulesSection({ isDark }: Props) {
   const [approvalRules, setApprovalRules] = useState<PermissionRule[]>([]);
   const [unknownSuggestions, setUnknownSuggestions] =
     useState<UnknownCommandSuggestions | null>(null);
+  /** R2b：用户手建 allow 规则用量（超限时写接口 409，前端提前提示） */
+  const [allowBudget, setAllowBudget] = useState<AllowBudget | null>(null);
+  /** R1.5：B 体系命令级策略只读视图（未配置 ⇒ null） */
+  const [bCommandRules, setBCommandRules] = useState<CommandRulesView | null>(
+    null,
+  );
   const [health, setHealth] = useState<PermissionRulesHealth | null>(null);
   const [healthBusy, setHealthBusy] = useState(false);
   const [draft, setDraft] = useState<RuleDraft | null>(null);
@@ -90,6 +98,8 @@ export default function ToolRulesSection({ isDark }: Props) {
     setApprovalPause(nextRules.approvalPause ?? null);
     setApprovalRules(nextRules.approvalRules?.rules ?? []);
     setUnknownSuggestions(nextRules.unknownCommandSuggestions ?? null);
+    setAllowBudget(nextRules.allowBudget ?? null);
+    setBCommandRules(nextRules.commandRules ?? null);
   };
 
   useEffect(() => {
@@ -410,6 +420,29 @@ export default function ToolRulesSection({ isDark }: Props) {
   return (
     <div className="py-2 space-y-3">
       <p className={`text-xs ${muted}`}>{t("settings.toolsRulesHint")}</p>
+
+      {/* R2b：allow 预算用量（后端超限即 409，这里提前把额度说清楚） */}
+      {allowBudget && (
+        <>
+          <p
+            className={`text-[11px] ${
+              allowBudget.used >= allowBudget.limit
+                ? "text-amber-600 dark:text-amber-400"
+                : muted
+            }`}
+          >
+            {t("settings.toolsRulesAllowBudget", {
+              used: allowBudget.used,
+              limit: allowBudget.limit,
+            })}
+          </p>
+          {allowBudget.used >= allowBudget.limit && (
+            <p className="text-[11px] text-amber-600 dark:text-amber-400">
+              {t("settings.toolsRulesAllowBudgetHint")}
+            </p>
+          )}
+        </>
+      )}
 
       {error && (
         <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
@@ -774,6 +807,61 @@ export default function ToolRulesSection({ isDark }: Props) {
           </div>
         )}
       </div>
+
+      {/* R1.5：B 体系命令级策略（只读；它在 bash / powershell 判定链直接生效，
+          只展示 tool_rules.json 会让用户误以为"没配规则"） */}
+      {bCommandRules && (
+        <div className="pt-1">
+          <p className={`text-xs font-medium ${muted}`}>
+            {t("settings.toolsRulesBCommandRules", {
+              mode:
+                bCommandRules.mode === "whitelist"
+                  ? t("settings.toolsRulesBCommandModeWhitelist")
+                  : t("settings.toolsRulesBCommandModeBlacklist"),
+            })}
+          </p>
+          <p className={`text-[11px] ${muted}`}>
+            {t("settings.toolsRulesBCommandRulesHint")}
+          </p>
+          {bCommandRules.blacklist.length === 0 &&
+          bCommandRules.whitelist.length === 0 ? (
+            <p className={`text-[11px] py-1 ${muted}`}>
+              {t("settings.toolsRulesBCommandRulesEmpty")}
+            </p>
+          ) : (
+            <div className="mt-1 space-y-1">
+              {bCommandRules.blacklist.length > 0 && (
+                <div
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs ${rowBg}`}
+                >
+                  <span className={`shrink-0 ${muted}`}>
+                    {t("settings.rulesTabCommandBlacklist")}
+                  </span>
+                  <code className="break-all flex-1">
+                    {bCommandRules.blacklist
+                      .map((rule) => rule.pattern)
+                      .join(" · ")}
+                  </code>
+                </div>
+              )}
+              {bCommandRules.whitelist.length > 0 && (
+                <div
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs ${rowBg}`}
+                >
+                  <span className={`shrink-0 ${muted}`}>
+                    {t("settings.rulesTabCommandWhitelist")}
+                  </span>
+                  <code className="break-all flex-1">
+                    {bCommandRules.whitelist
+                      .map((rule) => rule.pattern)
+                      .join(" · ")}
+                  </code>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* R0/R5：规则文件健康 + 命中统计（按需触发；观察期未满不判定「未命中」） */}
       <div className="pt-1 space-y-1">

@@ -347,11 +347,17 @@ export {
   isSimulatablePermissionMode,
 } from './manager/simulate';
 // R3（2026-11-17）：「暂停全部持久化放行」开关（判定口过滤审批生成规则 + 审批写入点跳过）
+// F2（2026-11-17）：粒度细化 —— 全局 + 按会话（`sessions`）
 export {
   APPROVAL_PAUSE_CONFIG_KEY,
+  filterPausedApprovalRules,
+  isApprovalPauseActiveFor,
   isApprovalPauseEnabled,
+  readApprovalPauseState,
   setApprovalPauseEnabled,
+  setApprovalPauseState,
 } from './approvalPause';
+export type { ApprovalPauseState } from './approvalPause';
 // R5（2026-11-17）：未知命令采样摘要（周报 CLI / 设置页 / 启动提示同一实现）
 export {
   readUnknownCommandDigest,

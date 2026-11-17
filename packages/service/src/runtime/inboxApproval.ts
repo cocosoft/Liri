@@ -32,7 +32,8 @@ import {
   resolveApprovalDecision,
   resolveRecordScope,
   // R3（2026-11-17）：「暂停全部持久化放行」—— 三个审批写入点共用同一开关
-  isApprovalPauseEnabled,
+  // F2：按会话暂停同样生效（本函数已拿到 sessionId）
+  isApprovalPauseActiveFor,
   type ApprovalScope,
   type ApprovalSnapshot,
 } from '@openliri/infra/permission';
@@ -1027,14 +1028,14 @@ async function runResumeOnce(sessionId: string): Promise<void> {
 }
 
 /**
- * R3：暂停持久化放行时跳过写入。
+ * R3/F2：暂停持久化放行时跳过写入（全局暂停，或**本会话**被暂停）。
  *
- * 注意只跳过"新增规则"：已存在的审批规则由 `RuleManager#getRulesByBehavior` 在判定口过滤，
+ * 注意只跳过"新增规则"：已存在的审批规则由判定读取口过滤，
  * 列表里仍可见、可逐条撤销（不做破坏性删除）。
  */
 function shouldSkipApprovalRuleWrite(sessionId?: string): boolean {
-  if (!isApprovalPauseEnabled()) return false;
-  logger.info('「暂停全部持久化放行」已开启，跳过审批规则写入', { sessionId });
+  if (!isApprovalPauseActiveFor({ sessionId })) return false;
+  logger.info('「暂停持久化放行」已生效，跳过审批规则写入', { sessionId });
   return true;
 }
 

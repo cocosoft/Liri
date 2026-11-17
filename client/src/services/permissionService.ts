@@ -55,9 +55,14 @@ export interface ApprovalRulesGroup {
   note: string;
 }
 
-/** R3：「暂停全部持久化放行」当前状态 */
+/** R3/F2：「暂停持久化放行」当前状态 */
 export interface ApprovalPauseState {
+  /** 兼容字段 = 全局暂停（旧后端/旧客户端口径） */
   enabled: boolean;
+  /** 全局暂停（与 `enabled` 同值；F2 起显式返回） */
+  global?: boolean;
+  /** 按会话暂停的会话 id 列表（F2） */
+  sessions?: string[];
   configKey: string;
 }
 
@@ -346,14 +351,27 @@ export const permissionService = {
     return http.get<PermissionRulesHealth>(ENDPOINTS.permissions.rulesHealth);
   },
 
-  /** R3：一键暂停 / 恢复全部持久化放行 */
+  /**
+   * R3/F2：写入暂停状态。
+   *
+   * - `{ global }` ⇒ 全局暂停（等于旧 `enabled` 语义，保留既有会话级条目）；
+   * - `{ sessions }` ⇒ 按会话暂停（整体替换，其他会话不受影响）。
+   */
+  async updateApprovalPause(patch: {
+    global?: boolean;
+    sessions?: string[];
+  }): Promise<ApprovalPauseState & { message: string }> {
+    return http.post<ApprovalPauseState & { message: string }>(
+      ENDPOINTS.permissions.approvalsPause,
+      patch,
+    );
+  },
+
+  /** R3：全局暂停 / 恢复全部持久化放行（旧调用方语义不变） */
   async setApprovalPause(
     enabled: boolean,
   ): Promise<ApprovalPauseState & { message: string }> {
-    return http.post<ApprovalPauseState & { message: string }>(
-      ENDPOINTS.permissions.approvalsPause,
-      { enabled },
-    );
+    return permissionService.updateApprovalPause({ global: enabled });
   },
 
   /** 细粒度 RBAC 快照（角色 / 用户 / 资源 / 绑定） */

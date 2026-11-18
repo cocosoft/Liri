@@ -9,6 +9,7 @@
 import { describe, expect, it } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { queryPath } from '../../../scripts/lib/queryPaths';
 
 const REPO_ROOT = join(import.meta.dir, '..', '..', '..');
 const read = (rel: string) => readFileSync(join(REPO_ROOT, rel), 'utf8');
@@ -21,15 +22,18 @@ function countOccurrences(haystack: string, needle: string): number {
 describe('状态机取证隐患守卫（阶段 1.3）', () => {
   it('工具执行瞬态：裸字面量已收敛到唯一事实源（各只出现 1 次定义）', () => {
     const src = read('app/src/chat/services/ToolExecutionService.ts');
+    // T3 stage 7（2026-11-17）：审批通路外移至 `toolApprovalOutcome.ts` ⇒ 一起扫描（口径不变）
+    const approvalSrc = read('app/src/chat/services/toolApprovalOutcome.ts');
+    const all = src + approvalSrc;
 
     // `awaiting_approval` 仅作为 TRANSIENT_AWAITING_APPROVAL 的**定义值**出现 1 次
-    expect(countOccurrences(src, "'awaiting_approval'")).toBe(1);
+    expect(countOccurrences(all, "'awaiting_approval'")).toBe(1);
     expect(src).toContain(
       "const TRANSIENT_AWAITING_APPROVAL = 'awaiting_approval'"
     );
     // `requires_approval` 则**零**字面量（走枚举成员）
-    expect(countOccurrences(src, "'requires_approval'")).toBe(0);
-    expect(src).toContain('ToolExecutionStatus.REQUIRES_APPROVAL');
+    expect(countOccurrences(all, "'requires_approval'")).toBe(0);
+    expect(approvalSrc).toContain('ToolExecutionStatus.REQUIRES_APPROVAL');
   });
 
   it('应用安装状态：内联联合仅剩 1 处定义（= 命名类型），消费点全走类型名', () => {
@@ -45,7 +49,10 @@ describe('状态机取证隐患守卫（阶段 1.3）', () => {
   });
 
   it('预算档位：不再本地重声明（单一事实源 = dailyBudgetSnapshot）', () => {
-    const src = read('app/src/query/DailyBudgetManager.ts');
+    const src = readFileSync(
+      queryPath(REPO_ROOT, 'DailyBudgetManager.ts'),
+      'utf8'
+    );
 
     expect(src).not.toContain('type BudgetMode =');
     expect(src).toContain(

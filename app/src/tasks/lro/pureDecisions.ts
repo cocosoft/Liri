@@ -6,6 +6,8 @@
  * 零宿主依赖 ⇒ 无循环；公开面由宿主 **re-export** 保持。
  */
 
+import { TaskStatus } from '@openliri/kernel/taskStatus';
+
 /**
  * D4（2026-11-09）：**预算类**终止原因 —— 扩容续跑可救（多给一轮即可继续）。
  *
@@ -113,6 +115,55 @@ export function shouldAutoApprovePlan(
   isUnattended: boolean
 ): boolean {
   return requireApproval && isUnattended;
+}
+
+/**
+ * P3-2（2026-11-16）：resume **终态闸门**判定（原 `resumeFromCheckpointCore` 内联段，原样外移）。
+ *
+ * 判据（逐字沿用原实现）：
+ *   - `replanResumable`：status=failed + replanPending + 失败计数未达上限 ⇒ 允许走增量 replan；
+ *   - `interruptedByScan`：status=abort 且步骤快照非空，且（启动扫描标记 或 phase 仍非终态）
+ *     ⇒ 崩溃遗留任务可续跑（M2 可达性修复）；
+ *   - `refuse`：终态 phase（无启动扫描标记）或终态 status（不满足上述两项例外）。
+ *   - `refuseDetail`：按 `replanPending` 选文案（与旧实现一致，不按"是否真的可续跑"）。
+ *
+ * 2026-10-17（M2 可达性修复，原注释随判据一并外移）：启动扫描 `scanAndAbortStalePdcaTasks`
+ * 会把**崩溃遗留**的活跃任务写成 `status:'abort'`，但保留非终态 phase（execute/review/decide）。
+ * 旧判据把该组合当终态一律拒绝 ⇒ P0(M2) 的步骤快照在生产没有有效消费路径。
+ * 放行条件严格限定：status=abort **且** 步骤快照非空，且满足任一
+ *   ① `abortedBy='startup_scan'`（2026-11-08 真机 `pdca_mw7d3dq3`：扫描为满足
+ *      /goal list 的 phase 过滤已把 phase 落 abort ⇒ 必须靠标记识别，否则不可续跑）；
+ *   ② phase 仍非终态（旧格式检查点，无标记）。
+ */
+export function evaluateResumeGate(input: {
+  phase: string;
+  status?: string;
+  replanPending: boolean;
+  replanFailCount: number;
+  replanMaxRetries: number;
+  stepCount: number;
+  abortedBy?: unknown;
+}): { replanResumable: boolean; refuse: boolean; refuseDetail: string } {
+  // 状态词汇取具名枚举（值不变：completed/failed）；`abort` 属 PDCA checkpoint 专有终态。
+  const isTerminal = (st?: string): boolean =>
+    st === TaskStatus.COMPLETED || st === 'abort' || st === TaskStatus.FAILED;
+  const replanResumable =
+    input.status === TaskStatus.FAILED &&
+    input.replanPending &&
+    input.replanFailCount < input.replanMaxRetries;
+  const crashAborted = input.abortedBy === 'startup_scan';
+  const interruptedByScan =
+    input.status === 'abort' &&
+    input.stepCount > 0 &&
+    (crashAborted || !isTerminal(input.phase));
+  const refuse =
+    (isTerminal(input.phase) && !crashAborted) ||
+    (isTerminal(input.status) && !replanResumable && !interruptedByScan);
+  const refuseDetail =
+    input.status === TaskStatus.FAILED && !input.replanPending
+      ? '，且 replan 已达上限/未挂起，需人工介入'
+      : '，不可恢复';
+  return { replanResumable, refuse, refuseDetail };
 }
 
 /**

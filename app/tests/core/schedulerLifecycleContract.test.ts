@@ -4,7 +4,7 @@ import { describe, it, expect } from 'bun:test';
 import { DiscoveryScheduler } from '../../src/tasks/alwayson/DiscoveryScheduler';
 import { KnowledgeCompileScheduler } from '../../src/knowledge/KnowledgeCompileScheduler';
 import type { SchedulerLifecycle } from '../../src/types/schedulerLifecycle';
-import type { DreamScheduler } from '../../src/dream/DreamScheduler';
+import type { DreamScheduler } from '@modules/dream';
 import type { CronScheduler } from '../../src/tasks/cron/CronScheduler';
 import type { CompileResult } from '../../src/knowledge/KnowledgeCompiler';
 

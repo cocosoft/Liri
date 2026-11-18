@@ -2,9 +2,10 @@
  * P0-1（2026-10-30）：严格披露预算 —— `FEATURE_TOOL_DISCLOSURE_STRICT`
  *
  * 契约：
- * - 开关**默认关** ⇒ `resolveDisclosureBudget()` 返回 `undefined`，裁剪面逐字不变；
- * - 开关开 ⇒ `coding` / `agent` 面按 `STRICT_DISCLOSURE_BUDGETS`（25）截断，
- *   恒集（`todo_write` / `agent`）永远保留，其余按 `STRICT_DISCLOSURE_PRIORITY` 顺序取；
+ * - 开关**默认开（2026-11-16 起，用户裁定；`FEATURE_TOOL_DISCLOSURE_STRICT=false` 可回退）**
+ *   ⇒ `coding` / `agent` 面按 `STRICT_DISCLOSURE_BUDGETS`（25）截断；恒集（`todo_write` / `agent`）
+ *   永远保留，其余按 `STRICT_DISCLOSURE_PRIORITY` 顺序取；
+ * - 显式关 ⇒ `resolveDisclosureBudget()` 返回 `undefined`，裁剪面与引入本预算前逐字一致；
  * - 被截断的工具**仍注册可调用**（本函数只筛"下发面"，不碰注册表）—— 与 AC-16 同口径；
  * - `getRealToolNamesForTask` 与 `filterToolsByTask` **同判据**（不得形成第二套口径）。
  */
@@ -76,8 +77,18 @@ describe('trimNamesToDisclosureBudget（纯函数）', () => {
 });
 
 describe('resolveDisclosureBudget（开关语义）', () => {
-  it('默认关 ⇒ undefined（零行为变更）', () => {
+  it('默认开 ⇒ coding / agent 有预算（2026-11-16 用户裁定翻转）', () => {
     delete process.env[ENV_KEY];
+    expect(resolveDisclosureBudget('coding')).toBe(
+      STRICT_DISCLOSURE_BUDGETS.coding
+    );
+    expect(resolveDisclosureBudget('agent')).toBe(
+      STRICT_DISCLOSURE_BUDGETS.agent
+    );
+  });
+
+  it('显式关（回退路径）⇒ undefined（零行为变更）', () => {
+    process.env[ENV_KEY] = 'false';
     expect(resolveDisclosureBudget('coding')).toBeUndefined();
     expect(resolveDisclosureBudget('agent')).toBeUndefined();
     expect(resolveDisclosureBudget('default')).toBeUndefined();
@@ -147,8 +158,8 @@ const CODING_DEFINITIONS = [
 ].map((name) => ({ name }));
 
 describe('filterToolsByTask：严格披露截断（coding 面）', () => {
-  it('开关关 ⇒ 不截断（类别白名单内全部保留，数量高于 strict 预算）', () => {
-    delete process.env[ENV_KEY];
+  it('显式关 ⇒ 不截断（类别白名单内全部保留，数量高于 strict 预算）', () => {
+    process.env[ENV_KEY] = 'false';
     // 注：入参里少数名字类别未登记（如 trace_recording ⇒ misc），会被类别白名单先筛掉；
     // 故这里断言"高于预算"而非"等于入参长度"。
     const kept = filterToolsByTask(CODING_DEFINITIONS, 'coding');
@@ -229,8 +240,8 @@ describe('getRealToolNamesForTask：与 filterToolsByTask 同判据', () => {
     expect(names).toContain('todo_write');
   });
 
-  it('开关关 ⇒ 不截断（默认面仍由 AC-16 白名单约束）', () => {
-    delete process.env[ENV_KEY];
+  it('显式关 ⇒ 不截断（默认面仍由 AC-16 白名单约束）', () => {
+    process.env[ENV_KEY] = 'false';
     const names = getRealToolNamesForTask('coding');
     expect(names.length).toBeGreaterThan(STRICT_DISCLOSURE_BUDGETS.coding);
   });

@@ -24,6 +24,8 @@ import type { PermissionMode } from './PermissionMode';
 /** 工具授权上下文（与 `PermissionManager.checkPermissionForTool` 的 `context` 同构） */
 export interface ToolAuthorizeContext {
   sessionId?: string;
+  /** 2026-11-12：本次调用 id（审批卡留证；用户拒绝时据此写终态结果并续跑） */
+  toolCallId?: string;
   userId?: string;
   userRole?: string;
   /** P2-6（2026-11-11）：全部角色（RBAC 按并集判定；缺省回落 `userRole`） */
@@ -45,6 +47,11 @@ export interface ToolAuthorizeContext {
   taskId?: string;
   /** 本次执行的沙箱信号（仅审批卡留证，不参与判定） */
   sandbox?: unknown;
+  /**
+   * P0（2026-11-17）：会话自主度（`metadata.autonomy`）。
+   * `demand`（许愿式）⇒ 分类器的非危险 ask 降级为自动放行（工作区外写仍人工）。
+   */
+  autonomy?: 'interactive' | 'demand';
   /** 非幂等工具重试 ⇒ 本应放行的决策升级为 ask */
   forceAskReason?: string;
   /** 已注册工具对象（风险按声明式派生；缺省 ⇒ 权限层回退旧启发式） */

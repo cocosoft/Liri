@@ -242,6 +242,8 @@ const enMisc = {
       listSeparator: ", ",
       tensePresent: "",
       tensePast: "",
+      // 2026-11-12: suffix for failed summaries (never "executed …" on failure)
+      failedSuffix: " (failed)",
       searchingCode: "Searching code",
       searchingFiles: "Searching files",
       searchingWeb: "Searching the web",
@@ -313,6 +315,28 @@ const enMisc = {
       content: "Content",
       output: "Output",
     },
+  },
+  // G8 (2026-11-14): global floating window
+  floating: {
+    title: "Liri · Background",
+    empty: "No running operations.",
+    close: "Close floating window",
+    backToMain: "Back to main window",
+    // G8 content enrichment (2026-11-14)
+    currentSession: "Current session",
+    noSession: "No session selected",
+    untitledSession: "Untitled session",
+    goals: "Active goals",
+    noGoals: "No active goals",
+    unavailable: "Context unavailable (backend unreachable)",
+    refresh: "Refresh",
+    tokensUnit: "tokens",
+    // G8 click-through (2026-11-14)
+    passthrough: "Through",
+    passthroughHint:
+      "Clicks pass to the app underneath (press Ctrl+Shift+F to exit)",
+    passthroughOn: "Click-through on · press Ctrl+Shift+F to exit",
+    passthroughFailed: "Click-through is not supported in this environment",
   },
 };
 

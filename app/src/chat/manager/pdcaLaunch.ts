@@ -26,19 +26,11 @@ import { statSync } from 'node:fs';
 
 import { getLogger } from '@openliri/infra/monitoring';
 import { patternFeatureFlag, selectPattern } from '@modules/query/patterns';
-import {
-  instantiatePattern,
-  resolveFeatureGate,
-  verifierConfigForRecipe,
-} from '@modules/query';
+import { instantiatePattern, resolveFeatureGate } from '@modules/query';
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { LiriEvent, LiriEventData } from '@modules/session/types/events';
 
-import {
-  hasRefineIntent,
-  hasResearchIntent,
-  hasVerifyIntent,
-} from '../taskIntent';
+import { hasResearchIntent } from '../taskIntent';
 import { shouldEscalateLongTask } from '../longTaskEscalation';
 import { isDemandSession } from '../autonomy';
 import { createProjectStore } from '../../workspace/ProjectStore.js';
@@ -125,11 +117,7 @@ function sanitizeProjectName(
     : text;
 }
 
-/** TAORLoop 上本簇唯一使用的接缝（self_verify 配方落点） */
-export interface VerifierConfigSink {
-  applyVerifierConfig(config: ReturnType<typeof verifierConfigForRecipe>): void;
-}
-
+/** 协调器注入依赖（全 getter/闭包 ⇒ 无字段初始化顺序陷阱） */
 export interface PdcaLaunchDeps {
   /** 会话级 launch 锁（宿主持有；防同会话重复卡片） */
   launchingSessions: Set<string>;
@@ -139,16 +127,7 @@ export interface PdcaLaunchDeps {
   shouldUsePlanDrivenLoop: (message: string) => boolean;
   /** Code Mode 判定（长任务信号闸门） */
   shouldUseCodeMode: (message: string) => boolean;
-  /** 取/建该会话的 TAORLoop（self_verify 配方落点） */
-  getOrCreateTAORLoop: (sessionId: string) => VerifierConfigSink;
-  /**
-   * 2026-11-03：撤销该会话**已存在**的 TAORLoop 上的验证器配方（门控关闭时）。
-   * 实例不存在 ⇒ no-op（**不得**为此新建循环）。
-   */
-  resetVerifierConfigIfActive: (sessionId: string) => void;
-  /** 事件 seq 分配（宿主唯一入口） */
-  getStreamTailSeq: (sessionId: string) => Promise<number>;
-  /** 事件写入（宿主唯一入口） */
+  /** 事件写入（宿主唯一入口；`seq` 传 0 ⇒ 由 `EventLog.append` 原子分配） */
   appendStreamEvent: (sessionId: string, event: LiriEvent) => Promise<unknown>;
   /** 持久化会话 metadata（projectId 落盘） */
   persistSessionMetadata: (session: ChatSession) => Promise<void>;
@@ -301,6 +280,59 @@ export class PdcaLaunchCoordinator {
   }
 
   /**
+   * D3 三期（2026-11-14）：**系统级续跑**既有计划。
+   *
+   * 与 `maybeLaunch` 的区别：不重新分解、不新建计划，直接把 `planId` 交给
+   * `PlanDrivenLoop`（`opts.resumePlanId`）采纳既有计划继续执行。
+   *
+   * @returns 是否已交给 launcher（`false` = 未装配 launcher / 会话已有 launch 在途）
+   */
+  resumePlan(params: {
+    sessionId: string;
+    planId: string;
+    /** 计划描述（作为本次 PDL 的"计划源"，用于步骤 prompt 回锚） */
+    description: string;
+  }): boolean {
+    const launcher = this.deps.getPdcaLauncher();
+    if (!launcher) {
+      logger.warn('计划系统级续跑跳过：PDCA launcher 未装配', {
+        sessionId: params.sessionId,
+        planId: params.planId,
+      });
+      return false;
+    }
+    if (this.deps.launchingSessions.has(params.sessionId)) {
+      logger.warn('计划系统级续跑跳过：会话已有 launch 在途', {
+        sessionId: params.sessionId,
+        planId: params.planId,
+      });
+      return false;
+    }
+    this.deps.launchingSessions.add(params.sessionId);
+    void launcher
+      .launch(
+        // projectId：启动期无请求作用域 ⇒ 空串（PDL 内部仍会用会话解析 workspaceId）
+        '',
+        params.description,
+        params.sessionId,
+        params.description,
+        true,
+        { resumePlanId: params.planId }
+      )
+      .catch((err: unknown) => {
+        logger.warn('计划系统级续跑失败', {
+          sessionId: params.sessionId,
+          planId: params.planId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      })
+      .finally(() => {
+        this.deps.launchingSessions.delete(params.sessionId);
+      });
+    return true;
+  }
+
+  /**
    * P0-1（2026-09-06，A1）：PDCA launch 统一出口（同轮串联）。
    *
    * 含：会话级 launch 锁（防重复卡片）、分流决策 trace（SSE + task_audit_log）、
@@ -332,16 +364,14 @@ export class PdcaLaunchCoordinator {
     // A1（2026-10-01，`.trae/specs/pattern-executable-assembly.md` §3.3）：模式规则收敛到
     // `selectPattern`（单一事实源）——本层不再重述「研究 → competitive_strategy」，只
     // ① 用任务特征构造 spec ② 读装配入口标识决定去向。
+    //
+    // #4（2026-11-15，`.trae/specs/self-verify-turn-surface.md` §3.4）：**验证线路**（verify /
+    // refine）的判定与配方应用已前移到**每轮入口**（`chat/manager/verifyRecipeTurn.ts`）——
+    // 同一 `lastUserContent` ⇒ 结论相同，故本层只承担研究分流，不再重复判定/应用。
     const researchIntent = hasResearchIntent(lastUserContent || '');
-    const verifyIntent = hasVerifyIntent(lastUserContent || '');
-    // 2026-11-03（`pattern-wiring-closure.md` §13）：多轮精修意图 = 验证线路的 `deep` 档位信号
-    // （与 verify 同一 route，仅配方 intensity 不同）⇒ 必须一并传入选择层，否则该档位不可达。
-    const refineIntent = hasRefineIntent(lastUserContent || '');
     const researchPattern = selectPattern({
       complexity: 'complex',
       research: researchIntent,
-      verify: verifyIntent,
-      refine: refineIntent,
     });
     // A8 最后一公里（2026-10-04，`.trae/specs/pattern-assembly-runtime.md` §4.1）：
     // 装配描述不再由本层**裸读 assembler 字符串比较**，改经装配入口 `instantiatePattern`
@@ -357,44 +387,11 @@ export class PdcaLaunchCoordinator {
     const patternGateEnabled = patternFeature
       ? resolveFeatureGate(patternFeature)
       : true;
-    let verifyApplied = false;
-    if (
-      patternGateEnabled &&
-      researchInstantiation?.status === 'ready' &&
-      researchInstantiation.route === 'verify'
-    ) {
-      const recipeVerifierConfig = verifierConfigForRecipe(
-        researchInstantiation.recipe
-      );
-      this.deps
-        .getOrCreateTAORLoop(session.id)
-        .applyVerifierConfig(recipeVerifierConfig);
-      verifyApplied = true;
-      logger.info('pattern 配方应用（验证线路 ⇒ 验证器配置）', {
-        sessionId: session.id,
-        pattern: researchPattern?.name,
-        intensity: researchInstantiation.recipe.intensity ?? 'standard',
-        verifyPolicy: researchInstantiation.recipe.verifyPolicy,
-        budgetPolicy: researchInstantiation.recipe.budgetPolicy,
-        verifier: recipeVerifierConfig,
-      });
-    } else if (
-      researchInstantiation?.status === 'ready' &&
-      researchInstantiation.route === 'verify'
-    ) {
-      // 2026-11-03：门控关闭 ⇒ **撤销**此前应用的配方。
-      // 只停止写入是不够的（configure 是合并式长期生效）⇒ 会话会继续按旧档位判定。
-      this.deps.resetVerifierConfigIfActive(session.id);
-      logger.info('pattern 门控已关闭，撤销验证器配方', {
-        sessionId: session.id,
-        pattern: researchPattern?.name,
-      });
-    }
     const researchMode =
       patternGateEnabled &&
       researchInstantiation?.status === 'ready' &&
       researchInstantiation.route === 'research';
-    if (researchIntent || verifyIntent || refineIntent) {
+    if (researchIntent) {
       this.persistPatternDecision(session.id, {
         site: 'research_dispatch',
         selected: researchPattern?.name ?? null,
@@ -411,7 +408,7 @@ export class PdcaLaunchCoordinator {
               },
             }
           : {}),
-        applied: researchMode || verifyApplied,
+        applied: researchMode,
       }).catch((e: unknown) => {
         // @ignore-catch — 轨迹落盘失败不影响编排分流（CS03）
         logger.debug('pattern:decision_persist_failed', { error: String(e) });
@@ -563,16 +560,17 @@ export class PdcaLaunchCoordinator {
   /**
    * 编排模式**决策轨迹**落 session 事件（log-only，**不入消息 surface**）。
    *
-   * 与 `persistPdcaSnapshot` 同法：seq 由 `tailSeq` 分配、写入走**唯一入口** `appendStreamEvent`。
+   * 与 `persistPdcaSnapshot` 同法：写入走**唯一入口** `appendStreamEvent`；`seq` 传 **0**
+   * 交 `EventLog.append` 在 mutex 内原子分配（自行 `tail+1` 会与并发写者撞号，
+   * 撞号按幂等丢弃 ⇒ 轨迹静默丢失；2026-11-15 修正）。
    */
   private async persistPatternDecision(
     sessionId: string,
     data: LiriEventData<'pattern/decision'>
   ): Promise<void> {
-    const ts = await this.deps.getStreamTailSeq(sessionId);
     await this.deps.appendStreamEvent(sessionId, {
       type: 'pattern/decision',
-      seq: ts + 1,
+      seq: 0,
       time: Date.now(),
       sessionId,
       data,
@@ -589,10 +587,9 @@ export class PdcaLaunchCoordinator {
     message: string,
     reasons?: string[]
   ): Promise<void> {
-    const ts = await this.deps.getStreamTailSeq(session.id);
     await this.deps.appendStreamEvent(session.id, {
       type: 'assistant/pdca_workflow',
-      seq: ts + 1,
+      seq: 0,
       time: Date.now(),
       sessionId: session.id,
       data: {

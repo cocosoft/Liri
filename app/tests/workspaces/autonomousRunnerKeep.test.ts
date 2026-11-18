@@ -30,8 +30,8 @@
  */
 import { describe, expect, it } from 'bun:test';
 
-import { runAutonomousTask } from '../../src/workspaces/AutonomousRunner';
-import type { WorkspaceProvider } from '../../src/workspaces/provider/WorkspaceProvider';
+import { runAutonomousTask } from '@modules/workspaces/AutonomousRunner';
+import type { WorkspaceProvider } from '@modules/workspaces/provider/WorkspaceProvider';
 
 const ISOLATED_CWD = '/tmp/iso-run-1';
 

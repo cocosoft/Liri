@@ -12,6 +12,10 @@ import type { TaskCardData } from "../../types";
 import { findLatestTaskCard } from "./taskCardSnapshot";
 // 等待态可见性（2026-09-27 Spec `wait-state-visibility.md` D5/D6）：等待态并入浮动栏
 import type { WaitState } from "./useWaitState";
+// 2026-11-18（用户反馈「看不出你在运行，以为挂了」）：运行秒表 + 后端心跳年龄 + 停滞判定
+import { useRunClock } from "../../hooks/useRunClock";
+// 2026-11-13：等待审批是会话级状态（审批卡 / 工具卡 / 收尾标记三处信号，结构化判定）
+import { hasPendingApproval } from "../../stores/chat/chat-message-shared";
 
 const PHASE_LABELS: Record<string, string> = {
   analyzing: "chat.phaseAnalyzing",
@@ -147,11 +151,14 @@ function TaskMiniPanel({
  */
 export default function StatusFloatBar({
   fluid = false,
+  sessionId,
   pdca,
   orchestrate,
   wait,
 }: {
   fluid?: boolean;
+  /** 当前会话 id —— 心跳按会话分键（多会话并行时不得用别的会话的心跳作证） */
+  sessionId?: string;
   /** UI-2（2026-09-23）：PDCA 编排徽标（可见性/展开态由 ChatArea 与 usePdcaEntry 提供） */
   pdca?: { visible: boolean; open: boolean; onToggle: () => void };
   /** 「用编排推进（启动 PDCA）」入口（判据/动作由 ChatArea 与 usePdcaStartEntry 提供）：
@@ -177,6 +184,8 @@ export default function StatusFloatBar({
   const executionPhase = useChatStore((s) => s.executionPhase);
   const messages = useChatStore((s) => s.messages);
   const stopMessage = useChatStore((s) => s.stopMessage);
+  // 2026-11-18：只读接入后台正在运行的这一轮（Spec `.trae/specs/stream-attach.md` §6）
+  const attachSessionStream = useChatStore((s) => s.attachSessionStream);
 
   const [showTaskPanel, setShowTaskPanel] = useState(false);
 
@@ -188,7 +197,28 @@ export default function StatusFloatBar({
    * 等待态是**已确认在等**（后端 `yieldState='waiting'` 或 `pendingWake`），故并入"保持可见"。
    */
   const isWaiting = wait?.waiting === true;
-  const keepVisible = isActive || isWaiting;
+  /**
+   * 2026-11-18（Run HUD）：后端报告本会话仍在运行，但本页面没接入该流
+   * （刷新 / 切走再回来）。此前这种情形直接卸载浮动栏 ⇒ 界面退回"答完了"的样子。
+   */
+  const remoteStreaming = wait?.remoteStreaming === true;
+  /**
+   * 2026-11-13：等待审批 ≠ 已完成。此前浮动栏只看"有没有字节在流"，审批暂停时卸载或
+   * 继续显示「已完成 x/y」⇒ 用户读到"任务结束了"。审批期间保持渲染并改文案。
+   */
+  const pendingApproval = useMemo(
+    () => hasPendingApproval(messages),
+    [messages],
+  );
+  const keepVisible =
+    isActive || isWaiting || pendingApproval || remoteStreaming;
+  /**
+   * 2026-11-18（Run HUD）：运行秒表 + 后端心跳年龄。
+   * 原状态条只有一句静态「AI 正在生成回复」—— 一个字不变的 UI 和真死掉的 UI
+   * 在屏幕上长得一样（用户原话："我以为你挂了"）。这里给出可核对的时间证据，
+   * 并在心跳静默超阈值时显式切到「可能已断」而不是继续假装正常。
+   */
+  const runClock = useRunClock(sessionId);
   const [fadingOut, setFadingOut] = useState(false);
 
   /**
@@ -256,14 +286,25 @@ export default function StatusFloatBar({
   const getStatusText = (): string => {
     // UI-2：空闲但仍有活跃 PDCA ⇒ 以"编排进行中"常驻；不得沿用"正在生成"（会谎报运行态）
     if (!isActive) {
+      // 2026-11-13：等待审批优先于一切空闲文案（含旧任务卡的「已完成 x/y」）
+      if (pendingApproval) return t("chat.taskPaused");
       // 等待态（2026-09-27）：**已确认在等**（后端 yieldState/pendingWake）⇒ 不得回落成
       // "正在生成 / 编排进行中"等谎报文案（原实现即因此显示成"答完了"）
       if (isWaiting) return waitText();
+      // 2026-11-18：后端仍在跑、本页未接入 ⇒ 如实说明"在后台运行"，不谎报"已完成"
+      if (remoteStreaming) return t("chat.remoteStreamingLabel");
       if (pdca?.visible) return t("chat.pdcaIdle");
       // 空闲且仅"用编排推进"入口常驻：左侧不谎报运行态也不与右侧入口文案重复，
       // 未完成进度由 TaskProgress（已完成 x/y）承担
       if (orchestrate?.visible) return "";
       return t("chat.streamingLabel");
+    }
+    if (runClock.stalled) {
+      // 心跳静默超阈值（默认 90s）⇒ 直说"可能已断"，不得继续显示"正在生成"：
+      // 继续显示正常文案正是用户被误导的来源。
+      return t("chat.runStalled", {
+        seconds: runClock.beatAgeSeconds ?? 0,
+      });
     }
     if (isUploading) return t("chat.uploading");
     if (isSending && !isStreaming) return t("chat.sending");
@@ -300,19 +341,26 @@ export default function StatusFloatBar({
       >
         <div className={fluid ? "w-full" : "max-w-3xl mx-auto"}>
           <div className="flex items-center gap-2.5 px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200/50 dark:border-gray-700/50 rounded-xl shadow-md cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-            {/* 状态指示点：绿色脉冲 = 运行中；等待中 = 静态蓝点（**不脉冲**，否则谎报"正在输出"）；
-                空闲但 PDCA 常驻时用静态灰点（不谎报运行态） */}
+            {/* 状态指示点：绿色脉冲 = 运行中；停滞 = 静态琥珀（不脉冲，不得谎报"仍在输出"）；
+                等待中 / 后台运行（本页未接入）= 静态蓝点；等待审批 = 静态琥珀点；
+                空闲但 PDCA 常驻时用静态灰点 */}
             <span className="relative flex h-2.5 w-2.5">
-              {isActive && (
+              {isActive && !runClock.stalled && (
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
               )}
               <span
                 className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
-                  isActive
-                    ? "bg-green-500"
-                    : isWaiting
-                      ? "bg-sky-500"
-                      : "bg-gray-400"
+                  runClock.stalled
+                    ? "bg-amber-500"
+                    : isActive
+                      ? "bg-green-500"
+                      : pendingApproval
+                        ? "bg-amber-500"
+                        : isWaiting
+                          ? "bg-sky-500"
+                          : remoteStreaming
+                            ? "bg-sky-500"
+                            : "bg-gray-400"
                 }`}
               />
             </span>
@@ -324,8 +372,48 @@ export default function StatusFloatBar({
                   {statusText}
                 </span>
               )}
-              {taskCard && <TaskProgress data={taskCard} />}
+              {/* 2026-11-18（Run HUD）：时间证据 —— 运行秒表 + 最后心跳年龄。
+                  只显示真实测量值：没收到过心跳就不显示「N 秒前」（不猜）。 */}
+              {isActive && (
+                <span className="ml-2 shrink-0 text-xs text-gray-400 dark:text-gray-500 tabular-nums">
+                  {t("chat.runElapsed", { seconds: runClock.elapsedSeconds })}
+                  {runClock.beatAgeSeconds !== null && (
+                    <span
+                      className={
+                        runClock.stalled
+                          ? "text-amber-600 dark:text-amber-400"
+                          : undefined
+                      }
+                    >
+                      {" · "}
+                      {t("chat.runBeatAge", {
+                        seconds: runClock.beatAgeSeconds,
+                      })}
+                    </span>
+                  )}
+                </span>
+              )}
+              {/* 等待审批期间不展示「已完成 x/y」——它会被读成"任务结束" */}
+              {taskCard && !pendingApproval && <TaskProgress data={taskCard} />}
             </div>
+
+            {/* 2026-11-18：后端仍在跑、本页未接入 ⇒ 提供**只读**「接入」入口
+                （接入只带回状态与后续帧；正文仍以落盘为准，不伪造连续输出） */}
+            {remoteStreaming && sessionId && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void attachSessionStream(sessionId);
+                }}
+                aria-label={t("chat.attachStreamCta")}
+                title={t("chat.attachStreamHint")}
+                className="shrink-0 flex items-center gap-1 px-2 py-0.5 text-xs rounded-md text-sky-600 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-900/30 transition-colors"
+              >
+                <span>⇥</span>
+                <span>{t("chat.attachStreamCta")}</span>
+              </button>
+            )}
 
             {/* 「用编排推进」入口：存在未完成 todo 且尚无进行中 PDCA 时出现
                 （与徽标互斥；stopPropagation 避免误触任务面板） */}

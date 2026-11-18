@@ -394,6 +394,9 @@ export async function migrateAllModules(): Promise<void> {
     resolveDataSubDir('reports'),
     'module_migration_report.md'
   );
+  // 2026-11-18：与 `DependencyValidator` 同根因 —— `resolveDataSubDir` 只拼路径、不建目录，
+  // 首次运行（`reports/` 不存在）会 ENOENT。`CompatibilityValidator` 已是同款写法。
+  fs.mkdirSync(path.dirname(reportPath), { recursive: true });
   fs.writeFileSync(reportPath, report);
   logger.info(`迁移报告已生成: ${reportPath}`);
 

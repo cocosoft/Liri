@@ -61,7 +61,8 @@ import type { StreamChunk } from "../../services/chatService";
 import {
   cacheToolResult,
   truncateResult,
-  parseApprovalSignal,
+  resolveApprovalFlags,
+  stripStaleApprovalNotice,
   MAX_INLINE_RESULT_LENGTH,
 } from "./chat-message-shared";
 import { createLogger } from "@/utils/logger";
@@ -512,10 +513,14 @@ function handleEvent(
         block.toolCall.status = data.isError ? "failed" : "completed";
         // U-06-5：审批等待结果（awaiting_approval）携带 pendingApproval + inboxId，
         // 据此在工具卡片上渲染就地审批按钮（与 ChronologicalBlockBuilder 语义对齐）
-        const approval = parseApprovalSignal(data.result);
-        if (approval) {
-          block.toolCall.pendingApproval = true;
-          if (approval.inboxId) block.toolCall.inboxId = approval.inboxId;
+        // 2026-11-12：终态结果必须**清除**该标记，否则批准后同一调用仍显示"等待审批"
+        // （服务端合成的 Inbox 卡已是"已处理"）⇒ 界面出现两张卡（真机 `session_mwd632bob8d4318050`）
+        Object.assign(block.toolCall, resolveApprovalFlags(data.result));
+        // 2026-11-12：待审批不是终态 —— 上面按 `isError` 落成 "completed" 会让副标题显示
+        // 「已写入：…」而徽标仍是「⏳ 等待审批」（真机 `session_mwd9bnoyc7e3051cde`）。
+        // 结构化判据 `pendingApproval`（不解析文案，CS02）⇒ 按进行中渲染（正在…）。
+        if (block.toolCall.pendingApproval === true) {
+          block.toolCall.status = "running";
         }
       }
       break;
@@ -663,7 +668,7 @@ function handleEvent(
         action: "write" | "update";
         taskCard?: {
           title: string;
-          status: "planning" | "executing" | "done";
+          status: "planning" | "executing" | "done" | "paused";
           tasks: Array<{
             id: string;
             name: string;
@@ -1240,12 +1245,16 @@ function flushCurrent(state: BuilderState): void {
       groupId: generateGroupId(),
     });
   }
-  state.messages.push(msg);
+  // 2026-11-12：剥离「等待审批」收尾提示（审批处理完即不再显示；改由审批卡片在 pending 时提示）。
+  // 放在**唯一 flush 出口**：全量派生与增量派生（IncrementalDeriver）共用本函数，
+  // 此前只在全量派生末尾剥 ⇒ 流式/续跑时先按未剥内容渲染一帧，出现"旧提示闪现"。
+  const finalMsg = stripStaleApprovalNotice(msg);
+  state.messages.push(finalMsg);
   state.current = null;
   // 2026-08-24 中断提示链路：记录最近 flush 的 assistant 消息，
   // 供 turn/end（当前已 flush 时）挂载 finishReason 兜底
-  if (msg.role === "assistant") {
-    state.lastAssistantMsg = msg;
+  if (finalMsg.role === "assistant") {
+    state.lastAssistantMsg = finalMsg;
   }
   state.toolCallSeqMap.clear();
 }

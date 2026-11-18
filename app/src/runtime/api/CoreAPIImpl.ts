@@ -25,7 +25,6 @@
  * 作为应用唯一对外门面，为所有外部入口提供一致的功能入口
  */
 
-import * as fs from 'fs';
 import { configManager } from '@openliri/infra/config';
 import type { CoreAPI } from './CoreAPI';
 // C1（2026-09-30 D-98/D-101）：任务运维**服务层端口**（用于给 `getTaskOpsPort()` 显式标注返回类型）
@@ -65,6 +64,11 @@ import { SessionAgentOps } from './sessionAgentOps';
 // C3-S3（2026-10-09，`.trae/specs/core-api-impl-split.md`）：LLM 客户端懒初始化 / 模型解析 /
 // 非流式 `chat` —— 自本文件**纯搬迁**（只搬不改）至 `llmChatOps.ts`；此处仅薄转发。
 import { LlmChatOps } from './llmChatOps';
+// T3（2026-11-17）：`chatStream` 的 usage 累加 / 错误文案解析（纯函数，从生成器内原样搬出）
+import {
+  accumulateStreamUsage,
+  describeStreamError,
+} from './chatStreamTurnHelpers';
 import type {
   ChatRequest,
   ChatResponse,
@@ -101,8 +105,10 @@ import type { SessionRoundSummariesResult } from '@openliri/service/runtime/api/
 import type { LiriEvent } from '@modules/session/types/events';
 import type { SessionManager } from '@modules/session/types/session';
 import type { Message } from '@modules/session/types/message';
+// P3-2（2026-11-16）：onToolCall 两阶段（start / end）产物外移为独立模块
+// （原闭包内联段 ~280 行，曾使本文件越过 R04-001 的 2000 行上限）
+import { emitToolCallEnd, emitToolCallStart } from './toolCallStreamChunks';
 import type { ToolManager } from '@modules/tools';
-import { TOOL_NAME_CONSTANTS } from '@openliri/infra/constants';
 import type { Coordinator } from '@openliri/service/runtime/coordinator';
 import { coordinator as defaultCoordinator } from '@openliri/service/runtime/coordinator';
 import { getLogger } from '@openliri/infra/monitoring';
@@ -594,19 +600,8 @@ export class CoreAPIImpl implements CoreAPI {
 
       // E-3（2026-08-23，方案 D2-B）：流式入口同样先设占位标题（LLM 调用前，不阻塞主路径）
       // 回滚开关：TITLE_STAGE='false' 时跳过占位标题（回退单阶段精化）
-      if (
-        configManager.env('TITLE_STAGE') !== 'false' &&
-        finalSessionId &&
-        request.content &&
-        this.sessionTitling.shouldAutoTitle(finalSessionId)
-      ) {
-        void this.sessionTitling
-          .setPreliminaryTitle(
-            finalSessionId,
-            this.sessionTitling.sanitizePlaceholderTitle(request.content)
-          )
-          .catch(() => {});
-      }
+      // T3（2026-11-17）：判定与调用**原样搬运**到 `_setPreliminaryTitleIfNeeded`。
+      this._setPreliminaryTitleIfNeeded(request, finalSessionId);
 
       const { model, tier } = await this.llmChatOps.resolveSmartModel(
         request.content,
@@ -660,21 +655,8 @@ export class CoreAPIImpl implements CoreAPI {
         onUsage: (usage) => {
           // AB-10 修复：累加而非覆盖——主回复 + 各工具轮次 LLM 调用都会回调，
           // 累加后 usage SSE 事件反映整轮消息的完整用量
-          const prev = capturedUsage;
-          capturedUsage = {
-            inputTokens: (prev?.inputTokens ?? 0) + usage.inputTokens,
-            outputTokens: (prev?.outputTokens ?? 0) + usage.outputTokens,
-            totalTokens:
-              (prev?.totalTokens ?? 0) +
-              (usage.totalTokens ?? usage.inputTokens + usage.outputTokens),
-            estimatedCostUsd:
-              (prev?.estimatedCostUsd ?? 0) + (usage.estimatedCostUsd ?? 0),
-            cacheReadTokens:
-              (prev?.cacheReadTokens ?? 0) + (usage.cacheReadInputTokens ?? 0),
-            cacheCreationTokens:
-              (prev?.cacheCreationTokens ?? 0) +
-              (usage.cacheCreationInputTokens ?? 0),
-          };
+          // T3（2026-11-17）：累加口径**原样搬运**到 `accumulateStreamUsage`（纯函数）。
+          capturedUsage = accumulateStreamUsage(capturedUsage, usage);
 
           // [v1.2] 成本统计已由 UsageTracker.trackUsage 统一处理（唯一入口 + 算法统一）
           // 不再在此回调中重复调用 costTracker.addCost / getCostMetricsBridge / recordCost
@@ -684,282 +666,23 @@ export class CoreAPIImpl implements CoreAPI {
         },
         onToolCall: (phase, toolName, toolCallId, detail) => {
           if (phase === 'start') {
-            // detail 为结构化对象，直接取完整参数（不再截断字符串 JSON.parse）
-            const toolArgs = detail?.args ?? {};
-            const argsKeyCount = Object.keys(toolArgs).length;
-            logger.debug('chatStream:onToolCall start', {
+            emitToolCallStart(toolName, toolCallId, detail, {
               sessionId: finalSessionId,
-              toolName,
-              toolCallId,
-              argsKeyCount,
-              argsEmpty: argsKeyCount === 0,
+              pendingEvents,
+              fileOldContentCache: this._fileOldContentCache,
             });
-
-            // E-1 diff（2026-08-23）：文件写入工具 start 时缓存旧内容（供 end 计算 unified diff）
-            const fileWritingToolStart = [
-              'file_write',
-              'file_edit',
-              'FileWrite',
-              'FileEdit',
-              'write',
-              'create_file',
-              'edit_file',
-            ].includes(toolName);
-            if (fileWritingToolStart) {
-              const filePathArg =
-                (toolArgs as { file_path?: unknown }).file_path ??
-                (toolArgs as { filePath?: unknown }).filePath ??
-                (toolArgs as { path?: unknown }).path;
-              if (typeof filePathArg === 'string' && filePathArg) {
-                try {
-                  if (fs.existsSync(filePathArg)) {
-                    this._fileOldContentCache.set(
-                      filePathArg,
-                      fs.readFileSync(filePathArg, 'utf-8')
-                    );
-                  }
-                } catch {
-                  // 旧内容读取失败则不计算 diff（不影响工具执行）
-                }
-              }
-            }
-
-            pendingEvents.push({
-              type: 'status',
-              content: `🔧 Running tool: ${toolName}`,
-              sessionId: finalSessionId,
-              toolCallId,
-              // L3（2026-08-23）：结构化 statusType（CS02）——前端 GroupStatusLine
-              // 据此判断运行中，不再字符串匹配 "Running"
-              statusType: STATUS_TYPE.TOOL_RUNNING,
-            } as ChatStreamChunk);
-
-            // 图像工具：流式返回进度状态（A-4：改用名称常量表；原 `image_analyze` 非注册名已订正）
-            const imageStatus =
-              toolName === TOOL_NAME_CONSTANTS.image_generate
-                ? '🎨 AI is generating an image...'
-                : toolName === TOOL_NAME_CONSTANTS.image_analysis ||
-                    toolName === TOOL_NAME_CONSTANTS.image
-                  ? '🔍 AI is analyzing the image...'
-                  : null;
-            if (imageStatus) {
-              pendingEvents.push({
-                type: 'status',
-                content: imageStatus,
-                sessionId: finalSessionId,
-                statusType: STATUS_TYPE.TOOL_RUNNING,
-              } as ChatStreamChunk);
-            }
-
-            pendingEvents.push({
-              type: 'tool_call',
-              content: '',
-              sessionId: finalSessionId,
-              toolCall: {
-                id: toolCallId,
-                name: toolName,
-                arguments: toolArgs,
-                status: 'running' as const,
-              },
-            } as ChatStreamChunk);
-          } else {
-            const isFailed = detail?.ok === false;
-            const failMsg = detail?.message?.replace(/^失败:\s*/, '');
-            logger.debug('chatStream:onToolCall end', {
-              sessionId: finalSessionId,
-              toolName,
-              toolCallId,
-              isFailed,
-              failMsg,
-              resultType: typeof detail?.result,
-              resultLength:
-                typeof detail?.result === 'string'
-                  ? detail.result.length
-                  : undefined,
-            });
-            pendingEvents.push({
-              type: 'status',
-              content: isFailed
-                ? `❌ Tool ${toolName} failed${failMsg ? ` — ${failMsg}` : ''}`
-                : `✅ Tool ${toolName} completed`,
-              sessionId: finalSessionId,
-              toolCallId,
-              // L3（2026-08-23）：结构化 statusType（CS02）——前端据此判断完成/失败
-              statusType: isFailed
-                ? STATUS_TYPE.TOOL_FAILED
-                : STATUS_TYPE.TOOL_COMPLETED,
-            } as ChatStreamChunk);
-
-            // 从工具执行结果中提取文件路径（file_write 等工具的 result 包含完整路径）
-            // detail.result 为原始结果（字符串或对象），路径可能为 JSON 转义双斜杠
-            let extractedArgs: Record<string, unknown> = {};
-            const isFileWritingTool = [
-              'file_write',
-              'file_edit',
-              'file_create',
-              'write',
-              'create_file',
-              'edit_file',
-            ].includes(toolName);
-            if (isFileWritingTool && detail?.result != null && !isFailed) {
-              let resultText = '';
-              if (typeof detail.result === 'string') {
-                resultText = detail.result;
-              } else {
-                try {
-                  resultText = JSON.stringify(detail.result) ?? '';
-                } catch {
-                  // 循环引用等不可序列化结果，跳过路径提取
-                }
-              }
-              const normalized = resultText.replace(/\\\\/g, '\\');
-              const winPathMatch = normalized.match(
-                /([A-Za-z]:\\(?:[^"\\]+\\)*[^"\\]+\.[a-zA-Z0-9]{1,10})/
-              );
-              if (winPathMatch) {
-                extractedArgs = { file_path: winPathMatch[1] };
-              }
-              // E-1 接入（2026-08-23）：文件写入工具完成 → 记录交付物到 ExecutionPhaseTracker
-              if (winPathMatch) {
-                const tracker =
-                  this.sessionTitling.getExecutionPhaseTracker(finalSessionId);
-                if (!tracker.getCurrentPhase()) {
-                  tracker.enter('implementing', '工具执行');
-                }
-                tracker.addArtifact({
-                  type: 'code',
-                  summary: `${toolName} 写入文件`,
-                  files: [winPathMatch[1]],
-                });
-              }
-              // E-1 diff（2026-08-23）：文件变更前后 → unified diff（start 时已缓存旧内容）
-              if (
-                winPathMatch &&
-                this._fileOldContentCache.has(winPathMatch[1])
-              ) {
-                try {
-                  const oldContent = this._fileOldContentCache.get(
-                    winPathMatch[1]
-                  )!;
-                  const newContent = fs.readFileSync(winPathMatch[1], 'utf-8');
-                  const { diff, additions, deletions } = computeUnifiedDiff(
-                    oldContent,
-                    newContent,
-                    winPathMatch[1]
-                  );
-                  if (diff) {
-                    pendingFileDiffs.push({
-                      file: winPathMatch[1],
-                      diff,
-                      additions,
-                      deletions,
-                    });
-                  }
-                } catch {
-                  // diff 计算失败不影响工具执行
-                } finally {
-                  this._fileOldContentCache.delete(winPathMatch[1]);
-                }
-              }
-              // 排查日志：打印 end 回调接收的完整 result 对象，确认文件路径提取正确
-              logger.debug('chatStream:onToolCall end 路径提取', {
-                sessionId: finalSessionId,
-                toolName,
-                toolCallId,
-                isFailed,
-                resultType: typeof detail.result,
-                resultTextLength: resultText.length,
-                resultText, // 完整 result（JSON 序列化文本），供核对路径来源
-                normalizedLength: normalized.length,
-                pathMatched: !!winPathMatch,
-                extractedArgs,
-              });
-            }
-
-            // 从缓存中查询 tool:completed 事件携带的结果数据并注入到完成块
-            const cachedResult = toolResultCache.get(toolCallId);
-            if (cachedResult) {
-              toolResultCache.delete(toolCallId);
-              logger.debug(
-                'chatStream:onToolCall end tool:completed 缓存命中',
-                {
-                  sessionId: finalSessionId,
-                  toolName,
-                  toolCallId,
-                  cachedKeys: Object.keys(cachedResult).slice(0, 10),
-                }
-              );
-            }
-
-            pendingEvents.push({
-              type: 'tool_call',
-              content: '',
-              sessionId: finalSessionId,
-              toolCall: {
-                id: toolCallId,
-                name: toolName,
-                arguments: extractedArgs,
-                status: isFailed ? ('failed' as const) : ('completed' as const),
-                // 将 tool:completed 事件的结果数据注入到完成块，确保前端能正确渲染
-                result: cachedResult
-                  ? { success: true, data: cachedResult }
-                  : undefined,
-              },
-              // create_project 工具完成后注入导航建议元数据 + 关联 session
-              _meta:
-                toolName === TOOL_NAME_CONSTANTS.create_project && cachedResult
-                  ? (() => {
-                      // cachedResult 是 toolResult.data — 对于 create_project 是 JSON 字符串
-                      const rawData =
-                        typeof cachedResult === 'string'
-                          ? JSON.parse(cachedResult as unknown as string)
-                          : (cachedResult as Record<string, unknown>);
-                      return {
-                        action: 'suggest_navigate',
-                        target: `/projects?open=${rawData?.projectId}`,
-                        label: '查看项目',
-                      };
-                    })()
-                  : undefined,
-            } as ChatStreamChunk);
-
-            // create_project 工具完成后关联 session 到新项目
-            if (
-              toolName === TOOL_NAME_CONSTANTS.create_project &&
-              cachedResult &&
-              finalSessionId
-            ) {
-              try {
-                const rawData =
-                  typeof cachedResult === 'string'
-                    ? JSON.parse(cachedResult as unknown as string)
-                    : (cachedResult as Record<string, unknown>);
-                const projectId = rawData?.projectId as string | undefined;
-                if (projectId) {
-                  const s = this.chatManager
-                    .getSessions()
-                    .find((s) => s.id === finalSessionId);
-                  if (s && !s.metadata?.projectId) {
-                    if (!s.metadata) {
-                      (s as unknown as Record<string, unknown>).metadata = {};
-                    }
-                    s.metadata.projectId = projectId;
-                    // P0-D: 持久化 projectId，防止重启后丢失
-                    void this.chatManager
-                      .persistSessionMetadata(s)
-                      .catch((e: unknown) =>
-                        handleError(e, {
-                          module: 'runtime:core-api',
-                          action: 'persistSessionMetadata_afterCreateProject',
-                        })
-                      );
-                  }
-                }
-              } catch {
-                /* 关联失败不影响主流程 */
-              }
-            }
+            return;
           }
+          emitToolCallEnd(toolName, toolCallId, detail, {
+            sessionId: finalSessionId,
+            pendingEvents,
+            pendingFileDiffs,
+            toolResultCache,
+            fileOldContentCache: this._fileOldContentCache,
+            sessionTitling: this.sessionTitling,
+            chatManager: this.chatManager,
+            computeUnifiedDiff,
+          });
         },
       });
 
@@ -1043,31 +766,23 @@ export class CoreAPIImpl implements CoreAPI {
       });
 
       finalMessage = result.value;
-      if (finalMessage) {
-        finalSessionId = finalMessage.sessionId || finalSessionId;
-        finalMessageId = finalMessage.id;
-
-        const finalContent =
-          typeof finalMessage.content === 'string'
-            ? finalMessage.content
-            : finalMessage.content
-                .map((block) => ('value' in block ? block.value : ''))
-                .join('');
-
-        fullContent = finalContent || fullContent;
-      }
+      // T3（2026-11-17）：流末消息收敛**原样搬运**到 `_settleFinalTurn`（含正文拼接与回落）。
+      const settledTurn = this._settleFinalTurn(finalMessage, {
+        sessionId: finalSessionId,
+        messageId: finalMessageId,
+        content: fullContent,
+      });
+      finalSessionId = settledTurn.sessionId;
+      finalMessageId = settledTurn.messageId;
+      fullContent = settledTurn.content;
     } catch (error) {
       // P1 修复（AB-3）：标记失败，结束块 finishReason 用 'error'
       streamFailed = true;
       // D-l：真实业务码须随 error 块透出（否则传输层回落 UNKNOWN，前端无法按码分流）
       const streamErrorCode = resolveStreamErrorCode(error);
       // 普通对象（如 AI Provider 返回的 { message: "...", type: "..." }）可能不是 Error 实例
-      const message =
-        error instanceof Error
-          ? error.message
-          : (error as Record<string, unknown>)?.message
-            ? String((error as Record<string, unknown>).message)
-            : String(error);
+      // T3（2026-11-17）：文案解析**原样搬运**到 `describeStreamError`（纯函数）。
+      const message = describeStreamError(error);
       otel.recordError(
         span,
         error instanceof Error ? error : new Error(message)
@@ -1095,45 +810,15 @@ export class CoreAPIImpl implements CoreAPI {
       // content，续写/重发可继续）。addMessage 为 fire-and-forget，自动进入
       // _pendingPersistPromises，由会话切换前 flushPendingPersists 统一落盘。
       // D-l：撞限**不落盘**（限额属本机环境状态、非对话内容）；其余失败保持既有 Write-Ahead 行为。
-      const persistFallback = shouldPersistStreamFallback({
-        fullContent,
-        sessionId: finalSessionId,
-        errorCode: streamErrorCode,
-      });
-      if (persistFallback) {
-        try {
-          const fallbackMsg = this.chatManager
-            .getMessageService()
-            .createAssistantMessage(
-              '⚠️ 本次未能生成回复（任务被中断或模型无响应），请重发消息重试。',
-              {
-                sessionId: finalSessionId,
-                // 复用前端透传的 assistantMessageId，避免生成重复消息
-                ...(request.assistantMessageId
-                  ? { id: request.assistantMessageId }
-                  : {}),
-              }
-            );
-          this.chatManager.addMessage(finalSessionId, fallbackMsg);
-          finalMessageId = fallbackMsg.id;
-          logger.info('chatStream:fallback 消息已持久化', {
-            sessionId: finalSessionId,
-            messageId: fallbackMsg.id,
-          });
-        } catch (persistErr) {
-          // @ignore-catch — fallback 持久化失败不阻断流（error chunk 已下发）
-          logger.warning('chatStream:fallback 消息持久化失败', {
-            sessionId: finalSessionId,
-            error: String(persistErr),
-          });
-        }
-      } else if (!fullContent && finalSessionId) {
-        // D-l：撞限场景**抑制**落盘 —— 只留日志/审计，不写进对话上下文
-        logger.warn('chatStream:fallback 落盘已抑制（日预算撞限，D-l）', {
+      // T3（2026-11-17）：失败兜底落盘**原样搬运**到 `_persistStreamFallbackOnError`
+      //（未落盘 ⇒ undefined，保留既有 finalMessageId）。
+      finalMessageId =
+        (await this._persistStreamFallbackOnError({
+          fullContent,
           sessionId: finalSessionId,
           errorCode: streamErrorCode,
-        });
-      }
+          assistantMessageId: request.assistantMessageId,
+        })) ?? finalMessageId;
     } finally {
       eventNotificationService.off('tool:completed', onToolCompletedFromCache);
       // 内层生成器必须显式关闭（2026-09-25，spec §6.7「内层生成器未关闭风险」）：
@@ -1162,96 +847,16 @@ export class CoreAPIImpl implements CoreAPI {
 
     // E-1 接入（2026-08-23）：工具执行完成 → 发射 deliverable chunk + 写 assistant/deliverable 事件
     // （复用 ExecutionPhaseTracker.buildDeliverableData，纯事件回放由前端聚合器/后端派生器重建）
-    try {
-      if (finalSessionId && !streamFailed) {
-        const tracker =
-          this.sessionTitling.getExecutionPhaseTracker(finalSessionId);
-        const deliverable = tracker.buildDeliverableData();
-        if (deliverable && deliverable.files.length > 0) {
-          yield {
-            type: 'deliverable',
-            content: deliverable.summary,
-            sessionId: finalSessionId,
-            deliverableData: deliverable,
-          } as ChatStreamChunk;
-          // 写事件（回放重建；失败不阻断流）
-          try {
-            const ts = await this.chatManager.getStreamTailSeq(finalSessionId);
-            await this.chatManager.appendStreamEvent(finalSessionId, {
-              type: 'assistant/deliverable',
-              seq: ts + 1,
-              time: Date.now(),
-              sessionId: finalSessionId,
-              data: deliverable,
-            } as LiriEvent);
-          } catch (evErr) {
-            logger.debug('chatStream:deliverable 事件写入失败（不影响流式）', {
-              sessionId: finalSessionId,
-              error: String(evErr),
-            });
-          }
-        }
-        // B3（架构归一 Step3）：轮次结束无论是否有交付物都清空 tracker，
-        // 避免无交付物轮次跨轮重复上报上一轮交付物（原在 if(deliverable) 内致漏清）。
-        tracker.reset();
-      }
-    } catch (deliverableErr) {
-      // @ignore-catch — deliverable 发射失败不影响流结束
-      logger.debug('chatStream:deliverable 发射失败', {
-        sessionId: finalSessionId,
-        error: String(deliverableErr),
-      });
-    }
+    // T3（2026-11-17）：整块**原样搬运**到 `_emitDeliverableOnTurnEnd`（`yield*` 委托，顺序不变）。
+    yield* this._emitDeliverableOnTurnEnd(finalSessionId, streamFailed);
 
     // E-1 diff（2026-08-23）：文件变更 unified diff → 发射 diff chunk + 写 assistant/diff 事件
-    if (finalSessionId && !streamFailed && pendingFileDiffs.length > 0) {
-      for (const item of pendingFileDiffs) {
-        try {
-          yield {
-            type: 'diff',
-            content: item.diff,
-            sessionId: finalSessionId,
-            diffData: {
-              file: item.file,
-              diff: item.diff,
-              stats: {
-                additions: item.additions,
-                deletions: item.deletions,
-              },
-            },
-          } as ChatStreamChunk;
-          // 写事件（回放重建；失败不阻断流）
-          try {
-            const ts = await this.chatManager.getStreamTailSeq(finalSessionId);
-            await this.chatManager.appendStreamEvent(finalSessionId, {
-              type: 'assistant/diff',
-              seq: ts + 1,
-              time: Date.now(),
-              sessionId: finalSessionId,
-              data: {
-                file: item.file,
-                diff: item.diff,
-                stats: {
-                  additions: item.additions,
-                  deletions: item.deletions,
-                },
-              },
-            } as LiriEvent);
-          } catch (evErr) {
-            logger.debug('chatStream:diff 事件写入失败（不影响流式）', {
-              sessionId: finalSessionId,
-              error: String(evErr),
-            });
-          }
-        } catch (diffErr) {
-          // @ignore-catch — 单条 diff 发射失败继续下一条
-          logger.debug('chatStream:diff 发射失败', {
-            sessionId: finalSessionId,
-            error: String(diffErr),
-          });
-        }
-      }
-    }
+    // T3（2026-11-17）：整块**原样搬运**到 `_emitPendingFileDiffs`（`yield*` 委托）。
+    yield* this._emitPendingFileDiffs(
+      finalSessionId,
+      streamFailed,
+      pendingFileDiffs
+    );
 
     try {
       yield {
@@ -1304,6 +909,222 @@ export class CoreAPIImpl implements CoreAPI {
       messageId: finalMessageId,
       finishReason: actualFinishReason,
     };
+  }
+
+  /**
+   * T3（2026-11-17）：流末消息 → 会话 id / 消息 id / 整轮正文（原样从 `chatStream` 搬出）。
+   *
+   * 正文取流末消息（多块时拼接 `value`），为空则回落流内累计正文；会话 id 同样回落。
+   */
+  private _settleFinalTurn(
+    finalMessage: Message | undefined,
+    prev: { sessionId: string; messageId: string; content: string }
+  ): { sessionId: string; messageId: string; content: string } {
+    if (!finalMessage) return prev;
+    const content =
+      typeof finalMessage.content === 'string'
+        ? finalMessage.content
+        : finalMessage.content
+            .map((block) => ('value' in block ? block.value : ''))
+            .join('');
+    return {
+      sessionId: finalMessage.sessionId || prev.sessionId,
+      messageId: finalMessage.id,
+      content: content || prev.content,
+    };
+  }
+
+  /**
+   * T3（2026-11-17）：轮次结束的 **deliverable** 发射（`yield*` 委托，原样从 `chatStream` 搬出）。
+   *
+   * 工具执行完成 → 发射 deliverable chunk + 写 `assistant/deliverable` 事件；
+   * 无论是否有交付物都 `reset()` tracker（B3：避免跨轮重复上报）。
+   */
+  private async *_emitDeliverableOnTurnEnd(
+    sessionId: string,
+    streamFailed: boolean
+  ): AsyncGenerator<ChatStreamChunk, void, unknown> {
+    try {
+      if (sessionId && !streamFailed) {
+        const tracker = this.sessionTitling.getExecutionPhaseTracker(sessionId);
+        const deliverable = tracker.buildDeliverableData();
+        if (deliverable && deliverable.files.length > 0) {
+          yield {
+            type: 'deliverable',
+            content: deliverable.summary,
+            sessionId,
+            deliverableData: deliverable,
+          } as ChatStreamChunk;
+          // 写事件（回放重建；失败不阻断流）
+          try {
+            await this.chatManager.appendStreamEvent(sessionId, {
+              type: 'assistant/deliverable',
+              // seq 0 ⇒ 原子分配（收尾写者与后台任务并发，tail+1 会撞号被丢弃）
+              seq: 0,
+              time: Date.now(),
+              sessionId,
+              data: deliverable,
+            } as LiriEvent);
+          } catch (evErr) {
+            logger.debug('chatStream:deliverable 事件写入失败（不影响流式）', {
+              sessionId,
+              error: String(evErr),
+            });
+          }
+        }
+        // B3（架构归一 Step3）：轮次结束无论是否有交付物都清空 tracker，
+        // 避免无交付物轮次跨轮重复上报上一轮交付物（原在 if(deliverable) 内致漏清）。
+        tracker.reset();
+      }
+    } catch (deliverableErr) {
+      // @ignore-catch — deliverable 发射失败不影响流结束
+      logger.debug('chatStream:deliverable 发射失败', {
+        sessionId,
+        error: String(deliverableErr),
+      });
+    }
+  }
+
+  /**
+   * T3（2026-11-17）：轮次结束的 **diff** 发射（`yield*` 委托，原样从 `chatStream` 搬出）。
+   *
+   * 每条文件变更 → 发射 diff chunk + 写 `assistant/diff` 事件；单条失败继续下一条。
+   */
+  private async *_emitPendingFileDiffs(
+    sessionId: string,
+    streamFailed: boolean,
+    pendingFileDiffs: Array<{
+      file: string;
+      diff: string;
+      additions: number;
+      deletions: number;
+    }>
+  ): AsyncGenerator<ChatStreamChunk, void, unknown> {
+    if (!sessionId || streamFailed || pendingFileDiffs.length === 0) return;
+    for (const item of pendingFileDiffs) {
+      try {
+        yield {
+          type: 'diff',
+          content: item.diff,
+          sessionId,
+          diffData: {
+            file: item.file,
+            diff: item.diff,
+            stats: {
+              additions: item.additions,
+              deletions: item.deletions,
+            },
+          },
+        } as ChatStreamChunk;
+        // 写事件（回放重建；失败不阻断流）
+        try {
+          await this.chatManager.appendStreamEvent(sessionId, {
+            type: 'assistant/diff',
+            // seq 0 ⇒ 原子分配（同 deliverable：并发写者下 tail+1 会撞号被丢弃）
+            seq: 0,
+            time: Date.now(),
+            sessionId,
+            data: {
+              file: item.file,
+              diff: item.diff,
+              stats: {
+                additions: item.additions,
+                deletions: item.deletions,
+              },
+            },
+          } as LiriEvent);
+        } catch (evErr) {
+          logger.debug('chatStream:diff 事件写入失败（不影响流式）', {
+            sessionId,
+            error: String(evErr),
+          });
+        }
+      } catch (diffErr) {
+        // @ignore-catch — 单条 diff 发射失败继续下一条
+        logger.debug('chatStream:diff 发射失败', {
+          sessionId,
+          error: String(diffErr),
+        });
+      }
+    }
+  }
+
+  /**
+   * T3（2026-11-17）：流式入口的**占位标题**（LLM 调用前，不阻塞主路径）。
+   *
+   * 原样从 `chatStream` 搬出（零行为变更）；回滚开关 `TITLE_STAGE='false'` 时跳过。
+   */
+  private _setPreliminaryTitleIfNeeded(
+    request: ChatRequest,
+    sessionId: string
+  ): void {
+    if (
+      configManager.env('TITLE_STAGE') !== 'false' &&
+      sessionId &&
+      request.content &&
+      this.sessionTitling.shouldAutoTitle(sessionId)
+    ) {
+      void this.sessionTitling
+        .setPreliminaryTitle(
+          sessionId,
+          this.sessionTitling.sanitizePlaceholderTitle(request.content)
+        )
+        .catch(() => {});
+    }
+  }
+
+  /**
+   * T3（2026-11-17）：流式失败时的 fallback 落盘（Write-Ahead），原样从 `chatStream` 的 catch 搬出。
+   *
+   * 返回落盘消息 id；未落盘（有部分产出 / 撞限等）⇒ `undefined`。
+   */
+  private async _persistStreamFallbackOnError(input: {
+    fullContent: string;
+    sessionId: string;
+    errorCode?: string;
+    assistantMessageId?: string;
+  }): Promise<string | undefined> {
+    const { fullContent, sessionId, errorCode, assistantMessageId } = input;
+    const persistFallback = shouldPersistStreamFallback({
+      fullContent,
+      sessionId,
+      errorCode,
+    });
+    if (!persistFallback) {
+      if (!fullContent && sessionId) {
+        // D-l：撞限场景**抑制**落盘 —— 只留日志/审计，不写进对话上下文
+        logger.warn('chatStream:fallback 落盘已抑制（日预算撞限，D-l）', {
+          sessionId,
+          errorCode,
+        });
+      }
+      return undefined;
+    }
+    try {
+      const fallbackMsg = this.chatManager
+        .getMessageService()
+        .createAssistantMessage(
+          '⚠️ 本次未能生成回复（任务被中断或模型无响应），请重发消息重试。',
+          {
+            sessionId,
+            // 复用前端透传的 assistantMessageId，避免生成重复消息
+            ...(assistantMessageId ? { id: assistantMessageId } : {}),
+          }
+        );
+      this.chatManager.addMessage(sessionId, fallbackMsg);
+      logger.info('chatStream:fallback 消息已持久化', {
+        sessionId,
+        messageId: fallbackMsg.id,
+      });
+      return fallbackMsg.id;
+    } catch (persistErr) {
+      // @ignore-catch — fallback 持久化失败不阻断流（error chunk 已下发）
+      logger.warning('chatStream:fallback 消息持久化失败', {
+        sessionId,
+        error: String(persistErr),
+      });
+      return undefined;
+    }
   }
 
   async executeTool(

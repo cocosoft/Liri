@@ -505,6 +505,18 @@ const zhBase = {
     waitingSelfwakeCountdown: "⏳ 等待中，预计 {{seconds}} 秒后自动继续",
     waitingSelfwake: "⏳ 等待中（已 {{seconds}} 秒），条件满足后自动继续",
     waitingYield: "⏳ 等待子任务结算中（已 {{seconds}} 秒）",
+    // 运行态可见性（2026-11-18）：运行秒表 + 后端心跳证据 + 停滞告警
+    runElapsed: "已运行 {{seconds}} 秒",
+    runBeatAge: "最后心跳 {{seconds}} 秒前",
+    runStalled:
+      "⚠️ 已 {{seconds}} 秒未收到后端心跳，连接可能已中断（正在等待自动重连）",
+    remoteStreamingLabel: "会话仍在后台运行（本页面未接入实时输出）",
+    // 只读接入（2026-11-18，Spec `.trae/specs/stream-attach.md`）
+    attachStreamCta: "接入",
+    attachStreamHint: "接入这一轮正在后台运行的输出",
+    attachFailureNoActiveRun: "本轮已结束（或超出接入窗口），已刷新为落盘内容",
+    attachFailureCursorGap: "漏过的输出已超出可回放窗口，已刷新为落盘内容",
+    attachFailureTooMany: "本会话的接入数已达上限，请稍后再试",
     yieldUnresolved:
       "本轮已让出，但未能自动恢复（可能因应用重启或子任务结算丢失）。直接发送消息即可继续。",
     // PR-3c（2026-10-23）：全局信任级别常驻提示（Q-31 / §9-17）
@@ -795,6 +807,8 @@ const zhBase = {
     allCompleted: "全部完成",
     taskEnded: "已结束",
     taskEndedWithFailed: "已结束（{{count}} 失败）",
+    taskPaused: "⏸ 等待审批（需要你的反馈）",
+    taskPendingAcceptance: "⏸ 待验收（已完成 {{completed}}/{{total}}）",
     taskWaitingDeps: "等待: {{names}}",
     taskViewGraph: "查看依赖关系图（{{nodes}} 个节点, {{edges}} 条边）",
     taskPending: "等待中",
@@ -942,6 +956,7 @@ const zhBase = {
     inboxReplyReject: "拒绝",
     inboxReplyAllowTool: "以后整个工具免审批",
     inboxReplyAllowCommand: "以后这个命令免审批",
+    inboxReplyAllowWorkspaceCommand: "本工作区永久信任此命令",
     // PR-2（2026-10-23）：四档审批 —— 本会话都允许 / 始终允许（工具+参数指纹）
     inboxReplyApproveSession: "本会话都允许",
     // P2（2026-11-04，§3.3）：长程任务进行中的任务档授权（任务结束即失效）
@@ -952,6 +967,9 @@ const zhBase = {
     // P0（2026-11-07）：allowlist 档的规则落点（与设置页 tab 名逐字对齐，避免两套叫法）
     inboxAllowlistHint:
       "免审批规则会写入「设置 › 自定义规则 › 工具放行」（与设置页同一份规则，可在那里撤销）。",
+    // 2026-11-12：待审批时在卡片上提示"批准后自动继续"（原先写进助手正文，处理完会残留矛盾文案）
+    inboxApprovalAutoContinueHint:
+      "批准后会自动接着执行，无需重发消息；拒绝则停止该调用并让模型改道。",
     // P0-1（2026-11-04）：同指纹审批被合并的次数（卡片右上角显示 ×N）
     inboxMergedCountHint: "同一请求已被合并 {{count}} 次（只需处理一次）",
     inboxRepliedToast: "已{{label}}",
@@ -960,6 +978,10 @@ const zhBase = {
     inboxApproveAllHint: "一次批准本会话的所有待审批卡（不含拒绝项）",
     inboxApproveAllToast: "已批准 {{count}} 项",
     inboxApproveAllNone: "没有可批准的待办项（可能已过期或已被处理）",
+    // B8（2026-11-18）：批量入口改为默认展开的逐条勾选
+    inboxBatchTitle: "批量审批（{{count}} 项，默认全选）",
+    inboxApproveSelected: "批准选中（{{count}} 项）",
+    inboxApproveSelectedHint: "只批准勾选的条目，未勾选的卡保持待批",
     // PR-3（2026-10-23）：会话级「自动执行」开关（仅只读 + 本地写）
     approvalAutoOff: "自动执行：关",
     approvalAutoOn: "自动执行：只读+本地写",
@@ -1021,7 +1043,8 @@ const zhBase = {
       auto: "自动执行",
       autoDesc: "按规则与风险自动放行；越界写、删除、外发命令仍会问你",
       demand: "许愿式",
-      demandDesc: "只给目标，自动规划/执行/验收/交付；中途最多问你一次",
+      demandDesc:
+        "只给目标，自动规划/执行/验收/交付；仅危险命令、工作区外写与真歧义才会问你",
       advanced: "高级：直接指定权限模式",
       advancedHint:
         "排障与无人值守用，日常不需要改；这里的档位只改权限，不改协作方式。",

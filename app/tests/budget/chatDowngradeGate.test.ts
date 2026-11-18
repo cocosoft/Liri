@@ -27,7 +27,7 @@ import { createChatManager } from '../../src/chat/ChatManager';
 import {
   getDailyBudget,
   resetDailyBudgetForTest,
-} from '../../src/query/DailyBudgetManager';
+} from '@modules/query/DailyBudgetManager';
 
 // 放行分支会落盘助手消息 ⇒ 隔离数据目录（避免污染真实 ~/.pyapp）
 const dataDir = mkdtempSync(join(tmpdir(), 'budget-downgrade-'));

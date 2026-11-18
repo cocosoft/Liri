@@ -28,6 +28,10 @@ import { refreshCheckpointLogConfig } from '@openliri/infra/config';
 // 2026-11-03：配置写入后通知**进程内**订阅方（此前只有 SSE 的 `config:updated`，
 // 后端自己的运行时（如 AlwaysOn）收不到 ⇒ `features.alwaysOn` 是死开关）。
 import { globalEventBus } from '@openliri/kernel';
+// R1（2026-11-17）：工具规则不得经通用配置段写入（唯一入口 /v1/permissions/rules）
+import { findToolRuleField } from './config-permission-guard';
+// S3（2026-11-17）：沙箱 landlock 四项的写入校验（绝对路径 / 根目录 / app home 保护）
+import { applyLandlockConfigPatch } from './sandbox-config-guard';
 
 const logger = getLogger('http:config');
 
@@ -70,6 +74,84 @@ export async function handleGetConfig(
 }
 
 /**
+ * S3：`sandbox` 段允许经本接口写入的顶层字段。
+ *
+ * `enabled` / `permissionLevel` 有专门入口 `PUT /v1/sandbox/config`（含运行时同步），
+ * 这里一律拒绝 —— 同一份数据两条写路径会重演 R1 要防的"改 A 生效 B"。
+ */
+const SANDBOX_ALLOWED_TOP_FIELDS = new Set(['landlock', 'forceWithReason']);
+
+type PreparedSandboxWrite =
+  | { ok: true; value: Record<string, unknown> }
+  | { ok: false; field: string; message: string };
+
+/**
+ * 把 `{ landlock, forceWithReason? }` 补丁校验并合并进当前 `sandbox` 段。
+ *
+ * 只做 landlock；合并保留 `sandbox.enabled` / `permissionLevel` 等既有字段
+ * （`setConfigValue('sandbox', …)` 是**整段替换** ⇒ 不合并会把它们整块抹掉）。
+ * 校验内核已抽成纯函数（`applyLandlockConfigPatch`），本函数只做 IO 与审计。
+ */
+async function prepareSandboxLandlockWrite(
+  rawValue: unknown
+): Promise<PreparedSandboxWrite> {
+  if (!rawValue || typeof rawValue !== 'object' || Array.isArray(rawValue)) {
+    return { ok: false, field: 'sandbox', message: 'sandbox 配置必须是对象' };
+  }
+  const record = rawValue as Record<string, unknown>;
+  for (const field of Object.keys(record)) {
+    if (!SANDBOX_ALLOWED_TOP_FIELDS.has(field)) {
+      return {
+        ok: false,
+        field: `sandbox.${field}`,
+        message: `sandbox.${field} 不由此接口写入（enabled / permissionLevel 请用 PUT /v1/sandbox/config）`,
+      };
+    }
+  }
+  if (!('landlock' in record)) {
+    return {
+      ok: false,
+      field: 'sandbox.landlock',
+      message: '缺少 sandbox.landlock',
+    };
+  }
+
+  const { configManager } = await import('@openliri/infra/config');
+  const { readLandlockConfig } = await import('@modules/sandbox');
+  const { resolvePyappHome } = await import('@openliri/infra/environment');
+
+  const before = readLandlockConfig();
+  const result = applyLandlockConfigPatch({
+    current: before,
+    patch: record.landlock,
+    appHome: resolvePyappHome(),
+    forceWithReason: record.forceWithReason,
+  });
+  if (!result.ok) return result;
+
+  const changed =
+    before.enabled !== result.next.enabled ||
+    before.bashEnabled !== result.next.bashEnabled ||
+    before.failClosed !== result.next.failClosed ||
+    JSON.stringify(before.bashExtraWritablePaths) !==
+      JSON.stringify(result.next.bashExtraWritablePaths);
+  if (changed || result.forcedPaths.length > 0) {
+    // 审计口径与工具规则写入口一致：结构化日志事件（`permission:rule_*` 同款），
+    // 含 before/after；`forcedPaths` 非空 = 用户显式放弃 `~/.pyapp` 保护（见方案 §11.5）。
+    logger.info('settings:sandbox:changed', {
+      before,
+      after: result.next,
+      forcedPaths: result.forcedPaths,
+      changed,
+    });
+  }
+
+  const currentSegment =
+    configManager.getConfigValue<Record<string, unknown>>('sandbox') ?? {};
+  return { ok: true, value: { ...currentSegment, landlock: result.next } };
+}
+
+/**
  * 处理设置配置项请求
  */
 export async function handleSetConfig(
@@ -81,17 +163,63 @@ export async function handleSetConfig(
   try {
     const body = await ctx.readRequestBody(req);
     const { value } = JSON.parse(body);
+    // R1（2026-11-17）：`permission` 段只承载 B 体系命令规则 / 信任配置；
+    // 工具规则（A 体系）唯一写入口是 `/v1/permissions/rules` ⇒ 混写直接拒绝（不静默落库）。
+    if (key === 'permission') {
+      const hit = findToolRuleField(value);
+      if (hit) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            error: {
+              message: `permission 配置段不接受工具规则字段「${hit.field}」（位置：${hit.path}）；工具规则请使用 /v1/permissions/rules`,
+              field: hit.field,
+              path: hit.path,
+              writeEntry: '/v1/permissions/rules',
+            },
+          })
+        );
+        return;
+      }
+    }
+    // S3（2026-11-17）：沙箱 landlock 四项经本段写入（设置方案 §11.2 / §11.5）。
+    let writeValue: unknown = value;
+    if (key === 'sandbox') {
+      const prepared = await prepareSandboxLandlockWrite(value);
+      if (!prepared.ok) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            error: {
+              message: prepared.message,
+              field: prepared.field,
+              writeEntry: '/v1/config/sandbox',
+            },
+          })
+        );
+        return;
+      }
+      writeValue = prepared.value;
+    }
     const { configManager } = await import('@openliri/infra/config');
-    configManager.setConfigValue(key, value);
+    configManager.setConfigValue(key, writeValue);
     // P2（08-09）：检查点日志开关变更时刷新缓存
     if (key === 'checkpointLog') {
       refreshCheckpointLogConfig();
     }
+    if (key === 'sandbox') {
+      // 评审 P1-2：三平台探测器都有模块级缓存（Windows 的**无失效条件**）⇒ 写完必须清，
+      // 否则 bash 执行路径与 `GET /v1/diagnostics/sandbox/probe` 会继续回显旧结论。
+      const sandbox = await import('@modules/sandbox');
+      sandbox.LandlockDetector.clearCache();
+      sandbox.clearMacOSSandboxCapabilityCache();
+      sandbox.clearWindowsSandboxCapabilityCache();
+    }
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true, key, value }));
-    broadcastEvent('config:updated', { key, value });
+    res.end(JSON.stringify({ success: true, key, value: writeValue }));
+    broadcastEvent('config:updated', { key, value: writeValue });
     // 进程内广播（后端运行时按用户设置即时生效；与上面 SSE 广播互不替代）
-    globalEventBus.publish('config:changed', { key, value });
+    globalEventBus.publish('config:changed', { key, value: writeValue });
   } catch (err) {
     await handleError(err, { module: 'infra:http', action: 'handler_error' });
     if (!res.headersSent) {

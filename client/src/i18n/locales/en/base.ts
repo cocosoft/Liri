@@ -524,6 +524,22 @@ const enBase = {
     waitingSelfwake:
       "⏳ Waiting ({{seconds}}s elapsed) — will resume automatically",
     waitingYield: "⏳ Waiting for subtask settlement ({{seconds}}s elapsed)",
+    // Run-state visibility (2026-11-18): run stopwatch + backend heartbeat evidence
+    runElapsed: "Running {{seconds}}s",
+    runBeatAge: "last heartbeat {{seconds}}s ago",
+    runStalled:
+      "⚠️ No backend heartbeat for {{seconds}}s — the connection may be down (waiting for auto-reconnect)",
+    remoteStreamingLabel:
+      "This session is still running in the background (live output is not attached to this page)",
+    // Read-only attach (2026-11-18, Spec `.trae/specs/stream-attach.md`)
+    attachStreamCta: "Attach",
+    attachStreamHint: "Attach to the output this turn is still producing",
+    attachFailureNoActiveRun:
+      "This turn has ended (or is out of the attach window); messages were refreshed",
+    attachFailureCursorGap:
+      "Missed output is out of the replay window; messages were refreshed",
+    attachFailureTooMany:
+      "Attachment limit reached for this session; try again later",
     yieldUnresolved:
       "This turn yielded but could not auto-resume (app restart or lost settlement). Just send a message to continue.",
     // PR-3c (2026-10-23): persistent global trust level notice (Q-31 / §9-17)
@@ -826,6 +842,9 @@ const enBase = {
     allCompleted: "All completed",
     taskEnded: "Ended",
     taskEndedWithFailed: "Ended ({{count}} failed)",
+    taskPaused: "⏸ Waiting for approval (needs your feedback)",
+    taskPendingAcceptance:
+      "⏸ Pending acceptance ({{completed}}/{{total}} completed)",
     taskWaitingDeps: "Waiting: {{names}}",
     taskViewGraph: "View dependency graph ({{nodes}} nodes, {{edges}} edges)",
     taskPending: "Pending",
@@ -976,6 +995,8 @@ const enBase = {
     inboxReplyReject: "Reject",
     inboxReplyAllowTool: "Never ask for this tool",
     inboxReplyAllowCommand: "Never ask for this command",
+    inboxReplyAllowWorkspaceCommand:
+      "Always trust this command in this workspace",
     // PR-2 (2026-10-23): four approval tiers — allow for this session / always (tool + args fingerprint)
     inboxReplyApproveSession: "Allow for session",
     // P2 (2026-11-04, §3.3): task-scoped approval while a long-running task is active
@@ -986,6 +1007,9 @@ const enBase = {
     // P0 (2026-11-07): where the allowlist rule lands (same wording as the settings tab)
     inboxAllowlistHint:
       "Saved to Settings › Custom rules › Tool allowlist (same rule set as that page; revoke it there).",
+    // 2026-11-12: while pending, the card tells the user the turn continues automatically
+    inboxApprovalAutoContinueHint:
+      "Approving continues this turn automatically; rejecting stops the call and lets the model adapt.",
     // P0-1 (2026-11-04): how many identical approval requests were merged into this card (×N)
     inboxMergedCountHint:
       "The same request was merged {{count}} times (handle it once)",
@@ -997,6 +1021,11 @@ const enBase = {
     inboxApproveAllToast: "Approved {{count}} item(s)",
     inboxApproveAllNone:
       "No pending items to approve (they may have expired or been handled)",
+    // B8 (2026-11-18): batch entry becomes an expanded per-item checklist (all checked by default)
+    inboxBatchTitle: "Batch approval ({{count}}, all selected by default)",
+    inboxApproveSelected: "Approve selected ({{count}})",
+    inboxApproveSelectedHint:
+      "Only the checked items are approved; unchecked cards stay pending",
     // PR-3 (2026-10-23): session-level "auto-run" toggle (read-only + local writes only)
     approvalAutoOff: "Auto-run: off",
     approvalAutoOn: "Auto-run: read + local write",
@@ -1062,7 +1091,7 @@ const enBase = {
         "Allow by rules and risk; still ask for out-of-scope writes, deletions and external commands",
       demand: "Wish mode",
       demandDesc:
-        "Goal only: plan/execute/verify/deliver automatically; at most one question mid-run",
+        "Goal only: plan/execute/verify/deliver automatically; asks only for dangerous commands, out-of-workspace writes and real ambiguity",
       advanced: "Advanced: pick a permission mode directly",
       advancedHint:
         "For troubleshooting and unattended runs; it only changes permissions, not collaboration.",

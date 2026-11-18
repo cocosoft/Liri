@@ -41,12 +41,12 @@ import {
   getDailyBudget,
   resetDailyBudgetForTest,
   initDailyBudget,
-} from '../../src/query/DailyBudgetManager';
+} from '@modules/query/DailyBudgetManager';
 import {
   dailyBudgetStatePath,
   loadDailyBudgetState,
   saveDailyBudgetState,
-} from '../../src/query/dailyBudgetPersistence';
+} from '@modules/query/dailyBudgetPersistence';
 
 /** 本地自然日 YYYY-MM-DD（与实现同口径） */
 function localToday(): string {

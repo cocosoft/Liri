@@ -38,14 +38,14 @@ import { existsSync, mkdtempSync, readdirSync, rmSync } from 'fs';
 import { promises as fsp } from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { StorageType } from '../../src/session/storage/UnifiedStorage';
-import { FileSystemUnifiedStorage } from '../../src/session/storage/FileSystemUnifiedStorage';
+import { StorageType } from '@modules/session/storage/UnifiedStorage';
+import { FileSystemUnifiedStorage } from '@modules/session/storage/FileSystemUnifiedStorage';
 import {
   SessionStatus,
   SessionType,
-} from '../../src/session/types/UnifiedSession';
-import type { UnifiedSession } from '../../src/session/types/UnifiedSession';
-import type { UnifiedMessage } from '../../src/session/types/UnifiedMessage';
+} from '@modules/session/types/UnifiedSession';
+import type { UnifiedSession } from '@modules/session/types/UnifiedSession';
+import type { UnifiedMessage } from '@modules/session/types/UnifiedMessage';
 
 const SESSION_ID = 'sess-p2-3';
 

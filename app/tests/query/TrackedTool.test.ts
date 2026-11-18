@@ -3,7 +3,7 @@
 
 // P1-12: TrackedTool 状态机单元测试
 import { describe, it, expect } from 'bun:test';
-import { TrackedTool, TrackedToolState } from '../../src/query/TrackedTool';
+import { TrackedTool, TrackedToolState } from '@modules/query/TrackedTool';
 
 describe('TrackedTool 状态机', () => {
   describe('初始状态', () => {

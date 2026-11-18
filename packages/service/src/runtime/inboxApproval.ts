@@ -20,6 +20,8 @@ import {
   INBOX_STATUS_PROCESSING,
   type InboxItem,
 } from './InboxManager.js';
+// P3（2026-11-17）：批量合并簿（批准时一次写多条放行缓存）
+import { drainApprovalBatch } from './approvalBatch.js';
 import {
   APPROVAL_REPLY_TO_DECISION,
   // P2-4（2026-11-07）：命令指纹档字面量（`'once'` 的真语义 = TTL 窗口内可复用）
@@ -29,6 +31,9 @@ import {
   getActiveTaskId,
   resolveApprovalDecision,
   resolveRecordScope,
+  // R3（2026-11-17）：「暂停全部持久化放行」—— 三个审批写入点共用同一开关
+  // F2：按会话暂停同样生效（本函数已拿到 sessionId）
+  isApprovalPauseActiveFor,
   type ApprovalScope,
   type ApprovalSnapshot,
 } from '@openliri/infra/permission';
@@ -114,6 +119,17 @@ function isFingerprintAllowReply(
   return reply === 'allowlist_call' || selectedOption === 'allowlist_call';
 }
 
+/** G3：「本工作区永久信任」——精确命令 + 工作区作用域（仅命令类审批卡下发该档） */
+function isWorkspaceCommandAllowReply(
+  reply: string,
+  selectedOption?: string
+): boolean {
+  return (
+    reply === 'allowlist_workspace_command' ||
+    selectedOption === 'allowlist_workspace_command'
+  );
+}
+
 /**
  * PR-2：按回复值解析放行缓存档位（`approve_session` ⇒ 不过期；`approve_task` ⇒ 仅本任务）。
  *
@@ -185,6 +201,7 @@ export async function resolveInboxApproval(
   if (!updated) return { kind: 'update_failed' };
 
   await applyApprovalSideEffects(current, reply, selectedOption, options);
+  await applyRejectionSideEffects(current, reply, selectedOption, options);
   await recordApprovalDecision(current, reply, selectedOption);
   await resumePdcaIfApplicable(current, reply, selectedOption);
 
@@ -218,21 +235,28 @@ export interface BatchApprovalOutcome {
 /**
  * P1-1（2026-11-06）：批量审批的**候选判定**（纯函数）。
  *
- * 口径：`status='pending'` + `type='approval'` + （可选）同工具名。
+ * 口径：`status='pending'` + `type='approval'` + （可选）同工具名 + （可选）指定 id 集合。
  * 抽成纯函数是为了在不触库的前提下锁定筛选契约（顺序保持入参顺序）。
+ *
+ * B8（2026-11-18）：`ids` 为前端「逐条勾选」的选中集合 —— 提供且非空时**只处理集合内的项**
+ * （集合外的卡保持 pending，不会被顺带放行）。
  */
 export function selectBatchApprovalTargets<
   T extends {
+    id?: string;
     status?: string;
     type?: string;
     metadata?: Record<string, unknown>;
   },
->(items: readonly T[], toolName?: string): T[] {
+>(items: readonly T[], toolName?: string, ids?: readonly string[]): T[] {
+  const selected =
+    ids && ids.length > 0 ? new Set(ids.filter((id) => !!id)) : undefined;
   return items.filter(
     (item) =>
       item.status === INBOX_STATUS_PENDING &&
       item.type === 'approval' &&
-      (!toolName || item.metadata?.toolName === toolName)
+      (!toolName || item.metadata?.toolName === toolName) &&
+      (!selected || (typeof item.id === 'string' && selected.has(item.id)))
   );
 }
 
@@ -244,16 +268,19 @@ export function selectBatchApprovalTargets<
  * 「所有工具已完成」上空转，日志刷屏且时序不可控）。批量入口逐项落地时置
  * `deferResume`，**最后只触发一次**。
  *
- * 只处理 `type='approval'` 的 pending 项；`toolName` 可选（只批同一工具，用于"同工具同风险"收窄）。
+ * 只处理 `type='approval'` 的 pending 项；`toolName` 可选（只批同一工具，用于"同工具同风险"收窄）；
+ * `ids` 可选（B8：前端逐条勾选的集合 —— 只落地选中项，未选中的卡保持 pending）。
  */
 export async function resolveInboxApprovalsBatch(params: {
   sessionId: string;
   reply: string;
   selectedOption?: string;
   toolName?: string;
+  /** B8：前端「逐条勾选」的选中集合；提供且非空 ⇒ 只落地这些项 */
+  ids?: readonly string[];
   limit?: number;
 }): Promise<BatchApprovalOutcome> {
-  const { sessionId, reply, selectedOption, toolName } = params;
+  const { sessionId, reply, selectedOption, toolName, ids } = params;
   const outcome: BatchApprovalOutcome = {
     sessionId,
     resolved: [],
@@ -269,7 +296,7 @@ export async function resolveInboxApprovalsBatch(params: {
     limit: params.limit ?? 50,
     offset: 0,
   });
-  const targets = selectBatchApprovalTargets(listed.items, toolName);
+  const targets = selectBatchApprovalTargets(listed.items, toolName, ids);
 
   let hasChatResumeTarget = false;
   // 2026-11-07（真机）：PDCA 步骤卡的续跑由 `resumePdcaIfApplicable` 触发（fire-and-forget），
@@ -293,10 +320,15 @@ export async function resolveInboxApprovalsBatch(params: {
     }
   }
 
-  if (
-    (hasChatResumeTarget || hasPdcaResumeTarget) &&
-    isApprovalReply(reply, selectedOption)
-  ) {
+  // 2026-11-12：**拒绝**也要续跑一次 —— 被拒调用已由 `applyRejectionSideEffects` 标记
+  // （`markToolCallDenied`），续跑会把它重放成"用户拒绝"的终态结果交给模型改道；
+  // PDCA 步骤卡的拒绝仍由 `resumePdcaIfApplicable` 走 abort ⇒ 不进本条件。
+  const isDenyReply = reply === 'deny' || selectedOption === 'deny';
+  const chatResumeNeeded =
+    hasChatResumeTarget && (isApprovalReply(reply, selectedOption) || isDenyReply);
+  const pdcaResumeNeeded =
+    hasPdcaResumeTarget && isApprovalReply(reply, selectedOption);
+  if (chatResumeNeeded || pdcaResumeNeeded) {
     outcome.resumed = true;
     if (hasChatResumeTarget) {
       void triggerResumeAfterApproval(sessionId).catch((resumeErr: unknown) => {
@@ -368,6 +400,50 @@ async function recordApprovalDecision(
 }
 
 /**
+ * 2026-11-12（真机 `session_mwd6c9ui384f78c969`）：审批卡「拒绝」后的收尾。
+ *
+ * 拒绝是**该次调用**的终态：先记 `markToolCallDenied`（续跑重放时执行层据此返回
+ * "用户拒绝"，不再执行、不再重提卡），再走**同一条续跑通道**把这条结果交给模型改道。
+ * 原实现拒绝即静默停摆：卡片变「已处理」，但工具卡仍 ⏳、会话卡在"等待审批"
+ * （`isApprovalReply` 为假 ⇒ 既不续跑、也不写终态结果）。
+ *
+ * PDCA 步骤卡不在此列 —— 拒绝由 `resumePdcaIfApplicable` 走 abort 终态。
+ */
+async function applyRejectionSideEffects(
+  current: InboxItem,
+  reply: string,
+  selectedOption: string | undefined,
+  options?: { deferResume?: boolean }
+): Promise<void> {
+  if (current.type !== 'approval' || current.source !== 'permission') return;
+  if (isApprovalReply(reply, selectedOption)) return;
+  if (reply !== 'deny' && selectedOption !== 'deny') return;
+  if (typeof current.metadata?.pdcaTaskId === 'string') return;
+  const sessionId = current.sessionId;
+  const toolCallId =
+    typeof current.metadata?.toolCallId === 'string'
+      ? current.metadata.toolCallId
+      : undefined;
+  if (!sessionId || !toolCallId) {
+    // 旧卡（本改动前创建）没有 toolCallId ⇒ 无法定位该次调用，如实记录并保持原状
+    logger.info('审批被拒但缺少 sessionId / toolCallId，无法续跑', {
+      sessionId,
+      hasToolCallId: !!toolCallId,
+    });
+    return;
+  }
+  const { markToolCallDenied } = await import('@openliri/infra/permission');
+  markToolCallDenied(sessionId, toolCallId);
+  if (options?.deferResume) return;
+  void triggerResumeAfterApproval(sessionId).catch((resumeErr: unknown) => {
+    logger.warn('审批被拒后续跑失败（前端可兜底续跑）', {
+      sessionId,
+      error: String(resumeErr),
+    });
+  });
+}
+
+/**
  * 审批落定后的副作用（**批准语义的唯一实现**）
  *
  * 1. 写"已批准命令"放行缓存（工具重放时命中即跳过安全拦截）；
@@ -387,7 +463,11 @@ async function applyApprovalSideEffects(
     await applyWorkspaceScopeApproval(current, reply, selectedOption, options);
     return;
   }
-  if (!isApprovalReply(reply, selectedOption)) return;
+  if (!isApprovalReply(reply, selectedOption)) {
+    // P3（2026-11-17）：拒绝/其它回复 ⇒ 丢弃合并簿（不会写放行缓存，调用保持 awaiting）
+    drainApprovalBatch(current.id);
+    return;
+  }
 
   const commandHash = current.metadata?.commandHash as string | undefined;
   const command = current.metadata?.command as string | undefined;
@@ -429,10 +509,32 @@ async function applyApprovalSideEffects(
     hasSnapshot: !!approvalSnapshot,
   });
 
+  // P3（2026-11-17）：批量合并的条目一并写入放行缓存（作用域档沿用主条目）。
+  // 只写 registry；白名单类规则仍只对主条目生效（批量条目按"仅本次/同档"放行，避免一次点击扩散多条规则）。
+  for (const entry of drainApprovalBatch(current.id)) {
+    getApprovedCommandRegistry().approve(
+      current.sessionId,
+      entry.commandHash,
+      entry.command,
+      scopeKind !== 'once' ? { scopeKind, taskId } : undefined
+    );
+    logger.info('批量审批条目已写入放行缓存', {
+      sessionId: current.sessionId,
+      batchId: current.id,
+      commandHash: entry.commandHash,
+      scopeKind,
+      fingerprintHash: entry.fingerprintHash,
+    });
+  }
+
   if (isAllowlistReply(reply, selectedOption)) {
     const commandLevel =
       reply === 'allowlist_command' || selectedOption === 'allowlist_command';
     await persistAllowlistRule(current, commandLevel);
+  }
+  // G3（2026-11-14）：命令级「本工作区永久信任」—— 精确命令 + 工作区作用域
+  if (isWorkspaceCommandAllowReply(reply, selectedOption)) {
+    await persistWorkspaceCommandRule(current);
   }
   // PR-2：「始终允许」= 工具 + 参数指纹（只落摘要，不落明文参数）
   if (isFingerprintAllowReply(reply, selectedOption)) {
@@ -937,6 +1039,67 @@ async function runResumeOnce(sessionId: string): Promise<void> {
 }
 
 /**
+ * F2：从会话元数据取「本次审批所属的工作区根」，供**按工作区暂停**判定写入点。
+ *
+ * 来源与 B1「允许本会话访问 `<root>`」追加的字段同源（`metadata.workspaceRoots`），
+ * 并以 `metadata.workspacePath`（会话绑定的文件夹）兜底。
+ *
+ * 如实边界：读不到（无 provider / 无会话 / 读取失败）⇒ `undefined` —— 调用方退化为
+ * **只按全局/会话级**判定，与判定口"无上下文只按 global"同一口径，不阻断审批写入。
+ */
+export async function readSessionWorkspaceRoots(
+  sessionId?: string
+): Promise<string[] | undefined> {
+  if (!sessionId) return undefined;
+  try {
+    const chatManager = getRuntimeCoreApi()?.chatManager;
+    if (!chatManager) return undefined;
+    const session =
+      (await chatManager.loadSession?.(sessionId)) ??
+      (await chatManager.getSessionGateway?.()?.getSession(sessionId));
+    const metadata = (session?.metadata ?? {}) as Record<string, unknown>;
+    const roots = Array.isArray(metadata['workspaceRoots'])
+      ? metadata['workspaceRoots'].filter(
+          (value): value is string =>
+            typeof value === 'string' && value.trim().length > 0
+        )
+      : [];
+    const boundPath =
+      typeof metadata['workspacePath'] === 'string' &&
+      metadata['workspacePath'].trim().length > 0
+        ? [metadata['workspacePath']]
+        : [];
+    const all = [...roots, ...boundPath];
+    return all.length > 0 ? all : undefined;
+  } catch (error) {
+    logger.warn('读取会话工作区根失败（暂停判定退化为只按全局/会话）', {
+      sessionId,
+      error: String(error),
+    });
+    return undefined;
+  }
+}
+
+/**
+ * R3/F2：暂停持久化放行时跳过写入（全局 / 本会话 / **本工作区**任一命中）。
+ *
+ * 注意只跳过"新增规则"：已存在的审批规则由判定读取口过滤，
+ * 列表里仍可见、可逐条撤销（不做破坏性删除）。
+ */
+async function shouldSkipApprovalRuleWrite(
+  sessionId?: string
+): Promise<boolean> {
+  // 全局 / 会话级命中时无需读会话元数据（省一次 IO）；否则再按工作区根判定
+  if (!isApprovalPauseActiveFor({ sessionId })) {
+    const workspaceRoots = await readSessionWorkspaceRoots(sessionId);
+    if (!workspaceRoots) return false;
+    if (!isApprovalPauseActiveFor({ sessionId, workspaceRoots })) return false;
+  }
+  logger.info('「暂停持久化放行」已生效，跳过审批规则写入', { sessionId });
+  return true;
+}
+
+/**
  * PR-2：「始终允许」—— 持久化「工具 + 参数指纹」allow 规则。
  *
  * 只写 `metadata.approvalFingerprintHash`（提交审批时算好的摘要），**不落明文参数**；
@@ -947,6 +1110,7 @@ async function persistFingerprintRule(current: {
   metadata?: Record<string, unknown>;
   sessionId?: string;
 }): Promise<void> {
+  if (await shouldSkipApprovalRuleWrite(current.sessionId)) return;
   const target = parseFingerprintAllowTarget(current.metadata);
   if (!target) {
     logger.warn('「始终允许」持久化跳过：缺少工具名或参数指纹', {
@@ -971,6 +1135,12 @@ async function persistFingerprintRule(current: {
       toolName,
       inputFingerprint,
       source: PermissionRuleSource.RULE_STORE,
+      // R3：来源侧 + 审批时间 + 放行缓存键（撤销时精确清缓存）
+      origin: 'approval',
+      approvedAt: new Date(),
+      ...(typeof current.metadata?.commandHash === 'string'
+        ? { approvalCommandHash: current.metadata.commandHash }
+        : {}),
     })
   );
   logger.info('「始终允许」规则已持久化（工具 + 参数指纹）', {
@@ -990,6 +1160,7 @@ async function persistAllowlistRule(
   current: { metadata?: Record<string, unknown>; sessionId?: string },
   commandLevel: boolean
 ): Promise<void> {
+  if (await shouldSkipApprovalRuleWrite(current.sessionId)) return;
   const toolName = current.metadata?.toolName as string | undefined;
   if (!toolName) {
     logger.warn('白名单持久化跳过：缺少 toolName', {
@@ -1017,12 +1188,71 @@ async function persistAllowlistRule(
       toolName,
       contentPattern,
       source: PermissionRuleSource.RULE_STORE,
+      // R3：白名单放行同样属审批生成（只读、可撤销；不计入用户 allow 预算）
+      origin: 'approval',
+      approvedAt: new Date(),
+      ...(typeof current.metadata?.commandHash === 'string'
+        ? { approvalCommandHash: current.metadata.commandHash }
+        : {}),
     })
   );
   logger.info('白名单规则已持久化', {
     toolName,
     commandLevel,
     contentPattern,
+    sessionId: current.sessionId,
+  });
+}
+
+/**
+ * G3（2026-11-14）：持久化「本工作区永久信任」规则 —— **精确命令**（`^…$`）+ 工作区根。
+ *
+ * 与 `allowlist_command`（前 2 token 前缀、全局）的差异：
+ * - 只放行**完全相同的命令文本**（多一个参数就不命中）；
+ * - 只在写入时的工作区根下生效（换目录不命中）；
+ * - 危险命令仍受硬拦截层与 `BASH_APPROVAL_STRICT` 的既有约束（本档只影响"是否重复弹 ask"）。
+ */
+async function persistWorkspaceCommandRule(current: {
+  metadata?: Record<string, unknown>;
+  sessionId?: string;
+}): Promise<void> {
+  if (await shouldSkipApprovalRuleWrite(current.sessionId)) return;
+  const toolName = current.metadata?.toolName as string | undefined;
+  const command =
+    typeof current.metadata?.command === 'string'
+      ? (current.metadata.command as string).trim()
+      : '';
+  if (!toolName || !command) {
+    logger.warn('「本工作区永久信任」持久化跳过：缺少 toolName 或 command', {
+      sessionId: current.sessionId,
+    });
+    return;
+  }
+  const workspaceRoot = process.cwd();
+  const { PermissionManager } =
+    await import('@openliri/infra/permission/PermissionManager');
+  const { createPermissionRule, PermissionBehavior, PermissionRuleSource } =
+    await import('@openliri/infra/permission/types/PermissionRule');
+
+  const ruleManager = PermissionManager.getInstance().getRuleManager();
+  ruleManager.addRule(
+    createPermissionRule({
+      behavior: PermissionBehavior.ALLOW,
+      toolName,
+      contentPattern: `^${escapeRegExp(command)}$`,
+      workspaceRoot,
+      source: PermissionRuleSource.RULE_STORE,
+      // R3：来源侧 + 审批时间（撤销时同时清会话放行缓存）
+      origin: 'approval',
+      approvedAt: new Date(),
+      ...(typeof current.metadata?.commandHash === 'string'
+        ? { approvalCommandHash: current.metadata.commandHash }
+        : {}),
+    })
+  );
+  logger.info('「本工作区永久信任」规则已持久化', {
+    toolName,
+    workspaceRoot,
     sessionId: current.sessionId,
   });
 }

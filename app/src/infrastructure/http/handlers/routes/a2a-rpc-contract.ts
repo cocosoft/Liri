@@ -35,8 +35,12 @@ export interface A2ARpcDeps {
     port: A2APortSlice,
     message: string,
     agentId: string | undefined,
-    waitMs: number
+    waitMs: number,
+    /** D5：对端是否已协商不确定性字段（缺省/undefined ⇒ false = 不发） */
+    acceptUncertainty?: boolean
   ): Promise<{ completed: boolean; task: A2ATask }>;
   /** 直连委派（**流式**用：不做有界等待；调用方已确认 `hasDelegator()`） */
   delegate(message: string, agentId: string | undefined): Promise<string>;
+  /** D5：本次请求是否协商了不确定性字段（缺省 false） */
+  acceptUncertainty?: boolean;
 }

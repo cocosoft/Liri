@@ -13,7 +13,7 @@
 
 import { describe, expect, it } from 'bun:test';
 
-import { deriveMessagesFromEvents } from '../../src/session/storage/EventMessageDeriver';
+import { deriveMessagesFromEvents } from '@modules/session/storage/EventMessageDeriver';
 import type { LiriEvent } from '@modules/session/types/events';
 
 const SID = 'session_wf';

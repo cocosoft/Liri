@@ -39,17 +39,14 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
+// G1（2026-11-12）：扫描根收敛到单一事实源（此前只扫 app+kernel+infra，service 为静默盲区）
+import { resolveSourceRootPaths } from './lib/sourceRoots';
 
 /** 项目根目录（scripts/ 的父目录） */
 const PROJECT_ROOT = join(import.meta.dir, '..');
 
-/** 扫描根（运行时源码：app/src + 内核 packages/kernel/src + infra 包 packages/infra/src） */
-const SRC_DIRS = [
-  join(PROJECT_ROOT, 'app', 'src'),
-  join(PROJECT_ROOT, 'packages', 'kernel', 'src'),
-  // P4（2026-11-01）：infra 物理包同样是生产代码 —— 不纳入则迁包文件的 unref 失检。
-  join(PROJECT_ROOT, 'packages', 'infra', 'src'),
-];
+/** 扫描根：**单一事实源**（`app/src` + 自动发现的 `packages/*\/src`） */
+const SRC_DIRS = resolveSourceRootPaths(PROJECT_ROOT);
 
 /** 匹配 `setInterval(`（排除字符串字面量中的提及，见 isInsideStringLiteral） */
 const SET_INTERVAL = /setInterval\s*\(/g;

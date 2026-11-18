@@ -217,6 +217,63 @@ const enWorkspace = {
     allowedCommandsLabel: "Allowed commands:",
     deniedCommandsLabel: "Denied commands:",
     notConfigured: "Not configured",
+    // S3 (2026-11-17): command-execution sandbox switches (settings plan §4 / §11) —
+    // all four fields writable; both risky switches need confirmation; probe facts come from the backend
+    commandSandboxTitle: "Command sandbox (bash / powershell / code_run)",
+    commandSandboxSubtitle:
+      "When enabled, bash / powershell / code_run run inside the platform sandbox; on all three platforms the first version isolates writes only (reads and network stay unrestricted).",
+    commandSandboxEffectiveLabel: "Effective now",
+    commandSandboxEffectiveOff: "Disabled (master switch off)",
+    commandSandboxEffectivePlain:
+      "Not isolated (falls back to plain execution)",
+    commandSandboxEffectiveIsolated: "Isolated (writes restricted)",
+    commandSandboxEffectiveRefuse:
+      "Execution refused (initialisation failed with failClosed on)",
+    commandSandboxHelperReason: "Helper reason code",
+    commandSandboxHelperRunnable: "Runnable probe",
+    commandSandboxYes: "Yes",
+    commandSandboxNo: "No",
+    commandSandboxUnverified: "Not verified",
+    commandSandboxLoading: "Probing sandbox capability…",
+    commandSandboxEnabledLabel: "Enable the command sandbox (master switch)",
+    commandSandboxBashEnabledLabel:
+      "Run bash / powershell / code_run inside the sandbox",
+    commandSandboxFailClosedLabel:
+      "Refuse execution when sandbox initialisation fails (failClosed)",
+    commandSandboxFailClosedHint:
+      "Only affects the sandbox initialisation failure case (exit 125); when off it falls back to plain execution.",
+    commandSandboxApplyHint:
+      "Takes effect for subsequent commands; commands already running in this turn are unaffected.",
+    commandSandboxConfirmBashTitle: "Enable the command sandbox?",
+    commandSandboxConfirmBashBody:
+      "If the sandbox lacks a writable path you need, normal commands will be blocked; if the local helper cannot run, all commands will be refused.",
+    commandSandboxConfirmFailClosedTitle: "Enable failClosed?",
+    commandSandboxConfirmFailClosedBody:
+      "When the helper fails to initialise, commands are refused instead of falling back, so command execution may become unavailable.",
+    commandSandboxConfirmRestoreTitle: "Restore sandbox defaults?",
+    commandSandboxConfirmRestoreBody:
+      "Writes back enabled=true / bashEnabled=false / failClosed=false / no extra writable paths.",
+    commandSandboxConfirmEnable: "Enable anyway",
+    commandSandboxConfirmRestore: "Restore defaults",
+    commandSandboxCancel: "Cancel",
+    commandSandboxUnrunnableWarn:
+      "The helper file exists but cannot be executed (an application-control policy may be blocking it); commands will be refused once enabled.",
+    commandSandboxUnrunnableAck: "I understand, enable anyway",
+    commandSandboxPathsTitle:
+      "Extra writable paths (effective only with bashEnabled)",
+    commandSandboxPathsEmpty: "No extra writable paths",
+    commandSandboxPathPlaceholder: "Absolute path, e.g. E:\\build",
+    commandSandboxAddPath: "Add",
+    commandSandboxRemovePath: "Remove",
+    commandSandboxForceReasonLabel:
+      "This path is inside the application data directory; a reason is required (written to the audit log)",
+    commandSandboxForceReasonPlaceholder:
+      "e.g. the build cache must live inside the application data directory",
+    commandSandboxRetryWithReason: "Retry with reason",
+    commandSandboxRestoreDefaults: "Restore defaults",
+    commandSandboxReprobe: "Probe again",
+    commandSandboxSaveFailed: "Failed to save sandbox configuration",
+    commandSandboxLoadFailed: "Failed to probe sandbox capability",
   },
   help: {
     title: "Help",

@@ -13,6 +13,7 @@ import {
   evaluateContextBudget,
   evaluateGoalBudget,
   evaluateSummaryCharBudget,
+  evaluateCompactionBudget,
   TokenBudgetStatus,
   UNIFIED_THRESHOLDS,
   SUMMARY_MIN_CHARS,
@@ -20,7 +21,7 @@ import {
   type ContextBudgetInput,
   type GoalBudgetInput,
   type SummaryBudgetInput,
-} from '../../src/tokenBudget/BudgetPolicy';
+} from '@modules/tokenBudget/BudgetPolicy';
 
 beforeEach(() => {
   resetBudgetPolicies();
@@ -151,6 +152,53 @@ describe('P2-10 goal.limit（触顶判定）', () => {
       tokenBudget: 100,
     });
     expect(out.ratio).toBe(0.25);
+  });
+});
+
+describe('P2-10 compaction.auto-trigger（压缩触发预算，2026-11-18 追加）', () => {
+  const window = 180000;
+
+  test('budget = 有效窗口 × COMPACT_DEEP；ratio/status 按窗口用量比', () => {
+    const idle = evaluateCompactionBudget({
+      tokenUsage: 0,
+      effectiveContextWindow: window,
+    });
+    expect(idle.scope).toBe('compaction');
+    // 与 `packages/compaction` 的 P1-3-c 同源常量（180k 窗口 ⇒ 153k）
+    expect(idle.budget).toBe(window * UNIFIED_THRESHOLDS.COMPACT_DEEP);
+    expect(idle.ratio).toBe(0);
+    expect(idle.status).toBe(TokenBudgetStatus.NORMAL);
+
+    expect(
+      evaluateCompactionBudget({
+        tokenUsage: window * UNIFIED_THRESHOLDS.WARNING,
+        effectiveContextWindow: window,
+      }).status
+    ).toBe(TokenBudgetStatus.WARNING);
+    expect(
+      evaluateCompactionBudget({
+        tokenUsage: window * UNIFIED_THRESHOLDS.CRITICAL,
+        effectiveContextWindow: window,
+      }).status
+    ).toBe(TokenBudgetStatus.CRITICAL);
+    expect(
+      evaluateCompactionBudget({
+        tokenUsage: window,
+        effectiveContextWindow: window,
+      }).status
+    ).toBe(TokenBudgetStatus.EXCEEDED);
+  });
+
+  test('窗口未知/非正 ⇒ 无法评估（budget=Infinity、ratio undefined、NORMAL，不臆测）', () => {
+    for (const bad of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      const out = evaluateCompactionBudget({
+        tokenUsage: 1000,
+        effectiveContextWindow: bad,
+      });
+      expect(out.budget).toBe(Number.POSITIVE_INFINITY);
+      expect(out.ratio).toBeUndefined();
+      expect(out.status).toBe(TokenBudgetStatus.NORMAL);
+    }
   });
 });
 

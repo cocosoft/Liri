@@ -6,6 +6,8 @@
  */
 import type { MessageBlock } from "@/types";
 import i18n from "@/i18n";
+// 2026-11-12：审批等待提示文案（双端唯一来源）+ 渲染期剥离
+import { stripAwaitingApprovalNotice } from "@shared/types";
 
 /**
  * 会话切换锁：setMessages 期间挂起流式写入，避免 loadSessions 覆盖流式数据。
@@ -73,30 +75,248 @@ export function hasPendingApprovalCard(
 }
 
 /**
- * U-06-5（2026-10-19）：从工具结果 JSON 文本提取审批等待信号。
+ * U-06-5（2026-10-19）：从工具结果**对象或 JSON 文本**提取审批等待信号。
  *
  * `awaiting_approval` 结果由后端返回为结构化 JSON
  * （`{ status: 'awaiting_approval', pendingApproval: true, inboxId }`），
- * 这里只认**结构化字段**（CS02：状态判断不用字符串匹配），非 JSON / 非审批结果返回 null。
+ * 这里只认**结构化字段**（CS02：状态判断不用字符串匹配），非审批结果返回 null。
  */
+export function readApprovalSignal(
+  raw: unknown,
+): { pendingApproval: true; inboxId?: string } | null {
+  let value: unknown = raw;
+  if (typeof value === "string") {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      // 非 JSON（普通文本工具结果）⇒ 无审批信号，非错误路径
+      return null;
+    }
+  }
+  if (typeof value !== "object" || value === null) return null;
+  const rec = value as { pendingApproval?: unknown; inboxId?: unknown };
+  if (rec.pendingApproval !== true) return null;
+  return {
+    pendingApproval: true,
+    inboxId: typeof rec.inboxId === "string" ? rec.inboxId : undefined,
+  };
+}
+
+/** 兼容入口：仅接受 JSON 文本的审批信号解析（既有调用方不变） */
 export function parseApprovalSignal(
   raw: unknown,
 ): { pendingApproval: true; inboxId?: string } | null {
-  if (typeof raw !== "string") return null;
-  try {
-    const parsed = JSON.parse(raw) as {
-      pendingApproval?: unknown;
-      inboxId?: unknown;
-    } | null;
-    if (parsed?.pendingApproval !== true) return null;
-    return {
-      pendingApproval: true,
-      inboxId: typeof parsed.inboxId === "string" ? parsed.inboxId : undefined,
-    };
-  } catch {
-    // 非 JSON（普通文本工具结果）⇒ 无审批信号，非错误路径
-    return null;
+  return typeof raw === "string" ? readApprovalSignal(raw) : null;
+}
+
+/**
+ * 2026-11-12：用**最近一次工具结果**刷新工具卡上的审批等待标记。
+ *
+ * 规则：结果是 `awaiting_approval` ⇒ 置位；任何**终态结果**（成功/失败/普通文本）⇒ 清除。
+ * 原实现只置位、从不清除 ⇒ 批准后同一次调用既显示服务端合成的「已处理」Inbox 卡，
+ * 又保留工具卡上的「等待审批 + 批准/拒绝」按钮 ⇒ 用户看到**两张卡**（真机
+ * `session_mwd632bob8d4318050`：1 个 tool_call、0 次重复执行，卡片却为 2 张）。
+ */
+export function resolveApprovalFlags(rawResult: unknown): {
+  pendingApproval?: boolean;
+  inboxId?: string;
+} {
+  const signal = readApprovalSignal(rawResult);
+  if (signal) {
+    return { pendingApproval: true, inboxId: signal.inboxId };
   }
+  // 终态 ⇒ 显式清除（含 inboxId：就地审批入口随之消失）
+  return { pendingApproval: undefined, inboxId: undefined };
+}
+
+/**
+ * 2026-11-12：同一 toolCallId 的两条工具结果（审批占位 + 批准后的真实结果）谁进映射表。
+ *
+ * 落盘/事件顺序不可靠（占位可能后到）⇒ 不能只靠"后写覆盖"：**终态优先**。
+ */
+export function preferToolResult(
+  previous: string | undefined,
+  next: string,
+): boolean {
+  if (previous === undefined) return true;
+  const prevAwaiting = readApprovalSignal(previous) !== null;
+  const nextAwaiting = readApprovalSignal(next) !== null;
+  // 终态结果一律采用（两条都终态时保持"后写覆盖"）；唯一拒绝：终态已被记下后，占位又迟到
+  return !nextAwaiting || prevAwaiting;
+}
+
+/**
+ * 2026-11-12：该助手消息是否带「等待审批收尾」标记（结构化字段，不解析正文）。
+ *
+ * 标记落盘位置有两处：顶层 `finishReason/terminationReason`（事件派生）与
+ * `metadata.finishReason/terminationReason`（messages.jsonl 持久化形状）。
+ */
+export function isAwaitingApprovalTurn(message: {
+  role?: string;
+  finishReason?: unknown;
+  terminationReason?: unknown;
+  metadata?: Record<string, unknown>;
+}): boolean {
+  if (message.role !== "assistant") return false;
+  const meta = (message.metadata ?? {}) as {
+    finishReason?: unknown;
+    terminationReason?: unknown;
+  };
+  return (
+    message.finishReason === "awaiting_approval" ||
+    message.terminationReason === "awaiting_approval" ||
+    meta.finishReason === "awaiting_approval" ||
+    meta.terminationReason === "awaiting_approval"
+  );
+}
+
+/**
+ * 2026-11-12：把「等待审批」收尾提示从该消息里剥掉（正文 + `text` 块），其余字段原样。
+ *
+ * 为什么要剥：审批处理完（批准/拒绝）后，那句「⏸ 有工具调用正在等待你的审批…」会永久
+ * 留在气泡里，与实际状态（已处理）矛盾。提示改由**审批卡片**在 pending 时给出。
+ * 只在带结构化 `awaiting_approval` 标记的消息上动手，正文其余内容不受影响（CS02）。
+ */
+export function stripStaleApprovalNotice<
+  T extends {
+    role?: string;
+    content?: unknown;
+    blocks?: unknown;
+    finishReason?: unknown;
+    terminationReason?: unknown;
+    metadata?: Record<string, unknown>;
+  },
+>(message: T): T {
+  if (!isAwaitingApprovalTurn(message)) return message;
+  const content =
+    typeof message.content === "string"
+      ? stripAwaitingApprovalNotice(message.content)
+      : message.content;
+  const rawBlocks = message.blocks;
+  const blocks = Array.isArray(rawBlocks)
+    ? rawBlocks.map((b) => {
+        const block = b as { type?: unknown; content?: unknown };
+        if (block?.type !== "text" || typeof block.content !== "string") return b;
+        const next = stripAwaitingApprovalNotice(block.content);
+        if (next === block.content) return b;
+        return { ...(b as Record<string, unknown>), content: next };
+      })
+    : rawBlocks;
+  return { ...message, content, blocks };
+}
+
+/**
+ * 2026-11-17：按 `inboxId` 汇总审批卡状态（只认结构化字段，CS02 不做文案匹配）。
+ *
+ * - `pending`：仍待用户处理；
+ * - `resolved`：已处理 / 已过期（服务端读时合成，非 pending 即视为已落定）。
+ *
+ * 同一 `inboxId` 既出现过 pending 又出现过终态时，终态优先（以最后一次合成状态为准的
+ * 保守口径：只要出现过终态就不再算等待）。
+ */
+export function collectApprovalInboxIds(
+  messages: ReadonlyArray<{ blocks?: MessageBlock[] }>,
+): { pending: Set<string>; resolved: Set<string> } {
+  const pending = new Set<string>();
+  const resolved = new Set<string>();
+  for (const message of messages) {
+    for (const block of message.blocks ?? []) {
+      if (block.type !== "inbox") continue;
+      const inbox = block.inboxData;
+      // 非审批类收件项（如提问）不参与"等待审批"判定
+      if (!inbox || inbox.type !== "approval") continue;
+      const inboxId = inbox.inboxId;
+      if (typeof inboxId !== "string" || !inboxId) continue;
+      if (inbox.status === "pending") {
+        if (!resolved.has(inboxId)) pending.add(inboxId);
+      } else {
+        pending.delete(inboxId);
+        resolved.add(inboxId);
+      }
+    }
+  }
+  return { pending, resolved };
+}
+
+let resolvedInboxIdsCache: {
+  messages: unknown;
+  ids: ReadonlySet<string>;
+} | null = null;
+
+/**
+ * 已处理/已过期审批的 `inboxId` 集合（供工具卡收起 ⏳ 徽标与就地审批按钮）。
+ *
+ * 以 `messages` **数组引用**为缓存键：zustand 更新会替换数组 ⇒ 每次数据变化只算一遍，
+ * 避免每张工具卡各扫一遍全量消息（长会话下是 O(卡片数 × 消息数)）。
+ */
+export function resolvedApprovalInboxIds(
+  messages: ReadonlyArray<{ blocks?: MessageBlock[] }>,
+): ReadonlySet<string> {
+  if (resolvedInboxIdsCache?.messages === messages) {
+    return resolvedInboxIdsCache.ids;
+  }
+  const ids = collectApprovalInboxIds(messages).resolved;
+  resolvedInboxIdsCache = { messages, ids };
+  return ids;
+}
+
+/**
+ * 2026-11-13：会话当前是否处于「等待审批」（**结构化判定**，CS02 禁止文案匹配）。
+ *
+ * 真机 `session_mwdcivrue74d4838ff`：审批卡片已渲染，但浮动栏/任务卡仍显示
+ * 「已完成 1/6」「已结束」⇒ 用户以为任务跑完了。三处信号任一命中即视为等待：
+ *   ① 工具卡 `pendingApproval`（流式 tool_completed / 历史结果合并置位，终态结果会清除）
+ *   ② 服务端读时合成的 `inbox` 审批块 `status='pending'`
+ *   ③ 末条 assistant 的 `awaiting_approval` 收尾标记（事件 / messages.jsonl 双形状）
+ *
+ * ③ 只是兜底：若本轮审批卡已存在且已处理（replied/expired），说明审批已走完，
+ * 不能让历史收尾标记把状态永久挂成"等待审批"。
+ */
+export function hasPendingApproval(
+  messages: ReadonlyArray<{
+    role?: string;
+    blocks?: MessageBlock[];
+    finishReason?: unknown;
+    terminationReason?: unknown;
+    metadata?: Record<string, unknown>;
+  }>,
+): boolean {
+  /**
+   * 2026-11-17（用户实测：提示常驻但审批面板不存在）：
+   * 先按 `inboxId` 对账**审批卡的实际状态**（服务端读时合成 pending / replied / expired），
+   * 再判定工具卡上的 `pendingApproval` —— 审批过期/被拒后不会再写终态工具结果，
+   * 该标记会永久残留；此前先命中它就 return true，从不与卡片状态对账 ⇒ 界面永远「等待审批」。
+   */
+  const { pending: pendingInboxIds, resolved: resolvedInboxIds } =
+    collectApprovalInboxIds(messages);
+  // ① 审批卡仍待处理 ⇒ 会话确实在等用户
+  if (pendingInboxIds.size > 0) return true;
+
+  // ①' 工具卡 pendingApproval：其 `inboxId` 对应的卡已处理/已过期 ⇒ 该标记是残留，跳过
+  for (const message of messages) {
+    for (const block of message.blocks ?? []) {
+      if (
+        block.type !== "tool_call" ||
+        block.toolCall?.pendingApproval !== true
+      )
+        continue;
+      const inboxId = block.toolCall.inboxId;
+      if (typeof inboxId === "string" && resolvedInboxIds.has(inboxId)) {
+        continue;
+      }
+      return true;
+    }
+  }
+
+  // ③ 兜底：若本轮审批卡已存在且已处理（replied/expired），说明审批已走完，
+  // 不能让历史收尾标记把状态永久挂成"等待审批"。
+  if (resolvedInboxIds.size > 0) return false;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === "assistant") {
+      return isAwaitingApprovalTurn(messages[i]);
+    }
+  }
+  return false;
 }
 
 /** 清理全量工具结果缓存（setMessages 加载新会话前调用，防止内存泄漏） */

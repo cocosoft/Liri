@@ -11,7 +11,7 @@
  */
 import { describe, expect, it, afterEach } from 'bun:test';
 
-import { resolveFeatureGate } from '../../src/query/featureGate';
+import { resolveFeatureGate } from '@modules/query/featureGate';
 
 const FLAG = 'SELF_VERIFY_PATTERN' as const;
 
@@ -35,8 +35,12 @@ describe('resolveFeatureGate：env > 用户设置 > feature()', () => {
     expect(resolveFeatureGate(FLAG, () => true)).toBe(true);
   });
 
-  it('无 env + 用户未设置 ⇒ 回落静态默认（SELF_VERIFY_PATTERN 默认 false）', () => {
-    expect(resolveFeatureGate(FLAG, () => undefined)).toBe(false);
+  it('无 env + 用户未设置 ⇒ 回落静态默认（2026-11-16 起 SELF_VERIFY_PATTERN 默认 true）', () => {
+    expect(resolveFeatureGate(FLAG, () => undefined)).toBe(true);
+  });
+
+  it('翻转为默认开后，用户显式关闭仍生效（回退路径）', () => {
+    expect(resolveFeatureGate(FLAG, () => false)).toBe(false);
   });
 
   it('未登记开关 ⇒ 不读用户设置（零行为变化）', () => {
@@ -50,5 +54,46 @@ describe('resolveFeatureGate：env > 用户设置 > feature()', () => {
     expect(resolveFeatureGate('COMPETITIVE_STRATEGY', () => undefined)).toBe(
       false
     );
+  });
+
+  // 2026-11-16：21 模式翻转后登记为「用户可关」的回退路径（env 之外的第二条路）
+  it('TOOL_DISCLOSURE_STRICT / SWARM_VERIFY_RETRY 已登记 ⇒ 用户可关；未设置回落默认 true', () => {
+    expect(resolveFeatureGate('TOOL_DISCLOSURE_STRICT', () => false)).toBe(
+      false
+    );
+    expect(resolveFeatureGate('TOOL_DISCLOSURE_STRICT', () => undefined)).toBe(
+      true
+    );
+    expect(resolveFeatureGate('SWARM_VERIFY_RETRY', () => false)).toBe(false);
+    expect(resolveFeatureGate('SWARM_VERIFY_RETRY', () => undefined)).toBe(
+      true
+    );
+  });
+
+  it('env 对上述两项仍最高优先（运维可强制开启/关闭）', () => {
+    process.env['FEATURE_TOOL_DISCLOSURE_STRICT'] = 'false';
+    process.env['FEATURE_SWARM_VERIFY_RETRY'] = 'false';
+    try {
+      expect(resolveFeatureGate('TOOL_DISCLOSURE_STRICT', () => true)).toBe(
+        false
+      );
+      expect(resolveFeatureGate('SWARM_VERIFY_RETRY', () => true)).toBe(false);
+    } finally {
+      delete process.env['FEATURE_TOOL_DISCLOSURE_STRICT'];
+      delete process.env['FEATURE_SWARM_VERIFY_RETRY'];
+    }
+  });
+
+  // 2026-11-16：启动期续跑三项同为「用户可关」回退路径
+  it('PLAN_STARTUP_RESUME / PLAN_SYSTEM_RESUME / GOAL_STARTUP_RESUME 已登记 ⇒ 用户可关；未设置回落默认 true', () => {
+    const flags = [
+      'PLAN_STARTUP_RESUME',
+      'PLAN_SYSTEM_RESUME',
+      'GOAL_STARTUP_RESUME',
+    ] as const;
+    for (const flag of flags) {
+      expect(resolveFeatureGate(flag, () => false)).toBe(false);
+      expect(resolveFeatureGate(flag, () => undefined)).toBe(true);
+    }
   });
 });

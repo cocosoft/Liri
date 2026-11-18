@@ -8,7 +8,7 @@ import {
   ResourceGovernor,
   getResourceGovernor,
   resetResourceGovernorForTest,
-} from '../../src/resourceGovernor/index';
+} from '@modules/resourceGovernor';
 
 const ENV = 'FEATURE_RESOURCE_GOVERNOR';
 const ORIGINAL = process.env[ENV];
@@ -104,5 +104,47 @@ describe('ResourceGovernor：全局单例', () => {
     expect(getResourceGovernor()).toBe(a);
     resetResourceGovernorForTest();
     expect(getResourceGovernor()).not.toBe(a);
+  });
+});
+
+describe('ResourceGovernor：O2 读数（与开关无关；`/v1/diagnostics/resource-governor` 数据源）', () => {
+  it('开关关 ⇒ 仍观测峰值与撞限次数，但在飞视图恒空（零行为变更）', () => {
+    delete process.env[ENV];
+    const gov = new ResourceGovernor({ maxInflight: 2 });
+    expect(gov.enabled).toBe(false);
+
+    gov.admit({ sessionId: 's1', priority: 'interactive' }); // current=1
+    gov.admit({ sessionId: 's2', priority: 'interactive' }); // current=2 ⇒ 撞限 1
+    gov.admit({ sessionId: 's3', priority: 'interactive' }); // current=3 ⇒ 撞限 2
+
+    expect(gov.observedPeakInflight).toBe(3);
+    expect(gov.observedLimitHits).toBe(2);
+    expect(gov.count()).toBe(0);
+    expect(gov.snapshot()).toEqual([]);
+  });
+
+  it('开关开 ⇒ enabled=true；撞限按**准入次数**计（与日志条数同口径）', () => {
+    process.env[ENV] = 'true';
+    const gov = new ResourceGovernor({ maxInflight: 2 });
+    expect(gov.enabled).toBe(true);
+
+    gov.admit({ sessionId: 's1', priority: 'interactive' });
+    gov.admit({ sessionId: 's2', priority: 'interactive' }); // 撞限 1
+    gov.admit({ sessionId: 's2', priority: 'interactive' }); // 仍在飞 2 ⇒ 撞限 2
+
+    expect(gov.count()).toBe(2);
+    expect(gov.observedPeakInflight).toBe(2);
+    expect(gov.observedLimitHits).toBe(2);
+  });
+
+  it('reset 一并清零峰值与撞限次数', () => {
+    const gov = new ResourceGovernor({ maxInflight: 1 });
+    gov.admit({ sessionId: 's1', priority: 'interactive' });
+    gov.admit({ sessionId: 's2', priority: 'interactive' });
+    expect(gov.observedLimitHits).toBeGreaterThan(0);
+
+    gov.reset();
+    expect(gov.observedPeakInflight).toBe(0);
+    expect(gov.observedLimitHits).toBe(0);
   });
 });

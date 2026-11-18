@@ -33,9 +33,9 @@ import {
   getYieldWaitingStore,
   rebuildYieldWaitingSet,
   setActiveSubagentRunProbe,
-} from '../../session/yield';
+} from '@modules/session/yield';
 // B1-4 验收缝：仅用于类型标注（启动钩子的可注入实例）
-import type { YieldRegistry, YieldWaitingStore } from '../../session/yield';
+import type { YieldRegistry, YieldWaitingStore } from '@modules/session/yield';
 // O9/G14：把本实例的 token 追踪器注册到模块级访问器（供摘要预算等跨模块读取"父当前上下文"）
 import { setUnifiedTokenTracker } from '@modules/tokenBudget';
 // 阶段 A（A1-e）：yield 恢复通路（子代理结算 → 恢复父会话）
@@ -55,8 +55,19 @@ import {
   isIdleContinuationTask,
   resolveIdleContinuation,
 } from '@modules/tasks';
+// D2+（2026-11-14）：重启后未达终态目标的跨会话续接（启动期登记，触发走同一执行器）
+import {
+  isStartupGoalResumeTask,
+  resolveStartupGoalResume,
+} from '@modules/tasks';
 import { takeIdleContinuationInstruction } from '@modules/tasks';
-import { getSubAgentEngine } from '@modules/tools';
+// D3（2026-11-14）：持久 DAG 的重启续跑（计划级；与目标续接**同一执行器**）
+import {
+  isStartupPlanResumeTask,
+  resolveStartupPlanResume,
+} from '@modules/tasks';
+// D7（2026-11-14）：`resolveToolEffect` = 计划影响预演的副作用解析（唯一事实源 tools/toolEffects）
+import { getSubAgentEngine, resolveToolEffect } from '@modules/tools';
 import {
   RecoveryOrchestrator,
   getLineageSize,
@@ -88,7 +99,10 @@ import type {
 import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI.js';
 import type { SessionMetadata } from '@modules/session/types/session.js';
 import type { SessionCheckpoint } from '@modules/session/types/checkpoint.js';
+// D3 三期（2026-11-14）：系统级续跑的门控；2026-11-16 起走用户可配版（env > 设置页 > 默认）
 import { DataSessionStatus } from '@openliri/kernel';
+// 2026-11-16：用户可配门控（设置页可关）—— 只取叶子模块
+import { resolveFeatureGate } from '@modules/query/featureGate';
 import { extractPendingToolCallsFromEvents } from '../utils/pendingToolCalls.js';
 import type { StreamingAutoCheckpoint } from '../services/StreamingAutoCheckpoint.js';
 import type { SessionLifecycleManager } from '../services/SessionLifecycleManager.js';
@@ -350,6 +364,115 @@ export class ChatRecovery {
       //    已完成 / 触顶 / 判停 / 期间又有新结算 ⇒ 该唤醒作废（no-op）；
       // ② 会话**此刻确实空闲**（无在途子代理 run）—— 与 yield 登记守卫同源判据。
       // 注：账户级串行由 `ChatOrchestrator` 的会话 mutex 保证（同会话 turn 不会交错）。
+      // D2+（2026-11-14）：重启续接 —— 与 idle 续接**共用执行器与模板**，闸门不同：
+      // ① 目标仍存在、非终态、归属会话一致，且 `updatedAt` 未变（期间已有推进 ⇒ 陈旧唤醒作废）；
+      // ② 会话此刻确实空闲（与 idle 同一判据）。
+      // D3（2026-11-14）：计划级重启续接 —— 闸门与目标续接同源（仍可续 / 会话空闲），
+      // 差别只在"续跑内容"：注入计划剩余步骤指令，并要求不新建计划。
+      if (isStartupPlanResumeTask(taskId)) {
+        const target = await resolveStartupPlanResume({
+          taskId,
+          resolveEffect: (name) => resolveToolEffect(name)?.sideEffect,
+        });
+        if (!target || target.sessionId !== sessionId) {
+          logger.info(
+            '计划重启续接跳过：计划已不可续（终态 / 陈旧唤醒 / 会话不符）',
+            { sessionId, taskId }
+          );
+          return { ok: false, error: 'plan_not_resumable' };
+        }
+        if (hasActiveRuns(sessionId)) {
+          logger.info('计划重启续接跳过：会话仍忙（有在途子代理 run）', {
+            sessionId,
+            planId: target.planId,
+          });
+          return { ok: false, error: 'session_busy' };
+        }
+        // D3 三期（2026-11-14）：`PLAN_SYSTEM_RESUME` 开 ⇒ 交给执行器**采纳既有计划**；
+        // 未装配 coordinator / 会话忙 / launcher 不可用 ⇒ 回退一期消息注入（不静默丢唤醒）。
+        // 2026-11-16：改读用户可配门控（设置页「计划续跑走执行器」可关；env 优先）。
+        if (resolveFeatureGate('PLAN_SYSTEM_RESUME')) {
+          const coordinator = (
+            this.deps as ChatRecoveryDeps & {
+              _pdcaLaunch?: {
+                resumePlan: (input: {
+                  sessionId: string;
+                  planId: string;
+                  description: string;
+                }) => boolean;
+              };
+            }
+          )._pdcaLaunch;
+          const resumed =
+            coordinator?.resumePlan({
+              sessionId,
+              planId: target.planId,
+              description: target.description,
+            }) ?? false;
+          if (resumed) {
+            logger.info('计划重启续接：系统级续跑已交给 PDL', {
+              sessionId,
+              planId: target.planId,
+              resetSteps: target.resetSteps,
+            });
+            return { ok: true };
+          }
+          logger.warn('计划重启续接：系统级续跑未启动，回退消息注入', {
+            sessionId,
+            planId: target.planId,
+          });
+        }
+        logger.info('计划重启续接执行', {
+          sessionId,
+          planId: target.planId,
+          resetSteps: target.resetSteps,
+        });
+        // 指令经 `resumeSessionInternally → streamMessage` 作为用户消息落盘
+        //（§1.6「模型可见 ⇔ 已落盘」；不新建事件类型）
+        return this.resumeSessionInternally(sessionId, target.instruction, {
+          systemResume: true,
+          planId: target.planId,
+        });
+      }
+      if (isStartupGoalResumeTask(taskId)) {
+        const target = await resolveStartupGoalResume({ taskId });
+        if (!target || target.sessionId !== sessionId) {
+          logger.info(
+            '目标重启续接跳过：目标已不可续（终态 / 陈旧唤醒 / 会话不符）',
+            {
+              sessionId,
+              taskId,
+            }
+          );
+          return { ok: false, error: 'goal_not_continuable' };
+        }
+        if (hasActiveRuns(sessionId)) {
+          logger.info('目标重启续接跳过：会话仍忙（有在途子代理 run）', {
+            sessionId,
+            goalId: target.goalId,
+          });
+          return { ok: false, error: 'session_busy' };
+        }
+        logger.info('目标重启续接执行', {
+          sessionId,
+          goalId: target.goalId,
+          streak: target.streak,
+        });
+        // 与 idle 续接同源：渲染与落盘成对（`goal/injected{channel:'user_message'}`），
+        // 返回正文即注入正文（§1.6 红线：模型看到了什么必须可重建）。
+        const continuationText = await takeIdleContinuationInstruction({
+          sessionId,
+          goalId: target.goalId,
+          objective: target.objective,
+          streak: target.streak,
+          realignToObjective: target.updatedReason === 'manual',
+        });
+        return this.resumeSessionInternally(sessionId, continuationText, {
+          systemResume: true,
+          goalId: target.goalId,
+          idleContinuation: true,
+        });
+      }
       if (isIdleContinuationTask(taskId)) {
         const target = await resolveIdleContinuation({ taskId });
         if (!target) {

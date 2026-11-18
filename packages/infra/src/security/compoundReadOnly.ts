@@ -20,7 +20,7 @@
 import {
   READ_ONLY_BASE_COMMANDS,
   VERSION_ONLY_QUERY_PATTERN,
-  GIT_READ_ONLY_PATTERN,
+  isGitReadOnlyCommand,
 } from './readOnlyCommands';
 
 // P2-3（2026-11-03）：只读基命令 / 版本查询 / git 只读清单收敛到 `readOnlyCommands.ts`
@@ -230,7 +230,7 @@ export function checkCompoundReadOnly(
     const probe = stripHarmlessRedirects(seg);
     if (
       VERSION_ONLY_QUERY_PATTERN.test(probe) ||
-      GIT_READ_ONLY_PATTERN.test(probe)
+      isGitReadOnlyCommand(probe)
     ) {
       cleaned.push(seg);
       continue;

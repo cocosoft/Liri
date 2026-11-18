@@ -32,7 +32,7 @@
 import { describe, expect, it, spyOn } from 'bun:test';
 import { getExecutionManager } from '@openliri/service/execution';
 import { ChatManagerImpl } from '../../src/chat/ChatManager.js';
-import type { ToolResult } from '../../src/session/types/tool.js';
+import type { ToolResult } from '@modules/session/types/tool.js';
 
 /** 被测方法依赖的内部 seam（白盒打桩） */
 interface ManagerSeams {

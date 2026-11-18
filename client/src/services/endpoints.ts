@@ -292,6 +292,8 @@ export const ENDPOINTS = {
     messagesSearch: "/v1/sessions/messages/search",
     batchDelete: "/v1/sessions/batch-delete",
     streaming: (sessionId: string) => `/v1/sessions/${sessionId}/streaming`,
+    /** 只读接入正在输出的这一轮（Spec `.trae/specs/stream-attach.md`）；查询串由调用方拼 */
+    attach: (sessionId: string) => `/v1/sessions/${sessionId}/attach`,
     compact: (sessionId: string) => `/v1/sessions/${sessionId}/compact`,
     prune: "/v1/sessions/prune",
     memory: (sessionId: string) => `/v1/sessions/${sessionId}/memory`,
@@ -591,6 +593,10 @@ export const ENDPOINTS = {
   permissions: {
     rules: "/v1/permissions/rules",
     ruleById: (ruleId: string) => `/v1/permissions/rules/${ruleId}`,
+    /** R0/R5：规则文件健康视图（只读；含规则命中统计 `ruleHits`） */
+    rulesHealth: "/v1/permissions/rules/health",
+    /** R3：一键暂停全部持久化放行（body `{enabled}`） */
+    approvalsPause: "/v1/permissions/approvals/pause",
     /** 细粒度 RBAC：GET 快照 / POST `{command}`（2026-11-11 重新开放） */
     rbac: "/v1/permissions/rbac",
   },
@@ -615,6 +621,8 @@ export const ENDPOINTS = {
   sandbox: {
     config: "/v1/sandbox/config",
     status: "/v1/sandbox/status",
+    /** S0：命令执行沙箱只读探针（诊断面；`?refresh=1` 强制重测） */
+    probe: "/v1/diagnostics/sandbox/probe",
   },
   semantic: {
     index: "/v1/semantic/index",

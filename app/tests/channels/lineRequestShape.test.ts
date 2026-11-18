@@ -5,7 +5,7 @@
  * **端点 + 方法 + 授权头 + JSON 形状**上，fetch 全量 mock（无真实 Token / 无网络）。
  */
 import { describe, expect, it, beforeEach, afterEach } from 'bun:test';
-import { createLineChannel } from '../../src/channels/line/LineChannel';
+import { createLineChannel } from '@modules/channels/line/LineChannel';
 
 interface Call {
   url: string;

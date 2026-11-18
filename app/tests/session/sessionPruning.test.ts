@@ -26,7 +26,7 @@ import {
   DEFAULT_DATA_RETENTION,
   SessionPruning,
   buildPruningConfig,
-} from '../../src/session/SessionPruning';
+} from '@modules/session/SessionPruning';
 
 const dirs: string[] = [];
 

@@ -26,13 +26,13 @@ import {
   scanSourceLeaks,
   stubFromSource,
   type TsCasesRunner,
-} from '../../src/evals/sourceTask';
-import { sourceTaskSpecs } from '../../src/evals/tasks/source-derived';
+} from '@modules/evals/sourceTask';
+import { sourceTaskSpecs } from '@modules/evals/tasks/source-derived';
 import type {
   EvalContext,
   SourceCaseResult,
   SourceTaskSpec,
-} from '../../src/evals/types';
+} from '@modules/evals/types';
 
 const root = resolveEvalRepoRoot();
 const scratchRoots: string[] = [];

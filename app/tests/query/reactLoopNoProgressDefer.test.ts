@@ -14,13 +14,13 @@
  *  4. 熔断收尾文案说明**重复了什么 / 为什么停 / 下一步**，不再是不可操作的冷提示。
  */
 import { describe, test, expect } from 'bun:test';
-import { ReActLoop } from '../../src/query/ReActLoop';
+import { ReActLoop } from '@modules/query/ReActLoop';
 import type {
   ActResult,
   ReasonResult,
   ReActEvent,
   ReActState,
-} from '../../src/query/ReActLoop';
+} from '@modules/query/ReActLoop';
 
 interface TestResult {
   reasonCount: number;

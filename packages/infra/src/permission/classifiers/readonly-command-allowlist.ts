@@ -39,8 +39,10 @@
  */
 
 import {
-  AUTO_MODE_GIT_READONLY_SUBCOMMANDS,
   AUTO_MODE_READONLY_COMMANDS,
+  VERSION_ONLY_QUERY_PATTERN,
+  GIT_READ_ONLY_FORBIDDEN_ARGS,
+  readonlySubcommandsFor,
 } from '@openliri/infra/security';
 import { detectPipeAndRedirect } from './vector-rules.js';
 
@@ -64,6 +66,28 @@ const FIND_DENIED_TOKENS = [
 ];
 
 /**
+ * 只读子命令集合（2026-11-12，P1c）：**唯一来源在 `commandSpecs.ts` 引用的
+ * `readOnlyCommands.ts` 常量**，本文件只取用，不再各留一份字面集合。
+ *
+ * 背景：切换到"未知命令非只读即审批"后，`kubectl get` / `docker ps` / `gh pr view`
+ * 这类纯查询会被误伤；未列出的子命令一律不放行（落审批档）。`git` 同理。
+ */
+const GIT_READONLY = readonlySubcommandsFor('git');
+const KUBERNETES_READONLY = readonlySubcommandsFor('kubectl');
+const DOCKER_READONLY = readonlySubcommandsFor('docker');
+const GH_READONLY = readonlySubcommandsFor('gh');
+
+/** `gh api` 的写侧标记（出现即不放行） */
+const GH_API_WRITE_FLAGS = new Set([
+  '-x',
+  '--method',
+  '-f',
+  '--field',
+  '--raw-field',
+  '--input',
+]);
+
+/**
  * 命令组合 / 展开字符：命中即不放行。
  *
  * `$` 一并拒绝：变量展开（`$HOME/.ssh/...`）会让"字面只读"变成"任意路径只读"，
@@ -85,8 +109,13 @@ function violatesArgumentGuards(
   }
 
   if (name === 'git') {
+    // P3-2（2026-11-16）：参数禁区优先 —— `--output=` / `--ext-diff` / 全局 `-c`（pager 注入）
+    // 等写盘或执行形态，即使子命令在只读集合内也不得短路放行。
+    if (GIT_READ_ONLY_FORBIDDEN_ARGS.test([name, ...args].join(' '))) {
+      return true;
+    }
     const subcommand = lowerArgs[0] ?? '';
-    if (AUTO_MODE_GIT_READONLY_SUBCOMMANDS.has(subcommand)) return false;
+    if (GIT_READONLY.has(subcommand)) return false;
     // `git remote` / `git remote -v|--verbose` 只列举远端，结构上不写；
     // 其余 remote 子动作（add / remove / set-url / prune …）仍不放行。
     if (subcommand === 'remote') {
@@ -98,6 +127,29 @@ function violatesArgumentGuards(
     }
     // 无子命令（只打印帮助）也不放行；其余子命令必须在只读集合内
     return true;
+  }
+
+  // 2026-11-12（P0/P1c）：集群 / 容器 / 代码托管 —— 只放行只读子命令
+  if (name === 'kubectl') {
+    return !KUBERNETES_READONLY.has(lowerArgs[0] ?? '');
+  }
+
+  if (name === 'docker') {
+    return !DOCKER_READONLY.has(lowerArgs[0] ?? '');
+  }
+
+  if (name === 'gh') {
+    const first = lowerArgs[0] ?? '';
+    if (first === 'api') {
+      // `gh api` 默认 GET；出现写侧标记（`-X` / `-f` / `--input` …）即不放行
+      return lowerArgs.some(
+        (arg) =>
+          GH_API_WRITE_FLAGS.has(arg) ||
+          [...GH_API_WRITE_FLAGS].some((flag) => arg.startsWith(`${flag}=`))
+      );
+    }
+    const pair = `${first} ${lowerArgs[1] ?? ''}`.trim();
+    return !GH_READONLY.has(pair);
   }
 
   if (name === 'date') {
@@ -129,6 +181,20 @@ function violatesArgumentGuards(
     );
   }
 
+  if (name === 'measure-object') {
+    // P9-1（2026-11-12）：`-Expression { … }` 会执行脚本块，不算只读。
+    return lowerArgs.some(
+      (arg) => arg === '-expression' || arg.startsWith('-expression:')
+    );
+  }
+
+  if (name === 'select-object') {
+    // P11：计算属性 `-Property @{N='x';E={…}}` 会执行脚本块。
+    return lowerArgs.some(
+      (arg) => arg.includes('@{') || arg.includes('expression=')
+    );
+  }
+
   return false;
 }
 
@@ -140,9 +206,9 @@ function violatesArgumentGuards(
  * deny 累积再升级为 ask（真机 `session_mwah5033f019cafde4` 唯一 1 次 ask 即此来源）。
  *
  * 只放行**不执行代码、不写文件**的形态：
- *  - `node --version` / `node -v`；
- *  - `node --check <file>`（仅语法检查，不运行脚本）；
- *  - `python` / `python3` 的 `--version` / `-V`。
+ *  - 版本查询：`VERSION_ONLY_QUERY_PATTERN` 覆盖的全部命令（含 `npm --version` /
+ *    `java -version` / `go version`）；
+ *  - `node --check <file>`（仅语法检查，不运行脚本）。
  * `-e` / `--eval` / `-p` / `-r` / `-i` / `-m`、直接跑脚本、`-`（stdin）一律不放行。
  */
 function isInterpreterSelfCheck(
@@ -150,18 +216,17 @@ function isInterpreterSelfCheck(
   args: readonly string[]
 ): boolean {
   const lower = args.map((arg) => arg.toLowerCase());
+  // 版本查询：**单一来源** `VERSION_ONLY_QUERY_PATTERN`（P6-3 收敛，含 `java -version`
+  // 与 `go version`）；此前只硬编码 node/python 两种，`npm --version` 等仍转审批。
+  if (VERSION_ONLY_QUERY_PATTERN.test(`${name} ${lower.join(' ')}`.trim())) {
+    return true;
+  }
   if (name === 'node') {
-    if (lower.length === 1 && (lower[0] === '--version' || lower[0] === '-v')) {
-      return true;
-    }
     return (
       lower.length === 2 &&
       lower[0] === '--check' &&
       !lower[1].startsWith('-')
     );
-  }
-  if (name === 'python' || name === 'python3') {
-    return lower.length === 1 && (lower[0] === '--version' || lower[0] === '-v');
   }
   return false;
 }
@@ -174,8 +239,18 @@ function isInterpreterSelfCheck(
 export function checkReadonlyCommand(
   command: string
 ): ReadonlyCommandCheck {
-  const text = command.trim();
+  // P9-2（2026-11-12）：丢弃型重定向（`2>nul` / `>nul` / `>/dev/null`）不改任何文件，
+  // 先剥离再判；否则 `dir /b x 2>nul & dir /b y` 会因 `>` 被判成"会写盘"。
+  const text = command
+    .replace(/\s*2?>\s*(?:nul|\/dev\/null)\b/gi, '')
+    .trim();
   if (!text) return { allowed: false, reason: 'Empty command' };
+
+  // P11（2026-11-12 真机验证）：PowerShell 属性投影段（`(...).version` / `.Prop.Sub`）
+  // 只是取属性，不执行任何命令；此前被当成"未知命令"转审批。
+  if (/^\.[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*$/.test(text)) {
+    return { allowed: true, reason: 'Property projection (no execution)' };
+  }
 
   if (SHELL_COMPOSITION.test(text)) {
     return { allowed: false, reason: 'Command contains shell operators' };

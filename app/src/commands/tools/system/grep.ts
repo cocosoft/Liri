@@ -63,11 +63,148 @@ function buildHelpText(): string {
 }
 
 /**
+ * 解析单个短标志（P3-2，2026-11-16：由 `parseGrepArgs` **原样外移**）。
+ *
+ * @returns 下一个待处理下标；`null` = 不是已登记短标志（调用方按位置参数处理）
+ */
+function parseShortFlag(
+  parts: string[],
+  i: number,
+  options: Record<string, unknown>
+): number | null {
+  const flag = parts[i]![1];
+  const hasNumericCandidate =
+    i + 1 < parts.length && !parts[i + 1]!.startsWith('-');
+  switch (flag) {
+    case 'i':
+      options.caseInsensitive = true;
+      return i + 1;
+    case 'n':
+      options.showLineNumbers = true;
+      return i + 1;
+    case 'C':
+      if (hasNumericCandidate) {
+        const val = parseInt(parts[i + 1]!, 10);
+        if (!isNaN(val) && val >= 0) {
+          options.contextAround = val;
+        }
+        return i + 2;
+      }
+      options.contextAround = 3;
+      return i + 1;
+    case 'B':
+      if (hasNumericCandidate) {
+        const val = parseInt(parts[i + 1]!, 10);
+        if (!isNaN(val) && val >= 0) {
+          options.contextBefore = val;
+        }
+        return i + 2;
+      }
+      return i + 1;
+    case 'A':
+      if (hasNumericCandidate) {
+        const val = parseInt(parts[i + 1]!, 10);
+        if (!isNaN(val) && val >= 0) {
+          options.contextAfter = val;
+        }
+        return i + 2;
+      }
+      return i + 1;
+    default:
+      return null;
+  }
+}
+
+/**
+ * 解析单个长选项（P3-2，2026-11-16：由 `parseGrepArgs` **原样外移**）。
+ *
+ * @returns 下一个待处理下标；`null` = 未知长选项（调用方按位置参数处理）
+ */
+function parseLongOption(
+  parts: string[],
+  i: number,
+  options: Record<string, unknown>
+): number | null {
+  const key = parts[i]!.slice(2);
+  const nextIsValue = i + 1 < parts.length && !parts[i + 1]!.startsWith('-');
+  const val = nextIsValue ? parts[i + 1] : undefined;
+  const advance = val !== undefined ? 2 : 1;
+
+  switch (key) {
+    case 'pattern':
+      if (val !== undefined) {
+        options.pattern = val;
+      }
+      return i + advance;
+
+    case 'outputMode':
+      if (
+        val !== undefined &&
+        ['content', 'files_with_matches', 'count'].includes(val)
+      ) {
+        options.outputMode = val as 'content' | 'files_with_matches' | 'count';
+      }
+      return i + advance;
+
+    case 'headLimit':
+    case 'offset':
+      if (val !== undefined) {
+        const num = parseInt(val, 10);
+        options[key] = isNaN(num) ? undefined : num;
+      }
+      return i + advance;
+
+    case 'contextBefore':
+    case 'contextAfter':
+    case 'contextAround':
+      if (val !== undefined) {
+        const num = parseInt(val, 10);
+        options[key] = isNaN(num) ? undefined : num;
+      }
+      return i + advance;
+
+    case 'context':
+      if (val !== undefined) {
+        const num = parseInt(val, 10);
+        if (!isNaN(num) && num >= 0) {
+          options.contextAround = num;
+        }
+      } else {
+        options.contextAround = 3;
+      }
+      return i + advance;
+
+    case 'searchPath':
+    case 'include':
+    case 'type':
+      if (val !== undefined) {
+        options[key] = val;
+      }
+      return i + advance;
+
+    case 'caseInsensitive':
+    case 'showLineNumbers':
+    case 'multiline':
+      if (val !== undefined && (val === 'false' || val === 'no')) {
+        options[key] = false;
+      } else {
+        options[key] = true;
+      }
+      return i + advance;
+
+    default:
+      return null;
+  }
+}
+
+/**
  * 解析grep命令参数，支持 --option value 和 -x 短标志格式
  * @param args 原始参数字符串
  * @returns 解析后的搜索选项
+ *
+ * P3-2（2026-11-16）：导出以便参数矩阵特征化测试（行为未改）。
  */
-function parseGrepArgs(args: string): {
+export function parseGrepArgs(args: string): {
   options: Record<string, unknown>;
   showHelp: boolean;
 } {
@@ -78,7 +215,7 @@ function parseGrepArgs(args: string): {
 
   const parts = args.trim().split(/\s+/);
   while (i < parts.length) {
-    const part = parts[i];
+    const part = parts[i]!;
 
     // 处理 -h / --help
     if (part === '-h' || part === '--help') {
@@ -87,148 +224,26 @@ function parseGrepArgs(args: string): {
       continue;
     }
 
-    // 处理短标志 -i, -n, -C, -B, -A
+    // 处理短标志 -i, -n, -C, -B, -A（未登记 ⇒ 按位置参数）
     if (part.startsWith('-') && !part.startsWith('--') && part.length === 2) {
-      const flag = part[1];
-      switch (flag) {
-        case 'i':
-          options.caseInsensitive = true;
-          i++;
-          continue;
-        case 'n':
-          options.showLineNumbers = true;
-          i++;
-          continue;
-        case 'C':
-          if (i + 1 < parts.length && !parts[i + 1].startsWith('-')) {
-            const val = parseInt(parts[i + 1], 10);
-            if (!isNaN(val) && val >= 0) {
-              options.contextAround = val;
-            }
-            i += 2;
-          } else {
-            options.contextAround = 3;
-            i++;
-          }
-          continue;
-        case 'B':
-          if (i + 1 < parts.length && !parts[i + 1].startsWith('-')) {
-            const val = parseInt(parts[i + 1], 10);
-            if (!isNaN(val) && val >= 0) {
-              options.contextBefore = val;
-            }
-            i += 2;
-          } else {
-            i++;
-          }
-          continue;
-        case 'A':
-          if (i + 1 < parts.length && !parts[i + 1].startsWith('-')) {
-            const val = parseInt(parts[i + 1], 10);
-            if (!isNaN(val) && val >= 0) {
-              options.contextAfter = val;
-            }
-            i += 2;
-          } else {
-            i++;
-          }
-          continue;
-        default:
-          tokens.push(part);
-          i++;
-          continue;
+      const next = parseShortFlag(parts, i, options);
+      if (next !== null) {
+        i = next;
+        continue;
       }
     }
 
-    // 处理 --long-option 格式
+    // 处理 --long-option 格式（未登记 ⇒ 按位置参数）
     if (part.startsWith('--')) {
-      const key = part.slice(2);
-      const nextIsValue = i + 1 < parts.length && !parts[i + 1].startsWith('-');
-      const val = nextIsValue ? parts[i + 1] : undefined;
-
-      switch (key) {
-        case 'pattern':
-          if (val !== undefined) {
-            options.pattern = val;
-            i += 2;
-          } else {
-            i++;
-          }
-          break;
-
-        case 'outputMode':
-          if (
-            val !== undefined &&
-            ['content', 'files_with_matches', 'count'].includes(val)
-          ) {
-            options.outputMode = val as
-              | 'content'
-              | 'files_with_matches'
-              | 'count';
-          }
-          i += val !== undefined ? 2 : 1;
-          break;
-
-        case 'headLimit':
-        case 'offset':
-          if (val !== undefined) {
-            const num = parseInt(val, 10);
-            options[key] = isNaN(num) ? undefined : num;
-          }
-          i += val !== undefined ? 2 : 1;
-          break;
-
-        case 'contextBefore':
-        case 'contextAfter':
-        case 'contextAround':
-          if (val !== undefined) {
-            const num = parseInt(val, 10);
-            options[key] = isNaN(num) ? undefined : num;
-          }
-          i += val !== undefined ? 2 : 1;
-          break;
-
-        case 'context':
-          if (val !== undefined) {
-            const num = parseInt(val, 10);
-            if (!isNaN(num) && num >= 0) {
-              options.contextAround = num;
-            }
-          } else {
-            options.contextAround = 3;
-          }
-          i += val !== undefined ? 2 : 1;
-          break;
-
-        case 'searchPath':
-        case 'include':
-        case 'type':
-          if (val !== undefined) {
-            options[key] = val;
-          }
-          i += val !== undefined ? 2 : 1;
-          break;
-
-        case 'caseInsensitive':
-        case 'showLineNumbers':
-        case 'multiline':
-          if (val !== undefined && (val === 'false' || val === 'no')) {
-            options[key] = false;
-          } else {
-            options[key] = true;
-          }
-          i += val !== undefined ? 2 : 1;
-          break;
-
-        default:
-          tokens.push(part);
-          i++;
-          break;
+      const next = parseLongOption(parts, i, options);
+      if (next !== null) {
+        i = next;
+        continue;
       }
-    } else {
-      tokens.push(part);
-      i++;
     }
+
+    tokens.push(part);
+    i++;
   }
 
   // 从位置参数提取 pattern 和 searchPath

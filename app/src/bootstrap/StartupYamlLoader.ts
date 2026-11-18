@@ -364,18 +364,11 @@ function validateConfig(raw: Record<string, unknown>): string[] {
   return errors;
 }
 
-/**
- * 将解析后的对象合并到默认配置
- */
-function mergeWithDefault(parsed: Record<string, unknown>): StartupConfig {
-  const config = { ...DEFAULT_STARTUP_CONFIG };
-
-  if (typeof parsed.version === 'number') config.version = parsed.version;
-  if (typeof parsed.mode === 'string')
-    config.mode = parsed.mode as StartupConfig['mode'];
-  if (typeof parsed.debug === 'boolean') config.debug = parsed.debug;
-  if (typeof parsed.verbose === 'boolean') config.verbose = parsed.verbose;
-
+/** P3-2：`modules` 段合并（从 `mergeWithDefault` 逐字外移） */
+function mergeModules(
+  config: StartupConfig,
+  parsed: Record<string, unknown>
+): void {
   if (parsed.modules && typeof parsed.modules === 'object') {
     const m = parsed.modules as Record<string, unknown>;
     const modulesConfig = config.modules as NonNullable<
@@ -385,7 +378,13 @@ function mergeWithDefault(parsed: Record<string, unknown>): StartupConfig {
     if (Array.isArray(m.disabled))
       modulesConfig.disabled = m.disabled as string[];
   }
+}
 
+/** P3-2：`plugins` 段合并 */
+function mergePlugins(
+  config: StartupConfig,
+  parsed: Record<string, unknown>
+): void {
   if (parsed.plugins && typeof parsed.plugins === 'object') {
     const p = parsed.plugins as Record<string, unknown>;
     const pluginsConfig = config.plugins as NonNullable<
@@ -397,7 +396,13 @@ function mergeWithDefault(parsed: Record<string, unknown>): StartupConfig {
     if (Array.isArray(p.blacklist))
       pluginsConfig.blacklist = p.blacklist as string[];
   }
+}
 
+/** P3-2：`gateway` 段合并（含嵌套 `websocket`） */
+function mergeGateway(
+  config: StartupConfig,
+  parsed: Record<string, unknown>
+): void {
   if (parsed.gateway && typeof parsed.gateway === 'object') {
     const g = parsed.gateway as Record<string, unknown>;
     const gatewayConfig = config.gateway as NonNullable<
@@ -416,7 +421,10 @@ function mergeWithDefault(parsed: Record<string, unknown>): StartupConfig {
       if (typeof ws.port === 'number') wsConfig.port = ws.port;
     }
   }
+}
 
+/** P3-2：`ai` 段合并 */
+function mergeAi(config: StartupConfig, parsed: Record<string, unknown>): void {
   if (parsed.ai && typeof parsed.ai === 'object') {
     const a = parsed.ai as Record<string, unknown>;
     const c = config as unknown as Record<string, Record<string, unknown>>;
@@ -424,7 +432,13 @@ function mergeWithDefault(parsed: Record<string, unknown>): StartupConfig {
     if (typeof a.model === 'string') c.ai.model = a.model;
     if (typeof a.baseUrl === 'string') c.ai.baseUrl = a.baseUrl;
   }
+}
 
+/** P3-2：`features` 段合并 */
+function mergeFeatures(
+  config: StartupConfig,
+  parsed: Record<string, unknown>
+): void {
   if (parsed.features && typeof parsed.features === 'object') {
     const f = parsed.features as Record<string, unknown>;
     const c = config as unknown as Record<string, Record<string, unknown>>;
@@ -436,7 +450,13 @@ function mergeWithDefault(parsed: Record<string, unknown>): StartupConfig {
     if (typeof f.terminalProgressBar === 'boolean')
       c.features.terminalProgressBar = f.terminalProgressBar;
   }
+}
 
+/** P3-2：`performance` 段合并 */
+function mergePerformance(
+  config: StartupConfig,
+  parsed: Record<string, unknown>
+): void {
   if (parsed.performance && typeof parsed.performance === 'object') {
     const perf = parsed.performance as Record<string, unknown>;
     const c = config as unknown as Record<string, Record<string, unknown>>;
@@ -445,7 +465,13 @@ function mergeWithDefault(parsed: Record<string, unknown>): StartupConfig {
     if (typeof perf.deferredPrefetch === 'boolean')
       c.performance.deferredPrefetch = perf.deferredPrefetch;
   }
+}
 
+/** P3-2：`security` 段合并 */
+function mergeSecurity(
+  config: StartupConfig,
+  parsed: Record<string, unknown>
+): void {
   if (parsed.security && typeof parsed.security === 'object') {
     const s = parsed.security as Record<string, unknown>;
     const c = config as unknown as Record<string, Record<string, unknown>>;
@@ -456,6 +482,28 @@ function mergeWithDefault(parsed: Record<string, unknown>): StartupConfig {
     if (typeof s.permissionLevel === 'string')
       c.security.permissionLevel = s.permissionLevel;
   }
+}
+
+/**
+ * 将解析后的对象合并到默认配置
+ */
+function mergeWithDefault(parsed: Record<string, unknown>): StartupConfig {
+  const config = { ...DEFAULT_STARTUP_CONFIG };
+
+  if (typeof parsed.version === 'number') config.version = parsed.version;
+  if (typeof parsed.mode === 'string')
+    config.mode = parsed.mode as StartupConfig['mode'];
+  if (typeof parsed.debug === 'boolean') config.debug = parsed.debug;
+  if (typeof parsed.verbose === 'boolean') config.verbose = parsed.verbose;
+
+  // P3-2（复杂度清理）：各 section 合并逐块外移（类型守卫与覆盖口径逐字未变）
+  mergeModules(config, parsed);
+  mergePlugins(config, parsed);
+  mergeGateway(config, parsed);
+  mergeAi(config, parsed);
+  mergeFeatures(config, parsed);
+  mergePerformance(config, parsed);
+  mergeSecurity(config, parsed);
 
   return config;
 }

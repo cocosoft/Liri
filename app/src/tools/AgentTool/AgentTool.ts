@@ -22,7 +22,7 @@ import {
 } from '../types/Tool';
 import { ToolResult, ToolExecutionStatus } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
-import { WorkspaceGit } from '../../workspaces/WorkspaceGit';
+import { WorkspaceGit } from '@modules/workspaces/WorkspaceGit';
 import {
   AGENT_TOOL_NAME,
   LEGACY_AGENT_TOOL_NAME,

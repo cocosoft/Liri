@@ -11,8 +11,8 @@
 
 | 子系统 | 规模 | 已核到的活消费者 |
 |---|---|---|
-| [`app/src/compaction/`](../app/src/compaction) | **23 个文件** | `chat/ChatManager.ts:327`、`chat/services/ContextCompactor.ts:33`、`query/ContextCollapse.ts:9`、`query/ReactiveCompact.ts:12`、`session/compaction/ServiceAdapters.ts:1`、`commands/builtin/compact/Compact.ts:15` |
-| [`app/src/context/compaction/`](../app/src/context/compaction) | 7 个文件 | `@modules/context` 的 `compactionOrchestrator`（被 `chat` / `query` 消费） |
+| [`packages/compaction/src/compaction/`](../../packages/compaction/src/compaction) | **23 个文件** | `chat/ChatManager.ts:327`、`chat/services/ContextCompactor.ts:33`、`query/ContextCollapse.ts:9`、`query/ReactiveCompact.ts:12`、`session/compaction/ServiceAdapters.ts:1`、`commands/builtin/compact/Compact.ts:15` |
+| [`app/src/context/compaction/`](../../app/src/context/compaction) | 7 个文件 | `@modules/context` 的 `compactionOrchestrator`（被 `chat` / `query` 消费） |
 
 **命名几乎一一对应**，这本身就是"同义重复实现"的强信号：
 
@@ -99,4 +99,7 @@
    - 移除 [`postCompactCleanup.ts`](../app/src/compaction/postCompactCleanup.ts) 对 `resetMicrocompactState()` 的调用（微压缩已不存在 ⇒ **无状态可重置**；理由已写入该文件注释，并更正其原先"不删除现有代码"的措辞）。
    - **验收**：`typecheck` **0** · `eslint` **0** · `prettier` ✓ · 相关 4 测试 **21 pass / 0 fail** · `lint:arch` **0 错 1 警**（**检查文件 3679 → 3677**，与再删 2 文件一致）。
 
-3. ⏳ **`compaction` 纳入 `BudgetPolicy` 登记面** —— 未做（因 P1-3-c 已统一比例，优先级下降）。
+3. ✅ **`compaction` 纳入 `BudgetPolicy` 登记面**（P1-3 的 d 项 / D-6-b）—— **已收口（2026-11-18）**：新增
+   `compaction.auto-trigger` 策略（`budget = 有效窗口 × COMPACT_DEEP`，阈值引用 `UNIFIED_THRESHOLDS`），
+   **只读登记、零行为变更**（`utils.ts` 未动；手动压缩的绝对余量有意不比例化）。
+   详见 [`budget-policy-layer.md §6.6`](./budget-policy-layer.md)。

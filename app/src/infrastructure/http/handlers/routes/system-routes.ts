@@ -16,6 +16,10 @@ import {
   isEstopEngaged,
   getEstopState,
 } from '@openliri/infra/runtimeHost';
+import {
+  hasShutdownRequester,
+  requestGracefulShutdown,
+} from '../../shutdownRequest';
 
 /**
  * dispatchSystemRoutes — 系统领域路由分发
@@ -56,7 +60,36 @@ export async function dispatchSystemRoutes(
     return true;
   }
 
+  // 2026-11-12：优雅关闭入口（Windows 上结束进程不投递信号 ⇒ 提供 HTTP 触发）
+  if (method === 'POST' && url === '/v1/system/shutdown') {
+    await handleShutdownRequest(res);
+    return true;
+  }
+
   return false;
+}
+
+/**
+ * POST /v1/system/shutdown — 触发优雅关闭（flush 事件缓冲 + 写 cleanShutdown 标记后退出）
+ *
+ * 两段式：先 `202 Accepted` 再触发关闭链 —— 关闭链第一步就是 `forceCloseSync()`
+ * （立即释放端口），顺序颠倒会让调用方收到连接重置而非"已受理"。
+ * 宿主未注册关闭链（单测 / 非入口模式）⇒ `503`，不得假装已受理。
+ */
+export async function handleShutdownRequest(
+  res: http.ServerResponse
+): Promise<void> {
+  if (!hasShutdownRequester()) {
+    json(res, 503, {
+      error: { message: 'graceful shutdown is not wired in this host' },
+    });
+    return;
+  }
+  json(res, 202, { status: 'shutting_down' });
+  // 延后一拍：确保响应已写出（关闭链会同步强关 HTTP 连接）
+  setImmediate(() => {
+    requestGracefulShutdown();
+  });
 }
 
 /**

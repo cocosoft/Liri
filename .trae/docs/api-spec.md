@@ -48,7 +48,7 @@
 
 ## §2 Tauri IPC 命令清单（Rust → 前端）
 
-**定义位置**: [client/src-tauri/src/lib.rs](file:///e:/PY/CODES/PY_APP/client/src-tauri/src/lib.rs) `invoke_handler`
+**定义位置**: [client/src-tauri/src/lib.rs](file:///e:/PY/Documents/CODES/PY_APP/client/src-tauri/src/lib.rs) `invoke_handler`
 
 ### §2.1 已注册命令（22个）
 
@@ -92,8 +92,8 @@
 ## §3 HTTP API 清单（Node.js 后端 → 前端）
 
 **定义位置**:
-- 主路由: [LocalHTTPService.ts](file:///e:/PY/CODES/PY_APP/app/src/infrastructure/http/LocalHTTPService.ts)
-- 子路由: [ModelManagementAPI.ts](file:///e:/PY/CODES/PY_APP/app/src/ai/ModelManagementAPI.ts)（通过 `tryHandleRoute` 挂载）
+- 主路由: [LocalHTTPService.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/infrastructure/http/LocalHTTPService.ts)
+- 子路由: [ModelManagementAPI.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/ai/ModelManagementAPI.ts)（通过 `tryHandleRoute` 挂载）
 
 ### §3.1 系统
 
@@ -101,10 +101,12 @@
 |------|------|----------|-----------|
 | GET | `/health` | ✅ | `chatService.checkHealth`（免认证） |
 | GET | `/v1/events` | ✅ | 无明确前端调用方（SSE 事件总线） |
+| POST | `/v1/events/external` | ✅ **2026-11-14 新增（默认关）** | 外部系统推送入口（D1）：头 `X-Liri-Signature: sha256=<hex>`（HMAC-SHA256，密钥 `LIRI_EXTERNAL_EVENT_SECRET`）、`X-Liri-Event-Id`（幂等键，必填）、`X-Liri-Thread-Id`（可选串行域）；body 为 JSON 对象。成功 `202 {success,eventId}`；`503 EXTERNAL_EVENTS_DISABLED`（流水线未启用）/ `401` 签名不符 / `409` 重复 / `429` 超速率 / `413` 超 64KB。未启用 `autonomy.policy.sources.external` 时端点恒 503（零行为） |
 | POST | `/v1/system/sleep/resolve` | ✅ **2026-08-14 新增** | `systemService.resolveSleep`（休眠恢复用户决策，body `{ runMissed: boolean }`） |
 | GET | `/v1/system/estop` | ✅ **2026-09-02 新增** | `systemService.getEstopStatus`（全局急停状态，响应 `{ engaged, state: { reason?, engagedAt? } \| null }`） |
 | POST | `/v1/system/estop` | ✅ **2026-09-02 新增** | `systemService.engageEstop`（启用全局急停，body `{ reason? }`；暂停新消息/新 cron，不杀进行中的） |
 | DELETE | `/v1/system/estop` | ✅ **2026-09-02 新增** | `systemService.disengageEstop`（解除全局急停） |
+| POST | `/v1/system/shutdown` | ✅ **2026-11-12 新增** | 优雅关闭（先 `202 {status:"shutting_down"}`，再执行与 SIGINT/SIGTERM 相同的关闭链：flush 事件缓冲 + 为可中断会话写 `cleanShutdown` 标记后退出；宿主未接线 ⇒ `503`）。供 Windows 等"结束进程不投递信号"的平台使用 |
 
 ### §3.2 模型
 
@@ -500,6 +502,10 @@ body `{ objective?: string（trim 非空）, tokenBudget?: number（正有限数
 
 ### §3.15 配置
 
+> `PUT /v1/config/{key}` 是**通用配置段写入**。其中 `permission` 段只承载 B 体系命令黑白名单、
+> 受信任工作区与信任档；工具规则（A 体系）唯一写入口为 `/v1/permissions/rules`
+> （混写工具规则字段会 400，见 §3.23.1「写入口分工」）。
+
 | 方法 | 路径 | 后端状态 | 前端调用方 |
 |------|------|----------|-----------|
 | GET | `/v1/config` | ✅ | `configService.list` |
@@ -648,15 +654,38 @@ body `{ objective?: string（trim 非空）, tokenBudget?: number（正有限数
 > 无 token 的本地回环基线放行；无效 token ⇒ 401；会话无 `admin` 权限 ⇒ 403；
 > 暴露部署（非回环绑定 / headless）下管理面**恒**要求有效 Bearer（不受 `FEATURE_REQUIRE_BEARER` 灰度影响）。
 > RBAC 与 `tool_rules.json` 同为**实例级策略**（不按租户存储）。
+>
+> **写入口分工（R1，2026-11-17）**：工具规则（A 体系，落 `tool_rules.json`）的**唯一**写入口是
+> `POST/DELETE /v1/permissions/rules`；`PUT /v1/config/permission` 承载的是 **B 体系**命令黑白名单、
+> 受信任工作区与信任档（`config.json#permission`），**不是**工具规则入口。
+> 后端对 `permission` 段中出现的工具规则字段（`contentPattern` / `inputFingerprint` /
+> `workspaceRoot` / `behavior`）直接 **400** 并返回 `writeEntry`，防止出现"改 A 生效 B"的第二套存储。
 
 | 方法 | 路径 | 后端状态 | 前端调用方 |
 |------|------|----------|-----------|
-| GET | `/v1/permissions/rules` | ✅ | `permissionService.listRules`（设置页） |
-| POST | `/v1/permissions/rules` | ✅ | `permissionService.addRule` |
-| DELETE | `/v1/permissions/rules/{ruleId}` | ✅ | `permissionService.deleteRule` |
+| GET | `/v1/permissions/rules` | ✅ | `permissionService.listRules`（设置页；R3 起返回 `approvalRules` 分组 + `approvalPause{enabled,global,sessions,workspaces,configKey}` 状态，每条含 `origin/approvedAt/approvedBy/hitCount/lastHitAt`；R5 起含 `unknownCommandSuggestions`（本周未收录命令摘要，无样本 ⇒ `null`）与 `allowBudget{limit,used}`、`commandRules`（B 体系只读视图，未配置 ⇒ `null`）） |
+| POST | `/v1/permissions/rules` | ✅ | `permissionService.addRule`（冲突 409 + `conflicts`；`force=true` 才「后写为准」；R5 起写前影响预演，把基准命令从 ask/allow 变 deny ⇒ 409 `code=impact` + `impact`，需 `confirmImpact=true`） |
+| PUT | `/v1/permissions/rules/{ruleId}` | ✅ | `permissionService.updateRule`（设置页工具级行为变更走单次原子写；只允许改 `behavior` / `contentPattern` + `confirmImpact`；审批规则 403；冲突/重复/损坏/影响预演 409） |
+| DELETE | `/v1/permissions/rules/{ruleId}` | ✅ | `permissionService.deleteRule`（不存在 ⇒ 200 幂等；审批规则删除 = 撤销放行） |
+| GET | `/v1/permissions/rules/health` | ✅ | `permissionService.getRulesHealth`（设置页「检查规则健康」；R0 只读：规则文件 hash/外部修改/损坏/冲突；R5 起含 `ruleHits`（`staleDays/countingSince/observationDays/observationComplete/staleRules[]`，观察期不足 90 天 ⇒ 不报未命中）） |
+| POST | `/v1/permissions/rules/simulate` | ✅ | 无前端调用方（R0 只读模拟：命中规则 + 最终 allow/ask/deny，不执行工具） |
+| GET | `/v1/permissions/rules/export` | ✅ | 无前端调用方（R2b 备份：`{version:1, exportedAt, rules}`，**不含**审批卡生成的指纹 / 工作区信任规则） |
+| POST | `/v1/permissions/rules/import` | ✅ | 无前端调用方（R2b 回灌：body `{rules:[{behavior,toolName,contentPattern?}]}`；先全量校验再落盘，重复跳过、冲突/非法/预算 ⇒ 零写入） |
+| POST | `/v1/permissions/approvals/pause` | ✅ | `permissionService.updateApprovalPause`（设置页开关；body `{enabled:boolean}`=旧形状只改全局，或 `{global?:boolean, sessions?:string[], workspaces?:string[]}` 整体写入 ⇒ `permission.pauseApprovalPersistence`；暂停后审批规则不参与判定、也不再新增，仍可逐条撤销；`sessions`/`workspaces` 只影响命中的会话 / 工作区根（根由服务端归一化后比较）） |
 | GET | `/v1/permissions/metrics` | ✅ | 无前端调用方 |
 | GET | `/v1/permissions/rbac` | ✅ | `permissionService.getRbac`（权限页 RBAC 面板；**需 admin**） |
 | POST | `/v1/permissions/rbac` | ✅ | `permissionService.runRbac`（body `{command}`，经 CommandsOpsPort 复用 CLI 实现；**需 admin**） |
+
+### §3.23.2 命令执行沙箱（只读诊断）
+
+> S0（2026-11-17）：设置页需要如实回答"当前配置下命令会不会真的被沙箱约束"。
+> 判定与执行链**同一来源**（`decideBashLandlockGate`），本接口**只读**：
+> 不写配置、不改判定；`?refresh=1` 清探测器缓存后重测（默认用缓存）。
+> 覆盖范围：同一组开关管 `bash` / `powershell` / `code_run`，且三平台首版**只隔离写**。
+
+| 方法 | 路径 | 后端状态 | 前端调用方 |
+|------|------|----------|-----------|
+| GET | `/v1/diagnostics/sandbox/probe` | ✅ | 无前端调用方（返回 `effective` + `helper.present/runnable` + 机读 `reasonCode`；Windows 无 `--probe` 契约为 `runnable:null`） |
 
 ### §3.24 认证
 
@@ -784,8 +813,8 @@ data: {"type":"done","result":{...}}
 | **GET** | `/v1/inbox` | 列出 Inbox 项（支持 ?sessionId=&status=&type=&limit=&offset=） |
 | **GET** | `/v1/inbox/count` | 获取待处理数量（支持 ?sessionId=） |
 | **GET** | `/v1/inbox/:id` | 获取单个 Inbox 项 |
-| **POST** | `/v1/inbox/:id/reply` | 回复 Inbox 项（body: { reply, selectedOption? }）。**M2-T2.1**：批准类答复（approve/allowlist_tool/allowlist_command）由后端 fire-and-forget 续跑——checkpoint/resume 优先，无自动检查点时从 events.jsonl 尾部重建未完成 turn（已答工具跳过，对齐 openworker `_unanswered_trailing_tool_calls`）；前端不再负责续跑决策。双渠道并发答复由 DB 级 CAS（pending→processing）保证 first-responder-wins，二次答复返回 `already_processed`/`concurrent_conflict` |
-| **POST** | `/v1/inbox/approve-all` | **P1-1（2026-11-06）批量审批**：body `{ sessionId, reply?（缺省 approve）, toolName? }` ⇒ 落地该会话全部 `type=approval` 的 pending 项，**只触发一次**续跑（逐项 `deferResume`，避免 N 次续跑争会话互斥）。返回 `{ applied, sessionId, resolved[], skipped[{id,kind}], resumed }`；`applied=false` 表示无一项落地（全过期/已处理） |
+| **POST** | `/v1/inbox/:id/reply` | 回复 Inbox 项（body: { reply, selectedOption? }）。**M2-T2.1**：批准类答复（approve/allowlist_tool/allowlist_command/allowlist_workspace_command）由后端 fire-and-forget 续跑——checkpoint/resume 优先，无自动检查点时从 events.jsonl 尾部重建未完成 turn（已答工具跳过，对齐 openworker `_unanswered_trailing_tool_calls`）；前端不再负责续跑决策。**G3（2026-11-14）**：`allowlist_workspace_command` = 命令级「本工作区永久信任」（精确命令文本 `^…$` + 工作区根作用域，写入 `tool_rules.json`）。双渠道并发答复由 DB 级 CAS（pending→processing）保证 first-responder-wins，二次答复返回 `already_processed`/`concurrent_conflict` |
+| **POST** | `/v1/inbox/approve-all` | **P1-1（2026-11-06）批量审批**：body `{ sessionId, reply?（缺省 approve）, toolName?, ids? }` ⇒ 落地该会话 `type=approval` 的 pending 项，**只触发一次**续跑（逐项 `deferResume`，避免 N 次续跑争会话互斥）。**B8（2026-11-18）**：`ids` 为前端「逐条勾选」的选中集合（非空时只落地选中项，未选中的卡保持 pending；上限 50 条）。返回 `{ applied, sessionId, resolved[], skipped[{id,kind}], resumed }`；`applied=false` 表示无一项落地（全过期/已处理） |
 
 **InboxItem 数据结构**：
 ```json

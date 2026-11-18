@@ -11,8 +11,10 @@
 import { describe, expect, it } from 'bun:test';
 import { readdirSync, readFileSync, type Dirent } from 'node:fs';
 import { join, relative } from 'node:path';
+// P0（2026-11-13）：通道源码位置走单一事实源（搬包后本文件零改动）
+import { channelPath } from '../../../scripts/lib/channelPaths';
 
-const CHANNELS_DIR = join(import.meta.dir, '../../src/channels');
+const CHANNELS_DIR = channelPath(join(import.meta.dir, '../../..'));
 
 /** `.slice(0, <任意>.maxMessageLength)` —— 截断反模式（`content.slice(0, 80)` 这类预览不算） */
 const TRUNCATION_RE = /\.slice\(\s*0\s*,\s*[\w.]*maxMessageLength\s*\)/;

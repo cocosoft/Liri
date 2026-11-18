@@ -203,6 +203,82 @@
 - ✅ **macOS 假红** - `mobilePairing` 用例不再用 1ms TTL 与 runner 时钟赛跑
 <!-- EVIDENCE-VIEWS:END -->
 
+#### v0.6.2 (2026-11-14)  CI 测试平台化修正（Linux / macOS 必红）
+
+- ✅ **平台相关断言**：`cliSigning` 的参数解析用例把产物名**硬编码为 win32** ⇒ Linux / macOS runner 必红；
+  改为与 `defaultOutfile()` 比对（跟运行平台走）。
+- ✅ **验证**：本机全量 `bun test` **12,013 用例 / 11,969 pass / 44 skip / 0 fail**；`tsc` 0。
+- ✅ **统计**：自 v0.6.1 起 2 条实质提交（fix 1 · chore 1）。
+
+#### v0.6.1 (2026-11-14)  首发 CI 修复：断环 · BashTool cwd 回归 · macOS Intel 产物
+
+- ✅ **循环依赖归零**：`isNonTerminalStep` 抽到 `tasks/plan/planStepStatus.ts`，`planStartupResume` 与
+  `planImpactPreview` 不再互相 import（`madge --circular` 由 1 → **0**，CI 静态检查恢复）。
+- ✅ **BashTool cwd 回归**：审批指纹路径的裸 `process.cwd()` 改为 `safeProcessCwd()` ——
+  进程工作目录被删除/移走时不再抛 `ENOENT` 逃逸，恢复「无法确定工作目录」友好失败
+  （`bashCwdInvalid` 5 用例全绿；macOS / Windows CI 实测复现）。
+- ✅ **macOS Intel 产物**：`build-cli-binary` 支持 `--target`（Bun 交叉编译），macOS 作业补
+  `bun-darwin-x64`；`SHA256SUMS` 改为**合并**（build / sign 两处），同目录多产物不再互相覆盖。
+- ✅ **脚本门禁**：`scripts/**` 按 `eslint.scripts.config.js` 格式化（v0.6.0 首跑 `lint:scripts`
+  的 17 处 prettier 归零）。
+- ✅ **验证**：全量 `bun test` 12,013 用例中 11,968 pass / 44 skip / 1 fail（即上述 cwd 回归，已修，
+  单测复验 5/5）；`tsc` 0；`lint` 0 error；`madge` 0 环；`lint:scripts` 0 error。
+- ✅ **统计**：自 v0.6.0 起 2 条实质提交（fix 1 · chore 1）。
+
+#### v0.6.0 (2026-11-14)  「建议落地」方案 12 项：规划续跑 · CLI 分发 · 悬浮窗全套 · 知识与演化
+
+- ✅ **D1 外部事件适配器**：webhook → 既有事件源 → 工作项（复用事件总线，不新建第三套）。
+- ✅ **D2/D3 重启续跑**：目标跨会话续接（`GOAL_STARTUP_RESUME`）与计划重启续跑（`PLAN_STARTUP_RESUME`）；
+  三期把续跑接到**系统级执行器**（`PLAN_SYSTEM_RESUME`，`PlanDrivenLoop` 采纳既有计划，已完成步骤不重做、
+  失败/取消步骤不重跑）；三个开关**默认关**并三处登记。
+- ✅ **D4 负载感知路由 + Council 按议题选人**：`rankAgentsByLoad` / `selectAgentsForTopic`（确定性、fail-open；
+  负载维度接入与置信度事实源仍未做）。
+- ✅ **D7 影响预演与副作用录制**：`/plan preview` 只读预演（选定计划 / 受影响工具 / 产物 / 风险定级）；
+  副作用录制给文件变更加上**工具名与计划/步骤归属**（`planId`/`stepId`），预演可追加该计划的真实文件副作用；
+  快照不可读只影响附加段落，不阻断主结论。
+- ✅ **D8/D10 知识与演化**：`kg_edges` 最小本体层（关系规范化 + 非法关系拒绝）、成功轨迹蒸馏为 SOP 草案
+  （**人工批准后**才注册技能）。
+- ✅ **G2 CLI 分发（5 期）**：Scoop / Homebrew / npm 三渠道清单生成；单文件二进制（`bun build --compile` +
+  `SHA256SUMS`）；三平台 CI 矩阵 + 可选签名接线（未配凭据如实跳过）；standalone 清单（去 bun 前置）；
+  npm 按平台分包（`@openliri/cli-*`，主包零依赖），legacy 渠道改名 `openliri-bun` 让出 `openliri`。
+- ✅ **G3/G4/G5/G6**：命令级「本工作区永久信任」审批档、`/rewind` 改接既有截断 + 文件级联回滚、
+  `/preferences` 统一查看/修改偏好、手机端审批联动（审批卡片 + 按钮回写）。
+- ✅ **G8 悬浮窗（6 期）**：零依赖浮窗 + 托盘入口 + **系统级** `Ctrl+Shift+F`（`tauri-plugin-global-shortcut`）+
+  几何记忆与多显示器边界校正 + 当前会话/运行中目标 + 点击穿透（退出复用既有快捷键，不新增系统级组合键）。
+- ✅ **其他**：A2A 载荷不确定性与推理轨迹字段（D5，默认不发）、onboard 一键接入本机 Ollama / LM Studio / LocalAI（免 Key）。
+- ✅ **验证**：前端 `tsc` / `eslint` 绿、`vitest` **141 文件 / 990 用例**；后端门禁
+  `lint` / `lint:arch` / `lint:infra` / `lint:state-ratchet` / `lint:consts` / `lint:size` / `lint:fn-size` /
+  `lint:kernel` / `lint:doc-code` 全绿。
+- ✅ **真机验证受阻（如实）**：本机 Windows「智能应用控制」阻止 `rustc.exe`（CodeIntegrity 3077/3033/3118，
+  退出码 `0xC0E90002`）⇒ GUI 项（快捷键/几何/穿透）待解除阻断或由 CI 构建后验证；CLI 单文件二进制的
+  运行验证同样受该策略限制。
+- ✅ **统计**：自 v0.5.28 起 33 条实质提交（feat 29 · fix 2 · docs 2）。
+
+#### v0.5.28 (2026-11-14)  app 层 20 个模块物理拆包与包边界门禁收口
+
+- ✅ **物理拆包（20 轮）**：`app/src` 内 20 个模块逐轮 `git mv` 至 `packages/<pkg>/src/<module>`，import 说明符保持 `@modules/<module>` 不破面；
+  `packages/` 现 23 个包（core 1 · infra 1 · service 2 · app 19）。
+- ✅ **逐包质量门禁**：新增 20 个逐包 ESLint 配置与 `lint:<pkg>` 脚本，`lint:gate-parity` 校验覆盖，CI 门禁 **78 条**（77 覆盖 + 1 登记豁免 `test:guarded`）。
+- ✅ **包边界规则**：`lint:infra` 扩至 **R1–R28**（跨包逃逸、桶出口单一、依赖方向、行宽/行数、infra 内环棘轮），负向自证（探针 2 条违规 exit 1 → 删除后复绿）。
+- ✅ **基线同步**：state-literal / hardcode / logger-name / kernel-api-surface / evidence 基线键随迁包一次迁移；
+  `scripts/modules-to-layers.json` 零改动（层归属按模块名延续）。
+- ✅ **验证**：`typecheck` 0；全量 `bun test` 11,775 pass / 44 skip / 0 fail；`bun run ci` exit 0；
+  远端 CI Test / Kernel CI / Doc Gate / Deploy Docker 全绿（`084dfaf11`）。
+- ✅ **启动修复**：非 TTY 首次运行分支补判 AI 配置态（`isAIConfigured()` → `setOfflineMode(false)`），
+  消除「AI 对话功能不可用」假阴性提示（真机实测：实际可对话）。
+- ✅ **文档治理**：README / AGENTS / 规则与架构文档按物理包路径订正；补齐规则文件索引 5 项、
+  `CS01–CS08` / `R00–R15` 口径、包边界门禁 R9–R28 命名空间说明；修正 14 处失效绝对根路径。
+- ✅ **统计**：自 v0.5.27 起 27 条实质提交（fix 12 · feat 7 · refactor 5 · chore 2 · docs 1）。
+
+#### v0.5.27 (2026-11-12)  命令治理与审批链路收口
+
+- ✅ **命令治理（P0–P8）**：权限三档语义收敛（未收录命令 ⇒ 审批；重定向/复合命令的只读子形态随整族 deny）、封堵 8 类令牌逃逸与 launcher 版本参数绕过、只读诊断与 JSON 处理不再误拦、策略漂移门禁解析失败 fail-closed。
+- ✅ **审批链路**：拒绝后写回「已拒绝」终态并自动续跑（模型可改道）；不再重放未落定的审批；批准后不再残留重复卡；审批卡按 `toolCallId` / 轮次归位（不再跨轮错位）；待审批卡不再显示「已写入」。
+- ✅ **会话与流式**：流式期间不再闪现「等待审批」旧提示；正常工具轮不再误报「该回复生成中断」；续跑轮补齐 `turn/start` … `turn/end` 包裹；`maxTurn` 缓存随写入前进（启停后轮号不再回退）。
+- ✅ **门禁与 CI**：修正命令覆盖率门禁在仓根 cwd 下的脚本路径（此前 CI 恒红）；两个 ≥100 复杂度离群函数纯搬运拆分，棘轮由 8 回到基线 6。
+- ✅ **跨平台测试**：工作区外落盘用例改用平台分隔符（POSIX 上 `..\..` 只是普通文件名），ubuntu / macos 不再红。
+- ✅ **验证**：CI Test / Doc Gate / Deploy Docker 全绿（`5c4ddab20`）；自 v0.5.26 起 118 条实质提交（fix 56 · feat 31 · refactor 13 · test 7 · chore 6 · docs 3）。
+
 #### v0.5.26 (2026-11-10)  demand 许愿式模式、阶段契约与失败归因
 
 - ✅ **demand 许愿式自主度**：新增会话自主度 `demand`（只给目标、不写步骤）；澄清问题上限一条；运行中消息并入当前计划；简单目标按规模分流到 PDL 快路径（单步 / 分解 / 直执行），复杂目标仍走阶段链。

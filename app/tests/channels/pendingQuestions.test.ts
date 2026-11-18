@@ -11,9 +11,9 @@ import {
   peekPendingQuestion,
   registerPendingQuestion,
   removePendingQuestion,
-} from '../../src/channels/routing/pendingQuestions.js';
-import { routeChannelMessage } from '../../src/channels/routing/messageRouter.js';
-import type { MessageContext } from '../../src/channels/types/IChannel.js';
+} from '@modules/channels/routing/pendingQuestions.js';
+import { routeChannelMessage } from '@modules/channels/routing/messageRouter.js';
+import type { MessageContext } from '@modules/channels/types/IChannel.js';
 
 let seq = 0;
 function makeMessage(overrides: Partial<MessageContext> = {}): MessageContext {

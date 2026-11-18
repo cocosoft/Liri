@@ -1,7 +1,7 @@
 /**
  * 性能基准测试套件
  * 使用 bun:test + perf_hooks（零外部依赖）
- * 覆盖 3 个子系统: Gateway 协议 · Notebook 操作 · LSP 配置注册
+ * 覆盖 2 个子系统: Gateway 协议 · Notebook 操作
  *
  * 运行: bun test tests/performance/benchmark.test.ts
  */
@@ -9,7 +9,6 @@
 import { describe, it, expect } from 'bun:test';
 import { performance } from 'perf_hooks';
 
-import { LSPServerConfigRegistry } from '../../src/lsp/LSPServerConfigRegistry';
 import { NotebookToolImpl } from '../../src/tools/notebook/NotebookToolImpl';
 
 /**
@@ -388,64 +387,7 @@ describe('Notebook 操作', () => {
 });
 
 // ============================================================
-// 4. LSP Server 配置注册表性能
-// ============================================================
-describe('LSP 配置注册表', () => {
-  let registry: LSPServerConfigRegistry;
-
-  it('LSPServerConfigRegistry 实例创建（含 9 个默认注册项）', () => {
-    registry = new LSPServerConfigRegistry();
-    expect(registry).toBeDefined();
-  });
-
-  it('按扩展名匹配 Server 配置吞吐量', () => {
-    const extensions = [
-      '.ts',
-      '.py',
-      '.rs',
-      '.go',
-      '.java',
-      '.json',
-      '.yaml',
-      '.c',
-      '.cpp',
-    ];
-
-    let idx = 0;
-    const r = runBenchmark(() => {
-      const ext = extensions[idx % extensions.length];
-      idx++;
-      registry.getRegistrationForFile('file' + ext);
-    }, 5000);
-    logBenchmark('LSP', 'getRegistrationForFile (9种扩展名循环)', r);
-    assertBenchmark(r, 0.01);
-  });
-
-  it('注册新 Server 配置吞吐量', () => {
-    const r = runBenchmark(() => {
-      registry.register({
-        language: `lang-${Date.now()}-${Math.random()}`,
-        languageId: 'custom',
-        extensions: ['.custom'],
-        config: { command: 'custom-lsp', args: ['--stdio'] },
-      });
-    }, 1000);
-    logBenchmark('LSP', 'register (新增配置)', r);
-    assertBenchmark(r, 0.05);
-  });
-
-  it('查询所有已注册语言吞吐量', () => {
-    const r = runBenchmark(() => {
-      registry.getAllLanguages();
-    }, 5000);
-    logBenchmark('LSP', 'getAllLanguages', r);
-    // 调整阈值以适应 CI 环境波动；优化 registry 后可恢复更低阈值
-    assertBenchmark(r, 0.07);
-  });
-});
-
-// ============================================================
-// 5. 总览报告
+// 4. 总览报告
 // ============================================================
 describe('性能基准总览', () => {
   it('打印基准测试概要', () => {

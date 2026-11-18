@@ -9,8 +9,8 @@
  */
 import { describe, expect, it } from 'bun:test';
 import { resolveSessionStateAfterMessage } from '../../src/chat/manager/messagePersistence';
-import { DataSessionStatus } from '../../src/session/types/session';
-import type { Message } from '../../src/session/types/message';
+import { DataSessionStatus } from '@modules/session/types/session';
+import type { Message } from '@modules/session/types/message';
 
 type Probe = Pick<Message, 'role' | 'metadata' | 'finishReason'>;
 
@@ -154,6 +154,31 @@ describe('resolveSessionStateAfterMessage（P1-2 / N-3）', () => {
       resolveSessionStateAfterMessage(
         { role: 'tool' as Message['role'] },
         DataSessionStatus.ACTIVE
+      )
+    ).toBeNull();
+  });
+
+  it('2026-11-13：正常跑完 ⇒ 清掉上一轮遗留的可重开态（审批通过后的续跑没有新 user）', () => {
+    for (const reason of ['stop', 'completed', 'tool_calls', 'tool_use']) {
+      expect(
+        resolveSessionStateAfterMessage(
+          assistantTopLevel(reason),
+          DataSessionStatus.REQUIRES_ACTION
+        )
+      ).toBe(DataSessionStatus.ACTIVE);
+    }
+    // 已是 active ⇒ 幂等不重复落盘
+    expect(
+      resolveSessionStateAfterMessage(
+        assistant('stop'),
+        DataSessionStatus.ACTIVE
+      )
+    ).toBeNull();
+    // 生命周期态不因"跑完"被改写
+    expect(
+      resolveSessionStateAfterMessage(
+        assistant('stop'),
+        DataSessionStatus.ARCHIVED
       )
     ).toBeNull();
   });

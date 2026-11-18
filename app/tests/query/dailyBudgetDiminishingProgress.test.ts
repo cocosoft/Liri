@@ -5,7 +5,7 @@
  * U-10（2026-10-17）：收益递减判据纳入“新工具结果/新产物”维度。
  */
 import { describe, it, expect } from 'bun:test';
-import { DailyBudgetManager } from '../../src/query/DailyBudgetManager.js';
+import { DailyBudgetManager } from '@modules/query/DailyBudgetManager.js';
 
 function make(): DailyBudgetManager {
   const m = new DailyBudgetManager({

@@ -22,6 +22,10 @@ import {
 } from './lib/consoleCalls';
 // 门禁可解释性（2026-11-01）：说明文案抽到 `lib/ruleWhy` 以便单测覆盖「每条 ruleId 都有解释」
 import { explainRule } from './lib/ruleWhy';
+// G1（2026-11-12）：源码扫描根单一事实源（app/src + 自动发现的 packages/*/src）
+import { resolveSourceRoots } from './lib/sourceRoots';
+// 2026-11-12：路径归一为 POSIX 后再匹配模块入口豁免（修 POSIX 下写死 `\` 导致的静默失焦）
+import { matchesModuleEntryDir, toSrcRelativePosix } from './lib/srcRelPath';
 
 /**
  * 测试文件排除集（2026-10-01 口径统一，用户裁定）。
@@ -1364,10 +1368,10 @@ class ArchitectureLinter {
       // lint 在仓库根运行时 relative(cwd, file) 带 'app\\' 前缀，导致
       // allowedModuleDirs（'src\\...'）豁免失效，把合法的模块入口 barrel
       // 误报为薄桶/barrel（R07-003 的 18 个薄桶全是此类误报）。
-      const rawRel = relative(process.cwd(), file);
-      const srcIdx = rawRel.indexOf('src\\');
-      const relFile = srcIdx >= 0 ? rawRel.slice(srcIdx) : rawRel;
-      if (allowedModuleDirs.some((dir) => relFile.startsWith(dir))) {
+      // 2026-11-12：归一与匹配统一走 `lib/srcRelPath` —— 原实现写死 `\`，
+      // POSIX 上 `indexOf('src\\')` 恒 -1 ⇒ 豁免全失效（静默失焦，AR-3 同类）。
+      const relFile = toSrcRelativePosix(relative(process.cwd(), file));
+      if (matchesModuleEntryDir(relFile, allowedModuleDirs)) {
         continue;
       }
 
@@ -1834,7 +1838,6 @@ class ArchitectureLinter {
       'src/memory',
       'src/plugins',
       'src/session',
-      'src/sandbox',
       'src/permission',
       'src/mcp',
       'src/llm',
@@ -2105,6 +2108,21 @@ class ArchitectureLinter {
       'tasks/phases',
       'tasks/successCriteria',
       'query/patterns',
+      // P1（2026-11-14）：`project` 迁包后按需加载 `workspace` 的三个仓储（`ProjectStore` 在迁移路径、
+      // `ProjectItemStore`/`WorkItemStore` 在需求证据与迁移路径）；走 `@modules/workspace` 桶会把工作区
+      // 注册/扫描整面拉进这些按需路径 ⇒ 与 `tasks/goal` 同属「桶精确化」子入口。
+      'workspace/ProjectItemStore',
+      'workspace/ProjectStore',
+      'workspace/WorkItemStore',
+      // P1（2026-11-14）：`subagent` 迁包后 `TeammateManager` 读取并发上限（`tasks/limits` 零 I/O）。
+      // 走 `@modules/tasks` 桶会把 PlanDrivenLoop 等整条任务链拉进子代理管理器。
+      'tasks/limits',
+      // P1（2026-11-14）：`buddy` 迁包后 3 个**按需**子入口（梦境日志 / 成长持久化 / 梦境接线）由
+      // `domainSnapshotOps` 与 `init.ts` 动态加载；走 `@modules/buddy` 桶会把 sprites/notifications 等
+      // 渲染与通知面一并拉进启动链路 ⇒ 与 `tasks/goal` 同属「桶精确化」子入口。
+      'buddy/dreamLogStore',
+      'buddy/growthPersistence',
+      'buddy/dreamIntegration',
       // P2（2026-10-28）：身份化存储作用域 / 会话归属 / 输出护栏注册表从内核迁入 infra/security；
       // 三者都是**零 I/O 的纯策略实现**（无出向依赖，仅用 kernel 的 principal/requestScope 契约），
       // 走 `@modules/security` 桶会连带拉入鉴权/审计等重面 ⇒ 目录级/文件级规范子入口
@@ -2170,6 +2188,13 @@ class ArchitectureLinter {
       // 拉进 HTTP 启动路径（同 spec §3.7 记录的懒加载动机）⇒ 与 `core/spi`、`tasks/goal` 同属规范子入口。
       // 命名保持 PascalCase，以复用 eslint `module-registry/no-direct-module-import` 的 PascalCase 兜底。
       'channels/ChannelCatalog',
+      // P1（2026-11-13，session 并入 `packages/service`）：`runtime/api` 的取用面按**精确子路径**
+      // 直连 —— `storage`（EventLog / 消息投影）与 `ExecutionPhaseTracker`（标题/阶段）都是
+      // 窄接口。改走 `@modules/session` 桶会把整个会话面（网关 / FTS / 全量事件类型）拉进
+      // runtime 的启动面。搬包前这两条边在 `packages/service` 扫描根下不可见（session 不在该根内），
+      // 迁入后由本白名单显式登记（与 `channels/ChannelCatalog`、`core/taskStatus` 同口径）。
+      'session/storage',
+      'session/ExecutionPhaseTracker',
       // 零依赖叶子子入口（2026-10-01，台账 D-163）：`core/taskStatus` 只含 `TaskStatus`
       // 枚举 + `isTerminalTaskStatus`（**无任何 import**），但消费方横跨 core/infra/app
       // （`state/task/TaskStateMachine` 构造状态转移表、`core/Coordinator`、`tasks/*`）。
@@ -2255,6 +2280,13 @@ class ArchitectureLinter {
       'components/ui', // 保留：同上
       'knowledge/frontmatter', // 保留：改走 @modules/knowledge 桶会经 knowledge/tools 回到 docs/FileDocsProvider 自身（自环）——见上
       'governance/managers', // 保留：改走 @modules/governance 桶构成 tools ↔ governance 双向环——见上
+      // 2026-11-14（dream 迁入 packages/dream）：4 个**叶子**入口 —— 消费点均为**动态/按需**加载
+      // （`ep/init` 预加载、`runtime/api/domainSnapshotOps` HTTP 按需、测试），走 `@modules/dream` 桶会把
+      // engine / scheduler / unified cycle 整条面拉进处理器路径与启动图。
+      'dream/DreamEngine',
+      'dream/DreamPersistence',
+      'dream/DreamCycleDb',
+      'dream/DreamMetrics',
     ]);
 
     // 目标模块无 index.ts（无统一出口）→ 子路径导入是唯一方式，非违规（2026-08-29）
@@ -3575,10 +3607,9 @@ class ArchitectureLinter {
       if (basename !== 'index.ts' && basename !== 'index.tsx') continue;
       // KB-LINT-RELPATH（2026-08-29）：relFile 归一化为 src 相对路径（同 checkBarrelFiles）——
       // 仓库根运行时避免 'app\\' 前缀导致模块入口豁免失效
-      const rawRel = relative(process.cwd(), file);
-      const srcIdx = rawRel.indexOf('src\\');
-      const relFile = srcIdx >= 0 ? rawRel.slice(srcIdx) : rawRel;
-      if (allowedModuleDirs.some((dir) => relFile.startsWith(dir))) continue;
+      // 2026-11-12：归一与匹配统一走 `lib/srcRelPath`（原实现写死 `\`，POSIX 下豁免全失效）
+      const relFile = toSrcRelativePosix(relative(process.cwd(), file));
+      if (matchesModuleEntryDir(relFile, allowedModuleDirs)) continue;
 
       const content = readFileSync(file, 'utf-8');
       // 纯 re-export 桶判定（与 checkBarrelFiles 相同逻辑）
@@ -4605,31 +4636,27 @@ async function main(): Promise<void> {
   const projectDir = resolve(
     process.env.PYAPP_PROJECT_DIR || resolve(__dirname, '..')
   );
-  const srcPath = resolve(projectDir, 'app', 'src');
+  // G1（2026-11-12）：**每包独立扫描根**各跑一遍全部规则（既有手法，内核/infra 先例见下），
+  // 根列表收敛到 `scripts/lib/sourceRoots.ts` **单一事实源** —— 新增/迁出包自动纳入，
+  // 不再逐个手加实例。修因：`service` 包迁出后一直没加实例 ⇒ 其文件不参与本文件规则
+  // （只有 R8 包边界守着），属 AR-3「门禁不得因搬目录而静默失焦」。
+  const sourceRoots = resolveSourceRoots(projectDir);
+  const appRoot = sourceRoots.find((root) => root.name === 'app');
 
-  if (!existsSync(srcPath)) {
-    console.error(`错误: 找不到 src 目录: ${srcPath}`);
+  if (!appRoot) {
+    const appSrc = resolve(projectDir, 'app', 'src');
+    console.error(`错误: 找不到 src 目录: ${appSrc}`);
     console.error('请在项目根目录运行或设置 PYAPP_PROJECT_DIR 环境变量');
     process.exit(2);
   }
 
-  const linter = new ArchitectureLinter(srcPath, projectDir);
-  const violations = await linter.runAll();
-  // 内核自 P4 起物理独立于 `app/src`（方案 §4-P4）。这里**以第二扫描根**再跑一遍，
-  // 而不是任其脱离扫描面：内核目录保留 `core/` 这一层，故模块归属仍解析为 `core`，
-  // 各规则口径与迁移前逐字一致（AR-3：门禁不得因搬目录而静默失焦）。
-  const kernelSrcPath = resolve(projectDir, 'packages', 'kernel', 'src');
-  if (existsSync(kernelSrcPath)) {
-    const kernelLinter = new ArchitectureLinter(kernelSrcPath, projectDir);
-    violations.push(...(await kernelLinter.runAll()));
-  }
-  // infra 物理包（P3，2026-11-01）：与内核同口径 —— **独立扫描根再跑一遍**全部规则。
+  const violations: RuleViolation[] = [];
+  // 顺序：`app` 在前、`packages` 按名升序（`sourceRoots` 已保证）。
   // 不并入 app 实例：包内文件的模块归属须相对包根解析（`external/sqlite3.ts`，与 `lint:infra`
   // 同口径），并入后会被按 `app/src/<模块>` 目录结构误判；独立根下 `relative(srcPath)` 天然正确。
-  const infraPkgSrcPath = resolve(projectDir, 'packages', 'infra', 'src');
-  if (existsSync(infraPkgSrcPath)) {
-    const infraLinter = new ArchitectureLinter(infraPkgSrcPath, projectDir);
-    violations.push(...(await infraLinter.runAll()));
+  for (const root of sourceRoots) {
+    const rootLinter = new ArchitectureLinter(root.path, projectDir);
+    violations.push(...(await rootLinter.runAll()));
   }
   // P0-5: 前端高频路径 store 订阅检查（独立扫描 client/src，不并入 app/src 扫描集）
   violations.push(...checkFrontendStoreSubscription(projectDir));

@@ -50,8 +50,8 @@ import { StatVfsTool } from '../../src/tools/StatVfsTool/StatVfsTool.js';
 import { WriteVfsTool } from '../../src/tools/WriteVfsTool/WriteVfsTool.js';
 import type { ToolUseContext } from '../../src/tools/types/ToolUseContext.js';
 import type { ToolResult } from '../../src/tools/types/ToolResult.js';
-import { McpResourcesDriver } from '../../src/vfs/drivers/McpResourcesDriver.js';
-import { vfsMountRegistry } from '../../src/vfs/VfsMountRegistry.js';
+import { McpResourcesDriver } from '@modules/vfs/drivers/McpResourcesDriver.js';
+import { vfsMountRegistry } from '@modules/vfs/VfsMountRegistry.js';
 
 /** 被测服务器名（与 `initialize` 的 configs key 一致） */
 const SERVER = 'everything';

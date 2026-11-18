@@ -134,13 +134,30 @@ const zhSettings = {
     featuresAlwaysOnDesc:
       "启用后 AI 可在闲置时自主发现并执行任务（Always-On + SelfWake）",
     // 2026-11-03：验证线路总门控（后端 SELF_VERIFY_PATTERN；env 优先于本开关）
+    // 2026-11-16：后端已按用户裁定翻为**默认开**（登记表 §2.4.3），本面板默认值同步为开
     featuresSelfVerifyPattern: "自校验 / 多轮精修线路",
     featuresSelfVerifyPatternDesc:
-      "开启后，要求自检或需要多轮打磨的任务会走验证线路（更严的回合质量判定、更多重试）。默认关闭，关闭时行为与之前一致。",
+      "开启后，要求自检或需要多轮打磨的任务会走验证线路（更严的回合质量判定、更多重试）。默认开启，关闭后恢复旧行为。",
     // 2026-11-03（缺口 #3）：研究编排门控（后端 COMPETITIVE_STRATEGY；env 优先于本开关）
     featuresCompetitiveStrategy: "研究编排（候选生成 + 对抗评审）",
     featuresCompetitiveStrategyDesc:
       "开启后，研究型复杂任务会先做候选方案生成与对抗评审（成本更高）。默认关闭。",
+    // 2026-11-16：翻转后的「用户可关」回退路径（后端默认开，env 优先）
+    featuresToolDisclosureStrict: "工具披露预算（收紧）",
+    featuresToolDisclosureStrictDesc:
+      "开启后，编码 / 代理任务下发给模型的工具清单会按优先级截断（核心工具始终保留，其余仍可按需检索到）。默认开启，关闭后恢复全量下发。",
+    featuresSwarmVerifyRetry: "多代理验证重试",
+    featuresSwarmVerifyRetryDesc:
+      "开启后，验证器明确判定未通过时，对应子任务会带着反馈再执行一轮（额外消耗 token，单次上限 20k）。默认开启，关闭后不重试。",
+    featuresPlanStartupResume: "重启后计划续跑",
+    featuresPlanStartupResumeDesc:
+      "开启后，重启时会把最近 24 小时内仍在进行、且心跳已过期的计划重新接上（单次最多 5 个）。默认开启，关闭后重启不再自动续跑。",
+    featuresPlanSystemResume: "计划续跑走执行器",
+    featuresPlanSystemResumeDesc:
+      "开启后，续跑由执行器直接采纳既有计划继续（不新建计划、已完成步骤不重做）；关闭后回到「注入一条续接消息」的旧方式。默认开启。",
+    featuresGoalStartupResume: "重启后目标续接",
+    featuresGoalStartupResumeDesc:
+      "开启后，重启时会把最近 24 小时内推进过的进行中目标接上继续推进（单次最多 5 个）。默认开启，关闭后重启不再自动续接。",
     // 2026-11-03 P0：自主执行运行预算（默认放宽，可按需调整）
     autonomyLimitsTitle: "自主执行运行预算",
     autonomyLimitsDesc:
@@ -835,8 +852,10 @@ const zhSettings = {
     projectsDirTitle: "项目存放位置",
     projectsDirDesc:
       "新建项目时默认把工作目录放在这里（每个项目一个子目录）。与「数据目录」分开：数据目录存配置、会话和附件，这里存你的代码和产物。",
-    projectsDirEnv: "环境变量 LIRI_PROJECTS_DIR 已设置 → {{dir}}（优先于本设置）",
-    projectsDirHint: "仅影响此后新建的项目；已有项目的路径不会被改动。留空并应用即恢复默认。",
+    projectsDirEnv:
+      "环境变量 LIRI_PROJECTS_DIR 已设置 → {{dir}}（优先于本设置）",
+    projectsDirHint:
+      "仅影响此后新建的项目；已有项目的路径不会被改动。留空并应用即恢复默认。",
     projectsDirSaveFailed: "保存失败",
     dataMigrateExisting: "迁移现有数据",
     dataMigrating: "正在迁移数据，请稍候...",
@@ -971,6 +990,10 @@ const zhSettings = {
       "L1 · 工具放行规则（tool_rules.json）：决定「要不要问」。审批卡上的「以后这个命令免审批 / 以后整个工具免审批」写的就是这里，可在此逐条撤销。",
     toolsRulesHint:
       "工具级名单：允许＝免审批直接执行；询问＝每次弹审批；拒绝＝直接拦截（拒绝恒优先，白名单不能覆盖）。落点与决策主链路为同一份 tool_rules.json，改完即时生效；审批卡上的免审批规则也出现在下面的清单里。",
+    // B2（2026-11-17）：结构形态（for / if / $env:）为何没有「一键记住」——
+    // 规则按正则匹配命令原文，能整体放行这类形态，但那等于信任任意循环体。
+    toolsRulesStructuralHint:
+      "`for` / `if` / `$env:` 这类结构形态默认每次询问（循环体/分支体无法静态确认）。要减少打扰：拆成单条命令（读/找/搜用 file_read / glob / grep），或用「本工作区永久信任」固化某条精确命令；而用正则规则整体放行 `^for` 这类形态，等于信任任意循环体，请谨慎。",
     toolsRulesSearch: "搜索工具名…",
     toolsRulesLoading: "正在读取工具与规则…",
     toolsRulesLoadFailed: "读取工具名单失败",
@@ -989,6 +1012,67 @@ const zhSettings = {
     toolsRulesCommandsHint:
       "由审批卡「以后这个命令免审批」写入：工具 + 命令前缀匹配（仅对同一前缀的命令生效）；这里可逐条撤销。",
     toolsRulesCommandsEmpty: "暂无命令级免审批记录",
+    // R3/R5（2026-11-17）：命中统计 / 审批分组 / 暂停开关 / 未收录命令 / 影响预演
+    toolsRulesHitCount: "命中 {{count}} 次",
+    toolsRulesHitNever: "尚未命中",
+    toolsRulesLastHit: "最近命中 {{time}}",
+    // R0/R3（2026-11-17）：作用域徽标与审批时间（后端已返回，此前未消费）
+    toolsRulesScopeSession: "仅本次会话",
+    toolsRulesScopeWorkspace: "仅本工作区",
+    toolsRulesScopeTool: "工具级",
+    toolsRulesScopeGlobal: "全局",
+    toolsRulesApprovedAt: "审批于 {{time}}",
+    toolsRulesApprovals: "审批生成的放行 · {{count}}",
+    toolsRulesApprovalsHint:
+      "由审批卡「始终允许」写入（按工具 + 参数指纹 / 本工作区信任）：只读展示，只能撤销，不能编辑。",
+    toolsRulesApprovalsEmpty: "暂无审批生成的放行",
+    toolsRulesWorkspaceTrust: "本工作区永久信任 · {{count}}",
+    toolsRulesPauseLabel: "暂停全部持久化放行",
+    toolsRulesPauseHint:
+      "开启后审批卡不再新增放行，已生成的放行规则也不参与判定（列表保留，可逐条撤销）。",
+    toolsRulesPauseEnabled: "已暂停",
+    toolsRulesPauseSessionLabel: "仅对当前会话暂停",
+    toolsRulesPauseSessionNoSession: "当前没有活跃会话",
+    toolsRulesPauseSessionCount: "按会话暂停 · {{count}}",
+    toolsRulesPauseSessionHint:
+      "只让「当前会话」忽略审批放行（其他会话与后台任务不受影响）；会话结束后该条目不再命中，可随时取消勾选移除。",
+    toolsRulesPauseWorkspaceLabel: "仅对当前工作区暂停",
+    toolsRulesPauseWorkspaceNoPath: "当前会话未绑定文件夹",
+    toolsRulesPauseWorkspaceCount: "按工作区暂停 · {{count}}",
+    toolsRulesPauseWorkspaceHint:
+      "只让该文件夹下的调用忽略审批放行（根按统一格式比较：分隔符与大小写不敏感）；不确定时可随时取消或从列表移除。",
+    toolsRulesUnknownTitle:
+      "近 {{days}} 天有 {{headCount}} 个未收录命令被转审批（共 {{sampleCount}} 次）",
+    toolsRulesUnknownHint: "给常用命令加一条规则，可减少重复审批。",
+    toolsRulesUnknownAdd: "去添加规则",
+    toolsRulesAllowBudget: "用户手建 allow 规则 {{used}}/{{limit}}",
+    toolsRulesAllowBudgetHint:
+      "已达上限：新增 allow 规则会被拒绝；如需更多，请提高配置 permission.userRuleAllowBudget（1–1000）。",
+    toolsRulesBCommandRules: "B 体系命令策略（{{mode}}）· 只读",
+    toolsRulesBCommandRulesHint:
+      "来自 config.json#permission.customRules.commandRules，在 bash / powershell 判定链直接生效；本面板只读展示，修改请走 PUT /v1/config/permission。",
+    toolsRulesBCommandRulesEmpty: "未配置黑 / 白名单",
+    toolsRulesBCommandModeBlacklist: "黑名单模式",
+    toolsRulesBCommandModeWhitelist: "白名单模式",
+    toolsRulesAddTitle: "新增命令规则",
+    toolsRulesAddSave: "保存规则",
+    toolsRulesAddCancel: "取消",
+    toolsRulesImpactTitle:
+      "⚠ 该规则会让 {{count}} 条基准命令从询问/允许变为拒绝",
+    toolsRulesImpactConfirm: "仍然保存",
+    toolsRulesImpactCancel: "取消",
+    toolsRulesHealthCheck: "检查规则健康",
+    toolsRulesHealthChecking: "检查中…",
+    toolsRulesHealthOk:
+      "规则文件正常（内存 {{memory}} 条规则 / 冲突 {{conflicts}} 处）",
+    toolsRulesHealthParseError: "规则文件无法解析：{{error}}",
+    toolsRulesHealthExternalChange:
+      "规则文件被外部修改（磁盘内容与已加载内容不一致）",
+    toolsRulesHealthDuplicates: "存在 {{count}} 条重复规则",
+    toolsRulesHealthObservation:
+      "命中统计观察期 {{days}}/{{staleDays}} 天，暂不判定「未命中」",
+    toolsRulesHealthNoStale: "近 {{days}} 天没有长期未命中的规则",
+    toolsRulesHealthStale: "近 {{days}} 天未命中 · {{count}}",
     toolsRulesFromSettings: "来自 settings",
     toolsRulesFromSettingsHint:
       "该规则写在 settings 文件的 permissions.{allow,ask,deny} 里（启动时并入决策）—— 本面板只读展示，请在 settings 文件中修改。",

@@ -1461,7 +1461,7 @@ export async function handleGetSessionMemory(
       return;
     }
     const { getSessionMemoryManager } =
-      await import('../../../session/bootstrap/SessionSystemBootstrap');
+      await import('@modules/session/bootstrap/SessionSystemBootstrap');
     const mm = getSessionMemoryManager();
     const url = new URL(
       req.url || '/',

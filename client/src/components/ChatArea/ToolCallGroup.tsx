@@ -14,6 +14,8 @@ import ImageToolResult from "./ImageToolResult/ImageToolResult";
 import InlineApprovalActions from "./InlineApprovalActions";
 import { useChatStore } from "../../stores/chat";
 import { getToolResultFull } from "../../stores/chat/chat-message.slice";
+// 2026-11-17：审批已落定（已处理/已过期）时收起工具卡的等待徽标与就地审批按钮
+import { resolvedApprovalInboxIds } from "../../stores/chat/chat-message-shared";
 import {
   getToolDisplayName,
   getToolHumanSummary,
@@ -146,6 +148,17 @@ function ToolCallGroup({
   const [showFullResult, setShowFullResult] = useState(false);
   const prevStreaming = useRef(isStreaming);
   const readFileToPreview = useChatStore((s) => s.readFileToPreview);
+  /**
+   * 2026-11-17（用户实测）：审批已处理/已过期后，工具卡仍显示「⏳ 等待审批」+ 就地审批按钮，
+   * 点下去只会得到「已过期」。按 `inboxId` 与该卡的实际状态对账：已落定则不再按等待渲染。
+   */
+  const messages = useChatStore((s) => s.messages);
+  const approvalResolved =
+    toolCall.pendingApproval === true &&
+    typeof toolCall.inboxId === "string" &&
+    resolvedApprovalInboxIds(messages).has(toolCall.inboxId);
+  /** 仍有效的「等待审批」态（残留标记已落定 ⇒ false） */
+  const awaitingApproval = toolCall.pendingApproval === true && !approvalResolved;
 
   useEffect(() => {
     const wasStreaming = prevStreaming.current;
@@ -158,7 +171,7 @@ function ToolCallGroup({
 
   const statusIcon = isStreaming
     ? "\u23F3"
-    : toolCall.pendingApproval
+    : awaitingApproval
       ? "\u23F3"
       : toolCall.status === "completed"
         ? "\u2705"
@@ -166,8 +179,8 @@ function ToolCallGroup({
           ? "\u274C"
           : "\u{1F527}";
 
-  /** P2-2: 审批等待态徽标（区别于失败红色） */
-  const pendingBadge = toolCall.pendingApproval ? (
+  /** P2-2: 审批等待态徽标（区别于失败红色）；审批已落定 ⇒ 不再显示 */
+  const pendingBadge = awaitingApproval ? (
     <span className="shrink-0 rounded bg-amber-400/20 px-1 py-0.5 text-[10px] text-amber-300">
       ⏳ {t("chat.pendingApproval")}
     </span>
@@ -178,9 +191,9 @@ function ToolCallGroup({
   // #29（2026-10-30）：摘要与标题重复前缀只保留一份（"任务管理 管理任务" → "管理任务"）
   const summary = stripDuplicateToolPrefix(displayName, humanSummary);
 
-  /** U-06-5: 审批等待且带 Inbox 项 id ⇒ 工具卡片就地审批（无需另找 Inbox 卡片） */
+  /** U-06-5: 审批等待且带 Inbox 项 id ⇒ 工具卡片就地审批（审批已落定 ⇒ 不再显示） */
   const approvalBar =
-    toolCall.pendingApproval && toolCall.inboxId ? (
+    awaitingApproval && toolCall.inboxId ? (
       <div className="px-2 py-1 border-t border-amber-400/20 bg-amber-400/[0.04]">
         <InlineApprovalActions inboxId={toolCall.inboxId} />
       </div>

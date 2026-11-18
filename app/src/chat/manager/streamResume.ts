@@ -52,13 +52,17 @@ import {
 import { StreamingAutoCheckpoint } from '../services/StreamingAutoCheckpoint';
 // P1-2（2026-11-06）：会话状态复位后通知前端重取（清掉"待审批"徽标）
 import { notifySessionMetaUpdated } from '../services/sessionMetaBroadcast';
-import { stripThinkResponseTags } from '../services/MessageContextPipeline';
+import { stripThinkResponseTags } from '../services/context/thinkTags';
 import { repairImageUrls } from '../services/ChatHelper';
 import { stripBareExploration } from '../services/bareExplorationStripper';
 import type { MessageService } from '../services/MessageService.js';
 import type { PendingInteractionEntry } from '@openliri/infra/utils/pendingInteractions';
 // 2026-11-06（审批根因簇 P0-1）：识别「等待审批」的 tool_call —— 批准后必须重放
-import { extractAwaitingApprovalToolCallIds } from '../utils/pendingToolCalls.js';
+// 2026-11-12：`planToolReplay` —— 审批未落定的调用不得重放（否则重复写 awaiting_approval）
+import {
+  extractAwaitingApprovalToolCallIds,
+  planToolReplay,
+} from '../utils/pendingToolCalls.js';
 
 const logger = getLogger('chat:manager');
 
@@ -120,6 +124,14 @@ export interface StreamResumeDeps {
     sessionId: string,
     event: LiriEvent
   ) => Promise<{ ok: boolean; reason?: string; tailSeq: number }>;
+  /**
+   * 2026-11-12（真机 `session_mwd9bnoyc7e3051cde`）：事件日志中已写入的最大 turn 编号。
+   *
+   * 续跑轮也要有 `turn/start` … `turn/end` 包裹（编号 = 最大 turn + 1）；否则它的
+   * text/tool_call/tool_result 事件全落在上一个 `turn/end` 之后 ⇒ 回放侧这段没有 turn 归属
+   * （实时侧由聚合器本地补 turn/start），且缺少 `finishReason`/`terminationReason`。
+   */
+  getStreamMaxTurn: (sessionId: string) => Promise<number>;
   /** Token 追踪器（流式水位） */
   unifiedTracker: UnifiedTokenTracker;
   /** 用量记账（宿主唯一入口） */
@@ -131,6 +143,15 @@ export interface StreamResumeDeps {
   ) => void;
   /** 当前工具注册表（可能为 null） */
   getToolRegistry: () => ToolRegistry | null;
+  /**
+   * 2026-11-12：该调用是否**仍在等用户审批**（有未处理的审批卡且放行缓存未写入）——
+   * `awaiting_approval` 调用重放的前置条件。
+   *
+   * 卡还没处理就重放 ⇒ 再执行一次、再提交同一张卡（同指纹复用同一 Inbox 项）、再写一条
+   * `awaiting_approval` tool/result（新 messageId）⇒ 前端重复审批卡。故续跑前必须问它。
+   * 实现由宿主注入（`isAwaitingUserApproval`：放行缓存 + Inbox 待审批项，与建卡同一口径）。
+   */
+  isAwaitingUserApproval: (toolCall: ToolCall) => Promise<boolean>;
   /** 工具轮下一轮请求消息构建 */
   buildToolRoundMessages: (
     currentMessages: Record<string, unknown>[],
@@ -141,6 +162,89 @@ export interface StreamResumeDeps {
       result: ToolResult;
     }>
   ) => Record<string, unknown>[];
+}
+
+/**
+ * P3-2（复杂度清理）：**重建剩余工具调用**（从 `resume` 逐字外移）。
+ *
+ * 语义未变：从后往前找最后一条声明了 `tool_calls` 的 assistant 消息，按
+ * `completedToolCallIds`（已答）与 `awaitingApprovalIds`（待审批仍需重放）筛出候选，
+ * 再逐个问宿主「这张卡是否仍未处理」——**全部仍未落定则本次整体不重放**
+ * （否则同指纹复用 Inbox 项 + 重复写 `awaiting_approval` ⇒ 前端重复审批卡）。
+ */
+async function rebuildRemainingToolCalls(params: {
+  sessionId: string;
+  messages: Message[];
+  completedToolCallIds: string[];
+  awaitingApprovalIds: ReadonlySet<string>;
+  isAwaitingUserApproval: StreamResumeDeps['isAwaitingUserApproval'];
+}): Promise<{
+  accumulatedContent: string;
+  remainingToolCalls: ParsedToolCall[];
+  stillWaitingApproval: number;
+}> {
+  const {
+    sessionId,
+    messages,
+    completedToolCallIds,
+    awaitingApprovalIds,
+    isAwaitingUserApproval,
+  } = params;
+
+  let accumulatedContent = '';
+  let remainingToolCalls: ParsedToolCall[] = [];
+  // 2026-11-12（真机 `session_mwcyhmmpd44e93b602` / `session_mwd5mp8jd5fe8bce9c`）：
+  // **剩余调用全部仍被未处理的审批卡挡住时，本次续跑整体空转**（不重放）。原实现无条件重放
+  // ⇒ 续跑（含 `resumeCoalescer` 的补跑一波）再执行一次 ⇒ 同指纹复用同一 Inbox 项 +
+  // 再写一条 `awaiting_approval` tool/result（新 messageId）⇒ 前端重复审批卡。
+  // 混合场景沿用原口径（见 `planToolReplay` 注释）。
+  let stillWaitingApproval = 0;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (msg.role !== 'assistant') continue;
+    // N-15：声明可能在 `metadata.tool_calls`，也可能只在顶层 `tool_calls`（事件派生消息）⇒
+    // 统一走 `declaredToolCallsOf`，否则重建不出剩余调用（续跑"所有工具已完成"假象）。
+    const declared = declaredToolCallsOf(msg);
+    if (!declared) continue;
+    const tcs = declared as Array<{
+      id: string;
+      type: string;
+      function: { name: string; arguments: string };
+    }>;
+    const candidates = tcs.filter(
+      (tc) =>
+        !completedToolCallIds.includes(tc.id) || awaitingApprovalIds.has(tc.id)
+    );
+    // 逐个问宿主：这张卡是否仍未处理（检查点可能不含 `awaiting_approval` 结果 ⇒ 不能只靠本地标记）
+    const blockedIds = new Set<string>();
+    for (const tc of candidates) {
+      const args =
+        typeof tc.function.arguments === 'string'
+          ? JSON.parse(tc.function.arguments)
+          : tc.function.arguments;
+      const awaiting = await isAwaitingUserApproval({
+        id: tc.id,
+        name: tc.function.name,
+        arguments: args,
+        sessionId,
+      });
+      if (awaiting) blockedIds.add(tc.id);
+    }
+    const plan = planToolReplay(candidates, blockedIds);
+    stillWaitingApproval = plan.skippedPendingCount;
+    remainingToolCalls = plan.replay.map((tc) => ({
+      id: tc.id,
+      name: tc.function.name,
+      arguments:
+        typeof tc.function.arguments === 'string'
+          ? JSON.parse(tc.function.arguments)
+          : tc.function.arguments,
+    }));
+    accumulatedContent = typeof msg.content === 'string' ? msg.content : '';
+    break;
+  }
+
+  return { accumulatedContent, remainingToolCalls, stillWaitingApproval };
 }
 
 export class ChatStreamResume {
@@ -170,6 +274,18 @@ export class ChatStreamResume {
     // 预算挂起唤醒的「重发一轮」被挡下（`resumeSuspendedSession: 流式重发失败`），再次唤醒则
     // `SimpleMutex: acquire timeout after 30000ms`。故把 `try` 前移到 `acquire` 之后，
     // **release 仍只有最外层这一处**（唯一释放点，避免双重 release 清零他人持有的锁）。
+    // 2026-11-12：续跑轮 turn 包裹状态（0 = 未开启）。开启后必须在 finally 收尾，
+    // 否则崩溃恢复会把它当成"未闭合 turn"并合成 canceled ⇒ 前端把正常续跑标成「已中断」。
+    let resumeTurnNo = 0;
+    let resumeFinishReason:
+      | 'stop'
+      | 'length'
+      | 'tool_use'
+      | 'error'
+      | 'canceled'
+      | 'yielded'
+      | undefined;
+    let resumeTerminationReason: string | undefined;
     try {
       // 中断治理（2026-08-15）：resume 时同步恢复会话状态（PAUSED → ACTIVE），
       // 避免崩溃恢复标记的 paused 会话在磁盘上永久冻结；失败不阻断检查点恢复主流程
@@ -235,8 +351,6 @@ export class ChatStreamResume {
       deps.sessionAbortControllers.set(sessionId, streamAbortController);
 
       // 3. 找到最后一条含 tool_calls 的 assistant 消息，提取剩余工具
-      let accumulatedContent = '';
-      let remainingToolCalls: ParsedToolCall[] = [];
       // 2026-11-06（审批根因簇 P0-1）：`awaiting_approval` 的 tool/result 虽已落盘，
       // 但**不是终态**——审批通过后必须重放。原实现只按 completedToolCallIds 过滤，
       // 而待审批调用的结果以"成功形状"落盘 ⇒ 被视为已完成 ⇒ 日志打印
@@ -244,37 +358,37 @@ export class ChatStreamResume {
       const awaitingApprovalIds = extractAwaitingApprovalToolCallIds(
         session.messages
       );
-      for (let i = session.messages.length - 1; i >= 0; i--) {
-        const msg = session.messages[i];
-        if (msg.role !== 'assistant') continue;
-        // N-15：声明可能在 `metadata.tool_calls`，也可能只在顶层 `tool_calls`（事件派生消息）⇒
-        // 统一走 `declaredToolCallsOf`，否则重建不出剩余调用（续跑"所有工具已完成"假象）。
-        const declared = declaredToolCallsOf(msg);
-        if (!declared) continue;
-        const tcs = declared as Array<{
-          id: string;
-          type: string;
-          function: { name: string; arguments: string };
-        }>;
-        remainingToolCalls = tcs
-          .filter(
-            (tc) =>
-              !completedToolCallIds.includes(tc.id) ||
-              awaitingApprovalIds.has(tc.id)
-          )
-          .map((tc) => ({
-            id: tc.id,
-            name: tc.function.name,
-            arguments:
-              typeof tc.function.arguments === 'string'
-                ? JSON.parse(tc.function.arguments)
-                : tc.function.arguments,
-          }));
-        accumulatedContent = typeof msg.content === 'string' ? msg.content : '';
-        break;
-      }
+      // P3-2（复杂度清理）：剩余调用重建外移为 `rebuildRemainingToolCalls`（**逐字搬迁**）
+      const { accumulatedContent, remainingToolCalls, stillWaitingApproval } =
+        await rebuildRemainingToolCalls({
+          sessionId,
+          messages: session.messages,
+          completedToolCallIds,
+          awaitingApprovalIds,
+          isAwaitingUserApproval: deps.isAwaitingUserApproval,
+        });
 
       if (remainingToolCalls.length === 0) {
+        if (stillWaitingApproval > 0) {
+          logger.info(
+            'resumeStream: 审批尚未落定，本次不重放（避免重复审批卡）',
+            {
+              sessionId,
+              stillWaitingApproval,
+            }
+          );
+          yield {
+            type: 'status',
+            // `task_all_done` = "本次无可执行项"（`budgetResume` 据此判非实质进展）；
+            // 文案如实说明仍在等审批，不得说"任务已全部完成"。
+            statusType: 'task_all_done',
+            content: `仍在等待审批（${stillWaitingApproval} 个工具未落定），本次续跑未执行任何工具`,
+            sessionId,
+          } as ChatStreamChunk;
+          return (
+            session.messages[session.messages.length - 1] || ({} as Message)
+          );
+        }
         logger.info('resumeStream: 所有工具已完成，无需恢复', { sessionId });
         // BUG-1 修复：此处不再 release（由最外层 finally 统一释放一次）
         yield {
@@ -321,6 +435,26 @@ export class ChatStreamResume {
         content: `从第 ${stepIndex} 步恢复 — 剩余 ${remainingToolCalls.length} 个工具`,
         sessionId,
       } as ChatStreamChunk;
+
+      // 2026-11-12（真机 `session_mwd9bnoyc7e3051cde`）：续跑轮此前**不写 turn/start**，
+      // 其 text/tool_call/tool_result 事件全部落在上一个 `turn/end` 之后 ⇒ 回放时这一段没有
+      // turn 归属（实时侧由聚合器本地补 turn/start，二者不对称），也没有 finishReason。
+      // 这里与流式主路径同源开启新 turn（编号 = 事件日志最大 turn + 1）。
+      try {
+        const persistedTurn = await deps.getStreamMaxTurn(sessionId);
+        const nextTurn = persistedTurn + 1;
+        const started = await deps.appendStreamEvent(sessionId, {
+          type: 'turn/start',
+          seq: 0,
+          time: Date.now(),
+          sessionId,
+          data: { turn: nextTurn },
+        });
+        if (started.ok) resumeTurnNo = nextTurn;
+      } catch {
+        // @ignore-catch — 事件追加失败不阻断续跑（CS03）；未开启 ⇒ finally 也不写 end
+        resumeTurnNo = 0;
+      }
 
       // 断线恢复动态上限（2026-09-01）：剩余工具数决定所需轮次，避免恢复的
       // 长任务在基础阈值（30 轮）内被误杀。历史轮次 + 剩余工具 + 5 轮余量。
@@ -376,7 +510,7 @@ export class ChatStreamResume {
       );
 
       const { toolResultRegistry } =
-        await import('../../tool/ToolResultRegistry.js');
+        await import('@modules/tool/ToolResultRegistry.js');
       const toolLoopCtx = {
         session,
         options: {},
@@ -517,6 +651,13 @@ export class ChatStreamResume {
       assistantMessage.finishReason = streamAbortController.signal.aborted
         ? 'abort'
         : 'stop';
+      // 2026-11-12：turn/end 的终态（与上面落盘消息同源；正常收尾 stop，中止 canceled）
+      resumeFinishReason = streamAbortController.signal.aborted
+        ? 'canceled'
+        : 'stop';
+      // 终止原因原样透传（与工具轮 `streamMessageToolLoop` 同口径；正常收尾为 `completed`，
+      // 前端 `getTerminationNotice` 对其不显示，不制造噪音）。此处不做字面量比较（状态词汇门禁）。
+      resumeTerminationReason = loop.getTerminationReason();
       // N-6：tool_call 事件已实时写 ⇒ 落盘时不要由 convertMessage 再生成一遍（避免重复块）
       if (toolCallEventsWritten > 0) {
         assistantMessage.metadata = {
@@ -528,6 +669,28 @@ export class ChatStreamResume {
 
       return assistantMessage;
     } finally {
+      // 2026-11-12：续跑轮收尾 —— `turn/start` 已写就必须闭合（正常 stop / 中断 canceled /
+      // 异常 error 都要写），否则崩溃恢复把这段当"未闭合 turn"合成 canceled，
+      // 前端会把正常续跑显示成「该回复已中断」。
+      if (resumeTurnNo > 0) {
+        try {
+          await deps.appendStreamEvent(sessionId, {
+            type: 'turn/end',
+            seq: 0,
+            time: Date.now(),
+            sessionId,
+            data: {
+              turn: resumeTurnNo,
+              finishReason: resumeFinishReason ?? 'error',
+              ...(resumeTerminationReason
+                ? { terminationReason: resumeTerminationReason }
+                : {}),
+            },
+          });
+        } catch {
+          // @ignore-catch — 收尾事件失败不阻断（CS03）
+        }
+      }
       mutex.release();
     }
   }

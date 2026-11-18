@@ -32,7 +32,17 @@ import {
   MAX_SUBTASKS,
 } from '@modules/ai/router/TaskDecomposer.js';
 import type { DecompositionResult } from '@modules/ai/router/TaskDecomposer.js';
-import { taskOrchestrator } from './TaskOrchestrator.js';
+import {
+  taskOrchestrator,
+  STEP_STATUS_CANCELLED,
+  STEP_STATUS_COMPLETED,
+  STEP_STATUS_FAILED,
+} from './TaskOrchestrator.js';
+// D3 二期（2026-11-14）：既有计划 → 可执行投影（系统级续跑）
+import {
+  buildResumeDecomposition,
+  isPlanResumableByExecutor,
+} from './plan/planResumeExecution';
 import {
   parseStepVerdict,
   STEP_VERDICT_BLOCKED,
@@ -48,6 +58,8 @@ import {
   computeTopoSkips,
   type TopoTaskStatus,
 } from './topoBatches.js';
+// P3-2：分解路径的纯辅助（避免主文件越过 R04-001 的 2000 行上限）
+import { seedDepStatusFromExistingPlan } from './planDrivenDecomposed.js';
 // T-②05（2026-10-03）：分流判据配置化 —— 默认值/纯构造在 core 单一事实源，运行时解析在 fastPathPolicy
 import {
   buildFastPathPolicy,
@@ -78,6 +90,13 @@ export interface StepResult {
   state: StepState;
   output: string;
   error?: string;
+  /**
+   * 2026-11-13（PDL 暂停态）：本步**停在等待工具审批**（不是失败）。
+   *
+   * 保留 `state='failed'` 以兼容既有呈现，但计数与文案一律按"暂停"处理
+   * （`_buildResult` 不把它计入 failedSteps）。
+   */
+  paused?: boolean;
   /** P1-3（2026-09-06）：失败路线保留——终败前已产出片段（供 P0-2 重试/终局综合引用） */
   partialOutput?: string;
   durationMs: number;
@@ -130,6 +149,16 @@ export interface PlanDrivenLoopConfig {
   }) => void;
   /** 是否启用 LLM 自动分解（默认 false，需显式开启） */
   enableAutoDecompose?: boolean;
+  /**
+   * D3 二期（2026-11-14）：**按既有计划续跑**（系统级）。
+   *
+   * 设置后 `run()` 不再走复杂度门 / 分解 / `createPlan`，而是采纳该计划：
+   * 已结束步骤跳过、未终态步骤按既有依赖拓扑继续执行（崩溃残留的 `running` 步骤先复位）。
+   * 计划不存在或已无未完成步骤 ⇒ 记日志并回退既有路径（不静默假装续跑）。
+   *
+   * 缺省（`undefined`）⇒ 与改动前逐字一致。
+   */
+  resumePlanId?: string;
   /**
    * Teamwork P2b（2026-09-06）：历史 pitfall 检索注入（P1-2 读取点）——分解任务首步
    * 启动前取同类失败经验注入 prompt；未注入/返回空则零变化。
@@ -249,6 +278,13 @@ export interface PlanDrivenLoopResult {
   aborted?: boolean;
   /** run 级 token 预算耗尽（成本护栏中止；上游按 failed 收尾而非 completed） */
   budgetExhausted?: boolean;
+  /**
+   * 2026-11-13：**停在等待工具审批**（不是失败、也不是完成）。
+   *
+   * 上游据此写"暂停"回执/检查点相位（`stage_awaiting_approval`），而不是把
+   * "等用户批准"粉饰成"任务已结束"（会话 `session_mwdcivrue74d4838ff` 的用户可见问题）。
+   */
+  pausedForApproval?: boolean;
   /** 总耗时 ms */
   totalDurationMs: number;
   /** 总 token 数 */
@@ -423,6 +459,8 @@ export class PlanDrivenLoop {
   /** Teamwork P2b：本次 decompose run 检索到的同类失败经验（注入首步 prompt） */
   private _pitfallContext: string = '';
   private enableAutoDecompose: boolean;
+  /** D3 二期：按既有计划续跑（`undefined` = 既有行为） */
+  private resumePlanId?: string;
   private decomposer?: TaskDecomposer;
   private onStepProgress?: (progress: PlanProgress) => void;
   private onStepComplete?: (result: StepResult) => void;
@@ -451,6 +489,8 @@ export class PlanDrivenLoop {
   private budgetExhausted: boolean = false;
   /** 2026-11-02：连续自述"受阻"的步数（达 `MAX_CONSECUTIVE_BLOCKED_STEPS` ⇒ 熔断剩余步骤） */
   private _consecutiveBlockedSteps: number = 0;
+  /** 2026-11-13：本次 run 是否因"工具等待审批"暂停（不终态化、不熔断剩余步骤） */
+  private pausedForApproval: boolean = false;
   /**
    * P2-2（2026-11-06）：本次 run 的**完整任务源**（用户原话 + 助手计划正文）。
    *
@@ -472,6 +512,7 @@ export class PlanDrivenLoop {
     this.recordPitfall = config.recordPitfall;
     this.pitfallRetriever = config.pitfallRetriever;
     this.enableAutoDecompose = config.enableAutoDecompose === true;
+    this.resumePlanId = config.resumePlanId;
     this.onStepProgress = config.onStepProgress;
     this.onStepComplete = config.onStepComplete;
     // T-②05：判据在构造时**定一次**（注入优先；否则读 GlobalConfig.fastPath，缺省回退默认）
@@ -535,7 +576,38 @@ export class PlanDrivenLoop {
         'message.length': userMessage.length,
         enableAutoDecompose: this.enableAutoDecompose,
         hasDecomposer: !!this.decomposer,
+        ...(this.resumePlanId ? { resumePlanId: this.resumePlanId } : {}),
       });
+
+      // D3 二期（2026-11-14）：系统级续跑 —— 采纳既有计划，跳过复杂度门/分解/新建计划。
+      // 计划不可续（不存在 / 全终态）⇒ 如实记日志并**回退**既有路径（不静默假装已续跑）。
+      if (this.resumePlanId) {
+        const adopted = await this._adoptExistingPlan(this.resumePlanId);
+        if (adopted) {
+          span.addEvent('planDrivenLoop.resumePlan', {
+            planId: adopted.plan.id,
+            stepCount: adopted.plan.steps.length,
+          });
+          logger.info('按既有计划续跑（系统级）', {
+            sessionId: this.sessionId,
+            planId: adopted.plan.id,
+            stepCount: adopted.plan.steps.length,
+          });
+          this.onModeDecided?.('decomposed');
+          return this._recordOutcome(
+            'decomposed',
+            await this._executeDecomposed(
+              userMessage,
+              adopted.decomposition,
+              adopted.plan
+            )
+          );
+        }
+        logger.warn('计划续跑跳过：计划不存在或已无未完成步骤，回退既有路径', {
+          sessionId: this.sessionId,
+          planId: this.resumePlanId,
+        });
+      }
       // 复杂度判定门：简单任务跳过分解，直接执行（T-②05：阈值取本次生效判据）
       // 13-P2-2：接**最小回流点**——简单路径近期失败率偏高 ⇒ 不走近路（升级为分解/经典路径）
       // LRO-11（2026-10-26）：长任务信号（forceDecompose）**压过**长度门。
@@ -791,11 +863,14 @@ export class PlanDrivenLoop {
     // TAOR 现在遇到"工具已提交审批"即收尾（不再空转到 maxTurns）⇒ 若仍按 completed
     // 播报，会把"等用户批准"粉饰成"任务完成"（CS06）。批准后由 resumeStream 续跑。
     if (result.terminationReason === 'awaiting_approval') {
+      // 2026-11-13：不把"等用户批准"当失败 —— 记暂停态（上游据此写暂停回执/相位）
+      this.pausedForApproval = true;
       return this._buildResult(false, [
         {
           stepId: 'direct',
           description: userMessage.slice(0, 100),
           state: 'failed',
+          paused: true,
           output: '',
           error: '等待工具审批：批准后会自动续跑（本轮不计完成）',
           durationMs: Date.now() - this.startTime,
@@ -846,10 +921,31 @@ export class PlanDrivenLoop {
     ]);
   }
 
+  /**
+   * D3 二期：取既有计划并投影为可执行分解结果（系统级续跑）。
+   *
+   * 口径：先复位崩溃残留的 `running` 步骤（与启动期续跑同源），再判断是否仍有未终态步骤；
+   * 不可续 ⇒ `null`（调用方回退既有路径，不静默假装续跑）。
+   */
+  private async _adoptExistingPlan(planId: string): Promise<{
+    plan: Plan;
+    decomposition: DecompositionResult;
+  } | null> {
+    await taskOrchestrator.initialize();
+    const plan = taskOrchestrator.getPlan(planId);
+    if (!plan) return null;
+    taskOrchestrator.resetStaleRunningSteps(planId);
+    const current = taskOrchestrator.getPlan(planId) ?? plan;
+    if (!isPlanResumableByExecutor(current)) return null;
+    return { plan: current, decomposition: buildResumeDecomposition(current) };
+  }
+
   /** 分解后逐步执行 */
   private async _executeDecomposed(
     userMessage: string,
-    decomposition: DecompositionResult
+    decomposition: DecompositionResult,
+    /** D3 二期：采纳的既有计划（设置 ⇒ 不新建计划，已结束步骤跳过） */
+    existingPlan?: Plan
   ): Promise<PlanDrivenLoopResult> {
     // S0 冻结（2026-08-13）：上限以 TaskDecomposer.MAX_SUBTASKS 为唯一事实来源
     const subtasks = decomposition.subTasks.slice(0, MAX_SUBTASKS);
@@ -866,72 +962,31 @@ export class PlanDrivenLoop {
         .map((depId) => idxById.get(depId))
         .filter((idx): idx is number => typeof idx === 'number')
     );
-    // P0-1（2026-11-10，demand 准入门）：**验收标准前置**由分解结果承接。
-    // 许愿式会话没有人在环上兜底 ⇒ 某步缺失可判定验收标准就不允许开工（与阶段链
-    // 子 PDCA 的 `PLAN_CRITERIA_MISSING` 同口径）；非 demand 会话保持原行为（undefined）。
-    const acceptance = this.demand
-      ? subtasks.map((t) => (t.acceptanceCriteria ?? '').trim())
-      : undefined;
-    if (acceptance) {
-      const missing = acceptance
-        .map((c, index) => (c ? -1 : index))
-        .filter((index) => index >= 0);
-      if (missing.length > 0) {
-        throw new AppError(
-          'demand 计划缺少可判定的验收标准',
-          ErrorCategory.VALIDATION,
-          ErrorSeverity.HIGH,
-          'PLAN_CRITERIA_MISSING',
-          { missingSteps: missing.map((index) => index + 1) }
-        );
-      }
-    }
-
-    this.plan = taskOrchestrator.createPlan(
-      userMessage.slice(0, 200),
-      subtasks.map((t) => t.description),
-      this.sessionId,
-      undefined,
-      acceptance,
+    // P3-2（复杂度清理）：计划创建 / 验收标准前置校验外移（**逐字搬迁**）
+    this._preparePlanForSubtasks({
+      userMessage,
+      subtasks,
       workspaceId,
-      dependsOnIdx
-    );
+      dependsOnIdx,
+      existingPlan,
+    });
 
     // B5（架构归一 Step4）：Plan 阶段在持久层可见——createPlan 完成后回写 phase:'plan'。
     // 此前快速路径启动即在 PdcaLauncher 写 'execute'，真正 createPlan 时刻被抹掉，
     // checkpoint 从不出现 'plan'（两套体系一套在另一套影子下）。执行前再切回 'execute'。
-    if (this.taskId) {
-      await writePdcaCheckpoint(this.taskId, {
-        taskId: this.taskId,
-        phase: 'plan',
-        status: 'running',
-        sessionId: this.sessionId,
-        projectId: this.projectId,
-        // P0-1（2026-11-10）：demand 走 PDL 后，检查点必须自带自主度身份 ——
-        // 否则 `stats:demand`（指标 4）会把许愿式任务算成 interactive。
-        ...(this.demand ? { demand: true } : {}),
-      });
-    }
+    await this._writeDecomposedPhaseCheckpoint('plan');
 
     logger.info('PlanDrivenLoop 开始执行', {
       sessionId: this.sessionId,
-      planId: this.plan.id,
+      // 计划已由上一步创建/采纳 ⇒ 此处必然非空（拆分方法后 TS 不再跨方法收窄）
+      planId: this.plan!.id,
       stepCount: subtasks.length,
       // P0-1 遥测（2026-09-06）：有依赖的步骤数——验证 dependsOn 落库与拓扑可达性
       depStepCount: dependsOnIdx.filter((d) => d.length > 0).length,
     });
 
     // Teamwork P2b（2026-09-06）：同类历史 pitfall 检索（注入首步 prompt；无则空）
-    this._pitfallContext = this.pitfallRetriever
-      ? this.pitfallRetriever({ description: userMessage })
-      : '';
-    if (this._pitfallContext) {
-      logger.info('pitfall 检索注入首步', {
-        sessionId: this.sessionId,
-        planId: this.plan.id,
-        contextLength: this._pitfallContext.length,
-      });
-    }
+    this._loadPitfallContext(userMessage);
 
     // P2（08-09）：广播 TaskCard 初始数据到前端
     this._broadcastTaskCard(subtasks);
@@ -965,6 +1020,9 @@ export class PlanDrivenLoop {
     const depStatusById = new Map<string, TopoTaskStatus>();
     // P0-1：每步真实产出捕获（stepId → 末条 assistant 文本），供前驱注入/审计/重试引用
     const stepOutputs = new Map<string, string>();
+    // D3 二期：采纳计划时，**已结束步骤**只回填前驱状态/产出（不执行）——
+    // completed ⇒ ok；failed/cancelled ⇒ skipped（与原硬依赖阻断语义一致）
+    seedDepStatusFromExistingPlan(existingPlan, depStatusById, stepOutputs);
     // 13-P1-1 Step 2（2026-10-06，§20.6）：被阻断步骤明细 —— 回灌为模型可见内容（见 `_buildResult`）
     const blockedSteps: BlockedStepInfo[] = [];
     // 2026-11-02（长程任务空转熔断）：连续自述受阻的步数达到阈值 ⇒ 提前终止剩余步骤。
@@ -973,19 +1031,11 @@ export class PlanDrivenLoop {
     let cascadeAborted = false;
 
     // B5（架构归一 Step4）：计划已创建，进入执行前切回 phase:'execute'。
-    if (this.taskId) {
-      await writePdcaCheckpoint(this.taskId, {
-        taskId: this.taskId,
-        phase: 'execute',
-        status: 'running',
-        sessionId: this.sessionId,
-        projectId: this.projectId,
-        // P0-1（2026-11-10）：同上，执行快照同样自带 demand 身份
-        ...(this.demand ? { demand: true } : {}),
-      });
-    }
+    await this._writeDecomposedPhaseCheckpoint('execute');
     for (const batch of topoBatches) {
       if (this.aborted) break;
+      // 2026-11-13：有步骤在等用户审批 ⇒ 不再开新批次（与 LRO 的 batch 短路同口径）
+      if (this.pausedForApproval) break;
       // 2026-11-02：连续自述受阻达阈值 ⇒ 不再开新批次（熔断；剩余步下面统一置 cancelled）
       if (this._consecutiveBlockedSteps >= MAX_CONSECUTIVE_BLOCKED_STEPS) {
         cascadeAborted = true;
@@ -1009,6 +1059,13 @@ export class PlanDrivenLoop {
         const i = subtasks.findIndex((t) => t.id === topoTask.id);
         if (i < 0) continue;
         const stepId = this.plan?.steps[i]?.id || subtasks[i].id;
+        // D3 二期：采纳既有计划时，**已结束步骤不执行**（completed/skipped 已在批次前回填）
+        if (
+          subtasks[i].status === STEP_STATUS_COMPLETED ||
+          subtasks[i].status === 'skipped'
+        ) {
+          continue;
+        }
         const skipReason = depSkips.get(topoTask.id);
         if (skipReason) {
           // 13-P1-1：硬依赖失败 ⇒ 本步**不执行**，如实标注（plan 步标 cancelled + 明确原因）
@@ -1089,6 +1146,8 @@ export class PlanDrivenLoop {
             depStatusById
           );
           depStatusById.set(r.task.id, st);
+          // 2026-11-13：串行批次内出现"等待审批" ⇒ 不再继续本批剩余步骤
+          if (this.pausedForApproval) break;
         }
       }
     }
@@ -1147,6 +1206,8 @@ export class PlanDrivenLoop {
       this._emitSSE('plan:completed', {
         planId: this.plan.id,
         sessionId: this.sessionId,
+        // 2026-11-13：暂停态 ⇒ 前端渲染"等待审批"而不是"已结束"
+        paused: this.pausedForApproval,
         progress: progress
           ? {
               total: progress.total,
@@ -1196,6 +1257,94 @@ export class PlanDrivenLoop {
       subtasks.length,
       blockedSteps
     );
+  }
+
+  /**
+   * P3-2（复杂度清理）：创建/采纳计划 + demand 验收标准前置校验（从 `_executeDecomposed`
+   * **逐字外移**）：既有计划直接采纳；否则先校验 demand 每步都有可判定验收标准，再建计划。
+   */
+  private _preparePlanForSubtasks(params: {
+    userMessage: string;
+    subtasks: DecompositionResult['subTasks'];
+    workspaceId: string | undefined;
+    dependsOnIdx: number[][];
+    existingPlan?: Plan;
+  }): void {
+    const { userMessage, subtasks, workspaceId, dependsOnIdx, existingPlan } =
+      params;
+
+    if (existingPlan) {
+      // D3 二期：采纳既有计划 —— 不新建、不改写步骤（状态由执行路径逐步推进）；
+      // demand 的"验收标准前置"在计划创建时已校验过，此处不重复拦截。
+      this.plan = existingPlan;
+      return;
+    }
+
+    // P0-1（2026-11-10，demand 准入门）：**验收标准前置**由分解结果承接。
+    // 许愿式会话没有人在环上兜底 ⇒ 某步缺失可判定验收标准就不允许开工（与阶段链
+    // 子 PDCA 的 `PLAN_CRITERIA_MISSING` 同口径）；非 demand 会话保持原行为（undefined）。
+    const acceptance = this.demand
+      ? subtasks.map((t) => (t.acceptanceCriteria ?? '').trim())
+      : undefined;
+    if (acceptance) {
+      const missing = acceptance
+        .map((c, index) => (c ? -1 : index))
+        .filter((index) => index >= 0);
+      if (missing.length > 0) {
+        throw new AppError(
+          'demand 计划缺少可判定的验收标准',
+          ErrorCategory.VALIDATION,
+          ErrorSeverity.HIGH,
+          'PLAN_CRITERIA_MISSING',
+          { missingSteps: missing.map((index) => index + 1) }
+        );
+      }
+    }
+
+    this.plan = taskOrchestrator.createPlan(
+      userMessage.slice(0, 200),
+      subtasks.map((t) => t.description),
+      this.sessionId,
+      undefined,
+      acceptance,
+      workspaceId,
+      dependsOnIdx
+    );
+  }
+
+  /**
+   * P3-2：分解路径的 PDCA 相位回写（`plan` → `execute`）。
+   *
+   * P0-1（2026-11-10）：demand 走 PDL 后，检查点必须自带自主度身份 ——
+   * 否则 `stats:demand`（指标 4）会把许愿式任务算成 interactive。
+   */
+  private async _writeDecomposedPhaseCheckpoint(
+    phase: 'plan' | 'execute'
+  ): Promise<void> {
+    if (!this.taskId) return;
+    await writePdcaCheckpoint(this.taskId, {
+      taskId: this.taskId,
+      phase,
+      status: 'running',
+      sessionId: this.sessionId,
+      projectId: this.projectId,
+      ...(this.demand ? { demand: true } : {}),
+    });
+  }
+
+  /** P3-2：同类历史 pitfall 检索并注入首步 prompt（从 `_executeDecomposed` 逐字外移） */
+  private _loadPitfallContext(userMessage: string): void {
+    this._pitfallContext = this.pitfallRetriever
+      ? this.pitfallRetriever({ description: userMessage })
+      : '';
+    if (this._pitfallContext) {
+      logger.info('pitfall 检索注入首步', {
+        sessionId: this.sessionId,
+        // 本方法只在计划创建/采纳之后调用 ⇒ `plan` 必然非空
+        planId: this.plan!.id,
+        contextLength: this._pitfallContext.length,
+      });
+    }
   }
 
   /**
@@ -1261,35 +1410,17 @@ export class PlanDrivenLoop {
       // 前驱先执行；无文本/无依赖则不注入，遵守 B2 每步独立上下文的防污染意图）
       // 13-P1-1 Step 1（2026-10-06，§20.6）：前驱 failed/skipped 而本步仍执行（soft 缺省）时，
       // 由 `buildPredecessorSummary` 改为**显式标注** [DEPENDENCY_DEGRADED]（CS03-002）。
-      const { summary: predecessorSummary, degraded: degradedDeps } =
-        buildPredecessorSummary(
-          (task.dependsOn ?? []).map((depId) => {
-            const depIdx = idxById.get(depId);
-            if (depIdx === undefined || depIdx >= subtasks.length) {
-              return { description: depId, output: '' };
-            }
-            const depStepId = this.plan?.steps[depIdx]?.id;
-            return {
-              description: subtasks[depIdx]?.description ?? depId,
-              output: depStepId ? (stepOutputs.get(depStepId) ?? '') : '',
-              status: depStatusById.get(depId),
-            };
-          })
-        );
-      const degradedNote = degradedDeps.length
-        ? `[DEPENDENCY_DEGRADED] 前驱 ${degradedDeps.join('、')} 未产出可用结果，本步在输入不完整的情况下继续执行`
-        : '';
-      if (degradedNote) {
-        logger.warn(
-          '步骤在依赖降级（前驱失败/被阻断）下继续执行（13-P1-1 Step 1）',
-          {
-            sessionId: this.sessionId,
-            planId: this.plan?.id,
-            stepId,
-            degradedDeps,
-          }
-        );
-      }
+      // P3-2（复杂度清理）：依赖前驱上下文组装外移为 `_buildStepDependencyContext`
+      //（**逐字搬迁**，注入口径与降级标注文案不变）
+      const { predecessorSummary, degradedNote } =
+        this._buildStepDependencyContext({
+          task,
+          subtasks,
+          idxById,
+          stepOutputs,
+          depStatusById,
+          stepId,
+        });
 
       let lastErr: unknown;
       // P0-2（2026-09-06）：失败类型门控重试——aborted 不重试；其余失败注入 objection 重跑 1 次
@@ -1347,6 +1478,38 @@ export class PlanDrivenLoop {
             verdict.verdict === STEP_VERDICT_BLOCKED ||
             verdict.verdict === STEP_VERDICT_PARTIAL
           ) {
+            // 2026-11-13（暂停态，会话 `session_mwdcivrue74d4838ff`）：工具在等用户审批
+            // **不是**"本步失败" —— 不得 markStepFailed（那会让计划终态化 + 熔断后续批次），
+            // 也不得递增连续受阻计数（否则用户批准两次后剩余步骤被 STEP_CASCADE_BLOCKED 取消）。
+            if (pausedForApproval) {
+              this.pausedForApproval = true;
+              taskOrchestrator.markPlanAwaitingApproval(
+                stepId,
+                '⏸ 等待工具审批：批准后会自动续跑（未失败，剩余步骤未执行）'
+              );
+              stepOutputs.set(stepId, stepText);
+              this.totalTokens += result.totalTokens;
+              this.stepResults.push({
+                stepId,
+                description: task.description,
+                state: 'failed',
+                paused: true,
+                output: stepText.slice(0, 2000),
+                error: verdictNote,
+                partialOutput: stepText.slice(0, 2000) || undefined,
+                durationMs: duration,
+                turnCount: result.turnCount,
+                tokenCount: result.totalTokens,
+              });
+              this._notifyProgress();
+              logger.warn('步骤停在等待工具审批（不计失败、不熔断后续批次）', {
+                sessionId: this.sessionId,
+                planId: this.plan?.id,
+                stepId,
+                turnCount: result.turnCount,
+              });
+              return 'skipped';
+            }
             // 目标未达成 ⇒ 记 failed（不计完成）。不重试：缺信息/需人决策重跑同一 prompt
             // 不会改变结论，重试只会放大空转（会话导出实证：同一空转 × 5 步）。
             const failureText = degradedNote
@@ -1564,6 +1727,57 @@ export class PlanDrivenLoop {
     return 'ok';
   }
 
+  /**
+   * P3-2（复杂度清理）：构建**依赖前驱上下文**（从 `_executeOneStep` 逐字外移）。
+   *
+   * 只注入确实已产出的前驱文本（无文本/无依赖则不注入，遵守 B2 每步独立上下文的防污染意图）；
+   * 前驱 failed/skipped 而无产出时由 `buildPredecessorSummary` 产出 `[DEPENDENCY_DEGRADED]`
+   * 标注，并在此转成一行可拼进失败文案的说明。
+   */
+  private _buildStepDependencyContext(params: {
+    task: { dependsOn?: string[] };
+    subtasks: DecompositionResult['subTasks'];
+    idxById: Map<string, number>;
+    stepOutputs: Map<string, string>;
+    depStatusById: ReadonlyMap<string, TopoTaskStatus>;
+    stepId: string;
+  }): { predecessorSummary: string; degradedNote: string } {
+    const { task, subtasks, idxById, stepOutputs, depStatusById, stepId } =
+      params;
+
+    const { summary: predecessorSummary, degraded: degradedDeps } =
+      buildPredecessorSummary(
+        (task.dependsOn ?? []).map((depId) => {
+          const depIdx = idxById.get(depId);
+          if (depIdx === undefined || depIdx >= subtasks.length) {
+            return { description: depId, output: '' };
+          }
+          const depStepId = this.plan?.steps[depIdx]?.id;
+          return {
+            description: subtasks[depIdx]?.description ?? depId,
+            output: depStepId ? (stepOutputs.get(depStepId) ?? '') : '',
+            status: depStatusById.get(depId),
+          };
+        })
+      );
+    const degradedNote = degradedDeps.length
+      ? `[DEPENDENCY_DEGRADED] 前驱 ${degradedDeps.join('、')} 未产出可用结果，本步在输入不完整的情况下继续执行`
+      : '';
+    if (degradedNote) {
+      logger.warn(
+        '步骤在依赖降级（前驱失败/被阻断）下继续执行（13-P1-1 Step 1）',
+        {
+          sessionId: this.sessionId,
+          planId: this.plan?.id,
+          stepId,
+          degradedDeps,
+        }
+      );
+    }
+
+    return { predecessorSummary, degradedNote };
+  }
+
   /** 构建步骤执行的 prompt（P0-1：可注入依赖前驱产出摘要；P0-2：可携带上次失败 objection） */
   private _buildStepPrompt(
     task: { id: string; description: string },
@@ -1708,7 +1922,10 @@ export class PlanDrivenLoop {
     blockedSteps: readonly BlockedStepInfo[] = []
   ): PlanDrivenLoopResult {
     const completed = stepResults.filter((r) => r.state === 'completed').length;
-    const failed = stepResults.filter((r) => r.state === 'failed').length;
+    // 2026-11-13：等待审批的步骤不算失败（否则回执/汇总会把"等用户批"粉饰成未达成）
+    const failed = stepResults.filter(
+      (r) => r.state === 'failed' && r.paused !== true
+    ).length;
     const blocked = blockedSteps.length;
     // 2026-11-02：因"连续受阻熔断"**未执行**的步骤（既不在 stepResults，也不在依赖阻断明细）
     const cascadeSkipped = Math.max(
@@ -1717,7 +1934,10 @@ export class PlanDrivenLoop {
     );
 
     let summary: string;
-    if (decomposed) {
+    if (this.pausedForApproval) {
+      // 用户可见口径：暂停 ≠ 失败 ≠ 完成（会话 `session_mwdcivrue74d4838ff`）
+      summary = `任务暂停：等待工具审批（${completed}/${totalSteps} 步完成；批准后自动续跑，剩余步骤未执行）`;
+    } else if (decomposed) {
       // 轮数/总 token 等内部指标不进入 summary（用户可见），仅留在 StepResult 字段与日志
       // 13-P1-1 Step 2（2026-10-06）：分母改用**真实子任务数**——被阻断步骤不进 stepResults，
       // 原 `stepResults.length` 会把"2/4 被阻断"粉饰成"2/2 步骤成功"（CS06：不粉饰）。
@@ -1754,6 +1974,7 @@ export class PlanDrivenLoop {
       blockedSteps: [...blockedSteps],
       aborted: this.aborted,
       budgetExhausted: this.budgetExhausted,
+      pausedForApproval: this.pausedForApproval,
       totalDurationMs: Date.now() - this.startTime,
       totalTokens: this.totalTokens,
       stepResults,

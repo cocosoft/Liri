@@ -208,6 +208,59 @@ const zhWorkspace = {
     allowedCommandsLabel: "允许命令白名单：",
     deniedCommandsLabel: "禁止命令黑名单：",
     notConfigured: "未配置",
+    // S3（2026-11-17）：命令执行沙箱启停（设置方案 §4 / §11）——
+    // 四项配置可写；两个危险开关二次确认；探针结论全部来自后端，前端不推断
+    commandSandboxTitle: "命令执行沙箱（bash / powershell / code_run）",
+    commandSandboxSubtitle:
+      "开启后 bash / powershell / code_run 进入平台沙箱；三平台首版只隔离写（读与网络不受限）。",
+    commandSandboxEffectiveLabel: "当前效果",
+    commandSandboxEffectiveOff: "未启用（总开关关闭）",
+    commandSandboxEffectivePlain: "未隔离（降级为普通执行）",
+    commandSandboxEffectiveIsolated: "已隔离（写受限）",
+    commandSandboxEffectiveRefuse: "拒绝执行（初始化失败且已开启 failClosed）",
+    commandSandboxHelperReason: "helper 原因码",
+    commandSandboxHelperRunnable: "可执行探测",
+    commandSandboxYes: "是",
+    commandSandboxNo: "否",
+    commandSandboxUnverified: "未验证",
+    commandSandboxLoading: "正在探测沙箱能力…",
+    commandSandboxEnabledLabel: "启用命令执行沙箱（总开关）",
+    commandSandboxBashEnabledLabel:
+      "让 bash / powershell / code_run 在沙箱内执行",
+    commandSandboxFailClosedLabel: "沙箱初始化失败时拒绝执行（failClosed）",
+    commandSandboxFailClosedHint:
+      "只影响「沙箱初始化失败（exit 125）」这一种情况；关闭时降级为普通执行。",
+    commandSandboxApplyHint:
+      "保存后对后续命令生效；当前这一轮已经开始的命令不受影响。",
+    commandSandboxConfirmBashTitle: "确认开启命令执行沙箱？",
+    commandSandboxConfirmBashBody:
+      "沙箱缺少你需要的可写路径时会拦掉正常命令；本机 helper 不可执行时，命令会被全部拒绝。",
+    commandSandboxConfirmFailClosedTitle: "确认开启 failClosed？",
+    commandSandboxConfirmFailClosedBody:
+      "helper 初始化失败时将拒绝执行命令（而不是降级），可能导致命令执行不可用。",
+    commandSandboxConfirmRestoreTitle: "恢复沙箱默认配置？",
+    commandSandboxConfirmRestoreBody:
+      "将写回 enabled=true / bashEnabled=false / failClosed=false / 无额外可写路径。",
+    commandSandboxConfirmEnable: "仍要开启",
+    commandSandboxConfirmRestore: "恢复默认",
+    commandSandboxCancel: "取消",
+    commandSandboxUnrunnableWarn:
+      "本机 helper 文件存在但无法执行（可能被应用程序控制策略阻止）⇒ 开启后命令会被拒绝。",
+    commandSandboxUnrunnableAck: "我已知晓，仍要开启",
+    commandSandboxPathsTitle: "额外可写路径（仅 bashEnabled 生效）",
+    commandSandboxPathsEmpty: "暂无额外可写路径",
+    commandSandboxPathPlaceholder: "绝对路径，如 E:\\build",
+    commandSandboxAddPath: "添加",
+    commandSandboxRemovePath: "移除",
+    commandSandboxForceReasonLabel:
+      "该路径位于应用数据目录内，需填写放行理由（会写入审计）",
+    commandSandboxForceReasonPlaceholder:
+      "例如：构建缓存必须写在应用数据目录内",
+    commandSandboxRetryWithReason: "带理由重试",
+    commandSandboxRestoreDefaults: "恢复默认",
+    commandSandboxReprobe: "重新探测",
+    commandSandboxSaveFailed: "保存沙箱配置失败",
+    commandSandboxLoadFailed: "沙箱能力探测失败",
   },
   help: {
     title: "帮助",

@@ -1,7 +1,18 @@
 import type { CommandContext, CommandResult } from '@modules/commands';
-import { taskRegistry } from '@modules/tasks';
+import {
+  taskRegistry,
+  taskOrchestrator,
+  buildPlanImpactPreview,
+  renderPlanImpactPreview,
+  selectPlanForPreview,
+  buildSideEffectLog,
+  renderSideEffectLog,
+  collectPlanSideEffects,
+} from '@modules/tasks';
 import { TaskStatus } from '@modules/tasks/types.js';
 import { NoteTask } from '@modules/tasks';
+// D7 二期（2026-11-14）：副作用解析的唯一事实源
+import { resolveToolEffect } from '@modules/tools';
 
 function statusIcon(s: TaskStatus): string {
   switch (s) {
@@ -53,6 +64,8 @@ export default {
         return this.handleClear(context);
       case 'execute':
         return this.handleExecute(context);
+      case 'preview':
+        return this.handlePreview(parts.slice(1), context);
       default:
         return this.handleHelp();
     }
@@ -234,6 +247,69 @@ export default {
     };
   },
 
+  /**
+   * D7 二期（2026-11-14）：**影响预演** —— 只读计划台账，不执行任何工具、不写文件。
+   *
+   * 选择：指定 planId（支持唯一前缀）> 本会话最近未终态计划 > 本会话最近计划。
+   * 无候选 / 前缀歧义 ⇒ 如实报错（不虚构计划）。
+   */
+  async handlePreview(
+    args: string[],
+    context: CommandContext
+  ): Promise<CommandResult> {
+    await taskOrchestrator.initialize();
+    const plans = taskOrchestrator.getAllPlans();
+    const picked = selectPlanForPreview(plans, {
+      ...(context.sessionId ? { sessionId: context.sessionId } : {}),
+      ...(args[0] ? { planId: args[0] } : {}),
+    });
+
+    if (picked.ambiguous) {
+      return {
+        success: false,
+        type: 'error',
+        error: `计划 id 前缀不唯一：${picked.ambiguous.join(', ')}`,
+      };
+    }
+    if (!picked.plan) {
+      return {
+        success: true,
+        type: 'text',
+        message:
+          '未找到可预演的计划（本会话暂无计划；可用 /plan preview <planId> 指定）。',
+        data: { totalPlans: plans.length },
+      };
+    }
+
+    const preview = buildPlanImpactPreview(picked.plan, {
+      resolveEffect: (name) => resolveToolEffect(name)?.sideEffect,
+    });
+
+    // D7 三期（2026-11-14）：附加"该计划的真实文件副作用"（来自轮快照；无 planId 归属的旧数据不计入）
+    let message = renderPlanImpactPreview(preview);
+    let sideEffects = null as ReturnType<typeof buildSideEffectLog> | null;
+    if (context.sessionId) {
+      try {
+        const { listSessionSnapshots } =
+          await import('@openliri/infra/security/rollback');
+        const snapshots = await listSessionSnapshots(context.sessionId);
+        const ops = collectPlanSideEffects(snapshots, picked.plan.id);
+        if (ops.length > 0) {
+          sideEffects = buildSideEffectLog(ops);
+          message += `\n\n${renderSideEffectLog(sideEffects)}`;
+        }
+      } catch {
+        // @ignore-catch — 快照不可读只影响附加信息，不阻断预演（主结论仍来自计划台账）
+      }
+    }
+    return {
+      success: true,
+      type: 'text',
+      message,
+      data: { ...preview, sideEffects },
+    };
+  },
+
   async handleHelp(): Promise<CommandResult> {
     return {
       success: true,
@@ -247,6 +323,7 @@ export default {
         '/plan remove <编号> - 移除任务（支持编号或ID）',
         '/plan clear       - 清空计划',
         '/plan execute     - 执行计划',
+        '/plan preview [id] - 影响预演（只读：进度/副作用/产物/风险，不执行）',
         '/plan help        - 显示此帮助信息',
         '',
         '示例:',

@@ -6,14 +6,14 @@
  * 子代理结算后由恢复通路开启新 turn —— 见 阶段A-恢复通路设计Spec.md §3.3）。
  */
 import { describe, test, expect } from 'bun:test';
-import { ReActLoop } from '../../src/query/ReActLoop';
+import { ReActLoop } from '@modules/query/ReActLoop';
 import type {
   ActResult,
   ReasonResult,
   ReActEvent,
   ReActState,
   ToolCallEntry,
-} from '../../src/query/ReActLoop';
+} from '@modules/query/ReActLoop';
 
 interface TestResult {
   reasonCount: number;

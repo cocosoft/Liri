@@ -9,10 +9,17 @@
 import { describe, it, expect } from 'bun:test';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+// P0（2026-11-13）：通道源码位置走单一事实源（搬包后本文件零改动）
+import { channelPath } from '../../../scripts/lib/channelPaths';
+// P1（2026-11-13）：会话源码位置同理
+import { sessionPath } from '../../../scripts/lib/sessionPaths';
 import {
   estimateAttachmentsTokens,
   ATTACHMENT_BYTES_PER_TOKEN,
-} from '../../src/query/attachmentBudget.js';
+} from '@modules/query/attachmentBudget.js';
+
+/** 仓库根（`app/tests/channels` → 上三级） */
+const REPO_ROOT = resolve(__dirname, '../../..');
 
 function read(rel: string): string {
   return readFileSync(resolve(__dirname, rel), 'utf8');
@@ -20,7 +27,10 @@ function read(rel: string): string {
 
 describe('T1-6 入站附件 → R16 预留口径（源码守卫 + 求和语义）', () => {
   it('渠道入站显式适配：只取 `size`，不携带 url/data（不构成模型可见输入）', () => {
-    const src = read('../../src/channels/routing/messageRouter.ts');
+    const src = readFileSync(
+      channelPath(REPO_ROOT, 'routing/messageRouter.ts'),
+      'utf8'
+    );
     expect(src).toContain('attachmentSizes:');
     // 适配体只含 size（显式形状）
     expect(src).toMatch(/map\(\(a\) => \(\{\s*size: a\.size,/);
@@ -29,12 +39,14 @@ describe('T1-6 入站附件 → R16 预留口径（源码守卫 + 求和语义�
   });
 
   it('端口契约与会话选项均声明该入参（跨层显式适配，非类型互换）', () => {
+    // P0（2026-11-13）：`coreAPI` 的最小面已下沉到 `runtimePorts.ChannelCoreApiPort`
+    // ⇒ 入参声明的唯一事实源随之为该文件（契约只保留对它的引用）。
     expect(
-      read('../../src/channels/routing/messageRouterContract.ts')
+      readFileSync(channelPath(REPO_ROOT, 'runtimePorts.ts'), 'utf8')
     ).toContain('attachmentSizes?: readonly { size?: number }[]');
-    expect(read('../../src/session/types/message/options.ts')).toContain(
-      'attachmentSizes?: readonly { size?: number }[]'
-    );
+    expect(
+      readFileSync(sessionPath(REPO_ROOT, 'types/message/options.ts'), 'utf8')
+    ).toContain('attachmentSizes?: readonly { size?: number }[]');
   });
 
   it('预算侧把 `images` 与 `attachmentSizes` **一并**计入预留', () => {

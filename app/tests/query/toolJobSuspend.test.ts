@@ -23,14 +23,14 @@ import type { StateProjectionBroadcast } from '@openliri/infra/state/engine/proj
 import {
   getBudgetSuspendCoordinator,
   resetBudgetSuspendForTest,
-} from '../../src/query/budgetSuspend';
+} from '@modules/query/budgetSuspend';
 import {
   createToolJobSuspendPort,
   isToolJobSuspendEnabled,
   registerToolJobSuspend,
   releaseToolJobSuspend,
-} from '../../src/query/toolJobSuspend';
-import { continueSuspendedSession } from '../../src/query/guardSuspend';
+} from '@modules/query/toolJobSuspend';
+import { continueSuspendedSession } from '@modules/query/guardSuspend';
 import {
   registerToolJobSuspendSpi,
   resetToolJobSuspendForTest,

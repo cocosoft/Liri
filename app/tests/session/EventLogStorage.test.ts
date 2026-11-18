@@ -16,7 +16,7 @@ import {
 } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { EventLogStorage } from '../../src/session/storage/EventLogStorage';
+import { EventLogStorage } from '@modules/session/storage/EventLogStorage';
 import type { LiriEvent } from '@modules/session/types/events';
 
 const HASH = 'default';
@@ -398,7 +398,6 @@ describe('EventLogStorage 事件快照缓存（P1-2）', () => {
         )
       );
       expect(results.every((r) => r.ok)).toBe(true);
-      expect(results.some((r) => r.reason === 'duplicate-seq')).toBe(false);
       // 分配的 seq 全部唯一且连续
       const seqs = results.map((r) => r.tailSeq);
       expect(new Set(seqs).size).toBe(4);

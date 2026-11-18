@@ -306,7 +306,6 @@ export class LSPToolAdapter implements Tool {
       // 启动LSP服务器
       await this.lspTool.startServer();
 
-      let result: any;
       const action = params.action as string;
       const language = params.language as string;
       const position = params.position as Position | undefined;
@@ -344,91 +343,177 @@ export class LSPToolAdapter implements Tool {
           ? `file://${resolve(filePathRaw.trim())}`
           : `file://${language}_snippet`;
 
-      switch (action) {
-        case 'completions':
-          result = await this.lspTool.getCompletions(
+      // P3-2（复杂度清理）：action 分派整体外移为 `dispatchLspAction`（**逐字搬迁**）
+      const dispatched = await this.dispatchLspAction({
+        action,
+        params,
+        document: effectiveDocument,
+        defaultUri,
+        position,
+        newName,
+        filePathRaw,
+      });
+      if (dispatched.kind === 'unknown-action') {
+        return {
+          success: false,
+          error: `Unknown action: ${action}`,
+          output: `未知操作: ${action}`,
+        };
+      }
+
+      return {
+        success: true,
+        data: dispatched.result,
+        output: `LSP ${action} completed successfully`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+        output: `LSP tool failed: ${error}`,
+      };
+    } finally {
+      // 停止LSP服务器
+      await this.lspTool.stopServer();
+    }
+  }
+
+  /**
+   * P3-2（复杂度清理）：**action 分派**（从 `execute` 逐字外移）。
+   *
+   * 每个 action 的调用目标、入参与参数回落链（`query → symbol`、`line/character → position → 0`、
+   * `file_path → filePath → ''`）均未变；未知 action 由调用方转成双文案失败结果。
+   */
+  private async dispatchLspAction(args: {
+    action: string;
+    params: Record<string, unknown>;
+    document: string;
+    defaultUri: string;
+    position: Position | undefined;
+    newName: string;
+    filePathRaw: string | undefined;
+  }): Promise<{ kind: 'ok'; result: unknown } | { kind: 'unknown-action' }> {
+    const {
+      action,
+      params,
+      document: effectiveDocument,
+      defaultUri,
+      position,
+      newName,
+      filePathRaw,
+    } = args;
+
+    switch (action) {
+      case 'completions':
+        return {
+          kind: 'ok',
+          result: await this.lspTool.getCompletions(
             effectiveDocument,
             position as Position
-          );
-          break;
-        case 'definition':
-          result = await this.lspTool.getDefinition(
+          ),
+        };
+      case 'definition':
+        return {
+          kind: 'ok',
+          result: await this.lspTool.getDefinition(
             effectiveDocument,
             position as Position
-          );
-          break;
-        case 'references':
-          result = await this.lspTool.getReferences(
+          ),
+        };
+      case 'references':
+        return {
+          kind: 'ok',
+          result: await this.lspTool.getReferences(
             effectiveDocument,
             position as Position
-          );
-          break;
-        case 'diagnostics':
-          result = await this.lspTool.getDiagnostics(effectiveDocument);
-          break;
-        case 'format':
-          result = await this.lspTool.formatDocument(effectiveDocument);
-          break;
-        case 'hover':
-          result = await this.lspTool.getHover(
+          ),
+        };
+      case 'diagnostics':
+        return {
+          kind: 'ok',
+          result: await this.lspTool.getDiagnostics(effectiveDocument),
+        };
+      case 'format':
+        return {
+          kind: 'ok',
+          result: await this.lspTool.formatDocument(effectiveDocument),
+        };
+      case 'hover':
+        return {
+          kind: 'ok',
+          result: await this.lspTool.getHover(
             effectiveDocument,
             position as Position
-          );
-          break;
-        case 'rename':
-          result = await this.lspTool.renameSymbol(
+          ),
+        };
+      case 'rename':
+        return {
+          kind: 'ok',
+          result: await this.lspTool.renameSymbol(
             effectiveDocument,
             position as Position,
             newName
-          );
-          break;
-        case 'codeAction':
-          result = await this.lspTool.getCodeActions(
+          ),
+        };
+      case 'codeAction':
+        return {
+          kind: 'ok',
+          result: await this.lspTool.getCodeActions(
             effectiveDocument,
             position as Position
-          );
-          break;
-        case 'implementation':
-          result = await this.lspTool.getImplementation(
+          ),
+        };
+      case 'implementation':
+        return {
+          kind: 'ok',
+          result: await this.lspTool.getImplementation(
             effectiveDocument,
             position as Position
-          );
-          break;
-        case 'typeDefinition':
-          result = await this.lspTool.getTypeDefinition(
+          ),
+        };
+      case 'typeDefinition':
+        return {
+          kind: 'ok',
+          result: await this.lspTool.getTypeDefinition(
             effectiveDocument,
             position as Position
-          );
-          break;
-        case 'workspaceSymbol': {
-          const query =
-            (params.query as string) || (params.symbol as string) || '';
-          result = await this.symbolSearch.searchWorkspaceSymbols(query);
-          break;
-        }
-        case 'documentSymbol':
-          result = await this.symbolSearch.getDocumentSymbols(
+          ),
+        };
+      case 'workspaceSymbol': {
+        const query =
+          (params.query as string) || (params.symbol as string) || '';
+        return {
+          kind: 'ok',
+          result: await this.symbolSearch.searchWorkspaceSymbols(query),
+        };
+      }
+      case 'documentSymbol':
+        return {
+          kind: 'ok',
+          result: await this.symbolSearch.getDocumentSymbols(
             (params.uri as string) || defaultUri
-          );
-          break;
-        case 'callHierarchy': {
-          const p = position as Record<string, unknown> | undefined;
-          const uri = (params.uri as string) || defaultUri;
-          const items = await this.callHierarchy.prepareCallHierarchy(
-            uri,
-            (params.line as number) ?? (p?.line as number) ?? 0,
-            (params.character as number) ?? (p?.character as number) ?? 0
-          );
-          result = await this.callHierarchy.buildCallHierarchy(
-            uri,
-            (params.line as number) ?? (p?.line as number) ?? 0,
-            (params.character as number) ?? (p?.character as number) ?? 0
-          );
-          void items;
-          break;
-        }
-        case 'symbolContext': {
-          result = await this.symbolContextProvider.getSymbolContext(
+          ),
+        };
+      case 'callHierarchy': {
+        const p = position as Record<string, unknown> | undefined;
+        const uri = (params.uri as string) || defaultUri;
+        const items = await this.callHierarchy.prepareCallHierarchy(
+          uri,
+          (params.line as number) ?? (p?.line as number) ?? 0,
+          (params.character as number) ?? (p?.character as number) ?? 0
+        );
+        const result = await this.callHierarchy.buildCallHierarchy(
+          uri,
+          (params.line as number) ?? (p?.line as number) ?? 0,
+          (params.character as number) ?? (p?.character as number) ?? 0
+        );
+        void items;
+        return { kind: 'ok', result };
+      }
+      case 'symbolContext':
+        return {
+          kind: 'ok',
+          result: await this.symbolContextProvider.getSymbolContext(
             effectiveDocument,
             (params.line as number) ??
               ((position as unknown as Record<string, unknown>)
@@ -441,31 +526,10 @@ export class LSPToolAdapter implements Tool {
             (filePathRaw && resolve(filePathRaw.trim())) ||
               (params.filePath as string) ||
               ''
-          );
-          break;
-        }
-        default:
-          return {
-            success: false,
-            error: `Unknown action: ${action}`,
-            output: `未知操作: ${action}`,
-          };
-      }
-
-      return {
-        success: true,
-        data: result,
-        output: `LSP ${action} completed successfully`,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-        output: `LSP tool failed: ${error}`,
-      };
-    } finally {
-      // 停止LSP服务器
-      await this.lspTool.stopServer();
+          ),
+        };
+      default:
+        return { kind: 'unknown-action' };
     }
   }
 

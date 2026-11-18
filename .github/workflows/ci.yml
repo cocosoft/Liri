@@ -119,6 +119,113 @@ jobs:
       if: matrix.os == 'ubuntu-latest'
       run: bun run lint:scripts
 
+    # P1（2026-11-12）：沙箱拆包到 packages/sandbox 后不再被 `eslint src tests` 覆盖
+    # （flat config 以配置目录为 basePath，跨 base path 会被静默跳过）⇒ 显式补一条门禁。
+    - name: "Run sandbox package linter (P1：packages/sandbox 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:sandbox
+
+    # P1（2026-11-13）：channels 拆包到 packages/channels 后同理补覆盖（同一 flat-config 限制）。
+    - name: "Run channels package linter (P1：packages/channels 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:channels
+
+    # P1（2026-11-13）：query 拆包到 packages/query 后同理补覆盖（同一 flat-config 限制）。
+    - name: "Run query package linter (P1：packages/query 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:query
+
+    # P1（2026-11-13）：skills 拆包到 packages/skills 后同理补覆盖（同一 flat-config 限制）。
+    - name: "Run skills package linter (P1：packages/skills 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:skills
+
+    # P1（2026-11-13）：tokenBudget 拆包到 packages/tokenBudget 后同理补覆盖。
+    - name: "Run tokenBudget package linter (P1：packages/tokenBudget 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:tokenBudget
+
+    # P1（2026-11-13）：vfs 拆包到 packages/vfs 后同理补覆盖。
+    - name: "Run vfs package linter (P1：packages/vfs 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:vfs
+
+    # P1（2026-11-13）：compaction 拆包到 packages/compaction 后同理补覆盖。
+    - name: "Run compaction package linter (P1：packages/compaction 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:compaction
+
+    # P1（2026-11-13）：workspaces 拆包到 packages/workspaces 后同理补覆盖。
+    - name: "Run workspaces package linter (P1：packages/workspaces 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:workspaces
+
+    # P1（2026-11-13）：docs 拆包到 packages/docs 后同理补覆盖。
+    - name: "Run docs package linter (P1：packages/docs 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:docs
+
+    # P1（2026-11-13）：plugin-sdk 拆包到 packages/plugin-sdk 后同理补覆盖。
+    - name: "Run plugin-sdk package linter (P1：packages/plugin-sdk 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:plugin-sdk
+
+    # P1（2026-11-14）：governance 拆包到 packages/governance 后同理补覆盖。
+    - name: "Run governance package linter (P1：packages/governance 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:governance
+
+    # P1（2026-11-14）：dream 拆包到 packages/dream 后同理补覆盖。
+    - name: "Run dream package linter (P1：packages/dream 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:dream
+
+    # P0-1 子项 1（2026-11-14）延伸：dream 公开子路径白名单（对齐 kernel K07），
+    # 防"删了文件忘删导出"与"加了深路径 import 没登记 exports"在独立发布后炸掉。
+    - name: "Run dream exports allowlist (P0-1：公开子路径白名单)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:dream-exports
+
+    # P1（2026-11-14）：evals 拆包到 packages/evals 后同理补覆盖。
+    - name: "Run evals package linter (P1：packages/evals 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:evals
+
+    # P1（2026-11-14）：proactive 拆包到 packages/proactive 后同理补覆盖。
+    - name: "Run proactive package linter (P1：packages/proactive 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:proactive
+
+    # P1（2026-11-14）：project 拆包到 packages/project 后同理补覆盖。
+    - name: "Run project package linter (P1：packages/project 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:project
+
+    # P1（2026-11-14）：subagent 拆包到 packages/subagent 后同理补覆盖。
+    - name: "Run subagent package linter (P1：packages/subagent 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:subagent
+
+    # P1（2026-11-14）：resourceGovernor 拆包到 packages/resourceGovernor 后同理补覆盖。
+    - name: "Run resourceGovernor package linter (P1：packages/resourceGovernor 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:resourceGovernor
+
+    # P1（2026-11-14）：tool 拆包到 packages/tool 后同理补覆盖。
+    - name: "Run tool package linter (P1：packages/tool 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:tool
+
+    # P1（2026-11-14）：context-engine 拆包到 packages/context-engine 后同理补覆盖。
+    - name: "Run context-engine package linter (P1：packages/context-engine 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:context-engine
+
+    # P1（2026-11-14）：buddy 拆包到 packages/buddy 后同理补覆盖。
+    - name: "Run buddy package linter (P1：packages/buddy 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:buddy
+
     # R05-003 双源收敛（2026-10-14）：原先此处为**内联 grep**（6 名 / 按行 / 阈值写死 2034），
     # 与门禁 `lint-architecture.ts#checkConsoleBaseline`（4 名 / 按次 / 阈值 2045+10% ⇒ 上限 2250）
     # 构成**两套实现 + 两个阈值**（改一处即漂移）。现改调**同一实现** `scripts/lib/consoleCalls.ts`，
@@ -188,7 +295,37 @@ jobs:
       # 但在 ubuntu/macos 的 bun 1.3.14 上该组合失败（Test Suite #572）；
       # 2026-10-18 起 CI 统一 1.4.2（见 .github/actions/setup-bun），该回退保留待复核。
       # 回退为单 lcov reporter，统计能力由上传的 lcov.info artifact 承担。
-      run: bun test --coverage --coverage-reporter=lcov tests/
+      #
+      # 2026-11-15 稳定性修复（实证 #2027 / #2031）：同一提交的「Run tests」步骤全绿，
+      # 只有本步骤在 ubuntu 上失败，且 #2028 用几乎相同代码重跑即通过 ⇒ 判定为覆盖率
+      # 二次全量跑批的环境抖动（非用例失败）。处理：
+      #   ① 失败时**自动重试一次**（覆盖率不是正确性门禁，正确性由上一行的 Run tests 承担）；
+      #   ② 把失败用例提升为 annotation（job 日志接口对匿名读取返回 403，只能靠 annotation 定位）；
+      #   ③ 无论成败都打印尾部日志，避免"红了但没线索"。
+      #
+      # 2026-11-15 根因补齐（实证 run 43681798826 / commit 62f08d2d6）：失败用例是
+      # `windowStartForBudget — C-3 配对硬约束`（≈16s），两次尝试都超时；而上一条
+      # 「Run tests」带 `--timeout 30000` 全绿 ⇒ 差异是本步骤**未带** `--timeout`
+      # （bun 默认 5s，覆盖率插桩下长用例必超）。⇒ 两次调用同补 `--timeout 30000`，
+      # 与 Run tests 同口径；retry 保留（隔离真实抖动）。
+      run: |
+        set +e
+        LOG="$RUNNER_TEMP/coverage.log"
+        bun test --coverage --coverage-reporter=lcov tests/ --timeout 30000 > "$LOG" 2>&1
+        code=$?
+        if [ "$code" -ne 0 ]; then
+          echo "::warning::coverage run failed (exit $code)；重试一次（历史 #2027/#2031 同一提交的 Run tests 全绿）"
+          bun test --coverage --coverage-reporter=lcov tests/ --timeout 30000 >> "$LOG" 2>&1
+          code=$?
+        fi
+        tail -n 60 "$LOG"
+        if [ "$code" -ne 0 ]; then
+          grep -E '\(fail\)' "$LOG" | head -n 20 | while IFS= read -r line; do
+            printf '::error::%s\n' "$line"
+          done
+          printf '::error::coverage run failed (exit %s)\n' "$code"
+        fi
+        exit "$code"
 
     - name: Check coverage threshold (at least 18%)
       if: matrix.os == 'ubuntu-latest' && steps.select.outputs.mode == 'full'
@@ -249,6 +386,87 @@ jobs:
     - name: Run cargo build (release)
       run: cargo build --release
       continue-on-error: true
+
+  # G8（2026-11-18）：Tauri 桌面壳的 Rust 编译验证。
+  #
+  # 为什么放到 CI：本机 `cargo check` 必须**执行** `tauri-build` 的 build script，而本机产出的
+  # exe 会被「应用程序控制策略」阻止运行（Smart App Control / WDAC）⇒ 本机无法验证编译；
+  # CI（Linux）不受该策略约束。同时 `Cargo.lock` 仍缺 `tauri-plugin-global-shortcut`
+  # （本机 crates.io 不可达），本作业会让 cargo 在 CI 侧解析并暴露该依赖是否真的可编译。
+  #
+  # 观测期结束（2026-11-18）：连续两次绿（CI 自行解析锁 + 提交后的 Cargo.lock）⇒ **转为阻断门禁**。
+  # 若后续因 apt / 网络抖动误伤，回退方式 = 把本作业的 `continue-on-error: true` 加回（单点可逆）。
+  cargo-check-tauri:
+    name: Rust Tauri Check (cargo check)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: client/src-tauri
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install system deps (Tauri v2 / Linux)
+      working-directory: .
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
+          librsvg2-dev patchelf
+
+    - name: Prepare placeholder frontend dist (仅编译检查用)
+      working-directory: .
+      run: |
+        # `tauri_build::build()` 会校验 `build.frontendDist` 与 `bundle.resources` 的存在性。
+        # 注意路径基准：`tauri.conf.json` 在 `client/src-tauri/`，故 `bundle.resources` 里的
+        # `../../dist/...` 指向**仓库根** `dist/`（不是 `client/dist`）；`frontendDist: ../dist`
+        # 才指向 `client/dist`。两者都要造占位，否则报
+        # `resource path ../../dist/node_modules doesn't exist`。
+        mkdir -p client/dist dist/node_modules dist/prompts
+        [ -f client/dist/index.html ] || printf '<!doctype html><title>ci</title>' > client/dist/index.html
+        printf 'placeholder' > dist/node_modules/.placeholder
+        printf 'placeholder' > dist/prompts/.placeholder
+
+    - name: Cache cargo registry
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-tauri-cargo-registry-${{ hashFiles('client/src-tauri/Cargo.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-tauri-cargo-registry-
+
+    - name: Cache cargo build
+      uses: actions/cache@v4
+      with:
+        path: client/src-tauri/target
+        key: ${{ runner.os }}-tauri-cargo-build-${{ hashFiles('client/src-tauri/Cargo.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-tauri-cargo-build-
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Run cargo check (tauri shell)
+      run: |
+        set -o pipefail
+        cargo check 2>&1 | tee /tmp/tauri-check.log
+
+    # 观测辅助：把失败摘要写成 annotation —— 匿名也能从 check-runs/annotations API 读到，
+    # 不需要登录即可排障（本作业当前非阻断，先拿真实错误再决定修法）。
+    - name: Surface cargo error as annotation
+      if: failure()
+      working-directory: .
+      run: |
+        echo "== 精简错误候选（排除依赖构建噪声）=="
+        grep -iE 'error|fail|invalid|missing|exist|denied|conflict|panic' /tmp/tauri-check.log 2>/dev/null \
+          | grep -vE '(Checking|Compiling|Downloaded|Downloading|thiserror|proc-macro-error)' \
+          | head -n 8 | while IFS= read -r line; do echo "::error::${line//$'\r'/}"; done
+        echo "== build script stdout 全段（末 15 行）=="
+        awk '/--- stdout/{flag=1} /--- stderr/{flag=0} flag' /tmp/tauri-check.log 2>/dev/null \
+          | tail -n 15 | while IFS= read -r line; do echo "::warning::${line//$'\r'/}"; done
+        exit 0
 
   static-check:
     name: Static Checks (security + circular + architecture)
@@ -333,6 +551,8 @@ jobs:
         bun run scripts/lint-endpoints.ts
         bun run scripts/lint-locale.ts
         bun run scripts/lint-failmsg-refs.ts
+        # 变体能力矩阵文档与事实源漂移（2026-11-18；纯文档生成物）
+        bun run app/scripts/gen-variant-capability-matrix.ts --check
         # 会话预算纪律 SB03：台账/登记类文件「单行超长」棘轮（只减不增）
         bun run scripts/lint-evidence-linewidth.ts
         # 阶段 B：台账视图「生成物一致性」drift（提交物 == 生成结果；仅 CI，方案 Q3 裁定）
@@ -386,6 +606,12 @@ jobs:
         bun run scripts/lint-legacy-env.ts
         bun run scripts/lint-models.ts
         bun run scripts/lint-permission-single-source.ts
+        # P4（2026-11-12）：命令语义覆盖率棘轮（未分类 spec 只减不增）
+        # 2026-11-12 修正：该脚本在 `app/scripts/`，本 step 的 cwd 是**仓根** ⇒
+        # 原写法 `scripts/lint-command-coverage.ts` 必然 "Module not found"（CI 恒红）。
+        bun run app/scripts/lint-command-coverage.ts
+        # P8-A3（2026-11-12）：沙箱清单 × 注册表对拍；解析失败 ⇒ exit 1（差异本身只报警）
+        bun run app/scripts/lint-policy-drift.ts
 
     # ══════════════════════════════════════════════
     # 台账漂移 + 本地专属门禁补登 CI（2026-10-31，元门禁 `lint:gate-parity` 的修因段）
@@ -689,19 +915,19 @@ jobs:
         project: app
 
     # 构建 landlock-run helper（main.c = 纯 C11 + libc；编译产物不入库）
+    # P0（2026-11-12）：不再内联写 `app/src/sandbox/...` 路径 —— 复用发布链同一构建脚本，
+    # 沙箱源码位置唯一事实源为 `scripts/lib/sandboxPaths.ts`（搬包只改一处）。
     - name: Build landlock-run helper
-      working-directory: .
       run: |
         set -eu
-        OUT="$RUNNER_TEMP/landlock-run"
-        cc -static -O2 -Wall -Wextra -o "$OUT" app/src/sandbox/landlock/native/main.c \
-          || cc -O2 -Wall -Wextra -o "$OUT" app/src/sandbox/landlock/native/main.c
+        bun run scripts/build-landlock-helper.ts --target="$RUNNER_TEMP/landlock-dist" --require
+        OUT="$RUNNER_TEMP/landlock-dist/bin/landlock-run"
         "$OUT" --probe || true
 
     # 真负向**必须执行**：SANDBOX_NEGATIVE_REQUIRE=1 ⇒ 环境不满足即**失败**（不静默跳过）
     - name: Real negative tests (required)
       env:
-        LANDLOCK_RUN_HELPER: ${{ runner.temp }}/landlock-run
+        LANDLOCK_RUN_HELPER: ${{ runner.temp }}/landlock-dist/bin/landlock-run
         SANDBOX_NEGATIVE_REQUIRE: '1'
       run: bun test tests/sandbox/negativeEnforcement.test.ts
 

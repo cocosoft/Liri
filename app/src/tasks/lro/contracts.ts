@@ -181,6 +181,15 @@ export type ExecutorResult =
        * 「预算被思考吃光」，避免用同样的提示词再烧一次重问。
        */
       finishReason?: string;
+      /**
+       * 本次调用实际使用的模型名（2026-11-18，债四「换算接线」补齐）。
+       *
+       * 自定义执行器的模型对编排器不可见 ⇒ 此前只能记 token、不能折算金额；
+       * 回传本字段后 `guardExecutorWithDailyBudget` 会把它传给
+       * `recordDailyBudgetFromUsage(usage, undefined, model)` 记 USD 台账。
+       * 不回传 ⇒ 维持原行为（只记 token，不臆造金额）。
+       */
+      model?: string;
     };
 
 /** 默认执行器函数类型 */

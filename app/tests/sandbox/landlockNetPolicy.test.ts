@@ -22,12 +22,12 @@
  */
 import { describe, expect, it } from 'bun:test';
 import { buildLandlockArgv } from '@modules/sandbox';
-import { LandlockPolicyBuilder } from '../../src/sandbox/landlock/LandlockPolicyBuilder';
+import { LandlockPolicyBuilder } from '@modules/sandbox/landlock/LandlockPolicyBuilder';
 import type {
   LandlockFsRule,
   LandlockPolicy,
-} from '../../src/sandbox/landlock/types';
-import type { SandboxPermissions } from '../../src/sandbox/SandboxTypes';
+} from '@modules/sandbox/landlock/types';
+import type { SandboxPermissions } from '@modules/sandbox/SandboxTypes';
 import { buildBashLandlockPolicy } from '../../src/tools/bash/bashLandlockExec';
 import { buildBunLandlockPolicy } from '../../src/tools/CodeRunner/LinuxSandboxRunner';
 

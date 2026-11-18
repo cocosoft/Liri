@@ -12,7 +12,7 @@
 
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 
 import {
   COMMON_HEARTBEAT_INTERVAL,
@@ -22,9 +22,68 @@ import {
   MAX_CACHE_SIZE_BYTES,
   MAX_FILENAME_LENGTH,
 } from '@openliri/infra/constants';
+// P0（2026-11-12）：沙箱源码位置走单一事实源 —— 该模块搬包后本测试无需改
+import { sandboxPath } from '../../../scripts/lib/sandboxPaths';
+// P0（2026-11-13）：通道源码位置同理
+import { channelPath } from '../../../scripts/lib/channelPaths';
+// P1（2026-11-13）：会话源码位置同理（将并入 `packages/service/src/session`）
+import { sessionPath } from '../../../scripts/lib/sessionPaths';
+// P1（2026-11-13）：查询引擎源码位置同理（迁入 `packages/query/src/query`）
+import { queryPath } from '../../../scripts/lib/queryPaths';
+// P1（2026-11-13）：技能系统源码位置同理（迁入 `packages/skills/src/skills`）
+import { skillPath } from '../../../scripts/lib/skillPaths';
+// P1（2026-11-13）：Token 预算源码位置同理（迁入 `packages/tokenBudget/src/tokenBudget`）
+import { tokenBudgetPath } from '../../../scripts/lib/tokenBudgetPaths';
+// P1（2026-11-13）：上下文压缩源码位置同理（迁入 `packages/compaction/src/compaction`）
+import { compactionPath } from '../../../scripts/lib/compactionPaths';
 
 const APP = resolve(import.meta.dir, '../..');
-const read = (rel: string) => readFileSync(join(APP, rel), 'utf8');
+const REPO = resolve(APP, '..');
+/**
+ * 读源码（相对 `app/`）。
+ *
+ * P1（2026-11-13）：已迁出的模块前缀统一走 `scripts/lib/*Paths.ts` 单一事实源；
+ * 其余路径维持原口径（含 `../packages/...` 的既有写法）。
+ * 表驱动而非嵌套三元：迁包数量在增加，嵌套已到可读性上限。
+ */
+const MIGRATED_PREFIXES: ReadonlyArray<
+  [prefix: string, resolveInPackage: (repo: string, rest: string) => string]
+> = [
+  ['src/channels/', (repo, rest) => channelPath(repo, rest)],
+  ['src/session/', (repo, rest) => sessionPath(repo, rest)],
+  ['src/query/', (repo, rest) => queryPath(repo, rest)],
+  ['src/skills/', (repo, rest) => skillPath(repo, rest)],
+  ['src/tokenBudget/', (repo, rest) => tokenBudgetPath(repo, rest)],
+  ['src/compaction/', (repo, rest) => compactionPath(repo, rest)],
+  // P1（2026-11-14）：`dream` 迁入 `packages/dream`（仅本测试的 SCHEMA 守卫读它 ⇒ 内联解析，不新建 *Paths.ts）
+  [
+    'src/dream/',
+    (repo, rest) => join(repo, 'packages', 'dream', 'src', 'dream', rest),
+  ],
+  // P1（2026-11-14）：`evals` 迁入 `packages/evals`（B5-1④ / B5-2-61 两处守卫读它）
+  [
+    'src/evals/',
+    (repo, rest) => join(repo, 'packages', 'evals', 'src', 'evals', rest),
+  ],
+  // P1（2026-11-14）：`buddy` 迁入 `packages/buddy`（B5-2 眼睛常量守卫读它）
+  [
+    'src/buddy/',
+    (repo, rest) => join(repo, 'packages', 'buddy', 'src', 'buddy', rest),
+  ],
+];
+
+const read = (rel: string) => {
+  for (const [prefix, resolveInPackage] of MIGRATED_PREFIXES) {
+    if (rel.startsWith(prefix)) {
+      const rest = rel.slice(prefix.length);
+      return readFileSync(resolveInPackage(REPO, rest), 'utf8');
+    }
+  }
+  return readFileSync(join(APP, rel), 'utf8');
+};
+/** 沙箱源码（相对 `app/` 的路径，交给 `read` 统一拼接） */
+const sandboxRel = (...segments: string[]) =>
+  relative(APP, sandboxPath(REPO, ...segments));
 /** 内核已物理迁出 `app/src/core` ⇒ 仓库根 `packages/kernel/src/core`（方案 §4-P4） */
 const KERNEL = resolve(APP, '..', 'packages', 'kernel', 'src', 'core');
 const readKernel = (rel: string) => readFileSync(join(KERNEL, rel), 'utf8');
@@ -345,7 +404,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
         '60_000',
       ],
       [
-        'src/sandbox/utils/TimeoutController.ts',
+        sandboxRel('utils', 'TimeoutController.ts'),
         'SANDBOX_DEFAULT_TIMEOUT_MS',
         '300000',
       ],
@@ -378,7 +437,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       expect(src).toContain(`${value};`);
     }
     // 唯一的**跨文件**消费侧：`sandbox/SandboxManager.ts` 曾从 `TimeoutController` 按旧名导入 ⇒ 同步改名（防"只改定义未改导入"）
-    const sandboxMgr = read('src/sandbox/SandboxManager.ts');
+    const sandboxMgr = read(sandboxRel('SandboxManager.ts'));
     expect(sandboxMgr).not.toMatch(/\bDEFAULT_TIMEOUT_MS/);
     expect(sandboxMgr).toContain('SANDBOX_DEFAULT_TIMEOUT_MS');
   });
@@ -593,11 +652,11 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     }
   });
 
-  test('B5-2⑤：`CACHE_TTL` ×4 已按域消歧（取值一字未改）', () => {
-    // 4 处同名 `CACHE_TTL`：ink 行宽缓存 60s · LSP schema 缓存 60s · 缩略图 30min · 能力列表 5min
+  test('B5-2⑤：`CACHE_TTL` 按域消歧（取值一字未改；2026-11-18 起余 3 处）', () => {
+    // 原 4 处同名 `CACHE_TTL`：ink 行宽缓存 60s · LSP schema 缓存 60s · 缩略图 30min · 能力列表 5min。
+    // 2026-11-18（S6）：轨 B `src/lsp/schemas.ts` 随 `app/src/lsp/**` 按 CD06 删除 ⇒ 该处断言移除。
     const items: Array<[string, string, string]> = [
       ['src/ink/ink/line-width-cache.ts', 'LINE_WIDTH_CACHE_TTL_MS', '60000'],
-      ['src/lsp/schemas.ts', 'LSP_SCHEMA_CACHE_TTL_MS', '60000'],
       [
         '../client/src/components/views/media/thumbCache.ts',
         'THUMB_CACHE_TTL_MS',
@@ -652,7 +711,8 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     const items: Array<[string, string, string]> = [
       ['src/tools/GlobTool/GlobTool.ts', 'GLOB_TOOL_MAX_FILES', '100'],
       [
-        'src/context/promptSections/builtinSections.ts',
+        // P3-2（2026-11-16）：projectContext 文件列表组装外移，常量随之迁移（取值不变）
+        'src/context/promptSections/projectContextParts.ts',
         'BUILTIN_SECTION_MAX_FILES',
         '20',
       ],
@@ -1501,11 +1561,13 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(files).not.toMatch(/(^|[^_A-Za-z])const IMAGE_EXTS\s*=/);
     expect(files).toContain('const FILES_IMAGE_EXTS = new Set([');
     expect(files).toContain('FILES_IMAGE_EXTS.has(ext)');
-    const tool = read('src/chat/services/ToolExecutionService.ts');
+    // T3 stage 4（2026-11-17）：沙箱图片收集段随「图像路径守卫」外移到 imagePathGuard.ts
+    //（同名消歧意图不变：与 files-handlers 的 FILES_IMAGE_EXTS 异值异域）。
+    const tool = read('src/chat/services/imagePathGuard.ts');
     expect(tool).not.toMatch(/(^|[^_A-Za-z])const IMAGE_EXTS\s*=/);
-    // prettier 可能把数组折行 ⇒ 只断声明首行
+    // prettier 在模块顶层把 5 项数组收成一行 ⇒ 断言声明首行与值集末项
     expect(tool).toContain('const SANDBOX_IMAGE_EXTS = [');
-    expect(tool).toContain("'.webp',");
+    expect(tool).toContain("'.webp'");
     expect(tool).toContain('SANDBOX_IMAGE_EXTS.some((x) =>');
   });
 

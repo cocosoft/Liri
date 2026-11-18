@@ -12,11 +12,11 @@
 // 负向：suspend / goal 的既有排除判据保持不变；真正"跑到一半中断"（phase !== 'completed'）仍可续跑。
 
 import { describe, it, expect } from 'bun:test';
-import { ResumeManager } from '../../src/query/ResumeManager.js';
+import { ResumeManager } from '@modules/query/ResumeManager.js';
 import type {
   TAORCheckpoint,
   TAORCheckpointStorage,
-} from '../../src/query/types.js';
+} from '@modules/query/types.js';
 
 function ck(p: {
   id: string;

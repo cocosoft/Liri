@@ -9,7 +9,7 @@
 //   5. tool 有 parentMsgId → 事件 data 携带 messageId + schemaVersion
 
 import { describe, expect, it } from 'bun:test';
-import { MessageToEventMigrator } from '../../src/session/storage/MessageToEventMigrator';
+import { MessageToEventMigrator } from '@modules/session/storage/MessageToEventMigrator';
 import { createMessageService } from '../../src/chat/services/MessageService';
 import { MessageStatus } from '@modules/session/types/message/enums';
 import type { Message } from '@modules/session/types/message';

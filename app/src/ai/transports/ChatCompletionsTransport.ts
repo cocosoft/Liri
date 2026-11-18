@@ -13,10 +13,86 @@ import type {
   NormalizedUsage,
   TransportRequestParams,
 } from './types';
-import { isThinkingModeModel } from '../../query/ThinkingMode.js';
+import { isThinkingModeModel } from '@modules/query/ThinkingMode.js';
 import { toReasoningEffort } from '../clients/thinking.js';
 
 const logger = getLogger('ai:transports:chat-completions');
+
+/**
+ * P3-2（复杂度清理）：以下三个辅助函数从 `normalizeResponse` **逐字外移**。
+ * 归一字段与回退口径（含 cache 三级回退）均未变，仅把分支搬出主流程。
+ */
+function normalizeChatCompletionsUsage(
+  r: Record<string, unknown>
+): NormalizedUsage {
+  const usage = (r.usage ?? {}) as Record<string, number>;
+  return {
+    inputTokens: usage.prompt_tokens ?? 0,
+    outputTokens: usage.completion_tokens ?? 0,
+    // [v1.2] 三级回退 cache 提取（OpenAI → Anthropic → DeepSeek）
+    cacheReadTokens:
+      (
+        (r.usage as Record<string, unknown>)?.prompt_tokens_details as
+          | Record<string, number>
+          | undefined
+      )?.cached_tokens ??
+      (r.usage as Record<string, number>)?.cache_read_input_tokens ??
+      (r.usage as Record<string, number>)?.prompt_cache_hit_tokens ??
+      0,
+    cacheCreationTokens:
+      (r.usage as Record<string, number>)?.cache_creation_input_tokens ??
+      (r.usage as Record<string, number>)?.prompt_cache_miss_tokens ??
+      0,
+    totalTokens: usage.total_tokens ?? 0,
+  };
+}
+
+/** 工具调用归一（参数字符串化 + `function.name → tc.name` 回落） */
+function normalizeChatCompletionsToolCalls(
+  message: Record<string, unknown>
+): NormalizedToolCall[] {
+  const toolCalls: NormalizedToolCall[] = [];
+  if (!message.tool_calls) return toolCalls;
+  for (const tc of message.tool_calls as Array<Record<string, unknown>>) {
+    toolCalls.push({
+      id: tc.id as string,
+      name:
+        ((tc.function as Record<string, unknown>)?.name as string) ??
+        (tc.name as string) ??
+        '',
+      arguments:
+        typeof (tc.function as Record<string, unknown>)?.arguments === 'string'
+          ? ((tc.function as Record<string, unknown>).arguments as string)
+          : JSON.stringify(
+              (tc.function as Record<string, unknown>)?.arguments ??
+                tc.arguments ??
+                {}
+            ),
+    });
+  }
+  return toolCalls;
+}
+
+/** 空补全取证（只在既无正文又无工具调用时调用） */
+function logEmptyChatCompletion(params: {
+  choice: Record<string, unknown> | undefined;
+  message: Record<string, unknown>;
+  usage: Record<string, number>;
+}): void {
+  const { choice, message, usage } = params;
+  logger.warn('transport:empty_completion', {
+    finishReason: (choice?.finish_reason as string) ?? null,
+    completionTokens: usage.completion_tokens ?? 0,
+    messageKeys: Object.keys(message),
+    contentType: Array.isArray(message.content)
+      ? 'array'
+      : typeof message.content,
+    reasoningChars:
+      typeof message.reasoning_content === 'string'
+        ? message.reasoning_content.length
+        : 0,
+  });
+}
 
 export class ChatCompletionsTransport extends BaseTransport {
   readonly provider = 'chat_completions';
@@ -263,7 +339,6 @@ export class ChatCompletionsTransport extends BaseTransport {
     const usage = (r.usage ?? {}) as Record<string, number>;
 
     let content: string | null = null;
-    const toolCalls: NormalizedToolCall[] = [];
 
     // 提取文本消息内容
     if (message.content) {
@@ -271,49 +346,13 @@ export class ChatCompletionsTransport extends BaseTransport {
     }
 
     // 解析并标准化工具调用列表，处理参数字符串化及字段兼容性
-    if (message.tool_calls) {
-      for (const tc of message.tool_calls as Array<Record<string, unknown>>) {
-        toolCalls.push({
-          id: tc.id as string,
-          name:
-            ((tc.function as Record<string, unknown>)?.name as string) ??
-            (tc.name as string) ??
-            '',
-          arguments:
-            typeof (tc.function as Record<string, unknown>)?.arguments ===
-            'string'
-              ? ((tc.function as Record<string, unknown>).arguments as string)
-              : JSON.stringify(
-                  (tc.function as Record<string, unknown>)?.arguments ??
-                    tc.arguments ??
-                    {}
-                ),
-        });
-      }
-    }
+    const toolCalls = normalizeChatCompletionsToolCalls(message);
 
     const normalized: NormalizedResponse = {
       content,
       toolCalls,
-      usage: {
-        inputTokens: usage.prompt_tokens ?? 0,
-        outputTokens: usage.completion_tokens ?? 0,
-        // [v1.2] 三级回退 cache 提取（OpenAI → Anthropic → DeepSeek）
-        cacheReadTokens:
-          (
-            (r.usage as Record<string, unknown>)?.prompt_tokens_details as
-              | Record<string, number>
-              | undefined
-          )?.cached_tokens ??
-          (r.usage as Record<string, number>)?.cache_read_input_tokens ??
-          (r.usage as Record<string, number>)?.prompt_cache_hit_tokens ??
-          0,
-        cacheCreationTokens:
-          (r.usage as Record<string, number>)?.cache_creation_input_tokens ??
-          (r.usage as Record<string, number>)?.prompt_cache_miss_tokens ??
-          0,
-        totalTokens: usage.total_tokens ?? 0,
-      },
+      // P3-2（复杂度清理）：usage 归一整段外移（cache 三级回退口径不变）
+      usage: normalizeChatCompletionsUsage(r),
       reasoning: (message.reasoning_content as string) ?? null,
       finishReason:
         ((choice as Record<string, unknown>)?.finish_reason as string) ??
@@ -326,18 +365,7 @@ export class ChatCompletionsTransport extends BaseTransport {
     // 记录**原始形状**（finish_reason / 输出 token / message 字段 / content 类型 / reasoning 长度）。
     // 没有这条，上层只看到 `kind="empty"`，无从区分模型真空转、思考被吞、还是协议形状变了。
     if (!content && toolCalls.length === 0) {
-      logger.warn('transport:empty_completion', {
-        finishReason: (choice?.finish_reason as string) ?? null,
-        completionTokens: usage.completion_tokens ?? 0,
-        messageKeys: Object.keys(message),
-        contentType: Array.isArray(message.content)
-          ? 'array'
-          : typeof message.content,
-        reasoningChars:
-          typeof message.reasoning_content === 'string'
-            ? message.reasoning_content.length
-            : 0,
-      });
+      logEmptyChatCompletion({ choice, message, usage });
     }
 
     return normalized;

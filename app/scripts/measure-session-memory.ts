@@ -19,7 +19,7 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
-import { EventLogStorage } from '../src/session/storage/EventLogStorage';
+import { EventLogStorage } from '@modules/session/storage/EventLogStorage';
 
 const SESSIONS_ROOT = join(homedir(), '.pyapp', 'data', 'sessions');
 

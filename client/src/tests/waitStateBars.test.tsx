@@ -12,10 +12,11 @@
  *
  * 文案断言走测试基座的真实 zh 字典（`createTestT`，缺键即抛错）⇒ 字典漏拷会在此暴露。
  */
-import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
 import StatusFloatBar from "../components/ChatArea/StatusFloatBar";
 import YieldNoticeBar from "../components/ChatArea/YieldNoticeBar";
+import { useChatStore } from "../stores/chat";
 
 describe("StatusFloatBar —— 等待态（2026-09-27）", () => {
   it("空闲且无等待 ⇒ 进入渐隐（opacity-0，2s 后卸载）—— 既有行为不变", () => {
@@ -31,6 +32,7 @@ describe("StatusFloatBar —— 等待态（2026-09-27）", () => {
           waiting: true,
           reason: "selfwake",
           unresolved: false,
+          remoteStreaming: false,
           seconds: 3,
         }}
       />,
@@ -46,6 +48,7 @@ describe("StatusFloatBar —— 等待态（2026-09-27）", () => {
           waiting: true,
           reason: "selfwake",
           unresolved: false,
+          remoteStreaming: false,
           triggerAt: Date.now() + 90_000,
           seconds: 12,
         }}
@@ -61,6 +64,7 @@ describe("StatusFloatBar —— 等待态（2026-09-27）", () => {
           waiting: true,
           reason: "selfwake",
           unresolved: false,
+          remoteStreaming: false,
           seconds: 42,
         }}
       />,
@@ -75,6 +79,7 @@ describe("StatusFloatBar —— 等待态（2026-09-27）", () => {
           waiting: true,
           reason: "yield",
           unresolved: false,
+          remoteStreaming: false,
           seconds: 7,
         }}
       />,
@@ -89,12 +94,50 @@ describe("StatusFloatBar —— 等待态（2026-09-27）", () => {
           waiting: true,
           reason: "selfwake",
           unresolved: false,
+          remoteStreaming: false,
           seconds: 1,
         }}
       />,
     );
     expect(container.querySelector(".animate-ping")).toBeNull();
     expect(container.querySelector(".bg-sky-500")).toBeTruthy();
+  });
+});
+
+describe("StatusFloatBar —— 只读接入入口（2026-11-18）", () => {
+  it("remoteStreaming ⇒ 显示「接入」按钮，点击调用 attachSessionStream(sessionId)", () => {
+    const attach = vi.fn().mockResolvedValue(undefined);
+    useChatStore.setState({ attachSessionStream: attach });
+
+    render(
+      <StatusFloatBar
+        sessionId="s1"
+        wait={{
+          waiting: false,
+          unresolved: false,
+          remoteStreaming: true,
+          seconds: 0,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "接入" }));
+    expect(attach).toHaveBeenCalledWith("s1");
+  });
+
+  it("remoteStreaming=false ⇒ 不显示「接入」按钮（不提供无效动作）", () => {
+    render(
+      <StatusFloatBar
+        sessionId="s1"
+        wait={{
+          waiting: false,
+          unresolved: false,
+          remoteStreaming: false,
+          seconds: 0,
+        }}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "接入" })).toBeNull();
   });
 });
 

@@ -386,110 +386,14 @@ export class KnowledgeCompiler {
       }
 
       for (const rawFile of rawFiles) {
-        try {
-          let needsCompile = force || (await this.needsRecompile(rawFile));
-
-          // 增量优化：通过编译状态快照跳过 mtime 未变更的文件；
-          // K5.1：mtime 一致时再比对内容指纹，内容变但 mtime 未变也触发重编译
-          if (!force && !needsCompile) {
-            const rawStat = await stat(rawFile);
-            const prevState = compileState?.docs[rawFile];
-            if (prevState && prevState.mtime === rawStat.mtimeMs) {
-              if (prevState.digest) {
-                const digest = await digestFor(rawFile);
-                if (digest === prevState.digest) {
-                  // 指纹一致 → 内容未变，安全跳过
-                  result.skipped++;
-                  newState.docs[rawFile] = prevState;
-                  updateCompileProgress(result.compiled + result.skipped);
-                  continue;
-                }
-                // 指纹不同但 mtime 相同 → 内容被改写（如 touch 保留 mtime），强制编译
-                needsCompile = true;
-                logger.info('内容指纹变化触发重编译（mtime 未变）', {
-                  file: rawFile,
-                });
-              } else {
-                // 旧快照无 digest（迁移期）→ 维持原跳过行为，新编译后自动补指纹
-                result.skipped++;
-                newState.docs[rawFile] = prevState;
-                updateCompileProgress(result.compiled + result.skipped);
-                continue;
-              }
-            } else {
-              // mtime 变更了但 needsRecompile 返回 false（可能编译产物仍更新）
-              // 保守策略：仍需检查，但不需要强制重编译
-              needsCompile = false;
-            }
-          }
-
-          if (!needsCompile) {
-            // 记录当前 mtime 到新快照（即使跳过也要记录，避免下次重复判断）
-            try {
-              const rawStat = await stat(rawFile);
-              const prevDoc = compileState?.docs[rawFile];
-              newState.docs[rawFile] = {
-                mtime: rawStat.mtimeMs,
-                compiledAt: prevDoc?.compiledAt ?? Date.now(),
-                ...(prevDoc?.digest ? { digest: prevDoc.digest } : {}),
-              };
-            } catch (_err) {
-              // stat 失败忽略
-            }
-            result.skipped++;
-            updateCompileProgress(result.compiled + result.skipped);
-            continue;
-          }
-
-          const pages = await this.compileFile(rawFile, resolvedModel);
-          result.compiled++;
-          result.pagesCreated += pages.length;
-          result.compiledFiles.push(...pages);
-          // R4：实际产出页面的源 raw 记录（供原文分块页码索引刷新）
-          if (pages.length > 0) result.compiledRaws.push(rawFile);
-
-          // 编译成功，记录到快照（含内容指纹 K5.1）
-          try {
-            const rawStat = await stat(rawFile);
-            newState.docs[rawFile] = {
-              mtime: rawStat.mtimeMs,
-              compiledAt: Date.now(),
-              digest: await digestFor(rawFile),
-            };
-          } catch (_err) {
-            // stat 失败忽略
-          }
-
-          // K5.2 血缘：doc(raw) → 本次编译页面（幂等；重编译先 purge 再写）
-          if (this.lineage && pages.length > 0) {
-            try {
-              await this.lineage.purgeByDoc(rawFile);
-              await this.lineage.addLinks(
-                rawFile,
-                pages.map((p) => ({
-                  artifactType: 'page' as const,
-                  artifactId: p,
-                })),
-                version
-              );
-            } catch (lineageErr) {
-              // 血缘写入失败不影响编译主流程
-              logger.warning('血缘写入失败', {
-                file: rawFile,
-                error: String(lineageErr),
-              });
-            }
-          }
-
-          updateCompileProgress(result.compiled + result.skipped);
-          logger.info('文件编译完成', { file: rawFile, pages: pages.length });
-        } catch (error) {
-          const errMsg = error instanceof Error ? error.message : String(error);
-          result.errors.push(`${rawFile}: ${errMsg}`);
-          result.skipped++;
-          updateCompileProgress(result.compiled + result.skipped, errMsg);
-          logger.error('文件编译失败', { file: rawFile, error: errMsg });
-        }
+        await this.processRawFileForCompile(rawFile, {
+          force,
+          resolvedModel,
+          compileState,
+          newState,
+          digestFor,
+          result,
+        });
       }
 
       // 返回本轮编译版本（K5.3：runner/检索/审计标注用）
@@ -506,215 +410,16 @@ export class KnowledgeCompiler {
       await this.saveCompileState(newState);
 
       // many-to-many: 全部编译完成后更新索引
-      if (result.pagesCreated > 0) {
-        await this.indexManager.updateIndexMd();
-        await this.indexManager.appendLog({
-          timestamp: Date.now(),
-          action: 'compile',
-          source: 'KnowledgeCompiler',
-          pages: [],
-          detail: `many-to-many 编译: ${result.compiled} 个源文件 → ${result.pagesCreated} 个页面`,
-        });
-        // 发布知识变更事件，触发 KnowledgeRouter 倒排索引全量重建，
-        // 使编译入库的新文档可被搜索立即命中（而非等待下次重启）
-        globalEventBus.publish('knowledge:changed', {
-          action: 'updated',
-          filePath: this.knowledgeRoot,
-        });
-      }
+      await this.publishCompileIndexUpdate(result);
 
       // 编译后自动运行 lint 检查
-      const shouldLint = options.lint !== false;
-      if (shouldLint && result.pagesCreated > 0) {
-        try {
-          const linter = new WikiLinter(defaultRules);
-          const lintReport = await linter.run(this.knowledgeRoot, domain);
-          const { error, warning } = lintReport.summary;
-          // C4（2026-11-05）：lint 错误数棘轮（只减不增）。
-          // 首轮采纳当前值为基线；高于基线 ⇒ 判本次编译失败（进 result.errors + error 日志）；
-          // 低于基线 ⇒ 下调锁定（只能变好）。
-          const ratchet = decideLintRatchet(error, newState.lintErrorBaseline);
-          if (ratchet.action === 'adopted' || ratchet.action === 'lowered') {
-            newState.lintErrorBaseline = ratchet.baseline;
-            await this.saveCompileState(newState);
-            logger.info(
-              ratchet.action === 'adopted'
-                ? 'knowledge:lint:baseline_adopted — 采纳当前错误数为 lint 基线'
-                : 'knowledge:lint:ratchet_lowered — lint 错误减少，基线下调锁定',
-              {
-                errors: error,
-                warnings: warning,
-                baseline: ratchet.baseline,
-                previousBaseline:
-                  ratchet.action === 'lowered' ? ratchet.previous : undefined,
-              }
-            );
-          }
-          if (error > 0 || warning > 0) {
-            const exceeded = ratchet.action === 'exceeded';
-            const detail = exceeded
-              ? `lint 错误 ${error} 超过基线 ${ratchet.baseline}（棘轮只减不增）`
-              : `lint: ${error} errors, ${warning} warnings`;
-            // 2026-11-09：不得把 logger 方法从对象上摘下裸调用（丢 `this` ⇒ 每次
-            // lint 有发现都会在此抛错，被下方 catch 记成 `[post_lint]` 并吞掉棘轮判失败）
-            const lintMeta = {
-              lintSummary: lintReport.summary,
-              lintErrorBaseline: ratchet.baseline,
-              lintRatchetAction: ratchet.action,
-            };
-            if (exceeded) {
-              logger.error(
-                `编译后 lint 错误 ${error} 超过基线 ${ratchet.baseline}（棘轮只减不增）`,
-                lintMeta
-              );
-            } else {
-              logger.warn(
-                `编译后 lint 发现 ${error} 个错误, ${warning} 个警告`,
-                lintMeta
-              );
-            }
-            if (exceeded) {
-              // 判失败：与既有编译错误同口径，调用方/面板据此看到"编译未通过"
-              result.errors.push(detail);
-            }
-            // 将 lint 结果追加到 log.md
-            await this.indexManager.appendLog({
-              timestamp: Date.now(),
-              action: 'lint',
-              source: 'KnowledgeCompiler',
-              pages: [],
-              detail,
-            });
-          } else {
-            logger.info('编译后 lint 检查通过');
-          }
-        } catch (lintError) {
-          await handleError(lintError, {
-            module: 'knowledge:compiler',
-            action: 'post_lint',
-          });
-        }
-      }
+      await this.runPostCompileLint(options, result, newState);
 
       // LLM 图谱自动提取（编译后）
       // 触发条件：本次有新编译页面（增量提取新页面），或全部跳过但 knowledge
       // 域尚无图谱数据（从既有编译页面全量构建，避免图谱永远为空）
-      if (this.graphExtractor && result.totalFound > 0) {
-        const incremental = result.pagesCreated > 0;
-        try {
-          const hasKnowledgeEdges =
-            await this.graphExtractor.hasDomainEdges('knowledge');
-          if (incremental || !hasKnowledgeEdges) {
-            const pagesToExtract = incremental
-              ? (result.compiledFiles ?? [])
-              : await this.collectExistingPages(rawFiles);
-            if (pagesToExtract.length > 0) {
-              if (this.graphExtractRunning) {
-                logger.warn('图谱自动提取跳过：上一次提取仍在进行', {
-                  pages: pagesToExtract.length,
-                });
-                return result;
-              }
-              // 内存压力（L1+）下暂停非关键后台提取（OS kswapd 式：压力期让位主任务）
-              if (isMemoryUnderPressure()) {
-                logger.warn(
-                  '图谱自动提取跳过：内存水位压力中（后台任务让位）',
-                  {
-                    pages: pagesToExtract.length,
-                  }
-                );
-                return result;
-              }
-              this.graphExtractRunning = true;
-              logger.info('开始图谱自动提取', {
-                pages: pagesToExtract.length,
-                mode: incremental ? 'incremental' : 'initial-build',
-                maxPages: KnowledgeCompiler.GRAPH_EXTRACT_MAX_PAGES,
-              });
-              try {
-                // 节流：上限页数（initial-build 全量重建防无限排空）
-                const limited = pagesToExtract.slice(
-                  0,
-                  KnowledgeCompiler.GRAPH_EXTRACT_MAX_PAGES
-                );
-                if (limited.length < pagesToExtract.length) {
-                  logger.warn('图谱自动提取页数超上限，截断', {
-                    total: pagesToExtract.length,
-                    kept: limited.length,
-                  });
-                }
-                // 对页面进行图谱提取
-                for (const [pageIndex, compiledFile] of limited.entries()) {
-                  try {
-                    // 节流：超大页跳过（提取 prompt 仅用前 8000 字符，
-                    // 全量读入巨页只会造成内存尖峰，与用户 agentic 任务竞争）
-                    const { size } = await stat(compiledFile);
-                    if (size > KnowledgeCompiler.GRAPH_EXTRACT_MAX_FILE_BYTES) {
-                      logger.warn('图谱提取跳过超大页面', {
-                        file: compiledFile,
-                        bytes: size,
-                      });
-                      continue;
-                    }
-                    const content = await readFile(compiledFile, 'utf-8');
-                    const extracted = await this.graphExtractor!.extract(
-                      content,
-                      'knowledge'
-                    );
-                    // R6：图谱 node 级血缘（doc=编译页；from/to 节点挂血缘）
-                    if (
-                      this.lineage &&
-                      extracted &&
-                      (extracted.edges?.length ?? 0) > 0
-                    ) {
-                      try {
-                        const nodeIds = [
-                          ...new Set(
-                            extracted.edges.flatMap((e) => [e.from, e.to])
-                          ),
-                        ];
-                        await this.lineage.purgeByDoc(compiledFile);
-                        await this.lineage.addLinks(
-                          compiledFile,
-                          nodeIds.map((id) => ({
-                            artifactType: 'node',
-                            artifactId: id,
-                          })),
-                          this.compileVersion
-                        );
-                      } catch (lineageErr) {
-                        logger.warning('node 血缘写入失败', {
-                          file: compiledFile,
-                          error: String(lineageErr),
-                        });
-                      }
-                    }
-                  } catch (err) {
-                    // 单个文件提取失败不阻塞；但「余额/配额不足」是**批次级**故障：
-                    // 剩余页全部注定失败 ⇒ 立即中止本轮（只记一条），充值/换供应商后
-                    // 下次编译由 `!hasKnowledgeEdges` 自动补建。
-                    if (isInsufficientBalanceError(err)) {
-                      logger.warn('图谱自动提取中止：供应商余额/配额不足', {
-                        failedFile: compiledFile,
-                        remaining: limited.length - pageIndex - 1,
-                        error: (err as Error).message,
-                      });
-                      break;
-                    }
-                  }
-                }
-              } finally {
-                this.graphExtractRunning = false;
-              }
-            }
-          }
-        } catch (err) {
-          void handleError(err, {
-            module: 'knowledge:compiler',
-            action: 'graph_extract',
-          });
-        }
-      }
+      const graphAborted = await this.maybeAutoExtractGraph(rawFiles, result);
+      if (graphAborted) return result;
 
       logger.info(
         `many-to-many 编译完成: ${result.compiled} 个源文件, ` +
@@ -725,6 +430,371 @@ export class KnowledgeCompiler {
       return result;
     } finally {
       exitPhase('knowledge:compile');
+    }
+  }
+
+  /**
+   * T3（2026-11-17）：单个 raw 文件的增量判定 + 编译 + 快照/血缘写入
+   * （原样搬出 `compile` 的循环体；`continue` 改为 `return`）。
+   */
+  private async processRawFileForCompile(
+    rawFile: string,
+    ctx: {
+      force: boolean;
+      resolvedModel: string | undefined;
+      compileState: CompileState | null;
+      newState: CompileState;
+      digestFor: (file: string) => Promise<string>;
+      result: CompileResult;
+    }
+  ): Promise<void> {
+    const { force, resolvedModel, compileState, newState, digestFor, result } =
+      ctx;
+    try {
+      let needsCompile = force || (await this.needsRecompile(rawFile));
+
+      // 增量优化：通过编译状态快照跳过 mtime 未变更的文件；
+      // K5.1：mtime 一致时再比对内容指纹，内容变但 mtime 未变也触发重编译
+      if (!force && !needsCompile) {
+        const rawStat = await stat(rawFile);
+        const prevState = compileState?.docs[rawFile];
+        if (prevState && prevState.mtime === rawStat.mtimeMs) {
+          if (prevState.digest) {
+            const digest = await digestFor(rawFile);
+            if (digest === prevState.digest) {
+              // 指纹一致 → 内容未变，安全跳过
+              result.skipped++;
+              newState.docs[rawFile] = prevState;
+              updateCompileProgress(result.compiled + result.skipped);
+              return;
+            }
+            // 指纹不同但 mtime 相同 → 内容被改写（如 touch 保留 mtime），强制编译
+            needsCompile = true;
+            logger.info('内容指纹变化触发重编译（mtime 未变）', {
+              file: rawFile,
+            });
+          } else {
+            // 旧快照无 digest（迁移期）→ 维持原跳过行为，新编译后自动补指纹
+            result.skipped++;
+            newState.docs[rawFile] = prevState;
+            updateCompileProgress(result.compiled + result.skipped);
+            return;
+          }
+        } else {
+          // mtime 变更了但 needsRecompile 返回 false（可能编译产物仍更新）
+          // 保守策略：仍需检查，但不需要强制重编译
+          needsCompile = false;
+        }
+      }
+
+      if (!needsCompile) {
+        // 记录当前 mtime 到新快照（即使跳过也要记录，避免下次重复判断）
+        try {
+          const rawStat = await stat(rawFile);
+          const prevDoc = compileState?.docs[rawFile];
+          newState.docs[rawFile] = {
+            mtime: rawStat.mtimeMs,
+            compiledAt: prevDoc?.compiledAt ?? Date.now(),
+            ...(prevDoc?.digest ? { digest: prevDoc.digest } : {}),
+          };
+        } catch (_err) {
+          // stat 失败忽略
+        }
+        result.skipped++;
+        updateCompileProgress(result.compiled + result.skipped);
+        return;
+      }
+
+      const pages = await this.compileFile(rawFile, resolvedModel);
+      result.compiled++;
+      result.pagesCreated += pages.length;
+      result.compiledFiles.push(...pages);
+      // R4：实际产出页面的源 raw 记录（供原文分块页码索引刷新）
+      if (pages.length > 0) result.compiledRaws.push(rawFile);
+
+      // 编译成功，记录到快照（含内容指纹 K5.1）
+      try {
+        const rawStat = await stat(rawFile);
+        newState.docs[rawFile] = {
+          mtime: rawStat.mtimeMs,
+          compiledAt: Date.now(),
+          digest: await digestFor(rawFile),
+        };
+      } catch (_err) {
+        // stat 失败忽略
+      }
+
+      // K5.2 血缘：doc(raw) → 本次编译页面（幂等；重编译先 purge 再写）
+      if (this.lineage && pages.length > 0) {
+        try {
+          await this.lineage.purgeByDoc(rawFile);
+          await this.lineage.addLinks(
+            rawFile,
+            pages.map((p) => ({
+              artifactType: 'page' as const,
+              artifactId: p,
+            })),
+            this.compileVersion
+          );
+        } catch (lineageErr) {
+          // 血缘写入失败不影响编译主流程
+          logger.warning('血缘写入失败', {
+            file: rawFile,
+            error: String(lineageErr),
+          });
+        }
+      }
+
+      updateCompileProgress(result.compiled + result.skipped);
+      logger.info('文件编译完成', { file: rawFile, pages: pages.length });
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      result.errors.push(`${rawFile}: ${errMsg}`);
+      result.skipped++;
+      updateCompileProgress(result.compiled + result.skipped, errMsg);
+      logger.error('文件编译失败', { file: rawFile, error: errMsg });
+    }
+  }
+
+  /**
+   * T3（2026-11-17）：全部编译完成后更新索引并广播知识变更（原样搬出）。
+   */
+  private async publishCompileIndexUpdate(
+    result: CompileResult
+  ): Promise<void> {
+    if (result.pagesCreated === 0) return;
+    await this.indexManager.updateIndexMd();
+    await this.indexManager.appendLog({
+      timestamp: Date.now(),
+      action: 'compile',
+      source: 'KnowledgeCompiler',
+      pages: [],
+      detail: `many-to-many 编译: ${result.compiled} 个源文件 → ${result.pagesCreated} 个页面`,
+    });
+    // 发布知识变更事件，触发 KnowledgeRouter 倒排索引全量重建，
+    // 使编译入库的新文档可被搜索立即命中（而非等待下次重启）
+    globalEventBus.publish('knowledge:changed', {
+      action: 'updated',
+      filePath: this.knowledgeRoot,
+    });
+  }
+
+  /**
+   * T3（2026-11-17）：编译后 lint + 错误数棘轮（原样搬出）。
+   */
+  private async runPostCompileLint(
+    options: CompileOptions,
+    result: CompileResult,
+    newState: CompileState
+  ): Promise<void> {
+    const shouldLint = options.lint !== false;
+    if (!shouldLint || result.pagesCreated === 0) return;
+
+    try {
+      const linter = new WikiLinter(defaultRules);
+      const lintReport = await linter.run(this.knowledgeRoot, options.domain);
+      const { error, warning } = lintReport.summary;
+      // C4（2026-11-05）：lint 错误数棘轮（只减不增）。
+      // 首轮采纳当前值为基线；高于基线 ⇒ 判本次编译失败（进 result.errors + error 日志）；
+      // 低于基线 ⇒ 下调锁定（只能变好）。
+      const ratchet = decideLintRatchet(error, newState.lintErrorBaseline);
+      if (ratchet.action === 'adopted' || ratchet.action === 'lowered') {
+        newState.lintErrorBaseline = ratchet.baseline;
+        await this.saveCompileState(newState);
+        logger.info(
+          ratchet.action === 'adopted'
+            ? 'knowledge:lint:baseline_adopted — 采纳当前错误数为 lint 基线'
+            : 'knowledge:lint:ratchet_lowered — lint 错误减少，基线下调锁定',
+          {
+            errors: error,
+            warnings: warning,
+            baseline: ratchet.baseline,
+            previousBaseline:
+              ratchet.action === 'lowered' ? ratchet.previous : undefined,
+          }
+        );
+      }
+      if (error > 0 || warning > 0) {
+        const exceeded = ratchet.action === 'exceeded';
+        const detail = exceeded
+          ? `lint 错误 ${error} 超过基线 ${ratchet.baseline}（棘轮只减不增）`
+          : `lint: ${error} errors, ${warning} warnings`;
+        // 2026-11-09：不得把 logger 方法从对象上摘下裸调用（丢 `this` ⇒ 每次
+        // lint 有发现都会在此抛错，被下方 catch 记成 `[post_lint]` 并吞掉棘轮判失败）
+        const lintMeta = {
+          lintSummary: lintReport.summary,
+          lintErrorBaseline: ratchet.baseline,
+          lintRatchetAction: ratchet.action,
+        };
+        if (exceeded) {
+          logger.error(
+            `编译后 lint 错误 ${error} 超过基线 ${ratchet.baseline}（棘轮只减不增）`,
+            lintMeta
+          );
+        } else {
+          logger.warn(
+            `编译后 lint 发现 ${error} 个错误, ${warning} 个警告`,
+            lintMeta
+          );
+        }
+        if (exceeded) {
+          // 判失败：与既有编译错误同口径，调用方/面板据此看到"编译未通过"
+          result.errors.push(detail);
+        }
+        // 将 lint 结果追加到 log.md
+        await this.indexManager.appendLog({
+          timestamp: Date.now(),
+          action: 'lint',
+          source: 'KnowledgeCompiler',
+          pages: [],
+          detail,
+        });
+      } else {
+        logger.info('编译后 lint 检查通过');
+      }
+    } catch (lintError) {
+      await handleError(lintError, {
+        module: 'knowledge:compiler',
+        action: 'post_lint',
+      });
+    }
+  }
+
+  /**
+   * T3（2026-11-17）：编译后图谱自动提取（原样搬出）。
+   * @returns true 表示原实现此处的 `return result;`（跳过本轮末尾的完成日志）
+   */
+  private async maybeAutoExtractGraph(
+    rawFiles: string[],
+    result: CompileResult
+  ): Promise<boolean> {
+    if (!(this.graphExtractor && result.totalFound > 0)) return false;
+
+    const incremental = result.pagesCreated > 0;
+    try {
+      const hasKnowledgeEdges =
+        await this.graphExtractor.hasDomainEdges('knowledge');
+      if (!(incremental || !hasKnowledgeEdges)) return false;
+
+      const pagesToExtract = incremental
+        ? (result.compiledFiles ?? [])
+        : await this.collectExistingPages(rawFiles);
+      if (pagesToExtract.length === 0) return false;
+
+      if (this.graphExtractRunning) {
+        logger.warn('图谱自动提取跳过：上一次提取仍在进行', {
+          pages: pagesToExtract.length,
+        });
+        return true;
+      }
+      // 内存压力（L1+）下暂停非关键后台提取（OS kswapd 式：压力期让位主任务）
+      if (isMemoryUnderPressure()) {
+        logger.warn('图谱自动提取跳过：内存水位压力中（后台任务让位）', {
+          pages: pagesToExtract.length,
+        });
+        return true;
+      }
+
+      this.graphExtractRunning = true;
+      logger.info('开始图谱自动提取', {
+        pages: pagesToExtract.length,
+        mode: incremental ? 'incremental' : 'initial-build',
+        maxPages: KnowledgeCompiler.GRAPH_EXTRACT_MAX_PAGES,
+      });
+      try {
+        // 节流：上限页数（initial-build 全量重建防无限排空）
+        const limited = pagesToExtract.slice(
+          0,
+          KnowledgeCompiler.GRAPH_EXTRACT_MAX_PAGES
+        );
+        if (limited.length < pagesToExtract.length) {
+          logger.warn('图谱自动提取页数超上限，截断', {
+            total: pagesToExtract.length,
+            kept: limited.length,
+          });
+        }
+        // 对页面进行图谱提取
+        for (const [pageIndex, compiledFile] of limited.entries()) {
+          const stop = await this.extractGraphForPage(
+            compiledFile,
+            limited.length - pageIndex - 1
+          );
+          if (stop) break;
+        }
+      } finally {
+        this.graphExtractRunning = false;
+      }
+      return false;
+    } catch (err) {
+      void handleError(err, {
+        module: 'knowledge:compiler',
+        action: 'graph_extract',
+      });
+      return false;
+    }
+  }
+
+  /**
+   * T3（2026-11-17）：单页图谱提取 + node 级血缘（原样搬出循环体）。
+   * @param remaining 剩余待提取页数（余额不足日志用）
+   * @returns true 表示应中止本轮（供应商余额/配额不足，批次级故障）
+   */
+  private async extractGraphForPage(
+    compiledFile: string,
+    remaining: number
+  ): Promise<boolean> {
+    try {
+      // 节流：超大页跳过（提取 prompt 仅用前 8000 字符，
+      // 全量读入巨页只会造成内存尖峰，与用户 agentic 任务竞争）
+      const { size } = await stat(compiledFile);
+      if (size > KnowledgeCompiler.GRAPH_EXTRACT_MAX_FILE_BYTES) {
+        logger.warn('图谱提取跳过超大页面', {
+          file: compiledFile,
+          bytes: size,
+        });
+        return false;
+      }
+      const content = await readFile(compiledFile, 'utf-8');
+      const extracted = await this.graphExtractor!.extract(
+        content,
+        'knowledge'
+      );
+      // R6：图谱 node 级血缘（doc=编译页；from/to 节点挂血缘）
+      if (this.lineage && extracted && (extracted.edges?.length ?? 0) > 0) {
+        try {
+          const nodeIds = [
+            ...new Set(extracted.edges.flatMap((e) => [e.from, e.to])),
+          ];
+          await this.lineage.purgeByDoc(compiledFile);
+          await this.lineage.addLinks(
+            compiledFile,
+            nodeIds.map((id) => ({
+              artifactType: 'node',
+              artifactId: id,
+            })),
+            this.compileVersion
+          );
+        } catch (lineageErr) {
+          logger.warning('node 血缘写入失败', {
+            file: compiledFile,
+            error: String(lineageErr),
+          });
+        }
+      }
+      return false;
+    } catch (err) {
+      // 单个文件提取失败不阻塞；但「余额/配额不足」是**批次级**故障：
+      // 剩余页全部注定失败 ⇒ 立即中止本轮（只记一条），充值/换供应商后
+      // 下次编译由 `!hasKnowledgeEdges` 自动补建。
+      if (isInsufficientBalanceError(err)) {
+        logger.warn('图谱自动提取中止：供应商余额/配额不足', {
+          failedFile: compiledFile,
+          remaining,
+          error: (err as Error).message,
+        });
+        return true;
+      }
+      return false;
     }
   }
 

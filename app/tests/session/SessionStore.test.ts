@@ -13,16 +13,16 @@ import { describe, expect, it } from 'bun:test';
 // （含其 hoisted 的 SessionStore/SessionPruner import），后续引用即安全。
 // TODO: CS05-ROOTFIX — 根因是 SessionManager.ts 顶层 `new SessionManager()` 副作用，
 // 懒加载单例后本 workaround 可移除。
-import '../../src/session/SessionManager';
-import { SessionStore } from '../../src/session/SessionStore';
-import { MemoryUnifiedStorage } from '../../src/session/storage/MemoryUnifiedStorage';
-import { UnifiedStorageAdapter } from '../../src/session/storage/UnifiedStorageAdapter';
-import { SessionGateway } from '../../src/session/SessionGateway';
-import { StorageType } from '../../src/session/storage/UnifiedStorage';
-import { Session } from '../../src/session/models/Session';
-import { SessionMessage } from '../../src/session/models/SessionMessage';
-import { SessionMetadata } from '../../src/session/models/SessionMetadata';
-import { SessionState } from '../../src/session/models/SessionState';
+import '@modules/session/SessionManager';
+import { SessionStore } from '@modules/session/SessionStore';
+import { MemoryUnifiedStorage } from '@modules/session/storage/MemoryUnifiedStorage';
+import { UnifiedStorageAdapter } from '@modules/session/storage/UnifiedStorageAdapter';
+import { SessionGateway } from '@modules/session/SessionGateway';
+import { StorageType } from '@modules/session/storage/UnifiedStorage';
+import { Session } from '@modules/session/models/Session';
+import { SessionMessage } from '@modules/session/models/SessionMessage';
+import { SessionMetadata } from '@modules/session/models/SessionMetadata';
+import { SessionState } from '@modules/session/models/SessionState';
 
 function makeSession(id: string): Session {
   return new Session(

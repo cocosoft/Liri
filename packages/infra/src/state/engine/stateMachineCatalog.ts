@@ -100,7 +100,7 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
     id: 'budgetMode',
     title: '预算档位（BudgetMode）',
     kind: 'persistent',
-    sourceFile: 'app/src/query/dailyBudgetSnapshot.ts',
+    sourceFile: 'packages/query/src/query/dailyBudgetSnapshot.ts',
     states: ['normal', 'report_only', 'locked'],
     verification: 'source-read',
     hasTransitionFn: false,
@@ -110,7 +110,7 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
     id: 'dedupProcess',
     title: 'dedup 消息处理态（MessageProcessingState）',
     kind: 'persistent',
-    sourceFile: 'app/src/channels/dedup/types.ts',
+    sourceFile: 'packages/channels/src/channels/dedup/types.ts',
     states: ['RECEIVED', 'ADMITTED', 'REJECTED'],
     verification: 'source-read',
     hasTransitionFn: false,
@@ -182,7 +182,7 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
       anchor: 'objectKeys',
     },
     hasTransitionFn: true,
-    note: '**阶段 3（2026-10-12）8 态 → 3 态收敛（用户裁定）**：旧 `SessionState` 8 态枚举与 `toSimplifiedState()` 已删除（前者零消费者、后者失输入类型）；折叠映射 = `IDLE/COMPLETED/ARCHIVED/ABORTED→idle`、`RUNNING→running`、`REQUIRES_ACTION/PAUSED/ERROR→requires_action`。**无终态**（`idle` 可再 `start()` ⇒ 生命周期成环，`isTerminal()` 恒 `false`）。历史事实源（活）：`ChatManager:3184/3338` · `ChatOrchestrator:754/1166` · `SessionStateBridge`（`init.ts:479-490` 已接线）。`app/src/session/models/SessionState.ts:44` 另有**同名不同物**（类 + `SESSION_STATES` 集合），见 `BOUNDARY_STATE_MACHINES`。',
+    note: '**阶段 3（2026-10-12）8 态 → 3 态收敛（用户裁定）**：旧 `SessionState` 8 态枚举与 `toSimplifiedState()` 已删除（前者零消费者、后者失输入类型）；折叠映射 = `IDLE/COMPLETED/ARCHIVED/ABORTED→idle`、`RUNNING→running`、`REQUIRES_ACTION/PAUSED/ERROR→requires_action`。**无终态**（`idle` 可再 `start()` ⇒ 生命周期成环，`isTerminal()` 恒 `false`）。历史事实源（活）：`ChatManager:3184/3338` · `ChatOrchestrator:754/1166` · `SessionStateBridge`（`init.ts:479-490` 已接线）。`packages/service/src/session/models/SessionState.ts:44` 另有**同名不同物**（类 + `SESSION_STATES` 集合），见 `BOUNDARY_STATE_MACHINES`。',
   },
   {
     id: 'task',
@@ -276,7 +276,7 @@ export const BOUNDARY_STATE_MACHINES: readonly {
   {
     id: 'sessionModelClass',
     title: 'SessionState 类 + SESSION_STATES 集合（会话模型域）',
-    sourceFile: 'app/src/session/models/SessionState.ts',
+    sourceFile: 'packages/service/src/session/models/SessionState.ts',
     reason:
       '**同名不同物**（类与只读集合，非枚举）：是**状态容器**（`currentState` + history + config，可 `toJSON/fromJSON` 持久化）+ **词汇表超集**，≠ 会话状态机。**阶段 3 已处置（2026-10-12）**：裁定**保持独立**——其 8 值词汇表用于**接受既有持久化值**（P1-27：历史值 `active` 曾被拒）⇒ **只可放宽不可收紧**（收紧即行为回归）；对其头注中"对齐 8 状态枚举"的**失真表述已订正**。',
   },

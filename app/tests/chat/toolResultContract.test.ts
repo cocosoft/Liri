@@ -14,7 +14,7 @@ import {
   EMPTY_SUCCESS_TOOL_RESULT_TEXT,
   classifyToolResult,
 } from '../../src/chat/services/toolResultContract';
-import type { ToolResult } from '../../src/session/types/tool';
+import type { ToolResult } from '@modules/session/types/tool';
 
 function toolResult(partial: Partial<ToolResult>): ToolResult {
   return {

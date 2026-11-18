@@ -137,13 +137,30 @@ const enSettings = {
     featuresAlwaysOnDesc:
       "AI discovers and executes tasks autonomously when idle (Always-On + SelfWake)",
     // 2026-11-03: verification-line gate (backend SELF_VERIFY_PATTERN; env wins over this toggle)
+    // 2026-11-16: backend default flipped to ON by user ruling (registry §2.4.3); this panel follows
     featuresSelfVerifyPattern: "Self-verify / multi-round refine",
     featuresSelfVerifyPatternDesc:
-      "When on, tasks that ask for self-checking or multi-round polishing go through the verification line (stricter turn-quality verdicts, more retries). Off by default; behavior is unchanged while off.",
+      "When on, tasks that ask for self-checking or multi-round polishing go through the verification line (stricter turn-quality verdicts, more retries). On by default; turning it off restores the previous behavior.",
     // 2026-11-03 (#3): research orchestration gate (backend COMPETITIVE_STRATEGY; env wins)
     featuresCompetitiveStrategy: "Research orchestration (candidates + review)",
     featuresCompetitiveStrategyDesc:
       "When on, research-type complex tasks first generate candidate approaches and run an adversarial review (higher cost). Off by default.",
+    // 2026-11-16: user-facing rollback path for the flipped defaults (backend defaults on; env wins)
+    featuresToolDisclosureStrict: "Tool disclosure budget (tightened)",
+    featuresToolDisclosureStrictDesc:
+      "When on, the tool list exposed to the model for coding/agent tasks is trimmed by priority (core tools always kept; the rest stay retrievable on demand). On by default; turning it off restores the full list.",
+    featuresSwarmVerifyRetry: "Multi-agent verification retry",
+    featuresSwarmVerifyRetryDesc:
+      "When on, a sub-task the verifier explicitly rejects is re-run once with the feedback (extra token cost, capped at 20k per retry). On by default; turning it off disables the retry.",
+    featuresPlanStartupResume: "Resume plans after restart",
+    featuresPlanStartupResumeDesc:
+      "When on, plans that were still running within the last 24 hours (with a stale heartbeat) are picked up again after a restart (up to 5 at a time). On by default; turning it off disables automatic resume.",
+    featuresPlanSystemResume: "Resume plans via the executor",
+    featuresPlanSystemResumeDesc:
+      "When on, resuming adopts the existing plan and continues it (no new plan, completed steps are not redone); when off, it falls back to injecting a continuation message. On by default.",
+    featuresGoalStartupResume: "Resume goals after restart",
+    featuresGoalStartupResumeDesc:
+      "When on, active goals advanced within the last 24 hours are picked up again after a restart (up to 5 at a time). On by default; turning it off disables automatic resume.",
     // 2026-11-03 P0: autonomous run budget (relaxed defaults, user-tunable)
     autonomyLimitsTitle: "Autonomous run budget",
     autonomyLimitsDesc:
@@ -1021,6 +1038,10 @@ const enSettings = {
       "L1 · Tool allowlist (tool_rules.json): decides whether to ask. The approval card's 「never ask for this command / this tool」 writes here, and each entry can be revoked here.",
     toolsRulesHint:
       "Tool-level list: Allow = run without asking; Ask = prompt every time; Deny = block outright (deny always wins, allowlists cannot override). Stored in the same tool_rules.json the decision path reads — effective immediately. Rules created from approval cards also show up below.",
+    // B2 (2026-11-17): why structural forms (for / if / $env:) have no one-click remember —
+    // rules match the raw command with a regex, so allowing the form means trusting any loop body.
+    toolsRulesStructuralHint:
+      "Structural forms such as `for` / `if` / `$env:` ask every time by default (the loop or branch body cannot be verified statically). To cut the interruptions: split them into single commands (use file_read / glob / grep for reads, finds and searches), or pin one exact command with 「trust this workspace permanently」. Allowing the whole form with a regex such as `^for` means trusting any loop body — use it with care.",
     toolsRulesSearch: "Search tool name…",
     toolsRulesLoading: "Loading tools and rules…",
     toolsRulesLoadFailed: "Failed to load tool rules",
@@ -1040,6 +1061,68 @@ const enSettings = {
     toolsRulesCommandsHint:
       "Written by the approval card’s “Never ask for this command”: matches a tool + command prefix (only commands sharing that prefix); revoke entries here.",
     toolsRulesCommandsEmpty: "No command-level entries",
+    // R3/R5 (2026-11-17): hit statistics / approval group / pause switch / unknown commands / impact preview
+    toolsRulesHitCount: "Hit {{count}} times",
+    toolsRulesHitNever: "Not hit yet",
+    toolsRulesLastHit: "Last hit {{time}}",
+    // R0/R3 (2026-11-17): scope badge + approval time (returned by the API, previously unconsumed)
+    toolsRulesScopeSession: "This session",
+    toolsRulesScopeWorkspace: "This workspace",
+    toolsRulesScopeTool: "Tool-wide",
+    toolsRulesScopeGlobal: "Global",
+    toolsRulesApprovedAt: "Approved {{time}}",
+    toolsRulesApprovals: "Approval-generated allows · {{count}}",
+    toolsRulesApprovalsHint:
+      "Written by the “always allow” action on approval cards (per tool + input fingerprint / workspace trust): read-only here — revoke only, no editing.",
+    toolsRulesApprovalsEmpty: "No approval-generated allows",
+    toolsRulesWorkspaceTrust: "Permanent trust for this workspace · {{count}}",
+    toolsRulesPauseLabel: "Pause all persisted allows",
+    toolsRulesPauseHint:
+      "When on, approval cards no longer add allows and existing approval-generated rules stop applying (they stay listed and can still be revoked one by one).",
+    toolsRulesPauseEnabled: "Paused",
+    toolsRulesPauseSessionLabel: "Pause for the current session only",
+    toolsRulesPauseSessionNoSession: "No active session",
+    toolsRulesPauseSessionCount: "Paused sessions · {{count}}",
+    toolsRulesPauseSessionHint:
+      "Lets only the current session ignore approval-generated allows (other sessions and background tasks are unaffected); the entry stops matching once the session ends — uncheck to remove it any time.",
+    toolsRulesPauseWorkspaceLabel: "Pause for the current workspace only",
+    toolsRulesPauseWorkspaceNoPath: "The current session has no folder bound",
+    toolsRulesPauseWorkspaceCount: "Paused workspaces · {{count}}",
+    toolsRulesPauseWorkspaceHint:
+      "Lets calls under this folder ignore approval-generated allows (roots are compared in one canonical form: separators and case are insensitive); uncheck or remove entries any time.",
+    toolsRulesUnknownTitle:
+      "{{headCount}} unknown commands went through approval in the last {{days}} days ({{sampleCount}} times)",
+    toolsRulesUnknownHint:
+      "Add a rule for frequently used commands to reduce repeated approvals.",
+    toolsRulesUnknownAdd: "Add a rule",
+    toolsRulesAllowBudget: "User-created allow rules {{used}}/{{limit}}",
+    toolsRulesAllowBudgetHint:
+      "Limit reached: new allow rules will be rejected. Raise permission.userRuleAllowBudget (1–1000) if you need more.",
+    toolsRulesBCommandRules: "B-system command policy ({{mode}}) · read-only",
+    toolsRulesBCommandRulesHint:
+      "Comes from config.json#permission.customRules.commandRules and applies directly in the bash / powershell decision chain; shown read-only here — change it via PUT /v1/config/permission.",
+    toolsRulesBCommandRulesEmpty: "No black/whitelist configured",
+    toolsRulesBCommandModeBlacklist: "blacklist mode",
+    toolsRulesBCommandModeWhitelist: "whitelist mode",
+    toolsRulesAddTitle: "New command rule",
+    toolsRulesAddSave: "Save rule",
+    toolsRulesAddCancel: "Cancel",
+    toolsRulesImpactTitle:
+      "⚠ This rule would turn {{count}} baseline commands from ask/allow into deny",
+    toolsRulesImpactConfirm: "Save anyway",
+    toolsRulesImpactCancel: "Cancel",
+    toolsRulesHealthCheck: "Check rule health",
+    toolsRulesHealthChecking: "Checking…",
+    toolsRulesHealthOk:
+      "Rule file looks fine ({{memory}} rules in memory / {{conflicts}} conflicts)",
+    toolsRulesHealthParseError: "Rule file cannot be parsed: {{error}}",
+    toolsRulesHealthExternalChange:
+      "Rule file changed externally (on-disk content differs from the loaded one)",
+    toolsRulesHealthDuplicates: "{{count}} duplicate rules",
+    toolsRulesHealthObservation:
+      "Hit statistics observation window {{days}}/{{staleDays}} days — not judging “stale” yet",
+    toolsRulesHealthNoStale: "No rules went unused in the last {{days}} days",
+    toolsRulesHealthStale: "Unused in the last {{days}} days · {{count}}",
     toolsRulesFromSettings: "From settings",
     toolsRulesFromSettingsHint:
       "This rule lives in the settings file under permissions.{allow,ask,deny} (merged at startup) — shown read-only here; edit the settings file to change it.",

@@ -20,9 +20,12 @@ import * as crypto from 'crypto';
 
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
-import { SessionGateway, createSessionGateway } from '../../session/index';
-import type { SessionGatewayConfig } from '../../session/index';
-import { SessionType, SessionStatus } from '../../session/types/UnifiedSession';
+import { SessionGateway, createSessionGateway } from '@modules/session/index';
+import type { SessionGatewayConfig } from '@modules/session/index';
+import {
+  SessionType,
+  SessionStatus,
+} from '@modules/session/types/UnifiedSession';
 
 import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:SessionsTool:SessionsTool');
@@ -103,7 +106,7 @@ const STATUS_MAP: Record<string, SessionStatus> = {
 };
 
 function toSessionInfo(
-  session: import('../../session/types/UnifiedSession').UnifiedSession,
+  session: import('@modules/session/types/UnifiedSession').UnifiedSession,
   messageCount: number = 0
 ): SessionInfo {
   return {
@@ -525,7 +528,7 @@ export class SessionsTool extends BaseTool {
       };
     }
 
-    const message: import('../../session/types/UnifiedMessage').UnifiedMessage =
+    const message: import('@modules/session/types/UnifiedMessage').UnifiedMessage =
       {
         id: crypto.randomUUID(),
         sessionId: params.sessionId,

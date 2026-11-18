@@ -847,6 +847,21 @@ export class InboxManager {
         traceId: item.traceId,
       });
 
+      // G6（2026-11-14）：待审批项 → 已接线「就地审批」的通道（当前仅 mobile）。
+      // 通道策略（白名单 / 按钮文案 / 降级链 / 去重）全在 channels 包内；未启用该通道
+      // ⇒ 零行为。动态 import 与下方 reply 回传同法，避免把通道装配拉进启动面。
+      if (full.type === 'approval' && full.channelId) {
+        void import('@modules/channels/bridge/inboxApprovalCard.js')
+          .then(({ sendInboxApprovalCard }) => sendInboxApprovalCard({ item: full }))
+          .catch((cardErr: unknown) =>
+            handleError(cardErr, {
+              module: 'runtime:inbox',
+              action: 'sendInboxApprovalCard',
+              context: { id, channelId: full.channelId },
+            })
+          );
+      }
+
       // P0-1: 移除桥接写入消息中心（approval/todo 决策类不再进消息中心，决策 100% 走会话流式 InboxBlock）
 
       // 自动注入 Inbox block 到聊天消息（会话内可见交互卡片）

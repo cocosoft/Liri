@@ -1,0 +1,260 @@
+name: Release CLI Packages
+
+# G2 剩余（2026-11-14）：npm / Scoop / Homebrew 分发。
+# 与 `release.yml`（Tauri 桌面安装包）并行、互不依赖；仅在发版 tag 运行。
+#
+# 产物：
+#   1. `liri-cli-<version>.tgz`（含 `dist/main.js` + `Liri.cmd`）→ GitHub Release 资产
+#   2. 三份渠道清单（`packaging/**`，由脚本按真实 sha256 重新生成）→ 工作流 artifact
+#   3. npm 发布（仅当配置 `NPM_TOKEN`；否则跳过并留日志）
+#   4. **三平台单文件二进制**（G2 三期：win/mac/linux 矩阵原生构建 + 可选签名 + `SHA256SUMS`）
+#
+# 如实边界：Scoop bucket / Homebrew tap 的 PR 仍需人工提交；本工作流只产出可直接提交的清单。
+# 签名证书/凭据来自仓库 secrets，**未配置即如实跳过**（不伪造已签名）。
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: Package CLI (npm / scoop / brew)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build CLI bundle
+        run: bun run build
+
+      - name: Stage artifact
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          STAGE="liri-cli-${VERSION}"
+          mkdir -p "release/${STAGE}/dist"
+          cp dist/main.js "release/${STAGE}/dist/main.js"
+          # Windows 启动器（Scoop manifest 的 bin 指向它；内容只用 bun 跑 dist/main.js）
+          printf '@echo off\r\nbun "%%~dp0dist\\main.js" %%*\r\n' > "release/${STAGE}/Liri.cmd"
+          tar -czf "release/${STAGE}.tgz" -C release "${STAGE}"
+          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
+
+      - name: Generate manifests (真实 sha256)
+        run: |
+          bun run ../scripts/gen-package-manifests.ts \
+            --version "$VERSION" \
+            --artifact "release/liri-cli-${VERSION}.tgz" \
+            --download-base "https://github.com/${{ github.repository }}/releases/download"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: liri-cli-${{ env.VERSION }}
+          path: |
+            app/release/liri-cli-${{ env.VERSION }}.tgz
+            packaging/npm/package.json
+            packaging/scoop/liri.json
+            packaging/homebrew/liri.rb
+
+      - name: Attach archive to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release upload "v${VERSION}" "release/liri-cli-${VERSION}.tgz" --clobber || \
+            echo "⚠️ Release v${VERSION} 尚未创建（release.yml 可能仍在跑）⇒ 仅保留工作流 artifact"
+
+      - name: Publish to npm (optional)
+        # 未配置 `NPM_TOKEN` ⇒ 步骤内自行跳过（step `if` 无法读 secrets 值）
+        continue-on-error: true
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${NPM_TOKEN:-}" ]; then
+            echo "⚠️ 未配置 NPM_TOKEN ⇒ 跳过 npm 发布（清单已作为 artifact 产出）"
+            exit 0
+          fi
+          mkdir -p packaging/npm/dist
+          cp dist/main.js packaging/npm/dist/main.js
+          printf '//registry.npmjs.org/:_authToken=%s\n' "$NPM_TOKEN" > "$HOME/.npmrc"
+          npm publish packaging/npm --access public
+
+  # G2 剩余三期（2026-11-14）：三平台单文件二进制。
+  # `bun build --compile` 只能产出**当前平台**产物 ⇒ 用矩阵在各自 OS 原生构建。
+  # 签名凭据来自 secrets：未配置时 `sign-cli-binary.ts` 打印跳过原因并继续（产物为未签名）。
+  cli-binaries:
+    name: CLI binary (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Install dependencies
+        working-directory: app
+        run: bun install --frozen-lockfile
+
+      - name: Build single-file binary
+        run: bun run scripts/build-cli-binary.ts
+
+      # G2 七期（2026-11-14）：macOS runner 是 arm64，原生只有 darwin-arm64；
+      # Homebrew / npm 分包还需要 darwin-x64 ⇒ 用 Bun 交叉编译补这一份（SHA256SUMS 会合并）。
+      - name: Build cross-target binary (macOS Intel)
+        if: runner.os == 'macOS'
+        run: bun run scripts/build-cli-binary.ts --target=bun-darwin-x64
+
+      - name: Sign (optional; 未配置证书 ⇒ 如实跳过并重算 SHA256SUMS)
+        env:
+          LIRI_SIGN_WIN_CERT_PFX_BASE64: ${{ secrets.LIRI_SIGN_WIN_CERT_PFX_BASE64 }}
+          LIRI_SIGN_WIN_CERT_PASSWORD: ${{ secrets.LIRI_SIGN_WIN_CERT_PASSWORD }}
+          LIRI_SIGN_MAC_IDENTITY: ${{ secrets.LIRI_SIGN_MAC_IDENTITY }}
+          LIRI_SIGN_MAC_CERT_P12_BASE64: ${{ secrets.LIRI_SIGN_MAC_CERT_P12_BASE64 }}
+          LIRI_SIGN_MAC_CERT_PASSWORD: ${{ secrets.LIRI_SIGN_MAC_CERT_PASSWORD }}
+        run: bun run scripts/sign-cli-binary.ts
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: liri-cli-bin-${{ matrix.os }}
+          path: app/dist/cli-bin/*
+
+      - name: Attach binary to GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          gh release upload "v${VERSION}" app/dist/cli-bin/* --clobber || \
+            echo "⚠️ Release v${VERSION} 尚未创建 ⇒ 仅保留工作流 artifact"
+
+  # G2 剩余四期（2026-11-14）：standalone 清单（去 bun 前置）。
+  # 只有矩阵产物**齐全**才出清单：`gen-package-manifests.ts --standalone` 缺平台即退出 1。
+  # 合并后的 `SHA256SUMS` 覆盖各作业单独那份（后者只是构建期自检）。
+  standalone-manifests:
+    name: Standalone manifests (去 bun 前置)
+    needs: [cli-binaries]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Download binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: liri-cli-bin-*
+          path: cli-bin
+          merge-multiple: true
+
+      - name: Render standalone manifests (真实 sha256)
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          bun run scripts/gen-package-manifests.ts \
+            --standalone \
+            --version "$VERSION" \
+            --assets cli-bin \
+            --download-base "https://github.com/${{ github.repository }}/releases/download"
+
+      - name: Upload standalone manifests
+        uses: actions/upload-artifact@v4
+        with:
+          name: liri-standalone-manifests
+          path: packaging/standalone/**
+
+      - name: Attach manifests to GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          gh release upload "v${VERSION}" \
+            packaging/standalone/SHA256SUMS \
+            packaging/standalone/scoop/liri.json \
+            packaging/standalone/homebrew/liri.rb \
+            --clobber || echo "⚠️ Release v${VERSION} 尚未创建 ⇒ 仅保留工作流 artifact"
+
+  # G2 剩余五期（2026-11-14）：npm standalone（按平台分包，去 bun 前置）。
+  # 发布顺序：先平台包 `@openliri/cli-*`，再主包 `openliri`（主包 optionalDependencies 指向它们）。
+  npm-standalone:
+    name: npm standalone packages (去 bun 前置)
+    needs: [cli-binaries]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Download binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: liri-cli-bin-*
+          path: cli-bin
+          merge-multiple: true
+
+      - name: Render npm package tree (真实二进制就位)
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          bun run scripts/gen-package-manifests.ts \
+            --standalone-npm \
+            --version "$VERSION" \
+            --assets cli-bin
+
+      - name: Upload npm packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: liri-npm-standalone
+          path: packaging/standalone-npm/**
+
+      - name: Publish to npm (optional)
+        # 未配置 `NPM_TOKEN` ⇒ 步骤内自行跳过（step `if` 无法读 secrets 值）
+        continue-on-error: true
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${NPM_TOKEN:-}" ]; then
+            echo "⚠️ 未配置 NPM_TOKEN ⇒ 跳过 npm 发布（包树已作为 artifact 产出）"
+            exit 0
+          fi
+          printf '//registry.npmjs.org/:_authToken=%s\n' "$NPM_TOKEN" > "$HOME/.npmrc"
+          for dir in packaging/standalone-npm/packages/@openliri/*/; do
+            npm publish "$dir" --access public
+          done
+          npm publish packaging/standalone-npm --access public

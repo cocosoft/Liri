@@ -132,6 +132,18 @@ export class BuiltinCommandLoader implements CommandLoader {
       { path: '../builtin/command-registry.js', name: 'doctor' },
       { path: '../builtin/command-registry.js', name: 'fast' },
       { path: '../builtin/command-registry.js', name: 'memory' },
+      // G5（2026-11-14）：用户偏好统一入口（USER.md `## 偏好` + USER_PREFERENCE 记忆）
+      {
+        path: '../builtin/command-registry.js',
+        name: 'preferences',
+        aliases: ['profile', 'pref'],
+      },
+      // D10（2026-11-14）：成功轨迹 → SOP 草案（蒸馏只产草案，批准才写技能）
+      { path: '../builtin/command-registry.js', name: 'sop' },
+      // M1（2026-11-15）：学习候选（低分轮归因；只读 + 拒绝，不产生行为变更）
+      { path: '../builtin/command-registry.js', name: 'learn' },
+      // 2026-11-15：编排模式决策只读统计（判据① 度量）
+      { path: '../builtin/command-registry.js', name: 'patterns' },
       { path: '../builtin/command-registry.js', name: 'hooks' },
       { path: '../builtin/command-registry.js', name: 'mcp' },
       { path: '../builtin/command-registry.js', name: 'plugins' },
@@ -407,9 +419,10 @@ export class SkillCommandLoader implements CommandLoader {
     const commands: Command[] = [];
 
     try {
-      const { SkillRegistry } = await import('../../skills/SkillRegistry.js');
+      const { SkillRegistry } =
+        await import('@modules/skills/SkillRegistry.js');
       const { BundledSkillLoader } =
-        await import('../../skills/loaders/sources/BundledSkillLoader.js');
+        await import('@modules/skills/loaders/sources/BundledSkillLoader.js');
       const registry = new SkillRegistry();
       const loader = new BundledSkillLoader();
       const loadedSkills = await loader.loadSkills();

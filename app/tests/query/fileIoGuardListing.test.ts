@@ -14,8 +14,8 @@
  */
 
 import { describe, expect, it } from 'bun:test';
-import { guardFileIoAccesses } from '../../src/query/taor/helpers.js';
-import type { FileIOLoopDetector } from '../../src/query/FileIOLoopDetector.js';
+import { guardFileIoAccesses } from '@modules/query/taor/helpers.js';
+import type { FileIOLoopDetector } from '@modules/query/FileIOLoopDetector.js';
 
 type Detector = Pick<FileIOLoopDetector, 'checkBeforeAccess'>;
 

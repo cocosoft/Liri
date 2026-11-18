@@ -29,10 +29,10 @@
 import { Tool, ToolParam, ToolInfo } from '../../tools/types/Tool';
 import { ToolResult, ToolExecutionStatus } from '../../tools/types/ToolResult';
 import { ToolUseContext } from '../../tools/types/ToolUseContext';
-import {
-  type IKnowledgeSearch,
-  type KnowledgeRoute,
-} from '../../docs/knowledge-types';
+import type {
+  IKnowledgeSearch,
+  KnowledgeRoute,
+} from '@modules/docs/knowledge-types';
 import type { AIService } from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
 import { resolveKnowledgeDir } from '@openliri/infra/environment';

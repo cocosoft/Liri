@@ -2,6 +2,7 @@
 
 > 版本 1.0 ｜ 创建 2026-09-25 ｜ 状态：**待评审（未实施）**
 > 状态复核（2026-10-05）：**头部状态行过时** —— 正文含实施记录，**以正文为准**。（依据：`dev_docs/任务计划-20261004.md` §5「状态头与正文不一致」；本次仅补注记，未改正文。）
+> 追加（2026-11-18）：新增第四项登记 `compaction.auto-trigger`（收口 `compaction-duplicate-subsystems.md` 的 D-6-b），见 **§6.6**。
 > 来源：`多Agent与长程任务-对标分析报告.md` §五 **P2-10**「预算计算单点，无 context/session 分层」+ §六 建议 5「预算分层（对标 codex `context/rollout_budget.rs`）」；台账 N-64
 > 关联规则：GR15（Spec-Driven）/ GR01（基础设施复用）/ CS01（归一化）/ CS03（回退最小化）/ CS04（零 Mock）/ CS05（根因优先）/ R06-008（分层）
 > 用户裁定：**范围 C（统一预算策略层）**。本 spec 按"**登记既有、不重写算法**"实施（否则会与 `core/tokenBudget/` 既有 **15 个文件**重叠）。
@@ -45,7 +46,7 @@
 
 ## 3. 设计
 
-### 3.1 契约与注册表（`app/src/core/tokenBudget/BudgetPolicy.ts`）
+### 3.1 契约与注册表（`packages/tokenBudget/src/tokenBudget/BudgetPolicy.ts`；2026-11-18 路径订正：原 `app/src/core/tokenBudget/`）
 
 ```ts
 export type BudgetScope = 'context' | 'goal' | 'subagent';
@@ -115,8 +116,8 @@ export function resetBudgetPolicies(): void;                            // 仅�
 
 | # | 文件 | 改动 |
 |---|---|---|
-| 1 | `app/src/core/tokenBudget/BudgetPolicy.ts` | **新建**：契约 + 注册表 + 三处登记的实现（`context` 派生 / `goal` 纯判定 / `subagent` 公式） |
-| 2 | `app/src/core/tokenBudget/index.ts` | **改**：桶导出（若尚未导出该文件） |
+| 1 | `packages/tokenBudget/src/tokenBudget/BudgetPolicy.ts` | **新建**：契约 + 注册表 + 三处登记的实现（`context` 派生 / `goal` 纯判定 / `subagent` 公式） |
+| 2 | `packages/tokenBudget/src/tokenBudget/index.ts` | **改**：桶导出（若尚未导出该文件；2026-11-18 订正：原 `app/src/core/tokenBudget/index.ts` 已不存在） |
 | 3 | `app/src/tools/AgentTool/summaryTrim.ts` | **改**：`computeSummaryCharBudget` 改为**委托**策略（导出/签名不变，公式迁出） |
 | 4 | `app/src/tasks/goal/goalBudget.ts` | **改**：触顶判定改调策略层纯判定（对外行为不变） |
 | 5 | `app/tests/tokenBudget/budgetPolicy.test.ts` | **新建**：注册（id 唯一 / 重复抛错 / 未注册抛错）；`context` 阈值边界（0 / 0.49 / 0.5 / 0.7 / 0.75 / 0.85 / 0.92 / 1.0）；`goal` 触顶（`tokensUsed >= tokenBudget`、无预算 ⇒ 不限）；`subagent` 夹取（下限 2000 / 上限 24000） |
@@ -143,13 +144,28 @@ export function resetBudgetPolicies(): void;                            // 仅�
 
 | 项 | 结果 |
 |---|---|
-| G1 契约 + 注册表 | ✅ 新建 `app/src/core/tokenBudget/BudgetPolicy.ts`：`BudgetScope` / `BudgetEvaluation` / `BudgetPolicy<I>` + `registerBudgetPolicy`（**同 id 同 scope ⇒ 幂等跳过；同 id 不同 scope ⇒ 抛 `AppError`**）/ `listBudgetPolicies` / `getBudgetPolicy`（**未注册 ⇒ 抛错**）/ `resetBudgetPolicies`（测试用） |
+| G1 契约 + 注册表 | ✅ 新建 `packages/tokenBudget/src/tokenBudget/BudgetPolicy.ts`（2026-11-18 路径订正）：`BudgetScope` / `BudgetEvaluation` / `BudgetPolicy<I>` + `registerBudgetPolicy`（**同 id 同 scope ⇒ 幂等跳过；同 id 不同 scope ⇒ 抛 `AppError`**）/ `listBudgetPolicies` / `getBudgetPolicy`（**未注册 ⇒ 抛错**）/ `resetBudgetPolicies`（测试用） |
 | G2 三处登记（**登记而非重写**） | ✅ `context.compression-levels`（状态分档**引用** `UNIFIED_THRESHOLDS.WARNING/CRITICAL` 与 `1.0`，不复制数值）；`goal.limit`（纯判定 `evaluateGoalBudget`，`goalBudget.chargeGoalUsage` 改为调用它 —— **记账 / 落事件 / steering 逐字保留**）；`subagent.summary-chars`（**公式与三常量自 `summaryTrim` 迁入**，G14 口径逐字保留） |
 | G3 真实消费迁移 | ✅ `summaryTrim.computeSummaryCharBudget` 改为**委托** `evaluateSummaryCharBudget`；**导出名 / 签名 / 返回值不变**，常量与 `SummaryBudgetInput` 在 `summaryTrim` **re-export** ⇒ 调用方零改动 |
-| 接线 | ✅ `core/tokenBudget/index.ts` 加 `export * from './BudgetPolicy'`；消费方经既有路径别名 `@modules/core/tokenBudget/BudgetPolicy`（与 `UnifiedTokenTracker` 同法） |
+| 接线 | ✅ `packages/tokenBudget/src/tokenBudget/index.ts` 加 `export * from './BudgetPolicy'`（2026-11-18 路径订正）；消费方经既有路径别名 `@modules/core/tokenBudget/BudgetPolicy`（与 `UnifiedTokenTracker` 同法） |
 | 验证 | ✅ `app/tests/tokenBudget/budgetPolicy.test.ts` **13 例**（注册表 4：未注册抛错 / 幂等跳过 / 冲突抛错 / 缺字段抛错；context 2：**阈值边界逐点**与 `UNIFIED_THRESHOLDS` 一致、`maxTokens=0` ⇒ ratio undefined；goal 3：触顶（含**相等即触顶**）/ 无预算"不限" / ratio 折算；subagent 3：**未知输入退化下限** / 中间值（17500、4375、charsPerToken=2）/ **极大余量夹硬顶**）+ `app/tests/tools/AgentTool/summaryBudgetRegression.test.ts` **4 例**（**逐值回归锁** 10 组输入 === 旧公式期望；委托 === 策略直调；常量 re-export 不变；**裁剪逻辑未受影响** 2 例）。`typecheck` 0；改动文件 `eslint` 0（12 处 prettier 已 `--fix`）；`lint:arch` **0 错 0 警**（§8.3 的 `tasks → core` 依赖风险**已排除**）；全量 **3667 pass / 19 skip / 0 fail**（3686 tests / 365 文件） |
 | 与 spec 的偏离（如实） | ① `context` 策略的状态映射**新定义**（`≥1 ⇒ EXCEEDED`、`≥0.92 ⇒ CRITICAL`、`≥0.75 ⇒ WARNING`）—— 既有 `TokenBudgetController` 无 `EXCEEDED` 档，本策略为**只读评估**、不改其判定（N2）；② `goal` 策略的 `ratio` 在无预算时为 `undefined`、`budget = Infinity`（语义"不限"） |
 | 未做（明确） | 策略可配置 / UI / 新表 / DI / 其它消费方迁移（D5/D6）/ 跨作用域联合优化（§8.6） |
+
+---
+
+## 6.6 追加登记（2026-11-18）—— `compaction.auto-trigger`（收口 D-6-b）
+
+> 来源：`compaction-duplicate-subsystems.md` §2-5 / §7「仍存在的真实问题 ③」——两套压缩的阈值口径已在
+> P1-3-c 统一为比例，但**压缩侧阈值未进入本登记面**。本次**只登记、不改压缩判定**。
+
+| 项 | 结果 |
+|---|---|
+| 登记 | `compaction.auto-trigger`（`scope: 'compaction'`，本层新增第四个作用域） |
+| 纯实现 | `evaluateCompactionBudget({ tokenUsage, effectiveContextWindow })`：`budget = 有效窗口 × COMPACT_DEEP(0.85)`（自动压缩触发点）；`ratio = tokenUsage / 有效窗口`；`status` 与 `context.compression-levels` 同映射（`≥1 EXCEEDED` / `≥0.92 CRITICAL` / `≥0.75 WARNING`）；窗口未知/非正 ⇒ `Infinity + undefined + NORMAL`（不臆测） |
+| 单一事实源 | 阈值**引用** `UNIFIED_THRESHOLDS`（与 `packages/compaction/src/compaction/utils.ts` 同一常量源），**未复制数值** |
+| 边界（如实） | ① **零行为变更**：`utils.ts` 的 `getAutoCompactThreshold` / `getWarningThreshold` / `getErrorThreshold` / `calculateTokenWarningState` **逐字未动**；② 手动压缩硬上限（`有效窗口 − 3000`）**有意不登记**（绝对余量，非比例压缩档，理由见 `utils.ts` 头注）；③ 本项为**登记**用途，未新增消费方（不构成空壳：策略层已有 `summaryTrim` 的真实委托） |
+| 验证 | `app/tests/tokenBudget/budgetPolicy.test.ts` 增 2 例（180k 窗口 ⇒ 153k 触发点；0.75/0.92/1.0 三边界；窗口未知/非正退化） |
 
 ---
 

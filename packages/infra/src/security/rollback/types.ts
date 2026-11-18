@@ -57,6 +57,18 @@ export interface FileChange {
   /** 变更类型 */
   type: FileChangeType;
 
+  /**
+   * D7 三期（2026-11-14）：产生该变更的**工具名**（副作用录制的关联键）。
+   * 缺省 = 未标注（旧数据 / 非工具路径，如 Shell 副作用检测）。
+   */
+  toolName?: string;
+
+  /** D7 三期（2026-11-14）：所属**计划** id（计划执行期内的工具操作才有） */
+  planId?: string;
+
+  /** D7 三期（2026-11-14）：所属**计划步骤** id（同上） */
+  stepId?: string;
+
   /** 修改前的备份路径 */
   backupPath?: string;
 

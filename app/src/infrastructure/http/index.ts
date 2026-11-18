@@ -38,3 +38,10 @@ export {
   unregisterTAORLoop,
   MAX_TAOR_LOOP_REGISTRY,
 } from './handlers/checkpoint-handlers';
+// 2026-11-12：优雅关闭请求端口（`POST /v1/system/shutdown`）——
+// 入口 `main.ts` 经本 barrel 注册关闭链，避免 R03-002 子目录直连。
+export {
+  registerShutdownRequester,
+  hasShutdownRequester,
+  requestGracefulShutdown,
+} from './shutdownRequest';

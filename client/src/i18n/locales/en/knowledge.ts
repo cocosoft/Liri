@@ -839,6 +839,13 @@ const enKnowledge = {
     addRule: "Add",
     noRulesHint:
       "No permission rules yet. Once added, tool calls are judged by allow/deny/ask (when no rule matches, the default behavior allows or denies).",
+    // R5 (2026-11-17): impact preview blocked (409 impact) — written only after explicit confirmation
+    impactBlockedTitle:
+      "This rule would turn {{count}} baseline commands from ask/allow into deny (nothing written yet)",
+    impactBlockedHint:
+      "Confirm again to add it anyway; cancelling writes no rule at all.",
+    impactBlockedConfirm: "Add anyway",
+    impactBlockedCancel: "Cancel",
     noUsersData:
       "No user data: add users via CLI /permissions user add, then view trust levels and roles here.",
   },

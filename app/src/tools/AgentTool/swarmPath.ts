@@ -21,7 +21,7 @@ import { randomUUID } from 'crypto';
 
 import { OrchestrationEventType, deriveParallelEndData } from '@modules/agent';
 import { resolveModelRoute, RouteKey } from '@modules/ai';
-import { feature } from '@openliri/kernel';
+import { resolveFeatureGate } from '@modules/query/featureGate';
 import {
   renderFragment,
   resolveContextWindowAsync,
@@ -133,6 +133,108 @@ export interface BuildSwarmExecutorOptions {
   taskDescriptors?: Map<string, SwarmTaskDescriptor>;
 }
 
+/** 单次 executor 调用的台账标识（worker 调用才同时具备 batchId + taskKey）。 */
+interface WorkerCallIds {
+  batchId?: string;
+  taskKey?: string;
+  agentType?: string;
+}
+
+/**
+ * O12-1 fail-closed：描述符解析失败 ⇒ 落 `failed` 行（不留 running 残留）并抛出原始原因。
+ * 抛出后由 AgentSwarm 记入 feedback（汇总行 `[FAIL] <desc>: 执行失败: <原因>` 可见）。
+ */
+async function failClosedOnDescriptorError(
+  reason: string,
+  ids: WorkerCallIds
+): Promise<never> {
+  const { batchId, taskKey, agentType } = ids;
+  if (batchId && taskKey) {
+    await getAgentRunStore().startRun({
+      toolCallId: `${batchId}::${taskKey}`,
+      agentId: batchId,
+      name: taskKey,
+      agentType: agentType ?? 'general',
+      status: 'running',
+      batchId,
+      taskKey,
+    });
+    await getAgentRunStore().settleRun(`${batchId}::${taskKey}`, 'failed', {
+      error: reason,
+    });
+  }
+  logger.warn('swarm 子任务描述符解析失败（fail-closed，不执行）', {
+    batchId: batchId ?? null,
+    taskKey: taskKey ?? null,
+    subagentType: agentType ?? null,
+    reason,
+  });
+  throw new Error(reason);
+}
+
+/**
+ * O6⑥：worker 调用开启台账行（`batchId::taskKey` 为主键）；未携带 taskKey 的调用不落。
+ */
+async function startWorkerRun(
+  ids: WorkerCallIds,
+  descriptorSource: string | undefined
+): Promise<void> {
+  const { batchId, taskKey, agentType } = ids;
+  if (!batchId || !taskKey) return;
+  await getAgentRunStore().startRun({
+    toolCallId: `${batchId}::${taskKey}`,
+    agentId: batchId,
+    name: taskKey,
+    // O12-2：落盘**真实类型**（修复前恒 'general'）
+    agentType: agentType ?? 'general',
+    // O19：来源落盘（解析链命中时才有值；未指定 subagent_type 的 worker 留空）
+    descriptorSource,
+    status: 'running',
+    batchId,
+    taskKey,
+  });
+}
+
+/**
+ * P0-B（2026-09-21）：worker 工具池**空集 fail-closed**（落 failed 行 + 告警 + 抛出）。
+ *
+ * worker 池 = `类别池（类别由 AgentSwarm 硬编码）∩ allowedTools − deniedTools`，
+ * 而 O7 两段校验用的是 `getAllTools()`（**父级全量**）⇒ "校验通过 ≠ worker 池非空"。
+ * 例：`allowedTools: ['file_write','bash']` 校验通过，但
+ * `{grep,glob,file_read} ∩ {file_write,bash}` = 空集 ⇒ 修复前 worker 会在**无任何工具**
+ * 的情况下跑满 20 轮，无警告、无降级、无报错，最后照常落 `completed`
+ *（N-41 修掉的"静默空池"在 swarm 路径的同族复现）。
+ */
+async function assertWorkerToolsetNonEmpty(args: {
+  toolset: { instances: Map<string, Tool> };
+  ids: WorkerCallIds;
+  declaredCategories?: string[];
+  allowedTools?: string[];
+  deniedTools?: string[];
+}): Promise<void> {
+  const { toolset, ids, declaredCategories, allowedTools, deniedTools } = args;
+  if (toolset.instances.size > 0) return;
+
+  const { batchId, taskKey } = ids;
+  const emptyPoolReason =
+    'worker 工具池为空：类别池与 allowedTools 无交集' +
+    `（declaredCategories=[${(declaredCategories ?? []).join(',')}]，` +
+    `allowedTools=${allowedTools ? `[${allowedTools.join(',')}]` : '未限制'}）`;
+  if (batchId && taskKey) {
+    await getAgentRunStore().settleRun(`${batchId}::${taskKey}`, 'failed', {
+      error: emptyPoolReason,
+    });
+  }
+  logger.warn('swarm worker 工具池为空（fail-closed，不执行）', {
+    batchId: batchId ?? null,
+    taskKey: taskKey ?? null,
+    declaredCategories: declaredCategories ?? null,
+    allowedTools: allowedTools ?? null,
+    deniedTools: deniedTools ?? null,
+  });
+  throw new Error(emptyPoolReason);
+}
+
 /**
  * 构造 swarm executor（O6⑥ 逐任务落盘 / O12 解析链与契约贯通）。
  *
@@ -222,47 +324,15 @@ export function buildSwarmExecutor(
     const isWorkerCall =
       taskKey !== undefined && (declaredCategories?.length ?? 0) > 0;
     const resolved = taskKey ? taskDescriptors?.get(taskKey) : undefined;
+    const ids: WorkerCallIds = { batchId, taskKey, agentType };
 
     // O12-1 fail-closed：解析失败 ⇒ 该任务**不执行**、落 `failed` 行（不留 running 残留）；
     // 抛出 ⇒ AgentSwarm 记入 feedback（汇总行 `[FAIL] <desc>: 执行失败: <原因>` 可见）
     if (resolved?.error) {
-      if (batchId && taskKey) {
-        await getAgentRunStore().startRun({
-          toolCallId: `${batchId}::${taskKey}`,
-          agentId: batchId,
-          name: taskKey,
-          agentType: agentType ?? 'general',
-          status: 'running',
-          batchId,
-          taskKey,
-        });
-        await getAgentRunStore().settleRun(`${batchId}::${taskKey}`, 'failed', {
-          error: resolved.error,
-        });
-      }
-      logger.warn('swarm 子任务描述符解析失败（fail-closed，不执行）', {
-        batchId: batchId ?? null,
-        taskKey: taskKey ?? null,
-        subagentType: agentType ?? null,
-        reason: resolved.error,
-      });
-      throw new Error(resolved.error);
+      await failClosedOnDescriptorError(resolved.error, ids);
     }
 
-    if (batchId && taskKey) {
-      await getAgentRunStore().startRun({
-        toolCallId: `${batchId}::${taskKey}`,
-        agentId: batchId,
-        name: taskKey,
-        // O12-2：落盘**真实类型**（修复前恒 'general'）
-        agentType: agentType ?? 'general',
-        // O19：来源落盘（解析链命中时才有值；未指定 subagent_type 的 worker 留空）
-        descriptorSource: resolved?.source,
-        status: 'running',
-        batchId,
-        taskKey,
-      });
-    }
+    await startWorkerRun(ids, resolved?.source);
 
     const toolset = isWorkerCall
       ? // D-48：把**该任务**的定义侧禁用项传给工具集构造（`resolved` 已按 taskKey 取到）
@@ -276,31 +346,15 @@ export function buildSwarmExecutor(
         };
 
     // P0-B（2026-09-21）：worker 工具池**空集 fail-closed**。
-    // worker 池 = `类别池（类别由 AgentSwarm 硬编码）∩ allowedTools − deniedTools`，
-    // 而 O7 两段校验用的是 `getAllTools()`（**父级全量**）⇒ "校验通过 ≠ worker 池非空"。
-    // 例：`allowedTools: ['file_write','bash']` 校验通过，但
-    // `{grep,glob,file_read} ∩ {file_write,bash}` = 空集 ⇒ 修复前 worker 会在**无任何工具**
-    // 的情况下跑满 20 轮，无警告、无降级、无报错，最后照常落 `completed`
-    //（N-41 修掉的"静默空池"在 swarm 路径的同族复现）。
     // 仅在 `isWorkerCall` 时检查：verifier / synthesizer 的 instances 本就为空，不可误伤。
-    if (isWorkerCall && toolset.instances.size === 0) {
-      const emptyPoolReason =
-        'worker 工具池为空：类别池与 allowedTools 无交集' +
-        `（declaredCategories=[${(declaredCategories ?? []).join(',')}]，` +
-        `allowedTools=${allowedTools ? `[${allowedTools.join(',')}]` : '未限制'}）`;
-      if (batchId && taskKey) {
-        await getAgentRunStore().settleRun(`${batchId}::${taskKey}`, 'failed', {
-          error: emptyPoolReason,
-        });
-      }
-      logger.warn('swarm worker 工具池为空（fail-closed，不执行）', {
-        batchId: batchId ?? null,
-        taskKey: taskKey ?? null,
-        declaredCategories: declaredCategories ?? null,
-        allowedTools: allowedTools ?? null,
-        deniedTools: deniedTools ?? null,
+    if (isWorkerCall) {
+      await assertWorkerToolsetNonEmpty({
+        toolset,
+        ids,
+        declaredCategories,
+        allowedTools,
+        deniedTools,
       });
-      throw new Error(emptyPoolReason);
     }
 
     const result = await deps.engine.execute({
@@ -427,15 +481,7 @@ export async function runSwarmPath(
   // 尝试为目标（`task_goals`）自动建行 —— 该会话无未终结目标才建；direct / foreground /
   // background 路径不建（避免"用户随口一问就产生目标"）。
   // objective 来源：`agentInput.description` → `tasks[].description` 拼接（≤200 字）→ 占位。
-  let objective = agentInput.description.trim();
-  if (!objective) {
-    objective = tasks
-      .map((t) => t.description.trim())
-      .filter((d) => d.length > 0)
-      .join('；')
-      .slice(0, 200);
-  }
-  if (!objective) objective = '(swarm batch)';
+  const objective = deriveSwarmObjective(agentInput, tasks);
   const createdGoal = await ensureGoalForBatch({
     sessionId: context?.sessionId,
     objective,
@@ -458,10 +504,6 @@ export async function runSwarmPath(
   // 且**不存在任何 unregister 路径** ⇒ `batchAborts` 单调增长（**永久泄漏**）；
   // 陈旧 controller 还会让**首次** `stopAgent` 报出"受理成功"的假阳性。
   // 泄漏是根，假阳性只是其表征（第二次起即为 false）。
-  let parentSignal: AbortSignal | undefined;
-  let onParentAbort: (() => void) | undefined;
-  // 登记自身若抛错，不得去注销一个未写入的键
-  let registered = false;
   let swarmResult: AgentSwarmResult;
   // SubTask.id 可选 → 统一补稳定兜底 id，供结果回填与汇总按 id 对齐。
   // 必须在 try 之外：`tasks.map` 不抛，且结算/汇总段（try 之后）仍需读取该清单。
@@ -479,66 +521,56 @@ export async function runSwarmPath(
     // R1 修正（2026-09-22）：注册表是**进程内单例**（`swarmBatchRegistry`），
     // 与 `_ledger` 同法 —— 否则"执行批次的实例"与"控制面取的实例"不同时查不到控制器。
     registerBatchAbort(agentId, swarmAbort);
-    registered = true;
-    // P0-A（2026-09-21）：把**父级取消信号**桥接到批次 AbortController。
-    // 修复前 `swarmAbort` 只定义、**从不 abort** ⇒ `AgentSwarm.runBatched` 的
-    // `if (signal?.aborted)` 短路恒为假，且父会话中止（用户点停止 / 工具级 abort）
-    // 无法传导到批次 —— worker 只能靠引擎 `timeoutMs`（默认 600s）自然收敛。
-    // R3（2026-09-21）：该桥接的**上游**已补齐 —— 真实聊天路径原先注入的工具 context
-    // 没有 `abortController`（被内联类型断言掩盖），故此处 `parentSignal` 恒 undefined、
-    // 桥接形同空转；现由 `ToolExecutionService` 注入会话级控制器（用户点停止即 abort）。
-    parentSignal = context?.abortController?.signal;
-    onParentAbort = (): void => {
-      if (!swarmAbort.signal.aborted) swarmAbort.abort();
-    };
-    if (parentSignal) {
-      // 父级**已**中止 ⇒ 立即同步（不依赖事件回调时序）
-      if (parentSignal.aborted) onParentAbort();
-      else
-        parentSignal.addEventListener('abort', onParentAbort, { once: true });
+    // P0-A（2026-09-21）：把**父级取消信号**桥接到批次 AbortController（见 `bridgeParentAbort`）。
+    // 返回的清理函数在 finally 中调用，异常路径同样解除监听。
+    const cleanupParentAbort = bridgeParentAbort(
+      context?.abortController?.signal,
+      swarmAbort
+    );
+    try {
+      // O12-1：**per-task 描述符解析**（与单代理路径同源）—— 未知/禁用 ⇒ 该任务 fail-closed；
+      // 未指定 `subagent_type` 的任务不解析（沿用 AgentSwarm 的 worker 提示词，行为中性）
+      const taskDescriptors =
+        await deps.resolveSwarmTaskDescriptors(swarmTasks);
+      swarmResult = await new AgentSwarm().run({
+        tasks: swarmTasks,
+        goal: agentInput.goal || agentInput.description,
+        // 缺陷 4（2026-09-22）：透传准入预留量 ⇒ 真实在飞 worker ≤ `maxConcurrentAgents`。
+        // 该值同时驱动 worker 批次与 verifier 门禁批次（`AgentSwarm` 内共用同一 `concurrency`）。
+        maxConcurrency,
+        executor: buildSwarmExecutor(
+          {
+            signal: swarmAbort.signal,
+            model: agentInput.model,
+            // O6⑥：批次 id = 本工具调用 id ⇒ worker 行以 `batchId::taskKey` 为主键落盘
+            batchId: agentId,
+            // O14-2：父级上下文（含 sessionId）⇒ worker 在引擎侧具备归属
+            context,
+            // O12-2：父级工具集约束（O7 同源）⇒ worker 工具集与单代理路径一致地受父级白/黑名单管辖
+            allowedTools: agentInput.allowedTools,
+            deniedTools: agentInput.deniedTools,
+            taskDescriptors,
+          },
+          deps
+        ),
+        // 不传 isolation：本路径 executor 为只读子代理调用（适配器不透传隔离资源），
+        // 而 createAgentIsolation() 会同步落盘 `~/.pyapp/workspaces/<id>` 空目录且默认不清理。
+        enableVerify: agentInput.verify === true,
+        // E-1（2026-10-18）：verifier 明确判不过 ⇒ 回灌 worker 重试一轮
+        // （2026-11-16 起默认开；设置页「多代理验证重试」可关，env 优先）
+        enableVerifyRetry: resolveFeatureGate('SWARM_VERIFY_RETRY'),
+        enableSynthesize: agentInput.synthesize === true,
+        signal: swarmAbort.signal,
+        // G-02（2026-10-19）：批次级预算熔断的会话归因（缺省由 AgentSwarm 用 'swarm'）
+        sessionId: context?.sessionId,
+      });
+    } finally {
+      cleanupParentAbort();
     }
-    // O12-1：**per-task 描述符解析**（与单代理路径同源）—— 未知/禁用 ⇒ 该任务 fail-closed；
-    // 未指定 `subagent_type` 的任务不解析（沿用 AgentSwarm 的 worker 提示词，行为中性）
-    const taskDescriptors = await deps.resolveSwarmTaskDescriptors(swarmTasks);
-    swarmResult = await new AgentSwarm().run({
-      tasks: swarmTasks,
-      goal: agentInput.goal || agentInput.description,
-      // 缺陷 4（2026-09-22）：透传准入预留量 ⇒ 真实在飞 worker ≤ `maxConcurrentAgents`。
-      // 该值同时驱动 worker 批次与 verifier 门禁批次（`AgentSwarm` 内共用同一 `concurrency`）。
-      maxConcurrency,
-      executor: buildSwarmExecutor(
-        {
-          signal: swarmAbort.signal,
-          model: agentInput.model,
-          // O6⑥：批次 id = 本工具调用 id ⇒ worker 行以 `batchId::taskKey` 为主键落盘
-          batchId: agentId,
-          // O14-2：父级上下文（含 sessionId）⇒ worker 在引擎侧具备归属
-          context,
-          // O12-2：父级工具集约束（O7 同源）⇒ worker 工具集与单代理路径一致地受父级白/黑名单管辖
-          allowedTools: agentInput.allowedTools,
-          deniedTools: agentInput.deniedTools,
-          taskDescriptors,
-        },
-        deps
-      ),
-      // 不传 isolation：本路径 executor 为只读子代理调用（适配器不透传隔离资源），
-      // 而 createAgentIsolation() 会同步落盘 `~/.pyapp/workspaces/<id>` 空目录且默认不清理。
-      enableVerify: agentInput.verify === true,
-      // E-1（2026-10-18）：verifier 明确判不过 ⇒ 回灌 worker 重试一轮（开关默认关）
-      enableVerifyRetry: feature('SWARM_VERIFY_RETRY'),
-      enableSynthesize: agentInput.synthesize === true,
-      signal: swarmAbort.signal,
-      // G-02（2026-10-19）：批次级预算熔断的会话归因（缺省由 AgentSwarm 用 'swarm'）
-      sessionId: context?.sessionId,
-    });
   } finally {
     // R1（2026-09-21）：注销批次控制器（`stopAgent` 的扇出按 batchId 查表，必须防泄漏）。
     // 缺陷 2（2026-09-22）：该行原在 try 之外 ⇒ 解析链抛出时**永远不会执行**。
-    if (registered) unregisterBatchAbort(agentId);
-    // R4（2026-09-21）：解除父级监听放到 **finally** —— 修复前只在 `run()` 正常返回后
-    // 调用，抛出时留下的监听虽因 `{once:true}` 有界，但"异常路径不清理"本身是缺口。
-    if (parentSignal && onParentAbort)
-      parentSignal.removeEventListener('abort', onParentAbort);
+    unregisterBatchAbort(agentId);
   }
 
   // 缺陷 1（2026-09-22）：**单一派生源**。
@@ -578,26 +610,18 @@ export async function runSwarmPath(
   const gateIncomplete = swarmResult.verifyIncomplete === true;
   // 归因（2026-09-22 修正）：原为"取消优先"的嵌套三元 ⇒ 取消与失败同时存在时**丢掉失败原因**
   // （典型：取消发生在门禁阶段 ⇒ `cancelledCount = 0`，文案变成"已取消（完成 3/5，未投递 0）"，
-  // 既自相矛盾、又抹掉了"2 个 worker 门禁未过"）。现改为**逐项罗列，互不遮蔽**。
-  const reasonParts: string[] = [];
-  if (failedCount > 0) {
-    reasonParts.push(`${failedCount}/${workers.length} 个 worker 未通过`);
-  }
-  if (cancelledCount > 0) {
-    reasonParts.push(`${cancelledCount} 个任务未投递（批次被取消）`);
-  } else if (cancelledFact) {
-    // 收尾阶段（门禁/合成）被取消：任务已全部投递 ⇒ 投递缺口为 0，但取消事实为真
-    // ⇒ 必须单独成句，否则"取消"在归因里彻底不可见（Liri v1.4 D2）
-    reasonParts.push('批次被取消（任务已全部投递，中止发生在收尾阶段）');
-  }
-  if (gateIncomplete) {
-    reasonParts.push(`门禁未完成（${verifySkipped} 个 worker 未获门禁结论）`);
-  }
-  const batchError = batchOk
-    ? undefined
-    : reasonParts.length > 0
-      ? reasonParts.join('；')
-      : `批次未通过（完成 ${okCount}/${tasks.length}）`;
+  // 既自相矛盾、又抹掉了"2 个 worker 门禁未过"）。现改为**逐项罗列，互不遮蔽**（见 builder）。
+  const batchError = buildSwarmFailureReason({
+    batchOk,
+    failedCount,
+    workerCount: workers.length,
+    cancelledCount,
+    cancelledFact,
+    gateIncomplete,
+    verifySkipped,
+    okCount,
+    totalTasks: tasks.length,
+  });
 
   // P1-11（2026-09-25）：载荷直接复用同一次派生（含 `cancelledFact`）——
   // 修复前只发 `cancelledTasks`（投递缺口）⇒ 消费端读不到取消事实。
@@ -622,166 +646,51 @@ export async function runSwarmPath(
   // M-8 / 停止条件接线（2026-09-22）：目标侧指令（预算收尾 / 停滞停止）
   // —— 下文追加到批次输出 ⇒ 经 tool result 注入 LLM 输入（见 `finalOutput`）。
   // B3-2（2026-09-23）：持有**类型化片段**（而非拼接好的字符串）—— 前缀由片段类型给出。
-  let goalInstruction: ContextualFragment | undefined;
-  try {
-    const settledGoal = await settleGoalForRun({
-      sessionId: context?.sessionId,
-      outcome: { allPassed: batchOk, okCount, cancelled: cancelledFact },
-      // M-8：批次 worker 真实用量（`AgentSwarm` 汇总；executor 未提供 ⇒ 0，不估算）
-      tokens: swarmResult.totalTokens,
-      // B2-4 / X6（2026-09-23）：批次在 `agent_runs` 中的**行 id** —— 本批次自身那行由
-      // `beginRun()` 以 `toolCallId: agentId` 写入（`AgentRunStore` 主键为 `tool_call_id`）
-      // ⇒ 此处传 `agentId` 即"可反查的归属批次行"（Spec §10.2 U4 已核实）。
-      runId: agentId,
-    });
-    if (settledGoal) {
-      logger.info('批次结果已绑定到目标', {
-        goalId: settledGoal.goalId,
-        status: settledGoal.status,
-        tokens: swarmResult.totalTokens,
-        noProgressStreak: settledGoal.noProgressStreak ?? null,
-      });
-      // 触顶收尾（M-8）与停滞停止（停止条件）**互斥**：触顶路径在记账处早返回，
-      // 不会同时产出两条指令 ⇒ 此处取其一即可，不拼接多段指令。
-      //
-      // B2-2 / X2（2026-09-23）：**注入即落盘**（`project_rules.md §1.6` 红线）——
-      // 该指令是模型可见输入（下方写入 tool result ⇒ `TAORLoop` 序列化为 `role:'tool'`），
-      // 故在此处（注入点）取指令并**成对**落 `goal/injected{channel:'tool_result'}`，
-      // 载荷 `text` = 实际注入的原文 ⇒ "模型当时看到了什么"可逐字重建。
-      const injection = await takeBatchGoalInstruction({
-        sessionId: context?.sessionId,
-        settlement: settledGoal,
-      });
-      goalInstruction = injection?.fragment;
-      if (injection) {
-        logger.warn('目标侧指令已注入批次输出', {
-          goalId: settledGoal.goalId,
-          status: settledGoal.status,
-          templateKind: injection.templateKind,
-          instruction: injection.text,
-        });
-      }
-
-      // M-7 idle 触发续接（2026-09-22）：目标落到 `blocked`（未达成但**非终态**）
-      // ⇒ 登记**一次**延迟唤醒，会话空闲时自动续跑（有界性/防陈旧见
-      // `goalIdleContinuation` 文件头；未启用 CG3 时静默降级为不登记）。
-      const streak = settledGoal.noProgressStreak;
-      if (settledGoal.status === 'blocked' && streak !== undefined) {
-        try {
-          const enqueued = await enqueueIdleContinuation({
-            sessionId: context?.sessionId,
-            goalId: settledGoal.goalId,
-            streak,
-          });
-          logger.info('目标空闲续接登记结果', {
-            goalId: settledGoal.goalId,
-            streak,
-            enqueued,
-          });
-        } catch (err) {
-          // @ignore-catch — 续接调度属"推进面"，登记失败不得影响批次结果返回
-          logger.warn('目标空闲续接登记失败（不影响批次结果）', {
-            goalId: settledGoal.goalId,
-            error: String(err),
-          });
-        }
-      }
-    }
-  } catch (err) {
-    // @ignore-catch — 目标绑定属"意图/观测面"，失败不得影响批次结果返回
-    logger.warn('目标状态落定失败（不影响批次结果）', { error: String(err) });
-  }
+  const goalInstruction = await bindBatchGoalOutcome({
+    sessionId: context?.sessionId,
+    batchOk,
+    okCount,
+    cancelledFact,
+    totalTokens: swarmResult.totalTokens,
+    runId: agentId,
+  });
 
   // O9：摘要预算 —— **真实取数**（G14 口径）
   // ① 父**当前**上下文：`getCurrentInputTokens()` 读本轮基线（**非累计**）；
   // ② 模型窗口：`resolveContextWindowAsync()` 以 DB `model_registry.context_window` 为事实来源。
   // 任一项取不到 ⇒ `computeSummaryCharBudget` 退化为下限（不臆测）。
-  let summaryBudget = SUMMARY_MIN_CHARS;
-  try {
-    const tracker = getUnifiedTokenTracker();
-    const parentPromptTokens = tracker?.getCurrentInputTokens(
-      context?.sessionId
-    );
-    const routeModel = await resolveModelRoute(RouteKey.CHAT);
-    const contextWindow = routeModel
-      ? (await resolveContextWindowAsync(routeModel)).tokens
-      : undefined;
-    summaryBudget = computeSummaryCharBudget({
-      parentPromptTokens,
-      contextWindow,
-      workerCount: tasks.length,
-    });
-    logger.debug('swarm 摘要预算已解析', {
-      agentId,
-      parentPromptTokens: parentPromptTokens ?? null,
-      contextWindow: contextWindow ?? null,
-      workerCount: tasks.length,
-      summaryBudget,
-    });
-  } catch (err) {
-    // @ignore-catch — 预算取数失败 ⇒ 退化下限，不阻断汇总
-    logger.warn('swarm 摘要预算取数失败（退化下限）', {
-      agentId,
-      error: String(err),
-    });
-  }
+  const summaryBudget = await resolveSwarmSummaryBudget({
+    agentId,
+    sessionId: context?.sessionId,
+    workerCount: tasks.length,
+  });
 
   // 未开合成/门禁时，汇总格式与既有实现逐字一致：`[OK|FAIL] <name>: <output|error>`
   // O9③：**超限即全文落盘**，并把文件路径作为指针写进裁剪标记（头尾各留结论/改动清单）
-  const summaryTextByWorkerId = new Map<string, string>();
-  for (const w of swarmResult.workers) {
-    const rawText = w.output || w.feedback || '';
-    const probe = trimSummaryWithFooter(rawText, summaryBudget);
-    if (!probe.truncated) {
-      summaryTextByWorkerId.set(w.id, probe.text);
-      continue;
-    }
-    const spillPath = await deps.agentLedgerLifecycle.spillSummaryToDisk({
-      agentId,
-      taskKey: w.id,
-      text: rawText,
-    });
-    summaryTextByWorkerId.set(
-      w.id,
-      trimSummaryWithFooter(
-        rawText,
-        summaryBudget,
-        spillPath ? { spillPath } : {}
-      ).text
-    );
-  }
-
+  const summaryTextByWorkerId = await buildWorkerSummaryTextMap({
+    workers: swarmResult.workers,
+    summaryBudget,
+    agentId,
+    deps,
+  });
   const workerById = new Map(swarmResult.workers.map((w) => [w.id, w]));
-  const legacyAggregated = swarmTasks
-    .map((t) => {
-      // M-13（2026-09-22）：**只按 id 取，禁止下标兜底**。
-      // 修复前 `?? swarmResult.workers[idx]` 把"完成顺序数组"当"task 顺序数组"用：
-      // 任一任务未产出 worker（最常见触发：批次取消 ⇒ `runBatched` 短路，
-      // 剩余任务从未投递）时，会把**别的** worker 结果挂到它名下（张冠李戴）。
-      const w = workerById.get(t.id);
-      const name = t.description;
-      // 未产出 worker ⇒ 如实标注（与"执行失败"区分开）
-      if (!w) return `[FAIL] ${name}: 未执行（批次取消或未投递）`;
-      return w.success
-        ? `[OK] ${name}: ${summaryTextByWorkerId.get(w.id) ?? ''}`
-        : `[FAIL] ${name}: ${w.feedback ?? '执行失败'}`;
-    })
-    .join('\n---\n');
+  const legacyAggregated = buildLegacyAggregatedOutput({
+    swarmTasks,
+    workerById,
+    summaryTextByWorkerId,
+  });
 
   const gated = agentInput.verify === true || agentInput.synthesize === true;
   const aggregatedOutput = gated
-    ? [
-        swarmResult.synthesized
-          ? `## 合成结果\n${swarmResult.synthesized}`
-          : '',
-        `## Worker 结果（门禁：passed ${verifyPassed} / failed ${verifyFailed} / skipped ${verifySkipped}；allPassed: ${swarmResult.allPassed}）`,
-        ...swarmResult.workers.map(
-          (w) =>
-            `[${w.success ? 'OK' : 'FAIL'}${w.verify === 'failed' ? ' 未过门禁' : ''}] ${w.id}: ${summaryTextByWorkerId.get(w.id) ?? ''}`
-        ),
-      ]
-        .filter(Boolean)
-        .join('\n\n')
+    ? buildGatedAggregatedOutput({
+        synthesized: swarmResult.synthesized,
+        allPassed: swarmResult.allPassed,
+        verifyPassed,
+        verifyFailed,
+        verifySkipped,
+        workers: swarmResult.workers,
+        summaryTextByWorkerId,
+      })
     : legacyAggregated;
 
   // M-8 / 停止条件接线（2026-09-22）：目标侧指令**注入 LLM 输入**——追加到 tool result 文本。
@@ -796,11 +705,14 @@ export async function runSwarmPath(
     onProgress,
     agentId,
     agentInput.name || agentId,
-    `Parallel execution completed: ${okCount}/${workers.length} tasks succeeded` +
-      `${cancelledCount > 0 ? `（已取消：${cancelledCount} 个任务未投递）` : ''}` +
-      // 收尾阶段被取消（缺口为 0）也要如实说 —— 否则用户看到"全部成功"却不知批次已被中止
-      `${cancelledCount === 0 && cancelledFact ? '（批次被取消：任务已全部投递，收尾阶段中止）' : ''}` +
-      `${gated ? `（allPassed: ${swarmResult.allPassed}）` : ''}`
+    formatSwarmProgressMessage({
+      okCount,
+      workerCount: workers.length,
+      cancelledCount,
+      cancelledFact,
+      gated,
+      allPassed: swarmResult.allPassed,
+    })
   );
 
   // 阶段 A（A1-e）/ M-5：并行批次已全部结算（`AgentSwarm` 内 `Promise.allSettled` 收口）
@@ -843,4 +755,307 @@ export async function runSwarmPath(
     toolName: deps.toolName,
     timestamp: Date.now(),
   };
+}
+
+// ── 批次收尾辅助（原为 runSwarmPath 内联段，逐字外移；纯函数部分导出以便特征化） ──
+
+/**
+ * P0-A（2026-09-21）：把**父级取消信号**桥接到批次 AbortController。
+ * 修复前 `swarmAbort` 只定义、**从不 abort** ⇒ `AgentSwarm.runBatched` 的
+ * `if (signal?.aborted)` 短路恒为假，且父会话中止（用户点停止 / 工具级 abort）
+ * 无法传导到批次 —— worker 只能靠引擎 `timeoutMs`（默认 600s）自然收敛。
+ * R3（2026-09-21）：该桥接的**上游**已补齐 —— 真实聊天路径原先注入的工具 context
+ * 没有 `abortController`（被内联类型断言掩盖），故此处 `parentSignal` 恒 undefined、
+ * 桥接形同空转；现由 `ToolExecutionService` 注入会话级控制器（用户点停止即 abort）。
+ *
+ * @returns 清理函数（解除监听）；无父级信号时为空操作
+ */
+function bridgeParentAbort(
+  parentSignal: AbortSignal | undefined,
+  swarmAbort: AbortController
+): () => void {
+  const onParentAbort = (): void => {
+    if (!swarmAbort.signal.aborted) swarmAbort.abort();
+  };
+  if (!parentSignal) return () => {};
+  // 父级**已**中止 ⇒ 立即同步（不依赖事件回调时序）
+  if (parentSignal.aborted) onParentAbort();
+  else parentSignal.addEventListener('abort', onParentAbort, { once: true });
+  // R4（2026-09-21）：解除父级监听放到 finally —— 修复前只在 `run()` 正常返回后
+  // 调用，抛出时留下的监听虽因 `{once:true}` 有界，但"异常路径不清理"本身是缺口。
+  return () => parentSignal.removeEventListener('abort', onParentAbort);
+}
+
+/** X11：批次目标文案派生（`agentInput.description` → 任务描述拼接 ≤200 字 → 占位） */
+export function deriveSwarmObjective(
+  agentInput: Pick<AgentInput, 'description'>,
+  tasks: SubTask[]
+): string {
+  let objective = agentInput.description.trim();
+  if (!objective) {
+    objective = tasks
+      .map((t) => t.description.trim())
+      .filter((d) => d.length > 0)
+      .join('；')
+      .slice(0, 200);
+  }
+  if (!objective) objective = '(swarm batch)';
+  return objective;
+}
+
+/** 批次失败归因：逐项罗列、互不遮蔽（取消与失败同时存在时不得丢掉失败原因） */
+export function buildSwarmFailureReason(input: {
+  batchOk: boolean;
+  failedCount: number;
+  workerCount: number;
+  cancelledCount: number;
+  cancelledFact: boolean;
+  gateIncomplete: boolean;
+  verifySkipped: number;
+  okCount: number;
+  totalTasks: number;
+}): string | undefined {
+  if (input.batchOk) return undefined;
+
+  const reasonParts: string[] = [];
+  if (input.failedCount > 0) {
+    reasonParts.push(
+      `${input.failedCount}/${input.workerCount} 个 worker 未通过`
+    );
+  }
+  if (input.cancelledCount > 0) {
+    reasonParts.push(`${input.cancelledCount} 个任务未投递（批次被取消）`);
+  } else if (input.cancelledFact) {
+    // 收尾阶段（门禁/合成）被取消：任务已全部投递 ⇒ 投递缺口为 0，但取消事实为真
+    // ⇒ 必须单独成句，否则"取消"在归因里彻底不可见（Liri v1.4 D2）
+    reasonParts.push('批次被取消（任务已全部投递，中止发生在收尾阶段）');
+  }
+  if (input.gateIncomplete) {
+    reasonParts.push(
+      `门禁未完成（${input.verifySkipped} 个 worker 未获门禁结论）`
+    );
+  }
+
+  return reasonParts.length > 0
+    ? reasonParts.join('；')
+    : `批次未通过（完成 ${input.okCount}/${input.totalTasks}）`;
+}
+
+/**
+ * M-6/M-7 + M-8：批次收口后把结果绑到该会话的未终结目标，并取出要注入输出的目标侧指令。
+ * 全部失败只记 warn（意图/观测面，不影响批次结果返回）。
+ */
+async function bindBatchGoalOutcome(input: {
+  sessionId: string | undefined;
+  batchOk: boolean;
+  okCount: number;
+  cancelledFact: boolean;
+  totalTokens: number;
+  runId: string;
+}): Promise<ContextualFragment | undefined> {
+  let goalInstruction: ContextualFragment | undefined;
+  try {
+    const settledGoal = await settleGoalForRun({
+      sessionId: input.sessionId,
+      outcome: {
+        allPassed: input.batchOk,
+        okCount: input.okCount,
+        cancelled: input.cancelledFact,
+      },
+      // M-8：批次 worker 真实用量（`AgentSwarm` 汇总；executor 未提供 ⇒ 0，不估算）
+      tokens: input.totalTokens,
+      // B2-4 / X6（2026-09-23）：批次在 `agent_runs` 中的**行 id** —— 本批次自身那行由
+      // `beginRun()` 以 `toolCallId: agentId` 写入（`AgentRunStore` 主键为 `tool_call_id`）
+      // ⇒ 此处传 `agentId` 即"可反查的归属批次行"（Spec §10.2 U4 已核实）。
+      runId: input.runId,
+    });
+    if (!settledGoal) return goalInstruction;
+
+    logger.info('批次结果已绑定到目标', {
+      goalId: settledGoal.goalId,
+      status: settledGoal.status,
+      tokens: input.totalTokens,
+      noProgressStreak: settledGoal.noProgressStreak ?? null,
+    });
+    // 触顶收尾（M-8）与停滞停止（停止条件）**互斥**：触顶路径在记账处早返回，
+    // 不会同时产出两条指令 ⇒ 此处取其一即可，不拼接多段指令。
+    //
+    // B2-2 / X2（2026-09-23）：**注入即落盘**（`project_rules.md §1.6` 红线）——
+    // 该指令是模型可见输入（写入 tool result ⇒ `TAORLoop` 序列化为 `role:'tool'`），
+    // 故在此处（注入点）取指令并**成对**落 `goal/injected{channel:'tool_result'}`，
+    // 载荷 `text` = 实际注入的原文 ⇒ "模型当时看到了什么"可逐字重建。
+    const injection = await takeBatchGoalInstruction({
+      sessionId: input.sessionId,
+      settlement: settledGoal,
+    });
+    goalInstruction = injection?.fragment;
+    if (injection) {
+      logger.warn('目标侧指令已注入批次输出', {
+        goalId: settledGoal.goalId,
+        status: settledGoal.status,
+        templateKind: injection.templateKind,
+        instruction: injection.text,
+      });
+    }
+
+    // M-7 idle 触发续接（2026-09-22）：目标落到 `blocked`（未达成但**非终态**）
+    // ⇒ 登记**一次**延迟唤醒，会话空闲时自动续跑（有界性/防陈旧见
+    // `goalIdleContinuation` 文件头；未启用 CG3 时静默降级为不登记）。
+    const streak = settledGoal.noProgressStreak;
+    if (settledGoal.status === 'blocked' && streak !== undefined) {
+      try {
+        const enqueued = await enqueueIdleContinuation({
+          sessionId: input.sessionId,
+          goalId: settledGoal.goalId,
+          streak,
+        });
+        logger.info('目标空闲续接登记结果', {
+          goalId: settledGoal.goalId,
+          streak,
+          enqueued,
+        });
+      } catch (err) {
+        // @ignore-catch — 续接调度属"推进面"，登记失败不得影响批次结果返回
+        logger.warn('目标空闲续接登记失败（不影响批次结果）', {
+          goalId: settledGoal.goalId,
+          error: String(err),
+        });
+      }
+    }
+  } catch (err) {
+    // @ignore-catch — 目标绑定属"意图/观测面"，失败不得影响批次结果返回
+    logger.warn('目标状态落定失败（不影响批次结果）', { error: String(err) });
+  }
+  return goalInstruction;
+}
+
+/** O9：摘要预算真实取数；任一项取不到 ⇒ 退化为下限（不臆测） */
+async function resolveSwarmSummaryBudget(input: {
+  agentId: string;
+  sessionId: string | undefined;
+  workerCount: number;
+}): Promise<number> {
+  try {
+    const tracker = getUnifiedTokenTracker();
+    const parentPromptTokens = tracker?.getCurrentInputTokens(input.sessionId);
+    const routeModel = await resolveModelRoute(RouteKey.CHAT);
+    const contextWindow = routeModel
+      ? (await resolveContextWindowAsync(routeModel)).tokens
+      : undefined;
+    const summaryBudget = computeSummaryCharBudget({
+      parentPromptTokens,
+      contextWindow,
+      workerCount: input.workerCount,
+    });
+    logger.debug('swarm 摘要预算已解析', {
+      agentId: input.agentId,
+      parentPromptTokens: parentPromptTokens ?? null,
+      contextWindow: contextWindow ?? null,
+      workerCount: input.workerCount,
+      summaryBudget,
+    });
+    return summaryBudget;
+  } catch (err) {
+    // @ignore-catch — 预算取数失败 ⇒ 退化下限，不阻断汇总
+    logger.warn('swarm 摘要预算取数失败（退化下限）', {
+      agentId: input.agentId,
+      error: String(err),
+    });
+    return SUMMARY_MIN_CHARS;
+  }
+}
+
+/** O9③：逐 worker 生成摘要文本；超限即全文落盘并把路径写进裁剪标记 */
+async function buildWorkerSummaryTextMap(input: {
+  workers: AgentSwarmResult['workers'];
+  summaryBudget: number;
+  agentId: string;
+  deps: SwarmPathDeps;
+}): Promise<Map<string, string>> {
+  const summaryTextByWorkerId = new Map<string, string>();
+  for (const w of input.workers) {
+    const rawText = w.output || w.feedback || '';
+    const probe = trimSummaryWithFooter(rawText, input.summaryBudget);
+    if (!probe.truncated) {
+      summaryTextByWorkerId.set(w.id, probe.text);
+      continue;
+    }
+    const spillPath = await input.deps.agentLedgerLifecycle.spillSummaryToDisk({
+      agentId: input.agentId,
+      taskKey: w.id,
+      text: rawText,
+    });
+    summaryTextByWorkerId.set(
+      w.id,
+      trimSummaryWithFooter(
+        rawText,
+        input.summaryBudget,
+        spillPath ? { spillPath } : {}
+      ).text
+    );
+  }
+  return summaryTextByWorkerId;
+}
+
+/** 未开合成/门禁时的汇总：`[OK|FAIL] <name>: <output|error>`，逐字保持既有格式 */
+export function buildLegacyAggregatedOutput(input: {
+  swarmTasks: Array<{ id: string; description: string }>;
+  workerById: Map<string, { id: string; success: boolean; feedback?: string }>;
+  summaryTextByWorkerId: Map<string, string>;
+}): string {
+  return input.swarmTasks
+    .map((t) => {
+      // M-13（2026-09-22）：**只按 id 取，禁止下标兜底**。
+      // 修复前 `?? swarmResult.workers[idx]` 把"完成顺序数组"当"task 顺序数组"用：
+      // 任一任务未产出 worker（最常见触发：批次取消 ⇒ `runBatched` 短路，
+      // 剩余任务从未投递）时，会把**别的** worker 结果挂到它名下（张冠李戴）。
+      const w = input.workerById.get(t.id);
+      const name = t.description;
+      // 未产出 worker ⇒ 如实标注（与"执行失败"区分开）
+      if (!w) return `[FAIL] ${name}: 未执行（批次取消或未投递）`;
+      return w.success
+        ? `[OK] ${name}: ${input.summaryTextByWorkerId.get(w.id) ?? ''}`
+        : `[FAIL] ${name}: ${w.feedback ?? '执行失败'}`;
+    })
+    .join('\n---\n');
+}
+
+/** 开了合成/门禁时的汇总：合成结果 + 门禁三态计数 + 逐 worker 行 */
+export function buildGatedAggregatedOutput(input: {
+  synthesized?: string;
+  allPassed: boolean;
+  verifyPassed: number;
+  verifyFailed: number;
+  verifySkipped: number;
+  workers: AgentSwarmResult['workers'];
+  summaryTextByWorkerId: Map<string, string>;
+}): string {
+  return [
+    input.synthesized ? `## 合成结果\n${input.synthesized}` : '',
+    `## Worker 结果（门禁：passed ${input.verifyPassed} / failed ${input.verifyFailed} / skipped ${input.verifySkipped}；allPassed: ${input.allPassed}）`,
+    ...input.workers.map(
+      (w) =>
+        `[${w.success ? 'OK' : 'FAIL'}${w.verify === 'failed' ? ' 未过门禁' : ''}] ${w.id}: ${input.summaryTextByWorkerId.get(w.id) ?? ''}`
+    ),
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+/** 批次完成进度文案（取消缺口与取消事实并列陈述，不得互相替代） */
+export function formatSwarmProgressMessage(input: {
+  okCount: number;
+  workerCount: number;
+  cancelledCount: number;
+  cancelledFact: boolean;
+  gated: boolean;
+  allPassed: boolean;
+}): string {
+  return (
+    `Parallel execution completed: ${input.okCount}/${input.workerCount} tasks succeeded` +
+    `${input.cancelledCount > 0 ? `（已取消：${input.cancelledCount} 个任务未投递）` : ''}` +
+    // 收尾阶段被取消（缺口为 0）也要如实说 —— 否则用户看到"全部成功"却不知批次已被中止
+    `${input.cancelledCount === 0 && input.cancelledFact ? '（批次被取消：任务已全部投递，收尾阶段中止）' : ''}` +
+    `${input.gated ? `（allPassed: ${input.allPassed}）` : ''}`
+  );
 }

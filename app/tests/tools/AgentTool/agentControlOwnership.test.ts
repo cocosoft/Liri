@@ -21,7 +21,7 @@ import {
   registerSessionLineage,
   resetSessionLineage,
   rebuildSessionLineage,
-} from '../../../src/session/lineage/sessionLineage';
+} from '@modules/session/lineage/sessionLineage';
 
 /** fake 引擎：仅声明本测试路径用到的四个方法 */
 interface EngineStub {

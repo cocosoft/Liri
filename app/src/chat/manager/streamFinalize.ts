@@ -32,19 +32,24 @@ import type {
 } from '@modules/session/types/message.js';
 import type { ChatSession } from '@modules/session/types/session.js';
 
-import { getYieldRegistry } from '../../session/yield';
-import { ImplicitEngineHook } from '../../project/ImplicitEngineHook';
+import { getYieldRegistry } from '@modules/session/yield';
+import { ImplicitEngineHook } from '@modules/project/ImplicitEngineHook';
 import {
   isCapabilityDirectIntent,
   isDemandGoalIntent,
   isExecutionTaskIntent,
-  isStrongBuildIntent,
 } from '../taskIntent';
 import { isDemandSession } from '../autonomy';
 import {
   isEmptyOutputFallbackMessage,
   isOutputBudgetExhaustedMessage,
 } from '../terminationOutput';
+import { TRANSIENT_AWAITING_APPROVAL } from '../services/ToolExecutionService';
+import {
+  applyBareSessionEscalation,
+  collectBareUserTexts,
+  lastUserMessageContent,
+} from './bareSessionEscalation';
 
 const logger = getLogger('chat:manager');
 
@@ -57,14 +62,16 @@ export interface StreamFinalizeDeps {
   getToolRound: (sessionId: string) => number;
   /** 该 turn 是否已写过 `turn/end`（单写者幂等守卫） */
   hasTurnEnded: (sessionId: string, turn: number) => boolean;
-  /** 事件日志尾部 seq */
-  getStreamTailSeq: (sessionId: string) => Promise<number>;
-  /** 事件写入唯一入口 */
+  /** 事件写入唯一入口（`seq` 传 0 ⇒ 由 `EventLog.append` 原子分配） */
   appendStreamEvent: (sessionId: string, event: LiriEvent) => Promise<unknown>;
   /** 停止流式水位监测（仅本会话） */
   endStreamSession: (sessionId: string) => void;
   /** 会话状态机收口（idle） */
   finishSessionMachine: (sessionId: string, reason: string) => void;
+  /** 会话状态机进入「需要用户操作」（等待审批） */
+  pauseSessionMachine: (sessionId: string, reason: string) => void;
+  /** 消息已落盘时按最新 metadata 收敛会话状态（2026-11-13） */
+  syncStateForMessage: (sessionId: string, message: Message) => void;
   /** 会话级中止控制器（与宿主共享同一 Map） */
   sessionAbortControllers: Map<string, AbortController>;
   /** 会话级 executionId（与宿主共享同一 Map） */
@@ -149,70 +156,29 @@ export class ChatStreamFinalize {
     if (!lastMsg || lastMsg.id !== assistantMessage.id) {
       await deps.addAndPersistMessage(session.id, assistantMessage);
     }
+    // 2026-11-13（真机 `session_mwdcivrue74d4838ff`）：出口消息多已由工具轮次落盘，上面的
+    // `addAndPersistMessage` 被跳过 ⇒ 刚挂上的 `terminationReason` 不会触发状态收敛，
+    // 会话在审批期间仍是 `active`（列表无「待审批」）。此处按最新 metadata 显式收敛一次；
+    // 无变化时 `resolveSessionStateAfterMessage` 返回 null，天然幂等。
+    deps.syncStateForMessage(session.id, assistantMessage);
 
-    // P0-fix-3（2026-08-23，顺序错乱根因）：工具调用轮次的 turn/end 在此补写。
-    // 时机关键：assistant/tool_call 事件由 _addAndPersistMessage 落盘时（convertMessage）生成，
-    // 必须在本方法内、落盘 assistant 消息**之后**写入 turn/end，才能保证：
-    //   events.jsonl 顺序 = turn/start → text/thinking → tool/result → assistant/tool_call → turn/end
-    // （此前在 streamMessageFlow 工具循环后补写，tool_call 事件晚于 turn/end，仍无 turn 包裹。）
-    // 无工具调用轮次：turn/end 已在 streamMessageFlow LLM 流结束后写入（!hasToolCalls 分支），此处不重复写。
-    // 2026-08-24 修复：写入条件从"最终响应有 tool_calls"放宽为"本轮发生过工具活动"——
-    // 工具型轮次若最终响应无 tool_calls（工具执行后直接给答案），原逻辑不写 turn/end，
-    // turn 永久未闭合 → 崩溃恢复每次启动合成 canceled closers → 前端所有回复显示"该回复已中断"。
-    const hasFinalToolCalls =
-      Array.isArray(finalResponse?.tool_calls) &&
-      finalResponse!.tool_calls.length > 0;
-    const hasToolActivity =
-      hasFinalToolCalls ||
-      (Array.isArray(assistantMessage.blocks) &&
-        assistantMessage.blocks.some(
-          (b) => b.type === 'tool_call' || b.type === 'tool_result'
-        ));
-    if (hasToolActivity) {
-      try {
-        // turn 编号与 turn/start 一致：turn/start 已写入事件日志，读取最大 turn 即为当前轮编号
-        const persistedTurn = await deps.getStreamMaxTurn(session.id);
-        const turn =
-          persistedTurn > 0 ? persistedTurn : deps.getToolRound(session.id) + 1;
-        // Fix2（2026-09-05）：turn/end 单写者幂等——若该 turn 已被 streamMessageFlow
-        // 或本 finalize 写过 end（appendStreamEvent 中央登记），跳过，杜绝双 end。
-        // 阶段 A（A1-d）：本轮若以 sessions_yield 让出（act 阶段已登记等待），
-        // turn/end 携带 yield 语义；并回填 turn 编号供恢复侧的"取代判定"使用。
-        // 注意：**不写 PAUSED**——会话对外状态保持 running（阶段A-恢复通路设计Spec §3-D2）。
-        const yieldRegistry = getYieldRegistry();
-        const yieldPending = yieldRegistry.get(session.id);
-        if (yieldPending) {
-          yieldRegistry.updateTurn(session.id, turn, yieldPending);
-        }
-        if (!deps.hasTurnEnded(session.id, turn)) {
-          const ts = await deps.getStreamTailSeq(session.id);
-          await deps.appendStreamEvent(session.id, {
-            type: 'turn/end',
-            seq: ts + 1,
-            time: Date.now(),
-            sessionId: session.id,
-            data: {
-              turn,
-              finishReason: yieldPending
-                ? 'yielded'
-                : hasFinalToolCalls
-                  ? 'tool_use'
-                  : 'stop',
-              // TB-16（2026-09-24）：主循环终止判定（与 finishReason 语义不同；无循环时省略）
-              ...(terminationReason ? { terminationReason } : {}),
-              ...(yieldPending ? { yielded: true } : {}),
-            },
-          });
-        }
-      } catch {
-        // @ignore-catch — 事件追加失败不阻断主流程
-      }
-    }
+    // P0-fix-3（2026-08-23，顺序错乱根因）：工具调用轮次的 turn/end 在此补写（原样外移为私有方法）。
+    await this._writeTurnEnd(
+      session,
+      assistantMessage,
+      finalResponse,
+      terminationReason
+    );
 
     // Phase 1c: 停止流式水位监测（仅停本会话，不再误停其他并发会话）
     deps.endStreamSession(session.id);
-    // 通知会话状态变化为空闲状态
-    deps.finishSessionMachine(session.id, '工具执行完成');
+    // 2026-11-13：等待审批不是"本轮正常完成" —— 状态机应落 `requires_action`（等人点卡），
+    // 不得按普通收尾回 `idle`，否则状态机侧同样把暂停当"已结束"。
+    if (terminationReason === TRANSIENT_AWAITING_APPROVAL) {
+      deps.pauseSessionMachine(session.id, '等待审批');
+    } else {
+      deps.finishSessionMachine(session.id, '工具执行完成');
+    }
     getOTelTracing().endSpan(streamSpan, SpanStatusCode.OK);
 
     // Bug Fix: 清理 AbortController（当前流已完成，允许新请求）
@@ -255,8 +221,6 @@ export class ChatStreamFinalize {
     // （检查/验证/补）与纯闲聊首条仍要求 2+ 轮，防一次性求助/闲聊被误升级。
     // P0-1 修正（走查发现）：任务轮内模型可能 ask_user_question 澄清，澄清回答/后续
     // 消息会占住"最后一条 user"位置使任务原句被覆盖 → 判定聚合最近 3 条 user 文本。
-    const bareUserMessages =
-      session.messages?.filter((m) => m.role === 'user') ?? [];
     const bareLastContent = deps.recentUserText(session, 3);
     // BUG-A（2026-10-27，真机长程任务）：本轮若以「空输出兜底」收尾，正文是**系统文案**
     // 而非模型产出 ⇒ 不得作为编排任务描述流转（实测被当作 PDCA 需求，建出无关需求并灌入
@@ -267,83 +231,31 @@ export class ChatStreamFinalize {
     // ⇒ 与兜底轮同口径，不得作为编排任务描述流转。
     const outputBudgetExhausted =
       isOutputBudgetExhaustedMessage(assistantMessage);
-    const bareFirstContent =
-      bareUserMessages.length > 0
-        ? (((bareUserMessages[0] as unknown as Record<string, unknown>)
-            ?.content as string) ?? '')
-        : '';
-    // P2（2026-11-07 真机）：「能力直通」否决位 —— 单次能力请求（识图 / 读文件 / 查版本）
-    // 不进编排。判定只取**最后一条 user 消息**（`bareLastContent` 聚合最近 3 条，会把上一轮
-    // 长任务里的「写 / 实现」等词带进来，令单次请求也被否决）。
-    const bareLastSingleContent =
-      bareUserMessages.length > 0
-        ? (((
-            bareUserMessages[bareUserMessages.length - 1] as unknown as Record<
-              string,
-              unknown
-            >
-          )?.content as string) ?? '')
-        : '';
-    const capabilityDirect = isCapabilityDirectIntent(bareLastSingleContent);
+    const userTexts = collectBareUserTexts(session);
+    const capabilityDirect = isCapabilityDirectIntent(
+      userTexts.lastSingleContent
+    );
     // B2（2026-11-09）：demand（许愿式）会话 —— 用户只给目标即**同轮**升级编排，不看轮次闸
     // 与强动词措辞；能力直通 / 空输出兜底 / 输出预算 / Code Mode 四项否决仍保留。
     const demandMode = isDemandSession(session.metadata);
-    if (
-      !contextId &&
-      // N-2（2026-11-06 真机长程任务）：本轮以「空输出兜底」收尾 ⇒ **不升级编排**。
-      // 实测（`session_mw4vwtmp38957bec2f`）：兜底后仍被升级为 PDCA，Planner 用同一模型
-      // 同一上下文连续两次空输出 ⇒ `PLAN_PARSE_FAILED`，再建一个空项目、多一条用户可见
-      // 失败文案。连"一句回复"都产不出的回合，拉起 4 阶段编排只会放大失败。
-      !emptyOutputFallback &&
-      !outputBudgetExhausted &&
-      !capabilityDirect &&
-      assistantMessage.content &&
-      (demandMode
-        ? isDemandGoalIntent(bareLastSingleContent)
-        : (bareUserMessages.length >= 2 ||
-            isStrongBuildIntent(bareFirstContent)) &&
-          isExecutionTaskIntent(bareLastContent)) &&
-      !deps.shouldUseCodeMode(bareLastContent)
-    ) {
-      logger.info('pdca:bare_session_intent_detected', {
-        sessionId: session.id,
-        autonomy: demandMode ? 'demand' : 'interactive',
-        intent: bareLastContent.slice(0, 60),
-      });
-      await deps.escalateToPdcaViaBareSession({
-        session,
-        assistantContent: assistantMessage.content as string,
-        lastUserContent: bareLastContent,
-      });
-    } else if (!contextId && capabilityDirect) {
-      // 留痕：能力直通否决也要可诊断（否则"为什么没升级"无从排查）
-      logger.info('pdca:launch_skip_capability_direct', {
-        sessionId: session.id,
-        intent: bareLastSingleContent.slice(0, 60),
-      });
-    } else if (!contextId && (emptyOutputFallback || outputBudgetExhausted)) {
-      // 留痕：被短路时也要可诊断（否则"为什么没升级"无从排查）
-      logger.info('pdca:bare_session_escalation_skipped', {
-        sessionId: session.id,
-        reason: emptyOutputFallback
-          ? 'empty_output_fallback'
-          : 'output_budget_exhausted',
-      });
-    }
+    await applyBareSessionEscalation({
+      session,
+      contextId,
+      assistantMessage,
+      lastUserContent: bareLastContent,
+      userTexts,
+      emptyOutputFallback,
+      outputBudgetExhausted,
+      capabilityDirect,
+      demandMode,
+      shouldUseCodeMode: deps.shouldUseCodeMode,
+      escalate: deps.escalateToPdcaViaBareSession,
+    });
 
     // S6/PDCA 门控修正（2026-09-06）：persist 分支不再要求 assistantMessage.content 非空——
     // 工具型收尾消息 content 常为 ''（chatStream fullContentLength=0），原门控令项目会话内的
     // 新目标消息被整段跳过：引擎无判定、PDCA 不 launch（走查实证 04:40:51，620s 任务完成零判定）。
-    const userMessagesForGoal =
-      session.messages?.filter((m) => m.role === 'user') ?? [];
-    const lastUserContent =
-      userMessagesForGoal.length > 0
-        ? (((
-            userMessagesForGoal[
-              userMessagesForGoal.length - 1
-            ] as unknown as Record<string, unknown>
-          ).content as string) ?? '')
-        : '';
+    const lastUserContent = lastUserMessageContent(session);
     if (contextId && (assistantMessage.content || lastUserContent.trim())) {
       // S6 修正（2026-09-06）：把用户最后一条消息一并交给引擎做 goal 判定（persist userText）——
       // "帮我做xx"请求句在用户消息里、而 persist 主输入是助手回复；不纳入则引擎 hasGoal 恒漏判
@@ -482,5 +394,74 @@ export class ChatStreamFinalize {
     });
 
     return assistantMessage;
+  }
+
+  /**
+   * 工具活动轮次的 `turn/end` 补写（原样外移自 `finalize`；P0-fix-3 / Fix2 / 阶段 A）。
+   *
+   * 时机关键：assistant/tool_call 事件由 _addAndPersistMessage 落盘时（convertMessage）生成，
+   * 必须在落盘 assistant 消息**之后**写入 turn/end，才能保证：
+   *   events.jsonl 顺序 = turn/start → text/thinking → tool/result → assistant/tool_call → turn/end
+   * （此前在 streamMessageFlow 工具循环后补写，tool_call 事件晚于 turn/end，仍无 turn 包裹。）
+   * 无工具调用轮次：turn/end 已在 streamMessageFlow LLM 流结束后写入（!hasToolCalls 分支），此处不重复写。
+   * 2026-08-24 修复：写入条件从"最终响应有 tool_calls"放宽为"本轮发生过工具活动"——
+   * 工具型轮次若最终响应无 tool_calls（工具执行后直接给答案），原逻辑不写 turn/end，
+   * turn 永久未闭合 → 崩溃恢复每次启动合成 canceled closers → 前端所有回复显示"该回复已中断"。
+   */
+  private async _writeTurnEnd(
+    session: ChatSession,
+    assistantMessage: Message,
+    finalResponse: ChatResponse | null,
+    terminationReason?: string
+  ): Promise<void> {
+    const deps = this.deps;
+    const hasFinalToolCalls =
+      Array.isArray(finalResponse?.tool_calls) &&
+      finalResponse!.tool_calls.length > 0;
+    const hasToolActivity =
+      hasFinalToolCalls ||
+      (Array.isArray(assistantMessage.blocks) &&
+        assistantMessage.blocks.some(
+          (b) => b.type === 'tool_call' || b.type === 'tool_result'
+        ));
+    if (!hasToolActivity) return;
+    try {
+      // turn 编号与 turn/start 一致：turn/start 已写入事件日志，读取最大 turn 即为当前轮编号
+      const persistedTurn = await deps.getStreamMaxTurn(session.id);
+      const turn =
+        persistedTurn > 0 ? persistedTurn : deps.getToolRound(session.id) + 1;
+      // Fix2（2026-09-05）：turn/end 单写者幂等——若该 turn 已被 streamMessageFlow
+      // 或本 finalize 写过 end（appendStreamEvent 中央登记），跳过，杜绝双 end。
+      // 阶段 A（A1-d）：本轮若以 sessions_yield 让出（act 阶段已登记等待），
+      // turn/end 携带 yield 语义；并回填 turn 编号供恢复侧的"取代判定"使用。
+      // 注意：**不写 PAUSED**——会话对外状态保持 running（阶段A-恢复通路设计Spec §3-D2）。
+      const yieldRegistry = getYieldRegistry();
+      const yieldPending = yieldRegistry.get(session.id);
+      if (yieldPending) {
+        yieldRegistry.updateTurn(session.id, turn, yieldPending);
+      }
+      if (!deps.hasTurnEnded(session.id, turn)) {
+        await deps.appendStreamEvent(session.id, {
+          type: 'turn/end',
+          // seq 0 ⇒ 原子分配（收尾可能与后台写者并发，tail+1 会撞号被丢弃）
+          seq: 0,
+          time: Date.now(),
+          sessionId: session.id,
+          data: {
+            turn,
+            finishReason: yieldPending
+              ? 'yielded'
+              : hasFinalToolCalls
+                ? 'tool_use'
+                : 'stop',
+            // TB-16（2026-09-24）：主循环终止判定（与 finishReason 语义不同；无循环时省略）
+            ...(terminationReason ? { terminationReason } : {}),
+            ...(yieldPending ? { yielded: true } : {}),
+          },
+        });
+      }
+    } catch {
+      // @ignore-catch — 事件追加失败不阻断主流程
+    }
   }
 }

@@ -21,12 +21,12 @@ import { providerRegistry } from '../providers/ProviderRegistry';
 import { trackUsage, estimateMessagesTokens } from '@modules/ai';
 // G-2/K（2026-10-11，Spec `daily-budget-over-limit-ux.md` §5-D-1 K）：翻译走**非 chat 管线**
 // （直调 provider）⇒ 闸门与计账都需在此单点补齐（闸门=单一收口 `checkDailyBudget`）。
-import { recordDailyBudgetFromUsage } from '../../query/DailyBudgetManager';
+import { recordDailyBudgetFromUsage } from '@modules/query/DailyBudgetManager';
 import {
   assertEntryBudget,
   createEntryBudgetError,
   resolveEntryBudgetDenial,
-} from '../../query/dailyBudgetGate';
+} from '@modules/query/dailyBudgetGate';
 import { LanguageDetector } from './LanguageDetector';
 import { PromptBuilder } from './PromptBuilder';
 import { PostProcessor } from './PostProcessor';

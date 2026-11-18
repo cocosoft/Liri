@@ -26,7 +26,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import {
   getDailyBudget,
   resetDailyBudgetForTest,
-} from '../../src/query/DailyBudgetManager';
+} from '@modules/query/DailyBudgetManager';
 import {
   runA2ADelegation,
   setA2ADelegator,

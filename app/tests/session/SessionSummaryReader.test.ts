@@ -11,8 +11,8 @@ import {
   parseSessionSummaries,
   findSummaryForSeq,
   findSummaryByKeyword,
-} from '../../src/session/storage/SessionSummaryReader';
-import { SessionMemoryManager as CoreMemoryManager } from '../../src/session/memory/SessionMemoryManager';
+} from '@modules/session/storage/SessionSummaryReader';
+import { SessionMemoryManager as CoreMemoryManager } from '@modules/session/memory/SessionMemoryManager';
 
 function ev(
   seq: number,

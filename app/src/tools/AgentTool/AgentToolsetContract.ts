@@ -20,7 +20,7 @@
  */
 
 import { AGENT_TOOL_NAME, LEGACY_AGENT_TOOL_NAME } from './constants';
-import { YIELD_TOOL_NAME } from '../../session/yield';
+import { YIELD_TOOL_NAME } from '@modules/session/yield';
 
 /**
  * 委派入口工具（T9：**可由角色策略授权放行**）—— `agent` 及其历史别名 `Task`。

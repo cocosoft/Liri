@@ -13,7 +13,7 @@
  */
 import { describe, it, expect } from 'bun:test';
 import { StreamingThinkScrubber } from '@openliri/service/streaming/scrubbers/StreamingThinkScrubber';
-import { stripThinkResponseTags } from '../../src/chat/services/MessageContextPipeline.js';
+import { stripThinkResponseTags } from '../../src/chat/services/context/thinkTags.js';
 
 describe('P3-7c StreamingThinkScrubber 半截闭合标签', () => {
   it('逐字符 "</tool_calls>" 不泄露到正文（normal 模式缓存半截闭合标签）', () => {

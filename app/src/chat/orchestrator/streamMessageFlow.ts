@@ -150,6 +150,7 @@ import {
   sleep,
   resolveCompactionFailureAttribution,
   buildCompactionDoneData,
+  summaryMessageIdField,
   // P2-1d-1（S6 压缩段函数化）：折叠区间 / 摘要派生（纯函数）
   deriveCompactionFold,
   // P2-1d-4（S6 degradation 段函数化）：降级水位载荷构造（纯函数）
@@ -207,6 +208,8 @@ export async function* runStreamMessage(
   } = await prepareStream(host, content, options);
 
   const streamSpan = ctx.streamSpan;
+  // #4（2026-11-15，`self-verify-turn-surface.md`）：轮首验证线路判定（门控默认关 ⇒ 零变更）
+  host.applyVerifyRecipeForTurn?.(session.id, ctx.content);
   const streamAbortController = ctx.streamAbortController;
   const streamingCheckpoint = ctx.streamingCheckpoint;
   const mutex = ctx.mutex;
@@ -449,7 +452,7 @@ export async function* runStreamMessage(
                   data: {
                     content: summary,
                     keywords: summaryKeywords,
-                    summaryMessageId,
+                    ...summaryMessageIdField(summaryMessageId),
                     compactedRange,
                     sourceEventSeqs: compressedSeqs,
                   },
@@ -1393,7 +1396,7 @@ export async function* runStreamMessage(
             sessionId: session.id,
             data: requestTiming,
           });
-          if (timingAppend.reason && timingAppend.reason !== 'duplicate-seq') {
+          if (!timingAppend.ok) {
             logger.warn('metric/timing 事件追加失败（请求延迟）', {
               sessionId: session.id,
               reason: timingAppend.reason,

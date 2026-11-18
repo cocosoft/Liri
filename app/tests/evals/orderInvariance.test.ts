@@ -29,12 +29,12 @@ import { describe, expect, it } from 'bun:test';
 import {
   compareOrderInvariance,
   formatOrderInvariance,
-} from '../../src/evals/orderInvariance';
+} from '@modules/evals/orderInvariance';
 import type {
   EvalAttempt,
   EvalTask,
   EvalTaskResult,
-} from '../../src/evals/types';
+} from '@modules/evals/types';
 
 /** 用"结论序列"造一条任务结果（`asExpected` 序列即本轮逐次结论） */
 function result(taskId: string, seq: boolean[]): EvalTaskResult {

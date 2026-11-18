@@ -10,8 +10,6 @@
  * 依赖注入：所有 ChatManager 实例依赖通过构造函数注入，服务本身无状态。
  */
 
-import fs from 'fs';
-import { join } from 'path';
 import {
   getLogger,
   getOTelTracing,
@@ -23,33 +21,18 @@ import {
   ErrorSeverity,
   handleError,
 } from '@openliri/infra/error';
-import { ErrorHandler, feature } from '@openliri/kernel';
+import { ErrorHandler } from '@openliri/kernel';
 import { convergenceDetector } from '../services/ConvergenceDetector.js';
-import { eventNotificationService } from '../services/EventNotificationService.js';
-import { toolResultRegistry } from '../../tool/ToolResultRegistry.js';
-import { resolveDataDir } from '@openliri/infra/environment';
-import { isUsableDirectory, resolveToolCwd } from './toolCwdScope';
+import { toolResultRegistry } from '@modules/tool/ToolResultRegistry.js';
+import { resolveToolCwd } from './toolCwdScope';
 // G8（2026-11-03）：会话工作区不可用时向事件流投影一次提示（界面可见）
 import type { LiriEvent } from '@modules/session/types/events';
-// 多租户 P0 阶段 2：权限判定身份位（本地身份按 admin 参与 RBAC；已认证取请求角色）
-import { getRequestPrincipal } from '@openliri/kernel/identity/requestScope.js';
-import { ToolExecutionStatus } from '@openliri/infra/utils/toolContract/ToolResult';
-import { isMediaOutputToolName } from '@openliri/infra/utils/toolContract/toolRoles';
-// U-02 v2 / P3（2026-10-20）：工作区边界判定（与 LRO 共用同一纯函数，实现落 utils 避免 chat↔tasks 环）
-import {
-  findWorkspaceEscape,
-  findWorkspaceEscapeInRoots,
-  PATH_ARG_KEYS,
-} from '@openliri/infra/utils/toolContract';
-import type { ToolName } from '@openliri/infra/constants/toolNames.generated';
-import {
-  FILE_WRITE_TOOL_NAME,
-  FILE_EDIT_TOOL_NAME,
-} from '@openliri/infra/constants';
+// T3 stage 7（2026-11-17）：媒体交付事件随图像结果登记外移至 `./imageResultRegistration`
+// U-02 v2 / P3（2026-10-20）：工作区边界参数字段（与 LRO 共用同一纯函数，实现落 utils 避免 chat↔tasks 环）
+import { PATH_ARG_KEYS } from '@openliri/infra/utils/toolContract';
 // R07-3（2026-10-07）：非幂等工具「重试」判定（唯一实现 = tools/toolEffects）
 // S2-6（2026-10-11）：工具调用统一指标（工具名/结果/耗时/入参字节/估算 tokens）—— 唯一实现 = tools/monitoring
 import {
-  isBlockedForUntrustedOrigin,
   isNonIdempotentRetry,
   recordToolInvocation,
   // 2026-11-02：工具级重试预算（幂等声明 ⇒ 允许盲目重试；非幂等/未声明 ⇒ 禁止）
@@ -63,7 +46,33 @@ import {
 import type { Tool } from '../../tools/types/Tool';
 import { estimateTokens } from '@modules/ai';
 import { configManager } from '@openliri/infra/config';
+// D7 三期（2026-11-14）：把文件副作用归属到"当前正在执行的计划步骤"（无则不属于任何计划）
+import { taskOrchestrator } from '@modules/tasks';
 import { withToolTimeout } from './ToolTimeoutWrapper.js';
+// T3（2026-11-17）：本地查询工具（get_tool_result / session_lookup / list_tool_calls）短路
+import { tryHandleLocalQueryTool } from './localQueryTools';
+// T3 stage 2（2026-11-17）：入口预检守卫（渠道来源 Taint / 用户「拒绝」终态）
+import { evaluateToolPreflight } from './toolPreflight';
+// T3 stage 3（2026-11-17）：权限闸门（注入断言 / authorizeToolCall / ask·deny 四出口）
+import { applyToolPermissionGate } from './permissionGate';
+// T3 stage 4（2026-11-17）：图像输入路径守卫（补全 / 最接近修正 / 无参照拒绝）
+import { guardImageInputPath } from './imagePathGuard';
+// T3 stage 5（2026-11-17）：文件操作前回滚追踪（fire-and-forget）
+import { trackFileOpBeforeExecute } from './rollbackTracker';
+// T3 stage 6（2026-11-17）：工作区严格边界守卫（越界判定 / 失效 fail-fast / 审批分型）
+import {
+  formatWorkspaceRootsHint,
+  guardWorkspaceBoundary,
+} from './workspaceBoundaryGuard';
+// 既有导入路径兼容：三个越界文案纯函数已外移，此处按原模块名 re-export
+export {
+  formatWorkspaceEscapeError,
+  formatWorkspaceInvalidError,
+  formatWorkspaceRootsHint,
+} from './workspaceBoundaryGuard';
+// T3 stage 7（2026-11-17）：工具「需要审批」结果整形 + 图像结果登记/媒体事件
+import { resolveToolApprovalOutcome } from './toolApprovalOutcome';
+import { registerImageToolResults } from './imageResultRegistration';
 import {
   createFileStateCacheWithSizeLimit,
   type FileStateCache,
@@ -76,10 +85,7 @@ import type {
 } from '@modules/session/types/tool.js';
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { ImageContextService } from '../services/ImageContextService.js';
-import type {
-  RollbackIntegration,
-  FileOperation,
-} from '@openliri/infra/security';
+import type { RollbackIntegration } from '@openliri/infra/security';
 // S1-1（2026-10-11）：审批作用域 / 快照类型（**仅类型导入**，运行时判定在 permission 层）
 // LRO-07（2026-10-26）：deny 结构化依据（ruleId/来源/解除入口）⇒ 进工具结果 metadata
 import type {
@@ -88,14 +94,9 @@ import type {
   PermissionMode,
 } from '@openliri/infra/permission';
 // D2（2026-10-11）：权限管理器注入断言（生产 fail-fast，G9）
-import {
-  assertPermissionManagerInjected,
-  authorizeToolCall,
-  getEffectivePermissionRole,
-  getEffectivePermissionRoles,
-  resolveApprovalFingerprint,
-  type ToolPermissionPort,
-} from '@openliri/infra/permission';
+// T3 stage 3（2026-11-17）：权限闸门（注入断言 / authorizeToolCall / 四条出口）已外移
+// `./permissionGate`；审批结果整形与指纹计算外移 `./toolApprovalOutcome`。
+import type { ToolPermissionPort } from '@openliri/infra/permission';
 
 /**
  * **工具执行瞬态**状态（状态机方案 阶段 1.3 取证抽出；消除裸字面量，CS02）。
@@ -116,7 +117,7 @@ export const DEFAULT_SLOW_TOOL_WARN_MS = 15_000;
  * O3-2：工具耗时告警阈值（ms）。
  *
  * 事实来源：env `TOOL_SLOW_WARN_MS`，**经 `configManager.env()` 统一读取**（遵循架构规则
- * R05-012「env 统一出入口」；与 [PathGuard.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/query/PathGuard.ts)
+ * R05-012「env 统一出入口」；与 [PathGuard.ts](file:///e:/PY/Documents/CODES/PY_APP/packages/query/src/query/PathGuard.ts)
  * 的既有做法一致）。缺失/非法 ⇒ 默认 15s；纯函数（入参可注入便于单测）。
  */
 export function resolveSlowToolWarnMs(
@@ -305,6 +306,13 @@ export interface ToolExecutionDeps {
    * 以**每次调用传参**的方式生效，不改全局单例（并发会话不串档）。
    */
   getSessionPermissionMode?: (sessionId?: string) => PermissionMode | undefined;
+  /**
+   * P0（2026-11-17）：会话自主度（`metadata.autonomy`）。
+   *
+   * `demand`（许愿式）⇒ 权限层把分类器的非危险 `ask` 降级为自动放行
+   * （工作区外写仍人工），兑现"中途最多问一次"。未注入 ⇒ `interactive`（零行为变更）。
+   */
+  getSessionAutonomy?: (sessionId?: string) => 'interactive' | 'demand';
   isCommandApproved(
     toolName: string,
     args: Record<string, unknown>,
@@ -350,84 +358,6 @@ export interface ToolExecutionDeps {
 /* ===================================================================
  *  ToolExecutionService
  * =================================================================== */
-
-/**
- * FIX-10（2026-10-27）：会话工作区**严格边界**越界时的错误文案（纯函数，便于单测）。
- *
- * 原文案只说"不在会话工作区内"，不给**允许根** ⇒ 模型继续猜绝对路径
- * （真机 6 次 `glob`/`file_read` 指向仓库根，被拒后反复重试）。
- * 现明确给出可访问根，便于一次性改写路径。
- */
-export function formatWorkspaceEscapeError(params: {
-  argKey: string;
-  argValue: string;
-  workspace: string;
-  /** B1（2026-10-30）：多根模式下的**全部**可访问根（缺省 = 单根 `workspace`） */
-  roots?: readonly string[];
-  /** B1（2026-10-30）：是否已向用户提交「允许访问该目录」的审批申请 */
-  approvalRequested?: boolean;
-}): string {
-  const base =
-    `路径越界：${params.argKey}=${params.argValue} 不在会话工作区内；` +
-    `本会话可访问根：${params.workspace}；` +
-    '请改用该根下的相对路径，或改用会话内已有的工作区文件。';
-  // 以下为 B1 新增（`FEATURE_WORKSPACE_MULTI_ROOT` 关闭时不传 ⇒ 文案与改造前逐字一致）
-  const extraRoots = (params.roots ?? []).filter((r) => r !== params.workspace);
-  if (extraRoots.length === 0 && params.approvalRequested === undefined) {
-    return base;
-  }
-  const rootsHint =
-    extraRoots.length > 0 ? `（另含：${extraRoots.join('、')}）` : '';
-  const applyHint =
-    params.approvalRequested === true
-      ? '\n已向用户提交「允许本会话访问该目录」的审批申请：批准后本次调用会被自动重试，无需你重复申请。'
-      : params.approvalRequested === false
-        ? '\n如需访问该目录，请在回复中说明用途并向用户申请（当前工作区仅含上述根）。'
-        : '';
-  return (
-    base.replace('本会话可访问根：', `本会话可访问根${rootsHint}：`) + applyHint
-  );
-}
-
-/**
- * P0-1（2026-11-05）：**会话工作区已失效**时的错误文案（纯函数，便于单测）。
- *
- * 现场：会话工作区是一个已被删除的 worktree（`…\worktrees\alwayson-…-1793846360099`），
- * 严格边界仍然生效 ⇒ 任何指向真实仓库的路径都判「越界」，而越界文案还建议
- * 「改用该根下的相对路径」——指向一个**不存在的根**。模型只能反复重试：
- * 实测 236 次越界 + 20 次 `spawn ENOENT`（`cmd.exe` 被误判为缺失）。
- */
-export function formatWorkspaceInvalidError(params: {
-  roots: readonly string[];
-}): string {
-  const list = params.roots.length > 0 ? params.roots.join('、') : '(未知)';
-  return (
-    `会话工作区已失效：${list} 不存在或不是目录；` +
-    '工具无法在该根下执行（子进程会拿到无效 cwd，表现为 ENOENT，易被误判为系统命令缺失）。' +
-    '请不要继续猜测其它路径 —— 请向用户说明「工作区已失效」，' +
-    '并请其重新定位项目工作区（或在项目管理中重新生成工作区）后再继续。'
-  );
-}
-
-/**
- * 形态④（2026-11-06 裁定）：**不放宽路径根**，只把「本轮可访问根」显式告诉模型。
- *
- * 背景：长程/自主任务的会话 cwd 是隔离工作区（`~/.pyapp/workspaces/…`），模型却按
- * 真实项目根读写 ⇒ 权限层按工作区边界判 `ask`，模型只看到「需要审批」、不知道
- * 可用根是谁，于是反复重试（与 FIX-10 同源：缺的是**允许根**，不是判定本身）。
- *
- * 为什么选「告知根」而不是「把项目根并入边界」：后者会让自主任务直接写真实项目根，
- * 削弱隔离（CD07 安全域一票否决）；且审核口径与 FIX-10 的越界文案保持一致。
- *
- * @param roots 本轮可访问根（空 ⇒ 返回空串，不添加噪声）
- */
-export function formatWorkspaceRootsHint(roots: readonly string[]): string {
-  if (roots.length === 0) return '';
-  return (
-    `（本会话可访问根：${roots.join(' | ')}；` +
-    '若你使用的是真实项目路径，请改用这些根内的路径）'
-  );
-}
 
 export class ToolExecutionService {
   constructor(public readonly deps: ToolExecutionDeps) {}
@@ -862,345 +792,52 @@ export class ToolExecutionService {
       arguments: toolCall.arguments as Record<string, unknown>,
     };
 
-    // ── 本地查询工具 ──
-    if (normalizedToolCall.name === 'get_tool_result') {
-      const targetId = normalizedToolCall.arguments.tool_call_id as string;
-      const stored = toolResultRegistry.findByCallId(targetId);
-      logger.info('LLM 查询工具结果', {
-        toolCallId: toolCall.id,
-        targetId,
-        found: !!stored,
-      });
-      if (!stored) {
-        return {
-          toolCallId: toolCall.id,
-          toolName: normalizedToolCall.name,
-          result: { found: false, toolCallId: targetId },
-          error: undefined,
-        };
-      }
-      return {
-        toolCallId: toolCall.id,
-        toolName: normalizedToolCall.name,
-        result: { found: true, toolCall: stored },
-        error: undefined,
-      };
-    }
+    // ── 本地查询工具（T3，2026-11-17：实现外移 `./localQueryTools`，行为逐字保留）──
+    const localQueryResult = await tryHandleLocalQueryTool(normalizedToolCall, {
+      sessionLookup: this.deps.sessionLookup,
+      currentSessionId: this.deps.currentSessionId,
+    });
+    if (localQueryResult) return localQueryResult;
 
-    // ── C 阶段（2026-09-02，P1）：session_lookup — 按事件区间取回被切早期原文 ──
-    if (normalizedToolCall.name === 'session_lookup') {
-      const args = normalizedToolCall.arguments as {
-        sessionId?: string;
-        fromSeq?: number;
-        toSeq?: number;
-        offset?: number;
-        limit?: number;
-      };
-      if (!this.deps.sessionLookup) {
-        return {
-          toolCallId: toolCall.id,
-          toolName: normalizedToolCall.name,
-          result: {
-            ok: false,
-            error:
-              'session_lookup 未在当前运行环境注册（分层关闭或非会话上下文）',
-          },
-          error: undefined,
-        };
-      }
-      const sessionId = args.sessionId || this.deps.currentSessionId || '';
-      const lookup = await this.deps.sessionLookup({
-        sessionId,
-        fromSeq: args.fromSeq,
-        toSeq: args.toSeq,
-        offset: args.offset,
-        limit: args.limit,
-      });
-      return {
-        toolCallId: toolCall.id,
-        toolName: normalizedToolCall.name,
-        result: {
-          ok: lookup.ok,
-          ...(lookup.ok
-            ? { content: lookup.content ?? '', nextFromSeq: lookup.nextFromSeq }
-            : { error: lookup.reason ?? '取回失败' }),
-        },
-        error: undefined,
-      };
-    }
+    // ── 预检守卫（T3 stage 2，2026-11-17：实现外移 `./toolPreflight`，行为逐字保留）──
+    // 顺序不变：渠道来源 Taint（不可信输入）→ 用户「拒绝」终态，均先于权限链。
+    const preflightResult = evaluateToolPreflight({
+      toolCall,
+      isUntrustedSession: () => this._isUntrustedSession(toolCall.sessionId),
+    });
+    if (preflightResult) return preflightResult;
 
-    if (normalizedToolCall.name === 'list_tool_calls') {
-      const targetRound = normalizedToolCall.arguments.round as
-        | number
-        | undefined;
-      const sessionId =
-        (normalizedToolCall.arguments.sessionId as string) ||
-        this.deps.currentSessionId ||
-        '';
-      let calls: Array<{
-        toolCallId: string;
-        toolName: string;
-        round: number;
-        hasError: boolean;
-        timestamp: number;
-      }>;
-      if (targetRound && sessionId) {
-        calls = toolResultRegistry
-          .listByRound(sessionId, targetRound)
-          .map((c) => ({
-            toolCallId: c.toolCallId,
-            toolName: c.toolName,
-            round: c.round,
-            hasError: !!c.result.error,
-            timestamp: c.timestamp,
-          }));
-      } else if (sessionId) {
-        calls = toolResultRegistry.listBySession(sessionId).map((c) => ({
-          toolCallId: c.toolCallId,
-          toolName: c.toolName,
-          round: c.round,
-          hasError: !!c.result.error,
-          timestamp: c.timestamp,
-        }));
-      } else {
-        calls = toolResultRegistry
-          .listAll()
-          .map((c) => ({
-            toolCallId: c.toolCallId,
-            toolName: c.toolName,
-            round: c.round,
-            hasError: !!c.result.error,
-            timestamp: c.timestamp,
-          }))
-          .slice(0, 50);
-      }
-      return {
-        toolCallId: toolCall.id,
-        toolName: normalizedToolCall.name,
-        result: {
-          toolCalls: calls,
-          total: calls.length,
-          sessionId: sessionId || undefined,
-        },
-        error: undefined,
-      };
-    }
-
-    // ── T25-07（2026-10-25 用户裁定）：渠道来源 Taint（不可信输入）──
-    // 会话由外部通道入站驱动 ⇒ `sideEffect !== 'none'` 的工具一律拒绝（external + local）。
-    // 判定复用 `tools/toolEffects.ts`（唯一事实源，不按工具名硬编码）；未声明效果（MCP/插件）fail-closed。
-    if (
-      feature('CHANNEL_UNTRUSTED_TAINT') &&
-      this._isUntrustedSession(toolCall.sessionId) &&
-      isBlockedForUntrustedOrigin(normalizedToolCall.name)
-    ) {
-      logger.warn(
-        'chat:untrusted_origin_blocked — 渠道来源会话拒绝副作用工具',
-        {
-          toolName: normalizedToolCall.name,
-          toolCallId: toolCall.id,
-          sessionId: toolCall.sessionId,
-        }
-      );
-      return {
-        toolCallId: toolCall.id,
-        toolName: normalizedToolCall.name,
-        result: { blocked: true, reason: 'UNTRUSTED_ORIGIN' },
-        error:
-          `该会话由外部通道入站驱动（不可信来源），已拒绝执行有副作用的工具「${normalizedToolCall.name}」。` +
-          '如需执行，请在桌面端 / REPL 继续该会话。',
-      };
-    }
-
-    // ── 权限检查 ──
-    // D2（2026-10-11 用户裁定「启动 fail-fast 断言」）：权限管理器未注入是**装配异常** ⇒
-    // 生产/开发路径 **fail-fast**（抛错拒绝执行，不再 fail-open 静默跳过）；测试环境保留 fail-open。
-    // 原（2026-10-08）仅补 warn、语义仍 fail-open（G9）。
-    if (!this.deps.getPermissionManager()) {
-      logger.warn(
-        '权限管理器未注入 ⇒ 权限检查缺失；生产路径预期由 CoreAPIImpl 注入 createPermissionManager()' +
-          '（测试环境按约定 fail-open，其余环境将 fail-fast 拒绝执行）',
-        { toolName: normalizedToolCall.name, toolCallId: toolCall.id }
-      );
-      assertPermissionManagerInjected(
-        this.deps.getPermissionManager(),
-        'chat:toolExecution'
-      );
-    }
+    // ── 权限检查（T3 stage 3，2026-11-17：实现外移 `./permissionGate`，行为逐字保留）──
+    // 四条出口（ask 已批准 / ask 等审批 / ask 审批通道不可用 / DENY）与判上下文透传均不变。
+    const permissionGate = await applyToolPermissionGate({
+      toolCall,
+      args: normalizedToolCall.arguments,
+      deps: {
+        getPermissionManager: () =>
+          this.deps.getPermissionManager() as
+            | ToolPermissionPort
+            | null
+            | undefined,
+        resolveRegisteredTool: (name) => this._resolveRegisteredTool(name),
+        getSessionApprovalMode: this.deps.getSessionApprovalMode,
+        getSessionPermissionMode: this.deps.getSessionPermissionMode,
+        getSessionWorkspacePath: (sessionId) =>
+          this.deps.getSessionWorkspacePath(sessionId),
+        getSessionWorkspaceRoots: this.deps.getSessionWorkspaceRoots,
+        getSessionAutonomy: this.deps.getSessionAutonomy,
+        isCommandApproved: (name, callArgs, sessionId, fingerprint) =>
+          this.deps.isCommandApproved(name, callArgs, sessionId, fingerprint),
+        workspaceRootsHint: (sessionId, callArgs) =>
+          this._workspaceRootsHint(sessionId, callArgs),
+        resolveNonIdempotentRetryReason: (name, callArgs, sessionId) =>
+          this._resolveNonIdempotentRetryReason(name, callArgs, sessionId),
+        resolveIntentText: (sessionId) => this._resolveIntentText(sessionId),
+        awaitingApprovalStatus: TRANSIENT_AWAITING_APPROVAL,
+      },
+    });
+    if (permissionGate.result) return permissionGate.result;
     // P3（2026-11-07，方案 §2.3-4）：会话权限档自动放行的来源（供下方稳态日志标注）
-    let permissionAutoInfo:
-      | { autoApproved: true; approvalSource?: string }
-      | undefined;
-    if (this.deps.getPermissionManager()) {
-      // P1（2026-11-03）：权限判定的**唯一入口**（与 HTTP/CoreAPI 路径共用，见
-      // `packages/infra/src/permission/authorizeToolCall.ts`）—— 此前这里内联构造
-      // 上下文并自行解构 `checkPermissionForTool` 返回值，两套入口各写一份口径。
-      const pm = this.deps.getPermissionManager() as ToolPermissionPort;
-      // R07-3（2026-10-07）：非幂等工具的「重试」⇒ 执行前**主动分流**为审批
-      // （原实现仅把 `[重试注意]` 写进 tool 结果回传模型，属**被动**提示）。
-      // 多租户 P0 阶段 2：把**身份位**带进权限判定 —— 已认证请求各带各的角色；
-      // 本地身份按 admin（桌面即 owner，2026-11-11 裁定）参与 RBAC 角色绑定。
-      const requestRole = getEffectivePermissionRole();
-      // P2-6（2026-11-11）：RBAC 按**角色并集**判定 —— 多角色用户的第二角色起的绑定也要生效
-      const requestRoles = getEffectivePermissionRoles();
-      // 2026-11-11：userId 一并传入 —— 细粒度 RBAC 的“用户级绑定”按 userId 命中；
-      // 此前只传 userRole，用户级规则永远不会生效（本地身份 userId = local）。
-      const requestUserId = getRequestPrincipal().userId;
-      // PR-0（2026-10-23）：把**工具对象**带进权限判定 —— 风险类别按工具声明派生
-      // （`riskClass`/`riskClassFor`/`TOOL_EFFECTS`/`sandboxLevel`），不再按工具名猜。
-      // 取不到（未注册/懒加载未解包）⇒ 传 undefined，权限层回退旧启发式（行为零变更）。
-      const permissionTool = this._resolveRegisteredTool(
-        normalizedToolCall.name
-      );
-      const permissionResult = await authorizeToolCall(pm, {
-        toolName: normalizedToolCall.name,
-        args: normalizedToolCall.arguments,
-        context: {
-          sessionId: toolCall.sessionId,
-          userId: requestUserId,
-          ...(requestRole ? { userRole: requestRole } : {}),
-          ...(requestRoles.length > 0 ? { userRoles: requestRoles } : {}),
-          ...(permissionTool ? { tool: permissionTool } : {}),
-          // PR-3：会话级审批模式 + 工作区边界（自动执行只放行工作区内的本地写）
-          approvalMode:
-            this.deps.getSessionApprovalMode?.(toolCall.sessionId) ?? 'ask',
-          // P1（2026-11-04）：会话级权限模式（缺省 ⇒ 权限层的进程默认档）
-          permissionMode: this.deps.getSessionPermissionMode?.(
-            toolCall.sessionId
-          ),
-          workspacePath:
-            this.deps.getSessionWorkspacePath(toolCall.sessionId) ?? undefined,
-          // P1（2026-11-04，方案 §3.6）：工作区**根列表**同源注入 —— 权限层 `auto-local`
-          // 的边界判定据此"任一根之内即放行"（此前只认单根 `workspacePath`，
-          // 与执行前严格边界用多根的口径不一致）。取不到 ⇒ 权限层回落单根。
-          workspaceRoots:
-            this.deps.getSessionWorkspaceRoots?.(toolCall.sessionId) ??
-            undefined,
-          // PR-3a（2026-10-23）：沙箱信号 —— 审批卡留证 + PR-3b 豁免判定。
-          // 方案 A（同批）：文件类工具（`file-io`）若真在容器/远端工作区执行，则由
-          // `modeHint` 如实上报（Landlock 只包命令子进程，不代表文件 IO 被隔离）；
-          // 无映射/本地工作区 ⇒ 不给提示（保持 `none`，fail-closed）。
-          sandbox: resolveSandboxExecutionSignal({
-            modeHint: resolveFileIoToolModeHint(permissionTool?.sandboxLevel),
-          }),
-          forceAskReason: this._resolveNonIdempotentRetryReason(
-            normalizedToolCall.name,
-            normalizedToolCall.arguments,
-            toolCall.sessionId
-          ),
-          // 语义护栏「便宜版」：把本轮意图文本带进权限判定（缺失 ⇒ 护栏不判）
-          metadata: {
-            goalText: this._resolveIntentText(toolCall.sessionId),
-          },
-        },
-      });
-
-      if (!permissionResult.allowed) {
-        if (permissionResult.kind === 'ask') {
-          // 形态④（2026-11-06 裁定）：把本轮可访问根一并回给模型，避免它拿着
-          // 真实项目路径反复重试（长程/自主任务的 cwd 是隔离工作区）。
-          const scopeHint = this._workspaceRootsHint(
-            toolCall.sessionId,
-            normalizedToolCall.arguments
-          );
-          const approvedHit = await this.deps.isCommandApproved(
-            normalizedToolCall.name,
-            normalizedToolCall.arguments,
-            toolCall.sessionId,
-            resolveApprovalFingerprint(
-              permissionTool ?? normalizedToolCall.name,
-              normalizedToolCall.arguments
-            )
-          );
-          if (!approvedHit) {
-            if (permissionResult.submittedToInbox === true) {
-              // 企业审批镜像（**默认关**）：把同一条审批投给企业审批流，
-              // 由企业侧批准/拒绝后再回灌 Inbox（单一赢家由 CAS 保证）。
-              // 动态 import：该路径**只在实际出现 ASK 时**走到，且镜像模块会连带加载
-              // 企业审批管理器 —— 静态引入会让它进启动面（棘轮 +1.3KB）。
-              void import('@openliri/service/runtime/execApprovalBridge')
-                .then(({ mirrorAskToEnterpriseApproval }) => {
-                  mirrorAskToEnterpriseApproval({
-                    inboxItemId: permissionResult.inboxItemId,
-                    toolName: normalizedToolCall.name,
-                    toolInput: normalizedToolCall.arguments,
-                    requester: getRequestPrincipal().userId,
-                    description: permissionResult.reason ?? '工具执行需要审批',
-                    sessionId: toolCall.sessionId,
-                  });
-                })
-                .catch((error: unknown) => {
-                  // @ignore-catch — 镜像失败不影响原审批流程（Inbox 卡片仍然有效）
-                  logger.debug('企业审批镜像加载失败（忽略）', {
-                    toolName: normalizedToolCall.name,
-                    error: String(error),
-                  });
-                });
-              const approvalResult = {
-                status: TRANSIENT_AWAITING_APPROVAL,
-                message: `工具 '${normalizedToolCall.name}' 需要审批，已提交审批卡片等待用户批准。用户批准后可继续执行，请勿编造替代方案。${scopeHint}`,
-                pendingApproval: true,
-                // U-06-5：Inbox 项 id —— 前端工具卡片就地审批（无则退回卡片/收件箱入口）
-                inboxId: permissionResult.inboxItemId,
-              } as const;
-              eventNotificationService.emitCustomEvent('tool:completed', {
-                toolName: normalizedToolCall.name,
-                sessionId: toolCall.sessionId,
-                toolCallId: toolCall.id,
-                resultData: approvalResult,
-              });
-              return {
-                toolCallId: toolCall.id,
-                toolName: normalizedToolCall.name,
-                result: approvalResult,
-                error: undefined,
-              };
-            }
-            return {
-              toolCallId: toolCall.id,
-              toolName: normalizedToolCall.name,
-              result: null,
-              // P0-2（2026-10-27）：审批通道不可用必须**可见**。
-              // 此前只回「需要用户确认」，用户以为在等审批，而审批卡从未生成（实测会话
-              // `session_mvoqs1ho875ea6b95e` 连续 13 次因此被判失败且无人可批）。
-              error:
-                `需要用户确认，但审批通道不可用（${permissionResult.reason || 'Inbox 提交失败'}）：` +
-                '本次调用未排队；请先修复审批通道（如数据库迁移/权限目录）后重新发起。' +
-                scopeHint,
-              // LRO-09：审批未能提交（Inbox 不可用等）⇒ 环境层阻塞，非模型输出问题
-              failureKind: 'permission_denied',
-              metadata: { approvalChannelDown: true },
-            };
-          }
-        } else {
-          return {
-            toolCallId: toolCall.id,
-            toolName: normalizedToolCall.name,
-            result: null,
-            error: `Permission denied: ${permissionResult.reason || 'Tool execution not allowed'}`,
-            // LRO-09：权限决策为 DENY（结构化依据）⇒ 重试不会改变结果
-            failureKind: 'permission_denied',
-            // LRO-07（2026-10-26）：把「哪条规则、来源、怎么解除」**结构化**带进工具结果
-            //（此前只有一句 reason，`decision.context` 在归一化时被截断 ⇒ 上游只能看到文案）
-            ...(permissionResult.denyInfo
-              ? { metadata: { permissionDeny: permissionResult.denyInfo } }
-              : {}),
-          };
-        }
-      }
-
-      // P3（2026-11-07，方案 §2.3-4）：允许分支已收敛 ⇒ 记录「自动放行」来源，
-      // 供下方稳态日志标注（此处 `permissionResult` 才被 TS 收敛为 allow 变体）
-      permissionAutoInfo =
-        permissionResult.allowed && permissionResult.autoApproved
-          ? {
-              autoApproved: true,
-              ...(permissionResult.approvalSource
-                ? { approvalSource: permissionResult.approvalSource }
-                : {}),
-            }
-          : undefined;
-    }
+    const permissionAutoInfo = permissionGate.autoInfo;
 
     // 排查 J-1.4：权限通过（含放行缓存命中）后继续执行——记录 sessionId 是否透传（BashTool 放行缓存依赖）
     // P2-1（2026-11-04）：这是"一切正常"的逐工具稳态日志（实测 2 039 条）⇒ debug；
@@ -1213,201 +850,33 @@ export class ToolExecutionService {
       ...(permissionAutoInfo ?? {}),
     });
 
-    // ── 回滚：文件操作前追踪 ──
-    if (
-      normalizedToolCall.name === FILE_WRITE_TOOL_NAME ||
-      normalizedToolCall.name === FILE_EDIT_TOOL_NAME
-    ) {
-      const filePath = normalizedToolCall.arguments?.file_path as
-        | string
-        | undefined;
-      if (filePath && toolCall.sessionId) {
-        const integration = this.deps.rollbackIntegrations.get(
-          toolCall.sessionId
-        );
-        if (integration) {
-          const op: FileOperation = { path: filePath, type: 'modified' };
-          integration.onToolBeforeExecute(op).catch((err) => {
-            logger.warn('回滚：文件操作前追踪失败', { error: String(err) });
-            handleError(err, {
-              module: 'chat:toolExecution',
-              action: 'rollback:onToolBeforeExecute',
-            }).catch(() => {});
-          });
-        }
+    // ── 回滚：文件操作前追踪（T3 stage 5，2026-11-17：实现外移 `./rollbackTracker`）──
+    // fire-and-forget 语义不变：同步返回、后台追踪、失败只记日志。
+    trackFileOpBeforeExecute({
+      toolCall,
+      args: normalizedToolCall.arguments,
+      deps: {
+        rollbackIntegrations: this.deps.rollbackIntegrations,
+        getSession: (sessionId) =>
+          this.deps.sessionGateway.getSession(sessionId),
+        getRunningStep: (sessionId) =>
+          taskOrchestrator.getRunningStepForSession(sessionId),
+      },
+    });
 
-        this.deps.sessionGateway
-          .getSession(toolCall.sessionId)
-          .then((rawSess) => {
-            const sess = rawSess as ChatSession | null | undefined;
-            const parentId = sess?.metadata?.parentSessionId as
-              | string
-              | undefined;
-            if (parentId) {
-              const parentIntegration =
-                this.deps.rollbackIntegrations.get(parentId);
-              if (parentIntegration) {
-                const op: FileOperation = { path: filePath, type: 'modified' };
-                parentIntegration.onToolBeforeExecute(op).catch((err) => {
-                  logger.debug('子Agent操作继承失败', {
-                    error: String(err),
-                    parentSessionId: parentId,
-                  });
-                });
-              }
-            }
-          })
-          .catch(() => {
-            // 非关键路径
-          });
-      }
-    }
-
-    // ── 图像路径校验 ──
-    // 2026-09-29（P2-3 / T2）：真名由 `satisfies readonly ToolName[]` 编译期校验（拼错 ⇒ typecheck 报错）
-    const IMAGE_INPUT_TOOL_NAME_LIST = [
-      'image_analysis',
-      'image',
-    ] as const satisfies readonly ToolName[];
-    const IMAGE_INPUT_TOOLS = new Set<string>(IMAGE_INPUT_TOOL_NAME_LIST);
-    const IMAGE_TOOL_NAME_LIST = [
-      ...IMAGE_INPUT_TOOL_NAME_LIST,
-      'image_svg_generate',
-      'canvas',
-    ] as const satisfies readonly ToolName[];
-    const IMAGE_TOOL_NAMES = new Set<string>(IMAGE_TOOL_NAME_LIST);
-    if (IMAGE_INPUT_TOOLS.has(normalizedToolCall.name) && toolCall.sessionId) {
-      const args = normalizedToolCall.arguments;
-      let inputPath = (args.inputPath || args.file_path || args.path) as
-        | string
-        | undefined;
-
-      if (!inputPath && normalizedToolCall.name === 'canvas') {
-        const elements = args.elements as Array<{ src?: string }> | undefined;
-        if (Array.isArray(elements) && elements.length > 0 && elements[0].src) {
-          inputPath = elements[0].src;
-        }
-      }
-
-      if (!inputPath) {
-        const ctx = this.deps.imageContextService.getImageContext(
-          toolCall.sessionId
-        );
-        if (ctx) {
-          if (normalizedToolCall.name === 'image') {
-            inputPath =
-              ctx.lastEditedImage?.filePath ||
-              ctx.lastGeneratedImage?.filePath ||
-              ctx.lastAnalyzedImage?.filePath;
-          } else {
-            inputPath =
-              ctx.lastAnalyzedImage?.filePath ||
-              ctx.lastGeneratedImage?.filePath ||
-              ctx.lastEditedImage?.filePath;
-          }
-          if (inputPath) {
-            logger.info('工具调用 inputPath 为空，从 imageContext 自动补全', {
-              toolCallId: toolCall.id,
-              toolName: normalizedToolCall.name,
-              sessionId: toolCall.sessionId,
-              autoFilledPath: inputPath,
-            });
-            normalizedToolCall.arguments = { ...args, inputPath };
-          }
-        }
-      }
-
-      if (inputPath) {
-        let knownPaths = this.deps.imageContextService.getKnownImagePaths(
-          toolCall.sessionId
-        );
-
-        try {
-          const session = this.deps.chatSessions.get(toolCall.sessionId);
-          const projectId = session?.metadata?.projectId as string | undefined;
-          if (projectId) {
-            const { createProjectStore } =
-              await import('../../workspace/ProjectStore.js');
-            const { WorkItemStore } =
-              await import('../../workspace/WorkItemStore.js');
-            const store = createProjectStore(
-              resolveDataDir(),
-              new WorkItemStore(resolveDataDir())
-            );
-            const project = store.get(projectId);
-            if (project?.sandboxPath && fs.existsSync(project.sandboxPath)) {
-              const SANDBOX_IMAGE_EXTS = [
-                '.png',
-                '.jpg',
-                '.jpeg',
-                '.svg',
-                '.webp',
-              ];
-              const collect = (dir: string, depth: number): string[] => {
-                if (depth > 3) return [];
-                let out: string[] = [];
-                let entries: import('fs').Dirent[] = [];
-                try {
-                  entries = fs.readdirSync(dir, { withFileTypes: true });
-                } catch {
-                  return out;
-                }
-                for (const e of entries) {
-                  if (out.length >= 200) break;
-                  const full = join(dir, e.name);
-                  if (e.isDirectory()) {
-                    if (e.name.startsWith('_')) continue;
-                    out = out.concat(collect(full, depth + 1));
-                  } else if (
-                    e.isFile() &&
-                    SANDBOX_IMAGE_EXTS.some((x) =>
-                      e.name.toLowerCase().endsWith(x)
-                    )
-                  ) {
-                    out.push(full);
-                  }
-                }
-                return out;
-              };
-              knownPaths = knownPaths.concat(collect(project.sandboxPath, 0));
-            }
-          }
-        } catch {
-          // @ignore-catch
-        }
-
-        if (knownPaths.length > 0 && !knownPaths.includes(inputPath)) {
-          const closestPath = this.deps.imageContextService.findClosestPath(
-            inputPath,
-            knownPaths
-          );
-
-          if (closestPath) {
-            logger.warn('工具调用路径不匹配，自动修正为最接近的已知路径', {
-              toolCallId: toolCall.id,
-              toolName: normalizedToolCall.name,
-              sessionId: toolCall.sessionId,
-              inputPath,
-              correctedPath: closestPath,
-            });
-            normalizedToolCall.arguments = { ...args, inputPath: closestPath };
-          } else {
-            logger.error('工具调用路径不在已知集合中，拒绝执行', {
-              toolCallId: toolCall.id,
-              toolName: normalizedToolCall.name,
-              sessionId: toolCall.sessionId,
-              inputPath,
-              knownPaths,
-            });
-            return {
-              toolCallId: toolCall.id,
-              toolName: normalizedToolCall.name,
-              result: null,
-              error: `Invalid path: ${inputPath} is not in known image paths. Available paths: ${knownPaths.join(', ')}`,
-            };
-          }
-        }
-      }
+    // ── 图像路径校验（T3 stage 4，2026-11-17：实现外移 `./imagePathGuard`，行为逐字保留）──
+    // inputPath 补全 / 最接近路径修正 / 无参照拒绝 三段均不变；修正结果回填入参。
+    const imageGuard = await guardImageInputPath({
+      toolCall,
+      args: normalizedToolCall.arguments,
+      deps: {
+        imageContextService: this.deps.imageContextService,
+        getSession: (sessionId) => this.deps.chatSessions.get(sessionId),
+      },
+    });
+    if (imageGuard.result) return imageGuard.result;
+    if (imageGuard.patchedArgs) {
+      normalizedToolCall.arguments = imageGuard.patchedArgs;
     }
 
     // ── 工具执行 ──
@@ -1481,102 +950,20 @@ export class ToolExecutionService {
             : {}),
         };
 
-        // U-02 v2 / P3（2026-10-20）：**仅当会话显式声明工作区严格边界**（AlwaysOn 隔离轮）
-        // 才做越界拒绝 —— 普通项目会话的绝对路径语义保持历史行为（零变更）。
-        if (
-          sessionWorkspacePath &&
-          this.deps.isSessionWorkspaceStrict?.(toolCall.sessionId) === true
-        ) {
-          // B1（2026-10-30，issue #35）：灰度开关关闭 ⇒ 单根 + 原分类（逐字不变）
-          const multiRootEnabled = feature('WORKSPACE_MULTI_ROOT');
-          const roots = multiRootEnabled
-            ? (this.deps.getSessionWorkspaceRoots?.(toolCall.sessionId) ?? [])
-            : [];
-          const escape =
-            roots.length > 0
-              ? findWorkspaceEscapeInRoots(roots, normalizedToolCall.arguments)
-              : findWorkspaceEscape(
-                  sessionWorkspacePath,
-                  normalizedToolCall.arguments
-                );
-          if (escape) {
-            // P0-1（2026-11-05）：**工作区已失效** ⇒ 越界文案会指向一个死根
-            //（"请改用该根下的相对路径"），模型只能反复重试（实测 236 次越界 + 20 次 ENOENT）。
-            // 只要**没有任何可访问根可用**，就改为 fail-fast 的环境阻塞错误（env_unavailable）：
-            // 计入 environment_blocked（2 轮熔断），并在可见错误里要求重新定位工作区。
-            const candidateRoots =
-              multiRootEnabled && roots.length > 0
-                ? roots
-                : [sessionWorkspacePath];
-            if (candidateRoots.every((root) => !isUsableDirectory(root))) {
-              logger.warn(
-                '会话工作区已失效，越界调用改为 fail-fast（严格边界）',
-                {
-                  toolCallId: toolCall.id,
-                  toolName: normalizedToolCall.name,
-                  sessionId: toolCall.sessionId,
-                  roots: candidateRoots,
-                }
-              );
-              return {
-                toolCallId: toolCall.id,
-                toolName: normalizedToolCall.name,
-                result: null,
-                error: formatWorkspaceInvalidError({ roots: candidateRoots }),
-                failureKind: 'env_unavailable' as ToolFailureKind,
-              };
-            }
-            // 首次越界 ⇒ 提交「允许本会话访问该目录」审批卡（同一目标只建一张）。
-            // 提交失败不影响拒绝：按"未申请"如实告知模型（CS03-002 不静默）。
-            let approvalRequested: boolean | undefined;
-            if (multiRootEnabled) {
-              approvalRequested = await this._requestWorkspaceScopeApproval(
-                toolCall.sessionId,
-                escape.resolved
-              );
-            }
-            logger.warn('工具路径越界，已拒绝执行（会话工作区严格边界）', {
-              toolCallId: toolCall.id,
-              toolName: normalizedToolCall.name,
-              sessionId: toolCall.sessionId,
-              argKey: escape.key,
-              argValue: escape.value,
-              resolved: escape.resolved,
-              via: escape.via,
-              workspace: sessionWorkspacePath,
-              ...(multiRootEnabled
-                ? { multiRootEnabled, roots, approvalRequested }
-                : {}),
-            });
-            return {
-              toolCallId: toolCall.id,
-              toolName: normalizedToolCall.name,
-              result: null,
-              // FIX-10（2026-10-27）：两个缺口一起补 ——
-              // ① 原错误只说"不在工作区内"，不给**允许根**：模型会继续猜绝对路径
-              //    （真机 6 次 glob/file_read 指向仓库根，全部被拒后反复重试）；
-              // ② 未带 `failureKind` ⇒ 被计入 invalid 预算（3 轮）而非环境阻塞（2 轮），
-              //    与 FIX-5 同源。
-              error: formatWorkspaceEscapeError({
-                argKey: escape.key,
-                argValue: escape.value,
-                workspace: sessionWorkspacePath,
-                ...(multiRootEnabled ? { roots, approvalRequested } : {}),
-              }),
-              // B1（2026-10-30）：多根模式下越界是**可恢复**的（批准加根即可重发）
-              // ⇒ 记 `workspace_escape`（不计入 environment_blocked 的 2 轮熔断）；
-              // 开关关闭时保持既有 `permission_denied`（零行为变更）。
-              // 2026-10-31（台账 §16）：**已提交审批**时改记 `workspace_escape_pending_approval`
-              // —— 该态在熔断分型中为中性（同 aborted），否则「等用户批准」会烧完
-              // `consecutiveInvalidTurns`（3 轮）⇒ 审批落地时已无轮次可用。
-              failureKind: (multiRootEnabled
-                ? approvalRequested === true
-                  ? 'workspace_escape_pending_approval'
-                  : 'workspace_escape'
-                : 'permission_denied') as ToolFailureKind,
-            };
-          }
-        }
+        // ── 工作区严格边界（T3 stage 6，2026-11-17：实现外移 `./workspaceBoundaryGuard`）──
+        // 越界判定（单根/多根灰度）、工作区失效 fail-fast、审批卡与分型口径均不变。
+        const boundaryBlock = await guardWorkspaceBoundary({
+          toolCall,
+          args: normalizedToolCall.arguments,
+          sessionWorkspacePath: sessionWorkspacePath ?? undefined,
+          deps: {
+            isSessionWorkspaceStrict: this.deps.isSessionWorkspaceStrict,
+            getSessionWorkspaceRoots: this.deps.getSessionWorkspaceRoots,
+            requestWorkspaceScopeApproval: (sessionId, resolved) =>
+              this._requestWorkspaceScopeApproval(sessionId, resolved),
+          },
+        });
+        if (boundaryBlock) return boundaryBlock;
 
         const registry = this.deps.getToolRegistry() as unknown as {
           executeTool: (
@@ -1611,106 +998,52 @@ export class ToolExecutionService {
           onProgress
         );
 
-        // 工具返回"需要审批"
-        if (
-          (toolResult as { requireApproval?: boolean }).requireApproval ===
-            true ||
-          (toolResult as { status?: string }).status ===
-            (ToolExecutionStatus.REQUIRES_APPROVAL as string)
-        ) {
-          const approvalReason = (toolResult as { approvalReason?: string })
-            .approvalReason;
-          // S1-1：若工具在结果 metadata 中声明了审批作用域（如 BashTool 的 cwd/env/平台），
-          // 随卡片提交 ⇒ 批准时写入放行缓存 ⇒ 执行端作用域不一致即不命中（fail-closed）。
-          const approvalScope = (
-            toolResult as { metadata?: { approvalScope?: ApprovalScope } }
-          ).metadata?.approvalScope;
-          const approvalSnapshot = (
-            toolResult as { metadata?: { approvalSnapshot?: ApprovalSnapshot } }
-          ).metadata?.approvalSnapshot;
-          // PR-1（2026-10-23）：已批准过**同一指纹** ⇒ 不再建卡，直接复跑一次
-          // （工具内部会命中 `isToolCallApproved` 并真正执行；仅重试一次，避免递归）。
-          if (
-            await this.deps.isCommandApproved(
-              normalizedToolCall.name,
-              normalizedToolCall.arguments,
-              toolCall.sessionId,
-              resolveApprovalFingerprint(
-                (() => {
-                  try {
-                    const lookup = (
-                      this.deps.getToolRegistry() as {
-                        getTool?: (n: string) => Tool | undefined;
-                      } | null
-                    )?.getTool?.(normalizedToolCall.name);
-                    return lookup ?? normalizedToolCall.name;
-                  } catch {
-                    return normalizedToolCall.name;
-                  }
-                })(),
-                normalizedToolCall.arguments
-              )
-            )
-          ) {
-            logger.info('工具级审批已命中放行缓存，直接复跑（不再建卡）', {
-              toolName: normalizedToolCall.name,
-              toolCallId: toolCall.id,
-            });
-            const retried = await registry.executeTool(
+        // 工具返回"需要审批"（T3 stage 7，2026-11-17：实现外移 `./toolApprovalOutcome`）
+        // 已批准指纹复跑 / 提交审批卡 / 提交失败回传工具错误，三段口径不变。
+        const approvalOutcome = await resolveToolApprovalOutcome({
+          toolCall,
+          args: normalizedToolCall.arguments,
+          toolResult,
+          executeAgain: () =>
+            registry.executeTool(
               {
                 toolName: normalizedToolCall.name,
                 input: normalizedToolCall.arguments,
               },
               context,
               onProgress
-            );
-            return {
-              toolCallId: toolCall.id,
-              toolName: normalizedToolCall.name,
-              result: retried.data ?? retried.output,
-              error:
-                typeof retried.error === 'string' ? retried.error : undefined,
-            };
-          }
-          const submitted = await this.deps.submitToolApproval(
-            normalizedToolCall.name,
-            normalizedToolCall.arguments,
-            toolCall.sessionId,
-            toolCall.id,
-            approvalReason,
-            approvalScope,
-            approvalSnapshot
-          );
-          if (submitted) {
-            return {
-              toolCallId: toolCall.id,
-              toolName: normalizedToolCall.name,
-              result: {
-                status: TRANSIENT_AWAITING_APPROVAL,
-                message: `工具 '${normalizedToolCall.name}' 需要审批（${
-                  approvalReason || '高风险操作'
-                }），已提交审批卡片等待用户批准。用户批准后可继续执行，请勿编造替代方案。`,
-                pendingApproval: true,
-                // U-06-5：Inbox 项 id —— 前端工具卡片就地审批
-                inboxId: submitted,
-              },
-              error: undefined,
-            };
-          }
-          const rawError =
-            typeof toolResult.error === 'string'
-              ? toolResult.error
-              : toolResult.metadata?.error
-                ? String(toolResult.metadata.error)
-                : undefined;
-          return {
-            toolCallId: toolCall.id,
-            toolName: normalizedToolCall.name,
-            result:
-              (toolResult as { output?: string }).output || toolResult.data,
-            error: rawError,
-          };
-        }
+            ),
+          deps: {
+            isCommandApproved: (name, callArgs, sessionId, fingerprint) =>
+              this.deps.isCommandApproved(
+                name,
+                callArgs,
+                sessionId,
+                fingerprint
+              ),
+            submitToolApproval: (
+              name,
+              callArgs,
+              sessionId,
+              toolCallId,
+              reason,
+              scope,
+              snapshot
+            ) =>
+              this.deps.submitToolApproval(
+                name,
+                callArgs,
+                sessionId,
+                toolCallId,
+                reason,
+                scope,
+                snapshot
+              ),
+            resolveRegisteredTool: (name) => this._resolveRegisteredTool(name),
+            awaitingApprovalStatus: TRANSIENT_AWAITING_APPROVAL,
+          },
+        });
+        if (approvalOutcome) return approvalOutcome;
 
         // 检查错误
         let error: string | undefined;
@@ -1726,59 +1059,15 @@ export class ToolExecutionService {
               : JSON.stringify(toolResult.metadata.error);
         }
 
-        // 注册图像工具输出路径
-        const resultData = toolResult.data as
-          | Record<string, unknown>
-          | undefined;
-        if (resultData && !error && toolCall.sessionId) {
-          const extractedPaths =
-            this.deps.imageContextService.extractImagePathsFromResult(
-              normalizedToolCall.name,
-              resultData
-            );
-          if (extractedPaths.length > 0) {
-            this.deps.imageContextService.registerImagePaths(
-              toolCall.sessionId,
-              extractedPaths
-            );
-          }
-
-          this.deps.imageContextService.updateImageContext(
-            toolCall.sessionId,
-            normalizedToolCall.name,
-            normalizedToolCall.arguments,
-            resultData
-          );
-
-          if (
-            (normalizedToolCall.name === 'glob' ||
-              normalizedToolCall.name === 'FileSearch') &&
-            Array.isArray(resultData) &&
-            toolCall.sessionId
-          ) {
-            const searchPath =
-              (normalizedToolCall.arguments?.path as string) || process.cwd();
-            this.deps.imageContextService.confirmedPaths.addDirectoryListing(
-              searchPath,
-              resultData as string[]
-            );
-          }
-
-          if (
-            // A-4（2026-10-18）：媒体交付类工具改走角色集合；`create_project` 是该工具**自身契约**
-            // （导航建议 + 会话关联），不属角色判定，保留显式比较。
-            isMediaOutputToolName(normalizedToolCall.name) ||
-            normalizedToolCall.name === 'create_project'
-          ) {
-            eventNotificationService.emitCustomEvent('tool:completed', {
-              toolName: normalizedToolCall.name,
-              sessionId: toolCall.sessionId,
-              toolCallId: toolCall.id,
-              images: (resultData as Record<string, unknown>).images,
-              resultData,
-            });
-          }
-        }
+        // 注册图像工具输出路径 + 媒体交付事件
+        // （T3 stage 7，2026-11-17：实现外移 `./imageResultRegistration`，判据口径不变）
+        registerImageToolResults({
+          toolCall,
+          args: normalizedToolCall.arguments,
+          resultData: toolResult.data as Record<string, unknown> | undefined,
+          hasError: Boolean(error),
+          deps: { imageContextService: this.deps.imageContextService },
+        });
 
         return {
           toolCallId: toolCall.id,

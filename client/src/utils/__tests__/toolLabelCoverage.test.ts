@@ -87,3 +87,36 @@ describe("P2-3 工具摘要覆盖", () => {
     ).toContain("PRD.md");
   });
 });
+
+/**
+ * 2026-11-12（真机 `session_mwd7ywosc43b5503e3`）：被拒绝/失败的工具卡摘要
+ * 曾显示「已执行命令: dir …」（`failed` 也走过去式），与 ❌ 自相矛盾。
+ * 现改为「动作短语 + （失败）」，且成功/进行中的口径不变。
+ */
+describe("工具摘要时态（2026-11-12）", () => {
+  const bash = { command: "dir E:\\tmp" };
+
+  it("failed ⇒ 不再出现「已执行」，带（失败）后缀", () => {
+    const summary = getToolHumanSummary({ ...call("bash", bash), status: "failed" });
+    expect(summary).not.toContain("已执行");
+    expect(summary).toContain("执行命令");
+    expect(summary).toContain("（失败）");
+  });
+
+  it("completed ⇒ 仍是过去式「已执行…」（原口径不变）", () => {
+    const summary = getToolHumanSummary({
+      ...call("bash", bash),
+      status: "completed",
+    });
+    expect(summary.startsWith("已执行命令")).toBe(true);
+    expect(summary).not.toContain("（失败）");
+  });
+
+  it("running / 待审批 ⇒ 保持「正在执行…」", () => {
+    const summary = getToolHumanSummary({
+      ...call("bash", bash),
+      status: "running",
+    });
+    expect(summary.startsWith("正在执行命令")).toBe(true);
+  });
+});

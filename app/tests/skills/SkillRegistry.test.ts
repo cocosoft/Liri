@@ -5,12 +5,12 @@
 
 import { describe, it, expect } from 'bun:test';
 
-import { SkillRegistry } from '../../src/skills/SkillRegistry';
+import { SkillRegistry } from '@modules/skills/SkillRegistry';
 import {
   SkillSource,
   SkillLoadMethod,
   type Skill,
-} from '../../src/skills/types';
+} from '@modules/skills/types';
 
 function makeSkill(name: string, overrides: Partial<Skill> = {}): Skill {
   return {

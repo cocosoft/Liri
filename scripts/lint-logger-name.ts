@@ -19,6 +19,8 @@ import {
   toBaselineNames,
   type LoggerNameBaseline,
 } from './loggerNameRatchetCore';
+// G1（2026-11-12）：源码根单一事实源
+import { resolveSourceRootPaths } from './lib/sourceRoots';
 
 const repoRoot = process.env.LOGGER_NAME_REPO_ROOT
   ? resolve(process.env.LOGGER_NAME_REPO_ROOT)
@@ -27,12 +29,8 @@ const BASELINE = process.env.LOGGER_NAME_BASELINE
   ? resolve(process.env.LOGGER_NAME_BASELINE)
   : resolve(repoRoot, '.trae/architecture/logger-name-baseline.json');
 const SCAN_ROOTS = [
-  resolve(repoRoot, 'app/src'),
-  resolve(repoRoot, 'packages/kernel/src'),
-  // P4（2026-11-01）：infra 物理包并入同一扫描面（不纳入则包内 getLogger 名字失检）
-  resolve(repoRoot, 'packages/infra/src'),
-  // P33-a（2026-11-05）：service 物理包同口径并入
-  resolve(repoRoot, 'packages/service/src'),
+  // G1（2026-11-12）：源码根走**单一事实源**（app/src + 自动发现的 packages/*/src）
+  ...resolveSourceRootPaths(repoRoot),
 ];
 const SKIP_DIRS = new Set(['node_modules', 'dist', '__tests__', 'tests']);
 const EXTS = new Set(['.ts', '.tsx']);

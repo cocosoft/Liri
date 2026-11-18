@@ -5,13 +5,13 @@
  * `circuit_breaker: consecutive invalid turns exceeded`，无法定位根因。
  */
 import { describe, expect, test } from 'bun:test';
-import { ReActLoop } from '../../src/query/ReActLoop';
+import { ReActLoop } from '@modules/query/ReActLoop';
 import type {
   ActResult,
   ReasonResult,
   ReActEvent,
   ReActState,
-} from '../../src/query/ReActLoop';
+} from '@modules/query/ReActLoop';
 
 interface TestResult {
   phase: string;

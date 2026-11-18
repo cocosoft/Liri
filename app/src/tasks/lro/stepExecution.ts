@@ -19,6 +19,8 @@ import { getLogger } from '@openliri/infra/monitoring';
 // #28（2026-10-30）：任务回写内容只取可读字段（工具结果契约类型，避免裸字面量）
 import type { ToolResult } from '@openliri/infra/utils/toolContract';
 import { isCommandToolName } from '@openliri/infra/utils/toolContract/toolRoles';
+// R4（2026-11-17）：审批入参预览先去敏（与采样共用同一出口）
+import { buildRedactedInputPreview } from '@openliri/infra/security';
 // 2026-11-08（第三十八轮）：审批卡选项集的**唯一真源**（P0 三档），LRO 步骤卡不再自写一份
 import {
   buildApprovalOptions,
@@ -39,7 +41,7 @@ import {
   globalToolManager,
   findMissingRequiredParams,
 } from '../../tools/index.js';
-import type { ToolUseContext } from '../../tools/types/Tool.js';
+import type { Tool, ToolUseContext } from '../../tools/types/Tool.js';
 import { emitPdcaLiveEvent } from '../PdcaLiveEvents';
 import type { LifecyclePhase } from '../LifecycleTracker';
 import { taskOrchestrator } from '../TaskOrchestrator';
@@ -169,6 +171,80 @@ export interface StepExecutionDeps {
   };
 }
 
+/** 单次工具调用的结果（`executeTools` 返回元素，与 TAORLoop 契约同形） */
+type ToolCallOutcome = {
+  toolCallId?: string;
+  toolName?: string;
+  result?: unknown;
+  error?: string;
+};
+
+/** 单步执行统计（P2-1 的**每步汇总**口径：逐次日志降 debug，收尾一次性上报） */
+interface StepExecutionStats {
+  modelCalls: number;
+  modelTotalMs: number;
+  modelMaxMs: number;
+  /** 本步**真实** token 消耗（各轮 input+output 累计；0 = 执行器未回传 usage） */
+  usageTokens: number;
+  toolRounds: number;
+  toolTotalMs: number;
+  slowestToolMs: number;
+  slowestToolName: string;
+}
+
+/**
+ * P3-2（复杂度清理）：步骤执行提示词构建（从 `executeSingleStep` **原样外移**）。
+ *
+ * 分隔符与空行裁剪（`.filter(Boolean).join('\n\n')`）、硬约束文案、工作区分型口径
+ * **逐字未变**；唯一入参差异是把 `deps.isolation.workspace` 改为显式 `workspace`。
+ */
+function buildStepExecutionPrompt(step: PlanStep, workspace: string): string {
+  return [
+    `执行以下步骤: ${step.description}`,
+    step.acceptanceCriteria ? `验收标准: ${step.acceptanceCriteria}` : '',
+    step.reviewResult
+      ? `注意: 上次审查发现以下问题，本次请修正：\n${step.reviewResult.issues.map((i) => `- ${i.description}`).join('\n')}`
+      : '',
+    // U-08 / LRO-08 / LRO-16（2026-10-17）：步骤级硬约束。
+    [
+      '【硬约束】',
+      '- 不得向用户提问、请求确认或等待用户答复；信息不足时基于现有信息做可回退的最小决策，并在结果中写明假设。',
+      '- 不得以 shell 管道（|）、逻辑与（&&）、逻辑或（||）作为判定动作；需要多步时逐次调用工具并说明结果。',
+      // 2026-11-08（真机 `pdca_mw6tie3k`）：模型用 `if exist output (echo ...) else (...)` 判断目录
+      // 是否存在 ⇒ 条件式不在安全白名单 ⇒ 弹审批（同一意图换写法又弹一张）。存在性/匹配/计数
+      // 都有专用只读工具，不需要 shell 条件式。
+      '- 判断文件/目录是否存在、内容是否匹配、数量多少时，用 file_read / glob / grep 等专用工具；不要用 shell 条件式（`if exist`、`if [ ]`、`test`）或把判断塞进一条命令 —— 这会触发人工审批并阻塞任务。',
+      // 2026-11-08（真机 `pdca_mw6yabdj`）：审批按**命令文本**放行；模型批准后换等价写法
+      // （`-e` → `--eval` → 写成脚本）⇒ 每次都命中新指纹、再弹一张卡，3 轮后任务失败。
+      '- 需要人工审批的命令（返回 `需要用户确认`）在用户批准后，请**原样执行同一条命令**：不要改写参数、不要换等价写法（如 `-e` 换 `--eval`、改写进脚本文件），也不要换工具 —— 改写会命中新的审批指纹，导致再次挂起。',
+      // 2026-10-31：真机 app.log 单窗口 211 次「工具路径越界」——模型反复传仓库根绝对路径，
+      // 而此前提示词与拒绝文案都**没告诉它**工作区在哪 ⇒ 只能盲试。工作区根目录属确定性事实，
+      // 直接前置声明（越界守卫本身不放宽）。
+      `- 工具的文件路径一律**相对本任务工作区根目录** \`${workspace}\`（如 \`output/report.md\`）；不要传仓库根或其它绝对路径，否则会被越界守卫拒绝。`,
+      // 2026-11-08（真机 `pdca_mw7t4025`）：工作区是**空目录**，模型却反复换 pattern 探测
+      // `app/src/...`（13 次工具全空）直到被 IO 循环守卫中止。空结果属正常初始态。
+      // 2026-11-09（cwd 对齐会话工作区后修正）：**不能写死"初始为空目录"** —— 真机
+      // `pdca_mw8uz6mf` 的工作区已有 `hello.txt`，提示词却声称其为空，模型读到文件后反复核对
+      // （`file_read` ×4）。按**真实目录内容**分型。
+      isWorkspaceEmpty(workspace)
+        ? '- 该工作区初始为**空目录**：`glob` / `grep` 搜不到文件是正常的，**不要反复换 pattern 探测同一路径**；确认一次不存在后按"该路径不可用"继续（本任务**没有 `projectId`**，`read_project_file` 也不可用）。'
+        : '- 该工作区**已有内容**（会话工作区）：先用 `glob` 列出根目录确认真实文件，再决定路径；**不要假定文件不存在**，也不要反复换 pattern 探测同一路径（本任务**没有 `projectId`**，`read_project_file` 不可用）。',
+      // 2026-11-09（真机 `pdca_mw8k25ul`）：`cd <空工作区> && powershell -Command "Get-ChildItem -File ..."`
+      // 连续 8 次返回同一条"空输出"，直到全局断路器以 aborted 收尾（整步白跑）。空输出是**结果**，不是失败。
+      '- 命令返回**空输出且退出码 0** 时，空输出就是结果本身（如目录为空 / 无匹配项）：**不要原样重试同一条命令**，据实记录"无结果"后继续下一步；需要列举改用 `glob` / `list`。',
+      '- 交付声明必须区分“已实测（附命令/输出证据）”与“未实测”；未实测时禁止使用“完成/已交付/可直接使用”等措辞，应明确标注未验证项。',
+      // 2026-11-08（真机 `pdca_mw75rudi` / `pdca_mw75xyla`）：两次都出现"首个 attempt 只回文本、
+      // 未调用任何工具"⇒ 审查判"无证据"⇒ 白花一次重试。
+      '- 本步骤要求执行命令或读写文件时，必须**实际调用对应工具**取得证据；不得凭上下文推断结果，也不得把"预期输出"当作执行结果报告。',
+      // 2026-11-08（真机 `pdca_mw7wv9ee`）：任务要求"读取不存在的 missing.txt"，执行器**自己
+      // file_write 造出该文件**再读回凑出期望内容 ⇒ 审查首轮正确拦下，第三轮却被判 98 分。
+      '- 禁止为满足验收标准而**伪造前提**：若验收要求某文件/内容"原本存在"或"禁止创建/修改"，**不得**用 `file_write` / `file_edit` 创建或改写它来凑答案；前提不成立时如实报告（写明"文件不存在/无法读取"），不要制造证据。',
+    ].join('\n'),
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+}
+
 export async function executeSingleStep(
   step: PlanStep,
   plan: Plan,
@@ -211,50 +287,7 @@ export async function executeSingleStep(
     });
   }
 
-  const execPrompt = [
-    `执行以下步骤: ${step.description}`,
-    step.acceptanceCriteria ? `验收标准: ${step.acceptanceCriteria}` : '',
-    step.reviewResult
-      ? `注意: 上次审查发现以下问题，本次请修正：\n${step.reviewResult.issues.map((i) => `- ${i.description}`).join('\n')}`
-      : '',
-    // U-08 / LRO-08 / LRO-16（2026-10-17）：步骤级硬约束。
-    [
-      '【硬约束】',
-      '- 不得向用户提问、请求确认或等待用户答复；信息不足时基于现有信息做可回退的最小决策，并在结果中写明假设。',
-      '- 不得以 shell 管道（|）、逻辑与（&&）、逻辑或（||）作为判定动作；需要多步时逐次调用工具并说明结果。',
-      // 2026-11-08（真机 `pdca_mw6tie3k`）：模型用 `if exist output (echo ...) else (...)` 判断目录
-      // 是否存在 ⇒ 条件式不在安全白名单 ⇒ 弹审批（同一意图换写法又弹一张）。存在性/匹配/计数
-      // 都有专用只读工具，不需要 shell 条件式。
-      '- 判断文件/目录是否存在、内容是否匹配、数量多少时，用 file_read / glob / grep 等专用工具；不要用 shell 条件式（`if exist`、`if [ ]`、`test`）或把判断塞进一条命令 —— 这会触发人工审批并阻塞任务。',
-      // 2026-11-08（真机 `pdca_mw6yabdj`）：审批按**命令文本**放行；模型批准后换等价写法
-      // （`-e` → `--eval` → 写成脚本）⇒ 每次都命中新指纹、再弹一张卡，3 轮后任务失败。
-      '- 需要人工审批的命令（返回 `需要用户确认`）在用户批准后，请**原样执行同一条命令**：不要改写参数、不要换等价写法（如 `-e` 换 `--eval`、改写进脚本文件），也不要换工具 —— 改写会命中新的审批指纹，导致再次挂起。',
-      // 2026-10-31：真机 app.log 单窗口 211 次「工具路径越界」——模型反复传仓库根绝对路径，
-      // 而此前提示词与拒绝文案都**没告诉它**工作区在哪 ⇒ 只能盲试。工作区根目录属确定性事实，
-      // 直接前置声明（越界守卫本身不放宽）。
-      `- 工具的文件路径一律**相对本任务工作区根目录** \`${deps.isolation.workspace}\`（如 \`output/report.md\`）；不要传仓库根或其它绝对路径，否则会被越界守卫拒绝。`,
-      // 2026-11-08（真机 `pdca_mw7t4025`）：工作区是**空目录**，模型却反复换 pattern 探测
-      // `app/src/...`（13 次工具全空）直到被 IO 循环守卫中止。空结果属正常初始态。
-      // 2026-11-09（cwd 对齐会话工作区后修正）：**不能写死"初始为空目录"** —— 真机
-      // `pdca_mw8uz6mf` 的工作区已有 `hello.txt`，提示词却声称其为空，模型读到文件后反复核对
-      // （`file_read` ×4）。按**真实目录内容**分型。
-      isWorkspaceEmpty(deps.isolation.workspace)
-        ? '- 该工作区初始为**空目录**：`glob` / `grep` 搜不到文件是正常的，**不要反复换 pattern 探测同一路径**；确认一次不存在后按"该路径不可用"继续（本任务**没有 `projectId`**，`read_project_file` 也不可用）。'
-        : '- 该工作区**已有内容**（会话工作区）：先用 `glob` 列出根目录确认真实文件，再决定路径；**不要假定文件不存在**，也不要反复换 pattern 探测同一路径（本任务**没有 `projectId`**，`read_project_file` 不可用）。',
-      // 2026-11-09（真机 `pdca_mw8k25ul`）：`cd <空工作区> && powershell -Command "Get-ChildItem -File ..."`
-      // 连续 8 次返回同一条"空输出"，直到全局断路器以 aborted 收尾（整步白跑）。空输出是**结果**，不是失败。
-      '- 命令返回**空输出且退出码 0** 时，空输出就是结果本身（如目录为空 / 无匹配项）：**不要原样重试同一条命令**，据实记录"无结果"后继续下一步；需要列举改用 `glob` / `list`。',
-      '- 交付声明必须区分“已实测（附命令/输出证据）”与“未实测”；未实测时禁止使用“完成/已交付/可直接使用”等措辞，应明确标注未验证项。',
-      // 2026-11-08（真机 `pdca_mw75rudi` / `pdca_mw75xyla`）：两次都出现"首个 attempt 只回文本、
-      // 未调用任何工具"⇒ 审查判"无证据"⇒ 白花一次重试。
-      '- 本步骤要求执行命令或读写文件时，必须**实际调用对应工具**取得证据；不得凭上下文推断结果，也不得把"预期输出"当作执行结果报告。',
-      // 2026-11-08（真机 `pdca_mw7wv9ee`）：任务要求"读取不存在的 missing.txt"，执行器**自己
-      // file_write 造出该文件**再读回凑出期望内容 ⇒ 审查首轮正确拦下，第三轮却被判 98 分。
-      '- 禁止为满足验收标准而**伪造前提**：若验收要求某文件/内容"原本存在"或"禁止创建/修改"，**不得**用 `file_write` / `file_edit` 创建或改写它来凑答案；前提不成立时如实报告（写明"文件不存在/无法读取"），不要制造证据。',
-    ].join('\n'),
-  ]
-    .filter(Boolean)
-    .join('\n\n');
+  const execPrompt = buildStepExecutionPrompt(step, deps.isolation.workspace);
 
   // Phase 2: 委托 TAORLoop 编排（统一编排已常驻；开关 ENABLE_LOOP_V8_PHASE2 已退役——L5 清理 2026-09-06）
   // D2（M3，2026-08-13）：优先每步独立实例（工厂注入，并行安全）；否则共享实例（串行）
@@ -281,7 +314,7 @@ export async function executeSingleStep(
     let taorStart = 0;
     // P2-1（2026-11-04）：**每步汇总**口径 —— 逐次调用日志降 debug，
     // 步骤收尾时一次性上报本步计数（真机窗口 4 条逐次日志合计 47.1 MB / 148 k 条）。
-    const stepStats = {
+    const stepStats: StepExecutionStats = {
       modelCalls: 0,
       modelTotalMs: 0,
       modelMaxMs: 0,
@@ -398,12 +431,7 @@ export async function executeSingleStep(
           // 复用对话侧 ToolExecutor，豁免审批（任务启动即用户授权）
           const toolContext = deps.createToolContext();
           const executeToolsStart = Date.now();
-          const results: Array<{
-            toolCallId?: string;
-            toolName?: string;
-            result?: unknown;
-            error?: string;
-          }> = [];
+          const results: ToolCallOutcome[] = [];
           /** 本轮被安全策略拦截的工具名（用于事后注入改道 steering） */
           const blockedBySecurity: string[] = [];
           stepStats.toolRounds += 1;
@@ -617,98 +645,21 @@ export async function executeSingleStep(
                       ...toolContext,
                       policyContext: { ...policyNow, autoApproved: false },
                     };
-              // 保留键可能随合法参数一起出现（解析失败时携带诊断）⇒ 执行前剥除，不污染工具入参
-              const toolResult = await tool.execute(
-                stripArgParseErrorKey(tc.arguments),
-                callContext
-              );
-              // 2026-10-08（steering）：被安全策略拦截的工具名先记账，本轮结束后统一注入改道指令。
-              // 2026-11-08（真机 `pdca_mw6yabdj`）：**等人工审批 ≠ 硬拦截** —— ask 结果也带
-              // `securityIntercepted`，若同样注入"立即改道"，用户批准的那条命令会被模型主动
-              // 改写成等价写法（`-e` → `--eval`）⇒ 命中新指纹再弹一张卡（3 轮不收敛）。
-              if (
-                isSecurityIntercepted(toolResult) &&
-                !isPendingApproval(toolResult)
-              ) {
-                blockedBySecurity.push(tc.name);
-              }
-              // LRO-13：安全门硬拦截的命令入账（随 checkpoint 持久化）⇒ 续跑短路。
-              // 记账门槛（只认 `metadata.securityIntercepted`、只认命令工具）在台账侧判定；
-              // 普通工具报错不入账 —— 那不是"确定性撞墙"，重放有意义。
-              if (deps.blockedCommands && isSecurityIntercepted(toolResult)) {
-                deps.blockedCommands.record({
-                  toolName: tc.name,
-                  args: tc.arguments,
-                  cwd: deps.isolation.workspace,
-                  result: toolResult,
-                });
-              }
-              // 2026-10-08（机械保障 · 写后读回）：登记本步的产物读写台账。
-              // 仅在**调用未报错**时登记（失败调用不构成"已写入/已读回"）。
-              {
-                const access = classifyArtifactAccess(tc.name, tc.arguments);
-                const tr = toolResult as
-                  | { success?: boolean; error?: string }
-                  | null
-                  | undefined;
-                const ok =
-                  !!tr && tr.error === undefined && tr.success !== false;
-                if (access && ok) {
-                  (access.kind === 'write' ? writtenPaths : readPaths).add(
-                    access.path
-                  );
-                }
-              }
-              const elapsed = Date.now() - toolStart;
-              stepStats.toolTotalMs += elapsed;
-              if (elapsed > stepStats.slowestToolMs) {
-                stepStats.slowestToolMs = elapsed;
-                stepStats.slowestToolName = tc.name;
-              }
-              const resultPreview: string =
-                typeof toolResult === 'string'
-                  ? (toolResult as string).slice(0, 100)
-                  : typeof toolResult === 'object' && toolResult !== null
-                    ? JSON.stringify(toolResult).slice(0, 100)
-                    : String(toolResult).slice(0, 100);
-              // 2026-10-22：结果级失败（未抛错但自述失败）不得记为「成功」/计入 success——
-              // 实测 file_write 的错误文案就以 `data` 返回，日志却写「工具执行成功」且 failed:0。
-              const resultFailure = describeToolResultFailure(toolResult);
-              if (resultFailure) {
-                logger.warn('[orchestrator] 工具执行失败（结果级）', {
-                  taskId: deps.taskId,
-                  stepId: step.id,
-                  toolName: tc.name,
-                  toolCallId: tc.id,
-                  elapsedMs: elapsed,
-                  errorPreview: resultFailure.slice(0, 200),
-                  resultPreview,
-                });
-              } else {
-                // P2-1（2026-11-04）：逐工具成功降 debug —— 每步汇总见「TAORLoop 步骤收尾」。
-                logger.debug('[orchestrator] 工具执行成功', {
-                  taskId: deps.taskId,
-                  stepId: step.id,
-                  toolName: tc.name,
-                  toolCallId: tc.id,
-                  elapsedMs: elapsed,
-                  resultType: typeof toolResult,
-                  resultPreview,
-                });
-              }
-              rememberRepeatedRead(
+              const executed = await runAuthorizedToolCall({
                 tc,
+                tool,
+                callContext,
                 readOnlyCall,
-                toolResult,
-                resultFailure,
-                repeatedReads
-              );
-              results.push({
-                toolCallId: tc.id,
-                toolName: tc.name,
-                result: toolResult,
-                ...(resultFailure ? { error: resultFailure } : {}),
+                toolStart,
+                deps,
+                step,
+                stepStats,
+                writtenPaths,
+                readPaths,
+                repeatedReads,
               });
+              if (executed.securityBlocked) blockedBySecurity.push(tc.name);
+              results.push(executed.outcome);
             } catch (e) {
               // 执行异常 ⇒ 世界状态未知，本步缓存整体失效（只损失优化，不冒险复用）
               repeatedReads.clear();
@@ -1066,99 +1017,226 @@ export async function executeSingleStep(
       `Step completed: ${step.description}`
     );
   } catch (e) {
-    // PR3（#3）：中止引发 → 按 cancelled 收尾，不标 failed、不告警
-    if (deps.isolation.abortController.signal.aborted) {
-      logger.info('[orchestrator] executor 步骤因中止取消', {
-        taskId: deps.taskId,
-        stepId: step.id,
-      });
-      taskOrchestrator.markStepCancelled(step.id, '用户中止');
-      await deps.persistCheckpoint();
-      return;
-    }
-    const errMsg = e instanceof Error ? e.message : String(e);
-    // B8（2026-11-09，设计稿 §5-3）：日预算闸门拒绝 ⇒ 放行前重试/重规划都不会通过，
-    // 不进有界重试、不 escalate；如实落 failed 并让主循环立即收尾（终态回执标注预算原因）。
-    if (e instanceof AppError && e.code === 'DAILY_BUDGET_EXCEEDED') {
-      step.status = 'failed';
-      step.terminationReason = DAILY_BUDGET_TERMINATION_REASON;
-      step.error = errMsg;
-      // 2026-11-10：失败步落终止原因（预算类有专用常量）
-      taskOrchestrator.markStepFailed(step.id, errMsg, {
-        terminationReason: DAILY_BUDGET_TERMINATION_REASON,
-      });
-      deps.recordLifecycle(
-        'progress',
-        TaskStatus.RUNNING,
-        `Step stopped by daily budget: ${step.description}`
-      );
-      logger.warn('[orchestrator] 日预算耗尽，任务停止（不再重试）', {
-        taskId: deps.taskId,
-        stepId: step.id,
-        error: errMsg.slice(0, 200),
-      });
-      await deps.persistCheckpoint();
-      return;
-    }
-    const maxRetries = step.maxRetries ?? 3;
-    if (step.retryCount < maxRetries) {
-      // PR5（#5，2026-09-05）：执行级有界重试——瞬时工具/网络异常不直接终态 failed。
-      // 复用 decide-retry 同一 retryCount 语义；重试在下一轮 executeAllSteps 中再次执行。
-      step.status = 'pending';
-      step.retryCount += 1;
-      step.error = errMsg;
-      deps.recordLifecycle(
-        'progress',
-        TaskStatus.RUNNING,
-        `执行异常，重试 #${step.retryCount}/${maxRetries}: ${step.description}`
-      );
-      logger.info('[orchestrator] 步骤执行异常，进入有界重试', {
-        taskId: deps.taskId,
-        stepId: step.id,
-        stepDesc: step.description.slice(0, 60),
-        retryCount: step.retryCount,
-        maxRetries,
-        error: errMsg.slice(0, 200),
-      });
-      await deps.persistCheckpoint();
-      return;
-    }
-    // 超限 → 升级 escalate（缺陷落 _lastEscalations → replan 通道；与 #5/#6 验收口径一致）
-    step.status = 'failed';
-    step.decision = 'escalate';
-    step.error = `Exceeded max retries (${maxRetries}): ${errMsg}`;
-    await deps.recordEscalation(step);
-    await handleError(
-      new AppError(
-        step.error,
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        'PDCA_STEP_EXECUTION_EXHAUSTED',
-        { taskId: deps.taskId, stepId: step.id, maxRetries }
-      ),
-      { module: 'tasks:longRunning', action: 'executor_exhausted' }
-    );
-    // 2026-11-10：无终止原因的失败步统一记 retry_exhausted（此处即重试耗尽路径）
-    taskOrchestrator.markStepFailed(step.id, step.error, {
-      terminationReason: step.terminationReason ?? 'retry_exhausted',
-    });
-    await deps.persistCheckpoint(); // P0(M2)
-    // §5 P1: 失败也回写执行摘要
-    deps.emitTaskMessage([
-      {
-        role: 'assistant',
-        content: `[任务步骤失败] ${step.description} — ${step.error}`,
-      },
-    ]);
-    const dur = deps.stepDurations.get(step.id);
-    if (dur) dur.endMs = Date.now();
+    await handleDefaultExecutorFailure(e, step, deps);
+  }
+}
 
+/**
+ * P3-2（复杂度清理）：默认 executor 路径的**失败收尾**（中止 / 日预算 / 有界重试 / 升级）。
+ *
+ * 从 `executeSingleStep` 的 `catch` 分支**原样外移**：分支顺序、日志文案与级别、
+ * 状态落点（cancelled / failed + escalate / pending + retryCount）逐字未变。
+ */
+async function handleDefaultExecutorFailure(
+  e: unknown,
+  step: PlanStep,
+  deps: StepExecutionDeps
+): Promise<void> {
+  // PR3（#3）：中止引发 → 按 cancelled 收尾，不标 failed、不告警
+  if (deps.isolation.abortController.signal.aborted) {
+    logger.info('[orchestrator] executor 步骤因中止取消', {
+      taskId: deps.taskId,
+      stepId: step.id,
+    });
+    taskOrchestrator.markStepCancelled(step.id, '用户中止');
+    await deps.persistCheckpoint();
+    return;
+  }
+  const errMsg = e instanceof Error ? e.message : String(e);
+  // B8（2026-11-09，设计稿 §5-3）：日预算闸门拒绝 ⇒ 放行前重试/重规划都不会通过，
+  // 不进有界重试、不 escalate；如实落 failed 并让主循环立即收尾（终态回执标注预算原因）。
+  if (e instanceof AppError && e.code === 'DAILY_BUDGET_EXCEEDED') {
+    step.status = 'failed';
+    step.terminationReason = DAILY_BUDGET_TERMINATION_REASON;
+    step.error = errMsg;
+    // 2026-11-10：失败步落终止原因（预算类有专用常量）
+    taskOrchestrator.markStepFailed(step.id, errMsg, {
+      terminationReason: DAILY_BUDGET_TERMINATION_REASON,
+    });
     deps.recordLifecycle(
       'progress',
       TaskStatus.RUNNING,
-      `Step failed (escalated): ${step.description} — ${step.error}`
+      `Step stopped by daily budget: ${step.description}`
     );
+    logger.warn('[orchestrator] 日预算耗尽，任务停止（不再重试）', {
+      taskId: deps.taskId,
+      stepId: step.id,
+      error: errMsg.slice(0, 200),
+    });
+    await deps.persistCheckpoint();
+    return;
   }
+  const maxRetries = step.maxRetries ?? 3;
+  if (step.retryCount < maxRetries) {
+    // PR5（#5，2026-09-05）：执行级有界重试——瞬时工具/网络异常不直接终态 failed。
+    // 复用 decide-retry 同一 retryCount 语义；重试在下一轮 executeAllSteps 中再次执行。
+    step.status = 'pending';
+    step.retryCount += 1;
+    step.error = errMsg;
+    deps.recordLifecycle(
+      'progress',
+      TaskStatus.RUNNING,
+      `执行异常，重试 #${step.retryCount}/${maxRetries}: ${step.description}`
+    );
+    logger.info('[orchestrator] 步骤执行异常，进入有界重试', {
+      taskId: deps.taskId,
+      stepId: step.id,
+      stepDesc: step.description.slice(0, 60),
+      retryCount: step.retryCount,
+      maxRetries,
+      error: errMsg.slice(0, 200),
+    });
+    await deps.persistCheckpoint();
+    return;
+  }
+  // 超限 → 升级 escalate（缺陷落 _lastEscalations → replan 通道；与 #5/#6 验收口径一致）
+  step.status = 'failed';
+  step.decision = 'escalate';
+  step.error = `Exceeded max retries (${maxRetries}): ${errMsg}`;
+  await deps.recordEscalation(step);
+  await handleError(
+    new AppError(
+      step.error,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      'PDCA_STEP_EXECUTION_EXHAUSTED',
+      { taskId: deps.taskId, stepId: step.id, maxRetries }
+    ),
+    { module: 'tasks:longRunning', action: 'executor_exhausted' }
+  );
+  // 2026-11-10：无终止原因的失败步统一记 retry_exhausted（此处即重试耗尽路径）
+  taskOrchestrator.markStepFailed(step.id, step.error, {
+    terminationReason: step.terminationReason ?? 'retry_exhausted',
+  });
+  await deps.persistCheckpoint(); // P0(M2)
+  // §5 P1: 失败也回写执行摘要
+  deps.emitTaskMessage([
+    {
+      role: 'assistant',
+      content: `[任务步骤失败] ${step.description} — ${step.error}`,
+    },
+  ]);
+  const dur = deps.stepDurations.get(step.id);
+  if (dur) dur.endMs = Date.now();
+
+  deps.recordLifecycle(
+    'progress',
+    TaskStatus.RUNNING,
+    `Step failed (escalated): ${step.description} — ${step.error}`
+  );
+}
+
+/**
+ * P3-2（复杂度清理）：放行后的**真实执行 + 记账**（从 `executeTools` 内联回调原样外移）。
+ *
+ * 副作用顺序与文案逐字未变：执行 → 安全拦截台账（steering）→ 阻塞命令台账（续跑短路）→
+ * 产物读写台账（写后读回补做）→ 耗时统计 → 结果级失败判定 → 同参只读缓存。
+ * `toolStart` 由调用方传入：耗时仍自**本次调用入口**起算（含前置门耗时），口径不变。
+ */
+async function runAuthorizedToolCall(args: {
+  tc: { id: string; name: string; arguments: Record<string, unknown> };
+  tool: Tool;
+  callContext: ToolUseContext;
+  readOnlyCall: boolean;
+  toolStart: number;
+  deps: StepExecutionDeps;
+  step: PlanStep;
+  stepStats: StepExecutionStats;
+  writtenPaths: Set<string>;
+  readPaths: Set<string>;
+  repeatedReads: RepeatedReadCache;
+}): Promise<{ outcome: ToolCallOutcome; securityBlocked: boolean }> {
+  const { tc, tool, callContext, deps, step, stepStats } = args;
+  // 保留键可能随合法参数一起出现（解析失败时携带诊断）⇒ 执行前剥除，不污染工具入参
+  const toolResult = await tool.execute(
+    stripArgParseErrorKey(tc.arguments),
+    callContext
+  );
+  // 2026-10-08（steering）：被安全策略拦截的工具名先记账，本轮结束后统一注入改道指令。
+  // 2026-11-08（真机 `pdca_mw6yabdj`）：**等人工审批 ≠ 硬拦截** —— ask 结果也带
+  // `securityIntercepted`，若同样注入"立即改道"，用户批准的那条命令会被模型主动
+  // 改写成等价写法（`-e` → `--eval`）⇒ 命中新指纹再弹一张卡（3 轮不收敛）。
+  const securityBlocked =
+    isSecurityIntercepted(toolResult) && !isPendingApproval(toolResult);
+  // LRO-13：安全门硬拦截的命令入账（随 checkpoint 持久化）⇒ 续跑短路。
+  // 记账门槛（只认 `metadata.securityIntercepted`、只认命令工具）在台账侧判定；
+  // 普通工具报错不入账 —— 那不是"确定性撞墙"，重放有意义。
+  if (deps.blockedCommands && isSecurityIntercepted(toolResult)) {
+    deps.blockedCommands.record({
+      toolName: tc.name,
+      args: tc.arguments,
+      cwd: deps.isolation.workspace,
+      result: toolResult,
+    });
+  }
+  // 2026-10-08（机械保障 · 写后读回）：登记本步的产物读写台账。
+  // 仅在**调用未报错**时登记（失败调用不构成"已写入/已读回"）。
+  {
+    const access = classifyArtifactAccess(tc.name, tc.arguments);
+    const tr = toolResult as
+      | { success?: boolean; error?: string }
+      | null
+      | undefined;
+    const ok = !!tr && tr.error === undefined && tr.success !== false;
+    if (access && ok) {
+      (access.kind === 'write' ? args.writtenPaths : args.readPaths).add(
+        access.path
+      );
+    }
+  }
+  const elapsed = Date.now() - args.toolStart;
+  stepStats.toolTotalMs += elapsed;
+  if (elapsed > stepStats.slowestToolMs) {
+    stepStats.slowestToolMs = elapsed;
+    stepStats.slowestToolName = tc.name;
+  }
+  const resultPreview: string =
+    typeof toolResult === 'string'
+      ? (toolResult as string).slice(0, 100)
+      : typeof toolResult === 'object' && toolResult !== null
+        ? JSON.stringify(toolResult).slice(0, 100)
+        : String(toolResult).slice(0, 100);
+  // 2026-10-22：结果级失败（未抛错但自述失败）不得记为「成功」/计入 success——
+  // 实测 file_write 的错误文案就以 `data` 返回，日志却写「工具执行成功」且 failed:0。
+  const resultFailure = describeToolResultFailure(toolResult);
+  if (resultFailure) {
+    logger.warn('[orchestrator] 工具执行失败（结果级）', {
+      taskId: deps.taskId,
+      stepId: step.id,
+      toolName: tc.name,
+      toolCallId: tc.id,
+      elapsedMs: elapsed,
+      errorPreview: resultFailure.slice(0, 200),
+      resultPreview,
+    });
+  } else {
+    // P2-1（2026-11-04）：逐工具成功降 debug —— 每步汇总见「TAORLoop 步骤收尾」。
+    logger.debug('[orchestrator] 工具执行成功', {
+      taskId: deps.taskId,
+      stepId: step.id,
+      toolName: tc.name,
+      toolCallId: tc.id,
+      elapsedMs: elapsed,
+      resultType: typeof toolResult,
+      resultPreview,
+    });
+  }
+  rememberRepeatedRead(
+    tc,
+    args.readOnlyCall,
+    toolResult,
+    resultFailure,
+    args.repeatedReads
+  );
+  return {
+    securityBlocked,
+    outcome: {
+      toolCallId: tc.id,
+      toolName: tc.name,
+      result: toolResult,
+      ...(resultFailure ? { error: resultFailure } : {}),
+    },
+  };
 }
 
 /**
@@ -1281,7 +1359,7 @@ async function submitStepApprovalCards(args: {
           approvalFingerprintPreview: previewApprovalFingerprint(fingerprint),
           approvalScopeKind: 'once',
           command: command || undefined,
-          inputPreview: JSON.stringify(input).slice(0, 200),
+          inputPreview: buildRedactedInputPreview(input, 200),
           // 2026-11-08：作用域/快照随卡落库 —— 缺了会让批准记录 `scopeBound:false`，
           // 执行端按 fail-closed 判不命中（"批了不生效"）。
           ...(approvalScope ? { approvalScope } : {}),

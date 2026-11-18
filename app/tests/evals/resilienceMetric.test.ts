@@ -10,7 +10,7 @@ import { describe, expect, it } from 'bun:test';
 import {
   computeBehaviorMetrics,
   countStalledRepeats,
-} from '../../src/evals/behaviorMetrics';
+} from '@modules/evals/behaviorMetrics';
 import { toolCallArgsKey } from '@openliri/infra/utils/toolCallKey';
 
 describe('④ 空转重复次数', () => {

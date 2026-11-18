@@ -47,14 +47,14 @@ import {
   overlayFromCommit,
   removeRepoSapshot,
   supplyDeps,
-} from '../../src/evals/repoSnapshot';
-import { resolveGitExecutable } from '../../src/evals/externalExecutables';
+} from '@modules/evals/repoSnapshot';
+import { resolveGitExecutable } from '@modules/evals/externalExecutables';
 import {
   classifyRepoTestRun,
   judgeS1Eligibility,
   parseJunitSummary,
   runRepoTest,
-} from '../../src/evals/repoTestJudge';
+} from '@modules/evals/repoTestJudge';
 
 const execFileAsync = promisify(execFile);
 const scratchRoots: string[] = [];

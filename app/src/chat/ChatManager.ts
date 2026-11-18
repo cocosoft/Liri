@@ -38,10 +38,11 @@ import {
   extractTodoData,
   resolveMaxContextTokens,
   getLocalSession,
-  getOrCreateSessionMachine,
 } from './services/ChatHelper';
 // A 批外移（2026-11-05）：8 个构造期 helper 的装配收敛到单一工厂
 import { buildChatManagerHelpers } from './manager/assembly';
+// P2-1（2026-11-15）：会话级瞬时状态（工具轮次 / 状态机 / 续跑意图）外移
+import { SessionRuntimeState } from './manager/sessionRuntimeState';
 // C 批外移（2026-11-05）：退出前 flush / cleanShutdown 钩子注册表（main 信号链同源）
 import {
   registerCleanShutdownHandler,
@@ -134,7 +135,7 @@ import { createCheckpointService } from './services/SessionCheckpointService.js'
 import { PlainTextCheckpoint } from './services/PlainTextCheckpoint.js';
 import { isCheckpointLogEnabled } from '@openliri/infra/config';
 import { HookChainManager } from '@modules/hooks';
-import { toolResultRegistry } from '../tool/ToolResultRegistry.js';
+import { toolResultRegistry } from '@modules/tool/ToolResultRegistry.js';
 import { ToolAwareClient } from '@modules/ai';
 import { trackUsage } from '@modules/ai';
 import {
@@ -239,7 +240,7 @@ import type { StopHookReason } from '@modules/query';
 import { TAORLoop } from '@modules/query';
 import { createChatAgentLoop } from './createAgentLoop.js';
 // B1-4 验收缝：仅用于类型标注（启动钩子的可注入实例）
-import type { YieldRegistry, YieldWaitingStore } from '../session/yield';
+import type { YieldRegistry, YieldWaitingStore } from '@modules/session/yield';
 // B1-4 验收缝：仅用于类型标注（启动钩子的可注入实例）
 import type { SettlementOutbox } from './yield/SettlementOutbox';
 // F2（2026-10-12，预算挂起续跑 Task 3）：活跃 TAORLoop 注册表入口（经 infrastructure barrel）。
@@ -303,6 +304,10 @@ const TAOR_MULTIPLIER_KEY_SEP = '::turnsX';
 
 /**
  * 聊天管理器实现
+ *
+ * ⚠️ 本文件已顶到 R04-001 的 2000 行上限（P2-1，2026-11-15 拆分后余量约 30 行）：
+ * 它只做**装配 + 薄转发**，新增逻辑一律落在 `chat/manager/*`（含 `sessionRuntimeState.ts`），
+ * 不在此处内联实现。
  */
 export class ChatManagerImpl implements ChatManager {
   /**
@@ -518,23 +523,24 @@ export class ChatManagerImpl implements ChatManager {
   private contextTracker: ContextTracker = new ContextTracker(100);
 
   /**
-   * 会话级工具轮次计数（设计三 2026-08-26）：原全局计数器在并发会话时
-   * turn 编号互相跳变（A 会话 turn 5/7/9，6/8 被 B 占用）。改 per-session Map。
+   * P2-1（2026-11-15）：会话级瞬时状态（工具轮次计数 / 会话状态机 / 一次性续跑意图）
+   * 集中到 `manager/sessionRuntimeState.ts`；本类只做薄转发。
+   *
+   * 下三个方法**必须**保留：`getToolRound` / `incToolRound` 是 `wireChatFacades` 的宿主端口，
+   * 删掉会被 `wiringHostGuard` 判为「装配契约破坏」（实测 44 例失败）。
    */
-  private _toolRoundCounts: Map<string, number> = new Map();
+  private readonly _runtimeState = new SessionRuntimeState();
 
   private incToolRound(sessionId: string): number {
-    const next = (this._toolRoundCounts.get(sessionId) ?? 0) + 1;
-    this._toolRoundCounts.set(sessionId, next);
-    return next;
+    return this._runtimeState.incToolRound(sessionId);
   }
 
   private getToolRound(sessionId: string): number {
-    return this._toolRoundCounts.get(sessionId) ?? 0;
+    return this._runtimeState.getToolRound(sessionId);
   }
 
   private clearToolRound(sessionId: string): void {
-    this._toolRoundCounts.delete(sessionId);
+    this._runtimeState.clearToolRound(sessionId);
   }
 
   /**
@@ -593,14 +599,6 @@ export class ChatManagerImpl implements ChatManager {
     callModel: null,
     resolved: null,
   };
-
-  /**
-   * G-T3-1（2026-10-12）：**一次性**续跑意图登记（`sessionId` 集合）。
-   *
-   * `resumeSuspendedSession` 的 taor 分支在触发执行入口前登记；委托路径消费即删
-   * （`consumePendingResumeIntent`）⇒ 仅跳过**紧接着那一次**执行的 `taorLoop.reset()`。
-   */
-  private readonly _pendingResumeIntent = new Set<string>();
 
   /**
    * RC-E（08-09）：PlanDrivenLoop 实例（懒初始化）
@@ -670,7 +668,7 @@ export class ChatManagerImpl implements ChatManager {
       shouldPersistRecalculatedTotal(before, after),
     getCheckpointService: () => this._checkpointService,
     scanBudgetSuspendCheckpoints: async () => {
-      const { resumeManager } = await import('../query/ResumeManager.js');
+      const { resumeManager } = await import('@modules/query/ResumeManager.js');
       return resumeManager.scanBudgetSuspends();
     },
     installBudgetSuspendResume: () =>
@@ -781,15 +779,10 @@ export class ChatManagerImpl implements ChatManager {
   private compactService: CompactServiceImpl;
 
   /**
-   * 会话状态机映射
-   */
-  private sessionMachines: Map<string, SessionStateMachine> = new Map();
-
-  /**
-   * 获取或创建会话状态机（委托给 ChatHelper）
+   * 取（或创建）会话状态机（实体见 `manager/sessionRuntimeState.ts`）
    */
   private getSessionMachine(sessionId: string): SessionStateMachine {
-    return getOrCreateSessionMachine(this.sessionMachines, sessionId);
+    return this._runtimeState.getSessionMachine(sessionId);
   }
 
   /**
@@ -1040,7 +1033,7 @@ export class ChatManagerImpl implements ChatManager {
    *
    * 实现 ChatOrchestratorHost 接口，供 streamMessageFlow 在每个 chunk yield 前调用。
    * - 失败不阻断流式（CS03）
-   * - duplicate-seq 视为正常幂等，不告警
+   * - `session-dir-missing` 视为主动放弃，不告警
    * - 首次使用时若需迁移旧数据，触发迁移
    */
   async appendStreamEvent(
@@ -1314,7 +1307,7 @@ export class ChatManagerImpl implements ChatManager {
    * **跳过** `taorLoop.reset()`，使刚恢复的游标/steering 存活到执行入口。
    */
   markResumeIntent(sessionId: string): void {
-    this._pendingResumeIntent.add(sessionId);
+    this._runtimeState.markResumeIntent(sessionId);
   }
 
   /**
@@ -1324,7 +1317,7 @@ export class ChatManagerImpl implements ChatManager {
    * 照常 `reset()`（既有行为不变）。
    */
   consumePendingResumeIntent(sessionId: string): boolean {
-    return this._pendingResumeIntent.delete(sessionId);
+    return this._runtimeState.consumePendingResumeIntent(sessionId);
   }
 
   /**
@@ -1335,7 +1328,7 @@ export class ChatManagerImpl implements ChatManager {
    * 残留意图不得泄漏到后续轮次而误跳过其 `reset()`。
    */
   clearResumeIntent(sessionId: string): void {
-    this._pendingResumeIntent.delete(sessionId);
+    this._runtimeState.clearResumeIntent(sessionId);
   }
 
   /**
@@ -1493,10 +1486,10 @@ export class ChatManagerImpl implements ChatManager {
     sessionId: string,
     data: LiriEventData<'assistant/doc_workflow'>
   ): Promise<void> {
-    const ts = await this.getStreamTailSeq(sessionId);
     await this.appendStreamEvent(sessionId, {
       type: 'assistant/doc_workflow',
-      seq: ts + 1,
+      // seq 0 ⇒ 原子分配（工具进度回调与流式写者并发，tail+1 会撞号被丢弃）
+      seq: 0,
       time: Date.now(),
       sessionId,
       data,

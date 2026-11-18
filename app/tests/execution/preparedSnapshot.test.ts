@@ -17,7 +17,7 @@ import {
   setExecutionEventSink,
   type ExecutionId,
 } from '@openliri/service/execution';
-import type { LiriEvent } from '../../src/session/types/events.js';
+import type { LiriEvent } from '@modules/session/types/events.js';
 import { selectAndObserveToolDefinitions } from '../../src/chat/orchestrator/streamMessageToolSelectionFlow.js';
 import type { ChatOrchestratorHost } from '../../src/chat/orchestrator/ChatOrchestrator.js';
 

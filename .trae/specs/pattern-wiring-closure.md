@@ -244,6 +244,8 @@ PATTERN_SELECTION_RULES = [
 **行为边界（如实）**：三者均受**既有**约束 —— 验证线路仍受 `SELF_VERIFY_PATTERN`（默认 `false`）门控，
 `long_task_pdl` 仍由快速路径判定 ⇒ **默认路径零变化**；`maxCycles=4` 仅在门控开启且命中精修意图时生效。
 
+> **订正（2026-11-16）**：`SELF_VERIFY_PATTERN` 已按**用户裁定**翻转为默认 `true`——三条判据（≥20 会话 / A/B 可量化 / 重试 ≤10%）**均未达标**，属**显式豁免裁定**，不是"验证通过后的翻转"；回退 `FEATURE_SELF_VERIFY_PATTERN=false` 或设置页关闭。详见 `default-off-switches-review-gates.md §2.4.3`。上文「默认 `false` 门控」仅描述该次翻转**之前**的边界。
+
 **状态**：`3 ready`（`competitive_strategy` / `iterative_refine` / `self_verify`）+ `2 unavailable`
 （`long_task_pdl` / `parallel_distributed`，均带**结构字段** `drivenBy`）。`drivenBy` 与 `status` **正交**，
 面板据此换徽标（结构判定，非文案匹配，CS02）。
@@ -257,7 +259,8 @@ PATTERN_SELECTION_RULES = [
 作为**用户可配门控的唯一解析入口**（`FEATURE_<name>` env > `config.features.<key>` > `feature()`；
 未登记开关逐字走 `feature()`，零行为变化），三个消费点统一改用它：`instantiatePattern`、
 `listPatternCatalog`（`/v1/patterns` 门控行）、`chat/manager/pdcaLaunch`（实际生效判定）；
-设置页「功能开关」新增「自校验 / 多轮精修线路」（**默认关**，与 `FEATURE_FLAGS` 一致）。
+设置页「功能开关」新增「自校验 / 多轮精修线路」（**默认关**，与 `FEATURE_FLAGS` 一致；**2026-11-16 已按用户裁定翻为默认开** —— 见
+`default-off-switches-review-gates.md §2.4.3`，设置页默认值与 zh/en 文案同批更新）。
 真机实测：`PUT /v1/config/features {selfVerifyPattern:true}` ⇒ `/v1/patterns` 的
 `self_verify.featureGate.enabled=true`；恢复配置后回到 `false`。
 

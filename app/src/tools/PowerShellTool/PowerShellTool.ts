@@ -49,6 +49,8 @@ import {
   getActiveTaskId,
   getApprovedCommandRegistry,
   hashCommandForExecution,
+  isReadViaShellCorrectionEnabled,
+  buildReadViaShellCorrection,
   type ApprovalScope,
   type ApprovalSnapshot,
 } from '@openliri/infra/permission';
@@ -296,6 +298,17 @@ const ALLOWED_READONLY_METHODS = new Set([
   'getenumerator',
   'tolocaltime',
   'touniversaltime',
+  // 2026-11-13（会话 `session_mwdcivrue74d4838ff`）：DateTime 纯内存算术 ——
+  // `.AddHours(…)` 此前被拒（2 次），模型只能改写成更绕的写法；这些方法不触碰 I/O。
+  'addhours',
+  'addminutes',
+  'addseconds',
+  'addmilliseconds',
+  'adddays',
+  'addmonths',
+  'addyears',
+  'tounixtimeseconds',
+  'tounixtimemilliseconds',
 ]);
 
 /**
@@ -430,7 +443,7 @@ export function explainPowerShellNotAllowed(
   if (disallowedMethod) {
     return {
       reason:
-        `检测到方法调用「.${disallowedMethod}(…)」不在只读白名单；允许的纯内存方法：Substring/Trim/Split/Replace/ToLower/ToUpper/StartsWith/EndsWith/Contains/IndexOf/PadLeft/PadRight/ToString/Join/ContainsKey/GetEnumerator/ToLocalTime（其余请去掉方法链）` +
+        `检测到方法调用「.${disallowedMethod}(…)」不在只读白名单；允许的纯内存方法：Substring/Trim/Split/Replace/ToLower/ToUpper/StartsWith/EndsWith/Contains/IndexOf/PadLeft/PadRight/ToString/Join/ContainsKey/GetEnumerator/ToLocalTime/ToUniversalTime/AddHours/AddMinutes/AddSeconds/AddDays/AddMonths/AddYears（其余请去掉方法链）` +
         `｜等价单条写法：文本检索用「Select-String -Path <文件> -Pattern '<词>'」或「findstr /C:"词" <文件>」；取文件属性用「Get-Item <路径> | Select-Object Length,LastWriteTime」`,
     };
   }
@@ -654,7 +667,9 @@ function buildPowerShellApprovalContext(
 async function isPowerShellPreApproved(
   command: string,
   sessionId: string | undefined,
-  scope: ApprovalScope
+  scope: ApprovalScope,
+  /** F2：本次调用所处的工作区根（与 bash 同口径；缺省 ⇒ 仅全局/会话级暂停生效） */
+  workspaceRoots?: string[]
 ): Promise<boolean> {
   const hash = hashCommandForExecution(command);
   if (
@@ -669,7 +684,14 @@ async function isPowerShellPreApproved(
   }
   const { isCallAllowedByPersistedRules } =
     await import('@openliri/infra/permission/PermissionManager');
-  return isCallAllowedByPersistedRules('powershell', { command });
+  // F2：带上工作区根与会话 id —— 暂停（全局 / 本会话 / 本工作区）时不得折算成"免审批"
+  return isCallAllowedByPersistedRules(
+    'powershell',
+    { command },
+    undefined,
+    workspaceRoots,
+    sessionId
+  );
 }
 
 /** PowerShell 安全链的「阻断结果」映射（ask 未获批 ⇒ 带 requireApproval，进入审批卡） */
@@ -679,12 +701,51 @@ export function buildPowerShellSecurityBlock(
     preApproved: boolean;
     approval: { scope: ApprovalScope; snapshot: ApprovalSnapshot };
     startTime: number;
+    /** B1（2026-11-18）：命令原文 / 执行目录 / 会话权限档（用于「读/搜走专用工具」纠正） */
+    command?: string;
+    cwd?: string;
+    permissionMode?: string;
   }
 ): ToolResult<unknown> | null {
   if (decision.allowed) return null;
   const isAsk = decision.behavior === 'ask';
   // 已批准 / 规则命中 ⇒ 跳过 ask 分支，继续走后续硬拦截与执行（与 BashTool 同语义）
   if (isAsk && input.preApproved) return null;
+
+  // B1（2026-11-18）：default 档下「单读类动词 + 单路径」⇒ 直接回纠正提示，不建审批卡。
+  if (
+    isAsk &&
+    input.command &&
+    input.cwd &&
+    isReadViaShellCorrectionEnabled() &&
+    (input.permissionMode ?? 'default') === 'default'
+  ) {
+    const correction = buildReadViaShellCorrection({
+      enabled: true,
+      toolName: 'powershell',
+      input: { command: input.command, cwd: input.cwd },
+      permissionMode: input.permissionMode ?? 'default',
+      workspacePath: input.cwd,
+    });
+    if (correction) {
+      logger.info('powershell: read_via_shell_corrected', {
+        commandPreview: input.command.slice(0, 200),
+        verb: correction.verb,
+        targetTool: correction.tool,
+        cwd: input.cwd,
+      });
+      return createFailureResult(correction.message, {
+        executionTime: Date.now() - input.startTime,
+        errorLevel: ErrorLevel.RECOVERABLE,
+        failureKind: 'tool_error',
+        metadata: {
+          reason: correction.reasonCode,
+          targetTool: correction.tool,
+          verb: correction.verb,
+        },
+      });
+    }
+  }
   const prefix = isAsk
     ? '需要用户确认: '
     : decision.code === 'SANDBOX_SECURITY_DENIED'
@@ -1071,12 +1132,18 @@ export class PowerShellTool extends BaseTool {
       const preApproved = await isPowerShellPreApproved(
         command,
         context.sessionId,
-        approval.scope
+        approval.scope,
+        workingDirectory ? [workingDirectory] : []
       );
       const securityBlock = buildPowerShellSecurityBlock(decision, {
         preApproved,
         approval,
         startTime,
+        command,
+        ...(workingDirectory ? { cwd: workingDirectory } : {}),
+        ...(context.policyContext?.permissionMode
+          ? { permissionMode: context.policyContext.permissionMode }
+          : {}),
       });
       if (securityBlock) return securityBlock;
 

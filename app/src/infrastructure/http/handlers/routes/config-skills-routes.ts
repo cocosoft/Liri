@@ -46,8 +46,14 @@ import { handleGetDataDirectory } from '../chat-handlers';
 import {
   handleAddPermissionRule,
   handleDeletePermissionRule,
+  handleExportPermissionRules,
   handleGetPermissionMetrics,
+  handleGetPermissionRulesHealth,
+  handleImportPermissionRules,
   handleListPermissionRules,
+  handleSetApprovalPause,
+  handleSimulatePermissionRule,
+  handleUpdatePermissionRule,
 } from '../permission-handlers';
 import {
   handleGetPermissionRbac,
@@ -92,18 +98,19 @@ import {
 } from '../skills-handlers';
 
 /**
- * dispatchConfigSkillsRoutes — config-skills-routes 领域路由分发
- * @returns true 表示已匹配并处理，false 表示未匹配
+ * Config 域路由（favicon + `/v1/config` 读 / 写 / 删）。
+ *
+ * 2026-11-12：从 `dispatchConfigSkillsRoutes` **纯搬运**提炼（行为逐字不变）——
+ * 该分发器圈复杂度已达 102（≥100 属"重尾离群"，而复杂度棘轮只允许减少），
+ * 把这一段内聚分支独立成函数即回落到阈值以下。
  */
-export async function dispatchConfigSkillsRoutes(
+async function dispatchConfigRoutes(
   req: http.IncomingMessage,
   res: http.ServerResponse,
   url: string,
-  broadcastEvent: (event: string, data: unknown) => void,
   handlerCtx: HandlerCtx
 ): Promise<boolean> {
   const method = req.method || 'GET';
-  // ---- Config ----
   if (method === 'GET' && url === '/favicon.ico') {
     await handleFavicon(handlerCtx, req, res);
     return true;
@@ -139,6 +146,21 @@ export async function dispatchConfigSkillsRoutes(
     );
     return true;
   }
+  return false;
+}
+
+/**
+ * Settings 段（P3-2，2026-11-16：由下方分发函数**原样外移**，匹配顺序不变 ——
+ * 具体端点仍排在通用 `/v1/settings/{namespace}` 之前）。
+ * @returns true 表示已匹配并处理
+ */
+async function dispatchSettingsRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
+  const method = req.method || 'GET';
   // ---- Settings（具体端点**必须**排在通用 `/v1/settings/{namespace}` 之前）----
   //
   // P2（2026-11-03 修正）：原先这两条排在通用分支之后 ⇒ 被 `/^\/v1\/settings\/(.+)$/`
@@ -180,7 +202,20 @@ export async function dispatchConfigSkillsRoutes(
     );
     return true;
   }
+  return false;
+}
 
+/**
+ * Router（智能路由）段（P3-2，2026-11-16：由下方分发函数**原样外移**）。
+ * @returns true 表示已匹配并处理
+ */
+async function dispatchRouterRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
+  const method = req.method || 'GET';
   // ---- Router（智能路由）----
   if (method === 'GET' && url === '/v1/router/config') {
     await handleRouterGetConfig(handlerCtx, req, res);
@@ -190,7 +225,19 @@ export async function dispatchConfigSkillsRoutes(
     await handleRouterUpdateConfig(handlerCtx, req, res);
     return true;
   }
+  return false;
+}
 
+/**
+ * Permissions（工具权限规则 + RBAC）段（P3-2，2026-11-16：由下方分发函数**原样外移**）。
+ * @returns true 表示已匹配并处理
+ */
+async function dispatchPermissionRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string
+): Promise<boolean> {
+  const method = req.method || 'GET';
   // ---- Permissions（工具权限规则管理，P1-5）----
   if (method === 'GET' && url === '/v1/permissions/metrics') {
     await handleGetPermissionMetrics(req, res);
@@ -200,8 +247,41 @@ export async function dispatchConfigSkillsRoutes(
     await handleListPermissionRules(req, res);
     return true;
   }
+  // R0（2026-11-17）：规则文件健康视图 + 只读模拟 —— 具体子路径必须先于
+  // `DELETE /v1/permissions/rules/(.+)` 的通用段（否则 `health` / `simulate` 会被当成 ruleId）。
+  if (method === 'GET' && url === '/v1/permissions/rules/health') {
+    await handleGetPermissionRulesHealth(req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/permissions/rules/simulate') {
+    await handleSimulatePermissionRule(req, res);
+    return true;
+  }
+  // R2b（2026-11-17）：规则备份 / 回灌（导出只含用户手建规则；导入先全量校验再落盘）
+  if (method === 'GET' && url === '/v1/permissions/rules/export') {
+    await handleExportPermissionRules(req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/permissions/rules/import') {
+    await handleImportPermissionRules(req, res);
+    return true;
+  }
+  // R3（2026-11-17）：暂停 / 恢复全部持久化放行（审批生成的规则不再生效，仍可逐条撤销）
+  if (method === 'POST' && url === '/v1/permissions/approvals/pause') {
+    await handleSetApprovalPause(req, res);
+    return true;
+  }
   if (method === 'POST' && url === '/v1/permissions/rules') {
     await handleAddPermissionRule(req, res);
+    return true;
+  }
+  // R2（2026-11-17）：编辑规则（只允许 behavior / contentPattern；审批规则 403）
+  if (method === 'PUT' && url.match(/^\/v1\/permissions\/rules\/(.+)$/)) {
+    await handleUpdatePermissionRule(
+      req,
+      res,
+      url.match(/^\/v1\/permissions\/rules\/(.+)$/)![1]
+    );
     return true;
   }
   if (method === 'DELETE' && url.match(/^\/v1\/permissions\/rules\/(.+)$/)) {
@@ -223,7 +303,19 @@ export async function dispatchConfigSkillsRoutes(
     await handlePermissionRbacAction(req, res);
     return true;
   }
+  return false;
+}
 
+/**
+ * Sandbox（沙箱配置与状态）段（P3-2，2026-11-16：由下方分发函数**原样外移**）。
+ * @returns true 表示已匹配并处理
+ */
+async function dispatchSandboxRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string
+): Promise<boolean> {
+  const method = req.method || 'GET';
   // ---- Sandbox（沙箱配置与状态，S1）----
   if (method === 'GET' && url === '/v1/sandbox/config') {
     await handleGetSandboxConfig(req, res);
@@ -237,7 +329,19 @@ export async function dispatchConfigSkillsRoutes(
     await handleGetSandboxStatus(req, res);
     return true;
   }
+  return false;
+}
 
+/**
+ * Auto-reply（自动回复规则）段（P3-2，2026-11-16：由下方分发函数**原样外移**）。
+ * @returns true 表示已匹配并处理
+ */
+async function dispatchAutoReplyRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string
+): Promise<boolean> {
+  const method = req.method || 'GET';
   // ---- Auto-reply（自动回复规则管理，S2）----
   if (method === 'GET' && url === '/v1/auto-reply/rules') {
     await handleListAutoReplyRules(req, res);
@@ -263,7 +367,20 @@ export async function dispatchConfigSkillsRoutes(
     );
     return true;
   }
+  return false;
+}
 
+/**
+ * Skills 集合级段（列表 / 系统技能 / 导出导入 / 搜索推荐 / 分类 / 源管理）
+ * （P3-2，2026-11-16：由下方分发函数**原样外移**，具体端点仍在通用 `(.+)` 之前）。
+ * @returns true 表示已匹配并处理
+ */
+async function dispatchSkillCollectionRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string
+): Promise<boolean> {
+  const method = req.method || 'GET';
   // ---- Skills (ClawHub 生态对接) ----
   if (method === 'GET' && url === '/v1/skills') {
     await handleListSkills(req, res);
@@ -329,6 +446,20 @@ export async function dispatchConfigSkillsRoutes(
     );
     return true;
   }
+  return false;
+}
+
+/**
+ * Skills 单项段（详情 / 文件 / 安装 / 克隆 / 卸载 / 更新 / 开关 / 增删改）
+ * （P3-2，2026-11-16：由下方分发函数**原样外移**，`/files` 与 `/install` 等仍在通用 `(.+)` 之前）。
+ * @returns true 表示已匹配并处理
+ */
+async function dispatchSkillItemRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string
+): Promise<boolean> {
+  const method = req.method || 'GET';
   if (method === 'GET' && url.match(/^\/v1\/skills\/(.+)\/files$/)) {
     await handleSkillFiles(
       req,
@@ -409,5 +540,28 @@ export async function dispatchConfigSkillsRoutes(
     );
     return true;
   }
+  return false;
+}
+
+/**
+ * dispatchConfigSkillsRoutes — config-skills-routes 领域路由分发
+ * @returns true 表示已匹配并处理，false 表示未匹配
+ */
+export async function dispatchConfigSkillsRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string,
+  broadcastEvent: (event: string, data: unknown) => void,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
+  // P3-2（2026-11-16）：各分段原样外移；调用顺序与匹配顺序一致
+  if (await dispatchConfigRoutes(req, res, url, handlerCtx)) return true;
+  if (await dispatchSettingsRoutes(req, res, url, handlerCtx)) return true;
+  if (await dispatchRouterRoutes(req, res, url, handlerCtx)) return true;
+  if (await dispatchPermissionRoutes(req, res, url)) return true;
+  if (await dispatchSandboxRoutes(req, res, url)) return true;
+  if (await dispatchAutoReplyRoutes(req, res, url)) return true;
+  if (await dispatchSkillCollectionRoutes(req, res, url)) return true;
+  if (await dispatchSkillItemRoutes(req, res, url)) return true;
   return false;
 }

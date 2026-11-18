@@ -66,7 +66,11 @@ export type {
 
 // ==================== 向后兼容导出（@deprecated — 请使用门面 API 替代） ====================
 // Bash 安全分析
-export { BashSecurityAnalyzer } from './BashSecurityAnalyzer';
+export {
+  BashSecurityAnalyzer,
+  // 2026-11-12：权限层在建审批卡前判断"批了也跑不了"的命令（结构性硬拒）
+  isUnconditionallyDeniedBashCommand,
+} from './BashSecurityAnalyzer';
 export {
   isPathTraversal,
   sanitizePath,
@@ -287,6 +291,12 @@ export {
   COMMAND_EQUIVALENCE_GROUPS,
   COMMAND_ALIASES,
   expandTokenAliases,
+  // 2026-11-12（P1）：命令语义注册表（单一来源）
+  COMMAND_SPECS,
+  approvalTokensFromSpecs,
+  denyTokensFromSpecs,
+  equivalenceGroupsFromSpecs,
+  readonlySubcommandsFor,
 } from './patterns';
 export type { UnifiedRulePlatform } from './patterns';
 // P2-3（2026-11-03）：只读命令目录单一来源（bash / cmd / PowerShell 按 shell 引用）
@@ -296,12 +306,20 @@ export {
   POWERSHELL_READ_ONLY_PREFIX_PATTERNS,
   VERSION_ONLY_QUERY_PATTERN,
   GIT_READ_ONLY_PATTERN,
+  // P3-2（2026-11-16）：git 参数级禁区 + 收窄查询形态 + 统一判定入口（防 pager 注入）
+  GIT_READ_ONLY_FORBIDDEN_ARGS,
+  GIT_READ_ONLY_QUERY_PATTERN,
+  isGitReadOnlyCommand,
   GIT_READ_ONLY_SUBCOMMANDS,
   BASH_QUICK_READ_ONLY_COMMANDS,
   POWERSHELL_ALLOWED_COMMAND_PREFIXES,
   POWERSHELL_READ_ONLY_COMMAND_PATTERNS,
   AUTO_MODE_READONLY_COMMANDS,
   AUTO_MODE_GIT_READONLY_SUBCOMMANDS,
+  // 2026-11-12（P1c）：集群 / 容器 / 代码托管的只读子命令（命令语义注册表引用它们）
+  AUTO_MODE_KUBECTL_READONLY_SUBCOMMANDS,
+  AUTO_MODE_DOCKER_READONLY_SUBCOMMANDS,
+  AUTO_MODE_GH_READONLY_SUBCOMMANDS,
 } from './readOnlyCommands';
 export { getRedactMiddleware } from './redact';
 // U-21（批次⑦，2026-10-17）：scanners/validators/bash/files 子入口入桶
@@ -311,6 +329,13 @@ export { parseForSecurity, isDangerousCommand } from './bash/BashAST';
 export { getReadProtectionService } from './files/ReadProtectionService';
 export type { RedactResult, ObjectRedactResult } from './redact';
 export type { RedactStats } from './redact';
+// R4（2026-11-17）：文本去敏的唯一出口（采样 / 审批预览共用，含黄金样本单测）
+export {
+  redactSensitiveText,
+  buildRedactedInputPreview,
+  SENSITIVE_TEXT_PLACEHOLDER,
+} from './redact';
+export type { SensitiveTextRedactResult } from './redact';
 // A3（2026-10-09）：敏感环境变量剥离单一事实源（供 BashTool spawn / hooks 脚本执行复用）
 // 第九轮审查 §五（2026-10-09）：新增**调用方 env** 清理（执行控制键 + 敏感键）
 export {

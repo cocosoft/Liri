@@ -1,0 +1,1998 @@
+/**
+ * 事件日志存储 — append-only + seq 单调性守卫
+ *
+ * 设计参考：deepseek-harness packages/client/runtime/src/client/sessions/session.ts
+ *           的 appendLive 单调性守卫
+ * 父方案：dev_docs/20260821/M1-事件溯源迁移-详细技术方案.md §2
+ *
+ * 存储路径：~/.pyapp/data/sessions/<worktreeHash>/<sessionId>/events.jsonl
+ * 格式：每行一个 LiriEvent 的 JSON（JSONL）
+ *
+ * 守卫规则（2026-11-15 订正：原文写「重复/乱序 seq 拒绝」，与 H11 起的实现不符）：
+ *   1. `seq <= 0` → mutex 内原子分配；`0 < seq <= tailSeq` → **自动纠正**（`logger.warn`），
+ *      **不丢弃**事件，`data.callSeq` 同步改写（A1 闭环：callSeq 恒等于事件 seq）
+ *   2. 故 `duplicate-seq` / `out-of-order` **不再产生**；失败原因只有 `invalid-event` /
+ *      `session-dir-missing` / `write-error`
+ *
+ * 性能：
+ *   - tailSeq 内存缓存（懒加载），避免每次 append 读盘
+ *   - 追加写入用 fs.appendFile（O(1)）
+ *   - 读取用 readline 流式逐行解析（避免一次性加载大文件）
+ *
+ * 并发：
+ *   - 同一实例内 append 串行化（mutex queue），保证 seq 单调
+ *   - 跨实例的并发由调用方（ChatManager）保证单一 EventLogStorage per session
+ */
+
+import {
+  promises as fs,
+  existsSync,
+  createReadStream,
+  openSync,
+  readSync,
+  closeSync,
+} from 'fs';
+import { join, resolve as resolvePath } from 'path';
+import * as readline from 'readline';
+import { resolveLegacySessionsDir } from '@openliri/infra/environment';
+import { enterPhase, exitPhase } from '@openliri/infra/diagnostics';
+import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
+import {
+  handleError,
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '@openliri/infra/error';
+import type { LiriEvent, LiriEventType } from '@modules/session/types/events';
+import { isLiriEvent } from '@modules/session/types/events';
+import { sanitizeEvent } from './eventSanitize';
+// 大文件拆分（spec file-size-debt-partition-plan §36/§37）
+import { EventLogTextBuffer } from './EventLogTextBuffer';
+import {
+  EventLogThinkingBuffer,
+  THINKING_MERGE_MAX_BYTES,
+} from './EventLogThinkingBuffer';
+import { EventLogRepair, trackTurnLifecycle } from './EventLogRepair';
+// P1-3（2026-11-04）：文件级单写者队列（同一 events.jsonl 的多实例串行）
+import { enqueueFileWrite } from './fileWriteQueue';
+import { reportInvalidAppend } from './eventAppendRejection';
+import {
+  eventFilePathsInOrder,
+  hasEventData,
+  iterateEventFiles,
+  readTailFirstSeq,
+} from './eventSegments';
+import {
+  extractEventFromLine,
+  splitJsonLine,
+  filterSnapshotEvents,
+} from './eventLineParse';
+import {
+  assertEventReadable,
+  assertEventWritable,
+} from '@modules/session/types/knownEventTypes';
+// 内存画像（2026-09-02 排查"会话中断/内存尖峰"用，MEM_PROFILE=1 才采样）
+import { memProfile } from '@openliri/infra/monitoring/memProfile';
+
+const logger = getLogger('session:event-log');
+
+// ─── A-5 告警节流/熔断常量（2026-08-23）─────────────────────────────────────
+
+/** 同类 append 失败告警节流窗口：1 分钟合并（方案 T-B#1，评审 v0.1#11） */
+const APPEND_ALERT_COOLDOWN_MS = 60_000;
+/** 连续 append 失败触发熔断的阈值（方案 T-B#1） */
+const APPEND_FAIL_THRESHOLD = 5;
+/** 熔断持续时长：暂停对账/重试 5 分钟，防风暴（方案 T-B#1，评审 v0.3#11） */
+const APPEND_CIRCUIT_DURATION_MS = 5 * 60_000;
+
+/**
+ * P1-2（2026-08-30）：事件快照缓存默认上限。
+ *
+ * 超过则禁用快照（回落流式分页读取，保持既有 regex-skip 优化），
+ * 防超长会话（40 万行量级）全量驻内存放大。事件不可变 + append-only
+ * 使缓存可安全共享；上限仅约束"是否建快照"，不影响读取正确性。
+ * 构造参数可覆盖（测试注入小上限，避免写 15 万行文件）。
+ */
+const SNAPSHOT_MAX_EVENTS = 150_000;
+/**
+ * B-2（2026-09-02，v4 §6.2 B-2 / D2 ①）：热层事件窗口动态收缩目标。
+ *
+ * 150K 固定上限在真实场景（12.4 万 tokens、单事件可达 MB 级）下形同虚设：
+ * 字节上限（200MB）先到，窗口内仍可容纳海量小事件推高 RSS。热窗口按
+ * "≤ SNAPSHOT_HOT_EVENTS" 收敛（与配置上限取 min），冷历史走 events.idx
+ * 读盘（D7 已就绪），小会话（≤10K 事件）不受影响（全量覆盖）。
+ */
+const SNAPSHOT_HOT_EVENTS = 10_000;
+/** P1-7（2026-08-30）：快照累计字节上限（buildSnapshot 扫描累计 line.length；append 增量按 JSON.stringify 长度近似） */
+const SNAPSHOT_MAX_BYTES = 200 * 1024 * 1024;
+/** P0-3/P1-5（2026-08-30）：stale/IO 失败后的重建冷却期，防跨实例持续写期间反复全量扫描 */
+const SNAPSHOT_COOLDOWN_MS = 5_000;
+
+// ─── P3-8 事件字节索引（2026-09-02，v4 方案 B-1/D7 索引独立先行）───────
+// 目标：read(fromSeq>1) 分页续读从"readline 从头逐行扫描（O(N)）"降为
+// "idx 二分定位 → createReadStream(start=byteOffset) 段内读取"。
+// 索引为派生物（可重建/可丢失降级），非第二真相源——见 §13 降级链。
+/** 索引区间折叠粒度：每 256 个事件一个区间条目（区间内 ≤256 行流式扫，代价可控） */
+const IDX_BATCH_SIZE = 256;
+/** UTF-8 字节偏移累计基数（写事件前的文件起始偏移，append-only 下恒定） */
+const IDX_INIT_OFFSET = 0;
+
+/** 事件字节索引区间条目（持久化为 .idx 文件行） */
+export interface EventIdxEntry {
+  /** 区间起始 seq（包含） */
+  fromSeq: number;
+  /** 区间结束 seq（包含） */
+  toSeq: number;
+  /** 区间首行在 events.jsonl 中的 UTF-8 字节偏移（G-4：seek 偏移不允许近似） */
+  byteOffset: number;
+  /** 区间内事件数 */
+  count: number;
+}
+
+// ─── 类型定义 ───────────────────────────────────────────────────────────────
+
+/** 事件日志查询参数 */
+export interface EventLogQuery {
+  /** 起始 seq（包含），默认 1 */
+  fromSeq?: number;
+  /** 结束 seq（包含），默认 Infinity */
+  toSeq?: number;
+  /** 类型过滤（白名单），默认不过滤 */
+  types?: LiriEventType[];
+  /** 类型排除（黑名单，行级快速跳过，不 parse——用于载入跳过 thinking 等高频细节事件） */
+  excludeTypes?: LiriEventType[];
+  /** 最大返回数，默认 1000，上限 10000 */
+  limit?: number;
+}
+
+/** append 操作返回结果 */
+export interface EventLogAppendResult {
+  /** 是否成功 */
+  ok: boolean;
+  /** 失败原因（`duplicate-seq` / `out-of-order` 已不存在：seq 冲突走自动纠正，不拒绝） */
+  reason?:
+    | 'write-error'
+    | 'invalid-event'
+    /** TB-14/E1-a：会话目录已不存在（被外部进程软删除）⇒ 主动放弃落盘，非真实写失败 */
+    | 'session-dir-missing';
+  /** 当前 tailSeq */
+  tailSeq: number;
+  /** H11：本次写入发生 seq 冲突纠正时的纠正后 seq（供调用方同步 data.callSeq 等派生字段） */
+  correctedSeq?: number;
+}
+
+/** 批量 append 结果 */
+export interface EventLogAppendBatchResult {
+  /** 成功追加数 */
+  appended: number;
+  /** 拒绝数 */
+  rejected: number;
+  /** 当前 tailSeq */
+  tailSeq: number;
+  /** 第一条被拒绝的事件（若有） */
+  firstRejected?: { seq: number; reason: EventLogAppendResult['reason'] };
+}
+
+// ─── 损坏行拆分恢复 / 快照过滤（大文件拆分 spec §37）：已外迁 `./eventLineParse.ts` ───
+// 宿主**再导出** ⇒ 既有 import 路径不变（`app/scripts/verify-derive.ts` 仍从本文件取 `splitJsonLine`）。
+export { splitJsonLine, filterSnapshotEvents } from './eventLineParse';
+
+// ─── EventLogStorage ────────────────────────────────────────────────────────
+
+/**
+ * 事件日志存储
+ *
+ * 一个实例对应一个会话的事件日志（per-session）。
+ * 调用方（ChatManager）应缓存实例，避免重复初始化 tailSeq。
+ */
+export class EventLogStorage {
+  private readonly sessionDir: string;
+  private readonly filePath: string;
+  private readonly backupFilePath: string;
+  /** A-6（2026-08-23）：lastKnown tailSeq 持久化文件（getTailSeq 失败平滑降级用） */
+  private readonly tailSeqMetaPath: string;
+  /** P3-8：事件字节索引文件路径（events.jsonl 派生物） */
+  private readonly idxFilePath: string;
+  /** A-5（2026-08-23）：连续 append 失败计数（成功时清零） */
+  private appendFailCount = 0;
+  /** A-5（2026-08-23）：上次告警时间戳（节流窗口用） */
+  private lastAlertAt = 0;
+  /** A-5（2026-08-23）：熔断截止时间戳（0=未熔断） */
+  private circuitOpenUntil = 0;
+  /**
+   * 崩溃修复链门面（大文件拆分 spec §37）：torn-tail 检测/截断、未闭合轮次合成、
+   * 首读自动修复与修复告警节流已外迁 `./EventLogRepair.ts`。
+   */
+  private readonly repair: EventLogRepair;
+
+  /** 当前 tailSeq（0 表示未初始化，需读盘） */
+  private tailSeq: number = 0;
+  /** tailSeq 是否已初始化 */
+  private tailSeqInitialized: boolean = false;
+  /** 最大 turn 编号（null 表示未初始化，需读盘；重启后恢复计数用） */
+  private maxTurn: number | null = null;
+
+  /**
+   * P1-2（2026-08-30）：全量事件快照缓存（对齐 deepseek-harness eventsSnapshot）。
+   *
+   * 事件不可变（D1 深冻结）+ append-only 使缓存可安全共享：命中时免重复
+   * 磁盘扫描 + 行级 JSON 解析（长会话分页读取的核心开销）。有序数组的
+   * **尾元素 seq 即快照覆盖范围**（snapshotTail，新鲜度判定基准之一）。
+   * 超限（条数/字节）置 snapshotIneligible 防内存放大。
+   */
+  private eventsSnapshot: LiriEvent[] | null = null;
+  /** P1-2：快照不可建标记（超上限后置位——事件只会更多，永久禁用；`clearSnapshotCache` 后重置） */
+  private snapshotIneligible = false;
+  /** P1-2：快照累计字节（buildSnapshot 按 line.length 累计；append 增量按 JSON.stringify 近似） */
+  private snapshotBytes = 0;
+  /** P0-3（2026-08-30）：stale/IO 失败后的重建冷却截止时间戳（0=不在冷却） */
+  private snapshotCooldownUntil = 0;
+  /**
+   * B0（2026-09-02，v4 方案 §6.2）：滑动窗口快照。
+   *
+   * 超限时保留最近事件、丢弃更早（滑动窗口），而非整体清空 + 永久 ineligible
+   * （消除"超限 → 全量重建尖峰"）。snapshotMinSeq = 窗口首事件 seq
+   * （0 = 快照覆盖全量，未丢头）。读取侧查询 fromSeq < snapshotMinSeq 时窗口
+   * 无法覆盖 → 回退磁盘路径（events.jsonl 本身全量保留，语义不变，T4 不破坏）。
+   */
+  private snapshotMinSeq = 0;
+  /**
+   * B0：快照内每事件的行字节成本（UTF-16 line.length，与 snapshotBytes 同单位）。
+   * 与 eventsSnapshot 严格并行（同 push/同裁剪），供窗口裁剪 O(窗口) 一次完成，
+   * 免每次裁剪对整批事件 JSON.stringify 重算成本。
+   */
+  private snapshotCosts: number[] = [];
+
+  // ─── A-2①（2026-09-02，v4 §5.2 选项①）：text 聚合缓冲（已外迁） ───
+  /**
+   * 流式正文缓冲门面（大文件拆分 spec §36）：`textChunkBuffer*` /
+   * `streamedTextMessageIds` 与缓冲/flush 逻辑已外迁 `./EventLogTextBuffer.ts`。
+   */
+  private readonly textBuffer: EventLogTextBuffer;
+
+  private readonly thinkingBuffer: EventLogThinkingBuffer;
+
+  // ─── P3-8 事件字节索引（2026-09-02）──────────────────────────────────
+  /** 索引区间内存视图（按 fromSeq 升序；与磁盘 .idx 同源） */
+  private idxEntries: EventIdxEntry[] = [];
+  /** 索引是否已从磁盘加载（惰性，首次 read/append 前） */
+  private idxLoaded = false;
+  /** T3-10：`events.idx` 区间条目是否已解析（独立于 `idxLoaded`，供 `getTailSeq` 亦复用 idx 而不递归） */
+  private idxEntriesLoaded = false;
+  /** 索引累积已解析到的文件末尾 seq（.idx 与 events.jsonl 的同步锚点） */
+  private idxTailSeq = 0;
+  /** append-only 写路径的 UTF-8 字节累计（= 下一条事件行的起始偏移，G-4 精确 seek 依据） */
+  private idxBytesTotal = IDX_INIT_OFFSET;
+  /** 当前待折叠批的起始 seq（0=无在途批） */
+  private idxBatchStartSeq = 0;
+  /** 当前待折叠批的起始字节偏移 */
+  private idxBatchStartOffset = IDX_INIT_OFFSET;
+  /** 当前待折叠批内已累计事件数 */
+  private idxBatchCount = 0;
+  /**
+   * P0-5（L-9 残余，2026-10-10）：**续页锚点** —— 上一次 `read` 页满时的"下一行"位置。
+   *
+   * 仅在 `events.idx` 未覆盖目标 seq 时起作用（idx 缺失 / 落后 G-2）：续页 `fromSeq`
+   * 恰为锚点后第一个 seq 时直接从 `byteOffset` seek，把分页读取由"每页从 offset 0
+   * 重扫"（≈O(N²/PAGE)）降为**线性续扫**（总扫描量 ≈O(N)）。
+   *
+   * 安全性（G-4：seek 偏移不允许近似）：① `fromSeq` 必须与 `afterSeq` 连续；
+   * ② seek 前以 `isLineStart` 校验该偏移前一字节为 '\n'。append-only 下
+   * seq ≥ afterSeq+1 的事件必位于 `byteOffset` 之后 ⇒ 不漏事件；任一条件不满足
+   * 即**回退 0 全扫**（只慢不错，CS03）。
+   */
+  private readBoundary: { afterSeq: number; byteOffset: number } | null = null;
+  /** A（2026-10-30）：活动尾文件首条事件 seq（0=未探测；append-only 下首 seq 恒定） */
+  private tailFirstSeq = 0;
+  /** 快照条数上限（构造可注入，测试用小值避免写大文件） */
+  private readonly maxSnapshotEvents: number;
+  /** 快照字节上限（构造可注入） */
+  private readonly maxSnapshotBytes: number;
+  /**
+   * P2-E（2026-08-30）：buildSnapshot"扫描后-提交前"挂起点。
+   * 生产为空；测试注入用于构造"扫描期间 append"并发竞态。
+   */
+  private readonly snapshotPreCommitHook?: () => Promise<void>;
+
+  constructor(
+    private readonly sessionId: string,
+    private readonly worktreeHash: string = 'default',
+    /**
+     * D3（2026-08-24）：sessions 根目录覆盖（对齐 FileSystemUnifiedStorage.basePath 语义）
+     *
+     * 默认走 buildSessionDir（固定 ~/.pyapp/data/sessions）。传入时路径 =
+     * join(sessionsRoot, worktreeHash, sessionId)，用于与存储层 basePath 统一
+     * （fork 场景：源/子会话事件与 session.json 同目录）及测试隔离。
+     */
+    private readonly sessionsRoot?: string,
+    /**
+     * P1-6（2026-08-30）：快照条数上限可注入（测试用小值，避免写 15 万行文件）；
+     * 默认 SNAPSHOT_MAX_EVENTS。
+     */
+    maxSnapshotEvents: number = SNAPSHOT_MAX_EVENTS,
+    /**
+     * P1-7（2026-08-30）：快照字节上限可注入；默认 SNAPSHOT_MAX_BYTES。
+     */
+    maxSnapshotBytes: number = SNAPSHOT_MAX_BYTES,
+    /**
+     * P2-E（2026-08-30）：buildSnapshot"扫描后-提交前"挂起点（测试构造并发竞态用）。
+     */
+    snapshotPreCommitHook?: () => Promise<void>,
+    maxThinkingMergeBytes?: number
+  ) {
+    this.maxSnapshotEvents = maxSnapshotEvents;
+    this.maxSnapshotBytes = maxSnapshotBytes;
+    this.snapshotPreCommitHook = snapshotPreCommitHook;
+    this.sessionDir = sessionsRoot
+      ? join(sessionsRoot, worktreeHash, sessionId)
+      : this.buildSessionDir();
+    this.filePath = join(this.sessionDir, 'events.jsonl');
+    this.backupFilePath = join(this.sessionDir, 'events.jsonl.bak');
+    this.tailSeqMetaPath = join(this.sessionDir, 'events.tail');
+    /** P3-8：事件字节索引文件（派生物，可重建/丢失降级） */
+    this.idxFilePath = join(this.sessionDir, 'events.idx');
+    // 流式正文缓冲门面（spec §36）：flush 时经宿主 append 落盘（seq 由 append 分配）
+    this.textBuffer = new EventLogTextBuffer({
+      sessionId: this.sessionId,
+      append: (event) => this.append(event),
+    });
+    this.thinkingBuffer = new EventLogThinkingBuffer({
+      sessionId: this.sessionId,
+      maxBytes: maxThinkingMergeBytes ?? THINKING_MERGE_MAX_BYTES,
+      append: (event) => this.append(event),
+    });
+    // 崩溃修复链门面（spec §37）：显式端口（路径/存在性 + tail 状态 + 逐行读 + 快照失效 + append）
+    this.repair = new EventLogRepair({
+      sessionId: this.sessionId,
+      filePath: this.filePath,
+      exists: () => this.exists(),
+      resetTailState: () => this.resetTailState(),
+      getTailSeq: (force) => this.getTailSeq(force),
+      writePersistedTailSeq: (seq) => this.writePersistedTailSeq(seq),
+      createReadlineInterface: (file) => this.createReadlineInterface(file),
+      clearSnapshotCache: () => this.clearSnapshotCache(),
+      append: (event) => this.append(event),
+    });
+  }
+
+  /**
+   * 构建会话目录路径
+   *
+   * 路径：~/.pyapp/data/sessions/<worktreeHash>/<sessionId>
+   *
+   * 直接取 sessions 根（resolveLegacySessionsDir，即 ~/.pyapp/data/sessions），
+   * 再拼接构造参数 worktreeHash 与 sessionId。
+   *
+   * 不直接调 resolveSessionsDir() 是因为它会从环境变量读 worktreeHash，
+   * 而 EventLogStorage 实例化时 worktreeHash 已确定（构造参数）。
+   * P1（2026-09-18）：改用 resolveLegacySessionsDir() 直接取 sessions 根，
+   * 取代旧 hack（传 env={PYAPP_PROJECT_DIR:''} 让 resolveSessionsDir 走 default）。
+   */
+  private buildSessionDir(): string {
+    const sessionsRoot = resolveLegacySessionsDir();
+    return join(sessionsRoot, this.worktreeHash, this.sessionId);
+  }
+
+  /** events.jsonl 的绝对路径 */
+  getFilePath(): string {
+    return this.filePath;
+  }
+
+  /** 备份文件路径（迁移后保留 30 天） */
+  getBackupFilePath(): string {
+    return this.backupFilePath;
+  }
+
+  /**
+   * 文件是否存在（A：**尾文件或任一分片**存在即可 —— 分片也算"有历史事件"，
+   * 否则尾文件被外部删除后会从 seq=1 重新分配，覆盖历史序号）。
+   */
+  exists(): boolean {
+    return hasEventData(this.sessionDir, this.filePath);
+  }
+
+  /**
+   * 获取当前 tailSeq
+   *
+   * - 首次调用：读盘扫描整个文件找最大 seq
+   * - 后续调用：直接返回内存缓存
+   *
+   * 强制读盘：调用方需要校准时可传 force=true
+   */
+  async getTailSeq(force: boolean = false): Promise<number> {
+    // A-2①：先 flush 缓冲正文（其 seq 在落盘时分配），返回的逻辑尾部才含缓冲内容
+    if (this.textBuffer.hasPending()) {
+      await this.flushTextBuffer();
+    }
+    await this.thinkingBuffer.flush(); // B1：在途 thinking 同 text 缓冲
+    if (this.tailSeqInitialized && !force) {
+      return this.tailSeq;
+    }
+
+    if (!this.exists()) {
+      this.tailSeq = 0;
+      this.tailSeqInitialized = true;
+      return 0;
+    }
+
+    // 扫描文件找最大 seq（T3-10：复用 idx 定位——从末区间起点续扫，而非自文件头全扫）
+    // A（2026-10-30）：分片布局下最大 seq **恒在最后一份文件**（活动尾；尾缺失时为末分片）
+    let maxSeq = 0;
+    try {
+      await this.loadIdxEntries();
+      const files = eventFilePathsInOrder(this.sessionDir, this.filePath);
+      const lastFile = files[files.length - 1];
+      if (!lastFile) {
+        this.tailSeq = 0;
+        this.tailSeqInitialized = true;
+        return 0;
+      }
+      const rl = this.openOffsetReadline(
+        lastFile,
+        lastFile === this.filePath ? this.resolveTailScanStart() : 0
+      );
+      for await (const line of rl) {
+        if (!line.trim()) continue;
+        try {
+          const event = JSON.parse(line) as LiriEvent;
+          if (typeof event.seq === 'number' && event.seq > maxSeq) {
+            maxSeq = event.seq;
+          }
+        } catch {
+          // 损坏行：拆分恢复 seq（防 tailSeq 少算，2026-08-24 根因修复）
+          for (const obj of splitJsonLine(line)) {
+            if (
+              typeof (obj as { seq?: unknown }).seq === 'number' &&
+              (obj as { seq: number }).seq > maxSeq
+            ) {
+              maxSeq = (obj as { seq: number }).seq;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      await handleError(e, {
+        module: 'session:event-log',
+        action: 'getTailSeq',
+        context: { sessionId: this.sessionId, filePath: this.filePath },
+      }).catch(() => {});
+      // A-6（2026-08-23）：读盘失败 → 平滑降级链（持久化 lastKnown → 尾部扫描 → lastKnown+1 兜底），
+      // 不抛错、不归零，避免真实 tailSeq 丢失导致后续 append 的 duplicate-seq 全拒。
+      maxSeq = await this.recoverTailSeq();
+    }
+
+    this.tailSeq = maxSeq;
+    this.tailSeqInitialized = true;
+    return maxSeq;
+  }
+
+  /**
+   * M1 事件溯源：获取当前会话已有事件中的最大 turn 编号（用于重启后恢复 turn 计数）
+   *
+   * 背景：turn 编号由内存计数器 _toolRoundCount 生成，后端重启后归零，
+   * 导致 events.jsonl 中出现重复 turn 号（如 turn=1 出现多次），
+   * 前端回放时无法区分"重复回放"与"重启后的新对话"。
+   *
+   * 修复：写入 turn/start 前调用本方法，从事件日志恢复该会话最大 turn，
+   * 使重启后 turn 编号继续递增而非从 1 重新开始。
+   *
+   * 实现：流式读盘扫描 turn/start / turn/end 事件的 data.turn，取最大值。
+   * 性能：仅首次调用读盘（turn/start 写入频率低，每轮一次，可接受）。
+   */
+  async getMaxTurn(force: boolean = false): Promise<number> {
+    if (this.maxTurn !== null && !force) {
+      return this.maxTurn;
+    }
+    if (!this.exists()) {
+      this.maxTurn = 0;
+      return 0;
+    }
+    let maxTurn = 0;
+    try {
+      const rl = this.createReadlineInterface();
+      for await (const line of rl) {
+        if (!line.trim()) continue;
+        try {
+          const event = JSON.parse(line) as LiriEvent;
+          if (event.type === 'turn/start' || event.type === 'turn/end') {
+            const data = event.data as { turn?: unknown } | undefined;
+            const turn = data?.turn;
+            if (
+              typeof turn === 'number' &&
+              Number.isFinite(turn) &&
+              turn > maxTurn
+            ) {
+              maxTurn = turn;
+            }
+          }
+        } catch (parseErr) {
+          // KB-EVENTLOG-BADLINE（2026-08-29）：损坏行静默跳过 → 数据损坏不可感知
+          logger.warn('事件日志损坏行跳过（getMaxTurn）', {
+            sessionId: this.sessionId,
+            error:
+              parseErr instanceof Error ? parseErr.message : String(parseErr),
+          });
+        }
+      }
+    } catch (e) {
+      await handleError(e, {
+        module: 'session:event-log',
+        action: 'getMaxTurn',
+        context: { sessionId: this.sessionId, filePath: this.filePath },
+      }).catch(() => {});
+      maxTurn = 0;
+    }
+    this.maxTurn = maxTurn;
+    return maxTurn;
+  }
+
+  // ─── A-2① / N-59：流式正文缓冲（大文件拆分 spec §36）────────────────
+  // `streamedTextMessageIds`（N-59 事实登记）与 `textChunkBuffer*` + 缓冲/flush 逻辑
+  // 已外迁 `./EventLogTextBuffer.ts`；以下 3 个方法保留为对外契约入口（薄委托）。
+
+  /**
+   * 该 messageId 是否已写入过正文（`assistant/text` 或 `assistant/text-batch`）。
+   * 供落盘侧去重判据使用（N-59）—— 实现见 `EventLogTextBuffer`。
+   */
+  hasStreamedTextForMessage(messageId: string): boolean {
+    return this.textBuffer.hasStreamedTextForMessage(messageId);
+  }
+
+  /** A-2①：缓冲一条 text chunk（不落盘、不分配 seq）—— 实现见 `EventLogTextBuffer` */
+  async bufferTextChunk(
+    messageId: string,
+    content: string
+  ): Promise<{ ok: boolean }> {
+    return this.textBuffer.bufferTextChunk(messageId, content);
+  }
+
+  /** A-2①：flush 全部缓冲 text —— 实现见 `EventLogTextBuffer` */
+  async flushTextBuffer(): Promise<number> {
+    const flushed = await this.textBuffer.flushTextBuffer();
+    await this.thinkingBuffer.flush(); // B1：消息/turn 末顺带落盘 thinking
+    return flushed;
+  }
+
+  /**
+   * 追加一个事件
+   *
+   * 守卫：
+   *   - `seq <= 0` → mutex 内原子分配；`0 < seq <= tailSeq` → 自动纠正（**不丢事件**）
+   *   - 写入失败 → 返回 write-error，不抛错
+   *
+   * 并发：
+   *   - 通过 appendMutex 串行化，保证多调用者按到达顺序追加
+   *
+   * 不阻断主路径（CS03 回退策略最小化）：
+   *   - 写入失败只记日志，调用方决定是否重试
+   */
+  async append(event: LiriEvent): Promise<EventLogAppendResult> {
+    enterPhase('eventlog:append');
+    try {
+      // A-2①：直接 append 前先 flush 缓冲正文——保证 seq 顺序（缓冲正文先落盘，
+      // 后续 tool/status 等事件 seq 在其后，不破坏事件流单调与消息内顺序）
+      if (this.textBuffer.hasPending()) {
+        await this.flushTextBuffer();
+      }
+      // B1：相邻 thinking 合并——同 messageId 的连续 chunk 只落一条（非 thinking 先 flush，顺序不变）
+      if (await this.thinkingBuffer.absorb(event)) {
+        return { ok: true, tailSeq: this.tailSeq };
+      }
+      // 串行化：所有 append 调用排队执行
+      return this.queueAppend(async () => {
+        // D1（2026-08-24）：落盘前单遍无损 JSON 校验 + 深冻结——
+        // ① 拒绝 BigInt/undefined/循环引用等非 JSON 值（不写盘，避免 JSON.stringify 静默丢字段）
+        // ② 冻结对象与落盘对象一致，杜绝内存/磁盘不一致（数出同源）
+        const sanitized = sanitizeEvent(event);
+        if (!sanitized.ok) {
+          reportInvalidAppend(
+            this.sessionId,
+            event,
+            sanitized.reason ?? '未能给出原因',
+            'EVENT_APPEND_INVALID_PAYLOAD'
+          );
+          const tailSeq = await this.getTailSeq();
+          return { ok: false, reason: 'invalid-event', tailSeq };
+        }
+        const frozen = sanitized.event!;
+
+        // D2（2026-08-24）：写入端防御——运行时未知类型且非 ignorable 拒绝
+        // （TS 层已保证类型，此处防御运行时动态构造的事件）
+        const writable = assertEventWritable(frozen);
+        if (!writable.ok) {
+          reportInvalidAppend(
+            this.sessionId,
+            frozen,
+            writable.reason,
+            'EVENT_APPEND_UNKNOWN_TYPE'
+          );
+          const tailSeq = await this.getTailSeq();
+          return { ok: false, reason: 'invalid-event', tailSeq };
+        }
+
+        // 跨实例 seq 对齐（2026-08-24 根因修复）：
+        // 写入前读磁盘 lastKnown（events.tail meta）——多进程/多实例各自持有
+        // per-session EventLogStorage（mutex 互不共享）时，内存 tailSeq 可能落后
+        // 于磁盘，直接写入会产生重复/乱序 seq。先对齐再走守卫。
+        // KB-EVENT-TAIL-INIT（2026-08-29）：meta 缺失/未初始化时（A-6 之前旧文件、
+        // meta 写失败、meta 被清理）append 不自我初始化——tailSeq=0 会绕过 seq
+        // 守卫写入与盘上重复的 seq。文件存在时先扫描真实最大 seq 再走守卫。
+        if (!this.tailSeqInitialized && this.exists()) {
+          await this.getTailSeq();
+        }
+        const persisted = await this.readPersistedTailSeq();
+        if (persisted > this.tailSeq) {
+          logger.warn(
+            'event-log: 内存 tailSeq 落后磁盘 lastKnown，对齐后写入',
+            {
+              sessionId: this.sessionId,
+              memoryTailSeq: this.tailSeq,
+              persistedTailSeq: persisted,
+              eventSeq: frozen.seq,
+              eventType: frozen.type,
+            }
+          );
+          this.tailSeq = persisted;
+          this.tailSeqInitialized = true;
+        }
+        const tailSeq = this.tailSeq;
+
+        // P3-7a（2026-09-02）：seq<=0 → mutex 内原子分配。根治"getTailSeq + 1"两步
+        // 非原子竞争（多个生产者并发读到同一 tailSeq 分配相同 seq → duplicate-seq 纠正）。
+        // append 由 queueAppend 串行化，此处 tailSeq 是队列内最新值，分配 tailSeq+1 即唯一；
+        // data.callSeq 为 0/-1（未指定）时同步填分配值（A1 闭环：tool/result 与 tool_call
+        // 的 callSeq 必须等于事件 seq，前端按 callSeq 配对）。
+        // H11 修复：callSeq 重写逻辑提取为内联 helper，冲突纠正分支（guard 1）共用——
+        // 冲突分支此前只改 seq 不改 data.callSeq，破坏 A1 闭环、前端配对错位。
+        let toWrite = frozen;
+        // H11：记录是否发生 seq 纠正，成功返回时带出 correctedSeq
+        let correctedSeqOut: number | undefined;
+        if (frozen.seq <= 0) {
+          const allocated = tailSeq + 1;
+          const rawData = frozen.data as { callSeq?: number } | undefined;
+          const curCallSeq =
+            typeof rawData?.callSeq === 'number' ? rawData.callSeq : -1;
+          const finalCallSeq = curCallSeq > 0 ? curCallSeq : allocated;
+          toWrite =
+            finalCallSeq === curCallSeq
+              ? (Object.freeze({ ...frozen, seq: allocated }) as LiriEvent)
+              : (Object.freeze({
+                  ...frozen,
+                  seq: allocated,
+                  data: Object.freeze({
+                    ...(frozen.data ?? {}),
+                    callSeq: finalCallSeq,
+                  }),
+                }) as LiriEvent);
+        } else if (frozen.seq <= tailSeq) {
+          // 守卫 1：seq 冲突 → 自动纠正（跨实例并发下重分配，而非拒绝丢弃事件，
+          // 避免事件丢失导致投影兜底消息乱序置顶 / 事件溯源断层）
+          const correctedSeq = tailSeq + 1;
+          correctedSeqOut = correctedSeq;
+          // P1-2：seq 纠正新建对象需浅冻结（data 与 frozen 共享，已深冻结），
+          // 维持"落盘对象冻结"契约（D1），快照缓存可直接共享安全引用
+          // H11 修复：与 seq<=0 分支共用 callSeq 同步逻辑——data.callSeq 为 0/-1
+          // 或与旧 seq 一致时，改写为纠正后的 seq（A1 闭环：callSeq 恒等于事件 seq）。
+          const rawData = frozen.data as { callSeq?: number } | undefined;
+          const curCallSeq =
+            typeof rawData?.callSeq === 'number' ? rawData.callSeq : -1;
+          // H11 完整闭环：callSeq 为 0/-1（未指定）或与旧 seq 一致（随 seq 被纠正而失效）
+          // 时，一律改写为纠正后的 seq；仅显式指向其他事件的 callSeq 才保留。
+          const finalCallSeq =
+            curCallSeq > 0 && curCallSeq !== frozen.seq
+              ? curCallSeq
+              : correctedSeq;
+          toWrite =
+            finalCallSeq === curCallSeq
+              ? (Object.freeze({ ...frozen, seq: correctedSeq }) as LiriEvent)
+              : (Object.freeze({
+                  ...frozen,
+                  seq: correctedSeq,
+                  data: Object.freeze({
+                    ...(frozen.data ?? {}),
+                    callSeq: finalCallSeq,
+                  }),
+                }) as LiriEvent);
+          logger.warn('event-log: seq 冲突自动纠正', {
+            sessionId: this.sessionId,
+            fromSeq: frozen.seq,
+            toSeq: correctedSeq,
+            tailSeq,
+            type: frozen.type,
+            reason: frozen.seq === tailSeq ? 'duplicate-seq' : 'out-of-order',
+          });
+        }
+
+        // 写入
+        try {
+          await this.ensureIdxLoaded();
+          // TB-14/E1-a（2026-09-24）：会话目录已被外部进程删除 ⇒ 放弃本次写入（不重建目录）
+          if (!(await this.ensureSessionDir())) {
+            return {
+              ok: false,
+              reason: 'session-dir-missing',
+              tailSeq: this.tailSeq,
+            };
+          }
+          const line = JSON.stringify(toWrite) + '\n';
+          await fs.appendFile(this.filePath, line, 'utf-8');
+          this.tailSeq = toWrite.seq as number;
+          // P10（2026-11-12）：maxTurn 缓存随写入前进，否则 turn/end 取到旧最大值（start/end 编号错位）
+          const writtenTurn = (toWrite.data as { turn?: unknown } | undefined)
+            ?.turn;
+          if (
+            typeof writtenTurn === 'number' &&
+            writtenTurn > (this.maxTurn ?? 0)
+          )
+            this.maxTurn = writtenTurn;
+          // 2026-10-31：登记进程内轮次生命周期（在飞判定见 `EventLogRepair.hasRecentInFlightTurn`）
+          trackTurnLifecycle(this.sessionId, toWrite);
+          // A-5（2026-08-23）：写入成功 → 连续失败计数清零（熔断自动解除）
+          this.appendFailCount = 0;
+          // P1-2：快照增量扩展（toWrite 已冻结，与落盘对象一致，直接共享引用）
+          // B0（2026-09-02）：超限不再"清空 + ineligible"——改为滑动窗口裁剪
+          // （保留最近、丢弃更早），消除超限后的全量重建尖峰。line.length 已在此
+          // 序列化产物上可用（免二次序列化），成本入并行数组 snapshotCosts 备用。
+          if (this.eventsSnapshot) {
+            this.eventsSnapshot.push(toWrite);
+            const lineLen = line.length;
+            this.snapshotCosts.push(lineLen);
+            this.snapshotBytes += lineLen;
+            if (
+              this.eventsSnapshot.length > this.snapshotEventBudget() ||
+              this.snapshotBytes > this.maxSnapshotBytes
+            ) {
+              // B-3：冷却期节流——裁剪 O(窗口) 有成本，防"超限→裁剪→再超限"逐条反复；
+              // 冷却内先容忍越界增长，2× 硬上限兜底（极端巨事件流下仍受控）。
+              if (
+                Date.now() >= this.snapshotCooldownUntil ||
+                this.eventsSnapshot.length > this.snapshotEventBudget() * 2 ||
+                this.snapshotBytes > this.maxSnapshotBytes * 2
+              ) {
+                this.trimSnapshotToFit();
+              }
+            }
+          }
+          // A-6（2026-08-23）：持久化 lastKnown tailSeq（meta 写失败不影响本次写入）。
+          // 2026-11-09：必须放在**内存态（tailSeq + 事件快照）同步推进之后**——否则这个
+          // await 期间并发的读会看到 `snapshotTail === tailSeq - 1`，被判
+          // `snapshot-behind-memory`（真机实证：每轮告警并在冷却期后全量重建快照）。
+          await this.writePersistedTailSeq(toWrite.seq as number);
+          // P3-8（2026-09-02）：事件字节索引——append 写路径增量维护区间。
+          // G-4：行字节用 Buffer.byteLength(line,'utf-8')——seek 偏移是 UTF-8 字节数，
+          // 不可复用 line.length（UTF-16 code unit，中文差 1.5~3 倍会系统性偏斜）。
+          // 每 IDX_BATCH_SIZE 个事件折叠一个区间条目落盘 .idx；区间起点偏移 =
+          // idxBytesTotal（本批开始前已索引字节，即本行在文件中的真实起始偏移）。
+          // 索引派生物：折叠/落盘失败不阻断主路径（CS03），读路径回退逐行扫描。
+          const lineBytes = Buffer.byteLength(line, 'utf-8');
+          if (this.idxBatchCount === 0) {
+            this.idxBatchStartSeq = toWrite.seq as number;
+            this.idxBatchStartOffset = this.idxBytesTotal;
+          }
+          this.idxBatchCount++;
+          this.idxBytesTotal += lineBytes;
+          if (this.idxBatchCount >= IDX_BATCH_SIZE) {
+            await this.persistIdxEntry({
+              fromSeq: this.idxBatchStartSeq,
+              toSeq: toWrite.seq as number,
+              byteOffset: this.idxBatchStartOffset,
+              count: this.idxBatchCount,
+            });
+            this.idxBatchCount = 0;
+          }
+          return {
+            ok: true,
+            tailSeq: this.tailSeq,
+            ...(correctedSeqOut !== undefined
+              ? { correctedSeq: correctedSeqOut }
+              : {}),
+          };
+        } catch (e) {
+          // A-5（2026-08-23）：append 失败 → 节流告警 + 熔断（结构化告警由 handleError 发布）
+          this.recordAppendFailure(frozen, e);
+          return { ok: false, reason: 'write-error', tailSeq: this.tailSeq };
+        }
+      });
+    } finally {
+      exitPhase('eventlog:append');
+    }
+  }
+
+  // ─── P3-8 事件字节索引（2026-09-02，v4 方案 B-1/D7）─────────────────────
+
+  /**
+   * 惰性加载 .idx 索引 + 写路径字节偏移对齐（append/read 前各调一次）。
+   *
+   * 对齐语义：
+   *   - idx 文件存在 → 逐行解析区间条目入 idxEntries，idxTailSeq = 末区间 toSeq；
+   *     idxBytesTotal = 事件文件当前实际大小（对齐），尾部未索引区域（G-2 落后）
+   *     由 read 的"超出 idx 覆盖回退逐行"兜底，后续 append 从对齐值正确累计偏移。
+   *   - idx 文件缺失（重启后尚未折叠/从未落盘）→ idxBytesTotal 对齐事件文件大小，
+   *     idxTailSeq = tailSeq（语义：全部视为未索引尾部，读路径回退逐行直至新索引折叠）。
+   *
+   * 失败（读 idx 损坏）→ idxEntries 置空 + idxLoaded=true，读路径回退逐行（§13 降级）。
+   */
+  private async ensureIdxLoaded(): Promise<void> {
+    if (this.idxLoaded) return;
+    this.idxLoaded = true;
+    try {
+      if (existsSync(this.filePath)) {
+        const st = await fs.stat(this.filePath);
+        this.idxBytesTotal = st.size;
+        this.idxTailSeq = await this.getTailSeq().catch(() => 0);
+      }
+      await this.loadIdxEntries();
+      if (this.idxEntries.length > 0) {
+        // 有 .idx：同步锚点 = 末区间 toSeq（覆盖上面按 tailSeq 的兜底值）
+        this.idxTailSeq = this.idxEntries[this.idxEntries.length - 1].toSeq;
+        logger.debug('event-log: 事件字节索引已加载', {
+          sessionId: this.sessionId,
+          entries: this.idxEntries.length,
+          idxTailSeq: this.idxTailSeq,
+        });
+      }
+    } catch (e) {
+      // 索引损坏/IO 失败 → 降级（读路径回退逐行扫描），不阻断（CS03）
+      logger.warn('event-log: 索引加载失败，回退逐行扫描', {
+        sessionId: this.sessionId,
+        error: e instanceof Error ? e.message : String(e),
+      });
+      this.idxEntries = [];
+    }
+  }
+
+  /**
+   * T3-10：仅解析 `events.idx` 区间条目入内存（幂等；不触碰 tailSeq，故 `getTailSeq` 可安全调用）。
+   * idx 缺失 ⇒ 返回（调用方回退逐行）；单行损坏 ⇒ 跳过；整体 IO 失败 ⇒ 置空 + 告警（§13 降级）。
+   */
+  private async loadIdxEntries(): Promise<void> {
+    if (this.idxEntriesLoaded) return;
+    this.idxEntriesLoaded = true;
+    if (!existsSync(this.idxFilePath)) return;
+    try {
+      const rl = this.createReadlineInterface(this.idxFilePath);
+      for await (const line of rl) {
+        if (!line.trim()) continue;
+        try {
+          const entry = JSON.parse(line) as Partial<EventIdxEntry>;
+          if (
+            typeof entry?.fromSeq === 'number' &&
+            typeof entry?.toSeq === 'number' &&
+            typeof entry?.byteOffset === 'number' &&
+            typeof entry?.count === 'number'
+          ) {
+            this.idxEntries.push(entry as EventIdxEntry);
+            this.idxTailSeq = entry.toSeq;
+          }
+        } catch {
+          // 单行损坏跳过（可重建派生物，非第二真相源）
+        }
+      }
+    } catch (e) {
+      logger.warn('event-log: 索引加载失败，回退逐行扫描', {
+        sessionId: this.sessionId,
+        error: e instanceof Error ? e.message : String(e),
+      });
+      this.idxEntries = [];
+    }
+  }
+
+  /**
+   * 折叠一个区间条目：入内存 + 落盘 .idx（append-only 一行）。
+   * 落盘失败不阻断主路径（CS03）——内存条目照常可用，重启后 idx 落后由降级兜底。
+   */
+  private async persistIdxEntry(entry: EventIdxEntry): Promise<void> {
+    this.idxEntries.push(entry);
+    this.idxTailSeq = entry.toSeq;
+    try {
+      // TB-14/E1-a（2026-09-24）：会话目录已不存在 ⇒ 不写 .idx（不重建目录）
+      if (!(await this.ensureSessionDir())) return;
+      await fs.appendFile(
+        this.idxFilePath,
+        JSON.stringify(entry) + '\n',
+        'utf-8'
+      );
+    } catch (e) {
+      logger.warn('event-log: 索引条目落盘失败（内存索引仍可用）', {
+        sessionId: this.sessionId,
+        entry,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
+  /**
+   * 二分定位覆盖 fromSeq 的区间起始偏移。
+   *
+   * @returns 若 fromSeq 落在 `events.idx` 覆盖内（含末区间起点之前的最近区间）→ 区间首行
+   *          UTF-8 字节偏移（可 seek）；否则 null（fromSeq 早于首区间 / idx 不存在，回退逐行）。
+   * 命中区间可能起始于 fromSeq 之前（≤IDX_BATCH_SIZE 行；末区间之后的目标亦从末区间起点续扫，
+   * T3-10），读侧以现有 seq 正则跳过逻辑处理（不改变语义，仅减少扫描行数）。
+   */
+  private findIdxStartOffset(fromSeq: number): number | null {
+    if (this.idxEntries.length === 0) return null;
+    // 二分：最后一个 fromSeq <= 目标 的区间
+    let lo = 0;
+    let hi = this.idxEntries.length - 1;
+    let hit: EventIdxEntry | null = null;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (this.idxEntries[mid].fromSeq <= fromSeq) {
+        hit = this.idxEntries[mid];
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    if (!hit) return null;
+    // T3-10：目标超出末区间（末折叠批之后的**未索引尾部**，`events.idx` 只折叠满批）⇒
+    // 从**末区间起点**续扫（尾部 ≤ `IDX_BATCH_SIZE` 行），替代自文件头全扫；结果不变。
+    return hit.byteOffset;
+  }
+
+  /** T3-10：`getTailSeq` 扫描起点 = 末区间首行偏移（最大 seq 必在末区间内）；无 idx / 边界校验未过 ⇒ 回退 0 全扫 */
+  private resolveTailScanStart(): number {
+    if (this.idxEntries.length === 0) return IDX_INIT_OFFSET;
+    const start = this.idxEntries[this.idxEntries.length - 1].byteOffset;
+    if (start > IDX_INIT_OFFSET && !this.isLineStart(start)) {
+      return IDX_INIT_OFFSET;
+    }
+    return start;
+  }
+
+  /**
+   * P0-5（2026-10-10）：解析 `read` 的磁盘扫描起点（G-4：seek 偏移不允许近似）。
+   *
+   * 优先级：① `events.idx` 二分定位（P3-8，O(log N)）；② **续页锚点**（上一次 read 的
+   * 页边界，仅当 `fromSeq` 与锚点连续 **且** 偏移经行边界校验）；③ `0`（从头发起，
+   * 走既有 KB-EVENT-READ 正则跳过）。
+   *
+   * ② 的存在理由：idx **缺失**（重启后尚未折叠 / 夹具绕过 append）时 ① 返回 null ⇒ 原实现每页
+   * 从 offset 0 重扫 ⇒ ≈O(N²/PAGE)（CHANGELOG v0.4.72 §L-9 残余）。T3-10 起"超出末区间"由 ① 续扫。
+   */
+  private resolveScanStartOffset(fromSeq: number): number {
+    if (fromSeq <= 1) return IDX_INIT_OFFSET;
+    const idxStart = this.findIdxStartOffset(fromSeq);
+    if (idxStart !== null) return idxStart;
+    const anchor = this.readBoundary;
+    if (anchor !== null && anchor.afterSeq + 1 === fromSeq) {
+      if (
+        anchor.byteOffset > IDX_INIT_OFFSET &&
+        this.isLineStart(anchor.byteOffset)
+      ) {
+        logger.debug('event-log: idx 未覆盖，续页锚点线性续扫', {
+          sessionId: this.sessionId,
+          fromSeq,
+          afterSeq: anchor.afterSeq,
+          byteOffset: anchor.byteOffset,
+        });
+        return anchor.byteOffset;
+      }
+      // 锚点连续但偏移未过行边界校验（口径漂移 / 文件被外部改写）⇒ 回退全扫。
+      // 属**性能降级**（不影响正确性），故为 debug 级、不触发告警链路。
+      logger.debug('event-log: 续页锚点行边界校验未过，回退全扫', {
+        sessionId: this.sessionId,
+        fromSeq,
+        afterSeq: anchor.afterSeq,
+        byteOffset: anchor.byteOffset,
+      });
+    }
+    return IDX_INIT_OFFSET;
+  }
+
+  /**
+   * 校验 `offset` 是否为**行首**（前一字节为 '\n'）。
+   *
+   * 锚点偏移由读侧逐行累加推得；若口径漂移（历史 CRLF 文件 / 非法 UTF-8 解码膨胀）
+   * 会落到行中，那将**静默漏事件**——故 seek 前用 1 字节读做边界校验，不满足即弃用
+   * 锚点回退全扫（只慢不错）。'\n' 不可能出现在 JSON 行内部（换行被转义为 `\n`
+   * 两个字符），故"前一字节为 '\n'"⟺"该偏移为行首"。
+   */
+  private isLineStart(offset: number): boolean {
+    let fd: number;
+    try {
+      fd = openSync(this.filePath, 'r');
+    } catch {
+      return false;
+    }
+    try {
+      const buf = Buffer.alloc(1);
+      return readSync(fd, buf, 0, 1, offset - 1) === 1 && buf[0] === 0x0a;
+    } catch {
+      // 读失败（文件被外部删除等）→ 弃用锚点，不影响正确性
+      return false;
+    } finally {
+      try {
+        closeSync(fd);
+      } catch {
+        // 关闭失败无副作用（fd 随进程回收），不阻断读取
+      }
+    }
+  }
+
+  // ─── A-5 告警节流/熔断（2026-08-23）──────────────────────────────────────
+
+  /**
+   * A-5：append 失败处理（不抛错，返回失败结果）
+   *
+   * 告警链路：构造 HIGH 级 AppError → handleError（内置 logger + 内存追踪 +
+   * OTel Span + EventBus `error:occurred` 发布，AlertBridge 消费）。
+   * 节流：1 分钟窗口合并同类告警，避免失败风暴刷爆告警端。
+   * 熔断：连续失败 ≥ N 次 → 打开熔断（暂停对账/重试 N 分钟，防风暴），
+   *       写入成功自动解除。
+   */
+  private recordAppendFailure(event: LiriEvent, error: unknown): void {
+    this.appendFailCount++;
+    const now = Date.now();
+
+    // 节流：1 分钟窗口内同类告警合并（仅计数，不再触发告警链路）
+    if (now - this.lastAlertAt < APPEND_ALERT_COOLDOWN_MS) {
+      logger.debug('event-log: append 失败（节流窗口内合并）', {
+        sessionId: this.sessionId,
+        eventSeq: event.seq,
+        failCount: this.appendFailCount,
+      });
+      return;
+    }
+    this.lastAlertAt = now;
+
+    // 熔断：连续失败达到阈值 → 打开熔断并发布升级告警
+    if (this.appendFailCount >= APPEND_FAIL_THRESHOLD) {
+      this.circuitOpenUntil = now + APPEND_CIRCUIT_DURATION_MS;
+      logger.error('event-log: 连续 append 失败，触发熔断（暂停对账/重试）', {
+        sessionId: this.sessionId,
+        failCount: this.appendFailCount,
+        circuitOpenMs: APPEND_CIRCUIT_DURATION_MS,
+      });
+    }
+
+    const appError = new AppError(
+      `事件日志写入失败：${String(error)}`,
+      ErrorCategory.FILESYSTEM,
+      ErrorSeverity.HIGH,
+      this.appendFailCount >= APPEND_FAIL_THRESHOLD
+        ? 'EVENT_APPEND_CIRCUIT_OPEN'
+        : 'EVENT_APPEND_FAILED',
+      {
+        sessionId: this.sessionId,
+        eventSeq: event.seq,
+        eventType: event.type,
+        failCount: this.appendFailCount,
+      }
+    );
+    void handleError(appError, {
+      module: 'session:event-log',
+      action: 'append',
+      context: { sessionId: this.sessionId, eventSeq: event.seq },
+    }).catch(() => {});
+  }
+
+  /**
+   * A-5：是否处于 append 熔断期
+   *
+   * 上层（对账/重试）据此暂停 N 分钟，防失败风暴。
+   */
+  isAppendCircuitOpen(): boolean {
+    return Date.now() < this.circuitOpenUntil;
+  }
+
+  /**
+   * 批量追加（用于迁移器一次写入多条）
+   *
+   * - 调用方应保证 events 已按 seq 升序排序
+   * - 内部逐条校验，任一条 seq 违规则停止后续，返回已成功数
+   * - 不抛错（CS03）
+   */
+  async appendBatch(events: LiriEvent[]): Promise<EventLogAppendBatchResult> {
+    if (events.length === 0) {
+      const tailSeq = await this.getTailSeq();
+      return { appended: 0, rejected: 0, tailSeq };
+    }
+
+    let appended = 0;
+    let rejected = 0;
+    let firstRejected: EventLogAppendBatchResult['firstRejected'];
+
+    for (const event of events) {
+      const result = await this.append(event);
+      if (result.ok) {
+        appended++;
+      } else {
+        if (rejected === 0) {
+          firstRejected = { seq: event.seq, reason: result.reason };
+        }
+        rejected++;
+        // L4 修复：逐条尝试，不 break——单条拒绝（invalid-event 等）不影响
+        // 后续事件写入；append 内部 seq 冲突自动纠正，批量不会"全部失败"。
+      }
+    }
+
+    return {
+      appended,
+      rejected,
+      tailSeq: this.tailSeq,
+      firstRejected,
+    };
+  }
+
+  /**
+   * 读取事件流
+   *
+   * - 支持 fromSeq/toSeq/类型过滤/limit
+   * - 用 readline 流式读取，避免大文件内存爆炸
+   * - 返回有序数组（按 seq 升序）
+   *
+   * 不抛错：读盘失败返回空数组（CS03）
+   */
+  async read(query?: EventLogQuery): Promise<LiriEvent[]> {
+    // D4-4（2026-08-24）：首次读取前自动崩溃修复（torn-tail 截断 + 合成 closers）。
+    // 置于 exists 检查之前——即使文件损坏也需要先尝试修复再读取。
+    await this.ensureRepairChecked();
+
+    // 内存画像（MEM_PROFILE=1）：读取入口采样（快照/全量扫描可能瞬时膨胀）
+    memProfile('eventlog-read:start', { sessionId: this.sessionId });
+
+    // A-2①：read 前 flush 缓冲正文——流进行中读路径也看到已入缓冲的正文
+    //（所见即所存；缓冲正文 seq 在 flush 时分配，先于任何后续直接 append）
+    if (this.textBuffer.hasPending()) {
+      await this.flushTextBuffer();
+    }
+    await this.thinkingBuffer.flush(); // B1：在途 thinking 同 text 缓冲
+
+    if (!this.exists()) {
+      return [];
+    }
+
+    const fromSeq = query?.fromSeq ?? 1;
+    const toSeq = query?.toSeq ?? Number.MAX_SAFE_INTEGER;
+    const types = query?.types;
+    const excludeTypes = query?.excludeTypes;
+    const limit = Math.min(query?.limit ?? 1000, 10000);
+
+    // P1-2（2026-08-30）：事件快照缓存（对齐 deepseek-harness eventsSnapshot）。
+    // append-only + 深冻结事件使内存快照可安全共享：
+    //   ① 命中 → 内存过滤直接返回（免磁盘扫描 + 行级 JSON 解析）
+    //   ② 未命中且从头读（fromSeq<=1）→ 全量扫描建快照；超上限/失败置
+    //      snapshotIneligible 回落到原路径，防每次重复全量扫描
+    //   ③ 其余（分页续读 / 不可建快照）→ 原磁盘流式路径
+    // B0（2026-09-02）：快照可能为"最近窗口"（超限裁剪），仅覆盖
+    // [snapshotMinSeq, tail]——查询需要更早事件（fromSeq < snapshotMinSeq）时
+    // 窗口无法完整回答，回退磁盘路径（events.jsonl 本身全量保留，语义不变）。
+    const snapshot = await this.getFreshSnapshot();
+    const snapshotCovers =
+      snapshot !== null &&
+      (this.snapshotMinSeq === 0 || fromSeq >= this.snapshotMinSeq);
+    if (snapshotCovers) {
+      return filterSnapshotEvents(snapshot, {
+        fromSeq,
+        toSeq,
+        types,
+        excludeTypes,
+        limit,
+      });
+    }
+    if (
+      snapshot === null &&
+      fromSeq <= 1 &&
+      !this.snapshotIneligible &&
+      Date.now() >= this.snapshotCooldownUntil
+    ) {
+      const built = await this.buildSnapshot();
+      // 内存画像（MEM_PROFILE=1）：快照构建完成（深冻结事件常驻内存的真实成本点）
+      memProfile('eventlog:snapshot-built', {
+        sessionId: this.sessionId,
+        events: built?.length ?? 0,
+      });
+      if (built) {
+        this.eventsSnapshot = built;
+        // B0：build 结果可能是"最近窗口"（内存峰值受控）——若查询需要窗口
+        // 之外（更早）的事件，本次不返回，落入下方磁盘路径补全
+        if (this.snapshotMinSeq === 0 || fromSeq >= this.snapshotMinSeq) {
+          return filterSnapshotEvents(built, {
+            fromSeq,
+            toSeq,
+            types,
+            excludeTypes,
+            limit,
+          });
+        }
+      }
+    }
+
+    const results: LiriEvent[] = [];
+
+    try {
+      // P3-8（2026-09-02）：分页续读（fromSeq>1）优先用字节索引定位——
+      // O(N) 逐行扫描 → O(log N) 定位 + seek 段读。索引未覆盖（重启后未
+      // 折叠 / idx 落后 G-2）时回退 scanStart（P0-5：上次页边界续扫；无锚点则 0）。
+      await this.ensureIdxLoaded();
+      // A：分片布局「分片升序 + 尾文件」；idx 偏移只对尾文件有效 ⇒ 仅 fromSeq 落在尾文件内才走快路径
+      const files = eventFilePathsInOrder(this.sessionDir, this.filePath);
+      const tailFirstSeq = files.length > 1 ? await this.getTailFirstSeq() : 0;
+      const tailOnly =
+        files.length <= 1 || (tailFirstSeq > 0 && fromSeq >= tailFirstSeq);
+      const filesToScan = tailOnly ? [this.filePath] : files;
+      if (!tailOnly) this.readBoundary = null;
+      const scanStart = tailOnly ? this.resolveScanStartOffset(fromSeq) : 0;
+      // P0-5（L-9 残余）：续页锚点 = 页满那一刻的"当前行起点"（跨文件不通用，只对尾文件记）
+      let lastReturnedSeq = 0;
+      for await (const { line, lineStart, file } of iterateEventFiles(
+        filesToScan,
+        this.openRl,
+        { startFile: this.filePath, startOffset: scanStart }
+      )) {
+        if (!line.trim()) continue;
+        if (results.length >= limit) {
+          // 锚点只在同一文件内有效（跨文件续页回退逐行扫描，只慢不错）
+          if (file === this.filePath) {
+            this.readBoundary = {
+              afterSeq: lastReturnedSeq,
+              byteOffset: lineStart,
+            };
+          }
+          break;
+        }
+
+        // KB-EVENT-READ（2026-08-29）：fromSeq 之前行快速跳过——分页读取
+        // （getMessages/ChatManager 循环 read）原对每行 JSON.parse 全量解析，
+        // 40 万行事件（thinking 写放大）下 O(N²) 卡死（"重启后打不开"）。
+        // JSON 中 "seq" 紧跟行首，正则提取即可跳过范围外行，仅范围内行完整解析。
+        if (fromSeq > 1) {
+          const seqMatch = line.match(/"seq":(\d+)/);
+          // 能提取 seq 且小于 fromSeq 才快速跳过；提取失败（损坏行/拼接行）不跳过，
+          // 交下方 try 走 splitJsonLine 拆分恢复（2026-08-24 根因修复）。
+          // 原实现 continue 使分页读取（fromSeq>1，40 万行会话常态路径）下损坏行
+          // 不参与恢复，行内可恢复事件（含跨实例并发拼接场景）静默丢失。
+          if (seqMatch && parseInt(seqMatch[1], 10) < fromSeq) continue;
+        }
+        // KB-EVENT-READ-EXCL（2026-08-29）：excludeTypes 行级快速跳过——
+        // 载入长会话时排除 assistant/thinking 等高频细节事件，不 parse 直接跳过。
+        if (excludeTypes && excludeTypes.length > 0) {
+          const typeMatch = line.match(/"type":"([^"]+)"/);
+          if (
+            typeMatch &&
+            excludeTypes.includes(typeMatch[1] as LiriEventType)
+          ) {
+            continue;
+          }
+        }
+
+        const parsed = extractEventFromLine(line, {
+          fromSeq,
+          toSeq,
+          ...(types ? { types } : {}),
+          ...(excludeTypes ? { excludeTypes } : {}),
+        });
+        if (parsed.invalid === 'not-event') {
+          logger.warn('event-log: read 跳过非事件行', {
+            sessionId: this.sessionId,
+            linePreview: line.slice(0, 100),
+          });
+          continue;
+        }
+        if (parsed.invalid === 'unreadable') {
+          logger.warn('event-log: read 跳过不可读事件', {
+            sessionId: this.sessionId,
+            eventSeq: parsed.invalidEvent?.seq,
+            eventType: parsed.invalidEvent?.type,
+            reason: parsed.invalidEvent?.reason,
+          });
+          continue;
+        }
+        if (parsed.damaged) {
+          // 损坏行（跨实例并发拼接/截断）→ 按 JSON 边界拆分恢复（2026-08-24 根因修复）
+          if (parsed.events.length > 0) {
+            logger.warn('event-log: read 损坏行拆分恢复', {
+              sessionId: this.sessionId,
+              recoveredCount: parsed.events.length,
+              linePreview: line.slice(0, 100),
+            });
+          } else {
+            logger.warn('event-log: read 跳过损坏行（无法恢复）', {
+              sessionId: this.sessionId,
+              linePreview: line.slice(0, 100),
+            });
+          }
+        }
+        for (const event of parsed.events) {
+          results.push(event);
+          // P0-5：续页锚点的"已返回末端"（取最后一条，与磁盘字节序一致）
+          lastReturnedSeq = event.seq;
+        }
+      }
+    } catch (e) {
+      await handleError(e, {
+        module: 'session:event-log',
+        action: 'read',
+        context: { sessionId: this.sessionId, filePath: this.filePath },
+      }).catch(() => {});
+      return [];
+    }
+
+    // 按 seq 升序排序（文件应已有序，但防御性排序）
+    results.sort((a, b) => a.seq - b.seq);
+    return results;
+  }
+
+  /**
+   * D3（2026-08-24）：事件级 fork——复制本会话 [1..boundary] 前缀事件到目标存储
+   *
+   * - 保留原始 seq（子会话继承祖先 seq 空间，不做重映射；当前无跨会话 seq 引用）
+   * - 复制前先 ensureRepairChecked（复用 D4 崩溃修复，保证复制的是完整前缀）
+   * - 流式读取源文件，直接写原始行（避免 JSON 重序列化导致的格式漂移）
+   * - 目标必须为空（fork 目标 = 新建会话），已存在事件则拒绝 target-not-empty
+   * - 原子写入（tmp + rename，避免半写），同步更新目标 tailSeq + 持久化 meta
+   *
+   * @param target 目标 EventLogStorage（子会话）
+   * @param boundary fork 边界 seq（包含）；> 源 tailSeq 时复制全量
+   * @returns `maxCopiedSeq` = 实际复制到的**最大 seq**（P1-10：供 `forkSession` 回验
+   *          "声明边界 = 实际边界"；源 seq 有空洞/损坏行被跳过时可能 < `boundary`）
+   */
+  async copyPrefixTo(
+    target: EventLogStorage,
+    boundary: number
+  ): Promise<{
+    ok: boolean;
+    copied: number;
+    maxCopiedSeq: number;
+    reason?: string;
+  }> {
+    if (boundary <= 0) {
+      return { ok: true, copied: 0, maxCopiedSeq: 0 };
+    }
+    // 先修复源（torn-tail 截断 + 未闭合 turn 合成），保证复制的是完整前缀
+    await this.ensureRepairChecked();
+    if (!this.exists()) {
+      return { ok: true, copied: 0, maxCopiedSeq: 0 };
+    }
+    // fork 目标必须是新会话（空事件文件）
+    const targetTail = await target.getTailSeq();
+    if (targetTail > 0) {
+      return {
+        ok: false,
+        copied: 0,
+        maxCopiedSeq: 0,
+        reason: 'target-not-empty',
+      };
+    }
+
+    try {
+      const lines: string[] = [];
+      let maxCopiedSeq = 0;
+      // A：分片布局下前缀事件可能跨多个文件（分片升序 + 尾文件）
+      const files = eventFilePathsInOrder(this.sessionDir, this.filePath);
+      for await (const { line } of iterateEventFiles(files, this.openRl)) {
+        if (!line.trim()) continue;
+        try {
+          const event = JSON.parse(line) as LiriEvent;
+          if (typeof event.seq === 'number' && event.seq <= boundary) {
+            lines.push(line);
+            if (event.seq > maxCopiedSeq) maxCopiedSeq = event.seq;
+          }
+        } catch {
+          // 损坏行：repair 已处理 torn-tail，此处保守跳过（不复制损坏行）
+          logger.warn('event-log: copyPrefix 跳过损坏行', {
+            sessionId: this.sessionId,
+            linePreview: line.slice(0, 100),
+          });
+        }
+      }
+      if (lines.length === 0) {
+        return { ok: true, copied: 0, maxCopiedSeq: 0 };
+      }
+
+      // 原子写入目标（tmp + rename，避免半写文件）
+      // TB-14/E1-b'（2026-09-24）：**不再自建目标目录** —— 与 `ensureSessionDir()` 同契约
+      // （事件日志只"使用"会话目录、不创建它）。目标（子会话）目录由 `forkSession` 先
+      // `createSession` 落盘建立；若此处已不存在（被外部进程删除）⇒ **显式失败**，交由
+      // 调用方按 H9 回滚子会话，而不是把目录建回来留一个"只含事件文件"的半成品。
+      if (!(await target.ensureSessionDir())) {
+        return {
+          ok: false,
+          copied: 0,
+          maxCopiedSeq: 0,
+          reason: 'session-dir-missing',
+        };
+      }
+      const tmpPath = `${target.filePath}.fork`;
+      await fs.writeFile(tmpPath, lines.join('\n') + '\n', 'utf-8');
+      await fs.rename(tmpPath, target.filePath);
+      // 同步目标 tailSeq（内存缓存 + 持久化），后续 append 在此基础继续
+      target.tailSeq = maxCopiedSeq;
+      target.tailSeqInitialized = true;
+      await target.writePersistedTailSeq(maxCopiedSeq);
+      // P1-2：目标文件被整体覆盖（原子写），其快照失效
+      target.clearSnapshotCache();
+
+      logger.info('event-log: copyPrefix 完成', {
+        sessionId: this.sessionId,
+        targetSessionId: target.sessionId,
+        boundary,
+        copied: lines.length,
+        maxCopiedSeq,
+      });
+      return { ok: true, copied: lines.length, maxCopiedSeq };
+    } catch (e) {
+      await handleError(e, {
+        module: 'session:event-log',
+        action: 'copyPrefixTo',
+        context: {
+          sessionId: this.sessionId,
+          targetSessionId: target.sessionId,
+          boundary,
+        },
+      }).catch(() => {});
+      return { ok: false, copied: 0, maxCopiedSeq: 0, reason: 'copy-error' };
+    }
+  }
+
+  /**
+   * 读取单个 seq 的事件（用于工具结果配对）
+   *
+   * @returns 事件不存在或文件损坏时返回 null
+   */
+  async readBySeq(seq: number): Promise<LiriEvent | null> {
+    if (!this.exists()) return null;
+
+    try {
+      // T3-10：复用 idx 二分定位 seek 段读（替代自文件头全扫）；未覆盖时回退（只慢不错，CS03）
+      await this.ensureIdxLoaded();
+      const rl = this.createReadlineInterface(
+        this.filePath,
+        this.resolveScanStartOffset(seq)
+      );
+      for await (const line of rl) {
+        if (!line.trim()) continue;
+        try {
+          const event = JSON.parse(line) as unknown;
+          if (isLiriEvent(event) && event.seq === seq) {
+            // D2（2026-08-24）：版本校验 + 未知类型处理——不可读则视为未命中
+            const readable = assertEventReadable(event);
+            if (!readable.ok) {
+              logger.warn('event-log: readBySeq 跳过不可读事件', {
+                sessionId: this.sessionId,
+                seq,
+                eventType: event.type,
+                reason: readable.reason,
+              });
+              return null;
+            }
+            // D1（2026-08-24）：与 read() 契约一致——返回冻结对象
+            // （sanitizeEvent 对已冻结对象幂等跳过）
+            sanitizeEvent(event);
+            return event;
+          }
+        } catch (badLineErr) {
+          // KB-EVENTLOG-BADLINE2（2026-08-29）：损坏行静默跳过 → 数据损坏不可感知
+          logger.warn('事件日志损坏行跳过（readBySeq）', {
+            sessionId: this.sessionId,
+            seq,
+            error:
+              badLineErr instanceof Error
+                ? badLineErr.message
+                : String(badLineErr),
+          });
+        }
+      }
+    } catch (e) {
+      await handleError(e, {
+        module: 'session:event-log',
+        action: 'readBySeq',
+        context: { sessionId: this.sessionId, seq },
+      }).catch(() => {});
+    }
+
+    return null;
+  }
+
+  /**
+   * 备份现有 events.jsonl 为 events.jsonl.bak
+   *
+   * 用于迁移后保留原始数据，30 天内可恢复。
+   */
+  async backup(): Promise<void> {
+    if (!this.exists()) {
+      return;
+    }
+    try {
+      await fs.copyFile(this.filePath, this.backupFilePath);
+      logger.info('event-log: 已备份原文件', {
+        sessionId: this.sessionId,
+        backupPath: this.backupFilePath,
+      });
+    } catch (e) {
+      await handleError(e, {
+        module: 'session:event-log',
+        action: 'backup',
+        context: {
+          sessionId: this.sessionId,
+          filePath: this.filePath,
+          backupPath: this.backupFilePath,
+        },
+      }).catch(() => {});
+      // 备份失败不阻断主流程
+    }
+  }
+
+  // ─── 内部方法 ───────────────────────────────────────────────────────────
+
+  /**
+   * 串行化 append 操作
+   *
+   * P1-3（2026-11-04）：排队键从**实例**升级为**文件绝对路径**（`./fileWriteQueue`）——
+   * 同一会话的多个 `EventLogStorage` 实例写同一 `events.jsonl` 时也必须串行，
+   * 否则各自读到同一 tailSeq 产生 `duplicate-seq`。
+   */
+  private queueAppend<T>(fn: () => Promise<T>): Promise<T> {
+    // 归一为绝对路径：不同实例可能以相对/绝对 `sessionsRoot` 构造同一文件
+    return enqueueFileWrite(resolvePath(this.filePath), fn);
+  }
+
+  /**
+   * 会话目录是否已存在（存在 ⇒ 可继续写盘）。
+   *
+   * TB-14/E1-a（2026-09-24）：**不再自建目录** —— 原实现 `fs.mkdir(recursive: true)`
+   * 会在会话被**外部进程**软删除（目录 rename 到 `.trash`）后把目录凭空建回来
+   * （真机实测：`POST /v1/sessions/:id/title` ⇒ 目录复活，仅含 `events.jsonl`/`events.tail`），
+   * 使"内存有、盘上无"的幽灵重新变成"盘上也有"。会话目录由存储层 `createSession`
+   * 负责创建（现已"先落盘后入内存"），事件日志只应**使用**它、不应创建它。
+   *
+   * @returns 是否可继续写盘（false ⇒ 调用方应放弃本次写入）
+   */
+  private async ensureSessionDir(): Promise<boolean> {
+    if (existsSync(this.sessionDir)) return true;
+    logger.warn('event-log: 会话目录不存在，跳过落盘（不重建已删除会话）', {
+      sessionId: this.sessionId,
+      sessionDir: this.sessionDir,
+    });
+    return false;
+  }
+
+  /**
+   * P1-2：清空快照缓存（各失效点统一入口）。
+   *
+   * B0（2026-09-02）新增：同步重置窗口元数据（snapshotMinSeq / snapshotCosts），
+   * 保证"快照非空 ⇒ 元数据一致"的不变量。
+   */
+  private clearSnapshotCache(): void {
+    this.eventsSnapshot = null;
+    this.snapshotIneligible = false;
+    this.snapshotBytes = 0;
+    this.snapshotCooldownUntil = 0;
+    this.snapshotMinSeq = 0;
+    this.snapshotCosts = [];
+  }
+
+  /**
+   * D2（2026-09-22）：**释放可重建的大块常驻内存**（事件快照 + 成本数组）。
+   *
+   * 供 `ChatManager` 的「实例 LRU 淘汰」与「会话切换」两个释放点调用：
+   * 复用 `clearSnapshotCache()` 的既有不变量（快照与窗口元数据同时复位 + 允许重新评估资格），
+   * 不新增状态、不改正确性 —— 下次读取按需重建（`read()` 的建快照分支）。
+   *
+   * 为什么需要：实验测得单会话读取窗口内 RSS 3.9GB→4.5GB，而该会话全部事件
+   * 在磁盘上仅 4.07MB/5418 条；快照预算为 `min(10 000 事件, 200MB)`，
+   * 且原实现**只在物理变更时**才清空 ⇒ 触碰过的会话越多，常驻越高且无上限。
+   */
+  releaseMemory(): void {
+    this.clearSnapshotCache();
+  }
+
+  /**
+   * B-2（2026-09-02，v4 §6.2 / D2 ①）：热层事件窗口预算 = min(配置上限, HOT=10K)。
+   * 小会话（≤10K 事件）全量覆盖；大会话热窗口收敛至 ≤10K，更早历史走 events.idx。
+   */
+  private snapshotEventBudget(): number {
+    return Math.min(this.maxSnapshotEvents, SNAPSHOT_HOT_EVENTS);
+  }
+
+  /**
+   * B0（2026-09-02，v4 方案 §6.2）：滑动窗口裁剪——超限时保留最近事件、
+   * 丢弃更早，而非整体清空。
+   *
+   * 自尾向前按成本数组累计，直到（字节 或 条数）预算内；至少保留 1 条
+   * （单事件超预算的极端场景退化为"仅最近一条"，不会死循环清空）。
+   * 裁剪后置冷却（B-3），防"超限→裁剪→再写入→再超限"逐条反复。
+   */
+  private trimSnapshotToFit(): void {
+    const arr = this.eventsSnapshot;
+    if (!arr) return;
+    const costs = this.snapshotCosts;
+    // 防御：成本数组与快照严格并行（push/裁剪/清空同点），万一失配按全量重算
+    if (costs.length !== arr.length) {
+      let bytes = 0;
+      for (let i = 0; i < arr.length; i++) {
+        const c = JSON.stringify(arr[i]).length + 1;
+        if (costs.length === i) costs.push(c);
+        else costs[i] = c;
+        bytes += c;
+      }
+      costs.length = arr.length;
+      this.snapshotBytes = bytes;
+    }
+    let keepBytes = 0;
+    let keep = 0;
+    for (let i = arr.length - 1; i >= 0; i--) {
+      const c = costs[i];
+      if (
+        keep > 0 &&
+        (keepBytes + c > this.maxSnapshotBytes ||
+          keep >= this.snapshotEventBudget())
+      ) {
+        break;
+      }
+      keepBytes += c;
+      keep++;
+    }
+    keep = Math.max(keep, 1);
+    if (keep >= arr.length) return; // 未超限（理论上不会到此处）
+    const start = arr.length - keep;
+    const droppedHead = arr[start] as LiriEvent;
+    this.eventsSnapshot = arr.slice(start);
+    this.snapshotCosts = costs.slice(start);
+    this.snapshotBytes = keepBytes;
+    this.snapshotMinSeq = droppedHead.seq;
+    this.snapshotCooldownUntil = Date.now() + SNAPSHOT_COOLDOWN_MS;
+  }
+
+  /**
+   * P1-2（2026-08-30）：读取事件快照（新鲜度校验通过才返回）
+   *
+   * 新鲜度判定（P0-2 + P1-A 修正，v3）：
+   *   fresh = (diskTail === memoryTailSeq) && (snapshotTail === memoryTailSeq)
+   * - diskTail：O(1) 读文件尾（scanTailForMaxSeq，读末尾 64KB）——跨实例追加即使
+   *   对方 meta 写失败也能探测（diskTail 更大 → stale，消除 P1-A 盲区）
+   * - snapshotTail：快照尾元素 seq（有序数组天然携带覆盖范围）
+   * - memoryTailSeq：本实例已确认落盘的日志末尾（append 同步更新）
+   * persisted（events.tail meta）降级为日志参考，不再参与判定。
+   *
+   * 失效场景：commitTornRepair / copyPrefixTo（目标）已显式清空；
+   * 此处探测到 stale 时置冷却（P0-3），避免跨实例持续写期间反复全量重建。
+   */
+  private async getFreshSnapshot(): Promise<LiriEvent[] | null> {
+    if (!this.eventsSnapshot) return null;
+    const snapshotTail =
+      this.eventsSnapshot[this.eventsSnapshot.length - 1]?.seq ?? 0;
+    const staleReason = await this.snapshotStaleReason(snapshotTail);
+    if (staleReason) {
+      logger.warn('event-log: 事件快照过期，失效并回退磁盘读取', {
+        sessionId: this.sessionId,
+        snapshotTailSeq: snapshotTail,
+        memoryTailSeq: this.tailSeq,
+        staleReason,
+      });
+      this.eventsSnapshot = null;
+      this.snapshotBytes = 0;
+      this.snapshotIneligible = false;
+      this.snapshotMinSeq = 0;
+      this.snapshotCosts = [];
+      this.snapshotCooldownUntil = Date.now() + SNAPSHOT_COOLDOWN_MS;
+      return null;
+    }
+    return this.eventsSnapshot;
+  }
+
+  /**
+   * P0-2/P1-A（2026-08-30）：快照失效原因判定（返回 null = fresh）
+   *
+   * - 'memory-not-init'：内存 tailSeq 未初始化，无法判定（本实例重启后首次读）
+   * - 'snapshot-behind-memory'：快照覆盖 < 内存 tailSeq（buildSnapshot 扫描期间
+   *   append 竞态 / 增量丢失）
+   * - 'disk-ahead'：磁盘尾 > 内存 tailSeq（跨实例追加；含对方 meta 写失败场景，
+   *   因为判定不依赖 meta）
+   * - 'disk-behind'：磁盘尾 < 内存 tailSeq（文件被外部截断/回滚，罕见；保守失效）
+   * - 'disk-read-error'：读文件尾失败（保守失效，回退磁盘路径）
+   */
+  private async snapshotStaleReason(
+    snapshotTail: number
+  ): Promise<string | null> {
+    if (!this.tailSeqInitialized) return 'memory-not-init';
+    if (snapshotTail !== this.tailSeq) return 'snapshot-behind-memory';
+    let diskTail: number;
+    try {
+      diskTail = await this.scanTailForMaxSeq();
+    } catch {
+      return 'disk-read-error';
+    }
+    if (diskTail !== this.tailSeq) {
+      return diskTail > this.tailSeq ? 'disk-ahead' : 'disk-behind';
+    }
+    return null;
+  }
+
+  /**
+   * P1-2（2026-08-30）：全量扫描建快照（对齐 read() 的解析/校验/冻结语义，不递归调 read）
+   *
+   * - 双上限（P1-7/B0 2026-09-02）：事件条数 or 累计字节超限 → 滑动窗口保留最近、
+   *   丢弃更早（快照非空；内存峰值 ≈ 预算内）。不再整体清空 + 永久 ineligible。
+   * - tailSeq 只前进不回退（P0-1）
+   * - 扫描期间 append 竞态（P1-A）→ 本次快照作废 + 冷却，由下次 read 重建
+   * - IO 失败 → 冷却重试，不永久禁用（P1-5）
+   * - snapshotPreCommitHook（P2-E）：扫描后-提交前可注入挂起点（测试构造竞态用）
+   * - 失败不抛错（CS03）
+   */
+  private async buildSnapshot(): Promise<LiriEvent[] | null> {
+    try {
+      // B0（2026-09-02，v4 §6.2）：环形窗口——大会话事件总量可远超预算，若先
+      // 全量收集再裁剪会先撑爆内存（P3-7f 单会话 3.4GB 场景）。解析过程中即时
+      // 从头部淘汰，内存峰值 ≈ 预算内，超限会话仍保留"最近 N"热窗口（而非
+      // 旧实现的永久 ineligible + 整体清空，后续读全部回退全量磁盘扫描）。
+      const events: LiriEvent[] = [];
+      const costs: number[] = []; // 与 events 严格并行（line.length，UTF-16）
+      let head = 0; // 窗口起点（events[head..] 为有效区）
+      let bytes = 0; // 窗口内累计字节
+      let windowed = false;
+      const push = (event: LiriEvent, cost: number): void => {
+        events.push(event);
+        costs.push(cost);
+        bytes += cost;
+        // 至少保留 1 条（单事件超预算不空窗）
+        while (
+          events.length - head > 1 &&
+          (events.length - head > this.snapshotEventBudget() ||
+            bytes > this.maxSnapshotBytes)
+        ) {
+          bytes -= costs[head];
+          head++;
+          windowed = true;
+        }
+      };
+      const files = eventFilePathsInOrder(this.sessionDir, this.filePath);
+      for await (const { line } of iterateEventFiles(files, this.openRl)) {
+        if (!line.trim()) continue;
+        // A/归一化：解析 + 校验 + 冻结合并为唯一实现（与 read 同源）
+        for (const event of extractEventFromLine(line).events) {
+          push(event, line.length);
+        }
+      }
+      if (head >= events.length) return null;
+      // 窗口/全量取活跃区，events 与 costs 同步裁剪保持并行
+      const active = windowed ? events.slice(head) : events;
+      const activeCosts = windowed ? costs.slice(head) : costs;
+      if (active.length === 0) return null;
+      // 稳定排序（append-only 下文件序 ≈ seq 序；防御乱序行），成本数组随动
+      const order = active.map((_, i) => i);
+      order.sort((a, b) => active[a].seq - active[b].seq || a - b);
+      const sorted = order.every((v, i) => v === i);
+      const finalEvents = sorted ? active : order.map((i) => active[i]);
+      const finalCosts = sorted
+        ? activeCosts
+        : order.map((i) => activeCosts[i]);
+      const snapTail = finalEvents[finalEvents.length - 1].seq;
+      // P2-E：可注入挂起点（扫描后-提交前），测试构造"扫描期间 append"竞态
+      if (this.snapshotPreCommitHook) {
+        await this.snapshotPreCommitHook();
+      }
+      // P1-A：扫描期间 append 已推进 tailSeq → 快照不完整，本次作废 + 冷却
+      if (this.tailSeqInitialized && this.tailSeq > snapTail) {
+        logger.debug('event-log: 扫描期间有增量 append，本次快照作废', {
+          sessionId: this.sessionId,
+          snapTail,
+          tailSeq: this.tailSeq,
+        });
+        this.snapshotCooldownUntil = Date.now() + SNAPSHOT_COOLDOWN_MS;
+        return null;
+      }
+      // P0-1：tailSeq 只前进不回退
+      if (snapTail > this.tailSeq) {
+        this.tailSeq = snapTail;
+        this.tailSeqInitialized = true;
+      }
+      this.snapshotBytes = bytes;
+      this.snapshotCosts = finalCosts;
+      // B0：窗口化时记录窗口首事件 seq（0 = 覆盖全量）；下次增量超限可 O(1) 裁剪
+      this.snapshotMinSeq = windowed ? (finalEvents[0] as LiriEvent).seq : 0;
+      return finalEvents;
+    } catch (e) {
+      await handleError(e, {
+        module: 'session:event-log',
+        action: 'buildSnapshot',
+        context: { sessionId: this.sessionId },
+      }).catch(() => {});
+      // P1-5：IO 失败走冷却重试，不永久禁用
+      this.snapshotCooldownUntil = Date.now() + SNAPSHOT_COOLDOWN_MS;
+      return null;
+    }
+  }
+
+  /**
+   * 创建 readline 接口
+   *
+   * 封装为内部方法便于测试 mock
+   *
+   * P3-8（2026-09-02）：支持 seek 起点——read 分页续读命中字节索引时从
+   * `byteOffset` 起流式读（跳过文件头 O(N) 行扫描）；默认从头读（start=0）。
+   * 文件参数化以支持 .idx 索引文件解析。
+   */
+  private createReadlineInterface(
+    file: string = this.filePath,
+    start: number = 0
+  ): readline.Interface {
+    return this.openOffsetReadline(file, start);
+  }
+
+  /** T3-10：按 UTF-8 字节偏移建行读器（`start>0` 才 seek）；独立机位供 `getTailSeq` 定位（不受 scanStart 探针影响） */
+  private openOffsetReadline(file: string, start: number): readline.Interface {
+    const stream = createReadStream(file, {
+      encoding: 'utf-8',
+      ...(start > 0 ? { start } : {}),
+    });
+    return readline.createInterface({
+      input: stream,
+      crlfDelay: Infinity,
+    });
+  }
+
+  /** A：活动尾文件首条事件 seq（缓存；0 = 未知 ⇒ 调用方回退逐文件扫描，只慢不错） */
+  private async getTailFirstSeq(): Promise<number> {
+    if (this.tailFirstSeq === 0) {
+      this.tailFirstSeq = readTailFirstSeq(this.filePath);
+    }
+    return this.tailFirstSeq;
+  }
+
+  /** A：多文件逐行读的读器工厂（**透传** start，与既有单文件调用形态一致） */
+  private readonly openRl = (file: string, start?: number) =>
+    this.createReadlineInterface(file, start);
+
+  // ─── A-6 平滑降级（2026-08-23）────────────────────────────────────────────
+
+  /**
+   * A-6：读盘失败时恢复 tailSeq（平滑降级链，不抛错、不归零）
+   *
+   * 降级链（保证消息写入不中断，又不静默，又不归零误拒）：
+   *   1. 持久化 lastKnown（events.tail meta 文件）→ 有效则恢复（重启后从持久值恢复）
+   *   2. 持久值失效（首次/文件损坏）→ 扫描文件尾部恢复真实 tailSeq（兜底，优先真实数据）
+   *   3. 全部失效 → 内存缓存 lastKnown + 1 继续 append + 结构化告警
+   *
+   * 真实 tailSeq 丢失的后果（归零误拒）：新写入的 seq 可能与文件中旧 seq
+   * 冲突或乱序，破坏事件流单调性；用 lastKnown 逼近真实值可避免大部分冲突。
+   */
+  private async recoverTailSeq(): Promise<number> {
+    // 1. 持久化 lastKnown
+    const persisted = await this.readPersistedTailSeq();
+    if (persisted > 0) {
+      logger.warn('event-log: 读盘失败，用持久化 lastKnown 恢复 tailSeq', {
+        sessionId: this.sessionId,
+        lastKnown: persisted,
+      });
+      return persisted;
+    }
+    // 2. 扫描文件尾部恢复真实 tailSeq
+    try {
+      const tailMax = await this.scanTailForMaxSeq();
+      if (tailMax > 0) {
+        logger.warn('event-log: 读盘失败且无持久值，扫描文件尾部恢复 tailSeq', {
+          sessionId: this.sessionId,
+          tailMax,
+        });
+        return tailMax;
+      }
+    } catch {
+      // 尾部扫描失败，继续降级
+    }
+    // 3. 最终兜底：内存缓存 lastKnown + 1（不归零、不中断消息写入）
+    const fallback = Math.max(this.tailSeq, 0) + 1;
+    logger.error(
+      'event-log: tailSeq 完全恢复失败，使用 lastKnown+1 兜底（消息写入不中断）',
+      {
+        sessionId: this.sessionId,
+        fallbackSeq: fallback,
+      }
+    );
+    // A-5（2026-08-23）：结构化告警（HIGH → handleError 发布 OTel + EventBus）
+    void handleError(
+      new AppError(
+        '事件日志 tailSeq 恢复失败，使用 lastKnown+1 兜底',
+        ErrorCategory.FILESYSTEM,
+        ErrorSeverity.HIGH,
+        'EVENT_TAILSEQ_RECOVERY_FAILED',
+        { sessionId: this.sessionId, fallbackSeq: fallback }
+      ),
+      {
+        module: 'session:event-log',
+        action: 'getTailSeq',
+        context: { sessionId: this.sessionId },
+      }
+    ).catch(() => {});
+    return fallback;
+  }
+
+  /** A-6：持久化 lastKnown tailSeq 到 events.tail（写失败仅 debug，不阻断主路径） */
+  private async writePersistedTailSeq(seq: number): Promise<void> {
+    try {
+      await fs.writeFile(this.tailSeqMetaPath, String(seq), 'utf-8');
+    } catch (e) {
+      logger.debug('event-log: 持久化 tailSeq 失败（不影响本次写入）', {
+        sessionId: this.sessionId,
+        seq,
+        error: String(e),
+      });
+    }
+  }
+
+  /** A-6：读取持久化 lastKnown tailSeq（不存在/无效返回 0） */
+  private async readPersistedTailSeq(): Promise<number> {
+    try {
+      const raw = await fs.readFile(this.tailSeqMetaPath, 'utf-8');
+      const seq = Number.parseInt(raw.trim(), 10);
+      return Number.isFinite(seq) && seq > 0 ? seq : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  /** A-6：扫描文件尾部恢复真实 tailSeq（读末尾 64KB，流式主扫描失败的兜底） */
+  private async scanTailForMaxSeq(): Promise<number> {
+    const stat = await fs.stat(this.filePath);
+    if (stat.size === 0) return 0;
+    const tailSize = Math.min(64 * 1024, stat.size);
+    const buf = Buffer.alloc(tailSize);
+    const fd = await fs.open(this.filePath, 'r');
+    try {
+      await fd.read(buf, 0, tailSize, stat.size - tailSize);
+    } finally {
+      await fd.close();
+    }
+    let maxSeq = 0;
+    for (const line of buf.toString('utf-8').split('\n')) {
+      if (!line.trim()) continue;
+      try {
+        const event = JSON.parse(line) as LiriEvent;
+        if (typeof event.seq === 'number' && event.seq > maxSeq)
+          maxSeq = event.seq;
+      } catch {
+        // 损坏行：拆分恢复 seq（2026-08-24 根因修复）
+        for (const obj of splitJsonLine(line)) {
+          if (
+            typeof (obj as { seq?: unknown }).seq === 'number' &&
+            (obj as { seq: number }).seq > maxSeq
+          ) {
+            maxSeq = (obj as { seq: number }).seq;
+          }
+        }
+      }
+    }
+    return maxSeq;
+  }
+
+  // ─── D4 torn-tail 崩溃修复（大文件拆分 spec §37）：已外迁 `./EventLogRepair.ts` ───
+  // 以下 4 个公开方法 + `ensureRepairChecked` 保留为**对外契约入口**（薄委托）；
+  // `eventLogRepairChain.test.ts` 与 `reconcileService.test.ts` 的端口桩经公开 API 消费。
+
+  /** 重置 tail 状态（供 `EventLogRepair.commitTornRepair` 截断后重算真实尾 seq） */
+  private resetTailState(): void {
+    this.tailSeq = 0;
+    this.tailSeqInitialized = false;
+    this.maxTurn = null;
+    this.tailFirstSeq = 0; // A：尾文件可能被截断/重写，首 seq 探测结果一并失效
+  }
+
+  /** D4-1：检测 events.jsonl 末尾是否存在半写行（torn tail）—— 实现见 `EventLogRepair` */
+  async scanForTornTail(): Promise<{ offset: number; torn: boolean }> {
+    return this.repair.scanForTornTail();
+  }
+
+  /** D4-2：截断 torn tail 至最后一个完整记录并同步 tailSeq/持久化值 —— 实现见 `EventLogRepair` */
+  async commitTornRepair(): Promise<boolean> {
+    return this.repair.commitTornRepair();
+  }
+
+  /** D4-3：检测未闭合轮次并生成合成 turn/end closers —— 实现见 `EventLogRepair` */
+  async interruptedTurnClosers(): Promise<{
+    closers: LiriEvent[];
+    openTurns: number[];
+  }> {
+    return this.repair.interruptedTurnClosers();
+  }
+
+  /** D4-3：将合成的 turn/end closers 落盘（崩溃恢复收尾）—— 实现见 `EventLogRepair` */
+  async commitInterruptedRepair(): Promise<number> {
+    return this.repair.commitInterruptedRepair();
+  }
+
+  /** D4-4：首次读取前自动崩溃修复（内存标记防重复 + 防递归）—— 实现见 `EventLogRepair` */
+  private async ensureRepairChecked(): Promise<void> {
+    return this.repair.ensureRepairChecked();
+  }
+}

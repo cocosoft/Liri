@@ -53,6 +53,27 @@ function timingSafeEqualString(a: string, b: string): boolean {
 }
 
 /**
+ * G6（2026-11-14）：设备 token 在传输层**唯一**可受理的路径。
+ *
+ * 移动端配对后不再长期持有 api-key（方案 §2.6），只带短期设备 token；而该 token
+ * 既不是共享密钥也不是登录会话 ⇒ 原有两道门都会 401（真机实测：入站/审批动作全不可用）。
+ * 收窄到**本路径**放行，避免把设备 token 变成全 API 通行证。
+ */
+export const MOBILE_DEVICE_TOKEN_PATH = '/v1/channels/mobile/messages';
+
+/** 提取 `Authorization: Bearer <token>` 的 token（无则空串；不猜其它头） */
+export function extractBearerToken(req: http.IncomingMessage): string {
+  const header = req.headers['authorization'];
+  if (typeof header !== 'string' || !header.startsWith('Bearer ')) return '';
+  return header.slice('Bearer '.length).trim();
+}
+
+/** 该路径是否允许以**设备 token** 通过传输层（仅移动端入站面） */
+export function isMobileDeviceTokenPath(url: string): boolean {
+  return url === MOBILE_DEVICE_TOKEN_PATH;
+}
+
+/**
  * 种子知识库：若用户知识库目录为空，从源码或内建默认文档初始化
  */
 export async function seedKnowledgeBaseIfEmpty(): Promise<void> {

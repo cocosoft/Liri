@@ -54,10 +54,10 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 import type { LiriEvent } from '@modules/session/types/events';
-import { ReconcileService } from '../../src/session/reconcile/ReconcileService';
-import type { ReconcileDeps } from '../../src/session/reconcile/ReconcileService';
-import type { DerivedMessage } from '../../src/session/storage/EventMessageDeriver';
-import type { EventLogStorage } from '../../src/session/storage/EventLogStorage';
+import { ReconcileService } from '@modules/session/reconcile/ReconcileService';
+import type { ReconcileDeps } from '@modules/session/reconcile/ReconcileService';
+import type { DerivedMessage } from '@modules/session/storage/EventMessageDeriver';
+import type { EventLogStorage } from '@modules/session/storage/EventLogStorage';
 
 const HASH = 'default';
 const createdDirs: string[] = [];

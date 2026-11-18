@@ -25,7 +25,7 @@ import {
   resetDailyBudgetForTest,
   recordDailyBudgetFromUsage,
   DEFAULT_DAILY_BUDGET_TOKENS,
-} from '../../src/query/DailyBudgetManager';
+} from '@modules/query/DailyBudgetManager';
 
 /**
  * R16（台账 L-14 / Spec `daily-budget-unification.md`）：每日 Token 预算为**进程共享单例**。

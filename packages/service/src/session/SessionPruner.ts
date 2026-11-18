@@ -1,0 +1,265 @@
+import { handleError } from '@openliri/infra/error';
+import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
+import { SpanStatusCode } from '@opentelemetry/api';
+import type { SessionStorage } from './SessionStorage';
+import { getToolScopeDisposer } from './toolScopePort';
+
+const logger = getLogger('session:pruner');
+
+export interface PrunerOptions {
+  maxSessions?: number;
+  maxAgeDays?: number;
+  activeBufferMinutes?: number;
+  excludeActive?: boolean;
+}
+
+export interface PruneResult {
+  deletedCount: number;
+  deletedIds: string[];
+  preservedCount: number;
+  preservedIds: string[];
+  reason: 'count' | 'age' | 'both' | 'none';
+}
+
+const DEFAULT_MAX_SESSIONS = 1000;
+const DEFAULT_MAX_AGE_DAYS = 30;
+const DEFAULT_ACTIVE_BUFFER_MINUTES = 60;
+
+export class SessionPruner {
+  private storage: SessionStorage;
+  private maxSessions: number;
+  private maxAgeDays: number;
+  private activeBufferMinutes: number;
+  private excludeActive: boolean;
+  /** 按会话清理检查点的回调（联动清理，避免被剪枝会话留下孤儿检查点） */
+  private cleanupSessionCheckpoints?: (sessionId: string) => Promise<void>;
+
+  constructor(
+    storage: SessionStorage,
+    options: PrunerOptions = {},
+    cleanupSessionCheckpoints?: (sessionId: string) => Promise<void>
+  ) {
+    this.storage = storage;
+    this.maxSessions = options.maxSessions ?? DEFAULT_MAX_SESSIONS;
+    this.maxAgeDays = options.maxAgeDays ?? DEFAULT_MAX_AGE_DAYS;
+    this.activeBufferMinutes =
+      options.activeBufferMinutes ?? DEFAULT_ACTIVE_BUFFER_MINUTES;
+    this.excludeActive = options.excludeActive ?? true;
+    this.cleanupSessionCheckpoints = cleanupSessionCheckpoints;
+  }
+
+  async prune(): Promise<PruneResult> {
+    const otel = getOTelTracing();
+    const span = otel.startSpan('SessionPruner.prune');
+
+    try {
+      const sessionIds = await this.storage.listSessions();
+      if (sessionIds.length === 0) {
+        otel.endSpan(span);
+        return {
+          deletedCount: 0,
+          deletedIds: [],
+          preservedCount: 0,
+          preservedIds: [],
+          reason: 'none',
+        };
+      }
+
+      const now = Date.now();
+      const cutoffTime = now - this.maxAgeDays * 24 * 60 * 60 * 1000;
+      const activeCutoff = now - this.activeBufferMinutes * 60 * 1000;
+
+      const sessionsWithTime: {
+        id: string;
+        updatedAt: number;
+        isActive: boolean;
+      }[] = [];
+
+      for (const id of sessionIds) {
+        const session = await this.storage.loadSession(id);
+        if (!session) continue;
+
+        const updatedAt =
+          session.updatedAt instanceof Date
+            ? session.updatedAt.getTime()
+            : new Date(session.updatedAt).getTime();
+
+        const isActive = this.excludeActive && updatedAt >= activeCutoff;
+        sessionsWithTime.push({ id, updatedAt, isActive });
+      }
+
+      sessionsWithTime.sort((a, b) => a.updatedAt - b.updatedAt);
+
+      let reason: PruneResult['reason'] = 'none';
+
+      let toDelete = new Set<string>();
+
+      const ageCandidates = sessionsWithTime.filter(
+        (s) => !s.isActive && s.updatedAt < cutoffTime
+      );
+      if (ageCandidates.length > 0) {
+        reason = 'age';
+        for (const s of ageCandidates) {
+          toDelete.add(s.id);
+        }
+      }
+
+      const remaining = sessionsWithTime.filter((s) => !toDelete.has(s.id));
+      // H7 修复：count 剪枝基数改为 nonActive（与 getPruneEstimate 预估一致）。
+      // 此前用 remaining（含 active）截断，活跃会话可能因 count 超限被误删，
+      // 且预估（nonActive 基数）与实际（remaining 基数）永远对不上。
+      const nonActiveRemaining = remaining.filter((s) => !s.isActive);
+      if (nonActiveRemaining.length > this.maxSessions) {
+        reason = reason === 'age' ? 'both' : 'count';
+        const excess = nonActiveRemaining.slice(
+          0,
+          nonActiveRemaining.length - this.maxSessions
+        );
+        for (const s of excess) {
+          toDelete.add(s.id);
+        }
+      }
+
+      const deletedIds: string[] = [];
+      for (const id of toDelete) {
+        try {
+          await this.storage.deleteSession(id);
+          deletedIds.push(id);
+          // 2026-10-23：本路径只删**存储**、不经 `ChatSessionTeardown` ⇒ 会话级工具作用域
+          // （MCP 长连接等长生命周期副作用）须在此单独回收，否则被剪枝会话的 scope
+          // 与连接会永久驻留（无 TTL / 无上限）。幂等：无 scope 即 no-op。
+          void this.disposeToolSessionScope(id);
+          // 联动清理该会话检查点（不阻塞剪枝主流程，失败仅记录，避免孤儿检查点）
+          if (this.cleanupSessionCheckpoints) {
+            void this.cleanupSessionCheckpoints(id).catch((err) => {
+              handleError(err, {
+                module: 'sessions:pruner',
+                action: '清理被剪枝会话检查点失败',
+              });
+            });
+          }
+        } catch (err) {
+          handleError(err, {
+            module: 'sessions:pruner',
+            action: 'Failed to delete session during pruning',
+          });
+        }
+      }
+
+      // H7 修复：preservedIds 按磁盘实况（listSessions 全量 id）计算——
+      // 此前按 sessionsWithTime（仅 loadSession 成功者）算，loadSession 失败/返回
+      // null 的会话既不在 deleted 也不在 preserved，导致 deleted + preserved ≠ total。
+      // 以实际删除成功的 deletedIds 为准取差集，保证 deleted + preserved === 磁盘会话总数。
+      const deletedSet = new Set(deletedIds);
+      const preservedIds = sessionIds.filter((id) => !deletedSet.has(id));
+
+      logger.info(
+        `Session pruning completed: deleted ${deletedIds.length}, preserved ${preservedIds.length} (reason: ${reason})`
+      );
+
+      otel.endSpan(span);
+      return {
+        deletedCount: deletedIds.length,
+        deletedIds,
+        preservedCount: preservedIds.length,
+        preservedIds,
+        reason,
+      };
+    } catch (e) {
+      otel.recordError(span, e instanceof Error ? e : new Error(String(e)));
+      otel.endSpan(span, SpanStatusCode.ERROR);
+      throw e;
+    }
+  }
+
+  /**
+   * 释放被剪枝会话的**会话级工具作用域**（MCP 长连接等长生命周期副作用）。
+   *
+   * P1（2026-11-13，session 并入 `packages/service`）：改经**推送注入端口**
+   * （`./toolScopePort`）取实现，不再动态 import app 层的 `tool/ToolScopeManager`
+   * （否则搬包后断链 + `service → app` 倒挂）。未注册 ⇒ 跳过；失败仅告警。
+   */
+  private async disposeToolSessionScope(sessionId: string): Promise<void> {
+    const disposer = getToolScopeDisposer();
+    if (!disposer) return;
+    try {
+      await disposer.disposeSession(sessionId);
+    } catch (e) {
+      logger.warn('剪枝：释放会话级工具作用域失败', {
+        sessionId,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
+  async getPruneEstimate(): Promise<{
+    total: number;
+    ageCandidates: number;
+    countCandidates: number;
+    activeSessions: number;
+  }> {
+    const sessionIds = await this.storage.listSessions();
+    if (sessionIds.length === 0) {
+      return {
+        total: 0,
+        ageCandidates: 0,
+        countCandidates: 0,
+        activeSessions: 0,
+      };
+    }
+
+    const now = Date.now();
+    const cutoffTime = now - this.maxAgeDays * 24 * 60 * 60 * 1000;
+    const activeCutoff = now - this.activeBufferMinutes * 60 * 1000;
+
+    let total = 0;
+    let ageCandidates = 0;
+    let activeSessions = 0;
+
+    const allWithTime: { id: string; updatedAt: number }[] = [];
+
+    for (const id of sessionIds) {
+      const session = await this.storage.loadSession(id);
+      if (!session) continue;
+
+      total++;
+      const updatedAt =
+        session.updatedAt instanceof Date
+          ? session.updatedAt.getTime()
+          : new Date(session.updatedAt).getTime();
+
+      if (updatedAt < cutoffTime) {
+        ageCandidates++;
+      }
+
+      if (this.excludeActive && updatedAt >= activeCutoff) {
+        activeSessions++;
+      }
+
+      allWithTime.push({ id, updatedAt });
+    }
+
+    allWithTime.sort((a, b) => a.updatedAt - b.updatedAt);
+
+    const nonActive = allWithTime.filter(
+      (s) => !(this.excludeActive && s.updatedAt >= activeCutoff)
+    );
+
+    let countCandidates = 0;
+    if (nonActive.length > this.maxSessions) {
+      countCandidates = nonActive.length - this.maxSessions;
+    }
+
+    return { total, ageCandidates, countCandidates, activeSessions };
+  }
+
+  updateOptions(options: Partial<PrunerOptions>): void {
+    if (options.maxSessions !== undefined)
+      this.maxSessions = options.maxSessions;
+    if (options.maxAgeDays !== undefined) this.maxAgeDays = options.maxAgeDays;
+    if (options.activeBufferMinutes !== undefined)
+      this.activeBufferMinutes = options.activeBufferMinutes;
+    if (options.excludeActive !== undefined)
+      this.excludeActive = options.excludeActive;
+  }
+}

@@ -40,7 +40,15 @@ const ADMISSION_DECISIONS: readonly AdmissionDecision[] = [
 export const DEFAULT_AUTONOMY_POLICY: AutonomyPolicyConfig = {
   enabled: false,
   acceptMode: 'observe',
-  sources: { alwayson: true, cron: true, dream: false, fs: false },
+  // D1（2026-11-14）：`external` = 外部系统推送（webhook / GitHub issue / 邮件轮询），
+  // 默认**关** —— 开启前该来源不注册、入站端点回 503（零行为变更）。
+  sources: {
+    alwayson: true,
+    cron: true,
+    dream: false,
+    fs: false,
+    external: false,
+  },
   admission: {},
   rules: [],
   allowlist: { senders: [], bots: [] },

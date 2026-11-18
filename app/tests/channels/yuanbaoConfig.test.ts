@@ -6,13 +6,13 @@ import { describe, expect, it } from 'bun:test';
 import {
   getDefaultYuanbaoConfig,
   validateYuanbaoConfig,
-} from '../../src/channels/yuanbao/config-schema';
+} from '@modules/channels/yuanbao/config-schema';
 import {
   getYuanbaoAccount,
   listYuanbaoAccountIds,
   registerYuanbaoAccount,
   removeYuanbaoAccount,
-} from '../../src/channels/yuanbao/accounts';
+} from '@modules/channels/yuanbao/accounts';
 import { describeChannelBasics } from './support/channelBasics';
 
 describeChannelBasics({

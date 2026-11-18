@@ -1,0 +1,20 @@
+{
+  "name": "@openliri/buddy",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liri 伙伴（Buddy）包 —— 属性/伙伴状态/交互/通知/精灵与梦境成长接线。层归属 app：可依赖 app / service / infra / core；entry / ui 不得依赖本包，包内不得依赖 entry / ui 层（R28）。",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/buddy/index.ts",
+      "import": "./src/buddy/index.ts"
+    },
+    "./*": {
+      "types": "./src/buddy/*.ts",
+      "import": "./src/buddy/*.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p ../../app/tsconfig.json"
+  }
+}

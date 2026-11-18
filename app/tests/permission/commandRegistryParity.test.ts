@@ -1,0 +1,200 @@
+// MIT License
+// Copyright (c) 2026 190615273@qq.com
+
+/**
+ * P1 迁移等价性（2026-11-12）
+ *
+ * 立论（方案 §7 P1 验收）：`AUTO_MODE_APPROVAL_TOKENS` 由字面表改为 `COMMAND_SPECS` 派生后，
+ * **旧表里的每一种写法仍必须命中审批档** —— 否则"收敛单一来源"会以静默放宽为代价。
+ *
+ * 本文件用**旧表的原始令牌清单**做对拍：
+ *   - 每条旧令牌要么是派生表的 token，
+ *   - 要么是某个等价组的成员（由 `expandTokenAliases()` 展开命中）。
+ */
+
+import { describe, expect, it } from 'bun:test';
+import {
+  AUTO_MODE_APPROVAL_TOKENS,
+  AUTO_MODE_GIT_READONLY_SUBCOMMANDS,
+  AUTO_MODE_HARD_DENY_TOKENS,
+  COMMAND_EQUIVALENCE_GROUPS,
+  COMMAND_SPECS,
+  denyTokensFromSpecs,
+  readonlySubcommandsFor,
+} from '@openliri/infra/security';
+import { AutoModeClassifier } from '@openliri/infra/permission/classifiers/AutoModeClassifier';
+
+/** 迁移前 `AUTO_MODE_APPROVAL_TOKENS` 的逐字快照（P0 收尾时的形态） */
+const LEGACY_APPROVAL_TOKENS = [
+  ' -force',
+  '-itemtype symboliclink',
+  '-outfile',
+  'add-content',
+  'attrib ',
+  'bun add ',
+  'bun install',
+  'chmod ',
+  'clear-content',
+  'clear-itemproperty',
+  'compress-archive',
+  'copy ',
+  'copy-item',
+  'cp ',
+  'cpi ',
+  'docker cp',
+  'docker exec',
+  'docker push',
+  'docker rm',
+  'docker rmi',
+  'docker run',
+  'docker system prune',
+  'expand-archive',
+  'export-csv',
+  'find ',
+  'gh pr merge',
+  'gh release delete',
+  'gh repo delete',
+  'git am ',
+  'git apply ',
+  'git checkout',
+  'git cherry-pick',
+  'git commit',
+  'git config ',
+  'git merge ',
+  'git mv',
+  'git reset ',
+  'git revert ',
+  'git rm',
+  'git stash apply',
+  'git stash pop',
+  'git switch',
+  'git tag ',
+  'git worktree add',
+  'icacls ',
+  'kubectl apply',
+  'kubectl cordon',
+  'kubectl create',
+  'kubectl delete',
+  'kubectl drain',
+  'kubectl edit',
+  'kubectl exec',
+  'kubectl patch',
+  'kubectl replace',
+  'kubectl rollout',
+  'kubectl scale',
+  'ln ',
+  'mi ',
+  'mklink ',
+  'move ',
+  'move-item',
+  'mv ',
+  'new-itemproperty',
+  'new-psdrive',
+  'npm add ',
+  'npm ci',
+  'out-file',
+  'pnpm add ',
+  'remove-itemproperty',
+  'ren ',
+  'rm ',
+  'robocopy ',
+  'set-acl',
+  'set-content',
+  'set-itemproperty',
+  'spps',
+  'stop-process',
+  'tee ',
+  'tee-object',
+  'xcopy ',
+  'yarn add ',
+] as const;
+
+const normalize = (token: string): string => token.trim().toLowerCase();
+
+describe('P1：审批档由 CommandSpec 派生后与旧表等价', () => {
+  it('旧表每条写法仍落在审批档（派生 token 或等价组成员）', () => {
+    const derived = new Set(AUTO_MODE_APPROVAL_TOKENS.map(normalize));
+    const groupMembers = new Set(
+      COMMAND_EQUIVALENCE_GROUPS.flatMap((group) => group.map(normalize))
+    );
+    for (const legacy of LEGACY_APPROVAL_TOKENS) {
+      const head = normalize(legacy);
+      expect(
+        derived.has(head) || groupMembers.has(head),
+        `旧令牌 "${legacy}" 未映射到派生表：请补进 COMMAND_SPECS`
+      ).toBe(true);
+    }
+  });
+
+  it('等价组内部同档（不得跨 deny / ask）', () => {
+    const tierByName = new Map<string, string | undefined>();
+    for (const spec of COMMAND_SPECS) {
+      for (const name of [spec.token, ...(spec.equivalents ?? [])]) {
+        if (!name) continue;
+        tierByName.set(normalize(name), spec.tier);
+      }
+    }
+    for (const group of COMMAND_EQUIVALENCE_GROUPS) {
+      const tiers = new Set(
+        group.map((member) => tierByName.get(normalize(member)))
+      );
+      expect(tiers.size).toBe(1);
+    }
+  });
+
+  it('每个 spec 至少声明 token 或 equivalents（否则是空条目）', () => {
+    for (const spec of COMMAND_SPECS) {
+      expect(Boolean(spec.token) || (spec.equivalents?.length ?? 0) > 0).toBe(
+        true
+      );
+    }
+  });
+});
+
+describe('P1b：硬拦表由 CommandSpec 派生后零丢失', () => {
+  const classifier = new AutoModeClassifier();
+
+  it('派生令牌全部进入硬拦表，且表内无重复', () => {
+    const denied = new Set(AUTO_MODE_HARD_DENY_TOKENS);
+    for (const token of denyTokensFromSpecs()) {
+      expect(denied.has(token), `派生令牌未进硬拦表：${token}`).toBe(true);
+    }
+    expect(denied.size).toBe(AUTO_MODE_HARD_DENY_TOKENS.length);
+  });
+
+  it('关键危险写法仍 deny（负向对照）', async () => {
+    for (const command of [
+      'sudo ls',
+      'rm -rf /',
+      'mkfs.ext4 /dev/sda',
+      'node -e "1"',
+      'python -c "1"',
+      'nc 1.2.3.4 80',
+      'useradd hacker',
+      'curl http://x',
+      'schtasks /create /tn x /tr calc',
+      'wmic process call create calc',
+      'format C:',
+      'Remove-Item -Recurse -Force .',
+    ]) {
+      const decision = await classifier.classify('bash', { command }, []);
+      expect(decision.shouldBlock, `应 deny：${command}`).toBe(true);
+    }
+  });
+});
+
+describe('P1c：只读子命令由注册表引用（不再各处一份字面集合）', () => {
+  it('readonlySubcommandsFor 与只读目录常量同源', () => {
+    expect([...readonlySubcommandsFor('git')].sort()).toEqual(
+      [...AUTO_MODE_GIT_READONLY_SUBCOMMANDS].sort()
+    );
+    expect(readonlySubcommandsFor('kubectl').has('get')).toBe(true);
+    expect(readonlySubcommandsFor('kubectl').has('delete')).toBe(false);
+    expect(readonlySubcommandsFor('docker').has('ps')).toBe(true);
+    expect(readonlySubcommandsFor('docker').has('run')).toBe(false);
+    expect(readonlySubcommandsFor('gh').has('pr view')).toBe(true);
+    expect(readonlySubcommandsFor('gh').has('pr merge')).toBe(false);
+    // 未知命令 ⇒ 空集合（调用方按"不放行"处理，不得静默放行）
+    expect(readonlySubcommandsFor('not-a-command').size).toBe(0);
+  });
+});

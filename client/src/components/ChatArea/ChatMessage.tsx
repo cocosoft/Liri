@@ -1392,6 +1392,14 @@ function AssistantMessage({
   // N-45：让出轮次（持久标记 `finishReason === 'yielded'`）不得落进下方"生成中断"兜底；
   // 对用户的可见提示由**会话级提示条**承担（`YieldNoticeBar`，读后端读时派生的 yieldState）
   const isYieldFinish = message.finishReason === "yielded";
+  // 2026-11-12（真机 `session_mwd9bnoyc7e3051cde`）：以工具调用收尾的轮次（`tool_use`）或
+  // 结构化 `awaiting_approval` 轮次，正文为空是**正常**的（内容由工具卡/审批卡承载），
+  // 不得落进下方 H-FIX-2「生成中断」兜底 —— 否则「思考 → 调工具审批」的正常轮次会被
+  // 误标成「该回复生成中断，未完成最终输出」。
+  const isNormalToolFinish =
+    message.finishReason === "tool_use" ||
+    message.finishReason === "stop" ||
+    message.terminationReason === "awaiting_approval";
   // 2026-11-03 P1：主循环终止原因（`turn/end.terminationReason`）→ 可见徽标。
   // - `completed` / 缺失 ⇒ 不显示（正常收尾，不制造噪音）
   // - 用户/系统中止已由上方「该回复已中断」覆盖 ⇒ 不重复
@@ -1423,6 +1431,8 @@ function AssistantMessage({
     !isStreaming &&
     // N-45：让出轮次（常见为"只思考后让出"）不得落进"生成中断"的兜底文案
     !isYieldFinish &&
+    // 2026-11-12：工具收尾 / 等待审批的正常轮次同样不得误报"生成中断"
+    !isNormalToolFinish &&
     !hasTextBlock &&
     hasThinkBlock &&
     contentEmpty

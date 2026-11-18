@@ -1,0 +1,416 @@
+// MIT License
+// Copyright (c) 2026 190615273@qq.com
+
+/**
+ * 命令治理语料（P0，2026-11-12）
+ *
+ * 立论：命令判定此前靠"人工探针 + 事故"发现缺口（本轮 152 条探针一次补出 50+ 条漏判）。
+ * 本文件把**已确认的口径**固化为可回归语料，三档语义显式标注：
+ *   - `deny`：不可逆 / 任意执行 / 提权 / 持久化；
+ *   - `ask` ：常见但可能不可逆（写盘 / 搬移 / 远端写 / 未知命令）；
+ *   - `allow`：结构只读。
+ *
+ * 每条都要求**理由可解释**：deny/ask 必须命中具体令牌或规则，不允许"靠注入类误报"凑结果。
+ */
+
+import { afterEach, describe, expect, it } from 'bun:test';
+import { sep } from 'node:path';
+import { AutoModeClassifier } from '@openliri/infra/permission/classifiers/AutoModeClassifier';
+
+type Expect = 'deny' | 'ask' | 'allow';
+const classifier = new AutoModeClassifier();
+
+/**
+ * 2026-11-12（CI 实证）：工作区外落盘用例原先写死 Windows 分隔符，POSIX 上
+ * `..\..\outside.txt` 只是普通文件名（不含穿越）⇒ 恒判 allow，ubuntu/macos 红。
+ * 按平台拼分隔符，三平台语义一致。
+ */
+const OUTSIDE = ['..', '..', 'outside.txt'].join(sep);
+
+const b64u16 = (text: string): string =>
+  Buffer.from(text, 'utf16le').toString('base64');
+const b64u8 = (text: string): string =>
+  Buffer.from(text, 'utf8').toString('base64');
+
+async function verdict(command: string): Promise<{
+  tier: Expect;
+  reason: string;
+}> {
+  const decision = await classifier.classify('bash', { command }, []);
+  const tier: Expect = decision.shouldBlock
+    ? 'deny'
+    : decision.requiresApproval
+      ? 'ask'
+      : 'allow';
+  return { tier, reason: decision.reason ?? '' };
+}
+
+afterEach(() => {
+  delete process.env['PERMISSION_UNKNOWN_COMMAND_TIER'];
+});
+
+describe('P0 语料：编码执行（-EncodedCommand / -enc）', () => {
+  it('解码后是危险命令 ⇒ deny', async () => {
+    for (const payload of [
+      `powershell -EncodedCommand ${b64u16('rm -rf /')}`,
+      `pwsh -enc ${b64u16('Remove-Item -Recurse -Force .')}`,
+      `powershell -EncodedCommand ${b64u8('sudo rm -rf /')}`,
+    ]) {
+      const { tier } = await verdict(payload);
+      expect(tier).toBe('deny');
+    }
+  });
+
+  it('解码后是只读命令 ⇒ allow（不误伤）', async () => {
+    for (const payload of [
+      `powershell -EncodedCommand ${b64u16('Get-Content a.txt')}`,
+      `powershell -EncodedCommand ${b64u8('ls -la')}`,
+    ]) {
+      const { tier } = await verdict(payload);
+      expect(tier).toBe('allow');
+    }
+  });
+
+  it('出现了编码开关却解不出载荷 ⇒ fail-closed deny', async () => {
+    const { tier, reason } = await verdict('powershell -EncodedCommand !!!!');
+    expect(tier).toBe('deny');
+    expect(reason).toContain('undecodable');
+  });
+});
+
+describe('P0 语料：转义不改变语义', () => {
+  it('bash 反斜杠 / cmd 脱字符 / PowerShell 反引号 ↩ 同判 deny', async () => {
+    for (const command of ['r\\m -rf /', 'r^m -rf /', 'r`m -rf /']) {
+      const { tier } = await verdict(command);
+      expect(tier).toBe('deny');
+    }
+  });
+});
+
+describe('P0 语料：执行 / 提权 / 注册类', () => {
+  it('一律 deny', async () => {
+    for (const command of [
+      'cmd /c start calc.exe',
+      'runas /user:Administrator cmd',
+      'regsvr32 /s evil.dll',
+      'msiexec /i evil.msi /qn',
+      "Add-Type -TypeDefinition 'public class X {}'",
+      '[Reflection.Assembly]::Load($bytes)',
+      'Import-Module .\\evil.psm1',
+      'deno run -A x.ts',
+      'Invoke-Expression $cmd',
+      'iex $cmd',
+      'Start-Process cmd.exe',
+    ]) {
+      const { tier } = await verdict(command);
+      expect(tier).toBe('deny');
+    }
+  });
+});
+
+describe('P0 语料：写盘 / 远端 / 未知命令 ⇒ ask', () => {
+  it('下载落盘与远端映射', async () => {
+    for (const command of [
+      // P3 后：工作区内落盘 ⇒ allow（另有专门用例），工作区外仍 ask
+      `iwr -Uri .\\local -OutFile ${OUTSIDE}`,
+      'New-PSDrive -Name X -PSProvider FileSystem -Root \\\\host\\share',
+    ]) {
+      const { tier } = await verdict(command);
+      expect(tier).toBe('ask');
+    }
+  });
+
+  it('未收录但会改状态的命令（未知命令策略 B）', async () => {
+    for (const command of [
+      'cargo publish',
+      'gcloud compute instances delete x',
+      'gh api -X DELETE /repos/o/r',
+      'sqlite3 app.db "delete from sessions"',
+    ]) {
+      const { tier } = await verdict(command);
+      expect(tier).toBe('ask');
+    }
+  });
+});
+
+describe('P0 语料：只读命令零新增审批（负向对照）', () => {
+  it('结构只读 ⇒ allow', async () => {
+    for (const command of [
+      'ls -la',
+      'cat README.md',
+      'Get-Content a.txt',
+      'git status',
+      'git log --oneline -3',
+      'kubectl get pods',
+      'kubectl describe pod x',
+      'docker ps',
+      'gh pr view 1',
+    ]) {
+      const { tier } = await verdict(command);
+      expect(tier).toBe('allow');
+    }
+  });
+
+  it('同名但写侧子命令不得借只读入口放行', async () => {
+    for (const command of [
+      'kubectl delete pod x',
+      'docker run alpine',
+      'gh pr merge 1',
+      'gh api -X DELETE /repos/o/r',
+    ]) {
+      const { tier } = await verdict(command);
+      expect(tier).toBe('ask');
+    }
+  });
+});
+
+describe('P5-1：与沙箱危险清单对齐（系统级不可逆 ⇒ deny）', () => {
+  it('沙箱已 deny 的命令在 auto 档同为 deny', async () => {
+    for (const command of [
+      'killall node',
+      'mount /dev/sda1 /mnt',
+      'umount /mnt',
+      'swapon -a',
+      'swapoff -a',
+      'chroot /mnt /bin/sh',
+      'iptables -L',
+      'ip6tables -L',
+      'init 0',
+      'su root',
+      'rmdir build',
+      'rd /s /q build',
+    ]) {
+      const { tier } = await verdict(command);
+      expect(tier, command).toBe('deny');
+    }
+  });
+
+  it('同前缀的普通命令不被误杀（命令位锚定负向对照）', async () => {
+    for (const command of ['subl .', 'mountvol']) {
+      const { tier } = await verdict(command);
+      expect(tier, command).not.toBe('deny');
+    }
+  });
+});
+
+describe('P6-1：复查补齐的漏判（系统级不可逆 / 持久化）', () => {
+  it('卷影删除 / 内核参数 / 启动项加载 ⇒ deny', async () => {
+    for (const command of [
+      'vssadmin delete shadows /all',
+      'sysctl -w kernel.kptr_restrict=0',
+      'launchctl load /Library/LaunchDaemons/x.plist',
+    ]) {
+      const { tier } = await verdict(command);
+      expect(tier, command).toBe('deny');
+    }
+  });
+});
+
+describe('P6-2：只读误杀修复（不得反向放宽）', () => {
+  it('进程 / 网络 / 内存查看与解释器版本查询 ⇒ allow', async () => {
+    for (const command of [
+      'ps aux',
+      'netstat -an',
+      'free -m',
+      'python --version',
+      'node --version',
+    ]) {
+      const { tier } = await verdict(command);
+      expect(tier, command).toBe('allow');
+    }
+  });
+
+  it('解释器任意执行仍 deny（负向对照）', async () => {
+    for (const command of [
+      'python -c "import os; os.system(\'rm -rf /\')"',
+      "node -e \"require('child_process').execSync('id')\"",
+    ]) {
+      const { tier } = await verdict(command);
+      expect(tier, command).toBe('deny');
+    }
+  });
+});
+
+describe('P6-3：绕过面（路径 / 别名 / 参数变体）', () => {
+  it('解释器与加载器变体 ⇒ deny（不得靠改写法逃逸）', async () => {
+    for (const command of [
+      'py -c "print(1)"',
+      'python3.11 -c "print(1)"',
+      '/usr/bin/python -c "print(1)"',
+      'node --eval "1+1"',
+      'busybox rm -rf /',
+      '[System.Diagnostics.Process]::Start("calc.exe")',
+      '[IO.File]::WriteAllText("C:\\\\x","y")',
+      'Invoke-WmiMethod -Class Win32_Process -Name Create -ArgumentList calc.exe',
+      'wevtutil cl System',
+    ]) {
+      const { tier } = await verdict(command);
+      expect(tier, command).toBe('deny');
+    }
+  });
+
+  it('版本查询与只读系统信息 ⇒ allow（不误杀）', async () => {
+    for (const command of [
+      'npm --version',
+      'cargo --version',
+      'rustc --version',
+      'java -version',
+      'go version',
+      'systeminfo',
+      'tasklist',
+      'Get-Process',
+    ]) {
+      const { tier } = await verdict(command);
+      expect(tier, command).toBe('allow');
+    }
+  });
+});
+
+describe('P6-4：绕过面负向对照（新增令牌不得反向放宽 / 误杀）', () => {
+  it('启动器夹版本参数仍 deny', async () => {
+    for (const command of [
+      'py -3 -c "print(1)"',
+      'python2727 -c "print(1)"',
+      'busybox sh -c "rm -rf /"',
+    ]) {
+      const { tier } = await verdict(command);
+      expect(tier, command).toBe('deny');
+    }
+  });
+
+  it('版本查询与只读形态不被新增令牌误杀', async () => {
+    for (const command of [
+      'py --version',
+      'python3.11 --version',
+      'python3 --version',
+      'node --check x.js',
+      'Get-WmiObject -Class Win32_Process',
+    ]) {
+      const { tier } = await verdict(command);
+      expect(tier, command).toBe('allow');
+    }
+  });
+
+  it('解释器跑脚本 / 包装器帮助仍走审批（不误降为 allow）', async () => {
+    for (const command of ['python script.py', 'busybox --help']) {
+      const { tier } = await verdict(command);
+      expect(tier, command).toBe('ask');
+    }
+  });
+});
+
+describe('P8-A2：远端写档位复核（维持硬拦，不放开）', () => {
+  it('git push / npm publish 仍 deny（既有守卫要求）', async () => {
+    for (const command of [
+      'git push origin main',
+      'git push --force origin main',
+      'npm publish',
+    ]) {
+      const { tier } = await verdict(command);
+      expect(tier, command).toBe('deny');
+    }
+  });
+
+  it('只读 git 子命令仍 allow（收紧不得误伤）', async () => {
+    for (const command of ['git status', 'git log -1', 'git remote -v']) {
+      const { tier } = await verdict(command);
+      expect(tier, command).toBe('allow');
+    }
+  });
+});
+
+describe('P9：会话暴露的误杀修复（session_mwcyhmmpd44e93b602）', () => {
+  it('嵌套包装器内的只读管道 / cmd 单 & 串联 / 丢弃型重定向 ⇒ allow', async () => {
+    for (const command of [
+      'powershell -NoProfile -Command "Get-Content x | Measure-Object -Line"',
+      'dir /b %USERPROFILE%\\.pyapp 2>nul & dir /b %USERPROFILE%\\.oliri 2>nul',
+      'where sqlite3 2>nul & where bun 2>nul',
+      'cd /d "E:\\\\x" && dir /b y 2>nul & echo ---',
+    ]) {
+      const { tier } = await verdict(command);
+      expect(tier, command).toBe('allow');
+    }
+  });
+
+  it('负向对照：包装器内危险段 / LDAP 结构 / Unicode 转义仍 deny', async () => {
+    for (const command of [
+      'powershell -NoProfile -Command "Remove-Item -Recurse -Force ."',
+      'ls && rm -rf /',
+      '(|(uid=*))',
+      'echo %u0041',
+    ]) {
+      const { tier } = await verdict(command);
+      expect(tier, command).toBe('deny');
+    }
+  });
+
+  it('Measure-Object 的 -Expression 脚本块不放行（参数守卫）', async () => {
+    const { tier } = await verdict(
+      'powershell -Command "Get-Content x | Measure-Object -Expression { 1 }"'
+    );
+    expect(tier).not.toBe('allow');
+  });
+
+  it('PowerShell 变量赋值不是只读命令（保持审批）', async () => {
+    const { tier } = await verdict(
+      '$roots = @("$env:USERPROFILE\\.pyapp", "$env:USERPROFILE\\.oliri")'
+    );
+    expect(tier).toBe('ask');
+  });
+});
+
+describe('P11：真机验证暴露的只读命令（不再弹审批）', () => {
+  it('解析 JSON / 属性投影 / 文本搜索 ⇒ allow', async () => {
+    for (const command of [
+      'findstr /n "version" app\\package.json',
+      'powershell -NoProfile -Command "(Get-Content \'app\\package.json\' -Raw | ConvertFrom-Json).version"',
+      'powershell -NoProfile -Command "Get-Content app\\package.json -Raw | ConvertFrom-Json | Select-Object version"',
+    ]) {
+      const { tier } = await verdict(command);
+      expect(tier, command).toBe('allow');
+    }
+  });
+
+  it('计算属性 / 脚本块仍不放行（负向对照）', async () => {
+    for (const command of [
+      'powershell -Command "Get-Content x | Select-Object -Property @{N=\'v\';E={1}}"',
+      'powershell -Command "Get-Content x | Measure-Object -Expression { 1 }"',
+    ]) {
+      const { tier } = await verdict(command);
+      expect(tier, command).not.toBe('allow');
+    }
+  });
+});
+
+describe('P5-3：SQL 规则只收真实注入特征', () => {
+  it('只读查询不再被当成注入（可转审批，但不得硬拒）', async () => {
+    const { tier } = await verdict('mysql -e "select 1"');
+    expect(tier).not.toBe('deny');
+  });
+
+  it('真实注入 / 危险 DDL 仍 deny（负向对照）', async () => {
+    for (const command of [
+      'mysql -e "union select 1"',
+      'mysql -e "or 1=1"',
+      'psql -c "drop table users"',
+      'psql -c "truncate table users"',
+    ]) {
+      const { tier } = await verdict(command);
+      expect(tier, command).toBe('deny');
+    }
+  });
+});
+
+describe('P0 语料：灰度开关（PERMISSION_UNKNOWN_COMMAND_TIER）', () => {
+  it('默认 ask；显式 allow 时回到旧行为', async () => {
+    const probe = 'cargo publish';
+    expect((await verdict(probe)).tier).toBe('ask');
+
+    process.env['PERMISSION_UNKNOWN_COMMAND_TIER'] = 'allow';
+    expect((await verdict(probe)).tier).toBe('allow');
+
+    // 拼错 / 非法值不得静默放宽
+    process.env['PERMISSION_UNKNOWN_COMMAND_TIER'] = 'yes';
+    expect((await verdict(probe)).tier).toBe('ask');
+  });
+});

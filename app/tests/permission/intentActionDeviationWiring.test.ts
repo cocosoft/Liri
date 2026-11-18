@@ -106,4 +106,36 @@ describe('语义护栏接线：意图-动作偏离 ⇒ 权限层返回 ask', () 
     );
     expect(r.allowed).toBe(true);
   });
+
+  // 2026-11-13（观察期真机）：`cd X && findstr … | more` 这类**结构性只读**检索被本护栏
+  // 当成"bash 会变更状态" ⇒ 每查一次弹一张审批卡。只读命令不应触发意图偏离升级。
+  it('⑤ 只读意图 + 只读复合 bash（findstr 检索）⇒ 放行（不弹审批）', async () => {
+    const pm = createPermissionManager();
+    const r = await pm.checkPermissionForTool(
+      'bash',
+      {
+        command: 'cd /d E:\\X && findstr /n /c:"paused" app\\src 2>nul | more',
+      },
+      { sessionId: 's1', metadata: { goalText: '帮我看看这个文件的实现' } }
+    );
+    expect(r.allowed).toBe(true);
+  });
+
+  it('⑥ 对照：只读意图 + 含写入段 bash ⇒ 仍 ask（护栏保留）', async () => {
+    // 关掉 Inbox 审批，隔离出"护栏本身"的判定（否则理由会变成"已提交收件箱"）
+    process.env.PERMISSION_INBOX_APPROVAL_ENABLED = '0';
+    try {
+      const pm = createPermissionManager();
+      const r = await pm.checkPermissionForTool(
+        'bash',
+        { command: 'cd /d E:\\X && del out.txt' },
+        { sessionId: 's1', metadata: { goalText: '帮我看看这个文件的实现' } }
+      );
+      expect(r.allowed).toBe(false);
+      expect(r.decision?.behavior).toBe('ask');
+      expect(r.reason).toContain('意图-动作偏离');
+    } finally {
+      delete process.env.PERMISSION_INBOX_APPROVAL_ENABLED;
+    }
+  });
 });

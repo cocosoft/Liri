@@ -28,6 +28,19 @@ export type {
   YoloClassifierConfig,
 } from './YoloClassifier.js';
 
+// B1（2026-11-18）：single read verb + single path 的 shell 调用 → 纠正为专用工具
+export {
+  buildReadViaShellCorrection,
+  isReadViaShellCorrectionEnabled,
+  shellOfCommandTool,
+  suggestReadToolForShellCommand,
+} from './read-via-shell-correction.js';
+export type {
+  ReadViaShellCorrection,
+  ReadViaShellSuggestion,
+  ReadViaShellTool,
+} from './read-via-shell-correction.js';
+
 export { BashClassifier, bashClassifier } from './BashClassifier.js';
 export type {
   BashClassifierResult,

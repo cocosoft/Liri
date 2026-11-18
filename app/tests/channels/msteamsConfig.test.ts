@@ -4,13 +4,13 @@
 import {
   getDefaultMSTeamsConfig,
   validateMSTeamsConfig,
-} from '../../src/channels/msteams/config-schema';
+} from '@modules/channels/msteams/config-schema';
 import {
   getMSTeamsAccount,
   listMSTeamsAccountIds,
   registerMSTeamsAccount,
   removeMSTeamsAccount,
-} from '../../src/channels/msteams/accounts';
+} from '@modules/channels/msteams/accounts';
 import { describeChannelBasics } from './support/channelBasics';
 
 describeChannelBasics({

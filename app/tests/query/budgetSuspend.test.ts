@@ -26,7 +26,7 @@ import {
   resolveBudgetResumeMaxPerWake,
   BUDGET_RESUME_MAX_PER_WAKE,
   SUSPEND_TTL_MS,
-} from '../../src/query/budgetSuspend';
+} from '@modules/query/budgetSuspend';
 
 /**
  * 长任务预算挂起续跑（Task 4）：内存挂起协调器。

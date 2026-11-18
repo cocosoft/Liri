@@ -354,10 +354,11 @@ export class SessionTitling {
     source: 'preliminary' | 'final' | 'manual'
   ): Promise<void> {
     try {
-      const ts = await this.deps.getChatManager().getStreamTailSeq(sessionId);
       await this.deps.getChatManager().appendStreamEvent(sessionId, {
         type: 'session/title',
-        seq: ts + 1,
+        // seq 0 ⇒ 交 `EventLog.append` 在 mutex 内原子分配（标题写入是后台异步，
+        // 与用户轮次写者并发，tail+1 会撞号被幂等丢弃）
+        seq: 0,
         time: Date.now(),
         sessionId,
         data: { title, source },

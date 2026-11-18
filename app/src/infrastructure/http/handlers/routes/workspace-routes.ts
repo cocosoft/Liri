@@ -58,14 +58,14 @@ import {
 } from '../workspaces-handlers';
 
 /**
- * dispatchWorkspaceRoutes — workspace-routes 领域路由分发
- * @returns true 表示已匹配并处理，false 表示未匹配
+ * Workspaces / Workspace Sessions / Work Items 段（P3-2，2026-11-16：由下方分发函数
+ * **原样外移**，匹配顺序不变 —— 工作项删除仍先于通用工作空间删除）。
+ * @returns true 表示已匹配并处理
  */
-export async function dispatchWorkspaceRoutes(
+async function dispatchWorkspaceCoreRoutes(
   req: http.IncomingMessage,
   res: http.ServerResponse,
   url: string,
-  broadcastEvent: (event: string, data: unknown) => void,
   handlerCtx: HandlerCtx
 ): Promise<boolean> {
   const method = req.method || 'GET';
@@ -128,7 +128,21 @@ export async function dispatchWorkspaceRoutes(
     await handleUpdateWorkItem(handlerCtx, req, res, workspaceId, itemId);
     return true;
   }
+  return false;
+}
 
+/**
+ * Tasks API 段（P3-2，2026-11-16：由下方分发函数**原样外移**，匹配顺序不变 ——
+ * children 仍先于通用任务详情）。
+ * @returns true 表示已匹配并处理
+ */
+async function dispatchWorkspaceTaskRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
+  const method = req.method || 'GET';
   // ---- Tasks API (Phase B) ----
   if (method === 'GET' && url.match(/^\/v1\/tasks\/(.+)\/children$/)) {
     const match = url.match(/^\/v1\/tasks\/(.+)\/children$/);
@@ -160,7 +174,20 @@ export async function dispatchWorkspaceRoutes(
     await handleDeleteTask(handlerCtx, req, res, match![1]);
     return true;
   }
+  return false;
+}
 
+/**
+ * .liri/ 配置段（P3-2，2026-11-16：由下方分发函数**原样外移**，匹配顺序不变）。
+ * @returns true 表示已匹配并处理
+ */
+async function dispatchWorkspaceLiriRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
+  const method = req.method || 'GET';
   // ---- .liri/ Config ----
   if (method === 'GET' && url.match(/^\/v1\/workspaces\/(.+)\/liri\/detect$/)) {
     const workspaceId = url.match(/^\/v1\/workspaces\/(.+)\/liri\/detect$/)![1];
@@ -192,6 +219,25 @@ export async function dispatchWorkspaceRoutes(
     await handleUpdateWorkspaceRules(handlerCtx, req, res, workspaceId);
     return true;
   }
+  return false;
+}
+
+/**
+ * dispatchWorkspaceRoutes — workspace-routes 领域路由分发
+ * @returns true 表示已匹配并处理，false 表示未匹配
+ */
+export async function dispatchWorkspaceRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string,
+  broadcastEvent: (event: string, data: unknown) => void,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
+  const method = req.method || 'GET';
+  // P3-2（2026-11-16）：三段原样外移，调用顺序与匹配顺序一致
+  if (await dispatchWorkspaceCoreRoutes(req, res, url, handlerCtx)) return true;
+  if (await dispatchWorkspaceTaskRoutes(req, res, url, handlerCtx)) return true;
+  if (await dispatchWorkspaceLiriRoutes(req, res, url, handlerCtx)) return true;
 
   // ---- .liri/ Changesets ----
   if (

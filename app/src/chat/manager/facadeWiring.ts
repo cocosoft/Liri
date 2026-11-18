@@ -93,6 +93,8 @@ import { ToolExecutionService } from '../services/ToolExecutionService.js';
 import type { ChatRecovery } from './recovery';
 import { PdcaLauncher } from '../launchers/PdcaLauncher';
 import { PdcaLaunchCoordinator } from './pdcaLaunch';
+// #4（2026-11-15，`.trae/specs/self-verify-turn-surface.md`）：轮首验证线路判定
+import { applyTurnVerifyRecipeForHost } from './verifyRecipeTurn';
 import { ChatStreamSetup } from './streamSetup';
 import { ChatMessagePersistence } from './messagePersistence';
 import { ChatStreamFinalize } from './streamFinalize';
@@ -101,7 +103,11 @@ import type { SessionStateMachine } from '@openliri/infra/state/session/SessionS
 import type { ChatEventLogStore } from './eventLogStore';
 import type { ChatRequestPrep } from './requestPrep';
 import { buildTAORContextFor } from './taorContextWiring';
-import { isCommandApproved, submitToolApproval } from './toolApproval';
+import {
+  isAwaitingUserApproval,
+  isCommandApproved,
+  submitToolApproval,
+} from './toolApproval';
 import { wireCodeRunnerDeps } from './codeRunnerWiring';
 import { shouldUseCodeMode, shouldUsePlanDrivenLoop } from './routing';
 // 2026-11-10：`registerWorkspacePathHost` —— 提示词侧复用同一工作区解析（注册一次）
@@ -115,6 +121,7 @@ import { setTaskWorkspaceResolver } from '@modules/agent';
 // B 批外移（2026-11-05）：会话元数据 / 文本投影改为纯函数直调（宿主不再保留转发方法）
 import {
   getSessionApprovalMode,
+  getSessionAutonomy,
   getSessionPermissionMode,
   getSessionWorkspaceId,
   isLastAssistantOutputFallback,
@@ -125,7 +132,7 @@ import {
 // B1（2026-10-30）：会话工作区根列表（首根 = 主工作区）仍由 `workspacePath` 单一实现
 import { getSessionWorkspaceRoots as resolveSessionWorkspaceRoots } from './workspacePath';
 import type { ProjectStoreLike } from './projectSandboxPath';
-import { persistTurnSummary } from '../services/MessageContextPipeline';
+import { persistTurnSummary } from '../services/context/turnSummary';
 import { assertHostSurface, type AssertNever } from './wiringHostGuard';
 
 /** 工具执行的进度回调（`executeTool` 的 opts 形状） */
@@ -197,6 +204,11 @@ export interface FacadeWiringHost {
     sessionId: string,
     opts?: { maxTurnsMultiplier?: number; privateInstance?: boolean }
   ): TAORLoop;
+  /**
+   * #4（2026-11-15）：轮首验证线路判定端口（**由本文件的 wiring 装配**，见
+   * `wireChatFacades`；`OrchestratorWiringHost` 侧为可选成员）。
+   */
+  applyVerifyRecipeForTurn?(sessionId: string, text: string): void;
   createSession(params: CreateSessionParams): Promise<ChatSession>;
   /** LRO-06：`ProjectStore` 实例缓存（`getSessionWorkspacePath` 端口直连所需） */
   _projectSandboxStoreRef: { current?: ProjectStoreLike };
@@ -324,6 +336,8 @@ const FACADE_HOST_OUTPUT_KEYS = [
   '_msgPersist',
   '_streamFinalize',
   '_streamResume',
+  // #4（2026-11-15）：轮首验证线路判定端口（本函数赋值）
+  'applyVerifyRecipeForTurn',
 ] as const;
 
 /**
@@ -545,7 +559,16 @@ export function wireChatFacades(host: FacadeWiringHost): void {
       approvalSnapshot
     ) =>
       submitToolApproval(
-        { toolRegistry: host.toolRegistry },
+        {
+          toolRegistry: host.toolRegistry,
+          // B8（2026-11-18）：审批批量合并的**同轮次限定** —— 读会话当前工具轮次
+          // （`streamMessageToolLoop` 在每轮开跑前写 `metadata.roundCounter`）
+          getCurrentRoundId: (sid) => {
+            const counter =
+              host._chatSessions.get(sid)?.metadata?.['roundCounter'];
+            return typeof counter === 'number' ? counter : undefined;
+          },
+        },
         toolName,
         input,
         sid,
@@ -581,6 +604,8 @@ export function wireChatFacades(host: FacadeWiringHost): void {
     // P1（2026-11-04）：会话级权限模式（缺省 ⇒ 进程默认档）
     getSessionPermissionMode: (sid) =>
       getSessionPermissionMode(host._chatSessions, sid),
+    // P0（2026-11-17）：会话自主度 —— 许愿式（demand）在权限层兑现"中途最多问一次"
+    getSessionAutonomy: (sid) => getSessionAutonomy(host._chatSessions, sid),
     isCommandApproved: (toolName, input, sid, approvalFingerprint) =>
       isCommandApproved(toolName, input, sid, approvalFingerprint),
     sessionLookup: (args) => host._eventLogStore.sessionLookup(args),
@@ -637,11 +662,6 @@ export function wireChatFacades(host: FacadeWiringHost): void {
     getPdcaLauncher: () => host._pdcaLauncher,
     shouldUsePlanDrivenLoop: (msg) => shouldUsePlanDrivenLoop(msg),
     shouldUseCodeMode: (msg) => shouldUseCodeMode(msg),
-    getOrCreateTAORLoop: (sid) => host._getOrCreateTAORLoop(sid),
-    // 2026-11-03（缺口 #1）：门控关闭时撤销配方 —— 只对**已存在**的循环生效（不新建）
-    resetVerifierConfigIfActive: (sid) =>
-      host._taorLoops.get(sid)?.resetVerifierConfig(),
-    getStreamTailSeq: (sid) => host.getStreamTailSeq(sid),
     appendStreamEvent: (sid, event) => host.appendStreamEvent(sid, event),
     persistSessionMetadata: (session) => host.persistSessionMetadata(session),
     recentUserText: (session, n) => recentUserText(session, n),
@@ -660,6 +680,22 @@ export function wireChatFacades(host: FacadeWiringHost): void {
       );
     },
   });
+
+  // #4（2026-11-15，`.trae/specs/self-verify-turn-surface.md` §3.2）：**轮首**验证线路判定端口。
+  // 装在宿主上（与 `_pdcaLaunch` 同法）⇒ `ChatManager` 本体不新增成员（R04-001 触顶）。
+  // 门控 `SELF_VERIFY_PATTERN` 默认关 ⇒ 不建循环、配方不变；命中意图时落 `turn_dispatch` 决策。
+  host.applyVerifyRecipeForTurn = (sessionId, text) =>
+    applyTurnVerifyRecipeForHost(
+      {
+        getOrCreateTAORLoop: (sid) => host._getOrCreateTAORLoop(sid),
+        // 2026-11-03 既有语义：门控关闭时只撤销**已存在**实例（不得为此新建循环）
+        resetVerifierConfigIfActive: (sid) =>
+          host._taorLoops.get(sid)?.resetVerifierConfig(),
+        appendStreamEvent: (sid, event) => host.appendStreamEvent(sid, event),
+      },
+      sessionId,
+      text
+    );
 
   // 流式请求准备段（U-22/S2 外移）：注入 host 端口，方法体在 `chat/manager/streamSetup.ts`。
   host._streamSetup = new ChatStreamSetup({
@@ -722,12 +758,18 @@ export function wireChatFacades(host: FacadeWiringHost): void {
     getStreamMaxTurn: (sid) => host._eventLogStore.getStreamMaxTurn(sid),
     getToolRound: (sid) => host.getToolRound(sid),
     hasTurnEnded: (sid, turn) => host._eventLogStore.hasTurnEnded(sid, turn),
-    getStreamTailSeq: (sid) => host.getStreamTailSeq(sid),
     appendStreamEvent: (sid, event) => host.appendStreamEvent(sid, event),
     endStreamSession: (sid) => host.unifiedTracker.endStreamSession(sid),
     finishSessionMachine: (sid, reason) => {
       host.getSessionMachine(sid).finish(reason);
     },
+    // 2026-11-13：等待审批 ⇒ 状态机 `requires_action`（不是本轮完成）
+    pauseSessionMachine: (sid, reason) => {
+      host.getSessionMachine(sid).pause(reason);
+    },
+    // 2026-11-13：出口消息已落盘时，仍需按最新 metadata 收敛会话状态
+    syncStateForMessage: (sid, msg) =>
+      host._msgPersist.syncStateForMessage(sid, msg),
     sessionAbortControllers: host._sessionAbortControllers,
     sessionExecutionIds: host._sessionExecutionIds,
     persistTurnSummary: (session) => persistTurnSummary(session),
@@ -785,10 +827,22 @@ export function wireChatFacades(host: FacadeWiringHost): void {
       host._msgPersist.addAndPersistMessage(sid, msg),
     // N-6（2026-11-06）：续跑轮实时写 assistant/tool_call 事件（回放能生成工具卡）
     appendStreamEvent: (sid, event) => host.appendStreamEvent(sid, event),
+    // 2026-11-12：续跑轮 turn 编号取自事件日志最大 turn（与流式主路径同源，避免编号回退）。
+    // 走已登记的 `_eventLogStore` 端口，不新增宿主成员（避免装配契约守卫的键表扩散）。
+    getStreamMaxTurn: (sid) => host._eventLogStore.getStreamMaxTurn(sid),
     unifiedTracker: host.unifiedTracker,
     recordChatResponseUsage: (sid, usage, requestId, model) =>
       host.recordChatResponseUsage(sid, usage, requestId, model),
     getToolRegistry: () => host.getToolRegistry(),
+    // 2026-11-12：`awaiting_approval` 调用的重放前提 = 审批已落定（放行缓存命中或卡片已处理）
+    isAwaitingUserApproval: (tc) =>
+      isAwaitingUserApproval(
+        { toolRegistry: host.toolRegistry },
+        tc.name,
+        (tc.arguments ?? {}) as Record<string, unknown>,
+        tc.sessionId,
+        tc.id
+      ),
     buildToolRoundMessages: (msgs, am, tcs, prs) =>
       host._buildToolRoundMessages(msgs, am, tcs, prs),
   });

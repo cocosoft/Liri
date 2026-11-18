@@ -12,7 +12,7 @@ import {
   LANDLOCK_HELPER_ENV,
   resolveLandlockHelperCandidates,
   resolveLandlockHelperPath,
-} from '../../src/sandbox/landlock/helperPaths';
+} from '@modules/sandbox/landlock/helperPaths';
 
 describe('T25-11a：helper 候选路径', () => {
   it('非 Linux ⇒ 空（该 helper 只对 Linux 有意义）', () => {

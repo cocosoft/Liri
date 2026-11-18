@@ -11,6 +11,14 @@ export interface PermissionContext {
   sessionId?: string;
 
   /**
+   * 本次工具调用的 id（可选；2026-11-12）。
+   *
+   * 用途：审批卡 metadata 记下它，用户**拒绝**时据此给该调用写终态结果并续跑
+   * （否则模型永远收不到"被拒绝"这一事实，会话停在等待审批）。
+   */
+  toolCallId?: string;
+
+  /**
    * 用户ID（可选）
    */
   userId?: string;
@@ -98,6 +106,15 @@ export interface PermissionContext {
    * 缺省 ⇒ 视为"未沙箱"（fail-closed）。
    */
   sandbox?: SandboxExecutionSignal;
+
+  /**
+   * P0（2026-11-17）：会话自主度（`metadata.autonomy`）。
+   *
+   * 仅 `demand`（许愿式）参与判定：把分类器的 `requiresApproval`（非危险 / 未收录命令）
+   * 降级为自动放行（工作区外写仍人工），兑现"中途最多问一次"。
+   * 缺省 ⇒ 与改造前一致（逐条按档判定）。
+   */
+  autonomy?: 'interactive' | 'demand';
 }
 
 /**
@@ -109,6 +126,8 @@ export function createPermissionContext(params: {
   toolName: string;
   input: Record<string, unknown>;
   sessionId?: string;
+  /** 2026-11-12：本次调用 id（审批卡留证；用户拒绝时据此写终态结果并续跑） */
+  toolCallId?: string;
   userId?: string;
   /** 请求级角色（多租户 P0 阶段 2）：缺省 ⇒ `PermissionManager` 回退进程级角色 */
   userRole?: string;
@@ -127,9 +146,12 @@ export function createPermissionContext(params: {
   taskId?: string;
   /** PR-3a：本次执行的沙箱上下文（仅供审批卡留证，不改判定） */
   sandbox?: SandboxExecutionSignal;
+  /** P0（2026-11-17）：会话自主度（仅 `demand` 参与判定，见 `PermissionContext.autonomy`） */
+  autonomy?: 'interactive' | 'demand';
 }): PermissionContext {
   return {
     sessionId: params.sessionId,
+    toolCallId: params.toolCallId,
     userId: params.userId,
     toolName: params.toolName,
     userRole: params.userRole,
@@ -142,6 +164,7 @@ export function createPermissionContext(params: {
     workspaceRoots: params.workspaceRoots,
     taskId: params.taskId,
     sandbox: params.sandbox,
+    autonomy: params.autonomy,
   };
 }
 

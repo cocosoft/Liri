@@ -23,7 +23,7 @@ import { describe, expect, it } from 'bun:test';
 import {
   killProcessTree,
   type KillableChild,
-} from '../../src/sandbox/utils/killProcessTree';
+} from '@modules/sandbox/utils/killProcessTree';
 
 /**
  * R21（2026-10-09）：取消/中止时必须终止**进程树**（Unix 杀进程组 / Windows `taskkill /T`），

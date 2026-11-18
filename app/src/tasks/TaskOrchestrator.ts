@@ -129,12 +129,32 @@ export const STEP_STATUS_PENDING: PlanStep['status'] = 'pending';
 export const PLAN_STATUS_FAILED: Plan['status'] = 'failed';
 
 /**
+ * 计划**运行中**取值（D3，2026-11-14）：供 `plan/planStartupResume.ts` 等复用，
+ * 避免状态字面量扩散到新文件（`lint:state-ratchet` Register-or-Fail）。
+ */
+export const PLAN_STATUS_RUNNING: Plan['status'] = 'running';
+
+/**
  * 计划步骤**终态**取值（P2-1，2026-11-04）：同 `STEP_STATUS_PENDING`，供
  * `lro/logSummary.ts` 的每任务汇总计数复用，避免状态字面量在新文件里二次出现。
  */
 export const STEP_STATUS_COMPLETED: PlanStep['status'] = 'completed';
 export const STEP_STATUS_FAILED: PlanStep['status'] = 'failed';
 export const STEP_STATUS_CANCELLED: PlanStep['status'] = 'cancelled';
+/** 步骤**运行中**取值（D3，2026-11-14）：同 `STEP_STATUS_PENDING` 的复用口径。 */
+export const STEP_STATUS_RUNNING: PlanStep['status'] = 'running';
+
+/**
+ * 计划**验收子态**取值（G5-D1，2026-11-18）：同 `STEP_STATUS_*` 的复用口径 ——
+ * 供 `lro/goalConvergence.ts`、`lro/checkpointPersist.ts` 等复用，避免字面量扩散
+ * （`lint:state-ratchet` Register-or-Fail）。
+ */
+export const PLAN_ACCEPTANCE_PENDING: NonNullable<Plan['acceptance']> =
+  'pending';
+export const PLAN_ACCEPTANCE_ACCEPTED: NonNullable<Plan['acceptance']> =
+  'accepted';
+export const PLAN_ACCEPTANCE_REJECTED: NonNullable<Plan['acceptance']> =
+  'rejected';
 
 export interface Plan {
   id: string;
@@ -144,6 +164,27 @@ export interface Plan {
   createdAt: string;
   completedAt?: string;
   sessionId: string;
+  /**
+   * 2026-11-13（PDL 暂停态）：计划**正在等待用户审批**，此时 `status` 保持 `running`
+   * （步骤未失败、计划未终态化）。
+   *
+   * 为什么用布尔而不是新增 status 取值：`paused` 属已登记的状态词汇，新增出现点要走
+   * Register-or-Fail（`lint:state-ratchet`）；而这里表达的是"running 的一个子态"，
+   * 用布尔可与 LRO 的 `stage_awaiting_approval` 相位并行、互不覆盖。
+   */
+  paused?: boolean;
+  /**
+   * G5-D1（2026-11-18，`specs/pending-acceptance-state-machine.md`）：**验收子态**.
+   *
+   * - `accepted`：目标门给出 `converged === true`（可正常落 `completed`）；
+   * - `rejected`：目标门给出 `converged === false`（走既有 retry/escalate，不另立流程）；
+   * - `pending`：已执行、结论未决（目标门超时/降级；D3 开关化后才会写入）；
+   * - **缺省**：旧数据 / 未评估 ⇒ 一律视作 `accepted`（零行为变更）。
+   *
+   * 与 `paused` 同一手法：只做 `running` 的子态，**不新增 `status` 取值**
+   * （否则触发 `lint:state-ratchet` 的 Register-or-Fail）。
+   */
+  acceptance?: 'pending' | 'accepted' | 'rejected';
   /** 所属工作空间（项目）ID，用于项目编排面板隔离；无项目归属时省略 */
   workspaceId?: string;
   /**
@@ -573,6 +614,53 @@ export class TaskOrchestrator implements ISnapshotCapable {
   }
 
   /**
+   * D3（2026-11-14）：把**心跳过期**的 running 步骤复位为 pending（崩溃残留的可恢复语义）。
+   *
+   * 为什么需要：`ensureInitializedSync` 只终结"无活跃步骤"的 ghost 计划；若崩溃时正好有步骤
+   * 处于 `running`，计划会永久停在 running 且无人推进。复位后才能被 `planStartupResume` 续跑。
+   *
+   * 安全口径：心跳仍新鲜（≤ ghost 宽限，默认 10 分钟）⇒ 一律不动（可能与在跑执行打架）。
+   *
+   * @returns 复位条数
+   */
+  resetStaleRunningSteps(planId: string, now: number = Date.now()): number {
+    const plan = this.plans.get(planId);
+    if (!plan) return 0;
+    const heartbeatMs = Date.parse(plan.lastHeartbeatAt ?? plan.createdAt);
+    const stale =
+      !Number.isFinite(heartbeatMs) ||
+      now - heartbeatMs > this.resolveGhostGraceMs();
+    if (!stale) return 0;
+
+    let reset = 0;
+    for (const step of plan.steps) {
+      if (step.status !== STEP_STATUS_RUNNING) continue;
+      step.status = STEP_STATUS_PENDING;
+      reset += 1;
+    }
+    if (reset > 0) this.savePlan(plan);
+    return reset;
+  }
+
+  /**
+   * D7 三期（2026-11-14）：取该会话**当前正在执行**的计划步骤（无 ⇒ `null`）。
+   *
+   * 供工具执行层把「文件变更」归属到具体计划/步骤（副作用流水的计划维度）。
+   * 同步：内部按需从磁盘加载（与 `createPlan` 同口径）。
+   */
+  getRunningStepForSession(
+    sessionId: string
+  ): { planId: string; stepId: string } | null {
+    this.ensureInitializedSync();
+    for (const plan of this.plans.values()) {
+      if (plan.sessionId !== sessionId) continue;
+      const step = plan.steps.find((s) => s.status === STEP_STATUS_RUNNING);
+      if (step) return { planId: plan.id, stepId: step.id };
+    }
+    return null;
+  }
+
+  /**
    * 获取计划进度
    */
   getPlanProgress(planId: string): PlanProgress | undefined {
@@ -661,6 +749,8 @@ export class TaskOrchestrator implements ISnapshotCapable {
 
     step.status = 'running';
     plan.status = 'running';
+    // 2026-11-13：重新执行 ⇒ 清除"等待审批"子态（恢复后不得继续挂着暂停标记）
+    if (plan.paused) plan.paused = false;
 
     const task = taskRegistry.getTask(step.taskId);
     if (task && task instanceof NoteTask) {
@@ -795,6 +885,30 @@ export class TaskOrchestrator implements ISnapshotCapable {
   }
 
   /**
+   * 2026-11-13（PDL 暂停态）：把计划标记为「等待用户审批」。
+   *
+   * 与 LRO 的 `suspendPlanForApproval` 同语义：**不**把步骤判失败、**不**终态化计划，
+   * 只置 `plan.paused` 并在步骤上留一条可见原因；真实执行状态仍为 running。
+   *
+   * 为什么不做成新的 status/step 状态：见 `Plan.paused` 的注释（状态词汇 Register-or-Fail）。
+   */
+  markPlanAwaitingApproval(
+    stepId: string,
+    reason: string
+  ): PlanStep | undefined {
+    const plan = this.getPlanByStepId(stepId);
+    if (!plan) return undefined;
+    const step = plan.steps.find((s) => s.id === stepId);
+    if (!step) return undefined;
+    plan.paused = true;
+    plan.status = 'running';
+    step.result = reason;
+    this.savePlan(plan);
+    this.emitPlanProgress(plan);
+    return step;
+  }
+
+  /**
    * 标记步骤为已取消（BUG-3 修复，2026-08-23）：用户主动中止时终态化当前步骤，
    * 区别于 failed（异常中止）。幂等：已终态步骤不重复处理。
    */
@@ -853,6 +967,8 @@ export class TaskOrchestrator implements ISnapshotCapable {
    * @returns 所有步骤是否已到达终态（供调用方决定是否发 `PLAN_COMPLETED`）
    */
   private _settlePlanFinalStatus(plan: Plan): boolean {
+    // 2026-11-13：等待审批期间**不得**终态化 —— 否则"等用户批准"会被渲染成"已结束"
+    if (plan.paused) return false;
     const settled = plan.steps.every(
       (s) =>
         s.status === 'completed' ||

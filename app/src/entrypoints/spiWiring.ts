@@ -623,6 +623,24 @@ export async function registerAllSpis(
       });
     }
 
+    // G4 M0-③（2026-11-12）：沙箱姿态与违规摘要**定期原子落盘**，供只读围栏进程消费。
+    // 为什么落文件而不是新增端口：围栏必须在主进程卡死/被降级时仍能取证，不能经主进程 API 自证。
+    // 失败不阻断启动（围栏侧按 missing / stale 处理）；读写契约见
+    // `dev_docs/20261112/G4-围栏工程形态设计-20261112.md` §3。
+    {
+      const { startSandboxPostureSnapshotWriter } =
+        await import('./sandboxPostureSnapshot');
+      startSandboxPostureSnapshotWriter({
+        // 每次现取：姿态随配置变化，不复用启动时的 `sandboxPosture` 快照
+        read: () => ({
+          posture: describeSandboxPosture(),
+          // M0-①（2026-11-12）：违规记录不再是空面 —— 各平台拒绝点经
+          // `recordSandboxViolation()` 写入；数量与最近条目均由快照派生
+          violations: sandboxManager.getViolations(),
+        }),
+      });
+    }
+
     markSpiRegistered('sandbox');
   }
 
@@ -711,5 +729,26 @@ export async function registerAllSpis(
       await import('@openliri/service/runtime/api/runtimeAgentPort');
     const { getTitleGenerator } = await import('@modules/agent');
     registerRuntimeTitleGeneratorFactory(() => getTitleGenerator());
+  }
+
+  // ---- channels 组合根端口（拆包前置 P0，2026-11-13）----
+  // `channels` 迁入 `packages/channels` 后不再直连 app 单例：入站路由所需的
+  // `chatStream` / `resolveInteraction` 经注入缝取实现（同 P37 推送模型）。
+  {
+    const { registerChannelCoreApiProvider } =
+      await import('@modules/channels/runtimePorts');
+    const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
+    registerChannelCoreApiProvider(() => getCoreAPI());
+  }
+
+  // ---- session 工具作用域端口（P1，2026-11-13）----
+  // `session` 并入 `packages/service` 后不再动态 import app 的 `tool/ToolScopeManager`
+  // （否则断链 + service→app 倒挂）；剪枝时的会话级 scope 回收经此注入。
+  {
+    const { registerToolScopeDisposer } =
+      await import('@modules/session/toolScopePort');
+    const { toolScopeManager } =
+      await import('@modules/tool/ToolScopeManager.js');
+    registerToolScopeDisposer(toolScopeManager);
   }
 }

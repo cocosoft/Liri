@@ -14,8 +14,8 @@ import {
   RED_TEAM_SYSTEM_PROMPT,
   type AdversarialChat,
   type ProposerDiagnostics,
-} from '../../src/evals/adversarialProposer';
-import type { AdversarialProposerInput } from '../../src/evals/adversarialAgent';
+} from '@modules/evals/adversarialProposer';
+import type { AdversarialProposerInput } from '@modules/evals/adversarialAgent';
 
 const INPUT: AdversarialProposerInput = {
   declaredShields: ['/x/report'],

@@ -197,6 +197,12 @@ export type {
   ApprovalScope,
   ApprovalSnapshot,
 } from './ApprovedCommandRegistry';
+// 2026-11-12：用户「拒绝」某次工具调用 —— 续跑重放时返回终止态（不再重提卡）
+export {
+  markToolCallDenied,
+  isToolCallDenied,
+  clearDeniedToolCalls,
+} from './deniedToolCalls';
 // P2（2026-11-04，方案 §3.3）：任务档审批作用域 —— 会话活跃任务解析端口
 export { setActiveTaskIdResolver, getActiveTaskId } from './activeTaskScope';
 export type { ActiveTaskIdResolver } from './activeTaskScope';
@@ -301,8 +307,106 @@ export {
   describeFineGrainedDenySubject,
   type FineGrainedDenySource,
 } from './denyAttribution';
-export { RuleManager, deduplicateRules } from './RuleManager';
-export type { RuleContext } from './RuleManager';
+export {
+  RuleManager,
+  deduplicateRules,
+  buildRuleConflictKey,
+  collectRuleKeyConflicts,
+} from './RuleManager';
+export type {
+  RuleContext,
+  RuleFileHealth,
+  RuleKeyConflict,
+} from './RuleManager';
+// R2（2026-11-17）：工具规则写入口的**唯一校验/落盘内核**（冲突/损坏/只读/审计）
+export {
+  addRuleChecked,
+  updateRuleChecked,
+  removeRuleChecked,
+  // R2b（2026-11-17）：导入（全量校验后一次落盘）+ allow 护栏（危险命令头 / 预算）
+  importRulesChecked,
+  countUserAllowRules,
+  readUserRuleAllowBudget,
+  findDangerousCommandHead,
+  extractCommandHead,
+  USER_RULE_ALLOW_BUDGET_KEY,
+  DEFAULT_USER_RULE_ALLOW_BUDGET,
+} from './manager/ruleCrud';
+export type {
+  AddRuleInput,
+  UpdateRulePatch,
+  RuleWriteErrorCode,
+  RuleWriteResult,
+  RuleImportEntry,
+  RuleImportResult,
+} from './manager/ruleCrud';
+// R0（2026-11-17）：权限判定只读模拟（设置页「模拟」；复用真实判定链，不复制匹配逻辑）
+export {
+  simulatePermissionDecision,
+  SIMULATABLE_PERMISSION_MODES,
+  isSimulatablePermissionMode,
+} from './manager/simulate';
+// R3（2026-11-17）：「暂停全部持久化放行」开关（判定口过滤审批生成规则 + 审批写入点跳过）
+// F2（2026-11-17）：粒度细化 —— 全局 + 按会话（`sessions`）
+export {
+  APPROVAL_PAUSE_CONFIG_KEY,
+  filterPausedApprovalRules,
+  isApprovalPauseActiveFor,
+  isApprovalPauseEnabled,
+  readApprovalPauseState,
+  setApprovalPauseEnabled,
+  setApprovalPauseState,
+} from './approvalPause';
+export type { ApprovalPauseScope, ApprovalPauseState } from './approvalPause';
+// R5（2026-11-17）：未知命令采样摘要（周报 CLI / 设置页 / 启动提示同一实现）
+export {
+  readUnknownCommandDigest,
+  buildUnknownCommandDigest,
+  summarizeUnknownCommandText,
+  readUnknownCommandLogText,
+  formatUnknownCommandNotice,
+} from './classifiers/unknownCommandDigest';
+export type {
+  UnknownCommandDigest,
+  UnknownCommandReport,
+  UnknownCommandSampleRow,
+} from './classifiers/unknownCommandDigest';
+// R5（2026-11-17）：按**规则**维度的命中计数（R3 hitCount / ⑤「90 天未命中」的数据源）
+export {
+  recordRuleHit,
+  getRuleHitEntry,
+  readRuleHitStats,
+  flushRuleHitStats,
+  buildRuleHitReport,
+  resolveRuleHitStatsPath,
+  resetRuleHitStatsForTest,
+  RULE_HIT_STALE_DAYS,
+} from './ruleHitStats';
+export type {
+  RuleHitEntry,
+  RuleHitStatsSnapshot,
+  RuleHitReport,
+  StaleRuleInfo,
+} from './ruleHitStats';
+// R5（2026-11-17）：保存前「规则影响预演」（基准命令前后对比；内存沙箱，不写状态）
+export {
+  baselineCommandsForTool,
+  summarizeRuleImpact,
+  RULE_IMPACT_BASELINE,
+} from './manager/ruleImpact';
+export type {
+  RuleImpactCandidate,
+  RuleImpactCase,
+  RuleImpactDecision,
+  RuleImpactPreview,
+  RuleImpactSample,
+} from './manager/ruleImpact';
+export type {
+  SimulatePermissionDeps,
+  SimulatePermissionRequest,
+  SimulatePermissionResult,
+  SimulatablePermissionMode,
+} from './manager/simulate';
 // P2-1（2026-11-03）：统一 Rule 模型（A / settings / B-command / StandingRule 只读投影）
 export {
   permissionRulesToUnified,
@@ -377,3 +481,16 @@ export type {
   AutonomyPolicyRule,
   AutonomyPolicyConfig,
 } from './types/PolicyStrength';
+
+// B1（2026-11-18）：single read verb + single path 的 shell 调用 → 纠正为专用工具
+export {
+  buildReadViaShellCorrection,
+  isReadViaShellCorrectionEnabled,
+  shellOfCommandTool,
+  suggestReadToolForShellCommand,
+} from './classifiers/read-via-shell-correction';
+export type {
+  ReadViaShellCorrection,
+  ReadViaShellSuggestion,
+  ReadViaShellTool,
+} from './classifiers/read-via-shell-correction';

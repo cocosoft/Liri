@@ -31,22 +31,25 @@
 
 | # | 项 | 当前默认 | 触发条件（可操作判据） | 复评节奏 | 依据 |
 |:-:|---|:--:|---|---|---|
-| 1 | `OUTPUT_GUARD` | false | ① 护栏接入点 **≥4**（含流式 chunk / 工具回传 / 文件写入；**现 6，G-8 已达标**：终稿×2 / 流式 chunk×1 / 工具回传×1 / 文件写入×2，2026-10-18 `report:output-guard-corpus` 实测）；② 语料改写文件数 **≤5**（**现 45**，同报表实测；2026-10-07 基线 47，`guardrails-dual-side.md §10.3`）**持续 ≥1 发布周期**；③ 真实泄漏事故或用户明确要求"默认打码"；④ `project_rules §1.3` 由"无正式用户"变更为"引入用户" | ①② 季度 · ③④ 事件 | `guardrails-dual-side.md §11` |
+| 1 | `OUTPUT_GUARD` | false | ① 护栏接入点 **≥4**（含流式 chunk / 工具回传 / 文件写入；**现 6，G-8 已达标**：终稿×2 / 流式 chunk×1 / 工具回传×1 / 文件写入×2，2026-11-16 `report:output-guard-corpus` 复测仍为 6）；② 语料改写文件数 **≤5**（**现 31 / 3388 文件**，改写面 0.91%，同报表 2026-11-16 实测；2026-10-07 基线 47，`guardrails-dual-side.md §10.3`）**持续 ≥1 发布周期**；③ 真实泄漏事故或用户明确要求"默认打码"；④ `project_rules §1.3` 由"无正式用户"变更为"引入用户" | ①② 季度 · ③④ 事件 | `guardrails-dual-side.md §11` |
 | 2 | `OUTPUT_GUARD_BLOCK` | false | **跟随 #1**：`OUTPUT_GUARD` 满足且用户要求"发现即阻断" | 随 #1 | `featureFlags.ts:256` |
 | 3 | `OUTPUT_GUARD_KEEP_ORIGINAL` | false | **显式 opt-in（无"默认开"计划）**：需 FP 排查且接受"未打码内容落本地事件日志" | 事件 | `guardrails-dual-side.md §10.6` |
 | 4 | `RESOURCE_GOVERNOR` | false | ① 观测（O2）：`observedPeakInflight` **≥8**，且 `resourceGovernor:inflight_at_limit` 日志在窗口内出现 **≥3 次**；② 用户要求"后台任务不得挤占人工对话"；③ `project_rules §1.3` 引入正式用户后出现投诉 | ① 季度 · ②③ 事件 | `resource-governance-default-and-granularity-assessment.md §2.3` |
-| 5 | `PRO_SECURITY_SUITE` | false | ① 用户/企业场景明确要求高级安全套件；② 出现合规/审计要求。**⚠️ 前置**：其生效面在代码中**未展开**（仅常量，`featureFlags.ts:404`）⇒ 复评前须先定义"套件包含什么" | 事件 | `featureFlags.ts:404` |
+| 5 | `PRO_SECURITY_SUITE` | false | ① 用户/企业场景明确要求高级安全套件；② 出现合规/审计要求。**⚠️ 前置**：其生效面在代码中**未展开**（仅常量，`featureFlags.ts:727`）⇒ 复评前须先定义"套件包含什么"。**2026-11-16 复核**：全仓**零读取点**（仅常量声明 + `SAFETY_SWITCHES` / `featureGate` 断言）⇒ 开 = **无任何行为**；本项**不属"待翻"**，翻转前须先定义生效面 | 事件 | `featureFlags.ts:727` |
 | 6 | `UNATTENDED_MODE` | false | ① 用户要求无人值守自动运行（定时/调度驱动）；**前置**：无人在场时的审批策略须先定（与 Ch.13 HITL 冲突面） | 事件 | `featureFlags.ts:92` |
 | 7 | ~~`BASH_APPROVED_REVALIDATE`~~ | ✅ **已翻转 → `true`（安全基线）** | **不再是默认关项**；治理见 **§2.2** | — | 第九轮审查 §七（用户裁定 2026-10-09） |
 | 8 | `BASH_INTERPRETER_GUARD` | false | ① **真实事件**：出现解释器内联执行（`node -e`/`python -c`/`bun -e`）绕过白名单的证据（观测 O1-B2）；② 用户要求"解释器命令必须确认" | ② 事件 | `featureFlags.ts:292` · `project_rules.md:57` |
 | 9 | ~~`BASH_APPROVAL_STRICT`~~ | ✅ **已翻转 → `true`（安全基线）** | **不再是默认关项**；治理见 **§2.2** | — | 用户裁定 2026-10-31（B3 结构化签名已收窄同名放行；真实日志「命令名级放行命中」= 0） |
 | 10 | `EXECUTION_TWO_PHASE_CANCEL` | false | ① **真实事件**：取消后底层仍写入/产生副作用（取消不彻底）；② 并发下出现"取消即释放 ⇒ 双跑/重复计费" | 事件 / 季度 | `featureFlags.ts:310` · `execution-lifecycle-ownership.md:158` |
-| 11 | `SELF_VERIFY_PATTERN` | false | 须**同时**满足：① `verify` 意图命中 **≥20 会话**（观测 O5）；② 开启后 A/B 显示质量提升**可量化**；③ 重试增量**可接受**（建议 ≤10%） | 埋点落地后下一季度 | `pattern-wiring-closure.md §9-3` |
+| 11 | ~~`SELF_VERIFY_PATTERN`~~ | ✅ **已翻转 → `true`（用户裁定 2026-11-16）** | **不再是默认关项**。翻转时三条判据**均未达标**（①实测 `verify` 意图命中 **0 会话** < 20；②③ 需开关先开才能采）⇒ 记为**显式豁免裁定**，判据保留为**回退后复评**依据。回退：`FEATURE_SELF_VERIFY_PATTERN=false`（env 最高优先）或设置页「功能开关」关闭。详见 **§2.4.3** | — | `pattern-wiring-closure.md §9-3` |
 | 12 | `CODE_RUN_DEEP_SCAN_STRICT` | false | ① **真实事件**：深扫不可用（原生模块缺失 / 平台缺库）期间出现**危险调用漏检**；② 原生深扫在**目标交付环境**稳定可用（`scanStatus='ran'` 比例达 100%）；③ 用户要求"code_run 深扫必须完成" | 事件 / 与 P0-3 联动 | `featureFlags.ts:326` · `.trae/specs/security-decision-verdict.md` |
 | 13 | `CLIENT_STREAM_EXECUTION` | false | ① **真实事件**：客户端 `/v1/chat/stream` 出现**未记账工具调用**或**崩溃后重复副作用**（无 executionId 导致）；② 前端/第三方调用方**回归清单通过**（`ChatRequest.executionId` 注入兼容）；③ 与渠道路径记账口径对齐验证（终态事件同构） | 事件 / 与 P0-2 联动 | `featureFlags.ts:338` · `.trae/specs/client-stream-execution.md` |
 | 14 | `CHANNEL_TOOL_POLICY` | false | ① 远程通道会话中 `bash` / `file_write` 等执行/写盘工具的调用率与审批拒绝率**可观测**（灰度期基线）；② `messaging` 任务面在灰度期**无「模型自述工具不可用」类反馈**（否则该通道需补类别）；③ 至少 **1 个发布周期**的灰度观察记录 | 季度 / 事件 | `featureFlags.ts`（`CHANNEL_TOOL_POLICY`）· G-2（`dev_docs/20261018/待修复任务清单-20261018.md`） |
-| 15 | `SWARM_VERIFY_RETRY` | false | ① verifier **明确判不过**的 worker 占比与「回灌后转通过」比例**可观测**（灰度期基线，见 `AgentSwarm` 的 `retried` 字段）；② 回灌增量 token 占批次 worker 用量**可量化且 ≤10%**；③ 至少 **1 个发布周期**的灰度观察记录；④ 独立 token 上限（默认 20k）未出现"预算半途耗尽导致回灌被系统性跳过" | 季度 / 事件 | `featureFlags.ts`（`SWARM_VERIFY_RETRY`）· E-1（`dev_docs/20261018/待修复任务清单-20261018.md`） |
-| 16 | `PLUGIN_THIRD_PARTY_INPROCESS` | false | ① **T25-08 P1 子进程宿主上线并验收通过**（插件读不到宿主 `process.env`、崩溃不杀主进程、能力经白名单 RPC）；② 市场/安装链路已按 `capabilities` 声明授权；③ 宿主不可用时的降级路径已验证（**不得**静默回到进程内执行） | 事件（与 P1 联动） | `featureFlags.ts`（`PLUGIN_THIRD_PARTY_INPROCESS`）· `.trae/specs/plugin-process-isolation.md` |
+| 15 | ~~`SWARM_VERIFY_RETRY`~~ | ✅ **已翻转 → `true`（用户裁定 2026-11-16）** | **不再是默认关项**。四条判据未逐项取证（真机无 verifier 明确判不过的样本）⇒ 记为**裁定翻转**；增量 token 受 **20k 独立上限**约束，超限即不回灌。回退 `FEATURE_SWARM_VERIFY_RETRY=false`。详见 **§2.4.6** | — | `featureFlags.ts` · `app/src/tasks/swarm/AgentSwarm.ts` · E-1 |
+| 16 | `PLUGIN_THIRD_PARTY_INPROCESS` | false | **语义订正（2026-11-16）：本项是"逃生闸"，不是"待翻功能"**—— 开 = 第三方插件回到**主进程内** `import` 执行（可读 `.env` / spawn 子进程）= **弱化隔离**。① 前置（P1 子进程宿主）**已达成**（`PLUGIN_HOST_PROCESS` 默认开）；② 市场/安装链路按 `capabilities` 授权；③ 宿主不可用时的降级路径已验证（**不得**静默回进程内）。⇒ **不设"默认开"计划**；放行单个插件请用 `LIRI_PLUGIN_TRUSTED_IDS` | 事件（与 P1 联动） | `featureFlags.ts`（`PLUGIN_THIRD_PARTY_INPROCESS`）· `.trae/specs/plugin-process-isolation.md` |
+| 17 | ~~`GOAL_STARTUP_RESUME`~~ | ✅ **已翻转 → `true`（用户裁定 2026-11-16）** | **不再是默认关项**。判据①②③ 未逐项取证（实测本机 4052 个目标中 24h 内 `active`/`blocked` **0 个**）⇒ 记为**裁定翻转**；有界性保留：24h 新鲜窗口 + 单次 5 个 + 触发前二次校验。回退 `FEATURE_GOAL_STARTUP_RESUME=false`。详见 **§2.4.8** | — | `featureFlags.ts` · `app/src/tasks/goal/goalStartupResume.ts` · `project_rules.md §1.4` |
+| 19 | ~~`PLAN_SYSTEM_RESUME`~~ | ✅ **已翻转 → `true`（用户裁定 2026-11-16）** | **不再是默认关项**。四条判据未逐项取证（无真实事件样本）⇒ 记为**裁定翻转**；回退 `FEATURE_PLAN_SYSTEM_RESUME=false`（回到一期消息注入）。详见 **§2.4.5** | — | `featureFlags.ts` · `.trae/specs/planner-system-resume.md` · `project_rules.md §1.4` |
+| 18 | ~~`PLAN_STARTUP_RESUME`~~ | ✅ **已翻转 → `true`（用户裁定 2026-11-16）** | **不再是默认关项**。判据①部分成立（实测 21 份 `running` 计划长期停在 running，但 >24h 超窗）；②③ 未取证 ⇒ 记为**裁定翻转**；有界性保留：心跳过期 >10min + 24h 窗口 + 单次 5 个。回退 `FEATURE_PLAN_STARTUP_RESUME=false`。详见 **§2.4.5** | — | `featureFlags.ts` · `app/src/tasks/plan/planStartupResume.ts` · `.trae/specs/planner-resumable-dag.md` · `project_rules.md §1.4` |
 
 **未列入（如实边界）**：`iterative_refine` / `parallel_distributed` 的**装配触发条件**已有（`pattern-wiring-closure.md §5/§6`），属"pattern 装配"而非"默认关开关"，本表**不重复登记**（同源去重，§2.14 规则 5）；其**可操作化判据已落入** `pattern-wiring-closure.md **§11**`（2026-10-09 追加，引用 O3/O4）。
 
@@ -175,6 +178,166 @@
 
 ---
 
+### 2.4.3 翻转记录（2026-11-16）—— `SELF_VERIFY_PATTERN`（#11）**按用户裁定翻转，判据未达标**
+
+> 触发：用户指令「先处理 21 模式 #4 的开关翻转」；经复述「三条判据均未满足」后，用户裁定 **按裁定翻转（记豁免）**。
+
+**① 取证（如实，2026-11-16 实测）**
+
+| 判据 | 读数 | 判定 |
+|---|---|---|
+| ① `verify` 意图命中 **≥20 会话**（O5） | `~/.pyapp/data/sessions` 在用 `events.jsonl` **9 份**（含 `.trash` 共 63 份 / `.trash` 外合计 1.1 MB）⇒ `pattern/decision` 事件 **0 条** ⇒ `selected=='self_verify'` 去重会话 **0** | **未达标**（0 / 20） |
+| ② 开启后 A/B 质量提升**可量化** | 无 A/B 采集路径（`self-verify-turn-surface.md` §N5 明确不做 A/B 框架） | **无法判定**（需开关先开） |
+| ③ 重试增量**可接受（≤10%）** | 同上，需开关先开才有 `maxCycles` 触发的重试样本 | **无法判定** |
+
+**② 落地（代码面）**
+
+| 落点 | 改动 |
+|---|---|
+| `packages/kernel/src/core/featureFlags.ts` | `SELF_VERIFY_PATTERN: false → true`（注释改写为翻转依据 + 豁免性质 + 回退） |
+| `client/src/components/views/SettingsPage.tsx` | 设置页缺键默认 `selfVerifyPattern: false → true`（与后端一致，避免"显示关 / 实际开"） |
+| `scripts/check-doc-code-consistency.js` | 从 `REGISTRATION_REQUIRED_FLAGS` 移除该项（不再是默认关项 ⇒ 原 `NAME: false` 断言失效） |
+| `app/tests/query/featureGate.test.ts` | 默认回落断言改为 `true`，并新增「用户显式关闭仍生效（回退路径）」 |
+
+**③ 行为影响与回退（必须可撤回）**
+
+- 影响面**仅限命中 verify/refine 意图的回合**：这些回合改走 `failClosed:true` + `maxCycles 2`（refine 为 4），判定更严、可能多一轮重试；其余回合逐字不变。
+- **回退（不改代码）**：`FEATURE_SELF_VERIFY_PATTERN=false`（env，优先级最高）或设置页「功能开关 → 自我验证」关闭。
+- **判据的后续用途**：①②③ 不再作为"能否开"的门槛（已开），转为**回退后重新开启**的复评依据；若出现"failClosed 导致正常回合被判失败 / 重试显著上升"，先回退再按 ②③ 取证。
+
+> **如实边界**：这是一次**显式豁免裁定**，不是"判据达标后的翻转"。登记表 §2 #11 行与 `featureFlags.ts` 注释均已写明，避免后续把"已翻转"误读为"已验证"。
+
+---
+
+### 2.4.4 翻转记录（2026-11-16）—— `TOOL_DISCLOSURE_STRICT`（21 模式 #5 Tool Use）
+
+> 触发：用户指令「继续执行 21 模式 #5 的开关翻转」（该行在 21 模式表里没有门控开关，经确认对象 = 工具披露面严格预算）。
+
+**前置如实说明**：本项**此前未登记在本表 §2**（它不属于"安全开关"，也不在 `REGISTRATION_REQUIRED_FLAGS`）—— 属**登记遗漏**；本轮翻转后它是**默认开**，故不补登记为默认关项，仅在此留翻转记录与回退方式。
+
+| 项 | 读数 |
+|---|---|
+| 翻转前默认 | `false`（`featureFlags.ts`） |
+| 翻转后默认 | `true`；回退 `FEATURE_TOOL_DISCLOSURE_STRICT=false` |
+| 影响面 | 仅 `coding` / `agent` 两个任务面的**工具下发面**（不删工具、不改授权）：实测 coding **40 → 25** 个（provider 4226 → 2663 token）、agent **46 → 25** 个（4811 → 2815 token）；`default` 面不变（13 / 1512）；未列入者仍注册、可经 `tool_search` 检索 |
+| 棘轮 | `.trae/architecture/tool-disclosure-baseline.json` 的 `perTask.coding/agent` 已按 `bun run measure:tool-disclosure --update` 下调锁定（40/4226 → 25/2663；46/4811 → 25/2815） |
+| 用例同步 | `tests/tools/toolDisclosureStrict.test.ts`：原「默认关 ⇒ 不截断」改为「默认开 ⇒ 有预算」+「显式关（回退路径）⇒ 不截断」 |
+| 风险 | 模型每轮可见工具变少（被裁者需 `tool_search` 检索后调用）⇒ 若真机出现"该场景常用工具不可见"的样本，先回退再评估 `STRICT_DISCLOSURE_BUDGETS` / `STRICT_DISCLOSURE_PRIORITY` |
+| 用户可配（2026-11-16 追加） | 已登记 `query/featureGate.ts` 的 `USER_CONFIG_KEYS`（键 `toolDisclosureStrict`）⇒ 设置页「工具披露预算（收紧）」可关，**每轮重解析、即时生效**；优先级 `FEATURE_TOOL_DISCLOSURE_STRICT` env > 用户设置 > 静态默认。消费点 `toolCategories.resolveDisclosureBudget` 由 `feature()` 改为 `resolveFeatureGate()` |
+
+---
+
+### 2.4.5 翻转记录（2026-11-16）—— `PLAN_STARTUP_RESUME`（#18）+ `PLAN_SYSTEM_RESUME`（#19）（21 模式 #6 Planning）
+
+> 触发：用户指令「继续执行 21 模式 #6 的开关翻转」；确认范围 = **两个一起翻**（STARTUP 负责发现并登记唤醒，SYSTEM 负责按既有计划续跑；只开 STARTUP 会退回一期消息注入）。
+
+| 项 | 读数 / 处置 |
+|---|---|
+| 翻转前默认 | 两者均 `false`（`featureFlags.ts`） |
+| 翻转后默认 | 两者均 `true`；回退 `FEATURE_PLAN_STARTUP_RESUME=false` / `FEATURE_PLAN_SYSTEM_RESUME=false` |
+| 判据①（#18） | **部分成立**：本机 931 份计划中 `status=running` **21 份**（均长期停在 running），但心跳**全部 >24h**（超窗） |
+| 判据②③（#18） | **未取证**：需真实重启样本才能测「误续跑率」与「已完成步骤零重做」 |
+| 判据①–④（#19） | **未取证**：无"一期续跑新建计划 / 台账停在 running"的真实事件样本 |
+| 结论 | **裁定翻转**（不是判据达标后的翻转）；判据保留为**回退后复评**依据 |
+| 启动开销（有界性） | 扫描上限 5 个/次 + 心跳过期 >10min + 24h 新鲜窗口 + 触发前二次校验（仍 running 且有未终态步骤且心跳未变，否则作废）；**当下可续跑 0 份** ⇒ 本次启动不会产生额外模型调用 |
+| 同步面 | `featureFlags.ts` 注释、`project_rules.md §1.4` 两行（默认/回退/语义）、`check-doc-code-consistency.js` 的 `SAFETY_SWITCHES`（`def: true` + why 改为"已翻为默认开，回退须同批改断言"）、`app/tests/tasks/plan/planStartupResume.test.ts` 的注释（用例本身显式设 env，不受默认值影响） |
+| 用户可配（2026-11-16 追加） | 两者均已登记 `query/featureGate.ts` 的 `USER_CONFIG_KEYS`（`planStartupResume` / `planSystemResume`）⇒ 设置页「重启后计划续跑」「计划续跑走执行器」可关；消费点 `planStartupResume.ts`（扫描 + 触发前二次校验）与 `chat/manager/recovery.ts` 由 `feature()` 改为 `resolveFeatureGate()`（env 仍最高优先）。关闭后：下次启动不扫描，已登记的唤醒在二次校验处作废 |
+
+---
+
+### 2.4.6 翻转记录（2026-11-16）—— `SWARM_VERIFY_RETRY`（#15）（21 模式 #7 Multi-Agent）
+
+> 触发：用户指令「继续执行 21 模式 #7 的开关翻转」。多智能体相关默认关项中，只有本项属"编排行为"开关（`TEAM_*` / `PRO_SWARM` 属工具可见性与变体集，不在本表）；消费点唯一：`app/src/tools/AgentTool/swarmPath.ts:560`。
+
+| 项 | 读数 / 处置 |
+|---|---|
+| 翻转前默认 | `false`；回灌关闭时 verifier 判不过即 `verify:'failed'`，不重试 |
+| 翻转后默认 | `true`；回退 `FEATURE_SWARM_VERIFY_RETRY=false` |
+| 行为变更 | **仅**在 verifier 给出明确 `pass:false`（含 feedback）时，把 feedback 回灌原 worker **重试 1 次**并重新门禁；verifier 自身故障 / 输出不可解析 / worker 超时 / 批次取消**均不回灌** |
+| 成本上界 | 回灌增量 token 受 **`DEFAULT_SWARM_VERIFY_RETRY_TOKEN_BUDGET = 20_000`** 独立上限约束，超限即跳过 |
+| 判据取证 | ①"判不过 worker 占比 / 回灌后转通过比例"、②"回灌 token 占比 ≤10%"、③"灰度 1 个发布周期"、④"预算未半途耗尽" —— 真机**无 verifier 明确判不过的样本**（9 份在用 `events.jsonl` 仅 3 处 `swarm` 文本命中，非续跑样本）⇒ **均未取证**，记为**裁定翻转** |
+| 同步面 | `featureFlags.ts` 注释、`AgentSwarm.ts` 的 `enableVerifyRetry` 注释（"默认开 + 回退"）；本项不在 `SAFETY_SWITCHES` / `project_rules §1.4`（非安全开关），`lint:doc-code` 断言数不变 |
+| 用户可配（2026-11-16 追加） | 已登记 `query/featureGate.ts` 的 `USER_CONFIG_KEYS`（键 `swarmVerifyRetry`）⇒ 设置页「多代理验证重试」可关；消费点 `swarmPath.ts` 由 `feature()` 改为 `resolveFeatureGate()`（env 仍最高优先） |
+
+### 2.4.7 复评记录（2026-11-16）—— Memory Management（21 模式 #8）：**维持默认关**
+
+> 触发：用户指令「继续执行 21 模式 #8 的开关翻转」；经取证与复述后，用户裁定 **维持默认关**。
+
+**① 对象甄别（本模式相关默认关项）**
+
+| 开关 | 消费方 | 结论 |
+|---|---|---|
+| `REACTIVE_COMPACT` | **全仓零读取点**（仅声明） | 死开关 ⇒ **已于 2026-11-16 删除**（`featureFlags.ts` 独立提交；见下方清理记录） |
+| `CONTEXT_COLLAPSE` | 同上 | 同上 |
+| `HISTORY_SNIP` | 同上 | 同上 |
+| `CONTEXT_COMPACTION_ESCALATION` | `app/src/context/compaction/CompactionOrchestrator.ts:824`（唯一消费点） | **唯一可执行对象** |
+
+> **死开关清理记录（2026-11-16，用户裁定后执行）**：按 `code-deletion.md` CD01–CD06 核查后删除上述三项：
+> ① 全仓无 `feature('REACTIVE_COMPACT'|'CONTEXT_COLLAPSE'|'HISTORY_SNIP')` 读取点；
+> ② 无 `FEATURE_*` 环境变量名、无构建变体 / 配置注册 / 客户端设置项引用；
+> ③ 压缩实现（`packages/compaction` 的 `reactiveCompact`、`packages/query/ReactiveCompact.ts`、
+> `ContextCollapseStrategy`、`contextCollapse` 服务）**不读取**这些开关，由各自触发面驱动 ⇒ 删声明不影响能力；
+> ④ 回滚：`git revert <sha>`（仅删除 `featureFlags.ts` 的三个键与注释）。
+
+**② 取证读数（`bun run evidence:compaction-escalation`，2026-11-16 实测）**
+
+| 指标 | 读数 | 阈值 |
+|---|---|---|
+| 可升级面（`decision=skip`） | **0** | ≥ 200 |
+| 升级次数（`compaction:escalated`） | 0 | — |
+| 压缩事件数（shadow 观测） | 0 | — |
+| Tier-3 降幅中位数（升级配对 / 全部） | 无样本 | ≥ 25% |
+| 升级后 3 轮内中断率 | 不可判定（需 `events.jsonl` 的 `turn/end`） | — |
+
+**③ 裁定与后续**
+
+- **结论：维持 `false`**（用户裁定 2026-11-16；与脚本自身结论「样本不足 ⇒ 维持默认关」一致）。
+- **翻转前提（何时重开）**：可升级面 ≥ 200 且 Tier-3 降幅中位数 ≥ 25% 且升级后 3 轮内中断率可判定并可接受；届时按 G-05 口径复评，**不得据小样本翻默认**。
+- **回退/开启方式（不变）**：`FEATURE_CONTEXT_COMPACTION_ESCALATION=true`（运维/灰度可先行）。
+
+---
+
+### 2.4.8 翻转记录（2026-11-16）—— `GOAL_STARTUP_RESUME`（#17）（21 模式 #11 Goal Setting）
+
+> 触发：用户指令「执行吧」（承接 #8 收口后「是否直接跳到 #11（Goal Setting）」的选项），对象 = `GOAL_STARTUP_RESUME`。
+
+| 项 | 读数 / 处置 |
+|---|---|
+| 翻转前默认 | `false`（不扫描、不登记、不续跑） |
+| 翻转后默认 | `true`；回退 `FEATURE_GOAL_STARTUP_RESUME=false` |
+| 行为变更 | 启动期扫描「最近 24h 内推进过」的 `active`/`blocked` 目标（按最近更新倒序、单次最多 5 个），各登记一次 `goal-startup:<goalId>:<updatedAt>` 唤醒 → 到点注入 `continue_goal` 续跑会话；触发前二次校验「仍非终态且期间无推进」，陈旧唤醒作废 |
+| 判据取证（本机 `task_goals` 实测） | 总数 **4052**（`cancelled` 3056 · `failed` 766 · `active` 229 · `completed` 1）；**24h 内 `active`/`blocked` = 0** ⇒ 本次启动**不会**拉起任何目标，也无额外模型调用 |
+| 结论 | **裁定翻转**（判据①②③ 未逐项取证：无误续跑率 / token 台账样本）；判据保留为**回退后复评**依据 |
+| 同步面 | `featureFlags.ts` 注释（含实测读数）、`project_rules §1.4` 行、`check-doc-code-consistency.js` 的 `SAFETY_SWITCHES`（`def: true`）、`goalStartupResume.test.ts` 的注释（用例仍显式设 env） |
+| 用户可配（2026-11-16 追加） | 已登记 `query/featureGate.ts` 的 `USER_CONFIG_KEYS`（键 `goalStartupResume`）⇒ 设置页「重启后目标续接」可关；`goalStartupResume.ts` 的扫描与二次校验均改为 `resolveFeatureGate()`（env 仍最高优先）。关闭后：下次启动不扫描，历史遗留唤醒同样作废 |
+
+---
+
+### 2.4.9 复评记录（2026-11-16）—— 剩余 **12 项**逐项复评，**全部维持默认关**（用户裁定）
+
+> 触发：用户指令「按登记表逐项处理剩余的默认关项」。先给「12 项 × 实测读数 × 判据结论 × 建议」清单，用户裁定 **全部维持**（不翻任何项）。
+
+| # | 项 | 本轮取证（2026-11-16） | 判据结论 | 处置 |
+|:-:|---|---|---|---|
+| 1 | `OUTPUT_GUARD` | `report:output-guard-corpus`：接入点 **6**（终稿×2 / 流式 chunk×1 / 工具回传×1 / 文件写入×2）⇒ 判据①**达标**；语料改写 **31 / 3388 文件**（0.91%，基线 47）⇒ 判据②**未达标**（阈值 ≤5） | ① 达标 · ② 未达标 | 维持 |
+| 2 | `OUTPUT_GUARD_BLOCK` | 仅在 #1 开启时生效，无独立收益 | 跟随 #1 | 维持 |
+| 3 | `OUTPUT_GUARD_KEEP_ORIGINAL` | 开 = 未打码原文落入本地事件日志 | 登记即「显式 opt-in，无默认开计划」 | 维持 |
+| 4 | `RESOURCE_GOVERNOR` | 组合根**已注入**抢占回调（`BootPipelineIntegrator`：`setResourceGovernorPreemptHandler` → `abortSessionStream`）+ SSE 观察者 ⇒ 开 = **真实抢占**（>8 在飞且存在低优先跨会话即中止该流）；O2 读数（峰值 / 撞限次数）**与开关无关**，取数口 `GET /v1/diagnostics/resource-governor`（2026-11-17 补齐，此前仅进程内、无出口） | ① 读数可取（**尚无真实样本**）· ②③ 无事件 | 维持 |
+| 5 | `PRO_SECURITY_SUITE` | **全仓零读取点**（仅常量 + `SAFETY_SWITCHES` / `featureGate` 断言）⇒ 开 = 无任何行为 | 生效面未展开 | 维持（表行已改标「无生效面 · 不属待翻」） |
+| 6 | `UNATTENDED_MODE` | 开 = `ask_user_question` 自动代答（`resolveUnattendedAnswers`）+ 计划自动审批 | 前置「无人值守审批策略」未定 | 维持 |
+| 8 | `BASH_INTERPRETER_GUARD` | 开 = 白名单内的 node/bun/python 等转**人工确认**（本仓大量 `bun run` 会加摩擦）；O1-B2 现有采样无解释器绕过白名单证据 | 2026-11-11 已裁定维持；无新事件 | 维持 |
+| 10 | `EXECUTION_TWO_PHASE_CANCEL` | 两段式主体未开；注：P36-b 的 `ownershipDecision.action === 'queue'` 分支**已复用**其有界等待实现（`messageRouter`） | ① 无真实事件 | 维持 |
+| 12 | `CODE_RUN_DEEP_SCAN_STRICT` | 开 = `scanStatus='skipped'/'failed'` 一律 `security-rejected`；`scanStatus` 有输出字段但**无跨环境统计** | ② 需目标环境 `ran` 达 100%，无数据 | 维持 |
+| 13 | `CLIENT_STREAM_EXECUTION` | 客户端**不发** `execution_id`（由服务端 `acquire` 注入）；开 = 客户端流式并入租约链路（拿不到租约 ⇒ 409 `SESSION_BUSY`） | ② 前端回归清单未跑 | 维持 |
+| 14 | `CHANNEL_TOOL_POLICY` | 必开守卫 `CHANNEL_UNTRUSTED_TAINT` 已恒拦副作用工具（与开关无关）；本开关只叠加 `messaging` 类目面，而该面会**误裁** `mcp`/`calendar`/`doc` 只读工具；`mobile` 已常开 | ① 灰度基线无数据 | 维持 |
+| 16 | `PLUGIN_THIRD_PARTY_INPROCESS` | 开 = 第三方插件回**主进程** `import`（可读 `.env` / spawn）= **弱化隔离**；前置已由 `PLUGIN_HOST_PROCESS`（默认开）承担 | 语义为逃生闸，无默认开合理性 | 维持（表行已改标「逃生闸 · 无默认开计划」） |
+
+**同步面**：本批**未改任何默认值** ⇒ `featureFlags.ts` / `project_rules §1.4` / `check-doc-code-consistency.js` 的 `SAFETY_SWITCHES` **三处零变更**（`bun run lint:doc-code` 复核一致）；仅本表读数与标签订正。
+
+**回退方式（不变）**：逐项 `FEATURE_<NAME>=true` 即可灰度开启（#1 族须先开 `OUTPUT_GUARD`）。
+
+---
+
 ## 3. 观测点 O1–O5（触发条件可操作化的**使能步**）
 
 > 口径：**均不新增开关、不改默认值、不改决策**；仅让触发条件"可读"。
@@ -184,10 +347,10 @@
 | **O1-B1** | `tools/bash/BashTool.ts`（已批准放行点，`:534`） | 既有 `logger.info('已批准命令放行', { revalidated })` | #7 | ✅ **既有**（无需改） |
 | **O1-B2** | `tools/bash/BashTool.ts`（解释器即将执行点） | 新增 `logger.debug('bash:interpreter_command_allowed')` | #8 | ✅ **已落地**（2026-10-09） |
 | **O1-B3** | `permission/ApprovedCommandRegistry.ts` `isCommandNameApproved` | 新增 `logger.debug('命令名级放行命中')` | #9 | ✅ **已落地**（2026-10-09） |
-| **O2** | `resourceGovernor/index.ts` `admit()`/`release()` | 新增**与开关无关**的观测集 `observedInflight` + 峰值访问器 `observedPeakInflight` + `logger.debug('resourceGovernor:inflight_at_limit')`（每次达/超上限一条，供出现次数计数） | #4 | ✅ **已落地**（2026-10-09） |
+| **O2** | `resourceGovernor/index.ts` `admit()`/`release()` | 新增**与开关无关**的观测集 `observedInflight` + 峰值访问器 `observedPeakInflight` + 撞限计数 `observedLimitHits` + `logger.debug('resourceGovernor:inflight_at_limit')`；**取数口** `GET /v1/diagnostics/resource-governor`（2026-11-17，返回 `enabled/limit/inflightCount/observedPeakInflight/observedLimitHits`，默认关也可读） | #4 | ✅ **已落地**（2026-10-09 观测点 / 2026-11-17 补读数出口） |
 | **O3** | `query/VerifierAgent.ts` / `query/TAORLoop.ts` | **既有**：`验证完成`（含 `turnCount`/`verdict`，`:373`）· `验证循环已达上限，强制升级`（`:316`）· TAORLoop `REJECT/ESCALATE`（含 `cycleCount`，`:953/:963`） | `iterative_refine` 判据 | ✅ **既有**（无需改） |
 | **O4** | `tasks/PlanDrivenLoop.ts` `:780` · `ai/router/OrchEngine.ts` `:194` | 新增 `logger.debug('pdl:topo_batches')` / `logger.debug('orch:topo_batches')`（批数 + 批宽分布 + 最大批宽） | `parallel_distributed` 判据 | ✅ **已落地**（2026-10-09） |
-| **O5** | `chat/ChatManager.ts` `_persistPatternDecision`（`:3958`） | **既有**会话事件 `pattern/decision`（含 `sessionId` + `selected` + `featureGate.enabled`，`researchIntent \|\| verifyIntent` 时落一条）。**聚合方式**：查 `pattern/decision` 事件中 `data.selected=='self_verify'` 者，按 `sessionId` 去重计数 ⇒ **无需新增代码**（事件已是聚合来源，CS01） | #11 | ✅ **既有**（无需改） |
+| **O5** | `chat/ChatManager.ts` `_persistPatternDecision`（`:3958`）→ **2026-11-15 起主落点为** `chat/manager/verifyRecipeTurn.ts`（轮首判定） | 会话事件 `pattern/decision`（含 `sessionId` + `selected` + `featureGate.enabled`）。**聚合方式**：查该事件中 `data.selected=='self_verify'\|'iterative_refine'` 者，按 `sessionId` 去重计数。**2026-11-15 观测面订正**：原落点只在 PDCA 长任务闸门内（`site='research_dispatch'`）⇒ 普通轮永不落盘、判据① 结构性采不到样（本机 118 份 `events.jsonl` / 162.1 MB 实测 **0 条**）⇒ 已把判定前移到**每轮入口**，落 `site='turn_dispatch'`（`.trae/specs/self-verify-turn-surface.md`） | #11 | ✅ **已落地**（2026-11-15，`turn_dispatch`；`research_dispatch` 保留） |
 
 **净结果**：需补的 **3 个观测点（O1-B2 / O2 / O4）已落地**；**O1-B1 / O3 / O5 经复核为既有信号**（CS01：不重复造）。
 
@@ -196,7 +359,7 @@
 1. **O2 的峰值来自"准入—释放"配对**：若某会话 `admit` 后从未 `release`（异常路径），观测集会同 `inflight` 一样滞留 —— 与既有语义同源，**非本轮引入**。
 2. **O1-B3 只证明"命令名级命中"，不直接证明"参数不同"**：当前观测记录 `baseCommand` 命中；"同名**不同参**"的严格判定需比对批准 hash 与本次 hash（本表据其为**代理信号**，严格判定留待触发条件满足时的复评批次）。
 3. **O3 的"轮次"以 `cycleCount` / `turnCount` 表达**：`maxCycles` 用尽在实现中表现为 **ESCALATE**（`VerifierAgent.ts:315-327`），非 REJECT ⇒ `iterative_refine` 判据应读**"强制升级"频次**，非"REJECT 比例"（对 `P0-触发条件补全方案` §二-D1 的**如实修正**）。
-4. **观测为 `debug` 级**：受日志查看器（设置 → 日志）的 DEBUG 开关控制；季度复评前需确认该级别已开启（否则无采样）。
+4. **观测为 `debug` 级**：受日志查看器（设置 → 日志）的 DEBUG 开关控制；季度复评前需确认该级别已开启（否则无采样）。**O2 例外（2026-11-17）**：峰值与撞限次数经 `GET /v1/diagnostics/resource-governor` 直接读取，**不依赖日志级别**；但计数为**进程内**累计，进程重启即清零 ⇒ 复评取数须在**同一进程**内完成（或用日志做跨重启佐证）。
 
 ---
 

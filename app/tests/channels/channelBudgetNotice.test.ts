@@ -13,12 +13,15 @@
 import { describe, it, expect } from 'bun:test';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { resolveLlmFailure } from '../../src/channels/routing/messageRouterContract';
-import { consumeStreamChunks } from '../../src/channels/routing/streamConsumption';
+// P0（2026-11-13）：通道源码位置走单一事实源（搬包后本文件零改动）
+import { channelPath } from '../../../scripts/lib/channelPaths';
+import { resolveLlmFailure } from '@modules/channels/routing/messageRouterContract';
+import { consumeStreamChunks } from '@modules/channels/routing/streamConsumption';
 import type { ChatStreamChunk } from '../../src/runtime/api/CoreAPI';
-import type { MessageContext } from '../../src/channels/types/IChannel';
+import type { MessageContext } from '@modules/channels/types/IChannel';
 
-const APP_SRC = join(import.meta.dir, '..', '..', 'src');
+/** 仓库根（`app/tests/channels` → 上三级） */
+const REPO_ROOT = join(import.meta.dir, '../../..');
 
 describe('T9：通道侧撞限文案（resolveLlmFailure）', () => {
   it('DAILY_BUDGET_EXCEEDED ⇒ 文案含**原因**（预算）与**出路**（放行指引），而非"消息处理失败"', () => {
@@ -151,7 +154,7 @@ describe('T9：流式消费保留真实业务码（consumeStreamChunks）', () =
 describe('T9：接线防漂移（routeChannelMessage 使用统一文案表）', () => {
   it('messageRouter 的 llm 失败分支经 resolveLlmFailure 取文案与码', () => {
     const code = readFileSync(
-      join(APP_SRC, 'channels/routing/messageRouter.ts'),
+      channelPath(REPO_ROOT, 'routing/messageRouter.ts'),
       'utf-8'
     );
     // 必须：经统一文案表解析（否则会退回硬编码通用兜底）

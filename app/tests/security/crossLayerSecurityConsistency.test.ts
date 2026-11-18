@@ -56,7 +56,7 @@ import {
   getBashAstStats,
   resetBashAstForTest,
 } from '@openliri/infra/security/bash/BashAST';
-import { SandboxSecurityChecker } from '../../src/sandbox/SandboxSecurityChecker.js';
+import { SandboxSecurityChecker } from '@modules/sandbox/SandboxSecurityChecker';
 import type { ToolUseContext } from '../../src/tools/types/Tool.js';
 import {
   execBashCommand,
@@ -66,7 +66,7 @@ import {
   DEFAULT_LANDLOCK_CONFIG,
   type LandlockCapability,
   type LandlockConfig,
-} from '../../src/sandbox/index.js';
+} from '@modules/sandbox';
 
 /** 最小可用的 ToolUseContext（BashTool.execute 仅用到 sessionId） */
 function makeContext(sessionId: string): ToolUseContext {

@@ -77,14 +77,13 @@ import {
 } from '../files-handlers';
 
 /**
- * dispatchMemoryFilesRoutes — memory-files-routes 领域路由分发
- * @returns true 表示已匹配并处理，false 表示未匹配
+ * Checkpoints 段（P3-2，2026-11-16：由下方分发函数**原样外移**，匹配顺序不变）。
+ * @returns true 表示已匹配并处理
  */
-export async function dispatchMemoryFilesRoutes(
+async function dispatchCheckpointRoutes(
   req: http.IncomingMessage,
   res: http.ServerResponse,
   url: string,
-  broadcastEvent: (event: string, data: unknown) => void,
   handlerCtx: HandlerCtx
 ): Promise<boolean> {
   const method = req.method || 'GET';
@@ -124,7 +123,20 @@ export async function dispatchMemoryFilesRoutes(
     );
     return true;
   }
+  return false;
+}
 
+/**
+ * Memory 段（含梦境周期）（P3-2，2026-11-16：由下方分发函数**原样外移**，
+ * 匹配顺序不变 —— 梦境周期精确/正则仍在 PUT 泛匹配之前）。
+ * @returns true 表示已匹配并处理
+ */
+async function dispatchMemoryRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string
+): Promise<boolean> {
+  const method = req.method || 'GET';
   // ---- Memory ----
   if (method === 'POST' && url === '/v1/memory') {
     await handleCreateMemory(req, res);
@@ -205,7 +217,19 @@ export async function dispatchMemoryFilesRoutes(
     await handleDeleteMemory(req, res, url.match(/^\/v1\/memory\/(.+)$/)![1]);
     return true;
   }
+  return false;
+}
 
+/**
+ * Semantic Index 段（P3-2，2026-11-16：由下方分发函数**原样外移**，匹配顺序不变）。
+ * @returns true 表示已匹配并处理
+ */
+async function dispatchSemanticIndexRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string
+): Promise<boolean> {
+  const method = req.method || 'GET';
   // ---- Semantic Index ----
   if (method === 'POST' && url === '/v1/semantic/index') {
     await handleBuildSemanticIndex(req, res);
@@ -227,7 +251,21 @@ export async function dispatchMemoryFilesRoutes(
     await handleClearSemanticIndex(req, res);
     return true;
   }
+  return false;
+}
 
+/**
+ * Files（含 Registry API）段（P3-2，2026-11-16：由下方分发函数**原样外移**，
+ * 匹配顺序不变；`/files/list`、`/files/read` 仍按需动态导入）。
+ * @returns true 表示已匹配并处理
+ */
+async function dispatchFilesRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
+  const method = req.method || 'GET';
   // ---- Files ----
   if (method === 'GET' && url === '/v1/files/list') {
     const { handleFileList } = await import('../files-handlers');
@@ -281,5 +319,24 @@ export async function dispatchMemoryFilesRoutes(
     await handleFileRegistryDelete(handlerCtx, req, res);
     return true;
   }
+  return false;
+}
+
+/**
+ * dispatchMemoryFilesRoutes — memory-files-routes 领域路由分发
+ * @returns true 表示已匹配并处理，false 表示未匹配
+ */
+export async function dispatchMemoryFilesRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string,
+  broadcastEvent: (event: string, data: unknown) => void,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
+  // P3-2（2026-11-16）：四段原样外移，调用顺序与匹配顺序一致
+  if (await dispatchCheckpointRoutes(req, res, url, handlerCtx)) return true;
+  if (await dispatchMemoryRoutes(req, res, url)) return true;
+  if (await dispatchSemanticIndexRoutes(req, res, url)) return true;
+  if (await dispatchFilesRoutes(req, res, url, handlerCtx)) return true;
   return false;
 }

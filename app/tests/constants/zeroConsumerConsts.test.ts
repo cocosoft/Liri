@@ -30,6 +30,9 @@ import {
   type Dirent,
 } from 'node:fs';
 import { join, resolve } from 'node:path';
+// P1（2026-11-13）：源码扫描根走单一事实源 —— sessions/channels 等迁入 `packages/*` 后，
+// 其消费点仍在（不纳入会把"仅被包内使用"的常量误判成零消费者）。
+import { resolveSourceRoots } from '../../../scripts/lib/sourceRoots';
 
 const APP_ROOT = resolve(import.meta.dir, '../..');
 const REPO_ROOT = resolve(APP_ROOT, '..');
@@ -92,13 +95,13 @@ function collectConstNames(): Map<string, string> {
 function buildIdentifierCounts(): Map<string, number> {
   const counts = new Map<string, number>();
   const files: string[] = [];
-  collectSources(join(APP_ROOT, 'src'), files);
+  // P1（2026-11-13）：`app/src` + 全部 `packages/*/src`（含 infra 物理包、channels、service/session）
+  for (const root of resolveSourceRoots(REPO_ROOT)) {
+    collectSources(root.path, files);
+  }
   collectSources(join(APP_ROOT, 'tests'), files);
   collectSources(join(REPO_ROOT, 'client', 'src'), files);
   collectSources(join(REPO_ROOT, 'scripts'), files);
-  // P6（2026-11-01）：`utils` 迁入 infra 物理包 ⇒ 其内的消费点仍是真实消费者，
-  // 不纳入会把仅被 utils 使用的常量误判成"零消费者"。
-  collectSources(join(REPO_ROOT, 'packages', 'infra', 'src'), files);
 
   for (const file of files) {
     const source = readFileSync(file, 'utf-8');

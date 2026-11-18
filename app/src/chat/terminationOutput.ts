@@ -18,8 +18,10 @@
 import { getLogger } from '@openliri/infra/monitoring';
 import type { TerminationReason } from '@modules/query';
 import type { GoalTurnReason } from '@modules/tasks';
+// 2026-11-12：审批等待提示文案上移到 `@shared/types`（前端渲染期剥离，唯一来源）
+import { AWAITING_APPROVAL_NOTICE } from '@shared/types';
 // BUG-E 第二轮复验（2026-10-27）：可见性判定需先剥离 `<think>`（与终稿校验同源，CS01）
-import { stripThinkResponseTags } from './services/MessageContextPipeline.js';
+import { stripThinkResponseTags } from './services/context/thinkTags.js';
 
 const logger = getLogger('chat:reactToolLoop');
 
@@ -40,10 +42,20 @@ export const EMPTY_OUTPUT_FALLBACK_TEXT =
  * 流式路径由 `resolveTerminationOutput('awaiting_approval')` 拼进助手消息；
  * 非流式（TAOR）路径没有 finalize 消息，由 `ChatOrchestrator` 用它补一条助手消息
  * ⇒ 两条路径的用户可见文案逐字一致，不出现第二份硬编码。
+ *
+ * 2026-11-12：文案已上移到 `@shared/types`（前端渲染期按结构化字段把它从正文剥掉，
+ * 改由审批卡片提示「批准后自动继续」）—— 此处仅**再导出**，保持既有调用点不变。
  */
-export const AWAITING_APPROVAL_NOTICE =
-  '⏸ 有工具调用正在等待你的审批：请在下方审批卡片（或收件箱）中处理后继续；' +
-  '批准后会自动接着执行，无需重发消息。';
+export { AWAITING_APPROVAL_NOTICE };
+
+/**
+ * 「等待审批」的 `finishReason` 取值 —— **唯一命名来源**。
+ *
+ * P3-2/T1（2026-11-16）：判据与落盘都要用它，禁止在新代码里再写字面量
+ *（state 字面量棘轮 Register-or-Fail；两条路径的判据必须同源，见
+ * `orchestrator/awaitingApprovalNotice.ts` 头注）。
+ */
+export const AWAITING_APPROVAL_FINISH_REASON = 'awaiting_approval' as const;
 
 /** 收尾提示去重所需的最小消息形状 */
 export interface TerminationNoticeMessage {
@@ -137,6 +149,20 @@ export const PAUSED_TURN_REASONS: ReadonlySet<string> = new Set([
   'timeout',
   'compaction_failed',
   'system_aborted',
+]);
+
+/**
+ * 2026-11-13：**正常跑完**的收尾原因 ⇒ 若会话此前停在可重开态（待审批/暂停/出错），
+ * 应收敛回 `active`。
+ *
+ * 场景：审批通过后的续跑（`resumeStream`）没有新的 user 消息，末条 assistant 正常收尾；
+ * 若只靠"用户重新发言才重开"，`requires_action` 会永久挂在列表上（审批早已处理完）。
+ */
+export const SUCCESS_TURN_REASONS: ReadonlySet<string> = new Set([
+  'stop',
+  'completed',
+  'tool_calls',
+  'tool_use',
 ]);
 
 export interface TerminationOutputInput {
@@ -279,6 +305,106 @@ export function buildEmptyReplyFallback(
 }
 
 /**
+ * `max_turns` 的收尾提示（从 `resolveTerminationOutput` 外移，行为逐字不变；P3-2 降复杂度）。
+ *
+ * 达 maxIterations 时才附加：
+ * 对标 hermes（2026-09-01）：有 onMaxIterations 生成的总结则输出"已自动总结当前进度"，
+ * 无总结（请求失败/超时）回退为默认提示（CS03）。
+ * B1（2026-09-01）：不依赖 phase==='completed'——达上限后 phase 可能非 completed，
+ * 原条件导致提示被吞（实测达上限后最终消息仅 30 字符，用户无感知任务中断）。
+ */
+function maxTurnsNotice(input: TerminationOutputInput): {
+  suffix: string;
+  finishReason?: string;
+  concurrentReasons?: TerminationReason[];
+} {
+  // 判别器把 `phase === 'truncated'`（输出长度截断）也归为 max_turns，但"轮次上限
+  // 总结"只在真正达 maxIterations 时才有 ⇒ 文案以其为准（截断场景走下方统一兜底）。
+  if (input.iteration < input.maxIterations) return { suffix: '' };
+  // 跨 run 预算（spec §3.5 最小变体）：本段额度**就是**任务级 grant（可再至硬顶）
+  // ⇒ 文案直接展示该值（单段运行与修复前逐字一致，既有用例不受影响）。
+  let suffix = input.maxIterationsSummary
+    ? `\n\n⚠️ 已达到最大工具轮次限制 (${input.maxIterations})，已自动总结当前进度：\n${input.maxIterationsSummary}`
+    : `\n\n⚠️ 已达到最大工具轮次限制 (${input.maxIterations})，工具链提前终止。`;
+  // G3（2026-09-25，`.trae/specs/long-task-routing.md`）：**长任务**触顶时给出
+  // **可执行**的编排建议。载体选择（与 spec D2 的偏离，如实记录）：走**用户可见的
+  // 收尾提示**而非模型可见的 steering —— ① 既有 `goal/injected` 载荷要求
+  // `goalId` + 闭集 `templateKind`，非目标任务无法复用；② 新增事件类型与 spec N5 冲突；
+  // ③ 该提示随最终助手消息落盘 ⇒ 无需新增模型可见输入（§1.6 红线面为零）。
+  // 命令名事实来源：`/goal start`（command-registry 的 `goal` 命令，与
+  // `POST /v1/pdca/start` 同链）；`OnboardHints.PDCA_EXPLICIT_ENTRY` 与本文案
+  // 由用例断言保持一致（防第二处漂移）。
+  if (input.isLongTaskSignal) {
+    suffix +=
+      '\n\n💡 该任务仍需多步推进？可改用编排分步执行：`/goal start <描述>`' +
+      '（也可在新消息里说明"请分步做并自检"，我会自动升级为 PDCA）。';
+  }
+  // 二期 F2-5（治 N3，2026-09-23）：判别器顺序使 `max_turns` **先于** `loop_detected`，
+  // 两者同时命中时（长任务里"既循环又到轮次上限"很常见）循环检测信息会被**整个吞掉**
+  // （既无提示也无 metadata）⇒ 此处**并列上报**（不改变既有优先级的排序语义）。
+  // 留痕（logger）在 settleTerminalState() 内，保证每轮只记一次（投影可重入）。
+  if (input.loopDetected) {
+    const ld = input.loopDetected;
+    suffix += `\n\n（同时检测到工具调用循环 [${ld.detector}] ${ld.message}）`;
+    // 一期 O1-1：与文案并列上报到**结构化字段**（此前只进文案，metadata 丢失该事实）。
+    return {
+      suffix,
+      finishReason: 'max_turns',
+      concurrentReasons: ['loop_detected'],
+    };
+  }
+  return { suffix, finishReason: 'max_turns' };
+}
+
+/**
+ * `budget_exhausted` 的**按事实区分三态**文案（从 `resolveTerminationOutput` 外移）。
+ *
+ * 2026-10-16（台账 `BUDGET-EXHAUSTED-TERMINATION-COPY`）：此前两种语义完全不同的耗尽共用
+ * 一句「已达到本轮 token 预算上限，工具链提前终止」，实测用户据此反复追问"为什么还会提前终止"：
+ *   · `loop`  = **上下文窗口**预算（`createStreamBudget`，`spent ≥ 92% × 窗口`）：不可放行续跑
+ *     ⇒ 文案点明"窗口"并给**可执行出路**（发新消息 / 换大窗口模型）；
+ *   · `daily` + **已挂起**：如实告诉用户"进度已保存 + 放行后自动续跑"（**不再说"提前终止"**）
+ *     —— 否则与已实现的挂起续跑机制自相矛盾；
+ *   · `daily` + 未挂起（开关关 / 无检查点）：给"放行后重发本条消息"的出路。
+ * 兜底（无事实记录）保留原句，保证其它入口零回归。
+ */
+function budgetExhaustedSuffix(input: TerminationOutputInput): string {
+  const b = input.lastBudgetExhausted;
+  if (b?.kind === 'daily' && b.suspended) {
+    return (
+      `\n\n⏸ 今日预算已用完 —— **本轮进度已保存**：在「用量中心 → 日限额」放行` +
+      `（临时提额 / 今日解除）后，本会话会**自动从这里续跑**，无需重发消息。`
+    );
+  }
+  if (b?.kind === 'daily') {
+    return (
+      `\n\n⚠️ 今日预算已用完，本轮提前收尾（本次未能保存续跑点）。` +
+      `请在「用量中心 → 日限额」放行（临时提额 / 今日解除）后**重发本条消息**继续。`
+    );
+  }
+  if (b?.kind === 'loop') {
+    return (
+      `\n\n⚠️ 本轮上下文已接近模型窗口上限，为避免超出窗口，工具链提前收尾。` +
+      `**发送新消息即可继续**（新一轮会重新计算上下文占用）；` +
+      `若经常撞线，建议改用上下文窗口更大的模型。`
+    );
+  }
+  return `\n\n⚠️ 已达到本轮 token 预算上限，工具链提前终止。`;
+}
+
+/**
+ * `timeout` 的收尾提示（从 `resolveTerminationOutput` 外移）：会话级总时长上限 + 如实交代
+ * 被丢弃的工具调用数（二期 F2-2，2026-09-23 修复计划 §六）。
+ */
+function timeoutSuffix(input: TerminationOutputInput): string {
+  const dropped = input.droppedToolCallsAtStop;
+  return (
+    `\n\n⚠️ 本轮已达会话总时长上限（${Math.round(input.maxTotalDurationMs / 60000)} 分钟），已停止继续执行。` +
+    (dropped > 0 ? `另有 ${dropped} 个已生成但未执行的工具调用随之作废。` : '')
+  );
+}
+
+/**
  * 二期 F2-1（2026-09-23 修复计划 §六）：终止输出**单一来源**，且判别**接线既有判别器**。
  *
  * 一期只做到"文案单点"（仍自行重写判别条件）；二期改为：
@@ -302,39 +428,11 @@ export function resolveTerminationOutput(
     // B1（2026-09-01）：不依赖 phase==='completed'——达上限后 phase 可能非 completed，
     // 原条件导致提示被吞（实测达上限后最终消息仅 30 字符，用户无感知任务中断）。
     case 'max_turns': {
-      // 判别器把 `phase === 'truncated'`（输出长度截断）也归为 max_turns，但"轮次上限
-      // 总结"只在真正达 maxIterations 时才有 ⇒ 文案以其为准（截断场景走下方统一兜底）。
-      if (input.iteration >= input.maxIterations) {
-        finishReason = 'max_turns';
-        // 跨 run 预算（spec §3.5 最小变体）：本段额度**就是**任务级 grant（可再至硬顶）
-        // ⇒ 文案直接展示该值（单段运行与修复前逐字一致，既有用例不受影响）。
-        suffix = input.maxIterationsSummary
-          ? `\n\n⚠️ 已达到最大工具轮次限制 (${input.maxIterations})，已自动总结当前进度：\n${input.maxIterationsSummary}`
-          : `\n\n⚠️ 已达到最大工具轮次限制 (${input.maxIterations})，工具链提前终止。`;
-        // G3（2026-09-25，`.trae/specs/long-task-routing.md`）：**长任务**触顶时给出
-        // **可执行**的编排建议。载体选择（与 spec D2 的偏离，如实记录）：走**用户可见的
-        // 收尾提示**而非模型可见的 steering —— ① 既有 `goal/injected` 载荷要求
-        // `goalId` + 闭集 `templateKind`，非目标任务无法复用；② 新增事件类型与 spec N5 冲突；
-        // ③ 该提示随最终助手消息落盘 ⇒ 无需新增模型可见输入（§1.6 红线面为零）。
-        // 命令名事实来源：`/goal start`（command-registry 的 `goal` 命令，与
-        // `POST /v1/pdca/start` 同链）；`OnboardHints.PDCA_EXPLICIT_ENTRY` 与本文案
-        // 由用例断言保持一致（防第二处漂移）。
-        if (input.isLongTaskSignal) {
-          suffix +=
-            '\n\n💡 该任务仍需多步推进？可改用编排分步执行：`/goal start <描述>`' +
-            '（也可在新消息里说明"请分步做并自检"，我会自动升级为 PDCA）。';
-        }
-      }
-      // 二期 F2-5（治 N3，2026-09-23）：判别器顺序使 `max_turns` **先于** `loop_detected`，
-      // 两者同时命中时（长任务里"既循环又到轮次上限"很常见）循环检测信息会被**整个吞掉**
-      // （既无提示也无 metadata）⇒ 此处**并列上报**（不改变既有优先级的排序语义）。
-      // 留痕（logger）在 settleTerminalState() 内，保证每轮只记一次（投影可重入）。
-      if (input.loopDetected) {
-        const ld = input.loopDetected;
-        suffix += `\n\n（同时检测到工具调用循环 [${ld.detector}] ${ld.message}）`;
-        // 一期 O1-1：与文案并列上报到**结构化字段**（此前只进文案，metadata 丢失该事实）。
-        concurrentReasons = ['loop_detected'];
-      }
+      const notice = maxTurnsNotice(input);
+      suffix = notice.suffix;
+      if (notice.finishReason !== undefined) finishReason = notice.finishReason;
+      if (notice.concurrentReasons)
+        concurrentReasons = notice.concurrentReasons;
       break;
     }
     // 4. 循环检测提示
@@ -356,23 +454,7 @@ export function resolveTerminationOutput(
     // 兜底（无事实记录）保留原句，保证其它入口零回归。
     case 'budget_exhausted': {
       finishReason = 'budget_exhausted';
-      const b = input.lastBudgetExhausted;
-      if (b?.kind === 'daily' && b.suspended) {
-        suffix =
-          `\n\n⏸ 今日预算已用完 —— **本轮进度已保存**：在「用量中心 → 日限额」放行` +
-          `（临时提额 / 今日解除）后，本会话会**自动从这里续跑**，无需重发消息。`;
-      } else if (b?.kind === 'daily') {
-        suffix =
-          `\n\n⚠️ 今日预算已用完，本轮提前收尾（本次未能保存续跑点）。` +
-          `请在「用量中心 → 日限额」放行（临时提额 / 今日解除）后**重发本条消息**继续。`;
-      } else if (b?.kind === 'loop') {
-        suffix =
-          `\n\n⚠️ 本轮上下文已接近模型窗口上限，为避免超出窗口，工具链提前收尾。` +
-          `**发送新消息即可继续**（新一轮会重新计算上下文占用）；` +
-          `若经常撞线，建议改用上下文窗口更大的模型。`;
-      } else {
-        suffix = `\n\n⚠️ 已达到本轮 token 预算上限，工具链提前终止。`;
-      }
+      suffix = budgetExhaustedSuffix(input);
       break;
     }
     // P4（2026-09-01）：error 终止时附加 lastError——no_progress 熔断/电路熔断的
@@ -428,12 +510,7 @@ export function resolveTerminationOutput(
     // 二期 F2-2（2026-09-23）：会话级总时长上限——此前该支不置相位，被判别器误判为
     // 'completed' ⇒ 用户看到"正常完成"却拿不到任何结论；并如实交代被丢弃的工具调用。
     case 'timeout': {
-      const dropped = input.droppedToolCallsAtStop;
-      suffix =
-        `\n\n⚠️ 本轮已达会话总时长上限（${Math.round(input.maxTotalDurationMs / 60000)} 分钟），已停止继续执行。` +
-        (dropped > 0
-          ? `另有 ${dropped} 个已生成但未执行的工具调用随之作废。`
-          : '');
+      suffix = timeoutSuffix(input);
       break;
     }
     // 三期 F3-2（2026-09-23）：上下文压缩失败/停滞 ⇒ 明确告知"为何停下"。

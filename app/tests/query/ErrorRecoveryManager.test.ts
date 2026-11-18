@@ -3,7 +3,7 @@
 
 // ErrorRecoveryManager — 恢复状态机：本地确定性 bug 不重试 vs API 瞬态重试
 import { describe, it, expect } from 'bun:test';
-import { createErrorRecoveryManager } from '../../src/query/ErrorRecoveryManager';
+import { createErrorRecoveryManager } from '@modules/query/ErrorRecoveryManager';
 import {
   SYSTEM_ABORT_REASON,
   markAsExpectedAbort,

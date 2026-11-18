@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TaskCardData, TaskCardTask } from "../../types";
 import { usePlanTaskStore } from "../../stores/planTaskStore";
+import { useChatStore } from "../../stores/chat";
+import { hasPendingApproval } from "../../stores/chat/chat-message-shared";
 import DAGMiniMap from "./DAGMiniMap";
 import DAGFullScreen from "./DAGFullScreen";
 
@@ -64,8 +66,35 @@ export default function TaskCard({ data }: TaskCardProps) {
   );
   const merged = liveData ?? data;
 
-  const { title, tasks, status } = merged;
+  /**
+   * 2026-11-13：**最后一张**任务卡在「等待审批」时不得渲染成完成态。
+   *
+   * 真机 `session_mwdcivrue74d4838ff`：审批卡在等用户点，任务卡却显示
+   * 「已完成 x/y / 已结束」⇒ 用户以为任务跑完了。只有最新卡片叠加该状态，
+   * 历史卡片保持它自己的结算态（否则回放里每张旧卡都会挂"等待审批"）。
+   */
+  const messages = useChatStore((s) => s.messages);
+  const isLatestCard = (() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const blocks = messages[i].blocks ?? [];
+      for (let j = blocks.length - 1; j >= 0; j--) {
+        const card = blocks[j].taskCard;
+        if (!card) continue;
+        return card === data || (!!data.planId && card.planId === data.planId);
+      }
+    }
+    return false;
+  })();
+  const pendingApproval = isLatestCard && hasPendingApproval(messages);
+
+  const { title, tasks, status, acceptance } = merged;
   const isExecuting = status === "executing";
+  /**
+   * G5-D4（2026-11-18）：**已执行待验收**（后端 `Plan.acceptance='pending'`）。
+   * 此时步骤通常全部完成、计划仍 running ⇒ 不能显示成普通"执行中"进度，
+   * 也不能亮"全部完成"（目标门尚未给结论）。
+   */
+  const isPendingAcceptance = isExecuting && acceptance === "pending";
   // 修复："全部完成"徽章仅当任务级**全部** completed 时显示——
   // 原实现只看卡片级 status==="done"，与 freezeAll 一刀切 done 叠加后，
   // 中止/含 failed 的任务卡也亮"全部完成"徽章，与任务列表状态自相矛盾。
@@ -108,34 +137,59 @@ export default function TaskCard({ data }: TaskCardProps) {
           </span>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          {isAllCompleted && (
-            <span className="text-xs px-2 py-0.5 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full">
-              {t("chat.allCompleted", "全部完成")}
+          {/*
+            2026-11-17（用户实测：审批过期后仍常驻「等待审批」）：
+            徽标只认**真实待审批**（`hasPendingApproval` 按 inboxId 与审批卡对账）。
+            历史上的 `status === "paused"` 会在任务以失败/中止收尾后永久残留
+            （真机：失败回执已出，卡片仍写"等待审批"）⇒ 不再单独触发徽标；
+            无待审批的 paused 卡按「已结束」结算呈现，不再谎报在等。
+          */}
+          {pendingApproval ? (
+            <span className="text-xs px-2 py-0.5 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-full">
+              {t("chat.taskPaused", "⏸ 等待审批（需要你的反馈）")}
             </span>
-          )}
-          {status === "done" && !isAllCompleted && (
-            <span className="text-xs px-2 py-0.5 bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded-full">
-              {failed > 0
-                ? t("chat.taskEndedWithFailed", {
-                    count: failed,
-                    defaultValue: "已结束（{{count}} 失败）",
-                  })
-                : t("chat.taskEnded", "已结束")}
-            </span>
-          )}
-          {isExecuting && (
-            <span className="text-xs px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full">
-              {t("chat.taskProgressCompleted", {
-                completed,
-                total,
-                defaultValue: "已完成 {{completed}}/{{total}}",
-              })}
-              {failed > 0 &&
-                `, ${t("chat.taskProgressFailed", {
-                  count: failed,
-                  defaultValue: "失败 {{count}}",
-                })}`}
-            </span>
+          ) : (
+            <>
+              {isAllCompleted && (
+                <span className="text-xs px-2 py-0.5 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full">
+                  {t("chat.allCompleted", "全部完成")}
+                </span>
+              )}
+              {(status === "done" || status === "paused") && !isAllCompleted && (
+                <span className="text-xs px-2 py-0.5 bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded-full">
+                  {failed > 0
+                    ? t("chat.taskEndedWithFailed", {
+                        count: failed,
+                        defaultValue: "已结束（{{count}} 失败）",
+                      })
+                    : t("chat.taskEnded", "已结束")}
+                </span>
+              )}
+              {/* G5-D4：已执行待验收 —— 不能显示成普通"执行中/已完成" */}
+              {isPendingAcceptance && (
+                <span className="text-xs px-2 py-0.5 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-full">
+                  {t("chat.taskPendingAcceptance", {
+                    completed,
+                    total,
+                    defaultValue: "⏸ 待验收（已完成 {{completed}}/{{total}}）",
+                  })}
+                </span>
+              )}
+              {isExecuting && !isPendingAcceptance && (
+                <span className="text-xs px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full">
+                  {t("chat.taskProgressCompleted", {
+                    completed,
+                    total,
+                    defaultValue: "已完成 {{completed}}/{{total}}",
+                  })}
+                  {failed > 0 &&
+                    `, ${t("chat.taskProgressFailed", {
+                      count: failed,
+                      defaultValue: "失败 {{count}}",
+                    })}`}
+                </span>
+              )}
+            </>
           )}
           <span
             className={`text-xs text-gray-400 dark:text-gray-500 transition-transform duration-200 ${

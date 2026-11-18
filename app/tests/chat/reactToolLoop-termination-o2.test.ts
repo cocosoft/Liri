@@ -14,7 +14,7 @@ import type { ToolLoopContext } from '../../src/chat/ToolLoopRunner.js';
 import {
   SYSTEM_ABORT_REASON,
   createSystemAbortReason,
-} from '../../src/query/ReActLoop.js';
+} from '@modules/query/ReActLoop.js';
 import type { ChatResponse, ChatMessage } from '@modules/ai';
 
 function makeCtx(

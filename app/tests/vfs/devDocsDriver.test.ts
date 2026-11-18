@@ -37,8 +37,8 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { AppError } from '@openliri/infra/error';
-import { DevDocsDriver } from '../../src/vfs/drivers/DevDocsDriver.js';
-import { parseVfsPath } from '../../src/vfs/VfsPath.js';
+import { DevDocsDriver } from '@modules/vfs/drivers/DevDocsDriver.js';
+import { parseVfsPath } from '@modules/vfs/VfsPath.js';
 
 async function expectVfsReject(
   fn: () => Promise<unknown>,

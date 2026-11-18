@@ -72,6 +72,8 @@ export const READ_ONLY_BASE_COMMANDS: ReadonlySet<string> = new Set([
   'ps',
   'df',
   'du',
+  // P6-2（2026-11-12 复查）：内存查询同样只读，此前落「未知 ⇒ ask」
+  'free',
   'wc',
   'sort',
   'uniq',
@@ -99,7 +101,9 @@ export const BASH_READ_ONLY_PREFIX_PATTERNS: readonly RegExp[] = [
   /^grep\b/i,
   /^find\b/i,
   /^locate\b/i,
-  /^git\s+(status|diff|log|branch|show|rev-parse|remote|config|blame)\b/i,
+  // P3-2（2026-11-16）：git 从"前缀白名单"移出，改由 `isGitReadOnlyCommand` 做**参数级**判定
+  // （`git config k v` / `git remote add` / `git branch -D` 曾因整族前缀放行而落 allow；
+  //  `git -c core.pager=… log` 更可注入 pager 执行任意程序）。见该函数注释。
   /^echo\b/i,
   /^printf\b/i,
   /^wc\b/i,
@@ -139,16 +143,98 @@ export const POWERSHELL_READ_ONLY_PREFIX_PATTERNS: readonly RegExp[] = [
  * `node script.js` 仍是"未知命令"，照旧走审批。
  */
 export const VERSION_ONLY_QUERY_PATTERN: RegExp =
-  /^(node|npm|npx|pnpm|yarn|bun|deno|python|python3|pip|pip3|go|cargo|rustc|java|mvn|gradle|dotnet|git|tsc)\s+(--version|-v|-V)$/i;
+  /^(?:(?:node|npm|npx|pnpm|yarn|bun|deno|python\d*(?:\.\d+)*|py|pip|pip3|go|cargo|rustc|java|mvn|gradle|dotnet|git|tsc)\s+(?:--version|-v|-V|-version)|go\s+version)$/i;
 
 // ─── bash：git 只读 ──────────────────────────────────────────
 
 /**
- * git 只读子命令（**完整命令**正则，用于复合只读串联）
- * 消费方：`compoundReadOnly.checkCompoundReadOnly`
+ * git 只读子命令（**完整命令**正则，用于复合只读串联与单条只读判定）
+ * 消费方：`compoundReadOnly.checkCompoundReadOnly`（单条与串联共用同一判据，FIX-16）
+ *
+ * P3-2/T2a（2026-11-16）：补入 `rev-list` / `shortlog` / `ls-tree` / `cat-file` /
+ * `describe` / `name-rev` / `for-each-ref` / `blame` —— 实测（计划 §2.2）显示
+ * `git rev-list --count HEAD`、`git shortlog -sne --all` 落在「未知命令 ⇒ 转人工」，
+ * 而它们只写 stdout，与已放行的 `log` / `show` 同族。
+ *
+ * ⚠️ **刻意不含**（虽在同文件的 `GIT_READ_ONLY_SUBCOMMANDS` 中，但那个集合是
+ * `readOnlyValidation` 的 token 级视图，含可写子命令）：
+ * `tag` / `branch` / `remote` / `config` / `notes` / `bisect` / `stash`（可增删改）、
+ * `archive` / `bundle`（`-o` 落文件）、`reflog`（`expire`/`delete` 写）、
+ * `grep`（`--open-files-in-pager` 可执行任意程序）。
+ * 两份清单**不得合并**（合并等于放开写能力）。
  */
 export const GIT_READ_ONLY_PATTERN: RegExp =
-  /^git(?:\s+(?:-C\s+(?:"[^"]*"|'[^']*'|[^\s]+)|--no-pager|--no-optional-locks))*\s+(status|log|diff|show|rev-parse|branch\s+--list|--version)(\s|$)/i;
+  /^git(?:\s+(?:-C\s+(?:"[^"]*"|'[^']*'|[^\s]+)|--no-pager|--no-optional-locks))*\s+(status|log|diff|show|rev-parse|rev-list|shortlog|ls-tree|cat-file|describe|name-rev|for-each-ref|blame|branch\s+--list|--version)(\s|$)/;
+
+/**
+ * P3-2（2026-11-16）：git 只读判定中**禁止出现**的参数（参数级禁区，**单一事实源**）。
+ *
+ * 三类会把「只读」变成「写盘 / 执行外部程序 / 注入配置」：
+ *  - 写文件：`--output=<file>`（`git log/diff` 直接落盘）；
+ *  - 执行外部程序：`--ext-diff`（外部 diff 驱动）、`--paginate`（分页器）、
+ *    `--open-files-in-pager`、`--exec-path`；
+ *    **T2c（2026-11-17）新增 `--textconv` / `--filters`** —— 二者都会调用仓库配置里的
+ *    转换器（textconv / clean-smudge 过滤器）= 执行外部程序（探针实测此前为 allow：
+ *    `git show --textconv HEAD`、`git cat-file --filters HEAD:x` 均被放行）；
+ *  - 注入配置：全局 `-c key=value` —— 可设 `core.pager=sh -c id` / `alias.x=!cmd` /
+ *    `core.hooksPath=…`，等价于任意命令执行（**本条即"pager 风险"的根因**；
+ *    旧实现里 `GIT_READ_ONLY_PATTERN` 带 `/i`，把 `-c` 当成了合法的 `-C` 切目录开关）。
+ *
+ * ⚠️ **大小写敏感**：`-C <dir>`（切目录）是合法只读全局参数，不能被 `-c` 的规则误伤；
+ * 也刻意**不**收录 `-p`（`git log -p` 是常见的补丁输出开关，与全局 `git -p` 语义不同）。
+ * ⚠️ `--no-textconv` / `--no-ext-diff` 等 `--no-*` 反形态**不在**本表（它们是关闭开关，
+ * 正则要求标志前是空白，`no-` 前缀天然不命中）。
+ */
+export const GIT_READ_ONLY_DENIED_FLAGS: readonly string[] = [
+  '--output',
+  '--ext-diff',
+  '--paginate',
+  '--open-files-in-pager',
+  '--exec-path',
+  '--config-env',
+  '--textconv',
+  '--filters',
+  '-c',
+];
+
+/**
+ * 由 `GIT_READ_ONLY_DENIED_FLAGS` **派生**的禁区正则（不手写第二份列表）。
+ *
+ * `maxPositional`（T2c 评估结论，**刻意不设上限**）：git 只读子命令的位置参数是
+ * pathspec（`git log -- path/to/file`），数量不影响副作用面；真正危险的是"执行外部程序 /
+ * 落盘 / 注入配置"，已由本禁区表覆盖 ⇒ 收紧位置参数数量只会造成误报。
+ */
+export const GIT_READ_ONLY_FORBIDDEN_ARGS: RegExp = new RegExp(
+  `(?:^|\\s)(?:${GIT_READ_ONLY_DENIED_FLAGS.map((f) =>
+    f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  ).join('|')})(?:\\s|=|$)`
+);
+
+/**
+ * P3-2（2026-11-16）：收窄后的「配置 / 远端 / 分支」**查询**形态。
+ *
+ * 旧前缀 `/^git\s+(…|branch|remote|config|blame)\b/i` 把整族当只读 ⇒
+ * `git config --global user.name x`、`git remote add origin …`、`git branch -D main`
+ * 全部落 `allow`（可写！）。此处只保留结构上不可能写的查询形态。
+ */
+export const GIT_READ_ONLY_QUERY_PATTERN: RegExp =
+  /^git(?:\s+(?:-C\s+(?:"[^"]*"|'[^']*'|[^\s]+)))*\s+(?:config\s+(?:--get|--get-all|--get-regexp|--list|-l)\b|remote\s+(?:-v|--verbose|show|get-url)\b|branch(?:\s+(?:--list|-a|--all|-r|--remotes|-v|-vv|--show-current))?\s*$)/;
+
+/**
+ * P3-2（2026-11-16）：git 只读判定的**统一入口**（allowlist 前缀链 / 复合只读共用一份判据）。
+ *
+ * 顺序：先过参数禁区（写盘 / 执行 / 注入配置），再看子命令白名单或收窄后的查询形态。
+ * 返回 false **不等于** deny —— 调用方会继续走原分类链（未知命令 ⇒ 转人工审批）。
+ */
+export function isGitReadOnlyCommand(command: string): boolean {
+  const trimmed = command.trim();
+  if (!trimmed) return false;
+  if (GIT_READ_ONLY_FORBIDDEN_ARGS.test(trimmed)) return false;
+  return (
+    GIT_READ_ONLY_PATTERN.test(trimmed) ||
+    GIT_READ_ONLY_QUERY_PATTERN.test(trimmed)
+  );
+}
 
 /**
  * git 只读子命令（**token 级**集合，用于 `readOnlyValidation` 的参数扫描）
@@ -345,6 +431,12 @@ export const AUTO_MODE_READONLY_COMMANDS: ReadonlySet<string> = new Set([
   // 文件 / 目录查看
   'ls',
   'dir',
+  // 2026-11-17（真机会话 session_mwk2fakzf30b34b448）：Windows 的 `type` 是 `cat` 的等价物，
+  // 此前遗漏 ⇒ 单条 `type x` 与 `cd /d X && type y` 全部落「未知命令 ⇒ ask」
+  //（该会话 19 张审批卡中 10 张由此产生）。
+  'type',
+  // P9-6（2026-11-12）：单条 `cd` 只改子进程工作目录，本身不写盘
+  'cd',
   'pwd',
   'cat',
   'head',
@@ -361,6 +453,8 @@ export const AUTO_MODE_READONLY_COMMANDS: ReadonlySet<string> = new Set([
   'df',
   'diff',
   'cmp',
+  // P9-2（2026-11-12）：`where` 只查找可执行文件路径，纯只读
+  'where',
   'which',
   'whereis',
   // git 本身按子命令约束（见 AUTO_MODE_GIT_READONLY_SUBCOMMANDS）
@@ -374,6 +468,13 @@ export const AUTO_MODE_READONLY_COMMANDS: ReadonlySet<string> = new Set([
   'id',
   'groups',
   'printenv',
+  // P6-2（2026-11-12 复查）：进程 / 网络 / 内存查看均为纯只读，此前落「未知 ⇒ ask」
+  'ps',
+  'netstat',
+  'free',
+  // P6-3（2026-11-12 绕过面复查）：Windows 只读系统信息 / 进程列表
+  'systeminfo',
+  'tasklist',
   // 校验和 / 文本过滤（不落盘）
   'md5sum',
   'sha1sum',
@@ -389,6 +490,40 @@ export const AUTO_MODE_READONLY_COMMANDS: ReadonlySet<string> = new Set([
   'test-path',
   'get-location',
   'select-string',
+  // P9-1（2026-11-12）：管道里最常见的统计 / 解析 cmdlet（均为纯只读）
+  'measure-object',
+  'convertfrom-json',
+  'convertto-json',
+  // P11（2026-11-12 真机验证）：属性投影只读；计算属性（`@{…Expression={…}}`）由参数守卫拦
+  'select-object',
+  // P11（2026-11-12 真机验证）：文本搜索只读，此前落审批
+  'findstr',
+  // P6-3（2026-11-12 绕过面复查）：进程列表是纯只读 cmdlet
+  'get-process',
+  'get-wmiobject',
+  // 2026-11-17（真机会话 session_mwk2fakzf30b34b448）：保守补齐**纯查询** cmdlet ——
+  // 同一 `Get-*` 家族里 `Get-CimInstance` / `Get-PSDrive` 此前未收录 ⇒ 落「未知 ⇒ ask」。
+  // 只收录"只读属性/状态查询"（不含 `Set-*` / `New-*` / `Remove-*` / `Invoke-*`）。
+  'get-ciminstance',
+  'get-psdrive',
+  'get-service',
+  'get-itemproperty',
+  'get-acl',
+  'get-member',
+  'get-command',
+  'get-help',
+  'get-date',
+  'get-filehash',
+  'get-host',
+  'resolve-path',
+  'split-path',
+  'join-path',
+  // 2026-11-12（P0 · 未知命令策略 B）：集群 / 容器 / 代码托管的**只读子命令**入口。
+  // 命令名在此、具体子命令由 `readonly-command-allowlist` 的参数守卫限定；
+  // 写子命令（`kubectl delete` / `docker run` / `gh pr merge`）不放行，落审批档。
+  'kubectl',
+  'docker',
+  'gh',
 ]);
 
 /**
@@ -410,4 +545,60 @@ export const AUTO_MODE_GIT_READONLY_SUBCOMMANDS: ReadonlySet<string> = new Set([
   'ls-tree',
   'cat-file',
   'grep',
+]);
+
+/**
+ * 集群 / 容器 / 代码托管 CLI 的**只读子命令**（P1c，2026-11-12 从
+ * `readonly-command-allowlist.ts` 迁入；该文件原先各有一份字面集合）。
+ *
+ * 迁入本文件的原因：只读目录**唯一事实源**在此（门禁 `lint:permission-single-source`
+ * 的 `CANONICAL_FILES.readOnly`）。命令语义注册表 `commandSpecs.ts` 只**引用**这些常量，
+ * 不再复制字面量。
+ */
+export const AUTO_MODE_KUBECTL_READONLY_SUBCOMMANDS: ReadonlySet<string> = new Set([
+  'get',
+  'describe',
+  'logs',
+  'top',
+  'explain',
+  'api-resources',
+  'api-versions',
+  'version',
+  'cluster-info',
+  'events',
+]);
+
+export const AUTO_MODE_DOCKER_READONLY_SUBCOMMANDS: ReadonlySet<string> = new Set([
+  'ps',
+  'images',
+  'logs',
+  'inspect',
+  'version',
+  'info',
+  'stats',
+  'top',
+  'port',
+  'diff',
+  'search',
+]);
+
+/** `gh` 用「两段式子命令」（`pr view` / `run list` …） */
+export const AUTO_MODE_GH_READONLY_SUBCOMMANDS: ReadonlySet<string> = new Set([
+  'pr view',
+  'pr list',
+  'pr diff',
+  'pr checks',
+  'pr status',
+  'issue view',
+  'issue list',
+  'issue status',
+  'run list',
+  'run view',
+  'run download',
+  'repo view',
+  'release list',
+  'release view',
+  'status',
+  'auth status',
+  'config get',
 ]);

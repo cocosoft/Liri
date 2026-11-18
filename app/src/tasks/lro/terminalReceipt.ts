@@ -22,6 +22,7 @@ import type { AuditReport } from '../AuditReport';
 import {
   taskOrchestrator,
   PLAN_STATUS_FAILED,
+  PLAN_ACCEPTANCE_PENDING,
   STEP_STATUS_COMPLETED,
   STEP_STATUS_FAILED,
 } from '../TaskOrchestrator';
@@ -58,6 +59,13 @@ export interface PdcaReceiptFacts {
    * 「⏸ 已挂起等待审批」再无下文，看起来像卡死。
    */
   aborted?: boolean;
+  /**
+   * G5-D2（2026-11-18）：**已执行、待验收**（目标门未给出明确结论，计划仍 `running`）。
+   *
+   * 必须由落点显式标注：此时可见步骤通常全部完成 ⇒ 只按步数会输出假的「✅ 完成」，
+   * 与 `plan.acceptance='pending'` 自相矛盾（同 `paused` / `taskFailed` 的手法）。
+   */
+  pendingAcceptance?: boolean;
   /**
    * 2026-11-08（真机 `pdca_mw76rof9`）：**可 replan 续跑**（有步骤决策为 escalate）。
    *
@@ -105,6 +113,7 @@ export function formatPdcaReceipt(input: PdcaReceiptFacts): string {
     failed,
     paused,
     aborted,
+    pendingAcceptance,
     replanAvailable,
     taskFailed,
   } = input;
@@ -113,6 +122,9 @@ export function formatPdcaReceipt(input: PdcaReceiptFacts): string {
     head = `⏹ 长程任务已中止：${completed}/${total} 步已达成（taskId ${taskId}）`;
   } else if (paused) {
     head = `⏸ 长程任务已挂起等待审批：${completed}/${total} 步已达成（阶段 ${phase}，taskId ${taskId}）`;
+  } else if (pendingAcceptance) {
+    // G5-D2：已执行但目标门未给明确结论 ⇒ 既不是「完成」也不是「失败」。
+    head = `⏸ 长程任务已执行，待验收：${completed}/${total} 步（阶段 ${phase}，taskId ${taskId}）；可 POST /v1/pdca/${taskId}/resume 处理`;
   } else if (!taskFailed && total > 0 && completed === total && failed === 0) {
     head = `✅ 长程任务完成：${completed}/${total} 步（taskId ${taskId}）`;
   } else if (failed > 0) {
@@ -491,6 +503,8 @@ export function emitPdcaReceiptFromAudit(
       // 2026-11-08（真机 `pdca_mw7f7h2g`）：目标未收敛时步骤可能全通过、0 失败 ⇒
       // 必须把**任务级失败**显式带给文案，否则会输出假的「✅ 完成」。
       taskFailed: plan?.status === PLAN_STATUS_FAILED,
+      // G5-D2：已执行待验收（目标门未决）同样是"不能报 ✅ 完成"的事实（D3 打开开关后生效）
+      pendingAcceptance: plan?.acceptance === PLAN_ACCEPTANCE_PENDING,
       ...delivery,
       ...failureFacts,
       ...(nextSteps.length > 0 ? { nextSteps } : {}),
@@ -509,6 +523,37 @@ export function emitPdcaReceiptFromAudit(
       });
     }
   })();
+}
+
+/**
+ * G5-D3（2026-11-18）：**待验收回执**（目标门未决 ⇒ 计划保持 running）。
+ *
+ * 只投影既有事实（步骤状态计数 + 产物台账 + `unverified`），不推断"达成"；
+ * `/resume` 是收口入口（重跑目标门 ⇒ 明确结论后才落 completed/failed）。
+ * 有推送通道时由通道承载（与 `paused` 同一口径）。
+ */
+export function emitPdcaPendingAcceptanceReceipt(input: {
+  taskId: string;
+  sessionId?: string | null;
+  plan?: Plan;
+  hasPushChannel: boolean;
+}): void {
+  const steps = input.plan?.steps ?? [];
+  const facts: PdcaReceiptFacts = {
+    taskId: input.taskId,
+    phase: 'decide',
+    completed: steps.filter((s) => s.status === STEP_STATUS_COMPLETED).length,
+    total: steps.length,
+    failed: steps.filter((s) => s.status === STEP_STATUS_FAILED).length,
+    pendingAcceptance: true,
+    ...collectDeliveryFacts(input.plan),
+    nextSteps: [`POST /v1/pdca/${input.taskId}/resume 续跑并重新验收`],
+  };
+  emitPdcaReceipt({
+    ...facts,
+    sessionId: input.sessionId ?? input.plan?.sessionId,
+    hasPushChannel: input.hasPushChannel,
+  });
 }
 
 /**

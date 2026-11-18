@@ -263,11 +263,14 @@ export async function handleReplyInbox(
 /**
  * POST /v1/inbox/approve-all — **批量审批**（P1-1，2026-11-06）
  *
- * body: `{ sessionId, reply?, toolName? }`（`reply` 缺省 `approve`）
+ * body: `{ sessionId, reply?, toolName?, ids? }`（`reply` 缺省 `approve`）
  *
  * 一次落地同一会话的全部待审批卡，并**只触发一次**续跑。
  * 真机动机：同一轮多个工具（如 3 个 `mkdir`）各弹一张卡，逐个点批的代价与
  * 中途被打断的风险都高；批量入口把 N 次会话互斥争抢收敛为 1 次。
+ *
+ * B8（2026-11-18）：`ids` 为前端「逐条勾选」的选中集合 —— 提供且非空时只落地这些项，
+ * 未选中的卡保持 pending（不再"点一个入口 = 全部放行"）。
  */
 export async function handleApproveAllInbox(
   req: http.IncomingMessage,
@@ -283,6 +286,11 @@ export async function handleApproveAllInbox(
     const sessionId = body.sessionId as string | undefined;
     const reply = (body.reply as string | undefined) || 'approve';
     const toolName = body.toolName as string | undefined;
+    // B8：逐条勾选的选中集合（只接受非空字符串；上限与 list limit 对齐，避免超长请求）
+    const rawIds = Array.isArray(body.ids) ? (body.ids as unknown[]) : [];
+    const ids = rawIds
+      .filter((id): id is string => typeof id === 'string' && id.trim() !== '')
+      .slice(0, 50);
     if (!sessionId) {
       otel.endSpan(span, SpanStatusCode.ERROR, 'no_session');
       sendError(res, 'Missing sessionId', 400);
@@ -293,8 +301,10 @@ export async function handleApproveAllInbox(
       sessionId,
       reply,
       toolName,
+      ...(ids.length > 0 ? { ids } : {}),
     });
     span.setAttribute('inbox.session', sessionId);
+    span.setAttribute('inbox.selected', ids.length);
     span.setAttribute('inbox.resolved', outcome.resolved.length);
     span.setAttribute('inbox.skipped', outcome.skipped.length);
     otel.endSpan(span, SpanStatusCode.OK);

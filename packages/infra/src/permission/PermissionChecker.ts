@@ -11,8 +11,15 @@ import {
   createAskDecision,
 } from './types/PermissionDecision';
 import { PermissionContext } from './types/PermissionContext';
-import { hashApprovalFingerprint } from './ApprovedCommandRegistry';
+import {
+  getApprovedCommandRegistry,
+  hashApprovalFingerprint,
+} from './ApprovedCommandRegistry';
 import { resolveApprovalFingerprint } from './approvalFingerprint';
+// 2026-11-12：放行缓存命中判定需要「shell 工具」口径（与 chat 层 `isCommandApproved` 同源）
+import { isShellToolName } from '../utils/toolContract/toolRoles';
+// 2026-11-12：批了也跑不了的命令（结构性硬拒）不建卡，直接 deny 并给出可执行建议
+import { isUnconditionallyDeniedBashCommand } from '../security/BashSecurityAnalyzer';
 // P1（2026-11-04）：审批卡唯一构造点 + 审计②段（①段在构造点内落）
 import { buildToolApprovalCard } from './toolApprovalSubmission';
 import { emitApprovalAudit } from './approvalAudit';
@@ -21,7 +28,9 @@ import {
   type PendingApprovalLookup,
 } from './inboxApprovalDedupe';
 import { PermissionBehavior, isRuleMatch } from './types/PermissionRule';
-import type { RuleMatchOptions } from './types/PermissionRule';
+import type { RuleMatchOptions, PermissionRule } from './types/PermissionRule';
+// R3/F2（2026-11-17）：「暂停持久化放行」的判定口过滤（全局 / 会话级，同一实现）
+import { filterPausedApprovalRules } from './approvalPause';
 import {
   RiskClass,
   inferRiskClass,
@@ -34,6 +43,8 @@ import { isCommandToolName } from '@openliri/infra/utils/toolContract/toolRoles'
 import type { ToolSandboxLevel } from '@openliri/infra/utils/toolContract/Tool';
 import { findWorkspaceEscapeInRoots } from '@openliri/infra/utils/toolContract/pathBoundary';
 import { PATH_ARG_KEYS } from '@openliri/infra/utils/toolContract/pathArgs';
+// R4（2026-11-17）：审批审计的入参预览先去敏（与采样共用同一出口）
+import { buildRedactedInputPreview } from '@openliri/infra/security';
 // P2（§3.3）：会话活跃长程任务（任务档审批选项的可用性判定）
 import { getActiveTaskId } from './activeTaskScope';
 // PR-3b（2026-10-23）：沙箱豁免判定（纯函数，§3.9.4 S1–S4）
@@ -735,8 +746,57 @@ export class PermissionChecker {
         sessionId,
         taskId,
         sandbox: context.sandbox,
+        // 2026-11-12：记下调用 id —— 用户拒绝时据此写终态结果并续跑
+        toolCallId: context.toolCallId,
       });
       const commandHash = card.commandHash;
+
+      // 2026-11-12（真机 `session_mwd6c9ui384f78c969`）：**批了也跑不了的命令不建卡**。
+      // `echo x > file` 这类含重定向的写法会走到这里（权限层判 ask），但执行时被 Bash 安全层
+      // 「复合命令只允许全段只读」**无条件拒绝** ⇒ 用户白批一次、模型还以为命令跑过了。
+      // 这里直接 deny，并把「改用 file_write / 拆成单条」写进原因供模型改法。
+      if (
+        isShellToolName(toolName) &&
+        typeof input.command === 'string' &&
+        isUnconditionallyDeniedBashCommand(input.command)
+      ) {
+        logger.info('命令会被安全层无条件拒绝，跳过审批卡提交', {
+          toolName,
+          sessionId,
+        });
+        return createDenyDecision(
+          '该命令含重定向/命令替换/变量/后台执行等结构，Bash 安全层无条件拒绝' +
+            '（人工批准也不会放行）。请改用 file_write 写文件，或拆成单条只读命令后重试。'
+        );
+      }
+
+      // 2026-11-12（真机 `session_mwd6c9ui384f78c969`）：**放行缓存已命中 ⇒ 不建卡**。
+      // 批准后的续跑会在权限层重新判定同一次调用；此时缓存已写入，但原实现照样提交一张新卡
+      // （旧卡已 resolved ⇒ 同指纹复用查不到）⇒ 会话里残留一张永远无人处理的"待审批"卡，
+      // 前端表现为「已处理卡 + 同内容待审批卡」两张（工具本身已执行）。
+      if (
+        getApprovedCommandRegistry().isApproved(
+          sessionId,
+          commandHash,
+          undefined,
+          taskId
+        ) ||
+        // 命令名级放行（与 chat 层 `isCommandApproved` 同口径）：
+        // 仅 shell 工具、且 BashTool 安全层仍作为执行兜底
+        (isShellToolName(toolName) &&
+          getApprovedCommandRegistry().isCommandNameApproved(
+            sessionId,
+            typeof input.command === 'string' ? input.command : '',
+            taskId
+          ))
+      ) {
+        logger.info('放行缓存已命中，跳过审批卡提交', {
+          toolName,
+          sessionId,
+          hasCommandHash: !!commandHash,
+        });
+        return createAllowDecision('Approval cache hit (approved earlier)');
+      }
 
       // PR-1：提交前**先查是否已有同一指纹的待审批项**，有则复用（避免僵尸卡）。
       const existingId = inboxManager.list
@@ -764,7 +824,7 @@ export class PermissionChecker {
         approvalId: card.approvalId,
         toolName,
         risk: card.risk,
-        inputPreview: JSON.stringify(input).slice(0, 200),
+        inputPreview: buildRedactedInputPreview(input, 200),
       });
 
       const submitted = await inboxManager.submit({
@@ -864,11 +924,15 @@ export class PermissionChecker {
   isToolDenied(toolOrName: Tool | string, context: PermissionContext): boolean {
     const toolName =
       typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
-    const denyRules = this.ruleManager.getRules(
-      undefined,
-      PermissionBehavior.DENY
+    const denyRules = filterPausedApprovalRules(
+      this.ruleManager.getRules(undefined, PermissionBehavior.DENY),
+      { sessionId: context.sessionId, workspaceRoots: context.workspaceRoots }
     );
-    const options = this._ruleMatchOptions(toolOrName, context.input ?? {});
+    const options = this._ruleMatchOptions(
+      toolOrName,
+      context.input ?? {},
+      context
+    );
     return denyRules.some((rule) =>
       isRuleMatch(rule, toolName, context.input, options)
     );
@@ -882,12 +946,15 @@ export class PermissionChecker {
    */
   private _ruleMatchOptions(
     toolOrName: Tool | string,
-    input: Record<string, unknown>
+    input: Record<string, unknown>,
+    context?: PermissionContext
   ): RuleMatchOptions {
     return {
       fingerprint: hashApprovalFingerprint(
         resolveApprovalFingerprint(toolOrName, input)
       ),
+      // G3：命令级「本工作区永久信任」规则按调用方的工作区根做作用域过滤
+      workspaceRoots: context?.workspaceRoots,
     };
   }
 
@@ -903,13 +970,49 @@ export class PermissionChecker {
   ): boolean {
     const toolName =
       typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
-    const askRules = this.ruleManager.getRules(
-      undefined,
-      PermissionBehavior.ASK
+    const askRules = filterPausedApprovalRules(
+      this.ruleManager.getRules(undefined, PermissionBehavior.ASK),
+      { sessionId: context.sessionId, workspaceRoots: context.workspaceRoots }
     );
-    const options = this._ruleMatchOptions(toolOrName, context.input ?? {});
+    const options = this._ruleMatchOptions(
+      toolOrName,
+      context.input ?? {},
+      context
+    );
     return askRules.some((rule) =>
       isRuleMatch(rule, toolName, context.input, options)
+    );
+  }
+
+  /**
+   * 命中的**工具级/内容级** allow 规则（无 ⇒ `null`）。
+   *
+   * R3/R5（2026-11-17）：带规则归属返回，供命中计数与决策归因；判定口径与
+   * `isToolAllowed` 完全一致（同一实现）。
+   *
+   * 注：走 `getRulesByBehavior` ⇒ 「暂停全部持久化放行」时审批规则同样不参与
+   * （此前直接读 `getRules` 会绕过该过滤）；F2 起再按**本次会话**补一次过滤
+   * （全局暂停已在 `getRulesByBehavior` 内处理，这里处理会话级）。
+   */
+  findAllowRule(
+    toolOrName: Tool | string,
+    context: PermissionContext
+  ): PermissionRule | null {
+    const toolName =
+      typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
+    const allowRules = filterPausedApprovalRules(
+      this.ruleManager.getRulesByBehavior(PermissionBehavior.ALLOW),
+      { sessionId: context.sessionId, workspaceRoots: context.workspaceRoots }
+    );
+    const options = this._ruleMatchOptions(
+      toolOrName,
+      context.input ?? {},
+      context
+    );
+    return (
+      allowRules.find((rule) =>
+        isRuleMatch(rule, toolName, context.input, options)
+      ) ?? null
     );
   }
 
@@ -923,16 +1026,7 @@ export class PermissionChecker {
     toolOrName: Tool | string,
     context: PermissionContext
   ): boolean {
-    const toolName =
-      typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
-    const allowRules = this.ruleManager.getRules(
-      undefined,
-      PermissionBehavior.ALLOW
-    );
-    const options = this._ruleMatchOptions(toolOrName, context.input ?? {});
-    return allowRules.some((rule) =>
-      isRuleMatch(rule, toolName, context.input, options)
-    );
+    return this.findAllowRule(toolOrName, context) !== null;
   }
 
   /**
@@ -949,8 +1043,13 @@ export class PermissionChecker {
   ): PermissionDecision | null {
     const toolName =
       typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
-    const rules = this.ruleManager.getRules();
-    const options = this._ruleMatchOptions(toolOrName, input ?? {});
+    // R3/F2：内容级（命令名 / 前缀 / 正则）规则也在暂停范围内 —— 审批卡的
+    // 「以后这个命令免审批」写的就是这一类，此前直读 `getRules()` 会绕过过滤。
+    const rules = filterPausedApprovalRules(this.ruleManager.getRules(), {
+      sessionId: context.sessionId,
+      workspaceRoots: context.workspaceRoots,
+    });
+    const options = this._ruleMatchOptions(toolOrName, input ?? {}, context);
     for (const rule of rules) {
       if (isRuleMatch(rule, toolName, input, options)) {
         switch (rule.behavior) {

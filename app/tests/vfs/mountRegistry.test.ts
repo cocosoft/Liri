@@ -27,8 +27,8 @@
 
 import { describe, expect, it } from 'bun:test';
 import { AppError } from '@openliri/infra/error';
-import { VfsMountRegistry } from '../../src/vfs/VfsMountRegistry.js';
-import type { IVfsDriver } from '../../src/vfs/types.js';
+import { VfsMountRegistry } from '@modules/vfs/VfsMountRegistry.js';
+import type { IVfsDriver } from '@modules/vfs/types.js';
 
 /** 最小桩驱动（仅用于注册表语义验证；不含任何 Mock 业务数据） */
 function makeStubDriver(): IVfsDriver {

@@ -178,7 +178,11 @@ export function detectEncodingAttack(input: string): ClassifierDecision | null {
   }
 
   // 检查Unicode编码模式（要求完整转义序列，见 `UNICODE_ESCAPE_PATTERN`）
-  if (input.includes('%u') || UNICODE_ESCAPE_PATTERN.test(input)) {
+  // P9-4（2026-11-12）：`input.includes('%u')` 是裸子串 —— Windows 环境变量
+  // `%USERPROFILE%`（小写化后含 `%u`）会被误判为 Unicode 攻击（真机会话
+  // session_mwcyhmmpd44e93b602 seq 773/793 的纯只读 `dir` 命令因此被拒）。
+  // 收紧为完整转义 `%uXXXX`。
+  if (/%u[0-9a-f]{4}/i.test(input) || UNICODE_ESCAPE_PATTERN.test(input)) {
     return {
       shouldBlock: true,
       reason: 'Input contains Unicode encoding attack',
@@ -225,6 +229,10 @@ export function detectSqlInjection(
   executionSurface?: string
 ): ClassifierDecision | null {
   const sqlPatterns = [
+    // 2026-11-12（P5-3）：只保留**真实注入特征**。此前还列了 `select 1` / `select *` /
+    // `from users` / `order by` / `left join` / `limit 1` 等「合法 SQL 的常见片段」⇒
+    // 实测把 `mysql -e "select 1"` 判成注入（只读查询被硬拒）。这类片段已移除，
+    // 危险 DDL/DML 与「永真式/堆叠语句」仍全量保留。
     'union select',
     'drop table',
     'insert into',
@@ -240,29 +248,11 @@ export function detectSqlInjection(
     ';delete from',
     ';insert into',
     ';update',
-    'select 1',
-    'select *',
-    'from users',
-    'from table',
     'where 1=1',
-    'having 1=1',
-    'order by',
-    'group by',
-    'limit 1',
-    'offset 0',
-    'union all',
-    'union distinct',
-    'cross join',
-    'inner join',
-    'left join',
-    'right join',
-    'full join',
-    'natural join',
     'exec sp_',
     'execute sp_',
     'xp_cmdshell',
     'sp_configure',
-    'declare @',
     'create table',
     'alter table',
     'truncate table',
@@ -273,13 +263,7 @@ export function detectSqlInjection(
     'grant all',
     'revoke all',
     'deny all',
-    'with encryption',
     'waitfor delay',
-    'if exists',
-    'while 1=1',
-    'begin transaction',
-    'commit transaction',
-    'rollback transaction',
   ];
 
   for (const pattern of sqlPatterns) {
@@ -527,10 +511,18 @@ export function detectDeserializationAttack(
 
 /**
  * 检测LDAP注入攻击
- * @param input 输入字符串
+ *
+ * @param input 输入字符串（JSON 文本）
+ * @param options.skipCharHeuristic 关闭「≥3 个特殊字符」启发式。
+ *   **仅用于源码面**（`code` / `code_run`）：`()` `=` `*` 在代码里是语法，
+ *   实测把无害 JS `const x = [1, 2].map((n) => n * 2)` 判成 LDAP 注入（P4 复查）。
+ *   结构化过滤器模式（`(|` / `(&` / `(!` / `))` 等）**仍然生效**。
  * @returns 检测结果
  */
-export function detectLDAPInjection(input: string): ClassifierDecision | null {
+export function detectLDAPInjection(
+  input: string,
+  options: { skipCharHeuristic?: boolean } = {}
+): ClassifierDecision | null {
   const ldapPatterns = [
     // LDAP 过滤器注入：只认**结构化组合**。
     // 2026-11-11：原先还列了单字符 `*` `(` `)` `&` `|` `=` `!` `~`，等于"出现任一特殊字符
@@ -560,7 +552,7 @@ export function detectLDAPInjection(input: string): ClassifierDecision | null {
     }
   }
 
-  if (specialCharCount >= 3) {
+  if (!options.skipCharHeuristic && specialCharCount >= 3) {
     return {
       shouldBlock: true,
       reason:

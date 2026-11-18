@@ -13,7 +13,7 @@ import { describe, expect, it, afterAll } from 'bun:test';
 import {
   createChatManagerTAORDeps,
   type ChatManagerTAORContext,
-} from '../../src/query/ChatManagerTAORAdapter.js';
+} from '@modules/query/ChatManagerTAORAdapter.js';
 import {
   getToolRegistry,
   recordDiscoveredTools,

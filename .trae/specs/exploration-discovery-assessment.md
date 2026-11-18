@@ -91,3 +91,20 @@
 
 **2026-10-07（P26-3）**：评估完成，**结论 = 不立项**（D1-b），**并推翻原前提**（探索预算/疲劳已在 `ReActLoop` 基类，3 条循环共享）。
 **零代码改动**；台账 §26.3-21 / §26.1 / §26.5-P26-3 已回填。
+
+---
+
+## 10. 附注：审计口径订正（2026-11-15，只读复核，零代码）
+
+**触发**：21 模式逐项审计表把 #21 记为「部分」，理由为「`DiscoveryFire` 基类是桩，真实行为在被覆写处」——
+该表述**事实成立但易被误读为"未实现"**，本轮据实测统一口径。
+
+| # | 事实（2026-11-15 实测） | 证据 |
+|---|---|---|
+| 1 | AlwaysOn **在启动链上**且 **默认开** | `main.ts` 调 `startAlwaysOn()`；`FEATURE_FLAGS.ALWAYSON: true` |
+| 2 | 四段流水线**有真实实现**：基类只是**注入点**，由 bootstrap 覆盖 | `AlwaysOnRuntime.setDiscoveryFn/setWorkspaceFn/setExecutionFn/setReportFn`；`AlwaysOnBootstrap` 注入 `bridge.discovery/workspace/execution/report` |
+| 3 | 探索行为的收敛向在**基类**，3 条循环共享 | 本文件 §1-1/1-2/1-4（预算 14 / 疲劳 8·5 / 续期扩容） |
+| 4 | 主动多样性向：**已实现、受开关** | `CompetitiveStrategyOrchestrator` + `COMPETITIVE_STRATEGY`（默认关，设置页可开） |
+
+**裁定**：审计口径由「部分」改为「**达标（受开关）**」——与 #20 `Prioritization` 同口径（能力已在、由功能开关门控）。
+**评级语义不变**：本项仍**不立项**（§3 D1-b 与三条触发条件继续有效）；唯一真实残留仍是「**探索不足 / 过早收敛**」方向无人覆盖（触发条件 1）。

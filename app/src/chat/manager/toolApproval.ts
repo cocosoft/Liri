@@ -16,6 +16,8 @@
  */
 
 import { getLogger } from '@openliri/infra/monitoring';
+// P3（2026-11-17）：批量合并开关走权限域环境变量（不放内核 featureFlags —— 内核体量已锁）
+import { configManager } from '@openliri/infra/config';
 import { isShellToolName } from '@openliri/infra/utils/toolContract/toolRoles';
 import type { ToolRegistry } from '@modules/tools';
 import type {
@@ -28,6 +30,13 @@ const logger = getLogger('chat:manager');
 export interface ToolApprovalPorts {
   /** 工具注册表（审批指纹解析/风险分级用；未初始化 ⇒ `null`） */
   toolRegistry: ToolRegistry | null;
+  /**
+   * B8（2026-11-18）：会话当前工具轮次（`metadata.roundCounter`）。
+   *
+   * 审批卡的批量合并要求**同轮次**（见 `canBatchApproval`）。缺省/返回 `undefined`
+   * ⇒ 卡片不带 `roundId`，该卡不参与合并（fail-closed，不做"猜同轮"）。
+   */
+  getCurrentRoundId?: (sessionId: string) => number | undefined;
 }
 
 /**
@@ -91,6 +100,75 @@ export async function isCommandApproved(
 }
 
 /**
+ * 2026-11-12：该调用是否**仍在等用户审批**（有未处理的审批卡且放行缓存未写入）。
+ *
+ * 用途：`resumeStream` 重放 `awaiting_approval` 调用前的前置判定。重放的前提是"审批已落定"；
+ * 卡还没处理就重放 ⇒ 再执行一次 + 同指纹复用同一 Inbox 项 + 再写一条 `awaiting_approval`
+ * tool/result（新 messageId）⇒ 前端重复审批卡（真机 `session_mwd5mp8jd5fe8bce9c` /
+ * `session_mwcyhmmpd44e93b602`）。
+ *
+ * 为什么不用"messages 里的 awaiting 标记"：检查点（`checkpoint.messages`）可能只含
+ * user + assistant，**不含**那条 `awaiting_approval` 的 tool 结果 ⇒ 标记不可靠；而 Inbox 的
+ * 待审批项是用户可见、可操作的唯一事实源。
+ *
+ * 判据顺序：① 放行缓存命中 ⇒ 已落定（不是等待）；② 同指纹待审批项存在 ⇒ 等待中。
+ */
+export async function isAwaitingUserApproval(
+  ports: ToolApprovalPorts,
+  toolName: string,
+  input: Record<string, unknown>,
+  sessionId: string | undefined,
+  toolCallId?: string
+): Promise<boolean> {
+  const sid = sessionId || 'default';
+  try {
+    const tool = ports.toolRegistry?.getTool(toolName);
+    // 权限层沿用本模块的**动态 import** 约定（不把 permission/Inbox 提到启动期静态图）
+    const {
+      buildToolApprovalCard,
+      findPendingApprovalId,
+      resolveApprovalFingerprint,
+    } = await import('@openliri/infra/permission');
+    // ① 已批准（或"本会话/本任务都允许"命中）⇒ 审批已落定，续跑必须重放
+    if (
+      await isCommandApproved(
+        toolName,
+        input,
+        sid,
+        resolveApprovalFingerprint(tool ?? toolName, input)
+      )
+    ) {
+      return false;
+    }
+    // ② 与建卡同一构造点算 commandHash，再查同指纹的待审批项
+    const { inboxManager } =
+      await import('@openliri/service/runtime/InboxManager');
+    const card = buildToolApprovalCard({
+      toolOrName: tool ?? toolName,
+      input,
+      sessionId: sid,
+      toolCallId: toolCallId ?? '',
+      // 与 `submitToolApproval` 同源（`_orphan` 判定只要求非空）
+      sourceModule: 'chat-tool-approval',
+    });
+    const pendingId = await findPendingApprovalId(inboxManager, {
+      sessionId: sid,
+      toolName,
+      approvalHash: card.commandHash,
+    });
+    return !!pendingId;
+  } catch (e) {
+    // 审批链路不可用（Inbox 库/迁移未就绪）⇒ 按"未在等待"处理，续跑保持既有重放行为（不静默丢调用）
+    logger.warn('等待审批判定失败，按未等待处理', {
+      toolName,
+      sessionId: sid,
+      error: String(e),
+    });
+    return false;
+  }
+}
+
+/**
  * 提交工具审批卡片到 Inbox（P0-2 工具执行审批链路）
  *
  * ask 决策 → 会话内审批卡片（InboxBlock）→ 用户批准后：
@@ -112,7 +190,7 @@ export async function submitToolApproval(
   approvalSnapshot?: ApprovalSnapshot
 ): Promise<string | null> {
   try {
-    const { inboxManager } =
+    const { inboxManager, INBOX_STATUS_PENDING } =
       await import('@openliri/service/runtime/InboxManager');
     // P1（2026-11-04）：审批卡构造收敛到 infra 的**唯一构造点**（与判定前路径同一实现，
     // 见 `packages/infra/src/permission/toolApprovalSubmission.ts`）。此前两处各拼一份，
@@ -121,6 +199,8 @@ export async function submitToolApproval(
       await import('@openliri/infra/permission');
     const tool = ports.toolRegistry?.getTool(toolName);
     const sid = sessionId || 'default';
+    // B8（2026-11-18）：本条 ask 所属工具轮次（批量合并的同轮次限定依据）
+    const roundId = ports.getCurrentRoundId?.(sid);
 
     const card = buildToolApprovalCard({
       toolOrName: tool ?? toolName,
@@ -132,6 +212,7 @@ export async function submitToolApproval(
       sourceModule: 'chat-tool-approval',
       approvalScope,
       approvalSnapshot,
+      ...(typeof roundId === 'number' ? { roundId } : {}),
     });
 
     // PR-1（2026-10-23）：同指纹的待审批项已存在 ⇒ 复用，不重复建卡（也不重复开审批链）
@@ -149,13 +230,73 @@ export async function submitToolApproval(
       return existingId;
     }
 
+    // P3（2026-11-17）：**同工具 + 同风险**的多次 ask 合并到一张在途卡（默认关）。
+    // 开关：`PERMISSION_APPROVAL_BATCH=true`（权限域环境变量；只认显式 true，拼写错误按关）。
+    // 合并只发生在内存合并簿（`approvalBatch`），批准时由 inboxApproval 一次写多条放行缓存；
+    // 进程重启丢批 ⇒ 对应调用仍 awaiting（fail-closed），不会误放行。
+    const approvalBatchEnabled =
+      configManager.env('PERMISSION_APPROVAL_BATCH')?.trim().toLowerCase() ===
+      'true';
+    if (approvalBatchEnabled) {
+      const { canBatchApproval, addApprovalBatchEntry, getApprovalBatchSize } =
+        await import('@openliri/service/runtime/approvalBatch');
+      const pending = await inboxManager.list({
+        sessionId: sid,
+        status: INBOX_STATUS_PENDING,
+        type: 'approval',
+        limit: 20,
+      });
+      for (const item of pending.items) {
+        const meta = (item.metadata ?? {}) as Record<string, unknown>;
+        if (
+          !canBatchApproval({
+            enabled: true,
+            pendingCount: getApprovalBatchSize(item.id),
+            candidateToolName: meta.toolName,
+            candidateRisk: meta.risk,
+            // B8：同轮次限定 —— 候选卡的 `metadata.roundId` 必须与本条 ask 相等
+            candidateRoundId: meta.roundId,
+            candidateIsWorkspaceScope: meta.kind === 'workspace-scope',
+            candidateCreatedAt: item.createdAt,
+            now: Date.now(),
+            toolName,
+            risk: String(card.risk),
+            ...(typeof roundId === 'number' ? { roundId } : {}),
+          })
+        ) {
+          continue;
+        }
+        if (
+          addApprovalBatchEntry(item.id, {
+            commandHash: card.commandHash,
+            ...(typeof input.command === 'string'
+              ? { command: input.command }
+              : {}),
+            fingerprintHash: card.fingerprintHash,
+          })
+        ) {
+          logger.info('审批已合并到在途卡（P3 批量合并）', {
+            toolName,
+            sessionId: sid,
+            batchId: item.id,
+            inboxItemId: item.id,
+            batched: getApprovalBatchSize(item.id),
+          });
+          return item.id;
+        }
+      }
+    }
+
+    // R4（2026-11-17）：审计入参预览先去敏（动态 import：不改启动期 eager 依赖，见文件头）
+    const { buildRedactedInputPreview } =
+      await import('@openliri/infra/security');
     // P5-1：① 申请（只在新卡真正要建时开链）
     emitApprovalAudit(sid, {
       stage: 'requested',
       approvalId: card.approvalId,
       toolName,
       risk: card.risk,
-      inputPreview: JSON.stringify(input).slice(0, 200),
+      inputPreview: buildRedactedInputPreview(input, 200),
     });
 
     const submitted = await inboxManager.submit(

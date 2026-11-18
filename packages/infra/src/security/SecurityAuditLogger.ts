@@ -18,6 +18,7 @@ import { join, dirname } from 'path';
 import { homedir, tmpdir } from 'os';
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
+import { productEnvKey } from '@openliri/kernel';
 
 const logger = getLogger('security:auditLogger');
 
@@ -59,6 +60,23 @@ export interface SecurityAuditEvent {
   userAction?: string;
   /** 风险等级 */
   riskLevel: string;
+  /**
+   * 规则覆盖情况（2026-11-13，G4 观察期 A 方案）：
+   * `uncovered` = 无规则匹配、走默认放行；`matched` = 其余（含命中规则 / 显式决策）。
+   *
+   * 为什么单列：`riskLevel='high'` 同时承载了「deny」与「默认放行」两种语义，
+   * 围栏 S1 据此判定会把只读命令的默认放行当成"高危静默放行"（实测 12/12 误报）。
+   */
+  ruleCoverage?: 'matched' | 'uncovered';
+  /**
+   * 命令类别（2026-11-13，G4 观察期 A 方案）：
+   * - `read-only`：命令入参结构上不可能写入（唯一来源 `checkReadonlyCommand`）；
+   * - `write-or-exec`：命令入参可能写盘或执行子进程；
+   * - `non-shell`：无命令入参的工具调用（如 `todo_write` / `grep` 工具）。
+   *
+   * 围栏据此跳过只读/非 shell 调用，S1 只关注"未覆盖且可能变更状态"的调用。
+   */
+  commandClass?: 'read-only' | 'write-or-exec' | 'non-shell';
 }
 
 /** 审计日志查询过滤器 */
@@ -103,9 +121,20 @@ function getAuditLogPath(): string {
 
   // BUG15 修复：优先使用 paths.ts 统一路径，不可用时 fallback 到 homedir()
   let primaryPath: string;
+  // 2026-11-13（会话 `session_mwdcivrue74d4838ff` 观察期取证）：审计目录**可重定向**。
+  // 为什么需要：测试会经由真实权限链写审计事件（实测 `boom` / `failing_tool` 等 fixture
+  // 落进用户真实 `security-audit.log`）⇒ 污染围栏 S1/S2 抽样与证据链。测试 preload
+  // 用本变量把审计面隔离到临时目录；生产不设该变量 ⇒ 行为不变。
+  const auditDirOverride = process.env[
+    productEnvKey('SECURITY_AUDIT_DIR')
+  ]?.trim();
   try {
-    const { resolveSecurityDir } = require('@openliri/infra/environment');
-    primaryPath = join(resolveSecurityDir(), 'security-audit.log');
+    if (auditDirOverride) {
+      primaryPath = join(auditDirOverride, 'security-audit.log');
+    } else {
+      const { resolveSecurityDir } = require('@openliri/infra/environment');
+      primaryPath = join(resolveSecurityDir(), 'security-audit.log');
+    }
   } catch {
     primaryPath = join(homedir(), '.trae', 'security-audit.log');
   }
@@ -217,6 +246,10 @@ export function logSecurityAuditEvent(event: SecurityAuditEvent): void {
       decision: event.decision,
       userAction: event.userAction,
       riskLevel: event.riskLevel,
+      // 2026-11-13（G4 A 方案）：结构化字段必须**显式**序列化 —— 本函数按字段清单拼 JSON，
+      // 只加类型不加上这里 ⇒ 落盘缺字段（围栏读不到，S1 判据失效）。
+      ...(event.ruleCoverage ? { ruleCoverage: event.ruleCoverage } : {}),
+      ...(event.commandClass ? { commandClass: event.commandClass } : {}),
     });
 
     appendFileSync(logPath, logEntry + '\n', 'utf-8');

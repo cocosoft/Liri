@@ -32,8 +32,8 @@ import { join } from 'path';
 import {
   checkInitialState,
   judgeInitialState,
-} from '../../src/evals/initialStateCheck';
-import type { EvalTask } from '../../src/evals/types';
+} from '@modules/evals/initialStateCheck';
+import type { EvalTask } from '@modules/evals/types';
 
 function makeCtxDirs() {
   const root = mkdtempSync(join(tmpdir(), 'a4-init-'));

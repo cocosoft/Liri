@@ -8,18 +8,18 @@
  */
 import { afterEach, describe, expect, it } from 'bun:test';
 
-import { CHANNEL_CATALOG } from '../../src/channels/ChannelCatalog';
+import { CHANNEL_CATALOG } from '@modules/channels/ChannelCatalog';
 import {
   getDefaultWhatsAppConfig,
   validateWhatsAppConfig,
-} from '../../src/channels/whatsapp/config-schema';
+} from '@modules/channels/whatsapp/config-schema';
 import {
   getWhatsAppAccount,
   listWhatsAppAccountIds,
   registerWhatsAppAccount,
   removeWhatsAppAccount,
   resolveWhatsAppAccount,
-} from '../../src/channels/whatsapp/accounts';
+} from '@modules/channels/whatsapp/accounts';
 
 describe('whatsapp 通道在 CHANNEL_CATALOG 的登记', () => {
   it('条目存在且带 exportKey / 凭据 / isEnabled', () => {

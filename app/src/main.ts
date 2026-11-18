@@ -40,6 +40,8 @@ import { LogConfigManager } from '@openliri/infra/monitoring/logs/config/LogConf
 import {
   startMdmPrefetch,
   ensureMdmPrefetchCompleted,
+  // 2026-11-12：HTTP 优雅关闭入口的宿主侧接线（`POST /v1/system/shutdown`）
+  registerShutdownRequester,
 } from '@modules/infrastructure';
 import {
   installExitRecorder,
@@ -138,6 +140,13 @@ import {
   wireAnalyticsDeps,
 } from './bootstrap/preflight.js';
 export { isValidApiKey } from './bootstrap/preflight.js';
+// P0-2（2026-11-14）：退出链有界化 —— 单钩子有上界 + 计时器 unref + 超时汇总；
+// 钩子清单（channels / llama / mcp / proactive / 会话 flush）外移到 bootstrap。
+import { APP_SHUTDOWN_HOOKS } from './bootstrap/gracefulShutdown.js';
+import {
+  runShutdownHooks,
+  SHUTDOWN_HOOK_TIMEOUT_MS,
+} from './bootstrap/shutdownHooks.js';
 const logger = getLogger('main');
 
 /**
@@ -455,126 +464,44 @@ function checkSingletonInstance(): void {
     // @ignore-catch — 同步exit事件不支持async，日志flush fire-and-forget
     flush().catch(() => {});
   });
-  process.on('SIGINT', () => {
-    // AC-7（2026-08-20）：不在信号处理中提前执行 cleanup（删锁）。
-    // 若优雅退出链（通道 dispose/flush）卡死，锁已删而进程未死 →
-    // 新实例无法检测到旧实例 → 双实例并存（QQ WS 归属错乱、消息丢失）。
-    // 删锁统一延迟到 process.exit 触发的 'exit' 事件（必然同步执行）；
-    // 卡死时锁保留，供新实例按僵尸流程检测并接管。
-    // 同步强关 HTTP：立即释放端口（新实例可绑定）+"无监听端口"成为
-    // 退出中僵尸的可靠信号（closeAllConnections 防 keep-alive 拖住）。
+  /**
+   * 优雅关闭序列 —— `SIGINT` / `SIGTERM` / `POST /v1/system/shutdown` 共用同一份实现。
+   *
+   * AC-7（2026-08-20）：不在关闭序列中提前执行 cleanup（删锁）。
+   * 若优雅退出链（通道 dispose/flush）卡死，锁已删而进程未死 →
+   * 新实例无法检测到旧实例 → 双实例并存（QQ WS 归属错乱、消息丢失）。
+   * 删锁统一延迟到 process.exit 触发的 'exit' 事件（必然同步执行）；
+   * 卡死时锁保留，供新实例按僵尸流程检测并接管。
+   * 同步强关 HTTP：立即释放端口（新实例可绑定）+"无监听端口"成为
+   * 退出中僵尸的可靠信号（closeAllConnections 防 keep-alive 拖住）。
+   */
+  const runGracefulShutdown = () => {
     activeHttpService?.forceCloseSync();
-    // T3.4: 优雅退出释放通道级 scope（注销已注册通道）
-    // T1.25.4: 并行停止 llama-server（生命周期同步；allSettled 保证任一失败互不影响）
-    void Promise.allSettled([
-      gracefulChannelShutdown(),
-      gracefulLlamaShutdown(),
-      // ① P0（2026-10-10）：退出时回收 MCP stdio 子进程（清理链 + 孤儿兜底）
-      gracefulMcpShutdown(),
-      // G-10（2026-10-19）：停止主动消息扫描器并关闭队列数据库
-      gracefulProactiveShutdown(),
-      // 优雅退出（2026-09-02 排查"会话中断"补充）：先 flush 全会话事件缓冲
-      // （text-batch 落盘），避免 watch 重启/Ctrl+C 中断在途会话留下 torn/open-turn
-      import('./chat/lifecycle/shutdownHooks.js')
-        .then((m) => m.flushAllEventBuffers())
-        .catch(() => 0),
-      // M4（2026-09-17）：优雅退出前为可中断会话写 cleanShutdown 标记——下次启动跳过崩溃恢复
-      import('./chat/lifecycle/shutdownHooks.js')
-        .then((m) => m.markSessionsCleanShutdown())
-        .catch(() => 0),
-    ]).then(() => flush().finally(() => process.exit(0)));
-  });
-  process.on('SIGTERM', () => {
-    // 同上：删锁延迟到 exit 事件；先同步强关 HTTP（AC-7）
-    activeHttpService?.forceCloseSync();
-    void Promise.allSettled([
-      gracefulChannelShutdown(),
-      gracefulLlamaShutdown(),
-      // ① P0（2026-10-10）：退出时回收 MCP stdio 子进程（清理链 + 孤儿兜底）
-      gracefulMcpShutdown(),
-      // G-10（2026-10-19）：停止主动消息扫描器并关闭队列数据库
-      gracefulProactiveShutdown(),
-      // 优雅退出（2026-09-02 排查"会话中断"补充）：先 flush 全会话事件缓冲
-      // （text-batch 落盘），避免 watch 重启/Ctrl+C 中断在途会话留下 torn/open-turn
-      import('./chat/lifecycle/shutdownHooks.js')
-        .then((m) => m.flushAllEventBuffers())
-        .catch(() => 0),
-      // M4（2026-09-17）：优雅退出前为可中断会话写 cleanShutdown 标记
-      import('./chat/lifecycle/shutdownHooks.js')
-        .then((m) => m.markSessionsCleanShutdown())
-        .catch(() => 0),
-    ]).then(() => flush().finally(() => process.exit(0)));
-  });
-}
+    // P0-2（2026-11-14）：每条钩子有执行上界（超时记为一条超时并继续），计时器 unref ——
+    // 任一清理钩子卡死不再让进程无限挂起；超时/失败在结算后统一点名告警。
+    // 钩子清单（channels / llama / mcp / proactive / 会话 flush）已外移到 bootstrap。
+    void runShutdownHooks(APP_SHUTDOWN_HOOKS)
+      .then(({ timedOut, failed }) => {
+        if (timedOut.length > 0) {
+          logger.warning(`shutdown timeout: [${timedOut.join(', ')}]`, {
+            timeoutMs: SHUTDOWN_HOOK_TIMEOUT_MS,
+            timedOut,
+          });
+        }
+        if (failed.length > 0) {
+          logger.warning(`shutdown hook failed: [${failed.join(', ')}]`, {
+            failed,
+          });
+        }
+      })
+      .then(() => flush().finally(() => process.exit(0)));
+  };
 
-/**
- * T3.4: 通道级 scope 释放（注销 bootstrap 注册的通道）。
- * dynamic import 避免 main.ts 与 channels 模块静态耦合。
- */
-async function gracefulChannelShutdown(): Promise<void> {
-  // 先停渠道实时监控（清探测循环与退避定时器），再释放通道 scope
-  const { getChannelRealtimeMonitor } =
-    await import('./channels/monitoring/ChannelRealtimeMonitor');
-  getChannelRealtimeMonitor().stop();
-  const { channelBootstrapper } =
-    await import('./channels/bootstrap/ChannelBootstrapper');
-  await channelBootstrapper.disposeAll();
-  // 多租户 P3：租户通道实例不在 bootstrapper 里 ⇒ 单独断开（失败不影响退出）
-  try {
-    const { stopTenantChannels } = await import('./channels/setupChannels');
-    await stopTenantChannels();
-  } catch {
-    // @ignore-catch — 租户通道断开失败不阻塞退出
-  }
-}
-
-/**
- * T1.25.4: 退出时停止 llama-server（与 Liri 生命周期同步）。
- * 防止应用退出后 llama-server 进程残留（占内存、后台继续生成导致下次请求 busy 误判）。
- * dynamic import 避免 main.ts 与 llama 模块静态耦合；失败不阻塞退出。
- */
-async function gracefulLlamaShutdown(): Promise<void> {
-  try {
-    const { llamaCppServerManager } =
-      await import('@modules/ai/local/llama/LlamaCppServerManager.js');
-    await llamaCppServerManager.stop();
-  } catch (err) {
-    // @ignore-catch — llama 模块加载/停止失败不阻塞应用退出
-  }
-}
-
-/**
- * ① P0（2026-10-10）：退出时回收 MCP stdio 子进程。
- *
- * 此前通道/llama 有优雅退出，**MCP 无**（`mcpSystem.cleanup()` 仅由模块 `destroy()` 触发，
- * 信号路径不经过）⇒ `killOrphanedProcesses` 全仓零调用点 ⇒ stdio 子进程可残留。
- * 见 `dev_docs/20261010/A2A-MCP网关进程级侧车隔离-设计方案-20261010.md` §8.1（P0）。
- *
- * dynamic import 避免 main.ts 与 MCP 模块静态耦合；失败不阻塞退出。
- */
-async function gracefulMcpShutdown(): Promise<void> {
-  try {
-    const { mcpSystem } = await import('@openliri/service/services/mcp');
-    await mcpSystem.cleanup();
-  } catch (err) {
-    // @ignore-catch — MCP 清理失败不阻塞应用退出
-  }
-}
-
-/**
- * G-10（2026-10-19）：退出时停止主动消息扫描器并关闭队列数据库。
- *
- * 扫描器定时器已 `unref`（不阻止退出），这里负责释放 DB 句柄；
- * dynamic import 避免 main.ts 与 proactive 模块静态耦合；失败不阻塞退出。
- */
-async function gracefulProactiveShutdown(): Promise<void> {
-  try {
-    const { stopProactiveRuntime } =
-      await import('./proactive/ProactiveRuntime.js');
-    await stopProactiveRuntime();
-  } catch (err) {
-    // @ignore-catch — 主动消息运行时停止失败不阻塞应用退出
-  }
+  // 2026-11-12：HTTP 入口复用同一条关闭链 —— Windows 上结束进程不投递信号，
+  // 没有该端口就只能硬杀（下次启动把有活动的会话标 failed_stale）。
+  registerShutdownRequester(runGracefulShutdown);
+  process.on('SIGINT', runGracefulShutdown);
+  process.on('SIGTERM', runGracefulShutdown);
 }
 
 /**
@@ -890,6 +817,25 @@ async function launchDaemon(options: LaunchOptions): Promise<void> {
       error: err instanceof Error ? err.message : String(err),
     });
   }
+
+  // R5（2026-11-17）：本周未收录命令的**非阻塞**提示（DAEMON 无 UI ⇒ 只记日志；
+  // 桌面端由 `GET /v1/permissions/rules` 的 `unknownCommandSuggestions` 提供给设置页）
+  void (async () => {
+    try {
+      const { readUnknownCommandDigest, formatUnknownCommandNotice } =
+        await import('@openliri/infra/permission');
+      const digest = readUnknownCommandDigest({ sinceDays: 7, top: 1 });
+      const notice = formatUnknownCommandNotice(digest);
+      if (notice && digest) {
+        logger.warn(notice, {
+          headCount: digest.headCount,
+          sampleCount: digest.sampleCount,
+        });
+      }
+    } catch {
+      // @ignore-catch — 启动提示属旁路观测（CS03：不因此影响常驻）
+    }
+  })();
 
   // 通道运行时（2026-11-05）：与 REPL 共用同一实现 —— 否则 daemon 下渠道永不注册/连接
   const { startChannelRuntime: startChannelsForDaemon } =
@@ -1519,7 +1465,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
     // 关闭（`FEATURE_PROACTIVE=false`）时不建表、不启动扫描器、不投递。
     await wrapInit('ProactiveRuntime', async () => {
       const { startProactiveRuntime } =
-        await import('./proactive/ProactiveRuntime.js');
+        await import('@modules/proactive/ProactiveRuntime');
       if (await startProactiveRuntime()) {
         logger.info('主动消息运行时已启动');
       }
@@ -1744,10 +1690,36 @@ export async function launch(options: LaunchOptions): Promise<void> {
       // PR4 遗留-⑨（2026-10-09，`.trae/specs/dedup-message-state.md`）：去重**处理态落盘** +
       // 启动期 hydrate —— 跨重启仍能阻断同 `messageId` 的渠道重传（防重启窗口内重复计费）。
       // 写盘为 best-effort；未接入 ⇒ 纯内存（默认零行为变更）。
-      const { getDedupStore } = await import('./channels/dedup/DedupStore.js');
+      const { getDedupStore } =
+        await import('@modules/channels/dedup/DedupStore.js');
       const { hydrateFromDedupStore } =
-        await import('./channels/dedup/index.js');
+        await import('@modules/channels/dedup/index.js');
       await hydrateFromDedupStore(getDedupStore());
+    });
+
+    // D2+（2026-11-14）：目标**跨会话续接** —— 恢复编排完成后，为"未达终态"的目标
+    // （`active` / `blocked`）各登记**一次**续跑唤醒（`goal-startup:<goalId>:<updatedAt>`）。
+    // 执行器已由上方 Recovery 的 `bootstrapRecovery` 装配（`setSelfWakeResumeHandler`），
+    // 此处只登记、不直接跑；触发时再按"目标仍非终态且期间无推进"二次校验（有界、可作废）。
+    // 未启用 CG3（无 SelfWake）或无未终结目标 ⇒ 零行为。
+    await wrapInit('GoalResume', async () => {
+      const { enqueueStartupGoalResumes } = await import('@modules/tasks');
+      const report = await enqueueStartupGoalResumes();
+      if (report.scanned > 0) {
+        logger.info('目标重启续接扫描完成', { ...report });
+      }
+    });
+
+    // D3（2026-11-14）：**持久 DAG 的计划续跑** —— 与目标续接并列，为"被重启打断"的计划
+    // （running + 心跳过期 + 24h 内）各登记一次唤醒（`plan-startup:<planId>:<heartbeatMs>`）。
+    // 只登记不执行；触发时再校验"仍可续且心跳未变"（期间有推进 ⇒ 作废）。
+    // 默认关（`FEATURE_PLAN_STARTUP_RESUME=true` 开启）⇒ 未开启时零行为。
+    await wrapInit('PlanResume', async () => {
+      const { enqueueStartupPlanResumes } = await import('@modules/tasks');
+      const report = await enqueueStartupPlanResumes();
+      if (report.scanned > 0) {
+        logger.info('计划重启续接扫描完成', { ...report });
+      }
     });
 
     // PDCA：检查点索引**异步预热** + 启动扫描（标记残留的运行中任务为 abort）

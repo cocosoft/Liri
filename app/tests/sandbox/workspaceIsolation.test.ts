@@ -19,26 +19,26 @@ import { join } from 'node:path';
 import {
   toIsolatedPath,
   findMountForPath,
-} from '../../src/sandbox/isolationPathMap.js';
-import { DockerWorkspace } from '../../src/sandbox/adapters/DockerWorkspace.js';
+} from '@modules/sandbox/isolationPathMap';
+import { DockerWorkspace } from '@modules/sandbox/adapters/DockerWorkspace';
 import {
   hasIsolatedFileIo,
   resolveFileIoExecutionMode,
   resolveWorkspaceFileIo,
-} from '../../src/sandbox/workspaceIsolation.js';
+} from '@modules/sandbox/workspaceIsolation';
 import {
   resolveFileIoToolModeHint,
   resolveSandboxExecutionSignal,
-} from '../../src/sandbox/sandboxExecutionSignal.js';
+} from '@modules/sandbox/sandboxExecutionSignal';
 import { resolveSandboxExemption } from '@openliri/infra/permission/sandboxExemption';
 import { RiskClass } from '@openliri/infra/permission/types/RiskClass';
 import {
   SandboxPlatform,
   SandboxPermission,
   type SandboxConfig,
-} from '../../src/sandbox/SandboxTypes.js';
-import { DOCKER_CONFIG_KEYS } from '../../src/sandbox/docker/index.js';
-import { globalWorkspaceManager } from '../../src/sandbox/WorkspaceManager.js';
+} from '@modules/sandbox/SandboxTypes';
+import { DOCKER_CONFIG_KEYS } from '@modules/sandbox/docker/index';
+import { globalWorkspaceManager } from '@modules/sandbox/WorkspaceManager';
 import { FileWriteTool } from '../../src/tools/FileWriteTool/FileWriteTool.js';
 
 function config(overrides: Partial<SandboxConfig> = {}): SandboxConfig {

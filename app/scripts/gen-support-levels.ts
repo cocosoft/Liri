@@ -30,6 +30,8 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { basename, join, relative, resolve, sep } from 'node:path';
+// P0（2026-11-13）：通道源码位置收敛到 `scripts/lib/channelPaths`（搬包只改一处）
+import { channelPath } from '../../scripts/lib/channelPaths';
 
 const APP_DIR = resolve(import.meta.dir, '..');
 const REPO_ROOT = resolve(APP_DIR, '..');
@@ -93,7 +95,9 @@ function read(relFromApp: string): string {
 
 /** 通道：`CHANNEL_CATALOG` 条目的 `type: '…'`（以「后跟 name」锚定条目，多段缩进均可） */
 function channelIds(): string[] {
-  const text = read('src/channels/ChannelCatalog.ts');
+  const text = read(
+    relative(APP_DIR, channelPath(REPO_ROOT, 'ChannelCatalog.ts'))
+  );
   const ids: string[] = [];
   const re = /\btype:\s*'([^']+)',\s*\n\s*name:/g;
   let m: RegExpExecArray | null;

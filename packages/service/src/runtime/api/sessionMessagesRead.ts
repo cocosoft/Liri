@@ -75,8 +75,12 @@ import { filterTaskPartitionMessages } from './messagePartition';
 import { applyMessageOverrides } from './messageOverrides';
 // P3-1（2026-11-06）：已处理/已过期审批块也要留痕（否则"有文字没卡片"）
 import {
+  mergeApprovalBlocks,
   refreshPresentApprovalBlocks,
+  resolveApprovalHostIndex,
   selectApprovalItemsForBlocks,
+  // 2026-11-17：窗口外但绑定了 toolCallId 的已处理项也要合成（否则工具卡残留"等待审批"）
+  selectResolvedApprovalsLinkedToToolCalls,
 } from './approvalBlockSelection';
 
 const logger = getLogger('runtime:api:CoreAPIImpl');
@@ -745,11 +749,17 @@ export class SessionMessagesRead {
         typeof (lastAssistant as { timestamp?: number }).timestamp === 'number'
           ? (lastAssistant as { timestamp: number }).timestamp
           : Date.now();
-      const selected = selectApprovalItemsForBlocks({
-        pending: pendingItems,
-        recent: recentItems,
-        anchorMs,
-      });
+      const selected = mergeApprovalBlocks(
+        selectApprovalItemsForBlocks({
+          pending: pendingItems,
+          recent: recentItems,
+          anchorMs,
+        }),
+        // 2026-11-17（用户实测：审批已过期却长期「等待审批」）：窗口外但绑定了
+        // `toolCallId` 的已处理/已过期项同样合成 —— 卡片缺席会让前端无从对账，
+        // 工具卡的 `pendingApproval` 残留就永远清不掉。按 toolCallId 精确归位，不挂错轮次。
+        selectResolvedApprovalsLinkedToToolCalls({ recent: recentItems })
+      );
       const resolvedCount = selected.filter(
         (i) => i.status !== 'pending'
       ).length;
@@ -767,40 +777,54 @@ export class SessionMessagesRead {
       const { missing } = refreshPresentApprovalBlocks(messages, selected);
       const missingIds = new Set(missing);
 
-      const existing =
-        (lastAssistant.blocks as unknown as FrontendMessageBlock[]) ?? [];
-      const blocks = selected
-        .filter((item) => missingIds.has(item.id))
-        .map(
-          (item) =>
-            ({
-              id: item.id,
-              type: 'inbox',
-              content: '',
-              inboxData: {
-                inboxId: item.id,
-                type: item.type,
-                title: item.title,
-                content: item.message || '',
-                // P3-1：据实写入状态（pending / replied / expired），前端 InboxBlock 三态已支持
-                status: item.status,
-                priority: 'normal',
-                actions: (item.options?.length
-                  ? item.options
-                  : ['approve', 'deny']
-                ).map((o) => ({
-                  label:
-                    o === 'approve' ? '批准' : o === 'deny' ? '拒绝' : o,
-                  reply: o,
-                  style:
-                    o === 'deny' ? ('danger' as const) : ('primary' as const),
-                })),
-                channelSource: item.channelId,
-              },
-            }) as FrontendMessageBlock
-        );
-      if (blocks.length > 0) {
-        lastAssistant.blocks = [...existing, ...blocks];
+      const missingItems = selected.filter((item) => missingIds.has(item.id));
+      if (missingItems.length === 0) return;
+
+      // 2026-11-12（真机 `session_mwd9bnoyc7e3051cde`）：审批卡必须回到**它发生的那一轮**。
+      // 此前所有缺失项一律追加到最后一条 assistant 消息 ⇒ 第 1 轮的 bash 审批卡渲染在第 2 轮末尾
+      // （刷新回放时「已处理」卡错位）。归属判据见 `resolveApprovalHostIndex`（时间锚点）。
+      const byTarget = new Map<UnifiedMessage, FrontendMessageBlock[]>();
+      for (const item of missingItems) {
+        const block = {
+          id: item.id,
+          type: 'inbox',
+          content: '',
+          inboxData: {
+            inboxId: item.id,
+            type: item.type,
+            title: item.title,
+            content: item.message || '',
+            // P3-1：据实写入状态（pending / replied / expired），前端 InboxBlock 三态已支持
+            status: item.status,
+            priority: 'normal',
+            actions: (item.options?.length
+              ? item.options
+              : ['approve', 'deny']
+            ).map((o) => ({
+              label: o === 'approve' ? '批准' : o === 'deny' ? '拒绝' : o,
+              reply: o,
+              style: o === 'deny' ? ('danger' as const) : ('primary' as const),
+            })),
+            channelSource: item.channelId,
+          },
+        } as FrontendMessageBlock;
+        const toolCallId =
+          typeof item.metadata?.toolCallId === 'string'
+            ? item.metadata.toolCallId
+            : undefined;
+        const hostIdx = resolveApprovalHostIndex(messages, {
+          createdAt: item.createdAt,
+          toolCallId,
+        });
+        const target = hostIdx >= 0 ? messages[hostIdx] : lastAssistant;
+        const bucket = byTarget.get(target);
+        if (bucket) bucket.push(block);
+        else byTarget.set(target, [block]);
+      }
+      for (const [target, extra] of byTarget) {
+        const existing =
+          (target.blocks as unknown as FrontendMessageBlock[]) ?? [];
+        target.blocks = [...existing, ...extra];
       }
     } catch (err) {
       // 合成失败不影响消息读取

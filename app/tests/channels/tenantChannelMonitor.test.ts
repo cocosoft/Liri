@@ -13,8 +13,8 @@
  */
 import { describe, it, expect } from 'bun:test';
 
-import { ChannelRealtimeMonitor } from '../../src/channels/monitoring/ChannelRealtimeMonitor.js';
-import type { IChannelPlugin } from '../../src/channels/types/IChannel.js';
+import { ChannelRealtimeMonitor } from '@modules/channels/monitoring/ChannelRealtimeMonitor.js';
+import type { IChannelPlugin } from '@modules/channels/types/IChannel.js';
 
 const CHANNEL_ID = 'acme:alice::fake-feishu';
 

@@ -51,3 +51,11 @@ export {
 } from './RedactPatterns';
 export { SensitiveDataRedactor } from './SensitiveDataRedactor';
 export type { RedactStats } from './SensitiveDataRedactor';
+// R4（2026-11-17）：命令 / 文本落盘前去敏的唯一出口（采样 + 审批预览共用）
+export {
+  redactSensitiveText,
+  buildRedactedInputPreview,
+  SENSITIVE_TEXT_PLACEHOLDER,
+  LONG_RANDOM_TOKEN_MIN_LENGTH,
+} from './sensitiveText';
+export type { SensitiveTextRedactResult } from './sensitiveText';

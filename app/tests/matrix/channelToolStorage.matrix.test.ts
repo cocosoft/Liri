@@ -22,29 +22,29 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { getExecutionManager } from '@openliri/service/execution';
-import { routeChannelMessage } from '../../src/channels/routing/messageRouter';
+import { routeChannelMessage } from '@modules/channels/routing/messageRouter';
 import {
   CHANNEL_MESSAGING_TASK_TYPE,
   resolveChannelToolPolicy,
-} from '../../src/channels/toolPolicy';
-import type { MessageContext } from '../../src/channels/types/IChannel';
+} from '@modules/channels/toolPolicy';
+import type { MessageContext } from '@modules/channels/types/IChannel';
 import { getRealToolNamesForTask } from '../../src/tools/toolCategories';
-import { FileSystemUnifiedStorage } from '../../src/session/storage/FileSystemUnifiedStorage';
-import { StorageFactory } from '../../src/session/storage/StorageFactory';
+import { FileSystemUnifiedStorage } from '@modules/session/storage/FileSystemUnifiedStorage';
+import { StorageFactory } from '@modules/session/storage/StorageFactory';
 import {
   StorageType,
   type UnifiedSessionStorage,
-} from '../../src/session/storage/UnifiedStorage';
+} from '@modules/session/storage/UnifiedStorage';
 import {
   MessageRole,
   MessageType,
   type UnifiedMessage,
-} from '../../src/session/types/UnifiedMessage';
+} from '@modules/session/types/UnifiedMessage';
 import {
   SessionStatus,
   SessionType,
   type UnifiedSession,
-} from '../../src/session/types/UnifiedSession';
+} from '@modules/session/types/UnifiedSession';
 
 /** 通道维度：取目录内的三个真实通道（含两个 IM 与一个通用 bot 通道） */
 const CHANNELS = ['feishu', 'dingtalk', 'telegram'] as const;

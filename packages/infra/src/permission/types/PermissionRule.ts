@@ -98,6 +98,14 @@ export interface PermissionRule {
   contentPattern?: string;
 
   /**
+   * G3（2026-11-14）：命令级「本工作区永久信任」的作用域根（规范化绝对路径）。
+   *
+   * 存在时，规则**只在**调用方给出且相等的工作区根下命中（见 `RuleMatchOptions.workspaceRoots`）；
+   * 缺省 = 全局规则 —— 既有 `allowlist_command` / `allowlist_tool` 行为不变。
+   */
+  workspaceRoot?: string;
+
+  /**
    * PR-2（2026-10-23）：参数指纹摘要（`hashApprovalFingerprint(resolveApprovalFingerprint(...))`）。
    *
    * 存在时表示该规则是「始终允许」档：仅当本次调用的指纹摘要与之**完全相等**才命中，
@@ -114,6 +122,27 @@ export interface PermissionRule {
    * 规则优先级
    */
   priority: number;
+
+  /**
+   * R3（2026-11-17）：规则**来源侧**（谁产生的）—— 与 `source`（存储位置）正交。
+   *
+   * - `'approval'`：审批卡产生（「始终允许」指纹 / 「本工作区永久信任」/ 白名单放行）；
+   * - `'user'`：用户在设置页手建 / 导入；
+   * - 缺省：旧规则文件无此字段 —— 由 `resolveRuleOrigin` 按匹配条件**推导**
+   *   （指纹 / 工作区根 ⇒ approval；其余 ⇒ user），不臆造。
+   */
+  origin?: 'user' | 'approval';
+
+  /** R3：审批时间（仅 `origin='approval'`；旧规则缺省时 UI 回落 `createdAt`） */
+  approvedAt?: Date;
+
+  /**
+   * R3：审批时写入放行缓存（`ApprovedCommandRegistry`）用的命令摘要。
+   *
+   * 撤销规则时据此**精确清掉**该命令的会话放行记录（摘要与指纹不同源：
+   * 前者是命令执行键 `hashCommandForExecution(command)`，后者是参数指纹）。
+   */
+  approvalCommandHash?: string;
 
   /**
    * 创建时间
@@ -137,8 +166,16 @@ export function createPermissionRule(params: {
   contentPattern?: string;
   /** PR-2：「始终允许」档的参数指纹摘要 */
   inputFingerprint?: string;
+  /** G3：命令级「本工作区永久信任」的作用域根 */
+  workspaceRoot?: string;
   source?: PermissionRuleSource;
   priority?: number;
+  /** R3：来源侧（审批卡产生 ⇒ 'approval'；用户手建 ⇒ 'user'） */
+  origin?: 'user' | 'approval';
+  /** R3：审批时间（仅审批产生时写） */
+  approvedAt?: Date;
+  /** R3：审批放行缓存的命令摘要（撤销时精确清缓存用） */
+  approvalCommandHash?: string;
 }): PermissionRule {
   const now = new Date();
   return {
@@ -147,11 +184,83 @@ export function createPermissionRule(params: {
     toolName: params.toolName,
     contentPattern: params.contentPattern,
     inputFingerprint: params.inputFingerprint,
+    workspaceRoot: params.workspaceRoot,
     source: params.source || PermissionRuleSource.USER_SETTINGS,
     priority: params.priority || 1,
+    ...(params.origin ? { origin: params.origin } : {}),
+    ...(params.approvedAt ? { approvedAt: params.approvedAt } : {}),
+    ...(params.approvalCommandHash
+      ? { approvalCommandHash: params.approvalCommandHash }
+      : {}),
     createdAt: now,
     updatedAt: now,
   };
+}
+
+/**
+ * 规则作用域（R0，2026-11-17，治理方案 §3.2）。
+ *
+ * 语义是**授权范围**（对哪一片调用生效），与 `unifiedRule.ts` 的匹配粒度
+ * （`tool | call | command | path | task`）不是同一根轴，故不复用后者。
+ * - `session`：本次会话临时放行（内存 `ApprovedCommandRegistry`，**不落规则文件**）
+ * - `workspace`：仅当前工作区（规则带 `workspaceRoot`，G3「本工作区永久信任」）
+ * - `tool`：整个工具放行（无内容条件、无指纹）
+ * - `global`：命令级 / 指纹级规则，全局生效
+ */
+export type PermissionRuleScope = 'session' | 'workspace' | 'tool' | 'global';
+
+/**
+ * 推导规则作用域（R0）。
+ *
+ * 旧规则文件里没有 `scope` 字段 ⇒ **按匹配条件如实推导**，不写入文件（R0 纯只读）：
+ * 若一律标成 `workspace`，会把"全局生效的命令级规则"显示成"仅本工作区"，
+ * 与真实判定范围相反（`isRuleMatch` 只在 `workspaceRoot` 存在时才做作用域闸）。
+ */
+export function describePermissionRuleScope(rule: {
+  contentPattern?: string;
+  inputFingerprint?: string;
+  workspaceRoot?: string;
+}): PermissionRuleScope {
+  if (rule.workspaceRoot) return 'workspace';
+  if (rule.inputFingerprint) return 'global';
+  if (!rule.contentPattern) return 'tool';
+  return 'global';
+}
+
+/**
+ * 推导规则**来源侧**（R3，2026-11-17）。
+ *
+ * 显式 `origin` 优先（R3 起三个审批写入点都会写）；旧规则文件无该字段 ⇒ 按匹配条件
+ * 如实推导：指纹 / 工作区根只可能由审批卡产生 ⇒ `approval`；其余 ⇒ `user`。
+ *
+ * 如实边界：旧版的**白名单放行**（`allowlist_tool` / `allowlist_command`）在磁盘上与
+ * 用户手建规则**无法区分**（同为 tool 级 / 内容级 allow）⇒ 按 `user` 计，不猜。
+ */
+export function resolveRuleOrigin(rule: {
+  origin?: 'user' | 'approval';
+  contentPattern?: string;
+  inputFingerprint?: string;
+  workspaceRoot?: string;
+}): 'user' | 'approval' {
+  if (rule.origin) return rule.origin;
+  return rule.inputFingerprint || rule.workspaceRoot ? 'approval' : 'user';
+}
+
+/**
+ * 是否**由审批卡产生**的持久化放行（R0 只读展示的 `readOnly` 依据；R3 起含显式 `origin`）。
+ *
+ * 判据：显式 `origin='approval'`，或审批的既有形态 —— 「始终允许」的 `inputFingerprint`
+ * 与「本工作区永久信任」的 `workspaceRoot`（旧规则文件没有 origin 字段，需保持只读语义）。
+ * R3 起三个审批写入点（指纹 / 白名单 / 工作区信任）都会显式写 `origin='approval'`。
+ */
+export function isApprovalOriginatedRule(rule: {
+  origin?: 'user' | 'approval';
+  /** 普通规则的匹配条件（存在即非审批形态；仅为让调用方可直接传规则对象） */
+  contentPattern?: string;
+  inputFingerprint?: string;
+  workspaceRoot?: string;
+}): boolean {
+  return resolveRuleOrigin(rule) === 'approval';
 }
 
 /**
@@ -178,6 +287,12 @@ export interface RuleMatchOptions {
    * @default true
    */
   enableGlob?: boolean;
+  /**
+   * G3（2026-11-14）：本次调用所处的工作区根（`PermissionContext.workspaceRoots`）。
+   *
+   * 仅对带 `workspaceRoot` 的规则生效；未提供 ⇒ 这类规则**不匹配**（fail-closed）。
+   */
+  workspaceRoots?: string[];
   /**
    * PR-2（2026-10-23）：本次调用的**参数指纹摘要**（`hashApprovalFingerprint`）。
    *
@@ -257,6 +372,17 @@ export function permissionRuleValueToString(
 }
 
 /**
+ * G3：工作区根归一化 —— 统一分隔符、去尾斜杠、小写（Windows 路径大小写不敏感）。
+ * 只用于**相等比较**，不解析符号链接（规则与调用方都取同一进程的工作目录）。
+ *
+ * 2026-11-17（F2）：导出为**唯一实现** —— 规则匹配与「按工作区暂停」共用同一归一化，
+ * 避免两处各写一套导致「暂停了却没生效」。
+ */
+export function normalizeWorkspaceRoot(root: string): string {
+  return root.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+}
+
+/**
  * 检查权限规则是否匹配工具和输入
  * @param rule 权限规则
  * @param toolName 工具名称
@@ -284,6 +410,16 @@ export function isRuleMatch(
   } else {
     // 精确匹配
     if (rule.toolName !== toolName) {
+      return false;
+    }
+  }
+
+  // G3：「本工作区永久信任」规则先过作用域闸 —— 根不等（或调用方未给根）⇒ 不匹配（fail-closed）。
+  // 归一化后比较：Windows 大小写不敏感、分隔符统一。
+  if (rule.workspaceRoot) {
+    const ruleRoot = normalizeWorkspaceRoot(rule.workspaceRoot);
+    const roots = options.workspaceRoots ?? [];
+    if (!roots.some((root) => normalizeWorkspaceRoot(root) === ruleRoot)) {
       return false;
     }
   }

@@ -16,7 +16,9 @@
 import { chmodSync, existsSync, mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { LANDLOCK_HELPER_BIN_NAME } from '../src/sandbox/landlock/helperPaths';
+// P0（2026-11-12）：改走模块别名（搬包后无需改本行）；沙箱源码位置见 `sandboxPaths`
+import { LANDLOCK_HELPER_BIN_NAME } from '@modules/sandbox/landlock/helperPaths';
+import { sandboxPath } from '../../scripts/lib/sandboxPaths';
 
 /** 取参数：同时支持 `--key=value` 与 `--key value` */
 function arg(name: string): string | undefined {
@@ -45,11 +47,8 @@ if (process.platform !== 'linux') {
   process.exit(0);
 }
 
-const source = resolve(
-  import.meta.dir,
-  '..',
-  'src',
-  'sandbox',
+const source = sandboxPath(
+  resolve(import.meta.dir, '..', '..'),
   'landlock',
   'native',
   'main.c'

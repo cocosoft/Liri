@@ -1,6 +1,6 @@
 # 死码与未接线项 · 可裁定清单（2026-10-07）
 
-> **状态**：⏸ **待用户逐项裁定**（**本次零代码**）
+> **状态**：✅ **2026-11-18 完成复核与裁定**（A 组已执行删除；B/C 维持）——见 §8 / §9；历史登记口径见 §1–§7。
 > **来源**：本次会话「已登记未修」项 —— 回仓取证后汇总为一张**可逐项拍板**的清单
 > **口径**：每项给 **① 证据（file:line + grep 读数）· ② 影响 · ③ 建议处置 · ④ 备选 · ⑤ 触发条件**；裁定后按 §4 批量执行
 > **关联**：`dev_docs/error_repairs/预存错误与待处理问题.md`（SPI-1 / MEM-1 / BR 类）· `dev_docs/任务计划-20261004.md` §24.4-R11-4
@@ -39,13 +39,13 @@
 
 | # | 常量 | 位置 | 读数 |
 |---|---|---|---|
-| a | `AGENT_DESCRIPTION` | `tools/AgentTool/constants.ts:36` | 仅定义（含 `app/tests`） |
-| b | `SKILL_DESCRIPTION` | `tools/SkillTool/constants.ts:18` | 仅定义 |
-| c | `TASK_OUTPUT_TOOL_DESCRIPTION` | `tools/TaskOutputTool/constants.ts:7` | 仅定义 |
-| d | `VOICE_OUTPUT_DESCRIPTION` | `tools/VoiceOutputTool/constants.ts:6` | 仅定义 |
+| a | `AGENT_DESCRIPTION` | `tools/AgentTool/constants.ts` | **已于 2026-11-18 删除**（零引用，含 tests） |
+| b | `SKILL_DESCRIPTION` | `tools/SkillTool/constants.ts` | **已于 2026-11-18 删除** |
+| c | `TASK_OUTPUT_TOOL_DESCRIPTION` | `tools/TaskOutputTool/constants.ts` | **已于 2026-11-18 删除** |
+| d | `VOICE_OUTPUT_DESCRIPTION` | `tools/VoiceOutputTool/constants.ts` | **已于 2026-11-18 删除** |
 | e | `VOICE_INPUT_DESCRIPTION` | `tools/VoiceInputTool/constants.ts:6` | ⚠️ **非死码** —— 被 `tests/voice/VoiceInputTool.test.ts:100/193` 引用（**保留**，或删时同批改测试） |
 
-**建议处置**：a–d **删除**；e **保留**。
+**建议处置**：a–d **已删除**；e **保留**。
 **触发条件**：无。
 
 ---
@@ -60,10 +60,11 @@
 
 ---
 
-### DC-5 `MemoryTypeClassifier.ts` 整文件零消费者（含 MEM-1）
+### DC-5 `MemoryTypeClassifier.ts` 整文件零消费者（含 MEM-1）—— ✅ **已于 2026-11-18 删除**
 
-**证据**：`memory/MemoryTypeClassifier.ts` 在**全 `app/`**（src + tests）grep 仅命中**自身头注释**（`:2`）⇒ 文件与 `classifyMemoryType()`（`:71`）**均无消费者**。
-**影响**：MEM-1 原记为"英文正则 + 中文记忆 ⇒ 分类恒 `project`"；实测**更严重** —— 该分类器**根本未被调用**。
+**证据（原始）**：`memory/MemoryTypeClassifier.ts` 在**全 `app/`**（src + tests）grep 仅命中**自身头注释**（`:2`）⇒ 文件与 `classifyMemoryType()`（`:71`）**均无消费者**。
+**2026-11-18 复核**：文件已随物理包化迁至 `packages/infra/src/memory/MemoryTypeClassifier.ts`，仍零引用、且未从 `memory/index.ts` 导出 ⇒ 按 CD01–CD04 复核后删除（`typecheck` 0 错、`tests/tools` + `tests/memory` 1787 pass）。
+**影响**：MEM-1 原记为"英文正则 + 中文记忆 ⇒ 分类恒 `project`"；实测该分类器**根本未被调用**。
 **建议处置**：**删除整文件**。
 **备选**：**接线** —— 但按 **CS02**，正解是"记忆**写入时显式标注 `type`**"，而非事后按正文正则猜测 ⇒ **不建议接线**。
 **触发条件**：若记忆体系明确需要类型标注，走"写入时显式标注"新方案。
@@ -123,6 +124,12 @@
 > `LazyModuleStrategy` 的 lsp 条目）均已无 loader thunk。**但发现 1 处测试消费者** ——
 > `tests/performance/benchmark.test.ts:12` 相对导入 `LSPServerConfigRegistry` ⇒ 删除前置未满足。
 > 下次复核的删除清单与顺序见 `tool-sidecar-isolation.md §13.7`。
+>
+> **2026-11-18 收口（S6，结论：已删除）**：先摘最后两处**测试**消费者
+> （`benchmark.test.ts` 的注册表基准块、`spawnCwdGuard.test.ts` 的 LSPClient 用例）⇒
+> CD01–CD04 全清（`@modules/lsp` 0 导入、懒加载表无 lsp、`requestOnDemandModule` 全仓零调用）⇒
+> 按 CD06 独立提交删除 `app/src/lsp/**`（14 文件）+ `tsconfig` 别名 + eslint 覆写。
+> 被删清单与回滚方式见 `tool-sidecar-isolation.md §13.8`（`git revert` 该提交即可复原）。
 
 **证据（CD01/CD02 专项）**：静态引用近零 —— `@modules/lsp` 全仓仅 4 处（`tools/lsp/LSPToolIntegration.ts:15` 取校验函数、`app/tsconfig.json:38-39` 路径别名、`modules/ImportManager.ts:107` 别名映射、`tests/tools/lspRequestTimeout.test.ts:37` 注释），且 `createLSPToolIntegration` 在 `tools/lsp/**` 外**无消费者**。**但存在字面量动态 thunk**：`core/LazyModuleStrategy.ts:364` 的 `lsp: () => import('../lsp/index.js')`（模块声明 `ON_DEMAND`，`:149-153`）；触发链 `ModuleInitializer.requestOnDemandModule()`（`:410-427`；`:402-405` 已登记 G-C5）**全仓零调用**，且 `lsp` 被 `getDeferredModuleIds` 排除（`:403-412`）。
 **影响**：零（当前无运行时接入路径）；但属 **CD01/CD02 盲区命中** —— "静态看不见动态" ⇒ **不得**以"静态零引用"为删据。
@@ -195,6 +202,8 @@
 | **BR-3** `~/.claude/local/claude` | ✅ **维持**（外部 Claude CLI 的**真实安装路径**） | — |
 
 > **口径落点**：上表为**终局裁定**。此后**同源项不再重复评估**（R12-1 / `development-workflow.md §2.14`）；如需变更，须引用对应**触发条件**。
+>
+> **2026-11-18 更新**：本表「P0 纯删批次暂缓」已由用户点名执行（DC-4 更早已闭环；DC-5 + DC-3 a–d 本轮删除）；DC-1 族已随多轮清理闭环；DC-2 / UW / DCX / BR 维持。最新逐项复核见 **§8**，裁定见 **§8.1**。
 
 ---
 
@@ -264,3 +273,41 @@
 | **DCX-P1** | DCX-2 **接线**（长任务续期） | 中（改执行期语义） | 须补"续期后不被判 STALE"用例 |
 | **DCX-P2** | DCX-3 **接线**（台账清理） | 中（**数据保留策略**） | 须先裁定保留窗口 |
 | **DCX-P3** | DCX-1 / DCX-4 **删除或接线** | 高（**关键域**） | **须 CD01–CD07 六步核查 + 独立提交**；删除须同步 `INV-EXEC-003` 与自证用例 |
+
+---
+
+## §8 复核（2026-11-18）：逐项现状与待裁定
+
+> 复核方式：全仓 grep（**含 `app/tests` + `packages/**`**）· 文件存在性 · `git log` 在册核对。**路径已随物理包化订正**（`app/src/core|memory` → `packages/kernel|infra`，`app/src/execution` → `packages/service`）。
+
+| 项 | 2026-11-18 实测 | 结论 |
+|---|---|---|
+| **DC-1** `prompt.ts` 族 | 现存仅 **3 个**（`GrepTool` / `FileWriteTool` / `FileEditTool`，均被 `tools/index.ts:167/171/175` 与工具本体引用）；原 32 个未引用文件已随 `be299590d` 之后的多轮清理删除 | ✅ **闭环**（无需再处置） |
+| **DC-2** `ToolDef.prompt` 字段 | 字段仍在 `packages/infra/src/utils/toolContract/Tool.ts:899`；全仓仍无读取点 | ✅ **保留登记**（2026-11-18 裁定，见 §8.1-B） |
+| **DC-3 a–d** | `AGENT_DESCRIPTION` / `SKILL_DESCRIPTION` / `TASK_OUTPUT_TOOL_DESCRIPTION` / `VOICE_OUTPUT_DESCRIPTION` 复核时仍**仅定义**（含 tests 零引用） | ✅ **已删除（2026-11-18）** |
+| **DC-3 e** | `VOICE_INPUT_DESCRIPTION` 仍被 `tests/voice/VoiceInputTool.test.ts:100/193` 引用 | ✅ 保留（既有裁定） |
+| **DC-4** `ERROR_SERVICE_ID` | **已于 2026-10-09 删除**（`packages/kernel/src/core/spi/ErrorTypes.ts:8-9` 与 `spi/README.md:35-36` 均有记录） | ✅ **闭环** |
+| **DC-5** `MemoryTypeClassifier.ts` | 复核时位于 `packages/infra/src/memory/MemoryTypeClassifier.ts`，全仓零引用，且**未**被 `memory/index.ts` 导出 | ✅ **已删除（2026-11-18）** |
+| **UW-1** `additionalDirectories` | 仍**只写不读**：`permissionsLoader.ts:54-59` 写入、`PermissionContext.ts:53` 定义，无读取方 | ✅ 维持现状（安全姿态变更须另裁） |
+| **UW-2** settings 权限灰度 | 仍无 feature flag（按 2026-10-07 裁定） | ✅ 维持 |
+| **UW-3** `ICollaborationPort` | 现位于 `packages/kernel/src/core/spi/CollaborationService.ts`；全仓仍**零生产消费**（仅 kernel-api-surface 登记） | ✅ 维持（用户已裁定建层） |
+| **UW-4** `FlowEngine` | `app/src/flows/FlowEngine.ts` 仍仅 barrel `flows/index.ts:24` 转出，无外部 import | ✅ 维持登记（CD07） |
+| **UW-5** 轨 B LSP | **已于 2026-11-18 删除**（`fd29c967f`，14 文件 + 别名 + eslint 覆写） | ✅ **闭环** |
+| **UW-6** `ALL_UNIFIED_RULES` | 复核仍成立：唯一生产入口 `checkDangerousCommand` → `PermissionPolicyManager.checkCommandPermission`，后者全仓零调用 ⇒ 仅测试引用 | ✅ 维持登记（CD07 安全域） |
+| **BR-1** `CLAUDE.md` 兼容族 | 维持项未变；`MemdirService.ts:41` 仍写 `~/.pyapp/CLAUDE.md`（本仓自有布局残留） | ✅ 维持；Memdir 改名待产品裁定 |
+| **BR-2 / BR-3** | `CLAUDE_GUIDANCE` 仍有真实消费（`ModelGuidance.ts:178`）；`~/.claude/local/claude` 仍为外部安装路径 | ✅ 维持 |
+| **DCX-1** `WAITING_USER` | 仍无任何写入点（`types.ts:20/38-39/77`、`ExecutionStore.ts:76`、`executionProjection.ts:41` 仅声明/投影） | ✅ 维持（关键域） |
+| **DCX-2** `heartbeat()` | 定义在 `packages/service/src/execution/ExecutionManager.ts:259`，调用点仍仅测试 | ✅ 维持（预留续期写入面） |
+| **DCX-3** `purgeOlderThan()` | 定义 `ExecutionStore.ts:731`，调用点仍仅测试 | ✅ 维持（数据保留策略待裁） |
+| **DCX-4** `finishToolCall()` | 定义 `ExecutionStore.ts:641`，调用点仍仅测试 | ✅ 维持 |
+| **DCX-5** `listToolCalls()` | 仍由 `recover()` 生产消费（`ExecutionManager.ts:516`） | ✅ 已闭环移出 |
+
+### §8.1 本次裁定（2026-11-18，用户）
+
+| 组 | 内容 | 裁定 | 执行 |
+|---|---|---|---|
+| **A（纯删批次）** | DC-5 整文件 + DC-3 a–d 四常量 | ✅ **执行删除** | 已删 `packages/infra/src/memory/MemoryTypeClassifier.ts` + 4 处常量声明；`typecheck` 0 错、`tests/tools` + `tests/memory` **1787 pass / 0 fail** |
+| **B（DC-2 字段）** | `ToolDef.prompt`（无读取点） | ✅ **保留登记**（与 DC-1 同族；设计未最终作废，单删字段收益极小） | 零代码 |
+| **C（BR-1 Memdir）** | `~/.pyapp/CLAUDE.md` → `~/.pyapp/Liri.md` | ✅ **维持现状**（涉用户数据迁移，须另立产品裁定 + 幂等迁移 + 后备读取） | 零代码 |
+
+> **回滚**：A 组改动尚未提交；提交后如需回滚，`git revert <该提交>` 即恢复文件与 4 处常量（CD06：独立提交 + 可回滚）。

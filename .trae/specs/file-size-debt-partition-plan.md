@@ -1627,6 +1627,234 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 
 **与 §47 #5 的关系**：§47 记**文件级**例外（"`streamMessageFlow.ts` 不可降 <2000"）维持；本 §48 补**函数级**停止点的**逐条判据**（控制流耦合）——二者**同源不重复**（前者答"为何文件仍超阈值"，后者答"为何函数停在此点"）。
 
+---
+
+## 49. 收尾记录：`chat/ChatManager.ts`（P2-1，2026-11-15，**已落地**）
+
+> 背景：该文件自 §1 的 **6729 行** 经 A 批～E 批（`chatmanager-split-phase1.md`）降至 **1995 行**，只剩 5 行余量 ⇒ 任何正常改动都会撞 R04-001（2000）。
+
+**本次动作（只搬不改）**：把「会话级瞬时状态」三张 per-session 表外移到 [`manager/sessionRuntimeState.ts`](../../app/src/chat/manager/sessionRuntimeState.ts) —— 工具轮次计数 / 会话状态机映射 / 一次性续跑意图；`ChatManager` 保留同名字段转发。新增 4 例单测（`app/tests/chat/sessionRuntimeState.test.ts`）。
+
+**实测**
+
+| 指标 | 拆分前 | 拆分后 | 说明 |
+|---|:--:|---:|---|
+| `ChatManager.ts` 行数 | 1995 | **1988** | 门禁计数 1989；余量 ≈ 11 行 |
+| `chat` 测试 | 1011 pass | 1011 pass + 新增 4 例 | 0 fail |
+
+**关键约束（本次实证）**：`getToolRound` / `incToolRound` 是 `wireChatFacades` 的**宿主端口**，由 `wiringHostGuard` 在构造期断言。初次把它们一并删除 ⇒ `wireChatFacades: 宿主端口缺失`，**44 例测试失败**。故薄委派方法必须保留（已在类内注释标注）。
+
+**停止点判据（为何不再拆）**：剩余成员几乎全是「装配契约面」——① 公开接口（`ChatManagerInterface` / 测试按名 mock）；② `wiringHostGuard` 断言的宿主端口；③ 一行委派（R06-006 禁止再包一层）。继续拆只会产生**更多**薄转发，净收益为负。
+
+**替代约束（已落到代码注释）**：`ChatManager` 类注释写明「新增逻辑一律落 `chat/manager/*`，不在此内联」。**重开判据**：① 出现必须在该文件内实现的新职责，且无法外置；② 或 `wiringHostGuard` 的端口清单收缩后余量回升。
+
+---
+
+## 47. 复核（2026-11-18）：残余批次现状
+
+> 复核方式：对 §33/§34/§46 登记的"未做"项回到代码实测（行数 + 文件存在性）。
+
+| 原登记残余 | 2026-11-18 实测 | 结论 |
+|---|---|---|
+| `SessionGateway` C Fork（≈280） | 已由 `packages/service/src/session/gateway/ForkBoundary.ts`（**161** 行）承接；宿主变更为 `CombinedSessionGateway.ts`（**552** 行） | ✅ 已完成（登记已过期） |
+| `SessionGateway` D 消息读写（≈90） | 随 `CombinedSessionGateway` 拆分完成；原 `SessionGateway.ts` 已不存在 | ✅ 已完成 |
+| LRO B3 报告投影（≈160）· B1 纯函数（≈22） | 已由 §46（C14）`reporting.ts`（180）· `pureDecisions.ts`（34）承接 | ✅ 已完成 |
+| `LongRunningTaskOrchestrator.ts` 行数 | **1865**（< 2000） | ✅ 例外可移除（若仍在册） |
+| `ChatManager.ts` 行数 | **1824**（< 2000） | ✅ 例外可移除（若仍在册） |
+| 123 个 1000–1500 行文件抽样评估 | **2026-11-18 已抽样**（见 §48；实测该带为 **78** 个文件，不是 123） | ✅ 已评估：抽 10 个中 **2 个 A 类**值得拆、其余 B/C 类不排期 |
+
+**结论**：§33/§34/§46 列出的"未做"面**均已落地**；§9.5 的抽样评估已由 §48 补齐。本文件不再有"待执行的拆分批次"。
+
+---
+
+## 48. 抽样评估：1000–1500 行文件（2026-11-18，零代码）
+
+> **口径**：物理行（含空行），与 `scripts/lint-file-size.ts#countLines`（`split(/\r?\n/)`）同源；
+> 扫描面 `app/src` + `packages/**/src` + `client/src`，排除 `node_modules` / `dist` / `*.test.*` / `*.spec.*`。
+
+### 48.1 分布（实测）
+
+| 行数带 | 文件数 |
+|---|---|
+| 1000–1500 | **78** |
+| 1501–2000 | **50** |
+| > 2000（硬上限） | **0** |
+
+> ⚠️ **口径订正**：§1 的「123 个」来自 2026-10-03 的旧扫描，现已不成立；且 R04-001 上限早已
+> 1000 → 2000（§14），**"降到 1000 以下"不再是收益来源** ⇒ 本表按「**变更隔离 / 单测粒度**」裁决。
+
+### 48.2 抽样（10 个，覆盖 store / 存储 / 编排 / 注册表 / 安全 / 基础设施 / 任务 / 页面 / 语音 / 管线）
+
+| 文件 | 行 | 结构度量 | 判定 |
+|---|--:|---|---|
+| `app/src/tasks/lro/stepExecution.ts` | 1390 | 3 导出 / 7 函数 / 37 分支 | **B 不拆**：U-22/S2b 已把 `executeSingleStep` 外移，剩余即单一职责主链；再拆需拆单函数 |
+| `app/src/chat/orchestrator/ChatOrchestrator.ts` | 1477 | 3 导出 / 15 函数 / 51 分支 | **B 不拆**：批 A1–A4 已抽薄，余下是编排装配面，再拆只增互锁 |
+| `packages/service/src/session/storage/FileSystemUnifiedStorage.ts` | 1486 | 2 导出 / 48 函数 / 84 分支 | **B 不拆**：单一 `UnifiedSessionStorage` 实现类，按 CRUD 切面外移只搬位置 |
+| `app/src/plugins/index.ts` | 1454 | 18 导出 / 59 函数 | **B 不拆**：插件注册与工具函数集合（表驱动），无跨职责状态 |
+| `packages/service/src/services/voice/services/ttsProvider.ts` | 1452 | 4 导出 / 28 函数 / 69 分支 | **B 不拆**：provider 单一协议职责 |
+| `client/src/stores/chat/chat-toolcall.slice.ts` | 1491 | 14 导出 / 32 函数 / 94 分支 | **B 低优先**：纯函数 + `ChronologicalBlockBuilder`，拆分仅按工具函数分组，收益限于可读性 |
+| `packages/infra/src/environment/paths.ts` | 1390 | **138 导出** / 94 函数 | **C 不拆**：canonical 路径注册表（"其他模块不得自建路径常量"）⇒ 拆分会诱发多处定义回归 |
+| `packages/infra/src/security/BashSecurityAnalyzer.ts` | 1396 | 6 导出 / 39 函数 / **101 分支** | **C 不拆**：安全判定高内聚，拆分提高漏检与跨文件互锁风险（同 `code-deletion` CD07 精神） |
+| `app/src/chat/services/MessageContextPipeline.ts` | 1317 | 18 导出 / 23 函数 / 85 分支 | **A 可拆 → 已拆完并删除（§48.6–§48.9）**：拆成 `context/` 下 6 个模块 + `defaults.ts`，原文件不再存在 |
+| `client/src/components/views/CronPage.tsx` | 1440 | **1 导出 / 3 函数** | **A 可拆 → 已于 2026-11-18 拆完（§48.5，1440 → 408）**：单组件 + 巨型 JSX ⇒ 表单 / 列表 / 详情面板拆子组件收益明确 |
+
+### 48.3 结论与建议排期
+
+1. **B/C 类 8 个一律不拆**（B 是"搬位置"，C 是"拆了更危险/更易漂移"）；
+2. **A 类 2 个均已处置**：`CronPage.tsx` **已完成**（§48.5）；`MessageContextPipeline.ts` **已拆完并删除**（§48.6–§48.9）；
+3. 其余 68 个未抽样文件**不预设结论** —— 抽样只证明"该带里多数属 B/C 类"，
+   不等于逐个已核；若后续要处置，按 §3 方法论逐个取证，**禁止**按行数批量拆。
+
+### 48.4 与 §47 数字口径不一致（如实登记）
+
+§47 记 `LongRunningTaskOrchestrator.ts` **1865** 行、`ChatManager.ts` **1824** 行；本次按**物理行**实测为
+**1989 / 1988**（均 < 2000，结论不变）。差异疑为「非空行 vs 物理行」两套数法 ⇒ **§47 两个数字来源待核**，
+后续凡记行数一律标注数法。
+
+### 48.5 实施记录：`CronPage.tsx` 拆子组件（2026-11-18，**已落地**）
+
+| 件 | 行数 | 内容 |
+|---|--:|---|
+| `client/src/components/views/CronPage.tsx` | **1440 → 408** | 保留状态、effects、筛选/排序/批量/创建逻辑与 Tab 骨架 |
+| `cron/CronStatsGrid.tsx` 🆕 | 92 | 4 张统计卡（按 status 计数），内含 `StatCard` |
+| `cron/CronSchedulerStatusBar.tsx` 🆕 | 59 | 状态栏三态（加载中 / 运行中 / 已停止） |
+| `cron/CronQuickTemplates.tsx` 🆕 | 87 | 快速模板条 + 模板常量表 |
+| `cron/CronBatchActionBar.tsx` 🆕 | 58 | 批量执行 / 批量删除 / 清除选择 |
+| `cron/CronListToolbar.tsx` 🆕 | 125 | 全选 / 搜索 / 状态筛选 / 排序 / 计数 / 刷新 |
+| `cron/CronTaskRow.tsx` 🆕 | 302 | 单行（徽标 + 行内动作 + 展开面板） |
+| `cron/CronCreateModal.tsx` 🆕 | 436 | 新建弹窗（模板 / 三种调度模式 / 预览 / 静默 / 投递 / 描述） |
+| `cron/cronForm.ts` 🆕 | 50 | 表单契约 + `createEmptyCronForm()`（初值/重置单一真源；兼解 `react-refresh/only-export-components`） |
+| `client/src/tests/cronPage.test.tsx` 🆕 | 124 | 4 条冒烟（状态栏三态 / 统计计数 / 搜索过滤 / 模板开弹窗） |
+
+**行为等价说明**：
+- 仅外移 JSX 与纯展示逻辑；筛选/排序/批量/提交仍在 `CronPage`；
+- **刻意保留**两处历史语义差异：点遮罩 = **只关闭**（不重置），点「取消」= 关闭 **并** 重置
+  （拆分前即如此，本次用 `onClose` / `onCancel` 两个回调各自承接，未"顺手统一"）；
+- 拆分前 `newCronForm` 的初值与取消重置是**两处相同字面量** ⇒ 收敛为 `createEmptyCronForm()`（单一真源）。
+
+**验证**：客户端 `tsc --noEmit` 0 错；`vitest run` **150 文件 / 1060 用例全绿**（含新增 4 条）；
+改动文件 `eslint` 0 error / 0 warning。
+
+### 48.6 实施记录：`MessageContextPipeline.ts` 拆分批 2（2026-11-18，**部分落地**）
+
+该文件 7 项职责，按「一组一模块」串行外移；本批只做**两组自包含**（无会话状态、无提示组装）：
+
+| 件 | 行数 | 内容 |
+|---|--:|---|
+| `services/MessageContextPipeline.ts` | **1317 → 1136** | 仍持有：截断/分页切点（`truncateApiMessages` · `computePaginationPoint` · `windowStartForBudget` · `truncateByPreciseTokens`）、摘要持久化（`persistTurnSummary`）、目标提取、系统提示组装（`assembleContextualSystemPrompt` · `buildWorkspaceRootSection`）、think 标签规整 |
+| `services/context/messageSanitizer.ts` 🆕 | 122 | `sanitizeApiMessages`（配对完整性）+ `compressToolHistory`（工具历史压缩） |
+| `services/context/contextLayering.ts` 🆕 | 90 | `contextLayeringEnabled` + `LAYERING_HINT(_CODE)` + `isCodeContextMessage`（含 `CODE_CONTEXT_MARKERS`） |
+
+**接线（7 处，全部改为直连新模块）**：
+`manager/orchestratorHost.ts`（分层开关）· `manager/requestPrep.ts`（sanitize + compress）·
+`orchestrator/sendMessageFlow.ts`（分层四符号）· `pipeline/streamMessageLifecycle.ts`（分层四符号）·
+`agentPreReasoning.ts`（sanitize）· `tests/chat/MessageContextPipeline.test.ts`（分层三符号）。
+`ChatOrchestratorHost` / `streamMessageFlow` 只是**宿主端口方法名**（`host.sanitizeApiMessages`），不动。
+
+**验证**：`tsc --noEmit`（三 project）0 错；相关用例 **200 pass / 0 fail**（`MessageContextPipeline` /
+`turnSummary` / `skillInjectionFix` / `taorLoopResumeWiring` / `tests/chat/orchestrator`）；
+`lint:arch` 0 error（559 warnings，较拆前 560 **少 1**）· `lint:size` / `lint:fn-size` / `lint:complexity`
+棘轮未增长 · `lint:refs` 192 处通过。
+
+**剩余（批 3 候选，未做）**：截断簇（≈600 行）→ `context/contextTruncation.ts`；提示组装簇（≈230 行）→
+`context/promptAssembly.ts`；摘要/目标提取（≈90 行）→ `context/turnSummary.ts`；think 标签（≈110 行）→
+`context/thinkTags.ts`（后者被 `chat/index.ts` 再导出，需同批核对模块出口）。
+
+### 48.7 实施记录：`MessageContextPipeline.ts` 拆分批 3（2026-11-18，**已落地**）
+
+| 件 | 行数 | 内容 |
+|---|--:|---|
+| `services/MessageContextPipeline.ts` | **1136 → 896** | 仍持有：截断/分页切点（`truncateApiMessages` · `computePaginationPoint` · `windowStartForBudget` · `truncateByPreciseTokens`）与系统提示组装（`assembleContextualSystemPrompt` · `buildWorkspaceRootSection`） |
+| `services/context/thinkTags.ts` 🆕 | 140 | `ensureThinkResponseTags` / `stripThinkResponseTags` / `stripOrphanToolTags` + `isInsideFencedBlock`（**纯内容级**，无会话依赖） |
+| `services/context/turnSummary.ts` 🆕 | 128 | `persistTurnSummary` / `extractCurrentGoal` + 两个常量 + `firstSummaryLine`（日志 module 名仍为 `chat:context-pipeline`） |
+
+**接线（11 处）**：
+think 标签 —— `streamingLlm.ts` · `pipeline/StreamPipeline.ts` · `orchestrator/sendMessageFlow.ts` ·
+`agentIncompleteTurn.ts` · `manager/streamResume.ts` · `manager/sendDowngrade.ts` · `terminationOutput.ts` ·
+`chat/index.ts`（模块出口再导出，`@modules/chat` 调用方零改动）· 测试 2 处；
+摘要 —— `manager/facadeWiring.ts` · `manager/orchestratorHost.ts` · 测试 1 处。
+**依赖方向**：`MessageContextPipeline → context/turnSummary → context/thinkTags`（组装系统提示时仍需
+`extractCurrentGoal`）；`thinkTags` 不反向依赖，无环。
+
+**验证**：`tsc --noEmit`（三 project）0 错；`tests/chat` + `tests/streaming` + `tests/skills` + `tests/query`
+**1881 pass / 10 skip / 0 fail**（273 文件）；`lint:arch` 0 error · `lint:size` / `lint:fn-size` /
+`lint:complexity` 棘轮未增长 · `lint:refs` 192 处通过。
+
+**剩余（批 4 候选，未做）**：截断簇（≈600 行）→ `context/contextTruncation.ts`；
+提示组装簇（≈230 行）→ `context/promptAssembly.ts`。
+
+### 48.8 实施记录：`MessageContextPipeline.ts` 拆分批 4（2026-11-18，**已落地**）
+
+| 件 | 行数 | 内容 |
+|---|--:|---|
+| `services/MessageContextPipeline.ts` | **896 → 349** | 仅剩系统提示组装（`assembleContextualSystemPrompt` · `buildWorkspaceRootSection` · 三段规则常量 · `prompt_snippet` 动态段） |
+| `services/context/contextTruncation.ts` 🆕 | 569 | `truncateApiMessages`（技能注入 → 摘要压缩 → 截断退化）+ `PaginationPoint` / `computePaginationPoint` / `windowStartForBudget` / `truncateByPreciseTokens` + 私有 `contentText` / `isSkillsInjection` / `fetchTokenizeCount` |
+
+**接线（7 处）**：`agentPreReasoning.ts`（truncate）· `manager/requestPrep.ts`（truncate）·
+`orchestrator/preSendContextProtection.ts`（precise）· `orchestrator/sendMessageFlow.ts`（pagination）·
+`pipeline/streamMessageLifecycle.ts`（pagination）· 测试 2 处（`MessageContextPipeline.test.ts` /
+`skillInjectionFix.test.ts`）。其余 `host.xxx` 均为宿主端口方法名，未动。
+
+**顺带清理**：原文件因外移而失效的 8 个 import 已删除（`estimateMessagesTokens*` / `yieldToEventLoop` /
+`sanitizeApiMessages` / `skillInjectionService` / `handleError` / `DEFAULT_RETENTION_WARN_RATIO` /
+`measureRetention`），避免"导入还在、消费者已走"的僵尸引用。
+
+**验证**：`tsc --noEmit`（三 project）0 错；`tests/chat` + `tests/streaming` + `tests/skills` + `tests/query`
+**1881 pass / 10 skip / 0 fail**（273 文件，与拆前逐字相同）；`lint:arch` 0 error · `lint:infra` ✅ ·
+`lint:size` / `lint:fn-size` / `lint:complexity` 棘轮未增长 · `lint:refs` 192 处通过；
+改动文件 `eslint` 0 error。
+
+**剩余（收尾批 5，未做）**：提示组装簇（≈230 行）外移到 `context/promptAssembly.ts` 后，
+`MessageContextPipeline.ts` 预计降到 ~120 行（三段规则常量 + 组装入口），即可从"千行文件"名单移除。
+
+### 48.9 实施记录：批 5 收尾 —— `MessageContextPipeline.ts` **整体迁出并删除**（2026-11-18）
+
+批 4 之后该文件**只剩提示组装一簇**（三段规则常量 + `buildWorkspaceRootSection` +
+`assembleContextualSystemPrompt`），已无"拆一部分、留一部分"的余地 ⇒ 本轮整体迁出后**删除原文件**。
+
+| 件 | 行数 | 内容 |
+|---|--:|---|
+| `services/MessageContextPipeline.ts` | **349 → 已删除** | — |
+| `services/context/systemPromptAssembly.ts` 🆕 | 338 | 三段规则常量（通用 / 本地模型 / 图像链）+ `buildWorkspaceRootSection` + `assembleContextualSystemPrompt`（含 `prompt_snippet` 动态段、目标提取、知识域注入、effort 段） |
+
+**接线（3 处）**：`manager/promptAssembly.ts`（`assembleContextualSystemPrompt`）·
+`tests/chat/MessageContextPipeline.test.ts`（`buildWorkspaceRootSection`）·
+`tests/chat/replyEffort.test.ts`（源码断言路径 —— 首轮跑测试时红，已改到新路径）·
+另订正 `packages/service/src/session/types/session.ts` 两处文档注释的读取点路径。
+
+**删除前核查（`code-deletion.md` CD01–CD06）**：
+- **CD01 静态引用**：`from '…MessageContextPipeline'` / `require(…)` / `import(…)` 全仓 **0 命中**；
+- **CD02 构建/插件入口**：`package.json` / `scripts/**` / `ci.yml` 无该路径；非插件注册表成员；
+- **CD03 DI/反射/协议入口**：纯 ES 模块（无 DI 键、无装饰器、无 HTTP 路由）；
+- **CD04 测试/变体/运行模式**：唯一源码断言测试已改指新模块；三个构建变体共用同一源码根；
+- **CD05 先移后删**：实现已在批 2–5 逐组迁出并通过 `tsc` + 2043 条用例；
+- **CD06 回滚**：删除与本批迁移同提交，`git revert <sha>` 即可整体复原（内容未变，仅路径）。
+
+**顺带处置**：
+- `.trae/architecture/hardcode-gate-baseline.json` 删除因搬迁失效的键
+  `裸字面量:…MessageContextPipeline.ts`（棘轮只减不增，`lint:consts` 提示可下调）；
+- `.trae/architecture/fix-evidence-registry.json` 的 `PATTERN-REACHABLE-RETENTION-PROBE`
+  代码清单路径改指 `contextTruncation.ts`（保留度探针实现随截断簇迁走）。
+
+**验证**：`tsc --noEmit`（三 project）0 错；`tests/chat` + `tests/streaming` + `tests/skills` +
+`tests/query` + `tests/context` **2043 pass / 11 skip / 0 fail**（293 文件）；
+`lint:arch` 0 error · `lint:consts` PASS · `lint:fix-evidence` ✅ · `lint:size` / `lint:fn-size` /
+`lint:complexity` 棘轮未增长 · `lint:refs` 192 处通过。
+
+**结论**：§48.2 的两个 A 类文件**均已处置完毕** —— `CronPage.tsx` 1440 → 408（§48.5），
+`MessageContextPipeline.ts` 1317 → **删除**（拆成 6 个职责模块 `context/*` + 1 个常量文件 `defaults.ts`，
+最大者 `contextTruncation.ts` 569 行）。
+
+**CI 复盘（本批两次红点，均已修复）**：
+1. `955263513` 的 **Static Checks → Hardcode gates** 红：根因是**手改了生成物**
+   `.trae/architecture/fix-evidence-registry.json`（该文件由 `scripts/gen-evidence-views.ts`
+   从 `archive/evidence-detail.jsonl` 生成，`lint-evidence-views-drift` 会逐行比对）。
+   正解 = **改 jsonl 源 → 跑 `bun run scripts/gen-evidence-views.ts`**，不得直接编辑视图文件；
+2. 同批 `Test Suite (windows-latest)` 红在 `dockerImageManager.test.ts:53` 的**计时断言**
+   （Expected < 40ms，实测 48ms）—— 与本次改动无关的机器抖动，后续运行自愈；
+3. 另：新常量文件 `context/defaults.ts` 需带 `@kind B` 标注（`lint:consts` D-1，缺则硬失败）。
+
+
 
 
 

@@ -135,6 +135,34 @@ export function resolveMessageAutonomyConflict(input: {
 }
 
 /**
+ * P0（2026-11-17，真机会话 `session_mwk2fakzf30b34b448` 复盘）：**许愿式的执行侧契约**。
+ *
+ * 背景：此前 `demand` 只约束"不许与 plan 组合"，而 `auto` 档对**未收录命令**仍是
+ * fail-closed（ask）⇒ 19 张审批卡里 12 张来自 `type`/只读 cmdlet 等无害命令，
+ * 与"只给目标、做到交付（中途最多问一次）"的承诺直接冲突（长程任务被反复打断）。
+ *
+ * 口径（**只降级 ask，不放宽 deny**）：
+ * - `autonomy='demand'` 且分类器判 `requiresApproval`（非危险但未知/写类命令）；
+ * - 且**没有工作区外的写目标**（无法证明边界时保持人工，fail-closed）；
+ * ⇒ 自动放行并留审计（调用方记 `permission:demand_auto_allow`）。
+ *
+ * 仍保持人工的形态：危险命令（`shouldBlock` 走 deny）、敏感路径、
+ * 工作区外写（`cp`/`mv`/重定向到界外）、以及所有非 shell 路径的既定策略。
+ */
+export function shouldAutoAllowUnderDemand(input: {
+  autonomy?: unknown;
+  requiresApproval: boolean;
+  /** 命令的写目标是否落在会话工作区之外（无边界信息时视为 true） */
+  writeOutsideWorkspace: boolean;
+}): boolean {
+  return (
+    input.autonomy === 'demand' &&
+    input.requiresApproval === true &&
+    input.writeOutsideWorkspace !== true
+  );
+}
+
+/**
  * 校验写入后的组合是否自洽；不自洽 **fail loud**（`AppError` + 稳定 code）。
  *
  * 调用方应在**任何写入（内存 / 落盘）之前**调用 —— 校验失败不得留下半写状态。

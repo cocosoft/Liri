@@ -1,0 +1,20 @@
+{
+  "name": "@openliri/channels",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liri 通道包 —— 平台适配器、注册表 / 目录、入站路由与出站投递。层归属 service：仅 service / app / entry 可依赖；infra / kernel 不得依赖本包；包内不得依赖 app 层（R10）。",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/channels/index.ts",
+      "import": "./src/channels/index.ts"
+    },
+    "./*": {
+      "types": "./src/channels/*.ts",
+      "import": "./src/channels/*.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p ../../app/tsconfig.json"
+  }
+}

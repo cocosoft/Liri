@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from 'bun:test';
-import { buildMobileAuditPayload } from '../../src/channels/mobile/MobileAudit';
+import { buildMobileAuditPayload } from '@modules/channels/mobile/MobileAudit';
 
 describe('MobileAudit：审计载荷映射', () => {
   it('入站消息 ⇒ data_access，带 channel + deviceId + 会话/消息 id', () => {

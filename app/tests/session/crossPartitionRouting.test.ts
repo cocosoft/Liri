@@ -40,13 +40,13 @@ import { afterEach, describe, expect, test } from 'bun:test';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { StorageType } from '../../src/session/storage/UnifiedStorage';
-import { FileSystemUnifiedStorage } from '../../src/session/storage/FileSystemUnifiedStorage';
-import type { UnifiedSession } from '../../src/session/types/UnifiedSession';
+import { StorageType } from '@modules/session/storage/UnifiedStorage';
+import { FileSystemUnifiedStorage } from '@modules/session/storage/FileSystemUnifiedStorage';
+import type { UnifiedSession } from '@modules/session/types/UnifiedSession';
 import {
   SessionStatus,
   SessionType,
-} from '../../src/session/types/UnifiedSession';
+} from '@modules/session/types/UnifiedSession';
 
 const ID = 'session_xpart_1';
 

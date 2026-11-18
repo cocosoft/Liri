@@ -16,10 +16,12 @@
  * ⚠️ 用例**不真的改 ACL**（全部注入 `runIcacls` / `runWinSandbox`）。
  */
 
-import { beforeEach, describe, expect, it } from 'bun:test';
+import { beforeEach, describe, expect, it, spyOn } from 'bun:test';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { getLogger } from '@openliri/infra/monitoring';
+import { SandboxManager } from '@modules/sandbox/SandboxManager';
 import {
   beginWindowsBashGrants,
   buildIntegrityLevelArgs,
@@ -44,7 +46,7 @@ import {
   type LandlockConfig,
   type WinSandboxRunInput,
   type WinSandboxRunResult,
-} from '../../src/sandbox';
+} from '@modules/sandbox';
 
 function cfg(over: Partial<LandlockConfig> = {}): LandlockConfig {
   return { ...DEFAULT_LANDLOCK_CONFIG, enabled: true, ...over };
@@ -521,15 +523,26 @@ describe('§10 execBashCommand：Windows 写隔离接线', () => {
     const ctx = baseDeps({
       detectWin: () => ({ available: false, reason: 'helper-missing' }),
     });
-    const out = await execBashCommand({
-      command: 'dir',
-      env: {},
-      timeoutMs: 1000,
-      maxBufferChars: 1024,
-      deps: ctx.deps,
-    });
-    expect(out).toEqual({ stdout: 'plain-out', stderr: '' });
-    expect(ctx.plainCalls).toEqual(['dir']);
+    // P3-2（复杂度清理）：降级回退必须与"开关关闭"同口径留 exec_ok（mode=plain）日志
+    const infoSpy = spyOn(getLogger('tools:bash:landlock-exec'), 'info');
+    try {
+      const out = await execBashCommand({
+        command: 'dir',
+        env: {},
+        timeoutMs: 1000,
+        maxBufferChars: 1024,
+        deps: ctx.deps,
+      });
+      expect(out).toEqual({ stdout: 'plain-out', stderr: '' });
+      expect(ctx.plainCalls).toEqual(['dir']);
+      const okCalls = (infoSpy.mock.calls as Array<[string, unknown]>).filter(
+        (c) => c[0] === 'bash: exec_ok'
+      );
+      expect(okCalls.length).toBe(1);
+      expect(okCalls[0][1]).toMatchObject({ mode: 'plain', exitCode: 0 });
+    } finally {
+      infoSpy.mockRestore();
+    }
   });
 
   it('授权失败 + failClosed=true ⇒ 拒绝（不执行命令）', async () => {
@@ -605,6 +618,9 @@ describe('§10 execBashCommand：Windows 写隔离接线', () => {
         helperFailed: false,
       }),
     });
+    // P3-2（复杂度清理）：归因同时要进观测面（G4 围栏读这份记录），不只改错误文案
+    const manager = SandboxManager.getInstance();
+    manager.clearViolations();
     let caught: Error | null = null;
     try {
       await execBashCommand({
@@ -619,6 +635,9 @@ describe('§10 execBashCommand：Windows 写隔离接线', () => {
       caught = error as Error;
     }
     expect(caught?.message).toContain('sandbox_denied: write');
+    const violations = manager.getViolations();
+    expect(violations.some((v) => v.type === 'write-denied')).toBe(true);
+    manager.clearViolations();
     // 归因不改变「标签必须恢复」
     expect(ctx.icacls.levels.get('C:\\work\\ws')).toBe('Medium');
   });

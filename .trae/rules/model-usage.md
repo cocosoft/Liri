@@ -120,9 +120,27 @@ POST /v1/models
 - `ModelFetcher` 的 Anthropic 兼容子路径剥离、`dall-e` 能力分支
 - 渠道类型枚举 `'claude'`、provider 类型枚举 `'anthropic'`（协议/类型契约，非指定供应商）
 
-## 自动化检查（规划中）
+## 自动化检查（已落地：`bun run lint:models` + CI）
 
-`bun run lint:models`：扫描硬编码（模型名/供应商名/Claude 代称/属性表模式）+ 能力覆盖检查，白名单覆盖协议适配。落地后 CI/评审必须 0 违规。
+**状态订正（2026-11-15）**：本节原写「规划中」，与事实不符 —— `scripts/lint-models.ts` **早已存在并生效**（`app/package.json#ci` 与 `.github/workflows/ci.yml` 均执行，`lint:gate-parity` 持续比对两处）。脚本扫描源码根（`scripts/lib/sourceRoots.ts` 单一事实源）+ `client/src`，排除测试与白名单，分两类判定：
+
+**A. 硬编码 —— 阻断（7 条模式）**
+
+| # | 判据 |
+|---|---|
+| 1 | Claude 代称字面量（`'sonnet'` / `'opus'` / `'haiku'`） |
+| 2 | `claude-*` 全名 |
+| 3 | 品牌命名残留（`claude-code-guide` / `claude-ai`） |
+| 4 | 代称环境变量名（`LIRI_DEFAULT_{HAIKU,OPUS,SONNET}_MODEL` / `ANTHROPIC_DEFAULT_*` / `VERTEX_REGION_CLAUDE`） |
+| 5 | 模型属性硬编码表（`KNOWN_CONTEXT_WINDOWS` / `MODEL_CONTEXT_WINDOWS` / `CACHE_SUPPORTED_MODELS` / `MODEL_BUDGET_MULTIPLIERS`） |
+| 6 | 业务层已知默认模型字面量（`gpt-4*` / `deepseek-*` / `dall-e-[23]` / `gemini-*` / `kimi` / `moonshot` / `qwen*`） |
+| 7 | 代称并列提示文本（`sonnet, opus, haiku` 式帮助/示例） |
+
+**B. 能力覆盖 —— 告警，不阻断**：读本机 `model_registry where enabled = 1` × `task_capability_mappings`，某 task 的必需能力对应 0 个启用模型即告警（2026-10-16 用户裁定：属**配置选择/缺口**，非代码质量违规 ⇒ 不让 CI 变红，但如实打印）。其输入是用户本机配置 ⇒ **本地专属**：CI / 干净环境无库时打印「未执行」而**不得**说成「通过」（AR-3）。已登记「故意无模型」的 `(task:capability)`：
+`tts:text_to_speech`、`stt:speech_recognition`（走独立语音子系统，不经模型路由；理由必须非空，空理由即 `exit 1`）。
+
+- **白名单**：脚本内 `IGNORE_PATH_FRAGMENTS`（协议适配 / 预设播种 / 类型枚举 / tiktoken 库约束 / 音频 `opus` 格式 / 模型名关键词分级等）；新增白名单**须同批**更新本节与脚本注释。
+- **如实边界**：判据 6 只覆盖上列**已知族**的字面量；该族之外的任意模型名（如自建/私有命名）无可靠静态判据，仍需评审把关。
 
 ## 当前已注册的生图模型
 

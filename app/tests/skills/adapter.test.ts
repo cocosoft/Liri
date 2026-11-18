@@ -16,14 +16,14 @@ import {
 import { join } from 'path';
 import { tmpdir } from 'os';
 
-import { BaseThirdPartyAdapter } from '../../src/skills/loaders/adapter/BaseThirdPartyAdapter';
+import { BaseThirdPartyAdapter } from '@modules/skills/loaders/adapter/BaseThirdPartyAdapter';
 import type {
   InstalledThirdPartySkill,
   ThirdPartySkillMeta,
-} from '../../src/skills/loaders/adapter/types';
-import type { ThirdPartySkillSearchResult } from '../../src/skills/loaders/adapter/ThirdPartySkillAdapter';
-import type { Skill } from '../../src/skills/types';
-import { SkillSource, SkillLoadMethod } from '../../src/skills/types';
+} from '@modules/skills/loaders/adapter/types';
+import type { ThirdPartySkillSearchResult } from '@modules/skills/loaders/adapter/ThirdPartySkillAdapter';
+import type { Skill } from '@modules/skills/types';
+import { SkillSource, SkillLoadMethod } from '@modules/skills/types';
 
 /** 假适配器：可控 doInstall 结果/错误、记录远程调用 */
 class FakeAdapter extends BaseThirdPartyAdapter<InstalledThirdPartySkill> {

@@ -17,7 +17,7 @@ import { globalEventBus } from '@openliri/kernel/events/EventBus';
 import {
   getDailyBudget,
   resetDailyBudgetForTest,
-} from '../../src/query/DailyBudgetManager';
+} from '@modules/query/DailyBudgetManager';
 
 const dataDir = mkdtempSync(join(tmpdir(), 'budget-usd-observe-'));
 process.env.LIRI_DATA_DIR = dataDir;

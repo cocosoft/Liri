@@ -17,11 +17,13 @@
  *   allowlist_tool / deny`；其余 `approve / allowlist_call / deny`；`EXTERNAL` 只给
  *   `approve / deny`（外部副作用不提供永久放行）；
  * - `risk` 由 `resolveRiskClass()` 统一派生（传工具对象走声明，只传名字退回旧启发式）；
- * - `inputPreview` 统一截断 300 字符。
+ * - `inputPreview` 统一截断 300 字符，且**先去敏**（R4：与采样共用 `redactSensitiveText`）。
  */
 
 import type { SandboxExecutionSignal } from '@openliri/infra/utils/toolContract/Tool';
 import { isCommandToolName } from '@openliri/infra/utils/toolContract/toolRoles';
+// R4（2026-11-17）：审批预览与采样共用同一去敏出口（密钥不落 Inbox / 审计）
+import { buildRedactedInputPreview } from '@openliri/infra/security';
 
 import {
   resolveApprovalFingerprint,
@@ -54,6 +56,13 @@ export interface ToolApprovalCardInput {
   approvalReason?: string;
   /** 工具调用 id（前端就地审批用） */
   toolCallId?: string;
+  /**
+   * B8（2026-11-18）：所属工具轮次（会话 `metadata.roundCounter`）。
+   *
+   * 只用于**批量合并的同轮次限定**（`canBatchApproval` 要求两卡轮次相等）；
+   * 缺省 ⇒ 不写入、该卡不参与合并（无法证明同轮 ⇒ fail-closed 不合并）。
+   */
+  roundId?: number;
   /** 所属长任务 id */
   taskId?: string;
   /** 卡片来源模块（缺省 `permission`） */
@@ -100,7 +109,14 @@ export function buildApprovalOptions(params: {
   const command = params.command ?? '';
   const isCommandTool = isCommandToolName(toolName) && command.trim().length > 0;
   return isCommandTool
-    ? ['approve', 'allowlist_command', 'allowlist_tool', 'deny']
+    ? [
+        'approve',
+        'allowlist_command',
+        // G3（2026-11-14）：命令级「本工作区永久信任」—— 精确命令 + 工作区作用域
+        'allowlist_workspace_command',
+        'allowlist_tool',
+        'deny',
+      ]
     : risk === RiskClass.EXTERNAL
       ? ['approve', 'deny']
       : ['approve', 'allowlist_call', 'deny'];
@@ -143,7 +159,7 @@ export function buildToolApprovalCard(
 
   const approvalId = newApprovalId();
 
-  const previewText = JSON.stringify(input).slice(0, INPUT_PREVIEW_MAX_CHARS);
+  const previewText = buildRedactedInputPreview(input, INPUT_PREVIEW_MAX_CHARS);
   const message =
     (params.approvalReason ? `${params.approvalReason}\n` : '') +
     `工具 '${toolName}' 请求执行（风险等级: ${risk}）\n` +
@@ -155,6 +171,8 @@ export function buildToolApprovalCard(
     sessionId,
     taskId: params.taskId,
     toolCallId: params.toolCallId,
+    // B8：仅在同轮次标识可得时写入（缺省即 `undefined` ⇒ 不参与批量合并）
+    roundId: params.roundId,
     approvalId,
     commandHash,
     approvalFingerprintHash: fingerprintHash,

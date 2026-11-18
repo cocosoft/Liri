@@ -790,11 +790,20 @@ function SettingsPage() {
                       // 与后端 `FEATURE_FLAGS.ALWAYSON`（默认开）一致：
                       // 未写过该键时不得显示"关"，否则"显示关、实际在跑"（2026-11-03）
                       alwaysOn: true,
-                      // 2026-11-03：与后端 `FEATURE_FLAGS.SELF_VERIFY_PATTERN`（默认关）一致；
-                      // 开启后验证线路（自校验 / 多轮精修）才会真正生效
-                      selfVerifyPattern: false,
+                      // 2026-11-16：与后端 `FEATURE_FLAGS.SELF_VERIFY_PATTERN`（已翻转为默认开，用户裁定）一致；
+                      // 开启后验证线路（自校验 / 多轮精修）在命中 verify/refine 意图的回合真正生效
+                      selfVerifyPattern: true,
                       // 2026-11-03：与后端 `FEATURE_FLAGS.COMPETITIVE_STRATEGY`（默认关）一致
                       competitiveStrategy: false,
+                      // 2026-11-16：与后端 `FEATURE_FLAGS.TOOL_DISCLOSURE_STRICT` / `SWARM_VERIFY_RETRY`（均默认开）一致；
+                      // 这两项是翻转后的「用户可关」回退路径（后端经 `resolveFeatureGate` 读取）
+                      toolDisclosureStrict: true,
+                      swarmVerifyRetry: true,
+                      // 2026-11-16：启动期续跑三项（后端均默认开）；关闭后下次启动不再扫描，
+                      // 已登记的唤醒也会在触发前二次校验时作废
+                      planStartupResume: true,
+                      planSystemResume: true,
+                      goalStartupResume: true,
                       // 合并而非整体替换：`config.features` 缺键时保留上述默认
                       ...((config.features as Record<string, unknown>) || {}),
                     }) as unknown as Parameters<

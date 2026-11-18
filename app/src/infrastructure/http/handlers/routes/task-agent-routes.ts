@@ -24,6 +24,10 @@
  *
  * 由 route-table.ts 拆分而来（FSZ-002 阶段二：注册式路由收敛，领域分发模块）。
  * 保持与拆分前完全一致的匹配顺序与 handler 调用。
+ *
+ * P3-2（2026-11-16）：按领域再拆为四个同文件私有分发（任务登记 / Agent / Voice /
+ * TTS），主函数只按原顺序串接 —— 分段顺序即语义（先匹配先赢），清单守卫见
+ * `tests/http/taskAgentRoutesInventory.test.ts`。
  */
 
 import type http from 'http';
@@ -94,7 +98,20 @@ export async function dispatchTaskAgentRoutes(
   handlerCtx: HandlerCtx
 ): Promise<boolean> {
   const method = req.method || 'GET';
-  // ---- Tasks (长程任务中心) ----
+  if (await dispatchTaskRegistryRoutes(method, url, req, res)) return true;
+  if (await dispatchAgentRoutes(method, url, req, res, handlerCtx)) return true;
+  if (await dispatchVoiceRoutes(method, url, req, res)) return true;
+  if (await dispatchTtsRoutes(method, url, req, res)) return true;
+  return false;
+}
+
+/** ---- Tasks (长程任务中心) ---- */
+async function dispatchTaskRegistryRoutes(
+  method: string,
+  url: string,
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<boolean> {
   // BUG-1/2 修复：/v1/tasks 命名空间归项目任务（TaskStore，见 workspace-routes）。
   // TaskRegistry（长程任务中心）统一迁移到 /v1/task-registry/* 前缀，避免抢占
   // 项目任务的列表/删除路由（此前分发顺序在前导致项目任务列表恒空、删除失效）。
@@ -121,8 +138,17 @@ export async function dispatchTaskAgentRoutes(
     );
     return true;
   }
+  return false;
+}
 
-  // ---- Agent ----
+/** ---- Agent ---- */
+async function dispatchAgentRoutes(
+  method: string,
+  url: string,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
   if (method === 'GET' && url === '/v1/agents/tasks') {
     await handleListAgentTasks(handlerCtx, req, res);
     return true;
@@ -203,8 +229,16 @@ export async function dispatchTaskAgentRoutes(
     );
     return true;
   }
+  return false;
+}
 
-  // ---- Voice ----
+/** ---- Voice ---- */
+async function dispatchVoiceRoutes(
+  method: string,
+  url: string,
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<boolean> {
   if (method === 'POST' && url === '/v1/voice/transcribe') {
     await handleSTTTranscribe(req, res);
     return true;
@@ -289,7 +323,16 @@ export async function dispatchTaskAgentRoutes(
     await handleWakeStatus(req, res);
     return true;
   }
+  return false;
+}
 
+/** ---- TTS Providers / Personas / Additional Endpoints ---- */
+async function dispatchTtsRoutes(
+  method: string,
+  url: string,
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<boolean> {
   // ---- TTS Providers ----
   if (method === 'GET' && url === '/v1/tts/providers') {
     await handleListTTSProviders(req, res);

@@ -5,6 +5,14 @@
   "description": "Liri service 包 —— 六层架构 service 层中**已物理独立**的模块。仅 service 层与上层可依赖；infra / kernel 不得依赖本包。",
   "type": "module",
   "exports": {
+    "./session": {
+      "types": "./src/session/index.ts",
+      "import": "./src/session/index.ts"
+    },
+    "./session/*": {
+      "types": "./src/session/*.ts",
+      "import": "./src/session/*.ts"
+    },
     "./execution": {
       "types": "./src/execution/index.ts",
       "import": "./src/execution/index.ts"

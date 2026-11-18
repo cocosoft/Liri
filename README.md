@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.5.26-blue)
+![Version](https://img.shields.io/badge/version-0.6.2-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -62,7 +62,7 @@ Liri 是一个运行在终端中的 **AI 智能助手**。你用它做什么？
 | 层级 | 技术 |
 |------|------|
 | **运行时** | Bun（必需） |
-| **语言** | TypeScript（约百万行级：`app/src` + `packages/kernel/src` + `client/src`，不含测试与脚本）+ Rust（≈2.5 千行原生模块：`app/native`） |
+| **语言** | TypeScript（约百万行级：`app/src` + `packages/*/src`（23 个包） + `client/src`，不含测试与脚本）+ Rust（≈2.5 千行原生模块：`app/native`） |
 | **终端 UI** | React + Ink |
 | **AI 接口** | DeepSeek API（默认），支持多 Provider 切换（OpenAI、Gemini 等） |
 | **协议层** | ACP（Agent Communication Protocol）+ MCP + LSP |
@@ -79,6 +79,7 @@ Liri 是一个运行在终端中的 **AI 智能助手**。你用它做什么？
 
 - [Bun](https://bun.sh) >= 1.0（必需，数据库核心依赖 `bun:sqlite`）
 - Windows 10+ / macOS 12+ / Linux
+- **不支持 Node.js 运行时** — 数据库（`bun:sqlite`）、测试运行器（`bun test`）与编译产线（`bun build --compile`）均依赖 Bun 专有 API，`node` / `npm` 无法启动或构建本项目
 
 ### 安装（30 秒）
 
@@ -215,6 +216,15 @@ Agent 引擎内置多种检查点机制（周期性落盘、流式自动检查�
 - **等待中可见** — 前端浮动栏显示「⏳ 等待中，预计 N 秒后自动继续」，倒计时实时递减
 - **不丢唤醒** — 唤醒登记为"读取 → 追加 → 合并写"，并发登记不会互相覆盖
 
+**进程重启后的去向**（等待与长任务都落盘，不靠内存）：
+
+| 能力 | 持久化位置 | 重启恢复 |
+|---|---|---|
+| 唤醒登记 | 运行时 `YieldRegistry`（内存）**写时投影**到 `app.db` 的 `agent_yield_waiting` | 启动 `bootstrapRecovery()` 重建等待集，再回放结算 |
+| 定时任务 | `app.db` 的 `cron_jobs` / `cron_run_logs` | 启动时把中断的 `running` 原子改回 `scheduled`，并补跑遗漏（REPL / DAEMON 模式启动 cron，MCP 模式不启） |
+| 长任务检查点 | `app.db` 的 `pdca_checkpoints` | 启动扫描把崩溃遗留标 `abort`；仅 `PDCA_AUTO_RESUME=true` 才自动续跑（默认关，上限 3 条），人工续跑走 `POST /v1/pdca/:taskId/resume` |
+| 自唤醒 | 短等待（<300s）走内存定时器；长等待落 `~/.pyapp/data/selfwake/<sessionId>.json` | 长等待随进程启动重新装载 |
+
 ### 💰 用量归因与成本
 
 - **真实模型归因** — 每次调用记录 provider 回显的真实模型名，成本按真实价格表计算（模型回显缺失时才退回调用方指定值）
@@ -245,6 +255,8 @@ Rust AST 编译时分析 → TypeScript 语义分析 → Guardrail 规则引擎 
 - 完整审计日志，所有操作可追溯
 - 速率限制与会话风险行为追踪
 - **注入攻防可量化**（内置评测）— 提示注入按"**成对测量**"设计：同一场景下 7 个攻击变体（权威冒充 / 任务劫持 / 角色扮演 / 编码绕过 / 延迟触发 / 工具形态诱导等）+ 1 个良性对照，同时报告 **ASR**（攻击成功率，越低越好）与 **benign utility**（正常任务完成率，其降幅即**误伤**）；并按 **Max 口径**统计"有多少**场景**被攻破"（同一场景任一载荷得手即计入），避免只看单次尝试而低估风险
+
+> **覆盖边界**：上述五层针对**命令执行**（bash / PowerShell / cmd / `code_run`）。`xlsx`、`pdfjs-dist` 等**文档解析层**不在其内——它们的输入是不可信文件格式，风险由上游解析库自身承担（依赖来源与完整性见 [SECURITY.md](./SECURITY.md)），不要把"解析用户上传的表格 / PDF"当作已被沙箱隔离。
 
 ### 🧩 插件与技能系统
 
@@ -390,42 +402,37 @@ bun run service:dev       # 开发模式（无需编译，直接 bun run）
 ```
 Liri/                            # 工程根目录
 ├── app/                         # 主应用（TypeScript + Bun）
-│   ├── src/                     # 源代码
-│   │   ├── main.ts              # 应用启动入口（launch 函数）
-│   │   ├── entrypoints/         # 运行模式入口
-│   │   │   ├── repl.ts          # REPL 模式
-│   │   │   └── mcp.ts           # MCP Server 模式
+│   ├── src/                     # 应用源码（34 个顶层目录；分层以 scripts/modules-to-layers.json 为准）
+│   │   ├── main.ts              # 应用启动入口（launch 统一分发）
+│   │   ├── pyapp.ts             # 编译入口（chdir + 根目录解析）
+│   │   ├── entrypoints/         # 运行模式入口（repl / mcp / http-server / always-on）
 │   │   ├── modules/             # 模块系统（注册表 + 初始化 + 延迟加载）
-│   │   ├── session/             # 会话管理
-│   │   ├── permission/          # 权限控制（AutoMode 分类器等）
-│   │   ├── cache/               # 缓存抽象
-│   │   ├── tokenBudget/         # Token 预算控制
+│   │   ├── bootstrap/           # 启动引导（preflight / 变体注入 / 启动流水线）
 │   │   ├── chat/                # 对话 / 流式 / 工具循环
-│   │   ├── query/               # TAOR 查询引擎
-│   │   ├── knowledge/           # 知识库与检索
-│   │   ├── state/               # 应用状态
-│   │   ├── acp/                 # Agent Communication Protocol
-│   │   ├── ai/                  # AI 模型适配层
-│   │   ├── agent/               # AI Agent 核心
 │   │   ├── tools/               # 内置工具实现（数量见 STATUS.md）
-│   │   ├── channels/            # 消息通道（全量见 STATUS.md）
-│   │   ├── mcp/                 # MCP 协议实现
-│   │   ├── security/            # 安全防护体系（5 层）
-│   │   ├── plugins/             # 插件系统
-│   │   ├── skills/              # 技能系统
-│   │   ├── memory/              # 记忆与知识库
-│   │   ├── monitoring/          # 可观测性
-│   │   ├── sandbox/             # 沙箱环境
-│   │   ├── chronos/             # 定时任务调度
-│   │   ├── cli/                 # 命令行交互
-│   │   ├── bridge/              # 远程桥接控制
-│   │   ├── config/              # 配置管理
-│   │   ├── daemon/              # 守护进程
-│   │   ├── bootstrap/           # 启动引导
-│   │   └── context/             # 上下文引擎
+│   │   ├── ai/                  # 模型适配 / 路由 / Provider
+│   │   ├── agent/               # Agent 核心与编排
+│   │   ├── tasks/               # 目标 / 计划 / 编排 / 持久队列
+│   │   ├── knowledge/           # 知识库 / 检索 / 知识图谱
+│   │   ├── context/             # 上下文管理（context-engine 已迁出）
+│   │   ├── commands/ cli/ ui/ ink/         # 命令与终端交互
+│   │   ├── infrastructure/      # HTTP / A2A / 装配
+│   │   ├── runtime/             # CoreAPI 组合根（service 层）
+│   │   ├── workspace/ plugins/ hooks/      # 工作区 / 插件 / 钩子
+│   │   └── …                    # 其余目录：appState / auto-reply / components / flows /
+│   │                            #   keybindings / lsp / promptSuggestion / remote / scripts /
+│   │                            #   subagents / testing / types / vim / wizard
 │   ├── native/                  # Rust 原生模块（FFI）
 │   ├── docs/                    # 完整中文文档
 │   └── package.json
+├── packages/                    # 已物理拆包的模块（共 23 个；说明符仍为 @modules/<m>）
+│   ├── core 层：kernel
+│   ├── infra 层：infra
+│   ├── service 层：service / channels
+│   └── app 层（19 个）：buddy / compaction / context-engine / docs / dream / evals /
+│                        governance / plugin-sdk / proactive / project / query /
+│                        resourceGovernor / sandbox / skills / subagent / tokenBudget /
+│                        tool / vfs / workspaces
 ├── client/                      # 桌面客户端（Tauri v2 + React）
 └── .github/workflows/           # CI/CD 自动化
 ```
@@ -459,7 +466,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.5.26**
+当前版本：**v0.6.2**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -468,15 +475,12 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.5.26 (2026-11-10)
-demand 许愿式模式、阶段契约与失败归因
+#### v0.6.2 (2026-11-14)
+CI 测试平台化修正（Linux / macOS 必红）
 
-- ✅ **demand 许愿式自主度** - 新增会话自主度 `demand`（只给目标不写步骤）：澄清问题限一条、运行中消息并入当前计划、简单目标按规模分流到 PDL 快路径
-- ✅ **阶段契约与规划降噪** - 阶段间传结构化交付物（「已成立事实」禁止重复创建）；规划期剔除纯校验步骤；需求说明模板按 trivial / standard 分型
-- ✅ **失败可归因** - 失败步必须落 `terminationReason`，`stats:demand` 新增「阶段 × 终止原因」分布；空转熔断细分 `no_tool_call` / `io_loop`；计划级失败不再被阶段链当成功
-- ✅ **权限与审批** - 审批档收敛三档 + 会话级选择；审批作用域绑定运行中的长任务并在续跑时重放策略快照；只读命令短路
-- ✅ **运行时与结构** - 日志降噪聚合、检查点增量索引、cost 记账单次化；`packages/service` 迁包 P29–P35 并把 5 个门禁扩展到该包
-- ✅ **验证** - 全量 `bun test` 11304 pass / 0 fail，typecheck 与 55 个门禁全绿
+- ✅ **平台相关断言** - `cliSigning` 参数解析用例不再硬编码 win32 产物名，改为与 `defaultOutfile()` 比对（跟运行平台走）
+- ✅ **验证** - 本机全量 `bun test` 12,013 用例 / 11,969 pass / 44 skip / 0 fail；`tsc` 0
+- ✅ 完整历史见 [CHANGELOG.md](CHANGELOG.md)
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

@@ -53,6 +53,24 @@ export const COMMON_HEARTBEAT_INTERVAL = B.heartbeatIntervalMs;
 export const CONNECTION_TIMEOUT = B.connectionTimeoutMs;
 /** @kind B */
 export const REQUEST_TIMEOUT = B.requestTimeoutMs;
+/**
+ * @kind B —— 优雅退出**单条清理钩子**的执行上界（毫秒）。
+ *
+ * 退出链必须有界：任一钩子卡死不得让进程无限挂起（`withDeadline` + `unref` 统一在
+ * `app/src/bootstrap/shutdownHooks.ts` 落实）。
+ */
+export const SHUTDOWN_HOOK_TIMEOUT_MS = B.shutdownHookTimeoutMs;
+/** @kind B —— CodeRunner 子进程「退出事件缺失」时的 `exitCode` 轮询间隔（毫秒） */
+export const CODE_RUNNER_EXIT_WATCHDOG_MS = B.codeRunnerExitWatchdogMs;
+/**
+ * 客户端断开后给 attach 接管的宽限期（毫秒）。
+ *
+ * `0`（默认）= 断开立即中止本轮；`>0` = 断开后继续推进生成器、帧只进 attach hub。
+ * Spec：`.trae/specs/stream-attach-grace.md`。
+ *
+ * @kind B
+ */
+export const CLIENT_DISCONNECT_GRACE_MS = B.clientDisconnectGraceMs;
 /** @kind B */
 export const MAX_CACHE_SIZE_BYTES = B.maxCacheSizeBytes;
 /** @kind B —— 洞察报告「慢操作」展示阈值（毫秒；超此值的调用计入 slowCalls） */
@@ -78,6 +96,21 @@ export const MS_PER_HOUR = 60 * MS_PER_MINUTE;
 export const MINUTES_PER_DAY = 24 * 60;
 /** 时间换算：1 天（毫秒，用于队列保留期） @kind A */
 export const MS_PER_DAY = 24 * MS_PER_HOUR;
+
+/**
+ * 2026-11-18：聊天流只读 attach（Spec `.trae/specs/stream-attach.md`）的两个节奏值。
+ *
+ * - 心跳：与主链路 SSE 保活（`chat-handlers.ts` 的 15000ms 定时器）对齐，
+ *   订阅端凭它判断"链路是否还活着"；
+ * - 保留：本轮结束后缓冲再保留一段时间，覆盖"刚结束才接入"的竞态（仍可拿到全量 + `[DONE]`）。
+ *
+ * 两者都不随环境变化（非 `defaults.ts` 的 B 类），故为 A 类。
+ *
+ * @kind A
+ */
+export const STREAM_ATTACH_HEARTBEAT_MS = 15_000;
+/** @kind A */
+export const STREAM_ATTACH_RETENTION_MS = 60_000;
 
 /**
  * 供应商「余额/配额不足」（402）短期熔断窗口。

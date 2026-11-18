@@ -40,6 +40,19 @@ export {
   COMMAND_ALIASES,
   expandTokenAliases,
 } from './commandAliases';
+// 2026-11-12（P1）：命令语义注册表（单一来源）——审批档令牌与等价组均由它派生
+export {
+  COMMAND_SPECS,
+  approvalTokensFromSpecs,
+  denyTokensFromSpecs,
+  equivalenceGroupsFromSpecs,
+  readonlySubcommandsFor,
+} from './commandSpecs';
+export type {
+  CommandSpec,
+  CommandTier,
+  OperationKind,
+} from './commandSpecs';
 export type { UnifiedRulePlatform } from './dangerousCommands';
 export {
   INJECTION_PATTERNS,

@@ -42,6 +42,14 @@ import { verifyRequestAuth } from '../../LocalHTTPServiceHelpers';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { A2A_RPC_PATH, A2A_TASKS_PATH } from '@modules/types/a2a';
 import type { A2ATask } from '@modules/types/a2a';
+// D5（2026-11-14）：不确定性与推理轨迹（纯契约；默认不发，按协商 opt-in）
+import {
+  A2A_UNCERTAINTY_REQUEST_HEADER,
+  acceptsUncertainty,
+  attachUncertaintyMetadata,
+  normalizeTrace,
+  normalizeUncertainty,
+} from '@modules/types/uncertainty';
 // T4 批次 E：JSON-RPC 绑定（含 SSE）与委派交付物构造已拆至 `a2a-rpc.ts`
 //（本文件保留 卡片 / 探针 / 自定义 REST + 委派核心）；依赖方向单向：本文件 → `a2a-rpc`
 import { dispatchA2ARpc, toDeliverables } from './a2a-rpc';
@@ -93,7 +101,12 @@ const RETRY_AFTER_SECONDS = 5;
  */
 export type A2ADelegator = (
   message: string,
-  agentId?: string
+  agentId?: string,
+  /**
+   * D5（2026-11-18）：任务上下文。后端据此登记 `taskId → sessionId`，
+   * 供不确定性产出方在任务完成时取该会话的验证器结果。缺省 ⇒ 不登记（行为不变）。
+   */
+  ctx?: { taskId: string }
 ) => Promise<string>;
 
 let delegator: A2ADelegator | null = null;
@@ -268,6 +281,10 @@ export async function dispatchA2ARoutes(
       runDelegation,
       delegate: (message, agentId) =>
         (delegator as A2ADelegator)(message, agentId),
+      // D5：协商只认请求头/扩展 URI，缺省不发（spec §3）
+      acceptUncertainty: acceptsUncertainty({
+        header: req.headers[A2A_UNCERTAINTY_REQUEST_HEADER],
+      }),
     });
   }
   if (url === A2A_TASKS_PATH) {
@@ -371,6 +388,10 @@ async function handleCreateTask(
   }
   const agentId =
     typeof body['agentId'] === 'string' ? body['agentId'] : undefined;
+  // D5：协商（扩展 URI 由 AgentCard 声明；单次请求可用请求头 opt-in）
+  const acceptUncertainty = acceptsUncertainty({
+    header: req.headers[A2A_UNCERTAINTY_REQUEST_HEADER],
+  });
 
   // D-204：任务台账改经 A2A 端口（原静态 `a2aTaskStore`）。
   // T4 批次 B：委派核心抽为 `runDelegation`，与 JSON-RPC `SendMessage` **共用**（CS01）。
@@ -379,10 +400,72 @@ async function handleCreateTask(
     port,
     message,
     agentId,
-    resolveMaxWaitMs()
+    resolveMaxWaitMs(),
+    acceptUncertainty
   );
   json(res, completed ? 200 : 202, task);
   return true;
+}
+
+/**
+ * D5：不确定性产出方（由装配处注入）。
+ *
+ * **缺省 `null` ⇒ 永不写 `liri.*` 字段**（CS04：没有真实信号就不造假）。
+ * 返回 `null` 同样表示"本次无信号"。
+ */
+export type A2AUncertaintyProvider = (
+  taskId: string
+) =>
+  | { uncertainty?: unknown; trace?: unknown }
+  | null
+  | Promise<{ uncertainty?: unknown; trace?: unknown } | null>;
+
+let uncertaintyProvider: A2AUncertaintyProvider | null = null;
+
+/** 注入/复位产出方（测试或装配期调用；传 `null` 恢复"不发"） */
+export function setA2AUncertaintyProvider(
+  provider: A2AUncertaintyProvider | null
+): void {
+  uncertaintyProvider = provider;
+}
+
+/**
+ * 把产出方的信号合入任务 `metadata`（仅**已协商**时）。
+ *
+ * 归一化失败（越界/非法）由 `normalize*` 丢弃对应字段；文本字段无脱敏函数时只保留
+ * `kind`/`score`（spec §4-4 fail-closed）。
+ */
+async function enrichWithUncertainty(
+  task: A2ATask,
+  accepted: boolean
+): Promise<A2ATask> {
+  if (!accepted || !uncertaintyProvider) return task;
+  try {
+    const signal = await uncertaintyProvider(task.id);
+    if (!signal) return task;
+    const uncertainty = normalizeUncertainty(signal.uncertainty);
+    const trace = normalizeTrace(signal.trace);
+    const metadata = attachUncertaintyMetadata(task.metadata, {
+      uncertainty,
+      trace,
+    });
+    if (metadata === task.metadata) return task;
+    // spec §6-#6：每条真正带 `liri.*` 的响应都要可审计（只记 score/method/条数，不记原文）
+    logger.info('a2a.uncertainty.exposed', {
+      taskId: task.id,
+      score: uncertainty?.score ?? null,
+      method: uncertainty?.method ?? null,
+      traceSteps: trace.length,
+    });
+    return { ...task, metadata };
+  } catch (error) {
+    // 信号是**增强**：注入失败只告警，不影响委派结果
+    logger.warning('A2A 不确定性注入失败（不影响响应）', {
+      taskId: task.id,
+      error: String(error),
+    });
+    return task;
+  }
 }
 
 /**
@@ -393,13 +476,15 @@ async function handleCreateTask(
  * REST（`POST /v1/a2a/tasks`）与 JSON-RPC（`SendMessage`）**共用**（CS01）。
  *
  * @param waitMs `<= 0` ⇒ 不等（对应 JSON-RPC `configuration.returnImmediately: true`）
+ * @param acceptUncertainty D5：对端是否已协商（`true` 且产出方有信号时才写 `liri.*`）
  * @returns `completed=false` ⇒ 调用方按 `202 + working` 返回（REST 口径）
  */
-async function runDelegation(
+export async function runDelegation(
   port: A2APortSlice,
   message: string,
   agentId: string | undefined,
-  waitMs: number
+  waitMs: number,
+  acceptUncertainty = false
 ): Promise<{ completed: boolean; task: A2ATask }> {
   const task = port.createTask();
   // `delegator` 由 `handleCreateTask` / `handleRpc` 的分支前置保证非空（未装配 ⇒ 已 503）
@@ -408,7 +493,12 @@ async function runDelegation(
   // （如日预算撞限）原先会直接冒泡 ⇒ REST 变通用 500、JSON-RPC 变异常，且"晚失败"分支还会让任务
   // **永久停在 WORKING**（调用方既拿不到码也拿不到出路）。现统一收敛为**结构化终态**：
   // `TASK_STATE_FAILED` + 把"原因 + 出路"作为任务消息透出（协议面无 UI）。
-  const pending = (delegator as A2ADelegator)(message, agentId).then(
+  const pending = (delegator as A2ADelegator)(
+    message,
+    agentId,
+    // D5：把 taskId 交给后端（后端登记 taskId → sessionId，供不确定性产出方取值）
+    { taskId: task.id }
+  ).then(
     (value) => ({ kind: 'done' as const, value }),
     (error: unknown) => {
       const guidance = error instanceof Error ? error.message : String(error);
@@ -452,13 +542,15 @@ async function runDelegation(
       return { completed: false, task: port.getTask(task.id) ?? task };
     }
     const { artifacts, message: reply } = toDeliverables(outcome.value);
-    const done = port.completeTask(
-      task.id,
-      'TASK_STATE_COMPLETED',
-      artifacts,
-      reply
+    const done = await enrichWithUncertainty(
+      port.completeTask(task.id, 'TASK_STATE_COMPLETED', artifacts, reply),
+      acceptUncertainty
     );
-    logger.info('A2A 委派完成（同步）', { taskId: task.id, agentId });
+    logger.info('A2A 委派完成（同步）', {
+      taskId: task.id,
+      agentId,
+      uncertaintyExposed: acceptUncertainty && !!uncertaintyProvider,
+    });
     return { completed: true, task: done };
   }
 

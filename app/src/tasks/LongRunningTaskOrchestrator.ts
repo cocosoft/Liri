@@ -24,7 +24,6 @@ import type { Plan, PlanStep } from './TaskOrchestrator';
 import { parsePlanDraft } from './planOutputParser';
 import type { PlanDraft } from './planOutputParser';
 import {
-  validatePlanAdmission,
   computeProgressFingerprint,
   shouldStopForStall,
 } from './planAdmission';
@@ -114,6 +113,13 @@ import {
   shouldStopForPendingApproval as stopOnPending,
   suspendPlanForApproval,
 } from './lro/stepSuspension.js';
+// P3-2（2026-11-16）：执行循环的轮级守卫（准入 / 轮尾 review 与停止闸门 / 轮次上限）
+import {
+  enforceMaxIterations,
+  rejectUnadmittedPlan,
+  reviewAndDecideRound,
+  ROUND_STOP_EXTERNAL,
+} from './lro/executeRoundGuards.js';
 // PR-5（2026-10-23）：目标级收敛判定与「未收敛」收尾（同上，外移守行数上限）
 import { runGoalConvergenceGate } from './lro/goalConvergence.js';
 // U-02（2026-10-19）：`/goal start` 目标 ↔ PDCA 终态绑定
@@ -141,7 +147,7 @@ import { normalizeExecutorResult } from './lro/contracts.js';
 import { watchSlowModelCall } from './lro/modelCallTrace.js';
 // R16（台账 L-14）：任务/子代理**非 chat 管线**的模型用量计入每日预算
 // （此路径不经 `ChatManager.recordChatResponseUsage`，故在默认执行器单点记账）。
-import { recordDailyBudgetFromUsage } from '../query/DailyBudgetManager';
+import { recordDailyBudgetFromUsage } from '@modules/query/DailyBudgetManager';
 // G-2/D（2026-10-11）：闸门**单一收口**（与流式/非流式 chat 同源判定），用于长程任务执行器
 // 2026-11-08：整段外移 `./lro/executorBudgetGuard`（守住 R04-001 行数上限），语义逐字未变。
 import { guardExecutorWithDailyBudget } from './lro/executorBudgetGuard.js';
@@ -181,7 +187,10 @@ import {
   projectPdcaMetrics,
 } from './lro/reporting.js';
 import type { PdcaReportView } from './lro/reporting.js';
-import { emitPdcaReceiptFromAudit } from './lro/terminalReceipt.js';
+import {
+  emitPdcaReceiptFromAudit,
+  emitPdcaPendingAcceptanceReceipt,
+} from './lro/terminalReceipt.js';
 import { takeOneShotDegradation } from './lro/failureRecovery.js';
 // B8（2026-11-09，设计稿 §5-3）：日预算耗尽 ⇒ 立即停止（与步骤侧共用终止原因真源）
 import { budgetStopped } from './lro/failureRecovery.js';
@@ -1222,30 +1231,17 @@ export class LongRunningTaskOrchestrator {
       maxIterations = resolveMaxIterations();
 
       // U-04：准入校验（含 replan 后的计划）——坏计划不进入执行。
-      const admission = validatePlanAdmission(this.requirePlan(), {
-        maxSteps: this.resolveMaxPlanSteps(),
-      });
-      if (!admission.ok) {
-        const badPlan = this.requirePlan();
-        badPlan.status = 'failed';
-        badPlan.completedAt = new Date().toISOString();
-        taskOrchestrator['savePlan']?.(badPlan);
-        void handleError(
-          new AppError(
-            `计划未通过准入校验：${admission.reason}`,
-            ErrorCategory.VALIDATION,
-            ErrorSeverity.HIGH,
-            'PLAN_ADMISSION_REJECTED',
-            {
-              taskId: this.taskId,
-              planId: this.planId,
-              reason: admission.reason,
-              steps: badPlan.steps.map((s) => s.id),
-            }
-          ),
-          { module: 'tasks:longRunning', action: 'planAdmission' }
-        );
-        failureReason = 'PLAN_ADMISSION_REJECTED';
+      const admissionFailure = rejectUnadmittedPlan(
+        this.requirePlan(),
+        this.resolveMaxPlanSteps(),
+        {
+          taskId: this.taskId,
+          planId: this.planId,
+          savePlan: (p) => taskOrchestrator['savePlan']?.(p),
+        }
+      );
+      if (admissionFailure) {
+        failureReason = admissionFailure;
         break;
       }
 
@@ -1253,17 +1249,15 @@ export class LongRunningTaskOrchestrator {
       await this.executeAllSteps();
 
       // Review + Decide
-      const updatedPlan = this.requirePlan();
-      for (const step of updatedPlan.steps) {
-        if (step.status === 'completed' && !step.decision) {
-          await this.autoDecideStep(step.id);
-        }
-      }
-      if (stopOnPending('iteration', this.taskId, this.planId, updatedPlan))
-        break;
-      // B8（2026-11-09，§5-3）：日预算耗尽 ⇒ 立即收尾（不重试、不重规划；回执带预算原因）
-      if (budgetStopped(updatedPlan)) {
-        failureReason = 'DAILY_BUDGET_EXHAUSTED';
+      const roundStop = await reviewAndDecideRound(this.requirePlan(), {
+        taskId: this.taskId,
+        planId: this.planId,
+        savePlan: (p) => taskOrchestrator['savePlan']?.(p),
+        autoDecideStep: (stepId) => this.autoDecideStep(stepId),
+      });
+      if (roundStop) {
+        // 外部闸门（如等待审批）只退出循环，不记失败原因（与改造前一致）
+        if (roundStop !== ROUND_STOP_EXTERNAL) failureReason = roundStop;
         break;
       }
 
@@ -1355,6 +1349,24 @@ export class LongRunningTaskOrchestrator {
           resumeFromCheckpoint: (ck) => this.resumeFromCheckpoint(ck),
         });
         if (convergence.kind === 'replanned') return convergence.status;
+        if (convergence.kind === 'pendingAcceptance') {
+          // G5-D3（2026-11-18）：已执行待验收 —— **不进入终态裁决**（不置 completed/failed）。
+          // 落 `decide` 相位（携带 running + acceptance=pending 的检查点），并发一条
+          // 「⏸ 已执行，待验收」回执；用户经 `/resume` 重跑目标门收口。
+          await this.setPhase('decide');
+          emitPdcaPendingAcceptanceReceipt({
+            taskId: this.taskId,
+            sessionId: this._sessionId,
+            plan: this.requirePlan(),
+            hasPushChannel: Boolean(this._onTaskMessage),
+          });
+          logger.info('[orchestrator] PDCA 已执行待验收：保持 running', {
+            taskId: this.taskId,
+            planId: this.planId,
+            iterations,
+          });
+          return this.getStatus();
+        }
         if (convergence.kind === 'unconverged') {
           // 2026-11-07：不得把 `allDone` 改回 false（否则 escalate 的 replanPending 被终态覆盖，
           // 真机 `pdca_mw6cygbp`）⇒ 未收敛改由 `failureReason` 参与终态裁决。
@@ -1368,32 +1380,20 @@ export class LongRunningTaskOrchestrator {
       }
 
       if (!allDone) {
-        // 有步骤需要重试
-        const hasRetry = latestPlan.steps.some(
-          (s) => s.status === 'pending' && s.decision === undefined
+        // 有步骤需要重试；否则超过上限 ⇒ 保存现场后强制退出
+        const maxIterationsFailure = enforceMaxIterations(
+          latestPlan,
+          iterations,
+          maxIterations,
+          stepStatuses,
+          {
+            taskId: this.taskId,
+            planId: this.planId,
+            savePlan: (p) => taskOrchestrator['savePlan']?.(p),
+          }
         );
-        if (!hasRetry && iterations >= maxIterations) {
-          // 超过上限：保存现场后强制退出
-          latestPlan.status = 'failed';
-          latestPlan.completedAt = new Date().toISOString();
-          taskOrchestrator['savePlan']?.(latestPlan);
-          void handleError(
-            new AppError(
-              'PDCA exceeded max iterations, forced abort',
-              ErrorCategory.OPERATION,
-              ErrorSeverity.HIGH,
-              'PDCA_MAX_ITERATIONS',
-              {
-                taskId: this.taskId,
-                planId: this.planId,
-                iterations,
-                maxIterations,
-                steps: stepStatuses,
-              }
-            ),
-            { module: 'tasks:longRunning', action: 'runFullPdca' }
-          );
-          failureReason = 'PDCA_MAX_ITERATIONS';
+        if (maxIterationsFailure) {
+          failureReason = maxIterationsFailure;
           break;
         }
       }

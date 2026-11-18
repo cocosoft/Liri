@@ -158,7 +158,6 @@ export class RequestSnapshotService {
       const result = await log.append(event);
       if (
         !result.ok &&
-        result.reason !== 'duplicate-seq' &&
         // TB-14/E1-a：会话已被外部进程删除 ⇒ 主动放弃落盘，非真实写失败
         result.reason !== 'session-dir-missing'
       ) {

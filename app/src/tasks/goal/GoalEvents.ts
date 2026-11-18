@@ -96,7 +96,7 @@ async function appendGoalEvent<T extends GoalEventType>(
       sessionId,
       data,
     });
-    if (!result.ok && result.reason !== 'duplicate-seq') {
+    if (!result.ok) {
       logger.warn('目标事件追加失败', {
         sessionId,
         type,

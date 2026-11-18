@@ -47,7 +47,7 @@ import { agentTelemetry } from '@modules/agent';
 import { handleError } from '@openliri/infra/error';
 import { containsComplexKeywords } from '@modules/workspace/CouncilOrchestrator';
 import { rollupSessionSummaryToLongTerm } from '@openliri/infra/memory';
-import { contextLayeringEnabled } from '../services/MessageContextPipeline';
+import { contextLayeringEnabled } from '../services/context/contextLayering';
 import type { MessageService } from '../services/MessageService.js';
 import type { SessionLifecycleManager } from '../services/SessionLifecycleManager.js';
 import type { ImageContextService } from '../services/ImageContextService';
@@ -66,7 +66,7 @@ import { buildTAORContextFor } from './taorContextWiring';
 import { sendMessageDowngradePath } from './sendDowngrade';
 import { triggerCouncilDebate } from './councilDebate';
 import { executeStepPrompt } from './stepExecution';
-import { persistTurnSummary } from '../services/MessageContextPipeline';
+import { persistTurnSummary } from '../services/context/turnSummary';
 import type { SessionStateMachine } from '@openliri/infra/state/session/SessionStateMachine';
 import type { ChatOrchestratorHost } from '../orchestrator/ChatOrchestratorHost.js';
 import { assertHostSurface, type AssertNever } from './wiringHostGuard';
@@ -166,6 +166,11 @@ export interface OrchestratorWiringHost {
     sessionId: string,
     opts?: { maxTurnsMultiplier?: number; privateInstance?: boolean }
   ): TAORLoop;
+  /**
+   * #4（2026-11-15）：轮首验证线路判定（实现**装在 wiring 层**，见 `facadeWiring.ts`；
+   * 可选 ⇒ 既有测试桩 host 未装配时行为不变）
+   */
+  applyVerifyRecipeForTurn?(sessionId: string, text: string): void;
   consumePendingResumeIntent(sessionId: string): boolean;
   executeTool(
     toolCall: ToolCall,
@@ -267,7 +272,12 @@ const ORCHESTRATOR_HOST_REQUIRED_KEYS = [
 ] as const;
 
 /** 构造期**尚未赋值 / 可选**的成员（存在性检查会误报，故单列） */
-const ORCHESTRATOR_HOST_DEFERRED_KEYS = ['llmClient', 'onTurnEnd'] as const;
+const ORCHESTRATOR_HOST_DEFERRED_KEYS = [
+  'llmClient',
+  'onTurnEnd',
+  // #4（2026-11-15）：wiring 层装配的可选端口（`facadeWiring` 赋值）
+  'applyVerifyRecipeForTurn',
+] as const;
 
 /**
  * 编译期全量覆盖检查：`OrchestratorWiringHost` 的每个成员都必须落进上面两张表之一。
@@ -396,6 +406,10 @@ export function createOrchestratorHost(
     flushPendingPersists: () => host.flushPendingPersists(),
     shouldUseTAORLoop: (sid) => host._shouldUseTAORLoop(sid),
     getOrCreateTAORLoop: (sid) => host._getOrCreateTAORLoop(sid),
+    // #4（2026-11-15，`.trae/specs/self-verify-turn-surface.md`）：轮首验证线路判定
+    //（实现由 `facadeWiring` 装在宿主上；可选调用 ⇒ 未装配时不判定、不落事件）
+    applyVerifyRecipeForTurn: (sid, text) =>
+      host.applyVerifyRecipeForTurn?.(sid, text),
     // G-T3-1（2026-10-12）：委托路径据此跳过 `taorLoop.reset()`（一次性续跑意图）。
     consumePendingResumeIntent: (sid) => host.consumePendingResumeIntent(sid),
     buildTAORContext: (sid, defs, opts) =>

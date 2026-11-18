@@ -36,6 +36,8 @@ import { drainStdin } from './drain-stdin.js';
 import { KeyboardEvent } from './events/keyboard-event.js';
 import { FocusManager } from './focus.js';
 import { emptyFrame, type Frame, type FrameEvent } from './frame.js';
+import { applyDeclaredCursor } from './cursor-park.js';
+import { applyFollowScrollToSelection } from './selection-follow.js';
 import { dispatchClick, dispatchHover } from './hit-test.js';
 import instances from './instances.js';
 import { LogUpdate } from './log-update.js';
@@ -87,9 +89,7 @@ import {
   type SelectionState,
   selectLineAt,
   selectWordAt,
-  shiftAnchor,
   shiftSelection,
-  shiftSelectionForFollow,
   startSelection,
   updateSelection,
 } from './selection.js';
@@ -101,8 +101,6 @@ import {
 } from './terminal.js';
 import {
   CURSOR_HOME,
-  cursorMove,
-  cursorPosition,
   DISABLE_KITTY_KEYBOARD,
   DISABLE_MODIFY_OTHER_KEYS,
   ENABLE_KITTY_KEYBOARD,
@@ -552,89 +550,19 @@ export default class Ink {
     });
     const rendererMs = performance.now() - renderStart;
 
-    // Sticky/auto-follow scrolled the ScrollBox this frame. Translate the
-    // selection by the same delta so the highlight stays anchored to the
-    // TEXT (native terminal behavior — the selection walks up the screen
-    // as content scrolls, eventually clipping at the top). frontFrame
-    // still holds the PREVIOUS frame's screen (swap is at ~500 below), so
-    // captureScrolledRows reads the rows that are about to scroll out
-    // before they're overwritten — the text stays copyable until the
-    // selection scrolls entirely off. During drag, focus tracks the mouse
-    // (screen-local) so only anchor shifts — selection grows toward the
-    // mouse as the anchor walks up. After release, both ends are text-
-    // anchored and move as a block.
-    const follow = consumeFollowScroll();
-    if (
-      follow &&
-      this.selection.anchor &&
-      // Only translate if the selection is ON scrollbox content. Selections
-      // in the footer/prompt/StickyPromptHeader are on static text — the
-      // scroll doesn't move what's under them. Without this guard, a
-      // footer selection would be shifted by -delta then clamped to
-      // viewportBottom, teleporting it into the scrollbox. Mirror the
-      // bounds check the deleted check() in ScrollKeybindingHandler had.
-      this.selection.anchor.row >= follow.viewportTop &&
-      this.selection.anchor.row <= follow.viewportBottom
-    ) {
-      const { delta, viewportTop, viewportBottom } = follow;
-      // captureScrolledRows and shift* are a pair: capture grabs rows about
-      // to scroll off, shift moves the selection endpoint so the same rows
-      // won't intersect again next frame. Capturing without shifting leaves
-      // the endpoint in place, so the SAME viewport rows re-intersect every
-      // frame and scrolledOffAbove grows without bound — getSelectedText
-      // then returns ever-growing text on each re-copy. Keep capture inside
-      // each shift branch so the pairing can't be broken by a new guard.
-      if (this.selection.isDragging) {
-        if (hasSelection(this.selection)) {
-          captureScrolledRows(
-            this.selection,
-            this.frontFrame.screen,
-            viewportTop,
-            viewportTop + delta - 1,
-            'above'
-          );
-        }
-        shiftAnchor(this.selection, -delta, viewportTop, viewportBottom);
-      } else if (
-        // Flag-3 guard: the anchor check above only proves ONE endpoint is
-        // on scrollbox content. A drag from row 3 (scrollbox) into the
-        // footer at row 6, then release, leaves focus outside the viewport
-        // — shiftSelectionForFollow would clamp it to viewportBottom,
-        // teleporting the highlight from static footer into the scrollbox.
-        // Symmetric check: require BOTH ends inside to translate. A
-        // straddling selection falls through to NEITHER shift NOR capture:
-        // the footer endpoint pins the selection, text scrolls away under
-        // the highlight, and getSelectedText reads the CURRENT screen
-        // contents — no accumulation. Dragging branch doesn't need this:
-        // shiftAnchor ignores focus, and the anchor DOES shift (so capture
-        // is correct there even when focus is in the footer).
-        !this.selection.focus ||
-        (this.selection.focus.row >= viewportTop &&
-          this.selection.focus.row <= viewportBottom)
-      ) {
-        if (hasSelection(this.selection)) {
-          captureScrolledRows(
-            this.selection,
-            this.frontFrame.screen,
-            viewportTop,
-            viewportTop + delta - 1,
-            'above'
-          );
-        }
-        const cleared = shiftSelectionForFollow(
-          this.selection,
-          -delta,
-          viewportTop,
-          viewportBottom
-        );
-        // Auto-clear (both ends overshot minRow) must notify React-land
-        // so useHasSelection re-renders and the footer copy/escape hint
-        // disappears. notifySelectionChange() would recurse into onRender;
-        // fire the listeners directly — they schedule a React update for
-        // LATER, they don't re-enter this frame.
-        if (cleared) for (const cb of this.selectionListeners) cb();
-      }
-    }
+    // Sticky/auto-follow scrolled the ScrollBox this frame ⇒ 选区随文本一起上移
+    // （拖拽中只移 anchor；触顶清空）。判定与边界已原样外移到
+    // `selection-follow.ts`（P3-2：onRender 复杂度 66 → ≤40）。
+    applyFollowScrollToSelection({
+      follow: consumeFollowScroll(),
+      selection: this.selection,
+      frontScreen: this.frontFrame.screen,
+      // notifySelectionChange() 会递归回 onRender ⇒ 直接触发订阅者
+      // （它们只安排后续 React 更新，不重入本帧）。
+      onCleared: () => {
+        for (const cb of this.selectionListeners) cb();
+      },
+    });
 
     // Selection overlay: invert cell styles in the screen buffer itself,
     // so the diff picks up selection as ordinary cell changes and
@@ -808,90 +736,22 @@ export default class Ink {
     // rect populated by renderNodeToOutput this frame (including scrollTop
     // translation) — if the declared node didn't render (stale declaration
     // after remount, or scrolled out of view), it won't be in the cache
-    // and no move is emitted.
-    const decl = this.cursorDeclaration;
-    const rect = decl !== null ? nodeCache.get(decl.node) : undefined;
-    const target =
-      decl !== null && rect !== undefined
-        ? {
-            x: rect.x + decl.relativeX,
-            y: rect.y + decl.relativeY,
-          }
-        : null;
-    const parked = this.displayCursor;
-
-    // Preserve the empty-diff zero-write fast path: skip all cursor writes
-    // when nothing rendered AND the park target is unchanged.
-    const targetMoved =
-      target !== null &&
-      (parked === null || parked.x !== target.x || parked.y !== target.y);
-    if (hasDiff || targetMoved || (target === null && parked !== null)) {
-      // Main-screen preamble: log-update's relative moves assume the
-      // physical cursor is at prevFrame.cursor. If last frame parked it
-      // elsewhere, move back before the diff runs. Alt-screen's CSI H
-      // already resets to (0,0) so no preamble needed.
-      if (parked !== null && !this.altScreenActive && hasDiff) {
-        const pdx = prevFrame.cursor.x - parked.x;
-        const pdy = prevFrame.cursor.y - parked.y;
-        if (pdx !== 0 || pdy !== 0) {
-          optimized.unshift({
-            type: 'stdout',
-            content: cursorMove(pdx, pdy),
-          });
-        }
-      }
-      if (target !== null) {
-        if (this.altScreenActive) {
-          // Absolute CUP (1-indexed); next frame's CSI H resets regardless.
-          // Emitted after altScreenParkPatch so the declared position wins.
-          const row = Math.min(Math.max(target.y + 1, 1), terminalRows);
-          const col = Math.min(Math.max(target.x + 1, 1), terminalWidth);
-          optimized.push({
-            type: 'stdout',
-            content: cursorPosition(row, col),
-          });
-        } else {
-          // After the diff (or preamble), cursor is at frame.cursor. If no
-          // diff AND previously parked, it's still at the old park position
-          // (log-update wrote nothing). Otherwise it's at frame.cursor.
-          const from =
-            !hasDiff && parked !== null
-              ? parked
-              : {
-                  x: frame.cursor.x,
-                  y: frame.cursor.y,
-                };
-          const dx = target.x - from.x;
-          const dy = target.y - from.y;
-          if (dx !== 0 || dy !== 0) {
-            optimized.push({
-              type: 'stdout',
-              content: cursorMove(dx, dy),
-            });
-          }
-        }
-        this.displayCursor = target;
-      } else {
-        // Declaration cleared (input blur, unmount). Restore physical cursor
-        // to frame.cursor before forgetting the park position — otherwise
-        // displayCursor=null lies about where the cursor is, and the NEXT
-        // frame's preamble (or log-update's relative moves) computes from a
-        // wrong spot. The preamble above handles hasDiff; this handles
-        // !hasDiff (e.g. accessibility mode where blur doesn't change
-        // renderedValue since invert is identity).
-        if (parked !== null && !this.altScreenActive && !hasDiff) {
-          const rdx = frame.cursor.x - parked.x;
-          const rdy = frame.cursor.y - parked.y;
-          if (rdx !== 0 || rdy !== 0) {
-            optimized.push({
-              type: 'stdout',
-              content: cursorMove(rdx, rdy),
-            });
-          }
-        }
-        this.displayCursor = null;
-      }
-    }
+    // and no move is emitted. 判定与补丁插序已原样外移到 `cursor-park.ts`。
+    this.displayCursor = applyDeclaredCursor({
+      declaration: this.cursorDeclaration,
+      rect:
+        this.cursorDeclaration !== null
+          ? nodeCache.get(this.cursorDeclaration.node)
+          : undefined,
+      parked: this.displayCursor,
+      prevCursor: prevFrame.cursor,
+      frameCursor: frame.cursor,
+      terminalRows,
+      terminalWidth,
+      altScreenActive: this.altScreenActive,
+      hasDiff,
+      patches: optimized,
+    });
     const tWrite = performance.now();
     writeDiffToTerminal(
       this.terminal,

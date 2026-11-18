@@ -111,7 +111,6 @@ export interface TaorContextDeps {
     sessionId: string,
     event: LiriEvent
   ) => Promise<{ ok: boolean }>;
-  getStreamTailSeq: (sessionId: string) => Promise<number>;
   flushPendingPersists: () => Promise<void>;
   /**
    * 读取会话元数据（2026-10-23，`/effort` 第二步）。
@@ -136,7 +135,6 @@ export function buildTAORContext(
   logger.info('chat:manager 注入 TAOR 事件通道（B-6 补发）', {
     sessionId,
     appendStreamEvent: typeof deps.appendStreamEvent,
-    getStreamTailSeq: typeof deps.getStreamTailSeq,
     flushPendingPersists: typeof deps.flushPendingPersists,
     hasOptions: !!options,
     hasToolDefinitions: toolDefinitions.length > 0,
@@ -258,7 +256,6 @@ export function buildTAORContext(
     // B-2 补发（2026-08-23）：TAOR 守卫拦截时补发 tool/canceled 事件的事件通道
     appendStreamEvent: (sid, event) =>
       deps.appendStreamEvent(sid, event as unknown as LiriEvent),
-    getStreamTailSeq: (sid) => deps.getStreamTailSeq(sid),
     flushPendingPersists: () => deps.flushPendingPersists(),
   };
 }

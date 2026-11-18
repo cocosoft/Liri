@@ -85,6 +85,7 @@ export function buildHeaders(
 
 export function formatError(status: number, body?: string): ApiError {
   let message = `HTTP ${status}`;
+  let payload: unknown;
   try {
     if (body) {
       const parsed = JSON.parse(body);
@@ -94,9 +95,13 @@ export function formatError(status: number, body?: string): ApiError {
           ? parsed.error
           : parsed.error?.message) ||
         message;
+      // 保留结构化错误体：部分写接口需按 `error.code`（如 `impact`）分支，不能靠文案判断
+      if (parsed !== null && typeof parsed === "object") payload = parsed;
     }
   } catch {
     if (body) message = body.slice(0, 200);
   }
-  return { code: status, message };
+  return payload === undefined
+    ? { code: status, message }
+    : { code: status, message, payload };
 }

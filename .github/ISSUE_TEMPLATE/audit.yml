@@ -39,7 +39,7 @@ body:
     id: paths
     attributes:
       label: Source paths / 相关源码路径
-      placeholder: "app/src/security, app/src/sandbox"
+      placeholder: "packages/infra/src/security, packages/sandbox/src/sandbox"
     validations:
       required: false
 

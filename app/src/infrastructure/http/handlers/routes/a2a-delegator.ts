@@ -18,7 +18,17 @@
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { getLogger } from '@openliri/infra/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
-import { setA2ADelegator, type A2ADelegator } from './a2a-routes';
+import {
+  setA2ADelegator,
+  setA2AUncertaintyProvider,
+  type A2ADelegator,
+} from './a2a-routes';
+// D5（2026-11-18）：不确定性产出方（默认关 ⇒ 不安装，行为不变）
+import {
+  createVerifierUncertaintyProvider,
+  isA2AUncertaintyVerifierEnabled,
+  registerA2ATaskSession,
+} from './a2a-uncertainty';
 
 const logger = getLogger('http:a2a:delegator');
 
@@ -60,12 +70,16 @@ export interface A2ADelegationCore {
 export function createCoreApiDelegator(
   core: A2ADelegationCore = getCoreAPI()
 ): A2ADelegator {
-  return async (message, agentId) => {
+  return async (message, agentId, ctx) => {
     const session = await core.createSession({
       title: agentId ? `A2A 委派 · ${agentId}` : 'A2A 委派',
       mode: 'a2a',
       metadata: { source: 'a2a' },
     });
+
+    // D5（2026-11-18）：登记 `taskId → sessionId`，供任务完成时的不确定性产出方取验证器结果。
+    // 缺省无 ctx ⇒ 不登记（行为不变）；未开启产出方开关时该索引无人读取。
+    if (ctx?.taskId) registerA2ATaskSession(ctx.taskId, session.id);
 
     // D-204：原静态 `getAgentRegistry()`（app 层）⇒ 改经 **A2A 端口**取用。
     // ⚠️ 人格查询**不经**注入的 `core`（窄端口只覆盖"对话轮"两个方法）：人格数据来自
@@ -121,4 +135,10 @@ export function createCoreApiDelegator(
  */
 export function installA2ADelegator(): void {
   setA2ADelegator(createCoreApiDelegator());
+  // D5（2026-11-18）：默认关 ⇒ 保持 `null`（永不写 `liri.*`，零行为变更）。
+  // 开 ⇒ 用「验证器每会话最新结果」作为真实产出方（无记录时仍返回 null，不发字段）。
+  if (isA2AUncertaintyVerifierEnabled()) {
+    setA2AUncertaintyProvider(createVerifierUncertaintyProvider());
+    logger.info('A2A 不确定性产出方已安装（verifier）');
+  }
 }

@@ -18,7 +18,7 @@ import {
   setExecutionEventSink,
   resolveReplayVisibleTools,
 } from '@openliri/service/execution';
-import type { LiriEvent } from '../../../src/session/types/events.js';
+import type { LiriEvent } from '@modules/session/types/events.js';
 import {
   resumeSuspendedStream,
   type BudgetResumeDeps,

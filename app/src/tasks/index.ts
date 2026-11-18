@@ -87,6 +87,150 @@ export type {
   EvolutionRunResult,
   EvolutionDeps,
 } from './evolution/AdaptationEvolutionService';
+// D10（2026-11-14）：成功轨迹 → SOP 草案（蒸馏纯函数 / 草案存储 / 轨迹来源）
+export {
+  buildSopDraft,
+  buildSopMarkdown,
+  computeSopDraftId,
+  distillSopDrafts,
+  sopTitle,
+} from './evolution/sopDistill';
+export type {
+  SopDraftContent,
+  SopTrajectory,
+  SopTrajectoryStep,
+} from './evolution/sopDistill';
+export {
+  SopDraftStore,
+  computeSopDraftStats,
+  sopSkillName,
+  SOP_DRAFT_APPROVED,
+  SOP_DRAFT_PENDING,
+  SOP_DRAFT_REJECTED,
+} from './evolution/SopDraftStore';
+export type {
+  SopDraft,
+  SopDraftStats,
+  SopDraftStatus,
+} from './evolution/SopDraftStore';
+export {
+  readCompletedPlanTrajectories,
+  SOP_MAX_TRAJECTORIES,
+  toSopTrajectory,
+} from './evolution/sopPlanSource';
+// M7（2026-11-15）：SOP 观察期度量（只读会话事件；不新增埋点、不改事件契约）
+export {
+  collectSopSkillObservations,
+  judgeSopObservation,
+  summarizeSopObservations,
+  SOP_OBSERVATION_EVENTS,
+  SOP_OBSERVATION_MIN_USES,
+  SOP_OBSERVATION_SESSIONS,
+  SOP_OBSERVATION_WINDOW_DAYS,
+} from './evolution/sopObservation';
+export type {
+  SopObservation,
+  SopObservationJudgement,
+  SopObservationVerdict,
+  SopObservationWindow,
+  SopTurnObservation,
+} from './evolution/sopObservation';
+// 红线 S1（2026-11-15）：prompt_snippet 台账与渲染（**不接线**；装配层零改动）
+export {
+  computePromptSnippetId,
+  findExpiredSnippets,
+  judgeSnippetObservation,
+  PromptSnippetStore,
+  PROMPT_SNIPPET_ACTIVE,
+  PROMPT_SNIPPET_DEFAULT_APPROVER,
+  PROMPT_SNIPPET_DRAFT,
+  PROMPT_SNIPPET_EXPIRED_NOTE,
+  PROMPT_SNIPPET_MAX_ACTIVE,
+  PROMPT_SNIPPET_MAX_CHARS,
+  PROMPT_SNIPPET_MIN_OBSERVED_TURNS,
+  PROMPT_SNIPPET_OBSERVATION_DAYS,
+  PROMPT_SNIPPET_OBSERVATION_SESSIONS,
+  PROMPT_SNIPPET_REVOKED,
+  PROMPT_SNIPPET_TOTAL_MAX_CHARS,
+  PROMPT_SNIPPET_TTL_DAYS,
+  renderPromptSnippetBlock,
+  renderPromptSnippetSection,
+  summarizeSnippetObservation,
+  validatePromptSnippet,
+} from './evolution/promptSnippet';
+export type {
+  PromptSnippet,
+  PromptSnippetContent,
+  PromptSnippetRender,
+  PromptSnippetSaveResult,
+  PromptSnippetSkipReason,
+  PromptSnippetStatus,
+  PromptSnippetValidation,
+  PromptSnippetViolation,
+  SnippetObservation,
+  SnippetObservationJudgement,
+  SnippetObservationVerdict,
+} from './evolution/promptSnippet';
+// M1（2026-11-15）：学习反馈闭环 —— 低分轮归因 + 候选台账（只读，不产生行为变更）
+// M2（2026-11-15）：结构化校验 → 批准 → 语料种子导出 / 撤销
+export {
+  attributeBadcase,
+  collectTurnToolObservations,
+} from './evolution/badcaseAttribution';
+export type {
+  AttributionInput,
+  AttributionResult,
+  AttributionToolObservation,
+  BadcaseCategory,
+  TurnQualityPayload,
+} from './evolution/badcaseAttribution';
+export {
+  computeCategoryDecisions,
+  computeLearningCandidateId,
+  computeLearningCandidateStats,
+  findExpiredApproved,
+  isStructurallyVerifiable,
+  LEARNING_APPROVAL_DAYS,
+  LEARNING_APPROVED_CASES_FILE,
+  LEARNING_CANDIDATE_APPROVED,
+  LEARNING_CANDIDATE_PENDING,
+  LEARNING_CANDIDATE_REJECTED,
+  LEARNING_CANDIDATE_VERIFIED,
+  LEARNING_EXPIRED_NOTE,
+  LEARNING_POLICY_CUTOFF_FLOOR,
+  LEARNING_POLICY_CUTOFF_STEP,
+  LEARNING_POLICY_MIN_DECIDED,
+  LEARNING_POLICY_REJECTION_SHARE,
+  LearningCandidateStore,
+  suggestCategoryCutoffs,
+} from './evolution/learningCandidates';
+export type {
+  LearningApprovedCase,
+  LearningCandidate,
+  LearningCandidateContent,
+  LearningCandidateGate,
+  LearningCandidateSaveResult,
+  LearningCandidateStats,
+  LearningCandidateStatus,
+  LearningCategoryPolicy,
+  LearningPolicySuggestion,
+} from './evolution/learningCandidates';
+export {
+  buildLearningCandidates,
+  collectRepeatTurns,
+  collectTurnUserInputs,
+  LEARNING_SCAN_MAX_CANDIDATES,
+} from './evolution/learningScan';
+export type { BuildLearningCandidatesOptions } from './evolution/learningScan';
+// 2026-11-15：编排模式决策只读统计（判据① 度量；/patterns stats 的数据源）
+export {
+  PATTERN_DECISION_GATE_MIN_SESSIONS,
+  summarizePatternDecisions,
+} from './evolution/patternDecisionStats';
+export type {
+  PatternDecisionSessionInput,
+  PatternDecisionSummary,
+} from './evolution/patternDecisionStats';
 export { scheduleTopoBatches, computeTopoSkips } from './topoBatches';
 export type {
   TopoBatchTask,
@@ -504,6 +648,64 @@ export {
   enqueueIdleContinuation,
   IDLE_CONTINUE_TASK_PREFIX,
 } from './goal/goalIdleContinuation';
+// D2+（2026-11-14）：重启后未达终态目标的**跨会话续接**（启动期登记一次唤醒）
+export {
+  isStartupGoalResumeTask,
+  enqueueStartupGoalResumes,
+  resolveStartupGoalResume,
+  STARTUP_RESUME_TASK_PREFIX,
+} from './goal/goalStartupResume';
+export type {
+  StartupResumeReport,
+  StartupResumeTarget,
+} from './goal/goalStartupResume';
+// D3（2026-11-14）：持久 DAG 的重启续跑（启动期登记一次唤醒；触发走既有 selfWake 执行器）
+export {
+  buildPlanResumeInstruction,
+  buildPlanResumeTaskId,
+  enqueueStartupPlanResumes,
+  isStartupPlanResumeTask,
+  isPlanResumable,
+  parsePlanResumeTaskId,
+  PLAN_RESUME_MAX_PLANS,
+  PLAN_RESUME_STALE_AFTER_MINUTES,
+  PLAN_STARTUP_RESUME_TASK_PREFIX,
+  planHeartbeatMs,
+  resolveStartupPlanResume,
+  selectResumablePlans,
+} from './plan/planStartupResume';
+export type {
+  PlanResumeReport,
+  PlanResumeScheduler,
+  PlanResumeSource,
+  PlanResumeTarget,
+} from './plan/planStartupResume';
+// D7（2026-11-14）：计划影响预演（零执行；历史台账 + 工具副作用声明）
+export {
+  buildPlanImpactPreview,
+  hasRecordedImpact,
+  renderPlanImpactPreview,
+} from './plan/planImpactPreview';
+export type {
+  PlanImpactOptions,
+  PlanImpactPreview,
+  PlanImpactRisk,
+  ToolSideEffectClass,
+} from './plan/planImpactPreview';
+// D7 二期（2026-11-14）：`/plan preview` 的计划选择（纯函数）
+export { selectPlanForPreview } from './plan/planPreviewSelection';
+export type { SelectPlanForPreviewResult } from './plan/planPreviewSelection';
+// D7 三期（2026-11-14）：副作用流水聚合（工具/计划维度）
+export {
+  buildSideEffectLog,
+  collectPlanSideEffects,
+  renderSideEffectLog,
+} from './plan/sideEffectLog';
+export type {
+  RecordedFileOp,
+  SideEffectLog,
+  SnapshotLike,
+} from './plan/sideEffectLog';
 export {
   settleGoalForRun,
   settleGoalForTurn,

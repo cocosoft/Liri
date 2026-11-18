@@ -8,7 +8,7 @@
 import { describe, expect, it } from 'bun:test';
 
 import { ChatRollback } from '../../src/chat/manager/rollback';
-import type { SessionGateway } from '../../src/session/SessionGateway';
+import type { SessionGateway } from '@modules/session/SessionGateway';
 import type { MessageService } from '../../src/chat/services/MessageService';
 import type { Principal } from '@openliri/kernel/identity/principal';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope';

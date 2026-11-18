@@ -21,8 +21,12 @@
 
 import { describe, expect, it, beforeEach } from "vitest";
 import type { LiriEvent } from "@/types";
+import { AWAITING_APPROVAL_NOTICE } from "@shared/types";
 import { clearToolResultCache } from "../chat-message-shared";
-import { deriveConversationBlocks } from "../deriveConversationBlocks";
+import {
+  deriveConversationBlocks,
+  IncrementalDeriver,
+} from "../deriveConversationBlocks";
 
 const SID = "sid-test";
 
@@ -518,5 +522,81 @@ describe("deriveConversationBlocks — 中断提示链路 turn/end 透传（2026
     const msgs = deriveConversationBlocks(events);
     const asst = msgs.find((m) => m.id === "asst-1");
     expect(asst?.terminationReason).toBeUndefined();
+  });
+});
+
+describe("deriveConversationBlocks — 待审批工具卡状态（2026-11-12）", () => {
+  const toolCard = (msgs: ReturnType<typeof deriveConversationBlocks>) =>
+    msgs
+      .flatMap((m) => m.blocks ?? [])
+      .find((b) => b.type === "tool_call")?.toolCall;
+
+  it("awaiting_approval 结果 ⇒ status=running（副标题不写「已…」，与 ⏳ 徽标一致）", () => {
+    const msgs = deriveConversationBlocks([
+      ev(1, "turn/start", { turn: 1 }),
+      ev(2, "assistant/tool_call", {
+        toolCallId: "tc-aw",
+        name: "file_write",
+        args: { file_path: "a.txt", content: "hi" },
+      }),
+      ev(3, "tool/result", {
+        callSeq: 0,
+        toolCallId: "tc-aw",
+        result: JSON.stringify({
+          status: "awaiting_approval",
+          pendingApproval: true,
+          inboxId: "ib-1",
+        }),
+      }),
+    ]);
+    const tc = toolCard(msgs);
+    expect(tc?.pendingApproval).toBe(true);
+    expect(tc?.status).toBe("running");
+  });
+
+  it("负向对照：终态失败结果 ⇒ status=failed 且清除 pendingApproval", () => {
+    const msgs = deriveConversationBlocks([
+      ev(1, "turn/start", { turn: 1 }),
+      ev(2, "assistant/tool_call", {
+        toolCallId: "tc-done",
+        name: "file_write",
+        args: { file_path: "a.txt", content: "hi" },
+      }),
+      ev(3, "tool/result", {
+        callSeq: 0,
+        toolCallId: "tc-done",
+        result: "⚠️ 工具执行失败: 用户拒绝执行该工具调用（file_write）",
+        isError: true,
+      }),
+    ]);
+    const tc = toolCard(msgs);
+    expect(tc?.pendingApproval).toBeUndefined();
+    expect(tc?.status).toBe("failed");
+  });
+});
+
+describe("deriveConversationBlocks — 审批等待提示剥离（2026-11-12）", () => {
+  it("增量派生：turn/end 标 awaiting_approval 后 flush 的消息已剥掉提示（不闪现）", () => {
+    const deriver = new IncrementalDeriver({ sessionId: SID });
+    // 第一帧：正文已到、turn/end 未到 ⇒ 当前消息仍 open
+    const head: LiriEvent[] = [
+      ev(1, "turn/start", { turn: 1 }),
+      ev(2, "assistant/text", {
+        content: `我要写文件。\n\n${AWAITING_APPROVAL_NOTICE}`,
+        messageId: "asst-1",
+      }),
+    ];
+    expect(deriver.derive(head)).toHaveLength(1);
+    // 第二帧：turn/end 标 awaiting_approval ⇒ flush 时应同时剥掉提示
+    const msgs = deriver.derive([
+      ...head,
+      ev(3, "turn/end", { turn: 1, terminationReason: "awaiting_approval" }),
+    ]);
+    const asst = msgs.find((m) => m.id === "asst-1");
+    expect(asst?.content).toBe("我要写文件。");
+    const textBlocks = (asst?.blocks ?? []).filter((b) => b.type === "text");
+    expect(textBlocks.every((b) => !b.content.includes("等待你的审批"))).toBe(
+      true,
+    );
   });
 });

@@ -6,7 +6,7 @@
  * **HTTP 重试退避** —— 标准真源 `app/src/utils/withRetry.ts` 的 `DEFAULT_RETRY_CONFIG`
  * （该文件自述「项目标准重试实现……所有模块应优先使用本模块的 withRetry」）。
  * 同名的**同族变体**（形状各不相同 ⇒ **未合并**，合并=改字段名=行为面）：
- * - `app/src/query/withRetry.ts`（多 `jitterFactor`，查询层专用，文件自述「已知变体（待合并）」）
+ * - `packages/query/src/query/withRetry.ts`（多 `jitterFactor`，查询层专用，文件自述「已知变体（待合并）」；P1 迁入 query 物理包）
  * - `app/src/ai/providers/BaseAIProvider.ts`（用 `baseDelayMs` 而非 `initialDelayMs`）
  * - `packages/service/src/streaming/IncrementalRetry.ts`（`IncrementalRetryConfig`，流式增量重试；P31 迁入 service 物理包）
  *
@@ -46,6 +46,8 @@ collectTs(SRC, ALL);
 collectTs(join(APP, '..', 'packages', 'infra', 'src'), ALL);
 // P31（2026-11-02）：`streaming` 迁入 service 物理包 ⇒ 其声明点同样须留在扫描面内
 collectTs(join(APP, '..', 'packages', 'service', 'src'), ALL);
+// P1（2026-11-13）：`query` 迁入 `packages/query` 物理包 ⇒ 其声明点同样须留在扫描面内
+collectTs(join(APP, '..', 'packages', 'query', 'src'), ALL);
 
 const rel = (p: string) => relative(APP, p).split('\\').join('/');
 const read = (p: string) => readFileSync(p, 'utf-8');
@@ -77,9 +79,9 @@ describe('HD-P1-2 A8 · 退避/重试默认值单一真源', () => {
     ).toEqual([
       // 顺序按 `hitFiles` 的 `.sort()`（`../…` 字典序在 `src/…` 之前）
       '../packages/infra/src/utils/withRetry.ts',
+      '../packages/query/src/query/withRetry.ts',
       '../packages/service/src/streaming/IncrementalRetry.ts',
       'src/ai/providers/BaseAIProvider.ts',
-      'src/query/withRetry.ts',
     ]);
   });
 

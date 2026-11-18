@@ -15,11 +15,11 @@ import { join } from 'path';
 
 import type { Principal } from '@openliri/kernel/identity/principal';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope';
-import { ChannelRegistry } from '../../src/channels/registry/ChannelRegistry';
+import { ChannelRegistry } from '@modules/channels/registry/ChannelRegistry';
 import {
   ChannelSecretStore,
   initRegistry,
-} from '../../src/channels/secrets/ChannelSecretStore';
+} from '@modules/channels/secrets/ChannelSecretStore';
 import { Database } from '@openliri/infra/external';
 
 const ALICE: Principal = { tenantId: 'acme', userId: 'alice', roles: ['user'] };

@@ -443,7 +443,7 @@ export class ModuleInitializer {
   private async _registerCombinedGateway(): Promise<void> {
     try {
       const { createCombinedGateway } =
-        await import('../session/gateway/index.js');
+        await import('@modules/session/gateway/index.js');
       const { getDIContainer } = await import('@openliri/kernel');
       const container = getDIContainer();
 

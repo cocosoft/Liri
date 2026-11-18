@@ -10,8 +10,11 @@ import { describe, expect, it } from 'bun:test';
 import {
   APPROVAL_BLOCK_LOOKBACK_MS,
   APPROVAL_BLOCK_MAX_RESOLVED,
+  mergeApprovalBlocks,
   refreshPresentApprovalBlocks,
+  resolveApprovalHostIndex,
   selectApprovalItemsForBlocks,
+  selectResolvedApprovalsLinkedToToolCalls,
 } from '@openliri/service/runtime/api/approvalBlockSelection';
 
 type Item = { id: string; status: string; createdAt: number };
@@ -68,6 +71,69 @@ describe('selectApprovalItemsForBlocks', () => {
     expect(
       selectApprovalItemsForBlocks({ pending: [], recent: [], anchorMs: NOW })
     ).toEqual([]);
+  });
+});
+
+describe('resolveApprovalHostIndex（2026-11-12：审批卡归位到发生的那一轮）', () => {
+  const msgs = [
+    { role: 'user', timestamp: 900 },
+    { role: 'assistant', timestamp: 1000 },
+    { role: 'user', timestamp: 4000 },
+    { role: 'assistant', timestamp: 5000 },
+  ];
+
+  it('创建时刻落在两轮之间 ⇒ 归到之前最近的那条 assistant', () => {
+    expect(resolveApprovalHostIndex(msgs, { createdAt: 3000 })).toBe(1);
+  });
+
+  it('创建时刻晚于最后一条 assistant ⇒ 归到最后一条', () => {
+    expect(resolveApprovalHostIndex(msgs, { createdAt: 9000 })).toBe(3);
+  });
+
+  it('创建时刻早于全部 assistant（时钟偏差/老会话）⇒ 回退第一条 assistant', () => {
+    expect(resolveApprovalHostIndex(msgs, { createdAt: 1 })).toBe(1);
+  });
+
+  it('无 assistant 消息 ⇒ -1（调用方回退 lastAssistant）', () => {
+    expect(
+      resolveApprovalHostIndex([{ role: 'user', timestamp: 1 }], {
+        createdAt: 2,
+      })
+    ).toBe(-1);
+  });
+
+  it('toolCallId 命中 ⇒ 精确归位（优先于时间锚点）', () => {
+    const withCalls = [
+      {
+        role: 'assistant',
+        timestamp: 1000,
+        blocks: [{ type: 'tool_call', toolCall: { id: 'call-a' } }],
+      },
+      {
+        role: 'assistant',
+        timestamp: 5000,
+        blocks: [{ type: 'tool_call', toolCallId: 'call-b' }],
+      },
+    ];
+    // 时间锚点本会选第 2 条（6000 晚于 5000），toolCallId 命中第 1 条
+    expect(
+      resolveApprovalHostIndex(withCalls, {
+        createdAt: 6000,
+        toolCallId: 'call-a',
+      })
+    ).toBe(0);
+    expect(
+      resolveApprovalHostIndex(withCalls, {
+        createdAt: 1,
+        toolCallId: 'call-b',
+      })
+    ).toBe(1);
+  });
+
+  it('toolCallId 未命中任何消息 ⇒ 回退时间锚点（不丢卡）', () => {
+    expect(
+      resolveApprovalHostIndex(msgs, { createdAt: 3000, toolCallId: 'nope' })
+    ).toBe(1);
   });
 });
 
@@ -132,5 +198,79 @@ describe('refreshPresentApprovalBlocks', () => {
     ]);
     expect(missing).toEqual(['ib-9']);
     expect(updatedMessages).toBe(0);
+  });
+});
+
+/**
+ * 2026-11-17（用户实测：审批已过期却长期显示「等待审批」，且无审批面板）。
+ *
+ * 读时合成的窗口口径（2h）会让**窗口外**的已处理卡整块消失；工具卡上的
+ * `pendingApproval` 因审批过期不写终态结果而残留 ⇒ 前端永远等一张看不见的卡。
+ * 修法：绑定 `toolCallId` 的已处理项不受窗口限制（可按 toolCallId 精确归位）。
+ */
+describe('selectResolvedApprovalsLinkedToToolCalls（窗口外也合成，2026-11-17）', () => {
+  type LinkedItem = Item & { metadata?: { toolCallId?: string } };
+  const linked = (
+    id: string,
+    status: string,
+    ageMs: number,
+    toolCallId?: string
+  ): LinkedItem => ({
+    ...item(id, status, ageMs),
+    ...(toolCallId ? { metadata: { toolCallId } } : {}),
+  });
+
+  it('窗口外的 expired / replied 且带 toolCallId ⇒ 纳入（这是残留修复的关键）', () => {
+    const selected = selectResolvedApprovalsLinkedToToolCalls({
+      recent: [
+        linked(
+          'old-expired',
+          'expired',
+          APPROVAL_BLOCK_LOOKBACK_MS + 1,
+          'tc-1'
+        ),
+        linked(
+          'old-replied',
+          'replied',
+          APPROVAL_BLOCK_LOOKBACK_MS + 2,
+          'tc-2'
+        ),
+      ],
+    });
+    expect(selected.map((i) => i.id)).toEqual(['old-replied', 'old-expired']);
+  });
+
+  it('无 toolCallId / 仍 pending / 其它状态 ⇒ 不纳入（避免历史噪声与误判）', () => {
+    const selected = selectResolvedApprovalsLinkedToToolCalls({
+      recent: [
+        linked('no-call', 'expired', 1000),
+        linked('pending', 'pending', 1000, 'tc-3'),
+        linked('processing', 'processing', 1000, 'tc-4'),
+      ],
+    });
+    expect(selected).toEqual([]);
+  });
+
+  it('数量封顶：保留最新的 N 条（防超长历史一次全部合成）', () => {
+    const recent = Array.from(
+      { length: APPROVAL_BLOCK_MAX_RESOLVED + 3 },
+      (_, i) => linked(`r${i}`, 'expired', 10_000 - i, `tc-${i}`)
+    );
+    const selected = selectResolvedApprovalsLinkedToToolCalls({ recent });
+    expect(selected).toHaveLength(APPROVAL_BLOCK_MAX_RESOLVED);
+    // 保留最新的（本组里 i 越大越新）⇒ 末位是最后一条
+    expect(selected[selected.length - 1].id).toBe(
+      `r${APPROVAL_BLOCK_MAX_RESOLVED + 2}`
+    );
+  });
+});
+
+describe('mergeApprovalBlocks（按 id 去重 + 升序）', () => {
+  it('两批合并去重，且以 `createdAt` 升序输出', () => {
+    const merged = mergeApprovalBlocks(
+      [item('b', 'pending', 2000)],
+      [item('a', 'expired', 3000), item('b', 'pending', 2000)]
+    );
+    expect(merged.map((i) => i.id)).toEqual(['a', 'b']);
   });
 });

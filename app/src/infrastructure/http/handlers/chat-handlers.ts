@@ -47,8 +47,23 @@ import type {
   ChatRequest,
   ChatStreamChunk,
 } from '@modules/runtime/api/CoreAPI';
-import { DEFAULT_MODEL_SENTINEL } from '@openliri/infra/constants';
+import {
+  DEFAULT_MODEL_SENTINEL,
+  CLIENT_DISCONNECT_GRACE_MS,
+} from '@openliri/infra/constants';
 import { isMediaOutputToolName } from '@openliri/infra/utils/toolContract/toolRoles';
+// T3（2026-11-17）：SSE 数据帧的唯一构造点（从本文件的 switch / usage 收尾块原样搬出）
+import { buildStreamChunkFrame, writeStreamTail } from './chatStreamFrames';
+// 2026-11-18（Spec `.trae/specs/stream-attach.md`）：只读 attach 的帧旁路
+import {
+  ATTACH_HEARTBEAT_MS,
+  ATTACH_SLOW_CLIENT_MAX_BUFFER,
+  beginRun,
+  hasSubscribers,
+  openAttach,
+} from './streamAttachHub';
+// 2026-11-18（Spec `.trae/specs/stream-attach-grace.md`）：断开后的「中止 / 后台继续」判定
+import { createGracefulDetach } from './streamDisconnectGrace';
 // 2026-11-11：消息级 `autonomy` 的跨字段冲突契约（与 PATCH /meta 同一判定，见 infra/permission）
 import {
   AUTONOMY_PERMISSION_CONFLICT,
@@ -72,7 +87,7 @@ import {
   OWNERSHIP_WAIT_MS,
   type ExecutionLease,
 } from '@openliri/service/execution';
-import { feature } from '@openliri/kernel';
+import { feature, LOCAL_REQUEST_BASE_URL } from '@openliri/kernel';
 
 const logger = getLogger('http:chat');
 
@@ -101,6 +116,18 @@ function safeFlush(r: http.ServerResponse): void {
     // 客户端已断开，静默忽略
   }
 }
+
+/**
+ * SSE 响应头（流式聊天 `POST /v1/chat/completions` 与只读接入 `GET .../attach` 共用）。
+ * 2026-11-18：原为 chat 流内联字面量，attach 需逐字一致 ⇒ 抽常量，避免两处漂移。
+ */
+const SSE_RESPONSE_HEADERS = {
+  'Content-Type': 'text/event-stream; charset=utf-8',
+  'Cache-Control': 'no-cache',
+  Connection: 'keep-alive',
+  'X-Accel-Buffering': 'no',
+  'Transfer-Encoding': 'chunked',
+} as const;
 
 /**
  * P1（2026-11-04）：请求体 ⇒ `ChatRequest.metadata` 的**唯一**构造点（流式 / 非流式共用）。
@@ -733,6 +760,113 @@ async function handleNormalChat(
 }
 
 /**
+ * P0-2 / P36-b（T3，2026-11-17）：客户端流式入场的**执行记账 + 归属等待**。
+ *
+ * 从 `handleStreamingChat` 的 `try` 头部**原样搬出**（零行为变更）：
+ * `CLIENT_STREAM_EXECUTION` 记账、`MESSAGE_OWNERSHIP` 归属判定、`queue` 判定的有界等待。
+ *
+ * 返回 `null` ⇒ 已按 409 `SESSION_BUSY` 回写响应，调用方直接收尾。
+ */
+async function acquireStreamExecution(
+  request: ChatCompletionRequest,
+  res: http.ServerResponse
+): Promise<{
+  executionId?: string;
+  settle: (ok: boolean, reason?: string) => void;
+} | null> {
+  const clientSessionId = request.session_id;
+  const executionManager =
+    feature('CLIENT_STREAM_EXECUTION') && clientSessionId
+      ? getExecutionManager()
+      : undefined;
+  // P36-b（2026-11-02）：入场时读"谁持有会话"（只读投影；灰度关 ⇒ 零开销/零行为）
+  const ownershipOwner =
+    feature('MESSAGE_OWNERSHIP') && clientSessionId
+      ? await getSessionOwner(clientSessionId)
+      : undefined;
+  let executionLease: ExecutionLease | undefined =
+    executionManager && clientSessionId
+      ? executionManager.acquire(
+          clientSessionId,
+          request.message_id,
+          ownershipOwner?.ticketId,
+          request.workspace_path
+        )
+      : undefined;
+  /** P36-b-4：本条消息的归属判定（无持有者信息 ⇒ undefined = 不参与行为判定） */
+  let ownershipDecision: ReturnType<typeof resolveMessageOwnership> | undefined;
+  if (ownershipOwner && executionLease && clientSessionId) {
+    // `isCurrent()` 才是权威的"是否被占"：领取失败 ⇒ 本条以 QUEUED 排队（既有语义）
+    ownershipDecision = resolveMessageOwnership({
+      occupied: !executionLease.isCurrent(),
+      ownerKind: ownershipOwner.kind,
+    });
+    emitOwnershipDecision({
+      sessionId: clientSessionId,
+      executionId: executionLease.executionId,
+      decision: ownershipDecision,
+      ownerKind: ownershipOwner.kind,
+      ...(ownershipOwner.ticketId
+        ? { ownerTicketId: ownershipOwner.ticketId }
+        : {}),
+      ...(request.message_id ? { messageId: request.message_id } : {}),
+    });
+  }
+  // P36-b-4（2026-11-02）：`queue` 判定 ⇒ **有界等待**所有权（与渠道路径同一实现）；
+  // 超时仍拿不到 ⇒ 如实拒绝（409 / `SESSION_BUSY`），**不静默并发**启动第二个执行。
+  // 灰度：仅在 `MESSAGE_OWNERSHIP` 开（决定存在）且 `CLIENT_STREAM_EXECUTION` 开（有租约）时生效。
+  if (
+    ownershipDecision?.action === 'queue' &&
+    executionManager &&
+    clientSessionId &&
+    executionLease &&
+    !executionLease.isCurrent()
+  ) {
+    const waited = await waitForOwnership(
+      () =>
+        executionManager.acquire(
+          clientSessionId,
+          request.message_id,
+          ownershipOwner?.ticketId,
+          request.workspace_path
+        ),
+      { waitMs: OWNERSHIP_WAIT_MS, pollMs: OWNERSHIP_POLL_MS },
+      executionLease
+    );
+    executionLease = waited.lease;
+    if (!waited.admitted) {
+      executionLease.release();
+      res.writeHead(409, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: {
+            message: '会话正被自主执行占用（已等待超时），请稍后重试',
+            type: 'session_busy',
+            code: 'SESSION_BUSY',
+          },
+        })
+      );
+      return null;
+    }
+  }
+  let executionSettled = false;
+  /** 结算本次执行（幂等；fencing：被顶替/已终结 ⇒ 忽略，绝不改写新执行） */
+  const settle = (ok: boolean, reason?: string): void => {
+    if (!executionManager || !executionLease || executionSettled) return;
+    executionSettled = true;
+    try {
+      if (ok) executionManager.complete(executionLease.executionId);
+      else
+        executionManager.fail(executionLease.executionId, reason ?? 'unknown');
+    } catch {
+      // @ignore-catch — fencing：执行已被顶替/已终结（STALE）⇒ 忽略
+    }
+    executionLease.release();
+  };
+  return { executionId: executionLease?.executionId, settle };
+}
+
+/**
  * 处理流式聊天完成请求
  */
 async function handleStreamingChat(
@@ -764,13 +898,7 @@ async function handleStreamingChat(
     hasImages: !!request.images?.length,
   });
 
-  res.writeHead(200, {
-    'Content-Type': 'text/event-stream; charset=utf-8',
-    'Cache-Control': 'no-cache',
-    Connection: 'keep-alive',
-    'X-Accel-Buffering': 'no',
-    'Transfer-Encoding': 'chunked',
-  });
+  res.writeHead(200, SSE_RESPONSE_HEADERS);
 
   // 禁用响应缓冲，确保 SSE 数据立即发送
   safeFlush(res);
@@ -800,20 +928,57 @@ async function handleStreamingChat(
   // 到达后回填，保证 close 时能按真实会话 ID 中止流，避免互斥锁泄漏
   let activeSessionId = request.session_id;
 
-  // S1: 客户端断开时通知后端中止工具执行 — 补全 close → AbortController 链路
-  // K4b（2026-09-06）：仅流式中才中止（正常收尾的 close 不误伤后台 PDL）
-  res.on('close', () => {
-    clearInterval(keepaliveInterval);
-    streamSpan.addEvent('sse.client.disconnected');
-    abortSessionOnClose(activeSessionId);
-  });
-
   const responseId = `chatcmpl-${randomUUID().slice(0, 8)}`;
   const created = Math.floor(Date.now() / 1000);
   const model = request.model || DEFAULT_MODEL_SENTINEL;
 
+  /**
+   * 2026-11-18（Spec `.trae/specs/stream-attach.md` §5.2）：帧旁路 tee。
+   *
+   * 无会话 id 的请求（旧协议）⇒ 不 tee，attach 对这条流返回 404。
+   */
+  const attachRun = request.session_id
+    ? beginRun(request.session_id, responseId)
+    : null;
+
+  /**
+   * 2026-11-18（Spec `.trae/specs/stream-attach-grace.md` §3）：**泵与 HTTP 响应解耦**。
+   *
+   * - 未 detached：写 `res` + flush（旁路帧始终 publish 给 attach hub）；
+   * - detached：只 publish，不碰已关闭的 res，循环**继续**推进生成器；
+   * - `graceMs=0`（默认）：永远不会进入 detached，断开即中止（既有语义）。
+   */
+  const graceMs = CLIENT_DISCONNECT_GRACE_MS;
+  const detachCtl = request.session_id
+    ? createGracefulDetach({
+        graceMs,
+        sessionId: request.session_id,
+        onDetach: () => clearInterval(keepaliveInterval),
+        onAbort: () => abortSessionOnClose(activeSessionId),
+        hasSubscribers,
+      })
+    : null;
+
+  const writeFrame = (frame: string): void => {
+    // 旁路先登记：attach 客户端的顺序只由 publish 顺序决定，与 res 是否存活无关
+    attachRun?.publish(frame);
+    if (detachCtl?.isDetached() || res.destroyed || res.writableEnded) return;
+    res.write(frame);
+    safeFlush(res);
+  };
+
+  // S1: 客户端断开时通知后端中止工具执行 — 补全 close → AbortController 链路
+  // K4b（2026-09-06）：仅流式中才中止（正常收尾的 close 不误伤后台 PDL）
+  // 2026-11-18：宽限期 > 0 时改为"进入后台"，中止由宽限定时器兜底（Spec §3.2）
+  res.on('close', () => {
+    clearInterval(keepaliveInterval);
+    streamSpan.addEvent('sse.client.disconnected');
+    if (detachCtl?.tryDetach('close')) return;
+    abortSessionOnClose(activeSessionId);
+  });
+
   // 发送 role 和状态事件
-  res.write(
+  writeFrame(
     `data: ${JSON.stringify({
       id: responseId,
       object: 'chat.completion.chunk',
@@ -824,9 +989,8 @@ async function handleStreamingChat(
       ],
     })}\n\n`
   );
-  safeFlush(res);
 
-  res.write(
+  writeFrame(
     `data: ${JSON.stringify({
       id: responseId,
       object: 'chat.completion.chunk',
@@ -843,7 +1007,6 @@ async function handleStreamingChat(
       ],
     })}\n\n`
   );
-  safeFlush(res);
 
   /** 生图完成事件 → SSE 转发（含结构化 resultData 用于前端渲染） */
   const onToolCompleted = (evt: { type: string; data: unknown }) => {
@@ -863,7 +1026,7 @@ async function handleStreamingChat(
     ) {
       // P1-2: 检查客户端是否断开，避免 EPIPE
       if (res.destroyed || res.writableEnded) return;
-      res.write(
+      writeFrame(
         `data: ${JSON.stringify({
           id: responseId,
           object: 'chat.completion.chunk',
@@ -883,7 +1046,6 @@ async function handleStreamingChat(
           ],
         })}\n\n`
       );
-      safeFlush(res);
     }
   };
 
@@ -907,100 +1069,12 @@ async function handleStreamingChat(
   let settleExecution: (ok: boolean, reason?: string) => void = () => {};
   try {
     const coreAPI = getCoreAPI();
-    const clientSessionId = request.session_id;
-    const executionManager =
-      feature('CLIENT_STREAM_EXECUTION') && clientSessionId
-        ? getExecutionManager()
-        : undefined;
-    // P36-b（2026-11-02）：入场时读"谁持有会话"（只读投影；灰度关 ⇒ 零开销/零行为）
-    const ownershipOwner =
-      feature('MESSAGE_OWNERSHIP') && clientSessionId
-        ? await getSessionOwner(clientSessionId)
-        : undefined;
-    let executionLease: ExecutionLease | undefined =
-      executionManager && clientSessionId
-        ? executionManager.acquire(
-            clientSessionId,
-            request.message_id,
-            ownershipOwner?.ticketId,
-            request.workspace_path
-          )
-        : undefined;
-    /** P36-b-4：本条消息的归属判定（无持有者信息 ⇒ undefined = 不参与行为判定） */
-    let ownershipDecision:
-      | ReturnType<typeof resolveMessageOwnership>
-      | undefined;
-    if (ownershipOwner && executionLease && clientSessionId) {
-      // `isCurrent()` 才是权威的"是否被占"：领取失败 ⇒ 本条以 QUEUED 排队（既有语义）
-      ownershipDecision = resolveMessageOwnership({
-        occupied: !executionLease.isCurrent(),
-        ownerKind: ownershipOwner.kind,
-      });
-      emitOwnershipDecision({
-        sessionId: clientSessionId,
-        executionId: executionLease.executionId,
-        decision: ownershipDecision,
-        ownerKind: ownershipOwner.kind,
-        ...(ownershipOwner.ticketId
-          ? { ownerTicketId: ownershipOwner.ticketId }
-          : {}),
-        ...(request.message_id ? { messageId: request.message_id } : {}),
-      });
-    }
-    // P36-b-4（2026-11-02）：`queue` 判定 ⇒ **有界等待**所有权（与渠道路径同一实现）；
-    // 超时仍拿不到 ⇒ 如实拒绝（409 / `SESSION_BUSY`），**不静默并发**启动第二个执行。
-    // 灰度：仅在 `MESSAGE_OWNERSHIP` 开（决定存在）且 `CLIENT_STREAM_EXECUTION` 开（有租约）时生效。
-    if (
-      ownershipDecision?.action === 'queue' &&
-      executionManager &&
-      clientSessionId &&
-      executionLease &&
-      !executionLease.isCurrent()
-    ) {
-      const waited = await waitForOwnership(
-        () =>
-          executionManager.acquire(
-            clientSessionId,
-            request.message_id,
-            ownershipOwner?.ticketId,
-            request.workspace_path
-          ),
-        { waitMs: OWNERSHIP_WAIT_MS, pollMs: OWNERSHIP_POLL_MS },
-        executionLease
-      );
-      executionLease = waited.lease;
-      if (!waited.admitted) {
-        executionLease.release();
-        res.writeHead(409, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({
-            error: {
-              message: '会话正被自主执行占用（已等待超时），请稍后重试',
-              type: 'session_busy',
-              code: 'SESSION_BUSY',
-            },
-          })
-        );
-        return;
-      }
-    }
-    let executionSettled = false;
-    /** 结算本次执行（幂等；fencing：被顶替/已终结 ⇒ 忽略，绝不改写新执行） */
-    settleExecution = (ok: boolean, reason?: string): void => {
-      if (!executionManager || !executionLease || executionSettled) return;
-      executionSettled = true;
-      try {
-        if (ok) executionManager.complete(executionLease.executionId);
-        else
-          executionManager.fail(
-            executionLease.executionId,
-            reason ?? 'unknown'
-          );
-      } catch {
-        // @ignore-catch — fencing：执行已被顶替/已终结（STALE）⇒ 忽略
-      }
-      executionLease.release();
-    };
+    // T3（2026-11-17）：入场执行记账 + 归属等待**原样搬运**到 `acquireStreamExecution`
+    // （`null` ⇒ 已回写 409 SESSION_BUSY，直接收尾）。
+    const acquired = await acquireStreamExecution(request, res);
+    if (!acquired) return;
+    settleExecution = acquired.settle;
+    const executionId = acquired.executionId;
     const chatRequest: ChatRequest = {
       content: userMessage.content,
       stream: true,
@@ -1008,7 +1082,7 @@ async function handleStreamingChat(
       messageId: request.message_id,
       assistantMessageId: request.assistant_message_id,
       // P0-2：执行标识外显（与渠道路径同一条记账链路；未开启灰度 ⇒ undefined = 零行为变更）
-      executionId: executionLease?.executionId,
+      executionId,
       metadata: buildRequestMetadata(request),
       images: request.images,
       model: request.model,
@@ -1021,7 +1095,7 @@ async function handleStreamingChat(
       /** 上下文水位监测 → SSE context_state 事件桥接 */
       onProgress: (event) => {
         if (event.watermarkState) {
-          res.write(
+          writeFrame(
             `data: ${JSON.stringify({
               id: responseId,
               object: 'chat.completion.chunk',
@@ -1038,7 +1112,6 @@ async function handleStreamingChat(
               watermarkState: event.watermarkState,
             })}\n\n`
           );
-          safeFlush(res);
         }
       },
     };
@@ -1069,269 +1142,55 @@ async function handleStreamingChat(
 
     while (!result.done) {
       // P1-2: 客户端断开时立即停止流式输出，避免后续 res.write() 抛出 EPIPE
+      // 2026-11-18：宽限期 > 0 ⇒ 转入后台继续泵（帧只进 attach hub），不中止本轮
       if (res.destroyed || res.writableEnded) {
-        logger.info('SSE 客户端已断开，停止流式输出', {
-          sessionId: request.session_id,
-        });
-        // P2-10 修复：客户端断开时必须关闭 async generator + 中止底层 LLM 流，
-        // 否则 streamMessage 的会话互斥锁（SimpleMutex）永不释放，
-        // 后续同一会话请求会 SimpleMutex: acquire timeout after 30000ms。
-        try {
-          coreAPI.chatManager?.abortSessionStream(activeSessionId ?? '');
-        } catch {
-          // @ignore-catch — 中止操作本身不应抛出；即使失败也继续关闭生成器
+        if (detachCtl?.tryDetach('loop')) {
+          // 已 detach：继续推进生成器（不写 res、不 abort）
+        } else {
+          logger.info('SSE 客户端已断开，停止流式输出', {
+            sessionId: request.session_id,
+          });
+          // P2-10 修复：客户端断开时必须关闭 async generator + 中止底层 LLM 流，
+          // 否则 streamMessage 的会话互斥锁（SimpleMutex）永不释放，
+          // 后续同一会话请求会 SimpleMutex: acquire timeout after 30000ms。
+          try {
+            coreAPI.chatManager?.abortSessionStream(activeSessionId ?? '');
+          } catch {
+            // @ignore-catch — 中止操作本身不应抛出；即使失败也继续关闭生成器
+          }
+          await Promise.race([
+            generator.return(undefined as never),
+            new Promise<void>((r) => setTimeout(r, 5000)),
+          ]);
+          break;
         }
-        await Promise.race([
-          generator.return(undefined as never),
-          new Promise<void>((r) => setTimeout(r, 5000)),
-        ]);
-        break;
       }
       const chunk = result.value as ChatStreamChunk;
       // AB-25：用流内真实会话 ID 回填（chunk.sessionId 恒为 ChatManager 会话 ID）
       if (chunk.sessionId) activeSessionId = chunk.sessionId;
 
-      switch (chunk.type) {
-        case 'text':
-          if (chunk.content) {
-            res.write(
-              `data: ${JSON.stringify({
-                id: responseId,
-                object: 'chat.completion.chunk',
-                created,
-                model,
-                ...(chunk.messageId
-                  ? { __pyapp_message_id: chunk.messageId }
-                  : {}),
-                choices: [
-                  {
-                    index: 0,
-                    delta: { content: chunk.content },
-                    finish_reason: null,
-                  },
-                ],
-              })}\n\n`
-            );
-            safeFlush(res);
-          }
-          break;
-        case 'thinking':
-        case 'status':
-          if (chunk.content) {
-            res.write(
-              `data: ${JSON.stringify({
-                id: responseId,
-                object: 'chat.completion.chunk',
-                created,
-                model,
-                __pyapp_type: chunk.type,
-                ...(chunk.statusType
-                  ? { __pyapp_status_type: chunk.statusType }
-                  : {}),
-                ...(chunk.phase ? { __pyapp_phase: chunk.phase } : {}),
-                ...(chunk.toolCallId
-                  ? { __pyapp_tool_call_id: chunk.toolCallId }
-                  : {}),
-                ...(chunk.messageId
-                  ? { __pyapp_message_id: chunk.messageId }
-                  : {}),
-                choices: [
-                  {
-                    index: 0,
-                    delta: { content: chunk.content },
-                    finish_reason: null,
-                  },
-                ],
-              })}\n\n`
-            );
-            safeFlush(res);
-          }
-          break;
-        case 'error':
-          if (chunk.content) {
-            res.write(
-              `data: ${JSON.stringify({
-                id: responseId,
-                object: 'chat.completion.chunk',
-                created,
-                model,
-                __pyapp_type: 'error',
-                __pyapp_error_code: chunk.errorCode || 'UNKNOWN',
-                choices: [
-                  {
-                    index: 0,
-                    delta: { content: chunk.content },
-                    finish_reason: 'error',
-                  },
-                ],
-              })}\n\n`
-            );
-            safeFlush(res);
-          }
-          break;
-        case 'tool_call':
-          if (chunk.toolCall) {
-            const sseData: Record<string, unknown> = {
-              id: responseId,
-              object: 'chat.completion.chunk',
-              created,
-              model,
-              __pyapp_type: 'tool_call',
-              __pyapp_tool_status:
-                chunk.toolCall.status || TOOL_CALL_INITIAL_STATUS,
-              choices: [
-                {
-                  index: 0,
-                  delta: {
-                    content: '',
-                    tool_calls: [
-                      {
-                        id: chunk.toolCall.id,
-                        type: 'function',
-                        function: {
-                          name: chunk.toolCall.name,
-                          arguments: JSON.stringify(chunk.toolCall.arguments),
-                        },
-                      },
-                    ],
-                  },
-                  finish_reason: null,
-                },
-              ],
-            };
-            // 转发 _meta（如 create_project 的导航建议）
-            if (chunk._meta) {
-              sseData.__pyapp_meta = chunk._meta;
-            }
-            res.write(`data: ${JSON.stringify(sseData)}\n\n`);
-            safeFlush(res);
-          }
-          break;
-        case 'question':
-          if (chunk.questionData) {
-            logger.info('[SSE] Writing question chunk', {
-              questionId: chunk.questionData.questionId,
-              question: chunk.questionData.question?.slice(0, 40),
-              options: chunk.questionData.options?.length,
-            });
-            res.write(
-              `data: ${JSON.stringify({
-                id: responseId,
-                object: 'chat.completion.chunk',
-                created,
-                model,
-                __pyapp_type: 'question',
-                __pyapp_question: chunk.questionData,
-                choices: [
-                  { index: 0, delta: { content: '' }, finish_reason: null },
-                ],
-              })}\n\n`
-            );
-            safeFlush(res);
-          }
-          break;
-        case 'todo':
-          if (chunk.todoData) {
-            res.write(
-              `data: ${JSON.stringify({
-                id: responseId,
-                object: 'chat.completion.chunk',
-                created,
-                model,
-                __pyapp_type: 'todo',
-                __pyapp_todo: chunk.todoData,
-                choices: [
-                  { index: 0, delta: { content: '' }, finish_reason: null },
-                ],
-              })}\n\n`
-            );
-            safeFlush(res);
-          }
-          break;
-        case 'deliverable':
-          // V-22（2026-09-14）：此前该 chunk 在 SSE 写出侧**既无 case 也无 default**
-          // ⇒ 交付物被静默丢弃，前端「进入工作模式」入口因此永不可达
-          //（消费侧 EventBasedStreamAggregator / deriveConversationBlocks 早已就绪，
-          //  缺的只是这一跳的线格式：__pyapp_type + __pyapp_deliverable）
-          if (chunk.deliverableData) {
-            res.write(
-              `data: ${JSON.stringify({
-                id: responseId,
-                object: 'chat.completion.chunk',
-                created,
-                model,
-                __pyapp_type: 'deliverable',
-                __pyapp_deliverable: chunk.deliverableData,
-                choices: [
-                  {
-                    index: 0,
-                    delta: { content: chunk.content || '' },
-                    finish_reason: null,
-                  },
-                ],
-              })}\n\n`
-            );
-            safeFlush(res);
-          }
-          break;
-        case 'done':
-          // 从 done chunk 捕获实际的 finishReason，替换后续硬编码
-          if (chunk.finishReason) {
-            chunkFinishReason = chunk.finishReason;
-          }
-          if (chunk.terminationReason) {
-            chunkTerminationReason = chunk.terminationReason;
-          }
-          if (chunk.usage) {
-            streamUsage = chunk.usage;
-          }
-          break;
-        case 'execution_phase':
-          // AB-9 修复：ToolLoopRunner 心跳 execution_phase 此前无 SSE 分支被 switch 吞掉，
-          // 工具执行进度到不了前端。此处按结构化数据转发（__pyapp_execution_phase）。
-          if (chunk.executionPhase) {
-            res.write(
-              `data: ${JSON.stringify({
-                id: responseId,
-                object: 'chat.completion.chunk',
-                created,
-                model,
-                __pyapp_type: 'execution_phase',
-                __pyapp_execution_phase: chunk.executionPhase,
-                choices: [
-                  {
-                    index: 0,
-                    delta: { content: chunk.content || '' },
-                    finish_reason: null,
-                  },
-                ],
-              })}\n\n`
-            );
-            safeFlush(res);
-          }
-          break;
-        case 'doc_workflow':
-          if (chunk.docWorkflowData) {
-            res.write(
-              `data: ${JSON.stringify({
-                id: responseId,
-                object: 'chat.completion.chunk',
-                created,
-                model,
-                __pyapp_type: 'doc_workflow',
-                __pyapp_doc_workflow: chunk.docWorkflowData,
-                choices: [
-                  {
-                    index: 0,
-                    delta: { content: chunk.content || '' },
-                    finish_reason: null,
-                  },
-                ],
-              })}\n\n`
-            );
-            safeFlush(res);
-          }
-          break;
+      if (chunk.type === 'done') {
+        // 从 done chunk 捕获实际的 finishReason，替换后续硬编码
+        if (chunk.finishReason) {
+          chunkFinishReason = chunk.finishReason;
+        }
+        if (chunk.terminationReason) {
+          chunkTerminationReason = chunk.terminationReason;
+        }
+        if (chunk.usage) {
+          streamUsage = chunk.usage;
+        }
+      } else {
+        // T3（2026-11-17）：帧构造**原样搬运**到 `chatStreamFrames.buildStreamChunkFrame`
+        // （唯一实现；线格式逐字不变）。
+        const frame = buildStreamChunkFrame(chunk, {
+          id: responseId,
+          created,
+          model,
+        });
+        if (frame) {
+          writeFrame(frame);
+        }
       }
 
       result = await generator.next();
@@ -1339,7 +1198,9 @@ async function handleStreamingChat(
 
     // 发送 usage 和 done（使用捕获的 finishReason 而非硬编码 'stop'）
     const finalFinishReason = chunkFinishReason || 'stop';
-    if (res.destroyed || res.writableEnded) {
+    // 2026-11-18：detached（宽限期内后台推进）不算"客户端断开"——尾部帧仍要进 attach hub，
+    // 落盘与执行结算按正常收尾处理。
+    if (!detachCtl?.isDetached() && (res.destroyed || res.writableEnded)) {
       getEventNotificationService().off('tool:completed', onToolCompleted);
       getEventNotificationService().off(
         'project:auto_created',
@@ -1350,53 +1211,18 @@ async function handleStreamingChat(
       settleExecution(false, 'client_disconnected');
       return;
     }
-    if (streamUsage) {
-      const usageData: Record<string, unknown> = {
-        id: responseId,
-        object: 'chat.completion.chunk',
-        created,
-        model,
-        __pyapp_type: 'usage',
-        usage: {
-          prompt_tokens: streamUsage.inputTokens,
-          completion_tokens: streamUsage.outputTokens,
-          total_tokens: streamUsage.totalTokens,
-          estimated_cost_usd: streamUsage.estimatedCostUsd,
-          cache_read_input_tokens: streamUsage.cacheReadInputTokens,
-          cache_creation_input_tokens: streamUsage.cacheCreationInputTokens,
-        },
-        choices: [{ index: 0, delta: {}, finish_reason: finalFinishReason }],
-      };
-      if (autoCreatedProjectMeta) {
-        usageData.__pyapp_meta = autoCreatedProjectMeta;
-      }
-      // 2026-11-03 P1：终止判定（与 `turn/end.terminationReason` 同源）——
-      // 前端据此在当轮消息内显示「为什么停下」，不再只存在于事件日志。
-      if (chunkTerminationReason) {
-        usageData.__pyapp_termination_reason = chunkTerminationReason;
-      }
-      res.write(`data: ${JSON.stringify(usageData)}\n\n`);
-      safeFlush(res);
-    } else {
-      const doneData: Record<string, unknown> = {
-        id: responseId,
-        object: 'chat.completion.chunk',
-        created,
-        model,
-        choices: [{ index: 0, delta: {}, finish_reason: finalFinishReason }],
-      };
-      if (autoCreatedProjectMeta) {
-        doneData.__pyapp_meta = autoCreatedProjectMeta;
-      }
-      if (chunkTerminationReason) {
-        doneData.__pyapp_termination_reason = chunkTerminationReason;
-      }
-      res.write(`data: ${JSON.stringify(doneData)}\n\n`);
-      safeFlush(res);
-    }
+    // T3（2026-11-17）：usage / done 帧写出**原样搬运**到 `writeStreamTail`
+    // （字段与判定顺序逐字不变）。
+    writeStreamTail({
+      write: writeFrame,
+      meta: { id: responseId, created, model },
+      finishReason: finalFinishReason,
+      usage: streamUsage,
+      autoCreatedProjectMeta,
+      terminationReason: chunkTerminationReason,
+    });
 
-    res.write('data: [DONE]\n\n');
-    safeFlush(res);
+    writeFrame('data: [DONE]\n\n');
     getEventNotificationService().off('tool:completed', onToolCompleted);
     getEventNotificationService().off(
       'project:auto_created',
@@ -1414,7 +1240,8 @@ async function handleStreamingChat(
     otel.endSpan(streamSpan, SpanStatusCode.OK);
     // P0-2：正常完成 ⇒ 结算执行（COMPLETED）；未开启灰度 ⇒ no-op
     settleExecution(true);
-    res.end();
+    if (!detachCtl?.isDetached() && !res.destroyed && !res.writableEnded)
+      res.end();
   } catch (err) {
     // P0-2：异常 ⇒ 结算执行（FAILED）；未开启灰度 ⇒ no-op
     settleExecution(false, err instanceof Error ? err.message : 'unknown');
@@ -1432,9 +1259,10 @@ async function handleStreamingChat(
       module: 'infra:http',
       action: 'chat_stream_request',
     });
-    // P1-2: 若客户端已断开，不尝试写入
-    if (res.destroyed || res.writableEnded) return;
-    res.write(
+    // P1-2: 若客户端已断开，不尝试写入（detached 例外：错误帧仍要进 attach hub）
+    if (!detachCtl?.isDetached() && (res.destroyed || res.writableEnded))
+      return;
+    writeFrame(
       `data: ${JSON.stringify({
         id: responseId,
         object: 'chat.completion.chunk',
@@ -1456,10 +1284,13 @@ async function handleStreamingChat(
         ],
       })}\n\n`
     );
-    safeFlush(res);
-    res.write('data: [DONE]\n\n');
-    safeFlush(res);
-    res.end();
+    writeFrame('data: [DONE]\n\n');
+    if (!detachCtl?.isDetached() && !res.destroyed && !res.writableEnded)
+      res.end();
+  } finally {
+    // 2026-11-18（attach）：宽限定时器与 run 收口——三条出口（正常 / 断开 / 异常）统一
+    detachCtl?.finish();
+    attachRun?.end();
   }
 }
 
@@ -1500,6 +1331,109 @@ export async function handleSessionStreamingStatus(
     res.writeHead(500, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Internal server error' }));
   }
+}
+
+/**
+ * GET /v1/sessions/:id/attach?from_seq=N[&run_id=…] — 只读接入正在输出的这一轮
+ *
+ * Spec：`.trae/specs/stream-attach.md` §4（契约）/ §5.3（实现点）。
+ *
+ * 与主链路的唯一区别：attach **只写自己的 res**，绝不调用 `abortSessionStream` ——
+ * 订阅端断开只是少了一个观察者，不得中止本轮（验收项 4）。
+ */
+export async function handleAttachStream(
+  _ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  sessionId: string
+): Promise<void> {
+  const query = new URL(req.url || '/', LOCAL_REQUEST_BASE_URL);
+  const rawFromSeq = query.searchParams.get('from_seq');
+  const fromSeq =
+    rawFromSeq === null || rawFromSeq.trim() === '' ? 0 : Number(rawFromSeq);
+  if (!Number.isInteger(fromSeq) || fromSeq < 0) {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        error: {
+          type: 'invalid_request_error',
+          code: 'invalid_from_seq',
+          message: 'from_seq 必须是非负整数',
+        },
+      })
+    );
+    return;
+  }
+
+  const opened = openAttach(
+    sessionId,
+    fromSeq,
+    query.searchParams.get('run_id') ?? undefined
+  );
+  if (!opened.ok) {
+    res.writeHead(opened.status, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(opened.body));
+    return;
+  }
+
+  res.writeHead(200, SSE_RESPONSE_HEADERS);
+  if (res.socket) res.socket.setNoDelay(true);
+
+  let heartbeat: ReturnType<typeof setInterval> | undefined;
+  let unsubscribe: (() => void) | undefined;
+  const writeRaw = (chunk: string): void => {
+    if (res.destroyed || res.writableEnded) return;
+    res.write(chunk);
+    safeFlush(res);
+  };
+  const finish = (): void => {
+    if (heartbeat) clearInterval(heartbeat);
+    if (!res.writableEnded) res.end();
+  };
+  res.on('close', () => {
+    unsubscribe?.();
+    if (heartbeat) clearInterval(heartbeat);
+  });
+
+  const { snapshot } = opened;
+  writeRaw(snapshot.metaFrame);
+  snapshot.replay.forEach((frame, i) => {
+    writeRaw(`id: ${snapshot.fromSeq + i}\n${frame}`);
+  });
+
+  // 本轮已结束（保留期内）：回放已含尾部帧，回放完即关闭；无 `[DONE]` 表示本轮非正常收尾，
+  // 客户端沿用既有判定（缺 `[DONE]` ⇒ 异常结束），这里不伪造终止帧。
+  if (snapshot.ended) {
+    finish();
+    return;
+  }
+
+  unsubscribe = opened.addSink({
+    write(seq, frame) {
+      if (res.destroyed || res.writableEnded) return false;
+      // 慢订阅端（积压超限）⇒ 断开该订阅，由客户端凭最后 id 重连；绝不拖慢主链路
+      if (res.writableLength > ATTACH_SLOW_CLIENT_MAX_BUFFER) return false;
+      res.write(`id: ${seq}\n${frame}`);
+      safeFlush(res);
+      return true;
+    },
+    close() {
+      finish();
+    },
+  });
+
+  heartbeat = setInterval(
+    () => writeRaw(': heartbeat\n\n'),
+    ATTACH_HEARTBEAT_MS
+  );
+  (heartbeat as unknown as { unref?: () => void }).unref?.();
+  logger.debug('attach 已接入', {
+    sessionId,
+    runId: snapshot.runId,
+    fromSeq,
+    nextSeq: snapshot.nextSeq,
+    replayCount: snapshot.replay.length,
+  });
 }
 
 /**
@@ -1690,16 +1624,33 @@ export async function handleResumeChat(
   if (await respond404IfSessionUnavailable(sessionId, res)) return;
 
   // SSE 头（与 handleStreamingChat 一致）
-  res.writeHead(200, {
-    'Content-Type': 'text/event-stream; charset=utf-8',
-    'Cache-Control': 'no-cache',
-    Connection: 'keep-alive',
-    'X-Accel-Buffering': 'no',
-    'Transfer-Encoding': 'chunked',
+  res.writeHead(200, SSE_RESPONSE_HEADERS);
+
+  // 2026-11-18（Spec `.trae/specs/stream-attach.md` §12 限制 1 的收口）：
+  // 续跑流同样接入只读 attach —— 否则「断线 → 续跑」产生的这一轮对 attach 恒 404。
+  // runId 用独立前缀，避免与 `/v1/chat/completions` 的 `chatcmpl-*` 混淆。
+  const attachRun = beginRun(sessionId, `resume-${randomUUID().slice(0, 8)}`);
+
+  // 2026-11-18（Spec `.trae/specs/stream-attach-grace.md` §11.2 的 P2）：续跑流同样支持
+  // "断开后在宽限期内后台继续"——与主链路共用同一个控制器（判定口径不得分叉）。
+  const detachCtl = createGracefulDetach({
+    graceMs: CLIENT_DISCONNECT_GRACE_MS,
+    sessionId,
+    onAbort: () => abortSessionOnClose(sessionId),
+    hasSubscribers,
   });
 
+  const writeFrame = (frame: string): void => {
+    attachRun.publish(frame);
+    if (detachCtl.isDetached() || res.destroyed || res.writableEnded) return;
+    res.write(frame);
+    safeFlush(res);
+  };
+
   // K4b（2026-09-06）：仅流式中才中止（正常收尾的 close 不误伤后台 PDL）
+  // 2026-11-18：宽限期 > 0 时改为"进入后台"，中止由宽限定时器兜底
   res.on('close', () => {
+    if (detachCtl.tryDetach('close')) return;
     abortSessionOnClose(sessionId);
   });
 
@@ -1712,33 +1663,36 @@ export async function handleResumeChat(
 
     let result = await generator.next();
     while (!result.done) {
-      if (res.destroyed || res.writableEnded) break;
+      if (res.destroyed || res.writableEnded) {
+        // 宽限期内转入后台继续泵；grace=0 时保持既有"断开即停"
+        if (!detachCtl.tryDetach('loop')) break;
+      }
 
       // P1 修复：统一 OpenAI 兼容包装（此前对象 chunk 平铺发送，前端解析丢失内容）
       const data = serializeResumeChunk(
         result.value as string | ChatStreamChunk
       );
       if (data !== null) {
-        res.write(`data: ${data}\n\n`);
-        safeFlush(res);
+        writeFrame(`data: ${data}\n\n`);
       }
       result = await generator.next();
     }
 
-    if (!res.destroyed && !res.writableEnded) {
-      res.write('data: [DONE]\n\n');
-      safeFlush(res);
+    if (detachCtl.isDetached() || (!res.destroyed && !res.writableEnded)) {
+      writeFrame('data: [DONE]\n\n');
     }
   } catch (err) {
     await handleError(err, { module: 'infra:http', action: 'resume_chat' });
-    if (!res.destroyed && !res.writableEnded) {
-      res.write(
+    if (detachCtl.isDetached() || (!res.destroyed && !res.writableEnded)) {
+      writeFrame(
         `data: ${JSON.stringify({ __pyapp_type: 'error', content: '恢复失败' })}\n\n`
       );
-      safeFlush(res);
     }
   } finally {
-    if (!res.destroyed && !res.writableEnded) {
+    // 三条出口（正常 / 异常 / 客户端断开）统一收口本轮
+    detachCtl.finish();
+    attachRun.end();
+    if (!detachCtl.isDetached() && !res.destroyed && !res.writableEnded) {
       res.end();
     }
   }

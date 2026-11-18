@@ -14,7 +14,7 @@
  */
 import { describe, expect, it } from 'bun:test';
 
-import { instantiatePattern } from '../../src/query/patternAssembler.js';
+import { instantiatePattern } from '@modules/query/patternAssembler.js';
 
 /** 最小选择对象（`instantiatePattern` 只读 `descriptor.assembly.assembler`） */
 const selectionFor = (assembler: string): never =>

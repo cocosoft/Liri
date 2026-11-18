@@ -9,8 +9,8 @@ import {
   buildRoundSignature,
   fileToolSignatureArgs,
   isRepeatedLoop,
-} from '../../src/query/loopGuard';
-import type { ActResult } from '../../src/query/ReActLoop';
+} from '@modules/query/loopGuard';
+import type { ActResult } from '@modules/query/ReActLoop';
 
 function actResult(names: string[]): ActResult {
   return {

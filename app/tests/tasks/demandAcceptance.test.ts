@@ -37,7 +37,7 @@ import {
   getSessionPermissionMode,
   type SessionLookup,
 } from '../../src/chat/manager/sessionAccessors';
-import type { ChatSession } from '../../src/session/types/session';
+import type { ChatSession } from '@modules/session/types/session';
 import { taskOrchestrator } from '../../src/tasks/TaskOrchestrator';
 import type { AuditReport } from '../../src/tasks/AuditReport';
 import {

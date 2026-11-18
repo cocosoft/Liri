@@ -103,6 +103,15 @@ export const FEATURE_FLAGS = {
   LOOP_TIME: true,
   /** 模型路由自动选择 */
   LOOP_MODEL_ROUTING: true,
+  /**
+   * G2（2026-11-13）：**循环归因 → 自适应路由**开关（默认关，**当前未接线**）。
+   *
+   * 开 ⇒ `io_loop` / `no_tool_call` 终止后，组合根可用 `decideLoopFallback()`
+   * （`packages/query/src/query/taor/modelFallback.ts`，纯函数）决定是否注入一次反思提示；
+   * 关（默认）⇒ 判定恒为 `none`，行为与接线前逐字一致。依据
+   * `dev_docs/20261112/T2-T3-20261112.md` §T2.4；灰度 `FEATURE_MODEL_FALLBACK_ON_LOOP=true`。
+   */
+  MODEL_FALLBACK_ON_LOOP: false,
   /** Proactive Loop (Webhook) */
   LOOP_PROACTIVE: false,
   /**
@@ -198,19 +207,16 @@ export const FEATURE_FLAGS = {
   /** 工具搜索 */
   TOOL_SEARCH: true,
   /**
-   * 工具披露面**严格预算**（#26 之后的「工具与命令治理方案」P0-1，2026-10-30；**默认关**）。
+   * 工具披露面**严格预算**（P0-1，2026-10-30；**2026-11-16 起默认开**）。
    *
-   * 背景（实测）：AC-16 的披露预算门禁只覆盖 `default`/`chat`（12 个工具 / 1.4k token）；
-   * `coding` / `agent` 任务面**没有门禁**，真机单轮下发 **68 个工具 / 105.2 KB schema**
-   * （≈30k–42k token），而 29 个会话 32 127 次调用只用到 27 个工具、前 5 个占 94%。
-   *
-   * 开 ⇒ `filterToolsByTask` 对 `coding` / `agent` 追加**优先级截断**（预算见
-   * `tools/toolCategories.ts` 的 `STRICT_DISCLOSURE_BUDGETS`）：恒集（`todo_write` / `agent`）
-   * 永远保留，其余按 `STRICT_DISCLOSURE_PRIORITY` 顺序取到预算为止；未列入者**仍注册可调用**，
-   * 模型可经 `tool_search` 检索到（与 AC-16 的"披露面收窄 ≠ 删除"同口径）。
-   * 关（默认）⇒ 与改造前逐字一致（零行为变更）。运维/灰度覆盖：`FEATURE_TOOL_DISCLOSURE_STRICT=true`。
+   * 开 ⇒ `filterToolsByTask` 对 `coding` / `agent` 追加**优先级截断**（`STRICT_DISCLOSURE_BUDGETS`）：
+   * 恒集（`todo_write` / `agent`）永远保留，其余按 `STRICT_DISCLOSURE_PRIORITY` 取到预算（25）；
+   * 未列入者**仍注册可调用**（可经 `tool_search` 检索，「披露面收窄 ≠ 删除」）。
+   * 背景（实测 2026-10-30）：这两面此前无门禁，真机单轮 68 个工具 / 105.2 KB；29 会话 32 127 次
+   * 调用只用到 27 个工具、前 5 占 94% ⇒ 默认收紧，基线同步下调（`tool-disclosure-baseline.json`）。
+   * **翻转依据**：用户裁定 2026-11-16（21 模式 #5 Tool Use）；回退 `FEATURE_TOOL_DISCLOSURE_STRICT=false`。
    */
-  TOOL_DISCLOSURE_STRICT: false,
+  TOOL_DISCLOSURE_STRICT: true,
 
   // ───── 工具能力包（P0-2；2026-11-05 默认翻为开，见《统一策略层方案》§3.2-2）─────
   /**
@@ -384,12 +390,9 @@ export const FEATURE_FLAGS = {
   SNIP: false,
 
   // ───── 状态管理 ─────
-  /** 响应式上下文压缩 */
-  REACTIVE_COMPACT: false,
-  /** 上下文折叠 */
-  CONTEXT_COLLAPSE: false,
-  /** 历史消息裁剪 */
-  HISTORY_SNIP: false,
+  // 2026-11-16：`REACTIVE_COMPACT` / `CONTEXT_COLLAPSE` / `HISTORY_SNIP` 三个**零消费方死开关**已删除
+  // （按 `code-deletion.md` CD01–CD06 核查：全仓无 `feature()` 读取点、无 env/变体/配置/客户端引用；
+  // 压缩实现 `ReactiveCompact` / `ContextCollapseStrategy` 等不受影响，它们由各自触发面驱动）。
   /** 后台会话支持 */
   BG_SESSIONS: false,
   /** 溢出测试工具 */
@@ -484,15 +487,17 @@ export const FEATURE_FLAGS = {
    */
   WORKSPACE_MULTI_ROOT: false,
   /**
-   * PR-3（2026-10-23）：**会话级自动执行（仅只读 + 本地写）**（默认关）。
+   * PR-3（2026-10-23）：**会话级自动执行（仅只读 + 本地写）**。
    *
    * 开 ⇒ 会话元数据 `approvalMode='auto-local'` 时，**风险默认档**里的 READ 之外，
    * 「WRITE_LOCAL 且全部路径入参都在会话工作区内」也自动放行（审计 `approval:auto`）；
    * SHELL / EXTERNAL / UNDECLARED / 工作区外写仍走人工审批。
-   * 关（默认）⇒ 与改造前完全一致（零行为变更）。
-   * `FEATURE_SESSION_AUTO_LOCAL=true`。
+   *
+   * P2-B（2026-11-17）：**默认改为开** —— 长程任务的主要打断源是"工作区内正常写也要问"。
+   * 灰度由会话来源收敛：仅**本地桌面会话**缺省 `auto-local`（`sessionAccessors`），
+   * 渠道 / 无人值守会话保持 `ask`；如需整体回退，设 `FEATURE_SESSION_AUTO_LOCAL=false`。
    */
-  SESSION_AUTO_LOCAL: false,
+  SESSION_AUTO_LOCAL: true,
 
   // ───── Execution 生命周期（PR2，2026-10-09；默认关 = 零行为变更的灰度开关）─────
   /**
@@ -577,6 +582,40 @@ export const FEATURE_FLAGS = {
    */
   REQUIRE_BEARER: true,
 
+  // ───── 长程目标：重启后续接（D2+，2026-11-14；2026-11-16 起默认开）─────
+  /**
+   * D2+：**重启后为未达终态目标登记一次续跑**（**2026-11-16 起默认开**）。
+   *
+   * 开 ⇒ 启动期扫描"最近 24h 内推进过"的 `active`/`blocked` 目标（最多 5 个，按最近更新
+   * 倒序），各登记一次 `goal-startup:<goalId>:<updatedAt>` 唤醒；到点由既有 selfWake
+   * 执行器注入 `continue_goal` 指令并续跑会话。**翻转依据**：用户裁定 2026-11-16（21 模式 #11 Goal）；
+   * 实测本机 4052 个目标中 24h 内 active/blocked **0 个** ⇒ 启动开销有界（另有 24h 窗口 + 单次 5 个）。
+   * 回退 `FEATURE_GOAL_STARTUP_RESUME=false` ⇒ 不扫描、不登记。
+   */
+  GOAL_STARTUP_RESUME: true,
+
+  // ───── 持久 DAG：计划重启续跑（D3，2026-11-14；2026-11-16 起默认开）─────
+  /**
+   * D3：**重启后为被中断的计划登记一次续跑**（2026-11-16 起默认开）。
+   *
+   * 开 ⇒ 启动期扫描"running 且心跳过期（>10min）但仍在 24h 内推进过"的计划（最多 5 个，
+   * 按心跳倒序），各登记一次 `plan-startup:<planId>:<heartbeatMs>` 唤醒；到点由既有
+   * selfWake 执行器注入"计划续接"指令（剩余步骤 + 依赖）并续跑会话，同时把崩溃残留的
+   * `running` 步骤复位为 `pending`。**翻转依据**：用户裁定 2026-11-16（21 模式 #6 Planning）；
+   * 实测本机 931 份计划中当下可续跑 0 份 ⇒ 启动开销有界（另有 24h 窗口 + 10min 过期 + 单次 5 个）。
+   * 回退 `FEATURE_PLAN_STARTUP_RESUME=false` ⇒ 不扫描、不登记、不解析。
+   */
+  PLAN_STARTUP_RESUME: true,
+
+  /**
+   * D3 三期（2026-11-14；**2026-11-16 起默认开**）：计划续跑走**系统级**。
+   *
+   * 开 ⇒ 启动期唤醒命中时调用 `PdcaLaunchCoordinator.resumePlan`，由 `PlanDrivenLoop`
+   * 采纳既有计划继续执行（不新建计划、不重做已完成步骤、失败/取消步骤不重跑）；
+   * 回退 `FEATURE_PLAN_SYSTEM_RESUME=false` ⇒ 保持一期"消息注入"式续跑（模型自行继续）。
+   */
+  PLAN_SYSTEM_RESUME: true,
+
   // ───── 性能与监控 ─────
   /** 内存监控 */
   MEMORY_MONITORING: true,
@@ -617,24 +656,24 @@ export const FEATURE_FLAGS = {
 
   // ───── 编排模式：自校验（2026-10-07，`pattern-wiring-closure.md` §4「P1」）─────
   /**
-   * `self_verify` 模式总开关（**默认关闭**）。
+   * `self_verify` 模式总开关（**2026-11-16 起默认开启**）。
    *
-   * 开启后：`complex + 自校验意图` 的任务将由该模式命中，并把配方落到**既有** VerifierAgent
-   * （`verifyPolicy:'blocking'` + `failClosed:true` + `maxCycles:2`）⇒ 回合质量判定**更严**
-   * （可能增加重试）。**默认关**是刻意的（不静默改变既有编排行为）；命中 ≠ 启用。
+   * 开启后：`complex + 自校验意图` 命中该模式 ⇒ 配方落到既有 VerifierAgent（`failClosed:true` + `maxCycles:2`），
+   * 判定更严、可能多一轮重试；其余回合零变化。**翻转 = 用户裁定 2026-11-16 的显式豁免**（§2 #11 三判据未达标：
+   * ①0/20 会话，②③需先开才能采）。**回退**：`FEATURE_SELF_VERIFY_PATTERN=false` 或设置页关闭（§2.4.3）。
    */
-  SELF_VERIFY_PATTERN: false,
+  SELF_VERIFY_PATTERN: true,
   /**
-   * E-1（2026-10-18）：**swarm verifier 判不过时回灌 worker 重试一轮**（默认关 = 零行为变更）。
+   * E-1（2026-10-18）：**swarm verifier 判不过时回灌 worker 重试一轮**（**2026-11-16 起默认开**）。
    *
    * 开 ⇒ `AgentSwarm` 仅在 verifier 给出**明确** `pass:false`（含 feedback）时，把 feedback 回灌
    * 原 worker 重试 **1 次**并重新门禁（独立 token 上限 20k，超限即跳过；verifier 自身故障 /
    * 输出不可解析 / worker 超时 / 批次取消 均不回灌）。
-   * 关（默认）⇒ 与现状逐字一致（判不过即 `verify:'failed'`，不重试）。
-   * `FEATURE_SWARM_VERIFY_RETRY=true`。
-   * 触发条件见 `.trae/specs/default-off-switches-review-gates.md` §2 #15。
+   * **翻转依据**：用户裁定 2026-11-16（21 模式 #7 Multi-Agent）；真机无 verifier 判不过样本
+   * ⇒ 记为裁定翻转；增量 token 受 20k 独立上限约束。
+   * 回退 `FEATURE_SWARM_VERIFY_RETRY=false` ⇒ 判不过即 `verify:'failed'`，不重试（§2 #15 / §2.4.6）。
    */
-  SWARM_VERIFY_RETRY: false,
+  SWARM_VERIFY_RETRY: true,
 
   // ───── 图像工具（Image Tools） ─────
   /** 多后端图像生成 Provider 模式 */

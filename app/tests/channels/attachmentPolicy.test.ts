@@ -10,7 +10,7 @@ import {
   classifyAttachment,
   ATTACHMENT_SIZE_LIMITS,
   MAX_ATTACHMENTS_PER_MESSAGE,
-} from '../../src/channels/routing/attachmentPolicy';
+} from '@modules/channels/routing/attachmentPolicy';
 
 describe('classifyAttachment', () => {
   it('按 MIME 主类型分类（含参数归一化）', () => {

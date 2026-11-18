@@ -230,6 +230,8 @@ const zhMisc = {
       listSeparator: "、",
       tensePresent: "正在",
       tensePast: "已",
+      // 2026-11-12：失败态摘要后缀（不再套"已执行…"，避免与 ❌/被拒绝矛盾）
+      failedSuffix: "（失败）",
       searchingCode: "正在搜索代码",
       searchingFiles: "正在搜索文件",
       searchingWeb: "正在网络搜索",
@@ -301,6 +303,27 @@ const zhMisc = {
       content: "内容",
       output: "输出",
     },
+  },
+  // G8（2026-11-14）：全局悬浮窗
+  floating: {
+    title: "Liri · 后台状态",
+    empty: "暂无进行中的操作。",
+    close: "关闭悬浮窗",
+    backToMain: "回到主窗口",
+    // G8 内容增强（2026-11-14）
+    currentSession: "当前会话",
+    noSession: "未选择会话",
+    untitledSession: "未命名会话",
+    goals: "运行中目标",
+    noGoals: "暂无运行中目标",
+    unavailable: "暂时读不到上下文（后端不可达）",
+    refresh: "刷新",
+    tokensUnit: "tokens",
+    // G8 点击穿透（2026-11-14）
+    passthrough: "穿透",
+    passthroughHint: "开启后鼠标点击落到下层应用（按 Ctrl+Shift+F 退出）",
+    passthroughOn: "点击穿透中 · 按 Ctrl+Shift+F 退出",
+    passthroughFailed: "当前环境不支持点击穿透",
   },
 };
 

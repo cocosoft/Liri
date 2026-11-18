@@ -14,8 +14,8 @@
 //   ③ `getTerminationReason()` 优先读骨架相位，不被 stopReason 映射遮蔽。
 
 import { describe, expect, it } from 'bun:test';
-import { TAORLoop } from '../../src/query/TAORLoop';
-import type { QueryEngine } from '../../src/query/QueryEngine';
+import { TAORLoop } from '@modules/query/TAORLoop';
+import type { QueryEngine } from '@modules/query/QueryEngine';
 import { isAwaitingApprovalPayload } from '@openliri/infra/utils/toolContract';
 
 interface ActResult {

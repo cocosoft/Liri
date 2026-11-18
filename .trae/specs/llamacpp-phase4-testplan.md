@@ -16,7 +16,7 @@
 | P0-4 | `downloadBinary()` 只提取 `llama-server.exe`（9KB 引导程序），但 b10225 的 zip 为**扁平结构**，主逻辑在 `llama-server-impl.dll`（9.9MB），运行依赖 `ggml*.dll` / `llama.dll` / `llama-common.dll` / `libomp140.x86_64.dll` 等全套。单独提取 exe 实机必崩。 | ✅ 已修复 | 改为全量解压 `extractAllTo(llamaDir, true)`；兼容带顶层目录的历史 zip（提升到根）。新增「扁平结构 zip 全量解压」用例（断言 impl.dll/ggml.dll 落位）+ 真实 zip 端到端验证（强校验通过 + 6 个关键文件齐全） |
 | P0-3 | 实机验证需要一块 GGUF 模型。候选：llama3.1-8b（Q4_K_M，~4.7GB）或更小的 Qwen2.5-0.5B/Qwen2.5-1.5B（测试更快）。**测试时先放小模型**，8B 级模型仅作最终性能抽测。 | ⏳ 待用户准备 | 用户准备 GGUF 放入 `~/.pyapp/data/models/llama/models/` |
 
-> P0-1/P0-2/P0-4 修复内容：[LlamaCppServerManager.ts](file:///E:/PY/CODES/PY_APP/app/src/ai/local/llama/LlamaCppServerManager.ts)（版本号 L54、全量解压 L381-397、SHA256 登记 L544-547）；测试 11 用例全过 + typecheck ✓。
+> P0-1/P0-2/P0-4 修复内容：[LlamaCppServerManager.ts](file:///E:/PY/Documents/CODES/PY_APP/app/src/ai/local/llama/LlamaCppServerManager.ts)（版本号 L54、全量解压 L381-397、SHA256 登记 L544-547）；测试 11 用例全过 + typecheck ✓。
 
 ---
 
@@ -194,10 +194,10 @@ Test-Path "$llama\llama-server.exe"   # 期望 False
 | T5 Ollama 并存 | ✅ | **双服务真实并存**：Ollama 11434（qwen3.6-27b 运行中）+ llama.cpp 11435 同时在线，端口不冲突；providers 列表含 ollama + llamacpp（active=True）；Ollama /api/tags 正常 |
 | 文档 + modules:snapshot | ☐ | 待执行 |
 
-**T5 发现的缺口（GGUF 注册）已解决（2026-08-10）**：新增 `syncLlamaModelsToRegistry()`（[registerLlamaCppProvider.ts](file:///E:/PY/CODES/PY_APP/app/src/ai/local/llama/registerLlamaCppProvider.ts)）——扫描 GGUF 目录 → `ModelPricingService.upsertPricing` 注册到 model_registry（provider_id→llamacpp，is_custom=1）→ 刷新 ModelRegistry 缓存 + ModelRouter UUID 缓存。挂载于 `ensureLlamaCppProviderRegistered`（冷启动 + restart 均触发），幂等（同名归属本 provider 跳过）。验证：模型总数 14→15，`Qwen3-0.6B-Q8_0`（providerId=8ac2f3c8...）注册成功，重复触发 restart 不重复注册。
+**T5 发现的缺口（GGUF 注册）已解决（2026-08-10）**：新增 `syncLlamaModelsToRegistry()`（[registerLlamaCppProvider.ts](file:///E:/PY/Documents/CODES/PY_APP/app/src/ai/local/llama/registerLlamaCppProvider.ts)）——扫描 GGUF 目录 → `ModelPricingService.upsertPricing` 注册到 model_registry（provider_id→llamacpp，is_custom=1）→ 刷新 ModelRegistry 缓存 + ModelRouter UUID 缓存。挂载于 `ensureLlamaCppProviderRegistered`（冷启动 + restart 均触发），幂等（同名归属本 provider 跳过）。验证：模型总数 14→15，`Qwen3-0.6B-Q8_0`（providerId=8ac2f3c8...）注册成功，重复触发 restart 不重复注册。
 
 **T3 实机发现与修复（2026-08-10）**：
-1. **provider 注册缺口（已修复）**：llamacpp provider 仅在应用冷启动链注册（要求当时已 running）；运行中「配置模型→保存并重启」不触发。修复：[llama-handlers.ts](file:///E:/PY/CODES/PY_APP/app/src/infrastructure/http/handlers/llama-handlers.ts) `handleLlamaRestart` 在 restart 就绪后调用 `ensureLlamaCppProviderRegistered()`（幂等）。验证：`providerRegistered: true`、providers 列表含 `llama.cpp`（baseUrl http://127.0.0.1:11435/v1）。
+1. **provider 注册缺口（已修复）**：llamacpp provider 仅在应用冷启动链注册（要求当时已 running）；运行中「配置模型→保存并重启」不触发。修复：[llama-handlers.ts](file:///E:/PY/Documents/CODES/PY_APP/app/src/infrastructure/http/handlers/llama-handlers.ts) `handleLlamaRestart` 在 restart 就绪后调用 `ensureLlamaCppProviderRegistered()`（幂等）。验证：`providerRegistered: true`、providers 列表含 `llama.cpp`（baseUrl http://127.0.0.1:11435/v1）。
 2. **Qwen3 thinking 行为（模型特性，需应用层适配）**：Qwen3 默认开启思考，内容输出到 `reasoning_content`，`content` 可能为空且思考占满 max_tokens。关闭方式：请求体 `chat_template_kwargs: {"enable_thinking": false}`（llama.cpp b10225 支持）。应用层 ChatCompletionsTransport 后续若需直答可透传该参数。
 3. **测试模型**：`Qwen/Qwen3-0.6B-GGUF` 官方仓库仅提供 `Qwen3-0.6B-Q8_0.gguf`（609MB，SHA256 已核对）；纯 CPU 推理 ~57 tokens/s。
 

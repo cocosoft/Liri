@@ -20,7 +20,7 @@
 // SOFTWARE.
 
 import { describe, expect, it } from 'bun:test';
-import { junitCaseKey, parseJunitCases } from '../../src/evals/repoTestJudge';
+import { junitCaseKey, parseJunitCases } from '@modules/evals/repoTestJudge';
 
 /**
  * A2（`.trae/specs/eval-s1-real-task-baseline.md`）T1：逐用例 JUnit 解析。

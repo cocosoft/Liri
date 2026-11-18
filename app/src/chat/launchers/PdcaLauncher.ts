@@ -12,6 +12,8 @@ import { persistDemandDeliveryText } from '@modules/tasks';
 import type {
   PlanDrivenLoopResult,
   PlanDrivenLoopConfig,
+  // P3-2（2026-11-17）：进度回写外移后需要步骤进度类型
+  PlanProgress,
   // P2（2026-11-04，方案 §3.3）：阶段链继承的任务策略快照类型
   TaskPolicySnapshot,
 } from '@modules/tasks';
@@ -126,6 +128,15 @@ export function formatPdcaTerminalNotice(input: {
    * 写成状态词汇会被 `lint:state-ratchet` 当成新的状态字面量出现点（需登记）。
    */
   awaitingApproval?: boolean;
+  /**
+   * 暂停来源（仅 `awaitingApproval=true` 时使用）：
+   * - `stage`（缺省）= 阶段链在等**阶段审批**；
+   * - `tool` = PDL 快路径的工具调用在等**用户批准**（审批卡片）。
+   *
+   * 为什么必须区分：两者恢复方式不同（编排面板 / 审批卡片），统一写成"等待阶段审批"
+   * 会让用户在编排面板里找一个不存在的确认入口（会话 `session_mwdcivrue74d4838ff`）。
+   */
+  approvalSource?: 'stage' | 'tool';
   completed: number;
   total: number;
   /** partial 时的未达成数 */
@@ -148,6 +159,9 @@ export function formatPdcaTerminalNotice(input: {
   }
   const suffix = extra.length > 0 ? `（${extra.join('，')}）` : '';
   if (input.awaitingApproval) {
+    if (input.approvalSource === 'tool') {
+      return `⏸ 编排任务暂停：等待**工具审批**（${progress}${suffix}）。请在审批卡片（或收件箱）处理后继续；批准后会自动续跑，剩余步骤不会被执行。`;
+    }
     return `⏸ 编排任务暂停：等待阶段审批（${progress}${suffix}）。请在编排面板确认后继续。`;
   }
   switch (input.outcome ?? 'completed') {
@@ -167,6 +181,84 @@ export function formatPdcaTerminalNotice(input: {
 }
 
 /**
+ * PDL 终态的 checkpoint 补丁（自 `launch()` 原样外移，P3-2，2026-11-17）。
+ *
+ * 相位 / 状态 / 三个时间戳的映射判定顺序与内联版一致：
+ * 暂停（等审批）⇒ running + stage_awaiting_approval；中止 ⇒ abort；预算耗尽或有
+ * 未达成/未执行步骤 ⇒ failed；否则 completed。
+ */
+function buildPlanLoopTerminalPatch(input: {
+  paused: boolean;
+  aborted: boolean;
+  budgetExhausted: boolean;
+  incomplete: boolean;
+}): {
+  phase: 'stage_awaiting_approval' | 'execute';
+  status: 'running' | 'abort' | 'failed' | 'completed';
+  completedAt: string | undefined;
+  abortedAt: string | undefined;
+  failedAt: string | undefined;
+} {
+  const { paused, aborted, budgetExhausted, incomplete } = input;
+  return {
+    // 相位复用 LRO 的待审批相位 ⇒ 留存策略与 UI 都能识别"在等用户"
+    phase: paused ? 'stage_awaiting_approval' : 'execute',
+    status: paused
+      ? 'running'
+      : aborted
+        ? 'abort'
+        : budgetExhausted || incomplete
+          ? 'failed'
+          : 'completed',
+    completedAt:
+      paused || aborted || budgetExhausted || incomplete
+        ? undefined
+        : new Date().toISOString(),
+    abortedAt: aborted ? new Date().toISOString() : undefined,
+    failedAt:
+      !paused && (budgetExhausted || (!aborted && incomplete))
+        ? new Date().toISOString()
+        : undefined,
+  };
+}
+
+/**
+ * PDL 终态回执文案（自 `launch()` 原样外移，P3-2，2026-11-17）。
+ * 暂停 ⇒ 等工具审批；否则按 aborted / budget / partial / completed 分流。
+ */
+function buildPlanLoopTerminalNotice(input: {
+  paused: boolean;
+  aborted: boolean;
+  budgetExhausted: boolean;
+  result: PlanDrivenLoopResult;
+}): string {
+  const { paused, aborted, budgetExhausted, result } = input;
+  return formatPdcaTerminalNotice(
+    paused
+      ? {
+          awaitingApproval: true,
+          approvalSource: 'tool',
+          completed: result.completedSteps,
+          total: result.stepCount,
+          blocked: result.blockedSteps.length,
+        }
+      : {
+          outcome: aborted
+            ? 'aborted'
+            : budgetExhausted
+              ? 'budget'
+              : result.failedSteps > 0
+                ? 'partial'
+                : 'completed',
+          completed: result.completedSteps,
+          total: result.stepCount,
+          failed: result.failedSteps,
+          blocked: result.blockedSteps.length,
+        }
+  );
+}
+
+/**
  * PDCA 启动器
  * 提取自 ChatManager._launchImplicitPdca（L2964-L3079，115 行）
  *
@@ -174,6 +266,202 @@ export function formatPdcaTerminalNotice(input: {
  */
 export class PdcaLauncher {
   constructor(private deps: PdcaLauncherDeps) {}
+
+  /**
+   * 依赖阻断结果回灌（自 `launch()` 原样外移，P3-2，2026-11-17）。
+   * 仅在有被阻断步骤时落一条助手消息（模型可见）；写入失败不改任务终态。
+   */
+  private _persistBlockedStepsNotice(
+    sessionId: string,
+    taskId: string,
+    result: PlanDrivenLoopResult
+  ): void {
+    if (result.blockedSteps.length === 0) return;
+    try {
+      this.deps.persistMessage(
+        sessionId,
+        this.deps.messageService.createAssistantMessage(
+          `⛔ 依赖阻断：${result.blockedSteps.length} 步未执行\n${result.blockedSteps
+            .map((b) => `- ${b.description}：${b.reason}`)
+            .join('\n')}`,
+          {
+            sessionId,
+            metadata: {
+              taskId,
+              isTaskMessage: true,
+              taskType: 'pdca-progress',
+            },
+          }
+        )
+      );
+    } catch (error) {
+      // @ignore-catch：回灌消息写入失败**不得**改变任务终态（下方 catch 会把任务误标 failed）
+      logger.warn('依赖阻断回灌消息写入失败', {
+        sessionId,
+        taskId,
+        blocked: result.blockedSteps.length,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  /**
+   * demand 会话的 PDL 交付回执（自 `launch()` 原样外移，P3-2，2026-11-17）。
+   * 非 demand 直接返回（与原 `if (opts?.demand)` 同义）。
+   */
+  private _persistPlanLoopDemandDelivery(input: {
+    demand: boolean | undefined;
+    taskId: string;
+    sessionId: string;
+    paused: boolean;
+    aborted: boolean;
+    budgetExhausted: boolean;
+    result: PlanDrivenLoopResult;
+    text: string;
+  }): void {
+    const {
+      demand,
+      taskId,
+      sessionId,
+      paused,
+      aborted,
+      budgetExhausted,
+      result,
+    } = input;
+    if (!demand) return;
+    persistDemandDeliveryText({
+      taskId,
+      sessionId,
+      phase: paused
+        ? 'stage_awaiting_approval'
+        : aborted
+          ? 'abort'
+          : budgetExhausted || result.failedSteps > 0
+            ? 'failed'
+            : 'completed',
+      text: input.text,
+    });
+  }
+
+  /**
+   * PDL 步骤进度回写（自 `launch()` 原样外移，P3-2，2026-11-17）。
+   *
+   * P0-E：百分比档位节流——仅在进度跨越 25%/50%/75%/完成 时回写一条对话消息，
+   * 长任务最多 4 条（跳过 0% 首条），既保证 PDCA 过程可见又不刷屏。
+   * 频率说明：onStepProgress 每步仅回调 1~2 次（markStepRunning + 步骤结束），
+   * 本身为低频；档位节流在此基础上进一步限制消息条数，无性能/卡顿风险。
+   *
+   * 节流状态 `lastReportedBucket` 由本方法闭包持有（与内联版同一生命周期：每次 launch 一次）。
+   */
+  private _createStepProgressReporter(
+    sessionId: string,
+    taskId: string
+  ): (progress: PlanProgress) => void {
+    let lastReportedBucket = -1;
+    return (progress) => {
+      // 详细日志：记录每次进度回调的原始数据 + 档位计算（total/isDone/bucket/lastReportedBucket）
+      const total = progress.total || progress.completed;
+      // LRO-12（2026-10-26）：**报完成必须有产物支撑** —— 步骤全打勾但零产物时
+      // `percent` 被产物门压住（`artifactGated`），不得据此宣布"PDCA 执行完成"。
+      // 2026-11-02（根因修复）：**"步骤跑完" ≠ "目标达成"** —— 必须同时满足
+      // 无失败/无未执行、达成步数=总步数、且未被产物门压住。此前只看
+      // `percent >= 100`，导致 5 步全部自述"信息不足/阻塞"仍播报"执行完成"。
+      const isDone =
+        progress.percent >= 100 &&
+        progress.failed === 0 &&
+        progress.cancelled === 0 &&
+        progress.completed === total &&
+        !progress.artifactGated;
+      const bucket = isDone
+        ? 4
+        : Math.min(3, Math.floor((progress.completed / total) * 4));
+      logger.info('PlanDrivenLoop 进度回调', {
+        sessionId,
+        ...progress,
+        computed: {
+          total,
+          isDone,
+          bucket,
+          lastReportedBucket,
+          // 对比校验：LRO-12 后 `percent` 受产物门约束 ⇒ pctDiff>0 表示
+          // "有完成步零产物"（gate），**不再**是计算链路分歧；无产物门时仍应一致
+          derivedPct:
+            total > 0 ? Math.round((progress.completed / total) * 100) : 0,
+          pctDiff:
+            progress.percent !== undefined
+              ? Math.round(
+                  (progress.completed / (total > 0 ? total : 1)) * 100
+                ) - progress.percent
+              : null,
+          pctAligned:
+            progress.percent !== undefined &&
+            Math.round((progress.completed / (total > 0 ? total : 1)) * 100) ===
+              progress.percent,
+        },
+      });
+      try {
+        if (total <= 0) {
+          logger.warn('PlanDrivenLoop 进度跳过：total<=0', {
+            sessionId,
+            total,
+            completed: progress.completed,
+          });
+          return;
+        }
+        // 跳过 0% 首条（markStepRunning 触发，completed=0 时无进展意义）
+        if (progress.completed <= 0) return;
+        if (bucket <= lastReportedBucket) return;
+        lastReportedBucket = bucket;
+        logger.info('PlanDrivenLoop 档位切换，触发进度消息回写', {
+          sessionId,
+          bucket,
+          completed: progress.completed,
+          total,
+          isDone,
+          pct: progress.percent,
+        });
+        // LRO-12（2026-10-26）：正文用**产物门后的 percent**（不再自算 completed/total）
+        const pct = progress.percent;
+        const failedNote =
+          progress.failed > 0 ? `，${progress.failed} 步未达成` : '';
+        // 2026-11-02：因空转熔断/依赖阻断**未执行**的步骤也要如实出现
+        const skippedNote =
+          progress.cancelled > 0 ? `，${progress.cancelled} 步未执行` : '';
+        // 步骤都打勾但零产物 ⇒ 如实说明"进度不计"，避免用户以为卡死
+        const gatedNote = progress.artifactGated
+          ? '（本任务尚未产出任何产物，进度不计）'
+          : '';
+        const summary = isDone
+          ? `PDCA 执行完成：${progress.completed}/${total} 步${failedNote}`
+          : `⚠️ PDCA 未完全达成：${progress.completed}/${total} 步达成${failedNote}${skippedNote}（进度 ${pct}%）${gatedNote}`;
+        this.deps.persistMessage(
+          sessionId,
+          this.deps.messageService.createAssistantMessage(
+            `${isDone ? '✅ ' : ''}${summary}`,
+            {
+              sessionId,
+              metadata: {
+                taskId,
+                isTaskMessage: true,
+                taskType: 'pdca-progress',
+              },
+            }
+          )
+        );
+      } catch (error) {
+        // 进度回写失败不影响循环（@ignore-catch）——P2-C：空 catch 无日志，
+        // 失败静默；补 warn 留痕，使进度回写故障可观测
+        logger.warn('PDCA 进度回写失败', {
+          sessionId,
+          taskId,
+          completed: progress.completed,
+          total,
+          bucket,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    };
+  }
 
   /**
    * LRO-11：回写"本次执行模式"的**用户可见**消息（失败不影响编排）。
@@ -256,7 +544,12 @@ export class PdcaLauncher {
      * B2（2026-11-09）：`demand` = 会话处于许愿式自主度 —— 阶段审批自动放行
      * （`StageOrchestrator.autoApproveStages`），子编排器执行"验收标准前置"校验。
      */
-    opts?: { forceDecompose?: boolean; demand?: boolean }
+    opts?: {
+      forceDecompose?: boolean;
+      demand?: boolean;
+      /** D3 二期：按既有计划续跑（系统级；缺省 ⇒ 既有行为） */
+      resumePlanId?: string;
+    }
   ): Promise<void> {
     const otel = getOTelTracing();
     const span = otel.startSpan('chat:pdcaLaunch', {
@@ -278,11 +571,8 @@ export class PdcaLauncher {
             undefined
           );
           const deps = createChatManagerTAORDeps(taorContext);
-          // P0-E：百分比档位节流——仅在进度跨越 25%/50%/75%/完成 时回写一条对话消息，
-          // 长任务最多 4 条（跳过 0% 首条），既保证 PDCA 过程可见又不刷屏。
-          // 频率说明：onStepProgress 每步仅回调 1~2 次（markStepRunning + 步骤结束），
-          // 本身为低频；档位节流在此基础上进一步限制消息条数，无性能/卡顿风险。
-          let lastReportedBucket = -1;
+          // 进度回写（档位节流）整段外移为私有方法，P3-2（2026-11-17）：见
+          // `_createStepProgressReporter`（节流状态由该方法闭包持有）。
           // 转正（2026-09-01）：注入任务分解 Provider——分解失败/未提供时 TaskDecomposer
           // 自动降级为简单分解（单子任务），不阻断 PlanDrivenLoop 路径
           const decomposerProvider =
@@ -336,117 +626,13 @@ export class PdcaLauncher {
             // P0-1（2026-11-10，demand 准入门）：许愿式会话走 PDL 时，验收标准前置
             // 由分解结果承接（缺失即 `PLAN_CRITERIA_MISSING`，不再强制上阶段链）
             demand: opts?.demand === true,
+            // D3 二期（2026-11-14）：按既有计划续跑（系统级）——传入后 PDL 采纳该计划，
+            // 不再走复杂度门/分解/createPlan；缺省 ⇒ 既有行为
+            ...(opts?.resumePlanId ? { resumePlanId: opts.resumePlanId } : {}),
             onModeDecided: (mode) => {
               this._persistModeHint(sessionId, taskId, mode);
             },
-            onStepProgress: (progress) => {
-              // 详细日志：记录每次进度回调的原始数据 + 档位计算（total/isDone/bucket/lastReportedBucket）
-              const total = progress.total || progress.completed;
-              // LRO-12（2026-10-26）：**报完成必须有产物支撑** —— 步骤全打勾但零产物时
-              // `percent` 被产物门压住（`artifactGated`），不得据此宣布"PDCA 执行完成"。
-              // 2026-11-02（根因修复）：**"步骤跑完" ≠ "目标达成"** —— 必须同时满足
-              // 无失败/无未执行、达成步数=总步数、且未被产物门压住。此前只看
-              // `percent >= 100`，导致 5 步全部自述"信息不足/阻塞"仍播报"执行完成"。
-              const isDone =
-                progress.percent >= 100 &&
-                progress.failed === 0 &&
-                progress.cancelled === 0 &&
-                progress.completed === total &&
-                !progress.artifactGated;
-              const bucket = isDone
-                ? 4
-                : Math.min(3, Math.floor((progress.completed / total) * 4));
-              logger.info('PlanDrivenLoop 进度回调', {
-                sessionId,
-                ...progress,
-                computed: {
-                  total,
-                  isDone,
-                  bucket,
-                  lastReportedBucket,
-                  // 对比校验：LRO-12 后 `percent` 受产物门约束 ⇒ pctDiff>0 表示
-                  // "有完成步零产物"（gate），**不再**是计算链路分歧；无产物门时仍应一致
-                  derivedPct:
-                    total > 0
-                      ? Math.round((progress.completed / total) * 100)
-                      : 0,
-                  pctDiff:
-                    progress.percent !== undefined
-                      ? Math.round(
-                          (progress.completed / (total > 0 ? total : 1)) * 100
-                        ) - progress.percent
-                      : null,
-                  pctAligned:
-                    progress.percent !== undefined &&
-                    Math.round(
-                      (progress.completed / (total > 0 ? total : 1)) * 100
-                    ) === progress.percent,
-                },
-              });
-              try {
-                if (total <= 0) {
-                  logger.warn('PlanDrivenLoop 进度跳过：total<=0', {
-                    sessionId,
-                    total,
-                    completed: progress.completed,
-                  });
-                  return;
-                }
-                // 跳过 0% 首条（markStepRunning 触发，completed=0 时无进展意义）
-                if (progress.completed <= 0) return;
-                if (bucket <= lastReportedBucket) return;
-                lastReportedBucket = bucket;
-                logger.info('PlanDrivenLoop 档位切换，触发进度消息回写', {
-                  sessionId,
-                  bucket,
-                  completed: progress.completed,
-                  total,
-                  isDone,
-                  pct: progress.percent,
-                });
-                // LRO-12（2026-10-26）：正文用**产物门后的 percent**（不再自算 completed/total）
-                const pct = progress.percent;
-                const failedNote =
-                  progress.failed > 0 ? `，${progress.failed} 步未达成` : '';
-                // 2026-11-02：因空转熔断/依赖阻断**未执行**的步骤也要如实出现
-                const skippedNote =
-                  progress.cancelled > 0
-                    ? `，${progress.cancelled} 步未执行`
-                    : '';
-                // 步骤都打勾但零产物 ⇒ 如实说明"进度不计"，避免用户以为卡死
-                const gatedNote = progress.artifactGated
-                  ? '（本任务尚未产出任何产物，进度不计）'
-                  : '';
-                const summary = isDone
-                  ? `PDCA 执行完成：${progress.completed}/${total} 步${failedNote}`
-                  : `⚠️ PDCA 未完全达成：${progress.completed}/${total} 步达成${failedNote}${skippedNote}（进度 ${pct}%）${gatedNote}`;
-                this.deps.persistMessage(
-                  sessionId,
-                  this.deps.messageService.createAssistantMessage(
-                    `${isDone ? '✅ ' : ''}${summary}`,
-                    {
-                      sessionId,
-                      metadata: {
-                        taskId,
-                        isTaskMessage: true,
-                        taskType: 'pdca-progress',
-                      },
-                    }
-                  )
-                );
-              } catch (error) {
-                // 进度回写失败不影响循环（@ignore-catch）——P2-C：空 catch 无日志，
-                // 失败静默；补 warn 留痕，使进度回写故障可观测
-                logger.warn('PDCA 进度回写失败', {
-                  sessionId,
-                  taskId,
-                  completed: progress.completed,
-                  total,
-                  bucket,
-                  error: error instanceof Error ? error.message : String(error),
-                });
-              }
-            },
+            onStepProgress: this._createStepProgressReporter(sessionId, taskId),
           };
           const planLoop = this.deps.planLoopFactory
             ? this.deps.planLoopFactory(planLoopConfig)
@@ -496,26 +682,20 @@ export class PdcaLauncher {
             // 既误导用户，也让 `stats:demand`（指标 4）把失败任务算成收敛。
             const incomplete =
               result.failedSteps > 0 || result.blockedSteps.length > 0;
+            // 2026-11-13：等待工具审批是**暂停态**，既不是完成也不是失败
+            const paused = result.pausedForApproval === true;
             await writePdcaCheckpoint(taskId, {
               taskId,
-              phase: 'execute',
-              status: aborted
-                ? 'abort'
-                : budgetExhausted || incomplete
-                  ? 'failed'
-                  : 'completed',
+              // 相位 / 状态 / 三个时间戳的映射自本方法外移，P3-2（2026-11-17）
+              ...buildPlanLoopTerminalPatch({
+                paused,
+                aborted,
+                budgetExhausted,
+                incomplete,
+              }),
               sessionId,
               projectId,
               description: description.slice(0, 200),
-              completedAt:
-                aborted || budgetExhausted || incomplete
-                  ? undefined
-                  : new Date().toISOString(),
-              abortedAt: aborted ? new Date().toISOString() : undefined,
-              failedAt:
-                budgetExhausted || (!aborted && incomplete)
-                  ? new Date().toISOString()
-                  : undefined,
               startedAt,
               stepCount: result.stepCount,
               completedSteps: result.completedSteps,
@@ -529,70 +709,37 @@ export class PdcaLauncher {
               stepCount: result.stepCount,
               completedSteps: result.completedSteps,
               failedSteps: result.failedSteps,
+              pausedForApproval: paused,
               totalDurationMs: result.totalDurationMs,
             });
             // 13-P1-1 Step 2（2026-10-06，`任务计划-20261004.md` §20.6）：**阻断结果回灌模型**。
             // 取证（F8）：被阻断步骤原先只落 plan 步 `cancelled` + SSE 广播（**用户**可见），
             // 模型侧完全不可见 ⇒ 模型无法据此重规划。此处改以助手消息**落盘**（复用既有
             // pdca-progress 通道）—— 落盘后即进入后续轮次的模型上下文（§1.6 模型可见 ⇔ 已落盘）。
-            if (result.blockedSteps.length > 0) {
-              try {
-                this.deps.persistMessage(
-                  sessionId,
-                  this.deps.messageService.createAssistantMessage(
-                    `⛔ 依赖阻断：${result.blockedSteps.length} 步未执行\n${result.blockedSteps
-                      .map((b) => `- ${b.description}：${b.reason}`)
-                      .join('\n')}`,
-                    {
-                      sessionId,
-                      metadata: {
-                        taskId,
-                        isTaskMessage: true,
-                        taskType: 'pdca-progress',
-                      },
-                    }
-                  )
-                );
-              } catch (error) {
-                // @ignore-catch：回灌消息写入失败**不得**改变任务终态（下方 catch 会把任务误标 failed）
-                logger.warn('依赖阻断回灌消息写入失败', {
-                  sessionId,
-                  taskId,
-                  blocked: result.blockedSteps.length,
-                  error: error instanceof Error ? error.message : String(error),
-                });
-              }
-            }
+            // 整段（含容错）自本方法外移，P3-2（2026-11-17）。
+            this._persistBlockedStepsNotice(sessionId, taskId, result);
             // P0-5（2026-11-06）：终态回执放在**最后** —— P0-4 过滤任务步骤消息后，这是用户
             // 唯一能看到的「任务结束了、结果如何」的结论（步骤细节仍在编排面板）。
-            const terminalText = formatPdcaTerminalNotice({
-              outcome: aborted
-                ? 'aborted'
-                : budgetExhausted
-                  ? 'budget'
-                  : result.failedSteps > 0
-                    ? 'partial'
-                    : 'completed',
-              completed: result.completedSteps,
-              total: result.stepCount,
-              failed: result.failedSteps,
-              blocked: result.blockedSteps.length,
+            // 回执文案的分流映射自本方法外移，P3-2（2026-11-17）
+            const terminalText = buildPlanLoopTerminalNotice({
+              paused,
+              aborted,
+              budgetExhausted,
+              result,
             });
             this._persistTerminalNotice(sessionId, taskId, terminalText);
             // P0-1（2026-11-10）：demand 分流到 PDL 快路径后不再经过 LRO 回执 ⇒
             // B3 的 `artifacts/<taskId>/delivery.md` 在此补写（同一实现，单一口径）
-            if (opts?.demand) {
-              persistDemandDeliveryText({
-                taskId,
-                sessionId,
-                phase: aborted
-                  ? 'abort'
-                  : budgetExhausted || result.failedSteps > 0
-                    ? 'failed'
-                    : 'completed',
-                text: terminalText,
-              });
-            }
+            this._persistPlanLoopDemandDelivery({
+              demand: opts?.demand,
+              taskId,
+              sessionId,
+              paused,
+              aborted,
+              budgetExhausted,
+              result,
+              text: terminalText,
+            });
           } catch (e) {
             await writePdcaCheckpoint(taskId, {
               taskId,
@@ -701,7 +848,7 @@ export class PdcaLauncher {
         let requirementId: string | undefined;
         try {
           const { createRequirementTracker } =
-            await import('../../project/RequirementTracker');
+            await import('@modules/project/RequirementTracker');
           const reqs = createRequirementTracker(projectId).list();
           requirementId =
             reqs.length > 0 ? reqs[reqs.length - 1].id : undefined;

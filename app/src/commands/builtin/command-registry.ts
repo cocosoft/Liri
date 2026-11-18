@@ -674,6 +674,49 @@ export const memoryCommand: Command = {
   load: loadDefault('./memory/Memory.js'),
 };
 
+/** 用户偏好（G5，2026-11-14）：USER.md 的 `## 偏好` 小节 + USER_PREFERENCE 记忆 */
+export const preferencesCommand: Command = {
+  type: 'local',
+  name: 'preferences',
+  description:
+    '查看 / 添加 / 删除用户偏好（USER.md 偏好小节 + 自动沉淀的偏好记忆）',
+  aliases: ['profile', 'pref', '偏好'],
+  argumentHint: '[list] [add <文本>] [remove <文本|#id>] [help]',
+  load: loadDefault('./preferences/Preferences.js'),
+};
+
+/** 成功轨迹 → SOP 草案（D10，2026-11-14）：蒸馏只产草案，批准才写技能 */
+export const sopCommand: Command = {
+  type: 'local',
+  name: 'sop',
+  description: '成功轨迹 → SOP 草案（人工批准后才注册为技能）',
+  aliases: ['sops', 'sopdraft'],
+  argumentHint:
+    '[list] [distill [n]] [show <id>] [approve <id>] [reject <id> [原因]] [observe <id> [天数]] [stats]',
+  load: loadDefault('./sop/Sop.js'),
+};
+
+/** 学习候选（M1，2026-11-15）：低分轮归因 → 候选台账；只读 + 拒绝，不产生行为变更 */
+export const learnCommand: Command = {
+  type: 'local',
+  name: 'learn',
+  description: '学习候选（低分轮归因；M1 只读，无 approve）',
+  aliases: ['learning'],
+  argumentHint:
+    '[list] [scan [会话数]] [show <id>] [reject <id> [原因]] [stats]',
+  load: loadDefault('./learn/Learn.js'),
+};
+
+/** 编排模式决策只读统计（2026-11-15）：`verify` 意图命中会话数 = 登记表 §2 #11 判据① */
+export const patternsCommand: Command = {
+  type: 'local',
+  name: 'patterns',
+  description: '编排模式决策统计（只读；判据①：verify 意图命中会话数）',
+  aliases: ['pattern'],
+  argumentHint: '[stats [会话数]] [help]',
+  load: loadDefault('./patterns/Patterns.js'),
+};
+
 /** 入手指引 */
 export const onboardCommand: Command = {
   type: 'local',

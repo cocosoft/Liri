@@ -6,13 +6,13 @@
  */
 import { describe, it, expect } from 'bun:test';
 
-import { CHANNEL_CATALOG } from '../../src/channels/ChannelCatalog.js';
+import { CHANNEL_CATALOG } from '@modules/channels/ChannelCatalog.js';
 import {
   CHANNEL_MESSAGING_TASK_TYPE,
   isAlwaysRestrictedChannel,
   resolveChannelTaskTypeOverride,
   resolveChannelToolPolicy,
-} from '../../src/channels/toolPolicy.js';
+} from '@modules/channels/toolPolicy.js';
 import {
   filterToolsByTask,
   getRealToolNamesForTask,

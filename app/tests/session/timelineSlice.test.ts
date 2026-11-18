@@ -14,8 +14,8 @@ import {
   computeIsHistoricalSlice,
   replayTimelineUntil,
   sliceEventsUntil,
-} from '../../src/session/timeline/timelineSlice.js';
-import type { LiriEvent } from '../../src/session/types/events.js';
+} from '@modules/session/timeline/timelineSlice.js';
+import type { LiriEvent } from '@modules/session/types/events.js';
 
 function makeEvents(): LiriEvent[] {
   return [

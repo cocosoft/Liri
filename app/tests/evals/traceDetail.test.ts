@@ -34,8 +34,8 @@ import {
   buildToolCallsDetail,
   toolCallNames,
   TOOL_CALL_ARG_MAX_CHARS,
-} from '../../src/evals/trace';
-import type { ToolCallRecord } from '../../src/evals/types';
+} from '@modules/evals/trace';
+import type { ToolCallRecord } from '@modules/evals/types';
 
 function call(name: string, args?: Record<string, unknown>): ToolCallRecord {
   return { name, args };

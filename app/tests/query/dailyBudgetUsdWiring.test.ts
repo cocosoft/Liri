@@ -22,7 +22,7 @@ import {
   recordDailyBudgetFromUsage,
   recordTurnCostUsd,
   resetDailyBudgetForTest,
-} from '../../src/query/DailyBudgetManager.js';
+} from '@modules/query/DailyBudgetManager.js';
 import {
   calculateTotalCost,
   DEFAULT_MODEL_PRICING,

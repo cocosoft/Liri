@@ -30,7 +30,7 @@ import {
   ensureThinkResponseTags,
   stripThinkResponseTags,
   stripOrphanToolTags,
-} from '../services/MessageContextPipeline';
+} from '../services/context/thinkTags';
 import { stripBareExploration } from '../services/bareExplorationStripper';
 import { composeSystemPrompt } from '../services/systemPromptComposition';
 import { repairImageUrls } from '../services/ChatHelper';

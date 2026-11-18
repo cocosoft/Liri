@@ -20,11 +20,11 @@ import { getDIContainer } from '@openliri/kernel';
 import {
   CombinedSessionGateway,
   DEFAULT_AGENT_ID,
-} from '../../src/session/gateway/CombinedSessionGateway';
+} from '@modules/session/gateway/CombinedSessionGateway';
 import {
   MessageType,
   MessageRole,
-} from '../../src/session/types/UnifiedMessage';
+} from '@modules/session/types/UnifiedMessage';
 
 const KEY = 'combinedSessionGateway';
 

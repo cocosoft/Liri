@@ -2,7 +2,7 @@
 alwaysApply: true
 ---
 # Liri 项目规则文档
-**版本**: 7.29.0 | **更新**: 2026-11-06
+**版本**: 7.33.0 | **更新**: 2026-11-18
 
 ## §1 基础规则
 
@@ -42,7 +42,7 @@ gci -Recurse -Include *.ts,*.tsx | % { if ($(gc $_.FullName -Raw) -notmatch "MIT
 > 改这一行的口径时，须同批更新该断言表。
 > 改默认值时必须**同批**更新本表 + 断言表，并在台账登记理由。
 >
-> 清单规模：**22 项**（2026-10-26 起；A2/A4/A5 新增三个默认关的 Bash 安全姿态灰度开关；PR2 新增 `EXECUTION_TWO_PHASE_CANCEL`；**P0-3 新增 `CODE_RUN_DEEP_SCAN_STRICT`、P0-2 新增 `CLIENT_STREAM_EXECUTION`；§6-#11 新增 `REQUIRE_BEARER`；T25-07 新增 `CHANNEL_UNTRUSTED_TAINT`（**默认开**，渠道来源 Taint）；T25-08 新增 `PLUGIN_THIRD_PARTY_INPROCESS`（默认关，第三方插件准入闸）与 `PLUGIN_HOST_PROCESS`（**默认开**，第三方插件子进程宿主）；T25-08 P2 新增 `LIRI_PLUGIN_REQUIRE_SIGNATURE`（**信任锚存在即开**，第三方插件清单签名闸）**）。
+> 清单规模：**25 项**（24 项字面默认值断言 + 1 项自动默认 `LIRI_PLUGIN_REQUIRE_SIGNATURE`；2026-11-14 D2+ 新增 `GOAL_STARTUP_RESUME`（**2026-11-16 起默认开**，重启后目标续接）、D3 新增 `PLAN_STARTUP_RESUME`（**2026-11-16 起默认开**，重启后计划续跑）、`PLAN_SYSTEM_RESUME`（**2026-11-16 起默认开**，续跑走执行器采纳既有计划）；2026-10-26 起：A2/A4/A5 新增三个默认关的 Bash 安全姿态灰度开关；PR2 新增 `EXECUTION_TWO_PHASE_CANCEL`；**P0-3 新增 `CODE_RUN_DEEP_SCAN_STRICT`、P0-2 新增 `CLIENT_STREAM_EXECUTION`；§6-#11 新增 `REQUIRE_BEARER`；T25-07 新增 `CHANNEL_UNTRUSTED_TAINT`（**默认开**，渠道来源 Taint）；T25-08 新增 `PLUGIN_THIRD_PARTY_INPROCESS`（默认关，第三方插件准入闸）与 `PLUGIN_HOST_PROCESS`（**默认开**，第三方插件子进程宿主）；T25-08 P2 新增 `LIRI_PLUGIN_REQUIRE_SIGNATURE`（**信任锚存在即开**，第三方插件清单签名闸）**）。
 
 | 开关 | 默认 | 生效语义 | 回退方式 | 触发条件（何时重开） |
 |------|:----:|---------|---------|:----:|
@@ -63,6 +63,9 @@ gci -Recurse -Include *.ts,*.tsx | % { if ($(gc $_.FullName -Raw) -notmatch "MIT
 | `EXECUTION_TWO_PHASE_CANCEL` | `false` | 两段式取消（`CANCEL_REQUESTED`→`abort()`→grace→`CANCELLED`；**未确认则保留 lease**，后续消息排队；PR2） | `FEATURE_EXECUTION_TWO_PHASE_CANCEL=true` | §2-#10 |
 | `CODE_RUN_DEEP_SCAN_STRICT` | `false` | code_run **深扫未完成即拒绝**（SWC 原生 CallExpression 深扫 `skipped`/`failed` ⇒ `security-rejected`；**默认关时保留"跳过"行为但结果带出 `scanStatus`**；P0-3） | `FEATURE_CODE_RUN_DEEP_SCAN_STRICT=true` | §2-#12 |
 | `CLIENT_STREAM_EXECUTION` | `false` | 客户端 `/v1/chat/stream` **接入 Execution**（SSE 入口 `acquire` + 注入 `executionId` ⇒ 工具写前记账 + fail-closed；终态 `complete`/`fail`；P0-2） | `FEATURE_CLIENT_STREAM_EXECUTION=true` | §2-#13 |
+| `PLAN_SYSTEM_RESUME` | `true` | **计划续跑走系统级**（D3 三期）：开 ⇒ 启动期唤醒命中时调用 `PdcaLaunchCoordinator.resumePlan`，由 `PlanDrivenLoop` 采纳既有计划继续执行（不新建计划、已完成步骤不重做、失败/取消步骤不重跑）；**2026-11-16 用户裁定翻为默认开**（21 模式 #6） | `FEATURE_PLAN_SYSTEM_RESUME=false`（回退 = 一期"消息注入"式续跑） | §2-#19 |
+| `PLAN_STARTUP_RESUME` | `true` | **重启后计划续跑**（D3）：启动期扫描 `running` 且**心跳过期**（>10min）但仍在 24h 内推进过的计划（按心跳倒序、单次最多 5 个），各登记一次 `plan-startup:<planId>:<heartbeatMs>` 唤醒；到点由既有 selfWake 执行器注入「计划续接」指令（剩余步骤 + 依赖，要求不新建计划）并续跑会话，同时把崩溃残留的 `running` 步骤复位为 `pending`；触发前二次校验「仍可续且心跳未变」；**2026-11-16 用户裁定翻为默认开**（21 模式 #6） | `FEATURE_PLAN_STARTUP_RESUME=false`（不扫描 / 不登记 / 不解析） | §2-#18 |
+| `GOAL_STARTUP_RESUME` | `true` | **重启后目标续接**（D2+）：启动期扫描"最近 24h 内推进过"的 `active`/`blocked` 目标（按最近更新倒序、单次最多 5 个），各登记一次 `goal-startup:<goalId>:<updatedAt>` 唤醒；到点由既有 selfWake 执行器注入 `continue_goal` 并续跑会话。触发前二次校验"仍非终态且期间无推进"（陈旧唤醒作废）；**2026-11-16 用户裁定翻为默认开**（21 模式 #11） | `FEATURE_GOAL_STARTUP_RESUME=false`（不扫描 / 不续跑，历史遗留唤醒也作废） | §2-#17 |
 | `REQUIRE_BEARER` | `true` | **非回环暴露面必须带登录态**（`LIRI_HTTP_HOST` 非回环 或 `headless` 变体 ⇒ 无有效 `Bearer` 一律 401，不再回落本机身份；`/v1/health*`、`/v1/a2a*` 豁免；桌面/CLI 回环不受影响） | `FEATURE_REQUIRE_BEARER=false`（灰度回退旧行为） | — |
 | `CHANNEL_UNTRUSTED_TAINT` | `true` | **渠道来源 Taint**：通道入站驱动的会话打标 `origin='channel'`（只升不降）⇒ `sideEffect !== 'none'` 的工具（bash/写文件/子代理/网络发送…，判定复用 `tools/toolEffects.ts`；未声明效果 fail-closed）一律拒绝；桌面/REPL/CLI 零变更（T25-07） | `FEATURE_CHANNEL_UNTRUSTED_TAINT=false`（灰度回退旧行为） | — |
 | `PLUGIN_THIRD_PARTY_INPROCESS` | `false` | **第三方插件准入闸**：`~/.pyapp/plugins/installed/**` 等文件/安装型插件默认**不在主进程内加载**（它们在主进程 `import` 执行 ⇒ 可读 `.env` / spawn 子进程）；单插件放行走 `LIRI_PLUGIN_TRUSTED_IDS`；第一方 bundled 插件不受影响（T25-08 P0） | `FEATURE_PLUGIN_THIRD_PARTY_INPROCESS=true`（整体回到旧行为，自担风险） | §2-#16 |
@@ -80,7 +83,7 @@ gci -Recurse -Include *.ts,*.tsx | % { if ($(gc $_.FullName -Raw) -notmatch "MIT
 | 第二层：项目数据 | `~/.pyapp/data/` | ❌ | 运行时数据 — 部署安全，Program Files 安装也具备写入权限 |
 | 第三层：用户数据 | `~/.pyapp/` | ❌ | 配置、记忆、技能（跨项目） |
 
-**细目**：详见 [paths.ts](file:///E:/PY/CODES/PY_APP/packages/kernel/src/core/paths.ts)。命名统一 `~/.pyapp/`，禁用 `~/.Liri/`。
+**细目**：详见 [paths.ts](file:///E:/PY/Documents/CODES/PY_APP/packages/kernel/src/core/paths.ts)。命名统一 `~/.pyapp/`，禁用 `~/.Liri/`。
 
 #### 数据库统一约定
 
@@ -148,13 +151,20 @@ chatCoordinator().setMessages(messages);
 
 **任何进入模型请求的内容，都必须能从事件日志（`events.jsonl`）重建。新增"模型可见输入"必须同批新增一个 session 事件。**
 
-- **事实源**：`app/src/session/types/events.ts` 的 `LiriEventType`（类型联合）与 `LiriEventMap`（载荷）；读取/写入校验在 `app/src/session/types/knownEventTypes.ts`。（2026-10-01 B11 本体：原 `app/src/chat/types/` 整目录迁入 `app/src/session/types/`，**拍平**；见 [layer-inversion-service-app-app-ui.md](../specs/layer-inversion-service-app-app-ui.md) 的 B11 执行记录）
+- **事实源**：`packages/service/src/session/types/events.ts` 的 `LiriEventType`（类型联合）与 `LiriEventMap`（载荷）；读取/写入校验在 `packages/service/src/session/types/knownEventTypes.ts`。（2026-10-01 B11 本体：原 `app/src/chat/types/` 整目录迁入 `app/src/session/types/`，**拍平**；2026-11-13 P1：session 并入 `packages/service/src/session`；见 [layer-inversion-service-app-app-ui.md](../specs/layer-inversion-service-app-app-ui.md) 的 B11 执行记录）
 - **三处必须同批同步**（现由**编译期**强制，不依赖人工记得）：
   1. `LiriEventType` 联合；
   2. `LiriEventMap` 载荷 —— 由 `LiriEvent<T>.data: LiriEventMap[T]` 的泛型索引强制；
   3. `ALL_SESSION_EVENT_TYPES` 登记清单 —— 由 `knownEventTypes.ts` 末尾的**穷尽断言**强制（漏登记 ⇒ `TS2322: Type 'true' is not assignable to type 'never'`）。
 - ❌ 禁止：把提示词、工具/技能清单、注入上下文、检索结果等**模型可见输入**只写进内存或投影（`messages.jsonl`），而不落为事件。
 - ❌ 禁止：事件类型变更只改类型联合/载荷而不改登记清单（或反之）。
+- **事件 `seq` 必须传 `0`**（2026-11-15 新增，实证 11 处返工）：由 `EventLog.append` 在 **mutex 内原子分配**；
+  ❌ 禁止自行 `getStreamTailSeq() + 1` —— 同一会话的事件写入者是**并发**的（流式主循环 / 工具轮 / 空闲期复核 /
+  后台标题 / PDCA），自行取尾号会在并发下撞号，而 `append` 对 `duplicate-seq` 按**幂等丢弃且不告警** ⇒ 事件静默丢失。
+  历史坑：`streamMessageToolLoop` 的 P3-7a（`tool/result` 并发）与 2026-11-15 的 11 处批量收敛（`e24f4dbda` / `5d25223fb` / `bd8cdc56c` / `9a9826b98`）。
+- **缓冲合并 ≠ 丢弃**（2026-11-18 补登，审计见 [event-drop-audit.md](../specs/event-drop-audit.md) §2-D6）：允许把连续
+  正文 chunk 合并写盘、把相邻 `thinking` 合并为一行，但**合并后必须仍可从 `events.jsonl` 重建**；
+  任何"合并即丢弃"（不落行、也不留替代事件）的实现按丢事件处理。
 - **为什么需要**：这是轨迹视图、回放与审计"可复现"的前提 —— 缺了它，"模型当时看到了什么"无法回答，且新增输入可绕过事件日志而**不被任何机制发现**（本约束在参照仓库以仓库级 `AGENTS.md` 红线强制同一语义）。
 
 **验收**：`bun run typecheck` 必须能捕获漏登记（改 ①/② 而不改 ③ ⇒ 编译失败，已实测：移除一个登记项即报 `TS2322`）；涉及模型可见输入的功能变更，须在方案/PR 中给出对应的事件类型。
@@ -182,23 +192,28 @@ chatCoordinator().setMessages(messages);
 | 文件 | 生效 | 用途 |
 |------|------|------|
 | `project_rules.md` | 始终 | 本文件，编码规范 |
-| `coding-standards.md` | 始终 | 编码铁律（CS01-CS07，AI 可执行） |
+| `PY_APP.md` | 始终 | 通用行为准则（先思考再编码、简洁优先、外科手术式修改、目标驱动、证据驱动） |
+| `coding-standards.md` | 始终 | 编码铁律（CS01-CS08，AI 可执行） |
+| `task-execution.md` | 始终 | 任务执行行为（TE01–TE10：调用上限、静默报告、完成总结、路径收敛、中断恢复） |
 | `code-deletion.md` | **删除/清理代码** | 代码删除安全流程（CD01–CD07；关键模块禁以"无静态引用"为删依据） |
+| `session-budget.md` | 长任务 / 台账写入 | 会话预算与交接纪律（SB01–SB11：单写入点、检查点、降回显） |
 | `paths.md` | 磁盘IO时 | 路径使用规范 |
 | `frontend.md` | 前端开发 | 前端规则 |
-| `architecture.md` / `architecture-compliance.md` | 架构/重构/审查 | 架构原则 + 合规规则（R01–R06；**R00 分层**见下方事实源） |
+| `architecture.md` / `architecture-compliance.md` | 架构/重构/审查 | 架构原则 + 合规规则（R00–R15）；物理包边界门禁 **R1–R28** 见 `bun run lint:infra` |
+| `model-usage.md` | 模型/AI 相关 | 模型使用规则（DB 唯一事实源、禁止硬编码模型名/属性表） |
 | `development-workflow.md` | 开发任务 | 开发流程 |
 | `versioning.md` | 版本规划 | 版本管理 |
+| `version-consistency.md` | 发版 / 改版本号 | 版本号一致性检查（多文件同源） |
 | `operations.md` | 部署/安全 | 运维Checklist |
 | `benchmark-rules.md` | 手动`#Rule` | 对标分析规范 |
 
-> 架构合规规则配套检查脚本 `bun run lint:arch`。涉及基础设施复用、数据模型统一、模块边界控制时必须查阅。
+> 架构合规规则配套检查脚本 `bun run lint:arch` 与物理包边界门禁 `bun run lint:infra`。涉及基础设施复用、数据模型统一、模块边界控制时必须查阅。
 >
 > **分层模型唯一事实源**：`scripts/modules-to-layers.json`（`layerOrder` / `allowedDependencies` / `modules`）。层序 `entry > ui > app > service > infra > core`；任何规则文档中的层表若与之冲突，**以事实源为准**（层表与判据见 `architecture-compliance.md#R06-008`，2026-10-01 已按事实源重写）。
 
 #### 1.6.1 前后端接口清单（强制）
 
-接口唯一事实来源为 **[api-spec.md](file:///E:/PY/CODES/PY_APP/.trae/docs/api-spec.md)**。涉及新增/修改 HTTP/IPC 调用、调试数据不一致、PR 跨端变更时必须先查阅。
+接口唯一事实来源为 **[api-spec.md](file:///E:/PY/Documents/CODES/PY_APP/.trae/docs/api-spec.md)**。涉及新增/修改 HTTP/IPC 调用、调试数据不一致、PR 跨端变更时必须先查阅。
 
 **核心原则**：
 1. 后端 HTTP 路由和 Rust IPC 命令必须在清单中有对应条目
@@ -288,9 +303,9 @@ import { resolveOutputDir, resolveDbPath } from '@openliri/infra/environment';  
 | DB / 缓存 | `resolveDbPath()` / `resolveCacheDir()` | `~/.pyapp/data/`（DB: `~/.pyapp/data/app.db`；缓存: `~/.pyapp/data/cache/`） |
 | 输出 / 下载 / 临时 / 附件 / 媒体 | `resolveOutputDir/DownloadsDir/TempDir/AttachmentsDir/MediaDir()` | `~/.pyapp/{output,downloads,temp,attachments,media}/` |
 
-完整函数列表见 [paths.ts](file:///E:/PY/CODES/PY_APP/packages/kernel/src/core/paths.ts)。命名统一 `~/.pyapp/`，禁用 `~/.Liri/`。
+完整函数列表见 [paths.ts](file:///E:/PY/Documents/CODES/PY_APP/packages/kernel/src/core/paths.ts)。命名统一 `~/.pyapp/`，禁用 `~/.Liri/`。
 
-**环境变量语义**（⚠️ 2026-09-11 O11 修正：此处原写作 `PYAPP_*`，与代码不符，按文档配置会**静默失效**）：`LIRI_PROJECT_DIR`（项目根目录）、`LIRI_DATA_DIR`（第二层）、`LIRI_HOME`（第三层），均由 `pyapp.ts` 设置。代码常量定义见 [paths.ts](file:///E:/PY/CODES/PY_APP/packages/kernel/src/core/paths.ts)（`ENV_LIRI_PROJECT_DIR` / `ENV_LIRI_DATA_DIR` / `ENV_LIRI_HOME`）。
+**环境变量语义**（⚠️ 2026-09-11 O11 修正：此处原写作 `PYAPP_*`，与代码不符，按文档配置会**静默失效**）：`LIRI_PROJECT_DIR`（项目根目录）、`LIRI_DATA_DIR`（第二层）、`LIRI_HOME`（第三层），均由 `pyapp.ts` 设置。代码常量定义见 [paths.ts](file:///E:/PY/Documents/CODES/PY_APP/packages/kernel/src/core/paths.ts)（`ENV_LIRI_PROJECT_DIR` / `ENV_LIRI_DATA_DIR` / `ENV_LIRI_HOME`）。
 
 **目录变更步骤**：①搜索 `backend/` 等旧路径 ②更新 `environment/paths.ts` ③更新健康检查/监控引用 ④更新文档/Docker/`.gitignore` ⑤`bun run typecheck` ⑥验证健康报告
 
@@ -298,7 +313,7 @@ import { resolveOutputDir, resolveDbPath } from '@openliri/infra/environment';  
 
 ### 1.14 通道系统规范
 
-**唯一真相源**：`src/channels/` 为通道**唯一实现层**。（⚠️ 订正 2026-10-12：`core/gateway/` **已移除** —— 该目录于 2026-08-06 下线，**不存在**"遗留兼容层"。）
+**唯一真相源**：`packages/channels/src/channels/` 为通道**唯一实现层**。（⚠️ 订正 2026-10-12：`core/gateway/` **已移除** —— 该目录于 2026-08-06 下线，**不存在**"遗留兼容层"。）
 
 **注册唯一入口**：`channelBootstrapper`（单例）→ `channelRegistry.register()`。❌ 绕过 Registry 直接注册 ❌ 新增对**已移除的** `core/gateway/` 的依赖。`register()` 内置双重注册守卫。
 
@@ -323,15 +338,15 @@ import { resolveOutputDir, resolveDbPath } from '@openliri/infra/environment';  
 
 | 来源 | 唯一事实源 | 位置 |
 |------|-----------|------|
-| 内置 | `BundledSkillLoader`（程序化数组，10 个 prompt 型） | `src/skills/loaders/sources/BundledSkillLoader.ts`，启动经 `initBuiltinSkills` 注册到 `skillRegistry` 单例 |
+| 内置 | `BundledSkillLoader`（程序化数组，10 个 prompt 型） | `packages/skills/src/skills/loaders/sources/BundledSkillLoader.ts`，启动经 `initBuiltinSkills` 注册到 `skillRegistry` 单例 |
 | 用户 | SKILL.md（YAML front matter） | `~/.pyapp/skills/<name>/SKILL.md` |
 | 第三方 | ClawHub 等市场安装 | `~/.pyapp/skills/vendor/<safeId>/`（`resolveVendorSkillsDir()`，`LocalSkillStore` 默认路径，`getSkillInstallPath` 做 `[:\/\\]→_` 映射） |
 
 **强制规则**：
-1. ❌ 禁止重建 `src/skills/builtin/` 目录——内置唯一来源是 BundledSkillLoader，SKILL.md 目录从未存在
+1. ❌ 禁止重建 `packages/skills/src/skills/builtin/` 目录——内置唯一来源是 BundledSkillLoader，SKILL.md 目录从未存在
 2. ❌ 禁止把第三方技能存到 `~/.pyapp/skills/` 根目录（用户目录）——物理隔离是来源识别的唯一依据
 3. ❌ 禁止用 `path.join(homedir(), '.pyapp', 'skills')` 等拼路径——统一 `resolveUserSkillsDir()` / `resolveVendorSkillsDir()`
-4. **verify 不是技能**：机械验证是工具函数 `query/verifyProject.ts`（TAORLoop/PDCA reviewStep 直连），禁以 skill 形式重造；BundledSkillLoader 中的 `verify` 仅为 prompt 型指导技能
+4. **verify 不是技能**：机械验证是工具函数 `packages/query/src/query/verifyProject.ts`（TAORLoop/PDCA reviewStep 直连），禁以 skill 形式重造；BundledSkillLoader 中的 `verify` 仅为 prompt 型指导技能
 5. **启动自动加载**：已安装第三方技能由 `init.ts` `adapter.loadSkills()` 注册进 registry（仅安装时实时注册不够）
 6. **技能仅提示词注入**：❌ 禁止 shell 执行（SkillPreprocessor 无 execSync、SkillTool 无 shell 分支）；危险能力（shell/paths/allowed-tools/hooks）必须用户确认
 7. **文件操作入口**：删除/克隆/列表/关联内容/启用禁用/导入一律 `validateSkillId`（safeSkillId.ts 在 `skills/loaders/adapter/`）
@@ -358,6 +373,9 @@ import { resolveOutputDir, resolveDbPath } from '@openliri/infra/environment';  
 ---
 
 ## §2 版本历史
+- **v7.33.0**: §1.6「模型可见 ⇔ 已落盘」红线补 **「缓冲合并 ≠ 丢弃」**（纯文档，**无行为变更**）—— 承接 `event-drop-audit.md` §2-D6 / §3-F3：允许连续正文 chunk 合并写盘、相邻 `thinking` 合并为一行，但合并后必须仍可从 `events.jsonl` 重建；"合并即丢弃"按丢事件处理。
+- **v7.32.0**: §1.6 新增**事件 `seq` 约定**（纯文档，**无行为变更**）—— 事件写入必须传 `seq: 0`，由 `EventLog.append` 在 mutex 内**原子分配**；❌ 禁止 `getStreamTailSeq() + 1`（同一会话写入者并发：流式主循环 / 工具轮 / 空闲期复核 / 后台标题 / PDCA）⇒ 撞号后 `duplicate-seq` 按**幂等丢弃且不告警**，事件静默丢失。来源：2026-11-15 实测收敛 **11 处**同类写法（`e24f4dbda` / `5d25223fb` / `bd8cdc56c`，随后 `9a9826b98` 删掉 4 个无消费者注入口）；更早的 `streamMessageToolLoop` P3-7a 已记录同一坑。
+- **v7.30.0**: 文档治理（物理包化后的地址订正，**纯文档，无行为变更**）—— §1.6 规则文件索引补齐 5 行（`PY_APP.md` / `task-execution.md` / `session-budget.md` / `version-consistency.md` / `model-usage.md`，索引此前与 `.trae/rules/` 实际 16 个文件不一致），`coding-standards` 范围 `CS01-CS07` → **`CS01-CS08`**，架构合规范围 `R01–R06` → **`R00–R15`** 并注明物理包边界门禁 **R1–R28**（`bun run lint:infra`）；§1.14 通道唯一实现层 `src/channels/` → `packages/channels/src/channels/`；§1.15 `BundledSkillLoader` / `skills/builtin` 与 `verifyProject.ts` 路径 → `packages/skills` / `packages/query`
 - **v7.29.0**: §1.4 **`BASH_APPROVED_REVALIDATE` 语义订正（如实）** —— 该项自 **2026-11-06（P0-3）** 起为 **legacy 别名（全仓无读取点）**：硬拦截层自 S1-2（2026-10-11）已恒定执行，而「批准只免审批交互」现由 `BashTool` 直接按 `isApproved` 判定。旧实现把默认值 `true` 读成"再弹一次 ask"，导致**批准后立刻重弹同一张卡**（真机 `session_mw4sdx7ma4abe32ea4`：批准 → 30ms 后 `security_analyzer_ask` → 再弹卡，无限审批环）。**默认值与 `SAFETY_SWITCHES` 断言不变**，仅订正文档语义（`lint:doc-code` 通过）。
 - **v7.28.0**: §1.4 安全开关清单 **21 → 22 项**，新增 **`LIRI_PLUGIN_REQUIRE_SIGNATURE`**（默认值**由信任锚存在性决定**：随包 `app/trusted-keys/*.pem` 随安装包分发 ⇒ 安装版默认开）—— 承接 **T25-08 P2**：插件清单签名闸此前已默认生效（「信任锚即意图」），但**未进本表、不受 `lint:doc-code` 断言保护**（其默认值非 `featureFlags.ts` 字面量，`SAFETY_SWITCHES` 覆盖不到）。同步：新增 `PLUGIN_SIGNATURE_ASSERTIONS` 3 条断言（env 名 / 「信任锚即意图」默认语义 / 随包公钥真实存在）
 - **v7.27.0**: §1.4 安全开关清单 **17 → 18 项**，新增 **`REQUIRE_BEARER`**（默认 `true` = 安全基线）—— 承接 **§6-#11**：HTTP 绑定**非回环**地址（`LIRI_HTTP_HOST`，如 Docker `0.0.0.0`）或 `headless` 变体时，**无有效 `Bearer` 登录会话一律 401**，不再回落 `LOCAL_PRINCIPAL`（共享密钥为空时 `verifyRequestAuth` 对任何请求都通过 ⇒ 远端可拿本机特权身份）；`/v1/health*`、`/v1/a2a*`（自带鉴权）豁免；桌面/CLI 回环绑定**零行为变更**。同步：`featureFlags.ts` + `SAFETY_SWITCHES` 断言（17 → 18）+ 本文表（触发条件 `—` = 默认开）

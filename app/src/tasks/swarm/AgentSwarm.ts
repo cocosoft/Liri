@@ -41,7 +41,7 @@ import { randomIdSuffix } from '@openliri/kernel';
 import { getOrchestrationMetrics } from '@openliri/kernel/events/OrchestrationMetrics';
 import { OrchestrationEventType } from '@modules/types/orchestrationEvents';
 // G-02（2026-10-19）：批次级 in-flight 熔断（复用 chat 的单一预算收口）
-import { checkDailyBudget } from '../../query/dailyBudgetGate';
+import { checkDailyBudget } from '@modules/query/dailyBudgetGate';
 
 const logger = getLogger('tasks:agentSwarm');
 
@@ -203,12 +203,12 @@ export interface AgentSwarmOptions {
   signal?: AbortSignal;
   /**
    * E-1（2026-10-18）：verifier **明确**判不过（`explicit:true` 且 `pass:false`）时，
-   * 把 feedback 回灌原 worker **重试 1 次**，重试后重新门禁一次（默认关 = 零行为变更）。
+   * 把 feedback 回灌原 worker **重试 1 次**，重试后重新门禁一次（**2026-11-16 起默认开**）。
    *
    * - verifier 自身抛错 / 输出不可解析（fail-closed 兜底）⇒ **不回灌**（无可用修正信息）；
    * - worker 执行未成功 / 超时 / 批次已取消 ⇒ 不回灌；
-   * - 灰度：`AgentTool` 侧由 `SWARM_VERIFY_RETRY`（默认 false）控制，
-   *   触发条件见 `.trae/specs/default-off-switches-review-gates.md` §2 #15。
+   * - 灰度开关：`AgentTool` 侧由 `SWARM_VERIFY_RETRY`（2026-11-16 起默认开；回退
+   *   `FEATURE_SWARM_VERIFY_RETRY=false`）控制，见 `.trae/specs/default-off-switches-review-gates.md` §2.4.6。
    */
   enableVerifyRetry?: boolean;
   /**

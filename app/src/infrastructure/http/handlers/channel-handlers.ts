@@ -553,7 +553,7 @@ async function tryDynamicRegister(
 
     // 2. 注册到 ChannelBootstrapper
     const { channelBootstrapper } =
-      await import('../../../channels/bootstrap/ChannelBootstrapper');
+      await import('@modules/channels/bootstrap/ChannelBootstrapper');
     channelBootstrapper.registerPluginChannel(channelType, () => plugin);
 
     // 3. 写入配置（合并前端传入的凭据）
@@ -660,6 +660,9 @@ function bindInboundHandler(channelType: string, plugin: IChannelPlugin): void {
         _retryTimer = null;
       }
     }, 15_000);
+    // P2-2：`unref()` —— 待发送回复重试属**可放弃的周期性维护**（队列空即自停）；
+    // 不 unref 时，只短暂挂载过该模块的 CLI/脚本会被这个 15s 轮询挂住（lint:unref 存量项）。
+    _retryTimer.unref();
   }
 
   inbound.setMessageHandler(async (message) => {
@@ -770,6 +773,9 @@ export async function handleWechatCliStatus(
  * POST /v1/channels/mobile/messages
  *
  * 分工（方案 §2.6）：
+ * - **入站两形态（互斥）**：文本 `{deviceId, text}` ⇒ 聊天路由；
+ *   卡片动作 `{deviceId, action}` ⇒ 审批动作（G6，2026-11-14，直接复用
+ *   `resolveInboxApproval`，不经过聊天路由）。
  * - **传输**：本端点挂在 `LocalHTTPService` 上 ⇒ 复用统一鉴权（Bearer / api-key / 登录 token）；
  * - **语义**：`mobile` 通道只做身份与规矩（`channelId='mobile'` ⇒ `CHANNEL_TOOL_POLICY` 自动按
  *   `messaging` 面裁剪，不含执行类）；
@@ -826,6 +832,70 @@ export async function handleMobileInboundMessage(
     } catch {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: { message: 'invalid JSON body' } }));
+      return;
+    }
+
+    // G6（2026-11-14）：卡片按钮动作（同意 / 拒绝）—— 复用 `resolveInboxApproval`
+    // 单一实现，不新增审批真源。带 `action` 的请求**不进入聊天路由**（与文本形态互斥）。
+    const approvalAction = mobile.parseMobileApprovalActionBody(body);
+    if (approvalAction) {
+      if (!approvalAction.ok) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: approvalAction.error } }));
+        return;
+      }
+
+      const actionAuth = mobile.authorizeMobileRequest(
+        authHeader,
+        approvalAction.value.deviceId
+      );
+      if (!actionAuth.ok) {
+        await mobile.recordMobileAudit({
+          kind: 'auth_denied',
+          deviceId: approvalAction.value.deviceId,
+          reason: actionAuth.message,
+        });
+        res.writeHead(actionAuth.status, {
+          'Content-Type': 'application/json',
+        });
+        res.end(
+          JSON.stringify({
+            error: {
+              code: 'MOBILE_DEVICE_TOKEN_INVALID',
+              message: actionAuth.message,
+            },
+          })
+        );
+        return;
+      }
+
+      const resolved = await mobile.resolveMobileApprovalAction(
+        approvalAction.value.action
+      );
+      await mobile.recordMobileAudit({
+        kind: 'approval_action',
+        deviceId: actionAuth.deviceId,
+        inboxItemId: approvalAction.value.action.i,
+        decision: approvalAction.value.action.d,
+        outcome: resolved.kind,
+        success: resolved.ok,
+      });
+
+      const status = resolved.ok
+        ? 200
+        : resolved.kind === 'not_found'
+          ? 404
+          : resolved.kind === mobile.MOBILE_APPROVAL_RESOLVE_FAILED
+            ? 500
+            : 409;
+      res.writeHead(status, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          success: resolved.ok,
+          inboxItemId: approvalAction.value.action.i,
+          outcome: resolved.kind,
+        })
+      );
       return;
     }
 

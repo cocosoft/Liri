@@ -123,6 +123,9 @@ export function setupArchivalScheduler(
       nextRunMs = computeNextCronRunMs(cron, now) ?? null;
     }
   }, SCHEDULER_CHECK_INTERVAL_MS);
+  // P2-2：`unref()` —— 归档属**可放弃的周期性维护**，且本函数是 infra 导出（宿主可能是 CLI/脚本）；
+  // 调用方即便忘记 `stop()`，也不该让进程退出被这个检查轮询挂住（lint:unref 存量项）。
+  timerId.unref();
 
   logger.info('归档调度器已启动', { cron });
 

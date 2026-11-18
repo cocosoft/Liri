@@ -231,7 +231,6 @@ export interface ToolLoopContext {
       data: unknown;
     }
   ) => Promise<{ ok: boolean; reason?: string; tailSeq: number }>;
-  getStreamTailSeq?: (sessionId: string) => Promise<number>;
 
   /**
    * A 缺口修复（2026-09-02，P3-7f 基准实测）：工具轮正文聚合缓冲。

@@ -54,6 +54,8 @@ const ADMIN_READ_PATHS = ['/v1/permissions/rbac'] as const;
  *   - `/v1/apikeys`：API 密钥签发与吊销
  *   - `/v1/oauth/providers`：OAuth 供应商凭据
  *   - `/v1/skills`：skill 的 install/uninstall/delete/import/clone/update/toggle/create（M1，2026-08-06）
+ *   - `/v1/system/shutdown`：优雅关闭（2026-11-12；本机无 Bearer 时 `checkAdminRequest` 直接放行，
+ *     已登录但非 admin 的会话不得停机）
  *   - `/v1/tenants`：删除租户会清空整租户数据（多租户 P5，2026-10-21）
  */
 const ADMIN_WRITE_PREFIXES = [
@@ -61,6 +63,7 @@ const ADMIN_WRITE_PREFIXES = [
   '/v1/oauth/providers',
   '/v1/permissions',
   '/v1/skills',
+  '/v1/system/shutdown',
   '/v1/tenants',
 ] as const;
 

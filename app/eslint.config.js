@@ -48,6 +48,10 @@ export default [
       // ⇒ 高于 P99、只对**真离群**发信号，防止新代码继续堆复杂度。
       // 数据与可行性评估见 `dev_docs/20261009/复查任务计划.md §1.9`。
       complexity: ['warn', 40],
+      // 2026-11-15（P3-2 附带）：重复 `case` 标签 ⇒ 后者**不可达**（静默死代码）。
+      // 实证：`BaseAIProvider.parseAnthropicSSELine` 曾有两个 `case 'content_block_delta'`
+      // ⇒ 工具参数 `input_json_delta` 累积分支永不执行（已修）。全仓当时仅此 1 处。
+      'no-duplicate-case': 'error',
       'module-registry/no-direct-module-import': ['error', {
         // B2-3（2026-09-23）：`goalTemplates` 是**跨模块共享的纯常量模块**
         // （零依赖、无实例/无生命周期、不需 ModuleRegistry 管理）⇒ 显式豁免直连。
@@ -82,6 +86,34 @@ export default [
           // 编排模式目录（原 `packages/kernel/src/core/patterns`）：纯目录 + 选择器，
           // 无实例/无生命周期（`chat → query` 只取 featureFlag 与选择器纯函数）。
           '\\/query\\/patterns$',
+          // P1（2026-11-13，channels 拆包）：`channels/binding` 是**纯叶子**
+          // （只读会话 metadata 的纯函数，零依赖/零生命周期）；chat 每轮调用它，
+          // 若改走 `@modules/channels` 桶会把整个通道面（26 通道实现）拉进对话热路径
+          // ⇒ 与 `channels/ChannelCatalog` 的"规范子入口"同口径，按文件名精确豁免。
+          '\\/channels\\/binding$',
+          // P1（2026-11-13，session 并入 `packages/service`）：`session/yield` 是**产出/续跑注册表**
+          // 的窄子入口（chat 的 ReAct 循环与恢复链每轮读写它）；走 `@modules/session` 桶会把
+          // 整个会话面（网关 / FTS / EventLog）拉进对话热路径，与 `channels/binding` 同口径豁免。
+          '\\/session\\/yield$',
+          // P1（2026-11-13，query 拆包）：以下 8 个子路径是**窄功能入口**（预算闸门 / 预算挂起 /
+          // 附件预算 / 定价适配 / 单轮预检 / 熵守卫 / 预算快照 / 工具任务挂起 SPI）。
+          // 拆包前它们以**相对路径**被 chat / tasks / commands / workspace 直连（不经过桶），
+          // 迁入 `packages/query` 后必须走别名 —— 若改走 `@modules/query` 桶，会把 TAORLoop /
+          // QueryEngine / 全量检查点存储拉进这些热路径（与 `query/patterns`、`session/yield` 同口径）。
+          '\\/query\\/dailyBudgetGate$',
+          '\\/query\\/budgetSuspend$',
+          '\\/query\\/attachmentBudget$',
+          '\\/query\\/modelPricingAdapter$',
+          '\\/query\\/turnUsdPreflight$',
+          '\\/query\\/guardSuspend$',
+          '\\/query\\/dailyBudgetSnapshot$',
+          '\\/query\\/toolJobSuspend$',
+          // 2026-11-16（用户可配门控）：`query/featureGate` 是**零实例、零生命周期**的纯叶子
+          // （只依赖 kernel 的 `feature()` 与 infra 的 `configManager`），是"env > 用户设置 > 默认"
+          // 的唯一解析入口；chat（恢复链）/ tasks（启动期续跑扫描与二次校验）每轮现读它。
+          // 若改走 `@modules/query` 桶，会把 TAORLoop / QueryEngine 等整条查询面拉进启动与恢复热路径
+          // ⇒ 与上面 8 个 query 窄入口、`query/patterns` 同口径，按文件名精确豁免。
+          '\\/query\\/featureGate$',
         ],
       }],
       'no-restricted-imports': ['warn', {
@@ -315,7 +347,6 @@ export default [
       'src/oauth/**',
       'src/streaming/**',
       'src/cache/**',
-      'src/lsp/**',
       'src/scripts/**',
       'src/diagnostics/**',
       'src/media/**',

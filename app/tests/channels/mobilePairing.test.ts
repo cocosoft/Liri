@@ -19,7 +19,7 @@ import {
   resetMobilePairingForTest,
   startMobilePairing,
   unpairMobileDevice,
-} from '../../src/channels/mobile/MobilePairingService';
+} from '@modules/channels/mobile/MobilePairingService';
 
 afterEach(() => {
   resetMobilePairingForTest();

@@ -12,8 +12,8 @@
  */
 import { describe, test, expect } from 'bun:test';
 
-import { runAttemptWithInfraRetry } from '../../src/evals/runner';
-import type { EvalAttempt } from '../../src/evals/types';
+import { runAttemptWithInfraRetry } from '@modules/evals/runner';
+import type { EvalAttempt } from '@modules/evals/types';
 
 function attemptOf(
   failureKind: 'infra' | 'assert' | undefined,

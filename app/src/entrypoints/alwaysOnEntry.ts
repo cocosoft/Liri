@@ -61,15 +61,16 @@ import {
   type AlwaysOnBridgeDeps,
   type AlwaysOnProject,
 } from '@modules/tasks';
-import { checkDailyBudget } from '../query/dailyBudgetGate';
+import { checkDailyBudget } from '@modules/query/dailyBudgetGate';
 // P34（2026-11-02）：派工生命周期落库
 import { upsertTicketAssignment } from '../tasks/ticketAssignmentStore';
-import { getActiveProactiveQueue } from '../proactive/ProactiveRuntime';
-import { resolveProactiveTarget } from '../proactive/ProactiveTargetResolver';
-import { resolveProactiveGatePrefs } from '../proactive/ProactiveCronProducer';
-import { evaluateProactiveNotification } from '../proactive/ProactiveNotificationGate';
-import type { ProactiveMessagePayload } from '../proactive/types';
-import { listAll } from '../workspaces/WorkspaceRegistry';
+// P1（2026-11-14）：`proactive` 迁入 `packages/proactive`（层仍为 app）
+import { getActiveProactiveQueue } from '@modules/proactive/ProactiveRuntime';
+import { resolveProactiveTarget } from '@modules/proactive/ProactiveTargetResolver';
+import { resolveProactiveGatePrefs } from '@modules/proactive/ProactiveCronProducer';
+import { evaluateProactiveNotification } from '@modules/proactive/ProactiveNotificationGate';
+import type { ProactiveMessagePayload } from '@modules/proactive/types';
+import { listAll } from '@modules/workspaces/WorkspaceRegistry';
 // P0-2（2026-11-04，issue #35）：工作区根列表的**唯一合并口径**（与权限层/执行前同一实现；
 // 已于同日下沉 infra —— 入口不得直连 `chat` 模块，见 eslint `no-direct-module-import`）
 import { mergeWorkspaceRoots } from '@openliri/infra/utils/toolContract/workspaceRoots';
@@ -825,6 +826,64 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
           error: error instanceof Error ? error.message : String(error),
         });
       }
+    }
+  }
+
+  /**
+   * D1（2026-11-14）：外部事件来源（webhook / GitHub issue / 邮件轮询共用入口）。
+   *
+   * 仅在策略显式开启 `sources.external` 时注册；未启用 ⇒ 不注册来源、不注入受理端口
+   * ⇒ `POST /v1/events/external` 回 503（默认零行为变更）。
+   * 执行面沿用 `alwayson_discovery`（只读）+ prompt 明令禁止改文件。
+   */
+  if (autonomyPolicy.config.sources.external === true) {
+    try {
+      const { startExternalEventPipeline } =
+        await import('../tasks/sources/externalEventWiring');
+      const externalSessionRef: { id?: string } = {};
+      await startExternalEventPipeline({
+        executeTicket: async (ticket) => {
+          const payload = (ticket.payload ?? {}) as Record<string, unknown>;
+          const triggerId =
+            typeof ticket.triggerId === 'string' ? ticket.triggerId : '';
+          const summary = JSON.stringify(payload).slice(0, 2000);
+
+          let sessionId = externalSessionRef.id;
+          if (sessionId) {
+            const alive =
+              (await chatManager.loadSession(sessionId)) ??
+              (await chatManager.getSessionGateway().getSession(sessionId));
+            if (!alive) sessionId = undefined;
+          }
+          if (!sessionId) {
+            const session = await chatManager.createSession({
+              title: '触发 · 外部事件',
+              description: '外部系统推送触发的事件分析会话',
+              tags: ['trigger', 'external'],
+            });
+            sessionId = session.id;
+            externalSessionRef.id = sessionId;
+          }
+
+          let tokens = 0;
+          const output = await sendPrompt(
+            sessionId,
+            `外部事件（${triggerId}）：${summary}。只做分析与建议；不要修改任何文件。`,
+            {
+              onUsage: (usage) => {
+                tokens += usage.totalTokens ?? 0;
+              },
+            },
+            { taskType: 'alwayson_discovery' }
+          );
+          return { success: true, output, tokens, sessionId };
+        },
+      });
+      logger.info('External Source 注册完成');
+    } catch (error) {
+      logger.warn('External Source 注册失败（不影响 AlwaysOn）', {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 

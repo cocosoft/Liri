@@ -46,8 +46,8 @@ import {
   type LandlockHelperRunner,
   type PlainRunner,
 } from '../../src/tools/bash/bashLandlockExec.js';
-import { DEFAULT_LANDLOCK_CONFIG } from '../../src/sandbox';
-import type { LandlockCapability, LandlockConfig } from '../../src/sandbox';
+import { DEFAULT_LANDLOCK_CONFIG } from '@modules/sandbox';
+import type { LandlockCapability, LandlockConfig } from '@modules/sandbox';
 
 /** 造配置：默认项 + 覆盖（与 bashLandlockExec.test.ts 同构） */
 function cfg(over: Partial<LandlockConfig> = {}): LandlockConfig {
@@ -231,5 +231,41 @@ describe('execBashCommand 成败/拒绝分支可观测性（B 类缺口 ③）',
     expect(callsByKey(FAILED_KEY, warnSpy).length).toBe(0);
     expect(callsByKey(REFUSED_KEY, warnSpy).length).toBe(0);
     expect(callsByKey(ERROR_KEY, warnSpy).length).toBe(0);
+  });
+
+  // P3-2（复杂度清理）：门控判为 plain（评测期强制但能力不可用）与"开关关闭"是**两条**
+  // 不同的回退路径，日志口径必须一致（否则回退静默、排查时看不出走了 plain）。
+  it('评测期强制但能力不可用 ⇒ 回退 plain，且同样记 exec_ok（mode=plain）', async () => {
+    const { runPlain } = plainSpy();
+    infoSpy = spyOn(bashExecLogger, 'info');
+    warnSpy = spyOn(bashExecLogger, 'warn');
+    const out = await execBashCommand({
+      command: 'bun test',
+      env: {},
+      timeoutMs: 1000,
+      maxBufferChars: 1024,
+      deps: {
+        // bashEnabled=false + evalForced=true ⇒ 进入 gate，但能力不可用 ⇒ gate.mode='plain'
+        config: cfg({ enabled: true, bashEnabled: false }),
+        evalForced: true,
+        platform: 'linux',
+        detect: async () => ({
+          available: false,
+          abi: 0,
+          reason: 'helper-missing',
+        }),
+        runPlain,
+      },
+    });
+
+    expect(out.stdout).toBe('plain-out');
+    const ok = callsByKey(OK_KEY, infoSpy);
+    expect(ok.length).toBe(1);
+    expect(ok[0][1]).toMatchObject({
+      commandPreview: 'bun test',
+      mode: 'plain',
+      exitCode: 0,
+    });
+    expect(callsByKey(REFUSED_KEY, warnSpy).length).toBe(0);
   });
 });

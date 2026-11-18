@@ -4,15 +4,15 @@
  * 规格：`.trae/specs/online-quality-evaluation.md` §3 D6 + §5（用例 8 的取数侧）。
  */
 import { describe, expect, it } from 'bun:test';
-import type { LiriEvent } from '../../src/session/types/events';
+import type { LiriEvent } from '@modules/session/types/events';
 import {
   EMPTY_TURN_QUALITY_SUMMARY,
   summarizeTurnQuality,
-} from '../../src/evals/online/summarizeTurnQuality';
+} from '@modules/evals/online/summarizeTurnQuality';
 import {
   HIGH_VALUE_SCORE_THRESHOLD,
   SUSPICIOUS_SCORE_THRESHOLD,
-} from '../../src/evals/online/weights';
+} from '@modules/evals/online/weights';
 
 function qualityEvent(
   seq: number,

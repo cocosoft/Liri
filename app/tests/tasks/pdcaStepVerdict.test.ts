@@ -27,7 +27,7 @@ import {
 } from '../../src/tasks/stepVerdict';
 import { PlanDrivenLoop } from '../../src/tasks/PlanDrivenLoop';
 import { taskOrchestrator } from '../../src/tasks/TaskOrchestrator';
-import type { TAORLoop, TAORLoopDeps } from '../../src/query/TAORLoop';
+import type { TAORLoop, TAORLoopDeps } from '@modules/query/TAORLoop';
 import type { AIProvider } from '../../src/ai/providers/AIProvider';
 
 describe('parseStepVerdict — 只读结构化标记（不做关键词匹配）', () => {

@@ -28,8 +28,8 @@
  */
 import { describe, it, expect, beforeEach } from 'bun:test';
 
-import { SessionPruner } from '../../src/session/SessionPruner';
-import type { SessionStorage } from '../../src/session/SessionStorage';
+import { SessionPruner } from '@modules/session/SessionPruner';
+import type { SessionStorage } from '@modules/session/SessionStorage';
 
 function makeStorage(now: number): {
   storage: SessionStorage;

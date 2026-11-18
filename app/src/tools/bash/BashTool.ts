@@ -330,7 +330,20 @@ export class BashTool extends BaseTool {
 
     const { isCallAllowedByPersistedRules } =
       await import('@openliri/infra/permission/PermissionManager');
-    const ruleHit = isCallAllowedByPersistedRules('bash', { command });
+    // G3：带上工作区根 —— 命令级「本工作区永久信任」规则只在同一根下命中
+    // 2026-11-14（CI 回归修复）：必须走 `safeProcessCwd()` —— 裸 `process.cwd()` 在
+    // "进程工作目录已被删除/移走"时会直接抛 ENOENT，从审批指纹路径冒出去，
+    // 绕过下方 cwd 先验的「无法确定工作目录」友好失败（macOS/Windows CI 实测复现）。
+    // 取不到根 ⇒ 传空列表：规则不命中 ⇒ 不放行（fail-closed）。
+    const processRoot = safeProcessCwd();
+    const ruleHit = isCallAllowedByPersistedRules(
+      'bash',
+      { command },
+      undefined,
+      processRoot ? [processRoot] : [],
+      // F2：会话级暂停时，审批规则不得再折算成"免审批"（否则暂停形同虚设）
+      sessionId
+    );
     return { hash, bypassAsk: ruleHit, source: ruleHit ? 'rule' : 'none' };
   }
 
@@ -485,119 +498,21 @@ export class BashTool extends BaseTool {
       //   ② `checkBashDangerousCommand`（危险命令列表 + 危险模式）
       //   ③ `checkAstAndAnalyzer`（安全分析器 + AST + deny/ask；AST 不确定 ⇒ fail-closed 转人工）
       //   ④ `checkWhitelistAndSandbox`（白名单 F3 + 沙箱二次校验 F2）
-      const pathBlock = checkPathSafety(std);
-      if (pathBlock) {
-        // 2026-10-25（预存台账 B 类可观测性缺口）：拦截事件此前**零日志** —— 只落会话消息、
-        // 不进 app.log（用户会话 `session_mvl0d0a3d6e2e9a764` 实证），排查"命令被安全策略拦截"
-        // 只能翻 messages.jsonl。现按 `powershell_wrapper_blocked`（本方法 :403）先例补 warn，
-        // 字段同构：sessionId + commandPreview + reason。
-        logger.warn('bash: security_gate_blocked', {
-          sessionId: context.sessionId,
-          commandPreview: command.slice(0, 200),
-          reason: pathBlock.metadata?.['reason'],
-        });
-        return appendReadOnlyProbeHint(pathBlock, command);
-      }
-
-      const dangerBlock = checkBashDangerousCommand(command);
-      if (dangerBlock) {
-        logger.warn('bash: security_gate_blocked', {
-          sessionId: context.sessionId,
-          commandPreview: command.slice(0, 200),
-          reason: dangerBlock.metadata?.['reason'],
-        });
-        return appendReadOnlyProbeHint(dangerBlock, command);
-      }
-
-      // G-07（2026-10-19）：`powershell/pwsh -Command "…"` 的内层脚本复用 PowerShellTool
-      // 的安全链（分析器 → 白名单 → 沙箱）；`-EncodedCommand` 等不可检查形态 fail-closed。
-      const psWrapperBlock = checkPowerShellWrapper(
-        command,
-        cwd ?? context?.options?.cwd,
-        // 2026-10-31：把同一信任级别交给内层 PowerShell 安全链（口径一致）
-        trustLevel
-      );
-      if (psWrapperBlock) {
-        if (skipAskByPolicy(psWrapperBlock)) {
-          logger.warn('bash: policy_auto_skip_ask', {
-            sessionId: context.sessionId,
-            commandPreview: command.slice(0, 200),
-            reason: 'powershell_wrapper_ask',
-          });
-        } else {
-          logger.warn('bash: powershell_wrapper_blocked', {
-            sessionId: context.sessionId,
-            commandPreview: command.slice(0, 200),
-          });
-          return psWrapperBlock;
-        }
-      }
-
-      const analysisBlock = checkAstAndAnalyzer({
-        command,
-        bypassAsk,
-        approvalScope,
-        approvalSnapshot,
-        analyzer: this.securityAnalyzer,
-        trustLevel,
-        // FIX-15：单条 PowerShell 包裹已由上一道闸（G-07）用 PowerShell 安全链判定过；
-        // 2026-11-09：委托范围扩到「只读 `cd` 前缀 + 单条包裹」（见 `isDelegatedPowerShellCommand`）
-        delegatedSinglePowerShell: isDelegatedPowerShellCommand(command),
-      });
-      if (analysisBlock) {
-        // 2026-10-25（与 path/danger 分支同源补日志）：分析器 deny / AST 拦截事件落 app.log，
-        // 字段同构（reason 区分 deny 与 ask/inconclusive 等来源）。
-        const skip = skipAskByPolicy(analysisBlock);
-        logger.warn(
-          skip ? 'bash: policy_auto_skip_ask' : 'bash: security_gate_blocked',
-          {
-            sessionId: context.sessionId,
-            commandPreview: command.slice(0, 200),
-            reason: analysisBlock.metadata?.['reason'],
-          }
-        );
-        if (!skip) return appendReadOnlyProbeHint(analysisBlock, command);
-      }
-
-      const whitelistBlock = checkWhitelistAndSandbox(command, std, {
-        // N-19（2026-11-07）：沙箱的"解释器内联执行"从硬拒改为升级人工确认
-        bypassAsk,
-        approvalScope,
-        approvalSnapshot,
-      });
-      if (whitelistBlock) {
-        // 2026-10-25（B 类可观测性缺口 ①）：白名单 F3 / 沙箱二次校验 F2 拦截事件此前**零日志**
-        // —— 只落会话消息、不进 app.log（用户会话 `session_mvl0d0a3d6e2e9a764` 实证"bash 命令
-        // 被安全策略拦截"无迹可查）。与 path/danger/ast 三分支（本方法 :392/:402/:435）同构补齐。
-        const skip = skipAskByPolicy(whitelistBlock);
-        logger.warn(
-          skip ? 'bash: policy_auto_skip_ask' : 'bash: security_gate_blocked',
-          {
-            sessionId: context.sessionId,
-            commandPreview: command.slice(0, 200),
-            reason: whitelistBlock.metadata?.['reason'],
-          }
-        );
-        if (!skip) return appendReadOnlyProbeHint(whitelistBlock, command);
-      }
-
-      // A4（2026-10-09）：高能力解释器命令不得仅凭"白名单内"自动放行
-      // G18 下沉（2026-10-11）：抽为 `checkInterpreterGuard(...)`（含 O1-B2 观测日志），语义不变。
-      const interpreterBlock = checkInterpreterGuard({
+      // P3-2（复杂度清理）：硬拦截层 4 门 + 解释器守卫按序短路，整体外移为
+      // `this.runSecurityGates(...)`（**逐字搬迁**，判定顺序与日志不变）。
+      const securityBlock = this.runSecurityGates({
         std,
-        isApproved: bypassAsk,
+        command,
+        cwd: cwd ?? context?.options?.cwd,
+        trustLevel,
+        bypassAsk,
         approvalScope,
         approvalSnapshot,
         sessionId: context.sessionId,
+        skipAskByPolicy,
+        permissionMode: context.policyContext?.permissionMode,
       });
-      if (interpreterBlock) {
-        if (!skipAskByPolicy(interpreterBlock)) return interpreterBlock;
-        logger.warn('bash: policy_auto_skip_ask', {
-          sessionId: context.sessionId,
-          commandPreview: command.slice(0, 200),
-          reason: 'interpreter_confirm_ask',
-        });
-      }
+      if (securityBlock) return securityBlock;
 
       // G18 下沉（2026-10-11）：审计 + env 构建 + 执行 + 截断 + 成功结果构造，抽为
       // `this.runCommandAndBuildResult(...)`（逐字搬迁）；其内**不吞异常** ⇒ 仍由本方法
@@ -612,168 +527,356 @@ export class BashTool extends BaseTool {
         onProgress,
       });
     } catch (error) {
-      const executionTime = ToolUtils.calculateExecutionTime(startTime);
-      const rawMsg = error instanceof Error ? error.message : String(error);
-      const stderr = (error as { stderr?: string }).stderr;
-      const exitCode = (error as { code?: number }).code;
-      const stdout = (error as { stdout?: string }).stdout;
-      // P3（2026-11-04，前端会话跟踪）：**检索无匹配 ≠ 执行失败**。
-      // 实测 `dir /b /s /ad 2>nul | findstr /i "mario"` —— findstr 无匹配的约定退出码就是 1，
-      // stdout/stderr 均空，却被计为工具失败（3 次即触发 `all-tools-failed` 熔断），
-      // 模型只能重复同一调用。判据收窄见 `./searchNoMatch`（exit=1 + 双空 + 末段为检索命令）。
-      if (
-        isSearchNoMatch({
-          command: executedCommand,
-          exitCode,
-          stdout,
-          stderr,
-          // 2026-11-09：无管道时，只有"目标文件确实存在"才判无匹配（缺文件仍算失败）
-          hasExistingFileTarget: hasExistingSearchFileTarget(
-            executedCommand ?? '',
-            context?.options?.cwd
-          ),
-        })
-      ) {
-        const noMatchMsg =
-          '检索无匹配（退出码 1；findstr/grep 的约定：没有匹配项即退出码 1，不是执行失败）';
-        logger.info('bash: search_no_match', {
-          sessionId: context.sessionId,
-          commandPreview: executedCommandPreview ?? '',
-        });
-        onProgress?.({
-          toolUseID: context.toolUseId || 'bash-tool',
-          data: createBashProgress('', '', 0, false, true),
-        });
-        return ToolUtils.createSuccessResult(noMatchMsg, {
-          output: noMatchMsg,
-          errorOutput: '',
-          executionTime,
-          toolName: 'bash',
-          executionId: ToolUtils.generateExecutionId('bash'),
-          timestamp: Date.now(),
-          metadata: { emptyResult: true, searchNoMatch: true },
-          newMessages: [
-            {
-              role: 'system',
-              content: `Command executed successfully in ${executionTime}ms (no match)`,
-            },
-          ],
-        });
-      }
-      // F5（2026-11-04，前端会话跟踪）：**路径不存在 ≠ 执行失败**（只读列举类）。
-      // 实测 `dir output` / `dir /s /b /ad "…*01_work*"` 全是 `File Not Found`（exit 1），
-      // 却被判失败并计入 `all-tools-failed`。判据见 `./pathNotFound`（exit=1 + 缺失文案 + 只读命令）。
-      if (
-        isPathNotFound({
-          command: executedCommand,
-          exitCode,
-          stderr,
-          message: rawMsg,
-        })
-      ) {
-        const missingMsg =
-          '路径不存在：目标路径确实没有（这是事实查询结果，不是命令执行失败）。' +
-          '如需确认路径，请用 glob / list 工具；如需创建目录，请用对应的写工具。';
-        logger.info('bash: path_not_found', {
-          sessionId: context.sessionId,
-          commandPreview: executedCommandPreview ?? '',
-        });
-        onProgress?.({
-          toolUseID: context.toolUseId || 'bash-tool',
-          data: createBashProgress('', '', 0, false, true),
-        });
-        return ToolUtils.createSuccessResult(missingMsg, {
-          output: missingMsg,
-          errorOutput: '',
-          executionTime,
-          toolName: 'bash',
-          executionId: ToolUtils.generateExecutionId('bash'),
-          timestamp: Date.now(),
-          metadata: { emptyResult: true, pathNotFound: true },
-          newMessages: [
-            {
-              role: 'system',
-              content: `Command executed successfully in ${executionTime}ms (path not found)`,
-            },
-          ],
-        });
-      }
-      // 2026-10-31：非 0 退出时**必须**把退出码与 stdout 摘要交回模型。
-      // 真机 app.log 单窗口 `bash: execute_error` 120 次，其中大量是
-      // `findstr` 无匹配（退出码 1、stdout 为空、stderr 为空）——原消息只有
-      // `Command failed: <cmd>`，模型无法区分「检索无命中」与「命令真的失败」，
-      // 只能重复同一调用。此处只**补充事实**（退出码 / stdout），不做语义猜测。
-      // 注意：stderr 已由 `commandFailedError` 拼进 `rawMsg`（同形 exec 语义）
-      // ⇒ 此处只补退出码与 stdout，避免重复。
-      const detail = [
-        exitCode !== undefined ? `退出码: ${exitCode}` : '',
-        stdout?.trim() ? `stdout: ${stdout.trim().slice(0, 300)}` : '',
-      ]
-        .filter(Boolean)
-        .join('；');
-      // P0（2026-11-03）：spawn ENOENT 的双因提示 —— cwd 已在执行前校验，仍出现 ENOENT
-      // 时最可能是 shell/可执行文件缺失或竞态删除；给出明确分流，避免再次把人带偏。
-      const enoentHint =
-        (error as NodeJS.ErrnoException).code === 'ENOENT'
-          ? '\n提示: spawn ENOENT 可能来自「cwd 不存在」或「shell 可执行文件缺失」；' +
-            '本工具已在执行前校验 cwd，若仍失败请检查 shell 与 PATH。'
-          : '';
-      // P2-2（2026-11-04）：Windows 上把 cmd 内置命令当 bash 命令用（`dir /b` 等）时给出等价写法。
-      // **只在"命令未找到"证据成立时**提示 —— 实测同类命令也有 exit 1（路径不存在）的形态，
-      // 那种情况加"这是 cmd 内置命令"会误导模型。
-      const cmdHint = buildCmdBuiltinHint(executedCommand, {
-        commandNotFound: isCommandNotFoundError(exitCode, rawMsg),
+      // P3-2（复杂度清理）：失败收尾整体外移（**逐字搬迁**，分类/日志/文案不变）
+      return this.buildExecuteFailureResult({
+        error,
+        startTime,
+        context,
+        executedCommand,
+        executedCommandPreview,
+        onProgress,
       });
-      const msg =
-        (detail ? `${rawMsg}\n（${detail}）` : rawMsg) + enoentHint + cmdHint;
+    }
+  }
 
-      // P1-1（2026-11-06，熔断根因簇）：检查/测试类命令的非零退出是**有效结果**。
-      // `tsc` / `bun test` / `eslint` 的"未通过"本来就以非零退出表达；旧实现统一按
-      // 工具失败处理 ⇒ 计入 `consecutiveInvalidTurns` ⇒ 真机连续 3 次 tsc 报错即熔断。
-      // 这里只改**分类**（失败状态照旧，UI/日志仍可见），供 `classifyTurn()` 判为 progress。
-      const expectedNonzeroExit = isExpectedNonzeroExit({
+  /**
+   * P3-2（复杂度清理）：`execute` 的**失败收尾**（从 `execute` 的 catch 逐字外移）。
+   *
+   * 分支顺序与语义未变：检索无匹配 → 路径不存在 → （补退出码/stdout 事实 + ENOENT 提示
+   * + cmd 内置命令提示）→ 检查类命令非零退出分类 → 日志（info / error）→ 失败结果。
+   */
+  private buildExecuteFailureResult(params: {
+    error: unknown;
+    startTime: number;
+    context: ToolUseContext;
+    executedCommand: string | undefined;
+    executedCommandPreview: string | undefined;
+    onProgress?: ToolCallProgress<any>;
+  }): ToolResult<unknown> {
+    const {
+      error,
+      startTime,
+      context,
+      executedCommand,
+      executedCommandPreview,
+      onProgress,
+    } = params;
+    const executionTime = ToolUtils.calculateExecutionTime(startTime);
+    const rawMsg = error instanceof Error ? error.message : String(error);
+    const stderr = (error as { stderr?: string }).stderr;
+    const exitCode = (error as { code?: number }).code;
+    const stdout = (error as { stdout?: string }).stdout;
+    // P3（2026-11-04，前端会话跟踪）：**检索无匹配 ≠ 执行失败**。
+    // 实测 `dir /b /s /ad 2>nul | findstr /i "mario"` —— findstr 无匹配的约定退出码就是 1，
+    // stdout/stderr 均空，却被计为工具失败（3 次即触发 `all-tools-failed` 熔断），
+    // 模型只能重复同一调用。判据收窄见 `./searchNoMatch`（exit=1 + 双空 + 末段为检索命令）。
+    if (
+      isSearchNoMatch({
         command: executedCommand,
         exitCode,
-      });
-
-      // B 类可观测性缺口 ②（2026-10-25）：执行异常此前**零 app.log** —— 只返回 failureResult
-      // 给模型，排查"命令为什么失败"只能翻会话消息。现补日志（含命令摘要 + stderr 截断）。
-      const errorLogMeta = {
+        stdout,
+        stderr,
+        // 2026-11-09：无管道时，只有"目标文件确实存在"才判无匹配（缺文件仍算失败）
+        hasExistingFileTarget: hasExistingSearchFileTarget(
+          executedCommand ?? '',
+          context?.options?.cwd
+        ),
+      })
+    ) {
+      const noMatchMsg =
+        '检索无匹配（退出码 1；findstr/grep 的约定：没有匹配项即退出码 1，不是执行失败）';
+      logger.info('bash: search_no_match', {
         sessionId: context.sessionId,
         commandPreview: executedCommandPreview ?? '',
-        error: rawMsg.slice(0, 500),
-        ...(exitCode !== undefined ? { exitCode } : {}),
-        ...(stderr ? { stderr: stderr.slice(0, 300) } : {}),
-      };
-      if (expectedNonzeroExit) {
-        logger.info('bash: expected_nonzero_exit', errorLogMeta);
-      } else {
-        logger.error('bash: execute_error', errorLogMeta);
-      }
-
-      // 报告执行错误
+      });
       onProgress?.({
         toolUseID: context.toolUseId || 'bash-tool',
-        data: createBashProgress('', msg, 1, false, true),
+        data: createBashProgress('', '', 0, false, true),
       });
-
-      return ToolUtils.createFailureResult(msg, {
+      return ToolUtils.createSuccessResult(noMatchMsg, {
+        output: noMatchMsg,
+        errorOutput: '',
         executionTime,
-        errorOutput: stderr || msg,
         toolName: 'bash',
         executionId: ToolUtils.generateExecutionId('bash'),
         timestamp: Date.now(),
-        ...(expectedNonzeroExit
-          ? { failureKind: 'expected_nonzero_exit' as const }
-          : {}),
+        metadata: { emptyResult: true, searchNoMatch: true },
         newMessages: [
           {
             role: 'system',
-            content: `Error: ${msg}`,
+            content: `Command executed successfully in ${executionTime}ms (no match)`,
           },
         ],
       });
     }
+    // F5（2026-11-04，前端会话跟踪）：**路径不存在 ≠ 执行失败**（只读列举类）。
+    // 实测 `dir output` / `dir /s /b /ad "…*01_work*"` 全是 `File Not Found`（exit 1），
+    // 却被判失败并计入 `all-tools-failed`。判据见 `./pathNotFound`（exit=1 + 缺失文案 + 只读命令）。
+    if (
+      isPathNotFound({
+        command: executedCommand,
+        exitCode,
+        stderr,
+        message: rawMsg,
+      })
+    ) {
+      const missingMsg =
+        '路径不存在：目标路径确实没有（这是事实查询结果，不是命令执行失败）。' +
+        '如需确认路径，请用 glob / list 工具；如需创建目录，请用对应的写工具。';
+      logger.info('bash: path_not_found', {
+        sessionId: context.sessionId,
+        commandPreview: executedCommandPreview ?? '',
+      });
+      onProgress?.({
+        toolUseID: context.toolUseId || 'bash-tool',
+        data: createBashProgress('', '', 0, false, true),
+      });
+      return ToolUtils.createSuccessResult(missingMsg, {
+        output: missingMsg,
+        errorOutput: '',
+        executionTime,
+        toolName: 'bash',
+        executionId: ToolUtils.generateExecutionId('bash'),
+        timestamp: Date.now(),
+        metadata: { emptyResult: true, pathNotFound: true },
+        newMessages: [
+          {
+            role: 'system',
+            content: `Command executed successfully in ${executionTime}ms (path not found)`,
+          },
+        ],
+      });
+    }
+    // 2026-10-31：非 0 退出时**必须**把退出码与 stdout 摘要交回模型。
+    // 真机 app.log 单窗口 `bash: execute_error` 120 次，其中大量是
+    // `findstr` 无匹配（退出码 1、stdout 为空、stderr 为空）——原消息只有
+    // `Command failed: <cmd>`，模型无法区分「检索无命中」与「命令真的失败」，
+    // 只能重复同一调用。此处只**补充事实**（退出码 / stdout），不做语义猜测。
+    // 注意：stderr 已由 `commandFailedError` 拼进 `rawMsg`（同形 exec 语义）
+    // ⇒ 此处只补退出码与 stdout，避免重复。
+    const detail = [
+      exitCode !== undefined ? `退出码: ${exitCode}` : '',
+      stdout?.trim() ? `stdout: ${stdout.trim().slice(0, 300)}` : '',
+    ]
+      .filter(Boolean)
+      .join('；');
+    // P0（2026-11-03）：spawn ENOENT 的双因提示 —— cwd 已在执行前校验，仍出现 ENOENT
+    // 时最可能是 shell/可执行文件缺失或竞态删除；给出明确分流，避免再次把人带偏。
+    const enoentHint =
+      (error as NodeJS.ErrnoException).code === 'ENOENT'
+        ? '\n提示: spawn ENOENT 可能来自「cwd 不存在」或「shell 可执行文件缺失」；' +
+          '本工具已在执行前校验 cwd，若仍失败请检查 shell 与 PATH。'
+        : '';
+    // P2-2（2026-11-04）：Windows 上把 cmd 内置命令当 bash 命令用（`dir /b` 等）时给出等价写法。
+    // **只在"命令未找到"证据成立时**提示 —— 实测同类命令也有 exit 1（路径不存在）的形态，
+    // 那种情况加"这是 cmd 内置命令"会误导模型。
+    const cmdHint = buildCmdBuiltinHint(executedCommand, {
+      commandNotFound: isCommandNotFoundError(exitCode, rawMsg),
+    });
+    const msg =
+      (detail ? `${rawMsg}\n（${detail}）` : rawMsg) + enoentHint + cmdHint;
+
+    // P1-1（2026-11-06，熔断根因簇）：检查/测试类命令的非零退出是**有效结果**。
+    // `tsc` / `bun test` / `eslint` 的"未通过"本来就以非零退出表达；旧实现统一按
+    // 工具失败处理 ⇒ 计入 `consecutiveInvalidTurns` ⇒ 真机连续 3 次 tsc 报错即熔断。
+    // 这里只改**分类**（失败状态照旧，UI/日志仍可见），供 `classifyTurn()` 判为 progress。
+    const expectedNonzeroExit = isExpectedNonzeroExit({
+      command: executedCommand,
+      exitCode,
+    });
+
+    // B 类可观测性缺口 ②（2026-10-25）：执行异常此前**零 app.log** —— 只返回 failureResult
+    // 给模型，排查"命令为什么失败"只能翻会话消息。现补日志（含命令摘要 + stderr 截断）。
+    const errorLogMeta = {
+      sessionId: context.sessionId,
+      commandPreview: executedCommandPreview ?? '',
+      error: rawMsg.slice(0, 500),
+      ...(exitCode !== undefined ? { exitCode } : {}),
+      ...(stderr ? { stderr: stderr.slice(0, 300) } : {}),
+    };
+    if (expectedNonzeroExit) {
+      logger.info('bash: expected_nonzero_exit', errorLogMeta);
+    } else {
+      logger.error('bash: execute_error', errorLogMeta);
+    }
+
+    // 报告执行错误
+    onProgress?.({
+      toolUseID: context.toolUseId || 'bash-tool',
+      data: createBashProgress('', msg, 1, false, true),
+    });
+
+    return ToolUtils.createFailureResult(msg, {
+      executionTime,
+      errorOutput: stderr || msg,
+      toolName: 'bash',
+      executionId: ToolUtils.generateExecutionId('bash'),
+      timestamp: Date.now(),
+      ...(expectedNonzeroExit
+        ? { failureKind: 'expected_nonzero_exit' as const }
+        : {}),
+      newMessages: [
+        {
+          role: 'system',
+          content: `Error: ${msg}`,
+        },
+      ],
+    });
+  }
+
+  /**
+   * P3-2（复杂度清理）：硬拦截层 4 门 + 解释器守卫，按序短路（从 `execute` **逐字外移**）。
+   *
+   * 判定顺序、日志 key/字段、`skipAskByPolicy` 的"只跳 ask 不跳 deny"口径均未变：
+   * ① `checkPathSafety` → ② `checkBashDangerousCommand` → ③ PowerShell 包裹（G-07）
+   * → ④ `checkAstAndAnalyzer` → ⑤ `checkWhitelistAndSandbox` → ⑥ `checkInterpreterGuard`。
+   *
+   * @returns 需中断执行的拦截结果；`null` ⇒ 全部放行。
+   */
+  private runSecurityGates(params: {
+    std: StandardizedCommand;
+    command: string;
+    /** 已回退的生效 cwd（工具参数优先，其次上下文） */
+    cwd: string | undefined;
+    trustLevel: string | undefined;
+    bypassAsk: boolean;
+    approvalScope: ApprovalScope;
+    approvalSnapshot: ApprovalSnapshot;
+    sessionId: string | undefined;
+    skipAskByPolicy: (block: unknown) => boolean;
+    /** B1（2026-11-18）：会话权限档（仅 default 档做「读/搜走专用工具」纠正） */
+    permissionMode?: string;
+  }): ToolResult<unknown> | null {
+    const {
+      std,
+      command,
+      cwd,
+      trustLevel,
+      bypassAsk,
+      approvalScope,
+      approvalSnapshot,
+      sessionId,
+      skipAskByPolicy,
+      permissionMode,
+    } = params;
+
+    const pathBlock = checkPathSafety(std);
+    if (pathBlock) {
+      // 2026-10-25（预存台账 B 类可观测性缺口）：拦截事件此前**零日志** —— 只落会话消息、
+      // 不进 app.log（用户会话 `session_mvl0d0a3d6e2e9a764` 实证），排查"命令被安全策略拦截"
+      // 只能翻 messages.jsonl。现按 `powershell_wrapper_blocked` 先例补 warn，
+      // 字段同构：sessionId + commandPreview + reason。
+      logger.warn('bash: security_gate_blocked', {
+        sessionId,
+        commandPreview: command.slice(0, 200),
+        reason: pathBlock.metadata?.['reason'],
+      });
+      return appendReadOnlyProbeHint(pathBlock, command);
+    }
+
+    const dangerBlock = checkBashDangerousCommand(command);
+    if (dangerBlock) {
+      logger.warn('bash: security_gate_blocked', {
+        sessionId,
+        commandPreview: command.slice(0, 200),
+        reason: dangerBlock.metadata?.['reason'],
+      });
+      return appendReadOnlyProbeHint(dangerBlock, command);
+    }
+
+    // G-07（2026-10-19）：`powershell/pwsh -Command "…"` 的内层脚本复用 PowerShellTool
+    // 的安全链（分析器 → 白名单 → 沙箱）；`-EncodedCommand` 等不可检查形态 fail-closed。
+    const psWrapperBlock = checkPowerShellWrapper(
+      command,
+      cwd,
+      // 2026-10-31：把同一信任级别交给内层 PowerShell 安全链（口径一致）
+      trustLevel
+    );
+    if (psWrapperBlock) {
+      if (skipAskByPolicy(psWrapperBlock)) {
+        logger.warn('bash: policy_auto_skip_ask', {
+          sessionId,
+          commandPreview: command.slice(0, 200),
+          reason: 'powershell_wrapper_ask',
+        });
+      } else {
+        logger.warn('bash: powershell_wrapper_blocked', {
+          sessionId,
+          commandPreview: command.slice(0, 200),
+        });
+        return psWrapperBlock;
+      }
+    }
+
+    const analysisBlock = checkAstAndAnalyzer({
+      command,
+      bypassAsk,
+      approvalScope,
+      approvalSnapshot,
+      analyzer: this.securityAnalyzer,
+      trustLevel,
+      cwd,
+      ...(permissionMode ? { permissionMode } : {}),
+      // FIX-15：单条 PowerShell 包裹已由上一道闸（G-07）用 PowerShell 安全链判定过；
+      // 2026-11-09：委托范围扩到「只读 `cd` 前缀 + 单条包裹」（见 `isDelegatedPowerShellCommand`）
+      delegatedSinglePowerShell: isDelegatedPowerShellCommand(command),
+    });
+    if (analysisBlock) {
+      // 2026-10-25（与 path/danger 分支同源补日志）：分析器 deny / AST 拦截事件落 app.log，
+      // 字段同构（reason 区分 deny 与 ask/inconclusive 等来源）。
+      const skip = skipAskByPolicy(analysisBlock);
+      logger.warn(
+        skip ? 'bash: policy_auto_skip_ask' : 'bash: security_gate_blocked',
+        {
+          sessionId,
+          commandPreview: command.slice(0, 200),
+          reason: analysisBlock.metadata?.['reason'],
+        }
+      );
+      if (!skip) return appendReadOnlyProbeHint(analysisBlock, command);
+    }
+
+    const whitelistBlock = checkWhitelistAndSandbox(command, std, {
+      // N-19（2026-11-07）：沙箱的"解释器内联执行"从硬拒改为升级人工确认
+      bypassAsk,
+      approvalScope,
+      approvalSnapshot,
+    });
+    if (whitelistBlock) {
+      // 2026-10-25（B 类可观测性缺口 ①）：白名单 F3 / 沙箱二次校验 F2 拦截事件此前**零日志**
+      // —— 只落会话消息、不进 app.log（用户会话 `session_mvl0d0a3d6e2e9a764` 实证"bash 命令
+      // 被安全策略拦截"无迹可查）。与 path/danger/ast 三分支同构补齐。
+      const skip = skipAskByPolicy(whitelistBlock);
+      logger.warn(
+        skip ? 'bash: policy_auto_skip_ask' : 'bash: security_gate_blocked',
+        {
+          sessionId,
+          commandPreview: command.slice(0, 200),
+          reason: whitelistBlock.metadata?.['reason'],
+        }
+      );
+      if (!skip) return appendReadOnlyProbeHint(whitelistBlock, command);
+    }
+
+    // A4（2026-10-09）：高能力解释器命令不得仅凭"白名单内"自动放行
+    // G18 下沉（2026-10-11）：抽为 `checkInterpreterGuard(...)`（含 O1-B2 观测日志），语义不变。
+    const interpreterBlock = checkInterpreterGuard({
+      std,
+      isApproved: bypassAsk,
+      approvalScope,
+      approvalSnapshot,
+      sessionId,
+    });
+    if (interpreterBlock) {
+      if (!skipAskByPolicy(interpreterBlock)) return interpreterBlock;
+      logger.warn('bash: policy_auto_skip_ask', {
+        sessionId,
+        commandPreview: command.slice(0, 200),
+        reason: 'interpreter_confirm_ask',
+      });
+    }
+
+    return null;
   }
 
   /**

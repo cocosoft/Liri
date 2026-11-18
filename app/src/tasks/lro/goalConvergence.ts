@@ -22,7 +22,13 @@ import {
   handleError,
 } from '@openliri/infra/error';
 
-import { taskOrchestrator, PLAN_STATUS_FAILED } from '../TaskOrchestrator';
+import {
+  taskOrchestrator,
+  PLAN_STATUS_FAILED,
+  PLAN_ACCEPTANCE_ACCEPTED,
+  PLAN_ACCEPTANCE_PENDING,
+  PLAN_ACCEPTANCE_REJECTED,
+} from '../TaskOrchestrator';
 import type { Plan } from '../TaskOrchestrator';
 import { readPdcaCheckpoint, writePdcaCheckpoint } from '../PdcaWorkItemBridge';
 import {
@@ -30,7 +36,11 @@ import {
   type GoalEvaluateContext,
   type GoalEvaluateGate,
 } from '../review/GoalEvaluateGate.js';
-import { isAutoReplanEnabled, replanMaxRetries } from './portResolvers.js';
+import {
+  isAutoReplanEnabled,
+  isPendingAcceptanceEnabled,
+  replanMaxRetries,
+} from './portResolvers.js';
 import type { PdcaStatus } from './contracts.js';
 
 const logger = getLogger('tasks:longRunning');
@@ -39,6 +49,12 @@ const logger = getLogger('tasks:longRunning');
 export type GoalConvergenceOutcome =
   | { kind: 'continue' }
   | { kind: 'replanned'; status: PdcaStatus }
+  /**
+   * G5-D3（2026-11-18）：步骤全终态但目标门**未决**（超时/降级），且开关
+   * `PDCA_PENDING_ACCEPTANCE` 打开 ⇒ 「已执行，待验收」：不置 completed、不判失败，
+   * 计划保持 `running`（`acceptance='pending'`），由 `/resume` 收口。
+   */
+  | { kind: 'pendingAcceptance' }
   /**
    * `detail`：目标门给出的**可读原因**（2026-11-08，真机 `pdca_mw7tuuy5`）。
    * 此前只回错误码 ⇒ 终态 lifecycle 只有 `PDCA failed: PDCA_GOAL_NOT_CONVERGED`，
@@ -90,6 +106,8 @@ export async function runGoalConvergenceGate(
         // 2026-11-09（真机 `pdca_mw8nknox`）：带上产物台账 ⇒ 目标门可回读**最终产物**取证，
         // 避免仅凭历史审查文本判未收敛（假失败 + 全量 replan）。
         artifacts: s.artifacts,
+        // G5-D5（2026-11-18）：验收标准随评估输入下发（盲审口径下作为判定依据）
+        acceptanceCriteria: s.acceptanceCriteria,
       })),
     },
     deps.ctx
@@ -102,6 +120,28 @@ export async function runGoalConvergenceGate(
     confidence: goalConv.confidence,
     reason: goalConv.reason,
   });
+  // G5-D1/D3（2026-11-18）：目标门给出**明确**结论时落验收子态（纯数据，不改控制流）。
+  // `undefined`（评估失败/超时/降级）默认保持缺省（消费方按「缺省 = accepted」兼容旧数据）；
+  // 开关 `PDCA_PENDING_ACCEPTANCE` 打开时才落 `pending`（默认关闭 ⇒ 行为逐字不变）。
+  if (goalConv.converged === true) {
+    plan.acceptance = PLAN_ACCEPTANCE_ACCEPTED;
+  } else if (goalConv.converged === false) {
+    plan.acceptance = PLAN_ACCEPTANCE_REJECTED;
+  } else if (isPendingAcceptanceEnabled()) {
+    // G5-D3（2026-11-18）：未决（超时/降级/未给明确 bool）⇒「已执行，待验收」。
+    // 既不谎报完成，也不判失败：计划保持 running，用户可 `/resume` 重跑目标门收口。
+    // 注意：`PDCA_GOAL_EVALUATE=false` 已在函数入口早退（不会走到这里），
+    // 避免"评估被关闭 ⇒ 永远待验收"的组合。
+    plan.acceptance = PLAN_ACCEPTANCE_PENDING;
+    taskOrchestrator['savePlan']?.(plan);
+    logger.info('目标级评估未决 ⇒ 待验收（不置 completed）', {
+      taskId,
+      planId,
+      confidence: goalConv.confidence,
+      reason: goalConv.reason,
+    });
+    return { kind: 'pendingAcceptance' };
+  }
   // 2026-11-09：成功路径也留一条可断言记录（验收脚本据此确认"目标门确实执行过"，
   // 避免场景 A 在评估从未到达时被"没有未收敛标记"误判为通过）。
   logger.info('目标级评估完成', {

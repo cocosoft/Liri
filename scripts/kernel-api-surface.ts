@@ -75,6 +75,25 @@ export const CONSUMER_ROOTS = [
   // P37（2026-11-06）：`runtime/coordinator` 迁入 service 物理包后同理 ——
   // 不纳入会把 `IAgentToolPort` / `resolveAgentTool` 从 experimental 误降为 internal。
   'packages/service',
+  // P1（2026-11-13）：`channels` 迁入 `packages/channels` 后同理 —— 不纳入会把
+  // `SessionSpanTracer` / `spi/GatewayService` 等仅由通道侧消费的符号从 stable/experimental
+  // 误降为 internal（迁包被误读成"消费面消失"，实测 20 处漂移）。
+  'packages/channels',
+  // P1（2026-11-13）：`query` 迁入 `packages/query` 后同理 —— 不纳入会把仅由查询链消费的
+  // 内核符号从 stable/experimental 误降为 internal（迁包被误读成"消费面消失"）。
+  'packages/query',
+  // P1（2026-11-13）：`skills` 迁入 `packages/skills` 后同理（迁包被误读成"消费面消失"）。
+  'packages/skills',
+  // P1（2026-11-13）：`tokenBudget` 迁入 `packages/tokenBudget` 后同理。
+  'packages/tokenBudget',
+  // P1（2026-11-13）：`docs` 迁入 `packages/docs` 后同理（它有 1 处 kernel 类型再导出）。
+  'packages/docs',
+  // P1（2026-11-14）：`proactive` 迁入 `packages/proactive` 后同理（`ProactiveRuntime` 消费内核 `feature`）。
+  'packages/proactive',
+  // P1（2026-11-14）：`resourceGovernor` 迁入 `packages/resourceGovernor` 后同理（消费内核 `feature`）。
+  'packages/resourceGovernor',
+  // P1（2026-11-14）：`buddy` 迁入 `packages/buddy` 后同理（`dreamIntegration` 消费内核 EventBus/SystemEvents）。
+  'packages/buddy',
 ] as const;
 
 /** 从消费方源码文本中提取「引用了哪些内核符号名」 */

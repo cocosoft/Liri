@@ -99,6 +99,19 @@ export function buildCompactionDoneData(params: {
   };
 }
 
+/**
+ * 2026-11-13：`session/summary` 的可选字段（有值才写键）。
+ *
+ * 为什么单独成函数：`undefined` 键会被 D1 无损 JSON 校验**整条拒绝**
+ * （会话 `session_mwdcivrue74d4838ff` 的 summary 事件即因此丢失）；
+ * 而调用点所在的 `streamMessageFlow.ts` 已触达 fn-size 棘轮上限，不能再增长行数。
+ */
+export function summaryMessageIdField(summaryMessageId?: string): {
+  summaryMessageId?: string;
+} {
+  return summaryMessageId !== undefined ? { summaryMessageId } : {};
+}
+
 // R2（2026-09-06，走查 W2/W8）：思考过长被输出上限截断且无正文时的收敛重试指令。
 // 以 user 消息注入下一轮请求（仅请求上下文，不回写会话消息），配合更小 maxTokens，
 // 迫使模型收敛为简短结论/最必要的一次工具调用，而非再次以思考占满输出预算。

@@ -20,7 +20,7 @@ import {
   buildTextApprovalAuditPayload,
   recordTextApprovalAudit,
   type TextApprovalAuditInput,
-} from '../../src/channels/routing/textApproval.js';
+} from '@modules/channels/routing/textApproval.js';
 import {
   AuditEventType,
   EnterpriseAuditService,

@@ -37,8 +37,8 @@ import {
   parseFixCommitLog,
   screenFixCandidates,
   selectFixCandidates,
-} from '../../src/evals/fixTaskScreening';
-import { resolveGitExecutable } from '../../src/evals/externalExecutables';
+} from '@modules/evals/fixTaskScreening';
+import { resolveGitExecutable } from '@modules/evals/externalExecutables';
 
 const execFileAsync = promisify(execFile);
 const scratchRoots: string[] = [];

@@ -3,7 +3,14 @@
  * 负责管理权限规则的加载、保存、添加、删除等操作
  */
 import { join, dirname } from 'path';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 // C1（2026-10-09）：规则 id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { createHash } from 'crypto';
@@ -18,11 +25,63 @@ import {
   permissionRuleValueToString,
   isRuleMatch,
   isToolNameMatch,
+  isApprovalOriginatedRule,
 } from './types/PermissionRule';
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
+import {
+  filterPausedApprovalRules,
+  type ApprovalPauseScope,
+} from './approvalPause';
+
 const logger = getLogger('permission:ruleManager');
+
+/**
+ * 同一匹配键、**不同行为**的冲突（R0 健康视图）。
+ *
+ * 键与 `addRule` 的 `sameKey` 同口径（`source + toolName + contentPattern +
+ * inputFingerprint + workspaceRoot`）：同键不同 behavior 时判定结果由顺序隐式决定，
+ * 用户不可见 ⇒ 必须显式暴露。运行期 `addRule` 已互斥，这里主要抓**手工编辑文件**。
+ */
+export interface RuleKeyConflict {
+  /** 冲突键（`|` 拼接的可读形式） */
+  key: string;
+  /** 该键上出现过的行为（去重，保持首见顺序） */
+  behaviors: string[];
+  /** 该键上的规则 id（含历史手工条目，可能为空串 id） */
+  ids: string[];
+}
+
+/**
+ * 规则文件健康快照（R0，纯只读；`GET /v1/permissions/rules/health` 的数据源）。
+ */
+export interface RuleFileHealth {
+  /** 规则文件绝对路径 */
+  path: string;
+  /** 文件是否存在 */
+  exists: boolean;
+  /** 文件字节数（读不到 ⇒ null，不编造） */
+  sizeBytes: number | null;
+  /** 文件最后修改时间 ISO（读不到 ⇒ null） */
+  lastModified: string | null;
+  /** 当前**磁盘**内容 hash（文件不存在 / 不可读 ⇒ null） */
+  fileHash: string | null;
+  /** 内存已加载内容的 hash（上次 load/save 时记录） */
+  loadedHash: string | null;
+  /** 磁盘与内存 hash 不一致 ⇒ 有外部修改尚未按 30s 轮询重载 */
+  externalChangeDetected: boolean;
+  /** 文件 JSON 解析/形状错误（无错 ⇒ null） */
+  parseError: string | null;
+  /** 文件里的规则条数（解析失败 ⇒ null） */
+  fileRuleCount: number | null;
+  /** 内存里生效的规则条数 */
+  memoryRuleCount: number;
+  /** 重复条目数（同键同行为，会被加载/保存时去重） */
+  duplicateCount: number;
+  /** 同键不同行为的冲突（优先按文件内容判定；文件不可解析时按内存规则） */
+  conflicts: RuleKeyConflict[];
+}
 
 /**
  * 规则上下文接口
@@ -40,6 +99,14 @@ export interface RuleContext {
    * 总是询问的规则（按来源分组）
    */
   alwaysAskRules: Partial<Record<PermissionRuleSource, string[]>>;
+  /**
+   * F2（2026-11-17）：本次判定的暂停上下文（会话 / 工作区根）。
+   *
+   * 由 `decisionPipeline` / `simulate` 从 `PermissionContext` 取下并挂在这里，
+   * `getRulesByBehavior` 据此过滤审批生成规则 ⇒ **真实判定链**的会话级 / 工作区级
+   * 「暂停持久化放行」才能生效（缺省 ⇒ 只按全局暂停）。
+   */
+  pauseScope?: ApprovalPauseScope;
 }
 
 /**
@@ -59,6 +126,7 @@ export function deduplicateRules(rules: PermissionRule[]): PermissionRule[] {
       rule.toolName,
       rule.contentPattern ?? '',
       rule.inputFingerprint ?? '',
+      rule.workspaceRoot ?? '',
     ].join('|');
     const existing = seen.get(key);
     if (!existing) {
@@ -78,9 +146,120 @@ export function deduplicateRules(rules: PermissionRule[]): PermissionRule[] {
 }
 
 /**
+ * 冲突检测键（R1.5，2026-11-17；对外评审 P0-3）。
+ *
+ * 与运行期的两套键**刻意不同**（三者各司其职，见治理方案 §11.2）：
+ * - `addRule#sameKey`（含 `source`）：运行期同键互斥，"改用户规则不静默删审批规则"；
+ * - `deduplicateRules`（含 `source` + `behavior`）：文件级去重；
+ * - **本函数**（不含 `source` / `behavior`，含 `workspaceRoot`）：**只报告冲突** ——
+ *   同一次调用上「用户 allow + 审批 deny」也会互相遮蔽，只按来源分组会漏报。
+ */
+export function buildRuleConflictKey(rule: {
+  toolName: string;
+  contentPattern?: string;
+  inputFingerprint?: string;
+  workspaceRoot?: string;
+}): string {
+  return [
+    rule.toolName,
+    rule.contentPattern ?? '',
+    rule.inputFingerprint ?? '',
+    rule.workspaceRoot ?? '',
+  ].join('|');
+}
+
+/**
+ * 收集"同一匹配键、不同行为"的冲突（R0 健康视图；键口径见 `buildRuleConflictKey`，纯函数）。
+ *
+ * 运行期 `addRule` 已按 `(source + 匹配条件)` 互斥，本函数主要抓：
+ * ① **手工编辑 `tool_rules.json`** 产生的 allow/deny 并存；
+ * ② **跨来源**（用户规则 vs 审批生成）同键异行为 —— 判定结果由顺序隐式决定，用户完全不可见。
+ */
+export function collectRuleKeyConflicts(
+  rules: PermissionRule[]
+): RuleKeyConflict[] {
+  const byKey = new Map<string, { behaviors: string[]; ids: string[] }>();
+  for (const rule of rules) {
+    const key = buildRuleConflictKey(rule);
+    const entry = byKey.get(key) ?? { behaviors: [], ids: [] };
+    const behavior = String(rule.behavior);
+    if (!entry.behaviors.includes(behavior)) entry.behaviors.push(behavior);
+    entry.ids.push(rule.id ?? '');
+    byKey.set(key, entry);
+  }
+  return Array.from(byKey.entries())
+    .filter(([, entry]) => entry.behaviors.length > 1)
+    .map(([key, entry]) => ({ key, ...entry }));
+}
+
+/**
+ * 找出**同键不同行为**的既有规则（R2 写入口校验，纯函数）。
+ *
+ * `force` 覆盖前必须先用它判断"被覆盖的是不是审批生成规则"（那种规则只可撤销、不可编辑）。
+ */
+export function findConflictingRules(
+  rules: PermissionRule[],
+  candidate: {
+    toolName: string;
+    contentPattern?: string;
+    inputFingerprint?: string;
+    workspaceRoot?: string;
+    behavior: PermissionBehavior;
+  },
+  options: { excludeId?: string } = {}
+): PermissionRule[] {
+  const key = buildRuleConflictKey(candidate);
+  return rules.filter(
+    (rule) =>
+      rule.id !== options.excludeId &&
+      String(rule.behavior) !== String(candidate.behavior) &&
+      buildRuleConflictKey(rule) === key
+  );
+}
+
+/** 找出**同键同行为**的重复规则（R2 写入口校验；saveRules 也会去重，这里提前报错更可解释） */
+export function findDuplicateRules(
+  rules: PermissionRule[],
+  candidate: {
+    toolName: string;
+    contentPattern?: string;
+    inputFingerprint?: string;
+    workspaceRoot?: string;
+    behavior: PermissionBehavior;
+  },
+  options: { excludeId?: string } = {}
+): PermissionRule[] {
+  const key = buildRuleConflictKey(candidate);
+  return rules.filter(
+    (rule) =>
+      rule.id !== options.excludeId &&
+      String(rule.behavior) === String(candidate.behavior) &&
+      buildRuleConflictKey(rule) === key
+  );
+}
+
+/**
  * 规则管理器类
  */
 export class RuleManager {
+  /**
+   * R5（2026-11-17）：用给定规则集构造**内存态**实例（不读盘、不写盘）。
+   *
+   * 用途：保存前「规则影响预演」（`PermissionManager#previewRuleImpact`）——
+   * 在候选规则生效**之前**跑基准命令对比判定，绝不触碰生产实例与规则文件。
+   * 因为 `ruleSource` 指向一个不存在的临时路径 ⇒ 后续 `checkExternalChanges` 不会重载覆盖。
+   */
+  static createInMemory(rules: PermissionRule[]): RuleManager {
+    const manager = new RuleManager();
+    manager.ruleSource = join(
+      tmpdir(),
+      `liri-rule-preview-${randomIdSuffix(8)}.json`
+    );
+    manager.rules = rules.map((rule) => ({ ...rule }));
+    manager.rulesFileHash = null;
+    return manager;
+  }
+
   /**
    * 权限规则数组
    */
@@ -155,6 +334,10 @@ export class RuleManager {
           }
           if (typeof rule.updatedAt === 'string') {
             rule.updatedAt = new Date(rule.updatedAt);
+          }
+          // R3：审批时间同样按 Date 还原（缺失 ⇒ 保持 undefined，UI 回落 createdAt）
+          if (typeof rule.approvedAt === 'string') {
+            rule.approvedAt = new Date(rule.approvedAt);
           }
         });
 
@@ -252,7 +435,8 @@ export class RuleManager {
       r.source === rule.source &&
       r.toolName === rule.toolName &&
       (r.contentPattern ?? null) === (rule.contentPattern ?? null) &&
-      (r.inputFingerprint ?? null) === (rule.inputFingerprint ?? null);
+      (r.inputFingerprint ?? null) === (rule.inputFingerprint ?? null) &&
+      (r.workspaceRoot ?? null) === (rule.workspaceRoot ?? null);
 
     const existingIdx = this.rules.findIndex(
       (r) => sameKey(r) && r.behavior === rule.behavior
@@ -474,6 +658,67 @@ export class RuleManager {
   }
 
   /**
+   * R0（2026-11-17）：规则文件健康快照 —— **纯只读**，不触发重载、不写文件。
+   *
+   * 与 `checkExternalChanges()` 的分工：那个是"发现外部修改后自动重载"，本方法只**报告**
+   * 当前事实（磁盘 hash / 内存 hash / 解析错误 / 同键冲突），供设置页与排障使用；
+   * 若此处也顺手重载，健康视图就永远看不到"外部已改、内存未跟"的中间态。
+   */
+  getRuleFileHealth(): RuleFileHealth {
+    const exists = existsSync(this.ruleSource);
+    let sizeBytes: number | null = null;
+    let lastModified: string | null = null;
+    if (exists) {
+      try {
+        const stat = statSync(this.ruleSource);
+        sizeBytes = stat.size;
+        lastModified = stat.mtime.toISOString();
+      } catch {
+        // @ignore-catch: 元数据不可读时保持 null（不编造大小/时间），文件内容另行判定
+      }
+    }
+
+    const content = this.readRulesFileSnapshot();
+    const fileHash = content === null ? null : this.computeHash(content);
+
+    let parseError: string | null = null;
+    let fileRules: PermissionRule[] | null = null;
+    if (content !== null) {
+      try {
+        const parsed: unknown = JSON.parse(content);
+        if (!Array.isArray(parsed)) {
+          throw new Error('规则文件顶层必须是数组');
+        }
+        fileRules = parsed as PermissionRule[];
+      } catch (error) {
+        parseError = error instanceof Error ? error.message : String(error);
+      }
+    }
+
+    // 冲突 / 重复以**文件内容**为准（手工改文件正是要抓的场景）；
+    // 文件缺失或解析失败时回落到内存规则，避免"文件坏了 ⇒ 健康视图一片空白"。
+    const inspected = fileRules ?? this.rules;
+
+    return {
+      path: this.ruleSource,
+      exists,
+      sizeBytes,
+      lastModified,
+      fileHash,
+      loadedHash: this.rulesFileHash,
+      externalChangeDetected:
+        fileHash !== null &&
+        this.rulesFileHash !== null &&
+        fileHash !== this.rulesFileHash,
+      parseError,
+      fileRuleCount: fileRules ? fileRules.length : null,
+      memoryRuleCount: this.rules.length,
+      duplicateCount: inspected.length - deduplicateRules(inspected).length,
+      conflicts: collectRuleKeyConflicts(inspected),
+    };
+  }
+
+  /**
    * 从规则上下文加载规则
    * @param context 规则上下文
    */
@@ -591,6 +836,11 @@ export class RuleManager {
 
       rules = [...rules, ...contextRules];
     }
+
+    // R3（2026-11-17）：「暂停全部持久化放行」开启 ⇒ 审批生成规则**不参与判定**。
+    // 只在**判定读取口**过滤（`getRules()` 不受影响）⇒ 列表/健康视图仍可见、可逐条撤销。
+    // F2：按 `context.pauseScope`（会话 / 工作区根）过滤；缺省 ⇒ 只按**全局**暂停。
+    rules = filterPausedApprovalRules(rules, context?.pauseScope);
 
     // 按优先级排序
     return rules.sort((a, b) => b.priority - a.priority);

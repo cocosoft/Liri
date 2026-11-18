@@ -19,7 +19,7 @@ import {
   resetDailyBudgetForTest,
   setBudgetAlertNotifier,
   type BudgetAlertEvent,
-} from '../../src/query/DailyBudgetManager';
+} from '@modules/query/DailyBudgetManager';
 
 const dataDir = mkdtempSync(join(tmpdir(), 'budget-alert-notify-'));
 process.env.LIRI_DATA_DIR = dataDir;

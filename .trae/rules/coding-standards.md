@@ -37,16 +37,16 @@ Step 3: 寻找根因方案
 
 | 新增内容 | 先查哪里 |
 |---------|---------|
-| 类型定义 | `src/types/`、`client/src/types/` |
-| 工具函数 | `src/utils/common.ts`、`client/src/utils/` |
-| 错误类 | `src/error/types.ts` 标准错误类列表 |
-| 缓存 | `src/utils/cache.ts`（TTLCache / LRUCache / MemoryCache） |
-| 重试逻辑 | `src/utils/withRetry.ts` |
-| 事件总线 | `src/core/events/EventBus.ts` |
-| Logger | `src/monitoring/logs/Logger.ts` |
-| 状态机 | `src/core/state/` |
+| 类型定义 | `app/src/types/`、`client/src/types/` |
+| 工具函数 | `packages/infra/src/utils/common.ts`、`client/src/utils/` |
+| 错误类 | `packages/infra/src/error/types.ts` 标准错误类列表 |
+| 缓存 | `packages/infra/src/utils/cache.ts`（TTLCache / LRUCache / MemoryCache） |
+| 重试逻辑 | `packages/infra/src/utils/withRetry.ts` |
+| 事件总线 | `packages/kernel/src/core/events/EventBus.ts` |
+| Logger | `packages/infra/src/monitoring/logs/Logger.ts` |
+| 状态机 | `packages/infra/src/system/state/` |
 | HTTP 端点 | `.trae/docs/api-spec.md` |
-| 模块注册 | `src/modules/ModuleDefinitions.ts` |
+| 模块注册 | `app/src/modules/ModuleDefinitions.ts` |
 
 **AI 自查问句**：我即将写的这段代码，能不能用已有的代码替代？如果能，为什么我还要写新的？
 

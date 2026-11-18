@@ -26,7 +26,9 @@ import {
   switchState,
   cacheToolResult,
   truncateResult,
-  parseApprovalSignal,
+  preferToolResult,
+  resolveApprovalFlags,
+  stripStaleApprovalNotice,
   MAX_INLINE_RESULT_LENGTH,
 } from "./chat-message-shared";
 import type { MessageSet, MessageGet } from "./chat-message.types";
@@ -147,10 +149,16 @@ export function setMessagesImpl(
       setSessionCache(cacheKey, messages);
     }
 
-    // Phase 1: 收集 tool 角色消息，建立 toolCallId → content 映射
+    // Phase 1: 收集 tool 角色消息，建立 toolCallId → { 结果文本, 是否错误 } 映射
     // 这些工具结果在后端作为独立消息持久化，前端需合并回 assistant 消息的 blocks 中
     // 同时缓存全量结果到缓存，block 中只存截断摘要
-    const toolResultsByCallId = new Map<string, string>();
+    // 2026-11-12：`isError` 一并带出 —— 续跑轮（如"用户拒绝"）的终态失败必须落到工具卡
+    // 状态上，否则卡面仍显示"已执行"（真机 `session_mwd7ywosc43b5503e3`）
+    interface ToolResultEntry {
+      content: string;
+      isError: boolean;
+    }
+    const toolResultsByCallId = new Map<string, ToolResultEntry>();
     const filteredMessages: Message[] = [];
     /**
      * N-48（2026-09-20）：暂存 tool 消息引用。
@@ -179,9 +187,21 @@ export function setMessagesImpl(
         // 解包 + 迭代解码（单一实现 `utils/toolResultText`），否则信封原样进入
         // `block.toolCall.result`，工具卡"结果"区显示出转义 JSON（真机实测）。
         const decoded = decodeToolResultContent(rawContent);
-        toolResultsByCallId.set(msg.toolCallId, decoded);
-        // 全量结果存入独立缓存（LRU 淘汰），不在 block 中内联
-        cacheToolResult(msg.toolCallId, decoded);
+        // 2026-11-12：同一 toolCallId 可能有两条结果（审批占位 + 批准后的真实结果），
+        // 落盘顺序不可靠 ⇒ 终态优先，避免"批准后仍按占位结果渲染等待审批卡"
+        const meta = (msg.metadata ?? {}) as {
+          isError?: unknown;
+          toolResultState?: unknown;
+        };
+        const entry: ToolResultEntry = {
+          content: decoded,
+          isError: meta.isError === true || meta.toolResultState === "error",
+        };
+        if (preferToolResult(toolResultsByCallId.get(msg.toolCallId)?.content, decoded)) {
+          toolResultsByCallId.set(msg.toolCallId, entry);
+          // 全量结果存入独立缓存（LRU 淘汰），不在 block 中内联
+          cacheToolResult(msg.toolCallId, decoded);
+        }
         pendingToolMessages.push(msg);
       } else if (
         Array.isArray(msg.blocks) &&
@@ -344,21 +364,32 @@ export function setMessagesImpl(
             block.toolCall?.id &&
             toolResultsByCallId.has(block.toolCall.id)
           ) {
-            const fullResult = toolResultsByCallId.get(block.toolCall.id)!;
+            const fullResultEntry = toolResultsByCallId.get(block.toolCall.id)!;
+            const fullResult = fullResultEntry.content;
             hasMergedResult = true;
             // U-06-5：审批等待结果带 pendingApproval + inboxId ⇒ 工具卡片就地审批
-            const approval = parseApprovalSignal(fullResult);
+            // 2026-11-12：终态结果须**清除**该标记（否则批准后同一调用既显示"已处理"的
+            // Inbox 卡、又保留"等待审批 + 批准/拒绝"的工具卡 ⇒ 两张卡）
+            const approvalFlags = resolveApprovalFlags(fullResult);
+            // 2026-11-12：终态结果同时决定卡片状态（失败/成功），不能沿用流式留下的
+            // "completed"（续跑轮的工具结果由本合并写入，真机 `session_mwd7ywosc43b5503e3`）
+            const isAwaiting = approvalFlags.pendingApproval === true;
             // 只注入截断摘要到 block，全量结果通过 getToolResultFull() 按需获取
             block.toolCall = {
               ...block.toolCall,
               result: truncateResult(fullResult),
               _hasFullResult:
                 fullResult.length > MAX_INLINE_RESULT_LENGTH || undefined,
-              pendingApproval:
-                approval?.pendingApproval === true
-                  ? true
-                  : block.toolCall.pendingApproval,
-              inboxId: approval?.inboxId ?? block.toolCall.inboxId,
+              pendingApproval: approvalFlags.pendingApproval,
+              inboxId: approvalFlags.inboxId,
+              status: isAwaiting
+                ? // 2026-11-12：待审批不是终态 —— 沿用落盘态可能已是 "completed"，
+                  // 会把副标题写成「已写入：…」而徽标仍是「⏳ 等待审批」（真机
+                  // `session_mwd9bnoyc7e3051cde`）。统一按进行中渲染（正在…）。
+                  "running"
+                : fullResultEntry.isError
+                  ? "failed"
+                  : "completed",
             };
           }
           return block;
@@ -512,6 +543,12 @@ export function setMessagesImpl(
     //    - Phase 1.5 倒序去重的边界情况（相同 id 的多个版本）
     //    - events 派生 + legacy 修复合并后的时序错位（timestamp 同毫秒时 id 字典序与事件序无关）
     //    - 多轮合并后 user/assistant 交叉顺序异常
+    // 2026-11-12：剥离「等待审批」收尾提示正文（审批处理完即不再显示，改由审批卡片提示）；
+    // 判据走结构化 `awaiting_approval` 标记，只见于该轮助手消息。
+    for (let i = 0; i < enhancedMessages.length; i++) {
+      enhancedMessages[i] = stripStaleApprovalNotice(enhancedMessages[i]);
+    }
+
     const sortBefore = enhancedMessages.length;
     // P2-9（2026-09-27 审计）：原主键 `lastEventSeq` 对**缺失**者按 0 兜底 ⇒ 缺失方被排到
     // **最前**（无 seq 的消息可能被顶到会话开头，造成整表重排：真机实测

@@ -33,7 +33,7 @@
 
 | 标识 | 支持等级 | 专属测试证据 |
 |---|---|---|
-| `mobile` | core | `app/tests/channels/mobileAudit.test.ts`（测试文件名） |
+| `mobile` | core | `app/tests/channels/mobileApprovalAction.test.ts`（测试文件名） |
 | `telegram` | core | `app/tests/channels/telegramRequestShape.test.ts`（测试文件名） |
 | `discord` | core | `app/tests/channels/discordRequestShape.test.ts`（测试文件名） |
 | `qq` | core | `app/tests/channels/qqFileTransferPayload.test.ts`（测试文件名） |
@@ -88,7 +88,7 @@
 | `file_read` | core | `app/tests/tools/FileReadTool.test.ts`（测试文件名） |
 | `file_write` | core | `app/tests/tools/fileWriteReadBeforeWrite.test.ts`（测试文件名） |
 | `glob` | core | `app/tests/tools/GlobTool/GlobTool-braces.test.ts`（测试文件名） |
-| `grep` | core | `app/tests/tools/GrepTool/grepAsync.test.ts`（测试文件名） |
+| `grep` | core | `app/tests/commands/grepArgsParity.test.ts`（测试文件名） |
 | `image` | core | `app/tests/tools/imageSafetyFilter.test.ts`（测试文件名） |
 | `image_analysis` | community | —（无专属测试） |
 | `image_display` | community | —（无专属测试） |
@@ -130,7 +130,7 @@
 | `video_analysis` | community | —（无专属测试） |
 | `video_display` | community | —（无专属测试） |
 | `video_generate` | core | `app/tests/tools/VideoGenerateTool.test.ts`（测试文件名） |
-| `web_fetch` | core | `app/tests/tools/webFetchSsrf.test.ts`（测试文件名） |
+| `web_fetch` | core | `app/tests/tools/webFetchResponse.test.ts`（测试文件名） |
 | `web_search` | community | —（无专属测试） |
 | `worktree` | community | —（无专属测试） |
 | `write_project_file` | core | `app/tests/tools/writeProjectFile-failure.test.ts`（测试文件名） |

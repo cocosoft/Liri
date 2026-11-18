@@ -19,9 +19,9 @@ import {
   relayReplyToChannel,
   setReplyEffectPort,
   type ReplyShadowPayload,
-} from '../../src/channels/bridge/inboxChannelReply';
-import { channelRegistry } from '../../src/channels/registry/ChannelRegistry';
-import { channelBootstrapper } from '../../src/channels/bootstrap/ChannelBootstrapper';
+} from '@modules/channels/bridge/inboxChannelReply';
+import { channelRegistry } from '@modules/channels/registry/ChannelRegistry';
+import { channelBootstrapper } from '@modules/channels/bootstrap/ChannelBootstrapper';
 import type { InboxItem } from '@openliri/service/runtime/InboxManager';
 
 describe('isSendDelivered — outbound 返回值归一', () => {

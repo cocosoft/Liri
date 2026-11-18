@@ -64,9 +64,119 @@ export function selectApprovalItemsForBlocks<T extends ApprovalBlockItemShape>(p
   return [...byId.values()].sort((a, b) => a.createdAt - b.createdAt);
 }
 
+/**
+ * 2026-11-17（用户实测：审批已过期却长期显示「等待审批」）：
+ * 选出**绑定了 toolCallId** 的已处理/已过期审批项 —— **不受 2h 窗口限制**。
+ *
+ * 为什么需要：`selectApprovalItemsForBlocks` 只合成「窗口内」的已处理项；窗口外的卡片
+ * 下次读消息时不再出现，而工具卡上的 `pendingApproval` 仍残留（审批过期不会写终态结果）
+ * ⇒ 前端永远在等一张看不见的卡。把这类卡按 `toolCallId` **精确归位**合成后，前端即可
+ * 按 `inboxId` 对账把残留标记清掉（见 `hasPendingApproval`）。
+ *
+ * 与窗口版的区别只在"是否看时间"：仍然按 `createdAt` 升序、按上限截断，避免历史噪声。
+ */
+export function selectResolvedApprovalsLinkedToToolCalls<
+  T extends ApprovalBlockItemShape & { metadata?: { toolCallId?: unknown } },
+>(params: {
+  recent: readonly T[];
+  /** 单次最多合成多少条（与窗口版同一默认上限） */
+  maxResolved?: number;
+}): T[] {
+  const maxResolved = params.maxResolved ?? APPROVAL_BLOCK_MAX_RESOLVED;
+  return params.recent
+    .filter((item) => {
+      if (item.status !== 'replied' && item.status !== 'expired') return false;
+      const toolCallId = item.metadata?.toolCallId;
+      return typeof toolCallId === 'string' && toolCallId.length > 0;
+    })
+    .sort((a, b) => a.createdAt - b.createdAt)
+    .slice(-maxResolved);
+}
+
+/** 合并两批审批项（按 id 去重，保持 `createdAt` 升序） */
+export function mergeApprovalBlocks<T extends ApprovalBlockItemShape>(
+  ...groups: ReadonlyArray<readonly T[]>
+): T[] {
+  const byId = new Map<string, T>();
+  for (const group of groups) {
+    for (const item of group) byId.set(item.id, item);
+  }
+  return [...byId.values()].sort((a, b) => a.createdAt - b.createdAt);
+}
+
 /** 参与就地刷新的最小消息形态（只有 `blocks` 会被读到/改写） */
 export interface ApprovalBlockMessageLike {
   blocks?: unknown;
+}
+
+/** 审批块宿主选择用的最小消息形态 */
+export interface ApprovalHostMessageLike {
+  role?: string;
+  timestamp?: number;
+  blocks?: unknown;
+}
+
+/** 审批块归属判据 */
+export interface ApprovalHostTarget {
+  /** 审批项创建时刻（毫秒）—— 无 `toolCallId` 时的兜底判据 */
+  createdAt: number;
+  /** 该审批项对应的工具调用 id（`inbox_items.metadata.toolCallId`），有则**精确**归位 */
+  toolCallId?: string;
+}
+
+/**
+ * 2026-11-12：缺失审批块应挂到**哪一条 assistant 消息**（返回下标；`-1` = 无宿主）。
+ *
+ * 真机 `session_mwd9bnoyc7e3051cde`：所有缺失项一律追加到最后一条 assistant ⇒ 第 1 轮的
+ * bash 审批卡渲染在第 2 轮末尾（刷新回放错位，「已处理」卡跑到别轮）。
+ *
+ * 判据优先级：
+ *  1. **结构化**：`toolCallId` 命中某条消息里的 `tool_call` 块 ⇒ 就是这条消息（卡片与其调用同处）；
+ *  2. **时间锚点**（无 `toolCallId` 的老卡）：取「创建时刻之前最近的 assistant 消息」；
+ *     全部晚于该时刻（时钟偏差）⇒ 回退第一条 assistant。
+ */
+export function resolveApprovalHostIndex<M extends ApprovalHostMessageLike>(
+  messages: readonly M[],
+  target: ApprovalHostTarget
+): number {
+  if (target.toolCallId) {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messageHasToolCall(messages[i], target.toolCallId)) return i;
+    }
+  }
+
+  let firstAssistant = -1;
+  let best = -1;
+  let bestTs = Number.NEGATIVE_INFINITY;
+  for (let i = 0; i < messages.length; i++) {
+    const m = messages[i];
+    if (m.role !== 'assistant') continue;
+    if (firstAssistant < 0) firstAssistant = i;
+    const ts = typeof m.timestamp === 'number' ? m.timestamp : 0;
+    if (ts <= target.createdAt && ts >= bestTs) {
+      bestTs = ts;
+      best = i;
+    }
+  }
+  return best >= 0 ? best : firstAssistant;
+}
+
+/** 该消息的 `blocks[]` 里是否有 id 命中 `toolCallId` 的 `tool_call` 块 */
+function messageHasToolCall(
+  message: ApprovalHostMessageLike,
+  toolCallId: string
+): boolean {
+  const blocks = message.blocks;
+  if (!Array.isArray(blocks)) return false;
+  return blocks.some((b) => {
+    const block = b as {
+      type?: unknown;
+      toolCallId?: unknown;
+      toolCall?: { id?: unknown };
+    };
+    if (block?.type !== 'tool_call') return false;
+    return (block.toolCallId ?? block.toolCall?.id) === toolCallId;
+  });
 }
 
 /**

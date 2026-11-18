@@ -26,6 +26,14 @@ export interface WithDeadlineOptions {
   timeoutMs: number;
   /** 中止信号（可选） */
   signal?: AbortSignal;
+  /**
+   * 让超时计时器 `unref()`（2026-11-14）。
+   *
+   * 仅用于**进程关闭流程**：此时计时器本身不应成为「进程不退出」的原因
+   * （清理钩子卡死 + 计时器保活 = 只能人工 kill -9）。
+   * 常规等待**不要开启**——计时器不再保活事件循环时，超时可能永远不触发。
+   */
+  unrefTimer?: boolean;
 }
 
 /**
@@ -35,7 +43,7 @@ export function withDeadline<T>(
   operation: Promise<T>,
   options: WithDeadlineOptions
 ): Promise<DeadlineOutcome<T>> {
-  const { timeoutMs, signal } = options;
+  const { timeoutMs, signal, unrefTimer = false } = options;
 
   let timer: ReturnType<typeof setTimeout> | undefined;
   let abortHandler: (() => void) | undefined;
@@ -44,6 +52,8 @@ export function withDeadline<T>(
     Number.isFinite(timeoutMs) && timeoutMs > 0
       ? new Promise<'timeout'>((resolve) => {
           timer = setTimeout(resolve, timeoutMs, 'timeout' as const);
+          // 关闭流程专用：计时器不得保活事件循环（见 `unrefTimer`）
+          if (unrefTimer) timer.unref?.();
         })
       : new Promise<'timeout'>(() => {
           // 不设超时：永不 settle

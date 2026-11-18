@@ -14,8 +14,8 @@ import {
   getDailyBudget,
   lockDailyBudgetForTest,
   resetDailyBudgetForTest,
-} from '../../src/query/DailyBudgetManager';
-import { checkDailyBudget } from '../../src/query/dailyBudgetGate';
+} from '@modules/query/DailyBudgetManager';
+import { checkDailyBudget } from '@modules/query/dailyBudgetGate';
 
 /** locked 态统一入口：金额越界（Token 口径已不再产生档位）。 */
 function locked(): ReturnType<typeof getDailyBudget> {

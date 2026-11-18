@@ -2,7 +2,8 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Box, Text, AlternateScreen, useApp } from '../../ink';
 import { ConversationArea } from './ConversationArea';
 import { InputArea } from './InputArea';
-import { dispatchSlashCommand } from './commandDispatch';
+import { handleReplSlashInput } from './slashRoutes';
+import { buildCompletedToolCalls } from './toolCallCards';
 import { StatusFloatingBar } from './StatusFloatingBar';
 import { Header } from './Header';
 import { getLogger } from '@openliri/infra/monitoring';
@@ -31,6 +32,31 @@ const logger = getLogger('ink:repl');
 interface ReplAppProps {
   chatManager: ChatManager;
   onExit: () => void;
+}
+
+/**
+ * T3（2026-11-17）：流结束后刷新路由/模型读数（原样搬出 `handleSubmit` 的 finally 分支）。
+ * 非阻塞：CoreAPI 不可用时不打断对话。
+ */
+async function refreshModelRouteInfo(
+  setModelName: (name: string) => void,
+  setRouterTier: (tier: string | undefined) => void,
+  setRoutingMode: (mode: 'dynamic' | 'static' | 'off') => void
+): Promise<void> {
+  try {
+    const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl.js');
+    const core = getCoreAPI();
+    const lastDecision = core.getLastRouteDecision();
+    const sr = core.getSmartRouter();
+    if (lastDecision?.model) setModelName(lastDecision.model);
+    if (lastDecision?.tier) setRouterTier(lastDecision.tier);
+    let mode: 'dynamic' | 'static' | 'off' = 'static';
+    if (sr?.isEnabled()) mode = 'dynamic';
+    else if (sr && !sr.isEnabled()) mode = 'off';
+    setRoutingMode(mode);
+  } catch (err) {
+    // 非阻塞
+  }
 }
 
 export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
@@ -126,319 +152,23 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
       setSubmitCount((prev) => prev + 1);
       logger.info('handleSubmit 开始', { content });
 
-      if (content === 'exit' || content === 'quit') {
-        exit?.();
-        onExit();
-        return;
-      }
-
-      if (content === '/clear') {
-        setMessages([]);
-        return;
-      }
-
-      if (content === '/help') {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `user-${Date.now()}`,
-            role: 'user',
-            content,
-            timestamp: Date.now(),
-          },
-        ]);
-        // ①（2026-10-16）：命令清单**让位给注册表**（`helpCommand` 读 `commandRegistry.getVisible()`）
-        // —— 原先此处硬编码 5 条，注册表里的 131 条命令在 TUI 里既不可见也不可达。
-        // 仅追加 ink TUI 独有的按键说明（注册表不掌握键盘映射）。
-        const outcome = await dispatchSlashCommand('/help');
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `help-${Date.now()}`,
-            role: 'system',
-            content: [
-              outcome.text,
-              '',
-              '快捷键（仅 Ink TUI）:',
-              '  ↑↓            - 浏览输入历史',
-              '  Tab           - 命令补全',
-              '  PageUp/Down   - 翻页浏览对话',
-              '  Ctrl+Home/End - 跳到对话首/尾',
-            ].join('\n'),
-            timestamp: Date.now(),
-          },
-        ]);
-        return;
-      }
-
-      if (content === '/ink') {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `user-${Date.now()}`,
-            role: 'user',
-            content,
-            timestamp: Date.now(),
-          },
-          {
-            id: `ink-info-${Date.now()}`,
-            role: 'system',
-            content:
-              '当前运行: Liri Ink TUI 模式 (React-for-CLI) — 流式输出、工具调用可视化、Markdown 渲染。',
-            timestamp: Date.now(),
-          },
-        ]);
-        return;
-      }
-
-      if (content === '/router') {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `user-${Date.now()}`,
-            role: 'user',
-            content,
-            timestamp: Date.now(),
-          },
-          {
-            id: `router-help-${Date.now()}`,
-            role: 'system',
-            content: [
-              '智能路由 SmartRouter 命令:',
-              '  /router         - 显示此帮助',
-              '  /router status  - 查看当前路由状态与最近决策',
-              '  /router on      - 启用智能路由（运行时即时生效）',
-              '  /router off     - 关闭智能路由（回退静态路由）',
-              '  /router config  - 查看完整路由配置',
-            ].join('\n'),
-            timestamp: Date.now(),
-          },
-        ]);
-        return;
-      }
-
-      if (content === '/router status') {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `user-${Date.now()}`,
-            role: 'user',
-            content,
-            timestamp: Date.now(),
-          },
-        ]);
-        // 动态加载，避免循环依赖
-        try {
-          const { getCoreAPI } =
-            await import('@modules/runtime/api/CoreAPIImpl');
-          const core = getCoreAPI();
-          const router = core.getSmartRouter();
-          const lastDecision = core.getLastRouteDecision();
-          const routerConfig = router?.getConfig();
+      const handled = await handleReplSlashInput(content, {
+        pushMessage: (role, idPrefix, text) =>
           setMessages((prev) => [
             ...prev,
             {
-              id: `router-status-${Date.now()}`,
-              role: 'system',
-              content: [
-                '=== SmartRouter 状态 ===',
-                `  启用: ${routerConfig?.enabled ? '✅ 是' : '❌ 否（使用静态路由）'}`,
-                `  实例活跃: ${router !== null ? '✅' : '❌'}`,
-                `  默认等级: ${routerConfig?.defaultTier || 'medium'}`,
-                `  会话黏性: ${routerConfig?.sessionSticky ? '✅ 开启' : '❌ 关闭'}`,
-                '',
-                '最近路由决策:',
-                lastDecision
-                  ? `  等级: ${lastDecision.tier} | 模型: ${lastDecision.model} | Provider: ${lastDecision.provider}`
-                  : '  （暂无记录）',
-              ].join('\n'),
+              id: `${idPrefix}-${Date.now()}`,
+              role,
+              content: text,
               timestamp: Date.now(),
             },
-          ]);
-        } catch (err) {
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: `router-status-${Date.now()}`,
-              role: 'system',
-              content:
-                '❌ 无法获取路由状态（SmartRouter 未初始化或 CoreAPI 不可用）',
-              timestamp: Date.now(),
-            },
-          ]);
-        }
-        return;
-      }
-
-      if (content === '/router on' || content === '/router off') {
-        const enable = content === '/router on';
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `user-${Date.now()}`,
-            role: 'user',
-            content,
-            timestamp: Date.now(),
-          },
-        ]);
-        try {
-          const { getCoreAPI } =
-            await import('@modules/runtime/api/CoreAPIImpl');
-          const { configManager } = await import('@openliri/infra/config');
-          const core = getCoreAPI();
-          const router = core.getSmartRouter();
-          if (router) {
-            router.updateConfig({ enabled: enable } as any);
-            // 同时持久化到 config.json
-            const current =
-              configManager.getConfigValue<Record<string, unknown>>(
-                'models.router'
-              ) || {};
-            configManager.setConfigValue('models.router', {
-              ...current,
-              enabled: enable,
-            });
-            setMessages((prev) => [
-              ...prev,
-              {
-                id: `router-toggle-${Date.now()}`,
-                role: 'system',
-                content: `✅ SmartRouter 已${enable ? '启用' : '关闭'}（运行时即时生效，配置已持久化）`,
-                timestamp: Date.now(),
-              },
-            ]);
-          } else {
-            setMessages((prev) => [
-              ...prev,
-              {
-                id: `router-toggle-${Date.now()}`,
-                role: 'system',
-                content: '❌ SmartRouter 未初始化，无法切换',
-                timestamp: Date.now(),
-              },
-            ]);
-          }
-        } catch (err) {
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: `router-toggle-${Date.now()}`,
-              role: 'system',
-              content: '❌ 操作失败（CoreAPI 或 ConfigManager 不可用）',
-              timestamp: Date.now(),
-            },
-          ]);
-        }
-        return;
-      }
-
-      if (content === '/router config') {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `user-${Date.now()}`,
-            role: 'user',
-            content,
-            timestamp: Date.now(),
-          },
-        ]);
-        try {
-          const { getCoreAPI } =
-            await import('@modules/runtime/api/CoreAPIImpl');
-          const core = getCoreAPI();
-          const router = core.getSmartRouter();
-          const routerConfig = router?.getConfig();
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: `router-config-${Date.now()}`,
-              role: 'system',
-              content: routerConfig
-                ? [
-                    '=== SmartRouter 配置 ===',
-                    `  启用: ${routerConfig.enabled}`,
-                    `  默认等级: ${routerConfig.defaultTier}`,
-                    `  会话黏性: ${routerConfig.sessionSticky ?? true}`,
-                    '',
-                    'Tier 映射:',
-                    ...Object.entries(routerConfig.tiers || {}).map(
-                      ([tier, cfg]) =>
-                        `  ${tier}: ${cfg?.model} (${cfg?.providerHint || 'auto'})`
-                    ),
-                    '',
-                    'Judge 配置:',
-                    routerConfig.judge
-                      ? `  Provider: ${routerConfig.judge.provider} | 模型: ${routerConfig.judge.model} | 超时: ${routerConfig.judge.timeoutMs}ms`
-                      : '  （未配置 Judge，回退默认等级）',
-                    '',
-                    '回退链:',
-                    (routerConfig.fallback?.length ?? 0) > 0
-                      ? routerConfig
-                          .fallback!.map(
-                            (f, i) => `  ${i + 1}. ${f.provider}/${f.model}`
-                          )
-                          .join('\n')
-                      : '  （无配置）',
-                    '',
-                    '零用量重试:',
-                    routerConfig.zeroUsageRetry?.enabled
-                      ? `  启用（最多 ${routerConfig.zeroUsageRetry.maxAttempts} 次）`
-                      : '  关闭',
-                    '瞬态重试:',
-                    routerConfig.transientRetry?.enabled
-                      ? `  启用（最多 ${routerConfig.transientRetry.maxAttempts} 次，延迟 ${routerConfig.transientRetry.baseDelayMs}~${routerConfig.transientRetry.maxDelayMs}ms）`
-                      : '  关闭',
-                  ].join('\n')
-                : '❌ SmartRouter 未初始化，无法读取配置',
-              timestamp: Date.now(),
-            },
-          ]);
-        } catch (err) {
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: `router-config-${Date.now()}`,
-              role: 'system',
-              content: '❌ 无法读取路由配置',
-              timestamp: Date.now(),
-            },
-          ]);
-        }
-        return;
-      }
-
-      // 方案①（2026-10-16）：内置斜杠命令统一派发。
-      // 此前本文件只处理上面硬编码的 /help、/clear、/ink、/onboard、/router* 五类，
-      // 其余 `/xxx`（如 /budget、/git、/commit）会落到底部 `chatManager.streamMessage`
-      // 当**普通消息送进模型**（真机实测：模型自述「该斜杠命令由应用层处理…当前消息落到了
-      // 我这里」）⇒ 此处交给与 Terminal 页 / 非流式 HTTP 同一个 `commandExecutor`（CS01 复用）。
-      if (content.startsWith('/')) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `user-${Date.now()}`,
-            role: 'user',
-            content,
-            timestamp: Date.now(),
-          },
-        ]);
-        const outcome = await dispatchSlashCommand(
-          content,
-          chatManager.getCurrentSession()?.id
-        );
-        // role 用 'system'：命令输出是**纯文本语义**（同本文件既有命令分支），
-        // 过 MarkdownRenderer 会被其中的 `#` / `*` 误当标题与列表项。
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `command-${Date.now()}`,
-            role: 'system',
-            content: outcome.text,
-            timestamp: Date.now(),
-          },
-        ]);
-        return;
-      }
+          ]),
+        clearMessages: () => setMessages([]),
+        exit,
+        onExit,
+        getSessionId: () => chatManager.getCurrentSession()?.id,
+      });
+      if (handled) return;
 
       const userMsg: DisplayMessage = {
         id: `user-${Date.now()}`,
@@ -584,35 +314,10 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
           return;
         }
 
-        const completedToolCalls: ToolCallInfo[] =
-          finalMessage?.tool_calls?.map((tc: Record<string, unknown>) => {
-            const fn = (tc.function || {}) as Record<string, unknown>;
-            const id = (tc.id as string) || '';
-            const name =
-              (fn.name as string) || (tc.name as string) || 'unknown';
-            const args = (
-              fn.arguments
-                ? typeof fn.arguments === 'string'
-                  ? JSON.parse(fn.arguments as string)
-                  : fn.arguments
-                : tc.arguments || {}
-            ) as Record<string, unknown>;
-            // 合并流内累积的执行状态/结果（`tool_end` 块）
-            const executed = id ? toolCallsRef.current.get(id) : undefined;
-            return {
-              id,
-              name,
-              arguments:
-                args && Object.keys(args).length > 0
-                  ? args
-                  : (executed?.arguments ?? {}),
-              ...(executed?.status ? { status: executed.status } : {}),
-              ...(executed?.error ? { error: executed.error } : {}),
-              ...(executed?.result !== undefined
-                ? { result: executed.result }
-                : {}),
-            };
-          }) || [];
+        const completedToolCalls: ToolCallInfo[] = buildCompletedToolCalls(
+          finalMessage?.tool_calls,
+          toolCallsRef.current
+        );
 
         setStreamState('done');
 
@@ -664,21 +369,11 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
         setStreamingContent('');
 
         // 流结束后更新模型信息（可能已有新决策记录）
-        try {
-          const { getCoreAPI } =
-            await import('@modules/runtime/api/CoreAPIImpl.js');
-          const core = getCoreAPI();
-          const lastDecision = core.getLastRouteDecision();
-          const sr = core.getSmartRouter();
-          if (lastDecision?.model) setModelName(lastDecision.model);
-          if (lastDecision?.tier) setRouterTier(lastDecision.tier);
-          let mode: 'dynamic' | 'static' | 'off' = 'static';
-          if (sr?.isEnabled()) mode = 'dynamic';
-          else if (sr && !sr.isEnabled()) mode = 'off';
-          setRoutingMode(mode);
-        } catch (err) {
-          // 非阻塞
-        }
+        await refreshModelRouteInfo(
+          setModelName,
+          setRouterTier,
+          setRoutingMode
+        );
 
         currentQuestionRef.current = null;
         setCurrentQuestion(null);

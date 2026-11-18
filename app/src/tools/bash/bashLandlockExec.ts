@@ -77,6 +77,8 @@ import {
   processRegistry,
   killProcessTree,
   resolveLandlockHelperPath,
+  // G4 围栏 M0-①（2026-11-12）：沙箱拒绝写入时记账（供 sandbox-posture 快照/围栏消费）
+  recordSandboxViolation,
 } from '@modules/sandbox';
 import type {
   LandlockCapability,
@@ -546,6 +548,187 @@ function commandFailedError(input: {
   return error;
 }
 
+/** 沙箱执行结果（三种模式下 runner 的返回联合；收尾阶段已排除 `null`） */
+type SandboxRunOutcome =
+  | LandlockHelperResult
+  | SandboxExecRunResult
+  | WinSandboxRunResult;
+
+/**
+ * P3-2（复杂度清理）：**回退普通执行**并留同构日志（从 `execBashCommand` 原样外移）。
+ *
+ * 三条回退路径（master-off / 门控判 plain / Windows 降级）口径一致：都记一条
+ * `bash: exec_ok`（mode=plain）—— 否则回退静默，排查时看不出实际走了 plain。
+ */
+async function runPlainFallback(params: {
+  runPlain: PlainRunner;
+  command: string;
+  options: Parameters<PlainRunner>[1];
+  commandPreview: string;
+  startedAt: number;
+}): Promise<{ stdout: string; stderr: string }> {
+  const out = await params.runPlain(params.command, params.options);
+  logger.info('bash: exec_ok', {
+    commandPreview: params.commandPreview,
+    mode: 'plain',
+    exitCode: 0,
+    durationMs: Date.now() - params.startedAt,
+  });
+  return out;
+}
+
+/**
+ * P3-2（复杂度清理）：**沙箱执行结果收尾**（从 `execBashCommand` 逐字外移）。
+ *
+ * 顺序与语义未变：进程登记（S7）→ Windows helper 失败（126）→ Landlock 初始化失败（125，
+ * 仅 landlock 模式）→ 执行异常（spawn 失败/被杀/超时）→ 非 0 退出（含 Windows 写越界归因 +
+ * 违规记账）→ 成功日志；`failClosed` 下不可施加隔离一律拒绝执行，否则按契约回退 plain。
+ */
+async function finalizeBashSandboxResult(params: {
+  result: SandboxRunOutcome | null;
+  gate: BashLandlockGate;
+  config: LandlockConfig;
+  input: BashExecInput;
+  plainOptions: Parameters<PlainRunner>[1];
+  commandPreview: string;
+  startedAt: number;
+  runPlain: PlainRunner;
+}): Promise<{ stdout: string; stderr: string }> {
+  const {
+    result,
+    gate,
+    config,
+    input,
+    plainOptions,
+    commandPreview,
+    startedAt,
+    runPlain,
+  } = params;
+
+  if (result === null) {
+    // 仅 Windows 分支会返回 null（helper/授权不可用且 failClosed=false）
+    return runPlainFallback({
+      runPlain,
+      command: input.command,
+      options: plainOptions,
+      commandPreview,
+      startedAt,
+    });
+  }
+
+  // S7（2026-10-09）：沙箱路径都以终态登记进 `ProcessRegistry`
+  // （landlock helper 内部已登记 ⇒ 仅 macOS / Windows 这里补一次，避免重复条目）
+  if (gate.mode === 'sandbox-exec' || gate.mode === 'windows-low-il') {
+    registerBashProcess(
+      result.pid,
+      input.command,
+      result.error ? 'error' : result.timedOut ? 'timed_out' : 'completed',
+      result.exitCode ?? undefined
+    );
+  }
+
+  // 2026-11-07：Windows helper 的 exit 126 = helper 自身失败（与目标程序退出码区分开）
+  if (
+    gate.mode === 'windows-low-il' &&
+    'helperFailed' in result &&
+    result.helperFailed
+  ) {
+    if (config.failClosed) {
+      // G4 围栏 M0-①：无法施加隔离 ⇒ 拒绝执行，记一条沙箱拦截
+      recordSandboxViolation(
+        'init-failed',
+        'Windows 沙箱 helper 自身失败且 failClosed=true ⇒ 拒绝执行 bash',
+        { tool: 'bash', mode: gate.mode }
+      );
+      throw new AppError(
+        `Windows 沙箱 helper 自身失败（exit 126；failClosed=true）⇒ 拒绝执行：${result.stderr.slice(0, 500)}［sandbox_denied: init］`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        'G1A_WIN_SANDBOX_INIT_FAILED'
+      );
+    }
+    logger.warn(
+      'Windows 沙箱 helper 自身失败（exit 126）⇒ 按 failClosed=false 降级普通执行',
+      { detail: result.stderr.slice(0, 300) }
+    );
+    return runPlain(input.command, plainOptions);
+  }
+
+  // ⚠️ exit-125 协议**只属 landlock**：`sandbox-exec` 没有该语义，若把用户命令的 125 当"初始化失败"，
+  // 会触发 failClosed=false 的 plain 回退 ⇒ **逃出沙箱**。故此处显式按门控模式收窄。
+  if (gate.mode === 'landlock' && isSandboxInitFailure(result.exitCode ?? -1)) {
+    if (config.failClosed) {
+      // G4 围栏 M0-①：同上的"无法施加隔离 ⇒ 拒绝执行"
+      recordSandboxViolation(
+        'init-failed',
+        'Landlock 初始化失败且 failClosed=true ⇒ 拒绝执行 bash',
+        { tool: 'bash', mode: gate.mode }
+      );
+      throw new AppError(
+        `Landlock 沙箱初始化失败（exit 125；failClosed=true）⇒ 拒绝执行：${result.stderr.slice(0, 500)}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        'G1A_LANDLOCK_INIT_FAILED'
+      );
+    }
+    logger.warn(
+      'Landlock 沙箱初始化失败（exit 125）⇒ 按 failClosed=false 回退普通执行',
+      { detail: result.stderr.slice(0, 300) }
+    );
+    return runPlain(input.command, plainOptions);
+  }
+
+  if (result.error || result.exitCode === null) {
+    // B 类可观测性缺口 ③：执行异常（spawn 失败 / 被杀 / 超时）补 error 日志
+    logger.error('bash: exec_error', {
+      commandPreview,
+      error: String(result.error ?? '未取到退出码').slice(0, 500),
+      durationMs: Date.now() - startedAt,
+    });
+    throw (
+      result.error ??
+      new Error(`Command failed: ${input.command}（未取到退出码）`)
+    );
+  }
+  if (result.exitCode !== 0) {
+    // 2026-11-07（方案 §10）：Windows 写隔离生效时，越界写会以「拒绝访问」失败 ⇒ 可归因
+    const sandboxDenied =
+      gate.mode === 'windows-low-il' && isWindowsAccessDenied(result.stderr)
+        ? 'write'
+        : undefined;
+    if (sandboxDenied) {
+      // G4 围栏 M0-①：记一条违规（只进观测面，不改本函数的抛错/退出码语义）
+      recordSandboxViolation(
+        'write-denied',
+        'bash 写入被 Windows Low IL 沙箱拒绝',
+        { commandPreview, mode: gate.mode }
+      );
+    }
+    // B 类可观测性缺口 ③：命令非 0 退出补 warn（exitCode + stderr 截断）
+    logger.warn('bash: exec_failed', {
+      commandPreview,
+      exitCode: result.exitCode,
+      stderr: result.stderr.slice(0, 300),
+      ...(sandboxDenied ? { sandboxDenied } : {}),
+      durationMs: Date.now() - startedAt,
+    });
+    throw commandFailedError({
+      command: input.command,
+      stdout: result.stdout,
+      stderr: result.stderr,
+      exitCode: result.exitCode,
+      ...(sandboxDenied ? { suffix: '［sandbox_denied: write］' } : {}),
+    });
+  }
+  logger.info('bash: exec_ok', {
+    commandPreview,
+    mode: gate.mode,
+    exitCode: 0,
+    durationMs: Date.now() - startedAt,
+  });
+  return { stdout: result.stdout, stderr: result.stderr };
+}
+
 /**
  * **bash 执行的唯一收敛入口**（G1-A）。
  *
@@ -579,14 +762,13 @@ export async function execBashCommand(
     reportBashSandboxDegradedOnce({
       platform: deps.platform ?? process.platform,
     });
-    const out = await runPlain(input.command, plainOptions);
-    logger.info('bash: exec_ok', {
+    return runPlainFallback({
+      runPlain,
+      command: input.command,
+      options: plainOptions,
       commandPreview,
-      mode: 'plain',
-      exitCode: 0,
-      durationMs: Date.now() - startedAt,
+      startedAt,
     });
-    return out;
   }
 
   const platform = deps.platform ?? process.platform;
@@ -618,14 +800,13 @@ export async function execBashCommand(
   if (gate.mode === 'plain') {
     await reportBashLandlockGapOnce();
     reportBashSandboxDegradedOnce({ platform });
-    const out = await runPlain(input.command, plainOptions);
-    logger.info('bash: exec_ok', {
+    return runPlainFallback({
+      runPlain,
+      command: input.command,
+      options: plainOptions,
       commandPreview,
-      mode: 'plain',
-      exitCode: 0,
-      durationMs: Date.now() - startedAt,
+      startedAt,
     });
-    return out;
   }
 
   if (gate.mode === 'refuse') {
@@ -799,107 +980,16 @@ export async function execBashCommand(
         ? await runMacOSBash()
         : await runLandlockBash();
 
-  if (result === null) {
-    // 仅 Windows 分支会返回 null（helper/授权不可用且 failClosed=false）
-    const out = await runPlain(input.command, plainOptions);
-    logger.info('bash: exec_ok', {
-      commandPreview,
-      mode: 'plain',
-      exitCode: 0,
-      durationMs: Date.now() - startedAt,
-    });
-    return out;
-  }
-
-  // S7（2026-10-09）：沙箱路径都以终态登记进 `ProcessRegistry`
-  // （landlock helper 内部已登记 ⇒ 仅 macOS / Windows 这里补一次，避免重复条目）
-  if (gate.mode === 'sandbox-exec' || gate.mode === 'windows-low-il') {
-    registerBashProcess(
-      result.pid,
-      input.command,
-      result.error ? 'error' : result.timedOut ? 'timed_out' : 'completed',
-      result.exitCode ?? undefined
-    );
-  }
-
-  // 2026-11-07：Windows helper 的 exit 126 = helper 自身失败（与目标程序退出码区分开）
-  if (
-    gate.mode === 'windows-low-il' &&
-    'helperFailed' in result &&
-    result.helperFailed
-  ) {
-    if (config.failClosed) {
-      throw new AppError(
-        `Windows 沙箱 helper 自身失败（exit 126；failClosed=true）⇒ 拒绝执行：${result.stderr.slice(0, 500)}［sandbox_denied: init］`,
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        'G1A_WIN_SANDBOX_INIT_FAILED'
-      );
-    }
-    logger.warn(
-      'Windows 沙箱 helper 自身失败（exit 126）⇒ 按 failClosed=false 降级普通执行',
-      { detail: result.stderr.slice(0, 300) }
-    );
-    return runPlain(input.command, plainOptions);
-  }
-
-  // ⚠️ exit-125 协议**只属 landlock**：`sandbox-exec` 没有该语义，若把用户命令的 125 当"初始化失败"，
-  // 会触发 failClosed=false 的 plain 回退 ⇒ **逃出沙箱**。故此处显式按门控模式收窄。
-  if (gate.mode === 'landlock' && isSandboxInitFailure(result.exitCode ?? -1)) {
-    if (config.failClosed) {
-      throw new AppError(
-        `Landlock 沙箱初始化失败（exit 125；failClosed=true）⇒ 拒绝执行：${result.stderr.slice(0, 500)}`,
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        'G1A_LANDLOCK_INIT_FAILED'
-      );
-    }
-    logger.warn(
-      'Landlock 沙箱初始化失败（exit 125）⇒ 按 failClosed=false 回退普通执行',
-      { detail: result.stderr.slice(0, 300) }
-    );
-    return runPlain(input.command, plainOptions);
-  }
-
-  if (result.error || result.exitCode === null) {
-    // B 类可观测性缺口 ③：执行异常（spawn 失败 / 被杀 / 超时）补 error 日志
-    logger.error('bash: exec_error', {
-      commandPreview,
-      error: String(result.error ?? '未取到退出码').slice(0, 500),
-      durationMs: Date.now() - startedAt,
-    });
-    throw (
-      result.error ??
-      new Error(`Command failed: ${input.command}（未取到退出码）`)
-    );
-  }
-  if (result.exitCode !== 0) {
-    // 2026-11-07（方案 §10）：Windows 写隔离生效时，越界写会以「拒绝访问」失败 ⇒ 可归因
-    const sandboxDenied =
-      gate.mode === 'windows-low-il' && isWindowsAccessDenied(result.stderr)
-        ? 'write'
-        : undefined;
-    // B 类可观测性缺口 ③：命令非 0 退出补 warn（exitCode + stderr 截断）
-    logger.warn('bash: exec_failed', {
-      commandPreview,
-      exitCode: result.exitCode,
-      stderr: result.stderr.slice(0, 300),
-      ...(sandboxDenied ? { sandboxDenied } : {}),
-      durationMs: Date.now() - startedAt,
-    });
-    throw commandFailedError({
-      command: input.command,
-      stdout: result.stdout,
-      stderr: result.stderr,
-      exitCode: result.exitCode,
-      ...(sandboxDenied ? { suffix: '［sandbox_denied: write］' } : {}),
-    });
-  }
-  logger.info('bash: exec_ok', {
+  // P3-2（复杂度清理）：沙箱结果收尾（进程登记 / 失败归因 / 回退 / 抛错 / 成功日志）
+  // 整体外移为 `finalizeBashSandboxResult`（**逐字搬迁**，判定顺序与文案不变）。
+  return finalizeBashSandboxResult({
+    result,
+    gate,
+    config,
+    input,
+    plainOptions,
     commandPreview,
-    mode: gate.mode,
-    exitCode: 0,
-    durationMs: Date.now() - startedAt,
+    startedAt,
+    runPlain,
   });
-  return { stdout: result.stdout, stderr: result.stderr };
 }

@@ -93,6 +93,10 @@ infra 禁止依赖：entry、ui、app、service
 
 - 事实源描述为"auth/i18n/state/theme 基础能力"聚合 —— 聚合容器容易演变成**隐形的编排层**。
 - 待办：逐项确认真实消费者；若只是再导出，应收敛为 `index.ts` barrel 或拆回各自模块。
+- **2026-11-18 复核（已完成该待办）**：四个子域**均有真实生产消费者**，且各自已是独立子目录 + 子 barrel：
+  `auth`（`commands/login/login.ts`、CLI handler）、`i18n`（`PromptAssembler`、`ToolRegistry`、`PDFTool`、`DocGenerateTool`、`app/scripts/i18n-snapshot.ts`）、
+  `state`（`bootstrap/state.ts`、`MigrateCommand`、`BridgeStateStore`）、`theme`（`ui/theme/*`、`commands/builtin/theme/Theme.ts`、`packages/docs/HelpSystem`）。
+  ⇒ **不是"仅再导出"的假容器**，维持现状；后续若出现跨子域编排代码再按 §7「infra → app」上移。
 
 ### 6.5 `lsp`（infra，零消费者）
 
@@ -102,6 +106,10 @@ infra 禁止依赖：entry、ui、app、service
 - 2026-11-02 复核（CD01–CD04）：代码面仍零消费者，但**测试** `tests/performance/benchmark.test.ts:12`
   仍导入 `LSPServerConfigRegistry` ⇒ 删除前置未满足，**观察期延长、不删**
   （详见 `tool-sidecar-isolation.md §13.7`）。
+- **2026-11-18 收口（S6）**：两处测试消费者已先行摘除（`benchmark` 的注册表基准块、
+  `spawnCwdGuard` 的 LSPClient 用例）⇒ CD01–CD04 全清；`app/src/lsp/**`（14 文件）、
+  `tsconfig` 的 `@modules/lsp` 别名、`eslint.config.js` 的 `src/lsp/**` 覆写已按 CD06 独立提交删除。
+  详见 `tool-sidecar-isolation.md §13.8`。
 
 ## 7. 升降级规则（未来变更的判据）
 

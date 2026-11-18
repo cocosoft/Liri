@@ -130,7 +130,8 @@ describe('HD-P0-2 端点 / 本机 host 单一真源', () => {
       'src/cli/ports/index.ts': 0,
       '../packages/service/src/bridge/ModuleBridgeSetup.ts': 0,
       '../packages/infra/src/daemon/IPCService.ts': 0,
-      'src/evals/sandbox.ts': 0,
+      // P1（2026-11-14）：`evals` 已迁入 `packages/evals`
+      '../packages/evals/src/evals/sandbox.ts': 0,
       'src/ai/local/llama/registerLlamaCppProvider.ts': 0,
       'src/ai/local/llama/LlamaCppServerManager.ts': 0,
       'src/entrypoints/repl.ts': 0,

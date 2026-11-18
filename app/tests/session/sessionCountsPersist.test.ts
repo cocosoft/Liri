@@ -16,10 +16,10 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
-import { StorageType } from '../../src/session/storage/UnifiedStorage';
-import { FileSystemUnifiedStorage } from '../../src/session/storage/FileSystemUnifiedStorage';
-import type { UnifiedMessage } from '../../src/session/types/UnifiedMessage';
-import type { UnifiedSession } from '../../src/session/types/UnifiedSession';
+import { StorageType } from '@modules/session/storage/UnifiedStorage';
+import { FileSystemUnifiedStorage } from '@modules/session/storage/FileSystemUnifiedStorage';
+import type { UnifiedMessage } from '@modules/session/types/UnifiedMessage';
+import type { UnifiedSession } from '@modules/session/types/UnifiedSession';
 
 const SID = 'sid-p15-counts';
 let tmpRoot = '';

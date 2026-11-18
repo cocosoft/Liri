@@ -13,7 +13,7 @@ import {
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PairingStore } from '../../src/channels/policy/PairingStore';
+import { PairingStore } from '@modules/channels/policy/PairingStore';
 import { createPairingHandler } from '../../src/cli/handlers/pairingHandler';
 
 const dirs: string[] = [];

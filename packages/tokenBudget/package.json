@@ -1,0 +1,20 @@
+{
+  "name": "@openliri/token-budget",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liri Token 预算包 —— 统一 token 计量 / 阈值校准 / 上下文窗口缓存 / 定价适配。层归属 app：可依赖 app / service / infra / core；entry / ui 不得依赖本包，包内不得依赖 entry / ui 层（R13）。",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/tokenBudget/index.ts",
+      "import": "./src/tokenBudget/index.ts"
+    },
+    "./*": {
+      "types": "./src/tokenBudget/*.ts",
+      "import": "./src/tokenBudget/*.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p ../../app/tsconfig.json"
+  }
+}

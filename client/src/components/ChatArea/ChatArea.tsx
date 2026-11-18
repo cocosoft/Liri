@@ -985,6 +985,7 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
         {/* UI 期 UI-1/UI-2：浮动栏统一承载 运行状态 / 等待态 / 深度思考等待 / PDCA 入口 / 任务进度 */}
         <StatusFloatBar
           fluid={fluid}
+          sessionId={currentSession?.id}
           wait={wait}
           pdca={{
             visible: pdca.visible,

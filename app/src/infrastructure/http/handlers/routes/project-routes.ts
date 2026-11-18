@@ -83,14 +83,14 @@ function rejectBadProjectId(res: http.ServerResponse): true {
 }
 
 /**
- * dispatchProjectRoutes — project-routes 领域路由分发
- * @returns true 表示已匹配并处理，false 表示未匹配
+ * 旧链路（`/v1/workspaces/:id/projects…` 只读 + 410 阻断写）（P3-2，2026-11-16：
+ * 由下方分发函数**原样外移**，匹配顺序不变）。
+ * @returns true 表示已匹配并处理
  */
-export async function dispatchProjectRoutes(
+async function dispatchLegacyWorkspaceProjectRoutes(
   req: http.IncomingMessage,
   res: http.ServerResponse,
   url: string,
-  broadcastEvent: (event: string, data: unknown) => void,
   handlerCtx: HandlerCtx
 ): Promise<boolean> {
   const method = req.method || 'GET';
@@ -167,7 +167,20 @@ export async function dispatchProjectRoutes(
     await handleWsGetProject(handlerCtx, req, res, match[1], match[2]);
     return true;
   }
+  return false;
+}
 
+/**
+ * 新链路集合级（list / create / migrate / relocate / autonomy）（P3-2，2026-11-16：
+ * 由下方分发函数**原样外移**，匹配顺序不变）。
+ * @returns true 表示已匹配并处理
+ */
+async function dispatchProjectCollectionRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string
+): Promise<boolean> {
+  const method = req.method || 'GET';
   // ---- Project Artifacts ----
   // P0b: Project CRUD（list/create 精确匹配，在子路由之前）
   if (method === 'GET' && url === '/v1/projects') {
@@ -205,7 +218,20 @@ export async function dispatchProjectRoutes(
     await handleSetProjectAutonomy(req, res, match[1]);
     return true;
   }
+  return false;
+}
 
+/**
+ * 新链路子资源（context / engine-hook / history / summaries / files / artifacts）
+ * （P3-2，2026-11-16：由下方分发函数**原样外移**，匹配顺序不变）。
+ * @returns true 表示已匹配并处理
+ */
+async function dispatchProjectResourceRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string
+): Promise<boolean> {
+  const method = req.method || 'GET';
   if (method === 'GET' && url.match(/^\/v1\/projects\/(.+)\/context$/)) {
     const match = url.match(/^\/v1\/projects\/(.+)\/context$/)!;
     if (!isSafeProjectId(match[1])) return rejectBadProjectId(res);
@@ -280,7 +306,20 @@ export async function dispatchProjectRoutes(
     await handleDeleteArtifact(req, res, match[1], match[2]);
     return true;
   }
+  return false;
+}
 
+/**
+ * 新链路单项目（GET / PATCH / DELETE）（P3-2，2026-11-16：由下方分发函数**原样外移**，
+ * 匹配顺序不变 —— 仍在所有子路由之后）。
+ * @returns true 表示已匹配并处理
+ */
+async function dispatchProjectItemRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string
+): Promise<boolean> {
+  const method = req.method || 'GET';
   // P0b: Project CRUD（单项目操作，在子路由之后避免冲突）
   if (method === 'GET' && url.match(/^\/v1\/projects\/(.+)$/)) {
     const match = url.match(/^\/v1\/projects\/(.+)$/)!;
@@ -300,5 +339,25 @@ export async function dispatchProjectRoutes(
     await handleDeleteProject(req, res, match[1]);
     return true;
   }
+  return false;
+}
+
+/**
+ * dispatchProjectRoutes — project-routes 领域路由分发
+ * @returns true 表示已匹配并处理，false 表示未匹配
+ */
+export async function dispatchProjectRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string,
+  broadcastEvent: (event: string, data: unknown) => void,
+  handlerCtx: HandlerCtx
+): Promise<boolean> {
+  // P3-2（2026-11-16）：四段原样外移，调用顺序与匹配顺序一致
+  if (await dispatchLegacyWorkspaceProjectRoutes(req, res, url, handlerCtx))
+    return true;
+  if (await dispatchProjectCollectionRoutes(req, res, url)) return true;
+  if (await dispatchProjectResourceRoutes(req, res, url)) return true;
+  if (await dispatchProjectItemRoutes(req, res, url)) return true;
   return false;
 }

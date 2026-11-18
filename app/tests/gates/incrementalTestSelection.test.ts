@@ -123,7 +123,7 @@ describe('decideSelection：保守回退', () => {
 describe('真实仓库图（反向导入）', () => {
   it('变更 outboundFileRouter.ts ⇒ 选中其真实测试', () => {
     const result = selectChangedTests(APP_DIR, [
-      'app/src/channels/routing/outboundFileRouter.ts',
+      'packages/channels/src/channels/routing/outboundFileRouter.ts',
     ]);
     expect(result.mode).toBe('selected');
     expect(result.tests).toContain(

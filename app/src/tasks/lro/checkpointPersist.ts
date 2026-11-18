@@ -202,6 +202,8 @@ export async function persistPdcaCheckpoint(
       ...(input.policySnapshot ? { policySnapshot: input.policySnapshot } : {}),
       // B2（2026-11-09）：许愿式身份随检查点落盘（恢复侧回放 ⇒ 验收前置校验不降级）
       ...(input.demand ? { demand: true } : {}),
+      // G5-D1（2026-11-18）：验收子态随检查点落盘（旧任务缺该字段 ⇒ 缺省视作 accepted）
+      ...(input.plan?.acceptance ? { acceptance: input.plan.acceptance } : {}),
     });
     // P2（§3.3）：终态落盘 ⇒ 回收任务档审批（活跃登记 + 放行记录）
     if (PDCA_TERMINAL_PHASES.has(input.phase)) releaseTaskScope(input.taskId);

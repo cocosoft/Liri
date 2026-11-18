@@ -22,6 +22,8 @@ import type {
 import { getLogger } from '@openliri/infra/monitoring';
 import { feature } from '@openliri/kernel';
 import type { FeatureFlag } from '@openliri/kernel';
+// 2026-11-16：用户可配门控（设置页可关）—— 只取叶子模块，不拉整个 query barrel
+import { resolveFeatureGate } from '@modules/query/featureGate';
 
 const logger = getLogger('tools:categories');
 
@@ -1010,7 +1012,7 @@ export function getRealToolNamesForTask(
 }
 
 // ============================================================
-// 严格披露预算（P0-1，2026-10-30；`FEATURE_TOOL_DISCLOSURE_STRICT`，默认关）
+// 严格披露预算（P0-1，2026-10-30；`FEATURE_TOOL_DISCLOSURE_STRICT`，**2026-11-16 起默认开**）
 //
 // 背景（实测）：AC-16 的门禁只覆盖 `default`/`chat`；`coding` / `agent` 面没有上限，
 // 真机单轮 68 个工具 / 105.2 KB schema（≈30k–42k token），而 29 个会话 32 127 次调用
@@ -1018,6 +1020,7 @@ export function getRealToolNamesForTask(
 //   - 恒集（`getMandatoryTools()`）永远保留；
 //   - 其余按 `STRICT_DISCLOSURE_PRIORITY` 顺序取到预算为止；
 //   - 未列入者**仍注册可调用**（模型可经 `tool_search` 检索），不是删除。
+// 回退：`FEATURE_TOOL_DISCLOSURE_STRICT=false`（env）⇒ 与本预算引入前逐字一致。
 // ============================================================
 
 /** 严格披露预算：任务类型 → 最多可见工具数（只对**开启开关**时生效） */
@@ -1060,11 +1063,12 @@ export const STRICT_DISCLOSURE_PRIORITY: readonly string[] = [
  * 当前任务类型下的严格披露预算（未开开关 / 该任务无预算 ⇒ `undefined`）。
  *
  * 单一判定入口：`filterToolsByTask` 与 `getRealToolNamesForTask` 都走这里。
+ * 2026-11-16：改用用户可配门控（设置页「工具披露预算」；env `FEATURE_TOOL_DISCLOSURE_STRICT` 优先）。
  */
 export function resolveDisclosureBudget(
   taskType: string | undefined
 ): number | undefined {
-  if (!feature('TOOL_DISCLOSURE_STRICT')) return undefined;
+  if (!resolveFeatureGate('TOOL_DISCLOSURE_STRICT')) return undefined;
   return STRICT_DISCLOSURE_BUDGETS[taskType ?? DEFAULT_TASK_KEY];
 }
 

@@ -66,7 +66,7 @@ const ASSERTIONS = [
     {
         id: 'skill-service-removed',
         why: '`skills/services/skillService.ts` 已删除（P2-8 ② B 类复核，2026-10-07）；复活即违反 `Skill.impl` 必填收敛',
-        code: { file: 'app/src/skills/services/skillService.ts', absent: true },
+        code: { file: 'packages/skills/src/skills/services/skillService.ts', absent: true },
         docs: [{ file: '.trae/rules/project_rules.md', contains: /skillService\.ts[^\n]*已于 2026-10-07/ }],
     },
     {
@@ -74,7 +74,8 @@ const ASSERTIONS = [
         why: '`PatternRegistry` 必须保持 D4 订正版（描述层与选择层已一致）；旧措辞「已登记为预存语义债」若复现即为漂移回归',
         code: {
             // P2（2026-10-28）：`core/patterns/**` 已迁出内核 ⇒ 落点改为 `app/src/query/patterns/`
-            file: 'app/src/query/patterns/PatternRegistry.ts',
+            // P1（2026-11-13）：query 迁入 `packages/query` ⇒ 落点随之更新
+            file: 'packages/query/src/query/patterns/PatternRegistry.ts',
             // 正向：订正后的表述在位（引用原文时含「仍返回本 pattern」字样，故不能只做负向匹配）
             contains: /矛盾\*\*已解除\*\*/,
             // 负向：旧陈述的**结论句**（订正版写作「原"预存语义债"消除」，故该短语仅存在于旧版）
@@ -89,7 +90,7 @@ const ASSERTIONS = [
             '**与 pattern 名「long_task」相反**。装配层**刻意**登记为 unavailable（`patternAssembler` 自陈「D2 = 以运行时为准」）。' +
             '若有人以「补齐装配」为由给它接 route，会让**简单任务**误走长任务装配 ⇒ R07-1 取证（2026-10-07）要求：此处改动必须**人工决策 + 更新本断言**，不得静默「修好」',
         code: {
-            file: 'app/src/query/patternAssembler.ts',
+            file: 'packages/query/src/query/patternAssembler.ts',
             // 正向：刻意 unavailable 形态（仅 reason、无 route）仍在位
             contains: /long_task_pdl:\s*\{\s*reason:/,
             // 负向：一旦出现 route ⇒ 说明被「补齐装配」（高风险误改）
@@ -198,6 +199,24 @@ const SAFETY_SWITCHES = [
         def: false,
         why: '客户端流式入口接入 Execution（写前记账 + 工具 fail-closed）须显式开启；默认关 = 该入口不记账/不拒绝（P0-2）',
     },
+    // D2+（2026-11-14）：重启后目标续接 —— 2026-11-16 用户裁定翻为默认开（21 模式 #11 Goal）
+    {
+        name: 'GOAL_STARTUP_RESUME',
+        def: true,
+        why: '重启后自动续跑未达终态目标已翻为**默认开**（2026-11-16 用户裁定；实测 4052 个目标中 24h 内 active/blocked = 0）—— 回退须显式改本断言 + project_rules，并设 FEATURE_GOAL_STARTUP_RESUME=false；仍受 24h 新鲜窗口 + 单次 5 个上限约束（D2+）',
+    },
+    // D3（2026-11-14）：计划级重启续跑 —— 2026-11-16 用户裁定翻为默认开（21 模式 #6 Planning）
+    {
+        name: 'PLAN_STARTUP_RESUME',
+        def: true,
+        why: '重启后自动续跑被中断的计划已翻为**默认开**（2026-11-16 用户裁定）—— 回退须显式改本断言 + project_rules，并设 FEATURE_PLAN_STARTUP_RESUME=false；仍受「心跳过期 >10min + 24h 新鲜窗口 + 单次 5 个」约束（D3）',
+    },
+    // D3 三期（2026-11-14）：计划续跑走系统级 —— 2026-11-16 同批翻为默认开
+    {
+        name: 'PLAN_SYSTEM_RESUME',
+        def: true,
+        why: '由执行器采纳既有计划续跑已翻为**默认开**（2026-11-16 用户裁定）—— 回退须显式改本断言 + project_rules，并设 FEATURE_PLAN_SYSTEM_RESUME=false（回退后走一期消息注入）',
+    },
     // §6-#11（2026-10-24）：非回环暴露面必须带登录态（默认开 = 安全基线）
     {
         name: 'REQUIRE_BEARER',
@@ -288,7 +307,7 @@ const REVIEW_GATE_REGISTRY = '.trae/specs/default-off-switches-review-gates.md';
 
 /**
  * 「登记完整性」断言（2026-10-09，`P0-触发条件补全方案` §四-4.1）：
- * **每个默认关项**（默认关的安全开关 + 模式门控 `SELF_VERIFY_PATTERN`）必须在触发条件
+ * **每个默认关项**（默认关的安全开关 + 模式门控（如 `COMPETITIVE_STRATEGY`））必须在触发条件
  * 登记表中有条目 —— 防"永久搁置"（`development-workflow.md §2.14 规则 5` / R12-1）。
  *
  * ⚠️ 只查「**有没有登记**」；**不查触发条件内容**（散文语义不可机械化 —— §2.14 规则 5 明文
@@ -296,7 +315,8 @@ const REVIEW_GATE_REGISTRY = '.trae/specs/default-off-switches-review-gates.md';
  */
 const REGISTRATION_REQUIRED_FLAGS = [
     ...SAFETY_SWITCHES.filter((s) => s.def === false).map((s) => s.name),
-    'SELF_VERIFY_PATTERN',
+    // 2026-11-16：`SELF_VERIFY_PATTERN` 按用户裁定翻转为默认 `true`（登记表 §2 #11 / §2.4.3），
+    // 不再是默认关项 ⇒ 从本清单移除（登记表行保留，改为记「已翻转 + 回退方式」）。
 ];
 
 const REGISTRATION_ASSERTIONS = [

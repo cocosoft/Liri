@@ -13,7 +13,7 @@ import { describe, it, expect, afterAll } from 'bun:test';
 import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { EventLogStorage } from '../../src/session/storage/EventLogStorage.js';
+import { EventLogStorage } from '@modules/session/storage/EventLogStorage.js';
 
 describe('N-59：正文已入流式通道的「事实」登记', () => {
   const dir = mkdtempSync(join(tmpdir(), 'eventlog-n59-'));

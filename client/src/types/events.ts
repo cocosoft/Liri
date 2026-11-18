@@ -355,7 +355,8 @@ export interface LiriEventMap {
     action: "write" | "update";
     taskCard?: {
       title: string;
-      status: "planning" | "executing" | "done";
+      // 2026-11-13：等待用户审批（既非执行中、也非已结束）
+      status: "planning" | "executing" | "done" | "paused";
       tasks: Array<{
         id: string;
         name: string;
@@ -592,7 +593,9 @@ export interface LiriEventMap {
   // 2026-10-07（`.trae/specs/pattern-catalog-reachability-and-persistence.md`）：编排模式
   // **决策轨迹**（log-only，不入消息 surface；镜像 app 侧同名字段，勿单端改）
   "pattern/decision": {
-    site: "research_dispatch";
+    // 2026-11-15（`.trae/specs/self-verify-turn-surface.md`）：新增 `turn_dispatch`
+    //（每轮入口的验证线路判定）—— 与 app 侧同批，勿单端改
+    site: "research_dispatch" | "turn_dispatch";
     selected: string | null;
     status?: "ready" | "unavailable";
     route?: string;

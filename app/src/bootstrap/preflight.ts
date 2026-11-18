@@ -63,7 +63,7 @@ import {
 import { setBridgeTaskRegistryLoader } from '@openliri/service/bridge/taskRegistryPort';
 import { setBridgePortProvider } from '@openliri/service/bridge/runtimePorts';
 import { getCoreAPI } from '../runtime/api/CoreAPIImpl';
-import { SessionManager } from '../session/SessionManager';
+import { SessionManager } from '@modules/session/SessionManager';
 import { getModelPricing } from '@openliri/infra/cost/ModelPricing';
 import type { NativeLib } from '../../native';
 import { RuleManager } from '@openliri/infra/permission';
@@ -224,7 +224,7 @@ function wireServiceDeps(): void {
   });
   // MCP 会话级 scope（P32，原 `mcp/MCPTool` 动态 import app 的 tool/ToolScopeManager）
   setMcpToolScopePortLoader(async () => {
-    const { toolScopeManager } = await import('../tool/ToolScopeManager');
+    const { toolScopeManager } = await import('@modules/tool/ToolScopeManager');
     return toolScopeManager;
   });
   // 语音工具桥接（P33，原 `voice/VoiceSession` 静态 import app 的 runtime 门面）
@@ -311,7 +311,20 @@ async function isAIConfigured(): Promise<boolean> {
       await import('../ai/providers/ProviderManager.js');
     const providerManager = getProviderManager();
     const dbProviders = await providerManager.listProviders({ isActive: true });
-    return dbProviders.some((p) => isValidApiKey(p.apiKey));
+    if (dbProviders.some((p) => isValidApiKey(p.apiKey))) return true;
+
+    // G1（2026-11-14）：本地模型服务免 Key —— `requiresAuth=false` 的 provider
+    // 只要已注册真实模型即可用（Ollama / llama.cpp / LM Studio / LocalAI）。
+    // 判定仍以 DB 为唯一来源，不做网络探测（启动路径不得加 TTFB）。
+    const localProviderIds = dbProviders
+      .filter((p) => !p.requiresAuth)
+      .map((p) => p.id);
+    if (localProviderIds.length === 0) return false;
+    const { modelPricingService } =
+      await import('../ai/models/ModelPricingService.js');
+    await modelPricingService.initialize();
+    const models = await modelPricingService.getAllPricing();
+    return models.some((m) => localProviderIds.includes(m.providerId));
   } catch {
     return false;
   }
@@ -552,6 +565,12 @@ export async function checkFirstRunAndOnboard(): Promise<void> {
       '首次运行但当前不适合阻塞式引导（无 TTY 或 HTTP 已启动），已跳过；' +
         '请用 `/onboard` 命令或前端设置页完成配置'
     );
+    // 跳过引导 ≠ 跳过 AI 状态判定：`isOfflineMode` 默认 true（shared-state），
+    // 若此分支不判定，离线态会一直为 true ⇒ 下游 REPL 启动检查误报
+    // "AI 对话功能不可用"（2026-11-14 真机实测：实际对话可用）。
+    if (await isAIConfigured()) {
+      setOfflineMode(false);
+    }
     return;
   }
 

@@ -18,7 +18,7 @@ import {
   listPatternCatalog,
   patternCatalogSnapshotPath,
   writePatternCatalogSnapshot,
-} from '../../src/query/patternAssembler.js';
+} from '@modules/query/patternAssembler.js';
 import { listPatterns } from '@modules/query/patterns';
 
 describe('listPatternCatalog（PC-6 编排模式目录）', () => {

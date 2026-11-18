@@ -50,12 +50,12 @@ export function wireCodeRunnerDeps(deps: CodeRunnerWiringDeps): void {
     writeEvent: async (type, data) => {
       const sid = deps.getCurrentSessionId();
       if (!sid) return;
-      const log = deps.getOrCreateEventLog(sid);
-      const tail = await log.getTailSeq();
       await deps.appendStreamEvent(sid, {
         type: type as LiriEvent['type'],
         schemaVersion: 1,
-        seq: tail + 1,
+        // seq 0 ⇒ 交 `EventLog.append` 在 mutex 内原子分配（code_run 与流式/后台写者并发，
+        // 自行 tail+1 会撞号；撞号按幂等丢弃 ⇒ 事件静默丢失）
+        seq: 0,
         time: Date.now(),
         sessionId: sid,
         data: data as LiriEvent['data'],

@@ -24,6 +24,13 @@ function envStr(name: string, fallback: string): string {
   return raw && raw.trim() ? raw.trim() : fallback;
 }
 
+/** 布尔型 B 类参数：仅 `false` / `0` / `off` 视为关（缺省/空串 ⇒ 取默认值） */
+function envBool(name: string, fallback: boolean): boolean {
+  const raw = process.env[name]?.trim().toLowerCase();
+  if (!raw) return fallback;
+  return !(raw === 'false' || raw === '0' || raw === 'off');
+}
+
 /** B 类运行参数（每次调用重新读取 env） */
 export interface RuntimeDefaults {
   // ── common.ts ──────────────────────────────────────────────────────────
@@ -34,6 +41,17 @@ export interface RuntimeDefaults {
   heartbeatIntervalMs: number;
   connectionTimeoutMs: number;
   requestTimeoutMs: number;
+  /** 优雅退出**单条清理钩子**的执行上界（毫秒）；超时记为一条超时并继续后续钩子 */
+  shutdownHookTimeoutMs: number;
+  /** CodeRunner 子进程「退出事件缺失」时的 `exitCode` 轮询间隔（毫秒） */
+  codeRunnerExitWatchdogMs: number;
+  /**
+   * 客户端断开后给 attach 接管的宽限期（毫秒）。
+   *
+   * `0`（默认）= 断开立即中止本轮（既有语义）；`>0` = 断开后继续推进生成器、
+   * 帧只进 attach hub，宽限内无人接入才中止。Spec：`.trae/specs/stream-attach-grace.md`。
+   */
+  clientDisconnectGraceMs: number;
   maxLogFileSizeBytes: number;
   maxCacheSizeBytes: number;
   cacheExpiryMs: number;
@@ -79,6 +97,27 @@ export interface RuntimeDefaults {
   pdcaListDefaultLimit: number;
   /** 单页上限（500 条摘要 ≈ 数百 KB，防单请求过大） */
   pdcaListMaxLimit: number;
+  // ── sandboxPostureSnapshot（G4 围栏 M0-③：姿态快照落盘） ────────────────
+  /** 沙箱姿态快照的刷新间隔（毫秒）；围栏据此判断快照是否新鲜 */
+  sandboxPostureSnapshotIntervalMs: number;
+  // ── sandboxFence（G4 围栏 M1：只读观察进程） ─────────────────────────────
+  /** 围栏的采样/心跳间隔（毫秒） */
+  sandboxFenceIntervalMs: number;
+  /** 姿态快照超过该时长未更新即判定 `stale`（毫秒） */
+  sandboxFencePostureStaleMs: number;
+  /** M2 / S1：连续多少次「无规则匹配 ⇒ 默认放行」才告警 */
+  sandboxFenceSilentAllowRunLength: number;
+  /** M2 / S1：同一命令的告警去重窗口（毫秒；窗口内重复命中不再写告警） */
+  sandboxFenceSilentAllowDedupMs: number;
+  /** M2 / S2：deny 之后多久内再次出现同命令算"重试"（毫秒） */
+  sandboxFenceDenyRetryWindowMs: number;
+  /**
+   * 围栏首轮是否从审计日志 **EOF** 起观察（默认开）。
+   *
+   * 开 ⇒ 不回放历史事件（观察期判据只看"当前"）；关 ⇒ 从 offset 0 回放整份日志
+   * （需要完整历史证据时使用，告警量会一次性放大）。
+   */
+  sandboxFenceStartAtEof: boolean;
 }
 
 /** 每 token 估算字节数（A 类换算常数；派生字段的唯一来源） */
@@ -90,7 +129,9 @@ const TOKEN_BYTES_ESTIMATE = 4;
  * 环境变量（未设置 / 非法 ⇒ 回退默认值）：
  * `LIRI_SESSION_TIMEOUT_MS` · `LIRI_MAX_CONCURRENT_TASKS` · `LIRI_MAX_RETRY_COUNT` ·
  * `LIRI_RETRY_DELAY_MS` · `LIRI_HEARTBEAT_INTERVAL_MS` · `LIRI_CONNECTION_TIMEOUT_MS` ·
- * `LIRI_REQUEST_TIMEOUT_MS` · `LIRI_MAX_LOG_FILE_SIZE` · `LIRI_MAX_CACHE_SIZE_BYTES` ·
+ * `LIRI_REQUEST_TIMEOUT_MS` · `LIRI_SHUTDOWN_HOOK_TIMEOUT_MS` ·
+ * `LIRI_CODE_RUNNER_EXIT_WATCHDOG_MS` · `LIRI_CLIENT_DISCONNECT_GRACE_MS` ·
+ * `LIRI_MAX_LOG_FILE_SIZE` · `LIRI_MAX_CACHE_SIZE_BYTES` ·
  * `LIRI_CACHE_EXPIRY_MS` · `LIRI_DEFAULT_PORT` · `LIRI_DEFAULT_HOST` ·
  * `LIRI_MAX_FILE_SIZE` · `LIRI_MAX_PATH_LENGTH` · `LIRI_MAX_FILENAME_LENGTH` ·
  * `LIRI_DEFAULT_MAX_TOKENS` · `LIRI_API_IMAGE_MAX_BASE64_SIZE` · `LIRI_IMAGE_MAX_WIDTH` ·
@@ -102,7 +143,11 @@ const TOKEN_BYTES_ESTIMATE = 4;
  * `LIRI_TOOL_RESULT_PREVIEW_MAX_LENGTH` · `LIRI_TOOL_TIMEOUT_MS` ·
  * `LIRI_MAX_CONCURRENT_TOOLS` · `LIRI_MAX_TOOL_RETRIES` · `LIRI_INSIGHTS_SLOW_MS` ·
  * `LIRI_AGENTS_LIST_DEFAULT_LIMIT` · `LIRI_AGENTS_LIST_MAX_LIMIT` ·
- * `LIRI_PDCA_LIST_DEFAULT_LIMIT` · `LIRI_PDCA_LIST_MAX_LIMIT`
+ * `LIRI_PDCA_LIST_DEFAULT_LIMIT` · `LIRI_PDCA_LIST_MAX_LIMIT` ·
+ * `LIRI_SANDBOX_POSTURE_SNAPSHOT_INTERVAL_MS` ·
+ * `LIRI_SANDBOX_FENCE_INTERVAL_MS` · `LIRI_SANDBOX_FENCE_POSTURE_STALE_MS` ·
+ * `LIRI_SANDBOX_FENCE_SILENT_ALLOW_RUN_LENGTH` · `LIRI_SANDBOX_FENCE_DENY_RETRY_WINDOW_MS` ·
+ * `LIRI_SANDBOX_FENCE_START_AT_EOF`
  */
 export function getRuntimeDefaults(): RuntimeDefaults {
   const apiImageMaxBase64Size = envInt(
@@ -120,6 +165,10 @@ export function getRuntimeDefaults(): RuntimeDefaults {
     heartbeatIntervalMs: envInt('LIRI_HEARTBEAT_INTERVAL_MS', 30 * 1000),
     connectionTimeoutMs: envInt('LIRI_CONNECTION_TIMEOUT_MS', 10 * 1000),
     requestTimeoutMs: envInt('LIRI_REQUEST_TIMEOUT_MS', 60 * 1000),
+    shutdownHookTimeoutMs: envInt('LIRI_SHUTDOWN_HOOK_TIMEOUT_MS', 8 * 1000),
+    codeRunnerExitWatchdogMs: envInt('LIRI_CODE_RUNNER_EXIT_WATCHDOG_MS', 250),
+    // Spec `.trae/specs/stream-attach-grace.md` §4：默认 0 = 断开即中止（零行为变化）
+    clientDisconnectGraceMs: envInt('LIRI_CLIENT_DISCONNECT_GRACE_MS', 0),
     maxLogFileSizeBytes: envInt('LIRI_MAX_LOG_FILE_SIZE', 10 * 1024 * 1024),
     maxCacheSizeBytes: envInt('LIRI_MAX_CACHE_SIZE_BYTES', 100 * 1024 * 1024),
     cacheExpiryMs: envInt('LIRI_CACHE_EXPIRY_MS', 24 * 60 * 60 * 1000),
@@ -172,5 +221,34 @@ export function getRuntimeDefaults(): RuntimeDefaults {
     // pdcaList（PDCA 列表摘要分页，2026-11-08）
     pdcaListDefaultLimit: envInt('LIRI_PDCA_LIST_DEFAULT_LIMIT', 200),
     pdcaListMaxLimit: envInt('LIRI_PDCA_LIST_MAX_LIMIT', 500),
+
+    // sandboxPostureSnapshot（G4 围栏 M0-③，2026-11-12）：姿态变化低频繁 + 需给围栏新鲜度判据
+    sandboxPostureSnapshotIntervalMs: envInt(
+      'LIRI_SANDBOX_POSTURE_SNAPSHOT_INTERVAL_MS',
+      30 * 1000
+    ),
+
+    // sandboxFence（G4 围栏 M1，2026-11-12）：心跳 10s；姿态 30s 刷新 ⇒ 2 分钟未更新即 stale
+    sandboxFenceIntervalMs: envInt('LIRI_SANDBOX_FENCE_INTERVAL_MS', 10 * 1000),
+    sandboxFencePostureStaleMs: envInt(
+      'LIRI_SANDBOX_FENCE_POSTURE_STALE_MS',
+      2 * 60 * 1000
+    ),
+    // M2 规则阈值：S1 连续 10 次（2026-11-13 观察期 C 方案：5→10 降噪）；
+    // 同一命令 10 分钟去重；S2 60s 内同命令再出现。
+    sandboxFenceSilentAllowRunLength: envInt(
+      'LIRI_SANDBOX_FENCE_SILENT_ALLOW_RUN_LENGTH',
+      10
+    ),
+    sandboxFenceSilentAllowDedupMs: envInt(
+      'LIRI_SANDBOX_FENCE_SILENT_ALLOW_DEDUP_MS',
+      10 * 60 * 1000
+    ),
+    sandboxFenceDenyRetryWindowMs: envInt(
+      'LIRI_SANDBOX_FENCE_DENY_RETRY_WINDOW_MS',
+      60 * 1000
+    ),
+    // 观察期口径（2026-11-13）：默认从 EOF 起，避免首轮把历史审计事件评估成告警
+    sandboxFenceStartAtEof: envBool('LIRI_SANDBOX_FENCE_START_AT_EOF', true),
   };
 }

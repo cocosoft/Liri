@@ -30,15 +30,14 @@ import type http from 'http';
 import type { HandlerCtx } from '../handler-utils';
 
 /**
- * dispatchMarketplaceMcpRoutes — marketplace-mcp-routes 领域路由分发
- * @returns true 表示已匹配并处理，false 表示未匹配
+ * dispatchMcpMarketplaceRoutes — MCP 市场段（P3-2，2026-11-16：由下方分发函数**原样外移**，
+ * 匹配顺序与 handler 调用不变）。
+ * @returns true 表示已匹配并处理，false 表示未匹配（交回调用方继续后续段）
  */
-export async function dispatchMarketplaceMcpRoutes(
+async function dispatchMcpMarketplaceRoutes(
   req: http.IncomingMessage,
   res: http.ServerResponse,
-  url: string,
-  _broadcastEvent: (event: string, data: unknown) => void,
-  _handlerCtx: HandlerCtx
+  url: string
 ): Promise<boolean> {
   const method = req.method || 'GET';
   // ---- MCP Marketplace（P1-1：切 mcp-marketplace-handlers 纯函数，消除与 LocalHTTPService 内联的双份实现） ----
@@ -118,6 +117,23 @@ export async function dispatchMarketplaceMcpRoutes(
     );
     return true;
   }
+  return false;
+}
+
+/**
+ * dispatchMarketplaceMcpRoutes — marketplace-mcp-routes 领域路由分发
+ * @returns true 表示已匹配并处理，false 表示未匹配
+ */
+export async function dispatchMarketplaceMcpRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string,
+  _broadcastEvent: (event: string, data: unknown) => void,
+  _handlerCtx: HandlerCtx
+): Promise<boolean> {
+  const method = req.method || 'GET';
+  // ---- MCP Marketplace 段（P3-2：原样外移到 dispatchMcpMarketplaceRoutes）----
+  if (await dispatchMcpMarketplaceRoutes(req, res, url)) return true;
 
   // ---- Plugin Marketplace（2026-08-06 新增：Liri 应用插件市场，J-13） ----
   if (method === 'GET' && url === '/v1/plugins/marketplace/search') {

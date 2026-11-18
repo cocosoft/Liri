@@ -8,18 +8,18 @@
  */
 import { afterEach, describe, expect, it } from 'bun:test';
 
-import { CHANNEL_CATALOG } from '../../src/channels/ChannelCatalog';
+import { CHANNEL_CATALOG } from '@modules/channels/ChannelCatalog';
 import {
   getDefaultMatrixConfig,
   validateMatrixConfig,
-} from '../../src/channels/matrix/config-schema';
+} from '@modules/channels/matrix/config-schema';
 import {
   getMatrixAccount,
   listMatrixAccountIds,
   registerMatrixAccount,
   removeMatrixAccount,
   resolveMatrixAccount,
-} from '../../src/channels/matrix/accounts';
+} from '@modules/channels/matrix/accounts';
 
 const VALID = {
   homeserverUrl: 'https://matrix.example.org',

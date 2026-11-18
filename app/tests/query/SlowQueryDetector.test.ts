@@ -5,12 +5,12 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 
-import { SlowQueryDetector } from '../../src/query/SlowQueryDetector';
+import { SlowQueryDetector } from '@modules/query/SlowQueryDetector';
 import {
   QueryLogStore,
   resetQueryLogStore,
-} from '../../src/query/QueryLogStore';
-import type { QueryLogEntry } from '../../src/query/QueryLogTypes';
+} from '@modules/query/QueryLogStore';
+import type { QueryLogEntry } from '@modules/query/QueryLogTypes';
 
 /**
  * 创建测试日志条目

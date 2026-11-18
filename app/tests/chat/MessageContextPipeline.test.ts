@@ -20,7 +20,7 @@
 // SOFTWARE.
 
 import { describe, expect, test } from 'bun:test';
-import { buildWorkspaceRootSection } from '../../src/chat/services/MessageContextPipeline';
+import { buildWorkspaceRootSection } from '../../src/chat/services/context/systemPromptAssembly';
 import {
   windowStartForBudget,
   computePaginationPoint,

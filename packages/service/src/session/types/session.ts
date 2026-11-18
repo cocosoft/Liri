@@ -43,7 +43,7 @@ export interface SessionMetadata {
 
   /**
    * 回复详略档（`/effort` 写入，2026-10-22）：`low` / `medium` / `high` / `auto`。
-   * 读取点：`chat/services/MessageContextPipeline.assembleContextualSystemPrompt`
+   * 读取点：`chat/services/context/systemPromptAssembly.assembleContextualSystemPrompt`
    * 注入 system 提示段；`auto` 或未设置 ⇒ 不注入（行为与接线前一致）。
    */
   effortLevel?: 'low' | 'medium' | 'high' | 'auto';
@@ -54,7 +54,7 @@ export interface SessionMetadata {
    * 语义：写入后检索侧按域限缩（`domains/{name}/`）；**未设置 ⇒ 全局**，零行为变更。
    * 来源决策（2026-10-29 用户裁定）：域 = 会话 metadata 继承，不做关键词/LLM 自动判定。
    * 写入渠道：会话更新接口写 `metadata.domain`；本阶段不做前端选择器。
-   * 读取点：`MessageContextPipeline.assembleContextualSystemPrompt` → 注入
+   * 读取点：`context/systemPromptAssembly.assembleContextualSystemPrompt` → 注入
    * `KnowledgePromptProvider.setCurrentKnowledgeDomain`，由 `knowledgeContext` 段消费。
    */
   domain?: string;

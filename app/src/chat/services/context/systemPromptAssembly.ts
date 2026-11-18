@@ -2,49 +2,38 @@
 // Copyright (c) 2026 190615273@qq.com
 
 /**
- * 消息上下文管线
- * 从 ChatManager 拆分出的上下文管理模块，负责：
- * - 上下文截断（truncate / 分页切点 / 精确 token 截断）
- * - 跨轮对话摘要持久化（persist turn summary）
- * - 系统提示词组装（assemble system prompt）
- * - 当前会话目标提取（extract current goal）
- * - LLM 响应用量记录（record chat response usage）
- * - `<think>/<response>` 标签规整（ensure / strip / orphan 清理）
+ * 系统提示词组装（2026-11-18 从 `MessageContextPipeline` 外移，拆分批 5）
  *
- * 2026-11-18（spec `file-size-debt-partition-plan.md` §48 拆分批 2–4）：以下三组已外移，
- * 本文件只 import 使用：
- * - 消息配对清理与工具历史压缩 → `./context/messageSanitizer`
- * - 分层开关 / 切窗提示 / 代码类会话判定 → `./context/contextLayering`
- * - 截断 / 分页切点 / 精确 token 截断 → `./context/contextTruncation`
+ * 只做"把系统提示拼出来"这一件事：三段规则常量（通用 / 本地模型 / 图像链）+ 工作区根段
+ * + `prompt_snippet` 动态段 + 会话目标与记忆上下文，最终交给 `PromptAssembler`。
+ *
+ * 与同目录其它模块的关系：本模块是**消费方**——截断/摘要/标签处理都在各自模块里，
+ * 这里只在组装提示时读取 `session.metadata` 与目标提取结果。
+ * 对外符号与实现逐字搬迁，日志 module 名（`chat:context-pipeline`）不变。
  */
 import { getLogger } from '@openliri/infra/monitoring';
 import type { ChatSession } from '@modules/session/types/session.js';
-import { isLocalLlmEndpoint } from './ChatHelper';
-// 2026-11-18（§48 拆分批 3）：摘要/目标提取已外移（本文件组装系统提示时仍用到目标提取）
-import { extractCurrentGoal } from './context/turnSummary';
-import { buildReplyEffortPrompt } from '../replyEffort';
+import { isLocalLlmEndpoint } from '../ChatHelper';
+// 摘要/目标提取在 `./turnSummary`（本文件组装系统提示时用到目标提取）
+import { extractCurrentGoal } from './turnSummary';
+import { buildReplyEffortPrompt } from '../../replyEffort';
 import { assembleSystemPrompt } from '@openliri/service/services/prompt/PromptAssembler';
 import {
   setCurrentKnowledgeQuery,
   setCurrentKnowledgeDomain,
 } from '@openliri/service/services/prompt/KnowledgePromptProvider';
 import type { MemorySessionContext } from '@openliri/infra/memory/types/SessionContext';
-import type { ImageContextService } from './ImageContextService';
+import type { ImageContextService } from '../ImageContextService';
 
 // P1-3: Skills as User Message injection (not System Prompt, avoids breaking cache_control prefix)
 import {
   DANGEROUS_uncachedSystemPromptSection,
   type SystemPromptSection,
 } from '@openliri/infra/constants';
-// 2026-10-17（M5）：整条消息级截断同样接保留度探针（只告警、不改行为）
-import {
-  // 红线 S3（2026-11-15）：prompt_snippet 动态段（默认关闭）
-  buildPromptSnippetSection,
-} from '@modules/context';
+// 红线 S3（2026-11-15）：prompt_snippet 动态段（默认关闭）
+import { buildPromptSnippetSection } from '@modules/context';
 
 const logger = getLogger('chat:context-pipeline');
-
-// 2026-11-18（§48 拆分批 4）：`contentText` 随截断簇外移到 `./context/contextTruncation`。
 
 /** 系统提示词中的上下文保持 + 行为约束规则 */
 const MEMORY_CONTEXT_RULES = `## 上下文保持规则

@@ -72,9 +72,9 @@ describe('replyEffort：预留思考预算（第二步接线用）', () => {
 });
 
 describe('replyEffort：接线点（源码断言）', () => {
-  it('MessageContextPipeline 读取 metadata.effortLevel 并注入 replyEffort 段', () => {
+  it('systemPromptAssembly 读取 metadata.effortLevel 并注入 replyEffort 段', () => {
     const src = readFileSync(
-      join(SRC, 'chat', 'services', 'MessageContextPipeline.ts'),
+      join(SRC, 'chat', 'services', 'context', 'systemPromptAssembly.ts'),
       'utf-8'
     );
     expect(src).toContain('buildReplyEffortPrompt');

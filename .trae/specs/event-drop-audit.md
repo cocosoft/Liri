@@ -34,7 +34,7 @@
 | D8 | `EventLogStorage.ts:1086-1116` + `MessageToEventMigrator.ts:257-274` | `appendBatch` 部分拒绝 | 由调用方判定 | migrator 已 `logger.error` + 清理半成品 | 合法 |
 | D9 | `client/src` 事件回放 | 已审计（2026-11-18，见 §4） | 1 处主动丢弃（分页边界残片） | `logger.info` 带 count/toolCallIds，且加载上一页可恢复 | **合法（已登记）** |
 
-## §3 处置与落地状态（2026-11-15）
+## §3 处置与落地状态（2026-11-15，F2/F3 于 2026-11-18 收口）
 
 - **F1（D1/D2）已实施**：`invalid-event` 改为走告警链 —— 新增
   `packages/service/src/session/storage/eventAppendRejection.ts#reportInvalidAppend()`
@@ -47,8 +47,14 @@
   `streamMessageFlow` / `GoalEvents` / `EvolutionAudit` / `SelfWakeAudit` /
   `YieldRecoveryAudit` / `RequestSnapshotService` / `WorkflowRunEvents`）。
   类型一旦收窄，残留比较会直接编译失败（防回流）。
-- **F2（D5）未做**：模型可见输入在 `ok === false` 时统一升级告警需先定「哪些类型算模型可见」的口径，
-  留给下一档。
+- **F2（D5）已关闭（2026-11-18，机制已变 ⇒ 不适用）**：原诉求是「模型可见输入在 `ok === false` 时统一升级告警」，
+  当时的前提是 **`duplicate-seq` 幂等丢弃且不告警**。该前提**已被后续实现消除**（复核证据均在仓）：
+  ① seq 冲突改为**自动纠正**并 `logger.warn('event-log: seq 冲突自动纠正')`（`EventLogStorage.ts:667-704`），
+  不再丢事件；② `duplicate-seq` / `out-of-order` 已从 `EventLogAppendResult.reason` 联合移除（F4，残留比较会编译失败）；
+  ③ `invalid-event` 走 `reportInvalidAppend`（AppError/VALIDATION/HIGH，F1）；④ `write-error` 走
+  `recordAppendFailure`（节流告警 + 熔断 + `handleError`，`EventLogStorage.ts:790-793`）；⑤ `session-dir-missing`
+  是**主动放弃**（会话目录已被外部删除），全仓 6 处调用点均显式排除、约定不告警。
+  ⇒ 现有失败原因**已全部显式告警或显式豁免**，不存在"静默丢弃模型可见输入"的路径，故本条不再需要「哪些类型算模型可见」的口径决策。
 - **F3（D6）已实施（2026-11-18）**：「缓冲合并 ≠ 丢弃」已写进
   `project_rules.md` §1.6 的「模型可见 ⇔ 已落盘」红线（允许合并，但必须仍可从 `events.jsonl` 重建）。
 

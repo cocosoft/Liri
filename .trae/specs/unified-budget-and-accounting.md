@@ -391,7 +391,11 @@
   - **S4 `waive-once` 金额预检** ⇒ ✅ 已落地（`T3-7`，2026-10-17）：`DailyBudgetManager.waiverPrecheckUsd` + `preSendContextProtection` 预占、结算时按实际值多退少补。
   - **S6 前端 USD 展示** ⇒ ✅ 已落地（`USD-3`：`DailyBudgetPanel` 金额上限编辑/已用/欠账/换算说明）。
   - **S7 死配置处置** ⇒ ✅ 已落地（2026-10-19）：按 `Q-U8` 删除 `LiriWorkspaceConfig.costControl` / `LiriCostControl`（零读者 + 自 2026-10-11 停止播种，CD05 观察期已满）。
-  - **仍未做（如实）**：**自定义 `ExecutorFn` 路径**（LRO `guardExecutorWithDailyBudget`）的实际模型对编排器不可见 ⇒ 该路径**只记 token、不记金额**。
+  - **自定义 `ExecutorFn` 路径（2026-11-18 补齐契约侧）**：`ExecutorResult` 新增可选 `model` ——
+    自定义执行器回传实际模型名后，`guardExecutorWithDailyBudget` 以
+    `recordDailyBudgetFromUsage(usage, undefined, model)` **计入 USD 台账**；不回传仍只记 token
+    （维持既有行为，不臆造金额）。生产生产者按需回传（默认执行器走内部记账，不适用）。
+    回归：`tests/tasks/lro/executorUsageModel.test.ts`（3 例：非空模型 / 空白与非字符串 / 纯文本与空值）。
 
 ---
 

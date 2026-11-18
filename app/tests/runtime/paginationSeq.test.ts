@@ -105,6 +105,22 @@ function buildRows(): Row[] {
 }
 
 describe('withPaginationSeq（P1-6b / Spec §10 分页键归一化）', () => {
+  // 2026-11-18（H1，`message-order-key-firstseq.md`）：游标键与排序键**同源** ——
+  // 优先 `firstEventSeq`（首事件），回填时**两个键同时写**，避免"排序按首、过滤按末"分叉。
+  test('优先 firstEventSeq；缺键回填时两键同时写', () => {
+    const rows = withPaginationSeq<{
+      id: string;
+      firstEventSeq?: number;
+      lastEventSeq?: number;
+    }>([{ id: 'x' }, { id: 'y', lastEventSeq: 7 }]);
+    // 缺失者按数组顺序回填，且两个键一致
+    expect(rows[0]?.firstEventSeq).toBe(1);
+    expect(rows[0]?.lastEventSeq).toBe(1);
+    // 已有 lastEventSeq 者不新增 firstEventSeq（排序侧自动回退到 lastEventSeq）
+    expect(rows[1]?.firstEventSeq).toBeUndefined();
+    expect(rows[1]?.lastEventSeq).toBe(7);
+  });
+
   test('缺失者按数组顺序回填，键列单调非递减', () => {
     const normalized = withPaginationSeq([
       { id: 'a', timestamp: 1, lastEventSeq: 326 },

@@ -57,6 +57,14 @@ export interface DerivedMessage {
   blocks?: Array<Record<string, unknown>>;
   metadata?: Record<string, unknown>;
   lastEventSeq?: number;
+  /**
+   * 2026-11-18（H1，`message-order-key-firstseq.md`）：**首事件 seq** = 排序键。
+   *
+   * 与 `lastEventSeq`（最后内容事件 seq，版本/墓碑专用）分离：任何"回合结束后才落盘、
+   * 且带同一 `messageId` 的事件"都会把 `lastEventSeq` 抬高，若用它排序会让消息
+   * 排到自己回复之后（真机 `c2c_9FF0…` 通道会话 8 轮全翻转）。
+   */
+  firstEventSeq?: number;
 }
 
 /** 事件聚合中间态 */
@@ -997,6 +1005,7 @@ export function deriveMessagesFromEvents(
         // updateMessageBlocks 落盘的 seq 漂移），导致该消息被排到实际时序之后
         //（"AI 回复被混合进下一轮"）。内容用投影补齐，位置按事件序归位。
         lastEventSeq: agg.maxChunkSeq,
+        firstEventSeq: agg.firstSeq,
         // 2026-08-24 中断提示链路（3.5）：投影无 finishReason 时按所属 turn 补充
         // 阶段 A（A1-f）：yield 让出语义同样按 turn 补充
         finishReason:
@@ -1020,6 +1029,7 @@ export function deriveMessagesFromEvents(
         timestamp: agg.timestamp,
         // B-2（2026-08-23）：统一排序键——事件聚合消息用最后 chunk seq
         lastEventSeq: agg.maxChunkSeq,
+        firstEventSeq: agg.firstSeq,
         // 2026-08-24 中断提示链路（3.5）：中断 turn 的消息补 finishReason
         // 阶段 A（A1-f）：yield 让出语义同样按 turn 补充
         finishReason: interruptedTurnFinish ?? yieldTurnFinish,
@@ -1079,15 +1089,24 @@ export function deriveMessagesFromEvents(
     });
   }
 
-  // ④ 排序：统一按 lastEventSeq（B-2，2026-08-23）
-  //  - 事件聚合消息 → maxChunkSeq（最后 chunk seq）
-  //  - 投影覆盖消息 → proj.lastEventSeq（版本戳）
-  //  - 压缩 summary → endSeq
-  //  - 纯投影兜底消息 → proj.lastEventSeq ?? 0（存量旧数据排最前）
-  // 统一量纲后不再混比 firstSeq/lastEventSeq，避免"兜底消息顽固乱序"（评审 v0.3#6）
+  // ④ 排序：**按首事件 seq**（2026-11-18，H1 `message-order-key-firstseq.md` 方案 B）
+  //  - 事件聚合消息 → firstEventSeq（首事件）；缺失时回退 lastEventSeq（投影兜底/压缩摘要）
+  //  - `lastEventSeq` 仍保留为**版本戳/墓碑**专用（投影覆盖比较、deletedRanges 过滤），禁用于排序
+  // 旧实现按 lastEventSeq（最后事件）排序 ⇒ 任何"回合后才落盘的带 id 事件"（如 execution/*）
+  // 都会把消息排到其后，真机 `c2c_9FF0…` 通道会话 8 轮问答全翻转。
   result.sort((a, b) => {
-    const aSeq = typeof a.lastEventSeq === 'number' ? a.lastEventSeq : 0;
-    const bSeq = typeof b.lastEventSeq === 'number' ? b.lastEventSeq : 0;
+    const aSeq =
+      typeof a.firstEventSeq === 'number'
+        ? a.firstEventSeq
+        : typeof a.lastEventSeq === 'number'
+          ? a.lastEventSeq
+          : 0;
+    const bSeq =
+      typeof b.firstEventSeq === 'number'
+        ? b.firstEventSeq
+        : typeof b.lastEventSeq === 'number'
+          ? b.lastEventSeq
+          : 0;
     if (aSeq !== bSeq) return aSeq - bSeq;
     // 同键（如无事件源消息）→ 按时间稳定兜底
     const ta = typeof a.timestamp === 'number' ? a.timestamp : 0;

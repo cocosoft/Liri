@@ -106,6 +106,24 @@ describe('deriveMessagesFromEvents', () => {
     expect(messages[0]?.lastEventSeq).toBe(3);
   });
 
+  // 2026-11-18（H1 方案 B）：排序键改为**首事件 seq**。用"首/末序相反"的两条消息
+  // 把语义钉死：旧实现按 lastEventSeq 会得到 [B, A]，新实现必须 [A, B]。
+  it('排序按首事件 seq：首/末序相反时以首事件为准', () => {
+    const events: LiriEvent[] = [
+      ev(5, 'assistant/text', { content: 'A1', messageId: 'A' }),
+      ev(10, 'assistant/text', { content: 'B1', messageId: 'B' }),
+      ev(12, 'assistant/text', { content: 'B2', messageId: 'B' }),
+      ev(20, 'assistant/text', { content: 'A2', messageId: 'A' }),
+    ];
+    const messages = deriveMessagesFromEvents(events, []);
+    expect(messages.map((m) => m.id)).toEqual(['A', 'B']);
+    // 两个键都要如实给出：firstEventSeq 排序、lastEventSeq 版本/墓碑
+    expect(messages[0]?.firstEventSeq).toBe(5);
+    expect(messages[0]?.lastEventSeq).toBe(20);
+    expect(messages[1]?.firstEventSeq).toBe(10);
+    expect(messages[1]?.lastEventSeq).toBe(12);
+  });
+
   it('D-1 session/summary 事件不派生消息、不影响消息计数（检索/日志用）', () => {
     const events: LiriEvent[] = [
       ev(1, 'user/message', { content: 'hi', messageId: 'm1' }),

@@ -197,7 +197,12 @@ export function setMessagesImpl(
           content: decoded,
           isError: meta.isError === true || meta.toolResultState === "error",
         };
-        if (preferToolResult(toolResultsByCallId.get(msg.toolCallId)?.content, decoded)) {
+        if (
+          preferToolResult(
+            toolResultsByCallId.get(msg.toolCallId)?.content,
+            decoded,
+          )
+        ) {
           toolResultsByCallId.set(msg.toolCallId, entry);
           // 全量结果存入独立缓存（LRU 淘汰），不在 block 中内联
           cacheToolResult(msg.toolCallId, decoded);
@@ -554,14 +559,18 @@ export function setMessagesImpl(
     // **最前**（无 seq 的消息可能被顶到会话开头，造成整表重排：真机实测
     // `[setMessages:SORT] {total:14, movedCount:14}`）。现改为：**仅当全部消息都有 seq**
     // 才用该主键，否则整体回退 timestamp 序——避免在同一比较器里混用两种键域。
+    // 2026-11-18（H1）：主键改为 `firstEventSeq ?? lastEventSeq`（与后端派生/分页**同源**）；
+    // 只用 lastEventSeq 会把「回合结束后才落盘的带 id 事件」抬高的消息排到其后 ⇒ 问答翻转。
+    const seqOf = (m: (typeof enhancedMessages)[number]): number | undefined =>
+      typeof m.firstEventSeq === "number" ? m.firstEventSeq : m.lastEventSeq;
     const allHaveSeq = enhancedMessages.every(
-      (m) => typeof m.lastEventSeq === "number",
+      (m) => typeof seqOf(m) === "number",
     );
     const sortedMessages = [...enhancedMessages].sort((a, b) => {
       // 主键：事件派生序（仅当全体具备时启用）
       if (allHaveSeq) {
-        const sa = a.lastEventSeq as number;
-        const sb = b.lastEventSeq as number;
+        const sa = seqOf(a) as number;
+        const sb = seqOf(b) as number;
         if (sa !== sb) return sa - sb;
       }
       // 次键：timestamp 升序（旧→新，从上到下）

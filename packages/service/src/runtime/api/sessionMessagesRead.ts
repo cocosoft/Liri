@@ -384,6 +384,7 @@ export class SessionMessagesRead {
   private _paginateMessages<
     T extends {
       lastEventSeq?: number;
+      firstEventSeq?: number;
       timestamp?: number;
       role?: string;
       metadata?: Record<string, unknown> | null;
@@ -412,7 +413,10 @@ export class SessionMessagesRead {
       return { messages: visible, hasMore: false };
     }
     const normalized = withPaginationSeq(visible);
-    const key = (m: T): number => m.lastEventSeq ?? m.timestamp ?? 0;
+    // 2026-11-18（H1）：分页键与派生排序键**同源**（首事件 seq 优先），
+    // 否则"按 firstSeq 排、按 lastSeq 过滤"会漏条/重复。
+    const key = (m: T): number =>
+      m.firstEventSeq ?? m.lastEventSeq ?? m.timestamp ?? 0;
     let filtered = normalized;
     if (query?.before != null) {
       // N-57（2026-09-20）：排序键 `lastEventSeq` **存在重复值**（同轮多条消息共享 seq，

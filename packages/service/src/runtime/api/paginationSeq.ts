@@ -39,23 +39,28 @@
  * @param list 已按权威顺序排好的消息列表
  * @returns 键列非递减的列表（可能为原引用）
  */
-export function withPaginationSeq<T extends { lastEventSeq?: number }>(
-  list: T[]
-): T[] {
+export function withPaginationSeq<
+  T extends { lastEventSeq?: number; firstEventSeq?: number },
+>(list: T[]): T[] {
   let runningMax = 0;
   let changed = false;
   const out = list.map((m) => {
-    const seq =
-      typeof m.lastEventSeq === 'number' && Number.isFinite(m.lastEventSeq)
-        ? m.lastEventSeq
-        : null;
-    if (seq == null) {
+    // 2026-11-18（H1）：游标键与排序键**同源**——优先首事件 seq，其次版本戳
+    const base =
+      typeof m.firstEventSeq === 'number' && Number.isFinite(m.firstEventSeq)
+        ? m.firstEventSeq
+        : typeof m.lastEventSeq === 'number' &&
+            Number.isFinite(m.lastEventSeq)
+          ? m.lastEventSeq
+          : null;
+    if (base == null) {
       changed = true;
       // 严格大于前驱（含真实键的最大值）⇒ 不制造逆序，也不与真实序号相等
       runningMax += 1;
-      return { ...m, lastEventSeq: runningMax };
+      // 两个键同时回填：排序键优先 firstEventSeq ⇒ 只填 lastEventSeq 会让排序与游标分叉
+      return { ...m, lastEventSeq: runningMax, firstEventSeq: runningMax };
     }
-    if (seq > runningMax) runningMax = seq;
+    if (base > runningMax) runningMax = base;
     return m;
   });
   return changed ? out : list;

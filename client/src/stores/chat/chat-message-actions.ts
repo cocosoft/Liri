@@ -800,7 +800,9 @@ export async function loadOlderMessagesImpl(
       set({
         hasOlder: hasMore,
         // 新游标 = 更早那一页的首条（后端分页边界），而非拼接后列表的首条
-        oldestSeq: older[0]?.lastEventSeq ?? state.oldestSeq,
+        // 2026-11-18（H1）：优先首事件 seq（与后端排序/过滤同源）
+        oldestSeq:
+          older[0]?.firstEventSeq ?? older[0]?.lastEventSeq ?? state.oldestSeq,
         loadingOlder: false,
       });
     } else {

@@ -1,6 +1,6 @@
 # 消息排序键改「首事件 seq」（H1 遗留专项设计）
 
-> 状态：**设计已定，未实施**（2026-11-18）
+> 状态：**已实施（B1 + B2 同批）**，待真机复验验收项 #5（2026-11-18）
 > 来源：真机会话 `c2c_9FF0D4BE58D7363BD09464E699C1154A`（QQ 通道会话 Web 页问答顺序翻转）
 > 关联：已落地的止血修复 `31ed0c866`（`execution/*` 不参与聚合排序）
 
@@ -72,6 +72,18 @@
 2. 去重/排序不改（前端只按服务端顺序渲染）。
 
 无正式用户（`project_rules.md §1.3`）⇒ **不做兼容期双读**，直接切。
+
+### B3 实施结果（2026-11-18）
+
+| 层 | 落地 |
+|---|---|
+| 派生器 | `DerivedMessage.firstEventSeq = agg.firstSeq`（两处 push）；④ 排序 key = `firstEventSeq ?? lastEventSeq ?? timestamp` |
+| 分页 | `withPaginationSeq` 泛型加 `firstEventSeq?`，基准 `firstEventSeq ?? lastEventSeq`，回填**双键同写**；`_paginateMessages` 的 `key` 同源 |
+| 前端 | `Message.firstEventSeq`；`sessionSlice` 三处游标、`loadOlderMessages`、`chat-message-set-messages` 排序主键均改为 `firstEventSeq ?? lastEventSeq` |
+
+验证：派生器/分页新增 3 例（`execution/*` 不参与排序、首末键相反以首键为准、回填双键同写）；
+`bun test tests/session tests/runtime tests/http` 1218 pass / 0 fail；`tsc`（app 三 project）+ client `tsc` 0 错；
+`vitest run src/stores/chat` 24 files passed；`lint:fn-size` / `lint:arch` / `lint:consts` 未增长。
 
 ---
 

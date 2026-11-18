@@ -21,6 +21,11 @@ export interface Message {
   durationMs?: number;
   /** B-1（2026-08-23）：事件派生排序键（后端派生消息的 lastEventSeq，setMessages 排序用） */
   lastEventSeq?: number;
+  /**
+   * 2026-11-18（H1）：**排序/分页游标键**（首事件 seq）。优先于 `lastEventSeq`：
+   * 后者是版本戳，会被"回合结束后才落盘"的事件抬高（真机通道会话问答顺序翻转）。
+   */
+  firstEventSeq?: number;
   session_id: string;
   tool_calls?: ToolCall[];
   blocks?: MessageBlock[];

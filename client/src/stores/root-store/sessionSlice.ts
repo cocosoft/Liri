@@ -157,7 +157,13 @@ async function restoreMessagesToCurrentSession(
         // 游标存后端分页边界（分页结果首条），供"加载更早"续拉
         useChatStore
           .getState()
-          .setOldestSeq(hasMore ? (messages[0]?.lastEventSeq ?? null) : null);
+          .setOldestSeq(
+            hasMore
+              ? (messages[0]?.firstEventSeq ??
+                  messages[0]?.lastEventSeq ??
+                  null)
+              : null,
+          );
       }
     } else {
       await chatCoordinator.clearMessages().catch(() => {});
@@ -780,7 +786,9 @@ export const createSessionSlice: StateCreator<
               messages = page.messages;
               hasMore = page.hasMore;
               cursor = page.hasMore
-                ? (page.messages[0]?.lastEventSeq ?? null)
+                ? (page.messages[0]?.firstEventSeq ??
+                  page.messages[0]?.lastEventSeq ??
+                  null)
                 : null;
             }
             // F-04 守卫：await 返回后仍是本次快照、且当前会话未变时才落消息，
@@ -1157,7 +1165,11 @@ export const createSessionSlice: StateCreator<
         useChatStore
           .getState()
           .setOldestSeq(
-            loaded.hasMore ? (loaded.messages[0]?.lastEventSeq ?? null) : null,
+            loaded.hasMore
+              ? (loaded.messages[0]?.firstEventSeq ??
+                  loaded.messages[0]?.lastEventSeq ??
+                  null)
+              : null,
           );
       }
       logger.info("switchChatSession:③消息已加载", {

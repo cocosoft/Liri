@@ -18,7 +18,7 @@ import {
 import { SkillTool } from '../../src/tools/SkillTool/SkillTool';
 import { ToolLazyWrapper } from '../../src/tools/utils/ToolLazyWrapper';
 import { LazyModuleLoader } from '@openliri/kernel';
-import { truncateApiMessages } from '../../src/chat/services/MessageContextPipeline';
+import { truncateApiMessages } from '../../src/chat/services/context/contextTruncation';
 import type {
   Tool,
   ToolInfo,

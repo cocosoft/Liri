@@ -41,7 +41,7 @@ import {
   sanitizeApiMessages,
   compressToolHistory,
 } from '../services/context/messageSanitizer';
-import { truncateApiMessages } from '../services/MessageContextPipeline';
+import { truncateApiMessages } from '../services/context/contextTruncation';
 
 /** 本模块所需的注入依赖（跨簇共享状态仍归宿主 `ChatManager` 所有，经 getter 访问） */
 export interface ChatRequestPrepDeps {

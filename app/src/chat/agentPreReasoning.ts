@@ -34,7 +34,7 @@ import type { ChatSession } from '@modules/session/types/session.js';
 
 import { memProfile } from '@openliri/infra/monitoring/memProfile';
 import { sanitizeApiMessages } from './services/context/messageSanitizer';
-import { truncateApiMessages } from './services/MessageContextPipeline';
+import { truncateApiMessages } from './services/context/contextTruncation';
 
 const logger = getLogger('chat:reactToolLoop');
 

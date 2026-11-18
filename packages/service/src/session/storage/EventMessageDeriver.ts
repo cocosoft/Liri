@@ -846,6 +846,13 @@ export function deriveMessagesFromEvents(
 
     if (!mid) continue; // v0 事件（无 messageId）不参与聚合，由投影兜底
 
+    // 2026-11-18（真机 `c2c_9FF0D4BE58D7363BD09464E699C1154A`，QQ 通道会话）：
+    // **执行生命周期事件不参与消息聚合与排序**。`execution/*`（prepared / ownership_decision /
+    // status_changed）携带的是**入站用户消息 id**，但落盘发生在**回合结束之后** ⇒ 若计入
+    // `maxChunkSeq`，该用户消息的排序键会大于自己的助手回复（实测 14 > 9、32 > 26 …，8 轮全翻转）
+    // ⇒ Web 会话页出现"答案排在问题之上"的乱序。它们不承载消息内容（聚合分支无对应 case）⇒ 跳过。
+    if (ev.type.startsWith('execution/')) continue;
+
     let agg = aggregated.get(mid);
     if (!agg) {
       agg = {

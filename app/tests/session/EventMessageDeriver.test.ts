@@ -86,6 +86,26 @@ describe('deriveMessagesFromEvents', () => {
     expect(textBlock?.content).toBe('第一段第二段（聚合批）第三段');
   });
 
+  // 2026-11-18（真机 `c2c_9FF0D4BE58D7363BD09464E699C1154A`，QQ 通道会话）：
+  // `execution/*` 事件带**入站用户消息 id**，却在回合结束后落盘 ⇒ 旧实现把它计入
+  // `maxChunkSeq`，用户消息排序键大于自己的回复（实测 14 > 9 …，8 轮全翻转）⇒ Web 页乱序。
+  it('execution/* 事件不参与排序：用户消息不得排到其回复之后', () => {
+    const events: LiriEvent[] = [
+      ev(3, 'user/message', { content: '在?', messageId: 'u1' }),
+      ev(9, 'assistant/text', { content: '在。', messageId: 'a1' }),
+      ev(12, 'execution/status_changed', {
+        messageId: 'u1',
+        status: 'completed',
+      }),
+      ev(14, 'execution/status_changed', { messageId: 'u1', status: 'idle' }),
+    ];
+    const messages = deriveMessagesFromEvents(events, []);
+    expect(messages.map((m) => m.id)).toEqual(['u1', 'a1']);
+    expect(messages[0]?.role).toBe('user');
+    // 排序键仍取用户消息自身事件（3），不被后续执行生命周期事件抬到 14
+    expect(messages[0]?.lastEventSeq).toBe(3);
+  });
+
   it('D-1 session/summary 事件不派生消息、不影响消息计数（检索/日志用）', () => {
     const events: LiriEvent[] = [
       ev(1, 'user/message', { content: 'hi', messageId: 'm1' }),

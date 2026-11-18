@@ -1,7 +1,7 @@
 # 外部事件适配器（D1）—— 立项与能力边界
 
 > **状态**：✅ 一期已落地（2026-11-14）：webhook 入站 + 受理层（签名/去重/限速）+ 接入既有
-> `SourceRegistry`；GitHub issue / 邮件轮询适配器**复用同一受理与来源**，尚未接线（见 §5）。
+> `SourceRegistry`；GitHub issue 轮询**已接线**（2026-11-18，默认关）；邮件轮询**用户裁定暂不做**（见 §5）。
 > **来源**：`dev_docs/20261113/建议落地方案-20261114.md` §2 波段二 **D1**。
 > **关联规则**：CS01（复用既有调度/队列）、CS03（默认关 + 失败不阻断）、R02（不新建第二套队列）、
 > §1.4（开关登记）、§1.6（模型可见输入必须落盘）。
@@ -61,14 +61,15 @@ POST /v1/events/external
      而**漏事件**）；并分页（50/页、最多 5 页）直到不满一页；
    - 失败语义：单 repo 拉取失败只记日志、**不推进位点**（下一拍用旧 `since` 重试）；
    - 回归：`app/tests/tasks/sources/githubIssuePoller.test.ts` 11 例（配置边界 / 翻译 / 拍次 / 不推进位点 / start-stop / 拉取语义与分页 / 非 2xx 抛错）。
-2. **邮件轮询**：**2026-11-18 复核后仍不实现**，有两处**硬前置**（不是"顺手接一下"）：
+2. **邮件轮询**：**2026-11-18 用户裁定：暂不做**（不是"顺手接一下"，两处硬前置本就未解）：
    - **口径未定**：必须能声明「哪些发件人可信」。落地形态建议 `autonomy.externalPollers.email.senders`
      （**空 ⇒ 不启动**，与 GitHub 侧"无 token 不启动"同惯例），但名单本身要产品给；
    - **架构位置未定**：增量读取能力在**办公域**（`app/packages/office/email/EmailReader.ts`），
      现有 API 只有 `inbox(limit)` / `search(query, limit)`，**没有 UID / since 增量接口**。
      两条路各有代价：① 在 office 侧补 `readSince(uid)` 并把轮询器放 office（能力内聚，但要动办公域）；
      ② 复用 `inbox(limit)` 全量拉取 + 靠 `eventId` 幂等去重（零新增能力，但每拍重复读最近 N 封）。
-     **决策点 = 邮件轮询归属域（office vs tasks/sources）**；未定前不写代码，避免跨域反向依赖。
+   - **重开条件**：出现真实"邮件触发任务"需求，且同时确认 ① 可信发件人名单 ② 归属域（office vs tasks/sources）。
+     GitHub issue 侧不受影响，仍为**已接线、默认关**。
 3. **执行面放开**：当前只读（`alwayson_discovery`）；若需"外部事件驱动写操作"，必须先接审批
    （既有 Inbox approval），不在本 spec 范围。
 4. **审计增强**：目前成功路径依赖 ticket 台账 + 日志；如企业版需要，接 `EnterpriseAuditService`。

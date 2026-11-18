@@ -455,6 +455,57 @@ async function routeChannelMessageInner(
     senderId: message.senderId,
   });
 
+  // ②-④ IngestFunnel（#1，2026-11-18）：默认关；`INGEST_FUNNEL_SHADOW` ⇒ 只记录不丢；
+  // `INGEST_FUNNEL` ⇒ 真过滤（S2）。判定只看结构化字段（sender/conversation/eventType）。
+  try {
+    const funnel = await import('./ingestFunnel');
+    if (
+      funnel.isIngestFunnelShadowEnabled() ||
+      funnel.isIngestFunnelEnabled()
+    ) {
+      const eventType = message.rawPayload?.['eventType'];
+      const funnelInput = {
+        channelId: message.channelId || channelName,
+        ...(message.conversationId
+          ? { conversationId: message.conversationId }
+          : {}),
+        senderId: message.senderId,
+        ...(typeof eventType === 'string' ? { eventType } : {}),
+      };
+      const decision = funnel.evaluateIngestFunnel(
+        funnelInput,
+        funnel.readIngestFunnelRules()
+      );
+      if (decision.action === 'drop') {
+        if (funnel.isIngestFunnelShadowEnabled()) {
+          await funnel.recordIngestFunnelShadow({
+            ...funnelInput,
+            reason: decision.reason,
+          });
+        } else {
+          releaseProcessing(dedupKey);
+          recordMessageRejected('INGEST_FUNNEL');
+          messageTraceBuffer.addStage(
+            traceId,
+            'ingest_funnel',
+            'skip',
+            decision.reason
+          );
+          messageTraceBuffer.finish(traceId, 'rejected', 'INGEST_FUNNEL');
+          otel.endSpan(routeSpan);
+          return { valid: true, response: 'filtered_by_funnel' };
+        }
+      }
+    }
+  } catch (funnelErr) {
+    // @ignore-catch — 漏斗异常不得阻断入站（fail-open），仅留痕
+    await handleError(funnelErr, {
+      module: 'channels:routing',
+      action: 'ingestFunnel',
+      context: { traceId, channelName },
+    });
+  }
+
   try {
     // ③ 共享会话写入
     try {

@@ -185,22 +185,25 @@ t2b grace 到期仍无人接入 ⇒ abortSessionStream（消息以当前部分�
 ### 12.2 真机验证（2026-11-18，真实后端 + 真实模型，非 mock）
 
 环境：本机后端以 `--http-only --http-port 18990` 启动（真实 `~/.pyapp` 数据与真实供应商），
-模型用已配置的 `deepseek-v4-flash`；脚本对真实 HTTP/SSE 操作（临时脚本在系统 TEMP，不入库）。
+模型用已配置的 **`glm-5.2`（智谱）** 与 **`deepseek-v4-flash`（DeepSeek）** 各跑一轮；
+脚本对真实 HTTP/SSE 操作（临时脚本在系统 TEMP，不入库）。
 
-**场景 A：刷新后可接回（`LIRI_CLIENT_DISCONNECT_GRACE_MS=60000`）—— 12/12 PASS**
+**场景 A：刷新后可接回（`LIRI_CLIENT_DISCONNECT_GRACE_MS=60000`）—— 两个模型各 12/12 PASS**
+
+以 `glm-5.2` 一轮为例（`deepseek-v4-flash` 同样全绿）：
 
 | 观测 | 结果 |
 |---|---|
 | 收到 8 帧后**掐断连接**（等价刷新） | — |
 | 断开后 `GET /streaming` | `streaming:true`（宽限生效，未中止） |
-| `GET /attach?from_seq=0` | 200；`attach_meta.nextSeq=137` —— **断开后后端继续产出了 129 帧**，直接证明泵在后台继续 |
-| 回放 / 实时 | 回放 137 帧 + 实时 813 帧，收 `[DONE]` 自然结束（6s） |
+| `GET /attach?from_seq=0` | 200；`attach_meta.nextSeq=36` —— **断开后后端继续产出了 28 帧**，直接证明泵在后台继续 |
+| 回放 / 实时 | 回放 36 帧 + 实时 514 帧，收 `[DONE]` 自然结束（18s） |
 | 结束后 `GET /streaming` | `false` |
-| `GET /messages` 落盘正文 | **1367 字，与 attach 累计正文 1367 字逐字等长**（不是刷新时刻的残片） |
+| `GET /messages` 落盘正文 | **1716 字，与 attach 累计正文 1716 字逐字等长**（不是刷新时刻的残片） |
 | 保留期内再 attach（已结束轮次） | 200 且回放含 `[DONE]` |
 | 无运行轮次 | 404 `no_active_run` |
 
-**场景 B：宽限到期无人接入（`=3000`）—— 5/5 PASS**
+**场景 B：宽限到期无人接入（`=3000`，模型 `deepseek-v4-flash`）—— 5/5 PASS**
 
 | 观测 | 结果 |
 |---|---|
@@ -208,9 +211,11 @@ t2b grace 到期仍无人接入 ⇒ abortSessionStream（消息以当前部分�
 | 不 attach，轮询 | **3s 后 `streaming:false`**（到期中止，无孤儿运行） |
 | 立刻再发一条消息 | 200 且正常产出帧 —— **互斥锁已释放**，无 `SESSION_BUSY` / 30s 锁超时 |
 
-**环境侧排除项（如实记录）**：首次用本地 `qwen3.6-27b:latest`（Ollama）时，provider 在
-120s 处 `The operation timed out`（`chunkCount:0`），导致该轮 `finishReason=error` 且不落盘 ——
-**与 attach/宽限期改动无关**，是本机本地模型超时；换 `deepseek-v4-flash` 后全部通过。
+**环境侧排除项（如实记录）**：本机 Ollama 本地模型无法完成长输出 ——
+`qwen3.6-27b:latest` 在 120s 处 `The operation timed out`（用户随后已卸载该模型）；
+换 `qwen2.5-coder:14b` 同样在 ~120s 超时（`chunkCount` 惨淡、无正文、该轮 `finishReason=error`）。
+**与 attach/宽限期改动无关**，属本机本地推理速度 / provider 120s 超时；
+换远端真实模型（`glm-5.2`、`deepseek-v4-flash`）后全部通过。
 
 **当前机器状态**：验证结束后后端已重启回 `LIRI_CLIENT_DISCONNECT_GRACE_MS=60000` 并保持运行
 （PID 见 `~/.pyapp/data/.liri.lock`）。

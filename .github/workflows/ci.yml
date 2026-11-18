@@ -394,12 +394,12 @@ jobs:
   # CI（Linux）不受该策略约束。同时 `Cargo.lock` 仍缺 `tauri-plugin-global-shortcut`
   # （本机 crates.io 不可达），本作业会让 cargo 在 CI 侧解析并暴露该依赖是否真的可编译。
   #
-  # 观测期：**非阻断**（continue-on-error）—— 先拿到真实结论，连续绿后再收紧为阻断门禁。
+  # 观测期结束（2026-11-18）：连续两次绿（CI 自行解析锁 + 提交后的 Cargo.lock）⇒ **转为阻断门禁**。
+  # 若后续因 apt / 网络抖动误伤，回退方式 = 把本作业的 `continue-on-error: true` 加回（单点可逆）。
   cargo-check-tauri:
-    name: Rust Tauri Check (cargo check, non-blocking)
+    name: Rust Tauri Check (cargo check)
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    continue-on-error: true
     defaults:
       run:
         working-directory: client/src-tauri

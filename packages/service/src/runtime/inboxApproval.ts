@@ -510,6 +510,7 @@ async function applyApprovalSideEffects(
     );
     logger.info('批量审批条目已写入放行缓存', {
       sessionId: current.sessionId,
+      batchId: current.id,
       commandHash: entry.commandHash,
       scopeKind,
       fingerprintHash: entry.fingerprintHash,

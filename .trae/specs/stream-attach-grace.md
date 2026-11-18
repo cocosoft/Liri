@@ -182,4 +182,38 @@ t2b grace 到期仍无人接入 ⇒ abortSessionStream（消息以当前部分�
   有订阅者不中止、finish 后不再 arm）。
 - 全量回归：`app` 13088 pass / 0 fail / 42 skip（1565 文件）。
 
+### 12.2 真机验证（2026-11-18，真实后端 + 真实模型，非 mock）
+
+环境：本机后端以 `--http-only --http-port 18990` 启动（真实 `~/.pyapp` 数据与真实供应商），
+模型用已配置的 `deepseek-v4-flash`；脚本对真实 HTTP/SSE 操作（临时脚本在系统 TEMP，不入库）。
+
+**场景 A：刷新后可接回（`LIRI_CLIENT_DISCONNECT_GRACE_MS=60000`）—— 12/12 PASS**
+
+| 观测 | 结果 |
+|---|---|
+| 收到 8 帧后**掐断连接**（等价刷新） | — |
+| 断开后 `GET /streaming` | `streaming:true`（宽限生效，未中止） |
+| `GET /attach?from_seq=0` | 200；`attach_meta.nextSeq=137` —— **断开后后端继续产出了 129 帧**，直接证明泵在后台继续 |
+| 回放 / 实时 | 回放 137 帧 + 实时 813 帧，收 `[DONE]` 自然结束（6s） |
+| 结束后 `GET /streaming` | `false` |
+| `GET /messages` 落盘正文 | **1367 字，与 attach 累计正文 1367 字逐字等长**（不是刷新时刻的残片） |
+| 保留期内再 attach（已结束轮次） | 200 且回放含 `[DONE]` |
+| 无运行轮次 | 404 `no_active_run` |
+
+**场景 B：宽限到期无人接入（`=3000`）—— 5/5 PASS**
+
+| 观测 | 结果 |
+|---|---|
+| 断开瞬间 `streaming` | `true` |
+| 不 attach，轮询 | **3s 后 `streaming:false`**（到期中止，无孤儿运行） |
+| 立刻再发一条消息 | 200 且正常产出帧 —— **互斥锁已释放**，无 `SESSION_BUSY` / 30s 锁超时 |
+
+**环境侧排除项（如实记录）**：首次用本地 `qwen3.6-27b:latest`（Ollama）时，provider 在
+120s 处 `The operation timed out`（`chunkCount:0`），导致该轮 `finishReason=error` 且不落盘 ——
+**与 attach/宽限期改动无关**，是本机本地模型超时；换 `deepseek-v4-flash` 后全部通过。
+
+**当前机器状态**：验证结束后后端已重启回 `LIRI_CLIENT_DISCONNECT_GRACE_MS=60000` 并保持运行
+（PID 见 `~/.pyapp/data/.liri.lock`）。
+
+
 

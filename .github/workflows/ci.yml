@@ -419,13 +419,15 @@ jobs:
     - name: Prepare placeholder frontend dist (仅编译检查用)
       working-directory: .
       run: |
-        # `tauri_build::build()` 会校验 `build.frontendDist` 与 `bundle.resources` 的存在性：
-        # 本作业只做 `cargo check`（不产出发布包）⇒ 用占位目录/文件满足校验。
-        # 这些路径都不入库（`client/dist/**` 被 gitignore），不影响任何发布产物。
-        mkdir -p client/dist/node_modules client/dist/prompts
+        # `tauri_build::build()` 会校验 `build.frontendDist` 与 `bundle.resources` 的存在性。
+        # 注意路径基准：`tauri.conf.json` 在 `client/src-tauri/`，故 `bundle.resources` 里的
+        # `../../dist/...` 指向**仓库根** `dist/`（不是 `client/dist`）；`frontendDist: ../dist`
+        # 才指向 `client/dist`。两者都要造占位，否则报
+        # `resource path ../../dist/node_modules doesn't exist`。
+        mkdir -p client/dist dist/node_modules dist/prompts
         [ -f client/dist/index.html ] || printf '<!doctype html><title>ci</title>' > client/dist/index.html
-        printf 'placeholder' > client/dist/node_modules/.placeholder
-        printf 'placeholder' > client/dist/prompts/.placeholder
+        printf 'placeholder' > dist/node_modules/.placeholder
+        printf 'placeholder' > dist/prompts/.placeholder
 
     - name: Cache cargo registry
       uses: actions/cache@v4

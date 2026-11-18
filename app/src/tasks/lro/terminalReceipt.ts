@@ -442,14 +442,26 @@ export function emitPdcaInterruptedReceipts(
   for (const ck of checkpoints) {
     const taskId = String(ck.taskId ?? '');
     const steps = Array.isArray(ck.steps) ? ck.steps.length : 0;
+    // 2026-11-18（真机 `session_mwkthat73b80a6724f`）：阶段式计划（`StageOrchestrator`）把进度放在
+    // `stages[]` 而非顶层 `steps[]`。旧实现只数 `steps` ⇒ 对一个确有 3 个阶段的计划输出
+    // 「0 步计划已保留」—— 既自相矛盾，又误称"无快照"。
+    const stages = Array.isArray(ck.stages) ? ck.stages.length : 0;
+    const kept =
+      steps > 0
+        ? `${steps} 步计划已保留`
+        : stages > 0
+          ? `${stages} 阶段计划已保留`
+          : '计划已保留';
     const tail =
       steps > 0
         ? `可 POST /v1/pdca/${taskId}/resume 或 /goal resume 续跑`
-        : '无步骤快照，无法自动续跑';
+        : stages > 0
+          ? '阶段式计划无顶层步骤快照，可用 /goal start 重新发起'
+          : '无步骤快照，无法自动续跑';
     emitPdcaReceiptText({
       taskId,
       sessionId: (ck.sessionId as string | undefined) ?? null,
-      text: `⏹ 长程任务因进程重启被中断：${steps} 步计划已保留（taskId ${taskId}）；${tail}`,
+      text: `⏹ 长程任务因进程重启被中断：${kept}（taskId ${taskId}）；${tail}`,
     });
   }
 }

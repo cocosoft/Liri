@@ -888,16 +888,27 @@ describe('崩溃遗留可续跑（2026-11-08 真机 pdca_mw7d3dq3）', () => {
           steps: [{ id: 's1' }, { id: 's2' }],
         },
         { taskId: 'crash-2', sessionId: 'sess-2', steps: [] },
+        // 2026-11-18 真机 `session_mwkthat73b80a6724f`：阶段式计划只有 `stages[]`
+        // ⇒ 旧实现只数 `steps` 会输出「0 步计划已保留」。
+        {
+          taskId: 'crash-3',
+          sessionId: 'sess-3',
+          stages: [{ id: 'requirement' }, { id: 'design' }, { id: 'delivery' }],
+        },
       ]);
     } finally {
       setPdcaReceiptSink(undefined);
     }
 
-    expect(receipts).toHaveLength(2);
+    expect(receipts).toHaveLength(3);
     expect(receipts[0]?.text).toContain('因进程重启被中断');
     expect(receipts[0]?.text).toContain('2 步计划已保留');
     expect(receipts[0]?.text).toContain('续跑');
     expect(receipts[1]?.text).toContain('无法自动续跑');
+    // 阶段式：按阶段数如实播报，不得出现「0 步」
+    expect(receipts[2]?.text).toContain('3 阶段计划已保留');
+    expect(receipts[2]?.text).not.toContain('0 步');
+    expect(receipts[2]?.text).not.toContain('无步骤快照，无法自动续跑');
   });
 });
 

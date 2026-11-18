@@ -57,6 +57,7 @@
     "test:check-coverage": "bun run scripts/check-coverage-threshold.ts",
     "generate-test-images": "bun run scripts/generate-test-images.ts",
     "gen:toolnames": "bun run scripts/gen-tool-names.ts",
+    "gen:tool-scaffold": "bun run scripts/gen-tool-scaffold.ts",
     "gen:status": "bun run scripts/gen-status.ts",
     "gen:support-levels": "bun run scripts/gen-support-levels.ts",
     "gen:learning-eval-cases": "bun run scripts/gen-learning-eval-cases.ts",

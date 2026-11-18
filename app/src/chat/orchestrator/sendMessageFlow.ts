@@ -55,7 +55,7 @@ import {
   stripThinkResponseTags,
   stripOrphanToolTags,
 } from '../services/context/thinkTags';
-import { computePaginationPoint } from '../services/MessageContextPipeline';
+import { computePaginationPoint } from '../services/context/contextTruncation';
 // 2026-11-18（§48 拆分批 2）：分层开关与切窗提示已外移
 import {
   contextLayeringEnabled,

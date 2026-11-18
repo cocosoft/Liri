@@ -1695,13 +1695,13 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 | `client/src/stores/chat/chat-toolcall.slice.ts` | 1491 | 14 导出 / 32 函数 / 94 分支 | **B 低优先**：纯函数 + `ChronologicalBlockBuilder`，拆分仅按工具函数分组，收益限于可读性 |
 | `packages/infra/src/environment/paths.ts` | 1390 | **138 导出** / 94 函数 | **C 不拆**：canonical 路径注册表（"其他模块不得自建路径常量"）⇒ 拆分会诱发多处定义回归 |
 | `packages/infra/src/security/BashSecurityAnalyzer.ts` | 1396 | 6 导出 / 39 函数 / **101 分支** | **C 不拆**：安全判定高内聚，拆分提高漏检与跨文件互锁风险（同 `code-deletion` CD07 精神） |
-| `app/src/chat/services/MessageContextPipeline.ts` | 1317 | 18 导出 / 23 函数 / 85 分支 | **A 可拆 → 批 2/3 已落地四组（§48.6/§48.7，1317 → 896）**：余下截断簇 + 提示组装簇待批 4 |
+| `app/src/chat/services/MessageContextPipeline.ts` | 1317 | 18 导出 / 23 函数 / 85 分支 | **A 可拆 → 批 2/3/4 已落地五组（§48.6–§48.8，1317 → 349）**：仅剩提示组装簇待收尾批 5 |
 | `client/src/components/views/CronPage.tsx` | 1440 | **1 导出 / 3 函数** | **A 可拆 → 已于 2026-11-18 拆完（§48.5，1440 → 408）**：单组件 + 巨型 JSX ⇒ 表单 / 列表 / 详情面板拆子组件收益明确 |
 
 ### 48.3 结论与建议排期
 
 1. **B/C 类 8 个一律不拆**（B 是"搬位置"，C 是"拆了更危险/更易漂移"）；
-2. **A 类 2 个**：`CronPage.tsx` **已完成**（§48.5）；`MessageContextPipeline.ts` **批 2+3 已落四组**（§48.6/§48.7，1317 → 896），余下截断/提示组装两簇待批 4；
+2. **A 类 2 个**：`CronPage.tsx` **已完成**（§48.5）；`MessageContextPipeline.ts` **批 2–4 已落五组**（§48.6–§48.8，1317 → 349），仅剩提示组装簇（批 5）；
 3. 其余 68 个未抽样文件**不预设结论** —— 抽样只证明"该带里多数属 B/C 类"，
    不等于逐个已核；若后续要处置，按 §3 方法论逐个取证，**禁止**按行数批量拆。
 
@@ -1782,6 +1782,30 @@ think 标签 —— `streamingLlm.ts` · `pipeline/StreamPipeline.ts` · `orches
 
 **剩余（批 4 候选，未做）**：截断簇（≈600 行）→ `context/contextTruncation.ts`；
 提示组装簇（≈230 行）→ `context/promptAssembly.ts`。
+
+### 48.8 实施记录：`MessageContextPipeline.ts` 拆分批 4（2026-11-18，**已落地**）
+
+| 件 | 行数 | 内容 |
+|---|--:|---|
+| `services/MessageContextPipeline.ts` | **896 → 349** | 仅剩系统提示组装（`assembleContextualSystemPrompt` · `buildWorkspaceRootSection` · 三段规则常量 · `prompt_snippet` 动态段） |
+| `services/context/contextTruncation.ts` 🆕 | 569 | `truncateApiMessages`（技能注入 → 摘要压缩 → 截断退化）+ `PaginationPoint` / `computePaginationPoint` / `windowStartForBudget` / `truncateByPreciseTokens` + 私有 `contentText` / `isSkillsInjection` / `fetchTokenizeCount` |
+
+**接线（7 处）**：`agentPreReasoning.ts`（truncate）· `manager/requestPrep.ts`（truncate）·
+`orchestrator/preSendContextProtection.ts`（precise）· `orchestrator/sendMessageFlow.ts`（pagination）·
+`pipeline/streamMessageLifecycle.ts`（pagination）· 测试 2 处（`MessageContextPipeline.test.ts` /
+`skillInjectionFix.test.ts`）。其余 `host.xxx` 均为宿主端口方法名，未动。
+
+**顺带清理**：原文件因外移而失效的 8 个 import 已删除（`estimateMessagesTokens*` / `yieldToEventLoop` /
+`sanitizeApiMessages` / `skillInjectionService` / `handleError` / `DEFAULT_RETENTION_WARN_RATIO` /
+`measureRetention`），避免"导入还在、消费者已走"的僵尸引用。
+
+**验证**：`tsc --noEmit`（三 project）0 错；`tests/chat` + `tests/streaming` + `tests/skills` + `tests/query`
+**1881 pass / 10 skip / 0 fail**（273 文件，与拆前逐字相同）；`lint:arch` 0 error · `lint:infra` ✅ ·
+`lint:size` / `lint:fn-size` / `lint:complexity` 棘轮未增长 · `lint:refs` 192 处通过；
+改动文件 `eslint` 0 error。
+
+**剩余（收尾批 5，未做）**：提示组装簇（≈230 行）外移到 `context/promptAssembly.ts` 后，
+`MessageContextPipeline.ts` 预计降到 ~120 行（三段规则常量 + 组装入口），即可从"千行文件"名单移除。
 
 
 

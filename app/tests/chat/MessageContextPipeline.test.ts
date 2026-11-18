@@ -20,11 +20,11 @@
 // SOFTWARE.
 
 import { describe, expect, test } from 'bun:test';
+import { buildWorkspaceRootSection } from '../../src/chat/services/MessageContextPipeline';
 import {
   windowStartForBudget,
   computePaginationPoint,
-  buildWorkspaceRootSection,
-} from '../../src/chat/services/MessageContextPipeline';
+} from '../../src/chat/services/context/contextTruncation';
 // 2026-11-18（§48 拆分批 2/3）：分层判定与提示、think 标签已外移到独立模块
 import {
   isCodeContextMessage,

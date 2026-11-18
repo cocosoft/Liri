@@ -42,7 +42,7 @@ import {
   resolveEffectiveTurnModel,
   isLocalLlmEndpoint,
 } from '../services/ChatHelper';
-import { truncateByPreciseTokens } from '../services/MessageContextPipeline';
+import { truncateByPreciseTokens } from '../services/context/contextTruncation';
 import {
   parsePromptTokensFromError,
   parseContextOverflowSignal,

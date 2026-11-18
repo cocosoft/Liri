@@ -31,7 +31,7 @@ import {
   ensureThinkResponseTags,
   stripThinkResponseTags,
   stripOrphanToolTags,
-} from './services/MessageContextPipeline';
+} from './services/context/thinkTags';
 import {
   StreamingToolCallScrubber,
   StreamingThinkScrubber,

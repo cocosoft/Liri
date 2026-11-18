@@ -66,7 +66,7 @@ import { buildTAORContextFor } from './taorContextWiring';
 import { sendMessageDowngradePath } from './sendDowngrade';
 import { triggerCouncilDebate } from './councilDebate';
 import { executeStepPrompt } from './stepExecution';
-import { persistTurnSummary } from '../services/MessageContextPipeline';
+import { persistTurnSummary } from '../services/context/turnSummary';
 import type { SessionStateMachine } from '@openliri/infra/state/session/SessionStateMachine';
 import type { ChatOrchestratorHost } from '../orchestrator/ChatOrchestratorHost.js';
 import { assertHostSurface, type AssertNever } from './wiringHostGuard';

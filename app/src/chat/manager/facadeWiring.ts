@@ -132,7 +132,7 @@ import {
 // B1（2026-10-30）：会话工作区根列表（首根 = 主工作区）仍由 `workspacePath` 单一实现
 import { getSessionWorkspaceRoots as resolveSessionWorkspaceRoots } from './workspacePath';
 import type { ProjectStoreLike } from './projectSandboxPath';
-import { persistTurnSummary } from '../services/MessageContextPipeline';
+import { persistTurnSummary } from '../services/context/turnSummary';
 import { assertHostSurface, type AssertNever } from './wiringHostGuard';
 
 /** 工具执行的进度回调（`executeTool` 的 opts 形状） */

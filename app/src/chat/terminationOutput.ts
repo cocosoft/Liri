@@ -21,7 +21,7 @@ import type { GoalTurnReason } from '@modules/tasks';
 // 2026-11-12：审批等待提示文案上移到 `@shared/types`（前端渲染期剥离，唯一来源）
 import { AWAITING_APPROVAL_NOTICE } from '@shared/types';
 // BUG-E 第二轮复验（2026-10-27）：可见性判定需先剥离 `<think>`（与终稿校验同源，CS01）
-import { stripThinkResponseTags } from './services/MessageContextPipeline.js';
+import { stripThinkResponseTags } from './services/context/thinkTags.js';
 
 const logger = getLogger('chat:reactToolLoop');
 

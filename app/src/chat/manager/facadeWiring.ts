@@ -559,7 +559,16 @@ export function wireChatFacades(host: FacadeWiringHost): void {
       approvalSnapshot
     ) =>
       submitToolApproval(
-        { toolRegistry: host.toolRegistry },
+        {
+          toolRegistry: host.toolRegistry,
+          // B8（2026-11-18）：审批批量合并的**同轮次限定** —— 读会话当前工具轮次
+          // （`streamMessageToolLoop` 在每轮开跑前写 `metadata.roundCounter`）
+          getCurrentRoundId: (sid) => {
+            const counter =
+              host._chatSessions.get(sid)?.metadata?.['roundCounter'];
+            return typeof counter === 'number' ? counter : undefined;
+          },
+        },
         toolName,
         input,
         sid,

@@ -70,4 +70,21 @@ describe('selectBatchApprovalTargets（P1-1 批量审批）', () => {
     expect(selectBatchApprovalTargets([])).toEqual([]);
     expect(selectBatchApprovalTargets(items, 'unknown_tool')).toEqual([]);
   });
+
+  // B8（2026-11-18）：前端「逐条勾选」—— 只落地选中项，未选中的卡保持 pending
+  it('给定 ids 时只取选中项（空数组 ⇒ 退回「全部待批」口径）', () => {
+    expect(
+      selectBatchApprovalTargets(items, undefined, ['d']).map((i) => i.id)
+    ).toEqual(['d']);
+    // 选中集合里混入非 pending / 其它类型 ⇒ 仍被基础口径过滤掉
+    expect(
+      selectBatchApprovalTargets(items, undefined, ['a', 'b', 'c']).map(
+        (i) => i.id
+      )
+    ).toEqual(['a']);
+    // 空数组视为"未指定"，不是"一个都不批"
+    expect(
+      selectBatchApprovalTargets(items, undefined, []).map((i) => i.id)
+    ).toEqual(['a', 'd']);
+  });
 });

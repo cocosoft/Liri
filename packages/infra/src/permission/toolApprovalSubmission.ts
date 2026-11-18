@@ -56,6 +56,13 @@ export interface ToolApprovalCardInput {
   approvalReason?: string;
   /** 工具调用 id（前端就地审批用） */
   toolCallId?: string;
+  /**
+   * B8（2026-11-18）：所属工具轮次（会话 `metadata.roundCounter`）。
+   *
+   * 只用于**批量合并的同轮次限定**（`canBatchApproval` 要求两卡轮次相等）；
+   * 缺省 ⇒ 不写入、该卡不参与合并（无法证明同轮 ⇒ fail-closed 不合并）。
+   */
+  roundId?: number;
   /** 所属长任务 id */
   taskId?: string;
   /** 卡片来源模块（缺省 `permission`） */
@@ -164,6 +171,8 @@ export function buildToolApprovalCard(
     sessionId,
     taskId: params.taskId,
     toolCallId: params.toolCallId,
+    // B8：仅在同轮次标识可得时写入（缺省即 `undefined` ⇒ 不参与批量合并）
+    roundId: params.roundId,
     approvalId,
     commandHash,
     approvalFingerprintHash: fingerprintHash,

@@ -1,7 +1,7 @@
 /**
  * 审批批量合并（P3，2026-11-17）—— 判定与合并簿单测。
  *
- * 口径：仅"同工具 + 同风险"可合并；工作区申请不合并；单卡上限 5；合并簿只存内存，
+ * 口径：仅"同工具 + 同风险 + **同轮次**"可合并；工作区申请不合并；单卡上限 5；合并簿只存内存，
  * 批准时 drain 一次性取出（拒绝也 drain，但**不**写放行缓存）。
  */
 import { beforeEach, describe, expect, it } from 'bun:test';
@@ -22,8 +22,11 @@ const base = {
   candidateToolName: 'bash',
   candidateRisk: 'shell',
   candidateIsWorkspaceScope: false,
+  // B8：同轮次限定 —— 两侧轮次标识必须存在且相等
+  candidateRoundId: 7,
   toolName: 'bash',
   risk: 'shell',
+  roundId: 7,
 };
 
 beforeEach(() => {
@@ -65,6 +68,17 @@ describe('canBatchApproval', () => {
         now,
       })
     ).toBe(false);
+  });
+
+  it('B8 同轮次限定：轮次不同 / 任一侧缺轮次 ⇒ 不合并', () => {
+    // 上一轮遗留的卡（候选 roundId 7）遇到本轮 ask（roundId 8）⇒ 不合并
+    expect(canBatchApproval({ ...base, candidateRoundId: 8 })).toBe(false);
+    // 候选卡没有轮次（旧卡 / 未接入路径）⇒ 无法证明同轮 ⇒ 不合并
+    expect(canBatchApproval({ ...base, candidateRoundId: undefined })).toBe(
+      false
+    );
+    // 本条 ask 没有轮次 ⇒ 同上
+    expect(canBatchApproval({ ...base, roundId: undefined })).toBe(false);
   });
 });
 

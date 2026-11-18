@@ -30,6 +30,13 @@ const logger = getLogger('chat:manager');
 export interface ToolApprovalPorts {
   /** 工具注册表（审批指纹解析/风险分级用；未初始化 ⇒ `null`） */
   toolRegistry: ToolRegistry | null;
+  /**
+   * B8（2026-11-18）：会话当前工具轮次（`metadata.roundCounter`）。
+   *
+   * 审批卡的批量合并要求**同轮次**（见 `canBatchApproval`）。缺省/返回 `undefined`
+   * ⇒ 卡片不带 `roundId`，该卡不参与合并（fail-closed，不做"猜同轮"）。
+   */
+  getCurrentRoundId?: (sessionId: string) => number | undefined;
 }
 
 /**
@@ -192,6 +199,8 @@ export async function submitToolApproval(
       await import('@openliri/infra/permission');
     const tool = ports.toolRegistry?.getTool(toolName);
     const sid = sessionId || 'default';
+    // B8（2026-11-18）：本条 ask 所属工具轮次（批量合并的同轮次限定依据）
+    const roundId = ports.getCurrentRoundId?.(sid);
 
     const card = buildToolApprovalCard({
       toolOrName: tool ?? toolName,
@@ -203,6 +212,7 @@ export async function submitToolApproval(
       sourceModule: 'chat-tool-approval',
       approvalScope,
       approvalSnapshot,
+      ...(typeof roundId === 'number' ? { roundId } : {}),
     });
 
     // PR-1（2026-10-23）：同指纹的待审批项已存在 ⇒ 复用，不重复建卡（也不重复开审批链）
@@ -244,11 +254,14 @@ export async function submitToolApproval(
             pendingCount: getApprovalBatchSize(item.id),
             candidateToolName: meta.toolName,
             candidateRisk: meta.risk,
+            // B8：同轮次限定 —— 候选卡的 `metadata.roundId` 必须与本条 ask 相等
+            candidateRoundId: meta.roundId,
             candidateIsWorkspaceScope: meta.kind === 'workspace-scope',
             candidateCreatedAt: item.createdAt,
             now: Date.now(),
             toolName,
             risk: String(card.risk),
+            ...(typeof roundId === 'number' ? { roundId } : {}),
           })
         ) {
           continue;

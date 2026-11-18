@@ -88,22 +88,47 @@ describe('evaluateIngestFunnel（纯函数）', () => {
 });
 
 describe('recordIngestFunnelShadow', () => {
-  it('JSONL 落盘；senderId 只落 8 位哈希（不写原值）', async () => {
+  it('drop 记录：JSONL 落盘；senderId 只落 8 位哈希（不写原值）', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'ingest-funnel-'));
     const file = join(dir, 'shadow.jsonl');
     try {
       await recordIngestFunnelShadow(
-        { ...input, reason: 'sender_not_allowed' },
+        { ...input, decision: 'drop', reason: 'sender_not_allowed' },
         { file, now: 42 }
       );
       const line = readFileSync(file, 'utf8').trim();
       const rec = JSON.parse(line);
       expect(rec.at).toBe(42);
       expect(rec.channelId).toBe('dingtalk');
+      expect(rec.decision).toBe('drop');
       expect(rec.reason).toBe('sender_not_allowed');
       expect(rec.senderIdHash).toHaveLength(8);
       expect(rec.senderIdHash).not.toBe(input.senderId);
       expect(line.includes(input.senderId)).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('pass 也记账（S1 观测口径：空规则下也有样本可统计）', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ingest-funnel-'));
+    const file = join(dir, 'shadow.jsonl');
+    try {
+      await recordIngestFunnelShadow(
+        { ...input, decision: 'pass' },
+        { file, now: 1 }
+      );
+      await recordIngestFunnelShadow(
+        { ...input, decision: 'pass' },
+        { file, now: 2 }
+      );
+      const lines = readFileSync(file, 'utf8').trim().split('\n');
+      expect(lines).toHaveLength(2);
+      const rec = JSON.parse(lines[0]);
+      expect(rec.decision).toBe('pass');
+      expect(rec.reason).toBeNull();
+      // 供 conversationAllowlist 反推：会话 id 原样保留
+      expect(rec.conversationId).toBe('conv-1');
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

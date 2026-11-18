@@ -455,14 +455,16 @@ async function routeChannelMessageInner(
     senderId: message.senderId,
   });
 
-  // ②-④ IngestFunnel（#1，2026-11-18）：默认关；`INGEST_FUNNEL_SHADOW` ⇒ 只记录不丢；
-  // `INGEST_FUNNEL` ⇒ 真过滤（S2）。判定只看结构化字段（sender/conversation/eventType）。
+  // ②-④ IngestFunnel（#1，2026-11-18）：默认关；`INGEST_FUNNEL_SHADOW` ⇒ 只记账不丢
+  // （`pass` / `drop` 都记，用于反推 R1 名单）；`INGEST_FUNNEL` ⇒ 真过滤（S2）。
+  // 判定只看结构化字段（sender/conversation/eventType）。
   try {
     const funnel = await import('./ingestFunnel');
     if (
       funnel.isIngestFunnelShadowEnabled() ||
       funnel.isIngestFunnelEnabled()
     ) {
+      const shadow = funnel.isIngestFunnelShadowEnabled();
       const eventType = message.rawPayload?.['eventType'];
       const funnelInput = {
         channelId: message.channelId || channelName,
@@ -476,25 +478,26 @@ async function routeChannelMessageInner(
         funnelInput,
         funnel.readIngestFunnelRules()
       );
-      if (decision.action === 'drop') {
-        if (funnel.isIngestFunnelShadowEnabled()) {
-          await funnel.recordIngestFunnelShadow({
-            ...funnelInput,
-            reason: decision.reason,
-          });
-        } else {
-          releaseProcessing(dedupKey);
-          recordMessageRejected('INGEST_FUNNEL');
-          messageTraceBuffer.addStage(
-            traceId,
-            'ingest_funnel',
-            'skip',
-            decision.reason
-          );
-          messageTraceBuffer.finish(traceId, 'rejected', 'INGEST_FUNNEL');
-          otel.endSpan(routeSpan);
-          return { valid: true, response: 'filtered_by_funnel' };
-        }
+      if (decision.action === 'drop' && !shadow) {
+        releaseProcessing(dedupKey);
+        recordMessageRejected('INGEST_FUNNEL');
+        messageTraceBuffer.addStage(
+          traceId,
+          'ingest_funnel',
+          'skip',
+          decision.reason
+        );
+        messageTraceBuffer.finish(traceId, 'rejected', 'INGEST_FUNNEL');
+        otel.endSpan(routeSpan);
+        return { valid: true, response: 'filtered_by_funnel' };
+      }
+      if (shadow) {
+        // 影子：fire-and-forget（内部已 catch），不拖慢入站主链路
+        void funnel.recordIngestFunnelShadow(
+          decision.action === 'drop'
+            ? { ...funnelInput, decision: 'drop', reason: decision.reason }
+            : { ...funnelInput, decision: 'pass' }
+        );
       }
     }
   } catch (funnelErr) {

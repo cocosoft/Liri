@@ -141,9 +141,13 @@ describe("CommandSandboxPanel — 危险开关二次确认", () => {
       );
     });
     // 保存后必须强制重测（refresh=true），否则回显探测器缓存的旧结论
-    await waitFor(() => {
-      expect(getCommandSandboxProbe).toHaveBeenLastCalledWith(true);
-    });
+    // 3s：macOS arm64 CI 跑器负载高时，默认 1s 会偶发超时（2026-11-18 #2116 实测）
+    await waitFor(
+      () => {
+        expect(getCommandSandboxProbe).toHaveBeenLastCalledWith(true);
+      },
+      { timeout: 3000 },
+    );
   });
 
   it("关闭 failClosed（取消勾选）⇒ 直接保存，不弹确认", async () => {

@@ -599,7 +599,7 @@ export function setMessagesImpl(
         total: sortBefore,
         movedCount: sortedMovedCount,
         // P2-9：标注本次用的主键域，便于判断"重排"是数据乱序还是键域混用
-        primaryKey: allHaveSeq ? "lastEventSeq" : "timestamp",
+        primaryKey: allHaveSeq ? "firstEventSeq" : "timestamp",
       });
     }
     set({

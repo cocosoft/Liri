@@ -99,6 +99,10 @@ type DerivedSessionMessages = Array<{
   toolCallId?: string;
   blocks?: Array<Record<string, unknown>>;
   metadata?: Record<string, unknown>;
+  /** 末事件 seq（投影版本覆盖 / 删除墓碑专用；**禁止**用于排序，见 H1） */
+  lastEventSeq?: number;
+  /** 首事件 seq（排序键 + 分页游标，必须透传给前端） */
+  firstEventSeq?: number;
 }>;
 
 /**
@@ -193,6 +197,10 @@ export class SessionMessagesRead {
       timestamp: number;
       tool_calls?: Array<Record<string, unknown>>;
       blocks?: Array<Record<string, unknown>>;
+      /** 排序键 + 前端分页游标（首事件 seq，H1） */
+      firstEventSeq?: number;
+      /** 末事件 seq（版本/墓碑口径；前端只在缺首键时兜底） */
+      lastEventSeq?: number;
     }>;
     hasMore: boolean;
   }> {
@@ -656,6 +664,9 @@ export class SessionMessagesRead {
       metadata: m.metadata,
       // B-2（2026-08-23）：透传排序键（事件派生序），前端 setMessages 据此排序
       lastEventSeq: m.lastEventSeq,
+      // 2026-11-19（H1 补漏）：排序键已切到首事件 seq，必须**一并透传** ——
+      // 只给 lastEventSeq 会让前端游标退回末事件 seq（比排序键大）⇒ 下一页边界前移、原地打转。
+      firstEventSeq: m.firstEventSeq,
     }));
     const result = dedupeMessagesToolCallBlocks(mapped);
     // N-55：诊断用（DEBUG）—— 长会话冷派生实测 ~1.2s（3847 事件），命中缓存后每次读不再重算

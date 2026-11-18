@@ -419,10 +419,13 @@ jobs:
     - name: Prepare placeholder frontend dist (仅编译检查用)
       working-directory: .
       run: |
-        # `tauri::generate_context!()` 会读 `frontendDist`；本作业只做 `cargo check`，
-        # 不产出发行包 ⇒ 用一个占位文件满足存在性校验（不提交、不影响发布产物）。
-        mkdir -p client/dist
+        # `tauri_build::build()` 会校验 `build.frontendDist` 与 `bundle.resources` 的存在性：
+        # 本作业只做 `cargo check`（不产出发布包）⇒ 用占位目录/文件满足校验。
+        # 这些路径都不入库（`client/dist/**` 被 gitignore），不影响任何发布产物。
+        mkdir -p client/dist/node_modules client/dist/prompts
         [ -f client/dist/index.html ] || printf '<!doctype html><title>ci</title>' > client/dist/index.html
+        printf 'placeholder' > client/dist/node_modules/.placeholder
+        printf 'placeholder' > client/dist/prompts/.placeholder
 
     - name: Cache cargo registry
       uses: actions/cache@v4
@@ -454,8 +457,8 @@ jobs:
       if: failure()
       working-directory: .
       run: |
-        echo "== cargo check 失败摘要（末 30 行）==" 
-        tail -n 30 /tmp/tauri-check.log 2>/dev/null | while IFS= read -r line; do
+        echo "== cargo check 失败摘要（末 60 行）=="
+        tail -n 60 /tmp/tauri-check.log 2>/dev/null | while IFS= read -r line; do
           echo "::error::${line//$'\r'/}"
         done
         exit 0

@@ -52,8 +52,9 @@ fail-closed on declared）。
 - **存量行**：**2026-11-18 已回填**（工具 `bun run backfill:kg-edge-types`，默认 dry-run）；
   真机执行结果：**1454 行改名成功、13 行跳过** —— 跳过者是「目标规范边已存在」的重复事实
   （唯一索引 `idx_kg_edge_unique(from_id,to_id,edge_type,COALESCE(domain,''))` 会拒改，
-  整笔事务回滚）；工具已改为**冲突感知**（跳过并计数，不删除、不改 id），
-  是否合并这些重复边属破坏性操作，按 `code-deletion.md` 另行裁定。
-  复跑验证：剩余计划仅这 13 行，其余全部已是规范名（脚本幂等）。
+  整笔事务回滚）；工具已改为**冲突感知**（跳过并计数，不删除、不改 id）。
+  **裁定（2026-11-18，用户确认）：这 13 行保留不删** —— 规范边已存在，检索已能召回；
+  删除属破坏性操作且无收益，若日后确需清理重复事实，另按 `code-deletion.md` 立裁定。
+  **验证**：总行 15512 不变；非规范名（含大写/连字符/空格）由 **1435 → 13**；复跑计划仅剩这 13 行。
 - **域 schema 若用别名原名声明**（如 `is_a`）会因规范化后查不到 schema 而被拒 ⇒ 域 schema 应直接声明规范名。
 - `CORE_EDGE_SCHEMAS` 与其他 schema **同形**（`EdgeSchema`），可直接 `graph.setEdgeSchemas(CORE_EDGE_SCHEMAS)` 启用；它与默认域 schema 的 `relates_to` 不同名（前者 `related_to`），二者互不覆盖。

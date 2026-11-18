@@ -245,6 +245,8 @@ export async function submitToolApproval(
             candidateToolName: meta.toolName,
             candidateRisk: meta.risk,
             candidateIsWorkspaceScope: meta.kind === 'workspace-scope',
+            candidateCreatedAt: item.createdAt,
+            now: Date.now(),
             toolName,
             risk: String(card.risk),
           })
@@ -263,6 +265,7 @@ export async function submitToolApproval(
           logger.info('审批已合并到在途卡（P3 批量合并）', {
             toolName,
             sessionId: sid,
+            batchId: item.id,
             inboxItemId: item.id,
             batched: getApprovalBatchSize(item.id),
           });

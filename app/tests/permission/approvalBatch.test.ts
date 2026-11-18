@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it } from 'bun:test';
 
 import {
   APPROVAL_BATCH_MAX,
+  APPROVAL_BATCH_TTL_MS,
   addApprovalBatchEntry,
   canBatchApproval,
   clearApprovalBatches,
@@ -47,6 +48,24 @@ describe('canBatchApproval', () => {
       canBatchApproval({ ...base, pendingCount: APPROVAL_BATCH_MAX })
     ).toBe(false);
   });
+
+  it('B8：卡片创建超过 TTL（120s）⇒ 不再合并；边界内仍可合并', () => {
+    const now = 1_000_000;
+    expect(
+      canBatchApproval({
+        ...base,
+        candidateCreatedAt: now - APPROVAL_BATCH_TTL_MS,
+        now,
+      })
+    ).toBe(true);
+    expect(
+      canBatchApproval({
+        ...base,
+        candidateCreatedAt: now - APPROVAL_BATCH_TTL_MS - 1,
+        now,
+      })
+    ).toBe(false);
+  });
 });
 
 describe('合并簿（add / size / drain / clear）', () => {
@@ -79,5 +98,18 @@ describe('合并簿（add / size / drain / clear）', () => {
     clearApprovalBatches();
     expect(getApprovalBatchSize('inbox-2')).toBe(0);
     expect(getApprovalBatchSize('inbox-3')).toBe(0);
+  });
+
+  it('B8：合并窗口过期 ⇒ 重新起窗（不带旧条目）', () => {
+    const id = 'inbox-ttl';
+    addApprovalBatchEntry(id, { commandHash: 'old' }, 1_000);
+    expect(getApprovalBatchSize(id)).toBe(1);
+    // 刚过 TTL：旧条目作废，重新起窗
+    addApprovalBatchEntry(
+      id,
+      { commandHash: 'new' },
+      1_000 + APPROVAL_BATCH_TTL_MS + 1
+    );
+    expect(drainApprovalBatch(id).map((e) => e.commandHash)).toEqual(['new']);
   });
 });

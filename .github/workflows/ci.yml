@@ -457,9 +457,14 @@ jobs:
       if: failure()
       working-directory: .
       run: |
-        echo "== cargo check 失败摘要（末 60 行）=="
-        tail -n 60 /tmp/tauri-check.log 2>/dev/null | while IFS= read -r line; do
+        echo "== 关键错误行（error / Caused by / stderr / not exist）=="
+        grep -nE 'error|Error|Caused by|stderr|does not exist|not found|panicked' /tmp/tauri-check.log 2>/dev/null \
+          | tail -n 40 | while IFS= read -r line; do
           echo "::error::${line//$'\r'/}"
+        done
+        echo "== 末尾 40 行（warning 级，便于看上下文）=="
+        tail -n 40 /tmp/tauri-check.log 2>/dev/null | while IFS= read -r line; do
+          echo "::warning::${line//$'\r'/}"
         done
         exit 0
 

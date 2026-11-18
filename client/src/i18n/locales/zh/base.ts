@@ -978,6 +978,10 @@ const zhBase = {
     inboxApproveAllHint: "一次批准本会话的所有待审批卡（不含拒绝项）",
     inboxApproveAllToast: "已批准 {{count}} 项",
     inboxApproveAllNone: "没有可批准的待办项（可能已过期或已被处理）",
+    // B8（2026-11-18）：批量入口改为默认展开的逐条勾选
+    inboxBatchTitle: "批量审批（{{count}} 项，默认全选）",
+    inboxApproveSelected: "批准选中（{{count}} 项）",
+    inboxApproveSelectedHint: "只批准勾选的条目，未勾选的卡保持待批",
     // PR-3（2026-10-23）：会话级「自动执行」开关（仅只读 + 本地写）
     approvalAutoOff: "自动执行：关",
     approvalAutoOn: "自动执行：只读+本地写",

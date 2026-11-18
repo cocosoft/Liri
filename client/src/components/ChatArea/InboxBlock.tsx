@@ -21,6 +21,20 @@ interface Props {
   onResolved?: () => void;
 }
 
+/** B8：「逐条勾选」列表里的一条待审批卡（只取渲染需要的字段） */
+interface PendingApprovalOption {
+  id: string;
+  title: string;
+  toolName?: string;
+}
+
+/** `/v1/inbox` 列表返回的最小项结构（只声明本组件用到的字段） */
+interface PendingInboxItem {
+  id?: string;
+  title?: string;
+  metadata?: Record<string, unknown>;
+}
+
 /** 类型标签 i18n 键（未登记的类型回退后端原值显示，CS06） */
 const TYPE_LABEL_KEYS: Record<string, string> = {
   approval: "chat.inboxTypeApproval",
@@ -73,8 +87,13 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
   const [resuming, setResuming] = useState(false);
   const addToast = useToastStore((s) => s.addToast);
   const { t } = useTranslation();
-  // P1-1（2026-11-06）：本会话待审批卡数量 —— 决定是否显示「全部批准」
+  // P1-1（2026-11-06）：本会话待审批卡数量 —— 决定是否显示批量入口
   const [pendingApprovals, setPendingApprovals] = useState(0);
+  // B8（2026-11-18）：批量入口改为「默认展开的逐条勾选」——这里存候选与选中集合
+  const [pendingOptions, setPendingOptions] = useState<PendingApprovalOption[]>(
+    [],
+  );
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [batchReplying, setBatchReplying] = useState(false);
 
   // P1-1（2026-11-06）：**外部状态同步** —— 同会话其它卡片被批量批准后，服务端回填
@@ -85,39 +104,68 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
     if (data.status !== "pending") setStatus(data.status);
   }, [data.status]);
 
-  // P1-1：同轮多工具（如 3 个 mkdir）会各生成一张卡；>1 时给一键批准入口。
-  // 只用于按钮显隐，取数失败静默（点击时后端仍会告知实际落地数量）。
+  // P1-1：同轮多工具（如 3 个 mkdir）会各生成一张卡；>1 时给批量入口。
+  // B8（2026-11-18）：入口改成「默认展开 + 逐条勾选」⇒ 这里同时取候选清单
+  //（`items`），默认全选。取数失败静默（点击时后端仍会告知实际落地数量）。
   useEffect(() => {
     if (data.status !== "pending" || data.type !== "approval" || !sessionId) {
       return;
     }
     let cancelled = false;
     http
-      .get<{ total?: number }>(
+      .get<{ total?: number; items?: PendingInboxItem[] }>(
         `/v1/inbox?sessionId=${encodeURIComponent(sessionId)}&status=pending&type=approval&limit=50`,
       )
       .then((res) => {
         if (cancelled || !res.ok) return;
-        const total = (res.data as { total?: number } | undefined)?.total;
+        const payload = res.data as
+          { total?: number; items?: PendingInboxItem[] } | undefined;
+        const total = payload?.total;
         if (typeof total === "number") setPendingApprovals(total);
+        const options = (payload?.items ?? [])
+          .filter(
+            (item): item is PendingInboxItem & { id: string } =>
+              typeof item.id === "string" && item.id !== "",
+          )
+          .map((item) => ({
+            id: item.id,
+            title: item.title ?? item.id,
+            ...(typeof item.metadata?.toolName === "string"
+              ? { toolName: item.metadata.toolName }
+              : {}),
+          }));
+        setPendingOptions(options);
+        setSelectedIds(options.map((item) => item.id));
       })
       .catch(() => {
-        /* 计数仅用于按钮显隐，失败静默 */
+        /* 计数/清单仅用于批量入口，失败静默 */
       });
     return () => {
       cancelled = true;
     };
   }, [data.status, data.type, sessionId]);
 
-  /** P1-1：一次批准本会话全部待审批卡（服务端只触发一次续跑） */
-  const handleApproveAll = async () => {
+  /** B8：勾选/取消一条待审批卡 */
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
+
+  /** P1-1 + B8：一次批准**选中**的待审批卡（服务端只触发一次续跑） */
+  const handleApproveSelected = async () => {
     if (batchReplying || status !== "pending" || !sessionId) return;
+    if (selectedIds.length === 0) return;
     setBatchReplying(true);
     try {
       const res = await http.post<{
         applied?: boolean;
         resolved?: string[];
-      }>("/v1/inbox/approve-all", { sessionId, reply: "approve" });
+      }>("/v1/inbox/approve-all", {
+        sessionId,
+        reply: "approve",
+        ids: selectedIds,
+      });
       const applied =
         res.ok &&
         (res.data as { applied?: boolean } | undefined)?.applied === true;
@@ -300,20 +348,6 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
             );
           })}
 
-        {/* P1-1（2026-11-06）：同会话多张待审批卡 ⇒ 一键全部批准（服务端只续跑一次） */}
-        {isPending && data.type === "approval" && pendingApprovals > 1 && (
-          <button
-            onClick={handleApproveAll}
-            disabled={replying || batchReplying}
-            title={t("chat.inboxApproveAllHint")}
-            className="rounded-lg border border-green-500 px-3 py-1 text-xs font-medium text-green-600 transition-colors hover:bg-green-50 disabled:opacity-50 dark:border-green-600 dark:text-green-400 dark:hover:bg-green-900/20"
-          >
-            {batchReplying
-              ? "..."
-              : t("chat.inboxApproveAll", { count: pendingApprovals })}
-          </button>
-        )}
-
         {/* P2-1: 批准后自动续跑中 —— 避免用户感知空转 */}
         {resuming && (
           <span className="text-xs font-medium text-green-600 dark:text-green-400">
@@ -342,6 +376,52 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
           </span>
         )}
       </div>
+      {/* B8（2026-11-18）：同会话多张待审批卡 ⇒ **默认展开**的逐条勾选面板。
+          动机：原「全部批准（N 项）」一次点击会把整轮所有同类调用一起放行，
+          用户看不到具体批了哪几条；改为默认全选的清单，可逐条取消后再批准选中项。 */}
+      {isPending && data.type === "approval" && pendingApprovals > 1 && (
+        <details
+          open
+          className="mt-2 rounded-lg border border-gray-200 p-2 dark:border-gray-700"
+        >
+          <summary className="cursor-pointer text-xs font-medium text-gray-700 dark:text-gray-300">
+            {t("chat.inboxBatchTitle", { count: pendingApprovals })}
+          </summary>
+          <ul className="mt-2 space-y-1">
+            {pendingOptions.map((item) => (
+              <li key={item.id}>
+                <label className="flex cursor-pointer items-start gap-2 text-xs text-gray-700 dark:text-gray-300">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={selectedIds.includes(item.id)}
+                    onChange={() => toggleSelected(item.id)}
+                    disabled={batchReplying}
+                  />
+                  <span className="break-all">
+                    {item.toolName ? `${item.toolName}: ` : ""}
+                    {item.title}
+                  </span>
+                </label>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-2 flex items-center gap-2">
+            <button
+              onClick={handleApproveSelected}
+              disabled={replying || batchReplying || selectedIds.length === 0}
+              title={t("chat.inboxApproveSelectedHint")}
+              className="rounded-lg border border-green-500 px-3 py-1 text-xs font-medium text-green-600 transition-colors hover:bg-green-50 disabled:opacity-50 dark:border-green-600 dark:text-green-400 dark:hover:bg-green-900/20"
+            >
+              {batchReplying
+                ? "..."
+                : t("chat.inboxApproveSelected", {
+                    count: selectedIds.length,
+                  })}
+            </button>
+          </div>
+        </details>
+      )}
       {/* P0（2026-11-07）：出现 allowlist 档时标出规则落点（设置 › 自定义规则 › 工具放行） */}
       {isPending &&
         data.actions.some((a) => a.reply.startsWith("allowlist_")) && (

@@ -245,7 +245,7 @@ describe("InboxBlock 批准续跑（P0-5 → M2-T2.1）", () => {
   });
 });
 
-describe("InboxBlock 全部批准（P1-1）", () => {
+describe("InboxBlock 批量审批（P1-1 / B8 逐条勾选）", () => {
   const base: InboxBlockData = {
     inboxId: "ib-a",
     type: "approval",
@@ -263,10 +263,25 @@ describe("InboxBlock 全部批准（P1-1）", () => {
     vi.restoreAllMocks();
   });
 
-  it("同会话 >1 张待审批 ⇒ 显示「全部批准（3 项）」并 POST approve-all", async () => {
+  it("同会话 >1 张待审批 ⇒ 默认展开逐条勾选，批准选中项时带上 ids（B8）", async () => {
     vi.spyOn(http, "get").mockResolvedValue({
       ok: true,
-      data: { total: 3 },
+      data: {
+        total: 3,
+        items: [
+          { id: "a", title: "工具审批: bash", metadata: { toolName: "bash" } },
+          {
+            id: "b",
+            title: "工具审批: mkdir",
+            metadata: { toolName: "bash" },
+          },
+          {
+            id: "c",
+            title: "工具审批: rm",
+            metadata: { toolName: "bash" },
+          },
+        ],
+      },
       error: undefined,
     } as never);
     const postSpy = vi.spyOn(http, "post").mockResolvedValue({
@@ -276,18 +291,62 @@ describe("InboxBlock 全部批准（P1-1）", () => {
     } as never);
 
     render(<InboxBlock data={base} sessionId="session-1" />);
-    const button = await screen.findByText(/全部批准/);
-    fireEvent.click(button);
+    // 默认展开：三条都在清单里，且默认全选
+    const panel = await screen.findByText(/批量审批/);
+    expect(panel).toBeInTheDocument();
+    const boxes = screen.getAllByRole("checkbox") as HTMLInputElement[];
+    expect(boxes).toHaveLength(3);
+    expect(boxes.every((box) => box.checked)).toBe(true);
+
+    fireEvent.click(screen.getByText(/批准选中/));
+    await waitFor(() =>
+      expect(postSpy).toHaveBeenCalledWith("/v1/inbox/approve-all", {
+        sessionId: "session-1",
+        reply: "approve",
+        ids: ["a", "b", "c"],
+      }),
+    );
+  });
+
+  it("取消勾选的条目不会被批准（ids 只含选中项）", async () => {
+    vi.spyOn(http, "get").mockResolvedValue({
+      ok: true,
+      data: {
+        total: 2,
+        items: [
+          { id: "a", title: "工具审批: bash", metadata: { toolName: "bash" } },
+          {
+            id: "b",
+            title: "工具审批: rm",
+            metadata: { toolName: "bash" },
+          },
+        ],
+      },
+      error: undefined,
+    } as never);
+    const postSpy = vi.spyOn(http, "post").mockResolvedValue({
+      ok: true,
+      data: { applied: true, resolved: ["a"] },
+      error: undefined,
+    } as never);
+
+    render(<InboxBlock data={base} sessionId="session-1" />);
+    const boxes = (await screen.findAllByRole(
+      "checkbox",
+    )) as HTMLInputElement[];
+    fireEvent.click(boxes[1]);
+    fireEvent.click(screen.getByText(/批准选中/));
 
     await waitFor(() =>
       expect(postSpy).toHaveBeenCalledWith("/v1/inbox/approve-all", {
         sessionId: "session-1",
         reply: "approve",
+        ids: ["a"],
       }),
     );
   });
 
-  it("仅 1 张待审批 ⇒ 不显示批量按钮", async () => {
+  it("仅 1 张待审批 ⇒ 不显示批量面板", async () => {
     const getSpy = vi.spyOn(http, "get").mockResolvedValue({
       ok: true,
       data: { total: 1 },
@@ -301,7 +360,7 @@ describe("InboxBlock 全部批准（P1-1）", () => {
 
     render(<InboxBlock data={base} sessionId="session-1" />);
     await waitFor(() => expect(getSpy).toHaveBeenCalled());
-    expect(screen.queryByText(/全部批准/)).toBeNull();
+    expect(screen.queryByText(/批量审批/)).toBeNull();
   });
 
   // 真机回归：一键批准 2 张后，未被点击的那张必须随服务端回填切到"已处理"

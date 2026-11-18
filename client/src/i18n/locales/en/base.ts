@@ -1021,6 +1021,11 @@ const enBase = {
     inboxApproveAllToast: "Approved {{count}} item(s)",
     inboxApproveAllNone:
       "No pending items to approve (they may have expired or been handled)",
+    // B8 (2026-11-18): batch entry becomes an expanded per-item checklist (all checked by default)
+    inboxBatchTitle: "Batch approval ({{count}}, all selected by default)",
+    inboxApproveSelected: "Approve selected ({{count}})",
+    inboxApproveSelectedHint:
+      "Only the checked items are approved; unchecked cards stay pending",
     // PR-3 (2026-10-23): session-level "auto-run" toggle (read-only + local writes only)
     approvalAutoOff: "Auto-run: off",
     approvalAutoOn: "Auto-run: read + local write",

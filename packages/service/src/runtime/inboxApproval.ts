@@ -235,21 +235,28 @@ export interface BatchApprovalOutcome {
 /**
  * P1-1（2026-11-06）：批量审批的**候选判定**（纯函数）。
  *
- * 口径：`status='pending'` + `type='approval'` + （可选）同工具名。
+ * 口径：`status='pending'` + `type='approval'` + （可选）同工具名 + （可选）指定 id 集合。
  * 抽成纯函数是为了在不触库的前提下锁定筛选契约（顺序保持入参顺序）。
+ *
+ * B8（2026-11-18）：`ids` 为前端「逐条勾选」的选中集合 —— 提供且非空时**只处理集合内的项**
+ * （集合外的卡保持 pending，不会被顺带放行）。
  */
 export function selectBatchApprovalTargets<
   T extends {
+    id?: string;
     status?: string;
     type?: string;
     metadata?: Record<string, unknown>;
   },
->(items: readonly T[], toolName?: string): T[] {
+>(items: readonly T[], toolName?: string, ids?: readonly string[]): T[] {
+  const selected =
+    ids && ids.length > 0 ? new Set(ids.filter((id) => !!id)) : undefined;
   return items.filter(
     (item) =>
       item.status === INBOX_STATUS_PENDING &&
       item.type === 'approval' &&
-      (!toolName || item.metadata?.toolName === toolName)
+      (!toolName || item.metadata?.toolName === toolName) &&
+      (!selected || (typeof item.id === 'string' && selected.has(item.id)))
   );
 }
 
@@ -261,16 +268,19 @@ export function selectBatchApprovalTargets<
  * 「所有工具已完成」上空转，日志刷屏且时序不可控）。批量入口逐项落地时置
  * `deferResume`，**最后只触发一次**。
  *
- * 只处理 `type='approval'` 的 pending 项；`toolName` 可选（只批同一工具，用于"同工具同风险"收窄）。
+ * 只处理 `type='approval'` 的 pending 项；`toolName` 可选（只批同一工具，用于"同工具同风险"收窄）；
+ * `ids` 可选（B8：前端逐条勾选的集合 —— 只落地选中项，未选中的卡保持 pending）。
  */
 export async function resolveInboxApprovalsBatch(params: {
   sessionId: string;
   reply: string;
   selectedOption?: string;
   toolName?: string;
+  /** B8：前端「逐条勾选」的选中集合；提供且非空 ⇒ 只落地这些项 */
+  ids?: readonly string[];
   limit?: number;
 }): Promise<BatchApprovalOutcome> {
-  const { sessionId, reply, selectedOption, toolName } = params;
+  const { sessionId, reply, selectedOption, toolName, ids } = params;
   const outcome: BatchApprovalOutcome = {
     sessionId,
     resolved: [],
@@ -286,7 +296,7 @@ export async function resolveInboxApprovalsBatch(params: {
     limit: params.limit ?? 50,
     offset: 0,
   });
-  const targets = selectBatchApprovalTargets(listed.items, toolName);
+  const targets = selectBatchApprovalTargets(listed.items, toolName, ids);
 
   let hasChatResumeTarget = false;
   // 2026-11-07（真机）：PDCA 步骤卡的续跑由 `resumePdcaIfApplicable` 触发（fire-and-forget），

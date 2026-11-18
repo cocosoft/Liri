@@ -31,6 +31,9 @@
  * - 每张卡最多挂 `APPROVAL_BATCH_MAX` 条（超出继续新建卡，避免"一张卡批 50 条"）；
  * - **合并窗口 `APPROVAL_BATCH_TTL_MS`（120s）**：卡片创建超时后不再接收新条目
  *   （B8，2026-11-18；避免"离开回来一次点击批量放行早已过时的调用"）；
+ * - **同轮次限定（B8，2026-11-18）**：仅当候选卡与本条 ask 属于**同一工具轮次**
+ *   （会话 `metadata.roundCounter`，随卡落 `metadata.roundId`）才合并；任一侧轮次
+ *   不可得 ⇒ 不合并（无法证明同轮 ⇒ fail-closed）—— 防"上一轮遗留的卡被本轮一次点击顺带放行"；
  * - 合并簿在**内存**（`Map<inboxItemId, {entries, createdAt}>`）：进程重启即丢，丢批不会误放行
  *   —— 对应调用仍是 awaiting，用户重新批准即可（fail-closed）；
  * - 总闸 `PERMISSION_APPROVAL_BATCH=true` **默认关**（权限域环境变量；只认显式 true）；
@@ -67,6 +70,9 @@ const batches = new Map<
  *
  * B8（2026-11-18）：除"同工具 + 同风险"外，卡片创建超过 {@link APPROVAL_BATCH_TTL_MS}
  * ⇒ 不再合并（避免用户离开后回来，一次点击批量放行早已过时的调用）。
+ *
+ * B8 同轮次限定：候选卡的 `roundId` 必须与本条 ask 的 `roundId` **相等且都存在**；
+ * 任一侧缺失（旧卡 / 未接入轮次标识的路径）⇒ 不合并。
  */
 export function canBatchApproval(params: {
   /** 总闸 `FEATURE_APPROVAL_BATCH` */
@@ -76,15 +82,18 @@ export function canBatchApproval(params: {
   /** 候选卡的工具名 / 风险级（来自其 metadata） */
   candidateToolName?: unknown;
   candidateRisk?: unknown;
+  /** 候选卡的轮次标识（`metadata.roundId`） */
+  candidateRoundId?: unknown;
   /** 候选卡是否工作区访问申请（独立副作用 ⇒ 不合并） */
   candidateIsWorkspaceScope?: boolean;
   /** 候选卡创建时刻（ms）；提供时按 TTL 判定 */
   candidateCreatedAt?: number;
   /** 当前时刻（ms，便于测试注入） */
   now?: number;
-  /** 本次调用的工具名 / 风险级 */
+  /** 本次调用的工具名 / 风险级 / 轮次标识 */
   toolName: string;
   risk: string;
+  roundId?: number;
 }): boolean {
   if (!params.enabled) return false;
   if (params.candidateIsWorkspaceScope === true) return false;
@@ -92,6 +101,14 @@ export function canBatchApproval(params: {
   if (typeof params.candidateCreatedAt === 'number') {
     const now = params.now ?? Date.now();
     if (now - params.candidateCreatedAt > APPROVAL_BATCH_TTL_MS) return false;
+  }
+  // B8：同轮次限定 —— 两侧都必须有轮次标识且相等
+  if (
+    typeof params.roundId !== 'number' ||
+    typeof params.candidateRoundId !== 'number' ||
+    params.candidateRoundId !== params.roundId
+  ) {
+    return false;
   }
   return (
     params.candidateToolName === params.toolName &&

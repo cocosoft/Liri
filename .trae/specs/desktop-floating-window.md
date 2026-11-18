@@ -66,9 +66,9 @@
 ### 仍未做（如实）
 
 1. **系统级全局快捷键**：需 `tauri-plugin-global-shortcut`（Rust crate + npm 包）**新增外部依赖**，本批未引入；当前触发仍是应用内 `Ctrl+Shift+F` 与托盘菜单。（**已由 §7 三期补齐**）
-2. **Rust 未编译验证**：~~本机无 `cargo`（不在 PATH）~~ ⇒ **2026-11-18 复核**：`cargo`/`rustc` 1.100.0
-   已在 PATH，但「产出 exe 被执行策略阻止」+「crates.io 不可达」两条外部条件仍挡住编译，
-   详见 §7「边界」末条。
+2. ~~**Rust 未编译验证**~~ → **2026-11-18 已收口**：本机仍受「产出 exe 被执行策略阻止」+「crates.io 不可达」
+   限制，但 CI 作业 `cargo-check-tauri` 已编译通过并**转为阻断门禁**（`f856e8e36` #2130，19/19 全 success），
+   详见 §7「边界」。仅剩**真机桌面启动**未验证。
 3. 内容增强（当前会话 / 运行中目标）与窗口体验（位置记忆 / 多显示器 / 点击穿透）未做。
 
 ## 7. 三期已交付（系统级全局快捷键）
@@ -84,18 +84,18 @@
 **边界（如实）**：
 - **无新增 capability**：注册走 Rust API，不经 JS 插件命令 ⇒ `capabilities/*.json` 权限不扩；
 - **快捷键不可配置**：固定 `Ctrl+Shift+F`；与主窗口内快捷键**同键**，同时触发两次也只等价于「新建 → 聚焦」（`openFloatingWindow` 幂等）；
-- **Rust 未编译验证（2026-11-18 复核更新）**：本机 **`cargo`/`rustc` 1.100.0 已在 PATH**（原文"无 cargo"已过期），
-  但两条外部条件仍挡住编译：
+- **Rust 编译：CI 侧已验证并转为阻断门禁（2026-11-18 收口）**：本机 **`cargo`/`rustc` 1.100.0 已在 PATH**（原文"无 cargo"已过期），
+  但两条外部条件仍挡住**本机**编译：
   ① **可执行文件被应用控制策略阻止** —— `rustc` 能编译出 exe，运行时报
   「应用程序控制策略已阻止此文件」（Smart App Control / WDAC）；而 `cargo check` 必须**执行
   build script**（`tauri-build`）⇒ 本机仍不可行；
   ② **crates.io 不可达** —— `cargo generate-lockfile` 反复 `Timeout ... index.crates.io`（含放宽
-  `CARGO_HTTP_TIMEOUT` / 关闭沙箱重试），故 `Cargo.lock` 仍缺 `tauri-plugin-global-shortcut`
-  （`Cargo.toml:25` 已声明、`Cargo.lock` 无条目）。
-  **已做的规避（2026-11-18）**：新增 CI 作业 `cargo-check-tauri`（`.github/workflows/ci.yml`），
+  `CARGO_HTTP_TIMEOUT` / 关闭沙箱重试）。
+  **规避（2026-11-18）**：新增 CI 作业 `cargo-check-tauri`（`.github/workflows/ci.yml`），
   在 Ubuntu 上跑 `client/src-tauri` 的 `cargo check` —— **绕开本机执行策略**。
-  **当前状态：✅ 通过**（`bd463b301`，#2121）：说明 `lib.rs` 的全局快捷键接线与
-  `tauri-plugin-global-shortcut` 依赖**确实可编译**（CI 侧已解析该依赖）。
+  **当前状态：✅ 通过且已收紧为阻断门禁**：`bd463b301`（#2128，非阻断）首绿 →
+  `f856e8e36`（#2130）去掉 `continue-on-error` 后仍 **19/19 job 全 success** ⇒ 说明 `lib.rs` 的
+  全局快捷键接线与 `tauri-plugin-global-shortcut` 依赖**确实可编译**；今后该壳编译失败会**直接弄红 CI**。
   排障过程（可复用）：① 失败在 `tauri_build::build()`；② 真错误 = `resource path
   ../../dist/node_modules doesn't exist`；③ 路径基准坑 —— `tauri.conf.json` 在
   `client/src-tauri/`，`bundle.resources` 的 `../../dist/**` 指向**仓库根** `dist/`，
@@ -104,7 +104,9 @@
   （`cargo --config source.crates-io.replace-with=…`，**不改本机配置**）跑 `cargo fetch`：
   只解析不编译，锁文件最小化补上 `tauri-plugin-global-shortcut`（+`global-hotkey`/`x11rb` 等 12 个），
   共 428 增 / 635 删（含 59 个传递依赖随生态上移）。**验证方式**：CI 的 `cargo-check-tauri`
-  用该锁编译，绿即自洽。作业暂保持**非阻断**，连续数次绿后再收紧为门禁。
+  用该锁编译（已绿，见上）。
+  **仍未做**：真机桌面启动（窗口创建 / 拖拽 / 全局快捷键实际唤起）—— 需在有桌面会话且未被
+  应用控制策略阻止的机器上跑。
 - 仍**不做**：快捷键用户可配置、内容增强（当前会话 / 运行中目标）、点击穿透（位置记忆与多显示器校正**已由 §8 补齐**）。
 
 ## 8. 四期已交付（窗口体验：几何记忆 + 多显示器边界校正）
@@ -123,7 +125,7 @@
 - 位置保证**水平至少 48px 可见** + **标题栏不高于屏幕上边界**（拖拽区始终可达）。
 
 **边界（如实）**：
-- **未真机验证**：本机无 `cargo`、无窗口自动化 ⇒ 只做了 `tsc` + `eslint` + 977 条 vitest（含 11 条几何用例）；`availableMonitors` / `onMoved` 等 Tauri 调用未在真实桌面跑过；
+- **未真机验证**：本机 `cargo` 受应用控制策略阻断（编译验证已改由 CI `cargo-check-tauri` 承担，见 §7），且无窗口自动化 ⇒ 只做了 `tsc` + `eslint` + 977 条 vitest（含 11 条几何用例）；`availableMonitors` / `onMoved` 等 Tauri 调用未在真实桌面跑过；
 - **跨 DPI 混合缩放未验证**：按各显示器 `scaleFactor` 换算逻辑像素，缩放大跨度（100%/200% 混排）需真机校准；
 - **点击穿透已由 §10 交付**（进入点按钮、退出复用 `Ctrl+Shift+F`）；
 - **内容增强已由 §9 补齐**（当前会话 + 运行中目标）。

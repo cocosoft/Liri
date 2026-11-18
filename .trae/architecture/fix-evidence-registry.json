@@ -12062,7 +12062,7 @@
       "code": [
         "packages/query/src/query/patternAssembler.ts",
         "app/src/chat/pipeline/StreamPipeline.ts",
-        "app/src/chat/services/MessageContextPipeline.ts",
+        "app/src/chat/services/context/contextTruncation.ts",
         "app/src/context/index.ts"
       ],
       "tests": [

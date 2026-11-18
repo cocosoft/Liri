@@ -1695,13 +1695,13 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 | `client/src/stores/chat/chat-toolcall.slice.ts` | 1491 | 14 导出 / 32 函数 / 94 分支 | **B 低优先**：纯函数 + `ChronologicalBlockBuilder`，拆分仅按工具函数分组，收益限于可读性 |
 | `packages/infra/src/environment/paths.ts` | 1390 | **138 导出** / 94 函数 | **C 不拆**：canonical 路径注册表（"其他模块不得自建路径常量"）⇒ 拆分会诱发多处定义回归 |
 | `packages/infra/src/security/BashSecurityAnalyzer.ts` | 1396 | 6 导出 / 39 函数 / **101 分支** | **C 不拆**：安全判定高内聚，拆分提高漏检与跨文件互锁风险（同 `code-deletion` CD07 精神） |
-| `app/src/chat/services/MessageContextPipeline.ts` | 1317 | 18 导出 / 23 函数 / 85 分支 | **A 可拆 → 批 2/3/4 已落地五组（§48.6–§48.8，1317 → 349）**：仅剩提示组装簇待收尾批 5 |
+| `app/src/chat/services/MessageContextPipeline.ts` | 1317 | 18 导出 / 23 函数 / 85 分支 | **A 可拆 → 已拆完并删除（§48.6–§48.9）**：拆成 `context/` 下 6 个模块 + `defaults.ts`，原文件不再存在 |
 | `client/src/components/views/CronPage.tsx` | 1440 | **1 导出 / 3 函数** | **A 可拆 → 已于 2026-11-18 拆完（§48.5，1440 → 408）**：单组件 + 巨型 JSX ⇒ 表单 / 列表 / 详情面板拆子组件收益明确 |
 
 ### 48.3 结论与建议排期
 
 1. **B/C 类 8 个一律不拆**（B 是"搬位置"，C 是"拆了更危险/更易漂移"）；
-2. **A 类 2 个**：`CronPage.tsx` **已完成**（§48.5）；`MessageContextPipeline.ts` **批 2–4 已落五组**（§48.6–§48.8，1317 → 349），仅剩提示组装簇（批 5）；
+2. **A 类 2 个均已处置**：`CronPage.tsx` **已完成**（§48.5）；`MessageContextPipeline.ts` **已拆完并删除**（§48.6–§48.9）；
 3. 其余 68 个未抽样文件**不预设结论** —— 抽样只证明"该带里多数属 B/C 类"，
    不等于逐个已核；若后续要处置，按 §3 方法论逐个取证，**禁止**按行数批量拆。
 
@@ -1806,6 +1806,44 @@ think 标签 —— `streamingLlm.ts` · `pipeline/StreamPipeline.ts` · `orches
 
 **剩余（收尾批 5，未做）**：提示组装簇（≈230 行）外移到 `context/promptAssembly.ts` 后，
 `MessageContextPipeline.ts` 预计降到 ~120 行（三段规则常量 + 组装入口），即可从"千行文件"名单移除。
+
+### 48.9 实施记录：批 5 收尾 —— `MessageContextPipeline.ts` **整体迁出并删除**（2026-11-18）
+
+批 4 之后该文件**只剩提示组装一簇**（三段规则常量 + `buildWorkspaceRootSection` +
+`assembleContextualSystemPrompt`），已无"拆一部分、留一部分"的余地 ⇒ 本轮整体迁出后**删除原文件**。
+
+| 件 | 行数 | 内容 |
+|---|--:|---|
+| `services/MessageContextPipeline.ts` | **349 → 已删除** | — |
+| `services/context/systemPromptAssembly.ts` 🆕 | 338 | 三段规则常量（通用 / 本地模型 / 图像链）+ `buildWorkspaceRootSection` + `assembleContextualSystemPrompt`（含 `prompt_snippet` 动态段、目标提取、知识域注入、effort 段） |
+
+**接线（3 处）**：`manager/promptAssembly.ts`（`assembleContextualSystemPrompt`）·
+`tests/chat/MessageContextPipeline.test.ts`（`buildWorkspaceRootSection`）·
+`tests/chat/replyEffort.test.ts`（源码断言路径 —— 首轮跑测试时红，已改到新路径）·
+另订正 `packages/service/src/session/types/session.ts` 两处文档注释的读取点路径。
+
+**删除前核查（`code-deletion.md` CD01–CD06）**：
+- **CD01 静态引用**：`from '…MessageContextPipeline'` / `require(…)` / `import(…)` 全仓 **0 命中**；
+- **CD02 构建/插件入口**：`package.json` / `scripts/**` / `ci.yml` 无该路径；非插件注册表成员；
+- **CD03 DI/反射/协议入口**：纯 ES 模块（无 DI 键、无装饰器、无 HTTP 路由）；
+- **CD04 测试/变体/运行模式**：唯一源码断言测试已改指新模块；三个构建变体共用同一源码根；
+- **CD05 先移后删**：实现已在批 2–5 逐组迁出并通过 `tsc` + 2043 条用例；
+- **CD06 回滚**：删除与本批迁移同提交，`git revert <sha>` 即可整体复原（内容未变，仅路径）。
+
+**顺带处置**：
+- `.trae/architecture/hardcode-gate-baseline.json` 删除因搬迁失效的键
+  `裸字面量:…MessageContextPipeline.ts`（棘轮只减不增，`lint:consts` 提示可下调）；
+- `.trae/architecture/fix-evidence-registry.json` 的 `PATTERN-REACHABLE-RETENTION-PROBE`
+  代码清单路径改指 `contextTruncation.ts`（保留度探针实现随截断簇迁走）。
+
+**验证**：`tsc --noEmit`（三 project）0 错；`tests/chat` + `tests/streaming` + `tests/skills` +
+`tests/query` + `tests/context` **2043 pass / 11 skip / 0 fail**（293 文件）；
+`lint:arch` 0 error · `lint:consts` PASS · `lint:fix-evidence` ✅ · `lint:size` / `lint:fn-size` /
+`lint:complexity` 棘轮未增长 · `lint:refs` 192 处通过。
+
+**结论**：§48.2 的两个 A 类文件**均已处置完毕** —— `CronPage.tsx` 1440 → 408（§48.5），
+`MessageContextPipeline.ts` 1317 → **删除**（拆成 6 个职责模块 `context/*` + 1 个常量文件 `defaults.ts`，
+最大者 `contextTruncation.ts` 569 行）。
 
 
 

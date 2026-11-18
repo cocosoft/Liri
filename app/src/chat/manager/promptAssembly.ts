@@ -25,7 +25,7 @@
 
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { ToolAwareClient } from '@modules/ai';
-import { assembleContextualSystemPrompt } from '../services/MessageContextPipeline';
+import { assembleContextualSystemPrompt } from '../services/context/systemPromptAssembly';
 import type { ImageContextService } from '../services/ImageContextService';
 import type { SessionAccessFacade } from '../services/SessionAccessFacade';
 import type { ModelInputSnapshot } from '../services/RequestSnapshotService';

@@ -27,6 +27,7 @@ import { AIMessageRole } from '@modules/ai';
 import {
   resolvePyappHome,
   resolveDataSubDir,
+  resolveDomainDir,
 } from '@openliri/infra/environment';
 import { globalEventBus } from '@openliri/kernel';
 import { FileRegistry } from '@openliri/service/services/file/FileRegistry';
@@ -223,6 +224,13 @@ export interface CompileOptions {
   lint?: boolean;
   /** 编译时使用的模型名，默认使用 aiService 的默认模型 */
   model?: string;
+  /**
+   * 编译目标域（`~/.pyapp/knowledge/domains/<domain>`）；缺省 ⇒ 全局 knowledge 目录。
+   *
+   * PR #14（2026-11-19 复核合入）：域内编译的读/写根必须一起切换到域目录，
+   * 否则 `raw/` 与产物会落在全局目录（域知识永远编译不到自己那边）。
+   */
+  domain?: string;
 }
 
 export interface CompileResult {
@@ -256,10 +264,11 @@ export interface CompileResult {
  *   自动维护 index.md / log.md，确保知识"积累"而非替换。
  */
 export class KnowledgeCompiler {
-  private knowledgeRoot: string;
-  private rawDir: string;
+  /** 编译根（由 `applyKnowledgeRoot()` 统一赋值：构造器一次 + 每次 `compile({domain})`） */
+  private knowledgeRoot!: string;
+  private rawDir!: string;
   private aiService: AIService;
-  private indexManager: IndexManager;
+  private indexManager!: IndexManager;
   private graphExtractor?: GraphExtractor;
   /**
    * 图谱自动提取互斥（2026-09-02 排查"会话中断"补充）：编译可能被调度器/
@@ -285,12 +294,24 @@ export class KnowledgeCompiler {
     graphExtractor?: GraphExtractor,
     runtime?: { lineage?: LineageStore; version?: number }
   ) {
-    this.knowledgeRoot = join(resolvePyappHome(), 'knowledge');
-    this.rawDir = join(this.knowledgeRoot, 'raw');
     this.aiService = aiService;
     this.graphExtractor = graphExtractor;
     this.lineage = runtime?.lineage;
     this.compileVersion = runtime?.version ?? 1;
+    this.applyKnowledgeRoot();
+  }
+
+  /**
+   * 切换编译根：`domain` 缺省 ⇒ 全局 `~/.pyapp/knowledge`；给定 ⇒ `…/domains/<domain>`。
+   *
+   * 只在这里算一次（构造函数与 `compile({domain})` 共用），避免"默认根"出现第二份表达式。
+   * `indexManager` 跟着根换 —— 它按根读写 `index.md`/`log.md`。
+   */
+  private applyKnowledgeRoot(domain?: string): void {
+    this.knowledgeRoot = domain
+      ? resolveDomainDir(domain)
+      : join(resolvePyappHome(), 'knowledge');
+    this.rawDir = join(this.knowledgeRoot, 'raw');
     this.indexManager = new IndexManager(this.knowledgeRoot);
   }
 
@@ -301,7 +322,9 @@ export class KnowledgeCompiler {
   async compile(options: CompileOptions = {}): Promise<CompileResult> {
     enterPhase('knowledge:compile');
     try {
-      const { force = false, model } = options;
+      const { force = false, model, domain } = options;
+      // PR #14：域内编译 ⇒ 读写根（raw / 产物 / index）一起切到域目录
+      this.applyKnowledgeRoot(domain);
 
       // 编译模型解析：显式通过模型路由（DB 唯一事实来源）解析，
       // 任务类型 knowledge_compile（模型管理 → 任务分工可配置），

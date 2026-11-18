@@ -80,10 +80,15 @@
 | 派生器 | `DerivedMessage.firstEventSeq = agg.firstSeq`（两处 push）；④ 排序 key = `firstEventSeq ?? lastEventSeq ?? timestamp` |
 | 分页 | `withPaginationSeq` 泛型加 `firstEventSeq?`，基准 `firstEventSeq ?? lastEventSeq`，回填**双键同写**；`_paginateMessages` 的 `key` 同源 |
 | 前端 | `Message.firstEventSeq`；`sessionSlice` 三处游标、`loadOlderMessages`、`chat-message-set-messages` 排序主键均改为 `firstEventSeq ?? lastEventSeq` |
+| 读路径补漏（`dd23d1ace`） | `_deriveSessionMessagesFromEvents` 的响应映射原先只复制 `lastEventSeq` ⇒ 前端拿不到首键、游标退回末键。已补 `firstEventSeq` 并在 `DerivedSessionMessages` / `getSessionMessages` 返回类型中如实声明两键 |
 
 验证：派生器/分页新增 3 例（`execution/*` 不参与排序、首末键相反以首键为准、回填双键同写）；
 `bun test tests/session tests/runtime tests/http` 1218 pass / 0 fail；`tsc`（app 三 project）+ client `tsc` 0 错；
 `vitest run src/stores/chat` 24 files passed；`lint:fn-size` / `lint:arch` / `lint:consts` 未增长。
+
+补漏后复验（2026-11-19）：全量 `bun test` **13189 pass / 42 skip / 0 fail**（1576 文件）；
+`tests/runtime + tests/session + tests/http` **1220 pass / 0 fail**（含新增 `sessionMessagesSeqPassthrough` 2 例：
+返回体首/末两键如实、`before=12` 仍含首键 9 的消息）；client `vitest run src/stores/chat` **24 files / 218 pass**。
 
 ---
 

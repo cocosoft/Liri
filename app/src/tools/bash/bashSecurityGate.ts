@@ -24,13 +24,19 @@
  * `tools:bash:securityGate`（**文案与字段不变**）。
  */
 import type { ToolResult } from '../types/ToolResult';
-import { createToolResult } from '../types/ToolResult';
+import {
+  createToolResult,
+  ErrorLevel,
+  ToolExecutionStatus,
+} from '../types/ToolResult';
 import { getLogger } from '@openliri/infra/monitoring';
 import { feature } from '@openliri/kernel';
 import { SandboxSecurityChecker } from '@modules/sandbox';
 import {
   evaluateCommandRules,
   readCommandRulesConfig,
+  isReadViaShellCorrectionEnabled,
+  buildReadViaShellCorrection,
   type ApprovalScope,
   type ApprovalSnapshot,
   type CommandRulesSettings,
@@ -239,6 +245,12 @@ export function checkAstAndAnalyzer(params: {
   approvalSnapshot: ApprovalSnapshot;
   analyzer: CommandAnalyzer;
   /**
+   * B1（2026-11-18）：命令执行目录（作为「工作区内」判定的边界根；缺省 ⇒ 不做纠正）。
+   */
+  cwd?: string;
+  /** B1：会话权限档（仅 `default` 档纠正；缺省按 default） */
+  permissionMode?: string;
+  /**
    * 工作区信任级别（`securityIntegrationService.getTrustLevelForPath(cwd)`）。
    *
    * ⚠️ 分析器的 `analyze(command, trustLevel)` 一直支持该参数，但本门此前只传 `command`
@@ -267,6 +279,8 @@ export function checkAstAndAnalyzer(params: {
     trustLevel,
     commandRules,
     delegatedSinglePowerShell,
+    cwd,
+    permissionMode,
   } = params;
 
   const securityResult = analyzer.analyze(command, trustLevel, {
@@ -364,6 +378,45 @@ export function checkAstAndAnalyzer(params: {
   // S1-2：批准只免"审批交互"——`bypassAsk` 时不再重复弹 ask 卡；
   // 硬拦截（deny/危险命令/白名单/沙箱）无论批准与否都照旧生效。
   if (securityResult.behavior === 'ask' && !bypassAsk) {
+    // B1（2026-11-18）：default 档下「单读类动词 + 单路径」的 shell 调用 ⇒ **直接回纠正提示**，
+    // 不建审批卡（用户裁定：仅 default 档 / 严格最小集 / 仅工作区内 / 默认关灰度）。
+    // 工作区边界取本工具的生效 cwd（保守口径：不把界外路径纠正成死路）。
+    if (
+      cwd &&
+      isReadViaShellCorrectionEnabled() &&
+      (permissionMode ?? 'default') === 'default'
+    ) {
+      const correction = buildReadViaShellCorrection({
+        enabled: true,
+        toolName: 'bash',
+        input: { command, cwd },
+        permissionMode: permissionMode ?? 'default',
+        workspacePath: cwd,
+      });
+      if (correction) {
+        logger.info('bash: read_via_shell_corrected', {
+          commandPreview: command.slice(0, 200),
+          verb: correction.verb,
+          targetTool: correction.tool,
+          cwd,
+        });
+        return createToolResult(correction.message, {
+          status: ToolExecutionStatus.FAILURE,
+          executionTime: 0,
+          error: correction.message,
+          errorLevel: ErrorLevel.RECOVERABLE,
+          failureKind: 'tool_error',
+          newMessages: [
+            { role: 'system', content: `Error: ${correction.message}` },
+          ],
+          metadata: {
+            reason: correction.reasonCode,
+            targetTool: correction.tool,
+            verb: correction.verb,
+          },
+        });
+      }
+    }
     // P0-1（2026-10-27，权限归一化）：**必须**带 `requireApproval: true`。
     // 此前只返回文本 ⇒ `ToolExecutionService` 不认它是"待审批"，工具结果落成
     // `status:'success'` 且 `pendingApproval:false`（实测 2026-10-27 07:09:31Z

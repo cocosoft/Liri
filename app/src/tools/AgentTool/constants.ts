@@ -34,11 +34,6 @@ export const ONE_SHOT_BUILTIN_AGENT_TYPES: ReadonlySet<string> = new Set([
 export const AGENT_SEARCH_HINT = 'create agent task subagent';
 
 /**
- * Agent描述
- */
-export const AGENT_DESCRIPTION = `创建一个专用子代理来执行特定任务。该代理将拥有自己的上下文，并可独立使用工具。`;
-
-/**
  * 内置Agent定义
  */
 export const BUILTIN_AGENTS = {

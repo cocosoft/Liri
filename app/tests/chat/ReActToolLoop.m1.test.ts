@@ -158,6 +158,35 @@ describe('ReActToolLoop M1 细化', () => {
     expect(executed.some((e) => e.name === 'read')).toBe(true);
   });
 
+  // 2026-11-18（真机 `session_mwkthat73b80a6724f`）：只出思考的轮次里，提供方在**响应体**
+  // 里回填的 `content` 曾被当成可见正文落盘（事件侧 0 条 text / 45 条 thinking，content 却是
+  // 6553 字纯推理）。此处锁死：有 thinking 分片、零 text 分片 ⇒ 不生成正文。
+  it('F4：流式「只出思考」轮次 ⇒ 响应体 content 不得当可见正文', async () => {
+    const reasoning = '我先想一下：用户问的是运行状态。';
+    const { ctx } = makeCtx({
+      activeClient: {
+        streamMessage: async function* (): AsyncGenerator<
+          string | { type: 'thinking'; content: string },
+          ChatResponse
+        > {
+          yield { type: 'thinking', content: reasoning };
+          return { content: reasoning, stop_reason: 'stop' } as ChatResponse;
+        },
+        sendMessage: async () =>
+          ({ content: '', stop_reason: 'stop' }) as ChatResponse,
+        getProviderId: () => 'mock',
+      } as never,
+    });
+    const input = makeInput({ nonStreaming: false });
+    const loop = new ReActToolLoop(ctx, input, { maxIterations: 1 });
+    for await (const _e of loop.run(input)) {
+      /* consume */
+    }
+    expect(loop.getAssistantMessage()?.content ?? '').not.toContain(
+      '我先想一下'
+    );
+  });
+
   it('交互恢复：requiresUserInteraction 工具等待答案后执行', async () => {
     const { ctx, executed } = makeCtx({
       llmSequence: [

@@ -391,7 +391,30 @@ export class StreamingLlm {
     const thinkResidual = thinkScrubber.flush();
     if (thinkResidual) textChunks.push(thinkResidual);
     const final = next.value as ChatResponse;
-    const rawContent = final.content ?? textChunks.join('');
+    /**
+     * F4（2026-11-18，真机 `session_mwkthat73b80a6724f`）：**只出思考的轮次不得把 body 里的
+     * `content` 当可见正文**。
+     *
+     * 事实：该会话两条 assistant 消息事件侧 **0 条 `assistant/text`**、却有 45 条
+     * `assistant/thinking`（合计 6726 字），而落盘 `content` = 6553 字**纯推理**（前端据此
+     * 还写出了一条 6553 字的 `text` block）⇒ 用户/下一轮都把它当"已写出的答复"。
+     *
+     * 判据（结构化的分片计数，不比对文案）：本轮 **有 thinking 分片、却零 text 分片** ⇒
+     * 最终响应体里的 `content` 不是流式正文（正文必然伴随 text 分片），不得据它生成正文。
+     * 这类轮次此后按既有「空正文」路径收尾（兜底文案 / `emptyOutputFallback` 标记），
+     * 既不把推理当答复，也不会误触发长任务升级（BUG-A 同源）。
+     */
+    const reasoningOnly = textChunkCount === 0 && thinkingChunkCount > 0;
+    if (reasoningOnly && (final.content ?? '').trim()) {
+      logger.warn('reactToolLoop:reasoning_only_content_ignored', {
+        sessionId: this.deps.getCtx().session.id,
+        responseContentLength: (final.content ?? '').length,
+        thinkingChunkCount,
+      });
+    }
+    const rawContent = reasoningOnly
+      ? ''
+      : (final.content ?? textChunks.join(''));
 
     // 清洗链：think 标签修复 → 图片修复 → strip think → scrubber → orphan 标签
     const repairedContent = ensureThinkResponseTags(

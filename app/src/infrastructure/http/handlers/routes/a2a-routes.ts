@@ -101,7 +101,12 @@ const RETRY_AFTER_SECONDS = 5;
  */
 export type A2ADelegator = (
   message: string,
-  agentId?: string
+  agentId?: string,
+  /**
+   * D5（2026-11-18）：任务上下文。后端据此登记 `taskId → sessionId`，
+   * 供不确定性产出方在任务完成时取该会话的验证器结果。缺省 ⇒ 不登记（行为不变）。
+   */
+  ctx?: { taskId: string }
 ) => Promise<string>;
 
 let delegator: A2ADelegator | null = null;
@@ -488,7 +493,12 @@ export async function runDelegation(
   // （如日预算撞限）原先会直接冒泡 ⇒ REST 变通用 500、JSON-RPC 变异常，且"晚失败"分支还会让任务
   // **永久停在 WORKING**（调用方既拿不到码也拿不到出路）。现统一收敛为**结构化终态**：
   // `TASK_STATE_FAILED` + 把"原因 + 出路"作为任务消息透出（协议面无 UI）。
-  const pending = (delegator as A2ADelegator)(message, agentId).then(
+  const pending = (delegator as A2ADelegator)(
+    message,
+    agentId,
+    // D5：把 taskId 交给后端（后端登记 taskId → sessionId，供不确定性产出方取值）
+    { taskId: task.id }
+  ).then(
     (value) => ({ kind: 'done' as const, value }),
     (error: unknown) => {
       const guidance = error instanceof Error ? error.message : String(error);

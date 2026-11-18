@@ -1,7 +1,9 @@
 # A2A / ACP 载荷：不确定性与推理轨迹（D5）—— 协议 spec
 
 > **状态**：✅ 一期已实现（2026-11-14）：契约/归一化/协商/ACP 透传/A2A 注入缝均已落地并有 12 条回归；
-> **产出方（provider）尚未接线**（缺省 `null` ⇒ 生产环境不写任何 `liri.*` 字段，见 §7）。
+> ✅ **产出方已接线（2026-11-18，默认关）**：开关 `A2A_UNCERTAINTY_VERIFIER=true` ⇒ 用
+> `VerifierAgent` 的「每会话最新结果」产出 `score = 1 - confidence`（`method='verifier'`）；
+> 关 ⇒ 维持 `null`（生产环境不写任何 `liri.*` 字段）。见 §7。
 > **来源**：`dev_docs/20261113/建议落地方案-20261114.md` §2 波段二 **D5**。
 > **关联规则**：GR02（同一语义只一套实现）、CS02（状态判定不用文案）、CS04（不造假数据）、
 > §1.6（模型可见输入必须落盘）、R02（不新建事件类型/存储）。
@@ -113,9 +115,13 @@ interface LiriTraceStep {
 
 ## 7. 未做 / 风险（如实）
 
-- **产出方未接线（关键）**：A2A 侧通过 `setA2AUncertaintyProvider()` 注入真实信号；
-  当前**没有任何装配点注入** ⇒ 生产响应恒不含 `liri.*`（符合 CS04：不造假）。
-  接入方式：在委派执行完成处（`ChatManager` 自评 / `VerifierAgent` 结果）调用该 setter；
+- ~~**产出方未接线（关键）**~~ → **2026-11-18 已接线（默认关）**：
+  `installA2ADelegator()` 在 `A2A_UNCERTAINTY_VERIFIER=true` 时安装
+  `createVerifierUncertaintyProvider()`；链路 = 委派登记 `taskId → sessionId`
+  → 验证器写 infra 投影「每会话最新结果」→ 任务完成时 `score = 1 - confidence`（`method='verifier'`）。
+  无记录 / `confidence` 非有限或越界 ⇒ 返回 `null`（**不发字段**，符合 CS04）。
+  未开开关 ⇒ 维持 `null`（生产响应恒不含 `liri.*`）；
+  **遗留**：进程内投影，重启后不补发；超阈值异步收尾路径不注入；`trace` 本次不发（无脱敏函数）。
 - **A2A 任务级汇总**：`lastUncertaintyFromMessages()` 已提供（纯函数），但"消息级写入 + 任务级汇总"
   需随产出方一起接线；`GET /v1/a2a/tasks/{id}` 的持久化 metadata 依赖端口存储合并（当前未做）；
 - **不保证置信度准确**：`self_report` 可能过自信；因此 `method` 必填、消费方据此决定是否复核；
@@ -134,3 +140,13 @@ interface LiriTraceStep {
 | `app/src/infrastructure/http/handlers/routes/a2a-routes.ts` | `setA2AUncertaintyProvider` 注入缝；`runDelegation(..., acceptUncertainty)` 仅在协商 + 有信号时合并 metadata；REST 读 `X-Liri-Uncertainty` |
 | `a2a-rpc-contract.ts` / `a2a-rpc.ts` | `A2ARpcDeps.acceptUncertainty?`，`SendMessage` 与 REST 共用同一协商结果 |
 | `app/tests/types/uncertainty.test.ts` | 12 例：归一化边界 / 合并 / 协商 / ACP 透传 / A2A 注入（含"未协商、无产出方、越界值 ⇒ 无键"） |
+
+### 8.1 产出方接线（2026-11-18，默认关）
+
+| 落点 | 内容 |
+|---|---|
+| `packages/infra/src/system/state/verifierLatestResults.ts` | 「每会话最新验证结果」infra 只读投影（`LRUCache(200)`；写方 query、读方 service ⇒ 放 infra 才不反向依赖） |
+| `packages/query/src/query/VerifierAgent.ts` / `taor/verifierMetrics.ts` | `recordVerifierResult` 增 `confidence` / `checkPassRate`，并写入上述投影（验证器未启用时**不记录** ⇒ 无信号） |
+| `app/src/infrastructure/http/handlers/routes/a2a-uncertainty.ts` | 开关 `A2A_UNCERTAINTY_VERIFIER` / `taskId→sessionId` 有界索引 / 纯映射 `score = 1 - confidence`、`method='verifier'` |
+| `a2a-routes.ts` / `a2a-delegator.ts` | `A2ADelegator` 增可选 `ctx:{taskId}`（登记映射）；`installA2ADelegator()` 按开关安装 provider |
+| `app/tests/http/a2aUncertainty.test.ts` + `app/tests/query/verifierLatestPerSession.test.ts` | 15 例：映射边界 / 索引 / provider / 开关默认关 / 委派登记（缺省 ctx 不登记） |

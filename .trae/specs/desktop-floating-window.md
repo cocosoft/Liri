@@ -92,9 +92,17 @@
   ② **crates.io 不可达** —— `cargo generate-lockfile` 反复 `Timeout ... index.crates.io`（含放宽
   `CARGO_HTTP_TIMEOUT` / 关闭沙箱重试），故 `Cargo.lock` 仍缺 `tauri-plugin-global-shortcut`
   （`Cargo.toml:25` 已声明、`Cargo.lock` 无条目）。
-  **出路（二选一）**：a) 为 `rustc`/build script 产物放行应用控制，或 b) 在 CI（Linux）加
-  `client/src-tauri` 的 `cargo check` 作业（需 `libwebkit2gtk-4.1-dev` / `libgtk-3-dev` 等系统依赖）
-  或本机配 crates 镜像。**未做**：不擅自改本机 cargo 镜像配置、不在未验证的情况下新增 CI 作业。
+  **已做的规避（2026-11-18）**：新增 CI 作业 `cargo-check-tauri`（`.github/workflows/ci.yml`），
+  在 Ubuntu 上跑 `client/src-tauri` 的 `cargo check` —— **绕开本机执行策略**。
+  **当前状态：✅ 通过**（`bd463b301`，#2121）：说明 `lib.rs` 的全局快捷键接线与
+  `tauri-plugin-global-shortcut` 依赖**确实可编译**（CI 侧已解析该依赖）。
+  排障过程（可复用）：① 失败在 `tauri_build::build()`；② 真错误 = `resource path
+  ../../dist/node_modules doesn't exist`；③ 路径基准坑 —— `tauri.conf.json` 在
+  `client/src-tauri/`，`bundle.resources` 的 `../../dist/**` 指向**仓库根** `dist/`，
+  而 `frontendDist: ../dist` 指向 `client/dist`，**两处都要造占位**。
+  **未做**：仓库内 `Cargo.lock` 仍缺该插件条目（CI 在容器内自行解析，不回写）；
+  若要在本机固化，需在 crates 可达的环境跑一次 `cargo generate-lockfile`。
+  作业暂保持**非阻断**，连续数次绿后再收紧为门禁。
 - 仍**不做**：快捷键用户可配置、内容增强（当前会话 / 运行中目标）、点击穿透（位置记忆与多显示器校正**已由 §8 补齐**）。
 
 ## 8. 四期已交付（窗口体验：几何记忆 + 多显示器边界校正）

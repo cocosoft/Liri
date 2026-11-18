@@ -63,18 +63,18 @@
 | 定价事实源（表） | `ModelPricingService` 建表 `model_registry`：`app/src/ai/models/ModelPricingService.ts:256-281`；价格列 `input_price/output_price/cache_read_price/cache_write_price/cost_multiplier` `:267-271` |
 | 按模型一行价 | `rowToRecord()` `app/src/ai/models/ModelPricingService.ts:162-185`（含 `inputCostPerMillion` 等） |
 | SPI 合成（供 cost 层取价） | `app/src/entrypoints/spiWiring.ts:247-263`（`getModelPricing` 投影 `inputPer1M/outputPer1M/cache*/timeBasedPricing/canonicalName`） |
-| 成本层取价入口 | `getModelPricing(model)` `app/src/cost/ModelPricing.ts:133-155`（经 `resolveAiAccess().getModelPricing()` `:64`） |
-| 换算计算（**零依赖 core**） | `calculateCost()` / `calculateTotalCost()` `app/src/core/pricing.ts:117-227`（缓存读=in×0.1 / 写=in×1.25 启发式兜底 `:148-157`） |
-| 分时价 | `resolveTimeBasedPricing()` `app/src/cost/ModelPricing.ts:33-50`（在 `getPricingFromRegistry()` `:76-84` 内生效） |
-| 未知模型兜底价 | `getModelPricing()` 回落 `$3/M in、$15/M out` `app/src/cost/ModelPricing.ts:146-154`（并置 `hasUnknownModelCost`） |
+| 成本层取价入口 | `getModelPricing(model)` `packages/infra/src/cost/ModelPricing.ts:71`（经 `resolveAiAccess().getModelPricing()`） |
+| 换算计算（**零依赖 core**） | `calculateCost()` `packages/kernel/src/core/pricing.ts:150-233` / `calculateTotalCost()` `:238-260`（缓存读=in×0.1 / 写=in×1.25 启发式兜底 `:334-345`） |
+| 分时价 | `resolveTimeBasedPricing()` `packages/kernel/src/core/pricing.ts:59-76`（`packages/infra/src/cost/ModelPricing.ts:28` 转出，在 `getPricingFromRegistry()` `:40` 内生效） |
+| 未知模型兜底价 | `getModelPricing()` 回落 `$3/M in、$15/M out` `packages/infra/src/cost/ModelPricing.ts:84-87`（并置 `hasUnknownModelCost`） |
 | **既有换算先例（可复用形态）** | `StreamPipeline.notifyUsage()` `app/src/chat/pipeline/StreamPipeline.ts:707-724`：`calculateTotalCost(getModelPricing(priceModel), inputTokens, outputTokens, cacheCreation, cacheRead)` |
 | 官方价表分组（**非**独立计价维度） | `app/src/ai/config/official-pricing.ts`（存在；按 provider 分组逐模型 upsert） |
 
-> **2026-10-13（S1「换算内核」落地）取证位移**：本表「分时价」「未知模型兜底价」两行的 `file:line` 已随 S1 下沉而变 ——
-> `resolveTimeBasedPricing` 现定义于 `app/src/core/pricing.ts:59-76`（`cost/ModelPricing.ts` 处**原样转出**）；
-> 注册表定价投影 `projectRegistryPricing` 下沉 `app/src/core/pricing.ts:309-350`（`cost/ModelPricing.ts` 的 `getPricingFromRegistry` 改为**委托**）；
-> 兜底价常量化 `DEFAULT_MODEL_PRICING` `app/src/core/pricing.ts:277-283`（cost 处引用，值与结构不变）；
-> `calculateCost`/`calculateTotalCost` 仍在 `core/pricing.ts`（行号因新增函数整体下移）。
+> **2026-10-13（S1「换算内核」落地）取证位移**（**2026-11-18 路径订正**：物理包化后 `app/src/core/**` → `packages/kernel/src/core/**`，cost 层 → `packages/infra/src/cost/**`）：
+> `resolveTimeBasedPricing` 现定义于 `packages/kernel/src/core/pricing.ts:59-76`（`packages/infra/src/cost/ModelPricing.ts:28` **原样转出**）；
+> 注册表定价投影 `projectRegistryPricing` 下沉 `packages/kernel/src/core/pricing.ts:309-350`（`packages/infra/src/cost/ModelPricing.ts` 的 `getPricingFromRegistry`（`:40`）改为**委托**）；
+> 兜底价常量化 `DEFAULT_MODEL_PRICING` `packages/kernel/src/core/pricing.ts:277-283`（cost 处引用，值与结构不变）；
+> `calculateCost`/`calculateTotalCost` 仍在 `packages/kernel/src/core/pricing.ts`（行号因新增函数整体下移）。
 > 关联切片取证见 §11-S1/S2 与 `.trae/specs/unified-budget-and-accounting-裁定建议-20261013.md`。
 
 ### 1.4 USD 预算现状取证：**只统计、未硬拦、无配置面**
@@ -353,7 +353,7 @@
 | # | 切片 | 独立提交 | 风险 | 涉足文件（预估） |
 |---|---|---|---|---|
 | **S0** | **欠账累加点根因修复**（§1.6）：`_consumeWaiverOnce` 消费时按真实值累加 `debtTokens`（暂仍 token 单位，为 D4 铺路）+ 往返测试 | ✅ | 改动既有预算语义 ⇒ 回归 `daily-budget-*` 必须绿 | `app/src/query/DailyBudgetManager.ts` · `app/tests/query/**` |
-| **S1** | **换算内核**（core 纯函数）：`core/pricing.ts` 暴露"给定 `ModelPricing`+tokens ⇒ 金额"的便捷入口（复用 `calculateTotalCost`）；**不引依赖** | ✅ | 低（纯函数） | `app/src/core/pricing.ts` · `app/tests/core/**` |
+| **S1** | **换算内核**（core 纯函数）：`core/pricing.ts` 暴露"给定 `ModelPricing`+tokens ⇒ 金额"的便捷入口（复用 `calculateTotalCost`）；**不引依赖** | ✅ | 低（纯函数） | `packages/kernel/src/core/pricing.ts` · `packages/kernel/tests/pricing.test.ts` |
 | **S2** | **取价接入 query**：经 `@modules/core/spi` 的 `resolveAiAccess().getModelPricing()` 取价（core SPI），封装到 query 侧换算适配器；**不 import `@modules/cost`** | ✅ | 中（分层/初始化顺序：SPI 未装配时的兜底） | `app/src/query/**`（新增适配器）· `app/src/core/spi/**`（如需导出） |
 | **S3** | **闸门切金额**（受开关）：`checkDailyBudget`/`_computeState`/`getSnapshot().unit` → USD；`FEATURE_USD_BUDGET_GATE`（默认关）+ 双读对照日志 | ✅ | **高**（改硬闸门判定）⇒ 先红后绿 + 双读对照 + 门禁全绿 | `app/src/query/dailyBudgetGate.ts` · `DailyBudgetManager.ts` · `dailyBudgetSnapshot.ts` · `preSendContextProtection.ts` · `core/featureFlags.ts` |
 | **S4** | **`waive-once` 事务预检**（D4）：查价→预估→reserve 到 pending debt（金额）+ 结算多退少补 | ✅ | 中高（与放行/续跑联调） | `app/src/chat/orchestrator/preSendContextProtection.ts` · `query/DailyBudgetManager.ts` · `chat/orchestrator/**` |

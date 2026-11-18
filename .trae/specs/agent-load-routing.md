@@ -23,7 +23,7 @@
 |---|---|
 | `app/src/agent/routing/loadAwareRouting.ts` 🆕 | 纯函数 `rankAgentsByLoad`（在跑数升序 → 优先级降序；**稳定** ⇒ 全零负载与入参逐条一致）+ 容量过滤（`maxInFlightPerAgent`，饱和者移入 `atCapacity`）；负载聚合 `collectAgentLoads`（按 id）/ `collectLoadsByType`（适配 `AgentRunView.type`） |
 | `AgentRegistry.assignAgentsByGraph(targets, sessionId?, options?)` | ➕ `AssignByGraphOptions { routeByLoad?, loads?, maxInFlightPerAgent? }`；**不传 ⇒ 与改动前逐字一致**；传 `routeByLoad: true` 才按负载选人，并在结果里如实给出 `atCapacity` |
-| `app/tests/agent/loadAwareRouting.test.ts` 🆕 | 16 条（含"零行为变更"与"候选池仍为 discoverAgents 原始顺序"） |
+| `app/tests/agent/loadAwareRouting.test.ts` 🆕 | 9 条（含"零行为变更"与"候选池仍为 discoverAgents 原始顺序"；2026-11-18 订正原「16 条」） |
 
 **为什么不做默认开**：把负载序设为默认会改变 `assignAgentsByGraph` 的选出结果与既有
 "候选池逐条一致"契约（有测试固化），而该方法当前无生产调用 ⇒ 收益为零、回归风险非零。

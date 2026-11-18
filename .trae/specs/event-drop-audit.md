@@ -29,10 +29,10 @@
 | D3 | `EventLogStorage.ts:790-793` + `recordAppendFailure` L1024–L1068 | 写盘失败 | 是 | `handleError(AppError HIGH)` + 熔断 + `reconcileDrain` 暂停对账；节流窗口内仅 `debug` | 可接受（已具观测链） |
 | D4 | `EventLogStorage.ts:710-716` | 会话目录已被删除，主动放弃 | 是（有意） | 无告警（有意） | 合法（TB-14/E1-a） |
 | D5 | 33 处 `appendStreamEvent` 实际调用点 | 仅 6 处取返回值（`streamMessageFlow:411/446/1392`、`streamMessageToolLoop:272`、`streamResume:407/575`）；1 处显式 `void`（`usageAccounting:189`）；其余 26 处裸 `await`/不 await | 放大 D1/D2 | 调用方无从得知 | **缺陷（放大面）** |
-| D6 | `EventLogStorage.ts:574-580` + `thinkingBuffer.absorb` | 缓冲正文 / 相邻 thinking 合并 | 不丢，但**合并**（请求的每条事件不一定成行） | `debug` | 合法，但**未登记**为允许形态 |
+| D6 | `EventLogStorage.ts:574-580` + `thinkingBuffer.absorb` | 缓冲正文 / 相邻 thinking 合并 | 不丢，但**合并**（请求的每条事件不一定成行） | `debug` | 合法（**已登记**：F3 → `project_rules §1.6`） |
 | D7 | 同上 §1 | 头部注释 + `duplicate-seq` 死条件 | — | 误导后续维护者（本次即因此差点重复实现门禁） | **缺陷（文档失真）** |
 | D8 | `EventLogStorage.ts:1086-1116` + `MessageToEventMigrator.ts:257-274` | `appendBatch` 部分拒绝 | 由调用方判定 | migrator 已 `logger.error` + 清理半成品 | 合法 |
-| D9 | `client/src` 事件回放 | 未穷尽（`getStreamMaxTurn` 注释提到历史「重复回放整块丢弃」） | 待查 | 待查 | **未覆盖**（见 §4） |
+| D9 | `client/src` 事件回放 | 已审计（2026-11-18，见 §4） | 1 处主动丢弃（分页边界残片） | `logger.info` 带 count/toolCallIds，且加载上一页可恢复 | **合法（已登记）** |
 
 ## §3 处置与落地状态（2026-11-15）
 
@@ -49,7 +49,8 @@
   类型一旦收窄，残留比较会直接编译失败（防回流）。
 - **F2（D5）未做**：模型可见输入在 `ok === false` 时统一升级告警需先定「哪些类型算模型可见」的口径，
   留给下一档。
-- **F3（D6）未做**：「缓冲合并 ≠ 丢弃」尚未写进 `project_rules.md` §1.6。
+- **F3（D6）已实施（2026-11-18）**：「缓冲合并 ≠ 丢弃」已写进
+  `project_rules.md` §1.6 的「模型可见 ⇔ 已落盘」红线（允许合并，但必须仍可从 `events.jsonl` 重建）。
 
 ### 未加回归用例（如实）
 
@@ -57,8 +58,20 @@
 （grep `mock.module('@openliri/infra/error')` 命中 0），为此新建一套 mock 基建属过度工程 ⇒
 本次以「返回契约不变（`ok:false` + `reason:'invalid-event'`）」+ typecheck 作为验收，观测面待真机日志复核。
 
-## §4 如实边界（未覆盖）
+## §4 客户端回放侧（D9，2026-11-18 补审）
 
-- 客户端回放侧的丢弃判定（D9）**未审计**：需另查 `client/src` 的事件归约与分页合并路径。
+审计范围：`client/src/services/chatService.ts`（主链路 / resume / attach）与 `client/src/stores/chat/chat-message-set-messages.ts`（历史落位）。逐点判定：
+
+| 位置 | 行为 | 是否丢弃 | 观测性 | 判定 |
+|---|---|---|---|---|
+| `chat-message-set-messages.ts` N-48（`isPageBoundaryArtifact`） | 分页窗口从一轮中间开始 ⇒ 页内首条 user 之前的工具结果被丢弃 | 是（主动） | `logger.info` 带 `count` + `toolCallIds` | **合法**：这些 `tool_call` 在上一页，加载上一页即恢复；保留它们反而造成"孤儿工具结果"重复渲染 |
+| 同上 Phase 2「完全重复的 assistant 消息合并」 | 同 id/同内容的重复投影合并 | 否（合并） | 统计日志 | 合法（对应 §2-D6 的合并形态） |
+| `chatService.attachStream` | 后端 409 `cursor_gap` ⇒ 抛结构化失败，调用方刷新为落盘内容 | 是（显式降级） | 用户可见文案 `chat.attachFailureCursorGap` + `logger.info` | 合法：漏过的输出已超出可回放窗口，刷新后以 `events.jsonl` 派生消息为准 |
+| `chatService` resume 回放 | 复用与主链路一致的 SSE 边界解析（M8），逐事件 `parseSseChunk` | 否 | `resume:start` / `resume:done`（含 `eventCount`） | 合法 |
+
+**结论**：客户端回放侧**未发现"无观测的静默丢弃"**；唯一主动丢弃（N-48 边界残片）有 info 日志、且可由上一页恢复 ⇒ 登记为允许形态。
+
+**如实边界**：本次为静态审计，未对真实会话统计边界残片的实际频次；`ChatInspector` 的 Inspector 回放（`LogTab`/时间线）未纳入（其数据源同为已落盘事件，无二次过滤分支）。
+
 - 非会话事件写入者（渠道 / 任务 / 工作流事件各自的事件表）未纳入本次范围。
 - 本审计为静态判定：`invalid-event` 在真实运行中的发生频次**未有实测数据**（`events.jsonl` 中不存在「被拒绝」痕迹，故无法从数据反推）。

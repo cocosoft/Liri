@@ -444,7 +444,15 @@ async function enrichWithUncertainty(
       uncertainty,
       trace,
     });
-    return metadata === task.metadata ? task : { ...task, metadata };
+    if (metadata === task.metadata) return task;
+    // spec §6-#6：每条真正带 `liri.*` 的响应都要可审计（只记 score/method/条数，不记原文）
+    logger.info('a2a.uncertainty.exposed', {
+      taskId: task.id,
+      score: uncertainty?.score ?? null,
+      method: uncertainty?.method ?? null,
+      traceSteps: trace.length,
+    });
+    return { ...task, metadata };
   } catch (error) {
     // 信号是**增强**：注入失败只告警，不影响委派结果
     logger.warning('A2A 不确定性注入失败（不影响响应）', {

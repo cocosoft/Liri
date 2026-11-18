@@ -108,6 +108,9 @@ interface LiriTraceStep {
 | 5 | ACP 未协商 | `done` 事件无 `_meta`；`supportsUncertainty` 未设置 |
 | 6 | 审计 | 每条带 `liri.*` 的响应在日志中记 `a2a.uncertainty.exposed`（含 score/method，不含原文） |
 
+> **2026-11-18 补**：用例 6 的审计日志已落地（`a2a-routes.ts#enrichWithUncertainty`，
+> 仅在 metadata 真正被改写时记 `a2a.uncertainty.exposed`，字段 = `taskId` / `score` / `method` / `traceSteps`，不含原文）。
+
 ## 7. 未做 / 风险（如实）
 
 - **产出方未接线（关键）**：A2A 侧通过 `setA2AUncertaintyProvider()` 注入真实信号；

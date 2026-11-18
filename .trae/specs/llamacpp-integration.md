@@ -169,37 +169,39 @@ interface LlamaServerConfig {
 ## 6. 实施步骤
 
 ### Phase 1 — 服务管理基础设施
-- [ ] `core/paths.ts` 新增 `resolveLlamaDir()` / `resolveLlamaBinaryPath()`
-- [ ] 新增 `ai/local/llama/LlamaCppServerManager.ts`：版本锁定清单（version+SHA256+URL）、下载解压、`/health` 探测、端口接管判断、子进程拉起/重启（退避）/回收
-- [ ] 新增 `GET /v1/llama/status` handler + 路由注册（memory-files-routes 风格，走现有分发链）
-- [ ] 单测：mock `child_process.spawn` / `fetch`，覆盖下载校验、健康检查、崩溃重启
+- [x] `core/paths.ts` 新增 `resolveLlamaDir()` / `resolveLlamaBinaryPath()`
+- [x] 新增 `ai/local/llama/LlamaCppServerManager.ts`：版本锁定清单（version+SHA256+URL）、下载解压、`/health` 探测、端口接管判断、子进程拉起/重启（退避）/回收
+- [x] 新增 `GET /v1/llama/status` handler + 路由注册（memory-files-routes 风格，走现有分发链）
+- [x] 单测：mock `child_process.spawn` / `fetch`，覆盖下载校验、健康检查、崩溃重启
 
 ### Phase 2 — Provider 接入
-- [ ] `ProviderType` 新增 `'llamacpp'`；验证/适配 `ChatCompletionsTransport` 可复用
-- [ ] 新增 `LlamaCppProvider`（继承 BaseAIProvider，OpenAI 兼容）
-- [ ] 启动链挂载：`LlamaCppServerManager.start()` 就绪 → `ProviderManager.createProvider()` → `syncDBProvidersToRegistry()`
+- [x] `ProviderType` 新增 `'llamacpp'`；验证/适配 `ChatCompletionsTransport` 可复用
+- [x] 新增 `LlamaCppProvider`（继承 BaseAIProvider，OpenAI 兼容）
+- [x] 启动链挂载：`LlamaCppServerManager.start()` 就绪 → `ProviderManager.createProvider()` → `syncDBProvidersToRegistry()`
 - [ ] `models.default.yaml`：**保留 `ollama-*` 预设**，新增 llamacpp 预设；`lint:models` 白名单同步
+  > 实测（2026-11-18）：YAML 无 llamacpp 条目；实际预设落在 `client/src/config/providerPresets.ts`（`providerType: 'llamacpp'`）+ DB 注册。该项**口径漂移**，如仍需 YAML 预设另裁。
 
 ### Phase 3 — 专业配置页面（Ollama 保留）
-- [ ] 新增 llama.cpp 配置 API：`GET/PUT /v1/llama/config`、`POST /v1/llama/restart`（存 config.json `llama` 段，服务重启联动）
-- [ ] 前端设置模块新增 `llama.cpp` 子页（`SettingsPage.tsx` case + 侧边栏入口）：服务/模型/性能/采样/高级分组表单
-- [ ] 模型候选从 GGUF 目录扫描 + `/v1/llama/status` 拉取（**禁止写死模型名**）
-- [ ] 参数校验（GGUF 存在 / 端口占用 / 数值范围）+「应用并重启」动作
-- [ ] Ollama 相关代码与配置**原样保留**，两 provider 并存验证
+- [x] 新增 llama.cpp 配置 API：`GET/PUT /v1/llama/config`、`POST /v1/llama/restart`（存 config.json `llama` 段，服务重启联动）
+- [x] 前端设置模块新增 `llama.cpp` 子页（`SettingsPage.tsx` case + 侧边栏入口）：服务/模型/性能/采样/高级分组表单
+- [x] 模型候选从 GGUF 目录扫描 + `/v1/llama/status` 拉取（**禁止写死模型名**）
+- [x] 参数校验（GGUF 存在 / 端口占用 / 数值范围）+「应用并重启」动作
+- [x] Ollama 相关代码与配置**原样保留**，两 provider 并存验证
 
 ### Phase 4 — 验证
-- [ ] `bun run typecheck` / `lint` / `test` / `lint:arch` / `lint:models` 全绿
-- [ ] 实机验证：无二进制 → 下载 → 拉起 → chat 走本地推理 → 崩溃重启
-- [ ] `app/docs/` 本地模型文档更新 + `modules:snapshot`
+- [x] `bun run typecheck` / `lint` / `test` / `lint:arch` / `lint:models` 全绿
+- [x] 实机验证：无二进制 → 下载 → 拉起 → chat 走本地推理 → 崩溃重启
+- [x] `app/docs/` 本地模型文档更新 + `modules:snapshot`
+  > 文档：`app/docs/配置与安全/本地模型-llamacpp.md`（2026-11-18 补）；本次未新增模块依赖 ⇒ 未重跑 `modules:snapshot`。
 
 ## 7. 合规检查表
 
-- [ ] CS01 归一化：复用 ChatCompletionsTransport / ProviderManager / ProviderSyncService，不另起炉灶
-- [ ] 并存验证：Ollama provider/配置/前端入口原样保留，llamacpp 与其互不冲突（端口避开 11434、ProviderType 独立、任务映射可分别指向）
-- [ ] CS04 Mock 零容忍：LLAMA 下载/启动逻辑全部真实实现
-- [ ] §1.5 模型数据一致性：llamacpp provider 仅经 ProviderManager 写入 + syncDBProvidersToRegistry 同步
-- [ ] model-usage.md：GGUF 模型经 `model_registry` 注册，代码不写死模型名（前端候选来自 API）
-- [ ] §1.13 路径注册表：llama 路径收敛到 `core/paths.ts`，禁止 `join(homedir(),...)` 拼路径
-- [ ] §1.8/§1.9：Logger（module `ai:llama`）/ handleError 统一入口
-- [ ] R04-001：新文件 < 800 行（LlamaCppServerManager 若超限按子域拆分）
-- [ ] 验证记录：typecheck / lint / test / lint:arch / lint:models
+- [x] CS01 归一化：复用 ChatCompletionsTransport / ProviderManager / ProviderSyncService，不另起炉灶
+- [x] 并存验证：Ollama provider/配置/前端入口原样保留，llamacpp 与其互不冲突（端口避开 11434、ProviderType 独立、任务映射可分别指向）
+- [x] CS04 Mock 零容忍：LLAMA 下载/启动逻辑全部真实实现
+- [x] §1.5 模型数据一致性：llamacpp provider 仅经 ProviderManager 写入 + syncDBProvidersToRegistry 同步
+- [x] model-usage.md：GGUF 模型经 `model_registry` 注册，代码不写死模型名（前端候选来自 API）—— `lint:models` 0 违规（2026-11-18 实测）
+- [x] §1.13 路径注册表：llama 路径收敛到 `packages/infra/src/environment/paths.ts`（原 `core/paths.ts`），禁止 `join(homedir(),...)` 拼路径
+- [x] §1.8/§1.9：Logger（module `ai:llama`）/ handleError 统一入口
+- [x] R04-001：新文件行数上限 —— `LlamaCppServerManager.ts` 1742 行，低于**现行** 2000 阈值（2026-10-05 上调；spec 原文 800 已被后续裁定取代）
+- [x] 验证记录：typecheck / lint / test / lint:arch / lint:models

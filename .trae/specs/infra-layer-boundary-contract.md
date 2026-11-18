@@ -93,6 +93,10 @@ infra 禁止依赖：entry、ui、app、service
 
 - 事实源描述为"auth/i18n/state/theme 基础能力"聚合 —— 聚合容器容易演变成**隐形的编排层**。
 - 待办：逐项确认真实消费者；若只是再导出，应收敛为 `index.ts` barrel 或拆回各自模块。
+- **2026-11-18 复核（已完成该待办）**：四个子域**均有真实生产消费者**，且各自已是独立子目录 + 子 barrel：
+  `auth`（`commands/login/login.ts`、CLI handler）、`i18n`（`PromptAssembler`、`ToolRegistry`、`PDFTool`、`DocGenerateTool`、`app/scripts/i18n-snapshot.ts`）、
+  `state`（`bootstrap/state.ts`、`MigrateCommand`、`BridgeStateStore`）、`theme`（`ui/theme/*`、`commands/builtin/theme/Theme.ts`、`packages/docs/HelpSystem`）。
+  ⇒ **不是"仅再导出"的假容器**，维持现状；后续若出现跨子域编排代码再按 §7「infra → app」上移。
 
 ### 6.5 `lsp`（infra，零消费者）
 

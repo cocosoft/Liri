@@ -692,7 +692,7 @@ export const sopCommand: Command = {
   description: '成功轨迹 → SOP 草案（人工批准后才注册为技能）',
   aliases: ['sops', 'sopdraft'],
   argumentHint:
-    '[list] [distill [n]] [show <id>] [approve <id>] [reject <id> [原因]] [stats]',
+    '[list] [distill [n]] [show <id>] [approve <id>] [reject <id> [原因]] [observe <id> [天数]] [stats]',
   load: loadDefault('./sop/Sop.js'),
 };
 

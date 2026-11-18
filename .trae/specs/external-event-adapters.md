@@ -56,8 +56,11 @@ POST /v1/events/external
      `threadId = github-issue:<repo>#<number>`，`payload.kind='github-issue'`，只带
      `kind/repo/number/title/url/state/createdAt`）；
    - `since` 位点为**进程内**：重启从启动时刻重新开始（不补发），重复由 `eventId` + `triggerId` 幂等兜住；
+   - **拉取语义（2026-11-18 自查修正）**：GitHub 的 `since` 按 **`updated_at`** 过滤 ⇒ 必须配
+     `sort=updated&direction=asc`（原写 `sort=created` 会让"老 issue 刚被更新"挤占首页、新 issue 落到后页
+     而**漏事件**）；并分页（50/页、最多 5 页）直到不满一页；
    - 失败语义：单 repo 拉取失败只记日志、**不推进位点**（下一拍用旧 `since` 重试）；
-   - 回归：`app/tests/tasks/sources/githubIssuePoller.test.ts` 8 例（配置边界 / 翻译 / 拍次 / 不推进位点 / start-stop）。
+   - 回归：`app/tests/tasks/sources/githubIssuePoller.test.ts` 11 例（配置边界 / 翻译 / 拍次 / 不推进位点 / start-stop / 拉取语义与分页 / 非 2xx 抛错）。
 2. **邮件轮询**：**2026-11-18 复核后仍不实现**，有两处**硬前置**（不是"顺手接一下"）：
    - **口径未定**：必须能声明「哪些发件人可信」。落地形态建议 `autonomy.externalPollers.email.senders`
      （**空 ⇒ 不启动**，与 GitHub 侧"无 token 不启动"同惯例），但名单本身要产品给；

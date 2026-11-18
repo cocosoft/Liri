@@ -11,6 +11,7 @@ import {
   GITHUB_POLLER_MIN_INTERVAL_MS,
   GITHUB_TOKEN_ENV,
   createGithubIssuePoller,
+  fetchIssuesFromGithub,
   issueToExternalEvent,
   parseGithubIssuePollerConfig,
   type GithubIssue,
@@ -180,5 +181,84 @@ describe('createGithubIssuePoller.pollOnce', () => {
     poller.stop();
     poller.stop();
     expect(true).toBe(true);
+  });
+});
+
+describe('fetchIssuesFromGithub（默认拉取实现）', () => {
+  function row(over: Record<string, unknown> = {}): Record<string, unknown> {
+    return {
+      id: 1,
+      number: 1,
+      title: 't',
+      html_url: 'u',
+      state: 'open',
+      created_at: 'c',
+      ...over,
+    };
+  }
+
+  function fakeFetch(pages: Array<Array<Record<string, unknown>>>) {
+    const urls: string[] = [];
+    const impl = (async (url: string) => {
+      urls.push(url);
+      const rows = pages[urls.length - 1] ?? [];
+      return { ok: true, status: 200, json: async () => rows };
+    }) as unknown as typeof fetch;
+    return { impl, urls };
+  }
+
+  it('按 updated_at 语义拉取（sort=updated & direction=asc），过滤 PR 与非法行', async () => {
+    const { impl, urls } = fakeFetch([
+      [
+        row({ id: 10, number: 10 }),
+        row({ id: 11, number: 11, pull_request: { url: 'x' } }),
+        { id: 'bad', number: 12 },
+      ],
+    ]);
+
+    const issues = await fetchIssuesFromGithub(
+      'acme/widget',
+      '2026-11-18T00:00:00Z',
+      't',
+      impl
+    );
+
+    expect(urls[0]).toContain('sort=updated');
+    expect(urls[0]).toContain('direction=asc');
+    expect(urls[0]).toContain('since=2026-11-18T00%3A00%3A00Z');
+    expect(urls[0]).toContain('page=1');
+    expect(issues.map((i) => i.id)).toEqual([10]);
+  });
+
+  it('满页 ⇒ 继续翻页；不足一页 ⇒ 停止（最多 5 页）', async () => {
+    const fullPage = Array.from({ length: 50 }, (_, i) =>
+      row({ id: i + 1, number: i + 1 })
+    );
+    const { impl, urls } = fakeFetch([
+      fullPage,
+      [row({ id: 999, number: 999 })],
+    ]);
+
+    const issues = await fetchIssuesFromGithub(
+      'acme/widget',
+      '2026-11-18T00:00:00Z',
+      't',
+      impl
+    );
+
+    expect(urls).toHaveLength(2);
+    expect(urls[1]).toContain('page=2');
+    expect(issues).toHaveLength(51);
+  });
+
+  it('非 2xx ⇒ 抛错（由调用方决定不推进位点）', async () => {
+    const impl = (async () => ({
+      ok: false,
+      status: 503,
+      json: async () => [],
+    })) as unknown as typeof fetch;
+    await expect(
+      fetchIssuesFromGithub('acme/widget', '2026-11-18T00:00:00Z', 't', impl)
+    ).rejects.toThrow('GitHub API 503');
   });
 });

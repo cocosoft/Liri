@@ -49,6 +49,8 @@ import {
   getActiveTaskId,
   getApprovedCommandRegistry,
   hashCommandForExecution,
+  isReadViaShellCorrectionEnabled,
+  buildReadViaShellCorrection,
   type ApprovalScope,
   type ApprovalSnapshot,
 } from '@openliri/infra/permission';
@@ -699,12 +701,51 @@ export function buildPowerShellSecurityBlock(
     preApproved: boolean;
     approval: { scope: ApprovalScope; snapshot: ApprovalSnapshot };
     startTime: number;
+    /** B1（2026-11-18）：命令原文 / 执行目录 / 会话权限档（用于「读/搜走专用工具」纠正） */
+    command?: string;
+    cwd?: string;
+    permissionMode?: string;
   }
 ): ToolResult<unknown> | null {
   if (decision.allowed) return null;
   const isAsk = decision.behavior === 'ask';
   // 已批准 / 规则命中 ⇒ 跳过 ask 分支，继续走后续硬拦截与执行（与 BashTool 同语义）
   if (isAsk && input.preApproved) return null;
+
+  // B1（2026-11-18）：default 档下「单读类动词 + 单路径」⇒ 直接回纠正提示，不建审批卡。
+  if (
+    isAsk &&
+    input.command &&
+    input.cwd &&
+    isReadViaShellCorrectionEnabled() &&
+    (input.permissionMode ?? 'default') === 'default'
+  ) {
+    const correction = buildReadViaShellCorrection({
+      enabled: true,
+      toolName: 'powershell',
+      input: { command: input.command, cwd: input.cwd },
+      permissionMode: input.permissionMode ?? 'default',
+      workspacePath: input.cwd,
+    });
+    if (correction) {
+      logger.info('powershell: read_via_shell_corrected', {
+        commandPreview: input.command.slice(0, 200),
+        verb: correction.verb,
+        targetTool: correction.tool,
+        cwd: input.cwd,
+      });
+      return createFailureResult(correction.message, {
+        executionTime: Date.now() - input.startTime,
+        errorLevel: ErrorLevel.RECOVERABLE,
+        failureKind: 'tool_error',
+        metadata: {
+          reason: correction.reasonCode,
+          targetTool: correction.tool,
+          verb: correction.verb,
+        },
+      });
+    }
+  }
   const prefix = isAsk
     ? '需要用户确认: '
     : decision.code === 'SANDBOX_SECURITY_DENIED'
@@ -1098,6 +1139,11 @@ export class PowerShellTool extends BaseTool {
         preApproved,
         approval,
         startTime,
+        command,
+        ...(workingDirectory ? { cwd: workingDirectory } : {}),
+        ...(context.policyContext?.permissionMode
+          ? { permissionMode: context.policyContext.permissionMode }
+          : {}),
       });
       if (securityBlock) return securityBlock;
 

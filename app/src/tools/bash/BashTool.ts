@@ -510,6 +510,7 @@ export class BashTool extends BaseTool {
         approvalSnapshot,
         sessionId: context.sessionId,
         skipAskByPolicy,
+        permissionMode: context.policyContext?.permissionMode,
       });
       if (securityBlock) return securityBlock;
 
@@ -743,6 +744,8 @@ export class BashTool extends BaseTool {
     approvalSnapshot: ApprovalSnapshot;
     sessionId: string | undefined;
     skipAskByPolicy: (block: unknown) => boolean;
+    /** B1（2026-11-18）：会话权限档（仅 default 档做「读/搜走专用工具」纠正） */
+    permissionMode?: string;
   }): ToolResult<unknown> | null {
     const {
       std,
@@ -754,6 +757,7 @@ export class BashTool extends BaseTool {
       approvalSnapshot,
       sessionId,
       skipAskByPolicy,
+      permissionMode,
     } = params;
 
     const pathBlock = checkPathSafety(std);
@@ -811,6 +815,8 @@ export class BashTool extends BaseTool {
       approvalSnapshot,
       analyzer: this.securityAnalyzer,
       trustLevel,
+      cwd,
+      ...(permissionMode ? { permissionMode } : {}),
       // FIX-15：单条 PowerShell 包裹已由上一道闸（G-07）用 PowerShell 安全链判定过；
       // 2026-11-09：委托范围扩到「只读 `cd` 前缀 + 单条包裹」（见 `isDelegatedPowerShellCommand`）
       delegatedSinglePowerShell: isDelegatedPowerShellCommand(command),

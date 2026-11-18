@@ -481,3 +481,16 @@ export type {
   AutonomyPolicyRule,
   AutonomyPolicyConfig,
 } from './types/PolicyStrength';
+
+// B1（2026-11-18）：single read verb + single path 的 shell 调用 → 纠正为专用工具
+export {
+  buildReadViaShellCorrection,
+  isReadViaShellCorrectionEnabled,
+  shellOfCommandTool,
+  suggestReadToolForShellCommand,
+} from './classifiers/read-via-shell-correction';
+export type {
+  ReadViaShellCorrection,
+  ReadViaShellSuggestion,
+  ReadViaShellTool,
+} from './classifiers/read-via-shell-correction';

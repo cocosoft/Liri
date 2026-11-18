@@ -58,8 +58,14 @@ POST /v1/events/external
    - `since` 位点为**进程内**：重启从启动时刻重新开始（不补发），重复由 `eventId` + `triggerId` 幂等兜住；
    - 失败语义：单 repo 拉取失败只记日志、**不推进位点**（下一拍用旧 `since` 重试）；
    - 回归：`app/tests/tasks/sources/githubIssuePoller.test.ts` 8 例（配置边界 / 翻译 / 拍次 / 不推进位点 / start-stop）。
-2. **邮件轮询**：复用既有 IMAP 能力（`imapflow` 已是外部依赖）→ 同上；需单独定"哪些发件人可信"
-   （**产品口径未定 ⇒ 不实现**）。
+2. **邮件轮询**：**2026-11-18 复核后仍不实现**，有两处**硬前置**（不是"顺手接一下"）：
+   - **口径未定**：必须能声明「哪些发件人可信」。落地形态建议 `autonomy.externalPollers.email.senders`
+     （**空 ⇒ 不启动**，与 GitHub 侧"无 token 不启动"同惯例），但名单本身要产品给；
+   - **架构位置未定**：增量读取能力在**办公域**（`app/packages/office/email/EmailReader.ts`），
+     现有 API 只有 `inbox(limit)` / `search(query, limit)`，**没有 UID / since 增量接口**。
+     两条路各有代价：① 在 office 侧补 `readSince(uid)` 并把轮询器放 office（能力内聚，但要动办公域）；
+     ② 复用 `inbox(limit)` 全量拉取 + 靠 `eventId` 幂等去重（零新增能力，但每拍重复读最近 N 封）。
+     **决策点 = 邮件轮询归属域（office vs tasks/sources）**；未定前不写代码，避免跨域反向依赖。
 3. **执行面放开**：当前只读（`alwayson_discovery`）；若需"外部事件驱动写操作"，必须先接审批
    （既有 Inbox approval），不在本 spec 范围。
 4. **审计增强**：目前成功路径依赖 ticket 台账 + 日志；如企业版需要，接 `EnterpriseAuditService`。

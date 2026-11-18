@@ -1,6 +1,6 @@
 # Spec：SOP 观察期度量（`/sop observe`）
 
-- **状态**：📝 草案（2026-11-15；随实现同批提交）
+- **状态**：✅ 已实施（2026-11-15；2026-11-18 补 `command-registry` 的 `argumentHint` 遗漏项 `observe`）
 - **来源**：`.trae/specs/learning-feedback-loop.md` §3-S4「`sop`：以批准后 SKILL.md 是否被真实调用 ≥N 次且未伴随低分作为观察期判据」
 - **前置**：`sop-distill-draft.md`（批准链已落地：`/sop approve` 写入 `~/.pyapp/skills/sop-<id>/SKILL.md`）
 

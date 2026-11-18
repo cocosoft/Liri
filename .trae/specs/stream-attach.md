@@ -1,6 +1,7 @@
 # 聊天流 attach 端点（最小设计）
 
-> 状态：**待评审**（本文只定契约与实现点，不改代码）
+> 状态：✅ **已实施（2026-11-18）**：端点 + SSE 帧旁路 tee + 客户端「接入」均已落地
+> （`926d1bf50` / `78f16071f` / `476b117b7`）；实测见 §12。
 > 日期：2026-11-18
 > 关联：`client/src/hooks/useRunClock.ts`、`client/src/components/ChatArea/useWaitState.ts`（Run HUD 前两段已落地：运行秒表 + 后端心跳 + 「仍在后台运行」）
 

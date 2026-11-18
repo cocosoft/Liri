@@ -66,7 +66,9 @@
 ### 仍未做（如实）
 
 1. **系统级全局快捷键**：需 `tauri-plugin-global-shortcut`（Rust crate + npm 包）**新增外部依赖**，本批未引入；当前触发仍是应用内 `Ctrl+Shift+F` 与托盘菜单。（**已由 §7 三期补齐**）
-2. **Rust 未编译验证**：本机无 `cargo`（不在 PATH）⇒ 只做了源码级改动与前端 typecheck/lint；首次 `tauri build` / CI 构建需确认菜单项与 `eval` 调用可编译。
+2. **Rust 未编译验证**：~~本机无 `cargo`（不在 PATH）~~ ⇒ **2026-11-18 复核**：`cargo`/`rustc` 1.100.0
+   已在 PATH，但「产出 exe 被执行策略阻止」+「crates.io 不可达」两条外部条件仍挡住编译，
+   详见 §7「边界」末条。
 3. 内容增强（当前会话 / 运行中目标）与窗口体验（位置记忆 / 多显示器 / 点击穿透）未做。
 
 ## 7. 三期已交付（系统级全局快捷键）
@@ -82,7 +84,17 @@
 **边界（如实）**：
 - **无新增 capability**：注册走 Rust API，不经 JS 插件命令 ⇒ `capabilities/*.json` 权限不扩；
 - **快捷键不可配置**：固定 `Ctrl+Shift+F`；与主窗口内快捷键**同键**，同时触发两次也只等价于「新建 → 聚焦」（`openFloatingWindow` 幂等）；
-- **Rust 未编译验证**：本机无 `cargo` ⇒ 仅源码级改动 + 前端 `tsc`/`eslint`/`vitest`（139 文件 / 966 用例）全绿；**`Cargo.lock` 未在本机重生成**（首次 `cargo build` / `tauri build` 自动补全）；
+- **Rust 未编译验证（2026-11-18 复核更新）**：本机 **`cargo`/`rustc` 1.100.0 已在 PATH**（原文"无 cargo"已过期），
+  但两条外部条件仍挡住编译：
+  ① **可执行文件被应用控制策略阻止** —— `rustc` 能编译出 exe，运行时报
+  「应用程序控制策略已阻止此文件」（Smart App Control / WDAC）；而 `cargo check` 必须**执行
+  build script**（`tauri-build`）⇒ 本机仍不可行；
+  ② **crates.io 不可达** —— `cargo generate-lockfile` 反复 `Timeout ... index.crates.io`（含放宽
+  `CARGO_HTTP_TIMEOUT` / 关闭沙箱重试），故 `Cargo.lock` 仍缺 `tauri-plugin-global-shortcut`
+  （`Cargo.toml:25` 已声明、`Cargo.lock` 无条目）。
+  **出路（二选一）**：a) 为 `rustc`/build script 产物放行应用控制，或 b) 在 CI（Linux）加
+  `client/src-tauri` 的 `cargo check` 作业（需 `libwebkit2gtk-4.1-dev` / `libgtk-3-dev` 等系统依赖）
+  或本机配 crates 镜像。**未做**：不擅自改本机 cargo 镜像配置、不在未验证的情况下新增 CI 作业。
 - 仍**不做**：快捷键用户可配置、内容增强（当前会话 / 运行中目标）、点击穿透（位置记忆与多显示器校正**已由 §8 补齐**）。
 
 ## 8. 四期已交付（窗口体验：几何记忆 + 多显示器边界校正）

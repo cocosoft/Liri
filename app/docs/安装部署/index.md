@@ -11,5 +11,6 @@ Liri 支持多种安装和部署方式，您可以根据需求选择合适的方
 | [Linux 安装](linux.md) | Linux 系统安装指南 |
 | [Docker 部署](docker.md) | 使用 Docker 容器部署 |
 | [源码编译](source.md) | 从源码编译安装 |
+| [变体能力矩阵](变体能力矩阵.md) | 五个构建变体 × 能力开关 / 通道（生成物，勿手改） |
 | [配置详解](configuration.md) | 详细配置说明 |
 | [安装故障排除](troubleshooting.md) | 常见安装问题解决 |

@@ -10,7 +10,7 @@
 | 内建工具 | **69** | `packages/infra/src/constants/toolNames.generated.ts` | 全量 ∧ 可实例化（flag-gated 且默认关闭者不计） |
 | 消息通道 | **27** | `packages/channels/src/channels/ChannelCatalog.ts` | `CHANNEL_CATALOG` 登记的通道（含编译期可裁剪者） |
 | 模块定义 | **71** | `app/src/modules/ModuleDefinitions.ts` | `MODULE_DEFINITIONS` 顶层条目 |
-| 文档语料 | **146** | `app/docs/**/*.md` | 与 `docs/FileDocsProvider` 同口径（递归 `.md`，跳过隐藏目录与 `raw/`） |
+| 文档语料 | **147** | `app/docs/**/*.md` | 与 `docs/FileDocsProvider` 同口径（递归 `.md`，跳过隐藏目录与 `raw/`） |
 | 评测基线题目 | **50** | `packages/evals/src/evals/baseline.json` | `tasks` 键数（逐题登记地板） |
 
 ## 说明

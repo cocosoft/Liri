@@ -367,6 +367,11 @@ export class VerifierAgent {
       verdict: result.verdict,
       durationMs: Date.now() - startedAt,
       feedback: result.feedback,
+      // D5（2026-11-18）：把真实产物一并记入「每会话最新结果」，供 A2A 不确定性产出方读取
+      confidence: result.confidence,
+      ...(typeof result.checkPassRate === 'number'
+        ? { checkPassRate: result.checkPassRate }
+        : {}),
     });
     return result;
   }

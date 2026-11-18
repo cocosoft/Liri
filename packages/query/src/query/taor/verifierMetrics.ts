@@ -7,10 +7,19 @@
  * - **误拦样本**：最近 `MAX_REJECT_SAMPLES` 条 REJECT 的会话 / 轮次 / 反馈摘要。
  *
  * 设计约束：
- * - **进程内、无持久化**：指标是诊断辅助，不参与业务判定（拒绝率不驱动任何分支）；
+ * - **进程内、无持久化**：指标是诊断辅助，自身**不驱动**任何业务分支；
  * - **有界**：样本环形缓冲固定上限，避免长会话内存增长；
  * - **零行为影响**：`recordVerifierResult` 只写内存 + 不做 I/O（调用方不必 await）。
+ *
+ * D5（2026-11-18）：额外把每次结果写入 infra 的「每会话最新结果」只读投影
+ * （`@openliri/infra/system/state/verifierLatestResults`），供 A2A「不确定性」产出方读取。
+ * 该投影**如实转述**验证器产物、不改判定；消费方由开关 `A2A_UNCERTAINTY_VERIFIER` 默认关闭。
  */
+
+import {
+  recordLatestVerifierResult,
+  resetLatestVerifierResults,
+} from '@openliri/infra/system/state/verifierLatestResults';
 
 /** 误拦（REJECT）样本上限 */
 const MAX_REJECT_SAMPLES = 20;
@@ -63,9 +72,26 @@ export function recordVerifierResult(input: {
   verdict: 'APPROVE' | 'REJECT' | 'ESCALATE';
   durationMs: number;
   feedback?: string;
+  /** D5：验证器自评置信度（0..1；未提供 ⇒ 不写） */
+  confidence?: number;
+  /** D5：检查项通过率（0..1；未提供 ⇒ 不写） */
+  checkPassRate?: number;
 }): void {
   metrics.total++;
   metrics.durationMsTotal += Math.max(0, input.durationMs);
+
+  // D5：最新结果投影**先写**（REJECT 提前 return 也不影响它）
+  recordLatestVerifierResult(input.sessionId, {
+    verdict: input.verdict,
+    turn: input.turn,
+    at: Date.now(),
+    ...(typeof input.confidence === 'number'
+      ? { confidence: input.confidence }
+      : {}),
+    ...(typeof input.checkPassRate === 'number'
+      ? { checkPassRate: input.checkPassRate }
+      : {}),
+  });
 
   if (input.verdict === 'APPROVE') {
     metrics.approved++;
@@ -111,4 +137,5 @@ export function resetVerifierMetrics(): void {
   metrics.escalated = 0;
   metrics.durationMsTotal = 0;
   metrics.rejectSamples = [];
+  resetLatestVerifierResults();
 }

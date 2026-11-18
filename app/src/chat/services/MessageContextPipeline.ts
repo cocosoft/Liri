@@ -4,24 +4,28 @@
 /**
  * 消息上下文管线
  * 从 ChatManager 拆分出的上下文管理模块，负责：
- * - API 消息清理（sanitize）
- * - 上下文截断（truncate）
- * - 工具循环历史压缩（compress）
+ * - 上下文截断（truncate / 分页切点 / 精确 token 截断）
  * - 跨轮对话摘要持久化（persist turn summary）
  * - 系统提示词组装（assemble system prompt）
  * - 当前会话目标提取（extract current goal）
  * - LLM 响应用量记录（record chat response usage）
+ * - `<think>/<response>` 标签规整（ensure / strip / orphan 清理）
+ *
+ * 2026-11-18（spec `file-size-debt-partition-plan.md` §48 拆分批 2）：以下两组已外移，
+ * 本文件只 import 使用：
+ * - 消息配对清理与工具历史压缩 → `./context/messageSanitizer`
+ * - 分层开关 / 切窗提示 / 代码类会话判定 → `./context/contextLayering`
  */
 import { getLogger } from '@openliri/infra/monitoring';
-import { configManager } from '@openliri/infra/config';
 import type { ChatSession } from '@modules/session/types/session.js';
-import { toolResultRegistry } from '@modules/tool/ToolResultRegistry.js';
 import {
   estimateMessagesTokens,
   estimateMessagesTokensCooperative,
   yieldToEventLoop,
 } from '@modules/ai';
-import { isLocalLlmEndpoint, sanitizePass } from './ChatHelper';
+import { isLocalLlmEndpoint } from './ChatHelper';
+// 2026-11-18（§48 拆分批 2）：消息配对清理已外移到 `./context/messageSanitizer`
+import { sanitizeApiMessages } from './context/messageSanitizer';
 import { buildReplyEffortPrompt } from '../replyEffort';
 import { assembleSystemPrompt } from '@openliri/service/services/prompt/PromptAssembler';
 import {
@@ -118,116 +122,8 @@ const IMAGE_CHAIN_RULES = `## 图像工具链式操作
 // 纯函数
 // ============================================================
 
-/**
- * API 消息清理：修复 tool/tool_calls 配对完整性
- *
- * 此方法从后往前遍历所有 assistant 含 tool_calls，
- * 逐条检查紧随其后的 tool 消息是否全部响应。
- */
-export function sanitizeApiMessages(
-  apiMessages: Record<string, unknown>[]
-): void {
-  // 第一轮清理：移除 tool 响应不完整的 assistant
-  sanitizePass(apiMessages);
-
-  // 收集所有已知 tool_call_id（用于判定孤儿 tool——与中间清理共用）
-  const knownToolCallIds = new Set<string>();
-  for (let i = 0; i < apiMessages.length; i++) {
-    const msg = apiMessages[i];
-    if (msg.role === 'assistant' && Array.isArray(msg.tool_calls)) {
-      for (const tc of msg.tool_calls as Array<{ id?: string }>) {
-        if (tc.id) knownToolCallIds.add(tc.id);
-      }
-    }
-  }
-
-  // 末尾孤立 tool 消息（没有 preceding assistant 含 tool_calls）。
-  // 2026-09-02 修复：原实现无条件 pop 末尾所有 tool 消息——[assistant(tool_calls),
-  // tool(result)] 有效配对被误删（末尾 T1 被 pop → sanitizePass 再将失去配对的 A1
-  // 删除）。工具轮每轮 reason 前（ReActToolLoop.beforeReasoning）调用本函数，导致
-  // 工具结果每轮被清空 → 模型永远看不到工具结果 → 重复调用同一工具死循环
-  // （实测 session_mtjjw6bmwj652x6dtm：_buildToolRoundMessages currentMessages 恒为 3）。
-  // 仅当末尾 tool 无匹配 assistant 时移除。
-  let removedInCleanup = false;
-  const lenBeforePop = apiMessages.length;
-  while (
-    apiMessages.length > 0 &&
-    apiMessages[apiMessages.length - 1].role === 'tool'
-  ) {
-    const last = apiMessages[apiMessages.length - 1] as {
-      tool_call_id?: string;
-    };
-    if (last.tool_call_id && knownToolCallIds.has(last.tool_call_id)) break;
-    apiMessages.pop();
-    removedInCleanup = true;
-  }
-  if (apiMessages.length < lenBeforePop) removedInCleanup = true;
-
-  // 中间孤立 tool 消息清理：
-  // 先正向扫描收集所有已知 tool_call_id，再反向移除孤儿 tool 消息
-  for (let i = apiMessages.length - 1; i >= 0; i--) {
-    if (apiMessages[i].role === 'tool') {
-      const tcId = apiMessages[i].tool_call_id as string | undefined;
-      if (!tcId || !knownToolCallIds.has(tcId)) {
-        apiMessages.splice(i, 1);
-        removedInCleanup = true;
-      }
-    }
-  }
-
-  // 仅在清理步骤实际移除了消息时才执行再清理
-  // （移除 tool 消息可能导致对应的 assistant 变为孤立）
-  if (removedInCleanup) {
-    sanitizePass(apiMessages);
-  }
-}
-
-/**
- * 压缩工具循环历史消息，用注册表中的压缩摘要替代冗长的累积消息
- *
- * @param currentRoundMessages 当前累积的循环消息
- * @param sessionId 会话 ID，用于从注册表获取压缩摘要
- * @param assistantMsg 当前轮的 assistant 消息（含 tool_calls）
- * @param toolResults 当前轮的 tool 结果消息
- * @returns 压缩后的消息数组
- */
-export function compressToolHistory(
-  currentRoundMessages: Record<string, unknown>[],
-  sessionId: string,
-  assistantMsg: Record<string, unknown>,
-  toolResults: Record<string, unknown>[]
-): Record<string, unknown>[] {
-  const storedCalls = toolResultRegistry.listBySession(sessionId);
-  if (storedCalls.length < 2) {
-    return [...currentRoundMessages, assistantMsg, ...toolResults];
-  }
-
-  const compressedHistory = toolResultRegistry.getCompressedHistory(sessionId);
-
-  const preservedMessages: Record<string, unknown>[] = [];
-
-  // 保留系统消息和第一条用户消息作为上下文（按角色查找，不依赖位置）
-  const sysMsg = currentRoundMessages.find(
-    (m: Record<string, unknown>) => m.role === 'system'
-  );
-  if (sysMsg) preservedMessages.push(sysMsg);
-
-  const firstUserMsg = currentRoundMessages.find(
-    (m: Record<string, unknown>) => m.role === 'user'
-  );
-  if (firstUserMsg) preservedMessages.push(firstUserMsg);
-
-  // 插入压缩摘要
-  preservedMessages.push({
-    role: 'user',
-    content: `以下是此前工具执行的压缩摘要，如需完整详情请使用 get_tool_result 工具按工具调用 ID 查询。\n\n${compressedHistory}`,
-  });
-
-  // 追加当前轮完整消息
-  preservedMessages.push(assistantMsg, ...toolResults);
-
-  return preservedMessages;
-}
+// 2026-11-18（§48 拆分批 2）：`sanitizeApiMessages` / `compressToolHistory` 已外移到
+// `./context/messageSanitizer`（本文件只 import 使用，不再自带实现）。
 
 /** P2-3（2026-11-06）：摘要长度上限（注入下一轮上下文，不能无限膨胀） */
 const TURN_SUMMARY_MAX_CHARS = 800;
@@ -580,85 +476,8 @@ async function fetchTokenizeCount(
   return null;
 }
 
-/**
- * C 阶段分层开关（P2-a，2026-09-02）：`CONTEXT_LAYERING !== 'off'` 默认开。
- * 长文档/代码库类任务（完整通读全文语义 > 分页取回体验）可会话级置 off 关闭。
- */
-export function contextLayeringEnabled(): boolean {
-  // 经统一出入口（R05-012）
-  return configManager.env('CONTEXT_LAYERING') !== 'off';
-}
-
-/**
- * C 阶段切点提示（P2-a，2026-09-02）：切窗生效时注入到保留段首条 user 消息前缀，
- * 告知模型早期记录可通过 session_lookup 取回（对齐 get_tool_result 摘要提示先例风格）。
- * 轻量（≤80 tokens），幂等（注入发生在请求构建期临时副本上，不落盘）。
- */
-export const LAYERING_HINT =
-  '（提示：为控制上下文，本次请求未携带较早的对话记录；需要时可调用 session_lookup 取回原始记录。）';
-
-/**
- * 代码/长文档会话的切窗提示（D5② 取回增强，2026-09-02）：检测到代码/文档类任务且
- * 发生切窗时注入更强提示——强调代码块/文件原文可通过 session_lookup 按区间原样取回
- * （对齐"完整通读语义 > 分页取回"场景的补偿）。
- */
-export const LAYERING_HINT_CODE =
-  '（提示：本次会话涉及代码/文档类任务，较早的代码块/文件内容已分层归档；session_lookup 可按原会话区间原样取回完整代码与文件，代码语义以取回原文为准。）';
-
-/**
- * D5② 取回增强（2026-09-02）：代码/文档类任务判定（瞬时请求决策，非持久化状态）。
- *
- * 判定依据：最近一条 user 消息中的任务形态措辞（项目/代码库级操作、多文件、重构/迁移
- * 等）。说明：这是"本次请求是否走取回增强"的**瞬时决策**（对应 C-3 切点对齐同类动态
- * 决策），不用于持久化状态判断（CS02 约束的是状态标记，非此类逐请求路由决策）；后续
- * 可强化为"工具轮证据"（grep/read/glob 密集）而非纯文本启发。
- */
-const CODE_CONTEXT_MARKERS = [
-  '整个项目',
-  '整个仓库',
-  '整个代码库',
-  '代码库',
-  '项目结构',
-  '全部文件',
-  '多文件',
-  '所有文件',
-  '跨文件',
-  '重构',
-  '迁移',
-  '源码',
-  '代码',
-  '补丁',
-  'diff',
-  'entire project',
-  'entire repo',
-  'codebase',
-  'repository',
-  'source code',
-  'refactor',
-  'migration',
-];
-
-export function isCodeContextMessage(
-  messages: Array<{ role: string; content: unknown }>
-): boolean {
-  // 扫描全部 user 消息（任一条含代码/文档任务措辞即判定）——兼容"继续/下一步"
-  // 类后续指令不含任务措辞但会话仍处代码/文档任务的场景（瞬时会话内粘性）
-  for (const m of messages) {
-    if (m.role !== 'user') continue;
-    const content =
-      typeof m.content === 'string'
-        ? m.content
-        : Array.isArray(m.content)
-          ? JSON.stringify(m.content)
-          : '';
-    if (!content) continue;
-    const text = content.toLowerCase();
-    if (CODE_CONTEXT_MARKERS.some((k) => text.includes(k.toLowerCase()))) {
-      return true;
-    }
-  }
-  return false;
-}
+// 2026-11-18（§48 拆分批 2）：`contextLayeringEnabled` / `LAYERING_HINT(_CODE)` /
+// `isCodeContextMessage` 已外移到 `./context/contextLayering`。
 
 /**
  * C 阶段分页切点（P0，2026-09-02，v4 §7 + C 详设 §3）：token 动态阈值命中后

@@ -8,7 +8,8 @@
  * 位置：`messageRouter.routeChannelMessageInner` 内、**去重与限流之后**、共享会话写入之前。
  *
  * 默认关闭：
- * - `INGEST_FUNNEL_SHADOW=true` ⇒ 只记录"本应被过滤"的候选，**不丢任何消息**；
+ * - `INGEST_FUNNEL_SHADOW=true` ⇒ 记录**每条**经过漏斗的消息（`pass` / `drop`）到台账，
+ *   **不丢任何消息**（用于统计频次、反推 R1 名单）；
  * - `INGEST_FUNNEL=true` ⇒ 真正丢弃（S2 灰度，需规则确认后开启）；
  * - 两者都关 ⇒ 不读规则、不产生任何副作用（零行为变更）。
  *
@@ -16,7 +17,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { appendFile, mkdir } from 'node:fs/promises';
+import { appendFile, mkdir, rename, stat } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 import { configManager } from '@openliri/infra/config';
@@ -105,14 +106,50 @@ export function resolveIngestFunnelShadowPath(): string {
   return join(resolveDataDir(), 'ingest', 'funnel-shadow.jsonl');
 }
 
+/** 台账单文件上限（超出即轮转；影子属短期观测，避免无限增长） */
+export const INGEST_FUNNEL_SHADOW_MAX_BYTES = 5 * 1024 * 1024;
+
 /** senderId 只落 8 位哈希（不写原值，降低敏感面） */
 function hashSender(senderId: string): string {
   return createHash('sha256').update(senderId).digest('hex').slice(0, 8);
 }
 
-/** 记录一条 shadow（失败只告警，不影响入站链路） */
+/** 超阈值时把活跃文件改名为 `<base>.<epoch>.jsonl`（失败只 debug，不影响判定） */
+async function rotateIfNeeded(file: string): Promise<void> {
+  try {
+    const info = await stat(file);
+    if (info.size < INGEST_FUNNEL_SHADOW_MAX_BYTES) return;
+    const target = `${file.replace(/\.jsonl$/, '')}.${Date.now()}.jsonl`;
+    await rename(file, target);
+    logger.info('ingest:funnel_shadow_rotated', {
+      from: file,
+      to: target,
+      sizeBytes: info.size,
+    });
+  } catch (err) {
+    // @ignore-catch — 文件尚不存在（首次写入）属正常路径；轮转失败也不得影响入站
+    logger.debug('ingest:funnel_shadow_rotate_skipped', {
+      path: file,
+      error: String(err),
+    });
+  }
+}
+
+/**
+ * 记录一条 shadow 台账。
+ *
+ * **S1 观测口径**：影子模式记录**每条经过漏斗的消息**（`pass` / `drop`），
+ * 而非只记"本应被丢"的候选 —— 空规则时若只记候选，将**永远没有样本**，
+ * 也就无法用真实流量反推 R1 名单（sender / conversation / eventType 频次）。
+ * 台账**不含正文**，sender 只落 8 位哈希（conversationId 原样，供 `conversationAllowlist` 用）。
+ *
+ * 失败只留痕，不影响入站链路。
+ */
 export async function recordIngestFunnelShadow(
-  input: IngestFunnelInput & { reason: IngestFunnelReason },
+  input: IngestFunnelInput & {
+    decision: 'pass' | 'drop';
+    reason?: IngestFunnelReason;
+  },
   opts: { file?: string; now?: number } = {}
 ): Promise<void> {
   const file = opts.file ?? resolveIngestFunnelShadowPath();
@@ -122,15 +159,17 @@ export async function recordIngestFunnelShadow(
     conversationId: input.conversationId ?? null,
     senderIdHash: hashSender(input.senderId),
     eventType: input.eventType ?? null,
-    decision: 'drop' as const,
-    reason: input.reason,
+    decision: input.decision,
+    reason: input.reason ?? null,
   };
   try {
     await mkdir(dirname(file), { recursive: true });
+    await rotateIfNeeded(file);
     await appendFile(file, `${JSON.stringify(record)}\n`, 'utf8');
     logger.info('ingest:funnel_shadow', {
       channelId: input.channelId,
-      reason: input.reason,
+      decision: input.decision,
+      reason: input.reason ?? null,
     });
   } catch (err) {
     await handleError(err, {

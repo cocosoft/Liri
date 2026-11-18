@@ -50,6 +50,9 @@ fail-closed on declared）。
 ## 6. 已知迁移注意
 
 - **存量行**未回填：历史边的 `edge_type` 保留原样（如 `works_at`）。用规范名查询**不会**召回它们；
-  需要时执行一次性回填（`UPDATE kg_edges SET edge_type = <规范名>`），本次未做。
+  **2026-11-18 已提供一次性回填脚本**（默认 dry-run）：
+  `cd app && bun run backfill:kg-edge-types` 先看计划（`from → to` + 行数），
+  确认后在**停写窗口**内执行 `--apply`（单事务，失败整体回滚；再跑一遍为空 ⇒ 幂等）。
+  脚本复用 `normalizeRelationType`（唯一事实源），只改 `edge_type`，不动 `edge_id` / `updated_at`。
 - **域 schema 若用别名原名声明**（如 `is_a`）会因规范化后查不到 schema 而被拒 ⇒ 域 schema 应直接声明规范名。
 - `CORE_EDGE_SCHEMAS` 与其他 schema **同形**（`EdgeSchema`），可直接 `graph.setEdgeSchemas(CORE_EDGE_SCHEMAS)` 启用；它与默认域 schema 的 `relates_to` 不同名（前者 `related_to`），二者互不覆盖。

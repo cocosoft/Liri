@@ -6270,7 +6270,7 @@
 {"id":"PATTERN-REACHABLE-RETENTION-PROBE","k":"notes","i":0,"c":"① PatternInstantiation.ready 分支补 reachable（事实源 PatternSelector#PATTERN_SELECTION_RULES）与 featureGate（patternFeatureFlag + feature）；目录层既有字段不变。② StreamPipeline._truncateApiMessages 与 MessageContextPipeline.truncateByPreciseTokens 记录被丢弃原文，调用既有 measureRetention 对照保留文本，低于 DEFAULT_RETENTION_WARN_RATIO 时 logger.warn（只告警，不改截断决策）。③ measureRetention/DEFAULT_RETENTION_WARN_RATIO 经 @modules/context 统一出口导出（R03-002）。"}
 {"id":"PATTERN-REACHABLE-RETENTION-PROBE","k":"code#0","i":0,"c":"packages/query/src/query/patternAssembler.ts"}
 {"id":"PATTERN-REACHABLE-RETENTION-PROBE","k":"code#1","i":0,"c":"app/src/chat/pipeline/StreamPipeline.ts"}
-{"id":"PATTERN-REACHABLE-RETENTION-PROBE","k":"code#2","i":0,"c":"app/src/chat/services/MessageContextPipeline.ts"}
+{"id":"PATTERN-REACHABLE-RETENTION-PROBE","k":"code#2","i":0,"c":"app/src/chat/services/context/contextTruncation.ts"}
 {"id":"PATTERN-REACHABLE-RETENTION-PROBE","k":"code#3","i":0,"c":"app/src/context/index.ts"}
 {"id":"PATTERN-REACHABLE-RETENTION-PROBE","k":"tests#0","i":0,"c":"app/tests/query/patternAssemblerRecipe.test.ts"}
 {"id":"U20-B5-2-100-CHANNEL-URLS","k":"title","i":0,"c":"U-20 B5-2-100：通道域厂商站点 / 默认 API 基址单一事实源"}

@@ -1696,13 +1696,12 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 | `packages/infra/src/environment/paths.ts` | 1390 | **138 导出** / 94 函数 | **C 不拆**：canonical 路径注册表（"其他模块不得自建路径常量"）⇒ 拆分会诱发多处定义回归 |
 | `packages/infra/src/security/BashSecurityAnalyzer.ts` | 1396 | 6 导出 / 39 函数 / **101 分支** | **C 不拆**：安全判定高内聚，拆分提高漏检与跨文件互锁风险（同 `code-deletion` CD07 精神） |
 | `app/src/chat/services/MessageContextPipeline.ts` | 1317 | 18 导出 / 23 函数 / 85 分支 | **A 可拆**：头注释已列 7 项职责（sanitize / truncate / compress / 摘要持久化 / 系统提示组装 / 目标提取 / 用量记录）⇒ 按阶段外移有明确单测粒度收益 |
-| `client/src/components/views/CronPage.tsx` | 1440 | **1 导出 / 3 函数** | **A 可拆**：单组件 + 巨型 JSX（函数极少 ⇒ 体积全在渲染树）⇒ 表单 / 列表 / 详情面板拆子组件收益明确 |
+| `client/src/components/views/CronPage.tsx` | 1440 | **1 导出 / 3 函数** | **A 可拆 → 已于 2026-11-18 拆完（§48.5，1440 → 408）**：单组件 + 巨型 JSX ⇒ 表单 / 列表 / 详情面板拆子组件收益明确 |
 
 ### 48.3 结论与建议排期
 
 1. **B/C 类 8 个一律不拆**（B 是"搬位置"，C 是"拆了更危险/更易漂移"）；
-2. **A 类 2 个可排期**：`MessageContextPipeline.ts`（后端，按阶段外移、单测跟着走）、
-   `CronPage.tsx`（前端，拆子组件）；
+2. **A 类 2 个**：`CronPage.tsx` **已完成**（§48.5）；`MessageContextPipeline.ts`（后端，按阶段外移、单测跟着走）**待排期**；
 3. 其余 68 个未抽样文件**不预设结论** —— 抽样只证明"该带里多数属 B/C 类"，
    不等于逐个已核；若后续要处置，按 §3 方法论逐个取证，**禁止**按行数批量拆。
 
@@ -1711,6 +1710,31 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 §47 记 `LongRunningTaskOrchestrator.ts` **1865** 行、`ChatManager.ts` **1824** 行；本次按**物理行**实测为
 **1989 / 1988**（均 < 2000，结论不变）。差异疑为「非空行 vs 物理行」两套数法 ⇒ **§47 两个数字来源待核**，
 后续凡记行数一律标注数法。
+
+### 48.5 实施记录：`CronPage.tsx` 拆子组件（2026-11-18，**已落地**）
+
+| 件 | 行数 | 内容 |
+|---|--:|---|
+| `client/src/components/views/CronPage.tsx` | **1440 → 408** | 保留状态、effects、筛选/排序/批量/创建逻辑与 Tab 骨架 |
+| `cron/CronStatsGrid.tsx` 🆕 | 92 | 4 张统计卡（按 status 计数），内含 `StatCard` |
+| `cron/CronSchedulerStatusBar.tsx` 🆕 | 59 | 状态栏三态（加载中 / 运行中 / 已停止） |
+| `cron/CronQuickTemplates.tsx` 🆕 | 87 | 快速模板条 + 模板常量表 |
+| `cron/CronBatchActionBar.tsx` 🆕 | 58 | 批量执行 / 批量删除 / 清除选择 |
+| `cron/CronListToolbar.tsx` 🆕 | 125 | 全选 / 搜索 / 状态筛选 / 排序 / 计数 / 刷新 |
+| `cron/CronTaskRow.tsx` 🆕 | 302 | 单行（徽标 + 行内动作 + 展开面板） |
+| `cron/CronCreateModal.tsx` 🆕 | 436 | 新建弹窗（模板 / 三种调度模式 / 预览 / 静默 / 投递 / 描述） |
+| `cron/cronForm.ts` 🆕 | 50 | 表单契约 + `createEmptyCronForm()`（初值/重置单一真源；兼解 `react-refresh/only-export-components`） |
+| `client/src/tests/cronPage.test.tsx` 🆕 | 124 | 4 条冒烟（状态栏三态 / 统计计数 / 搜索过滤 / 模板开弹窗） |
+
+**行为等价说明**：
+- 仅外移 JSX 与纯展示逻辑；筛选/排序/批量/提交仍在 `CronPage`；
+- **刻意保留**两处历史语义差异：点遮罩 = **只关闭**（不重置），点「取消」= 关闭 **并** 重置
+  （拆分前即如此，本次用 `onClose` / `onCancel` 两个回调各自承接，未"顺手统一"）；
+- 拆分前 `newCronForm` 的初值与取消重置是**两处相同字面量** ⇒ 收敛为 `createEmptyCronForm()`（单一真源）。
+
+**验证**：客户端 `tsc --noEmit` 0 错；`vitest run` **150 文件 / 1060 用例全绿**（含新增 4 条）；
+改动文件 `eslint` 0 error / 0 warning。
+**后续（未做）**：`MessageContextPipeline.ts` 为 A 类第 2 个（后端按阶段外移），本轮未动。
 
 
 

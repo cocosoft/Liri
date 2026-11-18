@@ -49,10 +49,11 @@ fail-closed on declared）。
 
 ## 6. 已知迁移注意
 
-- **存量行**未回填：历史边的 `edge_type` 保留原样（如 `works_at`）。用规范名查询**不会**召回它们；
-  **2026-11-18 已提供一次性回填脚本**（默认 dry-run）：
-  `cd app && bun run backfill:kg-edge-types` 先看计划（`from → to` + 行数），
-  确认后在**停写窗口**内执行 `--apply`（单事务，失败整体回滚；再跑一遍为空 ⇒ 幂等）。
-  脚本复用 `normalizeRelationType`（唯一事实源），只改 `edge_type`，不动 `edge_id` / `updated_at`。
+- **存量行**：**2026-11-18 已回填**（工具 `bun run backfill:kg-edge-types`，默认 dry-run）；
+  真机执行结果：**1454 行改名成功、13 行跳过** —— 跳过者是「目标规范边已存在」的重复事实
+  （唯一索引 `idx_kg_edge_unique(from_id,to_id,edge_type,COALESCE(domain,''))` 会拒改，
+  整笔事务回滚）；工具已改为**冲突感知**（跳过并计数，不删除、不改 id），
+  是否合并这些重复边属破坏性操作，按 `code-deletion.md` 另行裁定。
+  复跑验证：剩余计划仅这 13 行，其余全部已是规范名（脚本幂等）。
 - **域 schema 若用别名原名声明**（如 `is_a`）会因规范化后查不到 schema 而被拒 ⇒ 域 schema 应直接声明规范名。
 - `CORE_EDGE_SCHEMAS` 与其他 schema **同形**（`EdgeSchema`），可直接 `graph.setEdgeSchemas(CORE_EDGE_SCHEMAS)` 启用；它与默认域 schema 的 `relates_to` 不同名（前者 `related_to`），二者互不覆盖。

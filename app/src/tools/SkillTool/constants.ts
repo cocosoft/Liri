@@ -13,11 +13,6 @@ export const SKILL_TOOL_NAME = 'skill';
 export const SKILL_SEARCH_HINT = 'run skill custom command';
 
 /**
- * Skill描述
- */
-export const SKILL_DESCRIPTION = `执行已注册的技能。技能是可复用的提示词模板或命令，可按名称调用。`;
-
-/**
  * 内置Skill定义
  */
 export const BUILTIN_SKILLS = {

@@ -49,9 +49,17 @@ POST /v1/events/external
 
 ## 5. 未做 / 后续接入
 
-1. **GitHub issue 轮询**：新增 poller（凭据 `GITHUB_TOKEN`，默认关、带 `since` 位点）→ 调
-   `externalEventSource.emit`；事件类型复用 `external_event`，`payload.kind='github-issue'`。
-2. **邮件轮询**：复用既有 IMAP 能力（`imapflow` 已是外部依赖）→ 同上；需单独定"哪些发件人可信"。
+1. ~~**GitHub issue 轮询**~~ → **2026-11-18 已接线（默认关）**：`app/src/tasks/sources/githubIssuePoller.ts`
+   - 开关：`autonomy.externalPollers.github = { enabled: true, repos: ['owner/repo'], intervalMs? }`
+     + `GITHUB_TOKEN`（**无 token ⇒ 不启动**，不做匿名轮询）；默认值 = 关；
+   - 链路：`pollOnce → externalEventSource.emit`（`eventId = github-issue:<repo>#<id>`，
+     `threadId = github-issue:<repo>#<number>`，`payload.kind='github-issue'`，只带
+     `kind/repo/number/title/url/state/createdAt`）；
+   - `since` 位点为**进程内**：重启从启动时刻重新开始（不补发），重复由 `eventId` + `triggerId` 幂等兜住；
+   - 失败语义：单 repo 拉取失败只记日志、**不推进位点**（下一拍用旧 `since` 重试）；
+   - 回归：`app/tests/tasks/sources/githubIssuePoller.test.ts` 8 例（配置边界 / 翻译 / 拍次 / 不推进位点 / start-stop）。
+2. **邮件轮询**：复用既有 IMAP 能力（`imapflow` 已是外部依赖）→ 同上；需单独定"哪些发件人可信"
+   （**产品口径未定 ⇒ 不实现**）。
 3. **执行面放开**：当前只读（`alwayson_discovery`）；若需"外部事件驱动写操作"，必须先接审批
    （既有 Inbox approval），不在本 spec 范围。
 4. **审计增强**：目前成功路径依赖 ticket 台账 + 日志；如企业版需要，接 `EnterpriseAuditService`。

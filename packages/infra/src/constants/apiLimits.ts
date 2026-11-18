@@ -64,3 +64,23 @@ export const PDCA_LIST_DEFAULT_LIMIT = B.pdcaListDefaultLimit;
  * @kind B
  */
 export const PDCA_LIST_MAX_LIMIT = B.pdcaListMaxLimit;
+
+// =============================================================================
+// GitHub issue 轮询节奏（D1，2026-11-18）
+// =============================================================================
+
+/**
+ * GitHub issue 轮询默认间隔（毫秒）。
+ *
+ * **固定协议常量**（`@kind A`）：属外部 API 的调用节奏下限，不提供 env 覆盖 ——
+ * 误配成秒级会把配额打爆；确需调整走配置项 `autonomy.externalPollers.github.intervalMs`
+ * （同样会被 {@link GITHUB_POLLER_MIN_INTERVAL_MS} 夹到下限）。
+ */
+export const GITHUB_POLLER_DEFAULT_INTERVAL_MS = 60_000;
+
+/**
+ * GitHub issue 轮询最小间隔（毫秒）：配置再小也按此值执行
+ *
+ * @kind A
+ */
+export const GITHUB_POLLER_MIN_INTERVAL_MS = 10_000;

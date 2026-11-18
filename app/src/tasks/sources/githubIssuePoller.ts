@@ -235,44 +235,63 @@ export function createGithubIssuePoller(
   };
 }
 
+/** 单页条数（GitHub 上限 100；50 兼顾延迟与页数） */
+const GITHUB_POLLER_PAGE_SIZE = 50;
+
+/** 单次拉取最多翻几页（防止 issue 洪峰把一拍拉成无界循环） */
+const GITHUB_POLLER_MAX_PAGES = 5;
+
 /**
- * 默认拉取实现：`GET /repos/{repo}/issues?state=all&since=…&sort=created&direction=asc`。
+ * 默认拉取实现：`GET /repos/{repo}/issues?state=all&since=…&sort=updated&direction=asc`。
  *
- * - 过滤掉 `pull_request` 条目（GitHub 的 issues 接口会混入 PR）；
- * - 只取最小字段；`state` 原样透出（`open` / `closed`）；
- * - 非 2xx ⇒ 抛错（由调用方记日志，不推进位点）。
+ * **`since` 语义（GitHub 规范）= 按 `updated_at` 过滤** —— 因此必须配
+ * `sort=updated&direction=asc`：若按 `created` 排序，活跃仓库里"老 issue 刚被更新"
+ * 会挤占第一页，**新 issue 可能落在后续页而漏事件**（2026-11-18 自查发现并修正）。
+ *
+ * 分页：页大小 50、最多 5 页（250 条/拍）；不足一页即停止。
+ * 过滤 `pull_request` 条目（issues 接口会混入 PR）；只取最小字段。
+ * 非 2xx ⇒ 抛错（由调用方记日志，**不推进位点**）。
  */
 export async function fetchIssuesFromGithub(
   repo: string,
   sinceIso: string,
-  token: string
+  token: string,
+  fetchImpl: typeof fetch = fetch
 ): Promise<GithubIssue[]> {
-  const url =
-    `${GITHUB_API_BASE}/repos/${repo}/issues?state=all` +
-    `&since=${encodeURIComponent(sinceIso)}&sort=created&direction=asc&per_page=50`;
-  const res = await fetch(url, {
-    headers: {
-      Accept: 'application/vnd.github+json',
-      Authorization: `Bearer ${token}`,
-      'X-GitHub-Api-Version': '2022-11-28',
-    },
-  });
-  if (!res.ok) {
-    throw new Error(`GitHub API ${res.status}（${repo}）`);
+  const collected = new Map<number, GithubIssue>();
+  for (let page = 1; page <= GITHUB_POLLER_MAX_PAGES; page += 1) {
+    const url =
+      `${GITHUB_API_BASE}/repos/${repo}/issues?state=all` +
+      `&since=${encodeURIComponent(sinceIso)}` +
+      `&sort=updated&direction=asc` +
+      `&per_page=${GITHUB_POLLER_PAGE_SIZE}&page=${page}`;
+    const res = await fetchImpl(url, {
+      headers: {
+        Accept: 'application/vnd.github+json',
+        Authorization: `Bearer ${token}`,
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+    });
+    if (!res.ok) {
+      throw new Error(`GitHub API ${res.status}（${repo}）`);
+    }
+    const rows = (await res.json()) as Array<Record<string, unknown>>;
+    if (!Array.isArray(rows) || rows.length === 0) break;
+    for (const row of rows) {
+      if (row['pull_request']) continue;
+      const issue: GithubIssue = {
+        id: Number(row['id']),
+        number: Number(row['number']),
+        title: String(row['title'] ?? ''),
+        htmlUrl: String(row['html_url'] ?? ''),
+        state: String(row['state'] ?? ''),
+        createdAt: String(row['created_at'] ?? ''),
+      };
+      if (!Number.isFinite(issue.id) || !Number.isFinite(issue.number))
+        continue;
+      collected.set(issue.id, issue);
+    }
+    if (rows.length < GITHUB_POLLER_PAGE_SIZE) break;
   }
-  const rows = (await res.json()) as Array<Record<string, unknown>>;
-  if (!Array.isArray(rows)) return [];
-  return rows
-    .filter((row) => !row['pull_request'])
-    .map((row) => ({
-      id: Number(row['id']),
-      number: Number(row['number']),
-      title: String(row['title'] ?? ''),
-      htmlUrl: String(row['html_url'] ?? ''),
-      state: String(row['state'] ?? ''),
-      createdAt: String(row['created_at'] ?? ''),
-    }))
-    .filter(
-      (issue) => Number.isFinite(issue.id) && Number.isFinite(issue.number)
-    );
+  return [...collected.values()];
 }

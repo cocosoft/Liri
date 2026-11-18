@@ -52,7 +52,7 @@ import {
 import { StreamingAutoCheckpoint } from '../services/StreamingAutoCheckpoint';
 // P1-2（2026-11-06）：会话状态复位后通知前端重取（清掉"待审批"徽标）
 import { notifySessionMetaUpdated } from '../services/sessionMetaBroadcast';
-import { stripThinkResponseTags } from '../services/MessageContextPipeline';
+import { stripThinkResponseTags } from '../services/context/thinkTags';
 import { repairImageUrls } from '../services/ChatHelper';
 import { stripBareExploration } from '../services/bareExplorationStripper';
 import type { MessageService } from '../services/MessageService.js';

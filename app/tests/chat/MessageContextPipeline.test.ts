@@ -21,19 +21,21 @@
 
 import { describe, expect, test } from 'bun:test';
 import {
-  stripOrphanToolTags,
-  stripThinkResponseTags,
-  ensureThinkResponseTags,
   windowStartForBudget,
   computePaginationPoint,
   buildWorkspaceRootSection,
 } from '../../src/chat/services/MessageContextPipeline';
-// 2026-11-18（§48 拆分批 2）：分层判定与提示已外移到独立模块
+// 2026-11-18（§48 拆分批 2/3）：分层判定与提示、think 标签已外移到独立模块
 import {
   isCodeContextMessage,
   LAYERING_HINT,
   LAYERING_HINT_CODE,
 } from '../../src/chat/services/context/contextLayering';
+import {
+  stripOrphanToolTags,
+  stripThinkResponseTags,
+  ensureThinkResponseTags,
+} from '../../src/chat/services/context/thinkTags';
 
 describe('D5② 取回增强 — 代码/长文档会话判定与提示', () => {
   test('代码库/重构类 user 消息判定为 code-context', () => {

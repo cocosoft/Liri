@@ -25,7 +25,7 @@ import {
 
 import type { ToolLoopContext } from './ToolLoopRunner';
 import { CONTINUATION_TEMPLATES } from '@openliri/infra/constants/goalTemplates';
-import { stripThinkResponseTags } from './services/MessageContextPipeline';
+import { stripThinkResponseTags } from './services/context/thinkTags';
 
 const logger = getLogger('chat:reactToolLoop');
 

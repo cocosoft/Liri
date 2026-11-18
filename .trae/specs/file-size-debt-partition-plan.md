@@ -1695,13 +1695,13 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 | `client/src/stores/chat/chat-toolcall.slice.ts` | 1491 | 14 导出 / 32 函数 / 94 分支 | **B 低优先**：纯函数 + `ChronologicalBlockBuilder`，拆分仅按工具函数分组，收益限于可读性 |
 | `packages/infra/src/environment/paths.ts` | 1390 | **138 导出** / 94 函数 | **C 不拆**：canonical 路径注册表（"其他模块不得自建路径常量"）⇒ 拆分会诱发多处定义回归 |
 | `packages/infra/src/security/BashSecurityAnalyzer.ts` | 1396 | 6 导出 / 39 函数 / **101 分支** | **C 不拆**：安全判定高内聚，拆分提高漏检与跨文件互锁风险（同 `code-deletion` CD07 精神） |
-| `app/src/chat/services/MessageContextPipeline.ts` | 1317 | 18 导出 / 23 函数 / 85 分支 | **A 可拆 → 拆分批 2 已落地两组（§48.6，1317 → 1136）**：7 项职责；余下截断/提示组装/摘要/标签四簇待批 3 |
+| `app/src/chat/services/MessageContextPipeline.ts` | 1317 | 18 导出 / 23 函数 / 85 分支 | **A 可拆 → 批 2/3 已落地四组（§48.6/§48.7，1317 → 896）**：余下截断簇 + 提示组装簇待批 4 |
 | `client/src/components/views/CronPage.tsx` | 1440 | **1 导出 / 3 函数** | **A 可拆 → 已于 2026-11-18 拆完（§48.5，1440 → 408）**：单组件 + 巨型 JSX ⇒ 表单 / 列表 / 详情面板拆子组件收益明确 |
 
 ### 48.3 结论与建议排期
 
 1. **B/C 类 8 个一律不拆**（B 是"搬位置"，C 是"拆了更危险/更易漂移"）；
-2. **A 类 2 个**：`CronPage.tsx` **已完成**（§48.5）；`MessageContextPipeline.ts` **批 2 已完成两组**（§48.6，1317 → 1136），余下四簇待批 3；
+2. **A 类 2 个**：`CronPage.tsx` **已完成**（§48.5）；`MessageContextPipeline.ts` **批 2+3 已落四组**（§48.6/§48.7，1317 → 896），余下截断/提示组装两簇待批 4；
 3. 其余 68 个未抽样文件**不预设结论** —— 抽样只证明"该带里多数属 B/C 类"，
    不等于逐个已核；若后续要处置，按 §3 方法论逐个取证，**禁止**按行数批量拆。
 
@@ -1759,6 +1759,29 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 **剩余（批 3 候选，未做）**：截断簇（≈600 行）→ `context/contextTruncation.ts`；提示组装簇（≈230 行）→
 `context/promptAssembly.ts`；摘要/目标提取（≈90 行）→ `context/turnSummary.ts`；think 标签（≈110 行）→
 `context/thinkTags.ts`（后者被 `chat/index.ts` 再导出，需同批核对模块出口）。
+
+### 48.7 实施记录：`MessageContextPipeline.ts` 拆分批 3（2026-11-18，**已落地**）
+
+| 件 | 行数 | 内容 |
+|---|--:|---|
+| `services/MessageContextPipeline.ts` | **1136 → 896** | 仍持有：截断/分页切点（`truncateApiMessages` · `computePaginationPoint` · `windowStartForBudget` · `truncateByPreciseTokens`）与系统提示组装（`assembleContextualSystemPrompt` · `buildWorkspaceRootSection`） |
+| `services/context/thinkTags.ts` 🆕 | 140 | `ensureThinkResponseTags` / `stripThinkResponseTags` / `stripOrphanToolTags` + `isInsideFencedBlock`（**纯内容级**，无会话依赖） |
+| `services/context/turnSummary.ts` 🆕 | 128 | `persistTurnSummary` / `extractCurrentGoal` + 两个常量 + `firstSummaryLine`（日志 module 名仍为 `chat:context-pipeline`） |
+
+**接线（11 处）**：
+think 标签 —— `streamingLlm.ts` · `pipeline/StreamPipeline.ts` · `orchestrator/sendMessageFlow.ts` ·
+`agentIncompleteTurn.ts` · `manager/streamResume.ts` · `manager/sendDowngrade.ts` · `terminationOutput.ts` ·
+`chat/index.ts`（模块出口再导出，`@modules/chat` 调用方零改动）· 测试 2 处；
+摘要 —— `manager/facadeWiring.ts` · `manager/orchestratorHost.ts` · 测试 1 处。
+**依赖方向**：`MessageContextPipeline → context/turnSummary → context/thinkTags`（组装系统提示时仍需
+`extractCurrentGoal`）；`thinkTags` 不反向依赖，无环。
+
+**验证**：`tsc --noEmit`（三 project）0 错；`tests/chat` + `tests/streaming` + `tests/skills` + `tests/query`
+**1881 pass / 10 skip / 0 fail**（273 文件）；`lint:arch` 0 error · `lint:size` / `lint:fn-size` /
+`lint:complexity` 棘轮未增长 · `lint:refs` 192 处通过。
+
+**剩余（批 4 候选，未做）**：截断簇（≈600 行）→ `context/contextTruncation.ts`；
+提示组装簇（≈230 行）→ `context/promptAssembly.ts`。
 
 
 

@@ -11,7 +11,7 @@
 // —— 任务目标与计划全部丢失，下一轮模型只能重新规划。
 
 import { describe, expect, it } from 'bun:test';
-import { persistTurnSummary } from '../../src/chat/services/MessageContextPipeline';
+import { persistTurnSummary } from '../../src/chat/services/context/turnSummary';
 import type { ChatSession } from '@modules/session/types/session.js';
 
 function msg(role: 'user' | 'assistant', content: string) {

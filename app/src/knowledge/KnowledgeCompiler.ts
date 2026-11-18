@@ -1394,6 +1394,23 @@ export async function readLintRatchetSnapshot(): Promise<LintRatchetSnapshot> {
 }
 
 /**
+ * 本次编译应使用的 schema 目录：域内**有** entities/edges ⇒ 用域 `.schema`，否则退回全局。
+ *
+ * PR #14 补全（2026-11-19）：`SchemaLoader` 的构造注释写着"指定域后优先读域 schema，fallback 到全局"，
+ * 但实现并不 fallback（只是换目录）⇒ 域里没放 schema 时会把**全局本体约束**一起丢掉（静默降级为自由提取）。
+ * 在编译入口显式补齐该语义。
+ */
+export function resolveSchemaDirForDomain(domain?: string): string {
+  const globalDir = new SchemaLoader().getSchemaDir();
+  if (!domain) return globalDir;
+  const domainDir = new SchemaLoader(undefined, domain).getSchemaDir();
+  const has = (dir: string): boolean =>
+    existsSync(join(dir, 'entities.yaml')) ||
+    existsSync(join(dir, 'edges.yaml'));
+  return has(domainDir) ? domainDir : globalDir;
+}
+
+/**
  * 一键执行知识编译
  *
  * K2（本体驱动）装配：
@@ -1409,8 +1426,9 @@ export async function runKnowledgeCompile(
   const graph = new KnowledgeGraph();
   await graph.init();
 
-  const schemaLoader = new SchemaLoader();
-  const schemaDir = schemaLoader.getSchemaDir();
+  const schemaDir = resolveSchemaDirForDomain(options?.domain);
+  // 同一个 loader 供图谱 schema / 记录 schema / 规则 schema 复用（目录已按域解析好）
+  const schemaLoader = new SchemaLoader(schemaDir, options?.domain);
   const hasGraphSchema =
     existsSync(join(schemaDir, 'entities.yaml')) ||
     existsSync(join(schemaDir, 'edges.yaml'));

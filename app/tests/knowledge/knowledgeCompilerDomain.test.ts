@@ -40,7 +40,10 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { KnowledgeCompiler } from '../../src/knowledge/KnowledgeCompiler';
+import {
+  KnowledgeCompiler,
+  resolveSchemaDirForDomain,
+} from '../../src/knowledge/KnowledgeCompiler';
 import { WikiLinter } from '../../src/knowledge/lint/WikiLinter';
 
 const home = mkdtempSync(join(tmpdir(), 'knowledge-domain-'));
@@ -108,6 +111,44 @@ describe('KnowledgeCompiler：domain 目标切换（PR #14）', () => {
       expect(lintTargets[1]).toBe(globalRoot);
     } finally {
       WikiLinter.prototype.run = originalLintRun;
+    }
+  });
+});
+
+describe('resolveSchemaDirForDomain：域 schema 缺失时退回全局（PR #14 补全）', () => {
+  it('域内有 entities/edges ⇒ 域目录；没有 ⇒ 全局目录；无 domain ⇒ 全局', () => {
+    const schemaHome = mkdtempSync(join(tmpdir(), 'knowledge-schema-'));
+    const prev = process.env['LIRI_HOME'];
+    process.env['LIRI_HOME'] = schemaHome;
+    try {
+      const globalSchema = join(schemaHome, 'knowledge', '.schema');
+      mkdirSync(globalSchema, { recursive: true });
+      writeFileSync(join(globalSchema, 'entities.yaml'), 'entities: []\n');
+
+      // 域内没有 schema 文件 ⇒ 退回全局（否则会丢全局本体约束）
+      expect(resolveSchemaDirForDomain('finance')).toBe(globalSchema);
+
+      const domainSchema = join(
+        schemaHome,
+        'knowledge',
+        'domains',
+        'finance',
+        '.schema'
+      );
+      mkdirSync(domainSchema, { recursive: true });
+      writeFileSync(join(domainSchema, 'edges.yaml'), 'edges: []\n');
+      // 域内有 ⇒ 用域目录
+      expect(resolveSchemaDirForDomain('finance')).toBe(domainSchema);
+      // 无 domain ⇒ 全局
+      expect(resolveSchemaDirForDomain()).toBe(globalSchema);
+    } finally {
+      if (prev === undefined) delete process.env['LIRI_HOME'];
+      else process.env['LIRI_HOME'] = prev;
+      try {
+        rmSync(schemaHome, { recursive: true, force: true });
+      } catch {
+        // @ignore-catch — Windows 句柄未释放时留给 OS 清理
+      }
     }
   });
 });

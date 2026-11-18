@@ -457,15 +457,13 @@ jobs:
       if: failure()
       working-directory: .
       run: |
-        echo "== Caused by 上下文（真错误在失败原因链里）=="
-        grep -n -B 3 -A 15 'Caused by:' /tmp/tauri-check.log 2>/dev/null | head -n 60 \
-          | while IFS= read -r line; do echo "::error::${line//$'\r'/}"; done
-        echo "== build script stderr 段 =="
-        awk '/--- stderr/{flag=1} flag' /tmp/tauri-check.log 2>/dev/null | head -n 40 \
-          | while IFS= read -r line; do echo "::error::${line//$'\r'/}"; done
-        echo "== 末尾 25 行 =="
-        tail -n 25 /tmp/tauri-check.log 2>/dev/null \
-          | while IFS= read -r line; do echo "::warning::${line//$'\r'/}"; done
+        echo "== 精简错误候选（排除依赖构建噪声）=="
+        grep -iE 'error|fail|invalid|missing|exist|denied|conflict|panic' /tmp/tauri-check.log 2>/dev/null \
+          | grep -vE '(Checking|Compiling|Downloaded|Downloading|thiserror|proc-macro-error)' \
+          | head -n 8 | while IFS= read -r line; do echo "::error::${line//$'\r'/}"; done
+        echo "== build script stdout 全段（末 15 行）=="
+        awk '/--- stdout/{flag=1} /--- stderr/{flag=0} flag' /tmp/tauri-check.log 2>/dev/null \
+          | tail -n 15 | while IFS= read -r line; do echo "::warning::${line//$'\r'/}"; done
         exit 0
 
   static-check:

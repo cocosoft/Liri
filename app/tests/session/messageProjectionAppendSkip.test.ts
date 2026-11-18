@@ -118,3 +118,58 @@ describe('N-51 写入侧：投影无冗余追加', () => {
     expect(out.map((m) => m.id).sort()).toEqual(['m1', 'm2']);
   });
 });
+
+/**
+ * 2026-11-18（真机 `session_mwkthat73b80a6724f`）：**单消息重复快照**按字节预算折叠。
+ *
+ * 实测缺陷：一条携带 ~1000 blocks 的 assistant 消息在一次长工具轮里被整行追加 **7 行 / 4.03 MB**
+ *（占该会话投影的 88.8%，单行 ≈338 KB）；既有触发条件只有「追加 100 次」/「累计 2 MB」，
+ * 6×338 KB ≈1.94 MB **恰好卡在阈值下方** ⇒ 一行都没折叠。
+ * 修复后：按**每条消息**累计追加字节，达预算即复用既有 compact 折叠为一行。
+ */
+describe('2026-11-18：单消息重复快照达预算 ⇒ 自动折叠', () => {
+  test('同 id 反复整行追加（blocks 每次变化）⇒ 行数不再随追加次数线性增长', async () => {
+    const sid = 'sid-dup-budget';
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dup-budget-'));
+    const s = new FileSystemUnifiedStorage({
+      type: StorageType.FILESYSTEM,
+      basePath: dir,
+      // 小预算：让"第 3 次左右追加"就命中，避免测试依赖真实 1 MB 体积
+      duplicateAppendBudgetBytes: 800,
+    });
+    const mk = (n: number): UnifiedMessage =>
+      ({
+        id: 'm1',
+        sessionId: sid,
+        role: 'assistant',
+        content: `v${n}`,
+        timestamp: 1,
+        blocks: [{ type: 'text', content: `${'x'.repeat(200)}${n}` }],
+      }) as unknown as UnifiedMessage;
+    const rows = (): number => {
+      const file = path.join(dir, sid, 'messages.jsonl');
+      if (!fs.existsSync(file)) return 0;
+      return fs
+        .readFileSync(file, 'utf-8')
+        .split('\n')
+        .filter((l) => l.trim().length > 0).length;
+    };
+
+    await s.addMessage(sid, mk(0));
+    for (let i = 1; i <= 6; i += 1) {
+      await s.updateMessage(sid, 'm1', mk(i));
+    }
+
+    // 读取语义不变：仍只有一条消息、且是最后写入的内容
+    const stored = await s.getMessages(sid);
+    expect(stored).toHaveLength(1);
+    expect(stored[0]?.content).toBe('v6');
+
+    // 等写队列（含异步入队的 compact）落定后再数磁盘行
+    await s.close();
+    expect(rows()).toBeLessThan(7); // 朴素追加会是 1 + 6 = 7 行
+    expect(rows()).toBeGreaterThanOrEqual(1);
+
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+});

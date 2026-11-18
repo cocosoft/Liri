@@ -136,6 +136,16 @@ function messagesFilePath(basePath: string, sessionId: string): string {
  */
 const DEFAULT_APPEND_REWRITE_INTERVAL = 100;
 const DEFAULT_APPEND_REWRITE_BYTES = 2 * 1024 * 1024;
+/**
+ * 2026-11-18（真机 `session_mwkthat73b80a6724f`）：**同一 messageId 的重复快照字节预算**。
+ *
+ * 实测：一次长工具轮里同一条 assistant 消息被整行追加 **7 行 / 4.03 MB**（占该会话
+ * `messages.jsonl` 的 88.8%，单行≈338 KB 因其携带 ~1000 个 blocks）。既有触发条件只有
+ * 「追加 100 次」或「累计 2 MB」——6×338 KB ≈ **1.94 MB 刚好卡在阈值下**，于是全部保留。
+ * 这里按**每条消息**累计重复快照字节，达预算即复用 `enqueueCompact` 折叠为一行。
+ * 预算缺省 1 MB，可用 `StorageConfig.duplicateAppendBudgetBytes` 覆盖（测试/调优）。
+ */
+const DEFAULT_DUPLICATE_APPEND_BUDGET_BYTES = 1024 * 1024;
 
 export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
   private sessions: Map<string, UnifiedSession> = new Map();
@@ -160,6 +170,11 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
   private appendCounts: Map<string, number> = new Map();
   /** 累计追加行字节估算（per-session，第 7 条）：长消息会话按体积触发 compact */
   private appendBytes: Map<string, number> = new Map();
+  /**
+   * 单消息重复快照字节（per-session → per-messageId，2026-11-18）。
+   * 达 `duplicateAppendBudgetBytes` 即触发一次 compact 并清空该会话记账。
+   */
+  private duplicateAppendBytes: Map<string, Map<string, number>> = new Map();
   /**
    * 已删除会话集合（BUG-I 修复 2026-08-26）：软删除（rename 到 .trash）后，
    * 活跃流的协作式 abort 可能仍在落盘——persistMessageAppend 的 mkdir recursive
@@ -216,6 +231,7 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     this.messageAccessOrder = [];
     this.appendCounts.clear();
     this.appendBytes.clear();
+    this.duplicateAppendBytes.clear();
     this.initialized = false;
   }
 
@@ -383,6 +399,7 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
       this.messages.delete(oldest);
       this.appendCounts.delete(oldest);
       this.appendBytes.delete(oldest);
+      this.duplicateAppendBytes.delete(oldest);
     }
   }
 
@@ -763,6 +780,45 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
   }
 
   /**
+   * 2026-11-18（真机 `session_mwkthat73b80a6724f`）：**单消息重复快照**字节记账。
+   *
+   * 同一 messageId 每被整行追加一次（blocks 变化 ⇒ N-51 的"内容无变化即跳过"不命中），
+   * 就把该行字节累加到本消息头上；达预算即复用既有 `enqueueCompact` 折叠成一行。
+   * 之所以按**消息**而不是只按会话累计：一条携带上千 blocks 的消息（≈338 KB/行）会让
+   * 会话级 2 MB 阈值毫无保护作用 —— 实测 6 行 ≈1.94 MB 恰好卡在阈值下方。
+   *
+   * 不做去重判定、不改写盘格式：只把"何时 compact"多一个结构化触发条件（无行为语义变化）。
+   */
+  private trackDuplicateAppend(
+    sessionId: string,
+    messageId: string,
+    appendedBytes: number
+  ): void {
+    const budget =
+      this.config.duplicateAppendBudgetBytes ??
+      DEFAULT_DUPLICATE_APPEND_BUDGET_BYTES;
+    if (budget <= 0) return;
+    let perMessage = this.duplicateAppendBytes.get(sessionId);
+    if (!perMessage) {
+      perMessage = new Map();
+      this.duplicateAppendBytes.set(sessionId, perMessage);
+    }
+    const accumulated = (perMessage.get(messageId) ?? 0) + appendedBytes;
+    if (accumulated < budget) {
+      perMessage.set(messageId, accumulated);
+      return;
+    }
+    perMessage.delete(messageId);
+    logger.info('updateMessage: 单消息重复快照达预算，触发 compact', {
+      sessionId,
+      messageId,
+      appendedBytes: accumulated,
+      budget,
+    });
+    this.enqueueCompact(sessionId);
+  }
+
+  /**
    * 定期 compact 异步化（第 6 条）：把"全量重写 + 读回校验"作为一个 op 排入
    * per-session 写队列，fire-and-forget——调用方不等 compact 完成，消除
    * updateMessage 主流程的同步阻塞。队列串行保证与 append 不跨 syscall 竞争
@@ -773,6 +829,8 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     void this.enqueueWrite(sessionId, async () => {
       const msgs = this.messages.get(sessionId);
       if (!msgs) return;
+      // 全量重写后重复行已被折叠 ⇒ 单消息重复字节记账一并清零（2026-11-18）
+      this.duplicateAppendBytes.delete(sessionId);
       logger.debug('compact:新链 FileSystemUnifiedStorage 异步 compact 执行', {
         sessionId,
       });
@@ -1131,6 +1189,14 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
         return;
       }
       await this.persistMessageAppend(sessionId, message);
+      // 2026-11-18：同 id 的再次整行追加（上游重发/双写）同样计入单消息重复预算
+      if (isDuplicate) {
+        this.trackDuplicateAppend(
+          sessionId,
+          message.id,
+          Buffer.byteLength(JSON.stringify(message), 'utf-8')
+        );
+      }
       // P1-5：写后同步用户面计数（仅在变化时落盘 session.json）
       await this.syncConversationCounts(sessionId);
     });
@@ -1216,6 +1282,12 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
           // loadMessages 已反向去重（后写覆盖），同 id 多行读取安全。
           const writeStart = Date.now();
           await this.persistMessageAppend(sessionId, msgs[idx]);
+          // 2026-11-18：单消息重复快照字节记账（达预算即折叠为一行）
+          this.trackDuplicateAppend(
+            sessionId,
+            msgs[idx].id,
+            Buffer.byteLength(nextJson, 'utf-8')
+          );
           // P1-5：角色/内容变更可能改变计数（如 role 校正）⇒ 同步一次
           await this.syncConversationCounts(sessionId);
           const writeElapsedMs = Date.now() - writeStart;

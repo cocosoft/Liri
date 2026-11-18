@@ -40,6 +40,14 @@ export interface StorageConfig {
   appendRewriteInterval?: number;
   /** 定期 compact 触发：累计追加体积阈值（字节，默认 2MB）——长消息会话防文件膨胀 */
   appendRewriteBytes?: number;
+  /**
+   * 2026-11-18：**单条消息**重复快照字节预算（默认 1MB，`<=0` 关闭）。
+   *
+   * 同一条消息每被整行追加一次即累计其字节，达预算就触发一次 compact 折叠为一行。
+   * 补足 `appendRewriteBytes` 的盲区：一条携带上千 blocks 的消息（≈338 KB/行）在
+   * 会话级 2MB 阈值之下仍可堆积多行（真机 `session_mwkthat73b80a6724f`：7 行 / 4.03MB）。
+   */
+  duplicateAppendBudgetBytes?: number;
   /** P0'（2026-09-18）：历史会话分区目录清单（兼容读多分区聚合）。
    *  缺省时由 FileSystemUnifiedStorage 自动探测（resolveLegacySessionPartitionRoots）。 */
   legacyRoots?: string[];

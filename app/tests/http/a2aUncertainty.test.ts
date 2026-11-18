@@ -17,6 +17,12 @@ import {
 } from '../../src/infrastructure/http/handlers/routes/a2a-uncertainty';
 import { createCoreApiDelegator } from '../../src/infrastructure/http/handlers/routes/a2a-delegator';
 import {
+  runDelegation,
+  setA2ADelegator,
+  setA2AUncertaintyProvider,
+} from '../../src/infrastructure/http/handlers/routes/a2a-routes';
+import { LIRI_UNCERTAINTY_KEY } from '@modules/types/uncertainty';
+import {
   recordVerifierResult,
   resetVerifierMetrics,
 } from '@modules/query/taor/verifierMetrics';
@@ -32,6 +38,8 @@ afterEach(() => {
   if (ENV_BEFORE === undefined)
     delete process.env[A2A_UNCERTAINTY_VERIFIER_ENV];
   else process.env[A2A_UNCERTAINTY_VERIFIER_ENV] = ENV_BEFORE;
+  setA2ADelegator(null);
+  setA2AUncertaintyProvider(null);
 });
 
 describe('toUncertaintySignal（纯映射）', () => {
@@ -126,5 +134,95 @@ describe('委派后端登记 taskId → sessionId', () => {
     resetA2ATaskSessions();
     await delegator('hi');
     expect(resolveA2ASessionForTask('task-a')).toBeNull();
+  });
+});
+
+describe('端到端：runDelegation → ctx → 会话索引 → 验证器结果 → liri.uncertainty', () => {
+  function fakePort() {
+    const tasks = new Map<string, Record<string, unknown>>();
+    let seq = 0;
+    const port = {
+      createTask: () => {
+        const task = {
+          id: `t${++seq}`,
+          contextId: 'ctx',
+          status: 'TASK_STATE_SUBMITTED',
+        };
+        tasks.set(task.id, task);
+        return task;
+      },
+      completeTask: (
+        id: string,
+        status: string,
+        artifacts: unknown[],
+        message?: unknown
+      ) => {
+        const next = {
+          ...tasks.get(id),
+          status,
+          artifacts,
+          ...(message ? { history: [message] } : {}),
+        };
+        tasks.set(id, next);
+        return next;
+      },
+      getTask: (id: string) => tasks.get(id) ?? null,
+    };
+    return port;
+  }
+
+  it('协商 + 验证器有记录 ⇒ metadata 带 liri.uncertainty（score = 1 - confidence）', async () => {
+    // 模拟真实委派后端：登记 taskId → sessionId，并在本轮内产生验证器结果
+    setA2ADelegator(async (_message, _agentId, ctx) => {
+      registerA2ATaskSession(ctx!.taskId, 'sess-e2e');
+      recordVerifierResult({
+        sessionId: 'sess-e2e',
+        turn: 1,
+        verdict: 'APPROVE',
+        durationMs: 1,
+        confidence: 0.75,
+      });
+      return '委派结果';
+    });
+    setA2AUncertaintyProvider(createVerifierUncertaintyProvider());
+
+    const { completed, task } = await runDelegation(
+      fakePort() as never,
+      'hi',
+      undefined,
+      2000,
+      true
+    );
+
+    expect(completed).toBe(true);
+    // 无脱敏函数 ⇒ `rationale` 在 A2A 边界被丢弃（spec §4-4），只留 score/method
+    expect(task.metadata?.[LIRI_UNCERTAINTY_KEY]).toEqual({
+      score: 0.25,
+      method: 'verifier',
+    });
+  });
+
+  it('未协商 ⇒ 即使有真实记录也不写 liri.*', async () => {
+    setA2ADelegator(async (_message, _agentId, ctx) => {
+      registerA2ATaskSession(ctx!.taskId, 'sess-e2e-2');
+      recordVerifierResult({
+        sessionId: 'sess-e2e-2',
+        turn: 1,
+        verdict: 'REJECT',
+        durationMs: 1,
+        confidence: 0.2,
+      });
+      return 'ok';
+    });
+    setA2AUncertaintyProvider(createVerifierUncertaintyProvider());
+
+    const { task } = await runDelegation(
+      fakePort() as never,
+      'hi',
+      undefined,
+      2000,
+      false
+    );
+    expect(task.metadata?.[LIRI_UNCERTAINTY_KEY]).toBeUndefined();
   });
 });

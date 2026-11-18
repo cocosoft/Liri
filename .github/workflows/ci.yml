@@ -444,7 +444,21 @@ jobs:
       uses: dtolnay/rust-toolchain@stable
 
     - name: Run cargo check (tauri shell)
-      run: cargo check
+      run: |
+        set -o pipefail
+        cargo check 2>&1 | tee /tmp/tauri-check.log
+
+    # 观测辅助：把失败摘要写成 annotation —— 匿名也能从 check-runs/annotations API 读到，
+    # 不需要登录即可排障（本作业当前非阻断，先拿真实错误再决定修法）。
+    - name: Surface cargo error as annotation
+      if: failure()
+      working-directory: .
+      run: |
+        echo "== cargo check 失败摘要（末 30 行）==" 
+        tail -n 30 /tmp/tauri-check.log 2>/dev/null | while IFS= read -r line; do
+          echo "::error::${line//$'\r'/}"
+        done
+        exit 0
 
   static-check:
     name: Static Checks (security + circular + architecture)

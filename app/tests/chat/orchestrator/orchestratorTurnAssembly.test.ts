@@ -169,7 +169,12 @@ function createHost(opts: HostOptions): {
     unifiedTracker: {
       checkBeforeRequest: async () => ({
         decision: 'skip',
-        snapshot: { tokens: 8, maxTokens: 200000, ratio: 0 },
+        rawInputTokens: 8,
+        uncalibratedTotal: 8,
+        calibratedTotal: 8,
+        estimateLowerBound: false,
+        maxTokens: 200000,
+        ratio: 0,
       }),
     } as unknown as ChatOrchestratorHost['unifiedTracker'],
     imageContextService: {

@@ -177,7 +177,7 @@ interface ReActToolLoopState {
   /**
    * 最近一次实测的上下文占用比（2026-09-22，"压缩失败暂停续接"判据）。
    *
-   * 事实来源：`unifiedTracker.checkBeforeRequest()` 的 `snapshot.ratio`（每轮发送前实测）。
+   * 事实来源：`unifiedTracker.checkBeforeRequest()` 的 `ratio`（每轮发送前实测）。
    * 与 `consecutiveCompactNoEffect` 组合可区分"压不动**且**吃紧"与"低占用会话"。
    */
   lastCompactRatio?: number;

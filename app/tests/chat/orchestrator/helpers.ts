@@ -182,7 +182,12 @@ export function createTestHost(
     unifiedTracker: {
       checkBeforeRequest: async () => ({
         decision: 'skip',
-        snapshot: { tokens: 0, maxTokens: 1000, ratio: 0 },
+        rawInputTokens: 0,
+        uncalibratedTotal: 0,
+        calibratedTotal: 0,
+        estimateLowerBound: false,
+        maxTokens: 1000,
+        ratio: 0,
       }),
       onStreamChunk: () => {},
       resetStreamTokens: () => {},

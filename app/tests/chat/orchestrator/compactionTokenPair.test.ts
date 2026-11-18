@@ -77,13 +77,21 @@ function makeHost(compactResult: unknown): ChatOrchestratorHost {
         return checkCalls === 1
           ? {
               decision: 'trigger',
-              beforeTokens: 999_999,
-              snapshot: { tokens: 999_999, maxTokens: 1_000_000, ratio: 0.99 },
+              rawInputTokens: 999_999,
+              uncalibratedTotal: 999_999,
+              calibratedTotal: 999_999,
+              estimateLowerBound: false,
+              maxTokens: 1_000_000,
+              ratio: 0.99,
             }
           : {
               decision: 'skip',
-              beforeTokens: 0,
-              snapshot: { tokens: 0, maxTokens: 1_000_000, ratio: 0 },
+              rawInputTokens: 0,
+              uncalibratedTotal: 0,
+              calibratedTotal: 0,
+              estimateLowerBound: false,
+              maxTokens: 1_000_000,
+              ratio: 0,
             };
       },
       onStreamChunk: () => {},

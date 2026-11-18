@@ -72,8 +72,13 @@ export interface AgentPreReasoningDeps {
     model: string
   ) => Promise<{
     decision: 'warn' | 'trigger' | 'skip';
-    beforeTokens: number;
-    snapshot: { tokens: number; maxTokens: number; ratio: number };
+    // G2（2026-11-18）：口径自解释（见 `token-accounting-unification.md` D3）
+    rawInputTokens: number;
+    uncalibratedTotal: number;
+    calibratedTotal: number;
+    estimateLowerBound: boolean;
+    maxTokens: number;
+    ratio: number;
   }>;
   options?: { model?: string; maxTokens?: number };
   queueSteering: (text: string, source: SteeringSource) => void;
@@ -237,12 +242,14 @@ export async function runBeforeReasoning(
           {
             preEvaluated: {
               decision: 'trigger',
-              beforeTokens: estLayer,
-              snapshot: {
-                tokens: estLayer,
-                maxTokens: layerWindowTokens,
-                ratio: estLayer / layerWindowTokens,
-              },
+              // G2（2026-11-18）：口径自解释 —— 本处 estLayer 是原始 input 估值，
+              // 不涉及校准因子（未走 tracker），三值同源。
+              rawInputTokens: estLayer,
+              uncalibratedTotal: estLayer,
+              calibratedTotal: estLayer,
+              estimateLowerBound: false,
+              maxTokens: layerWindowTokens,
+              ratio: layerWindowTokens > 0 ? estLayer / layerWindowTokens : 0,
             },
           }
         );
@@ -277,9 +284,9 @@ export async function runBeforeReasoning(
       );
       // 压缩失败暂停续接（2026-09-22）：记录本轮**实测**占用比 —— `onIncompleteTurn`
       // 据此区分"压不动且吃紧"（该停续接）与"低占用会话里的输出截断"（该照常续接）。
-      deps.loopState.lastCompactRatio = Number(evalResult.snapshot?.ratio ?? 0);
+      deps.loopState.lastCompactRatio = Number(evalResult.ratio ?? 0);
       if (evalResult.decision !== 'skip') {
-        const ratio = Number(evalResult.snapshot?.ratio ?? 0);
+        const ratio = Number(evalResult.ratio ?? 0);
         // R2（2026-09-16）：压缩稳态豁免——上下文占用远低于模型窗口（容量充足）且压缩已连续 no_effect，
         // 说明当前场景"压不动但也没有爆窗风险"；跳过本轮压缩尝试，避免每轮白跑全量 token 重估/大请求构造。
         const steadySkip =
@@ -290,8 +297,8 @@ export async function runBeforeReasoning(
           logger.info('reactToolLoop:compact_steady_state_skip', {
             sessionId: session.id,
             ratio: Number(ratio.toFixed(3)),
-            windowTokens: evalResult.snapshot?.maxTokens,
-            estimatedTokens: evalResult.snapshot?.tokens,
+            windowTokens: evalResult.maxTokens,
+            calibratedTotal: evalResult.calibratedTotal,
             consecutiveNoEffect: deps.loopState.consecutiveCompactNoEffect,
             toolTurn: deps.loopState.toolTurnCount,
           });
@@ -299,9 +306,10 @@ export async function runBeforeReasoning(
           logger.info('reactToolLoop:工具轮内压缩评估触发', {
             sessionId: session.id,
             decision: evalResult.decision,
-            tokens: evalResult.snapshot.tokens,
-            maxTokens: evalResult.snapshot.maxTokens,
-            ratio: Number(evalResult.snapshot.ratio.toFixed(3)),
+            rawInputTokens: evalResult.rawInputTokens,
+            calibratedTotal: evalResult.calibratedTotal,
+            maxTokens: evalResult.maxTokens,
+            ratio: Number(evalResult.ratio.toFixed(3)),
             messageCount: deps.loopState.messages.length,
             toolTurn: deps.loopState.toolTurnCount,
           });
@@ -316,7 +324,7 @@ export async function runBeforeReasoning(
             deps.loopState.consecutiveCompactNoEffect = 0;
             logger.info('reactToolLoop:工具轮内上下文压缩完成', {
               sessionId: session.id,
-              beforeTokens: evalResult.snapshot.tokens,
+              beforeTokens: evalResult.rawInputTokens,
               afterMessageCount: compactResult.messages.length,
               toolTurn: deps.loopState.toolTurnCount,
             });
@@ -329,7 +337,7 @@ export async function runBeforeReasoning(
       // 兜底：无论压缩是否生效，发送前强制截断（估算超窗口-输出预留才截断，否则零开销早退）
       await truncateApiMessages(
         deps.loopState.messages as unknown as Record<string, unknown>[],
-        evalResult.snapshot.maxTokens,
+        evalResult.maxTokens,
         new Map([[session.id, session]]),
         session.id,
         (deps.options?.maxTokens as number | undefined) ?? undefined

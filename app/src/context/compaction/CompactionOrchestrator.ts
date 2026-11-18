@@ -374,7 +374,7 @@ export class CompactionOrchestrator {
               sessionId: ctx.sessionId,
               model: ctx.model,
               messageCount: messages.length,
-              estimatedTokens: options?.preEvaluated?.snapshot.tokens,
+              estimatedTokens: options?.preEvaluated?.calibratedTotal,
             }
           );
           return { messages, applied: false };
@@ -391,15 +391,18 @@ export class CompactionOrchestrator {
         const startTime = Date.now();
         // 排查日志：压缩触发入口——记录触发条件（消息数/估算 tokens/模型/窗口配置），
         // 与后续"决策/完成/未应用"日志串联，便于排查边界情况
-        // 传入 preEvaluated 时复用其 snapshot.tokens，避免对巨大历史再次同步估算（阻塞事件循环）
+        // 传入 preEvaluated 时复用其 **raw** 值，避免对巨大历史再次同步估算（阻塞事件循环）
         const entryTokens =
-          options?.preEvaluated?.snapshot.tokens ??
+          options?.preEvaluated?.rawInputTokens ??
           estimateMessagesTokens(messages);
         logger.info('compaction:①触发评估', {
           sessionId: ctx.sessionId,
           model: ctx.model,
           messageCount: messages.length,
+          // G2（2026-11-18）：entry 与"决策"同用 **raw** 口径（旧实现 entry 取 raw、决策取校准值）
           estimatedTokens: entryTokens,
+          calibratedTotal: options?.preEvaluated?.calibratedTotal,
+          estimateLowerBound: options?.preEvaluated?.estimateLowerBound,
           preEvaluated: !!options?.preEvaluated,
           configOverride: ctx.configOverride,
         });
@@ -412,9 +415,11 @@ export class CompactionOrchestrator {
         // 排查日志：决策汇总（skip/warn/trigger 三态 + 阈值快照）
         logger.info('compaction:决策', {
           decision: decision.decision,
-          ratio: Number(decision.snapshot.ratio.toFixed(3)),
-          tokens: decision.snapshot.tokens,
-          maxTokens: decision.snapshot.maxTokens,
+          ratio: Number(decision.ratio.toFixed(3)),
+          rawInputTokens: decision.rawInputTokens,
+          calibratedTotal: decision.calibratedTotal,
+          maxTokens: decision.maxTokens,
+          estimateLowerBound: decision.estimateLowerBound,
           reason: decision.reason ?? null,
           sessionId: ctx.sessionId,
         });
@@ -424,7 +429,7 @@ export class CompactionOrchestrator {
           const escalated = await this.escalateSkipIfNeeded(decision, ctx);
           if (!escalated) {
             logger.debug('compaction:skip', {
-              ratio: Number(decision.snapshot.ratio.toFixed(3)),
+              ratio: Number(decision.ratio.toFixed(3)),
               reason: decision.reason ?? 'below warning threshold',
             });
             return { messages, applied: false };
@@ -476,7 +481,7 @@ export class CompactionOrchestrator {
         logger.info('compaction:②完成', {
           sessionId: ctx.sessionId,
           applied: result.applied,
-          beforeTokens: decision.snapshot.tokens,
+          beforeTokens: decision.rawInputTokens,
           afterTokens: estimateMessagesTokens(result.messages),
           elapsedMs: Date.now() - startTime,
         });
@@ -642,7 +647,15 @@ export class CompactionOrchestrator {
     startTime: number,
     options?: { skipTier3Sync?: boolean }
   ): Promise<CompactionOutcome> {
-    const beforeTokens = decision.snapshot.tokens;
+    const beforeTokens = decision.rawInputTokens;
+    /**
+     * 2026-11-18（真机 `session_mwkthat73b80a6724f`）：**与压缩后同口径**的体积基线。
+     *
+     * `decision.rawInputTokens` 是**尾部估算**（D-232/D-233：达 1× 窗口即提前返回 ⇒ 可能是**下界**）；
+     * 这里用 `estimateMessagesTokens`（全量）作为实测基线，二者都属 E1（raw）口径，
+     * 差值只可能来自"下界" ⇒ 由 `estimateLowerBound` 标记解释，不再有"校准值减原始值"的假数字。
+     */
+    const measuredBeforeTokens = estimateMessagesTokens(messages);
 
     // G-05：影子观察（只记录「若启用 20% 水位是否会触发」，不改决策/不额外调用 LLM）
     await this.logUsdWaterlineShadow(ctx.sessionId, decision.decision);
@@ -652,8 +665,8 @@ export class CompactionOrchestrator {
       tier: decision.decision === 'trigger' ? 2 : 1,
       trigger: decision.decision === 'warn' ? 'auto_warn' : 'blocking_trigger',
       messages,
-      beforeTokens,
-      maxTokens: decision.snapshot.maxTokens,
+      beforeTokens: measuredBeforeTokens,
+      maxTokens: decision.maxTokens,
       sessionId: ctx.sessionId,
     });
 
@@ -720,9 +733,26 @@ export class CompactionOrchestrator {
             ctx
           );
           if (fullResult.applied) {
-            tier = 3;
-            triggerLabel = 'full_compaction';
-            result = fullResult;
+            // 2026-11-18（真机 `session_mwkthat73b80a6724f`）：**折叠后必须真的变小**。
+            // 实测两次 Tier3 都是"消息 779→560 条、token 169331→196778（+16%）"——折叠产物
+            // （facts 注入）比被折叠的内容更大，却仍按 `applied:true` 写回会话 ⇒ 上下文继续
+            // 超窗（196778 > 128000）且原始细节已丢。这里用**同一估值器**前后对比，
+            // 不降反升即拒绝采纳（保留 Tier2 结果），并如实留痕。
+            const tier2Tokens = estimateMessagesTokens(result.messages);
+            const tier3Tokens = estimateMessagesTokens(fullResult.messages);
+            if (tier3Tokens < tier2Tokens) {
+              tier = 3;
+              triggerLabel = 'full_compaction';
+              result = fullResult;
+            } else {
+              logger.warn('compaction:tier3_rejected_no_reduction', {
+                sessionId: ctx.sessionId,
+                tier2Tokens,
+                tier3Tokens,
+                messageCountBefore: result.messages.length,
+                messageCountAfter: fullResult.messages.length,
+              });
+            }
           }
         }
       }
@@ -737,21 +767,47 @@ export class CompactionOrchestrator {
       return { messages, applied: false };
     }
 
-    // 计算节省
+    // 计算节省（**前后同口径**：都用 `estimateMessagesTokens`）
     const afterTokens = estimateMessagesTokens(result.messages);
     const savingPercent =
-      beforeTokens > 0
-        ? ((beforeTokens - afterTokens) / beforeTokens) * 100
+      measuredBeforeTokens > 0
+        ? ((measuredBeforeTokens - afterTokens) / measuredBeforeTokens) * 100
         : 0;
+    // 口径分裂**不得静默**：决策估值（校准后）与实测值（原始）差异 >10% ⇒ 留痕。
+    // 该差异本身是独立缺陷（三套估值并存），此处只保证本函数的"前后"可比。
+    if (
+      beforeTokens > 0 &&
+      Math.abs(measuredBeforeTokens - beforeTokens) / beforeTokens > 0.1
+    ) {
+      logger.warn('compaction:token_estimate_mismatch', {
+        sessionId: ctx.sessionId,
+        decisionRawInputTokens: beforeTokens,
+        measuredRawInputTokens: measuredBeforeTokens,
+        calibratedTotal: decision.calibratedTotal,
+        estimateLowerBound: decision.estimateLowerBound,
+        calibrationNote:
+          '两者同属 raw 口径；差异仅应来自尾部估算触达 1× 窗口（estimateLowerBound=true）',
+      });
+    }
+    // 压缩后仍超窗 ⇒ 必须可见（旧实现只写 applied:true，会话继续以 1.5× 窗口运行）
+    if (decision.maxTokens > 0 && afterTokens > decision.maxTokens) {
+      logger.warn('compaction:still_over_budget_after_compaction', {
+        sessionId: ctx.sessionId,
+        tier,
+        afterTokens,
+        maxTokens: decision.maxTokens,
+        measuredBeforeTokens,
+      });
+    }
     const durationMs = Date.now() - startTime;
 
     // 记录反抖动数据（Tier 2 及以上）——C7 收敛：委托 UnifiedTokenTracker.recordCompaction
     if (tier >= 2) {
-      this.recordSaving(savingPercent, beforeTokens, afterTokens);
+      this.recordSaving(savingPercent, measuredBeforeTokens, afterTokens);
     }
 
     // Run tier trigger hook
-    await hookRegistry.runTierTrigger(tier, triggerLabel, beforeTokens);
+    await hookRegistry.runTierTrigger(tier, triggerLabel, measuredBeforeTokens);
 
     // Run after hooks
     await hookRegistry.runAfterCompact({
@@ -761,19 +817,17 @@ export class CompactionOrchestrator {
       durationMs,
     });
 
-    // 记录指标
+    // 记录指标（before/after **同源**：都是 `estimateMessagesTokens`）
     compactionMetricsTracker.record({
       timestamp: new Date().toISOString(),
       tier,
       trigger: triggerLabel,
-      beforeTokens,
+      beforeTokens: measuredBeforeTokens,
       afterTokens,
       savingPercent,
       durationMs,
       sessionId: ctx.sessionId,
-      decisions: [
-        decision.reason ?? `ratio=${decision.snapshot.ratio.toFixed(2)}`,
-      ],
+      decisions: [decision.reason ?? `ratio=${decision.ratio.toFixed(2)}`],
       // M5（2026-10-06）：仅 Tier 3 折叠后产出；其余 tier 为 undefined（如实缺省）
       retention: result.retention,
     });

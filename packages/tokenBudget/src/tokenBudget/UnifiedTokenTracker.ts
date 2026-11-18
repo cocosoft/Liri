@@ -70,11 +70,31 @@ export interface WatermarkState {
   severity: 'normal' | 'warn' | 'compact';
 }
 
+/**
+ * 压缩决策 + **口径自解释**的体积快照（2026-11-18，G2 `token-accounting-unification.md` D3）。
+ *
+ * 旧形状 `beforeTokens` / `snapshot.tokens` **不含语义**（含不含 output、含不含校准因子看不出来），
+ * 真机 `session_mwkthat73b80a6724f` 因此把"校准总量"当"输入 tokens"相减，得出 `savingPercent=-16.2%`。
+ * 新形状把三种口径拆开，调用方**只能按语义取用**：
+ * - 比较/节省率 → `rawInputTokens`（唯一比较单位）；
+ * - 是否超窗/水位展示 → `ratio`；
+ * - 展示"实际消耗水位" → `calibratedTotal`（不得再与输入 tokens 相减）。
+ */
 export interface CompactionDecision {
   decision: 'trigger' | 'warn' | 'skip';
-  beforeTokens: number;
-  /** 决策快照（C7 收敛：由 AutoCompactionPolicy 迁移而来，供调用方显示水位/日志） */
-  snapshot: { tokens: number; maxTokens: number; ratio: number };
+  /** E1：原始 input tokens（tiktoken 估值，**唯一比较单位**） */
+  rawInputTokens: number;
+  /** E3：`rawInputTokens + outputReserve`（未校准） */
+  uncalibratedTotal: number;
+  /** E4：`round(uncalibratedTotal × calibrationFactor)` —— 仅用于 `ratio` 与展示 */
+  calibratedTotal: number;
+  /**
+   * 下界标记：尾部估算触达 1× 窗口提前返回（D-232/D-233）⇒ `rawInputTokens` 是**下界**。
+   * 为 true 时**不得**据此计算节省率（分子分母不同源会更失真）。
+   */
+  estimateLowerBound: boolean;
+  maxTokens: number;
+  ratio: number;
   /** 决策原因（如消息数兜底强制触发 / 反抖动跳过） */
   reason?: string;
 }
@@ -150,8 +170,12 @@ export function evaluateCompactionFallback(
   }
   return {
     decision,
-    beforeTokens: estimatedTotal,
-    snapshot: { tokens: estimatedTotal, maxTokens: limit, ratio },
+    rawInputTokens: estimatedTotal,
+    uncalibratedTotal: estimatedTotal,
+    calibratedTotal: estimatedTotal,
+    estimateLowerBound: false,
+    maxTokens: limit,
+    ratio,
     reason,
   };
 }
@@ -334,7 +358,6 @@ export class UnifiedTokenTracker {
       // C7 收敛（自 AutoCompactionPolicy）：修正后 tokens + 决策快照（调用方显示水位用）
       const tokens = Math.round(estimatedTotal * effectiveFactor);
       const ratio = limit > 0 ? tokens / limit : 0;
-      const snapshot = { tokens, maxTokens: limit, ratio };
       const thresholds = getModelThresholds(model);
 
       let decision: 'trigger' | 'warn' | 'skip';
@@ -369,7 +392,11 @@ export class UnifiedTokenTracker {
       const logPayload = {
         decision,
         ratio: Math.round(ratio * 100) / 100,
-        estimatedTotal,
+        // G2（2026-11-18）：三种口径**分开**记录（旧字段 `estimatedTotal` 语义含糊，已拆除）
+        rawInputTokens: state.baselineInputTokens,
+        uncalibratedTotal: estimatedTotal,
+        calibratedTotal: tokens,
+        estimateLowerBound: tailEstimate.capped,
         contextLimit: limit,
         model,
         calibrationFactor: Math.round(this.calibration.factor * 100) / 100,
@@ -384,7 +411,16 @@ export class UnifiedTokenTracker {
       } else {
         logger.debug('unified:checkBeforeRequest', logPayload);
       }
-      return { decision, beforeTokens: estimatedTotal, snapshot, reason };
+      return {
+        decision,
+        rawInputTokens: state.baselineInputTokens,
+        uncalibratedTotal: estimatedTotal,
+        calibratedTotal: tokens,
+        estimateLowerBound: tailEstimate.capped,
+        maxTokens: limit,
+        ratio,
+        reason,
+      };
     } catch (err) {
       handleError(err, {
         module: 'tokenBudget',
@@ -392,8 +428,12 @@ export class UnifiedTokenTracker {
       });
       return {
         decision: 'skip',
-        beforeTokens: 0,
-        snapshot: { tokens: 0, maxTokens: 0, ratio: 0 },
+        rawInputTokens: 0,
+        uncalibratedTotal: 0,
+        calibratedTotal: 0,
+        estimateLowerBound: false,
+        maxTokens: 0,
+        ratio: 0,
       };
     }
   }

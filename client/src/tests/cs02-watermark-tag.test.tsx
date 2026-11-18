@@ -40,8 +40,8 @@ import WatermarkTag from "../components/ChatArea/WatermarkTag";
 import type { Message, MessageBlock } from "../types/message";
 
 /** 后端压缩进度块的真实形态：content 以「上下文水位」开头，但 statusType 是 compaction */
-const COMPACTION_CONTENT =
-  "上下文水位 92%（180K/196K tokens），正在压缩历史...";
+// 2026-11-18（G2 P2）：后端已不再展示绝对 K 值（口径混用），此处样例同步为"只报比例"。
+const COMPACTION_CONTENT = "上下文水位 92%（估算），正在压缩历史...";
 
 function makeMessage(blocks: MessageBlock[]): Message {
   return {

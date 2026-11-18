@@ -389,12 +389,13 @@ export class StreamPipeline {
               skipTier3Sync: true,
               preEvaluated: {
                 decision: 'trigger' as const,
-                beforeTokens: afterTokens,
-                snapshot: {
-                  tokens: afterTokens,
-                  maxTokens: maxCtx,
-                  ratio: maxCtx > 0 ? afterTokens / maxCtx : 0,
-                },
+                // G2（2026-11-18）：本处 afterTokens 为原始估算，三值同源（未过 tracker）
+                rawInputTokens: afterTokens,
+                uncalibratedTotal: afterTokens,
+                calibratedTotal: afterTokens,
+                estimateLowerBound: false,
+                maxTokens: maxCtx,
+                ratio: maxCtx > 0 ? afterTokens / maxCtx : 0,
               },
             }
           );

@@ -8,6 +8,7 @@ import {
   estimateMessageTokens,
   estimateMessagesTokens,
   estimateMessagesTokensCooperative,
+  estimateMessagesTokensCooperativeFromTail,
   tokenCountWithEstimation,
   estimateTokensPrecise,
 } from '../../../src/ai/tokenizer/TokenEstimator';
@@ -146,6 +147,45 @@ describe('TokenEstimator', () => {
       const syncResult = estimateMessagesTokens(messages);
       const coopResult = await estimateMessagesTokensCooperative(messages);
       expect(coopResult).toBe(syncResult);
+    });
+  });
+
+  /**
+   * G2 D4（2026-11-18）：**估算器契约** —— 三条实现必须同源可证：
+   * ① 同输入同结果（全量同步 vs 尾部协作，未触 cap）；
+   * ② 触 cap 时是**下界**（`capped:true` 且 `cap ≤ tokens ≤ 全量`），不得被当成等值；
+   * ③ 空输入恒 0。
+   */
+  describe('估算器契约：同源与下界语义（G2 D4）', () => {
+    const sample = Array.from({ length: 30 }, (_, i) => ({
+      role: (i % 2 === 0 ? 'user' : 'assistant') as string,
+      content: `第 ${i} 条：上下文口径统一 testing token accounting ${'x'.repeat(i * 20)}`,
+    }));
+
+    it('未触 cap ⇒ 尾部估算与全量同步估算**逐值相等**', async () => {
+      const full = estimateMessagesTokens(sample);
+      const tail = await estimateMessagesTokensCooperativeFromTail(
+        sample,
+        Number.MAX_SAFE_INTEGER
+      );
+      expect(tail.capped).toBe(false);
+      expect(tail.tokens).toBe(full);
+    });
+
+    it('触 cap ⇒ capped=true 且 tokens 落在 [cap, 全量] 区间（下界语义）', async () => {
+      const full = estimateMessagesTokens(sample);
+      const cap = Math.max(1, Math.floor(full / 3));
+      const tail = await estimateMessagesTokensCooperativeFromTail(sample, cap);
+      expect(tail.capped).toBe(true);
+      expect(tail.tokens).toBeGreaterThanOrEqual(cap);
+      expect(tail.tokens).toBeLessThanOrEqual(full);
+    });
+
+    it('空输入 ⇒ 0 / capped=false（不臆造）', async () => {
+      expect(await estimateMessagesTokensCooperativeFromTail([], 100)).toEqual({
+        tokens: 0,
+        capped: false,
+      });
     });
   });
 

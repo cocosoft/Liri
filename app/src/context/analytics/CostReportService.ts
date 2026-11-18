@@ -24,6 +24,15 @@ export interface TierStats {
   count: number;
   totalSavedTokens: number;
   totalCostSaved: number;
+  /**
+   * 2026-11-18（G2 `token-accounting-unification.md` D5）：**压缩后体积变大**的次数与总增幅。
+   *
+   * 压缩不保证一定变小（Tier3 折叠产物可能比被折叠内容更大；真机
+   * `session_mwkthat73b80a6724f` 实测 `beforeTokens 169331 → afterTokens 196778`）。
+   * 这类样本**不计入** `totalSavedTokens`（否则会把"变大"当负节省悄悄抵扣），而是单独计数。
+   */
+  grewCount: number;
+  grewTokens: number;
 }
 
 export interface ModelCostSnapshot {
@@ -51,15 +60,37 @@ export interface CostReport {
 
 /**
  * 生成分级压缩统计（v2.1: 使用真实的 tokens 节省数据）
+ *
+ * 2026-11-18（G2 D5）：`history` 可注入（默认取全局 tracker），便于契约测试不污染全局历史。
  */
-function buildTierStats(): TierStats[] {
-  const history = compactionMetricsTracker.getHistory(50);
-
-  const byTier: Map<number, { count: number; savedTokens: number }> = new Map();
+export function buildTierStats(
+  history: CompactionHistoryEntry[] = compactionMetricsTracker.getHistory(50)
+): TierStats[] {
+  const byTier: Map<
+    number,
+    {
+      count: number;
+      savedTokens: number;
+      grewCount: number;
+      grewTokens: number;
+    }
+  > = new Map();
   for (const entry of history) {
-    const existing = byTier.get(entry.tier) ?? { count: 0, savedTokens: 0 };
+    const existing = byTier.get(entry.tier) ?? {
+      count: 0,
+      savedTokens: 0,
+      grewCount: 0,
+      grewTokens: 0,
+    };
     existing.count++;
-    existing.savedTokens += entry.beforeTokens - entry.afterTokens;
+    // 只累计**正向**节省；变大（负增量）单独记账，不抵扣（D5）
+    const delta = entry.beforeTokens - entry.afterTokens;
+    if (delta > 0) {
+      existing.savedTokens += delta;
+    } else if (delta < 0) {
+      existing.grewCount++;
+      existing.grewTokens += -delta;
+    }
     byTier.set(entry.tier, existing);
   }
 
@@ -74,6 +105,8 @@ function buildTierStats(): TierStats[] {
       count: data.count,
       totalSavedTokens: data.savedTokens,
       totalCostSaved: costSaved,
+      grewCount: data.grewCount,
+      grewTokens: data.grewTokens,
     });
   }
 
@@ -106,6 +139,14 @@ export function formatCostReport(report: CostReport): string {
       );
     }
     lines.push('');
+    // G2 D5：变大样本如实展示（不计入节省，但必须可见）
+    const grew = report.compactionStats.filter((t) => t.grewCount > 0);
+    for (const t of grew) {
+      lines.push(
+        `> T${t.tier}：${t.grewCount} 次压缩后体积变大（合计 +${t.grewTokens.toLocaleString()} tokens，未计入节省）`
+      );
+    }
+    if (grew.length > 0) lines.push('');
   }
 
   if (report.byModel.length > 0) {

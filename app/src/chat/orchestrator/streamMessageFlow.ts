@@ -279,19 +279,19 @@ export async function* runStreamMessage(
       sessionId: session.id,
       elapsedMs: Date.now() - preEvalStart,
       decision: preCompactEval.decision,
-      tokens: preCompactEval.snapshot.tokens,
-      maxTokens: preCompactEval.snapshot.maxTokens,
-      ratio: Number(preCompactEval.snapshot.ratio.toFixed(3)),
+      rawInputTokens: preCompactEval.rawInputTokens,
+      maxTokens: preCompactEval.maxTokens,
+      ratio: Number(preCompactEval.ratio.toFixed(3)),
       messageCount: session.messages.length,
     });
     let preCompacted = false;
     if (preCompactEval.decision !== 'skip') {
-      // 达到压缩条件 → 发射"压缩中"状态块（带水位信息，前端脉冲动画）
+      // 2026-11-18（G2-P2）：只报比例（唯一可跨口径比较）；绝对 K 值是校准总量、非输入 tokens，故移除。详见 token-accounting-unification.md
       yield {
         type: 'status',
         statusType: 'compaction',
         phase: 'compacting',
-        content: `上下文水位 ${Math.round(preCompactEval.snapshot.ratio * 100)}%（${(preCompactEval.snapshot.tokens / 1000).toFixed(0)}K/${(preCompactEval.snapshot.maxTokens / 1000).toFixed(0)}K tokens），正在压缩历史...`,
+        content: `上下文水位 ${Math.round(preCompactEval.ratio * 100)}%（估算），正在压缩历史...`,
         sessionId: session.id,
       } as ChatStreamChunk;
       // 耗时日志：预压缩执行（Tier1/2 应毫秒级，Tier3 已被 skipTier3Sync 推迟后台）
@@ -343,7 +343,7 @@ export async function* runStreamMessage(
               ...(attribution.failureMessage
                 ? { failureMessage: attribution.failureMessage }
                 : {}),
-              beforeTokens: preCompactEval.snapshot.tokens,
+              beforeTokens: preCompactEval.rawInputTokens,
               // D-245（2026-10-07）：**failed 分支故意不写 `afterTokens`**。
               // 本分支的定义就是 `!preCompactResult.applied`（`:287`，压缩**未写回**）⇒
               // `session.messages` **原样未变**；此时若用 `estimateMessagesTokens(session.messages)`
@@ -755,12 +755,12 @@ export async function* runStreamMessage(
         logger.warn('compaction:preemptive_check', {
           sessionId: session.id,
           decision: preCheck.decision,
-          beforeTokens: preCheck.beforeTokens,
+          rawInputTokens: preCheck.rawInputTokens,
         });
         if (preCheck.decision === 'trigger') {
           options?.onProgress?.({
             stage: 'generating',
-            message: `上下文空间不足（预计 ${preCheck.beforeTokens.toLocaleString()} tokens），建议手动压缩`,
+            message: `上下文空间不足（预计 ${preCheck.calibratedTotal.toLocaleString()} tokens，估算），建议手动压缩`,
           });
         }
       }

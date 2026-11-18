@@ -77,8 +77,12 @@ describe('B3-3 ①：压缩失败的**结构化归因**（编排器异常分支�
         {
           preEvaluated: {
             decision: 'trigger' as const,
-            beforeTokens: 200_000,
-            snapshot: { tokens: 200_000, maxTokens: 1_000, ratio: 200 },
+            rawInputTokens: 200_000,
+            uncalibratedTotal: 200_000,
+            calibratedTotal: 200_000,
+            estimateLowerBound: false,
+            maxTokens: 1_000,
+            ratio: 200,
           },
         }
       );
@@ -111,13 +115,141 @@ describe('B3-3 ①：压缩失败的**结构化归因**（编排器异常分支�
       {
         preEvaluated: {
           decision: 'skip' as const,
-          beforeTokens: 10,
-          snapshot: { tokens: 10, maxTokens: 1_000, ratio: 0.01 },
+          rawInputTokens: 10,
+          uncalibratedTotal: 10,
+          calibratedTotal: 10,
+          estimateLowerBound: false,
+          maxTokens: 1_000,
+          ratio: 0.01,
         },
       }
     );
     expect(outcome.applied).toBe(false);
     expect(outcome.failure).toBeUndefined();
+  });
+});
+
+/**
+ * 2026-11-18（真机 `session_mwkthat73b80a6724f`）：压缩体积口径。
+ *
+ * 实测：`compaction:applied {beforeTokens:169331, afterTokens:196778, savingPercent:-16.2}`
+ * —— 决策口径（校准后估值）与压缩后口径（`estimateMessagesTokens`）混用，得出"压缩后变大"
+ * 的负节省；同时 Tier3 折叠产物（facts 注入）比被折叠内容更大却仍按 `applied:true` 写回。
+ */
+describe('2026-11-18：压缩体积口径（前后同源 + 折叠不降即拒）', () => {
+  test('Tier3 折叠后反而更大 ⇒ 拒绝采纳（保留 Tier2 结果）', async () => {
+    const capture = captureLogs();
+    stopCapture = capture.stop;
+
+    const orch = new CompactionOrchestrator();
+    const priv = orch as unknown as {
+      _runFullCompactionWithTimeout: (
+        ...args: unknown[]
+      ) => Promise<CompactionOutcome>;
+    };
+    const original = priv._runFullCompactionWithTimeout;
+    priv._runFullCompactionWithTimeout = async (msgs: unknown) => {
+      const arr = msgs as ChatMessage[];
+      return {
+        // 折叠产物比被折叠内容更大（真机同型：169331 → 196778）
+        messages: [
+          ...arr,
+          { role: 'assistant', content: 'FACTS '.repeat(5000) } as ChatMessage,
+        ],
+        applied: true,
+      };
+    };
+
+    let outcome: CompactionOutcome;
+    try {
+      // 短消息 ⇒ Tier2 不生效（applied=false）⇒ 走 Tier3 分支
+      outcome = await orch.compact(
+        [
+          { role: 'user', content: '任务' } as ChatMessage,
+          { role: 'assistant', content: '短回复' } as ChatMessage,
+        ],
+        { model: 'test-model', sessionId: 'sess-size-guard-reject' },
+        {
+          preEvaluated: {
+            decision: 'trigger' as const,
+            rawInputTokens: 1_000,
+            uncalibratedTotal: 1_000,
+            calibratedTotal: 1_000,
+            estimateLowerBound: false,
+            maxTokens: 1,
+            ratio: 1_000,
+          },
+        }
+      );
+    } finally {
+      priv._runFullCompactionWithTimeout = original;
+    }
+
+    expect(
+      findByMessage(capture.entries, 'tier3_rejected_no_reduction').length
+    ).toBe(1);
+    // 拒绝后保留 Tier2（无效果）⇒ 整体未应用（调用方走既有截断兜底）
+    expect(outcome.applied).toBe(false);
+  });
+
+  test('Tier3 真的变小 ⇒ 采纳；节省率按同口径计算（不为负）+ 仍超窗留痕', async () => {
+    const capture = captureLogs();
+    stopCapture = capture.stop;
+
+    const orch = new CompactionOrchestrator();
+    const priv = orch as unknown as {
+      _runFullCompactionWithTimeout: (
+        ...args: unknown[]
+      ) => Promise<CompactionOutcome>;
+      isStillOverBudget: (...args: unknown[]) => Promise<boolean>;
+    };
+    const originalTier3 = priv._runFullCompactionWithTimeout;
+    const originalOver = priv.isStillOverBudget;
+    priv._runFullCompactionWithTimeout = async () => ({
+      messages: [{ role: 'assistant', content: '折叠摘要' } as ChatMessage],
+      applied: true,
+    });
+    // 强制进入 Tier3 分支（Tier2 之后仍超窗）
+    priv.isStillOverBudget = async () => true;
+
+    let outcome: CompactionOutcome;
+    try {
+      outcome = await orch.compact(
+        [
+          { role: 'user', content: '任务' } as ChatMessage,
+          { role: 'assistant', content: 'x'.repeat(200_000) } as ChatMessage,
+        ],
+        { model: 'test-model', sessionId: 'sess-size-guard-ok' },
+        {
+          preEvaluated: {
+            decision: 'trigger' as const,
+            rawInputTokens: 1_000,
+            uncalibratedTotal: 1_000,
+            calibratedTotal: 1_000,
+            estimateLowerBound: false,
+            maxTokens: 1,
+            ratio: 1_000,
+          },
+        }
+      );
+    } finally {
+      priv._runFullCompactionWithTimeout = originalTier3;
+      priv.isStillOverBudget = originalOver;
+    }
+
+    expect(outcome.applied).toBe(true);
+    // 决策口径（校准后）与实测口径分裂 ⇒ 留痕
+    expect(
+      findByMessage(capture.entries, 'token_estimate_mismatch').length
+    ).toBe(1);
+    // 压缩后仍超窗 ⇒ 可见告警
+    expect(
+      findByMessage(capture.entries, 'still_over_budget_after_compaction')
+        .length
+    ).toBe(1);
+    // 节省率按**同一估值器**前后计算 ⇒ 不再出现负节省
+    const applied = findByMessage(capture.entries, 'compaction:applied')[0];
+    expect(Number(applied?.data?.['savingPercent'])).toBeGreaterThanOrEqual(0);
   });
 });
 

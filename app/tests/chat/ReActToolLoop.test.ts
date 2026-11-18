@@ -958,13 +958,12 @@ describe('R2 压缩稳态豁免（compact_steady_state_skip）', () => {
           // 返回 non-skip + 低 ratio（0.2 < COMPACT_STEADY_RATIO=0.6），构造稳态豁免前提
           checkBeforeRequest: async () => ({
             decision: 'warn',
-            snapshot: {
-              ratio: 0.2,
-              tokens: 9000,
-              maxTokens: 45000,
-              threshold: 27000,
-              warned: false,
-            },
+            rawInputTokens: 9000,
+            uncalibratedTotal: 9000,
+            calibratedTotal: 9000,
+            estimateLowerBound: false,
+            maxTokens: 45000,
+            ratio: 0.2,
           }),
         } as never,
         activeClient: {
@@ -1010,7 +1009,12 @@ describe('R2 压缩稳态豁免（compact_steady_state_skip）', () => {
           // ratio 0.8 ≥ COMPACT_STEADY_RATIO → 不豁免，走正常压缩评估
           checkBeforeRequest: async () => ({
             decision: 'warn',
-            snapshot: { ratio: 0.8, tokens: 36000, maxTokens: 45000 },
+            rawInputTokens: 36000,
+            uncalibratedTotal: 36000,
+            calibratedTotal: 36000,
+            estimateLowerBound: false,
+            maxTokens: 45000,
+            ratio: 0.8,
           }),
         } as never,
         activeClient: {

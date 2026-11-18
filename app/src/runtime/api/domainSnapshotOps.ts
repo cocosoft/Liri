@@ -869,12 +869,12 @@ export class DomainSnapshotOps {
       },
       runKnowledgeCompile: async (
         aiService: unknown,
-        opts: { force?: boolean | undefined }
+        opts: { force?: boolean; model?: string; domain?: string }
       ) => {
         const { runKnowledgeCompile: runCompile } =
           await import('@modules/knowledge/KnowledgeCompiler');
-        // aiService 为 service 层持有对象（原 handler 亦直接透传）⇒ 边界收窄
-        await runCompile(aiService as never, { force: opts.force });
+        // 原样转发三个选项（少传 domain 会静默退回全局目录，PR #14）
+        await runCompile(aiService as never, opts);
       },
       getKnowledgeCompileProgress: async () => {
         const { getCompileProgress } =

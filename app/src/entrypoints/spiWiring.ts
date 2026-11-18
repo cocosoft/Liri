@@ -693,6 +693,8 @@ export async function registerAllSpis(
         const r = await runKnowledgeCompile(aiService as never, {
           force: options?.force ?? false,
           model: options?.model,
+          // PR #14：域内编译（缺省 ⇒ 全局 knowledge）；此处不转发会静默退回全局
+          domain: options?.domain,
         });
         return { compiled: r.compiled, skipped: r.skipped, errors: r.errors };
       },

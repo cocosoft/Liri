@@ -428,7 +428,7 @@ body `{ objective?: string（trim 非空）, tokenBudget?: number（正有限数
 | DELETE | `/v1/knowledge/bases/{name}` | ✅ | `knowledgeService.deleteBase` |
 | POST | `/v1/knowledge/save-from-chat` | ✅ | 无前端调用方 |
 | POST | `/v1/knowledge/upload` | ✅ | 无前端调用方 |
-| POST | `/v1/knowledge/compile` | ✅ | 无前端调用方 |
+| POST | `/v1/knowledge/compile` | ✅ | 无前端调用方。body `{ force?: boolean; domain?: string }`；`domain` 必须是已注册域（否则 400 `domain not found`），缺省编全局 knowledge（PR #14，2026-11-19） |
 | GET | `/v1/knowledge/raw-preview` | ✅ | KnowledgePage PDF 内嵌预览（`?file=<相对 raw 路径>`，仅 PDF，realpath 白名单；F5，2026-09-08） |
 | GET | `/v1/knowledge/raw-files` | ✅ | 无前端调用方 |
 | GET | `/v1/knowledge/lineage` | ✅ | 无前端调用方（血缘反查 R6：`docPath` / `artifactType+artifactId` / `domain` / `version`，返回 `{links,count}`，2026-09-07） |

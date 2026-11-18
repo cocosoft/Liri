@@ -1180,7 +1180,26 @@ export async function handleKnowledgeCompile(
 ): Promise<void> {
   try {
     const body = await readRequestBody(req);
-    const { force } = JSON.parse(body);
+    const { force, domain } = JSON.parse(body) as {
+      force?: boolean;
+      /** 目标域（缺省 ⇒ 全局 knowledge）；必须是**已注册**域，否则拼错会静默编译全局 */
+      domain?: string;
+    };
+
+    // PR #14 接线：域必须存在（`DomainManager.create()` 建目录 + 配置）——否则 400，
+    // 避免"拼错域名 ⇒ 202 已启动 ⇒ 实际什么都没编"的静默失败。
+    if (domain) {
+      const { DomainManager } =
+        await import('@modules/knowledge/domain/DomainManager');
+      const config = await new DomainManager().getConfig(domain);
+      if (!config) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: `domain not found: ${domain}` } })
+        );
+        return;
+      }
+    }
 
     // ⚠️ 句柄须为**真对象**（原样透传给 `runKnowledgeCompile`）
     const aiService = await (
@@ -1194,7 +1213,10 @@ export async function handleKnowledgeCompile(
     // 显示实时进度（current/total），避免用户不知情。
     setImmediate(async () => {
       try {
-        await kops.runKnowledgeCompile(aiService, { force: !!force });
+        await kops.runKnowledgeCompile(aiService, {
+          force: !!force,
+          ...(domain ? { domain } : {}),
+        });
       } catch (err) {
         handleError(err, {
           module: 'infrastructure:http:handlers:knowledge-handlers',
@@ -1209,6 +1231,8 @@ export async function handleKnowledgeCompile(
         success: true,
         started: true,
         async: true,
+        // 回显目标域（缺省不带该键）⇒ 调用方可确认"编的是哪个域"
+        ...(domain ? { domain } : {}),
         message: '编译已启动，可通过 /v1/knowledge/compile-status 查询进度',
       })
     );

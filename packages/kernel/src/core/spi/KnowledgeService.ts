@@ -36,10 +36,12 @@
 // P1-7：装配顺序守卫 —— 本端口依赖 `aiAccess`（装配期经 `resolveAiAccess()` 取 aiService）
 import { markSpiRegistered, requireSpiDependencies } from './wiringGuard';
 
-/** 编译选项（`force` / `model` 为调用方实际传入者） */
+/** 编译选项（`force` / `model` / `domain` 为调用方实际传入者） */
 export interface KnowledgeCompileOptionsDto {
   force?: boolean | undefined;
   model?: string | undefined;
+  /** 目标域；缺省 ⇒ 全局 knowledge 目录（域内编译由 `KnowledgeCompiler` 切换读写根） */
+  domain?: string | undefined;
 }
 
 /** 编译结果最小投影 */

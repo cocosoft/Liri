@@ -470,6 +470,8 @@ jobs:
         bun run scripts/lint-endpoints.ts
         bun run scripts/lint-locale.ts
         bun run scripts/lint-failmsg-refs.ts
+        # 变体能力矩阵文档与事实源漂移（2026-11-18；纯文档生成物）
+        bun run app/scripts/gen-variant-capability-matrix.ts --check
         # 会话预算纪律 SB03：台账/登记类文件「单行超长」棘轮（只减不增）
         bun run scripts/lint-evidence-linewidth.ts
         # 阶段 B：台账视图「生成物一致性」drift（提交物 == 生成结果；仅 CI，方案 Q3 裁定）

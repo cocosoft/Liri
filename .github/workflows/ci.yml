@@ -387,6 +387,65 @@ jobs:
       run: cargo build --release
       continue-on-error: true
 
+  # G8（2026-11-18）：Tauri 桌面壳的 Rust 编译验证。
+  #
+  # 为什么放到 CI：本机 `cargo check` 必须**执行** `tauri-build` 的 build script，而本机产出的
+  # exe 会被「应用程序控制策略」阻止运行（Smart App Control / WDAC）⇒ 本机无法验证编译；
+  # CI（Linux）不受该策略约束。同时 `Cargo.lock` 仍缺 `tauri-plugin-global-shortcut`
+  # （本机 crates.io 不可达），本作业会让 cargo 在 CI 侧解析并暴露该依赖是否真的可编译。
+  #
+  # 观测期：**非阻断**（continue-on-error）—— 先拿到真实结论，连续绿后再收紧为阻断门禁。
+  cargo-check-tauri:
+    name: Rust Tauri Check (cargo check, non-blocking)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: client/src-tauri
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install system deps (Tauri v2 / Linux)
+      working-directory: .
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
+          librsvg2-dev patchelf
+
+    - name: Prepare placeholder frontend dist (仅编译检查用)
+      working-directory: .
+      run: |
+        # `tauri::generate_context!()` 会读 `frontendDist`；本作业只做 `cargo check`，
+        # 不产出发行包 ⇒ 用一个占位文件满足存在性校验（不提交、不影响发布产物）。
+        mkdir -p client/dist
+        [ -f client/dist/index.html ] || printf '<!doctype html><title>ci</title>' > client/dist/index.html
+
+    - name: Cache cargo registry
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-tauri-cargo-registry-${{ hashFiles('client/src-tauri/Cargo.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-tauri-cargo-registry-
+
+    - name: Cache cargo build
+      uses: actions/cache@v4
+      with:
+        path: client/src-tauri/target
+        key: ${{ runner.os }}-tauri-cargo-build-${{ hashFiles('client/src-tauri/Cargo.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-tauri-cargo-build-
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Run cargo check (tauri shell)
+      run: cargo check
+
   static-check:
     name: Static Checks (security + circular + architecture)
     runs-on: ubuntu-latest

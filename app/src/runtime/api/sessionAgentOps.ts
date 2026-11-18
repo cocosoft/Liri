@@ -672,6 +672,10 @@ export class SessionAgentOps {
       timestamp: number;
       tool_calls?: Array<Record<string, unknown>>;
       blocks?: Array<Record<string, unknown>>;
+      /** 排序键 + 前端分页游标（首事件 seq，H1） */
+      firstEventSeq?: number;
+      /** 末事件 seq（版本/墓碑口径；前端仅在缺首键时兜底） */
+      lastEventSeq?: number;
     }>;
     hasMore: boolean;
   }> {

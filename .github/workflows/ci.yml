@@ -457,14 +457,14 @@ jobs:
       if: failure()
       working-directory: .
       run: |
-        echo "== build script stderr（tauri-build 的真实错误在此）=="
-        awk '/--- stderr/{flag=1} flag' /tmp/tauri-check.log 2>/dev/null | head -n 50 \
+        echo "== Caused by 上下文（真错误在失败原因链里）=="
+        grep -n -B 3 -A 15 'Caused by:' /tmp/tauri-check.log 2>/dev/null | head -n 60 \
           | while IFS= read -r line; do echo "::error::${line//$'\r'/}"; done
-        echo "== 精确错误行 =="
-        grep -nE '^error(\[|:)|error:|Caused by:|does not exist|not found' /tmp/tauri-check.log 2>/dev/null \
-          | tail -n 20 | while IFS= read -r line; do echo "::warning::${line//$'\r'/}"; done
-        echo "== 末尾 20 行 =="
-        tail -n 20 /tmp/tauri-check.log 2>/dev/null \
+        echo "== build script stderr 段 =="
+        awk '/--- stderr/{flag=1} flag' /tmp/tauri-check.log 2>/dev/null | head -n 40 \
+          | while IFS= read -r line; do echo "::error::${line//$'\r'/}"; done
+        echo "== 末尾 25 行 =="
+        tail -n 25 /tmp/tauri-check.log 2>/dev/null \
           | while IFS= read -r line; do echo "::warning::${line//$'\r'/}"; done
         exit 0
 

@@ -34,6 +34,12 @@ import {
 import { readPdcaWorkItem, writePdcaWorkItem } from '../PdcaWorkItemBridge';
 import { SourceCursorStore } from './cursor';
 import {
+  createGithubIssuePoller,
+  readGithubIssuePollerConfig,
+  type GithubIssue,
+  type GithubIssuePollerConfig,
+} from './githubIssuePoller';
+import {
   createExternalEventSource,
   EXTERNAL_SOURCE_ID,
   type ExternalEventSource,
@@ -66,6 +72,17 @@ export interface ExternalEventPipelineOptions {
   claimWorkItem?: TicketRunConsumerOptions['claimWorkItem'];
   /** 签名密钥（测试注入；缺省读 env） */
   secret?: string;
+  /**
+   * D1 轮询（2026-11-18）：GitHub issue 配置。
+   * 缺省 ⇒ 读 `autonomy.externalPollers.github` + `GITHUB_TOKEN`；传 `null` ⇒ **强制不启动**（测试用）。
+   */
+  githubPollerConfig?: GithubIssuePollerConfig | null;
+  /** D1：拉取实现（测试注入；缺省走 GitHub REST） */
+  githubFetchIssues?: (
+    repo: string,
+    sinceIso: string,
+    token: string
+  ) => Promise<GithubIssue[]>;
   now?: () => number;
 }
 
@@ -140,17 +157,41 @@ export async function startExternalEventPipeline(
   });
   setExternalEventIntake(intake);
 
+  // D1 轮询（2026-11-18）：GitHub issue（默认关；无 token / 未启用 ⇒ 不启动）
+  const pollerConfig =
+    options.githubPollerConfig === undefined
+      ? readGithubIssuePollerConfig()
+      : options.githubPollerConfig;
+  const poller = pollerConfig
+    ? createGithubIssuePoller({
+        config: pollerConfig,
+        emit: (input) => source.emit(input),
+        ...(options.githubFetchIssues
+          ? { fetchIssues: options.githubFetchIssues }
+          : {}),
+        ...(options.now ? { now: options.now } : {}),
+      })
+    : null;
+  poller?.start();
+
   // 启动恢复：上次遗留的 queued Ticket 也尝试消费一次
   runConsumer();
 
   logger.info('External Source 已启动', {
     sourceId: gated.id,
     secretConfigured: secret.length > 0,
+    githubPoller: pollerConfig
+      ? {
+          repos: pollerConfig.repos.length,
+          intervalMs: pollerConfig.intervalMs,
+        }
+      : null,
   });
 
   shared = {
     sourceId: gated.id,
     async stop() {
+      poller?.stop();
       await registry.stop();
       setExternalEventIntake(null);
       if (!options.store) store.close();

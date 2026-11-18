@@ -100,9 +100,11 @@
   ../../dist/node_modules doesn't exist`；③ 路径基准坑 —— `tauri.conf.json` 在
   `client/src-tauri/`，`bundle.resources` 的 `../../dist/**` 指向**仓库根** `dist/`，
   而 `frontendDist: ../dist` 指向 `client/dist`，**两处都要造占位**。
-  **未做**：仓库内 `Cargo.lock` 仍缺该插件条目（CI 在容器内自行解析，不回写）；
-  若要在本机固化，需在 crates 可达的环境跑一次 `cargo generate-lockfile`。
-  作业暂保持**非阻断**，连续数次绿后再收紧为门禁。
+  **锁文件（2026-11-18 已补）**：本机 crates.io 不可达，改用**一次性镜像覆盖**
+  （`cargo --config source.crates-io.replace-with=…`，**不改本机配置**）跑 `cargo fetch`：
+  只解析不编译，锁文件最小化补上 `tauri-plugin-global-shortcut`（+`global-hotkey`/`x11rb` 等 12 个），
+  共 428 增 / 635 删（含 59 个传递依赖随生态上移）。**验证方式**：CI 的 `cargo-check-tauri`
+  用该锁编译，绿即自洽。作业暂保持**非阻断**，连续数次绿后再收紧为门禁。
 - 仍**不做**：快捷键用户可配置、内容增强（当前会话 / 运行中目标）、点击穿透（位置记忆与多显示器校正**已由 §8 补齐**）。
 
 ## 8. 四期已交付（窗口体验：几何记忆 + 多显示器边界校正）

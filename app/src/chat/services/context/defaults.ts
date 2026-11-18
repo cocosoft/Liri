@@ -11,5 +11,7 @@
  *
  * 截断退化时，长度低于该值的 user 消息优先被丢弃 —— 这类消息多为"继续 / 按计划执行"，
  * 丢弃后由跨轮摘要（`contextSummary`）承担目标回溯，避免长任务里碎片指令挤占窗口。
+ *
+ * @kind B
  */
 export const SHORT_USER_MSG_THRESHOLD = 200;

@@ -90,11 +90,30 @@ export function guardExecutorWithDailyBudget(
     // 计账：仅"需编排器记账 custom 执行器回传 usage"时计入
     // （默认执行器内部已记账 ⇒ `accountUsage:false` ⇒ 不重复计）
     // 债四「换算接线」（2026-10-13）：**自定义** ExecutorFn 的实际模型对编排器不可见
-    // （见 `lro/contracts.ts` 的 `ExecutorResult` 说明）⇒ 该路径**只记 token、不记金额**
-    // （`recordTurnCostUsd` 以 `debug` 留痕，**不取兜底价、不臆造金额**）。
+    // （见 `lro/contracts.ts` 的 `ExecutorResult`）⇒ 此前该路径**只记 token、不记金额**。
+    // 2026-11-18：契约新增可选 `model` —— 回传即记 USD 台账；不回传仍只记 token（不臆造金额）。
     if (accountUsage && result && typeof result === 'object') {
-      recordDailyBudgetFromUsage((result as { usage?: unknown }).usage);
+      const model = resolveExecutorUsageModel(result);
+      recordDailyBudgetFromUsage(
+        (result as { usage?: unknown }).usage,
+        undefined,
+        model
+      );
     }
     return result;
   };
+}
+
+/**
+ * 取自定义执行器回传的模型名（**纯函数**；非字符串 / 缺省 ⇒ `undefined`）。
+ *
+ * 抽出仅为可单测：`recordDailyBudgetFromUsage(usage, undefined, model)` 的第三参决定
+ * 是否折算金额 —— `undefined` ⇒ 只记 token（既有行为）。
+ */
+export function resolveExecutorUsageModel(result: unknown): string | undefined {
+  if (!result || typeof result !== 'object') return undefined;
+  const model = (result as { model?: unknown }).model;
+  return typeof model === 'string' && model.trim() !== ''
+    ? model.trim()
+    : undefined;
 }

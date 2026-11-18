@@ -177,9 +177,19 @@ describe('suggestReadToolForShellCommand：PowerShell 包裹（2026-11-18 真机
         'STATUS.md',
       ],
       [
-        'powershell -NoProfile -Command "Get-Content app\\package.json -Encoding utf8 -TotalCount 40"',
+        'powershell -NoProfile -Command "Get-Content app/package.json -Encoding utf8 -TotalCount 40"',
         'app/package.json',
       ],
+      // 反斜杠写法是 Windows 的路径分隔符；POSIX 下 `\` 只是普通文件名字符
+      // （`resolve(cwd,'a\\b')` ≠ `resolve(cwd,'a/b')`）⇒ 仅在 win32 断言
+      ...(process.platform === 'win32'
+        ? ([
+            [
+              'powershell -NoProfile -Command "Get-Content app\\package.json -Encoding utf8 -TotalCount 40"',
+              'app/package.json',
+            ],
+          ] as Array<[string, string]>)
+        : []),
       ['pwsh -c "Get-Content a.ts"', 'a.ts'],
     ];
     for (const [command, rel] of cases) {

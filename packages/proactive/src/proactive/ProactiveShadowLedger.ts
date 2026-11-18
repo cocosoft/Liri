@@ -32,9 +32,7 @@ const logger = getLogger('proactive:shadow');
 
 /** 开关（默认关）：只认显式 `true` */
 export function isProactiveShadowEnabled(): boolean {
-  return (
-    configManager.env('PROACTIVE_SHADOW')?.trim().toLowerCase() === 'true'
-  );
+  return configManager.env('PROACTIVE_SHADOW')?.trim().toLowerCase() === 'true';
 }
 
 /** 台账默认路径（`<dataDir>/proactive/shadow.jsonl`） */

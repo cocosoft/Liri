@@ -3236,7 +3236,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-4-MAX-CACHE-SIZE","k":"code#4","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-4-MAX-CACHE-SIZE","k":"code#5","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-4-MAX-CACHE-SIZE","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-5-CACHE-TTL","k":"title","i":0,"c":"硬编码治理 · **「同名常量」B5-2 第五项**：`CACHE_TTL` ×4 按域消歧（2 处 app + **2 处 client**；取值 60s×2 / 30min / 5min，前一 60s 对分属不同子系统故不合一）⇒ `lint:consts` **251 → 250 键（−1）**"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-5-CACHE-TTL","k":"title","i":0,"c":"硬编码治理 · **「同名常量」B5-2 第五项**：`CACHE_TTL` ×4 按域消歧（2 处 app + **2 处 client**；取值 60s×2 / 30min / 5min，前一 60s 对分属不同子系统故不合一）⇒ `lint:consts` **251 → 250 键（−1）**（2026-11-18：`app/src/lsp/schemas.ts` 随 S6 删除 ⇒ 现余 3 处）"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-5-CACHE-TTL","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8（①同名常量，**异值类** ⇒ 按域重命名消歧）+ CS01/CS05 + B5-1①–⑤ / B5-2①–④（同批次判定口径）"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-5-CACHE-TTL","k":"reopenWhen","i":0,"c":"① **B5-2 续项**：`FENCE_RE`（4）· `MAX_STREAM_AGE_MS`（4）· `MAX_RECONNECT_ATTEMPTS`（4）· `MAX_FILES`（4）· `MAX_HISTORY`（4）· `CLEANUP_INTERVAL_MS`（4）等 —— 每项**先 grep 全量用法与取值**再判定；**整键改完才消键**"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-5-CACHE-TTL","k":"reopenWhen","i":1,"c":"；② **同族「长名」不在本键**（`DEFAULT_CACHE_TTL`（`agent/registry/AgentRegistry.ts`）· `LIST_CACHE_TTL`（`client/src/services/videoService.ts`）· `POSITIVE_/NEGATIVE_CACHE_TTL_MS`（`"}
@@ -3250,8 +3250,8 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-5-CACHE-TTL","k":"notes","i":5,"c":"**4 → 0** ⇒ 已 `HARDCODE_GATE_BASELINE_WRITE=1` **下调基线至 250 键**。**守卫**（第 **21** 例）：4 文件均不含 `const CACHE_TTL = ` 且各含**确切新名 + 取值钉住**。**验证**：`typecheck`（app 三 tsconfig）**0** 且 `"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-5-CACHE-TTL","k":"notes","i":6,"c":"typecheck`（**client**）**0**；守卫 **21 pass / 0 fail**；app 侧相关域 **880 pass / 0 fail**；**client 全量 `vitest` 73 文件全绿**；4 硬编码门禁全 **exit 0**。**如实边界**：① 本片含 **2 处 client 侧**改动 ⇒ 已跑 "}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-5-CACHE-TTL","k":"notes","i":7,"c":"**client 全量 vitest**（非仅 `typecheck`）；② **未做真机走查**（`e2eVerified=false`）；③ 未跑全量 `bun test`（app 侧仅相关域）；④ **本地化 vendored（`ink/`）二次改动**（见 `reopenWhen` ③）；⑤ 本片是 B5-2 **第五项**。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-5-CACHE-TTL","k":"notes","i":8,"c":"**2026-11-18 续**：`app/src/lsp/schemas.ts` 随轨 B LSP（S6）删除 ⇒ 现存 **3 处**；`code[]` 同步移除该路径（`lint:fix-evidence` 要求证据路径存在）。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-5-CACHE-TTL","k":"code#0","i":0,"c":"app/src/ink/ink/line-width-cache.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-5-CACHE-TTL","k":"code#1","i":0,"c":"app/src/lsp/schemas.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-5-CACHE-TTL","k":"code#2","i":0,"c":"client/src/components/views/media/thumbCache.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-5-CACHE-TTL","k":"code#3","i":0,"c":"client/src/services/capabilityService.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-5-CACHE-TTL","k":"code#4","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}

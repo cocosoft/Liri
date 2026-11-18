@@ -283,7 +283,12 @@ export interface KnowledgeOpsPort {
   /** 立刻执行一次 raw 编译（原 handler 内 `runKnowledgeCompile(aiService, { force })`） */
   runKnowledgeCompile(
     aiService: unknown,
-    opts: { force?: boolean | undefined }
+    opts: {
+      force?: boolean | undefined;
+      model?: string | undefined;
+      /** 目标域；缺省 ⇒ 全局 knowledge 目录（PR #14） */
+      domain?: string | undefined;
+    }
   ): Promise<void>;
   /** 编译进度（原 `getCompileProgress()`） */
   getKnowledgeCompileProgress(): Promise<unknown>;

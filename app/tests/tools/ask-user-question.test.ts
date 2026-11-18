@@ -58,9 +58,12 @@ describe('AskUserQuestionTool 契约', () => {
   it('③ 无 _userAnswers（非流式路径）⇒ 引导错误，不静默吞掉', async () => {
     const tool = new AskUserQuestionTool();
     const result = await tool.execute({ question: 'x', header: 'h' }, ctx);
-    const data = result.data as { error?: string };
-    expect(data.error).toBeDefined();
-    expect(String(data.error)).toContain('_userAnswers');
+    // 2026-11-18：错误必须落在契约的 `error` 字段 —— `classifyToolResult` 只读该字段，
+    // 放进 `data` 会让 `tool/result.isError` 恒 false（真机 session_mwkthat73b80a6724f）。
+    expect(result.error).toBeDefined();
+    expect(result.error).toContain('_userAnswers');
+    expect(result.data).toBeUndefined();
+    expect(result.failureKind).toBe('tool_error');
   });
 
   it('④ 标记 requiresUserInteraction ⇒ 走 question 通道（现为唯一交互入口，失联即链路不可用）', () => {

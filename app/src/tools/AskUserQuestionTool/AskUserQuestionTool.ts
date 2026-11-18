@@ -200,10 +200,13 @@ export class AskUserQuestionTool extends BaseTool {
         questionType,
         question: questionText.slice(0, 120),
       });
-      return createToolResult({
+      // 2026-11-18（真机 `session_mwkthat73b80a6724f`）：错误必须走 `error` 字段。
+      // 原实现放进 `data`（`createToolResult({error:…})`），而 `classifyToolResult`
+      // 只读 `toolResult.error` ⇒ `tool/result.isError` 恒 false，失败统计与误调用率漏计。
+      return createToolResult(undefined, {
         error:
           '交互提问未完成：当前执行路径不支持等待用户回答（_userAnswers 缺失）。请改用自然语言在正文中直接提问，用户会在下一条消息中回复。',
-        retryable: false,
+        failureKind: 'tool_error',
       });
     }
 

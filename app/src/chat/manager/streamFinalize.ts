@@ -246,6 +246,9 @@ export class ChatStreamFinalize {
       userTexts,
       emptyOutputFallback,
       outputBudgetExhausted,
+      // 2026-11-18（真机 `session_mwkthat73b80a6724f`）：等待审批收尾时出口正文是系统提示语，
+      // 不得作为编排任务描述（与 `_writeTurnEnd` / 状态机同一判据，结构化、非文案比对）。
+      awaitingApprovalStop: terminationReason === TRANSIENT_AWAITING_APPROVAL,
       capabilityDirect,
       demandMode,
       shouldUseCodeMode: deps.shouldUseCodeMode,

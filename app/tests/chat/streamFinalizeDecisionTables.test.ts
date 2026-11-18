@@ -143,6 +143,7 @@ async function decide(args: {
   shouldUseCodeMode?: (text: string) => boolean;
   recentUserText?: string;
   sessionId?: string;
+  terminationReason?: string;
 }): Promise<Capture> {
   const capture: Capture = { events: [], machineReasons: [] };
   const session = makeSession(
@@ -160,6 +161,7 @@ async function decide(args: {
         ? { shouldUseCodeMode: args.shouldUseCodeMode }
         : {}),
     }),
+    terminationReason: args.terminationReason,
   });
   return capture;
 }
@@ -208,6 +210,29 @@ describe('裸会话升级判定（外移自 finalize）', () => {
     expect(capture.escalation).toBeUndefined();
   });
 
+  // 2026-11-18 真机 `session_mwkthat73b80a6724f`：等待审批收尾时正文被追加系统提示语
+  // （`⏸ 有工具调用正在等待你的审批…`）⇒ 旧闸门因"正文非空"放行，用该提示语当任务描述
+  // 建出无关项目 + 阶段链 PDCA。此处锁住结构化否决位。
+  it('本轮因等待审批收尾 ⇒ 不升级（即便正文是提示语、轮次闸也满足）', async () => {
+    const capture = await decide({
+      userContents: [STRONG_FIRST, EXEC_LAST],
+      recentUserText: EXEC_LAST,
+      assistantContent:
+        '\n\n⏸ 有工具调用正在等待你的审批：请在下方审批卡片（或收件箱）中处理后继续；批准后会自动接着执行，无需重发消息。',
+      terminationReason: TRANSIENT_AWAITING_APPROVAL,
+    });
+    expect(capture.escalation).toBeUndefined();
+  });
+
+  it('普通收尾（terminationReason 非等待审批）⇒ 仍升级（否决位不扩大）', async () => {
+    const capture = await decide({
+      userContents: [STRONG_FIRST, EXEC_LAST],
+      recentUserText: EXEC_LAST,
+      terminationReason: 'completed',
+    });
+    expect(capture.escalation).toBeDefined();
+  });
+
   it('demand 会话首轮即升级（不看轮次闸）', async () => {
     const capture = await decide({
       userContents: ['做一个记账应用'],
@@ -231,6 +256,7 @@ describe('裸会话升级判定（外移自 finalize）', () => {
       },
       emptyOutputFallback: false,
       outputBudgetExhausted: false,
+      awaitingApprovalStop: false,
       capabilityDirect: false,
       demandMode: false,
       shouldUseCodeMode: () => false,

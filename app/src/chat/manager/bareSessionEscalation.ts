@@ -19,6 +19,8 @@ import {
   isExecutionTaskIntent,
   isStrongBuildIntent,
 } from '../taskIntent';
+// 状态词汇唯一事实源（lint:state-ratchet）：禁止裸写 'awaiting_approval'
+import { TRANSIENT_AWAITING_APPROVAL } from '../services/ToolExecutionService';
 
 const logger = getLogger('chat:manager');
 
@@ -83,6 +85,17 @@ export interface BareSessionEscalationParams {
   userTexts: BareUserTexts;
   emptyOutputFallback: boolean;
   outputBudgetExhausted: boolean;
+  /**
+   * 本轮主循环是否**因等待审批而收尾**（结构化判定：`terminationReason === 'awaiting_approval'`）。
+   *
+   * 2026-11-18（真机 `session_mwkthat73b80a6724f`）：因等待审批收尾时，出口消息正文里被
+   * `terminationOutput.resolveTerminationOutput` 追加了一句**系统提示语**
+   * （`⏸ 有工具调用正在等待你的审批：…`）⇒ 正文非空 ⇒ 旧闸门放行，用这句提示语当任务描述
+   * 建出无关项目 + 阶段链 PDCA（子任务实际写出 `需求说明.md`），随后卡在阶段审批并被
+   * `orphan_scan` 收口。与 `streamMessageToolLoop` 的 `onLongTaskSignal` 同一条规则
+   * （2026-11-06 P0-2），本分支此前遗漏。
+   */
+  awaitingApprovalStop: boolean;
   capabilityDirect: boolean;
   demandMode: boolean;
   shouldUseCodeMode: (text: string) => boolean;
@@ -110,6 +123,7 @@ export async function applyBareSessionEscalation(
     userTexts,
     emptyOutputFallback,
     outputBudgetExhausted,
+    awaitingApprovalStop,
     capabilityDirect,
     demandMode,
     shouldUseCodeMode,
@@ -117,6 +131,16 @@ export async function applyBareSessionEscalation(
   } = params;
 
   if (!contextId) {
+    // 2026-11-18：等待审批收尾不是任务阶段结束（批准后 `resumeStream` 会接着跑），
+    // 且此时出口正文是**系统提示语**而非模型产出 ⇒ 不得作为编排任务描述流转。
+    // 判定走结构化终止原因，禁止比对文案（CS02）。
+    if (awaitingApprovalStop) {
+      logger.info('pdca:bare_session_escalation_skipped', {
+        sessionId: session.id,
+        reason: TRANSIENT_AWAITING_APPROVAL,
+      });
+      return true;
+    }
     // A4 轮次闸（R4 放宽，2026-09-06 走查 W5）：第 2+ 轮一律可升级；首轮仅当首条消息命中
     // 【强产出意图】（帮我/我要…做/写/开发）放行；弱动词（检查/验证/补）与纯闲聊首条仍要求
     // 2+ 轮，防一次性求助/闲聊被误升级。

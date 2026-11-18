@@ -13,6 +13,10 @@
  *   `Select-String`、列目录 `ls` / `dir` / `find` / `Get-ChildItem`；
  * - 必须是**单一简单命令**：无管道 / 重定向 / 分隔 / 命令替换 / 变量 / 通配符 / 引号 / 参数前缀；
  * - **仅工作区内路径**（工作区外保持弹卡：`file_read` 在那里同样需要工作区授权，纠正会变成死路）。
+ * - （2026-11-18 增补）允许**恰好一条** `powershell [-NoProfile] -Command "内层单条命令"` 包裹：
+ *   Windows 上这是模型最自然的读文件写法；解包后内层仍按上述最小集判定。
+ *   `Get-Content` 额外允许只读参数 `-Raw` / `-TotalCount` / `-First` / `-Tail` / `-Encoding`（带值），
+ *   其他任何参数前缀一律不纠正。
  *
  * 不做的事：不判定危险的 shell 形态（交给既有安全层）；`allowed:false` 一律表示"不适用本纠正"。
  */
@@ -46,6 +50,41 @@ export interface ReadViaShellSuggestion {
 
 /** 不接受的 shell 组成 / 展开字符（出现即不纠正，继续走既有审批） */
 const REJECT_CHARS = /[;&|<>`$(){}[\]*?~"'\n\r]/;
+
+/**
+ * PowerShell 包裹形态：`powershell [只读开关…] -Command "内层单条命令"`（或 `pwsh`）。
+ *
+ * 2026-11-18（真机 `session_mwkthat73b80a6724f`）：Windows 上模型最常用的只读写法就是这种包裹
+ * —— 它带引号 ⇒ 被 `REJECT_CHARS` 一律拒绝，该会话 **3/3** 张"读文件"审批卡都不会被纠正。
+ * 这里只解包**恰好一条**这种形态（尾部必须是一整对引号），内层再走同一套严格判定。
+ *
+ * **不削弱安全**：不执行命令、不绕过审批 —— 命中只是把"弹卡"换成"改用专用工具"的纠正提示；
+ * 形态不明确（多段 / 拼接 / 变量）一律 `null`，交回既有审批链。
+ */
+const POWERSHELL_WRAPPER =
+  /^(?:powershell|powershell\.exe|pwsh|pwsh\.exe)\s+(?:(?:-(?:noprofile|nologo|noninteractive))\s+)*-(?:command|c)\s+(.+)$/i;
+
+/** `Get-Content` 允许的只读参数（0 ⇒ 无值；1 ⇒ 带一个值）。其余动词仍只接受**纯单参**。 */
+const GET_CONTENT_FLAGS: Readonly<Record<string, 0 | 1>> = {
+  '-raw': 0,
+  '-totalcount': 1,
+  '-first': 1,
+  '-tail': 1,
+  '-encoding': 1,
+};
+
+/** 解包 `powershell -Command "…"` ⇒ 内层命令；形态不唯一/带外层残留 ⇒ `null` */
+function unwrapPowerShellWrapper(command: string): string | null {
+  const matched = POWERSHELL_WRAPPER.exec(command);
+  if (!matched) return null;
+  const quoted = matched[1]!.trim();
+  if (quoted.length < 3) return null;
+  if (!quoted.startsWith('"') || !quoted.endsWith('"')) return null;
+  // 只允许**一整对**引号：出现第二对 ⇒ 可能是拼接/多命令，交回审批
+  if (quoted.indexOf('"', 1) !== quoted.length - 1) return null;
+  const inner = quoted.slice(1, -1).trim();
+  return inner.length > 0 ? inner : null;
+}
 
 /** 允许的动词（小写）→ 目标工具 */
 const READ_VERBS: Record<string, ReadViaShellTool> = {
@@ -129,18 +168,39 @@ export function suggestReadToolForShellCommand(params: {
 }): ReadViaShellSuggestion | null {
   const raw = params.command.trim();
   if (!raw) return null;
-  if (REJECT_CHARS.test(raw)) return null;
+  // 先解包 PowerShell 包裹（其引号本就属于"形态"而非"拼接"）；形态不明确 ⇒ 退回原文走审批
+  const command = unwrapPowerShellWrapper(raw) ?? raw;
+  if (REJECT_CHARS.test(command)) return null;
 
-  const tokens = raw.split(/\s+/);
+  const tokens = command.split(/\s+/);
   if (tokens.length < 2) return null;
-  const verb = tokens[0].toLowerCase();
+  const verb = tokens[0]!.toLowerCase();
   const tool = READ_VERBS[verb];
   if (!tool) return null;
 
   const args = tokens.slice(1);
-  if (args.some((a) => a.startsWith('-'))) return null;
+  // `Get-Content` 允许白名单内的只读参数；其余动词一律拒绝任何 `-` 前缀 token（口径不变）
+  let positional: string[] = args;
+  if (verb === 'get-content') {
+    positional = [];
+    for (let i = 0; i < args.length; i += 1) {
+      const token = args[i] ?? '';
+      if (!token.startsWith('-')) {
+        positional.push(token);
+        continue;
+      }
+      const arity = GET_CONTENT_FLAGS[token.toLowerCase()];
+      if (arity === undefined) return null;
+      if (arity === 1) {
+        i += 1;
+        if (i >= args.length) return null;
+      }
+    }
+  } else if (args.some((a) => a.startsWith('-'))) {
+    return null;
+  }
   const needArgs = SEARCH_VERBS.has(verb) ? 2 : 1;
-  if (args.length !== needArgs) return null;
+  if (positional.length !== needArgs) return null;
 
   const roots = (params.workspaceRoots ?? []).filter(
     (r): r is string => typeof r === 'string' && r.trim() !== ''
@@ -148,8 +208,8 @@ export function suggestReadToolForShellCommand(params: {
   if (roots.length === 0) return null;
   const cwd = params.cwd?.trim() || roots[0];
 
-  const pattern = needArgs === 2 ? args[0] : undefined;
-  const rawPath = needArgs === 2 ? args[1] : args[0];
+  const pattern = needArgs === 2 ? positional[0] : undefined;
+  const rawPath = needArgs === 2 ? positional[1]! : positional[0]!;
   const target = resolve(cwd, rawPath);
   if (!isInsideRoots(target, roots)) return null;
 

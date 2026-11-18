@@ -139,6 +139,74 @@ describe('suggestReadToolForShellCommand：不纠正的形态', () => {
   });
 });
 
+describe('suggestReadToolForShellCommand：Get-Content 只读参数（2026-11-18）', () => {
+  it('白名单内的只读参数 ⇒ 仍判 file_read', () => {
+    const cases: Array<[string, string]> = [
+      ['Get-Content package.json -Raw', 'package.json'],
+      ['Get-Content STATUS.md -TotalCount 30', 'STATUS.md'],
+      ['Get-Content a.ts -First 5', 'a.ts'],
+      ['Get-Content log.txt -Tail 20', 'log.txt'],
+      ['Get-Content a.ts -Encoding utf8 -TotalCount 40', 'a.ts'],
+    ];
+    for (const [command, rel] of cases) {
+      const s = suggestReadToolForShellCommand({ ...base, command });
+      expect(s?.tool).toBe('file_read');
+      expect(s?.path).toBe(resolve(ROOT, rel));
+    }
+  });
+
+  it('白名单外的参数前缀 / 缺参数值 ⇒ null（不猜形态）', () => {
+    const commands = [
+      'Get-Content a.ts -Wait',
+      'Get-Content -Path a.ts',
+      'Get-Content a.ts -TotalCount',
+      'Get-Content a.ts b.ts',
+    ];
+    for (const command of commands) {
+      expect(suggestReadToolForShellCommand({ ...base, command })).toBeNull();
+    }
+  });
+});
+
+describe('suggestReadToolForShellCommand：PowerShell 包裹（2026-11-18 真机）', () => {
+  it('powershell [-NoProfile] -Command "Get-Content …" ⇒ file_read', () => {
+    const cases: Array<[string, string]> = [
+      ['powershell -Command "Get-Content package.json -Raw"', 'package.json'],
+      [
+        'powershell -NoProfile -Command "Get-Content STATUS.md -TotalCount 30"',
+        'STATUS.md',
+      ],
+      [
+        'powershell -NoProfile -Command "Get-Content app\\package.json -Encoding utf8 -TotalCount 40"',
+        'app/package.json',
+      ],
+      ['pwsh -c "Get-Content a.ts"', 'a.ts'],
+    ];
+    for (const [command, rel] of cases) {
+      const s = suggestReadToolForShellCommand({ ...base, command });
+      expect(s?.tool).toBe('file_read');
+      expect(s?.path).toBe(resolve(ROOT, rel));
+      expect(s?.message).toContain('file_read');
+    }
+  });
+
+  it('包裹内出现分隔符 / 变量 / 多对引号 / 未知动词 / 界外路径 ⇒ null', () => {
+    const commands = [
+      'powershell -Command "Get-Content a.ts; Remove-Item b.ts"',
+      'powershell -Command "Get-Content $env:TEMP\\a.ts"',
+      'powershell -Command "Get-Content a.ts" -Command "Get-Content b.ts"',
+      "powershell -Command 'Get-Content a.ts'",
+      'powershell -Command "Invoke-WebRequest https://example.com"',
+      'powershell -Command "Get-Content ../outside.txt"',
+      'powershell -ExecutionPolicy Bypass -Command "Get-Content a.ts"',
+      'powershell -Command "Get-Content a.ts" | Out-Null',
+    ];
+    for (const command of commands) {
+      expect(suggestReadToolForShellCommand({ ...base, command })).toBeNull();
+    }
+  });
+});
+
 describe('buildReadViaShellCorrection：权限层口径', () => {
   const input = { command: 'cat src/app.ts' };
 

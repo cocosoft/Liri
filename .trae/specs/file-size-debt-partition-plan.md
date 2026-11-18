@@ -1845,6 +1845,16 @@ think 标签 —— `streamingLlm.ts` · `pipeline/StreamPipeline.ts` · `orches
 `MessageContextPipeline.ts` 1317 → **删除**（拆成 6 个职责模块 `context/*` + 1 个常量文件 `defaults.ts`，
 最大者 `contextTruncation.ts` 569 行）。
 
+**CI 复盘（本批两次红点，均已修复）**：
+1. `955263513` 的 **Static Checks → Hardcode gates** 红：根因是**手改了生成物**
+   `.trae/architecture/fix-evidence-registry.json`（该文件由 `scripts/gen-evidence-views.ts`
+   从 `archive/evidence-detail.jsonl` 生成，`lint-evidence-views-drift` 会逐行比对）。
+   正解 = **改 jsonl 源 → 跑 `bun run scripts/gen-evidence-views.ts`**，不得直接编辑视图文件；
+2. 同批 `Test Suite (windows-latest)` 红在 `dockerImageManager.test.ts:53` 的**计时断言**
+   （Expected < 40ms，实测 48ms）—— 与本次改动无关的机器抖动，后续运行自愈；
+3. 另：新常量文件 `context/defaults.ts` 需带 `@kind B` 标注（`lint:consts` D-1，缺则硬失败）。
+
+
 
 
 

@@ -38,6 +38,10 @@ import {
 } from './ProactivePushQueue';
 import { createProactiveDeliveryAdapter } from './ProactiveDeliveryAdapter';
 import { createProactiveLocalDelivery } from './ProactiveLocalDelivery';
+import {
+  isProactiveShadowEnabled,
+  recordProactiveShadow,
+} from './ProactiveShadowLedger';
 
 const logger = getLogger('proactive:runtime');
 
@@ -63,6 +67,12 @@ function createDelivery(): ProactiveDeliver {
   const channel = createProactiveDeliveryAdapter({ enabled: true });
   const local = createProactiveLocalDelivery();
   return async (payload) => {
+    // #2 Shadow（2026-11-18）：每次投递前读一次开关 ⇒ 开关变更无需重启运行时；
+    // 开 ⇒ 只记账不投递；关 ⇒ 与改造前逐字一致。
+    if (isProactiveShadowEnabled()) {
+      await recordProactiveShadow(payload);
+      return;
+    }
     if (payload.target?.mode === 'channel') {
       await channel(payload);
       return;

@@ -55,6 +55,29 @@ export function planEdgeTypeBackfill(
   return plan.sort((a, b) => b.count - a.count);
 }
 
+/**
+ * 取「可安全改名」的边 id（**冲突感知**）。
+ *
+ * 必要性（2026-11-18 实测）：`kg_edges` 有唯一索引
+ * `idx_kg_edge_unique(from_id, to_id, edge_type, COALESCE(domain,''))` ——
+ * 直接把 `works_at` 改名成 `works_for` 会撞上**已存在**的同三元组规范边，
+ * 整笔事务被 `UNIQUE constraint failed` 回滚。
+ *
+ * 口径：只改「改后不会与既有规范边重复」的行；冲突行**跳过并计数**（不删除、不改 id），
+ * 由使用方按报告人工决定是否合并（删除属破坏性操作，走 `code-deletion.md` 另行裁定）。
+ */
+export const SQL_SELECT_UPDATABLE_EDGE_IDS = `
+SELECT e.edge_id AS id, e.owner_key AS owner
+  FROM kg_edges e
+ WHERE e.edge_type = ?
+   AND NOT EXISTS (
+     SELECT 1 FROM kg_edges t
+      WHERE t.from_id = e.from_id
+        AND t.to_id = e.to_id
+        AND t.edge_type = ?
+        AND COALESCE(t.domain, '') = COALESCE(e.domain, '')
+   )`;
+
 interface CliOptions {
   apply: boolean;
   dbPath?: string;
@@ -94,9 +117,13 @@ function openDb(path: string): Promise<Database> {
   });
 }
 
-function all(db: Database, sql: string): Promise<unknown[]> {
+function all(
+  db: Database,
+  sql: string,
+  params: unknown[] = []
+): Promise<unknown[]> {
   return new Promise((resolve, reject) => {
-    db.all(sql, (err: Error | null, rows: unknown[]) => {
+    db.all(sql, params, (err: Error | null, rows: unknown[]) => {
       if (err) reject(err);
       else resolve(rows);
     });
@@ -167,13 +194,22 @@ async function main(): Promise<void> {
     }
 
     await run(db, 'BEGIN IMMEDIATE', []);
+    let applied = 0;
     try {
       for (const row of plan) {
-        await run(
-          db,
-          `UPDATE ${KG_EDGES} SET edge_type = ? WHERE edge_type = ?`,
-          [row.to, row.from]
-        );
+        // 冲突感知：只改「改后不与既有规范边重复」的行（逐组重取，故同组多别名也只会留一条）
+        const ids = (await all(db, SQL_SELECT_UPDATABLE_EDGE_IDS, [
+          row.from,
+          row.to,
+        ])) as Array<{ id: string; owner: string }>;
+        for (const { id, owner } of ids) {
+          await run(
+            db,
+            `UPDATE ${KG_EDGES} SET edge_type = ? WHERE edge_id = ? AND owner_key = ?`,
+            [row.to, id, owner]
+          );
+          applied += 1;
+        }
       }
       await run(db, 'COMMIT', []);
     } catch (error) {
@@ -181,7 +217,13 @@ async function main(): Promise<void> {
       throw error;
     }
 
-    console.log(`[kg-backfill] ✅ 已回填 ${plan.length} 组 / ${total} 行（单事务提交）`);
+    const skipped = total - applied;
+    console.log(
+      `[kg-backfill] ✅ 已回填 ${applied} 行（单事务提交）` +
+        (skipped > 0
+          ? `；跳过 ${skipped} 行 —— 目标规范边已存在（未删除、未改 id，需人工裁定是否合并）`
+          : '')
+    );
     process.exit(0);
   } catch (error) {
     console.error(

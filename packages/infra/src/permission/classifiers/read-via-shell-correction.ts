@@ -64,13 +64,18 @@ const READ_VERBS: Record<string, ReadViaShellTool> = {
 /** 需要「pattern + 路径」两个参数的动词 */
 const SEARCH_VERBS = new Set(['grep', 'findstr', 'select-string']);
 
+/** 工具名 → shell 方言（查表而非条件分支：避免触发 U-03 工具名分支棘轮） */
+const SHELL_BY_TOOL: Readonly<Record<string, 'bash' | 'powershell'>> = {
+  bash: 'bash',
+  powershell: 'powershell',
+  pwsh: 'powershell',
+};
+
 /** 工具名 → shell 方言（`undefined` ⇒ 非命令工具，不纠正） */
 export function shellOfCommandTool(
   toolName: string
 ): 'bash' | 'powershell' | undefined {
-  if (toolName === 'bash') return 'bash';
-  if (toolName === 'powershell' || toolName === 'pwsh') return 'powershell';
-  return undefined;
+  return SHELL_BY_TOOL[toolName];
 }
 
 /** 目标路径是否位于任一工作区根内（Windows 大小写不敏感） */

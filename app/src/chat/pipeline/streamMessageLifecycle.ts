@@ -35,13 +35,14 @@ import type { ParsedToolCall } from '@modules/ai';
 import { memProfile } from '@openliri/infra/monitoring/memProfile';
 import type { Message } from '@modules/session/types/message.js';
 import type { ToolCall, ToolResult } from '@modules/session/types/tool.js';
+import { computePaginationPoint } from '../services/MessageContextPipeline';
+// 2026-11-18（§48 拆分批 2）：分层开关与切窗提示已外移
 import {
-  computePaginationPoint,
   contextLayeringEnabled,
   isCodeContextMessage,
   LAYERING_HINT,
   LAYERING_HINT_CODE,
-} from '../services/MessageContextPipeline';
+} from '../services/context/contextLayering';
 import {
   isEmptyAssistantWithoutToolCalls,
   toToolResultRawText,

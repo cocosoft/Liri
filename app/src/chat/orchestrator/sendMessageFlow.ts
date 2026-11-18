@@ -55,11 +55,14 @@ import {
   stripThinkResponseTags,
   stripOrphanToolTags,
   computePaginationPoint,
+} from '../services/MessageContextPipeline';
+// 2026-11-18（§48 拆分批 2）：分层开关与切窗提示已外移
+import {
   contextLayeringEnabled,
   LAYERING_HINT,
   LAYERING_HINT_CODE,
   isCodeContextMessage,
-} from '../services/MessageContextPipeline';
+} from '../services/context/contextLayering';
 import { stripBareExploration } from '../services/bareExplorationStripper';
 import { formatAttachedImagesBlock } from '../services/ImageContextService';
 import { composeSystemPrompt } from '../services/systemPromptComposition';

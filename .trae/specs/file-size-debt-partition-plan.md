@@ -1695,13 +1695,13 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 | `client/src/stores/chat/chat-toolcall.slice.ts` | 1491 | 14 导出 / 32 函数 / 94 分支 | **B 低优先**：纯函数 + `ChronologicalBlockBuilder`，拆分仅按工具函数分组，收益限于可读性 |
 | `packages/infra/src/environment/paths.ts` | 1390 | **138 导出** / 94 函数 | **C 不拆**：canonical 路径注册表（"其他模块不得自建路径常量"）⇒ 拆分会诱发多处定义回归 |
 | `packages/infra/src/security/BashSecurityAnalyzer.ts` | 1396 | 6 导出 / 39 函数 / **101 分支** | **C 不拆**：安全判定高内聚，拆分提高漏检与跨文件互锁风险（同 `code-deletion` CD07 精神） |
-| `app/src/chat/services/MessageContextPipeline.ts` | 1317 | 18 导出 / 23 函数 / 85 分支 | **A 可拆**：头注释已列 7 项职责（sanitize / truncate / compress / 摘要持久化 / 系统提示组装 / 目标提取 / 用量记录）⇒ 按阶段外移有明确单测粒度收益 |
+| `app/src/chat/services/MessageContextPipeline.ts` | 1317 | 18 导出 / 23 函数 / 85 分支 | **A 可拆 → 拆分批 2 已落地两组（§48.6，1317 → 1136）**：7 项职责；余下截断/提示组装/摘要/标签四簇待批 3 |
 | `client/src/components/views/CronPage.tsx` | 1440 | **1 导出 / 3 函数** | **A 可拆 → 已于 2026-11-18 拆完（§48.5，1440 → 408）**：单组件 + 巨型 JSX ⇒ 表单 / 列表 / 详情面板拆子组件收益明确 |
 
 ### 48.3 结论与建议排期
 
 1. **B/C 类 8 个一律不拆**（B 是"搬位置"，C 是"拆了更危险/更易漂移"）；
-2. **A 类 2 个**：`CronPage.tsx` **已完成**（§48.5）；`MessageContextPipeline.ts`（后端，按阶段外移、单测跟着走）**待排期**；
+2. **A 类 2 个**：`CronPage.tsx` **已完成**（§48.5）；`MessageContextPipeline.ts` **批 2 已完成两组**（§48.6，1317 → 1136），余下四簇待批 3；
 3. 其余 68 个未抽样文件**不预设结论** —— 抽样只证明"该带里多数属 B/C 类"，
    不等于逐个已核；若后续要处置，按 §3 方法论逐个取证，**禁止**按行数批量拆。
 
@@ -1734,7 +1734,31 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 
 **验证**：客户端 `tsc --noEmit` 0 错；`vitest run` **150 文件 / 1060 用例全绿**（含新增 4 条）；
 改动文件 `eslint` 0 error / 0 warning。
-**后续（未做）**：`MessageContextPipeline.ts` 为 A 类第 2 个（后端按阶段外移），本轮未动。
+
+### 48.6 实施记录：`MessageContextPipeline.ts` 拆分批 2（2026-11-18，**部分落地**）
+
+该文件 7 项职责，按「一组一模块」串行外移；本批只做**两组自包含**（无会话状态、无提示组装）：
+
+| 件 | 行数 | 内容 |
+|---|--:|---|
+| `services/MessageContextPipeline.ts` | **1317 → 1136** | 仍持有：截断/分页切点（`truncateApiMessages` · `computePaginationPoint` · `windowStartForBudget` · `truncateByPreciseTokens`）、摘要持久化（`persistTurnSummary`）、目标提取、系统提示组装（`assembleContextualSystemPrompt` · `buildWorkspaceRootSection`）、think 标签规整 |
+| `services/context/messageSanitizer.ts` 🆕 | 122 | `sanitizeApiMessages`（配对完整性）+ `compressToolHistory`（工具历史压缩） |
+| `services/context/contextLayering.ts` 🆕 | 90 | `contextLayeringEnabled` + `LAYERING_HINT(_CODE)` + `isCodeContextMessage`（含 `CODE_CONTEXT_MARKERS`） |
+
+**接线（7 处，全部改为直连新模块）**：
+`manager/orchestratorHost.ts`（分层开关）· `manager/requestPrep.ts`（sanitize + compress）·
+`orchestrator/sendMessageFlow.ts`（分层四符号）· `pipeline/streamMessageLifecycle.ts`（分层四符号）·
+`agentPreReasoning.ts`（sanitize）· `tests/chat/MessageContextPipeline.test.ts`（分层三符号）。
+`ChatOrchestratorHost` / `streamMessageFlow` 只是**宿主端口方法名**（`host.sanitizeApiMessages`），不动。
+
+**验证**：`tsc --noEmit`（三 project）0 错；相关用例 **200 pass / 0 fail**（`MessageContextPipeline` /
+`turnSummary` / `skillInjectionFix` / `taorLoopResumeWiring` / `tests/chat/orchestrator`）；
+`lint:arch` 0 error（559 warnings，较拆前 560 **少 1**）· `lint:size` / `lint:fn-size` / `lint:complexity`
+棘轮未增长 · `lint:refs` 192 处通过。
+
+**剩余（批 3 候选，未做）**：截断簇（≈600 行）→ `context/contextTruncation.ts`；提示组装簇（≈230 行）→
+`context/promptAssembly.ts`；摘要/目标提取（≈90 行）→ `context/turnSummary.ts`；think 标签（≈110 行）→
+`context/thinkTags.ts`（后者被 `chat/index.ts` 再导出，需同批核对模块出口）。
 
 
 

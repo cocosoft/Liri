@@ -47,7 +47,7 @@ import { agentTelemetry } from '@modules/agent';
 import { handleError } from '@openliri/infra/error';
 import { containsComplexKeywords } from '@modules/workspace/CouncilOrchestrator';
 import { rollupSessionSummaryToLongTerm } from '@openliri/infra/memory';
-import { contextLayeringEnabled } from '../services/MessageContextPipeline';
+import { contextLayeringEnabled } from '../services/context/contextLayering';
 import type { MessageService } from '../services/MessageService.js';
 import type { SessionLifecycleManager } from '../services/SessionLifecycleManager.js';
 import type { ImageContextService } from '../services/ImageContextService';

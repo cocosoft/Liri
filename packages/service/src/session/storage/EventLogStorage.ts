@@ -46,6 +46,8 @@ import {
 import type { LiriEvent, LiriEventType } from '@modules/session/types/events';
 import { isLiriEvent } from '@modules/session/types/events';
 import { sanitizeEvent } from './eventSanitize';
+// 快照失效日志分级（2026-11-20）
+import { logSnapshotStale } from './eventSnapshotStale';
 // 大文件拆分（spec file-size-debt-partition-plan §36/§37）
 import { EventLogTextBuffer } from './EventLogTextBuffer';
 import {
@@ -1653,14 +1655,11 @@ export class EventLogStorage {
     if (!this.eventsSnapshot) return null;
     const snapshotTail =
       this.eventsSnapshot[this.eventsSnapshot.length - 1]?.seq ?? 0;
+    // 2026-11-20：入口先捕获 tail，供日志区分「判定期间 append 的可预期竞态」（见 eventSnapshotStale）
+    const tailAtCheck = this.tailSeq;
     const staleReason = await this.snapshotStaleReason(snapshotTail);
     if (staleReason) {
-      logger.warn('event-log: 事件快照过期，失效并回退磁盘读取', {
-        sessionId: this.sessionId,
-        snapshotTailSeq: snapshotTail,
-        memoryTailSeq: this.tailSeq,
-        staleReason,
-      });
+      logSnapshotStale(logger, this.sessionId, snapshotTail, tailAtCheck, this.tailSeq, staleReason);
       this.eventsSnapshot = null;
       this.snapshotBytes = 0;
       this.snapshotIneligible = false;

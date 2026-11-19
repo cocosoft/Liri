@@ -52,7 +52,10 @@ function runProbeDefault(helperPath: string): WindowsSandboxProbeResult {
     });
     if (out.error) {
       const code = (out.error as NodeJS.ErrnoException).code;
-      return { ok: false, reason: code === 'ETIMEDOUT' ? 'probe-timeout' : 'probe-failed' };
+      return {
+        ok: false,
+        reason: code === 'ETIMEDOUT' ? 'probe-timeout' : 'probe-failed',
+      };
     }
     if (out.status !== 0) return { ok: false, reason: 'probe-failed' };
     // helper 输出单行 JSON；只认显式 ok:true（不把任意输出当通过）
@@ -129,7 +132,11 @@ export function detectWindowsSandboxCapability(
       present: true,
       runnable: probe.ok,
       reasonCode: probe.ok ? 'ok' : (probe.reason ?? 'probe-failed'),
-      ...(probe.ok ? {} : { reason: `helper --probe 未通过（${probe.reason ?? 'probe-failed'}）` }),
+      ...(probe.ok
+        ? {}
+        : {
+            reason: `helper --probe 未通过（${probe.reason ?? 'probe-failed'}）`,
+          }),
       path: helperPath,
     };
   };

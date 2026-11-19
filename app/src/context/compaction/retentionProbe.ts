@@ -66,6 +66,16 @@ const HAS_DIGIT = /\d/;
 /** `missing` 上报上限（防日志爆量） */
 export const MAX_MISSING_REPORTED = 20;
 
+/**
+ * 字面转义归一化（2026-11-20 真机修正）
+ *
+ * 真机取证：`compaction:low_retention` 的 `missing` 同时出现 `nliri-hello.md` 与 `liri-hello.md`
+ * （`nGOAL-LOG.md` / `GOAL-LOG.md` 同样成对）—— 折叠批原文里带**字面 `\n`**（工具结果常是 JSON 串），
+ * `\b` 边界把 `n` 与紧随的文件名连成一个实体 ⇒ `total` 虚高、`missing` 被污染、`ratio` 被压低。
+ * 这里只把字面 `\n|\r|\t` 归一化为空格恢复 token 边界；**不改任何压缩行为**。
+ */
+const LITERAL_ESCAPE_SEQUENCES = /\\[nrt]/g;
+
 /** 低保留度告警阈值（M5 裁定 D2：0.4 = 丢失 >60% 才告警） */
 export const DEFAULT_RETENTION_WARN_RATIO = 0.4;
 
@@ -87,8 +97,9 @@ export interface RetentionResult {
 export function extractKeyEntities(text: string): Set<string> {
   const out = new Set<string>();
   if (!text) return out;
+  const normalized = text.replace(LITERAL_ESCAPE_SEQUENCES, ' ');
   for (const re of ENTITY_PATTERNS) {
-    for (const match of text.matchAll(re)) {
+    for (const match of normalized.matchAll(re)) {
       // 剥离**尾部标点**（正则的 `[^\s]` 类会把句尾 `,`/`。`/`；` 等吞进 token）
       const token = match[0].trim().replace(TRAILING_PUNCTUATION, '');
       if (token.length >= MIN_ENTITY_LENGTH || HAS_DIGIT.test(token))

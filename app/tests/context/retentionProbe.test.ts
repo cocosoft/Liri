@@ -129,3 +129,26 @@ describe('M5 mergeRetention — 跨批聚合', () => {
     expect(mergeRetention([]).ratio).toBe(1);
   });
 });
+
+describe('字面 \\n 归一化（2026-11-20 真机修正）', () => {
+  it('字面 \\n 不再产生「n 前缀」实体（真机 missing 曾成对出现 nXX 与 XX）', () => {
+    const entities = extractKeyEntities(
+      '产物：\\nliri-hello.md 与 \\nGOAL-LOG.md'
+    );
+    expect(entities.has('liri-hello.md')).toBe(true);
+    expect(entities.has('GOAL-LOG.md')).toBe(true);
+    expect(entities.has('nliri-hello.md')).toBe(false);
+    expect(entities.has('nGOAL-LOG.md')).toBe(false);
+  });
+
+  it('measureRetention：字面 \\n 不制造假 missing', () => {
+    const r = measureRetention('产物 \\nliri-hello.md', '已写入 liri-hello.md');
+    expect(r.missing).not.toContain('nliri-hello.md');
+    expect(r.retained).toBeGreaterThan(0);
+  });
+
+  it('真实换行行为不变', () => {
+    const entities = extractKeyEntities('产物：\nliri-hello.md');
+    expect(entities.has('liri-hello.md')).toBe(true);
+  });
+});

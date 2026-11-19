@@ -113,3 +113,37 @@ fire 后 status = pending             （期望 fired；仍 pending ⇒ 未落 f
 
 **验证**：`bun test tests/tasks/selfwake/` ⇒ **30 pass / 0 fail**。
 **突变验证**：临时去掉 `rebuildIndex` 惰性重建（`_findEntry`/`resolveSessionId` 退化为纯内存索引）⇒ **R1/R2 转红、R3 仍绿**（证明用例非空转），随后已还原。
+
+---
+
+## 8. 补漏 A/B/C（2026-11-19，真机「等待中」常驻）
+
+### 8.1 现象与根因
+
+**现象**：任务早已完成，界面长期显示「⏳ 等待中」，刷新不消失（真机会话 `sess-goal-start-1795047957807`）。
+
+**判据链**：前端 `deriveWaitState` 只看 `GET /v1/sessions/{id}/streaming.pendingWake`（`wait-state-visibility.md` D1）⇒ 该字段由 `WakeStore` 里 `pending|due` 条目投影；与"任务/todo 是否完成"**无关**。
+
+**根因（两处叠加，缺一都不会出现）**：
+
+| # | 缺陷 | 证据 |
+|---|---|---|
+| A | 兜底扫描的接线**只做一次且在 cron 启动之前**：`startCg3`（`main.ts` 初始化管线）调 `wireSelfWakeToCron`，而全局 cron 由 `launchREPL` → `startCronEngine()` 更晚建立 ⇒ 彼时 `getGlobalCronScheduler()` 为 `null`，接线返回 false 且**无重试** ⇒ `extraTick` 永不扫到期条目 | 真机 `/v1/cron/status` = `running:true, lastTickAt:…`（tick 在跑），但过期 `pending` 在多轮 tick 后仍是 `pending` |
+| B | `sleepFor(< tickInterval)` 的 `setTimeout` 只在**进程内**；重启（含 `bun --watch` 热重载）后丢失，条目永停 `pending` | 该条目 `createdAt 09:07:59 / triggerAt 09:08:29`，进程 09:09:52 重启，条目此后 30 分钟未动 |
+| C | `WakeStore.gc()` **无调用点** ⇒ `selfwake/*.json` 无限堆积（真机 33 个，最早 5 天前） | 目录清单 `LastWriteTime` 全部停在各自创建时刻 |
+
+### 8.2 修复
+
+| 项 | 落点 | 变更 |
+|---|---|---|
+| A | `tasks/cron/GlobalCronScheduler.ts` | `ensureGlobalCronSchedulerStarted()` 在 `instance.start()` 后调用 `ensureSelfWakeWiredToCron()`（幂等；CG3 未创建则静默跳过） |
+| A' | `tasks/Cg3Bootstrap.ts` | 新增 `ensureSelfWakeWiredToCron()`；`wireSelfWakeToCron()` 增 **WeakSet 幂等**（两侧都会调，重复接线会把 `extraTick` 叠成多条链） |
+| B | `tasks/selfwake/SelfWakeService.ts` + `Cg3Bootstrap.startCg3()` | 新增 `recoverOverdueWakes(now?)`：补触发**已过期**的 `kind='timer'` 条目（`completion`/`event` 等外部条件不参与）；`startCg3` 启动后异步执行（不阻塞启动，失败只 warn）。是否真续跑由执行器二次校验（`goal-startup`/`plan-startup` 均"陈旧即作废"） |
+| C | 同上 | 新增 `collectGarbage(maxAgeMs?)` 包 `WakeStore.gc()`；与 B 同点执行 |
+
+**回归**：`app/tests/tasks/selfwake/selfWakeStartupRecovery.test.ts`（3 例）
+- R1 过期 `timer` ⇒ 落 `fired` + 续跑一次；未来条目 / `completion` 不动；
+- R2 `collectGarbage` 清 24h 前 `fired`，保留 `pending` 与近期 `fired`；
+- R3 **晚接线**：cron 未起时接线如实返回 false；`ensureGlobalCronSchedulerStarted` 后 `extraTick` 已挂上、重复接线幂等、手动 `extraTick()` 能把过期条目扫成 `fired`。
+
+**验证**：`typecheck` ✅ · `bun test tests/tasks/selfwake tests/tasks/cron tests/http/session-pending-wake.test.ts` ⇒ **89 pass / 0 fail** · 全量 `bun test` **13200 pass / 42 skip / 0 fail** · `lint:size` / `lint:fn-size` / `lint:arch` / `lint:state-ratchet` / `lint:consts` 全 0 错。

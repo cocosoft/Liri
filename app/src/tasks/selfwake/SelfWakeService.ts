@@ -191,6 +191,46 @@ export class SelfWakeService {
   }
 
   /**
+   * 启动期补偿：把**已过期但仍 `pending`** 的 `timer` 条目补触发一次（返回条数）。
+   *
+   * B（2026-11-19 真机根因）：`sleepFor(< tickInterval)` 只在**进程内**建 `setTimeout`，
+   * 进程重启（含 `bun --watch` 热重载）后 timer 丢失，条目永远停在 `pending`
+   * ⇒ `GET /v1/sessions/:id/streaming` 持续回 `pendingWake` ⇒ 前端「⏳ 等待中」常驻
+   * （任务早已完成也照样显示）。
+   *
+   * 只认 `kind='timer'`：`completion` / `event` 等的是外部条件（job / connector 事件），
+   * 与时间无关，过期判定不适用。是否真的续跑由执行器自行二次校验
+   * （`goal-startup` / `plan-startup` 均"陈旧即作废"），故补触发不会造成重复推进。
+   */
+  async recoverOverdueWakes(now = Date.now()): Promise<number> {
+    const all = await this.wakeStore.getAllPending();
+    const overdue = all.filter(
+      (e) =>
+        e.kind === WakeKind.TIMER &&
+        typeof e.triggerAt === 'number' &&
+        e.triggerAt <= now
+    );
+    for (const e of overdue) {
+      await this.fire(e.id);
+    }
+    if (overdue.length > 0) {
+      cg3Log('tasks:selfwake', 'info', 'recoverOverdue', {
+        count: overdue.length,
+      });
+    }
+    return overdue.length;
+  }
+
+  /**
+   * 启动期清理：删除 `fired` 超过 `maxAgeMs`（默认 24h）的条目，文件空了即删文件（返回条数）。
+   *
+   * C（2026-11-19）：`WakeStore.gc()` 此前**无调用点** ⇒ `selfwake/*.json` 无限堆积。
+   */
+  async collectGarbage(maxAgeMs?: number): Promise<number> {
+    return this.wakeStore.gc(maxAgeMs);
+  }
+
+  /**
    * 标记已触发，并**真正唤醒会话**。
    *
    * 阶段 A（N-26 修复）：原实现只 `markFired`（"空唤醒"—— 对外表现为已唤醒，

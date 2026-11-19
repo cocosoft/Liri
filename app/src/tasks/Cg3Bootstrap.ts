@@ -91,9 +91,15 @@ export function createCg3Services(options?: {
   return result;
 }
 
+/** 已接线过的调度器实例（幂等；`CronScheduler` 重启会换实例 ⇒ 用 WeakSet 而非布尔） */
+const _wiredSchedulers = new WeakSet<object>();
+
 /**
  * 将 CronScheduler.extraTick 连线到 SelfWakeService。
  * 在 CronScheduler 启动后调用。
+ *
+ * 幂等：`startCg3`（CG3 先起）与 `ensureGlobalCronSchedulerStarted`（cron 先起）**两侧**都会调用
+ * 本函数 —— 重复接线会把 `extraTick` 叠成多条链，同一条到期唤醒被扫多次。
  *
  * @param selfWakeService  SelfWake 服务实例
  */
@@ -108,6 +114,11 @@ export async function wireSelfWakeToCron(
       cg3Log('tasks:cg3:bootstrap', 'warn', 'wireSelfWake: cron not started');
       return false;
     }
+    if (_wiredSchedulers.has(scheduler)) {
+      cg3Log('tasks:cg3:bootstrap', 'debug', 'wireSelfWake: already wired');
+      return true;
+    }
+    _wiredSchedulers.add(scheduler);
 
     const prevExtraTick = scheduler.extraTick;
     scheduler.extraTick = () => {
@@ -149,6 +160,20 @@ export async function wireSelfWakeToCron(
     );
     return false;
   }
+}
+
+/**
+ * 幂等接线入口：CG3 服务在位**且**全局 cron 已启动时才真正接上。
+ *
+ * A（2026-11-19 真机根因）：`startCg3` 在初始化管线里执行，早于 REPL/DAEMON 启动 cron ⇒
+ * 彼时 `getGlobalCronScheduler()` 为 null，接线必然失败且**没有重试** ⇒ `extraTick` 永不扫
+ * 到期条目 ⇒ 过期 `pending` 自唤醒不被 `fire()`、前端「⏳ 等待中」常驻。
+ * 故由两侧各试一次：`startCg3`（CG3 先起）与 `ensureGlobalCronSchedulerStarted`（cron 先起）。
+ */
+export async function ensureSelfWakeWiredToCron(): Promise<boolean> {
+  const svc = _cg3?.selfWakeService;
+  if (!svc) return false;
+  return wireSelfWakeToCron(svc);
 }
 
 /**
@@ -199,6 +224,27 @@ export async function startCg3(
   const result = createCg3Services(options);
   await wireSelfWakeToCron(result.selfWakeService);
   wireAlwaysOnToChat(chatManager, result.alwaysOnManager);
+
+  // B+C（2026-11-19 真机根因）：`sleepFor(< tickInterval)` 只在**进程内**建 `setTimeout`，
+  // 重启（含 `bun --watch` 热重载）后 timer 丢失，条目永远停在 `pending` ⇒ 前端「等待中」常驻。
+  // 这里补触发已过期的 `timer` 条目，并清理陈旧 `fired` 文件（`gc()` 此前无调用点）。
+  // 不 await：`fire()` 会走执行器续跑一轮对话，阻塞启动无收益；失败只记 warn。
+  void (async () => {
+    try {
+      const recovered = await result.selfWakeService.recoverOverdueWakes();
+      const cleaned = await result.selfWakeService.collectGarbage();
+      if (recovered > 0 || cleaned > 0) {
+        cg3Log('tasks:cg3:bootstrap', 'info', 'startupRecovery', {
+          recovered,
+          cleaned,
+        });
+      }
+    } catch (err) {
+      cg3Log('tasks:cg3:bootstrap', 'warn', 'startupRecoveryFailed', {
+        error: String(err),
+      });
+    }
+  })();
 
   cg3Log('tasks:cg3:bootstrap', 'info', 'startCg3: ready');
   return result;

@@ -898,10 +898,13 @@ export class MemoryStoreImpl implements MemoryStore {
    */
   async archiveMemory(id: string): Promise<boolean> {
     validateMemoryId(id);
+    // 2026-11-19（FLAKE-2）：同 `deleteMemory` —— 先把待写项移出并等在途批次落盘；
+    // 否则 `findMemoryPath` 可能查无文件（误返回 false），而稍后 flush 又把文件写回。
+    this.pendingBatch.delete(id);
+    await this.settleInflightFlush();
+
     const filePath = await this.findMemoryPath(id);
     if (!filePath) return false;
-
-    this.pendingBatch.delete(id);
 
     const trashDir = join(this.memoryDir, '.trash');
     await fs.mkdir(trashDir, { recursive: true });
@@ -916,6 +919,27 @@ export class MemoryStoreImpl implements MemoryStore {
   }
 
   /**
+   * 等待在途批量写落盘（无在途 ⇒ 立即返回）。
+   *
+   * 2026-11-19（FLAKE-2）：`flushBatch` 在写盘**之前**就把批次从 `pendingBatch` 移出，
+   * 因此与之并发的 `deleteMemory` / `archiveMemory` 即使先 `pendingBatch.delete(id)`，
+   * 也拦不住那一批的后续 `atomicWrite` ⇒ 文件被写回 ⇒「删除后读回非 null」
+   * （macOS CI #2148 实证；探针可稳定复现）。删除/归档前先等它落盘再动文件。
+   */
+  private async settleInflightFlush(): Promise<void> {
+    const inflight = this.pendingFlush;
+    if (!inflight) return;
+    try {
+      await inflight;
+    } catch (error) {
+      // flush 的逐条失败已在其内部记录；此处仅为"等完"，不能让它反噬删除语义
+      storeLogger.warn('删除/归档前等待在途批量写失败，继续后续文件操作', {
+        error,
+      });
+    }
+  }
+
+  /**
    * 删除记忆
    * 删除磁盘文件后同步清理 LRU 缓存
    * @param id 记忆ID
@@ -923,6 +947,8 @@ export class MemoryStoreImpl implements MemoryStore {
   async deleteMemory(id: string): Promise<void> {
     // 从批量写入队列中移除
     this.pendingBatch.delete(id);
+    // 2026-11-19（FLAKE-2）：在途批次已出队，须等它写完再 unlink，否则被写回
+    await this.settleInflightFlush();
 
     // 任务 4：按 session 分目录查找文件
     const filePath = await this.findMemoryPath(id);

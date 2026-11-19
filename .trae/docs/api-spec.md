@@ -685,7 +685,7 @@ body `{ objective?: string（trim 非空）, tokenBudget?: number（正有限数
 
 | 方法 | 路径 | 后端状态 | 前端调用方 |
 |------|------|----------|-----------|
-| GET | `/v1/diagnostics/sandbox/probe` | ✅ | 无前端调用方（返回 `effective` + `helper.present/runnable` + 机读 `reasonCode`；Windows 无 `--probe` 契约为 `runnable:null`） |
+| GET | `/v1/diagnostics/sandbox/probe` | ✅ | 无前端调用方（返回 `effective` + `helper.present/runnable` + 机读 `reasonCode`；Windows 自 2026-11-19 起 helper 补 `--probe` ⇒ `runnable` 为实测布尔值，缺失/失败分别报 `helper-missing` / `probe-failed|probe-timeout`） |
 
 ### §3.24 认证
 

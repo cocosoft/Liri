@@ -46,13 +46,20 @@
 
 ### 3.2 新增原生 helper `win-sandbox-run.exe`
 
-- 语言：**C11**（与 `sandbox/landlock/native/main.c` 同路线；本机与 CI 均有 MSVC）
-- 源码：`app/src/sandbox/win/native/win_sandbox_run.c`（**编译产物不入库**）
+- 语言：**C11**（与 `sandbox/landlock/native/main.c` 同路线；CI `windows-latest` 用 MSVC 编译，见 §3.5）
+- 源码：`packages/sandbox/src/sandbox/win/native/win_sandbox_run.c`（**编译产物不入库**；路径已按搬包后实测订正）
 - CLI：
 
 ```
-win-sandbox-run.exe [--mem-mb N] [--max-procs N] --timeout-ms N -- <program> [args...]
+win-sandbox-run.exe [--mem-mb N] [--max-procs N] [--timeout-ms N] -- <program> [args...]
+win-sandbox-run.exe --version
+win-sandbox-run.exe --probe
 ```
+
+`--probe`（2026-11-19 补）：**只验证能力、不执行任何外部程序** —— 建一次受限令牌 + Job Object
+后即退出，输出单行 JSON `{"ok":true,"lowIl":true,"jobObject":true,"version":"0.2.0"}`；
+失败输出 `{"ok":false,"reason":"low-il-failed|job-object-failed|job-limit-failed",...}` + 退出码 126。
+TS 侧 `sandbox-probe` 据此给出 `helper.runnable`（此前固定 `null` + `probe-unsupported`）。
 
 约定：
 - 只做「降 IL + 建 Job + 起进程 + 转发退出码/信号」，**不做路径授权**（授权由 TypeScript 侧对**自有目录**做，见 §3.4）；

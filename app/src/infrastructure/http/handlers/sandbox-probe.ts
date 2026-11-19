@@ -28,9 +28,9 @@
  * 三条纪律（评审 P0-1 / P1-2 / P1-3）：
  * 1. **判定唯一来源** = `decideBashLandlockGate`（三档语义：master-off / switch-off /
  *    failClosed-only-on-init-failure / eval-forced 回退 plain）。本模块**不重写**判定；
- * 2. **不把"文件存在"当成"可执行"**：Linux 用 `LandlockDetector.detect()`（真跑
- *    `--probe`）；Windows helper 目前**没有** `--probe` 契约 ⇒ `runnable=null` +
- *    `reasonCode=probe-unsupported`（C 侧同批补齐 `--probe`/`--version` 后再改）；
+ * 2. **不把"文件存在"当成"可执行"**：Linux 用 `LandlockDetector.detect()`、Windows 用
+ *    helper `--probe`（2026-11-19 C 侧补齐后，`runnable` 为**实测**布尔值；
+ *    helper 缺失 ⇒ `runnable=false` + `helper-missing`）；
  * 3. **覆盖范围如实写**：同一组开关也覆盖 `powershell` / `code_run`，且三平台首版
  *    **只隔离写**（读/网络不收紧）⇒ DTO 带 `coverage` / `affectedTools`。
  *
@@ -55,6 +55,12 @@ export interface SandboxCapabilityView {
   available: boolean;
   reason?: string;
   path?: string;
+  /** 是否存在（Windows 侧显式区分 present / runnable；Linux/macOS 缺省不下发） */
+  present?: boolean;
+  /** 执行探测结论（`null` = 该平台无探测契约或未探测） */
+  runnable?: boolean | null;
+  /** 机读原因码（Windows 侧给出 ok / helper-missing / probe-failed / probe-timeout） */
+  reasonCode?: string;
 }
 
 /** 门控结果视图（与 `BashLandlockGate` 同构） */
@@ -123,6 +129,15 @@ const LINUX_REASON_CODES = new Set([
   'helper-missing',
   'probe-failed',
   'enforce-denied',
+]);
+
+/** Windows 能力原因码白名单（未知自由文本一律 `probe-failed`） */
+const WIN_REASON_CODES = new Set([
+  'ok',
+  'helper-missing',
+  'probe-failed',
+  'probe-timeout',
+  'not-found',
 ]);
 
 /** effective 归一化（纯函数；语义见 `composeSandboxProbe` 文档） */
@@ -260,17 +275,29 @@ function buildHelperView(input: {
   }
   if (platform === 'win32') {
     const cap = input.winCapability;
+    // 2026-11-19：helper 补齐 `--probe` 后改为**实测**（不再固定 runnable=null）。
+    // present / runnable 分别取值，互不推断（"文件存在"仍然 ≠ "可执行"）。
+    const present = cap ? (cap.present ?? cap.available) : null;
+    const runnable = cap ? (cap.runnable ?? null) : null;
+    const reasonCode = cap
+      ? runnable === true
+        ? 'ok'
+        : runnable === false
+          ? cap.reasonCode && WIN_REASON_CODES.has(cap.reasonCode)
+            ? cap.reasonCode
+            : present
+              ? 'probe-failed'
+              : 'not-found'
+          : present
+            ? 'probe-unsupported'
+            : 'not-found'
+      : 'not-checked';
     return {
       kind: 'win-sandbox-run',
       required,
-      present: cap ? cap.available : null,
-      // Windows helper 无 --probe 契约：存在≠可执行（评审 P1-2）
-      runnable: null,
-      reasonCode: cap
-        ? cap.available
-          ? 'probe-unsupported'
-          : 'not-found'
-        : 'not-checked',
+      present,
+      runnable,
+      reasonCode,
       ...(cap?.reason ? { detail: cap.reason } : {}),
       ...(cap?.path ? { path: cap.path } : {}),
     };

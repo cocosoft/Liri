@@ -40,6 +40,12 @@ SOFTWARE.
  *
  * CLI（与 TypeScript 侧约定，见 spec §3.2）：
  *   win-sandbox-run.exe [--timeout-ms N] [--mem-mb N] [--max-procs N] -- <program> [args...]
+ *   win-sandbox-run.exe --version
+ *   win-sandbox-run.exe --probe
+ *
+ * 2026-11-19：补 `--probe` / `--version`（原先只有 Linux helper 有 `--probe`，Windows 侧
+ * `sandbox-probe` 因此只能给 `runnable=null`）。`--probe` **只验证能力、不执行任何外部程序**：
+ * 建一次受限令牌 + Job Object 后即退出 ⇒ 无副作用，可安全用作探测。
  *
  * 退出码：
  *   - 子进程退出码原样返回（含 125 —— 上层**只**按 126 判 helper 自身失败，避免与用户命令的 125 混淆）
@@ -63,6 +69,10 @@ SOFTWARE.
 #define EXIT_HELPER_INIT_FAILED 126
 #define EXIT_USAGE 2
 #define EXIT_TIMEOUT 124
+
+/* 2026-11-19：helper 版本号（`--version` 输出、`--probe` JSON 里带出）。
+ * 与 TS 侧 `sandbox-probe` 的 runnable 判定配套 —— 有版本才能判断"探测到的 helper 是哪一代"。 */
+#define WIN_SANDBOX_VERSION "0.2.0"
 
 /* 运行期文案一律 ASCII：控制台代码页（CP936/CP65001）不同会导致中文变 `???`，
  * 而 helper 的 stderr 会直接进日志/CI 输出。 */
@@ -156,6 +166,50 @@ static int make_low_il_restricted_token(HANDLE *out_token) {
   return 1;
 }
 
+/*
+ * `--probe`：只验证 helper 的关键能力，**不执行任何外部程序**（无副作用）。
+ *
+ * 输出单行 JSON（ASCII，供 TS 侧正则/JSON 解析）：
+ *   成功 {"ok":true,"lowIl":true,"jobObject":true,"version":"0.2.0"}
+ *   失败 {"ok":false,"reason":"<code>","version":"0.2.0"}  + 退出码 126
+ * 失败码：low-il-failed（取受限令牌失败）/ job-object-failed（建 Job 失败）/
+ *         job-limit-failed（SetInformationJobObject 失败）
+ */
+static int run_probe(void) {
+  HANDLE token = NULL;
+  if (!make_low_il_restricted_token(&token)) {
+    wprintf(L"{\"ok\":false,\"reason\":\"low-il-failed\",\"version\":\"%s\"}\n",
+            WIN_SANDBOX_VERSION);
+    return EXIT_HELPER_INIT_FAILED;
+  }
+
+  HANDLE job = CreateJobObjectW(NULL, NULL);
+  if (!job) {
+    CloseHandle(token);
+    wprintf(L"{\"ok\":false,\"reason\":\"job-object-failed\",\"version\":\"%s\"}\n",
+            WIN_SANDBOX_VERSION);
+    return EXIT_HELPER_INIT_FAILED;
+  }
+
+  JOBOBJECT_EXTENDED_LIMIT_INFORMATION jlim;
+  ZeroMemory(&jlim, sizeof(jlim));
+  jlim.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+  BOOL limit_ok = SetInformationJobObject(
+      job, JobObjectExtendedLimitInformation, &jlim, sizeof(jlim));
+  CloseHandle(job);
+  CloseHandle(token);
+
+  if (!limit_ok) {
+    wprintf(L"{\"ok\":false,\"reason\":\"job-limit-failed\",\"version\":\"%s\"}\n",
+            WIN_SANDBOX_VERSION);
+    return EXIT_HELPER_INIT_FAILED;
+  }
+
+  wprintf(L"{\"ok\":true,\"lowIl\":true,\"jobObject\":true,\"version\":\"%s\"}\n",
+          WIN_SANDBOX_VERSION);
+  return 0;
+}
+
 int wmain(int argc, wchar_t **argv) {
   DWORD timeout_ms = 0; /* 0 = 不限（由上层 spawn 超时兜底） */
   SIZE_T mem_mb = 0;
@@ -166,6 +220,13 @@ int wmain(int argc, wchar_t **argv) {
     if (wcscmp(argv[i], L"--") == 0) {
       i++;
       break;
+    }
+    if (wcscmp(argv[i], L"--version") == 0) {
+      wprintf(L"win-sandbox-run %s\n", WIN_SANDBOX_VERSION);
+      return 0;
+    }
+    if (wcscmp(argv[i], L"--probe") == 0) {
+      return run_probe();
     }
     if (wcscmp(argv[i], L"--timeout-ms") == 0 && i + 1 < argc) {
       timeout_ms = (DWORD)_wtoi(argv[++i]);
@@ -186,7 +247,8 @@ int wmain(int argc, wchar_t **argv) {
   if (i >= argc) {
     fwprintf(stderr,
              L"usage: win-sandbox-run.exe [--timeout-ms N] [--mem-mb N] "
-             L"[--max-procs N] -- <program> [args...]\n");
+             L"[--max-procs N] -- <program> [args...]\n"
+             L"       win-sandbox-run.exe --version | --probe\n");
     return EXIT_USAGE;
   }
 

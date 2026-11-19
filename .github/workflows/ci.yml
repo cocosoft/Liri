@@ -932,12 +932,49 @@ jobs:
       run: bun test tests/sandbox/negativeEnforcement.test.ts
 
   # ══════════════════════════════════════════════
+  # Windows 沙箱 helper：MSVC 编译 + `--probe` 实测（2026-11-19）
+  #   为什么要有：本机缺 C 编译器 ⇒ `win-sandbox-run.exe` 的能力此前只能"看源码推断"，
+  #   `sandbox-probe` 因此给 `runnable=null`。此作业把"能编译 + `--probe` 返回 ok:true"
+  #   变成 **CI 可验证的事实**（产物不入库）。
+  # ══════════════════════════════════════════════
+  win-helper-probe:
+    name: Windows Sandbox Helper (msvc compile + probe)
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Compile helper
+      working-directory: packages/sandbox/src/sandbox/win/native
+      shell: pwsh
+      run: |
+        cl /nologo /W4 /O2 /Fe:win-sandbox-run.exe win_sandbox_run.c advapi32.lib
+        if ($LASTEXITCODE -ne 0) { Write-Error "helper 编译失败"; exit 1 }
+
+    - name: Probe contract (--version / --probe)
+      working-directory: packages/sandbox/src/sandbox/win/native
+      shell: pwsh
+      run: |
+        $ver = & .\win-sandbox-run.exe --version
+        Write-Host "version: $ver"
+        if ($LASTEXITCODE -ne 0) { Write-Error "--version 退出码非 0"; exit 1 }
+        $out = & .\win-sandbox-run.exe --probe
+        Write-Host "probe: $out"
+        if ($LASTEXITCODE -ne 0) { Write-Error "--probe 退出码非 0: $out"; exit 1 }
+        if ($out -notmatch '"ok"\s*:\s*true') { Write-Error "--probe 输出不含 ok:true: $out"; exit 1 }
+
+  # ══════════════════════════════════════════════
   # R14 分层质量摘要（§6.3）—— 5 层**分列**呈现，**不合成单一分数**
   # ══════════════════════════════════════════════
   quality-summary:
     name: Layered Quality Summary (R14)
     runs-on: ubuntu-latest
-    needs: [test, cargo-build, static-check, command-test, performance-test, client-test, e2e-test, sandbox-negative]
+    needs: [test, cargo-build, static-check, command-test, performance-test, client-test, e2e-test, sandbox-negative, win-helper-probe]
     if: always()
 
     steps:
@@ -966,6 +1003,7 @@ jobs:
             "command-test": "${{ needs.command-test.result }}",
             "security-scan": "${{ needs.static-check.result }}",
             "sandbox-negative": "${{ needs.sandbox-negative.result }}",
+            "win-helper-probe": "${{ needs.win-helper-probe.result }}",
             "pathshield-e2e": "${{ needs.e2e-test.result }}",
             "e2e-test": "${{ needs.e2e-test.result }}",
             "cargo-build": "${{ needs.cargo-build.result }}",

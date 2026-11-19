@@ -103,14 +103,31 @@ describe('detectWindowsSandboxCapability', () => {
     expect(cap.reason).toContain('非 Windows');
   });
 
-  it('win32 + 随包 helper 存在 ⇒ 可用', () => {
+  it('win32 + 随包 helper 存在 + --probe 通过 ⇒ 可用且 runnable=true', () => {
     clearWindowsSandboxCapabilityCache();
     const cap = detectWindowsSandboxCapability({
       platform: 'win32',
       pathExists: () => true,
+      probe: () => ({ ok: true }),
     });
     expect(cap.available).toBe(true);
+    expect(cap.present).toBe(true);
+    expect(cap.runnable).toBe(true);
+    expect(cap.reasonCode).toBe('ok');
     expect(cap.path).toContain(WIN_SANDBOX_HELPER_BIN_NAME);
+  });
+
+  // 2026-11-19：存在 ≠ 可执行 —— `--probe` 失败必须如实下沉为 runnable=false。
+  it('win32 + helper 存在但 --probe 失败 ⇒ available=true 但 runnable=false', () => {
+    clearWindowsSandboxCapabilityCache();
+    const cap = detectWindowsSandboxCapability({
+      platform: 'win32',
+      pathExists: () => true,
+      probe: () => ({ ok: false, reason: 'probe-timeout' }),
+    });
+    expect(cap.available).toBe(true);
+    expect(cap.runnable).toBe(false);
+    expect(cap.reasonCode).toBe('probe-timeout');
   });
 
   it('win32 + 全都找不到 ⇒ 不可用，原因给出构建命令', () => {
@@ -130,9 +147,13 @@ describe('detectWindowsSandboxCapability', () => {
       platform: 'win32',
       pathExists: () => false,
       resolveOnPath: () => 'C:\\tools\\win-sandbox-run.exe',
+      probe: () => ({ ok: true }),
     });
     expect(cap).toEqual({
       available: true,
+      present: true,
+      runnable: true,
+      reasonCode: 'ok',
       path: 'C:\\tools\\win-sandbox-run.exe',
     });
   });

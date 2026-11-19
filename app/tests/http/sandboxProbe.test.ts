@@ -9,7 +9,8 @@
  *    refuse / eval-forced 回退），本模块不另写一套推断；
  * 2. `effective` 不把"helper 文件存在"当成"真隔离"：helper 缺失/不可执行时按
  *    `failClosed` 归为 `refuse` 或 `plain`（Windows 门控不看 helper，这一层负责如实回答）；
- * 3. Windows 无 `--probe` 执行契约 ⇒ `runnable=null` + `reasonCode=probe-unsupported`
+ * 3. Windows 自 2026-11-19 起有 `--probe` 执行契约 ⇒ `runnable` 为实测布尔值（通过=ok /
+ *    失败=probe-failed 并降级）；helper 缺失 ⇒ `runnable=false` + `helper-missing`
  *    （不把"存在"冒充"可执行"）。
  */
 import { describe, expect, it } from 'bun:test';
@@ -182,12 +183,16 @@ describe('S0：沙箱探针（判定同源 / 三档语义）', () => {
     expect(probe.notes.join('\n')).toContain('评测期强制');
   });
 
-  it('Windows：helper 存在但无 --probe ⇒ isolated + runnable=null + probe-unsupported', async () => {
+  // 2026-11-19：Windows helper 补齐 `--probe` 后改为**实测**（不再固定 runnable=null）。
+  it('Windows：helper --probe 通过 ⇒ isolated + runnable=true + ok', async () => {
     const probe = await probeCommandSandbox({
       deps: makeDeps({
         platform: 'win32',
         detectWindows: () => ({
           available: true,
+          present: true,
+          runnable: true,
+          reasonCode: 'ok',
           path: 'C:/tools/win-sandbox-run.exe',
         }),
       }),
@@ -198,10 +203,42 @@ describe('S0：沙箱探针（判定同源 / 三档语义）', () => {
     expect(probe.helper).toMatchObject({
       kind: 'win-sandbox-run',
       present: true,
-      runnable: null,
-      reasonCode: 'probe-unsupported',
+      runnable: true,
+      reasonCode: 'ok',
     });
-    expect(probe.notes.join('\n')).toContain('runnable=null');
+  });
+
+  it('Windows：helper 存在但 --probe 失败 ⇒ present=true/runnable=false 且降级（failClosed=false）', async () => {
+    const base = makeDeps({
+      platform: 'win32',
+      detectWindows: () => ({
+        available: true,
+        present: true,
+        runnable: false,
+        reasonCode: 'probe-failed',
+        reason: 'helper --probe 未通过（probe-failed）',
+        path: 'C:/tools/win-sandbox-run.exe',
+      }),
+    });
+    const probe = await probeCommandSandbox({
+      deps: {
+        ...base,
+        readConfig: () => ({
+          enabled: true,
+          bashEnabled: true,
+          failClosed: false,
+          bashExtraWritablePaths: [],
+        }),
+      },
+    });
+
+    expect(probe.helper).toMatchObject({
+      present: true,
+      runnable: false,
+      reasonCode: 'probe-failed',
+    });
+    expect(probe.effective).toBe('plain');
+    expect(probe.notes.join('\n')).toContain('已**降级为普通执行**');
   });
 
   it('Windows helper 缺失 ⇒ failClosed=false 降级 plain；true ⇒ refuse', async () => {

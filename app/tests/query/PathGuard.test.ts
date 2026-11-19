@@ -139,6 +139,22 @@ describe('PathGuard：write_project_file 覆盖（P0-9，2026-10-04）', () => {
     ).toBe(true);
   });
 
+  it('读侧对称（2026-11-19）：read_project_file 的 relativePath 命中 denyRead ⇒ 拦截', () => {
+    const guard = createPathGuard();
+    expect(
+      guard.checkToolCall('read_project_file', {
+        projectId: 'p1',
+        relativePath: 'config/.env',
+      }).allowed
+    ).toBe(false);
+    expect(
+      guard.checkToolCall('read_project_file', {
+        projectId: 'p1',
+        relativePath: 'docs/README.md',
+      }).allowed
+    ).toBe(true);
+  });
+
   it('写类判别：只拦写、不因是"写工具"而拦读（lockfile 场景）', () => {
     const guard = createPathGuard();
     // 写类工具 + 普通路径 ⇒ 放行（未被误拦）

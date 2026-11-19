@@ -349,7 +349,14 @@ export class PathGuard {
     // ③ 既有静态名单分支（未注入解析器时零行为变化）
     // 整文件读类工具
     if (READ_FILE_TOOL_NAMES.has(toolName)) {
-      return pickPathArg(args, ['file_path', 'path', 'filePath']);
+      // 2026-11-19：补 `relativePath` —— `read_project_file`（项目文件夹读）的路径键，
+      // 与写侧 P0-9 对称；缺它 ⇒ 静态分支取不到路径 ⇒ 直接放行（fail-open）。
+      return pickPathArg(args, [
+        'file_path',
+        'path',
+        'filePath',
+        'relativePath',
+      ]);
     }
     // 写文件类工具
     if (WRITE_TOOL_ALIASES.has(toolName)) {

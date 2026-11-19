@@ -147,7 +147,10 @@ export async function* buildStreamApiMessages(
       afterCount: apiMessages.length,
       droppedEmptyAssistant: sanitizeResult.droppedEmpty,
       mergedConsecutiveAssistant: sanitizeResult.mergedRuns,
-      hint: '历史含旧版全量重写 bug 落盘的重复/空 assistant，已清洗防止 LLM 空响应',
+      // 2026-11-20：旧文案只说"旧版全量重写 bug 落盘"，但真机核实（sess-goal-start-1795051871550，
+      // messages.jsonl 有 50 对相邻 assistant）当前目标/编排循环也会产出**纯叙事 assistant**
+      // （"我会先读取 …"这类无 tool_calls 的自述），两者都被本条合并 —— 文案按事实改准，避免误导排查。
+      hint: '历史含相邻纯文本 assistant（旧版全量重写 bug 遗留 或 目标/编排循环的叙事轮次）；已合并防止 LLM 空响应',
     });
   }
   logger.info('compaction:build_done', {

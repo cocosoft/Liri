@@ -421,8 +421,16 @@ export async function handleGlobalCostRecords(
     const page = parseInt(url.searchParams.get('page') || '1', 10);
     const limit = parseInt(url.searchParams.get('limit') || '20', 10);
     const offset = (page - 1) * limit;
+    // 2026-11-19（G5 灰度复盘）：此前只解析 page/limit，`sessionId` **从未被读取** ⇒
+    // `?sessionId=…` 被静默忽略（三次不同 taskId 返回同一批记录，误判成"参数不生效"）。
+    // 仓储侧 `CostQueryFilter` 早已支持 sessionId ⇒ 这里补上透传（无值时不传，保持原查询）。
+    const sessionId = url.searchParams.get('sessionId') || undefined;
 
-    const records = await repo.getCostRecords({ limit, offset });
+    const records = await repo.getCostRecords({
+      limit,
+      offset,
+      ...(sessionId ? { sessionId } : {}),
+    });
 
     const formatted = records.map((r) => ({
       id: r.id,

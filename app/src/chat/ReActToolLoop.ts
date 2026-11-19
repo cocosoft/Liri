@@ -43,6 +43,10 @@ import type {
 } from '@modules/query';
 import type { ToolLoopContext, ToolLoopInput } from './ToolLoopRunner.js';
 import { ToolTurnBudget } from './toolTurnBudget.js';
+import {
+  mergeResponseToolCalls,
+  toToolCallDeclarations,
+} from './utils/toolCallDeclarations.js';
 import { StreamingLlm } from './streamingLlm.js';
 import {
   ToolResultPostProcess,
@@ -717,19 +721,13 @@ export class ReActToolLoop extends ReActLoop<
       existingMsg.finishReason =
         resp.finishReason || resp.stop_reason || UNKNOWN_FINISH_REASON;
       if (response.tool_calls?.length) {
+        // 2026-11-20：跨步复用同一消息 ⇒ **合并**声明（旧实现整表覆盖 ⇒ 其余 tool 结果成孤儿）
         existingMsg.metadata = {
           ...existingMsg.metadata,
-          tool_calls: response.tool_calls.map((tc) => ({
-            id: tc.id,
-            type: 'function',
-            function: {
-              name: tc.name,
-              arguments:
-                typeof tc.arguments === 'string'
-                  ? tc.arguments
-                  : JSON.stringify(tc.arguments || {}),
-            },
-          })),
+          tool_calls: mergeResponseToolCalls(
+            existingMsg.metadata,
+            response.tool_calls
+          ),
         };
       }
       logger.debug('reactToolLoop:reason updated existing assistantMessage', {
@@ -751,17 +749,7 @@ export class ReActToolLoop extends ReActLoop<
       if (response.tool_calls?.length) {
         assistantMsg.metadata = {
           ...assistantMsg.metadata,
-          tool_calls: response.tool_calls.map((tc) => ({
-            id: tc.id,
-            type: 'function',
-            function: {
-              name: tc.name,
-              arguments:
-                typeof tc.arguments === 'string'
-                  ? tc.arguments
-                  : JSON.stringify(tc.arguments || {}),
-            },
-          })),
+          tool_calls: toToolCallDeclarations(response.tool_calls),
         };
       }
       this.ctx.addAndPersistMessage(this.ctx.session.id, assistantMsg);

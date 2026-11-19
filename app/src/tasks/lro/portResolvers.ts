@@ -110,9 +110,14 @@ export function isAutoReplanEnabled(): boolean {
  * G5-D3（2026-11-18，`specs/pending-acceptance-state-machine.md` §3）：目标门**未决**
  * （超时/降级/未给明确 bool）时是否落「待验收」而不是直接放行完成。
  *
- * 默认关闭：行为与改造前逐字一致（`converged===undefined` ⇒ 走 completed）；
- * 开启后 `acceptance='pending'`、计划保持 `running`，由 `/resume` 或目标门重跑收口。
+ * **默认开（2026-11-19 灰度结论后翻转）**：灰度中三条子态均真机取证（accepted / rejected /
+ * pending，含"杀进程重启不被启动扫描误杀 → `/resume` 收口"全链），故按
+ * `default-off-switches-review-gates.md` 的"先灰度后翻转"口径改为默认开。
+ * 显式 `PDCA_PENDING_ACCEPTANCE=false` 即回退到改造前行为（`converged===undefined` ⇒ 走 completed）。
+ *
+ * 语义与 `isGoalEvaluateEnabled` 同型（默认 `!== 'false'`），避免"未设置"被读成关闭。
+ * 记录：`dev_docs/20261119/G5-灰度观察记录-20261119.md` §6/§7。
  */
 export function isPendingAcceptanceEnabled(): boolean {
-  return configManager.env('PDCA_PENDING_ACCEPTANCE') === 'true';
+  return configManager.env('PDCA_PENDING_ACCEPTANCE') !== 'false';
 }

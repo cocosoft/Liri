@@ -14,7 +14,9 @@
    **把"未决/通过"落成状态位并让终态、回执、列表、前端都能区分**。
 2. 因此 G5 = 在既有目标门上补一层 **`Plan.acceptance` 子态**（`pending` / `accepted` / `rejected`），
    与 `Plan.paused` 同一手法（**不新增 `Plan.status` 取值**，避免 `lint:state-ratchet` 的 Register-or-Fail）。
-3. **默认关**（`PDCA_PENDING_ACCEPTANCE`），旧检查点无该字段 ⇒ 视作 `accepted` ⇒ 行为逐字不变。
+3. **默认开（2026-11-19 灰度结论后翻转）**：`PDCA_PENDING_ACCEPTANCE` 默认开；显式 `=false` 即回到
+   「未决 ⇒ completed」的旧行为。旧检查点无该字段 ⇒ 视作 `accepted`（读侧兼容不变）。
+   翻转依据：灰度中三条子态均真机取证（见 §10），且补了「既有 `rejected` 不被未决降级」护栏。
 
 ---
 
@@ -56,10 +58,10 @@ interface Plan {
 
 ## 3. 迁移规则（唯一入口 = 目标门收尾）
 
-| 目标门结论 | 开关关（默认） | 开关开（`PDCA_PENDING_ACCEPTANCE=true`） |
+| 目标门结论 | 开关关（`PDCA_PENDING_ACCEPTANCE=false`，回退口径） | 开关开（**2026-11-19 起默认**） |
 |---|---|---|
 | `converged === true` | 走 completed | `acceptance='accepted'` ⇒ completed |
-| `converged === undefined`（未决/超时/降级） | 走 completed（**现状**） | `acceptance='pending'`，**不置 completed**，发「⏸ 已执行，待验收」回执 |
+| `converged === undefined`（未决/超时/降级） | 走 completed（旧行为） | `acceptance='pending'`，**不置 completed**，发「⏸ 已执行，待验收」回执；**但**计划已有 `acceptance='rejected'` 时保持原值、走旧口径（未决不能推翻明确的否定结论） |
 | `converged === false` | failed + replan（现状） | 不变（未收敛不是"待验收"） |
 | 评估被关闭（`PDCA_GOAL_EVALUATE=false`） | 走 completed | 走 completed（开关组合时以此为准，避免"永远待验收"） |
 
@@ -99,7 +101,7 @@ interface Plan {
 ## 6. 兼容与回滚
 
 - 旧检查点 / 旧计划：`acceptance` 缺省 ⇒ 一律视作 `accepted`（零行为变更）；
-- 回滚：`PDCA_PENDING_ACCEPTANCE=false`（默认）即回到现状；
+- 回滚：`PDCA_PENDING_ACCEPTANCE=false` 即回到「未决 ⇒ completed」（**默认已开，回退需显式设 false**）；
 - 数据：不新增文件、不新增表；只多一个布尔/枚举字段。
 
 ---
@@ -168,10 +170,10 @@ interface Plan {
   ② `/resume` 被「内存编排器存活 + 活跃 status」闸回 409「正在运行」，与回执「可 POST /resume 处理」自相矛盾 ⇒ 对 `acceptance==='pending'` 放行。
   记录：`dev_docs/20261119/G5-灰度观察记录-20261119.md`（含回执原文、状态字段、费用口径与复原清单）。
 
-**开关与回退（2026-11-19 增补 1 项）**
+**开关与回退（2026-11-19 增补 1 项；`PDCA_PENDING_ACCEPTANCE` 同日翻默认开）**
 
 | 开关 | 默认 | 开启效果 | 回退 |
 |---|:--:|---|---|
-| `PDCA_PENDING_ACCEPTANCE` | `false` | 目标门未决 ⇒ `acceptance='pending'`、计划保持 `running` | 设 `false`/删除即回到"未决 ⇒ completed" |
+| `PDCA_PENDING_ACCEPTANCE` | **`true`**（2026-11-19 起） | 目标门未决 ⇒ `acceptance='pending'`、计划保持 `running` | 显式设 `false` ⇒ 回到"未决 ⇒ completed" |
 | `PDCA_GOAL_BLIND_REVIEW` | `false` | 评估改盲审口径（原始需求 + 验收标准 + 产物证据） | 设 `false`/删除即回原 prompt |
 | `PDCA_GOAL_EVALUATE_TIMEOUT_MS` | `30000` | 目标门评估超时（毫秒）—— 缩短它即可在真机复现 `evaluated=false ⇒ pending` | 删除即 30000；非数字/≤0 同样回退默认 |

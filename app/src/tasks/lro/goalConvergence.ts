@@ -123,12 +123,19 @@ export async function runGoalConvergenceGate(
   });
   // G5-D1/D3（2026-11-18）：目标门给出**明确**结论时落验收子态（纯数据，不改控制流）。
   // `undefined`（评估失败/超时/降级）默认保持缺省（消费方按「缺省 = accepted」兼容旧数据）；
-  // 开关 `PDCA_PENDING_ACCEPTANCE` 打开时才落 `pending`（默认关闭 ⇒ 行为逐字不变）。
+  // `PDCA_PENDING_ACCEPTANCE` 打开（**2026-11-19 起默认开**）时落 `pending`。
   if (goalConv.converged === true) {
     plan.acceptance = PLAN_ACCEPTANCE_ACCEPTED;
   } else if (goalConv.converged === false) {
     plan.acceptance = PLAN_ACCEPTANCE_REJECTED;
-  } else if (isPendingAcceptanceEnabled()) {
+  } else if (
+    isPendingAcceptanceEnabled() &&
+    // 2026-11-19（翻默认开的安全护栏）：**既有明确否定不被"未决"降级** ——
+    // `rejected` 是上一轮目标门给出的明确结论，本次"超时/降级"不足以推翻它
+    // （旧数据/重跑场景）；此时保持原值走旧口径（与开关关时逐字一致）。
+    // 用例：`goalConvergenceAcceptance.test.ts`「旧数据缺省不误判」。
+    plan.acceptance !== PLAN_ACCEPTANCE_REJECTED
+  ) {
     // G5-D3（2026-11-18）：未决（超时/降级/未给明确 bool）⇒「已执行，待验收」。
     // 既不谎报完成，也不判失败：计划保持 running，用户可 `/resume` 重跑目标门收口。
     // 注意：`PDCA_GOAL_EVALUATE=false` 已在函数入口早退（不会走到这里），

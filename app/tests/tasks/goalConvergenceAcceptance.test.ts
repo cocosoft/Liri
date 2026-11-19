@@ -11,7 +11,8 @@
  *   ③ 检查点往返：载荷带 `acceptance` 时读回保留，缺省时不写该字段；
  *   ④ 续跑回填：快照带 `acceptance` ⇒ 重建计划保留；缺省 ⇒ 保持 undefined。
  *
- * 说明：`PDCA_PENDING_ACCEPTANCE` 开关（未决 ⇒ pending）属 D3，本文件不覆盖。
+ * 说明：`PDCA_PENDING_ACCEPTANCE`（未决 ⇒ pending）属 D3；**2026-11-19 已翻默认开**，
+ * 故本文件同时锁定：默认开走 pending、显式 `false` 回退旧口径、既有 `rejected` 不被未决降级。
  */
 import { describe, it, expect, afterAll } from 'bun:test';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -40,6 +41,8 @@ const { resumeFromCheckpoint } =
   await import('../../src/tasks/lro/resumeFromCheckpoint');
 const { readPdcaCheckpoint, closePdcaCheckpointStore } =
   await import('../../src/tasks/PdcaWorkItemBridge');
+const { isPendingAcceptanceEnabled } =
+  await import('../../src/tasks/lro/portResolvers');
 
 taskOrchestrator.setPlansDir(plansDir);
 
@@ -132,13 +135,19 @@ describe('G5-D1：目标门结论 → Plan.acceptance', () => {
     expect(plan.status).toBe('failed');
   });
 
-  it('converged === undefined（超时/降级）⇒ 不写 acceptance，行为沿用放行', async () => {
+  // 2026-11-19：开关已翻默认开 ⇒ 本用例锁定**回退口径**（显式 false 才回到旧行为）。
+  it('converged === undefined + 显式关开关 ⇒ 不写 acceptance，行为沿用放行', async () => {
     process.env.PDCA_AUTO_REPLAN = 'false';
-    const { plan, outcome } = await runGate(undefined);
-    expect(outcome.kind).toBe('continue');
-    // 旧数据缺省 = 视作 accepted：不得被误写成 rejected/pending
-    expect(plan.acceptance).toBeUndefined();
-    expect(plan.status).toBe('running');
+    process.env.PDCA_PENDING_ACCEPTANCE = 'false';
+    try {
+      const { plan, outcome } = await runGate(undefined);
+      expect(outcome.kind).toBe('continue');
+      // 旧数据缺省 = 视作 accepted：不得被误写成 rejected/pending
+      expect(plan.acceptance).toBeUndefined();
+      expect(plan.status).toBe('running');
+    } finally {
+      delete process.env.PDCA_PENDING_ACCEPTANCE;
+    }
   });
 
   it('评估关闭（PDCA_GOAL_EVALUATE=false）⇒ 不调用目标门、不写 acceptance', async () => {
@@ -162,7 +171,32 @@ describe('G5-D1：目标门结论 → Plan.acceptance', () => {
     expect(plan.acceptance).toBe('rejected');
   });
 
-  // G5-D3（2026-11-18）：开关化 —— 未决 ⇒ 待验收（默认关闭时行为不变，见上一条）。
+  // 2026-11-19（翻默认开）：开关解析口径 —— 未设置/其它值 ⇒ 开；仅显式 `false` 关闭。
+  it('isPendingAcceptanceEnabled：默认开，显式 false 才关', () => {
+    delete process.env.PDCA_PENDING_ACCEPTANCE;
+    expect(isPendingAcceptanceEnabled()).toBe(true);
+    try {
+      process.env.PDCA_PENDING_ACCEPTANCE = 'false';
+      expect(isPendingAcceptanceEnabled()).toBe(false);
+      process.env.PDCA_PENDING_ACCEPTANCE = 'true';
+      expect(isPendingAcceptanceEnabled()).toBe(true);
+    } finally {
+      delete process.env.PDCA_PENDING_ACCEPTANCE;
+    }
+  });
+
+  // 2026-11-19（翻默认开）：**未设置**开关 + 未决 ⇒ 走待验收（不再落到 completed）。
+  it('默认开（未设置开关）+ converged === undefined ⇒ pendingAcceptance，计划保持 running', async () => {
+    process.env.PDCA_AUTO_REPLAN = 'false';
+    delete process.env.PDCA_PENDING_ACCEPTANCE;
+    const { plan, outcome } = await runGate(undefined);
+    expect(outcome.kind).toBe('pendingAcceptance');
+    expect(plan.acceptance).toBe('pending');
+    expect(plan.status).toBe('running');
+    expect(plan.completedAt).toBeUndefined();
+  });
+
+  // G5-D3（2026-11-18）：开关化 —— 未决 ⇒ 待验收（显式开时与默认开同口径）。
   it('开关开 + converged === undefined ⇒ pendingAcceptance，计划保持 running', async () => {
     process.env.PDCA_AUTO_REPLAN = 'false';
     process.env.PDCA_PENDING_ACCEPTANCE = 'true';

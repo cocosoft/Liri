@@ -536,6 +536,32 @@ export async function migrateSoulAndUserToConfigManager(
 }
 
 /**
+ * 跳过阻塞式引导时的提示口径（2026-11-20）
+ *
+ * 真机：`.onboarded` 标记缺失但配置**已就绪**（`GET /v1/config` 25 键、模型与任务分工齐全），
+ * 每次启动仍打一条「**首次运行**…」warning（当天 43 条）⇒ 措辞与事实不符、误导排查。
+ * 本函数只决定**措辞与级别**：配置已就绪 ⇒ `info`（仅缺标记，不影响运行）；否则维持 `warn`。
+ */
+export function resolveOnboardingSkipNotice(hasAiConfigured: boolean): {
+  level: 'info' | 'warn';
+  message: string;
+} {
+  if (hasAiConfigured) {
+    return {
+      level: 'info',
+      message:
+        '引导标记 .onboarded 缺失，但 AI 配置已就绪 ⇒ 跳过阻塞式引导（不影响运行；需要向导可执行 `/onboard`）',
+    };
+  }
+  return {
+    level: 'warn',
+    message:
+      '首次运行但当前不适合阻塞式引导（无 TTY 或 HTTP 已启动），已跳过；' +
+      '请用 `/onboard` 命令或前端设置页完成配置',
+  };
+}
+
+/**
  * 检查是否为首次运行（无配置的初始化）
  *
  * 通过检查 app/data/.onboarded 标记文件来判断。
@@ -561,14 +587,15 @@ export async function checkFirstRunAndOnboard(): Promise<void> {
   //    ⇒ 除 `/v1/health/report` 外的业务请求永久 503（前端表现为"连不上后端"）。
   // 两条都只记录提示并跳过；用户可稍后用 `/onboard` 或前端设置页完成。
   if (!process.stdin.isTTY || process.env['LIRI_HTTP_STARTED'] === '1') {
-    logger.warning(
-      '首次运行但当前不适合阻塞式引导（无 TTY 或 HTTP 已启动），已跳过；' +
-        '请用 `/onboard` 命令或前端设置页完成配置'
-    );
+    // 2026-11-20：措辞/级别按"配置是否已就绪"分流（仅缺标记时不再谎报"首次运行"）
+    const aiConfigured = await isAIConfigured();
+    const notice = resolveOnboardingSkipNotice(aiConfigured);
+    if (notice.level === 'info') logger.info(notice.message);
+    else logger.warning(notice.message);
     // 跳过引导 ≠ 跳过 AI 状态判定：`isOfflineMode` 默认 true（shared-state），
     // 若此分支不判定，离线态会一直为 true ⇒ 下游 REPL 启动检查误报
     // "AI 对话功能不可用"（2026-11-14 真机实测：实际对话可用）。
-    if (await isAIConfigured()) {
+    if (aiConfigured) {
       setOfflineMode(false);
     }
     return;

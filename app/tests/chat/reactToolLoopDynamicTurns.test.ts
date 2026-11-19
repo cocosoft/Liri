@@ -38,7 +38,12 @@ interface ExpansionLog {
   expansionBreakdown: Breakdown;
 }
 
-function makeCtx(): ToolLoopContext {
+function makeCtx(
+  persistSink?: (msg: {
+    id?: string;
+    metadata?: { tool_calls?: Array<{ id?: string }> };
+  }) => void
+): ToolLoopContext {
   let callCount = 0;
   /** 预置响应：前 TOOL_ROUNDS 轮返回工具调用，其后 stop（循环自然结束） */
   const nextResponse = (): ChatResponse => {
@@ -103,7 +108,14 @@ function makeCtx(): ToolLoopContext {
         role: 'assistant',
       }),
     },
-    addAndPersistMessage: () => {},
+    addAndPersistMessage: (_sid: string, msg: unknown) => {
+      persistSink?.(
+        msg as {
+          id?: string;
+          metadata?: { tool_calls?: Array<{ id?: string }> };
+        }
+      );
+    },
     checkpointService: { saveCheckpointWithData: async () => undefined },
     streamingCheckpoint: { onToolCompleted: async () => undefined },
     activeClient: {
@@ -186,5 +198,34 @@ describe('动态轮次扩容回归（缺陷 A / C，2026-09-25）', () => {
       // 续期量 = base × ceil(consumed / base)
       expect(e.expansionBreakdown.renewal % BASE_TURNS).toBe(0);
     }
+  });
+});
+
+describe('多步 ReAct 的 tool_calls 声明累积（2026-11-20 根因修复）', () => {
+  it('复用同一 assistantMessage 跨多轮 ⇒ 声明累积不覆盖（修复前只剩最后一轮）', async () => {
+    const persisted: Array<{
+      id?: string;
+      metadata?: { tool_calls?: Array<{ id?: string }> };
+    }> = [];
+    const loop = new ReActToolLoop(
+      makeCtx((m) => persisted.push(m)),
+      makeInput()
+    );
+    for await (const _event of loop.run(makeInput())) {
+      // drain
+    }
+
+    const withCalls = persisted.filter(
+      (m) => (m.metadata?.tool_calls?.length ?? 0) > 0
+    );
+    const ids = withCalls.flatMap((m) =>
+      (m.metadata?.tool_calls ?? []).map((c) => c.id)
+    );
+
+    // 每轮声明都必须能在落盘消息里找到（真机缺陷：只剩最后一轮 tc8）
+    expect(ids).toContain('tc1');
+    expect(ids).toContain(`tc${TOOL_ROUNDS}`);
+    // 不得重复声明同一个 id
+    expect(new Set(ids).size).toBe(ids.length);
   });
 });

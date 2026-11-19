@@ -35,6 +35,7 @@ import type { ParsedToolCall } from '@modules/ai';
 import { memProfile } from '@openliri/infra/monitoring/memProfile';
 import type { Message } from '@modules/session/types/message.js';
 import type { ToolCall, ToolResult } from '@modules/session/types/tool.js';
+import { pruneCrossRoundToolExchanges } from './crossRoundToolCleanup.js';
 import { computePaginationPoint } from '../services/context/contextTruncation';
 // 2026-11-18（§48 拆分批 2）：分层开关与切窗提示已外移
 import {
@@ -245,17 +246,19 @@ export class ChatStreamMessageLifecycle {
     }
     // 日志刷屏修复（2026-08-14 排查）：与 sendMessageFlow 同款——循环内逐条 info
     // 改为计数后单条 debug 汇总（历史 100+ 条时每轮刷屏 100+ 行）
-    let cleanedToolCallCount = 0;
-    for (let i = 0; i < lastUserMsgIdx; i++) {
-      const msg = apiMessages[i];
-      if (msg.role === 'assistant' && msg.tool_calls) {
-        delete msg.tool_calls;
-        cleanedToolCallCount++;
-      }
-    }
-    if (cleanedToolCallCount > 0) {
-      logger.debug('清除旧轮次 assistant tool_calls，防止跨轮污染', {
-        cleanedCount: cleanedToolCallCount,
+    // 2026-11-20：改为**声明与结果成对**清理 —— 原实现只删声明，留下的 tool 结果成孤儿
+    // 再由 transport 剥离（真机 count=8 / totalMessages=17）。净效果不变，但不再产生孤儿与 warn。
+    const crossRound = pruneCrossRoundToolExchanges(
+      apiMessages,
+      lastUserMsgIdx
+    );
+    if (
+      crossRound.clearedAssistantDeclarations > 0 ||
+      crossRound.removedPairedToolResults > 0
+    ) {
+      logger.debug('清除旧轮次工具交换（声明+结果成对），防止跨轮污染', {
+        cleanedCount: crossRound.clearedAssistantDeclarations,
+        removedToolResults: crossRound.removedPairedToolResults,
       });
     }
 

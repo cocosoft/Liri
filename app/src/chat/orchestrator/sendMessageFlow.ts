@@ -56,6 +56,7 @@ import {
   stripOrphanToolTags,
 } from '../services/context/thinkTags';
 import { computePaginationPoint } from '../services/context/contextTruncation';
+import { pruneCrossRoundToolExchanges } from '../pipeline/crossRoundToolCleanup.js';
 // 2026-11-18（§48 拆分批 2）：分层开关与切窗提示已外移
 import {
   contextLayeringEnabled,
@@ -220,17 +221,16 @@ export async function prepareApiMessages(
   }
   // 日志刷屏修复（2026-08-14 排查）：原实现循环内逐条 info（历史 100+ 条时每轮刷屏），
   // 改为计数后单条 debug 汇总（历史清理属常规内部操作，非用户可见事件）
-  let cleanedToolCallCount = 0;
-  for (let i = 0; i < lastUserMsgIdx; i++) {
-    const msg = apiMessages[i];
-    if (msg.role === 'assistant' && msg.tool_calls) {
-      delete msg.tool_calls;
-      cleanedToolCallCount++;
-    }
-  }
-  if (cleanedToolCallCount > 0) {
-    logger.debug('清除旧轮次 assistant tool_calls，防止跨轮污染', {
-      cleanedCount: cleanedToolCallCount,
+  // 2026-11-20：与 streamMessageFlow **同源**改为声明+结果成对清理（原实现只删声明 ⇒
+  // 结果成孤儿、被 transport 剥离并刷 warn）；见 `pipeline/crossRoundToolCleanup.ts`
+  const crossRound = pruneCrossRoundToolExchanges(apiMessages, lastUserMsgIdx);
+  if (
+    crossRound.clearedAssistantDeclarations > 0 ||
+    crossRound.removedPairedToolResults > 0
+  ) {
+    logger.debug('清除旧轮次工具交换（声明+结果成对），防止跨轮污染', {
+      cleanedCount: crossRound.clearedAssistantDeclarations,
+      removedToolResults: crossRound.removedPairedToolResults,
     });
   }
 

@@ -21,9 +21,16 @@ import {
 import { shouldAutoAllowUnderDemand } from '../autonomyPermission';
 // B3（2026-11-17）：demand 硬拒词表 + killswitch（提权/安装/解释器/发布等保持 ask）
 import {
+  explainDemandHardDeny,
   isDemandAutoAllowEnabled,
-  isDemandHardDenyCommand,
 } from '../demandHardDeny';
+// B3 影子（2026-11-19）：只记录命中、不改变判定
+import {
+  isPermissionShadowEnabled,
+  recordPermissionShadow,
+  toHardDenyShadowRecord,
+  toQuotaShadowRecord,
+} from '../permissionShadow';
 // B3 余项（2026-11-17）：每会话自动放行配额（默认不限）+ 摘要日志
 import { consumeDemandAutoAllow } from '../demandAutoAllowQuota';
 import { extractWriteTargets } from '../classifiers/write-targets';
@@ -548,35 +555,64 @@ export interface ModeHandlerDeps {
         // `<prefix>DEMAND_AUTO_ALLOW=false` 可整体回退到 P0 前行为。
         if (
           isDemandAutoAllowEnabled() &&
-          !isDemandHardDenyCommand(
-            typeof input.command === 'string' ? input.command : ''
-          ) &&
           shouldAutoAllowUnderDemand({
             autonomy: context.autonomy,
             requiresApproval: true,
             writeOutsideWorkspace: hasWriteTargetOutsideWorkspace(context),
           })
         ) {
-          // B3 余项：每会话配额（默认 0 = 不限）；用尽 ⇒ **回落 ask**（不 deny，
-          // 也不改变非 demand 会话）。计数同时驱动周期摘要日志。
-          const quota = consumeDemandAutoAllow({
-            sessionId: context.sessionId,
-            toolName,
-          });
-          if (quota.allowed) {
-            deps.denialTracker.trackSuccess(toolName, context.sessionId);
-            logger.info('permission:demand_auto_allow', {
-              toolName,
+          // 2026-11-19（B3 影子）：把"是否硬拒"从条件里提出，改为分支判断 —— **判定逐字不变**
+          // （命中 ⇒ 落到下方 ask），另按 `PERMISSION_SHADOW` 记一条台账供观察。
+          const deny = explainDemandHardDeny(
+            typeof input.command === 'string' ? input.command : ''
+          );
+          if (deny.hit) {
+            if (isPermissionShadowEnabled()) {
+              void recordPermissionShadow(
+                toHardDenyShadowRecord({
+                  toolName,
+                  command:
+                    typeof input.command === 'string' ? input.command : '',
+                  sessionId: context.sessionId,
+                  mode: context.permissionMode,
+                  ...(deny.matched ? { matched: deny.matched } : {}),
+                  ...(deny.matchedBy ? { matchedBy: deny.matchedBy } : {}),
+                })
+              );
+            }
+          } else {
+            // B3 余项：每会话配额（默认 0 = 不限）；用尽 ⇒ **回落 ask**（不 deny，
+            // 也不改变非 demand 会话）。计数同时驱动周期摘要日志。
+            const quota = consumeDemandAutoAllow({
               sessionId: context.sessionId,
-              reason: classifierDecision.reason,
-              autoAllowCount: quota.count,
-              autoAllowLimit: quota.limit,
+              toolName,
             });
-            return createAllowDecision(
-              `demand: 自动放行（${classifierDecision.reason || 'approved'}）`
-            );
+            if (!quota.allowed && isPermissionShadowEnabled()) {
+              void recordPermissionShadow(
+                toQuotaShadowRecord({
+                  toolName,
+                  sessionId: context.sessionId,
+                  mode: context.permissionMode,
+                  count: quota.count,
+                  limit: quota.limit,
+                })
+              );
+            }
+            if (quota.allowed) {
+              deps.denialTracker.trackSuccess(toolName, context.sessionId);
+              logger.info('permission:demand_auto_allow', {
+                toolName,
+                sessionId: context.sessionId,
+                reason: classifierDecision.reason,
+                autoAllowCount: quota.count,
+                autoAllowLimit: quota.limit,
+              });
+              return createAllowDecision(
+                `demand: 自动放行（${classifierDecision.reason || 'approved'}）`
+              );
+            }
+            // 落到下面的 createAskDecision（quota 命中告警已在配额模块内落一次）
           }
-          // 落到下面的 createAskDecision（quota 命中告警已在配额模块内落一次）
         }
         return createAskDecision(
           classifierDecision.reason || 'Requires approval by auto classifier'

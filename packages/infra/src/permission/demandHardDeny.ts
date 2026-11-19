@@ -83,13 +83,35 @@ function headOf(segment: string): string {
  * @param command shell 命令原文（非 shell 工具传空串）
  */
 export function isDemandHardDenyCommand(command: string): boolean {
-  if (!command.trim()) return false;
+  return explainDemandHardDeny(command).hit;
+}
+
+/**
+ * 命中解释（2026-11-19，B3 影子观测用）：**唯一判定实现**，`isDemandHardDenyCommand`
+ * 只是它的布尔投影 —— 避免为观测再写一套词表匹配（CS01 归一化）。
+ *
+ * @returns `hit` + 命中方式（`head` 命令头 / `pattern` 子命令模式）与命中值
+ */
+export function explainDemandHardDeny(command: string): {
+  hit: boolean;
+  matchedBy?: 'head' | 'pattern';
+  matched?: string;
+} {
+  if (!command.trim()) return { hit: false };
   for (const segment of splitCommandSegments(command)) {
     if (!segment.text.trim()) continue;
-    if (DEMAND_HARD_DENY_HEADS.has(headOf(segment.text))) return true;
+    const head = headOf(segment.text);
+    if (DEMAND_HARD_DENY_HEADS.has(head)) {
+      return { hit: true, matchedBy: 'head', matched: head };
+    }
   }
   const lower = command.toLowerCase();
-  return DEMAND_HARD_DENY_PATTERNS.some((re) => re.test(lower));
+  for (const re of DEMAND_HARD_DENY_PATTERNS) {
+    if (re.test(lower)) {
+      return { hit: true, matchedBy: 'pattern', matched: re.source };
+    }
+  }
+  return { hit: false };
 }
 
 /** demand 自动放行的 killswitch：默认开，显式 `false` 关闭 */

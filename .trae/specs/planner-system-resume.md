@@ -36,8 +36,8 @@
 
 | 项 | 口径 |
 |---|---|
-| **触发未接线** | `resumePlanId` 目前只有 `PdcaLauncher.launch(..., {resumePlanId})` 这个装配缝，**没有生产调用方**；启动期唤醒仍走一期"消息注入"路径（行为不变） |
-| 未真机验证 | 本轮只做 typecheck + 单测 + 门禁；采纳路径尚未在真实会话上跑过（需构造"进行中计划 + 重启"场景） |
+| 触发未接线 | `resumePlanId` 目前只有 `PdcaLauncher.launch(..., {resumePlanId})` 这个装配缝；三期已接 `recovery.ts` 的 `plan-startup:` 分支（见 §7），一/三期回退关系见 §7 |
+| 真机验证（2026-11-19 已做） | 真机两次「running + 杀进程」：②③ 链路跑通（扫描 → 登记 → `resumePlan` → PDL 采纳同 planId）；期间发现并修复「recovery 读不到 coordinator ⇒ 系统级续跑从未生效」，另遗留「接管后首步 `step_blocked`（无可用工具）」待复现。详见 `dev_docs/20261119/planner-系统级续跑-真机验证.md` |
 | 失败步骤语义 | 选择"不重跑失败步骤"（保持终态事实）；若要"续跑即重试失败步"，需另立需求并明确是否重置 `retryCount` |
 | 栈位 | `_executeDecomposed` 是既有大方法，采纳分支以最小 diff 接入（未做整体拆分） |
 | 不做 | 跨计划 DAG、执行中动态改图、断点级（步骤内）恢复 |
@@ -71,4 +71,12 @@
 **为什么默认关**：系统级续跑会**自动接管**会话执行（不经用户消息），属自主行为；默认关时与一期逐字一致。
 
 > **订正（2026-11-16）**：`PLAN_SYSTEM_RESUME` 已按**用户裁定**翻转为默认 `true`（21 模式 #6 Planning，与 `PLAN_STARTUP_RESUME` 同批）；判据未逐项取证，属**裁定翻转**；回退 `FEATURE_PLAN_SYSTEM_RESUME=false`（回到一期消息注入）。详见 `default-off-switches-review-gates.md §2.4.5`。
+
+> **订正（2026-11-19 真机验证）**：三期接线**名义接通、实际从未生效** —— `recovery.ts` 读的是
+> `(this.deps as …)._pdcaLaunch`，而 `deps` 是 `buildChatManagerHelpers({...})` 的纯访问器对象
+> （不是 ChatManager 实例）⇒ 恒 `undefined` ⇒ 默认开也只走一期消息注入，且**不打印**任何回退子告警。
+> 已改为注入访问器 `ChatRecoveryDeps.getPdcaLaunch`（宿主侧 `getPdcaLaunch: () => this._pdcaLaunch`），
+> 缺省时明示告警；新增 `tests/chat/pdcaLaunchResumePlan.test.ts` 接线用例（修复前必红）。
+> 真机复验：同一 planId 被 PDL 采纳续跑（`按既有计划续跑（系统级）`）。遗留「接管后首步
+> `step_blocked`（"无可用文件/终端工具"）」待复现，见 `dev_docs/20261119/planner-系统级续跑-真机验证.md`。
 

@@ -694,6 +694,9 @@ export class ChatManagerImpl implements ChatManager {
       this._yieldResumerUninstall = fn;
     },
     streamMessage: (content, options) => this.streamMessage(content, options),
+    // D3 三期（2026-11-19）：计划重启的**系统级续跑**入口 —— 必须经访问器交给 recovery；
+    // 此前 recovery 误从"纯访问器 deps 对象"上读 `_pdcaLaunch`（恒 undefined）⇒ 静默回退。
+    getPdcaLaunch: () => this._pdcaLaunch,
   });
 
   private readonly _eventLogStore = this._helpers.eventLogStore;

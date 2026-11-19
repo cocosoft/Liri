@@ -139,6 +139,19 @@ export interface ChatRecoveryDeps {
   getSessionLifecycle: () => SessionLifecycleManager;
   /** 消息服务（重建 assistant 消息） */
   getMessageService: () => MessageService;
+  /**
+   * D3 三期（2026-11-14 / 2026-11-19 修正）：PDCA 启动协调器 —— 计划重启的**系统级续跑**入口。
+   *
+   * 必须是访问器（宿主私有字段 `_pdcaLaunch` 由 `wireChatFacades` 在构造期装配）；
+   * 缺省 ⇒ 该能力回退一期消息注入并**明示**告警（0.6.x 曾因误读 deps 对象而静默失效）。
+   */
+  getPdcaLaunch?: () => {
+    resumePlan: (input: {
+      sessionId: string;
+      planId: string;
+      description: string;
+    }) => boolean;
+  } | null;
 }
 
 export class ChatRecovery {
@@ -392,17 +405,17 @@ export class ChatRecovery {
         // 未装配 coordinator / 会话忙 / launcher 不可用 ⇒ 回退一期消息注入（不静默丢唤醒）。
         // 2026-11-16：改读用户可配门控（设置页「计划续跑走执行器」可关；env 优先）。
         if (resolveFeatureGate('PLAN_SYSTEM_RESUME')) {
-          const coordinator = (
-            this.deps as ChatRecoveryDeps & {
-              _pdcaLaunch?: {
-                resumePlan: (input: {
-                  sessionId: string;
-                  planId: string;
-                  description: string;
-                }) => boolean;
-              };
-            }
-          )._pdcaLaunch;
+          // 2026-11-19（真机验证发现）：此前读的是 `(this.deps as …)._pdcaLaunch` —— 但 `deps`
+          // 是 `buildChatManagerHelpers` 传入的**纯访问器对象**（不是 ChatManager 实例），
+          // 该字段恒为 undefined ⇒ 系统级续跑**从未真正启动**（默认开也一直静默回退消息注入）。
+          // 改为经注入的访问器取协调器，缺失时**明示**告警（不再静默）。
+          const coordinator = this.deps.getPdcaLaunch?.();
+          if (!coordinator) {
+            logger.warn(
+              '计划重启续接：PDCA 启动协调器未装配（getPdcaLaunch 缺省），回退消息注入',
+              { sessionId, planId: target.planId }
+            );
+          }
           const resumed =
             coordinator?.resumePlan({
               sessionId,

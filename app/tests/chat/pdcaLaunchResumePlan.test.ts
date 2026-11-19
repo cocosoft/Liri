@@ -16,6 +16,7 @@ import {
   type PdcaLaunchDeps,
 } from '../../src/chat/manager/pdcaLaunch';
 import type { PdcaLauncher } from '../../src/chat/launchers/PdcaLauncher';
+import { ChatManagerImpl } from '../../src/chat/ChatManager';
 
 type LaunchArgs = unknown[];
 
@@ -98,5 +99,34 @@ describe('PdcaLaunchCoordinator.resumePlan（D3 三期）', () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(launchingSessions.has('sess_1')).toBe(false);
+  });
+});
+
+/**
+ * 2026-11-19（真机验证发现）：recovery 曾从"纯访问器 deps 对象"上读 `_pdcaLaunch`
+ * （该对象由 `buildChatManagerHelpers` 构造，不含此字段）⇒ 恒 undefined ⇒
+ * `PLAN_SYSTEM_RESUME` 默认开也**从未**真正启动系统级续跑，一直静默回退消息注入。
+ * 本用例锁死"宿主把协调器经访问器交给 recovery"这条接线。
+ */
+describe('ChatManager → ChatRecovery 的系统级续跑接线', () => {
+  it('recovery 的 deps 能取到宿主的 _pdcaLaunch（同一实例）', () => {
+    const cm = new ChatManagerImpl();
+    try {
+      const helpers = (
+        cm as unknown as {
+          _helpers: {
+            recovery: { deps: { getPdcaLaunch?: () => unknown } };
+          };
+          _pdcaLaunch?: unknown;
+        }
+      )._helpers;
+      const getPdcaLaunch = helpers.recovery.deps.getPdcaLaunch;
+      expect(typeof getPdcaLaunch).toBe('function');
+      const launch = (cm as unknown as { _pdcaLaunch?: unknown })._pdcaLaunch;
+      expect(launch).toBeDefined();
+      expect(getPdcaLaunch!()).toBe(launch);
+    } finally {
+      cm.cleanup();
+    }
   });
 });

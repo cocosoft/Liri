@@ -46,6 +46,7 @@ import { ToolTurnBudget } from './toolTurnBudget.js';
 import {
   mergeResponseToolCalls,
   toToolCallDeclarations,
+  inheritToolCallDeclarations,
 } from './utils/toolCallDeclarations.js';
 import { persistAssistantBeforeToolResults } from './toolOrderPersist.js';
 import { StreamingLlm } from './streamingLlm.js';
@@ -843,7 +844,6 @@ export class ReActToolLoop extends ReActLoop<
           });
         }
       }
-      // 2026-11-20（残留 1）：先落归属 assistant 再落本轮 tool 结果（见 `toolOrderPersist`）
       this._orderFlushedMessageId = await persistAssistantBeforeToolResults(
         this.ctx,
         this.loopState.assistantMessage,
@@ -1765,6 +1765,8 @@ export class ReActToolLoop extends ReActLoop<
         ? { id: this.loopState.assistantMessage.id }
         : {}),
     });
+    // 2026-11-20：终止投影须继承已累积声明（否则同 id 落盘覆盖为空、工具结果全成孤儿）
+    inheritToolCallDeclarations(msg, this.loopState.assistantMessage?.metadata);
     if (finishReason || concurrentReasons?.length || emptyOutputFallback) {
       // A3（2026-09-05）：截断/循环/预算终止消息 metadata 落 finishReason
       //（自由 Record、JSON 落库无需 schema 扩展）

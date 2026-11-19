@@ -88,3 +88,25 @@ export function mergeResponseToolCalls(
   )?.tool_calls;
   return mergeToolCallDeclarations(previous, toToolCallDeclarations(calls));
 }
+
+/**
+ * 终止投影时**继承**原消息的 `tool_calls` 声明（2026-11-20）。
+ *
+ * `ReActToolLoop.computeFinalMessage()` 在"有终止提示 / finishReason"时会用同 id
+ * **新建**一条消息做投影，旧实现只带 `finishReason` 等字段 ⇒ 同 id 落盘（last-wins）
+ * 把累积声明覆盖为空。真机 `sess-goal-start-1795066521276` 行 728 即此形态：
+ * 事件侧同一 messageId 有 9 个 `assistant/tool_call`，落盘消息**零声明** ⇒
+ * 本 turn 全部工具结果被 transport 判孤儿剥离（模型看不到工具输出）。
+ *
+ * @param target 投影出的新消息（就地写 metadata）
+ * @param sourceMetadata 原 assistant 消息的 metadata（来源可能为空/异形）
+ */
+export function inheritToolCallDeclarations(
+  target: { metadata?: Record<string, unknown> },
+  sourceMetadata: unknown
+): void {
+  const toolCalls = (sourceMetadata as { tool_calls?: unknown } | undefined)
+    ?.tool_calls;
+  if (!Array.isArray(toolCalls) || toolCalls.length === 0) return;
+  target.metadata = { ...(target.metadata ?? {}), tool_calls: toolCalls };
+}

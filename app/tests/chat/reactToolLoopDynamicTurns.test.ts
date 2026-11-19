@@ -239,6 +239,77 @@ describe('工具结果落盘前的 assistant 先行落盘（2026-11-20 残留 1�
 });
 
 describe('多步 ReAct 的 tool_calls 声明累积（2026-11-20 根因修复）', () => {
+  it('existing 分支（流式主链预置 assistantMessage）⇒ 跨 8 轮声明累积到 8 个', async () => {
+    const ctx = makeCtx();
+    const pre = {
+      id: 'assistant-msg',
+      content: '',
+      role: 'assistant',
+      metadata: {} as Record<string, unknown>,
+    };
+    const input = makeInput({ assistantMessage: pre });
+    const loop = new ReActToolLoop(ctx, input);
+    for await (const _event of loop.run(input)) {
+      // drain
+    }
+    const ids = (
+      (pre.metadata?.tool_calls ?? []) as Array<{ id?: string }>
+    ).map((c) => c.id);
+    // 真机反例（sess-goal-start-1795066521276）：同一 messageId 事件侧 9 个 tool_call，
+    // 落盘 metadata 只有首轮 2 个 ⇒ existing 分支必须累积，否则工具结果成孤儿
+    expect(ids).toHaveLength(TOOL_ROUNDS);
+    expect(ids[0]).toBe('tc1');
+    expect(ids[ids.length - 1]).toBe(`tc${TOOL_ROUNDS}`);
+  });
+
+  it('终止投影（loop_detected 带 finishReason）⇒ 最终消息不得丢失 tool_calls 声明', async () => {
+    // 真机反例（sess-goal-start-1795066521276 行 728）：终稿投影对象带 finishReason/terminationReason
+    // 但**无 tool_calls** ⇒ 覆盖同 id 落盘后本 turn 全部工具结果成孤儿
+    const pre = {
+      id: 'assistant-msg',
+      content: '',
+      role: 'assistant',
+      metadata: {} as Record<string, unknown>,
+    };
+    const ctx = makeCtx();
+    // 前 3 轮正常执行工具，第 4 轮判"卡死" ⇒ 终止原因 loop_detected（finishReason 非空）
+    let seen = 0;
+    ctx.loopDetector = {
+      detect: () => {
+        seen++;
+        return seen > 3
+          ? {
+              stuck: true,
+              level: 'critical',
+              detector: 'repeat',
+              message: '重复',
+            }
+          : { stuck: false };
+      },
+      recordToolCallOutcome: () => {},
+      recordTurn: () => {},
+    };
+    const input = makeInput({ assistantMessage: pre });
+    const loop = new ReActToolLoop(ctx, input);
+
+    const iter = loop.run(input);
+    let final: { metadata?: Record<string, unknown> } | undefined;
+    for (;;) {
+      const r = await iter.next();
+      if (r.done) {
+        final = r.value as { metadata?: Record<string, unknown> };
+        break;
+      }
+    }
+
+    const ids = (
+      (final?.metadata?.tool_calls ?? []) as Array<{ id?: string }>
+    ).map((c) => c.id);
+    // 已执行过的调用必须仍被声明（否则其 tool 结果在 provider 侧成孤儿）
+    expect(ids.length).toBeGreaterThan(0);
+    expect(ids).toContain('tc1');
+  });
+
   it('复用同一 assistantMessage 跨多轮 ⇒ 声明累积不覆盖（修复前只剩最后一轮）', async () => {
     const persisted: Array<{
       id?: string;

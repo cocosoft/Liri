@@ -65,12 +65,24 @@ jobs:
             --artifact "release/liri-cli-${VERSION}.tgz" \
             --download-base "https://github.com/${{ github.repository }}/releases/download"
 
+      # 2026-11-19（npm 替代分发）：不依赖 `NPM_TOKEN` 也产出**可直接安装**的 tarball —
+      # 拿到的人 `npm i -g ./openliri-bun-<ver>.tgz` 即可（需本机有 Bun），或人工 `npm publish`。
+      - name: Pack npm tarball (no token required)
+        run: |
+          set -euo pipefail
+          mkdir -p ../packaging/npm/dist ../release/npm
+          cp dist/main.js ../packaging/npm/dist/main.js
+          # 必须写 `./` 前缀：`npm pack packaging/npm` 会被当成 GitHub 简写（owner/repo）去 ls-remote
+          npm pack ./../packaging/npm --pack-destination "$GITHUB_WORKSPACE/release/npm"
+          ls -l "$GITHUB_WORKSPACE/release/npm"
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: liri-cli-${{ env.VERSION }}
           path: |
             app/release/liri-cli-${{ env.VERSION }}.tgz
+            release/npm/*.tgz
             packaging/npm/package.json
             packaging/scoop/liri.json
             packaging/homebrew/liri.rb
@@ -83,7 +95,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          files: app/release/liri-cli-${{ env.VERSION }}.tgz
+          files: |
+            app/release/liri-cli-${{ env.VERSION }}.tgz
+            release/npm/*.tgz
           overwrite_files: true
           fail_on_unmatched_files: true
 
@@ -95,7 +109,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${NPM_TOKEN:-}" ]; then
-            echo "⚠️ 未配置 NPM_TOKEN ⇒ 跳过 npm 发布（清单已作为 artifact 产出）"
+            echo "⚠️ 未配置 NPM_TOKEN ⇒ 跳过 npm 发布（tarball 已挂 GitHub Release，可离线安装/人工 publish）"
             exit 0
           fi
           mkdir -p packaging/npm/dist
@@ -238,11 +252,34 @@ jobs:
             --version "$VERSION" \
             --assets cli-bin
 
+      # 2026-11-19（npm 替代分发）：把主包 + 各平台包打成 tarball 挂 Release —— 无需 `NPM_TOKEN`，
+      # 用户可 `npm i -g ./openliri-<ver>.tgz`（含平台 `@openliri/cli-*` 的 tarball 一起提供）。
+      - name: Pack standalone npm tarballs (no token required)
+        run: |
+          set -euo pipefail
+          mkdir -p release/npm-standalone
+          # `./` 前缀不可省：裸 `packaging/xxx` 会被 npm 当成 GitHub 简写（owner/repo）
+          npm pack ./packaging/standalone-npm --pack-destination "$PWD/release/npm-standalone"
+          for d in ./packaging/standalone-npm/packages/@openliri/*/; do
+            npm pack "$d" --pack-destination "$PWD/release/npm-standalone"
+          done
+          ls -l release/npm-standalone
+
       - name: Upload npm packages
         uses: actions/upload-artifact@v4
         with:
           name: liri-npm-standalone
-          path: packaging/standalone-npm/**
+          path: |
+            packaging/standalone-npm/**
+            release/npm-standalone/*.tgz
+
+      - name: Attach npm tarballs to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: release/npm-standalone/*.tgz
+          overwrite_files: true
+          fail_on_unmatched_files: true
 
       - name: Publish to npm (optional)
         # 未配置 `NPM_TOKEN` ⇒ 步骤内自行跳过（step `if` 无法读 secrets 值）
@@ -252,7 +289,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${NPM_TOKEN:-}" ]; then
-            echo "⚠️ 未配置 NPM_TOKEN ⇒ 跳过 npm 发布（包树已作为 artifact 产出）"
+            echo "⚠️ 未配置 NPM_TOKEN ⇒ 跳过 npm 发布（tarball 已挂 GitHub Release，可离线安装/人工 publish）"
             exit 0
           fi
           printf '//registry.npmjs.org/:_authToken=%s\n' "$NPM_TOKEN" > "$HOME/.npmrc"

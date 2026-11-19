@@ -134,6 +134,89 @@ describe('① 步骤执行提示词（buildStepExecutionPrompt 外移前特征�
     expect(capture.prompt).toContain(workspace);
   });
 
+  // 2026-11-19（真机 `pdca_mwn8sp00`）：`dependsOn` 前驱的**实际产出**必须进入本步提示词。
+  // 缺陷现场：step_2 依赖 step_1 的"文件清单"，提示词却不含前驱结果 ⇒ 执行器自述
+  // 「步骤1 未随指令给出显式清单」⇒ 另找 `app/packages/office` 凑字面验收（清单写错目录）。
+  function makePredecessorOrchestrator(capture: { prompt?: string }): {
+    o: OrchestratorUnderTest;
+    plan: Plan;
+  } {
+    const executor = async (params: { userPrompt: string }) => {
+      capture.prompt = params.userPrompt;
+      return { content: '已执行' };
+    };
+    const o = new LongRunningTaskOrchestrator(
+      makeTaskId('pred'),
+      executor as never
+    ) as unknown as OrchestratorUnderTest;
+    const plan = taskOrchestrator.createPlan(
+      '前驱事实注入',
+      ['列出 .ts 清单', '按清单写产物'],
+      'session-seams-pred',
+      undefined,
+      undefined,
+      undefined,
+      [[], [0]]
+    );
+    o.planId = plan.id;
+    return { o, plan };
+  }
+
+  it('dependsOn 前驱的 result / artifacts 进入提示词', async () => {
+    const capture: { prompt?: string } = {};
+    const { o, plan } = makePredecessorOrchestrator(capture);
+    o.isolation.workspace = mkdtempSync(join(tmpdir(), 'seams-pred-ws-'));
+    const [prev, current] = plan.steps;
+    if (!prev || !current) throw new Error('计划缺少步骤');
+    prev.status = 'completed';
+    prev.result =
+      'app/src/tasks/lro/blockedCommandLedger.ts\napp/src/tasks/lro/contracts.ts';
+    prev.artifacts = ['output/list.md'];
+
+    await o.executeSingleStep(current, plan);
+
+    const prompt = capture.prompt ?? '';
+    expect(prompt).toContain(
+      '【前序步骤产出（dependsOn 声明的依赖，事实输入）】'
+    );
+    expect(prompt).toContain('列出 .ts 清单');
+    expect(prompt).toContain('app/src/tasks/lro/contracts.ts');
+    expect(prompt).toContain('output/list.md');
+    // 与"步骤描述/验收标准"分区，不混进硬约束
+    expect(prompt.indexOf('前序步骤产出')).toBeLessThan(
+      prompt.indexOf('【硬约束】')
+    );
+  });
+
+  it('无 dependsOn ⇒ 不注入前序段落（提示词与改造前一致）', async () => {
+    const capture: { prompt?: string } = {};
+    const { o, plan } = makePredecessorOrchestrator(capture);
+    o.isolation.workspace = mkdtempSync(join(tmpdir(), 'seams-pred-none-'));
+    const [, current] = plan.steps;
+    if (!current) throw new Error('计划缺少步骤');
+    current.dependsOn = [];
+
+    await o.executeSingleStep(current, plan);
+
+    expect(capture.prompt ?? '').not.toContain('前序步骤产出');
+  });
+
+  it('前驱结果超长 ⇒ 截断并标注（不静默丢弃）', async () => {
+    const capture: { prompt?: string } = {};
+    const { o, plan } = makePredecessorOrchestrator(capture);
+    o.isolation.workspace = mkdtempSync(join(tmpdir(), 'seams-pred-long-'));
+    const [prev, current] = plan.steps;
+    if (!prev || !current) throw new Error('计划缺少步骤');
+    prev.status = 'completed';
+    prev.result = `HEAD-${'x'.repeat(4200)}-TAIL`;
+
+    await o.executeSingleStep(current, plan);
+
+    const prompt = capture.prompt ?? '';
+    expect(prompt).toContain('已截断');
+    expect(prompt).not.toContain('-TAIL');
+  });
+
   it('空工作区 ⇒ 空目录文案；非空工作区 ⇒ 已有内容文案（互斥）', async () => {
     const emptyCapture: { prompt?: string } = {};
     const emptyCase = makePromptOrchestrator(emptyCapture);

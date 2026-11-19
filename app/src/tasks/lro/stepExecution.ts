@@ -192,16 +192,109 @@ interface StepExecutionStats {
   slowestToolName: string;
 }
 
+/** 前序步骤产出注入的字符上限（与目标门评估同口径，防单步执行记录撑爆 prompt） */
+const PREDECESSOR_RESULT_MAX_CHARS = 4000;
+
+/** `dependsOn` 前驱的事实投影（只取既有字段，不做推断） */
+export interface PredecessorStepFacts {
+  description: string;
+  status: string;
+  result?: string;
+  artifacts?: string[];
+  /** 结果是否因超长被截断（如实标注，避免模型把截断读成"内容缺失"） */
+  truncated?: boolean;
+}
+
+/**
+ * 2026-11-19（真机 `pdca_mwn8sp00`）：把 `dependsOn` 前驱的**实际产出**投影成提示词事实。
+ *
+ * 缺陷实证：step_2 描述为「逐个读取**步骤1列出的**每个 .ts 文件」，而步骤提示词此前只有
+ * 「描述 + 验收标准 + 上次审查问题」——**不含前驱结果**。执行器自述
+ * 「关键假设（步骤1 未随指令给出显式清单）」，遂按硬约束「信息不足时做可回退的最小决策」
+ * 另找一个字面能满足验收的目录（`app/packages/office`，因其含 `index.ts`）⇒ 产物清单写错目录，
+ * 直到目标门才被拦下（`confidence=0.92`，2.3M token 白烧）。
+ *
+ * 口径：**只投影 `dependsOn` 显式声明的前驱**（不注入全部更早步骤，避免跨步串味），
+ * 无 `result`（如未执行/失败）也照实给出状态，不编造内容。
+ */
+function collectPredecessorFacts(
+  step: PlanStep,
+  steps: readonly PlanStep[]
+): PredecessorStepFacts[] {
+  const ids = step.dependsOn ?? [];
+  if (ids.length === 0) return [];
+  const byId = new Map(steps.map((s) => [s.id, s]));
+  const facts: PredecessorStepFacts[] = [];
+  for (const id of ids) {
+    const prev = byId.get(id);
+    if (!prev) continue;
+    const raw = (prev.result ?? '').trim();
+    const truncated = raw.length > PREDECESSOR_RESULT_MAX_CHARS;
+    facts.push({
+      description: prev.description,
+      status: prev.status,
+      ...(raw
+        ? {
+            result: truncated
+              ? `${raw.slice(0, PREDECESSOR_RESULT_MAX_CHARS)}\n…（已截断 ${raw.length - PREDECESSOR_RESULT_MAX_CHARS} 字符）`
+              : raw,
+          }
+        : {}),
+      ...(prev.artifacts && prev.artifacts.length > 0
+        ? { artifacts: prev.artifacts }
+        : {}),
+      ...(truncated ? { truncated: true } : {}),
+    });
+  }
+  return facts;
+}
+
+/** 前驱事实 → 提示词分段（无前驱 ⇒ 空串，不造占位） */
+function formatPredecessorFacts(
+  predecessors: readonly PredecessorStepFacts[]
+): string {
+  if (predecessors.length === 0) return '';
+  const blocks = predecessors.map((p) => {
+    const head = `- 「${p.description}」（${p.status}）`;
+    const parts = [head];
+    parts.push(
+      p.result
+        ? `  执行结果：\n${p.result
+            .split('\n')
+            .map((line) => `  ${line}`)
+            .join('\n')}`
+        : '  执行结果：（该步骤未产生结果文本）'
+    );
+    if (p.artifacts && p.artifacts.length > 0) {
+      parts.push(`  产物：${p.artifacts.join('、')}`);
+    }
+    return parts.join('\n');
+  });
+  return [
+    '【前序步骤产出（dependsOn 声明的依赖，事实输入）】',
+    ...blocks,
+    '以上是本步依赖步骤的**实际执行结果**（超长已标注截断）；未在此出现的内容不要假定存在，',
+    '也不要改用别的目录/文件去凑验收标准的字面要求 —— 缺什么就如实报告缺什么。',
+  ].join('\n');
+}
+
 /**
  * P3-2（复杂度清理）：步骤执行提示词构建（从 `executeSingleStep` **原样外移**）。
  *
  * 分隔符与空行裁剪（`.filter(Boolean).join('\n\n')`）、硬约束文案、工作区分型口径
  * **逐字未变**；唯一入参差异是把 `deps.isolation.workspace` 改为显式 `workspace`。
+ *
+ * 2026-11-19：新增 `predecessors`（`dependsOn` 前驱事实），无前驱时段落为空、不产生任何文本。
  */
-function buildStepExecutionPrompt(step: PlanStep, workspace: string): string {
+function buildStepExecutionPrompt(
+  step: PlanStep,
+  workspace: string,
+  predecessors: readonly PredecessorStepFacts[] = []
+): string {
   return [
     `执行以下步骤: ${step.description}`,
     step.acceptanceCriteria ? `验收标准: ${step.acceptanceCriteria}` : '',
+    formatPredecessorFacts(predecessors),
     step.reviewResult
       ? `注意: 上次审查发现以下问题，本次请修正：\n${step.reviewResult.issues.map((i) => `- ${i.description}`).join('\n')}`
       : '',
@@ -287,7 +380,12 @@ export async function executeSingleStep(
     });
   }
 
-  const execPrompt = buildStepExecutionPrompt(step, deps.isolation.workspace);
+  // 2026-11-19：带上 `dependsOn` 前驱的实际产出（无依赖 ⇒ 段落为空，提示词与此前逐字一致）
+  const execPrompt = buildStepExecutionPrompt(
+    step,
+    deps.isolation.workspace,
+    collectPredecessorFacts(step, plan.steps)
+  );
 
   // Phase 2: 委托 TAORLoop 编排（统一编排已常驻；开关 ENABLE_LOOP_V8_PHASE2 已退役——L5 清理 2026-09-06）
   // D2（M3，2026-08-13）：优先每步独立实例（工厂注入，并行安全）；否则共享实例（串行）

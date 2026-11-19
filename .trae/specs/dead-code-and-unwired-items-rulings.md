@@ -1,6 +1,6 @@
 # 死码与未接线项 · 可裁定清单（2026-10-07）
 
-> **状态**：✅ **2026-11-18 完成复核与裁定**（A 组已执行删除；B/C 维持）——见 §8 / §9；历史登记口径见 §1–§7。
+> **状态**：✅ **2026-11-18 完成复核与裁定**（A 组已执行删除；B/C 维持）——见 §8 / §9；**2026-11-19 重扫清单漂移（§8.2）**：无新增待裁定项，UW-6 已按裁定 ① 收口（`@deprecated` + 观察期）。历史登记口径见 §1–§7。
 > **来源**：本次会话「已登记未修」项 —— 回仓取证后汇总为一张**可逐项拍板**的清单
 > **口径**：每项给 **① 证据（file:line + grep 读数）· ② 影响 · ③ 建议处置 · ④ 备选 · ⑤ 触发条件**；裁定后按 §4 批量执行
 > **关联**：`dev_docs/error_repairs/预存错误与待处理问题.md`（SPI-1 / MEM-1 / BR 类）· `dev_docs/任务计划-20261004.md` §24.4-R11-4
@@ -322,3 +322,20 @@
 | **C（BR-1 Memdir）** | `~/.pyapp/CLAUDE.md` → `~/.pyapp/Liri.md` | ✅ **维持现状**（涉用户数据迁移，须另立产品裁定 + 幂等迁移 + 后备读取） | 零代码 |
 
 > **回滚**：A 组改动尚未提交；提交后如需回滚，`git revert <该提交>` 即恢复文件与 4 处常量（CD06：独立提交 + 可回滚）。
+
+### §8.2 复核（2026-11-19）：清单漂移复扫
+
+> 触发：复查文档把本清单标为「⏸ 待用户逐项裁定（清单已漂移）」。本轮按 CD01–CD04 口径**全仓重扫**（含 `app/tests` + `packages/**`），逐项与 §8 对账。
+
+| 项 | 2026-11-19 实测 | 与 §8 对比 | 结论 |
+|---|---|---|---|
+| **DC-1** | `app/src/tools/**/prompt.ts` 实测 **3 个**（`GrepTool` / `FileWriteTool` / `FileEditTool`） | 一致 | ✅ 闭环 |
+| **DC-2** | 全仓仍无 `ToolDef.prompt` 读取点（命中均为**入参**：`params.prompt` / `input.prompt` / `snapshot.prompt`） | 一致 | ✅ 维持（§8.1-B） |
+| **UW-1** | 仍**只写不读**；且两种形状并存：`permission/permissions.ts:17`（`string[]`，loader `:57-60` 写入，实际被使用者）· `utils/toolContract/PermissionContext.ts:53`（`Map`，**另一形状、同样零读取方**） | 一致（补充：两形状仍未统一） | ✅ 维持 |
+| **UW-3** | `ICollaborationPort` 仅 kernel `spi/**` + 3 个 `agent/orchestration/*Adapter` + `spiWiring` + barrel；`packages/channels/…/OutboundGatewayPortAdapter` 属**入站网关端口**（同名不同物，勿并入） | 一致 | ✅ 维持 |
+| **UW-4** | `FlowEngine` 仅 `flows/FlowEngine.ts` 自身 + `flows/index.ts:24` barrel | 一致 | ✅ 维持 |
+| **UW-6** | 已按用户裁定 ① 收口（`@deprecated` + 每进程一次 `DeprecationWarning`，见上方 2026-11-19 记录） | **已推进** | ✅ 观察期 |
+| **DCX-2/3/4** | 调用点仍**仅测试**；另 `SessionActivityTracker.ts:106` 的 `.heartbeat()` 属**同名不同物**（会话活动心跳，非 Execution 续期） | 一致 | ✅ 维持 |
+| **BR-1** | `MemdirService.ts:41/267` 仍写 `~/.pyapp/CLAUDE.md`（本仓自有布局残留） | 一致 | ✅ 维持（待产品裁定） |
+
+**本轮结论**：**「⏸ 待逐项裁定」已不成立** —— 清单内所有条目均为「已闭环」或「已裁定维持 + 明确触发条件」，本轮**无新增待裁定项**；唯一推进项 UW-6 已按裁定 ① 落地。复查文档已同批订正。

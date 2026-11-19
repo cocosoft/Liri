@@ -53,7 +53,9 @@ export function repairModelJson(raw: string): string {
 
   // 第一遍：修复非 JSON 标准转义的 \ 序列
   // 有效 JSON 转义: \" \\ \/ \b \f \n \r \t \uXXXX
-  let repaired = raw.replace(/\\(?![\\"\/bfnrtu]|u[0-9a-fA-F]{4})/g, '\\\\');
+  // 2026-11-20：`\u` 必须后跟 4 位十六进制才算合法 —— 旧正则把裸 `u` 也算进合法起点，
+  // 导致 `\u12`（截断/模型写错）永远不被双写，三次修复全失败（真机 `Invalid unicode escape`）。
+  let repaired = raw.replace(/\\(?![\\"\/bfnrt]|u[0-9a-fA-F]{4})/g, '\\\\');
 
   try {
     JSON.parse(repaired);

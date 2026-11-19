@@ -38,6 +38,19 @@ describe('repairModelJson：修复语义不变', () => {
     const hopeless = '{"a": ';
     expect(repairModelJson(hopeless)).toBe(hopeless);
   });
+
+  // 2026-11-20：真机 `repairModelJson:pathFix` 记录指向 `Invalid unicode escape` 类失败
+  it('不完整 \\u 转义 ⇒ 双写为字面量，不再永久失败', () => {
+    const broken = '{"a":"\\u12"}';
+    const fixed = repairModelJson(broken);
+    expect(() => JSON.parse(fixed)).not.toThrow();
+    expect((JSON.parse(fixed) as { a: string }).a).toBe('\\u12');
+  });
+
+  it('合法 \\uXXXX 不被改写', () => {
+    const ok = '{"a":"\\u0041"}';
+    expect(repairModelJson(ok)).toBe(ok);
+  });
 });
 
 describe('repairModelJson：日志分级与终态诊断字段', () => {

@@ -75,13 +75,17 @@ jobs:
             packaging/scoop/liri.json
             packaging/homebrew/liri.rb
 
+      # 2026-11-19（竞态修复）：原 `gh release upload … || echo` 在 release.yml 尚未建 Release 时
+      # **静默落到"仅 artifact"**（真机 run#3 日志 `release not found`，20 个 release 无一个 CLI 附件）。
+      # 改用与本仓 release.yml 同一个 `softprops/action-gh-release@v2`：**不存在则创建、存在则追加**，
+      # 两个工作流并发也不会互踩（不再依赖"谁先跑完"）。
       - name: Attach archive to GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          gh release upload "v${VERSION}" "release/liri-cli-${VERSION}.tgz" --clobber || \
-            echo "⚠️ Release v${VERSION} 尚未创建（release.yml 可能仍在跑）⇒ 仅保留工作流 artifact"
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: app/release/liri-cli-${{ env.VERSION }}.tgz
+          overwrite_files: true
+          fail_on_unmatched_files: true
 
       - name: Publish to npm (optional)
         # 未配置 `NPM_TOKEN` ⇒ 步骤内自行跳过（step `if` 无法读 secrets 值）
@@ -145,15 +149,14 @@ jobs:
           name: liri-cli-bin-${{ matrix.os }}
           path: app/dist/cli-bin/*
 
+      # 2026-11-19（竞态修复）：同 package 作业 —— 交由 action 负责"建或追加"，不再静默丢产物。
       - name: Attach binary to GitHub Release
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          VERSION="${GITHUB_REF_NAME#v}"
-          gh release upload "v${VERSION}" app/dist/cli-bin/* --clobber || \
-            echo "⚠️ Release v${VERSION} 尚未创建 ⇒ 仅保留工作流 artifact"
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: app/dist/cli-bin/*
+          overwrite_files: true
+          fail_on_unmatched_files: true
 
   # G2 剩余四期（2026-11-14）：standalone 清单（去 bun 前置）。
   # 只有矩阵产物**齐全**才出清单：`gen-package-manifests.ts --standalone` 缺平台即退出 1。
@@ -193,18 +196,17 @@ jobs:
           name: liri-standalone-manifests
           path: packaging/standalone/**
 
+      # 2026-11-19（竞态修复）：同 package 作业。
       - name: Attach manifests to GitHub Release
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          VERSION="${GITHUB_REF_NAME#v}"
-          gh release upload "v${VERSION}" \
-            packaging/standalone/SHA256SUMS \
-            packaging/standalone/scoop/liri.json \
-            packaging/standalone/homebrew/liri.rb \
-            --clobber || echo "⚠️ Release v${VERSION} 尚未创建 ⇒ 仅保留工作流 artifact"
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: |
+            packaging/standalone/SHA256SUMS
+            packaging/standalone/scoop/liri.json
+            packaging/standalone/homebrew/liri.rb
+          overwrite_files: true
+          fail_on_unmatched_files: true
 
   # G2 剩余五期（2026-11-14）：npm standalone（按平台分包，去 bun 前置）。
   # 发布顺序：先平台包 `@openliri/cli-*`，再主包 `openliri`（主包 optionalDependencies 指向它们）。

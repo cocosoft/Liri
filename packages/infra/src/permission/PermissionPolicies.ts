@@ -371,6 +371,25 @@ export function checkProcessOperationPermission(
   return null;
 }
 
+/**
+ * 权限策略门面（命令 / 文件 / 网络 / 进程四类 `check*`）。
+ *
+ * ⚠️ **有意保留的预留 API（UW-6 裁定 ②，2026-11-19）—— 请勿按"零静态引用"删除。**
+ *
+ * 事实：四个 `check*` 生产侧**零调用**（仅由 `permission/index.ts:170-177` 再导出）；
+ * 但 `checkCommandPermission` 是 **37 条统一危险命令规则表 `ALL_UNIFIED_RULES` 的唯一生产入口**
+ * （`security/patterns/dangerousCommands.ts`），删掉它会让该表退化为"只被测试遍历"。
+ *
+ * 裁定依据（`code-deletion.md` CD07）：权限属**关键模块**，不得以静态零引用为删据；
+ * `@openliri/infra/permission` 是 40+ 处生产导入的公开面，本类是其中的策略门面。
+ * 记录：`.trae/specs/dead-code-and-unwired-items-rulings.md` §UW-6。
+ *
+ * 触发复核条件（任一成立时再评估接线或清理）：
+ * ① 决定把"多套危险命令判据"（`BashSecurityAnalyzer` / `PowerShellSecurityAnalyzer` /
+ *    `SandboxSecurityChecker` / `injection-rules`）收敛为一套时 —— 本类是候选接线点；
+ * ② 若确要清理，须按 CD05（先摘入口 → 观察 → 再删）+ CD06（独立提交 + 回滚），
+ *    并**同批**把 `dangerousCommandRuleSamples.test.ts` 的样例迁到实际生效链。
+ */
 export class PermissionPolicyManager {
   static checkCommandPermission(
     toolName: string,

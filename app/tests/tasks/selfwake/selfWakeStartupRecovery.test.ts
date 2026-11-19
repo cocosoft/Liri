@@ -42,8 +42,10 @@ process.env.LIRI_DATA_DIR = testDataDir;
 const { WakeStore } = await import('../../../src/tasks/selfwake/WakeStore');
 const { SelfWakeService, setSelfWakeResumeHandler } =
   await import('../../../src/tasks/selfwake/SelfWakeService');
-const { createCg3Services, ensureSelfWakeWiredToCron, wireSelfWakeToCron } =
+const { createCg3Services, wireSelfWakeToCron } =
   await import('../../../src/tasks/Cg3Bootstrap');
+const { applySelfWakeCronWire } =
+  await import('../../../src/tasks/selfwake/cronBridge');
 const {
   ensureGlobalCronSchedulerStarted,
   getGlobalCronScheduler,
@@ -195,7 +197,7 @@ describe('自唤醒晚接线（A）：cron 后起也能接上 extraTick', () => 
 
     // ① cron 未起 ⇒ 接线如实失败，不伪造成功
     const { selfWakeService } = createCg3Services();
-    expect(await ensureSelfWakeWiredToCron()).toBe(false);
+    expect(await applySelfWakeCronWire()).toBe(false);
     expect(await wireSelfWakeToCron(selfWakeService)).toBe(false);
 
     // ② cron 起来 ⇒ 启动路径内补接（A 的落点）
@@ -206,7 +208,7 @@ describe('自唤醒晚接线（A）：cron 后起也能接上 extraTick', () => 
 
     // ③ 幂等：再调一次不叠加第二条链
     const before = scheduler?.extraTick;
-    expect(await ensureSelfWakeWiredToCron()).toBe(true);
+    expect(await applySelfWakeCronWire()).toBe(true);
     expect(scheduler?.extraTick).toBe(before as () => void);
 
     // ④ 真跑一次：过期条目被 extraTick 扫到并落 fired

@@ -8,6 +8,7 @@ import { CronJobStore } from './CronJobStore';
 import { CronRunLog } from './CronRunLog';
 import { CronAlertService } from './CronAlertService';
 import { runInCronOwnerScope } from './cronOwnership';
+import { applySelfWakeCronWire } from '../selfwake/cronBridge';
 import type { CronJob, CronJobResult } from './types';
 import type { SchedulerCallbacks } from './CronScheduler';
 import { getLogger } from '@openliri/infra/monitoring';
@@ -94,23 +95,17 @@ export async function ensureGlobalCronSchedulerStarted(
   initialized = true;
   // A（2026-11-19 真机根因）：CG3 自唤醒的"到期扫描"挂在 `extraTick` 上，而 `startCg3` 在
   // 初始化管线里执行、**早于**本调度器启动 ⇒ 彼时接线必失败且无重试 ⇒ 过期 `pending` 自唤醒
-  // 永不被 `fire()`，前端「⏳ 等待中」常驻（任务早已完成也照样显示）。
-  // 这里在启动成功后补一次（幂等；CG3 尚未创建时静默跳过，由 `startCg3` 侧再试）。
-  await wireCg3SelfWake();
-
-  return instance;
-}
-
-/** 把 CG3 自唤醒接到 `extraTick`（幂等；失败只记日志，不影响 cron 本体） */
-async function wireCg3SelfWake(): Promise<void> {
+  // 永不被 `fire()`，前端「⏳ 等待中」常驻（任务早已完成也照样显示）。这里在启动成功后补接
+  // （经 `selfwake/cronBridge` 注册槽，避免与 `Cg3Bootstrap` 形成静态环；幂等由接线方保证）。
   try {
-    const { ensureSelfWakeWiredToCron } = await import('../Cg3Bootstrap');
-    await ensureSelfWakeWiredToCron();
+    await applySelfWakeCronWire();
   } catch (err) {
     logger.warn('CG3 自唤醒接线失败（cron 本体不受影响）', {
       error: err instanceof Error ? err.message : String(err),
     });
   }
+
+  return instance;
 }
 
 /** 唤醒全局调度器（新作业创建后调用） */

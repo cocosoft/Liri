@@ -136,8 +136,8 @@ fire 后 status = pending             （期望 fired；仍 pending ⇒ 未落 f
 
 | 项 | 落点 | 变更 |
 |---|---|---|
-| A | `tasks/cron/GlobalCronScheduler.ts` | `ensureGlobalCronSchedulerStarted()` 在 `instance.start()` 后调用 `ensureSelfWakeWiredToCron()`（幂等；CG3 未创建则静默跳过） |
-| A' | `tasks/Cg3Bootstrap.ts` | 新增 `ensureSelfWakeWiredToCron()`；`wireSelfWakeToCron()` 增 **WeakSet 幂等**（两侧都会调，重复接线会把 `extraTick` 叠成多条链） |
+| A | `tasks/cron/GlobalCronScheduler.ts` | `ensureGlobalCronSchedulerStarted()` 在 `instance.start()` 后调用 `applySelfWakeCronWire()`（幂等；未登记则静默跳过） |
+| A' | `tasks/selfwake/cronBridge.ts`（新建）+ `tasks/Cg3Bootstrap.ts` | 新增**无依赖注册槽**（`registerSelfWakeCronWire` / `applySelfWakeCronWire`）：`createCg3Services()` 登记接线函数，cron 启动后取用。**为什么不用直接 import**：`GlobalCronScheduler` 动态 import `Cg3Bootstrap` 会被 madge 判环（`tasks/cron/GlobalCronScheduler.ts > tasks/Cg3Bootstrap.ts`）⇒ CI `Static Checks` 的「Check circular dependencies (baseline at most 0)」红（实测 run #2146）。另 `wireSelfWakeToCron()` 增 **WeakSet 幂等**（`startCg3` 与 cron 启动两处都可能触发，重复接线会把 `extraTick` 叠成多条链） |
 | B | `tasks/selfwake/SelfWakeService.ts` + `Cg3Bootstrap.startCg3()` | 新增 `recoverOverdueWakes(now?)`：补触发**已过期**的 `kind='timer'` 条目（`completion`/`event` 等外部条件不参与）；`startCg3` 启动后异步执行（不阻塞启动，失败只 warn）。是否真续跑由执行器二次校验（`goal-startup`/`plan-startup` 均"陈旧即作废"） |
 | C | 同上 | 新增 `collectGarbage(maxAgeMs?)` 包 `WakeStore.gc()`；与 B 同点执行 |
 
@@ -146,4 +146,4 @@ fire 后 status = pending             （期望 fired；仍 pending ⇒ 未落 f
 - R2 `collectGarbage` 清 24h 前 `fired`，保留 `pending` 与近期 `fired`；
 - R3 **晚接线**：cron 未起时接线如实返回 false；`ensureGlobalCronSchedulerStarted` 后 `extraTick` 已挂上、重复接线幂等、手动 `extraTick()` 能把过期条目扫成 `fired`。
 
-**验证**：`typecheck` ✅ · `bun test tests/tasks/selfwake tests/tasks/cron tests/http/session-pending-wake.test.ts` ⇒ **89 pass / 0 fail** · 全量 `bun test` **13200 pass / 42 skip / 0 fail** · `lint:size` / `lint:fn-size` / `lint:arch` / `lint:state-ratchet` / `lint:consts` 全 0 错。
+**验证**：`typecheck` ✅ · `npx madge --circular --extensions ts,tsx src/` ⇒ **0 环**（CI `Static Checks` 同口径）· `bun test tests/tasks/selfwake tests/tasks/cron tests/http/session-pending-wake.test.ts` ⇒ **89 pass / 0 fail** · 全量 `bun test` **13200 pass / 42 skip / 0 fail** · `lint:size` / `lint:fn-size` / `lint:arch` / `lint:state-ratchet` / `lint:consts` 全 0 错。

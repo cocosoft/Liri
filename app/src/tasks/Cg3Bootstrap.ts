@@ -10,6 +10,7 @@
  */
 import { WakeStore } from './selfwake/WakeStore';
 import { SelfWakeService } from './selfwake/SelfWakeService';
+import { registerSelfWakeCronWire } from './selfwake/cronBridge';
 import { AlwaysOnManager } from './alwayson/AlwaysOnManager';
 import type { AlwaysOnConfig } from './alwayson/types';
 import { cg3Log } from './cg3Env';
@@ -88,6 +89,10 @@ export function createCg3Services(options?: {
   };
 
   _cg3 = result;
+  // A（2026-11-19）：登记接线函数到无依赖槽 —— 此刻 cron 可能还没起，等它启动后
+  // `ensureGlobalCronSchedulerStarted()` 会调用（`selfwake/cronBridge`，避免本文件与
+  // `GlobalCronScheduler` 互相 import 成环）。
+  registerSelfWakeCronWire(() => wireSelfWakeToCron(selfWakeService));
   return result;
 }
 
@@ -160,20 +165,6 @@ export async function wireSelfWakeToCron(
     );
     return false;
   }
-}
-
-/**
- * 幂等接线入口：CG3 服务在位**且**全局 cron 已启动时才真正接上。
- *
- * A（2026-11-19 真机根因）：`startCg3` 在初始化管线里执行，早于 REPL/DAEMON 启动 cron ⇒
- * 彼时 `getGlobalCronScheduler()` 为 null，接线必然失败且**没有重试** ⇒ `extraTick` 永不扫
- * 到期条目 ⇒ 过期 `pending` 自唤醒不被 `fire()`、前端「⏳ 等待中」常驻。
- * 故由两侧各试一次：`startCg3`（CG3 先起）与 `ensureGlobalCronSchedulerStarted`（cron 先起）。
- */
-export async function ensureSelfWakeWiredToCron(): Promise<boolean> {
-  const svc = _cg3?.selfWakeService;
-  if (!svc) return false;
-  return wireSelfWakeToCron(svc);
 }
 
 /**

@@ -155,14 +155,16 @@
 ② 若要清理，按 CD05（先摘入口 → 观察 → 再删）+ CD06（独立提交 + 回滚）执行，且**同批**迁移测试样例到实际生效的链。
 **触发条件**：① 决定收敛"多套危险命令规则"为一套时（此时它是候选真源）；② 有人新增规则到该表却未生效时（回归信号）。
 
-> **2026-11-19 收口（裁定 ②：保留；不删、不标废弃）**：复核 `PermissionPolicyManager` 四类
-> `check*`（命令 / 文件 / 网络 / 进程）—— 生产侧**均为零调用**，仅由 `packages/infra/src/permission/index.ts:170-177`
-> 再导出；但 `@openliri/infra/permission` 是全仓 **40+ 处生产导入**的公开面，且
-> `checkCommandPermission` 是 37 条 `ALL_UNIFIED_RULES` 的**唯一生产入口**（删它 ⇒ 该表只剩测试消费者，
-> 与"候选真源"的目标相反）⇒ 按 **CD07** 保留。已在类上落"预留 API + 勿删 + 触发条件"注释
-> （`PermissionPolicies.ts` 类级 doc），防止再次被当作死代码清理。
-> **未选 ①（`@deprecated` + `emitWarning`）**：该 API 属公开面且本无替代实现，标废弃只会给未来接线方
-> 发噪音告警，收益为零。
+> **2026-11-19 收口（用户裁定 ①：`@deprecated` + `emitWarning` 观察期）**：复核 `PermissionPolicyManager`
+> 四类 `check*`（命令 / 文件 / 网络 / 进程）—— 生产侧**均为零调用**，仅由 `packages/infra/src/permission/index.ts:170-177`
+> 再导出；`@openliri/infra/permission` 是全仓 **40+ 处生产导入**的公开面，且 `checkCommandPermission` 是
+> 37 条 `ALL_UNIFIED_RULES` 的**唯一生产入口**。按 **CD07**（权限属关键模块，不得以静态零引用为删据）⇒ 进入观察期：
+> - 类与四个 `check*` 均标 `@deprecated`；调用时发**一次** `DeprecationWarning`
+>   （code `LIRI_DEPRECATED_PERMISSION_POLICY_MANAGER`，每进程一次；零调用 ⇒ 不产生任何噪音）；
+> - **到期复核（下一发布周期 · v0.5 末）**：若"收敛多套危险命令判据"已立项 ⇒ 接线并撤销 deprecated；
+>   否则按 CD05（先摘 `permission/index.ts` 导出入口）+ CD06（独立提交 + `git revert` 可复原）删除，
+>   并**同批**把 `dangerousCommandRuleSamples.test.ts` 的规则样例迁到实际生效链；
+> - 回归：`app/tests/permission/permissionPolicyManagerDeprecation.test.ts`（3 例：告警一次 / 每进程一次 / 未调用不告警）。
 
 ---
 

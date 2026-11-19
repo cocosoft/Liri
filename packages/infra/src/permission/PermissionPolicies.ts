@@ -371,30 +371,47 @@ export function checkProcessOperationPermission(
   return null;
 }
 
+let _deprecatedWarned = false;
+
+/** 观察期废弃告警**每进程只发一次**（零调用时自然不发，不制造噪音） */
+function warnDeprecatedOnce(): void {
+  if (_deprecatedWarned) return;
+  _deprecatedWarned = true;
+  process.emitWarning(
+    'PermissionPolicyManager 已标记 @deprecated（零生产调用，观察期保留）：危险命令判据请使用 ' +
+      'tools/bash 的 bashSecurityGate 或 security/BashSecurityAnalyzer。',
+    { type: 'DeprecationWarning', code: 'LIRI_DEPRECATED_PERMISSION_POLICY_MANAGER' }
+  );
+}
+
+/** 仅供单测：重置"已告警"标记（同进程跨文件跑测试时保证断言可复现） */
+export function resetPermissionPolicyDeprecationWarnForTest(): void {
+  _deprecatedWarned = false;
+}
+
 /**
  * 权限策略门面（命令 / 文件 / 网络 / 进程四类 `check*`）。
  *
- * ⚠️ **有意保留的预留 API（UW-6 裁定 ②，2026-11-19）—— 请勿按"零静态引用"删除。**
+ * @deprecated UW-6 裁定 ①（2026-11-19）：本类**生产侧零调用**（仅由 `permission/index.ts:170-177`
+ * 再导出）。按 `code-deletion.md` CD07（权限属关键模块，不得以静态零引用为删据）进入**观察期**：
+ * 调用时发一次 `DeprecationWarning`；到期复核若仍无接线计划，按 CD05（先摘导出入口）+ CD06
+ * （独立提交 + `git revert` 可复原）删除，并同批把 `dangerousCommandRuleSamples.test.ts` 的
+ * 规则样例迁到实际生效链。判据与触发条件见
+ * `.trae/specs/dead-code-and-unwired-items-rulings.md` §UW-6。
  *
- * 事实：四个 `check*` 生产侧**零调用**（仅由 `permission/index.ts:170-177` 再导出）；
- * 但 `checkCommandPermission` 是 **37 条统一危险命令规则表 `ALL_UNIFIED_RULES` 的唯一生产入口**
- * （`security/patterns/dangerousCommands.ts`），删掉它会让该表退化为"只被测试遍历"。
+ * 现役替代（危险命令判据的真源）：`tools/bash/bashSecurityGate`、`security/BashSecurityAnalyzer`、
+ * `tools/PowerShellTool` 的 `PowerShellSecurityAnalyzer`、`sandbox/SandboxSecurityChecker`。
  *
- * 裁定依据（`code-deletion.md` CD07）：权限属**关键模块**，不得以静态零引用为删据；
- * `@openliri/infra/permission` 是 40+ 处生产导入的公开面，本类是其中的策略门面。
- * 记录：`.trae/specs/dead-code-and-unwired-items-rulings.md` §UW-6。
- *
- * 触发复核条件（任一成立时再评估接线或清理）：
- * ① 决定把"多套危险命令判据"（`BashSecurityAnalyzer` / `PowerShellSecurityAnalyzer` /
- *    `SandboxSecurityChecker` / `injection-rules`）收敛为一套时 —— 本类是候选接线点；
- * ② 若确要清理，须按 CD05（先摘入口 → 观察 → 再删）+ CD06（独立提交 + 回滚），
- *    并**同批**把 `dangerousCommandRuleSamples.test.ts` 的样例迁到实际生效链。
+ * 观察期背景：`checkCommandPermission` 是 37 条 `ALL_UNIFIED_RULES` 的**唯一生产入口** ——
+ * 若将来决定"收敛多套危险命令判据为一套"，这里反而是候选接线点（届时撤销 deprecated 即可）。
  */
 export class PermissionPolicyManager {
+  /** @deprecated 见类级说明（UW-6 观察期；改用 `tools/bash/bashSecurityGate`） */
   static checkCommandPermission(
     toolName: string,
     command: string
   ): PermissionDecision | null {
+    warnDeprecatedOnce();
     const dangerCheck = checkDangerousCommand(toolName, command);
     if (dangerCheck.isDangerous) {
       if (dangerCheck.behavior === 'ask') {
@@ -411,26 +428,32 @@ export class PermissionPolicyManager {
     return null;
   }
 
+  /** @deprecated 见类级说明（UW-6 观察期） */
   static checkFilePermission(
     operation: 'read' | 'write' | 'delete',
     path: string,
     workingDir: string = process.cwd()
   ): PermissionDecision | null {
+    warnDeprecatedOnce();
     return checkFileOperationPermission(operation, path, workingDir);
   }
 
+  /** @deprecated 见类级说明（UW-6 观察期） */
   static checkNetworkPermission(
     url: string,
     method: string = 'GET'
   ): PermissionDecision | null {
+    warnDeprecatedOnce();
     return checkNetworkOperationPermission(url, method);
   }
 
+  /** @deprecated 见类级说明（UW-6 观察期） */
   static checkProcessPermission(
     operation: 'start' | 'kill' | 'list',
     processName?: string,
     processId?: number
   ): PermissionDecision | null {
+    warnDeprecatedOnce();
     return checkProcessOperationPermission(operation, processName, processId);
   }
 }

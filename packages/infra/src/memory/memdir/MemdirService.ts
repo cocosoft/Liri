@@ -38,7 +38,7 @@ export enum MemoryLayer {
   LOCAL = 'local', // 项目级：CLAUDE.local.md
   AUTOMEM = 'automem', // 用户级：~/.pyapp/memory/
   TEAMMEM = 'teammem', // 团队级：共享存储
-  USER = 'user', // 用户级：~/.pyapp/CLAUDE.md
+  USER = 'user', // 用户级：~/.pyapp/Liri.md（兼容回退读 CLAUDE.md）
 }
 
 /**
@@ -264,9 +264,16 @@ export class MemdirService {
    */
   private async scanUserMemoryFiles(): Promise<void> {
     const userMemDir = resolvePyappHome();
-    const userFile = join(userMemDir, 'CLAUDE.md');
+    // 2026-11-19（BR-1 台账项）：本仓**自有布局**的用户级记忆文件改名 `Liri.md`
+    // （原 `CLAUDE.md` 属品牌残留）。口径：
+    //  - **优先** `Liri.md`；仅在缺失时回退旧名 `CLAUDE.md`（既有用户文件零迁移、零丢失）；
+    //  - 两者同时存在时**只读新名**（避免同一内容重复进入记忆上下文）。
+    // 注：项目根下的 `CLAUDE.md`（`scanProjectMemoryFiles`）属**用户既有文件**，按 BR-1 维持不改。
+    const userFile = ['Liri.md', 'CLAUDE.md']
+      .map((name) => join(userMemDir, name))
+      .find((p) => existsSync(p));
 
-    if (existsSync(userFile)) {
+    if (userFile) {
       try {
         const content = await readFile(userFile, 'utf-8');
         const stats = await stat(userFile);

@@ -172,7 +172,7 @@
 
 | # | 项 | 证据 | 裁定 |
 |---|---|---|---|
-| BR-1 | `CLAUDE.md` **兼容读取族**（4 文件 10 处） | `context/ContextManager.ts:171` · `context/UserContextService.ts:92/97` · `memory/memdir/MemdirService.ts:34/38/219/234/238/264` · `security/injection/ContextFileScanner.ts:42` | **维持**（读取用户既有文件；且已优先 `Liri.md`）· ⚠️ **但** `MemdirService.ts:38/264` 是**本仓自有布局**里的 `~/.pyapp/CLAUDE.md` ⇒ **真残留，改名须迁移**（见 §4-P2） |
+| BR-1 | `CLAUDE.md` **兼容读取族**（4 文件 10 处） | `context/ContextManager.ts:171` · `context/UserContextService.ts:92/97` · `memory/memdir/MemdirService.ts:34/38/219/234/238/264` · `security/injection/ContextFileScanner.ts:42` | **维持**（读取用户既有文件；且已优先 `Liri.md`）· ✅ **2026-11-19 已收口**：`MemdirService` 的用户级文件（本仓自有布局）改读 `~/.pyapp/Liri.md`，`Liri.md` 缺失时**回退**读旧名 `CLAUDE.md`（既有用户零迁移、零丢失；两者并存只读新名）——回归 `app/tests/memory/memdirUserFile.test.ts`（4 例）；项目根 `CLAUDE.md` 属用户既有文件，维持不改 |
 | BR-2 | `CLAUDE_GUIDANCE` | `ai/prompts/ModelGuidance.ts:76` + **消费 `:178`**（按 provider `anthropic` 映射） | **维持**（2026-09-26 已裁定合法；有真实消费者） |
 | BR-3 | `~/.claude/local/claude` | `diagnostics/DiagnosticService.ts:397/403` | **维持**（外部 Claude CLI 的**真实安装路径**，用于检测外部工具） |
 
@@ -336,6 +336,6 @@
 | **UW-4** | `FlowEngine` 仅 `flows/FlowEngine.ts` 自身 + `flows/index.ts:24` barrel | 一致 | ✅ 维持 |
 | **UW-6** | 已按用户裁定 ① 收口（`@deprecated` + 每进程一次 `DeprecationWarning`，见上方 2026-11-19 记录） | **已推进** | ✅ 观察期 |
 | **DCX-2/3/4** | 调用点仍**仅测试**；另 `SessionActivityTracker.ts:106` 的 `.heartbeat()` 属**同名不同物**（会话活动心跳，非 Execution 续期） | 一致 | ✅ 维持 |
-| **BR-1** | `MemdirService.ts:41/267` 仍写 `~/.pyapp/CLAUDE.md`（本仓自有布局残留） | 一致 | ✅ 维持（待产品裁定） |
+| **BR-1** | `MemdirService.ts:41/267` 读 `~/.pyapp/CLAUDE.md`（本仓自有布局残留；**只读不写**） | ✅ **2026-11-19 已改读 `Liri.md`**（缺失回退旧名；测试 `memdirUserFile.test.ts`） |
 
 **本轮结论**：**「⏸ 待逐项裁定」已不成立** —— 清单内所有条目均为「已闭环」或「已裁定维持 + 明确触发条件」，本轮**无新增待裁定项**；唯一推进项 UW-6 已按裁定 ① 落地。复查文档已同批订正。

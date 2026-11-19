@@ -339,4 +339,4 @@ GET /v1/sessions/session_muj5asu8g825d0rgqt/streaming
 **回归**：`client/src/tests/waitState.test.ts` +3（超宽限 ⇒ overdue / 宽限内 ⇒ 不 overdue / completion 永不 overdue）；
 `waitStateBars.test.tsx` +1（组件按 overdue 文案渲染）。
 
-**验证**：client `tsc --noEmit` ✅ · `vitest`（waitState / waitStateBars / useWaitState）**32 pass** · eslint 0 errors · `lint:locale` PASS。
+**验证**：client `tsc --noEmit` ✅ · `vitest`（waitState / waitStateBars / useWaitState）**32 pass** · 全量 client `vitest` **1068 pass / 151 files** · eslint 0 errors · `lint:locale` PASS · CI Test #2148（commit `531bfff74`）**attempt 2 全绿**（首跑 macOS 唯一红点为无关的 `MemoryPortContract.test.ts:103` 偶发，已登记台账 FLAKE-2）。

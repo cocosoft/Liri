@@ -98,6 +98,25 @@ describe('PR-5：审查门读 toolOutcomes', () => {
     ).toBe(true);
   });
 
+  // C 项（2026-11-19，真机 `pdca_mwn8sp00`）：执行器换目标凑字面时，审查员必须能判 critical，
+  // 否则"字面全对、目标全错"的产物会一路放行到目标门（代价 2.3M token）。
+  it('审查口径含「换目标凑字面」判据（来源不合法）', async () => {
+    const gate = makeGate();
+    const step = stepWith();
+    let systemPrompt = '';
+    const executor = (async (params: { systemPrompt: string }) => {
+      systemPrompt = params.systemPrompt;
+      return { content: '{"pass":true,"score":90,"issues":[],"summary":"ok"}' };
+    }) as never;
+
+    await gate.reviewStep(ctxFor(step, executor));
+
+    expect(systemPrompt).toContain('换目标凑字面');
+    expect(systemPrompt).toContain('来源不合法');
+    // 与"不得自行发明新的验收条件"不冲突：核对目标归属被显式豁免
+    expect(systemPrompt).toContain('不属新增条件');
+  });
+
   it('待审批 ⇒ 决策 suspend（不是 retry/escalate）', async () => {
     const gate = makeGate();
     const step = stepWith(

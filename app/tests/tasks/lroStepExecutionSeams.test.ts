@@ -134,6 +134,21 @@ describe('① 步骤执行提示词（buildStepExecutionPrompt 外移前特征�
     expect(capture.prompt).toContain(workspace);
   });
 
+  // C 项（2026-11-19，真机 `pdca_mwn8sp00`）：执行器为满足字面验收改去别的目录取数
+  // （`app/packages/office`），提示词必须明确禁止，并给"最小决策"划边界。
+  it('硬约束含「禁止换目标凑字面」，且最小决策不得改变目标对象', async () => {
+    const capture: { prompt?: string } = {};
+    const { o, plan, step } = makePromptOrchestrator(capture);
+    o.isolation.workspace = mkdtempSync(join(tmpdir(), 'seams-target-'));
+
+    await o.executeSingleStep(step, plan);
+
+    const prompt = capture.prompt ?? '';
+    expect(prompt).toContain('换目标凑字面');
+    expect(prompt).toContain('以步骤描述的目标为准');
+    expect(prompt).toContain('不得改变本步的目标对象');
+  });
+
   // 2026-11-19（真机 `pdca_mwn8sp00`）：`dependsOn` 前驱的**实际产出**必须进入本步提示词。
   // 缺陷现场：step_2 依赖 step_1 的"文件清单"，提示词却不含前驱结果 ⇒ 执行器自述
   // 「步骤1 未随指令给出显式清单」⇒ 另找 `app/packages/office` 凑字面验收（清单写错目录）。

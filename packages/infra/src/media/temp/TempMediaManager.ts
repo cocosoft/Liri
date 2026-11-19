@@ -8,7 +8,7 @@ import os from 'os';
 import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('media\temp\TempMediaManager');
+const logger = getLogger('media:temp:TempMediaManager');
 
 export interface TempFileConfig {
   baseDir: string;

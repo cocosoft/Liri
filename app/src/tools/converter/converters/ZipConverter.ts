@@ -5,7 +5,7 @@ import { AppError } from '@openliri/infra/error';
 import { ErrorCodes } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('tools\converter\converters\ZipConverter');
+const logger = getLogger('tools:converter:converters:ZipConverter');
 
 /**
  * 转换引擎引用（DI 注入，避免循环依赖）

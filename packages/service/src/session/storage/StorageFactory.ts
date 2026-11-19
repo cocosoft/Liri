@@ -14,7 +14,7 @@ import { getLogger } from '@openliri/infra/monitoring';
 //（`Cannot access 'storageRegistry' before initialization`），并让相关测试无法单文件运行。
 import { MemoryUnifiedStorage } from './MemoryUnifiedStorage.js';
 import { FileSystemUnifiedStorage } from './FileSystemUnifiedStorage.js';
-const logger = getLogger('session\storage\StorageFactory');
+const logger = getLogger('session:storage:StorageFactory');
 
 /**
  * 存储实例注册表

@@ -11,7 +11,7 @@ import { resolveDbPath } from '@openliri/infra/environment';
 import { SimpleMutex } from '@openliri/kernel';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('chronos\ChronosDatabase');
+const logger = getLogger('chronos:ChronosDatabase');
 
 /**
  * Chronos数据库存储实现

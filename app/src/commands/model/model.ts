@@ -14,7 +14,7 @@ import {
 import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('commands\model\model');
+const logger = getLogger('commands:model:model');
 
 /**
  * 解析命令参数

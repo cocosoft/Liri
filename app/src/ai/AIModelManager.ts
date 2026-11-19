@@ -24,7 +24,7 @@ import { configManager } from '@openliri/infra/config';
 
 import { getLogger } from '@openliri/infra/monitoring';
 import { MODEL_ALIASES, type ModelAlias } from './models/ModelAliases';
-const logger = getLogger('ai\AIModelManager');
+const logger = getLogger('ai:AIModelManager');
 
 // `MODEL_ALIASES` / `ModelAlias` 统一到真源 `./models/ModelAliases`（硬编码治理「同名常量」B3-3）：
 // 原两处**同集合但顺序不同**（本处 `best,pro,flash,fast` vs 真源 `best,fast,pro,flash`）⇒ 顺序漂移。

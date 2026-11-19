@@ -5,6 +5,10 @@
  * 口径：新增/改动的 `getLogger('…')` 名必须是 `域:子域` 结构；存量 PascalCase 历史名
  * 冻结在基线里（**不阻断、不批量改名** —— `module` 是运维检索维度，改名会改变检索口径）。
  *
+ * 2026-11-19：已把 **写坏的字面量**（反斜杠分隔，102 处；其中 19 处构成 `\b`/`\r`/`\n` 等
+ * 合法转义 ⇒ 运行时 module 名含**控制字符**）机械归一化为 `域:子域`，基线 237 → 133。
+ * 该批**不属于**上面的"历史名免改"豁免面（不是风格差异，是分隔符丢失/控制字符）。
+ *
  * 用法：`bun run lint:logger-name`（CI / pre-commit）；
  *       `bun run ../scripts/lint-logger-name.ts --update`（重生成基线）。
  * 负向自证：`LOGGER_NAME_REPO_ROOT` / `LOGGER_NAME_BASELINE` 可覆盖（供测试注入）。

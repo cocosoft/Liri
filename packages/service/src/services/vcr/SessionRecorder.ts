@@ -6,7 +6,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { configManager } from '@openliri/infra/config';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('services\vcr\SessionRecorder');
+const logger = getLogger('services:vcr:SessionRecorder');
 
 export interface RecordedMessage {
   id: string;

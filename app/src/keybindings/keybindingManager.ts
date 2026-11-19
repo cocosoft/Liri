@@ -8,7 +8,7 @@ import { renderTemplate, KeybindingTemplate } from './template';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('keybindings\keybindingManager');
+const logger = getLogger('keybindings:keybindingManager');
 
 export interface KeybindingAction {
   id: string;

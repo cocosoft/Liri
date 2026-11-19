@@ -7,7 +7,7 @@ import path from 'path';
 import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('plugins\bundled\BundledPluginManager');
+const logger = getLogger('plugins:bundled:BundledPluginManager');
 
 /**
  * 内置插件

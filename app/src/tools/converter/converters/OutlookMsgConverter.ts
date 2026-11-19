@@ -6,7 +6,7 @@ import { ErrorCodes } from '@openliri/infra/error';
 import { htmlToMarkdown } from '../utils/HtmlMarkdownify';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('tools\converter\converters\OutlookMsgConverter');
+const logger = getLogger('tools:converter:converters:OutlookMsgConverter');
 
 let _depError: Error | null = null;
 let _parseMsgBuffer: any = null;

@@ -9,7 +9,7 @@ import type {
 import { PRIORITY_SPECIFIC_FILE_FORMAT } from './types';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('tools\converter\engine\BaseConverter');
+const logger = getLogger('tools:converter:engine:BaseConverter');
 
 export abstract class BaseConverter implements ConverterRegistration {
   abstract readonly name: string;

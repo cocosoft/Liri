@@ -8,7 +8,7 @@ import { OTelTracing } from './OTelTracing.js';
 import { errorMessage } from '@openliri/infra/error';
 
 import { getLogger } from '..';
-const logger = getLogger('monitoring\otel\TraceBridge');
+const logger = getLogger('monitoring:otel:TraceBridge');
 
 export interface TraceEvent {
   name: string;

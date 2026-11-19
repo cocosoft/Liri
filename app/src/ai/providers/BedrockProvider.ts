@@ -21,7 +21,7 @@ import { TransportProviderAdapter } from '../transports/TransportProviderAdapter
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('ai\providers\BedrockProvider');
+const logger = getLogger('ai:providers:BedrockProvider');
 
 export class BedrockProvider extends BaseAIProvider {
   private config: ProviderConfig;

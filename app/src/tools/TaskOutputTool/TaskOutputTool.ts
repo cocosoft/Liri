@@ -22,7 +22,7 @@ import type { BaseTask } from '@modules/tasks';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('tools\TaskOutputTool\TaskOutputTool');
+const logger = getLogger('tools:TaskOutputTool:TaskOutputTool');
 
 /**
  * 任务输出数据类型

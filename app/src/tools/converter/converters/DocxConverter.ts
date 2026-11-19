@@ -5,7 +5,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { ErrorCodes } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('tools\converter\converters\DocxConverter');
+const logger = getLogger('tools:converter:converters:DocxConverter');
 
 let _depError: Error | null = null;
 let _mammoth: any = null;

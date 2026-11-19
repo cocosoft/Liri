@@ -10,7 +10,7 @@ import { logForDebugging } from '@openliri/infra/utils/debug';
 import { errorMessage } from '@openliri/infra/error';
 
 import { getLogger } from '..';
-const logger = getLogger('monitoring\integration\SystemMonitor');
+const logger = getLogger('monitoring:integration:SystemMonitor');
 
 /**
  * 系统信息

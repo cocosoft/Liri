@@ -279,30 +279,6 @@
     "agentHandler": [
       "app/src/cli/handlers/agentHandler.ts"
     ],
-    "agent\\auth-profiles\\index": [
-      "app/src/agent/auth-profiles/index.ts"
-    ],
-    "agent\\remote\\RemoteAgentExecutor": [
-      "app/src/agent/remote/RemoteAgentExecutor.ts"
-    ],
-    "agent\\remote\\RemoteAgentProtocol": [
-      "app/src/agent/remote/RemoteAgentProtocol.ts"
-    ],
-    "ai\\AIModelManager": [
-      "app/src/ai/AIModelManager.ts"
-    ],
-    "ai\\interfaces\\ToolExecutor": [
-      "app/src/ai/interfaces/ToolExecutor.ts"
-    ],
-    "ai\\prompts\\SystemPromptBuilder": [
-      "app/src/ai/prompts/SystemPromptBuilder.ts"
-    ],
-    "ai\\providers\\AzureOpenAIProvider": [
-      "app/src/ai/providers/AzureOpenAIProvider.ts"
-    ],
-    "ai\\providers\\BedrockProvider": [
-      "app/src/ai/providers/BedrockProvider.ts"
-    ],
     "analytics": [
       "packages/infra/src/analytics/AnalyticsService.ts"
     ],
@@ -318,33 +294,6 @@
     "batch-test": [
       "app/src/scripts/batch-test.ts"
     ],
-    "buddy\\conditional": [
-      "packages/buddy/src/buddy/conditional.ts"
-    ],
-    "chat\\services\\SecurityService": [
-      "app/src/chat/services/SecurityService.ts"
-    ],
-    "chat\\services\\StreamService": [
-      "app/src/chat/services/StreamService.ts"
-    ],
-    "chat\\tool\\SmartToolIntegrator": [
-      "app/src/chat/tool/SmartToolIntegrator.ts"
-    ],
-    "chronos\\ChronosDatabase": [
-      "packages/infra/src/chronos/ChronosDatabase.ts"
-    ],
-    "chronos\\heartbeat\\HeartbeatMonitor": [
-      "packages/infra/src/chronos/heartbeat/HeartbeatMonitor.ts"
-    ],
-    "chronos\\isolated-agent\\IsolatedAgentExecutor": [
-      "packages/infra/src/chronos/isolated-agent/IsolatedAgentExecutor.ts"
-    ],
-    "chronos\\service\\CronTaskStore": [
-      "packages/infra/src/chronos/service/CronTaskStore.ts"
-    ],
-    "chronos\\service\\TaskJitterService": [
-      "packages/infra/src/chronos/service/TaskJitterService.ts"
-    ],
     "cli-interactive": [
       "app/src/cli/interactive.ts"
     ],
@@ -354,38 +303,8 @@
     "cliHandler": [
       "app/src/cli/handlers/cliHandler.ts"
     ],
-    "cli\\argv\\index": [
-      "app/src/cli/argv/index.ts"
-    ],
-    "cli\\index": [
-      "app/src/cli/index.ts"
-    ],
-    "cli\\ports\\index": [
-      "app/src/cli/ports/index.ts"
-    ],
-    "cli\\program\\index": [
-      "app/src/cli/program/index.ts"
-    ],
-    "commands\\builtin\\memory\\Memory": [
-      "app/src/commands/builtin/memory/Memory.ts"
-    ],
-    "commands\\builtin\\theme\\themeManager": [
-      "app/src/commands/builtin/theme/themeManager.ts"
-    ],
-    "commands\\model\\model": [
-      "app/src/commands/model/model.ts"
-    ],
-    "commands\\pipeline\\CommandPipeline": [
-      "app/src/commands/pipeline/CommandPipeline.ts"
-    ],
     "configHandler": [
       "app/src/cli/handlers/configHandler.ts"
-    ],
-    "constants\\oauth": [
-      "packages/infra/src/constants/oauth.ts"
-    ],
-    "core\\di\\AutoWiringEngine": [
-      "packages/kernel/src/core/di/AutoWiringEngine.ts"
     ],
     "debug": [
       "packages/infra/src/utils/debug.ts"
@@ -400,9 +319,6 @@
     "exitHandler": [
       "app/src/cli/exitHandler.ts"
     ],
-    "governance\\managers\\GovernanceManager": [
-      "packages/governance/src/governance/managers/GovernanceManager.ts"
-    ],
     "gracefulShutdown": [
       "packages/infra/src/utils/gracefulShutdown.ts"
     ],
@@ -412,26 +328,11 @@
     "hooksSettings": [
       "app/src/hooks/utils/hooksSettings.ts"
     ],
-    "hooks\\managers\\HookConfigManager": [
-      "app/src/hooks/managers/HookConfigManager.ts"
-    ],
-    "ink\\ink\\focus": [
-      "app/src/ink/ink/focus.ts"
-    ],
     "keybindings:chordInterceptor.tsx": [
       "app/src/keybindings/ChordInterceptor.tsx"
     ],
     "keybindings:keybindingProviderSetup.tsx": [
       "app/src/keybindings/KeybindingProviderSetup.tsx"
-    ],
-    "keybindings\\keybindingManager": [
-      "app/src/keybindings/keybindingManager.ts"
-    ],
-    "lsp\\EnhancedLSPManager": [
-      "app/src/lsp/EnhancedLSPManager.ts"
-    ],
-    "lsp\\LSPServerManager": [
-      "app/src/lsp/LSPServerManager.ts"
     ],
     "main": [
       "app/src/bootstrap/buildVariantBanner.ts",
@@ -443,51 +344,6 @@
     "mcpHandler": [
       "app/src/cli/handlers/mcpHandler.ts"
     ],
-    "media\\store\\MediaStore": [
-      "packages/infra/src/media/store/MediaStore.ts"
-    ],
-    "media\\temp\\TempMediaManager": [
-      "packages/infra/src/media/temp/TempMediaManager.ts"
-    ],
-    "modules\\ModuleDefinitions": [
-      "app/src/modules/ModuleDefinitions.ts"
-    ],
-    "monitoring\\alerts\\AlertManager": [
-      "packages/infra/src/monitoring/alerts/AlertManager.ts"
-    ],
-    "monitoring\\integration\\SystemMonitor": [
-      "packages/infra/src/monitoring/integration/SystemMonitor.ts"
-    ],
-    "monitoring\\logs\\diagnostic\\LogDiagnostic": [
-      "packages/infra/src/monitoring/logs/diagnostic/LogDiagnostic.ts"
-    ],
-    "monitoring\\logs\\tail\\LogTail": [
-      "packages/infra/src/monitoring/logs/tail/LogTail.ts"
-    ],
-    "monitoring\\otel\\MetricsBridge": [
-      "packages/infra/src/monitoring/otel/MetricsBridge.ts"
-    ],
-    "monitoring\\otel\\OTelLogger": [
-      "packages/infra/src/monitoring/otel/OTelLogger.ts"
-    ],
-    "monitoring\\otel\\OTelMetrics": [
-      "packages/infra/src/monitoring/otel/OTelMetrics.ts"
-    ],
-    "monitoring\\otel\\OTelTracing": [
-      "packages/infra/src/monitoring/otel/OTelTracing.ts"
-    ],
-    "monitoring\\otel\\TraceBridge": [
-      "packages/infra/src/monitoring/otel/TraceBridge.ts"
-    ],
-    "monitoring\\tracing\\SessionTracing": [
-      "packages/infra/src/monitoring/tracing/SessionTracing.ts"
-    ],
-    "oauth\\services\\OAuthService": [
-      "packages/infra/src/oauth/services/OAuthService.ts"
-    ],
-    "oauth\\types\\OAuthTypes": [
-      "packages/infra/src/oauth/types/OAuthTypes.ts"
-    ],
     "permissionsLoader": [
       "packages/infra/src/permission/permissionsLoader.ts"
     ],
@@ -497,23 +353,11 @@
     "pluginHandler": [
       "app/src/cli/handlers/pluginHandler.ts"
     ],
-    "plugins\\bundled\\BundledPluginManager": [
-      "app/src/plugins/bundled/BundledPluginManager.ts"
-    ],
-    "plugins\\managers\\PluginManager": [
-      "app/src/plugins/managers/PluginManager.ts"
-    ],
     "provider": [
       "app/src/commands/provider/provider.ts"
     ],
     "pyapp": [
       "app/src/pyapp.ts"
-    ],
-    "query\\deps": [
-      "packages/query/src/query/deps.ts"
-    ],
-    "remote\\RemoteFileSyncService": [
-      "app/src/remote/RemoteFileSyncService.ts"
     ],
     "repl": [
       "app/src/entrypoints/repl.ts"
@@ -524,167 +368,23 @@
     "safeLog": [
       "packages/infra/src/error/safeLog.ts"
     ],
-    "sandbox\\WorkspaceManager": [
-      "packages/sandbox/src/sandbox/WorkspaceManager.ts"
-    ],
     "security-scan": [
       "app/src/scripts/security-scan.ts"
-    ],
-    "security\\GroupPolicy": [
-      "packages/infra/src/security/GroupPolicy.ts"
-    ],
-    "security\\services\\CredentialManager": [
-      "packages/infra/src/security/services/CredentialManager.ts"
-    ],
-    "security\\services\\SensitiveDataService": [
-      "packages/infra/src/security/services/SensitiveDataService.ts"
-    ],
-    "services\\api\\errors": [
-      "packages/service/src/services/api/errors.ts"
-    ],
-    "services\\mcp\\TransportFactory": [
-      "packages/service/src/services/mcp/TransportFactory.ts"
-    ],
-    "services\\mcp\\transports\\HTTPTransport": [
-      "packages/service/src/services/mcp/transports/HTTPTransport.ts"
-    ],
-    "services\\mcp\\transports\\InProcessTransport": [
-      "packages/service/src/services/mcp/transports/InProcessTransport.ts"
-    ],
-    "services\\mcp\\transports\\MCPTransport": [
-      "packages/service/src/services/mcp/transports/MCPTransport.ts"
-    ],
-    "services\\vcr\\SessionPlayer": [
-      "packages/service/src/services/vcr/SessionPlayer.ts"
-    ],
-    "services\\vcr\\SessionRecorder": [
-      "packages/service/src/services/vcr/SessionRecorder.ts"
     ],
     "sessionHandler": [
       "app/src/cli/handlers/sessionHandler.ts"
     ],
-    "session\\maintenance\\SessionMaintenance": [
-      "packages/service/src/session/maintenance/SessionMaintenance.ts"
-    ],
-    "session\\persistence\\SessionPersistenceManager": [
-      "packages/service/src/session/persistence/SessionPersistenceManager.ts"
-    ],
-    "session\\storage\\StorageFactory": [
-      "packages/service/src/session/storage/StorageFactory.ts"
-    ],
     "skills": [
       "packages/skills/src/skills/cli/skills.ts"
-    ],
-    "subagent\\SubAgentFactory": [
-      "packages/subagent/src/subagent/SubAgentFactory.ts"
-    ],
-    "subagent\\SubAgentManager": [
-      "packages/subagent/src/subagent/SubAgentManager.ts"
-    ],
-    "subagent\\backends\\TeammateBackend": [
-      "packages/subagent/src/subagent/backends/TeammateBackend.ts"
     ],
     "test-performance": [
       "packages/infra/src/performance/test-performance.ts"
     ],
-    "testing\\integration\\IntegrationTestRunner": [
-      "app/src/testing/integration/IntegrationTestRunner.ts"
-    ],
     "tools:sidecar.jobs": [
       "app/src/tools/sidecar/sidecarJobs.ts"
     ],
-    "tools\\ChronosTool\\CronDeleteTool": [
-      "app/src/tools/ChronosTool/CronDeleteTool.ts"
-    ],
-    "tools\\ClipboardTool\\ClipboardTool": [
-      "app/src/tools/ClipboardTool/ClipboardTool.ts"
-    ],
-    "tools\\GrepTool\\schemas": [
-      "app/src/tools/GrepTool/schemas.ts"
-    ],
-    "tools\\PlanTool\\PlanTool": [
-      "app/src/tools/PlanTool/PlanTool.ts"
-    ],
-    "tools\\TaskOutputTool\\TaskOutputTool": [
-      "app/src/tools/TaskOutputTool/TaskOutputTool.ts"
-    ],
-    "tools\\TaskOutputTool\\schemas": [
-      "app/src/tools/TaskOutputTool/schemas.ts"
-    ],
-    "tools\\Toolkit": [
-      "app/src/tools/Toolkit.ts"
-    ],
-    "tools\\WebSearchTool\\providers": [
-      "app/src/tools/WebSearchTool/providers.ts"
-    ],
-    "tools\\bash\\bashOutputTruncate": [
-      "app/src/tools/bash/bashOutputTruncate.ts"
-    ],
-    "tools\\converter\\converters\\AudioConverter": [
-      "app/src/tools/converter/converters/AudioConverter.ts"
-    ],
-    "tools\\converter\\converters\\DocxConverter": [
-      "app/src/tools/converter/converters/DocxConverter.ts"
-    ],
-    "tools\\converter\\converters\\IpynbConverter": [
-      "app/src/tools/converter/converters/IpynbConverter.ts"
-    ],
-    "tools\\converter\\converters\\OutlookMsgConverter": [
-      "app/src/tools/converter/converters/OutlookMsgConverter.ts"
-    ],
-    "tools\\converter\\converters\\PptxConverter": [
-      "app/src/tools/converter/converters/PptxConverter.ts"
-    ],
-    "tools\\converter\\converters\\RssConverter": [
-      "app/src/tools/converter/converters/RssConverter.ts"
-    ],
-    "tools\\converter\\converters\\XlsConverter": [
-      "app/src/tools/converter/converters/XlsConverter.ts"
-    ],
-    "tools\\converter\\converters\\XlsxConverter": [
-      "app/src/tools/converter/converters/XlsxConverter.ts"
-    ],
-    "tools\\converter\\converters\\ZipConverter": [
-      "app/src/tools/converter/converters/ZipConverter.ts"
-    ],
-    "tools\\converter\\engine\\BaseConverter": [
-      "app/src/tools/converter/engine/BaseConverter.ts"
-    ],
-    "tools\\environments\\ExecutionEnvironment": [
-      "app/src/tools/environments/ExecutionEnvironment.ts"
-    ],
-    "tools\\environments\\PersistentTerminalVm": [
-      "app/src/tools/environments/PersistentTerminalVm.ts"
-    ],
-    "tools\\executor\\ExtendedToolExecutor": [
-      "app/src/tools/executor/ExtendedToolExecutor.ts"
-    ],
-    "tools\\lsp\\LSPServer": [
-      "app/src/tools/lsp/LSPServer.ts"
-    ],
-    "tools\\lsp\\LSPToolImpl": [
-      "app/src/tools/lsp/LSPToolImpl.ts"
-    ],
-    "tools\\lsp\\LSPToolIntegration": [
-      "app/src/tools/lsp/LSPToolIntegration.ts"
-    ],
-    "tools\\notebook\\NotebookToolImpl": [
-      "app/src/tools/notebook/NotebookToolImpl.ts"
-    ],
-    "tools\\repl\\REPLToolImpl": [
-      "app/src/tools/repl/REPLToolImpl.ts"
-    ],
-    "tools\\services\\InterruptibleToolExecutor": [
-      "app/src/tools/services/InterruptibleToolExecutor.ts"
-    ],
-    "tools\\services\\ToolOrchestration": [
-      "app/src/tools/services/ToolOrchestration.ts"
-    ],
     "trace-recording": [
       "app/src/bootstrap/AppCoreOTelHelper.ts"
-    ],
-    "trace-recording\\export\\ExportService": [
-      "packages/infra/src/trace-recording/export/ExportService.ts"
     ],
     "update": [
       "app/src/cli/update.ts"
@@ -703,18 +403,6 @@
     ],
     "utilHandler": [
       "app/src/cli/handlers/utilHandler.ts"
-    ],
-    "utils\\aws": [
-      "packages/infra/src/utils/aws.ts"
-    ],
-    "utils\\computerUse\\NoopAdapter": [
-      "packages/infra/src/utils/computerUse/NoopAdapter.ts"
-    ],
-    "utils\\imageValidation": [
-      "packages/infra/src/utils/imageValidation.ts"
-    ],
-    "utils\\sanitization": [
-      "packages/infra/src/utils/sanitization.ts"
     ],
     "x": [
       "packages/kernel/src/core/loggerFacade.ts",

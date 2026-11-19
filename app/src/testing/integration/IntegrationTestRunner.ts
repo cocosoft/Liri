@@ -1,7 +1,7 @@
 ﻿import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('testing\integration\IntegrationTestRunner');
+const logger = getLogger('testing:integration:IntegrationTestRunner');
 /**
  * IntegrationTestRunner 集成测试运行器
  * 对标 CC 的集成测试框架

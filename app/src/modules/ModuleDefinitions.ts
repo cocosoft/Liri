@@ -13,7 +13,7 @@ import { ErrorCodes } from '@openliri/infra/error';
 import { ModuleCategory, type ModuleDefinition } from './moduleTypes';
 
 import { getLogger } from '@openliri/kernel/loggerFacade.js';
-const logger = getLogger('modules\ModuleDefinitions');
+const logger = getLogger('modules:ModuleDefinitions');
 
 /**
  * 所有模块的定义

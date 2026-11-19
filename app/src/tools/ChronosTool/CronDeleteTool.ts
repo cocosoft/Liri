@@ -9,7 +9,7 @@ import { CronDeleteOutputSchema, CronDeleteOutputJsonSchema } from './schemas';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('tools\ChronosTool\CronDeleteTool');
+const logger = getLogger('tools:ChronosTool:CronDeleteTool');
 
 export class CronDeleteTool {
   static create(): Tool {

@@ -8,7 +8,7 @@ import { ModuleError } from '@openliri/infra/error';
 import { sessionToolQuota } from '@modules/tools';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('ai\interfaces\ToolExecutor');
+const logger = getLogger('ai:interfaces:ToolExecutor');
 
 /**
  * 工具执行器接口

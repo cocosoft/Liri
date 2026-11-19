@@ -15,7 +15,7 @@ import { RemoteAgentProtocol, ProtocolType } from './types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('agent\remote\RemoteAgentExecutor');
+const logger = getLogger('agent:remote:RemoteAgentExecutor');
 
 export class RemoteAgentExecutorImpl implements RemoteAgentExecutor {
   private protocol: RemoteAgentProtocol;

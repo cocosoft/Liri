@@ -7,7 +7,7 @@ import { SensitiveErrorType, SensitiveError } from '@openliri/infra/security';
 import { SecurityError } from '@openliri/infra/error/types';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('chat\services\SecurityService');
+const logger = getLogger('chat:services:SecurityService');
 
 export const SecurityErrorType = SensitiveErrorType;
 export type SecurityErrorAlias = SecurityError;

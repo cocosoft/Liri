@@ -16,7 +16,7 @@ import { SubAgentFactory } from './SubAgentFactory';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('subagent\SubAgentManager');
+const logger = getLogger('subagent:SubAgentManager');
 
 /**
  * 子agent管理器

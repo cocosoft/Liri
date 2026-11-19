@@ -12,7 +12,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { McpTlsManager, type McpTlsConfig } from './McpTlsManager';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('services\mcp\transports\MCPTransport');
+const logger = getLogger('services:mcp:transports:MCPTransport');
 
 /**
  * MCP传输层基础类

@@ -20,7 +20,7 @@ import {
 } from './SpanCoverageRegistry';
 
 import { getLogger } from '..';
-const logger = getLogger('monitoring\tracing\SessionTracing');
+const logger = getLogger('monitoring:tracing:SessionTracing');
 
 /**
  * Span类型

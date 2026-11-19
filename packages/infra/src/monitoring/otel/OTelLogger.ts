@@ -10,7 +10,7 @@ import { errorMessage } from '@openliri/infra/error';
 import { configManager } from '@openliri/infra/config';
 
 import { getLogger } from '..';
-const logger = getLogger('monitoring\otel\OTelLogger');
+const logger = getLogger('monitoring:otel:OTelLogger');
 
 /**
  * OpenTelemetry诊断日志记录器

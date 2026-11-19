@@ -1,7 +1,7 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('chat\tool\SmartToolIntegrator');
+const logger = getLogger('chat:tool:SmartToolIntegrator');
 
 //
 export interface SmartTool {

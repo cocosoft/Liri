@@ -59,7 +59,7 @@ import { UpdateHandler } from './update';
 import * as print from './print';
 import type { CommandImplementation, CommandContext } from '@modules/commands';
 
-const logger = getLogger('cli\index');
+const logger = getLogger('cli:index');
 
 // 阻塞源收敛（2026-10-04）：exec 命令改用异步 exec，避免同步阻塞事件循环
 const execAsync = promisify(nodeExec);

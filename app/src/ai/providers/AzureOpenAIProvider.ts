@@ -31,7 +31,7 @@ import {
   collectPendingToolCalls,
   type PendingToolCall,
 } from './streamToolCalls';
-const logger = getLogger('ai\providers\AzureOpenAIProvider');
+const logger = getLogger('ai:providers:AzureOpenAIProvider');
 
 /** 流式 SSE 解析的累积状态 */
 type AzureStreamState = {

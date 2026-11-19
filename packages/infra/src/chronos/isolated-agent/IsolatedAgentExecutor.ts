@@ -9,7 +9,7 @@ import os from 'os';
 import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('chronos\isolated-agent\IsolatedAgentExecutor');
+const logger = getLogger('chronos:isolated-agent:IsolatedAgentExecutor');
 
 /**
  * 执行配置

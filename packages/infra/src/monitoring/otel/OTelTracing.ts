@@ -13,7 +13,7 @@ import {
 
 import { getLogger } from '../logs/Logger';
 import { APP_VERSION } from '@openliri/infra/constants';
-const logger = getLogger('monitoring\otel\OTelTracing');
+const logger = getLogger('monitoring:otel:OTelTracing');
 
 /**
  * 追踪配置

@@ -10,7 +10,7 @@
 
 import { getLogger } from '@openliri/infra/monitoring';
 
-const logger = getLogger('tools\bash\bashOutputTruncate');
+const logger = getLogger('tools:bash:bashOutputTruncate');
 
 /**
  * K-5 P1 软截断阈值（**200KB**）。超过此阈值后返回前缀 + 标注，避免超大输出打爆上下文/内存。

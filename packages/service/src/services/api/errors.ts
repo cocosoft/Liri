@@ -10,7 +10,7 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('services\api\errors');
+const logger = getLogger('services:api:errors');
 
 /**
  * API 错误类

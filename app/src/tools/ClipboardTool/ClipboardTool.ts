@@ -14,7 +14,7 @@ import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import type { ClipboardOutput } from '../types/ToolOutputs';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('tools\ClipboardTool\ClipboardTool');
+const logger = getLogger('tools:ClipboardTool:ClipboardTool');
 
 /**
  * 剪贴板操作参数

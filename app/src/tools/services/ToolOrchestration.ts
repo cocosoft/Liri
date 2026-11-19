@@ -9,7 +9,7 @@ import { createToolResult } from '../types/ToolResult';
 import { ModuleError } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('tools\services\ToolOrchestration');
+const logger = getLogger('tools:services:ToolOrchestration');
 
 export interface ToolOrchestrationConfig {
   maxConcurrency: number;

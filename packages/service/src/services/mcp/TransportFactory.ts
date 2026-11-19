@@ -13,7 +13,7 @@ import type { MCPServerConfig } from './types';
 import type { McpTlsConfig } from './transports/McpTlsManager';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('services\mcp\TransportFactory');
+const logger = getLogger('services:mcp:TransportFactory');
 
 /**
  * 传输层配置

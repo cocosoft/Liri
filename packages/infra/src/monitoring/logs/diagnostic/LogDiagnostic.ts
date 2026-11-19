@@ -6,7 +6,7 @@ import fs from 'fs';
 import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '../..';
-const logger = getLogger('monitoring\logs\diagnostic\LogDiagnostic');
+const logger = getLogger('monitoring:logs:diagnostic:LogDiagnostic');
 
 /**
  * 诊断配置

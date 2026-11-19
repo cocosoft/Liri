@@ -7,7 +7,7 @@ import { ServerStatus } from './types/index.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('tools\lsp\LSPServer');
+const logger = getLogger('tools:lsp:LSPServer');
 
 /**
  * LSP服务器配置

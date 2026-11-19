@@ -7,7 +7,7 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '../errors.js';
 
 import { getLogger } from '../loggerFacade.js';
-const logger = getLogger('core\di\AutoWiringEngine');
+const logger = getLogger('core:di:AutoWiringEngine');
 
 /**
  * 容器最小接口，供 AutoWiringEngine 安全使用

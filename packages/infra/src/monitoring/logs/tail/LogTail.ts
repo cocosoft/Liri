@@ -7,7 +7,7 @@ import { EventEmitter } from 'events';
 import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '../..';
-const logger = getLogger('monitoring\logs\tail\LogTail');
+const logger = getLogger('monitoring:logs:tail:LogTail');
 
 /**
  * 追踪选项

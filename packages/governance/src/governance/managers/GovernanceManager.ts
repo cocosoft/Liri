@@ -39,7 +39,7 @@ import {
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('governance\managers\GovernanceManager');
+const logger = getLogger('governance:managers:GovernanceManager');
 
 /**
  * 治理闭环管理器

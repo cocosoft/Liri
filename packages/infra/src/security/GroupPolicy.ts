@@ -9,7 +9,7 @@ import { ErrorCodes } from '@openliri/infra/error';
 import { EventEmitter } from 'events';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('security\GroupPolicy');
+const logger = getLogger('security:GroupPolicy');
 
 /**
  * 策略效果

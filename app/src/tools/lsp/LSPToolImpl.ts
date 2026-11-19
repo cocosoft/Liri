@@ -14,7 +14,7 @@ import { LSPClient } from './LSPClient';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('tools\lsp\LSPToolImpl');
+const logger = getLogger('tools:lsp:LSPToolImpl');
 
 /**
  * LSP工具实现

@@ -10,7 +10,7 @@ import { errorMessage } from '@openliri/infra/error';
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 
 import { getLogger } from '..';
-const logger = getLogger('monitoring\alerts\AlertManager');
+const logger = getLogger('monitoring:alerts:AlertManager');
 
 /**
  * 告警级别

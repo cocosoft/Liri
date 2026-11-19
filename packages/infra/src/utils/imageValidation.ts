@@ -21,7 +21,7 @@ import {
 } from '@openliri/kernel/errors';
 
 import { getLogger } from '@openliri/kernel/loggerFacade';
-const logger = getLogger('utils\imageValidation');
+const logger = getLogger('utils:imageValidation');
 
 /**
  * 图片大小超限错误

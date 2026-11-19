@@ -2,7 +2,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('tools\environments\PersistentTerminalVm');
+const logger = getLogger('tools:environments:PersistentTerminalVm');
 
 export interface PersistentTerminalSession {
   readonly sessionId: string;

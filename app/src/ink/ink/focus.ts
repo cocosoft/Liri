@@ -4,7 +4,7 @@ import type { DOMElement } from './dom-types.js';
 import { FocusEvent } from './events/focus-event.js';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('ink\ink\focus');
+const logger = getLogger('ink:ink:focus');
 
 const MAX_FOCUS_STACK = 32;
 

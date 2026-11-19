@@ -7,7 +7,7 @@ import { redactSecretsFully } from '../scanner/secret/index.js';
 // U-20/B5-2-81：邮箱正则复用 redact 侧唯一事实源（同模块内，避免两处同值正则分叉）
 import { EMAIL_PATTERN } from '../redact/RedactPatterns.js';
 
-const logger = getLogger('security\services\SensitiveDataService');
+const logger = getLogger('security:services:SensitiveDataService');
 
 /** 协议头标记（`Copyright …` / `©`）—— 命中的**整行**跳过邮箱打码 */
 const COPYRIGHT_LINE_PATTERN = /copyright|©/i;

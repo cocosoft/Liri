@@ -6,7 +6,7 @@ import { ErrorCodes } from '@openliri/infra/error';
 import { htmlToMarkdown } from '../utils/HtmlMarkdownify';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('tools\converter\converters\RssConverter');
+const logger = getLogger('tools:converter:converters:RssConverter');
 
 let _depError: Error | null = null;
 let _XMLParser: any = null;

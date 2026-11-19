@@ -13,7 +13,7 @@ import {
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('hooks\managers\HookConfigManager');
+const logger = getLogger('hooks:managers:HookConfigManager');
 
 /**
  * Hook配置管理器

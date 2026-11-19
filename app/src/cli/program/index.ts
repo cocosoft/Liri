@@ -27,7 +27,7 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('cli\program\index');
+const logger = getLogger('cli:program:index');
 
 export interface CommandDefinition {
   name: string;

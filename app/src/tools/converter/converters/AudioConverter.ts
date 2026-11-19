@@ -5,7 +5,7 @@ import { AppError } from '@openliri/infra/error';
 import { ErrorCodes } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('tools\converter\converters\AudioConverter');
+const logger = getLogger('tools:converter:converters:AudioConverter');
 
 let _depError: Error | null = null;
 let _ffprobe: any = null;

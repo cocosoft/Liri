@@ -12,7 +12,7 @@ import {
 } from '@openliri/kernel';
 
 import { getLogger } from '@openliri/kernel/loggerFacade';
-const logger = getLogger('constants\oauth');
+const logger = getLogger('constants:oauth');
 
 /**
  * OAuth 配置常量

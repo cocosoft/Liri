@@ -17,7 +17,7 @@ import { describeUnusableSpawnCwd } from '@openliri/infra/utils/cwd';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('tools\repl\REPLToolImpl');
+const logger = getLogger('tools:repl:REPLToolImpl');
 
 /**
  * REPL工具实现

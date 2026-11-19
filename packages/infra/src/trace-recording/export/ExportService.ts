@@ -14,7 +14,7 @@ import type { TraceRecord, ExportFormat } from '../types';
 import { ViewerService } from '../viewer/ViewerService';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('trace-recording\export\ExportService');
+const logger = getLogger('trace-recording:export:ExportService');
 
 /**
  * 导出服务

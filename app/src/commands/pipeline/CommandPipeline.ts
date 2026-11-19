@@ -1,7 +1,7 @@
 ﻿import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('commands\pipeline\CommandPipeline');
+const logger = getLogger('commands:pipeline:CommandPipeline');
 
 export enum PipelineStage {
   PRE_VALIDATE = 'pre_validate',

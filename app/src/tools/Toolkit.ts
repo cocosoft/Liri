@@ -9,7 +9,7 @@ import { ToolGroup } from './ToolGroup';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('tools\Toolkit');
+const logger = getLogger('tools:Toolkit');
 
 const TOOLKIT_MODULE = 'Toolkit';
 

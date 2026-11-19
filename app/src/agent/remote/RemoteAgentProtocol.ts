@@ -13,7 +13,7 @@ import {
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('agent\remote\RemoteAgentProtocol');
+const logger = getLogger('agent:remote:RemoteAgentProtocol');
 
 const DEFAULT_OPTIONS: ProtocolOptions = {
   timeout: 30000,

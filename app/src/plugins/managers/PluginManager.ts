@@ -8,7 +8,7 @@ import type { LoadedPlugin } from '../types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('plugins\managers\PluginManager');
+const logger = getLogger('plugins:managers:PluginManager');
 
 /**
  * 插件系统单例引用（DI 方式注入，避免循环依赖）

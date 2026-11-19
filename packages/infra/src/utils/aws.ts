@@ -16,7 +16,7 @@ import {
 } from '@openliri/kernel/errors';
 
 import { getLogger } from '@openliri/kernel/loggerFacade';
-const logger = getLogger('utils\aws');
+const logger = getLogger('utils:aws');
 
 const execAsync = promisify(exec);
 

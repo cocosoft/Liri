@@ -26,7 +26,7 @@ import { getPlatform, getWslVersion } from '@openliri/infra/utils/platform';
 
 import { getLogger } from '..';
 import { APP_VERSION } from '@openliri/infra/constants';
-const logger = getLogger('monitoring\otel\OTelMetrics');
+const logger = getLogger('monitoring:otel:OTelMetrics');
 
 /**
  * 指标配置

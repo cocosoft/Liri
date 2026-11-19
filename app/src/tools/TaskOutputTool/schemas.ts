@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('tools\TaskOutputTool\schemas');
+const logger = getLogger('tools:TaskOutputTool:schemas');
 
 /**
  * TaskOutputTool 输入模式

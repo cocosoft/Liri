@@ -43,7 +43,7 @@ export interface OAuthAuthResult {
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('oauth\types\OAuthTypes');
+const logger = getLogger('oauth:types:OAuthTypes');
 
 /**
  * OAuth 错误类型

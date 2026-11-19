@@ -1,7 +1,7 @@
 ﻿import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('commands\builtin\theme\themeManager');
+const logger = getLogger('commands:builtin:theme:themeManager');
 
 /**
  * /theme 命令 - 主题管理

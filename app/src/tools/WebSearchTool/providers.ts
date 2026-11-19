@@ -14,7 +14,7 @@ import {
   DUCKDUCKGO_HTML_SEARCH_BASE_URL,
   GOOGLE_SEARCH_BASE_URL,
 } from '../searchSites.js';
-const logger = getLogger('tools\WebSearchTool\providers');
+const logger = getLogger('tools:WebSearchTool:providers');
 
 export type SearchProvider =
   | 'bing'

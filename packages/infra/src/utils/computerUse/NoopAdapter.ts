@@ -23,7 +23,7 @@ import {
 } from '@openliri/kernel/errors';
 
 import { getLogger } from '@openliri/kernel/loggerFacade';
-const logger = getLogger('utils\computerUse\NoopAdapter');
+const logger = getLogger('utils:computerUse:NoopAdapter');
 
 const NOOP_CAPABILITIES: ComputerUseCapabilities = {
   screenshot: false,

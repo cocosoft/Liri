@@ -1,7 +1,7 @@
 import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('chronos\heartbeat\HeartbeatMonitor');
+const logger = getLogger('chronos:heartbeat:HeartbeatMonitor');
 /**
  * HeartbeatMonitor 心跳监控
  * 对标 OpenClaw 的心跳策略

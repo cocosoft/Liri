@@ -11,7 +11,7 @@ import { handleError } from '@openliri/infra/error';
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('security\services\CredentialManager');
+const logger = getLogger('security:services:CredentialManager');
 
 /**
  * 凭据类型

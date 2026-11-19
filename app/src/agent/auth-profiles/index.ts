@@ -29,7 +29,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('agent\auth-profiles\index');
+const logger = getLogger('agent:auth-profiles:index');
 
 export type AuthProviderType =
   | 'openai'

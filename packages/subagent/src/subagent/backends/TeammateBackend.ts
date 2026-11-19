@@ -11,7 +11,7 @@ import type {
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('subagent\backends\TeammateBackend');
+const logger = getLogger('subagent:backends:TeammateBackend');
 
 export interface TeammateConfig {
   name: string;

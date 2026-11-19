@@ -6,7 +6,7 @@ import { ErrorCodes } from '@openliri/infra/error';
 import { JupyterNotebookConverter } from '../../notebook/JupyterNotebookConverter.js';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('tools\converter\converters\IpynbConverter');
+const logger = getLogger('tools:converter:converters:IpynbConverter');
 
 export class IpynbConverter extends BaseConverter {
   override readonly name = 'ipynb';

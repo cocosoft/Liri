@@ -18,7 +18,7 @@ import { ITermSubAgent } from './types/ITermSubAgent';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('subagent\SubAgentFactory');
+const logger = getLogger('subagent:SubAgentFactory');
 
 /**
  * 子agent工厂

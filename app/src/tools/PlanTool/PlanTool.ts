@@ -28,7 +28,7 @@ import {
 import { getRequestPrincipal } from '@openliri/kernel/identity/requestScope.js';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('tools\PlanTool\PlanTool');
+const logger = getLogger('tools:PlanTool:PlanTool');
 
 /**
  * 计划工具输入类型

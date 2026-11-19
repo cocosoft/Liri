@@ -9,7 +9,7 @@ import { toolResultBudgetManager } from './ToolResultBudget';
 import { ModuleError } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('tools\services\InterruptibleToolExecutor');
+const logger = getLogger('tools:services:InterruptibleToolExecutor');
 
 export interface InterruptibleExecutorConfig {
   toolRegistry: Map<string, Tool>;

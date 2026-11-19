@@ -8,7 +8,7 @@ import { resolveMediaDir } from '@openliri/infra/environment';
 import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('media\store\MediaStore');
+const logger = getLogger('media:store:MediaStore');
 
 /**
  * 存储配置

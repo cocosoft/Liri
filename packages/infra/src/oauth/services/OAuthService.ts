@@ -20,7 +20,7 @@ import type {
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('oauth\services\OAuthService');
+const logger = getLogger('oauth:services:OAuthService');
 
 export class OAuthService {
   private tokenManager: TokenManager;

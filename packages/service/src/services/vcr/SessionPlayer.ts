@@ -5,7 +5,7 @@ import type { RecordedSession, RecordedMessage } from './SessionRecorder';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('services\vcr\SessionPlayer');
+const logger = getLogger('services:vcr:SessionPlayer');
 
 export type ReactionOptions = {
   speedMultiplier?: number;

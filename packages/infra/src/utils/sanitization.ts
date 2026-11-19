@@ -5,7 +5,7 @@
 } from '@openliri/kernel/errors';
 
 import { getLogger } from '@openliri/kernel/loggerFacade';
-const logger = getLogger('utils\sanitization');
+const logger = getLogger('utils:sanitization');
 
 /**
  * Unicode Sanitization for Hidden Character Attack Mitigation

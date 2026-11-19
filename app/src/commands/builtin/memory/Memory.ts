@@ -13,7 +13,7 @@ import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
 import { DEFAULT_LOCALE } from '@openliri/infra/constants';
-const logger = getLogger('commands\builtin\memory\Memory');
+const logger = getLogger('commands:builtin:memory:Memory');
 
 /**
  * 获取记忆文件目录

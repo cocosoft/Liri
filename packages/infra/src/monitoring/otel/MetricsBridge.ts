@@ -8,7 +8,7 @@ import { OTelMetrics } from './OTelMetrics.js';
 import { errorMessage } from '@openliri/infra/error';
 
 import { getLogger } from '..';
-const logger = getLogger('monitoring\otel\MetricsBridge');
+const logger = getLogger('monitoring:otel:MetricsBridge');
 
 export interface MetricsBridgeConfig {
   syncIntervalMs: number;

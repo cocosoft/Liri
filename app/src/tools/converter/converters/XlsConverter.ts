@@ -5,7 +5,7 @@ import { AppError } from '@openliri/infra/error';
 import { ErrorCodes } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('tools\converter\converters\XlsConverter');
+const logger = getLogger('tools:converter:converters:XlsConverter');
 
 let _depError: Error | null = null;
 let _xlsx: any = null;

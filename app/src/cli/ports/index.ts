@@ -29,7 +29,7 @@ import { LOCAL_HTTP_HOST } from '@openliri/kernel';
 import * as net from 'net';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('cli\ports\index');
+const logger = getLogger('cli:ports:index');
 
 export interface PortInfo {
   port: number;

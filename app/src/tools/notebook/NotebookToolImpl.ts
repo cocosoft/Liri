@@ -22,7 +22,7 @@ import { replSessionManager } from '../repl/REPLSessionManager';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('tools\notebook\NotebookToolImpl');
+const logger = getLogger('tools:notebook:NotebookToolImpl');
 
 /**
  * Notebook工具实现

@@ -1,7 +1,7 @@
 ﻿import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('buddy\conditional');
+const logger = getLogger('buddy:conditional');
 
 /**
  * Buddy条件编译支持

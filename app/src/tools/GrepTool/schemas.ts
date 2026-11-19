@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('tools\GrepTool\schemas');
+const logger = getLogger('tools:GrepTool:schemas');
 
 /**
  * GrepTool 输出模式枚举

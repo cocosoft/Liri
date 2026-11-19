@@ -8,7 +8,7 @@ import { resolvePyappHome } from '@openliri/infra/environment';
 import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('chronos\service\CronTaskStore');
+const logger = getLogger('chronos:service:CronTaskStore');
 
 /**
  * 任务状态

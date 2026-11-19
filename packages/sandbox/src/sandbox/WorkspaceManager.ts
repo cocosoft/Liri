@@ -24,7 +24,7 @@ import {
 } from './permissionLevel';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('sandbox\WorkspaceManager');
+const logger = getLogger('sandbox:WorkspaceManager');
 
 const WORKSPACE_MODULE = 'WorkspaceManager';
 

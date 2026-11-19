@@ -13,7 +13,7 @@ import type { QueryConfigManager } from './config';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('query\deps');
+const logger = getLogger('query:deps');
 
 export interface QueryDependencies {
   chatManager: ChatManager;

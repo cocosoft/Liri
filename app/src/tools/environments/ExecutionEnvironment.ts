@@ -1,7 +1,7 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@openliri/infra/monitoring';
-const logger = getLogger('tools\environments\ExecutionEnvironment');
+const logger = getLogger('tools:environments:ExecutionEnvironment');
 
 export interface ToolExecutionEnvironment {
   readonly id: string;

@@ -154,12 +154,24 @@ interface Plan {
   `tests/tasks/review/GoalEvaluateGate.test.ts`、`tests/http/pdca-{receipt,status.contract,checkpoint-liveness.contract}.test.ts`、
   `tests/tasks/lroExecuteDecideRounds.test.ts`；客户端 `src/utils/__tests__/planRestoreAcceptance.test.ts` + i18n parity）。
 - 全量门禁基线（2026-11-18）：后端 `13062 pass / 42 skip / 0 fail`；客户端 `1032 pass`（146 files）。
-- **未做（明确）**：真实模型环境下的超时/降级长跑观测（端到端用桩替代副模型，未消耗真实调用）；
-  若开启 `PDCA_PENDING_ACCEPTANCE=true` 灰度，须按 §5 观察"验收前崩溃/重启"路径的实际表现。
+- **真机灰度（2026-11-19 已执行，结论如实）**：`PDCA_PENDING_ACCEPTANCE=true` 起临时实例后跑了 3 个**产出交付物**的真实任务
+  （`pdca_mwn8sp00` / `pdca_mwn9jcv0` / `pdca_mwn9peny`，DeepSeek V4 Pro/Flash）——
+  `converged=true ⇒ accepted + completed`（2 次）与 `converged=false ⇒ rejected + failed`（1 次，`confidence=0.92`，
+  拦下一次"产物写成别的目录"的假完成）**均已观察到**，回执分别命中「✅ 完成」与「⚠️ 未完成」。
+- **pending 分支：补测后已观察到（2026-11-19 同日）**。首轮因超时写死 30s、目标门总能按时返回明确结论 ⇒ 真机无法制造
+  `evaluated=false`；遂把超时改为可配 `PDCA_GOAL_EVALUATE_TIMEOUT_MS`（默认 30000 不变），以 `=1000` 复跑：
+  `phase=decide`、`acceptance=pending`、回执「⏸ 长程任务已执行，待验收」；**杀进程重启后检查点未被启动扫描 abort**（§4-⑦ 生效）；
+  `/resume` 后仍 pending；恢复默认超时再 `/resume` ⇒ `completed + accepted`（收口）。全链见记录 §6.3。
+- **补测暴露并修掉两个真实缺陷（同一提交）**：
+  ① 「计划保持 running」原未真正落实 —— 步骤结算 `_settlePlanFinalStatus` 已把计划置 `completed`，pending 后
+  `status=completed` 与 `acceptance=pending` 并存（前端徽标 `running && pending` 永不命中）⇒ pending 分支显式回退为 `running` 并清 `completedAt`；
+  ② `/resume` 被「内存编排器存活 + 活跃 status」闸回 409「正在运行」，与回执「可 POST /resume 处理」自相矛盾 ⇒ 对 `acceptance==='pending'` 放行。
+  记录：`dev_docs/20261119/G5-灰度观察记录-20261119.md`（含回执原文、状态字段、费用口径与复原清单）。
 
-**开关与回退（不变）**
+**开关与回退（2026-11-19 增补 1 项）**
 
 | 开关 | 默认 | 开启效果 | 回退 |
 |---|:--:|---|---|
 | `PDCA_PENDING_ACCEPTANCE` | `false` | 目标门未决 ⇒ `acceptance='pending'`、计划保持 `running` | 设 `false`/删除即回到"未决 ⇒ completed" |
 | `PDCA_GOAL_BLIND_REVIEW` | `false` | 评估改盲审口径（原始需求 + 验收标准 + 产物证据） | 设 `false`/删除即回原 prompt |
+| `PDCA_GOAL_EVALUATE_TIMEOUT_MS` | `30000` | 目标门评估超时（毫秒）—— 缩短它即可在真机复现 `evaluated=false ⇒ pending` | 删除即 30000；非数字/≤0 同样回退默认 |

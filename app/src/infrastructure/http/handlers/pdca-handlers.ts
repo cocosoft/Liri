@@ -664,8 +664,14 @@ export async function handlePdcaResumeTask(
     // 这条链路 —— 此时调续跑会让同一任务并行跑两个循环（白烧 token、步骤互相覆盖）。
     // 判据：内存编排器存活 **且** 检查点状态仍属活跃集；escalate 待 replan 时
     // `status='failed'` 不属活跃集 ⇒ 仍可续跑。
+    // G5（2026-11-19，真机 `pdca_mwna1g2b`）：**待验收 ≠ 正在运行**。
+    // `acceptance='pending'` 时编排循环已退出（步骤全终态、只差目标门结论），
+    // 检查点 status 仍是活跃值 `running` ⇒ 原判据会给 `/resume` 回 409「任务正在运行，无需续跑」，
+    // 与回执里「可 POST /resume 处理」自相矛盾（真机实测 409）。此处与 `crashLeftover`
+    // 同型：仅对 `acceptance==='pending'` 放行（该值只有开关开时才会出现）。
+    const pendingAcceptance = ck.acceptance === 'pending';
     const liveOrchestrator = await port.getPdcaOrchestrator(taskId);
-    if (liveOrchestrator) {
+    if (liveOrchestrator && !pendingAcceptance) {
       const { active } = await port.getPdcaStatusSets();
       if (status !== undefined && active.has(status)) {
         res.writeHead(409, { 'Content-Type': 'application/json' });

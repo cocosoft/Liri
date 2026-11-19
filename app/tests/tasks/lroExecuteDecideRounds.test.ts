@@ -256,4 +256,42 @@ describe('_runExecuteDecideLoop 轮级守卫既有行为', () => {
       setPdcaReceiptSink(undefined);
     }
   });
+
+  /**
+   * 2026-11-19（真机 `pdca_mwna1g2b`）：「计划保持 running」必须**显式**落实 ——
+   * 步骤全落终态时 `TaskOrchestrator._settlePlanFinalStatus` 已把计划置 `completed`，
+   * 若不回退，pending 会与 completed 并存（前端"待验收"徽标条件 `running && pending` 永不命中）。
+   */
+  it('步骤结算已把计划置 completed ⇒ 待验收时回退为 running 并清 completedAt', async () => {
+    process.env.PDCA_PENDING_ACCEPTANCE = 'true';
+    delete process.env.PDCA_GOAL_EVALUATE;
+    const o = makeOrchestrator();
+    const plan = taskOrchestrator.createPlan(
+      '待验收-已完成残留',
+      ['步骤A'],
+      'session-pending-from-completed'
+    );
+    o.planId = plan.id;
+    plan.steps[0].status = 'completed';
+    plan.steps[0].decision = 'approved';
+    // 模拟既有行为：步骤结算后计划已被终态化
+    plan.status = 'completed';
+    plan.completedAt = new Date().toISOString();
+    o.executeAllSteps = async () => plan;
+    o.goalEvaluateGate = {
+      evaluate: async () => ({
+        converged: undefined,
+        confidence: 0,
+        reason: '评估超时',
+        evaluated: false,
+      }),
+    };
+
+    const status = await o._runExecuteDecideLoop();
+
+    expect(status.phase).toBe('decide');
+    expect(plan.acceptance).toBe('pending');
+    expect(plan.status).toBe('running');
+    expect(plan.completedAt).toBeUndefined();
+  });
 });

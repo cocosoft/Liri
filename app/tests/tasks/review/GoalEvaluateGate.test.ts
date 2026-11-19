@@ -17,6 +17,7 @@ import {
   collectArtifactEvidence,
   isGoalBlindReviewEnabled,
   isGoalEvaluateEnabled,
+  resolveEvaluateTimeoutMs,
 } from '../../../src/tasks/review/GoalEvaluateGate';
 import type { GoalEvaluateContext } from '../../../src/tasks/review/GoalEvaluateGate';
 import type { AgentIsolation } from '@modules/agent';
@@ -233,6 +234,51 @@ describe('GoalEvaluateGate（P1-3）', () => {
       expect(capturedSystem).toContain('本次为盲审');
     } finally {
       delete process.env.PDCA_GOAL_BLIND_REVIEW;
+    }
+  });
+
+  // 2026-11-19（G5 灰度复盘）：评估超时改为可配（默认 30s 不变），
+  // 否则真机无法制造 evaluated=false ⇒ pending 子态只能靠桩用例覆盖。
+  test('评估超时默认 30000ms；可被 PDCA_GOAL_EVALUATE_TIMEOUT_MS 覆盖；非法值回退默认', () => {
+    delete process.env.PDCA_GOAL_EVALUATE_TIMEOUT_MS;
+    expect(resolveEvaluateTimeoutMs()).toBe(30_000);
+    try {
+      process.env.PDCA_GOAL_EVALUATE_TIMEOUT_MS = '250';
+      expect(resolveEvaluateTimeoutMs()).toBe(250);
+      for (const bad of ['0', '-5', 'abc']) {
+        process.env.PDCA_GOAL_EVALUATE_TIMEOUT_MS = bad;
+        expect(resolveEvaluateTimeoutMs()).toBe(30_000);
+      }
+    } finally {
+      delete process.env.PDCA_GOAL_EVALUATE_TIMEOUT_MS;
+    }
+  });
+
+  test('超时 ⇒ 未决（converged=undefined, evaluated=false）', async () => {
+    process.env.PDCA_GOAL_EVALUATE_TIMEOUT_MS = '20';
+    try {
+      const ctx = fakeContext(
+        () =>
+          new Promise<string>((resolve) =>
+            setTimeout(
+              () =>
+                resolve(
+                  JSON.stringify({
+                    converged: true,
+                    confidence: 0.9,
+                    reason: '迟到的结论',
+                  })
+                ),
+              300
+            )
+          )
+      );
+      const r = await gate.evaluate(input, ctx);
+      expect(r.evaluated).toBe(false);
+      expect(r.converged).toBeUndefined();
+      expect(r.confidence).toBe(0);
+    } finally {
+      delete process.env.PDCA_GOAL_EVALUATE_TIMEOUT_MS;
     }
   });
 

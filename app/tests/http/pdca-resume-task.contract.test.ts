@@ -254,6 +254,25 @@ describe('POST /v1/pdca/:taskId/resume — 入口判定', () => {
     expect(resumeCalls).toHaveLength(0);
   });
 
+  // 2026-11-19（真机 `pdca_mwna1g2b`）：待验收 ≠ 正在运行 —— 检查点 status 仍是活跃值
+  // `running`、内存编排器也存活，但编排循环已退出（只差目标门结论）⇒ 必须放行，
+  // 否则回执里的「可 POST /resume 处理」在真机上回 409（实测）。
+  test('待验收（acceptance=pending）⇒ 202，不被"正在运行"闸拒绝', async () => {
+    checkpoint = {
+      taskId: 'pdca_pending_acceptance',
+      status: 'running',
+      phase: 'decide',
+      acceptance: 'pending',
+      steps: [{ id: 's1', status: 'completed' }],
+    };
+
+    const r = await call('pdca_pending_acceptance');
+    expect(r.status).toBe(202);
+    expect(r.body['status']).toBe('resuming');
+    await tick();
+    expect(resumeCalls).toHaveLength(1);
+  });
+
   test('崩溃遗留（abortedBy=startup_scan）⇒ 202，允许续跑', async () => {
     checkpoint = {
       taskId: 'pdca_crash',

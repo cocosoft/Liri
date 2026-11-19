@@ -25,6 +25,7 @@ import {
 import {
   taskOrchestrator,
   PLAN_STATUS_FAILED,
+  PLAN_STATUS_RUNNING,
   PLAN_ACCEPTANCE_ACCEPTED,
   PLAN_ACCEPTANCE_PENDING,
   PLAN_ACCEPTANCE_REJECTED,
@@ -133,6 +134,14 @@ export async function runGoalConvergenceGate(
     // 注意：`PDCA_GOAL_EVALUATE=false` 已在函数入口早退（不会走到这里），
     // 避免"评估被关闭 ⇒ 永远待验收"的组合。
     plan.acceptance = PLAN_ACCEPTANCE_PENDING;
+    // 2026-11-19（真机 `pdca_mwna1g2b`）：**把"保持 running"真正落实**。
+    // 步骤全部落终态时 `TaskOrchestrator._settlePlanFinalStatus` 已把计划置 `completed`
+    // （早于目标门，属既有行为）⇒ 此处不显式回退，就会出现
+    // `status=completed` 与 `acceptance=pending` 自相矛盾：① 前端"待验收"徽标
+    // （条件为 `running && pending`）永不命中；② 计划终态语义与回执「待验收」冲突。
+    // 与设计 §3/§4-2「计划保持 running」一致（开关开才走本分支 ⇒ 默认行为不变）。
+    plan.status = PLAN_STATUS_RUNNING;
+    delete plan.completedAt;
     taskOrchestrator['savePlan']?.(plan);
     logger.info('目标级评估未决 ⇒ 待验收（不置 completed）', {
       taskId,

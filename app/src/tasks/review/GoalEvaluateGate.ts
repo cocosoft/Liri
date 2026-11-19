@@ -9,6 +9,7 @@
  * 假完成（Hermes GoalContract outcome/stop_when 语义）。
  *
  * 开关：环境变量 PDCA_GOAL_EVALUATE（默认 'true' 启用，'false' 关闭）。
+ * 超时：`PDCA_GOAL_EVALUATE_TIMEOUT_MS`（默认 30000，见 `resolveEvaluateTimeoutMs`）。
  * 三态（L7，2026-09-06）：converged 为 true | false | undefined（未决）。
  * 副模型调用失败 / 超时 / 输出非 JSON / 未给出明确 bool → converged=undefined 且
  * evaluated=false（"跳过结论"，不误报达成）；仅模型明确 true 才算收敛。
@@ -70,7 +71,27 @@ export interface GoalEvaluateResult {
 }
 
 /** 评估超时保护（对齐 ReviewGate verifyProject 的 30s 上限） */
-const EVALUATE_TIMEOUT_MS = 30_000;
+const DEFAULT_EVALUATE_TIMEOUT_MS = 30_000;
+
+/**
+ * 评估超时（毫秒）：默认 30s，可由 `PDCA_GOAL_EVALUATE_TIMEOUT_MS` 覆盖。
+ *
+ * 为什么可配（2026-11-19，G5 灰度复盘）：超时是 `evaluated=false` 的唯一现实诱因，
+ * 原值硬编码 ⇒ 真机上**无法**制造「目标门未决」⇒ `acceptance='pending'` 只能在桩用例里
+ * 覆盖（记录见 `dev_docs/20261119/G5-灰度观察记录-20261119.md` §3）。改为可配后，
+ * 缩短该值即可在真机复现 pending 与「验收前崩溃/重启」路径。
+ *
+ * 口径：未设置 / 非数字 / ≤0 ⇒ 30_000（**默认行为逐字不变**，不构成新语义开关）。
+ * 每次调用现读（与 `isGoalEvaluateEnabled` 同口径），便于灰度期热调。
+ */
+export function resolveEvaluateTimeoutMs(): number {
+  const raw = configManager.env('PDCA_GOAL_EVALUATE_TIMEOUT_MS');
+  if (!raw) return DEFAULT_EVALUATE_TIMEOUT_MS;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0
+    ? Math.floor(parsed)
+    : DEFAULT_EVALUATE_TIMEOUT_MS;
+}
 
 /** 单步执行结果投入评估的字符上限（防止把整段执行记录撑爆评估 prompt） */
 const STEP_RESULT_MAX_CHARS = 4000;
@@ -305,6 +326,9 @@ export class GoalEvaluateGate {
         evidenceChars: evidence.length,
       });
     }
+    // 超时定时器：比完即清（原实现让定时器常驻到自然到期；超时改为可配后，
+    // 大值会长时间挂住进程的事件循环）
+    let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
     try {
       const raced = await Promise.race([
         ctx.executor({
@@ -323,12 +347,12 @@ export class GoalEvaluateGate {
           taskType: 'chat',
           isolation: ctx.isolation,
         }),
-        new Promise<never>((_, reject) =>
-          setTimeout(
+        new Promise<never>((_, reject) => {
+          timeoutTimer = setTimeout(
             () => reject(new Error('goal_evaluate_timeout')),
-            EVALUATE_TIMEOUT_MS
-          )
-        ),
+            resolveEvaluateTimeoutMs()
+          );
+        }),
       ]);
       return parseEvaluateResult(normalizeExecutorResult(raced).content);
     } catch (err) {
@@ -341,6 +365,8 @@ export class GoalEvaluateGate {
         reason: '评估失败，跳过结论',
         evaluated: false,
       };
+    } finally {
+      if (timeoutTimer !== undefined) clearTimeout(timeoutTimer);
     }
   }
 }

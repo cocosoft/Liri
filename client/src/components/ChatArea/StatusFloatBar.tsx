@@ -263,10 +263,16 @@ export default function StatusFloatBar({
    * - selfwake 无 `triggerAt`（`wake_on_job`/`wake_on_event`）⇒ 只说"等待中" + 已等待秒数，
    *   **不猜**剩余时间；
    * - yield（等子任务结算）⇒ 已等待秒数（结算时刻不可预测）。
+   *
+   * D（2026-11-19）：`triggerAt` 已过期超过一个 cron tick（60s）仍未被后端消费 ⇒ 倒计时恒为 0，
+   * 属误导 ⇒ 降级为"等待已过期（后端尚未触发）"，只报已等待秒数。
    */
   const waitText = (): string => {
     const elapsed = wait?.seconds ?? 0;
     if (wait?.reason === "selfwake") {
+      if (wait.overdue) {
+        return t("chat.waitingSelfwakeOverdue", { seconds: elapsed });
+      }
       if (typeof wait.triggerAt === "number") {
         const remain = Math.max(
           0,

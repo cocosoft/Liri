@@ -33,6 +33,15 @@ import { handleClientError } from "../../utils/handleError";
 /** 等待期轮询间隔（ms）—— 4s：足够"看起来在动"，又不至于压垮后端 */
 export const WAIT_POLL_MS = 4000;
 
+/**
+ * `pendingWake.triggerAt` **已过期超过这么久**仍未被后端消费 ⇒ 判为「过期未触发」。
+ *
+ * 取 60s：`CronTimer` 的最大休眠即 60s（`MAX_TIMER_DELAY_MS`）⇒ 正常退一个 tick 内就会被
+ * `extraTick` 扫到并 `fire()`；超过一个完整 tick 仍挂着，说明后端没在消费它（2026-11-19
+ * 真机：接线缺失导致过期条目永久 `pending`，前端却一直显示"预计 N 秒后自动继续"）。
+ */
+export const WAKE_OVERDUE_GRACE_MS = 60_000;
+
 export type WaitReason = "yield" | "selfwake";
 
 export interface DerivedWaitState {
@@ -43,6 +52,13 @@ export interface DerivedWaitState {
   unresolved: boolean;
   /** 仅 selfwake 的 timer 类有：Unix ms（据此显示倒计时，不猜剩余时间） */
   triggerAt?: number;
+  /**
+   * 该 `pendingWake` 的 `triggerAt` 已过期超过 {@link WAKE_OVERDUE_GRACE_MS} 仍未被后端消费。
+   *
+   * D（2026-11-19）：此时**不得**再说"预计 N 秒后自动继续"（剩余量恒为 0，属误导）；
+   * 文案降级为"等待已过期（后端尚未触发）"，仍算 `waiting`（后端登记的事实没消失）。
+   */
+  overdue?: boolean;
 }
 
 export interface WaitState extends DerivedWaitState {
@@ -64,10 +80,13 @@ export interface WaitState extends DerivedWaitState {
  *
  * 优先级：流式中 > `unresolved` > `yieldState='waiting'` > `pendingWake` > 无。
  * 注：`unresolved` 与 `waiting` 互斥（`deriveYieldState` 只会回其中一个）。
+ *
+ * @param now 当前时刻（默认 `Date.now()`；测试可注入，用于判定"过期未触发"）
  */
 export function deriveWaitState(
   status: SessionRuntimeStatus | undefined,
   isStreaming: boolean,
+  now = Date.now(),
 ): DerivedWaitState {
   if (isStreaming) return { waiting: false, unresolved: false };
   if (status?.yieldState === "unresolved") {
@@ -77,13 +96,19 @@ export function deriveWaitState(
     return { waiting: true, reason: "yield", unresolved: false };
   }
   if (status?.pendingWake) {
+    const triggerAt =
+      typeof status.pendingWake.triggerAt === "number"
+        ? status.pendingWake.triggerAt
+        : undefined;
+    // 过期未触发：只说"已过期"，不再给恒为 0 的倒计时（D7：只报真实测量值）
+    const overdue =
+      triggerAt !== undefined && now - triggerAt > WAKE_OVERDUE_GRACE_MS;
     return {
       waiting: true,
       reason: "selfwake",
       unresolved: false,
-      ...(typeof status.pendingWake.triggerAt === "number"
-        ? { triggerAt: status.pendingWake.triggerAt }
-        : {}),
+      ...(triggerAt !== undefined ? { triggerAt } : {}),
+      ...(overdue ? { overdue: true } : {}),
     };
   }
   return { waiting: false, unresolved: false };

@@ -9,7 +9,10 @@
  * 并锁死"不伪造剩余时间"（无 `triggerAt` ⇒ 不带该字段）。
  */
 import { describe, it, expect } from "vitest";
-import { deriveWaitState } from "../components/ChatArea/useWaitState";
+import {
+  deriveWaitState,
+  WAKE_OVERDUE_GRACE_MS,
+} from "../components/ChatArea/useWaitState";
 
 describe("deriveWaitState（等待态推导）", () => {
   it("流式中 ⇒ 非等待态（此时反馈由 SSE 承担）", () => {
@@ -79,5 +82,55 @@ describe("deriveWaitState（等待态推导）", () => {
         false,
       ),
     ).toEqual({ waiting: false, unresolved: true });
+  });
+
+  it("pendingWake 的 triggerAt 已过期超过宽限（60s）⇒ 标 overdue（不再给倒计时）", () => {
+    const now = Date.now();
+    const triggerAt = now - WAKE_OVERDUE_GRACE_MS - 1;
+    expect(
+      deriveWaitState(
+        {
+          streaming: false,
+          pendingWake: { kind: "timer", triggerAt, createdAt: 1 },
+        },
+        false,
+        now,
+      ),
+    ).toEqual({
+      waiting: true,
+      reason: "selfwake",
+      unresolved: false,
+      triggerAt,
+      overdue: true,
+    });
+  });
+
+  it("过期但在宽限内（退一个 cron tick 的正常情况）⇒ 不算 overdue", () => {
+    const now = Date.now();
+    const triggerAt = now - 1000;
+    expect(
+      deriveWaitState(
+        {
+          streaming: false,
+          pendingWake: { kind: "timer", triggerAt, createdAt: 1 },
+        },
+        false,
+        now,
+      ),
+    ).toEqual({
+      waiting: true,
+      reason: "selfwake",
+      unresolved: false,
+      triggerAt,
+    });
+  });
+
+  it("completion（无 triggerAt）永不算 overdue", () => {
+    const d = deriveWaitState(
+      { streaming: false, pendingWake: { kind: "completion", createdAt: 1 } },
+      false,
+      Date.now() + 10 * 60_000,
+    );
+    expect("overdue" in d).toBe(false);
   });
 });

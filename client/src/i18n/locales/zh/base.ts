@@ -504,6 +504,8 @@ const zhBase = {
     // 等待态可见性（2026-09-27 Spec `wait-state-visibility.md` D7）：长等待期间"仍在干活"
     waitingSelfwakeCountdown: "⏳ 等待中，预计 {{seconds}} 秒后自动继续",
     waitingSelfwake: "⏳ 等待中（已 {{seconds}} 秒），条件满足后自动继续",
+    // D（2026-11-19）：triggerAt 已过期超过一个 cron tick 仍未触发 ⇒ 不再给恒为 0 的倒计时
+    waitingSelfwakeOverdue: "⏳ 等待已过期（后端尚未触发），已 {{seconds}} 秒",
     waitingYield: "⏳ 等待子任务结算中（已 {{seconds}} 秒）",
     // 运行态可见性（2026-11-18）：运行秒表 + 后端心跳证据 + 停滞告警
     runElapsed: "已运行 {{seconds}} 秒",

@@ -57,6 +57,25 @@ describe("StatusFloatBar —— 等待态（2026-09-27）", () => {
     expect(screen.getByText(/等待中，预计 \d+ 秒后自动继续/)).toBeTruthy();
   });
 
+  it("selfwake 已过期未触发（overdue）⇒ 如实说明，不再给恒为 0 的倒计时", () => {
+    render(
+      <StatusFloatBar
+        wait={{
+          waiting: true,
+          reason: "selfwake",
+          unresolved: false,
+          remoteStreaming: false,
+          triggerAt: Date.now() - 120_000,
+          overdue: true,
+          seconds: 130,
+        }}
+      />,
+    );
+    expect(
+      screen.getByText(/等待已过期（后端尚未触发），已 130 秒/),
+    ).toBeTruthy();
+  });
+
   it("selfwake 无 triggerAt ⇒ 只说已等待秒数（不猜剩余时间）", () => {
     render(
       <StatusFloatBar

@@ -320,3 +320,23 @@ GET /v1/sessions/session_muj5asu8g825d0rgqt/streaming
 **附带发现（已另行修复，2026-09-27）**：上述调用的 `LLMTracker` 记录 `model: "unknown"`（provider `db:3682dad9-…`）。
 ⚠️ **更正**：本条初稿写"属日志/可观测性口径问题、金额正确"，经核算**是错的** —— `model='unknown'` 会使 `getModelPricing` 回落**兜底价**（$3/M in、$15/M out），**金额同样失真**（两次记录与兜底价公式精确相等）。
 已完成修复（三处记账点复用 `extractModelFromResponse` 取 provider 回显的真实模型名）并在真机复验：同 token 画像由 `unknown … $0.0747` → `deepseek-v4-flash … $0.0096`（**高估约 7.8×**）。详情见 `dev_docs/error_repairs/预存错误与待处理问题.md`（2026-09-27「已修：记 model: unknown」）。
+
+---
+
+## 9. D：过期未触发的 `pendingWake` 不再假装"倒计时"（2026-11-19）
+
+**背景**：`selfwake-restart-recovery.md §8` 定位到"过期 `pending` 条目永不被扫描"的**后端**根因（已修）。
+本项是**前端护栏**：即便后端再出现同类失联，界面也不得谎报"预计 N 秒后自动继续"。
+
+**判据**（`client/src/components/ChatArea/useWaitState.ts`）：
+- `WAKE_OVERDUE_GRACE_MS = 60_000`（`CronTimer` 最大休眠即 60s ⇒ 正常退一个 tick 内就该被 `extraTick` 消费）；
+- `now - triggerAt > 60s` ⇒ `DerivedWaitState.overdue = true`（仍 `waiting`：后端登记的事实还在）；
+- 无 `triggerAt`（`wake_on_job` / `wake_on_event`）永不判 overdue。
+
+**文案**（`StatusFloatBar`）：`overdue` ⇒ `chat.waitingSelfwakeOverdue` =
+「⏳ 等待已过期（后端尚未触发），已 {{seconds}} 秒」（zh / en 同步新增），不再显示恒为 0 的倒计时。
+
+**回归**：`client/src/tests/waitState.test.ts` +3（超宽限 ⇒ overdue / 宽限内 ⇒ 不 overdue / completion 永不 overdue）；
+`waitStateBars.test.tsx` +1（组件按 overdue 文案渲染）。
+
+**验证**：client `tsc --noEmit` ✅ · `vitest`（waitState / waitStateBars / useWaitState）**32 pass** · eslint 0 errors · `lint:locale` PASS。

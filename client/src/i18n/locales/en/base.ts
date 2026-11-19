@@ -523,6 +523,9 @@ const enBase = {
       "⏳ Waiting — resuming automatically in ~{{seconds}}s",
     waitingSelfwake:
       "⏳ Waiting ({{seconds}}s elapsed) — will resume automatically",
+    // D (2026-11-19): triggerAt overdue past one cron tick ⇒ no always-zero countdown
+    waitingSelfwakeOverdue:
+      "⏳ Wait expired (backend hasn't fired it) — {{seconds}}s elapsed",
     waitingYield: "⏳ Waiting for subtask settlement ({{seconds}}s elapsed)",
     // Run-state visibility (2026-11-18): run stopwatch + backend heartbeat evidence
     runElapsed: "Running {{seconds}}s",

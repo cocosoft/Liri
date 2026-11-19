@@ -56,6 +56,10 @@ import type { ToolName } from '@openliri/infra/constants/toolNames.generated';
 /** 整文件读工具（入参键 = `file_path`） */
 const FILE_READ_TOOL_NAMES = [
   'file_read',
+  // 2026-11-19（台账「项目文件族不在 IO 循环追踪面」）：项目文件夹读工具此前**不在**本清单
+  // ⇒ `FileIOLoopDetector` 对项目文件的重复读**不追踪**（fail-open）。其路径入参键
+  // `relativePath` 早已在 `PATH_ARG_KEYS`（P0-9），缺的只是本清单的登记。
+  'read_project_file',
 ] as const satisfies readonly ToolName[];
 export const FILE_READ_TOOLS = new Set<string>(FILE_READ_TOOL_NAMES);
 
@@ -83,6 +87,9 @@ const WRITE_TOOL_NAMES = [
   // 真名 `vfs`。⚠️ 合并后 `vfs` 的只读 op 也会被当"写类"分级（保守方向：只会**更严**，
   // 不会放过写路径；PathGuard 的写拒绝规则因此仍然生效）。
   'vfs',
+  // 2026-11-19（同上）：项目文件夹写工具此前不在清单 ⇒ 写循环与 PathGuard 的写分级都缺它。
+  // 路径入参键 `relativePath` ∈ `PATH_ARG_KEYS`（P0-9），此处仅补登记。
+  'write_project_file',
 ] as const satisfies readonly ToolName[];
 export const WRITE_TOOLS = new Set<string>(WRITE_TOOL_NAMES);
 

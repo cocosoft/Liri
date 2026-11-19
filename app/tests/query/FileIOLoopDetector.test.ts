@@ -61,6 +61,45 @@ describe('FileIOLoopDetector：清单与真实注册名对齐后真正生效', (
       expect(r.warning).toBe(false);
     }
   });
+
+  /**
+   * 2026-11-19（台账「项目文件族不在 IO 循环追踪面」，fail-open 收口）：
+   * `read_project_file` / `write_project_file` 此前**不在** `READ_TOOLS` / `WRITE_TOOLS`
+   * ⇒ 项目文件（入参键 `relativePath`）的读写循环**完全不追踪**。
+   * 本组锁住"纳入后确实生效"（否则只是清单里多了两个永不命中的名字）。
+   */
+  it('项目文件夹读工具 read_project_file 连续读同一目标：第 3 次警告、第 4 次阻断', () => {
+    const d = createFileIOLoopDetector({
+      warningThreshold: 3,
+      blockThreshold: 4,
+    });
+    const p = 'docs/PRD.md';
+
+    expect(d.checkBeforeAccess('read_project_file', p).warning).toBe(false);
+    expect(d.checkBeforeAccess('read_project_file', p).warning).toBe(false);
+
+    const warned = d.checkBeforeAccess('read_project_file', p);
+    expect(warned.blocked).toBe(false);
+    expect(warned.warning).toBe(true);
+
+    const blocked = d.checkBeforeAccess('read_project_file', p);
+    expect(blocked.blocked).toBe(true);
+  });
+
+  it('项目文件夹写工具 write_project_file 连续写同一目标：第 4 次阻断', () => {
+    const d = createFileIOLoopDetector({
+      warningThreshold: 3,
+      blockThreshold: 4,
+    });
+    const p = 'docs/PRD.md';
+
+    for (let i = 0; i < 3; i++) {
+      expect(d.checkBeforeAccess('write_project_file', p).blocked).toBe(false);
+    }
+
+    const blocked = d.checkBeforeAccess('write_project_file', p);
+    expect(blocked.blocked).toBe(true);
+  });
 });
 
 describe('FileIOLoopDetector：查询签名参与判定键（2026-10-31）', () => {

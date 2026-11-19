@@ -163,6 +163,10 @@ describe('工具名清单守卫：判据来自真实注册名', () => {
     expect(QUERY_READ_TOOLS.has('file_search')).toBe(false);
     expect(QUERY_WRITE_TOOLS.has('file_write')).toBe(true);
     expect(QUERY_WRITE_TOOLS.has('file_edit')).toBe(true);
+    // 2026-11-19（台账「项目文件族不在 IO 循环追踪面」）：项目文件夹工具纳入共享清单
+    // ⇒ `FileIOLoopDetector` 才追踪其读写循环（此前 fail-open）。
+    expect(QUERY_READ_TOOLS.has('read_project_file')).toBe(true);
+    expect(QUERY_WRITE_TOOLS.has('write_project_file')).toBe(true);
   });
 
   /**

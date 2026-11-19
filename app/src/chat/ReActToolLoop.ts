@@ -203,8 +203,7 @@ export class ReActToolLoop extends ReActLoop<
   private _lastLayerCompactAt = 0;
   /** 本轮 reason 是否产出 thinking（reasoning-only 检测，对标 openclaw 2026-09-01） */
   private _lastRoundHadThinking = false;
-  /** 2026-11-20（残留 1）：已为行顺序先行落盘的 assistant 消息 id（逐轮复用 ⇒ 只落一次） */
-  private _orderFlushedMessageId: string | null = null;
+  private _orderFlushedMessageId: string | null = null; // 逐轮复用同消息 ⇒ 只落一次
   /**
    * O2-4（2026-09-24）：下一轮 reason 的正文是否**取代**已下发正文（续接/重试轮）。
    *

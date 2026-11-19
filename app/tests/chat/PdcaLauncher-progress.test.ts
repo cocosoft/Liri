@@ -102,6 +102,62 @@ describe('P2-C: PDCA 进度回写失败补 warn 日志', () => {
       .calls;
     expect(calls.some((c) => c[0] === 'PDCA 进度回写失败')).toBe(true);
   });
+
+  /**
+   * 2026-11-19（真机验证根因）：快速路径原固定 `buildTAORContext(sessionId, [], undefined)`
+   * ⇒ 模型请求不带 tools ⇒ 步骤要么自述"无工具"，要么把 `<terminal>` 文本当调用输出、
+   * 被步骤判定当完成（**假完成**）。本用例锁死"注入的工具定义必须原样交给 TAOR 上下文"。
+   */
+  it('快速路径把注入的工具定义交给 buildTAORContext；未注入时为空（回退口径）', async () => {
+    const captured: unknown[][] = [];
+    const makeDeps = (withTools: boolean) =>
+      ({
+        enablePlanDrivenLoop: true,
+        taorLoopFactory: () => ({}) as never,
+        buildTAORContext: (_sid: string, defs: unknown[]) => {
+          captured.push(defs);
+          return {};
+        },
+        ...(withTools
+          ? {
+              getToolDefinitions: () => [
+                { type: 'function', function: { name: 'file_write' } },
+              ],
+            }
+          : {}),
+        sessionMap: new Map(),
+        messageService: {
+          createAssistantMessage: (content: string, opts?: unknown) => ({
+            content,
+            ...(opts as object),
+          }),
+        },
+        persistMessage: () => {},
+        planLoopFactory: (config: Record<string, unknown>) =>
+          new FakePlanDrivenLoop(config) as unknown as PlanDrivenLoop,
+      }) as unknown as PdcaLauncherDeps;
+
+    await new PdcaLauncher(makeDeps(true)).launch(
+      'proj1',
+      'desc',
+      'sess-tools',
+      undefined,
+      true
+    );
+    await new PdcaLauncher(makeDeps(false)).launch(
+      'proj1',
+      'desc',
+      'sess-no-tools',
+      undefined,
+      true
+    );
+
+    expect(captured).toHaveLength(2);
+    expect(
+      (captured[0][0] as { function: { name: string } }).function.name
+    ).toBe('file_write');
+    expect(captured[1]).toHaveLength(0);
+  });
 });
 
 // ── 13-P1-1 Step 2（2026-10-06，`任务计划-20261004.md` §20.6）：阻断结果回灌 ──

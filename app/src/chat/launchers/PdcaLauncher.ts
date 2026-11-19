@@ -17,7 +17,7 @@ import type {
   // P2（2026-11-04，方案 §3.3）：阶段链继承的任务策略快照类型
   TaskPolicySnapshot,
 } from '@modules/tasks';
-import type { AIProvider, ChatMessage } from '@modules/ai';
+import type { AIProvider, ChatMessage, ToolDefinition } from '@modules/ai';
 import { registerPlanLoop, unregisterPlanLoop } from '../planAbortRegistry.js';
 import { createChatManagerTAORDeps } from '@modules/query';
 // P2-2（2026-11-06）：计划源合成（短指令 + 助手计划正文）
@@ -87,6 +87,15 @@ export interface PdcaLauncherDeps {
    * "没有文件路径/工具"而空转（真机 step1 5 秒即 blocked）。可选：未注入 ⇒ 不注入该行。
    */
   getSessionWorkspacePath?: (sessionId: string) => string | undefined;
+  /**
+   * 2026-11-19（真机验证修复）：**步骤执行所用工具定义**（与聊天发送路径同源：
+   * `toolRegistry.getToolSchemas()` → `filterToolSchemasByChatMode` → `buildToolDefinitions`）。
+   *
+   * 缺省（或返回空）⇒ PDL 快速路径的模型请求**不带 tools**（`ChatManagerTAORAdapter` 只在
+   * `toolDefinitions.length > 0` 时下发）⇒ 模型要么自述"没有工具"（blocked）、要么把
+   * `<terminal>` 之类**文本**当工具调用输出，而步骤判定会把它当完成 ⇒ **假完成**。
+   */
+  getToolDefinitions?: (sessionId: string) => ToolDefinition[];
 }
 
 /**
@@ -565,9 +574,11 @@ export class PdcaLauncher {
       if (useFastPath ?? this.deps.enablePlanDrivenLoop) {
         try {
           const taorLoop = this.deps.taorLoopFactory(sessionId);
+          // 2026-11-19（真机验证修复）：此前固定传 `[]` ⇒ 模型请求不带 tools ⇒ 步骤无工具可用
+          // （表现为 blocked 或"伪造调用文本被当完成"）。改为与聊天发送路径同源的工具集。
           const taorContext = this.deps.buildTAORContext(
             sessionId,
-            [],
+            this.deps.getToolDefinitions?.(sessionId) ?? [],
             undefined
           );
           const deps = createChatManagerTAORDeps(taorContext);

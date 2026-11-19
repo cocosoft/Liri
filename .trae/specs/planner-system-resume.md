@@ -80,3 +80,10 @@
 > 真机复验：同一 planId 被 PDL 采纳续跑（`按既有计划续跑（系统级）`）。遗留「接管后首步
 > `step_blocked`（"无可用文件/终端工具"）」待复现，见 `dev_docs/20261119/planner-系统级续跑-真机验证.md`。
 
+> **订正（2026-11-19 真机第二轮）**：上条遗留已定性并修复 —— PDL **快速路径**固定
+> `buildTAORContext(sessionId, [], undefined)` ⇒ 模型请求不带 `tools`（适配器只在
+> `toolDefinitions.length > 0` 时下发）⇒ 模型要么自述"无工具"（blocked），要么把 `<terminal>`
+> 文本当调用输出而被步骤判定当完成（**假完成、产物不存在**）。修：新增 `PdcaLauncherDeps.getToolDefinitions`，
+> 由 `facadeWiring` 注入**与聊天发送路径同源**的工具集（`getToolSchemas` → `filterToolSchemasByChatMode`
+> → `buildToolDefinitions`）；真机复验 `hasToolDefinitions:true`、步骤含真实工具轮、工作区真实产出。
+

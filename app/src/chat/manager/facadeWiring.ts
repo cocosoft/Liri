@@ -110,6 +110,11 @@ import {
 } from './toolApproval';
 import { wireCodeRunnerDeps } from './codeRunnerWiring';
 import { shouldUseCodeMode, shouldUsePlanDrivenLoop } from './routing';
+// 2026-11-19：PDL 步骤的工具定义与聊天发送路径同源（唯一实现见 chatModePolicy）
+import {
+  filterToolSchemasByChatMode,
+  resolveChatModePolicy,
+} from '../chatModePolicy';
 // 2026-11-10：`registerWorkspacePathHost` —— 提示词侧复用同一工作区解析（注册一次）
 import {
   getSessionWorkspacePath,
@@ -504,6 +509,23 @@ export function wireChatFacades(host: FacadeWiringHost): void {
         sid
       ),
     messageService: host.messageService,
+    // 2026-11-19（真机验证修复）：PDL 步骤的工具定义 —— 与聊天发送路径**同源**：
+    // `toolRegistry.getToolSchemas()` → `filterToolSchemasByChatMode` → `buildToolDefinitions`。
+    // 未注入时 launcher 传 `[]` ⇒ 模型请求不带 tools ⇒ 步骤只能"自述无工具/伪造调用文本"。
+    getToolDefinitions: (sid) => {
+      const registry = host.getToolRegistry();
+      if (!registry) return [];
+      const session = host._chatSessions.get(sid);
+      const visibleSchemas = filterToolSchemasByChatMode(
+        registry.getToolSchemas(),
+        resolveChatModePolicy(
+          (session?.metadata as Record<string, unknown> | undefined)?.[
+            'chatMode'
+          ]
+        )
+      );
+      return host._requestPrep.buildToolDefinitions(visibleSchemas);
+    },
     persistMessage: (sid, msg) =>
       host._msgPersist.addAndPersistMessage(sid, msg),
     // 转正（2026-09-01）：任务分解 Provider——任务分工→chat 路由→ProviderRegistry

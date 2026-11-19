@@ -1,6 +1,6 @@
 # Spec：`CoreAPIImpl` 拆分（C3 巨头之一 · 子 spec）
 
-> 版本 1.2 ｜ 创建 2026-10-09 ｜ 状态：**S1 ✅ + S3 ✅ ⇒ CoreAPIImpl 1898 行（<2000，豁免 FSZ-007 已移除）；S2 待实施（可选）**
+> 版本 1.3 ｜ 创建 2026-10-09 ｜ 状态：**S1 ✅ + S3 ✅ + S2 ✅ ⇒ CoreAPIImpl 1173 行（<2000，豁免 FSZ-007 已移除）**
 > **来源**：`.trae/specs/large-file-split.md` §4（巨头须各自子 spec）· `scripts/layer-exceptions.json` FSZ-007
 > **关联规则**：GR15 · CS01（纯搬迁、不改语义）· CS03 · CS06（证据驱动）· **R04-001（>2000 行；本文件在**豁免清单**，`expiresAt 2026-11-30`）** · R03-002（模块出口）
 
@@ -91,10 +91,12 @@
 |---|---|---|
 | S1 `sessionAgentOps.ts`（会话/工具/代理/文件 ops + `executeTool`，~680 行外迁） | ✅ 2026-10-09 | 2522→2148（未过 2000） |
 | S3 `llmChatOps.ts`（`ensureLLMClientInitialized` + `resolveSmartModel` + `chat`，~256 行外迁） | ✅ 2026-10-09 | 2148→**1898 ⇒ <2000**；**豁免 FSZ-007 已移除（8→7）** |
-| S2 `chatStreamOps.ts`（~770 行，**风险较高**） | ⏳ 未实施（**可选**） | 达标已由 S1+S3 完成 ⇒ S2 转为**可维护性**性质。**2026-11-18 状态复核**：该文件**从未创建**（全仓仅本 spec 提及）；`chatStream` 的 usage 累加 / 错误文案解析已于 2026-11-17（T3）外移 `runtime/api/chatStreamTurnHelpers.ts` ⇒ S2 的剩余面进一步缩小，仍按「可选」保留 |
+| S2 `chatStreamOps.ts`（`chatStream` + 5 个私有助手 + `_fileOldContentCache`） | ✅ 2026-11-19 | `CoreAPIImpl` **1809 → 1173 行**，外迁 714 行⇒纯搬迁：`ChatStreamOpsDeps`（`getChatManager`/`getSessionTitling`/`getLlmChatOps`/`setModelName`）；`resolveStreamErrorCode`/`shouldPersistStreamFallback` 两个纯函数随迁，契约单测改指新文件 |
 
 **S1 验证**：`typecheck` ✅ · 全量 `bun test` 5137 pass/0 fail · `lint:arch` ✅ 0 错 · `lint:size` ✅ 0 错。
 **S3 验证（2026-10-09）**：`typecheck` ✅ · 全量 `bun test` **5137 pass / 36 skip / 0 fail** · `lint:arch` ✅ 0 错 · `lint:size` ✅ 0 错（**7 例外**，FSZ-007 已移除）· `lint`(eslint) ✅ 0 errors。
+**S2 验证（2026-11-19）**：`typecheck` ✅ · 全量 `bun test` **13197 pass / 42 skip / 0 fail** · `lint:size` ✅ 0 错（0 例外）· `lint:fn-size` ✅ 棘轮未增长 · `lint:arch` ✅ 0 错 · eslint ✅ 0 errors。
+**S2 回归修正**：`tests/state/toolCallStatusSingleSource.test.ts` 的源码形态守卫原只读 `CoreAPIImpl.ts`，`chatStream` 外迁后其 `chunk.toolCall?.status` 断言失联 ⇒ 判据不变、读取面改为「`CoreAPIImpl` + `chatStreamOps`」两文件拼接。
 **S3 落点**：`app/src/runtime/api/llmChatOps.ts`（`LlmChatOps` + `LlmChatOpsDeps`（含 `isLlmReady/setLlmReady`、`getSmartRouter/setLastRouteDecision` 读写端口）+ `LlmChatRouter` 窄契约）；`CoreAPIImpl` 侧 `warmupLLM`/`chatStream` 改经 `this.llmChatOps.*`；
 **教训**：`shouldAutoTitle` 虽为 private，但被 `tests/runtime/coreapi-title-lifecycle.test.ts` 经实例访问 ⇒ 搬迁时须保留同名转发（已补）。
 

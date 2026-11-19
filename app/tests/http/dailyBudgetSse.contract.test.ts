@@ -13,7 +13,7 @@ import { describe, it, expect } from 'bun:test';
 import {
   resolveStreamErrorCode,
   shouldPersistStreamFallback,
-} from '../../src/runtime/api/CoreAPIImpl';
+} from '../../src/runtime/api/chatStreamOps';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 describe('D-l：流式错误码保真 + 限额提示不落盘', () => {

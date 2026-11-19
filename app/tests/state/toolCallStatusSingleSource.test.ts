@@ -29,6 +29,8 @@ const CHUNK_MAPPER = 'app/src/chat/reactEventsToChunks.ts';
 const SSE_HANDLER = 'app/src/infrastructure/http/handlers/chat-handlers.ts';
 const SSE_FRAMES = 'app/src/infrastructure/http/handlers/chatStreamFrames.ts';
 const CORE_API_IMPL = 'app/src/runtime/api/CoreAPIImpl.ts';
+// S2（2026-11-19）：`chatStream` 及其助手已外迁至 `chatStreamOps.ts` ⇒ 该守卫需覆盖新落点
+const CHAT_STREAM_OPS = 'app/src/runtime/api/chatStreamOps.ts';
 const TOOL_PROGRESS = 'packages/infra/src/utils/toolContract/ToolProgress.ts';
 const EXECUTION_EXIT = 'packages/service/src/execution/index.ts';
 
@@ -87,8 +89,9 @@ describe('工具调用状态单源守卫（阶段 2.1/2.2）', () => {
     expect(countOccurrences(frames, "|| 'running'")).toBe(0);
   });
 
-  it('CoreAPIImpl 不再把工具调用状态断言降级为裸 string', () => {
-    const src = read(CORE_API_IMPL);
+  it('CoreAPIImpl（含外迁的 chatStreamOps）不再把工具调用状态断言降级为裸 string', () => {
+    // S2（2026-11-19）：两处缝合按同一判据守（外迁不改判据）
+    const src = read(CORE_API_IMPL) + read(CHAT_STREAM_OPS);
     expect(countOccurrences(src, 'toolCall?: { status?: string }')).toBe(0);
     expect(src).toContain('chunk.toolCall?.status');
   });

@@ -51,6 +51,8 @@ import {
 } from '../terminationOutput.js';
 // P3-2/T1（2026-11-16）：「等待审批」提示的唯一写入口（本轮扫描去重）
 import { ensureAwaitingApprovalNotice } from './awaitingApprovalNotice.js';
+// 2026-11-20（残留 2）：tool_calls 声明形状唯一入口（嵌套形，CS01 归一化）
+import { toToolCallDeclarations } from '../utils/toolCallDeclarations.js';
 import {
   lintMermaidBlocks,
   formatMermaidIssues,
@@ -598,7 +600,10 @@ export class ChatOrchestrator {
             const assistantTurnMessage: Record<string, unknown> = {
               role: 'assistant',
               content: response.content ?? '',
-              tool_calls: response.tool_calls,
+              // 2026-11-20（残留 2）：统一为 `{type:'function',function:{…}}` 声明形状（CS01 归一化）——
+              // 原先直接透传 `{id,name,arguments}` 扁平形，与流式/落盘侧的嵌套形并存，
+              // 下游须同时兼容两形（见 ChatManagerTAORAdapter.fingerprintOf 的"两形状"注释）。
+              tool_calls: toToolCallDeclarations(response.tool_calls),
             };
             ctx.apiMessages.push(assistantTurnMessage);
             logger.info('sendMessage 第一响应已补入 TAOR 上下文', {

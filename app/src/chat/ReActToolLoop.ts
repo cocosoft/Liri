@@ -47,7 +47,6 @@ import {
   mergeResponseToolCalls,
   toToolCallDeclarations,
 } from './utils/toolCallDeclarations.js';
-// 2026-11-20（残留 1）：工具轮落盘行顺序（assistant 先于其 tool 结果）—— 外移避 R04-001
 import { persistAssistantBeforeToolResults } from './toolOrderPersist.js';
 import { StreamingLlm } from './streamingLlm.js';
 import {
@@ -757,7 +756,6 @@ export class ReActToolLoop extends ReActLoop<
         };
       }
       this.ctx.addAndPersistMessage(this.ctx.session.id, assistantMsg);
-      // 已先落盘（早于本轮工具结果）⇒ 记 id 以免 `act` 重复落一次
       this._orderFlushedMessageId = assistantMsg.id;
       this.loopState.assistantMessage = assistantMsg;
     }
@@ -1695,7 +1693,6 @@ export class ReActToolLoop extends ReActLoop<
     this.toolTurnBudget.resetRunState();
     // O2-4：正文取代标记随 run 归零（一次性语义，禁止跨 run 残留误清正文）
     this._supersedeNextRoundText = false;
-    // 2026-11-20：先行落盘记录随 run 归零（复用实例的下个 run 仍应重新落盘）
     this._orderFlushedMessageId = null;
     // P1-1②（2026-09-28）：终稿校验回喂配额随 run 归零（"每 run 至多 1 次"，
     // 与 `_incompleteRetries` 同批——否则第二次坏图直接放行）

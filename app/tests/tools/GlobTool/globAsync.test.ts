@@ -82,6 +82,17 @@ describe('globAsync（2026-09-01 协作式修复 / 2026-09-17 G2 语义修正）
     expect((await globAsync('**/*.ts', projectDir)).numFiles).toBe(2);
   });
 
+  // D 项（2026-11-19，真机 `pdca_mwn8sp00`）：`**/` 原被译成 `.*` ⇒ 隐式要求"至少一层子目录"，
+  // 带前缀的标准写法（`a/b/**/*.ts`）永远漏掉本层文件（实测 0 命中，`*.ts` 40 命中）。
+  test('D：`**/` 可匹配零层子目录（标准 glob 语义）', async () => {
+    // 前缀模式 + 本层文件
+    expect((await globAsync('docs/**/*.md', projectDir)).numFiles).toBe(1);
+    // 前缀模式 + 本层与深层都能命中
+    expect((await globAsync('src/**/*.ts', projectDir)).numFiles).toBe(2);
+    // 无前缀 `**/` 语义保持（根层 README.md 不算，.ts 命中 2）
+    expect((await globAsync('**/*.ts', projectDir)).numFiles).toBe(2);
+  });
+
   test('G2：无效模式返回 invalidPattern，与「无匹配文件」可区分', async () => {
     const invalid = await globAsync('a[', projectDir); // 未闭合字符类 → 无法编译
     expect(invalid.invalidPattern).toBe('a[');

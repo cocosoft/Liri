@@ -289,16 +289,24 @@ function compileGlobPattern(pattern: string): RegExp | null {
 
   // 将 glob 模式转换为正则表达式字符串
   // 1. 转义字面量点号
-  // 2. 临时替换 ** 为占位符，避免被单星号逻辑干扰
+  // 2. `**/` 先单独占位（见下方 D 项修复），再 `**` 占位，避免被单星号逻辑干扰
   // 3. 将单星号 * 替换为匹配非路径分隔符的字符类
-  // 4. 将占位符恢复为匹配任意字符的 .*
-  // 5. 将问号 ? 替换为匹配单个字符的 .
+  // 4. 将问号 ? 替换为匹配单个字符的 .
+  // 5. 恢复占位符：`**/` ⇒ `(?:.*/)?`（零层或多层）；`**` ⇒ `.*`
+  //
+  // D 项（2026-11-19，真机 `pdca_mwn8sp00`）：原实现把 `**` 一律译成 `.*` ⇒ `**/` 隐式要求
+  // **至少一层子目录**，与标准 glob（minimatch：`**/` 可匹配零层）不同。真机实测
+  // `app/src/tasks/lro/**/*.ts` + `path='.'` 返回 **0 命中**（同目录 `*.ts` 命中 40），
+  // 模型照教科书写法调用必然得空 ⇒ step_1 空转 16 轮 / 335k token。
+  // 占位符必须**最后**恢复（否则 `?`→`.` 会破坏 `(?:.*/)?` 里的 `?`）。
   const regexStr = expandedPattern
     .replace(/\./g, '\\.')
+    .replace(/\*\*\//g, '@@DOUBLE_STAR_SLASH@@')
     .replace(/\*\*/g, '@@DOUBLE_STAR@@')
     .replace(/\*/g, '[^/\\\\]*')
-    .replace(/@@DOUBLE_STAR@@/g, '.*')
-    .replace(/\?/g, '.');
+    .replace(/\?/g, '.')
+    .replace(/@@DOUBLE_STAR_SLASH@@/g, '(?:.*/)?')
+    .replace(/@@DOUBLE_STAR@@/g, '.*');
 
   try {
     return new RegExp(`^${regexStr}$`, 'i');
@@ -325,18 +333,12 @@ function compileGlobMatcher(pattern: string): CompiledGlobMatcher | null {
   const regex = compileGlobPattern(pattern);
   if (!regex) return null;
 
-  const stripped = pattern.startsWith('**')
-    ? pattern.replace(/^\*\*\/?/, '')
-    : '';
-  const regex2 =
-    stripped && stripped !== pattern ? compileGlobPattern(stripped) : null;
-
+  // D 项（2026-11-19）：`**/` 现按标准语义可匹配零层 ⇒ 原先"前缀 `**/` 剥离后再匹配一次"的
+  // 兼容支路（regex2）已无必要，删除以免留下两条匹配路径。
   return {
     test(value: string): boolean {
       // 路径中的反斜杠统一为斜杠，确保 Windows 路径也能正确匹配
-      const normalized = value.replace(/\\/g, '/');
-      if (regex.test(normalized)) return true;
-      return regex2 ? regex2.test(normalized) : false;
+      return regex.test(value.replace(/\\/g, '/'));
     },
   };
 }

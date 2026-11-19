@@ -39,13 +39,17 @@ import { setPdcaReceiptSink } from '../../src/tasks/lro/terminalReceipt';
 
 taskOrchestrator.setPlansDir(mkdtempSync(join(tmpdir(), 'plans-b10-')));
 const dataDir = mkdtempSync(join(tmpdir(), 'pdca-b10-'));
+// 2026-11-19（CI #2142 教训）：环境变量必须在 afterAll **还原原值**，不能只 delete ——
+// bun test 同进程跑多文件，delete 会把"别人设过的值"抹掉（等价于另一种泄漏）。
+const prevDataDir = process.env.LIRI_DATA_DIR;
 process.env.LIRI_DATA_DIR = dataDir;
 
 afterAll(() => {
   // 先关 DB（WAL 句柄），否则 Windows 下 rmSync 报 EBUSY
   closePdcaCheckpointStore();
   setPdcaReceiptSink(undefined);
-  delete process.env.LIRI_DATA_DIR;
+  if (prevDataDir === undefined) delete process.env.LIRI_DATA_DIR;
+  else process.env.LIRI_DATA_DIR = prevDataDir;
   try {
     rmSync(dataDir, {
       recursive: true,

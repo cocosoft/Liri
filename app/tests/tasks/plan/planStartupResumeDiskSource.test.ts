@@ -17,14 +17,22 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const dataDir = mkdtempSync(join(tmpdir(), 'plan-resume-disk-'));
-// 隔离：后续动态 import 的模块级路径均落在临时目录
-process.env['LIRI_DATA_DIR'] = dataDir;
-process.env['FEATURE_PLAN_STARTUP_RESUME'] = 'true';
+/**
+ * ⚠️ 只改开关，**不改** `LIRI_DATA_DIR` / `LIRI_HOME`：bun test 同进程跑多文件，
+ * 偷改全局数据目录会污染其它用例（CI #2142 实测：本文件曾设 `LIRI_DATA_DIR` 后
+ * `balanceRecurringWarn` 的「绝不写到真实 ~/.pyapp」负向自证变红）。
+ * 计划目录已在用例内用 `setPlansDir()` 显式指定，无需动环境。
+ */
+const envKey = 'FEATURE_PLAN_STARTUP_RESUME';
+const envBefore = process.env[envKey];
+process.env[envKey] = 'true';
 
 /** 心跳：20 分钟前（> 10min 过期阈值，且 < 24h 新鲜窗口） */
 const HEARTBEAT_MS = Date.now() - 20 * 60_000;
 
 afterAll(() => {
+  if (envBefore === undefined) delete process.env[envKey];
+  else process.env[envKey] = envBefore;
   try {
     rmSync(dataDir, { recursive: true, force: true, maxRetries: 3 });
   } catch {

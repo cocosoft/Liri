@@ -16,6 +16,9 @@
  */
 
 import { existsSync, readdirSync } from 'fs';
+// 2026-11-19（CI 红点 #2159）：快照递归必须用 `path.join` 拼子目录 ——
+// 原实现写 `${dir}\\${name}`，在 POSIX 上 `\` 是普通字符 ⇒ `app\src` 不存在，子层永远列不出来。
+import { join } from 'path';
 import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@openliri/infra/monitoring';
 // 2026-11-09：纠正/修复重问与主规划**共用同一输出预算**（DB `max_output_tokens`，禁止写死）
@@ -188,7 +191,7 @@ export function workspaceFactsSnapshot(workspace: string): string {
         }
         listedInDir++;
         lines.push(isDir ? `${rel}/` : rel);
-        if (isDir) walk(`${dir}\\${name}`, rel, depth + 1);
+        if (isDir) walk(join(dir, name), rel, depth + 1);
       }
     };
 

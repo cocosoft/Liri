@@ -21,7 +21,12 @@ import { getLogger } from '@openliri/infra/monitoring';
 // 2026-11-09：纠正/修复重问与主规划**共用同一输出预算**（DB `max_output_tokens`，禁止写死）
 import { ModelRegistry, modelRouter } from '@modules/ai';
 
-import { getRealToolNamesForTask } from '../../tools/index.js';
+// 2026-11-19（B 项）：`getSkipDirsForRoot` 与 grep/glob **同一事实来源**（禁止再抄一份清单），
+// 且按 R03-002 经模块出口取（不直连 `tools/utils` 子目录）。
+import {
+  getRealToolNamesForTask,
+  getSkipDirsForRoot,
+} from '../../tools/index.js';
 import {
   extractFirstJsonObject,
   parsePlanDraft,
@@ -120,6 +125,85 @@ export interface PlannerRepairDeps {
   isolation: Parameters<ExecutorFn>[0]['isolation'];
 }
 
+/** 快照遍历用的最小目录项形状（`Dirent` 的跨 `@types/node` 版本差异不进入本模块契约） */
+type SnapshotDirent = { name: string | Buffer; isDirectory(): boolean };
+
+/** 工作区快照：展开深度（1 = 仅根层条目） */
+const SNAPSHOT_MAX_DEPTH = 2;
+/** 工作区快照：总条目上限（防仓库级工作区把提示词撑爆） */
+const SNAPSHOT_MAX_ENTRIES = 120;
+/** 工作区快照：单目录条目上限（同级过多时列出前 N 项并标注省略数） */
+const SNAPSHOT_MAX_PER_DIR = 20;
+
+/**
+ * 工作区**文件事实快照**（B 项，2026-11-19）。
+ *
+ * 缺陷实证（真机 `pdca_mwn8sp00`）：Planner 是纯推理角色（`useTools=false`），提示词里
+ * **没有任何文件事实**，却把 `app/src/tasks/lro/index.ts`（该目录实际 40 个 `.ts`、无此文件）
+ * 写进**硬验收标准** ⇒ 该步骤先天不可能通过；随后「形式化」纠正又逼它补具体值，
+ * 于是猜了一个常见文件名。代价：2.3M token + 目标门驳回。
+ *
+ * 口径：
+ * - 只列**目录与前两层条目**，超限如实标注（`…（另有 N 项未列出）`）；
+ * - 重目录（node_modules / dist / target…）与隐藏项跳过，与 grep/glob 同一清单；
+ * - **读失败不抛**：返回空串 ⇒ 调用方退化为改造前的提示词（不阻塞规划）。
+ */
+export function workspaceFactsSnapshot(workspace: string): string {
+  try {
+    if (!existsSync(workspace)) return '';
+    const skipDirs = getSkipDirsForRoot(workspace);
+    const lines: string[] = [];
+    let omitted = 0;
+
+    const walk = (dir: string, relDir: string, depth: number): void => {
+      if (depth > SNAPSHOT_MAX_DEPTH) return;
+      let entries: SnapshotDirent[];
+      try {
+        entries = readdirSync(dir, { withFileTypes: true }) as SnapshotDirent[];
+      } catch {
+        // @ignore-catch — 快照属附加事实，读失败不阻断规划
+        return;
+      }
+      // 目录在前、文件在后，各自按名字排序（确定性输出，便于比对与单测）
+      const sorted = [...entries].sort((a, b) => {
+        const aDir = a.isDirectory();
+        const bDir = b.isDirectory();
+        if (aDir !== bDir) return aDir ? -1 : 1;
+        return String(a.name) < String(b.name) ? -1 : 1;
+      });
+      let listedInDir = 0;
+      for (const entry of sorted) {
+        const name = String(entry.name);
+        if (name.startsWith('.')) continue;
+        const isDir = entry.isDirectory();
+        if (isDir && skipDirs.has(name)) continue;
+        const rel = relDir ? `${relDir}/${name}` : name;
+        if (lines.length >= SNAPSHOT_MAX_ENTRIES) {
+          omitted++;
+          continue;
+        }
+        if (listedInDir >= SNAPSHOT_MAX_PER_DIR) {
+          omitted++;
+          continue;
+        }
+        listedInDir++;
+        lines.push(isDir ? `${rel}/` : rel);
+        if (isDir) walk(`${dir}\\${name}`, rel, depth + 1);
+      }
+    };
+
+    walk(workspace, '', 1);
+    if (lines.length === 0 && omitted === 0) return '';
+    return [
+      ...lines,
+      ...(omitted > 0 ? [`…（另有 ${omitted} 项未列出）`] : []),
+    ].join('\n');
+  } catch {
+    // @ignore-catch — 同上：快照失败即退化为无快照
+    return '';
+  }
+}
+
 /**
  * 2026-11-08（真机）：**规划阶段的路径约束**。
  *
@@ -128,9 +212,13 @@ export interface PlannerRepairDeps {
  * 拒绝（真机 `pdca_mw6mktrf` / `pdca_mw6mq5qz`：step_1 空转数轮、审查 5 分、目标不收敛）。
  *
  * 三个 prompt 共用本段（首轮规划 / JSON 修复重问 / 验收标准重写），避免各写一份漂移。
+ *
+ * 2026-11-19（B 项）：本段同时下发**工作区文件事实快照**，并明令"快照里没有的具体文件名
+ * 不得写进验收标准"（缺陷见 `workspaceFactsSnapshot` 注释），三个 prompt 自动同步生效。
  */
 export function workspacePathConstraint(workspace: string): string {
   const workspaceEmpty = isWorkspaceEmpty(workspace);
+  const snapshot = workspaceEmpty ? '' : workspaceFactsSnapshot(workspace);
   return [
     '【路径约束（硬性）】',
     `本任务工作区根目录: \`${workspace}\``,
@@ -145,6 +233,17 @@ export function workspacePathConstraint(workspace: string): string {
     `- 工作区当前内容：${workspaceEmpty ? '**空目录**（本任务还没有任何文件）' : '已有文件（会话工作区原有内容 + 本任务产物）'}；`,
     '- 需要仓库/项目源码时**先用 `glob` 确认该路径在工作区里确实存在**再规划读取；不存在则不要规划' +
       '"遍历 / 统计 / 浏览仓库源码"的步骤（glob/grep 只会得到空结果）。本任务**没有 `projectId`**，`read_project_file` 不可用。',
+    // B 项（2026-11-19）：文件事实快照 + "不得凭空点名文件"的硬规则。
+    ...(snapshot
+      ? [
+          '',
+          '【工作区文件事实（快照，非全量）】',
+          snapshot,
+          '- 这是**深度受限的快照**：未列出的路径属**未知**（不等于不存在）。',
+          '- 因此：`acceptanceCriteria` 里**不得写出未在快照中出现过的具体文件名**（例如凭空写「能列出 xxx/index.ts」）；',
+          '  需要核实某目录里的具体文件时，把"**先列出该目录内容**"写成**一个独立步骤**，让执行期去证明，而不是把猜到的文件名写进验收标准。',
+        ]
+      : []),
   ].join('\n');
 }
 
@@ -262,7 +361,7 @@ export async function repairAcceptanceCriteria(
         ]
       : [
           '【硬性要求】每条验收标准执行完后，用**一次**工具调用的输出即可直接判定真假。',
-          '✅ 正例：`file_read 读取 <路径> 返回内容等于 <值>`；`glob 在 <目录> 下能列出 <文件名>`；',
+          '✅ 正例：`file_read 读取 <路径> 返回内容等于 <值>`；`glob 在 <目录> 下能列出 <快照中出现过的文件名>`；',
           '`grep 在 <文件> 中命中 <文本>`。',
           '❌ 禁止：字节级/编码级（严格 N 字节、无 BOM、无多余换行/空格、校验和/哈希）；',
           '**以 shell（bash/powershell）作为判定动作**（shell 受安全策略门控，可能被硬拒）；',

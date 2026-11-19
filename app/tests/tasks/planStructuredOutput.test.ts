@@ -10,7 +10,8 @@
  * 两者共用同一套字段校验（`parsePlanDraft`），不产生第二份契约。
  */
 import { describe, expect, it } from 'bun:test';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
@@ -19,6 +20,7 @@ import {
 } from '../../src/tasks/planOutputParser.js';
 import {
   repairAcceptanceCriteria,
+  workspaceFactsSnapshot,
   workspacePathConstraint,
   type PlannerRepairDeps,
 } from '../../src/tasks/lro/plannerSupport.js';
@@ -122,6 +124,84 @@ describe('workspacePathConstraint — 规划阶段路径约束（2026-11-08）',
     expect(text).toContain('/tmp');
     expect(text).toContain('C:\\');
     expect(text).toContain('~');
+  });
+});
+
+// B 项（2026-11-19）：Planner 是纯推理角色、不能自己核实文件是否存在 ⇒ 必须由提示词下发
+// 工作区文件事实快照，并明令"快照里没有的具体文件名不得写进验收标准"。
+describe('workspaceFactsSnapshot — 规划期工作区事实（B 项）', () => {
+  function makeWorkspace(): string {
+    const ws = mkdtempSync(join(tmpdir(), 'planner-snapshot-'));
+    mkdirSync(join(ws, 'app', 'src'), { recursive: true });
+    mkdirSync(join(ws, 'node_modules', 'pkg'), { recursive: true });
+    mkdirSync(join(ws, '.git'));
+    writeFileSync(join(ws, 'app', 'src', 'index.ts'), 'x', 'utf8');
+    writeFileSync(join(ws, 'app', 'package.json'), '{}', 'utf8');
+    writeFileSync(join(ws, 'README.md'), 'hi', 'utf8');
+    writeFileSync(join(ws, 'node_modules', 'pkg', 'a.js'), 'x', 'utf8');
+    return ws;
+  }
+
+  it('目录在前、文件在后；跳过 node_modules 与隐藏项；只列两层', () => {
+    const ws = makeWorkspace();
+    const text = workspaceFactsSnapshot(ws);
+    const lines = text.split('\n');
+    expect(lines).toContain('app/');
+    expect(lines).toContain('app/src/');
+    expect(lines).toContain('app/package.json');
+    expect(lines).toContain('README.md');
+    // 第 3 层条目（app/src/index.ts）不列出：快照只到两层，且规则禁止点名快照外文件
+    expect(text).not.toContain('app/src/index.ts');
+    expect(text).not.toContain('node_modules');
+    expect(text).not.toContain('.git');
+    // 目录条目先于同层文件
+    expect(lines.indexOf('app/')).toBeLessThan(lines.indexOf('README.md'));
+  });
+
+  it('深度受限：第 3 层条目不列出（避免把仓库整棵树塞进提示词）', () => {
+    const ws = makeWorkspace();
+    mkdirSync(join(ws, 'app', 'src', 'deep'), { recursive: true });
+    writeFileSync(join(ws, 'app', 'src', 'deep', 'x.ts'), 'x', 'utf8');
+    expect(workspaceFactsSnapshot(ws)).not.toContain('app/src/deep');
+  });
+
+  it('同级过多 ⇒ 截断并标注省略数（不静默丢）', () => {
+    const ws = mkdtempSync(join(tmpdir(), 'planner-snapshot-many-'));
+    for (let i = 0; i < 30; i++) {
+      writeFileSync(
+        join(ws, `f${String(i).padStart(2, '0')}.txt`),
+        'x',
+        'utf8'
+      );
+    }
+    const text = workspaceFactsSnapshot(ws);
+    expect(text).toContain('另有');
+    expect(text).toContain('未列出');
+  });
+
+  it('不存在的路径/空目录 ⇒ 空串（退化为无快照，不阻塞规划）', () => {
+    expect(workspaceFactsSnapshot(join(tmpdir(), 'not-exist-xyz-123'))).toBe(
+      ''
+    );
+    expect(
+      workspaceFactsSnapshot(mkdtempSync(join(tmpdir(), 'empty-ws-')))
+    ).toBe('');
+  });
+
+  it('workspacePathConstraint 带快照 + "不得点名快照外文件"硬规则', () => {
+    const ws = makeWorkspace();
+    const text = workspacePathConstraint(ws);
+    expect(text).toContain('【工作区文件事实（快照，非全量）】');
+    expect(text).toContain('app/src/');
+    expect(text).toContain('不得写出未在快照中出现过的具体文件名');
+    expect(text).toContain('先列出该目录内容');
+  });
+
+  it('空/不存在的工作区 ⇒ 不下发快照段（提示词保持旧样）', () => {
+    const empty = mkdtempSync(join(tmpdir(), 'planner-snapshot-empty-'));
+    const text = workspacePathConstraint(empty);
+    expect(text).not.toContain('【工作区文件事实（快照，非全量）】');
+    expect(text).toContain('**空目录**');
   });
 });
 

@@ -22,6 +22,7 @@ import {
   PLAN_STARTUP_RESUME_TASK_PREFIX,
   planHeartbeatMs,
   resetStartupPlanResumesForTest,
+  resetStalePlanSteps,
   resolveStartupPlanResume,
   selectResumablePlans,
   type PlanResumeScheduler,
@@ -262,7 +263,7 @@ describe('enqueueStartupPlanResumes：登记幂等 + 上限', () => {
 });
 
 describe('resolveStartupPlanResume：二次校验', () => {
-  it('仍可续 ⇒ 返回目标并复位崩溃残留的 running 步骤', async () => {
+  it('仍可续 ⇒ 返回目标；**不再**提前复位（复位交给所选路径，2026-11-19）', async () => {
     const source = fakeSource([
       plan({
         steps: [
@@ -283,7 +284,19 @@ describe('resolveStartupPlanResume：二次校验', () => {
     });
     expect(target?.planId).toBe('plan_a');
     expect(target?.sessionId).toBe('sess_1');
-    expect(target?.resetSteps).toBe(1);
+    // 提前复位会让计划在下次重启变成 ghost（running 但无 running 步骤）⇒ 由调用方按路径复位
+    expect(source.resetCalls).toEqual([]);
+  });
+
+  it('resetStalePlanSteps：一期注入路径显式复位崩溃残留步骤', async () => {
+    const source = fakeSource([
+      plan({
+        steps: [step({ status: 'running' }), step({ id: 'step_2' })],
+      }),
+    ]);
+    expect(
+      await resetStalePlanSteps({ planId: 'plan_a', source, now: NOW })
+    ).toBe(1);
     expect(source.resetCalls).toEqual(['plan_a']);
   });
 

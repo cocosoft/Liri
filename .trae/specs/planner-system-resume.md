@@ -87,3 +87,9 @@
 > 由 `facadeWiring` 注入**与聊天发送路径同源**的工具集（`getToolSchemas` → `filterToolSchemasByChatMode`
 > → `buildToolDefinitions`）；真机复验 `hasToolDefinitions:true`、步骤含真实工具轮、工作区真实产出。
 
+> **订正（2026-11-19 按路径复位）**：`resolveStartupPlanResume` **不再提前复位**崩溃残留的 `running` 步 ——
+> 提前复位会把计划变成「running 但无 running 步骤」⇒ 下次重启被 `TaskOrchestrator` 的 ghost-plan 防御
+> 置 `aborted`，与 D3 续跑互相抵消。复位改为**按路径**：系统级续跑由
+> `PlanDrivenLoop._adoptExistingPlan` 复位；一期消息注入由 `recovery` 显式调
+> `resetStalePlanSteps(planId)`（一期语义逐字保留）。真机两条路径均已验证，见验证记录 §5。
+

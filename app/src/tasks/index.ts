@@ -671,6 +671,7 @@ export {
   PLAN_RESUME_STALE_AFTER_MINUTES,
   PLAN_STARTUP_RESUME_TASK_PREFIX,
   planHeartbeatMs,
+  resetStalePlanSteps,
   resolveStartupPlanResume,
   selectResumablePlans,
 } from './plan/planStartupResume';

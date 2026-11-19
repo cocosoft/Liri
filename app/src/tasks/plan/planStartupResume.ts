@@ -307,8 +307,6 @@ export interface PlanResumeTarget {
   /** 计划描述（系统级续跑时作为 PDL 的计划源） */
   description: string;
   instruction: string;
-  /** 本次复位的崩溃残留 `running` 步骤数（0 = 无残留） */
-  resetSteps: number;
 }
 
 /**
@@ -316,6 +314,13 @@ export interface PlanResumeTarget {
  *
  * 三道闸门：① 开关未关（kill switch）；② 计划仍存在且仍可续跑；③ 心跳与登记时**一致**
  * （期间任何持久化 = 已有推进 ⇒ 该唤醒陈旧）。
+ *
+ * **2026-11-19（真机验证修复）**：本函数**不再复位**崩溃残留的 `running` 步骤。
+ * 复位会刷新心跳（原实现借此让重复唤醒自然作废），但提前复位会让计划在**下一次重启**加载时
+ * 变成「running 但没有 running 步骤」⇒ 被 `TaskOrchestrator` 的 ghost-plan 防御置 `aborted`，
+ * 与 D3 续跑互相抵消。复位改为**按路径决定**：
+ * - 系统级续跑：由 `PlanDrivenLoop._adoptExistingPlan` 复位（`resetStaleRunningSteps`）；
+ * - 一期消息注入：由调用方显式调 {@link resetStalePlanSteps}（保持一期语义不变）。
  */
 export async function resolveStartupPlanResume(params: {
   taskId: string;
@@ -336,22 +341,35 @@ export async function resolveStartupPlanResume(params: {
   if (planHeartbeatMs(plan) !== parsed.heartbeatMs) return null;
   if (!isPlanResumable(plan, params.now ?? Date.now())) return null;
 
-  // 校验通过后再复位（复位会刷新心跳 ⇒ 重复触发时自然作废，避免二次续跑）
-  const resetSteps = source.resetStaleRunningSteps(
-    plan.id,
-    params.now ?? Date.now()
-  );
-  const latest = source.getPlan(plan.id) ?? plan;
   return {
-    planId: latest.id,
-    sessionId: latest.sessionId,
-    description: latest.description,
+    planId: plan.id,
+    sessionId: plan.sessionId,
+    description: plan.description,
     instruction: buildPlanResumeInstruction(
-      latest,
+      plan,
       params.resolveEffect ? { resolveEffect: params.resolveEffect } : undefined
     ),
-    resetSteps,
   };
+}
+
+/**
+ * 复位计划里崩溃残留的 `running` 步骤（2026-11-19：**仅一期消息注入路径**调用）。
+ *
+ * 系统级续跑不调它 —— `PlanDrivenLoop._adoptExistingPlan` 已在采纳时复位。
+ * 复位会持久化（刷新心跳），因此放在"确定要走一期"之后，避免提前抹掉
+ * ghost-plan 防御所需的 active(running) 步骤。
+ *
+ * @returns 复位步数（0 = 无残留）
+ */
+export async function resetStalePlanSteps(params: {
+  planId: string;
+  source?: PlanResumeSource;
+  now?: number;
+}): Promise<number> {
+  const source = params.source ?? (await loadDefaultPlanSource());
+  if (!source) return 0;
+  await source.initialize();
+  return source.resetStaleRunningSteps(params.planId, params.now ?? Date.now());
 }
 
 /**

@@ -64,6 +64,7 @@ import { takeIdleContinuationInstruction } from '@modules/tasks';
 // D3（2026-11-14）：持久 DAG 的重启续跑（计划级；与目标续接**同一执行器**）
 import {
   isStartupPlanResumeTask,
+  resetStalePlanSteps,
   resolveStartupPlanResume,
 } from '@modules/tasks';
 // D7（2026-11-14）：`resolveToolEffect` = 计划影响预演的副作用解析（唯一事实源 tools/toolEffects）
@@ -426,7 +427,6 @@ export class ChatRecovery {
             logger.info('计划重启续接：系统级续跑已交给 PDL', {
               sessionId,
               planId: target.planId,
-              resetSteps: target.resetSteps,
             });
             return { ok: true };
           }
@@ -435,10 +435,14 @@ export class ChatRecovery {
             planId: target.planId,
           });
         }
+        // 2026-11-19（真机验证修复）：**只有走一期消息注入时才复位**崩溃残留的 `running` 步。
+        // 系统级续跑由 `PlanDrivenLoop._adoptExistingPlan` 自行复位；若在此处提前复位，
+        // 计划会变成「running 但没有 running 步骤」⇒ 下次重启被 ghost-plan 防御置 aborted。
+        const resetSteps = await resetStalePlanSteps({ planId: target.planId });
         logger.info('计划重启续接执行', {
           sessionId,
           planId: target.planId,
-          resetSteps: target.resetSteps,
+          resetSteps,
         });
         // 指令经 `resumeSessionInternally → streamMessage` 作为用户消息落盘
         //（§1.6「模型可见 ⇔ 已落盘」；不新建事件类型）

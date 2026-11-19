@@ -47,6 +47,8 @@ import {
   mergeResponseToolCalls,
   toToolCallDeclarations,
 } from './utils/toolCallDeclarations.js';
+// 2026-11-20（残留 1）：工具轮落盘行顺序（assistant 先于其 tool 结果）—— 外移避 R04-001
+import { persistAssistantBeforeToolResults } from './toolOrderPersist.js';
 import { StreamingLlm } from './streamingLlm.js';
 import {
   ToolResultPostProcess,
@@ -201,6 +203,8 @@ export class ReActToolLoop extends ReActLoop<
   private _lastLayerCompactAt = 0;
   /** 本轮 reason 是否产出 thinking（reasoning-only 检测，对标 openclaw 2026-09-01） */
   private _lastRoundHadThinking = false;
+  /** 2026-11-20（残留 1）：已为行顺序先行落盘的 assistant 消息 id（逐轮复用 ⇒ 只落一次） */
+  private _orderFlushedMessageId: string | null = null;
   /**
    * O2-4（2026-09-24）：下一轮 reason 的正文是否**取代**已下发正文（续接/重试轮）。
    *
@@ -753,6 +757,8 @@ export class ReActToolLoop extends ReActLoop<
         };
       }
       this.ctx.addAndPersistMessage(this.ctx.session.id, assistantMsg);
+      // 已先落盘（早于本轮工具结果）⇒ 记 id 以免 `act` 重复落一次
+      this._orderFlushedMessageId = assistantMsg.id;
       this.loopState.assistantMessage = assistantMsg;
     }
 
@@ -839,6 +845,12 @@ export class ReActToolLoop extends ReActLoop<
           });
         }
       }
+      // 2026-11-20（残留 1）：先落归属 assistant 再落本轮 tool 结果（见 `toolOrderPersist`）
+      this._orderFlushedMessageId = await persistAssistantBeforeToolResults(
+        this.ctx,
+        this.loopState.assistantMessage,
+        this._orderFlushedMessageId
+      );
 
       // P2-1（2026-11-04）：本轮工具执行计时起点（每轮汇总 `reactToolLoop:round summary` 用）
       const roundStart = Date.now();
@@ -1683,6 +1695,8 @@ export class ReActToolLoop extends ReActLoop<
     this.toolTurnBudget.resetRunState();
     // O2-4：正文取代标记随 run 归零（一次性语义，禁止跨 run 残留误清正文）
     this._supersedeNextRoundText = false;
+    // 2026-11-20：先行落盘记录随 run 归零（复用实例的下个 run 仍应重新落盘）
+    this._orderFlushedMessageId = null;
     // P1-1②（2026-09-28）：终稿校验回喂配额随 run 归零（"每 run 至多 1 次"，
     // 与 `_incompleteRetries` 同批——否则第二次坏图直接放行）
     this._outputValidationRetried = false;

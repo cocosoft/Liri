@@ -112,6 +112,14 @@ export interface ToolLoopContext {
     ): Message;
   };
   addAndPersistMessage: (sessionId: string, message: Message) => void;
+  /**
+   * 等待 fire-and-forget 落盘完成（与宿主 `ChatManager.flushPendingPersists` 同源）。
+   *
+   * 2026-11-20（残留 1「写入顺序倒置」）：`addAndPersistMessage` 本身不阻塞调用方，
+   * 若工具结果紧接着落盘，行顺序会变成 `tool…, assistant`。工具轮在落 `tool` 结果前
+   * 需借此**显式等待**归属 assistant 先落盘。
+   */
+  flushPendingPersists?: () => Promise<void>;
 
   // 检查点
   checkpointService: {

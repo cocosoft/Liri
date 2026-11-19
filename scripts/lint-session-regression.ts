@@ -8,8 +8,9 @@
  *          （generateSessionTitle 内部 catch 返回 null，catch 兜底分支不可达，需 ?? 降级）
  *   BUG-C：StreamPipeline._truncateApiMessages 必须跳过 role === 'system' 的消息
  *          （splice(1,1) 逐个删会误删系统提示，需 findIndex 过滤 system）
- *   LOG-1/LOG-2（第四十七次）：日志刷屏修复——"清除旧轮次 assistant tool_calls" 必须为
- *          logger.debug 汇总（禁止 logger.info 逐条，历史 100+ 条时每轮刷屏 100+ 行）
+ *   LOG-1/LOG-2（第四十七次；2026-11-20 文案同步）：日志刷屏修复——"清除旧轮次工具交换
+ *          （声明+结果成对）" 必须为 logger.debug 汇总（禁止 logger.info 逐条，历史 100+ 条时
+ *          每轮刷屏 100+ 行）
  *   USAGE-1/2/3（第四十七次）：成本 0/0 重复记录修复——三处 usage 上报必须含空守卫
  *          （prompt_tokens ?? 0，usage 缺失时跳过，避免 0/0 tokens 污染成本/LLMTracker）
  *
@@ -70,19 +71,22 @@ const CHECKS: Check[] = [
   },
   {
     file: 'app/src/chat/orchestrator/sendMessageFlow.ts',
-    requiredPattern: "logger.debug('清除旧轮次 assistant tool_calls",
-    forbiddenPattern: "logger.info('清除旧轮次 assistant tool_calls",
+    // 2026-11-20：语义升级为「声明+结果成对清理」（原只删声明⇒留下孤儿结果），
+    // 判据（debug 汇总、禁止 info 逐条）不变，仅同步文案。
+    requiredPattern: "logger.debug('清除旧轮次工具交换（声明+结果成对）",
+    forbiddenPattern: "logger.info('清除旧轮次工具交换（声明+结果成对）",
     description:
-      'LOG-1：日志刷屏修复 — 清除旧轮次 tool_calls 必须为 debug 汇总（禁止 info 逐条刷屏）',
+      'LOG-1：日志刷屏修复 — 清除旧轮次工具交换必须为 debug 汇总（禁止 info 逐条刷屏）',
   },
   {
     // 2026-10-19：ChatManager 的 `buildApiMessages` 路径已迁到 `pipeline/streamMessageLifecycle.ts`
     // —— 判据（debug 汇总、禁止 info 逐条）不变，仅更新落点。
+    // 2026-11-20：同 LOG-1，文案随「声明+结果成对清理」同步。
     file: 'app/src/chat/pipeline/streamMessageLifecycle.ts',
-    requiredPattern: "logger.debug('清除旧轮次 assistant tool_calls",
-    forbiddenPattern: "logger.info('清除旧轮次 assistant tool_calls",
+    requiredPattern: "logger.debug('清除旧轮次工具交换（声明+结果成对）",
+    forbiddenPattern: "logger.info('清除旧轮次工具交换（声明+结果成对）",
     description:
-      'LOG-2：日志刷屏修复 — 清除旧轮次 tool_calls 必须为 debug 汇总（禁止 info 逐条刷屏）',
+      'LOG-2：日志刷屏修复 — 清除旧轮次工具交换必须为 debug 汇总（禁止 info 逐条刷屏）',
   },
   {
     // 2026-10-19：`_reportUsage` 随流式拆分迁到 `chat/streamingLlm.ts`

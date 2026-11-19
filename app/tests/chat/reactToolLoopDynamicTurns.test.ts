@@ -149,11 +149,11 @@ function makeCtx(
   return ctx;
 }
 
-function makeInput() {
+function makeInput(extra?: { assistantMessage?: unknown }) {
   return {
     apiMessages: [{ role: 'user', content: 'hi' }],
     currentToolCalls: [],
-    assistantMessage: null,
+    assistantMessage: extra?.assistantMessage ?? null,
     nonStreaming: true,
   } as never;
 }
@@ -198,6 +198,43 @@ describe('动态轮次扩容回归（缺陷 A / C，2026-09-25）', () => {
       // 续期量 = base × ceil(consumed / base)
       expect(e.expansionBreakdown.renewal % BASE_TURNS).toBe(0);
     }
+  });
+});
+
+describe('工具结果落盘前的 assistant 先行落盘（2026-11-20 残留 1）', () => {
+  it('预置 assistantMessage（流式主链形态）⇒ 先落 assistant，再落 tool 结果且 flush 在两者之间', async () => {
+    const events: string[] = [];
+    let flushIndex = -1;
+    const ctx = makeCtx((m) => {
+      // 真机缺陷：messages.jsonl 行顺序为 `tool… → assistant`（声明延后到 finalize）
+      events.push(m.id === 'assistant-msg' ? 'assistant' : 'tool');
+    });
+    ctx.flushPendingPersists = async () => {
+      await Promise.resolve();
+      flushIndex = events.length;
+    };
+
+    const input = makeInput({
+      // 流式主路径：assistantMessage 由 streamMessageFlow 预建、循环内不落盘
+      assistantMessage: {
+        id: 'assistant-msg',
+        content: '',
+        role: 'assistant',
+        metadata: {},
+      },
+    });
+    const loop = new ReActToolLoop(ctx, input);
+    for await (const _event of loop.run(input)) {
+      // drain
+    }
+
+    // 第一条落盘必须是归属 assistant（修复前第一条是 tool 结果）
+    expect(events[0]).toBe('assistant');
+    expect(events[1]).toBe('tool');
+    // flush 必须发生在 assistant 与首个 tool 结果之间（保证行顺序而非仅入队顺序）
+    expect(flushIndex).toBe(1);
+    // 落盘一次即够（逐轮复用同一消息 ⇒ 不重复整行追加）
+    expect(events.filter((e) => e === 'assistant')).toHaveLength(1);
   });
 });
 

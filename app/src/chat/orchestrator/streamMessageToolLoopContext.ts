@@ -146,6 +146,8 @@ export function buildToolLoopContext(
     messageService: host.messageService,
     addAndPersistMessage: (sid: string, msg: Message) =>
       host.addAndPersistMessage(sid, msg),
+    // 2026-11-20（残留 1）：工具结果落盘前先等归属 assistant 落盘（行顺序修复的接缝）
+    flushPendingPersists: () => host.flushPendingPersists(),
     checkpointService: host.checkpointService,
     // 端口装配**收敛在此处**（含必填 `suspend`）：两个调用方（流式主链 / 恢复路径）一律传裸实例。
     streamingCheckpoint: toStreamingCheckpointPort(streamingCheckpoint),

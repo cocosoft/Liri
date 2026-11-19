@@ -65,6 +65,8 @@ afterAll(() => {
 /** 仅暴露本文件用到的私有入口（与既有 LRO 测试同模式） */
 type SmokeOrchestrator = {
   executor: (params: { userPrompt: string }) => Promise<unknown>;
+  /** 私有：步骤 TAORLoop 工厂（进程级注册可能被 `getOrCreateOrchestrator` 带进来） */
+  taorLoopFactory?: unknown;
   _sessionId: string | null;
   _demand: boolean;
   executePlanPhase: (description: string, sessionId: string) => Promise<Plan>;
@@ -94,6 +96,12 @@ function makeDemandOrchestrator(
   const instance = getOrCreateOrchestrator(
     taskId
   ) as unknown as SmokeOrchestrator;
+  // FLAKE-1（2026-11-19）：CI #2162 现场证实 —— 该实例被 `getOrCreateOrchestrator` 带上了
+  // **进程级**步骤 TAORLoop 工厂（`wireChatFacades` 装一次、测试进程内不还原），步骤因此
+  // 走 TAOR 分支（日志 `perStepInstance:true` / `TAOR loop started` / `modelCalls:0`），
+  // 本文件的桩执行器根本没被执行，CI 无模型 ⇒ `terminationReason='error'` ⇒ 断言假红。
+  // 本文件断言的是「默认 executor 路径」⇒ 显式摘掉实例工厂，让用例自带隔离。
+  delete instance.taorLoopFactory;
   instance.executor = executor;
   instance._sessionId = sessionId;
   instance._demand = true;

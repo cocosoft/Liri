@@ -105,6 +105,11 @@ import { DataSessionStatus } from '@openliri/kernel';
 // 2026-11-16：用户可配门控（设置页可关）—— 只取叶子模块
 import { resolveFeatureGate } from '@modules/query/featureGate';
 import { extractPendingToolCallsFromEvents } from '../utils/pendingToolCalls.js';
+// 2026-11-20：目标续接的「纯叙事空转」闸门（判定为纯函数；取证见模块头）
+import {
+  NARRATION_STALL_LENGTH,
+  countTrailingNarrationRun,
+} from './narrationStallGuard';
 import type { StreamingAutoCheckpoint } from '../services/StreamingAutoCheckpoint.js';
 import type { SessionLifecycleManager } from '../services/SessionLifecycleManager.js';
 import type { MessageService } from '../services/MessageService.js';
@@ -475,6 +480,19 @@ export class ChatRecovery {
           goalId: target.goalId,
           streak: target.streak,
         });
+        // 2026-11-20：空转闸门 —— 连续纯叙事（只说不做）达阈值 ⇒ **不再注入**「继续」，
+        // 改为落一条可见提示等待人工确认（取证：长连击从不以工具调用结束，见 narrationStallGuard）
+        const stall = await this.inspectNarrationStall(sessionId);
+        if (stall.stalled) {
+          logger.warn('目标重启续接暂停：连续纯叙事（空转），等待人工确认', {
+            sessionId,
+            goalId: target.goalId,
+            narrationRun: stall.run,
+            threshold: NARRATION_STALL_LENGTH,
+          });
+          await this.appendNarrationStallNotice(sessionId, stall.run);
+          return { ok: false, error: 'narration_stall' };
+        }
         // 与 idle 续接同源：渲染与落盘成对（`goal/injected{channel:'user_message'}`），
         // 返回正文即注入正文（§1.6 红线：模型看到了什么必须可重建）。
         const continuationText = await takeIdleContinuationInstruction({
@@ -511,6 +529,18 @@ export class ChatRecovery {
           goalId: target.goalId,
           streak: target.streak,
         });
+        // 2026-11-20：空转闸门（与重启续接同源判据）—— 连续纯叙事达阈值 ⇒ 停止自动续跑
+        const stall = await this.inspectNarrationStall(sessionId);
+        if (stall.stalled) {
+          logger.warn('目标空闲续接暂停：连续纯叙事（空转），等待人工确认', {
+            sessionId,
+            goalId: target.goalId,
+            narrationRun: stall.run,
+            threshold: NARRATION_STALL_LENGTH,
+          });
+          await this.appendNarrationStallNotice(sessionId, stall.run);
+          return { ok: false, error: 'narration_stall' };
+        }
         // B2-2 / X2（2026-09-23）：续接指令是**模型可见输入**（下方作为 user 消息注入）
         // ⇒ 渲染与落 `goal/injected{channel:'user_message'}` **成对**且**先落盘**，
         // 返回的正文即注入正文（§1.6 红线：模型看到了什么必须可重建）。
@@ -564,6 +594,73 @@ export class ChatRecovery {
     ).catch((err) => {
       logger.warn('结算信号回放失败', { error: String(err) });
     });
+  }
+
+  /**
+   * 2026-11-20：**空转闸门** —— 读取会话消息，判定尾部的「连续纯叙事」条数。
+   *
+   * 判据全部在 `narrationStallGuard`（纯函数）：系统续跑注入不算打断，其余一律打断。
+   * 读盘失败按**未触发**处理（不因诊断路径的 IO 问题阻断正常续跑），并留下 warn。
+   */
+  private async inspectNarrationStall(
+    sessionId: string
+  ): Promise<{ stalled: boolean; run: number }> {
+    try {
+      const messages = await this.deps
+        .getSessionGateway()
+        .getMessages(sessionId);
+      const run = countTrailingNarrationRun(messages);
+      return { stalled: run >= NARRATION_STALL_LENGTH, run };
+    } catch (err) {
+      // @ignore-catch 诊断读取失败不应阻断重启/idle 续接；按"未触发"继续原流程（CS03）
+      logger.warn('空转判定读取会话消息失败，按未触发处理', {
+        sessionId,
+        error: String(err),
+      });
+      return { stalled: false, run: 0 };
+    }
+  }
+
+  /**
+   * 2026-11-20：空转暂停时向会话落一条**用户可见**提示。
+   *
+   * 走 `assistant/status` 事件（既有"富状态块"，`eventPayloads` 明确标注
+   * **不参与 meaningful 判断、仅作 UI 装饰层**）：
+   * - 不写成 assistant 消息 —— 那会进入下一轮模型上下文，等于又给它一段"继续自述"的素材；
+   * - 仍满足「模型可见 ⇔ 已落盘」的逆向要求：用户看到的东西有事件可重建。
+   * 落盘失败不改变返回值（调用方仍返回 `narration_stall`），但必须留日志。
+   */
+  private async appendNarrationStallNotice(
+    sessionId: string,
+    run: number
+  ): Promise<void> {
+    const event: LiriEvent = {
+      type: 'assistant/status',
+      schemaVersion: 1,
+      seq: 0, // 由 EventLogStorage.append 原子分配
+      time: Date.now(),
+      sessionId,
+      data: {
+        content:
+          `⏸ 目标自动续跑已暂停：最近连续 ${run} 轮只有文字自述、没有实际工具调用` +
+          `（阈值 ${NARRATION_STALL_LENGTH}）。请确认下一步后手动继续，或直接结束该目标。`,
+        statusType: 'goal_narration_stall',
+      },
+    };
+    try {
+      const result = await this.deps
+        .getOrCreateEventLog(sessionId)
+        .append(event);
+      if (!result.ok) {
+        logger.warn('空转暂停提示落盘失败', {
+          sessionId,
+          reason: result.reason,
+        });
+      }
+    } catch (err) {
+      // @ignore-catch 提示落盘失败不影响"已暂停"这一事实；只记录，避免吞掉语义
+      logger.warn('空转暂停提示落盘异常', { sessionId, error: String(err) });
+    }
   }
 
   /**

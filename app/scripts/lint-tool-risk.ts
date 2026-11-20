@@ -20,6 +20,9 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+// 变体层必须最先注入（同 gen-tool-names.ts：实例化内置工具会触发顶层 `feature()`
+// 时序守卫 ⇒ 未注入即抛 CORE_VARIANT_FLAGS_NOT_INITIALIZED）
+import '../src/bootstrap/initVariantFlags';
 import { ToolFactory } from '../src/tools/ToolFactory';
 import {
   getAllBuiltinToolLoaders,

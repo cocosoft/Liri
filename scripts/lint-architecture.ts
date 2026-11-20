@@ -2342,8 +2342,8 @@ class ArchitectureLinter {
         if (targetModule === importerModule) continue;
         // 如果目标不在已知模块根中，跳过（可能是第三方包）
         if (!moduleRoots.has(targetModule)) continue;
-        // state 别名豁免：@modules/state 映射 system/state（tsconfig paths），
-        // src/state 无可用 @modules 别名，跨模块相对路径是唯一导入方式
+        // state 别名豁免：`state` 模块无可用 `@modules` 别名（历史别名 `@modules/state`
+        // 指向已不存在的 app/src/system/state，已于 2026-11-20 删除），跨模块相对路径是唯一导入方式
         if (targetModule === 'state') continue;
         // 目标模块无 index.ts（无统一出口）→ 子路径导入是唯一方式，合法
         if (!moduleHasIndex.get(targetModule)) continue;
@@ -2389,7 +2389,7 @@ class ArchitectureLinter {
         // 如果目标是不同类型模块或非模块根，跳过
         if (!moduleRoots.has(targetModule)) continue;
         if (targetModule === importerModule) continue; // 同模块，跳过
-        // state 别名豁免：src/state 无 @modules 别名（@modules/state 被 system/state 占用）
+        // state 别名豁免：`state` 模块无 `@modules` 别名（历史上的 `@modules/state` 已于 2026-11-20 删除）
         if (targetModule === 'state') continue;
         // 目标模块无 index.ts（无统一出口）→ 子路径导入是唯一方式，合法
         if (!moduleHasIndex.get(targetModule)) continue;

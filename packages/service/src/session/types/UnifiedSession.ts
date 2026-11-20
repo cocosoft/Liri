@@ -13,8 +13,6 @@ export enum SessionType {
 
 /**
  * 会话状态枚举
- *
- * @see {@link SessionState} — 从 `@modules/state/session` 导入
  */
 export enum SessionStatus {
   ACTIVE = 'active',

@@ -298,8 +298,6 @@
         "../../packages/service/src/session/index.ts"
       ],
       "@modules/session/*": ["../../packages/service/src/session/*"],
-      "@modules/state": ["system/state"],
-      "@modules/state/*": ["system/state/*"],
       "@modules/appState": ["appState"],
       "@modules/appState/*": ["appState/*"],
       "@openliri/service/streaming": [

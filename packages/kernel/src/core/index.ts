@@ -44,7 +44,8 @@ export * from './providerEndpoints';
 export * from './protocol/websocket';
 // G1 收口（台账 D-77 / A5）：移除 `@modules/system/state` 的整包再导出（`export *`）——
 //   零消费（删除后 `bun run typecheck` 无符号缺失），且消掉 core → system(infra) 的对边；
-//   消费方一律直连 `@modules/state/*`（如 `promptSuggestion/types.ts`）。
+//   消费方一律直连 `@openliri/infra/system/state`（`@modules/state` 别名已于 2026-11-20 删除，
+//   它长期指向不存在的 `app/src/system/state`）。
 //   ⚠️ **写法约定**：本文件及同类注释中**禁止出现"from '<包名>'"的完整导入片段** ——
 //   门禁 `parseModuleImports` 的两条正则**都不剥离注释**，照抄一条 import 语句会让该依赖
 //   在门禁眼里"复活"（2026-09-30 实测踩中：本行原写作 `export * from '<包名>'` 的形式，

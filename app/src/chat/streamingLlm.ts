@@ -128,7 +128,32 @@ export class StreamingLlm {
     this._reportUsage(response, requestId);
     // 每轮 LLM 响应后向骨架预算记账（用 provider **真实** prompt_tokens；无预算时 no-op）
     this._chargeStreamBudget(this._usageOf(response));
+    this._logNonStreamingReasoningShape(response);
     return response;
+  }
+
+  /**
+   * F4 非流式**取证仪器**（2026-11-21）：只留证据，**不改行为**。
+   *
+   * 流式已有结构性判据（本轮有 thinking 分片、零 text 分片 ⇒ 响应体 `content` 不当正文）；
+   * 非流式**没有分片可依** —— `content` 与 `reasoning` 可能都来自响应体，仅凭文本相同无法区分
+   * 「模型先想后答」与「提供方把推理回填进正文」（内容启发式按 CS02 **不进决策**）。
+   * 故此处只记量化事实，供下次真机出现「推理被写成正文」时判形：
+   * `contentChars` / `reasoningChars` / 是否等长 / content 是否为 reasoning 的子串 / `stop_reason`。
+   */
+  private _logNonStreamingReasoningShape(response: ChatResponse): void {
+    const reasoning = (response as { reasoning?: unknown }).reasoning;
+    if (typeof reasoning !== 'string' || reasoning.trim().length === 0) return;
+    const content = response.content ?? '';
+    logger.debug('reactToolLoop:non_streaming_reasoning_shape', {
+      contentChars: content.length,
+      reasoningChars: reasoning.length,
+      sameLength: content.length === reasoning.length,
+      contentInReasoning:
+        content.length > 0 && reasoning.includes(content.trim()),
+      stopReason: response.stop_reason,
+      toolCallCount: (response.tool_calls ?? []).length,
+    });
   }
 
   /** M1 事件溯源（2026-08-23）：工具轮 text/thinking chunk 写 events.jsonl。

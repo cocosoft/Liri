@@ -187,6 +187,29 @@ describe('ReActToolLoop M1 细化', () => {
     );
   });
 
+  // F4 非流式（2026-11-21）：**有意不加**「推理当正文」判据 —— 非流式没有分片可依，
+  // `content` 与 `reasoning` 都来自响应体，文本相同既可能是"先想后答"、也可能是"推理被回填进正文"，
+  // 内容启发式按 CS02 不进决策。此处锁定"非流式正文照常保留"，防止把流式判据盲目搬来导致真实答复被清空；
+  // 取证仪器在 `callLlmNonStreaming` 的 `reactToolLoop:non_streaming_reasoning_shape`（debug 级）。
+  it('F4：非流式 reasoning 与 content 并存 ⇒ 正文仍保留（有意不加判据）', async () => {
+    const text = '答案正文：运行状态正常';
+    const { ctx } = makeCtx({
+      llmSequence: [
+        () =>
+          ({
+            content: text,
+            reasoning: text,
+            stop_reason: 'stop',
+          }) as ChatResponse,
+      ],
+    });
+    const loop = new ReActToolLoop(ctx, makeInput(), { maxIterations: 1 });
+    for await (const _e of loop.run(makeInput())) {
+      /* consume */
+    }
+    expect(loop.getAssistantMessage()?.content ?? '').toContain(text);
+  });
+
   it('交互恢复：requiresUserInteraction 工具等待答案后执行', async () => {
     const { ctx, executed } = makeCtx({
       llmSequence: [

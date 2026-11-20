@@ -57,6 +57,33 @@ process.env.LIRI_DATA_DIR = dataDir;
 const taskId = `l3-cross-restart-${Date.now()}`;
 const sessionId = `session-${taskId}`;
 
+/** 写入"审批挂起"检查点（跨重启续跑用例的共同前置，各用例自备，不依赖执行顺序） */
+async function seedPendingCheckpoint(
+  id: string,
+  session: string
+): Promise<void> {
+  await writePdcaCheckpoint(id, {
+    taskId: id,
+    sessionId: session,
+    phase: 'plan_pending',
+    description: 'L3 跨重启审批续跑任务',
+    steps: [
+      {
+        id: 's1',
+        description: '步骤1（已完成）',
+        status: 'completed',
+        result: 'ok',
+      },
+      {
+        id: 's2',
+        description: '步骤2（待执行）',
+        status: 'pending',
+      },
+    ],
+    lastEscalations: [],
+  });
+}
+
 // 访问私有成员（setTAORLoopFactory），与 batchParallel 测试同模式
 type OrchestratorWithPrivates = LongRunningTaskOrchestrator & {
   setTAORLoopFactory: (f: (sessionId: string) => never) => void;
@@ -82,26 +109,7 @@ describe('L3 跨重启审批续跑（T2.1）', () => {
   });
 
   it('模拟进程 A：审批挂起时 checkpoint 落盘 plan_pending + 步骤快照', async () => {
-    await writePdcaCheckpoint(taskId, {
-      taskId,
-      sessionId,
-      phase: 'plan_pending',
-      description: 'L3 跨重启审批续跑任务',
-      steps: [
-        {
-          id: 's1',
-          description: '步骤1（已完成）',
-          status: 'completed',
-          result: 'ok',
-        },
-        {
-          id: 's2',
-          description: '步骤2（待执行）',
-          status: 'pending',
-        },
-      ],
-      lastEscalations: [],
-    });
+    await seedPendingCheckpoint(taskId, sessionId);
 
     const ck = await readPdcaCheckpoint(taskId);
     expect(ck?.phase).toBe('plan_pending');
@@ -112,9 +120,14 @@ describe('L3 跨重启审批续跑（T2.1）', () => {
   });
 
   it('模拟进程 B：重启后新实例审批通过 → 从 checkpoint 恢复并续跑执行', async () => {
+    // 独立 taskId + 自备 plan_pending 前置：随机顺序下不依赖上一个用例
+    const restartTaskId = `${taskId}-b`;
+    const restartSessionId = `session-${restartTaskId}`;
+    await seedPendingCheckpoint(restartTaskId, restartSessionId);
+
     // 重启后新实例：无内存状态（phase 默认 'plan'），等价跨进程
     const orchestrator = getOrCreateOrchestrator(
-      taskId
+      restartTaskId
     ) as unknown as OrchestratorWithPrivates;
     const executed: string[] = [];
 
@@ -132,7 +145,7 @@ describe('L3 跨重启审批续跑（T2.1）', () => {
     orchestrator.setReviewGate(new NoopReviewGate());
 
     // 修复前：抛 PDCA_NOT_PENDING；修复后：自动恢复并续跑
-    const status = await orchestrator.resumeAfterApproval(sessionId);
+    const status = await orchestrator.resumeAfterApproval(restartSessionId);
 
     // 续跑发生：假 TAORLoop 被调用（步骤2 被执行）
     expect(executed.length).toBeGreaterThan(0);

@@ -25,7 +25,7 @@
  * 单表 `agent_settlement_outbox`：幂等键、认领、状态写、回放、巡检都必须带 owner；
  * `prune()` 与 init 期的重复行折叠是**跨用户维护动作**（显式豁免）。
  */
-import { afterAll, describe, expect, it } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { SettlementOutbox } from '../../src/chat/yield/SettlementOutbox';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
@@ -34,10 +34,16 @@ import type { Principal } from '@openliri/kernel/identity/principal';
 const ALICE: Principal = { tenantId: 'acme', userId: 'alice', roles: ['user'] };
 const BOB: Principal = { tenantId: 'acme', userId: 'bob', roles: ['user'] };
 
-const outbox = new SettlementOutbox(':memory:');
 const ENDED_AT = 1_000;
 
-afterAll(() => {
+// 每例独立内存库：用例只依赖自己播种的行，不受执行顺序影响
+let outbox: SettlementOutbox;
+
+beforeEach(() => {
+  outbox = new SettlementOutbox(':memory:');
+});
+
+afterEach(() => {
   outbox.close();
 });
 
@@ -76,6 +82,11 @@ describe('SettlementOutbox：行级隔离', () => {
   });
 
   it('别人的行：读不到、认领不到、改不了状态', async () => {
+    // 自播种：本用例自己建 ALICE 的行，不依赖其他用例先跑
+    await runWithPrincipal(ALICE, () =>
+      outbox.enqueue({ sessionId: 's-shared', endedAt: ENDED_AT })
+    );
+
     const [aliceRow] = await runWithPrincipal(ALICE, () => outbox.listAll());
 
     expect(
@@ -102,6 +113,15 @@ describe('SettlementOutbox：行级隔离', () => {
   });
 
   it('回放候选与状态计数各算各的', async () => {
+    // 自播种：ALICE 一行被认领（attempting）、BOB 一行仍 pending
+    const aliceId = await runWithPrincipal(ALICE, () =>
+      outbox.enqueue({ sessionId: 's-shared', endedAt: ENDED_AT })
+    );
+    await runWithPrincipal(BOB, () =>
+      outbox.enqueue({ sessionId: 's-shared', endedAt: ENDED_AT })
+    );
+    await runWithPrincipal(ALICE, () => outbox.claim(aliceId));
+
     const replayable = await runWithPrincipal(ALICE, () =>
       outbox.listReplayable()
     );

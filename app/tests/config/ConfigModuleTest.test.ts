@@ -20,6 +20,25 @@ const TEST_CONFIG_PATH = join(TEST_DIR, 'test_config.json');
 const TEST_ENV_PATH = join(TEST_DIR, 'test.env');
 const TEST_YAML_PATH = join(TEST_DIR, 'test_config.yaml');
 
+const INITIAL_TEST_CONFIG = {
+  appName: 'TestApp',
+  version: 1,
+  debug: true,
+  nested: { key: 'value' },
+};
+
+// 随机顺序下同一文件/同一进程 env 会被其他用例改写 ⇒ 依赖它们的用例在用例内自备输入
+function writeInitialConfig(): void {
+  setupTestDir();
+  writeFileSync(TEST_CONFIG_PATH, JSON.stringify(INITIAL_TEST_CONFIG), 'utf-8');
+}
+
+function setLiriEnv(): void {
+  process.env['LIRI_MODE'] = 'production';
+  process.env['LIRI_PORT'] = '3000';
+  process.env['LIRI_DEBUG'] = 'false';
+}
+
 function setupTestDir() {
   if (!existsSync(TEST_DIR)) {
     mkdirSync(TEST_DIR, { recursive: true });
@@ -35,16 +54,7 @@ function cleanupTestDir() {
 describe('ConfigLoader', () => {
   beforeAll(() => {
     setupTestDir();
-    writeFileSync(
-      TEST_CONFIG_PATH,
-      JSON.stringify({
-        appName: 'TestApp',
-        version: 1,
-        debug: true,
-        nested: { key: 'value' },
-      }),
-      'utf-8'
-    );
+    writeInitialConfig();
     writeFileSync(
       TEST_ENV_PATH,
       'LIRI_MODE=production\nLIRI_PORT=3000\nLIRI_DEBUG=false\n',
@@ -55,9 +65,7 @@ describe('ConfigLoader', () => {
       'app:\n  name: YamlApp\n  port: 8080\n',
       'utf-8'
     );
-    process.env['LIRI_MODE'] = 'production';
-    process.env['LIRI_PORT'] = '3000';
-    process.env['LIRI_DEBUG'] = 'false';
+    setLiriEnv();
   });
 
   afterAll(() => {
@@ -68,6 +76,7 @@ describe('ConfigLoader', () => {
   });
 
   it('loads JSON config from file', async () => {
+    writeInitialConfig();
     const loader = new ConfigLoader();
     const config = await loader.load([
       { type: 'file', path: TEST_CONFIG_PATH, format: 'json', priority: 10 },
@@ -79,16 +88,30 @@ describe('ConfigLoader', () => {
   });
 
   it('loads environment variables with prefix', async () => {
-    const loader = new ConfigLoader();
-    const config = await loader.load([
-      { type: 'env', prefix: 'LIRI_', priority: 10 },
-    ]);
-    expect(config.mode).toBe('production');
-    expect(config.port).toBe(3000);
-    expect(config.debug).toBe(false);
+    // 用本用例**独占前缀**：同进程其他用例（env 清理类）可能整体清空 `LIRI_*`，
+    // 共享前缀会让本断言依赖"谁先跑"（随机顺序 seed=7 实测 `config.debug === undefined`）。
+    const PREFIX = 'CMT_';
+    process.env[`${PREFIX}MODE`] = 'production';
+    process.env[`${PREFIX}PORT`] = '3000';
+    process.env[`${PREFIX}DEBUG`] = 'false';
+    try {
+      const loader = new ConfigLoader();
+      const config = await loader.load([
+        { type: 'env', prefix: PREFIX, priority: 10 },
+      ]);
+      expect(config.mode).toBe('production');
+      expect(config.port).toBe(3000);
+      expect(config.debug).toBe(false);
+    } finally {
+      delete process.env[`${PREFIX}MODE`];
+      delete process.env[`${PREFIX}PORT`];
+      delete process.env[`${PREFIX}DEBUG`];
+    }
   });
 
   it('merges multiple sources with priority (higher priority wins)', async () => {
+    writeInitialConfig();
+    setLiriEnv();
     const loader = new ConfigLoader();
     const config = await loader.load([
       { type: 'file', path: TEST_CONFIG_PATH, format: 'json', priority: 20 },

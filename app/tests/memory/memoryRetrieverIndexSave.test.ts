@@ -65,10 +65,14 @@ describe('MemoryRetrieverImpl.saveIndex：并发保存不产生 ENOENT', () => {
     const dir = makeDir();
     const retriever = new MemoryRetrieverImpl(dir);
 
+    const since = Date.now();
     await Promise.all(Array.from({ length: 8 }, () => retriever.saveIndex()));
 
+    // 2026-11-20 修 flaky：`getErrorStats().recent` 是**进程级**环形缓冲，其他用例留下的
+    // `[save_index]` 记录会残留（随机顺序下同文件先跑就红）。改为只看**本次保存窗口内**的
+    // 记录 —— 口径不变（并发保存不得产生 save_index 错误），但不再吃跨用例脏数据。
     const saveIndexErrors = getErrorStats().recent.filter(
-      (entry) => entry.action === 'save_index'
+      (entry) => entry.action === 'save_index' && entry.timestamp >= since
     );
     expect(saveIndexErrors).toHaveLength(0);
 

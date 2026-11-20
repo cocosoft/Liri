@@ -147,6 +147,8 @@ describe('prepareReplan — 成本回执（不改执行语义）', () => {
 
 describe('captureWorkspaceSnapshot — 产物清单落盘', () => {
   it('递归收集文件元数据（相对路径 + 大小），并写 JSON 快照', () => {
+    // 与本文件其他用例共用同一任务工作区 ⇒ 先清空，避免残留文件改变条目数
+    rmSync(workspace, { recursive: true, force: true });
     mkdirSync(join(workspace, 'sub'), { recursive: true });
     writeFileSync(join(workspace, 'a.txt'), 'hello', 'utf-8');
     writeFileSync(join(workspace, 'sub', 'b.txt'), 'bye', 'utf-8');
@@ -160,9 +162,14 @@ describe('captureWorkspaceSnapshot — 产物清单落盘', () => {
     expect(snapshot.files.every((f) => f.size > 0)).toBe(true);
 
     const dir = join(resolvePyappHome(), 'data', 'replan-snapshots');
-    const written = readdirSync(dir).filter((n) => n.startsWith(TASK_ID));
+    // 同一 taskId 会有多份历史快照 ⇒ 取文件名（含 ISO 时间戳）最新的那份
+    const written = readdirSync(dir)
+      .filter((n) => n.startsWith(TASK_ID))
+      .sort();
     expect(written.length).toBeGreaterThan(0);
-    const parsed = JSON.parse(readFileSync(join(dir, written[0]), 'utf-8')) as {
+    const parsed = JSON.parse(
+      readFileSync(join(dir, written[written.length - 1]), 'utf-8')
+    ) as {
       entries: number;
     };
     expect(parsed.entries).toBe(2);

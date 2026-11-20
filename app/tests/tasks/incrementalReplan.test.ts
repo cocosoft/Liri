@@ -27,7 +27,18 @@ afterAll(async () => {
     await import('../../src/tasks/PdcaWorkItemBridge');
   closePdcaCheckpointStore();
   delete process.env.LIRI_DATA_DIR;
-  rmSync(dataDir, { recursive: true, force: true });
+  // Windows：sqlite 句柄关闭是异步回调，`rm` 可能仍 EBUSY ⇒ 有界重试；仍失败则留给系统临时目录
+  await new Promise((r) => setTimeout(r, 100));
+  try {
+    rmSync(dataDir, {
+      recursive: true,
+      force: true,
+      maxRetries: 5,
+      retryDelay: 100,
+    });
+  } catch {
+    // @ignore-catch — 临时目录清理失败不影响断言（本文件断言已完成）
+  }
 });
 
 type EscalationRecord = {

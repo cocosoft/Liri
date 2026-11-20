@@ -69,6 +69,10 @@ describe('BalanceStore：行级隔离', () => {
   });
 
   it('删除不波及他人', async () => {
+    // 自播种：两用户各自的余额行，不依赖其他用例先跑
+    await runWithPrincipal(ALICE, () => store.setBalance('p-1', balance(10)));
+    await runWithPrincipal(BOB, () => store.setBalance('p-1', balance(90)));
+
     await runWithPrincipal(BOB, () => store.deleteBalance('p-1'));
     expect(
       await runWithPrincipal(BOB, () => store.getBalance('p-1'))

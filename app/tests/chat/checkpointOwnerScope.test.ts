@@ -22,7 +22,7 @@
 /**
  * 租户级 DB 期 3：`CheckpointDatabase` 的**行级隔离**（基础设施专项 §6.1）。
  */
-import { afterAll, describe, expect, it } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { CheckpointDatabase } from '../../src/chat/services/CheckpointDatabase';
 import type { SessionCheckpoint } from '@modules/session/types/checkpoint';
@@ -33,9 +33,14 @@ import type { Principal } from '@openliri/kernel/identity/principal';
 const ALICE: Principal = { tenantId: 'acme', userId: 'alice', roles: ['user'] };
 const BOB: Principal = { tenantId: 'acme', userId: 'bob', roles: ['user'] };
 
-const db = new CheckpointDatabase(':memory:');
+// 每例独立内存库：用例只依赖自己播种的行，不受执行顺序影响
+let db: CheckpointDatabase;
 
-afterAll(async () => {
+beforeEach(() => {
+  db = new CheckpointDatabase(':memory:');
+});
+
+afterEach(async () => {
   await db.close();
 });
 
@@ -87,6 +92,14 @@ describe('CheckpointDatabase：行级隔离', () => {
   });
 
   it('删除：不得波及别人的同名会话/同 id 检查点', async () => {
+    // 自播种：两用户各自的同名会话检查点，不依赖其他用例先跑
+    await runWithPrincipal(ALICE, () =>
+      db.saveCheckpoint(checkpoint({ id: 'cp-a', sessionId: 's-shared' }))
+    );
+    await runWithPrincipal(BOB, () =>
+      db.saveCheckpoint(checkpoint({ id: 'cp-b', sessionId: 's-shared' }))
+    );
+
     await runWithPrincipal(ALICE, () =>
       db.deleteSessionCheckpoints('s-shared')
     );

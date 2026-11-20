@@ -25,7 +25,7 @@
  * 单表 `router_session_routes`：读写（get/set/delete）必须带 owner 过滤；
  * `cleanExpired()` 是跨用户维护动作（过期行对本租户所有用户都已失效）⇒ 显式豁免。
  */
-import { afterAll, describe, expect, it } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -37,9 +37,14 @@ import type { Principal } from '@openliri/kernel/identity/principal';
 const ALICE: Principal = { tenantId: 'acme', userId: 'alice', roles: ['user'] };
 const BOB: Principal = { tenantId: 'acme', userId: 'bob', roles: ['user'] };
 
-const store = new SessionRouterStore(':memory:');
+// 每例独立内存库：用例只依赖自己播种的行，不受执行顺序影响
+let store: SessionRouterStore;
 
-afterAll(() => {
+beforeEach(() => {
+  store = new SessionRouterStore(':memory:');
+});
+
+afterEach(() => {
   store.close();
 });
 
@@ -68,6 +73,14 @@ describe('SessionRouterStore：行级隔离', () => {
   });
 
   it('set 命中自己的行才累加 hit_count，不覆盖他人', async () => {
+    // 自播种：两用户各自一行，不依赖其他用例先跑
+    await runWithPrincipal(ALICE, () =>
+      store.set('s-shared', 'simple', 'p-a', 'm-a')
+    );
+    await runWithPrincipal(BOB, () =>
+      store.set('s-shared', 'reasoning', 'p-b', 'm-b')
+    );
+
     await runWithPrincipal(ALICE, () =>
       store.set('s-shared', 'medium', 'p-a', 'm-a2')
     );

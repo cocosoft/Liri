@@ -19,7 +19,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { afterAll, describe, expect, it } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -35,10 +35,16 @@ import { KnowledgeGraph } from '../../src/knowledge/graph/KnowledgeGraph';
  * 判据（可证伪）：`queryEdges()` 返回的边若仍为 `undefined`，前两条用例立即红。
  */
 describe('KnowledgeGraph domain round-trip（P2-12）', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'kg-p2-12-'));
-  const dbPath = join(dir, 'app.db');
+  // 每例独立库：用例自播种，不受执行顺序影响
+  let dir: string;
+  let dbPath: string;
 
-  afterAll(() => {
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'kg-p2-12-'));
+    dbPath = join(dir, 'app.db');
+  });
+
+  afterEach(() => {
     rmSync(dir, { recursive: true, force: true });
   });
 
@@ -76,6 +82,8 @@ describe('KnowledgeGraph domain round-trip（P2-12）', () => {
   it('导出 JSONL 保真：无 domain 的边**带** "domain":""（原会丢字段）', async () => {
     const g = new KnowledgeGraph(dbPath);
     await g.init();
+    // 自播种：本用例自己的无 domain 边，不依赖其他用例先跑
+    await g.addEdge({ from: 'a:p2-12:1', to: 'b:p2-12:2', type: 'related' });
 
     const jsonl = await g.exportJsonl();
     const parsed = jsonl

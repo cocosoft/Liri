@@ -24,7 +24,7 @@
  *
  * 单表 `taor_checkpoints`：主键 `(id, owner_key)`；读写均过滤；`cleanup` 是跨用户维护动作。
  */
-import { afterAll, describe, expect, it } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DBTAORCheckpointStorage } from '@modules/query/DBTAORCheckpointStorage';
@@ -39,10 +39,15 @@ const REPO_ROOT = join(import.meta.dir, '../../..');
 const ALICE: Principal = { tenantId: 'acme', userId: 'alice', roles: ['user'] };
 const BOB: Principal = { tenantId: 'acme', userId: 'bob', roles: ['user'] };
 
-const storage = new DBTAORCheckpointStorage(':memory:');
+// 每例独立内存库：用例只依赖自己播种的行，不受执行顺序影响
+let storage: DBTAORCheckpointStorage;
 
-afterAll(async () => {
-  await storage.close?.();
+beforeEach(() => {
+  storage = new DBTAORCheckpointStorage(':memory:');
+});
+
+afterEach(() => {
+  storage.close?.();
 });
 
 const checkpoint = (id: string): TAORCheckpoint => ({
@@ -102,6 +107,10 @@ describe('DBTAORCheckpointStorage：行级隔离', () => {
   });
 
   it('删除不波及他人', async () => {
+    // 自播种：两用户各自一行（同名会话），不依赖其他用例先跑
+    await runWithPrincipal(ALICE, () => storage.save(checkpoint('cp-a')));
+    await runWithPrincipal(BOB, () => storage.save(checkpoint('cp-b')));
+
     await runWithPrincipal(BOB, () => storage.delete('cp-a'));
     expect(
       (await runWithPrincipal(ALICE, () => storage.load('cp-a')))?.id
@@ -118,7 +127,8 @@ describe('DBTAORCheckpointStorage：行级隔离', () => {
   });
 
   it('cleanup 是跨用户维护动作（过期行对所有人无价值）', async () => {
-    // 上一条用例把 BOB 的行删了 ⇒ 补一条，确保两位用户都有过期行
+    // 自播种：本用例独立内存库 ⇒ 两位用户各一条过期行，不依赖其他用例
+    await runWithPrincipal(ALICE, () => storage.save(checkpoint('cp-a2')));
     await runWithPrincipal(BOB, () => storage.save(checkpoint('cp-b2')));
 
     // 未来过期点 ⇒ 两位用户的行都应被清掉

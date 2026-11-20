@@ -179,7 +179,17 @@ describe('finalizeEscalation — 检查点落盘与早停', () => {
   });
 
   it('同一缺陷第二轮 ⇒ 早停：replanPending=false、phase=failed、stopReason 落盘', async () => {
-    const taskId = 'ck_defect_first';
+    // 独立 taskId + 显式播种首轮检查点：随机顺序下不依赖上一个用例先行写入
+    const taskId = 'ck_defect_second_round';
+    const firstRound = buildDefectSignature(defects);
+    await writePdcaCheckpoint(taskId, {
+      taskId,
+      phase: 'execute',
+      replanPending: true,
+      replanFailCount: 1,
+      defectSignature: firstRound?.signature,
+      defectRepeatCount: 1,
+    });
     const result = await finalizeEscalation({
       taskId,
       escalations: defects,

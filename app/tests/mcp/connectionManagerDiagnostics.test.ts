@@ -62,6 +62,10 @@ describe('MCP 连接管理器诊断口径与关闭语义（真实 e2e 缺陷守�
   });
 
   it('getServers() 对同一情形同样报 pending', () => {
+    // 2026-11-20 修 flaky：本用例原先依赖**上一个用例**注册的 PROBE（随机顺序下先跑即红）。
+    // 注册动作前移到本用例内 ⇒ 每个用例自带前置条件，顺序无关。
+    getMCPServerManager().addServer(PROBE, CONFIG);
+
     const rec = mcpConnectionManager.getServers().find((s) => s.name === PROBE);
     expect(rec?.type).toBe('pending');
   });

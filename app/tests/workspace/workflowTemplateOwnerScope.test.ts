@@ -10,7 +10,7 @@
  *   ② SQL 漏过滤：所有读写模板必须带 `owner_key`；
  *   ③ 单例分桶：租户实例按 tenantId 分桶 + 删租户释放 + 显式路径不混默认单例。
  */
-import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'bun:test';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -23,9 +23,16 @@ import type { WorkflowTemplate } from '../../src/workspace/types';
 import type { Principal } from '@openliri/kernel/identity/principal';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 
-const TENANT = `wt-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
-const ALICE: Principal = { tenantId: TENANT, userId: 'alice', roles: ['user'] };
-const BOB: Principal = { tenantId: TENANT, userId: 'bob', roles: ['user'] };
+/** 每例独立租户 ⇒ 独立租户库：用例只依赖自己播种的行，不受执行顺序影响 */
+const freshPrincipals = (): { ALICE: Principal; BOB: Principal } => {
+  const tenantId = `wt-${process.pid}-${Date.now().toString(36)}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
+  return {
+    ALICE: { tenantId, userId: 'alice', roles: ['user'] },
+    BOB: { tenantId, userId: 'bob', roles: ['user'] },
+  };
+};
 
 const dataDir = mkdtempSync(join(tmpdir(), 'workflow-templates-'));
 
@@ -51,6 +58,11 @@ beforeAll(() => {
   process.env.LIRI_DATA_DIR = dataDir;
 });
 
+afterEach(() => {
+  // 每例结束后释放本租户实例（句柄随之关闭，下一例用新租户库）
+  resetWorkflowTemplateStoreScopedForTest();
+});
+
 afterAll(() => {
   resetWorkflowTemplateStoreScopedForTest();
   delete process.env.LIRI_DATA_DIR;
@@ -63,6 +75,7 @@ afterAll(() => {
 
 describe('workflow_templates：行级隔离', () => {
   it('同租户两用户的模板互不可见（list / get）', async () => {
+    const { ALICE, BOB } = freshPrincipals();
     await as(ALICE, () => store().upsert(tpl('a-tpl')));
     await as(BOB, () => store().upsert(tpl('b-tpl')));
 
@@ -77,6 +90,11 @@ describe('workflow_templates：行级隔离', () => {
   });
 
   it('listSync 同步快照按 owner 分桶，不串读他人', async () => {
+    const { ALICE, BOB } = freshPrincipals();
+    // 自播种：两用户各自的模板，不依赖其他用例先跑
+    await as(ALICE, () => store().upsert(tpl('a-tpl')));
+    await as(BOB, () => store().upsert(tpl('b-tpl')));
+
     // 预热：ALICE 先 list（写 ALICE 桶），BOB 后 list（写 BOB 桶）
     await as(ALICE, () => store().list());
     await as(BOB, () => store().list());
@@ -117,6 +135,10 @@ describe('workflow_templates：行级隔离', () => {
   });
 
   it('remove 不波及他人（他人的模板等同不存在）', async () => {
+    const { ALICE, BOB } = freshPrincipals();
+    // 自播种：ALICE 的目标模板，不依赖其他用例先跑
+    await as(ALICE, () => store().upsert(tpl('a-tpl')));
+
     expect(await as(BOB, () => store().remove('a-tpl'))).toBe(false);
     expect(await as(ALICE, () => store().get('a-tpl'))).not.toBeNull();
     expect(await as(ALICE, () => store().remove('a-tpl'))).toBe(true);

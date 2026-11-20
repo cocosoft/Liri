@@ -78,9 +78,9 @@ describe('faq_entries：行级隔离', () => {
       )
     ).toEqual(['bob 问题']);
 
-    // search：只命中自己的
+    // search：只命中自己的（用本用例独有的检索词，避免命中其他用例的条目）
     expect(
-      (await as(ALICE, () => svc().search({ query: 'alice' }))).map(
+      (await as(ALICE, () => svc().search({ query: 'alice 问题' }))).map(
         (e) => e.question
       )
     ).toEqual(['alice 问题']);

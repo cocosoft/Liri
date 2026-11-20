@@ -29,12 +29,29 @@ import type { ToolName } from '@openliri/infra/constants/toolNames.generated';
 /** 副作用范围：`none` 无副作用 · `local` 本地状态 · `external` 对外部系统/用户可见 */
 export type ToolSideEffect = 'none' | 'local' | 'external';
 
+/** 按子操作（`op` / `mode`）的覆盖片段 */
+export type ToolEffectOverride = Partial<
+  Pick<ToolEffect, 'idempotent' | 'sideEffect'>
+>;
+
 /** 工具效果声明 */
 export interface ToolEffect {
   /** 重复调用（含并发）是否与单次等价 */
   idempotent: boolean;
   /** 副作用范围 */
   sideEffect: ToolSideEffect;
+  /**
+   * 复合工具（`FamilyTool`）的**判别字段**（2026-11-20，第 ② 步）。
+   *
+   * 仅当同一工具的不同子操作风险不同时才声明；缺省 = 不做按子操作覆盖（零行为变更）。
+   */
+  discriminator?: 'op' | 'mode';
+  /**
+   * 按判别字段值（= `FamilyMember.key`）覆盖 `idempotent` / `sideEffect`。
+   *
+   * 语义边界（保守）：**`input` 缺失或判别值未登记 ⇒ 回退工具级声明**（即"最保守的那一档"）。
+   */
+  byOperation?: Readonly<Record<string, ToolEffectOverride>>;
 }
 
 const NONE: ToolEffect = { idempotent: true, sideEffect: 'none' };
@@ -66,7 +83,12 @@ export const TOOL_EFFECTS: Record<ToolName, ToolEffect> = {
   config: LOCAL,
   create_project: LOCAL,
   // P1（2026-10-30）：cron 四件合并为 `cron`（含 create/stop/delete 写操作 ⇒ LOCAL；list 只读）
-  cron: LOCAL,
+  // 2026-11-20（第 ② 步）：按 op 覆盖 —— `list` 只读 ⇒ 幂等且无副作用（可安全重试）
+  cron: {
+    ...LOCAL,
+    discriminator: 'op',
+    byOperation: { list: NONE },
+  },
   doc_generate: LOCAL,
   file_convert: NONE,
   file_edit: LOCAL,
@@ -104,11 +126,21 @@ export const TOOL_EFFECTS: Record<ToolName, ToolEffect> = {
   send_message: EXTERNAL,
   sessions: LOCAL,
   sessions_yield: LOCAL,
-  skill: LOCAL,
+  // 2026-11-20（第 ② 步）：`view` / `list` 只读 ⇒ 幂等无副作用；`run`（执行技能）按工具级 LOCAL
+  skill: {
+    ...LOCAL,
+    discriminator: 'op',
+    byOperation: { view: NONE, list: NONE },
+  },
   sleep: NONE,
   task_stop: LOCAL,
   // P1（2026-10-30）：`task_list` = 长任务清单三件的合并体（create/update 写本地状态 ⇒ LOCAL）
-  task_list: LOCAL,
+  // 2026-11-20（第 ② 步）：`get` 只读 ⇒ 幂等且无副作用
+  task_list: {
+    ...LOCAL,
+    discriminator: 'op',
+    byOperation: { get: NONE },
+  },
   // P4b（2026-10-16）：`task_output` 接线进生效面后须声明（`Record<ToolName,…>` 强制）。
   // 只读（`TaskOutputTool.isReadOnly() === true`，TaskOutputTool.ts:208）⇒ NONE。
   task_output: NONE,
@@ -127,7 +159,12 @@ export const TOOL_EFFECTS: Record<ToolName, ToolEffect> = {
   video_display: NONE,
   video_generate: LOCAL,
   // P1（2026-10-30）：VFS 四件合并为 `vfs`（含 write ⇒ LOCAL；read/list/stat 为只读但同一工具）
-  vfs: LOCAL,
+  // 2026-11-20（第 ② 步）：只读三个 op 覆盖为 NONE（可安全重试）；`write` 保持 LOCAL
+  vfs: {
+    ...LOCAL,
+    discriminator: 'op',
+    byOperation: { read: NONE, list: NONE, stat: NONE, write: LOCAL },
+  },
   // P1（2026-10-30）：`enter_worktree` / `exit_worktree` 合并为 `worktree`（本地状态变更）
   worktree: LOCAL,
   web_fetch: NONE,
@@ -135,9 +172,24 @@ export const TOOL_EFFECTS: Record<ToolName, ToolEffect> = {
   write_project_file: LOCAL,
 };
 
-/** 取工具效果声明；未声明（MCP / 插件等外部工具）⇒ `undefined` */
-export function resolveToolEffect(name: string): ToolEffect | undefined {
-  return TOOL_EFFECTS[name as ToolName];
+/**
+ * 取工具效果声明；未声明（MCP / 插件等外部工具）⇒ `undefined`。
+ *
+ * 2026-11-20（第 ② 步）：复合工具支持**按子操作覆盖** —— 传入 `input` 且命中
+ * `discriminator`（`op` / `mode`）时返回 `{...工具级, ...byOperation[key]}`；
+ * **不传 `input` / 判别值未登记 ⇒ 回退工具级声明**（保守，与既有调用点零行为变更）。
+ */
+export function resolveToolEffect(
+  name: string,
+  input?: Record<string, unknown>
+): ToolEffect | undefined {
+  const base = TOOL_EFFECTS[name as ToolName];
+  if (!base) return undefined;
+  if (!base.discriminator || !base.byOperation || !input) return base;
+  const key = input[base.discriminator];
+  if (typeof key !== 'string' || key.length === 0) return base;
+  const override = base.byOperation[key];
+  return override ? { ...base, ...override } : base;
 }
 
 /**
@@ -147,8 +199,11 @@ export function resolveToolEffect(name: string): ToolEffect | undefined {
  * - 已声明但非幂等 ⇒ **禁止**（调用方应改为"询问用户 / 补偿"）；
  * - **未声明**（MCP/插件工具）⇒ **禁止**（保守：无法证明幂等即不重试）。
  */
-export function shouldBlindRetryTool(name: string): boolean {
-  return resolveToolEffect(name)?.idempotent === true;
+export function shouldBlindRetryTool(
+  name: string,
+  input?: Record<string, unknown>
+): boolean {
+  return resolveToolEffect(name, input)?.idempotent === true;
 }
 
 /** 幂等工具的执行失败**盲目重试**上限（`ErrorHandler.handleAsync` 口径：最多 2 次） */
@@ -169,8 +224,11 @@ export interface ToolRetryBudget {
  * - 幂等（`shouldBlindRetryTool` 为真）⇒ 允许 `BLIND_RETRY_MAX_ATTEMPTS` 次；
  * - 非幂等 / **未声明**（MCP·插件）⇒ `maxRetries: 0`（保守：无法证明幂等 ⇒ 不自动重放）。
  */
-export function resolveToolRetryBudget(name: string): ToolRetryBudget {
-  return shouldBlindRetryTool(name)
+export function resolveToolRetryBudget(
+  name: string,
+  input?: Record<string, unknown>
+): ToolRetryBudget {
+  return shouldBlindRetryTool(name, input)
     ? { recoveryStrategy: 'retry', maxRetries: BLIND_RETRY_MAX_ATTEMPTS }
     : { recoveryStrategy: 'ignore', maxRetries: 0 };
 }
@@ -186,8 +244,11 @@ export const TOOL_EFFECTS_COUNT = Object.keys(TOOL_EFFECTS).length;
  * - `sideEffect === 'local' | 'external'` ⇒ **拒绝**（用户裁定：external + local）；
  * - **未声明**（MCP / 插件等外部工具）⇒ **拒绝**（fail-closed：无法证明无副作用）。
  */
-export function isBlockedForUntrustedOrigin(name: string): boolean {
-  const effect = resolveToolEffect(name);
+export function isBlockedForUntrustedOrigin(
+  name: string,
+  input?: Record<string, unknown>
+): boolean {
+  const effect = resolveToolEffect(name, input);
   if (!effect) return true;
   return effect.sideEffect !== 'none';
 }
@@ -210,8 +271,13 @@ export type ToolRecoveryPolicy = 'retryable' | 'manual';
  *
  * 未声明（MCP / 插件）⇒ `manual`（保守：无法证明幂等 ⇒ **不自动重放**）。
  */
-export function resolveToolRecoveryPolicy(name: string): ToolRecoveryPolicy {
-  return resolveToolEffect(name)?.idempotent === true ? 'retryable' : 'manual';
+export function resolveToolRecoveryPolicy(
+  name: string,
+  input?: Record<string, unknown>
+): ToolRecoveryPolicy {
+  return resolveToolEffect(name, input)?.idempotent === true
+    ? 'retryable'
+    : 'manual';
 }
 
 /**
@@ -220,8 +286,11 @@ export function resolveToolRecoveryPolicy(name: string): ToolRecoveryPolicy {
  * 仅幂等工具可自动重放；其余（含未声明）一律返回 `false` ⇒ 交由人工/补偿处理
  * （避免"数据库恢复正常但外部世界已重复操作"这一隐蔽错误）。
  */
-export function canReplayAfterUnknown(name: string): boolean {
-  return resolveToolRecoveryPolicy(name) === 'retryable';
+export function canReplayAfterUnknown(
+  name: string,
+  input?: Record<string, unknown>
+): boolean {
+  return resolveToolRecoveryPolicy(name, input) === 'retryable';
 }
 
 /** 一次**已发生**的工具调用（判定「重试」所需的最小历史；由调用方提供） */
@@ -273,7 +342,7 @@ export function isNonIdempotentRetry(
   args: Record<string, unknown>,
   history: readonly PriorToolCall[]
 ): boolean {
-  if (shouldBlindRetryTool(name)) return false; // 幂等 ⇒ 允许自动重试
+  if (shouldBlindRetryTool(name, args)) return false; // 幂等（含按 op 覆盖）⇒ 允许自动重试
   return history.some(
     (c) =>
       c.toolName === name &&

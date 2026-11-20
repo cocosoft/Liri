@@ -650,7 +650,12 @@ export class ToolExecutionService {
         try {
           // 2026-11-02 根因修复：盲目重试必须过「幂等声明」闸门（唯一事实源 = tools/toolEffects）。
           // 此前对所有工具写死 retry×2 ⇒ bash / file_write 等**已产生副作用后抛错**会被原样重放。
-          const retryBudget = resolveToolRetryBudget(toolCall.name);
+          // 2026-11-20（第 ② 步）：按 op 覆盖 —— 复合工具的只读子操作（vfs read/cron list…）可重试；
+          // 不传/判别值缺失时自动回退工具级声明（保守）。
+          const retryBudget = resolveToolRetryBudget(
+            toolCall.name,
+            toolCall.arguments
+          );
           const handled = await ErrorHandler.handleAsync(
             () => withToolTimeout(runTool, toolCall),
             retryBudget

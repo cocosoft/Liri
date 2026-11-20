@@ -167,6 +167,23 @@ export class FamilyTool extends BaseTool {
     );
   }
 
+  /**
+   * 成员声明快照（2026-11-20，第 ② 步）：供「按 op 的 effects 覆盖」一致性核对。
+   *
+   * 只读、**不实例化成员**（成员构造可能有副作用）；由 `tests/tools/familyToolEffects` 使用。
+   */
+  get memberDeclarations(): ReadonlyArray<{
+    key: string;
+    readOnly: boolean;
+    destructive: boolean;
+  }> {
+    return [...this.members.values()].map((m) => ({
+      key: m.key,
+      readOnly: m.readOnly,
+      destructive: m.destructive ?? false,
+    }));
+  }
+
   /** 当前入参对应的成员（判别字段缺失时做形态推断 / 默认分支） */
   private resolveMember(
     input: Record<string, unknown>

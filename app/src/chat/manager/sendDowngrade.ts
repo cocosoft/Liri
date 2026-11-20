@@ -94,7 +94,13 @@ export async function sendMessageDowngradePath(
       );
       // 13-P1-2（2026-10-05）：非幂等工具失败 ⇒ 明确告知模型**不要盲目重试**
       // （模型是实际的"重试方"，此处是唯一能约束它的位置；策略事实源 = tools/toolEffects.ts）
-      const effect = resolveToolEffect(tc.name);
+      // 2026-11-20（第 ② 步）：按 op 覆盖（只读子操作不再提示"非幂等"）；非对象参数 ⇒ 回退工具级
+      const effect = resolveToolEffect(
+        tc.name,
+        typeof tc.arguments === 'object' && tc.arguments !== null
+          ? (tc.arguments as Record<string, unknown>)
+          : undefined
+      );
       const retryCaution =
         toolResult.error && effect && effect.idempotent === false
           ? `\n\n[重试注意] 该工具已声明为**非幂等**（sideEffect=${effect.sideEffect}）：` +

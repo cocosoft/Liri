@@ -144,6 +144,11 @@ describe('code_run 工具清单注入（T-2 ①）', () => {
   });
 
   it('白名单项在注册表缺失 ⇒ 跳过不编造；一条都取不到 ⇒ 空串（CS06）', () => {
+    // 随机顺序下本用例可能**先于**首个注册 `file_read` 的用例运行 ⇒ 自带夹具，
+    // 不依赖同文件其它用例的执行次序（seed=314 实测 `Received: ""`）。
+    ensureTool('file_read', 'Read a file from disk', [
+      p('path', 'string', true),
+    ]);
     configureCodeRunner({
       toolWhitelist: new Set(['no_such_tool_xyz', 'file_read']),
     });

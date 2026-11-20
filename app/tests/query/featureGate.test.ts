@@ -9,15 +9,31 @@
  * 本组钉住 `resolveFeatureGate` 的优先级：env > 用户设置 > `feature()`，
  * 且**未登记**的开关逐字走 `feature()`（零行为变化）。
  */
-import { describe, expect, it, afterEach } from 'bun:test';
+import { describe, expect, it, beforeEach, afterEach } from 'bun:test';
 
 import { resolveFeatureGate } from '@modules/query/featureGate';
 
 const FLAG = 'SELF_VERIFY_PATTERN' as const;
 
+/**
+ * 本文件断言的开关环境变量。
+ *
+ * ⚠️ 2026-11-21（seed=11 取证）：`feature()` 的 env 层**最高优先**，而 env 可能是**宿主继承**来的
+ * （实测本机 User 级作用域残留 `FEATURE_COMPETITIVE_STRATEGY=true`）⇒ 若"未设置回落默认"用例
+ * 恰是本文件**第一个执行**的，`afterEach` 还没跑过 ⇒ 读到 env=true 而假红。
+ * 隔离口径：每例开始**先清**这两个键（本文件语义就是"无 env"面），例末再清一次不回污他人。
+ */
+const ENV_KEYS = [
+  'FEATURE_SELF_VERIFY_PATTERN',
+  'FEATURE_COMPETITIVE_STRATEGY',
+] as const;
+
+beforeEach(() => {
+  for (const key of ENV_KEYS) delete process.env[key];
+});
+
 afterEach(() => {
-  delete process.env['FEATURE_SELF_VERIFY_PATTERN'];
-  delete process.env['FEATURE_COMPETITIVE_STRATEGY'];
+  for (const key of ENV_KEYS) delete process.env[key];
 });
 
 describe('resolveFeatureGate：env > 用户设置 > feature()', () => {

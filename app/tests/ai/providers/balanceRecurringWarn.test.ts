@@ -22,13 +22,14 @@ import {
 } from 'bun:test';
 import {
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import {
   shouldWarnRecurring,
@@ -134,6 +135,10 @@ describe('落盘（跨进程重启不重复告警）', () => {
 
   it('落盘文件损坏 ⇒ 按空表读取（不抛），闸门仍可用', async () => {
     const file = balanceWarnStatePath();
+    // 随机顺序下本用例可能**先于**任何一次落盘运行 ⇒ `data/` 目录尚不存在，
+    // 直接 writeFileSync 会 ENOENT（seed=314 实测）。目录由 `saveBalanceWarnState` 按需创建，
+    // 这里复刻同一前置，保证本用例只验证「损坏内容按空表读取」。
+    mkdirSync(dirname(file), { recursive: true });
     writeFileSync(file, '{ this is not json');
     await resetRecurringWarnForTest();
     expect(await shouldWarnRecurring('siliconflow|retired')).toBe(true);

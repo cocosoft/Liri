@@ -83,7 +83,6 @@ const ALLOWED_PATH_PATTERNS = [
   /ModuleDefinitions$/, // 模块定义
   /ModuleInitializer$/, // 模块初始化器
   /LazyModuleStrategy$/,// 延迟加载策略
-  /ImportManager$/,     // 导入管理器
   // 常见跨模块导出的实例/类命名约定
   /\/[A-Z]\w*Service$/,   // *Service（如 voiceService、STTService）
   /\/[A-Z]\w*Manager$/,   // *Manager（如 SessionManager、CacheManager）

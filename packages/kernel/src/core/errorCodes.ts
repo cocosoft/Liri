@@ -5,8 +5,8 @@
  * 每个错误码包含数字代码、用户端中文消息和日志端严重级别。
  *
  * **为何下沉 core**：本表是**纯数据、零依赖**，却被 core 侧模块系统
- * （`modules/ImportManager`、`modules/ModuleDefinitions`、`modules/ModuleInitializer`、
- * `modules/ModuleRegistry`）直接引用 ⇒ 构成 core → infra 倒挂（A 类台账，
+ * （`modules/ModuleDefinitions`、`modules/ModuleInitializer`、`modules/ModuleRegistry`）
+ * 直接引用 ⇒ 构成 core → infra 倒挂（A 类台账，
  * 见 .trae/specs/layer-inversion-a-class-inventory.md §3.5.1）。
  * `error/ErrorCodes.ts` 与 `@modules/error` 出口保留同名转出 ⇒ 对外 API 逐字不变。
  *

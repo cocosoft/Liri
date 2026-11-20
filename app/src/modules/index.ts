@@ -36,9 +36,9 @@ import { moduleInitializer } from './ModuleInitializer';
 export type { ModuleDefinition } from './ModuleRegistry';
 export { ModuleCategory, moduleRegistry } from './ModuleRegistry';
 
-// CD05 第 1 步（2026-11-20）：摘除 `./ImportManager` 的三条转出（`importManager` / `importModule` /
-// `importFromRegistry`）。依据 CD01–CD04 取证：全仓**零运行时消费者**（仅本 barrel 转出；
-// `errorCodes` 注释与 ESLint 白名单属文案/配置）。观察通过后再删实现体（第 2 步）。
+// CD05（2026-11-20）：`ImportManager`（`importManager` / `importModule` / `importFromRegistry`）已删除 ——
+// CD01–CD04 取证为零运行时消费者（仅本 barrel 转出），两步走：先摘出口（`e8be03615`）观察通过，
+// 再删实现体。回滚：`git revert` 对应提交即可复原。
 
 // 导出模块定义
 export {

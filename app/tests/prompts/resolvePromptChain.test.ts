@@ -65,8 +65,19 @@ afterAll(() => {
   delete process.env.LIRI_PROJECT_DIR;
   setSectionCacheLocale('zh-CN');
   clearPromptCache();
-  rmSync(userHome, { recursive: true, force: true });
-  rmSync(projectRoot, { recursive: true, force: true });
+  // Windows 偶发 EBUSY（句柄未及时释放）：临时目录不是断言对象，重试后交系统清理
+  for (const dir of [userHome, projectRoot]) {
+    try {
+      rmSync(dir, {
+        recursive: true,
+        force: true,
+        maxRetries: 5,
+        retryDelay: 100,
+      });
+    } catch {
+      // @ignore-catch: 临时目录清理失败不影响测试结论
+    }
+  }
 });
 
 function writeSection(base: string, relParts: string[], text: string): void {

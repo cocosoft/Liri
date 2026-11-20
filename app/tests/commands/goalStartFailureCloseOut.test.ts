@@ -13,10 +13,12 @@
  *   ② 同会话再次 `/goal start` 能拿到**新 taskId**（幂等键已释放）。
  */
 import { afterAll, afterEach, describe, expect, it } from 'bun:test';
-import { Database } from 'bun:sqlite';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+// 只读解析真实库：走 `@openliri/infra/external` 的统一连接入口（PRAGMA 单一事实源），
+// 不用 `bun:sqlite` —— `app/tsconfig.json` 未引入 bun 类型声明，静态 import 会让 typecheck 失败。
+import { openBunDatabase } from '@openliri/infra/external';
 
 const dataDir = mkdtempSync(join(tmpdir(), 'goal-start-fail-'));
 process.env.LIRI_DATA_DIR = dataDir;
@@ -41,7 +43,7 @@ function countRealGoals(): number | null {
   const real = join(process.env.USERPROFILE ?? '', '.pyapp', 'data', 'app.db');
   if (!existsSync(real)) return null;
   try {
-    const db = new Database(real, { readonly: true });
+    const db = openBunDatabase(real, { readonly: true });
     const row = db.query('SELECT COUNT(*) AS n FROM task_goals').get() as {
       n: number;
     };
@@ -144,7 +146,7 @@ describe('/goal start 启动期失败收口（D55）', () => {
     expect(res.success).toBe(true);
 
     // ① 临时库：能按会话查到刚建的目标
-    const tmpDb = new Database(join(dataDir, 'app.db'), { readonly: true });
+    const tmpDb = openBunDatabase(join(dataDir, 'app.db'), { readonly: true });
     const inTmp = tmpDb
       .query('SELECT COUNT(*) AS n FROM task_goals WHERE session_id = ?')
       .get(sessionId) as { n: number };

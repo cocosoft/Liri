@@ -15,7 +15,7 @@
  * 如实边界：Windows 的 `runnable` 恒为 `null`（helper 尚无 `--probe` 契约）⇒ 界面显示
  * 「未验证」，不当成可用或不可用。
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   sandboxService,
@@ -46,24 +46,33 @@ export default function CommandSandboxPanel({ isDark }: Props) {
   const [blockedPatch, setBlockedPatch] =
     useState<Partial<SandboxLandlockConfig> | null>(null);
 
-  const load = useCallback(
-    async (refresh: boolean) => {
-      setLoading(true);
-      try {
-        setProbe(await sandboxService.getCommandSandboxProbe(refresh));
-        setError(null);
-      } catch (e) {
-        handleClientError(e, {
-          module: "views:sandbox:CommandSandboxPanel",
-          action: "load",
-        });
-        setError(t("sandbox.commandSandboxLoadFailed"));
-      } finally {
-        setLoading(false);
-      }
-    },
-    [t],
-  );
+  /**
+   * `t` 的**稳定承接**（2026-11-21，CI 偶发红实证）。
+   *
+   * `load` 只在**错误**分支用到 `t`；若把 `load` 建在 `t` 上，`useEffect([load])` 会在 `t` 身份
+   * 变化时重跑 —— i18n 状态/语言切换乃至测试里的 `t` 工厂都会让每次渲染重发一次探针
+   * （实测保存流程内多出 **8 次** 无参探针，并把「保存后强制 `refresh=1` 重测」挤成**非最后一次**
+   * 调用 ⇒ `toHaveBeenLastCalledWith(true)` 在慢机器上必现失败）。用 ref 承接后 `load` 身份稳定，
+   * 初始探针只跑一次；保存路径仍按需显式 `getCommandSandboxProbe(true)`。
+   */
+  const tRef = useRef(t);
+  tRef.current = t;
+
+  const load = useCallback(async (refresh: boolean) => {
+    setLoading(true);
+    try {
+      setProbe(await sandboxService.getCommandSandboxProbe(refresh));
+      setError(null);
+    } catch (e) {
+      handleClientError(e, {
+        module: "views:sandbox:CommandSandboxPanel",
+        action: "load",
+      });
+      setError(tRef.current("sandbox.commandSandboxLoadFailed"));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     void load(false);

@@ -30,7 +30,7 @@
  *
  * 用假 ChildProcess（EventEmitter + 可控 kill），**不 spawn 真实进程**。
  */
-import { afterEach, describe, expect, it } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { EventEmitter } from 'node:events';
 import type { ChildProcess } from 'node:child_process';
 import {
@@ -78,6 +78,7 @@ function makeFake(pid: number, dieOnTerm = true): FakeProc {
   };
 }
 
+beforeEach(() => clearAllTracking());
 afterEach(() => clearAllTracking());
 
 describe('① P0 MCP 子进程追踪 / 回收', () => {

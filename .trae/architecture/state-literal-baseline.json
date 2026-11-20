@@ -827,6 +827,7 @@
       "packages/service/src/services/mcp/marketplace/adapters/SmitheryRegistryAdapter.ts",
       "packages/service/src/services/mcp/MCPConnection.ts",
       "packages/service/src/services/mcp/transports/SSETransport.ts",
+      "packages/service/src/services/mcp/transports/StdioTransport.ts",
       "packages/service/src/services/mcp/types/index.ts",
       "packages/service/src/services/prompt/PromptValidator.ts",
       "packages/service/src/services/teamMemorySync/Watcher.ts",

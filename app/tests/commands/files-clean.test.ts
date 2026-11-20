@@ -7,7 +7,14 @@
  * 覆盖：默认 dry-run 不删除；--delete 才删；node_modules 黑名单跳过；
  * 超过 FILES_MAX_DEPTH 的深层临时文件不收集。
  */
-import { describe, expect, test, beforeAll, afterAll } from 'bun:test';
+import {
+  describe,
+  expect,
+  test,
+  beforeAll,
+  beforeEach,
+  afterAll,
+} from 'bun:test';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -17,6 +24,15 @@ let root: string;
 
 beforeAll(() => {
   root = mkdtempSync(join(tmpdir(), 'files-clean-test-'));
+});
+
+/**
+ * 每例**重建**夹具（2026-11-20）：`--delete` 用例会真删文件，若它在随机顺序下先跑，
+ * dry-run 用例就会数到 0 个候选（实测 seed=123 失败）。
+ */
+beforeEach(() => {
+  rmSync(root, { recursive: true, force: true });
+  mkdirSync(root, { recursive: true });
   // 应收集：根级临时文件
   writeFileSync(join(root, 'a.tmp'), 'x');
   writeFileSync(join(root, 'run.log'), 'x');

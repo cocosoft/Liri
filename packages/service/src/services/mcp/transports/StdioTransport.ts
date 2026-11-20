@@ -113,6 +113,24 @@ export class StdioTransport extends MCPTransport {
     const serverName = this.command + ' ' + (this.args || []).join(' ');
     trackProcess(this.process, serverName);
 
+    /**
+     * 2026-11-20（随机顺序 seed=2 实测）：子进程可能在请求写入途中退出 ⇒ `stdin` 触发
+     * `EPIPE: broken pipe, write`，而该流**没有 error 监听** ⇒ 变成 *Unhandled error between tests*，
+     * 使整个测试进程以 exit 1 结束（生产同理：写死者管道会冒出未捕获错误）。
+     * EPIPE 属**预期竞态**（请求失败由下方 exit 路径统一 reject），只记 warn；
+     * 其余错误仍交 `handleError` 统一处理（不掩盖真实故障）。
+     */
+    this.process.stdin?.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'EPIPE') {
+        logger.warn('MCP stdin 写入失败（子进程已退出，EPIPE 已忽略）');
+        return;
+      }
+      void handleError(err, {
+        module: 'services:mcp:stdio',
+        action: 'MCP stdin 流错误',
+      });
+    });
+
     // 处理标准输出
     this.process.stdout?.on('data', (data) => {
       this.stdoutBuffer += data.toString();

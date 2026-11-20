@@ -112,6 +112,22 @@ function storeContentTokens(digest: number, tokens: number): void {
   }
 }
 
+/**
+ * 单条内容走 BPE 的**字符上限**（2026-11-20，函数级 CPU profile 定量）。
+ *
+ * 实测（js-tiktoken / o200k_base，纯 CJK 无分隔的"单个超长 piece"）：
+ * `500 字 ≈132ms`、`1000 ≈441ms`、`2000 ≈1.64s`、`4000 ≈6.75s`、`8000 ≈26.8s`
+ * ⇒ **超线性（每翻倍约 ×4）**，即 `bytePairMerge` 内 `join`/`slice` 的准 O(n²) 开销。
+ *
+ * 真机取证：随机顺序全量套件中 `compactionFidelity` 单测一次阻塞 **155.9s**（cpuUser 147.5s），
+ * CPU profile 热点链为 `estimateMessagesTokens → contentTokens → js-tiktoken encode →
+ * bytePairEncode → bytePairMerge`（`Array.join` 120.1s）。
+ *
+ * 口径：超过上限的**超长正文**改走 CJK 启发式（`estimateTokens`，纯 O(n)）。这只影响
+ * **估算**（预算/压缩判定），不影响计费真值（计费走 provider 回传 usage）。
+ */
+const BPE_MAX_CONTENT_CHARS = 2_000;
+
 /** 单段内容的 tokens（内容摘要缓存 → tiktoken BPE → CJK 启发式） */
 function contentTokens(
   text: string,
@@ -123,7 +139,7 @@ function contentTokens(
     if (cached !== undefined) return cached;
   }
   let tokens: number;
-  if (encoder) {
+  if (encoder && text.length <= BPE_MAX_CONTENT_CHARS) {
     try {
       tokens = encoder.encode(text).length;
     } catch {

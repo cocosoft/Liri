@@ -120,6 +120,23 @@ describe('TokenEstimator', () => {
       // 追加一条消息 → 总量应严格大于仅历史段
       expect(next).toBeGreaterThan(base);
     });
+
+    /**
+     * 2026-11-20（函数级 CPU profile）：超长正文**不得**再走 js-tiktoken BPE。
+     *
+     * 实测 BPE 对无分隔长 CJK 是超线性（8000 字 ≈26.8s），真机曾因此在单测里阻塞 155.9s。
+     * 断言口径：超长正文的内容 tokens 必须**恰好等于** `estimateTokens()`（启发式）；
+     * 若走了 BPE（纯 CJK ≈1 token/字）则会得到 ≈8000，与启发式（≈1.5/字）明显不等。
+     */
+    it('超长正文（>2000 字符）走 CJK 启发式而非 BPE', () => {
+      const body = '你'.repeat(8000);
+      const emptyMsg = [{ role: 'user', content: '' }];
+      const longMsg = [{ role: 'user', content: body }];
+      const delta =
+        estimateMessagesTokens(longMsg) - estimateMessagesTokens(emptyMsg);
+      expect(delta).toBe(estimateTokens(body));
+      expect(delta).toBeGreaterThan(body.length); // 启发式 >1/字，BPE 才会 ≈1/字
+    });
   });
 
   describe('estimateMessagesTokensCooperative', () => {

@@ -33,7 +33,7 @@
  * `.trae/specs/default-off-switches-review-gates.md §2.2`。
  */
 
-import { afterEach, describe, expect, it, spyOn } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test';
 import { feature } from '@openliri/kernel';
 import { getLogger } from '@openliri/infra/monitoring';
 import {
@@ -75,6 +75,12 @@ function grayWarnCalls(): Array<[string, unknown]> {
 function makeBashTool(): BashTool {
   return new BashTool(new ApprovedCommandRegistry(60_000, false));
 }
+
+beforeEach(() => {
+  // 一次性告警标记是**进程级**的：同进程别的用例（或本文件随机顺序下的前一例）可能已把它置位，
+  // 会让"首次构造发一次"断言变成 0 次（seed=1 实测）。每例开始先归零，保证断言只看本例。
+  resetGraySwitchWarningForTest();
+});
 
 afterEach(() => {
   warnSpy?.mockRestore();

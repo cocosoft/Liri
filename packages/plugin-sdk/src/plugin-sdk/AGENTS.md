@@ -13,8 +13,11 @@
 2. **纯类型 + 纯函数**：SDK 中仅包含类型定义和纯工具函数，不含运行时服务依赖
 
 3. **版本兼容**：对 SDK 公开 API 的任何破坏性变更必须：
-   - 更新 `app/src/plugin-sdk/__tests__/ManifestLoaderEntry.test.ts` 中的契约测试（manifest 校验/entry.python）
-   - 更新 `app/src/plugins/__tests__/SdkPluginAdapter.test.ts` 中的适配测试（工具注册等）
+   - 更新 `app/tests/plugins/pluginSdkManifestContract.test.ts` 中的契约测试（manifest 校验 / `entry.python`）
+     —— ✅ 2026-11-20 补建（原文档指向的 `app/src/plugin-sdk/__tests__/ManifestLoaderEntry.test.ts` 从未存在）
+   - **适配测试（缺口，如实）**：仓内**没有** `SdkPluginAdapter` 专项测试
+     （原文档指向的 `app/src/plugins/__tests__/SdkPluginAdapter.test.ts` 亦不存在）；改动适配层时
+     至少跑 `bun test tests/plugins` + `bun run typecheck`，补建专项测试待立项
    - 在发布说明中标注 breaking change
 
 ### 导入路径
@@ -65,4 +68,5 @@
 
 ### 契约测试
 
-每次修改 SDK 后执行：`bun run test -- --run ManifestLoaderEntry.test.ts SdkPluginAdapter.test.ts`
+每次修改 SDK 后执行：`bun test tests/plugins/pluginSdkManifestContract.test.ts`
+（`plugin-sdk` 侧路径：`packages/plugin-sdk/src/plugin-sdk/ManifestLoader.ts` —— manifest 加载 / 校验 / `entry.python`）

@@ -13,9 +13,9 @@
     "liri-fence": "./src/entrypoints/fence.ts"
   },
   "scripts": {
-    "dev": "bun run --watch src/main.ts",
-    "dev:full": "bun run --watch src/main.ts",
-    "dev:core": "bun --watch --feature=DROP_CHANNELS_ALL src/main.ts",
+    "dev": "bun run scripts/dev-watch.ts",
+    "dev:full": "bun run scripts/dev-watch.ts",
+    "dev:core": "bun run scripts/dev-watch.ts --feature=DROP_CHANNELS_ALL",
     "start": "bun run src/main.ts",
     "eval": "bun run ../packages/evals/src/evals/cli.ts",
     "build": "bun build src/main.ts --outdir=dist --target=bun --external imapflow --external yoga-layout",

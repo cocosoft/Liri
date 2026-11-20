@@ -13,10 +13,12 @@
 import { afterEach, describe, expect, it } from 'bun:test';
 import {
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
   rmSync,
+  writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -56,5 +58,21 @@ describe('writeFileAtomic', () => {
     const target = join(dir, 'a', 'b', 'c.json');
     await writeFileAtomic(target, 'ok');
     expect(readFileSync(target, 'utf8')).toBe('ok');
+  });
+
+  it('rename 持续失败 ⇒ 上抛真实错误且不留 .tmp 残留', async () => {
+    const dir = makeDir();
+    // 目标路径是**已存在的非空目录** ⇒ `rename(file → dir)` 必然失败
+    // （Windows 实测 `EPERM`，Linux `EISDIR`/`ENOTEMPTY`）—— 不靠 mock 构造失败。
+    const target = join(dir, 'busy');
+    mkdirSync(target, { recursive: true });
+    writeFileSync(join(target, 'inner.txt'), 'x');
+
+    await expect(writeFileAtomic(target, 'payload')).rejects.toThrow();
+
+    // 唯一名临时文件**不会被后来者接手** ⇒ 失败路径必须自行清理，否则每次失败留一个孤儿
+    expect(readdirSync(dir).filter((name) => name.endsWith('.tmp'))).toEqual(
+      []
+    );
   });
 });

@@ -56,7 +56,7 @@ const SKILL_VIEW_PARAMS: Tool['params'] = [
  * 三个成功分支：`SKILL.md` 原文 / `prompt` 生成的提示词 / `unchanged` 去重提示
  * （`source` 即分支标识，`status`/`message` 仅去重分支出现）。
  */
-const SKILL_VIEW_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+export const SKILL_VIEW_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
   type: 'object',
   properties: {
     name: { type: 'string', description: '技能名称' },

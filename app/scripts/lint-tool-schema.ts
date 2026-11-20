@@ -189,8 +189,60 @@ function writeBaseline(tools: string[]): void {
   );
 }
 
+/**
+ * 族工具（`families/*FamilyTool.ts`）的**成员出参声明**检查（2026-11-20，U-03 补齐）。
+ *
+ * 口径（文本级近似 + 单测兜底真值）：
+ * - 每个「`create: () =>`」= 一个成员 ⇒ 必须有对应的 `outputJsonSchema:`；
+ * - `declared < members` ⇒ ERROR（新增族 / 新成员漏声明即拦）；
+ * - 真值由 `tests/tools/familyToolOutputSchema.test.ts` 断言（实例化 6 族 + 合并形态）。
+ *
+ * 为什么不用实例化：族成员构造有副作用（如 `SkillTool`），门禁保持**只读**（与 `lint:tool-risk`
+ * 的"实例化失败即跳过"口径不同，这里用静态计数即可稳定拦截漏声明）。
+ */
+function findFamilySchemaGaps(): {
+  gaps: Array<{ file: string; members: number; declared: number }>;
+  families: number;
+  members: number;
+} {
+  const familyDir = join(TOOLS_DIR, 'families');
+  if (!existsSync(familyDir)) return { gaps: [], families: 0, members: 0 };
+  const gaps: Array<{ file: string; members: number; declared: number }> = [];
+  let families = 0;
+  let members = 0;
+  for (const name of readdirSync(familyDir)) {
+    if (!name.endsWith('FamilyTool.ts')) continue;
+    families++;
+    const text = readFileSync(join(familyDir, name), 'utf8');
+    const memberCount = (text.match(/create:\s*\(\)\s*=>/g) ?? []).length;
+    const declared = (text.match(/outputJsonSchema\s*:/g) ?? []).length;
+    members += memberCount;
+    if (memberCount === 0 || declared < memberCount) {
+      gaps.push({ file: name, members: memberCount, declared });
+    }
+  }
+  return { gaps, families, members };
+}
+
 function main(): void {
   const updateBaseline = process.argv.includes('--update-baseline');
+
+  // 族工具出参声明（与能力棘轮独立：不参与 --update-baseline 豁免）
+  const family = findFamilySchemaGaps();
+  if (family.gaps.length > 0) {
+    console.error(
+      '[lint:tool-schema] ❌ 族工具成员缺 outputJsonSchema 声明 / family member(s) missing outputJsonSchema：'
+    );
+    for (const gap of family.gaps) {
+      console.error(`  - ${gap.file}：成员 ${gap.members} 个，已声明 ${gap.declared} 个`);
+    }
+    console.error(
+      '  → 在 families/*FamilyTool.ts 的每个 member 上补 `outputJsonSchema`（族工具按 op 并集下发；' +
+        '成员全 object ⇒ properties 并集 + required 交集；全 string ⇒ 标量；混合 ⇒ 联合 type）。'
+    );
+    process.exit(1);
+    return;
+  }
 
   let missing: MissingCapabilityDecl[];
   let total: number;
@@ -250,6 +302,9 @@ function main(): void {
     return;
   }
 
+  console.log(
+    `[lint:tool-schema] 族工具出参结构：${family.families} 族 / ${family.members} 成员全部已声明`
+  );
   console.log('[lint:tool-schema] ✅ 通过 / passed');
   process.exit(0);
 }

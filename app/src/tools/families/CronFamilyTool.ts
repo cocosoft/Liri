@@ -10,6 +10,13 @@ import { CronCreateTool } from '../ChronosTool/CronCreateTool';
 import { CronListTool } from '../ChronosTool/CronListTool';
 import { CronStopTool } from '../ChronosTool/CronStopTool';
 import { CronDeleteTool } from '../ChronosTool/CronDeleteTool';
+// 2026-11-20（U-03 补齐）：族工具按 op 并集下发成员出参结构
+import {
+  CronCreateOutputJsonSchema,
+  CronListOutputJsonSchema,
+  CronStopOutputJsonSchema,
+  CronDeleteOutputJsonSchema,
+} from '../ChronosTool/schemas';
 import { FamilyTool } from './familyTool';
 
 export function createCronFamilyTool(): FamilyTool {
@@ -113,6 +120,7 @@ export function createCronFamilyTool(): FamilyTool {
         legacyAliases: ['cron_add', 'schedule', 'timer'],
         required: ['name', 'prompt'],
         readOnly: false,
+        outputJsonSchema: CronCreateOutputJsonSchema,
         create: () => CronCreateTool.create(),
       },
       {
@@ -120,6 +128,7 @@ export function createCronFamilyTool(): FamilyTool {
         legacyName: TOOL_NAME_CONSTANTS.cron_list,
         legacyAliases: ['cron_jobs', 'list_cron'],
         readOnly: true,
+        outputJsonSchema: CronListOutputJsonSchema,
         create: () => CronListTool.create(),
       },
       {
@@ -128,6 +137,7 @@ export function createCronFamilyTool(): FamilyTool {
         legacyAliases: ['cron_pause', 'cron_resume', 'stop_task', 'pause_task'],
         required: ['id', 'action'],
         readOnly: false,
+        outputJsonSchema: CronStopOutputJsonSchema,
         create: () => CronStopTool.create(),
       },
       {
@@ -137,6 +147,7 @@ export function createCronFamilyTool(): FamilyTool {
         required: ['id'],
         readOnly: false,
         destructive: true,
+        outputJsonSchema: CronDeleteOutputJsonSchema,
         create: () => CronDeleteTool.create(),
       },
     ],

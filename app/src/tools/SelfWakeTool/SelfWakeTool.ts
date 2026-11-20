@@ -57,7 +57,7 @@ function toToolParams(def: SelfWakeToolSchema): ToolParam[] {
  * U-03（2026-10-19）：`sleep_for` / `sleep_until` 的**模型可见出参结构**（JSON Schema），
  * 与 `createSelfWakeToolExecutors()` 两个 timer 执行器的返回逐字段对齐。
  */
-const SELFWAKE_TIMER_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+export const SELFWAKE_TIMER_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
   type: 'object',
   properties: {
     wakeId: { type: 'string', description: '唤醒记录 ID' },

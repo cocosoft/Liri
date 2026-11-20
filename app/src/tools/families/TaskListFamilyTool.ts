@@ -14,6 +14,12 @@ import {
   TaskGetListTool,
   TaskUpdateStatusTool,
 } from '../TaskOrchestratorTools/TaskOrchestratorTools';
+// 2026-11-20（U-03 补齐）：族工具按 op 并集下发成员出参结构
+import {
+  CreateTaskListOutputJsonSchema,
+  GetTaskListOutputJsonSchema,
+  UpdateTaskStatusOutputJsonSchema,
+} from '../TaskOrchestratorTools/schemas';
 import { FamilyTool } from './familyTool';
 
 export function createTaskListFamilyTool(): FamilyTool {
@@ -58,12 +64,14 @@ export function createTaskListFamilyTool(): FamilyTool {
         legacyName: TOOL_NAME_CONSTANTS.create_task_list,
         required: ['tasks'],
         readOnly: false,
+        outputJsonSchema: CreateTaskListOutputJsonSchema,
         create: () => new TaskCreateListTool(),
       },
       {
         key: 'get',
         legacyName: TOOL_NAME_CONSTANTS.get_task_list,
         readOnly: true,
+        outputJsonSchema: GetTaskListOutputJsonSchema,
         create: () => new TaskGetListTool(),
       },
       {
@@ -71,6 +79,7 @@ export function createTaskListFamilyTool(): FamilyTool {
         legacyName: TOOL_NAME_CONSTANTS.update_task_status,
         required: ['task_id', 'status'],
         readOnly: false,
+        outputJsonSchema: UpdateTaskStatusOutputJsonSchema,
         create: () => new TaskUpdateStatusTool(),
       },
     ],

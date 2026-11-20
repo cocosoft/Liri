@@ -10,7 +10,41 @@ import { TOOL_NAME_CONSTANTS } from '@openliri/infra/constants/toolNameConstants
 import { SkillTool } from '../SkillTool/SkillTool';
 import { SkillViewTool } from '../SkillTool/SkillViewTool';
 import { SkillListTool } from '../SkillTool/SkillListTool';
+import { SKILL_VIEW_OUTPUT_JSON_SCHEMA } from '../SkillTool/SkillViewTool';
 import { FamilyTool } from './familyTool';
+
+/**
+ * 2026-11-20（U-03 补齐）：run 分支的 `data` 是**纯文本**（`executeSkill()` 恒返回 string，
+ * 四个文案分支结构一致）⇒ 标量声明；不臆造字段。
+ */
+const SKILL_RUN_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'string',
+  description: '技能执行结果文本（不同分支仅文案不同，结构一致）',
+};
+
+/** 2026-11-20（U-03 补齐）：list 分支的 `data` 为 `{skills:[{name,description}], total}` */
+const SKILL_LIST_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    skills: {
+      type: 'array',
+      description: '可用技能列表',
+      items: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: '技能名称' },
+          description: {
+            type: 'string',
+            description: '技能描述（缺失补空串）',
+          },
+        },
+        required: ['name', 'description'],
+      },
+    },
+    total: { type: 'number', description: '技能总数（= skills.length）' },
+  },
+  required: ['skills', 'total'],
+};
 
 export function createSkillFamilyTool(): FamilyTool {
   return new FamilyTool({
@@ -44,6 +78,7 @@ export function createSkillFamilyTool(): FamilyTool {
         legacyName: TOOL_NAME_CONSTANTS.skill,
         required: ['name'],
         readOnly: false,
+        outputJsonSchema: SKILL_RUN_OUTPUT_JSON_SCHEMA,
         create: () => new SkillTool(),
       },
       {
@@ -51,12 +86,14 @@ export function createSkillFamilyTool(): FamilyTool {
         legacyName: TOOL_NAME_CONSTANTS.skill_view,
         required: ['name'],
         readOnly: true,
+        outputJsonSchema: SKILL_VIEW_OUTPUT_JSON_SCHEMA,
         create: () => new SkillViewTool(),
       },
       {
         key: 'list',
         legacyName: TOOL_NAME_CONSTANTS.skills_list,
         readOnly: true,
+        outputJsonSchema: SKILL_LIST_OUTPUT_JSON_SCHEMA,
         create: () => new SkillListTool(),
       },
     ],

@@ -44,6 +44,13 @@ export interface FamilyMember {
   readOnly: boolean;
   /** 是否破坏性（不可逆；如 `cron delete` / `worktree exit --remove`） */
   destructive?: boolean;
+  /**
+   * 该成员的**模型可见出参结构**（JSON Schema）。
+   *
+   * 2026-11-20（U-03 补齐）：族工具按 `op` 合并成一份并集后下发；成员缺声明 ⇒ 族工具
+   * 不产出 `outputJsonSchema`（由 `lint:tool-schema` 的族段与单测拦截）。
+   */
+  outputJsonSchema?: Record<string, unknown>;
   /** 构造旧实现（惰性；同族内按 `key` 缓存一次） */
   create: () => Tool;
 }
@@ -101,6 +108,11 @@ export class FamilyTool extends BaseTool {
   private readonly defaultKey?: string;
   private readonly enabledCheck: () => boolean;
   private readonly instances = new Map<string, Tool>();
+  /**
+   * 模型可见出参结构（2026-11-20）：成员 schema 的**按 op 并集**（见 `mergeFamilyOutput`）。
+   * 成员缺声明时为 `undefined` ⇒ 注册表回退占位结构（由门禁拦截）。
+   */
+  override readonly outputJsonSchema?: Record<string, unknown>;
 
   constructor(options: FamilyToolOptions) {
     super();
@@ -146,6 +158,13 @@ export class FamilyTool extends BaseTool {
       },
       ...options.params,
     ];
+
+    // 2026-11-20（U-03 补齐）：出参结构按 op 并集（成员声明静态可得，无需实例化成员）
+    this.outputJsonSchema = mergeFamilyOutput(
+      members,
+      options.discriminator,
+      options.name
+    );
   }
 
   /** 当前入参对应的成员（判别字段缺失时做形态推断 / 默认分支） */
@@ -247,4 +266,95 @@ export class FamilyTool extends BaseTool {
     // 判别字段对旧实现无意义（旧实现只读自己的参数），原样透传不影响其行为
     return this.memberTool(member).execute(raw, context, onProgress);
   }
+}
+
+/**
+ * 成员出参 schema → **族工具并集**（2026-11-20，U-03 补齐）。
+ *
+ * 为什么用**并集**而不是 `oneOf`：沿用 `notebook` 的既有范式（单 object + properties 并集 +
+ * description 说明"各分支只保证自己产出的字段"）—— 模型侧对复杂 schema 的支持有限，
+ * 并集比判别式联合更稳。
+ *
+ * 三类形态：
+ * - 全 `object` ⇒ properties 并集；`required` 取**交集**（避免把某分支的必填强加给其它分支）；
+ * - 全 `string` ⇒ 单个字符串 schema（VFS 族的 `data` 本身就是 JSON 文本）；
+ * - 混合 ⇒ `type: ['object','string']` + object 成员的 properties 并集（如 skill：run 文本、view/list 对象）。
+ *
+ * **成员缺声明 ⇒ 返回 `undefined`**（不臆造）：此时注册表回退占位结构，由
+ * `lint:tool-schema` 的族段与 `tests/tools/familyToolOutputSchema` 拦截。
+ */
+export function mergeFamilyOutput(
+  members: ReadonlyMap<string, FamilyMember>,
+  discriminator: string,
+  familyName: string
+): Record<string, unknown> | undefined {
+  const entries = [...members.values()];
+  if (entries.length === 0) return undefined;
+  if (entries.some((m) => !m.outputJsonSchema)) return undefined;
+
+  const schemas = entries.map(
+    (m) => m.outputJsonSchema as Record<string, unknown>
+  );
+  const typeOf = (s: Record<string, unknown>): string | undefined =>
+    typeof s.type === 'string' ? s.type : undefined;
+  const summary = entries
+    .map(
+      (m) =>
+        `${discriminator}=${m.key}（${typeOf(m.outputJsonSchema!) ?? '?'}）`
+    )
+    .join('；');
+  const note = `各分支只保证自己产出的字段（${summary}）`;
+
+  if (schemas.every((s) => typeOf(s) === 'string')) {
+    // 全 string：把**各分支的字段说明**串起来（否则模型只能看到"是 JSON 文本"，看不到字段）
+    const detail = entries
+      .map(
+        (m) =>
+          `${discriminator}=${m.key} → ${String(m.outputJsonSchema?.description ?? '')}`
+      )
+      .join('；');
+    return {
+      type: 'string',
+      description: `${familyName} 按 ${discriminator} 分支返回 JSON 文本：${detail}`,
+    };
+  }
+  if (schemas.every((s) => typeOf(s) === 'object')) {
+    return mergeObjectOutput(
+      schemas,
+      `${familyName} 的 data 按 ${discriminator} 分支变化，${note}`
+    );
+  }
+  const objects = schemas.filter((s) => typeOf(s) === 'object');
+  const merged = objects.length > 0 ? mergeObjectOutput(objects, note) : {};
+  return {
+    ...merged,
+    type: ['object', 'string'],
+    description: `${familyName} 的 data 按 ${discriminator} 分支变化（对象或 JSON 文本），${note}`,
+  };
+}
+
+/** object 型 schema 的 properties 并集 + required 交集（同名属性保留首个声明） */
+function mergeObjectOutput(
+  schemas: readonly Record<string, unknown>[],
+  description: string
+): Record<string, unknown> {
+  const properties: Record<string, unknown> = {};
+  for (const schema of schemas) {
+    const props = (schema.properties ?? {}) as Record<string, unknown>;
+    for (const [key, value] of Object.entries(props)) {
+      if (!(key in properties)) properties[key] = value;
+    }
+  }
+  const requiredSets = schemas.map(
+    (s) => new Set(Array.isArray(s.required) ? (s.required as string[]) : [])
+  );
+  const required = [...(requiredSets[0] ?? [])].filter((key) =>
+    requiredSets.every((set) => set.has(key))
+  );
+  return {
+    type: 'object',
+    description,
+    properties,
+    ...(required.length > 0 ? { required } : {}),
+  };
 }

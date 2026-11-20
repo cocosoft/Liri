@@ -10,10 +10,14 @@
  * 语义差异在参数描述与错误文案里显式写明（不合并成一个"看起来一样"的参数）。
  */
 import { TOOL_NAME_CONSTANTS } from '@openliri/infra/constants/toolNameConstants';
-import { SleepTool } from '../SleepTool/SleepTool';
+import {
+  SleepTool,
+  SLEEP_DURATION_OUTPUT_JSON_SCHEMA,
+} from '../SleepTool/SleepTool';
 import {
   createSleepForTool,
   createSleepUntilTool,
+  SELFWAKE_TIMER_OUTPUT_JSON_SCHEMA,
 } from '../SelfWakeTool/SelfWakeTool';
 import { FamilyTool } from './familyTool';
 
@@ -65,6 +69,7 @@ export function createSleepFamilyTool(): FamilyTool {
         legacyAliases: ['wait', 'delay', 'pause'],
         required: ['durationMs'],
         readOnly: true,
+        outputJsonSchema: SLEEP_DURATION_OUTPUT_JSON_SCHEMA,
         create: () => new SleepTool(),
       },
       {
@@ -72,6 +77,7 @@ export function createSleepFamilyTool(): FamilyTool {
         legacyName: TOOL_NAME_CONSTANTS.sleep_for,
         required: ['seconds'],
         readOnly: true,
+        outputJsonSchema: SELFWAKE_TIMER_OUTPUT_JSON_SCHEMA,
         create: () => createSleepForTool(),
       },
       {
@@ -79,6 +85,7 @@ export function createSleepFamilyTool(): FamilyTool {
         legacyName: TOOL_NAME_CONSTANTS.sleep_until,
         required: ['when'],
         readOnly: true,
+        outputJsonSchema: SELFWAKE_TIMER_OUTPUT_JSON_SCHEMA,
         create: () => createSleepUntilTool(),
       },
     ],

@@ -14,6 +14,33 @@ import { StatVfsTool } from '../StatVfsTool/StatVfsTool';
 import { WriteVfsTool } from '../WriteVfsTool/WriteVfsTool';
 import { FamilyTool } from './familyTool';
 
+/**
+ * 2026-11-20（U-03 补齐）：四个成员的 `data` 都是**JSON 文本**（`createToolResult(JSON.stringify(...))`），
+ * 模型看到的是字符串 ⇒ 标量声明；括号内列出该 JSON 的字段（与 `packages/vfs/src/vfs/types.ts` 对齐）。
+ */
+const VFS_READ_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'string',
+  description:
+    'JSON 文本：{ data, mimeType, size, truncated }（VfsReadResult）',
+};
+
+const VFS_LIST_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'string',
+  description:
+    'JSON 文本：{ entries: VfsEntry[], count }（VfsEntry = { name, kind: file|dir, size?, mtime?, mimeType?, description? }）',
+};
+
+const VFS_STAT_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'string',
+  description:
+    'JSON 文本：{ kind: file|dir, size, mtime, mimeType?, mount, readOnly }（VfsStat）',
+};
+
+const VFS_WRITE_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'string',
+  description: 'JSON 文本：{ written, path }（VfsWriteResult）',
+};
+
 export function createVfsFamilyTool(): FamilyTool {
   return new FamilyTool({
     name: TOOL_NAME_CONSTANTS.vfs,
@@ -75,6 +102,7 @@ export function createVfsFamilyTool(): FamilyTool {
         legacyName: TOOL_NAME_CONSTANTS.read_vfs,
         required: ['path'],
         readOnly: true,
+        outputJsonSchema: VFS_READ_OUTPUT_JSON_SCHEMA,
         create: () => ReadVfsTool.create(),
       },
       {
@@ -82,6 +110,7 @@ export function createVfsFamilyTool(): FamilyTool {
         legacyName: TOOL_NAME_CONSTANTS.list_vfs,
         required: ['path'],
         readOnly: true,
+        outputJsonSchema: VFS_LIST_OUTPUT_JSON_SCHEMA,
         create: () => ListVfsTool.create(),
       },
       {
@@ -89,6 +118,7 @@ export function createVfsFamilyTool(): FamilyTool {
         legacyName: TOOL_NAME_CONSTANTS.stat_vfs,
         required: ['path'],
         readOnly: true,
+        outputJsonSchema: VFS_STAT_OUTPUT_JSON_SCHEMA,
         create: () => StatVfsTool.create(),
       },
       {
@@ -97,6 +127,7 @@ export function createVfsFamilyTool(): FamilyTool {
         required: ['path'],
         readOnly: false,
         destructive: true,
+        outputJsonSchema: VFS_WRITE_OUTPUT_JSON_SCHEMA,
         create: () => WriteVfsTool.create(),
       },
     ],

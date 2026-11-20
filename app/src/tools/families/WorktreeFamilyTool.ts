@@ -8,6 +8,9 @@ import { TOOL_NAME_CONSTANTS } from '@openliri/infra/constants/toolNameConstants
 import { isInsideGitRepo } from '@modules/workspaces';
 import { EnterWorktreeTool } from '../EnterWorktreeTool/EnterWorktreeTool';
 import { ExitWorktreeTool } from '../ExitWorktreeTool/ExitWorktreeTool';
+// 2026-11-20（U-03 补齐）：族工具按 op 并集下发成员出参结构
+import { EnterWorktreeOutputJsonSchema } from '../EnterWorktreeTool/schemas';
+import { ExitWorktreeOutputJsonSchema } from '../ExitWorktreeTool/schemas';
 import { FamilyTool } from './familyTool';
 
 export function createWorktreeFamilyTool(): FamilyTool {
@@ -49,6 +52,7 @@ export function createWorktreeFamilyTool(): FamilyTool {
         legacyName: TOOL_NAME_CONSTANTS.enter_worktree,
         required: ['slug'],
         readOnly: false,
+        outputJsonSchema: EnterWorktreeOutputJsonSchema,
         create: () => new EnterWorktreeTool(),
       },
       {
@@ -57,6 +61,7 @@ export function createWorktreeFamilyTool(): FamilyTool {
         required: ['slug'],
         readOnly: false,
         destructive: true,
+        outputJsonSchema: ExitWorktreeOutputJsonSchema,
         create: () => new ExitWorktreeTool(),
       },
     ],

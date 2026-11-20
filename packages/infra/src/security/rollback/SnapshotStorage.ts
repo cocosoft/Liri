@@ -191,15 +191,53 @@ async function loadManifest(
 async function saveFileBackup(
   sessionId: string,
   roundId: number,
-  filePath: string,
-  content: Buffer
+  filePath: string
 ): Promise<string> {
   const backupsDir = getBackupsDir(sessionId, roundId);
   const encodedName = encodeFilePath(filePath, 'backup');
   const backupPath = join(backupsDir, encodedName);
 
-  await writeFile(backupPath, content);
+  // 直接拷贝（大文件不整块进内存）
+  await copyFile(filePath, backupPath);
   return backupPath;
+}
+
+/**
+ * 轮次内 **pre-image 备份**（2026-11-21，回滚内容缺口修复）。
+ *
+ * 背景：`changedFiles[].backupPath` 此前**全仓无人填**（唯一写入口只传 `{path,type,toolName}`），
+ * 而 `UndoManager` 恢复 `modified/deleted` 的判据正是 `change.backupPath && existsSync(...)`
+ * ⇒ `/rewind` 与消息截断级联回滚**报成功但内容不恢复**（本机实测 `totalSize:0` + `backups/` 空）。
+ *
+ * 故由调用方（`RollbackIntegration.onToolBeforeExecute`）在**工具写入前**调用本函数，把源文件
+ * 当前内容拷进本轮 `backups/`，并把路径回填给 `FileOperationTracker` ⇒ 快照 `totalSize` 有真值、
+ * undo 有内容可恢复。
+ *
+ * 失败语义：源不存在（如 `created` 目标、或工具会新建的文件）⇒ 返回 `null` 且**不告警**；
+ * 其它错误只 `warn` 并返回 `null` —— 备份失败**不得阻断工具执行**（与 `rollbackTracker` 约定一致）。
+ */
+export async function backupFileForRound(
+  sessionId: string,
+  roundId: number,
+  sourcePath: string
+): Promise<{ backupPath: string; size: number } | null> {
+  try {
+    const info = await stat(sourcePath);
+    if (!info.isFile()) return null;
+    await ensureSnapshotDirs(sessionId, roundId);
+    const backupPath = await saveFileBackup(sessionId, roundId, sourcePath);
+    return { backupPath, size: info.size };
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      logger.warn('pre-image 备份失败（工具执行不阻断）', {
+        sessionId,
+        roundId,
+        path: sourcePath,
+        error: String(error),
+      });
+    }
+    return null;
+  }
 }
 
 /**

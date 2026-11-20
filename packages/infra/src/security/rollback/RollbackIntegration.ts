@@ -47,12 +47,14 @@
  */
 
 import { getLogger } from '@openliri/infra/monitoring';
+import { existsSync } from 'node:fs';
 import { FileOperationTracker } from './FileOperationTracker';
 import {
   createRoundSnapshot,
   updateSessionIndex,
   loadSnapshot,
   deleteRoundSnapshot,
+  backupFileForRound,
 } from './SnapshotStorage';
 import { onApplicationStart } from './CleanupManager';
 import { executeUndo, previewUndo, findDependentRounds } from './UndoManager';
@@ -174,7 +176,50 @@ export class RollbackIntegration {
       return;
     }
 
-    await this.tracker.beforeToolOperation(operation);
+    await this.tracker.beforeToolOperation(
+      await this.withPreImageBackup(operation)
+    );
+  }
+
+  /**
+   * 工具写入前补 **pre-image 备份**（2026-11-21）。
+   *
+   * 为什么必须在写入**前**（且调用方要 `await`）：`undo` 只按 `change.backupPath` 恢复内容；
+   * 备份晚于写入就等于把"改后内容"当成 pre-image（`createUndoGuard` 的备份是给"撤销后再重做"用的，
+   * 不能替代这里）。
+   *
+   * 同轮同路径只保留**第一次**的 pre-image：后续写/改若覆盖 backupPath，undo 会退回中间态而非轮初。
+   * 失败（源不存在/拷贝失败）⇒ 不带 backupPath 继续追踪，**不阻断工具执行**。
+   */
+  private async withPreImageBackup(
+    operation: FileOperation
+  ): Promise<FileOperation> {
+    if (operation.type === 'created' || operation.backupPath) return operation;
+    // 轮内工具级变更量小（shell 副作用在轮末才入表）⇒ 线性查表足够
+    const known = this.tracker
+      .getRoundChanges()
+      .find((c) => c.path === operation.path && c.backupPath);
+    if (known?.backupPath) {
+      return { ...operation, backupPath: known.backupPath };
+    }
+    const backup = await backupFileForRound(
+      this.sessionId,
+      this.currentRoundId,
+      operation.path
+    );
+    if (!backup) {
+      // 源文件不存在（如 `file_write` 新建文件）⇒ 轮初状态就是"没有这个文件"：
+      // 记成 `created`（undo 删掉即可），而不是 `modified`（undo 无从回退、静默跳过）。
+      // 只有**确认**路径不存在时才这样改；其它（权限等）失败保持原 type，避免误删既有文件。
+      return existsSync(operation.path)
+        ? operation
+        : { ...operation, type: 'created' };
+    }
+    return {
+      ...operation,
+      backupPath: backup.backupPath,
+      originalSize: backup.size,
+    };
   }
 
   /**
@@ -208,6 +253,10 @@ export class RollbackIntegration {
       this.initialized = false;
       return null;
     }
+
+    // Step 2.5（2026-11-21）：把 `hash` 刷成**轮末内容** —— undo 侧拿它与当前文件比对来判
+    // 「第三方改动」；若仍是"改前" hash，工具自己写过的文件会被误判成用户改过而跳过回滚。
+    await this.tracker.refreshChangeHashes();
 
     // Step 3: 创建快照
     const snapshot = await createRoundSnapshot(

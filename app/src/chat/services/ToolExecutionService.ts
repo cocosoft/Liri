@@ -856,8 +856,9 @@ export class ToolExecutionService {
     });
 
     // ── 回滚：文件操作前追踪（T3 stage 5，2026-11-17：实现外移 `./rollbackTracker`）──
-    // fire-and-forget 语义不变：同步返回、后台追踪、失败只记日志。
-    trackFileOpBeforeExecute({
+    // 2026-11-21：改为 **await** —— 集成要在工具写入前落 pre-image 备份（undo 的内容唯一来源）；
+    // 备份失败只记日志、不阻断执行（catch 在 `trackFileOpBeforeExecute` 内部）。
+    await trackFileOpBeforeExecute({
       toolCall,
       args: normalizedToolCall.arguments,
       deps: {

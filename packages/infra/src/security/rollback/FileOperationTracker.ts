@@ -350,6 +350,30 @@ export class FileOperationTracker {
   }
 
   /**
+   * 轮末刷新 `hash`（2026-11-21，回滚内容缺口修复的配套）。
+   *
+   * `hash` 的**唯一消费方**是「第三方改动」判定（`UndoManager.detectUserModifications` /
+   * `previewUndo` / `executeUndo`，以及 `RedoManager` 的冲突检测）：它们拿 `change.hash`
+   * 与**当前文件**比对，不等 ⇒ 判"用户改过"并跳过回滚。
+   *
+   * 而 `beforeToolOperation` 记录的是**改前** hash（工具随后必然把文件改掉）⇒ 不改语义的话
+   * **所有被工具改过的文件都会被误判成"用户改过"**，即使 pre-image 备份齐备也不会回滚。
+   * 故在轮次结束（快照落盘前）把 `hash` 刷成**轮末内容**：此后再不等，才是真正的第三方改动。
+   *
+   * `deleted` 不刷（文件已不存在；undo 侧对不存在的路径本就不做该判定）。
+   */
+  async refreshChangeHashes(): Promise<void> {
+    for (const change of this.roundChanges.values()) {
+      if (change.type === 'deleted') continue;
+      try {
+        change.hash = await xxHash(change.path);
+      } catch {
+        // @ignore-catch: 文件可能已被删除；保留旧 hash，由 undo 侧 existsSync 兜底
+      }
+    }
+  }
+
+  /**
    * 解析 AI 回复中的 [FILE_OPERATION] 声明
    *
    * 格式：[FILE_OPERATION] <create|modify|delete> <文件路径>

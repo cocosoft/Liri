@@ -9,8 +9,11 @@
  *    交给会话的回滚集成（`onToolBeforeExecute`）；
  *  - 子 Agent 会话：其操作同步继承到父会话的回滚集成（父会话缺失则忽略）。
  *
- * 语义约定（与搬出前一致）：
- *  - **fire-and-forget**：函数同步返回，追踪在后台完成；失败只记日志，绝不阻断工具执行；
+ * 语义约定：
+ *  - **写/改类工具路径要 `await`**（2026-11-21 改）：会话集成在工具写入**前**做 pre-image 备份，
+ *    这是 undo 恢复内容的唯一来源 ⇒ 不 await 会与写入竞态（备份到"改后"内容甚至读不到文件）；
+ *    失败仍只记日志、**不阻断**工具执行。
+ *  - 子 Agent 的父会话继承仍是**后台**（仅用于变更归属/记账，不再做第二份备份）；
  *  - 计划归属（D7 三期）：带上当前运行步骤的 `planId/stepId`（无则不带）。
  */
 import { getLogger } from '@openliri/infra/monitoring';
@@ -43,7 +46,9 @@ export interface RollbackTrackerParams {
   deps: RollbackTrackerDeps;
 }
 
-export function trackFileOpBeforeExecute(params: RollbackTrackerParams): void {
+export async function trackFileOpBeforeExecute(
+  params: RollbackTrackerParams
+): Promise<void> {
   const { toolCall, args, deps } = params;
   const toolName = toolCall.name;
   const sessionId = toolCall.sessionId;
@@ -68,13 +73,18 @@ export function trackFileOpBeforeExecute(params: RollbackTrackerParams): void {
         ? { planId: runningStep.planId, stepId: runningStep.stepId }
         : {}),
     };
-    integration.onToolBeforeExecute(op).catch((err) => {
+    // 2026-11-21：此处**必须 await** —— 集成在写入前做 pre-image 备份（undo 的唯一内容来源），
+    // 之前的 fire-and-forget 会让备份与工具写入竞态（甚至备份到"改后"内容）。
+    // 备份失败仍只记日志、不阻断工具执行（catch 不外抛）。
+    try {
+      await integration.onToolBeforeExecute(op);
+    } catch (err) {
       logger.warn('回滚：文件操作前追踪失败', { error: String(err) });
       handleError(err, {
         module: 'chat:toolExecution',
         action: 'rollback:onToolBeforeExecute',
       }).catch(() => {});
-    });
+    }
   }
 
   deps

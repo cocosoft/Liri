@@ -108,7 +108,7 @@ import { extractPendingToolCallsFromEvents } from '../utils/pendingToolCalls.js'
 // 2026-11-20：目标续接的「纯叙事空转」闸门（判定为纯函数；取证见模块头）
 import {
   NARRATION_STALL_LENGTH,
-  countTrailingNarrationRun,
+  inspectNarrationStall,
 } from './narrationStallGuard';
 import type { StreamingAutoCheckpoint } from '../services/StreamingAutoCheckpoint.js';
 import type { SessionLifecycleManager } from '../services/SessionLifecycleManager.js';
@@ -599,26 +599,23 @@ export class ChatRecovery {
   /**
    * 2026-11-20：**空转闸门** —— 读取会话消息，判定尾部的「连续纯叙事」条数。
    *
-   * 判据全部在 `narrationStallGuard`（纯函数）：系统续跑注入不算打断，其余一律打断。
-   * 读盘失败按**未触发**处理（不因诊断路径的 IO 问题阻断正常续跑），并留下 warn。
+   * 判据与"读取失败即放行"的降级都在 `narrationStallGuard.inspectNarrationStall`
+   * （可注入读者 ⇒ 有单测覆盖）；本方法只负责接 `gateway.getMessages` 与日志。
    */
   private async inspectNarrationStall(
     sessionId: string
   ): Promise<{ stalled: boolean; run: number }> {
-    try {
-      const messages = await this.deps
-        .getSessionGateway()
-        .getMessages(sessionId);
-      const run = countTrailingNarrationRun(messages);
-      return { stalled: run >= NARRATION_STALL_LENGTH, run };
-    } catch (err) {
-      // @ignore-catch 诊断读取失败不应阻断重启/idle 续接；按"未触发"继续原流程（CS03）
-      logger.warn('空转判定读取会话消息失败，按未触发处理', {
-        sessionId,
-        error: String(err),
-      });
-      return { stalled: false, run: 0 };
-    }
+    return inspectNarrationStall({
+      sessionId,
+      readMessages: (sid) => this.deps.getSessionGateway().getMessages(sid),
+      onReadError: (sid, err) => {
+        // @ignore-catch 诊断读取失败不应阻断重启/idle 续接；按"未触发"继续原流程（CS03）
+        logger.warn('空转判定读取会话消息失败，按未触发处理', {
+          sessionId: sid,
+          error: String(err),
+        });
+      },
+    });
   }
 
   /**

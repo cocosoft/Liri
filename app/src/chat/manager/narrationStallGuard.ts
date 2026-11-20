@@ -98,3 +98,31 @@ export function isNarrationStalled(
 ): boolean {
   return countTrailingNarrationRun(messages) >= threshold;
 }
+
+/**
+ * 读取 + 判定的组合入口（**可注入读者**，便于在不 mock 模块的前提下单测接线语义）。
+ *
+ * 读失败 ⇒ 按**未触发**返回（诊断路径的 IO 问题不得阻断重启/idle 续跑），并通过 `onReadError` 上报；
+ * 调用方（`ChatRecovery`）只负责传入 `gateway.getMessages` 与 `logger.warn`。
+ */
+export async function inspectNarrationStall(params: {
+  sessionId: string;
+  readMessages: (
+    sessionId: string
+  ) => Promise<readonly NarrationGuardMessage[]>;
+  onReadError?: (sessionId: string, error: unknown) => void;
+  threshold?: number;
+}): Promise<{ stalled: boolean; run: number }> {
+  try {
+    const messages = await params.readMessages(params.sessionId);
+    const run = countTrailingNarrationRun(messages);
+    return {
+      stalled: run >= (params.threshold ?? NARRATION_STALL_LENGTH),
+      run,
+    };
+  } catch (err) {
+    // @ignore-catch 诊断读取失败不阻断正常续跑（CS03：回退须留痕，由 onReadError 记录）
+    params.onReadError?.(params.sessionId, err);
+    return { stalled: false, run: 0 };
+  }
+}

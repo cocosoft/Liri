@@ -8,6 +8,7 @@ import { describe, expect, test } from 'bun:test';
 import {
   NARRATION_STALL_LENGTH,
   countTrailingNarrationRun,
+  inspectNarrationStall,
   isNarrationStalled,
 } from '../../src/chat/manager/narrationStallGuard';
 
@@ -102,5 +103,39 @@ describe('countTrailingNarrationRun（尾部连续纯叙事）', () => {
   test('空消息 / 只有系统续跑 ⇒ 0（不臆造）', () => {
     expect(countTrailingNarrationRun([])).toBe(0);
     expect(countTrailingNarrationRun([autoResume()])).toBe(0);
+  });
+});
+
+describe('inspectNarrationStall（读取 + 判定组合入口）', () => {
+  test('注入读者：达阈值即 stalled', async () => {
+    const result = await inspectNarrationStall({
+      sessionId: 's1',
+      readMessages: async () =>
+        [human(), ...Array.from({ length: 6 }, narration)] as never,
+    });
+    expect(result).toEqual({ stalled: true, run: 6 });
+  });
+
+  test('读取失败 ⇒ 按未触发放行，并经 onReadError 上报（不阻断续跑）', async () => {
+    const errors: string[] = [];
+    const result = await inspectNarrationStall({
+      sessionId: 's2',
+      readMessages: async () => {
+        throw new Error('disk gone');
+      },
+      onReadError: (sid, err) => errors.push(`${sid}:${String(err)}`),
+    });
+    expect(result).toEqual({ stalled: false, run: 0 });
+    expect(errors.length).toBe(1);
+    expect(errors[0]).toContain('s2');
+  });
+
+  test('自定义阈值生效', async () => {
+    const result = await inspectNarrationStall({
+      sessionId: 's3',
+      readMessages: async () => [human(), narration(), narration()] as never,
+      threshold: 2,
+    });
+    expect(result).toEqual({ stalled: true, run: 2 });
   });
 });

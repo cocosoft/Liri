@@ -3,9 +3,13 @@
 # （`~/.pyapp/data/app.db`）⇒ 用 preload 把该单例重定向到临时库，隔离生产台账
 # 2026-11-13：测试会经真实权限链写审计事件（boom / failing_tool 等 fixture）⇒
 # 第二个 preload 把 `security-audit.log` 隔离到临时目录（围栏 S1/S2 抽样不被污染）
+# 2026-11-20：除上面两个单例外，仍有 9 张表（usage_records / goal_metrics / task_goals /
+# taor_checkpoints / inbox_items / approval_audit_log / review_samples / file_files_fts_*）
+# 会在全量套件里增长 ⇒ 第三个 preload 把默认用户级根（LIRI_HOME）重定向到临时目录
 preload = [
   "./tests/setupIsolateAgentStore.ts",
   "./tests/setupIsolateSecurityAudit.ts",
+  "./tests/setupIsolateDataDir.ts",
 ]
 pathIgnorePatterns = [
   "data/testing/**",

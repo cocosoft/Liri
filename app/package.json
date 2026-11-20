@@ -53,6 +53,7 @@
     "test:guarded": "bun run scripts/test-with-watchdog.ts",
     "test:watch": "bun test --watch",
     "test:serial": "bun test --concurrency=1",
+    "test:random": "bun test tests --randomize",
     "test:coverage": "bun test --coverage --coverage-reporter=text --coverage-reporter=lcov",
     "test:check-coverage": "bun run scripts/check-coverage-threshold.ts",
     "generate-test-images": "bun run scripts/generate-test-images.ts",

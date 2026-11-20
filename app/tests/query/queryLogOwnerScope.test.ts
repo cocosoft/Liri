@@ -27,7 +27,7 @@
  * 2. **门禁**：源码里任何读写行的 SQL 都带 `owner_key` —— 新增查询时漏过滤会**当场红**，
  *    而不是等到某天发现跨用户越权。
  */
-import { afterAll, describe, expect, it } from 'bun:test';
+import { afterAll, beforeEach, describe, expect, it } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { QueryLogStore } from '@modules/query/QueryLogStore';
@@ -62,14 +62,28 @@ afterAll(async () => {
   await store.close();
 });
 
+/**
+ * 用例自足（`--randomize` 会打乱**同文件内**用例顺序）：每个用例起手先清掉
+ * 两用户自己的行（owner 作用域的 `prune`，即真实清理语义），再由用例自行播种。
+ */
+beforeEach(async () => {
+  await runWithPrincipal(ALICE, () => store.prune(Number.MAX_SAFE_INTEGER));
+  await runWithPrincipal(BOB, () => store.prune(Number.MAX_SAFE_INTEGER));
+});
+
+/** 基线两行：a1（ALICE）/ b1（BOB）—— 需要它们的用例自行播种，不依赖用例顺序 */
+const seedBaseline = async (): Promise<void> => {
+  await runWithPrincipal(ALICE, () =>
+    store.log(entry({ sessionId: 'a1', timestamp: 1_000 }))
+  );
+  await runWithPrincipal(BOB, () =>
+    store.log(entry({ sessionId: 'b1', timestamp: 2_000 }))
+  );
+};
+
 describe('QueryLogStore：行级隔离（同租户不同用户）', () => {
   it('写入与查询：各看各的行', async () => {
-    await runWithPrincipal(ALICE, () =>
-      store.log(entry({ sessionId: 'a1', timestamp: 1_000 }))
-    );
-    await runWithPrincipal(BOB, () =>
-      store.log(entry({ sessionId: 'b1', timestamp: 2_000 }))
-    );
+    await seedBaseline();
 
     const alice = await runWithPrincipal(ALICE, () => store.query());
     const bob = await runWithPrincipal(BOB, () => store.query());
@@ -79,6 +93,7 @@ describe('QueryLogStore：行级隔离（同租户不同用户）', () => {
   });
 
   it('统计：getStats / getToolStats / getErrorStats 只算自己的', async () => {
+    await seedBaseline();
     await runWithPrincipal(ALICE, () =>
       store.log(
         entry({
@@ -129,6 +144,30 @@ describe('QueryLogStore：行级隔离（同租户不同用户）', () => {
   });
 
   it('清理：prune 只删自己的行', async () => {
+    await seedBaseline();
+    await runWithPrincipal(ALICE, () =>
+      store.log(
+        entry({
+          sessionId: 'a2',
+          type: 'tool_call',
+          toolName: 'grep',
+          timestamp: 3_000,
+        })
+      )
+    );
+    await runWithPrincipal(BOB, () =>
+      store.log(
+        entry({
+          sessionId: 'b2',
+          type: 'tool_call',
+          toolName: 'grep',
+          success: false,
+          error: 'boom',
+          timestamp: 4_000,
+        })
+      )
+    );
+
     const removed = await runWithPrincipal(ALICE, () => store.prune(3_500));
     expect(removed).toBe(2); // a1(1000) + a2(3000)
 

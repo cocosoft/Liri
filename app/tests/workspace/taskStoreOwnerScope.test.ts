@@ -64,19 +64,33 @@ const node = (over: Partial<TaskNode> & { id: string }): TaskNode => ({
 describe('TaskStore：行级隔离', () => {
   it('列表 / 单查只看得见自己的任务', async () => {
     await runWithPrincipal(ALICE, () =>
-      store.save(node({ id: 'a-1', title: 'alice-task' }))
+      store.save(
+        node({
+          id: 'a-1',
+          workspaceId: 'iso1-ws',
+          projectId: 'iso1-p',
+          title: 'alice-task',
+        })
+      )
     );
     await runWithPrincipal(BOB, () =>
-      store.save(node({ id: 'b-1', title: 'bob-task' }))
+      store.save(
+        node({
+          id: 'b-1',
+          workspaceId: 'iso1-ws',
+          projectId: 'iso1-p',
+          title: 'bob-task',
+        })
+      )
     );
 
     expect(
-      (await runWithPrincipal(ALICE, () => store.listByWorkspace('ws-1'))).map(
-        (t) => t.id
-      )
+      (
+        await runWithPrincipal(ALICE, () => store.listByWorkspace('iso1-ws'))
+      ).map((t) => t.id)
     ).toEqual(['a-1']);
     expect(
-      (await runWithPrincipal(BOB, () => store.listByProject('p-1'))).map(
+      (await runWithPrincipal(BOB, () => store.listByProject('iso1-p'))).map(
         (t) => t.id
       )
     ).toEqual(['b-1']);
@@ -86,10 +100,24 @@ describe('TaskStore：行级隔离', () => {
 
   it('同 id 在两用户下各存一行（复合主键，互不覆盖）', async () => {
     await runWithPrincipal(ALICE, () =>
-      store.save(node({ id: 'shared', title: 'alice-copy' }))
+      store.save(
+        node({
+          id: 'shared',
+          workspaceId: 'iso2-ws',
+          projectId: 'iso2-p',
+          title: 'alice-copy',
+        })
+      )
     );
     await runWithPrincipal(BOB, () =>
-      store.save(node({ id: 'shared', title: 'bob-copy' }))
+      store.save(
+        node({
+          id: 'shared',
+          workspaceId: 'iso2-ws',
+          projectId: 'iso2-p',
+          title: 'bob-copy',
+        })
+      )
     );
 
     expect(
@@ -101,6 +129,18 @@ describe('TaskStore：行级隔离', () => {
   });
 
   it('更新 / 删除不波及他人', async () => {
+    // 自播种：本用例自己建 ALICE 的目标行，不依赖其他用例先跑
+    await runWithPrincipal(ALICE, () =>
+      store.save(
+        node({
+          id: 'a-1',
+          workspaceId: 'iso3-ws',
+          projectId: 'iso3-p',
+          title: 'alice-task',
+        })
+      )
+    );
+
     const bobUpdate = await runWithPrincipal(BOB, () =>
       store.update('a-1', { title: 'hijacked' })
     );
@@ -116,38 +156,67 @@ describe('TaskStore：行级隔离', () => {
   });
 
   it('按状态 / 根任务 / 子任务查询也按 owner 收口', async () => {
+    // 每例独立 workspace/project + 自播种（避免执行顺序影响精确列表断言）
     await runWithPrincipal(ALICE, () =>
-      store.save(node({ id: 'a-child', status: 'active', parentId: 'a-1' }))
+      store.save(
+        node({
+          id: 'a-child',
+          workspaceId: 'iso4-ws',
+          projectId: 'iso4-p',
+          status: 'active',
+          parentId: 'iso4-parent',
+        })
+      )
     );
     await runWithPrincipal(BOB, () =>
-      store.save(node({ id: 'b-child', status: 'active', parentId: 'a-1' }))
+      store.save(
+        node({
+          id: 'b-child',
+          workspaceId: 'iso4-ws',
+          projectId: 'iso4-p',
+          status: 'active',
+          parentId: 'iso4-parent',
+        })
+      )
+    );
+    await runWithPrincipal(BOB, () =>
+      store.save(
+        node({ id: 'b-1', workspaceId: 'iso4-ws', projectId: 'iso4-p' })
+      )
+    );
+    await runWithPrincipal(BOB, () =>
+      store.save(
+        node({ id: 'shared', workspaceId: 'iso4-ws', projectId: 'iso4-p' })
+      )
     );
 
     expect(
       (
         await runWithPrincipal(ALICE, () =>
-          store.listByStatus('ws-1', 'active')
+          store.listByStatus('iso4-ws', 'active')
         )
       ).map((t) => t.id)
     ).toEqual(['a-child']);
     expect(
       (
-        await runWithPrincipal(BOB, () => store.listByStatus('ws-1', 'active'))
+        await runWithPrincipal(BOB, () =>
+          store.listByStatus('iso4-ws', 'active')
+        )
       ).map((t) => t.id)
     ).toEqual(['b-child']);
 
     // 根任务：BOB 看不到 ALICE 的 a-1（自己那两行 b-1 / shared 都在）
     expect(
-      (await runWithPrincipal(BOB, () => store.listRootTasks('p-1')))
+      (await runWithPrincipal(BOB, () => store.listRootTasks('iso4-p')))
         .map((t) => t.id)
         .sort()
     ).toEqual(['b-1', 'shared']);
 
     // 子任务：BOB 用自己的 parentId 也拿不到 ALICE 的 a-child
     expect(
-      (await runWithPrincipal(BOB, () => store.listChildren('a-1'))).map(
-        (t) => t.id
-      )
+      (
+        await runWithPrincipal(BOB, () => store.listChildren('iso4-parent'))
+      ).map((t) => t.id)
     ).toEqual(['b-child']);
   });
 });

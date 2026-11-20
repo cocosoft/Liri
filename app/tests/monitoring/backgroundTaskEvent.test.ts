@@ -48,6 +48,8 @@ afterAll(() => {
 
 describe('BackgroundTaskEvent — §9.3 统一后台任务事件', () => {
   test('recordBackgroundTask 写入 JSONL，getBackgroundTaskLog 按倒序读取', () => {
+    // 自播种：随机顺序下同文件其它用例可能已留下日志行 ⇒ 先清空，再断言"正好 3 条"
+    fs.rmSync(path.join(tmpDir, 'background', 'tasks.jsonl'), { force: true });
     recordBackgroundTask({ task: 'dream', phase: 'start', startedAt: 1000 });
     recordBackgroundTask({
       task: 'dream',

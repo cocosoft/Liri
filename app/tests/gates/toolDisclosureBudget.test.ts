@@ -21,7 +21,7 @@
  * 棘轮语义：`default` 面五项指标 + 成员名单冻结；`perTask` 逐面（数量 / token / 名单）冻结。
  * 缩小 ⇒ 提示下调基线锁定成果；增长 ⇒ 必报（fail-closed：基线缺字段也判违规）。
  */
-import { describe, expect, it } from 'bun:test';
+import { afterAll, describe, expect, it } from 'bun:test';
 
 import {
   GATED_TASK_TYPES,
@@ -34,10 +34,55 @@ import {
   type DisclosureSnapshot,
 } from '../../scripts/measure-tool-disclosure';
 import { TOOL_NAMES_COUNT } from '@openliri/infra/constants/toolNames.generated';
+import {
+  setEnabledRoleNames,
+  getEnabledRoleNames,
+} from '../../src/tools/AgentTool/AgentDescriptorResolver';
+import {
+  getBuildVariantFlags,
+  resetBuildVariantFlags,
+  setBuildVariantFlags,
+} from '@openliri/kernel';
+import { resetToolFlags } from '../../src/tools/utils/ToolFeatureFlags';
+
+/**
+ * 度量前的**全局状态归一**（2026-11-20：随机顺序下必现的跨文件污染）。
+ *
+ * 1. 变体层（`setBuildVariantFlags`）与工具开关缓存（`ToolFeatureFlags`，TR-18 一次性惰性缓存）
+ *    都是**进程级**状态：别的测试文件注入/首读过后，本文件装配出的工具集就与基线口径不一致；
+ * 2. `resolveDisclosureBudget` 还会读用户设置（`config.features.toolDisclosureStrict`）⇒
+ *    显式 env 覆盖，使度量恒等于基线生成时的口径（env > 用户设置 > `feature()`）；
+ * 3. `agent` 工具的 `subagent_type` 描述会拼上"已启用的 Agent 角色名"快照，而该快照由
+ *    `AgentTool` 构造时的**异步** `refreshAvailableSubagentTypeNames()` 写入
+ *    （DB 播种 5 个默认角色后即有值）⇒ 度量时快照是否已刷新会让
+ *    `sourceDescriptionChars` 漂移（实测 3588 → 3658）。门禁与 CLI
+ *    （`bun run measure:tool-disclosure`，全新进程、快照为空）同口径 ⇒ 度量前清空快照。
+ *
+ * 度量完成后在 `afterAll` 逐项还原，避免反向污染后续文件。
+ */
+const previousVariantFlags = getBuildVariantFlags();
+const previousStrictEnv = process.env['FEATURE_TOOL_DISCLOSURE_STRICT'];
+const previousRoleNames = getEnabledRoleNames();
+resetBuildVariantFlags();
+resetToolFlags();
+process.env['FEATURE_TOOL_DISCLOSURE_STRICT'] = 'true';
+setEnabledRoleNames([]);
 
 const baseline = readBaseline();
 const current = measureDisclosure();
 const perTask = measureTaskSurfaces();
+
+afterAll(() => {
+  setEnabledRoleNames(previousRoleNames);
+  if (previousVariantFlags) setBuildVariantFlags(previousVariantFlags);
+  else resetBuildVariantFlags();
+  if (previousStrictEnv === undefined) {
+    delete process.env['FEATURE_TOOL_DISCLOSURE_STRICT'];
+  } else {
+    process.env['FEATURE_TOOL_DISCLOSURE_STRICT'] = previousStrictEnv;
+  }
+  resetToolFlags();
+});
 
 describe('AC-16 模型可见面预算 · 棘轮（default 面）', () => {
   it('默认披露面五项指标均不超过基线（只减不增），成员名单冻结', () => {

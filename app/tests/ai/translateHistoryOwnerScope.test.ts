@@ -8,7 +8,14 @@
  *   ① 行为隔离：同租户 ALICE / BOB 的记录互不可见、互不可改删（含 clearAll 只清自己）；
  *   ② SQL 漏过滤：所有读写模板必须带 `owner_key`，且动态 WHERE 必须以它起手。
  */
-import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from 'bun:test';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -54,6 +61,15 @@ afterAll(() => {
   }
 });
 
+/**
+ * 用例自足（`--randomize` 会打乱**同文件内**用例顺序）：每个用例起手先清掉
+ * 两用户自己的记录（`clearAll` 是 owner 作用域的），再由用例自行播种。
+ */
+beforeEach(async () => {
+  await as(ALICE, () => store().clearAll());
+  await as(BOB, () => store().clearAll());
+});
+
 describe('translate_history：行级隔离', () => {
   it('同租户两用户的列表与计数各算各的', async () => {
     const aliceId = await as(ALICE, () => store().insert(record('alice-src')));
@@ -69,7 +85,7 @@ describe('translate_history：行级隔离', () => {
   });
 
   it('收藏 / 删除不波及他人（他人记录等同不存在）', async () => {
-    const aliceId = (await as(ALICE, () => store().query({}))).records[0].id;
+    const aliceId = await as(ALICE, () => store().insert(record('alice-src')));
 
     await expect(as(BOB, () => store().toggleStar(aliceId))).rejects.toThrow(
       AppError
@@ -88,6 +104,8 @@ describe('translate_history：行级隔离', () => {
   });
 
   it('clearAll 只清当前用户（不是整表）', async () => {
+    await as(BOB, () => store().insert(record('bob-src')));
+
     await as(ALICE, () => store().clearAll());
     expect((await as(ALICE, () => store().query({}))).total).toBe(0);
     expect((await as(BOB, () => store().query({}))).total).toBe(1);

@@ -24,7 +24,7 @@
  *
  * 单表 `kg_edges`：主键 `(edge_id, owner_key)`；查询 / 统计 / 悬挂边清理都按 owner 收口。
  */
-import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { KnowledgeGraph } from '../../src/knowledge/graph/KnowledgeGraph';
 import type { Principal } from '@openliri/kernel/identity/principal';
@@ -33,13 +33,18 @@ import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 const ALICE: Principal = { tenantId: 'acme', userId: 'alice', roles: ['user'] };
 const BOB: Principal = { tenantId: 'acme', userId: 'bob', roles: ['user'] };
 
-const graph = new KnowledgeGraph(':memory:');
+/**
+ * 用例自足（`--randomize` 会打乱**同文件内**用例顺序）：每个用例一份独立的
+ * `:memory:` 图，边不跨用例残留；需要前置边的用例在用例内自行播种。
+ */
+let graph: KnowledgeGraph;
 
-beforeAll(async () => {
+beforeEach(async () => {
+  graph = new KnowledgeGraph(':memory:');
   await graph.init();
 });
 
-afterAll(async () => {
+afterEach(async () => {
   await graph.close();
 });
 
@@ -74,8 +79,8 @@ describe('KnowledgeGraph：行级隔离', () => {
   });
 
   it('删除不波及他人', async () => {
-    const [aliceEdge] = await runWithPrincipal(ALICE, () =>
-      graph.queryEdges({})
+    const aliceEdge = await runWithPrincipal(ALICE, () =>
+      graph.addEdge({ from: 'a:kind:1', to: 'b:kind:2', type: 'rel' })
     );
     await runWithPrincipal(BOB, () => graph.deleteEdge(aliceEdge.id));
     expect(
@@ -87,6 +92,13 @@ describe('KnowledgeGraph：行级隔离', () => {
   });
 
   it('悬挂边清理只清自己的', async () => {
+    await runWithPrincipal(ALICE, () =>
+      graph.addEdge({ from: 'a:kind:1', to: 'b:kind:2', type: 'rel' })
+    );
+    await runWithPrincipal(BOB, () =>
+      graph.addEdge({ from: 'x:kind:1', to: 'y:kind:2', type: 'rel' })
+    );
+
     // ALICE 的边 to 端不在有效集合内 ⇒ 1 条悬挂；BOB 的边不应被 ALICE 的清理波及
     const removed = await runWithPrincipal(ALICE, () =>
       graph.cleanupOrphans(new Set(['a:kind:1']))

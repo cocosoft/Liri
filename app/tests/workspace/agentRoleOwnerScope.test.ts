@@ -27,8 +27,15 @@ import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 const T_A = `ar-a-${process.pid}-${Math.random().toString(36).slice(2, 6)}`;
 const T_B = `ar-b-${process.pid}-${Math.random().toString(36).slice(2, 6)}`;
 const ALICE_A: Principal = { tenantId: T_A, userId: 'alice', roles: ['user'] };
-const BOB_A: Principal = { tenantId: T_A, userId: 'bob', roles: ['user'] };
 const CAROL_B: Principal = { tenantId: T_B, userId: 'carol', roles: ['user'] };
+
+/**
+ * 同租户共享语义用例用**独立租户**：与跨租户用例互不影响，
+ * `--randomize` 打乱同文件用例顺序时各自自足。
+ */
+const T_C = `ar-c-${process.pid}-${Math.random().toString(36).slice(2, 6)}`;
+const ALICE_C: Principal = { tenantId: T_C, userId: 'alice', roles: ['user'] };
+const BOB_C: Principal = { tenantId: T_C, userId: 'bob', roles: ['user'] };
 
 const dataDir = mkdtempSync(join(tmpdir(), 'agent-roles-'));
 
@@ -96,14 +103,34 @@ describe('agent_roles：跨租户隔离（租户级配置）', () => {
   });
 
   it('同租户两用户共享同一份配置（租户级共享语义不破）', async () => {
-    // ALICE_A 已改过 architect；BOB_A 应看到同一份
+    // 自播种：本用例在自己的租户内完成前置改动，不依赖其他用例先跑
+    const architectC = (await as(ALICE_C, () =>
+      store().getByAgentId('architect')
+    ))!;
+    await as(ALICE_C, () =>
+      store().update(architectC.id!, { name: '架构师（A 租户定制）' })
+    );
+    await as(ALICE_C, () =>
+      store().insert({
+        agentId: 'auditor',
+        name: '审计员',
+        expertise: ['合规'],
+        weight: 1.0,
+        systemPrompt: '审计角色',
+        icon: '📋',
+        sortOrder: 6,
+        enabled: true,
+      })
+    );
+
+    // ALICE_C 已改过 architect；BOB_C 应看到同一份
     expect(
-      (await as(BOB_A, () => store().getByAgentId('architect')))?.name
+      (await as(BOB_C, () => store().getByAgentId('architect')))?.name
     ).toBe('架构师（A 租户定制）');
-    // 删除也共享：BOB_A 删掉 auditor ⇒ ALICE_A 不可见
-    const auditor = await as(BOB_A, () => store().getByAgentId('auditor'));
-    await as(BOB_A, () => store().delete(auditor!.id!));
-    expect(await as(ALICE_A, () => store().getByAgentId('auditor'))).toBeNull();
+    // 删除也共享：BOB_C 删掉 auditor ⇒ ALICE_C 不可见
+    const auditor = await as(BOB_C, () => store().getByAgentId('auditor'));
+    await as(BOB_C, () => store().delete(auditor!.id!));
+    expect(await as(ALICE_C, () => store().getByAgentId('auditor'))).toBeNull();
   });
 });
 

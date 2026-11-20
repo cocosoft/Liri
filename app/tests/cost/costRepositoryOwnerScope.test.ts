@@ -25,7 +25,7 @@
  * 两张表（cost_records / session_cost_summaries）+ 一处跨表对账（model_usage_logs）
  * 都必须带 owner 过滤；静态门禁扫源码，行为测试验隔离。
  */
-import { afterAll, describe, expect, it } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -37,9 +37,17 @@ import type { Principal } from '@openliri/kernel/identity/principal';
 const ALICE: Principal = { tenantId: 'acme', userId: 'alice', roles: ['user'] };
 const BOB: Principal = { tenantId: 'acme', userId: 'bob', roles: ['user'] };
 
-const repo = new CostRecordRepository(':memory:');
+/**
+ * 用例自足（`--randomize` 会打乱**同文件内**用例顺序）：每个用例一份独立的
+ * `:memory:` 库，行不跨用例残留；需要前置行的用例在用例内自行播种。
+ */
+let repo: CostRecordRepository;
 
-afterAll(async () => {
+beforeEach(() => {
+  repo = new CostRecordRepository(':memory:');
+});
+
+afterEach(async () => {
   await repo.close();
 });
 
@@ -74,6 +82,13 @@ describe('CostRecordRepository：行级隔离', () => {
   });
 
   it('session_cost_summaries：摘要与计数各算各的', async () => {
+    await runWithPrincipal(ALICE, () =>
+      repo.recordCost(cost({ sessionId: 's-a', costUSD: 0.5 }))
+    );
+    await runWithPrincipal(BOB, () =>
+      repo.recordCost(cost({ sessionId: 's-b', costUSD: 0.7 }))
+    );
+
     const aliceSummary = await runWithPrincipal(ALICE, () =>
       repo.getSessionSummary('s-a')
     );
@@ -98,6 +113,10 @@ describe('CostRecordRepository：行级隔离', () => {
   });
 
   it('聚合：SUM/COUNT 只覆盖自己的行', async () => {
+    await runWithPrincipal(ALICE, () =>
+      repo.recordCost(cost({ sessionId: 's-a', costUSD: 0.5 }))
+    );
+
     const alice = await runWithPrincipal(ALICE, () =>
       repo.getAggregatedCosts({})
     );

@@ -5,7 +5,14 @@
  * - updateHeartbeat：更新 heartbeat_at，getJob 可读
  * - 心跳不改变作业状态（仅续租）
  */
-import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
+import {
+  describe,
+  test,
+  expect,
+  beforeAll,
+  beforeEach,
+  afterAll,
+} from 'bun:test';
 import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -36,6 +43,12 @@ beforeAll(async () => {
   await store.upsertJob(makeJob('job-1', 'scheduled'));
 });
 
+// 每个用例前复位作业行：随机顺序下不能依赖"上一用例已调用 updateHeartbeat"的遗留状态
+// （upsert 会把 heartbeat_at 写回 NULL，即本组用例共同的前置条件）。
+beforeEach(async () => {
+  await store.upsertJob(makeJob('job-1', 'scheduled'));
+});
+
 afterAll(async () => {
   await store.close();
   try {
@@ -60,6 +73,8 @@ describe('CronJobStore 执行期心跳（P1-8）', () => {
   });
 
   test('heartbeatAt 持久化到行（cronJobToRow 往返）', async () => {
+    // 自足：本用例自己先写一次心跳（不再依赖上一用例留下的 heartbeat_at）
+    await store.updateHeartbeat('job-1');
     const job = await store.getJob('job-1');
     const snapshot = job?.heartbeatAt;
     expect(snapshot).toBeGreaterThan(0);

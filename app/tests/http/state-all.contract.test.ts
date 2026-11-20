@@ -30,12 +30,20 @@ import os from 'os';
 import path from 'path';
 import type http from 'http';
 import type { HandlerCtx } from '../../src/infrastructure/http/handlers/handler-utils';
+// 与 handler **同一说明符**（`@openliri/infra/state` 桶）取注册表与 AppLifecycle：
+// `state-handlers` 内部是 `await import('@openliri/infra/state')`，两侧必须看到同一份模块实例。
 import {
+  AppState,
+  getAppStateMachine,
   initAppStateMachine,
   markAppBusy,
   markAppIdle,
-} from '@openliri/infra/state/app/AppLifecycle';
-import { AppState } from '@openliri/infra/state/app/types';
+  StateMachineRegistry,
+} from '@openliri/infra/state';
+import type { StateMachine } from '@openliri/infra/state';
+
+/** AppLifecycle 的机器 ID（与 `AppLifecycle.ts` 的 `MACHINE_ID` 一致） */
+const APP_MACHINE_ID = 'app';
 
 let tmpDir: string;
 const originalDataDir = process.env.LIRI_DATA_DIR;
@@ -45,6 +53,20 @@ beforeAll(() => {
   process.env.LIRI_DATA_DIR = tmpDir;
   // 先接线应用状态机（注册到 StateMachineRegistry），并产生一次转移
   initAppStateMachine();
+
+  // 取证（随机顺序实测）：本用例失败形态是 `machines.find(m => m.id === 'app') === undefined`，
+  // 而非「状态不对」。原因：同进程 `tests/state/engine/StateMachine.test.ts` 的
+  // `StateMachineRegistry.reset()` 会换掉单例，而 AppLifecycle 的模块级 `machineCache`
+  // 仍持有旧实例 ⇒ `initAppStateMachine()` 不再重新登记 ⇒ handler 看到的是空注册表。
+  // 此处按 handler 的取用方式（同说明符）自备登记，让「handler 能看到的那一份」确有 'app'。
+  const registry = StateMachineRegistry.getInstance();
+  const appMachine = getAppStateMachine() as unknown as StateMachine<string>;
+  const registered = registry.find(APP_MACHINE_ID);
+  if (registered !== (appMachine as unknown as StateMachine<string>)) {
+    if (registered) registry.unregister(APP_MACHINE_ID);
+    registry.register(APP_MACHINE_ID, appMachine);
+  }
+
   // 不假设前置状态：`PAUSED → BUSY` 不在转移表里（`APP_TRANSITIONS`），若全局单例被前序
   // 用例/快照留在 PAUSED，`markAppBusy()` 会返回 false 且状态不变（随机顺序下曾因此失败）。
   if (!markAppBusy('contract-test')) {
@@ -97,6 +119,12 @@ const req = {} as http.IncomingMessage;
 
 describe('GET /v1/state/all 契约（§十 阶段 D）', () => {
   test('返回 200 且 machines 包含应用状态机（id=app, state=busy）', async () => {
+    // 调用 handler 前先证明「handler 同一说明符能看到的注册表」确有 'app'
+    // （若两侧是不同的模块实例，这里会先失败，暴露真实差异）
+    expect(
+      StateMachineRegistry.getInstance().find(APP_MACHINE_ID)
+    ).toBeDefined();
+
     const created = createRes();
     await handleStateAll(ctx, req, created.res);
     expect(created.status).toBe(200);

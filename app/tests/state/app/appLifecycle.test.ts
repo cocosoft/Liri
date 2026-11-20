@@ -24,7 +24,14 @@
  * 验证：状态转移合法性、崩溃恢复 → ERROR 映射、快照落盘。
  */
 
-import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+} from 'bun:test';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -46,7 +53,16 @@ beforeAll(() => {
   process.env.LIRI_DATA_DIR = tmpDir;
 });
 
+// 随机顺序（`--randomize` 会打乱**同文件内**用例顺序）下，任一用例都可能先执行 ⇒
+// 不能依赖前序用例遗留的状态：每个用例前把共享单例归位 IDLE（各态均有 → IDLE 的合法出口）。
+beforeEach(() => {
+  if (getAppState() !== AppState.IDLE)
+    markAppIdle('test precondition: 归位 IDLE');
+});
+
 afterAll(() => {
+  // 复原：不把本文件遗留的 ERROR/BUSY 带给同进程后续文件
+  if (getAppState() !== AppState.IDLE) markAppIdle('test cleanup: 归位 IDLE');
   if (originalDataDir === undefined) {
     delete process.env.LIRI_DATA_DIR;
   } else {
@@ -119,7 +135,12 @@ describe('FIX-14 全局 ERROR 态不得自锁', () => {
   });
 
   test('启动接线复位上次运行遗留的 ERROR', () => {
+    // 随机顺序下本用例可能先于「幂等」用例执行 ⇒ 自备「上次运行遗留 ERROR」的前置状态，
+    // 而不是依赖前序用例的遗留值（断言不变：ERROR → init → IDLE）。
+    expect(markAppBusy('准备上次运行遗留的 ERROR')).toBe(true);
+    expect(markAppError(new Error('startup leftover error'))).toBe(true);
     expect(getAppState()).toBe(AppState.ERROR);
+
     initAppStateMachine();
     expect(getAppState()).toBe(AppState.IDLE);
   });

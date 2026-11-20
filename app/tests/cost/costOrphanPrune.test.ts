@@ -12,12 +12,20 @@
  * - `pruneOrphanSessions` 只删给定 id 的行，现存会话的成本痕迹必须原样保留。
  */
 
-import { afterAll, describe, expect, it } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { CostRecordRepository } from '@openliri/infra/cost/CostRecordRepository';
 
-const repo = new CostRecordRepository(':memory:');
+/**
+ * 用例自足（`--randomize` 会打乱**同文件内**用例顺序）：每个用例一份独立的
+ * `:memory:` 库，行不跨用例残留；需要前置行的用例在用例内自行播种。
+ */
+let repo: CostRecordRepository;
 
-afterAll(async () => {
+beforeEach(() => {
+  repo = new CostRecordRepository(':memory:');
+});
+
+afterEach(async () => {
   await repo.close();
 });
 
@@ -46,6 +54,10 @@ describe('CostRecordRepository：孤儿成本痕迹清理（#24）', () => {
   });
 
   it('pruneOrphanSessions 只删孤儿，现存会话的摘要与明细保留', async () => {
+    await repo.recordCost(cost('s-keep'));
+    await repo.recordCost(cost('s-orphan-1'));
+    await repo.recordCost(cost('s-orphan-2'));
+
     const removed = await repo.pruneOrphanSessions([
       's-orphan-1',
       's-orphan-2',
@@ -65,6 +77,8 @@ describe('CostRecordRepository：孤儿成本痕迹清理（#24）', () => {
   });
 
   it('空清单调用是安全的（不动任何行）', async () => {
+    await repo.recordCost(cost('s-keep'));
+
     expect(await repo.pruneOrphanSessions([])).toBe(0);
     expect(await repo.countSessionSummaries()).toBe(1);
   });

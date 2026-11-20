@@ -96,6 +96,14 @@ function readBundledIdentity(): string {
 }
 
 describe('C-2 resolvePrompt 六级链', () => {
+  // 随机顺序（--randomize）下用例必须自足：每个用例前清空夹具目录与解析缓存，
+  // 否则会读到上一用例留下的覆盖文件（旧实现隐式依赖"先写 user / 再写 project"的顺序）。
+  beforeEach(() => {
+    rmSync(join(userHome, 'prompts'), { recursive: true, force: true });
+    rmSync(join(projectRoot, '.liri'), { recursive: true, force: true });
+    clearPromptCache();
+  });
+
   it('⑥ 内置兜底：动态段无包内资源 ⇒ 原样返回 fallback（行为零变化）', () => {
     clearPromptCache();
     expect(resolvePrompt('memoryContext', 'FALLBACK')).toBe('FALLBACK');
@@ -134,6 +142,12 @@ describe('C-2 resolvePrompt 六级链', () => {
     clearPromptCache();
     rmSection(userHome, ['prompts', 'zh-CN', 'toolUse.md']);
     rmSection(userHome, ['prompts', 'toolUse.md']);
+    // 自播种项目层（不再依赖上一用例遗留的 FROM_PROJECT）
+    writeSection(
+      projectRoot,
+      ['.liri', 'prompts', 'zh-CN', 'toolUse.md'],
+      'FROM_PROJECT'
+    );
     expect(resolvePrompt('toolUse', 'FALLBACK')).toBe('FROM_PROJECT');
   });
 
@@ -173,6 +187,7 @@ describe('C-2 resolvePrompt 六级链', () => {
   it('30s TTL：命中期间改文件不生效，clearPromptCache 后生效（「热更」同一验收）', () => {
     clearPromptCache();
     const target = join(userHome, 'prompts', 'zh-CN', 'identity.md');
+    mkdirSync(join(userHome, 'prompts', 'zh-CN'), { recursive: true });
     writeFileSync(target, 'V1', 'utf-8');
     expect(resolvePrompt('identity', 'FALLBACK')).toBe('V1');
     writeFileSync(target, 'V2', 'utf-8');
@@ -232,9 +247,13 @@ function readBundledGrepDesc(): string {
 }
 
 describe('C-3 工具提示词链（与 C-2 同链）', () => {
-  // 上一组 locale 键用例会把当前 locale 留在 zh-TW；工具链缺省 locale 取该状态 ⇒ 每组复位
+  // 上一组 locale 键用例会把当前 locale 留在 zh-TW；工具链缺省 locale 取该状态 ⇒ 每组复位。
+  // 同时清空夹具目录与解析缓存：随机顺序下不能依赖上一用例遗留的覆盖文件。
   beforeEach(() => {
     setSectionCacheLocale('zh-CN');
+    rmSync(join(userHome, 'prompts'), { recursive: true, force: true });
+    rmSync(join(projectRoot, '.liri'), { recursive: true, force: true });
+    clearPromptCache();
   });
 
   it('① 用户覆盖：<locale>/tools/<ToolDir>/<Export>.md 生效', () => {
@@ -292,6 +311,12 @@ describe('C-3 工具提示词链（与 C-2 同链）', () => {
       recursive: true,
       force: true,
     });
+    // 自播种项目层（不再依赖上一用例遗留的 FROM_PROJECT）
+    writeSection(
+      projectRoot,
+      ['.liri', 'prompts', 'zh-CN', 'tools', 'GrepTool', 'getDescription.md'],
+      'FROM_PROJECT'
+    );
     expect(resolveToolPrompt('GrepTool', 'getDescription', 'FALLBACK')).toBe(
       'FROM_PROJECT'
     );

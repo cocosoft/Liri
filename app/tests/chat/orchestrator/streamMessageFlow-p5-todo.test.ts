@@ -44,10 +44,15 @@ const fakeLoop = {
  */
 let restoreLoop: (() => void) | undefined;
 beforeEach(() => {
-  restoreLoop = spyOn(
+  const spy = spyOn(
     createAgentLoopModule,
     'createChatAgentLoop'
   ).mockImplementation(() => fakeLoop as never);
+  // 2026-11-20：原实现 `restoreLoop = spyOn(...)` + `restoreLoop?.()` —— 后者只是**调用**
+  // 这个 mock（返回同一个 `fakeLoop`），从不还原模块导出 ⇒ spy 泄漏给同进程后续文件。
+  // 实测：随机顺序下 `sessionScopedLoopLifecycle.test.ts` 的 D2 取到的「扩容实例」与基础
+  // 实例是同一份 fake（`expanded === base`，缺少 run/checkpoint 真实语义）。
+  restoreLoop = () => spy.mockRestore();
 });
 afterEach(() => {
   restoreLoop?.();

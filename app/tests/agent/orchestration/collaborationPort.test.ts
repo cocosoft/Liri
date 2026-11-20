@@ -5,11 +5,10 @@
  * 全部使用 stub（**不触真模型 / 真网络**）。
  */
 
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect, beforeAll } from 'bun:test';
 
 import {
   COLLABORATION_SERVICE_ID,
-  registerCollaborationSpi,
   resolveCollaboration,
 } from '@openliri/kernel/spi/CollaborationService.js';
 import { SwarmChannelAdapter } from '../../../src/agent/orchestration/SwarmChannelAdapter.js';
@@ -20,6 +19,25 @@ import type {
   SwarmExecutor,
 } from '../../../src/tasks/swarm/AgentSwarm.js';
 import type { ScheduledAgentTask } from '../../../src/agent/moa/ParallelAgentScheduler.js';
+
+type CollaborationSpiModule =
+  typeof import('@openliri/kernel/spi/CollaborationService.js');
+
+/**
+ * ② 专用的**独立模块实例**（查询串只改 Bun 的模块缓存键，加载的仍是同一份真实源码）。
+ *
+ * 端口实现引用是模块级单例 `_service`，且**无注销入口** ⇒ ② 若直接注册到进程级实例，
+ * `--randomize` 打乱同文件用例顺序后，① 会读到 `stub-channel`（不再是「未注册」语义）。
+ * ① 继续验证进程级实例的未注册语义（本文件是它唯一的注册点，现已隔离到下面的实例）。
+ */
+const ISOLATED_PORT_MODULE =
+  '../../../../packages/kernel/src/core/spi/CollaborationService.ts?collaboration-port-registerable';
+
+let registerable: CollaborationSpiModule;
+
+beforeAll(async () => {
+  registerable = (await import(ISOLATED_PORT_MODULE)) as CollaborationSpiModule;
+});
 
 describe('协作编排端口（预留端口 / 薄端口）', () => {
   // ① 未注册（必须最先执行：端口内部为模块级单例 `_service`）
@@ -51,9 +69,9 @@ describe('协作编排端口（预留端口 / 薄端口）', () => {
       dispatch: async () => null,
     };
 
-    await registerCollaborationSpi(container, impl);
+    await registerable.registerCollaborationSpi(container, impl);
 
-    expect(await resolveCollaboration().listChannels()).toEqual([
+    expect(await registerable.resolveCollaboration().listChannels()).toEqual([
       'stub-channel',
     ]);
     expect(descriptors).toEqual([

@@ -19,7 +19,14 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+} from 'bun:test';
 import fs from 'fs';
 import http from 'http';
 import type { AddressInfo } from 'net';
@@ -63,6 +70,14 @@ beforeAll(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'runtime-health-probe-'));
 });
 
+// 探针是**进程级单例**：别的用例/别的文件启动过 ⇒ start() 变 no-op，本文件会读到旧心跳文件。
+// 每个用例前先停探针并清空心跳文件，使 start() 真正生效且落盘目标只属于本用例。
+beforeEach(() => {
+  stopRuntimeHealthProbe();
+  fs.rmSync(healthFile(), { force: true });
+  fs.rmSync(previousHealthFile(), { force: true });
+});
+
 afterAll(() => {
   stopRuntimeHealthProbe();
   fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -85,6 +100,8 @@ describe('RuntimeHealthProbe — 运行时心跳', () => {
   });
 
   test('重复启动幂等：不重置 startedAt', () => {
+    // 自足：首次启动由本用例自己完成（不再依赖上一用例遗留的运行中探针）
+    startRuntimeHealthProbe({ intervalMs: 999, dataDir: tmpDir });
     const startedAt = getRuntimeHealthSnapshot().startedAt;
     startRuntimeHealthProbe({ intervalMs: 999, dataDir: tmpDir });
     expect(getRuntimeHealthSnapshot().startedAt).toBe(startedAt);

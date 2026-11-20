@@ -13,7 +13,8 @@
  *   ② 同会话再次 `/goal start` 能拿到**新 taskId**（幂等键已释放）。
  */
 import { afterAll, afterEach, describe, expect, it } from 'bun:test';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { Database } from 'bun:sqlite';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -26,6 +27,32 @@ const { readPdcaCheckpoint, closePdcaCheckpointStore } =
   await import('../../src/tasks/PdcaWorkItemBridge');
 const { default: goalCommand } =
   await import('../../src/commands/builtin/goal/Goal');
+// 2026-11-20：**显式注入**目标库（不再只依赖 `LIRI_DATA_DIR`）——全量套件里默认单例可能
+// 已被先跑的用例按真实 `~/.pyapp/data/app.db` 初始化过，env 晚设无效 ⇒ 目标行污染真实库，
+// 再被应用启动期「目标续接」反复执行（真机实证：346 条 `sess-goal-start-*` 测试目标）。
+const { TaskGoalStore, setTaskGoalStoreForTest } =
+  await import('../../src/tasks/goal/TaskGoalStore');
+
+const store = new TaskGoalStore(join(dataDir, 'app.db'));
+setTaskGoalStoreForTest(store);
+
+/** 真实库（只读）目标行数；库不存在（CI / 干净环境）⇒ null（跳过断言） */
+function countRealGoals(): number | null {
+  const real = join(process.env.USERPROFILE ?? '', '.pyapp', 'data', 'app.db');
+  if (!existsSync(real)) return null;
+  try {
+    const db = new Database(real, { readonly: true });
+    const row = db.query('SELECT COUNT(*) AS n FROM task_goals').get() as {
+      n: number;
+    };
+    db.close();
+    return row.n;
+  } catch {
+    return null;
+  }
+}
+
+const realGoalsBefore = countRealGoals();
 
 const originalRunFullPdca = LongRunningTaskOrchestrator.prototype.runFullPdca;
 
@@ -35,6 +62,8 @@ afterEach(() => {
 
 afterAll(async () => {
   closePdcaCheckpointStore();
+  setTaskGoalStoreForTest(null);
+  store.close();
   delete process.env.LIRI_DATA_DIR;
   try {
     rmSync(dataDir, {
@@ -96,5 +125,35 @@ describe('/goal start 启动期失败收口（D55）', () => {
     expect(second.success).toBe(true);
     const secondTaskId = (second.data as { taskId: string }).taskId;
     expect(secondTaskId).not.toBe(firstTaskId);
+  });
+
+  /**
+   * 防回归（2026-11-20）：本用例曾把目标行写进**真实库**（全量套件里默认单例已被别的用例
+   * 按真实路径初始化），随后被应用启动期目标续接反复执行。这里用两条断言锁死：
+   *   ① 目标行必须落在**临时库**（注入生效）；
+   *   ② 真实库的目标行数在本次用例前后**不得变化**（库不存在则跳过）。
+   */
+  it('防回归：目标行只写临时库，真实库不新增', async () => {
+    const sessionId = `sess-goal-start-regress-${Date.now()}`;
+    stubPlannerFailure();
+
+    const res = await goalCommand.handleStart(['写一个文件'], {
+      sessionId,
+      onDone: () => undefined,
+    } as never);
+    expect(res.success).toBe(true);
+
+    // ① 临时库：能按会话查到刚建的目标
+    const tmpDb = new Database(join(dataDir, 'app.db'), { readonly: true });
+    const inTmp = tmpDb
+      .query('SELECT COUNT(*) AS n FROM task_goals WHERE session_id = ?')
+      .get(sessionId) as { n: number };
+    tmpDb.close();
+    expect(inTmp.n).toBeGreaterThan(0);
+
+    // ② 真实库：行数不得变化
+    if (realGoalsBefore !== null) {
+      expect(countRealGoals()).toBe(realGoalsBefore);
+    }
   });
 });

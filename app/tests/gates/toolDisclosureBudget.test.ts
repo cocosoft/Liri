@@ -58,6 +58,13 @@ import { resetToolFlags } from '../../src/tools/utils/ToolFeatureFlags';
  *    `sourceDescriptionChars` 漂移（实测 3588 → 3658）。门禁与 CLI
  *    （`bun run measure:tool-disclosure`，全新进程、快照为空）同口径 ⇒ 度量前清空快照。
  *
+ *    **口径定论（2026-11-20 实测定量，勿再翻案）**：用本机 DB 的 5 个启用角色
+ *    （architect / backend / frontend / performance / security）重测 —— `sourceDescriptionChars`
+ *    **+70**（3588→3658），但 `providerSurfaceTokens` 与 `structuralTokens` **完全不变**
+ *    （1512 / 2396）⇒ 运行时角色名只影响"源码描述代理量"，**不影响真正下发的模型可见面**；
+ *    且角色是**用户 DB 数据**（非代码常量），纳入基线会让 CI（无库）不可复现。
+ *    ⇒ 基线口径**固定为"角色快照为空"的代码默认面**。
+ *
  * 度量完成后在 `afterAll` 逐项还原，避免反向污染后续文件。
  */
 const previousVariantFlags = getBuildVariantFlags();

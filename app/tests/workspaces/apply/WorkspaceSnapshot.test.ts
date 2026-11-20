@@ -7,7 +7,14 @@
  * - restoreWorkspaceSnapshot：回滚工作区到快照
  * - listWorkspaceSnapshots：列出快照历史
  */
-import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
+import {
+  describe,
+  test,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+} from 'bun:test';
 import { execSync } from 'child_process';
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
@@ -57,6 +64,13 @@ afterAll(() => {
   }
 });
 
+// 每个用例从事先约定的干净状态出发（同文件共用同一个 git repo ⇒ 前序用例的
+// 提交/未提交改动会让"无改动跳过""回滚到 b.txt"等断言随执行顺序漂移）
+beforeEach(() => {
+  git(repo, 'reset', '--hard', 'HEAD');
+  git(repo, 'clean', '-fd');
+});
+
 describe('WorkspaceSnapshot（P1-4）', () => {
   // Windows 冷启动 git commit 可能超 5s，bun test 默认超时 5s → 加长
   test('createWorkspaceSnapshot：执行前快照 commit，返回 hash', async () => {
@@ -75,6 +89,9 @@ describe('WorkspaceSnapshot（P1-4）', () => {
   }, 30000);
 
   test('restoreWorkspaceSnapshot：回滚工作区到快照', async () => {
+    // 本例自建基线（不依赖别的用例先写入 b.txt）
+    writeFileSync(join(repo, 'a.txt'), 'base\n');
+    writeFileSync(join(repo, 'b.txt'), 'pending\n');
     // 快照当前状态（含 b.txt）
     const snap = await createWorkspaceSnapshot(repo, 'baseline');
     // 制造改动
@@ -90,8 +107,11 @@ describe('WorkspaceSnapshot（P1-4）', () => {
   }, 30000);
 
   test('listWorkspaceSnapshots：列出快照历史', async () => {
+    // 本例自建一条 before-execute 快照（不依赖其他用例产生的提交）
+    writeFileSync(join(repo, 'c.txt'), 'seeded\n');
+    await createWorkspaceSnapshot(repo, 'before-execute-list');
     const list = await listWorkspaceSnapshots(repo, 10);
-    // init + before-execute（baseline 无改动跳过，不产生新 commit）
+    // init + before-execute
     expect(list.length).toBeGreaterThanOrEqual(2);
     expect(list.some((e) => e.subject.includes('before-execute'))).toBe(true);
   }, 30000);

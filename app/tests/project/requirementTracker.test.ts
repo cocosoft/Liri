@@ -14,9 +14,19 @@ import { RequirementTracker } from '@modules/project/RequirementTracker';
 import { ImplicitEngineHook } from '@modules/project/ImplicitEngineHook';
 
 const root = join(tmpdir(), `req-tracker-test-${Date.now()}`);
-const projectId = 'p-req-test';
-const projectDir = join(root, projectId);
-mkdirSync(projectDir, { recursive: true });
+
+/** 每个用例一个独立项目目录：需求/产物落盘互不可见，断言与执行顺序无关 */
+let caseSeq = 0;
+function freshProject(): {
+  projectId: string;
+  projectDir: string;
+} {
+  caseSeq++;
+  const projectId = `p-req-test-${caseSeq}`;
+  const projectDir = join(root, projectId);
+  mkdirSync(projectDir, { recursive: true });
+  return { projectId, projectDir };
+}
 
 afterAll(() => {
   try {
@@ -28,6 +38,7 @@ afterAll(() => {
 
 describe('RequirementTracker — 需求注册（D3）', () => {
   it('注册 goal/requirement 上下文并生成确定性 requirementId', () => {
+    const { projectId } = freshProject();
     const tracker = new RequirementTracker(projectId, root);
     const req = tracker.register({
       type: 'goal',
@@ -56,6 +67,7 @@ describe('RequirementTracker — 需求注册（D3）', () => {
   });
 
   it('覆盖检查：requirementId 标签 + 内容片段双重证据映射', async () => {
+    const { projectId, projectDir } = freshProject();
     const tracker = new RequirementTracker(projectId, root);
     const req = tracker.register({
       type: 'goal',
@@ -98,6 +110,20 @@ describe('RequirementTracker — 需求注册（D3）', () => {
 
 describe('ImplicitEngineHook.persist — 需求注册集成（D3）', () => {
   it('检测到 goal 上下文时注册需求并给产物打标', async () => {
+    const { projectId, projectDir } = freshProject();
+    // 前置：同项目已注册过 2 条需求（本断言口径 = 已有 2 条 + 本次 2 条）
+    const seeded = new RequirementTracker(projectId, root);
+    seeded.register({
+      type: 'goal',
+      content: '开发一个电商结算模块',
+      sessionId: 's-1',
+    });
+    seeded.register({
+      type: 'requirement',
+      content: '结算支持微信支付',
+      sessionId: 's-1',
+    });
+
     const text =
       '项目目标：开发发票识别工具\n需求：支持 pdf 与图片两种输入\n产出：E:\\out\\invoice.pdf';
 
@@ -119,7 +145,7 @@ describe('ImplicitEngineHook.persist — 需求注册集成（D3）', () => {
     // requirements.json 落盘 + artifacts 打标
     const tracker = new RequirementTracker(projectId, root);
     const reqs = tracker.list();
-    expect(reqs.length).toBeGreaterThanOrEqual(3); // 含前面用例注册的 2 条 + 本次 2 条（goal/requirement）
+    expect(reqs.length).toBeGreaterThanOrEqual(3); // 前置 2 条 + 本次 2 条（goal/requirement）
 
     const artifacts = JSON.parse(
       readFileSync(join(projectDir, 'artifacts.json'), 'utf-8')

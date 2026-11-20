@@ -45,8 +45,9 @@ import {
 import type { Principal } from '@openliri/kernel/identity/principal';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope';
 
-const ALICE: Principal = { tenantId: 'acme', userId: 'alice', roles: ['user'] };
-const BOB: Principal = { tenantId: 'acme', userId: 'bob', roles: ['user'] };
+// 每例独立租户 ⇒ 独立租户库 + 独立实例桶（用例间零共享行，断言只针对本例数据）
+let ALICE: Principal;
+let BOB: Principal;
 
 const dataDir = mkdtempSync(join(tmpdir(), 'model-registry-'));
 
@@ -57,6 +58,9 @@ beforeAll(() => {
 
 beforeEach(() => {
   process.env.LIRI_DATA_DIR = dataDir;
+  const tenantId = `model-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
+  ALICE = { tenantId, userId: 'alice', roles: ['user'] };
+  BOB = { tenantId, userId: 'bob', roles: ['user'] };
 });
 
 afterAll(() => {
@@ -77,13 +81,18 @@ const upsert = (displayName: string, input: number, output: number) =>
     outputCostPerMillion: output,
   });
 
+/** 本例自备的两用户同 modelId 种子（`upsert` 幂等 ⇒ 可被多例各自调用） */
+const seedShared = async () => {
+  await runWithPrincipal(ALICE, () => modelPricingService.initialize());
+  await runWithPrincipal(BOB, () => modelPricingService.initialize());
+
+  await runWithPrincipal(ALICE, () => upsert('alice-model', 1, 2));
+  await runWithPrincipal(BOB, () => upsert('bob-model', 3, 4));
+};
+
 describe('model_registry：行级隔离', () => {
   it('同一 modelId 各存各的（展示名 / 价格互不覆盖）', async () => {
-    await runWithPrincipal(ALICE, () => modelPricingService.initialize());
-    await runWithPrincipal(BOB, () => modelPricingService.initialize());
-
-    await runWithPrincipal(ALICE, () => upsert('alice-model', 1, 2));
-    await runWithPrincipal(BOB, () => upsert('bob-model', 3, 4));
+    await seedShared();
 
     const a = await runWithPrincipal(ALICE, () =>
       modelPricingService.getPricing('m-shared')
@@ -100,6 +109,8 @@ describe('model_registry：行级隔离', () => {
   });
 
   it('列表 / 计数只覆盖自己的行（各自都有 YAML 种子）', async () => {
+    await seedShared();
+
     const aliceAll = await runWithPrincipal(ALICE, () =>
       modelPricingService.getAllPricing()
     );
@@ -122,6 +133,8 @@ describe('model_registry：行级隔离', () => {
   });
 
   it('按 UUID 的读 / 改 / 删不波及他人', async () => {
+    await seedShared();
+
     const mine = await runWithPrincipal(ALICE, () =>
       modelPricingService.getPricing('m-shared')
     );

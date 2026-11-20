@@ -198,6 +198,10 @@ describe('code_run 工具清单注入（T-2 ①）', () => {
   });
 
   it('Tier2 生效时清单随之扩展（web_fetch 等出现在 code_run 描述里）', () => {
+    // Tier2 = Tier1 ∪ Tier2 ⇒ 本例自查两件工具均已注册（不依赖其他用例先注册 file_read）
+    ensureTool('file_read', 'Read a file from disk', [
+      p('path', 'string', true),
+    ]);
     ensureTool('web_fetch', 'Fetch a URL', [p('url', 'string', true)]);
     configureCodeRunner({ toolWhitelist: whitelistForTier(2) });
     try {

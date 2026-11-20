@@ -43,10 +43,15 @@ import type { UnifiedMessage } from '@modules/session/types/UnifiedMessage';
 const SID = 'sid-n51-fs';
 let tmpRoot = '';
 let storage: FileSystemUnifiedStorage;
-function msg(id: string, content: string, blocks?: unknown[]): UnifiedMessage {
+function msg(
+  id: string,
+  content: string,
+  blocks?: unknown[],
+  sessionId: string = SID
+): UnifiedMessage {
   return {
     id,
-    sessionId: SID,
+    sessionId,
     role: 'assistant',
     content,
     timestamp: 1,
@@ -55,8 +60,8 @@ function msg(id: string, content: string, blocks?: unknown[]): UnifiedMessage {
 }
 
 /** 投影文件当前行数（空行不计） */
-function rowCount(): number {
-  const file = path.join(tmpRoot, SID, 'messages.jsonl');
+function rowCount(sessionId: string = SID): number {
+  const file = path.join(tmpRoot, sessionId, 'messages.jsonl');
   if (!fs.existsSync(file)) return 0;
   return fs
     .readFileSync(file, 'utf-8')
@@ -101,20 +106,23 @@ describe('N-51 写入侧：投影无冗余追加', () => {
   });
 
   test('addMessages 批量：同 id 替换、无变化不落盘、仅新消息写一行', async () => {
-    const before = rowCount();
+    // 独立会话 + 自备前置数据：本用例断言的是"批量写相对基线行的增量"，不依赖上一例先跑
+    const sid = 'sid-n51-batch';
+    await storage.addMessage(sid, msg('m1', 'A', [{ type: 'text' }], sid));
+    const before = rowCount(sid);
 
     // 全为同 id 且内容无变化 ⇒ 不写盘
-    await storage.addMessages(SID, [msg('m1', 'A', [{ type: 'text' }])]);
-    expect(rowCount()).toBe(before);
+    await storage.addMessages(sid, [msg('m1', 'A', [{ type: 'text' }], sid)]);
+    expect(rowCount(sid)).toBe(before);
 
     // 一条新消息 + 一条无变化的旧消息 ⇒ 仅新消息写一行
-    await storage.addMessages(SID, [
-      msg('m2', 'B'),
-      msg('m1', 'A', [{ type: 'text' }]),
+    await storage.addMessages(sid, [
+      msg('m2', 'B', undefined, sid),
+      msg('m1', 'A', [{ type: 'text' }], sid),
     ]);
-    expect(rowCount()).toBe(before + 1);
+    expect(rowCount(sid)).toBe(before + 1);
 
-    const out = await storage.getMessages(SID);
+    const out = await storage.getMessages(sid);
     expect(out.map((m) => m.id).sort()).toEqual(['m1', 'm2']);
   });
 });

@@ -44,6 +44,14 @@ import {
   renderCompactionSummary,
 } from '../../src/context/compaction/StructuredCompactionPrompt';
 
+/**
+ * 唯一会话 id：压缩锁按 sessionId 落 `<dataDir>/compaction-locks/<sid>.lock`（TTL 120s）。
+ * 原写法是字面量 `'s'`，与同目录另外两个压缩用例文件**同名** ⇒ 锁文件可能互相阻塞；
+ * 改为本文件唯一取值（用例不断言 sessionId）。
+ * ⚠️ 待查：随机顺序下本文件曾出现 ~155s 长时间等待后失败，**尚未证明**由同名锁引起。
+ */
+const SID = `sess-fidelity-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
+
 /** 关键事实（用户原始请求与成功标准） */
 const FACT = '用户要求把「订单导出」改为流式；成功标准：10 万行不 OOM';
 /** 约束（技术约束/决策/错误解决） */
@@ -153,7 +161,7 @@ describe('R7-⑤ 按需取回：折叠不改动入参（原始事实源不被覆
     });
     const result = await runFull(orch)(messages, {
       model: 'm',
-      sessionId: 's',
+      sessionId: SID,
     });
 
     // 折叠确实生效（否则本用例会"空转通过"）
@@ -182,11 +190,11 @@ describe('R7-⑥ 模型切换：摘要文本与模型无关、且记录生成模
 
     const a = await runFull(make())(bigHistory(), {
       model: 'model-A',
-      sessionId: 's',
+      sessionId: SID,
     });
     const b = await runFull(make())(bigHistory(), {
       model: 'model-B',
-      sessionId: 's',
+      sessionId: SID,
     });
 
     // 摘要文本**与生成它的模型无关**（可跨模型继续工作）
@@ -212,7 +220,7 @@ describe('R7-⑦ 派生性：摘要段可识别为派生，原 head system 原�
     });
     const result = await runFull(orch)(messages, {
       model: 'm',
-      sessionId: 's',
+      sessionId: SID,
     });
 
     const text = flat(result.messages);

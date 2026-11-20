@@ -172,14 +172,24 @@ describe('#5 结果规模摘要（summarizeToolScale）', () => {
   });
 });
 
+/**
+ * 写入本组用例约定的 fixture（幂等覆盖写）。
+ *
+ * 三个用例共用同一目录且后两者依赖这些文件存在 ⇒ 每例自行播种，
+ * 而不是依赖"第一个用例先跑"。
+ */
+function seedStatsDir(): void {
+  writeFileSync(join(statsDir, 'a.ts'), 'const kvCache = 1;\n');
+  writeFileSync(join(statsDir, 'b.ts'), 'const kvCache = 2;\n');
+  writeFileSync(join(statsDir, 'c.md'), 'no match here\n');
+  writeFileSync(join(statsDir, '.hidden.ts'), 'const kvCache = 3;\n');
+  mkdirSync(join(statsDir, '.git'), { recursive: true });
+  writeFileSync(join(statsDir, '.git', 'skip.ts'), 'const kvCache = 4;\n');
+}
+
 describe('#5 grep 遍历规模计数（grepAsync.stats）', () => {
   it('统计遍历条目与进入匹配的文件数，并跳过 VCS / 点目录', async () => {
-    writeFileSync(join(statsDir, 'a.ts'), 'const kvCache = 1;\n');
-    writeFileSync(join(statsDir, 'b.ts'), 'const kvCache = 2;\n');
-    writeFileSync(join(statsDir, 'c.md'), 'no match here\n');
-    writeFileSync(join(statsDir, '.hidden.ts'), 'const kvCache = 3;\n');
-    mkdirSync(join(statsDir, '.git'), { recursive: true });
-    writeFileSync(join(statsDir, '.git', 'skip.ts'), 'const kvCache = 4;\n');
+    seedStatsDir();
 
     const result = await grepAsync({
       pattern: 'kvCache',
@@ -194,6 +204,7 @@ describe('#5 grep 遍历规模计数（grepAsync.stats）', () => {
   });
 
   it('单文件搜索路径同样计数（files=1）', async () => {
+    seedStatsDir();
     const result = await grepAsync({
       pattern: 'kvCache',
       searchPath: join(statsDir, 'a.ts'),
@@ -202,6 +213,7 @@ describe('#5 grep 遍历规模计数（grepAsync.stats）', () => {
   });
 
   it('链路：真实 grep 产出 → 探针规模提取（scannedFiles/scannedEntries 可见）', async () => {
+    seedStatsDir();
     const result = await grepAsync({
       pattern: 'kvCache',
       searchPath: statsDir,

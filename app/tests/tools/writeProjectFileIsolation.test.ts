@@ -42,20 +42,18 @@ let previousDataDir: string | undefined;
 const written = new Map<string, string>();
 const mkdirs: string[] = [];
 
-beforeAll(() => {
-  previousDataDir = process.env.LIRI_DATA_DIR;
-  process.env.LIRI_DATA_DIR = dataDir;
-
-  const store = createProjectStore(
-    dataDir,
-    new WorkItemStore(dataDir) as never
-  );
-  store.create({
-    id: 'p1',
-    workspaceId: 'ws-1',
-    name: 'P1',
-    sandboxPath,
-  });
+/**
+ * 挂载"项目 sandbox 已挂载 + 适配器桩"的 `default` 工作区。
+ *
+ * 同文件的 S4b 用例组会**关闭并重建** `default`（不带桩）⇒ 依赖桩的用例必须自行复位，
+ * 否则结果取决于执行顺序（共享 `globalWorkspaceManager` 单例）。
+ */
+async function mountProjectWorkspace(): Promise<void> {
+  if (globalWorkspaceManager.has('default')) {
+    await globalWorkspaceManager.close('default');
+  }
+  written.clear();
+  mkdirs.length = 0;
 
   const ws = globalWorkspaceManager.createSync('default', {
     platform: SandboxPlatform.LINUX,
@@ -109,6 +107,24 @@ beforeAll(() => {
       executionTime: 0,
     };
   }) as never;
+}
+
+beforeAll(async () => {
+  previousDataDir = process.env.LIRI_DATA_DIR;
+  process.env.LIRI_DATA_DIR = dataDir;
+
+  const store = createProjectStore(
+    dataDir,
+    new WorkItemStore(dataDir) as never
+  );
+  store.create({
+    id: 'p1',
+    workspaceId: 'ws-1',
+    name: 'P1',
+    sandboxPath,
+  });
+
+  await mountProjectWorkspace();
 });
 
 afterAll(async () => {
@@ -122,6 +138,8 @@ afterAll(async () => {
 
 describe('§12.15 write_project_file：项目 sandbox 已挂载 ⇒ 写入经适配器', () => {
   it('写盘落 /project-p1，宿主 sandbox 不产生文件；目录与大小校验走端口', async () => {
+    // 本例依赖带桩的 `default`（其他 describe 会重建它）⇒ 自行复位
+    await mountProjectWorkspace();
     const tool = WriteProjectFileTool.create();
 
     const result = await tool.execute(

@@ -25,7 +25,7 @@
  * 维护型语句（过期清理 / 去重索引检查 / 关联表清理）**有意不带 owner**：
  * 它们是跨用户动作，事件再按行内 `owner_key` 回落到各自身份（见 `_expireOnDb`）。
  */
-import { afterAll, describe, expect, it } from 'bun:test';
+import { afterAll, beforeEach, describe, expect, it } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { InboxManager } from '@openliri/service/runtime/InboxManager';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
@@ -35,7 +35,14 @@ const ALICE: Principal = { tenantId: 'acme', userId: 'alice', roles: ['user'] };
 const BOB: Principal = { tenantId: 'acme', userId: 'bob', roles: ['user'] };
 
 // 显式传路径 ⇒ 不按身份分库；但 owner 过滤仍按**当前身份**生效（正是要验的点）
-const mgr = new InboxManager(':memory:');
+// 2026-11-20：`:memory:` 库在**各用例间**共享 ⇒ 每例新建实例，否则前一例写入的行会
+// 污染后一例的 list / pendingCount / 过期条数断言（`--randomize` 下随机挂）。
+let mgr = new InboxManager(':memory:');
+
+beforeEach(() => {
+  mgr.dispose();
+  mgr = new InboxManager(':memory:');
+});
 
 afterAll(() => {
   mgr.dispose();
@@ -98,6 +105,8 @@ describe('InboxManager：行级隔离', () => {
   });
 
   it('过期清理是跨用户维护动作（两侧都会被标 expired）', async () => {
+    // 本例自备：两用户各一条 pending
+    await submitAs(ALICE, 'A 的审批', 's-alice');
     await submitAs(BOB, 'B 的审批', 's-bob');
 
     // maxAge 为负 ⇒ cutoff 在未来 ⇒ 所有 pending 都过期

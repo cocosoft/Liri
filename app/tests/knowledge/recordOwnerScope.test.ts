@@ -14,7 +14,14 @@
  *      init 时按当前请求身份解析 `resolveTenantDbPath()`）；
  *   ④ 同 (record_type, record_key) 跨用户互不覆盖（复合 PK + 复合唯一约束含 owner_key）。
  */
-import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from 'bun:test';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -27,9 +34,9 @@ import {
 import type { Principal } from '@openliri/kernel/identity/principal';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 
-const TENANT = `record-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
-const ALICE: Principal = { tenantId: TENANT, userId: 'alice', roles: ['user'] };
-const BOB: Principal = { tenantId: TENANT, userId: 'bob', roles: ['user'] };
+// 每例独立租户 ⇒ 独立租户库（用例间零共享行，断言只针对本例数据）
+let ALICE: Principal;
+let BOB: Principal;
 
 const dataDir = mkdtempSync(join(tmpdir(), 'knowledge-records-'));
 
@@ -49,6 +56,12 @@ const record = (key: string, sourceFile: string): UpsertRecordInput => ({
 
 beforeAll(() => {
   process.env.LIRI_DATA_DIR = dataDir;
+});
+
+beforeEach(() => {
+  const tenantId = `record-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
+  ALICE = { tenantId, userId: 'alice', roles: ['user'] };
+  BOB = { tenantId, userId: 'bob', roles: ['user'] };
 });
 
 afterAll(() => {
@@ -91,6 +104,10 @@ describe('knowledge_records：行级隔离', () => {
   });
 
   it('同一 (record_type, record_key) 跨用户互不覆盖（复合唯一约束含 owner_key）', async () => {
+    // 本例自备基线：两用户各一条自己的记录（下面 count = 2 由此而来）
+    await as(ALICE, () => store().upsert(record('alice-001', 'alice.md')));
+    await as(BOB, () => store().upsert(record('bob-001', 'bob.md')));
+
     // 两用户编译相同主键 ⇒ 各占一行，不是"覆盖"
     const sameKey = 'shared-001';
     await as(ALICE, () =>
@@ -129,7 +146,12 @@ describe('knowledge_records：行级隔离', () => {
   });
 
   it('deleteBySource 只删自己的（他人的等同不存在）', async () => {
-    // ALICE 删 alice.md（=1）；shared.md 已在上一例被 ALICE 清掉 ⇒ 幂等返回 0；
+    // 本例自备：ALICE 只有 alice.md；BOB 有 bob.md + shared.md
+    await as(ALICE, () => store().upsert(record('alice-001', 'alice.md')));
+    await as(BOB, () => store().upsert(record('bob-001', 'bob.md')));
+    await as(BOB, () => store().upsert(record('shared-001', 'shared.md')));
+
+    // ALICE 删 alice.md（=1）；自己没有 shared.md 行 ⇒ 幂等返回 0；
     // BOB 的 bob.md + shared.md 全程不受波及
     expect(await as(ALICE, () => store().deleteBySource('alice.md'))).toBe(1);
     expect(await as(ALICE, () => store().deleteBySource('shared.md'))).toBe(0);

@@ -52,46 +52,74 @@ describe('knowledge_save 核心工具', () => {
     expect(String(r.error)).toContain('title 和 content');
   });
 
-  it('保存成功：写入知识库文件（frontmatter + 内容）', async () => {
-    const r = await tool.execute(
-      {
-        title: '测试文章',
-        content: '# 测试\n\n正文内容',
-        category: 'test',
-        tags: ['a', 'b'],
-      },
-      {} as never
-    );
-    expect(r.status).toBe('success');
-    // B2-c（2026-09-30）：载荷字段由 result 迁至 data
-    const result = r.data as {
-      filePath: string;
-      action: string;
-      message: string;
-    };
-    expect(result.action).toBe('created');
-    // 完成性指引：created 时明确"已保存"，同一标题勿重复调用（组合任务可继续其他标题）
-    expect(String(result.message)).toContain('已成功保存到知识库');
-    expect(String(result.message)).toContain('请勿对同一标题再次调用本工具');
+  /**
+   * 每个写入用例独立目录 + 独立实例。
+   *
+   * `writeEntry` 的 created/skipped 判定基于**磁盘已有内容** ⇒ 共用目录会让本例的结果
+   * 取决于其他用例是否先写过同一标题（执行顺序依赖）。独立目录后每例自证。
+   */
+  function freshDirWithTool(): { dir: string; fresh: KnowledgeSaveTool } {
+    const dir = mkdtempSync(join(tmpdir(), 'knowledge-save-case-'));
+    return { dir, fresh: new KnowledgeSaveTool(dir) };
+  }
 
-    // 文件已写入（文件名清洗 + .md）
-    const file = readFileSync(join(baseDir, '测试文章.md'), 'utf-8');
-    expect(file).toContain('title: "测试文章"');
-    expect(file).toContain('# 测试');
-    expect(file).toContain('source: "ai_tool"');
+  it('保存成功：写入知识库文件（frontmatter + 内容）', async () => {
+    const { dir, fresh } = freshDirWithTool();
+    try {
+      const r = await fresh.execute(
+        {
+          title: '测试文章',
+          content: '# 测试\n\n正文内容',
+          category: 'test',
+          tags: ['a', 'b'],
+        },
+        {} as never
+      );
+      expect(r.status).toBe('success');
+      // B2-c（2026-09-30）：载荷字段由 result 迁至 data
+      const result = r.data as {
+        filePath: string;
+        action: string;
+        message: string;
+      };
+      expect(result.action).toBe('created');
+      // 完成性指引：created 时明确"已保存"，同一标题勿重复调用（组合任务可继续其他标题）
+      expect(String(result.message)).toContain('已成功保存到知识库');
+      expect(String(result.message)).toContain('请勿对同一标题再次调用本工具');
+
+      // 文件已写入（文件名清洗 + .md）
+      const file = readFileSync(join(dir, '测试文章.md'), 'utf-8');
+      expect(file).toContain('title: "测试文章"');
+      expect(file).toContain('# 测试');
+      expect(file).toContain('source: "ai_tool"');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it('重复保存同内容 → skipped（去重）+ 完成性指引', async () => {
-    const r = await tool.execute(
-      { title: '测试文章', content: '# 测试\n\n正文内容' },
-      {} as never
-    );
-    // B2-c（2026-09-30）：载荷字段由 result 迁至 data
-    const result = r.data as { action: string; message: string };
-    expect(result.action).toBe('skipped');
-    // skipped 必须明确"无需重复保存"，否则模型反复重试（no_progress 熔断根因）
-    expect(String(result.message)).toContain('无需重复保存');
-    expect(String(result.message)).toContain('请勿对同一标题再次调用本工具');
+    const { dir, fresh } = freshDirWithTool();
+    try {
+      // 本例自建前置状态：首次保存 created，第二次同内容才应 skipped
+      const first = await fresh.execute(
+        { title: '测试文章', content: '# 测试\n\n正文内容' },
+        {} as never
+      );
+      expect((first.data as { action: string }).action).toBe('created');
+
+      const r = await fresh.execute(
+        { title: '测试文章', content: '# 测试\n\n正文内容' },
+        {} as never
+      );
+      // B2-c（2026-09-30）：载荷字段由 result 迁至 data
+      const result = r.data as { action: string; message: string };
+      expect(result.action).toBe('skipped');
+      // skipped 必须明确"无需重复保存"，否则模型反复重试（no_progress 熔断根因）
+      expect(String(result.message)).toContain('无需重复保存');
+      expect(String(result.message)).toContain('请勿对同一标题再次调用本工具');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it('防污染：content 含系统指令标记（[SYSTEM]/[FILE_OPERATION]）→ 拒绝写入', async () => {

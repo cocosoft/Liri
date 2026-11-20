@@ -45,7 +45,12 @@ beforeAll(() => {
   process.env.LIRI_DATA_DIR = tmpDir;
   // 先接线应用状态机（注册到 StateMachineRegistry），并产生一次转移
   initAppStateMachine();
-  markAppBusy('contract-test');
+  // 不假设前置状态：`PAUSED → BUSY` 不在转移表里（`APP_TRANSITIONS`），若全局单例被前序
+  // 用例/快照留在 PAUSED，`markAppBusy()` 会返回 false 且状态不变（随机顺序下曾因此失败）。
+  if (!markAppBusy('contract-test')) {
+    markAppIdle('contract-test: 归位 IDLE 后再转 BUSY');
+    markAppBusy('contract-test');
+  }
 });
 
 afterAll(() => {

@@ -13,7 +13,14 @@
  *      init 时按当前请求身份解析 `resolveTenantDbPath()`）；
  *   ④ 同 rawPath 同 seq（内容派生 id）跨用户互不覆盖（复合 PK 含 owner_key）。
  */
-import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from 'bun:test';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -26,9 +33,9 @@ import type { SourceChunk } from '../../src/knowledge/source/sourceChunker';
 import type { Principal } from '@openliri/kernel/identity/principal';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 
-const TENANT = `source-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
-const ALICE: Principal = { tenantId: TENANT, userId: 'alice', roles: ['user'] };
-const BOB: Principal = { tenantId: TENANT, userId: 'bob', roles: ['user'] };
+// 每例独立租户 ⇒ 独立租户库（用例间零共享行，断言只针对本例数据）
+let ALICE: Principal;
+let BOB: Principal;
 
 const dataDir = mkdtempSync(join(tmpdir(), 'knowledge-source-'));
 
@@ -44,6 +51,12 @@ const chunk = (rawPath: string, seq: number, text: string): SourceChunk => ({
 
 beforeAll(() => {
   process.env.LIRI_DATA_DIR = dataDir;
+});
+
+beforeEach(() => {
+  const tenantId = `source-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
+  ALICE = { tenantId, userId: 'alice', roles: ['user'] };
+  BOB = { tenantId, userId: 'bob', roles: ['user'] };
 });
 
 afterAll(() => {
@@ -105,6 +118,24 @@ describe('knowledge_source_chunks：行级隔离', () => {
   });
 
   it('deleteByRaw 只删自己的（他人的等同不存在）', async () => {
+    // 本例自备：ALICE 的 alice.pdf（1 块）+ shared.pdf（2 块）；BOB 的 shared.pdf（1 块）
+    await as(ALICE, () =>
+      store().replaceForRaw('alice.pdf', [
+        chunk('alice.pdf', 1, 'alice 文本 alpha'),
+      ])
+    );
+    await as(ALICE, () =>
+      store().replaceForRaw('shared.pdf', [
+        chunk('shared.pdf', 1, 'shared 第一段'),
+        chunk('shared.pdf', 2, 'shared 第二段'),
+      ])
+    );
+    await as(BOB, () =>
+      store().replaceForRaw('shared.pdf', [
+        chunk('shared.pdf', 1, 'shared 一段（BOB）'),
+      ])
+    );
+
     // BOB 删 shared.pdf（=1）；ALICE 的 alice.pdf + shared.pdf 全程不受波及
     expect(await as(BOB, () => store().deleteByRaw('shared.pdf'))).toBe(1);
     expect(await as(ALICE, () => store().search('alice 文本'))).toHaveLength(1);

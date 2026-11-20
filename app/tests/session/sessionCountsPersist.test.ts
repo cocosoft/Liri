@@ -24,15 +24,31 @@ import type { UnifiedSession } from '@modules/session/types/UnifiedSession';
 const SID = 'sid-p15-counts';
 let tmpRoot = '';
 let storage: FileSystemUnifiedStorage;
+let sidSeq = 0;
+
+/** 每个用例一个独立会话：计数断言只针对本例自己写入的消息 */
+async function freshSession(): Promise<string> {
+  sidSeq++;
+  const sid = `${SID}-${sidSeq}`;
+  await storage.createSession({
+    id: sid,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    messages: [],
+    metadata: {},
+  } as unknown as UnifiedSession);
+  return sid;
+}
 
 function msg(
+  sessionId: string,
   id: string,
   role: string,
   metadata?: Record<string, unknown>
 ): UnifiedMessage {
   return {
     id,
-    sessionId: SID,
+    sessionId,
     role,
     content: id,
     timestamp: Date.now(),
@@ -40,9 +56,26 @@ function msg(
   } as unknown as UnifiedMessage;
 }
 
+/** 按用例前置写入 4 条消息（user+assistant 计入，tool / 任务消息不计入） */
+async function seedMessages(sessionId: string): Promise<void> {
+  await storage.addMessage(sessionId, msg(sessionId, 'u1', 'user'));
+  await storage.addMessage(sessionId, msg(sessionId, 'a1', 'assistant'));
+  await storage.addMessage(sessionId, msg(sessionId, 't1', 'tool'));
+  await storage.addMessage(
+    sessionId,
+    msg(sessionId, 'task1', 'assistant', {
+      isTaskMessage: true,
+      taskId: 'pdca_x',
+    })
+  );
+}
+
 /** 直接从磁盘读 `session.json` 的 metadata（验证"真的落盘了"，而非只改内存） */
-function persistedMetadata(): Record<string, unknown> {
-  const raw = fs.readFileSync(path.join(tmpRoot, SID, 'session.json'), 'utf-8');
+function persistedMetadata(sessionId: string = SID): Record<string, unknown> {
+  const raw = fs.readFileSync(
+    path.join(tmpRoot, sessionId, 'session.json'),
+    'utf-8'
+  );
   return (
     (JSON.parse(raw) as { metadata?: Record<string, unknown> }).metadata ?? {}
   );
@@ -54,13 +87,6 @@ beforeAll(async () => {
     type: StorageType.FILESYSTEM,
     basePath: tmpRoot,
   });
-  await storage.createSession({
-    id: SID,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    messages: [],
-    metadata: {},
-  } as unknown as UnifiedSession);
 });
 
 afterAll(() => {
@@ -73,28 +99,38 @@ afterAll(() => {
 
 describe('P1-5：计数的写路径持久化', () => {
   test('写消息 ⇒ session.json 记录 user+assistant 计数（排除 tool / 任务消息）', async () => {
-    await storage.addMessage(SID, msg('u1', 'user'));
-    await storage.addMessage(SID, msg('a1', 'assistant'));
-    await storage.addMessage(SID, msg('t1', 'tool'));
-    // PDCA 步骤消息：assistant + isTaskMessage
-    await storage.addMessage(
-      SID,
-      msg('task1', 'assistant', { isTaskMessage: true, taskId: 'pdca_x' })
-    );
+    const sid = await freshSession();
+    await seedMessages(sid);
 
-    expect(persistedMetadata().messageCount).toBe(2);
-    expect(persistedMetadata().roundCount).toBe(1);
+    expect(persistedMetadata(sid).messageCount).toBe(2);
+    expect(persistedMetadata(sid).roundCount).toBe(1);
   });
 
   test('删消息 ⇒ 计数重算并落盘', async () => {
-    await storage.deleteMessage(SID, 'a1');
-    expect(persistedMetadata().messageCount).toBe(1);
-    expect(persistedMetadata().roundCount).toBe(1);
+    const sid = await freshSession();
+    await seedMessages(sid);
+
+    await storage.deleteMessage(sid, 'a1');
+    expect(persistedMetadata(sid).messageCount).toBe(1);
+    expect(persistedMetadata(sid).roundCount).toBe(1);
   });
 
   test('批量删消息 ⇒ 计数重算并落盘', async () => {
-    await storage.deleteMessages(SID, ['u1', 't1']);
-    expect(persistedMetadata().messageCount).toBe(0);
-    expect(persistedMetadata().roundCount).toBe(0);
+    const sid = await freshSession();
+    // 前置：user / tool / 任务消息各一条（assistant 已在上例删除）。
+    // 批量删 user+tool ⇒ 仅剩任务消息（不计入用户面计数）
+    await storage.addMessage(sid, msg(sid, 'u1', 'user'));
+    await storage.addMessage(sid, msg(sid, 't1', 'tool'));
+    await storage.addMessage(
+      sid,
+      msg(sid, 'task1', 'assistant', {
+        isTaskMessage: true,
+        taskId: 'pdca_x',
+      })
+    );
+
+    await storage.deleteMessages(sid, ['u1', 't1']);
+    expect(persistedMetadata(sid).messageCount).toBe(0);
+    expect(persistedMetadata(sid).roundCount).toBe(0);
   });
 });

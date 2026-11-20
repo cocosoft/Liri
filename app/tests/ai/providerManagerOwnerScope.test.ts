@@ -25,7 +25,14 @@
  * 单表 `ai_providers`：主键改 `(id, owner_key)`；列表 / 单查 / 更新 / 统计全过滤。
  * 不覆盖 `deleteProvider`（它会级联操作模型与任务分工，属另一条链路），其 SQL 由门禁锁。
  */
-import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { ProviderManager } from '../../src/ai/providers/ProviderManager';
 import type { Principal } from '@openliri/kernel/identity/principal';
@@ -35,14 +42,21 @@ import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 // ⇒ 命中进程级单例，可能与**同进程其它测试文件**共用同一实例/库。固定租户 `acme` 会因此读到
 // 上一份残留行（实测：Alice 列表多出 `alice-renamed`、统计 count 1→2）。租户按进程取唯一值 ⇒
 // 本文件的行永远只属于自己，跨文件/重复执行互不干扰；断言语义（行级隔离）不变。
-const TENANT = `acme-pm-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
-const ALICE: Principal = { tenantId: TENANT, userId: 'alice', roles: ['user'] };
-const BOB: Principal = { tenantId: TENANT, userId: 'bob', roles: ['user'] };
+// 2026-11-20：`:memory:` 库在**本文件各用例间**共享 ⇒ 租户改为**每例唯一**，用例不再依赖
+// 前一个用例插入的行（否则 `--randomize` 下顺序一变即挂）。
+let ALICE: Principal;
+let BOB: Principal;
 
 const manager = ProviderManager.getInstance(':memory:');
 
 beforeAll(async () => {
   await manager.initialize();
+});
+
+beforeEach(() => {
+  const tenantId = `acme-pm-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
+  ALICE = { tenantId, userId: 'alice', roles: ['user'] };
+  BOB = { tenantId, userId: 'bob', roles: ['user'] };
 });
 
 afterAll(() => {
@@ -88,8 +102,8 @@ describe('ProviderManager：行级隔离', () => {
   });
 
   it('更新不波及他人（含乐观并发分支）', async () => {
-    const [aliceRec] = await runWithPrincipal(ALICE, () =>
-      manager.listProviders()
+    const aliceRec = await runWithPrincipal(ALICE, () =>
+      manager.createProvider(provider('alice-p'))
     );
 
     const hijack = await runWithPrincipal(BOB, () =>
@@ -109,6 +123,13 @@ describe('ProviderManager：行级隔离', () => {
   });
 
   it('按类型统计各算各的', async () => {
+    await runWithPrincipal(ALICE, () =>
+      manager.createProvider(provider('alice-p'))
+    );
+    await runWithPrincipal(BOB, () =>
+      manager.createProvider(provider('bob-p'))
+    );
+
     const aliceStats = await runWithPrincipal(ALICE, () =>
       manager.getProviderStats()
     );

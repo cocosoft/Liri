@@ -137,7 +137,19 @@ async function dispatch(
 }
 
 describe('工作项 CRUD（临时工作空间，真端口 + 真路由）', () => {
-  let itemId = '';
+  /**
+   * 每个用例自建工作项（不共享 `itemId`）。
+   * 共享变量会让 GET/PATCH/DELETE 用例依赖 POST 用例先执行 ⇒ 打乱顺序即失效。
+   */
+  async function createItem(title: string): Promise<string> {
+    const created = await dispatch(
+      'POST',
+      `/v1/workspaces/${WORKSPACE_ID}/items`,
+      { title }
+    );
+    expect(created.status).toBe(201);
+    return (created.json as { id: string }).id;
+  }
 
   it('POST ⇒ 201 并返回工作项', async () => {
     const result = await dispatch(
@@ -151,10 +163,10 @@ describe('工作项 CRUD（临时工作空间，真端口 + 真路由）', () =>
     const item = result.json as { id: string; title: string };
     expect(item.title).toBe('补验工作项');
     expect(item.id).toBeTruthy();
-    itemId = item.id;
   });
 
   it('GET ⇒ 列表可见刚创建的工作项', async () => {
+    const itemId = await createItem('列表可见项');
     const result = await dispatch(
       'GET',
       `/v1/workspaces/${WORKSPACE_ID}/items`
@@ -166,6 +178,7 @@ describe('工作项 CRUD（临时工作空间，真端口 + 真路由）', () =>
   });
 
   it('PATCH ⇒ 状态更新后重读生效', async () => {
+    const itemId = await createItem('状态更新项');
     const patched = await dispatch(
       'PATCH',
       `/v1/workspaces/${WORKSPACE_ID}/items/${itemId}`,
@@ -182,6 +195,7 @@ describe('工作项 CRUD（临时工作空间，真端口 + 真路由）', () =>
   });
 
   it('PATCH 非法状态 ⇒ 400（既有校验不回归）', async () => {
+    const itemId = await createItem('非法状态项');
     const result = await dispatch(
       'PATCH',
       `/v1/workspaces/${WORKSPACE_ID}/items/${itemId}`,
@@ -192,6 +206,7 @@ describe('工作项 CRUD（临时工作空间，真端口 + 真路由）', () =>
   });
 
   it('DELETE ⇒ 200 且列表消失；工作空间本身仍存在（路由顺序正确）', async () => {
+    const itemId = await createItem('删除用例项');
     const deleted = await dispatch(
       'DELETE',
       `/v1/workspaces/${WORKSPACE_ID}/items/${itemId}`

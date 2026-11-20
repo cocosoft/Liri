@@ -47,8 +47,6 @@ const prevHomeEnv = process.env.LIRI_HOME;
 process.env.LIRI_DATA_DIR = dataDir;
 process.env.LIRI_HOME = dataDir;
 
-const pdcaDir = join(dataDir, 'pdca');
-
 const {
   prunePdcaCheckpoints,
   listPdcaCheckpoints,
@@ -63,11 +61,19 @@ const OLD_ISO = new Date(Date.now() - 40 * DAY_MS).toISOString();
 const FRESH_ISO = new Date().toISOString();
 const OLD_MTIME_SEC = (Date.now() - 40 * DAY_MS) / 1000;
 
-/** 每个用例独立子目录：避免"已 prune 的旧 JSON 被后续 migrate 重新导入"的跨用例串扰 */
+/**
+ * 每个用例一个独立数据目录：`getStore()` 按 `resolveDbPath()` 键控、路径变化即重建连接
+ * （见 `PdcaWorkItemBridge` §惰性单例）⇒ 切换 `LIRI_DATA_DIR` 就得到**全新空库**，
+ * `prune()` 的 scanned/pruned 计数只反映本用例自己种下的行（与执行顺序无关）。
+ */
 let dirSeq = 0;
 function freshSeedDir(): string {
   dirSeq++;
-  return join(pdcaDir, `case-${dirSeq}`);
+  const caseDataDir = join(dataDir, `case-${dirSeq}`);
+  mkdirSync(caseDataDir, { recursive: true });
+  process.env.LIRI_DATA_DIR = caseDataDir;
+  process.env.LIRI_HOME = caseDataDir;
+  return join(caseDataDir, 'pdca');
 }
 
 /** 在指定目录写一份检查点 JSON（filename == taskId，与生产迁移源一致） */
@@ -167,6 +173,13 @@ describe('PDCA 检查点留存清理（另案 ⑥ · 留存）', () => {
       status: 'completed',
       updatedAt: FRESH_ISO,
     });
+    // 非终态自备（跨用例共享库已按用例隔离，不能再依赖前一例遗留的行）
+    await seed(d, 'r_running_old', { status: 'running', updatedAt: OLD_ISO });
+    await seed(d, 'r_await_old', {
+      phase: 'stage_awaiting_approval',
+      status: 'started',
+      updatedAt: OLD_ISO,
+    });
 
     const r = await prunePdcaCheckpoints(0);
 
@@ -226,6 +239,13 @@ describe('PDCA 检查点留存清理（另案 ⑥ · 留存）', () => {
   });
 
   it('删除后索引同步：`listPdcaCheckpoints()` 不再返回已删项', async () => {
+    const d = freshSeedDir();
+    await seed(d, 'r_done_old', { status: 'completed', updatedAt: OLD_ISO });
+    await seed(d, 'r_failed_old', { status: 'failed', updatedAt: OLD_ISO });
+    await seed(d, 'r_running_old', { status: 'running', updatedAt: OLD_ISO });
+
+    await prunePdcaCheckpoints();
+
     const ids = (await listPdcaCheckpoints()).map((ck) => ck.taskId);
     expect(ids).not.toContain('r_done_old');
     expect(ids).not.toContain('r_failed_old');

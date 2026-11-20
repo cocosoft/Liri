@@ -12,7 +12,14 @@
  *   ③ 单例分桶：租户实例按 tenantId 分桶 + 删租户释放 + 构造器不默认解析路径（惰性，
  *      init 时按当前请求身份解析 `resolveTenantDbPath()` —— 定时编译无身份 ⇒ 落 local:local）。
  */
-import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from 'bun:test';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -25,9 +32,9 @@ import {
 import type { Principal } from '@openliri/kernel/identity/principal';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 
-const TENANT = `rule-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
-const ALICE: Principal = { tenantId: TENANT, userId: 'alice', roles: ['user'] };
-const BOB: Principal = { tenantId: TENANT, userId: 'bob', roles: ['user'] };
+// 每例独立租户 ⇒ 独立租户库（用例间零共享行，断言只针对本例数据）
+let ALICE: Principal;
+let BOB: Principal;
 
 const dataDir = mkdtempSync(join(tmpdir(), 'knowledge-rules-'));
 
@@ -51,6 +58,12 @@ const rule = (id: string, sourceFile: string): UpsertRuleInput => ({
 
 beforeAll(() => {
   process.env.LIRI_DATA_DIR = dataDir;
+});
+
+beforeEach(() => {
+  const tenantId = `rule-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
+  ALICE = { tenantId, userId: 'alice', roles: ['user'] };
+  BOB = { tenantId, userId: 'bob', roles: ['user'] };
 });
 
 afterAll(() => {
@@ -101,6 +114,10 @@ describe('kg_rules：行级隔离', () => {
   });
 
   it('deleteBySource 只删自己的（他人的等同不存在）', async () => {
+    // 本例自备：ALICE 的 alice.md、BOB 的 bob.md
+    await as(ALICE, () => store().upsert(rule('alice-rule', 'alice.md')));
+    await as(BOB, () => store().upsert(rule('bob-rule', 'bob.md')));
+
     // ALICE 删 alice.md ⇒ 只影响自己的行；BOB 的 bob.md 不受波及
     expect(await as(ALICE, () => store().deleteBySource('alice.md'))).toBe(1);
     expect(await as(ALICE, () => store().listAll())).toEqual([]);
@@ -110,6 +127,9 @@ describe('kg_rules：行级隔离', () => {
   });
 
   it('同一 rule_id（内容派生）跨用户互不覆盖（复合 PK (rule_id, owner_key)）', async () => {
+    // 本例自备：ALICE 只有 sameId；BOB 有 bob-rule + sameId（下面 count 1 / 2 由此而来）
+    await as(BOB, () => store().upsert(rule('bob-rule', 'bob.md')));
+
     // 两用户编译相同内容 ⇒ 同 rule_id ⇒ 各占一行，不是"覆盖"
     const sameId = 'guideline:samehash';
     await as(ALICE, () =>
@@ -133,8 +153,8 @@ describe('kg_rules：行级隔离', () => {
       'bob 版陈述'
     );
 
-    // 行数：ALICE 只有 sameId 一行（测试 2 已删 alice-rule）；
-    // BOB = bob-rule + sameId 两行 ⇒ 同 rule_id 各占一行，而不是被覆盖成 1
+    // 行数：ALICE 只有 sameId 一行；BOB = bob-rule + sameId 两行
+    // ⇒ 同 rule_id 各占一行，而不是被覆盖成 1
     expect(await as(ALICE, () => store().count())).toBe(1);
     expect(await as(BOB, () => store().count())).toBe(2);
 

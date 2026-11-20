@@ -15,7 +15,14 @@
  *   ④ 同 (doc_path, artifact_type, artifact_id) 跨用户互不 IGNORE 覆盖
  *      （复合唯一约束含 owner_key）。
  */
-import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from 'bun:test';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -27,9 +34,9 @@ import {
 import type { Principal } from '@openliri/kernel/identity/principal';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 
-const TENANT = `lineage-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
-const ALICE: Principal = { tenantId: TENANT, userId: 'alice', roles: ['user'] };
-const BOB: Principal = { tenantId: TENANT, userId: 'bob', roles: ['user'] };
+// 每例独立租户 ⇒ 独立租户库（用例间零共享行，断言只针对本例数据）
+let ALICE: Principal;
+let BOB: Principal;
 
 const dataDir = mkdtempSync(join(tmpdir(), 'knowledge-lineage-'));
 
@@ -39,6 +46,12 @@ const store = () => getLineageStore();
 
 beforeAll(() => {
   process.env.LIRI_DATA_DIR = dataDir;
+});
+
+beforeEach(() => {
+  const tenantId = `lineage-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
+  ALICE = { tenantId, userId: 'alice', roles: ['user'] };
+  BOB = { tenantId, userId: 'bob', roles: ['user'] };
 });
 
 afterAll(() => {
@@ -105,6 +118,22 @@ describe('kg_lineage：行级隔离', () => {
   });
 
   it('同一 (doc_path, artifact_type, artifact_id) 跨用户互不 IGNORE（复合唯一含 owner_key）', async () => {
+    // 本例自备基线：两用户各一条自己的血缘（下面断言"自己那份完整存在"=2 行）
+    await as(ALICE, () =>
+      store().addLinks(
+        'alice.md',
+        [{ artifactType: 'page', artifactId: 'alice.html' }],
+        1
+      )
+    );
+    await as(BOB, () =>
+      store().addLinks(
+        'bob.md',
+        [{ artifactType: 'page', artifactId: 'bob.html' }],
+        1
+      )
+    );
+
     // 两用户编译相同产物 ⇒ 各占一行，不是互相 IGNORE
     const shared = 'shared.md';
     const addedAlice = await as(ALICE, () =>
@@ -124,7 +153,7 @@ describe('kg_lineage：行级隔离', () => {
     expect(addedAlice).toBe(1);
     expect(addedBob).toBe(1);
 
-    // 互不见对方；自己那份完整存在（含 shared 与上一例的各自行）
+    // 互不见对方；自己那份完整存在（本例自备的 alice/bob 行 + shared 行）
     expect(
       (await as(ALICE, () => store().query({ docPath: shared }))).map(
         (l) => l.artifactId
@@ -140,8 +169,37 @@ describe('kg_lineage：行级隔离', () => {
   });
 
   it('purgeByDoc 只删自己的（他人的等同不存在）', async () => {
-    // ALICE 删 alice.md（=1）；shared.md 是上一例 ALICE 自己写的（=1）；
-    // BOB 的 bob.md + shared.md 全程不受波及
+    // 本例自备：ALICE 的 alice.md + shared.md，BOB 的 bob.md + shared.md
+    await as(ALICE, () =>
+      store().addLinks(
+        'alice.md',
+        [{ artifactType: 'page', artifactId: 'alice.html' }],
+        1
+      )
+    );
+    await as(ALICE, () =>
+      store().addLinks(
+        'shared.md',
+        [{ artifactType: 'page', artifactId: 'shared.html' }],
+        1
+      )
+    );
+    await as(BOB, () =>
+      store().addLinks(
+        'bob.md',
+        [{ artifactType: 'page', artifactId: 'bob.html' }],
+        1
+      )
+    );
+    await as(BOB, () =>
+      store().addLinks(
+        'shared.md',
+        [{ artifactType: 'page', artifactId: 'shared.html' }],
+        1
+      )
+    );
+
+    // ALICE 删 alice.md（=1）与 shared.md（=1）；BOB 的三行全程不受波及
     expect(await as(ALICE, () => store().purgeByDoc('alice.md'))).toBe(1);
     expect(await as(ALICE, () => store().purgeByDoc('shared.md'))).toBe(1);
     expect(await as(ALICE, () => store().query())).toHaveLength(0);

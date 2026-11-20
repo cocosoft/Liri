@@ -6,7 +6,7 @@
  * 运行: bun test tests/performance/benchmark.test.ts
  */
 
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect, beforeAll } from 'bun:test';
 import { performance } from 'perf_hooks';
 
 import { NotebookToolImpl } from '../../src/tools/notebook/NotebookToolImpl';
@@ -304,8 +304,12 @@ describe.skip('OAuth 认证', () => {
 describe('Notebook 操作', () => {
   let notebookTool: NotebookToolImpl;
 
-  it('NotebookToolImpl 实例创建', () => {
+  // 用例间共享的实例必须在本组**所有** it 之前就绪：randomize 下"实例创建"不保证先跑
+  beforeAll(() => {
     notebookTool = new NotebookToolImpl();
+  });
+
+  it('NotebookToolImpl 实例创建', () => {
     expect(notebookTool).toBeDefined();
   });
 

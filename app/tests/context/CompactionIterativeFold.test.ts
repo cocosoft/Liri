@@ -23,6 +23,14 @@ import { addLogHandler } from '@openliri/infra/monitoring/logs/Logger';
 // R6（2026-09-21）：请求侧配对完整性（严格 provider 回归）
 import { unpairedToolCallIds } from '../../src/context/compaction/toolPairIntegrity';
 
+/**
+ * 唯一会话 id：压缩锁按 sessionId 落 `<dataDir>/compaction-locks/<sid>.lock`（TTL 120s）。
+ * 原写法是字面量 `'s'`，与同目录另外两个压缩用例文件**同名** ⇒ 锁文件可能互相阻塞；
+ * 改为本文件唯一取值（用例不断言 sessionId）。
+ * ⚠️ 待查：随机顺序下本文件曾出现 ~15s/~29s 长时间等待后失败，**尚未证明**由同名锁引起。
+ */
+const SID = `sess-tier3-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
+
 function user(content: string): ChatMessage {
   return { role: 'user', content };
 }
@@ -123,7 +131,7 @@ describe('R1 Tier3 迭代折叠：runFullCompaction 折叠循环端到端', () =
     });
     const result = await runFull(orch)([head, ...history] as ChatMessage[], {
       model: 'm',
-      sessionId: 's',
+      sessionId: SID,
     });
     // 折叠真实生效
     expect(result.applied).toBe(true);
@@ -176,7 +184,7 @@ describe('R1 Tier3 迭代折叠：_foldBatchSummary（单批折叠）', () => {
     const ai = { generate: async () => ({ content: '这是压缩后的早轮摘要' }) };
     const summary = await fold(ai, procs, [], batch, {
       model: 'm',
-      sessionId: 's',
+      sessionId: SID,
     });
     // 折叠成功：非空占位文本
     expect(summary).toBeTruthy();
@@ -203,7 +211,7 @@ describe('R1 Tier3 迭代折叠：_foldBatchSummary（单批折叠）', () => {
       };
       const summary = await fold(ai, procs, [], batch, {
         model: 'm',
-        sessionId: 's',
+        sessionId: SID,
       });
       // 失败即回退：不产出占位，调用方保留残余并停止折叠
       expect(summary).toBeNull();
@@ -320,7 +328,7 @@ describe('R6：Tier3 折叠请求配对完整性（严格 provider 回归）', (
 
     const result = await runFull(orch)(messages, {
       model: 'm',
-      sessionId: 's',
+      sessionId: SID,
     });
 
     expect(provider.calls.length).toBeGreaterThan(0); // 确实打过上游
@@ -342,7 +350,7 @@ describe('R6：Tier3 折叠请求配对完整性（严格 provider 回归）', (
       },
       [],
       batch,
-      { model: 'm', sessionId: 's' }
+      { model: 'm', sessionId: SID }
     );
 
     expect(summary).toBeTruthy(); // 修复前 strictProvider 抛 400 ⇒ null

@@ -46,8 +46,10 @@ import {
   resetLLMTrackerForTest,
 } from '@openliri/infra/monitoring/llm/getLLMTracker';
 
-const ALICE: Principal = { tenantId: 'acme', userId: 'alice', roles: ['user'] };
-const BOB: Principal = { tenantId: 'acme', userId: 'bob', roles: ['user'] };
+// 每例独立租户 ⇒ 独立租户库 + 独立内存统计（用例间零共享行）
+let TENANT = '';
+let ALICE: Principal;
+let BOB: Principal;
 
 const dataDir = mkdtempSync(join(tmpdir(), 'llm-tracker-'));
 
@@ -60,6 +62,9 @@ beforeAll(() => {
 
 beforeEach(() => {
   process.env.LIRI_DATA_DIR = dataDir;
+  TENANT = `acme-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
+  ALICE = { tenantId: TENANT, userId: 'alice', roles: ['user'] };
+  BOB = { tenantId: TENANT, userId: 'bob', roles: ['user'] };
 });
 
 afterAll(() => {
@@ -113,6 +118,10 @@ describe('LLMTracker：行级隔离', () => {
   });
 
   it('clearAll 只清自己的', async () => {
+    // 本例自备：两用户各一条记录（清 BOB 前先确认 ALICE 清完 BOB 仍在）
+    await runWithPrincipal(ALICE, () => record('req-a', 10));
+    await runWithPrincipal(BOB, () => record('req-b', 20));
+
     await runWithPrincipal(ALICE, () => getLLMTracker().clearAll());
     expect(
       await runWithPrincipal(ALICE, () =>
@@ -129,7 +138,11 @@ describe('LLMTracker：行级隔离', () => {
   });
 
   it('DB 行带各自 owner_key', async () => {
-    const raw = openBunDatabase(join(dataDir, 'tenants', 'acme', 'app.db'), {
+    // 本例自备：两用户各一条记录（本租户库只可能有本例的行）
+    await runWithPrincipal(ALICE, () => record('req-a', 10));
+    await runWithPrincipal(BOB, () => record('req-b', 20));
+
+    const raw = openBunDatabase(join(dataDir, 'tenants', TENANT, 'app.db'), {
       readonly: true,
     });
     const rows = raw
@@ -140,8 +153,8 @@ describe('LLMTracker：行级隔离', () => {
     raw.close();
 
     expect(rows.map((r) => `${r.owner_key}/${r.request_id}`)).toEqual([
-      'acme:alice/req-a',
-      'acme:bob/req-b',
+      `${TENANT}:alice/req-a`,
+      `${TENANT}:bob/req-b`,
     ]);
   });
 });

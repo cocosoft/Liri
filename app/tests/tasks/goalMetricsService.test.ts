@@ -7,7 +7,7 @@
  *   - goal_metrics：row_type='stage'，含 stage_id（stage 粒度）
  *   - usage_records：会话 usage 行（message 粒度，avgTokenCostPerTask 数据源）
  */
-import { describe, expect, test, afterAll } from 'bun:test';
+import { describe, expect, test, afterAll, beforeAll } from 'bun:test';
 import { rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -15,6 +15,11 @@ import { GoalMetricsService } from '../../src/tasks/db/GoalMetricsService';
 
 const dbPath = join(tmpdir(), `goal-metrics-test-${Date.now()}.db`);
 const svc = new GoalMetricsService(dbPath);
+
+/** 建表 + 列迁移只做一次：`record*` 在 `init()` 之前是空操作（`this.db === null`） */
+beforeAll(async () => {
+  await svc.init();
+});
 
 afterAll(() => {
   // 预存债务修复（2026-09-23）：**先关闭连接再删文件** —— 此前只 rmSync 而不 close，
@@ -35,7 +40,6 @@ afterAll(() => {
 
 describe('GoalMetricsService — S2 两类行类型落库', () => {
   test('stage 粒度：goal_metrics 写入 row_type=stage 且含 stage_id', async () => {
-    await svc.init();
     await svc.recordStageMetric({
       goalId: 'goal-test-1',
       sessionId: 'session-a',
@@ -73,8 +77,25 @@ describe('GoalMetricsService — S2 两类行类型落库', () => {
   });
 
   test('两类行类型互不干扰（不互踩字段）', async () => {
-    const stages = await svc.queryStageMetrics('goal-test-1');
-    const usages = await svc.queryMessageUsage('session-a');
+    // 本用例自带数据（独立 goalId / sessionId）：不再依赖前两例先跑
+    await svc.recordStageMetric({
+      goalId: 'goal-test-3',
+      sessionId: 'session-c',
+      stageId: 'execute',
+      maxTurns: 10,
+      totalTurns: 2,
+      totalTokens: 300,
+      durationMs: 1000,
+    });
+    await svc.recordMessageUsage({
+      sessionId: 'session-c',
+      totalTokens: 150,
+      costEstimated: 0.002,
+      durationMs: 500,
+    });
+
+    const stages = await svc.queryStageMetrics('goal-test-3');
+    const usages = await svc.queryMessageUsage('session-c');
     // stage 行只出现在 goal_metrics，message 行只出现在 usage_records
     expect(stages.some((s) => s.stageId === 'execute')).toBe(true);
     expect(usages.length).toBe(1);

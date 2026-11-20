@@ -10,7 +10,14 @@
  *     （含 `get` / `listBySession` / `listActive` 全库版 / `claimBudgetLimitWrapUp`）；
  *   ② SQL 漏过滤：所有读写模板必须带 `owner_key`。
  */
-import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from 'bun:test';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -22,9 +29,9 @@ import {
 import type { Principal } from '@openliri/kernel/identity/principal';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 
-const TENANT = `tg-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
-const ALICE: Principal = { tenantId: TENANT, userId: 'alice', roles: ['user'] };
-const BOB: Principal = { tenantId: TENANT, userId: 'bob', roles: ['user'] };
+// 每例独立租户 ⇒ 独立租户库（用例间零共享行，断言只针对本例数据）
+let ALICE: Principal;
+let BOB: Principal;
 
 const dataDir = mkdtempSync(join(tmpdir(), 'task-goals-'));
 
@@ -32,8 +39,24 @@ const as = <T>(principal: Principal, fn: () => T): T =>
   runWithPrincipal(principal, fn);
 const store = () => getTaskGoalStore();
 
+/** 本例 ALICE 的目标（每例自备，不依赖前一个用例） */
+const createAliceGoal = () =>
+  as(ALICE, () =>
+    store().create({
+      objective: 'alice-goal',
+      sessionId: 's-alice',
+      tokenBudget: 100,
+    })
+  );
+
 beforeAll(() => {
   process.env.LIRI_DATA_DIR = dataDir;
+});
+
+beforeEach(() => {
+  const tenantId = `tg-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
+  ALICE = { tenantId, userId: 'alice', roles: ['user'] };
+  BOB = { tenantId, userId: 'bob', roles: ['user'] };
 });
 
 afterAll(() => {
@@ -86,7 +109,7 @@ describe('task_goals：行级隔离', () => {
   });
 
   it('改 / 删不波及他人（他人的目标等同不存在）', async () => {
-    const aliceId = (await as(ALICE, () => store().listActive()))[0].id;
+    const aliceId = (await createAliceGoal()).id;
 
     // BOB 对 ALICE 目标的各类写操作全部失效
     expect(
@@ -117,8 +140,7 @@ describe('task_goals：行级隔离', () => {
   });
 
   it('claimBudgetLimitWrapUp 按会话归属过滤（BOB 认领不到 ALICE 的）', async () => {
-    const aliceId = (await as(ALICE, () => store().listBySession('s-alice')))[0]
-      .id;
+    const aliceId = (await createAliceGoal()).id;
 
     // 触顶晋升（ALICE 身份下操作自己的目标）
     const promoted = await as(ALICE, () =>

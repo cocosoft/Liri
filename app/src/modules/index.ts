@@ -36,12 +36,9 @@ import { moduleInitializer } from './ModuleInitializer';
 export type { ModuleDefinition } from './ModuleRegistry';
 export { ModuleCategory, moduleRegistry } from './ModuleRegistry';
 
-// 导出导入管理器
-export {
-  importManager,
-  importModule,
-  importFromRegistry,
-} from './ImportManager';
+// CD05 第 1 步（2026-11-20）：摘除 `./ImportManager` 的三条转出（`importManager` / `importModule` /
+// `importFromRegistry`）。依据 CD01–CD04 取证：全仓**零运行时消费者**（仅本 barrel 转出；
+// `errorCodes` 注释与 ESLint 白名单属文案/配置）。观察通过后再删实现体（第 2 步）。
 
 // 导出模块定义
 export {

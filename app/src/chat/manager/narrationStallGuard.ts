@@ -15,6 +15,8 @@
  * 从尾部回溯，累计「assistant 且 `metadata.tool_calls` 为空」的消息条数：
  * - **系统续跑注入**（user + `metadata.systemResume === true`）**不打断**计数
  *   —— 它只是把同一条空转切成多段（实测 254 条注入 vs 2 条人工消息）；
+ * - **编排回写的任务进度消息**（`metadata.isTaskMessage === true`）同样**既不计数也不打断**
+ *   —— 它们不是模型轮次；计入会造成误报（真机实测：计入 run=11 / 排除 run=2）；
  * - 其余一切（带 `tool_calls` 的 assistant、tool 消息、人工 user 消息、system）都**打断**。
  *
  * ## 阈值
@@ -38,6 +40,7 @@ export interface NarrationGuardMessage {
   metadata?: {
     tool_calls?: unknown;
     systemResume?: unknown;
+    isTaskMessage?: unknown;
   };
 }
 
@@ -54,7 +57,20 @@ export function isSystemResumeMessage(m: NarrationGuardMessage): boolean {
 }
 
 /**
- * 从尾部回溯，返回**连续纯叙事**的条数（系统续跑注入跳过，其余一律打断）。
+ * 是否「编排回写的任务进度消息」（`metadata.isTaskMessage === true`）。
+ *
+ * 这类消息由 PDCA/LRO 循环把任务进度写进会话投影，**不是模型轮次** ⇒ 既不计数也不打断。
+ * 漏掉这条会造成**误报**：真机实测某目标会话计入后 run=11、排除后 run=2（2026-11-20）。
+ */
+export function isTaskProgressMessage(m: NarrationGuardMessage): boolean {
+  return m.metadata?.isTaskMessage === true;
+}
+
+/**
+ * 从尾部回溯，返回**连续纯叙事**的条数。
+ *
+ * 跳过（既不计数也不打断）：系统续跑注入、编排回写的任务进度消息；
+ * 其余（带 `tool_calls` 的 assistant、tool 消息、人工 user、system）一律打断。
  *
  * @param messages 会话消息（按时间正序）
  */
@@ -64,6 +80,7 @@ export function countTrailingNarrationRun(
   let run = 0;
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i];
+    if (isTaskProgressMessage(m)) continue;
     if (isNarrationMessage(m)) {
       run++;
       continue;

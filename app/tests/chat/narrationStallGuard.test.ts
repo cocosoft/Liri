@@ -74,6 +74,23 @@ describe('countTrailingNarrationRun（尾部连续纯叙事）', () => {
     expect(countTrailingNarrationRun([narration(), toolResult()])).toBe(0);
   });
 
+  test('编排回写的任务进度消息（isTaskMessage）既不计数也不打断', () => {
+    const taskMsg = () => ({
+      role: 'assistant',
+      metadata: { isTaskMessage: true, taskId: 'pdca_x' },
+    });
+    // 6 条任务消息 + 2 条真叙事 ⇒ 2（真机误报正是这种形态：计入 11 / 排除 2）
+    const withTaskSpam = [
+      human(),
+      narration(),
+      ...Array.from({ length: 6 }, taskMsg),
+      narration(),
+      ...Array.from({ length: 3 }, taskMsg),
+    ];
+    expect(countTrailingNarrationRun(withTaskSpam)).toBe(2);
+    expect(isNarrationStalled(withTaskSpam)).toBe(false);
+  });
+
   test('达到阈值即判空转（默认 6）', () => {
     const five = [human(), ...Array.from({ length: 5 }, narration)];
     const six = [human(), ...Array.from({ length: 6 }, narration)];

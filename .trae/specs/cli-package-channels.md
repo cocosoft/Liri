@@ -188,3 +188,32 @@ Scoop / Homebrew 已在 §8 去掉 `bun` 前置；npm 侧需要另一种做法 �
 **验证**：`tsc` 0（含 scripts 两套 tsconfig）、`tests/packaging` **39 用例**全绿、`eslint` 0 error。
 
 **待 CI 复验（如实）**：v0.6.0 的 tag 已指向修复前的提交 ⇒ 需 **v0.6.1（或等价新 tag）** 才能确认 macOS 交叉产物真正落盘、两个 Render 作业转绿。
+
+---
+
+## 发布附件竞态修复（2026-11-21，v0.6.3 复盘）
+
+**现象**：`v0.6.3` tag 推送后 —— `Release CLI Packages` 三平台作业均在 `Attach … to GitHub Release`
+**2 秒内失败**；`Release Cross-Platform` 的 `Create Release` 同样 2 秒内失败；发布页最终 **0 个资产**。
+（如实：Actions 日志正文需 admin 权限，本机拿不到；以下依据 = 失败步骤、2s 耗时、以及 12:25 已由
+`release-cli-packages#package` 建出 Release 的时间线。）
+
+**根因（两段，同一族）**：
+1. **多个作业并发"创建或更新"同一 Release**：`release-cli-packages`（3 个矩阵作业）与
+   `release.yml#release` 都使用 `softprops/action-gh-release@v2` 的"不存在则建、存在则更新"路径；
+   并发窗口内 GET→404 后 POST 创建 ⇒ `already exists`，动作不重试，直接失败。
+2. **更新路径带了仅创建合法的参数**：`release.yml` 的 `Create Release` 在 Release 已存在时仍传
+   `generate_release_notes: true` ⇒ API 拒绝（2s 失败与之一致）。
+
+**修法（单一创建者 + 只上传 + 可诊断）**：
+- `release.yml` 新增 `create-release` 作业：tag 后**立即**执行
+  `gh release create <tag> --generate-notes --latest`（已存在则跳过）⇒ **唯一创建者**；
+  其余作业一律 `needs: create-release` 或只做上传。
+- `release.yml#release` 与 `release-cli-packages` 的 4 处附件上传全部改为
+  `gh release upload --clobber` + **每 20s 重试、最长 10 分钟**（等待 Release 就绪），失败时打印 `gh release view`。
+- 三处 `actions/upload-artifact` 增 `if-no-files-found: error`：把"目录为空"从**静默 warn** 变为显式失败
+  （此前 5s"成功"的 artifact 步骤会掩盖真实原因）。
+- 本地校验：`bun run lint:workflows` → 9 个 YAML 可解析、结构完整。
+
+**待验证（如实）**：需重新触发一次 tag 构建，确认 `*.msi / *.dmg / *.deb / *.AppImage / *.zip /
+liri-cli-*.tgz / liri-*-*.exe(等) / SHA256SUMS / standalone 清单` 全部挂到同一 Release。

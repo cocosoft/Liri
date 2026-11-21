@@ -80,6 +80,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: liri-cli-${{ env.VERSION }}
+          if-no-files-found: error
           path: |
             app/release/liri-cli-${{ env.VERSION }}.tgz
             release/npm/*.tgz
@@ -87,19 +88,34 @@ jobs:
             packaging/scoop/liri.json
             packaging/homebrew/liri.rb
 
-      # 2026-11-19（竞态修复）：原 `gh release upload … || echo` 在 release.yml 尚未建 Release 时
-      # **静默落到"仅 artifact"**（真机 run#3 日志 `release not found`，20 个 release 无一个 CLI 附件）。
-      # 改用与本仓 release.yml 同一个 `softprops/action-gh-release@v2`：**不存在则创建、存在则追加**，
-      # 两个工作流并发也不会互踩（不再依赖"谁先跑完"）。
+      # 2026-11-21（v0.6.3 复盘）：`softprops/action-gh-release` 与 `release.yml` 的
+      # `Create Release` **并发建同一 Release** 时会在 ~2s 内直接失败（三平台同时红）。
+      # 改为**显式重试**：Release 尚未建立 ⇒ 等 20s 再传；已建立 ⇒ `--clobber` 覆盖；
+      # 并把"无产物"从静默（upload-artifact 默认 warn）变为显式错误。
       - name: Attach archive to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          files: |
-            app/release/liri-cli-${{ env.VERSION }}.tgz
-            release/npm/*.tgz
-          overwrite_files: true
-          fail_on_unmatched_files: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(app/release/liri-cli-${VERSION}.tgz release/npm/*.tgz)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::未产出 CLI 归档（app/release 与 release/npm 均为空）"
+            exit 1
+          fi
+          ls -l "${files[@]}"
+          for i in $(seq 1 30); do
+            if gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber; then
+              echo "✅ 归档上传成功（第 ${i} 次尝试）"
+              exit 0
+            fi
+            echo "⏳ 第 ${i} 次上传失败（Release 可能尚未建立）⇒ 20s 后重试"
+            sleep 20
+          done
+          echo "::error::CLI 归档上传在 10 分钟后仍失败"
+          gh release view "$GITHUB_REF_NAME" || true
+          exit 1
 
       - name: Publish to npm (optional)
         # 未配置 `NPM_TOKEN` ⇒ 步骤内自行跳过（step `if` 无法读 secrets 值）
@@ -161,16 +177,35 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: liri-cli-bin-${{ matrix.os }}
+          if-no-files-found: error
           path: app/dist/cli-bin/*
 
-      # 2026-11-19（竞态修复）：同 package 作业 —— 交由 action 负责"建或追加"，不再静默丢产物。
+      # 2026-11-21（v0.6.3 复盘）：与 package 作业同一竞态 —— 改为显式"等 Release 就绪 + 重试上传"，
+      # 并先断言产物存在（此前 upload-artifact 对空目录只 warn，真因被掩盖）。
       - name: Attach binary to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          files: app/dist/cli-bin/*
-          overwrite_files: true
-          fail_on_unmatched_files: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(app/dist/cli-bin/*)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::未产出 CLI 二进制（app/dist/cli-bin 为空）"
+            exit 1
+          fi
+          ls -l "${files[@]}"
+          for i in $(seq 1 30); do
+            if gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber; then
+              echo "✅ 二进制上传成功（第 ${i} 次尝试）"
+              exit 0
+            fi
+            echo "⏳ 第 ${i} 次上传失败（Release 可能尚未建立）⇒ 20s 后重试"
+            sleep 20
+          done
+          echo "::error::CLI 二进制上传在 10 分钟后仍失败"
+          gh release view "$GITHUB_REF_NAME" || true
+          exit 1
 
   # G2 剩余四期（2026-11-14）：standalone 清单（去 bun 前置）。
   # 只有矩阵产物**齐全**才出清单：`gen-package-manifests.ts --standalone` 缺平台即退出 1。
@@ -210,17 +245,31 @@ jobs:
           name: liri-standalone-manifests
           path: packaging/standalone/**
 
-      # 2026-11-19（竞态修复）：同 package 作业。
+      # 2026-11-21：与其它作业同口径 —— Release 由 `release.yml#create-release` 唯一创建，
+      # 这里只做"等就绪 + 重试上传"。
       - name: Attach manifests to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          files: |
-            packaging/standalone/SHA256SUMS
-            packaging/standalone/scoop/liri.json
-            packaging/standalone/homebrew/liri.rb
-          overwrite_files: true
-          fail_on_unmatched_files: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(packaging/standalone/SHA256SUMS packaging/standalone/scoop/liri.json packaging/standalone/homebrew/liri.rb)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::未产出 standalone 清单"
+            exit 1
+          fi
+          ls -l "${files[@]}"
+          for i in $(seq 1 30); do
+            if gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber; then
+              echo "✅ 清单上传成功（第 ${i} 次尝试）"
+              exit 0
+            fi
+            echo "⏳ 第 ${i} 次上传失败（Release 可能尚未建立）⇒ 20s 后重试"
+            sleep 20
+          done
+          echo "::error::standalone 清单上传在 10 分钟后仍失败"
+          exit 1
 
   # G2 剩余五期（2026-11-14）：npm standalone（按平台分包，去 bun 前置）。
   # 发布顺序：先平台包 `@openliri/cli-*`，再主包 `openliri`（主包 optionalDependencies 指向它们）。
@@ -274,12 +323,28 @@ jobs:
             release/npm-standalone/*.tgz
 
       - name: Attach npm tarballs to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          files: release/npm-standalone/*.tgz
-          overwrite_files: true
-          fail_on_unmatched_files: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(release/npm-standalone/*.tgz)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::未产出 standalone npm tarball"
+            exit 1
+          fi
+          ls -l "${files[@]}"
+          for i in $(seq 1 30); do
+            if gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber; then
+              echo "✅ npm tarball 上传成功（第 ${i} 次尝试）"
+              exit 0
+            fi
+            echo "⏳ 第 ${i} 次上传失败（Release 可能尚未建立）⇒ 20s 后重试"
+            sleep 20
+          done
+          echo "::error::standalone npm tarball 上传在 10 分钟后仍失败"
+          exit 1
 
       - name: Publish to npm (optional)
         # 未配置 `NPM_TOKEN` ⇒ 步骤内自行跳过（step `if` 无法读 secrets 值）

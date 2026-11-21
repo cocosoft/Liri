@@ -699,12 +699,39 @@ jobs:
             client/src-tauri/target/release/bundle/
 
   # ══════════════════════════════════════════════
-  # GitHub Release
+  # GitHub Release —— **唯一创建者**
+  # ══════════════════════════════════════════════
+  # 2026-11-21（v0.6.3 复盘）：此前 `release-cli-packages` 与 `release.yml` 的最终作业
+  # **并发创建同一 Release**（`softprops/action-gh-release` 在"已存在"路径上秒失败），
+  # 导致 CLI 附件与 Tauri 安装包全部没挂上。现把"建 Release"拆成 tag 后立即运行的独立作业，
+  # 其它作业/工作流一律只做 `gh release upload --clobber`（不再依赖"谁先跑完"）。
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Create release if absent
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "Release 已存在：$GITHUB_REF_NAME（跳过创建）"
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --title "$GITHUB_REF_NAME" \
+              --generate-notes \
+              --latest
+          fi
+
+  # ══════════════════════════════════════════════
+  # GitHub Release 资产上传
   # ══════════════════════════════════════════════
   release:
-    name: Create Release
+    name: Publish Release Assets
     runs-on: ubuntu-latest
-    needs: [bundle, portable-bundle, tauri-build]
+    needs: [create-release, bundle, portable-bundle, tauri-build]
 
     steps:
       - name: Checkout code
@@ -741,20 +768,34 @@ jobs:
           echo "=== Portable bundles ==="
           find portable/ -type f | sort || true
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          name: ${{ github.ref_name }}
-          tag_name: ${{ github.ref_name }}
-          generate_release_notes: true
-          make_latest: true
-          files: |
-            dist/main.js
-            installers/**/*.msi
-            installers/**/*.dmg
-            installers/**/*.deb
-            installers/**/*.AppImage
-            portable/**/*.zip
-            portable/**/checksums.txt
+      # 2026-11-21：Release 已由 `create-release` 作业提前创建 ⇒ 这里**只上传资产**。
+      # 不再用 `action-gh-release` 的"建或更新"路径（对已存在的 Release 传 `generate_release_notes`
+      # 会被 API 直接拒绝，且与 CLI 工作流并发创建时失败）。
+      - name: Upload release assets
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(
+            find dist installers portable -type f \
+              \( -name 'main.js' -o -name '*.msi' -o -name '*.dmg' -o -name '*.deb' \
+                 -o -name '*.AppImage' -o -name '*.zip' -o -name 'checksums.txt' \) \
+              | sort
+          )
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::没有可上传的发布资产（dist / installers / portable 均为空）"
+            exit 1
+          fi
+          printf '%s\n' "${files[@]}"
+          for i in $(seq 1 5); do
+            if gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber; then
+              echo "✅ 发布资产上传成功（第 ${i} 次尝试）"
+              exit 0
+            fi
+            echo "⏳ 第 ${i} 次上传失败 ⇒ 20s 后重试"
+            sleep 20
+          done
+          echo "::error::发布资产上传失败"
+          gh release view "$GITHUB_REF_NAME" || true
+          exit 1

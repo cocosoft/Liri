@@ -217,3 +217,8 @@ Scoop / Homebrew 已在 §8 去掉 `bun` 前置；npm 侧需要另一种做法 �
 
 **待验证（如实）**：需重新触发一次 tag 构建，确认 `*.msi / *.dmg / *.deb / *.AppImage / *.zip /
 liri-cli-*.tgz / liri-*-*.exe(等) / SHA256SUMS / standalone 清单` 全部挂到同一 Release。
+
+**v0.6.4 追加复盘（第二处根因）**：`create-release` 作业**未 checkout**（无 `.git`）⇒ `gh` 无法从
+git remote 推断仓库，`gh release view/create` 3 秒内以 `exit 1` 退出；Release 因此不存在，
+后续 `Attach archive to GitHub Release` 的重试也无对象可传。**修法**：该作业显式声明
+`env: GH_REPO: ${{ github.repository }}`（不依赖工作目录的 git 上下文）。

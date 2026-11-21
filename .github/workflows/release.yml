@@ -708,6 +708,10 @@ jobs:
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
+    # 本作业**不 checkout**（无 `.git`）⇒ `gh` 无法从 git remote 推断仓库，
+    # 必须显式给 `GH_REPO`，否则 `gh release create/view` 会在 3s 内以 exit 1 退出（v0.6.4 实测）。
+    env:
+      GH_REPO: ${{ github.repository }}
 
     steps:
       - name: Create release if absent

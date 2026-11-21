@@ -288,6 +288,8 @@ CREATE INDEX IF NOT EXISTS idx_cmt_channel_started
 
 验证：`tests/channels` **746 pass / 0 fail**（88 文件）；`typecheck`（app 3 project + client）0 错；`lint`（app）/ `lint:channels` / client eslint 0 error；`check:circular` 无环；`lint:state-ratchet` 棘轮维持。
 
+补记（2026-11-21 复查）：上表遗留的两条历史缺口（`GET /v1/channels/messages/trace`、`GET /v1/channels/messages/trace/{traceId}`）已补入 `api-spec.md` §3.14，与实现逐项核对（`limit` 1–200、`channel` 过滤、404 语义）。
+
 设计期两处自纠（如实）：① `doInit` 内若调 `prune()` 会重入 `init()` 死锁 ⇒ 拆出 `pruneRows()`；② 首版 `nextCursor` 用"页满即给游标" ⇒ 末页满行时给出走不通的游标（测试暴露）⇒ 改为多取 1 条判 `hasMore`。
 
 ### P3（G4 入站事件 SSE）—— 已实施（2026-11-21）

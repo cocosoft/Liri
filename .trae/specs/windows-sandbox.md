@@ -187,9 +187,17 @@ Low IL 进程**默认不能写** Medium 目录。要让 bash 能写工作区，�
 | 步骤 | 结果 |
 |---|---|
 | `bun run build:win-sandbox` | ✅ 编译通过（MSVC 14.44，产物 `bin/win-sandbox-run.exe`，不入库） |
-| 直接运行 helper | ❌ 宿主报「应用程序控制策略已阻止此文件」（应用控制 / WDAC 类策略拦截未签名本地 exe） |
-| `bun run verify:win-sandbox` | ⚠️ 退出 **2**（`probe-failed`）—— 由 §8.2 修复后的门控如实给出，不再崩栈 |
+| 直接运行 helper | ❌ 宿主报「应用程序控制策略已阻止此文件」 |
+| 策略诊断（2026-11-21，只读） | `Smart App Control = 开启`（`VerifiedAndReputablePolicyState=1`）+ `C:\Windows\System32\CodeIntegrity\CiPolicies\Active` 下有 **8 条 WDAC 策略** |
+| `bun run verify:win-sandbox` | ⚠️ 退出 **2**（`probe-failed`）—— 现在会打印上述两条诊断，不再只给一句"未通过" |
 | `bun test tests/sandbox` | ✅ 247 pass / 0 fail（含新增「helper 起不来 ⇒ helperFailed」用例） |
 | `lint:sandbox` / `typecheck` | ✅（0 error） |
 
-⇒ **本机无法闭合 §5 的 ①–④ 实跑断言**（拦截发生在进程启动前，非代码缺陷）；该覆盖由 CI `windows-latest`（不受此策略影响）承担。若本机需自证，需由管理员将该 exe 加入应用控制白名单。
+⇒ **本机无法闭合 §5 的 ①–④ 实跑断言**（拦截发生在 `CreateProcess` 阶段，非代码缺陷）；该覆盖由 CI `windows-latest`（不受此策略影响）承担。
+
+本机若要自证，只有三条**受支持**的路径（均需管理员，脚本不代做、也不绕过安全策略）：
+1. 关闭 Smart App Control（**注意**：关闭后重新开启需重装系统）——个人开发机可行；
+2. 用受信任证书给 `win-sandbox-run.exe` 签名（企业环境首选）；
+3. 由管理员在 WDAC 策略中把该 helper 加入允许清单并重启策略。
+
+`verify-win-sandbox.ts` 的失败分支现已内置**只读诊断**（读上述注册表键与策略目录），把"为什么不可用"直接打在输出里。

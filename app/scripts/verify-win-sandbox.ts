@@ -9,7 +9,7 @@
  * 退出码：0 = 全通过；1 = 有断言失败；2 = 环境不支持（非 Windows / 缺 helper）。
  */
 import { execFile, execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
@@ -28,6 +28,59 @@ interface ProbeResult {
   detail: string;
 }
 
+/**
+ * 只读诊断：`--probe` 失败时，区分"文件缺失/损坏"与"被系统策略拦截"。
+ *
+ * 本机实测（2026-11-21）：Smart App Control 开启 + 多条 WDAC 策略 ⇒ 未签名 exe
+ * 在 CreateProcess 阶段即被拒绝，表现为 `probe-failed`。这里只**报告事实**，不修改任何策略。
+ */
+function describePolicyBlockers(): string[] {
+  const hints: string[] = [];
+  try {
+    const out = execFileSync(
+      'reg.exe',
+      [
+        'query',
+        'HKLM\\SYSTEM\\CurrentControlSet\\Control\\CI\\Policy',
+        '/v',
+        'VerifiedAndReputablePolicyState',
+      ],
+      { encoding: 'utf8' }
+    );
+    const m = out.match(
+      /VerifiedAndReputablePolicyState\s+REG_DWORD\s+0x([0-9a-f]+)/i
+    );
+    const state = m ? parseInt(m[1], 16) : undefined;
+    if (state === 1) {
+      hints.push(
+        'Smart App Control 处于【开启】：未签名 exe 会被拦截（关闭后重新开启需重装系统）'
+      );
+    } else if (state === 2) {
+      hints.push('Smart App Control 已关闭');
+    }
+  } catch {
+    // @ignore-catch 读不到策略键 ⇒ 不做推断（不臆造）
+  }
+  try {
+    const dir = join(
+      process.env['WINDIR'] ?? 'C:\\Windows',
+      'System32',
+      'CodeIntegrity',
+      'CiPolicies',
+      'Active'
+    );
+    const count = readdirSync(dir).filter((f) => f.endsWith('.cip')).length;
+    if (count > 0) {
+      hints.push(
+        `检测到 ${count} 条 WDAC 策略（${dir}）：需管理员将 helper 签名或加入允许清单`
+      );
+    }
+  } catch {
+    // @ignore-catch 目录不存在/无权限 ⇒ 不做推断
+  }
+  return hints;
+}
+
 async function main(): Promise<void> {
   if (process.platform !== 'win32') {
     console.error(
@@ -42,8 +95,16 @@ async function main(): Promise<void> {
     console.error(
       `[verify-win-sandbox] 不可用：${capability.reasonCode ?? '未知'} — ` +
         `${capability.reason ?? '--probe 未通过'}` +
-        `（先跑 bun run build:win-sandbox；若已构建仍失败，检查安全策略 / 应用控制是否拦截 helper）`
+        `（先跑 bun run build:win-sandbox）`
     );
+    const hints = describePolicyBlockers();
+    if (hints.length > 0) {
+      console.error('[verify-win-sandbox] 诊断：');
+      for (const h of hints) console.error(`  - ${h}`);
+      console.error(
+        '  本机自证因此不可用；该覆盖由 CI windows-latest 承担（不受本机策略影响）。'
+      );
+    }
     process.exit(2);
   }
 
@@ -51,7 +112,10 @@ async function main(): Promise<void> {
   const mediumDir = mkdtempSync(join(tmpdir(), 'vws-med-'));
 
   /** 对自有目录打 Low 标签（与 WindowsSandboxRunner 同一命令） */
-  const setLow = async (dir: string, level: 'Low' | 'Medium'): Promise<void> => {
+  const setLow = async (
+    dir: string,
+    level: 'Low' | 'Medium'
+  ): Promise<void> => {
     await execFileAsync('icacls.exe', [
       dir,
       '/setintegritylevel',
@@ -106,7 +170,11 @@ async function main(): Promise<void> {
 
   // 恢复标签并清理（目录是一次性的，失败仅提示）
   try {
-    execFileSync('icacls.exe', [lowDir, '/setintegritylevel', '(OI)(CI)Medium']);
+    execFileSync('icacls.exe', [
+      lowDir,
+      '/setintegritylevel',
+      '(OI)(CI)Medium',
+    ]);
   } catch {
     // @ignore-catch 一次性临时目录，恢复失败不影响结论
   }
@@ -118,7 +186,9 @@ async function main(): Promise<void> {
     console.log(`${r.pass ? '✅' : '❌'} ${r.name} — ${r.detail}`);
   }
   if (failed.length === 0) {
-    console.log(`\n✅ Windows 兜底沙箱自证通过（${results.length}/${results.length}）`);
+    console.log(
+      `\n✅ Windows 兜底沙箱自证通过（${results.length}/${results.length}）`
+    );
     process.exit(0);
   }
   console.error(`\n❌ 失败 ${failed.length}/${results.length} 项`);

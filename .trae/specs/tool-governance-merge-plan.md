@@ -725,3 +725,21 @@ bun run typecheck
 **验收（cwd=app）**：`typecheck`（app + client）✅ · `bun test tests/tools tests/permission`（2553 pass / 0 fail）✅ · `lint:infra`（R1–R34 合规）✅ · `lint:arch` / `lint:size` / `lint:refs` / `lint:case` / `lint:unref` / `lint:fix-evidence` / `lint:state-ratchet` / `lint:gate-parity`（86 条 · 缺失 0）✅ · `measure:tool-disclosure`（未超基线）✅ · `export-tool-params --check`（69 工具 / 379 描述一致）✅。工具名录、参数与披露面**均未变化**。
 
 **P4 收口结论**：重域（media / browser / desktop / office）与工具基类契约均已物理分包；`MediaModule`、`builtinToolRegistry`、`NotebookManager` / `NotebookToolImpl` 作为**注册与生命周期**留在 app——这是有意的边界（包只承载实现，不触碰全局单例）。
+
+### 15.11 真机复验（2026-11-21，当前代码）
+
+> 主实例以当前代码重启（`POST /v1/system/shutdown` → `bun run src/main.ts daemon --http-port 18990`）；
+> 设置页经 `localhost:1420`（代理 18990）验证。
+
+| 项 | 真机结果 |
+|---|---|
+| 三档工具面（API + UI） | `minimal` **9**（`powershell` + `file_read/file_write/file_edit/grep/glob/ask_user_question/todo_write/tool_search`）；`standard` **13**（12 + Windows `powershell`，符合 AC-16）；`full` **42** 可见（放开默认披露收窄，**仍受任务类别白名单与预算限制**） |
+| 全部可见性 | 报表 70 项；`standard` 下 13 可见 / 56 不可见 / 1 未接线；**每个 hidden 均带原因**（`not-in-task-whitelist` 26 / `not-in-default-disclosure` 31 / `feature-gate-off` 2 / `conditional` 1） |
+| 能力包 | 12 个包（`media_image` 5 / `collab` 5 / `system_extra` 5 / `media_video` 4 / `workspace` 4 / `code` 3 / `desktop` 3 / `media_audio` 3 / `schedule` 3 / `web` 2 / `doc_extra` 1 / `knowledge` 1），其余 31 项无包；UI 行内徽标与 `CAPABILITY_PACKS` 一致 |
+| 开关默认关 | `browser` / `computer_use` 均 `hidden`，原因 `功能开关未开启`；设置 → 功能开关两开关为关闭态（"能力包：桌面与浏览器"包开关为开，属预期：包开关 ≠ 能力开关） |
+| 设置持久化 | 切档/回切后关闭重开面板仍为所选档（`PUT /v1/settings/toolSurface` → 200 + 重读一致） |
+| 披露预算 | `bun run measure:tool-disclosure`：default 13 项 / provider 1512 token；coding 25 / agent 25（`coding` 41→25、`agent` 48→25 按优先级截断），**未超基线（只减不增）** |
+| 回归 | `tests/tools/{coreToolSurface,toolPackMetadata,toolSurfaceProfile,toolVisibilityReport,toolOutputJsonSchema}` **147 pass / 0 fail** |
+
+**仍未真机覆盖（如实）**：`tool_search select:<name>` 的"下一轮可见"链路需真实模型轮次（当前仅单测覆盖）；
+其余验收项均已在本机实测。

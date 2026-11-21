@@ -1,6 +1,6 @@
 # Token 会计口径统一（G2 专项设计）
 
-> 状态：**P1 + P2 + P3 已实施（2026-11-18）；P4 的"可静态证伪"部分与离线复验工具已就绪（2026-11-21），真机长会话待跑**
+> 状态：**P1 + P2 + P3 已实施（2026-11-18）；P4 真机长会话复验已通过（2026-11-21）**
 > 来源：真机会话 `session_mwkthat73b80a6724f` 排查（台账 G2）
 > 关联：G1（压缩体积口径，**已修**）、`compactionTokenPair.test.ts`（既有先例）
 
@@ -134,7 +134,7 @@ compaction:applied {
 | **P1** | D3+D6：`CompactionDecision` 类型改造 + 全部消费点改名 + 双字段日志 | ✅ **已实施（2026-11-18）**：`snapshot` / `beforeTokens` 已删除，全仓 `snapshot.tokens` 归零（仅历史注释保留）；`tsc` 三 project 0 错；`tests/chat + tests/context + tokenBudget` **1321 pass / 0 fail**；`lint:fn-size` 棘轮未增长 |
 | **P2** | D3 前端：`TrajectoryDetail` 只展示 `ratio` + `rawBefore/rawAfter`（不再展示混口径 K 值） | 🟡 **最小切片已实施**：压缩进度文案改为「上下文水位 N%（估算）」；`TrajectoryDetail` 的 before/after 差值本就同源（raw），未改 |
 | **P3** | D4+D5：估算器契约测试（同输入同结果 / cap 下界）；报表 `grew` 计数 | ✅ **已实施（2026-11-18）**：`TokenEstimator.test.ts` 新增 3 例（未触 cap 逐值相等 / cap 下界区间 `[cap, full]` / 空输入 0）；`CostReportService.TierStats` 增 `grewCount` / `grewTokens`（负增量**不抵扣**正向节省）+ 文本报告列出"N 次变大（未计入节省）"；`tests/cost` 4 例。`ContextTracker.getTotalTokensSaved()` 本就 `max(0, …)` 且无 grew 消费者 ⇒ 不新增 API（CS03） |
-| **P4** | 真机复验：同一会话跑满窗口 | 🟡 **工具与静态部分就绪（2026-11-21）**：① 新增 `bun run verify:token-accounting`（离线解析 `app.log` 及轮转文件，断言：决策字段完整 / `savingPercent` 与前后同源 / raw 差异仅来自 `estimateLowerBound` / 无 `snapshot` 回流；样本不足 ⇒ 退出码 2，**不得当通过**；9 例单测）。② 复验时发现并修复**日志口径分裂**：`compaction:applied.beforeTokens` 原取 `decision.rawInputTokens`（可能是 1× 窗口下界），而 `savingPercent`/`afterTokens` 用全量 measured ⇒ 现 `beforeTokens` 统一取 measured，决策侧原值另记 `decisionRawInputTokens`。**真机跑满窗口仍待做**（需真实模型流量）；跑完后执行 `bun run verify:token-accounting --since <会话开始时间>` 即可给出可证伪结论 |
+| **P4** | 真机复验：同一会话跑满窗口 | ✅ **已通过（2026-11-21，真机）**：会话 `session_mwpyw5fe51b2daacb8` 连发 6 轮大消息，ratio 达 **0.949** ⇒ 触发 tier-2 压缩（`beforeTokens=106794 → afterTokens=52022`，`savingPercent=51.3`）。离线复验 `bun run verify:token-accounting --since <会话开始>`：**决策 12 · applied 5 · mismatch 0 · no_effect 0**，四项断言全绿（① 决策字段完整 ② `savingPercent` 与前后同源 ③ raw 差异仅来自 `estimateLowerBound` ④ 无 `snapshot` 回流）。⚠️ 复验时后端仍跑**改动前**的构建 ⇒ 该批 `applied` 日志尚无本次新增的 `decisionRawInputTokens` / `estimateLowerBound`（重启后生效；脚本对缺省字段不判失败，只对"存在但不同源"判失败）。<br>附：复验中发现并修复的日志口径分裂见 §D6 订正 |
 
 回滚：P1 为纯改名 + 类型拆分（无行为变更），单提交可 revert；P2 独立提交；P3/P4 不改变运行时决策。
 

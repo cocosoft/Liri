@@ -48,7 +48,13 @@ interface Stats {
   files: number;
 }
 
-const stats: Stats = { sessions: 0, scanned: 0, changed: 0, skipped: 0, files: 0 };
+const stats: Stats = {
+  sessions: 0,
+  scanned: 0,
+  changed: 0,
+  skipped: 0,
+  files: 0,
+};
 
 /** 去掉全部空白（判"仅空白差异"用） */
 function noWs(text: string): string {
@@ -122,9 +128,7 @@ function readEvents(eventsPath: string): {
     } catch {
       continue;
     }
-    const data = e.data as
-      | { content?: string; messageId?: string }
-      | undefined;
+    const data = e.data as { content?: string; messageId?: string } | undefined;
     const messageId = data?.messageId;
     if (!messageId) continue;
 

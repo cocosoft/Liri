@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.1.0-blue)
+![Version](https://img.shields.io/badge/version-0.1.1-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -466,7 +466,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.1.0**
+当前版本：**v0.1.1**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -475,12 +475,13 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.1.0 (2026-11-21)
-发布线重启（新基线）
+#### v0.1.1 (2026-11-22)
+真机验证修复（桌面端后端可启动 / Docker 服务化 / 校验和 / 签名接线）
 
-- ✅ **发布线重置** - GitHub Release 与版本 tag 整体清理，版本号回到 `0.1.0` 重新起算；旧线变更史保留在 CHANGELOG
-- ✅ **基线产物** - 当前代码构建：桌面安装包 4 / 便携包 4 / 单文件二进制 4 / CLI 包 5 / 清单 4
-- ✅ **流水线修复沿用** - 单一 Release 创建者 + `--clobber` 重试；CLI 归档改用 `$GITHUB_WORKSPACE` 绝对路径
+- ✅ **桌面端后端可启动** - sidecar 以安装目录为 cwd 启动（此前 spawn 到数据目录 ⇒ 找不到 `pdfjs-dist`，后端 exit 1）
+- ✅ **Docker 服务化** - 镜像默认 `daemon`（原 REPL 在 `docker run -d` 下秒退）；compose 默认 `prod` 镜像
+- ✅ **校验和** - 三平台 `checksums-<platform>.txt` + 全资产 `checksums.txt`（安装包此前无校验和）
+- ✅ **签名接线** - Tauri 打包支持凭据注入，未配置则如实跳过（本版产物仍为未签名）
 - ✅ 完整历史见 [CHANGELOG.md](CHANGELOG.md)
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。

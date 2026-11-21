@@ -212,6 +212,25 @@
 - ✅ **macOS 假红** - `mobilePairing` 用例不再用 1ms TTL 与 runner 时钟赛跑
 <!-- EVIDENCE-VIEWS:END -->
 
+#### v0.1.1 (2026-11-22)  真机验证修复（桌面端后端可启动 / Docker 服务化 / 校验和 / 签名接线）
+
+- ✅ **桌面端后端无法启动（P0，Windows 真机实证）**：`liri_terminal` 是 `bun --compile` 产物，
+  其 `--external` 依赖（pdfjs-dist / sharp / yoga-layout）按 **cwd** 解析 `node_modules`；客户端却把
+  sidecar spawn 到数据目录 ⇒ `Cannot find module 'pdfjs-dist/legacy/build/pdf.mjs'`、exit 1，
+  界面长期停在「Backend 已停止」。改为以**安装目录**为 cwd（同时修正 `LIRI_PROJECT_DIR`）。
+  对照实测：cwd=安装目录 ⇒ healthcheck exit 0 / `/v1/health/report` 200；cwd=System32 ⇒ 同一条报错。
+- ✅ **Docker 镜像默认 REPL**：`docker run -d` 无 TTY 时 stdin 立即 EOF ⇒ 22s 打印「REPL 已退出」
+  并以 exit 0 结束（"启动成功"但无任何服务）。镜像 CMD 改为 `daemon`；compose 默认镜像由
+  无 tag（= `latest`，即 main 开发镜像）改为 `:${LIRI_IMAGE_TAG:-prod}`。
+- ✅ **校验和被覆盖 / 安装包零校验和**：三平台便携包各自写同名 `checksums.txt`，`merge-multiple`
+  合并后只剩 macos + update 两条；桌面安装包（msi/dmg/deb/AppImage）此前完全没有校验和。
+  改为 `checksums-<platform>.txt` + release 作业统一生成全资产 `dist/checksums.txt`。
+- ✅ **签名接线（可选）**：Tauri 打包步骤新增签名配置前置步骤 —— 有 secrets 时注入
+  `WINDOWS_CERTIFICATE` / `APPLE_CERTIFICATE` / `APPLE_SIGNING_IDENTITY`（含可选公证），
+  未配置则**如实跳过并打印告警**。v0.1.0 实测：`liri_client.exe` / `liri_terminal.exe` /
+  `liri-win32-x64.exe` 全为 `NotSigned`，Windows Smart App Control 直接阻止运行。
+- ✅ **如实边界**：签名凭据仍未配置，故本版产物仍为未签名（Smart App Control 需手动关闭或后续补证书）。
+
 #### v0.1.0 (2026-11-21)  发布线重启（新基线）
 
 - ✅ **发布线重置**：GitHub Release 与版本 tag 整体清理（旧线 62 个 Release / 128 个 tag 已删除，备份见

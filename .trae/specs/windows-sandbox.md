@@ -1,6 +1,6 @@
 # Windows 兜底沙箱（Low IL + Job Object）实施方案
 
-> 版本 1.0 ｜ 日期 2026-10-26 ｜ 状态：**方案定稿，按此执行**
+> 版本 1.2 ｜ 日期 2026-10-26（2026-11-21 补执行记录）｜ 状态：**已实施**（§4 五步全部落地；本机自证受宿主应用控制策略限制，见 §8）
 > 关联：[`macos-sandbox-exec.md`](./macos-sandbox-exec.md)（同一档"OS 级兜底"，先例与口径复用）
 > 上游依赖（2026-11-21 登记）：[`real-machine-governance-remediation.md`](./real-machine-governance-remediation.md)
 > —— 该方案的 P2-3 只做「不参与判定」的只读披露对齐；**审批过期状态收敛（P1-2）不依赖本沙箱**，已先行落地。
@@ -154,3 +154,42 @@ Low IL 进程**默认不能写** Medium 目录。要让 bash 能写工作区，�
   探测/执行器形态与 `sandbox/darwin/*` 对称，不另造第二套。
 - **CS03**：只有"探测/打标失败 ⇒ 拒绝"这一条真回退；不写"跑一半降级 plain"。
 - **CD06**：5 个独立提交，第 1 步纯增量（未接线），每步可单独 revert。
+
+---
+
+## 8. 执行结果与偏差（2026-10-26 落地；2026-11-21 复查补齐）
+
+### 8.1 §4 五步交付全部落地
+
+| # | 交付 | 落点 |
+|---|---|---|
+| 1 | helper 源码 + 构建脚本 | `packages/sandbox/src/sandbox/win/native/win_sandbox_run.c`、`app/scripts/build-win-sandbox.ts`（`bun run build:win-sandbox`） |
+| 2 | 探测器 + 执行器 | `packages/sandbox/src/sandbox/win/{WindowsSandboxDetector,runWithWinSandbox,helperPaths,index}.ts` |
+| 3 | `code_run` Windows 执行器 + 调度分流 | `app/src/tools/CodeRunner/WindowsSandboxRunner.ts`、`LinuxSandboxRunner.runCodeRunnerSafely` 的 `win32` 分支 |
+| 4 | CI 编译 + 实测 | `.github/workflows/ci.yml`：`windows-latest` 的 `build:win-sandbox` / `verify:win-sandbox`，以及独立 `win-helper-probe` 作业（`cl` 编译 + `--version` / `--probe` 契约） |
+| 5 | 台账登记 | `.trae/architecture/fix-evidence-registry.json`（C 源码 / 探测器 / 执行器 / 两个脚本均在 `code` 列表） |
+
+`--probe` / `--version`（2026-11-19 补）已实现，探测器据此给出 `runnable`（不再用 `available` 冒充）。
+
+### 8.2 2026-11-21 复查发现并修复的三处缺口
+
+真机复查（本机 Windows，`bun run build:win-sandbox` → `verify:win-sandbox`）暴露：
+
+1. **spawn 同步抛出未归一**：helper 被系统策略拦下时，Bun 的 `spawn` **同步抛出** `EUNKNOWN: uv_spawn`（不像 Node 发 `error` 事件），导致 `verify` / `code_run` 直接崩异常栈。
+   修复：`runWithWinSandbox` 与 `WindowsSandboxRunner` 均用 try/catch 归一为 **`helperFailed`**，交由 `failClosed` 决策（拒绝或降级），不抛给调用方。
+2. **探测结果未被消费**：`WindowsSandboxRunner` 只看 `available`（文件存在），忽略 `runnable === false`（`--probe` 实测失败）。
+   修复：`!available || runnable === false` 同等视为不可用；`verify-win-sandbox.ts` 也只在 `runnable === true` 时继续（否则退出 2 并打印 `reasonCode`）。
+3. **C 格式串宽窄混用**：`wprintf(L"...%s", const char*)` 触发 MSVC `C4477`。
+   修复：5 处改为 `%hs`（构建已零 warning）。
+
+### 8.3 本机验证边界（如实记录）
+
+| 步骤 | 结果 |
+|---|---|
+| `bun run build:win-sandbox` | ✅ 编译通过（MSVC 14.44，产物 `bin/win-sandbox-run.exe`，不入库） |
+| 直接运行 helper | ❌ 宿主报「应用程序控制策略已阻止此文件」（应用控制 / WDAC 类策略拦截未签名本地 exe） |
+| `bun run verify:win-sandbox` | ⚠️ 退出 **2**（`probe-failed`）—— 由 §8.2 修复后的门控如实给出，不再崩栈 |
+| `bun test tests/sandbox` | ✅ 247 pass / 0 fail（含新增「helper 起不来 ⇒ helperFailed」用例） |
+| `lint:sandbox` / `typecheck` | ✅（0 error） |
+
+⇒ **本机无法闭合 §5 的 ①–④ 实跑断言**（拦截发生在进程启动前，非代码缺陷）；该覆盖由 CI `windows-latest`（不受此策略影响）承担。若本机需自证，需由管理员将该 exe 加入应用控制白名单。

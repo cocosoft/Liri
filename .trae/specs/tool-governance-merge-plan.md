@@ -668,7 +668,7 @@ bun run typecheck
 1. ~~AC-16 基线~~ —— 已按用户裁定更新基线（§15.6）。
 2. ~~报表 `pack` / `inProfiles` + 设置页按包分组 + 包开关~~ —— 已完成（§15.2.1）。
 3. `knowledge_*` 接线与 `music_generate` provider 属功能决策，不在治理范围。
-4. ~~P4 物理拆包（可选）~~ —— media + browser 驱动/schema 已落地（§15.8）；工具类（`BrowserTool` / `ComputerUseTool`）与 office/desktop 待工具基类契约下移后再拆。
+4. ~~P4 物理拆包（可选）~~ —— **已完成**：media / browser（含工具类）/ desktop / tool-base 契约 / office 域全部落地（§15.8–§15.10）；在 app 仅保留注册与生命周期（`MediaModule` / `builtinToolRegistry` / `NotebookManager`·`NotebookToolImpl`）。
 
 ### 15.8 P4：重域物理拆包（media + browser 驱动，2026-11-21）
 

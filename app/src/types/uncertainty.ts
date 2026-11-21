@@ -127,6 +127,36 @@ export function normalizeTrace(
   return out;
 }
 
+/**
+ * 推理轨迹文本的**脱敏函数**（2026-11-21，`a2a-acp-uncertainty-field.md` §7 遗留收口）。
+ *
+ * 设计前提（如实）：这是**尽力而为**的确定性掩码，不是 DL PII 分类器。只覆盖
+ * 「一旦外泄即高危且可被模式识别」的四类：绝对路径、邮箱、常见密钥/token、长十六进制串。
+ * 不含以上模式的中文正文**会原样保留** ⇒ 是否给 `trace` 传文本仍由产出方决定
+ * （`normalizeTrace` 无脱敏函数时只留 `kind`，是最保守的缺省）。
+ *
+ * ⚠️ 不要在 `summary` 里放用户原文；本函数只是最后一道闸（与 spec §4-4 分工一致）。
+ */
+export function redactTraceText(text: string): string {
+  return (
+    text
+      // Windows 盘符路径 / UNC
+      .replace(/[A-Za-z]:\\[^\s"'<>|]+/g, '<path>')
+      .replace(/\\\\[^\s"'<>|]+/g, '<path>')
+      // POSIX 绝对路径（前一个字符不是 `:`，避免命中 `https://…` 的主机段）
+      .replace(/(?<![:/\w])\/(?:[\w.@+-]+\/)+[\w.@+-]+/g, '<path>')
+      // 邮箱
+      .replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, '<email>')
+      // 常见密钥/token 前缀
+      .replace(/\bsk-[A-Za-z0-9_-]{16,}\b/g, '<secret>')
+      .replace(/\bghp_[A-Za-z0-9]{20,}\b/g, '<secret>')
+      .replace(/\bAKIA[0-9A-Z]{16}\b/g, '<secret>')
+      .replace(/\bBearer\s+[A-Za-z0-9._-]{16,}\b/gi, 'Bearer <secret>')
+      // 长十六进制串（哈希 / 会话键等）
+      .replace(/\b[0-9a-fA-F]{32,}\b/g, '<secret>')
+  );
+}
+
 /** 把已归一化的信号合入 metadata；两者皆空 ⇒ 返回原对象（**不写键**） */
 export function attachUncertaintyMetadata(
   metadata: Record<string, unknown> | undefined,

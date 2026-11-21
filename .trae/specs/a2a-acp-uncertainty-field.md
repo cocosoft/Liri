@@ -121,11 +121,15 @@ interface LiriTraceStep {
   → 验证器写 infra 投影「每会话最新结果」→ 任务完成时 `score = 1 - confidence`（`method='verifier'`）。
   无记录 / `confidence` 非有限或越界 ⇒ 返回 `null`（**不发字段**，符合 CS04）。
   未开开关 ⇒ 维持 `null`（生产响应恒不含 `liri.*`）；
-  **遗留**：进程内投影与任务台账均不跨重启（重启后旧任务不可查，按 A2A §3.4 新建任务）；
-  `trace` 本次不发（无脱敏函数）。
+  **重启边界（2026-11-21 定案：无须补发）**：任务台账本身不跨重启 ⇒ `GET /v1/a2a/tasks/{id}` 重启后一律 404，
+  「重启后不补发」在协议上不可观测（没有可补发的对象）；客户端按 A2A §3.4 新建任务重发。
+  **`trace`（2026-11-21 已放行）**：新增确定性脱敏 `redactTraceText`（绝对路径 / 邮箱 / 常见密钥 / 长 hex），
+  路由改用 `normalizeTrace(signal.trace, redactTraceText)` ⇒ summary 保留且敏感段被替换；
+  不传脱敏函数时仍只留 `kind`（最保守缺省）。回归：`tests/types/uncertainty.test.ts`（脱敏正反向 + 路由端到端）。
 - **A2A 任务级汇总（2026-11-21 已接线）**：`runDelegation` 在**同步**与**超阈值异步收尾**两条路径
-  都经端口 `mergeTaskMetadata` 落存储（`A2ATaskStore.mergeMetadata` 同时写任务级 `metadata`
-  与最后一条消息的 `metadata`）⇒ `GET /v1/a2a/tasks/{id}` 带协商头即可读到持久化信号；
+  都把信号随 `completeTask(..., metadata)` 与终态**同一次写入**落存储
+  （`A2ATaskStore.complete` 同时写任务级 `metadata` 与最后一条消息的 `metadata`）
+  ⇒ `GET /v1/a2a/tasks/{id}` 带协商头即可读到持久化信号；
   未协商 ⇒ `a2a-routes#withoutLiriMetadata` 剔除全部 `liri.*`（spec §6-#1）。
   回归：`tests/types/uncertainty.test.ts`（同步 + 异步落存储）、`tests/http/a2aRoutes.test.ts`（回查协商门）。
 - **不保证置信度准确**：`self_report` 可能过自信；因此 `method` 必填、消费方据此决定是否复核；

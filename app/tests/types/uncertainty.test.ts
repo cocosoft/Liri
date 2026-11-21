@@ -16,6 +16,7 @@ import {
   lastUncertaintyFromMessages,
   normalizeTrace,
   normalizeUncertainty,
+  redactTraceText,
 } from '@modules/types/uncertainty';
 import { consumeTurnStream } from '@modules/acp/control-plane/manager.turn-stream';
 import type { AcpRuntimeEvent } from '@modules/acp/runtime/types';
@@ -90,6 +91,34 @@ describe('D5：推理轨迹归一化', () => {
     expect(normalizeTrace([{ kind: 'plan', summary: '细节' }])).toEqual([
       { step: 1, kind: 'plan' },
     ]);
+  });
+});
+
+describe('D5：trace 脱敏（2026-11-21）', () => {
+  it('绝对路径 / 邮箱 / 密钥 / 长 hex 被掩码；URL 不被误伤', () => {
+    const text =
+      '读取 C:\\Users\\bob\\note.txt 与 /var/tmp/x.log，' +
+      '联系 bob@example.com，token sk-abcdefghijklmnop1234，' +
+      '见 https://example.com/a/b';
+    const out = redactTraceText(text);
+
+    expect(out).not.toContain('C:\\Users');
+    expect(out).not.toContain('/var/tmp');
+    expect(out).not.toContain('bob@example.com');
+    expect(out).not.toContain('sk-abcdef');
+    expect(out).toContain('<path>');
+    expect(out).toContain('<email>');
+    expect(out).toContain('<secret>');
+    expect(out).toContain('https://example.com/a/b');
+  });
+
+  it('提供脱敏函数 ⇒ summary 保留（替换敏感段）', () => {
+    expect(
+      normalizeTrace(
+        [{ kind: 'tool', summary: '读取 /etc/passwd 失败' }],
+        redactTraceText
+      )
+    ).toEqual([{ step: 1, kind: 'tool', summary: '读取 <path> 失败' }]);
   });
 });
 
@@ -227,7 +256,7 @@ describe('D5：A2A 委派注入（仅协商 + 有产出方）', () => {
         method: 'verifier',
         rationale: 'secret 原因',
       },
-      trace: [{ kind: 'plan', summary: 'secret 细节' }],
+      trace: [{ kind: 'plan', summary: '读取 /home/bob/secret.txt' }],
     }));
 
     const { port, tasks } = fakePort();
@@ -245,7 +274,7 @@ describe('D5：A2A 委派注入（仅协商 + 有产出方）', () => {
       method: 'verifier',
     });
     expect(task.metadata?.[LIRI_REASONING_TRACE_KEY]).toEqual([
-      { step: 1, kind: 'plan' },
+      { step: 1, kind: 'plan', summary: '读取 <path>' },
     ]);
 
     // D5（2026-11-21）：同一信号必须**落存储**（任务级 + 最后一条消息），否则事后回查拿不到

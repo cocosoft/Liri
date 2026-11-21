@@ -51,6 +51,7 @@ import {
   attachUncertaintyMetadata,
   normalizeTrace,
   normalizeUncertainty,
+  redactTraceText,
 } from '@modules/types/uncertainty';
 // T4 批次 E：JSON-RPC 绑定（含 SSE）与委派交付物构造已拆至 `a2a-rpc.ts`
 //（本文件保留 卡片 / 探针 / 自定义 REST + 委派核心）；依赖方向单向：本文件 → `a2a-rpc`
@@ -451,7 +452,8 @@ async function resolveUncertaintyMetadata(
     const signal = await uncertaintyProvider(taskId);
     if (!signal) return undefined;
     const uncertainty = normalizeUncertainty(signal.uncertainty);
-    const trace = normalizeTrace(signal.trace);
+    // 2026-11-21：trace 文本经确定性脱敏后放行（原先无脱敏函数 ⇒ 只保留 kind）
+    const trace = normalizeTrace(signal.trace, redactTraceText);
     const metadata = attachUncertaintyMetadata(undefined, {
       uncertainty,
       trace,

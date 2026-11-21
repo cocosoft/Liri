@@ -17,6 +17,15 @@
 
 ---
 
+> **⚠️ 发布线重启（2026-11-21）**：本仓 GitHub Release 与版本 tag 已**整体清理并重置**，
+> 版本号回到 `v0.1.0` 重新起算。因此本文件存在**两个 `v0.1.0`**：
+> `#### v0.1.0 (2026-11-21)` 是**新基线**（现行代码），`#### v0.1.0 (2026-05-30)` 是旧线的历史条目（保留供追溯）。
+> 旧线 `v0.2.0`～`v0.6.5` 的条目**原样保留**（变更史不删），但其 tag / Release 已不存在，
+> 文中 `git log a..b` 之类引用**无法再执行**；备份（全 refs bundle + release 清单）见
+> `C:\Users\csdnc\.pyapp\backups\release-reset-20261121`（本机，不入库）。
+
+---
+
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
 - ✅ **PERMISSION-RBAC-CHAIN-HARDENING**：RBAC 判定链加固：资源绑定收窄、管理面鉴权、读失败关闭、多角色并集、deny 归因 —— 验证 perm475-0|tsc0|gates-ok；基线 资源绑定空转、RBAC 快照 GET 无鉴权、读失败 fail-open、多角色仅取 roles[0]、deny 归因恒为 admin（详情见 archive/evidence-detail.jsonl#PERMISSION-RBAC-CHAIN-HARDENING）
@@ -202,6 +211,18 @@
 - ✅ **提交前拦 GitHub Actions YAML 破损** - 新增 `lint:workflows`（workflows + composite action），pre-commit 与 doc-gate 双处接线
 - ✅ **macOS 假红** - `mobilePairing` 用例不再用 1ms TTL 与 runner 时钟赛跑
 <!-- EVIDENCE-VIEWS:END -->
+
+#### v0.1.0 (2026-11-21)  发布线重启（新基线）
+
+- ✅ **发布线重置**：GitHub Release 与版本 tag 整体清理（旧线 62 个 Release / 128 个 tag 已删除，备份见
+  `C:\Users\csdnc\.pyapp\backups\release-reset-20261121`），版本号从 `0.6.5` 回到 `0.1.0` 重新起算；
+  旧线变更史在下方原样保留（不删）。
+- ✅ **清理依据（如实的不可逆代价）**：Release 资产（数十 GB）未备份、永久丢失；旧线 `v0.4.51` 起的 tag 名
+  因绑定过不可变发布而**不可复用**；`git log <旧tag>..<旧tag>` 类引用失效。
+- ✅ **基线产物**：`v0.1.0` 由当前代码（含 v0.6.5 的发布流水线修复）构建，四工作流全绿后挂同一批资产
+  （桌面安装包 4 / 便携包 4 / 单文件二进制 4 / CLI 包 5 / 清单 4）。
+- ✅ **流水线修复沿用**：`create-release` 单一创建者 + `gh release upload --clobber` 重试；CLI 归档改用
+  `$GITHUB_WORKSPACE` 绝对路径；仓库「Release 不可变」保持关闭（新发布可继续追加资产）。
 
 #### v0.6.5 (2026-11-21)  发布附件上传打通（不可变发布 + CLI 归档路径）
 

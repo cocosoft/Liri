@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.6.3-blue)
+![Version](https://img.shields.io/badge/version-0.6.4-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -466,7 +466,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.6.3**
+当前版本：**v0.6.4**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -475,14 +475,12 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.6.3 (2026-11-21)
-工具分包收口 · 审批与状态治理 · 入站监视 · 内核 ABI 清理
+#### v0.6.4 (2026-11-21)
+发布流水线竞态修复（单一创建者 + 可诊断上传）
 
-- ✅ **工具治理 P4** - media / browser / desktop / office 域与工具基类契约物理分包，工具名录与披露面不变
-- ✅ **入站监视 P1–P4** - 分渠道指标、链路持久化与历史回查、入站事件 SSE、阈值告警（默认关）
-- ✅ **审批与状态治理** - 过期审批收敛与徽标、通知归档语义、崩溃恢复暂停态对账、todo 收尾三重保障
-- ✅ **浏览器与桌面真实现** - `browser` 走 playwright-core + 系统浏览器；桌面/浏览器截图落盘不回 base64
-- ✅ **内核 ABI 清理** - 删除零消费者导出，导出面 709 → 642 符号
+- ✅ **Release 单一创建者** - `create-release` 作业先建 Release，其余作业只做 `gh release upload --clobber` + 重试
+- ✅ **可诊断上传** - 附件缺失不再静默：`upload-artifact` 加 `if-no-files-found: error`
+- ✅ **工具治理真机复验** - 三档工具面 9 / 13 / 42，能力包与隐藏原因逐项一致
 - ✅ 完整历史见 [CHANGELOG.md](CHANGELOG.md)
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。

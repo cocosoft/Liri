@@ -203,6 +203,18 @@
 - ✅ **macOS 假红** - `mobilePairing` 用例不再用 1ms TTL 与 runner 时钟赛跑
 <!-- EVIDENCE-VIEWS:END -->
 
+#### v0.6.4 (2026-11-21)  发布流水线竞态修复（单一创建者 + 可诊断上传）
+
+- ✅ **Release 单一创建者**：`release.yml` 新增 `create-release` 作业，tag 后立即
+  `gh release create --generate-notes --latest`；其余作业与 `release-cli-packages` 全部改为
+  `gh release upload --clobber` + 重试（每 20s、最长 10 分钟），不再并发创建同一 Release。
+- ✅ **上传可诊断**：三处 `actions/upload-artifact` 增 `if-no-files-found: error` —— 空目录从静默 warn
+  变为显式失败（此前"成功"的 artifact 步骤掩盖了真实原因）。
+- ✅ **复盘（v0.6.3）**：三平台 CLI 附件与 `Create Release` 均在 2 秒内失败、发布页 0 资产；
+  根因与修法见 `.trae/specs/cli-package-channels.md`「发布附件竞态修复」。
+- ✅ **工具治理真机复验**：三档工具面实测 9 / 13 / 42，能力包与隐藏原因逐项一致，开关默认关；
+  记录见 `.trae/specs/tool-governance-merge-plan.md` §15.11。
+
 #### v0.6.3 (2026-11-21)  （git 历史补录）工具分包收口 · 审批与状态治理 · 入站监视 · 内核 ABI 清理
 
 - ✅ **工具治理 P4 物理分包**：media / browser / desktop / office 域与工具基类契约下沉到独立包；

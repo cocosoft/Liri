@@ -79,6 +79,18 @@ function formatDuration(ms: number): string {
   return `${(ms / 3_600_000).toFixed(1)}h`;
 }
 
+/** 实时链路列表上限（与后端 `recent(50)` 口径一致） */
+const MAX_TRACES = 50;
+
+/** SSE 增量合并：同 traceId 覆盖，新消息置顶 */
+function upsertTrace(prev: MessageTrace[], next: MessageTrace): MessageTrace[] {
+  const idx = prev.findIndex((t) => t.traceId === next.traceId);
+  if (idx === -1) return [next, ...prev].slice(0, MAX_TRACES);
+  const merged = [...prev];
+  merged[idx] = next;
+  return merged;
+}
+
 export function ChannelMonitorPanel() {
   const { t } = useTranslation();
   const [channels, setChannels] = useState<ChannelRuntimeStatusInfo[]>([]);
@@ -95,6 +107,9 @@ export function ChannelMonitorPanel() {
   const [expandedTrace, setExpandedTrace] = useState<string | null>(null);
   // 入站监视 G2：实时（内存缓冲）/ 历史（落盘终态）切换
   const [traceRange, setTraceRange] = useState<TraceRange>("live");
+  // 入站监视 G4：SSE 连续失败 3 次后降级为 30s 轮询（CS03：只在明确失败场景保留回退）
+  const [liveFallback, setLiveFallback] = useState(false);
+  const traceErrCountRef = useRef(0);
 
   const esRef = useRef<EventSource | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -324,13 +339,75 @@ export function ChannelMonitorPanel() {
     }
   }, [traceRange]);
 
-  // 链路 Tab 激活时拉取 + 10s 轮询（inflight 消息可通过轮询看到终态收敛）
+  /**
+   * 轮询：历史范围固定 10s；实时范围仅在 **SSE 降级** 后以 30s 兜底。
+   * （实时默认走 `/inbound/stream`，见下方 effect）
+   */
   useEffect(() => {
     if (tab !== "traces") return;
+    if (traceRange === "live" && !liveFallback) return;
     void loadTraces();
-    const timer = setInterval(() => void loadTraces(), 10_000);
+    const intervalMs = traceRange === "live" ? 30_000 : 10_000;
+    const timer = setInterval(() => void loadTraces(), intervalMs);
     return () => clearInterval(timer);
-  }, [tab, loadTraces]);
+  }, [tab, traceRange, liveFallback, loadTraces]);
+
+  /**
+   * 入站事件流（G4）：实时范围下用 EventSource 增量更新；
+   * 原生重连连续失败 3 次 ⇒ 置 `liveFallback`（切 30s 轮询）。
+   */
+  useEffect(() => {
+    if (tab !== "traces" || traceRange !== "live" || liveFallback) return;
+    traceErrCountRef.current = 0;
+    const es = new EventSource(
+      `${getBackendBaseUrl()}/v1/channels/inbound/stream`,
+    );
+
+    const onSnapshot = (e: MessageEvent) => {
+      try {
+        const data = JSON.parse(e.data) as { traces: MessageTrace[] };
+        setTraces(data.traces ?? []);
+      } catch (error) {
+        logger.warn("入站 SSE 快照解析失败", { error: String(error) });
+      }
+    };
+    const onTrace = (e: MessageEvent) => {
+      try {
+        const event = JSON.parse(e.data) as {
+          kind: string;
+          trace: MessageTrace;
+        };
+        if (!event.trace) return;
+        setTraces((prev) => upsertTrace(prev, event.trace));
+      } catch (error) {
+        logger.warn("入站 SSE 事件解析失败", { error: String(error) });
+      }
+    };
+
+    es.onopen = () => {
+      traceErrCountRef.current = 0;
+      logger.info("入站 SSE 已连接");
+    };
+    es.onerror = () => {
+      traceErrCountRef.current += 1;
+      logger.warn("入站 SSE 连接异常", {
+        attempt: traceErrCountRef.current,
+      });
+      if (traceErrCountRef.current >= 3) {
+        logger.warn("入站 SSE 连续 3 次失败，降级为 30s 轮询");
+        es.close();
+        setLiveFallback(true);
+      }
+    };
+    es.addEventListener("snapshot", onSnapshot as EventListener);
+    es.addEventListener("trace", onTrace as EventListener);
+
+    return () => {
+      es.removeEventListener("snapshot", onSnapshot as EventListener);
+      es.removeEventListener("trace", onTrace as EventListener);
+      es.close();
+    };
+  }, [tab, traceRange, liveFallback]);
 
   if (channels.length === 0) {
     return null;
@@ -387,7 +464,10 @@ export function ChannelMonitorPanel() {
           traces={traces}
           expandedTrace={expandedTrace}
           range={traceRange}
-          onRangeChange={setTraceRange}
+          onRangeChange={(range) => {
+            setTraceRange(range);
+            setLiveFallback(false);
+          }}
           onToggle={(id) => setExpandedTrace(expandedTrace === id ? null : id)}
           onRefresh={() => void loadTraces()}
         />

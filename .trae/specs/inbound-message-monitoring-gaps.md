@@ -1,6 +1,6 @@
 # 入站消息监视：缺口补齐方案
 
-> 版本 1.2 ｜ 日期 2026-11-21 ｜ 状态：**P1 + P2 已实施（2026-11-21）；P3–P4 未实施**
+> 版本 1.3 ｜ 日期 2026-11-21 ｜ 状态：**P1 + P2 + P3 已实施（2026-11-21）；P4 未实施**
 > 关联：[`dedup-message-state.md`](./dedup-message-state.md)（`channel_message_states` 落盘先例）、[`channel-process-isolation.md`](./channel-process-isolation.md)、[`message-router-split.md`](./message-router-split.md)
 
 **结论先行**：Liri 的入站监视**并非空白** —— 指标、消息级链路追踪、渠道实时态三层均已端到端接线（§1 取证）。本方案只处理**四个缺口**（§2）：渠道维度缺失、链路不留存、无阈值告警、消息级无推送。
@@ -189,12 +189,12 @@ CREATE INDEX IF NOT EXISTS idx_cmt_channel_started
 
 | 事件 | 载荷 | 时机 |
 |---|---|---|
-| `snapshot` | 最近 20 条 trace 的**元数据**（traceId/channel/messageId/status/startedAtMs/totalMs） | 连接即推 |
-| `trace` | `{ traceId, channel, messageId, status, stage?, atMs, totalMs? }` | `begin` / `addStage` / `finish` |
+| `snapshot` | `{ traces: MessageTrace[], ts }` —— 最近 20 条链路（**`contentPreview` 恒为空串**） | 连接即推 |
+| `trace` | `{ kind: 'begin' \| 'stage' \| 'finish', trace: MessageTrace }` —— 同样清空正文，保留 `stages`（阶段名/状态/耗时） | `begin` / `addStage` / `finish` |
 | `: ping` | 注释行 | 15s 心跳（同 `monitor/stream` 口径） |
 
 - 数据源：`MessageTraceBuffer` 新增 `subscribe(listener): () => void`（同步扇出；每个订阅者独立 `try/catch`，异常订阅者自动摘除）。
-- **隐私边界**：SSE 只发元数据，**不发 `contentPreview`**（预览仍只在内存查询/历史 API 中返回），避免把消息内容推到前端事件流里被日志采集。
+- **隐私边界**：事件里的 `contentPreview` **一律置空串**（正文仍只在内存查询/历史 API 中返回），避免消息内容进入浏览器事件流再被日志采集。实现时保留 `stages` 是刻意的取舍：没有阶段信息，面板展开 SSE 行只能显示空白。
 - 连接上限与断开：沿用 `monitor/stream` 的写法（`req.on('close')` 清理订阅）。
 
 ### 7.2 前端
@@ -219,7 +219,7 @@ CREATE INDEX IF NOT EXISTS idx_cmt_channel_started
 |---|---|---|
 | **P1** | G1 渠道级入站指标 + 卡片分渠道表 | 指标标签 + 总量守恒 + 单测 |
 | **P2** | G2 `MessageTraceStore` + 表 + `/history` + 保留裁剪 | ✅ **已实施（2026-11-21）**：`channel_message_traces` 表 + 终态落盘 + 7d/5000 行裁剪 + 复合游标分页 + 面板范围切换（见 §12） |
-| **P3** | G4 `subscribe` + `/inbound/stream` + 前端 SSE | curl -N 事件序列；重连 |
+| **P3** | G4 `subscribe` + `/inbound/stream` + 前端 SSE | ✅ **已实施（2026-11-21）**：`MessageTraceBuffer.subscribe` + SSE（snapshot/trace/ping）+ 面板实时改 EventSource（连续失败 3 次才降级轮询）（见 §12） |
 | **P4** | G3 规则 + 评估器 + `channel_alert_state` + 开关登记 | 阈值/静默/重启/开关四例 |
 
 依赖：P3 只依赖既有缓冲（可与 P2 并行）；P4 依赖 P1（指标）**或** P2（历史聚合），二选一即可。
@@ -270,7 +270,7 @@ CREATE INDEX IF NOT EXISTS idx_cmt_channel_started
 
 验证：`bun test tests/channels/channelMetrics.test.ts` 5 pass；`bun run typecheck`（app + client）0 错；`bun run lint:channels` 0 error；client `eslint` 改动文件 0 问题；`i18nKeyParity` / `i18nKeyCoverage` 6 pass。
 
-未做（留在 P3–P4）：入站事件 SSE、阈值告警。
+未做（留在 P4）：阈值告警。
 
 ### P2（G2 链路持久化）—— 已实施（2026-11-21）
 
@@ -290,4 +290,20 @@ CREATE INDEX IF NOT EXISTS idx_cmt_channel_started
 验证：`tests/channels` **746 pass / 0 fail**（88 文件）；`typecheck`（app 3 project + client）0 错；`lint`（app）/ `lint:channels` / client eslint 0 error；`check:circular` 无环；`lint:state-ratchet` 棘轮维持。
 
 设计期两处自纠（如实）：① `doInit` 内若调 `prune()` 会重入 `init()` 死锁 ⇒ 拆出 `pruneRows()`；② 首版 `nextCursor` 用"页满即给游标" ⇒ 末页满行时给出走不通的游标（测试暴露）⇒ 改为多取 1 条判 `hasMore`。
+
+### P3（G4 入站事件 SSE）—— 已实施（2026-11-21）
+
+| 文件 | 变更 |
+|---|---|
+| `packages/channels/src/channels/monitoring/messageTraceTypes.ts` | 新增 `MessageTraceEventKind` / `MessageTraceEvent`（`contentPreview` 恒空串的隐私契约写在类型注释里） |
+| `packages/channels/src/channels/monitoring/MessageTraceBuffer.ts` | 新增 `subscribe()` + 私有 `emit()`：`begin`/`stage`/`finish` 同步扇出，深拷贝 stages，异常订阅者自动摘除；`monitoring/index.ts` 同步导出 |
+| `app/src/infrastructure/http/handlers/channel-handlers.ts` | 新增 `handleChannelInboundStream`（snapshot + trace + 15s ping + close 退订） |
+| `app/src/infrastructure/http/handlers/routes/channel-surface-routes.ts` | 注册 `GET /v1/channels/inbound/stream` |
+| `client/src/components/common/ChannelMonitorPanel.tsx` | 实时范围改 `EventSource`（`snapshot` 覆盖、`trace` 按 traceId 合并置顶）；**连续 3 次失败**才降级 30s 轮询；切范围时重置降级标记 |
+| `app/tests/channels/messageTraceStream.test.ts`（新） | 4 例：事件顺序与正文清空 / 取消订阅 / 异常订阅者摘除 / SSE snapshot+增量+断开退订（含"帧内无正文"断言） |
+| `.trae/docs/api-spec.md` | 新增 `/v1/channels/inbound/stream` 行 |
+
+验证：`bun test tests/channels/messageTraceStream.test.ts` 4 pass；`tests/channels` 全量见提交记录；`typecheck`（app 3 project + client）0 错；`lint`（app）/ `lint:channels` / client eslint 0 error；`check:circular` 无环；`lint:state-ratchet` 棘轮维持。
+
+未做（留在 P4）：阈值告警（拒绝率突增 / `inflight` 卡死 / 渠道静默）。
 

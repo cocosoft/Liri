@@ -498,6 +498,7 @@ body `{ objective?: string（trim 非空）, tokenBudget?: number（正有限数
 | GET | `/v1/channels/monitor/status` | ✅ | `channelService.getMonitorStatus` — 渠道实时监控快照（五态机/探测/重连计数/错误快照） |
 | GET | `/v1/channels/monitor/stream` | ✅ | `ChannelMonitorPanel` EventSource — 渠道实时监控 SSE 事件流（snapshot + status_change/reconnecting/recovered/probe_failed） |
 | POST | `/v1/channels/monitor/force-reconnect` | ✅ | `channelService.forceReconnect` — 强制重连兜底，body `{ channelId }` |
+| GET | `/v1/channels/inbound/stream` | ✅ | `ChannelMonitorPanel` EventSource — 入站链路事件流（`snapshot` + `trace`，15s 心跳；帧内不含消息正文） |
 | GET | `/v1/channels/messages/trace/history` | ✅ | `channelService.getMessageTraceHistory` — 历史消息链路（终态落盘；7 天 / 5000 行保留，`from`/`to` 为 epoch ms，`cursor` 为 `${startedAtMs}:${traceId}`） |
 | POST | `/v1/channels/config/apply` | ❌ | `channelService.applyConfig` |
 

@@ -70,3 +70,17 @@ export interface MessageTrace {
 export type FinishedMessageTrace = Omit<MessageTrace, 'status'> & {
   status: Extract<MessageTraceStatus, 'ok' | 'fail' | 'rejected'>;
 };
+
+/** 链路增量事件种类（入站监视 G4：SSE 与订阅共用） */
+export type MessageTraceEventKind = 'begin' | 'stage' | 'finish';
+
+/**
+ * 链路增量事件。
+ *
+ * ⚠️ **隐私边界**：`trace.contentPreview` 恒为**空串** —— 事件会经 SSE 推到前端，
+ * 只允许携带链路元数据（阶段/状态/耗时），不携带消息正文。
+ */
+export interface MessageTraceEvent {
+  kind: MessageTraceEventKind;
+  trace: MessageTrace;
+}

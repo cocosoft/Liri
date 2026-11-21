@@ -9,6 +9,7 @@ import type { RouteDispatchArgs } from './route-dispatch-types';
 import {
   handleApplyChannelConfig,
   handleChannelHealth,
+  handleChannelInboundStream,
   handleChannelMetrics,
   handleChannelMonitorForceReconnect,
   handleChannelMonitorStatus,
@@ -136,6 +137,11 @@ async function dispatchChannelObservabilityRoutes(
   }
   if (url === '/v1/channels/monitor/stream') {
     await handleChannelMonitorStream(req, res);
+    return true;
+  }
+  // 入站监视 G4（2026-11-21）：入站链路事件流（snapshot + trace，15s 心跳）
+  if (url === '/v1/channels/inbound/stream') {
+    await handleChannelInboundStream(req, res);
     return true;
   }
   // 方案 A：消息级全链路追踪（精确路径先于 /v1/channels/(.+) 通配匹配）

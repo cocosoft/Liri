@@ -1417,6 +1417,86 @@ export async function handleChannelMonitorStream(
 }
 
 /**
+ * 入站事件流（入站监视 G4，2026-11-21）
+ * GET /v1/channels/inbound/stream
+ *
+ * - 连接即推 `event: snapshot`（最近 20 条链路**元数据**）
+ * - 之后按 `begin` / `stage` / `finish` 增量推 `event: trace`
+ * - 15s 心跳保活；断开即退订（对齐 `/monitor/stream` 的写法）
+ *
+ * ⚠️ 隐私边界：帧内**不含消息正文**（`contentPreview` 恒为空串），
+ * 只含 traceId / channel / messageId / status / stages / 耗时。
+ */
+export async function handleChannelInboundStream(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  const t0 = Date.now();
+  logger.info('[TRACE] GET /v1/channels/inbound/stream SSE 连接建立', {
+    url: req.url,
+    timestamp: Date.now(),
+  });
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive',
+  });
+  res.flushHeaders();
+
+  try {
+    const snapshot = messageTraceBuffer
+      .recent(20)
+      .map((trace) => ({ ...trace, contentPreview: '' }));
+    res.write(
+      `event: snapshot\ndata: ${JSON.stringify({
+        traces: snapshot,
+        ts: Date.now(),
+      })}\n\n`
+    );
+    logger.info('[TRACE] GET /v1/channels/inbound/stream 初始快照已推送', {
+      traceCount: snapshot.length,
+    });
+  } catch {
+    // 客户端连接即断开，直接放弃
+    logger.warning(
+      '[TRACE] GET /v1/channels/inbound/stream 初始快照写入失败（客户端已断开）'
+    );
+    return;
+  }
+
+  const unsubscribe = messageTraceBuffer.subscribe((event) => {
+    try {
+      res.write(`event: trace\ndata: ${JSON.stringify(event)}\n\n`);
+    } catch {
+      logger.warning('[TRACE] 入站 SSE 事件推送失败，取消订阅', {
+        kind: event.kind,
+        traceId: event.trace.traceId,
+      });
+      unsubscribe();
+    }
+  });
+
+  const heartbeat = setInterval(() => {
+    try {
+      res.write(': ping\n\n');
+    } catch {
+      // 写失败由 req close 统一清理
+      logger.warn('入站 SSE 心跳发送失败，等待 close 清理');
+    }
+  }, 15000);
+  heartbeat.unref?.();
+
+  req.on('close', () => {
+    unsubscribe();
+    clearInterval(heartbeat);
+    logger.info('[TRACE] GET /v1/channels/inbound/stream SSE 客户端已断开', {
+      elapsedMs: Date.now() - t0,
+    });
+  });
+}
+
+/**
  * 强制重连兜底（对齐 llama.cpp forceKill 模式：断开 → 释放 → 重连 → 探测验证）
  * POST /v1/channels/monitor/force-reconnect  body: { channelId }
  */

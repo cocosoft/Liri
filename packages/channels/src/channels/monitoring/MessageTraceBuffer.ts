@@ -34,6 +34,8 @@
 import { getLogger } from '@openliri/infra/monitoring';
 import type {
   MessageTrace,
+  MessageTraceEvent,
+  MessageTraceEventKind,
   MessageTraceStage,
   MessageTraceStatus,
   TraceStageStatus,
@@ -47,6 +49,8 @@ export type {
   MessageTraceStage,
   MessageTraceStatus,
   MessageTrace,
+  MessageTraceEventKind,
+  MessageTraceEvent,
 } from './messageTraceTypes';
 
 const logger = getLogger('channels:monitoring:trace');
@@ -59,6 +63,8 @@ class MessageTraceBufferImpl {
   private readonly traces = new Map<string, MessageTrace>();
   /** 插入顺序队列（用于容量淘汰与最近列表） */
   private readonly order: string[] = [];
+  /** 增量订阅者（入站监视 G4：SSE 推送；异常订阅者自动摘除） */
+  private readonly listeners = new Set<(event: MessageTraceEvent) => void>();
 
   constructor(capacity: number = DEFAULT_CAPACITY) {
     this.capacity = capacity;
@@ -89,6 +95,7 @@ class MessageTraceBufferImpl {
         stages: [],
       });
       this.order.push(trace.traceId);
+      this.emit('begin', this.traces.get(trace.traceId));
     } catch (err) {
       // @ignore-catch 可观测性缓冲写入失败不阻塞消息主流程
       logger.debug('trace begin 写入失败', { error: String(err) });
@@ -113,6 +120,7 @@ class MessageTraceBufferImpl {
         detail,
         durationMs,
       });
+      this.emit('stage', trace);
     } catch (err) {
       // @ignore-catch 可观测性缓冲写入失败不阻塞消息主流程
       logger.debug('trace addStage 写入失败', { error: String(err) });
@@ -132,6 +140,7 @@ class MessageTraceBufferImpl {
       trace.error = error;
       trace.finishedAtMs = Date.now();
       trace.totalMs = trace.finishedAtMs - trace.startedAtMs;
+      this.emit('finish', trace);
       // 入站监视 G2：终态落盘（best-effort，内部已 catch，不阻塞主流程）
       persistFinishedMessageTrace({ ...trace, status });
     } catch (err) {
@@ -143,6 +152,48 @@ class MessageTraceBufferImpl {
   /** 按 traceId 查询 */
   get(traceId: string): MessageTrace | undefined {
     return this.traces.get(traceId);
+  }
+
+  /**
+   * 订阅链路增量事件（入站监视 G4）；返回取消函数。
+   *
+   * 仅推送链路元数据（`contentPreview` 恒为空串），供 SSE 使用。
+   */
+  subscribe(listener: (event: MessageTraceEvent) => void): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  /**
+   * 扇出增量事件（O(订阅者数)）。
+   *
+   * 单个订阅者抛异常 ⇒ **只摘除该订阅者**，不影响其余订阅者与入站主流程。
+   */
+  private emit(
+    kind: MessageTraceEventKind,
+    trace: MessageTrace | undefined
+  ): void {
+    if (!trace || this.listeners.size === 0) return;
+    const event: MessageTraceEvent = {
+      kind,
+      trace: {
+        ...trace,
+        // 隐私边界：事件可能经 SSE 推到浏览器，正文不外发
+        contentPreview: '',
+        stages: trace.stages.map((stage) => ({ ...stage })),
+      },
+    };
+    for (const listener of [...this.listeners]) {
+      try {
+        listener(event);
+      } catch (err) {
+        // @ignore-catch 单个订阅者异常不得影响其他订阅者/入站主流程
+        this.listeners.delete(listener);
+        logger.debug('trace 订阅者异常，已摘除', { error: String(err) });
+      }
+    }
   }
 
   /** 最近列表（倒序：最新在前），可按渠道过滤 */

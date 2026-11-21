@@ -32,6 +32,8 @@ export type {
   MessageTraceStage,
   MessageTraceStatus,
   MessageTrace,
+  MessageTraceEventKind,
+  MessageTraceEvent,
   FinishedMessageTrace,
 } from './messageTraceTypes';
 // 入站监视 G2（2026-11-21）：终态链路持久化 + 历史查询

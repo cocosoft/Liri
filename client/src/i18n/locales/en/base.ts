@@ -452,6 +452,13 @@ const enBase = {
     pdcaSuggestHint:
       "Start PDCA stepwise orchestration for the {{count}} unfinished task(s)",
     pdcaStartFailed: "Failed to start orchestration (backend not responding)",
+    // 2026-11-21 (P2-1): turn ended but todo still has unfinished items
+    todoUnfinished: "Unfinished progress: {{count}} item(s) still open",
+    todoFinalize: "Ask assistant to wrap up",
+    todoFinalizeHint:
+      "Sends a wrap-up instruction: mark finished items completed and explain unfinished ones (no fake states)",
+    todoFinalizeNudge:
+      "Please wrap up the current task list: mark finished items as completed via todo_write; for unfinished items, explain why (do not mark them completed).",
     inputPlaceholder: "Type a message...",
     send: "Send",
     sessionHistory: "History",

@@ -184,6 +184,8 @@ import { abortSessionStream as abortSessionStreamImpl } from './manager/streamAb
 // issue #17 · D2 / D3（2026-10-29）：对话记忆抽取、按模型名选客户端外移
 import { extractMemoryFromChat as extractMemoryFromChatImpl } from './manager/memoryExtract';
 import { getClientForModel as getClientForModelImpl } from './manager/modelClient';
+// 2026-11-21：崩溃恢复的「在飞轮次」探针（事实源 = 事件日志；见模块注释）
+import { createTurnOpenProbe } from './manager/sessionStatusReconcile';
 // issue #17 · D4 / D5（2026-10-29）：会话管理器视图、待对账会话消费外移
 import { createSessionManagerFacade } from './manager/sessionManagerFacade';
 import {
@@ -803,6 +805,12 @@ export class ChatManagerImpl implements ChatManager {
     this.messageService = createMessageService();
     this.streamService = createStreamService();
     this.sessionGateway = createSessionGateway();
+    // 2026-11-21（真机 52 paused / 4 error）：崩溃恢复只应处理"真的被中断"的会话。
+    // `active` 的语义是"可继续对话"（一轮正常结束后不改），旧口径每次硬重启都会把所有
+    // 用过的会话标成 paused/error ⇒ 这里把「最后一个 turn 是否未闭合」接事件日志。
+    this.sessionGateway.setCrashRecoveryTurnProbe(
+      createTurnOpenProbe((sid) => this._eventLogStore.getOrCreateEventLog(sid))
+    );
     this.compactService = new CompactServiceImpl();
     this.hookChainManager = HookChainManager.getInstance();
     this._checkpointService = createCheckpointService(

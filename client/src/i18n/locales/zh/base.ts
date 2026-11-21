@@ -438,6 +438,13 @@ const zhBase = {
     pdcaSuggest: "任务较多？用编排分步推进",
     pdcaSuggestHint: "为当前 {{count}} 个未完成任务启动 PDCA 分步编排",
     pdcaStartFailed: "编排启动失败（后端未响应）",
+    // 2026-11-21（P2-1）：回合结束但 todo 仍有未完成项 ⇒ 明确提示 + 一键收尾
+    todoUnfinished: "进度未收尾：还有 {{count}} 项未完成",
+    todoFinalize: "让助手收尾",
+    todoFinalizeHint:
+      "发送一条收尾指令：已完成的标记 completed，未完成的说明原因（不会伪造状态）",
+    todoFinalizeNudge:
+      "请收尾当前任务清单：已完成的项调用 todo_write 标记为 completed；未完成的项说明原因（不要标为 completed）。",
     inputPlaceholder: "输入消息...",
     send: "发送",
     sessionHistory: "会话历史",

@@ -58,17 +58,36 @@ export interface CrashRecoveryResult {
 export interface CrashRecoveryConfig {
   storage: UnifiedSessionStorage;
   staleThresholdMs?: number;
+  /**
+   * 2026-11-21：「该会话最后一个 turn 是否仍未闭合」探针（事实源 = 事件日志，
+   * 由宿主注入）。缺省 ⇒ 沿用旧口径（ACTIVE/RUNNING + 有活动即视为可能被中断）。
+   *
+   * **为什么需要**：`active` 在本项目里的语义是"可继续对话"（见
+   * `resolveSessionStateAfterMessage`），一轮正常结束后不改状态 ⇒ 旧口径下每次**非优雅**
+   * 退出都会把所有用过的会话批量标成 paused/error（真机 52 paused + 4 error，逐条核对
+   * 轮次均已闭合）。
+   */
+  isTurnOpen?: (sessionId: string) => boolean | Promise<boolean>;
 }
 
 export class CrashRecoveryManager {
   private storage: UnifiedSessionStorage;
   private staleThresholdMs: number;
+  private isTurnOpen?: (sessionId: string) => boolean | Promise<boolean>;
   private initialized = false;
 
   constructor(config: CrashRecoveryConfig) {
     this.storage = config.storage;
     this.staleThresholdMs =
       config.staleThresholdMs ?? DEFAULT_STALE_THRESHOLD_MS;
+    this.isTurnOpen = config.isTurnOpen;
+  }
+
+  /** 注入 / 替换「在飞轮次」探针（宿主在事件日志就绪后调用；幂等） */
+  setTurnOpenProbe(
+    probe?: (sessionId: string) => boolean | Promise<boolean>
+  ): void {
+    this.isTurnOpen = probe;
   }
 
   async initialize(): Promise<void> {
@@ -90,7 +109,7 @@ export class CrashRecoveryManager {
     const now = Date.now();
 
     for (const session of sessions) {
-      if (!this.isInterruptibleSession(session)) {
+      if (!(await this.isInterruptibleSession(session))) {
         // P0-2（2026-11-05）：**空壳会话状态对账**。
         // `isInterruptibleSession` 对「从未有活动」的 ACTIVE 空壳返回 false（本意：别把闲置
         // 空壳批量转 paused/error），但这并不等于它可以长期对外呈现「运行中」——
@@ -141,7 +160,7 @@ export class CrashRecoveryManager {
     const session = await this.storage.getSession(sessionId);
     if (!session) return null;
 
-    if (!this.isInterruptibleSession(session)) {
+    if (!(await this.isInterruptibleSession(session))) {
       return {
         sessionId,
         action: 'skipped',
@@ -152,7 +171,12 @@ export class CrashRecoveryManager {
     return this.processSession(session, Date.now());
   }
 
-  private isInterruptibleSession(session: UnifiedSession): boolean {
+  /**
+   * 旧口径的基础判定（状态 + 活动痕迹 + 优雅关闭标记）。
+   * 优雅关闭时的 `cleanShutdown` 标记仍只看这三条 —— 标记是"下次别做崩溃恢复"的保险，
+   * 与"此刻是否有在飞轮次"无关，保持既有行为不变。
+   */
+  private isInterruptibleSessionBase(session: UnifiedSession): boolean {
     if (
       session.status !== SessionStatus.RUNNING &&
       session.status !== SessionStatus.ACTIVE
@@ -164,8 +188,25 @@ export class CrashRecoveryManager {
     // 避免每次应用启动把闲置/测试空壳批量转 paused/error。
     if (session.lastActivityAt <= session.createdAt) return false;
     // M4（2026-09-17）：上次优雅关闭的会话非崩溃中断，跳过崩溃恢复
-    if (isCleanShutdown(session)) return false;
-    return true;
+    return !isCleanShutdown(session);
+  }
+
+  private async isInterruptibleSession(
+    session: UnifiedSession
+  ): Promise<boolean> {
+    if (!this.isInterruptibleSessionBase(session)) return false;
+    // 2026-11-21：最后一个 turn 已闭合 ⇒ 不是"崩溃时正在跑"，不得改状态/发 paused 广播。
+    // 探针缺失 ⇒ 沿用旧口径；探针异常 ⇒ 保守当作"可能中断"（宁可多提示，不可漏掉真中断）。
+    if (!this.isTurnOpen) return true;
+    try {
+      return await this.isTurnOpen(session.id);
+    } catch (err) {
+      logger.warn('崩溃恢复：在飞轮次探针失败，按可能中断处理', {
+        sessionId: session.id,
+        error: String(err),
+      });
+      return true;
+    }
   }
 
   /**
@@ -177,7 +218,7 @@ export class CrashRecoveryManager {
     const sessions = await this.storage.listSessions();
     let marked = 0;
     for (const session of sessions) {
-      if (!this.isInterruptibleSession(session)) continue;
+      if (!this.isInterruptibleSessionBase(session)) continue;
       session.metadata = { ...session.metadata, [CLEAN_SHUTDOWN_MARKER]: true };
       await this.storage.updateSession(session);
       marked++;

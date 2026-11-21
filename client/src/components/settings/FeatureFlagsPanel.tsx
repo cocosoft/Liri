@@ -26,6 +26,10 @@ interface FeatureFlags {
   planSystemResume: boolean;
   /** 2026-11-16：重启后目标续接（后端 `GOAL_STARTUP_RESUME`，默认开） */
   goalStartupResume: boolean;
+  /** 2026-11-21：浏览器自动化（后端 `BROWSER`，默认关；开启后下一轮即可见） */
+  browser: boolean;
+  /** 2026-11-21：桌面自动化（后端 `COMPUTER_USE`，默认关；每次调用仍需审批） */
+  computerUse: boolean;
 }
 
 interface FeatureFlagsPanelProps {
@@ -136,6 +140,17 @@ function FeatureFlagsPanel({
       key: "goalStartupResume",
       labelKey: "settings.featuresGoalStartupResume",
       descriptionKey: "settings.featuresGoalStartupResumeDesc",
+    },
+    // 2026-11-21：两个高风险 GUI 工具（默认关；开启后下一轮即可见，无需重启）
+    {
+      key: "browser",
+      labelKey: "settings.featuresBrowser",
+      descriptionKey: "settings.featuresBrowserDesc",
+    },
+    {
+      key: "computerUse",
+      labelKey: "settings.featuresComputerUse",
+      descriptionKey: "settings.featuresComputerUseDesc",
     },
   ];
 

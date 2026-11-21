@@ -16,6 +16,8 @@ export type SessionEventType =
   | 'session:archived'
   | 'session:deleted'
   | 'session:expired'
+  /** 2026-11-21：审批卡过期（普通聊天会话收口到 idle；PDCA 走自己的 abort 路径） */
+  | 'session:approval_expired'
   | 'session:title_changed'
   | 'session:token_threshold'
   | 'session:error'

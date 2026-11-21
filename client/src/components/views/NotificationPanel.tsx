@@ -272,6 +272,10 @@ export default function NotificationPanel() {
   const hasMore = useNotificationStore((s) => s.hasMore);
   const readAll = useNotificationStore((s) => s.readAll);
   const readingAll = useNotificationStore((s) => s.readingAll);
+  // 2026-11-21（P1-2）：批量归档已过期通知（不批量批准）
+  const dismissExpired = useNotificationStore((s) => s.dismissExpired);
+  const clearingExpired = useNotificationStore((s) => s.clearingExpired);
+  const hasExpired = useNotificationStore((s) => s.hasExpired);
   const loadItems = useNotificationStore((s) => s.loadItems);
 
   const panelRef = useRef<HTMLDivElement>(null);
@@ -307,6 +311,9 @@ export default function NotificationPanel() {
       ? items
       : items.filter((i) => i.category === activeCategory);
 
+  /** 2026-11-21（P1-2）：「清理已过期」可见性由服务端探测决定（不按当前页推导） */
+  const showClearExpired = hasExpired;
+
   if (!panelOpen) return null;
 
   return (
@@ -332,6 +339,17 @@ export default function NotificationPanel() {
             {t("notification.title")}
           </h2>
           <div className="flex items-center gap-2">
+            {showClearExpired && (
+              <button
+                onClick={() => void dismissExpired()}
+                disabled={clearingExpired}
+                className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 disabled:opacity-40 font-medium px-2 py-1"
+              >
+                {clearingExpired
+                  ? t("notification.clearingExpired")
+                  : t("notification.clearExpired")}
+              </button>
+            )}
             <button
               onClick={readAll}
               disabled={readingAll || counts.total === 0}

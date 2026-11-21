@@ -1756,11 +1756,19 @@ export async function launch(options: LaunchOptions): Promise<void> {
         // findExistingTask 会把该会话的幂等键永久锁死（同会话新任务恒返回旧 taskId）。
         const { onInboxItemsExpired } =
           await import('@openliri/service/runtime/InboxManager');
-        const { abortPdcaAfterExpiry } =
-          await import('@openliri/service/runtime/inboxApproval');
+        const {
+          abortPdcaAfterExpiry,
+          convergeSessionAfterApprovalExpiry,
+          reconcileStuckApprovalSessions,
+        } = await import('@openliri/service/runtime/inboxApproval');
         onInboxItemsExpired((item) => {
           void abortPdcaAfterExpiry(item);
+          // 2026-11-21：普通聊天会话的审批过期 ⇒ 收口到 idle（否则侧栏永久「待审批」）
+          void convergeSessionAfterApprovalExpiry(item);
         });
+        // 2026-11-21（真机复验）：历史遗留「卡已过期但状态仍 requires_action」一次性对账 ——
+        // 收敛逻辑上线前过期的卡不会再触发上面的回调，徽标会永久挂住。
+        void reconcileStuckApprovalSessions();
         // 2b) U-02（2026-10-19）：重启自动续跑（**默认关**，`PDCA_AUTO_RESUME=true` 开启）。
         // 仅恢复扫描刚标记 abort 的崩溃遗留任务（phase 非终态），数量受
         // `PDCA_AUTO_RESUME_LIMIT`（默认 3）约束；失败保留 `/goal resume` 人工入口。

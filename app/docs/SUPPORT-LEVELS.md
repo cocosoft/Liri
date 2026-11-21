@@ -27,7 +27,7 @@
 | 面 | 总数 | core | community |
 |---|---:|---:|---:|
 | 消息通道 | 27 | 26 | 0 |
-| 内建工具 | 69 | 43 | 26 |
+| 内建工具 | 69 | 45 | 24 |
 
 ## 消息通道
 
@@ -72,13 +72,13 @@
 | `bash` | core | `app/tests/permission/bashPermissionInjection.test.ts`（测试文件名） |
 | `brief` | core | `app/tests/commands/briefCommand.test.ts`（测试文件名） |
 | `broadcast` | community | —（无专属测试） |
-| `browser` | community | —（无专属测试） |
+| `browser` | core | `app/tests/tools/browserTool.test.ts`（测试文件名） |
 | `browser_vision` | community | —（无专属测试） |
 | `canvas` | community | —（无专属测试） |
 | `channel` | core | `app/tests/channels/ChannelContract.test.ts`（测试文件名） |
 | `clipboard` | community | —（无专属测试） |
 | `code_run` | core | `app/tests/tools/codeRunnerLandlockConfig.test.ts`（测试文件名） |
-| `computer_use` | community | —（无专属测试） |
+| `computer_use` | core | `app/tests/tools/computerUseInputSafety.test.ts`（测试文件名） |
 | `config` | core | `app/tests/config/ConfigLayers.test.ts`（测试文件名） |
 | `create_project` | core | `app/tests/tools/createProjectIdentity.test.ts`（测试文件名） |
 | `cron` | core | `app/tests/chronos/cron.test.ts`（测试文件名） |

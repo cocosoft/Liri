@@ -68,6 +68,8 @@ function AppearancePanel({
         ? "en"
         : "zh";
     i18n.changeLanguage(i18nLang);
+    // 2026-11-21：同步 html[lang]（用完整 locale，而非内部 zh/en）
+    document.documentElement.lang = lang;
   };
 
   const currentThemeLabel = isDark ? t("settings.dark") : t("settings.light");

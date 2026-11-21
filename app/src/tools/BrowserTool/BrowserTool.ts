@@ -20,7 +20,18 @@ import {
   BrowserToolOutputSchema,
   BrowserToolOutputJsonSchema,
 } from './schemas';
-import { GOOGLE_HOME_URL } from '../searchSites.js';
+// P2（2026-11-21）：接真实现（Playwright + 系统 Chrome/Edge）；截图只回文件路径
+import {
+  getBrowserSessionDriver,
+  type BrowserDriverResult,
+  type BrowserSessionDriver,
+} from './PlaywrightDriver';
+import { saveScreenshotFile } from '@openliri/infra/utils/computerUse/screenshotStore';
+import {
+  describeToolGateDisabled,
+  isToolEnabledByGate,
+} from '../toolFeatureGate';
+import { analyzeImageBuffer } from '../visionAnalyze';
 const logger = getLogger('tools:BrowserTool:BrowserTool');
 
 /**
@@ -34,7 +45,11 @@ export interface BrowserToolInput {
     | 'fill_form'
     | 'navigate'
     | 'screenshot'
-    | 'get_tabs';
+    | 'get_tabs'
+    | 'get_content'
+    | 'back'
+    | 'reload'
+    | 'close';
   /** URL地址 */
   url?: string;
   /** 标签页ID */
@@ -45,6 +60,12 @@ export interface BrowserToolInput {
   form_data?: Record<string, string>;
   /** 操作文本 */
   text?: string;
+  /** screenshot 是否整页 */
+  full_page?: boolean;
+  /** get_content 截断上限 */
+  max_chars?: number;
+  /** screenshot 是否顺带视觉分析 */
+  analyze?: boolean;
 }
 
 /**
@@ -88,7 +109,7 @@ export class BrowserTool extends BaseTool<BrowserToolInput, BrowserToolOutput> {
       name: 'action',
       type: 'string',
       description:
-        '要执行的操作：open_tab、click、fill_form、navigate、screenshot、get_tabs',
+        '要执行的操作：open_tab、click、fill_form、navigate、screenshot、get_tabs、get_content、back、reload、close',
       required: true,
       enum: [
         'open_tab',
@@ -97,6 +118,10 @@ export class BrowserTool extends BaseTool<BrowserToolInput, BrowserToolOutput> {
         'navigate',
         'screenshot',
         'get_tabs',
+        'get_content',
+        'back',
+        'reload',
+        'close',
       ],
     },
     {
@@ -129,7 +154,42 @@ export class BrowserTool extends BaseTool<BrowserToolInput, BrowserToolOutput> {
       description: 'fill_form 操作的文本',
       required: false,
     },
+    {
+      name: 'full_page',
+      type: 'boolean',
+      description: 'screenshot 是否整页（默认 false）',
+      required: false,
+    },
+    {
+      name: 'max_chars',
+      type: 'number',
+      description: 'get_content 的正文截断上限（字符，默认 8000）',
+      required: false,
+    },
+    {
+      name: 'analyze',
+      type: 'boolean',
+      description:
+        'screenshot 是否顺带做视觉分析（默认 false ⇒ 只返回截图文件路径，不返回 base64）',
+      required: false,
+    },
   ];
+
+  /**
+   * 会话级驱动提供者（默认按 sessionId 复用进程内浏览器上下文）。
+   * 可注入是为了单测：无需真实浏览器即可覆盖动作映射 / 校验 / 错误分支。
+   */
+  constructor(
+    private readonly driverProvider: (
+      sessionId: string
+    ) => Pick<BrowserSessionDriver, 'execute'> = getBrowserSessionDriver
+  ) {
+    super();
+  }
+
+  private getDriver(sessionId: string): Pick<BrowserSessionDriver, 'execute'> {
+    return this.driverProvider(sessionId);
+  }
 
   override aliases = ['chrome', 'browser_automation', 'web'];
   override searchHint = 'Automate Chrome browser to interact with web pages';
@@ -137,7 +197,11 @@ export class BrowserTool extends BaseTool<BrowserToolInput, BrowserToolOutput> {
 
   override isReadOnly(input?: Record<string, unknown>): boolean {
     const action = (input?.action as string) || '';
-    return action === 'get_tabs' || action === 'screenshot';
+    return (
+      action === 'get_tabs' ||
+      action === 'screenshot' ||
+      action === 'get_content'
+    );
   }
 
   override isConcurrencySafe(): boolean {
@@ -152,6 +216,10 @@ export class BrowserTool extends BaseTool<BrowserToolInput, BrowserToolOutput> {
       'navigate',
       'screenshot',
       'get_tabs',
+      'get_content',
+      'back',
+      'reload',
+      'close',
     ];
 
     if (!input.action || !validActions.includes(input.action)) {
@@ -173,13 +241,23 @@ export class BrowserTool extends BaseTool<BrowserToolInput, BrowserToolOutput> {
       };
     }
 
+    if (input.action === 'click' && !input.selector) {
+      return {
+        result: false,
+        message: 'selector is required for click action',
+        errorCode: 3,
+      };
+    }
+
+    // 2026-11-21：fill_form 支持两种形态 —— 单个 selector + text，或 form_data 映射
     if (
-      (input.action === 'click' || input.action === 'fill_form') &&
-      !input.selector
+      input.action === 'fill_form' &&
+      !input.selector &&
+      !(input.form_data && Object.keys(input.form_data).length > 0)
     ) {
       return {
         result: false,
-        message: 'selector is required for click or fill_form action',
+        message: 'fill_form 需要 selector+text，或 form_data（{选择器: 值}）',
         errorCode: 3,
       };
     }
@@ -275,98 +353,35 @@ export class BrowserTool extends BaseTool<BrowserToolInput, BrowserToolOutput> {
       );
     }
 
+    // P2（2026-11-21）：功能开关关闭 ⇒ 明确拒绝（可见性已在出站定义处裁剪，这里兜底）
+    if (!isToolEnabledByGate(this.name)) {
+      const reason = describeToolGateDisabled(this.name);
+      return createToolResult(
+        { success: false, message: reason },
+        { success: false, error: reason }
+      );
+    }
+
+    const sessionId = context.sessionId ?? 'default';
     try {
-      // 模拟浏览器操作，实际实现需要与Chrome扩展通信
-      // 这里提供一个基础的模拟实现
-      let result: BrowserToolOutput;
+      const driver = this.getDriver(sessionId);
+      const result =
+        input.action === 'fill_form' && input.form_data
+          ? await this.fillForm(driver, input)
+          : await driver.execute(this.toDriverAction(input));
 
-      switch (input.action) {
-        case 'open_tab':
-          result = {
-            success: true,
-            message: `Opened new tab for ${input.url}`,
-            data: {
-              tab_id: `tab_${Date.now()}`,
-              url: input.url,
-            },
-          };
-          break;
-
-        case 'click':
-          result = {
-            success: true,
-            message: `Clicked element ${input.selector}`,
-            data: {
-              selector: input.selector,
-              timestamp: new Date().toISOString(),
-            },
-          };
-          break;
-
-        case 'fill_form':
-          result = {
-            success: true,
-            message: `Filled form ${input.selector}`,
-            data: {
-              selector: input.selector,
-              form_data: input.form_data,
-              text: input.text,
-            },
-          };
-          break;
-
-        case 'navigate':
-          result = {
-            success: true,
-            message: `Navigated to ${input.url}`,
-            data: {
-              url: input.url,
-              timestamp: new Date().toISOString(),
-            },
-          };
-          break;
-
-        case 'screenshot':
-          result = {
-            success: true,
-            message: `Took screenshot of tab ${input.tab_id || 'current'}`,
-            screenshot:
-              'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+P+/HgAFeAJ6ME3L9UAAAAABJRU5ErkJggg==',
-          };
-          break;
-
-        case 'get_tabs':
-          result = {
-            success: true,
-            message: 'Retrieved all tabs',
-            tabs: [
-              {
-                id: 'tab_1',
-                url: GOOGLE_HOME_URL,
-                title: 'Google',
-                active: true,
-              },
-              {
-                id: 'tab_2',
-                url: 'https://www.github.com',
-                title: 'GitHub',
-                active: false,
-              },
-            ],
-          };
-          break;
-
-        default:
-          result = {
-            success: false,
-            message: `Unknown action: ${input.action}`,
-          };
+      if (!result.success) {
+        const message = result.error ?? `浏览器操作失败：${input.action}`;
+        logger.warn('BrowserTool 操作失败', {
+          action: input.action,
+          error: message,
+        });
+        return createToolResult(
+          { success: false, message },
+          { success: false, error: message }
+        );
       }
-
-      return createToolResult(result, {
-        success: result.success,
-        output: result.message,
-      });
+      return await this.buildResult(input, result, sessionId);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       return createToolResult(
@@ -380,6 +395,123 @@ export class BrowserTool extends BaseTool<BrowserToolInput, BrowserToolOutput> {
         }
       );
     }
+  }
+
+  /** 对外动作 → 驱动动作（`fill_form` 由 {@link fillForm} 拆分） */
+  private toDriverAction(input: BrowserToolInput) {
+    return {
+      action:
+        input.action === 'fill_form'
+          ? ('fill' as const)
+          : (input.action as Exclude<BrowserToolInput['action'], 'fill_form'>),
+      url: input.url,
+      selector: input.selector,
+      value: input.text,
+      fullPage: input.full_page === true,
+      maxChars: input.max_chars,
+    };
+  }
+
+  /** `fill_form`：按 `form_data` 逐选择器填充；失败即返回首个失败原因 */
+  private async fillForm(
+    driver: Pick<BrowserSessionDriver, 'execute'>,
+    input: BrowserToolInput
+  ): Promise<BrowserDriverResult> {
+    const entries = Object.entries(input.form_data ?? {});
+    if (entries.length === 0) {
+      return {
+        success: false,
+        action: 'fill_form',
+        error: 'fill_form 需要 form_data（{选择器: 值}）或改用 click',
+        durationMs: 0,
+      };
+    }
+    let last: BrowserDriverResult = {
+      success: true,
+      action: 'fill_form',
+      durationMs: 0,
+    };
+    for (const [selector, value] of entries) {
+      const res = await driver.execute({ action: 'fill', selector, value });
+      if (!res.success) return res;
+      last = res;
+    }
+    return { ...last, action: 'fill_form' };
+  }
+
+  /** 统一出口：截图落盘（不返回 base64）、正文截断、标签页列表 */
+  private async buildResult(
+    input: BrowserToolInput,
+    result: BrowserDriverResult,
+    sessionId: string
+  ): Promise<ToolResult<BrowserToolOutput>> {
+    if (input.action === 'screenshot' && result.screenshot) {
+      const path = saveScreenshotFile(sessionId, result.screenshot, 'png');
+      const size = result.screenshot.length;
+      let message = `Screenshot saved: ${path} (${(size / 1024).toFixed(1)}KB)`;
+      const data: Record<string, unknown> = {
+        path,
+        size,
+        url: result.url,
+        title: result.title,
+      };
+      if (input.analyze === true) {
+        const analysis = await analyzeImageBuffer({
+          imageBuffer: result.screenshot,
+          prompt:
+            '这是一张网页截图。请用中文简洁说明页面主体内容与当前状态（含关键文字/按钮/报错）。',
+          mimeType: 'image/png',
+        });
+        data.analysis = analysis.text;
+        data.analyzed = analysis.ok;
+        message += `\n视觉分析${analysis.ok ? '' : '（失败）'}：${analysis.text}`;
+      }
+      return createToolResult(
+        { success: true, message, data, screenshot: path },
+        { success: true, output: message }
+      );
+    }
+
+    if (input.action === 'get_content') {
+      const content = result.content ?? '';
+      const message = `Page content (${content.length} chars, ${result.url ?? ''})\n${content}`;
+      return createToolResult(
+        {
+          success: true,
+          message,
+          data: { url: result.url, title: result.title, content },
+        },
+        { success: true, output: message }
+      );
+    }
+
+    if (input.action === 'get_tabs') {
+      const tabs = result.tabs ?? [];
+      const message = `Tabs (${tabs.length}):\n${tabs
+        .map(
+          (t) => `  - [${t.index}]${t.active ? '*' : ' '} ${t.title} — ${t.url}`
+        )
+        .join('\n')}`;
+      return createToolResult(
+        { success: true, message, tabs },
+        { success: true, output: message }
+      );
+    }
+
+    const message =
+      result.action === 'close'
+        ? 'Browser session closed'
+        : `${result.action} ok${result.title ? ` — ${result.title}` : ''}${
+            result.url ? ` (${result.url})` : ''
+          }`;
+    return createToolResult(
+      {
+        success: true,
+        message,
+        data: { url: result.url, title: result.title },
+      },
+      { success: true, output: message }
+    );
   }
 }
 

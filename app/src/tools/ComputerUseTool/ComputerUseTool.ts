@@ -12,6 +12,13 @@ import type {
   ScreenshotResult,
   MousePosition,
 } from '@openliri/infra/utils/computerUse/types';
+// P1（2026-11-21）：截图落盘（不把 base64 灌进上下文）+ 会话级清理
+import { saveScreenshotFile } from '@openliri/infra/utils/computerUse/screenshotStore';
+import {
+  describeToolGateDisabled,
+  isToolEnabledByGate,
+} from '../toolFeatureGate';
+import { analyzeImageBuffer } from '../visionAnalyze';
 
 import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:ComputerUseTool:ComputerUseTool');
@@ -54,10 +61,25 @@ export interface ComputerUseInput {
   deltaY?: number;
   quality?: number;
   durationMs?: number;
+  /**
+   * 截图类动作是否顺带做视觉分析（P1，默认 false）。
+   * `false` ⇒ 只回文件路径 + 尺寸；`true` ⇒ 走视觉模型返回文字结论（不返回 base64）。
+   */
+  analyze?: boolean;
 }
 
 export class ComputerUseTool extends BaseTool {
   name = TOOL_NAME_CONSTANTS.computer_use;
+
+  /**
+   * 适配器提供者（默认取平台单例）。
+   * 可注入是为了**单测**：无需真实桌面就能覆盖动作分派 / 参数校验 / 失败语义。
+   */
+  constructor(
+    private readonly adapterProvider: () => ComputerUseAdapter = getComputerUseAdapter
+  ) {
+    super();
+  }
 
   description =
     'Desktop automation tool supporting Windows, macOS and Linux. Supports screenshot, mouse control, keyboard input, clipboard access, and window/application management.';
@@ -157,6 +179,14 @@ export class ComputerUseTool extends BaseTool {
       required: false,
       default: 0.75,
     },
+    {
+      name: 'analyze',
+      type: 'boolean',
+      description:
+        'For screenshot/zoom: also analyze the image with the vision model (default false ⇒ return file path + size only, no base64).',
+      required: false,
+      default: false,
+    },
   ];
 
   override shouldDefer = false;
@@ -166,13 +196,17 @@ export class ComputerUseTool extends BaseTool {
    * 获取桌面自动化适配器实例
    */
   private getAdapter(): ComputerUseAdapter {
-    return getComputerUseAdapter();
+    return this.adapterProvider();
   }
 
   async execute(
     input: ComputerUseInput,
-    _context: ToolUseContext
+    context: ToolUseContext
   ): Promise<ToolResult> {
+    // P1（2026-11-21）：功能开关关闭时明确拒绝（可见性已在出站定义处裁剪，这里兜底）
+    if (!isToolEnabledByGate(this.name)) {
+      return { success: false, error: describeToolGateDisabled(this.name) };
+    }
     try {
       const adapter = this.getAdapter();
 
@@ -180,13 +214,13 @@ export class ComputerUseTool extends BaseTool {
         return {
           success: false,
           error:
-            'ComputerUse is only supported on Windows, macOS and Linux platforms',
+            'ComputerUse is only supported on Windows, macOS and Linux platforms（当前平台/适配器不可用）',
         };
       }
 
       switch (input.action) {
         case 'screenshot':
-          return await this.handleScreenshot(adapter, input);
+          return await this.handleScreenshot(adapter, input, context.sessionId);
         case 'mouseMove':
           return await this.handleMouseMove(adapter, input);
         case 'mouseClick':
@@ -212,7 +246,7 @@ export class ComputerUseTool extends BaseTool {
         case 'drag':
           return await this.handleDrag(adapter, input);
         case 'zoom':
-          return await this.handleZoom(adapter, input);
+          return await this.handleZoom(adapter, input, context.sessionId);
         case 'getClipboard':
           return await this.handleGetClipboard(adapter);
         case 'setClipboard':
@@ -244,29 +278,78 @@ export class ComputerUseTool extends BaseTool {
   }
 
   /**
-   * 处理截图操作
+   * 截图 → **落临时文件**（工具结果只给路径/尺寸/字节数，绝不回 base64）。
+   * `analyze=true` 时顺带走视觉模型，返回文字结论。
    */
   private async handleScreenshot(
     adapter: ComputerUseAdapter,
-    input: ComputerUseInput
+    input: ComputerUseInput,
+    sessionId?: string
   ): Promise<ToolResult> {
     const result: ScreenshotResult = await adapter.takeScreenshot({
       quality: input.quality ?? 0.75,
     });
+    return this.buildScreenshotResult(
+      result,
+      sessionId,
+      input.analyze === true
+    );
+  }
 
-    const base64 = result.data.toString('base64');
+  /**
+   * 截图结果统一构造：落盘 + （可选）视觉分析。
+   * 契约：**永不返回 base64** —— 大图 base64 会撑爆上下文。
+   */
+  private async buildScreenshotResult(
+    result: ScreenshotResult,
+    sessionId: string | undefined,
+    analyze: boolean,
+    extra?: Record<string, unknown>
+  ): Promise<ToolResult> {
     const size = result.data.length;
+    let path = '';
+    try {
+      path = saveScreenshotFile(
+        sessionId ?? '__nosession__',
+        result.data,
+        result.format
+      );
+    } catch (err) {
+      logger.warn('computerUse:截图落盘失败（仍返回尺寸信息）', {
+        error: String(err),
+      });
+    }
 
+    const data: Record<string, unknown> = {
+      format: result.format,
+      width: result.width,
+      height: result.height,
+      size,
+      path,
+      ...(extra ?? {}),
+    };
+    const baseOutput = `Screenshot captured: ${result.format}, ${result.width}x${result.height}, ${(size / 1024).toFixed(1)}KB${
+      path ? `, saved to ${path}` : '（落盘失败，仅返回尺寸）'
+    }`;
+
+    if (!analyze) {
+      return {
+        success: true,
+        data,
+        output: `${baseOutput}\n（如需看懂画面，重新调用并传 analyze=true；直接读这张图会消耗大量上下文）`,
+      };
+    }
+
+    const analysis = await analyzeImageBuffer({
+      imageBuffer: result.data,
+      prompt:
+        '这是一张桌面截图。请用中文简洁描述当前界面：前台是什么应用、可见的关键文字/按钮、是否有报错或对话框。',
+      mimeType: result.format === 'png' ? 'image/png' : 'image/jpeg',
+    });
     return {
       success: true,
-      data: {
-        format: result.format,
-        width: result.width,
-        height: result.height,
-        size,
-        base64,
-      },
-      output: `Screenshot captured: ${result.format}, ${result.width}x${result.height}, ${(size / 1024).toFixed(1)}KB`,
+      data: { ...data, analyzed: analysis.ok, analysis: analysis.text },
+      output: `${baseOutput}\n视觉分析${analysis.ok ? '' : '（失败）'}：${analysis.text}`,
     };
   }
 
@@ -572,11 +655,12 @@ export class ComputerUseTool extends BaseTool {
   }
 
   /**
-   * 处理区域截图（zoom 操作）
+   * 处理区域截图（zoom 操作）—— 同样只回路径/尺寸，可选视觉分析
    */
   private async handleZoom(
     adapter: ComputerUseAdapter,
-    input: ComputerUseInput
+    input: ComputerUseInput,
+    sessionId?: string
   ): Promise<ToolResult> {
     if (
       input.x === undefined ||
@@ -600,26 +684,19 @@ export class ComputerUseTool extends BaseTool {
       },
     });
 
-    const base64 = result.data.toString('base64');
-    const size = result.data.length;
-
-    return {
-      success: true,
-      data: {
-        format: result.format,
-        width: result.width,
-        height: result.height,
-        size,
-        base64,
+    return this.buildScreenshotResult(
+      result,
+      sessionId,
+      input.analyze === true,
+      {
         region: {
           x: input.x,
           y: input.y,
           width: input.deltaX,
           height: input.deltaY,
         },
-      },
-      output: `Region screenshot: (${input.x}, ${input.y}) ${input.deltaX}x${input.deltaY}, ${(size / 1024).toFixed(1)}KB`,
-    };
+      }
+    );
   }
 
   /**

@@ -74,6 +74,19 @@ export class SessionStateBridge {
       })
     );
 
+    // 2026-11-21：审批卡过期（未执行）⇒ 会话不再是「等待审批」，收口到 idle。
+    // 只由普通聊天会话发出；PDCA 步骤卡过期走 `abortPdcaAfterExpiry`，不会到这里。
+    this.subscriptions.push(
+      this.eventBus.on(
+        'session:approval_expired',
+        (event: SessionLifecycleEvent) => {
+          this.getSessionMachine(event.sessionId).complete(
+            event.reason ?? '审批已过期（未执行）'
+          );
+        }
+      )
+    );
+
     this.connected = true;
   }
 

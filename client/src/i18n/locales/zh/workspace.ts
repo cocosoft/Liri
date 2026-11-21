@@ -938,6 +938,9 @@ const zhWorkspace = {
     title: "消息中心",
     readingAll: "处理中...",
     readAll: "全部已读",
+    // 2026-11-21（P1-2）：批量归档已过期通知（不批量批准）
+    clearExpired: "清理已过期",
+    clearingExpired: "清理中...",
     emptyAll: "暂无通知",
     emptyCategory: "暂无{{category}}通知",
     loadMore: "加载更多",

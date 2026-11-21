@@ -185,53 +185,14 @@ export function isBaseCommandAllowed(baseCommand: string): boolean {
 }
 
 /**
- * A4（2026-10-09）：高能力解释器命令名集合。
+ * A4（2026-10-09）：高能力解释器命令名集合 + 判据。
  *
- * 这些命令**能执行任意代码**（`node -e` / `bun -e` / `python -c` / `npm exec` …），
- * 仅凭"在白名单内"不足以视为安全。灰度开关 `BASH_INTERPRETER_GUARD` 开启时，
- * 未批准的此类命令不自动放行，转人工确认（见 execute 内实现）。
+ * 2026-11-21：实体下沉到 `@openliri/infra/permission/commandPatterns`
+ * （service 层也要用「解释器 ⇒ 精确匹配」生成审批规则，不能反向 import app）。
+ * 本文件仅 re-export，既有调用方（`bashSecurityGate` 等）零改动。
  */
-export const HIGH_CAPABILITY_INTERPRETERS = new Set([
-  'node',
-  'bun',
-  'npm',
-  'npx',
-  'yarn',
-  'pnpm',
-  'deno',
-  'pwsh',
-  'powershell',
-  'python',
-  'python3',
-  'pip',
-  'pip3',
-]);
-
-/** 命令的基命令是否为高能力解释器（S1-5：入参为已归一化基命令名，口径同白名单） */
-export function isHighCapabilityInterpreter(baseCommand: string): boolean {
-  if (!baseCommand) return false;
-  return HIGH_CAPABILITY_INTERPRETERS.has(baseCommand);
-}
-
-/**
- * B3（2026-10-30，issue #37）：命令是否带**内联代码**开关（`-c` / `-e` / `--eval` /
- * `-Command` / `-EncodedCommand`）。
- *
- * 用途：`BASH_INTERPRETER_GUARD` 只应拦"能把任意代码作为字符串直接执行"的形态；
- * `node script.js`、`python -m pytest` 这类**文件/模块**调用不应被一律升级人工确认
- * （否则只读族也会被 ask 卡悬空）。
- */
-export function hasInlineCodeFlag(command: string): boolean {
-  if (!command) return false;
-  const flags = new Set([
-    '-c',
-    '-e',
-    '--eval',
-    '-command',
-    '-encodedcommand',
-    '-ec',
-  ]);
-  return command
-    .split(/\s+/)
-    .some((token) => flags.has(token.toLowerCase().replace(/^["']/, '')));
-}
+export {
+  HIGH_CAPABILITY_INTERPRETERS,
+  isHighCapabilityInterpreter,
+  hasInlineCodeFlag,
+} from '@openliri/infra/permission/commandPatterns';

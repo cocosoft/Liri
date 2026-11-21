@@ -419,6 +419,11 @@ export class NotificationPersistence {
     if (params.status) {
       conditions.push('status = ?');
       values.push(params.status);
+    } else {
+      // 2026-11-21（真机复验）：默认**不返回已归档项**。面板逐条 dismiss / 批量「清理已过期」
+      // 后本应消失，但原先默认列表仍返回 dismissed ⇒ 关闭再打开就"回流"。
+      // 需要查看归档时显式传 `status=dismissed`。
+      conditions.push("status != 'dismissed'");
     }
     if (params.priority) {
       conditions.push('priority = ?');

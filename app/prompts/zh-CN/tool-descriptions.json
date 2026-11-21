@@ -61,7 +61,7 @@
     "task_stop": "按其 ID 停止运行中的任务",
     "team_create": "创建一个新的多Agent swarm团队，用于协调多个Agent协作完成任务。",
     "team_delete": "解散一个swarm团队并清理相关资源。",
-    "todo_write": "管理待办事项列表以跟踪任务。创建、更新和完成待办事项。",
+    "todo_write": "管理待办事项列表以跟踪任务。创建、更新和完成待办事项。收尾要求：给出最终答复前，必须把已完成项置为 completed；未做项须显式说明原因；禁止在仍有 in_progress 项时直接结束。",
     "tool_search": "搜索工具。当需要使用的工具未出现在当前工具列表中（延迟加载，或因本轮任务裁剪而不可见）时，用此工具按关键词或 \"select:<tool_name>\" 查找。",
     "trace_recording": "查询 AI API 调用追踪记录和统计信息。可获取录制状态、统计数据、最近调用记录，以及导出追踪数据。",
     "tts": "Convert text to speech using neural voices. Supports multiple languages and voices for generating spoken audio output.",

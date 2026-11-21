@@ -23,6 +23,14 @@ import type {
 const SINGLE =
   'powershell -Command "Get-ChildItem C:\\ -Directory -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name"';
 
+/**
+ * FIX-15 回归（2026-11-21，真机 `session_mwpj4amge75a67ec4f` seq 3241）：
+ * 只读 PowerShell 包裹**不含 shell 操作符** ⇒ 旧实现落「未知命令 ⇒ ask」，
+ * 与内层 PowerShell 链的 allow 自相矛盾。委托必须优先于失败原因判定。
+ */
+const READ_ONLY_NO_OPERATOR =
+  'powershell -Command "(Get-Item \'C:\\\\tmp\\\\x.md\').Length"';
+
 const approvalScope: ApprovalScope = {
   platform: process.platform,
   cwd: process.cwd(),
@@ -116,6 +124,21 @@ describe('BashSecurityAnalyzer.analyze：委托选项', () => {
     });
     expect(r.behavior).toBe('allow');
     expect(r.matchedPatterns).toContain('powershell-wrapper-delegated');
+  });
+
+  it('无 shell 操作符的只读包裹：委托 ⇒ allow（未知命令分支不得二次否决）', () => {
+    const r = new BashSecurityAnalyzer().analyze(
+      READ_ONLY_NO_OPERATOR,
+      undefined,
+      { delegatedSinglePowerShell: true }
+    );
+    expect(r.behavior).toBe('allow');
+    expect(r.matchedPatterns).toContain('powershell-wrapper-delegated');
+  });
+
+  it('无 shell 操作符的只读包裹：未委托 ⇒ 仍 ask（不放宽默认口径）', () => {
+    const r = new BashSecurityAnalyzer().analyze(READ_ONLY_NO_OPERATOR);
+    expect(r.behavior).toBe('ask');
   });
 });
 

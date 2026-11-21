@@ -333,3 +333,49 @@ describe('内联 `<think>` 正文 ⇒ 归为 reasoning（不是 empty）', () =>
     expect(h.messages.length).toBe(0);
   });
 });
+
+/**
+ * 2026-11-21（P2-1 可选强制）：终稿已给出但 todo 仍有未完成项 ⇒ **一次性**收尾提醒。
+ *
+ * 真机 `session_mwpit6sk32d12fe50b`：6 步任务停在 `4/6`（最后一项 `in_progress`）。
+ * 语义边界：只提醒模型按真实情况收尾，不替它改状态；每轮至多 1 次，第二次放行防死循环。
+ */
+describe('P2-1：todo 未收尾的一次性 guard', () => {
+  const completeResult = (): ReasonResult<ToolLoopContext> => ({
+    text: '任务已完成。',
+    toolCalls: [],
+    finishReason: 'stop',
+  });
+
+  it('有未完成项 ⇒ 注入一次收尾提醒；第二次放行', async () => {
+    const h = makeDeps();
+    h.deps.getUnfinishedTodoCount = () => 2;
+
+    expect(await onIncompleteTurn(completeResult(), h.deps)).toBe(true);
+    expect(h.retries.todoFinalize).toBe(1);
+    expect(h.messages).toHaveLength(1);
+    expect(lastInstruction(h.messages)).toContain('未完成项');
+    // 2026-11-21 真机复验：第二轮正文与首轮拼接 ⇒ 指令必须明确禁止重复正文
+    expect(lastInstruction(h.messages)).toContain('不要重复');
+    // 收尾提醒不取代已交付正文（与 empty/planning 的"回捞"语义不同）
+    expect(h.flags.supersede).toBe(false);
+
+    expect(await onIncompleteTurn(completeResult(), h.deps)).toBe(false);
+    expect(h.messages).toHaveLength(1);
+  });
+
+  it('无未完成项 / 未提供读数 ⇒ 不注入（零行为）', async () => {
+    const zero = makeDeps();
+    zero.deps.getUnfinishedTodoCount = () => 0;
+    expect(await onIncompleteTurn(completeResult(), zero.deps)).toBe(false);
+    expect(zero.messages).toHaveLength(0);
+
+    const absent = makeDeps();
+    expect(await onIncompleteTurn(completeResult(), absent.deps)).toBe(false);
+    expect(absent.messages).toHaveLength(0);
+  });
+
+  it('初值含 todoFinalize=0（随 run 重置，防跨轮累积）', () => {
+    expect(INITIAL_INCOMPLETE_RETRIES.todoFinalize).toBe(0);
+  });
+});

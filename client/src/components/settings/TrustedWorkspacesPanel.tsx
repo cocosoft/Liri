@@ -27,6 +27,8 @@ interface PermissionConfig {
   mode: "default" | "strict" | "permissive";
   trustedWorkspaces: WorkspaceConfig[];
   customRules?: unknown;
+  /** 启动参数 `--trust-level` 的全局信任级别（只读展示，不在本页修改） */
+  defaultTrustLevel?: string;
 }
 
 interface TrustedWorkspacesPanelProps {
@@ -193,6 +195,20 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
             { value: "permissive", label: t("settings.wsModePermissive") },
           ]}
         />
+      </ConfigItem>
+
+      {/* 2026-11-21：全局信任级别（启动参数 --trust-level）只读展示。
+          该值由启动参数决定，写回配置会造成第二事实源 ⇒ 仅展示。 */}
+      <ConfigItem
+        label={t("settings.wsGlobalTrustLevel")}
+        description={t("settings.wsGlobalTrustLevelDesc")}
+        isDark={isDark}
+      >
+        <div className="text-sm text-gray-700 dark:text-gray-200">
+          {permission.defaultTrustLevel
+            ? `「${permission.defaultTrustLevel}」`
+            : t("settings.wsGlobalTrustLevelOff")}
+        </div>
       </ConfigItem>
 
       {/* 添加工作空间 */}

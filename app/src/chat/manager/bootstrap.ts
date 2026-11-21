@@ -505,6 +505,25 @@ export class ChatBootstrap {
           });
           continue;
         }
+
+        // 2026-11-21（真机重启复验）：检查点里仍有**待人工审批**的卡片 ⇒ 不自动续跑。
+        // 旧行为：续跑后模型会重新发起同一命令 ⇒ 又生成一张新审批卡（会话越积越多，
+        // 用户看到"怎么还有审批"）。审批是显式人工决策，必须等人处理后再继续。
+        const pendingApprovals = cp.inboxState?.pendingInboxItems?.length ?? 0;
+        if (pendingApprovals > 0) {
+          logger.info('Durable Resume: 跳过（检查点仍有待审批，等人工处理）', {
+            scope: scopeLabel,
+            sessionId: cp.sessionId,
+            checkpointId: cp.id,
+            pendingApprovals,
+          });
+          manager.emitProgress({
+            phase: 'skipped',
+            sessionId: cp.sessionId,
+            detail: `检查点仍有 ${pendingApprovals} 张待审批卡片，跳过自动恢复`,
+          });
+          continue;
+        }
         logger.info('Durable Resume: 恢复会话', {
           scope: scopeLabel,
           sessionId: cp.sessionId,

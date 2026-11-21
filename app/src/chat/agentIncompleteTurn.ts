@@ -57,6 +57,20 @@ const MALFORMED_TOOL_MARKUP_RETRY_INSTRUCTION =
   '因此没有执行任何工具。请改用**标准工具调用**重新发起同样的操作，不要在正文中书写工具调用标签。';
 
 /**
+ * 2026-11-21（P2-1 可选强制，一次性）：终稿已给出但 todo 仍有未完成项 ⇒ 收尾提醒。
+ *
+ * 真机实测（`session_mwpit6sk32d12fe50b`）：6 步任务最终只写 2 次 todo，最后一次停在第 5 项
+ * `in_progress` ⇒ 侧栏长期 `4/6`。本 guard **只提醒模型按真实情况收尾**，不替它改状态
+ * （不伪造 `completed`，D4 / CS02）；每轮至多 1 次，防死循环。
+ */
+const TODO_FINALIZE_INSTRUCTION =
+  '你的答复已经给出，但任务清单里仍有未完成项。请**按真实情况收尾**：' +
+  '① 已完成的项调用 todo_write 标记为 completed；' +
+  '② 未完成/放弃的项说明原因（不要标为 completed）；' +
+  '③ 若任务仍需继续，直接发起下一步工具调用；' +
+  '④ **不要重复已给出的正文/答案**，只用一两句话说明收尾状态。';
+
+/**
  * N-11（2026-11-06 真机长程任务）：空回复的**第 2 次**续接指令（升级版）。
  *
  * 真机证据（`session_mw4vwtmp38957bec2f` / `session_mw4xuwg25a18fa4e70`）：同一任务 3 轮里
@@ -135,6 +149,8 @@ export interface IncompleteRetries {
   truncated: number;
   /** 工具调用标记泄漏到正文（2026-11-06） */
   malformed: number;
+  /** 2026-11-21（P2-1）：终稿后仍留未完成 todo 的收尾提醒（每轮至多 1 次） */
+  todoFinalize: number;
 }
 
 /**
@@ -147,6 +163,7 @@ export const INITIAL_INCOMPLETE_RETRIES: IncompleteRetries = {
   planning: 0,
   truncated: 0,
   malformed: 0,
+  todoFinalize: 0,
 };
 
 export interface AgentIncompleteTurnDeps {
@@ -160,6 +177,11 @@ export interface AgentIncompleteTurnDeps {
   compactionStalled: boolean;
   consecutiveCompactNoEffect?: number;
   lastCompactRatio?: number;
+  /**
+   * 2026-11-21（P2-1）：当前未完成 todo 项数（读扩容快照）。
+   * 缺省 ⇒ 不启用收尾提醒（纯单测 / 无 todo 场景零行为）。
+   */
+  getUnfinishedTodoCount?: () => number;
   /** 本轮 LLM 输入消息（就地 push 续接指令） */
   messages: Record<string, unknown>[];
   /** 登记终止副作用 promise（供 `flushTerminalSettlement` await） */
@@ -243,7 +265,27 @@ export async function onIncompleteTurn(
     deps.lastRoundHadThinking || (rawText.length > 0 && text.length === 0);
 
   const kind = classifyIncompleteTurn(result, text, hadThinking);
-  if (!kind) return false;
+  if (!kind) {
+    // 2026-11-21（P2-1，一次性）：终稿看起来完整，但 todo 仍有未完成项 ⇒ 提醒收尾一次。
+    // 只提醒、不替模型改状态（不伪造 completed）；计数随 run 重置（INITIAL_INCOMPLETE_RETRIES）。
+    const unfinished = deps.getUnfinishedTodoCount?.() ?? 0;
+    if (unfinished > 0 && deps.incompleteRetries.todoFinalize < 1) {
+      deps.incompleteRetries.todoFinalize++;
+      deps.messages.push({
+        role: 'user',
+        content: renderFragment(
+          createFragment({ kind: 'system', text: TODO_FINALIZE_INSTRUCTION })
+        ),
+        [FRAGMENT_KIND_FIELD]: 'system',
+      } as Record<string, unknown>);
+      logger.info('reactToolLoop:todo_finalize_retry', {
+        sessionId: deps.sessionId,
+        unfinished,
+      });
+      return true;
+    }
+    return false;
+  }
   // R4（2026-09-16）：已注入强制收尾 steering（接近上限）后，截断输出**不再续接重发**——
   // 续接会用放大后的 maxTokens 重发并加剧上下文膨胀；此时直接取当前部分文本作为最终
   // 交付（收敛场景下"有残缺结论"优于"为求完整继续膨胀/空转"）。

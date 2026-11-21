@@ -64,7 +64,14 @@ export interface ResumeCandidate {
 
 /** 恢复进度事件 */
 export interface ResumeProgressEvent {
-  phase: 'scanning' | 'validating' | 'restoring' | 'injecting' | 'ready';
+  phase:
+    | 'scanning'
+    | 'validating'
+    | 'restoring'
+    | 'injecting'
+    | 'ready'
+    /** 2026-11-21：检查点仍有待审批 ⇒ 主动跳过（不自动续跑） */
+    | 'skipped';
   sessionId?: string;
   progress?: number;
   detail?: string;

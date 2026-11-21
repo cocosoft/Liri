@@ -11,12 +11,16 @@
  * 未注册时返回 `undefined`，消费方按「组合根不可用」降级（只留日志，不抛错）。
  */
 
+import type { SessionStatus } from '../../session/types/UnifiedSession.js';
 import type { AutoCompactServiceRefPort } from './compactPorts';
 import type { EmbeddingRefPort } from './embeddingPorts';
 import type { SessionCheckpointRefPort } from './sessionCheckpointPorts';
 
 /** 会话的最小结构（组合根侧的真实类型 `UnifiedSession` 可结构赋值过来） */
 export interface RuntimeSessionLike {
+  id?: string;
+  /** 2026-11-21：审批过期收口需要把持久化状态 `requires_action` 收回 `active` */
+  status?: SessionStatus;
   metadata?: object;
 }
 
@@ -24,6 +28,8 @@ export interface RuntimeSessionLike {
 export interface RuntimeSessionGatewayPort {
   getSession(id: string): Promise<RuntimeSessionLike | null | undefined>;
   updateSession(session: RuntimeSessionLike): Promise<void>;
+  /** 2026-11-21：启动期对账「卡已过期但状态仍 requires_action」的历史会话 */
+  listSessions?(): Promise<RuntimeSessionLike[]>;
 }
 
 /** PDCA 编排器的最小结构（恢复链只用 `resumeAfterApproval` / 拒绝时 `abort`） */

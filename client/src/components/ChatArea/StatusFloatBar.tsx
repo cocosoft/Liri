@@ -10,6 +10,8 @@ import {
 import type { TaskCardData } from "../../types";
 // 2026-09-25：任务卡快照取数抽为**单一来源**（本组件与 usePdcaStartEntry 共用）
 import { findLatestTaskCard } from "./taskCardSnapshot";
+// 2026-11-21（P2-1）：未完成判据与「用编排推进」入口同源（CS01 不另立状态集合）
+import { UNFINISHED_TASK_STATUSES } from "./usePdcaStartEntry";
 // 等待态可见性（2026-09-27 Spec `wait-state-visibility.md` D5/D6）：等待态并入浮动栏
 import type { WaitState } from "./useWaitState";
 // 2026-11-18（用户反馈「看不出你在运行，以为挂了」）：运行秒表 + 后端心跳年龄 + 停滞判定
@@ -184,6 +186,8 @@ export default function StatusFloatBar({
   const executionPhase = useChatStore((s) => s.executionPhase);
   const messages = useChatStore((s) => s.messages);
   const stopMessage = useChatStore((s) => s.stopMessage);
+  // 2026-11-21（P2-1）：一键「让助手收尾」复用既有发送链路（不伪造 todo 状态）
+  const sendMessage = useChatStore((s) => s.sendMessage);
   // 2026-11-18：只读接入后台正在运行的这一轮（Spec `.trae/specs/stream-attach.md` §6）
   const attachSessionStream = useChatStore((s) => s.attachSessionStream);
 
@@ -249,12 +253,49 @@ export default function StatusFloatBar({
     [messages, planTasks],
   );
 
+  /**
+   * 2026-11-21（P2-1）：回合已结束但进度仍是「x/y」⇒ 显式提示「进度未收尾」。
+   *
+   * 只提供**用户确认后的一次收尾请求**（发送一条指令给助手，由模型按真实情况更新 todo）；
+   * 后端/前端都**不**自动把 `in_progress` 改成 `completed`（D4：不伪造状态）。
+   */
+  const unfinishedCount = useMemo(
+    () =>
+      (taskCard?.tasks ?? []).filter((task) =>
+        UNFINISHED_TASK_STATUSES.has(task.status),
+      ).length,
+    [taskCard],
+  );
+  const [finalizing, setFinalizing] = useState(false);
+  const showTodoFinalizeHint =
+    unfinishedCount > 0 &&
+    !isActive &&
+    !isWaiting &&
+    !pendingApproval &&
+    !remoteStreaming &&
+    !pdca?.visible &&
+    !!sessionId;
+
+  const requestTodoFinalize = () => {
+    if (!sessionId || finalizing) return;
+    setFinalizing(true);
+    void sendMessage(t("chat.todoFinalizeNudge"), sessionId).finally(() =>
+      setFinalizing(false),
+    );
+  };
+
   // UI-2（U2-a 裁决，2026-09-23）：有活跃 PDCA 事件时浮动栏**常驻** —— PDCA 任务可在
   // 流结束后继续跑，原 ChatPdcaDrawer 的独立入口行正为此而常驻；并入浮动栏后
   // 若仍只在 isActive 时渲染，会**丢失空闲态入口**（回归）。
   // 「用编排推进」入口同理：空闲且仍有未完成 todo 时常驻（否则入口无处可点）。
   // 等待态（2026-09-27）：等待期同样常驻 —— 见 `keepVisible` 注释。
-  if (!keepVisible && !fadingOut && !pdca?.visible && !orchestrate?.visible)
+  if (
+    !keepVisible &&
+    !fadingOut &&
+    !pdca?.visible &&
+    !orchestrate?.visible &&
+    !showTodoFinalizeHint
+  )
     return null;
 
   /**
@@ -401,6 +442,12 @@ export default function StatusFloatBar({
               )}
               {/* 等待审批期间不展示「已完成 x/y」——它会被读成"任务结束" */}
               {taskCard && !pendingApproval && <TaskProgress data={taskCard} />}
+              {/* 2026-11-21（P2-1）：回合结束但仍有未完成项 ⇒ 明确说「未收尾」 */}
+              {showTodoFinalizeHint && (
+                <span className="ml-2 shrink-0 text-xs text-amber-600 dark:text-amber-400">
+                  {t("chat.todoUnfinished", { count: unfinishedCount })}
+                </span>
+              )}
             </div>
 
             {/* 2026-11-18：后端仍在跑、本页未接入 ⇒ 提供**只读**「接入」入口
@@ -441,6 +488,30 @@ export default function StatusFloatBar({
                 <span>🧭</span>
                 <span className="truncate max-w-[12rem]">
                   {t("chat.pdcaSuggest")}
+                </span>
+              </button>
+            )}
+
+            {/* 2026-11-21（P2-1）：一键「让助手收尾」—— 发送一条收尾指令，由模型按真实
+                情况更新 todo（不自动改状态；用户点击即确认） */}
+            {showTodoFinalizeHint && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  requestTodoFinalize();
+                }}
+                disabled={finalizing}
+                aria-label={t("chat.todoFinalize")}
+                title={t("chat.todoFinalizeHint")}
+                className={`shrink-0 flex items-center gap-1 px-2 py-0.5 text-xs rounded-md transition-colors ${
+                  finalizing
+                    ? "text-gray-400 dark:text-gray-500 cursor-default"
+                    : "text-amber-600 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/30"
+                }`}
+              >
+                <span>✓</span>
+                <span className="truncate max-w-[8rem]">
+                  {t("chat.todoFinalize")}
                 </span>
               </button>
             )}

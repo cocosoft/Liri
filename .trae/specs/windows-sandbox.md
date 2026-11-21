@@ -2,6 +2,8 @@
 
 > 版本 1.0 ｜ 日期 2026-10-26 ｜ 状态：**方案定稿，按此执行**
 > 关联：[`macos-sandbox-exec.md`](./macos-sandbox-exec.md)（同一档"OS 级兜底"，先例与口径复用）
+> 上游依赖（2026-11-21 登记）：[`real-machine-governance-remediation.md`](./real-machine-governance-remediation.md)
+> —— 该方案的 P2-3 只做「不参与判定」的只读披露对齐；**审批过期状态收敛（P1-2）不依赖本沙箱**，已先行落地。
 
 ---
 

@@ -90,6 +90,18 @@ export const notificationService = {
     return unwrap(res, "NOTIF_DISMISS");
   },
 
+  /** PATCH /v1/notifications/batch — 批量标记（read / dismissed） */
+  batch: async (
+    ids: string[],
+    status: "read" | "dismissed",
+  ): Promise<{ updatedCount: number }> => {
+    const res = await http.patch<{ updatedCount: number }>(
+      ENDPOINTS.notifications.batch,
+      { ids, status },
+    );
+    return unwrap(res, "NOTIF_BATCH");
+  },
+
   /** DELETE /v1/notifications/:id */
   delete: async (id: string): Promise<{ success: boolean }> => {
     const res = await http.delete<{ success: boolean }>(

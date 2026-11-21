@@ -289,6 +289,7 @@
     "mammoth": "^1.12.0",
     "outlook-email-parser": "^2.0.0",
     "pdfjs-dist": "^5.7.284",
+    "playwright-core": "^1.65.1",
     "react": "^19.2.5",
     "react-reconciler": "^0.33.0",
     "sharp": "^0.34.5",

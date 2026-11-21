@@ -648,7 +648,9 @@ function SettingsPage() {
               }
               className="px-3 py-1.5 text-xs rounded-lg border transition-colors border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
             >
-              {viewMode === "simple" ? "高级设置" : "简单模式"}
+              {viewMode === "simple"
+                ? t("settings.advancedMode")
+                : t("settings.simpleMode")}
             </button>
           </div>
         </div>
@@ -804,6 +806,9 @@ function SettingsPage() {
                       planStartupResume: true,
                       planSystemResume: true,
                       goalStartupResume: true,
+                      // 2026-11-21：两个 GUI 工具后端默认 `false`（高风险）⇒ 设置页如实显示"关"
+                      browser: false,
+                      computerUse: false,
                       // 合并而非整体替换：`config.features` 缺键时保留上述默认
                       ...((config.features as Record<string, unknown>) || {}),
                     }) as unknown as Parameters<

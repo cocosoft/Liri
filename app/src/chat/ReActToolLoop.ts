@@ -569,16 +569,10 @@ export class ReActToolLoop extends ReActLoop<
     this.toolTurnBudget._publishToolTurnBudget();
   }
 
-  /** 长任务信号（实现见 `toolTurnBudget`） */
-  private _isLongTaskSignal(): boolean {
-    return this.toolTurnBudget._isLongTaskSignal();
-  }
-
   /**
    * 长任务信号（公开读数，供宿主做**运行中分流**判定 —— D3，2026-09-25）。
-   *
-   * 纯读数、无副作用；宿主（`streamMessageFlow` → `ChatManager`）据此决定是否按**既有**升级
-   * 通道把任务接给 PDCA 编排（闸门见 `chat/longTaskEscalation.ts`）。
+   * 纯读数、无副作用；宿主（`streamMessageFlow` → `ChatManager`）据此决定是否走既有升级通道接
+   * PDCA 编排（闸门见 `chat/longTaskEscalation.ts`）。
    */
   getLongTaskSignal(): {
     isLongTask: boolean;
@@ -1519,6 +1513,9 @@ export class ReActToolLoop extends ReActLoop<
       compactionStalled: this.isCompactionStalled(),
       consecutiveCompactNoEffect: this.loopState.consecutiveCompactNoEffect,
       lastCompactRatio: this.loopState.lastCompactRatio,
+      // 2026-11-21（P2-1）：终稿后仍留未完成 todo ⇒ 一次性收尾提醒（读扩容快照，纯读数）
+      getUnfinishedTodoCount: () =>
+        this.toolTurnBudget.getLongTaskSignal().pendingTodoCount,
       messages: this.loopState.messages,
       setTerminalSettle: (promise) => {
         this._terminalSettle = promise;
@@ -1862,7 +1859,7 @@ export class ReActToolLoop extends ReActLoop<
       iteration: this.state.iteration,
       maxIterations: this.config.maxIterations,
       maxIterationsSummary: this.loopState.maxIterationsSummary,
-      isLongTaskSignal: this._isLongTaskSignal(),
+      isLongTaskSignal: this.toolTurnBudget._isLongTaskSignal(),
       loopDetected: this.loopState.loopDetected,
       lastBudgetExhausted: this._lastBudgetExhausted,
       lastError: this.state.lastError,

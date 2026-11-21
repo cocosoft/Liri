@@ -27,6 +27,8 @@ import * as fs from 'fs';
 
 import { handleError } from '@openliri/kernel/errorHandler';
 import { getLogger } from '@openliri/kernel/loggerFacade';
+// 2026-11-21（P0）：数字入参范围校验（几何参数会拼进命令行参数）
+import { requireInt, requireNumber } from './safety';
 const logger = getLogger('utils:computerUse:LinuxAdapter');
 
 const execAsync = promisify(execFile);
@@ -101,9 +103,23 @@ export class LinuxComputerUseAdapter implements ComputerUseAdapter {
   }
 
   async takeScreenshot(options?: ScreenshotOptions): Promise<ScreenshotResult> {
-    const quality = options?.quality ?? 0.75;
-    const region = options?.region;
-    const displayId = options?.displayId ?? 0;
+    // P0：质量 / 区域 / 屏幕号必须是有界数字（会拼进 ImageMagick 几何参数）
+    const quality = requireNumber(options?.quality ?? 0.75, 'quality', {
+      min: 0.01,
+      max: 1,
+    });
+    const region = options?.region
+      ? {
+          x: requireInt(options.region.x, 'region.x', { min: -100_000, max: 100_000 }),
+          y: requireInt(options.region.y, 'region.y', { min: -100_000, max: 100_000 }),
+          width: requireInt(options.region.width, 'region.width', { min: 1, max: 100_000 }),
+          height: requireInt(options.region.height, 'region.height', { min: 1, max: 100_000 }),
+        }
+      : undefined;
+    const displayId = requireInt(options?.displayId ?? 0, 'displayId', {
+      min: 0,
+      max: 31,
+    });
 
     // 使用 ImageMagick 的 import 命令截图到 stdout（JPEG 格式）
     const tmpFile = `/tmp/liri_screenshot_${Date.now()}.jpg`;
@@ -268,11 +284,10 @@ export class LinuxComputerUseAdapter implements ComputerUseAdapter {
 
     switch (action.type) {
       case 'move': {
-        await this.execCommand('xdotool', [
-          'mousemove',
-          String(action.x),
-          String(action.y),
-        ]);
+        // P0：坐标必须是有限整数（`String(x)` 会原样进 xdotool 参数）
+        const x = requireInt(action.x, 'x', { min: -100_000, max: 100_000 });
+        const y = requireInt(action.y, 'y', { min: -100_000, max: 100_000 });
+        await this.execCommand('xdotool', ['mousemove', String(x), String(y)]);
         break;
       }
       case 'click': {

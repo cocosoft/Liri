@@ -19,6 +19,15 @@ import type {
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 
+// 2026-11-21（P0 / S1–S3）：文本一律 base64 注入、按键走白名单、数字走范围校验
+import {
+  buildSendKeysCombination,
+  psBase64Expression,
+  requireInt,
+  requireNumber,
+  toSendKeysToken,
+} from './safety';
+
 import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('utils:computerUse:WindowsAdapter');
 
@@ -80,8 +89,19 @@ export class WindowsComputerUseAdapter implements ComputerUseAdapter {
   }
 
   async takeScreenshot(options?: ScreenshotOptions): Promise<ScreenshotResult> {
-    const quality = options?.quality ?? 0.75;
-    const region = options?.region;
+    // P0：质量与区域必须是有界数字（否则会以字符串形式进 PowerShell 脚本）
+    const quality = requireNumber(options?.quality ?? 0.75, 'quality', {
+      min: 0.01,
+      max: 1,
+    });
+    const region = options?.region
+      ? {
+          x: requireInt(options.region.x, 'region.x', { min: -100_000, max: 100_000 }),
+          y: requireInt(options.region.y, 'region.y', { min: -100_000, max: 100_000 }),
+          width: requireInt(options.region.width, 'region.width', { min: 1, max: 100_000 }),
+          height: requireInt(options.region.height, 'region.height', { min: 1, max: 100_000 }),
+        }
+      : undefined;
     const displayId = options?.displayId ?? 0;
 
     let script: string;
@@ -320,9 +340,13 @@ export class WindowsComputerUseAdapter implements ComputerUseAdapter {
 
   async launchApp(bundleIdOrPath: string): Promise<boolean> {
     try {
-      await this.runPowerShell(`Start-Process '${bundleIdOrPath}'`);
+      // P0（S1）：路径 / AppID 经 base64 注入（无字符串插值）⇒ 含 `'` 也无法跳出 PowerShell
+      await this.runPowerShell(
+        `Start-Process -FilePath (${psBase64Expression(bundleIdOrPath)})`
+      );
       return true;
-    } catch {
+    } catch (err) {
+      logger.warn('computerUse:launchApp 失败', { error: String(err) });
       return false;
     }
   }
@@ -340,7 +364,8 @@ export class WindowsComputerUseAdapter implements ComputerUseAdapter {
             [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
           }
 "@
-        $hwnd = [Win32]::FindWindow([nullstring]::value, '${_bundleId}')
+        $windowName = ${psBase64Expression(_bundleId)}
+        $hwnd = [Win32]::FindWindow([NullString]::value, $windowName)
         if ($hwnd -ne [IntPtr]::Zero) {
           [Win32]::ShowWindow($hwnd, 9)  # SW_RESTORE
           [Win32]::SetForegroundWindow($hwnd) | Out-Null
@@ -351,7 +376,8 @@ export class WindowsComputerUseAdapter implements ComputerUseAdapter {
       `;
       const { stdout } = await this.runPowerShell(script);
       return stdout.trim() === 'True';
-    } catch {
+    } catch (err) {
+      logger.warn('computerUse:activateApp 失败', { error: String(err) });
       return false;
     }
   }
@@ -379,11 +405,15 @@ export class WindowsComputerUseAdapter implements ComputerUseAdapter {
           : '0x0004';
 
     switch (action.type) {
-      case 'move':
+      case 'move': {
+        // P0：坐标必须是有限整数（JSON 传字符串不得进脚本）
+        const x = requireInt(action.x, 'x', { min: -100_000, max: 100_000 });
+        const y = requireInt(action.y, 'y', { min: -100_000, max: 100_000 });
         return `
           Add-Type -AssemblyName System.Windows.Forms
-          [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(${action.x}, ${action.y})
+          [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(${x}, ${y})
         `;
+      }
       case 'click':
         return `
           Add-Type -AssemblyName System.Windows.Forms
@@ -424,11 +454,17 @@ export class WindowsComputerUseAdapter implements ComputerUseAdapter {
           Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern void mouse_event(int dwFlags, int dx, int dy, int dwData, int dwExtraInfo);' -Name Mouse -Namespace Win32
           [Win32.Mouse]::mouse_event(${buttonUpCode}, 0, 0, 0, 0)
         `;
-      case 'scroll':
+      case 'scroll': {
+        // P0：滚动量必须是有限整数
+        const delta = requireInt(action.deltaY ?? 0, 'deltaY', {
+          min: -10_000,
+          max: 10_000,
+        });
         return `
           Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern void mouse_event(int dwFlags, int dx, int dy, int dwData, int dwExtraInfo);' -Name Mouse -Namespace Win32
-          [Win32.Mouse]::mouse_event(0x0800, 0, 0, ${action.deltaY ? -action.deltaY * 120 : 0}, 0)
+          [Win32.Mouse]::mouse_event(0x0800, 0, 0, ${delta ? -delta * 120 : 0}, 0)
         `;
+      }
       default:
         return '';
     }
@@ -456,103 +492,52 @@ export class WindowsComputerUseAdapter implements ComputerUseAdapter {
         return '';
       case 'keyPress':
         if (action.key) {
+          // P0（S3）：按键名走白名单，未知按键直接抛错（不再原样拼进 SendWait）
+          const token = toSendKeysToken(action.key);
           return `
             Add-Type -AssemblyName System.Windows.Forms
-            [System.Windows.Forms.SendKeys]::SendWait('{${action.key.toUpperCase()}}')
+            [System.Windows.Forms.SendKeys]::SendWait('{${token}}')
           `;
         }
         return '';
       case 'keyCombination': {
-        // 支持组合键语法如 "ctrl+c", "alt+tab", "ctrl+shift+esc"
+        // 支持组合键语法如 "ctrl+c", "alt+tab", "ctrl+shift+esc"（修饰键与主键均走白名单）
         if (!action.key) return '';
-        const parts = action.key.toLowerCase().split('+');
-        const modifiers = parts.slice(0, -1);
-        const mainKey = parts[parts.length - 1];
-
-        // 将修饰键映射为 SendKeys 前缀
-        let prefix = '';
-        for (const mod of modifiers) {
-          switch (mod) {
-            case 'ctrl':
-            case 'control':
-              prefix += '^';
-              break;
-            case 'alt':
-              prefix += '%';
-              break;
-            case 'shift':
-              prefix += '+';
-              break;
-            case 'win':
-            case 'windows':
-            case 'meta':
-              prefix += '^'; // 退化为 Ctrl（Windows 兼容）
-              break;
-          }
-        }
-
-        // 特殊键映射（功能键、方向键等）
-        const keyMap: Record<string, string> = {
-          enter: '{ENTER}',
-          tab: '{TAB}',
-          esc: '{ESC}',
-          escape: '{ESC}',
-          backspace: '{BACKSPACE}',
-          delete: '{DELETE}',
-          home: '{HOME}',
-          end: '{END}',
-          up: '{UP}',
-          down: '{DOWN}',
-          left: '{LEFT}',
-          right: '{RIGHT}',
-          pageup: '{PGUP}',
-          pagedown: '{PGDN}',
-          space: ' ',
-          f1: '{F1}',
-          f2: '{F2}',
-          f3: '{F3}',
-          f4: '{F4}',
-          f5: '{F5}',
-          f6: '{F6}',
-          f7: '{F7}',
-          f8: '{F8}',
-          f9: '{F9}',
-          f10: '{F10}',
-          f11: '{F11}',
-          f12: '{F12}',
-        };
-
-        const mappedKey = keyMap[mainKey] || mainKey.toUpperCase();
-
         return `
           Add-Type -AssemblyName System.Windows.Forms
-          [System.Windows.Forms.SendKeys]::SendWait('${prefix}${mappedKey}')
+          [System.Windows.Forms.SendKeys]::SendWait('${buildSendKeysCombination(action.key)}')
         `;
       }
       case 'keyDown':
         if (action.key) {
+          const token = toSendKeysToken(action.key);
           return `
             Add-Type -AssemblyName System.Windows.Forms
-            [System.Windows.Forms.SendKeys]::SendWait('{${action.key.toUpperCase()} down}')
+            [System.Windows.Forms.SendKeys]::SendWait('{${token} down}')
           `;
         }
         return '';
       case 'keyUp':
         if (action.key) {
+          const token = toSendKeysToken(action.key);
           return `
             Add-Type -AssemblyName System.Windows.Forms
-            [System.Windows.Forms.SendKeys]::SendWait('{${action.key.toUpperCase()} up}')
+            [System.Windows.Forms.SendKeys]::SendWait('{${token} up}')
           `;
         }
         return '';
       case 'keyHold':
         if (action.key) {
-          const ms = action.durationMs ?? 500;
+          const token = toSendKeysToken(action.key);
+          const ms = requireInt(action.durationMs ?? 500, 'durationMs', {
+            min: 1,
+            max: 60_000,
+          });
           return `
             Add-Type -AssemblyName System.Windows.Forms
-            [System.Windows.Forms.SendKeys]::SendWait('{${action.key.toUpperCase()} down}')
+            [System.Windows.Forms.SendKeys]::SendWait('{${token} down}')
             Start-Sleep -Milliseconds ${ms}
-            [System.Windows.Forms.SendKeys]::SendWait('{${action.key.toUpperCase()} up}')
+            [System.Windows.Forms.SendKeys]::SendWait('{${token} up}')
           `;
         }
         return '';

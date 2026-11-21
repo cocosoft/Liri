@@ -25,6 +25,8 @@
  */
 
 import type { ToolDefinition } from '@modules/ai';
+// 2026-11-21：工具级功能开关（browser / computer_use）在出站定义处裁剪
+import { isToolEnabledByGate } from './toolFeatureGate';
 
 /** OpenAI 兼容 `tools[].function.name` 允许的字符集 */
 const WIRE_SAFE_PATTERN = /^[a-zA-Z0-9_-]+$/;
@@ -66,23 +68,27 @@ export interface ToolSchemaLike {
 export function buildToolDefinitions(
   schemas: readonly ToolSchemaLike[]
 ): ToolDefinition[] {
-  return schemas.map((schema) => ({
-    type: 'function' as const,
-    function: {
-      // wire codec：出站必须用 wire 安全名。OpenAI 兼容 `tools[].function.name` 只接受
-      // `^[a-zA-Z0-9_-]+$`（禁冒号）——原样下发冒号命名空间工具（`calendar:add` /
-      // `office:workflow` / `mail:send`）会被 provider 以 400 拒绝
-      // （`Invalid 'tools[N].function.name'…`）⇒ `chunkCount:0` ⇒ 走空回复兜底
-      // ⇒ 用户感知「长程任务中断」。入站由 `ToolRegistry.resolveRegisteredName()` 回真名。
-      name: toWireToolName(schema.name),
-      description: schema.description ?? '',
-      parameters: {
-        type: 'object' as const,
-        properties:
-          (schema.input_schema as { properties?: unknown })?.properties || {},
-        required:
-          (schema.input_schema as { required?: string[] })?.required || [],
+  // 2026-11-21：工具级功能开关在**每次构造出站定义时**求值（唯一裁剪点）——
+  // 注册只发生一次，若在注册期裁剪则"打开开关需重启"；验收要求"下一轮即可见"。
+  return schemas
+    .filter((schema) => isToolEnabledByGate(schema.name))
+    .map((schema) => ({
+      type: 'function' as const,
+      function: {
+        // wire codec：出站必须用 wire 安全名。OpenAI 兼容 `tools[].function.name` 只接受
+        // `^[a-zA-Z0-9_-]+$`（禁冒号）——原样下发冒号命名空间工具（`calendar:add` /
+        // `office:workflow` / `mail:send`）会被 provider 以 400 拒绝
+        // （`Invalid 'tools[N].function.name'…`）⇒ `chunkCount:0` ⇒ 走空回复兜底
+        // ⇒ 用户感知「长程任务中断」。入站由 `ToolRegistry.resolveRegisteredName()` 回真名。
+        name: toWireToolName(schema.name),
+        description: schema.description ?? '',
+        parameters: {
+          type: 'object' as const,
+          properties:
+            (schema.input_schema as { properties?: unknown })?.properties || {},
+          required:
+            (schema.input_schema as { required?: string[] })?.required || [],
+        },
       },
-    },
-  }));
+    }));
 }

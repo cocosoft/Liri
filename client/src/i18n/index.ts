@@ -36,4 +36,15 @@ i18n.use(initReactI18next).init({
   },
 });
 
+/** i18n 语言码（zh/en）→ 文档语言标签（zh-CN/en-US） */
+function toDocumentLang(lng: string): string {
+  return lng.startsWith("en") ? "en-US" : "zh-CN";
+}
+
+/** 2026-11-21：html[lang] 必须跟随界面语言（此前恒为 zh-CN，屏幕阅读器/翻译工具会误判） */
+i18n.on("languageChanged", (lng) => {
+  document.documentElement.lang = toDocumentLang(lng);
+});
+document.documentElement.lang = toDocumentLang(i18n.language || "zh");
+
 export default i18n;

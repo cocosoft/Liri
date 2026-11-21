@@ -322,4 +322,28 @@ describe("EventBasedStreamAggregator — M3-1", () => {
       expect(events[i].seq).toBeGreaterThan(events[i - 1].seq);
     }
   });
+
+  /**
+   * 2026-11-21 根因回归（真机块文本空白丢失）：
+   * 原判据 `stripped.trim() === ""` 会把**纯空白正文帧**当空帧丢弃 —— provider 按 token/行分片时，
+   * 空行与中英文间空格恰好落在独立分片 ⇒ 派生块被压平（`## 标题` → `##标题`、围栏闭合行被吞）。
+   * 语义边界：只丢「含审批提示且剥离后为空」的帧；纯空白是正文结构，必须逐字保留。
+   */
+  it("纯空白 text chunk 必须保留（换行 / 空格是正文结构）", () => {
+    agg.init([], SID);
+    agg.appendChunk(chunk("text", "##"));
+    agg.appendChunk(chunk("text", " "));
+    agg.appendChunk(chunk("text", "标题"));
+    agg.appendChunk(chunk("text", "\n\n"));
+    agg.appendChunk(chunk("text", "- 中文 项"));
+    agg.appendChunk(chunk("text", "\n\n```\nhello world\n```"));
+
+    const texts = agg
+      .getEvents()
+      .filter((e) => e.type === "assistant/text")
+      .map((e) => (e.data as { content: string }).content);
+    expect(texts.join("")).toBe(
+      "## 标题\n\n- 中文 项\n\n```\nhello world\n```",
+    );
+  });
 });

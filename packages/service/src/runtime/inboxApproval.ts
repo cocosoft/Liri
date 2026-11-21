@@ -14,6 +14,11 @@
 
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
+// 2026-11-21：命令级免审批的 `contentPattern` 生成下沉到 infra（解释器 ⇒ 精确匹配）
+import {
+  buildCommandContentPattern,
+  escapeRegExp,
+} from '@openliri/infra/permission/commandPatterns';
 import {
   inboxManager,
   INBOX_STATUS_PENDING,
@@ -42,6 +47,8 @@ import {
   APPROVAL_RESUME_IDLE_POLL_MS,
   APPROVAL_RESUME_IDLE_WAIT_MS,
 } from './defaults.js';
+// 2026-11-21：审批过期收口需要写持久化会话状态（`requires_action` → `active`）
+import { SessionStatus } from '../session/types/UnifiedSession.js';
 // N-17（2026-11-07）：审批续跑的同会话在飞合并（消除多卡连批时的互斥超时）
 import { createResumeCoalescer } from './resumeCoalescer.js';
 import { getRuntimeCoreApi } from './api/coreApiProvider.js';
@@ -867,6 +874,136 @@ export async function abortPdcaAfterExpiry(item: InboxItem): Promise<void> {
 }
 
 /**
+ * 2026-11-21：审批卡**过期**后，把普通聊天会话从「等待审批」收口。
+ *
+ * 背景：TTL 过期只更新 `inbox_items.status='expired'` 并广播 `inbox:update`，
+ * 会话状态机仍停在 `requires_action`（侧栏「待审批/已暂停」），而卡片已不可回复
+ * （真机 `session_mwpj4amge75a67ec4f`）。本函数只做三件事，**不执行、不重放工具**：
+ * 1. 同会话仍有 pending 审批 ⇒ 不收口（还有其他卡可处理）；
+ * 2. 记 `markToolCallDenied`（若用户之后手动继续，该调用按"拒绝"终止，不会被执行）；
+ * 3. 发 `session:approval_expired` 生命周期事件（→ idle）并广播 SSE（前端刷新列表）。
+ *
+ * PDCA 步骤卡过期由 `abortPdcaAfterExpiry` 收口，本函数跳过，避免双重收口。
+ */
+export async function convergeSessionAfterApprovalExpiry(
+  item: InboxItem
+): Promise<void> {
+  if (!item.sessionId || item.type !== 'approval') return;
+  const metadata = item.metadata ?? {};
+  if (item.source === 'pdca' || typeof metadata.pdcaTaskId === 'string') return;
+  // 工作区访问申请没有 toolCallId，且语义是"能力授予"，不按单次调用收口
+  if (metadata.kind === 'workspace-scope') return;
+
+  const remaining = await inboxManager.list({
+    sessionId: item.sessionId,
+    status: INBOX_STATUS_PENDING,
+    limit: 1,
+  });
+  if (remaining.total > 0) return;
+
+  const toolCallId =
+    typeof metadata.toolCallId === 'string'
+      ? metadata.toolCallId
+      : undefined;
+  if (toolCallId) {
+    const { markToolCallDenied } = await import('@openliri/infra/permission');
+    markToolCallDenied(item.sessionId, toolCallId);
+  }
+
+  const { getGlobalEventBus } = await import(
+    '../session/lifecycle/SessionLifecycleEventBus.js'
+  );
+  const { createSessionLifecycleEvent } = await import(
+    '../session/lifecycle/SessionLifecycleEvent.js'
+  );
+  getGlobalEventBus().emit(
+    createSessionLifecycleEvent('session:approval_expired', item.sessionId, {
+      reason: '审批已过期（未执行）',
+      metadata: {
+        inboxId: item.id,
+        ...(toolCallId ? { toolCallId } : {}),
+      },
+    })
+  );
+
+  // 2026-11-21（真机复验）：会话列表读的是**持久化** `UnifiedSession.status`（回合收尾时写盘），
+  // 上面的事件只驱动内存状态机 ⇒ 卡片过期后列表仍停在「待审批」。这里显式收回 `active`。
+  // 组合根端口未注册（纯单测）⇒ 跳过；落盘失败只记日志，不影响过期收口本身。
+  try {
+    const gateway = getRuntimeCoreApi()?.chatManager?.getSessionGateway?.();
+    if (gateway) {
+      const stored = await gateway.getSession(item.sessionId);
+      if (stored && stored.status === SessionStatus.REQUIRES_ACTION) {
+        stored.status = SessionStatus.ACTIVE;
+        await gateway.updateSession(stored);
+        logger.info('审批过期：会话持久化状态已收回 active', {
+          sessionId: item.sessionId,
+          inboxId: item.id,
+        });
+      }
+    }
+  } catch (err) {
+    await handleError(err, {
+      module: 'runtime:inboxApproval',
+      action: 'convergeStoredSessionState',
+    });
+  }
+
+  const { broadcastEvent } = await import(
+    '@modules/infrastructure/http/handlers/handler-utils'
+  );
+  broadcastEvent('session:approval_expired', {
+    id: item.sessionId,
+    sessionId: item.sessionId,
+    inboxId: item.id,
+    ...(toolCallId ? { toolCallId } : {}),
+  });
+}
+
+/**
+ * 启动期一次性对账（2026-11-21 真机复验）：
+ * 持久化状态仍为 `requires_action`、但该会话**已无 pending 审批卡** ⇒ 收回 `active`。
+ *
+ * 覆盖的是**历史遗留**：过期收敛逻辑上线前就过期的卡不会再触发 `onInboxItemsExpired`，
+ * 会话徽标便永久停在「待审批」（真机实测 7 个）。运行期新过期仍走上方逐条收敛。
+ *
+ * 判定只依赖两个事实（卡是否还可回复 / 状态是否待审批），不猜原因；已 `active` 的跳过（幂等）。
+ * @returns 实际收回的会话数
+ */
+export async function reconcileStuckApprovalSessions(): Promise<number> {
+  const gateway = getRuntimeCoreApi()?.chatManager?.getSessionGateway?.();
+  if (!gateway?.listSessions) return 0;
+
+  const sessions = await gateway.listSessions();
+  let converged = 0;
+  for (const session of sessions) {
+    if (session.status !== SessionStatus.REQUIRES_ACTION || !session.id) {
+      continue;
+    }
+    const pending = await inboxManager.list({
+      sessionId: session.id,
+      status: INBOX_STATUS_PENDING,
+      limit: 1,
+    });
+    if (pending.total > 0) continue;
+    try {
+      session.status = SessionStatus.ACTIVE;
+      await gateway.updateSession(session);
+      converged += 1;
+    } catch (err) {
+      await handleError(err, {
+        module: 'runtime:inboxApproval',
+        action: 'reconcileStuckApprovalSession',
+      });
+    }
+  }
+  if (converged > 0) {
+    logger.info('启动对账：历史遗留「待审批」会话已收回 active', { converged });
+  }
+  return converged;
+}
+
+/**
  * PDCA 审批恢复（原 `inbox-handlers` 内联逻辑，随解析实现一并下沉）
  *
  * - 批准 ⇒ `resumeAfterApproval(sessionId)` 让计划继续推进；
@@ -1257,18 +1394,3 @@ async function persistWorkspaceCommandRule(current: {
   });
 }
 
-/**
- * P2-4: 生成命令前缀正则 —— 取命令前 2 个 token 拼接、转义正则特殊字符、尾部 `.*`。
- * 例：`net user %username%` → `^net user.*`；单 token 命令 `dir` → `^dir.*`。
- */
-function buildCommandContentPattern(command: string): string {
-  const tokens = command.trim().split(/\s+/).filter(Boolean);
-  if (tokens.length === 0) return '';
-  const prefix = tokens.slice(0, 2).join(' ');
-  return `^${escapeRegExp(prefix)}.*`;
-}
-
-/** 转义正则特殊字符，保证命令文本按字面匹配 */
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}

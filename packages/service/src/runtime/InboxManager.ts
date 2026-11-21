@@ -41,6 +41,8 @@ import { getRuntimeSessionGateway } from './sessionGatewayProvider.js';
 import { isPanelActionable, toInboxMetadata } from '@openliri/infra/attention';
 // 时间换算取常量真源（`lint:consts` D-2：不在业务文件里裸写 `n * 60 * 1000`）
 import { MS_PER_HOUR, MS_PER_MINUTE } from '@openliri/infra/constants';
+// 2026-11-21（P1-2 剩余项）：审批卡 TTL 可由配置键覆盖（默认 30 分钟，零行为变更）
+import { configManager } from '@openliri/infra/config';
 
 const logger = getLogger('runtime:inbox');
 
@@ -60,6 +62,8 @@ export type InboxItemStatus =
  */
 export const INBOX_STATUS_PENDING: InboxItemStatus = 'pending';
 export const INBOX_STATUS_PROCESSING: InboxItemStatus = 'processing';
+/** 2026-11-21：过期态字面量的同一事实源（启动续接闸门按它判「过期未决策」） */
+export const INBOX_STATUS_EXPIRED: InboxItemStatus = 'expired';
 
 /**
  * 渠道绑定（2026-11-11）：审批项要「回传渠道 / 在 IM 内解析」所需的**最小来源事实**。
@@ -143,6 +147,26 @@ export const APPROVAL_TTL_MS = MS_PER_MINUTE * 30;
 export const WORKSPACE_SCOPE_TTL_MS = MS_PER_HOUR * 24;
 /** 过期扫描周期（保持不变） */
 export const APPROVAL_EXPIRE_INTERVAL_MS = MS_PER_MINUTE * 2;
+
+/**
+ * 工具审批卡 TTL 的配置键（2026-11-21，P1-2 剩余项）。只覆盖**工具审批**（工作区访问申请仍固定
+ * 24h —— 它是能力授予）；缺省/非法 ⇒ {@link APPROVAL_TTL_MS}（30 分钟，零行为变更）。
+ * 按 tick 读取 ⇒ 改配置无需重启；是否上调由数据复评决定（D2：不靠调 TTL 掩盖状态问题）。
+ */
+export const APPROVAL_TTL_CONFIG_KEY = 'permission.approvalTtlMs';
+
+/** 纯解析（导出便于单测）：非法 / 缺失 ⇒ 默认 30 分钟 */
+export function normalizeApprovalTtlMs(raw: unknown): number {
+  const parsed = typeof raw === 'number' ? raw : Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : APPROVAL_TTL_MS;
+}
+
+/** 解析工具审批卡 TTL：配置键优先，非法/缺失回落默认 30 分钟 */
+export function resolveApprovalTtlMs(): number {
+  return normalizeApprovalTtlMs(
+    configManager.getValue<unknown>(APPROVAL_TTL_CONFIG_KEY)
+  );
+}
 
 /**
  * 「工作区访问申请」的 SQL 判据。
@@ -252,9 +276,10 @@ export class InboxManager {
    *
    * 2026-11-04（运行态排查 P0-1）：TTL **按类型分层**，不再全局 5 分钟 ——
    * 见 `APPROVAL_TTL_MS` / `WORKSPACE_SCOPE_TTL_MS` 的头注（实测 94% 审批卡过期）。
+   * 2026-11-21：工具审批 TTL 可由配置键 `permission.approvalTtlMs` 覆盖（默认 30 分钟不变）。
    */
   startExpireScheduler(
-    ttlMs: number = APPROVAL_TTL_MS,
+    ttlMs?: number,
     intervalMs: number = APPROVAL_EXPIRE_INTERVAL_MS,
     workspaceTtlMs: number = WORKSPACE_SCOPE_TTL_MS
   ): void {
@@ -262,9 +287,12 @@ export class InboxManager {
     this.expireTimer = setInterval(() => {
       // 多租户 P3：定时器无请求作用域 ⇒ 必须显式遍历**所有已打开的分区库**
       // （原实现走 `expireOlderThan` → `getDb()` ⇒ 本地身份 ⇒ 租户库的 pending 永不过期）
-      this.expireAllScopes(ttlMs, workspaceTtlMs).catch((err) => {
-        logger.warn('审批过期清理失败', { error: String(err) });
-      });
+      // 2026-11-21：未显式给 `ttlMs` ⇒ 每次 tick 读配置键（改 TTL 无需重启）
+      this.expireAllScopes(ttlMs ?? resolveApprovalTtlMs(), workspaceTtlMs).catch(
+        (err) => {
+          logger.warn('审批过期清理失败', { error: String(err) });
+        }
+      );
     }, intervalMs);
     this.expireTimer.unref?.();
   }

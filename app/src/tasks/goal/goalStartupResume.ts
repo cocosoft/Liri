@@ -27,6 +27,7 @@
 // 2026-11-16：用户可配门控（设置页可关）—— 只取叶子模块
 import { resolveFeatureGate } from '@modules/query/featureGate';
 import { getCg3SelfWakeService } from '@modules/tasks/Cg3Bootstrap';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   getTaskGoalStore,
   isTerminalGoalStatus,
@@ -34,6 +35,8 @@ import {
   type TaskGoalUpdateReason,
 } from './TaskGoalStore';
 import { IDLE_CONTINUE_TASK_PREFIX } from './goalIdleContinuation';
+
+const logger = getLogger('tasks:goalStartupResume');
 
 /** `taskId` 前缀（与 idle 续接区分：装配处据此走"重启续接"闸门） */
 export const STARTUP_RESUME_TASK_PREFIX = 'goal-startup:';
@@ -231,6 +234,44 @@ export async function resolveStartupGoalResume(params: {
   if (!goal || !goal.sessionId) return null;
   if (isTerminalGoalStatus(goal.status)) return null;
   if (goal.updatedAt !== parsed.updatedAt) return null;
+
+  // 2026-11-21（真机重启复验）：会话仍有**待人工审批**的卡片 ⇒ 本次唤醒作废。
+  // 旧行为：goal 唤醒注入 continue_goal ⇒ 模型重发同一命令 ⇒ 又生成一张审批卡
+  // （session_mw458fpp3ea32a050e 重启后连续新增卡）。审批是显式人工决策，先等人。
+  const { inboxManager, INBOX_STATUS_PENDING, INBOX_STATUS_EXPIRED } =
+    await import('@openliri/service/runtime/InboxManager');
+  const pendingApprovals = await inboxManager.list({
+    sessionId: goal.sessionId,
+    status: INBOX_STATUS_PENDING,
+    limit: 1,
+  });
+  if (pendingApprovals.total > 0) {
+    logger.info('goal 启动续接跳过：会话仍有待审批', {
+      goalId: goal.id,
+      sessionId: goal.sessionId,
+      pendingApprovals: pendingApprovals.total,
+    });
+    return null;
+  }
+
+  // 2026-11-21（真机复验·D6「过期只降级，不自动重放」）：上次审批卡**过期且未决策**
+  // （过期时刻晚于目标最后一次推进）⇒ 本次唤醒作废；否则 continue_goal 会让模型
+  // 重放同一命令，再生成一张卡（重启 → 重放 → 审批的死循环）。
+  const expiredApprovals = await inboxManager.list({
+    sessionId: goal.sessionId,
+    status: INBOX_STATUS_EXPIRED,
+    type: 'approval',
+    limit: 5,
+  });
+  if (expiredApprovals.items.some((item) => item.updatedAt > goal.updatedAt)) {
+    logger.info('goal 启动续接跳过：上次审批已过期且未决策（不自动重放）', {
+      goalId: goal.id,
+      sessionId: goal.sessionId,
+      expiredApprovals: expiredApprovals.items.length,
+    });
+    return null;
+  }
+
   return {
     goalId: goal.id,
     sessionId: goal.sessionId,

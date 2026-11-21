@@ -972,6 +972,9 @@ const enWorkspace = {
     title: "Notifications",
     readingAll: "Processing...",
     readAll: "Mark all read",
+    // 2026-11-21 (P1-2): bulk-archive expired notifications (never bulk-approve)
+    clearExpired: "Clear expired",
+    clearingExpired: "Clearing...",
     emptyAll: "No notifications",
     emptyCategory: "No {{category}} notifications",
     loadMore: "Load more",

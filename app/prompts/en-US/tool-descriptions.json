@@ -61,7 +61,7 @@
     "task_stop": "Stop a running task by its ID.",
     "team_create": "Create a new multi-agent swarm team to coordinate multiple agents on a task.",
     "team_delete": "Disband a swarm team and clean up related resources.",
-    "todo_write": "Manage a to-do list to track tasks. Create, update, and complete to-do items.",
+    "todo_write": "Manage a to-do list to track tasks. Create, update, and complete to-do items. Before the final answer, mark completed items as completed and explain any unfinished ones; do not end while an item is still in_progress.",
     "tool_search": "Search for tools. When the tool you need is not in the current tool list (lazy-loaded, or hidden by this turn's task filtering), use this tool to search by keyword or \"select:<tool_name>\".",
     "trace_recording": "Query AI API call traces and statistics. Retrieve recording status, stats, recent calls, and export trace data.",
     "tts": "Convert text to speech using neural voices. Supports multiple languages and voices for generating spoken audio output.",

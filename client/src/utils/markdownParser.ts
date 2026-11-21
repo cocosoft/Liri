@@ -44,12 +44,29 @@ export function parseMarkdown(
       const match = line.match(/```(\w+)?/);
       const language = match?.[1] || "text";
       let codeContent = "";
+      /** 2026-11-21 容错：粘连闭合围栏之后的残余正文（通常为空） */
+      let trailingText = "";
       i++;
-      while (i < lines.length && !lines[i].startsWith("```")) {
-        codeContent += lines[i] + "\n";
+      while (i < lines.length) {
+        const candidate = lines[i];
+        // 正常闭合：围栏独占一行（行首）
+        if (candidate.startsWith("```")) {
+          i++;
+          break;
+        }
+        // 容错闭合：围栏与末行正文粘连（历史落盘块被压平：`…淘汰这里``` `）
+        // 只在**行尾**认 ```，避免误伤代码行内的三反引号；其后的残余按正文继续解析。
+        const trimmedEnd = candidate.trimEnd();
+        if (trimmedEnd.endsWith("```")) {
+          const fenceAt = trimmedEnd.lastIndexOf("```");
+          codeContent += trimmedEnd.slice(0, fenceAt);
+          trailingText = trimmedEnd.slice(fenceAt + 3);
+          i++;
+          break;
+        }
+        codeContent += candidate + "\n";
         i++;
       }
-      i++;
       blockIdRef.current++;
       if (language === "mermaid") {
         result.push({
@@ -63,6 +80,14 @@ export function parseMarkdown(
           type: "code",
           content: codeContent.trim(),
           language,
+        });
+      }
+      if (trailingText.trim()) {
+        blockIdRef.current++;
+        result.push({
+          id: blockIdRef.current,
+          type: "text",
+          content: trailingText.trim(),
         });
       }
     } else if (line.startsWith("$$")) {

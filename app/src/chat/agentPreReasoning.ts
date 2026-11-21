@@ -47,6 +47,8 @@ export interface PreReasoningLoopState {
   toolTurnCount: number;
   consecutiveCompactNoEffect?: number;
   lastCompactRatio?: number;
+  /** 2026-11-21：上一次周期性检查点所在的工具轮次（用于"同轮重入不重复落盘"） */
+  lastPeriodicCheckpointTurn?: number;
 }
 
 export interface AgentPreReasoningDeps {
@@ -156,8 +158,12 @@ export async function runBeforeReasoning(
   // 3. 周期性检查点：每 5 轮保存（失败不阻塞，对齐旧类 _savePeriodicCheckpoint）
   if (
     deps.loopState.toolTurnCount > 0 &&
-    deps.loopState.toolTurnCount % 5 === 0
+    deps.loopState.toolTurnCount % 5 === 0 &&
+    // 2026-11-21：同一工具轮次的**重入**（收尾提醒 / 空回复续接等守卫会再走一次本函数，
+    // 但工具轮次没有前进）不再重复落盘 —— 否则同一 label 的检查点会被写两次。
+    deps.loopState.lastPeriodicCheckpointTurn !== deps.loopState.toolTurnCount
   ) {
+    deps.loopState.lastPeriodicCheckpointTurn = deps.loopState.toolTurnCount;
     try {
       const session = deps.session;
       await deps.saveCheckpointWithData(

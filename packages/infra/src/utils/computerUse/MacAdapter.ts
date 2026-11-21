@@ -20,6 +20,13 @@ import type {
 import { execFile, spawn } from 'child_process';
 import { promisify } from 'util';
 
+// 2026-11-21（P0）：AppleScript / JXA 字符串转义 + 数字范围校验
+import {
+  escapeAppleScriptString,
+  requireInt,
+  requireNumber,
+} from './safety';
+
 import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('utils:computerUse:MacAdapter');
 
@@ -188,9 +195,23 @@ export class MacComputerUseAdapter implements ComputerUseAdapter {
   }
 
   async takeScreenshot(options?: ScreenshotOptions): Promise<ScreenshotResult> {
-    const quality = options?.quality ?? 0.75;
-    const region = options?.region;
-    const displayId = options?.displayId ?? 0;
+    // P0：质量 / 区域 / 屏幕号必须是有界数字（JXA 参数虽经 JSON 序列化，仍需类型正确）
+    const quality = requireNumber(options?.quality ?? 0.75, 'quality', {
+      min: 0.01,
+      max: 1,
+    });
+    const region = options?.region
+      ? {
+          x: requireInt(options.region.x, 'region.x', { min: -100_000, max: 100_000 }),
+          y: requireInt(options.region.y, 'region.y', { min: -100_000, max: 100_000 }),
+          width: requireInt(options.region.width, 'region.width', { min: 1, max: 100_000 }),
+          height: requireInt(options.region.height, 'region.height', { min: 1, max: 100_000 }),
+        }
+      : undefined;
+    const displayId = requireInt(options?.displayId ?? 0, 'displayId', {
+      min: 0,
+      max: 31,
+    });
 
     // 使用 JXA 通过 CoreGraphics 截图，支持多显示器和区域
     const captureArgs = JSON.stringify({
@@ -410,11 +431,17 @@ export class MacComputerUseAdapter implements ComputerUseAdapter {
       await this.mouseAction({ type: 'move', x: action.x, y: action.y });
     }
 
+    // P0：坐标必须是有限整数（否则会以字符串形式进 AppleScript）
+    const x = action.x === undefined ? undefined : requireInt(action.x, 'x', { min: -100_000, max: 100_000 });
+    const y = action.y === undefined ? undefined : requireInt(action.y, 'y', { min: -100_000, max: 100_000 });
+    const posOr = (value: number | undefined, fallback: string): string =>
+      value === undefined ? fallback : String(value);
+
     switch (action.type) {
       case 'move': {
         const script = `
           tell application "System Events"
-            set position of mouse to {${action.x}, ${action.y}}
+            set position of mouse to {${posOr(x, '0')}, ${posOr(y, '0')}}
           end tell
         `;
         await this.runOsascript(script);
@@ -423,7 +450,7 @@ export class MacComputerUseAdapter implements ComputerUseAdapter {
       case 'click': {
         const script = `
           tell application "System Events"
-            click at {${action.x ?? 'current position'}, ${action.y ?? 'current position'}}
+            click at {${posOr(x, 'current position')}, ${posOr(y, 'current position')}}
           end tell
         `;
         await this.runOsascript(script);
@@ -432,9 +459,9 @@ export class MacComputerUseAdapter implements ComputerUseAdapter {
       case 'doubleClick': {
         const script = `
           tell application "System Events"
-            click at {${action.x ?? 'current position'}, ${action.y ?? 'current position'}}
+            click at {${posOr(x, 'current position')}, ${posOr(y, 'current position')}}
             delay 0.05
-            click at {${action.x ?? 'current position'}, ${action.y ?? 'current position'}}
+            click at {${posOr(x, 'current position')}, ${posOr(y, 'current position')}}
           end tell
         `;
         await this.runOsascript(script);
@@ -452,7 +479,7 @@ export class MacComputerUseAdapter implements ComputerUseAdapter {
         // 使用 Control+Click 模拟右键
         const rightClickScript = `
           tell application "System Events"
-            set mousePosition to {${action.x ?? 'item 1 of (get position of mouse)'}, ${action.y ?? 'item 2 of (get position of mouse)'}}
+            set mousePosition to {${posOr(x, 'item 1 of (get position of mouse)')}, ${posOr(y, 'item 2 of (get position of mouse)')}}
             do shell script "osascript -e 'tell application \\"System Events\\" to click at " & mousePosition & " using {control down}'"
           end tell
         `;
@@ -460,8 +487,9 @@ export class MacComputerUseAdapter implements ComputerUseAdapter {
         break;
       }
       case 'scroll': {
-        const deltaY = action.deltaY ?? 0;
-        const deltaX = action.deltaX ?? 0;
+        // P0：滚动量必须是有限整数（JXA 脚本里同样是字符串插值位）
+        const deltaY = requireInt(action.deltaY ?? 0, 'deltaY', { min: -10_000, max: 10_000 });
+        const deltaX = requireInt(action.deltaX ?? 0, 'deltaX', { min: -10_000, max: 10_000 });
         // macOS 使用 CGEvent 进行滚动，通过 JXA 实现
         const scrollScript = `
           ObjC.import('CoreGraphics');
@@ -542,10 +570,10 @@ export class MacComputerUseAdapter implements ComputerUseAdapter {
           `;
           await this.runOsascript(script);
         } else {
-          // 没有对应 key code 时，尝试直接 keystroke
+          // 没有对应 key code 时，尝试直接 keystroke（P0：AppleScript 字符串转义）
           const script = `
             tell application "System Events"
-              keystroke "${action.key}"
+              keystroke "${escapeAppleScriptString(action.key)}"
             end tell
           `;
           await this.runOsascript(script);
@@ -576,7 +604,7 @@ export class MacComputerUseAdapter implements ComputerUseAdapter {
           if (charKey) {
             const script = `
               tell application "System Events"
-                keystroke "${charKey}" ${usingClause}
+                keystroke "${escapeAppleScriptString(charKey)}" ${usingClause}
               end tell
             `;
             await this.runOsascript(script);
@@ -822,9 +850,11 @@ export class MacComputerUseAdapter implements ComputerUseAdapter {
   }
 
   async activateApp(bundleId: string): Promise<boolean> {
+    // P0：应用名 / bundle id 经 AppleScript 字符串转义（`"` 与 `\` 无法闭合字面量）
+    const safeId = escapeAppleScriptString(bundleId);
     try {
       const script = `
-        tell application "${bundleId}"
+        tell application "${safeId}"
           activate
         end tell
       `;
@@ -834,7 +864,7 @@ export class MacComputerUseAdapter implements ComputerUseAdapter {
       // 尝试通过 bundle identifier 激活
       try {
         const scriptById = `
-          tell application id "${bundleId}"
+          tell application id "${safeId}"
             activate
           end tell
         `;

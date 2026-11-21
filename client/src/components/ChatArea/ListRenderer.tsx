@@ -14,6 +14,12 @@ interface ListRendererProps {
 function ListRenderer({ content, renderText }: ListRendererProps) {
   const lines = content.split("\n");
   const isOrdered = lines[0].match(/^\d+\.\s/) !== null;
+  /**
+   * 2026-11-21：保留原文起始序号。历史消息按块渲染时，列表可能从 "2." 开始
+   * （前一项落在上一个块），`<ol>` 默认从 1 计数会与原文不符。
+   */
+  const orderedStartMatch = isOrdered ? lines[0].match(/^(\d+)\.\s/) : null;
+  const orderedStart = orderedStartMatch ? Number(orderedStartMatch[1]) : 1;
   const isTaskList =
     !isOrdered && lines.some((l) => /^\s*[-*+]\s+\[[ x]\]/.test(l));
   const items: JSX.Element[] = [];
@@ -69,7 +75,11 @@ function ListRenderer({ content, renderText }: ListRendererProps) {
 
   if (isOrdered) {
     return (
-      <ol key="list" className="my-2 list-decimal">
+      <ol
+        key="list"
+        className="my-2 list-decimal"
+        {...(orderedStart > 1 ? { start: orderedStart } : {})}
+      >
         {items}
       </ol>
     );

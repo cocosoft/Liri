@@ -81,6 +81,8 @@ import {
 } from '@modules/session';
 import type { LiriEvent } from '@modules/session/types/events.js';
 import { handleError } from '@openliri/infra/error';
+// 2026-11-21：陈旧崩溃徽标对账（事实源 = 事件日志；见模块注释）
+import { reconcileInterruptedSessionStatuses } from './sessionStatusReconcile';
 import {
   listNegotiationSessionIds,
   loadNegotiationState,
@@ -319,6 +321,23 @@ export class ChatRecovery {
     rebuildState?: boolean;
   }): Promise<RecoveryReport> {
     const gateway = this.deps.getSessionGateway();
+    // 2026-11-21（真机 52 paused / 4 error）：先对账**历史遗留**的陈旧崩溃徽标 ——
+    // 逐条核对 `events.jsonl` 后这些会话的最后一个 turn 均已闭合，徽标是旧口径的产物。
+    // 只收「正常收尾 ⇒ active / 等待审批 ⇒ requires_action」，失败/可续原因保持原状；失败不阻断启动。
+    try {
+      const stats = await reconcileInterruptedSessionStatuses({
+        gateway,
+        getOrCreateEventLog: (sid) => this.deps.getOrCreateEventLog(sid),
+      });
+      if (stats.kept > 0) {
+        logger.debug('会话状态对账：仍有在飞/不适用会话', {
+          reconciled: stats.reconciled,
+          kept: stats.kept,
+        });
+      }
+    } catch (err) {
+      logger.warn('会话状态对账失败（不阻断启动）', { error: String(err) });
+    }
     const orchestrator = new RecoveryOrchestrator({
       sessionCrash: { recover: () => gateway.recoverAfterCrash() },
       sessionState: { rebuild: (o) => gateway.rebuildDerivedState(o) },

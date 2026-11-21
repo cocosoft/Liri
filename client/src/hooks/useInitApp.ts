@@ -222,6 +222,8 @@ export function useInitApp() {
     sseService.on("session:created", refreshSessions);
     sseService.on("session:deleted", refreshSessions);
     sseService.on("session:cleared", refreshSessions);
+    // 2026-11-21：审批卡过期 ⇒ 会话状态收口（后端已转为 idle）⇒ 刷新侧栏徽标
+    sseService.on("session:approval_expired", refreshSessions);
     // P0b-3: AI 自动建项目时，前端同步创建 worktree
     sseService.on("project:auto_created", onProjectAutoCreated);
     // OBS（M1b）：PDCA 独立事件通道订阅（幂等；任意页面可实时可见任务进度）
@@ -241,6 +243,7 @@ export function useInitApp() {
       sseService.off("session:created", refreshSessions);
       sseService.off("session:deleted", refreshSessions);
       sseService.off("session:cleared", refreshSessions);
+      sseService.off("session:approval_expired", refreshSessions);
       sseService.off("project:auto_created", onProjectAutoCreated);
       // M1 修复：卸载/掉线时解除轮询回调，避免残留引用
       sseService.setPollHandler(null);

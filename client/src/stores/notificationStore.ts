@@ -117,6 +117,12 @@ interface NotificationStore {
   panelOpen: boolean;
   /** 全部已读进行中 */
   readingAll: boolean;
+  /** 2026-11-21（P1-2）：「清理已过期」进行中 */
+  clearingExpired: boolean;
+  /**
+   * 2026-11-21（P1-2）：服务端是否存在过期项（面板分页只加载首页，不能用当前页推导计数）。
+   */
+  hasExpired: boolean;
 
   setActiveCategory: (cat: NotificationCategory | "all") => void;
   togglePanel: () => void;
@@ -124,11 +130,15 @@ interface NotificationStore {
   closePanel: () => void;
   loadItems: (reset?: boolean) => Promise<void>;
   loadCounts: () => Promise<void>;
+  /** 2026-11-21（P1-2）：探测服务端是否有过期项（分页首页之外的也要算） */
+  loadExpiredFlag: () => Promise<void>;
   /** P0-5: 断线重连后增量补拉最新一页（按复合游标），避免只刷计数不补列表 */
   syncLatest: () => Promise<void>;
   markRead: (id: string) => Promise<void>;
   readAll: () => Promise<void>;
   dismiss: (id: string) => Promise<void>;
+  /** 2026-11-21（P1-2）：批量归档「已过期」通知（只有过期项，绝不批量批准） */
+  dismissExpired: () => Promise<void>;
 
   /** SSE 事件处理 */
   handleSseNew: (item: NotificationItem) => void;
@@ -166,6 +176,8 @@ export const useNotificationStore = create<NotificationStore>()((set, get) => ({
   nextCursor: null,
   panelOpen: false,
   readingAll: false,
+  clearingExpired: false,
+  hasExpired: false,
 
   setActiveCategory: (cat) => {
     set({ activeCategory: cat, items: [], nextCursor: null, hasMore: false });
@@ -177,6 +189,7 @@ export const useNotificationStore = create<NotificationStore>()((set, get) => ({
     set({ panelOpen: true });
     get().loadCounts();
     get().loadItems(true);
+    void get().loadExpiredFlag();
   },
   closePanel: () => set({ panelOpen: false }),
 
@@ -216,6 +229,25 @@ export const useNotificationStore = create<NotificationStore>()((set, get) => ({
       handleClientError(e, {
         module: "stores:notification",
         action: "loadCounts",
+      });
+    }
+  },
+
+  /**
+   * 2026-11-21（P1-2）：探测服务端是否有过期项。
+   * 面板只加载首页 20 条，过期项可能在后面的页 ⇒ 不能按 `items` 推导按钮可见性。
+   */
+  loadExpiredFlag: async () => {
+    try {
+      const result = await notificationService.list({
+        status: "expired",
+        limit: 1,
+      });
+      set({ hasExpired: result.items.length > 0 });
+    } catch (e) {
+      handleClientError(e, {
+        module: "stores:notification",
+        action: "loadExpiredFlag",
       });
     }
   },
@@ -295,6 +327,34 @@ export const useNotificationStore = create<NotificationStore>()((set, get) => ({
         module: "stores:notification",
         action: "dismiss",
       });
+    }
+  },
+
+  /**
+   * 2026-11-21（P1-2）：批量归档**已过期**通知（一次请求，逐条 dismiss 会产生 N 次往返）。
+   * 只处理 `status === 'expired'`；待审批项不在此列（D6：过期只降级 + 可清理，不批量批准）。
+   */
+  dismissExpired: async () => {
+    const expiredIds = get()
+      .items.filter((item) => item.status === "expired")
+      .map((item) => item.id);
+    if (expiredIds.length === 0) return;
+    set({ clearingExpired: true });
+    try {
+      await notificationService.batch(expiredIds, "dismissed");
+      const dropped = new Set(expiredIds);
+      set((s) => ({
+        items: s.items.filter((item) => !dropped.has(item.id)),
+      }));
+      get().loadCounts();
+      void get().loadExpiredFlag();
+    } catch (e) {
+      handleClientError(e, {
+        module: "stores:notification",
+        action: "dismissExpired",
+      });
+    } finally {
+      set({ clearingExpired: false });
     }
   },
 

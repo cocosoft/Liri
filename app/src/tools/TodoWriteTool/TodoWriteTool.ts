@@ -425,7 +425,9 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
 
   /** 工具描述 */
   override description =
-    '管理待办事项列表以跟踪任务。创建、更新和完成待办事项。';
+    '管理待办事项列表以跟踪任务。创建、更新和完成待办事项。' +
+    '收尾要求：给出最终答复前，必须把已完成项置为 completed；未做项须显式说明原因；' +
+    '禁止在仍有 in_progress 项时直接结束（否则任务进度会停在半完成状态）。';
 
   /** 最大结果大小 */
   override maxResultSizeChars = 10000;

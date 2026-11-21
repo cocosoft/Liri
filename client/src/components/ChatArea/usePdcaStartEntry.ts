@@ -44,11 +44,9 @@ import type { TaskCardTask } from "../../types";
 import { findLatestTaskCard } from "./taskCardSnapshot";
 import { usePdcaEntry } from "./usePdcaEntry";
 
-/** 未完成状态集合（状态量枚举判定；对应 TaskCardTask["status"]） */
-const UNFINISHED_STATUSES: ReadonlySet<TaskCardTask["status"]> = new Set([
-  "pending",
-  "in_progress",
-]);
+/** 未完成状态集合（StatusFloatBar 的「进度未收尾」提示复用同一判据 —— CS01 单一来源） */
+export const UNFINISHED_TASK_STATUSES: ReadonlySet<TaskCardTask["status"]> =
+  new Set(["pending", "in_progress"]);
 
 export function usePdcaStartEntry(): {
   visible: boolean;
@@ -71,7 +69,7 @@ export function usePdcaStartEntry(): {
   const unfinished = useMemo(
     () =>
       (card?.tasks ?? []).filter((task) =>
-        UNFINISHED_STATUSES.has(task.status),
+        UNFINISHED_TASK_STATUSES.has(task.status),
       ),
     [card],
   );

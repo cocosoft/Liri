@@ -138,8 +138,14 @@ export class EventBasedStreamAggregator {
         // 2026-11-12：等待审批的收尾提示**不进流式正文** —— 它会先闪现再被渲染期剥离，
         // 造成"审批已处理但仍提示等待"的错觉；提示已由审批卡片在 pending 时承载。
         // 该提示可能与其他收尾原因并列（`⏸ …\n\n（同时检测到…）`）⇒ 先剥离，剥完无正文才整块丢弃。
+        //
+        // 2026-11-21 根因修复（真机块文本空白丢失）：原判据 `stripped.trim() === ""` 会把
+        // **纯空白正文帧**（换行 `\n\n` / 缩进 / 空格）一并丢弃 —— provider 按 token/行分片时，
+        // 结构性空行与中英文间空格恰好落在独立分片里 ⇒ 派生块被压平（`## 标题` → `##标题`、
+        // 围栏闭合行被吞）。只丢弃"**原本含审批提示**、剥离后为空"的帧；纯空白是正文，必须保留。
+        if (!chunk.content) break;
         const stripped = stripAwaitingApprovalNotice(chunk.content);
-        if (stripped.trim() === "") break;
+        if (stripped === "" && stripped !== chunk.content) break;
         // 流式开始时自动追加 turn/start（如果未开启）
         if (!this.turnStarted) {
           this.startTurn();

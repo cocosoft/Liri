@@ -12,9 +12,13 @@ export const BrowserToolInputSchema = z.strictObject({
       'navigate',
       'screenshot',
       'get_tabs',
+      'get_content',
+      'back',
+      'reload',
+      'close',
     ])
     .describe(
-      '浏览器操作类型：open_tab 打开标签页，click 点击元素，fill_form 填写表单，navigate 导航，screenshot 截图，get_tabs 获取标签页列表'
+      '浏览器操作类型：open_tab 新建标签页，click 点击元素，fill_form 填写表单，navigate 导航，screenshot 截图，get_tabs 获取标签页列表，get_content 获取页面正文，back 后退，reload 刷新，close 关闭会话浏览器'
     ),
   url: z
     .string()
@@ -30,6 +34,18 @@ export const BrowserToolInputSchema = z.strictObject({
     .optional()
     .describe('表单数据（fill_form 操作使用）'),
   text: z.string().optional().describe('操作文本（fill_form 操作使用）'),
+  full_page: z
+    .boolean()
+    .optional()
+    .describe('screenshot 是否整页（默认 false）'),
+  max_chars: z
+    .number()
+    .optional()
+    .describe('get_content 的正文截断上限（字符）'),
+  analyze: z
+    .boolean()
+    .optional()
+    .describe('screenshot 是否顺带做视觉分析（默认 false，只返回文件路径）'),
 });
 
 /**
@@ -40,7 +56,10 @@ export const BrowserToolOutputSchema = z.object({
   message: z.string().describe('操作结果消息'),
   data: z.any().optional().describe('操作数据'),
   tabs: z.array(z.any()).optional().describe('标签页信息列表'),
-  screenshot: z.string().optional().describe('截图数据（Base64 编码）'),
+  screenshot: z
+    .string()
+    .optional()
+    .describe('截图文件路径（不再回传 base64；需要看懂画面时用 analyze=true）'),
 });
 
 export type BrowserToolInput = z.infer<typeof BrowserToolInputSchema>;

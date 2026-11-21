@@ -630,10 +630,15 @@ export class BashSecurityAnalyzer {
     let allowlistAskMessage: string | undefined;
     let compoundVerdict: CompoundReadOnlyVerdict | null = null;
     if (!allowlistCheck.safe) {
+      // FIX-15（2026-11-21 回归）：单条 PowerShell 包裹的结论已由 PowerShell 安全链给出
+      // （`checkPowerShellWrapper` → `evaluatePowerShellSecurity`）。此前该委托只放在
+      // `isShellOperator` 分支里 ⇒ 只读包裹若**不含** shell 操作符（如
+      // `powershell -Command "(Get-Item 'x').Length"`），会落「未知命令 ⇒ 转人工审批」，
+      // 与"内层已判只读"自相矛盾（真机 `session_mwpj4amge75a67ec4f` seq 3241）。
+      // 委托是调用方对"整条命令仅此一条语句"的显式声明 ⇒ 先于失败原因判定。
+      if (options.delegatedSinglePowerShell) return DELEGATED_SINGLE_PS_ALLOW;
       const isShellOperator = allowlistCheck.reason.includes('Shell operator');
       if (isShellOperator) {
-        // FIX-15：单条 PowerShell 包裹已由 PowerShell 安全链判定 ⇒ 交由该结论（见 options 注释）
-        if (options.delegatedSinglePowerShell) return DELEGATED_SINGLE_PS_ALLOW;
         compoundVerdict = checkCompoundReadOnly(trimmedCommand);
         if (!compoundVerdict.allowed) {
           // N-7（2026-11-06 真机）：**结构合法但含非只读段**与"单条未知命令"同口径 ——

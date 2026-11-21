@@ -64,6 +64,17 @@
 （grep `mock.module('@openliri/infra/error')` 命中 0），为此新建一套 mock 基建属过度工程 ⇒
 本次以「返回契约不变（`ok:false` + `reason:'invalid-event'`）」+ typecheck 作为验收，观测面待真机日志复核。
 
+**真机日志复核（2026-11-21，PASS）**：检索 `~/.pyapp/data/logs/app.log*`（覆盖 2026-11-16 起的轮转档）：
+
+| 标记 | 命中 | 结论 |
+|---|--:|---|
+| `invalid-event` | **108** | 全部落在 **2026-11-07 / 11-11 / 11-12**（最新 11-12 21:41），类型均为 `turn/quality`，以 `chat:manager 流式事件追加失败` warn 带 `sessionId/seq/type/reason` 输出 ⇒ **失败可见、非静默** |
+| `seq 冲突自动纠正` | **68** | 自动纠正后继续写入（不丢事件），与 F4 口径一致 |
+| 当前 `app.log`（11-16 起） | **0** | 缺陷窗口已过（`turn/quality` 后续进入可写类型），观测面无回归 |
+
+⇒ 结论：观测面**真实生效**（历史窗口里确实打出了可定位的 warn）；`reportInvalidAppend` 自身未单独打点
+（由调用方 `chat:manager` 汇报），不影响"可观测"结论。**无新增代码改动**。
+
 ## §4 客户端回放侧（D9，2026-11-18 补审）
 
 审计范围：`client/src/services/chatService.ts`（主链路 / resume / attach）与 `client/src/stores/chat/chat-message-set-messages.ts`（历史落位）。逐点判定：

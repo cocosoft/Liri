@@ -180,23 +180,32 @@
 | MSVC Build Tools | ✅ 已存在（VS 2022 BuildTools + `VC.Tools.x86.x64`） |
 | Rust 工具链 | ✅ 已安装：rustup 1.29.3 + `stable-x86_64-pc-windows-msvc` 1.100.0（默认工具链已设） |
 | 安装注意 | `rustup-init` 默认下载路径在本机**停滞**（0 字节进度）⇒ 必须 `RUSTUP_USE_CURL=1` 才成功；`--no-modify-path` 不改系统 PATH |
-| **阻断** | ❌ **Smart App Control 阻止 `rustc.exe`**：事件日志 `Microsoft-Windows-CodeIntegrity/Operational` 3077 / 3033 / 3118 —— `rustc.exe` 加载 `rustc_driver-*.dll` 未达签名级别（Policy ID `{0283ac0f-…}`），进程退出码 `0xC0E90002` ⇒ **`cargo check` / `tauri dev` 均无法进行** |
+| **阻断** | ❌ **Smart App Control 阻止构建脚本执行**：`cargo check` 在 `build_script_build` 阶段报 `应用程序控制策略已阻止此文件 (os error 4551)`（`icu_properties_data` / `typeid`；2026-11-21 复核；`rustc --version` 本身已可执行）⇒ **`cargo check` / `tauri dev` 仍无法进行** |
 | 现存二进制 | `client/src-tauri/target/release/liri_client.exe` 构建于 **2026-09-10**（早于本轮全部改动）⇒ 启动它也验证不到 G8 四/五/六期 |
 
 **本机已完成的替代核对（可复核）**：
 1. `capabilities/{default,floating}.json` 的 **24 条权限 id 全部命中** `client/src-tauri/gen/schemas/desktop-schema.json` 的 `const` 清单；
-2. `Cargo.lock` **无** `tauri-plugin-global-shortcut` 条目 ⇒ 印证"未重生成"；
+2. ~~`Cargo.lock` **无** `tauri-plugin-global-shortcut` 条目 ⇒ 印证"未重生成"~~ → **2026-11-21 已重生成**：
+   `Cargo.toml` 声明 `tauri-plugin-global-shortcut = "2"`，`Cargo.lock` 有依赖条目（第 1984 行）与包定义（第 3972 行），
+   `lib.rs` 已 `Builder::new()` 注册并 `global_shortcut().register(floating_shortcut())` ⇒ 见下方「待真机项」5；
 3. 前端 `tsc` 0 错误 / `eslint` 0 error / `vitest` 141 文件 / 990 用例全绿。
+
+**本机阻断复核（2026-11-21，实测）**：`rustc --version` 已可执行（1.100.0），但
+`cargo check --manifest-path client/src-tauri/Cargo.toml` 仍在**构建脚本执行阶段**被 Smart App Control 拦截：
+`应用程序控制策略已阻止此文件 (os error 4551)`（`icu_properties_data` / `typeid` 的 `build_script_build`）
+⇒ **desktop 1–4 项本机仍不可验**，按裁定走 CI 构建。
 
 **待真机项（解除阻断后逐条验）**：
 1. `Ctrl+Shift+F` 系统级唤起（未聚焦时）+ 注册失败仅告警；
 2. 悬浮窗几何记忆（移动/缩放后重开）+ 拔副屏后自动回到主屏；
 3. 当前会话 / 运行中目标在副窗口的真实 HTTP 读取（后端不可达时显示"暂时读不到"）；
 4. 点击穿透进入 + `Ctrl+Shift+F` 退出（穿透期间点击落到下层应用）；
-5. `Cargo.lock` 生成 `tauri-plugin-global-shortcut` 条目后提交。
+5. ~~`Cargo.lock` 生成 `tauri-plugin-global-shortcut` 条目后提交~~ → ✅ **已完成（2026-11-21 复核）**：
+   条目存在且与 `Cargo.toml` / `lib.rs` 一致，已随仓库提交（工作区干净）。
 
-**解除方式（2026-11-21 裁定：走 CI 构建 + 真机验）**：
+**解除方式（2026-11-21 裁定：走 CI 构建 + 真机验；构建时机 = 下次发版）**：
 - **保持 Smart App Control 开启**，`tag` 触发 `.github/workflows/release.yml#tauri-build`（`windows-latest`）
   产出安装包；安装包内的 `rustc`/产物不经本机 SAC 拦截；
-- 在未启用该策略的机器（或上述安装包）上逐条验证上面五项，结果回填本节；
+- **2026-11-21 追加裁定**：不单独为验证打 tag，**等下次计划发版时**随版本构建安装包，再逐条验上面 1–4 项；
+- 在未启用该策略的机器（或上述安装包）上逐条验证，结果回填本节；
 - **不关闭 SAC**：该开关关闭后不可再开启（除重装系统），安全姿态不得为一轮验证让路。

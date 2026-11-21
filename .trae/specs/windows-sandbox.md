@@ -1,6 +1,6 @@
 # Windows 兜底沙箱（Low IL + Job Object）实施方案
 
-> 版本 1.2 ｜ 日期 2026-10-26（2026-11-21 补执行记录）｜ 状态：**已实施**（§4 五步全部落地；本机自证受宿主应用控制策略限制，见 §8）
+> 版本 1.3 ｜ 日期 2026-10-26（2026-11-21 补执行记录；2026-11-21 晚复查：拦截归因 SAC + CI 硬证据闭合）｜ 状态：**已实施**（§4 五步全部落地；本机自证受 Smart App Control 阻断，覆盖由 CI `windows-latest` 闭合，见 §8.3）
 > 关联：[`macos-sandbox-exec.md`](./macos-sandbox-exec.md)（同一档"OS 级兜底"，先例与口径复用）
 > 上游依赖（2026-11-21 登记）：[`real-machine-governance-remediation.md`](./real-machine-governance-remediation.md)
 > —— 该方案的 P2-3 只做「不参与判定」的只读披露对齐；**审批过期状态收敛（P1-2）不依赖本沙箱**，已先行落地。
@@ -189,15 +189,17 @@ Low IL 进程**默认不能写** Medium 目录。要让 bash 能写工作区，�
 | `bun run build:win-sandbox` | ✅ 编译通过（MSVC 14.44，产物 `bin/win-sandbox-run.exe`，不入库） |
 | 直接运行 helper | ❌ 宿主报「应用程序控制策略已阻止此文件」 |
 | 策略诊断（2026-11-21，只读） | `Smart App Control = 开启`（`VerifiedAndReputablePolicyState=1`）+ `C:\Windows\System32\CodeIntegrity\CiPolicies\Active` 下有 **8 条 WDAC 策略** |
+| **拦截归因（2026-11-21 晚，只读）** | CodeIntegrity 事件 **3077 / 3033**（`Microsoft-Windows-CodeIntegrity/Operational`）指名 Policy ID **`{0283AC0F-FFF1-49AE-ADA1-8A933130CAD6}`**；该 `.cip` 内部字符串含 `VerifiedAndReputableDesktop` / `VerifiedAndReputableTrustMode` / `ISGSmartscreenTrustSuppressed` ⇒ **Smart App Control 策略**，非自定义企业 WDAC；`Start-Process` 直接报「应用程序控制策略已阻止此文件」；当前会话 `elevated=False` |
 | `bun run verify:win-sandbox` | ⚠️ 退出 **2**（`probe-failed`）—— 现在会打印上述两条诊断，不再只给一句"未通过" |
 | `bun test tests/sandbox` | ✅ 247 pass / 0 fail（含新增「helper 起不来 ⇒ helperFailed」用例） |
 | `lint:sandbox` / `typecheck` | ✅（0 error） |
+| **CI 硬证据（`49b96b5a7`，`windows-latest`）** | ✅ `Build win-sandbox helper (low IL + job object)` 与 `Verify Windows sandbox (low IL write isolation)` **均 success**（job `Test Suite (windows-latest)`），即 §5 的 ①–④ 实跑断言在不含 SAC 的 runner 上已闭合 |
 
-⇒ **本机无法闭合 §5 的 ①–④ 实跑断言**（拦截发生在 `CreateProcess` 阶段，非代码缺陷）；该覆盖由 CI `windows-latest`（不受此策略影响）承担。
+⇒ **本机自证结案方式（2026-11-21 用户裁定）**：本机拦截发生在 `CreateProcess` 阶段（SAC 无按应用白名单），**不关闭 SAC、不改宿主安全姿态**；§5 ①–④ 的实跑覆盖由 CI `windows-latest` 承担，作为可审计的硬证据。`verify-win-sandbox.ts` 的失败分支保留只读诊断，用于在其他机器上快速归因。
 
-本机若要自证，只有三条**受支持**的路径（均需管理员，脚本不代做、也不绕过安全策略）：
-1. 关闭 Smart App Control（**注意**：关闭后重新开启需重装系统）——个人开发机可行；
-2. 用受信任证书给 `win-sandbox-run.exe` 签名（企业环境首选）；
-3. 由管理员在 WDAC 策略中把该 helper 加入允许清单并重启策略。
+若未来某台机器必须本机自证，仍只有三条**受支持**的路径（均需管理员，脚本不代做、也不绕过安全策略；本仓**不采用**）：
+1. 关闭 Smart App Control（**注意**：关闭后重新开启需重装系统）——个人开发机才可考虑；
+2. 用受信任证书给 `win-sandbox-run.exe` 签名（企业环境首选；SAC 下仍受 ISG 声誉约束）；
+3. 由管理员在 WDAC 策略中把该 helper 加入允许清单并重启策略（SAC 开启时可能仍被其自身策略拦截）。
 
 `verify-win-sandbox.ts` 的失败分支现已内置**只读诊断**（读上述注册表键与策略目录），把"为什么不可用"直接打在输出里。

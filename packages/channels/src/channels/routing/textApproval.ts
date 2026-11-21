@@ -195,7 +195,7 @@ export async function tryHandleTextApproval(
         }
         // DEEP-9：即使失败也要释放锁
         finalizeMessage(dedupKey, true);
-        recordMessageRejected('INBOX_UNAVAILABLE');
+        recordMessageRejected('INBOX_UNAVAILABLE', channelName);
         return { valid: false, errorCode: 'INBOX_UNAVAILABLE' };
       }
     }

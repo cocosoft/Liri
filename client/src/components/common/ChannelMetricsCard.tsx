@@ -64,6 +64,9 @@ interface ChannelMetricsAggregate {
   rejected: number;
   broadcast: number;
   rejectedByReason: Record<string, number>;
+  /** 2026-11-21（入站监视 G1）：按渠道分维的入站/拒绝（指标 labels 含 channel） */
+  inboundByChannel: Record<string, number>;
+  rejectedByChannel: Record<string, number>;
   processingByChannel: Record<string, ChannelProcessingStat>;
   sendByPlatform: Record<string, ChannelSendStat>;
 }
@@ -75,6 +78,8 @@ function aggregate(entries: ChannelMetricEntry[]): ChannelMetricsAggregate {
     rejected: 0,
     broadcast: 0,
     rejectedByReason: {},
+    inboundByChannel: {},
+    rejectedByChannel: {},
     processingByChannel: {},
     sendByPlatform: {},
   };
@@ -82,18 +87,22 @@ function aggregate(entries: ChannelMetricEntry[]): ChannelMetricsAggregate {
   for (const entry of entries) {
     const { name, labels } = parseMetricKey(entry.key);
     const value = entry.value ?? 0;
+    const channel = labels.channel || "unknown";
 
     if (name === "channels.message.inbound_total") {
       agg.inbound += value;
+      agg.inboundByChannel[channel] =
+        (agg.inboundByChannel[channel] || 0) + value;
     } else if (name === "channels.message.rejected_total") {
       agg.rejected += value;
+      agg.rejectedByChannel[channel] =
+        (agg.rejectedByChannel[channel] || 0) + value;
       const reason = labels.reason || "unknown";
       agg.rejectedByReason[reason] =
         (agg.rejectedByReason[reason] || 0) + value;
     } else if (name === "channels.delivery.broadcast_total") {
       agg.broadcast += value;
     } else if (name === "channels.message.processing_ms") {
-      const channel = labels.channel || "unknown";
       const count = entry.count ?? 0;
       const sum = entry.sum ?? 0;
       agg.processingByChannel[channel] = {
@@ -164,6 +173,24 @@ export function ChannelMetricsCard() {
     { ok: 0, fail: 0 },
   );
 
+  // 按渠道汇总：入站 / 拒绝 / 平均耗时同表展示（渠道集合取三者并集，按入站降序）
+  const channelRows = agg
+    ? [
+        ...new Set([
+          ...Object.keys(agg.inboundByChannel),
+          ...Object.keys(agg.rejectedByChannel),
+          ...Object.keys(agg.processingByChannel),
+        ]),
+      ]
+        .map((channel) => ({
+          channel,
+          inbound: agg.inboundByChannel[channel] ?? 0,
+          rejected: agg.rejectedByChannel[channel] ?? 0,
+          processing: agg.processingByChannel[channel],
+        }))
+        .sort((a, b) => b.inbound - a.inbound)
+    : [];
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
       <div className="flex items-center gap-2 mb-3">
@@ -230,27 +257,46 @@ export function ChannelMetricsCard() {
             </div>
           )}
 
-          {Object.keys(agg.processingByChannel).length > 0 && (
+          {channelRows.length > 0 && (
             <div className="mb-3">
               <p className="text-xs text-gray-400 mb-1">
-                {t("common.channelMetricsProcessing")}
+                {t("common.channelMetricsByChannel")}
               </p>
-              <div className="flex flex-wrap gap-1.5">
-                {Object.entries(agg.processingByChannel).map(
-                  ([channel, stat]) => (
-                    <span
-                      key={channel}
-                      className="text-[11px] px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
-                    >
-                      {t("common.channelMetricsProcessingItem", {
-                        channel,
-                        ms: stat.avgMs,
-                        count: stat.count,
-                      })}
-                    </span>
-                  ),
-                )}
-              </div>
+              <table className="w-full text-[11px] text-gray-600 dark:text-gray-300">
+                <thead>
+                  <tr className="text-gray-400">
+                    <th className="text-left font-normal pb-1">
+                      {t("common.channelMetricsColChannel")}
+                    </th>
+                    <th className="text-right font-normal pb-1">
+                      {t("common.channelMetricsColInbound")}
+                    </th>
+                    <th className="text-right font-normal pb-1">
+                      {t("common.channelMetricsColRejected")}
+                    </th>
+                    <th className="text-right font-normal pb-1">
+                      {t("common.channelMetricsColAvgMs")}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {channelRows.map((row) => (
+                    <tr key={row.channel}>
+                      <td className="py-0.5">{row.channel}</td>
+                      <td className="py-0.5 text-right">{row.inbound}</td>
+                      <td className="py-0.5 text-right">{row.rejected}</td>
+                      <td className="py-0.5 text-right">
+                        {row.processing
+                          ? t("common.channelMetricsAvgMsValue", {
+                              ms: row.processing.avgMs,
+                              count: row.processing.count,
+                            })
+                          : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
 

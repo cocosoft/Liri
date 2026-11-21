@@ -191,9 +191,9 @@ async function routeChannelMessageInner(
     'message.id': message.messageId,
   });
 
-  // 可观测性（指标）：入站计数 + 处理耗时起点
+  // 可观测性（指标）：入站计数 + 处理耗时起点（按渠道分维）
   const processingStartMs = Date.now();
-  recordInboundMessage();
+  recordInboundMessage(channelName);
 
   // [0] 生成全链路 traceId（先于入口日志生成，后续所有阶段日志均携带，grep traceId 即可串联全链路）
   const traceId = `ch_trc_${channelName}_${Date.now()}_${randomIdSuffix(4)}`;
@@ -244,7 +244,7 @@ async function routeChannelMessageInner(
       messageId: message.messageId,
       errors: validation.errors,
     });
-    recordMessageRejected(validation.errorCode || 'INVALID_FRAME');
+    recordMessageRejected(validation.errorCode || 'INVALID_FRAME', channelName);
     messageTraceBuffer.addStage(
       traceId,
       'frame_check',
@@ -280,7 +280,7 @@ async function routeChannelMessageInner(
         senderId: message.senderId,
         reason: authResult.reason,
       });
-      recordMessageRejected('UNAUTHORIZED');
+      recordMessageRejected('UNAUTHORIZED', channelName);
       messageTraceBuffer.addStage(
         traceId,
         'dm_auth',
@@ -312,7 +312,7 @@ async function routeChannelMessageInner(
       channelName,
       messageId: message.messageId,
     });
-    recordMessageRejected('duplicate');
+    recordMessageRejected('duplicate', channelName);
     messageTraceBuffer.addStage(traceId, 'dedup', 'skip', 'duplicate');
     messageTraceBuffer.finish(traceId, 'rejected', 'duplicate');
     otel.endSpan(routeSpan);
@@ -323,14 +323,14 @@ async function routeChannelMessageInner(
       channelName,
       messageId: message.messageId,
     });
-    recordMessageRejected('inflight');
+    recordMessageRejected('inflight', channelName);
     messageTraceBuffer.addStage(traceId, 'dedup', 'skip', 'inflight');
     messageTraceBuffer.finish(traceId, 'rejected', 'inflight');
     otel.endSpan(routeSpan);
     return { valid: true, response: 'inflight_skipped' };
   }
   if (claimResult === 'invalid') {
-    recordMessageRejected('INVALID_ID');
+    recordMessageRejected('INVALID_ID', channelName);
     messageTraceBuffer.addStage(traceId, 'dedup', 'skip', 'invalid');
     messageTraceBuffer.finish(traceId, 'rejected', 'INVALID_ID');
     otel.endSpan(routeSpan);
@@ -357,7 +357,7 @@ async function routeChannelMessageInner(
       });
       // 也释放 messageId 级别的锁
       releaseProcessing(dedupKey);
-      recordMessageRejected('content_dedup');
+      recordMessageRejected('content_dedup', channelName);
       messageTraceBuffer.addStage(traceId, 'dedup', 'skip', 'content_dedup');
       messageTraceBuffer.finish(traceId, 'rejected', 'content_dedup');
       otel.endSpan(routeSpan);
@@ -440,7 +440,7 @@ async function routeChannelMessageInner(
     // P1-1：claimMessage 已持锁，限流拒绝路径必须释放锁，
     // 否则该 messageId 永久残留 inflight 集合，渠道重传被无限拦截
     releaseProcessing(dedupKey);
-    recordMessageRejected('RATE_LIMITED');
+    recordMessageRejected('RATE_LIMITED', channelName);
     messageTraceBuffer.addStage(traceId, 'rate_limit', 'fail', 'RATE_LIMITED');
     messageTraceBuffer.finish(traceId, 'rejected', 'RATE_LIMITED');
     otel.endSpan(routeSpan);
@@ -480,7 +480,7 @@ async function routeChannelMessageInner(
       );
       if (decision.action === 'drop' && !shadow) {
         releaseProcessing(dedupKey);
-        recordMessageRejected('INGEST_FUNNEL');
+        recordMessageRejected('INGEST_FUNNEL', channelName);
         messageTraceBuffer.addStage(
           traceId,
           'ingest_funnel',
@@ -699,7 +699,7 @@ async function routeChannelMessageInner(
               waitMs: admissionWaitMs,
             }
           );
-          recordMessageRejected('SESSION_BUSY');
+          recordMessageRejected('SESSION_BUSY', channelName);
           recordMessageProcessing(channelName, Date.now() - processingStartMs);
           messageTraceBuffer.addStage(
             traceId,
@@ -920,7 +920,7 @@ async function routeChannelMessageInner(
         { messageId: message.messageId, channelName }
       );
       releaseProcessing(dedupKey);
-      recordMessageRejected('SESSION_BUSY');
+      recordMessageRejected('SESSION_BUSY', channelName);
       recordMessageProcessing(channelName, Date.now() - processingStartMs);
       messageTraceBuffer.finish(traceId, 'fail', 'SESSION_BUSY');
       otel.endSpan(routeSpan);
@@ -971,7 +971,7 @@ async function routeChannelMessageInner(
         }
       );
       releaseProcessing(dedupKey);
-      recordMessageRejected(failure.errorCode);
+      recordMessageRejected(failure.errorCode, channelName);
       recordMessageProcessing(channelName, Date.now() - processingStartMs);
       messageTraceBuffer.finish(traceId, 'fail', failure.errorCode);
       otel.endSpan(routeSpan);
@@ -1012,7 +1012,7 @@ async function routeChannelMessageInner(
         }
       );
       releaseProcessing(dedupKey);
-      recordMessageRejected('EMPTY_LLM_RESPONSE');
+      recordMessageRejected('EMPTY_LLM_RESPONSE', channelName);
       recordMessageProcessing(channelName, Date.now() - processingStartMs);
       messageTraceBuffer.finish(traceId, 'fail', 'EMPTY_LLM_RESPONSE');
       otel.endSpan(routeSpan);

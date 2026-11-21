@@ -1,6 +1,6 @@
 # 工具治理方案 v3：包化、核心最小集与按需发现（2026-11-21）
 
-> 状态：**C1–C5 已实施**（2026-11-21；未提交）。实施落点与验收见 §15；
+> 状态：**C1–C5 + P4 已实施并提交**（2026-11-21）。实施落点与验收见 §15；P4 提交 = `6027f8dd6` / `927354157` / `1573cb430`，其后判据修复 = `622ca297f` / `f6925abae` / `59b89d6a0`；CI（`49b96b5a7`）全绿。
 > P4 物理拆包：**media / browser（含工具类）/ desktop / tool-base 契约 / office 域已拆**（§15.8–§15.10），P4 按重域口径收口。
 > v3 变更：采纳 v2 的建议项（D1–D8），并把「profile / 工具包元数据 / 插件工具契约 / 设置页 / 守卫」
 > 细化到文件与函数级；新增 §14 落地清单。v2 的参考对照与重复项判定保留。
@@ -555,7 +555,7 @@ bun run typecheck
 
 ---
 
-## 15. 实施记录（2026-11-21，未提交）
+## 15. 实施记录（2026-11-21，已提交）
 
 ### 15.1 C1：包元数据
 
@@ -657,7 +657,7 @@ bun run typecheck
 | `cd client && bunx vitest run settings/__tests__/ToolsPanel… toolsPanelModel…` | ✅ 35 pass（包徽标 / 按包视图 / 分组纯函数） |
 | `bun run lint:arch` / `lint:infra` / `lint:size` | ✅ |
 
-**基线 +85 字符的归属（与本轮无关，已显式评审）**：上一阶段（未提交）对 `TodoWriteTool` 描述加长
+**基线 +85 字符的归属（与本轮无关，已显式评审）**：上一阶段（`8215215ea`）对 `TodoWriteTool` 描述加长
 （"收尾要求：…"共 85 字符）⇒ 默认面 `sourceDescriptionChars` 3588 → 3673；
 `providerSurfaceTokens`（1512）与 `structuralTokens`（2396）**未变**。
 用户裁定（2026-11-21）：**保留该描述改进并更新基线**（`bun run measure:tool-disclosure --update`），

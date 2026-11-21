@@ -27,6 +27,8 @@ import type { ToolCallProgress } from '../types/Tool';
 import type { AgentToolProgress } from '../types/ToolProgress';
 import { getAgentRunStore } from './AgentRunStore';
 import { getAgentRunLedger } from './AgentRunLedger';
+// 2026-11-21（`agent-load-routing.md` §7 第 2 项）：按 agent 的任务结果事实源
+import { getAgentOutcomeLedger } from './agentOutcomeStats';
 // 接线期③ ③-A（2026-09-24）：未完成 run 的失败归因类型（随台账落盘）
 import type { AgentRunAttribution } from './runAttribution';
 import { getLogger } from '@openliri/infra/monitoring';
@@ -262,6 +264,17 @@ export class AgentLedgerLifecycle {
         status,
       });
       return;
+    }
+    // 2026-11-21（`agent-load-routing.md` §7 第 2 项）：置信度事实源 —— **有注册表归属才记账**。
+    // 认领闸门已保证"同一 run 只执行一次"⇒ 不会重复计数；内置类型 / 无归属 worker 不记录
+    //（不用类型名冒充 agent 维度；CS04：没有真实归属就不造样本）。
+    const view = getAgentRunLedger().view(agentId);
+    if (view?.registryAgentId) {
+      getAgentOutcomeLedger().record(
+        view.registryAgentId,
+        view.type,
+        claim.status === 'completed'
+      );
     }
     try {
       // opts 透传（`error` 用于把"未通过原因"钉在磁盘行上；store 侧本就支持，无需新增方法）

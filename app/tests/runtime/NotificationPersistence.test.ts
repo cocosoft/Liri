@@ -144,12 +144,15 @@ describe('NotificationPersistence 收件箱化断言', () => {
     // 重新实例化（触发 schema 初始化中的幂等清洗）
     const re = new NotificationPersistence(dbPath);
     await re.init();
-    // 通过 list 取回
-    const list = await re.list({ limit: 10 });
-    expect(list.items.length).toBe(1);
-    expect(list.items[0].category).toBe('approval');
-    expect(list.items[0].actions).toEqual([]);
-    expect(list.items[0].status).toBe('dismissed');
+    // 2026-11-21：清洗后状态为 dismissed，而默认列表**不含已归档**（面板关闭再打开不得回流）
+    // ⇒ 默认视图 0 条，归档视图（显式 status=dismissed）才是清洗结果的观测点。
+    const visible = await re.list({ limit: 10 });
+    expect(visible.items.length).toBe(0);
+    const archived = await re.list({ limit: 10, status: 'dismissed' });
+    expect(archived.items.length).toBe(1);
+    expect(archived.items[0].category).toBe('approval');
+    expect(archived.items[0].actions).toEqual([]);
+    expect(archived.items[0].status).toBe('dismissed');
     await re.dispose();
   });
 

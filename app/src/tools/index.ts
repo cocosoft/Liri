@@ -402,12 +402,10 @@ export type {
   ToolRetryBudget,
 } from './toolEffects';
 // wire codec（工具名两种语义：内部标识 `模块:动作` vs OpenAI wire 安全名）
-export {
-  isWireSafeToolName,
-  toWireToolName,
-  buildToolDefinitions,
-} from './toolNameCodec';
+export { isWireSafeToolName, toWireToolName } from './toolNameCodec';
 export type { ToolSchemaLike } from './toolNameCodec';
+// 2026-11-21：出站定义构造（含功能开关裁剪）独立成模块，wire codec 保持零运行时 import
+export { buildToolDefinitions } from './toolDefinitions';
 export { ToolFilterManager } from './ToolFilterManager';
 export {
   filterToolsByTask,

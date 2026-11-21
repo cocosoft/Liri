@@ -15,7 +15,8 @@
  */
 import { LRUCache } from '@openliri/infra/utils/cache';
 import type { ToolDefinition } from '@modules/ai';
-import { buildToolDefinitions, toWireToolName } from './toolNameCodec';
+import { buildToolDefinitions } from './toolDefinitions';
+import { toWireToolName } from './toolNameCodec';
 import type { ToolSchemaLike } from './toolNameCodec';
 
 /** 会话 → 已发现工具名（LRU 上限 200 个会话，避免长期运行的内存增长） */

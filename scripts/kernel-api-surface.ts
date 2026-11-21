@@ -94,6 +94,11 @@ export const CONSUMER_ROOTS = [
   'packages/resourceGovernor',
   // P1（2026-11-14）：`buddy` 迁入 `packages/buddy` 后同理（`dreamIntegration` 消费内核 EventBus/SystemEvents）。
   'packages/buddy',
+  // P4（2026-11-21）：browser 驱动/工具迁入 `packages/tool-browser` 后同理 —— 不纳入会把
+  // `DEFAULT_CDP_ENDPOINT` / `LOCAL_SERVICE_HOST` 等仅由浏览器侧消费的内核符号误降为 internal。
+  'packages/tool-browser',
+  // P4（2026-11-21）：工具运行时支撑迁入 `packages/tool-runtime` 后同理（消费内核 `FeatureFlag`）。
+  'packages/tool-runtime',
 ] as const;
 
 /** 从消费方源码文本中提取「引用了哪些内核符号名」 */

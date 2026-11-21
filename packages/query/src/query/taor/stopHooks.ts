@@ -128,13 +128,11 @@ export function registerDefaultStopHooks(
       // P1（2026-11-21）：真实清理 —— 删除本会话截图 + 释放适配器（原实现只打日志）。
       // 动态导入：仅在有 computer_use 使用痕迹的收尾才加载这两个模块。
       try {
-        const { cleanupScreenshotFiles } = await import(
-          '@openliri/infra/utils/computerUse/screenshotStore'
-        );
+        const { cleanupScreenshotFiles } =
+          await import('@openliri/infra/utils/computerUse/screenshotStore');
         const removed = cleanupScreenshotFiles(context.sessionId);
-        const { resetComputerUseAdapter } = await import(
-          '@openliri/infra/utils/computerUse/index'
-        );
+        const { resetComputerUseAdapter } =
+          await import('@openliri/infra/utils/computerUse/index');
         resetComputerUseAdapter();
         logger.info('stop hook: computer_use_cleanup', {
           sessionId: context.sessionId,

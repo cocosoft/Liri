@@ -23,8 +23,9 @@
  */
 
 import type { ToolRiskClass } from '@openliri/infra/utils/toolContract/Tool';
-// 仅类型引用（`import type` 运行期擦除）⇒ 与 `toolCategories` 无运行时环。
-import type { ToolCategory } from './toolCategories';
+// 2026-11-21：词表下沉到叶子模块 —— 原先 `import type` 自 `toolCategories`，
+// 运行期虽无环（类型擦除），但 madge 会把 `import type` 计为一条边，CI「循环依赖 = 0」因此变红。
+import type { ToolCategory } from './toolCategoryTypes';
 
 /** 运行期工具的元数据（插件工具缺省：类别 `plugin` / 包 = 插件 id / 风险未声明） */
 export interface RuntimeToolMeta {

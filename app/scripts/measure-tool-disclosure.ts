@@ -30,7 +30,7 @@ import { TOOL_NAMES_COUNT } from '@openliri/infra/constants/toolNames.generated'
 import { ToolFactory } from '../src/tools/ToolFactory';
 import { ToolRegistry } from '../src/tools/ToolRegistry';
 import { filterToolsByTask } from '../src/tools/toolCategories';
-import { buildToolDefinitions } from '../src/tools/toolNameCodec';
+import { buildToolDefinitions } from '../src/tools/toolDefinitions';
 import {
   getAllBuiltinToolLoaders,
   loadTools,

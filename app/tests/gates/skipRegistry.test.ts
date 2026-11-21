@@ -198,6 +198,14 @@ const SKIP_REGISTRY: SkipEntry[] = [
     module: 'runtime',
     severity: 'platform',
   },
+  {
+    file: 'app/tests/sandbox/winSandbox.test.ts',
+    match: 'definitely-missing-helper.exe',
+    reason:
+      'Windows 兜底沙箱「helper 起不来 ⇒ helperFailed」只在 Windows 可达（`skipIf` 条件跳过；windows-latest CI 常态执行）',
+    module: 'sandbox',
+    severity: 'platform',
+  },
   ...Array.from({ length: 5 }, (_, i) => ({
     file: 'app/tests/tools/repl.integration.test.ts',
     match: '!pythonAvailable',

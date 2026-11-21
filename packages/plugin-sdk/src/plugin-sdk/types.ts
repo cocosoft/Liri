@@ -238,7 +238,13 @@ export interface ToolRegistration {
    * 风险类别（缺省 ⇒ `undeclared` ⇒ 每次调用仍需审批，**不会**被静默放行）。
    * 透传给 `Tool.riskClass`，由 `deriveToolRiskClass` 统一判定。
    */
-  riskClass?: 'read' | 'write' | 'shell' | 'external' | 'discuss' | 'undeclared';
+  riskClass?:
+    | 'read'
+    | 'write'
+    | 'shell'
+    | 'external'
+    | 'discuss'
+    | 'undeclared';
   /** 是否只读（缺省 = 未声明；声明后才能享受只读放宽 / 并发豁免） */
   readOnly?: boolean;
 }

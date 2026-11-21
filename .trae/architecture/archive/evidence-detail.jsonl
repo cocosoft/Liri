@@ -2762,7 +2762,7 @@
 {"id":"HARDCODE-HDP2-5-APP-LOCALE","k":"code#2","i":0,"c":"app/src/commands/builtin/memory/Memory.ts"}
 {"id":"HARDCODE-HDP2-5-APP-LOCALE","k":"code#3","i":0,"c":"app/src/commands/cron/Cron.ts"}
 {"id":"HARDCODE-HDP2-5-APP-LOCALE","k":"code#4","i":0,"c":"app/src/commands/usagestats/usagestats.ts"}
-{"id":"HARDCODE-HDP2-5-APP-LOCALE","k":"code#5","i":0,"c":"app/src/tools/DocGenerateTool/DocGenerateTool.ts"}
+{"id":"HARDCODE-HDP2-5-APP-LOCALE","k":"code#5","i":0,"c":"packages/tool-office/src/tool-office/DocGenerateTool.ts"}
 {"id":"HARDCODE-HDP2-5-APP-LOCALE","k":"code#6","i":0,"c":"app/src/tools/RecallMemoryTool/RecallMemoryTool.ts"}
 {"id":"HARDCODE-HDP2-5-APP-LOCALE","k":"code#7","i":0,"c":"app/src/tools/SaveConversationTool/SaveConversationTool.ts"}
 {"id":"HARDCODE-HDP2-5-APP-LOCALE","k":"code#8","i":0,"c":"app/src/ui/components/MessageBubble.tsx"}
@@ -4717,7 +4717,7 @@
 {"id":"TOOLVIS-P4B-PDF","k":"notes","i":4,"c":"分支 fail-closed + generate 路径未被误伤」。④ 真机取证：接线前 pdf = conditional + misc；接线后 registration=registered、category=doc、default 下 visible、risk=medium（与 doc_generate 同档）；条目数仍 90。⑤ 顺带修正文档漂移：`"}
 {"id":"TOOLVIS-P4B-PDF","k":"notes","i":5,"c":"app/docs/工具参考/pdf.md` 原描述的是**不存在的** `file` + `operation: read/metadata/pages` 契约 ⇒ 按真实 params（action/title/content/content_file/filename/filepath）重写，并写明 extract/info 在本构建不可用。⑥ 自证："}
 {"id":"TOOLVIS-P4B-PDF","k":"notes","i":6,"c":"tests/tools 887 例全绿；typecheck 0。"}
-{"id":"TOOLVIS-P4B-PDF","k":"code#0","i":0,"c":"app/src/tools/PDFTool/PDFTool.ts"}
+{"id":"TOOLVIS-P4B-PDF","k":"code#0","i":0,"c":"packages/tool-office/src/tool-office/PDFTool.ts"}
 {"id":"TOOLVIS-P4B-PDF","k":"code#1","i":0,"c":"app/src/tools/toolCategories.ts"}
 {"id":"TOOLVIS-P4B-PDF","k":"code#2","i":0,"c":"app/src/tools/factories/builtinToolRegistry.ts"}
 {"id":"TOOLVIS-P4B-PDF","k":"code#3","i":0,"c":"app/src/tools/utils/ToolManagerUtils.ts"}
@@ -6079,7 +6079,7 @@
 {"id":"HARDCODE-ENDPOINTS-B5-2-91","k":"code#3","i":0,"c":"client/src/components/settings/OllamaConfigPanel.tsx"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-91","k":"code#4","i":0,"c":"client/src/services/backendUrl.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-91","k":"code#5","i":0,"c":"app/src/tasks/MonitorTask.ts"}
-{"id":"HARDCODE-ENDPOINTS-B5-2-91","k":"code#6","i":0,"c":"app/src/tools/BrowserVisionTool/BrowserVisionTool.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-91","k":"code#6","i":0,"c":"packages/tool-browser/src/tool-browser/BrowserVisionTool.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-92","k":"title","i":0,"c":"U-20/B5-2-92：本地推理候选 / ComfyUI / REPL 提示统一走真源"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-92","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8 阶段②；lint:endpoints 白名单收敛"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-92","k":"notes","i":0,"c":"core/endpoints 新增 LOCAL_INFERENCE_ENDPOINTS（hostname/loopback 双候选，与 client 同值）与 DEFAULT_COMFYUI_ENDPOINT；服务端预设、LlamaCppProvider、ComfyUIProvider、repl 启动提示改引用；lint:endpoints 88→84。"}

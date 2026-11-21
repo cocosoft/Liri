@@ -37,7 +37,7 @@
  */
 
 import { describe, expect, it } from 'bun:test';
-import { PDFTool } from '../../src/tools/PDFTool/PDFTool';
+import { PDFTool } from '@openliri/tool-office';
 
 const CTX = {} as never;
 

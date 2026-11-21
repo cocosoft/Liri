@@ -616,8 +616,6 @@
       "app/src/tools/monitoring/ToolMetrics.ts",
       "app/src/tools/monitoring/ToolMonitor.ts",
       "app/src/tools/notebook/NotebookToolImpl.ts",
-      "app/src/tools/notebook/types/index.ts",
-      "app/src/tools/notebook/types/NotebookTool.ts",
       "app/src/tools/repl/types/REPLTool.ts",
       "app/src/tools/SessionsTool/SessionsTool.ts",
       "app/src/tools/sidecar/ToolSidecarSupervisor.ts",
@@ -866,6 +864,8 @@
       "packages/subagent/src/subagent/TeammateManager.ts",
       "packages/subagent/src/subagent/types/ProcessSubAgent.ts",
       "packages/subagent/src/subagent/types/SubAgent.ts",
+      "packages/tool-office/src/tool-office/notebook/types/index.ts",
+      "packages/tool-office/src/tool-office/notebook/types/NotebookTool.ts",
       "packages/workspaces/src/workspaces/apply/WorkspaceApply.ts",
       "packages/workspaces/src/workspaces/apply/WorkspaceSnapshot.ts",
       "packages/workspaces/src/workspaces/commands/lifecycle.ts",
@@ -983,8 +983,6 @@
       "app/src/tools/ImageGenerateTool/ImageGenerateTool.ts",
       "app/src/tools/ImageGenerateTool/ImageGenerationRouter.ts",
       "app/src/tools/ImageGenerateTool/types.ts",
-      "app/src/tools/notebook/types/index.ts",
-      "app/src/tools/notebook/types/NotebookTool.ts",
       "app/src/tools/PlanTool/PlanTool.ts",
       "app/src/tools/SessionsTool/SessionsTool.ts",
       "app/src/tools/SkillTool/SkillTool.ts",
@@ -1060,7 +1058,9 @@
       "packages/service/src/session/types/eventPayloads.ts",
       "packages/service/src/session/types/message/blocks.ts",
       "packages/service/src/session/types/message/enums.ts",
-      "packages/service/src/session/types/message/factories.ts"
+      "packages/service/src/session/types/message/factories.ts",
+      "packages/tool-office/src/tool-office/notebook/types/index.ts",
+      "packages/tool-office/src/tool-office/notebook/types/NotebookTool.ts"
     ],
     "FAILED": [
       "app/src/ai/providers/FALProvider.ts",
@@ -1095,8 +1095,6 @@
       "app/src/subagents/SubAgentEventPump.ts",
       "app/src/tasks/TaskListView.ts",
       "app/src/tasks/ticketStage.ts",
-      "app/src/tools/notebook/types/index.ts",
-      "app/src/tools/notebook/types/NotebookTool.ts",
       "app/src/types/orchestrationSnapshot.ts",
       "packages/channels/src/channels/claude/runtime.ts",
       "packages/channels/src/channels/dingtalk/runtime.ts",
@@ -1158,7 +1156,9 @@
       "packages/service/src/voice/types.ts",
       "packages/service/src/voice/VoiceEventBus.ts",
       "packages/service/src/voice/VoiceSession.ts",
-      "packages/service/src/voice/WakeWordEngine.ts"
+      "packages/service/src/voice/WakeWordEngine.ts",
+      "packages/tool-office/src/tool-office/notebook/types/index.ts",
+      "packages/tool-office/src/tool-office/notebook/types/NotebookTool.ts"
     ],
     "installed": [
       "packages/channels/src/channels/wechat/cli-manager.ts",
@@ -1512,8 +1512,6 @@
       "app/src/tools/ListPeersTool/ListPeersTool.ts",
       "app/src/tools/lsp/types/index.ts",
       "app/src/tools/lsp/types/LSPTypes.ts",
-      "app/src/tools/notebook/types/index.ts",
-      "app/src/tools/notebook/types/NotebookTool.ts",
       "app/src/tools/repl/types/REPLTool.ts",
       "app/src/tools/scheduler/ToolScheduler.ts",
       "app/src/tools/SessionsTool/SessionsTool.ts",
@@ -1557,7 +1555,9 @@
       "packages/subagent/src/subagent/backends/InProcessTeammateBackend.ts",
       "packages/subagent/src/subagent/backends/TeammateBackend.ts",
       "packages/subagent/src/subagent/TeammateManager.ts",
-      "packages/subagent/src/subagent/types/SubAgent.ts"
+      "packages/subagent/src/subagent/types/SubAgent.ts",
+      "packages/tool-office/src/tool-office/notebook/types/index.ts",
+      "packages/tool-office/src/tool-office/notebook/types/NotebookTool.ts"
     ],
     "RUNNING": [
       "app/src/runtime/api/domainSnapshotOps.ts",

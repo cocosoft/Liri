@@ -13,9 +13,11 @@ import {
   readdirSync,
 } from 'fs';
 import { join } from 'path';
-import { Notebook } from './types/index.js';
-import { NotebookImpl } from './types/Notebook.js';
-import { JupyterNotebookConverter } from './JupyterNotebookConverter.js';
+import {
+  Notebook,
+  NotebookImpl,
+  JupyterNotebookConverter,
+} from '@openliri/tool-office';
 import { getLogger } from '@openliri/infra/monitoring';
 import {
   AppError,

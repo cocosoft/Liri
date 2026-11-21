@@ -1,0 +1,450 @@
+/**
+ * 工具基类
+ * 提供Tool接口的默认实现，子类继承并实现抽象方法
+ */
+import type {
+  Tool,
+  ToolInfo,
+  ToolParam,
+  ToolTag,
+  ToolValidationResult,
+  InterruptBehavior,
+  ToolUseContext,
+  ToolResult,
+  ToolCallProgress,
+} from '@openliri/infra/utils/toolContract/Tool';
+import type { ToolProgressData } from '@openliri/infra/utils/toolContract/ToolProgress';
+import type { PermissionResult } from '@openliri/infra/utils/toolContract/PermissionResult';
+import { createAllowResult } from '@openliri/infra/utils/toolContract/PermissionResult';
+// 13-P1-2（2026-10-05）：幂等/副作用声明（唯一事实源）
+import { resolveToolEffect } from './toolEffects';
+// D5（2026-10-11）：能力/风险描述符（由既有元数据派生，纯函数）
+import { deriveFromLegacyEffects } from './toolCapability';
+// PR-0（2026-10-23）：风险类别结构化派生（声明式；禁止按工具名猜）
+import { deriveToolRiskClass } from './toolRiskClass';
+import type {
+  ToolCapabilityDescriptor,
+  ToolRiskClass,
+} from '@openliri/infra/utils/toolContract/Tool';
+
+export type { ToolDef } from '@openliri/infra/utils/toolContract/Tool';
+export { buildTool } from '@openliri/infra/utils/toolContract/Tool';
+
+/**
+ * 工具基类
+ * 实现Tool接口的默认方法，提供抽象方法供子类实现
+ */
+export abstract class BaseTool<
+  Input = unknown,
+  Output = unknown,
+  P extends ToolProgressData = ToolProgressData,
+> implements Tool<Input, Output, P> {
+  /** 工具名称（子类必须实现） */
+  abstract name: string;
+
+  /** 工具描述（子类必须实现） */
+  abstract description: string;
+
+  /** 工具参数（子类必须实现） */
+  abstract params: ToolParam[];
+
+  /** 工具别名（可选） */
+  aliases?: string[];
+
+  /** 旧名调用时的入参默认值（P1 工具族合并；见 `Tool.aliasInputDefaults`） */
+  aliasInputDefaults?: Readonly<Record<string, Record<string, unknown>>>;
+
+  /** 搜索提示（可选） */
+  searchHint?: string;
+
+  /** 延迟加载标志（可选） */
+  shouldDefer?: boolean = false;
+
+  /** 始终加载标志（可选） */
+  alwaysLoad?: boolean = false;
+
+  /** 最大结果大小（字符数）（可选） */
+  maxResultSizeChars?: number;
+
+  /** 工具标签列表（可选） */
+  tags?: ToolTag[];
+
+  /**
+   * PR-0（2026-10-23）：风险类别**静态声明**（缺省由 `TOOL_EFFECTS` + `sandboxLevel` 派生）。
+   * 与 `ToolRiskClass` 同域；子类按需覆盖，**禁止**在权限层再按工具名猜。
+   */
+  riskClass?: ToolRiskClass;
+
+  /**
+   * PR-0（2026-10-23）：风险类别**动态声明**（混合工具；如 `pdf` 的 `extract`/`generate`）。
+   * 优先于 `riskClass`。
+   */
+  riskClassFor?(input: Record<string, unknown>): ToolRiskClass;
+
+  /** 严格模式标志（可选） */
+  strict?: boolean = false;
+
+  /** 工具版本号（用于灰度发布和版本管理，可选） */
+  version?: string;
+
+  /**
+   * 沙箱级别
+   * 标识工具操作的安全风险等级，用于沙箱路由决策
+   * - 'none': 无风险，不需要沙箱隔离
+   * - 'readonly': 只读操作，可使用轻量沙箱
+   * - 'file-io': 文件 I/O 操作，需文件读写沙箱
+   * - 'execution': 代码执行操作，需完整 Docker 沙箱
+   * 默认值为 'none'
+   */
+  sandboxLevel?: 'none' | 'readonly' | 'file-io' | 'execution';
+
+  /**
+   * U-03（2026-10-19）：**模型可见出参结构**（JSON Schema）。
+   *
+   * 子类按需声明；`getInfo()` 会把它放进注册快照 ⇒ 懒加载工具未解包也能下发。
+   * 与 `outputSchema`（运行期 `safeParse` 校验器）职责不同，勿混用。
+   */
+  outputJsonSchema?: Record<string, unknown>;
+
+  /**
+   * 检查是否应使用沙箱执行
+   * 子类可重写此方法实现自定义沙箱决策逻辑
+   *
+   * @param input 工具输入（可选）
+   * @returns 是否应使用沙箱
+   */
+  requiresSandbox(input?: Record<string, unknown>): boolean {
+    return this.sandboxLevel === 'execution' || this.sandboxLevel === 'file-io';
+  }
+
+  /**
+   * 检查工具是否启用
+   * 默认返回true
+   * @returns 是否启用
+   */
+  isEnabled(): boolean {
+    return true;
+  }
+
+  /**
+   * 检查工具是否只读
+   *
+   * PR-0（2026-10-23）：默认值改为**跟随副作用声明**（`TOOL_EFFECTS`，编译期穷举）——
+   * `sideEffect === 'none'` ⇒ 只读。原实现恒 `false`，导致「声明无副作用却自称非只读」，
+   * 进而被风险派生判为 `undeclared`（如 `sleep` / `image_display` 等）。子类仍可覆盖。
+   *
+   * @param input 工具输入（可选）
+   * @returns 是否只读
+   */
+  isReadOnly(input?: Record<string, unknown>): boolean {
+    const effect = resolveToolEffect(this.name);
+    if (effect) return effect.sideEffect === 'none';
+    return false;
+  }
+
+  /**
+   * 检查工具是否破坏性操作（不可逆转）
+   * 默认返回false
+   * @param input 工具输入（可选）
+   * @returns 是否破坏性
+   */
+  isDestructive?(input?: Record<string, unknown>): boolean {
+    return false;
+  }
+
+  /**
+   * 检查工具是否并发安全
+   * 默认返回false（假设不安全）
+   * @param input 工具输入（可选）
+   * @returns 是否并发安全
+   */
+  isConcurrencySafe(input?: Record<string, unknown>): boolean {
+    return false;
+  }
+
+  /**
+   * 中断行为策略
+   * 当用户在工具运行时提交新消息时应该发生什么
+   * 默认返回'block'（继续运行，新消息等待）
+   * @returns 中断行为策略
+   */
+  interruptBehavior?(): InterruptBehavior {
+    return 'block';
+  }
+
+  /**
+   * 获取工具操作的文件路径（可选）
+   * 默认返回空字符串
+   * @param input 工具输入
+   * @returns 文件路径
+   */
+  getPath?(input: Record<string, unknown>): string {
+    return '';
+  }
+
+  /**
+   * 执行工具（子类必须实现）
+   * @param input 工具输入
+   * @param context 工具使用上下文
+   * @param onProgress 进度回调（可选）
+   * @returns 工具执行结果
+   */
+  abstract execute(
+    input: Input,
+    context: ToolUseContext,
+    onProgress?: ToolCallProgress<P>
+  ): Promise<ToolResult<Output>>;
+
+  /**
+   * 检查权限
+   * 默认返回 allow = **不追加限制**（不是"放行"）：执行器仍会走通用权限判定
+   * （P0，2026-11-04：工具级 check 只能收紧，不能短路 `PermissionManager`）
+   * @param input 工具输入
+   * @param context 工具使用上下文
+   * @returns 权限结果
+   */
+  async checkPermissions?(
+    input: unknown,
+    context: ToolUseContext
+  ): Promise<PermissionResult> {
+    return createAllowResult(input);
+  }
+
+  /**
+   * 验证输入
+   * 默认返回true
+   * @param input 工具输入
+   * @returns 验证结果
+   */
+  validateInput?(input: unknown): ToolValidationResult {
+    return { result: true };
+  }
+
+  /**
+   * 带上下文的输入验证（可选）
+   * 默认调用validateInput
+   * @param input 工具输入
+   * @param context 工具使用上下文
+   * @returns 验证结果
+   */
+  async validateInputWithContext?(
+    input: unknown,
+    context: ToolUseContext
+  ): Promise<ToolValidationResult> {
+    if (this.validateInput) {
+      return this.validateInput(input);
+    }
+    return { result: true };
+  }
+
+  /**
+   * PR-0（2026-10-23）：派生本次调用的风险类别。
+   *
+   * 权限层（infra）经 `Tool.getRiskClass?()` 调用 —— 使其**无需**反向依赖 `tools/`。
+   * 口径见 `tools/toolRiskClass.ts`（声明 > 结构化派生 > 未声明）。
+   */
+  getRiskClass(input?: Record<string, unknown>): ToolRiskClass {
+    return deriveToolRiskClass(this, input ?? {});
+  }
+
+  /**
+   * 获取工具信息
+   * @returns 工具信息
+   */
+  getInfo(): ToolInfo {
+    // 13-P1-2（2026-10-05）：幂等/副作用声明来自唯一事实源；未声明（MCP/插件）⇒ 保守取值
+    const effect = resolveToolEffect(this.name);
+    return {
+      name: this.name,
+      description: this.description,
+      params: this.params,
+      aliases: this.aliases,
+      ...(this.aliasInputDefaults !== undefined
+        ? { aliasInputDefaults: this.aliasInputDefaults }
+        : {}),
+      searchTips: this.searchHint ? [this.searchHint] : undefined,
+      enabled: this.isEnabled(),
+      readOnly: this.isReadOnly(),
+      destructive: this.isDestructive?.() || false,
+      concurrencySafe: this.isConcurrencySafe(),
+      idempotent: effect?.idempotent ?? false,
+      sideEffect: effect?.sideEffect ?? 'external',
+      // D5（2026-10-11）：能力/风险描述符（由既有元数据派生，见 `getCapability()`）
+      capability: this.getCapability(),
+      deferred: this.shouldDefer || false,
+      alwaysLoad: this.alwaysLoad || false,
+      interruptBehavior: this.interruptBehavior?.() || 'block',
+      maxResultSizeChars: this.maxResultSizeChars,
+      tags: this.tags,
+      // PR-0（2026-10-23）：风险类别（声明式派生；供设置页分组与 /v1/tools）
+      riskClass: deriveToolRiskClass(this, {}),
+      // U-03（2026-10-19）：能力声明位透出，供懒加载包装器在未解包时判定执行类
+      ...(this.sandboxLevel !== undefined
+        ? { sandboxLevel: this.sandboxLevel }
+        : {}),
+      // U-03（2026-10-19）：模型可见出参结构同样进快照（懒加载工具也能下发给模型）
+      ...(this.outputJsonSchema !== undefined
+        ? { outputJsonSchema: this.outputJsonSchema }
+        : {}),
+    };
+  }
+
+  /**
+   * 派生**能力/风险描述符**（D5，2026-10-11）。
+   *
+   * **纯派生**：复用既有元数据（`TOOL_EFFECTS` + `tags` + `isReadOnly/isDestructive` + `sandboxLevel`）
+   * —— **未显式声明**的能力由 `deriveFromLegacyEffects()` 默认派生（渐进棘轮，不改存量工具 Schema）。
+   * `sandboxLevel === 'execution'` 视为"执行任意代码/命令"（→ `capability: 'execute'`）。
+   *
+   * @param input 工具输入（可选；部分工具的只读/破坏性判定依赖入参）
+   */
+  getCapability(input?: Record<string, unknown>): ToolCapabilityDescriptor {
+    return deriveFromLegacyEffects({
+      effect: resolveToolEffect(this.name),
+      tags: this.tags,
+      isReadOnly: this.isReadOnly(input),
+      isDestructive: this.isDestructive?.(input) || false,
+      sandboxLevel: this.sandboxLevel,
+      executesCode: this.sandboxLevel === 'execution',
+    });
+  }
+
+  /**
+   * 获取工具用于自动分类器的输入
+   * 默认返回空字符串
+   * @param input 工具输入
+   * @returns 分类器输入
+   */
+  toAutoClassifierInput?(input: unknown): unknown {
+    return '';
+  }
+
+  /**
+   * 获取用户可见的工具名称
+   * 默认返回工具名称
+   * @param input 工具输入（可选）
+   * @returns 用户可见名称
+   */
+  userFacingName?(input?: Partial<unknown>): string {
+    return this.name;
+  }
+
+  /**
+   * 获取活动描述
+   * 默认返回null
+   * @param input 工具输入（可选）
+   * @returns 活动描述
+   */
+  getActivityDescription?(input?: Partial<unknown>): string | null {
+    return null;
+  }
+
+  /**
+   * 获取工具使用摘要
+   * 默认返回null
+   * @param input 工具输入（可选）
+   * @returns 工具使用摘要
+   */
+  getToolUseSummary?(input?: Partial<unknown>): string | null {
+    return null;
+  }
+
+  /**
+   * 检查工具是否是搜索或读取命令
+   * 默认返回false
+   * @param input 工具输入
+   * @returns 搜索或读取命令信息
+   */
+  isSearchOrReadCommand?(input: unknown): {
+    isSearch: boolean;
+    isRead: boolean;
+    isList?: boolean;
+  } {
+    return { isSearch: false, isRead: false };
+  }
+
+  /**
+   * 检查工具是否是开放世界操作
+   * 默认返回false
+   * @param input 工具输入
+   * @returns 是否开放世界操作
+   */
+  isOpenWorld?(input: unknown): boolean {
+    return false;
+  }
+
+  /**
+   * 检查工具是否需要用户交互
+   * 默认返回false
+   * @returns 是否需要用户交互
+   */
+  requiresUserInteraction?(): boolean {
+    return false;
+  }
+
+  /**
+   * 准备权限匹配器
+   * 默认返回始终匹配的函数
+   * @param input 工具输入
+   * @returns 权限匹配器函数
+   */
+  async preparePermissionMatcher?(
+    input: unknown
+  ): Promise<(pattern: string) => boolean> {
+    return () => true;
+  }
+
+  /**
+   * 渲染工具使用消息
+   * 默认返回null，子类可覆盖
+   * @param input 工具输入
+   * @param options 渲染选项
+   * @returns 渲染结果
+   */
+  renderToolUseMessage?(
+    input: unknown,
+    options: { verbose: boolean }
+  ): unknown {
+    return null;
+  }
+
+  /**
+   * 渲染工具执行结果消息
+   * 默认返回null，子类可覆盖
+   * @param output 工具输出
+   * @param progressMessages 进度消息
+   * @param options 渲染选项
+   * @returns 渲染结果
+   */
+  renderToolResultMessage?(
+    output: unknown,
+    progressMessages: unknown[],
+    options: { verbose: boolean }
+  ): unknown {
+    return null;
+  }
+
+  /**
+   * 渲染工具使用错误消息
+   * 默认返回null，子类可覆盖
+   * @param error 错误信息
+   * @param options 渲染选项
+   * @returns 渲染结果
+   */
+  renderToolUseErrorMessage?(
+    error: string,
+    options: { verbose: boolean }
+  ): unknown {
+    return null;
+  }
+
+  /**
+   * 渲染工具进度消息
+   * 默认返回null，子类可覆盖
+   * @param data 进度数据
+   * @returns 渲染结果
+   */
+  renderToolUseProgressMessage?(data: unknown): unknown {
+    return null;
+  }
+}

@@ -204,12 +204,12 @@
       "reason": "媒体模块自身的启停态（工具局部）"
     },
     {
-      "file": "app/src/tools/notebook/types/index.ts",
+      "file": "packages/tool-office/src/tool-office/notebook/types/index.ts",
       "exportName": "CellExecutionState",
-      "reason": "Notebook 单元执行态（工具局部）"
+      "reason": "Notebook 单元执行态（工具局部；P4 由 app/src/tools/notebook/types 迁入 tool-office）"
     },
     {
-      "file": "app/src/tools/notebook/types/NotebookTool.ts",
+      "file": "packages/tool-office/src/tool-office/notebook/types/NotebookTool.ts",
       "exportName": "CellExecutionState",
       "reason": "同上（Notebook 契约中的同义枚举，工具局部实现）"
     },

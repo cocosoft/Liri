@@ -1,4 +1,4 @@
-import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
+import { DEFAULT_LOCALE, TOOL_NAME_CONSTANTS } from '@openliri/infra/constants';
 /**
  * DocGenerateTool — 文档生成工具
  * 利用 officecli (create + add + save) 生成 Office 文件到 output 目录
@@ -18,8 +18,12 @@ import {
 import { join, resolve } from 'path';
 import { deflateRawSync } from 'zlib';
 
-import { BaseTool } from '../BaseTool';
-import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
+import { BaseTool } from '@openliri/tool-base';
+import type {
+  ToolResult,
+  ToolUseContext,
+  ToolParam,
+} from '@openliri/infra/utils/toolContract/Tool';
 
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
@@ -31,7 +35,6 @@ import {
   resolveLanguage,
   type LangKey,
 } from '@openliri/infra/system/i18n/languageProfiles';
-import { DEFAULT_LOCALE } from '@openliri/infra/constants';
 const logger = getLogger('tools:DocGenerateTool');
 
 /** 异步执行（阻塞源收敛 2026-10-04，台账 V-2）：officecli 探测/调用原为 `execSync`/`spawnSync` */
@@ -1416,11 +1419,11 @@ export class DocGenerateTool extends BaseTool {
         }
         try {
           const { getConverterEngine } =
-            await import('../converter/engine/ConverterEngine').catch(() => ({
+            await import('./converter/engine/ConverterEngine').catch(() => ({
               getConverterEngine: undefined,
             }));
           const { FileTypeDetector } =
-            await import('../converter/engine/FileTypeDetector').catch(() => ({
+            await import('./converter/engine/FileTypeDetector').catch(() => ({
               FileTypeDetector: undefined,
             }));
           const buffer = readFileSync(sourcePath);

@@ -12,9 +12,10 @@ import {
   CellExecutionResult,
   CellExecutionState,
   CellOutput,
-} from './types/index.js';
+  CodeCellImpl,
+  MarkdownCellImpl,
+} from '@openliri/tool-office';
 import { notebookManager } from './NotebookManager.js';
-import { CodeCellImpl, MarkdownCellImpl } from './types/Cell.js';
 import { REPLToolImpl } from '../repl/REPLToolImpl.js';
 import { REPLSessionStatus } from '../repl/types/index.js';
 import type { REPLSession } from '../repl/types/index.js';

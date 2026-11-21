@@ -12,8 +12,7 @@ import type {
   ToolResult,
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
-import { getConverterEngine } from '../../tools/converter/engine/ConverterEngine';
-import { FileTypeDetector } from '../../tools/converter/engine/FileTypeDetector';
+import { getConverterEngine, FileTypeDetector } from '@openliri/tool-office';
 import { truncateToolResult, MAX_TOOL_RESULT_CHARS } from '@modules/query';
 import { z } from 'zod';
 
@@ -212,7 +211,7 @@ export class FileConvertTool extends BaseTool {
         ).resolveOutputDir();
         const baseName = path.basename(filePath, path.extname(filePath));
         const { createWithOfficeCLI, createNativeDocx, isOfficeCLIAvailable } =
-          await import('../DocGenerateTool/DocGenerateTool');
+          await import('@openliri/tool-office');
 
         const gen = (await isOfficeCLIAvailable())
           ? await createWithOfficeCLI(baseName, fullMarkdown, 'docx', outputDir)

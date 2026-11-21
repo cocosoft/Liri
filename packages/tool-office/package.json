@@ -1,0 +1,20 @@
+{
+  "name": "@openliri/tool-office",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liri office 工具包 —— 文档生成（officecli）/ PDF 生成提取 / 文件转换引擎 / Jupyter nbformat 模型与转换器。层归属 app：可依赖 app / service / infra / core；entry / ui 不得依赖本包，包内不得依赖 entry / ui 层（R32）。注册动作与 NotebookManager/NotebookToolImpl 仍留 app。",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/tool-office/index.ts",
+      "import": "./src/tool-office/index.ts"
+    },
+    "./*": {
+      "types": "./src/tool-office/*.ts",
+      "import": "./src/tool-office/*.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p ../../app/tsconfig.json"
+  }
+}

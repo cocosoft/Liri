@@ -226,6 +226,16 @@ jobs:
       if: matrix.os == 'ubuntu-latest'
       run: bun run lint:tool-browser
 
+    # P4（2026-11-21）：工具基类契约拆包到 packages/tool-base 后同理补覆盖。
+    - name: "Run tool-base package linter (P4：packages/tool-base 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:tool-base
+
+    # P4（2026-11-21）：office 域拆包到 packages/tool-office 后同理补覆盖。
+    - name: "Run tool-office package linter (P4：packages/tool-office 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:tool-office
+
     # P1（2026-11-14）：context-engine 拆包到 packages/context-engine 后同理补覆盖。
     - name: "Run context-engine package linter (P1：packages/context-engine 覆盖)"
       if: matrix.os == 'ubuntu-latest'

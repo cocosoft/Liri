@@ -115,7 +115,11 @@ export type BoundaryRule =
   // P4（2026-11-21）：tool-media 物理包（`packages/tool-media`）边界专用号
   | 'R29'
   // P4（2026-11-21）：tool-browser 物理包（`packages/tool-browser`）边界专用号
-  | 'R30';
+  | 'R30'
+  // P4（2026-11-21）：tool-base 物理包（`packages/tool-base`）边界专用号
+  | 'R31'
+  // P4（2026-11-21）：tool-office 物理包（`packages/tool-office`）边界专用号
+  | 'R32';
 
 /** 单条规则的检查结论 */
 export interface BoundaryReport {

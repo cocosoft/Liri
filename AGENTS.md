@@ -88,7 +88,7 @@
 
 - **规则分级**：MUST（违反即阻断）> SHOULD（需登记例外）> MAY（建议）
 - **规则文件总数**：16 个（`.trae/rules/`；含 `code-deletion.md` CD01–CD07 与 `session-budget.md` SB01–SB11）
-- **可执行检查**：`bun run lint:arch`（`scripts/lint-architecture.ts`，20+ 项检查）+ `bun run lint:infra`（物理包边界 **R1–R30**）
+- **可执行检查**：`bun run lint:arch`（`scripts/lint-architecture.ts`，20+ 项检查）+ `bun run lint:infra`（物理包边界 **R1–R32**）
 - **CI 门禁**：`.github/workflows/ci.yml`（`lint:gate-parity` 覆盖 **78 条** ci 门禁：77 覆盖 + 1 登记豁免 `test:guarded`）
 - **例外管理**：`scripts/layer-exceptions.json`（带过期衰减机制）
 - **架构治理文档**：`dev_docs/20260809/`（分析报告，非规则源）

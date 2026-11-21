@@ -1,0 +1,16 @@
+{
+  "name": "@openliri/tool-base",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liri 工具基类契约包 —— BaseTool + 副作用/能力/风险派生（toolEffects / toolCapability / toolRiskClass）。层归属 app：可依赖 app / service / infra / core；entry / ui 不得依赖本包，包内不得依赖 entry / ui 层（R31）。app 的 tools/BaseTool.ts 等保留转发 shim。",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/tool-base/index.ts",
+      "import": "./src/tool-base/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p ../../app/tsconfig.json"
+  }
+}

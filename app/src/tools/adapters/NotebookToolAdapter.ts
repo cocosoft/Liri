@@ -13,7 +13,7 @@ import type { ToolUseContext } from '../types/ToolUseContext.js';
 import type { ToolResult } from '../types/ToolResult.js';
 import { ToolTag } from '../types/Tool.js';
 import { NotebookToolImpl } from '../notebook/NotebookToolImpl.js';
-import type { Notebook, CodeCell } from '../notebook/types/index.js';
+import type { Notebook, CodeCell } from '@openliri/tool-office';
 import { notebookManager } from '../notebook/NotebookManager.js';
 import { handleError } from '@openliri/infra/error/handleError';
 

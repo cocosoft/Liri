@@ -68,7 +68,7 @@ packages/                     物理独立包（23 个，各含 package.json + t
 ```
 
 > **层序**：`entry > ui > app > service > infra > core`（唯一事实源 `scripts/modules-to-layers.json`）。
-> **包边界门禁**：`bun run lint:infra`（R1–R30，逐包 `lint:<pkg>` 由 `lint:gate-parity` 校验覆盖）。
+> **包边界门禁**：`bun run lint:infra`（R1–R32，逐包 `lint:<pkg>` 由 `lint:gate-parity` 校验覆盖）。
 > **迁移状态**：`app/src` 仍有 34 个顶层目录，迁包是**逐模块**进行、未迁者留在原地的中间态，不是双实现。
 
 ---

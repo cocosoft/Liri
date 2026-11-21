@@ -65,7 +65,7 @@ import { SaveConversationTool } from '../SaveConversationTool/SaveConversationTo
 import { SessionsTool } from '../SessionsTool/SessionsTool';
 import { SessionsYieldTool } from '../SessionsYieldTool/SessionsYieldTool';
 import { ClipboardTool } from '../ClipboardTool/ClipboardTool';
-import { DocGenerateTool } from '../DocGenerateTool/DocGenerateTool';
+import { DocGenerateTool, createPDFTool } from '@openliri/tool-office';
 import { MonitorTool } from '../MonitorTool/MonitorTool.js';
 import { TraceRecordingTool } from '../TraceRecordingTool/TraceRecordingTool.js';
 import { SleepTool } from '../SleepTool/SleepTool.js';
@@ -79,8 +79,6 @@ import { createComputerUseTool } from '../ComputerUseTool/ComputerUseTool';
 import { BrowserTool } from '../BrowserTool/BrowserTool';
 import { BrowserVisionTool } from '../BrowserVisionTool/BrowserVisionTool';
 import { PlanTool } from '../PlanTool/PlanTool';
-// P4b（2026-10-16）：`pdf` 接线（复用 PDFTool.ts 内早已导出的 `createPDFTool`）
-import { createPDFTool } from '../PDFTool/PDFTool';
 import { ToolSearchTool } from '../ToolSearchTool/ToolSearchTool';
 import { TungstenTool } from '../TungstenTool/TungstenTool';
 // ── 通道 / 团队 ──

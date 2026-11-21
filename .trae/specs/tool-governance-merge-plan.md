@@ -1,7 +1,7 @@
 # 工具治理方案 v3：包化、核心最小集与按需发现（2026-11-21）
 
 > 状态：**C1–C5 已实施**（2026-11-21；未提交）。实施落点与验收见 §15；
-> P4 物理拆包：**media + browser 驱动/schema 已拆**（§15.8），工具类与 office/desktop 待工具基类契约下移后再做。
+> P4 物理拆包：**media / browser 驱动 / tool-base 契约 / office 域已拆**（§15.8 / §15.9），工具类 `BrowserTool`·`ComputerUseTool` 与 desktop 待后续处理。
 > v3 变更：采纳 v2 的建议项（D1–D8），并把「profile / 工具包元数据 / 插件工具契约 / 设置页 / 守卫」
 > 细化到文件与函数级；新增 §14 落地清单。v2 的参考对照与重复项判定保留。
 > 修订说明：v1 的结论是「`file_write`/`file_edit`/`file_convert` 三合一」。参考
@@ -220,7 +220,7 @@ interface CapabilityPackSpec {
 |---|---|---|
 | A（本方案） | **逻辑包**：元数据 + 懒加载 + 设置页分组；文件仍留在 `app/src/tools` | 零搬迁风险；先拿到治理收益 |
 | B（按需） | 把重域抽成独立包：`packages/tool-media`、`tool-office`、`tool-browser`、`tool-desktop` | 这些域依赖重（sharp/pdf/playwright/PowerShell），独立包可真正裁剪产物体积 |
-| B′（2026-11-21 已落地） | `packages/tool-media`（15 个纯对象工具）与 `packages/tool-browser`（`PlaywrightDriver` + `schemas`）；`MediaModule` / `BrowserTool` 工具类**留在 app** 负责注册与基类继承 | 工具类继承 app 的 `BaseTool`，搬迁需先做**工具基类契约下移**（另立项）；本轮只搬无基类依赖的实现与驱动，属结构性变更、无行为回退风险 |
+| B′（2026-11-21 已落地） | `packages/tool-media`（15 个纯对象工具）、`packages/tool-browser`（`PlaywrightDriver` + `schemas`）、`packages/tool-base`（`BaseTool` 契约 + 副作用/能力/风险派生）、`packages/tool-office`（`DocGenerateTool` / `PDFTool` / `converter` / Jupyter nbformat 模型）；`MediaModule` / `BrowserTool` / `NotebookManager` / `NotebookToolImpl` **留在 app** 负责注册与生命周期 | 工具类继承 `BaseTool`，搬迁需**先**把基类契约下沉到包（本轮已完成，app 保留转发 shim ⇒ 57 处引用零改动）；office 域随之可整体迁出 |
 | C（不做） | 一工具一包（69 包） | 包管理与构建成本远大于收益 |
 
 ---
@@ -689,3 +689,18 @@ bun run typecheck
 - 测试：`toolOutputJsonSchema` / `browserTool` / `mediaImplementationUnification` 的导入与源码扫描路径同步到新包。
 
 **验收（cwd=app）**：`typecheck` ✅ · `bun test tests/tools`（1743 pass / 0 fail）✅ · `lint:infra`（R1–R30 合规）✅ · `lint:arch` / `lint:size` / `lint:refs` / `lint:case` / `lint:unref` / `lint:gate-parity` ✅ · `measure:tool-disclosure`（未超基线）✅ · `export-tool-params --check`（69 工具 / 379 描述一致）✅ · client `typecheck` ✅。工具名录与参数**未变化**（`media_*` 未进 `TOOL_NAMES`，本就由 `MediaModule` 运行期注册）。
+
+### 15.9 P4 续：工具基类契约下移 + office 域拆包（2026-11-21）
+
+**前置结论**：其余重域（office / desktop）的工具类都 `extends BaseTool`（57 个文件引用），因此**先**把基类契约下沉，才可能搬动工具类。
+
+| 新包 | 内容 | 留在 app 的部分 |
+|---|---|---|
+| `packages/tool-base`（`@openliri/tool-base`） | `BaseTool.ts` + `toolEffects.ts`（副作用唯一事实源）+ `toolCapability.ts` + `toolRiskClass.ts` | 四个**转发 shim**（`app/src/tools/{BaseTool,toolEffects,toolCapability,toolRiskClass}.ts`）：57 处 `from '../BaseTool'` 与 `chat/**` / `workspace/**` / `tools/policy/**` 既有引用**零改动** |
+| `packages/tool-office`（`@openliri/tool-office`） | `DocGenerateTool`（officecli 管线）/ `PDFTool` / `converter/**`（21 文件）/ `notebook/JupyterNotebookConverter.ts` + `notebook/types/**`（nbformat 数据模型） | `builtinToolRegistry`（构造与登记）、`NotebookManager` / `NotebookToolImpl`（依赖 REPL 工具面）、`NotebookToolAdapter` |
+
+**关键取舍**：`converter/converters/IpynbConverter.ts` 依赖 `JupyterNotebookConverter` 与 nbformat 类型 ⇒ 该 5 个文件随 office 一起迁出（`notebook/` 中依赖 REPL 的两个工具实现仍留 app），避免包内反向依赖 `app/`。
+
+**配套登记**：`app/tsconfig.json` `paths`（3 个新别名 + `cheerio`/`domhandler` 解析）；`modules-to-layers.json` 两包 => `app`；`lint:infra` 新增 **R31 / R32**；ESLint 配置与 `lint:tool-base` / `lint:tool-office`（`ci` + `ci.yml` 同步）；`scripts/state-machine-allowlist.json` 的 `CellExecutionState` 登记路径改指新包；`.trae/architecture/fix-evidence-registry.json` 两条证据路径同步。
+
+**验收（cwd=app）**：`typecheck`（app + client）✅ · `bun test tests/tools tests/permission`（2553 pass / 0 fail）✅ · `lint:infra`（R1–R32 合规）✅ · `lint:arch` / `lint:size` / `lint:refs` / `lint:case` / `lint:unref` / `lint:fix-evidence` / `lint:gate-parity`（84 条 · 缺失 0）✅ · `measure:tool-disclosure`（未超基线）✅ · `export-tool-params --check`（69 工具 / 379 描述一致）✅。工具名录、参数与披露面**均未变化**（纯结构性搬迁）。

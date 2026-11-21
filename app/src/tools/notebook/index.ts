@@ -22,6 +22,7 @@
  * Notebook工具模块导出
  */
 
-export * from './types/index.js';
+/** P4（2026-11-21）：nbformat 数据模型与 Jupyter 转换器已迁至 `@openliri/tool-office`。 */
+export * from '@openliri/tool-office';
 export * from './NotebookManager.js';
 export * from './NotebookToolImpl.js';

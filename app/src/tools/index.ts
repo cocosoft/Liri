@@ -489,15 +489,14 @@ export { createToolScheduler } from './scheduler/ToolScheduler';
 export { getVideoTaskPersistence } from './VideoGenerateTool/VideoTaskPersistence';
 export { getMediaTemplates } from './VideoGenerateTool/MediaTemplates';
 export { configureCodeRunner } from './CodeRunner/CodeRunnerTool';
-export { getConverterEngine } from './converter/engine/ConverterEngine';
-export { FileTypeDetector } from './converter/engine/FileTypeDetector';
+export { getConverterEngine, FileTypeDetector } from '@openliri/tool-office';
 export { VERIFICATION_AGENT_DEFINITION } from './AgentTool/strategies/VerificationStrategy';
 export { STATUSLINE_SETUP_AGENT_DEFINITION } from './AgentTool/strategies/StatuslineStrategy';
 export type {
   ConversionResult,
   FileInfo,
   ConversionOptions,
-} from './converter/engine/types';
+} from '@openliri/tool-office';
 
 // 2026-08-30 R03-002 收敛：工具子路径统一出口
 export { CanvasTool } from './CanvasTool/CanvasTool';

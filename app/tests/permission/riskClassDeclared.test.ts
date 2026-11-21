@@ -15,7 +15,7 @@ import {
   resolveRiskClass,
 } from '@openliri/infra/permission/types/RiskClass';
 import { deriveToolRiskClass } from '../../src/tools/toolRiskClass.js';
-import { PDFTool } from '../../src/tools/PDFTool/PDFTool.js';
+import { PDFTool } from '@openliri/tool-office';
 import { FileReadTool } from '../../src/tools/FileReadTool/FileReadTool.js';
 import { FileWriteTool } from '../../src/tools/FileWriteTool/FileWriteTool.js';
 import { BashTool } from '../../src/tools/bash/BashTool.js';

@@ -193,8 +193,7 @@ import type {
   ToolResult,
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
-import { getConverterEngine } from '../../tools/converter/engine/ConverterEngine';
-import { FileTypeDetector } from '../../tools/converter/engine/FileTypeDetector';
+import { getConverterEngine, FileTypeDetector } from '@openliri/tool-office';
 import { checkPathAccessibility } from '../utils/ToolUtils';
 
 import { getLogger } from '@openliri/infra/monitoring';

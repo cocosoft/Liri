@@ -93,7 +93,7 @@ export class LSPToolAdapter implements Tool {
         '本地源代码文件路径（强烈推荐）。工具直接从磁盘读取文件内容 —— 0 输出 token，' +
         '不截断，不占上下文窗口。大多数场景必须使用此项。',
       required: false,
-      example: 'app/src/tools/DocGenerateTool/DocGenerateTool.ts',
+      example: 'packages/tool-office/src/tool-office/DocGenerateTool.ts',
     },
     {
       name: 'document',

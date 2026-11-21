@@ -5156,7 +5156,7 @@
         "app/src/commands/builtin/memory/Memory.ts",
         "app/src/commands/cron/Cron.ts",
         "app/src/commands/usagestats/usagestats.ts",
-        "app/src/tools/DocGenerateTool/DocGenerateTool.ts",
+        "packages/tool-office/src/tool-office/DocGenerateTool.ts",
         "app/src/tools/RecallMemoryTool/RecallMemoryTool.ts",
         "app/src/tools/SaveConversationTool/SaveConversationTool.ts",
         "app/src/ui/components/MessageBubble.tsx",
@@ -8617,7 +8617,7 @@
         "e2eVerified": true
       },
       "code": [
-        "app/src/tools/PDFTool/PDFTool.ts",
+        "packages/tool-office/src/tool-office/PDFTool.ts",
         "app/src/tools/toolCategories.ts",
         "app/src/tools/factories/builtinToolRegistry.ts",
         "app/src/tools/utils/ToolManagerUtils.ts",

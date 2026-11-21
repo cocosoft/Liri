@@ -1,10 +1,14 @@
-import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
+import { TOOL_NAME_CONSTANTS } from '@openliri/infra/constants';
 /**
  * PDFTool PDF 生成工具
  * 让 Agent 从文本内容生成 PDF 文档或提取 PDF 文字
  */
-import { BaseTool } from '../BaseTool';
-import type { ToolParam, ToolResult, ToolUseContext } from '../types/index';
+import { BaseTool } from '@openliri/tool-base';
+import type {
+  ToolParam,
+  ToolResult,
+  ToolUseContext,
+} from '@openliri/infra/utils/toolContract/Tool';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join, resolve } from 'path';
 import { deflateSync } from 'zlib';
@@ -515,11 +519,11 @@ export class PDFTool extends BaseTool<Record<string, unknown>> {
             }
             try {
               const { getConverterEngine } =
-                await import('../converter/engine/ConverterEngine').catch(
+                await import('./converter/engine/ConverterEngine').catch(
                   () => ({ getConverterEngine: undefined })
                 );
               const { FileTypeDetector } =
-                await import('../converter/engine/FileTypeDetector').catch(
+                await import('./converter/engine/FileTypeDetector').catch(
                   () => ({ FileTypeDetector: undefined })
                 );
               const buf = readFileSync(src);

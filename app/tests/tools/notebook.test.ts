@@ -16,16 +16,10 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 
-import { NotebookImpl } from '../../src/tools/notebook/types/Notebook.js';
-import {
-  CodeCellImpl,
-  MarkdownCellImpl,
-} from '../../src/tools/notebook/types/Cell.js';
+import { NotebookImpl } from '@openliri/tool-office';
+import { CodeCellImpl, MarkdownCellImpl } from '@openliri/tool-office';
 import { NotebookManager } from '../../src/tools/notebook/NotebookManager.js';
-import {
-  CellExecutionState,
-  type CodeCell,
-} from '../../src/tools/notebook/types/NotebookTool.js';
+import { CellExecutionState, type CodeCell } from '@openliri/tool-office';
 import { NotebookToolImpl } from '../../src/tools/notebook/NotebookToolImpl.js';
 import { REPLToolImpl } from '../../src/tools/repl/REPLToolImpl.js';
 import { REPLSessionStatus } from '../../src/tools/repl/types/REPLTool.js';
@@ -33,7 +27,7 @@ import { replSessionManager } from '../../src/tools/repl/REPLSessionManager';
 import { NotebookToolAdapter } from '../../src/tools/adapters/NotebookToolAdapter.js';
 import { FileRegistry } from '@openliri/service/services/file/FileRegistry';
 import { notebookManager } from '../../src/tools/notebook/NotebookManager.js';
-import { JupyterNotebookConverter } from '../../src/tools/notebook/JupyterNotebookConverter.js';
+import { JupyterNotebookConverter } from '@openliri/tool-office';
 import { notebookCommand } from '../../src/commands/tools/dev/notebook.js';
 
 // bun 运行时全局 Bun 的 sleep API（src/ink/ink/global.d.ts 的全局 Bun 声明

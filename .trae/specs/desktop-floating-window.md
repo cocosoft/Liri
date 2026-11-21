@@ -195,6 +195,8 @@
 4. 点击穿透进入 + `Ctrl+Shift+F` 退出（穿透期间点击落到下层应用）；
 5. `Cargo.lock` 生成 `tauri-plugin-global-shortcut` 条目后提交。
 
-**解除方式（需用户决定，均不在本批擅自动手）**：
-- 关闭 Windows「智能应用控制」（设置 → 隐私和安全性 → Windows 安全中心 → 应用和浏览器控制）；**该开关关闭后不可再开启**（除重装系统）；
-- 或在另一台未启用该策略的机器 / 由 CI（tag 触发 `release.yml`）构建安装包后再真机验证。
+**解除方式（2026-11-21 裁定：走 CI 构建 + 真机验）**：
+- **保持 Smart App Control 开启**，`tag` 触发 `.github/workflows/release.yml#tauri-build`（`windows-latest`）
+  产出安装包；安装包内的 `rustc`/产物不经本机 SAC 拦截；
+- 在未启用该策略的机器（或上述安装包）上逐条验证上面五项，结果回填本节；
+- **不关闭 SAC**：该开关关闭后不可再开启（除重装系统），安全姿态不得为一轮验证让路。

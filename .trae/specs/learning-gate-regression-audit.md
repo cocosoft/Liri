@@ -1,6 +1,6 @@
 # Spec：学习语料的真实回归审计（`gateBlocked` 真值）
 
-- **状态**：📝 草案（2026-11-15，边写边落；本轮随实现同批提交）
+- **状态**：✅ 已实施（2026-11-15，提交 `cf469d7ad`；2026-11-21 复查：`bun test tests/evals/learningCaseGateAudit.test.ts` 7/7 pass）
 - **来源**：`.trae/specs/learning-feedback-loop.md` §5-M6「真实回归拦截数回写台账」
 - **前置**：同 spec M3（种子物料化）· M5（登记缺口 = 假阴性的一半）
 

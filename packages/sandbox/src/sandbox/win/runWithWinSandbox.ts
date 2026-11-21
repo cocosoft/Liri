@@ -10,7 +10,7 @@
 //   126 = helper 自身失败（取令牌/建 Job/起进程）→ `helperFailed`
 //   124 = 超时（helper 已整 Job 终止）            → `timedOut`
 //   其他 = 子进程退出码**原样**透传（含 125 —— 不与 landlock 的 125 语义混用）
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import { appendWithinLimit } from '../SandboxPolicy';
 import { killProcessTree } from '../utils/killProcessTree';
 import { CHILD_PROCESS_ERROR_EVENT } from '../ProcessRegistry';
@@ -158,13 +158,32 @@ export async function runWithWinSandbox(
   });
 
   return await new Promise<WinSandboxRunResult>((resolve) => {
-    const child = spawn(helper, argv, {
-      ...(input.cwd ? { cwd: input.cwd } : {}),
-      ...(input.env ? { env: input.env } : {}),
-      // helper 自己已有超时（124）；这里多给 5s 作为"helper 卡死"的兜底
-      timeout: input.timeoutMs + 5000,
-      windowsHide: true,
-    });
+    let child: ChildProcess;
+    try {
+      child = spawn(helper, argv, {
+        ...(input.cwd ? { cwd: input.cwd } : {}),
+        ...(input.env ? { env: input.env } : {}),
+        // helper 自己已有超时（124）；这里多给 5s 作为"helper 卡死"的兜底
+        timeout: input.timeoutMs + 5000,
+        windowsHide: true,
+      });
+    } catch (err) {
+      // 2026-11-21 真机发现：helper 被系统策略拦下时（如 Windows 应用控制策略
+      // 「应用程序控制策略已阻止此文件」），Bun 的 `spawn` 会**同步抛出**
+      // `EUNKNOWN: uv_spawn`，而不是像 Node 那样异步发 `error` 事件。
+      // 未捕获会把整个 `code_run` 打成异常栈；helper 起不来就是 helper 失败 ⇒
+      // 归一成 `helperFailed=true`，交由调用方按 `failClosed` 决策（CS03：不静默降级）。
+      const error = err instanceof Error ? err : new Error(String(err));
+      resolve({
+        stdout: '',
+        stderr: String(error),
+        exitCode: null,
+        timedOut: false,
+        helperFailed: true,
+        error,
+      });
+      return;
+    }
 
     const signal = input.signal;
     const onAbort = (): void => killProcessTree(child);
@@ -209,7 +228,8 @@ export async function runWithWinSandbox(
         })(),
         exitCode: null,
         timedOut: false,
-        helperFailed: false,
+        // spawn 失败 ⇒ helper 没起来，属 helper 失败（不是用户命令失败）
+        helperFailed: true,
         error: err,
         ...(child.pid !== undefined ? { pid: child.pid } : {}),
       });

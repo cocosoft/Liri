@@ -34,7 +34,7 @@
  * 子进程的 TEMP/TMP 指向 runDir 内的子目录（同样是 Low）—— 否则 bun 写 `%TEMP%`（Medium）
  * 会被 MIC 拒绝，表现为"沙箱一开就跑不起来"。
  */
-import { execFile, spawn } from 'child_process';
+import { execFile, spawn, type ChildProcess } from 'child_process';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
@@ -153,12 +153,15 @@ export async function runCodeRunnerWithWindowsSandbox(
   }
 
   const cap = (deps.detect ?? detectWindowsSandboxCapability)();
-  if (!cap.available) {
+  // `runnable === false` = `--probe` 实测失败（例如 helper 被应用控制策略拦下）⇒
+  // 与"找不到 helper"同等对待：探测器的契约是「不得用 available 代替 runnable」。
+  if (!cap.available || cap.runnable === false) {
     if (config.failClosed) {
       logger.warn(
         'Windows 沙箱被强制要求但不可用 ⇒ 拒绝 code_run（failClosed=true）',
         {
           reason: cap.reason,
+          reasonCode: cap.reasonCode,
         }
       );
       return refusalResult(
@@ -168,6 +171,7 @@ export async function runCodeRunnerWithWindowsSandbox(
     }
     logger.warn('Windows 沙箱不可用 ⇒ 按 failClosed=false 降级跨平台执行器', {
       reason: cap.reason,
+      reasonCode: cap.reasonCode,
     });
     return null;
   }
@@ -200,11 +204,34 @@ export async function runCodeRunnerWithWindowsSandbox(
     maxProcs: 32,
   });
   const helperPath = resolveWinSandboxHelperPath({ platform: 'win32' });
-  const child = spawn(helperPath, argv, {
-    cwd: runDir,
-    stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, TEMP: lowTemp, TMP: lowTemp, TMPDIR: lowTemp },
-  });
+  let child: ChildProcess;
+  try {
+    child = spawn(helperPath, argv, {
+      cwd: runDir,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env, TEMP: lowTemp, TMP: lowTemp, TMPDIR: lowTemp },
+    });
+  } catch (err) {
+    // 2026-11-21 真机发现：Bun 在 CreateProcess 被系统策略拒绝时会**同步抛出**
+    // （`EUNKNOWN: uv_spawn`），不异步发 `error` 事件。这里与 `runWithWinSandbox`
+    // 同口径归一为 helper 失败，按 `failClosed` 决策，绝不把异常栈抛给调用方。
+    const error = err instanceof Error ? err : new Error(String(err));
+    if (config.failClosed) {
+      recordSandboxViolation(
+        'init-failed',
+        'Windows 沙箱 helper 无法启动且 failClosed=true ⇒ 拒绝执行 code_run',
+        { source: 'code_run' }
+      );
+      return refusalResult(
+        `Windows 沙箱 helper 无法启动（${String(error)}；failClosed=true）⇒ 拒绝执行 code_run。`
+      );
+    }
+    logger.warn(
+      'Windows 沙箱 helper 无法启动 ⇒ 按 failClosed=false 降级跨平台执行器',
+      { error: String(error) }
+    );
+    return null;
+  }
 
   // S7：登记进 ProcessRegistry（异步 RPC ⇒ 先 running，close 收敛终态）
   const processEntryId =

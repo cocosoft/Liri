@@ -16,6 +16,7 @@ import {
   detectWindowsSandboxCapability,
   resolveWinSandboxHelperCandidates,
   resolveWinSandboxHelperPath,
+  runWithWinSandbox,
 } from '@modules/sandbox/win';
 
 const PROJECT = 'C:\\proj';
@@ -266,4 +267,24 @@ describe('decodeWindowsConsoleOutput', () => {
   it('空输出 ⇒ 空串（不抛错）', () => {
     expect(decodeWindowsConsoleOutput(Buffer.alloc(0))).toBe('');
   });
+});
+
+describe('runWithWinSandbox：helper 起不来 ⇒ helperFailed（2026-11-21 真机）', () => {
+  // 真机实证：helper 被系统策略拦下时，Bun 的 spawn 会**同步抛出** `EUNKNOWN: uv_spawn`。
+  // 该路径必须归一为 `helperFailed`（交给 failClosed 决策），不得把异常栈抛给调用方。
+  it.skipIf(process.platform !== 'win32')(
+    '不存在的 helper ⇒ helperFailed=true 且不抛异常',
+    async () => {
+      const result = await runWithWinSandbox({
+        program: process.execPath,
+        args: ['--version'],
+        helperPath: join(PROJECT, 'bin', 'definitely-missing-helper.exe'),
+        timeoutMs: 2_000,
+        maxBufferChars: 4_096,
+      });
+      expect(result.helperFailed).toBe(true);
+      expect(result.exitCode).toBeNull();
+      expect(result.error).toBeDefined();
+    }
+  );
 });

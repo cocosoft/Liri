@@ -36,9 +36,13 @@ async function main(): Promise<void> {
     process.exit(2);
   }
   const capability = detectWindowsSandboxCapability();
-  if (!capability.available) {
+  // 只看 `available`（文件存在）不够：`--probe` 实测失败（如 helper 被应用控制策略拦截）
+  // 时文件仍在，但能力不可用 ⇒ 必须如实退出 2，而不是继续跑并崩在 spawn 上。
+  if (!capability.available || capability.runnable !== true) {
     console.error(
-      `[verify-win-sandbox] 不可用：${capability.reason ?? '未知'}（先跑 bun run build:win-sandbox）`
+      `[verify-win-sandbox] 不可用：${capability.reasonCode ?? '未知'} — ` +
+        `${capability.reason ?? '--probe 未通过'}` +
+        `（先跑 bun run build:win-sandbox；若已构建仍失败，检查安全策略 / 应用控制是否拦截 helper）`
     );
     process.exit(2);
   }

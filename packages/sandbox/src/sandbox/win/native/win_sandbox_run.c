@@ -178,7 +178,7 @@ static int make_low_il_restricted_token(HANDLE *out_token) {
 static int run_probe(void) {
   HANDLE token = NULL;
   if (!make_low_il_restricted_token(&token)) {
-    wprintf(L"{\"ok\":false,\"reason\":\"low-il-failed\",\"version\":\"%s\"}\n",
+    wprintf(L"{\"ok\":false,\"reason\":\"low-il-failed\",\"version\":\"%hs\"}\n",
             WIN_SANDBOX_VERSION);
     return EXIT_HELPER_INIT_FAILED;
   }
@@ -186,7 +186,7 @@ static int run_probe(void) {
   HANDLE job = CreateJobObjectW(NULL, NULL);
   if (!job) {
     CloseHandle(token);
-    wprintf(L"{\"ok\":false,\"reason\":\"job-object-failed\",\"version\":\"%s\"}\n",
+    wprintf(L"{\"ok\":false,\"reason\":\"job-object-failed\",\"version\":\"%hs\"}\n",
             WIN_SANDBOX_VERSION);
     return EXIT_HELPER_INIT_FAILED;
   }
@@ -200,12 +200,12 @@ static int run_probe(void) {
   CloseHandle(token);
 
   if (!limit_ok) {
-    wprintf(L"{\"ok\":false,\"reason\":\"job-limit-failed\",\"version\":\"%s\"}\n",
+    wprintf(L"{\"ok\":false,\"reason\":\"job-limit-failed\",\"version\":\"%hs\"}\n",
             WIN_SANDBOX_VERSION);
     return EXIT_HELPER_INIT_FAILED;
   }
 
-  wprintf(L"{\"ok\":true,\"lowIl\":true,\"jobObject\":true,\"version\":\"%s\"}\n",
+  wprintf(L"{\"ok\":true,\"lowIl\":true,\"jobObject\":true,\"version\":\"%hs\"}\n",
           WIN_SANDBOX_VERSION);
   return 0;
 }
@@ -222,7 +222,7 @@ int wmain(int argc, wchar_t **argv) {
       break;
     }
     if (wcscmp(argv[i], L"--version") == 0) {
-      wprintf(L"win-sandbox-run %s\n", WIN_SANDBOX_VERSION);
+      wprintf(L"win-sandbox-run %hs\n", WIN_SANDBOX_VERSION);
       return 0;
     }
     if (wcscmp(argv[i], L"--probe") == 0) {

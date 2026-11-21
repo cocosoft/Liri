@@ -130,11 +130,19 @@ export async function proxyFetch<T>(
     }
 
     const invokePromise = core.invoke<ProxyResponse>("http_proxy", {
-      method,
-      url,
-      body: invokeBody,
-      form_parts: formParts,
-      headers,
+      // 2026-11-22（v0.1.1 Windows 真机实测）：Rust 命令签名是
+      // `http_proxy(app_handle, request: ProxyRequest)` ⇒ invoke 必须传 **`request` 包装**。
+      // 原实现传扁平参数（method/url/... 直接作顶层键）⇒ 反序列化失败 ⇒ 本函数恒返回
+      // `{ok:false}` ⇒ 前端 `connectionMonitor` 的 `/health` 连续失败 ⇒ 全站显示
+      // 「与后端的连接已中断」+「Backend 已停止」，而后端实际健康（同环境实测 200）。
+      // 流式版本（httpClient 内 `http_proxy_stream`）本来就用了 `request` 包装，此处对齐。
+      request: {
+        method,
+        url,
+        body: invokeBody,
+        form_parts: formParts,
+        headers,
+      },
     });
 
     // 超时保护：invoke 挂起时按超时失败返回（Rust 侧 reqwest 另有 60s 兜底）

@@ -302,7 +302,7 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
     info!(
         "[start_backend] 启动 sidecar: liri_terminal repl --http-port={}, \
          cwd={}, LIRI_HOME={}, LIRI_DATA_DIR={}/data, LIRI_PROJECT_DIR={}",
-        current_port, data_dir, data_dir, data_dir, project_root
+        current_port, project_root, data_dir, data_dir, project_root
     );
 
     let (mut rx, child) = command

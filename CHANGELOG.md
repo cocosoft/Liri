@@ -212,6 +212,17 @@
 - ✅ **macOS 假红** - `mobilePairing` 用例不再用 1ms TTL 与 runner 时钟赛跑
 <!-- EVIDENCE-VIEWS:END -->
 
+#### v0.1.2 (2026-11-22)  修复桌面端全站「连接已中断 / Backend 已停止」误报
+
+- ✅ **根因（P0，Windows 真机实证）**：Rust 命令签名是 `http_proxy(app_handle, request: ProxyRequest)`，
+  而前端非流式代理 `proxyFetch` 传的是**扁平参数**（`method`/`url`/… 直接作顶层键）⇒ invoke 反序列化失败 ⇒
+  该函数恒返回 `{ok:false}` ⇒ `connectionMonitor` 的 `/health` 连续 3 次失败 ⇒ 全站横幅
+  「与后端的连接已中断」+「Backend 已停止」，**而后端实际健康**（同环境 `X-API-Key` / `Bearer` 均 200，
+  `list_sessions` 正常、供应商同步 6 个）。流式版本（`http_proxy_stream`）本来就用了 `request` 包装，已对齐。
+- ✅ **日志纠偏**：`[start_backend]` 打印的 `cwd=` 原为数据目录（误导排查），改为实际 `project_root`。
+- ✅ **验证方式**：v0.1.1 安装包在本机复现「连接中断」；改用带密钥的后端直连确认后端健康，
+  并逐层定位到前端代理参数不匹配。修复后需重新构建安装包复验。
+
 #### v0.1.1 (2026-11-22)  真机验证修复（桌面端后端可启动 / Docker 服务化 / 校验和 / 签名接线）
 
 - ✅ **桌面端后端无法启动（P0，Windows 真机实证）**：`liri_terminal` 是 `bun --compile` 产物，

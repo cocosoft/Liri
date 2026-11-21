@@ -102,7 +102,7 @@ function isValidPort(port: number): boolean {
 }
 
 /** 端口意图：首选端口 + 是否允许"被占用则顺延" */
-export interface HttpPortIntent {
+interface HttpPortIntent {
   /** 首选端口 */
   port: number;
   /**

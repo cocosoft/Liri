@@ -27,7 +27,7 @@ import { getLogger } from '../loggerFacade.js';
 const logger = getLogger('core:events:TokenTracker');
 
 /** Token 使用量上报 payload */
-export interface TokenUsagePayload {
+interface TokenUsagePayload {
   /** 会话 ID */
   sessionId: string;
   /** 累计总 token 数 */

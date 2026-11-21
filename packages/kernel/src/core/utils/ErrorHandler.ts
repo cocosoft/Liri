@@ -348,7 +348,7 @@ export class ErrorHandler {
  * @param fallback 回退值
  * @returns 执行结果或回退值
  */
-export function safeSync<T>(fn: () => T, fallback: T): T {
+function safeSync<T>(fn: () => T, fallback: T): T {
   return ErrorHandler.safeSync(fn, fallback);
 }
 
@@ -358,7 +358,7 @@ export function safeSync<T>(fn: () => T, fallback: T): T {
  * @param fallback 回退值
  * @returns 执行结果或回退值
  */
-export function safeAsync<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
+function safeAsync<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
   return ErrorHandler.safeAsync(fn, fallback);
 }
 
@@ -381,7 +381,7 @@ export function handleError<T>(
  * @param options 错误处理选项
  * @returns 错误处理结果
  */
-export async function handleErrorAsync<T>(
+async function handleErrorAsync<T>(
   fn: () => Promise<T>,
   options: ErrorHandlerOptions = {}
 ): Promise<ErrorHandlerResult<T>> {

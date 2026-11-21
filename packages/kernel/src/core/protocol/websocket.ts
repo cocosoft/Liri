@@ -21,10 +21,10 @@ export const WEBSOCKET_MAGIC_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 export const SEC_WEBSOCKET_VERSION = '13';
 
 /** RFC 6455 §11.3.1：握手**请求**头名（客户端随机 16 字节 base64） */
-export const SEC_WEBSOCKET_KEY_HEADER = 'Sec-WebSocket-Key';
+const SEC_WEBSOCKET_KEY_HEADER = 'Sec-WebSocket-Key';
 
 /** RFC 6455 §4.2.2/§11.3.2：握手**响应**头名（服务端 Accept 值） */
-export const SEC_WEBSOCKET_ACCEPT_HEADER = 'Sec-WebSocket-Accept';
+const SEC_WEBSOCKET_ACCEPT_HEADER = 'Sec-WebSocket-Accept';
 
 /** RFC 6455 §11.3.4：子协议协商头名（本仓用于 WS 握手鉴权传递） */
-export const SEC_WEBSOCKET_PROTOCOL_HEADER = 'Sec-WebSocket-Protocol';
+const SEC_WEBSOCKET_PROTOCOL_HEADER = 'Sec-WebSocket-Protocol';

@@ -6,7 +6,7 @@
 /**
  * Git 工作树创建选项
  */
-export interface WorktreeOptions {
+interface WorktreeOptions {
   enabled: boolean;
   name?: string;
   prNumber?: number;
@@ -16,7 +16,7 @@ export interface WorktreeOptions {
 /**
  * 会话持久化加载选项
  */
-export interface SessionStartupOptions {
+interface SessionStartupOptions {
   enabled: boolean;
   sessionId?: string;
   storageDir?: string;
@@ -25,7 +25,7 @@ export interface SessionStartupOptions {
 /**
  * 启动流程增强选项
  */
-export interface AppCoreStartupOptions {
+interface AppCoreStartupOptions {
   worktree?: WorktreeOptions;
   session?: SessionStartupOptions;
   terminalBackup?: boolean;
@@ -34,7 +34,7 @@ export interface AppCoreStartupOptions {
 /**
  * 应用配置
  */
-export interface AppCoreConfig {
+interface AppCoreConfig {
   name: string;
   version: string;
   debug?: boolean;

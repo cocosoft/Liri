@@ -59,9 +59,6 @@ export const REQUEST_URL_PARSE_BASE = 'http://internal';
 /** 本地 SD WebUI 默认地址（默认绑定回环；U-20/B5-2-91） */
 export const DEFAULT_SD_WEBUI_ENDPOINT = `http://${LOCAL_HTTP_HOST}:7860`;
 
-/** 本地 Chrome / Edge 的 CDP 调试端点（浏览器截图用；U-20/B5-2-91） */
-export const DEFAULT_CDP_ENDPOINT = `http://${LOCAL_HTTP_HOST}:9222`;
-
 /** 本地 ComfyUI 默认地址（U-20/B5-2-92） */
 export const DEFAULT_COMFYUI_ENDPOINT = `http://${LOCAL_HTTP_HOST}:8188`;
 

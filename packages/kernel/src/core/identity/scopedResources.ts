@@ -18,17 +18,17 @@
  */
 
 /** 释放一个已登记资源（同步或异步） */
-export type ScopedResourceCloser = () => void | Promise<void>;
+type ScopedResourceCloser = () => void | Promise<void>;
 
 /** 单个关闭失败（可重跑：登记被保留） */
-export interface ScopedCloseFailure {
+interface ScopedCloseFailure {
   /** 归属键 `<tenantId>:<userId>` */
   ownerKey: string;
   error: string;
 }
 
 /** 一轮关闭的结果 */
-export interface ScopedCloseResult {
+interface ScopedCloseResult {
   /** 成功关闭并摘除登记的条数 */
   closed: number;
   /** 关闭失败（登记保留，便于重跑） */

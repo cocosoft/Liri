@@ -96,7 +96,6 @@ export const CONSUMER_ROOTS = [
   'packages/buddy',
   // P4（2026-11-21）：browser 驱动/工具迁入 `packages/tool-browser` 后同理 —— 不纳入会把
   // `LOCAL_SERVICE_HOST` 等仅由浏览器侧消费的内核符号误降为 internal。
-  // （`DEFAULT_CDP_ENDPOINT` 自 `browser_vision` 改用共享会话后已零消费者，保留待 ABI 清理批次。）
   'packages/tool-browser',
   // P4（2026-11-21）：工具运行时支撑迁入 `packages/tool-runtime` 后同理（消费内核 `FeatureFlag`）。
   'packages/tool-runtime',

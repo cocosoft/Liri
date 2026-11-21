@@ -123,7 +123,7 @@ export const UiEvents = {
  * UI 事件名称到负载类型的映射
  * 用于 TypedEventBus 的类型安全路由
  */
-export interface UiEventMap {
+interface UiEventMap {
   [UiEvents.TOOL_OUTPUT]: UiToolOutputEvent;
   [UiEvents.TOOL_STATUS]: UiToolStatusEvent;
   [UiEvents.COMPANION_UPDATE]: UiCompanionEvent;

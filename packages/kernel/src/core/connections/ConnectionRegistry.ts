@@ -8,7 +8,7 @@
 import { getLogger } from '../loggerFacade.js';
 const logger = getLogger('core:connections');
 
-export interface ConnectionDef {
+interface ConnectionDef {
   /** 连接唯一标识 */
   id: string;
   /** 调用方模块 */

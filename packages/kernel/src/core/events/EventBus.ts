@@ -33,7 +33,7 @@ export interface EventSubscription {
 /**
  * `publishAndWait` 的投递结果（C2，2026-10-09）
  */
-export interface PublishResult {
+interface PublishResult {
   /** 成功（未抛错）的监听器数 */
   delivered: number;
   /** 抛错的监听器数（错误已各自记日志，不向发布方抛） */

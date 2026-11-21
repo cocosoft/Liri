@@ -24,7 +24,7 @@ interface CacheEntry<T> {
 /**
  * SessionCache 配置
  */
-export interface SessionCacheOptions {
+interface SessionCacheOptions {
   ttlMs?: number;
   maxEntriesPerSession?: number;
   cleanupIntervalMs?: number;

@@ -286,7 +286,7 @@ export const DEFAULT_MODEL_PRICING: ModelPricing = {
  * 模型注册表定价的**最小结构投影**（AI SPI 的 `AiModelPricingDto` 结构可直接赋值于此）。
  * 仅声明换算所需的字段（零依赖；不引 `core/spi` 类型以规避 core 内类型环）。
  */
-export interface RegistryPricingSource {
+interface RegistryPricingSource {
   inputPer1M: number;
   outputPer1M: number;
   billingMode?: BillingMode;

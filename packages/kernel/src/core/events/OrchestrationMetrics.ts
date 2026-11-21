@@ -62,7 +62,7 @@ interface EventTypeStats {
 }
 
 /** 单条事件统计快照 */
-export interface EventStatSnapshot {
+interface EventStatSnapshot {
   /** 事件类型 */
   eventType: string;
   /** 发生次数 */
@@ -80,7 +80,7 @@ export interface EventStatSnapshot {
 }
 
 /** 指标统计总快照 */
-export interface MetricsSnapshot {
+interface MetricsSnapshot {
   /** 各事件类型统计 */
   events: EventStatSnapshot[];
   /** 事件总数 */

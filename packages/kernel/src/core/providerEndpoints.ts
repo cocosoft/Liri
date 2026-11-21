@@ -19,13 +19,13 @@ export const DEEPSEEK_API_V1_BASE_URL = `${DEEPSEEK_API_BASE_URL}/v1`;
 export const GEMINI_API_BASE_URL = 'https://generativelanguage.googleapis.com';
 export const GEMINI_API_V1BETA_BASE_URL = `${GEMINI_API_BASE_URL}/v1beta`;
 
-export const SILICONFLOW_API_BASE_URL = 'https://api.siliconflow.cn';
+const SILICONFLOW_API_BASE_URL = 'https://api.siliconflow.cn';
 export const SILICONFLOW_API_V1_BASE_URL = `${SILICONFLOW_API_BASE_URL}/v1`;
 
-export const MOONSHOT_API_BASE_URL = 'https://api.moonshot.cn';
+const MOONSHOT_API_BASE_URL = 'https://api.moonshot.cn';
 export const MOONSHOT_API_V1_BASE_URL = `${MOONSHOT_API_BASE_URL}/v1`;
 
-export const XAI_API_BASE_URL = 'https://api.x.ai';
+const XAI_API_BASE_URL = 'https://api.x.ai';
 export const XAI_API_V1_BASE_URL = `${XAI_API_BASE_URL}/v1`;
 
 export const OPENROUTER_API_BASE_URL = 'https://openrouter.ai';
@@ -39,10 +39,10 @@ export const DASHSCOPE_COMPATIBLE_V1_BASE_URL = `${DASHSCOPE_API_BASE_URL}/compa
 
 export const KLING_API_BASE_URL = 'https://api.klingai.com';
 
-export const MINIMAX_API_BASE_URL = 'https://api.minimaxi.com';
+const MINIMAX_API_BASE_URL = 'https://api.minimaxi.com';
 export const MINIMAX_API_V1_BASE_URL = `${MINIMAX_API_BASE_URL}/v1`;
 
-export const VOLCENGINE_ARK_API_BASE_URL = 'https://ark.cn-beijing.volces.com';
+const VOLCENGINE_ARK_API_BASE_URL = 'https://ark.cn-beijing.volces.com';
 export const VOLCENGINE_ARK_V3_BASE_URL = `${VOLCENGINE_ARK_API_BASE_URL}/api/v3`;
 
 export const VIDU_API_BASE_URL = 'https://api.vidu.cn';

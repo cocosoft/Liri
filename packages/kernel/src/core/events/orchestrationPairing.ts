@@ -80,7 +80,7 @@ const PAIR_KEY_FIELDS: Record<string, readonly string[]> = {
  *
  * @returns 各字段值拼接的键；任一字段缺失或载荷非对象 ⇒ `''`（退化单桶）
  */
-export function extractOrchestrationPairKey(
+function extractOrchestrationPairKey(
   startEvent: string,
   payload: unknown
 ): string {
@@ -98,7 +98,7 @@ export function extractOrchestrationPairKey(
 }
 
 /** 一次成功配对的结果 */
-export interface OrchestrationPairResult {
+interface OrchestrationPairResult {
   /** 起始事件类型（耗时挂在该类型上，与 span 语义一致） */
   startEvent: string;
   /** 起 → 止的墙钟耗时（毫秒，恒 ≥ 0） */

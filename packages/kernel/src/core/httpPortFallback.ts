@@ -14,7 +14,7 @@
  */
 
 /** 端口顺延的最终结果 */
-export interface PortFallbackResult<T> {
+interface PortFallbackResult<T> {
   /** 成功启动的实例 */
   value: T;
   /** 实际生效端口 */
@@ -23,7 +23,7 @@ export interface PortFallbackResult<T> {
   shifted: boolean;
 }
 
-export interface PortFallbackOptions<T> {
+interface PortFallbackOptions<T> {
   /** 首选端口 */
   port: number;
   /** 是否允许顺延（**仅**"未显式指定端口"时为 true） */

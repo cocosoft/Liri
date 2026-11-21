@@ -23,7 +23,7 @@ import { globalEventBus } from '../events/EventBus';
 const logger = getLogger('core:sleepMonitor');
 
 /** 判定休眠的滞后阈值（相邻 tick 实际间隔超过 intervalMs + 该值即视为休眠） */
-export const SLEEP_LAG_THRESHOLD_MS = 60_000;
+const SLEEP_LAG_THRESHOLD_MS = 60_000;
 
 export type TickResult = 'normal' | 'paused' | 'detected';
 

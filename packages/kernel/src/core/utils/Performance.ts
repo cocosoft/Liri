@@ -62,7 +62,7 @@ export interface PerformanceEvent {
 /**
  * 性能分析器选项
  */
-export interface PerformanceProfilerOptions {
+interface PerformanceProfilerOptions {
   enabled?: boolean;
   samplingInterval?: number;
   maxEvents?: number;
@@ -461,7 +461,7 @@ export class PerformanceProfiler {
  * T-①07 T1-6（D3 记忆/内存消歧）：原名 `MemoryManager`，与记忆域同名易混；
  * RAM 侧改为 `PerformanceMemoryManager`（本文件属性能监控）。
  */
-export class PerformanceMemoryManager {
+class PerformanceMemoryManager {
   private maxMemoryUsage: number;
   private memoryCheckInterval: number;
   private memoryCheckTimer: NodeJS.Timeout | null = null;
@@ -751,7 +751,7 @@ export function createPerformanceProfiler(
 /**
  * 创建默认的内存管理器
  */
-export function createPerformanceMemoryManager(options?: {
+function createPerformanceMemoryManager(options?: {
   maxMemoryUsage?: number;
   memoryCheckInterval?: number;
 }): PerformanceMemoryManager {
@@ -797,7 +797,7 @@ let globalPerformanceMemoryManager: PerformanceMemoryManager | null = null;
 /**
  * 获取全局内存管理器
  */
-export function getPerformanceMemoryManager(): PerformanceMemoryManager {
+function getPerformanceMemoryManager(): PerformanceMemoryManager {
   if (!globalPerformanceMemoryManager) {
     globalPerformanceMemoryManager = createPerformanceMemoryManager();
   }

@@ -57,7 +57,7 @@ export interface DepRegistry {
   withdrawRealm(realm: string, key: string): void;
 }
 
-export type DepChangeType = 'provide' | 'withdraw';
+type DepChangeType = 'provide' | 'withdraw';
 
 export interface DepChange {
   type: DepChangeType;
@@ -66,7 +66,7 @@ export interface DepChange {
   at: number;
 }
 
-export interface DependencyRegistryOptions {
+interface DependencyRegistryOptions {
   /** 注入 EventBus（默认独立实例，不污染全局总线） */
   bus?: EventBus;
   /** key 数量上限（默认 10_000），超出告警 */

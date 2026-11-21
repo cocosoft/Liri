@@ -40,7 +40,7 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '../errors.js';
 
 /** 按需加载器：返回目标模块的导出对象 */
-export type LazyLoader = () => Promise<unknown>;
+type LazyLoader = () => Promise<unknown>;
 
 const loaders = new Map<string, LazyLoader>();
 

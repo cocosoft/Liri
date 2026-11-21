@@ -20,7 +20,7 @@ export const DEFAULT_CONTAINER_CONFIG: ContainerConfig = {
 };
 
 /** 三种作用域**共有**的字段 */
-export interface ServiceDescriptorBase<T = unknown> {
+interface ServiceDescriptorBase<T = unknown> {
   id: string;
   factory: () => T;
   dependencies?: string[];
@@ -43,7 +43,7 @@ export interface ServiceDescriptorBase<T = unknown> {
 }
 
 /** singleton：**唯一**支持 `onDispose` 的作用域（实例由容器持有，关闭时可逆序释放） */
-export interface SingletonDescriptor<T = unknown>
+interface SingletonDescriptor<T = unknown>
   extends ServiceDescriptorBase<T> {
   scope: 'singleton';
   /** 销毁阶段（逆序调用） */
@@ -57,7 +57,7 @@ export interface SingletonDescriptor<T = unknown>
  * 用 `onDispose?: never` 把它变成**编译错误**（2026-10-24 评审：契约由类型表达），
  * 运行时仍保留 `DI_ONDISPOSE_REQUIRES_SINGLETON` 作为纵深防御。
  */
-export interface NonSingletonDescriptor<T = unknown>
+interface NonSingletonDescriptor<T = unknown>
   extends ServiceDescriptorBase<T> {
   scope: 'transient' | 'request';
   onDispose?: never;

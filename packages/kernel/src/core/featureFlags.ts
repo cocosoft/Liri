@@ -976,12 +976,12 @@ export function getBuildVariant(): BuildVariant {
 }
 
 /** 检查是否为指定变体 */
-export function isBuildVariant(variant: BuildVariant): boolean {
+function isBuildVariant(variant: BuildVariant): boolean {
   return BUILD_VARIANT === variant;
 }
 
 /** 检查当前变体是否至少包含指定变体的功能（core < personal < coding < enterprise） */
-export function isAtLeastVariant(variant: BuildVariant): boolean {
+function isAtLeastVariant(variant: BuildVariant): boolean {
   const order: Record<BuildVariant, number> = {
     core: 0,
     personal: 1,

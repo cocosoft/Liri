@@ -61,13 +61,13 @@ export enum DataMessageType {
 }
 
 /** 文本内容块 */
-export interface DataTextBlock {
+interface DataTextBlock {
   type: 'text';
   text: string;
 }
 
 /** 图片内容块 */
-export interface DataImageBlock {
+interface DataImageBlock {
   type: 'image';
   source: {
     type: 'base64' | 'url';
@@ -78,7 +78,7 @@ export interface DataImageBlock {
 }
 
 /** 工具调用内容块 */
-export interface DataToolUseBlock {
+interface DataToolUseBlock {
   type: 'tool_use';
   id: string;
   name: string;
@@ -86,7 +86,7 @@ export interface DataToolUseBlock {
 }
 
 /** 工具结果内容块 */
-export interface DataToolResultBlock {
+interface DataToolResultBlock {
   type: 'tool_result';
   tool_use_id: string;
   content: string;
@@ -101,7 +101,7 @@ export type DataContentBlock =
   | DataToolResultBlock;
 
 /** 多模态内容片段 */
-export interface DataContentPart {
+interface DataContentPart {
   type: 'text' | 'image_url';
   text?: string;
   image_url?: {
@@ -111,7 +111,7 @@ export interface DataContentPart {
 }
 
 /** 工具调用（LLM 格式） */
-export interface DataToolCall {
+interface DataToolCall {
   id: string;
   type: 'function';
   function: {
@@ -121,14 +121,14 @@ export interface DataToolCall {
 }
 
 /** 已解析工具调用 */
-export interface DataParsedToolCall {
+interface DataParsedToolCall {
   id: string;
   name: string;
   arguments: Record<string, unknown>;
 }
 
 /** 消息元数据 */
-export interface DataMessageMetadata {
+interface DataMessageMetadata {
   toolCallId?: string;
   toolName?: string;
   parentMessageId?: string;
@@ -178,7 +178,7 @@ export interface DataAttachment {
 }
 
 /** 消息用法统计 */
-export interface DataMessageUsage {
+interface DataMessageUsage {
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
@@ -189,7 +189,7 @@ export interface DataMessageUsage {
 // ─── Session 会话模型 ───────────────────────────────────────────────────────
 
 /** 会话类型 */
-export enum DataSessionType {
+enum DataSessionType {
   LOCAL = 'local',
   REMOTE = 'remote',
   BRIDGE = 'bridge',
@@ -433,7 +433,7 @@ export enum DataAuditEventType {
 }
 
 /** 审计严重级别 */
-export type DataAuditSeverity = 'info' | 'warning' | 'error' | 'critical';
+type DataAuditSeverity = 'info' | 'warning' | 'error' | 'critical';
 
 /** 统一审计事件 */
 export interface DataAuditEvent {
@@ -481,7 +481,7 @@ export interface DataAuditQuery {
 }
 
 /** 审计查询结果 */
-export interface DataAuditQueryResult {
+interface DataAuditQueryResult {
   events: DataAuditEvent[];
   total: number;
   offset: number;

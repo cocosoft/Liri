@@ -7,7 +7,7 @@
 /**
  * 资源池选项
  */
-export interface ResourcePoolOptions<T> {
+interface ResourcePoolOptions<T> {
   /**
    * 最大资源数量
    */
@@ -52,7 +52,7 @@ export interface ResourcePoolOptions<T> {
 /**
  * 资源项
  */
-export interface ResourceItem<T> {
+interface ResourceItem<T> {
   /**
    * 资源实例
    */
@@ -77,7 +77,7 @@ export interface ResourceItem<T> {
 /**
  * 资源池
  */
-export class ResourcePool<T> {
+class ResourcePool<T> {
   private options: ResourcePoolOptions<T>;
   private resources: ResourceItem<T>[] = [];
   private waitingQueue: ((resource: T) => void)[] = [];
@@ -291,7 +291,7 @@ export class ResourcePool<T> {
 /**
  * 对象池选项
  */
-export interface ObjectPoolOptions<T> {
+interface ObjectPoolOptions<T> {
   /**
    * 最大对象数量
    */
@@ -331,7 +331,7 @@ export interface ObjectPoolOptions<T> {
 /**
  * 对象池
  */
-export class ObjectPool<T> extends ResourcePool<T> {
+class ObjectPool<T> extends ResourcePool<T> {
   private poolOptions: ObjectPoolOptions<T>;
 
   constructor(options: ObjectPoolOptions<T>) {
@@ -362,7 +362,7 @@ export class ObjectPool<T> extends ResourcePool<T> {
 /**
  * 连接池选项
  */
-export interface ConnectionPoolOptions<T> {
+interface ConnectionPoolOptions<T> {
   /**
    * 最大连接数
    */
@@ -402,7 +402,7 @@ export interface ConnectionPoolOptions<T> {
 /**
  * 连接池
  */
-export class ConnectionPool<T> extends ResourcePool<T> {
+class ConnectionPool<T> extends ResourcePool<T> {
   constructor(options: ConnectionPoolOptions<T>) {
     super({
       maxSize: options.maxSize,
@@ -419,7 +419,7 @@ export class ConnectionPool<T> extends ResourcePool<T> {
 /**
  * 创建对象池
  */
-export function createObjectPool<T>(
+function createObjectPool<T>(
   options: ObjectPoolOptions<T>
 ): ObjectPool<T> {
   return new ObjectPool<T>(options);
@@ -428,7 +428,7 @@ export function createObjectPool<T>(
 /**
  * 创建连接池
  */
-export function createConnectionPool<T>(
+function createConnectionPool<T>(
   options: ConnectionPoolOptions<T>
 ): ConnectionPool<T> {
   return new ConnectionPool<T>(options);

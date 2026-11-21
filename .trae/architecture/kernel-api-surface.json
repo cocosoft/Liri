@@ -2,11 +2,11 @@
   "version": 3,
   "kernelRoot": "packages/kernel/src/core",
   "fileCount": 87,
-  "symbolCount": 709,
+  "symbolCount": 642,
   "levelCounts": {
     "stable": 207,
     "experimental": 126,
-    "internal": 376
+    "internal": 309
   },
   "entries": [
     {
@@ -19,25 +19,14 @@
       ]
     },
     {
-      "file": "AppCoreConfig.ts",
-      "symbols": [
-        "AppCoreConfig",
-        "AppCoreStartupOptions",
-        "SessionStartupOptions",
-        "WorktreeOptions"
-      ]
-    },
-    {
       "file": "cache/SessionCache.ts",
       "symbols": [
-        "SessionCache",
-        "SessionCacheOptions"
+        "SessionCache"
       ]
     },
     {
       "file": "connections/ConnectionRegistry.ts",
       "symbols": [
-        "ConnectionDef",
         "connectionRegistry"
       ]
     },
@@ -48,29 +37,17 @@
         "DataAuditEvent",
         "DataAuditEventType",
         "DataAuditQuery",
-        "DataAuditQueryResult",
-        "DataAuditSeverity",
         "DataContentBlock",
-        "DataContentPart",
         "DataCreateSessionParams",
-        "DataImageBlock",
         "DataMessage",
-        "DataMessageMetadata",
         "DataMessageRole",
         "DataMessageType",
-        "DataMessageUsage",
-        "DataParsedToolCall",
         "DataSession",
         "DataSessionFilter",
         "DataSessionInfo",
         "DataSessionMetadata",
         "DataSessionStats",
         "DataSessionStatus",
-        "DataSessionType",
-        "DataTextBlock",
-        "DataToolCall",
-        "DataToolResultBlock",
-        "DataToolUseBlock",
         "TodoExpansionState",
         "ToolTurnBudget"
       ]
@@ -79,10 +56,8 @@
       "file": "DependencyRegistry.ts",
       "symbols": [
         "DepChange",
-        "DepChangeType",
         "DepRegistry",
         "DependencyRegistry",
-        "DependencyRegistryOptions",
         "dependencyRegistry"
       ]
     },
@@ -122,8 +97,7 @@
       "file": "di/DisposeManager.ts",
       "symbols": [
         "DEFAULT_DISPOSE_TIMEOUT_MS",
-        "DisposeManager",
-        "DisposeManagerOptions"
+        "DisposeManager"
       ]
     },
     {
@@ -145,11 +119,8 @@
         "ContainerConfig",
         "CycleDetectionResult",
         "DEFAULT_CONTAINER_CONFIG",
-        "NonSingletonDescriptor",
         "ServiceDescriptor",
-        "ServiceDescriptorBase",
-        "ServiceScope",
-        "SingletonDescriptor"
+        "ServiceScope"
       ]
     },
     {
@@ -157,7 +128,6 @@
       "symbols": [
         "DEFAULT_BLUEBUBBLES_SERVER_URL",
         "DEFAULT_BOOTSTRAP_LLAMACPP_BASE_URL",
-        "DEFAULT_CDP_ENDPOINT",
         "DEFAULT_COMFYUI_ENDPOINT",
         "DEFAULT_LOCAL_OAUTH_API_BASE",
         "DEFAULT_LOCAL_OAUTH_APPS_BASE",
@@ -215,7 +185,6 @@
         "EventListener",
         "EventSubscription",
         "HistoryEntry",
-        "PublishResult",
         "SystemEvents",
         "TypedEventBus",
         "createEventBus",
@@ -233,9 +202,7 @@
     {
       "file": "events/OrchestrationMetrics.ts",
       "symbols": [
-        "EventStatSnapshot",
         "IOTelMetricsPort",
-        "MetricsSnapshot",
         "OrchestrationMetrics",
         "createOrchestrationMetrics",
         "getOrchestrationMetrics"
@@ -244,16 +211,13 @@
     {
       "file": "events/orchestrationPairing.ts",
       "symbols": [
-        "OrchestrationEventPairer",
-        "OrchestrationPairResult",
-        "extractOrchestrationPairKey"
+        "OrchestrationEventPairer"
       ]
     },
     {
       "file": "events/TokenTracker.ts",
       "symbols": [
         "TokenTracker",
-        "TokenUsagePayload",
         "createTokenTracker",
         "getTokenTracker"
       ]
@@ -271,7 +235,6 @@
         "UiCommandOutputEvent",
         "UiCompanionEvent",
         "UiEventListener",
-        "UiEventMap",
         "UiEventSubscription",
         "UiEvents",
         "UiNotificationEvent",
@@ -293,8 +256,6 @@
         "getBuildVariant",
         "getBuildVariantFlags",
         "getToolFlag",
-        "isAtLeastVariant",
-        "isBuildVariant",
         "isBuildVariantFlagsInitialized",
         "isFeatureEnabled",
         "resetBuildVariantFlags",
@@ -335,8 +296,6 @@
     {
       "file": "httpPortFallback.ts",
       "symbols": [
-        "PortFallbackOptions",
-        "PortFallbackResult",
         "isAddressInUseError",
         "startWithPortFallback"
       ]
@@ -371,9 +330,6 @@
     {
       "file": "identity/scopedResources.ts",
       "symbols": [
-        "ScopedCloseFailure",
-        "ScopedCloseResult",
-        "ScopedResourceCloser",
         "closeAllScopedResources",
         "closeScopedResourcesForTenant",
         "registerScopedResource",
@@ -478,7 +434,6 @@
     {
       "file": "lazy/loaderRegistry.ts",
       "symbols": [
-        "LazyLoader",
         "getLazyLoader",
         "hasLazyLoader",
         "listLazyLoaderIds",
@@ -557,7 +512,6 @@
       "symbols": [
         "DEFAULT_HTTP_PORT",
         "HTTP_PORT_SHIFT_ATTEMPTS",
-        "HttpPortIntent",
         "httpPortEnvKey",
         "parseHttpPortFromArgs",
         "resolveExplicitHttpPort",
@@ -572,7 +526,6 @@
         "CostBreakdown",
         "DEFAULT_MODEL_PRICING",
         "ModelPricing",
-        "RegistryPricingSource",
         "TimeBasedPrice",
         "calculateCost",
         "calculateTotalCost",
@@ -606,9 +559,6 @@
     {
       "file": "protocol/websocket.ts",
       "symbols": [
-        "SEC_WEBSOCKET_ACCEPT_HEADER",
-        "SEC_WEBSOCKET_KEY_HEADER",
-        "SEC_WEBSOCKET_PROTOCOL_HEADER",
         "SEC_WEBSOCKET_VERSION",
         "WEBSOCKET_MAGIC_GUID"
       ]
@@ -633,9 +583,7 @@
         "GOOGLE_API_BASE_URL",
         "GOOGLE_OAUTH2_BASE_URL",
         "KLING_API_BASE_URL",
-        "MINIMAX_API_BASE_URL",
         "MINIMAX_API_V1_BASE_URL",
-        "MOONSHOT_API_BASE_URL",
         "MOONSHOT_API_V1_BASE_URL",
         "NPM_REGISTRY_URL",
         "NPM_SITE_URL",
@@ -644,12 +592,9 @@
         "OPENAI_PLATFORM_URL",
         "OPENROUTER_API_BASE_URL",
         "OPENROUTER_API_V1_BASE_URL",
-        "SILICONFLOW_API_BASE_URL",
         "SILICONFLOW_API_V1_BASE_URL",
         "VIDU_API_BASE_URL",
-        "VOLCENGINE_ARK_API_BASE_URL",
         "VOLCENGINE_ARK_V3_BASE_URL",
-        "XAI_API_BASE_URL",
         "XAI_API_V1_BASE_URL"
       ]
     },
@@ -681,7 +626,6 @@
       "file": "sleep/SleepMonitor.ts",
       "symbols": [
         "SLEEP_EVENTS",
-        "SLEEP_LAG_THRESHOLD_MS",
         "SleepInfo",
         "SleepMonitor",
         "TickResult",
@@ -1098,10 +1042,7 @@
       "file": "utils/ErrorHandler.ts",
       "symbols": [
         "ErrorHandler",
-        "handleError",
-        "handleErrorAsync",
-        "safeAsync",
-        "safeSync"
+        "handleError"
       ]
     },
     {
@@ -1117,43 +1058,19 @@
         "CacheOptions",
         "MemoryCache",
         "PerformanceEvent",
-        "PerformanceMemoryManager",
         "PerformanceMetric",
         "PerformanceProfiler",
-        "PerformanceProfilerOptions",
         "createMemoryCache",
-        "createPerformanceMemoryManager",
         "createPerformanceProfiler",
-        "getPerformanceMemoryManager",
         "getPerformanceProfiler",
         "performanceUtils"
-      ]
-    },
-    {
-      "file": "utils/ResourcePool.ts",
-      "symbols": [
-        "ConnectionPool",
-        "ConnectionPoolOptions",
-        "ObjectPool",
-        "ObjectPoolOptions",
-        "ResourceItem",
-        "ResourcePool",
-        "ResourcePoolOptions",
-        "createConnectionPool",
-        "createObjectPool"
       ]
     }
   ],
   "levels": {
-    "AppCoreConfig.ts#AppCoreConfig": "internal",
-    "AppCoreConfig.ts#AppCoreStartupOptions": "internal",
-    "AppCoreConfig.ts#SessionStartupOptions": "internal",
-    "AppCoreConfig.ts#WorktreeOptions": "internal",
     "DependencyRegistry.ts#DepChange": "internal",
-    "DependencyRegistry.ts#DepChangeType": "internal",
     "DependencyRegistry.ts#DepRegistry": "stable",
     "DependencyRegistry.ts#DependencyRegistry": "internal",
-    "DependencyRegistry.ts#DependencyRegistryOptions": "internal",
     "DependencyRegistry.ts#dependencyRegistry": "stable",
     "LazyModuleStrategy.ts#DeferredLoadState": "stable",
     "LazyModuleStrategy.ts#DeferredLoader": "stable",
@@ -1191,36 +1108,22 @@
     "abortReason.ts#isAbortReason": "stable",
     "abortReason.ts#markAsExpectedAbort": "stable",
     "cache/SessionCache.ts#SessionCache": "internal",
-    "cache/SessionCache.ts#SessionCacheOptions": "internal",
-    "connections/ConnectionRegistry.ts#ConnectionDef": "internal",
     "connections/ConnectionRegistry.ts#connectionRegistry": "experimental",
     "data-models.ts#DataAttachment": "stable",
     "data-models.ts#DataAuditEvent": "internal",
     "data-models.ts#DataAuditEventType": "internal",
     "data-models.ts#DataAuditQuery": "internal",
-    "data-models.ts#DataAuditQueryResult": "internal",
-    "data-models.ts#DataAuditSeverity": "internal",
     "data-models.ts#DataContentBlock": "internal",
-    "data-models.ts#DataContentPart": "internal",
     "data-models.ts#DataCreateSessionParams": "internal",
-    "data-models.ts#DataImageBlock": "internal",
     "data-models.ts#DataMessage": "internal",
-    "data-models.ts#DataMessageMetadata": "internal",
     "data-models.ts#DataMessageRole": "internal",
     "data-models.ts#DataMessageType": "internal",
-    "data-models.ts#DataMessageUsage": "internal",
-    "data-models.ts#DataParsedToolCall": "internal",
     "data-models.ts#DataSession": "internal",
     "data-models.ts#DataSessionFilter": "internal",
     "data-models.ts#DataSessionInfo": "internal",
     "data-models.ts#DataSessionMetadata": "internal",
     "data-models.ts#DataSessionStats": "internal",
     "data-models.ts#DataSessionStatus": "stable",
-    "data-models.ts#DataSessionType": "internal",
-    "data-models.ts#DataTextBlock": "internal",
-    "data-models.ts#DataToolCall": "internal",
-    "data-models.ts#DataToolResultBlock": "internal",
-    "data-models.ts#DataToolUseBlock": "internal",
     "data-models.ts#TodoExpansionState": "stable",
     "data-models.ts#ToolTurnBudget": "stable",
     "deprecationNotice.ts#warnDeprecatedCoreModule": "internal",
@@ -1232,7 +1135,6 @@
     "di/DIContainer.ts#resetDIContainer": "internal",
     "di/DisposeManager.ts#DEFAULT_DISPOSE_TIMEOUT_MS": "internal",
     "di/DisposeManager.ts#DisposeManager": "internal",
-    "di/DisposeManager.ts#DisposeManagerOptions": "internal",
     "di/index.ts#AutoWiringEngine": "internal",
     "di/index.ts#ContainerScope": "internal",
     "di/index.ts#CycleDetector": "internal",
@@ -1244,14 +1146,10 @@
     "di/types.ts#ContainerConfig": "internal",
     "di/types.ts#CycleDetectionResult": "internal",
     "di/types.ts#DEFAULT_CONTAINER_CONFIG": "internal",
-    "di/types.ts#NonSingletonDescriptor": "internal",
     "di/types.ts#ServiceDescriptor": "internal",
-    "di/types.ts#ServiceDescriptorBase": "internal",
     "di/types.ts#ServiceScope": "internal",
-    "di/types.ts#SingletonDescriptor": "internal",
     "endpoints.ts#DEFAULT_BLUEBUBBLES_SERVER_URL": "stable",
     "endpoints.ts#DEFAULT_BOOTSTRAP_LLAMACPP_BASE_URL": "stable",
-    "endpoints.ts#DEFAULT_CDP_ENDPOINT": "internal",
     "endpoints.ts#DEFAULT_COMFYUI_ENDPOINT": "stable",
     "endpoints.ts#DEFAULT_LOCAL_OAUTH_API_BASE": "stable",
     "endpoints.ts#DEFAULT_LOCAL_OAUTH_APPS_BASE": "stable",
@@ -1289,7 +1187,6 @@
     "events/EventBus.ts#EventListener": "experimental",
     "events/EventBus.ts#EventSubscription": "experimental",
     "events/EventBus.ts#HistoryEntry": "internal",
-    "events/EventBus.ts#PublishResult": "internal",
     "events/EventBus.ts#SystemEvents": "experimental",
     "events/EventBus.ts#TypedEventBus": "internal",
     "events/EventBus.ts#createEventBus": "internal",
@@ -1297,14 +1194,11 @@
     "events/EventBusOTelBridge.ts#getOTelBridgeStats": "internal",
     "events/EventBusOTelBridge.ts#initEventBusOTelBridge": "experimental",
     "events/EventBusOTelBridge.ts#resetOTelBridge": "internal",
-    "events/OrchestrationMetrics.ts#EventStatSnapshot": "internal",
     "events/OrchestrationMetrics.ts#IOTelMetricsPort": "internal",
-    "events/OrchestrationMetrics.ts#MetricsSnapshot": "internal",
     "events/OrchestrationMetrics.ts#OrchestrationMetrics": "internal",
     "events/OrchestrationMetrics.ts#createOrchestrationMetrics": "internal",
     "events/OrchestrationMetrics.ts#getOrchestrationMetrics": "experimental",
     "events/TokenTracker.ts#TokenTracker": "internal",
-    "events/TokenTracker.ts#TokenUsagePayload": "internal",
     "events/TokenTracker.ts#createTokenTracker": "internal",
     "events/TokenTracker.ts#getTokenTracker": "experimental",
     "events/UiEventBus.ts#UiEventBus": "internal",
@@ -1312,7 +1206,6 @@
     "events/UiEvents.ts#UiCommandOutputEvent": "internal",
     "events/UiEvents.ts#UiCompanionEvent": "internal",
     "events/UiEvents.ts#UiEventListener": "internal",
-    "events/UiEvents.ts#UiEventMap": "internal",
     "events/UiEvents.ts#UiEventSubscription": "internal",
     "events/UiEvents.ts#UiEvents": "internal",
     "events/UiEvents.ts#UiNotificationEvent": "internal",
@@ -1320,8 +1213,6 @@
     "events/UiEvents.ts#UiToolOutputEvent": "internal",
     "events/UiEvents.ts#UiToolStatusEvent": "internal",
     "events/orchestrationPairing.ts#OrchestrationEventPairer": "internal",
-    "events/orchestrationPairing.ts#OrchestrationPairResult": "internal",
-    "events/orchestrationPairing.ts#extractOrchestrationPairKey": "internal",
     "featureFlags.ts#BUILD_VARIANT": "internal",
     "featureFlags.ts#BUILD_VARIANTS": "internal",
     "featureFlags.ts#BuildVariant": "internal",
@@ -1332,8 +1223,6 @@
     "featureFlags.ts#getBuildVariant": "stable",
     "featureFlags.ts#getBuildVariantFlags": "internal",
     "featureFlags.ts#getToolFlag": "stable",
-    "featureFlags.ts#isAtLeastVariant": "internal",
-    "featureFlags.ts#isBuildVariant": "internal",
     "featureFlags.ts#isBuildVariantFlagsInitialized": "internal",
     "featureFlags.ts#isFeatureEnabled": "internal",
     "featureFlags.ts#resetBuildVariantFlags": "internal",
@@ -1354,8 +1243,6 @@
     "health/types.ts#HealthStatus": "stable",
     "health/types.ts#isAcceptable": "internal",
     "health/types.ts#mergeHealthStatuses": "internal",
-    "httpPortFallback.ts#PortFallbackOptions": "internal",
-    "httpPortFallback.ts#PortFallbackResult": "internal",
     "httpPortFallback.ts#isAddressInUseError": "internal",
     "httpPortFallback.ts#startWithPortFallback": "stable",
     "identity/principal.ts#LOCAL_PRINCIPAL": "experimental",
@@ -1375,9 +1262,6 @@
     "identity/requestScope.ts#principalFromKey": "experimental",
     "identity/requestScope.ts#principalKeyOf": "experimental",
     "identity/requestScope.ts#runWithPrincipal": "experimental",
-    "identity/scopedResources.ts#ScopedCloseFailure": "internal",
-    "identity/scopedResources.ts#ScopedCloseResult": "internal",
-    "identity/scopedResources.ts#ScopedResourceCloser": "internal",
     "identity/scopedResources.ts#closeAllScopedResources": "internal",
     "identity/scopedResources.ts#closeScopedResourcesForTenant": "experimental",
     "identity/scopedResources.ts#registerScopedResource": "experimental",
@@ -1462,7 +1346,6 @@
     "knowledge-types.ts#IKnowledgeSearch": "stable",
     "knowledge-types.ts#KnowledgeRoute": "stable",
     "knowledge-types.ts#KnowledgeRouterOptions": "internal",
-    "lazy/loaderRegistry.ts#LazyLoader": "internal",
     "lazy/loaderRegistry.ts#getLazyLoader": "internal",
     "lazy/loaderRegistry.ts#hasLazyLoader": "internal",
     "lazy/loaderRegistry.ts#listLazyLoaderIds": "internal",
@@ -1483,7 +1366,6 @@
     "outputGuard/types.ts#OutputGuardVerdict": "stable",
     "ports.ts#DEFAULT_HTTP_PORT": "stable",
     "ports.ts#HTTP_PORT_SHIFT_ATTEMPTS": "stable",
-    "ports.ts#HttpPortIntent": "internal",
     "ports.ts#httpPortEnvKey": "stable",
     "ports.ts#parseHttpPortFromArgs": "internal",
     "ports.ts#resolveExplicitHttpPort": "internal",
@@ -1493,7 +1375,6 @@
     "pricing.ts#CostBreakdown": "stable",
     "pricing.ts#DEFAULT_MODEL_PRICING": "stable",
     "pricing.ts#ModelPricing": "stable",
-    "pricing.ts#RegistryPricingSource": "internal",
     "pricing.ts#TimeBasedPrice": "stable",
     "pricing.ts#calculateCost": "stable",
     "pricing.ts#calculateTotalCost": "stable",
@@ -1512,9 +1393,6 @@
     "profilerFacade.ts#profileCheckpoint": "stable",
     "profilerFacade.ts#profilePhaseEnd": "stable",
     "profilerFacade.ts#profilePhaseStart": "stable",
-    "protocol/websocket.ts#SEC_WEBSOCKET_ACCEPT_HEADER": "internal",
-    "protocol/websocket.ts#SEC_WEBSOCKET_KEY_HEADER": "internal",
-    "protocol/websocket.ts#SEC_WEBSOCKET_PROTOCOL_HEADER": "internal",
     "protocol/websocket.ts#SEC_WEBSOCKET_VERSION": "internal",
     "protocol/websocket.ts#WEBSOCKET_MAGIC_GUID": "stable",
     "providerEndpoints.ts#ANTHROPIC_API_BASE_URL": "stable",
@@ -1534,9 +1412,7 @@
     "providerEndpoints.ts#GOOGLE_API_BASE_URL": "stable",
     "providerEndpoints.ts#GOOGLE_OAUTH2_BASE_URL": "stable",
     "providerEndpoints.ts#KLING_API_BASE_URL": "stable",
-    "providerEndpoints.ts#MINIMAX_API_BASE_URL": "internal",
     "providerEndpoints.ts#MINIMAX_API_V1_BASE_URL": "stable",
-    "providerEndpoints.ts#MOONSHOT_API_BASE_URL": "internal",
     "providerEndpoints.ts#MOONSHOT_API_V1_BASE_URL": "stable",
     "providerEndpoints.ts#NPM_REGISTRY_URL": "stable",
     "providerEndpoints.ts#NPM_SITE_URL": "stable",
@@ -1545,16 +1421,12 @@
     "providerEndpoints.ts#OPENAI_PLATFORM_URL": "stable",
     "providerEndpoints.ts#OPENROUTER_API_BASE_URL": "stable",
     "providerEndpoints.ts#OPENROUTER_API_V1_BASE_URL": "stable",
-    "providerEndpoints.ts#SILICONFLOW_API_BASE_URL": "internal",
     "providerEndpoints.ts#SILICONFLOW_API_V1_BASE_URL": "stable",
     "providerEndpoints.ts#VIDU_API_BASE_URL": "stable",
-    "providerEndpoints.ts#VOLCENGINE_ARK_API_BASE_URL": "internal",
     "providerEndpoints.ts#VOLCENGINE_ARK_V3_BASE_URL": "stable",
-    "providerEndpoints.ts#XAI_API_BASE_URL": "internal",
     "providerEndpoints.ts#XAI_API_V1_BASE_URL": "stable",
     "sandboxPermission.ts#SandboxPermission": "stable",
     "sleep/SleepMonitor.ts#SLEEP_EVENTS": "stable",
-    "sleep/SleepMonitor.ts#SLEEP_LAG_THRESHOLD_MS": "internal",
     "sleep/SleepMonitor.ts#SleepInfo": "internal",
     "sleep/SleepMonitor.ts#SleepMonitor": "internal",
     "sleep/SleepMonitor.ts#TickResult": "internal",
@@ -1827,33 +1699,17 @@
     "types.ts#ToolResult": "stable",
     "utils/ErrorHandler.ts#ErrorHandler": "stable",
     "utils/ErrorHandler.ts#handleError": "stable",
-    "utils/ErrorHandler.ts#handleErrorAsync": "internal",
-    "utils/ErrorHandler.ts#safeAsync": "internal",
-    "utils/ErrorHandler.ts#safeSync": "internal",
     "utils/LazyModuleLoader.ts#LazyModuleLoader": "stable",
     "utils/Performance.ts#CacheItem": "internal",
     "utils/Performance.ts#CacheOptions": "internal",
     "utils/Performance.ts#MemoryCache": "internal",
     "utils/Performance.ts#PerformanceEvent": "internal",
-    "utils/Performance.ts#PerformanceMemoryManager": "internal",
     "utils/Performance.ts#PerformanceMetric": "internal",
     "utils/Performance.ts#PerformanceProfiler": "internal",
-    "utils/Performance.ts#PerformanceProfilerOptions": "internal",
     "utils/Performance.ts#createMemoryCache": "internal",
-    "utils/Performance.ts#createPerformanceMemoryManager": "internal",
     "utils/Performance.ts#createPerformanceProfiler": "internal",
-    "utils/Performance.ts#getPerformanceMemoryManager": "internal",
     "utils/Performance.ts#getPerformanceProfiler": "stable",
-    "utils/Performance.ts#performanceUtils": "stable",
-    "utils/ResourcePool.ts#ConnectionPool": "internal",
-    "utils/ResourcePool.ts#ConnectionPoolOptions": "internal",
-    "utils/ResourcePool.ts#ObjectPool": "internal",
-    "utils/ResourcePool.ts#ObjectPoolOptions": "internal",
-    "utils/ResourcePool.ts#ResourceItem": "internal",
-    "utils/ResourcePool.ts#ResourcePool": "internal",
-    "utils/ResourcePool.ts#ResourcePoolOptions": "internal",
-    "utils/ResourcePool.ts#createConnectionPool": "internal",
-    "utils/ResourcePool.ts#createObjectPool": "internal"
+    "utils/Performance.ts#performanceUtils": "stable"
   },
   "reexportFacades": [
     "app/src/agent/events/index.ts -> @openliri/kernel/events/EventBus",

@@ -9,7 +9,7 @@ import type { ServiceDescriptor } from './types';
 /** 单条 `onDispose` 的默认超时（ms）。容器关闭是**有界**过程，不能被一个卡住的回调拖死。 */
 export const DEFAULT_DISPOSE_TIMEOUT_MS = 5_000;
 
-export interface DisposeManagerOptions {
+interface DisposeManagerOptions {
   /** 覆盖 {@link DEFAULT_DISPOSE_TIMEOUT_MS}（测试用于把超时压到毫秒级） */
   disposeTimeoutMs?: number;
 }

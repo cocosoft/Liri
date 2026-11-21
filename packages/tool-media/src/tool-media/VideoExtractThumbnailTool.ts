@@ -1,9 +1,13 @@
 // MIT License
 // Copyright (c) 2026 190615273@qq.com
 
-import type { Tool, ToolParam, ToolInfo } from '../types/Tool';
-import { ToolExecutionStatus } from '../types/ToolResult';
-import type { ToolUseContext } from '../types/ToolUseContext';
+import type {
+  Tool,
+  ToolParam,
+  ToolInfo,
+} from '@openliri/infra/utils/toolContract/Tool';
+import { ToolExecutionStatus } from '@openliri/infra/utils/toolContract/ToolResult';
+import type { ToolUseContext } from '@openliri/infra/utils/toolContract/ToolUseContext';
 import { resolveSafePath } from './MediaPathGuard';
 import { MediaErrorCode, MEDIA_ERROR_MESSAGES } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
@@ -13,12 +17,12 @@ import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import fs from 'fs';
 
-const logger = getLogger('media:tool:extract-audio');
+const logger = getLogger('media:tool:extract-thumbnail');
 
-export function createVideoExtractAudioTool(): Tool {
+export function createVideoExtractThumbnailTool(): Tool {
   return {
-    name: 'media_video_extract_audio',
-    description: 'Extract audio track from video file',
+    name: 'media_video_extract_thumbnail',
+    description: 'Extract a thumbnail image from video at specified time',
     params: [
       {
         name: 'input',
@@ -29,17 +33,23 @@ export function createVideoExtractAudioTool(): Tool {
       {
         name: 'output',
         type: 'string',
-        description: 'Output audio path',
+        description: 'Output image path',
         required: true,
       },
+      {
+        name: 'time',
+        type: 'number',
+        description: 'Time in seconds to capture thumbnail',
+        required: false,
+      },
     ],
-    aliases: ['video_extract_audio'],
-    searchTips: ['video', 'audio', 'extract'],
+    aliases: ['video_thumbnail', 'video_extract_thumbnail'],
+    searchTips: ['video', 'thumbnail', 'snapshot'],
     isEnabled: () => true,
     isReadOnly: () => false,
     isDestructive: () => false,
     isConcurrencySafe: () => true,
-    /** U-03（2026-10-20）：模型可见出参结构（单文件产出族） */
+    /** U-03（2026-10-20）：模型可见出参结构（单文件产出族；含 captureTime） */
     outputJsonSchema: MEDIA_FILE_OUTPUT_JSON_SCHEMA,
 
     async execute(
@@ -49,6 +59,7 @@ export function createVideoExtractAudioTool(): Tool {
       const startTime = Date.now();
       const inPath = input.input as string;
       const outPath = input.output as string;
+      const captureTime = (input.time as number) ?? 1;
 
       const safeInput = resolveSafePath(inPath);
       if (!safeInput.valid) {
@@ -59,8 +70,8 @@ export function createVideoExtractAudioTool(): Tool {
           output: '',
           errorOutput: safeInput.error!,
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
-          executionId: `vid_audio_${Date.now()}`,
-          toolName: 'media_video_extract_audio',
+          executionId: `vid_thumb_${Date.now()}`,
+          toolName: 'media_video_extract_thumbnail',
           timestamp: Date.now(),
         };
       }
@@ -73,8 +84,8 @@ export function createVideoExtractAudioTool(): Tool {
           output: '',
           errorOutput: safeOutput.error!,
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
-          executionId: `vid_audio_${Date.now()}`,
-          toolName: 'media_video_extract_audio',
+          executionId: `vid_thumb_${Date.now()}`,
+          toolName: 'media_video_extract_thumbnail',
           timestamp: Date.now(),
         };
       }
@@ -87,16 +98,17 @@ export function createVideoExtractAudioTool(): Tool {
           output: '',
           errorOutput: MEDIA_ERROR_MESSAGES[MediaErrorCode.FILE_NOT_FOUND],
           metadata: { errorCode: MediaErrorCode.FILE_NOT_FOUND },
-          executionId: `vid_audio_${Date.now()}`,
-          toolName: 'media_video_extract_audio',
+          executionId: `vid_thumb_${Date.now()}`,
+          toolName: 'media_video_extract_thumbnail',
           timestamp: Date.now(),
         };
       }
 
       try {
-        const success = await videoProcessor.extractAudio(
+        const success = await videoProcessor.extractThumbnail(
           safeInput.path!,
-          safeOutput.path!
+          safeOutput.path!,
+          captureTime
         );
         if (!success) {
           return {
@@ -107,8 +119,8 @@ export function createVideoExtractAudioTool(): Tool {
             errorOutput:
               MEDIA_ERROR_MESSAGES[MediaErrorCode.FFMPEG_UNAVAILABLE],
             metadata: { errorCode: MediaErrorCode.FFMPEG_UNAVAILABLE },
-            executionId: `vid_audio_${Date.now()}`,
-            toolName: 'media_video_extract_audio',
+            executionId: `vid_thumb_${Date.now()}`,
+            toolName: 'media_video_extract_thumbnail',
             timestamp: Date.now(),
           };
         }
@@ -117,33 +129,39 @@ export function createVideoExtractAudioTool(): Tool {
           ? fs.statSync(safeOutput.path!).size
           : 0;
         const originalSize = fs.statSync(safeInput.path!).size;
-        logger.info('Audio extracted', {
+        logger.info('Thumbnail extracted', {
           input: safeInput.path,
           output: safeOutput.path,
+          time: captureTime,
         });
         return {
           status: ToolExecutionStatus.SUCCESS,
-          // U-03（2026-10-20）：结构化出参（与 MEDIA_FILE_OUTPUT_JSON_SCHEMA 键集一致）
+          // U-03（2026-10-20）：结构化出参（与 MEDIA_FILE_OUTPUT_JSON_SCHEMA 键集一致，额外 captureTime）
           data: {
             success: true,
             filePath: safeOutput.path!,
             originalSize,
             processedSize: outputSize,
+            captureTime,
           },
           output: JSON.stringify({ outputPath: safeOutput.path, outputSize }),
           errorOutput: '',
-          metadata: { inputPath: safeInput.path, outputPath: safeOutput.path },
+          metadata: {
+            inputPath: safeInput.path,
+            outputPath: safeOutput.path,
+            time: captureTime,
+          },
           executionTime: Date.now() - startTime,
           outputPath: safeOutput.path,
           outputSize,
-          executionId: `vid_audio_${Date.now()}`,
-          toolName: 'media_video_extract_audio',
+          executionId: `vid_thumb_${Date.now()}`,
+          toolName: 'media_video_extract_thumbnail',
           timestamp: Date.now(),
-          content: `音频已提取: ${safeOutput.path}`,
+          content: `缩略图已提取: ${safeOutput.path} (${captureTime}s)`,
         };
       } catch (err) {
         await handleError(err, {
-          module: 'media:tool:extract-audio',
+          module: 'media:tool:extract-thumbnail',
           action: 'execute',
           context: { input: safeInput.path },
         });
@@ -154,8 +172,8 @@ export function createVideoExtractAudioTool(): Tool {
           output: '',
           errorOutput: String(err),
           metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
-          executionId: `vid_audio_${Date.now()}`,
-          toolName: 'media_video_extract_audio',
+          executionId: `vid_thumb_${Date.now()}`,
+          toolName: 'media_video_extract_thumbnail',
           timestamp: Date.now(),
         };
       }
@@ -163,8 +181,8 @@ export function createVideoExtractAudioTool(): Tool {
 
     getInfo(): ToolInfo {
       return {
-        name: 'media_video_extract_audio',
-        description: 'Extract audio track from video file',
+        name: 'media_video_extract_thumbnail',
+        description: 'Extract a thumbnail image from video at specified time',
         params: [
           {
             name: 'input',
@@ -175,12 +193,18 @@ export function createVideoExtractAudioTool(): Tool {
           {
             name: 'output',
             type: 'string',
-            description: 'Output audio path',
+            description: 'Output image path',
             required: true,
           },
+          {
+            name: 'time',
+            type: 'number',
+            description: 'Time in seconds to capture thumbnail',
+            required: false,
+          },
         ],
-        aliases: ['video_extract_audio'],
-        searchTips: ['video', 'audio', 'extract'],
+        aliases: ['video_thumbnail'],
+        searchTips: ['video', 'thumbnail', 'snapshot'],
         enabled: true,
         readOnly: false,
         destructive: false,

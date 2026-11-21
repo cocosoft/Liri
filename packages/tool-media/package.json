@@ -1,0 +1,20 @@
+{
+  "name": "@openliri/tool-media",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liri media 工具包 —— 15 个纯对象 media 工具实现（image/video/qr/pdf + 删除）。层归属 app：可依赖 app / service / infra / core；entry / ui 不得依赖本包，包内不得依赖 entry / ui 层（R29）。模块生命周期（MediaModule）留在 app，由 app 负责注册到 ToolManager。",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/tool-media/index.ts",
+      "import": "./src/tool-media/index.ts"
+    },
+    "./*": {
+      "types": "./src/tool-media/*.ts",
+      "import": "./src/tool-media/*.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p ../../app/tsconfig.json"
+  }
+}

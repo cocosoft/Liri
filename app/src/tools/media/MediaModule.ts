@@ -10,21 +10,23 @@
 import { getLogger } from '@openliri/infra/monitoring';
 import { globalToolManager } from '../core/ToolManager';
 import { handleError } from '@openliri/infra/error';
-import { createImageConvertTool } from './ImageConvertTool';
-import { createImageResizeTool } from './ImageResizeTool';
-import { createImageCropTool } from './ImageCropTool';
-import { createImageRotateTool } from './ImageRotateTool';
-import { createImageWatermarkTool } from './ImageWatermarkTool';
-import { createImageAdjustTool } from './ImageAdjustTool';
-import { createMediaInfoTool } from './MediaInfoTool';
-import { createMediaDeleteTool } from './MediaDeleteTool';
-import { createMediaDeleteBatchTool } from './MediaDeleteBatchTool';
-import { createVideoCompressTool } from './VideoCompressTool';
-import { createVideoExtractAudioTool } from './VideoExtractAudioTool';
-import { createVideoExtractThumbnailTool } from './VideoExtractThumbnailTool';
-import { createQRGenerateTool } from './QRGenerateTool';
-import { createQRDecodeTool } from './QRDecodeTool';
-import { createPdfExtractTool } from './PdfExtractTool';
+import {
+  createImageConvertTool,
+  createImageResizeTool,
+  createImageCropTool,
+  createImageRotateTool,
+  createImageWatermarkTool,
+  createImageAdjustTool,
+  createMediaInfoTool,
+  createMediaDeleteTool,
+  createMediaDeleteBatchTool,
+  createVideoCompressTool,
+  createVideoExtractAudioTool,
+  createVideoExtractThumbnailTool,
+  createQRGenerateTool,
+  createQRDecodeTool,
+  createPdfExtractTool,
+} from '@openliri/tool-media';
 
 const logger = getLogger('media:module');
 

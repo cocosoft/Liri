@@ -365,7 +365,7 @@ Barrel 文件（仅做 re-export 的 `index.ts`）不利于 tree-shaking，且�
 
 > 来源：`dev_docs/20260809/架构暴胀分析与收敛规范.md` AR01-AR06 / GR01-GR07
 > 生效日期：2026-08-09
-> 检查覆盖：`lint:arch`（20+ 项）+ `lint:infra`（物理包边界 **R1–R28**）+ `ci` 链 **78 条**门禁
+> 检查覆盖：`lint:arch`（20+ 项）+ `lint:infra`（物理包边界 **R1–R30**）+ `ci` 链 **78 条**门禁
 > （`lint:gate-parity` 断言 CI 覆盖 77 + 登记豁免 1）；规则与门禁的对应关系见文末「物理包边界门禁（R9–R28）」。
 
 ### R06-001 [MUST] Handler 注册模式（AR02）

@@ -114,8 +114,8 @@ describe('媒体实现统一：水印选项集对齐（image ↔ media_image_wat
     expect(read('app/src/tools/ImageTool/ImageTool.ts')).toMatch(
       /opacity:\s*params\.watermarkOpacity/
     );
-    expect(read('app/src/tools/media/ImageWatermarkTool.ts')).toMatch(
-      /options\.opacity\s*=\s*input\.opacity/
-    );
+    expect(
+      read('packages/tool-media/src/tool-media/ImageWatermarkTool.ts')
+    ).toMatch(/options\.opacity\s*=\s*input\.opacity/);
   });
 });

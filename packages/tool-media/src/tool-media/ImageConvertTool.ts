@@ -1,23 +1,28 @@
 // MIT License
 // Copyright (c) 2026 190615273@qq.com
 
-import type { Tool, ToolParam, ToolInfo } from '../types/Tool';
-import { ToolExecutionStatus } from '../types/ToolResult';
-import type { ToolUseContext } from '../types/ToolUseContext';
+import type {
+  Tool,
+  ToolParam,
+  ToolInfo,
+} from '@openliri/infra/utils/toolContract/Tool';
+import { ToolExecutionStatus } from '@openliri/infra/utils/toolContract/ToolResult';
+import type { ToolUseContext } from '@openliri/infra/utils/toolContract/ToolUseContext';
 import { IMAGE_PROCESS_OUTPUT_JSON_SCHEMA } from './mediaOutputSchemas';
 import { resolveSafePath } from './MediaPathGuard';
 import { MediaErrorCode, MEDIA_ERROR_MESSAGES } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
 import { imageProcessor } from '@openliri/infra/media/image/ImageProcessor';
+import type { ImageFormat } from '@openliri/infra/media/image/ImageProcessor';
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
-const logger = getLogger('media:tool:rotate');
+const logger = getLogger('media:tool:convert');
 
-export function createImageRotateTool(): Tool {
+export function createImageConvertTool(): Tool {
   return {
-    name: 'media_image_rotate',
-    description: 'Rotate image by specified degrees',
+    name: 'media_image_convert',
+    description: 'Convert image format (e.g. PNG to JPEG, WebP to PNG)',
     params: [
       {
         name: 'input',
@@ -32,14 +37,14 @@ export function createImageRotateTool(): Tool {
         required: true,
       },
       {
-        name: 'degrees',
-        type: 'number',
-        description: 'Rotation angle in degrees (e.g. 90, 180, -45)',
+        name: 'format',
+        type: 'string',
+        description: 'Target format (png, jpeg, webp, gif, bmp)',
         required: true,
       },
     ],
-    aliases: ['img_rotate', 'image_rotate'],
-    searchTips: ['image', 'rotate', 'rotation', 'angle'],
+    aliases: ['img_convert', 'image_convert'],
+    searchTips: ['image', 'convert', 'format'],
     isEnabled: () => true,
     isReadOnly: () => false,
     isDestructive: () => false,
@@ -54,7 +59,7 @@ export function createImageRotateTool(): Tool {
       const startTime = Date.now();
       const inPath = input.input as string;
       const outPath = input.output as string;
-      const degrees = input.degrees as number;
+      const format = input.format as string;
 
       const safeInput = resolveSafePath(inPath);
       if (!safeInput.valid) {
@@ -65,8 +70,8 @@ export function createImageRotateTool(): Tool {
           output: '',
           errorOutput: safeInput.error!,
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
-          executionId: `img_rotate_${Date.now()}`,
-          toolName: 'media_image_rotate',
+          executionId: `img_convert_${Date.now()}`,
+          toolName: 'media_image_convert',
           timestamp: Date.now(),
         };
       }
@@ -79,36 +84,36 @@ export function createImageRotateTool(): Tool {
           output: '',
           errorOutput: safeOutput.error!,
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
-          executionId: `img_rotate_${Date.now()}`,
-          toolName: 'media_image_rotate',
+          executionId: `img_convert_${Date.now()}`,
+          toolName: 'media_image_convert',
           timestamp: Date.now(),
         };
       }
 
       try {
-        const result = await imageProcessor.rotate(
+        const result = await imageProcessor.convert(
           safeInput.path!,
           safeOutput.path!,
-          degrees
+          format as ImageFormat
         );
         if (!result.success) {
           return {
             status: ToolExecutionStatus.FAILURE,
-            error: result.error || 'Rotation failed',
+            error: result.error || 'Conversion failed',
             executionTime: Date.now() - startTime,
             output: '',
             errorOutput: result.error || '',
             metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
-            executionId: `img_rotate_${Date.now()}`,
-            toolName: 'media_image_rotate',
+            executionId: `img_convert_${Date.now()}`,
+            toolName: 'media_image_convert',
             timestamp: Date.now(),
           };
         }
 
-        logger.info('Image rotated', {
+        logger.info('Image converted', {
           input: safeInput.path,
           output: safeOutput.path,
-          degrees,
+          format,
         });
         return {
           status: ToolExecutionStatus.SUCCESS,
@@ -118,21 +123,21 @@ export function createImageRotateTool(): Tool {
           metadata: {
             inputPath: safeInput.path,
             outputPath: safeOutput.path,
-            degrees,
+            format,
           },
           executionTime: Date.now() - startTime,
           outputPath: safeOutput.path,
           outputSize: result.processedSize,
-          executionId: `img_rotate_${Date.now()}`,
-          toolName: 'media_image_rotate',
+          executionId: `img_convert_${Date.now()}`,
+          toolName: 'media_image_convert',
           timestamp: Date.now(),
-          content: `图片已旋转 ${degrees}°: ${safeOutput.path}`,
+          content: `图片已转换为 ${format}: ${safeOutput.path}`,
         };
       } catch (err) {
         await handleError(err, {
-          module: 'media:tool:rotate',
+          module: 'media:tool:convert',
           action: 'execute',
-          context: { input: safeInput.path, degrees },
+          context: { input: safeInput.path, format },
         });
         return {
           status: ToolExecutionStatus.FAILURE,
@@ -141,8 +146,8 @@ export function createImageRotateTool(): Tool {
           output: '',
           errorOutput: String(err),
           metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
-          executionId: `img_rotate_${Date.now()}`,
-          toolName: 'media_image_rotate',
+          executionId: `img_convert_${Date.now()}`,
+          toolName: 'media_image_convert',
           timestamp: Date.now(),
         };
       }
@@ -150,8 +155,8 @@ export function createImageRotateTool(): Tool {
 
     getInfo(): ToolInfo {
       return {
-        name: 'media_image_rotate',
-        description: 'Rotate image by specified degrees',
+        name: 'media_image_convert',
+        description: 'Convert image format',
         params: [
           {
             name: 'input',
@@ -166,14 +171,14 @@ export function createImageRotateTool(): Tool {
             required: true,
           },
           {
-            name: 'degrees',
-            type: 'number',
-            description: 'Rotation angle in degrees',
+            name: 'format',
+            type: 'string',
+            description: 'Target format',
             required: true,
           },
         ],
-        aliases: ['img_rotate'],
-        searchTips: ['image', 'rotate'],
+        aliases: ['img_convert'],
+        searchTips: ['image', 'convert'],
         enabled: true,
         readOnly: false,
         destructive: false,

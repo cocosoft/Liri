@@ -68,6 +68,8 @@
     "subagents": { "layer": "app", "description": "子代理事件泵（与 subagent 同域）" },
     "testing":  { "layer": "app", "description": "测试辅助（依赖面宽，故归 app 而非 infra）" },
     "tool":     { "layer": "app", "description": "工具结果/作用域注册（与 tools 同域）" },
+    "tool-media": { "layer": "app", "description": "media 工具物理包（`packages/tool-media`，2026-11-21 P4 由 `tools/media` 迁出）：15 个纯对象 media 工具实现。模块生命周期（MediaModule）仍留 app，包内不触碰全局单例" },
+    "tool-browser": { "layer": "app", "description": "browser 工具物理包（`packages/tool-browser`，2026-11-21 P4 由 `tools/BrowserTool` 迁出）：Playwright 驱动 + 输入/输出 schema。工具类 BrowserTool 仍留 app（继承 app 的 BaseTool），待工具基类契约下移后再搬" },
     "workspace": { "layer": "app", "description": "工作空间域（.liri 目录管理/工作项生命周期）" },
     "workspaces": { "layer": "app", "description": "工作区注册/扫描/清理/Git" },
     "resourceGovernor": { "layer": "app", "description": "跨会话资源治理（在飞会话视图 + 并发上限观测；A5，2026-10-05）。归 app：需读 chat（在飞集合）与 tokenBudget（水位），而 `core → [core]` / `service → [service,infra,core]` / `infra → [infra,core]` 均够不到 app 模块。请求优先级枚举为避 service→app 倒挂，落在 core 的 `types/requestPriority`。" },

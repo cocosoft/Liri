@@ -7,9 +7,13 @@
  * 统一查询图片/视频/音频/PDF 的元信息（尺寸、时长、格式等）。
  */
 
-import type { Tool, ToolParam, ToolInfo } from '../types/Tool';
-import { ToolExecutionStatus } from '../types/ToolResult';
-import type { ToolUseContext } from '../types/ToolUseContext';
+import type {
+  Tool,
+  ToolParam,
+  ToolInfo,
+} from '@openliri/infra/utils/toolContract/Tool';
+import { ToolExecutionStatus } from '@openliri/infra/utils/toolContract/ToolResult';
+import type { ToolUseContext } from '@openliri/infra/utils/toolContract/ToolUseContext';
 import { MEDIA_INFO_OUTPUT_JSON_SCHEMA } from './mediaOutputSchemas';
 import { resolveSafePath } from './MediaPathGuard';
 import { MediaErrorCode, MEDIA_ERROR_MESSAGES } from './MediaErrorCodes';

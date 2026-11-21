@@ -18,7 +18,7 @@ import {
   resolveBrowserDriverConfig,
   type BrowserActionRequest,
   type BrowserDriverResult,
-} from '../../src/tools/BrowserTool/PlaywrightDriver';
+} from '@openliri/tool-browser';
 import {
   cleanupScreenshotFiles,
   resolveScreenshotDir,

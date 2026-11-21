@@ -1,24 +1,27 @@
 // MIT License
 // Copyright (c) 2026 190615273@qq.com
 
-import type { Tool, ToolParam, ToolInfo } from '../types/Tool';
-import { ToolExecutionStatus } from '../types/ToolResult';
-import type { ToolUseContext } from '../types/ToolUseContext';
+import type {
+  Tool,
+  ToolParam,
+  ToolInfo,
+} from '@openliri/infra/utils/toolContract/Tool';
+import { ToolExecutionStatus } from '@openliri/infra/utils/toolContract/ToolResult';
+import type { ToolUseContext } from '@openliri/infra/utils/toolContract/ToolUseContext';
 import { IMAGE_PROCESS_OUTPUT_JSON_SCHEMA } from './mediaOutputSchemas';
 import { resolveSafePath } from './MediaPathGuard';
 import { MediaErrorCode, MEDIA_ERROR_MESSAGES } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
 import { imageProcessor } from '@openliri/infra/media/image/ImageProcessor';
-import type { ImageFormat } from '@openliri/infra/media/image/ImageProcessor';
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
-const logger = getLogger('media:tool:convert');
+const logger = getLogger('media:tool:crop');
 
-export function createImageConvertTool(): Tool {
+export function createImageCropTool(): Tool {
   return {
-    name: 'media_image_convert',
-    description: 'Convert image format (e.g. PNG to JPEG, WebP to PNG)',
+    name: 'media_image_crop',
+    description: 'Crop image to a rectangular region',
     params: [
       {
         name: 'input',
@@ -33,14 +36,32 @@ export function createImageConvertTool(): Tool {
         required: true,
       },
       {
-        name: 'format',
-        type: 'string',
-        description: 'Target format (png, jpeg, webp, gif, bmp)',
+        name: 'x',
+        type: 'number',
+        description: 'Crop region left offset (pixels)',
+        required: true,
+      },
+      {
+        name: 'y',
+        type: 'number',
+        description: 'Crop region top offset (pixels)',
+        required: true,
+      },
+      {
+        name: 'width',
+        type: 'number',
+        description: 'Crop region width (pixels)',
+        required: true,
+      },
+      {
+        name: 'height',
+        type: 'number',
+        description: 'Crop region height (pixels)',
         required: true,
       },
     ],
-    aliases: ['img_convert', 'image_convert'],
-    searchTips: ['image', 'convert', 'format'],
+    aliases: ['img_crop', 'image_crop'],
+    searchTips: ['image', 'crop', 'cut', 'region'],
     isEnabled: () => true,
     isReadOnly: () => false,
     isDestructive: () => false,
@@ -55,7 +76,6 @@ export function createImageConvertTool(): Tool {
       const startTime = Date.now();
       const inPath = input.input as string;
       const outPath = input.output as string;
-      const format = input.format as string;
 
       const safeInput = resolveSafePath(inPath);
       if (!safeInput.valid) {
@@ -66,8 +86,8 @@ export function createImageConvertTool(): Tool {
           output: '',
           errorOutput: safeInput.error!,
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
-          executionId: `img_convert_${Date.now()}`,
-          toolName: 'media_image_convert',
+          executionId: `img_crop_${Date.now()}`,
+          toolName: 'media_image_crop',
           timestamp: Date.now(),
         };
       }
@@ -80,36 +100,43 @@ export function createImageConvertTool(): Tool {
           output: '',
           errorOutput: safeOutput.error!,
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
-          executionId: `img_convert_${Date.now()}`,
-          toolName: 'media_image_convert',
+          executionId: `img_crop_${Date.now()}`,
+          toolName: 'media_image_crop',
           timestamp: Date.now(),
         };
       }
 
       try {
-        const result = await imageProcessor.convert(
+        const options = {
+          x: input.x as number,
+          y: input.y as number,
+          width: input.width as number,
+          height: input.height as number,
+        };
+
+        const result = await imageProcessor.crop(
           safeInput.path!,
           safeOutput.path!,
-          format as ImageFormat
+          options
         );
         if (!result.success) {
           return {
             status: ToolExecutionStatus.FAILURE,
-            error: result.error || 'Conversion failed',
+            error: result.error || 'Crop failed',
             executionTime: Date.now() - startTime,
             output: '',
             errorOutput: result.error || '',
             metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
-            executionId: `img_convert_${Date.now()}`,
-            toolName: 'media_image_convert',
+            executionId: `img_crop_${Date.now()}`,
+            toolName: 'media_image_crop',
             timestamp: Date.now(),
           };
         }
 
-        logger.info('Image converted', {
+        logger.info('Image cropped', {
           input: safeInput.path,
           output: safeOutput.path,
-          format,
+          options,
         });
         return {
           status: ToolExecutionStatus.SUCCESS,
@@ -119,21 +146,21 @@ export function createImageConvertTool(): Tool {
           metadata: {
             inputPath: safeInput.path,
             outputPath: safeOutput.path,
-            format,
+            ...options,
           },
           executionTime: Date.now() - startTime,
           outputPath: safeOutput.path,
           outputSize: result.processedSize,
-          executionId: `img_convert_${Date.now()}`,
-          toolName: 'media_image_convert',
+          executionId: `img_crop_${Date.now()}`,
+          toolName: 'media_image_crop',
           timestamp: Date.now(),
-          content: `图片已转换为 ${format}: ${safeOutput.path}`,
+          content: `图片已裁剪: ${safeOutput.path}`,
         };
       } catch (err) {
         await handleError(err, {
-          module: 'media:tool:convert',
+          module: 'media:tool:crop',
           action: 'execute',
-          context: { input: safeInput.path, format },
+          context: { input: safeInput.path },
         });
         return {
           status: ToolExecutionStatus.FAILURE,
@@ -142,8 +169,8 @@ export function createImageConvertTool(): Tool {
           output: '',
           errorOutput: String(err),
           metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
-          executionId: `img_convert_${Date.now()}`,
-          toolName: 'media_image_convert',
+          executionId: `img_crop_${Date.now()}`,
+          toolName: 'media_image_crop',
           timestamp: Date.now(),
         };
       }
@@ -151,8 +178,8 @@ export function createImageConvertTool(): Tool {
 
     getInfo(): ToolInfo {
       return {
-        name: 'media_image_convert',
-        description: 'Convert image format',
+        name: 'media_image_crop',
+        description: 'Crop image to a rectangular region',
         params: [
           {
             name: 'input',
@@ -167,14 +194,32 @@ export function createImageConvertTool(): Tool {
             required: true,
           },
           {
-            name: 'format',
-            type: 'string',
-            description: 'Target format',
+            name: 'x',
+            type: 'number',
+            description: 'Crop region left offset (pixels)',
+            required: true,
+          },
+          {
+            name: 'y',
+            type: 'number',
+            description: 'Crop region top offset (pixels)',
+            required: true,
+          },
+          {
+            name: 'width',
+            type: 'number',
+            description: 'Crop region width (pixels)',
+            required: true,
+          },
+          {
+            name: 'height',
+            type: 'number',
+            description: 'Crop region height (pixels)',
             required: true,
           },
         ],
-        aliases: ['img_convert'],
-        searchTips: ['image', 'convert'],
+        aliases: ['img_crop'],
+        searchTips: ['image', 'crop'],
         enabled: true,
         readOnly: false,
         destructive: false,

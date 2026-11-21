@@ -1,9 +1,13 @@
 // MIT License
 // Copyright (c) 2026 190615273@qq.com
 
-import type { Tool, ToolParam, ToolInfo } from '../types/Tool';
-import { ToolExecutionStatus } from '../types/ToolResult';
-import type { ToolUseContext } from '../types/ToolUseContext';
+import type {
+  Tool,
+  ToolParam,
+  ToolInfo,
+} from '@openliri/infra/utils/toolContract/Tool';
+import { ToolExecutionStatus } from '@openliri/infra/utils/toolContract/ToolResult';
+import type { ToolUseContext } from '@openliri/infra/utils/toolContract/ToolUseContext';
 import { resolveSafePath } from './MediaPathGuard';
 import { MediaErrorCode, MEDIA_ERROR_MESSAGES } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';

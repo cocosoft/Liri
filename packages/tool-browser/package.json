@@ -1,0 +1,20 @@
+{
+  "name": "@openliri/tool-browser",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liri browser 工具包 —— Playwright 浏览器驱动与输入/输出 schema。层归属 app：可依赖 app / service / infra / core；entry / ui 不得依赖本包，包内不得依赖 entry / ui 层（R30）。工具类 `BrowserTool` 仍留在 app（继承 app 的 BaseTool，待工具基类契约下移后再搬）。",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/tool-browser/index.ts",
+      "import": "./src/tool-browser/index.ts"
+    },
+    "./*": {
+      "types": "./src/tool-browser/*.ts",
+      "import": "./src/tool-browser/*.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p ../../app/tsconfig.json"
+  }
+}

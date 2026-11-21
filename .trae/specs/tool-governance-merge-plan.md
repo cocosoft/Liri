@@ -1,7 +1,7 @@
 # 工具治理方案 v3：包化、核心最小集与按需发现（2026-11-21）
 
 > 状态：**C1–C5 已实施**（2026-11-21；未提交）。实施落点与验收见 §15；
-> 未完成项：仅 P4 物理拆包（可选）。
+> P4 物理拆包：**media + browser 驱动/schema 已拆**（§15.8），工具类与 office/desktop 待工具基类契约下移后再做。
 > v3 变更：采纳 v2 的建议项（D1–D8），并把「profile / 工具包元数据 / 插件工具契约 / 设置页 / 守卫」
 > 细化到文件与函数级；新增 §14 落地清单。v2 的参考对照与重复项判定保留。
 > 修订说明：v1 的结论是「`file_write`/`file_edit`/`file_convert` 三合一」。参考
@@ -220,6 +220,7 @@ interface CapabilityPackSpec {
 |---|---|---|
 | A（本方案） | **逻辑包**：元数据 + 懒加载 + 设置页分组；文件仍留在 `app/src/tools` | 零搬迁风险；先拿到治理收益 |
 | B（按需） | 把重域抽成独立包：`packages/tool-media`、`tool-office`、`tool-browser`、`tool-desktop` | 这些域依赖重（sharp/pdf/playwright/PowerShell），独立包可真正裁剪产物体积 |
+| B′（2026-11-21 已落地） | `packages/tool-media`（15 个纯对象工具）与 `packages/tool-browser`（`PlaywrightDriver` + `schemas`）；`MediaModule` / `BrowserTool` 工具类**留在 app** 负责注册与基类继承 | 工具类继承 app 的 `BaseTool`，搬迁需先做**工具基类契约下移**（另立项）；本轮只搬无基类依赖的实现与驱动，属结构性变更、无行为回退风险 |
 | C（不做） | 一工具一包（69 包） | 包管理与构建成本远大于收益 |
 
 ---
@@ -666,4 +667,25 @@ bun run typecheck
 1. ~~AC-16 基线~~ —— 已按用户裁定更新基线（§15.6）。
 2. ~~报表 `pack` / `inProfiles` + 设置页按包分组 + 包开关~~ —— 已完成（§15.2.1）。
 3. `knowledge_*` 接线与 `music_generate` provider 属功能决策，不在治理范围。
-4. P4 物理拆包（可选，未做）。
+4. ~~P4 物理拆包（可选）~~ —— media + browser 驱动/schema 已落地（§15.8）；工具类（`BrowserTool` / `ComputerUseTool`）与 office/desktop 待工具基类契约下移后再拆。
+
+### 15.8 P4：重域物理拆包（media + browser 驱动，2026-11-21）
+
+**拆出边界（用户裁定）**
+
+| 新包 | 内容 | 留在 app 的部分 |
+|---|---|---|
+| `packages/tool-media`（`@openliri/tool-media`） | `app/src/tools/media/` 下 19 个文件：15 个工具的 creator + `MediaPathGuard` / `MediaErrorCodes` / `MediaToolResult` / `mediaOutputSchemas` | `MediaModule.ts`（`globalToolManager.registerTool` 接线 + 生命周期）；改为从包出口导入 15 个 creator |
+| `packages/tool-browser`（`@openliri/tool-browser`） | `PlaywrightDriver.ts` + `schemas.ts` | `BrowserTool.ts`（继承 app 的 `BaseTool`），改为从包出口导入 |
+
+**为什么不搬工具类**：`BrowserTool` / `ComputerUseTool` / media 工具的注册面依赖 app 的 `BaseTool` 与 `ToolManager` 单例 ⇒ 需先在 `packages` 侧建立"工具基类契约"再搬，属另一轮；本轮只搬**无基类依赖**的实现体，避免"包内反向依赖 app"（R29/R30 会直接拦截）。
+
+**配套登记**
+
+- `app/tsconfig.json` `paths`：新增 `@openliri/tool-media` / `@openliri/tool-browser`（含 `/*` 子路径）。
+- `scripts/modules-to-layers.json`：两包均登记 `layer: app`。
+- `lint:infra`：新增 **R29**（`packages/tool-media`）/ **R30**（`packages/tool-browser`）物理包边界规则（包内禁止相对路径逃逸进 `app/`、禁止依赖 entry/ui；app 侧别名归属校验）。
+- ESLint：新增 `app/eslint.tool-media.config.js` / `eslint.tool-browser.config.js` 与 `lint:tool-media` / `lint:tool-browser`，并同步 `app/package.json#ci` 与 `.github/workflows/ci.yml`（`lint:gate-parity` 覆盖）。
+- 测试：`toolOutputJsonSchema` / `browserTool` / `mediaImplementationUnification` 的导入与源码扫描路径同步到新包。
+
+**验收（cwd=app）**：`typecheck` ✅ · `bun test tests/tools`（1743 pass / 0 fail）✅ · `lint:infra`（R1–R30 合规）✅ · `lint:arch` / `lint:size` / `lint:refs` / `lint:case` / `lint:unref` / `lint:gate-parity` ✅ · `measure:tool-disclosure`（未超基线）✅ · `export-tool-params --check`（69 工具 / 379 描述一致）✅ · client `typecheck` ✅。工具名录与参数**未变化**（`media_*` 未进 `TOOL_NAMES`，本就由 `MediaModule` 运行期注册）。

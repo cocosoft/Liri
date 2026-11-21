@@ -216,6 +216,16 @@ jobs:
       if: matrix.os == 'ubuntu-latest'
       run: bun run lint:tool
 
+    # P4（2026-11-21）：media 工具拆包到 packages/tool-media 后同理补覆盖。
+    - name: "Run tool-media package linter (P4：packages/tool-media 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:tool-media
+
+    # P4（2026-11-21）：browser 驱动/schema 拆包到 packages/tool-browser 后同理补覆盖。
+    - name: "Run tool-browser package linter (P4：packages/tool-browser 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:tool-browser
+
     # P1（2026-11-14）：context-engine 拆包到 packages/context-engine 后同理补覆盖。
     - name: "Run context-engine package linter (P1：packages/context-engine 覆盖)"
       if: matrix.os == 'ubuntu-latest'

@@ -16,16 +16,15 @@ import type {
 import { createToolResult } from '../types/ToolResult';
 
 import { getLogger } from '@openliri/infra/monitoring';
+// P4（2026-11-21）：驱动与 schema 已迁至 packages/tool-browser；经包出口导入
+// P2（2026-11-21）：接真实现（Playwright + 系统 Chrome/Edge）；截图只回文件路径
 import {
   BrowserToolOutputSchema,
   BrowserToolOutputJsonSchema,
-} from './schemas';
-// P2（2026-11-21）：接真实现（Playwright + 系统 Chrome/Edge）；截图只回文件路径
-import {
   getBrowserSessionDriver,
   type BrowserDriverResult,
   type BrowserSessionDriver,
-} from './PlaywrightDriver';
+} from '@openliri/tool-browser';
 import { saveScreenshotFile } from '@openliri/infra/utils/computerUse/screenshotStore';
 import {
   describeToolGateDisabled,

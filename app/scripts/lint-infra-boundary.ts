@@ -251,6 +251,22 @@ const CONTEXT_ENGINE_PACKAGE_SRC = process.env['CONTEXT_ENGINE_PACKAGE_SRC']
 const BUDDY_PACKAGE_SRC = process.env['BUDDY_PACKAGE_SRC']
   ? resolve(process.env['BUDDY_PACKAGE_SRC'])
   : join(REPO_ROOT, 'packages', 'buddy', 'src');
+/**
+ * P4（2026-11-21）：tool-media 物理包根（R29 扫描面）。
+ *
+ * 层归属仍是 app（`modules-to-layers.json`），与前述 app 层包同口径。
+ */
+const TOOL_MEDIA_PACKAGE_SRC = process.env['TOOL_MEDIA_PACKAGE_SRC']
+  ? resolve(process.env['TOOL_MEDIA_PACKAGE_SRC'])
+  : join(REPO_ROOT, 'packages', 'tool-media', 'src');
+/**
+ * P4（2026-11-21）：tool-browser 物理包根（R30 扫描面）。
+ *
+ * 层归属仍是 app（`modules-to-layers.json`），与前述 app 层包同口径。
+ */
+const TOOL_BROWSER_PACKAGE_SRC = process.env['TOOL_BROWSER_PACKAGE_SRC']
+  ? resolve(process.env['TOOL_BROWSER_PACKAGE_SRC'])
+  : join(REPO_ROOT, 'packages', 'tool-browser', 'src');
 const LAYERS_FILE = process.env['INFRA_LAYERS']
   ? resolve(process.env['INFRA_LAYERS'])
   : join(REPO_ROOT, 'scripts', 'modules-to-layers.json');
@@ -639,6 +655,32 @@ function main(): number {
     collect(BUDDY_PACKAGE_SRC, buddyPackageFiles, BUDDY_PACKAGE_SRC);
   }
 
+  // R29 扫描面：tool-media 物理包（P4，2026-11-21；未建包时为空数组）
+  const toolMediaPackageFiles: SourceFile[] = [];
+  if (
+    existsSync(TOOL_MEDIA_PACKAGE_SRC) &&
+    statSync(TOOL_MEDIA_PACKAGE_SRC).isDirectory()
+  ) {
+    collect(
+      TOOL_MEDIA_PACKAGE_SRC,
+      toolMediaPackageFiles,
+      TOOL_MEDIA_PACKAGE_SRC
+    );
+  }
+
+  // R30 扫描面：tool-browser 物理包（P4，2026-11-21；未建包时为空数组）
+  const toolBrowserPackageFiles: SourceFile[] = [];
+  if (
+    existsSync(TOOL_BROWSER_PACKAGE_SRC) &&
+    statSync(TOOL_BROWSER_PACKAGE_SRC).isDirectory()
+  ) {
+    collect(
+      TOOL_BROWSER_PACKAGE_SRC,
+      toolBrowserPackageFiles,
+      TOOL_BROWSER_PACKAGE_SRC
+    );
+  }
+
   const commonFiles = infraFiles.filter((f) => f.path.startsWith('common/'));
   const utilsFiles = infraFiles.filter((f) => f.path.startsWith('utils/'));
 
@@ -853,13 +895,31 @@ function main(): number {
       packageLayer: 'app',
       forbiddenLayers: APP_LAYER_PACKAGE_FORBIDDEN_TARGET_LAYERS,
     }),
+    compareInfraPackageBoundary({
+      packageFiles: toolMediaPackageFiles,
+      appFiles: allSrcFiles,
+      layerOf: layers,
+      rule: 'R29',
+      packageName: 'tool-media',
+      packageLayer: 'app',
+      forbiddenLayers: APP_LAYER_PACKAGE_FORBIDDEN_TARGET_LAYERS,
+    }),
+    compareInfraPackageBoundary({
+      packageFiles: toolBrowserPackageFiles,
+      appFiles: allSrcFiles,
+      layerOf: layers,
+      rule: 'R30',
+      packageName: 'tool-browser',
+      packageLayer: 'app',
+      forbiddenLayers: APP_LAYER_PACKAGE_FORBIDDEN_TARGET_LAYERS,
+    }),
     compareInfraCycles(
       findInfraCycleMembers(buildInfraEdges(infraFiles), infraModules),
       loadCycleBaseline()
     ),
   ];
 
-  console.log('=== infra 层边界契约门禁（R1–R28）===');
+  console.log('=== infra 层边界契约门禁（R1–R30）===');
   console.log(
     `infra 模块 ${infraModules.length} 个（无目录 ${missing.length}）· 生产源文件 ${infraFiles.length} 个` +
       ` · common ${commonFiles.length} / utils ${utilsFiles.length}` +
@@ -885,7 +945,7 @@ function main(): number {
     );
     return 1;
   }
-  console.log('\n✅ 合规（R1–R28 无未登记违规）');
+  console.log('\n✅ 合规（R1–R30 无未登记违规）');
   return 0;
 }
 

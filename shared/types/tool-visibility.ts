@@ -117,4 +117,17 @@ export interface SharedToolVisibilityEntry {
    * `conditional`（未进注册表）⇒ 缺省。
    */
   description?: string;
+  /**
+   * 所属**能力包**（P2，2026-11-21）：`CAPABILITY_PACKS` 的 id，或运行期插件工具的 pack 名。
+   *
+   * 不在任何包内（常驻 / 未归档）⇒ 缺省。**字符串**而非联合：包表属后端内部事实源，
+   * 前端只做展示与分组（与 `category` 同口径，避免 R02 双轨）。
+   */
+  pack?: string;
+  /**
+   * 该包默认归属的**工具面档位**（`minimal` / `standard` / `full`）。
+   *
+   * 无包 ⇒ 缺省 / 空数组；前端只渲染徽标，不据此参与可见性判定。
+   */
+  inProfiles?: string[];
 }

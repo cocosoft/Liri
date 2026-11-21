@@ -57,9 +57,11 @@ import { ConfigSection } from "./ConfigComponents";
 import {
   SHADOW_DISPOSITION_KEYS,
   SHADOW_REASON_KEYS,
+  TOOL_PROFILE_LABEL_KEYS,
   TOOL_VISIBILITY_REASON_KEYS,
   TOOL_VISIBILITY_REASON_TONES,
   filterEntries,
+  groupByPack,
   groupOf,
   overrideValueOf,
   primaryReasonOf,
@@ -122,6 +124,8 @@ function ToolsPanel({ isDark }: ToolsPanelProps) {
   const [pendingConfirm, setPendingConfirm] = useState<string | null>(null);
   /** PR-4：未接线组默认折叠（不给假开关，也不占屏） */
   const [unwiredOpen, setUnwiredOpen] = useState(false);
+  /** P2：分组视图（默认「按可见性」= 既有行为，不改三态/统计口径） */
+  const [groupMode, setGroupMode] = useState<"visibility" | "pack">("visibility");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -221,6 +225,11 @@ function ToolsPanel({ isDark }: ToolsPanelProps) {
     for (const e of visibleEntries) buckets[groupOf(e, overrides)].push(e);
     return buckets;
   }, [visibleEntries, overrides]);
+  /** P2：「按包」视图的分桶（包名升序、未归包置底） */
+  const packGroups = useMemo(
+    () => groupByPack(visibleEntries),
+    [visibleEntries],
+  );
 
   const textMuted = isDark ? "text-gray-400" : "text-gray-500";
   const rowBorder = isDark ? "border-gray-800" : "border-gray-100";
@@ -286,6 +295,26 @@ function ToolsPanel({ isDark }: ToolsPanelProps) {
               >
                 {entry.category}
               </span>
+              {/* P2：所属能力包 + 默认归属的工具面档位（后端下发，前端只渲染） */}
+              {entry.pack && (
+                <span
+                  className={`text-[10px] px-1.5 py-0.5 rounded ${TONE_CLASS.neutral}`}
+                  title={t("settings.toolsPackLabel")}
+                >
+                  {entry.pack}
+                </span>
+              )}
+              {(entry.inProfiles ?? []).map((profile) => {
+                const labelKey = TOOL_PROFILE_LABEL_KEYS[profile];
+                return (
+                  <span
+                    key={profile}
+                    className={`text-[10px] px-1.5 py-0.5 rounded ${TONE_CLASS.neutral}`}
+                  >
+                    {labelKey ? t(labelKey) : profile}
+                  </span>
+                );
+              })}
               <span
                 className={`text-[10px] px-1.5 py-0.5 rounded ${
                   visible ? TONE_CLASS.ok : TONE_CLASS.neutral
@@ -442,6 +471,42 @@ function ToolsPanel({ isDark }: ToolsPanelProps) {
         {t("settings.toolsSurfaceDesc")}
       </p>
 
+      {/* P2（2026-11-21）：分组视图切换（默认「按可见性」= 既有行为） */}
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <span className={`text-xs font-medium ${textMuted}`}>
+          {t("settings.toolsGrouping")}
+        </span>
+        <div
+          className={`inline-flex rounded border ${rowBorder} overflow-hidden`}
+        >
+          {(
+            [
+              { value: "visibility", key: "settings.toolsGroupByVisibility" },
+              { value: "pack", key: "settings.toolsGroupByPack" },
+            ] as const
+          ).map((opt) => {
+            const active = groupMode === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setGroupMode(opt.value)}
+                className={`px-2 py-1 text-xs border-r last:border-r-0 ${rowBorder} ${
+                  active
+                    ? "bg-blue-600 text-white"
+                    : isDark
+                      ? "hover:bg-gray-800 text-gray-300"
+                      : "hover:bg-gray-50 text-gray-600"
+                }`}
+              >
+                {t(opt.key)}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="flex items-center gap-2 mb-3">
         <input
           type="search"
@@ -484,6 +549,7 @@ function ToolsPanel({ isDark }: ToolsPanelProps) {
 
       {!loading &&
         !loadError &&
+        groupMode === "visibility" &&
         GROUP_ORDER.map((group) => {
           const rows = grouped[group];
           if (rows.length === 0) return null;
@@ -520,6 +586,21 @@ function ToolsPanel({ isDark }: ToolsPanelProps) {
             </div>
           );
         })}
+
+      {!loading &&
+        !loadError &&
+        groupMode === "pack" &&
+        packGroups.map((group) => (
+          <div key={group.pack || "__none__"} className="mb-4">
+            <h4 className={`text-xs font-semibold mb-1 ${textMuted}`}>
+              {t("settings.toolsPackLabel")}:{" "}
+              {group.pack || t("settings.toolsPackNone")} · {group.entries.length}
+            </h4>
+            <div className={`rounded border ${rowBorder}`}>
+              {group.entries.map(renderRow)}
+            </div>
+          </div>
+        ))}
 
       {saveError && (
         <p className="text-xs text-red-600 dark:text-red-400 mt-2">

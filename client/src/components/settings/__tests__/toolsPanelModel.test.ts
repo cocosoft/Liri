@@ -34,7 +34,9 @@ import type { SharedToolVisibilityReason } from "@shared/types";
 import {
   TOOL_VISIBILITY_REASON_KEYS,
   TOOL_VISIBILITY_REASON_TONES,
+  TOOL_PROFILE_LABEL_KEYS,
   filterEntries,
+  groupByPack,
   groupOf,
   overrideValueOf,
   primaryReasonOf,
@@ -281,5 +283,54 @@ describe("P2 工具描述摘要（toPlainSummary）", () => {
   it("空串/纯空白 ⇒ 空串（渲染侧按 falsy 跳过）", () => {
     expect(toPlainSummary("")).toBe("");
     expect(toPlainSummary("  \n\n ")).toBe("");
+  });
+});
+
+/**
+ * P2（2026-11-21）：**按能力包分组**（与可见性分组并列的视图）。
+ *
+ * 口径：包名升序、未归包置底；只分桶不改判定（`groupOf` / 统计 / 三态均不受影响）。
+ */
+describe("P2 按能力包分组", () => {
+  it("包名升序；未归包（无 pack）置底", () => {
+    const groups = groupByPack([
+      entry({ name: "bash", pack: undefined }),
+      entry({ name: "image", pack: "media_image" }),
+      entry({ name: "cron", pack: "schedule" }),
+      entry({ name: "agents_list", pack: "system_extra" }),
+    ]);
+    expect(groups.map((g) => g.pack)).toEqual([
+      "media_image",
+      "schedule",
+      "system_extra",
+      "",
+    ]);
+    expect(groups.at(-1)?.entries.map((e) => e.name)).toEqual(["bash"]);
+  });
+
+  it("同一包内保持输入顺序；不改变条目数", () => {
+    const input = [
+      entry({ name: "image", pack: "media_image" }),
+      entry({ name: "video", pack: "media_video" }),
+      entry({ name: "image_generate", pack: "media_image" }),
+    ];
+    const groups = groupByPack(input);
+    expect(groups.map((g) => g.entries.length)).toEqual([2, 1]);
+    expect(groups[0].entries.map((e) => e.name)).toEqual([
+      "image",
+      "image_generate",
+    ]);
+    expect(groups.flatMap((g) => g.entries)).toHaveLength(input.length);
+  });
+
+  it("空输入 ⇒ 空分组（渲染侧走空态）", () => {
+    expect(groupByPack([])).toEqual([]);
+  });
+
+  it("档位徽标键：三档都有文案键（未知档位不崩）", () => {
+    for (const profile of ["minimal", "standard", "full"]) {
+      expect(TOOL_PROFILE_LABEL_KEYS[profile]).toMatch(/^settings\./);
+    }
+    expect(TOOL_PROFILE_LABEL_KEYS["unknown-profile"]).toBeUndefined();
   });
 });

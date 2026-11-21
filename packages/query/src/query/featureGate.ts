@@ -42,6 +42,20 @@ const USER_CONFIG_KEYS: Readonly<Partial<Record<FeatureFlag, string>>> = {
   // 2026-11-21（browser/computer use 补齐）：两个高风险 GUI 工具改为用户可配（默认 false）
   BROWSER: 'browser',
   COMPUTER_USE: 'computerUse',
+  // 2026-11-21（工具治理 v3 P2）：能力包开关用户可配（设置页 → 功能开关）
+  // `isCapabilityPackEnabled` 经本模块解析 ⇒ 开关写进配置后下一轮即生效（此前只读 feature()，属假开关）
+  TOOL_PACK_MEDIA_IMAGE: 'toolPackMediaImage',
+  TOOL_PACK_MEDIA_VIDEO: 'toolPackMediaVideo',
+  TOOL_PACK_MEDIA_AUDIO: 'toolPackMediaAudio',
+  TOOL_PACK_DOC_EXTRA: 'toolPackDocExtra',
+  TOOL_PACK_COLLAB: 'toolPackCollab',
+  TOOL_PACK_SCHEDULE: 'toolPackSchedule',
+  TOOL_PACK_WORKSPACE: 'toolPackWorkspace',
+  TOOL_PACK_SYSTEM_EXTRA: 'toolPackSystemExtra',
+  TOOL_PACK_DESKTOP: 'toolPackDesktop',
+  TOOL_PACK_KNOWLEDGE: 'toolPackKnowledge',
+  TOOL_PACK_WEB: 'toolPackWeb',
+  TOOL_PACK_CODE: 'toolPackCode',
 };
 
 /** 用户设置的读取器（测试可注入） */

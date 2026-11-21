@@ -30,6 +30,11 @@ interface FeatureFlags {
   browser: boolean;
   /** 2026-11-21：桌面自动化（后端 `COMPUTER_USE`，默认关；每次调用仍需审批） */
   computerUse: boolean;
+  /** 2026-11-21（P2）：新增四个能力包开关（后端 `TOOL_PACK_DESKTOP` 等，默认开） */
+  toolPackDesktop: boolean;
+  toolPackKnowledge: boolean;
+  toolPackWeb: boolean;
+  toolPackCode: boolean;
 }
 
 interface FeatureFlagsPanelProps {
@@ -151,6 +156,28 @@ function FeatureFlagsPanel({
       key: "computerUse",
       labelKey: "settings.featuresComputerUse",
       descriptionKey: "settings.featuresComputerUseDesc",
+    },
+    // 2026-11-21（工具治理 v3 P2）：新增能力包开关（默认开；关闭后该包工具不再下发，
+    // 仍可经 tool_search 检索 —— 与「工具面 minimal」是两层收窄）
+    {
+      key: "toolPackDesktop",
+      labelKey: "settings.featuresToolPackDesktop",
+      descriptionKey: "settings.featuresToolPackDesktopDesc",
+    },
+    {
+      key: "toolPackKnowledge",
+      labelKey: "settings.featuresToolPackKnowledge",
+      descriptionKey: "settings.featuresToolPackKnowledgeDesc",
+    },
+    {
+      key: "toolPackWeb",
+      labelKey: "settings.featuresToolPackWeb",
+      descriptionKey: "settings.featuresToolPackWebDesc",
+    },
+    {
+      key: "toolPackCode",
+      labelKey: "settings.featuresToolPackCode",
+      descriptionKey: "settings.featuresToolPackCodeDesc",
     },
   ];
 

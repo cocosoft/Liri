@@ -37,9 +37,11 @@
 import { describe, expect, it } from 'bun:test';
 import {
   ARCHIVED_MISC_TOOLS,
+  CAPABILITY_PACKS,
   getMandatoryTools,
   filterToolsByTask,
 } from '../../src/tools/toolCategories';
+import { registerRuntimeToolMeta } from '../../src/tools/runtimeToolMeta';
 import {
   LEGACY_ALIAS_TOOL_NAMES,
   TOOL_NAME_CONSTANTS,
@@ -275,5 +277,55 @@ describe('C-3b T3：工具描述附加（设置页展示半边）', () => {
     expect(enriched.map(withoutDescription)).toEqual(
       base.map(withoutDescription)
     );
+  });
+});
+
+/**
+ * P2（2026-11-21）：报表供设置页做**包分组 / 档位徽标** —— `pack` / `inProfiles` 必须与
+ * `CAPABILITY_PACKS` **同源派生**（不另写映射），且不参与任何可见性判定。
+ */
+describe('P2 报表：能力包与档位归属', () => {
+  it('包内工具的 pack / inProfiles 与 CAPABILITY_PACKS 逐条一致', () => {
+    let checked = 0;
+    for (const [pack, spec] of Object.entries(CAPABILITY_PACKS)) {
+      for (const toolName of spec.tools) {
+        const entry = byName.get(toolName);
+        if (!entry) continue; // 运行期注册的 knowledge_* 不在常量表（名字域外）
+        expect({ tool: toolName, pack: entry.pack }).toEqual({
+          tool: toolName,
+          pack,
+        });
+        expect({ tool: toolName, inProfiles: entry.inProfiles }).toEqual({
+          tool: toolName,
+          inProfiles: [...spec.defaultIn],
+        });
+        checked++;
+      }
+    }
+    expect(checked).toBeGreaterThan(10); // 防空转
+  });
+
+  it('不属任何包的工具 ⇒ 无 pack 且 inProfiles 为空（前端不渲染档位徽标）', () => {
+    for (const name of ['file_read', 'bash', 'grep']) {
+      const entry = byName.get(name)!;
+      expect(entry.pack).toBeUndefined();
+      expect(entry.inProfiles).toEqual([]);
+    }
+  });
+
+  it('运行期插件工具 ⇒ pack = 插件 id、档位 = standard/full', () => {
+    const dispose = registerRuntimeToolMeta('test_plugin_report_tool', {
+      category: 'plugin',
+      pack: 'my-plugin',
+    });
+    try {
+      const entry = resolveToolVisibilityReport({ taskType: 'chat' }).find(
+        (e) => e.name === 'test_plugin_report_tool'
+      );
+      expect(entry?.pack).toBe('my-plugin');
+      expect(entry?.inProfiles).toEqual(['standard', 'full']);
+    } finally {
+      dispose();
+    }
   });
 });

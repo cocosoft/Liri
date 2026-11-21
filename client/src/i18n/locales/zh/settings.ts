@@ -167,6 +167,19 @@ const zhSettings = {
     featuresComputerUse: "桌面自动化（Computer Use）",
     featuresComputerUseDesc:
       "允许助手截屏、移动鼠标、注入键盘、启动应用。属高风险能力：每次调用都需你审批；截图只保存为本地文件（需要看懂画面时走视觉分析）。默认关闭。",
+    // 2026-11-21（P2）：新增能力包开关（默认开；关闭后该包工具不再下发，仍可 tool_search 检索）
+    featuresToolPackDesktop: "能力包：桌面与浏览器",
+    featuresToolPackDesktopDesc:
+      "computer_use / browser / browser_vision 的包开关。关闭后这三个工具不再自动下发（仍可用 tool_search 检索）；真正的启用/审批仍由上面的「浏览器 / 桌面自动化」开关与审批链决定。",
+    featuresToolPackKnowledge: "能力包：知识库",
+    featuresToolPackKnowledgeDesc:
+      "knowledge_save 等知识库工具的包开关。关闭后不再自动下发（仍可用 tool_search 检索）。",
+    featuresToolPackWeb: "能力包：网络",
+    featuresToolPackWebDesc:
+      "web_fetch / web_search 的包开关。关闭后不再自动下发（仍可用 tool_search 检索）；属于默认披露面成员。",
+    featuresToolPackCode: "能力包：代码执行",
+    featuresToolPackCodeDesc:
+      "lsp / repl / code_run 的包开关。关闭后不再自动下发（仍可用 tool_search 检索）；代码执行仍需审批。",
     // 2026-11-03 P0：自主执行运行预算（默认放宽，可按需调整）
     autonomyLimitsTitle: "自主执行运行预算",
     autonomyLimitsDesc:
@@ -726,6 +739,11 @@ const zhSettings = {
     toolsSurfaceMinimal: "精简",
     toolsSurfaceStandard: "标准",
     toolsSurfaceFull: "全量",
+    toolsGrouping: "分组",
+    toolsGroupByVisibility: "按可见性",
+    toolsGroupByPack: "按能力包",
+    toolsPackLabel: "包",
+    toolsPackNone: "未归包",
     toolsStateAuto: "跟随任务",
     toolsStateOn: "强制可见",
     toolsStateOff: "强制不可见",

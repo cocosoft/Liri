@@ -76,6 +76,9 @@ const REPORTS: SharedToolVisibilityEntry[] = [
     reasons: [],
     risk: "low",
     description: "读取文件内容（C-3b T3 展示）",
+    // P2：包与档位归属（后端下发；前端只渲染徽标与分组）
+    pack: "core_tools",
+    inProfiles: ["standard", "full"],
   },
   {
     name: "bash",
@@ -194,6 +197,33 @@ describe("ToolsPanel：工具面档位（C2，写 settings.toolSurface）", () =
       expect(setToolSurface).toHaveBeenCalledWith("full");
       expect(visibility.mock.calls.length).toBeGreaterThan(before);
     });
+  });
+});
+
+describe("ToolsPanel：能力包与档位（P2）", () => {
+  it("渲染所属包与档位徽标（后端下发，前端不复算）", async () => {
+    render(<ToolsPanel isDark={false} />);
+    await waitFor(() => expect(screen.getByText("file_read")).toBeDefined());
+    expect(screen.getByText("core_tools")).toBeDefined();
+    // 档位徽标复用「工具面」文案（标准 / 全量）；与顶部选择器共存 ⇒ 用数量断言
+    expect(screen.getAllByText("标准").length).toBeGreaterThan(1);
+    expect(screen.getAllByText("全量").length).toBeGreaterThan(1);
+  });
+
+  it("切到「按能力包」视图 ⇒ 按包分组，未归包条目置底", async () => {
+    render(<ToolsPanel isDark={false} />);
+    await waitFor(() => expect(screen.getByText("file_read")).toBeDefined());
+
+    fireEvent.click(screen.getByRole("button", { name: "按能力包" }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/包: core_tools/)).toBeDefined();
+      expect(screen.getByText(/包: 未归包/)).toBeDefined();
+    });
+    // 该视图下仍渲染三态开关（分组只换视图，不改交互）
+    expect(
+      screen.getAllByRole("button", { name: "强制可见" }).length,
+    ).toBeGreaterThan(0);
   });
 });
 

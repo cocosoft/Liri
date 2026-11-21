@@ -170,6 +170,19 @@ const enSettings = {
     featuresComputerUse: "Desktop automation (Computer Use)",
     featuresComputerUseDesc:
       "Lets the assistant take screenshots, move the mouse, type keys and launch apps. High risk: every call requires your approval; screenshots are saved as local files (use vision analysis to read them). Off by default.",
+    // 2026-11-21 (P2): new capability-pack switches (on by default; off = not disclosed, still searchable)
+    featuresToolPackDesktop: "Pack: desktop & browser",
+    featuresToolPackDesktopDesc:
+      "Pack switch for computer_use / browser / browser_vision. When off, these tools are no longer disclosed automatically (still searchable via tool_search); actual enablement and approval remain governed by the Browser / Computer Use switches above.",
+    featuresToolPackKnowledge: "Pack: knowledge",
+    featuresToolPackKnowledgeDesc:
+      "Pack switch for knowledge_save and other knowledge tools. When off, they are no longer disclosed automatically (still searchable via tool_search).",
+    featuresToolPackWeb: "Pack: web",
+    featuresToolPackWebDesc:
+      "Pack switch for web_fetch / web_search. When off, they are no longer disclosed automatically (still searchable via tool_search); they are members of the default disclosure surface.",
+    featuresToolPackCode: "Pack: code execution",
+    featuresToolPackCodeDesc:
+      "Pack switch for lsp / repl / code_run. When off, they are no longer disclosed automatically (still searchable via tool_search); code execution still requires approval.",
     // 2026-11-03 P0: autonomous run budget (relaxed defaults, user-tunable)
     autonomyLimitsTitle: "Autonomous run budget",
     autonomyLimitsDesc:
@@ -757,6 +770,11 @@ const enSettings = {
     toolsSurfaceMinimal: "Minimal",
     toolsSurfaceStandard: "Standard",
     toolsSurfaceFull: "Full",
+    toolsGrouping: "Group by",
+    toolsGroupByVisibility: "Visibility",
+    toolsGroupByPack: "Capability pack",
+    toolsPackLabel: "Pack",
+    toolsPackNone: "No pack",
     toolsStateAuto: "Follow task",
     toolsStateOn: "Force visible",
     toolsStateOff: "Force hidden",

@@ -52,13 +52,19 @@
 
 import {
   ARCHIVED_MISC_TOOLS,
+  CAPABILITY_PACKS,
   filterToolsByTask,
+  getCapabilityPackOf,
   getTaskToolCategories,
   getToolCategory,
   isMandatoryTool,
   isOutsideDefaultDisclosure,
 } from './toolCategories';
-import type { ToolCategory } from './toolCategories';
+import type {
+  CapabilityPack,
+  ToolCategory,
+  ToolPackProfile,
+} from './toolCategories';
 import { getCoreToolNames } from './toolSurfaceProfile';
 import type { ToolSurfaceProfile } from './toolSurfaceProfile';
 import { getRuntimeToolMeta, listRuntimeToolNames } from './runtimeToolMeta';
@@ -137,6 +143,20 @@ export interface ToolVisibilityReport {
    * 本模块保持**纯函数**（不反向依赖 registry）。
    */
   description?: string;
+  /**
+   * 所属**能力包**（P2，2026-11-21；`CAPABILITY_PACKS` 的 id 或插件工具的 pack 名）。
+   *
+   * 不在任何包内（常驻 / 未归档项）⇒ 缺省。单一事实源：`getCapabilityPackOf()` /
+   * 运行期 `RuntimeToolMeta.pack`，本模块不另建映射。
+   */
+  pack?: string;
+  /**
+   * 该包在哪些**工具面档位**下默认启用（`CAPABILITY_PACKS[pack].defaultIn`）。
+   *
+   * 无包 ⇒ `[]`（UI 据此不渲染档位徽标）；插件工具（运行期登记）⇒ `['standard','full']`
+   * （装好的插件在默认档就可见，`minimal` 下需 `on` 或 `tool_search` 拉入）。
+   */
+  inProfiles: ToolPackProfile[];
 }
 
 /** 运行期 `riskClass` → 报表展示档位（`ToolRiskClass` 共六值；`discuss` 视为只读讨论） */
@@ -227,9 +247,16 @@ export function resolveToolVisibilityReport(
       .filter((name) => !LEGACY_ALIAS_TOOL_NAME_SET.has(name))
       .map<ToolVisibilityReport>((name) => {
         const category = getToolCategory(name);
+        const runtimeMeta = getRuntimeToolMeta(name);
         // C3：运行期登记的工具**不是** conditional（它们真实存在于注册表，只是不在生成物里）
-        const conditional =
-          !registered.has(name) && getRuntimeToolMeta(name) === undefined;
+        const conditional = !registered.has(name) && runtimeMeta === undefined;
+        // P2（2026-11-21）：所属能力包与档位归属（报表供设置页分组/徽标，不参与判定）
+        const pack = runtimeMeta?.pack ?? getCapabilityPackOf(name);
+        const inProfiles: ToolPackProfile[] = runtimeMeta
+          ? ['standard', 'full']
+          : pack
+            ? [...CAPABILITY_PACKS[pack as CapabilityPack].defaultIn]
+            : [];
         const reasons: ToolVisibilityReason[] = [];
 
         // I-4（2026-10-18）：可见性**单一判定内核** = `filterToolsByTask`（真实裁剪同源）；
@@ -302,6 +329,9 @@ export function resolveToolVisibilityReport(
           effective: effective ? 'visible' : 'hidden',
           reasons,
           risk: deriveRiskOf(name),
+          // P2：包与档位归属（`pack` 缺省 = 不在任何包）
+          ...(pack ? { pack } : {}),
+          inProfiles,
           ...(shadow
             ? {
                 conditionalReason: shadow.reason,

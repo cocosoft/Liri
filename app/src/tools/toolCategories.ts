@@ -929,9 +929,15 @@ export function getCapabilityPackOf(
   return TOOL_PACK_INDEX.get(toolName);
 }
 
-/** 该能力包当前是否开启（每次现读 `feature()`：env 覆盖即时生效，与 P0-1 同口径） */
+/**
+ * 该能力包当前是否开启（每次现读）。
+ *
+ * P2（2026-11-21）：解析改为 `resolveFeatureGate` —— 优先级 env > **用户设置**
+ * （`config.features.toolPack*`）> `feature()`。此前只读 `feature()` ⇒ 设置页的包开关
+ * 即使写进配置也**永不生效**（假开关）。未配置用户值 ⇒ 逐字等于 `feature()`（零行为变更）。
+ */
 export function isCapabilityPackEnabled(pack: CapabilityPack): boolean {
-  return feature(CAPABILITY_PACKS[pack].flag);
+  return resolveFeatureGate(CAPABILITY_PACKS[pack].flag);
 }
 
 /**

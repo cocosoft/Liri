@@ -577,6 +577,17 @@ bun run typecheck
 | `client/**` | `ToolsPanel` 顶部「工具面：精简/标准/全量」；`toolService.get/setToolSurface`；`ENDPOINTS.settings.toolSurface`；zh/en 文案与原因徽标 |
 | `app/tests/tools/toolSurfaceProfile.test.ts` | 新增：9 项核心 / 平台二选一 / minimal 恒定面 / discovered 与 `on` 可拉入 / standard 与未配置等价 / full 只放开披露收窄 / 重放优先 |
 
+#### 15.2.1 P2：报表包归属 + 设置页分组 + 包开关（2026-11-21 续做）
+
+| 落点 | 内容 |
+|---|---|
+| `toolVisibilityReport.ts` | 条目新增 `pack`（`getCapabilityPackOf` / 运行期 `RuntimeToolMeta.pack`）与 `inProfiles`（包的 `defaultIn`；插件工具 = `standard/full`），**同源派生**、不参与判定 |
+| `shared/types/tool-visibility.ts` | 契约同步加 `pack?` / `inProfiles?`（字符串，前端只展示） |
+| `toolsPanelModel.ts` | `groupByPack()`（包名升序、未归包置底）+ `TOOL_PROFILE_LABEL_KEYS`；不改 `groupOf` / 统计 / 三态 |
+| `ToolsPanel.tsx` | 行内渲染**包徽标 + 档位徽标**；新增「分组：按可见性 / 按能力包」视图切换（默认仍按可见性 ⇒ 既有交互不变） |
+| `FeatureFlagsPanel.tsx` + `SettingsPage.tsx` | 补 4 个新包开关（desktop / knowledge / web / code，默认开）+ zh/en 文案 |
+| `packages/query/src/query/featureGate.ts` | 12 个 `TOOL_PACK_*` 登记为用户可配；`isCapabilityPackEnabled()` 改走 `resolveFeatureGate`（env > 用户设置 > `feature()`）⇒ 开关写进配置后**下一轮生效**（此前只读 `feature()`，属假开关） |
+
 ### 15.3 C3：插件工具契约
 
 | 落点 | 内容 |
@@ -640,6 +651,8 @@ bun run typecheck
 | `bun run measure:tool-disclosure` | ✅（基线已按用户裁定 `--update` 至 3673；见下） |
 | `bun test tests/gates/toolDisclosureBudget.test.ts` | ✅ 13 pass |
 | `bun test tests/tools/mediaImplementationUnification.test.ts` | ✅ 11 pass（媒体实现统一守卫） |
+| `bun test tests/tools/toolVisibilityReport.test.ts` 等 | ✅ 38 pass（含 P2 包归属：`pack` / `inProfiles` 与 `CAPABILITY_PACKS` 同源） |
+| `cd client && bunx vitest run settings/__tests__/ToolsPanel… toolsPanelModel…` | ✅ 35 pass（包徽标 / 按包视图 / 分组纯函数） |
 | `bun run lint:arch` / `lint:infra` / `lint:size` | ✅ |
 
 **基线 +85 字符的归属（与本轮无关，已显式评审）**：上一阶段（未提交）对 `TodoWriteTool` 描述加长
@@ -651,6 +664,6 @@ bun run typecheck
 ### 15.7 遗留
 
 1. ~~AC-16 基线~~ —— 已按用户裁定更新基线（§15.6）。
-2. 报表条目增加 `pack` / `inProfiles` 字段（§14.4 后半）未做 —— 依赖设置页按包分组（P2）。
+2. ~~报表 `pack` / `inProfiles` + 设置页按包分组 + 包开关~~ —— 已完成（§15.2.1）。
 3. `knowledge_*` 接线与 `music_generate` provider 属功能决策，不在治理范围。
-4. 全部改动**未提交**（按规则：提交需显式请求）。
+4. P4 物理拆包（可选，未做）。

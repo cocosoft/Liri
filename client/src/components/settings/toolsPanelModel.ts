@@ -134,6 +134,45 @@ export function groupOf(
   return entry.effective === "visible" ? "default" : "hidden";
 }
 
+/**
+ * P2（2026-11-21）：**按能力包分组**（与可见性分组并列的另一种视图）。
+ *
+ * 只做「排序 + 分桶」，不改 `groupOf` / 三态 / 统计口径；未归包的条目统一置底。
+ * 包名来自后端报表（`entry.pack`），前端不维护包清单（避免与 `CAPABILITY_PACKS` 漂移）。
+ */
+export interface ToolPackGroup {
+  /** 包名；空串 = 未归包（常驻 / 未归档项） */
+  pack: string;
+  entries: SharedToolVisibilityEntry[];
+}
+
+export function groupByPack(
+  entries: readonly SharedToolVisibilityEntry[],
+): ToolPackGroup[] {
+  const buckets = new Map<string, SharedToolVisibilityEntry[]>();
+  for (const entry of entries) {
+    const key = entry.pack ?? "";
+    const bucket = buckets.get(key);
+    if (bucket) bucket.push(entry);
+    else buckets.set(key, [entry]);
+  }
+  return [...buckets.entries()]
+    .sort(([a], [b]) => {
+      if (a === b) return 0;
+      if (a === "") return 1; // 未归包置底
+      if (b === "") return -1;
+      return a < b ? -1 : 1;
+    })
+    .map(([pack, list]) => ({ pack, entries: list }));
+}
+
+/** 工具面档位 → i18n key（复用「工具面」选择器文案；未知档位原样展示） */
+export const TOOL_PROFILE_LABEL_KEYS: Record<string, string> = {
+  minimal: "settings.toolsSurfaceMinimal",
+  standard: "settings.toolsSurfaceStandard",
+  full: "settings.toolsSurfaceFull",
+};
+
 /** PR-4：影子工具"未接线原因" → i18n key（`Record` 穷尽，新增取值即编译失败） */
 export const SHADOW_REASON_KEYS: Record<SharedShadowToolReason, string> = {
   stub: "settings.toolsShadowReasonStub",

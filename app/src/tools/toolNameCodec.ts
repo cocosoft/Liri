@@ -26,7 +26,7 @@
 
 import type { ToolDefinition } from '@modules/ai';
 // 2026-11-21：工具级功能开关（browser / computer_use）在出站定义处裁剪
-import { isToolEnabledByGate } from './toolFeatureGate';
+import { isToolEnabledByGate } from '@openliri/tool-runtime';
 
 /** OpenAI 兼容 `tools[].function.name` 允许的字符集 */
 const WIRE_SAFE_PATTERN = /^[a-zA-Z0-9_-]+$/;

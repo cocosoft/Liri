@@ -12,7 +12,7 @@
 import { afterAll, beforeEach, describe, expect, it } from 'bun:test';
 import { existsSync } from 'node:fs';
 
-import { BrowserTool } from '../../src/tools/BrowserTool/BrowserTool';
+import { BrowserTool } from '@openliri/tool-browser';
 import {
   assertUrlAllowed,
   resolveBrowserDriverConfig,

@@ -11308,7 +11308,7 @@
         "client/src/components/settings/OllamaConfigPanel.tsx",
         "client/src/services/backendUrl.ts",
         "app/src/tasks/MonitorTask.ts",
-        "app/src/tools/BrowserVisionTool/BrowserVisionTool.ts"
+        "packages/tool-browser/src/tool-browser/BrowserVisionTool.ts"
       ],
       "tests": [],
       "changelog": [],

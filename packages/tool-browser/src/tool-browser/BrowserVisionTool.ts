@@ -1,4 +1,4 @@
-import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
+import { TOOL_NAME_CONSTANTS } from '@openliri/infra/constants';
 // MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
@@ -27,8 +27,12 @@ import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
  * 参照 hermes hermes/tools/browser_tool.py browser_vision
  */
 
-import { BaseTool } from '../BaseTool';
-import type { ToolUseContext, ToolResult, ToolParam } from '../types';
+import { BaseTool } from '@openliri/tool-base';
+import type {
+  ToolUseContext,
+  ToolResult,
+  ToolParam,
+} from '@openliri/infra/utils/toolContract/Tool';
 import { resolveModelRoute, RouteKey } from '@modules/ai';
 import { providerRegistry } from '@modules/ai';
 import { getLogger } from '@openliri/infra/monitoring';

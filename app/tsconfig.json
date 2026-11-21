@@ -104,6 +104,8 @@
       "@openliri/tool-base": ["../../packages/tool-base/src/tool-base/index.ts"],
       "@openliri/tool-office": ["../../packages/tool-office/src/tool-office/index.ts"],
       "@openliri/tool-office/*": ["../../packages/tool-office/src/tool-office/*"],
+      "@openliri/tool-runtime": ["../../packages/tool-runtime/src/tool-runtime/index.ts"],
+      "@openliri/tool-desktop": ["../../packages/tool-desktop/src/tool-desktop/index.ts"],
       "cheerio": ["../node_modules/cheerio"],
       "domhandler": ["../node_modules/domhandler"],
       "croner": ["../node_modules/croner"],

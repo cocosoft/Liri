@@ -1,7 +1,7 @@
 # 工具治理方案 v3：包化、核心最小集与按需发现（2026-11-21）
 
 > 状态：**C1–C5 已实施**（2026-11-21；未提交）。实施落点与验收见 §15；
-> P4 物理拆包：**media / browser 驱动 / tool-base 契约 / office 域已拆**（§15.8 / §15.9），工具类 `BrowserTool`·`ComputerUseTool` 与 desktop 待后续处理。
+> P4 物理拆包：**media / browser（含工具类）/ desktop / tool-base 契约 / office 域已拆**（§15.8–§15.10），P4 按重域口径收口。
 > v3 变更：采纳 v2 的建议项（D1–D8），并把「profile / 工具包元数据 / 插件工具契约 / 设置页 / 守卫」
 > 细化到文件与函数级；新增 §14 落地清单。v2 的参考对照与重复项判定保留。
 > 修订说明：v1 的结论是「`file_write`/`file_edit`/`file_convert` 三合一」。参考
@@ -221,6 +221,7 @@ interface CapabilityPackSpec {
 | A（本方案） | **逻辑包**：元数据 + 懒加载 + 设置页分组；文件仍留在 `app/src/tools` | 零搬迁风险；先拿到治理收益 |
 | B（按需） | 把重域抽成独立包：`packages/tool-media`、`tool-office`、`tool-browser`、`tool-desktop` | 这些域依赖重（sharp/pdf/playwright/PowerShell），独立包可真正裁剪产物体积 |
 | B′（2026-11-21 已落地） | `packages/tool-media`（15 个纯对象工具）、`packages/tool-browser`（`PlaywrightDriver` + `schemas`）、`packages/tool-base`（`BaseTool` 契约 + 副作用/能力/风险派生）、`packages/tool-office`（`DocGenerateTool` / `PDFTool` / `converter` / Jupyter nbformat 模型）；`MediaModule` / `BrowserTool` / `NotebookManager` / `NotebookToolImpl` **留在 app** 负责注册与生命周期 | 工具类继承 `BaseTool`，搬迁需**先**把基类契约下沉到包（本轮已完成，app 保留转发 shim ⇒ 57 处引用零改动）；office 域随之可整体迁出 |
+| B″（2026-11-21 已落地） | 追加 `packages/tool-runtime`（`toolFeatureGate` + `visionAnalyze`，浏览器/桌面共享）与 `packages/tool-desktop`（`ComputerUseTool`）；`BrowserTool` / `BrowserVisionTool` 并入 `packages/tool-browser` | 工具类在基类契约下沉后即可搬迁；共享支撑件依赖 app 层 `@modules/query`·`@modules/ai`，故独立成 app 层小包，避免 browser ↔ desktop 互依 |
 | C（不做） | 一工具一包（69 包） | 包管理与构建成本远大于收益 |
 
 ---
@@ -704,3 +705,23 @@ bun run typecheck
 **配套登记**：`app/tsconfig.json` `paths`（3 个新别名 + `cheerio`/`domhandler` 解析）；`modules-to-layers.json` 两包 => `app`；`lint:infra` 新增 **R31 / R32**；ESLint 配置与 `lint:tool-base` / `lint:tool-office`（`ci` + `ci.yml` 同步）；`scripts/state-machine-allowlist.json` 的 `CellExecutionState` 登记路径改指新包；`.trae/architecture/fix-evidence-registry.json` 两条证据路径同步。
 
 **验收（cwd=app）**：`typecheck`（app + client）✅ · `bun test tests/tools tests/permission`（2553 pass / 0 fail）✅ · `lint:infra`（R1–R32 合规）✅ · `lint:arch` / `lint:size` / `lint:refs` / `lint:case` / `lint:unref` / `lint:fix-evidence` / `lint:gate-parity`（84 条 · 缺失 0）✅ · `measure:tool-disclosure`（未超基线）✅ · `export-tool-params --check`（69 工具 / 379 描述一致）✅。工具名录、参数与披露面**均未变化**（纯结构性搬迁）。
+
+### 15.10 P4 收口：browser 工具类 + desktop 域（2026-11-21）
+
+基类契约下沉后，剩余两个工具类及其共享支撑件可整体迁出。
+
+| 新包 / 变化 | 内容 | 留在 app 的部分 |
+|---|---|---|
+| `packages/tool-runtime`（`@openliri/tool-runtime`，新） | `toolFeatureGate`（工具级开关 `BROWSER` / `COMPUTER_USE`）+ `visionAnalyze`（截图 → `RouteKey.IMAGE_ANALYZE`） | —（app 内 3 处消费方改走包出口） |
+| `packages/tool-browser`（扩展） | 追加 `BrowserTool` / `BrowserVisionTool` 工具类（此前仅驱动 + schema） | — |
+| `packages/tool-desktop`（`@openliri/tool-desktop`，新） | `ComputerUseTool`（截图 / 鼠标 / 键盘 / 剪贴板 / 窗口）；底层驱动仍在 `packages/infra` 的 `computerUse` 适配器 | — |
+
+**为什么不把共享件塞进 browser 或 base**：`toolFeatureGate` / `visionAnalyze` 同时被浏览器域与桌面域使用；若放进 `tool-browser`，`tool-desktop` 就要反向依赖 browser 包（领域倒挂）；而 `tool-base` 是**编译期契约**，不宜承载运行时 AI 调用。独立小包（仅 2 个文件）是唯一无倒挂的落点。
+
+**一处出口收敛**：`packages/tool-browser/index.ts` 只导出 `BrowserTool` 类——该类自带的 `BrowserToolInput` / `BrowserToolOutput` interface 与 `schemas.ts` 的 `z.infer` 类型同名，类型以 schema 派生版本为唯一出口（TS2308 冲突的显式解法）。
+
+**配套登记**：paths（`tool-runtime` / `tool-desktop`）；`modules-to-layers.json` 两包 => `app`；`lint:infra` 新增 **R33 / R34**；ESLint 配置与 `lint:tool-runtime` / `lint:tool-desktop`（`ci` + `ci.yml` 同步）；证据登记表 1 条路径（BrowserVisionTool）同步。
+
+**验收（cwd=app）**：`typecheck`（app + client）✅ · `bun test tests/tools tests/permission`（2553 pass / 0 fail）✅ · `lint:infra`（R1–R34 合规）✅ · `lint:arch` / `lint:size` / `lint:refs` / `lint:case` / `lint:unref` / `lint:fix-evidence` / `lint:state-ratchet` / `lint:gate-parity`（86 条 · 缺失 0）✅ · `measure:tool-disclosure`（未超基线）✅ · `export-tool-params --check`（69 工具 / 379 描述一致）✅。工具名录、参数与披露面**均未变化**。
+
+**P4 收口结论**：重域（media / browser / desktop / office）与工具基类契约均已物理分包；`MediaModule`、`builtinToolRegistry`、`NotebookManager` / `NotebookToolImpl` 作为**注册与生命周期**留在 app——这是有意的边界（包只承载实现，不触碰全局单例）。

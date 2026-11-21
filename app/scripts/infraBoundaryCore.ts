@@ -119,7 +119,11 @@ export type BoundaryRule =
   // P4（2026-11-21）：tool-base 物理包（`packages/tool-base`）边界专用号
   | 'R31'
   // P4（2026-11-21）：tool-office 物理包（`packages/tool-office`）边界专用号
-  | 'R32';
+  | 'R32'
+  // P4 续（2026-11-21）：tool-runtime 物理包（`packages/tool-runtime`）边界专用号
+  | 'R33'
+  // P4 续（2026-11-21）：tool-desktop 物理包（`packages/tool-desktop`）边界专用号
+  | 'R34';
 
 /** 单条规则的检查结论 */
 export interface BoundaryReport {

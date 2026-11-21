@@ -199,7 +199,7 @@ chatCoordinator().setMessages(messages);
 | `session-budget.md` | 长任务 / 台账写入 | 会话预算与交接纪律（SB01–SB11：单写入点、检查点、降回显） |
 | `paths.md` | 磁盘IO时 | 路径使用规范 |
 | `frontend.md` | 前端开发 | 前端规则 |
-| `architecture.md` / `architecture-compliance.md` | 架构/重构/审查 | 架构原则 + 合规规则（R00–R15）；物理包边界门禁 **R1–R32** 见 `bun run lint:infra` |
+| `architecture.md` / `architecture-compliance.md` | 架构/重构/审查 | 架构原则 + 合规规则（R00–R15）；物理包边界门禁 **R1–R34** 见 `bun run lint:infra` |
 | `model-usage.md` | 模型/AI 相关 | 模型使用规则（DB 唯一事实源、禁止硬编码模型名/属性表） |
 | `development-workflow.md` | 开发任务 | 开发流程 |
 | `versioning.md` | 版本规划 | 版本管理 |
@@ -375,7 +375,7 @@ import { resolveOutputDir, resolveDbPath } from '@openliri/infra/environment';  
 ## §2 版本历史
 - **v7.33.0**: §1.6「模型可见 ⇔ 已落盘」红线补 **「缓冲合并 ≠ 丢弃」**（纯文档，**无行为变更**）—— 承接 `event-drop-audit.md` §2-D6 / §3-F3：允许连续正文 chunk 合并写盘、相邻 `thinking` 合并为一行，但合并后必须仍可从 `events.jsonl` 重建；"合并即丢弃"按丢事件处理。
 - **v7.32.0**: §1.6 新增**事件 `seq` 约定**（纯文档，**无行为变更**）—— 事件写入必须传 `seq: 0`，由 `EventLog.append` 在 mutex 内**原子分配**；❌ 禁止 `getStreamTailSeq() + 1`（同一会话写入者并发：流式主循环 / 工具轮 / 空闲期复核 / 后台标题 / PDCA）⇒ 撞号后 `duplicate-seq` 按**幂等丢弃且不告警**，事件静默丢失。来源：2026-11-15 实测收敛 **11 处**同类写法（`e24f4dbda` / `5d25223fb` / `bd8cdc56c`，随后 `9a9826b98` 删掉 4 个无消费者注入口）；更早的 `streamMessageToolLoop` P3-7a 已记录同一坑。
-- **v7.30.0**: 文档治理（物理包化后的地址订正，**纯文档，无行为变更**）—— §1.6 规则文件索引补齐 5 行（`PY_APP.md` / `task-execution.md` / `session-budget.md` / `version-consistency.md` / `model-usage.md`，索引此前与 `.trae/rules/` 实际 16 个文件不一致），`coding-standards` 范围 `CS01-CS07` → **`CS01-CS08`**，架构合规范围 `R01–R06` → **`R00–R15`** 并注明物理包边界门禁 **R1–R32**（`bun run lint:infra`）；§1.14 通道唯一实现层 `src/channels/` → `packages/channels/src/channels/`；§1.15 `BundledSkillLoader` / `skills/builtin` 与 `verifyProject.ts` 路径 → `packages/skills` / `packages/query`
+- **v7.30.0**: 文档治理（物理包化后的地址订正，**纯文档，无行为变更**）—— §1.6 规则文件索引补齐 5 行（`PY_APP.md` / `task-execution.md` / `session-budget.md` / `version-consistency.md` / `model-usage.md`，索引此前与 `.trae/rules/` 实际 16 个文件不一致），`coding-standards` 范围 `CS01-CS07` → **`CS01-CS08`**，架构合规范围 `R01–R06` → **`R00–R15`** 并注明物理包边界门禁 **R1–R34**（`bun run lint:infra`）；§1.14 通道唯一实现层 `src/channels/` → `packages/channels/src/channels/`；§1.15 `BundledSkillLoader` / `skills/builtin` 与 `verifyProject.ts` 路径 → `packages/skills` / `packages/query`
 - **v7.29.0**: §1.4 **`BASH_APPROVED_REVALIDATE` 语义订正（如实）** —— 该项自 **2026-11-06（P0-3）** 起为 **legacy 别名（全仓无读取点）**：硬拦截层自 S1-2（2026-10-11）已恒定执行，而「批准只免审批交互」现由 `BashTool` 直接按 `isApproved` 判定。旧实现把默认值 `true` 读成"再弹一次 ask"，导致**批准后立刻重弹同一张卡**（真机 `session_mw4sdx7ma4abe32ea4`：批准 → 30ms 后 `security_analyzer_ask` → 再弹卡，无限审批环）。**默认值与 `SAFETY_SWITCHES` 断言不变**，仅订正文档语义（`lint:doc-code` 通过）。
 - **v7.28.0**: §1.4 安全开关清单 **21 → 22 项**，新增 **`LIRI_PLUGIN_REQUIRE_SIGNATURE`**（默认值**由信任锚存在性决定**：随包 `app/trusted-keys/*.pem` 随安装包分发 ⇒ 安装版默认开）—— 承接 **T25-08 P2**：插件清单签名闸此前已默认生效（「信任锚即意图」），但**未进本表、不受 `lint:doc-code` 断言保护**（其默认值非 `featureFlags.ts` 字面量，`SAFETY_SWITCHES` 覆盖不到）。同步：新增 `PLUGIN_SIGNATURE_ASSERTIONS` 3 条断言（env 名 / 「信任锚即意图」默认语义 / 随包公钥真实存在）
 - **v7.27.0**: §1.4 安全开关清单 **17 → 18 项**，新增 **`REQUIRE_BEARER`**（默认 `true` = 安全基线）—— 承接 **§6-#11**：HTTP 绑定**非回环**地址（`LIRI_HTTP_HOST`，如 Docker `0.0.0.0`）或 `headless` 变体时，**无有效 `Bearer` 登录会话一律 401**，不再回落 `LOCAL_PRINCIPAL`（共享密钥为空时 `verifyRequestAuth` 对任何请求都通过 ⇒ 远端可拿本机特权身份）；`/v1/health*`、`/v1/a2a*`（自带鉴权）豁免；桌面/CLI 回环绑定**零行为变更**。同步：`featureFlags.ts` + `SAFETY_SWITCHES` 断言（17 → 18）+ 本文表（触发条件 `—` = 默认开）

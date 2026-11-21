@@ -74,10 +74,9 @@ import {
   createSleepForTool,
   createSleepUntilTool,
 } from '../SelfWakeTool/SelfWakeTool';
-import { createComputerUseTool } from '../ComputerUseTool/ComputerUseTool';
+import { createComputerUseTool } from '@openliri/tool-desktop';
 // ── 网络 / 浏览器 / 计划 ──
-import { BrowserTool } from '../BrowserTool/BrowserTool';
-import { BrowserVisionTool } from '../BrowserVisionTool/BrowserVisionTool';
+import { BrowserTool, BrowserVisionTool } from '@openliri/tool-browser';
 import { PlanTool } from '../PlanTool/PlanTool';
 import { ToolSearchTool } from '../ToolSearchTool/ToolSearchTool';
 import { TungstenTool } from '../TungstenTool/TungstenTool';

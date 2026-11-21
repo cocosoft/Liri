@@ -48,7 +48,7 @@ import { CronDeleteTool } from '../../src/tools/ChronosTool/CronDeleteTool';
 import { CronListTool } from '../../src/tools/ChronosTool/CronListTool';
 import { CronStopTool } from '../../src/tools/ChronosTool/CronStopTool';
 import { PDFTool } from '@openliri/tool-office';
-import { BrowserTool } from '../../src/tools/BrowserTool/BrowserTool';
+import { BrowserTool } from '@openliri/tool-browser';
 import { BrowserToolOutputSchema } from '@openliri/tool-browser';
 import { PlanTool } from '../../src/tools/PlanTool/PlanTool';
 import { PlanToolOutputSchema } from '../../src/tools/PlanTool/schemas';
@@ -66,7 +66,7 @@ import { VideoDisplayTool } from '../../src/tools/VideoDisplayTool/VideoDisplayT
 import { VideoGenerateTool } from '../../src/tools/VideoGenerateTool/VideoGenerateTool';
 import { VoiceOutputTool } from '../../src/tools/VoiceOutputTool/VoiceOutputTool';
 import { VoiceOutputOutputSchema } from '../../src/tools/VoiceOutputTool/schemas';
-import { BrowserVisionTool } from '../../src/tools/BrowserVisionTool/BrowserVisionTool';
+import { BrowserVisionTool } from '@openliri/tool-browser';
 import { VideoAnalysisTool } from '../../src/tools/VideoAnalysisTool/VideoAnalysisTool';
 import { CodeRunnerTool } from '../../src/tools/CodeRunner/CodeRunnerTool';
 import { ChannelTool } from '../../src/tools/ChannelTool/ChannelTool';

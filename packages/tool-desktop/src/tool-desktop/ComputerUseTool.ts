@@ -1,11 +1,15 @@
-import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
+import { TOOL_NAME_CONSTANTS } from '@openliri/infra/constants';
 /**
  * ComputerUseTool — 桌面自动化工具
  * 提供截图、鼠标、键盘、剪贴板、窗口管理等桌面自动化能力
  * 底层封装 WindowsComputerUseAdapter（PowerShell 实现）
  */
-import { BaseTool } from '../BaseTool';
-import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
+import { BaseTool } from '@openliri/tool-base';
+import type {
+  ToolResult,
+  ToolUseContext,
+  ToolParam,
+} from '@openliri/infra/utils/toolContract/Tool';
 import { getComputerUseAdapter } from '@openliri/infra/utils/computerUse/index';
 import type {
   ComputerUseAdapter,
@@ -17,8 +21,8 @@ import { saveScreenshotFile } from '@openliri/infra/utils/computerUse/screenshot
 import {
   describeToolGateDisabled,
   isToolEnabledByGate,
-} from '../toolFeatureGate';
-import { analyzeImageBuffer } from '../visionAnalyze';
+  analyzeImageBuffer,
+} from '@openliri/tool-runtime';
 
 import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:ComputerUseTool:ComputerUseTool');

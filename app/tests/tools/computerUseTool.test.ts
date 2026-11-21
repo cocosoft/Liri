@@ -15,7 +15,7 @@
 import { afterAll, beforeEach, describe, expect, it } from 'bun:test';
 import { existsSync } from 'node:fs';
 
-import { ComputerUseTool } from '../../src/tools/ComputerUseTool/ComputerUseTool';
+import { ComputerUseTool } from '@openliri/tool-desktop';
 import type { ComputerUseAdapter } from '@openliri/infra/utils/computerUse/types';
 import {
   cleanupScreenshotFiles,

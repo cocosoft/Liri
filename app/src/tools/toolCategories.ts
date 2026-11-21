@@ -16,7 +16,10 @@
 
 import { toWireToolName } from './toolNameCodec';
 // 2026-11-21：受功能开关约束的工具（browser / computer_use）在"默认披露面"处按开关动态判定
-import { isToolEnabledByGate, resolveToolFeatureGate } from './toolFeatureGate';
+import {
+  isToolEnabledByGate,
+  resolveToolFeatureGate,
+} from '@openliri/tool-runtime';
 import type {
   LegacyAliasToolName,
   ToolNameConstant,

@@ -1,0 +1,16 @@
+{
+  "name": "@openliri/tool-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liri desktop 工具包 —— ComputerUseTool（截图 / 鼠标 / 键盘 / 剪贴板 / 窗口管理），底层驱动在 infra 的 computerUse 适配器。层归属 app：可依赖 app / service / infra / core；entry / ui 不得依赖本包，包内不得依赖 entry / ui 层（R34）。注册动作仍留 app。",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/tool-desktop/index.ts",
+      "import": "./src/tool-desktop/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p ../../app/tsconfig.json"
+  }
+}

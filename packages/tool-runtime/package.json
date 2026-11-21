@@ -1,0 +1,16 @@
+{
+  "name": "@openliri/tool-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liri 工具运行时支撑包 —— 工具级功能开关（toolFeatureGate）+ 截图视觉分析（visionAnalyze）。层归属 app：可依赖 app / service / infra / core；entry / ui 不得依赖本包，包内不得依赖 entry / ui 层（R33）。供 tool-browser / tool-desktop 与 app 共用。",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/tool-runtime/index.ts",
+      "import": "./src/tool-runtime/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p ../../app/tsconfig.json"
+  }
+}

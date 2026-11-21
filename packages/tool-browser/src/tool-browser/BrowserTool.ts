@@ -1,36 +1,38 @@
-import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
+import { TOOL_NAME_CONSTANTS } from '@openliri/infra/constants';
 /**
  * 浏览器自动化工具
  * 提供与Chrome浏览器交互的功能，支持打开标签页、点击元素、填写表单等操作
  */
 
-import { BaseTool } from '../BaseTool';
-import { ToolTag } from '../types/Tool';
+import { BaseTool } from '@openliri/tool-base';
+import { ToolTag } from '@openliri/infra/utils/toolContract/Tool';
 import type {
   ToolResult,
   ToolUseContext,
   ToolParam,
   ToolCallProgress,
   ToolValidationResult,
-} from '../types';
-import { createToolResult } from '../types/ToolResult';
+} from '@openliri/infra/utils/toolContract/Tool';
+import { createToolResult } from '@openliri/infra/utils/toolContract/ToolResult';
 
 import { getLogger } from '@openliri/infra/monitoring';
-// P4（2026-11-21）：驱动与 schema 已迁至 packages/tool-browser；经包出口导入
+// P4（2026-11-21）：驱动与 schema 同包；工具类本轮迁入，经相对路径引用
 // P2（2026-11-21）：接真实现（Playwright + 系统 Chrome/Edge）；截图只回文件路径
 import {
   BrowserToolOutputSchema,
   BrowserToolOutputJsonSchema,
+} from './schemas';
+import {
   getBrowserSessionDriver,
   type BrowserDriverResult,
   type BrowserSessionDriver,
-} from '@openliri/tool-browser';
+} from './PlaywrightDriver';
 import { saveScreenshotFile } from '@openliri/infra/utils/computerUse/screenshotStore';
 import {
   describeToolGateDisabled,
   isToolEnabledByGate,
-} from '../toolFeatureGate';
-import { analyzeImageBuffer } from '../visionAnalyze';
+  analyzeImageBuffer,
+} from '@openliri/tool-runtime';
 const logger = getLogger('tools:BrowserTool:BrowserTool');
 
 /**

@@ -69,7 +69,7 @@ import { getCoreToolNames } from './toolSurfaceProfile';
 import type { ToolSurfaceProfile } from './toolSurfaceProfile';
 import { getRuntimeToolMeta, listRuntimeToolNames } from './runtimeToolMeta';
 // 2026-11-21：功能开关（browser / computer_use）关闭时报表必须给 `feature-gate-off`
-import { isToolEnabledByGate } from './toolFeatureGate';
+import { isToolEnabledByGate } from '@openliri/tool-runtime';
 import {
   LEGACY_ALIAS_TOOL_NAMES,
   TOOL_NAME_CONSTANTS,

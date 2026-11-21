@@ -1,6 +1,6 @@
 # Browser Use / Computer Use 能力补齐方案（2026-11-21）
 
-> 状态：**P0–P3 已实施（2026-11-21）**，见文末「执行结果与偏差」；按 D0–D6 的推荐选项落地
+> 状态：**P0–P3 已实施（2026-11-21）**，见文末「执行结果与偏差」；按 D0–D6 的推荐选项落地（D6 后续项已于 2026-11-21 晚补做：`browser_vision` 共用会话）
 > 关联规则：CS01（复用已有）· CS04（Mock 零容忍）· CS05（根因优先）· CD05/CD06（先接线再删、独立提交）
 > 结论依据：源码逐条取证 + 真机 `GET /v1/tools/visibility` 读数（2026-11-21，后端 18990）
 
@@ -340,5 +340,5 @@ D5 A（两者默认关）· D6 A（`browser_vision` 本轮不动）。
 3. **变体默认不生效**：coding 变体矩阵历史上把 `BROWSER` 设为 true（当时工具被归档，等于无效配置）。
    为满足 D5/验收"关闭 flag ⇒ 不含该工具"，新增 `resolveOptInFeatureGate`（env > 用户设置 > **false**，
    **不读 `feature()` 的变体默认**），两个工具都走它；打包矩阵本轮未改。
-4. **`browser_vision` 未与新驱动共用会话**（D6 选 A），保留 CDP 9222 现状，列为后续可选项。
+4. **`browser_vision` 现与 `BrowserTool` 共用会话**（2026-11-21 晚，D6-B）：`browser_vision` 改为经 `getBrowserSessionDriver(sessionId)` 截图（jpeg + quality），不再直连 CDP 9222；截图落盘到会话截图目录，默认保留、`returnScreenshot=false` 才删除。回归：`app/tests/tools/browserVisionTool.test.ts`（3 例）。副作用：内核 `DEFAULT_CDP_ENDPOINT` 自此**零消费者**（保留待 ABI 清理批次处理，不在本轮删）。
 5. 未新增"永久免审批"档；`EXTERNAL` 仍逐次审批（D3）。

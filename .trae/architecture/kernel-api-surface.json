@@ -4,9 +4,9 @@
   "fileCount": 87,
   "symbolCount": 709,
   "levelCounts": {
-    "stable": 208,
+    "stable": 207,
     "experimental": 126,
-    "internal": 375
+    "internal": 376
   },
   "entries": [
     {
@@ -1251,7 +1251,7 @@
     "di/types.ts#SingletonDescriptor": "internal",
     "endpoints.ts#DEFAULT_BLUEBUBBLES_SERVER_URL": "stable",
     "endpoints.ts#DEFAULT_BOOTSTRAP_LLAMACPP_BASE_URL": "stable",
-    "endpoints.ts#DEFAULT_CDP_ENDPOINT": "stable",
+    "endpoints.ts#DEFAULT_CDP_ENDPOINT": "internal",
     "endpoints.ts#DEFAULT_COMFYUI_ENDPOINT": "stable",
     "endpoints.ts#DEFAULT_LOCAL_OAUTH_API_BASE": "stable",
     "endpoints.ts#DEFAULT_LOCAL_OAUTH_APPS_BASE": "stable",
@@ -1859,9 +1859,9 @@
     "app/src/agent/events/index.ts -> @openliri/kernel/events/EventBus",
     "app/src/ai/telemetry/SessionSpanTracer.ts -> @openliri/kernel/SessionSpanTracer.js",
     "app/src/context/DependencyRegistry.ts -> @openliri/kernel/DependencyRegistry.js",
-    "packages/docs/src/docs/knowledge-types.ts -> @openliri/kernel/knowledge-types",
     "app/src/modules/index.ts -> @openliri/kernel/LazyModuleStrategy",
     "app/src/types/orchestrationEvents.ts -> @openliri/kernel/orchestrationEvents.js",
+    "packages/docs/src/docs/knowledge-types.ts -> @openliri/kernel/knowledge-types",
     "packages/infra/src/cost/ModelPricing.ts -> @openliri/kernel/pricing.js",
     "packages/infra/src/cost/calculateCost.ts -> @openliri/kernel/pricing.js",
     "packages/infra/src/cost/pricingSafety.ts -> @openliri/kernel/pricing.js",

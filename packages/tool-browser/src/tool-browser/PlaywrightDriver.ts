@@ -48,6 +48,10 @@ export interface BrowserActionRequest {
   maxChars?: number;
   /** screenshot 是否整页 */
   fullPage?: boolean;
+  /** screenshot 输出格式（默认 png；jpeg 时可用 quality） */
+  format?: 'png' | 'jpeg';
+  /** jpeg 质量 0-100（format='jpeg' 时生效） */
+  quality?: number;
 }
 
 export interface BrowserTabInfo {
@@ -373,10 +377,21 @@ export class BrowserSessionDriver {
         };
       }
       case 'screenshot': {
-        const shot = await page.screenshot({
-          fullPage: action.fullPage === true,
-          type: 'png',
-        });
+        // 2026-11-21：browser_vision 复用本驱动会话 ⇒ 允许 jpeg + quality
+        // （Playwright 的 quality 仅对 jpeg 生效，png 传了会被忽略）
+        const format = action.format === 'jpeg' ? 'jpeg' : 'png';
+        const fullPage = action.fullPage === true;
+        const shot =
+          format === 'jpeg'
+            ? await page.screenshot({
+                fullPage,
+                type: 'jpeg',
+                quality: Math.min(
+                  Math.max(Math.round(action.quality ?? 80), 1),
+                  100
+                ),
+              })
+            : await page.screenshot({ fullPage, type: 'png' });
         return {
           success: true,
           action: 'screenshot',

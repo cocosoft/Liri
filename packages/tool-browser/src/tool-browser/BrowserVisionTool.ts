@@ -25,6 +25,10 @@ import { TOOL_NAME_CONSTANTS } from '@openliri/infra/constants';
  *
  * 对当前浏览器页面截图，保存到临时文件，然后调用视觉模型分析页面内容。
  * 参照 hermes hermes/tools/browser_tool.py browser_vision
+ *
+ * 2026-11-21（D6-B）：**改为复用 `BrowserSessionDriver` 会话**（与 `BrowserTool` 同一浏览器上下文），
+ * 不再直连 CDP 9222。收益：截图的就是工具自己操作的页面（cookie/标签页一致），
+ * 且不再要求用户手动开 `--remote-debugging-port`。
  */
 
 import { BaseTool } from '@openliri/tool-base';
@@ -36,11 +40,12 @@ import type {
 import { resolveModelRoute, RouteKey } from '@modules/ai';
 import { providerRegistry } from '@modules/ai';
 import { getLogger } from '@openliri/infra/monitoring';
-import { resolveTempDir } from '@openliri/infra/environment';
-import { DEFAULT_CDP_ENDPOINT } from '@openliri/kernel';
-import * as path from 'path';
+import { saveScreenshotFile } from '@openliri/infra/utils/computerUse/screenshotStore';
 import * as fs from 'fs';
-import { randomUUID } from 'crypto';
+import {
+  getBrowserSessionDriver,
+  type BrowserSessionDriver,
+} from './PlaywrightDriver';
 
 const logger = getLogger('tools:browser-vision');
 
@@ -74,6 +79,18 @@ const BROWSER_VISION_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
 export class BrowserVisionTool extends BaseTool {
   name = TOOL_NAME_CONSTANTS.browser_vision;
 
+  /**
+   * 会话级驱动提供者（默认按 sessionId 复用进程内浏览器上下文，与 `BrowserTool` 同源）。
+   * 单测可注入假驱动 ⇒ 不启动真实浏览器。
+   */
+  constructor(
+    private readonly driverProvider: (
+      sessionId: string
+    ) => Pick<BrowserSessionDriver, 'execute'> = getBrowserSessionDriver
+  ) {
+    super();
+  }
+
   description =
     '对当前浏览器页面截图，并使用视觉 AI 分析。' +
     '返回 AI 分析结果和可选的截图路径。';
@@ -106,16 +123,20 @@ export class BrowserVisionTool extends BaseTool {
 
   async execute(
     input: BrowserVisionInput,
-    _context: ToolUseContext
+    context: ToolUseContext
   ): Promise<ToolResult> {
     const startTime = Date.now();
     const prompt = input.prompt || 'Describe this webpage in detail';
+    const sessionId = context.sessionId ?? 'default';
 
     logger.info('BrowserVisionTool.execute()', { prompt: prompt.slice(0, 80) });
 
     try {
-      // Step 1: 获取浏览器截图
-      const screenshotPath = await this.captureScreenshot(input.quality || 80);
+      // Step 1: 从**同一个浏览器会话**截图（与 BrowserTool 共用 context）
+      const screenshotPath = await this.captureScreenshot(
+        input.quality || 80,
+        sessionId
+      );
       if (!screenshotPath) {
         return {
           success: false,
@@ -146,7 +167,6 @@ export class BrowserVisionTool extends BaseTool {
             maxTokens: 1024,
             model: visionModel,
           });
-
           if (result.success) {
             analysis = result.description;
           } else {
@@ -160,7 +180,9 @@ export class BrowserVisionTool extends BaseTool {
       }
 
       // Step 4: 清理临时截图
-      if (!input.returnScreenshot) {
+      // 2026-11-21 修正：默认（undefined）应当**保留**截图；原写法 `!input.returnScreenshot`
+      // 会把"未传参"当成 false ⇒ 返回的 path 指向已删除文件（测试暴露）。
+      if (input.returnScreenshot === false) {
         try {
           fs.unlinkSync(screenshotPath);
         } catch (err) {
@@ -190,90 +212,46 @@ export class BrowserVisionTool extends BaseTool {
   }
 
   /**
-   * 获取浏览器截图
-   * 根据运行环境自动选择截图方式：
-   * - Tauri 环境：使用内置浏览器截图 API
-   * - Playwright/Puppeteer：使用 CDP 协议
+   * 从**当前会话的浏览器上下文**截图（与 `BrowserTool` 共用 `BrowserSessionDriver`）。
+   *
+   * 2026-11-21（D6-B）：不再直连 CDP 9222 —— 截图对象就是工具自己操作的页面，
+   * 且无需用户手动开 `--remote-debugging-port`。截图落盘复用
+   * `saveScreenshotFile`（会话级目录，便于与 computer_use 的清理策略对齐）。
    */
-  private async captureScreenshot(quality: number): Promise<string | null> {
-    const outputDir = path.join(resolveTempDir(), 'browser-screenshots');
-    fs.mkdirSync(outputDir, { recursive: true });
-    const outputPath = path.join(outputDir, `${randomUUID()}.jpg`);
-
+  private async captureScreenshot(
+    quality: number,
+    sessionId: string
+  ): Promise<string | null> {
     try {
-      // 尝试通过 CDP 获取浏览器截图
-      // 默认连接本地 CDP 端口 9222（Chrome/Edge 调试端口）
-      const cdpUrl = DEFAULT_CDP_ENDPOINT;
-
-      // 获取第一个页面的 CDP WebSocket URL
-      const cdpResponse = await fetch(`${cdpUrl}/json`, {
-        signal: AbortSignal.timeout(3000),
+      const driver = this.driverProvider(sessionId);
+      const result = await driver.execute({
+        action: 'screenshot',
+        format: 'jpeg',
+        quality,
+        fullPage: false,
       });
-      if (!cdpResponse.ok) {
-        logger.warn('BrowserVisionTool · CDP 不可用，检查浏览器调试端口');
+
+      if (!result.success || !result.screenshot) {
+        logger.warn('BrowserVisionTool · 截图失败', {
+          error: result.error ?? '驱动未返回截图数据',
+        });
         return null;
       }
 
-      const pages = (await cdpResponse.json()) as Array<{
-        webSocketDebuggerUrl: string;
-      }>;
-      const wsUrl = pages[0]?.webSocketDebuggerUrl;
-
-      if (!wsUrl) {
-        logger.warn('BrowserVisionTool · 无可用浏览器页面');
+      // 未打开任何页面时驱动会给出 about:blank 的空白页 —— 视为"没有可分析的页面"
+      if (!result.url || result.url.startsWith('about:blank')) {
+        logger.warn('BrowserVisionTool · 当前浏览器会话没有已打开的页面', {
+          sessionId,
+          url: result.url,
+        });
         return null;
       }
 
-      // 通过 CDP Page.captureScreenshot 获取截图
-      const ws = new WebSocket(wsUrl);
-      const screenshotBase64 = await new Promise<string>((resolve, reject) => {
-        const timeout = setTimeout(
-          () => reject(new Error('CDP timeout')),
-          10000
-        );
-
-        ws.onopen = () => {
-          ws.send(
-            JSON.stringify({
-              id: 1,
-              method: 'Page.captureScreenshot',
-              params: { format: 'jpeg', quality, captureBeyondViewport: true },
-            })
-          );
-        };
-
-        ws.onmessage = (event) => {
-          try {
-            const msg = JSON.parse(event.data as string);
-            if (msg.id === 1 && msg.result?.data) {
-              clearTimeout(timeout);
-              ws.close();
-              resolve(msg.result.data);
-            }
-          } catch (err) {
-            /* ignore */
-          }
-        };
-
-        ws.onerror = () => {
-          clearTimeout(timeout);
-          reject(new Error('WebSocket error'));
-        };
-      });
-
-      // 保存截图文件
-      fs.writeFileSync(outputPath, Buffer.from(screenshotBase64, 'base64'));
-      return outputPath;
+      return saveScreenshotFile(sessionId, result.screenshot, 'jpeg');
     } catch (err) {
-      logger.warn('BrowserVisionTool · 截图失败', {
+      logger.warn('BrowserVisionTool · 截图异常', {
         error: (err as Error).message,
       });
-      // 清理空文件
-      try {
-        fs.unlinkSync(outputPath);
-      } catch (err) {
-        /* ignore */
-      }
       return null;
     }
   }

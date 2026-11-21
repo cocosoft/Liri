@@ -27,7 +27,7 @@
 | 面 | 总数 | core | community |
 |---|---:|---:|---:|
 | 消息通道 | 27 | 26 | 0 |
-| 内建工具 | 69 | 45 | 24 |
+| 内建工具 | 69 | 46 | 23 |
 
 ## 消息通道
 
@@ -73,7 +73,7 @@
 | `brief` | core | `app/tests/commands/briefCommand.test.ts`（测试文件名） |
 | `broadcast` | community | —（无专属测试） |
 | `browser` | core | `app/tests/tools/browserTool.test.ts`（测试文件名） |
-| `browser_vision` | community | —（无专属测试） |
+| `browser_vision` | core | `app/tests/tools/browserVisionTool.test.ts`（测试文件名） |
 | `canvas` | community | —（无专属测试） |
 | `channel` | core | `app/tests/channels/ChannelContract.test.ts`（测试文件名） |
 | `clipboard` | community | —（无专属测试） |

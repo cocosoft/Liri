@@ -261,13 +261,18 @@ jobs:
           rm -rf update-tmp
           echo "Update package: ${ZIP_NAME}"
 
-      # 校验和
+      # 校验和（按平台命名）
+      # 2026-11-21（v0.1.0 部署验证）：原三平台矩阵**都**写 `dist/checksums.txt`，
+      # 而 release 作业用 `merge-multiple: true` 把它们合并到同一目录 ⇒ 后到者覆盖前者，
+      # 最终 Release 上的 `checksums.txt` 只剩 macos 与 update 两条，Linux/Windows 的校验和丢失。
       - name: Generate checksum
         shell: bash
         run: |
           cd ../dist
+          OUT="checksums-${{ matrix.platform }}.txt"
+          : > "$OUT"
           for f in liri-*.zip; do
-            sha256sum "$f" >> checksums.txt
+            sha256sum "$f" >> "$OUT"
           done
 
       # 包体积监控
@@ -377,7 +382,7 @@ jobs:
           name: portable-${{ matrix.platform }}
           path: |
             dist/liri-*.zip
-            dist/checksums.txt
+            dist/checksums-*.txt
           retention-days: 30
 
   # ══════════════════════════════════════════════
@@ -684,6 +689,57 @@ jobs:
         shell: bash
         if: matrix.config.os != 'windows-latest'
 
+      # 2026-11-22（v0.1.0 Windows 真机实测）：发布链此前**没有任何签名配置** ⇒
+      # `Liri_0.1.0_x64_zh-CN.msi` 与 `liri_client.exe` / `liri_terminal.exe` 全部 `NotSigned`，
+      # Windows Smart App Control 直接拒绝运行（"应用程序控制策略已阻止此文件"）。
+      # 这里接线 Tauri 官方签名的环境变量：**未配置 secrets 时不写 GITHUB_ENV**（如实跳过并打印告警），
+      # 配置后 msi（Windows Authenticode）、app/dmg（macOS codesign + 可选公证）会带签名。
+      - name: Configure signing (optional; 未配置则如实跳过)
+        shell: bash
+        run: |
+          if [ -n "${WIN_CERT:-}" ]; then
+            {
+              echo "WINDOWS_CERTIFICATE<<__EOF__"
+              echo "$WIN_CERT"
+              echo "__EOF__"
+              echo "WINDOWS_CERTIFICATE_PASSWORD=$WIN_CERT_PW"
+            } >> "$GITHUB_ENV"
+            echo "✅ Windows 签名证书已注入（Authenticode）"
+          else
+            echo "⚠️ 未配置 Windows 签名证书 ⇒ 产物未签名（Smart App Control 会阻止未签名 exe）"
+          fi
+          if [ -n "${MAC_CERT:-}" ] && [ -n "${MAC_IDENTITY:-}" ]; then
+            {
+              echo "APPLE_CERTIFICATE<<__EOF__"
+              echo "$MAC_CERT"
+              echo "__EOF__"
+              echo "APPLE_CERTIFICATE_PASSWORD=$MAC_CERT_PW"
+              echo "APPLE_SIGNING_IDENTITY=$MAC_IDENTITY"
+            } >> "$GITHUB_ENV"
+            echo "✅ macOS 签名身份已注入（codesign）"
+            if [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_TEAM_ID:-}" ]; then
+              {
+                echo "APPLE_ID=$APPLE_ID"
+                echo "APPLE_PASSWORD=$APPLE_PW"
+                echo "APPLE_TEAM_ID=$APPLE_TEAM_ID"
+              } >> "$GITHUB_ENV"
+              echo "✅ macOS 公证凭据已注入（notarytool）"
+            else
+              echo "⚠️ 未配置公证凭据 ⇒ macOS 产物已签名但未公证"
+            fi
+          else
+            echo "⚠️ 未配置 macOS 签名证书/身份 ⇒ 产物未签名"
+          fi
+        env:
+          WIN_CERT: ${{ secrets.LIRI_SIGN_WIN_CERT_PFX_BASE64 }}
+          WIN_CERT_PW: ${{ secrets.LIRI_SIGN_WIN_CERT_PASSWORD }}
+          MAC_CERT: ${{ secrets.LIRI_SIGN_MAC_CERT_P12_BASE64 }}
+          MAC_CERT_PW: ${{ secrets.LIRI_SIGN_MAC_CERT_PASSWORD }}
+          MAC_IDENTITY: ${{ secrets.LIRI_SIGN_MAC_IDENTITY }}
+          APPLE_ID: ${{ secrets.LIRI_NOTARY_APPLE_ID }}
+          APPLE_PW: ${{ secrets.LIRI_NOTARY_APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.LIRI_NOTARY_TEAM_ID }}
+
       - name: Build Tauri app
         # AppImage 打包会下载并执行 linuxdeploy / appimagetool（AppImage 形态）。
         # 无 FUSE 的运行环境必须让它们自解包运行，否则报 `libfuse.so.2` 缺失。
@@ -772,6 +828,26 @@ jobs:
           echo "=== Portable bundles ==="
           find portable/ -type f | sort || true
 
+      # 2026-11-21（v0.1.0 部署验证）：桌面安装包（msi / dmg / deb / AppImage）此前**完全没有**
+      # 校验和 —— CLI 的 `SHA256SUMS` 只覆盖单文件二进制，三平台 `checksums-*.txt` 只覆盖 zip。
+      # 这里对本次要上传的**全部**资产统一生成 `dist/checksums.txt`（按文件名排序、去目录前缀）。
+      - name: Generate release checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t assets < <(
+            find dist installers portable -type f \
+              \( -name 'main.js' -o -name '*.msi' -o -name '*.dmg' -o -name '*.deb' \
+                 -o -name '*.AppImage' -o -name '*.zip' \) \
+              | sort
+          )
+          : > dist/checksums.txt
+          for f in "${assets[@]}"; do
+            sum=$(sha256sum "$f" | cut -d' ' -f1)
+            printf '%s  %s\n' "$sum" "$(basename "$f")" >> dist/checksums.txt
+          done
+          cat dist/checksums.txt
+
       # 2026-11-21：Release 已由 `create-release` 作业提前创建 ⇒ 这里**只上传资产**。
       # 不再用 `action-gh-release` 的"建或更新"路径（对已存在的 Release 传 `generate_release_notes`
       # 会被 API 直接拒绝，且与 CLI 工作流并发创建时失败）。
@@ -784,7 +860,7 @@ jobs:
           mapfile -t files < <(
             find dist installers portable -type f \
               \( -name 'main.js' -o -name '*.msi' -o -name '*.dmg' -o -name '*.deb' \
-                 -o -name '*.AppImage' -o -name '*.zip' -o -name 'checksums.txt' \) \
+                 -o -name '*.AppImage' -o -name '*.zip' -o -name 'checksums*.txt' \) \
               | sort
           )
           if [ ${#files[@]} -eq 0 ]; then

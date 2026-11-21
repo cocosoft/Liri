@@ -21,18 +21,22 @@ services:
   app:
     # 发布镜像（GitHub Actions 推送到 GHCR，见 .github/workflows/deploy-docker.yml）。
     # 服务器部署时 docker compose pull 拉取；本地开发用 build 从源码构建。
-    image: ghcr.io/cocosoft/liri
+    #
+    # 2026-11-21（v0.1.0 部署验证）：原 `image: ghcr.io/cocosoft/liri`（无 tag）⇒ 默认 `latest`，
+    # 而 `latest` 只在 main 分支构建 —— 服务器"拉最新"实际拿到的是主干开发镜像，不是发布镜像。
+    # deploy-docker 对 tag 构建推送的是 `prod` / `<版本>` ⇒ 默认改用 `prod`，可用 LIRI_IMAGE_TAG 覆盖
+    # （例：LIRI_IMAGE_TAG=0.1.0 精确复现某一版）。
+    image: ghcr.io/cocosoft/liri:${LIRI_IMAGE_TAG:-prod}
     build:
       context: ..
       dockerfile: docker/Dockerfile
     # 允许 Watchtower 自动升级本容器（配合 watchtower 服务的 --label-enable）
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
-    # ── 交互模式（等同 Windows 版双击 Liri_coding.exe） ──
-    #   docker compose -f docker/docker-compose.yml run --rm app
-    #   如需传启动模式：docker compose -f docker/docker-compose.yml run --rm app mcp
-    stdin_open: true
-    tty: true
+    # 服务语义：镜像 CMD 已默认 `daemon`（常驻 + HTTP），无需 TTY。
+    # 需要交互式 REPL（等同 Windows 版双击）时覆盖 CMD：
+    #   docker compose -f docker/docker-compose.yml run --rm app bun /app/dist/pyapp.js
+    # 传入启动模式同理：… run --rm app bun /app/dist/pyapp.js mcp
 
     # ── 环境变量 ──
     # 必须配置：DEEPSEEK_API_KEY

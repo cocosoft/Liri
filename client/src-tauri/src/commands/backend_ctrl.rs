@@ -257,11 +257,25 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
         .map_err(|e| format!("Failed to create data subdirectory '{}/data': {}", data_dir, e))?;
     info!("[start_backend] 数据目录已就绪: {}（含 data 子目录）", data_dir);
 
-    // 获取 Tauri 进程当前工作目录作为项目根目录
-    // 开发模式下为项目源代码根目录，确保第一层路径（app/docs/、app/config/ 等）解析正确
-    let project_root = std::env::current_dir()
-        .map(|p| p.display().to_string())
-        .unwrap_or_else(|_| data_dir.clone());
+    // 2026-11-22（v0.1.0 Windows 真机实测）：`liri_terminal` 是 `bun build --compile` 产物，
+    // 其 `--external` 依赖（pdfjs-dist / sharp / yoga-layout）在**运行期**从 cwd 相对解析
+    // `node_modules`。原实现把它 spawn 到 `data_dir`（如 %APPDATA%\\Liri）⇒ 解析根下没有
+    // `node_modules` ⇒ 启动即 `error: Cannot find module 'pdfjs-dist/legacy/build/pdf.mjs'`
+    // （exit 1），桌面端"Backend 已停止"且无法启动。
+    // 实测对照：cwd=安装目录 ⇒ healthcheck exit 0；cwd=C:\\Windows\\System32 ⇒ 上述报错。
+    // 数据落盘不依赖 cwd（下方 LIRI_HOME / LIRI_DATA_DIR 已显式传入），故 cwd 与
+    // LIRI_PROJECT_DIR 都应指向**安装目录**（安装包内含 app/ 与 node_modules/）。
+    // 开发模式没有 sidecar 同目录的 liri_terminal(.exe)，沿用进程 cwd（源码根）。
+    let install_dir = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.to_path_buf()))
+        .filter(|d| d.join("liri_terminal.exe").exists() || d.join("liri_terminal").exists());
+    let project_root = match install_dir {
+        Some(dir) => dir.display().to_string(),
+        None => std::env::current_dir()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|_| data_dir.clone()),
+    };
     info!("[start_backend] Tauri current_dir(project_root) = {}", project_root);
 
     // 生成随机共享密钥，防止未经授权的第三方访问后端 API
@@ -278,7 +292,8 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
         .sidecar("liri_terminal")
         .map_err(|e| format!("Failed to create sidecar command: {}", e))?
         .args(["repl", "--http-port", &port_str])
-        .current_dir(&data_dir)
+        // cwd 必须是安装目录：sidecar 的 external 依赖从 cwd 解析 node_modules（见上方注释）
+        .current_dir(&project_root)
         .env("LIRI_HOME", &data_dir)
         .env("LIRI_DATA_DIR", format!("{}/data", data_dir))
         .env("LIRI_PROJECT_DIR", &project_root)

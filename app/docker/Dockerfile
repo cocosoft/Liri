@@ -154,4 +154,10 @@ ENV LIRI_PROJECT_DIR=/app \
 
 EXPOSE 3000
 
-CMD ["bun", "/app/dist/pyapp.js"]
+# 2026-11-21（v0.1.0 部署验证实测）：此前 CMD 不带子命令 ⇒ 默认走 REPL；
+# `docker run -d`（无 TTY、stdin 立即 EOF）下 22s 打印 "REPL 已退出" 并以 exit 0 结束
+# —— 容器显示"启动成功"却没有任何服务在跑（健康端口直接拒绝连接）。
+# 镜像的用途是服务 ⇒ 默认走 DAEMON（常驻 + HTTP）。
+# 需要交互式 REPL 时显式覆盖 CMD：
+#   docker run --rm -it ghcr.io/cocosoft/liri bun /app/dist/pyapp.js
+CMD ["bun", "/app/dist/pyapp.js", "daemon"]

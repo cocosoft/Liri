@@ -362,17 +362,37 @@ export class ChatMessagePersistence {
    */
   private syncConversationState(session: ChatSession, message: Message): void {
     const next = resolveSessionStateAfterMessage(message, session.state);
-    if (!next) return;
-    session.state = next;
+    // 2026-11-21（产品决策）：两条路径都要清掉「审批已过期（未执行）」标记，
+    // 否则列表徽标会在两种情形下挂错：
+    // ① 用户重新发言（新一轮开始）；
+    // ② 本轮**新进入** requires_action（有了可回复的新卡，「上次已过期」不再是最新事实）。
+    // 与状态写入合并为**一次**落盘，避免两次读改写互相覆盖。
+    const enteringRequiresAction =
+      next === DataSessionStatus.REQUIRES_ACTION &&
+      session.state !== DataSessionStatus.REQUIRES_ACTION;
+    const clearExpiredMarker =
+      (message.role === 'user' || enteringRequiresAction) &&
+      session.metadata.approvalExpiredAt !== undefined;
+    if (clearExpiredMarker) {
+      delete session.metadata.approvalExpiredAt;
+      delete session.metadata.approvalExpiredInboxId;
+    }
+    if (!next && !clearExpiredMarker) return;
+    if (next) session.state = next;
     void (async () => {
       try {
         const stored = await this.deps.sessionGateway.getSession(session.id);
         if (!stored) return;
-        stored.status = toStoredSessionStatus(next);
+        if (next) stored.status = toStoredSessionStatus(next);
+        if (clearExpiredMarker && stored.metadata) {
+          delete stored.metadata.approvalExpiredAt;
+          delete stored.metadata.approvalExpiredInboxId;
+        }
         await this.deps.sessionGateway.updateSession(stored);
         logger.info('会话状态已同步（回合收尾）', {
           sessionId: session.id,
-          state: next,
+          state: next ?? session.state,
+          clearedApprovalExpired: clearExpiredMarker,
         });
         // 通知前端：客户端 `useNotificationSSE` 已订阅 `session:meta_updated`，
         // 会单条重取该会话并回填状态徽标（否则列表要等下次整表刷新才更新）。

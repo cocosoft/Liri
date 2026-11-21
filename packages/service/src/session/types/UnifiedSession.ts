@@ -78,6 +78,16 @@ export interface SessionMetadata {
    * 与 `crashRecovery` 区分：对账**不是崩溃中断**，故不写 `crashRecovery`。
    */
   statusReconcile?: string;
+  /**
+   * 2026-11-21（真机治理 P1-2 产品决策）：**最近一次审批卡过期且未执行**的时间戳。
+   *
+   * 只由 `convergeSessionAfterApprovalExpiry` 写入（卡过期且同会话已无 pending）；
+   * 会话重新进入新一轮（用户发言）时清除。前端据此在会话列表显示
+   * 「审批已过期（未执行）」徽标 —— 状态本身已收敛为 `active`，不能靠 `status` 表达。
+   */
+  approvalExpiredAt?: number;
+  /** 与 {@link approvalExpiredAt} 配对的过期卡 id（排障用；不参与判定） */
+  approvalExpiredInboxId?: string;
   crashedAt?: string;
   lastActivityBeforeCrash?: string;
   resumedAt?: string;

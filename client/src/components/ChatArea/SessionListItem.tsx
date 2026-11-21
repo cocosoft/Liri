@@ -12,7 +12,7 @@ import { useTranslation } from "react-i18next";
 import SessionTitle from "./SessionTitle";
 import { createLogger } from "@/utils/logger";
 import { formatRelativeTime } from "../../utils/format";
-import { resolveSessionStatusBadge } from "../../utils/sessionStatus";
+import { resolveSessionBadge } from "../../utils/sessionStatus";
 import { useRootStore } from "../../stores/root-store";
 import type { SessionStatus } from "../../types";
 
@@ -79,8 +79,8 @@ function SessionListItem({
   const workspaceName = session.workspaceId
     ? worktrees[session.workspaceId]?.name
     : null;
-  /** #23：状态徽标（正常态返回 null，不渲染） */
-  const statusBadge = resolveSessionStatusBadge(session.status);
+  /** #23：状态徽标；2026-11-21 追加「审批已过期（未执行）」（正常态返回 null，不渲染） */
+  const statusBadge = resolveSessionBadge(session);
 
   // R4 修复：单击延迟 250ms 执行切换，双击时第一次点击被取消——
   // 原 onClick + onDoubleClick 并存，双击先触发 2 次切换再重命名

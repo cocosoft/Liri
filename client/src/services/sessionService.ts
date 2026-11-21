@@ -347,6 +347,8 @@ function flattenSession<S extends Session | null>(session: S): S {
       approvalMode?: "ask" | "auto-local";
       /** P1（2026-11-04）：会话级权限模式（9 档；null/缺省 ⇒ 跟随进程默认档） */
       permission_mode?: string | null;
+      /** 2026-11-21（P1-2）：最近一次审批已过期（未执行）的时间戳 */
+      approvalExpiredAt?: number;
     };
   };
   const rawAutonomy =
@@ -396,6 +398,11 @@ function flattenSession<S extends Session | null>(session: S): S {
     // ⇒ "项目是否已有会话"恒判为否 ⇒ 反复创建。此处补齐提取。
     projectId:
       raw.metadata?.projectId || (session as { projectId?: string }).projectId,
+    // 2026-11-21（P1-2）：最近一次审批已过期（未执行）的持久化时间戳
+    approvalExpiredAt:
+      typeof raw.metadata?.approvalExpiredAt === "number"
+        ? raw.metadata.approvalExpiredAt
+        : (session as { approvalExpiredAt?: number }).approvalExpiredAt,
   };
 }
 

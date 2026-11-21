@@ -16,6 +16,7 @@ import { describe, expect, it } from "vitest";
 import { sessionMatchesModuleScope } from "../stores/selectors";
 import {
   isEmptySession,
+  resolveSessionBadge,
   resolveSessionStatusBadge,
 } from "../utils/sessionStatus";
 
@@ -117,5 +118,37 @@ describe("resolveSessionStatusBadge：状态徽标", () => {
     expect(resolveSessionStatusBadge(undefined)).toBeNull();
     expect(resolveSessionStatusBadge("")).toBeNull();
     expect(resolveSessionStatusBadge("some-unknown-state")).toBeNull();
+  });
+});
+
+// 2026-11-21（真机治理 P1-2 产品决策）：审批过期后状态已收敛为 active，
+// 列表必须靠持久化标记区分「正常可继续」与「上次卡过期没执行」。
+describe("resolveSessionBadge：审批已过期徽标", () => {
+  it("active + approvalExpiredAt ⇒ 警示徽标（专属文案键）", () => {
+    const badge = resolveSessionBadge({
+      status: "active",
+      approvalExpiredAt: 1_700_000_000_000,
+    });
+    expect(badge?.tone).toBe("warning");
+    expect(badge?.labelKey).toBe("chat.sessionStatusApprovalExpired");
+    expect(badge?.hintKey).toBe("chat.sessionStatusApprovalExpiredHint");
+  });
+
+  it("requires_action 优先于过期标记（不同时展示矛盾文案）", () => {
+    const badge = resolveSessionBadge({
+      status: "requires_action",
+      approvalExpiredAt: 1_700_000_000_000,
+    });
+    expect(badge?.labelKey).toBe("chat.sessionStatusRequiresAction");
+  });
+
+  it("无标记 ⇒ 正常态不出徽标；非数字脏值也不出", () => {
+    expect(resolveSessionBadge({ status: "active" })).toBeNull();
+    expect(
+      resolveSessionBadge({
+        status: "active",
+        approvalExpiredAt: "oops" as unknown as number,
+      })
+    ).toBeNull();
   });
 });

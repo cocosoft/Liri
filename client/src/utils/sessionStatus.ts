@@ -55,6 +55,37 @@ export function resolveSessionStatusBadge(
 }
 
 /**
+ * 2026-11-21（真机治理 P1-2 产品决策）：「最近一次审批已过期（未执行）」徽标。
+ *
+ * 过期后会话状态已收敛为 `active`（卡不可回复），`status` 无法表达该事实
+ * ⇒ 依据后端持久化的 `metadata.approvalExpiredAt`（用户重新发言即清除）。
+ */
+export function resolveApprovalExpiredBadge(): SessionStatusBadge {
+  return {
+    tone: "warning",
+    labelKey: "chat.sessionStatusApprovalExpired",
+    hintKey: "chat.sessionStatusApprovalExpiredHint",
+  };
+}
+
+/**
+ * 会话列表徽标**唯一入口**：状态徽标优先（`requires_action` = 还有可回复的卡），
+ * 其次才看「上次已过期」标记 —— 两者同时成立时不得展示互相矛盾的文案。
+ *
+ * @param session 至少含 `status` 与 `approvalExpiredAt`（均可能缺省）
+ */
+export function resolveSessionBadge(session: {
+  status?: string | null;
+  approvalExpiredAt?: number;
+}): SessionStatusBadge | null {
+  const statusBadge = resolveSessionStatusBadge(session.status);
+  if (statusBadge) return statusBadge;
+  return typeof session.approvalExpiredAt === "number"
+    ? resolveApprovalExpiredBadge()
+    : null;
+}
+
+/**
  * 空会话判定：0 条会话消息。
  *
  * 后端 `messageCount` 已排除工具记录（`countConversationMessages`），故直接以它为判据；

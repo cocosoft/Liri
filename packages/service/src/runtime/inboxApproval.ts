@@ -933,13 +933,28 @@ export async function convergeSessionAfterApprovalExpiry(
     const gateway = getRuntimeCoreApi()?.chatManager?.getSessionGateway?.();
     if (gateway) {
       const stored = await gateway.getSession(item.sessionId);
-      if (stored && stored.status === SessionStatus.REQUIRES_ACTION) {
-        stored.status = SessionStatus.ACTIVE;
-        await gateway.updateSession(stored);
-        logger.info('审批过期：会话持久化状态已收回 active', {
-          sessionId: item.sessionId,
-          inboxId: item.id,
-        });
+      if (stored) {
+        // 2026-11-21（产品决策）：持久化「最近一次审批已过期（未执行）」标记 ——
+        // 状态本身收敛为 `active` 后，前端无从区分"正常可继续"与"上次卡过期没执行"。
+        // CS02：用持久化时间戳，不靠任何文案/字符串匹配。用户重新发言时清除。
+        // 幂等：同一张卡重复过期（含启动对账重入）不再落盘。
+        const meta = (stored.metadata ?? {}) as {
+          approvalExpiredAt?: number;
+          approvalExpiredInboxId?: string;
+        };
+        stored.metadata = meta as typeof stored.metadata;
+        const alreadyMarked = meta.approvalExpiredInboxId === item.id;
+        const needsStatus = stored.status === SessionStatus.REQUIRES_ACTION;
+        if (!alreadyMarked || needsStatus) {
+          meta.approvalExpiredAt = Date.now();
+          meta.approvalExpiredInboxId = item.id;
+          if (needsStatus) stored.status = SessionStatus.ACTIVE;
+          await gateway.updateSession(stored);
+          logger.info('审批过期：会话状态已收回 active 并登记过期标记', {
+            sessionId: item.sessionId,
+            inboxId: item.id,
+          });
+        }
       }
     }
   } catch (err) {

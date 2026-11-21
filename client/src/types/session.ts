@@ -77,6 +77,14 @@ export interface Session {
   id: string;
   /** 会话持久化状态（缺省 = 后端未提供，按正常会话处理） */
   status?: SessionStatus;
+  /**
+   * 2026-11-21（真机治理 P1-2）：最近一次审批卡**过期且未执行**的时间戳
+   * （源：`metadata.approvalExpiredAt` 展平）。
+   *
+   * 过期后状态已收敛为 `active`（卡不可回复），故不能靠 `status` 区分；
+   * 列表据此显示「审批已过期（未执行）」。用户重新发言后后端清除该标记。
+   */
+  approvalExpiredAt?: number;
   /** 会话的 Plan/Do 工作模式（源：metadata.workMode 展平） */
   workMode?: WorkMode;
   /** B1（2026-11-09）：会话自主度（源：metadata.autonomy 展平；缺省 === interactive） */

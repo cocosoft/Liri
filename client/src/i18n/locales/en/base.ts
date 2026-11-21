@@ -588,6 +588,10 @@ const enBase = {
     sessionStatusRequiresAction: "Needs approval",
     sessionStatusRequiresActionHint:
       "This session is waiting for your approval; open it and handle the approval card to continue automatically.",
+    // 2026-11-21 (P1-2 product decision): the card expired unreplied; the session is resumable
+    sessionStatusApprovalExpired: "Approval expired",
+    sessionStatusApprovalExpiredHint:
+      "The last approval card expired without being executed (it will not be replayed automatically). You can keep chatting or start the action again.",
     /** #23: empty sessions (0 messages) are collapsed by default */
     emptySessionsToggle: "Empty {{count}}",
     emptySessionsToggleHint: "Show/hide sessions with 0 messages",

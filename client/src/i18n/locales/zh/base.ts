@@ -561,6 +561,10 @@ const zhBase = {
     sessionStatusRequiresAction: "待审批",
     sessionStatusRequiresActionHint:
       "该会话正在等待你的审批：打开会话处理审批卡片后会自动继续。",
+    // 2026-11-21（真机治理 P1-2 产品决策）：申请已过期、卡不可回复（会话已收敛为可继续）
+    sessionStatusApprovalExpired: "审批已过期",
+    sessionStatusApprovalExpiredHint:
+      "该会话上一次审批卡已过期且未执行（不会自动重放）。可直接继续对话，或重新发起该操作。",
     /** #23：空会话（0 条消息）默认折叠，可展开查看 */
     emptySessionsToggle: "空会话 {{count}}",
     emptySessionsToggleHint: "显示/隐藏 0 条消息的空会话",

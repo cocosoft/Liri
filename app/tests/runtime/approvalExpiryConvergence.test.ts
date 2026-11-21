@@ -111,6 +111,20 @@ describe('convergeSessionAfterApprovalExpiry：过期 ⇒ 持久化状态收回 
     ]);
   });
 
+  it('登记「审批已过期」持久化标记（前端徽标依据，非字符串匹配）', async () => {
+    const state = stubGateway([
+      { id: 'sess-expiry-1', status: SessionStatus.REQUIRES_ACTION },
+    ]);
+
+    await convergeSessionAfterApprovalExpiry(expiredApprovalItem());
+
+    const meta = state.sessions[0].metadata as
+      | { approvalExpiredAt?: number; approvalExpiredInboxId?: string }
+      | undefined;
+    expect(typeof meta?.approvalExpiredAt).toBe('number');
+    expect(meta?.approvalExpiredInboxId).toBe('inbox-expired-1');
+  });
+
   it('幂等：同一张卡再次过期不再落盘', async () => {
     const state = stubGateway([
       { id: 'sess-expiry-1', status: SessionStatus.REQUIRES_ACTION },

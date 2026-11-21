@@ -99,11 +99,18 @@ jobs:
         run: |
           set -euo pipefail
           shopt -s nullglob
-          files=(app/release/liri-cli-${VERSION}.tgz release/npm/*.tgz)
-          if [ ${#files[@]} -eq 0 ]; then
-            echo "::error::未产出 CLI 归档（app/release 与 release/npm 均为空）"
-            exit 1
-          fi
+          # 本作业 `defaults.run.working-directory: app` ⇒ 相对路径是相对 `app/` 解析。
+          # v0.6.4 实测：写 `app/release/...`（无通配符 ⇒ nullglob 不剔除）会被解析成
+          # `app/app/release/...`，`ls` 以 exit 2 秒失败（绕过空检查、不进入重试）。
+          # 统一改用 `$GITHUB_WORKSPACE` 绝对路径，并先断言存在。
+          files=("$GITHUB_WORKSPACE/app/release/liri-cli-${VERSION}.tgz")
+          files+=("$GITHUB_WORKSPACE"/release/npm/*.tgz)
+          for f in "${files[@]}"; do
+            if [ ! -f "$f" ]; then
+              echo "::error::缺少预期产物：$f"
+              exit 1
+            fi
+          done
           ls -l "${files[@]}"
           for i in $(seq 1 30); do
             if gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber; then

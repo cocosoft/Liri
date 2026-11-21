@@ -1,6 +1,6 @@
 # 入站消息监视：缺口补齐方案
 
-> 版本 1.3 ｜ 日期 2026-11-21 ｜ 状态：**P1 + P2 + P3 已实施（2026-11-21）；P4 未实施**
+> 版本 1.4 ｜ 日期 2026-11-21 ｜ 状态：**P1–P4 全部实施（2026-11-21）**
 > 关联：[`dedup-message-state.md`](./dedup-message-state.md)（`channel_message_states` 落盘先例）、[`channel-process-isolation.md`](./channel-process-isolation.md)、[`message-router-split.md`](./message-router-split.md)
 
 **结论先行**：Liri 的入站监视**并非空白** —— 指标、消息级链路追踪、渠道实时态三层均已端到端接线（§1 取证）。本方案只处理**四个缺口**（§2）：渠道维度缺失、链路不留存、无阈值告警、消息级无推送。
@@ -160,24 +160,23 @@ CREATE INDEX IF NOT EXISTS idx_cmt_channel_started
 
 ### 6.3 投递与去重
 
-- 投递复用既有收件箱：`NotificationPersistence.create({ category: 'system', priority: 'urgent', title, content })`（决策类 `category` 已被 P0-3 白名单拒绝，告警属告知类，走 `system`）。
-- **静默期状态必须落盘**：新表 `channel_alert_state(rule_id, channel, last_fired_at)`，`PRIMARY KEY(rule_id, channel)`；重启后沿用（R08-001）。
+- 投递复用既有收件箱：`NotificationPersistence.create({ category: 'system', priority: 'urgent', title, content, source: 'channel:inbound-alert', source_ref: ruleId })`（决策类 `category` 已被 P0-3 白名单拒绝，告警属告知类，走 `system`）。
+- **静默期状态必须落盘**：表 `channel_alert_state(rule_id, channel, last_fired_at)`，`PRIMARY KEY(rule_id, channel)`；重启后沿用（R08-001）。
+- **投递成功才写 `last_fired_at`**：投递失败下个 tick 自然重试（不会因"通知失败"把事故永久静音）。
 - 同 `(rule_id, channel)` 静默期内只报一次；静默期后未恢复则再次告警。
-- 渠道恢复（下一次入站成功 / `status=connected`）时写一行 `channel_alert_state` 的 `resolved_at`，供后续「恢复通知」可选扩展（本版不做恢复通知，避免噪音）。
+- 渠道恢复通知（`resolved_at`）**本版不做**（避免噪音）；表结构只保留 `last_fired_at`。
 
 ### 6.4 开关
 
-`FEATURE_CHANNEL_INBOUND_ALERTS`，**默认 `false`**（灰度，避免一上线就轰炸）。登记项：
+`CHANNEL_INBOUND_ALERTS`，**默认 `false`**（灰度，避免一上线就轰炸）。读取口径：`feature()`（env `FEATURE_CHANNEL_INBOUND_ALERTS` > 构建变体 > 默认）；本版**不加设置页开关**（无 UI ⇒ 不登记 `USER_CONFIG_KEYS`，避免"假开关"）。登记项：
 
 - `packages/kernel/src/core/featureFlags.ts` 注册；
-- `.trae/specs/default-off-switches-review-gates.md §2` 新增一行（可观测信号 / 阈值 / 复评节奏）；
-- `app/scripts/check-doc-code-consistency.js` 的登记断言（`REGISTRATION_ASSERTIONS`）同批更新。
+- `.trae/specs/default-off-switches-review-gates.md §2` 新增一行（#20：可观测信号 / 阈值 / 复评节奏）。
 
 ### 6.5 验收
 
-- 单测：构造 5 分钟 20 条 rejected（50%）⇒ 恰好 1 条通知；再过 1 分钟不重复；30 分钟后再次触发 ⇒ 第 2 条。
-- 重启后静默期仍生效（读 `channel_alert_state`）。
-- 关闭开关 ⇒ 零通知、零定时器。
+- 单测（已落地 9 例）：拒绝突增（触发 / 占比不足 / 窗口未满）、`inflight` 卡死聚合、渠道静默（启用 / 未启用 / uptime 反推 / 刚启动）、静默期跨重启、投递失败重试。
+- 开关关 ⇒ `startInboundAlertRuntime()` 直接返回：零评估器、零定时器、零通知（启动日志可证）。
 
 ---
 
@@ -220,7 +219,7 @@ CREATE INDEX IF NOT EXISTS idx_cmt_channel_started
 | **P1** | G1 渠道级入站指标 + 卡片分渠道表 | 指标标签 + 总量守恒 + 单测 |
 | **P2** | G2 `MessageTraceStore` + 表 + `/history` + 保留裁剪 | ✅ **已实施（2026-11-21）**：`channel_message_traces` 表 + 终态落盘 + 7d/5000 行裁剪 + 复合游标分页 + 面板范围切换（见 §12） |
 | **P3** | G4 `subscribe` + `/inbound/stream` + 前端 SSE | ✅ **已实施（2026-11-21）**：`MessageTraceBuffer.subscribe` + SSE（snapshot/trace/ping）+ 面板实时改 EventSource（连续失败 3 次才降级轮询）（见 §12） |
-| **P4** | G3 规则 + 评估器 + `channel_alert_state` + 开关登记 | 阈值/静默/重启/开关四例 |
+| **P4** | G3 规则 + 评估器 + `channel_alert_state` + 开关登记 | ✅ **已实施（2026-11-21）**：三条规则 + `channel_alert_state` 落盘静默期 + 收件箱投递 + `CHANNEL_INBOUND_ALERTS`（默认关，登记表 #20）（见 §12） |
 
 依赖：P3 只依赖既有缓冲（可与 P2 并行）；P4 依赖 P1（指标）**或** P2（历史聚合），二选一即可。
 
@@ -305,5 +304,19 @@ CREATE INDEX IF NOT EXISTS idx_cmt_channel_started
 
 验证：`bun test tests/channels/messageTraceStream.test.ts` 4 pass；`tests/channels` 全量见提交记录；`typecheck`（app 3 project + client）0 错；`lint`（app）/ `lint:channels` / client eslint 0 error；`check:circular` 无环；`lint:state-ratchet` 棘轮维持。
 
-未做（留在 P4）：阈值告警（拒绝率突增 / `inflight` 卡死 / 渠道静默）。
+### P4（G3 阈值告警）—— 已实施（2026-11-21）
+
+| 文件 | 变更 |
+|---|---|
+| `packages/kernel/src/core/featureFlags.ts` | 新增 `CHANNEL_INBOUND_ALERTS: false`（默认关；env `FEATURE_CHANNEL_INBOUND_ALERTS`） |
+| `packages/channels/src/channels/monitoring/InboundAlertEvaluator.ts`（新） | 三条规则（阈值集中在文件顶部常量）；读者（指标/缓冲/渠道态/时钟）全部可注入；`start/stop` 幂等、定时器 `unref`；**投递成功才记静默期** |
+| `packages/channels/src/channels/monitoring/ChannelAlertStateStore.ts`（新） | `channel_alert_state(rule_id, channel, last_fired_at)` + `shouldFire/markFired`（R08-001 跨重启） |
+| `app/src/entrypoints/inboundAlertWiring.ts`（新） | 开关关 ⇒ 直接返回；开 ⇒ 启动监控器（幂等）+ 评估器，`notify` 写收件箱（`system` / `urgent` / `source_ref=ruleId`）；**不调 `init()`**（重复起过期调度器） |
+| `app/src/entrypoints/channelRuntime.ts` | 随通道运行时启动（REPL/DAEMON 共用） |
+| `app/tests/channels/inboundAlertEvaluator.test.ts`（新） | 9 例：三条规则触发/不触发 + 静默期跨重启 + 投递失败重试（用例独占渠道名，避免静默期串扰） |
+| `.trae/specs/default-off-switches-review-gates.md` | §2 新增 #20（误报率 ≤20% 且至少提前发现 1 次事故等判据） |
+
+验证：`bun test tests/channels/inboundAlertEvaluator.test.ts` 9 pass；`tests/channels` 全量见提交记录；`typecheck`（app 3 project + client）0 错；`lint`（app）/ `lint:channels` 0 error；`check:circular` 无环；`lint:state-ratchet` 棘轮维持。
+
+实现期自纠（如实）：首版 `collectChannelSilent` 把注入的读者**当成数据**直接 `for...of`（`{} is not iterable`，9 例全红）⇒ 改为 `this.readChannels()` 调用；另在测试中发现"同名渠道跨用例共享静默期"⇒ 每个用例使用独占渠道名。
 

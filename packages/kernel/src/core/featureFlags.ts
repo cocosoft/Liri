@@ -393,6 +393,18 @@ export const FEATURE_FLAGS = {
    * 该会话上下文）。逃生：`FEATURE_CHANNEL_UNTRUSTED_TAINT=false`。
    */
   CHANNEL_UNTRUSTED_TAINT: true,
+  /**
+   * 入站监视 G3/P4（2026-11-21）：**渠道入站阈值告警**（默认关 = 零行为变更）。
+   *
+   * 开 ⇒ 随通道运行时启动 `InboundAlertEvaluator`，每分钟评估三条规则
+   * （拒绝率突增 / `inflight` 卡死 / 渠道静默），命中时写入收件箱
+   * （`category: system`、`priority: urgent`），同 `(规则, 渠道)` 在静默期内只报一次
+   * （静默期落盘 `channel_alert_state`，重启不重复轰炸）。
+   * 关（默认）⇒ 不启动评估器、零定时器、零通知。
+   * 设计见 `.trae/specs/inbound-message-monitoring-gaps.md` §6。
+   * `FEATURE_CHANNEL_INBOUND_ALERTS=true`。
+   */
+  CHANNEL_INBOUND_ALERTS: false,
   /** 远程触发器工具 */
   REMOTE_TRIGGER: false,
   /** 发送用户文件工具 */

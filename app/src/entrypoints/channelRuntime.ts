@@ -67,6 +67,9 @@ export async function startChannelRuntime(): Promise<void> {
     // 现随通道运行时（REPL/DAEMON 共用）一并接线，模块内幂等。
     await (await import('./replyEffectWiring')).wireReplyEffectRuntime();
 
+    // 入站监视 G3/P4（2026-11-21）：阈值告警随通道运行时启动（开关默认关 ⇒ 零定时器）
+    await (await import('./inboundAlertWiring')).startInboundAlertRuntime();
+
     // 后台连接已启用的通道（不阻塞启动）
     lazyConnectChannels().catch((err) => {
       logger.error('延迟通道连接异常', { error: String(err) });

@@ -50,3 +50,28 @@ export type {
   MessageTraceHistoryQuery,
   MessageTraceHistoryPage,
 } from './MessageTraceStore';
+// 入站监视 G3/P4（2026-11-21）：阈值告警 + 静默期状态
+export {
+  InboundAlertEvaluator,
+  readChannelCounters,
+  REJECTION_WINDOW_MS,
+  REJECTION_MIN_COUNT,
+  REJECTION_MIN_RATIO,
+  INFLIGHT_STUCK_MS,
+  CHANNEL_SILENCE_MS,
+  EVALUATION_TICK_MS,
+  ALERT_SILENCE_MS,
+} from './InboundAlertEvaluator';
+export type {
+  InboundAlert,
+  InboundAlertRuleId,
+  InboundChannelStatus,
+  ChannelCounters,
+  InboundAlertEvaluatorOptions,
+} from './InboundAlertEvaluator';
+export {
+  ChannelAlertStateStore,
+  CHANNEL_ALERT_STATE_TABLE,
+  getChannelAlertStateStore,
+  resetChannelAlertStateStoreForTest,
+} from './ChannelAlertStateStore';

@@ -4,7 +4,7 @@
   "generatedBy": "manual translation (C-3b, 2026-10-18)",
   "counts": {
     "tools": 69,
-    "params": 372
+    "params": 379
   },
   "params": {
     "agent.allowedTools": "Comma-separated tool names that the subagent is allowed to use. If empty, all tools are available.",
@@ -46,7 +46,10 @@
     "broadcast.message": "Message content to send",
     "broadcast.threadId": "Thread ID to reply to (required when action=thread)",
     "browser.action": "Action to perform: open_tab, click, fill_form, navigate, screenshot, get_tabs",
+    "browser.analyze": "Whether the screenshot also runs vision analysis (default false: returns the screenshot file path only, no base64)",
     "browser.form_data": "Form data for the fill_form action",
+    "browser.full_page": "Whether the screenshot captures the full page (default false)",
+    "browser.max_chars": "Truncation limit for get_content text (characters, default 8000)",
     "browser.selector": "CSS selector for the click or fill_form action",
     "browser.tab_id": "Tab ID to operate on a specific tab",
     "browser.text": "Text for the fill_form action",
@@ -74,6 +77,7 @@
     "code_run.language": "Language (default: ts)",
     "code_run.round": "Round marker (for logging only, no state)",
     "computer_use.action": "The action to perform on the desktop",
+    "computer_use.analyze": "For screenshot/zoom: also analyze the image with the vision model (default false: return file path + size only, no base64).",
     "computer_use.button": "Mouse button for click actions (default: left)",
     "computer_use.deltaX": "Horizontal scroll amount (for mouseScroll)",
     "computer_use.deltaY": "Vertical scroll amount (for mouseScroll)",
@@ -153,6 +157,9 @@
     "image.outputPath": "Path for the output image file",
     "image.quality": "Output quality (1-100) for JPEG/WebP formats",
     "image.saturation": "Saturation multiplier (1.0 = unchanged)",
+    "image.watermarkColor": "Watermark font color (e.g. rgba(255,255,255,0.5))",
+    "image.watermarkFontSize": "Watermark font size in pixels",
+    "image.watermarkOpacity": "Watermark text opacity 0-1",
     "image.watermarkPosition": "Watermark position",
     "image.watermarkText": "Watermark text",
     "image.width": "Target width for resize/crop action",

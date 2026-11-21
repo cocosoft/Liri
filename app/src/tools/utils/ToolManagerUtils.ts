@@ -81,11 +81,16 @@ const byKey = (key: BuiltinToolFactoryKey): ToolLoader =>
   });
 
 /**
- * `core` 变体的**工具面下限**（7 项，变体矩阵方案 §3.1）。
+ * `core` 变体的**工具面下限**（8 项，变体矩阵方案 §3.1；C4，2026-11-21 补 `tool_search`）。
  *
  * 口径：`core` 是"PC 上最小能干活的那份 Liri"——能看、能改、能执行、能搜、能问。
  * 生效条件只有 `CORE_MINIMAL`（由 `scripts/variant-matrix.ts` 的 `minimalToolSurface` 生成，
  * **仅 core 为 true**）；其余变体不受影响（零行为变更）。
+ *
+ * ⚠️ `tool_search` **必含**（治理方案 v3 §4.1 / C4）：它是其余工具的唯一发现入口，
+ * 缺了它 ⇒ 未下发的工具对模型**永久不可达**（功能缺失，不是预算决策）。
+ * 与**运行时** `minimal` 档（9 项，含 `todo_write`；见 `toolSurfaceProfile.ts`）区分：
+ * 本清单是**产物裁剪**，那份是**用户可选档位**。
  *
  * ⚠️ 这是**装配点**判定（§5 规则 2）：工具实现内部不得自审变体。
  */
@@ -97,6 +102,7 @@ const CORE_MINIMAL_TOOL_KEYS: readonly BuiltinToolFactoryKey[] = [
   'createGrepTool',
   'createGlobTool',
   'createAskUserQuestionTool',
+  'createToolSearchTool',
 ];
 
 /**

@@ -14,8 +14,9 @@ import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import type { ImageEditOutput } from '../types/ToolOutputs';
 
+// 2026-11-21（C5 媒体实现统一）：与 `media_image_*` 共用 infra 单例（不再自建实例）
 import {
-  ImageProcessor,
+  imageProcessor,
   type ImageFormat,
   type ProcessResult,
 } from '@openliri/infra/media/image/ImageProcessor';
@@ -65,6 +66,8 @@ export interface ImageEditInput {
     | 'center';
   watermarkFontSize?: number;
   watermarkColor?: string;
+  /** 水印透明度 0-1（2026-11-21 C5：与 `media_image_watermark` 对齐） */
+  watermarkOpacity?: number;
 
   // adjust 操作
   brightness?: number;
@@ -82,8 +85,6 @@ export interface ImageEditInput {
  * 图片编辑结果（类型已下沉到 `tools/types/ToolOutputs`，见该文件断环说明）
  */
 export type { ImageEditOutput } from '../types/ToolOutputs';
-
-const processor = new ImageProcessor();
 
 /**
  * U-03（2026-10-19）：`image` 的**模型可见出参结构**（JSON Schema），
@@ -219,6 +220,24 @@ export class ImageTool extends BaseTool {
       required: false,
     },
     {
+      name: 'watermarkFontSize',
+      type: 'number',
+      description: 'Watermark font size in pixels',
+      required: false,
+    },
+    {
+      name: 'watermarkColor',
+      type: 'string',
+      description: 'Watermark font color (e.g. rgba(255,255,255,0.5))',
+      required: false,
+    },
+    {
+      name: 'watermarkOpacity',
+      type: 'number',
+      description: 'Watermark text opacity 0-1',
+      required: false,
+    },
+    {
       name: 'brightness',
       type: 'number',
       description: 'Brightness multiplier (1.0 = unchanged)',
@@ -348,7 +367,7 @@ export class ImageTool extends BaseTool {
     const outputPath =
       params.outputPath ||
       this.generateOutputPath(params.inputPath, '_resized');
-    const result = await processor.resize(params.inputPath, outputPath, {
+    const result = await imageProcessor.resize(params.inputPath, outputPath, {
       maxWidth: params.width,
       maxHeight: params.height,
       quality: params.quality,
@@ -368,7 +387,7 @@ export class ImageTool extends BaseTool {
     const outputPath =
       params.outputPath ||
       params.inputPath.replace(path.extname(params.inputPath), ext);
-    const result = await processor.convert(
+    const result = await imageProcessor.convert(
       params.inputPath,
       outputPath,
       params.format
@@ -382,7 +401,7 @@ export class ImageTool extends BaseTool {
 
   private handleInfo(params: ImageEditInput): ToolResult {
     const stat = fs.statSync(params.inputPath);
-    const dims = processor.getDimensions(params.inputPath);
+    const dims = imageProcessor.getDimensions(params.inputPath);
     const ext = path.extname(params.inputPath).slice(1);
     const data: ImageEditOutput = {
       action: 'info',
@@ -406,7 +425,7 @@ export class ImageTool extends BaseTool {
     const outputPath =
       params.outputPath ||
       this.generateOutputPath(params.inputPath, '_grayscale');
-    const result = await processor.resize(params.inputPath, outputPath, {
+    const result = await imageProcessor.resize(params.inputPath, outputPath, {
       grayscale: true,
     });
     if (!result.success)
@@ -429,7 +448,7 @@ export class ImageTool extends BaseTool {
     const outputPath =
       params.outputPath ||
       this.generateOutputPath(params.inputPath, '_cropped');
-    const result = await processor.crop(params.inputPath, outputPath, {
+    const result = await imageProcessor.crop(params.inputPath, outputPath, {
       x,
       y,
       width: params.width,
@@ -445,7 +464,7 @@ export class ImageTool extends BaseTool {
     const outputPath =
       params.outputPath ||
       this.generateOutputPath(params.inputPath, '_rotated');
-    const result = await processor.rotate(
+    const result = await imageProcessor.rotate(
       params.inputPath,
       outputPath,
       degrees
@@ -460,7 +479,7 @@ export class ImageTool extends BaseTool {
     const outputPath =
       params.outputPath ||
       this.generateOutputPath(params.inputPath, `_flipped_${direction}`);
-    const result = await processor.flip(
+    const result = await imageProcessor.flip(
       params.inputPath,
       outputPath,
       direction
@@ -480,12 +499,18 @@ export class ImageTool extends BaseTool {
     const outputPath =
       params.outputPath ||
       this.generateOutputPath(params.inputPath, '_watermarked');
-    const result = await processor.watermark(params.inputPath, outputPath, {
-      text: params.watermarkText,
-      position: params.watermarkPosition,
-      fontSize: params.watermarkFontSize,
-      color: params.watermarkColor,
-    });
+    // 2026-11-21（C5）：选项集与 `media_image_watermark` 对齐（补 `opacity`）
+    const result = await imageProcessor.watermark(
+      params.inputPath,
+      outputPath,
+      {
+        text: params.watermarkText,
+        position: params.watermarkPosition,
+        fontSize: params.watermarkFontSize,
+        color: params.watermarkColor,
+        opacity: params.watermarkOpacity,
+      }
+    );
     if (!result.success)
       return { success: false, error: result.error || 'Watermark failed' };
     return this.outputToResult('watermark', params.inputPath, result);
@@ -507,7 +532,7 @@ export class ImageTool extends BaseTool {
     const outputPath =
       params.outputPath ||
       this.generateOutputPath(params.inputPath, '_adjusted');
-    const result = await processor.adjust(params.inputPath, outputPath, {
+    const result = await imageProcessor.adjust(params.inputPath, outputPath, {
       brightness: params.brightness,
       contrast: params.contrast,
       saturation: params.saturation,

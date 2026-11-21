@@ -31,8 +31,19 @@ export type SharedToolVisibilityReason =
    * 检索到并直接调用（2026-10-28，P4）。
    */
   | "not-in-default-disclosure"
+  /**
+   * 工具面档位为 **minimal**，而该工具不在 L0 核心集内（2026-11-21，C2）。
+   * 仍注册可调用，可经 `tool_search select:` 拉入下一轮；用户 `on` 覆写同样可放开。
+   */
+  | "not-in-minimal-surface"
   /** ∉ 生效工具面（未接线 / 工厂内 flag 门控关闭）⇒ 覆写也无效 */
   | "conditional"
+  /**
+   * 被**用户可配功能开关**关闭（`browser` / `computer_use`，2026-11-21）。
+   * 与 `conditional` 的区别：工具已接线、代码可用，只是用户没开开关 ⇒ 开关打开后下一轮即可见。
+   * 用户 `on` 覆写**不能**绕过（开关是能力级总闸）。
+   */
+  | "feature-gate-off"
   /** 用户显式 `off` */
   | "user-off"
   /** 用户显式 `on`，覆盖了默认判定 ⇒ 可见 */

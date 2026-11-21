@@ -478,6 +478,8 @@ export const ENDPOINTS = {
     user: "/v1/settings/user",
     /** P2/P3（2026-10-16）：工具可见性覆写（`{ overrides: { [toolName]: 'on' | 'off' } }`） */
     tools: "/v1/settings/tools",
+    /** C2（2026-11-21）：工具面档位（`{ profile: 'minimal' | 'standard' | 'full' }`） */
+    toolSurface: "/v1/settings/toolSurface",
   },
   tts: {
     providers: "/v1/tts/providers",
@@ -586,6 +588,8 @@ export const ENDPOINTS = {
     base: "/v1/notifications",
     unreadCount: "/v1/notifications/unread-count",
     readAll: "/v1/notifications/read-all",
+    /** 2026-11-21（P1-2）：批量标记（read / dismissed）——「清理已过期」复用 */
+    batch: "/v1/notifications/batch",
     byId: (id: string) => `/v1/notifications/${id}`,
     markRead: (id: string) => `/v1/notifications/${id}/read`,
     dismiss: (id: string) => `/v1/notifications/${id}/dismiss`,

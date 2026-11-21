@@ -238,8 +238,16 @@ export const FEATURE_FLAGS = {
   TOOL_PACK_SCHEDULE: true,
   /** 能力包：工作区（worktree / kanban / 建项目 / 存会话）—— 见 `TOOL_PACK_MEDIA_IMAGE` */
   TOOL_PACK_WORKSPACE: true,
-  /** 能力包：系统扩展（剪贴板 / 简报 / 代理清单 / 知识写入 / MCP 认证）—— 见 `TOOL_PACK_MEDIA_IMAGE` */
+  /** 能力包：系统扩展（剪贴板 / 简报 / 代理清单 / MCP 认证）—— 见 `TOOL_PACK_MEDIA_IMAGE` */
   TOOL_PACK_SYSTEM_EXTRA: true,
+  /** 能力包：桌面自动化 / 浏览器（C1，2026-11-21）—— 仍受 `BROWSER` / `COMPUTER_USE` 二次约束 */
+  TOOL_PACK_DESKTOP: true,
+  /** 能力包：知识库保存（C1，2026-11-21）—— 见 `TOOL_PACK_MEDIA_IMAGE` */
+  TOOL_PACK_KNOWLEDGE: true,
+  /** 能力包：网络抓取 / 搜索（C1，2026-11-21）—— 见 `TOOL_PACK_MEDIA_IMAGE` */
+  TOOL_PACK_WEB: true,
+  /** 能力包：代码智能 / REPL / 多语言执行（C1，2026-11-21）—— 见 `TOOL_PACK_MEDIA_IMAGE` */
+  TOOL_PACK_CODE: true,
   /** 缓存 */
   ENABLE_CACHE: true,
 
@@ -300,6 +308,13 @@ export const FEATURE_FLAGS = {
   NOTEBOOK: false,
   /** 浏览器工具 */
   BROWSER: false,
+  /**
+   * 桌面自动化工具（computer_use，2026-11-21）。
+   *
+   * 默认 **false**：可截屏、移动鼠标、注入键盘、启动应用 —— 属高风险能力。
+   * 用户可在设置页开启（`features.computerUse`），开启后下一轮即可见（无需重启）。
+   */
+  COMPUTER_USE: false,
   /** 代码分析工具 */
   CODE_ANALYSIS: false,
   /** 监控工具 */

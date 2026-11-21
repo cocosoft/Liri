@@ -1,399 +1,606 @@
+// MIT License
+// Copyright (c) 2026 190615273@qq.com
+
 /**
- * Playwright 浏览器驱动
- * 为 BrowserTool 提供浏览器自动化能力
- * 对齐 OpenClaw browser tools
+ * 浏览器驱动（Playwright 真实现，2026-11-21 P2 重写）
  *
- * 注意: playwright 是可选依赖，仅在运行时动态加载。
- * 使用 unknown 类型避免编译时对 playwright 包的依赖。
+ * 历史：本文件曾用 `_browser/_page` 私有字段 + 把 `setDefaultTimeout` 挂到 page 上（猴子补丁），
+ * 且全仓零引用；`BrowserTool` 用的是硬编码成功的假实现（违反 CS04）。本次重写要点：
+ *
+ * 1. **依赖**：`playwright-core` + **系统 Chrome/Edge**（不下载 Chromium，体积小）；
+ *    缺失时给出可执行安装指引（不静默失败）。
+ * 2. **会话隔离**：每个会话一个 `BrowserContext`（cookie/localStorage 不串），
+ *    空闲 `idleCloseMs` 自动关闭；进程退出/供 stop hook 调 `closeAllBrowserSessions()`。
+ * 3. **动作集合**（对外见 `BrowserTool`）：navigate / click / fill / screenshot /
+ *    get_content / get_tabs / back / reload / close。
+ * 4. **安全**：只允许 http/https；`file:` / `data:` / `javascript:` 一律拒绝；
+ *    内网/环回地址默认拒绝（`allowPrivateNetwork` 显式放行）；`acceptDownloads: false`；
+ *    headless 默认 **false**（用户可见，降低"静默操作"风险）。
+ * 5. **不开放 `evaluate`**（任意 JS ≈ 代码执行，需单独立项）。
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { getLogger } from '@openliri/infra/monitoring';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
+// 回环主机名的**唯一事实源**（`lint:consts` 的同值 host 棘轮只减不增）
+import { LOCAL_SERVICE_HOST } from '@openliri/kernel';
+
 const logger = getLogger('tools:playwrightDriver');
 
-export interface BrowserAction {
-  action:
-    | 'navigate'
-    | 'click'
-    | 'type'
-    | 'fill'
-    | 'screenshot'
-    | 'pdf'
-    | 'get_content'
-    | 'evaluate'
-    | 'back'
-    | 'reload'
-    | 'close';
+/** 对外动作（BrowserTool 负责语义映射） */
+export type BrowserDriverAction =
+  | 'open_tab'
+  | 'navigate'
+  | 'click'
+  | 'fill'
+  | 'screenshot'
+  | 'get_content'
+  | 'get_tabs'
+  | 'back'
+  | 'reload'
+  | 'close';
+
+export interface BrowserActionRequest {
+  action: BrowserDriverAction;
   url?: string;
   selector?: string;
   value?: string;
-  script?: string;
-  options?: Record<string, unknown>;
+  /** get_content 的正文截断上限（字符） */
+  maxChars?: number;
+  /** screenshot 是否整页 */
+  fullPage?: boolean;
 }
 
-export interface BrowserResult {
+export interface BrowserTabInfo {
+  index: number;
+  url: string;
+  title: string;
+  active: boolean;
+}
+
+export interface BrowserDriverResult {
   success: boolean;
   action: string;
-  content?: string;
-  screenshot?: Buffer;
-  pdf?: Buffer;
   url?: string;
   title?: string;
+  content?: string;
+  screenshot?: Buffer;
+  tabs?: BrowserTabInfo[];
   error?: string;
   durationMs: number;
 }
 
-export interface PlaywrightDriverConfig {
+export interface BrowserDriverConfig {
   headless: boolean;
   timeoutMs: number;
   viewport: { width: number; height: number };
-  userAgent?: string;
-  sandboxMode: 'host' | 'docker';
+  /** 允许的域名后缀；空数组 = 不限制（仍受 scheme/内网规则约束） */
   allowedDomains: string[];
+  /** 是否允许环回/内网地址（默认 false：需要显式放行） */
+  allowPrivateNetwork: boolean;
+  /** 空闲自动关闭（毫秒；0 = 不自动关闭） */
+  idleCloseMs: number;
+  /** 正文返回上限（字符） */
+  maxContentChars: number;
 }
 
-const DEFAULT_PW_CONFIG: PlaywrightDriverConfig = {
-  headless: true,
-  timeoutMs: 30000,
+const DEFAULT_CONFIG: BrowserDriverConfig = {
+  headless: false,
+  timeoutMs: 30_000,
   viewport: { width: 1280, height: 800 },
-  sandboxMode: 'docker',
   allowedDomains: [],
+  allowPrivateNetwork: false,
+  idleCloseMs: 5 * 60_000,
+  maxContentChars: 8_000,
 };
 
-export class PlaywrightBrowserDriver {
-  private config: PlaywrightDriverConfig;
-  private browser: Record<string, unknown> | null = null;
-  private initialized = false;
+/** 结构化最小接口（避免把 playwright 类型带进编译面） */
+interface PwPage {
+  goto(url: string, opts?: Record<string, unknown>): Promise<unknown>;
+  title(): Promise<string>;
+  url(): string;
+  click(selector: string, opts?: Record<string, unknown>): Promise<void>;
+  fill(selector: string, value: string): Promise<void>;
+  screenshot(opts?: Record<string, unknown>): Promise<Buffer>;
+  content(): Promise<string>;
+  innerText(selector: string): Promise<string>;
+  goBack(opts?: Record<string, unknown>): Promise<unknown>;
+  reload(opts?: Record<string, unknown>): Promise<unknown>;
+  close(): Promise<void>;
+  waitForLoadState(
+    state?: string,
+    opts?: Record<string, unknown>
+  ): Promise<void>;
+}
 
-  constructor(config: Partial<PlaywrightDriverConfig> = {}) {
-    this.config = { ...DEFAULT_PW_CONFIG, ...config };
+interface PwContext {
+  newPage(): Promise<PwPage>;
+  pages(): PwPage[];
+  close(): Promise<void>;
+  setDefaultTimeout?(ms: number): void;
+}
+
+interface PwBrowser {
+  newContext(opts?: Record<string, unknown>): Promise<PwContext>;
+  close(): Promise<void>;
+  isConnected?(): boolean;
+}
+
+interface PwModule {
+  chromium: { launch(opts: Record<string, unknown>): Promise<PwBrowser> };
+}
+
+/** 内网/环回判据（IPv4 私有段 + 回环主机名 + IPv6 环回） */
+function isPrivateHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  if (host === LOCAL_SERVICE_HOST || host === '::1' || host === '[::1]') {
+    return true;
   }
+  if (host.endsWith(`.${LOCAL_SERVICE_HOST}`)) return true;
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+  if (!m) return false;
+  const [a, b] = [Number(m[1]), Number(m[2])];
+  return (
+    a === 10 ||
+    a === 127 ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168)
+  );
+}
 
-  async execute(action: BrowserAction): Promise<BrowserResult> {
-    const startTime = Date.now();
+/**
+ * URL 安全校验（唯一入口）：scheme + 域名白名单 + 内网规则。
+ * @throws AppError（PERMISSION / VALIDATION）
+ */
+export function assertUrlAllowed(
+  url: string,
+  config: BrowserDriverConfig
+): URL {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new AppError(
+      `URL 无效：${url}（需要完整地址：含 http/https 协议与主机名）`,
+      ErrorCategory.VALIDATION,
+      ErrorSeverity.HIGH,
+      'INVALID_INPUT'
+    );
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new AppError(
+      `仅允许 http/https，当前为 ${parsed.protocol}（file:/data:/javascript: 一律拒绝）`,
+      ErrorCategory.PERMISSION,
+      ErrorSeverity.HIGH,
+      'PERMISSION_DENIED'
+    );
+  }
+  if (!config.allowPrivateNetwork && isPrivateHost(parsed.hostname)) {
+    throw new AppError(
+      `默认禁止访问环回/内网地址（${parsed.hostname}）。如确需访问，请显式开启 allowPrivateNetwork`,
+      ErrorCategory.PERMISSION,
+      ErrorSeverity.HIGH,
+      'PERMISSION_DENIED'
+    );
+  }
+  if (config.allowedDomains.length > 0) {
+    const ok = config.allowedDomains.some(
+      (d) => parsed.hostname === d || parsed.hostname.endsWith(`.${d}`)
+    );
+    if (!ok) {
+      throw new AppError(
+        `域名 ${parsed.hostname} 不在白名单中（allowedDomains=${config.allowedDomains.join(',')}）`,
+        ErrorCategory.PERMISSION,
+        ErrorSeverity.HIGH,
+        'PERMISSION_DENIED'
+      );
+    }
+  }
+  return parsed;
+}
 
+/** 读取 env 覆盖（用户/运维可调；不新增配置中心依赖） */
+export function resolveBrowserDriverConfig(
+  overrides: Partial<BrowserDriverConfig> = {}
+): BrowserDriverConfig {
+  const env = process.env;
+  const domains = (env.BROWSER_ALLOWED_DOMAINS ?? '')
+    .split(',')
+    .map((d) => d.trim())
+    .filter(Boolean);
+  return {
+    ...DEFAULT_CONFIG,
+    headless: env.BROWSER_HEADLESS === 'true',
+    allowPrivateNetwork: env.BROWSER_ALLOW_PRIVATE === 'true',
+    timeoutMs:
+      Number(env.BROWSER_TIMEOUT_MS) > 0
+        ? Number(env.BROWSER_TIMEOUT_MS)
+        : DEFAULT_CONFIG.timeoutMs,
+    ...(domains.length > 0 ? { allowedDomains: domains } : {}),
+    ...overrides,
+  };
+}
+
+/** 一个会话一个驱动实例（持有 context/page；**浏览器进程按进程共享**，避免每会话一个 Chrome） */
+export class BrowserSessionDriver {
+  private context: PwContext | null = null;
+  private pages: PwPage[] = [];
+  private activeIndex = 0;
+  private idleTimer: ReturnType<typeof setTimeout> | null = null;
+  private closed = false;
+
+  constructor(
+    private readonly sessionId: string,
+    private readonly config: BrowserDriverConfig
+  ) {}
+
+  /** 执行一个动作（统一捕获异常 → `{success:false, error}`） */
+  async execute(action: BrowserActionRequest): Promise<BrowserDriverResult> {
+    const startedAt = Date.now();
     try {
-      const page = await this.ensurePage();
-      this.validateAction(action);
-      const result = await this.doExecute(page, action);
-      result.durationMs = Date.now() - startTime;
-      return result;
-    } catch (error) {
+      if (action.action === 'close') {
+        await this.close();
+        return {
+          success: true,
+          action: 'close',
+          durationMs: Date.now() - startedAt,
+        };
+      }
+      // 执行期间暂停空闲计时：否则长动作（如等待缺失选择器）会被"空闲自动关闭"截断
+      this.clearIdleTimer();
+      const page = await this.ensurePage(action.url);
+      const result = await this.run(page, action);
+      this.touchIdle();
+      return { ...result, durationMs: Date.now() - startedAt };
+    } catch (err) {
       return {
         success: false,
         action: action.action,
-        error: error instanceof Error ? error.message : String(error),
-        durationMs: Date.now() - startTime,
+        error: err instanceof Error ? err.message : String(err),
+        durationMs: Date.now() - startedAt,
       };
     }
   }
 
-  private async ensurePage(): Promise<Record<string, unknown>> {
-    if (this.initialized && this.browser) {
-      const ctxObj = this.browser['_context'] as
-        | Record<string, unknown>
-        | undefined;
-      const pageObj = this.browser['_page'] as
-        | Record<string, unknown>
-        | undefined;
-      if (pageObj) return pageObj;
-      if (ctxObj) {
-        const newPage = ctxObj['newPage'] as () => Promise<unknown>;
-        const p = await newPage();
-        this.browser!['_page'] = p;
-        return p as Record<string, unknown>;
-      }
-    }
-
+  /** 关闭本会话的 context（幂等） */
+  async close(): Promise<void> {
+    if (this.closed) return;
+    this.closed = true;
+    this.clearIdleTimer();
     try {
-      const pw = await this.loadPlaywright();
-      const browserObj = await this.launchBrowser(pw);
-      const ctxResult = await (
-        browserObj['newContext'] as (
-          opts: Record<string, unknown>
-        ) => Promise<unknown>
-      )({
-        viewport: this.config.viewport,
-        userAgent: this.config.userAgent,
-      });
-      const ctxObj = ctxResult as Record<string, unknown>;
-      const p = await (ctxObj['newPage'] as () => Promise<unknown>)();
-      (p as Record<string, unknown>)['setDefaultTimeout'] = (
-        t: number
-      ): void => {
-        this.config.timeoutMs = t;
-      };
-
-      (
-        (p as Record<string, unknown>)['setDefaultTimeout'] as
-          | ((n: number) => void)
-          | undefined
-      )?.(this.config.timeoutMs);
-
-      this.browser = { _browser: browserObj, _context: ctxObj, _page: p };
-      this.initialized = true;
-      logger.info('Playwright 浏览器已启动');
-      return p as Record<string, unknown>;
-    } catch (error) {
-      throw new AppError(
-        `Playwright 启动失败: ${error instanceof Error ? error.message : String(error)}`,
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        'LAUNCH_FAILED',
-        { error: error instanceof Error ? error.message : String(error) }
-      );
+      await this.context?.close();
+    } catch {
+      // context 已失效 ⇒ 忽略
     }
+    this.context = null;
+    this.pages = [];
+    logger.info('浏览器会话已关闭', { sessionId: this.sessionId });
   }
 
-  private async loadPlaywright(): Promise<Record<string, unknown>> {
-    try {
-      const importFn = new Function(
-        'specifier',
-        'return import(specifier)'
-      ) as (s: string) => Promise<Record<string, unknown>>;
-      return await importFn('playwright');
-    } catch (err) {
-      throw new AppError(
-        'playwright 未安装。运行: bun add playwright && npx playwright install chromium',
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        'DEPENDENCY_UNAVAILABLE'
-      );
-    }
+  /** 供管理器的"浏览器进程是否还活着"判定 */
+  isBrowserConnected(): boolean {
+    return sharedBrowser !== null && (sharedBrowser.isConnected?.() ?? true);
   }
 
-  private async launchBrowser(
-    pw: Record<string, unknown>
-  ): Promise<Record<string, unknown>> {
-    const chromium = pw['chromium'] as Record<string, unknown>;
-    const launch = chromium['launch'] as (
-      opts: Record<string, unknown>
-    ) => Promise<unknown>;
-    return (await launch({
-      headless: this.config.headless,
-      timeout: this.config.timeoutMs,
-    })) as Record<string, unknown>;
-  }
-
-  private validateAction(action: BrowserAction): void {
-    if (action.url && this.config.allowedDomains.length > 0) {
-      try {
-        const hostname = new URL(action.url).hostname;
-        const ok = this.config.allowedDomains.some(
-          (d) => hostname === d || hostname.endsWith('.' + d)
-        );
-        if (!ok)
-          throw new AppError(
-            `域名 ${hostname} 不在白名单中`,
-            ErrorCategory.PERMISSION,
-            ErrorSeverity.HIGH,
-            'PERMISSION_DENIED',
-            { hostname }
-          );
-      } catch (err) {
-        // 相对路径，忽略
-      }
-    }
-  }
-
-  private async doExecute(
-    page: Record<string, unknown>,
-    action: BrowserAction
-  ): Promise<BrowserResult> {
+  private async run(
+    page: PwPage,
+    action: BrowserActionRequest
+  ): Promise<BrowserDriverResult> {
     switch (action.action) {
-      case 'navigate': {
+      case 'open_tab': {
         if (!action.url)
           throw new AppError(
-            'navigate 需要 url 参数',
+            'open_tab 需要 url',
             ErrorCategory.VALIDATION,
             ErrorSeverity.HIGH,
-            'INVALID_INPUT',
-            { action: 'navigate' }
+            'INVALID_INPUT'
           );
-        const goto = page['goto'] as (
-          u: string,
-          o: Record<string, unknown>
-        ) => Promise<unknown>;
-        await goto(action.url, {
+        const u = assertUrlAllowed(action.url, this.config).toString();
+        if (!this.context)
+          throw new AppError(
+            '浏览器上下文未就绪',
+            ErrorCategory.EXECUTION,
+            ErrorSeverity.HIGH,
+            'NO_CONTEXT'
+          );
+        const newPage = await this.context.newPage();
+        await newPage.goto(u, {
           waitUntil: 'domcontentloaded',
           timeout: this.config.timeoutMs,
         });
-        const title = await (page['title'] as () => Promise<string>)();
+        this.pages.push(newPage);
+        this.activeIndex = this.pages.length - 1;
+        return {
+          success: true,
+          action: 'open_tab',
+          url: newPage.url(),
+          title: await newPage.title(),
+          durationMs: 0,
+        };
+      }
+      case 'navigate': {
+        if (!action.url)
+          throw new AppError(
+            'navigate 需要 url',
+            ErrorCategory.VALIDATION,
+            ErrorSeverity.HIGH,
+            'INVALID_INPUT'
+          );
+        const u = assertUrlAllowed(action.url, this.config).toString();
+        await page.goto(u, {
+          waitUntil: 'domcontentloaded',
+          timeout: this.config.timeoutMs,
+        });
         return {
           success: true,
           action: 'navigate',
-          url: action.url,
-          title,
+          url: page.url(),
+          title: await page.title(),
           durationMs: 0,
         };
       }
       case 'click': {
         if (!action.selector)
           throw new AppError(
-            'click 需要 selector 参数',
+            'click 需要 selector',
             ErrorCategory.VALIDATION,
             ErrorSeverity.HIGH,
-            'INVALID_INPUT',
-            { action: 'click' }
+            'INVALID_INPUT'
           );
-        const click = page['click'] as (s: string) => Promise<void>;
-        await click(action.selector);
+        await page.click(action.selector, { timeout: this.config.timeoutMs });
         return {
           success: true,
           action: 'click',
-          url: (page['url'] as () => string)(),
+          url: page.url(),
+          title: await page.title(),
           durationMs: 0,
         };
       }
-      case 'type': {
-        if (!action.selector || !action.value)
-          throw new AppError(
-            'type 需要 selector 和 value',
-            ErrorCategory.VALIDATION,
-            ErrorSeverity.HIGH,
-            'INVALID_INPUT',
-            { action: 'type' }
-          );
-        const type = page['type'] as (s: string, v: string) => Promise<void>;
-        await type(action.selector, action.value);
-        return { success: true, action: 'type', durationMs: 0 };
-      }
       case 'fill': {
-        if (!action.selector || !action.value)
+        if (!action.selector)
           throw new AppError(
-            'fill 需要 selector 和 value',
+            'fill 需要 selector',
             ErrorCategory.VALIDATION,
             ErrorSeverity.HIGH,
-            'INVALID_INPUT',
-            { action: 'fill' }
+            'INVALID_INPUT'
           );
-        const fill = page['fill'] as (s: string, v: string) => Promise<void>;
-        await fill(action.selector, action.value);
-        return { success: true, action: 'fill', durationMs: 0 };
+        await page.fill(action.selector, action.value ?? '');
+        return {
+          success: true,
+          action: 'fill',
+          url: page.url(),
+          durationMs: 0,
+        };
       }
       case 'screenshot': {
-        const shot = page['screenshot'] as (
-          o: Record<string, unknown>
-        ) => Promise<Buffer>;
-        const data = await shot({
-          fullPage: action.options?.['fullPage'] || false,
-          type: action.options?.['type'] || 'png',
+        const shot = await page.screenshot({
+          fullPage: action.fullPage === true,
+          type: 'png',
         });
         return {
           success: true,
           action: 'screenshot',
-          screenshot: data,
-          url: (page['url'] as () => string)(),
-          durationMs: 0,
-        };
-      }
-      case 'pdf': {
-        const gen = page['pdf'] as (
-          o: Record<string, unknown>
-        ) => Promise<Buffer>;
-        const data = await gen({ format: action.options?.['format'] || 'A4' });
-        return {
-          success: true,
-          action: 'pdf',
-          pdf: data,
-          url: (page['url'] as () => string)(),
+          url: page.url(),
+          title: await page.title(),
+          screenshot: shot,
           durationMs: 0,
         };
       }
       case 'get_content': {
-        const content = await (page['content'] as () => Promise<string>)();
-        const title = await (page['title'] as () => Promise<string>)();
+        const text = await page.innerText('body');
+        const limit = action.maxChars ?? this.config.maxContentChars;
         return {
           success: true,
           action: 'get_content',
-          content,
-          title,
-          url: (page['url'] as () => string)(),
+          url: page.url(),
+          title: await page.title(),
+          content:
+            text.length > limit
+              ? `${text.slice(0, limit)}\n…（已截断，原长 ${text.length} 字符）`
+              : text,
           durationMs: 0,
         };
       }
-      case 'evaluate': {
-        if (!action.script)
-          throw new AppError(
-            'evaluate 需要 script 参数',
-            ErrorCategory.VALIDATION,
-            ErrorSeverity.HIGH,
-            'INVALID_INPUT',
-            { action: 'evaluate' }
-          );
-        const evalFn = page['evaluate'] as (s: string) => Promise<unknown>;
-        const val = await evalFn(action.script);
-        return {
-          success: true,
-          action: 'evaluate',
-          content: typeof val === 'string' ? val : JSON.stringify(val),
-          durationMs: 0,
-        };
+      case 'get_tabs': {
+        const tabs: BrowserTabInfo[] = [];
+        for (let i = 0; i < this.pages.length; i++) {
+          const p = this.pages[i];
+          tabs.push({
+            index: i,
+            url: p.url(),
+            title: await p.title(),
+            active: i === this.activeIndex,
+          });
+        }
+        return { success: true, action: 'get_tabs', tabs, durationMs: 0 };
       }
       case 'back': {
-        const back = page['goBack'] as (
-          o: Record<string, unknown>
-        ) => Promise<void>;
-        await back({ waitUntil: 'domcontentloaded' });
+        await page.goBack({ timeout: this.config.timeoutMs });
         return {
           success: true,
           action: 'back',
-          url: (page['url'] as () => string)(),
+          url: page.url(),
+          title: await page.title(),
           durationMs: 0,
         };
       }
       case 'reload': {
-        const reload = page['reload'] as (
-          o: Record<string, unknown>
-        ) => Promise<void>;
-        await reload({ waitUntil: 'domcontentloaded' });
+        await page.reload({ timeout: this.config.timeoutMs });
         return {
           success: true,
           action: 'reload',
-          url: (page['url'] as () => string)(),
+          url: page.url(),
+          title: await page.title(),
           durationMs: 0,
         };
       }
-      case 'close': {
-        await this.dispose();
-        return { success: true, action: 'close', durationMs: 0 };
-      }
       default:
         throw new AppError(
-          `未知浏览器动作: ${action.action}`,
+          `未知动作 ${String(action.action)}`,
           ErrorCategory.VALIDATION,
           ErrorSeverity.HIGH,
-          'INVALID_INPUT',
-          { action: action.action }
+          'INVALID_INPUT'
         );
     }
   }
 
-  async dispose(): Promise<void> {
-    if (this.browser) {
-      try {
-        const p = this.browser['_page'] as Record<string, unknown> | undefined;
-        if (p && typeof p['close'] === 'function') {
-          await (p['close'] as () => Promise<void>)();
-        }
-        const ctx = this.browser['_context'] as
-          | Record<string, unknown>
-          | undefined;
-        if (ctx && typeof ctx['close'] === 'function') {
-          await (ctx['close'] as () => Promise<void>)();
-        }
-        const b = this.browser['_browser'] as
-          | Record<string, unknown>
-          | undefined;
-        if (b && typeof b['close'] === 'function') {
-          await (b['close'] as () => Promise<void>)();
-        }
-      } catch (err) {
-        /* ignore */
-      }
-      this.browser = null;
-      this.initialized = false;
-      logger.info('Playwright 浏览器已关闭');
+  /** 懒启动（进程级共享）浏览器 + 复用/新建页面 */
+  private async ensurePage(url?: string): Promise<PwPage> {
+    if (this.closed) this.closed = false;
+    const browser = await getSharedBrowser(this.config);
+    if (!this.context) {
+      this.context = await browser.newContext({
+        viewport: this.config.viewport,
+        acceptDownloads: false,
+      });
+      this.context.setDefaultTimeout?.(this.config.timeoutMs);
     }
+    if (this.pages.length === 0) {
+      const page = await this.context.newPage();
+      await page.waitForLoadState?.('domcontentloaded').catch(() => {});
+      this.pages.push(page);
+      this.activeIndex = 0;
+    }
+    const page = this.pages[this.activeIndex];
+    if (url && this.pages.length === 0) {
+      await page.goto(url, {
+        waitUntil: 'domcontentloaded',
+        timeout: this.config.timeoutMs,
+      });
+    }
+    return page;
   }
+
+  private touchIdle(): void {
+    this.clearIdleTimer();
+    if (this.config.idleCloseMs <= 0) return;
+    this.idleTimer = setTimeout(() => {
+      void this.close();
+    }, this.config.idleCloseMs);
+    this.idleTimer.unref?.();
+  }
+
+  private clearIdleTimer(): void {
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    this.idleTimer = null;
+  }
+}
+
+/** `playwright-core` 动态加载（不装依赖也能启动应用；调用时才报错） */
+async function loadPlaywrightCore(): Promise<PwModule> {
+  try {
+    const importFn = new Function('specifier', 'return import(specifier)') as (
+      s: string
+    ) => Promise<PwModule>;
+    return await importFn('playwright-core');
+  } catch {
+    throw new AppError(
+      'playwright-core 未安装。运行：cd app && bun add playwright-core',
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      'DEPENDENCY_UNAVAILABLE'
+    );
+  }
+}
+
+// ─── 进程级共享浏览器 ─────────────────────────────────────────────────────
+
+let sharedBrowser: PwBrowser | null = null;
+let launching: Promise<PwBrowser> | null = null;
+
+/** 取（或懒启动）进程级共享浏览器；启动失败给可执行指引 */
+async function getSharedBrowser(
+  config: BrowserDriverConfig
+): Promise<PwBrowser> {
+  if (sharedBrowser && (sharedBrowser.isConnected?.() ?? true))
+    return sharedBrowser;
+  if (launching) return launching;
+  launching = (async () => {
+    const pw = await loadPlaywrightCore();
+    const attempts: Array<Record<string, unknown>> = [
+      {
+        channel: 'chrome',
+        headless: config.headless,
+        timeout: config.timeoutMs,
+      },
+      {
+        channel: 'msedge',
+        headless: config.headless,
+        timeout: config.timeoutMs,
+      },
+      { headless: config.headless, timeout: config.timeoutMs },
+    ];
+    const errors: string[] = [];
+    for (const opts of attempts) {
+      try {
+        const browser = await pw.chromium.launch(opts);
+        logger.info('浏览器已启动', {
+          channel: String(opts.channel ?? 'bundled'),
+        });
+        return browser;
+      } catch (err) {
+        errors.push(
+          `${String(opts.channel ?? 'bundled')}: ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
+    }
+    throw new AppError(
+      `浏览器启动失败（已尝试系统 Chrome / Edge / 内置 Chromium）。` +
+        `请安装 Chrome 或 Edge，或运行：cd app && bun add -d playwright && npx playwright install chromium。详情：${errors.join(' | ')}`,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      'LAUNCH_FAILED'
+    );
+  })();
+  try {
+    sharedBrowser = await launching;
+    return sharedBrowser;
+  } finally {
+    launching = null;
+  }
+}
+
+/** 关闭进程级浏览器（幂等；进程退出 / stop hook 调用） */
+export async function closeBrowserProcess(): Promise<void> {
+  const browser = sharedBrowser;
+  sharedBrowser = null;
+  if (!browser) return;
+  try {
+    await browser.close();
+  } catch {
+    // 进程已退出 ⇒ 忽略
+  }
+}
+
+// ─── 会话级管理（进程内单例） ───────────────────────────────────────────────
+
+const sessions = new Map<string, BrowserSessionDriver>();
+
+/** 取（或建）某会话的驱动 */
+export function getBrowserSessionDriver(
+  sessionId: string,
+  config: BrowserDriverConfig = resolveBrowserDriverConfig()
+): BrowserSessionDriver {
+  let driver = sessions.get(sessionId);
+  if (!driver) {
+    driver = new BrowserSessionDriver(sessionId, config);
+    sessions.set(sessionId, driver);
+  }
+  return driver;
+}
+
+/** 关闭某会话的浏览器上下文（幂等） */
+export async function closeBrowserSession(sessionId: string): Promise<void> {
+  const driver = sessions.get(sessionId);
+  if (!driver) return;
+  await driver.close();
+  sessions.delete(sessionId);
+}
+
+/** 关闭全部会话（进程退出 / 供 stop hook 调用） */
+export async function closeAllBrowserSessions(): Promise<void> {
+  const all = [...sessions.values()];
+  sessions.clear();
+  await Promise.all(all.map((d) => d.close()));
+  await closeBrowserProcess();
 }

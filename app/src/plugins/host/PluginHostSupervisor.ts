@@ -28,8 +28,16 @@ import {
 } from '@openliri/infra/utils/sidecarIpc';
 import type { Tool } from '@modules/tools/types/Tool';
 import { getToolRegistry } from '../../tools/ToolRegistry';
-import { buildRegisteredTool } from '../utils/toolRegistration';
+import {
+  buildRegisteredTool,
+  toRuntimeToolMeta,
+} from '../utils/toolRegistration';
 import type { PluginToolDeclaration } from '../utils/toolRegistration';
+// C3（2026-11-21）：子进程插件的工具同样需要类别 / 风险登记（与进程内路径同口径）
+import {
+  registerRuntimeToolMeta,
+  unregisterRuntimeToolMeta,
+} from '../../tools/runtimeToolMeta';
 import {
   PLUGIN_HOST_CHILD_METHOD,
   PLUGIN_HOST_METHOD,
@@ -380,6 +388,11 @@ export class PluginHostSupervisor {
       try {
         port.registerTool(tool, { onConflict: 'error' });
         this.registeredTools.add(decl.name);
+        // C3：注册成功后再登记元数据（撞名被拒 ⇒ 不留下无工具的孤儿元数据）
+        registerRuntimeToolMeta(
+          decl.name,
+          toRuntimeToolMeta(this.target.pluginId, decl)
+        );
       } catch (error) {
         logger.warn('插件工具注册被拒（撞名）', {
           pluginId: this.target.pluginId,
@@ -402,6 +415,9 @@ export class PluginHostSupervisor {
           toolName: name,
           error: String(error),
         });
+      } finally {
+        // C3：无论注销成败都撤销元数据（不让报表残留已停止插件的条目）
+        unregisterRuntimeToolMeta(name);
       }
     }
     this.registeredTools.clear();

@@ -46,6 +46,7 @@ import {
 } from '../../src/tools/toolCategories';
 import { resolveToolVisibilityReport } from '../../src/tools/toolVisibilityReport';
 import { TOOL_NAMES } from '@openliri/infra/constants/toolNames.generated';
+import { TOOL_NAME_CONSTANTS } from '../../src/tools/toolNameConstants';
 import { selectToolsForTurn } from '../../src/chat/orchestrator/streamMessageToolSelection';
 
 type ToolLike = { function?: { name?: string }; name?: string };
@@ -125,19 +126,20 @@ describe('P2 覆写层：加/减语义（切在 filterToolsByTask 之后）', ()
     expect(namesOf(out)).toEqual(namesOf(kept).filter((n) => n !== 'bash'));
   });
 
-  it('on ⇒ 从**裁剪前全量**补回（可放开类别白名单之外 / 有意归档的工具）', () => {
-    const kept = filterToolsByTask(ALL_TOOLS, 'default');
-    const archived = [...ARCHIVED_MISC_TOOLS];
-    expect(archived.length).toBeGreaterThan(0);
-    // 前提校验（防空转）：默认面确实不含归档工具
-    for (const name of archived) expect(namesOf(kept)).not.toContain(name);
+  it('on ⇒ 从**裁剪前全量**补回（可放开类别白名单之外的工具）', () => {
+    // 2026-11-21：归档集已清空（browser/computer_use 改为功能开关）⇒ 用**默认披露面之外**
+    // 的已知工具作样本（`clipboard` 属 assist，不在 DEFAULT_DISCLOSURE_TOOLS）。
+    const EXTRA = TOOL_NAME_CONSTANTS.clipboard;
+    const all: ToolLike[] = [...ALL_TOOLS, { function: { name: EXTRA } }];
+    const kept = filterToolsByTask(all, 'default');
+    expect(namesOf(kept)).not.toContain(EXTRA);
 
     const out = applyToolVisibilityOverrides(
       kept,
-      ALL_TOOLS,
-      override(...archived.map((n) => [n, 'on'] as [string, 'on']))
+      all,
+      override([EXTRA, 'on'])
     );
-    for (const name of archived) expect(namesOf(out)).toContain(name);
+    expect(namesOf(out)).toContain(EXTRA);
   });
 
   it('on 的补回位置取自全量顺序（结果稳定、可 diff）', () => {
@@ -220,16 +222,38 @@ describe('P2 报表同源：effective 与 reasons 随同一份覆写变化', () 
     expect(entry.reasons).toContain('user-off');
   });
 
-  it('on（归档）⇒ effective=visible + user-on-bypass', () => {
-    const entry = entryOf(
-      resolveToolVisibilityReport({
-        overrides: override(['computer_use', 'on']),
-      }),
-      'computer_use'
-    );
-    expect(entry.visibleByDefault).toBe(false);
-    expect(entry.effective).toBe('visible');
-    expect(entry.reasons).toContain('user-on-bypass');
+  it('on 对「功能开关关闭」无效 ⇒ 仍 hidden + feature-gate-off（总闸优先）', () => {
+    const prev = process.env.FEATURE_COMPUTER_USE;
+    delete process.env.FEATURE_COMPUTER_USE;
+    try {
+      const entry = entryOf(
+        resolveToolVisibilityReport({
+          overrides: override(['computer_use', 'on']),
+        }),
+        'computer_use'
+      );
+      expect(entry.visibleByDefault).toBe(false);
+      expect(entry.effective).toBe('hidden');
+      expect(entry.reasons).toContain('feature-gate-off');
+      expect(entry.reasons).not.toContain('user-on-bypass');
+    } finally {
+      if (prev === undefined) delete process.env.FEATURE_COMPUTER_USE;
+      else process.env.FEATURE_COMPUTER_USE = prev;
+    }
+  });
+
+  it('开关打开后默认即披露（无需 on 覆写）', () => {
+    const prev = process.env.FEATURE_COMPUTER_USE;
+    process.env.FEATURE_COMPUTER_USE = 'true';
+    try {
+      const entry = entryOf(resolveToolVisibilityReport({}), 'computer_use');
+      expect(entry.visibleByDefault).toBe(true);
+      expect(entry.effective).toBe('visible');
+      expect(entry.reasons).not.toContain('feature-gate-off');
+    } finally {
+      if (prev === undefined) delete process.env.FEATURE_COMPUTER_USE;
+      else process.env.FEATURE_COMPUTER_USE = prev;
+    }
   });
 
   it('on 对「未进生成物」无效 ⇒ 仍 hidden（不凭空实例化，不给假承诺）', () => {

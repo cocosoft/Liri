@@ -43,7 +43,7 @@ export interface VariantSpec {
   /** 编译期裁剪（`bun build --feature=NAME`；必须 `DROP_` 前缀） */
   buildFeatures: readonly string[];
   /**
-   * 工具面是否收敛为 **7 项下限**（生成 `CORE_MINIMAL`）。
+   * 工具面是否收敛为 **8 项下限**（生成 `CORE_MINIMAL`；C4 起含 `tool_search`）。
    * 仅 `core` 为 true；装配点在 `tools/utils/ToolManagerUtils.ts`（工具实现内部不自审）。
    */
   minimalToolSurface: boolean;

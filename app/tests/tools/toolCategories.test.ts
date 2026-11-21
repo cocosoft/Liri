@@ -274,15 +274,31 @@ describe('toolCategories — P0 工具可见性回归', () => {
     expect(filterToolsByTask(defs, 'local').map((t) => t.name)).toEqual([]);
   });
 
-  test('N-44: misc 仍会被裁（browser / computer_use 未开放，行为不变）', () => {
-    expect(getToolCategory('browser')).toBe('misc');
-    expect(getToolCategory('computer_use')).toBe('misc');
-    expect(
-      filterToolsByTask(
-        [{ name: 'browser' }, { name: 'computer_use' }],
-        'default'
-      )
-    ).toHaveLength(0);
+  test('2026-11-21: browser / computer_use 已解除归档，默认披露面由功能开关控制', () => {
+    // 方案：browser-use-and-computer-use-completion.md P1/P2 —— 从 ARCHIVED_MISC_TOOLS 移出，
+    // 类别改为 network / desktop；默认可见性由 BROWSER / COMPUTER_USE 开关决定（默认 false）。
+    expect(getToolCategory('browser')).toBe('network');
+    expect(getToolCategory('computer_use')).toBe('desktop');
+
+    const defs = [{ name: 'browser' }, { name: 'computer_use' }];
+    const prevBrowser = process.env.FEATURE_BROWSER;
+    const prevComputerUse = process.env.FEATURE_COMPUTER_USE;
+    try {
+      delete process.env.FEATURE_BROWSER;
+      delete process.env.FEATURE_COMPUTER_USE;
+      // 开关关闭 ⇒ 默认面不披露（披露预算基线不变）
+      expect(filterToolsByTask(defs, 'default')).toHaveLength(0);
+      // 开关打开 ⇒ 下一轮即可见（无需重启）
+      process.env.FEATURE_BROWSER = 'true';
+      process.env.FEATURE_COMPUTER_USE = 'true';
+      expect(filterToolsByTask(defs, 'default')).toHaveLength(2);
+    } finally {
+      if (prevBrowser === undefined) delete process.env.FEATURE_BROWSER;
+      else process.env.FEATURE_BROWSER = prevBrowser;
+      if (prevComputerUse === undefined)
+        delete process.env.FEATURE_COMPUTER_USE;
+      else process.env.FEATURE_COMPUTER_USE = prevComputerUse;
+    }
   });
 
   test('N-44 扩展: mcp 类别已纳入 coding / agent 任务集', () => {

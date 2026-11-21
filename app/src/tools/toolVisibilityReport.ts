@@ -52,7 +52,6 @@
 
 import {
   ARCHIVED_MISC_TOOLS,
-  TASK_TOOL_CATEGORIES,
   filterToolsByTask,
   getTaskToolCategories,
   getToolCategory,
@@ -60,6 +59,11 @@ import {
   isOutsideDefaultDisclosure,
 } from './toolCategories';
 import type { ToolCategory } from './toolCategories';
+import { getCoreToolNames } from './toolSurfaceProfile';
+import type { ToolSurfaceProfile } from './toolSurfaceProfile';
+import { getRuntimeToolMeta, listRuntimeToolNames } from './runtimeToolMeta';
+// 2026-11-21：功能开关（browser / computer_use）关闭时报表必须给 `feature-gate-off`
+import { isToolEnabledByGate } from './toolFeatureGate';
 import {
   LEGACY_ALIAS_TOOL_NAMES,
   TOOL_NAME_CONSTANTS,
@@ -68,7 +72,10 @@ import type { ToolVisibilityOverrides } from './toolVisibilityOverrides';
 import { deriveFromLegacyEffects } from './toolCapability';
 import { resolveToolEffect } from './toolEffects';
 import { TOOL_NAMES } from '@openliri/infra/constants/toolNames.generated';
-import type { ToolRiskLevel } from '@openliri/infra/utils/toolContract/Tool';
+import type {
+  ToolRiskClass,
+  ToolRiskLevel,
+} from '@openliri/infra/utils/toolContract/Tool';
 import type {
   SharedToolVisibilityReason,
   SharedShadowToolDisposition,
@@ -132,8 +139,24 @@ export interface ToolVisibilityReport {
   description?: string;
 }
 
+/** 运行期 `riskClass` → 报表展示档位（`ToolRiskClass` 共六值；`discuss` 视为只读讨论） */
+const RISK_LEVEL_OF_CLASS: Readonly<
+  Record<ToolRiskClass, ToolRiskLevel | 'unknown'>
+> = {
+  read: 'low',
+  discuss: 'low',
+  write: 'medium',
+  shell: 'high',
+  external: 'high',
+  undeclared: 'unknown',
+};
+
 /** 由既有声明派生风险级别（**纯函数**；输入为 `TOOL_EFFECTS`，无实例化） */
 function deriveRiskOf(name: string): ToolRiskLevel | 'unknown' {
+  // C3（2026-11-21）：运行期工具（插件 / 模块）无 `TOOL_EFFECTS` 条目 ⇒ 用其声明的
+  // `riskClass` 映射展示档位；未声明 ⇒ `unknown`（未评估，不谎报高风险）
+  const declared = getRuntimeToolMeta(name)?.riskClass;
+  if (declared) return RISK_LEVEL_OF_CLASS[declared];
   const effect = resolveToolEffect(name);
   // PR-4：未声明效果（= 未接线的 conditional）⇒ 未评估，不再兜底 high
   if (!effect) return 'unknown';
@@ -155,6 +178,12 @@ export interface ResolveToolVisibilityOptions {
    * 缺省 / 空表 ⇒ `effective` 恒等于 `visibleByDefault`（P1 语义不变）。
    */
   overrides?: ToolVisibilityOverrides;
+  /**
+   * C2（2026-11-21）：运行时工具面档位（`settings.toolSurface`）。缺省 `standard` ⇒ 与改动前一致。
+   * - `minimal` ⇒ 可见性一律按 **L0 核心集**判定（不看任务白名单），其余给 `not-in-minimal-surface`；
+   * - `full` ⇒ 判定时忽略默认披露白名单（任务类别仍生效）。
+   */
+  surface?: ToolSurfaceProfile;
 }
 
 /** P1：alias-only 旧名集合（报表排除它们；见 `resolveToolVisibilityReport` 注释） */
@@ -176,16 +205,31 @@ export function resolveToolVisibilityReport(
   for (const c of options.extraCategories ?? []) allowed.add(c);
   const registered = new Set<string>(TOOL_NAMES);
   const extraCategories = options.extraCategories ?? [];
+  const surface: ToolSurfaceProfile = options.surface ?? 'standard';
+  // `minimal`：可见性只看 L0 核心集（与 `selectToolsForTurn` 同源，避免第二套口径）
+  const coreNames =
+    surface === 'minimal' ? new Set(getCoreToolNames()) : undefined;
+
+  // C3（2026-11-21）：名字域 = 编译期常量表 ∪ **运行期登记**（插件 / 模块工具）。
+  // 不并进来 ⇒ 装好的插件在设置页完全不出现（"注册了但报表看不见"，与 N-44 同族）。
+  const nameDomain = [
+    ...new Set<string>([
+      ...Object.values(TOOL_NAME_CONSTANTS),
+      ...listRuntimeToolNames(),
+    ]),
+  ];
 
   return (
-    Object.values(TOOL_NAME_CONSTANTS)
+    nameDomain
       // P1（2026-10-30，工具族合并）：**alias-only 旧名不进报表** —— 它们不是"待处置的影子工具"，
       // 而是合并工具的可解析别名（`vfs` 的 `read_vfs` 等）；报表服务设置页的"工具开关"，
       // 展示一个"点了也没用的旧名"只会误导（`conditional` ⇒ 覆写 `on` 也无力）。
       .filter((name) => !LEGACY_ALIAS_TOOL_NAME_SET.has(name))
       .map<ToolVisibilityReport>((name) => {
         const category = getToolCategory(name);
-        const conditional = !registered.has(name);
+        // C3：运行期登记的工具**不是** conditional（它们真实存在于注册表，只是不在生成物里）
+        const conditional =
+          !registered.has(name) && getRuntimeToolMeta(name) === undefined;
         const reasons: ToolVisibilityReason[] = [];
 
         // I-4（2026-10-18）：可见性**单一判定内核** = `filterToolsByTask`（真实裁剪同源）；
@@ -193,22 +237,41 @@ export function resolveToolVisibilityReport(
         if (isMandatoryTool(name)) {
           // 恒保留：即使类别不在白名单（如 todo_write 属 'task'）也仍可见
           reasons.push('mandatory');
+          // `minimal` 下恒集**不在**核心面（如 AGENT 开启时的 `agent`）⇒ 另给可见性原因
+          if (coreNames && !coreNames.has(name)) {
+            reasons.push('not-in-minimal-surface');
+          }
         } else if (ARCHIVED_MISC_TOOLS.has(name)) {
           reasons.push('archived');
+        } else if (coreNames) {
+          // C2 `minimal`：不看任务白名单，只看 L0 核心集
+          if (!coreNames.has(name)) reasons.push('not-in-minimal-surface');
         } else if (category === 'misc') {
           reasons.push('unregistered-category');
         } else if (!allowed.has(category)) {
           reasons.push('not-in-task-whitelist');
         } else if (
+          surface === 'standard' &&
           isOutsideDefaultDisclosure(name, options.taskType, extraCategories)
         ) {
           // AC-16（P4，2026-10-28）：类别命中却被**默认披露面白名单**收窄 ⇒ 如实给出原因
           // （否则该工具 hidden 但 reasons 为空，违反"hidden 必带原因"的界面契约）
           reasons.push('not-in-default-disclosure');
         }
-        let visible =
-          filterToolsByTask([{ name }], options.taskType, [...extraCategories])
-            .length === 1;
+        let visible = coreNames
+          ? coreNames.has(name)
+          : filterToolsByTask(
+              [{ name }],
+              options.taskType,
+              [...extraCategories],
+              { skipDefaultDisclosure: surface === 'full' }
+            ).length === 1;
+        // 2026-11-21：功能开关关闭 ⇒ 一律不可见（能力级总闸；用户 `on` 覆写也不得绕过）
+        const gatedOff = !isToolEnabledByGate(name);
+        if (gatedOff) {
+          visible = false;
+          reasons.push('feature-gate-off');
+        }
         // 未进生成物 ⇒ 无论类别是否命中白名单，**都不会出现在工具清单里**
         if (conditional) {
           visible = false;
@@ -223,7 +286,7 @@ export function resolveToolVisibilityReport(
         if (override === 'off') {
           effective = false;
           reasons.push('user-off');
-        } else if (override === 'on' && !conditional) {
+        } else if (override === 'on' && !conditional && !gatedOff) {
           effective = true;
           if (!visible) reasons.push('user-on-bypass');
         }
@@ -272,12 +335,7 @@ export function attachToolDescriptions(
  * 把任意字符串**校验**为合法 `ToolCategory`（HTTP 入参用：只放行真实存在的类别，
  * 避免"任意字符串被塞进白名单 ⇒ 报表谎报可见"）。
  *
- * 合法集**派生**自 `TASK_TOOL_CATEGORIES` 的全部取值（不手写清单）。
+ * C3（2026-11-21）：实现已迁至 `toolCategories.ts`（插件声明校验共用同一判据）；
+ * 此处保留转发，既有 `@modules/tools` 消费者与测试零改动。
  */
-export function isKnownToolCategory(value: string): value is ToolCategory {
-  return KNOWN_TOOL_CATEGORIES.has(value);
-}
-
-const KNOWN_TOOL_CATEGORIES: ReadonlySet<string> = new Set<string>(
-  Object.values(TASK_TOOL_CATEGORIES).flat()
-);
+export { isKnownToolCategory } from './toolCategories';

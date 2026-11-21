@@ -1,12 +1,15 @@
 /**
  * core 变体工具面（P1，2026-10-20）
  *
- * 目标：`CORE_MINIMAL` 开启时，**装配点**把工具面收敛为 7 项下限
- * （bash / file_read / file_write / file_edit / grep / glob / ask_user_question）。
+ * 目标：`CORE_MINIMAL` 开启时，**装配点**把工具面收敛为 8 项下限
+ * （bash / file_read / file_write / file_edit / grep / glob / ask_user_question / tool_search）。
+ *
+ * C4（2026-11-21）：原 7 项**缺 `tool_search`** ⇒ 未下发的工具在 core 变体下永久不可达；
+ * 现补为 8（仍**不含** `todo_write` —— 那是运行时 `minimal` 档的第 9 项）。
  *
  * 三条锁：
  *   ① 默认（非 core）**零行为变更** —— 工具面不收敛；
- *   ② `CORE_MINIMAL=true` ⇒ 恰好 7 个工具（不多不少）；
+ *   ② `CORE_MINIMAL=true` ⇒ 恰好 8 个工具（不多不少）；
  *   ③ **全量视图**（`getAllBuiltinToolLoaders`，供 `gen-tool-names` 与门禁）不受开关影响
  *      —— 否则生成物会随变体漂移。
  */
@@ -19,7 +22,7 @@ import {
   loadTools,
 } from '../../src/tools/utils/ToolManagerUtils';
 
-/** core 的 7 项下限（唯一口径见 ToolManagerUtils 的 CORE_MINIMAL_TOOL_KEYS） */
+/** core 的 8 项下限（唯一口径见 ToolManagerUtils 的 CORE_MINIMAL_TOOL_KEYS） */
 const CORE_TOOL_NAMES = [
   'ask_user_question',
   'bash',
@@ -28,6 +31,7 @@ const CORE_TOOL_NAMES = [
   'file_write',
   'glob',
   'grep',
+  'tool_search',
 ].sort();
 
 const ENV_KEYS = ['FEATURE_CORE_MINIMAL'] as const;
@@ -61,7 +65,7 @@ describe('core 变体工具面（CORE_MINIMAL）', () => {
     expect(names.length).toBeGreaterThan(CORE_TOOL_NAMES.length);
   });
 
-  it('CORE_MINIMAL 开 ⇒ 恰好 7 个工具', () => {
+  it('CORE_MINIMAL 开 ⇒ 恰好 8 个工具（含 tool_search 发现入口）', () => {
     process.env.FEATURE_CORE_MINIMAL = 'true';
     expect(loadedNames()).toEqual(CORE_TOOL_NAMES);
   });

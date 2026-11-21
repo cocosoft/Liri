@@ -29,9 +29,8 @@ import { randomUUID } from 'crypto';
 import { globalEventBus, SystemEvents } from '@openliri/kernel/events/EventBus';
 import { getVideoTaskPersistence } from './VideoTaskPersistence';
 import { getImageSafetyFilter } from '../ImageGenerateTool/ImageSafetyFilter';
-import { writeFileSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
-import { resolveTempDir } from '@openliri/infra/environment';
+// 2026-11-21（C5 媒体实现统一）：临时文件改走 infra TempMediaManager（不再手写 mkdir/write）
+import { tempMediaManager } from '@openliri/infra/media/temp/TempMediaManager';
 
 const logger = getLogger('tools:videoGenerate');
 
@@ -750,8 +749,6 @@ export class VideoGenerateTool extends BaseTool {
       }
 
       const buffer = Buffer.from(await response.arrayBuffer());
-      const tempDir = resolveTempDir();
-      mkdirSync(tempDir, { recursive: true });
 
       const ext = response.headers.get('content-type')?.includes('png')
         ? '.png'
@@ -761,8 +758,14 @@ export class VideoGenerateTool extends BaseTool {
             ? '.webp'
             : '.png';
 
-      const tempPath = join(tempDir, `video-src-${randomUUID()}${ext}`);
-      writeFileSync(tempPath, buffer);
+      // 统一走 `TempMediaManager`：与非生成类媒体工具共用命名/清理策略（失败 ⇒ null）
+      const tempPath = tempMediaManager.writeFile('video-src', ext, buffer);
+      if (!tempPath) {
+        logger.warn('VideoGenerateTool . 临时文件写入失败（imageUrl 下载）', {
+          url: imageUrl.slice(0, 120),
+        });
+        return null;
+      }
 
       logger.info('VideoGenerateTool . imageUrl 下载完成', {
         path: tempPath,

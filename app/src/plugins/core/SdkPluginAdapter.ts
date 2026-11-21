@@ -25,8 +25,16 @@ import {
 } from '../api/KernelServiceRegistry';
 import { getServiceProviderPluginId } from '../utils/dependencyResolver';
 // T25-08 P1（2026-10-25）：声明 → Tool 的装配收敛为**唯一实现**（子进程宿主共用同一路径）
-import { buildRegisteredTool } from '../utils/toolRegistration';
+import {
+  buildRegisteredTool,
+  toRuntimeToolMeta,
+} from '../utils/toolRegistration';
 import { getToolRegistry } from '../../tools/ToolRegistry';
+// C3（2026-11-21）：插件工具的类别 / 包 / 风险登记（否则落 misc ⇒ 被静默裁剪）
+import {
+  registerRuntimeToolMeta,
+  unregisterRuntimeToolMeta,
+} from '../../tools/runtimeToolMeta';
 
 const logger = getLogger('plugins:core:sdkPluginAdapter');
 
@@ -221,9 +229,15 @@ export class SdkPluginAdapter {
 
     const registry = getToolRegistry();
     for (const registration of registrations) {
+      // 先注册工具（撞名会抛错）⇒ 成功后再登记元数据，避免"有元数据没工具"的残留
       registry.registerTool(
         buildRegisteredTool(registration, registration.execute),
         { onConflict: 'error' }
+      );
+      // C3：类别 / 包 / 风险与工具注册**同生命周期**（卸载时一并撤销）
+      registerRuntimeToolMeta(
+        registration.name,
+        toRuntimeToolMeta(plugin.id, registration)
       );
     }
     logger.info(
@@ -245,6 +259,8 @@ export class SdkPluginAdapter {
     const registry = getToolRegistry();
     for (const registration of registrations) {
       registry.unregisterTool(registration.name);
+      // C3：撤销元数据（否则报表 / 三态开关残留"已卸载工具"的条目）
+      unregisterRuntimeToolMeta(registration.name);
     }
     logger.info(
       `SDK plugin ${plugin.id} unregistered ${registrations.length} tools`

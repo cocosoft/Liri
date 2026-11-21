@@ -295,6 +295,7 @@ export class SessionAgentOps {
       attachToolDescriptions,
       isKnownToolCategory,
       readToolVisibilityOverrides,
+      readToolSurfaceProfile,
     } = await import('@modules/tools');
     const raw = query?.extraCategories ?? [];
     const extraCategories = raw.filter(isKnownToolCategory);
@@ -330,6 +331,9 @@ export class SessionAgentOps {
         // P2：报表与覆写**同源**（同一份 `settings.tools` 既驱动判定也驱动展示）；
         // 归一化由 `readToolVisibilityOverrides` 单实现承担（含未知名 / 非法值 / mandatory 的 off）。
         overrides: readToolVisibilityOverrides(),
+        // C2（2026-11-21）：报表与真实下发面同源 —— 设置页切到 minimal/full 后，
+        // 报表的"可见/隐藏"必须跟着变（否则用户看到的是标准档的解释）。
+        surface: readToolSurfaceProfile(),
       }),
       descriptions
     );

@@ -12,6 +12,26 @@
 import { buildTool } from '@modules/tools/types/Tool';
 import type { Tool, ToolParam } from '@modules/tools/types/Tool';
 import { createToolResult } from '@modules/tools/types/ToolResult';
+import { isKnownToolCategory } from '../../tools/toolCategories';
+import type { RuntimeToolMeta } from '../../tools/runtimeToolMeta';
+
+/** 插件可声明的风险类别（与 `ToolRegistration.riskClass` 同值；非法值一律丢弃） */
+export type PluginToolRiskClass =
+  | 'read'
+  | 'write'
+  | 'shell'
+  | 'external'
+  | 'discuss'
+  | 'undeclared';
+
+const RISK_CLASSES: ReadonlySet<string> = new Set<PluginToolRiskClass>([
+  'read',
+  'write',
+  'shell',
+  'external',
+  'discuss',
+  'undeclared',
+]);
 
 /** 插件工具声明（可序列化；不含 handler） */
 export interface PluginToolDeclaration {
@@ -19,6 +39,40 @@ export interface PluginToolDeclaration {
   description: string;
   /** JSON Schema properties 风格（与 SDK `ToolRegistration.parameters` 同形） */
   parameters?: Record<string, unknown>;
+  /** 工具类别（C3；缺省 / 非法 ⇒ `plugin`）；见 SDK `ToolRegistration.category` */
+  category?: string;
+  /** 归属包（缺省 = 插件 id） */
+  pack?: string;
+  /** 风险类别（缺省 / 非法 ⇒ 未声明 ⇒ 每次审批） */
+  riskClass?: PluginToolRiskClass;
+  /** 是否只读（缺省 = 未声明） */
+  readOnly?: boolean;
+}
+
+/**
+ * 声明 → **运行期元数据**（C3，2026-11-21）：类别 / 包 / 风险 / 只读。
+ *
+ * 安全默认（D6）：未声明类别 ⇒ `plugin`（**可见**，不是 `misc`）；未声明风险 ⇒ 不写
+ * `riskClass` ⇒ `deriveToolRiskClass` 判 `undeclared` ⇒ 每次审批（不静默放行）。
+ */
+export function toRuntimeToolMeta(
+  pluginId: string,
+  decl: PluginToolDeclaration
+): RuntimeToolMeta {
+  const category =
+    typeof decl.category === 'string' && isKnownToolCategory(decl.category)
+      ? decl.category
+      : 'plugin';
+  const riskClass =
+    typeof decl.riskClass === 'string' && RISK_CLASSES.has(decl.riskClass)
+      ? decl.riskClass
+      : undefined;
+  return {
+    category,
+    pack: typeof decl.pack === 'string' && decl.pack ? decl.pack : pluginId,
+    ...(riskClass ? { riskClass } : {}),
+    ...(typeof decl.readOnly === 'boolean' ? { readOnly: decl.readOnly } : {}),
+  };
 }
 
 /**
@@ -59,6 +113,12 @@ export function buildRegisteredTool(
     params: toToolParams(decl),
     isEnabled: () => true,
     isConcurrencySafe: () => true,
+    // C3（2026-11-21）：把声明的风险 / 只读透传给 `Tool` ⇒ `deriveToolRiskClass` 的既有
+    // 分支（静态声明优先）直接生效，**无需改风险引擎**。未声明 ⇒ 不写 ⇒ `undeclared`。
+    ...(decl.riskClass ? { riskClass: decl.riskClass } : {}),
+    ...(typeof decl.readOnly === 'boolean'
+      ? { isReadOnly: () => decl.readOnly === true }
+      : {}),
     execute: async (input: Record<string, unknown>) =>
       createToolResult(await run(input)),
   });

@@ -227,6 +227,20 @@ export interface ToolRegistration {
   parameters?: Record<string, unknown>;
   execute: (args: Record<string, unknown>) => Promise<unknown>;
   pluginId?: string;
+  /**
+   * 工具类别（C3，2026-11-21；决定任务面可见性）。
+   * 缺省 / 非法 ⇒ `plugin`（**可见**的安全默认，不是 `misc` —— 后者会被静默裁剪）。
+   */
+  category?: string;
+  /** 归属包（缺省 = 插件 id；供设置页分组） */
+  pack?: string;
+  /**
+   * 风险类别（缺省 ⇒ `undeclared` ⇒ 每次调用仍需审批，**不会**被静默放行）。
+   * 透传给 `Tool.riskClass`，由 `deriveToolRiskClass` 统一判定。
+   */
+  riskClass?: 'read' | 'write' | 'shell' | 'external' | 'discuss' | 'undeclared';
+  /** 是否只读（缺省 = 未声明；声明后才能享受只读放宽 / 并发豁免） */
+  readOnly?: boolean;
 }
 
 /** 插件清单（位于 package.json 的 "pyapp" 字段） */

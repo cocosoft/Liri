@@ -213,6 +213,8 @@ export {
   normalizeToolVisibilityOverrides,
   readToolVisibilityOverrides,
   applyToolVisibilityOverrides,
+  // C3（2026-11-21）：已知工具名判定（编译期常量表 ∪ 运行期登记）
+  isKnownToolName,
 } from './toolVisibilityOverrides';
 export type {
   ToolVisibilityOverrideValue,
@@ -413,6 +415,23 @@ export {
   getToolCategory,
 } from './toolCategories';
 export type { ToolCategory } from './toolCategories';
+// C2（2026-11-21，治理方案 v3 §14.1）：运行时工具面档位（minimal / standard / full）
+export {
+  TOOL_SURFACE_SETTINGS_KEY,
+  DEFAULT_TOOL_SURFACE_PROFILE,
+  normalizeToolSurfaceProfile,
+  readToolSurfaceProfile,
+  getCoreToolNames,
+} from './toolSurfaceProfile';
+export type { ToolSurfaceProfile } from './toolSurfaceProfile';
+// C3（2026-11-21，治理方案 v3 §14.3）：运行期工具元数据（插件 / 模块工具）
+export {
+  registerRuntimeToolMeta,
+  unregisterRuntimeToolMeta,
+  getRuntimeToolMeta,
+  listRuntimeToolNames,
+} from './runtimeToolMeta';
+export type { RuntimeToolMeta } from './runtimeToolMeta';
 // 2026-11-07（方案 §6.4 续）：会话级「tool_search 已发现工具」登记（内存 LRU，按会话隔离）
 export {
   clearAllDiscoveredTools,

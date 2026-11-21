@@ -55,6 +55,27 @@ interface ToolVisibilitySettingsResponse {
   value?: { overrides?: Record<string, unknown> };
 }
 
+/** 工具面档位（C2，2026-11-21；与后端 `toolSurfaceProfile.ts` 同名同值） */
+export type ToolSurfaceProfile = "minimal" | "standard" | "full";
+
+/** `GET /v1/settings/toolSurface` 的响应 —— 支持 `{ profile }` 与扁平字符串两种存法 */
+interface ToolSurfaceSettingsResponse {
+  namespace?: string;
+  value?: { profile?: unknown } | string;
+}
+
+function parseToolSurface(value: unknown): ToolSurfaceProfile {
+  const candidate =
+    typeof value === "string"
+      ? value
+      : typeof value === "object" && value !== null
+        ? (value as { profile?: unknown }).profile
+        : undefined;
+  return candidate === "minimal" || candidate === "full"
+    ? candidate
+    : "standard";
+}
+
 export const toolService = {
   list: (): Promise<Tool[]> => {
     return getOTelTracing().asyncWrap("services:tool:list", async () => {
@@ -177,6 +198,42 @@ export const toolService = {
       "services:tool:setVisibilityOverrides",
       async () => {
         await http.put(ENDPOINTS.settings.tools, { overrides });
+        return true;
+      },
+    );
+  },
+
+  /**
+   * 读**工具面档位**（C2，2026-11-21；`settings.toolSurface`）。
+   *
+   * 未配置 / 读取失败 ⇒ `standard`（= 现状默认面，与后端归一化同口径）。
+   */
+  getToolSurface: (): Promise<ToolSurfaceProfile> => {
+    return getOTelTracing().asyncWrap(
+      "services:tool:getToolSurface",
+      async () => {
+        try {
+          const res = await http.get<ToolSurfaceSettingsResponse>(
+            ENDPOINTS.settings.toolSurface,
+          );
+          return parseToolSurface(res?.value);
+        } catch (e) {
+          handleClientError(e, {
+            module: "services:tool",
+            action: "getToolSurface",
+          });
+          return "standard";
+        }
+      },
+    );
+  },
+
+  /** 写工具面档位（`PUT /v1/settings/toolSurface`；**下一轮对话即生效**，无需重启） */
+  setToolSurface: (profile: ToolSurfaceProfile): Promise<boolean> => {
+    return getOTelTracing().asyncWrap(
+      "services:tool:setToolSurface",
+      async () => {
+        await http.put(ENDPOINTS.settings.toolSurface, { profile });
         return true;
       },
     );

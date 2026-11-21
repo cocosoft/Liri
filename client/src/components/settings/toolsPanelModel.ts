@@ -55,7 +55,9 @@ export const TOOL_VISIBILITY_REASON_KEYS: Record<
   "unregistered-category": "settings.toolsReasonUnregisteredCategory",
   "not-in-task-whitelist": "settings.toolsReasonNotInTaskWhitelist",
   "not-in-default-disclosure": "settings.toolsReasonNotInDefaultDisclosure",
+  "not-in-minimal-surface": "settings.toolsReasonNotInMinimalSurface",
   conditional: "settings.toolsReasonConditional",
+  "feature-gate-off": "settings.toolsReasonFeatureGateOff",
   "user-off": "settings.toolsReasonUserOff",
   "user-on-bypass": "settings.toolsReasonUserOnBypass",
 };
@@ -72,7 +74,9 @@ export const TOOL_VISIBILITY_REASON_TONES: Record<
   "unregistered-category": "danger",
   "not-in-task-whitelist": "neutral",
   "not-in-default-disclosure": "neutral",
+  "not-in-minimal-surface": "neutral",
   conditional: "warn",
+  "feature-gate-off": "warn",
   "user-off": "danger",
   "user-on-bypass": "ok",
 };
@@ -80,10 +84,12 @@ export const TOOL_VISIBILITY_REASON_TONES: Record<
 /** 徽标优先级（I-4：每行只显示**一个主因**；`conditional` 最根本 —— 没接线比类别不在白名单更前置） */
 const PRIMARY_REASON_PRIORITY: readonly SharedToolVisibilityReason[] = [
   "conditional",
+  "feature-gate-off",
   "archived",
   "unregistered-category",
   "not-in-task-whitelist",
   "not-in-default-disclosure",
+  "not-in-minimal-surface",
   "user-off",
   "user-on-bypass",
   "mandatory",

@@ -50,12 +50,17 @@ vi.mock("react-i18next", () => ({
 const visibility = vi.fn();
 const getVisibilityOverrides = vi.fn();
 const setVisibilityOverrides = vi.fn();
+// C2（2026-11-21）：工具面档位（load() 会一并读取）
+const getToolSurface = vi.fn();
+const setToolSurface = vi.fn();
 
 vi.mock("../../../services/toolService", () => ({
   toolService: {
     visibility: (...a: unknown[]) => visibility(...a),
     getVisibilityOverrides: (...a: unknown[]) => getVisibilityOverrides(...a),
     setVisibilityOverrides: (...a: unknown[]) => setVisibilityOverrides(...a),
+    getToolSurface: (...a: unknown[]) => getToolSurface(...a),
+    setToolSurface: (...a: unknown[]) => setToolSurface(...a),
   },
 }));
 
@@ -105,6 +110,8 @@ beforeEach(() => {
   visibility.mockReset().mockResolvedValue(REPORTS);
   getVisibilityOverrides.mockReset().mockResolvedValue({});
   setVisibilityOverrides.mockReset().mockResolvedValue(true);
+  getToolSurface.mockReset().mockResolvedValue("standard");
+  setToolSurface.mockReset().mockResolvedValue(true);
 });
 
 describe("ToolsPanel：报表渲染（解释「为什么不可见」）", () => {
@@ -160,6 +167,33 @@ describe("ToolsPanel：报表渲染（解释「为什么不可见」）", () => 
       ).toBeDefined();
     });
     expect(screen.queryByText("file_read")).toBeNull();
+  });
+});
+
+describe("ToolsPanel：工具面档位（C2，写 settings.toolSurface）", () => {
+  it("读取当前档位并按选中态渲染三档选择器", async () => {
+    getToolSurface.mockResolvedValue("minimal");
+    render(<ToolsPanel isDark={false} />);
+    await waitFor(() => expect(screen.getByText("file_read")).toBeDefined());
+    expect(
+      screen.getByRole("button", { name: "精简" }).getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(
+      screen.getByRole("button", { name: "标准" }).getAttribute("aria-pressed"),
+    ).toBe("false");
+  });
+
+  it("切换档位 ⇒ 写 settings.toolSurface 并重拉报表（下一轮生效）", async () => {
+    render(<ToolsPanel isDark={false} />);
+    await waitFor(() => expect(screen.getByText("file_read")).toBeDefined());
+    const before = visibility.mock.calls.length;
+
+    fireEvent.click(screen.getByRole("button", { name: "全量" }));
+
+    await waitFor(() => {
+      expect(setToolSurface).toHaveBeenCalledWith("full");
+      expect(visibility.mock.calls.length).toBeGreaterThan(before);
+    });
   });
 });
 

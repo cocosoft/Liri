@@ -19,7 +19,9 @@ import {
   resolveToolProfileCategories,
   applyToolVisibilityOverrides,
   isBlockedForUntrustedOrigin,
+  getCoreToolNames,
   type ToolCategory,
+  type ToolSurfaceProfile,
   type ToolVisibilityOverrides,
 } from '@modules/tools';
 import type { ToolDefinition } from '@modules/ai';
@@ -76,6 +78,16 @@ export interface ToolSelectionInput {
    * 使「可见 == 可执行」。缺省 / `false` ⇒ 零行为变更。
    */
   untrustedOrigin?: boolean;
+  /**
+   * C2（2026-11-21，治理方案 v3 §14.1）：**运行时工具面档位**（`settings.toolSurface`）。
+   *
+   * - 缺省 / `'standard'` ⇒ 逐字等于改动前（D5：合入即零行为变更）；
+   * - `'minimal'` ⇒ 只保留 L0 核心（`getCoreToolNames()`）∪ 用户 `on` ∪ 已发现，
+   *   **跳过** `filterToolsByTask`（任务裁剪会让核心面随 taskType 漂移；`AGENT` 开启时
+   *   恒集还会把 `agent` 捎进来，压不到 9）；
+   * - `'full'` ⇒ 现有链路 + **忽略默认披露白名单**（任务类别与严格预算仍生效）。
+   */
+  surface?: ToolSurfaceProfile;
 }
 
 export interface ToolSelectionResult {
@@ -169,20 +181,38 @@ export function selectToolsForTurn(
   // 语义与其测试零改动；`on` 从 `tools`（**裁剪前全量**）补回 ⇒ 可放开类别白名单之外的工具。
   // ⚠️ 重放路径（`forcedVisibleTools`）**不叠加**覆写：重放工具面须恒等于落盘快照
   //（方案 R6 / `✅-4`；否则运行期改设置会让历史重放分叉）。
-  const filteredTools =
-    input.forcedVisibleTools !== undefined
-      ? tools.filter((t) =>
-          input.forcedVisibleTools?.includes(t.function?.name ?? '')
-        )
-      : appendDiscoveredTools(
-          applyToolVisibilityOverrides(
-            filterToolsByTask(tools, taskType, extraCategories),
-            tools,
-            input.overrides ?? {}
-          ),
-          tools,
-          input.discoveredToolNames ?? []
-        );
+  const surface = input.surface ?? 'standard';
+  /** 覆写（`on` 补回 / `off` 移除）→ 追加已发现工具（顺序与既有链路一致） */
+  const applyOverridesAndDiscovered = (
+    kept: ToolDefinition[]
+  ): ToolDefinition[] =>
+    appendDiscoveredTools(
+      applyToolVisibilityOverrides(kept, tools, input.overrides ?? {}),
+      tools,
+      input.discoveredToolNames ?? []
+    );
+
+  let filteredTools: ToolDefinition[];
+  if (input.forcedVisibleTools !== undefined) {
+    // 重放分支：工具面恒等于落盘快照（`✅-4` R6）—— profile / 覆写 / 发现一律不叠加。
+    filteredTools = tools.filter((t) =>
+      input.forcedVisibleTools?.includes(t.function?.name ?? '')
+    );
+  } else if (surface === 'minimal') {
+    // C2：恒定核心面（跳过任务裁剪与恒集 ⇒ 可预测、可门禁）。
+    // 覆写层仍生效：用户 `on` 可把任意已注册工具拉进核心面（显式意图优先），`off` 可移除。
+    const coreNames = new Set(getCoreToolNames());
+    filteredTools = applyOverridesAndDiscovered(
+      tools.filter((t) => coreNames.has(t.function?.name ?? ''))
+    );
+  } else {
+    filteredTools = applyOverridesAndDiscovered(
+      filterToolsByTask(tools, taskType, extraCategories, {
+        // `full`：只放开默认披露收窄；任务类别与严格预算照旧（治理方案 §14.1）
+        skipDefaultDisclosure: surface === 'full',
+      })
+    );
+  }
   // T25-07 可见面收敛（2026-11-10）：执行层会拒绝渠道会话的副作用工具 ⇒ 可见面同口径收敛，
   // 避免模型反复尝试被拒工具（连续失败 ⇒ 断路器 ⇒ 整轮判失败）。判据复用 `tools/toolEffects.ts`
   // 的**唯一事实源**，与 `ToolExecutionService` 逐条一致；不受 `tool_search` 补回影响（后置过滤）。

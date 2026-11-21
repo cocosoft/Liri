@@ -39,6 +39,9 @@ const USER_CONFIG_KEYS: Readonly<Partial<Record<FeatureFlag, string>>> = {
   PLAN_STARTUP_RESUME: 'planStartupResume',
   PLAN_SYSTEM_RESUME: 'planSystemResume',
   GOAL_STARTUP_RESUME: 'goalStartupResume',
+  // 2026-11-21（browser/computer use 补齐）：两个高风险 GUI 工具改为用户可配（默认 false）
+  BROWSER: 'browser',
+  COMPUTER_USE: 'computerUse',
 };
 
 /** 用户设置的读取器（测试可注入） */
@@ -74,4 +77,23 @@ export function resolveFeatureGate(
   const userValue = readUserValue(flag);
   if (userValue !== undefined) return userValue;
   return feature(flag);
+}
+
+/**
+ * 解析「**默认关**、仅显式开启才生效」的开关（2026-11-21，browser / computer use）。
+ *
+ * 与 {@link resolveFeatureGate} 的唯一差别：**不读 `feature()` 的变体/静态默认**。
+ * 动机（方案 D5）：这两个工具属高风险 GUI 能力，必须"默认关、用户显式开启"；
+ * 而 coding 变体矩阵历史上把 `BROWSER` 设为 true（当时工具被归档，等于无效配置）——
+ * 若沿用 `feature()`，开发/编码构建里会**默认可见**，与验收"关闭 flag ⇒ 不含该工具"冲突。
+ *
+ * 优先级：`FEATURE_<name>` env > 用户设置 > **false**（无变体默认）。
+ */
+export function resolveOptInFeatureGate(
+  flag: FeatureFlag,
+  readUserValue: UserFeatureReader = readUserFeatureValue
+): boolean {
+  const env = process.env[`FEATURE_${flag}`];
+  if (env !== undefined) return env === 'true' || env === '1';
+  return readUserValue(flag) === true;
 }

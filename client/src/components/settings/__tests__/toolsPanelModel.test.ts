@@ -200,12 +200,16 @@ describe("P3 原因穷尽映射", () => {
     "unregistered-category",
     "not-in-task-whitelist",
     "not-in-default-disclosure",
+    // C2（2026-11-21）：工具面 minimal 档
+    "not-in-minimal-surface",
     "conditional",
+    // 2026-11-21（browser / computer_use 补齐）：能力级总闸关闭
+    "feature-gate-off",
     "user-off",
     "user-on-bypass",
   ];
 
-  it("8 个原因各有文案键与色调（均以 settings. 起头）", () => {
+  it("10 个原因各有文案键与色调（均以 settings. 起头）", () => {
     expect(Object.keys(TOOL_VISIBILITY_REASON_KEYS).sort()).toEqual(
       [...ALL_REASONS].sort(),
     );

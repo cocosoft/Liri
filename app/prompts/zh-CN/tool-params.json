@@ -4,7 +4,7 @@
   "generatedBy": "app/scripts/export-tool-params.ts",
   "counts": {
     "tools": 69,
-    "params": 372
+    "params": 379
   },
   "params": {
     "agent.allowedTools": "逗号分隔的工具名，表示子代理允许使用哪些工具。若为空，则所有工具均可用。",
@@ -45,8 +45,11 @@
     "broadcast.channel": "目标通道名称（send/home/thread 时必填）",
     "broadcast.message": "要发送的消息内容",
     "broadcast.threadId": "话题回复的话题 ID（action=thread 时必填）",
-    "browser.action": "要执行的操作：open_tab、click、fill_form、navigate、screenshot、get_tabs",
+    "browser.action": "要执行的操作：open_tab、click、fill_form、navigate、screenshot、get_tabs、get_content、back、reload、close",
+    "browser.analyze": "screenshot 是否顺带做视觉分析（默认 false ⇒ 只返回截图文件路径，不返回 base64）",
     "browser.form_data": "fill_form 操作的表单数据",
+    "browser.full_page": "screenshot 是否整页（默认 false）",
+    "browser.max_chars": "get_content 的正文截断上限（字符，默认 8000）",
     "browser.selector": "click 或 fill_form 操作的 CSS 选择器",
     "browser.tab_id": "针对特定标签页操作的标签页 ID",
     "browser.text": "fill_form 操作的文本",
@@ -74,6 +77,7 @@
     "code_run.language": "语言（默认：ts）",
     "code_run.round": "轮次标记（仅用于日志，无状态）",
     "computer_use.action": "The action to perform on the desktop",
+    "computer_use.analyze": "For screenshot/zoom: also analyze the image with the vision model (default false ⇒ return file path + size only, no base64).",
     "computer_use.button": "Mouse button for click actions (default: left)",
     "computer_use.deltaX": "Horizontal scroll amount (for mouseScroll)",
     "computer_use.deltaY": "Vertical scroll amount (for mouseScroll)",
@@ -153,6 +157,9 @@
     "image.outputPath": "Path for the output image file",
     "image.quality": "Output quality (1-100) for JPEG/WebP formats",
     "image.saturation": "Saturation multiplier (1.0 = unchanged)",
+    "image.watermarkColor": "Watermark font color (e.g. rgba(255,255,255,0.5))",
+    "image.watermarkFontSize": "Watermark font size in pixels",
+    "image.watermarkOpacity": "Watermark text opacity 0-1",
     "image.watermarkPosition": "Watermark position",
     "image.watermarkText": "Watermark text",
     "image.width": "Target width for resize/crop action",

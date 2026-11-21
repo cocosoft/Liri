@@ -12,7 +12,8 @@ import * as path from 'path';
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 
-import { FFmpegWrapper } from '@openliri/infra/media/ffmpeg/FFmpegWrapper';
+// 2026-11-21（C5 媒体实现统一）：与 media 面共用 infra 单例（不再自建实例）
+import { ffmpegWrapper } from '@openliri/infra/media/ffmpeg/FFmpegWrapper';
 
 import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:MusicTool:MusicTool');
@@ -45,8 +46,6 @@ export interface MusicEditOutput {
   codec?: string;
   bitrate?: string;
 }
-
-const ffmpeg = new FFmpegWrapper();
 
 /**
  * U-03（2026-10-19）：`music` 的**模型可见出参结构**（JSON Schema），
@@ -196,7 +195,7 @@ export class MusicTool extends BaseTool {
       ffmpegArgs.push('-b:a', params.bitrate);
     }
 
-    const result = await ffmpeg.run({
+    const result = await ffmpegWrapper.run({
       input: params.inputPath,
       output: outputPath,
       args: ffmpegArgs,
@@ -234,7 +233,7 @@ export class MusicTool extends BaseTool {
    * 获取音频信息
    */
   private async handleInfo(params: MusicEditInput): Promise<ToolResult> {
-    const probing = await ffmpeg.probe(params.inputPath);
+    const probing = await ffmpegWrapper.probe(params.inputPath);
 
     if (!probing) {
       return {
@@ -297,7 +296,7 @@ export class MusicTool extends BaseTool {
     }
     ffmpegArgs.push('-c', 'copy');
 
-    const result = await ffmpeg.run({
+    const result = await ffmpegWrapper.run({
       input: params.inputPath,
       output: outputPath,
       args: ffmpegArgs,
@@ -348,7 +347,7 @@ export class MusicTool extends BaseTool {
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 
     const ffmpegArgs = ['-af', `volume=${params.volume}`];
-    const result = await ffmpeg.run({
+    const result = await ffmpegWrapper.run({
       input: params.inputPath,
       output: outputPath,
       args: ffmpegArgs,

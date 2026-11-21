@@ -15,12 +15,16 @@
  */
 
 import { toWireToolName } from './toolNameCodec';
+// 2026-11-21：受功能开关约束的工具（browser / computer_use）在"默认披露面"处按开关动态判定
+import { isToolEnabledByGate, resolveToolFeatureGate } from './toolFeatureGate';
 import type {
   LegacyAliasToolName,
   ToolNameConstant,
 } from './toolNameConstants';
 import { getLogger } from '@openliri/infra/monitoring';
 import { feature } from '@openliri/kernel';
+// C3（2026-11-21）：运行期工具元数据（插件 / 模块工具）—— 类别与已知名判定
+import { getRuntimeToolMeta } from './runtimeToolMeta';
 import type { FeatureFlag } from '@openliri/kernel';
 // 2026-11-16：用户可配门控（设置页可关）—— 只取叶子模块，不拉整个 query barrel
 import { resolveFeatureGate } from '@modules/query/featureGate';
@@ -54,6 +58,8 @@ export type ToolCategory =
   | 'knowledge' // 知识库（保存/搜索/写入/导入导出）
   | 'mcp' // MCP 三方工具（动态名 `${server}__${tool}`，无法预先登记）
   | 'assist' // 通用协作助手（计划/剪贴板/画布 —— 任何对话都可用）
+  | 'desktop' // 桌面自动化（截图/鼠标/键盘/窗口）—— 2026-11-21 从 misc 归档迁出
+  | 'plugin' // 第三方插件工具（C3，2026-11-21；未声明类别时的安全默认 —— **可见**，与 misc 相反）
   | 'misc'; // 未分类；⚠️ **不在任何任务白名单** ⇒ 会被裁剪（新增工具必须显式登记类别，见 N-44）
 
 /** 工具名 → 类别映射（覆盖运行时内置 + 模块注册工具；字面量键用于编译期完整性校验） */
@@ -90,7 +96,9 @@ const TOOL_CATEGORY_ENTRIES = {
   grep: 'search',
   web_search: 'search',
   tool_search: 'search',
-  search_codebase: 'search',
+  // C5（2026-11-21，CD01–CD04 取证）：`search_codebase` 是**死键** —— 不在
+  // `TOOL_NAME_CONSTANTS`、无 Tool 实现、无任何注册点（仅剩 ACP 放行表的同名残留，已同批清除）。
+  // 原登记只会让类别表出现"永不命中的名字"，易被误读为"有该工具但被裁"。
   // P1（2026-10-30）：`skill` / `skill_view` / `skills_list` 合并为 `skill`（op=run|view|list）
   // ⇒ 只登记真名；旧名是 alias（不进类别表，否则 `getRealToolNamesForTask` 会算出未注册名）。
   skill: 'search',
@@ -231,8 +239,11 @@ const TOOL_CATEGORY_ENTRIES = {
   tts: 'media',
 
   // ── misc 其他（⚠️ 不会被任何任务白名单保留 —— 仅作"已知但不默认开放"的归档） ──
-  browser: 'misc',
-  computer_use: 'misc',
+  // 2026-11-21（browser-use-and-computer-use-completion P1/P2）：两个工具已**解除归档** ——
+  // browser 归入既有 `network`（只读网络抓取），computer_use 归入新 `desktop`；
+  // 默认可见性由功能开关（`BROWSER` / `COMPUTER_USE`，默认 false）控制，不再靠 misc 类别静默裁剪。
+  browser: 'network',
+  computer_use: 'desktop',
 } as const satisfies Record<string, ToolCategory>;
 
 /**
@@ -293,12 +304,13 @@ export const ALL_BUILTIN_TOOLS_CATEGORIZED: MissingBuiltinToolCategory extends n
  *
  * 唯一事实源：`ARCHIVED_MISC_TOOLS`（守卫 `tests/tools/toolNameLists.test.ts` 据此断言
  * "misc 集合 == 本集合"，防止新工具被顺手扔进 `misc` 而静默消失）。
- * 新增到此集合必须有明确理由（如 `computer_use` 属高风险桌面自动化，暂不默认开放）。
+ * 新增到此集合必须有明确理由。
+ *
+ * 2026-11-21：`browser` / `computer_use` **已解除归档**（改为功能开关控制可见性，
+ * 见 browser-use-and-computer-use-completion.md P1/P2）⇒ 当前为空集；保留机制本身，
+ * 供未来需要"永久不可见"的工具使用。
  */
-export const ARCHIVED_MISC_TOOLS: ReadonlySet<string> = new Set([
-  'browser',
-  'computer_use',
-]);
+export const ARCHIVED_MISC_TOOLS: ReadonlySet<string> = new Set([]);
 
 /**
  * 未登记告警去重集（运行期兜底）。
@@ -350,6 +362,10 @@ for (const [name, category] of Object.entries(TOOL_CATEGORIES)) {
  */
 export function getToolCategory(toolName: string): ToolCategory {
   if (isDynamicToolName(toolName)) return 'mcp';
+  // C3（2026-11-21）：运行期登记（插件 / 模块工具）优先 —— 它们不在编译期表内，
+  // 不查这里会落 `misc` ⇒ 被任何任务白名单裁剪（"注册了但模型看不见"）。
+  const runtime = getRuntimeToolMeta(toolName);
+  if (runtime) return runtime.category;
   return TOOL_CATEGORIES[toolName] ?? WIRE_KEYED_CATEGORIES[toolName] ?? 'misc';
 }
 
@@ -403,6 +419,10 @@ export const TASK_TOOL_CATEGORIES: Record<string, ToolCategory[]> = {
     'mail',
     'mcp',
     'assist',
+    // 2026-11-21：桌面自动化（computer_use）—— 仅"可见"，仍受 COMPUTER_USE 开关约束
+    'desktop',
+    // C3（2026-11-21）：第三方插件工具（未声明类别时的安全默认；用户装插件即为显式意图）
+    'plugin',
   ],
   // 通用兜底（与 chat 一致，避免裁剪后无工具；含 shell，同 chat 的 2026-10-11 结论）
   default: [
@@ -421,6 +441,9 @@ export const TASK_TOOL_CATEGORIES: Record<string, ToolCategory[]> = {
     'mail',
     'mcp',
     'assist',
+    'desktop',
+    // C3（2026-11-21）：第三方插件工具（与 chat 同口径）
+    'plugin',
   ],
   // G-2（2026-10-18）：**远程 IM / Webhook 通道的最小工具面**（PoLP）。
   // 刻意**不含** `shell`（bash / powershell）与 `file`（file_write / file_edit / 写类）：
@@ -465,6 +488,8 @@ export const TASK_TOOL_CATEGORIES: Record<string, ToolCategory[]> = {
     // 在**编码/代理**任务下同样适用（模板多为开发/运维流程），此前只在 chat/default 可见。
     // ⚠️ 副作用（如实）：同类的 plan / clipboard / canvas 也随之在这些任务下可见。
     'assist',
+    // C3（2026-11-21）：第三方插件工具（编码/代理场景同样是主要使用场景）
+    'plugin',
   ],
   // 自主代理：编码全集 + 代理 + 会话 + MCP
   agent: [
@@ -482,6 +507,10 @@ export const TASK_TOOL_CATEGORIES: Record<string, ToolCategory[]> = {
     'mcp',
     // 2026-10-08（用户裁定）：同 coding（见上）。
     'assist',
+    // 2026-11-21：桌面自动化（受 COMPUTER_USE 开关约束）
+    'desktop',
+    // C3（2026-11-21）：第三方插件工具（与 coding 同口径）
+    'plugin',
   ],
   // 定时任务：任务管理 + 通知 + 系统
   scheduled: ['task', 'notify', 'system'],
@@ -651,6 +680,12 @@ export function isInDefaultDisclosure(
   toolName: string,
   platform: NodeJS.Platform = process.platform
 ): boolean {
+  // 2026-11-21：受功能开关约束的工具（browser / computer_use）属"**用户显式开启**才披露"。
+  // 开关关闭 ⇒ 不计入默认披露面（披露预算基线不变）；打开 ⇒ 下一轮直接进入默认面。
+  if (resolveToolFeatureGate(toolName)) return isToolEnabledByGate(toolName);
+  // C3（2026-11-21）：运行期登记的工具（插件 / 模块）属**用户显式安装**的显式能力声明
+  // ⇒ 不受"默认披露面白名单"收窄（与 `extraCategories` 同口径），否则装好的插件在 chat 下不可见。
+  if (getRuntimeToolMeta(toolName)) return true;
   if (DEFAULT_DISCLOSURE_TOOLS.has(toolName)) return true;
   return PLATFORM_DISCLOSURE_BY_PLATFORM[platform]?.has(toolName) ?? false;
 }
@@ -709,15 +744,38 @@ export type CapabilityPack =
   | 'collab'
   | 'schedule'
   | 'workspace'
-  | 'system_extra';
+  | 'system_extra'
+  // C1（2026-11-21，治理方案 v3 §14.2）：新增四包，**默认只在 full**（声明性，不改现状可见面）
+  | 'desktop'
+  | 'knowledge'
+  | 'web'
+  | 'code';
+
+/** 工具面 profile（包元数据的声明维度；运行时读取见 `tools/toolSurfaceProfile.ts`） */
+export type ToolPackProfile = 'minimal' | 'standard' | 'full';
 
 interface CapabilityPackSpec {
-  /** 开关（`feature()`；默认 false ⇒ 包内工具不下发） */
+  /** 用户/灰度的**总开关**（`feature()`）。默认开 ⇒ 是否下发仍由任务类别 + 下方元数据决定 */
   flag: FeatureFlag;
   /** 包内工具名（**真名**，非 wire 名；本包内均为无命名空间的内置名） */
   tools: readonly string[];
   /** 一句话说明（供日志 / 文档引用） */
   summary: string;
+  /**
+   * 该包在哪些 **profile** 下默认启用（声明性元数据，C1 只落数据、不接运行时判定）。
+   *
+   * ⚠️ 与 `flag` 是两个维度：`flag` 是"整包 kill-switch"，`defaultIn` 是"profile 默认成员"。
+   * 现有 8 包装机时全开（2026-11-05 起 `TOOL_PACK_*` 默认 true）⇒ `defaultIn` 只是台账口径。
+   */
+  defaultIn: readonly ToolPackProfile[];
+  /** 依赖包（被依赖包未开 ⇒ 本包内工具同样不应期望可用；C1 仅声明） */
+  requires?: readonly CapabilityPack[];
+  /** 平台专属包（`NodeJS.Platform`）。缺省 = 全平台 */
+  platform?: NodeJS.Platform;
+  /** 包级风险（设置页展示 / 默认开关建议；取包内**最高**风险的档） */
+  risk: 'high' | 'write' | 'read';
+  /** P4 物理拆包后的包名（当前全部为逻辑包 ⇒ 留空） */
+  physicalPackage?: string;
 }
 
 /**
@@ -734,6 +792,8 @@ export const CAPABILITY_PACKS: Readonly<
   media_image: {
     flag: 'TOOL_PACK_MEDIA_IMAGE',
     summary: '图像生成/分析/展示/SVG',
+    defaultIn: ['standard', 'full'],
+    risk: 'write',
     tools: [
       'image',
       'image_analysis',
@@ -744,28 +804,30 @@ export const CAPABILITY_PACKS: Readonly<
   },
   media_video: {
     flag: 'TOOL_PACK_MEDIA_VIDEO',
-    summary: '视频生成/分析/展示 + 浏览器视觉',
-    tools: [
-      'video',
-      'video_analysis',
-      'video_display',
-      'video_generate',
-      'browser_vision',
-    ],
+    summary: '视频生成/分析/展示（浏览器视觉已归 `desktop` 包）',
+    defaultIn: ['standard', 'full'],
+    risk: 'write',
+    tools: ['video', 'video_analysis', 'video_display', 'video_generate'],
   },
   media_audio: {
     flag: 'TOOL_PACK_MEDIA_AUDIO',
     summary: '音频播放 / 音乐 / TTS',
+    defaultIn: ['standard', 'full'],
+    risk: 'write',
     tools: ['audio_play', 'music', 'tts'],
   },
   doc_extra: {
     flag: 'TOOL_PACK_DOC_EXTRA',
     summary: '文档生成（pdf / file_convert 因有实测调用不在包内）',
+    defaultIn: ['standard', 'full'],
+    risk: 'write',
     tools: ['doc_generate'],
   },
   collab: {
     flag: 'TOOL_PACK_COLLAB',
     summary: '团队 / 消息 / 广播（channel 因有实测调用不在包内）',
+    defaultIn: ['standard', 'full'],
+    risk: 'write',
     tools: [
       'team_create',
       'team_delete',
@@ -777,24 +839,59 @@ export const CAPABILITY_PACKS: Readonly<
   schedule: {
     flag: 'TOOL_PACK_SCHEDULE',
     summary: '定时任务 / 睡眠 / 让出轮次（P1 后为合并名 cron / sleep）',
+    defaultIn: ['standard', 'full'],
+    risk: 'write',
     tools: ['cron', 'sleep', 'sessions_yield'],
   },
   workspace: {
     flag: 'TOOL_PACK_WORKSPACE',
     summary: '工作树 / 看板 / 建项目 / 存会话（P1 后 worktree 为合并名）',
+    defaultIn: ['standard', 'full'],
+    risk: 'write',
     tools: ['worktree', 'kanban', 'create_project', 'save_conversation'],
   },
   system_extra: {
     flag: 'TOOL_PACK_SYSTEM_EXTRA',
-    summary: '剪贴板 / 简报 / 代理清单 / 知识写入 / MCP 认证与资源',
-    tools: [
-      'clipboard',
-      'brief',
-      'agents_list',
-      'knowledge_save',
-      'mcp_auth',
-      'mcp_resource',
-    ],
+    summary:
+      '剪贴板 / 简报 / 代理清单 / MCP 认证与资源（知识写入已归 `knowledge` 包）',
+    defaultIn: ['standard', 'full'],
+    risk: 'write',
+    tools: ['clipboard', 'brief', 'agents_list', 'mcp_auth', 'mcp_resource'],
+  },
+  // ───── 新增四包（C1，2026-11-21）：声明性元数据 ─────
+  // 四包开关默认开 ⇒ 包内工具是否下发仍由**任务类别白名单**决定（现状不变）；
+  // `defaultIn: ['full']`（`web` 除外）表示"只有全量 profile 才把它们计入默认面"，
+  // 供 C2 的 profile 选择器与设置页分组使用。
+  desktop: {
+    flag: 'TOOL_PACK_DESKTOP',
+    summary: '桌面自动化 / 浏览器（受 COMPUTER_USE / BROWSER 开关二次约束）',
+    defaultIn: ['full'],
+    // computer_use 三平台适配（win32 PowerShell / darwin osascript / linux xdotool）⇒ 无平台限制
+    risk: 'high',
+    tools: ['computer_use', 'browser', 'browser_vision'],
+  },
+  knowledge: {
+    flag: 'TOOL_PACK_KNOWLEDGE',
+    // 运行期注册的 `knowledge_search|write|delete|import|export|restore|snapshots` 无法在此静态枚举
+    // （见 `RUNTIME_TOOL_CATEGORIES`）；它们不受本包门控约束（现状不变）。
+    summary: '知识库保存（运行期 knowledge_* 见 RUNTIME_TOOL_CATEGORIES）',
+    defaultIn: ['full'],
+    risk: 'write',
+    tools: ['knowledge_save'],
+  },
+  web: {
+    flag: 'TOOL_PACK_WEB',
+    summary: '网络抓取 / 搜索（当前默认披露面成员，故 `standard` 也算默认）',
+    defaultIn: ['standard', 'full'],
+    risk: 'read',
+    tools: ['web_fetch', 'web_search'],
+  },
+  code: {
+    flag: 'TOOL_PACK_CODE',
+    summary: '代码智能 / 交互式 REPL / 多语言执行',
+    defaultIn: ['full'],
+    risk: 'high',
+    tools: ['lsp', 'repl', 'code_run'],
   },
 };
 
@@ -859,6 +956,25 @@ export const PACK_GATED_TASK_TYPES: ReadonlySet<string> = new Set([
   'agent',
 ]);
 
+/**
+ * 合法类别集（**派生**自 `TASK_TOOL_CATEGORIES` 的全部取值，不手写清单）。
+ *
+ * C3（2026-11-21）：由 `toolVisibilityReport` 迁入本模块 —— 插件工具的 `category`
+ * 校验（`plugins/utils/toolRegistration.ts`）也用它，避免为此拖入报表模块。
+ */
+const KNOWN_TOOL_CATEGORIES: ReadonlySet<string> = new Set<string>(
+  Object.values(TASK_TOOL_CATEGORIES).flat()
+);
+
+/**
+ * 把任意字符串校验为合法 `ToolCategory`（HTTP 入参 / 插件声明用）。
+ *
+ * ⚠️ `plugin` 也在合法集内（它被显式列入 chat/default/coding/agent 白名单）。
+ */
+export function isKnownToolCategory(value: string): value is ToolCategory {
+  return KNOWN_TOOL_CATEGORIES.has(value);
+}
+
 /** 该任务面是否套用能力包门控 */
 function usesPackageGating(taskType: string | undefined): boolean {
   return taskType === undefined || PACK_GATED_TASK_TYPES.has(taskType);
@@ -883,6 +999,8 @@ export function getTaskToolCategories(
  * @param toolDefinitions 待过滤的工具定义列表
  * @param taskType 当前任务类型
  * @param extraCategories 额外保留的类别（如带图消息注入 'image'，使 image_analysis 对模型可见）
+ * @param options.skipDefaultDisclosure `true` ⇒ **忽略默认披露白名单**（仅 `full` 工具面使用；
+ *   任务类别白名单与严格披露预算**仍然生效**）。缺省 `false` ⇒ 逐字等价既有行为。
  * @returns 仅包含任务类别白名单内工具的列表
  */
 export function filterToolsByTask<
@@ -890,7 +1008,8 @@ export function filterToolsByTask<
 >(
   toolDefinitions: T[],
   taskType: string | undefined,
-  extraCategories: ToolCategory[] = []
+  extraCategories: ToolCategory[] = [],
+  options: { skipDefaultDisclosure?: boolean } = {}
 ): T[] {
   const allowed = new Set(getTaskToolCategories(taskType));
   for (const c of extraCategories) allowed.add(c);
@@ -904,7 +1023,10 @@ export function filterToolsByTask<
   const kept = toolDefinitions.filter((t) => {
     const toolName = t.name ?? t.function?.name ?? '';
     if (mandatory.has(toolName)) return true;
-    if (isOutsideDefaultDisclosure(toolName, taskType, extraCategories))
+    if (
+      !options.skipDefaultDisclosure &&
+      isOutsideDefaultDisclosure(toolName, taskType, extraCategories)
+    )
       return false;
     const category = getToolCategory(toolName);
     if (category === 'misc' && !ARCHIVED_MISC_TOOLS.has(toolName)) {

@@ -49,6 +49,7 @@ import { useTranslation } from "react-i18next";
 import type { SharedToolVisibilityEntry } from "@shared/types";
 import {
   toolService,
+  type ToolSurfaceProfile,
   type ToolVisibilityOverrideValue,
   type ToolVisibilityOverrides,
 } from "../../services/toolService";
@@ -91,6 +92,13 @@ const GROUP_TITLE_KEYS: Record<ToolVisibilityGroupId, string> = {
   unwired: "settings.toolsGroupUnwired",
 };
 
+/** C2（2026-11-21）：工具面档位选项（顺序 = 由紧到松） */
+const SURFACE_OPTIONS: Array<{ value: ToolSurfaceProfile; labelKey: string }> = [
+  { value: "minimal", labelKey: "settings.toolsSurfaceMinimal" },
+  { value: "standard", labelKey: "settings.toolsSurfaceStandard" },
+  { value: "full", labelKey: "settings.toolsSurfaceFull" },
+];
+
 const TONE_CLASS: Record<ToolReasonTone, string> = {
   ok: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
   neutral: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
@@ -102,6 +110,8 @@ function ToolsPanel({ isDark }: ToolsPanelProps) {
   const { t } = useTranslation();
   const [entries, setEntries] = useState<SharedToolVisibilityEntry[]>([]);
   const [overrides, setOverrides] = useState<ToolVisibilityOverrides>({});
+  /** C2：工具面档位（`settings.toolSurface`；下一轮对话生效） */
+  const [surface, setSurface] = useState<ToolSurfaceProfile>("standard");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [saveError, setSaveError] = useState(false);
@@ -116,14 +126,16 @@ function ToolsPanel({ isDark }: ToolsPanelProps) {
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError(false);
-    const [report, current] = await Promise.all([
+    const [report, current, currentSurface] = await Promise.all([
       toolService.visibility(),
       toolService.getVisibilityOverrides(),
+      toolService.getToolSurface(),
     ]);
     // 报表为空 ⇒ 后端不可达 / 未就绪（不臆造数据：CS04/CS06）
     if (report.length === 0) setLoadError(true);
     setEntries(report);
     setOverrides(current);
+    setSurface(currentSurface);
     setLoading(false);
   }, []);
 
@@ -155,6 +167,26 @@ function ToolsPanel({ isDark }: ToolsPanelProps) {
     },
     [overrides],
   );
+
+  /**
+   * 切换**工具面档位**（C2）。保存后重拉报表 —— 后端报表按当前档位判定
+   *（`not-in-minimal-surface` 等原因随之出现），不重拉会让"可见/隐藏"与真实下发面分叉。
+   */
+  const commitSurface = useCallback(async (next: ToolSurfaceProfile) => {
+    setSaving(true);
+    setSaveError(false);
+    try {
+      await toolService.setToolSurface(next);
+      const fresh = await toolService.visibility();
+      if (fresh.length > 0) setEntries(fresh);
+      setSurface(next);
+      setSaved(true);
+    } catch {
+      setSaveError(true);
+    } finally {
+      setSaving(false);
+    }
+  }, []);
 
   /** 三态切换入口：高风险工具"新开为可见"先要一次确认 */
   const requestChange = useCallback(
@@ -375,6 +407,41 @@ function ToolsPanel({ isDark }: ToolsPanelProps) {
       description={t("settings.toolsDesc")}
       isDark={isDark}
     >
+      {/* C2（2026-11-21）：工具面档位（精简 9 / 标准 12–13 / 全量） */}
+      <div className="flex items-center gap-2 mb-2 flex-wrap">
+        <span className={`text-xs font-medium ${textMuted}`}>
+          {t("settings.toolsSurface")}
+        </span>
+        <div
+          className={`inline-flex rounded border ${rowBorder} overflow-hidden`}
+        >
+          {SURFACE_OPTIONS.map((opt) => {
+            const active = opt.value === surface;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                disabled={saving || loading}
+                aria-pressed={active}
+                onClick={() => void commitSurface(opt.value)}
+                className={`px-2 py-1 text-xs border-r last:border-r-0 ${rowBorder} ${
+                  active
+                    ? "bg-blue-600 text-white"
+                    : isDark
+                      ? "hover:bg-gray-800 text-gray-300"
+                      : "hover:bg-gray-50 text-gray-600"
+                } ${saving || loading ? "opacity-60 cursor-not-allowed" : ""}`}
+              >
+                {t(opt.labelKey)}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <p className={`text-[11px] mb-3 ${textMuted}`}>
+        {t("settings.toolsSurfaceDesc")}
+      </p>
+
       <div className="flex items-center gap-2 mb-3">
         <input
           type="search"

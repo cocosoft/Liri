@@ -18,7 +18,8 @@ import * as path from 'path';
 
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
-import { ImageProcessor } from '@openliri/infra/media/image/ImageProcessor';
+// 2026-11-21（C5 媒体实现统一）：与 `media_image_*` 共用 infra 单例（不再自建实例）
+import { imageProcessor } from '@openliri/infra/media/image/ImageProcessor';
 import { imageFormatDetector } from '@openliri/infra/media/image/ImageFormatDetector';
 import { providerRegistry } from '@modules/ai';
 import { RouteKey } from '@modules/ai';
@@ -172,7 +173,6 @@ export interface SimilarityResult {
   allScores?: Record<string, number>;
 }
 
-const processor = new ImageProcessor();
 const logger = getLogger('tools:imageAnalysis');
 
 /** L2 分析 WorkerGuard（懒加载单例） */
@@ -1084,10 +1084,8 @@ export class ImageAnalysisTool extends BaseTool {
     if (actualPath.toLowerCase().endsWith('.svg')) {
       try {
         const pngPath = actualPath.replace(/\.svg$/i, '.png');
-        const { ImageProcessor } =
-          await import('@openliri/infra/media/image/ImageProcessor');
-        const processor = new ImageProcessor();
-        const convertResult = await processor.convert(
+        // 2026-11-21（C5）：原此处重复动态导入 + 自建实例 ⇒ 统一走 infra 单例
+        const convertResult = await imageProcessor.convert(
           actualPath,
           pngPath,
           'png'
@@ -1289,7 +1287,7 @@ export class ImageAnalysisTool extends BaseTool {
   private extractMetadata(filePath: string): ImageMetadata {
     const stat = fs.statSync(filePath);
     const ext = path.extname(filePath).slice(1).toLowerCase();
-    let dims = processor.getDimensions(filePath);
+    let dims = imageProcessor.getDimensions(filePath);
     const formatMap: Record<string, string> = {
       png: 'png',
       jpg: 'jpeg',

@@ -27,6 +27,8 @@ const zhSettings = {
     actions: "操作",
     addProvider: "添加提供商",
     advanced: "高级",
+    advancedMode: "高级设置",
+    simpleMode: "简单模式",
     aiConfig: "AI 配置",
     aiConfigAnthropicTitle: "Anthropic 配置",
     aiConfigDeepseekTitle: "DeepSeek 配置",
@@ -158,6 +160,13 @@ const zhSettings = {
     featuresGoalStartupResume: "重启后目标续接",
     featuresGoalStartupResumeDesc:
       "开启后，重启时会把最近 24 小时内推进过的进行中目标接上继续推进（单次最多 5 个）。默认开启，关闭后重启不再自动续接。",
+    // 2026-11-21：浏览器 / 桌面自动化（默认关；开启后下一轮即可见，无需重启）
+    featuresBrowser: "浏览器自动化（Browser Use）",
+    featuresBrowserDesc:
+      "允许助手操作真实浏览器（打开页面、点击、填表、截图、读取正文）。依赖系统 Chrome 或 Edge；默认关闭，开启后下一轮对话即可见。外部动作仍走审批。",
+    featuresComputerUse: "桌面自动化（Computer Use）",
+    featuresComputerUseDesc:
+      "允许助手截屏、移动鼠标、注入键盘、启动应用。属高风险能力：每次调用都需你审批；截图只保存为本地文件（需要看懂画面时走视觉分析）。默认关闭。",
     // 2026-11-03 P0：自主执行运行预算（默认放宽，可按需调整）
     autonomyLimitsTitle: "自主执行运行预算",
     autonomyLimitsDesc:
@@ -711,6 +720,12 @@ const zhSettings = {
     toolsEmpty: "没有匹配的工具",
     toolsSummary:
       "共 {{total}} 项：对模型可见 {{visible}} 项，其中被强制开启 {{forcedOn}} 项，未接线（覆写无效）{{conditional}} 项",
+    toolsSurface: "工具面",
+    toolsSurfaceDesc:
+      "精简：只下发 9 个核心工具（其余可用 tool_search 发现）；标准：保持当前默认面（12–13 个）；全量：放开默认披露收窄，但仍受任务类别与预算限制。切换后下一轮对话生效。",
+    toolsSurfaceMinimal: "精简",
+    toolsSurfaceStandard: "标准",
+    toolsSurfaceFull: "全量",
     toolsStateAuto: "跟随任务",
     toolsStateOn: "强制可见",
     toolsStateOff: "强制不可见",
@@ -747,7 +762,10 @@ const zhSettings = {
     toolsReasonNotInTaskWhitelist: "当前任务类型不含该类别",
     toolsReasonNotInDefaultDisclosure:
       "默认不下发（可用 tool_search 检索后调用）",
+    toolsReasonNotInMinimalSurface:
+      "精简档不下发（可用 tool_search 检索后调用）",
     toolsReasonConditional: "未进生效工具面",
+    toolsReasonFeatureGateOff: "功能开关未开启（可在「功能开关」中打开）",
     toolsReasonUserOff: "已被你强制不可见",
     toolsReasonUserOnBypass: "已被你强制可见",
     topP: "Top P",
@@ -899,6 +917,10 @@ const zhSettings = {
     wsBannerRelation:
       "只影响 bash 命令的「是否需要询问」（deny 与危险命令永不绕过）；工具审批仍按工具/命令名单与风险默认判定，二者互补",
     wsDefaultMode: "默认权限模式",
+    wsGlobalTrustLevel: "全局信任级别（启动参数 --trust-level）",
+    wsGlobalTrustLevelDesc:
+      "由启动参数决定，本页只读；修改需重启并带 --confirm-global-trust。未设置时仅工作区级信任生效。",
+    wsGlobalTrustLevelOff: "未启用",
     wsModeDefault: "默认",
     wsModeStrict: "严格",
     wsModePermissive: "宽松",

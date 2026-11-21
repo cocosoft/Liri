@@ -27,6 +27,17 @@ export interface VideoInfo {
 }
 
 /**
+ * 需要 stderr 的**命令式**操作结果（`trim` / `convert`）。
+ *
+ * 与 `compress` 等返回 `boolean` 的方法区分：这两类操作失败时错误信息完全在 ffmpeg
+ * stderr 里（容器不兼容 / 编码器缺失），丢掉就退化成"一句 Convert failed"。
+ */
+export interface VideoCommandResult {
+  success: boolean;
+  stderr: string;
+}
+
+/**
  * 处理选项
  */
 export interface VideoProcessOptions {
@@ -134,6 +145,54 @@ export class VideoProcessor {
       });
       return false;
     }
+  }
+
+  /**
+   * 裁剪视频（流复制，不重编码）。
+   *
+   * 2026-11-21（C5 媒体实现统一）：原实现内联在 `VideoTool.handleTrim`（自己拼 ffmpeg 参数）
+   * ⇒ 模型面有、media 面没有的第二份实现。现收口到本类：任何入口都走这一份。
+   */
+  async trim(
+    inputPath: string,
+    outputPath: string,
+    options?: { startTime?: number; duration?: number; timeoutMs?: number }
+  ): Promise<VideoCommandResult> {
+    const args: string[] = [];
+    if (options?.startTime !== undefined) {
+      args.push('-ss', String(options.startTime));
+    }
+    if (options?.duration !== undefined) {
+      args.push('-t', String(options.duration));
+    }
+    args.push('-c', 'copy');
+
+    const result = await ffmpegWrapper.run({
+      input: inputPath,
+      output: outputPath,
+      args,
+      timeout: options?.timeoutMs ?? 120000,
+    });
+    return { success: result.success, stderr: result.stderr };
+  }
+
+  /**
+   * 转换视频容器/编码（沿用 ffmpeg 默认编码参数）。
+   *
+   * 与 {@link trim} 同源（2026-11-21 C5）：参数构造不再散落在工具层。
+   */
+  async convert(
+    inputPath: string,
+    outputPath: string,
+    options?: { timeoutMs?: number }
+  ): Promise<VideoCommandResult> {
+    const result = await ffmpegWrapper.run({
+      input: inputPath,
+      output: outputPath,
+      args: [],
+      timeout: options?.timeoutMs ?? 300000,
+    });
+    return { success: result.success, stderr: result.stderr };
   }
 
   /**

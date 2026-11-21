@@ -47,6 +47,7 @@
 import { configManager } from '@openliri/infra/config';
 import { getLogger } from '@openliri/infra/monitoring';
 import { isMandatoryTool } from './toolCategories';
+import { getRuntimeToolMeta } from './runtimeToolMeta';
 import { TOOL_NAME_CONSTANTS } from './toolNameConstants';
 
 const logger = getLogger('tools:visibilityOverrides');
@@ -67,10 +68,20 @@ export type ToolVisibilityOverrides = Readonly<
  */
 export const TOOL_VISIBILITY_SETTINGS_KEY = 'settings.tools';
 
-/** 生效名全集（`TOOL_NAME_CONSTANTS` 的值域）—— 用于剔除"未知工具名" */
-const KNOWN_TOOL_NAMES: ReadonlySet<string> = new Set<string>(
+/** 编译期生效名全集（`TOOL_NAME_CONSTANTS` 的值域） */
+const BUILTIN_TOOL_NAMES: ReadonlySet<string> = new Set<string>(
   Object.values(TOOL_NAME_CONSTANTS)
 );
+
+/**
+ * 该名字是否是**已知工具**（C3，2026-11-21）：编译期常量表 ∪ **运行期登记**。
+ *
+ * 运行期部分必须**现查**（不能做进上面的静态 Set）：插件工具的登记发生在模块加载之后，
+ * 冻结集合会让"装好的插件"永远被当未知名丢弃 ⇒ 设置改不了（与 N-44 同族的静默失效）。
+ */
+export function isKnownToolName(name: string): boolean {
+  return BUILTIN_TOOL_NAMES.has(name) || getRuntimeToolMeta(name) !== undefined;
+}
 
 /** 已告警键（一次性；避免每轮重复刷屏 —— 与 `toolProfile.ts` 同法） */
 const warnedKeys = new Set<string>();
@@ -113,7 +124,7 @@ export function normalizeToolVisibilityOverrides(
       );
       continue;
     }
-    if (!KNOWN_TOOL_NAMES.has(name)) {
+    if (!isKnownToolName(name)) {
       warnOnce(`unknown:${name}`, '工具可见性覆写指向未知工具名 ⇒ 已忽略', {
         tool: name,
       });

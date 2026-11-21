@@ -27,6 +27,8 @@ const enSettings = {
     actions: "Actions",
     addProvider: "Add Provider",
     advanced: "Advanced",
+    advancedMode: "Advanced settings",
+    simpleMode: "Simple mode",
     aiConfig: "AI Configuration",
     aiConfigAnthropicTitle: "Anthropic Config",
     aiConfigDeepseekTitle: "DeepSeek Config",
@@ -161,6 +163,13 @@ const enSettings = {
     featuresGoalStartupResume: "Resume goals after restart",
     featuresGoalStartupResumeDesc:
       "When on, active goals advanced within the last 24 hours are picked up again after a restart (up to 5 at a time). On by default; turning it off disables automatic resume.",
+    // 2026-11-21: browser / desktop automation (off by default; effective next turn, no restart)
+    featuresBrowser: "Browser automation (Browser Use)",
+    featuresBrowserDesc:
+      "Lets the assistant drive a real browser (open pages, click, fill forms, screenshot, read page text). Requires system Chrome or Edge. Off by default; takes effect next turn. External actions still require approval.",
+    featuresComputerUse: "Desktop automation (Computer Use)",
+    featuresComputerUseDesc:
+      "Lets the assistant take screenshots, move the mouse, type keys and launch apps. High risk: every call requires your approval; screenshots are saved as local files (use vision analysis to read them). Off by default.",
     // 2026-11-03 P0: autonomous run budget (relaxed defaults, user-tunable)
     autonomyLimitsTitle: "Autonomous run budget",
     autonomyLimitsDesc:
@@ -742,6 +751,12 @@ const enSettings = {
     toolsEmpty: "No matching tools",
     toolsSummary:
       "{{total}} tools: {{visible}} visible to the model, of which {{forcedOn}} forced on; {{conditional}} not wired (override has no effect)",
+    toolsSurface: "Tool surface",
+    toolsSurfaceDesc:
+      "Minimal: only the 9 core tools are disclosed (find the rest via tool_search). Standard: keep the current default surface (12–13). Full: lift the default-disclosure narrowing, still bounded by task categories and budget. Takes effect from the next turn.",
+    toolsSurfaceMinimal: "Minimal",
+    toolsSurfaceStandard: "Standard",
+    toolsSurfaceFull: "Full",
     toolsStateAuto: "Follow task",
     toolsStateOn: "Force visible",
     toolsStateOff: "Force hidden",
@@ -782,7 +797,11 @@ const enSettings = {
       "Current task type does not include this category",
     toolsReasonNotInDefaultDisclosure:
       "Not disclosed by default (find it via tool_search, then call it)",
+    toolsReasonNotInMinimalSurface:
+      "Not disclosed in the minimal surface (find it via tool_search, then call it)",
     toolsReasonConditional: "Not in the effective tool set",
+    toolsReasonFeatureGateOff:
+      "Feature switch is off (enable it under Feature switches)",
     toolsReasonUserOff: "Forced hidden by you",
     toolsReasonUserOnBypass: "Forced visible by you",
     topP: "Top P",
@@ -944,6 +963,10 @@ const enSettings = {
     wsBannerRelation:
       "Only affects whether bash commands need confirmation (deny and dangerous commands are never bypassed); tool approvals still follow tool/command allow-deny rules and risk defaults. The two are complementary",
     wsDefaultMode: "Default Permission Mode",
+    wsGlobalTrustLevel: "Global trust level (--trust-level)",
+    wsGlobalTrustLevelDesc:
+      "Set by the startup flag and read-only here. Changing it requires a restart with --confirm-global-trust. When unset, only workspace-level trust applies.",
+    wsGlobalTrustLevelOff: "Not enabled",
     wsModeDefault: "Default",
     wsModeStrict: "Strict",
     wsModePermissive: "Permissive",

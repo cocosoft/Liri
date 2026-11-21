@@ -12,8 +12,9 @@ import * as path from 'path';
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 
-import { VideoProcessor } from '@openliri/infra/media/video/VideoProcessor';
-import { FFmpegWrapper } from '@openliri/infra/media/ffmpeg/FFmpegWrapper';
+// 2026-11-21（C5 媒体实现统一）：与 `media_video_*` 共用 infra 单例（不再自建实例）
+import { videoProcessor } from '@openliri/infra/media/video/VideoProcessor';
+import { ffmpegWrapper } from '@openliri/infra/media/ffmpeg/FFmpegWrapper';
 
 import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:VideoTool:VideoTool');
@@ -48,9 +49,6 @@ export interface VideoEditOutput {
   format?: string;
   codec?: string;
 }
-
-const videoProcessor = new VideoProcessor();
-const ffmpeg = new FFmpegWrapper();
 
 /**
  * U-03（2026-10-19）：`video` 的**模型可见出参结构**（JSON Schema），
@@ -200,20 +198,10 @@ export class VideoTool extends BaseTool {
       params.outputPath || params.inputPath.replace(ext, `_trimmed${ext}`);
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 
-    const ffmpegArgs: string[] = [];
-    if (params.startTime !== undefined) {
-      ffmpegArgs.push('-ss', String(params.startTime));
-    }
-    if (params.duration !== undefined) {
-      ffmpegArgs.push('-t', String(params.duration));
-    }
-    ffmpegArgs.push('-c', 'copy');
-
-    const result = await ffmpeg.run({
-      input: params.inputPath,
-      output: outputPath,
-      args: ffmpegArgs,
-      timeout: 120000,
+    // 2026-11-21（C5）：裁剪实现已收口到 `VideoProcessor.trim`（参数构造不再散落在工具层）
+    const result = await videoProcessor.trim(params.inputPath, outputPath, {
+      startTime: params.startTime,
+      duration: params.duration,
     });
 
     if (!result.success) {
@@ -346,7 +334,7 @@ export class VideoTool extends BaseTool {
       );
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 
-    const probing = await ffmpeg.probe(params.inputPath);
+    const probing = await ffmpegWrapper.probe(params.inputPath);
     if (!probing) {
       return {
         success: false,
@@ -354,12 +342,8 @@ export class VideoTool extends BaseTool {
       };
     }
 
-    const result = await ffmpeg.run({
-      input: params.inputPath,
-      output: outputPath,
-      args: [],
-      timeout: 300000,
-    });
+    // 2026-11-21（C5）：转换实现已收口到 `VideoProcessor.convert`
+    const result = await videoProcessor.convert(params.inputPath, outputPath);
 
     if (!result.success) {
       return {

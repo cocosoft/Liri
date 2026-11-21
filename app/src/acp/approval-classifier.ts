@@ -9,12 +9,9 @@ export interface ApprovalClassificationInput {
 
 const BLOCKED_TOOLS = new Set<string>([]);
 
-const ALWAYS_ALLOW_TOOLS = new Set<string>([
-  'read',
-  'grep',
-  'glob',
-  'search_codebase',
-]);
+// C5（2026-11-21）：移除 `search_codebase` —— 本仓无该工具（无实现 / 无注册）。
+// 放行表里的死名永不命中，留着只会让"到底允不允许搜索代码"的判读失真。
+const ALWAYS_ALLOW_TOOLS = new Set<string>(['read', 'grep', 'glob']);
 
 const ALWAYS_ALLOW_PREFIXES = ['vscode_', 'browser_', 'notifier_'];
 

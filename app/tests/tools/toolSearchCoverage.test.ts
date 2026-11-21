@@ -34,6 +34,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
 import { ToolSearchTool } from '../../src/tools/ToolSearchTool/ToolSearchTool';
 import { getToolRegistry } from '../../src/tools/ToolRegistry';
+import { ARCHIVED_MISC_TOOLS } from '../../src/tools/toolCategories';
 import type { Tool } from '../../src/tools/types/Tool';
 import type { ToolUseContext } from '../../src/tools/types/ToolUseContext';
 
@@ -86,7 +87,15 @@ describe('tool_search 检索覆盖面（2026-10-11）', () => {
     expect(await search(PROBE_NAME)).toContain(PROBE_NAME);
   });
 
-  it('有意归档工具被排除在检索面外（computer_use 仍"永久不可见"）', async () => {
-    expect(await search('computer')).not.toContain(ARCHIVED_NAME);
+  it('有意归档工具被排除在检索面外（归档机制仍生效）', async () => {
+    // 2026-11-21：`computer_use` 已解除归档（改为功能开关控制）⇒ 此处**临时注入**一个
+    // 归档名来锁定"归档 ⇒ 检索面排除"的机制本身，不再依赖某个具体工具是否归档。
+    const archivedSet = ARCHIVED_MISC_TOOLS as unknown as Set<string>;
+    archivedSet.add(ARCHIVED_NAME);
+    try {
+      expect(await search('computer')).not.toContain(ARCHIVED_NAME);
+    } finally {
+      archivedSet.delete(ARCHIVED_NAME);
+    }
   });
 });

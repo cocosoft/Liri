@@ -22,6 +22,7 @@ import { resolveContextWindow } from '@modules/context';
 import {
   recordToolSchemaEntropy,
   readToolVisibilityOverrides,
+  readToolSurfaceProfile,
   getDiscoveredTools,
 } from '@modules/tools';
 import { emitPreparedSnapshot } from '@openliri/service/execution';
@@ -101,6 +102,12 @@ export function selectAndObserveToolDefinitions(
     feature('CHANNEL_UNTRUSTED_TAINT') &&
     (sessionMeta?.origin === 'channel' ||
       options?.metadata?.untrustedOrigin === true);
+  // C2（2026-11-21，治理方案 v3 §14.1）：运行时工具面档位 —— **仅在非重放分支读**
+  //（重放工具面必须恒等于落盘快照；`settings.toolSurface` 改动不得影响历史回放）。
+  const surface =
+    options?.forcedVisibleTools === undefined
+      ? readToolSurfaceProfile()
+      : undefined;
   const selection = selectToolsForTurn({
     tools: toolDefinitions,
     explicitTaskType: options?.metadata?.taskType,
@@ -127,8 +134,10 @@ export function selectAndObserveToolDefinitions(
     ...(options?.forcedVisibleTools !== undefined
       ? { forcedVisibleTools: options.forcedVisibleTools }
       : {}),
+    ...(surface !== undefined ? { surface } : {}),
   });
-  if (selection.promotedByExecutionIntent) {
+  // `minimal` 档不套用任务裁剪 ⇒ 该提升只影响 taskType 观测，不再宣称"提升 coding 集"
+  if (selection.promotedByExecutionIntent && surface !== 'minimal') {
     logger.info('streamMessage:tools — 项目执行意图提升 coding 集', {
       sessionId: session.id,
       projectId: String(sessionMeta?.projectId),
@@ -136,14 +145,20 @@ export function selectAndObserveToolDefinitions(
     });
   }
   if (selection.trimmed) {
-    logger.info('streamMessage:tools — 按任务裁剪工具集', {
-      sessionId: session.id,
-      taskType: selection.taskType ?? 'default',
-      hasImages,
-      before: toolDefinitions.length,
-      after: selection.tools.length,
-      removedNames: selection.removedNames,
-    });
+    logger.info(
+      surface === 'minimal'
+        ? 'streamMessage:tools — 工具面 minimal：只下发核心工具（其余可 tool_search 发现）'
+        : 'streamMessage:tools — 按任务裁剪工具集',
+      {
+        sessionId: session.id,
+        taskType: selection.taskType ?? 'default',
+        surface: surface ?? 'replay',
+        hasImages,
+        before: toolDefinitions.length,
+        after: selection.tools.length,
+        removedNames: selection.removedNames,
+      }
+    );
     toolDefinitions.length = 0;
     toolDefinitions.push(...selection.tools);
   }

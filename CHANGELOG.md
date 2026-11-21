@@ -203,6 +203,16 @@
 - ✅ **macOS 假红** - `mobilePairing` 用例不再用 1ms TTL 与 runner 时钟赛跑
 <!-- EVIDENCE-VIEWS:END -->
 
+#### v0.6.5 (2026-11-21)  发布附件上传打通（不可变发布 + CLI 归档路径）
+
+- ✅ **资产上传 422 根因**：仓库此前开启「Release 不可变」⇒ 发布后追加资产一律
+  `HTTP 422: Cannot upload assets to an immutable release`，30 次重试也无意义。
+  已关闭该设置；`v0.6.4` 的发布（0 资产）已删除，其 tag 名因绑定过不可变发布而不可复用 ⇒ 本版改用 `v0.6.5`。
+- ✅ **CLI 归档路径解析**：`package` 作业的 `defaults.run.working-directory: app` 使
+  `app/release/liri-cli-<ver>.tgz` 解析成 `app/app/release/...`；该串无通配符，`nullglob` 剔不掉 ⇒
+  `ls` 以 exit 2 秒失败（绕过空检查、不进重试）。改用 `$GITHUB_WORKSPACE` 绝对路径 + 先断言存在（v0.6.4 run #5/#6 实测）。
+- ✅ **如实边界**：本版仍未有任一资产成功挂载；`create-release` 与三处上传的重试逻辑维持原样，待本版流水线实跑验证。
+
 #### v0.6.4 (2026-11-21)  发布流水线竞态修复（单一创建者 + 可诊断上传）
 
 - ✅ **Release 单一创建者**：`release.yml` 新增 `create-release` 作业，tag 后立即

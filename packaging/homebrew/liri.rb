@@ -2,10 +2,10 @@
 class Liri < Formula
   desc "Liri — AI 私人助手（CLI）"
   homepage "https://openliri.com"
-  url "https://github.com/openliri/Liri/releases/download/v0.6.4/liri-cli-0.6.4.tgz"
+  url "https://github.com/openliri/Liri/releases/download/v0.6.5/liri-cli-0.6.5.tgz"
   sha256 "0000000000000000000000000000000000000000000000000000000000000000"
   license "MIT"
-  version "0.6.4"
+  version "0.6.5"
 
   depends_on "bun"
 

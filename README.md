@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.6.4-blue)
+![Version](https://img.shields.io/badge/version-0.6.5-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -466,7 +466,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.6.4**
+当前版本：**v0.6.5**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -475,12 +475,12 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.6.4 (2026-11-21)
-发布流水线竞态修复（单一创建者 + 可诊断上传）
+#### v0.6.5 (2026-11-21)
+发布附件上传打通（不可变发布 + CLI 归档路径）
 
-- ✅ **Release 单一创建者** - `create-release` 作业先建 Release，其余作业只做 `gh release upload --clobber` + 重试
-- ✅ **可诊断上传** - 附件缺失不再静默：`upload-artifact` 加 `if-no-files-found: error`
-- ✅ **工具治理真机复验** - 三档工具面 9 / 13 / 42，能力包与隐藏原因逐项一致
+- ✅ **资产上传 422 根因** - 仓库「Release 不可变」使发布后追加资产一律被拒；已关闭该设置（v0.6.4 发布删除、tag 名不可复用 ⇒ 改用 0.6.5）
+- ✅ **CLI 归档路径** - `working-directory: app` 下 `app/release/...` 解析错位致 `ls` exit 2；改用 `$GITHUB_WORKSPACE` 绝对路径 + 先断言存在
+- ✅ **如实边界** - 本版尚未有资产成功挂载，待流水线实跑验证
 - ✅ 完整历史见 [CHANGELOG.md](CHANGELOG.md)
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。

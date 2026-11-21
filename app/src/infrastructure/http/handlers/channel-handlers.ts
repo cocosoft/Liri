@@ -25,7 +25,7 @@ import { sendError, readRequestBody, type HandlerCtx } from './handler-utils';
 import { getLogger, getMetricsService } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import { messageTraceBuffer } from '@modules/channels';
+import { messageTraceBuffer, getMessageTraceStore } from '@modules/channels';
 import {
   describeChannelUnavailable,
   getChannelCatalogEntry,
@@ -1506,6 +1506,83 @@ export async function handleChannelMessageTraces(
     );
   } catch (err) {
     logger.warning('[TRACE] GET /v1/channels/messages/trace 查询失败', {
+      error: String(err),
+      elapsedMs: Date.now() - t0,
+    });
+    sendError(res, err);
+  }
+}
+
+/**
+ * 历史消息链路（入站监视 G2，2026-11-21）
+ * GET /v1/channels/messages/trace/history?channel&status&from&to&limit&cursor
+ *
+ * - 只返回**终态**行（ok / fail / rejected）；`inflight` 只在内存缓冲里，不进历史
+ * - `from` / `to` 为 epoch ms（含边界）；`cursor` 为 `${startedAtMs}:${traceId}`
+ * - 数据源：`channel_message_traces`（7 天 / 5000 行保留，见方案 §5.2）
+ */
+export async function handleChannelMessageTraceHistory(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  const t0 = Date.now();
+  logger.info('[TRACE] GET /v1/channels/messages/trace/history 请求开始', {
+    url: req.url,
+  });
+  try {
+    const parsed = new URL(req.url || '/', LOCAL_REQUEST_BASE_URL);
+    const invalid: string[] = [];
+    const parseTs = (name: 'from' | 'to'): number | undefined => {
+      const raw = parsed.searchParams.get(name);
+      if (!raw) return undefined;
+      const value = Number(raw);
+      if (!Number.isFinite(value) || value <= 0) {
+        invalid.push(name);
+        return undefined;
+      }
+      return value;
+    };
+    const fromMs = parseTs('from');
+    const toMs = parseTs('to');
+
+    const rawStatus = parsed.searchParams.get('status');
+    const status =
+      rawStatus === 'ok' || rawStatus === 'fail' || rawStatus === 'rejected'
+        ? rawStatus
+        : undefined;
+    if (rawStatus && !status) invalid.push('status');
+
+    if (invalid.length > 0) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: { message: `invalid query params: ${invalid.join(',')}` },
+        })
+      );
+      return;
+    }
+
+    const limit = Math.min(
+      Math.max(Number(parsed.searchParams.get('limit')) || 100, 1),
+      500
+    );
+    const page = await getMessageTraceStore().history({
+      channel: parsed.searchParams.get('channel') || undefined,
+      status,
+      fromMs,
+      toMs,
+      limit,
+      cursor: parsed.searchParams.get('cursor') || undefined,
+    });
+    logger.info('[TRACE] GET /v1/channels/messages/trace/history 查询成功', {
+      count: page.traces.length,
+      total: page.total,
+      elapsedMs: Date.now() - t0,
+    });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ...page, updatedAt: Date.now() }));
+  } catch (err) {
+    logger.warning('[TRACE] GET /v1/channels/messages/trace/history 查询失败', {
       error: String(err),
       elapsedMs: Date.now() - t0,
     });

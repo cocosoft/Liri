@@ -13,6 +13,7 @@ import {
   handleChannelMonitorForceReconnect,
   handleChannelMonitorStatus,
   handleChannelMessageTrace,
+  handleChannelMessageTraceHistory,
   handleChannelMessageTraces,
   handleChannelMonitorStream,
   handleChannelSchema,
@@ -138,6 +139,14 @@ async function dispatchChannelObservabilityRoutes(
     return true;
   }
   // 方案 A：消息级全链路追踪（精确路径先于 /v1/channels/(.+) 通配匹配）
+  // 入站监视 G2（2026-11-21）：`/history` 必须先于 `/:traceId` 匹配（否则 traceId 会取到 "history"）
+  if (
+    url === '/v1/channels/messages/trace/history' ||
+    url.startsWith('/v1/channels/messages/trace/history?')
+  ) {
+    await handleChannelMessageTraceHistory(req, res);
+    return true;
+  }
   if (url.startsWith('/v1/channels/messages/trace')) {
     const remainder = url.slice('/v1/channels/messages/trace'.length);
     if (remainder === '' || remainder.startsWith('?')) {

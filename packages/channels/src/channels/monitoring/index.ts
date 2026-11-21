@@ -32,4 +32,19 @@ export type {
   MessageTraceStage,
   MessageTraceStatus,
   MessageTrace,
-} from './MessageTraceBuffer';
+  FinishedMessageTrace,
+} from './messageTraceTypes';
+// 入站监视 G2（2026-11-21）：终态链路持久化 + 历史查询
+export {
+  MessageTraceStore,
+  MESSAGE_TRACES_TABLE,
+  TRACE_RETENTION_MS,
+  TRACE_MAX_ROWS,
+  getMessageTraceStore,
+  resetMessageTraceStoreForTest,
+  persistFinishedMessageTrace,
+} from './MessageTraceStore';
+export type {
+  MessageTraceHistoryQuery,
+  MessageTraceHistoryPage,
+} from './MessageTraceStore';

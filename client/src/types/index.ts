@@ -145,6 +145,7 @@ export type {
   MessageTraceStatus,
   MessageTrace,
   MessageTracesResponse,
+  MessageTraceHistoryResponse,
   PlatformFieldDef,
   ChannelSchema,
   ChannelPluginInfo,

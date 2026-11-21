@@ -1,6 +1,6 @@
 # 入站消息监视：缺口补齐方案
 
-> 版本 1.1 ｜ 日期 2026-11-21 ｜ 状态：**P1 已实施（2026-11-21）；P2–P4 未实施**
+> 版本 1.2 ｜ 日期 2026-11-21 ｜ 状态：**P1 + P2 已实施（2026-11-21）；P3–P4 未实施**
 > 关联：[`dedup-message-state.md`](./dedup-message-state.md)（`channel_message_states` 落盘先例）、[`channel-process-isolation.md`](./channel-process-isolation.md)、[`message-router-split.md`](./message-router-split.md)
 
 **结论先行**：Liri 的入站监视**并非空白** —— 指标、消息级链路追踪、渠道实时态三层均已端到端接线（§1 取证）。本方案只处理**四个缺口**（§2）：渠道维度缺失、链路不留存、无阈值告警、消息级无推送。
@@ -124,13 +124,14 @@ CREATE INDEX IF NOT EXISTS idx_cmt_channel_started
 
 `GET /v1/channels/messages/trace/history?channel=&status=&from=&to=&limit=100&cursor=`
 
-- `limit` 上限 500；响应 `{ items, nextCursor, total }`。
+- `limit` 上限 500；响应 `{ traces, nextCursor, total, updatedAt }`（`traces` 与既有 `/trace` 同形，前端可复用同一渲染）。
 - 游标用 `(started_at, trace_id)` 复合键（同 `NotificationPersistence` P0-6 的同秒分页教训：单列 `started_at` 会在同毫秒多条时漏/重）。
-- 路由注册到 `app/src/infrastructure/http/handlers/routes/channel-surface-routes.ts`，同步补 `.trae/docs/api-spec.md`。
+- 实现细节：查询**多取 1 条**判定 `hasMore`（否则末页恰好满行会给出走不通的游标）；`from`/`to`/`status` 非法 ⇒ 400。
+- 路由注册到 `app/src/infrastructure/http/handlers/routes/channel-surface-routes.ts`（`/history` 必须先于 `/:traceId` 匹配），同步补 `.trae/docs/api-spec.md`。
 
 ### 5.4 前端
 
-`ChannelMonitorPanel`「消息链路」Tab 增加时间范围筛选（最近 5 分钟 / 1 小时 / 24 小时），数据源在 `tab=traces` 且选择历史范围时切到 `/history`；实时视图仍读内存缓冲（最快）。
+`ChannelMonitorPanel`「消息链路」Tab 增加时间范围切换（**实时** / 近 1 小时 / 近 24 小时）：实时读内存缓冲（最快），后两者改读 `/history`；刷新按钮与 10s 轮询保留。
 
 ### 5.5 验收
 
@@ -217,7 +218,7 @@ CREATE INDEX IF NOT EXISTS idx_cmt_channel_started
 | 阶段 | 内容 | 验证 |
 |---|---|---|
 | **P1** | G1 渠道级入站指标 + 卡片分渠道表 | 指标标签 + 总量守恒 + 单测 |
-| **P2** | G2 `MessageTraceStore` + 表 + `/history` + 保留裁剪 | 重启后历史可查；裁剪单测 |
+| **P2** | G2 `MessageTraceStore` + 表 + `/history` + 保留裁剪 | ✅ **已实施（2026-11-21）**：`channel_message_traces` 表 + 终态落盘 + 7d/5000 行裁剪 + 复合游标分页 + 面板范围切换（见 §12） |
 | **P3** | G4 `subscribe` + `/inbound/stream` + 前端 SSE | curl -N 事件序列；重连 |
 | **P4** | G3 规则 + 评估器 + `channel_alert_state` + 开关登记 | 阈值/静默/重启/开关四例 |
 
@@ -269,5 +270,24 @@ CREATE INDEX IF NOT EXISTS idx_cmt_channel_started
 
 验证：`bun test tests/channels/channelMetrics.test.ts` 5 pass；`bun run typecheck`（app + client）0 错；`bun run lint:channels` 0 error；client `eslint` 改动文件 0 问题；`i18nKeyParity` / `i18nKeyCoverage` 6 pass。
 
-未做（留在 P2–P4）：链路持久化、阈值告警、入站事件 SSE。
+未做（留在 P3–P4）：入站事件 SSE、阈值告警。
+
+### P2（G2 链路持久化）—— 已实施（2026-11-21）
+
+| 文件 | 变更 |
+|---|---|
+| `packages/channels/src/channels/monitoring/messageTraceTypes.ts`（新） | 类型下沉到叶子模块（`Buffer → Store → Buffer` 会形成 madge 环），新增 `FinishedMessageTrace`（只允许终态） |
+| `packages/channels/src/channels/monitoring/MessageTraceStore.ts`（新） | `channel_message_traces` 表（`trace_id` PK + `started_at` / `(channel, started_at)` 索引）；终态 upsert；`history()` 复合游标分页（多取 1 条判 `hasMore`）；7d / 5000 行裁剪（init + 每 6h，`unref`）；单例 + `resetMessageTraceStoreForTest()`；`persistFinishedMessageTrace()` best-effort |
+| `packages/channels/src/channels/monitoring/MessageTraceBuffer.ts` | 类型改为从叶子再导出；`finish()` 调 `persistFinishedMessageTrace`（内部已 catch，不阻塞入站） |
+| `app/src/infrastructure/http/handlers/channel-handlers.ts` | 新增 `handleChannelMessageTraceHistory`（`from`/`to`/`status` 非法 ⇒ 400；`limit` 1–500） |
+| `app/src/infrastructure/http/handlers/routes/channel-surface-routes.ts` | `/history` 路由**先于** `/:traceId` 匹配 |
+| `client/src/{types/channel.ts,types/index.ts,services/channelService.ts,services/endpoints.ts}` | `MessageTraceHistoryResponse` + `getMessageTraceHistory()` |
+| `client/src/components/common/ChannelMonitorPanel.tsx` | 「消息链路」Tab 增加 实时 / 近 1 小时 / 近 24 小时切换（后者走 `/history`） |
+| `client/src/i18n/locales/{zh,en}/base.ts` | 3 个范围 key（zh/en 对称） |
+| `app/tests/channels/messageTraceStore.test.ts`（新） | 5 例：跨实例可查 / 维度过滤 / 复合游标不重不漏 / 7 天裁剪 / 缓冲 `finish` 接线自证 |
+| `.trae/docs/api-spec.md` | 新增 `/v1/channels/messages/trace/history` 行（pre-existing 的 `/trace`、`/trace/:id` 两条历史缺口未动，另行处理） |
+
+验证：`tests/channels` **746 pass / 0 fail**（88 文件）；`typecheck`（app 3 project + client）0 错；`lint`（app）/ `lint:channels` / client eslint 0 error；`check:circular` 无环；`lint:state-ratchet` 棘轮维持。
+
+设计期两处自纠（如实）：① `doInit` 内若调 `prune()` 会重入 `init()` 死锁 ⇒ 拆出 `pruneRows()`；② 首版 `nextCursor` 用"页满即给游标" ⇒ 末页满行时给出走不通的游标（测试暴露）⇒ 改为多取 1 条判 `hasMore`。
 

@@ -9,6 +9,7 @@ import type {
   ChannelMonitorStatusResponse,
   ChannelForceReconnectResponse,
   MessageTracesResponse,
+  MessageTraceHistoryResponse,
 } from "../types";
 import { httpLegacy as http } from "./httpClient";
 import { ENDPOINTS } from "./endpoints";
@@ -91,6 +92,32 @@ export const channelService = {
     if (channel) params.set("channel", channel);
     return http.get<MessageTracesResponse>(
       `${ENDPOINTS.channels.messagesTrace}?${params.toString()}`,
+    );
+  },
+
+  /**
+   * 获取**历史**消息链路（入站监视 G2：终态落盘，重启后仍可复盘）
+   *
+   * @param params.fromMs 起始时间（epoch ms，含）
+   * @param params.cursor 下一页游标 `${startedAtMs}:${traceId}`
+   */
+  getMessageTraceHistory: async (params: {
+    fromMs?: number;
+    toMs?: number;
+    channel?: string;
+    status?: "ok" | "fail" | "rejected";
+    limit?: number;
+    cursor?: string;
+  }): Promise<MessageTraceHistoryResponse> => {
+    const search = new URLSearchParams();
+    search.set("limit", String(params.limit ?? 100));
+    if (params.fromMs !== undefined) search.set("from", String(params.fromMs));
+    if (params.toMs !== undefined) search.set("to", String(params.toMs));
+    if (params.channel) search.set("channel", params.channel);
+    if (params.status) search.set("status", params.status);
+    if (params.cursor) search.set("cursor", params.cursor);
+    return http.get<MessageTraceHistoryResponse>(
+      `${ENDPOINTS.channels.messagesTraceHistory}?${search.toString()}`,
     );
   },
 

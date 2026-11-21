@@ -360,6 +360,7 @@ export const ENDPOINTS = {
     monitorStatus: "/v1/channels/monitor/status",
     monitorForceReconnect: "/v1/channels/monitor/force-reconnect",
     messagesTrace: "/v1/channels/messages/trace",
+    messagesTraceHistory: "/v1/channels/messages/trace/history",
     schema: "/v1/channels/schema",
     configApply: "/v1/channels/config/apply",
     plugins: "/v1/channels/plugins",

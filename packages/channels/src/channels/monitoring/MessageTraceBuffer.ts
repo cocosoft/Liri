@@ -32,46 +32,24 @@
  */
 
 import { getLogger } from '@openliri/infra/monitoring';
+import type {
+  MessageTrace,
+  MessageTraceStage,
+  MessageTraceStatus,
+  TraceStageStatus,
+} from './messageTraceTypes';
+import { persistFinishedMessageTrace } from './MessageTraceStore';
+
+// 2026-11-21：类型下沉到叶子模块（`Buffer → Store → Buffer` 会形成 madge 环）；
+// 本文件**原址再导出**，既有引用零改动。
+export type {
+  TraceStageStatus,
+  MessageTraceStage,
+  MessageTraceStatus,
+  MessageTrace,
+} from './messageTraceTypes';
 
 const logger = getLogger('channels:monitoring:trace');
-
-/** 链路阶段状态 */
-export type TraceStageStatus = 'ok' | 'fail' | 'skip';
-
-/** 单个链路阶段记录 */
-export interface MessageTraceStage {
-  /** 阶段名（frame_check / dedup / rate_limit / session / llm / outbound） */
-  name: string;
-  status: TraceStageStatus;
-  /** 阶段发生时间戳 */
-  atMs: number;
-  /** 阶段耗时（毫秒），瞬时阶段可缺省 */
-  durationMs?: number;
-  /** 附加信息（拒绝原因、目标、内容长度等） */
-  detail?: string;
-}
-
-/** 消息整体状态 */
-export type MessageTraceStatus = 'inflight' | 'ok' | 'fail' | 'rejected';
-
-/** 单条消息的全链路追踪记录 */
-export interface MessageTrace {
-  traceId: string;
-  channelName: string;
-  messageId: string;
-  sessionId?: string;
-  senderId?: string;
-  /** 内容预览（前 50 字符，仅用于人工识别消息） */
-  contentPreview: string;
-  startedAtMs: number;
-  finishedAtMs?: number;
-  /** 入站→终态总耗时（毫秒） */
-  totalMs?: number;
-  status: MessageTraceStatus;
-  /** 终态错误信息（fail/rejected 时） */
-  error?: string;
-  stages: MessageTraceStage[];
-}
 
 /** 环形缓冲默认容量 */
 const DEFAULT_CAPACITY = 500;
@@ -154,6 +132,8 @@ class MessageTraceBufferImpl {
       trace.error = error;
       trace.finishedAtMs = Date.now();
       trace.totalMs = trace.finishedAtMs - trace.startedAtMs;
+      // 入站监视 G2：终态落盘（best-effort，内部已 catch，不阻塞主流程）
+      persistFinishedMessageTrace({ ...trace, status });
     } catch (err) {
       // @ignore-catch 可观测性缓冲写入失败不阻塞消息主流程
       logger.debug('trace finish 写入失败', { error: String(err) });

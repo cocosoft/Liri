@@ -93,6 +93,8 @@ export function ChannelMonitorPanel() {
   const [traces, setTraces] = useState<MessageTrace[]>([]);
   const [tracesLoading, setTracesLoading] = useState(false);
   const [expandedTrace, setExpandedTrace] = useState<string | null>(null);
+  // 入站监视 G2：实时（内存缓冲）/ 历史（落盘终态）切换
+  const [traceRange, setTraceRange] = useState<TraceRange>("live");
 
   const esRef = useRef<EventSource | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -289,13 +291,28 @@ export function ChannelMonitorPanel() {
     [t],
   );
 
-  /** 拉取最近消息链路（方案 A） */
+  /** 拉取最近消息链路（方案 A）；`traceRange` 非 live 时改读落盘历史（G2） */
   const loadTraces = useCallback(async () => {
     setTracesLoading(true);
     try {
-      const resp = await channelService.getMessageTraces(50);
-      logger.info("消息链路查询成功", { count: resp.traces.length });
-      setTraces(resp.traces);
+      if (traceRange === "live") {
+        const resp = await channelService.getMessageTraces(50);
+        logger.info("消息链路查询成功", { count: resp.traces.length });
+        setTraces(resp.traces);
+      } else {
+        const rangeMs =
+          traceRange === "1h" ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+        const resp = await channelService.getMessageTraceHistory({
+          fromMs: Date.now() - rangeMs,
+          limit: 50,
+        });
+        logger.info("历史消息链路查询成功", {
+          count: resp.traces.length,
+          total: resp.total,
+          range: traceRange,
+        });
+        setTraces(resp.traces);
+      }
     } catch (error) {
       logger.warn("消息链路查询失败", { error: String(error) });
       handleClientError(error, {
@@ -305,7 +322,7 @@ export function ChannelMonitorPanel() {
     } finally {
       setTracesLoading(false);
     }
-  }, []);
+  }, [traceRange]);
 
   // 链路 Tab 激活时拉取 + 10s 轮询（inflight 消息可通过轮询看到终态收敛）
   useEffect(() => {
@@ -369,6 +386,8 @@ export function ChannelMonitorPanel() {
         <MessageTracesView
           traces={traces}
           expandedTrace={expandedTrace}
+          range={traceRange}
+          onRangeChange={setTraceRange}
           onToggle={(id) => setExpandedTrace(expandedTrace === id ? null : id)}
           onRefresh={() => void loadTraces()}
         />
@@ -490,22 +509,53 @@ const STAGE_LABEL_KEY: Record<string, string> = {
 /**
  * 消息链路视图（方案 A）：最近消息列表 + 展开阶段时间线
  * 直接回答"这条消息卡在哪一步、各阶段耗时多少"
+ *
+ * 入站监视 G2（2026-11-21）：`live` 读内存缓冲（最快），`1h`/`24h` 读落盘历史
+ * （`/v1/channels/messages/trace/history`，重启后仍可复盘）。
  */
+type TraceRange = "live" | "1h" | "24h";
+
+const TRACE_RANGE_LABEL_KEY: Record<TraceRange, string> = {
+  live: "common.channelTraceRangeLive",
+  "1h": "common.channelTraceRange1h",
+  "24h": "common.channelTraceRange24h",
+};
+
 function MessageTracesView({
   traces,
   expandedTrace,
+  range,
+  onRangeChange,
   onToggle,
   onRefresh,
 }: {
   traces: MessageTrace[];
   expandedTrace: string | null;
+  range: TraceRange;
+  onRangeChange: (range: TraceRange) => void;
   onToggle: (traceId: string) => void;
   onRefresh: () => void;
 }) {
   const { t } = useTranslation();
   return (
     <div>
-      <div className="flex items-center justify-end mb-1.5">
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex gap-1">
+          {(["live", "1h", "24h"] as TraceRange[]).map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => onRangeChange(value)}
+              className={`text-[11px] px-2 py-0.5 rounded border ${
+                range === value
+                  ? "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                  : "border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+              }`}
+            >
+              {t(TRACE_RANGE_LABEL_KEY[value])}
+            </button>
+          ))}
+        </div>
         <button
           type="button"
           onClick={onRefresh}

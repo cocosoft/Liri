@@ -184,6 +184,15 @@ export interface MessageTracesResponse {
   updatedAt: number;
 }
 
+/** 历史消息链路响应体（GET /v1/channels/messages/trace/history，入站监视 G2） */
+export interface MessageTraceHistoryResponse {
+  traces: MessageTrace[];
+  total: number;
+  /** 下一页游标 `${startedAtMs}:${traceId}`；`null` = 已到末页 */
+  nextCursor: string | null;
+  updatedAt: number;
+}
+
 /** 渠道配置字段定义（GET /v1/channels/schema，4.1：后端单一来源） */
 export interface PlatformFieldDef {
   key: string;

@@ -25,7 +25,7 @@ import {
   setA2AUncertaintyProvider,
 } from '@modules/infrastructure/http/handlers/routes/a2a-routes';
 import type { A2APortSlice } from '@modules/infrastructure/http/handlers/routes/a2a-rpc';
-import type { A2ATask } from '@modules/types/a2a';
+import type { A2AMessage, A2ATask } from '@modules/types/a2a';
 
 const redact = (s: string): string => s.replace(/secret/gi, '***');
 
@@ -190,14 +190,26 @@ describe('D5：A2A 委派注入（仅协商 + 有产出方）', () => {
         id: string,
         s: string,
         artifacts: unknown[],
-        message?: unknown
+        message?: unknown,
+        metadata?: Record<string, unknown>
       ) => {
         const prev = tasks.get(id) as A2ATask;
+        const history = message
+          ? [message as A2AMessage]
+          : (prev.history ?? []);
+        // D5（2026-11-21）：与真实 store 同语义 —— metadata 同时写任务级与最后一条消息
+        if (metadata && history.length > 0) {
+          const last = history[history.length - 1];
+          last.metadata = { ...(last.metadata ?? {}), ...metadata };
+        }
         const next: A2ATask = {
           ...prev,
           status: state(s) as never,
           artifacts: artifacts as never,
-          ...(message ? { history: [message as never] } : {}),
+          ...(message ? { history } : {}),
+          ...(metadata
+            ? { metadata: { ...(prev.metadata ?? {}), ...metadata } }
+            : {}),
         };
         tasks.set(id, next);
         return next;
@@ -218,7 +230,7 @@ describe('D5：A2A 委派注入（仅协商 + 有产出方）', () => {
       trace: [{ kind: 'plan', summary: 'secret 细节' }],
     }));
 
-    const { port } = fakePort();
+    const { port, tasks } = fakePort();
     const { completed, task } = await runDelegation(
       port,
       'hi',
@@ -235,6 +247,51 @@ describe('D5：A2A 委派注入（仅协商 + 有产出方）', () => {
     expect(task.metadata?.[LIRI_REASONING_TRACE_KEY]).toEqual([
       { step: 1, kind: 'plan' },
     ]);
+
+    // D5（2026-11-21）：同一信号必须**落存储**（任务级 + 最后一条消息），否则事后回查拿不到
+    const stored = tasks.get(task.id);
+    expect(stored?.metadata?.[LIRI_UNCERTAINTY_KEY]).toEqual({
+      score: 0.13,
+      method: 'verifier',
+    });
+    expect(
+      stored?.history?.[stored.history.length - 1]?.metadata?.[
+        LIRI_UNCERTAINTY_KEY
+      ]
+    ).toEqual({ score: 0.13, method: 'verifier' });
+  });
+
+  it('超阈值异步收尾 ⇒ 同样注入并落存储（原实现只走同步路径）', async () => {
+    setA2ADelegator(
+      () =>
+        new Promise<string>((resolve) =>
+          setTimeout(() => resolve('迟到结果'), 20)
+        )
+    );
+    setA2AUncertaintyProvider(() => ({
+      uncertainty: { score: 0.4, method: 'verifier' },
+    }));
+    const { port, tasks } = fakePort();
+
+    const { completed, task } = await runDelegation(
+      port,
+      'hi',
+      undefined,
+      0,
+      true
+    );
+    expect(completed).toBe(false); // 超阈值 ⇒ working
+    expect(
+      tasks.get(task.id)?.metadata?.[LIRI_UNCERTAINTY_KEY]
+    ).toBeUndefined();
+
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    const stored = tasks.get(task.id);
+    expect(stored?.status.state).toBe('TASK_STATE_COMPLETED');
+    expect(stored?.metadata?.[LIRI_UNCERTAINTY_KEY]).toEqual({
+      score: 0.4,
+      method: 'verifier',
+    });
   });
 
   it('未协商 / 无产出方 / 越界值 ⇒ 响应不含 liri.* 键', async () => {

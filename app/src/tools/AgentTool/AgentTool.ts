@@ -1275,6 +1275,11 @@ export class AgentTool implements Tool {
         agentId,
         descriptor.source
       );
+      // 2026-11-21（`agent-load-routing.md` §7「仍未做」1）：命中运行时注册表时补写稳定 agentId，
+      // 使在跑数可按 agent 聚合（准入发生在解析之前 ⇒ 只能在此补写，幂等）。
+      if (descriptor.registryAgentId) {
+        this._ledger.setRegistryAgentId(agentId, descriptor.registryAgentId);
+      }
 
       // T9：授权位 = 角色策略（用户配置）× 父侧深度上限（双判据合取，模型不可自选）
       const canDelegate = this.resolveDelegationGrant(

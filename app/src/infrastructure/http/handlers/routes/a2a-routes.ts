@@ -45,6 +45,8 @@ import type { A2ATask } from '@modules/types/a2a';
 // D5（2026-11-14）：不确定性与推理轨迹（纯契约；默认不发，按协商 opt-in）
 import {
   A2A_UNCERTAINTY_REQUEST_HEADER,
+  LIRI_REASONING_TRACE_KEY,
+  LIRI_UNCERTAINTY_KEY,
   acceptsUncertainty,
   attachUncertaintyMetadata,
   normalizeTrace,
@@ -430,41 +432,46 @@ export function setA2AUncertaintyProvider(
 }
 
 /**
- * 把产出方的信号合入任务 `metadata`（仅**已协商**时）。
+ * 把产出方的信号归一化为**可落存储的 metadata**（仅**已协商**时）。
  *
  * 归一化失败（越界/非法）由 `normalize*` 丢弃对应字段；文本字段无脱敏函数时只保留
  * `kind`/`score`（spec §4-4 fail-closed）。
+ *
+ * D5（2026-11-21）：结果随 `completeTask` 的 `metadata` 参数**同一次写入**落存储
+ * （任务级 + 最后一条消息）⇒ 事后 `GET /v1/a2a/tasks/{id}` 可读到同一份信号。
+ *
+ * @returns 未协商 / 无产出方 / 无信号 ⇒ `undefined`（调用方不得写任何 `liri.*` 键）
  */
-async function enrichWithUncertainty(
-  task: A2ATask,
+async function resolveUncertaintyMetadata(
+  taskId: string,
   accepted: boolean
-): Promise<A2ATask> {
-  if (!accepted || !uncertaintyProvider) return task;
+): Promise<Record<string, unknown> | undefined> {
+  if (!accepted || !uncertaintyProvider) return undefined;
   try {
-    const signal = await uncertaintyProvider(task.id);
-    if (!signal) return task;
+    const signal = await uncertaintyProvider(taskId);
+    if (!signal) return undefined;
     const uncertainty = normalizeUncertainty(signal.uncertainty);
     const trace = normalizeTrace(signal.trace);
-    const metadata = attachUncertaintyMetadata(task.metadata, {
+    const metadata = attachUncertaintyMetadata(undefined, {
       uncertainty,
       trace,
     });
-    if (metadata === task.metadata) return task;
+    if (!metadata) return undefined;
     // spec §6-#6：每条真正带 `liri.*` 的响应都要可审计（只记 score/method/条数，不记原文）
     logger.info('a2a.uncertainty.exposed', {
-      taskId: task.id,
+      taskId,
       score: uncertainty?.score ?? null,
       method: uncertainty?.method ?? null,
       traceSteps: trace.length,
     });
-    return { ...task, metadata };
+    return metadata;
   } catch (error) {
     // 信号是**增强**：注入失败只告警，不影响委派结果
     logger.warning('A2A 不确定性注入失败（不影响响应）', {
-      taskId: task.id,
+      taskId,
       error: String(error),
     });
-    return task;
+    return undefined;
   }
 }
 
@@ -542,9 +549,16 @@ export async function runDelegation(
       return { completed: false, task: port.getTask(task.id) ?? task };
     }
     const { artifacts, message: reply } = toDeliverables(outcome.value);
-    const done = await enrichWithUncertainty(
-      port.completeTask(task.id, 'TASK_STATE_COMPLETED', artifacts, reply),
+    const uncertaintyMetadata = await resolveUncertaintyMetadata(
+      task.id,
       acceptUncertainty
+    );
+    const done = port.completeTask(
+      task.id,
+      'TASK_STATE_COMPLETED',
+      artifacts,
+      reply,
+      uncertaintyMetadata
     );
     logger.info('A2A 委派完成（同步）', {
       taskId: task.id,
@@ -566,11 +580,22 @@ export async function runDelegation(
     });
   }
   void pending
-    .then((late) => {
+    .then(async (late) => {
       // 业务失败已在其 catch 内落 FAILED（勿改写终态）
       if (late.kind === 'failed') return;
       const { artifacts, message: reply } = toDeliverables(late.value);
-      port.completeTask(task.id, 'TASK_STATE_COMPLETED', artifacts, reply);
+      // D5（2026-11-21）：超阈值异步收尾路径同样注入（原实现只在同步路径注入 ⇒ 事后回查无信号）
+      const uncertaintyMetadata = await resolveUncertaintyMetadata(
+        task.id,
+        acceptUncertainty
+      );
+      port.completeTask(
+        task.id,
+        'TASK_STATE_COMPLETED',
+        artifacts,
+        reply,
+        uncertaintyMetadata
+      );
     })
     .catch((error: unknown) =>
       handleError(error, {
@@ -601,6 +626,67 @@ export async function runA2ADelegation(
   return runDelegation(port, message, agentId, waitMs ?? resolveMaxWaitMs());
 }
 
+/** `liri.*` 键集合（未协商时从响应中剔除；spec §6-#1「未协商 ⇒ 不含 liri. 键」） */
+const LIRI_METADATA_KEYS: ReadonlySet<string> = new Set([
+  LIRI_UNCERTAINTY_KEY,
+  LIRI_REASONING_TRACE_KEY,
+]);
+
+function hasLiriKey(metadata?: Record<string, unknown>): boolean {
+  return (
+    !!metadata && Object.keys(metadata).some((k) => LIRI_METADATA_KEYS.has(k))
+  );
+}
+
+/**
+ * 未协商 ⇒ 返回**不含 `liri.*`** 的任务副本（不改存储对象）。
+ *
+ * 存储可能因**上次已协商的委派**写入了 `liri.*`；回查时不带协商头的外部调用方
+ * 仍不得看到该字段（spec §6-#1）。无 `liri.*` ⇒ 原样返回（零拷贝）。
+ */
+function withoutLiriMetadata(task: A2ATask): A2ATask {
+  const statusMessage = task.status.message;
+  const historyHas = !!task.history?.some((m) => hasLiriKey(m.metadata));
+  if (
+    !hasLiriKey(task.metadata) &&
+    !hasLiriKey(statusMessage?.metadata) &&
+    !historyHas
+  ) {
+    return task;
+  }
+  const strip = (
+    metadata?: Record<string, unknown>
+  ): Record<string, unknown> | undefined =>
+    metadata === undefined
+      ? undefined
+      : Object.fromEntries(
+          Object.entries(metadata).filter(([k]) => !LIRI_METADATA_KEYS.has(k))
+        );
+  return {
+    ...task,
+    metadata: strip(task.metadata),
+    ...(task.history
+      ? {
+          history: task.history.map((m) => ({
+            ...m,
+            metadata: strip(m.metadata),
+          })),
+        }
+      : {}),
+    status: {
+      ...task.status,
+      ...(statusMessage
+        ? {
+            message: {
+              ...statusMessage,
+              metadata: strip(statusMessage.metadata),
+            },
+          }
+        : {}),
+    },
+  };
+}
+
 /** `GET /v1/a2a/tasks/{id}` —— 任务回查（T4） */
 async function handleGetTask(
   req: http.IncomingMessage,
@@ -617,6 +703,10 @@ async function handleGetTask(
     json(res, 404, { error: { message: `任务不存在：${taskId}` } });
     return true;
   }
-  json(res, 200, task);
+  // D5（2026-11-21）：协商即返回持久化的 `liri.*`；未协商一律剔除
+  const accepted = acceptsUncertainty({
+    header: req.headers[A2A_UNCERTAINTY_REQUEST_HEADER],
+  });
+  json(res, 200, accepted ? task : withoutLiriMetadata(task));
   return true;
 }

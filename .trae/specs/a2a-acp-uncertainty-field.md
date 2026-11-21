@@ -121,9 +121,13 @@ interface LiriTraceStep {
   → 验证器写 infra 投影「每会话最新结果」→ 任务完成时 `score = 1 - confidence`（`method='verifier'`）。
   无记录 / `confidence` 非有限或越界 ⇒ 返回 `null`（**不发字段**，符合 CS04）。
   未开开关 ⇒ 维持 `null`（生产响应恒不含 `liri.*`）；
-  **遗留**：进程内投影，重启后不补发；超阈值异步收尾路径不注入；`trace` 本次不发（无脱敏函数）。
-- **A2A 任务级汇总**：`lastUncertaintyFromMessages()` 已提供（纯函数），但"消息级写入 + 任务级汇总"
-  需随产出方一起接线；`GET /v1/a2a/tasks/{id}` 的持久化 metadata 依赖端口存储合并（当前未做）；
+  **遗留**：进程内投影与任务台账均不跨重启（重启后旧任务不可查，按 A2A §3.4 新建任务）；
+  `trace` 本次不发（无脱敏函数）。
+- **A2A 任务级汇总（2026-11-21 已接线）**：`runDelegation` 在**同步**与**超阈值异步收尾**两条路径
+  都经端口 `mergeTaskMetadata` 落存储（`A2ATaskStore.mergeMetadata` 同时写任务级 `metadata`
+  与最后一条消息的 `metadata`）⇒ `GET /v1/a2a/tasks/{id}` 带协商头即可读到持久化信号；
+  未协商 ⇒ `a2a-routes#withoutLiriMetadata` 剔除全部 `liri.*`（spec §6-#1）。
+  回归：`tests/types/uncertainty.test.ts`（同步 + 异步落存储）、`tests/http/a2aRoutes.test.ts`（回查协商门）。
 - **不保证置信度准确**：`self_report` 可能过自信；因此 `method` 必填、消费方据此决定是否复核；
 - **不传原始 CoT**：只传步骤摘要；需要原始推理时仍走既有 `agent_thought_chunk`（流式、受权限约束）；
 - **不做跨端校准**：多智能体场景若要"同行评审置信度"，另立 spec（D4/D3 依赖）；

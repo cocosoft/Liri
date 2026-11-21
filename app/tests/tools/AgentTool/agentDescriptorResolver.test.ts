@@ -87,13 +87,19 @@ describe('resolveAgentDescriptor：四级回退（O11）', () => {
       deps: makeDeps({
         getRegistered: (key, raw) =>
           key === 'plugin-agent' || raw === 'plugin-agent'
-            ? { name: 'plugin-agent', systemPrompt: 'PLUGIN' }
+            ? {
+                agentId: 'reg-agent-1',
+                name: 'plugin-agent',
+                systemPrompt: 'PLUGIN',
+              }
             : null,
       }),
     });
 
     expect(result.ok && result.source).toBe('registry');
     expect(result.ok && result.systemPrompt).toBe('PLUGIN');
+    // 2026-11-21：注册表分支如实带出稳定 agentId（供台账按 agent 聚合在跑数）
+    expect(result.ok && result.registryAgentId).toBe('reg-agent-1');
   });
 
   test('③ DB/注册表均无、名称为内置类型 ⇒ source=builtin（用基准提示词）', async () => {

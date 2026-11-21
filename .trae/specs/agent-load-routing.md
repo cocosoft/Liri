@@ -52,7 +52,8 @@
 ## 5. 二期前置（未做，如实登记）
 
 1. **③-B Council 按议题选人**：把 `loadAgents()` 的"全部启用角色"改为按 `topic → expertise` 选人，`assignAgentsByGraph` 才有真实调用；
-2. **按 agent 维度的负载记账**：`AgentRunLedger` 的 `AgentRunView` 需带 registry `agentId`（现在只有 `id`/`type`）；
+2. **按 agent 维度的负载记账**：`AgentRunLedger` 的 `AgentRunView` 需带 registry `agentId`（现在只有 `id`/`type`）
+   —— ✅ **2026-11-21 已补**（见 §7「仍未做」1 的落地说明）；剩余是把该维度接入选人；
 3. **置信度事实源**：需要"agent 在同类任务上的历史成功率"（可复用 `TaskOutcomeLedger` / PDCA 评审样本），否则"置信度路由"只能拍脑袋；
 4. 接线后按现有治理流程补默认关开关（三处登记 + 默认关登记表）。
 
@@ -68,6 +69,11 @@
 
 ### 仍未做（如实）
 
-1. **负载维度接入选人**：`AgentRunLedger` 的 `AgentRunView` 仍无 registry `agentId`（只有运行 `type`）⇒ 无法按 agent 聚合在跑数；`rankAgentsByLoad` 继续以显式 `loads` 入参可用，但 Council 选人未接负载。
+1. ~~**负载维度接入选人**：`AgentRunLedger` 的 `AgentRunView` 仍无 registry `agentId`~~ → **2026-11-21 已补**：
+   描述符解析链②分支返回 `registryAgentId`，`AgentTool` 在解析成功后经
+   `AgentRunLedger.setRegistryAgentId(runId, registryAgentId)` 幂等补写（准入早于解析，不能提前）；
+   `AgentRunView` / `listActive()` 现带该键（缺省不写），可按 agent 聚合在跑数。
+   回归：`tests/tools/AgentTool/agentRunLedger.test.ts`（3 例）、`agentDescriptorResolver.test.ts`（②分支断言）。
+   **仍未做**：Council 选人尚未消费该维度（`rankAgentsByLoad` 仍只吃显式 `loads` 入参）。
 2. **置信度事实源**：同类任务历史成功率尚未按 agent 聚合（需把 `TaskOutcomeLedger` / PDCA 评审样本按 agent 归属）；未做即不打分（不猜）。
 3. `assignAgentsByGraph` 仍无生产调用方（Council 直接消费 registry 候选，不经该 API）——保留为"按需求批量分配"的现成能力。

@@ -69,6 +69,13 @@ export type AgentDescriptorRoleLookup =
 
 /** 运行时注册的 agent（解析链②）在解析期需要的最小字段 */
 export interface AgentDescriptorRegistered {
+  /**
+   * 注册表稳定 ID（`AgentRegistry.AgentDefinition.agentId`）。
+   *
+   * **可选**：旧注入方可只给名字；缺省 ⇒ 解析结果不带 `registryAgentId`
+   * （台账不会把运行 id 冒充成 agent 维度）。
+   */
+  agentId?: string;
   name?: string;
   role?: string;
   systemPrompt?: string;
@@ -132,6 +139,13 @@ export type AgentDescriptorResult =
       disallowedTools?: string[];
       /** 定义侧白名单（P36）：命中来源声明的"允许持有"工具；缺省 ⇒ 不限制默认面 */
       allowedTools?: string[];
+      /**
+       * 命中的**运行时注册表 agentId**（2026-11-21，`agent-load-routing.md` §7）。
+       *
+       * 仅在 ② 分支（`source='registry'`）出现 ⇒ 供台账按 agent 聚合在跑数
+       * （`AgentRunLedger.setRegistryAgentId`）。其余来源缺省不写（不拿类型名冒充）。
+       */
+      registryAgentId?: string;
     }
   | { ok: false; error: string };
 
@@ -252,6 +266,8 @@ export async function resolveAgentDescriptor(params: {
       // 定义侧裁剪（只减不增）：运行时注册的 agent 同样可声明禁用项
       disallowedTools: registered.disallowedTools,
       allowedTools: registered.allowedTools,
+      // 稳定 agentId（按 agent 聚合在跑数的唯一键；运行 id 不能替代）
+      registryAgentId: registered.agentId,
     };
   }
 

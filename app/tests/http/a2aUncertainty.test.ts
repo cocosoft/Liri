@@ -155,13 +155,28 @@ describe('端到端：runDelegation → ctx → 会话索引 → 验证器结果
         id: string,
         status: string,
         artifacts: unknown[],
-        message?: unknown
+        message?: unknown,
+        metadata?: Record<string, unknown>
       ) => {
+        const prev = tasks.get(id) ?? {};
+        const history = message ? [message] : [];
+        if (metadata && history.length > 0) {
+          const last = history[0] as { metadata?: Record<string, unknown> };
+          last.metadata = { ...(last.metadata ?? {}), ...metadata };
+        }
         const next = {
-          ...tasks.get(id),
+          ...prev,
           status,
           artifacts,
-          ...(message ? { history: [message] } : {}),
+          ...(message ? { history } : {}),
+          ...(metadata
+            ? {
+                metadata: {
+                  ...((prev['metadata'] as Record<string, unknown>) ?? {}),
+                  ...metadata,
+                },
+              }
+            : {}),
         };
         tasks.set(id, next);
         return next;

@@ -74,7 +74,14 @@ export interface A2APort {
     taskId: string,
     state: A2ATaskState,
     artifacts: A2AArtifact[],
-    message?: A2AMessage
+    message?: A2AMessage,
+    /**
+     * D5（2026-11-21，`a2a-acp-uncertainty-field.md` §7）：可选的任务级 metadata，
+     * 与终态**同一写入**落存储（同时写最后一条消息）⇒ 事后回查可读到 `liri.*`。
+     *
+     * ⚠️ 只合并**调用方已归一化**的键（不做业务判定）；空对象 ⇒ 零写入。
+     */
+    metadata?: Record<string, unknown>
   ): A2ATask;
   /** 按 id 取任务；未知 id ⇒ `undefined`（不跨重启，见 `taskStore` 头注释） */
   getTask(taskId: string): A2ATask | undefined;

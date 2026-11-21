@@ -25,7 +25,12 @@ import {
   hasA2ADelegator,
   isA2AEnabled,
   setA2ADelegator,
+  setA2AUncertaintyProvider,
 } from '../../src/infrastructure/http/handlers/routes/a2a-routes';
+import {
+  A2A_UNCERTAINTY_REQUEST_HEADER,
+  LIRI_UNCERTAINTY_KEY,
+} from '@modules/types/uncertainty';
 import { createHandlerCtx } from '../../src/infrastructure/http/handlers/handler-utils';
 import { a2aTaskStore } from '../../src/agent/a2a/taskStore';
 
@@ -120,6 +125,7 @@ afterEach(() => {
   delete process.env.A2A_PUBLIC_URL;
   delete process.env.A2A_DELEGATE_MAX_WAIT_MS;
   setA2ADelegator(null);
+  setA2AUncertaintyProvider(null);
   a2aTaskStore.clear();
 });
 
@@ -352,6 +358,48 @@ describe('A2A 委派（T4）', () => {
     };
     expect(task.status.state).toBe('TASK_STATE_COMPLETED');
     expect(task.artifacts[0]?.parts[0]?.text).toBe('late-reply');
+  });
+
+  it('D5 未协商回查 ⇒ 不含 liri.*；协商回查 ⇒ 读到持久化信号', async () => {
+    enableA2A();
+    setA2ADelegator(async () => 'ok');
+    setA2AUncertaintyProvider(() => ({
+      uncertainty: { score: 0.25, method: 'verifier' },
+    }));
+
+    const created = await call(
+      'POST',
+      auth({ [A2A_UNCERTAINTY_REQUEST_HEADER]: 'accept' }),
+      TASKS_PATH,
+      JSON.stringify({ message: 'ping' })
+    );
+    expect(created.cap.status).toBe(200);
+    const { id } = JSON.parse(created.cap.body) as { id: string };
+
+    // 未带协商头 ⇒ 即便存储里有也一律剔除（spec §6-#1）
+    const plain = await call('GET', auth(), `${TASKS_PATH}/${id}`);
+    expect(plain.cap.status).toBe(200);
+    expect(plain.cap.body).not.toContain('liri.');
+
+    // 带协商头 ⇒ 任务级 metadata 与最后一条消息都带信号（同源）
+    const accepted = await call(
+      'GET',
+      auth({ [A2A_UNCERTAINTY_REQUEST_HEADER]: 'accept' }),
+      `${TASKS_PATH}/${id}`
+    );
+    const task = JSON.parse(accepted.cap.body) as {
+      metadata?: Record<string, unknown>;
+      history?: { metadata?: Record<string, unknown> }[];
+    };
+    expect(task.metadata?.[LIRI_UNCERTAINTY_KEY]).toEqual({
+      score: 0.25,
+      method: 'verifier',
+    });
+    const last = task.history?.[task.history.length - 1];
+    expect(last?.metadata?.[LIRI_UNCERTAINTY_KEY]).toEqual({
+      score: 0.25,
+      method: 'verifier',
+    });
   });
 
   it('⑩ 未知 taskId ⇒ 404；非 A2A 路径 ⇒ 不处理', async () => {

@@ -194,3 +194,66 @@ describe('运行状态机（B3 显式化）', () => {
     expect(ledger.settle('a', 'completed')).toBe(false);
   });
 });
+
+describe('AgentRunLedger：注册表 agentId（负载聚合前置，2026-11-21）', () => {
+  test('登记时已知 ⇒ 投影带 registryAgentId；缺省 ⇒ 不写该键', () => {
+    const ledger = makeLedger();
+    ledger.register({
+      id: 'run-1',
+      name: 'A',
+      type: 'general',
+      registryAgentId: 'agent-42',
+    });
+    ledger.register({ id: 'run-2', name: 'B', type: 'general' });
+
+    expect(ledger.viewActive('run-1')?.registryAgentId).toBe('agent-42');
+    expect(ledger.listActive().map((v) => v.registryAgentId)).toEqual([
+      'agent-42',
+      undefined,
+    ]);
+    // 缺省键**不存在**（区别于显式空串）
+    expect('registryAgentId' in (ledger.viewActive('run-2') ?? {})).toBe(false);
+  });
+
+  test('解析后补写 ⇒ 活跃视图立即生效；未知 ⇒ false', () => {
+    const ledger = makeLedger();
+    ledger.register({ id: 'run-1', name: 'A', type: 'general' });
+
+    expect(ledger.setRegistryAgentId('run-1', 'agent-7')).toBe(true);
+    expect(ledger.viewActive('run-1')?.registryAgentId).toBe('agent-7');
+    // 幂等：重复补写不改结果
+    expect(ledger.setRegistryAgentId('run-1', 'agent-7')).toBe(true);
+
+    expect(ledger.setRegistryAgentId('ghost', 'agent-x')).toBe(false);
+  });
+
+  test('按 registryAgentId 聚合在跑数（loadAwareRouting 的输入口径）', () => {
+    const ledger = makeLedger();
+    ledger.register({
+      id: 'r1',
+      name: 'A',
+      type: 'general',
+      registryAgentId: 'a1',
+    });
+    ledger.register({
+      id: 'r2',
+      name: 'A',
+      type: 'general',
+      registryAgentId: 'a1',
+    });
+    ledger.register({
+      id: 'r3',
+      name: 'B',
+      type: 'general',
+      registryAgentId: 'a2',
+    });
+
+    const byAgent = new Map<string, number>();
+    for (const view of ledger.listActive()) {
+      const key = view.registryAgentId;
+      if (!key) continue; // 无稳定 agentId 的 run 不参与按 agent 的聚合（不冒充）
+      byAgent.set(key, (byAgent.get(key) ?? 0) + 1);
+    }
+    expect(Object.fromEntries(byAgent)).toEqual({ a1: 2, a2: 1 });
+  });
+});

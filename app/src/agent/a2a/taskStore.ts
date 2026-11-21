@@ -133,13 +133,17 @@ export class A2ATaskStore {
   /**
    * 更新状态与产物。
    *
+   * @param metadata D5（2026-11-21）：可选的任务级 metadata 合并（同时写最后一条消息）。
+   *   由委派路由在**同一写入**里带上 `liri.*`（消息级写入 + 任务级汇总同源），
+   *   使事后 `GET /v1/a2a/tasks/{id}` 能读到（`a2a-acp-uncertainty-field.md` §7）。
    * @throws Error 若任务已处于终态（§3.4 不可重启）或不存在
    */
   complete(
     taskId: string,
     state: A2ATaskState,
     artifacts: A2AArtifact[],
-    message?: A2AMessage
+    message?: A2AMessage,
+    metadata?: Record<string, unknown>
   ): A2ATask {
     const task = this.tasks.get(taskId);
     if (!task) throw new Error(`任务不存在：${taskId}`);
@@ -152,6 +156,17 @@ export class A2ATaskStore {
     task.status = { state, timestamp: new Date().toISOString(), message };
     if (artifacts.length > 0) task.artifacts = artifacts;
     if (message) task.history = [...(task.history ?? []), message];
+    if (metadata && Object.keys(metadata).length > 0) {
+      task.metadata = { ...(task.metadata ?? {}), ...metadata };
+      const last = task.history?.[(task.history?.length ?? 0) - 1];
+      if (last) last.metadata = { ...(last.metadata ?? {}), ...metadata };
+      if (task.status.message && task.status.message !== last) {
+        task.status.message.metadata = {
+          ...(task.status.message.metadata ?? {}),
+          ...metadata,
+        };
+      }
+    }
     // T4 批次 C：状态变更广播（SSE 流的唯一事件源；无订阅者时零开销）
     this.publishStatus(task);
     return task;

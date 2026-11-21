@@ -62,6 +62,14 @@ export interface AgentRunEntry {
    * 若副作用以"本次 `settle()` 是否发生迁移"为闸门，则引擎路径上落盘与通知会被静默跳过。
    */
   terminalSideEffectsDone?: boolean;
+  /**
+   * 注册表 `agentId`（2026-11-21，`agent-load-routing.md` §7「仍未做」1）。
+   *
+   * run 的 `id` 是**运行标识**（`createAgentId` 生成），与注册表里的稳定 `agentId` 不是一回事
+   * —— 只有后者才能把在跑数按 agent 聚合。登记时通常尚不知道（描述符解析发生在准入之后），
+   * 故由 `setRegistryAgentId()` 在解析命中「运行时注册表」来源后补写。
+   */
+  registryAgentId?: string;
 }
 
 /** 对外查询投影（**不含** `sessionId` 等专有字段；每次新建，调用方改写不影响台账） */
@@ -71,6 +79,12 @@ export interface AgentRunView {
   type: AgentType;
   startTime: number;
   status: AgentRunStatus;
+  /**
+   * 注册表 `agentId`（仅当来源为「运行时注册表」且已解析时出现；缺省 ⇒ 不写该键）。
+   *
+   * 负载路由据此把在跑数**按 agent 聚合**（`collectAgentLoads`），不能拿运行 `id` 代替。
+   */
+  registryAgentId?: string;
 }
 
 /** 默认归因保留上限 */
@@ -174,6 +188,14 @@ export interface AgentRunMutatePort {
   claimTerminalSideEffects(
     agentId: string
   ): ReturnType<AgentRunLedger['claimTerminalSideEffects']>;
+  /**
+   * 补写注册表 `agentId`（描述符解析命中「运行时注册表」后调用；幂等）。
+   * @returns 该 run 是否存在于活跃/归因表（已淘汰 ⇒ `false`）
+   */
+  setRegistryAgentId(
+    agentId: string,
+    registryAgentId: string
+  ): ReturnType<AgentRunLedger['setRegistryAgentId']>;
 }
 
 /** P2-6：消费方统一依赖的台账契约（判据面 + 变更面） */
@@ -215,6 +237,10 @@ export class AgentRunLedger implements AgentRunLedgerPort {
     startTime?: number;
     sessionId?: string;
     /**
+     * 注册表 `agentId`（可选）。解析前通常未知 ⇒ 缺省不写，解析后由 `setRegistryAgentId` 补。
+     */
+    registryAgentId?: string;
+    /**
      * R2（2026-09-21）：准入驻位数（默认 1；并行批次 = worker 数）。
      *
      * 由 `executeGuard` 在**准入判定**时算出并经 `beginRun` 传入 —— 即"准入即预留"。
@@ -229,6 +255,7 @@ export class AgentRunLedger implements AgentRunLedgerPort {
       startTime: params.startTime ?? Date.now(),
       status: 'running',
       sessionId: params.sessionId,
+      registryAgentId: params.registryAgentId,
       // 非法值（NaN / ≤0）一律折回 1，避免污染 `liveCount`
       weight: AgentRunLedger.normalizeWeight(params.weight),
     };
@@ -268,6 +295,8 @@ export class AgentRunLedger implements AgentRunLedgerPort {
     type: AgentType;
     startTime?: number;
     sessionId?: string;
+    /** 注册表 `agentId`（可选；同 `register`） */
+    registryAgentId?: string;
     weight: number;
     /** 并发上限（由调用方配置提供 —— 台账不自持配置） */
     limit: number;
@@ -280,6 +309,7 @@ export class AgentRunLedger implements AgentRunLedgerPort {
       type: params.type,
       startTime: params.startTime,
       sessionId: params.sessionId,
+      registryAgentId: params.registryAgentId,
       weight,
     });
     return {
@@ -453,6 +483,22 @@ export class AgentRunLedger implements AgentRunLedgerPort {
     return owed;
   }
 
+  /**
+   * 补写注册表 `agentId`（描述符解析命中「运行时注册表」后调用）。
+   *
+   * **为什么不在 register 一次写全**：准入（`tryReserve`）发生在描述符解析**之前**，
+   * 此刻还不知道用户选的是不是注册表 agent；强行提前解析会把"准入即预留"拆成两步
+   * （正是 M-9 修复过的问题）。故解析成功后**幂等补写**，供负载聚合按 agent 归并。
+   *
+   * @returns 该 run 是否仍在活跃/归因表（已被 CAP 淘汰 ⇒ `false`，不抛错）
+   */
+  setRegistryAgentId(agentId: string, registryAgentId: string): boolean {
+    const entry = this.active.get(agentId) ?? this.recent.get(agentId);
+    if (!entry) return false;
+    entry.registryAgentId = registryAgentId;
+    return true;
+  }
+
   /** 活跃条目投影（无命中返回 undefined） */
   viewActive(agentId: string): AgentRunView | undefined {
     const agent = this.active.get(agentId);
@@ -492,6 +538,10 @@ export class AgentRunLedger implements AgentRunLedgerPort {
       type: agent.type,
       startTime: agent.startTime,
       status: agent.status,
+      // 缺省不写该键（避免把"来源不是注册表"误读成空 agentId）
+      ...(agent.registryAgentId
+        ? { registryAgentId: agent.registryAgentId }
+        : {}),
     };
   }
 }

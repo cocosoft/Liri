@@ -592,8 +592,8 @@ export class DomainSnapshotOps {
       getAgentSystemPrompt: (agentId: string) =>
         getAgentRegistry().getAgent(agentId)?.systemPrompt,
       createTask: () => a2aTaskStore.create(),
-      completeTask: (taskId, state, artifacts, message) =>
-        a2aTaskStore.complete(taskId, state, artifacts, message),
+      completeTask: (taskId, state, artifacts, message, metadata) =>
+        a2aTaskStore.complete(taskId, state, artifacts, message, metadata),
       getTask: (taskId: string) => a2aTaskStore.get(taskId),
       // T4 批次 B：显式判定终态（而非捕获 `cancel` 抛错）—— 避免异常作为控制流、避免消息匹配（CS02/CS03）
       listTasks: () => a2aTaskStore.list(),

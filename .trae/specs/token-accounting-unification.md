@@ -1,6 +1,6 @@
 # Token 会计口径统一（G2 专项设计）
 
-> 状态：**P1 + P2 + P3 已实施（2026-11-18）；P4 的"可静态证伪"部分已结清（2026-11-21），真机长会话待跑**
+> 状态：**P1 + P2 + P3 已实施（2026-11-18）；P4 的"可静态证伪"部分与离线复验工具已就绪（2026-11-21），真机长会话待跑**
 > 来源：真机会话 `session_mwkthat73b80a6724f` 排查（台账 G2）
 > 关联：G1（压缩体积口径，**已修**）、`compactionTokenPair.test.ts`（既有先例）
 
@@ -108,9 +108,16 @@ unified:checkBeforeRequest {
 ```
 压缩：
 ```
-compaction:applied { rawBeforeTokens, rawAfterTokens, savingPercent, decisionCalibratedTotal, calibrationFactor }
+compaction:applied {
+  beforeTokens,        // = measuredBeforeTokens（全量估算，与 afterTokens/savingPercent 同口径）
+  afterTokens,
+  savingPercent,
+  decisionRawInputTokens,  // 决策侧 raw（可能是 1× 窗口下界）
+  estimateLowerBound
+}
 ```
-两行日志**不得互相引用对方的数值**；排障时看 `rawBefore/rawAfter` 判"是否真的变小"，看 `ratio` 判"是否超窗"。
+两行日志**不得互相引用对方的数值**；排障时看 `beforeTokens/afterTokens` 判"是否真的变小"，看 `ratio` 判"是否超窗"。
+（2026-11-21 订正：原写法 `rawBeforeTokens/rawAfterTokens` 与实现字段名不符；实现里 `beforeTokens` 语义即"全量 raw 实测基线"。）
 
 ### D7 不在本专项内做的事
 
@@ -127,7 +134,7 @@ compaction:applied { rawBeforeTokens, rawAfterTokens, savingPercent, decisionCal
 | **P1** | D3+D6：`CompactionDecision` 类型改造 + 全部消费点改名 + 双字段日志 | ✅ **已实施（2026-11-18）**：`snapshot` / `beforeTokens` 已删除，全仓 `snapshot.tokens` 归零（仅历史注释保留）；`tsc` 三 project 0 错；`tests/chat + tests/context + tokenBudget` **1321 pass / 0 fail**；`lint:fn-size` 棘轮未增长 |
 | **P2** | D3 前端：`TrajectoryDetail` 只展示 `ratio` + `rawBefore/rawAfter`（不再展示混口径 K 值） | 🟡 **最小切片已实施**：压缩进度文案改为「上下文水位 N%（估算）」；`TrajectoryDetail` 的 before/after 差值本就同源（raw），未改 |
 | **P3** | D4+D5：估算器契约测试（同输入同结果 / cap 下界）；报表 `grew` 计数 | ✅ **已实施（2026-11-18）**：`TokenEstimator.test.ts` 新增 3 例（未触 cap 逐值相等 / cap 下界区间 `[cap, full]` / 空输入 0）；`CostReportService.TierStats` 增 `grewCount` / `grewTokens`（负增量**不抵扣**正向节省）+ 文本报告列出"N 次变大（未计入节省）"；`tests/cost` 4 例。`ContextTracker.getTotalTokensSaved()` 本就 `max(0, …)` 且无 grew 消费者 ⇒ 不新增 API（CS03） |
-| **P4** | 真机复验：同一会话跑满窗口 | 🟡 **静态部分已结清（2026-11-21）**：①「raw 三处一致」在可达路径成立 —— `compact()` 仅两个调用点（`agentPreReasoning.ts:239/316`）且都传 `preEvaluated` ⇒ entry 与决策取同一 raw 字段；无调用方的 `estimateMessagesTokens` 兜底分支按 CS03 不改码。②`tier3_rejected_no_reduction` / `still_over_budget_after_compaction` 由 `tests/context/compactionFailureVisibility.test.ts:189/247` 钉住。**真机跑满窗口仍未做**（需真实模型流量） |
+| **P4** | 真机复验：同一会话跑满窗口 | 🟡 **工具与静态部分就绪（2026-11-21）**：① 新增 `bun run verify:token-accounting`（离线解析 `app.log` 及轮转文件，断言：决策字段完整 / `savingPercent` 与前后同源 / raw 差异仅来自 `estimateLowerBound` / 无 `snapshot` 回流；样本不足 ⇒ 退出码 2，**不得当通过**；9 例单测）。② 复验时发现并修复**日志口径分裂**：`compaction:applied.beforeTokens` 原取 `decision.rawInputTokens`（可能是 1× 窗口下界），而 `savingPercent`/`afterTokens` 用全量 measured ⇒ 现 `beforeTokens` 统一取 measured，决策侧原值另记 `decisionRawInputTokens`。**真机跑满窗口仍待做**（需真实模型流量）；跑完后执行 `bun run verify:token-accounting --since <会话开始时间>` 即可给出可证伪结论 |
 
 回滚：P1 为纯改名 + 类型拆分（无行为变更），单提交可 revert；P2 独立提交；P3/P4 不改变运行时决策。
 

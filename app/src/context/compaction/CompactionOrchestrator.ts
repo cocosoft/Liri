@@ -852,9 +852,15 @@ export class CompactionOrchestrator {
     logger.info('compaction:applied', {
       tier,
       trigger: triggerLabel,
-      beforeTokens,
+      // 2026-11-21（P4 真机复验发现）：`beforeTokens` 与 `savingPercent`/`afterTokens`
+      // 必须**同口径**（都取 `measuredBeforeTokens` = 全量估算）。此前这里记的是
+      // `decision.rawInputTokens`（可能是 1× 窗口下界）⇒ 日志里 "省了 60%" 却对不上 before。
+      // 决策侧的 raw 另记 `decisionRawInputTokens`，两者差异由 `estimateLowerBound` 解释。
+      beforeTokens: measuredBeforeTokens,
       afterTokens,
       savingPercent: Number(savingPercent.toFixed(1)),
+      decisionRawInputTokens: beforeTokens,
+      estimateLowerBound: decision.estimateLowerBound,
       durationMs,
       // T25-03：带 sessionId 才能把「升级触发（compaction:escalated）」与其压缩结果配对，
       // 供离线取证脚本统计「升级后 token 降幅中位数」（否则只能靠时间窗猜，不可信）。

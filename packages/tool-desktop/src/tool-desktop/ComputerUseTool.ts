@@ -9,6 +9,8 @@ import type {
   ToolResult,
   ToolUseContext,
   ToolParam,
+  ToolRiskClass,
+  ToolValidationResult,
 } from '@openliri/infra/utils/toolContract/Tool';
 import { getComputerUseAdapter } from '@openliri/infra/utils/computerUse/index';
 import type {
@@ -72,6 +74,80 @@ export interface ComputerUseInput {
   analyze?: boolean;
 }
 
+/**
+ * P1（2026-11-22，G1）：只读动作 —— 不改变桌面状态。
+ *
+ * `screenshot` 单独处理：`analyze:true` 会把画面发给视觉模型（对外可见）⇒ 不算只读。
+ */
+const READONLY_DESKTOP_ACTIONS: ReadonlySet<string> = new Set([
+  'screenshot',
+  'getMousePos',
+  'getClipboard',
+  'getWindows',
+  'getFrontmostWindow',
+  'getDisplaySize',
+  'getAllDisplays',
+]);
+
+/**
+ * 禁止通过 `launchApp` 启动的目标（命令解释器 / 脚本宿主 / 下载器 / 系统管理 LOLBin）。
+ *
+ * 理由：`launchApp` 等价于"任意程序启动"，若允许启动这些目标，`computer_use` 就成了
+ * 绕过 bash / powershell 安全链的旁路。名称按**去目录、去 `.exe`、小写**归一后比对。
+ */
+const DENIED_LAUNCH_TARGETS: ReadonlySet<string> = new Set([
+  'cmd',
+  'powershell',
+  'pwsh',
+  'wscript',
+  'cscript',
+  'mshta',
+  'rundll32',
+  'regsvr32',
+  'bash',
+  'sh',
+  'zsh',
+  'dash',
+  'curl',
+  'wget',
+  'certutil',
+  'bitsadmin',
+  'schtasks',
+  'reg',
+  'wmic',
+  'taskkill',
+  'net',
+  'net1',
+  'ftp',
+  'telnet',
+]);
+
+/** 禁止启动的脚本 / 安装包扩展名（可执行任意代码或静默安装） */
+const DENIED_LAUNCH_EXTENSION =
+  /\.(bat|cmd|ps1|psm1|vbs|vbe|js|jse|wsf|hta|scr|msi|reg)$/i;
+
+/** 归一化启动目标：去引号、去目录、去 `.exe`、小写 */
+export function normalizeLaunchTarget(target: string): string {
+  const trimmed = target.trim().replace(/^["']|["']$/g, '');
+  const base = trimmed.split(/[\\/]/).pop() ?? trimmed;
+  return base.replace(/\.exe$/i, '').toLowerCase();
+}
+
+/** 启动目标是否被禁止（命令解释器 / 脚本宿主 / 下载器 / 脚本扩展名） */
+export function isDeniedLaunchTarget(target: string): boolean {
+  if (!target.trim()) return false;
+  if (DENIED_LAUNCH_EXTENSION.test(target.trim())) return true;
+  return DENIED_LAUNCH_TARGETS.has(normalizeLaunchTarget(target));
+}
+
+/** 启动被拒的可执行提示（模型可据此改写成合法动作） */
+export function launchDeniedMessage(target: string): string {
+  return (
+    `出于安全考虑，禁止通过 computer_use 启动命令解释器/脚本宿主/下载器或脚本文件（${target}）。` +
+    '请改为直接启动普通应用程序；需要执行命令或脚本时，请使用 bash / powershell 工具（它们有独立安全链）。'
+  );
+}
+
 export class ComputerUseTool extends BaseTool {
   name = TOOL_NAME_CONSTANTS.computer_use;
 
@@ -83,6 +159,37 @@ export class ComputerUseTool extends BaseTool {
     private readonly adapterProvider: () => ComputerUseAdapter = getComputerUseAdapter
   ) {
     super();
+  }
+
+  /**
+   * P1（2026-11-22，G1）：按 `action` 分档风险，而不是整工具一律 `external`。
+   *
+   * - 截图 / 读窗口 / 读剪贴板 / 读坐标 ⇒ `read`（只读；`screenshot+analyze` 除外）；
+   * - 键鼠输入 / 写剪贴板 / 启动应用 ⇒ `external`（改变桌面状态或对外可见）。
+   */
+  override riskClassFor(input: Record<string, unknown>): ToolRiskClass {
+    const action = String(input['action'] ?? '');
+    if (action === 'screenshot') {
+      return input['analyze'] === true ? 'external' : 'read';
+    }
+    return READONLY_DESKTOP_ACTIONS.has(action) ? 'read' : 'external';
+  }
+
+  /** P1：`launchApp` 的参数级守卫（命令解释器 / 脚本宿主 / 下载器 / 脚本文件一律拒绝） */
+  override validateInput(input: ComputerUseInput): ToolValidationResult {
+    if (input.action === 'launchApp') {
+      const target = String(input.text ?? '').trim();
+      if (!target) {
+        return {
+          result: false,
+          message: 'launchApp 需要 text（应用名或可执行文件路径）',
+        };
+      }
+      if (isDeniedLaunchTarget(target)) {
+        return { result: false, message: launchDeniedMessage(target) };
+      }
+    }
+    return { result: true };
   }
 
   description =
@@ -818,6 +925,10 @@ export class ComputerUseTool extends BaseTool {
         success: false,
         error: 'text (app path/name) is required for launchApp',
       };
+    }
+    // P1（2026-11-22，G1）：与 `validateInput` 同源守卫（防止调用方绕过输入校验直接 execute）
+    if (isDeniedLaunchTarget(input.text)) {
+      return { success: false, error: launchDeniedMessage(input.text) };
     }
 
     const ok = await adapter.launchApp(input.text);

@@ -14,13 +14,17 @@
  * 3. **动作集合**（对外见 `BrowserTool`）：navigate / click / fill / screenshot /
  *    get_content / get_tabs / back / reload / close。
  * 4. **安全**：只允许 http/https；`file:` / `data:` / `javascript:` 一律拒绝；
- *    内网/环回地址默认拒绝（`allowPrivateNetwork` 显式放行）；`acceptDownloads: false`；
+ *    内网/环回/云元数据/内部域名默认拒绝（`allowPrivateNetwork` 显式放行）；
+ *    P1（2026-11-22）：与 `web_fetch` 共用 `checkSsrf`（DNS 解析 / 混淆 IP），
+ *    且对**导航请求逐跳**校验（重定向、点击跳转）；`acceptDownloads: false`；
  *    headless 默认 **false**（用户可见，降低"静默操作"风险）。
  * 5. **不开放 `evaluate`**（任意 JS ≈ 代码执行，需单独立项）。
  */
 
 import { getLogger } from '@openliri/infra/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
+// P1（2026-11-22，G2）：SSRF 判据与 web_fetch 共用（唯一事实源在 infra）
+import { checkSsrf, describeSsrfBlock } from '@openliri/infra/security/ssrf';
 // 回环主机名的**唯一事实源**（`lint:consts` 的同值 host 棘轮只减不增）
 import { LOCAL_SERVICE_HOST } from '@openliri/kernel';
 
@@ -97,6 +101,17 @@ const DEFAULT_CONFIG: BrowserDriverConfig = {
   maxContentChars: 8_000,
 };
 
+interface PwRouteRequest {
+  url(): string;
+  isNavigationRequest?(): boolean;
+}
+
+interface PwRoute {
+  request(): PwRouteRequest;
+  abort(errorCode?: string): Promise<void>;
+  continue(): Promise<void>;
+}
+
 /** 结构化最小接口（避免把 playwright 类型带进编译面） */
 interface PwPage {
   goto(url: string, opts?: Record<string, unknown>): Promise<unknown>;
@@ -113,6 +128,11 @@ interface PwPage {
   waitForLoadState(
     state?: string,
     opts?: Record<string, unknown>
+  ): Promise<void>;
+  /** P1（G2）：重定向逐跳校验需要路由拦截（真实 Playwright 提供） */
+  route?(
+    pattern: string,
+    handler: (route: PwRoute) => Promise<void> | void
   ): Promise<void>;
 }
 
@@ -203,6 +223,32 @@ export function assertUrlAllowed(
   return parsed;
 }
 
+/**
+ * P1（2026-11-22，G2）：在同步校验（scheme / 域名白名单 / 字面量内网）之上，
+ * 叠加**与 web_fetch 同一份** SSRF 判据（DNS 解析、云元数据、混淆 IP、内部 TLD）。
+ *
+ * `allowPrivateNetwork === true` ⇒ 显式豁免（本地开发场景）；其余一律阻断。
+ *
+ * @throws AppError（PERMISSION / VALIDATION）
+ */
+export async function assertUrlAllowedDeep(
+  url: string,
+  config: BrowserDriverConfig
+): Promise<URL> {
+  const parsed = assertUrlAllowed(url, config);
+  if (config.allowPrivateNetwork) return parsed;
+  const ssrf = await checkSsrf(parsed.toString());
+  if (ssrf.blocked) {
+    throw new AppError(
+      describeSsrfBlock(ssrf, '该地址'),
+      ErrorCategory.PERMISSION,
+      ErrorSeverity.HIGH,
+      'PERMISSION_DENIED'
+    );
+  }
+  return parsed;
+}
+
 /** 读取 env 覆盖（用户/运维可调；不新增配置中心依赖） */
 export function resolveBrowserDriverConfig(
   overrides: Partial<BrowserDriverConfig> = {}
@@ -232,6 +278,8 @@ export class BrowserSessionDriver {
   private activeIndex = 0;
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private closed = false;
+  /** P1（G2）：已装导航守卫的页面（避免重复 route 注册） */
+  private readonly guardedPages = new WeakSet<PwPage>();
 
   constructor(
     private readonly sessionId: string,
@@ -299,7 +347,9 @@ export class BrowserSessionDriver {
             ErrorSeverity.HIGH,
             'INVALID_INPUT'
           );
-        const u = assertUrlAllowed(action.url, this.config).toString();
+        const u = (
+          await assertUrlAllowedDeep(action.url, this.config)
+        ).toString();
         if (!this.context)
           throw new AppError(
             '浏览器上下文未就绪',
@@ -308,6 +358,7 @@ export class BrowserSessionDriver {
             'NO_CONTEXT'
           );
         const newPage = await this.context.newPage();
+        await this.guardNavigation(newPage);
         await newPage.goto(u, {
           waitUntil: 'domcontentloaded',
           timeout: this.config.timeoutMs,
@@ -330,7 +381,10 @@ export class BrowserSessionDriver {
             ErrorSeverity.HIGH,
             'INVALID_INPUT'
           );
-        const u = assertUrlAllowed(action.url, this.config).toString();
+        const u = (
+          await assertUrlAllowedDeep(action.url, this.config)
+        ).toString();
+        await this.guardNavigation(page);
         await page.goto(u, {
           waitUntil: 'domcontentloaded',
           timeout: this.config.timeoutMs,
@@ -472,6 +526,7 @@ export class BrowserSessionDriver {
     }
     if (this.pages.length === 0) {
       const page = await this.context.newPage();
+      await this.guardNavigation(page);
       await page.waitForLoadState?.('domcontentloaded').catch(() => {});
       this.pages.push(page);
       this.activeIndex = 0;
@@ -484,6 +539,43 @@ export class BrowserSessionDriver {
       });
     }
     return page;
+  }
+
+  /**
+   * P1（G2）：导航守卫 —— 对**每个导航请求**做 SSRF 校验（含重定向逐跳、点击触发跳转）。
+   *
+   * 边界（如实）：只校验 `isNavigationRequest()` 为真的请求；页面**子资源**（img/script/fetch）
+   * 不在本守卫范围，仍是剩余风险（与 web_fetch 的"单次请求"模型不同，需另行立项）。
+   * `allowPrivateNetwork=true` 或运行环境未提供 `route` 时不装守卫（后者记 warn）。
+   */
+  private async guardNavigation(page: PwPage): Promise<void> {
+    if (this.config.allowPrivateNetwork) return;
+    if (this.guardedPages.has(page)) return;
+    this.guardedPages.add(page);
+    if (typeof page.route !== 'function') {
+      logger.warn('浏览器驱动未提供 route 拦截 ⇒ 重定向逐跳 SSRF 校验不可用', {
+        sessionId: this.sessionId,
+      });
+      return;
+    }
+    await page.route('**/*', async (route) => {
+      const request = route.request();
+      if (request.isNavigationRequest?.() !== true) {
+        await route.continue();
+        return;
+      }
+      const ssrf = await checkSsrf(request.url());
+      if (!ssrf.blocked) {
+        await route.continue();
+        return;
+      }
+      logger.warn('浏览器导航被 SSRF 拦截', {
+        sessionId: this.sessionId,
+        url: request.url(),
+        reason: ssrf.reason,
+      });
+      await route.abort('blockedbyclient');
+    });
   }
 
   private touchIdle(): void {

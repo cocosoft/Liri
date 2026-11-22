@@ -435,9 +435,9 @@
       },
       "sandboxLevel": "none",
       "risk": {
-        "declared": null,
+        "declared": "external",
         "derived": "external",
-        "source": "derived:effects"
+        "source": "declared:dynamic"
       },
       "readOnly": false,
       "destructive": false,

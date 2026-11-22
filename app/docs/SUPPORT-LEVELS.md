@@ -72,13 +72,13 @@
 | `bash` | core | `app/tests/permission/bashPermissionInjection.test.ts`（测试文件名） |
 | `brief` | core | `app/tests/commands/briefCommand.test.ts`（测试文件名） |
 | `broadcast` | community | —（无专属测试） |
-| `browser` | core | `app/tests/tools/browserTool.test.ts`（测试文件名） |
+| `browser` | core | `app/tests/tools/browserSsrf.test.ts`（测试文件名） |
 | `browser_vision` | core | `app/tests/tools/browserVisionTool.test.ts`（测试文件名） |
 | `canvas` | community | —（无专属测试） |
 | `channel` | core | `app/tests/channels/ChannelContract.test.ts`（测试文件名） |
 | `clipboard` | community | —（无专属测试） |
 | `code_run` | core | `app/tests/tools/codeRunnerLandlockConfig.test.ts`（测试文件名） |
-| `computer_use` | core | `app/tests/tools/computerUseInputSafety.test.ts`（测试文件名） |
+| `computer_use` | core | `app/tests/tools/computerUseGovernance.test.ts`（测试文件名） |
 | `config` | core | `app/tests/config/ConfigLayers.test.ts`（测试文件名） |
 | `create_project` | core | `app/tests/tools/createProjectIdentity.test.ts`（测试文件名） |
 | `cron` | core | `app/tests/chronos/cron.test.ts`（测试文件名） |
@@ -130,7 +130,7 @@
 | `video_analysis` | community | —（无专属测试） |
 | `video_display` | community | —（无专属测试） |
 | `video_generate` | core | `app/tests/tools/VideoGenerateTool.test.ts`（测试文件名） |
-| `web_fetch` | core | `app/tests/tools/webFetchResponse.test.ts`（测试文件名） |
+| `web_fetch` | core | `app/tests/tools/webFetchReadOnly.test.ts`（测试文件名） |
 | `web_search` | community | —（无专属测试） |
 | `worktree` | community | —（无专属测试） |
 | `write_project_file` | core | `app/tests/tools/writeProjectFile-failure.test.ts`（测试文件名） |

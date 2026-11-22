@@ -22,7 +22,7 @@
 | `browser` | external | none | — / external / derived:effects | no | 100000 | — | — | pass |
 | `browser_vision` | external | none | — / external / derived:effects | no | — | — | — | pass |
 | `channel` | external | none | — / external / derived:effects | no | — | — | — | pass |
-| `computer_use` | external | none | — / external / derived:effects | no | — | — | — | pass |
+| `computer_use` | external | none | external / external / declared:dynamic | no | — | — | — | pass |
 | `mcp_auth` | external | none | — / external / derived:effects | no | — | — | — | pass |
 | `mcp_tool` | external | none | external / external / declared:static | no | — | — | yes | pass |
 | `send_message` | external | none | — / external / derived:effects | no | — | — | — | pass |

@@ -159,6 +159,10 @@ export class WebFetchTool extends BaseTool {
   }
 
   override isReadOnly(input?: Record<string, unknown>): boolean {
+    // P1（2026-11-22，G3）：`saveToFile` 会写 downloads 目录并注册 FileRegistry
+    // ⇒ 该形态**不是**只读。此前只看 method（GET + saveToFile 仍返回 true），
+    // 被 `deriveToolRiskClass` 派生为 read（自动放行），与"read 不改状态"契约冲突。
+    if (input?.saveToFile === true) return false;
     const method = (input?.method as string)?.toUpperCase() || 'GET';
     return ['GET', 'HEAD', 'OPTIONS'].includes(method);
   }

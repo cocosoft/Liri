@@ -106,7 +106,7 @@ TOOL_EFFECTS                ─┼─► gen-tool-governance-matrix.ts ─► .t
 
 ## 4. 已取证缺口（按严重度）
 
-### G1 `computer_use`：桌面自动化无任何治理声明（P1，最高）
+### G1 `computer_use`：桌面自动化无任何治理声明（P1 · **已关闭 2026-11-22**）
 
 - 现状：`packages/tool-desktop` 内**零** `riskClass` / `sandboxLevel` / `checkPermissions` 覆盖
   （全包 grep 无命中；仅继承 `BaseTool` 默认 `checkPermissions`=allow、`getPath`=空串 ⇒ 无工具级约束）；
@@ -118,14 +118,17 @@ TOOL_EFFECTS                ─┼─► gen-tool-governance-matrix.ts ─► .t
 - 计划：`riskClassFor(input)` 按 action 分档（截图/读窗口=read，键鼠/剪贴板=external，`launchApp`=external+参数守卫），
   并补 `launchApp` 的程序名白名单/黑名单（至少禁止 `cmd`/`powershell`/`wscript`/`mshta`）。
 
-### G2 `browser`：有协议白名单，但**无 SSRF**（P1）
+### G2 `browser`：只有字面量内网判断，缺 DNS / 元数据 / 混淆 IP 与重定向逐跳（P1 · **已关闭 2026-11-22**）
 
-- 现状：`PlaywrightDriver.ts:16-19` 明确"仅 http/https、不开放 evaluate"（好）；
-  但全包无 SSRF 校验 ⇒ 可导航到 `http://127.0.0.1:*`、内网、云元数据地址。
-- 对照：`WebFetchTool` 已实现 `checkSsrf` + 重定向逐跳校验（`WebFetchTool.ts:215-237,443-476`）。
-- 计划：浏览器导航/新开页复用同一 `checkSsrf`（单一事实源），含重定向逐跳；补负向测试（127.0.0.1 / 169.254.169.254 / `file:`）。
+- 现状（修复前）：`PlaywrightDriver.ts:16-19` 明确"仅 http/https、不开放 evaluate"（好）；
+  但 `isPrivateHost` 只认**字面量**私有 IP / `localhost` / `::1` ⇒ 缺
+  DNS 解析到内网、阿里云元数据 `100.100.100.200`、十进制/十六进制混淆 IP、`.internal/.local`，
+  且 `page.goto` 的重定向逐跳未校验。
+- 对照：`web_fetch` 的 `checkSsrf` 已覆盖上述形态（含 DNS 解析 + 元数据 + 混淆 IP）。
+- 计划：下沉到 `@openliri/infra/security/ssrf`（唯一事实源，R30 禁止 browser 反向 import app），
+  导航前 `assertUrlAllowedDeep` + 路由拦截做**导航请求逐跳**校验；补负向测试。
 
-### G3 `web_fetch`：`saveToFile` 写盘却仍自报只读（P1）
+### G3 `web_fetch`：`saveToFile` 写盘却仍自报只读（P1 · **已关闭 2026-11-22**）
 
 - 现状：`TOOL_EFFECTS.web_fetch = NONE`（`toolEffects.ts:170`）；
   `isReadOnly()` 只看 HTTP method（`WebFetchTool.ts:161-164`），GET + `saveToFile:true` 仍返回 true；
@@ -310,6 +313,44 @@ DoD：
 
 ### 10.5 未做（按计划留给 P1/P2）
 
-G1 `computer_use` 分档、G2 `browser` SSRF、G3 `web_fetch.saveToFile`、G4 执行类标记、G5 `outputSchema` 收敛、
-G6 直调点逐个取证、G7 reason 码推广、G8 审批指纹评估、G9 执行类结果上限。
+~~G1 `computer_use` 分档~~、~~G2 `browser` SSRF~~、~~G3 `web_fetch.saveToFile`~~ 已在 P1 关闭（见 §11）；
+仍待：G4 执行类标记、G5 `outputSchema` 收敛、G6 直调点逐个取证、G7 reason 码推广、
+G8 审批指纹评估、G9 执行类结果上限。
+
+---
+
+## 11. P1 实施记录（2026-11-22）
+
+### P1-1 `computer_use`：按 action 分档 + `launchApp` 参数守卫（G1）
+
+| 项 | 落点 |
+|---|---|
+| 风险分档 | `ComputerUseTool.riskClassFor(input)`：截图 / 读窗口 / 读剪贴板 / 读坐标 ⇒ `read`；`screenshot+analyze` 与键鼠/写剪贴板/`launchApp` ⇒ `external` |
+| 参数守卫 | `isDeniedLaunchTarget()` + `validateInput()` + `handleLaunchApp()` 同源兜底：命令解释器 / 脚本宿主 / 下载器 / 计划任务 / 系统管理 LOLBin，以及 `.bat/.cmd/.ps1/.vbs/.hta/.msi/.reg` 等扩展名 |
+| 测试 | `app/tests/tools/computerUseGovernance.test.ts`（32 pass）：分档矩阵 + 13 个禁止目标 + 3 个放行目标 |
+
+### P1-2 `browser`：SSRF 归属下沉 + 导航逐跳校验（G2）
+
+| 项 | 落点 |
+|---|---|
+| 唯一事实源 | `packages/infra/src/security/ssrf.ts`（由 app 下沉；`app/src/tools/WebFetchTool/ssrf.ts` 改为 re-export shim，既有 import 零改动） |
+| 深校验 | `assertUrlAllowedDeep()`：同步校验（scheme / 白名单 / 字面量内网）之上叠加 `checkSsrf`（DNS / 元数据 / 混淆 IP / 内部 TLD） |
+| 重定向 | `guardNavigation()`：`page.route('**/*')` 对**导航请求**逐个校验并 `abort('blockedbyclient')`；`allowPrivateNetwork=true` 显式豁免 |
+| 边界（如实） | 只校验 `isNavigationRequest()`；页面**子资源**未覆盖（剩余风险，需另行立项） |
+| 测试 | `app/tests/tools/browserSsrf.test.ts`（10 pass）：127.0.0.1 / localhost / 169.254.169.254 / 100.100.100.200 / 十进制与十六进制 IP / `.local` / `.internal` / `file:` / `javascript:` 全部阻断；公网放行；显式豁免与域名白名单生效 |
+
+### P1-3 `web_fetch`：`saveToFile` 纳入只读判定（G3）
+
+- `WebFetchTool.isReadOnly()`：`saveToFile === true` ⇒ `false`；`isConcurrencySafe()` 随同。
+- 效果：`deriveToolRiskClass(tool, { saveToFile: true })` 不再落 `read`（自动放行），而为 `undeclared`（ask）。
+- 测试：`app/tests/tools/webFetchReadOnly.test.ts`（4 pass）。
+
+### P1 验收
+
+| 命令 | 结果 |
+|---|---|
+| `bun test tests/tools/{computerUseGovernance,browserSsrf,webFetchReadOnly}.test.ts` | ✅ 46 pass / 0 fail |
+| `bun test tests/tools/webFetchSsrf.test.ts`（shim 回归） | ✅ |
+| `bun run gen:tool-governance` | 待重生成（`computer_use` 的 risk 来源变为 `declared:dynamic`） |
+| `bun run typecheck` / 门禁 | 见提交记录 |
 

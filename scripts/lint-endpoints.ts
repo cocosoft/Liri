@@ -35,6 +35,7 @@ const TRUTH_SOURCE_FRAGMENTS = [
   'core/endpoints.ts', // 后端端点真源
   'constants/defaults.ts', // B 类可调参数默认值真源（D-1：LIRI_DEFAULT_HOST 等）
   'constants/network.ts', // 网络常量真源（2026-11-03：回环主机名集合 LOOPBACK_HOSTS）
+  'security/ssrf.ts', // SSRF 阻断段真源（2026-11-22：回环/内网/元数据地址段本身即判据）
   'client/src/services/endpoints.ts', // 前端端点真源
   'client/src/constants/locale.ts', // 前端 locale 真源
   'client/src/constants/events.ts', // 前端事件名真源

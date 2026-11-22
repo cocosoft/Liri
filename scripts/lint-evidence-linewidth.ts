@@ -47,6 +47,14 @@ const WATCH_DIRS = ['.trae/architecture'];
 /** 每个文件最多打印的示例行（保持门禁输出精简 —— 规则 SB08） */
 const MAX_SAMPLES_PER_FILE = 3;
 
+/**
+ * 生成物豁免（2026-11-22）：由脚本产出的宽表格，人工**不编辑** ⇒ 行宽由生成器负责。
+ * SB03 针对手写台账；把生成表格纳入棘轮只会逼人手工改生成物（下一轮又被覆盖）。
+ */
+const GENERATED_EXEMPT: readonly string[] = [
+  '.trae/architecture/tool-governance-matrix.md',
+];
+
 /** 汇总观测面（相对仓库根的 `/` 分隔路径），仅保留真实存在的文件 */
 function collectTargets(): string[] {
   const targets = new Set<string>();
@@ -71,12 +79,13 @@ function collectTargets(): string[] {
 
 function main(): number {
   const targets = collectTargets();
+  const scanned = targets.filter((rel) => !GENERATED_EXEMPT.includes(rel));
   const counts: GateCounts = {};
   const findings: string[] = [];
   let overTotal = 0;
   let globalMax = 0;
 
-  for (const rel of targets) {
+  for (const rel of scanned) {
     let lines: string[];
     try {
       lines = readFileSync(join(PROJECT_ROOT, rel), 'utf-8').split(/\r?\n/);
@@ -104,7 +113,8 @@ function main(): number {
 
   findings.sort();
   report('evidence-linewidth', findings, [
-    `[lint:evidence-linewidth] 观测 ${targets.length} 个台账/登记文件；` +
+    `[lint:evidence-linewidth] 观测 ${scanned.length} 个台账/登记文件` +
+      `（豁免生成物 ${GENERATED_EXEMPT.length} 个）；` +
       `超长行合计 ${overTotal} 行（上限 ${MAX_LINE_CHARS} 字符）；` +
       `全局最长行 ${globalMax} 字符（规则 SB03）`,
   ]);

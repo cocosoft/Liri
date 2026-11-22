@@ -302,6 +302,7 @@ export class ToolRegistry {
 
     this.tools.delete(name);
     this.usageStats.delete(name);
+    this.disabledTools.delete(name);
 
     if (tool.aliases) {
       for (const alias of tool.aliases) {
@@ -330,6 +331,9 @@ export class ToolRegistry {
     this.registerTool(adapter);
   }
 
+  /** F14（2026-11-22）：已禁用工具（按**真名**存储，别名同样命中） */
+  private disabledTools = new Set<string>();
+
   getTool(name: string): Tool | undefined {
     if (this.tools.has(name)) {
       return this.tools.get(name);
@@ -351,6 +355,24 @@ export class ToolRegistry {
    */
   resolveRegisteredName(name: string): string {
     return this.getTool(name)?.name ?? name;
+  }
+
+  /**
+   * F14（2026-11-22）：工具禁用状态收口到**共同执行入口**（Registry）。
+   *
+   * 此前只有 `ToolManager` 私有集合 ⇒ 主聊天链（本 Registry）可直接执行已禁用工具；
+   * 且 `ToolManager` 用入参名判断 ⇒ 别名调用绕过。现按真名存储/查询。
+   */
+  disableTool(name: string): void {
+    this.disabledTools.add(this.resolveRegisteredName(name));
+  }
+
+  enableTool(name: string): void {
+    this.disabledTools.delete(this.resolveRegisteredName(name));
+  }
+
+  isToolDisabled(name: string): boolean {
+    return this.disabledTools.has(this.resolveRegisteredName(name));
   }
 
   getTools(): Map<string, Tool> {
@@ -525,6 +547,17 @@ export class ToolRegistry {
             content: `Error: ${notFound}`,
           },
         ],
+      });
+    }
+
+    // F14（2026-11-22）：禁用工具在共同执行入口 fail-closed。
+    if (this.isToolDisabled(tool.name)) {
+      const disabled = `Tool ${tool.name} is disabled`;
+      return createToolResult(null, {
+        success: false,
+        error: disabled,
+        metadata: { reason: 'tool_disabled' },
+        newMessages: [{ role: 'system', content: `Error: ${disabled}` }],
       });
     }
 

@@ -57,6 +57,11 @@ export const INTERCEPTION_REASONS: readonly InterceptionReasonSpec[] = [
     sources: ['app/src/tools/ToolRegistry.ts'],
   },
   {
+    code: 'tool_disabled',
+    domain: 'policy',
+    sources: ['app/src/tools/ToolRegistry.ts'],
+  },
+  {
     code: 'mcp_not_connected',
     domain: 'mcp',
     sources: ['packages/service/src/services/mcp/McpToolWrapper.ts'],

@@ -99,7 +99,7 @@ export class ToolManager extends EventEmitter {
   private _toolLoaders: BuiltinToolLoader[] = [];
   private _policyPipeline: ToolPolicyPipeline;
   private _defaultPolicyContext: PolicyContext = { userRole: 'owner' };
-  private _disabledTools: Set<string> = new Set();
+  // F14（2026-11-22）：禁用状态已收口到 ToolRegistry（唯一事实源）
   private _initialized: boolean = false;
 
   /**
@@ -467,11 +467,14 @@ export class ToolManager extends EventEmitter {
         'string'
           ? (context as { sessionId: string }).sessionId
           : undefined;
+      // F13（2026-11-22）：按**真名**授权并带上工具对象 —— 别名调用此前会绕过
+      // 按真名配置的 rules（F3 的同类遗漏，本入口在 ToolManager 内）。
       const outcome = await authorizeToolCall(PermissionManager.getInstance(), {
-        toolName: name,
+        toolName: tool.name,
         args: (execInput ?? {}) as Record<string, unknown>,
         context: {
           ...(sessionId ? { sessionId } : {}),
+          tool,
           userId: getRequestPrincipal().userId,
           userRoles: getEffectivePermissionRoles(),
         },
@@ -604,7 +607,8 @@ export class ToolManager extends EventEmitter {
    * 启用工具
    */
   enableTool(toolName: string): void {
-    this._disabledTools.delete(toolName);
+    // F14：唯一事实源 = Registry（含别名归一）
+    this.registry.enableTool(toolName);
     this.emitToolEvent('enabled', { toolName, data: {} });
   }
 
@@ -621,7 +625,7 @@ export class ToolManager extends EventEmitter {
         '1005'
       );
     }
-    this._disabledTools.add(toolName);
+    this.registry.disableTool(tool.name);
     this.emitToolEvent('disabled', { toolName, data: {} });
   }
 
@@ -646,7 +650,7 @@ export class ToolManager extends EventEmitter {
   } {
     const tools = this.getAllTools();
     const enabledCount = tools.filter(
-      (t) => !this._disabledTools.has(t.name)
+      (t) => !this.registry.isToolDisabled(t.name)
     ).length;
     return {
       initialized: this._initialized,
@@ -673,7 +677,7 @@ export class ToolManager extends EventEmitter {
    * 检查工具是否已禁用
    */
   private isToolDisabled(name: string): boolean {
-    return this._disabledTools.has(name);
+    return this.registry.isToolDisabled(name);
   }
 
   /**
@@ -723,7 +727,7 @@ export class ToolManager extends EventEmitter {
         },
         logs: [],
       }),
-      status: this._disabledTools.has(info.name) ? 'disabled' : 'enabled',
+      status: this.registry.isToolDisabled(info.name) ? 'disabled' : 'enabled',
       registeredAt: new Date(),
       updatedAt: new Date(),
       stats: {

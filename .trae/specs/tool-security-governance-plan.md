@@ -466,15 +466,17 @@ F3–F10 仍待办 ⇒ 本节原「本计划无剩余待办」表述已按事实
 | F10 | 写同资源工具标记并发安全 | `media_delete` / `media_delete_batch` / `knowledge_save` / `mcp_tool` 改为 `isConcurrencySafe=false`；图片族保持（残余风险：同输出路径竞争，模型通常按不同路径调用） | `app/tests/tools/concurrencySafety.test.ts`（4 项） |
 | F11 | 无人值守读静态 `FEATURE_FLAGS` ⇒ env 开关不生效 | `UnattendedModeManager.isUnattended()` 改走 `feature('UNATTENDED_MODE')`（与 `infra/utils/unattendedAnswers` 同口径）；`setEnabled` 用实例覆盖（优先） | `app/tests/runtime/unattendedModeManager.test.ts`（2 项） |
 | F12 | bypass 档无 killswitch | `handleBypassPermissions` 先查 `bypassPermissionsKillswitch.isDisabled()` 与 `PERMISSION_BYPASS_DISABLED=true` ⇒ deny；未禁用保持原行为 | `app/tests/permission/bypassKillswitch.test.ts`（3 项） |
+| F13 | `ToolManager.executeTool` 授权按入参名（别名）且不传工具对象 | 改为 `toolName: tool.name` + `context.tool`（F3 的同类遗漏，本入口在 ToolManager 内） | — |
+| F14 | 禁用工具只在 ToolManager 私有集合 ⇒ Registry 可执行；别名调用绕过 | 禁用状态收口到 `ToolRegistry`（真名/别名归一）；`executeTool` fail-closed 并写 `metadata.reason='tool_disabled'`；ToolManager 委托 Registry | `app/tests/tools/registryDisabledTool.test.ts`（3 项） |
 
-验证：`typecheck` 通过；全量 `bun run ci` **13718 pass / 42 skip / 0 fail**；
+验证：`typecheck` 通过；全量 `bun run ci` **13721 pass / 42 skip / 0 fail**；
 `lint:tool-governance`（69 pass / gap 0，矩阵已重生）、`lint:tool-interception-reasons`、`lint:arch`、`lint:consts` 通过。
 
 ### 13.2 待办（未修，按严重度）
 
 | ID | 问题 |
 |---|---|
-| — | F1–F12 已全部处理（F7/F8/F9 取证为非入口/未接线，接线前必须补授权；其余已修复） |
+| — | F1–F14 已全部处理（F7/F8/F9 取证为非入口/未接线，接线前必须补授权；其余已修复） |
 
 ### 13.3 G9 结论订正（如实）
 

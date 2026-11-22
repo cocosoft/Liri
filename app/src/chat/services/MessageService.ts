@@ -568,6 +568,8 @@ export class MessageServiceImpl implements MessageService {
             status: MessageStatus.FAILED,
             metadata: {
               ...(options?.metadata ?? {}),
+              // F30（2026-11-22）：落工具名 ⇒ 持久化侧可按工具声明的结果上限
+              ...(toolResult.toolName ? { toolName: toolResult.toolName } : {}),
               isError: true,
               // 2026-11-01：三态落盘为可审计标记（`error` / `success` / `empty-success`），
               // 让"空转"可被度量（统计 empty-success 占比），而不只是靠模型行为反推。
@@ -580,6 +582,7 @@ export class MessageServiceImpl implements MessageService {
         : {
             metadata: {
               ...(options?.metadata ?? {}),
+              ...(toolResult.toolName ? { toolName: toolResult.toolName } : {}),
               toolResultState: tristate,
             },
           }),

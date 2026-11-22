@@ -111,7 +111,11 @@ export async function shrinkToolResultMessageForPersistence(
     /** 工具调用 id（`Message.toolCallId`）—— 优先用于落盘文件名，与上下文侧同名同物 */
     toolCallId?: string;
     content?: string | unknown;
-    metadata?: { toolCallId?: string };
+    metadata?: {
+      toolCallId?: string;
+      toolName?: string;
+      [key: string]: unknown;
+    };
   },
   /**
    * D-238 第 1 条（2026-10-04）：**单轮聚合窗口**。
@@ -132,6 +136,13 @@ export async function shrinkToolResultMessageForPersistence(
   /** 落盘前的**载荷文本**长度（与上下文侧 `metadata.toolResultFullChars` 同口径） */
   toolResultFullChars?: number;
 }> {
+  // F30（2026-11-22）：持久化侧单条上限同样取工具声明（与上下文侧同源）；缺省 50k
+  const declaredLimit =
+    typeof message.metadata?.toolName === 'string'
+      ? getToolRegistry()?.getTool(message.metadata.toolName)
+          ?.maxResultSizeChars
+      : undefined;
+  const singleLimit = resolveSingleResultLimit(declaredLimit);
   const raw = message.content;
   const isString = typeof raw === 'string';
   if (!isString && !Array.isArray(raw)) return { content: raw, changed: false };
@@ -139,10 +150,7 @@ export async function shrinkToolResultMessageForPersistence(
   if (isString && !options?.turnAcc) {
     const text = raw as string;
     // 字符串形态下信封长度 ≥ 载荷长度 ⇒ 提前零开销返回是安全的
-    if (
-      text.length <= SINGLE_RESULT_LIMIT_CHARS ||
-      text.includes(PATH_REF_MARKER)
-    ) {
+    if (text.length <= singleLimit || text.includes(PATH_REF_MARKER)) {
       return { content: raw, changed: false };
     }
   }
@@ -182,7 +190,7 @@ export async function shrinkToolResultMessageForPersistence(
       const turnAcc = options?.turnAcc;
       if (turnAcc) turnAcc.chars += payload.length;
       const overTurn = (turnAcc?.chars ?? 0) > TURN_BUDGET_CHARS;
-      if (payload.length <= SINGLE_RESULT_LIMIT_CHARS && !overTurn) return b;
+      if (payload.length <= singleLimit && !overTurn) return b;
       // 过小载荷外置得不偿失（引用文案本身更长）⇒ 跳过；避免"轮超限后连小结果也外置"
       if (payload.length <= PREVIEW_CHARS) return b;
       // 落盘幂等：路径由 toolCallId 决定，与上下文侧一致（重复写同内容）

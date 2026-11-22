@@ -171,6 +171,8 @@ export class ToolExecutor {
           'Security check failed'
         );
         return createToolResult(null, {
+          // F29（2026-11-22）：机器可读拦截码
+          metadata: { reason: 'security_blocked' },
           newMessages: [
             {
               role: 'system',
@@ -207,6 +209,8 @@ export class ToolExecutor {
             'Execution prevented by hook'
           );
           return createToolResult(null, {
+            // F29（2026-11-22）：机器可读拦截码
+            metadata: { reason: 'hook_blocked' },
             newMessages: [
               {
                 role: 'system',

@@ -608,15 +608,22 @@ export class PlanTool extends BaseTool<
           userRoles: getEffectivePermissionRoles(),
         },
       });
-      return auth.allowed
-        ? await tool.execute(toolArgs, context)
-        : createToolResult(null, {
+      if (!auth.allowed) {
+        if (auth.kind === 'ask') {
+          return createToolResult(null, {
             success: false,
-            error:
-              auth.kind === 'ask'
-                ? `工具 ${tool.name} 需要人工审批：${auth.reason ?? '等待批准'}`
-                : `工具 ${tool.name} 被权限拒绝：${auth.reason ?? '不在允许范围内'}`,
+            error: `工具 ${tool.name} 需要人工审批：${auth.reason ?? '等待批准'}`,
+            // F28（2026-11-22）：机器可读拦截码
+            metadata: { reason: 'permission_ask' },
           });
+        }
+        return createToolResult(null, {
+          success: false,
+          error: `工具 ${tool.name} 被权限拒绝：${auth.reason ?? '不在允许范围内'}`,
+          metadata: { reason: 'permission_denied' },
+        });
+      }
+      return await tool.execute(toolArgs, context);
     }
 
     if (step.type === 'command') {
@@ -659,15 +666,21 @@ export class PlanTool extends BaseTool<
           userRoles: getEffectivePermissionRoles(),
         },
       });
-      return auth.allowed
-        ? await bashTool.execute(bashArgs, context)
-        : createToolResult(null, {
+      if (!auth.allowed) {
+        if (auth.kind === 'ask') {
+          return createToolResult(null, {
             success: false,
-            error:
-              auth.kind === 'ask'
-                ? `命令需要人工审批：${auth.reason ?? '等待批准'}`
-                : `命令被权限拒绝：${auth.reason ?? '不在允许范围内'}`,
+            error: `命令需要人工审批：${auth.reason ?? '等待批准'}`,
+            metadata: { reason: 'permission_ask' },
           });
+        }
+        return createToolResult(null, {
+          success: false,
+          error: `命令被权限拒绝：${auth.reason ?? '不在允许范围内'}`,
+          metadata: { reason: 'permission_denied' },
+        });
+      }
+      return await bashTool.execute(bashArgs, context);
     }
 
     return {

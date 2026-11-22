@@ -374,6 +374,11 @@ export interface ToolCallSpec {
  * 依 `data-contract-unification` §9.2「**同名 ≠ 同物 ⇒ 一律不得看着像就合并**」⇒ **禁止互相合并/赋值**。
  */
 export interface ToolResult {
+  /**
+   * F28（2026-11-22）：机器可读拦截 / 失败码（如 `permission_ask` / `permission_denied`）。
+   * 与 `error` 文案并存：文案给人看，码用于审计与排障检索。
+   */
+  metadata?: Record<string, unknown>;
   toolCallId: string;
   toolName: string;
   result: unknown;

@@ -480,6 +480,10 @@ F3–F10 仍待办 ⇒ 本节原「本计划无剩余待办」表述已按事实
 | F24 | 拦截码提取只认单引号（双引号写法绕过对账） | 正则支持单/双引号；新增双引号用例 | `interceptionReasons.test.ts`（+1 项） |
 | F25 | 入口台账只扫 `tool.execute(`，漏 `xxxTool.execute(` | 扫描面扩为 `(?:\w*[Tt]ool\|tool)\.execute\(`（排除日志文案空参形态）；补登 MediaPlugin / Config / ToolLazyWrapper，PlanTool occurrences 1→2 | `lint:tool-governance` 通过 |
 | F26 | 懒加载包装器 `isReadOnly` 用注册快照 | 已加载时委托真身（未加载仍用快照，避免权限判定触发懒加载） | — |
+| F27 | 拦截码扫描面漏 `ToolExecutor.ts` | `tool_disabled` 的 sources 补 ToolExecutor（该文件 F16 起写该码） | `lint:tool-interception-reasons` |
+| F28 | 权限拒绝点无 `metadata.reason` | 新增 `permission_ask` / `permission_denied`；ToolManager / PlanTool（tool+command）/ CoreAPI 路径写入；HTTP DTO 补可选 metadata | 码表对账（lint） |
+| F29 | `ToolExecutor` 安全闸 / hooks 阻断无码 | 新增 `security_blocked` / `hook_blocked` 并写入 | 码表对账（lint） |
+| F30 | 持久化侧结果上限仍是统一 50k | `createToolResultMessage` 落 `metadata.toolName`；`shrinkToolResultMessageForPersistence` 按工具声明解析上限（缺省 50k） | — |
 
 验证：`typecheck` 通过；全量 `bun run ci` **13723 pass / 42 skip / 0 fail**；
 `lint:tool-governance`（69 pass / gap 0，矩阵已重生）、`lint:tool-interception-reasons`、`lint:arch`、`lint:consts` 通过。
@@ -488,7 +492,7 @@ F3–F10 仍待办 ⇒ 本节原「本计划无剩余待办」表述已按事实
 
 | ID | 问题 |
 |---|---|
-| — | F1–F26 已全部处理（F7/F8/F9 取证为非入口/未接线，接线前必须补授权；其余已修复） |
+| — | F1–F30 已全部处理（F7/F8/F9 取证为非入口/未接线，接线前必须补授权；其余已修复） |
 
 ### 13.3 G9 结论订正（如实）
 

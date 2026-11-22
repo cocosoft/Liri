@@ -485,12 +485,18 @@ export class ToolManager extends EventEmitter {
           kind: outcome.kind,
           reason: outcome.reason,
         });
+        if (outcome.kind === 'ask') {
+          return createToolResult(null, {
+            success: false,
+            error: `工具 ${name} 需要人工审批：${outcome.reason ?? '等待批准'}（请批准后重试）`,
+            // F28（2026-11-22）：机器可读拦截码
+            metadata: { reason: 'permission_ask' },
+          });
+        }
         return createToolResult(null, {
           success: false,
-          error:
-            outcome.kind === 'ask'
-              ? `工具 ${name} 需要人工审批：${outcome.reason ?? '等待批准'}（请批准后重试）`
-              : `工具 ${name} 被权限拒绝：${outcome.reason ?? '不在允许范围内'}`,
+          error: `工具 ${name} 被权限拒绝：${outcome.reason ?? '不在允许范围内'}`,
+          metadata: { reason: 'permission_denied' },
         });
       }
     }

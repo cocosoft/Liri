@@ -452,6 +452,8 @@ export class SessionAgentOps {
               (authorization.submittedToInbox
                 ? '（审批卡已提交，批准后请重新发起调用）'
                 : '（审批通道不可用，本次调用未排队）'),
+            // F28（2026-11-22）：机器可读拦截码
+            metadata: { reason: 'permission_ask' },
             executionTime: Date.now() - startTime,
           };
         }
@@ -467,6 +469,7 @@ export class SessionAgentOps {
             ? { permissionDeny: authorization.denyInfo }
             : null,
           error: `Permission denied: ${authorization.reason}`,
+          metadata: { reason: 'permission_denied' },
           executionTime: Date.now() - startTime,
         };
       }

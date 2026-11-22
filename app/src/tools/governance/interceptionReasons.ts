@@ -64,7 +64,36 @@ export const INTERCEPTION_REASONS: readonly InterceptionReasonSpec[] = [
   {
     code: 'tool_disabled',
     domain: 'policy',
-    sources: ['app/src/tools/ToolRegistry.ts'],
+    // F27（2026-11-22）：ToolExecutor 也写该码（此前只登记 Registry ⇒ 扫描面漏文件）
+    sources: ['app/src/tools/ToolRegistry.ts', 'app/src/tools/ToolExecutor.ts'],
+  },
+  {
+    code: 'security_blocked',
+    domain: 'policy',
+    sources: ['app/src/tools/ToolExecutor.ts'],
+  },
+  {
+    code: 'hook_blocked',
+    domain: 'policy',
+    sources: ['app/src/tools/ToolExecutor.ts'],
+  },
+  {
+    code: 'permission_ask',
+    domain: 'policy',
+    sources: [
+      'app/src/tools/ToolManager.ts',
+      'app/src/tools/PlanTool/PlanTool.ts',
+      'app/src/runtime/api/sessionAgentOps.ts',
+    ],
+  },
+  {
+    code: 'permission_denied',
+    domain: 'policy',
+    sources: [
+      'app/src/tools/ToolManager.ts',
+      'app/src/tools/PlanTool/PlanTool.ts',
+      'app/src/runtime/api/sessionAgentOps.ts',
+    ],
   },
   {
     code: 'mcp_not_connected',

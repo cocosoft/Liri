@@ -57,7 +57,10 @@ export const DANGEROUS_PATTERNS = [
   /rm\s+-rf\s+\//,
   /:\(\)\s*\{\s*:\|\s*:\s*&\s*\};\s*:/,
   />\s*\/dev\/null/,
-  /\|\s*sh$/,
+  // P1（2026-11-22）：管道进**任意 POSIX 壳**都属结构性风险（`curl … | sh` 的同类）。
+  // 旧模式只认 `| sh` ⇒ `| dash` / `| bash` / `| ksh` 落「含非只读段 ⇒ ask」，
+  // 与"下载即执行"的风险等级不匹配。
+  /\|\s*(?:sh|bash|dash|zsh|ksh|mksh|ash|fish)$/,
   /\$\([^)]*\)/,
   /`[^`]+`/,
   /;\s*rm\s+/,

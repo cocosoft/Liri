@@ -69,11 +69,13 @@ export const COMMAND_GATES: Readonly<Record<CommandGateId, CommandGateSpec>> = {
   powershell_wrapper: {
     id: 'powershell_wrapper',
     order: 3,
-    reasons: ['powershell_wrapper_ask'],
+    // P1（2026-11-22）：壳包裹 PowerShell（`cmd /c powershell …` / `bash -c "powershell …"`）
+    // 不再落 ask，而是恒定 deny —— 内层脚本无法经过 PowerShell 安全链。
+    reasons: ['powershell_wrapper_ask', 'shell_wrapped_powershell'],
     askExemptable: false,
     failureKind: 'safety_blocked',
     summary:
-      'pwsh -Command 内层脚本复用 PowerShell 安全链（不可检查形态 fail-closed）',
+      'pwsh -Command 内层脚本复用 PowerShell 安全链（不可检查 / 壳包裹形态 fail-closed）',
   },
   ast_analyzer: {
     id: 'ast_analyzer',
@@ -93,7 +95,13 @@ export const COMMAND_GATES: Readonly<Record<CommandGateId, CommandGateSpec>> = {
     id: 'whitelist_sandbox',
     order: 5,
     // N-19（2026-11-07）：沙箱的"解释器内联执行"从硬拒改为升级确认 ⇒ 新 reason 码
-    reasons: ['command_whitelist', 'sandbox_checker', 'sandbox_confirmation'],
+    // P1（2026-11-22）：壳包裹 PowerShell 的兜底拦截（与 powershell_wrapper 门同码）
+    reasons: [
+      'command_whitelist',
+      'sandbox_checker',
+      'sandbox_confirmation',
+      'shell_wrapped_powershell',
+    ],
     // 可被"已批准"豁免（与 ast_analyzer 同口径：命中放行缓存 ⇒ 放行，不再弹卡）
     askExemptable: true,
     failureKind: 'safety_blocked',

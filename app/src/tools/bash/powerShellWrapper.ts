@@ -32,8 +32,10 @@
  *   （分析器 + 白名单 + 沙箱二次校验），保证「包裹执行」与「直接执行」判定一致；
  * - `-EncodedCommand` / 空脚本等**无法静态检查**的形态 ⇒ **fail-closed**（不静默放行）。
  *
- * 边界（如实）：仅覆盖**语句位置**的 `powershell` / `pwsh` 调用（`^`、`;`、`&&`、`||`、`|`、`(`）；
- * `cmd /c powershell …` 等更深层嵌套不在本次范围（未纳入即不声称覆盖）。
+ * 边界（如实）：仅覆盖**语句位置**的 `powershell` / `pwsh` 调用（`^`、`;`、`&&`、`||`、`|`、`(`）。
+ * P1（2026-11-22）：`cmd /c powershell …`、`bash -c "powershell …"` 这类**壳包裹**形态
+ * 不交给 PowerShell 安全链（`-EncodedCommand` 之外的脚本无法保证被识别），而是在本层
+ * **一律硬拒** —— 否则实测落 `ask`，点一下就能执行未经判定的 PS 脚本。
  */
 
 import type { ToolResult } from '../types/ToolResult';
@@ -42,6 +44,8 @@ import {
   evaluatePowerShellSecurity,
   PowerShellSecurityAnalyzer,
 } from '../PowerShellTool/PowerShellTool';
+// P1（2026-11-22）：壳包裹识别与基命令白名单同源（剥壳唯一实现）
+import { unwrapShellChain } from '@openliri/infra/security/shellUnwrap';
 
 /** 解包结果 */
 export interface PowerShellWrapperInspection {
@@ -285,6 +289,20 @@ export function checkPowerShellWrapper(
   workingDirectory?: string,
   trustLevel?: string
 ): ToolResult<unknown> | null {
+  // P1（2026-11-22）：壳包裹 PowerShell ⇒ 硬拒（内层脚本未经 PowerShell 安全链，
+  // 旧行为是 analyzer `ask` ⇒ 一次点击即可执行）。剥壳判据与基命令白名单同源。
+  const chain = unwrapShellChain(command);
+  if (
+    chain.wrappers.length > 0 &&
+    /^(?:powershell(?:\.exe)?|pwsh(?:\.exe)?)\b/i.test(chain.command.trim())
+  ) {
+    return deny(
+      `安全检查失败: 禁止用壳包裹 PowerShell（经 ${chain.wrappers.join(' → ')} 包裹）。` +
+        '内层脚本无法经过 PowerShell 安全链判定 —— 请直接执行 powershell -Command "…"（或改用 powershell 工具）。',
+      'shell_wrapped_powershell'
+    );
+  }
+
   const inspection = inspectPowerShellWrapper(command);
   if (!inspection.matched) return null;
 

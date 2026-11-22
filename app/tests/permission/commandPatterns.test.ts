@@ -72,6 +72,11 @@ describe('buildCommandContentPattern：解释器/壳 ⇒ 精确匹配', () => {
     ['bash -lc "ls"', 'bash'],
     ['python -c "print(1)"', 'python'],
     ['node -e "console.log(1)"', 'node'],
+    // P1（2026-11-22）：壳 / 包装器全族都必须精确匹配（旧集合只有 bash/sh/zsh/fish）
+    ['dash -c "git log"', 'dash'],
+    ['ksh -c "ls"', 'ksh'],
+    ['busybox sh -c "ls"', 'busybox'],
+    ['env NO_COLOR=1 git log', 'env'],
   ])('%s ⇒ 精确匹配（head=%s）', (command, head) => {
     expect(isInterpreterCommandHead(normalizeCommandHead(head))).toBe(true);
     expect(buildCommandContentPattern(command)).toBe(

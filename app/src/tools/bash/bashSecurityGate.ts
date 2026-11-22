@@ -449,8 +449,10 @@ export function checkAstAndAnalyzer(params: {
 /**
  * 硬拦截④：**命令白名单 + 沙箱二次校验**。
  *
- * - 白名单（F3）：仅允许安全的基命令；基命令取 S1-5 统一归一化结果 `std.baseCommand`；
- * - 沙箱二次校验（F2）：独立于工具层安全检查器的 `SandboxSecurityChecker`。
+ * - 白名单（F3）：仅允许安全的基命令；基命令取 S1-5 统一归一化结果 `std.baseCommand`
+ *   （**剥壳后**，P1 2026-11-22：`bash -lc "git log"` 的基命令是 `git`）；
+ * - 沙箱二次校验（F2）：独立于工具层安全检查器的 `SandboxSecurityChecker`，
+ *   扫描对象是 `std.effectiveCommand`（**实际执行的命令**，而非外层壳）。
  *
  * @returns 命中 ⇒ 拦截/待确认结果；通过 ⇒ `null`
  */
@@ -464,15 +466,37 @@ export function checkWhitelistAndSandbox(
     approvalSnapshot: ApprovalSnapshot;
   }
 ): ToolResult<unknown> | null {
+  const wrapperNote =
+    std.shellWrappers.length > 0
+      ? `（经 ${std.shellWrappers.join(' → ')} 包裹）`
+      : '';
   if (!isBaseCommandAllowed(std.baseCommand)) {
     return blockedResult(
-      `安全检查: 命令 "${command.split(/\s+/)[0]}" 不在允许列表中`,
+      `安全检查: 命令 "${std.baseCommand || command.split(/\s+/)[0]}" 不在允许列表中${wrapperNote}`,
       { reason: 'command_whitelist' }
     );
   }
 
-  const sandboxCheckResult =
-    sandboxSecurityChecker.checkDangerousCommands(command);
+  // P1（2026-11-22）：**壳包裹 PowerShell 一律拒绝**。
+  //
+  // `checkPowerShellWrapper` 只识别「语句位置」的 `powershell|pwsh`（`^` / `;` / `&&` / `|`），
+  // 因此 `cmd /c powershell -Command "…"`、`bash -c "powershell -Command …"` 的内层脚本
+  // **不会**经过 PowerShell 安全链（实测：`cmd /c powershell -Command
+  // "Remove-Item -Recurse -Force C:\Windows"` 落 ask，点一下就能执行）。
+  // 这里在内层脚本尚未被判定时 fail-closed，并给出可直接照抄的写法。
+  if (
+    std.shellWrappers.length > 0 &&
+    (std.baseCommand === 'powershell' || std.baseCommand === 'pwsh')
+  ) {
+    return blockedResult(
+      `安全检查: 禁止用壳包裹 PowerShell${wrapperNote}。请直接执行 powershell -Command "…"（或改用 powershell 工具），以便内层脚本经过 PowerShell 安全链判定。`,
+      { reason: 'shell_wrapped_powershell' }
+    );
+  }
+
+  const sandboxCheckResult = sandboxSecurityChecker.checkDangerousCommands(
+    std.effectiveCommand || command
+  );
   if (!sandboxCheckResult.allowed) {
     // N-18（2026-11-07 真机）：把检查器的**可执行替代**带给模型。
     // 旧文案只有「请检查命令是否必要，避免执行破坏性操作」，对 `node -e` 这类被拒毫无指导，
@@ -535,7 +559,9 @@ export function checkInterpreterGuard(params: {
     isHighCapabilityInterpreter(std.baseCommand) &&
     // B3（2026-10-30，issue #37）：只对"内联代码"形态（-c/-e/-Command…）升级确认 ——
     // 脚本/模块调用（`node x.js`、`python -m pytest`）不再一律弹卡。
-    hasInlineCodeFlag(std.preprocessed)
+    // P1（2026-11-22）：内联标记取自**剥壳后**的命令 —— 否则 `bash -c "node script.js"`
+    // 会被外层壳的 `-c` 误判为内联代码；`bash -c "node -e …"` 仍能正确命中 `-e`。
+    hasInlineCodeFlag(std.effectiveCommand)
   ) {
     return createToolResult('需要用户确认: 解释器命令', {
       requireApproval: true,

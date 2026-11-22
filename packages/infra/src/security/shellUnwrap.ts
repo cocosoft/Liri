@@ -21,6 +21,47 @@
  *   - 剥壳结果**不放大**权限：内层命令仍走完整的原判定链（只读 / 危险命令 / 审批）。
  */
 
+/**
+ * 多级剥壳结果（P1，2026-11-22）。
+ *
+ * 用途：让「基命令白名单 / 解释器守卫 / 沙箱二次校验」看到**实际要执行的命令**，
+ * 而不是外层壳（`bash -lc "git log"` 的 base 应为 `git`）。
+ */
+export interface ShellChainResult {
+  /** 最终（最内层）命令；未剥壳 / 剥壳失败时等于**最后一层可解析命令** */
+  command: string;
+  /** 逐层命中的壳（从外到内，如 `['cmd /c', 'bash']`）；空数组表示无壳 */
+  wrappers: string[];
+}
+
+/** 与 `BashSecurityAnalyzer.MAX_SHELL_UNWRAP_DEPTH` 同口径：最多剥 3 层 */
+const MAX_CHAIN_DEPTH = 3;
+
+/**
+ * 逐层剥壳（`env → cmd /c → bash -lc → …`），返回最内层命令与实际命中的壳。
+ *
+ * 边界：任一层不满足 `unwrapShellCommand` 的可证形态（多余位置参数 / `/k` / `env -i` /
+ * 引号未闭合 …）⇒ **停止并返回当前层**。调用方因此看到的是"壳名"本身 ⇒ 白名单拒绝
+ * （shell 不在允许列表）⇒ fail-closed，不给"剥壳失败 ⇒ 未知 ⇒ 可批准"的口子。
+ */
+export function unwrapShellChain(
+  command: string,
+  maxDepth: number = MAX_CHAIN_DEPTH
+): ShellChainResult {
+  let current = command.trim();
+  const wrappers: string[] = [];
+  for (let depth = 0; depth < maxDepth; depth += 1) {
+    const one = unwrapShellCommand(current);
+    if (!one.ok) break;
+    const inner = one.command.trim();
+    // 防止空串 / 自指（如 `env` 只带赋值）导致死循环
+    if (!inner || inner === current) break;
+    wrappers.push(one.wrapper ?? 'shell');
+    current = inner;
+  }
+  return { command: current, wrappers };
+}
+
 /** 一次剥壳的结果 */
 export interface UnwrapResult {
   ok: boolean;

@@ -38,6 +38,9 @@
  * `normalized` 仅用于审批哈希与展示（`normalizeCommand` 会折叠换行，**不可用于 spawn**）。
  */
 import { normalizeCommand } from '@openliri/infra/permission';
+// P1（2026-11-22）：剥壳（`bash -lc` / `cmd /c` / `env`）与安全链同口径 ——
+// 基命令 / 解释器守卫 / 沙箱二次校验都必须看**实际执行的命令**。
+import { unwrapShellChain } from '@openliri/infra/security/shellUnwrap';
 
 /** 平台预处理结果 */
 export interface PreprocessResult {
@@ -297,7 +300,17 @@ export interface StandardizedCommand {
   rewrites: string[];
   /** 预处理告警（含 `禁止:` 前缀者为阻断项） */
   warnings: string[];
-  /** 派生基命令名（小写、无路径、无扩展名） */
+  /**
+   * 剥壳后的**实际执行命令**（P1，2026-11-22）。
+   *
+   * 无壳 / 剥壳失败 ⇒ 与 `preprocessed` 相同。用途：基命令白名单、解释器守卫、
+   * 沙箱二次校验必须按"真正要执行的命令"判定，否则 `bash -lc "git log"` 会被
+   * 外层壳名 `bash` 拦下，而 `bash -c "…"` 又可能按壳名放行。
+   */
+  effectiveCommand: string;
+  /** 逐层命中的壳（从外到内，如 `['cmd /c', 'bash']`）；空数组表示无壳 */
+  shellWrappers: string[];
+  /** 派生基命令名（小写、无路径、无扩展名；**取自 `effectiveCommand`**） */
   baseCommand: string;
   /** 提取到的疑似路径候选（全部） */
   paths: string[];
@@ -324,13 +337,17 @@ export function standardizeCommand(
   const preprocessed = pre.command;
   const paths = extractPathCandidates(preprocessed, { isWindows });
   const unixAbsolutePaths = paths.filter(isUnixAbsolutePath);
+  // P1（2026-11-22）：剥壳一次算到底，安全链的四处消费者共用同一结果
+  const chain = unwrapShellChain(preprocessed);
   return {
     raw,
     preprocessed,
     normalized: normalizeCommand(preprocessed),
     rewrites: pre.rewrites,
     warnings: pre.warnings,
-    baseCommand: deriveBaseCommand(preprocessed),
+    effectiveCommand: chain.command,
+    shellWrappers: chain.wrappers,
+    baseCommand: deriveBaseCommand(chain.command),
     paths,
     unixAbsolutePaths,
     unixSensitivePaths: unixAbsolutePaths.filter(isUnixSensitivePath),

@@ -35,8 +35,12 @@ export const HIGH_CAPABILITY_INTERPRETERS: ReadonlySet<string> = new Set([
 /**
  * 生成「命令级免审批」规则时需要**精确匹配**的命令头。
  *
- * 在高能力解释器之外补入常见 shell（`cmd` / `sh` / `bash` / `zsh` / `fish`）：
- * 它们的共性是「第一个 token 只说明用什么执行器，不说明执行什么」⇒ 前缀规则没有意义。
+ * 除高能力解释器外，补入**壳与包装器**（`cmd` / POSIX shell 全族 / `env` / `busybox`）：
+ * 它们的共性是「第一个 token 只说明用什么执行器，不说明执行什么」⇒ 前缀规则没有意义
+ * （`^dash -c.*` 等于放行任意 `dash -c`）。
+ *
+ * P1（2026-11-22）：补齐 `dash` / `ksh` / `mksh` / `ash` / `csh` / `tcsh` / `busybox` / `env`
+ * —— 此前只有 bash/sh/zsh/fish，`dash`、`ksh` 等批准后会退化成通配前缀。
  */
 export const INTERPRETER_COMMAND_HEADS: ReadonlySet<string> = new Set([
   ...HIGH_CAPABILITY_INTERPRETERS,
@@ -44,7 +48,15 @@ export const INTERPRETER_COMMAND_HEADS: ReadonlySet<string> = new Set([
   'sh',
   'bash',
   'zsh',
+  'dash',
+  'ksh',
+  'mksh',
+  'ash',
+  'csh',
+  'tcsh',
   'fish',
+  'busybox',
+  'env',
 ]);
 
 /** 命令头是否为高能力解释器（入参需已归一化：小写、去扩展名、去目录） */

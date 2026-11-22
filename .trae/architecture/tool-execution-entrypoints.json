@@ -1,7 +1,27 @@
 {
-  "note": "工具执行入口台账（P0，2026-11-22；G6 取证完成 2026-11-22）。凡 app/src/** 里出现 tool.execute( 的文件都必须在此登记；新增文件或出现次数变化 ⇒ lint:tool-governance 失败。status：centralized=位于统一执行链（ToolRegistry / ToolExecutor / ToolManager）；authorized=本处显式调用授权函数；caller-authorized=本处不授权、由调用方在 execute 前完成授权（authorizedBy 写明调用方与函数）；scoped-readonly=只调用固定只读工具；unreachable=静态取证无生产调用方（note 写明证据，接入前必须补授权）；needs-review=尚未取证。",
+  "note": "工具执行入口台账（P0，2026-11-22；G6 取证完成 2026-11-22）。凡 app/src/** 里出现 `tool.execute(` 或 `xxxTool.execute(` 的文件都必须在此登记；新增文件或出现次数变化 ⇒ lint:tool-governance 失败。status：centralized=位于统一执行链（ToolRegistry / ToolExecutor / ToolManager）；authorized=本处显式调用授权函数；caller-authorized=本处不授权、由调用方在 execute 前完成授权（authorizedBy 写明调用方与函数）；scoped-readonly=只调用固定只读工具；unreachable=静态取证无生产调用方（note 写明证据，接入前必须补授权）；needs-review=尚未取证。",
   "scanRoots": ["src"],
   "entries": [
+    {
+      "file": "src/plugins/bundled/MediaPlugin.ts",
+      "status": "unreachable",
+      "occurrences": 2,
+      "note": "F8 取证：generateImage / analyzeImage 无生产调用方（未接线插件兼容接口）；接线前必须补 authorizeToolCall。"
+    },
+    {
+      "file": "src/commands/builtin/config/Config.ts",
+      "status": "caller-authorized",
+      "authorizedBy": "用户 CLI 命令入口（/config）；非模型工具面",
+      "occurrences": 4,
+      "note": "F25：由用户主动执行的配置命令直调 config 工具；模型不可达。"
+    },
+    {
+      "file": "src/tools/utils/ToolLazyWrapper.ts",
+      "status": "centralized",
+      "authorizedBy": "包装器委托：外层 Registry / ToolManager 已完成授权",
+      "occurrences": 2,
+      "note": "F25：懒加载包装器把 execute 委托给真身；本身不构成独立入口。"
+    },
     {
       "file": "src/tools/ToolRegistry.ts",
       "status": "centralized",
@@ -48,8 +68,8 @@
       "file": "src/tools/PlanTool/PlanTool.ts",
       "status": "authorized",
       "authorizedBy": "authorizeToolCall（tool 分支 :600-608；command 分支 2026-11-22 补齐）",
-      "occurrences": 1,
-      "note": "G6：command 分支此前直接 bashTool.execute（绕过权限模式/deny 规则），已与 tool 分支同源补齐授权。注：本行 occurrences 只统计 `tool.execute`；命令分支调用的是 `bashTool.execute`。"
+      "occurrences": 2,
+      "note": "G6：command 分支此前直接 bashTool.execute（绕过权限模式/deny 规则），已与 tool 分支同源补齐授权；F25 起 occurrences 同时统计 `tool.execute` 与 `bashTool.execute`。"
     },
     {
       "file": "src/modules/doc/pipeline/DocPipelineTool.ts",

@@ -85,10 +85,11 @@ export const INTERCEPTION_REASON_SOURCES: ReadonlyArray<{
   return [...byFile].map(([file, domain]) => ({ file, domain }));
 })();
 
-/** 从源码文本提取 `reason: '<code>'` 字面量（只认小写标识符形的码） */
+/** 从源码文本提取 `reason: '<code>'` 字面量（单/双引号；只认小写标识符形的码） */
 export function collectReasonCodes(text: string): string[] {
   const out = new Set<string>();
-  for (const m of text.matchAll(/\breason:\s*'([a-z][a-z0-9_]*)'/g)) {
+  // F24（2026-11-22）：原只认单引号 ⇒ 双引号写法绕过对账
+  for (const m of text.matchAll(/\breason:\s*['"]([a-z][a-z0-9_]*)['"]/g)) {
     if (m[1]) out.add(m[1]);
   }
   return [...out].sort();

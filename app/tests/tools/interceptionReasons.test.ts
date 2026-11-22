@@ -18,6 +18,11 @@ describe('collectReasonCodes：从源码提取 reason 码', () => {
     expect(collectReasonCodes(text)).toEqual(['ssrf_blocked']);
   });
 
+  it('双引号写法同样入码表（F24）', () => {
+    const text = `metadata: { reason: "ssrf_blocked" }`;
+    expect(collectReasonCodes(text)).toEqual(['ssrf_blocked']);
+  });
+
   it('模板/变量/大写描述不进码表', () => {
     const text = [
       'reason: ssrfResult.reason',

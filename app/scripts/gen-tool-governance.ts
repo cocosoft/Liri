@@ -327,7 +327,10 @@ function scanEntrypoints(
         ) {
           continue;
         }
-        if (/\btool\.execute\(/.test(raw)) count += 1;
+        // F25（2026-11-22）：扫描面扩到 `xxxTool.execute(`（此前只认 `tool.execute(`，
+        // 懒加载包装器 / 插件直调 / 命令直调等入口不会被登记与复核）。
+        // `(?!\s*\))` 排除日志文案里的 `FooTool.execute()`（空参数形态，非真实调用）。
+        if (/(?:\w*[Tt]ool|tool)\.execute\((?!\s*\))/.test(raw)) count += 1;
       }
       if (count > 0) out.push({ file: rel, occurrences: count });
     }

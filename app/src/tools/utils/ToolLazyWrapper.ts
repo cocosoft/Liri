@@ -96,6 +96,17 @@ export class ToolLazyWrapper implements Tool {
   }
 
   isReadOnly(input?: Record<string, unknown>): boolean {
+    // F26（2026-11-22）：已加载时委托真身（快照可能与动态判定不一致）；
+    // 未加载保持快照，避免在权限判定中触发懒加载。
+    if (this.loader.isLoaded()) {
+      try {
+        const real = this.loader.getSync();
+        if (typeof real.isReadOnly === 'function')
+          return real.isReadOnly(input);
+      } catch {
+        // @ignore-catch — 取不到真身 ⇒ 回退注册快照
+      }
+    }
     return this.metadata.readOnly;
   }
 

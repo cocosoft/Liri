@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.1.2-blue)
+![Version](https://img.shields.io/badge/version-0.1.3-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -466,7 +466,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.1.2**
+当前版本：**v0.1.3**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -475,11 +475,11 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.1.2 (2026-11-22)
-修复桌面端全站「连接已中断 / Backend 已停止」误报
+#### v0.1.3 (2026-11-22)
+修复升级后白屏（桌面端误注册 Service Worker）
 
-- ✅ **代理参数不匹配（P0）** - 前端非流式 `http_proxy` 少了 `request` 包装 ⇒ invoke 失败 ⇒ 健康检查恒失败；已对齐 Rust 签名
-- ✅ **日志纠偏** - `[start_backend]` 的 `cwd=` 改为实际安装目录
+- ✅ **根因** - `registerSW.js` 未排除 `tauri.localhost` ⇒ 桌面端注册 SW，`cache-first` 使升级后返回旧资源
+- ✅ **两层修复** - 前端本地/桌面环境不再注册并注销残留；Rust 按版本清理 `EBWebView/Default/Service Worker`
 - ✅ 完整历史见 [CHANGELOG.md](CHANGELOG.md)
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。

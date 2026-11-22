@@ -1,6 +1,6 @@
 {
   "name": "openliri",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Liri — 你的 AI 私人助手,基于 TypeScript + Rust 架构",
   "homepage": "https://openliri.com",
   "license": "MIT",
@@ -337,4 +337,5 @@
     "dingtalk-stream@2.1.5": "patches/dingtalk-stream@2.1.5.patch"
   }
 }
+
 

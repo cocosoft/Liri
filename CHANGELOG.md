@@ -212,6 +212,18 @@
 - ✅ **macOS 假红** - `mobilePairing` 用例不再用 1ms TTL 与 runner 时钟赛跑
 <!-- EVIDENCE-VIEWS:END -->
 
+#### v0.1.3 (2026-11-22)  修复升级后白屏（桌面端误注册 Service Worker）
+
+- ✅ **根因（真机两次复现）**：`registerSW.js` 只排除 `localhost` / `127.*`，而 Tauri 生产 host 是
+  `tauri.localhost` ⇒ **桌面端也注册了 `sw.js`**。`sw.js` 对同源静态资源是 **cache-first**，
+  升级后继续返回旧版 `index.html` / JS chunk ⇒ 白屏，界面只剩 SW 的兜底响应体 `offline`
+  （正是两次复现看到的文本）。
+- ✅ **两层修复**：① 前端在本地 / Tauri 环境**不再注册** SW，并幂等注销历史残留；
+  ② Rust 侧按应用版本清理 `EBWebView/Default/Service Worker`（保留 Local Storage 等用户数据），
+  在 WebView 创建前执行——否则"旧页面被缓存 ⇒ 新脚本没机会执行"会形成死锁。
+- ✅ **边界**：清理仅在版本变化时触发一次（`webview_version.txt` 记版本）；
+  浏览器部署（非本地 host）仍保留 PWA 离线缓存能力。
+
 #### v0.1.2 (2026-11-22)  修复桌面端全站「连接已中断 / Backend 已停止」误报
 
 - ✅ **根因（P0，Windows 真机实证）**：Rust 命令签名是 `http_proxy(app_handle, request: ProxyRequest)`，

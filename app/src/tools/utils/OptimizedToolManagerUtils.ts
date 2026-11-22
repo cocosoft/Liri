@@ -5,6 +5,8 @@
 
 import { Tool } from '../types/Tool';
 import { ToolFactory } from '../ToolFactory';
+// F21（2026-11-22）：已加载工具从注册表取，禁止按工具名拼接 require 路径
+import { getToolRegistry } from '../ToolRegistry';
 import { profileCheckpoint } from '@openliri/infra/performance';
 import { loadBuiltinTools as loadBuiltinToolsFromUtils } from './ToolManagerUtils.js';
 import { handleError } from '@openliri/infra/error';
@@ -138,7 +140,10 @@ export class ToolLoadStateManager {
   onToolLoaded(toolName: string, callback: (tool: Tool) => void): void {
     if (this.isToolLoaded(toolName)) {
       // 工具已加载，立即执行回调
-      const tool = require(`../tools/${toolName}/${toolName}`).default;
+      // F21（2026-11-22）：原为 `require(\`../tools/${toolName}/${toolName}\`)` ——
+      // 工具名未归一/无白名单 ⇒ 含 `../` 即可加载任意模块并执行（RCE 面）。
+      // 改为注册表查询：未注册 ⇒ 不回调（与"未加载"语义一致）。
+      const tool = getToolRegistry().getTool(toolName);
       if (tool) {
         callback(tool);
       }

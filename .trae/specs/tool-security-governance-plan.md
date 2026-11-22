@@ -473,6 +473,10 @@ F3–F10 仍待办 ⇒ 本节原「本计划无剩余待办」表述已按事实
 | F17 | 子代理授权用模型传入名且不传工具对象 | 改真名 + `context.tool`；执行接入统一超时 | — |
 | F18 | `PlanTool` 授权不传工具对象 | `context.tool` 补齐（风险按声明式派生） | — |
 | F19 | `ToolRegistry` 不查工具自报 `isEnabled()` | 与 F14 合并为同一 fail-closed 判定 | `registryDisabledTool.test.ts`（+1 项） |
+| F20 | `ToolExecutor` 治理 / hooks 上下文写死 `permissionMode: 'auto'` | 改为 `PermissionMode.DEFAULT`（最保守）；避免 plan / dontAsk 被当作 auto 评估策略 | — |
+| F23 | `DocPipeline` 内层工具不单独授权 | `image_generate` / `doc_generate` 补 `authorizeToolCall`（真名 + tool 对象） | — |
+| F22 | `shieldGuard` 拦截无 reason 码 | 新增 `path_shield_blocked` 并登记（file 域） | 码表对账（lint） |
+| F21 | `onToolLoaded` 动态 `require` 拼接工具名（潜在 RCE） | 改为 `getToolRegistry().getTool()` 查询；未注册不回调 | — |
 
 验证：`typecheck` 通过；全量 `bun run ci` **13722 pass / 42 skip / 0 fail**；
 `lint:tool-governance`（69 pass / gap 0，矩阵已重生）、`lint:tool-interception-reasons`、`lint:arch`、`lint:consts` 通过。
@@ -481,7 +485,7 @@ F3–F10 仍待办 ⇒ 本节原「本计划无剩余待办」表述已按事实
 
 | ID | 问题 |
 |---|---|
-| — | F1–F19 已全部处理（F7/F8/F9 取证为非入口/未接线，接线前必须补授权；其余已修复） |
+| — | F1–F23 已全部处理（F7/F8/F9 取证为非入口/未接线，接线前必须补授权；其余已修复） |
 
 ### 13.3 G9 结论订正（如实）
 

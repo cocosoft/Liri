@@ -47,6 +47,11 @@ export const INTERCEPTION_REASONS: readonly InterceptionReasonSpec[] = [
     sources: ['app/src/chat/ReActToolLoop.ts'],
   },
   {
+    code: 'path_shield_blocked',
+    domain: 'file',
+    sources: ['app/src/tools/shieldGuard.ts'],
+  },
+  {
     code: 'workspace_escape_blocked',
     domain: 'file',
     sources: ['app/src/tasks/lro/stepExecution.ts'],

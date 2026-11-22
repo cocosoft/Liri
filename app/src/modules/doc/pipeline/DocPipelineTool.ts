@@ -32,6 +32,13 @@ import {
   ErrorSeverity,
 } from '@openliri/infra/error/types';
 import { getWorkflowEngine, createRunRecordCollector } from '@modules/workflow';
+// F23（2026-11-22）：内层工具（image_generate / doc_generate）单独授权
+import {
+  authorizeToolCall,
+  getEffectivePermissionRoles,
+  PermissionManager,
+} from '@openliri/infra/permission';
+import { getRequestPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import {
   DOC_PIPELINE_WORKFLOW,
   type DocPipelineParams,
@@ -64,7 +71,27 @@ async function pipelineGenerateImage(
       'DOC_PIPELINE_IMAGE_TOOL_MISSING'
     );
   }
-  const res = (await tool.execute({ prompt }, context)) as {
+  // F23（2026-11-22）：内层工具单独授权（外层只授权了 `office:doc-pipeline`）
+  const imageArgs = { prompt };
+  const auth = await authorizeToolCall(PermissionManager.getInstance(), {
+    toolName: tool.name,
+    args: imageArgs,
+    context: {
+      ...(context.sessionId ? { sessionId: context.sessionId } : {}),
+      tool,
+      userId: getRequestPrincipal().userId,
+      userRoles: getEffectivePermissionRoles(),
+    },
+  });
+  if (!auth.allowed) {
+    throw new AppError(
+      `配图生成需要审批或已被拒绝：${auth.reason}`,
+      ErrorCategory.PERMISSION,
+      ErrorSeverity.MEDIUM,
+      'DOC_PIPELINE_IMAGE_DENIED'
+    );
+  }
+  const res = (await tool.execute(imageArgs, context)) as {
     success?: boolean;
     error?: string;
     data?: {
@@ -114,10 +141,27 @@ async function pipelineGenerateDoc(
       'DOC_PIPELINE_DOC_TOOL_MISSING'
     );
   }
-  const res = (await tool.execute(
-    { title, content, type: format },
-    context
-  )) as {
+  // F23（2026-11-22）：内层工具单独授权（同 image 分支）
+  const docArgs = { title, content, type: format };
+  const auth = await authorizeToolCall(PermissionManager.getInstance(), {
+    toolName: tool.name,
+    args: docArgs,
+    context: {
+      ...(context.sessionId ? { sessionId: context.sessionId } : {}),
+      tool,
+      userId: getRequestPrincipal().userId,
+      userRoles: getEffectivePermissionRoles(),
+    },
+  });
+  if (!auth.allowed) {
+    throw new AppError(
+      `文档成稿需要审批或已被拒绝：${auth.reason}`,
+      ErrorCategory.PERMISSION,
+      ErrorSeverity.MEDIUM,
+      'DOC_PIPELINE_DOC_DENIED'
+    );
+  }
+  const res = (await tool.execute(docArgs, context)) as {
     success?: boolean;
     error?: string;
     data?: { filePath?: string };

@@ -11,6 +11,7 @@ import {
 } from '@openliri/infra/permission/PermissionManager';
 // P1（2026-11-04）：判定唯一出口（归一为 PolicyDecision）
 import { resolvePolicy } from '@openliri/infra/permission';
+import { PermissionMode } from '@openliri/infra/permission/PermissionMode';
 import { GovernanceManager } from '@modules/governance/managers/GovernanceManager';
 import { ToolHookManager } from '@modules/hooks';
 import { ToolHookContext } from '../hooks/types/ToolHooks';
@@ -138,7 +139,8 @@ export class ToolExecutor {
       toolName: toolName,
       toolUseID: toolUseId,
       input: { ...input },
-      permissionMode: 'auto' as any,
+      // F20（2026-11-22）：hooks 上下文同样不得写死 auto（按最保守 default）
+      permissionMode: PermissionMode.DEFAULT,
       abortSignal: undefined,
     };
 
@@ -487,7 +489,9 @@ export class ToolExecutor {
       toolUseId: finalToolUseId,
       toolName: tool.name,
       input,
-      permissionMode: 'auto' as any,
+      // F20（2026-11-22）：不得写死 auto（`ToolUseContext` 无该字段）——按最保守
+      // `default` 评估治理策略，避免 plan / dontAsk 会话被当作 auto 放宽。
+      permissionMode: 'default',
       abortSignal: undefined,
     };
 

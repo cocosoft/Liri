@@ -74,6 +74,8 @@ export function guardShieldedToolCall(
     status: ToolExecutionStatus.FAILURE,
     error: reason,
     errorLevel: ErrorLevel.FATAL,
+    // F22（2026-11-22）：机器可读拦截码（此前只有自然语言 error）
+    metadata: { reason: 'path_shield_blocked' },
     newMessages: [{ role: 'system', content: `Error: ${reason}` }],
   });
 }

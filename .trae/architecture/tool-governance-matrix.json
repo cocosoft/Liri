@@ -1,0 +1,2109 @@
+{
+  "schemaVersion": 1,
+  "generatedBy": "app/scripts/gen-tool-governance.ts",
+  "note": "由 gen:tool-governance 生成，勿手改；矩阵是派生结论的快照，不是新的事实源。",
+  "counts": {
+    "total": 69,
+    "runtime": 60,
+    "pass": 67,
+    "acceptedGap": 2,
+    "gap": 0,
+    "riskUndeclared": 0
+  },
+  "declaredNotInstantiated": [
+    "create_task_list",
+    "cron_create",
+    "cron_delete",
+    "cron_list",
+    "cron_stop",
+    "enter_worktree",
+    "exit_worktree",
+    "get_task_list",
+    "list_vfs",
+    "music_generate",
+    "read_vfs",
+    "skill_view",
+    "skills_list",
+    "sleep_for",
+    "sleep_until",
+    "stat_vfs",
+    "update_task_status",
+    "write_vfs"
+  ],
+  "tools": [
+    {
+      "name": "agent",
+      "pack": null,
+      "category": "agent",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "external",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": "external",
+        "derived": "external",
+        "source": "declared:static"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": false,
+      "checkPermissionsOverridden": true,
+      "getPath": false,
+      "getPathOverridden": true,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "agents_list",
+      "pack": "system_extra",
+      "category": "agent",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "none",
+        "idempotent": true,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "read",
+        "source": "derived:effects"
+      },
+      "readOnly": true,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "ask_user_question",
+      "pack": null,
+      "category": "interaction",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "external",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "external",
+        "source": "derived:effects"
+      },
+      "readOnly": true,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "audio_play",
+      "pack": "media_audio",
+      "category": "media",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "none",
+        "idempotent": true,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "read",
+        "source": "derived:effects"
+      },
+      "readOnly": true,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "bash",
+      "pack": null,
+      "category": "shell",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "external",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "execution",
+      "risk": {
+        "declared": null,
+        "derived": "shell",
+        "source": "derived:sandboxLevel"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": 100000,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "brief",
+      "pack": "system_extra",
+      "category": "interaction",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "write",
+        "source": "derived:effects"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "broadcast",
+      "pack": "collab",
+      "category": "channel",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "external",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "external",
+        "source": "derived:effects"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "browser",
+      "pack": "desktop",
+      "category": "network",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "external",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "external",
+        "source": "derived:effects"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": 100000,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "browser_vision",
+      "pack": "desktop",
+      "category": "video",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "external",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "external",
+        "source": "derived:effects"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "canvas",
+      "pack": null,
+      "category": "assist",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "write",
+        "source": "derived:effects"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "channel",
+      "pack": null,
+      "category": "channel",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "external",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "external",
+        "source": "derived:effects"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "clipboard",
+      "pack": "system_extra",
+      "category": "assist",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "write",
+        "source": "derived:effects"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "code_run",
+      "pack": "code",
+      "category": "code",
+      "runtimeRegistered": false,
+      "effects": {
+        "sideEffect": "external",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "execution",
+      "risk": {
+        "declared": null,
+        "derived": "shell",
+        "source": "derived:sandboxLevel"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [
+        "no-result-limit"
+      ],
+      "acceptedBy": "G9",
+      "verdict": "accepted-gap"
+    },
+    {
+      "name": "computer_use",
+      "pack": "desktop",
+      "category": "desktop",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "external",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "external",
+        "source": "derived:effects"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "config",
+      "pack": null,
+      "category": "system",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "write",
+        "source": "derived:effects"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "create_project",
+      "pack": "workspace",
+      "category": "code",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": "write",
+        "derived": "write",
+        "source": "declared:static"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": true,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": false,
+      "checkPermissionsOverridden": true,
+      "getPath": false,
+      "getPathOverridden": true,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "cron",
+      "pack": "schedule",
+      "category": "task",
+      "runtimeRegistered": false,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": "op"
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": "read",
+        "derived": "read",
+        "source": "declared:dynamic"
+      },
+      "readOnly": true,
+      "destructive": false,
+      "concurrencySafe": true,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "doc_generate",
+      "pack": "doc_extra",
+      "category": "doc",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "write",
+        "source": "derived:effects"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "file_convert",
+      "pack": null,
+      "category": "file",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "none",
+        "idempotent": true,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "read",
+        "source": "derived:effects"
+      },
+      "readOnly": true,
+      "destructive": false,
+      "concurrencySafe": true,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "file_edit",
+      "pack": null,
+      "category": "file",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "file-io",
+      "risk": {
+        "declared": null,
+        "derived": "write",
+        "source": "derived:effects"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": true,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "file_read",
+      "pack": null,
+      "category": "file_read",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "none",
+        "idempotent": true,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "read",
+        "source": "derived:effects"
+      },
+      "readOnly": true,
+      "destructive": false,
+      "concurrencySafe": true,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": true,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "file_write",
+      "pack": null,
+      "category": "file",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "file-io",
+      "risk": {
+        "declared": null,
+        "derived": "write",
+        "source": "derived:effects"
+      },
+      "readOnly": false,
+      "destructive": true,
+      "concurrencySafe": false,
+      "maxResultSizeChars": 10000,
+      "approvalFingerprint": true,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": true,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "glob",
+      "pack": null,
+      "category": "file_read",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "none",
+        "idempotent": true,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "read",
+        "source": "derived:effects"
+      },
+      "readOnly": true,
+      "destructive": false,
+      "concurrencySafe": true,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": true,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "grep",
+      "pack": null,
+      "category": "search",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "none",
+        "idempotent": true,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "read",
+        "source": "derived:effects"
+      },
+      "readOnly": true,
+      "destructive": false,
+      "concurrencySafe": true,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": true,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "image",
+      "pack": "media_image",
+      "category": "image",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "write",
+        "source": "derived:effects"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "image_analysis",
+      "pack": "media_image",
+      "category": "image",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "none",
+        "idempotent": true,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "read",
+        "source": "derived:effects"
+      },
+      "readOnly": true,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "image_display",
+      "pack": "media_image",
+      "category": "image",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "none",
+        "idempotent": true,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "read",
+        "source": "derived:effects"
+      },
+      "readOnly": true,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "image_generate",
+      "pack": "media_image",
+      "category": "image",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "write",
+        "source": "derived:effects"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "image_svg_generate",
+      "pack": "media_image",
+      "category": "image",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "write",
+        "source": "derived:effects"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "kanban",
+      "pack": "workspace",
+      "category": "task",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "write",
+        "source": "derived:effects"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "knowledge_save",
+      "pack": "knowledge",
+      "category": "knowledge",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": "write",
+        "derived": "write",
+        "source": "declared:static"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": true,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": false,
+      "checkPermissionsOverridden": true,
+      "getPath": false,
+      "getPathOverridden": true,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "list_peers",
+      "pack": "collab",
+      "category": "channel",
+      "runtimeRegistered": false,
+      "effects": {
+        "sideEffect": "none",
+        "idempotent": true,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "read",
+        "source": "derived:effects"
+      },
+      "readOnly": true,
+      "destructive": false,
+      "concurrencySafe": true,
+      "maxResultSizeChars": 100000,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "lsp",
+      "pack": "code",
+      "category": "code",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": "write",
+        "derived": "write",
+        "source": "declared:static"
+      },
+      "readOnly": false,
+      "destructive": null,
+      "concurrencySafe": true,
+      "maxResultSizeChars": 10000,
+      "approvalFingerprint": false,
+      "checkPermissions": false,
+      "checkPermissionsOverridden": true,
+      "getPath": false,
+      "getPathOverridden": true,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "mcp_auth",
+      "pack": "system_extra",
+      "category": "mcp",
+      "runtimeRegistered": false,
+      "effects": {
+        "sideEffect": "external",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "external",
+        "source": "derived:effects"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "mcp_resource",
+      "pack": "system_extra",
+      "category": "mcp",
+      "runtimeRegistered": false,
+      "effects": {
+        "sideEffect": "none",
+        "idempotent": true,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "read",
+        "source": "derived:effects"
+      },
+      "readOnly": true,
+      "destructive": false,
+      "concurrencySafe": true,
+      "maxResultSizeChars": 100000,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "mcp_tool",
+      "pack": null,
+      "category": "mcp",
+      "runtimeRegistered": false,
+      "effects": {
+        "sideEffect": "external",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": "external",
+        "derived": "external",
+        "source": "declared:static"
+      },
+      "readOnly": false,
+      "destructive": null,
+      "concurrencySafe": true,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": false,
+      "checkPermissionsOverridden": true,
+      "getPath": false,
+      "getPathOverridden": true,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "monitor",
+      "pack": null,
+      "category": "system",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "write",
+        "source": "derived:effects"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "music",
+      "pack": "media_audio",
+      "category": "media",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "write",
+        "source": "derived:effects"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "notebook",
+      "pack": null,
+      "category": "system",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": "write",
+        "derived": "write",
+        "source": "declared:static"
+      },
+      "readOnly": false,
+      "destructive": null,
+      "concurrencySafe": true,
+      "maxResultSizeChars": 10000,
+      "approvalFingerprint": false,
+      "checkPermissions": false,
+      "checkPermissionsOverridden": true,
+      "getPath": false,
+      "getPathOverridden": true,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "pdf",
+      "pack": null,
+      "category": "doc",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": "read",
+        "derived": "read",
+        "source": "declared:dynamic"
+      },
+      "readOnly": true,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "plan",
+      "pack": null,
+      "category": "assist",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "write",
+        "source": "derived:effects"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": 100000,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "powershell",
+      "pack": null,
+      "category": "shell",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "external",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "execution",
+      "risk": {
+        "declared": null,
+        "derived": "shell",
+        "source": "derived:sandboxLevel"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": true,
+      "resolveFileIoRoot": false,
+      "gaps": [
+        "no-result-limit"
+      ],
+      "acceptedBy": "G9",
+      "verdict": "accepted-gap"
+    },
+    {
+      "name": "read_project_file",
+      "pack": null,
+      "category": "file_read",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "none",
+        "idempotent": true,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": "read",
+        "derived": "read",
+        "source": "declared:static"
+      },
+      "readOnly": true,
+      "destructive": false,
+      "concurrencySafe": true,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": false,
+      "checkPermissionsOverridden": true,
+      "getPath": false,
+      "getPathOverridden": true,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "repl",
+      "pack": "code",
+      "category": "system",
+      "runtimeRegistered": false,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "execution",
+      "risk": {
+        "declared": "shell",
+        "derived": "shell",
+        "source": "declared:static"
+      },
+      "readOnly": false,
+      "destructive": null,
+      "concurrencySafe": true,
+      "maxResultSizeChars": 10000,
+      "approvalFingerprint": false,
+      "checkPermissions": false,
+      "checkPermissionsOverridden": true,
+      "getPath": false,
+      "getPathOverridden": true,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "save_conversation",
+      "pack": "workspace",
+      "category": "session",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "write",
+        "source": "derived:effects"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "send_message",
+      "pack": "collab",
+      "category": "notify",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "external",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "external",
+        "source": "derived:effects"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "sessions",
+      "pack": null,
+      "category": "session",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "write",
+        "source": "derived:effects"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "sessions_yield",
+      "pack": "schedule",
+      "category": "session",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "write",
+        "source": "derived:effects"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "skill",
+      "pack": null,
+      "category": "search",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": "op"
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": "write",
+        "derived": "write",
+        "source": "declared:dynamic"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "sleep",
+      "pack": "schedule",
+      "category": "system",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "none",
+        "idempotent": true,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": "write",
+        "derived": "write",
+        "source": "declared:dynamic"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "task_list",
+      "pack": null,
+      "category": "task",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": "op"
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": "read",
+        "derived": "read",
+        "source": "declared:dynamic"
+      },
+      "readOnly": true,
+      "destructive": false,
+      "concurrencySafe": true,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "task_output",
+      "pack": null,
+      "category": "task",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "none",
+        "idempotent": true,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "read",
+        "source": "derived:effects"
+      },
+      "readOnly": true,
+      "destructive": false,
+      "concurrencySafe": true,
+      "maxResultSizeChars": 100000,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "task_stop",
+      "pack": null,
+      "category": "task",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "write",
+        "source": "derived:effects"
+      },
+      "readOnly": false,
+      "destructive": true,
+      "concurrencySafe": false,
+      "maxResultSizeChars": 10000,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "team_create",
+      "pack": "collab",
+      "category": "agent",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "external",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "external",
+        "source": "derived:effects"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": 100000,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "team_delete",
+      "pack": "collab",
+      "category": "agent",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "external",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "external",
+        "source": "derived:effects"
+      },
+      "readOnly": false,
+      "destructive": true,
+      "concurrencySafe": false,
+      "maxResultSizeChars": 100000,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "todo_write",
+      "pack": null,
+      "category": "task",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "write",
+        "source": "derived:effects"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": true,
+      "maxResultSizeChars": 10000,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "tool_search",
+      "pack": null,
+      "category": "search",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "none",
+        "idempotent": true,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "read",
+        "source": "derived:effects"
+      },
+      "readOnly": true,
+      "destructive": false,
+      "concurrencySafe": true,
+      "maxResultSizeChars": 100000,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "trace_recording",
+      "pack": null,
+      "category": "system",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "none",
+        "idempotent": true,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "read",
+        "source": "derived:effects"
+      },
+      "readOnly": true,
+      "destructive": false,
+      "concurrencySafe": true,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "tts",
+      "pack": "media_audio",
+      "category": "media",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "write",
+        "source": "derived:effects"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "tungsten",
+      "pack": null,
+      "category": "shell",
+      "runtimeRegistered": false,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": "write",
+        "derived": "write",
+        "source": "declared:static"
+      },
+      "readOnly": false,
+      "destructive": null,
+      "concurrencySafe": true,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": false,
+      "checkPermissionsOverridden": true,
+      "getPath": false,
+      "getPathOverridden": true,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "vfs",
+      "pack": null,
+      "category": "file",
+      "runtimeRegistered": false,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": "op"
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": "write",
+        "derived": "write",
+        "source": "declared:dynamic"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "video",
+      "pack": "media_video",
+      "category": "video",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "write",
+        "source": "derived:effects"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "video_analysis",
+      "pack": "media_video",
+      "category": "video",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "none",
+        "idempotent": true,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "read",
+        "source": "derived:effects"
+      },
+      "readOnly": true,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "video_display",
+      "pack": "media_video",
+      "category": "video",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "none",
+        "idempotent": true,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "read",
+        "source": "derived:effects"
+      },
+      "readOnly": true,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "video_generate",
+      "pack": "media_video",
+      "category": "video",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "write",
+        "source": "derived:effects"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "web_fetch",
+      "pack": "web",
+      "category": "network",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "none",
+        "idempotent": true,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "read",
+        "source": "derived:effects"
+      },
+      "readOnly": true,
+      "destructive": false,
+      "concurrencySafe": true,
+      "maxResultSizeChars": 500000,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": true,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "web_search",
+      "pack": "web",
+      "category": "search",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "none",
+        "idempotent": true,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "read",
+        "source": "derived:effects"
+      },
+      "readOnly": true,
+      "destructive": false,
+      "concurrencySafe": true,
+      "maxResultSizeChars": 100000,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": true,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "worktree",
+      "pack": "workspace",
+      "category": "system",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": "write",
+        "derived": "write",
+        "source": "declared:dynamic"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": false,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": false,
+      "getPath": true,
+      "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "write_project_file",
+      "pack": null,
+      "category": "file",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "local",
+        "idempotent": false,
+        "discriminator": null
+      },
+      "sandboxLevel": "file-io",
+      "risk": {
+        "declared": "write",
+        "derived": "write",
+        "source": "declared:static"
+      },
+      "readOnly": false,
+      "destructive": false,
+      "concurrencySafe": true,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": false,
+      "checkPermissionsOverridden": true,
+      "getPath": false,
+      "getPathOverridden": true,
+      "resolveFileIoRoot": true,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    }
+  ]
+}

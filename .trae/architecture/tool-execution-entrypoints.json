@@ -1,0 +1,118 @@
+{
+  "note": "工具执行入口台账（P0，2026-11-22）。凡 app/src/** 里出现 tool.execute( 的文件都必须在此登记；新增文件或出现次数变化 ⇒ lint:tool-governance 失败（请先复核该入口是否在 execute 前完成授权，再更新台账）。status：centralized=位于统一执行链（ToolRegistry / ToolExecutor / ToolManager）；authorized=本处显式调用授权函数；scoped-readonly=只调用固定只读工具（如 file_read）；needs-review=尚未逐一取证（必须在 note 写明）。",
+  "scanRoots": ["src"],
+  "entries": [
+    {
+      "file": "src/tools/ToolRegistry.ts",
+      "status": "centralized",
+      "authorizedBy": "ToolRegistry.executeTool（策略管道 + 调用方权限闸）",
+      "occurrences": 1,
+      "note": "统一执行入口；权限判定在调用方（ToolExecutionService permissionGate / ToolManager authorizeToolCall）完成后才到达此处（P0-3 已将本处固定登记）。"
+    },
+    {
+      "file": "src/tools/ToolExecutor.ts",
+      "status": "centralized",
+      "authorizedBy": "GovernanceManager.canExecute / checkPermissions",
+      "occurrences": 2,
+      "note": "治理闭环入口：performSecurityCheck → checkPermissions → executeWithGovernance。"
+    },
+    {
+      "file": "src/tools/utils/OptimizedToolManagerUtils.ts",
+      "status": "centralized",
+      "authorizedBy": "ToolManager.executeTool → authorizeToolCall → optimizedExecuteTool",
+      "occurrences": 1,
+      "note": "HTTP/CoreAPI 路径；授权在 ToolManager.executeTool 内先行完成。"
+    },
+    {
+      "file": "src/tasks/lro/stepExecution.ts",
+      "status": "authorized",
+      "authorizedBy": "authorizeLroToolCall（2026-11-09 接入）",
+      "occurrences": 1,
+      "note": "LRO 步骤执行；deny/ask 均在 execute 前短路（stepExecution.ts:684-733）。"
+    },
+    {
+      "file": "src/tasks/lro/stepArtifacts.ts",
+      "status": "scoped-readonly",
+      "authorizedBy": "仅调用 file_read（写后读回机械保障）",
+      "occurrences": 1,
+      "note": "固定只读工具调用；不接受模型指定工具名（stepArtifacts.ts:80-91）。"
+    },
+    {
+      "file": "src/agent/agent.ts",
+      "status": "needs-review",
+      "authorizedBy": null,
+      "occurrences": 1,
+      "note": "旧 Agent 循环内直调；授权前置点未逐一取证（G6）。"
+    },
+    {
+      "file": "src/agent/ToolCallBatch.ts",
+      "status": "needs-review",
+      "authorizedBy": null,
+      "occurrences": 1,
+      "note": "Agent 批量并发执行；授权前置点未逐一取证（G6）。"
+    },
+    {
+      "file": "src/agent/strategies/agentStrategy.ts",
+      "status": "needs-review",
+      "authorizedBy": null,
+      "occurrences": 3,
+      "note": "Agent 策略内直调；授权前置点未逐一取证（G6）。"
+    },
+    {
+      "file": "src/agent/strategies/GeneralAgentStrategy.ts",
+      "status": "needs-review",
+      "authorizedBy": null,
+      "occurrences": 1,
+      "note": "Agent 策略内直调；授权前置点未逐一取证（G6）。"
+    },
+    {
+      "file": "src/agent/strategies/PlanAgentStrategy.ts",
+      "status": "needs-review",
+      "authorizedBy": null,
+      "occurrences": 1,
+      "note": "Agent 策略内直调；授权前置点未逐一取证（G6）。"
+    },
+    {
+      "file": "src/tools/AgentTool/SubAgentEngine.ts",
+      "status": "needs-review",
+      "authorizedBy": null,
+      "occurrences": 1,
+      "note": "子代理引擎内直调；授权前置点未逐一取证（G6）。"
+    },
+    {
+      "file": "src/tools/PlanTool/PlanTool.ts",
+      "status": "needs-review",
+      "authorizedBy": null,
+      "occurrences": 1,
+      "note": "计划模式内部工具调用；授权前置点未取证。"
+    },
+    {
+      "file": "src/tools/executor/ExtendedToolExecutor.ts",
+      "status": "needs-review",
+      "authorizedBy": null,
+      "occurrences": 1,
+      "note": "扩展执行器（自带 retry/格式化）；未见权限链，待取证（G6）。"
+    },
+    {
+      "file": "src/chat/tool/SmartToolIntegrator.ts",
+      "status": "needs-review",
+      "authorizedBy": null,
+      "occurrences": 1,
+      "note": "旧集成层；授权前置点未逐一取证（G6）。"
+    },
+    {
+      "file": "src/modules/doc/pipeline/DocPipelineTool.ts",
+      "status": "needs-review",
+      "authorizedBy": null,
+      "occurrences": 2,
+      "note": "文档流水线内部调用 doc 工具；授权前置点未取证。"
+    },
+    {
+      "file": "src/runtime/api/domainSnapshotOps.ts",
+      "status": "needs-review",
+      "authorizedBy": null,
+      "occurrences": 1,
+      "note": "运行时 API（快照/域操作）内直调；授权前置点未取证。"
+    }
+  ]
+}

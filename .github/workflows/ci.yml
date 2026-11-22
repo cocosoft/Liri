@@ -679,6 +679,18 @@ jobs:
         bun run scripts/lint-tool-schema.ts
 
     # ══════════════════════════════════════════════
+    # 工具安全治理矩阵 + 执行入口台账（P0，2026-11-22）
+    #   · 矩阵 = 69 工具 × 声明/派生风险/资源上限/缺口（`.trae/architecture/`
+    #     下 JSON + MD，由 `gen:tool-governance` 生成）
+    #   · 台账 = `app/src/**` 每处 `tool.execute(` 的授权状态（新增未登记即失败）
+    #   判据与 DoD 见 `.trae/specs/tool-security-governance-plan.md`
+    # ══════════════════════════════════════════════
+    - name: Tool governance gate (matrix + execution entrypoints)
+      working-directory: app
+      run: |
+        bun run lint:tool-governance
+
+    # ══════════════════════════════════════════════
     # 提示词资源门禁（C-1 / C-3b / T2，2026-10-18）
     #   · `prompts:check`       manifest ↔ 目录冻结导出对照（C-1/C-5）
     #   · `params:check`        工具参数描述（359 条）↔ zh-CN 源，en-US 键集/空值

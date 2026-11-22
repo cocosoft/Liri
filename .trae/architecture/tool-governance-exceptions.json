@@ -1,0 +1,56 @@
+{
+  "note": "工具安全治理例外表（P0，2026-11-22）。规范见 .trae/specs/tool-security-governance-plan.md。acceptedGaps = 矩阵规则检测到的缺口（带 riskId / reason / plan 才允许通过门禁）；knownRisks = 矩阵规则检测不到、但人工已确认的风险（仅登记，不影响门禁）。新增条目必须写明理由与关闭计划；引用不存在的工具即门禁失败（防僵尸登记）。",
+  "acceptedGaps": [
+    {
+      "tool": "powershell",
+      "gaps": ["no-result-limit"],
+      "riskId": "G9",
+      "reason": "PowerShellTool 未声明 maxResultSizeChars（bash 为 100000）；当前依赖执行器侧通用截断，缺显式契约。",
+      "plan": "P2-0（D6）：补 maxResultSizeChars 或书面确认执行器截断已覆盖"
+    },
+    {
+      "tool": "code_run",
+      "gaps": ["no-result-limit"],
+      "riskId": "G9",
+      "reason": "CodeRunnerTool 未声明 maxResultSizeChars；内部仅对 stderr / 预览做截断，缺统一结果上限。",
+      "plan": "P2-0（D6）：补 maxResultSizeChars 或书面确认执行器截断已覆盖"
+    }
+  ],
+  "knownRisks": [
+    {
+      "id": "G1",
+      "tools": ["computer_use"],
+      "dimension": "D5",
+      "reason": "桌面自动化工具零治理声明（无 sandboxLevel / riskClass / checkPermissions），仅靠 TOOL_EFFECTS=external 落 ask；launchApp 可启动任意程序，缺少按 action 分档与程序名守卫。",
+      "plan": "P1-1：riskClassFor(action) + launchApp 参数守卫 + 负向用例"
+    },
+    {
+      "id": "G2",
+      "tools": ["browser", "browser_vision"],
+      "dimension": "D4",
+      "reason": "Playwright 仅限制 http/https 且不开放 evaluate，但没有 SSRF 校验（可导航到 127.0.0.1 / 内网 / 云元数据地址）；WebFetchTool 已有 checkSsrf 可复用。",
+      "plan": "P1-2：导航与重定向逐跳复用 checkSsrf + 负向用例"
+    },
+    {
+      "id": "G3",
+      "tools": ["web_fetch"],
+      "dimension": "D1",
+      "reason": "TOOL_EFFECTS.web_fetch=none 且 isReadOnly() 只看 HTTP method ⇒ GET + saveToFile 仍被派生为 read（自动放行），但该形态会写 downloads 目录并注册 FileRegistry。",
+      "plan": "P1-3：isReadOnly 纳入 saveToFile（或 riskClassFor 分档）+ 负向用例"
+    },
+    {
+      "id": "G4",
+      "tools": ["agent", "skill", "lsp", "notebook"],
+      "dimension": "D5",
+      "reason": "这些工具具备/可能触发代码执行，但未声明 sandboxLevel 或 riskClass（依赖 TOOL_EFFECTS 派生为 write/external），执行类语义与审批文案偏轻。",
+      "plan": "P1-4：补 riskClass（agent/skill/lsp/notebook）或在矩阵中显式登记 n/a + 理由（待 §9 裁定）"
+    },
+    {
+      "id": "G9",
+      "tools": ["powershell", "code_run"],
+      "dimension": "D6",
+      "reason": "两个执行类工具没有声明 maxResultSizeChars（bash 有 100000）；是否由执行器侧统一截断覆盖尚未书面确认。",
+      "plan": "P2-0：补 maxResultSizeChars，或确认并记录执行器截断口径（acceptedGaps 中已按工具登记）"
+    }
+  ]
+}

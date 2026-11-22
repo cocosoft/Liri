@@ -186,7 +186,7 @@ done
 # 动机（台账 2026-10-31 全量门禁审计）：7 项 CI 红里有 4 项（startup-graph / kernel K08 /
 # architecture-boundaries W4 / params 资源）都是「pre-commit 不跑 ⇒ 提交后才发现」。
 # 四项均 <3s，前移后可在提交时拦住；lint:complexity（≈42s）仍留 CI。
-for GATE in lint:startup-graph lint:kernel lint:architecture-boundaries params:check; do
+for GATE in lint:startup-graph lint:kernel lint:architecture-boundaries params:check lint:tool-governance; do
   echo "  生成物门禁: $GATE ..."
   if ! bun run "$GATE" > /dev/null 2>&1; then
     echo ""
@@ -238,7 +238,7 @@ exit 0
   writeFileSync(hookPath, hookContent, { mode: 0o755 });
   console.log(`✅ pre-commit 钩子已安装: ${hookPath}`);
   console.log(
-    '   提交前自动运行: 架构合规检查 + infra 层边界契约 + STATUS.md / 支持等级台账漂移 + 修复证据登记 + GitHub Actions YAML + 棘轮门禁(state/logger-name/fn-size/consts/unref) + 生成物门禁(startup-graph/kernel/architecture-boundaries/tool-params) + 类型检查 + ESLint + 模块验证'
+    '   提交前自动运行: 架构合规检查 + infra 层边界契约 + STATUS.md / 支持等级台账漂移 + 修复证据登记 + GitHub Actions YAML + 棘轮门禁(state/logger-name/fn-size/consts/unref) + 生成物门禁(startup-graph/kernel/architecture-boundaries/tool-params/tool-governance) + 类型检查 + ESLint + 模块验证'
   );
 }
 

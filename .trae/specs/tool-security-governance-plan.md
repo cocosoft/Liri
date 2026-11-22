@@ -1,0 +1,315 @@
+# 工具安全治理计划（v1）
+
+> 状态：**P0 已实施**（2026-11-22）：矩阵 + 门禁 + 执行入口台账已落地，行为零变更。
+> 实施记录见 §10；P1/P2 待办见 §5。
+>
+> 本文件只覆盖**安全治理**维度（能否执行 / 谁批 / 边界在哪 / 有无证据）。
+> 工具「包化、可见面、按需发现」已由 [tool-governance-merge-plan.md](./tool-governance-merge-plan.md) 收口，本文件不重复。
+>
+> 取证日期：2026-11-22。数据来源：`TOOL_EFFECTS`（69 条）、`getAllBuiltinToolLoaders()`（52 无条件 + 16 条件）、
+> `BaseTool` 54 个实现类、`packages/infra/src/permission/` 判定链、`app/package.json` 现有门禁。
+> 本文所有结论均带文件:行号；**未验证项显式标注**，不臆造。
+
+---
+
+## 0. 结论先行
+
+1. **基础设施已经齐备，缺的是「逐工具的最终结论」与「入口一致性证据」。**
+   现有五件套可复用：`TOOL_EFFECTS`（副作用/幂等）、`sandboxLevel`（能力位）、
+   `deriveToolRiskClass`（结构化派生）、`PermissionChecker`（风险默认档）、`lint:tool-risk`（棘轮门禁）。
+2. **声明覆盖率天然偏低不是缺陷**：54 个工具类里 `sandboxLevel` 4 个（7.4%）、`riskClass*` 15 个（27.8%）、
+   `checkPermissions` 3 个（5.6%），其余**刻意**由 `TOOL_EFFECTS + tags + isReadOnly` 派生。
+   真正的问题是：**派生结论没有快照、没有门禁** ⇒ 新增工具或改一行声明，风险档可能静默变化而无人复核。
+3. **点名缺口（已取证）**：`computer_use` 无任何执行/风险声明（`launchApp` 可启动任意程序）；
+   `browser` 无 SSRF 校验（`web_fetch` 有）；`web_fetch` 的 `saveToFile` 会写盘却仍自报只读；
+   主聊天链不做 `outputSchema` 校验；≥10 处 `tool.execute()` 直调点的"已授权"证据未固化。
+4. **执行策略**：先做「矩阵 + 门禁」（零行为变更），再按缺口清单逐项修（每项独立提交、带负向用例）。
+
+---
+
+## 1. 治理维度（D1–D8，判据唯一）
+
+| ID | 维度 | 判定问题 | 通过标准（客观） |
+|---|---|---|---|
+| D1 | 声明完整 | 工具的基础属性是否可枚举？ | `TOOL_EFFECTS` 有条目（`Record<ToolName,…>` 已编译期强制）；`riskClass` 派生结果 ≠ `undeclared`，或显式登记 `undeclared + 理由` |
+| D2 | 审批默认档 | 每次调用是否至少经过一次 allow/ask/deny 判定？ | 走 `resolvePolicy`/`authorizeToolCall`；`read/discuss ⇒ allow`、`write/external/shell/undeclared ⇒ ask`（`PermissionChecker.ts:513-531`）不被绕过 |
+| D3 | 路径边界 | 读写文件是否限制在工作区/项目/VFS 根内？ | 文件类工具经 `guardWorkspaceBoundary` / `findWorkspaceEscape` / `resolveFileIoRoot`；越界 ⇒ ask 或 deny |
+| D4 | 网络边界 | 出网工具是否有协议 / SSRF / 域名 / 大小 / 超时约束？ | URL 协议白名单 + SSRF（内网/回环/元数据）+ 超时 + 响应上限；缺一即记缺口 |
+| D5 | 执行边界 | 能执行代码/命令/桌面操作的工具是否 fail-closed？ | 有安全链或沙箱（`sandboxLevel='execution'` + 门禁），或显式"不适用 + 理由"；不存在"未知即可批准"的绕过形态 |
+| D6 | 资源上限 | 是否有超时 / 结果截断 / 并发安全声明？ | `maxResultSizeChars` 或请求侧截断；`isConcurrencySafe` 有明确结论；长任务可挂起 |
+| D7 | 审计可读 | 拦截/审批/执行是否留痕且 reason 可检索？ | `metadata.reason` 有登记（参照 `commandGateRegistry`）；日志含 session/tool/verdict |
+| D8 | 证据 | 是否有专属测试或门禁证据？ | 每工具在 `app/docs/SUPPORT-LEVELS.md` 有测试信号；高风险工具必须有负向用例 |
+
+> 判定原则：**能从结构化元数据派生的，不新增手写清单（CS01/CS02）；不能派生的，用门禁登记"例外 + 理由"（不猜）。**
+
+---
+
+## 2. 已有机制（复用，勿重建）
+
+| 机制 | 落点 | 现状 |
+|---|---|---|
+| 副作用/幂等唯一事实源 | `packages/tool-base/src/tool-base/toolEffects.ts:66-173` | 69 条；`external` 15 个；复合工具按 `op` 覆盖 |
+| 风险类别派生 | `packages/tool-base/src/tool-base/toolRiskClass.ts:50-89`、`packages/infra/src/permission/types/RiskClass.ts:139-182` | 声明 > 派生 > 自报只读 > `undeclared`，**不按名猜** |
+| 风险默认档 | `packages/infra/src/permission/PermissionChecker.ts:513-531` | read/discuss 放行；其余 ask |
+| 沙箱豁免 S1–S4b | `packages/infra/src/permission/sandboxExemption.ts` | 仅 `write-local` + 路径全在挂载根内可免 ask；`shell` 恒 deny 豁免 |
+| 审批指纹 | `packages/infra/src/permission/approvalFingerprint.ts` | `file_write` / `file_edit` 按路径；其余默认全参数稳定 JSON |
+| 统一判定出口 | `resolvePolicy.ts` / `authorizeToolCall.ts` | 纯判定 / 判定+提交审批卡 |
+| 既有门禁 | `lint:tool-schema`、`lint:tool-risk`、`lint:shadow-tools`、`gen/lint:support-levels` | 声明棘轮 / 未声明登记 / 影子工具台账 / 测试证据 |
+| bash 命令门登记 | `app/src/tools/bash/commandGateRegistry.ts` | 顺序 + reason 码 + 豁免位，已与源码双向对账 |
+
+---
+
+## 3. 逐工具矩阵（本计划的核心交付）
+
+### 3.1 为什么需要矩阵
+
+"逐一核对 69 个工具 × 8 个维度"靠人工必漏。矩阵把这件事变成**可生成、可 diff、可门禁**的产物：
+
+```text
+getAllBuiltinToolLoaders()  ─┐
+TOOL_EFFECTS                ─┼─► gen-tool-governance-matrix.ts ─► .trae/architecture/tool-governance-matrix.json
+工具类声明（sandbox/risk/…）─┤                                     └─► 同名 .md（人读视图）
+现有门禁/测试证据            ─┘
+```
+
+### 3.2 列定义（每工具一行，**不允许空结论**）
+
+| 列 | 取值 | 来源 |
+|---|---|---|
+| `name` / `domain` / `registerWhen` | 工具名 / 域（file·shell·net·media·task·agent·mcp…）/ 无条件或 feature gate | loaders 表 |
+| `effects` | `none` / `local` / `external` (+ op 覆盖) | `resolveToolEffect` |
+| `sandboxLevel` | `none` / `readonly` / `file-io` / `execution`，或 `n/a(理由)` | 工具类声明 |
+| `riskDeclared` / `riskDerived` / `riskSource` | 声明值 / 最终值 / `declared·derived·self-readonly·undeclared` | `deriveToolRiskClass` |
+| `pathGuard` | `workspace` / `project` / `vfs` / `none(理由)` | 代码取证 + 负向测试 |
+| `netGuard` | `ssrf+protocol` / `protocol` / `none` / `n-a` | 代码取证 |
+| `execGuard` | `sandbox` / `safety-chain` / `n-a` | 代码取证 |
+| `limits` | `timeout` / `maxResult` / `concurrency` | 声明值 |
+| `audit` | `reason-registered` / `log-only` / `none` | 源码取证 |
+| `evidence` | 测试文件或门禁 id | SUPPORT-LEVELS + tests |
+| `verdict` | `pass` / `n-a+理由` / `gap:<id>` | 汇总 |
+
+### 3.3 覆盖率起点（已取证，供矩阵首版核对）
+
+| 分组 | 数量 | 工具 |
+|---|---|---|
+| **shell（执行类）** | 4 | `bash`、`powershell`、`code_run`、`repl`（`sandboxLevel='execution'`） |
+| **external（对外可见）** | 15 | `agent`、`ask_user_question`、`bash`、`broadcast`、`browser`、`browser_vision`、`channel`、`code_run`、`computer_use`、`mcp_auth`、`mcp_tool`、`powershell`、`send_message`、`team_create`、`team_delete` |
+| **write（本地状态）** | 34 | `brief`、`canvas`、`clipboard`、`config`、`create_project`、`cron`、`doc_generate`、`file_edit`、`file_write`、`image`、`image_generate`、`image_svg_generate`、`kanban`、`knowledge_save`、`lsp`、`monitor`、`music`、`notebook`、`pdf`、`plan`、`save_conversation`、`sessions`、`sessions_yield`、`skill`、`task_stop`、`task_list`、`todo_write`、`tts`、`tungsten`、`video`、`video_generate`、`vfs`、`worktree`、`write_project_file` |
+| **read（只读）** | 19 | `agents_list`、`audio_play`、`file_convert`\*、`file_read`、`glob`、`grep`、`image_analysis`、`image_display`、`list_peers`、`mcp_resource`、`read_project_file`、`sleep`、`task_output`、`tool_search`、`trace_recording`、`video_analysis`、`video_display`、`web_fetch`\*、`web_search` |
+
+\* `file_convert` 在 `docx` 模式下自报非只读 ⇒ 落 `undeclared`（ask），行为正确；矩阵需把这条"按入参分档"单独记一行。
+\* `web_fetch` 的 `saveToFile` 形态是已被点名的缺口（见 G3）。
+
+> 注：`cron` / `skill` / `task_list` / `vfs` 的只读子操作由 `byOperation` 覆盖，矩阵按 `工具级 + 子操作` 两行记录。
+
+---
+
+## 4. 已取证缺口（按严重度）
+
+### G1 `computer_use`：桌面自动化无任何治理声明（P1，最高）
+
+- 现状：`packages/tool-desktop` 内**零** `riskClass` / `sandboxLevel` / `checkPermissions` 覆盖
+  （全包 grep 无命中；仅继承 `BaseTool` 默认 `checkPermissions`=allow、`getPath`=空串 ⇒ 无工具级约束）；
+  仅靠 `TOOL_EFFECTS.computer_use = EXTERNAL` ⇒ 每次调用 ask。
+- 风险点：`action` 含 `launchApp` / `keyboardType` / `keyPress` / `setClipboard`（`ComputerUseTool.ts:34-56`）。
+  "本会话总是允许"按默认全参数指纹生效 ⇒ 批准一次 `screenshot` 不会串到 `launchApp`（好），
+  但批准一次 `launchApp notepad` 后换应用名需重新批准（默认指纹含参数，可接受）。
+  **真正缺的是"按 action 分档 + 危险 action 硬约束"**：目前无法表达"截图可放行、启动任意程序必须显式确认"。
+- 计划：`riskClassFor(input)` 按 action 分档（截图/读窗口=read，键鼠/剪贴板=external，`launchApp`=external+参数守卫），
+  并补 `launchApp` 的程序名白名单/黑名单（至少禁止 `cmd`/`powershell`/`wscript`/`mshta`）。
+
+### G2 `browser`：有协议白名单，但**无 SSRF**（P1）
+
+- 现状：`PlaywrightDriver.ts:16-19` 明确"仅 http/https、不开放 evaluate"（好）；
+  但全包无 SSRF 校验 ⇒ 可导航到 `http://127.0.0.1:*`、内网、云元数据地址。
+- 对照：`WebFetchTool` 已实现 `checkSsrf` + 重定向逐跳校验（`WebFetchTool.ts:215-237,443-476`）。
+- 计划：浏览器导航/新开页复用同一 `checkSsrf`（单一事实源），含重定向逐跳；补负向测试（127.0.0.1 / 169.254.169.254 / `file:`）。
+
+### G3 `web_fetch`：`saveToFile` 写盘却仍自报只读（P1）
+
+- 现状：`TOOL_EFFECTS.web_fetch = NONE`（`toolEffects.ts:170`）；
+  `isReadOnly()` 只看 HTTP method（`WebFetchTool.ts:161-164`），GET + `saveToFile:true` 仍返回 true；
+  `saveToFile` 实际写 downloads 目录并注册 `FileRegistry`（`:507-553`）。
+- 后果：风险派生为 `read` ⇒ **自动放行写盘**（路径固定、影响有限，但违反"read 不改状态"契约，
+  且 `deriveToolRiskClass` 的"声明与自报冲突"护栏被自报值骗过）。
+- 计划：`isReadOnly` 纳入 `saveToFile`；或 `riskClassFor(input)` 在 `saveToFile` 时返回 `write`。
+  二选一即可，优先前者（不动风险引擎）。
+
+### G4 执行/网络工具的 `sandboxLevel` 语义不完整（P1，需裁定）
+
+- 现状：只有 4 个工具声明 `execution`；`agent`（可调子工具）、`skill`（可能含命令型技能）、`lsp`/`notebook`（代码执行）、
+  `computer_use`（桌面操作）、`browser`（网页脚本上下文）均未声明。
+- 影响：`deriveToolRiskClass` 的 `sandboxLevel ⇒ shell` 分支对它们不生效，审批文案/风险展示偏轻；
+  沙箱豁免 S1–S4 也无法按"执行类"处理。
+- 需裁定：给它们补 `riskClass`（`external`/`shell`）还是补 `sandboxLevel`？
+  **建议**：`agent` / `skill` / `lsp` / `notebook` 补 `riskClass`（它们不是"执行任意命令"），
+  `computer_use` 补 `riskClassFor`（见 G1），`browser` 维持 `external` + SSRF。
+
+### G5 入口一致性：`outputSchema` 只在一条链校验（P2）
+
+- 现状：`validateToolOutput` 仅 `ToolExecutor.ts:274` 调用；主聊天链（`ToolExecutionService` → `ToolRegistry`）
+  与 LRO 均不校验（校验本身不阻断，只标 `metadata.outputSchemaError`）。
+- 影响："声明了出参契约但只有一条路径验证" ⇒ 契约可被绕开的观测盲区。
+- 计划：把校验收敛到 `ToolRegistry.executeTool` 出口（统一入口），或在文档中显式声明"仅 ToolExecutor 校验"并接受。
+
+### G6 直调点授权证据未固化（P2）
+
+- 现状：`tool.execute(` 直调点 ≥10 处（agent 循环 / 批量 / 各策略 / LRO / 子代理 / Doc 流水线 / 扩展执行器 …）。
+  其中 LRO 已在 2026-11-09 接入 `authorizeLroToolCall`（`stepExecution.ts:684-733`）；
+  其余调用点是否"先授权后执行"**未逐一取证**。
+- 计划：`app/architecture` 下登记 `tool-execution-entrypoints.json`（每处：文件、授权函数、证据测试）；
+  新增直调点必须登记，否则门禁失败。**不猜测"应该有授权"**。
+
+### G7 审计 reason 码只在 bash 域有登记（P2）
+
+- 现状：`commandGateRegistry` 对 bash 五门做了 reason 双向对账；文件/网络/MCP/桌面域没有同类登记。
+- 计划：先给"会拦截"的域（file 越界、web SSRF、desktop、mcp）建立最小 reason 清单，
+  复用 `metadata.reason` 口径，不新造第二套。
+
+### G8 审批指纹粒度（P2，评估项）
+
+- 现状：仅 `file_write` / `file_edit` 声明 `approvalFingerprint`；bash/powershell 走命令哈希专用注册表。
+- 其余 `external` 工具默认全参数指纹（最保守）。评估是否对 `channel` / `send_message` / `mcp_tool`
+  引入"目标维度"指纹，避免每次改正文都重新批准。**先评估，不预设结论。**
+
+---
+
+## 5. 分阶段执行
+
+### P0：矩阵 + 门禁（零行为变更，1–2 个提交）
+
+| # | 任务 | 落点 | 验收 |
+|---|---|---|---|
+| P0-1 | 新增矩阵生成器 | `app/scripts/gen-tool-governance-matrix.ts` | 输出 69 行 JSON + Markdown；每行 `verdict` 非空 |
+| P0-2 | 新增门禁 | `lint:tool-governance`（`--check` 逐字节比对 + 未登记工具 ERROR） | `app/package.json#ci` 与 `.github/workflows/ci.yml` 同步；`lint:gate-parity` 通过 |
+| P0-3 | 入口清单 | `app/architecture/tool-execution-entrypoints.json` + 静态扫描 | 现存的直调点全部登记；未登记新增点 ⇒ 门禁失败 |
+| P0-4 | 矩阵首版评审 | 矩阵中所有 `gap:*` 与 `n-a` 必须有人签字/理由 | 本文 §4 的 G1–G8 在矩阵里可检索 |
+
+**P0 的交付价值**：从此"新增一个工具不声明、或改声明让风险档变了"都会在 CI 里被拦住 —— 这是"不再我说治理哪个才处理哪个"的机制保证。
+
+### P1：高危缺口修复（每项独立提交 + 负向用例）
+
+| # | 任务 | 验收 |
+|---|---|---|
+| P1-1 | `computer_use` 按 action 分档 + `launchApp` 参数守卫（G1） | 单测：`screenshot` 与 `launchApp cmd` 的 risk 不同；后者拒绝/必审批 |
+| P1-2 | `browser` 复用 `checkSsrf`（含重定向逐跳）（G2） | 负向：127.0.0.1 / 169.254.169.254 / `file:` 被拒 |
+| P1-3 | `web_fetch.saveToFile` 纳入 `isReadOnly`（G3） | 单测：GET+saveToFile ⇒ 非只读 ⇒ 风险 `undeclared`（ask） |
+| P1-4 | 执行类标记补齐或显式 `n/a`（G4） | 矩阵中每个执行面工具有明确结论；`lint:tool-governance` 绿 |
+
+### P2：一致性与证据（可并行）
+
+| # | 任务 | 验收 |
+|---|---|---|
+| P2-1 | `outputSchema` 校验收敛到统一出口（G5） | 主聊天链路径上产出 `metadata.outputSchemaError` 的用例 |
+| P2-2 | reason 码登记推广到 file/net/desktop/mcp（G7） | 每个域至少 1 条登记表 + 双向对账测试 |
+| P2-3 | 审批指纹评估（G8） | 结论写入矩阵 `note`，要么实现要么显式"保持全参数" |
+| P2-4 | SUPPORT-LEVELS 增加"治理维度证据"列 | `gen:support-levels --check` 通过 |
+
+---
+
+## 6. 验收与 Definition of Done
+
+```bash
+cd app
+bun run typecheck
+bun test tests/tools tests/permission tests/security
+bun run lint:tool-governance
+bun run lint:tool-risk
+bun run lint:tool-schema
+bun run lint:support-levels
+bun run lint:permission-single-source
+bun run lint:arch && bun run lint:infra
+```
+
+DoD：
+
+1. 矩阵覆盖 **100%** 的 `TOOL_NAMES`（69）与运行期注册工具；无空 `verdict`；
+2. 每条 `gap:*` 有关闭提交或"接受 + 理由 + 复核日期"；
+3. 新增工具路径：`gen:tool-scaffold` 产出的模板自带声明字段，未填则 `lint:tool-governance` 失败；
+4. P1 的四个缺口全部有负向测试；
+5. `bun run ci` 全绿。
+
+---
+
+## 7. 明确不做
+
+1. **不按工具名关键词猜风险**（CS02）；派生只走结构化元数据。
+2. **不改审批默认语义**（read 放行 / write·external·shell·undeclared 询问），除非单独立项。
+3. **不与 [tool-governance-merge-plan.md](./tool-governance-merge-plan.md) 重复**（包化、profile、可见面）。
+4. **不以"零调用/低覆盖"为删除依据**（CD07）。
+5. **不新增第二套风险清单**：矩阵是**派生结果的快照**，不是新的事实源。
+
+---
+
+## 8. 风险与回滚
+
+| 风险 | 缓解 |
+|---|---|
+| 矩阵把"派生结果"固化成第二事实源 | 生成器只读；`--check` 只比对，不写回；改声明触发 diff 属预期 |
+| P1 给 `computer_use` 分档后"截图也要审批" | 分档只让**更宽**的动作升级；截图维持 `read`（与现状一致）才可合入 |
+| `browser` SSRF 误伤本地开发页面 | 复用 `checkSsrf` 的既有豁免口径（如需 `LIRI_ALLOW_LOCAL_NET` 之类的显式开关，先评审再定） |
+| 门禁过重拖慢 CI | 矩阵生成 + 比对控制 < 3s（与 `gen-support-levels` 同量级） |
+
+---
+
+## 9. 待用户裁定（计划评审时的开放问题）
+
+1. G4：`agent` / `skill` / `lsp` / `notebook` 补 `riskClass` 还是补 `sandboxLevel`？（建议前者）
+2. G8：`channel` / `send_message` / `mcp_tool` 是否引入"目标维度"审批指纹？
+3. P2-1：`outputSchema` 校验是否值得进主聊天链（不阻断、仅观测）？
+4. `browser` 的本地网络访问是否需要显式开关（还是直接按 SSRF 一律拒绝）？
+
+---
+
+## 10. P0 实施记录（2026-11-22）
+
+### 10.1 产物与落点
+
+| 项 | 落点 | 说明 |
+|---|---|---|
+| 生成器 | `app/scripts/gen-tool-governance.ts` | 实例化全部内置工具，产出矩阵 + 校验台账；`--check` 只比对不写盘 |
+| 纯判据 | `app/scripts/lib/toolGovernanceRules.ts` | 缺口规则 / 台账校验 / 例外校验（单测零副作用） |
+| 矩阵（机器可读） | `.trae/architecture/tool-governance-matrix.json` | 69 工具 × 声明/派生风险/上限/缺口/verdict |
+| 矩阵（人读） | `.trae/architecture/tool-governance-matrix.md` | 按风险档分组 |
+| 例外表 | `.trae/architecture/tool-governance-exceptions.json` | `acceptedGaps`（矩阵可检出）+ `knownRisks`（G1–G4/G9，人工确认） |
+| 执行入口台账 | `.trae/architecture/tool-execution-entrypoints.json` | `app/src/**` 每处 `tool.execute(` 的 status / authorizedBy / note |
+| 门禁脚本 | `gen:tool-governance` / `lint:tool-governance` | `app/package.json`；已进 `ci` 聚合与 `.github/workflows/ci.yml` |
+| 预提交 | `app/scripts/setup-git-hooks.ts` → `.git/hooks/pre-commit` | 与 `params:check` 同组（生成物门禁） |
+| 单测 | `app/tests/tools/toolGovernanceGate.test.ts` | 10 项：缺口规则 / 台账校验 / 例外校验 |
+
+### 10.2 首版矩阵结论
+
+- **69 工具**：`pass 67` · `accepted-gap 2`（`powershell` / `code_run` 的 `no-result-limit`，G9）· `gap 0`。
+- `riskUndeclared = 0`：全部工具都能由声明 / effects / sandboxLevel 推出风险档（无 `undeclared`）。
+- 覆盖修正：`checkPermissions` / `getPath` 在 `BaseTool` 有**默认实现**（直接 allow / 返回空串），
+  矩阵因此区分 `checkPermissionsOverridden` / `getPathOverridden` —— 首版只有 **Glob / Grep** 覆盖了
+  `checkPermissions`（`code_analysis` 非 BaseTool，另计），与计划 §4 的"3 个"一致。
+- 未实例化名字 18 个（flag-gated / 影子工具）在矩阵 `declaredNotInstantiated` 中如实列出（WARN，不阻断）。
+
+### 10.3 执行入口台账（16 文件 / 20 处）
+
+| status | 数量 | 文件 |
+|---|---|---|
+| `centralized` | 3 | `ToolRegistry`、`ToolExecutor`、`OptimizedToolManagerUtils` |
+| `authorized` | 1 | `tasks/lro/stepExecution`（`authorizeLroToolCall`） |
+| `scoped-readonly` | 1 | `tasks/lro/stepArtifacts`（仅 `file_read` 写后读回） |
+| `needs-review` | 11 | agent 循环/策略/批量、子代理、PlanTool、ExtendedToolExecutor、SmartToolIntegrator、Doc 流水线、domainSnapshotOps |
+
+`needs-review` 全部按 G6 登记了待取证说明；新增直调点或出现次数变化 ⇒ 门禁失败（必须先复核授权）。
+
+### 10.4 验收
+
+| 命令 | 结果 |
+|---|---|
+| `cd app && bun run gen:tool-governance` | ✅ 69 工具 / pass 67 / accepted 2 / gap 0 |
+| `cd app && bun run lint:tool-governance` | ✅ 矩阵与事实源一致；台账完整 |
+| `cd app && bun test tests/tools/toolGovernanceGate.test.ts` | ✅ 10 pass |
+| `cd app && bun run typecheck` | ✅ |
+| `cd app && bun run lint:exit` | ✅（入口脚本显式退出） |
+| `cd .. && bun run scripts/lint-gate-parity.ts` | ✅ 87 条门禁：CI 覆盖 86 · 豁免 1 · 缺失 0 |
+
+### 10.5 未做（按计划留给 P1/P2）
+
+G1 `computer_use` 分档、G2 `browser` SSRF、G3 `web_fetch.saveToFile`、G4 执行类标记、G5 `outputSchema` 收敛、
+G6 直调点逐个取证、G7 reason 码推广、G8 审批指纹评估、G9 执行类结果上限。
+

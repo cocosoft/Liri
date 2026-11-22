@@ -190,7 +190,10 @@ export function resolveEffectiveMode(
 }
 
 /**
- * bypass 档「无条件放行且未校验 killswitch」的**进程内一次性**告警。
+ * bypass 档「无条件放行」的**进程内一次性**告警。
+ *
+ * F12（2026-11-22）：`handleBypassPermissions` 现已先查 killswitch（运行时 `disable()`
+ * 或 `PERMISSION_BYPASS_DISABLED=true` ⇒ deny）；本告警仅在真正放行时记录。
  *
  * 原为 `PermissionManager#handleBypassPermissions` 内联读写的模块级布尔；搬运到
  * `manager/` 后不再可能跨文件直接改写它，故收敛为这里的唯一写入口（语义不变）。

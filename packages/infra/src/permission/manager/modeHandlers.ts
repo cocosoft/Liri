@@ -6,6 +6,7 @@
  * `ModeHandlerDeps` 显式传入（不再 `this.`），便于后续按档独立演进与单测。
  */
 import { feature } from '@openliri/kernel';
+import { configManager } from '@openliri/infra/config';
 import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@openliri/infra/monitoring';
 import { detectIntentActionDeviation } from '@openliri/infra/utils/toolContract/intentActionDeviation';
@@ -52,6 +53,7 @@ import {
 } from '../types/PermissionDecision';
 import { PermissionBehavior } from '../types/PermissionRule';
 import { denyByRule } from './denyByRule';
+import { bypassPermissionsKillswitch } from '../utils/BypassPermissionsKillswitch';
 import {
   defaultAllowWarnedTools,
   logBypassObservabilityOnce,
@@ -85,8 +87,15 @@ export interface ModeHandlerDeps {
    * @returns 权限决策
    */
   export function handleBypassPermissions(): PermissionDecision {
-    // P0-3（2026-10-27，权限归一化）：bypass 无条件放行且**不查 killswitch**
-    // （`BypassPermissionsKillswitch` 在决策链零调用点）。此处只加可观测，不改语义。
+    // F12（2026-11-22）：接入 killswitch —— 显式禁用（运行时 `disable()` 或
+    // `PERMISSION_BYPASS_DISABLED=true`）后不得继续无条件放行。
+    const envDisabled =
+      (configManager.env('PERMISSION_BYPASS_DISABLED', '') ?? '')
+        .trim()
+        .toLowerCase() === 'true';
+    if (bypassPermissionsKillswitch.isDisabled() || envDisabled) {
+      return createDenyDecision('Bypass permissions disabled by killswitch');
+    }
     logBypassObservabilityOnce();
     return createAllowDecision('Bypassing permissions check');
   }

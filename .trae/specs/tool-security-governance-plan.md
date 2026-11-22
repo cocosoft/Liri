@@ -464,15 +464,17 @@ F3–F10 仍待办 ⇒ 本节原「本计划无剩余待办」表述已按事实
 | F8 | `MediaPlugin` 直调 image 工具、传空 context | 取证：`generateImage` / `analyzeImage` **无生产调用方**（未接线插件兼容接口）⇒ 非模型工具面 | — |
 | F9 | `LSPToolIntegration` 绕过 Registry/权限链 | 取证：`createLSPToolIntegration` 在 `tools/lsp/**` 外**无生产消费者**（sidecar spec 已记录）；**接线前必须补授权** | — |
 | F10 | 写同资源工具标记并发安全 | `media_delete` / `media_delete_batch` / `knowledge_save` / `mcp_tool` 改为 `isConcurrencySafe=false`；图片族保持（残余风险：同输出路径竞争，模型通常按不同路径调用） | `app/tests/tools/concurrencySafety.test.ts`（4 项） |
+| F11 | 无人值守读静态 `FEATURE_FLAGS` ⇒ env 开关不生效 | `UnattendedModeManager.isUnattended()` 改走 `feature('UNATTENDED_MODE')`（与 `infra/utils/unattendedAnswers` 同口径）；`setEnabled` 用实例覆盖（优先） | `app/tests/runtime/unattendedModeManager.test.ts`（2 项） |
+| F12 | bypass 档无 killswitch | `handleBypassPermissions` 先查 `bypassPermissionsKillswitch.isDisabled()` 与 `PERMISSION_BYPASS_DISABLED=true` ⇒ deny；未禁用保持原行为 | `app/tests/permission/bypassKillswitch.test.ts`（3 项） |
 
-验证：`typecheck` 通过；全量 `bun run ci` **13713 pass / 42 skip / 0 fail**；
+验证：`typecheck` 通过；全量 `bun run ci` **13718 pass / 42 skip / 0 fail**；
 `lint:tool-governance`（69 pass / gap 0，矩阵已重生）、`lint:tool-interception-reasons`、`lint:arch`、`lint:consts` 通过。
 
 ### 13.2 待办（未修，按严重度）
 
 | ID | 问题 |
 |---|---|
-| — | F1–F10 已全部处理（F7/F8/F9 取证为非入口/未接线，接线前必须补授权；F10 已修） |
+| — | F1–F12 已全部处理（F7/F8/F9 取证为非入口/未接线，接线前必须补授权；其余已修复） |
 
 ### 13.3 G9 结论订正（如实）
 

@@ -8,21 +8,30 @@
  */
 
 import { getLogger } from '@openliri/infra/monitoring';
-import { FEATURE_FLAGS } from '@openliri/kernel';
+import { feature } from '@openliri/kernel';
 import { inboxManager } from './InboxManager.js';
 import type { InboxItemType } from './InboxManager.js';
 
 const logger = getLogger('runtime:unattended');
 
 export class UnattendedModeManager {
+  /**
+   * 运行时覆盖（`setEnabled` 写入）。
+   *
+   * F11（2026-11-22）：原实现只读静态 `FEATURE_FLAGS` ⇒ `FEATURE_UNATTENDED_MODE`
+   * 环境变量不生效。现改为 `feature('UNATTENDED_MODE')`（env > 变体 > 静态默认，
+   * 与 `infra/utils/unattendedAnswers` 同一口径），运行时覆盖优先。
+   */
+  private override: boolean | null = null;
+
   /** 检查是否处于无人值守模式 */
   isUnattended(): boolean {
-    return (FEATURE_FLAGS as Record<string, boolean>).UNATTENDED_MODE === true;
+    return this.override ?? feature('UNATTENDED_MODE');
   }
 
-  /** 启用/禁用无人值守模式 */
+  /** 启用/禁用无人值守模式（运行时覆盖，优先于开关） */
   setEnabled(enabled: boolean): void {
-    (FEATURE_FLAGS as Record<string, boolean>).UNATTENDED_MODE = enabled;
+    this.override = enabled;
     logger.info('Unattended mode toggled', { enabled });
   }
 

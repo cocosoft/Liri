@@ -20,6 +20,9 @@ import { handleError } from '@openliri/infra/error';
 import { tryCoerceToolArgs } from './ToolArgCoercer.js';
 import type { ToolSchema } from './ToolArgCoercer.js';
 import { findMissingRequiredParams } from './utils/ToolUtils';
+// F15/F16（2026-11-22）：统一超时 + 禁用工具 fail-closed（与 ToolRegistry 同源）
+import { getToolRegistry } from './ToolRegistry';
+import { runWithToolDeadline } from './utils/toolDeadline';
 
 const logger = getLogger('tools:executor');
 import {
@@ -178,6 +181,19 @@ export class ToolExecutor {
       // 显示安全警告
       if (securityCheck.warnings.length > 0) {
         logger.warning('Security warnings', securityCheck.warnings);
+      }
+
+      // F16（2026-11-22）：禁用工具在本入口 fail-closed（此前只有 Registry 拦截）。
+      const registry = getToolRegistry();
+      if (registry.isToolDisabled(tool.name) || tool.isEnabled?.() === false) {
+        const disabled = `Tool ${tool.name} is disabled`;
+        tracing.endSpan(tracingSpan, SpanStatusCode.ERROR, disabled);
+        return createToolResult(null, {
+          success: false,
+          error: disabled,
+          metadata: { reason: 'tool_disabled' },
+          newMessages: [{ role: 'system', content: `Error: ${disabled}` }],
+        });
       }
 
       if (this.useHooks) {
@@ -479,7 +495,22 @@ export class ToolExecutor {
       tool,
       governanceContext,
       async (finalInput: Record<string, unknown>) => {
-        return await tool.execute(finalInput, context);
+        // F15（2026-11-22）：治理路径同样受统一超时约束
+        return await runWithToolDeadline(
+          (controller) =>
+            tool.execute(finalInput, {
+              ...context,
+              abortController: controller,
+            }),
+          {
+            parentSignal: context.abortController?.signal,
+            onTimeout: (timeoutMs) =>
+              logger.warn('工具执行超时，已取消底层执行', {
+                toolName: tool.name,
+                timeoutMs,
+              }),
+          }
+        );
       }
     );
 
@@ -565,7 +596,19 @@ export class ToolExecutor {
       });
     }
 
-    const result = await tool.execute(input, context);
+    // F15（2026-11-22）：遗留路径同样受统一超时约束
+    const result = await runWithToolDeadline(
+      (controller) =>
+        tool.execute(input, { ...context, abortController: controller }),
+      {
+        parentSignal: context.abortController?.signal,
+        onTimeout: (timeoutMs) =>
+          logger.warn('工具执行超时，已取消底层执行', {
+            toolName: tool.name,
+            timeoutMs,
+          }),
+      }
+    );
 
     return result;
   }

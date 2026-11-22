@@ -602,6 +602,8 @@ export class PlanTool extends BaseTool<
         args: toolArgs as Record<string, unknown>,
         context: {
           ...(context.sessionId ? { sessionId: context.sessionId } : {}),
+          // F18（2026-11-22）：带上工具对象 ⇒ 风险按声明式派生（此前走名字启发式）
+          tool,
           userId: getRequestPrincipal().userId,
           userRoles: getEffectivePermissionRoles(),
         },

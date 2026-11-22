@@ -550,8 +550,8 @@ export class ToolRegistry {
       });
     }
 
-    // F14（2026-11-22）：禁用工具在共同执行入口 fail-closed。
-    if (this.isToolDisabled(tool.name)) {
+    // F14/F19（2026-11-22）：管理器禁用 / 工具自报禁用 均在共同执行入口 fail-closed。
+    if (this.isToolDisabled(tool.name) || tool.isEnabled?.() === false) {
       const disabled = `Tool ${tool.name} is disabled`;
       return createToolResult(null, {
         success: false,

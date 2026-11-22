@@ -82,4 +82,19 @@ describe('F14：Registry 禁用工具', () => {
     expect(executed.value).toBe(true);
     expect(result.success).toBe(true);
   });
+
+  it('工具自报 isEnabled=false ⇒ 拒绝（F19）', async () => {
+    const registry = new ToolRegistry();
+    const executed = { value: false };
+    const tool = { ...makeTool(executed), isEnabled: () => false } as Tool;
+    registry.registerTool(tool);
+
+    const result = await registry.executeTool(
+      { toolName: 'demo_tool', input: {} },
+      context
+    );
+
+    expect(executed.value).toBe(false);
+    expect(result.metadata?.reason).toBe('tool_disabled');
+  });
 });

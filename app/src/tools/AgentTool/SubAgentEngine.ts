@@ -15,6 +15,8 @@ import { DEFAULT_SUBAGENT_MAX_TURNS } from '../../chat/loopTurnLimits.js';
 import type { Tool } from '../types/Tool';
 import type { ToolUseContext } from '../types/ToolUseContext';
 import { ToolExecutionStatus } from '../types/ToolResult';
+// F17（2026-11-22）：子代理工具执行同样受统一超时约束
+import { runWithToolDeadline } from '../utils/toolDeadline';
 // P0-1（2026-11-11）：子代理内层工具**逐次授权**（外层只授权了 `agent` 这个名字）
 import {
   authorizeToolCall,
@@ -896,12 +898,15 @@ export class SubAgentEngine {
       const result = await (async () => {
         // P0-1（2026-11-11）：逐次授权（deny / ask 一律不执行；子代理无就地审批 UI）
         const auth = await authorizeToolCall(PermissionManager.getInstance(), {
-          toolName: toolCall.name,
+          // F17（2026-11-22）：按**真名**授权并带上工具对象（此前用模型传入名，
+          // 别名不命中按真名配置的规则，风险退回名字启发式）。
+          toolName: tool.name,
           args: parsedArgs,
           context: {
             ...(resolvedContext.sessionId
               ? { sessionId: resolvedContext.sessionId }
               : {}),
+            tool,
             userId: getRequestPrincipal().userId,
             userRoles: getEffectivePermissionRoles(),
           },
@@ -920,7 +925,22 @@ export class SubAgentEngine {
                 : `Tool '${toolCall.name}' denied: ${auth.reason ?? 'not allowed'}`,
           };
         }
-        return tool.execute(parsedArgs, resolvedContext);
+        // F17（2026-11-22）：统一超时 + 取消（此前子代理直调无超时）
+        return await runWithToolDeadline(
+          (controller) =>
+            tool.execute(parsedArgs, {
+              ...resolvedContext,
+              abortController: controller,
+            }),
+          {
+            parentSignal: resolvedContext.abortController?.signal,
+            onTimeout: (timeoutMs) =>
+              logger.warn('子代理工具执行超时，已取消底层执行', {
+                toolName: tool.name,
+                timeoutMs,
+              }),
+          }
+        );
       })();
       // B2-c 读取侧收口（2026-09-30）：载荷以 **`data`** 为准，`result` 并行载荷已清零。
       const output = result.output || result.data || JSON.stringify(result);

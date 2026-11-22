@@ -31,6 +31,10 @@ import type { ToolExecutionStats, ToolExecutionLog } from './types/ToolTypes';
 import { getOTelTracing } from '@openliri/infra/monitoring/otel/OTelTracing';
 import { Span, SpanStatusCode } from '@opentelemetry/api';
 import { toolScopeManager } from '@modules/tool/ToolScopeManager';
+// P2-1（2026-11-22，G5）：出参校验下沉为独立纯函数（ToolExecutor / ToolRegistry / LRO 共用）。
+// 保留本地 import + 对外 re-export ⇒ 本类调用与既有单测 import 路径零改动。
+import { validateToolOutputShape } from './outputSchemaValidation';
+export { validateToolOutputShape } from './outputSchemaValidation';
 
 export interface ToolResultBlock {
   toolCallId: string;
@@ -39,58 +43,6 @@ export interface ToolResultBlock {
   error: string | null;
   output: string;
   executionTime: number;
-}
-
-/**
- * P1-3 A 档（2026-09-28）：**出参运行期校验（纯函数）**。
- *
- * 之所以导出为纯函数：`ToolExecutor.validateToolOutput` 是 private，单测无法直接触达；
- * 而校验本身是「输入 ⇒ 判定」的纯逻辑，与执行器状态无关。
- *
- * 语义（**保守**）：
- * - 未声明 `outputSchema` ⇒ 返回 `null`（**不校验**，与改动前行为**完全一致**）；
- * - `data` 为 `null`/`undefined` ⇒ 返回 `null`（**无载荷不校验**，2026-09-28 T4 补）——
- *   这类分支是"输入校验失败 / 前置拒绝"等**没有产出**的路径，不是"出参不合规"；
- * - 校验通过 ⇒ 返回 `null`；
- * - 校验失败 / schema 自身抛错 ⇒ 返回**详情文本**（调用方负责记录，**不阻断执行**）。
- *
- * 校验对象：**载荷字段** —— `result.data` 为主，缺省回退 `result.result`（两者是 `ToolResult` 的
- * 并行载荷字段；只填 `result` 的工具因此也能被校验，避免"声明了却静默永不校验"）。
- */
-export function validateToolOutputShape(
-  tool: Pick<Tool, 'name' | 'outputSchema'>,
-  result: ToolResult
-): string | null {
-  const schema = tool.outputSchema;
-  if (!schema) return null;
-
-  // 载荷字段：**只看 `data`**（主载荷）。
-  //
-  // 2026-09-30（P1-3 **B2-b** 根因收口）：原实现为 `result.data ?? result.result`（回退读**并行载荷**
-  // `result`），那是 B 档之前的**过渡措施**、并标有 `TODO: CS05-ROOTFIX`。B2-a 已把最后 3 个
-  // 「只填 `result`」的工具（`voice_input` / `voice_output` / `code_analysis`）迁到 `data`，
-  // 且经三交叉复核**全仓再无**"手写 `ToolResult` 且载荷在 `result`"的写入点
-  //（见 `architecture-benchmark-20260928.md` §2.2.1）⇒ 回退**失去存在理由**，按根因方案撤除。
-  // 撤回退前的等价性论证：迁移前 `data === undefined` ⇒ 回退取 `result`；迁移后 `data = payload`
-  // ⇒ 短路取同一值 ⇒ 校验结论逐字段一致（零行为变更）。
-  const payload = result.data;
-
-  // 无载荷不校验（2026-09-28 T4）：`createToolResult(null, …)` 的失败分支（如输入校验失败）
-  // 本就没有产出，强行校验只会被误判为"出参契约违规"制造噪音
-  // （实证：`todo_write` 的 5 个此类分支——`TodoWriteTool.ts:686/881/919/1014/1037`）。
-  if (payload == null) return null;
-
-  let parsed: { success: boolean; error?: unknown };
-  try {
-    parsed = schema.safeParse(payload);
-  } catch (error) {
-    // schema 自身抛错 = 契约实现缺陷（非数据不合规）
-    return `outputSchema 执行异常：${String(error)}`;
-  }
-  if (parsed.success) return null;
-  return parsed.error instanceof Error
-    ? parsed.error.message
-    : String(parsed.error ?? 'unknown');
 }
 
 /**

@@ -4,6 +4,8 @@
  */
 import { Tool, ToolInfo, ToolTag } from './types/Tool';
 import { ToolResult, createToolResult } from './types/ToolResult';
+// P2-1（2026-11-22，G5）：出参契约校验（纯函数；与 ToolExecutor / LRO 共用）
+import { validateToolOutputShape } from './outputSchemaValidation';
 import { guardShieldedToolCall } from './shieldGuard';
 import { ToolUseContext } from './types/ToolUseContext';
 import {
@@ -635,6 +637,21 @@ export class ToolRegistry {
         context.sessionId
       );
       throw error;
+    }
+
+    // P2-1（2026-11-22，G5）：出参契约校验收敛到**共同执行入口**（不阻断，仅标注）。
+    // 此前只有 `ToolExecutor` 校验 ⇒ 主聊天链（本 Registry）与 LRO 的声明形同虚设。
+    const outputSchemaError = validateToolOutputShape(tool, result);
+    if (outputSchemaError) {
+      logger.warn('工具出参不符合 outputSchema 声明（不阻断）', {
+        toolName: tool.name,
+        sessionId: policyContext.sessionId,
+        error: outputSchemaError,
+      });
+      result.metadata = {
+        ...(result.metadata ?? {}),
+        outputSchemaError,
+      };
     }
 
     return result;

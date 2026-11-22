@@ -26,6 +26,9 @@ import {
   buildApprovalOptions,
   resolveRiskClass,
 } from '@openliri/infra/permission';
+// P2-1（2026-11-22，G5）：出参契约校验（纯函数；与 ToolExecutor / ToolRegistry 共用）
+// 实现位于 infra（LRO 禁止直接 import `@modules/tools`）
+import { validateToolOutputShape } from '@openliri/infra/utils/toolContract/outputSchemaValidation';
 import type { AgentIsolation } from '@modules/agent';
 import {
   AppError,
@@ -1256,6 +1259,21 @@ async function runAuthorizedToolCall(args: {
     stripArgParseErrorKey(tc.arguments),
     callContext
   );
+  // P2-1（2026-11-22，G5）：出参契约校验（不阻断，仅标注）——本链路直调 `tool.execute`，
+  // 此前完全不做 outputSchema 校验。
+  const outputSchemaError = validateToolOutputShape(tool, toolResult);
+  if (outputSchemaError) {
+    logger.warn('[orchestrator] 工具出参不符合 outputSchema 声明（不阻断）', {
+      taskId: deps.taskId,
+      toolName: tc.name,
+      toolCallId: tc.id,
+      error: outputSchemaError,
+    });
+    toolResult.metadata = {
+      ...(toolResult.metadata ?? {}),
+      outputSchemaError,
+    };
+  }
   // 2026-10-08（steering）：被安全策略拦截的工具名先记账，本轮结束后统一注入改道指令。
   // 2026-11-08（真机 `pdca_mw6yabdj`）：**等人工审批 ≠ 硬拦截** —— ask 结果也带
   // `securityIntercepted`，若同样注入"立即改道"，用户批准的那条命令会被模型主动

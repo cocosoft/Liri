@@ -147,12 +147,14 @@ TOOL_EFFECTS                ─┼─► gen-tool-governance-matrix.ts ─► .t
 - 修复：`riskClassFor(action)`（`execute*` ⇒ `shell`，其余 `write`）+ `sandboxLevel='execution'`；
   测试 `app/tests/tools/notebookRiskClass.test.ts`。
 
-### G5 入口一致性：`outputSchema` 只在一条链校验（P2）
+### G5 入口一致性：`outputSchema` 只在一条链校验（P2 · **已关闭 2026-11-22**）
 
-- 现状：`validateToolOutput` 仅 `ToolExecutor.ts:274` 调用；主聊天链（`ToolExecutionService` → `ToolRegistry`）
-  与 LRO 均不校验（校验本身不阻断，只标 `metadata.outputSchemaError`）。
-- 影响："声明了出参契约但只有一条路径验证" ⇒ 契约可被绕开的观测盲区。
-- 计划：把校验收敛到 `ToolRegistry.executeTool` 出口（统一入口），或在文档中显式声明"仅 ToolExecutor 校验"并接受。
+- 现状（修复前）：`validateToolOutputShape` 仅 `ToolExecutor` 调用；主聊天链
+  （`ToolExecutionService` → `ToolRegistry`）与 LRO 直调均不校验（校验本身不阻断，只标
+  `metadata.outputSchemaError`）。
+- 修复：纯函数下沉到 `packages/infra/src/utils/toolContract/outputSchemaValidation.ts`（LRO 禁止直连
+  `@modules/tools`），三个执行入口共同调用；app 侧保留 re-export shim（既有单测路径零改动）。
+- 边界：仍**不阻断**（仅标注 + warn），与既有语义一致。
 
 ### G6 直调点授权证据未固化（P2）
 
@@ -259,8 +261,13 @@ DoD：
 1. ~~G4：`agent` / `skill` / `lsp` / `notebook` 补 `riskClass` 还是补 `sandboxLevel`？~~
    **已裁定（2026-11-22）**：按建议补 `riskClass`；复核后实际只需修 `notebook`（动态 `shell` + execution 位），
    `agent`/`skill`/`lsp` 原声明已正确（见 G4）。
-2. G8：`channel` / `send_message` / `mcp_tool` 是否引入"目标维度"审批指纹？
-3. P2-1：`outputSchema` 校验是否值得进主聊天链（不阻断、仅观测）？
+2. ~~G8：`channel` / `send_message` / `mcp_tool` 是否引入"目标维度"审批指纹？~~
+   **评估完成（2026-11-22）**：维持**全参数指纹**（最保守）。理由：这三类工具的"目标"与"危险动作"
+   同处参数面（如 MCP tool 的 `args`、`send_message` 的正文），拆目标维度会把"同目标换动作"也放行；
+   现有 `ApprovalFingerprint` 默认值已是全参数稳定 JSON，无需改代码。复审条件：真机出现同一目标下
+   审批 churn（同一工具/目标反复批准 > 5 次/日）时再立项。
+3. ~~P2-1：`outputSchema` 校验是否值得进主聊天链（不阻断、仅观测）？~~
+   **已实施（见 G5/P2 记录）**：三个执行入口统一。
 4. `browser` 的本地网络访问是否需要显式开关（还是直接按 SSRF 一律拒绝）？
 
 ---
@@ -315,9 +322,8 @@ DoD：
 ### 10.5 未做（按计划留给 P1/P2）
 
 ~~G1 `computer_use` 分档~~、~~G2 `browser` SSRF~~、~~G3 `web_fetch.saveToFile`~~、
-~~G4 执行类标记~~ 已在 P1 关闭（见 §11）；
-仍待：G5 `outputSchema` 收敛、G6 直调点逐个取证、G7 reason 码推广、
-G8 审批指纹评估、G9 执行类结果上限。
+~~G4 执行类标记~~、~~G5 outputSchema 收敛~~、~~G8 审批指纹评估~~ 已关闭（见 §11/§12）；
+仍待：G6 直调点逐个取证、G7 reason 码推广、P2-4 SUPPORT-LEVELS 治理证据列、G9 执行类结果上限。
 
 ---
 
@@ -362,4 +368,34 @@ G8 审批指纹评估、G9 执行类结果上限。
 | `bun test tests/tools/webFetchSsrf.test.ts`（shim 回归） | ✅ |
 | `bun run gen:tool-governance` | ✅ 69 工具 / pass 67 / accepted 2（powershell·code_run 的 G9）/ gap 0 |
 | `bun run typecheck` / 门禁 | ✅（见提交记录） |
+
+---
+
+## 12. P2 实施记录（2026-11-22）
+
+### P2-1 `outputSchema` 校验收敛到三个执行入口（G5）
+
+| 项 | 落点 |
+|---|---|
+| 唯一实现 | `packages/infra/src/utils/toolContract/outputSchemaValidation.ts`（纯函数；与 `Tool`/`ToolResult` 同目录） |
+| 入口接线 | `ToolExecutor`（既有·改为 re-export + 调用）、`ToolRegistry.executeTool`、LRO `stepExecution.runAuthorizedToolCall` |
+| 语义 | 不阻断；失败仅写 `metadata.outputSchemaError` + warn（与既有 ToolExecutor 口径一致） |
+| 兼容 | `app/src/tools/outputSchemaValidation.ts` 为 re-export shim ⇒ 既有 `@modules/tools/ToolExecutor` 单测 import 零改动 |
+| 测试 | `app/tests/tools/outputSchemaWiring.test.ts`（4 项结构守卫：三入口都调用 + LRO 不直连 `@modules/tools`） |
+
+### P2-3 审批指纹评估（G8，仅评估不改代码）
+
+**结论**：`channel` / `send_message` / `mcp_tool` **维持全参数指纹**。
+
+- 三类工具的"目标"与"危险动作"同处参数面（MCP `args`、消息正文），按目标拆指纹会把"同目标换动作"也放行；
+- 现有默认指纹（全参数稳定 JSON）已是三者中最保守的可用档；
+- 复审条件：真机出现"同一工具/目标被反复批准（> 5 次/日）"的审批 churn 时再立项。
+
+### P2 未做（继续排期）
+
+| ID | 内容 | 说明 |
+|---|---|---|
+| G7 | reason 码登记推广到 file/net/desktop/mcp 域 | 需为每个域建最小登记表 + 双向对账（参照 `commandGateRegistry`） |
+| P2-4 | `SUPPORT-LEVELS` 增加"治理维度证据"列 | 需改 `gen-support-levels.ts` 与 --check 产物 |
+| G9 | 执行类结果上限（powershell / code_run） | 当前 acceptedGap；补 `maxResultSizeChars` 或书面确认执行器截断口径 |
 

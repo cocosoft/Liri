@@ -27,7 +27,7 @@ use tauri::{
     Manager,
 };
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
-use tracing::info;
+use tracing::{info, warn};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
@@ -166,11 +166,68 @@ fn init_tracing() -> tracing_appender::non_blocking::WorkerGuard {
     guard
 }
 
+/// 升级后清理 WebView2 里遗留的 **Service Worker** 注册与缓存（Windows）。
+///
+/// 2026-11-22（真机实测）：桌面端此前会注册 PWA Service Worker —— 前端 `registerSW.js`
+/// 只排除了 `localhost` / `127.*`，而 Tauri 生产环境的 host 是 `tauri.localhost` ⇒ 未被排除。
+/// `sw.js` 对同源静态资源用 **cache-first**，于是升级后仍返回旧版 `index.html` / JS chunk，
+/// 与新区块不匹配 ⇒ 白屏，页面只剩 SW 的兜底响应体 `offline`（`new Response("offline", {status:503})`），
+/// 这与两次真机复现的界面文本完全一致。
+///
+/// 前端已改为在 Tauri 环境不注册 SW；本函数负责**破掉已安装旧版本的既有注册**：
+/// 按应用版本变化删除 `EBWebView/Default/Service Worker`（注册表 + cache storage），
+/// 保留 `Local Storage` 等用户数据不动。清理发生在窗口（WebView）创建之前，避免文件占用。
+#[cfg(windows)]
+fn purge_stale_service_worker() {
+    let version = env!("CARGO_PKG_VERSION");
+    let (Some(local), Some(appdata)) = (
+        std::env::var_os("LOCALAPPDATA"),
+        std::env::var_os("APPDATA"),
+    ) else {
+        return;
+    };
+    let sw_dir = PathBuf::from(local)
+        .join("com.liri.client")
+        .join("EBWebView")
+        .join("Default")
+        .join("Service Worker");
+    let stamp = PathBuf::from(appdata)
+        .join("com.liri.client")
+        .join("webview_version.txt");
+
+    if std::fs::read_to_string(&stamp).ok().as_deref() == Some(version) {
+        return;
+    }
+    if sw_dir.exists() {
+        match std::fs::remove_dir_all(&sw_dir) {
+            Ok(()) => info!("[webview] 已清理旧版本 Service Worker: {}", sw_dir.display()),
+            Err(e) => warn!(
+                "[webview] 清理 Service Worker 失败（忽略，WebView 会重建）: {} ({})",
+                sw_dir.display(),
+                e
+            ),
+        }
+    }
+    // 版本戳写入失败不影响启动；下次启动会再尝试
+    if let Some(parent) = stamp.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    if let Err(e) = std::fs::write(&stamp, version) {
+        warn!("[webview] 写入 WebView 版本戳失败: {} ({})", stamp.display(), e);
+    }
+}
+
+#[cfg(not(windows))]
+fn purge_stale_service_worker() {}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let _tracing_guard = init_tracing();
 
     info!("Starting Liri Client");
+
+    // 必须在 WebView 创建前执行（见函数注释）
+    purge_stale_service_worker();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())

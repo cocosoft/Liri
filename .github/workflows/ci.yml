@@ -689,6 +689,7 @@ jobs:
       working-directory: app
       run: |
         bun run lint:tool-governance
+        bun run lint:tool-interception-reasons
 
     # ══════════════════════════════════════════════
     # 提示词资源门禁（C-1 / C-3b / T2，2026-10-18）

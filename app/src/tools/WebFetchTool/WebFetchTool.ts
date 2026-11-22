@@ -235,6 +235,9 @@ export class WebFetchTool extends BaseTool {
           },
         });
         return createToolResult(describeSsrfBlock(ssrfResult), {
+          // P2-2（2026-11-22，G7）：拦截事件带**机器可读 reason 码**（登记于
+          // `tools/governance/interceptionReasons.ts`，由 lint:tool-interception-reasons 对账）
+          metadata: { reason: 'ssrf_blocked' },
           newMessages: [
             {
               role: 'system',

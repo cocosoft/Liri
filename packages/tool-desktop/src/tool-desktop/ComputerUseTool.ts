@@ -316,7 +316,12 @@ export class ComputerUseTool extends BaseTool {
   ): Promise<ToolResult> {
     // P1（2026-11-21）：功能开关关闭时明确拒绝（可见性已在出站定义处裁剪，这里兜底）
     if (!isToolEnabledByGate(this.name)) {
-      return { success: false, error: describeToolGateDisabled(this.name) };
+      return {
+        success: false,
+        error: describeToolGateDisabled(this.name),
+        // P2-2（2026-11-22，G7）：机器可读 reason 码
+        metadata: { reason: 'tool_gate_disabled' },
+      };
     }
     try {
       const adapter = this.getAdapter();

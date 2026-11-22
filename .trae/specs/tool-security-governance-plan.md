@@ -164,11 +164,15 @@ TOOL_EFFECTS                ─┼─► gen-tool-governance-matrix.ts ─► .t
 - 计划：`app/architecture` 下登记 `tool-execution-entrypoints.json`（每处：文件、授权函数、证据测试）；
   新增直调点必须登记，否则门禁失败。**不猜测"应该有授权"**。
 
-### G7 审计 reason 码只在 bash 域有登记（P2）
+### G7 审计 reason 码只在 bash 域有登记（P2 · **已关闭 2026-11-22（重定范围）**）
 
-- 现状：`commandGateRegistry` 对 bash 五门做了 reason 双向对账；文件/网络/MCP/桌面域没有同类登记。
-- 计划：先给"会拦截"的域（file 越界、web SSRF、desktop、mcp）建立最小 reason 清单，
-  复用 `metadata.reason` 口径，不新造第二套。
+- 复核结论：file / mcp 域**本来就没有** `metadata.reason` 码（拦截发生在权限层或 MCP server 侧，
+  只体现在 error 文案）；network / desktop 有真实拦截点但没有机器可读码。
+- 处置：只对**真实拦截点**补码并建表，不为空域凑数：
+  - `ssrf_blocked`（`WebFetchTool` 的 SSRF 拦截）；
+  - `tool_gate_disabled`（`ComputerUseTool` 功能开关关闭）；
+  - bash 五门继续由 `tools/bash/commandGateRegistry.ts` 单独对账（不重复登记）。
+- 门禁：`lint:tool-interception-reasons` 对扫描面做双向对账（未登记码 / 僵尸登记 / 来源未纳入扫描）。
 
 ### G8 审批指纹粒度（P2，评估项）
 
@@ -322,8 +326,8 @@ DoD：
 ### 10.5 未做（按计划留给 P1/P2）
 
 ~~G1 `computer_use` 分档~~、~~G2 `browser` SSRF~~、~~G3 `web_fetch.saveToFile`~~、
-~~G4 执行类标记~~、~~G5 outputSchema 收敛~~、~~G8 审批指纹评估~~ 已关闭（见 §11/§12）；
-仍待：G6 直调点逐个取证、G7 reason 码推广、P2-4 SUPPORT-LEVELS 治理证据列、G9 执行类结果上限。
+~~G4 执行类标记~~、~~G5 outputSchema 收敛~~、~~G7 reason 码推广~~、~~G8 审批指纹评估~~ 已关闭（见 §11/§12）；
+仍待：G6 直调点逐个取证、P2-4 SUPPORT-LEVELS 治理证据列、G9 执行类结果上限。
 
 ---
 
@@ -391,11 +395,20 @@ DoD：
 - 现有默认指纹（全参数稳定 JSON）已是三者中最保守的可用档；
 - 复审条件：真机出现"同一工具/目标被反复批准（> 5 次/日）"的审批 churn 时再立项。
 
+### P2-2 拦截 reason 码登记（G7）
+
+| 项 | 落点 |
+|---|---|
+| 登记表 | `app/src/tools/governance/interceptionReasons.ts`（码 → 域 → 来源文件；扫描面由表派生） |
+| 补码 | `ssrf_blocked`（WebFetch SSRF）、`tool_gate_disabled`（ComputerUse 开关关闭），均写入 `metadata.reason` |
+| 门禁 | `app/scripts/lint-tool-interception-reasons.ts` → `lint:tool-interception-reasons`（`ci` + CI step） |
+| 对账 | 未登记码 / 僵尸登记 / 来源未纳入扫描 ⇒ 失败；bash 域仍由 `commandGateRegistry` 负责 |
+| 测试 | `app/tests/tools/interceptionReasons.test.ts`（6 项纯判据） |
+
 ### P2 未做（继续排期）
 
 | ID | 内容 | 说明 |
 |---|---|---|
-| G7 | reason 码登记推广到 file/net/desktop/mcp 域 | 需为每个域建最小登记表 + 双向对账（参照 `commandGateRegistry`） |
 | P2-4 | `SUPPORT-LEVELS` 增加"治理维度证据"列 | 需改 `gen-support-levels.ts` 与 --check 产物 |
 | G9 | 执行类结果上限（powershell / code_run） | 当前 acceptedGap；补 `maxResultSizeChars` 或书面确认执行器截断口径 |
 

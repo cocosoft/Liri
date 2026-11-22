@@ -1,28 +1,5 @@
 {
-  "note": "工具安全治理例外表（P0，2026-11-22）。规范见 .trae/specs/tool-security-governance-plan.md。acceptedGaps = 矩阵规则检测到的缺口（带 riskId / reason / plan 才允许通过门禁）；knownRisks = 矩阵规则检测不到、但人工已确认的风险（仅登记，不影响门禁）。新增条目必须写明理由与关闭计划；引用不存在的工具即门禁失败（防僵尸登记）。",
-  "acceptedGaps": [
-    {
-      "tool": "powershell",
-      "gaps": ["no-result-limit"],
-      "riskId": "G9",
-      "reason": "PowerShellTool 未声明 maxResultSizeChars（bash 为 100000）；当前依赖执行器侧通用截断，缺显式契约。",
-      "plan": "P2-0（D6）：补 maxResultSizeChars 或书面确认执行器截断已覆盖"
-    },
-    {
-      "tool": "code_run",
-      "gaps": ["no-result-limit"],
-      "riskId": "G9",
-      "reason": "CodeRunnerTool 未声明 maxResultSizeChars；内部仅对 stderr / 预览做截断，缺统一结果上限。",
-      "plan": "P2-0（D6）：补 maxResultSizeChars 或书面确认执行器截断已覆盖"
-    }
-  ],
-  "knownRisks": [
-    {
-      "id": "G9",
-      "tools": ["powershell", "code_run"],
-      "dimension": "D6",
-      "reason": "执行类工具没有声明 maxResultSizeChars（bash 有 100000）；是否由执行器侧统一截断覆盖尚未书面确认。",
-      "plan": "P2-0：补 maxResultSizeChars，或确认并记录执行器截断口径（acceptedGaps 中已按工具登记）"
-    }
-  ]
+  "note": "工具安全治理例外表（P0，2026-11-22）。规范见 .trae/specs/tool-security-governance-plan.md。acceptedGaps = 矩阵规则检测到的缺口（带 riskId / reason / plan 才允许通过门禁，且必须仍被矩阵检出）；knownRisks = 矩阵规则检测不到、但人工已确认的风险（仅登记，不影响门禁）。新增条目必须写明理由与关闭计划；引用不存在的工具即门禁失败（防僵尸登记）。当前无例外（G1–G5/G7–G9 已关闭，G6/P2-4 为流程项）。",
+  "acceptedGaps": [],
+  "knownRisks": []
 }

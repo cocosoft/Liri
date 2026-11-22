@@ -5,8 +5,8 @@
   "counts": {
     "total": 69,
     "runtime": 60,
-    "pass": 67,
-    "acceptedGap": 2,
+    "pass": 69,
+    "acceptedGap": 0,
     "gap": 0,
     "riskUndeclared": 0
   },
@@ -410,18 +410,16 @@
       "readOnly": false,
       "destructive": false,
       "concurrencySafe": false,
-      "maxResultSizeChars": null,
+      "maxResultSizeChars": 100000,
       "approvalFingerprint": false,
       "checkPermissions": true,
       "checkPermissionsOverridden": false,
       "getPath": true,
       "getPathOverridden": false,
       "resolveFileIoRoot": false,
-      "gaps": [
-        "no-result-limit"
-      ],
-      "acceptedBy": "G9",
-      "verdict": "accepted-gap"
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
     },
     {
       "name": "computer_use",
@@ -1282,18 +1280,16 @@
       "readOnly": false,
       "destructive": false,
       "concurrencySafe": false,
-      "maxResultSizeChars": null,
+      "maxResultSizeChars": 100000,
       "approvalFingerprint": false,
       "checkPermissions": true,
       "checkPermissionsOverridden": false,
       "getPath": true,
       "getPathOverridden": true,
       "resolveFileIoRoot": false,
-      "gaps": [
-        "no-result-limit"
-      ],
-      "acceptedBy": "G9",
-      "verdict": "accepted-gap"
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
     },
     {
       "name": "read_project_file",

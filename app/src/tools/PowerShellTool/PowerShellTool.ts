@@ -937,6 +937,14 @@ export class PowerShellTool extends BaseTool {
   /** A-4（2026-10-18）：能力声明位 —— 执行任意 PowerShell 命令 */
   override sandboxLevel = 'execution' as const;
 
+  /**
+   * P2-4/G9（2026-11-22）：显式声明结果上限（与 `bash` 一致 100000）。
+   *
+   * 此前 `powershell` 未声明 ⇒ 治理矩阵的 `no-result-limit` 缺口只能以 acceptedGap 挂着；
+   * 声明后由统一截断链路（`maxResultSizeChars`）兜住超长输出。
+   */
+  override maxResultSizeChars = 100000;
+
   params: ToolParam[] = [
     {
       name: 'command',

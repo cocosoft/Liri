@@ -42,6 +42,13 @@ const OVERRIDES_FILE = join(
   'architecture',
   'support-levels.json'
 );
+/** P2-4（2026-11-22）：治理维度证据来自工具治理矩阵（`gen:tool-governance` 生成物） */
+const MATRIX_FILE = join(
+  REPO_ROOT,
+  '.trae',
+  'architecture',
+  'tool-governance-matrix.json'
+);
 const TESTS_DIR = join(APP_DIR, 'tests');
 
 type Level = 'core' | 'community' | 'experimental';
@@ -65,6 +72,8 @@ interface Row {
   id: string;
   level: Level;
   evidence: Evidence;
+  /** P2-4：治理维度证据（风险档 · 结论）；通道 / 无矩阵行 ⇒ '—' */
+  governance: string;
 }
 
 /** 归一化标识（去分隔符 + 小写）：`file_edit` ⇔ `FileEditTool` ⇔ `fileEdit.test.ts` */
@@ -202,14 +211,53 @@ function resolveEvidence(
   return out;
 }
 
+/**
+ * P2-4（2026-11-22）：读取工具治理矩阵，生成「治理维度证据」列。
+ *
+ * 只读既有生成物，不新增事实源：风险档与结论均来自 `gen:tool-governance`。
+ * 矩阵缺失 / 解析失败 ⇒ 抛错（AR-3：不得静默降级为"无治理证据"）。
+ */
+function loadGovernanceIndex(): Map<string, string> {
+  const out = new Map<string, string>();
+  if (!existsSync(MATRIX_FILE)) {
+    throw new Error(
+      `缺少工具治理矩阵：${MATRIX_FILE}（先运行 bun run gen:tool-governance）`
+    );
+  }
+  const parsed = JSON.parse(readFileSync(MATRIX_FILE, 'utf-8')) as {
+    tools?: Array<{
+      name?: string;
+      risk?: { derived?: string };
+      verdict?: string;
+      acceptedBy?: string | null;
+    }>;
+  };
+  for (const tool of parsed.tools ?? []) {
+    if (!tool.name) continue;
+    const risk = tool.risk?.derived ?? '—';
+    const verdict = tool.verdict ?? '—';
+    out.set(
+      tool.name,
+      `${risk} · ${verdict}${tool.acceptedBy ? `（${tool.acceptedBy}）` : ''}`
+    );
+  }
+  return out;
+}
+
 function derive(
   id: string,
   evidence: Map<string, Evidence>,
+  governance: Map<string, string>,
   override?: Level
 ): Row {
   const hit = evidence.get(id) ?? { rel: '', via: '' };
   const level: Level = override ?? (hit.rel ? 'core' : 'community');
-  return { id, level, evidence: hit };
+  return {
+    id,
+    level,
+    evidence: hit,
+    governance: governance.get(id) ?? '—',
+  };
 }
 
 function collect(): { channels: Row[]; tools: Row[] } {
@@ -238,19 +286,21 @@ function collect(): { channels: Row[]; tools: Row[] } {
     channelDomain: true,
   });
   const toolEvidence = resolveEvidence(testFiles, toolList);
+  const governance = loadGovernanceIndex();
 
   return {
     channels: channelList.map((id) =>
-      derive(id, channelEvidence, overrides.channels?.[id])
+      derive(id, channelEvidence, governance, overrides.channels?.[id])
     ),
     tools: toolList.map((id) =>
-      derive(id, toolEvidence, overrides.tools?.[id])
+      derive(id, toolEvidence, governance, overrides.tools?.[id])
     ),
   };
 }
 
 function table(rows: Row[]): string {
-  const head = '| 标识 | 支持等级 | 专属测试证据 |\n|---|---|---|';
+  const head =
+    '| 标识 | 支持等级 | 专属测试证据 | 治理维度证据 |\n|---|---|---|---|';
   const body = rows
     .map(
       (r) =>
@@ -258,7 +308,7 @@ function table(rows: Row[]): string {
           r.evidence.rel
             ? `\`${r.evidence.rel}\`（${r.evidence.via}）`
             : '—（无专属测试）'
-        } |`
+        } | ${r.governance} |`
     )
     .join('\n');
   return `${head}\n${body}`;
@@ -292,6 +342,8 @@ function render(data: { channels: Row[]; tools: Row[] }): string {
   模型类型（\`deriveModelType\` 的 \`image\`）、XML 解析样本（\`InvokeXmlParser\` 的 \`bash\`）都算成「专属测试」，
   令 \`core\` 被稀释 —— 证据列看起来权威，实际只是"某处提到过"。
 - 维护者可用 overrides 覆盖等级（如把有集成测试但文件名不指代的通道标为 \`core\`，或把新通道标 \`experimental\`）。
+- P2-4（2026-11-22）：「治理维度证据」列来自 \`.trae/architecture/tool-governance-matrix.json\`（\`bun run gen:tool-governance\` 生成），
+  格式为「风险档 · 结论」；消息通道无矩阵行 ⇒ \`—\`。
 
 ## 汇总
 

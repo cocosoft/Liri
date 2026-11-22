@@ -314,6 +314,12 @@ export class CodeRunnerTool extends BaseTool<Record<string, unknown>> {
   override searchHint = 'Execute restricted TypeScript orchestration code';
   override sandboxLevel = 'execution' as const;
 
+  /**
+   * P2-4/G9（2026-11-22）：显式声明结果上限（与 `bash` 一致 100000）。
+   * 内部只对 stderr / 预览做截断，缺统一出参上限 ⇒ 治理矩阵以 acceptedGap 挂着。
+   */
+  override maxResultSizeChars = 100000;
+
   async execute(
     input: Record<string, unknown>,
     context: ToolUseContext

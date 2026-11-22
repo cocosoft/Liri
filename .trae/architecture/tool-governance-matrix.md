@@ -1,15 +1,15 @@
 # 工具治理矩阵（自动生成）
 
 > 由 `bun run gen:tool-governance` 生成，**请勿手改**。规范见 `.trae/specs/tool-security-governance-plan.md`。
-> 实测工具 **69** 个 · pass 67 · accepted-gap 2 · gap 0
+> 实测工具 **69** 个 · pass 69 · accepted-gap 0 · gap 0
 
 ## shell（4）
 
 | 工具 | effects | sandbox | risk（声明 / 派生 / 来源） | 只读 | 上限 | 指纹 | 自定义权限 | verdict |
 |---|---|---|---|---|---|---|---|---|
 | `bash` | external | execution | — / shell / derived:sandboxLevel | no | 100000 | — | — | pass |
-| `code_run` | external | execution | — / shell / derived:sandboxLevel | no | — | — | — | accepted-gap（G9） |
-| `powershell` | external | execution | — / shell / derived:sandboxLevel | no | — | — | — | accepted-gap（G9） |
+| `code_run` | external | execution | — / shell / derived:sandboxLevel | no | 100000 | — | — | pass |
+| `powershell` | external | execution | — / shell / derived:sandboxLevel | no | 100000 | — | — | pass |
 | `repl` | local | execution | shell / shell / declared:static | no | 10000 | — | yes | pass |
 
 ## external（12）

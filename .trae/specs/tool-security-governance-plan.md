@@ -326,8 +326,9 @@ DoD：
 ### 10.5 未做（按计划留给 P1/P2）
 
 ~~G1 `computer_use` 分档~~、~~G2 `browser` SSRF~~、~~G3 `web_fetch.saveToFile`~~、
-~~G4 执行类标记~~、~~G5 outputSchema 收敛~~、~~G7 reason 码推广~~、~~G8 审批指纹评估~~ 已关闭（见 §11/§12）；
-仍待：G6 直调点逐个取证、P2-4 SUPPORT-LEVELS 治理证据列、G9 执行类结果上限。
+~~G4 执行类标记~~、~~G5 outputSchema 收敛~~、~~G7 reason 码推广~~、~~G8 审批指纹评估~~、
+~~P2-4 治理证据列~~、~~G9 结果上限~~ 已关闭（见 §11/§12）；
+仍待：G6 直调点逐个取证（11 处 needs-review）。
 
 ---
 
@@ -405,10 +406,22 @@ DoD：
 | 对账 | 未登记码 / 僵尸登记 / 来源未纳入扫描 ⇒ 失败；bash 域仍由 `commandGateRegistry` 负责 |
 | 测试 | `app/tests/tools/interceptionReasons.test.ts`（6 项纯判据） |
 
+### P2-4 `SUPPORT-LEVELS` 增加「治理维度证据」列
+
+- `app/scripts/gen-support-levels.ts`：读取 `.trae/architecture/tool-governance-matrix.json`（只读既有生成物），
+  为通道 / 工具表新增一列「风险档 · 结论」（acceptedGap 附带 riskId）；通道无矩阵行 ⇒ `—`。
+- fail-closed：矩阵缺失 / 解析失败 ⇒ 抛错（AR-3，不静默降级为"无治理证据"）。
+- 台账已重生（`lint:support-levels --check` 通过）。
+
+### G9 执行类结果上限（powershell / code_run）
+
+- 两个工具显式声明 `maxResultSizeChars = 100000`（与 `bash` 一致），由统一截断链路兜住超长输出。
+- 治理矩阵：`no-result-limit` 缺口消失 ⇒ **69 工具 / pass 69 / accepted 0 / gap 0**；例外表清空。
+- 行为变化（如实）：两者现在受统一出参截断约束（上限 100k 字符，与 bash 同口径）。
+
 ### P2 未做（继续排期）
 
 | ID | 内容 | 说明 |
 |---|---|---|
-| P2-4 | `SUPPORT-LEVELS` 增加"治理维度证据"列 | 需改 `gen-support-levels.ts` 与 --check 产物 |
-| G9 | 执行类结果上限（powershell / code_run） | 当前 acceptedGap；补 `maxResultSizeChars` 或书面确认执行器截断口径 |
+| G6 | 直调点逐个取证 | `tool-execution-entrypoints.json` 中 11 处 `needs-review` 需逐点确认授权前置或补授权 |
 

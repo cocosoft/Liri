@@ -21,6 +21,8 @@
   模型类型（`deriveModelType` 的 `image`）、XML 解析样本（`InvokeXmlParser` 的 `bash`）都算成「专属测试」，
   令 `core` 被稀释 —— 证据列看起来权威，实际只是"某处提到过"。
 - 维护者可用 overrides 覆盖等级（如把有集成测试但文件名不指代的通道标为 `core`，或把新通道标 `experimental`）。
+- P2-4（2026-11-22）：「治理维度证据」列来自 `.trae/architecture/tool-governance-matrix.json`（`bun run gen:tool-governance` 生成），
+  格式为「风险档 · 结论」；消息通道无矩阵行 ⇒ `—`。
 
 ## 汇总
 
@@ -31,106 +33,106 @@
 
 ## 消息通道
 
-| 标识 | 支持等级 | 专属测试证据 |
-|---|---|---|
-| `mobile` | core | `app/tests/channels/mobileApprovalAction.test.ts`（测试文件名） |
-| `telegram` | core | `app/tests/channels/telegramRequestShape.test.ts`（测试文件名） |
-| `discord` | core | `app/tests/channels/discordRequestShape.test.ts`（测试文件名） |
-| `qq` | core | `app/tests/channels/qqFileTransferPayload.test.ts`（测试文件名） |
-| `dingtalk` | core | `app/tests/channels/dingtalkRobotMessage.test.ts`（测试文件名） |
-| `feishu` | core | `app/tests/channels/feishuCardAction.test.ts`（测试文件名） |
-| `wechat` | core | `app/tests/channels/wechatConfig.test.ts`（测试文件名） |
-| `slack` | core | `app/tests/channels/slackRequestShape.test.ts`（测试文件名） |
-| `line` | core | `app/tests/channels/lineRequestShape.test.ts`（测试文件名） |
-| `irc` | core | `app/tests/channels/ircStub.test.ts`（测试文件名） |
-| `nostr` | experimental | `app/tests/channels/nostrStub.test.ts`（测试文件名） |
-| `email` | core | `app/tests/channels/emailSmtpStub.test.ts`（测试文件名） |
-| `sms` | core | `app/tests/channels/smsProviderRequests.test.ts`（测试文件名） |
-| `webhook` | core | `app/tests/channels/WebhookVerify.test.ts`（测试文件名） |
-| `wecom` | core | `app/tests/channels/wecomRequestShape.test.ts`（测试文件名） |
-| `googlechat` | core | `app/tests/channels/googlechatRequestShape.test.ts`（测试文件名） |
-| `msteams` | core | `app/tests/channels/msteamsConfig.test.ts`（测试文件名） |
-| `zalo` | core | `app/tests/channels/zaloConfig.test.ts`（测试文件名） |
-| `yuanbao` | core | `app/tests/channels/yuanbaoConfig.test.ts`（测试文件名） |
-| `whatsapp` | core | `app/tests/channels/whatsappConfig.test.ts`（测试文件名） |
-| `signal` | core | `app/tests/channels/signalStub.test.ts`（测试文件名） |
-| `matrix` | core | `app/tests/channels/matrixConfig.test.ts`（测试文件名） |
-| `facebook` | core | `app/tests/channels/facebookmessengerConfig.test.ts`（测试文件名） |
-| `twitter` | core | `app/tests/channels/twitterConfig.test.ts`（测试文件名） |
-| `claude` | core | `app/tests/channels/claudeConfig.test.ts`（测试文件名） |
-| `mattermost` | core | `app/tests/channels/mattermostConfig.test.ts`（测试文件名） |
-| `bluebubbles` | core | `app/tests/channels/bluebubblesConfig.test.ts`（测试文件名） |
+| 标识 | 支持等级 | 专属测试证据 | 治理维度证据 |
+|---|---|---|---|
+| `mobile` | core | `app/tests/channels/mobileApprovalAction.test.ts`（测试文件名） | — |
+| `telegram` | core | `app/tests/channels/telegramRequestShape.test.ts`（测试文件名） | — |
+| `discord` | core | `app/tests/channels/discordRequestShape.test.ts`（测试文件名） | — |
+| `qq` | core | `app/tests/channels/qqFileTransferPayload.test.ts`（测试文件名） | — |
+| `dingtalk` | core | `app/tests/channels/dingtalkRobotMessage.test.ts`（测试文件名） | — |
+| `feishu` | core | `app/tests/channels/feishuCardAction.test.ts`（测试文件名） | — |
+| `wechat` | core | `app/tests/channels/wechatConfig.test.ts`（测试文件名） | — |
+| `slack` | core | `app/tests/channels/slackRequestShape.test.ts`（测试文件名） | — |
+| `line` | core | `app/tests/channels/lineRequestShape.test.ts`（测试文件名） | — |
+| `irc` | core | `app/tests/channels/ircStub.test.ts`（测试文件名） | — |
+| `nostr` | experimental | `app/tests/channels/nostrStub.test.ts`（测试文件名） | — |
+| `email` | core | `app/tests/channels/emailSmtpStub.test.ts`（测试文件名） | — |
+| `sms` | core | `app/tests/channels/smsProviderRequests.test.ts`（测试文件名） | — |
+| `webhook` | core | `app/tests/channels/WebhookVerify.test.ts`（测试文件名） | — |
+| `wecom` | core | `app/tests/channels/wecomRequestShape.test.ts`（测试文件名） | — |
+| `googlechat` | core | `app/tests/channels/googlechatRequestShape.test.ts`（测试文件名） | — |
+| `msteams` | core | `app/tests/channels/msteamsConfig.test.ts`（测试文件名） | — |
+| `zalo` | core | `app/tests/channels/zaloConfig.test.ts`（测试文件名） | — |
+| `yuanbao` | core | `app/tests/channels/yuanbaoConfig.test.ts`（测试文件名） | — |
+| `whatsapp` | core | `app/tests/channels/whatsappConfig.test.ts`（测试文件名） | — |
+| `signal` | core | `app/tests/channels/signalStub.test.ts`（测试文件名） | — |
+| `matrix` | core | `app/tests/channels/matrixConfig.test.ts`（测试文件名） | — |
+| `facebook` | core | `app/tests/channels/facebookmessengerConfig.test.ts`（测试文件名） | — |
+| `twitter` | core | `app/tests/channels/twitterConfig.test.ts`（测试文件名） | — |
+| `claude` | core | `app/tests/channels/claudeConfig.test.ts`（测试文件名） | — |
+| `mattermost` | core | `app/tests/channels/mattermostConfig.test.ts`（测试文件名） | — |
+| `bluebubbles` | core | `app/tests/channels/bluebubblesConfig.test.ts`（测试文件名） | — |
 
 ## 内建工具
 
-| 标识 | 支持等级 | 专属测试证据 |
-|---|---|---|
-| `agent` | core | `app/tests/agent/agentAssignment.test.ts`（测试文件名） |
-| `agents_list` | core | `app/tests/tools/agentsListTool.test.ts`（测试文件名） |
-| `ask_user_question` | core | `app/tests/tools/ask-user-question.test.ts`（测试文件名） |
-| `audio_play` | community | —（无专属测试） |
-| `bash` | core | `app/tests/permission/bashPermissionInjection.test.ts`（测试文件名） |
-| `brief` | core | `app/tests/commands/briefCommand.test.ts`（测试文件名） |
-| `broadcast` | community | —（无专属测试） |
-| `browser` | core | `app/tests/tools/browserSsrf.test.ts`（测试文件名） |
-| `browser_vision` | core | `app/tests/tools/browserVisionTool.test.ts`（测试文件名） |
-| `canvas` | community | —（无专属测试） |
-| `channel` | core | `app/tests/channels/ChannelContract.test.ts`（测试文件名） |
-| `clipboard` | community | —（无专属测试） |
-| `code_run` | core | `app/tests/tools/codeRunnerLandlockConfig.test.ts`（测试文件名） |
-| `computer_use` | core | `app/tests/tools/computerUseGovernance.test.ts`（测试文件名） |
-| `config` | core | `app/tests/config/ConfigLayers.test.ts`（测试文件名） |
-| `create_project` | core | `app/tests/tools/createProjectIdentity.test.ts`（测试文件名） |
-| `cron` | core | `app/tests/chronos/cron.test.ts`（测试文件名） |
-| `doc_generate` | community | —（无专属测试） |
-| `file_convert` | core | `app/tests/tools/FileConvertTool.test.ts`（测试文件名） |
-| `file_edit` | core | `app/tests/tools/fileEditNoMatch.test.ts`（测试文件名） |
-| `file_read` | core | `app/tests/tools/FileReadTool.test.ts`（测试文件名） |
-| `file_write` | core | `app/tests/tools/fileWriteReadBeforeWrite.test.ts`（测试文件名） |
-| `glob` | core | `app/tests/tools/GlobTool/GlobTool-braces.test.ts`（测试文件名） |
-| `grep` | core | `app/tests/commands/grepArgsParity.test.ts`（测试文件名） |
-| `image` | core | `app/tests/tools/imageSafetyFilter.test.ts`（测试文件名） |
-| `image_analysis` | community | —（无专属测试） |
-| `image_display` | community | —（无专属测试） |
-| `image_generate` | community | —（无专属测试） |
-| `image_svg_generate` | community | —（无专属测试） |
-| `kanban` | core | `app/tests/tools/kanbanTool.test.ts`（测试文件名） |
-| `knowledge_save` | core | `app/tests/tools/knowledgeSaveTool.test.ts`（测试文件名） |
-| `list_peers` | community | —（无专属测试） |
-| `lsp` | core | `app/tests/tools/lspRequestTimeout.test.ts`（测试文件名） |
-| `mcp_auth` | core | `app/tests/tools/mcpAuthTool.test.ts`（测试文件名） |
-| `mcp_resource` | core | `app/tests/vfs/mcpResourcesDriver.test.ts`（测试文件名） |
-| `mcp_tool` | core | `app/tests/mcp/mcpToolRegistrationPath.test.ts`（测试文件名） |
-| `monitor` | core | `app/tests/monitoring/MonitoringModuleTest.test.ts`（测试文件名） |
-| `music` | community | —（无专属测试） |
-| `notebook` | core | `app/tests/tools/notebook.test.ts`（测试文件名） |
-| `pdf` | core | `app/tests/tools/PDFTool.test.ts`（测试文件名） |
-| `plan` | core | `app/tests/core/planDrivenLoop.test.ts`（测试文件名） |
-| `powershell` | core | `app/tests/tools/powerShellStringPrefixCommands.test.ts`（测试文件名） |
-| `read_project_file` | core | `app/tests/tools/readProjectFile-directory.test.ts`（测试文件名） |
-| `repl` | core | `app/tests/chat/replyEffort.test.ts`（测试文件名） |
-| `save_conversation` | community | —（无专属测试） |
-| `send_message` | community | —（无专属测试） |
-| `sessions` | core | `app/tests/ai/sessionStickyRouting.test.ts`（测试文件名） |
-| `sessions_yield` | core | `app/tests/tools/sessionsYield.test.ts`（测试文件名） |
-| `skill` | core | `app/tests/memory/utils/SkillMemoryGraph.test.ts`（测试文件名） |
-| `sleep` | core | `app/tests/chat/orchestrator/abortTurnEndBackfill.test.ts`（实现类导入） |
-| `task_list` | community | —（无专属测试） |
-| `task_output` | community | —（无专属测试） |
-| `task_stop` | community | —（无专属测试） |
-| `team_create` | community | —（无专属测试） |
-| `team_delete` | community | —（无专属测试） |
-| `todo_write` | core | `app/tests/tools/TodoWriteTool.normalize.test.ts`（测试文件名） |
-| `tool_search` | core | `app/tests/tools/toolSearchCoverage.test.ts`（测试文件名） |
-| `trace_recording` | core | `app/tests/integration/trace-recording.test.ts`（测试文件名） |
-| `tts` | core | `app/tests/voice/ttsStreaming.test.ts`（测试文件名） |
-| `tungsten` | community | —（无专属测试） |
-| `vfs` | core | `app/tests/http/vfs-mounts.test.ts`（测试文件名） |
-| `video` | core | `app/tests/http/videoMetadataDuration.test.ts`（测试文件名） |
-| `video_analysis` | community | —（无专属测试） |
-| `video_display` | community | —（无专属测试） |
-| `video_generate` | core | `app/tests/tools/VideoGenerateTool.test.ts`（测试文件名） |
-| `web_fetch` | core | `app/tests/tools/webFetchReadOnly.test.ts`（测试文件名） |
-| `web_search` | community | —（无专属测试） |
-| `worktree` | community | —（无专属测试） |
-| `write_project_file` | core | `app/tests/tools/writeProjectFile-failure.test.ts`（测试文件名） |
+| 标识 | 支持等级 | 专属测试证据 | 治理维度证据 |
+|---|---|---|---|
+| `agent` | core | `app/tests/agent/agentAssignment.test.ts`（测试文件名） | external · pass |
+| `agents_list` | core | `app/tests/tools/agentsListTool.test.ts`（测试文件名） | read · pass |
+| `ask_user_question` | core | `app/tests/tools/ask-user-question.test.ts`（测试文件名） | external · pass |
+| `audio_play` | community | —（无专属测试） | read · pass |
+| `bash` | core | `app/tests/permission/bashPermissionInjection.test.ts`（测试文件名） | shell · pass |
+| `brief` | core | `app/tests/commands/briefCommand.test.ts`（测试文件名） | write · pass |
+| `broadcast` | community | —（无专属测试） | external · pass |
+| `browser` | core | `app/tests/tools/browserSsrf.test.ts`（测试文件名） | external · pass |
+| `browser_vision` | core | `app/tests/tools/browserVisionTool.test.ts`（测试文件名） | external · pass |
+| `canvas` | community | —（无专属测试） | write · pass |
+| `channel` | core | `app/tests/channels/ChannelContract.test.ts`（测试文件名） | external · pass |
+| `clipboard` | community | —（无专属测试） | write · pass |
+| `code_run` | core | `app/tests/tools/codeRunnerLandlockConfig.test.ts`（测试文件名） | shell · pass |
+| `computer_use` | core | `app/tests/tools/computerUseGovernance.test.ts`（测试文件名） | external · pass |
+| `config` | core | `app/tests/config/ConfigLayers.test.ts`（测试文件名） | write · pass |
+| `create_project` | core | `app/tests/tools/createProjectIdentity.test.ts`（测试文件名） | write · pass |
+| `cron` | core | `app/tests/chronos/cron.test.ts`（测试文件名） | read · pass |
+| `doc_generate` | community | —（无专属测试） | write · pass |
+| `file_convert` | core | `app/tests/tools/FileConvertTool.test.ts`（测试文件名） | read · pass |
+| `file_edit` | core | `app/tests/tools/fileEditNoMatch.test.ts`（测试文件名） | write · pass |
+| `file_read` | core | `app/tests/tools/FileReadTool.test.ts`（测试文件名） | read · pass |
+| `file_write` | core | `app/tests/tools/fileWriteReadBeforeWrite.test.ts`（测试文件名） | write · pass |
+| `glob` | core | `app/tests/tools/GlobTool/GlobTool-braces.test.ts`（测试文件名） | read · pass |
+| `grep` | core | `app/tests/commands/grepArgsParity.test.ts`（测试文件名） | read · pass |
+| `image` | core | `app/tests/tools/imageSafetyFilter.test.ts`（测试文件名） | write · pass |
+| `image_analysis` | community | —（无专属测试） | read · pass |
+| `image_display` | community | —（无专属测试） | read · pass |
+| `image_generate` | community | —（无专属测试） | write · pass |
+| `image_svg_generate` | community | —（无专属测试） | write · pass |
+| `kanban` | core | `app/tests/tools/kanbanTool.test.ts`（测试文件名） | write · pass |
+| `knowledge_save` | core | `app/tests/tools/knowledgeSaveTool.test.ts`（测试文件名） | write · pass |
+| `list_peers` | community | —（无专属测试） | read · pass |
+| `lsp` | core | `app/tests/tools/lspRequestTimeout.test.ts`（测试文件名） | write · pass |
+| `mcp_auth` | core | `app/tests/tools/mcpAuthTool.test.ts`（测试文件名） | external · pass |
+| `mcp_resource` | core | `app/tests/vfs/mcpResourcesDriver.test.ts`（测试文件名） | read · pass |
+| `mcp_tool` | core | `app/tests/mcp/mcpToolRegistrationPath.test.ts`（测试文件名） | external · pass |
+| `monitor` | core | `app/tests/monitoring/MonitoringModuleTest.test.ts`（测试文件名） | write · pass |
+| `music` | community | —（无专属测试） | write · pass |
+| `notebook` | core | `app/tests/tools/notebook.test.ts`（测试文件名） | write · pass |
+| `pdf` | core | `app/tests/tools/PDFTool.test.ts`（测试文件名） | read · pass |
+| `plan` | core | `app/tests/core/planDrivenLoop.test.ts`（测试文件名） | write · pass |
+| `powershell` | core | `app/tests/tools/powerShellStringPrefixCommands.test.ts`（测试文件名） | shell · pass |
+| `read_project_file` | core | `app/tests/tools/readProjectFile-directory.test.ts`（测试文件名） | read · pass |
+| `repl` | core | `app/tests/chat/replyEffort.test.ts`（测试文件名） | shell · pass |
+| `save_conversation` | community | —（无专属测试） | write · pass |
+| `send_message` | community | —（无专属测试） | external · pass |
+| `sessions` | core | `app/tests/ai/sessionStickyRouting.test.ts`（测试文件名） | write · pass |
+| `sessions_yield` | core | `app/tests/tools/sessionsYield.test.ts`（测试文件名） | write · pass |
+| `skill` | core | `app/tests/memory/utils/SkillMemoryGraph.test.ts`（测试文件名） | write · pass |
+| `sleep` | core | `app/tests/chat/orchestrator/abortTurnEndBackfill.test.ts`（实现类导入） | write · pass |
+| `task_list` | community | —（无专属测试） | read · pass |
+| `task_output` | community | —（无专属测试） | read · pass |
+| `task_stop` | community | —（无专属测试） | write · pass |
+| `team_create` | community | —（无专属测试） | external · pass |
+| `team_delete` | community | —（无专属测试） | external · pass |
+| `todo_write` | core | `app/tests/tools/TodoWriteTool.normalize.test.ts`（测试文件名） | write · pass |
+| `tool_search` | core | `app/tests/tools/toolSearchCoverage.test.ts`（测试文件名） | read · pass |
+| `trace_recording` | core | `app/tests/integration/trace-recording.test.ts`（测试文件名） | read · pass |
+| `tts` | core | `app/tests/voice/ttsStreaming.test.ts`（测试文件名） | write · pass |
+| `tungsten` | community | —（无专属测试） | write · pass |
+| `vfs` | core | `app/tests/http/vfs-mounts.test.ts`（测试文件名） | write · pass |
+| `video` | core | `app/tests/http/videoMetadataDuration.test.ts`（测试文件名） | write · pass |
+| `video_analysis` | community | —（无专属测试） | read · pass |
+| `video_display` | community | —（无专属测试） | read · pass |
+| `video_generate` | core | `app/tests/tools/VideoGenerateTool.test.ts`（测试文件名） | write · pass |
+| `web_fetch` | core | `app/tests/tools/webFetchReadOnly.test.ts`（测试文件名） | read · pass |
+| `web_search` | community | —（无专属测试） | read · pass |
+| `worktree` | community | —（无专属测试） | write · pass |
+| `write_project_file` | core | `app/tests/tools/writeProjectFile-failure.test.ts`（测试文件名） | write · pass |

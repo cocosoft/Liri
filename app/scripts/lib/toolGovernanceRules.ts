@@ -35,7 +35,10 @@ export interface ExceptionsFile {
 export type EntryStatus =
   | 'centralized'
   | 'authorized'
+  | 'caller-authorized'
   | 'scoped-readonly'
+  /** 当前无生产调用方（静态取证：无 `new` / 无 import / 仅导出） */
+  | 'unreachable'
   | 'needs-review';
 
 export interface EntrypointRecord {
@@ -131,7 +134,9 @@ export function validateAcceptedGaps(
     if (!gaps) continue;
     for (const gap of accepted.gaps) {
       if (!gaps.has(gap)) {
-        errors.push(`acceptedGaps 已失效（矩阵不再检出）：${accepted.tool}[${gap}]`);
+        errors.push(
+          `acceptedGaps 已失效（矩阵不再检出）：${accepted.tool}[${gap}]`
+        );
       }
     }
   }
@@ -170,7 +175,9 @@ export function validateEntrypoints(
   const allowedStatuses: readonly EntryStatus[] = [
     'centralized',
     'authorized',
+    'caller-authorized',
     'scoped-readonly',
+    'unreachable',
     'needs-review',
   ];
   for (const entry of registry.entries) {
@@ -183,8 +190,14 @@ export function validateEntrypoints(
     if (entry.status === 'needs-review' && !entry.note.trim()) {
       errors.push(`${entry.file}: needs-review 必须写 note（待取证说明）`);
     }
-    if (entry.status === 'authorized' && !entry.authorizedBy) {
-      errors.push(`${entry.file}: authorized 必须写 authorizedBy`);
+    if (entry.status === 'unreachable' && !entry.note.trim()) {
+      errors.push(`${entry.file}: unreachable 必须写 note（无调用方证据）`);
+    }
+    if (
+      (entry.status === 'authorized' || entry.status === 'caller-authorized') &&
+      !entry.authorizedBy
+    ) {
+      errors.push(`${entry.file}: ${entry.status} 必须写 authorizedBy`);
     }
   }
   return errors;

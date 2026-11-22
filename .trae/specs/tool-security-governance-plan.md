@@ -156,13 +156,23 @@ TOOL_EFFECTS                ─┼─► gen-tool-governance-matrix.ts ─► .t
   `@modules/tools`），三个执行入口共同调用；app 侧保留 re-export shim（既有单测路径零改动）。
 - 边界：仍**不阻断**（仅标注 + warn），与既有语义一致。
 
-### G6 直调点授权证据未固化（P2）
+### G6 直调点授权证据未固化（P2 · **已关闭 2026-11-22**）
 
-- 现状：`tool.execute(` 直调点 ≥10 处（agent 循环 / 批量 / 各策略 / LRO / 子代理 / Doc 流水线 / 扩展执行器 …）。
-  其中 LRO 已在 2026-11-09 接入 `authorizeLroToolCall`（`stepExecution.ts:684-733`）；
-  其余调用点是否"先授权后执行"**未逐一取证**。
-- 计划：`app/architecture` 下登记 `tool-execution-entrypoints.json`（每处：文件、授权函数、证据测试）；
-  新增直调点必须登记，否则门禁失败。**不猜测"应该有授权"**。
+逐点取证 16 个入口（`tool-execution-entrypoints.json`），结论：
+
+| status | 数量 | 入口 |
+|---|---:|---|
+| `centralized` | 3 | ToolRegistry / ToolExecutor / OptimizedToolManagerUtils |
+| `authorized` | 3 | LRO stepExecution / SubAgentEngine / PlanTool |
+| `scoped-readonly` | 1 | LRO stepArtifacts（仅 file_read） |
+| `caller-authorized` | 2 | DocPipeline（外层权限闸）/ domainSnapshotOps（video-task-handlers 先授权） |
+| `unreachable` | 7 | `app/src/agent/**`（5 文件）、ExtendedToolExecutor、SmartToolIntegrator —— 静态取证无生产调用方 |
+
+- **发现并修复**：`PlanTool` 的 command 分支此前直接 `bashTool.execute`，绕过权限模式/deny 规则；
+  已与 tool 分支同源补 `authorizeToolCall`（ask/deny 均不执行）。
+- **如实记录的残余风险**：DocPipeline 内层固定调用 `image_generate` / `doc_generate`，不单独授权 ⇒
+  针对这两个工具的独立 deny/ask 规则不生效（受外层工具决策约束）。
+- `unreachable` 不等于"可删"（CD07）：接入前必须先补授权；台账会在接入文件变化时提醒复核。
 
 ### G7 审计 reason 码只在 bash 域有登记（P2 · **已关闭 2026-11-22（重定范围）**）
 
@@ -325,10 +335,7 @@ DoD：
 
 ### 10.5 未做（按计划留给 P1/P2）
 
-~~G1 `computer_use` 分档~~、~~G2 `browser` SSRF~~、~~G3 `web_fetch.saveToFile`~~、
-~~G4 执行类标记~~、~~G5 outputSchema 收敛~~、~~G7 reason 码推广~~、~~G8 审批指纹评估~~、
-~~P2-4 治理证据列~~、~~G9 结果上限~~ 已关闭（见 §11/§12）；
-仍待：G6 直调点逐个取证（11 处 needs-review）。
+~~G1 … G9~~ 全部关闭（见 §11/§12）；**本计划无剩余待办**。
 
 ---
 
@@ -419,9 +426,18 @@ DoD：
 - 治理矩阵：`no-result-limit` 缺口消失 ⇒ **69 工具 / pass 69 / accepted 0 / gap 0**；例外表清空。
 - 行为变化（如实）：两者现在受统一出参截断约束（上限 100k 字符，与 bash 同口径）。
 
-### P2 未做（继续排期）
+### P2-5 直调点授权取证（G6）
 
-| ID | 内容 | 说明 |
-|---|---|---|
-| G6 | 直调点逐个取证 | `tool-execution-entrypoints.json` 中 11 处 `needs-review` 需逐点确认授权前置或补授权 |
+| 项 | 落点 |
+|---|---|
+| 台账 | `.trae/architecture/tool-execution-entrypoints.json`：16 入口全部给出结论（3 centralized / 3 authorized / 1 scoped-readonly / 2 caller-authorized / 7 unreachable） |
+| 状态扩展 | `app/scripts/lib/toolGovernanceRules.ts`：新增 `caller-authorized`（必须写 authorizedBy）与 `unreachable`（必须写无调用方证据） |
+| 代码修复 | `PlanTool` command 分支补 `authorizeToolCall`（此前直接 `bashTool.execute`，绕过权限模式/deny 规则） |
+| 测试 | `toolGovernanceGate.test.ts` 新增两类状态校验（14 pass） |
+| 残余风险 | DocPipeline 内层 `image_generate` / `doc_generate` 不单独授权（受外层工具决策约束，已记录） |
+
+### P2 收口
+
+G1–G9 与 P2-4/P2-5 全部关闭；**本计划无剩余待办**。后续新增工具 / 新直调点由
+`lint:tool-governance`、`lint:tool-interception-reasons`、`lint:support-levels` 三道门禁持续约束。
 

@@ -1,5 +1,5 @@
 {
-  "note": "工具执行入口台账（P0，2026-11-22）。凡 app/src/** 里出现 tool.execute( 的文件都必须在此登记；新增文件或出现次数变化 ⇒ lint:tool-governance 失败（请先复核该入口是否在 execute 前完成授权，再更新台账）。status：centralized=位于统一执行链（ToolRegistry / ToolExecutor / ToolManager）；authorized=本处显式调用授权函数；scoped-readonly=只调用固定只读工具（如 file_read）；needs-review=尚未逐一取证（必须在 note 写明）。",
+  "note": "工具执行入口台账（P0，2026-11-22；G6 取证完成 2026-11-22）。凡 app/src/** 里出现 tool.execute( 的文件都必须在此登记；新增文件或出现次数变化 ⇒ lint:tool-governance 失败。status：centralized=位于统一执行链（ToolRegistry / ToolExecutor / ToolManager）；authorized=本处显式调用授权函数；caller-authorized=本处不授权、由调用方在 execute 前完成授权（authorizedBy 写明调用方与函数）；scoped-readonly=只调用固定只读工具；unreachable=静态取证无生产调用方（note 写明证据，接入前必须补授权）；needs-review=尚未取证。",
   "scanRoots": ["src"],
   "entries": [
     {
@@ -7,7 +7,7 @@
       "status": "centralized",
       "authorizedBy": "ToolRegistry.executeTool（策略管道 + 调用方权限闸）",
       "occurrences": 1,
-      "note": "统一执行入口；权限判定在调用方（ToolExecutionService permissionGate / ToolManager authorizeToolCall）完成后才到达此处（P0-3 已将本处固定登记）。"
+      "note": "统一执行入口；权限判定在调用方（ToolExecutionService permissionGate / ToolManager authorizeToolCall）完成后才到达此处。"
     },
     {
       "file": "src/tools/ToolExecutor.ts",
@@ -26,9 +26,9 @@
     {
       "file": "src/tasks/lro/stepExecution.ts",
       "status": "authorized",
-      "authorizedBy": "authorizeLroToolCall（2026-11-09 接入）",
+      "authorizedBy": "authorizeLroToolCall（stepExecution.ts:684-733）",
       "occurrences": 1,
-      "note": "LRO 步骤执行；deny/ask 均在 execute 前短路（stepExecution.ts:684-733）。"
+      "note": "LRO 步骤执行；deny/ask 均在 execute 前短路。"
     },
     {
       "file": "src/tasks/lro/stepArtifacts.ts",
@@ -38,81 +38,81 @@
       "note": "固定只读工具调用；不接受模型指定工具名（stepArtifacts.ts:80-91）。"
     },
     {
-      "file": "src/agent/agent.ts",
-      "status": "needs-review",
-      "authorizedBy": null,
-      "occurrences": 1,
-      "note": "旧 Agent 循环内直调；授权前置点未逐一取证（G6）。"
-    },
-    {
-      "file": "src/agent/ToolCallBatch.ts",
-      "status": "needs-review",
-      "authorizedBy": null,
-      "occurrences": 1,
-      "note": "Agent 批量并发执行；授权前置点未逐一取证（G6）。"
-    },
-    {
-      "file": "src/agent/strategies/agentStrategy.ts",
-      "status": "needs-review",
-      "authorizedBy": null,
-      "occurrences": 3,
-      "note": "Agent 策略内直调；授权前置点未逐一取证（G6）。"
-    },
-    {
-      "file": "src/agent/strategies/GeneralAgentStrategy.ts",
-      "status": "needs-review",
-      "authorizedBy": null,
-      "occurrences": 1,
-      "note": "Agent 策略内直调；授权前置点未逐一取证（G6）。"
-    },
-    {
-      "file": "src/agent/strategies/PlanAgentStrategy.ts",
-      "status": "needs-review",
-      "authorizedBy": null,
-      "occurrences": 1,
-      "note": "Agent 策略内直调；授权前置点未逐一取证（G6）。"
-    },
-    {
       "file": "src/tools/AgentTool/SubAgentEngine.ts",
-      "status": "needs-review",
-      "authorizedBy": null,
+      "status": "authorized",
+      "authorizedBy": "authorizeToolCall（SubAgentEngine.ts:898-908）",
       "occurrences": 1,
-      "note": "子代理引擎内直调；授权前置点未逐一取证（G6）。"
+      "note": "G6（2026-11-22）：ask/deny 均不执行；工具池由 allowedTools 收窄（AgentTool.ts:908-931），只能收窄不能扩权。"
     },
     {
       "file": "src/tools/PlanTool/PlanTool.ts",
-      "status": "needs-review",
-      "authorizedBy": null,
+      "status": "authorized",
+      "authorizedBy": "authorizeToolCall（tool 分支 :600-608；command 分支 2026-11-22 补齐）",
       "occurrences": 1,
-      "note": "计划模式内部工具调用；授权前置点未取证。"
-    },
-    {
-      "file": "src/tools/executor/ExtendedToolExecutor.ts",
-      "status": "needs-review",
-      "authorizedBy": null,
-      "occurrences": 1,
-      "note": "扩展执行器（自带 retry/格式化）；未见权限链，待取证（G6）。"
-    },
-    {
-      "file": "src/chat/tool/SmartToolIntegrator.ts",
-      "status": "needs-review",
-      "authorizedBy": null,
-      "occurrences": 1,
-      "note": "旧集成层；授权前置点未逐一取证（G6）。"
+      "note": "G6：command 分支此前直接 bashTool.execute（绕过权限模式/deny 规则），已与 tool 分支同源补齐授权。注：本行 occurrences 只统计 `tool.execute`；命令分支调用的是 `bashTool.execute`。"
     },
     {
       "file": "src/modules/doc/pipeline/DocPipelineTool.ts",
-      "status": "needs-review",
-      "authorizedBy": null,
+      "status": "caller-authorized",
+      "authorizedBy": "外层 office:doc-pipeline 经 ToolExecutionService.applyToolPermissionGate（:817）",
       "occurrences": 2,
-      "note": "文档流水线内部调用 doc 工具；授权前置点未取证。"
+      "note": "G6：内层工具固定（image_generate :58 / doc_generate :108）。残余风险：内层不再单独授权 ⇒ 对这两个工具的独立 deny/ask 规则不生效（仅受外层工具决策约束），已记录于治理计划。"
     },
     {
       "file": "src/runtime/api/domainSnapshotOps.ts",
-      "status": "needs-review",
+      "status": "caller-authorized",
+      "authorizedBy": "video-task-handlers.ts:96 authorizeToolCall（:111-119 !allowed ⇒ 403）",
+      "occurrences": 1,
+      "note": "G6：本函数仅在授权后调用固定 video_generate（:517-521）。"
+    },
+    {
+      "file": "src/agent/agent.ts",
+      "status": "unreachable",
       "authorizedBy": null,
       "occurrences": 1,
-      "note": "运行时 API（快照/域操作）内直调；授权前置点未取证。"
+      "note": "G6（2026-11-22 静态取证）：app/src/agent/** 无任何授权原语；该链唯一生产入口 AgentUIManager.sendCommand 全仓无调用方，MultiSourceAgentManager.checkAgentHealth 仅健康探针。当前不可达；接入前必须先补授权（默认工具集含 command/file_write）。"
+    },
+    {
+      "file": "src/agent/ToolCallBatch.ts",
+      "status": "unreachable",
+      "authorizedBy": null,
+      "occurrences": 1,
+      "note": "G6：全仓无 `new ToolCallBatch`；仅 index 再导出，无生产调用方。接入前必须补授权（且它直接调 BaseTool.execute，绕过 checkPermissions）。"
+    },
+    {
+      "file": "src/agent/strategies/agentStrategy.ts",
+      "status": "unreachable",
+      "authorizedBy": null,
+      "occurrences": 3,
+      "note": "G6：策略仅由 agent.ts:120 触发，而该链无可达生产调用方（同 agent.ts 条）；无授权原语。"
+    },
+    {
+      "file": "src/agent/strategies/GeneralAgentStrategy.ts",
+      "status": "unreachable",
+      "authorizedBy": null,
+      "occurrences": 1,
+      "note": "G6：同上（仅经 agent.ts:120，链路不可达）。"
+    },
+    {
+      "file": "src/agent/strategies/PlanAgentStrategy.ts",
+      "status": "unreachable",
+      "authorizedBy": null,
+      "occurrences": 1,
+      "note": "G6：同上（仅经 agent.ts:120，链路不可达）。"
+    },
+    {
+      "file": "src/tools/executor/ExtendedToolExecutor.ts",
+      "status": "unreachable",
+      "authorizedBy": null,
+      "occurrences": 1,
+      "note": "G6：全仓无 `new ExtendedToolExecutor` / 无导入点（仅 executor/index 导出）；toolId 为调用方任意字符串。接入前必须先补授权。"
+    },
+    {
+      "file": "src/chat/tool/SmartToolIntegrator.ts",
+      "status": "unreachable",
+      "authorizedBy": null,
+      "occurrences": 1,
+      "note": "G6：全仓仅 barrel 导出与 ChatModuleTest 内联测试引用，无生产调用方；executeTool 无权限判定。接入前必须补授权。"
     }
   ]
 }

@@ -156,6 +156,34 @@ describe('validateEntrypoints：执行入口台账', () => {
       errors.some((e) => e.includes('authorized 必须写 authorizedBy'))
     ).toBe(true);
   });
+
+  it('caller-authorized 必须写 authorizedBy；unreachable 必须写证据 note（G6）', () => {
+    const errors = validateEntrypoints(
+      registry([
+        {
+          file: 'src/a.ts',
+          status: 'caller-authorized',
+          authorizedBy: null,
+          occurrences: 1,
+          note: '',
+        },
+        {
+          file: 'src/b.ts',
+          status: 'unreachable',
+          authorizedBy: null,
+          occurrences: 2,
+          note: '',
+        },
+      ]),
+      scanned
+    );
+    expect(
+      errors.some((e) => e.includes('caller-authorized 必须写 authorizedBy'))
+    ).toBe(true);
+    expect(errors.some((e) => e.includes('unreachable 必须写 note'))).toBe(
+      true
+    );
+  });
 });
 
 describe('validateExceptions：例外表', () => {

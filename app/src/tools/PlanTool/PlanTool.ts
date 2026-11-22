@@ -641,10 +641,31 @@ export class PlanTool extends BaseTool<
           '1000'
         );
       }
-      return bashTool.execute(
-        { command, description: step.description || step.name },
-        context
-      );
+      // G6（2026-11-22 取证）：命令分支此前**直接** `bashTool.execute`，绕过授权 ⇒
+      // 计划内的 bash 步骤不受权限模式 / deny 规则约束（tool 分支已授权，二者口径不一致）。
+      // 现与 tool 分支同源：`authorizeToolCall` 先行，ask/deny 一律不执行。
+      const bashArgs = {
+        command,
+        description: step.description || step.name,
+      };
+      const auth = await authorizeToolCall(PermissionManager.getInstance(), {
+        toolName: bashTool.name,
+        args: bashArgs,
+        context: {
+          ...(context.sessionId ? { sessionId: context.sessionId } : {}),
+          userId: getRequestPrincipal().userId,
+          userRoles: getEffectivePermissionRoles(),
+        },
+      });
+      return auth.allowed
+        ? await bashTool.execute(bashArgs, context)
+        : createToolResult(null, {
+            success: false,
+            error:
+              auth.kind === 'ask'
+                ? `命令需要人工审批：${auth.reason ?? '等待批准'}`
+                : `命令被权限拒绝：${auth.reason ?? '不在允许范围内'}`,
+          });
     }
 
     return {

@@ -237,10 +237,10 @@ export class KnowledgeSaveTool implements Tool {
   }
 
   /**
-   * 并发安全
+   * 并发安全（F10，2026-11-22）：写知识库（同 id upsert）⇒ 串行，避免并行覆盖。
    */
   isConcurrencySafe(_input?: Record<string, unknown>): boolean {
-    return true;
+    return false;
   }
 
   /**

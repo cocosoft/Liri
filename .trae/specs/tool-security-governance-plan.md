@@ -460,15 +460,19 @@ F3–F10 仍待办 ⇒ 本节原「本计划无剩余待办」表述已按事实
 | F4 | `maxResultSizeChars` 只被透传/展示，真实截断一律用全局 50k | `ToolResultPersister` 新增 `resolveSingleResultLimit`，内部经 `getToolRegistry()` 读取声明（缺省 50k）；单轮 200k 聚合仍为硬兜底 | `app/tests/tools/toolResultLimit.test.ts`（3 项） |
 | F5 | 超时仅 chat 链且不取消底层；Registry / ToolManager / LRO 无超时 | 新增唯一实现 `app/src/tools/utils/toolDeadline.ts`（超时 abort 派生 controller、父取消转发）；接入 `ToolRegistry`、`ToolManager`、LRO `runAuthorizedToolCall`；缺省值取常量真源 `DEFAULT_TOOL_EXEC_TIMEOUT_MS`（`LIRI_TOOL_TIMEOUT_MS` 原 30s 且零消费者 ⇒ 对齐 chat 链 300s） | `app/tests/tools/toolDeadline.test.ts`（3 项） |
 | F6 | 真实拦截点缺 `metadata.reason` | 新增 4 码并登记：`path_guard_blocked` / `workspace_escape_blocked` / `policy_denied` / `mcp_not_connected`；`recordSkippedToolCall` 透传 metadata | `interceptionReasons.test.ts` 追加 1 项 |
+| F7 | `coordinator.agentTool.execute` 无授权 | 取证：唯一调用方是 `sessionAgentOps.addAgentTask`（HTTP 任务 API）；子代理内工具由 `SubAgentEngine` 授权 ⇒ **非独立工具入口**，不新增判定 | — |
+| F8 | `MediaPlugin` 直调 image 工具、传空 context | 取证：`generateImage` / `analyzeImage` **无生产调用方**（未接线插件兼容接口）⇒ 非模型工具面 | — |
+| F9 | `LSPToolIntegration` 绕过 Registry/权限链 | 取证：`createLSPToolIntegration` 在 `tools/lsp/**` 外**无生产消费者**（sidecar spec 已记录）；**接线前必须补授权** | — |
+| F10 | 写同资源工具标记并发安全 | `media_delete` / `media_delete_batch` / `knowledge_save` / `mcp_tool` 改为 `isConcurrencySafe=false`；图片族保持（残余风险：同输出路径竞争，模型通常按不同路径调用） | `app/tests/tools/concurrencySafety.test.ts`（4 项） |
 
-验证：`typecheck` 通过；全量 `bun run ci` **13709 pass / 42 skip / 0 fail**；
-`lint:tool-governance`（69 pass / gap 0）、`lint:tool-interception-reasons`、`lint:arch`、`lint:consts` 通过。
+验证：`typecheck` 通过；全量 `bun run ci` **13713 pass / 42 skip / 0 fail**；
+`lint:tool-governance`（69 pass / gap 0，矩阵已重生）、`lint:tool-interception-reasons`、`lint:arch`、`lint:consts` 通过。
 
 ### 13.2 待办（未修，按严重度）
 
 | ID | 问题 |
 |---|---|
-| F7–F10 | `coordinator` 委派授权待核实；`MediaPlugin` 直调；`LSPToolIntegration` 绕过 Registry；`isConcurrencySafe` 写同资源项可疑 |
+| — | F1–F10 已全部处理（F7/F8/F9 取证为非入口/未接线，接线前必须补授权；F10 已修） |
 
 ### 13.3 G9 结论订正（如实）
 

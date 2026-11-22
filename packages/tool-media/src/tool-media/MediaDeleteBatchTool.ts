@@ -43,7 +43,8 @@ export function createMediaDeleteBatchTool(): Tool {
     isEnabled: () => true,
     isReadOnly: () => false,
     isDestructive: () => true,
-    isConcurrencySafe: () => true,
+    // F10（2026-11-22）：批量删除不可并发（同一批/交叉批会重叠删除）
+    isConcurrencySafe: () => false,
     /** U-03（2026-10-20）：模型可见出参结构 */
     outputJsonSchema: MEDIA_DELETE_BATCH_OUTPUT_JSON_SCHEMA,
 

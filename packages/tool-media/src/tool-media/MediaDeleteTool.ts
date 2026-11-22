@@ -43,7 +43,8 @@ export function createMediaDeleteTool(): Tool {
     isEnabled: () => true,
     isReadOnly: () => false,
     isDestructive: () => true,
-    isConcurrencySafe: () => true,
+    // F10（2026-11-22）：删除同资源不可并发（并行删同一媒体 ⇒ 冲突/误报）
+    isConcurrencySafe: () => false,
     /** U-03（2026-10-20）：模型可见出参结构 */
     outputJsonSchema: MEDIA_DELETE_OUTPUT_JSON_SCHEMA,
 

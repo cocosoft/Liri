@@ -133,7 +133,8 @@ export const MCPTool: Tool = {
   /** PR-0：对象字面量实现无 `getRiskClass()` ⇒ 显式声明风险（lint:tool-risk 规则 3） */
   riskClass: 'external',
   isReadOnly: () => false,
-  isConcurrencySafe: () => true,
+  // F10（2026-11-22）：泛型 MCP 调用语义未知（可能写同一远端资源）⇒ 串行
+  isConcurrencySafe: () => false,
   getInfo: function () {
     return {
       name: this.name,

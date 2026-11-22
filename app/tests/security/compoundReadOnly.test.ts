@@ -208,6 +208,20 @@ describe('BashSecurityAnalyzer：复合只读放行', () => {
     expect(r.message ?? '').toContain('等价单条写法');
   });
 
+  // 2026-11-22（真机会话 session_mwr473pd502e995dd1）：`set` 只查看环境变量仍需审批。
+  // `set` 无法整体进白名单（可能是 `set VAR=value` 赋值），故按参数区分。
+  it('set 查看（无赋值）属只读 ⇒ allow', () => {
+    expect(
+      analyzer.analyze('set | findstr /i "PYAPP USERPROFILE"').behavior
+    ).toBe('allow');
+    expect(analyzer.analyze('set PATH | findstr PATH').behavior).toBe('allow');
+  });
+
+  it('set 赋值 ⇒ 仍转审批（不整体放宽）', () => {
+    const r = analyzer.analyze('set FOO=1 && dir');
+    expect(r.behavior).toBe('ask');
+  });
+
   it('重定向 ⇒ 仍 deny，且带可读原因（F1）', () => {
     const r = analyzer.analyze('dir > out.txt');
     expect(r.behavior).toBe('deny');

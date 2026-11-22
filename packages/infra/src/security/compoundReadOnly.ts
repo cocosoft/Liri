@@ -236,6 +236,19 @@ export function checkCompoundReadOnly(
       continue;
     }
 
+    // 2026-11-22（真机会话 session_mwr473pd502e995dd1 反馈）：`set | findstr /i "PYAPP USERPROFILE"`
+    // 是**纯查看**环境变量，却因 `set` 不在只读白名单而被判「非只读命令（set）」并要求审批。
+    // `set` 既可能查看（`set` / `set NAME`）也可能赋值（`set NAME=value`），无法整体进白名单，
+    // 故按**参数**区分：无 `=`、且非 `/a`（算术）⇒ 只读查看；其余仍走审批。
+    if (first.toLowerCase() === 'set') {
+      const rest = probe.replace(/^set\b/i, '');
+      const assigns = rest.includes('=') || /(^|\s)\/a\b/i.test(rest);
+      if (!assigns) {
+        cleaned.push(seg);
+        continue;
+      }
+    }
+
     if (!READ_ONLY_BASE_COMMANDS.has(first.toLowerCase())) {
       return { allowed: false, reason: `非只读命令（${first}）`, segments };
     }

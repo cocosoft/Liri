@@ -10,7 +10,10 @@
 import { describe, expect, it } from 'bun:test';
 import { checkCompoundReadOnly } from '@openliri/infra/security/compoundReadOnly';
 import { stripHarmlessRedirects } from '@openliri/infra/security/compoundReadOnly';
-import { BashSecurityAnalyzer } from '@openliri/infra/security/BashSecurityAnalyzer';
+import {
+  BashSecurityAnalyzer,
+  isUnconditionallyDeniedBashCommand,
+} from '@openliri/infra/security/BashSecurityAnalyzer';
 
 describe('checkCompoundReadOnly：正向（全段只读）', () => {
   it('cd + dir 串联', () => {
@@ -338,5 +341,80 @@ describe('P1-3：`2>&1` / `2>nul` 不再触发复合命令硬拒', () => {
       'bun test > out.txt'
     );
     expect(stripHarmlessRedirects('dir 2>nulx')).toBe('dir 2>nulx');
+  });
+});
+
+// ─── P0（2026-11-22）：只读命令的「写 / 执行型开关」一律 deny（不可经审批放行） ───
+describe('P0：只读族的参数级禁区（analyzer 端到端）', () => {
+  const analyzer = new BashSecurityAnalyzer();
+
+  const denied = [
+    'find . -exec node evil.js +',
+    'find . -execdir rm -rf {} +',
+    'find . -ok node evil.js +',
+    'find . -delete',
+    'find . -fprint out.txt',
+    'find . -fls out.txt',
+    'rg --pre sh TODO',
+    'sort -o out.txt in.txt',
+    'sort --output=out.txt in.txt',
+    'sort --compress-program=sh in.txt',
+    'sort /O out.txt in.txt',
+    'uniq in.txt out.txt',
+    'tree -o out.txt .',
+    'date -s 2020-01-01',
+    'date 01/01/2020',
+    'file -C',
+  ];
+
+  for (const command of denied) {
+    it(`deny：${command}`, () => {
+      const r = analyzer.analyze(command);
+      expect(r.behavior).toBe('deny');
+      expect(r.matchedPatterns.join(' | ')).toContain('readonly-arg-guard');
+      // 报文必须可照抄（等价只读写法）
+      expect(r.message ?? '').toContain('等价');
+      // 恒定 deny ⇒ 不可经审批放行
+      expect(isUnconditionallyDeniedBashCommand(command)).toBe(true);
+    });
+  }
+
+  const allowed = [
+    'find . -name "*.ts"',
+    'rg TODO src',
+    'sort in.txt',
+    'sort -n in.txt',
+    'uniq in.txt',
+    'tree .',
+    'date',
+    'date +%Y-%m-%d',
+    'file package.json',
+  ];
+
+  for (const command of allowed) {
+    it(`仍 allow：${command}`, () => {
+      expect(analyzer.analyze(command).behavior).toBe('allow');
+      expect(isUnconditionallyDeniedBashCommand(command)).toBe(false);
+    });
+  }
+
+  it('复合命令逐段判定：任一段带执行开关 ⇒ deny（不是 ask）', () => {
+    for (const command of [
+      'cd X && find . -exec node evil.js +',
+      'dir && sort -o out.txt in.txt',
+      'echo a; uniq in.txt out.txt',
+    ]) {
+      const r = analyzer.analyze(command, undefined, {});
+      expect({ command, behavior: r.behavior }).toEqual({
+        command,
+        behavior: 'deny',
+      });
+      expect(r.message ?? '').toContain('等价');
+    }
+  });
+
+  it('未加守卫的命令仍维持原口径（只读放行 / 未知转审批）', () => {
+    expect(analyzer.analyze('dir /b').behavior).toBe('allow');
+    expect(analyzer.analyze('node script.js').behavior).toBe('ask');
   });
 });

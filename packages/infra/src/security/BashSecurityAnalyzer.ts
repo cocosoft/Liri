@@ -188,7 +188,11 @@ import {
   SPECIAL_CHAR_PATTERNS,
 } from './patterns';
 // P2-3（2026-11-03）：快速只读命令清单收敛到 `security/readOnlyCommands.ts`（单一来源）
-import { BASH_QUICK_READ_ONLY_COMMANDS } from './readOnlyCommands';
+// P0（2026-11-22）：只读命令的「参数级禁区」同一来源（主链 / 复合 / auto 档共用）
+import {
+  BASH_QUICK_READ_ONLY_COMMANDS,
+  findReadonlyArgViolation,
+} from './readOnlyCommands';
 import { parseCommand, type IParsedCommand } from './bash/ParsedCommand';
 import { analyzeBashCommand, type BashAnalysisResult } from './bash/BashAST';
 import {
@@ -311,6 +315,9 @@ function isNonReadOnlySegmentReason(reason: string): boolean {
 export function isUnconditionallyDeniedBashCommand(command: string): boolean {
   const trimmed = command.trim();
   if (!trimmed) return false;
+  // P0（2026-11-22）：只读命令带写/执行型开关（`find -exec` / `rg --pre` / `sort -o` …）
+  // ⇒ 恒定 deny（见 `analyze` 同源判据），不必再给"批准一次"的入口。
+  if (findReadonlyArgViolation(trimmed)) return true;
   const allowlistCheck = checkBashAllowlist(trimmed);
   if (allowlistCheck.safe) return false;
   if (!allowlistCheck.reason.includes('Shell operator')) return false;
@@ -617,6 +624,26 @@ export class BashSecurityAnalyzer {
             `嵌套深度超过剥壳上限（${MAX_SHELL_UNWRAP_DEPTH} 层）`
           );
         }
+      }
+    }
+
+    // P0（2026-11-22）：只读命令的「写 / 执行型开关」一律硬拒（不可经审批放行）。
+    //
+    // 背景（真机五道门实测）：只读族此前按**命令名**放行 ⇒ `find . -exec node evil.js +`、
+    // `find . -delete`、`rg --pre sh TODO`、`sort -o out.txt`、`uniq in.txt out.txt`、
+    // `tree -o out.txt`、`date -s …` 全部落 allow（零审批），其中前四类可直接执行外部程序。
+    // 判据唯一来源：`findReadonlyArgViolation`（主链 / 复合 / auto 档共用）。
+    // 复合命令不走这里（首 token 不是被守卫命令），由 `checkCompoundReadOnly` 逐段判定。
+    if (!options.delegatedSinglePowerShell) {
+      const argViolation = findReadonlyArgViolation(trimmedCommand);
+      if (argViolation) {
+        return {
+          safe: false,
+          behavior: 'deny',
+          riskLevel: 'high',
+          message: argViolation.message,
+          matchedPatterns: [`readonly-arg-guard: ${argViolation.command}`],
+        } as SecurityAnalysisResult;
       }
     }
 

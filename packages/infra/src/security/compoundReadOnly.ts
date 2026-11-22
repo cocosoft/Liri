@@ -21,6 +21,8 @@ import {
   READ_ONLY_BASE_COMMANDS,
   VERSION_ONLY_QUERY_PATTERN,
   isGitReadOnlyCommand,
+  // P0（2026-11-22）：只读命令的「参数级禁区」（唯一判据）
+  findReadonlyArgViolation,
 } from './readOnlyCommands';
 
 // P2-3（2026-11-03）：只读基命令 / 版本查询 / git 只读清单收敛到 `readOnlyCommands.ts`
@@ -228,6 +230,16 @@ export function checkCompoundReadOnly(
     // 切段后 `2>nul` / `2>&1` 会留在段尾，而版本查询 / git 只读是**整串锚定**正则 ⇒ 先剥离
     // 良性重定向再判定（`cleaned` 仍推原段，审批指纹/展示不变）。
     const probe = stripHarmlessRedirects(seg);
+
+    // P0（2026-11-22）：只读族的「写 / 执行型开关」不是只读 ——
+    // 单条与复合共用同一判据（`find -exec` / `rg --pre` / `sort -o` / `uniq in out` /
+    // `tree -o` / `date -s` / `file -C`）。返回原因不含「非只读命令（」⇒ 调用方按结构风险硬拒，
+    // 不给「批准一次即可长期放行」的口子。
+    const argViolation = findReadonlyArgViolation(probe);
+    if (argViolation) {
+      return { allowed: false, reason: argViolation.message, segments };
+    }
+
     if (
       VERSION_ONLY_QUERY_PATTERN.test(probe) ||
       isGitReadOnlyCommand(probe)

@@ -30,6 +30,9 @@ describe('checkReadonlyCommand：只读命令放行', () => {
     'echo hello',
     'date',
     'date +%Y-%m-%d',
+    // P0（2026-11-22）：只读族的**只读**形态仍放行（参数级禁区只看写/执行开关）
+    'sort -n in.txt',
+    'uniq in.txt',
     'git status',
     'git log --oneline -5',
     'git diff --stat',
@@ -87,6 +90,13 @@ describe('checkReadonlyCommand：写入 / 执行 / 组合 / 伪装不放行', ()
     ['date 位置参数', 'date 01/01/2020'],
     ['sort 写文件', 'sort -o out.txt in.txt'],
     ['sort --output', 'sort --output=out.txt in.txt'],
+    // P0（2026-11-22）：只读族的参数级禁区（与主链共用同一判据）
+    ['sort 压缩程序（执行外部程序）', 'sort --compress-program=sh in.txt'],
+    ['sort /O（Windows 写文件）', 'sort /O out.txt in.txt'],
+    ['uniq 写文件', 'uniq in.txt out.txt'],
+    ['tree 写文件', 'tree -o out.txt .'],
+    ['rg --pre（执行外部程序）', 'rg --pre sh TODO'],
+    ['find -fprint', 'find . -fprint out.txt'],
     ['file 编译 magic', 'file -C'],
     ['sudo', 'sudo ls'],
     ['xargs 执行', 'xargs rm'],

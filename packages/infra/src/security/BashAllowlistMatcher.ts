@@ -11,6 +11,8 @@ import {
   POWERSHELL_READ_ONLY_PREFIX_PATTERNS,
   VERSION_ONLY_QUERY_PATTERN,
   isGitReadOnlyCommand,
+  // P0（2026-11-22）：只读命令的「参数级禁区」（唯一判据在 readOnlyCommands.ts）
+  findReadonlyArgViolation,
 } from './readOnlyCommands';
 // P1-3（2026-11-06）：丢弃/合并型重定向不算 shell operator（与 compoundReadOnly 同口径）
 import { stripHarmlessRedirects } from './compoundReadOnly';
@@ -90,6 +92,14 @@ export function checkBashAllowlist(command: string): AllowlistResult {
   }
 
   // 2. Allow known safe commands
+  // P0（2026-11-22）：**先**过参数级禁区 —— 只读族里带写/执行开关的形态
+  // （`find -exec` / `find -delete` / `rg --pre` / `sort -o` / `uniq in out` / `tree -o` /
+  // `date -s` / `file -C`）一律不算安全；否则前缀链会按命令名把它们放行。
+  const argViolation = findReadonlyArgViolation(operatorProbe);
+  if (argViolation) {
+    return { safe: false, reason: argViolation.message };
+  }
+
   // P3-2（2026-11-16）：git 需**参数级**判定（`-c core.pager=…` / `--output=` / `config k v`
   // 等写/执行形态不得因"整族前缀"被放行），故先走统一入口再进前缀链。
   if (isGitReadOnlyCommand(trimmed)) {
@@ -132,6 +142,8 @@ export function checkBashAllowlist(command: string): AllowlistResult {
 export function isReadOnlyBashCommand(command: string): boolean {
   if (!command || command.trim().length === 0) return false;
   if (SHELL_OPERATORS.test(command.trim())) return false;
+  // P0（2026-11-22）：带写/执行开关的只读命令不算只读（与 checkBashAllowlist 同口径）
+  if (findReadonlyArgViolation(command.trim())) return false;
   if (isGitReadOnlyCommand(command.trim())) return true;
 
   for (const prefix of readOnlyPrefixes) {

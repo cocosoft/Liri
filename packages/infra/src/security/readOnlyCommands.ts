@@ -582,6 +582,176 @@ export const AUTO_MODE_DOCKER_READONLY_SUBCOMMANDS: ReadonlySet<string> = new Se
   'search',
 ]);
 
+// ─── 只读命令的「参数级禁区」（P0，2026-11-22）──────────────────
+//
+// 背景（真机五道门实测，2026-11-22）：只读族此前按**命令名**放行 ⇒
+// `find . -exec node evil.js +`、`find . -delete`、`rg --pre sh TODO`、
+// `sort -o out.txt`、`uniq in.txt out.txt`、`tree -o out.txt`、`date -s …`
+// 全部落 **allow**（零审批），而 `-exec` / `--pre` / `--compress-program` 都能执行外部程序。
+//
+// 参数级禁区此前**只在 auto 档**（`readonly-command-allowlist.violatesArgumentGuards`）实现
+// ⇒ 主链（`BashSecurityAnalyzer` / `compoundReadOnly` / `checkBashAllowlist`）比 auto 档更松。
+// 现收敛为本文件的**唯一判据**，三处消费者共用（新增守卫只改这里）。
+
+/** 参数级禁区的命中结果 */
+export interface ReadonlyArgViolation {
+  /** 归一化命令名（小写、去目录与 `.exe`） */
+  command: string;
+  /** 命中的开关 / 位置参数（用于报文与审计） */
+  flags: string[];
+  /** 面向模型的完整报文（含可照抄的等价只读写法） */
+  message: string;
+}
+
+/** `find` 中会执行子进程或写文件的表达式（`startsWith` 匹配，含 `-execdir` / `-fprintf` 等） */
+const FIND_UNSAFE_ARGS: readonly string[] = [
+  '-exec',
+  '-ok',
+  '-delete',
+  '-fprint',
+  '-fls',
+];
+
+/** `sort` 中会写文件或执行外部程序的开关 */
+function isUnsafeSortArg(arg: string): boolean {
+  return (
+    arg === '-o' ||
+    /^-o./.test(arg) || // `-oout.txt`
+    arg === '--output' ||
+    arg.startsWith('--output=') ||
+    arg === '--compress-program' ||
+    arg.startsWith('--compress-program=') ||
+    /^\/o/.test(arg) // Windows `sort /O out.txt`
+  );
+}
+
+/** `tree` 的输出文件开关（`-o out.txt` / `-oout.txt`） */
+function isUnsafeTreeArg(arg: string): boolean {
+  return arg === '-o' || /^-o./.test(arg);
+}
+
+/** `date` 的设置形态（`-s` / `--set` / 位置参数 —— Windows `date 01/01/2020` 会改系统日期） */
+function isUnsafeDateArg(arg: string): boolean {
+  if (arg.startsWith('+')) return false; // 只读格式串（`date +%Y-%m-%d`）
+  if (arg === '-s' || arg.startsWith('--set')) return true;
+  return !arg.startsWith('-');
+}
+
+/** `file` 的 magic 缓存编译开关（会写文件） */
+function isUnsafeFileArg(arg: string): boolean {
+  return arg === '-c' || arg === '--compile' || arg === '--compile-only';
+}
+
+/** 取首 token（去引号、去目录、去 `.exe/.cmd/.bat`、小写）与其余参数 */
+function splitHeadAndArgs(command: string): { name: string; args: string[] } {
+  const tokens = command.trim().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return { name: '', args: [] };
+  const head = (tokens[0] ?? '').replace(/^["']|["']$/g, '').replace(/[\\/]$/, '');
+  const base = head.split(/[\\/]/).pop() ?? head;
+  return {
+    name: base.replace(/\.(exe|cmd|bat|com)$/i, '').toLowerCase(),
+    args: tokens.slice(1),
+  };
+}
+
+/**
+ * 判定一条（单段）命令是否命中「只读命令的参数级禁区」。
+ *
+ * 返回 `null` 表示**不适用**（命令不在守卫面内）—— 调用方继续原判定链；
+ * 返回结果表示该命令**不是**只读形态，必须 deny（不可经审批放行：`-exec` / `--pre` /
+ * `--compress-program` 直接执行外部程序，批准一次会连同审批规则一起长期放开）。
+ */
+export function findReadonlyArgViolation(
+  command: string
+): ReadonlyArgViolation | null {
+  const { name, args } = splitHeadAndArgs(command);
+  if (!name) return null;
+  const lower = args.map((a) => a.toLowerCase());
+
+  const violation = (flags: string[], message: string): ReadonlyArgViolation => ({
+    command: name,
+    flags,
+    message,
+  });
+
+  if (name === 'find') {
+    const flags = lower.filter((a) =>
+      FIND_UNSAFE_ARGS.some((token) => a.startsWith(token))
+    );
+    if (flags.length > 0) {
+      return violation(
+        flags,
+        `只读命令 find 带有执行/写入开关（${flags.join(' ')}），已拒绝执行。` +
+          '等价只读写法：只做查找（如「find . -name "*.ts"」）；需要执行命令或删除文件时，请改用对应工具（bash 单条命令 / file_write / file_edit）。'
+      );
+    }
+  }
+
+  if (name === 'rg') {
+    const flags = lower.filter((a) => a === '--pre' || a.startsWith('--pre='));
+    if (flags.length > 0) {
+      return violation(
+        flags,
+        'rg 的 --pre 会为每个文件执行外部程序，已拒绝执行。等价只读写法：去掉 --pre 直接搜索（如「rg TODO src」）。'
+      );
+    }
+  }
+
+  if (name === 'sort') {
+    const flags = lower.filter(isUnsafeSortArg);
+    if (flags.length > 0) {
+      return violation(
+        flags,
+        `sort 的输出/压缩开关（${flags.join(' ')}）会写文件或执行外部程序，已拒绝执行。` +
+          '等价只读写法：只打印（如「sort in.txt」），落盘改用 file_write。'
+      );
+    }
+  }
+
+  if (name === 'uniq') {
+    // `uniq [INPUT [OUTPUT]]`：第 2 个位置参数是**输出文件**
+    const positionals = lower.filter((a) => !a.startsWith('-'));
+    if (positionals.length >= 2) {
+      return violation(
+        positionals.slice(1),
+        'uniq 的第二个位置参数是输出文件，已拒绝执行。等价只读写法：只传输入（如「uniq in.txt」，需要落盘时改用 file_write）。'
+      );
+    }
+  }
+
+  if (name === 'tree') {
+    const flags = lower.filter(isUnsafeTreeArg);
+    if (flags.length > 0) {
+      return violation(
+        flags,
+        'tree 的 -o 会写文件，已拒绝执行。等价只读写法：直接「tree .」查看，落盘改用 file_write。'
+      );
+    }
+  }
+
+  if (name === 'date') {
+    const flags = lower.filter(isUnsafeDateArg);
+    if (flags.length > 0) {
+      return violation(
+        flags,
+        `date 的设置形态（${flags.join(' ')}）会修改系统时间，已拒绝执行。等价只读写法：「date」或「date +%Y-%m-%d」。`
+      );
+    }
+  }
+
+  if (name === 'file') {
+    const flags = lower.filter(isUnsafeFileArg);
+    if (flags.length > 0) {
+      return violation(
+        flags,
+        'file -C 会生成 magic 缓存文件，已拒绝执行。等价只读写法：直接「file <路径>」。'
+      );
+    }
+  }
+
+  return null;
+}
+
 /** `gh` 用「两段式子命令」（`pr view` / `run list` …） */
 export const AUTO_MODE_GH_READONLY_SUBCOMMANDS: ReadonlySet<string> = new Set([
   'pr view',

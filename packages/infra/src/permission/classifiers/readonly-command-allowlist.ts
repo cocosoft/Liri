@@ -32,7 +32,9 @@
  *  - 必须是单一简单命令：无管道 / 重定向 / 命令分隔 / 后台 / 命令替换 / 变量展开；
  *  - 命令名必须在白名单内，且**不带任何路径前缀**（`/tmp/ls` 不放行 —— 防同名伪造）；
  *  - 个别命令再做参数约束：`find` 禁 `-exec/-ok/-delete` 等、`git` 仅只读子命令、
- *    `date` 禁设置时间、`sort` 禁写文件、`file` 禁编译 magic。
+ *    `date` 禁设置时间、`sort` 禁写文件、`file` 禁编译 magic —— 只读族的参数禁区
+ *    **唯一事实源**是 `readOnlyCommands.findReadonlyArgViolation`（与主链共用），
+ *    本档只额外保留 git / kubectl / docker / gh 的子命令守卫。
  *
  * **不放行 ≠ 判 deny**：返回 `allowed:false` 时调用方继续走既有分类器，
  * 保持修复前的行为不变（未知命令仍按原策略处理）。
@@ -43,6 +45,8 @@ import {
   VERSION_ONLY_QUERY_PATTERN,
   GIT_READ_ONLY_FORBIDDEN_ARGS,
   readonlySubcommandsFor,
+  // P0（2026-11-22）：只读命令的「参数级禁区」——与主链共用的唯一判据
+  findReadonlyArgViolation,
 } from '@openliri/infra/security';
 import { detectPipeAndRedirect } from './vector-rules.js';
 
@@ -51,19 +55,6 @@ export interface ReadonlyCommandCheck {
   allowed: boolean;
   reason: string;
 }
-
-/** `find` 中会执行子进程或写文件的表达式 */
-const FIND_DENIED_TOKENS = [
-  '-exec',
-  '-execdir',
-  '-ok',
-  '-okdir',
-  '-delete',
-  '-fprint',
-  '-fprint0',
-  '-fprintf',
-  '-fls',
-];
 
 /**
  * 只读子命令集合（2026-11-12，P1c）：**唯一来源在 `commandSpecs.ts` 引用的
@@ -101,12 +92,6 @@ function violatesArgumentGuards(
   args: readonly string[]
 ): boolean {
   const lowerArgs = args.map((a) => a.toLowerCase());
-
-  if (name === 'find') {
-    return lowerArgs.some((arg) =>
-      FIND_DENIED_TOKENS.some((token) => arg.startsWith(token))
-    );
-  }
 
   if (name === 'git') {
     // P3-2（2026-11-16）：参数禁区优先 —— `--output=` / `--ext-diff` / 全局 `-c`（pager 注入）
@@ -152,34 +137,10 @@ function violatesArgumentGuards(
     return !GH_READONLY.has(pair);
   }
 
-  if (name === 'date') {
-    // `date 01/01/2020`（Windows）/ `date -s ...`（GNU）会改系统时间；
-    // GNU 的只读格式串写作 `+%Y-%m-%d`，故 `+` 开头放行。
-    return lowerArgs.some(
-      (arg) =>
-        (!arg.startsWith('-') && !arg.startsWith('+')) ||
-        arg === '-s' ||
-        arg.startsWith('--set')
-    );
-  }
-
-  if (name === 'sort') {
-    // `sort -o out.txt` / `sort --output=out.txt` 会写文件
-    return lowerArgs.some(
-      (arg) =>
-        arg === '-o' ||
-        /^-o./.test(arg) ||
-        arg === '--output' ||
-        arg.startsWith('--output=')
-    );
-  }
-
-  if (name === 'file') {
-    // `file -C` 会生成 magic 编译缓存文件
-    return lowerArgs.some(
-      (arg) => arg === '-c' || arg === '--compile' || arg === '--compile-only'
-    );
-  }
+  // P0（2026-11-22）：`find` / `sort` / `date` / `file` 等只读族的参数禁区已收敛到
+  // `findReadonlyArgViolation`（`@openliri/infra/security`），在 `checkReadonlyCommand`
+  // 入口统一判定 —— 本函数只保留**本档特有**的 git / 集群 / 容器 / 托管 CLI 与
+  // PowerShell 计算属性守卫，避免两份字面清单漂移。
 
   if (name === 'measure-object') {
     // P9-1（2026-11-12）：`-Expression { … }` 会执行脚本块，不算只读。
@@ -280,6 +241,14 @@ export function checkReadonlyCommand(
   }
   if (!AUTO_MODE_READONLY_COMMANDS.has(name)) {
     return { allowed: false, reason: `Not a read-only command: ${name}` };
+  }
+
+  // P0（2026-11-22）：只读族的「写 / 执行型开关」—— 与主链共用 `findReadonlyArgViolation`
+  // （`find -exec/-delete`、`rg --pre`、`sort -o/--compress-program`、`uniq in out`、
+  // `tree -o`、`date -s`、`file -C`）。此前本档自留一份且漏了 uniq / tree / compress。
+  const argViolation = findReadonlyArgViolation(text);
+  if (argViolation) {
+    return { allowed: false, reason: argViolation.message };
   }
 
   if (violatesArgumentGuards(name, args)) {

@@ -320,7 +320,10 @@ export {
   AUTO_MODE_KUBECTL_READONLY_SUBCOMMANDS,
   AUTO_MODE_DOCKER_READONLY_SUBCOMMANDS,
   AUTO_MODE_GH_READONLY_SUBCOMMANDS,
+  // P0（2026-11-22）：只读命令的「参数级禁区」唯一判据（主链 / auto 档共用）
+  findReadonlyArgViolation,
 } from './readOnlyCommands';
+export type { ReadonlyArgViolation } from './readOnlyCommands';
 export { getRedactMiddleware } from './redact';
 // U-21（批次⑦，2026-10-17）：scanners/validators/bash/files 子入口入桶
 export { createSecurityScanner } from './scanners/SecurityScanner';

@@ -239,13 +239,30 @@ export function checkCompoundReadOnly(
     // 2026-11-22（真机会话 session_mwr473pd502e995dd1 反馈）：`set | findstr /i "PYAPP USERPROFILE"`
     // 是**纯查看**环境变量，却因 `set` 不在只读白名单而被判「非只读命令（set）」并要求审批。
     // `set` 既可能查看（`set` / `set NAME`）也可能赋值（`set NAME=value`），无法整体进白名单，
-    // 故按**参数**区分：无 `=`、且非 `/a`（算术）⇒ 只读查看；其余仍走审批。
+    // 故按**参数**区分：
+    // - 普通形态：含 `=` ⇒ 赋值（写）；否则只读。
+    // - `set /a <expr>`：表达式本身无副作用（结果只打印），**只有含赋值运算符才是写**；
+    //   需先剔除比较/移位运算符（`==` `!=` `<=` `>=` `<<` `>>`），剩下的 `=` 才是赋值
+    //   （含 `+=` `-=` 等复合赋值，其 `<<=` / `>>=` 剔完移位后同样露出 `=`）。
+    // - `/a` 必须是 `set` **之后的第一个开关**：`set X=1 /a` 是赋值（`/a` 只是值的一部分），
+    //   不能因为串里出现 `/a` 就按算术处理。
+    // - 参数里出现 cmd 展开符（`%VAR%` / `!VAR!`）一律不放行：展开可在**参数位置**注入
+    //   `NAME=value`，静态看不见 `=`，等于绕过上面的判定。
     if (first.toLowerCase() === 'set') {
       const rest = probe.replace(/^set\b/i, '');
-      const assigns = rest.includes('=') || /(^|\s)\/a\b/i.test(rest);
-      if (!assigns) {
-        cleaned.push(seg);
-        continue;
+      if (!/[%!]/.test(rest)) {
+        const arithmetic = /^\s*\/a\b/i.exec(rest);
+        if (arithmetic) {
+          const expr = rest.slice(arithmetic[0].length);
+          const withoutCompare = expr.replace(/==|!=|<=|>=|<<|>>/g, '');
+          if (!/=/.test(withoutCompare)) {
+            cleaned.push(seg);
+            continue;
+          }
+        } else if (!rest.includes('=')) {
+          cleaned.push(seg);
+          continue;
+        }
       }
     }
 

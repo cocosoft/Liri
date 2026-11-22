@@ -222,6 +222,53 @@ describe('BashSecurityAnalyzer：复合只读放行', () => {
     expect(r.behavior).toBe('ask');
   });
 
+  // 2026-11-22：`set /a` 是**算术求值**（结果只打印），只有含赋值运算符才是写。
+  it('set /a 纯算术（无赋值）⇒ allow', () => {
+    for (const cmd of [
+      'set /a 1+1',
+      'set /a (1+1)*2',
+      'set /a 1==1',
+      'set /a "3>>1"',
+      'set /a 2*(3+4)',
+    ]) {
+      expect({ cmd, behavior: analyzer.analyze(cmd).behavior }).toEqual({
+        cmd,
+        behavior: 'allow',
+      });
+    }
+  });
+
+  it('set /a 含赋值（含复合赋值）⇒ 仍转审批', () => {
+    for (const cmd of [
+      'set /a X=1',
+      'set /a "X=1"',
+      'set /a X+=1',
+      'set /a "X<<=1"',
+      'set /a X=1==1',
+    ]) {
+      expect({ cmd, behavior: analyzer.analyze(cmd).behavior }).toEqual({
+        cmd,
+        behavior: 'ask',
+      });
+    }
+  });
+
+  it('set /a 未加引号的移位号由 cmd 当重定向解析 ⇒ deny（fail-closed）', () => {
+    expect(analyzer.analyze('set /a X<<=1').behavior).toBe('deny');
+    expect(analyzer.analyze('set /a 3>>1').behavior).toBe('deny');
+  });
+
+  it('`/a` 不是首个开关时按普通 set 判定（`set X=1 /a` 是赋值）', () => {
+    expect(analyzer.analyze('set X=1 /a').behavior).toBe('ask');
+    expect(analyzer.analyze('set FOO /a').behavior).toBe('allow');
+  });
+
+  it('set 参数含 cmd 展开符（%VAR% / !VAR!）⇒ 不放行', () => {
+    expect(analyzer.analyze('set /a %X%').behavior).toBe('ask');
+    expect(analyzer.analyze('set %X%').behavior).toBe('ask');
+    expect(analyzer.analyze('set /a !X!').behavior).toBe('ask');
+  });
+
   it('重定向 ⇒ 仍 deny，且带可读原因（F1）', () => {
     const r = analyzer.analyze('dir > out.txt');
     expect(r.behavior).toBe('deny');

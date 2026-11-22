@@ -80,11 +80,17 @@ export async function readMetrics(): Promise<DreamMetricsData> {
     const data = await readFile(getMetricsPath(), 'utf-8');
     const parsed = JSON.parse(data);
     return { ...DEFAULT_METRICS, ...parsed };
-  } catch {
-    void handleError(new Error('读取指标文件失败'), {
-      module: 'dream:metrics',
-      action: 'readMetrics',
-    });
+  } catch (e) {
+    // 2026-11-22（Windows 纯新装真机验证）：首次启动还没有 metrics.json 属**正常状态**，
+    // 原实现把所有异常都当错误上报 ⇒ 每次新装首启必刷一条
+    // `[readMetrics] 读取指标文件失败`（error / severity=medium），属噪声。
+    // 只有"文件存在但读取或解析失败"才是真异常。
+    if ((e as NodeJS.ErrnoException | undefined)?.code !== 'ENOENT') {
+      void handleError(new Error('读取指标文件失败'), {
+        module: 'dream:metrics',
+        action: 'readMetrics',
+      });
+    }
     return { ...DEFAULT_METRICS };
   }
 }

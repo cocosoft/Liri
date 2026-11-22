@@ -1183,11 +1183,11 @@
         "idempotent": false,
         "discriminator": null
       },
-      "sandboxLevel": "none",
+      "sandboxLevel": "execution",
       "risk": {
         "declared": "write",
         "derived": "write",
-        "source": "declared:static"
+        "source": "declared:dynamic"
       },
       "readOnly": false,
       "destructive": null,

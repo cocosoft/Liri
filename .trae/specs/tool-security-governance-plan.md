@@ -138,15 +138,14 @@ TOOL_EFFECTS                ─┼─► gen-tool-governance-matrix.ts ─► .t
 - 计划：`isReadOnly` 纳入 `saveToFile`；或 `riskClassFor(input)` 在 `saveToFile` 时返回 `write`。
   二选一即可，优先前者（不动风险引擎）。
 
-### G4 执行/网络工具的 `sandboxLevel` 语义不完整（P1，需裁定）
+### G4 执行类语义：`notebook` 的 `executeCell` 被按 write 放行（P1 · **已关闭 2026-11-22**）
 
-- 现状：只有 4 个工具声明 `execution`；`agent`（可调子工具）、`skill`（可能含命令型技能）、`lsp`/`notebook`（代码执行）、
-  `computer_use`（桌面操作）、`browser`（网页脚本上下文）均未声明。
-- 影响：`deriveToolRiskClass` 的 `sandboxLevel ⇒ shell` 分支对它们不生效，审批文案/风险展示偏轻；
-  沙箱豁免 S1–S4 也无法按"执行类"处理。
-- 需裁定：给它们补 `riskClass`（`external`/`shell`）还是补 `sandboxLevel`？
-  **建议**：`agent` / `skill` / `lsp` / `notebook` 补 `riskClass`（它们不是"执行任意命令"），
-  `computer_use` 补 `riskClassFor`（见 G1），`browser` 维持 `external` + SSRF。
+- 复核结论（订正原表述）：`agent`（`external`）、`skill`（`write`）、`lsp`（`write`）**已有** `riskClass` 声明；
+  `lsp` 的 `write` 是覆盖 `rename`/`format` 的保守档，保持不变。
+- 真正的缺口在 **`notebook`**：整工具固定 `write`（WRITE_LOCAL），而 `executeCell` / `executeAllCells`
+  执行任意代码 ⇒ 在会话 `auto-local` / 沙箱豁免下可能被自动放行。
+- 修复：`riskClassFor(action)`（`execute*` ⇒ `shell`，其余 `write`）+ `sandboxLevel='execution'`；
+  测试 `app/tests/tools/notebookRiskClass.test.ts`。
 
 ### G5 入口一致性：`outputSchema` 只在一条链校验（P2）
 
@@ -257,7 +256,9 @@ DoD：
 
 ## 9. 待用户裁定（计划评审时的开放问题）
 
-1. G4：`agent` / `skill` / `lsp` / `notebook` 补 `riskClass` 还是补 `sandboxLevel`？（建议前者）
+1. ~~G4：`agent` / `skill` / `lsp` / `notebook` 补 `riskClass` 还是补 `sandboxLevel`？~~
+   **已裁定（2026-11-22）**：按建议补 `riskClass`；复核后实际只需修 `notebook`（动态 `shell` + execution 位），
+   `agent`/`skill`/`lsp` 原声明已正确（见 G4）。
 2. G8：`channel` / `send_message` / `mcp_tool` 是否引入"目标维度"审批指纹？
 3. P2-1：`outputSchema` 校验是否值得进主聊天链（不阻断、仅观测）？
 4. `browser` 的本地网络访问是否需要显式开关（还是直接按 SSRF 一律拒绝）？
@@ -313,8 +314,9 @@ DoD：
 
 ### 10.5 未做（按计划留给 P1/P2）
 
-~~G1 `computer_use` 分档~~、~~G2 `browser` SSRF~~、~~G3 `web_fetch.saveToFile`~~ 已在 P1 关闭（见 §11）；
-仍待：G4 执行类标记、G5 `outputSchema` 收敛、G6 直调点逐个取证、G7 reason 码推广、
+~~G1 `computer_use` 分档~~、~~G2 `browser` SSRF~~、~~G3 `web_fetch.saveToFile`~~、
+~~G4 执行类标记~~ 已在 P1 关闭（见 §11）；
+仍待：G5 `outputSchema` 收敛、G6 直调点逐个取证、G7 reason 码推广、
 G8 审批指纹评估、G9 执行类结果上限。
 
 ---
@@ -345,12 +347,19 @@ G8 审批指纹评估、G9 执行类结果上限。
 - 效果：`deriveToolRiskClass(tool, { saveToFile: true })` 不再落 `read`（自动放行），而为 `undeclared`（ask）。
 - 测试：`app/tests/tools/webFetchReadOnly.test.ts`（4 pass）。
 
+### P1-4 `notebook`：执行单元格按 shell 分档（G4）
+
+- `NotebookToolAdapter`：`riskClassFor(action)`（`executeCell` / `executeAllCells` ⇒ `shell`，其余 ⇒ `write`）
+  + `sandboxLevel='execution'`（与"执行任意代码"自洽；`ToolExecutor` 的 command 预检不受影响）。
+- 复核订正：`agent`（external）/ `skill`（write）/ `lsp`（write）原声明已存在，本次不改。
+- 测试：`app/tests/tools/notebookRiskClass.test.ts`（3 pass）。
+
 ### P1 验收
 
 | 命令 | 结果 |
 |---|---|
-| `bun test tests/tools/{computerUseGovernance,browserSsrf,webFetchReadOnly}.test.ts` | ✅ 46 pass / 0 fail |
+| `bun test tests/tools/{computerUseGovernance,browserSsrf,webFetchReadOnly,notebookRiskClass}.test.ts` | ✅ 49 pass / 0 fail |
 | `bun test tests/tools/webFetchSsrf.test.ts`（shim 回归） | ✅ |
-| `bun run gen:tool-governance` | 待重生成（`computer_use` 的 risk 来源变为 `declared:dynamic`） |
-| `bun run typecheck` / 门禁 | 见提交记录 |
+| `bun run gen:tool-governance` | ✅ 69 工具 / pass 67 / accepted 2（powershell·code_run 的 G9）/ gap 0 |
+| `bun run typecheck` / 门禁 | ✅（见提交记录） |
 

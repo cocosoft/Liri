@@ -113,6 +113,32 @@ export function validateExceptions(
 }
 
 /**
+ * 校验「已接受的缺口」是否仍然存在（防僵尸条目）。
+ *
+ * 场景（2026-11-22 实证）：给 `notebook` 补 execution 位后，其 `maxResultSizeChars` 本就有值
+ * ⇒ `no-result-limit` 不再被矩阵检出，但例外表仍留着该条 ⇒ 门禁必须在**生成侧**发现并失败，
+ * 否则"接受的缺口"会随修复漂移成永久豁免。
+ */
+export function validateAcceptedGaps(
+  exceptions: ExceptionsFile,
+  rows: ReadonlyArray<{ name: string; gaps: readonly string[] }>
+): string[] {
+  const byName = new Map(rows.map((r) => [r.name, new Set(r.gaps)]));
+  const errors: string[] = [];
+  for (const accepted of exceptions.acceptedGaps) {
+    const gaps = byName.get(accepted.tool);
+    // 工具不存在已由 `validateExceptions` 报错，这里不重复
+    if (!gaps) continue;
+    for (const gap of accepted.gaps) {
+      if (!gaps.has(gap)) {
+        errors.push(`acceptedGaps 已失效（矩阵不再检出）：${accepted.tool}[${gap}]`);
+      }
+    }
+  }
+  return errors;
+}
+
+/**
  * 校验执行入口台账：扫描结果与登记必须一一对应。
  *
  * - 新文件出现 `tool.execute(` 而未登记 ⇒ 错误（必须先复核授权）；

@@ -130,6 +130,22 @@ export class NotebookToolAdapter implements Tool {
   readonly riskClass = 'write' as const;
 
   /**
+   * P1（2026-11-22，G4）：`executeCell` / `executeAllCells` = **任意代码执行** ⇒ `shell`；
+   * 其余 action（create / save / add*Cell / export / delete）只改本地状态 ⇒ `write`。
+   *
+   * 旧实现整工具固定 `write`（WRITE_LOCAL），在会话 `auto-local` / 沙箱豁免下可能被自动放行
+   * —— 对"执行单元格"而言是漏放。
+   */
+  readonly sandboxLevel = 'execution' as const;
+
+  riskClassFor(input: Record<string, unknown>): 'shell' | 'write' {
+    const action = String(input['action'] ?? '');
+    return action === 'executeCell' || action === 'executeAllCells'
+      ? 'shell'
+      : 'write';
+  }
+
+  /**
    * 工具描述
    */
   description = 'Notebook工具，支持创建、编辑和执行混合代码和文档';

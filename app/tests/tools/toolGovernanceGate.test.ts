@@ -9,6 +9,7 @@ import { describe, expect, it } from 'bun:test';
 
 import {
   computeGaps,
+  validateAcceptedGaps,
   validateEntrypoints,
   validateExceptions,
   type EntrypointsFile,
@@ -231,5 +232,71 @@ describe('validateExceptions：例外表', () => {
     );
     expect(errors.some((e) => e.includes('id 缺失或重复：G1'))).toBe(true);
     expect(errors.some((e) => e.includes('不存在的工具：missing'))).toBe(true);
+  });
+});
+
+describe('validateAcceptedGaps：防僵尸豁免', () => {
+  const rows = [{ name: 'bash', gaps: ['no-result-limit'] }];
+  const base: ExceptionsFile = { acceptedGaps: [], knownRisks: [] };
+
+  it('缺口仍存在 ⇒ 通过', () => {
+    expect(
+      validateAcceptedGaps(
+        {
+          ...base,
+          acceptedGaps: [
+            {
+              tool: 'bash',
+              gaps: ['no-result-limit'],
+              riskId: 'G9',
+              reason: 'r',
+              plan: 'p',
+            },
+          ],
+        },
+        rows
+      )
+    ).toEqual([]);
+  });
+
+  it('缺口已被修复但例外仍在 ⇒ 报错（2026-11-22 notebook 实证）', () => {
+    const errors = validateAcceptedGaps(
+      {
+        ...base,
+        acceptedGaps: [
+          {
+            tool: 'bash',
+            gaps: ['no-result-limit', 'risk-undeclared'],
+            riskId: 'G9',
+            reason: 'r',
+            plan: 'p',
+          },
+        ],
+      },
+      rows
+    );
+    expect(errors).toContain(
+      'acceptedGaps 已失效（矩阵不再检出）：bash[risk-undeclared]'
+    );
+  });
+
+  it('工具已不存在 ⇒ 交由 validateExceptions 报，不在这里重复', () => {
+    expect(
+      validateAcceptedGaps(
+        {
+          ...base,
+          acceptedGaps: [
+            {
+              tool: 'ghost',
+              gaps: ['no-result-limit'],
+              riskId: 'G',
+              reason: 'r',
+              plan: 'p',
+            },
+          ],
+        },
+        rows
+      )
+    ).toEqual([]);
   });
 });

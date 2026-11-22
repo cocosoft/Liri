@@ -18,17 +18,10 @@
   ],
   "knownRisks": [
     {
-      "id": "G4",
-      "tools": ["agent", "skill", "lsp", "notebook"],
-      "dimension": "D5",
-      "reason": "这些工具具备/可能触发代码执行，但未声明 sandboxLevel 或 riskClass（依赖 TOOL_EFFECTS 派生为 write/external），执行类语义与审批文案偏轻。",
-      "plan": "P1-4：补 riskClass（agent/skill/lsp/notebook）或在矩阵中显式登记 n/a + 理由（待 §9 裁定）"
-    },
-    {
       "id": "G9",
       "tools": ["powershell", "code_run"],
       "dimension": "D6",
-      "reason": "两个执行类工具没有声明 maxResultSizeChars（bash 有 100000）；是否由执行器侧统一截断覆盖尚未书面确认。",
+      "reason": "执行类工具没有声明 maxResultSizeChars（bash 有 100000）；是否由执行器侧统一截断覆盖尚未书面确认。",
       "plan": "P2-0：补 maxResultSizeChars，或确认并记录执行器截断口径（acceptedGaps 中已按工具登记）"
     }
   ]

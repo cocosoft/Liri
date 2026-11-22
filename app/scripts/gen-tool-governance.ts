@@ -50,6 +50,7 @@ import {
 // P0（2026-11-22）：判据是纯函数，单测直接 import 本模块（不实例化工具）
 import {
   computeGaps,
+  validateAcceptedGaps,
   validateEntrypoints,
   validateExceptions,
   type EntrypointsFile,
@@ -364,6 +365,7 @@ function main(): number {
       exceptions,
       rows.map((r) => r.name)
     ),
+    ...validateAcceptedGaps(exceptions, rows),
     ...validateEntrypoints(entrypoints, scanEntrypoints(entrypoints.scanRoots)),
   ];
 

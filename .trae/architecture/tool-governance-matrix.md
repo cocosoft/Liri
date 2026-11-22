@@ -49,7 +49,7 @@
 | `lsp` | local | none | write / write / declared:static | no | 10000 | — | yes | pass |
 | `monitor` | local | none | — / write / derived:effects | no | — | — | — | pass |
 | `music` | local | none | — / write / derived:effects | no | — | — | — | pass |
-| `notebook` | local | none | write / write / declared:static | no | 10000 | — | yes | pass |
+| `notebook` | local | execution | write / write / declared:dynamic | no | 10000 | — | yes | pass |
 | `plan` | local | none | — / write / derived:effects | no | 100000 | — | — | pass |
 | `save_conversation` | local | none | — / write / derived:effects | no | — | — | — | pass |
 | `sessions` | local | none | — / write / derived:effects | no | — | — | — | pass |

@@ -43,6 +43,8 @@ import {
   getToolRegistry,
   globalToolManager,
   findMissingRequiredParams,
+  // F5（2026-11-22）：LRO 直调 `tool.execute` 的路径补齐统一超时 + 取消
+  runWithToolDeadline,
 } from '../../tools/index.js';
 import type { Tool, ToolUseContext } from '../../tools/types/Tool.js';
 import { emitPdcaLiveEvent } from '../PdcaLiveEvents';
@@ -180,6 +182,8 @@ type ToolCallOutcome = {
   toolName?: string;
   result?: unknown;
   error?: string;
+  /** F6（2026-11-22）：结构化拦截/失败码（如 `workspace_escape_blocked`） */
+  metadata?: Record<string, unknown>;
 };
 
 /** 单步执行统计（P2-1 的**每步汇总**口径：逐次日志降 debug，收尾一次性上报） */
@@ -622,6 +626,7 @@ export async function executeSingleStep(
                     `路径越界：${escape.key}=${escape.value} 不在任务工作区内；` +
                     `本任务工作区根目录：${deps.isolation.workspace}。` +
                     '请改用**相对该目录**的路径（如 output/report.md）后重试，不要传仓库根或其它绝对路径。',
+                  metadata: { reason: 'workspace_escape_blocked' },
                 });
                 continue;
               }
@@ -1255,9 +1260,23 @@ async function runAuthorizedToolCall(args: {
 }): Promise<{ outcome: ToolCallOutcome; securityBlocked: boolean }> {
   const { tc, tool, callContext, deps, step, stepStats } = args;
   // 保留键可能随合法参数一起出现（解析失败时携带诊断）⇒ 执行前剥除，不污染工具入参
-  const toolResult = await tool.execute(
-    stripArgParseErrorKey(tc.arguments),
-    callContext
+  // F5（2026-11-22）：统一超时 + 取消（派生 controller 交给工具）
+  const toolResult = await runWithToolDeadline(
+    (controller) =>
+      tool.execute(stripArgParseErrorKey(tc.arguments), {
+        ...callContext,
+        abortController: controller,
+      }),
+    {
+      parentSignal: callContext.abortController?.signal,
+      onTimeout: (timeoutMs) =>
+        logger.warn('[orchestrator] 工具执行超时，已取消底层执行', {
+          taskId: deps.taskId,
+          toolName: tc.name,
+          toolCallId: tc.id,
+          timeoutMs,
+        }),
+    }
   );
   // P2-1（2026-11-22，G5）：出参契约校验（不阻断，仅标注）——本链路直调 `tool.execute`，
   // 此前完全不做 outputSchema 校验。

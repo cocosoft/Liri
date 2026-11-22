@@ -29,6 +29,10 @@ import {
   PermissionManager,
 } from '@openliri/infra/permission';
 // 多租户 P0（2026-11-03 收敛）：请求级角色必须**显式传入**，不再由进程级角色兜底
+import {
+  authorizeToolCall,
+  type ToolPermissionPort,
+} from '@openliri/infra/permission/authorizeToolCall';
 import { getRequestPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import { configManager } from '@openliri/infra/config';
 import { feature } from '@openliri/kernel';
@@ -501,24 +505,28 @@ async function executeWhitelistedTool(
   // 工具级权限校验（context 透传 sessionId + source 标识）
   try {
     const pm = PermissionManager.getInstance();
-    const permission = await pm.checkPermissionForTool(name, input, {
-      sessionId,
-      metadata: { source: 'code_mode' },
-      // 2026-11-11：身份位与聊天主链同源（本地=admin；用户级 RBAC 依赖 userId）
-      userId: getRequestPrincipal().userId,
-      userRole: getEffectivePermissionRole() ?? undefined,
-      // P2-6（2026-11-11）：RBAC 按角色并集判定
-      userRoles: getEffectivePermissionRoles(),
-    });
+    // F3（2026-11-22）：走**唯一授权入口** `authorizeToolCall`，并传工具对象 ⇒
+    // 风险按声明式派生、规则按真名匹配（此前只传字符串名 ⇒ 别名绕过 + 名字启发式）。
+    const permission = await authorizeToolCall(
+      pm as unknown as ToolPermissionPort,
+      {
+        toolName: tool.name,
+        args: input,
+        context: {
+          sessionId,
+          tool,
+          metadata: { source: 'code_mode' },
+          // 2026-11-11：身份位与聊天主链同源（本地=admin；用户级 RBAC 依赖 userId）
+          userId: getRequestPrincipal().userId,
+          userRole: getEffectivePermissionRole() ?? undefined,
+          // P2-6（2026-11-11）：RBAC 按角色并集判定
+          userRoles: getEffectivePermissionRoles(),
+        },
+      }
+    );
     // ask 决策（submittedToInbox 或 isInboxApprovalEnabled 关闭未提交）一律视为拒绝
     if (!permission.allowed) {
-      return {
-        ok: false,
-        error:
-          permission.decision?.reason ??
-          permission.reason ??
-          'permission denied',
-      };
+      return { ok: false, error: permission.reason };
     }
   } catch (error) {
     logger.warn('code_mode permission check failed (fail-closed)', {

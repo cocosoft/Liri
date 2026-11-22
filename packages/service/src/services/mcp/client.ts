@@ -38,6 +38,11 @@ export async function fetchToolsForClient(
       inputJSONSchema: tool.inputSchema as SerializedTool['inputJSONSchema'],
       isMcp: true,
       originalToolName: tool.name,
+      // F1（2026-11-22）：原实现丢弃 `annotations` ⇒ 包装器只能自报只读，
+      // 权限派生把**所有** MCP 工具判为 `read` 并自动放行。此处原样透传。
+      ...(tool.annotations
+        ? { annotations: tool.annotations as SerializedTool['annotations'] }
+        : {}),
     }));
     return tools;
   } catch (error) {

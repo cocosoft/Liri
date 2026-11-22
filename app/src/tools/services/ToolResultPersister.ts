@@ -20,10 +20,26 @@ import {
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 
+import { getToolRegistry } from '../ToolRegistry';
+
 const logger = getLogger('tools:toolResultPersister');
 
 /** 单条工具结果字符预算（超过则落盘，上下文只留 preview + 路径引用） */
 export const SINGLE_RESULT_LIMIT_CHARS = 50_000;
+
+/**
+ * F4（2026-11-22）：单条结果上限 = **工具声明优先**，缺省回退全局预算。
+ *
+ * 此前 `maxResultSizeChars` 只被 `ToolFactory` 透传、`tools info` 展示，真实截断
+ * 一律用全局 50k ⇒ 逐工具声明（bash 100k / web_fetch 500k / file_read Infinity）
+ * 从未生效。`Infinity` 表示该工具自身已有内部上限，不在此处截断。
+ */
+export function resolveSingleResultLimit(
+  declared?: number,
+  fallback: number = SINGLE_RESULT_LIMIT_CHARS
+): number {
+  return typeof declared === 'number' && declared > 0 ? declared : fallback;
+}
 /** 单轮全部工具结果聚合预算（合计超限则 spill 未持久化结果） */
 export const TURN_BUDGET_CHARS = 200_000;
 /** 上下文内 preview 保留长度 */
@@ -271,16 +287,25 @@ export async function prepareToolResultsForContext(
   if (processedResults.length === 0) return;
 
   // 先提取文本与长度，统计单轮聚合
+  const registry = getToolRegistry();
   const items = processedResults.map((pr) => {
     const content = extractResultText(pr.result);
-    return { pr, content, len: content.length };
+    return {
+      pr,
+      content,
+      len: content.length,
+      // F4（2026-11-22）：单条上限取工具声明 `maxResultSizeChars`（缺省 ⇒ 全局 50k）
+      limit: resolveSingleResultLimit(
+        registry?.getTool(pr.normalizedToolCall.name)?.maxResultSizeChars
+      ),
+    };
   });
   const turnTotal = items.reduce((s, c) => s + c.len, 0);
   const needsTurnSpill = turnTotal > TURN_BUDGET_CHARS;
 
   // 超限 spill 时从最大的开始（hermes 语义），减少上下文膨胀
   const overItems = items
-    .filter((c) => c.len > SINGLE_RESULT_LIMIT_CHARS || needsTurnSpill)
+    .filter((c) => c.len > c.limit || needsTurnSpill)
     .sort((a, b) => b.len - a.len);
 
   for (const item of overItems) {
@@ -305,11 +330,9 @@ export async function prepareToolResultsForContext(
         toolCallId,
         toolName: item.pr.normalizedToolCall.name,
         fullChars: item.len,
+        limit: item.limit,
         previewChars: preview.length,
-        reason:
-          item.len > SINGLE_RESULT_LIMIT_CHARS
-            ? 'single_budget'
-            : 'turn_budget',
+        reason: item.len > item.limit ? 'single_budget' : 'turn_budget',
       });
     } catch (e) {
       // 落盘失败不阻断工具轮（保留原结果，仅记录）——CS03 回退最小化：落盘是本机 IO，

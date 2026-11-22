@@ -256,6 +256,11 @@ export * from './version';
 // 2026-10-23（R03-002 收敛）：必填参数校验由长程任务链复用 —— 统一经模块出口导出，
 // 避免 `tasks/lro` 直接 import `tools/utils` 子目录（模块出口单一）。
 export { findMissingRequiredParams } from './utils/ToolUtils';
+// F5（2026-11-22）：执行入口统一超时 + 取消（唯一实现，供 chat / LRO 经模块出口引用）
+export {
+  runWithToolDeadline,
+  resolveToolExecTimeoutMs,
+} from './utils/toolDeadline';
 // 2026-11-19（B 项，R03-002 收敛）：规划期工作区快照要与 grep/glob 共用**同一份**"重目录"清单，
 // 但 plannerSupport 不能直连 `tools/utils` 子目录 ⇒ 经模块出口导出。
 export { getSkipDirsForRoot } from './utils/searchSkipDirs';

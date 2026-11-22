@@ -438,6 +438,50 @@ DoD：
 
 ### P2 收口
 
-G1–G9 与 P2-4/P2-5 全部关闭；**本计划无剩余待办**。后续新增工具 / 新直调点由
-`lint:tool-governance`、`lint:tool-interception-reasons`、`lint:support-levels` 三道门禁持续约束。
+G1–G9 与 P2-4/P2-5 全部关闭。**二次复查又发现新遗漏**（见 §13）：F1/F2 已修复，
+F3–F10 仍待办 ⇒ 本节原「本计划无剩余待办」表述已按事实订正。
+后续新增工具 / 新直调点由 `lint:tool-governance`、`lint:tool-interception-reasons`、
+`lint:support-levels` 三道门禁持续约束。
+
+---
+
+## 13. 二次复查（2026-11-22）
+
+复查范围：执行面 / 权限链 / 资源面（只读审计）。结论：G1–G9 的静态声明覆盖成立，
+但**判定顺序**与**运行期派生一致性**未被门禁覆盖，存在 fail-open。
+
+### 13.1 已修复
+
+| ID | 问题 | 修复落点 | 测试 |
+|---|---|---|---|
+| F1 | `McpToolWrapper.isReadOnly()` **恒 true** ⇒ 动态 MCP 工具派生为 `read` ⇒ 默认档自动放行 | `SerializedTool.annotations` 透传（`client.ts`）；包装器只认 `readOnlyHint === true`，缺省 ⇒ `undeclared` ⇒ ask；并发安全随只读 | `app/tests/services/mcp/mcpToolWrapperRisk.test.ts`（5 项） |
+| F2 | 安全白名单排在用户 deny / ask **之前**，且关键词用 `includes` 子串匹配（`budget_set` 含 `get`） | `handleDefault` / `handleAuto` 的白名单降到全部 deny / ask 之后；关键词改为按分隔符**整段**匹配；`server__tool` 不参与名字猜测 | `app/tests/permission/allowlistOrdering.test.ts`（7 项） |
+| F3 | 别名调用按别名判定 ⇒ 按真名配置的 `tool_rules` 不命中；只传字符串名 ⇒ 风险退回名字启发式 | `toolPermission` 在 `context.tool` 存在时以 `tool.name`（真名）判定；`CodeRunner` 改走 `authorizeToolCall` 并传工具对象；CoreAPI 路径解析注册工具（`getInner().getTool` 含别名解析）后传入 | `app/tests/permission/aliasCanonicalName.test.ts`（2 项） |
+| F4 | `maxResultSizeChars` 只被透传/展示，真实截断一律用全局 50k | `ToolResultPersister` 新增 `resolveSingleResultLimit`，内部经 `getToolRegistry()` 读取声明（缺省 50k）；单轮 200k 聚合仍为硬兜底 | `app/tests/tools/toolResultLimit.test.ts`（3 项） |
+| F5 | 超时仅 chat 链且不取消底层；Registry / ToolManager / LRO 无超时 | 新增唯一实现 `app/src/tools/utils/toolDeadline.ts`（超时 abort 派生 controller、父取消转发）；接入 `ToolRegistry`、`ToolManager`、LRO `runAuthorizedToolCall`；缺省值取常量真源 `DEFAULT_TOOL_EXEC_TIMEOUT_MS`（`LIRI_TOOL_TIMEOUT_MS` 原 30s 且零消费者 ⇒ 对齐 chat 链 300s） | `app/tests/tools/toolDeadline.test.ts`（3 项） |
+| F6 | 真实拦截点缺 `metadata.reason` | 新增 4 码并登记：`path_guard_blocked` / `workspace_escape_blocked` / `policy_denied` / `mcp_not_connected`；`recordSkippedToolCall` 透传 metadata | `interceptionReasons.test.ts` 追加 1 项 |
+
+验证：`typecheck` 通过；全量 `bun run ci` **13709 pass / 42 skip / 0 fail**；
+`lint:tool-governance`（69 pass / gap 0）、`lint:tool-interception-reasons`、`lint:arch`、`lint:consts` 通过。
+
+### 13.2 待办（未修，按严重度）
+
+| ID | 问题 |
+|---|---|
+| F7–F10 | `coordinator` 委派授权待核实；`MediaPlugin` 直调；`LSPToolIntegration` 绕过 Registry；`isConcurrencySafe` 写同资源项可疑 |
+
+### 13.3 G9 结论订正（如实）
+
+G9 原写「统一截断链路兜住超长输出」**不成立**：`maxResultSizeChars` 此前只被
+`ToolFactory` 透传与 `tools info` 展示。F4 已把**上下文侧**单条上限接线到工具声明
+（`ToolResultPersister.resolveSingleResultLimit`）；**持久化侧**（`shrinkToolResult…`）
+仍用统一 50k 阈值（防磁盘膨胀，未按工具区分）。
+
+### 13.4 门禁缺口（建议）
+
+现有门禁只校验「声明是否齐全」，不校验「判定顺序」与「运行期派生一致性」。建议补：
+
+1. 无 `TOOL_EFFECTS` 条目的动态工具（MCP / 插件）**禁止**用 `isReadOnly` 兜底放行；
+2. `deny` 必须先于 allowlist 的顺序断言（或由单测锁住）。
+
 

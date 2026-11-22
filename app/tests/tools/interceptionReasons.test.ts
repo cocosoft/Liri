@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'bun:test';
 
 import {
+  INTERCEPTION_REASONS,
   collectReasonCodes,
   validateInterceptionReasons,
   type InterceptionReasonSpec,
@@ -65,5 +66,16 @@ describe('validateInterceptionReasons：双向对账', () => {
       specs
     );
     expect(errors).toContain('登记来源未纳入扫描面：a.ts（ssrf_blocked）');
+  });
+});
+
+describe('F6：真实拦截点已登记', () => {
+  const byCode = new Map(INTERCEPTION_REASONS.map((s) => [s.code, s]));
+
+  it('PathGuard / LRO 越界 / 策略拒绝 / MCP 未连接', () => {
+    expect(byCode.get('path_guard_blocked')?.domain).toBe('file');
+    expect(byCode.get('workspace_escape_blocked')?.domain).toBe('file');
+    expect(byCode.get('policy_denied')?.domain).toBe('policy');
+    expect(byCode.get('mcp_not_connected')?.domain).toBe('mcp');
   });
 });

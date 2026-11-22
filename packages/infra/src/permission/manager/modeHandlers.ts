@@ -228,11 +228,6 @@ export interface ModeHandlerDeps {
     const toolName =
       typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
 
-    // 检查安全工具白名单
-    if (deps.classifierManager.isAllowlistedTool(toolName)) {
-      return createAllowDecision('Tool is on safe allowlist');
-    }
-
     // 使用新的规则管理器检查
     const denyRule = deps.ruleManager.getDenyRuleForTool(toolName, ruleContext);
     if (denyRule) {
@@ -329,6 +324,14 @@ export interface ModeHandlerDeps {
         `Allowed by rule from ${matchingAllowRule.source}`,
         matchingAllowRule
       );
+    }
+
+    // 安全工具白名单（F2，2026-11-22）：**必须排在全部 deny / ask 之后**。
+    // 原位置在函数开头 ⇒ 一个名字含白名单关键词的工具（如 `budget_set` 含 `get`）
+    // 会静默越过用户显式 deny 规则；与下方 LRO-D1「deny 先于一切 allow」自相矛盾。
+    // 这里只把「风险默认 ask」降为 allow，不越过任何人工拦截。
+    if (deps.classifierManager.isAllowlistedTool(toolName)) {
+      return createAllowDecision('Tool is on safe allowlist');
     }
 
     // D 体系 allow：所有 deny / ask 与显式 allow 之后才生效（安全兜底）
@@ -461,13 +464,7 @@ export interface ModeHandlerDeps {
     const toolName =
       typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
 
-    // 1. 检查安全工具白名单
-    if (deps.classifierManager.isAllowlistedTool(toolName)) {
-      deps.denialTracker.trackSuccess(toolName, context.sessionId);
-      return createAllowDecision('Tool is on safe allowlist');
-    }
-
-    // 2. 检查规则
+    // 检查规则
     // P0-2（2026-11-11）：显式 deny 不因连续拒绝升级为 ask（同上）。
     const denyRule = deps.ruleManager.getDenyRuleForTool(toolName, ruleContext);
     if (denyRule) {
@@ -504,6 +501,13 @@ export interface ModeHandlerDeps {
 
     // RBAC ask：排在工具级 ask 之后、allow 之前（ask 不越过 allow）
     if (fineGrained.ask) return fineGrained.ask;
+
+    // 安全工具白名单（F2，2026-11-22）：**必须排在全部 deny / ask 之后** ——
+    // 原位置在函数开头，会越过用户显式 deny / ask（与 default 档同因）。
+    if (deps.classifierManager.isAllowlistedTool(toolName)) {
+      deps.denialTracker.trackSuccess(toolName, context.sessionId);
+      return createAllowDecision('Tool is on safe allowlist');
+    }
 
     const allowRule = deps.ruleManager.toolAlwaysAllowedRule(
       toolName,

@@ -271,6 +271,26 @@ const SAFE_TOOLS = new Set([
 ]);
 
 /**
+ * 名字**按段**命中即视为只读的关键词（`tool_search` / `get_weather`）。
+ *
+ * F2（2026-11-22）：原实现以 `includes` 做子串匹配 ⇒ `budget_set`（含 `get`）、
+ * `widget_create`（含 `get`）等**写工具**被误判为安全并自动放行。改为按分隔符
+ * 切词后整段匹配：`budget` ≠ `get`。
+ */
+const SAFE_KEYWORDS = new Set([
+  'read',
+  'list',
+  'search',
+  'view',
+  'show',
+  'get',
+  'find',
+  'ls',
+  'dir',
+  'cat',
+]);
+
+/**
  * 文件写入类工具里承载**正文**的字段（2026-11-10）。
  *
  * 分类器原先把 `JSON.stringify(input)` 整体喂给命令注入 / 危险令牌 / 编码 / XSS 检测 ⇒
@@ -861,25 +881,10 @@ export class AutoModeClassifier implements IAutoModeClassifier {
    * @returns 是否匹配
    */
   private isPartialMatch(toolName: string): boolean {
-    const safeKeywords = [
-      'read',
-      'list',
-      'search',
-      'view',
-      'show',
-      'get',
-      'find',
-      'ls',
-      'dir',
-      'cat',
-    ];
-
-    for (const keyword of safeKeywords) {
-      if (toolName.includes(keyword)) {
-        return true;
-      }
-    }
-
-    return false;
+    // F2（2026-11-22）：外部命名空间工具（MCP `server__tool`、插件前缀名）不得靠名字
+    // 猜只读 —— 其读写语义由工具自身声明（MCP `annotations.readOnlyHint`）决定。
+    if (toolName.includes('__')) return false;
+    const segments = toolName.split(/[^a-z0-9]+/).filter(Boolean);
+    return segments.some((segment) => SAFE_KEYWORDS.has(segment));
   }
 }

@@ -113,9 +113,16 @@ export async function checkPermissionForTool(
   input: Record<string, unknown> = {},
   context?: ToolPermissionCallContext
 ): Promise<ToolPermissionResult> {
+  // F3（2026-11-22）：别名 → **真名**归一后再判定。
+  // `tool_rules` 按真名配置；别名（wire 安全名 / 旧名）调用此前会让工具级 deny / ask
+  // 规则不命中，且风险判定退回名字启发式（`inferRiskClass`）。
+  const canonicalToolName =
+    context?.tool && typeof context.tool.name === 'string'
+      ? context.tool.name
+      : toolName;
   // P1-2: 构造完整 PermissionContext（补 toolName/input），透传 sessionId 供统一提交
   const permissionContext = createPermissionContext({
-    toolName,
+    toolName: canonicalToolName,
     input,
     sessionId: context?.sessionId,
     // 2026-11-12：透传调用 id（审批卡留证；用户拒绝时据此写终态结果并续跑）
@@ -142,7 +149,7 @@ export async function checkPermissionForTool(
     autonomy: context?.autonomy,
   });
   const decision = await deps.checkPermission(
-    context?.tool ?? toolName,
+    context?.tool ?? canonicalToolName,
     input,
     permissionContext,
     context?.forceAskReason

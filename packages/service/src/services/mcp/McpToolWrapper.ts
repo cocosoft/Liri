@@ -36,6 +36,8 @@ export class McpToolWrapper implements Tool {
   private serverName: string;
   private toolName: string;
   private getClient: () => Client | undefined;
+  /** MCP 工具注解（F1：权限派生的事实来源；缺省 ⇒ 未声明） */
+  private annotations?: SerializedTool['annotations'];
 
   constructor(
     serverName: string,
@@ -51,6 +53,7 @@ export class McpToolWrapper implements Tool {
     this.aliases = [this.toolName];
     this.searchHint = `MCP tool from ${serverName}`;
     this.getClient = getClient;
+    this.annotations = toolData.annotations;
 
     if (toolData.inputJSONSchema?.properties) {
       this.params = Object.entries(toolData.inputJSONSchema.properties).map(
@@ -72,16 +75,24 @@ export class McpToolWrapper implements Tool {
     return true;
   }
 
+  /**
+   * F1（2026-11-22）：原实现**恒 true** ⇒ `deriveToolRiskClass` 第 5 步把每个 MCP 工具
+   * 判为 `read` ⇒ 默认档自动放行、无审批（含远端删文件/发消息）。现改为**只认服务端声明**：
+   * `annotations.readOnlyHint === true` 才是只读；缺省/为 false ⇒ 未声明 ⇒ 人工审批。
+   */
   isReadOnly(_input?: Record<string, unknown>): boolean {
-    return true;
+    return this.annotations?.readOnlyHint === true;
   }
 
+  /** MCP 规范：`destructiveHint` 缺省视为 true（仅显式 false 表示纯增量更新） */
   isDestructive(_input?: Record<string, unknown>): boolean {
-    return false;
+    if (this.isReadOnly()) return false;
+    return this.annotations?.destructiveHint !== false;
   }
 
+  /** 仅显式只读的工具可并发执行（未知写语义 ⇒ 串行，避免同资源竞争） */
   isConcurrencySafe(_input?: Record<string, unknown>): boolean {
-    return true;
+    return this.isReadOnly();
   }
 
   async execute(
@@ -100,6 +111,8 @@ export class McpToolWrapper implements Tool {
         success: false,
         error: `MCP server "${this.serverName}" is not connected`,
         status: ToolExecutionStatus.FAILURE,
+        // F6（2026-11-22）：机器可读拦截码（此前只有自然语言 error）
+        metadata: { reason: 'mcp_not_connected' },
       };
     }
 

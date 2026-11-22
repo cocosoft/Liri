@@ -96,6 +96,9 @@ describe('HTTP/CoreAPI 路径权限门（B2）', () => {
       getPermissionManager: () => options.permissionManager,
       getToolManager: () =>
         ({
+          // F3（2026-11-22）：授权前会解析已注册工具对象（别名 → 真名）。
+          // 本桩无注册工具 ⇒ 返回 undefined，判定沿用调用方传入的名字。
+          getInner: () => ({ getTool: () => undefined }),
           executeTool: async (name: string) => {
             options.executed.push(name);
             return options.toolResult ?? { success: true, output: 'ok' };

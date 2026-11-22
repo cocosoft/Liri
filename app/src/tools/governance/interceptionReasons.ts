@@ -10,8 +10,9 @@
  * - 登记必须同时给出**产生该码的源文件**；`lint:tool-interception-reasons` 会：
  *   ① 扫描这些文件里的 `reason: '<code>'` 字面量 ⇒ 未登记的码即失败；
  *   ② 表里每个码必须在扫描面真实存在 ⇒ 僵尸登记即失败。
- * - file / mcp 域当前**没有** metadata.reason 码（拦截发生在权限层 / MCP server 侧）——
- *   这是如实现状，不以空登记凑数；后续引入码时在此追加并纳入扫描面。
+ * - F6（2026-11-22）：file / mcp / policy 域已补码（PathGuard / LRO 工作区越界 /
+ *   策略拒绝 / MCP 未连接）；新增拦截点必须同批登记。 bash 之外**没有码**的域
+ *   不再以空登记凑数，但也不得在源码写入未登记的码。
  */
 
 export type InterceptionDomain =
@@ -19,7 +20,8 @@ export type InterceptionDomain =
   | 'network'
   | 'desktop'
   | 'file'
-  | 'mcp';
+  | 'mcp'
+  | 'policy';
 
 export interface InterceptionReasonSpec {
   code: string;
@@ -38,6 +40,26 @@ export const INTERCEPTION_REASONS: readonly InterceptionReasonSpec[] = [
     code: 'tool_gate_disabled',
     domain: 'desktop',
     sources: ['packages/tool-desktop/src/tool-desktop/ComputerUseTool.ts'],
+  },
+  {
+    code: 'path_guard_blocked',
+    domain: 'file',
+    sources: ['app/src/chat/ReActToolLoop.ts'],
+  },
+  {
+    code: 'workspace_escape_blocked',
+    domain: 'file',
+    sources: ['app/src/tasks/lro/stepExecution.ts'],
+  },
+  {
+    code: 'policy_denied',
+    domain: 'policy',
+    sources: ['app/src/tools/ToolRegistry.ts'],
+  },
+  {
+    code: 'mcp_not_connected',
+    domain: 'mcp',
+    sources: ['packages/service/src/services/mcp/McpToolWrapper.ts'],
   },
 ];
 

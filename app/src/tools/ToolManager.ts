@@ -17,6 +17,8 @@ import {
   describeMissingRequiredParams,
   stripArgParseErrorKey,
 } from '@openliri/infra/utils/toolContract/argParseError';
+// F5（2026-11-22）：执行入口统一超时 + 取消（HTTP / CLI / 语音共用）
+import { runWithToolDeadline } from './utils/toolDeadline';
 import { guardShieldedToolCall } from './shieldGuard';
 import { ToolFactory } from './ToolFactory';
 import { setAgentToolManager } from './AgentTool/AgentTool';
@@ -491,11 +493,31 @@ export class ToolManager extends EventEmitter {
     }
 
     try {
-      const result = await optimizedExecuteTool(
-        tool,
-        execInput,
-        context,
-        onProgress
+      // F5（2026-11-22）：统一超时 + 取消 —— 工具拿到派生 controller，超时即 abort 底层。
+      const execContext =
+        context && typeof context === 'object' ? { ...context } : context;
+      const result = await runWithToolDeadline(
+        (controller) =>
+          optimizedExecuteTool(
+            tool,
+            execInput,
+            execContext && typeof execContext === 'object'
+              ? { ...execContext, abortController: controller }
+              : execContext,
+            onProgress
+          ),
+        {
+          parentSignal:
+            context && typeof context === 'object'
+              ? (context as { abortController?: AbortController })
+                  .abortController?.signal
+              : undefined,
+          onTimeout: (timeoutMs) =>
+            logger.warn('工具执行超时，已取消底层执行', {
+              toolName: name,
+              timeoutMs,
+            }),
+        }
       );
       profileCheckpoint(`tool_execute_${name}_end`);
       return result as ToolResult;

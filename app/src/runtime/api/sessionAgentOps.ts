@@ -402,15 +402,23 @@ export class SessionAgentOps {
         };
       }
 
+      // F3（2026-11-22）：解析**已注册工具对象**（`getInner().getTool` 内含别名解析）——
+      // 授权层据此按声明式派生风险，并以真名匹配 `tool_rules`（此前只传字符串名 ⇒
+      // 别名调用绕过按真名配置的 deny / ask，风险退回名字启发式）。
+      const registeredTool = this.deps
+        .getToolManager()
+        .getInner()
+        .getTool(toolCall.name);
       const authorization = await authorizeToolCall(
         permissionManager as ToolPermissionPort,
         {
-          toolName: toolCall.name,
+          toolName: registeredTool?.name ?? toolCall.name,
           args: (toolCall.arguments as Record<string, unknown>) ?? {},
           // HTTP 路径无会话审批模式/工作区上下文 ⇒ 权限层按 `ask` 判定（fail-closed）
           // 多租户 P0（2026-11-03 收敛）：角色显式取自请求作用域，无作用域 ⇒ 无角色
           context: {
             sessionId,
+            ...(registeredTool ? { tool: registeredTool } : {}),
             // 2026-11-11：身份位与聊天主链同源（本地=admin；用户级 RBAC 依赖 userId）
             userId: getRequestPrincipal().userId,
             userRole: getEffectivePermissionRole() ?? undefined,

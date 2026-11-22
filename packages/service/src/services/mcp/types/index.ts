@@ -404,6 +404,19 @@ export interface SerializedTool {
   };
   isMcp?: boolean;
   originalToolName?: string;
+  /**
+   * MCP 工具注解（SDK `Tool.annotations` 原样透传）。
+   *
+   * 权限派生依赖 `readOnlyHint`：**只有显式 `true` 才认只读**；缺省按未声明处理
+   * （⇒ `undeclared` ⇒ 人工审批），不再由包装器自报只读猜测放行。
+   */
+  annotations?: {
+    title?: string;
+    readOnlyHint?: boolean;
+    destructiveHint?: boolean;
+    idempotentHint?: boolean;
+    openWorldHint?: boolean;
+  };
 }
 
 export interface SerializedClient {

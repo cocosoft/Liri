@@ -8,6 +8,9 @@
  * `TOOL_SUMMARY_MAX_LENGTH` / `TOOL_RESULT_STORAGE_DIR` / `TOOL_RESULT_PREVIEW_MAX_LENGTH` /
  * `DEFAULT_TOOL_TIMEOUT` / `MAX_CONCURRENT_TOOLS` / `MAX_TOOL_RETRIES`）；
  * 仅保留上下文与落盘链路的真实消费面。
+ *
+ * F5（2026-11-22）：工具执行超时重新接入 —— 以 `DEFAULT_TOOL_EXEC_TIMEOUT_MS` 命名
+ * （与既有 chat 链 300s 口径一致），消费方为 `tools/utils/toolDeadline.ts`。
  */
 
 import { getRuntimeDefaults } from './defaults';
@@ -22,6 +25,16 @@ const B = getRuntimeDefaults();
  * @kind B
  */
 export const DEFAULT_MAX_RESULT_SIZE_CHARS = B.defaultMaxResultSizeChars;
+
+/**
+ * 工具执行默认超时（B 类；`LIRI_TOOL_TIMEOUT_MS` 可覆盖，默认 300s）。
+ *
+ * F5（2026-11-22）：唯一事实源 —— `tools/utils/toolDeadline.ts` 的缺省值；
+ * 既有 `TOOL_EXEC_TIMEOUT_MS` 仍优先（chat 链历史口径）。
+ *
+ * @kind B
+ */
+export const DEFAULT_TOOL_EXEC_TIMEOUT_MS = B.defaultToolTimeoutMs;
 
 /**
  * 用于从字节大小计算token数的每token字节数估算

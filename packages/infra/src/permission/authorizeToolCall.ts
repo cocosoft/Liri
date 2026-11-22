@@ -30,8 +30,11 @@ export interface ToolAuthorizeContext {
   userRole?: string;
   /** P2-6（2026-11-11）：全部角色（RBAC 按并集判定；缺省回落 `userRole`） */
   userRoles?: string[];
-  /** 语义护栏「便宜版」：本轮意图文本 */
-  metadata?: { goalText?: string };
+  /**
+   * 权限上下文元数据（与 `PermissionContext.metadata` 同口径）。
+   * `goalText` 供语义护栏；其余键（如 `source`）仅留证，不参与判定。
+   */
+  metadata?: Record<string, unknown>;
   /** 会话级审批模式（缺省 ⇒ 权限层按 `ask` 处理） */
   approvalMode?: 'ask' | 'auto-local';
   /** P1（2026-11-04）：会话级权限模式（缺省 ⇒ 权限层的进程默认档） */

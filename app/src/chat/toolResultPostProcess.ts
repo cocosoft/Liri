@@ -633,7 +633,9 @@ export function recordSkippedToolCall(
   round: ToolRoundResults,
   tc: ToolCallEntry,
   error: string,
-  failureKind?: ToolFailureKind
+  failureKind?: ToolFailureKind,
+  /** F6（2026-11-22）：结构化拦截码（写入模型可见结果的 `metadata.reason`） */
+  metadata?: Record<string, unknown>
 ): void {
   round.results.push({
     toolCallId: tc.id,
@@ -652,6 +654,7 @@ export function recordSkippedToolCall(
       toolCallId: tc.id,
       toolName: tc.name,
       error,
+      ...(metadata ? { metadata } : {}),
     },
   });
 }

@@ -25,6 +25,8 @@ import {
   describeMissingRequiredParams,
   stripArgParseErrorKey,
 } from '@openliri/infra/utils/toolContract/argParseError';
+// F5（2026-11-22）：共同执行入口的统一超时 + 取消（派生 controller，避免幽灵执行）
+import { runWithToolDeadline } from './utils/toolDeadline';
 import type { ToolDefinition, ToolImplementation } from './types/ToolTypes';
 import { isWireSafeToolName, toWireToolName } from './toolNameCodec';
 import { getDefaultToolPolicyPipeline } from './policy/defaultPipeline';
@@ -551,6 +553,8 @@ export class ToolRegistry {
       return createToolResult(null, {
         success: false,
         error: denied,
+        // F6（2026-11-22）：策略拒绝的机器可读码
+        metadata: { reason: 'policy_denied' },
         newMessages: [
           {
             role: 'system',
@@ -613,10 +617,24 @@ export class ToolRegistry {
         : normalizedInput;
 
     try {
-      result = await tool.execute(
-        execInput,
-        context,
-        onProgress as Parameters<typeof tool.execute>[2]
+      // F5（2026-11-22）：统一超时 + 取消 —— 派生 controller 传给工具，
+      // 超时/父取消都会 abort 底层（此前本入口无超时）。
+      result = await runWithToolDeadline(
+        (controller) =>
+          tool.execute(
+            execInput,
+            { ...context, abortController: controller },
+            onProgress as Parameters<typeof tool.execute>[2]
+          ),
+        {
+          parentSignal: context.abortController?.signal,
+          onTimeout: (timeoutMs) =>
+            logger.warn('工具执行超时，已取消底层执行', {
+              toolName: tool.name,
+              sessionId: policyContext.sessionId,
+              timeoutMs,
+            }),
+        }
       );
       this.updateUsageStats(tool.name, true, Date.now() - startTime);
       // 统一统计收口（与 ToolExecutor.recordToolExecution 对齐）——

@@ -207,7 +207,7 @@ export function getRuntimeDefaults(): RuntimeDefaults {
       'LIRI_TOOL_RESULT_PREVIEW_MAX_LENGTH',
       500
     ),
-    defaultToolTimeoutMs: envInt('LIRI_TOOL_TIMEOUT_MS', 30_000),
+    defaultToolTimeoutMs: envInt('LIRI_TOOL_TIMEOUT_MS', 300_000),
     maxConcurrentTools: envInt('LIRI_MAX_CONCURRENT_TOOLS', 10),
     maxToolRetries: envInt('LIRI_MAX_TOOL_RETRIES', 3),
 

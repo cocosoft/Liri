@@ -12,7 +12,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolveProjectRoot } from '@openliri/infra/environment';
-import { SANDBOX_HELPER_BIN_DIR } from '../helperBinDir';
+import { SANDBOX_HELPER_BIN_DIR } from '../SandboxTypes';
 
 /** helper 可执行文件名（C 编译产物，不入库） */
 export const WIN_SANDBOX_HELPER_BIN_NAME = 'win-sandbox-run.exe';
@@ -20,7 +20,7 @@ export const WIN_SANDBOX_HELPER_BIN_NAME = 'win-sandbox-run.exe';
 /** 显式覆盖的环境变量名 */
 export const WIN_SANDBOX_HELPER_ENV = 'WIN_SANDBOX_HELPER';
 
-/** 随包分发目录（`<PROJECT_DIR>/bin/`；定义见 `../helperBinDir`） */
+/** 随包分发目录（`<PROJECT_DIR>/bin/`；定义见 `../SandboxTypes`） */
 
 /** 候选路径（按优先级，去重去空；非 Windows ⇒ 空数组）。纯函数，供单测与排障日志。 */
 export function resolveWinSandboxHelperCandidates(input: {

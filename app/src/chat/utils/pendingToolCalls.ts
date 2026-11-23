@@ -16,7 +16,14 @@ import type { LiriEvent } from '@modules/session/types/events';
 // 2026-11-06（审批根因簇 P0-1）：判据下沉 infra 契约层（query / chat 共用，避免第二份实现）
 import { isAwaitingApprovalPayload } from '@openliri/infra/utils/toolContract';
 
-export interface PendingToolCall {
+/**
+ * 事件尾部识别出的「未答工具」。
+ *
+ * 2026-11-23（R02-002）：原名 `PendingToolCall` 与 `ai/providers/streamToolCalls.ts` 的
+ * 「流式 tool_call 分片累积」类型同名但**字段语义完全不同**（此处是已落定的事件快照，
+ * 那里是跨分片合并的中间态）⇒ 改为专名，避免两个概念共用同一个类型名。
+ */
+export interface UnansweredToolCall {
   toolCallId: string;
   name: string;
   args: unknown;
@@ -107,7 +114,7 @@ export function planToolReplay<T extends { id: string }>(
 }
 
 export function extractPendingToolCallsFromEvents(events: LiriEvent[]): {
-  pending: PendingToolCall[];
+  pending: UnansweredToolCall[];
   answered: Set<string>;
 } {
   const answered = new Set<string>();
@@ -125,7 +132,7 @@ export function extractPendingToolCallsFromEvents(events: LiriEvent[]): {
     }
   }
 
-  const pending: PendingToolCall[] = [];
+  const pending: UnansweredToolCall[] = [];
   for (let i = events.length - 1; i >= 0; i--) {
     const ev = events[i];
     if (ev.type === 'user/message') break;

@@ -6447,7 +6447,7 @@
 {"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#3","i":0,"c":"packages/sandbox/src/sandbox/win/WindowsSandboxDetector.ts"}
 {"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#4","i":0,"c":"packages/sandbox/src/sandbox/win/runWithWinSandbox.ts"}
 {"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#5","i":0,"c":"packages/sandbox/src/sandbox/win/index.ts"}
-{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#6","i":0,"c":"packages/sandbox/src/sandbox/helperBinDir.ts"}
+{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#6","i":0,"c":"packages/sandbox/src/sandbox/SandboxTypes.ts"}
 {"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#7","i":0,"c":"packages/sandbox/src/sandbox/landlock/helperPaths.ts"}
 {"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#8","i":0,"c":"packages/sandbox/src/sandbox/index.ts"}
 {"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#9","i":0,"c":"packages/tool-code/src/tool-code/CodeRunner/WindowsSandboxRunner.ts"}

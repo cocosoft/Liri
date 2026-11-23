@@ -17,7 +17,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolveProjectRoot } from '@openliri/infra/environment';
-import { SANDBOX_HELPER_BIN_DIR } from '../helperBinDir';
+import { SANDBOX_HELPER_BIN_DIR } from '../SandboxTypes';
 
 /** helper 可执行文件名（与 Cargo/native 无关，纯 C 编译产物） */
 export const LANDLOCK_HELPER_BIN_NAME = 'landlock-run';
@@ -25,7 +25,7 @@ export const LANDLOCK_HELPER_BIN_NAME = 'landlock-run';
 /** 显式覆盖的环境变量名（与 `LinuxSandboxRunner` / `bashLandlockExec` 同一口径） */
 export const LANDLOCK_HELPER_ENV = 'LANDLOCK_RUN_HELPER';
 
-/** 随包分发目录（`<PROJECT_DIR>/bin/`；定义见 `../helperBinDir`） */
+/** 随包分发目录（`<PROJECT_DIR>/bin/`；定义见 `../SandboxTypes`） */
 
 /**
  * 候选路径（按优先级，去重去空；非 Linux ⇒ 空数组）。

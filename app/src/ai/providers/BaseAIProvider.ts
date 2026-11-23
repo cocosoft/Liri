@@ -55,6 +55,8 @@ import { handleError } from '@openliri/infra/error/handleError';
 import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
 // P2-1（2026-11-04）：逐请求延迟日志的级别判定（慢尾/失败才 INFO）
 import { shouldLogLatencyAtInfo } from './providerLatencyNotice.js';
+// 2026-11-23（R02-002）：分片累积类型以 `streamToolCalls` 为唯一真源（本文件曾再定义一份逐字相同的副本）
+import type { PendingToolCall } from './streamToolCalls';
 import { MS_PER_SECOND } from '@openliri/infra/constants';
 import { resolveModelRoute, RouteKey } from '../router/resolveModelRoute.js';
 import type { RouteKey as RouteKeyType } from '../router/routes.js';
@@ -173,14 +175,10 @@ export interface BaseProviderOptions {
 
 // ============================================================
 // PendingToolCall（流式 tool_calls 分片累积）
+// ------------------------------------------------------------
+// 2026-11-23（R02-002）：类型定义已收敛到 `streamToolCalls.ts`（本文件曾再定义一份逐字
+// 相同的 `PendingToolCall` ⇒ 同名类型两处定义，字段漂移时编译期不报错）。此处只做类型导入。
 // ============================================================
-
-/** 流式 tool_calls 分片累积中间状态 */
-export interface PendingToolCall {
-  id: string;
-  name: string;
-  arguments: string;
-}
 
 // ============================================================
 // 重试配置

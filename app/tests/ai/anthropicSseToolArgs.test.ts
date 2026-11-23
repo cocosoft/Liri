@@ -15,8 +15,9 @@ import { describe, it, expect } from 'bun:test';
 import {
   BaseAIProvider,
   SSEFormat,
-  type PendingToolCall,
 } from '@modules/ai/providers/BaseAIProvider';
+// 2026-11-23（R02-002）：分片累积类型唯一真源在 streamToolCalls（BaseAIProvider 不再重复定义）
+import type { PendingToolCall } from '@modules/ai/providers/streamToolCalls';
 import type { ChatMessage, ChatResponse } from '@modules/ai/models/types';
 import type {
   ChatOptions,

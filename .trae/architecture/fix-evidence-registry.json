@@ -12723,7 +12723,7 @@
         "packages/sandbox/src/sandbox/win/WindowsSandboxDetector.ts",
         "packages/sandbox/src/sandbox/win/runWithWinSandbox.ts",
         "packages/sandbox/src/sandbox/win/index.ts",
-        "packages/sandbox/src/sandbox/helperBinDir.ts",
+        "packages/sandbox/src/sandbox/SandboxTypes.ts",
         "packages/sandbox/src/sandbox/landlock/helperPaths.ts",
         "packages/sandbox/src/sandbox/index.ts",
         "packages/tool-code/src/tool-code/CodeRunner/WindowsSandboxRunner.ts",

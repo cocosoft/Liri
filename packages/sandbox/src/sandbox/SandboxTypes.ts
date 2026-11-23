@@ -9,6 +9,17 @@ import { SandboxPermission } from '@openliri/kernel/sandboxPermission.js';
 export { SandboxPermission };
 
 /**
+ * 沙箱 helper 的**随包目录**（`<PROJECT_DIR>/bin/`）。
+ *
+ * `landlock-run` 与 `win-sandbox-run.exe` 都从这里分发 ⇒ 单一来源，避免两个平台模块
+ * 各写一份 `'bin'`（`lint:consts` 的同名常量门禁会拦重复定义）。
+ *
+ * 2026-11-23（R07-001）：原独立文件 `helperBinDir.ts`（7 行）并入本文件 —— 该常量是
+ * 沙箱**包级**约定，与类型定义同域；文件级碎片反而增加跨目录跳转成本。
+ */
+export const SANDBOX_HELPER_BIN_DIR = 'bin';
+
+/**
  * 沙箱平台类型
  */
 export enum SandboxPlatform {

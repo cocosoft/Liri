@@ -29,16 +29,13 @@ import { handleError } from '@openliri/infra/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import type { CronJobRecord } from '@openliri/service/runtime/api/taskOpsPorts';
 import { LOCAL_SERVICE_HOST } from '@openliri/kernel';
-
-/**
- * 定时任务归属助手（多租户 P3）。
- *
- * 走**动态导入**取用：`handlers` 不得静态依赖 `tasks` 模块
- * （`module-registry/no-direct-module-import`）；模块加载后由 Node 缓存，无重复开销。
- */
-async function loadCronOwnership() {
-  return import('@modules/tasks/cron/cronOwnership');
-}
+// 多租户 P3 归属助手（2026-11-24，R00-003 下沉）：原经动态导入 `@modules/tasks/...` 取用；
+// 现位于 infra（只依赖内核身份原语）⇒ service 层可**静态**引用（service → infra 合法），
+// 不再触犯 `module-registry/no-direct-module-import`。
+import {
+  canAccessCronJob,
+  currentCronOwnerKey,
+} from '@openliri/infra/utils/cronOwnership';
 
 /** 前端 CronTask 响应格式（`jobToCronTask` 的产物） */
 interface CronTaskResponse {
@@ -139,7 +136,6 @@ export async function handleListCron(
     await store.init();
     // 多租户 P3：已认证身份只列自己的；本地身份 `canAccessCronJob` 恒真 ⇒ 仍返回全部（零变更）。
     // 在内存里过滤而非加 SQL 谓词：端口 `loadJobs()` 无过滤参数，且任务量级很小。
-    const { canAccessCronJob } = await loadCronOwnership();
     const jobs = (await store.loadJobs()).filter((j) => canAccessCronJob(j));
     const result = jobs.map((j) => jobToCronTask(j));
     await store.close();
@@ -181,7 +177,6 @@ export async function handleCreateCron(
     }
 
     const { parseSchedule } = await import('@openliri/infra/chronos');
-    const { currentCronOwnerKey } = await loadCronOwnership();
     const taskOps = await getCoreAPI().getTaskOpsPort();
 
     const parsed: CronScheduleInput = parseSchedule(cronExpr) ?? {
@@ -271,7 +266,6 @@ export async function handleGetCron(
     const job = await store.getJob(cronId);
     await store.close();
     // 多租户 P3：越权与不存在同一 404（不泄露存在性）
-    const { canAccessCronJob } = await loadCronOwnership();
     if (!job || !canAccessCronJob(job)) {
       respondCronNotFound(res);
       return;
@@ -301,7 +295,6 @@ export async function handleUpdateCron(
 
     const existing = await store.getJob(cronId);
     // 多租户 P3：非归属者的更新按 404 处理（与"任务不存在"同响应）
-    const { canAccessCronJob } = await loadCronOwnership();
     if (!existing || !canAccessCronJob(existing)) {
       await store.close();
       respondCronNotFound(res);
@@ -346,7 +339,6 @@ export async function handleDeleteCron(
     const store = await taskOps.createCronJobStore();
     await store.init();
     // 多租户 P3：先校验归属再删（越权按 404，且**不会**误删他人任务）
-    const { canAccessCronJob } = await loadCronOwnership();
     const job = await store.getJob(cronId);
     if (!job || !canAccessCronJob(job)) {
       await store.close();
@@ -380,7 +372,6 @@ export async function handleRunCron(
 
     const job = await store.getJob(cronId);
     // 多租户 P3：非归属者的"立即执行"按 404 处理（否则可借他人作业触发执行）
-    const { canAccessCronJob } = await loadCronOwnership();
     if (!job || !canAccessCronJob(job)) {
       await store.close();
       respondCronNotFound(res);
@@ -479,7 +470,6 @@ export async function handleCronRuns(
 
     // 多租户 P3：运行日志正文可能含作业输出 ⇒ 已认证身份只保留自己的作业条目。
     // 已知边界：`total/offset/hasMore` 仍是全量口径（分页元数据不随条目过滤重算）。
-    const { canAccessCronJob, currentCronOwnerKey } = await loadCronOwnership();
     if (currentCronOwnerKey() !== undefined) {
       const jobStore = await taskOps.createCronJobStore();
       await jobStore.init();

@@ -19,7 +19,7 @@ import {
   canAccessCronJob,
   currentCronOwnerKey,
   runInCronOwnerScope,
-} from '../../src/tasks/cron/cronOwnership';
+} from '@openliri/infra/utils/cronOwnership';
 
 const ALICE: Principal = { tenantId: 'acme', userId: 'alice', roles: ['user'] };
 const BOB: Principal = { tenantId: 'acme', userId: 'bob', roles: ['user'] };

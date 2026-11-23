@@ -6,6 +6,11 @@
 import { Tool } from '@openliri/infra/utils/toolContract/Tool';
 // C1（2026-10-09）：cron id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';
+// 2026-11-24（R00-003 下沉）：cron 归属助手在 infra（原 app 层 `tasks/cron/cronOwnership`）
+import {
+  canAccessCronJob,
+  currentCronOwnerKey,
+} from '@openliri/infra/utils/cronOwnership';
 import { ToolUseContext } from '@openliri/infra/utils/toolContract/ToolUseContext';
 import { ToolUtils } from '@modules/tools/utils/ToolUtils';
 import { CronCreateOutputJsonSchema } from './schemas';
@@ -210,8 +215,7 @@ export class CronCreateTool {
           // 检查任务数限制（多租户 P3：按**归属**计数 —— 本地身份仍看全量，零变更）
           const store = new CronJobStore(resolveDbPath());
           await store.init();
-          const { canAccessCronJob, currentCronOwnerKey } =
-            await import('@modules/tasks/cron/cronOwnership');
+          // 2026-11-24（R00-003 下沉）：归属助手已移入 infra ⇒ 静态引用（原为动态导入 app 层）
           const ownerKey = currentCronOwnerKey();
           const allJobs = (await store.loadJobs()).filter((j) =>
             canAccessCronJob(j)

@@ -1,5 +1,14 @@
+// MIT License
+// Copyright (c) 2026 190615273@qq.com
+
 /**
  * 定时任务的归属（多租户 P3 · 资源隔离）
+ *
+ * 2026-11-24（R00-003 下沉）：原位于 `app/src/tasks/cron/cronOwnership.ts`（app 层）。它**只依赖
+ * 内核身份原语**（`kernel/identity/requestScope`），却被 service 层的 HTTP handler 使用 ——
+ * 而「service 不得静态依赖 app」⇒ handler 只能 `await import('@modules/tasks/...')`，
+ * 形成 R00-003 的动态跨层盲区（静态正则看不见）。下沉到 infra 后，handler 可**静态**引用
+ * （service → infra 合法），站点随之清零；app 侧调度器与 tool-task 也改为同一入口（CS01 单一实现）。
  *
  * 为什么 cron 不像其他 store 那样 DB-per-tenant：调度器是**进程级单例**，
  * 一次 tick 必须看到所有作业才能统一调度（并发上限 3 / 超时 / 投递队列都是进程资源）。
@@ -46,7 +55,7 @@ export function canAccessCronJob(
  * 在作业归属者的身份作用域内执行（无归属 ⇒ 原样执行，零变更）。
  *
  * 键由 `currentCronOwnerKey()` 写入（`<tenantId>:<userId>`），逆运算见
- * `core/identity/requestScope.ts#principalFromKey`（只此一处实现）。
+ * `kernel/identity/requestScope.ts#principalFromKey`（只此一处实现）。
  */
 export function runInCronOwnerScope<T>(
   job: { ownerKey?: string },

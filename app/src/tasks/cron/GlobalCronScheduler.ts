@@ -7,7 +7,7 @@ import { CronScheduler } from './CronScheduler';
 import { CronJobStore } from './CronJobStore';
 import { CronRunLog } from './CronRunLog';
 import { CronAlertService } from './CronAlertService';
-import { runInCronOwnerScope } from './cronOwnership';
+import { runInCronOwnerScope } from '@openliri/infra/utils/cronOwnership';
 import { applySelfWakeCronWire } from '../selfwake/cronBridge';
 import type { CronJob, CronJobResult } from './types';
 import type { SchedulerCallbacks } from './CronScheduler';

@@ -534,6 +534,33 @@ export function checkWhitelistAndSandbox(
 }
 
 /**
+ * 2026-11-24（真机 `session_mwrf18pu00456e0f2b`）：**审批终局预检** —— 审批卡只在"批准后真能执行"时出现。
+ *
+ * 事故：`for %f in (...) do @echo ...` 被安全分析器判 `ask` ⇒ 提交审批卡（文案承诺
+ * 「用户批准后可继续执行」）；用户批准后重放，却被**硬拦截④**（基命令白名单：`for` 不在
+ * 允许列表）否决 ⇒ 审批白点、模型收到的却是"命令不在允许列表中"的失败。
+ *
+ * 两个判断层对"可审批性"口径不一致（ask 层认为"确认即可执行"，硬拦截层认为"永不可执行"）
+ * ⇒ 用户被要求为一件不可能发生的事做决定。口径收敛为：**在返回"需要审批"结果之前**，
+ * 以"已批准"视角（`bypassAsk=true`）预跑审批之后的硬拦截；若仍会拦截 ⇒ 直接返回该拦截
+ * 结果（带纠正提示），**不提交审批卡**。
+ *
+ * 纯函数 / 无副作用（与真实执行时的门禁调用同一实现）⇒ 预检结论与批准后重放结论一致。
+ */
+export function checkApprovalWouldBeBlocked(params: {
+  command: string;
+  std: StandardizedCommand;
+  approvalScope: ApprovalScope;
+  approvalSnapshot: ApprovalSnapshot;
+}): ToolResult<unknown> | null {
+  return checkWhitelistAndSandbox(params.command, params.std, {
+    bypassAsk: true,
+    approvalScope: params.approvalScope,
+    approvalSnapshot: params.approvalSnapshot,
+  });
+}
+
+/**
  * 解释器守卫（A4）：硬拦截**之后**的"升级人工确认"。
  *
  * - 仅当 命令**本会执行**（危险命令/deny/白名单/沙箱均已通过）且 `BASH_INTERPRETER_GUARD`

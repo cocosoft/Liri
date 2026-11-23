@@ -306,6 +306,62 @@ describe('A2 已批准命令安全复检（安全基线 BASH_APPROVED_REVALIDATE
   });
 });
 
+describe('审批终局预检（2026-11-24，真机 session_mwrf18pu00456e0f2b）', () => {
+  it('批准后仍会被硬拦截④否决的命令 ⇒ **不发审批卡**，直接返回拦截结果', async () => {
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    const tool = new BashTool(reg);
+    const analyzer = (
+      tool as unknown as { securityAnalyzer: BashSecurityAnalyzer }
+    ).securityAnalyzer;
+    const spy = spyOn(analyzer, 'analyze').mockReturnValue({
+      safe: false,
+      behavior: 'ask',
+      riskLevel: 'medium',
+      message:
+        "Command 'for' is not in the known-safe allowlist. Permission review required.",
+    } as ReturnType<BashSecurityAnalyzer['analyze']>);
+    try {
+      // 真机原命令：cmd 的 for 循环（`for` 不在基命令白名单内）
+      const result = await tool.execute(
+        { command: 'for %f in ("a.ts") do @echo %~zf %f' },
+        makeContext('session-1')
+      );
+      // 关键：不再让用户为"批准也执行不了"的命令点卡
+      expect(result.requireApproval).not.toBe(true);
+      expect(result.metadata?.securityIntercepted).toBe(true);
+      expect(result.metadata?.reason).toBe('command_whitelist');
+    } finally {
+      spy.mockRestore();
+      reg.dispose();
+    }
+  });
+
+  it('白名单内命令的 ask 仍正常提交审批（预检不误伤）', async () => {
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    const tool = new BashTool(reg);
+    const analyzer = (
+      tool as unknown as { securityAnalyzer: BashSecurityAnalyzer }
+    ).securityAnalyzer;
+    const spy = spyOn(analyzer, 'analyze').mockReturnValue({
+      safe: false,
+      behavior: 'ask',
+      riskLevel: 'medium',
+      message: '模拟 ask（需要用户确认）',
+    } as ReturnType<BashSecurityAnalyzer['analyze']>);
+    try {
+      const result = await tool.execute(
+        { command: 'git status' },
+        makeContext('session-1')
+      );
+      expect(result.requireApproval).toBe(true);
+      expect(result.metadata?.reason).toBe('security_analyzer_ask');
+    } finally {
+      spy.mockRestore();
+      reg.dispose();
+    }
+  });
+});
+
 describe('A4 解释器命令人工确认（灰度开关 BASH_INTERPRETER_GUARD，默认关）', () => {
   let restore: (() => void) | undefined;
   afterEach(() => {

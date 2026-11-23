@@ -57,6 +57,7 @@ import {
   checkAstAndAnalyzer,
   checkWhitelistAndSandbox,
   checkInterpreterGuard,
+  checkApprovalWouldBeBlocked,
 } from './bashSecurityGate';
 // G-07（2026-10-19）：`powershell/pwsh -Command "…"` 包裹的内层脚本不得绕过安全链 ——
 // 复用 PowerShellTool 的同一判定入口（不新增第二套危险词表）。
@@ -771,6 +772,31 @@ export class BashTool extends BaseTool {
       permissionMode,
     } = params;
 
+    /**
+     * 2026-11-24（真机 `session_mwrf18pu00456e0f2b`）：**审批终局预检**。
+     *
+     * 返回非 null ⇒ 该命令即便批准也会被后续硬拦截否决 ⇒ 直接返回拦截结果（不发审批卡）。
+     * 口径与"批准后重放"完全一致（同一 `checkWhitelistAndSandbox`，仅 `bypassAsk=true`）。
+     */
+    const approvalPreflight = (
+      candidate: ToolResult<unknown>
+    ): ToolResult<unknown> | null => {
+      if (candidate.requireApproval !== true) return null;
+      const blocked = checkApprovalWouldBeBlocked({
+        command,
+        std,
+        approvalScope,
+        approvalSnapshot,
+      });
+      if (!blocked) return null;
+      logger.warn('bash: approval_preflight_blocked', {
+        sessionId,
+        commandPreview: command.slice(0, 200),
+        reason: blocked.metadata?.['reason'],
+      });
+      return blocked;
+    };
+
     const pathBlock = checkPathSafety(std);
     if (pathBlock) {
       // 2026-10-25（预存台账 B 类可观测性缺口）：拦截事件此前**零日志** —— 只落会话消息、
@@ -815,6 +841,10 @@ export class BashTool extends BaseTool {
           sessionId,
           commandPreview: command.slice(0, 200),
         });
+        // 2026-11-24：升级确认前先预检"批准后是否真能执行"（壳包裹 PowerShell 会被硬拦截④否决）
+        const preflightBlock = approvalPreflight(psWrapperBlock);
+        if (preflightBlock)
+          return appendReadOnlyProbeHint(preflightBlock, command);
         return psWrapperBlock;
       }
     }
@@ -844,7 +874,13 @@ export class BashTool extends BaseTool {
           reason: analysisBlock.metadata?.['reason'],
         }
       );
-      if (!skip) return appendReadOnlyProbeHint(analysisBlock, command);
+      if (!skip) {
+        // 2026-11-24：审批卡只在"批准后真能执行"时出现（详见 `approvalPreflight`）
+        const preflightBlock = approvalPreflight(analysisBlock);
+        if (preflightBlock)
+          return appendReadOnlyProbeHint(preflightBlock, command);
+        return appendReadOnlyProbeHint(analysisBlock, command);
+      }
     }
 
     const whitelistBlock = checkWhitelistAndSandbox(command, std, {

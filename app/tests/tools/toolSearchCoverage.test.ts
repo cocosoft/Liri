@@ -35,6 +35,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
 import { ToolSearchTool } from '../../src/tools/ToolSearchTool/ToolSearchTool';
 import { searchToolsWithKeywords } from '../../src/tools/ToolSearchTool/ToolSearchTool';
 import { describeHiddenReasons } from '../../src/tools/ToolSearchTool/ToolSearchTool';
+import { truncateToolDescription } from '../../src/tools/ToolSearchTool/ToolSearchTool';
 import { createVfsFamilyTool } from '@openliri/tool-workspace';
 import { WriteProjectFileTool } from '@openliri/tool-workspace';
 import { TodoWriteTool } from '../../src/tools/TodoWriteTool/TodoWriteTool';
@@ -266,6 +267,21 @@ describe('tool_search 可解释性（2026-11-23 回归清单）', () => {
     expect(taskFiltered).toContain('任务类别');
     expect(disclosure).toContain('默认披露白名单');
     expect(taskFiltered).not.toBe(disclosure);
+  });
+
+  /** 会话打磨项：描述截断 200 → 360，且优先在句/分句边界收口 */
+  it('P3（2026-11-23）：描述截断 360，优先边界收口，短文本原样', () => {
+    expect(truncateToolDescription('短描述')).toBe('短描述');
+
+    const withBoundary = 'A'.repeat(250) + '。' + 'B'.repeat(300);
+    const cut = truncateToolDescription(withBoundary);
+    expect(cut.length).toBeLessThanOrEqual(361);
+    expect(cut.endsWith('。…')).toBe(true);
+
+    const withoutBoundary = 'C'.repeat(500);
+    const hard = truncateToolDescription(withoutBoundary);
+    expect(hard.length).toBe(361);
+    expect(hard.endsWith('…')).toBe(true);
   });
 
   it('清单 7：命中项带本轮可见性与不可见原因（裁剪可解释）', async () => {

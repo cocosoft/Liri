@@ -272,8 +272,34 @@ export async function searchToolsWithKeywords(
     .map((item) => item.name);
 }
 
-/** 详情里的描述截断长度（长描述如 `agent` 近 3.5k 字符，全量下发会挤占窗口） */
-const DETAIL_DESCRIPTION_MAX = 200;
+/**
+ * 详情里的描述截断长度（2026-11-23：200 → 360）。
+ *
+ * 现场（会话复测）：200 字符会把关键参数指引切断（`pdf` 的 "you MUST pass content_file in…"、
+ * `image` 的 "transform an existing i…"）⇒ 搜索结果不足以决策。360 覆盖常见工具描述的关键句，
+ * 同时仍远低于全文（`agent` ≈3.5k），不会挤占窗口。
+ */
+const DETAIL_DESCRIPTION_MAX = 360;
+
+/** 截断时优先回退到的句子/分句边界（避免把 `content_file` 这类关键字从中间切断） */
+const SENTENCE_BOUNDARIES = ['。', '！', '？', '. ', '；', '; ', '\n'] as const;
+
+/** 按边界截断工具描述（短文本原样返回；超长时在 max 内的最后一个句/分句边界收口） */
+export function truncateToolDescription(
+  text: string,
+  max: number = DETAIL_DESCRIPTION_MAX
+): string {
+  if (text.length <= max) return text;
+  const slice = text.slice(0, max);
+  let boundary = -1;
+  for (const mark of SENTENCE_BOUNDARIES) {
+    const index = slice.lastIndexOf(mark);
+    if (index > boundary) boundary = index;
+  }
+  const cut =
+    boundary >= Math.floor(max * 0.6) ? slice.slice(0, boundary + 1) : slice;
+  return `${cut}…`;
+}
 
 /** 合并族的旧名（alias-only）—— 检索结果不展示，但可解释"你查的是旧名" */
 const LEGACY_ALIAS_SET: ReadonlySet<string> = new Set(LEGACY_ALIAS_TOOL_NAMES);
@@ -337,10 +363,7 @@ function buildToolDetail(
   );
   return {
     name: tool.name,
-    description:
-      raw.length <= DETAIL_DESCRIPTION_MAX
-        ? raw
-        : `${raw.slice(0, DETAIL_DESCRIPTION_MAX)}…`,
+    description: truncateToolDescription(raw),
     requiredParams: params.filter((p) => p.required).map((p) => p.name),
     // 2026-11-23：条件必填（OR-of-ANDs / 按 action）—— 只报无条件必填会漏 content|content_file
     ...(info.requiredAnyOf

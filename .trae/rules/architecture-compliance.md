@@ -286,6 +286,7 @@ Barrel 文件（仅做 re-export 的 `index.ts`）不利于 tree-shaking，且�
 **允许（模块公共 API 边界）**：
 - 各模块根目录下或子模块入口的 `index.ts`，作为模块的公共 API 面
 - 示例：`src/state/index.ts`、`src/tools/TaskTool/index.ts`、`src/commands/backup/index.ts`
+- `packages/tool-*` 的**包根 `index.ts`**（各包 `package.json#exports` 的 `"."` 即指向它）与其既有子域入口（`tool-agent/memory`、`tool-code/notebook`、`tool-code/repl`）—— 2026-11-23 补录；白名单以 `lint-architecture.ts` 的 `allowedModuleDirs` 为唯一实现
 
 **禁止**：在非模块边界位置新增 barrel 文件
 

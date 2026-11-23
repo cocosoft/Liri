@@ -1358,6 +1358,19 @@ class ArchitectureLinter {
       'src\\workspaces\\',
       // 2026-10-08：vfs 为新增顶层模块（AI-VFS 只读试点）⇒ 其 index.ts 是模块公共 API 边界
       'src\\vfs\\',
+      // 2026-11-23（P4 工具包拆分后的补录）：`packages/tool-*` 的**包根 barrel** 是包公共 API
+      // 边界（各包 `package.json#exports` 的 "." 就指向 `<pkg>/index.ts`，与 `src\\vfs\\` 同口径）。
+      // 此前它们被 R05-005 误报为"不必要的 barrel"——因为白名单只登记了 app 侧模块目录。
+      'src\\tool-base\\',
+      'src\\tool-browser\\',
+      'src\\tool-desktop\\',
+      'src\\tool-office\\',
+      'src\\tool-runtime\\',
+      // 包内**子域** barrel（同域 2–4 个实现文件 + 一个子域入口，供包根与消费方按子域导入）：
+      // 只放行这三个既有子域目录，不放宽到整个包（更深层目录仍受 R05-005 约束）。
+      'src\\tool-agent\\memory\\',
+      'src\\tool-code\\notebook\\',
+      'src\\tool-code\\repl\\',
     ];
 
     for (const file of this.allFiles) {

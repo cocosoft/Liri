@@ -53,6 +53,7 @@ import { BrowserToolOutputSchema } from '@openliri/tool-browser';
 import { PlanTool } from '@openliri/tool-task';
 import { PlanToolOutputSchema } from '@openliri/tool-task/PlanTool/schemas';
 import { DocGenerateTool } from '@openliri/tool-office';
+import { RecallMemoryTool } from '@openliri/tool-agent';
 import { KnowledgeSaveTool } from '@openliri/tool-agent/KnowledgeSaveTool/KnowledgeSaveTool';
 import {
   AudioPlayTool,
@@ -1574,6 +1575,23 @@ describe('第二十一批工具出参结构（U-03）', () => {
    */
   it('file_convert：标量出参（string）原样下发，不带 properties', () => {
     const tool = new FileConvertTool();
+    const declared = tool.getInfo().outputJsonSchema!;
+
+    expect(declared.type).toBe('string');
+    expect(declared.properties).toBeUndefined();
+
+    const delivered = schemaOf(tool).output_schema;
+    expect(delivered.type).toBe('string');
+    expect(delivered.properties).toBeUndefined();
+    expect(delivered.description).toBe(declared.description);
+  });
+
+  /**
+   * 2026-11-23：`recall_memory` 接线时未声明出参结构（U-03 缺口）
+   * ⇒ 模型只能看到历史占位 `{content}`。本用例锁定"标量 string + getInfo 快照同源"。
+   */
+  it('recall_memory：标量出参（string）随 getInfo 快照下发', () => {
+    const tool = RecallMemoryTool.create();
     const declared = tool.getInfo().outputJsonSchema!;
 
     expect(declared.type).toBe('string');

@@ -41,20 +41,10 @@ import {
 import {
   ConfigTool,
   TaskStopTool,
-  TaskCreateListTool,
-  TaskUpdateStatusTool,
-  TaskGetListTool,
   TaskOutputTool,
-  CronCreateTool,
-  CronDeleteTool,
-  CronListTool,
-  CronStopTool,
   KanbanTool,
   MonitorTool,
   TraceRecordingTool,
-  SleepTool,
-  createSleepForTool,
-  createSleepUntilTool,
   TimeTool,
   PlanTool,
 } from '@openliri/tool-task';
@@ -65,9 +55,6 @@ import {
   AgentTool,
   // Q-18（2026-10-23）：`agents_list` 由影子工具接线（只读活跃代理投影，与 /v1/agents/control 同源）
   AgentsListTool,
-  SkillTool,
-  SkillListTool,
-  SkillViewTool,
   KnowledgeSaveTool,
 } from '@openliri/tool-agent';
 // ── 交互 / 会话 / 桌面 ──
@@ -104,15 +91,9 @@ import { ToolSearchTool } from '../ToolSearchTool/ToolSearchTool';
 // ── 工作区 / 项目文件 / VFS ──
 // G 档（2026-11-23）：工作区 / VFS 域已下沉 `@openliri/tool-workspace`
 import {
-  EnterWorktreeTool,
-  ExitWorktreeTool,
   CreateProjectTool,
   ReadProjectFileTool,
   WriteProjectFileTool,
-  ReadVfsTool,
-  ListVfsTool,
-  StatVfsTool,
-  WriteVfsTool,
 } from '@openliri/tool-workspace';
 // ── 媒体 ──
 // A 档（2026-11-22）：模型面媒体编辑 / 分析工具已下沉 `@openliri/tool-media`
@@ -177,20 +158,11 @@ export const BUILTIN_TOOL_FACTORIES = {
   createLSPTool: () => new LSPToolAdapter(),
   createREPLTool: () => new REPLToolAdapter(),
   createNotebookTool: () => new NotebookToolAdapter(),
-  /** 兼容旧接口，实际返回 NotebookToolAdapter（保留原语义） */
-  createNotebookEditTool: () => new NotebookToolAdapter(),
   // ── 配置 / 任务 / 调度 ──
   createConfigTool: () => new ConfigTool(),
   createTodoWriteTool: () => new TodoWriteTool(),
   createTaskStopTool: () => new TaskStopTool(),
-  createTaskCreateListTool: () => new TaskCreateListTool(),
-  createTaskUpdateStatusTool: () => new TaskUpdateStatusTool(),
-  createTaskGetListTool: () => new TaskGetListTool(),
   createTaskOutputTool: () => new TaskOutputTool(),
-  createCronCreateTool: () => CronCreateTool.create(),
-  createCronDeleteTool: () => CronDeleteTool.create(),
-  createCronListTool: () => CronListTool.create(),
-  createCronStopTool: () => CronStopTool.create(),
   createKanbanTool: () => new KanbanTool(),
   // ── P1（2026-10-30）：同资源族合并入口（旧名保留为 alias，不再单独注册） ──
   createVfsFamilyTool: () => createVfsFamilyTool(),
@@ -202,9 +174,6 @@ export const BUILTIN_TOOL_FACTORIES = {
   // ── Agent / Skill / 知识 ──
   createAgentTool: () => new AgentTool(),
   createAgentsListTool: () => new AgentsListTool(),
-  createSkillTool: () => new SkillTool(),
-  createSkillListTool: () => new SkillListTool(),
-  createSkillViewTool: () => new SkillViewTool(),
   createKnowledgeSaveTool: () => new KnowledgeSaveTool(),
   // ── 交互 / 会话 / 桌面 ──
   createAskUserQuestionTool: () => new AskUserQuestionTool(),
@@ -216,8 +185,6 @@ export const BUILTIN_TOOL_FACTORIES = {
   createDocGenerateTool: () => new DocGenerateTool(),
   createComputerUseTool: () => createComputerUseTool(),
   // ── 通用（带守卫 / 门控，逐字保留原语义） ──
-  createSleepTool: () =>
-    guardToolCreation('create_sleep_tool', () => new SleepTool()),
   createCodeRunnerTool: () =>
     guardToolCreation('create_code_runner_tool', () => new CodeRunnerTool()),
   createCodeAnalysisTool: () => new CodeAnalysisTool(),
@@ -228,8 +195,6 @@ export const BUILTIN_TOOL_FACTORIES = {
       'create_trace_recording_tool',
       () => new TraceRecordingTool()
     ),
-  createSleepForTool: () => createSleepForTool(),
-  createSleepUntilTool: () => createSleepUntilTool(),
   createSendMessageTool: () =>
     isToolEnabled('ENABLE_SEND_MESSAGE')
       ? guardToolCreation(
@@ -261,17 +226,11 @@ export const BUILTIN_TOOL_FACTORIES = {
   createBroadcastTool: () => new BroadcastTool(),
   createListPeersTool: () => new ListPeersTool(),
   // ── 工作区 / 项目文件 / VFS ──
-  createEnterWorktreeTool: () => new EnterWorktreeTool(),
-  createExitWorktreeTool: () => new ExitWorktreeTool(),
   createProjectTool: () => CreateProjectTool.create(),
   createReadProjectFileTool: () => ReadProjectFileTool.create(),
   createWriteProjectFileTool: () => WriteProjectFileTool.create(),
   // 2026-11-23：记忆召回 —— 系统提示词已引用该能力，此前只有实现未注册
   createRecallMemoryTool: () => RecallMemoryTool.create(),
-  createReadVfsTool: () => ReadVfsTool.create(),
-  createListVfsTool: () => ListVfsTool.create(),
-  createStatVfsTool: () => StatVfsTool.create(),
-  createWriteVfsTool: () => WriteVfsTool.create(),
   // ── 媒体 ──
   createImageTool: () => new ImageTool(),
   createImageAnalysisTool: () => new ImageAnalysisTool(),

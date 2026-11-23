@@ -113,14 +113,23 @@ async function run(query: string): Promise<ToolSearchOutput> {
   return r.data as ToolSearchOutput;
 }
 
-/** 在**真实工具名**上验证多词召回（缺失时注入同名探针，避免依赖加载顺序） */
-const MULTI_WORD_PROBES = ['doc_generate', 'pdf', 'image_generate'] as const;
+/**
+ * 多组多词查询（清单 1：3 组）。
+ *
+ * 探针描述刻意**不含工具名** ⇒ 命中只能来自「完整工具名下划线归一」这条判据，
+ * 防止用例被 `description` 里恰好写了工具名而"假通过"。
+ */
+const MULTI_WORD_GROUPS: readonly (readonly string[])[] = [
+  ['doc_generate', 'pdf', 'image_generate'],
+  ['web_fetch', 'web_search'],
+  ['bash', 'powershell'],
+];
 const injectedProbes: string[] = [];
 
 beforeAll(() => {
-  for (const name of MULTI_WORD_PROBES) {
+  for (const name of MULTI_WORD_GROUPS.flat()) {
     if (!registry.getTool(name)) {
-      registry.registerTool(fakeTool(name, `${name} probe`));
+      registry.registerTool(fakeTool(name, 'probe tool'));
       injectedProbes.push(name);
     }
   }
@@ -131,10 +140,12 @@ afterAll(() => {
 });
 
 describe('tool_search 可解释性（2026-11-23 回归清单）', () => {
-  it('清单 1：多词查询 `doc_generate pdf image_generate` 三者全部命中', async () => {
-    const out = await run('doc_generate pdf image_generate');
-    for (const name of MULTI_WORD_PROBES) {
-      expect(out.matches).toContain(name);
+  it('清单 1：多组多词查询全部命中（含 snake_case 全名归一）', async () => {
+    for (const group of MULTI_WORD_GROUPS) {
+      const out = await run(group.join(' '));
+      for (const name of group) {
+        expect(out.matches).toContain(name);
+      }
     }
   });
 

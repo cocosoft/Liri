@@ -167,9 +167,15 @@ async function searchToolsWithKeywords(
         const pattern = termPatterns.get(term);
         if (!pattern) return false;
 
+        // 2026-11-23：`doc_generate` / `web_fetch` 这类**完整工具名**查询必须命中 ——
+        // `parseToolName` 会把名字拆成单词（`doc generate`），原判据只比 `parts`，
+        // 完整 snake_case 词因此恒失配（实测多词查询只剩单 token 名能召回）。
+        const termSpaced = term.replace(/_/g, ' ');
         return (
           parsed.parts.includes(term) ||
           parsed.parts.some((part) => part.includes(term)) ||
+          parsed.full === termSpaced ||
+          parsed.full.includes(termSpaced) ||
           matchesPattern(pattern, description) ||
           (hintNormalized && matchesPattern(pattern, hintNormalized))
         );
@@ -188,15 +194,23 @@ async function searchToolsWithKeywords(
       const pattern = termPatterns.get(term);
       if (!pattern) continue;
 
+      // 2026-11-23：完整工具名查询（`doc_generate`）按下划线归一后的全名精确命中计权
+      const termSpaced = term.replace(/_/g, ' ');
+
       // 精确部分匹配（高权重）
       if (parsed.parts.includes(term)) {
         score += parsed.isMcp ? 12 : 10;
       } else if (parsed.parts.some((part) => part.includes(term))) {
         score += parsed.isMcp ? 6 : 5;
+      } else if (parsed.full === termSpaced) {
+        score += parsed.isMcp ? 12 : 10;
       }
 
-      // 全名回退
-      if (parsed.full.includes(term) && score === 0) {
+      // 全名回退（含下划线归一）
+      if (
+        score === 0 &&
+        (parsed.full.includes(term) || parsed.full.includes(termSpaced))
+      ) {
         score += 3;
       }
 

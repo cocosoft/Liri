@@ -881,6 +881,11 @@ bun run eval --model=<模型名> --k=4 --gate      # 关键任务建议 k≥4（
 | R01-003 | `main.ts` | `getOnboardRetryFlagPath()` + `retryCount` 引导重试标记，仅引导流程，无实际重试循环 | 2026-Q3 |
 | R01-003 | `ai/router/RetryPolicy.ts` | 重试策略类型定义文件，仅含类型/接口声明，误报 | 2026-Q3 |
 | R01-003 | `tasks/LongRunningTaskOrchestrator.ts` | 长任务编排器 `hasRetry` + `retryCount` 状态管理，领域内建重试 | 2026-Q3 |
+| R01-003 | `chat/services/ToolExecutionService.ts` | **误报**：`_resolveNonIdempotentRetryReason()` 是「非幂等重试需审批」判定器，`retryBudget.maxRetries` 只是入参；重试本体在 ErrorHandler/withToolTimeout，无自建循环 | ✅ 2026-11-23 |
+| R01-003 | `tasks/evolution/sopPlanSource.ts` | **误报**：`step.retryCount` 是读取已落盘计划步骤的**数据字段**，非重试计数 | ✅ 2026-11-23 |
+| R01-003 | `tasks/lro/executeRoundGuards.ts` | **误报**：`hasRetry` 是"存在待决策步骤"的领域变量名 + `Pick<… 'retryCount'>` 类型投影，无循环 | ✅ 2026-11-23 |
+| R01-003 | `tool-base/toolEffects.ts` | **误报**：`shouldBlindRetryTool()` / `ToolRetryBudget` 是重试**策略输入**（纯函数），重试本体在 ErrorHandler | ✅ 2026-11-23 |
+| R01-003 | `query/QueryLogStore.ts` | 领域内建重试：互斥锁内单条 INSERT 的 SQLITE_BUSY 有限重试（3 次、50/100ms 线性退避）。判据为**大小写不敏感**匹配，而 `withRetry.isRetryableError()` 是大小写敏感子串匹配 ⇒ 硬套会改变"是否重试"的判定（不换绿） | ✅ 2026-11-23 |
 | R01-005 | ~~`core/flows/doctor-health.ts`~~ | 已修复，registerHealthCheck 代理到 HealthChecker，导出 getHealthChecker()；**2026-10-24 核查：全仓已不存在** ⇒ 本行转为历史记录 | ~~✅~~ **已删除** |
 | R01-006 | `config/ConfigManager.ts` | 已添加 `ConfigManager.env()` 统一入口方法 | ✅ |
 | R01-006 | NODE_ENV（16 文件/24 处） | 已迁移：SystemContextService、DirectConnectManager、MemorySnapshotService、PerformanceConfig、envUtils、SlowOperationDetector、MonitoringService、DaemonDiagnostics、analytics/config、InstallationTypeDetector、reconciler、Performance、GitContextService、DiagnosticService、MemoryManager、ConfigManager | ✅ |

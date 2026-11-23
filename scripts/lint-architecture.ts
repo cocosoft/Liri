@@ -523,6 +523,28 @@ class ArchitectureLinter {
         'ai/MaxOutputRetryHandler.ts',
         'ai\\services\\aiService.ts',
         'ai/services/aiService.ts',
+        // 2026-11-23 R01-003 治理：字段名/函数名含 retry 的**误报**（无任何重试循环）
+        //   - ToolExecutionService：`_resolveNonIdempotentRetryReason()` 是"非幂等重试需审批"的
+        //     判定器；实际重试由 ErrorHandler/withToolTimeout 承担，`retryBudget.maxRetries` 只是入参
+        //   - sopPlanSource：`step.retryCount` 是**读取已落盘数据字段**（LLM 可读的计划步骤快照）
+        //   - executeRoundGuards：`hasRetry` 是"存在待决策步骤"的领域变量名 + `Pick<… 'retryCount'>` 类型投影
+        //   - toolEffects：`shouldBlindRetryTool()` / `ToolRetryBudget` 是**重试策略输入**（纯函数），
+        //     没有任何循环；重试本体同样在 ErrorHandler
+        'chat\\services\\ToolExecutionService.ts',
+        'chat/services/ToolExecutionService.ts',
+        'tasks\\evolution\\sopPlanSource.ts',
+        'tasks/evolution/sopPlanSource.ts',
+        'tasks\\lro\\executeRoundGuards.ts',
+        'tasks/lro/executeRoundGuards.ts',
+        'tool-base\\toolEffects.ts',
+        'tool-base/toolEffects.ts',
+        // 2026-11-23 R01-003 治理：领域内建重试（锁内 SQLITE_BUSY）
+        //   QueryLogStore 在**互斥锁内**对单条 INSERT 做有限重试（3 次、50/100ms 线性退避），
+        //   判据是大小写不敏感的 `/SQLITE_BUSY|database is locked/i`；而 `withRetry` 的
+        //   `isRetryableError()` 是**大小写敏感**的子串匹配 ⇒ 硬套会改变"是否重试"的判定（保守换绿不可取）。
+        //   退避与次数也与 withRetry 的指数+抖动语义不同（此处刻意保持线性，避免锁竞争期拉长）。
+        'query\\QueryLogStore.ts',
+        'query/QueryLogStore.ts',
       ];
       if (skipExceptions.some((e) => file.includes(e))) continue;
 

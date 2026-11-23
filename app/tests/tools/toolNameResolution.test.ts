@@ -93,4 +93,27 @@ describe('ToolRegistry — 注册期别名守卫（2026-09-29）', () => {
     expect(registry.getToolByAlias('h2_alias')?.name).toBe('holder2');
     expect(registry.getToolByAlias('h2_alias2')?.name).toBe('holder2');
   });
+
+  /**
+   * 2026-11-23（P1-b 后续）：**别名互撞**守卫。
+   *
+   * 此前只拦"别名撞已注册真实名"，两个工具声明同一别名时后注册者会**静默覆盖**
+   * 先前映射 ⇒ `getTool(alias)` 指向取决于装配顺序（实测 `search → grep|web_search`、
+   * `schedule → plan|cron`）。现与既有口径一致：跳过 + warn，先注册者保留。
+   */
+  it('不同工具声明同一别名 ⇒ 保留先注册者，后者跳过（不静默覆盖）', () => {
+    const registry = new ToolRegistry();
+    registry.registerTool(mkTool('first_owner', ['shared_alias']));
+    registry.registerTool(mkTool('second_owner', ['shared_alias']));
+
+    expect(registry.getToolByAlias('shared_alias')?.name).toBe('first_owner');
+    // 工具本身仍注册（只是别名未登记）
+    expect(registry.getTool('second_owner')?.name).toBe('second_owner');
+  });
+
+  it('同一工具内重复声明同一别名 ⇒ 幂等（守卫不误伤）', () => {
+    const registry = new ToolRegistry();
+    registry.registerTool(mkTool('dup_holder', ['dup_alias', 'dup_alias']));
+    expect(registry.getToolByAlias('dup_alias')?.name).toBe('dup_holder');
+  });
 });

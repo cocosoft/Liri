@@ -245,6 +245,19 @@ export class ToolRegistry {
           });
           continue;
         }
+        // 别名互撞守卫（2026-11-23，P1-b 后续）：两个工具声明同一别名时，后注册者此前会
+        // **静默覆盖**先前映射 ⇒ `getTool(alias)` 指向取决于装配顺序（实测
+        // `search → grep|web_search`）。口径同上：跳过 + warn，不静默改名；
+        // 同一工具重复声明同一别名视为幂等（不误伤）。
+        const aliasOwner = this.aliases.get(alias);
+        if (aliasOwner !== undefined && aliasOwner !== tool.name) {
+          logger.warn('工具别名守卫：别名已被其他工具占用，跳过登记', {
+            toolName: tool.name,
+            alias,
+            occupiedBy: aliasOwner,
+          });
+          continue;
+        }
         this.aliases.set(alias, tool.name);
       }
     }

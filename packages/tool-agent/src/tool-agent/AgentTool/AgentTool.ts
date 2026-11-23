@@ -335,8 +335,8 @@ export class AgentTool implements Tool {
     );
   }
 
-  /** 工具别名 */
-  readonly aliases?: string[] = [LEGACY_AGENT_TOOL_NAME, 'Task', 'SubAgent'];
+  /** 工具别名（2026-11-23：`LEGACY_AGENT_TOOL_NAME` 即 `'Task'`，去掉重复项） */
+  readonly aliases?: string[] = [LEGACY_AGENT_TOOL_NAME, 'SubAgent'];
 
   /** 搜索提示 */
   readonly searchHint?: string = 'create agent task subagent';

@@ -196,7 +196,9 @@ export class WebSearchTool extends BaseTool {
     },
   ];
 
-  override aliases = ['search', 'google', 'ddg', 'duckduckgo', 'bing'];
+  // 2026-11-23（P1-b）：`search` 已归 `grep`（搜索代码语义）；别名必须全局唯一，
+  // 否则后注册者覆盖先前映射 ⇒ `tool_search(select:search)` 指向取决于装配顺序。
+  override aliases = ['google', 'ddg', 'duckduckgo', 'bing'];
   override searchHint = 'Search the web for information';
   override maxResultSizeChars = 100000;
 

@@ -154,8 +154,8 @@ export class TungstenTool implements Tool {
     },
   ];
 
-  /** 工具别名 */
-  aliases = ['tungsten', 'terminal', 'session'];
+  /** 工具别名（2026-11-23：去掉与真名相同的 `tungsten` 自别名） */
+  aliases = ['terminal', 'session'];
 
   /** 搜索提示 */
   searchHint = 'Manage terminal sessions';

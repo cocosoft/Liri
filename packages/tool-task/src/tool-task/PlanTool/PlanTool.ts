@@ -180,7 +180,8 @@ export class PlanTool extends BaseTool<
     },
   ];
 
-  override aliases = ['planning', 'schedule', 'project'];
+  // 2026-11-23（P1-b）：`schedule` 已归 `cron`（cron_create 的旧名）；别名必须全局唯一。
+  override aliases = ['planning', 'project'];
   override searchHint = 'Create, manage, and execute plans';
   override maxResultSizeChars = 100000;
 

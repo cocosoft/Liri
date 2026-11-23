@@ -134,7 +134,8 @@ export function createCronFamilyTool(): FamilyTool {
       {
         key: 'stop',
         legacyName: TOOL_NAME_CONSTANTS.cron_stop,
-        legacyAliases: ['cron_pause', 'cron_resume', 'stop_task', 'pause_task'],
+        // 2026-11-23（P1-b）：`stop_task` 归 `task_stop`（真实任务停止语义）；别名必须全局唯一。
+        legacyAliases: ['cron_pause', 'cron_resume', 'pause_task'],
         required: ['id', 'action'],
         readOnly: false,
         outputJsonSchema: CronStopOutputJsonSchema,

@@ -71,6 +71,7 @@ import { EXECUTOR_ROLE, PLANNER_ROLE } from '../../src/tasks/lro/contracts';
 // D7 ④（2026-10-11）：双轨制排他性断言需按**默认装配**取运行期生效工具面
 import { ToolFactory } from '../../src/tools/ToolFactory';
 import {
+  getAllBuiltinToolLoaders,
   getBuiltinToolLoaders,
   loadTools,
 } from '../../src/tools/utils/ToolManagerUtils';
@@ -712,6 +713,84 @@ describe('S2-4 双轨制排他性断言（D7 ④）', () => {
     const fixture = new Set(['file_read', 'read_vfs', 'file_write']);
     expect(findActiveOverlapViolations(fixture, OVERLAP_PAIRS)).toEqual([
       'read_vfs↔file_read',
+    ]);
+  });
+});
+
+/**
+ * **P1-b（2026-11-23）：工具别名全局唯一**。
+ *
+ * 背景（实测）：`ToolRegistry.registerTool()` 只拦截"别名 == 已注册真实名"，**不拦别名互撞** ——
+ * 后注册者直接覆盖先前的映射 ⇒ `tool_search(select:search)` / 旧名调用落到哪个工具
+ * **取决于装配顺序**（实测 `search → grep|web_search`、`schedule → plan|cron`、
+ * `stop_task → task_stop|cron`，另有 `tungsten` 自别名与 AgentTool 的 `Task` 重复项）。
+ *
+ * 判据取**完整声明面**（`getAllBuiltinToolLoaders()`，含条件工具）：
+ *  ① 别名不得等于自身真名；② 同一工具内不得重复；③ 不得等于任何工具的真实名；
+ *  ④ 同一别名不得被 2 个以上工具声明。
+ */
+describe('P1-b 工具别名全局唯一（2026-11-23）', () => {
+  interface AliasCarrier {
+    name: string;
+    aliases?: readonly string[];
+  }
+
+  /** 判据（纯函数，供门禁自证/负向夹具共用）：返回全部别名违规 */
+  function findAliasConflicts(tools: ReadonlyArray<AliasCarrier>): string[] {
+    const realNames = new Set(tools.map((t) => t.name));
+    const owners = new Map<string, Set<string>>();
+    const out: string[] = [];
+
+    for (const tool of tools) {
+      const seen = new Set<string>();
+      for (const alias of tool.aliases ?? []) {
+        if (seen.has(alias)) {
+          out.push(`dup-in-tool: ${tool.name} → ${alias}`);
+          continue;
+        }
+        seen.add(alias);
+        if (alias === tool.name) out.push(`self: ${tool.name} → ${alias}`);
+        else if (realNames.has(alias)) {
+          out.push(`collides-real-name: ${tool.name} → ${alias}`);
+        }
+        const set = owners.get(alias) ?? new Set<string>();
+        set.add(tool.name);
+        owners.set(alias, set);
+      }
+    }
+
+    for (const [alias, set] of owners) {
+      if (set.size > 1) {
+        out.push(`shared: ${alias} ← ${[...set].sort().join(',')}`);
+      }
+    }
+    return out.sort();
+  }
+
+  it('完整声明面（含条件工具）无任何别名冲突', () => {
+    const tools = loadTools(new ToolFactory(), getAllBuiltinToolLoaders());
+    // 防空转（恒真守卫）：声明面确实含工具与别名 ⇒ 断言才有意义
+    expect(tools.length).toBeGreaterThan(50);
+    expect(
+      tools.filter((t) => (t.aliases?.length ?? 0) > 0).length
+    ).toBeGreaterThan(20);
+    expect(findAliasConflicts(tools)).toEqual([]);
+  });
+
+  it('门禁自证（负向夹具）：自别名 / 撞真名 / 跨工具共用 / 工具内重复 都会被判出', () => {
+    expect(
+      findAliasConflicts([
+        { name: 'alpha', aliases: ['alpha', 'beta'] },
+        { name: 'beta' },
+        { name: 'gamma', aliases: ['beta'] },
+        { name: 'delta', aliases: ['x', 'x'] },
+      ])
+    ).toEqual([
+      'collides-real-name: alpha → beta',
+      'collides-real-name: gamma → beta',
+      'dup-in-tool: delta → x',
+      'self: alpha → alpha',
+      'shared: beta ← alpha,gamma',
     ]);
   });
 });

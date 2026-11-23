@@ -16,8 +16,14 @@
  * 也不把 dream/skills 这类整条桶面带进 HTTP 冷路径。
  */
 
+import type { AutoReplyPort } from '@openliri/service/runtime/api/autoReplyPorts';
+import type { BuddyOpsPort } from '@openliri/service/runtime/api/buddyOpsPorts';
+import type { CommandsOpsPort } from '@openliri/service/runtime/api/commandsOpsPorts';
+
 /** 命令端口工厂（`CoreApiAppDeps.commandsOps`） */
-export function createCommandsOpsFacade() {
+export function createCommandsOpsFacade(): (
+  chatManager?: unknown
+) => CommandsOpsPort {
   return (chatManager?: unknown) => ({
     listCommands: async () => {
       const { getCommandManager } = await import('@modules/commands');
@@ -78,5 +84,66 @@ export function createDreamOpsFacade() {
       const { readMetrics } = await import('@modules/dream/DreamMetrics');
       return readMetrics();
     },
+  };
+}
+
+/** 自动回复运行时门面（`CoreApiAppDeps.autoReplyOps`） */
+export function createAutoReplyOpsFacade(): () => Promise<AutoReplyPort> {
+  return async () => {
+    // ⚠️ `auto-reply` 模块**无 `@modules/*` 别名**（tsconfig 逐模块显式声明）
+    // ⇒ 入口层用相对路径导入（原 service 侧同样只能走相对路径）。
+    const { autoReplyEngine } = await import('../auto-reply/index.js');
+    return {
+      getAllRules: () => autoReplyEngine.getAllRules(),
+      getStats: () => autoReplyEngine.getStats(),
+      registerRule: (rule) => autoReplyEngine.registerRule(rule as never),
+      updateRule: (ruleId, updates) =>
+        autoReplyEngine.updateRule(ruleId, updates as never),
+      deleteRule: (ruleId) => autoReplyEngine.deleteRule(ruleId),
+    };
+  };
+}
+
+/** Buddy 运维门面（`CoreApiAppDeps.buddyOps`） */
+export function createBuddyOpsFacade(): () => BuddyOpsPort {
+  return () => {
+    /** `@modules/buddy` barrel 与子模块取用 */
+    const buddyModule = async () => import('@modules/buddy');
+    const dreamLogStore = async () => import('@modules/buddy/dreamLogStore');
+
+    return {
+      getBuddyCompanion: async () => (await buddyModule()).getCompanion(),
+      executeBuddyInteraction: async (companion: unknown, action: string) => {
+        const { InteractionManager } = await buddyModule();
+        const manager = new InteractionManager();
+        // companion 为 getBuddyCompanion 回传的**真对象** ⇒ 边界收窄；
+        // action 原为字面量联合（原码直接透传）⇒ 边界收窄；
+        // 返回值以 Record 暴露（调用方需展开/JSON）⇒ 同上（app interface 无隐式索引签名）
+        return (await manager.execute(
+          companion as never,
+          action as never
+        )) as never;
+      },
+      // 下列 4 处同样以 Record 暴露（调用方展开 / 仅 JSON）⇒ 边界收窄
+      getBuddyDreamStats: async () =>
+        (await dreamLogStore()).getDreamStats() as never,
+      getBuddyDreamLogs: async (limit: number, offset?: number | undefined) =>
+        (await dreamLogStore()).getDreamLogs(limit, offset) as never,
+      getBuddyDreamLogsByType: async (
+        type: string,
+        limit: number,
+        offset?: number | undefined
+      ) =>
+        // type 原为字面量联合（原码 `as any`）⇒ 边界收窄
+        (await dreamLogStore()).getDreamLogsByType(
+          type as never,
+          limit,
+          offset
+        ) as never,
+      loadBuddyGrowthState: async () =>
+        (
+          await import('@modules/buddy/growthPersistence')
+        ).loadGrowthState() as never,
+    };
   };
 }

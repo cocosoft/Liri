@@ -69,6 +69,8 @@ beforeAll(() => {
       getCycle: async () => null,
       readMetrics: async () => null,
     },
+    autoReplyOps: async () => ({}) as never,
+    buddyOps: () => ({}) as never,
   } as never);
 });
 

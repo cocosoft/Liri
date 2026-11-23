@@ -211,6 +211,16 @@ export interface CoreApiAppDeps {
     getCycle(cycleId: string): Promise<unknown | null>;
     readMetrics(): Promise<unknown | null>;
   };
+  /**
+   * 自动回复运行时门面（2026-11-24，R00-003 收口）：原 `DomainSnapshotOps` 内以相对路径
+   * 动态导入 app 层 `auto-reply`（该模块无 `@modules/*` 别名）。
+   */
+  autoReplyOps: () => Promise<AutoReplyPort>;
+  /**
+   * Buddy 运维门面（2026-11-24，R00-003 收口）：原 `DomainSnapshotOps.getBuddyOpsPort()`
+   * 内部按需动态导入 `@modules/buddy`（桶）/ `dreamLogStore` / `growthPersistence`。
+   */
+  buddyOps: () => BuddyOpsPort;
 }
 
 let _registeredAppDeps: CoreApiAppDeps | undefined;
@@ -658,7 +668,8 @@ export class CoreAPIImpl implements CoreAPI {
   }
 
   async getAutoReplyPort(): Promise<AutoReplyPort> {
-    return this.domainSnapshotOps.getAutoReplyPort();
+    // 2026-11-24（R00-003 收口）：经注入门面（见 `CoreApiAppDeps.autoReplyOps`）
+    return this.appDeps.autoReplyOps();
   }
 
   async getA2APort(): Promise<A2APort> {
@@ -781,7 +792,8 @@ export class CoreAPIImpl implements CoreAPI {
   }
 
   async getBuddyOpsPort(): Promise<BuddyOpsPort> {
-    return this.domainSnapshotOps.getBuddyOpsPort();
+    // 2026-11-24（R00-003 收口）：经注入门面（见 `CoreApiAppDeps.buddyOps`）
+    return this.appDeps.buddyOps();
   }
 
   async getCommandsOpsPort(): Promise<CommandsOpsPort> {

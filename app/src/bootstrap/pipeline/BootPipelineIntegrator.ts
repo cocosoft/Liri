@@ -18,6 +18,8 @@ import type { RouterTier } from '@modules/types/router';
 import { handleError } from '@openliri/infra/error/handleError';
 // 2026-11-24（R00-003 收口）：CoreAPI 注入包的惰性门面（入口层装配；契约测试同源复用）
 import {
+  createAutoReplyOpsFacade,
+  createBuddyOpsFacade,
   createCommandsOpsFacade,
   createDreamOpsFacade,
   createKnowledgeDocsFacade,
@@ -90,6 +92,8 @@ export async function registerCoreApiAppDeps(): Promise<void> {
     commandsOps: createCommandsOpsFacade(),
     knowledgeDocsProvider: createKnowledgeDocsFacade(),
     dreamOps: createDreamOpsFacade(),
+    autoReplyOps: createAutoReplyOpsFacade(),
+    buddyOps: createBuddyOpsFacade(),
   });
 
   // P26-1 §9.2（D6=B，2026-10-07）：跨会话抢占 = **中止并丢弃**被抢占会话的流。

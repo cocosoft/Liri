@@ -39,7 +39,6 @@ import type {
   QueryOpsPort,
   ResearchOrchestrationConfigDto,
 } from '@openliri/service/runtime/api/queryOpsPorts';
-import type { BuddyOpsPort } from '@openliri/service/runtime/api/buddyOpsPorts';
 import type { WorkspaceOpsPort } from '@openliri/service/runtime/api/workspaceOpsPorts';
 import type {
   AgentRoleStorePort,
@@ -61,7 +60,6 @@ import type {
   ProjectArtifactStorePort,
 } from '@openliri/service/runtime/api/projectOpsPorts';
 import type { SkillsOpsPort } from '@openliri/service/runtime/api/skillsOpsPorts';
-import type { AutoReplyPort } from '@openliri/service/runtime/api/autoReplyPorts';
 import type { A2APort } from '@openliri/service/runtime/api/a2aPorts';
 import { isTerminalState } from '@modules/types/a2a';
 import type { BridgePort } from '@openliri/service/runtime/api/bridgePorts';
@@ -472,29 +470,8 @@ export class DomainSnapshotOps {
   }
 
   // ---- 自动回复运行时（HTTP 等 service 侧消费；见 CoreAPI 声明处沿革 D-202）----
-
-  /**
-   * 自动回复端口（2026-10-01 D-202，子批 C）
-   *
-   * `auto-reply-handlers.ts` 原先以**相对路径**静态导入 app 层 `'../../../auto-reply'`
-   * （`autoReplyEngine` + `ReplyRule` / `StoredPattern`）⇒ `infrastructure -> app` 倒挂。
-   * 现按本文件既有模式**动态**取用（仅 R00-003 可见）。
-   *
-   * ⚠️ `auto-reply` 模块**无 `@modules/*` 别名**（tsconfig 为逐模块显式声明，见 `tsconfig.json:26+`）
-   * ⇒ 此处只能用**相对路径**动态导入（`src/runtime/api/` → `src/auto-reply/index.js`）。
-   */
-  async getAutoReplyPort(): Promise<AutoReplyPort> {
-    const { autoReplyEngine } = await import('../../auto-reply/index.js');
-
-    return {
-      getAllRules: () => autoReplyEngine.getAllRules(),
-      getStats: () => autoReplyEngine.getStats(),
-      registerRule: (rule) => autoReplyEngine.registerRule(rule as never),
-      updateRule: (ruleId, updates) =>
-        autoReplyEngine.updateRule(ruleId, updates as never),
-      deleteRule: (ruleId) => autoReplyEngine.deleteRule(ruleId),
-    };
-  }
+  // 2026-11-24（R00-003 收口）：getAutoReplyPort 已移入 `CoreAPIImpl`，经组合根注入的
+  // `autoReplyOps` 门面取值（auto-reply 无 `@modules/*` 别名，门面内用相对路径导入）。
 
   // ---- A2A 对外面运行时（HTTP 等 service 侧消费；见 CoreAPI 声明处沿革 D-204）----
 
@@ -1378,46 +1355,8 @@ export class DomainSnapshotOps {
     };
   }
 
-  async getBuddyOpsPort(): Promise<BuddyOpsPort> {
-    /** `@modules/buddy` barrel 与子模块取用 */
-    const buddyModule = async () => import('@modules/buddy');
-    const dreamLogStore = async () => import('@modules/buddy/dreamLogStore');
-
-    return {
-      getBuddyCompanion: async () => (await buddyModule()).getCompanion(),
-      executeBuddyInteraction: async (companion: unknown, action: string) => {
-        const { InteractionManager } = await buddyModule();
-        const manager = new InteractionManager();
-        // companion 为 getBuddyCompanion 回传的**真对象** ⇒ 边界收窄；
-        // action 原为字面量联合（原码直接透传）⇒ 边界收窄；
-        // 返回值以 Record 暴露（调用方需展开/JSON）⇒ 同上（app interface 无隐式索引签名）
-        return (await manager.execute(
-          companion as never,
-          action as never
-        )) as never;
-      },
-      // 下列 4 处同样以 Record 暴露（调用方展开 / 仅 JSON）⇒ 边界收窄
-      getBuddyDreamStats: async () =>
-        (await dreamLogStore()).getDreamStats() as never,
-      getBuddyDreamLogs: async (limit: number, offset?: number | undefined) =>
-        (await dreamLogStore()).getDreamLogs(limit, offset) as never,
-      getBuddyDreamLogsByType: async (
-        type: string,
-        limit: number,
-        offset?: number | undefined
-      ) =>
-        // type 原为字面量联合（原码 `as any`）⇒ 边界收窄
-        (await dreamLogStore()).getDreamLogsByType(
-          type as never,
-          limit,
-          offset
-        ) as never,
-      loadBuddyGrowthState: async () =>
-        (
-          await import('@modules/buddy/growthPersistence')
-        ).loadGrowthState() as never,
-    };
-  }
+  // 2026-11-24（R00-003 收口）：getBuddyOpsPort 已移入 `CoreAPIImpl`，经组合根注入的
+  // `buddyOps` 门面取值（按需动态导入 buddy 桶 / dreamLogStore / growthPersistence）。
 
   async getWorkspaceOpsPort(): Promise<WorkspaceOpsPort> {
     /** `@modules/core/paths` 取用（原调用点由 handler 自行 `resolveDataDir()`） */

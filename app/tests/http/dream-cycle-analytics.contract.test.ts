@@ -56,6 +56,8 @@ setCoreApiAppDeps({
     clearCache: async () => {},
   },
   dreamOps: createDreamOpsFacade(),
+  autoReplyOps: async () => ({}) as never,
+  buddyOps: () => ({}) as never,
 } as never);
 
 function createRes(): {

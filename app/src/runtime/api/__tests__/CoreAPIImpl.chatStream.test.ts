@@ -96,6 +96,8 @@ setCoreApiAppDeps({
     getCycle: async () => null,
     readMetrics: async () => null,
   },
+  autoReplyOps: async () => ({}) as never,
+  buddyOps: () => ({}) as never,
 });
 
 const FALLBACK_TEXT =

@@ -33,7 +33,10 @@ import type http from 'http';
 import type { HandlerCtx } from '../../src/infrastructure/http/handlers/handler-utils';
 import * as growthPersistence from '@modules/buddy/growthPersistence';
 import * as backgroundTaskEvent from '@openliri/infra/monitoring/BackgroundTaskEvent';
-import { CoreAPIImpl } from '../../src/runtime/api/CoreAPIImpl';
+import {
+  CoreAPIImpl,
+  setCoreApiAppDeps,
+} from '../../src/runtime/api/CoreAPIImpl';
 
 // F-07（2026-10-29）：Dream 段的数据源从「Buddy 梦境日志」（恒空）改为
 // 梦境周期 DB 真相源（与 /v1/memory/dream/cycles 同源）⇒ 契约断言改为 cycles 字段映射。
@@ -92,6 +95,36 @@ afterAll(() => {
   growthSpy.mockRestore();
   taskLogSpy.mockRestore();
 });
+
+// 2026-11-24（R00-003 收口）：buddy / dream 端口改为经 `CoreApiAppDeps` 注入 ⇒ 直调 handler
+// 的契约测试须先装配**同一份**门面实现；spyOn 仍作用于门面内部的动态 import 命名空间。
+const { createBuddyOpsFacade, createDreamOpsFacade } =
+  await import('../../src/entrypoints/coreApiAppDepsFacades');
+setCoreApiAppDeps({
+  chatManager: {},
+  toolManager: { getInner: () => ({}) },
+  converterEngine: {},
+  fileTypeDetector: {},
+  router: {
+    resolveDefault: () => '',
+    resolveWithPhase: () => null,
+    resolveChat: async () => '',
+  },
+  getCheckpointService: () => ({}),
+  createAutoCompactService: () => ({}),
+  globalEmbeddingManager: {},
+  commandsOps: () => ({
+    listCommands: async () => [],
+    executeCommand: async () => ({}),
+  }),
+  knowledgeDocsProvider: {
+    buildIndex: async () => [],
+    clearCache: async () => {},
+  },
+  dreamOps: createDreamOpsFacade(),
+  autoReplyOps: async () => ({}) as never,
+  buddyOps: createBuddyOpsFacade(),
+} as never);
 
 // 动态加载被测 handler（静态 import 会被 ESM import 提升提前解析）
 const { handleGetBackgroundStatus } =

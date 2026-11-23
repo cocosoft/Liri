@@ -45,6 +45,7 @@ import { appendFile, mkdir, rename, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 
+import { configManager } from '@openliri/infra/config';
 import { resolvePyappHome } from '@openliri/infra/environment';
 import { getLogger } from '@openliri/infra/monitoring';
 import { redactSensitiveText } from '@openliri/infra/security';
@@ -99,9 +100,9 @@ export interface UnknownCommandSample {
   blockedBy: UnknownCommandBlockedBy;
 }
 
-/** 采样文件路径（env 覆盖优先） */
+/** 采样文件路径（env 覆盖优先，经统一出入口 configManager.env，R05-012） */
 export function resolveUnknownCommandLogPath(): string {
-  const override = process.env.PERMISSION_UNKNOWN_COMMAND_LOG?.trim();
+  const override = configManager.env('PERMISSION_UNKNOWN_COMMAND_LOG')?.trim();
   if (override) return override;
   return join(
     resolvePyappHome(),
@@ -111,9 +112,11 @@ export function resolveUnknownCommandLogPath(): string {
   );
 }
 
-/** 轮转阈值（env 可覆盖，便于测试与运维压缩） */
+/** 轮转阈值（env 可覆盖，便于测试与运维压缩；经统一出入口 configManager.env，R05-012） */
 export function resolveUnknownCommandLogMaxBytes(): number {
-  const raw = Number(process.env.PERMISSION_UNKNOWN_COMMAND_LOG_MAX_BYTES);
+  const raw = Number(
+    configManager.env('PERMISSION_UNKNOWN_COMMAND_LOG_MAX_BYTES')
+  );
   return Number.isFinite(raw) && raw > 0
     ? raw
     : DEFAULT_UNKNOWN_COMMAND_LOG_MAX_BYTES;

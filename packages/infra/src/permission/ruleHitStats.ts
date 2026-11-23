@@ -37,6 +37,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
+import { configManager } from '@openliri/infra/config';
 import { resolvePyappHome } from '@openliri/infra/environment';
 import { getLogger } from '@openliri/infra/monitoring';
 
@@ -72,9 +73,9 @@ export interface RuleHitStatsSnapshot {
   rules: Record<string, RuleHitEntry>;
 }
 
-/** 命中统计文件路径（env 覆盖优先，测试/排障用） */
+/** 命中统计文件路径（env 覆盖优先，测试/排障用；经统一出入口 configManager.env，R05-012） */
 export function resolveRuleHitStatsPath(): string {
-  const override = process.env.PERMISSION_RULE_HIT_STATS?.trim();
+  const override = configManager.env('PERMISSION_RULE_HIT_STATS')?.trim();
   if (override) return override;
   return join(resolvePyappHome(), 'data', 'permission', 'rule_hits.json');
 }

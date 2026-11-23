@@ -30,6 +30,30 @@ export const ToolSearchDetailSchema = z.object({
     .string()
     .describe('工具描述（超长截断，用于确认是否为目标工具）'),
   requiredParams: z.array(z.string()).describe('必填参数名（按声明顺序）'),
+  requiredAnyOf: z
+    .array(z.array(z.string()))
+    .optional()
+    .describe(
+      '条件必填（OR-of-ANDs）：每组内参数需同时提供，至少满足一组（如 doc_generate 的 content|content_file）'
+    ),
+  requiredByOp: z
+    .record(z.string(), z.array(z.array(z.string())))
+    .optional()
+    .describe(
+      '条件必填（按判别字段取值）：键为 action/op 的取值（如 pdf 的 generate/extract）'
+    ),
+  /**
+   * 2026-11-23（会话复测）：族工具（`vfs`/`cron`/`skill`/`sleep`/`worktree`/`task_list`）的
+   * 判别字段（`op`/`mode`/`action`）在 schema 里 `required: false`（兼容旧名调用）⇒
+   * `requiredParams` 会为空。这里显式带出判别字段与合法取值，避免"完全无法调用"。
+   */
+  opParam: z
+    .object({
+      name: z.string().describe('判别字段名（op / mode / action）'),
+      values: z.array(z.string()).describe('合法取值'),
+    })
+    .optional()
+    .describe('族工具的判别字段与合法取值（缺省 = 非族工具）'),
   visible: z
     .boolean()
     .describe(
@@ -38,6 +62,10 @@ export const ToolSearchDetailSchema = z.object({
   hiddenReasons: z
     .array(z.string())
     .describe('默认任务面下不可见的原因（可见时为空数组）'),
+  hiddenHint: z
+    .string()
+    .optional()
+    .describe('不可见原因的中文解释（可见时缺省）'),
 });
 
 /** 未命中项的**结构化原因**（`tool_search` 空结果不再"零诊断"） */
@@ -125,6 +153,36 @@ export const ToolSearchOutputJsonSchema: Record<string, unknown> = {
             items: { type: 'string' },
             description: '必填参数名（按声明顺序）',
           },
+          requiredAnyOf: {
+            type: 'array',
+            description:
+              '条件必填（OR-of-ANDs）：每组内参数需同时提供，至少满足一组',
+            items: { type: 'array', items: { type: 'string' } },
+          },
+          requiredByOp: {
+            type: 'object',
+            description: '条件必填（按判别字段取值）：键为 action/op 的取值',
+            additionalProperties: {
+              type: 'array',
+              items: { type: 'array', items: { type: 'string' } },
+            },
+          },
+          opParam: {
+            type: 'object',
+            description: '族工具的判别字段与合法取值（缺省 = 非族工具）',
+            properties: {
+              name: {
+                type: 'string',
+                description: '判别字段名（op / mode / action）',
+              },
+              values: {
+                type: 'array',
+                items: { type: 'string' },
+                description: '合法取值',
+              },
+            },
+            required: ['name', 'values'],
+          },
           visible: {
             type: 'boolean',
             description:
@@ -134,6 +192,10 @@ export const ToolSearchOutputJsonSchema: Record<string, unknown> = {
             type: 'array',
             items: { type: 'string' },
             description: '默认任务面下不可见的原因（可见时为空数组）',
+          },
+          hiddenHint: {
+            type: 'string',
+            description: '不可见原因的中文解释（可见时缺省）',
           },
         },
         required: [

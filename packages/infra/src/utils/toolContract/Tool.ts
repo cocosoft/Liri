@@ -299,6 +299,20 @@ export interface ToolInfo {
    * 也能从注册快照读到它（否则 schema 生成时工具还没加载 ⇒ 声明形同虚设）。
    */
   outputJsonSchema?: Record<string, unknown>;
+  /**
+   * 条件必填（**OR-of-ANDs**，2026-11-23）：每组内参数需同时提供，且**至少满足一组**。
+   * 例：`doc_generate` ⇒ `[['content'], ['content_file']]`（二者至少给一个）。
+   *
+   * 与 `params[].required` 互补：后者只表达"无条件必填"，无法描述二选一/条件分支。
+   */
+  requiredAnyOf?: ReadonlyArray<ReadonlyArray<string>>;
+  /**
+   * 条件必填（**按判别字段取值**，2026-11-23）：键 = `action`/`op` 的取值。
+   * 例：`pdf` ⇒ `{ generate: [['content'], ['content_file']], extract: [['filepath']] }`。
+   */
+  requiredAnyOfByOp?: Readonly<
+    Record<string, ReadonlyArray<ReadonlyArray<string>>>
+  >;
   deferred: boolean;
   alwaysLoad: boolean;
   interruptBehavior: InterruptBehavior;
@@ -710,6 +724,17 @@ export interface Tool<
    * 形状不符按"未声明"处理（不阻断 schema 生成）。
    */
   outputJsonSchema?: Record<string, unknown>;
+
+  /**
+   * 条件必填（OR-of-ANDs，2026-11-23）：每组内参数需同时提供，且至少满足一组。
+   * 与 `ToolInfo.requiredAnyOf` 同源（`getInfo()` 透出），此处供对象字面量工具直接声明。
+   */
+  requiredAnyOf?: ReadonlyArray<ReadonlyArray<string>>;
+
+  /** 条件必填（按判别字段取值，2026-11-23）；键 = `action`/`op` 取值 */
+  requiredAnyOfByOp?: Readonly<
+    Record<string, ReadonlyArray<ReadonlyArray<string>>>
+  >;
 
   /**
    * 判断两个输入是否等价

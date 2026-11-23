@@ -231,7 +231,7 @@ export class BashTool extends BaseTool {
   override get description(): string {
     return [
       '在安全检查下执行 shell 命令。',
-      '执行环境随平台而定：Windows 为 cmd.exe（不是 bash；路径用 \\，用 dir/type/findstr/del/copy/move 代替 ls/cat/grep/rm/cp/mv，临时目录用 %TEMP%，复杂脚本可前缀 powershell -Command "…"）；Unix 为 /bin/sh。',
+      '执行环境随平台而定：Windows 为 cmd.exe（不是 bash；路径用 \\，用 dir/type/findstr/del/copy/move 代替 ls/cat/grep/rm/cp/mv，临时目录用 %TEMP%，复杂脚本可前缀 powershell -Command "…"）；Unix 为 /bin/sh。**读取文件内容请优先用 file_read**（本工具用于执行命令；用 shell 读文件会额外触发审批）。',
     ].join('\n');
   }
 

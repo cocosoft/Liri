@@ -10,9 +10,9 @@
   "targetMet": false,
   "totalToolCount": 71,
   "disclosureCount": 13,
-  "structuralTokens": 2614,
+  "structuralTokens": 2737,
   "providerSurfaceTokens": 1512,
-  "sourceDescriptionChars": 3824,
+  "sourceDescriptionChars": 3879,
   "disclosureNames": [
     "agent",
     "ask_user_question",

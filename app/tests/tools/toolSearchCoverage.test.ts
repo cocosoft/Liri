@@ -33,6 +33,11 @@
  */
 import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
 import { ToolSearchTool } from '../../src/tools/ToolSearchTool/ToolSearchTool';
+import { searchToolsWithKeywords } from '../../src/tools/ToolSearchTool/ToolSearchTool';
+import { describeHiddenReasons } from '../../src/tools/ToolSearchTool/ToolSearchTool';
+import { createVfsFamilyTool } from '@openliri/tool-workspace';
+import { WriteProjectFileTool } from '@openliri/tool-workspace';
+import { TodoWriteTool } from '../../src/tools/TodoWriteTool/TodoWriteTool';
 import { getToolRegistry } from '../../src/tools/ToolRegistry';
 import { ARCHIVED_MISC_TOOLS } from '../../src/tools/toolCategories';
 import { BUILTIN_TOOL_FACTORIES } from '../../src/tools/factories/builtinToolRegistry';
@@ -61,6 +66,20 @@ function fakeTool(name: string, description: string): Tool {
     alwaysLoad: true,
     isEnabled: () => true,
     isReadOnly: () => true,
+    // 2026-11-23：`tool_search` 详情改从 `getInfo()` 读元数据（懒加载包装器同源口径）
+    getInfo: () =>
+      ({
+        name,
+        description,
+        params: [],
+        enabled: true,
+        readOnly: true,
+        destructive: false,
+        concurrencySafe: true,
+        deferred: false,
+        alwaysLoad: true,
+        interruptBehavior: 'block' as const,
+      }) as unknown as ReturnType<Tool['getInfo']>,
     execute: async () => ({ data: 'ok' }),
   } as unknown as Tool;
 }
@@ -184,6 +203,69 @@ describe('tool_search 可解释性（2026-11-23 回归清单）', () => {
     const out = await run('select:Music_Generate');
     expect(out.matches).toEqual([]);
     expect(out.reason).toBe('declared_unregistered');
+  });
+
+  /**
+   * 会话复测（2026-11-23 13:49）：`TOOL_NAMES` 是生成物（不含运行期 flag），旧诊断把
+   * `vfs`（VFS_ENABLED=false 未注册）误判为 task_filtered，并承诺"select 选中后可直接调用"。
+   * 现已改为以真实注册表为准 ⇒ 必须落到 declared_unregistered，且不再承诺可调用。
+   */
+  it('P1（2026-11-23）：未注册的声明工具 ⇒ declared_unregistered（不再假承诺）', async () => {
+    const out = await run('select:vfs');
+    expect(out.matches).toEqual([]);
+    expect(out.reason).toBe('declared_unregistered');
+    expect(out.hint ?? '').not.toContain('可直接调用');
+  });
+
+  /** 会话复测：族工具的判别字段（op）在 schema 里 required=false ⇒ requiredParams 为空 */
+  it('P1（2026-11-23）：族工具详情带出判别字段（op + 合法值）', async () => {
+    const existing = registry.getTool('vfs');
+    if (!existing) registry.registerTool(createVfsFamilyTool());
+    try {
+      const out = await run('select:vfs');
+      const detail = out.details?.[0];
+      expect(detail?.opParam?.name).toBe('op');
+      expect(detail?.opParam?.values).toEqual(
+        expect.arrayContaining(['read', 'list', 'stat', 'write'])
+      );
+    } finally {
+      if (!existing) registry.unregisterTool('vfs');
+    }
+  });
+
+  /** 会话复测：中文泛词（查看/生成）零权重 ⇒ 泛词不能单独决定命中 */
+  it('P1（2026-11-23）：泛词抑制 —— 只命中泛词的工具被排除（覆盖率优先）', async () => {
+    const common = Array.from({ length: 8 }, (_, i) =>
+      fakeTool(`zzzcommon${i}`, 'commonword helper')
+    );
+    const target = fakeTool('zzztarget', 'specificword tool');
+    const matches = await searchToolsWithKeywords(
+      'commonword specificword',
+      [...common, target],
+      5
+    );
+    expect(matches).toContain('zzztarget');
+    expect(matches.some((n) => n.startsWith('zzzcommon'))).toBe(false);
+  });
+
+  /** 会话复测：`requiredParams` 只报无条件必填 ⇒ 条件必填必须单独声明并透出 */
+  it('P1（2026-11-23）：条件必填元数据（write_project_file / todo_write）', () => {
+    expect(
+      (WriteProjectFileTool.create().getInfo() as { requiredAnyOf?: unknown })
+        .requiredAnyOf
+    ).toEqual([['content'], ['source_file']]);
+    expect(new TodoWriteTool().getInfo().requiredAnyOfByOp?.write).toEqual([
+      ['todos'],
+    ]);
+  });
+
+  /** 会话复测：两类 hiddenReason 观感不同 ⇒ 给出可读解释 */
+  it('P1（2026-11-23）：hiddenReasons 两类原因可读化且可区分', () => {
+    const taskFiltered = describeHiddenReasons(['not-in-task-whitelist']);
+    const disclosure = describeHiddenReasons(['not-in-default-disclosure']);
+    expect(taskFiltered).toContain('任务类别');
+    expect(disclosure).toContain('默认披露白名单');
+    expect(taskFiltered).not.toBe(disclosure);
   });
 
   it('清单 7：命中项带本轮可见性与不可见原因（裁剪可解释）', async () => {

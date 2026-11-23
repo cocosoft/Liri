@@ -371,6 +371,17 @@ export class PDFTool extends BaseTool<Record<string, unknown>> {
   name = TOOL_NAME_CONSTANTS.pdf;
 
   /**
+   * 条件必填（2026-11-23，按 action）：
+   * - generate ⇒ content 或 content_file 至少一个；
+   * - extract / info ⇒ filepath。
+   */
+  override requiredAnyOfByOp = {
+    generate: [['content'], ['content_file']],
+    extract: [['filepath']],
+    info: [['filepath']],
+  } as const;
+
+  /**
    * PR-0（2026-10-23）：**混合工具**的风险声明 —— 同一工具不同 action 风险不同：
    * - `extract` / `info`（只读）：`read` ⇒ 免审批；
    * - `generate`（落盘）：`write` ⇒ 仍需审批。

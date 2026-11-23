@@ -1279,6 +1279,9 @@ ${body}
 export class DocGenerateTool extends BaseTool {
   name = TOOL_NAME_CONSTANTS.doc_generate;
 
+  /** 条件必填（2026-11-23）：content 与 content_file 至少给一个（二者皆空 ⇒ 空文档） */
+  override requiredAnyOf = [['content'], ['content_file']] as const;
+
   constructor() {
     super();
     logger.info('DocGenerateTool 已实例化（将在 AI 工具列表中可见）');

@@ -74,6 +74,15 @@ export abstract class BaseTool<
    * 与 `ToolRiskClass` 同域；子类按需覆盖，**禁止**在权限层再按工具名猜。
    */
   riskClass?: ToolRiskClass;
+  /**
+   * 条件必填（OR-of-ANDs，2026-11-23）：每组内参数需同时提供，至少满足一组。
+   * 由 `getInfo()` 透出给 `tool_search` 详情（`requiredAnyOf`）。
+   */
+  requiredAnyOf?: ReadonlyArray<ReadonlyArray<string>>;
+  /** 条件必填（按判别字段取值，2026-11-23）；键 = `action`/`op` 取值 */
+  requiredAnyOfByOp?: Readonly<
+    Record<string, ReadonlyArray<ReadonlyArray<string>>>
+  >;
 
   /**
    * PR-0（2026-10-23）：风险类别**动态声明**（混合工具；如 `pdf` 的 `extract`/`generate`）。
@@ -285,6 +294,13 @@ export abstract class BaseTool<
       // U-03（2026-10-19）：模型可见出参结构同样进快照（懒加载工具也能下发给模型）
       ...(this.outputJsonSchema !== undefined
         ? { outputJsonSchema: this.outputJsonSchema }
+        : {}),
+      // 2026-11-23：条件必填（OR-of-ANDs / 按 op）同样进快照，供 tool_search 详情使用
+      ...(this.requiredAnyOf !== undefined
+        ? { requiredAnyOf: this.requiredAnyOf }
+        : {}),
+      ...(this.requiredAnyOfByOp !== undefined
+        ? { requiredAnyOfByOp: this.requiredAnyOfByOp }
         : {}),
     };
   }

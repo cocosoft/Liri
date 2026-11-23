@@ -412,6 +412,9 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
   /** 工具名称 */
   name = TOOL_NAME_CONSTANTS.todo_write;
 
+  /** 条件必填（2026-11-23，按 action）：write ⇒ todos（否则写入空列表） */
+  override requiredAnyOfByOp = { write: [['todos']] } as const;
+
   /**
    * 出参契约（P1-3 A 档，2026-09-28）。
    *

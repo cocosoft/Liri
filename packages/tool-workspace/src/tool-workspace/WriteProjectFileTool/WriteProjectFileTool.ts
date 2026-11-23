@@ -214,6 +214,8 @@ export class WriteProjectFileTool {
         '向项目文件夹写入文件。传入项目 ID、相对路径和文件内容。AI 产出物自动保存到项目文件夹。仅允许写入项目 sandbox 内的文件。' +
         '当内容已存在于本地文件（如 AI 刚生成的 md/html/docx/方案文档），必须优先传 source_file 路径而非复述长内容——' +
         '0 输出 token，无截断与内存爆炸风险。',
+      // 条件必填（2026-11-23）：content 与 source_file 至少给一个（否则写出空文件）
+      requiredAnyOf: [['content'], ['source_file']],
       params: [
         {
           name: 'projectId',
@@ -535,6 +537,7 @@ export class WriteProjectFileTool {
           name: this.name,
           description: this.description,
           params: this.params,
+          requiredAnyOf: this.requiredAnyOf,
           aliases: this.aliases,
           enabled: this.isEnabled(),
           readOnly: this.isReadOnly(),

@@ -107,11 +107,55 @@ function compileTermPatterns(terms: string[]): Map<string, TermPattern> {
 }
 
 /**
+ * 单词对单个工具的贡献分（0 = 未命中）。
+ *
+ * 2026-11-23：抽出为独立函数，供三处共用 —— 评分 / 泛词 df 统计 / 覆盖度计数。
+ * 完整工具名（`doc_generate`）按下划线归一（`doc generate`）后精确命中计权。
+ */
+function scoreTermAgainstTool(
+  tool: Tool,
+  term: string,
+  pattern: TermPattern
+): number {
+  const parsed = parseToolName(tool.name);
+  const description = tool.description.toLowerCase();
+  const hintNormalized = tool.searchHint?.toLowerCase() ?? '';
+  const termSpaced = term.replace(/_/g, ' ');
+
+  let delta = 0;
+  if (parsed.parts.includes(term)) {
+    delta += parsed.isMcp ? 12 : 10;
+  } else if (parsed.parts.some((part) => part.includes(term))) {
+    delta += parsed.isMcp ? 6 : 5;
+  } else if (parsed.full === termSpaced) {
+    delta += parsed.isMcp ? 12 : 10;
+  }
+  if (
+    delta === 0 &&
+    (parsed.full.includes(term) || parsed.full.includes(termSpaced))
+  ) {
+    delta += 3;
+  }
+  if (hintNormalized && matchesPattern(pattern, hintNormalized)) delta += 4;
+  if (matchesPattern(pattern, description)) delta += 2;
+  return delta;
+}
+
+/**
+ * 单个词出现在超过该比例候选工具里 ⇒ 视为**泛词**（2026-11-23）。
+ *
+ * 背景（会话复测）：中文查询 `读取 打开 查看 文件内容` 里「查看」把 skill / sessions /
+ * doc_generate 混进结果；这是"高频泛词零权重"的直接后果。泛词仍可加分，但**不能单独**
+ * 决定命中（结果必须至少命中一个非泛词）。
+ */
+const GENERIC_TERM_RATIO = 0.6;
+
+/**
  * 基于关键词的工具搜索
  *
  * @param candidateTools 可检索的工具集合（**由调用方裁剪**：全量已注册 − 有意归档）
  */
-async function searchToolsWithKeywords(
+export async function searchToolsWithKeywords(
   query: string,
   candidateTools: Tool[],
   maxResults: number
@@ -183,54 +227,47 @@ async function searchToolsWithKeywords(
     });
   }
 
-  // 评分并排序
-  const scored = candidateTools.map((tool) => {
-    const parsed = parseToolName(tool.name);
-    const description = tool.description.toLowerCase();
-    const hintNormalized = tool.searchHint?.toLowerCase() ?? '';
-
-    let score = 0;
+  // 2026-11-23（会话复测）：泛词抑制 —— 逐词 df 超阈值 ⇒ 该词不能单独决定命中
+  const candidateTotal = Math.max(candidateTools.length, 1);
+  const genericTerms = new Set<string>();
+  if (allScoringTerms.length > 1) {
     for (const term of allScoringTerms) {
       const pattern = termPatterns.get(term);
       if (!pattern) continue;
-
-      // 2026-11-23：完整工具名查询（`doc_generate`）按下划线归一后的全名精确命中计权
-      const termSpaced = term.replace(/_/g, ' ');
-
-      // 精确部分匹配（高权重）
-      if (parsed.parts.includes(term)) {
-        score += parsed.isMcp ? 12 : 10;
-      } else if (parsed.parts.some((part) => part.includes(term))) {
-        score += parsed.isMcp ? 6 : 5;
-      } else if (parsed.full === termSpaced) {
-        score += parsed.isMcp ? 12 : 10;
-      }
-
-      // 全名回退（含下划线归一）
-      if (
-        score === 0 &&
-        (parsed.full.includes(term) || parsed.full.includes(termSpaced))
-      ) {
-        score += 3;
-      }
-
-      // searchHint匹配
-      if (hintNormalized && matchesPattern(pattern, hintNormalized)) {
-        score += 4;
-      }
-
-      // 描述匹配
-      if (matchesPattern(pattern, description)) {
-        score += 2;
-      }
+      const df = candidateTools.filter(
+        (tool) => scoreTermAgainstTool(tool, term, pattern) > 0
+      ).length;
+      if (df / candidateTotal > GENERIC_TERM_RATIO) genericTerms.add(term);
     }
+  }
 
-    return { name: tool.name, score };
+  // 评分并排序（覆盖度优先：命中词数多者更可能是目标工具）
+  const scored = candidateTools.map((tool) => {
+    let score = 0;
+    let specificScore = 0;
+    let coverage = 0;
+    for (const term of allScoringTerms) {
+      const pattern = termPatterns.get(term);
+      if (!pattern) continue;
+      const delta = scoreTermAgainstTool(tool, term, pattern);
+      if (delta <= 0) continue;
+      coverage += 1;
+      score += delta;
+      if (!genericTerms.has(term)) specificScore += delta;
+    }
+    return { name: tool.name, score, specificScore, coverage };
   });
 
-  return scored
-    .filter((item) => item.score > 0)
-    .sort((a, b) => b.score - a.score)
+  // 泛词过滤；若过滤后**一条不剩**（查询本身全是泛词）⇒ 回退到未过滤结果，避免误杀召回
+  const filtered = scored.filter(
+    (item) =>
+      item.score > 0 && (genericTerms.size === 0 || item.specificScore > 0)
+  );
+  const pool =
+    filtered.length > 0 ? filtered : scored.filter((i) => i.score > 0);
+
+  return pool
+    .sort((a, b) => b.coverage - a.coverage || b.score - a.score)
     .slice(0, maxResults)
     .map((item) => item.name);
 }
@@ -252,26 +289,84 @@ function buildVisibilityIndex(
   return index;
 }
 
-/** 命中工具的可读详情（描述截断 + 必填参数 + 本轮可见性） */
+/** 族工具的判别字段名（`FamilyTool` 固定把 discriminator 放在 params[0]） */
+const OP_PARAM_NAMES: ReadonlySet<string> = new Set(['op', 'mode', 'action']);
+
+/**
+ * 不可见原因的**中文解释**（2026-11-23，会话复测）。
+ *
+ * 现场困惑：`team_create` 是 `not-in-task-whitelist`、`worktree` 是 `not-in-default-disclosure`
+ * —— 同为"不可见"，但**由两条不同规则产生**（类别不在任务白名单 vs 类别允许但被默认披露
+ * 白名单收窄）。原始 reason 码保留给机器判定，这里给人/模型可读的解释。
+ */
+const HIDDEN_REASON_TEXT: Readonly<Record<string, string>> = {
+  'not-in-task-whitelist':
+    '当前任务类别的白名单不含该工具类别（换任务类型或直接按名调用）',
+  'not-in-default-disclosure':
+    '类别允许，但不在 AC-16 默认披露白名单（预算收窄；可直接按名/select 调用）',
+  'not-in-minimal-surface': '当前工具面档位为 minimal（仅 L0 核心可见）',
+  'user-off': '用户在工具设置里显式关闭',
+  'feature-gate-off': '对应功能开关关闭',
+  archived: '已归档（默认不可见）',
+  conditional: '已声明但当前未注册（条件门控 / 未接线）',
+};
+
+/** 把可见性 reason 码翻译成中文解释（未知码原样保留） */
+export function describeHiddenReasons(reasons: readonly string[]): string {
+  return reasons.map((r) => HIDDEN_REASON_TEXT[r] ?? r).join('；');
+}
+
+/** 命中工具的可读详情（描述截断 + 必填参数 + 条件必填 + 族工具判别字段 + 本轮可见性） */
 function buildToolDetail(
   tool: Tool,
   visibility: Map<string, ToolVisibilityReport>
 ): ToolSearchDetail {
+  const info = tool.getInfo();
   const report = visibility.get(tool.name);
-  const raw = tool.description ?? '';
+  const raw = info.description ?? '';
   const reasons = (report?.reasons ?? []).filter((r) => r !== 'mandatory');
   const visible = report ? report.effective === 'visible' : true;
+  const params = info.params ?? [];
+  // 2026-11-23（会话复测）：族工具的 discriminator `required: false`（兼容旧名调用）
+  // ⇒ requiredParams 为空。显式带出判别字段与取值，避免模型"不知道该怎么调"。
+  const discriminator = params.find(
+    (p) =>
+      OP_PARAM_NAMES.has(p.name) &&
+      Array.isArray(p.enum) &&
+      (p.enum?.length ?? 0) > 0
+  );
   return {
     name: tool.name,
     description:
       raw.length <= DETAIL_DESCRIPTION_MAX
         ? raw
         : `${raw.slice(0, DETAIL_DESCRIPTION_MAX)}…`,
-    requiredParams: (tool.params ?? [])
-      .filter((p) => p.required)
-      .map((p) => p.name),
+    requiredParams: params.filter((p) => p.required).map((p) => p.name),
+    // 2026-11-23：条件必填（OR-of-ANDs / 按 action）—— 只报无条件必填会漏 content|content_file
+    ...(info.requiredAnyOf
+      ? { requiredAnyOf: info.requiredAnyOf.map((g) => [...g]) }
+      : {}),
+    ...(info.requiredAnyOfByOp
+      ? {
+          requiredByOp: Object.fromEntries(
+            Object.entries(info.requiredAnyOfByOp).map(([op, groups]) => [
+              op,
+              groups.map((g) => [...g]),
+            ])
+          ),
+        }
+      : {}),
+    ...(discriminator
+      ? {
+          opParam: {
+            name: discriminator.name,
+            values: [...discriminator.enum!],
+          },
+        }
+      : {}),
     visible,
     hiddenReasons: visible ? [] : reasons,
+    ...(visible ? {} : { hiddenHint: describeHiddenReasons(reasons) }),
   };
 }
 
@@ -285,7 +380,8 @@ function buildToolDetail(
 function diagnoseMissingTool(
   name: string,
   visibility: Map<string, ToolVisibilityReport>,
-  overrides: ReturnType<typeof readToolVisibilityOverrides>
+  overrides: ReturnType<typeof readToolVisibilityOverrides>,
+  registeredNames: ReadonlySet<string>
 ): ToolSearchDiagnostic {
   // 2026-11-23：名字统一按小写归一 —— 声明面 / 归档集 / 别名单均为小写；
   // 否则 `select:Music_Generate` 会被误判成 `not_registered`。
@@ -304,6 +400,39 @@ function diagnoseMissingTool(
       hint: '这是工具族合并后的旧名（alias-only），不再单独注册；请改用族名（vfs / sleep / skill / cron / worktree / task_list）并传 op',
     };
   }
+  const report = visibility.get(key);
+  // 2026-11-23（会话复测）：`TOOL_NAMES` 是「全量 ∧ 可实例化」的**生成物**，不含运行期 flag 状态
+  // ⇒ 未注册（如 VFS_ENABLED=false 的 vfs / CODE_ANALYSIS=false 的 code_analysis）会被旧逻辑
+  // 当成「已注册但被本轮裁剪」，进而返回 task_filtered + "select 选中后可直接调用"（假承诺）。
+  // 以**真实注册表**为准：未注册 ⇒ 只能给 declared_unregistered / capability_gated / not_registered。
+  if (!registeredNames.has(key)) {
+    if (isToolInDisabledCapabilityPack(key)) {
+      return {
+        name,
+        reason: 'capability_gated',
+        hint: '该工具所属能力包当前关闭；在工具设置中启用对应能力包后可用',
+      };
+    }
+    if (!report) {
+      return {
+        name,
+        reason: 'not_registered',
+        hint: '声明面中不存在此名（确认拼写；不确定名字时改用关键词检索）',
+      };
+    }
+    if (report.reasons.includes('feature-gate-off')) {
+      return {
+        name,
+        reason: 'feature_gate_off',
+        hint: '对应功能开关处于关闭状态（如 BROWSER / COMPUTER_USE）；开启并重启后可用',
+      };
+    }
+    return {
+      name,
+      reason: 'declared_unregistered',
+      hint: '该工具已声明但当前进程未注册（条件开关 / 未接线，如 VFS_ENABLED、CODE_MODE）；开启并重启后可用',
+    };
+  }
   if (isToolInDisabledCapabilityPack(key)) {
     return {
       name,
@@ -311,7 +440,6 @@ function diagnoseMissingTool(
       hint: '该工具所属能力包当前关闭；在工具设置中启用对应能力包后可用',
     };
   }
-  const report = visibility.get(key);
   if (!report) {
     return {
       name,
@@ -363,7 +491,8 @@ function diagnoseMissingTool(
 function collectKeywordDiagnostics(
   query: string,
   visibility: Map<string, ToolVisibilityReport>,
-  overrides: ReturnType<typeof readToolVisibilityOverrides>
+  overrides: ReturnType<typeof readToolVisibilityOverrides>,
+  registeredNames: ReadonlySet<string>
 ): ToolSearchDiagnostic[] {
   const out: ToolSearchDiagnostic[] = [];
   const seen = new Set<string>();
@@ -375,7 +504,12 @@ function collectKeywordDiagnostics(
       LEGACY_ALIAS_SET.has(term) ||
       ARCHIVED_MISC_TOOLS.has(term);
     if (!known) continue;
-    const diagnostic = diagnoseMissingTool(term, visibility, overrides);
+    const diagnostic = diagnoseMissingTool(
+      term,
+      visibility,
+      overrides,
+      registeredNames
+    );
     // 关键词空结果里只会出现"根本没进检索面"的原因；task_filtered 不适用
     if (
       diagnostic.reason !== 'not_registered' &&
@@ -522,6 +656,11 @@ export class ToolSearchTool extends BaseTool<
     // 2026-11-23：可见性索引（解释"为什么不在本轮清单里"）—— 惰性到真正需要时才建，
     // 但两个分支都要用，这里统一建一次。
     const visibility = buildVisibilityIndex(overrides);
+    // 2026-11-23：真实注册面（≠ 生成物 TOOL_NAMES）—— 诊断"未注册"必须用它，否则 flag 关闭的
+    // 工具会被误报成「已注册但被裁剪」并承诺可直接调用（会话复测实证）。
+    const registeredNames: ReadonlySet<string> = new Set(
+      searchableTools.map((t) => t.name)
+    );
 
     // 检查直接选择前缀
     const selectMatch = query.match(/^select:(.+)$/i);
@@ -539,7 +678,12 @@ export class ToolSearchTool extends BaseTool<
           if (!found.includes(tool.name)) found.push(tool.name);
         } else {
           diagnostics.push(
-            diagnoseMissingTool(toolName, visibility, overrides)
+            diagnoseMissingTool(
+              toolName,
+              visibility,
+              overrides,
+              registeredNames
+            )
           );
         }
       }
@@ -666,7 +810,12 @@ export class ToolSearchTool extends BaseTool<
     // 2026-11-23：关键词**空结果**同样给结构化诊断（与 select: 对齐）
     const keywordDiagnostics =
       toolMatches.length === 0
-        ? collectKeywordDiagnostics(query, visibility, overrides)
+        ? collectKeywordDiagnostics(
+            query,
+            visibility,
+            overrides,
+            registeredNames
+          )
         : [];
 
     // 2026-11-23：命中工具带出**描述 + 必填参数 + 本轮可见性** —— 模型无需再逐名

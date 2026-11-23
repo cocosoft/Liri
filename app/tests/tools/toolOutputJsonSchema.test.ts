@@ -1604,6 +1604,20 @@ describe('第二十一批工具出参结构（U-03）', () => {
   });
 
   /**
+   * 2026-11-23：条件必填（`requiredAnyOf` / `requiredAnyOfByOp`）必须是**可透出的元数据**，
+   * 否则 `tool_search` 详情只能看到无条件必填，模型会漏传 `content|content_file`。
+   */
+  it('条件必填元数据：doc_generate（OR-of-ANDs）与 pdf（按 action）', () => {
+    expect(new DocGenerateTool().getInfo().requiredAnyOf).toEqual([
+      ['content'],
+      ['content_file'],
+    ]);
+    const pdf = new PDFTool().getInfo().requiredAnyOfByOp;
+    expect(pdf?.generate).toEqual([['content'], ['content_file']]);
+    expect(pdf?.extract).toEqual([['filepath']]);
+  });
+
+  /**
    * `send_message`（2026-10-20 接线同批）：`data` 是 `JSON.stringify(...)` ⇒ 字符串，
    * 同样用标量声明（不臆造对象结构）。
    */

@@ -29,7 +29,7 @@ import {
   readFileSync,
   writeFileSync,
 } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { TOOL_NAME_CONSTANTS } from '../src/tools/toolNameConstants';
 import { LEGACY_ALIAS_TOOL_NAMES } from '../src/tools/toolNameConstants';
@@ -57,6 +57,32 @@ const SCAN_DIRS = [
   join(APP_DIR, 'src', 'knowledge', 'tools'),
   ...TOOL_PACKAGE_DIRS,
 ];
+
+/**
+ * 族工具目录（`families/`）扫描面。
+ *
+ * 迁包前族工具在 `app/src/tools/families`；A–J 档后分散到
+ * `packages/tool-<domain>/src/tool-<domain>/families` ⇒ 仅扫 `TOOLS_DIR/families`（已不存在）会让
+ * "族成员出参声明"门禁**恒空转**（输出 0 族 0 成员），与 AR-3 同源。
+ * 故按扫描面递归发现所有名为 `families` 的目录。
+ */
+const FAMILY_DIRS: string[] = (() => {
+  const out: string[] = [];
+  const walk = (dir: string): void => {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (!entry.isDirectory() || entry.name === 'node_modules') continue;
+      const p = join(dir, entry.name);
+      if (entry.name === 'families') {
+        if (!out.includes(p)) out.push(p);
+      } else if (entry.name !== '__tests__' && !entry.name.startsWith('.')) {
+        walk(p);
+      }
+    }
+  };
+  for (const dir of SCAN_DIRS) walk(dir);
+  return out.sort();
+})();
 const BASELINE_PATH = resolve(
   APP_DIR,
   '..',
@@ -234,20 +260,24 @@ function findFamilySchemaGaps(): {
   families: number;
   members: number;
 } {
-  const familyDir = join(TOOLS_DIR, 'families');
-  if (!existsSync(familyDir)) return { gaps: [], families: 0, members: 0 };
   const gaps: Array<{ file: string; members: number; declared: number }> = [];
   let families = 0;
   let members = 0;
-  for (const name of readdirSync(familyDir)) {
-    if (!name.endsWith('FamilyTool.ts')) continue;
-    families++;
-    const text = readFileSync(join(familyDir, name), 'utf8');
-    const memberCount = (text.match(/create:\s*\(\)\s*=>/g) ?? []).length;
-    const declared = (text.match(/outputJsonSchema\s*:/g) ?? []).length;
-    members += memberCount;
-    if (memberCount === 0 || declared < memberCount) {
-      gaps.push({ file: name, members: memberCount, declared });
+  for (const familyDir of FAMILY_DIRS) {
+    for (const name of readdirSync(familyDir)) {
+      if (!name.endsWith('FamilyTool.ts')) continue;
+      families++;
+      const text = readFileSync(join(familyDir, name), 'utf8');
+      const memberCount = (text.match(/create:\s*\(\)\s*=>/g) ?? []).length;
+      const declared = (text.match(/outputJsonSchema\s*:/g) ?? []).length;
+      members += memberCount;
+      if (memberCount === 0 || declared < memberCount) {
+        gaps.push({
+          file: relative(APP_DIR, join(familyDir, name)),
+          members: memberCount,
+          declared,
+        });
+      }
     }
   }
   return { gaps, families, members };
@@ -258,6 +288,15 @@ function main(): void {
 
   // 族工具出参声明（与能力棘轮独立：不参与 --update-baseline 豁免）
   const family = findFamilySchemaGaps();
+  // 防"门禁空转"（AR-3）：族目录迁走 / 命名变化时宁可报错，也不静默输出"0 族全部已声明"
+  if (family.families === 0 || family.members === 0) {
+    console.error(
+      '[lint:tool-schema] ❌ 未发现任何族工具（扫描面可能已失效）/ no family tool found (scan roots may be stale)：\n' +
+        `  ${FAMILY_DIRS.join('\n  ') || '(none)'}`
+    );
+    process.exit(1);
+    return;
+  }
   if (family.gaps.length > 0) {
     console.error(
       '[lint:tool-schema] ❌ 族工具成员缺 outputJsonSchema 声明 / family member(s) missing outputJsonSchema：'

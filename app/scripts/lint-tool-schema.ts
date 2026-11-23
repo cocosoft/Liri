@@ -40,8 +40,22 @@ const TOOLS_DIR = join(APP_DIR, 'src', 'tools');
 /**
  * 扫描面（U-03 2026-10-19）：除 `src/tools/**` 外，knowledge 工具在 `src/knowledge/tools/**`
  * （`implements Tool` 的另一大簇，原扫描面完全覆盖不到）。
+ *
+ * A–J 档（2026-11-23）：内置工具按域下沉到 `packages/tool-*` 后，扫描面必须同步扩展 ——
+ * 否则门禁会因"搬目录"静默少检（实测工具类计数 26 → 22），与 AR-3 同源。
  */
-const SCAN_DIRS = [TOOLS_DIR, join(APP_DIR, 'src', 'knowledge', 'tools')];
+const PACKAGES_DIR = join(APP_DIR, '..', 'packages');
+const TOOL_PACKAGE_DIRS: string[] = existsSync(PACKAGES_DIR)
+  ? readdirSync(PACKAGES_DIR, { withFileTypes: true })
+      .filter((e) => e.isDirectory() && e.name.startsWith('tool-'))
+      .map((e) => join(PACKAGES_DIR, e.name, 'src'))
+      .filter((dir) => existsSync(dir))
+  : [];
+const SCAN_DIRS = [
+  TOOLS_DIR,
+  join(APP_DIR, 'src', 'knowledge', 'tools'),
+  ...TOOL_PACKAGE_DIRS,
+];
 const BASELINE_PATH = resolve(
   APP_DIR,
   '..',

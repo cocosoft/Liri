@@ -163,6 +163,18 @@ describe('tool_search 可解释性（2026-11-23 回归清单）', () => {
     expect(out.hint).toContain('vfs');
   });
 
+  it('P1（2026-11-23）：关键词空结果也给出结构化诊断（旧名词）', async () => {
+    const out = await run('read_vfs');
+    const diag = out.diagnostics?.find((d) => d.name === 'read_vfs');
+    expect(diag?.reason).toBe('alias');
+  });
+
+  it('P1（2026-11-23）：诊断名字大小写归一（Music_Generate ⇒ declared_unregistered）', async () => {
+    const out = await run('select:Music_Generate');
+    expect(out.matches).toEqual([]);
+    expect(out.reason).toBe('declared_unregistered');
+  });
+
   it('清单 7：命中项带本轮可见性与不可见原因（裁剪可解释）', async () => {
     const out = await run('select:' + PROBE_NAME);
     const detail = out.details?.[0];

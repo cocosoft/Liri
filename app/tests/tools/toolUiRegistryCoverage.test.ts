@@ -59,7 +59,6 @@ describe('ToolUIRegistry 可用性与键名（U-03）', () => {
    * 此处**显式列出**而非放宽断言：新增任何未登记名字仍会失败，必须显式登记或补表。
    */
   const UNDECLARED_BUT_REAL_NAMES = [
-    'code_analysis',
     'knowledge_delete',
     'knowledge_export',
     'knowledge_import',

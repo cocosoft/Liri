@@ -273,28 +273,31 @@ function diagnoseMissingTool(
   visibility: Map<string, ToolVisibilityReport>,
   overrides: ReturnType<typeof readToolVisibilityOverrides>
 ): ToolSearchDiagnostic {
-  if (ARCHIVED_MISC_TOOLS.has(name) && overrides[name] !== 'on') {
+  // 2026-11-23：名字统一按小写归一 —— 声明面 / 归档集 / 别名单均为小写；
+  // 否则 `select:Music_Generate` 会被误判成 `not_registered`。
+  const key = name.toLowerCase();
+  if (ARCHIVED_MISC_TOOLS.has(key) && overrides[key] !== 'on') {
     return {
       name,
       reason: 'archived',
       hint: '该工具被有意归档（默认对模型不可见）；确需使用可在工具设置中显式开启',
     };
   }
-  if (LEGACY_ALIAS_SET.has(name)) {
+  if (LEGACY_ALIAS_SET.has(key)) {
     return {
       name,
       reason: 'alias',
       hint: '这是工具族合并后的旧名（alias-only），不再单独注册；请改用族名（vfs / sleep / skill / cron / worktree / task_list）并传 op',
     };
   }
-  if (isToolInDisabledCapabilityPack(name)) {
+  if (isToolInDisabledCapabilityPack(key)) {
     return {
       name,
       reason: 'capability_gated',
       hint: '该工具所属能力包当前关闭；在工具设置中启用对应能力包后可用',
     };
   }
-  const report = visibility.get(name);
+  const report = visibility.get(key);
   if (!report) {
     return {
       name,
@@ -337,6 +340,37 @@ function diagnoseMissingTool(
     reason: 'not_registered',
     hint: '声明面中不存在此名（确认拼写；不确定名字时改用关键词检索）',
   };
+}
+
+/**
+ * 关键词分支的**结构化诊断**（2026-11-23）：只对"确实是工具名 / 旧名 / 归档名"的词判定，
+ * 避免把 `list` / `file` 这类普通单词判成 `not_registered`。
+ */
+function collectKeywordDiagnostics(
+  query: string,
+  visibility: Map<string, ToolVisibilityReport>,
+  overrides: ReturnType<typeof readToolVisibilityOverrides>
+): ToolSearchDiagnostic[] {
+  const out: ToolSearchDiagnostic[] = [];
+  const seen = new Set<string>();
+  for (const term of query.toLowerCase().split(/\s+/).filter(Boolean)) {
+    if (seen.has(term)) continue;
+    seen.add(term);
+    const known =
+      visibility.has(term) ||
+      LEGACY_ALIAS_SET.has(term) ||
+      ARCHIVED_MISC_TOOLS.has(term);
+    if (!known) continue;
+    const diagnostic = diagnoseMissingTool(term, visibility, overrides);
+    // 关键词空结果里只会出现"根本没进检索面"的原因；task_filtered 不适用
+    if (
+      diagnostic.reason !== 'not_registered' &&
+      diagnostic.reason !== 'task_filtered'
+    ) {
+      out.push(diagnostic);
+    }
+  }
+  return out;
 }
 
 /**
@@ -615,6 +649,12 @@ export class ToolSearchTool extends BaseTool<
       }
     }
 
+    // 2026-11-23：关键词**空结果**同样给结构化诊断（与 select: 对齐）
+    const keywordDiagnostics =
+      toolMatches.length === 0
+        ? collectKeywordDiagnostics(query, visibility, overrides)
+        : [];
+
     // 2026-11-23：命中工具带出**描述 + 必填参数 + 本轮可见性** —— 模型无需再逐名
     // 试调即可判断"是不是我要的工具"（回应「tool_search 只回名字」的实测痛点）。
     // `matches` 里混有 `skill:<name>` 引导项（非工具）⇒ 详情只按真实工具名映射。
@@ -630,6 +670,10 @@ export class ToolSearchTool extends BaseTool<
       found: toolMatches,
     });
 
+    const keywordDiagText = keywordDiagnostics
+      .map((d) => `${d.name}（${d.reason}${d.hint ? `：${d.hint}` : ''}）`)
+      .join('；');
+
     return createToolResult(
       {
         matches,
@@ -637,6 +681,9 @@ export class ToolSearchTool extends BaseTool<
         total_deferred_tools: deferredTools.length,
         deferredToolNames: deferredTools.map((t) => t.name),
         ...(details.length > 0 ? { details } : {}),
+        ...(keywordDiagnostics.length > 0
+          ? { diagnostics: keywordDiagnostics }
+          : {}),
       },
       {
         newMessages: [
@@ -645,7 +692,7 @@ export class ToolSearchTool extends BaseTool<
             content:
               matches.length > 0
                 ? `找到 ${matches.length} 个匹配的工具: ${matches.join(', ')}`
-                : `未找到匹配的工具${keywordHint}`,
+                : `未找到匹配的工具${keywordHint}${keywordDiagText ? ` —— ${keywordDiagText}` : ''}`,
           },
         ],
       }

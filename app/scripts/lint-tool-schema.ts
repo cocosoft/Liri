@@ -32,6 +32,7 @@ import {
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { TOOL_NAME_CONSTANTS } from '../src/tools/toolNameConstants';
+import { LEGACY_ALIAS_TOOL_NAMES } from '../src/tools/toolNameConstants';
 import { TOOL_EFFECTS } from '../src/tools/toolEffects';
 
 const HERE = dirname(fileURLToPath(import.meta.url)); // app/scripts
@@ -76,6 +77,16 @@ export interface MissingCapabilityDecl {
  */
 const DEFAULT_DECLARED_EFFECTS: ReadonlySet<string> = new Set(
   Object.keys(TOOL_EFFECTS)
+);
+
+/**
+ * 2026-11-23：族合并后的 **alias-only 旧名**（`read_vfs` / `enter_worktree` …）。
+ *
+ * 它们不再独立注册，效果由族工具（`vfs` / `worktree` …）声明 ⇒ 不应计为"存量缺声明"。
+ * `music_generate` 等真正的影子工具仍在检查面内（保留告警）。
+ */
+const LEGACY_ALIAS_NAMES: ReadonlySet<string> = new Set(
+  LEGACY_ALIAS_TOOL_NAMES
 );
 
 interface SourceFile {
@@ -127,6 +138,9 @@ export function findToolsMissingCapability(
     if (!name) continue;
 
     total += 1;
+
+    // alias-only 旧名不独立注册（效果由族工具声明）⇒ 不进"缺声明"判定
+    if (LEGACY_ALIAS_NAMES.has(name)) continue;
 
     // 用户裁定（2026-10-20）：`extends BaseTool` 的 `idempotent` / `sideEffect` 由
     // `TOOL_EFFECTS` **唯一声明**（`Record<ToolName, …>` 编译期穷举）⇒ 有条目即视为已声明，
@@ -248,7 +262,9 @@ function main(): void {
       '[lint:tool-schema] ❌ 族工具成员缺 outputJsonSchema 声明 / family member(s) missing outputJsonSchema：'
     );
     for (const gap of family.gaps) {
-      console.error(`  - ${gap.file}：成员 ${gap.members} 个，已声明 ${gap.declared} 个`);
+      console.error(
+        `  - ${gap.file}：成员 ${gap.members} 个，已声明 ${gap.declared} 个`
+      );
     }
     console.error(
       '  → 在 families/*FamilyTool.ts 的每个 member 上补 `outputJsonSchema`（族工具按 op 并集下发；' +

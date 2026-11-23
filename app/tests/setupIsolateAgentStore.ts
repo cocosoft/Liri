@@ -17,7 +17,7 @@ import { unlinkSync, readdirSync, statSync } from 'fs';
 import {
   AgentRunStore,
   setAgentRunStoreForTest,
-} from '../src/tools/AgentTool/AgentRunStore';
+} from '@openliri/tool-agent/AgentTool/AgentRunStore';
 
 /**
  * 测试环境变量归一：强制 `NODE_ENV='test'`（2026-10-11，v0.4.77）。

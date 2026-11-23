@@ -13,8 +13,8 @@ import { afterEach, describe, expect, it, spyOn } from 'bun:test';
 import {
   LSPClient,
   LSP_REQUEST_TIMEOUT_MS,
-} from '../../src/tools/lsp/LSPClient.js';
-import { LSPServer } from '../../src/tools/lsp/LSPServer.js';
+} from '@openliri/tool-code/lsp/LSPClient';
+import { LSPServer } from '@openliri/tool-code/lsp/LSPServer';
 
 let startSpy: ReturnType<typeof spyOn> | undefined;
 let sendSpy: ReturnType<typeof spyOn> | undefined;

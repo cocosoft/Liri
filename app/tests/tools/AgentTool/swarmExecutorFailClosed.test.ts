@@ -12,11 +12,11 @@ import {
   buildSwarmExecutor,
   type SwarmPathDeps,
   type SwarmTaskDescriptor,
-} from '../../../src/tools/AgentTool/swarmPath';
+} from '@openliri/tool-agent/AgentTool/swarmPath';
 import {
   setAgentRunStoreForTest,
   type AgentRunStore,
-} from '../../../src/tools/AgentTool/AgentRunStore';
+} from '@openliri/tool-agent/AgentTool/AgentRunStore';
 import type { Tool } from '../../../src/tools/types/Tool';
 
 function fakeTool(name: string, category = 'misc'): Tool {

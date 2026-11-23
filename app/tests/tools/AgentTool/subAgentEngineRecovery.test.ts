@@ -16,8 +16,8 @@ import type { ChatResponse } from '@modules/ai';
 import {
   getAgentRunLedger,
   resetAgentRunLedger,
-} from '../../../src/tools/AgentTool/AgentRunLedger';
-import { SubAgentEngine } from '../../../src/tools/AgentTool/SubAgentEngine';
+} from '@openliri/tool-agent/AgentTool/AgentRunLedger';
+import { SubAgentEngine } from '@openliri/tool-agent/AgentTool/SubAgentEngine';
 
 const SID = 'sess-b19';
 

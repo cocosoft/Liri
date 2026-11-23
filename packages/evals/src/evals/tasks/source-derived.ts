@@ -441,7 +441,7 @@ export const sourceTaskSpecs: SourceTaskSpec[] = [
   {
     id: 'src-format-agent-timing',
     name: 'A7 派生：毫秒时长的人类可读格式化（含不进位契约）',
-    sourcePath: 'app/src/tools/AgentTool/agentDisplay.ts',
+    sourcePath: 'packages/tool-agent/src/tool-agent/AgentTool/agentDisplay.ts',
     exportName: 'formatAgentTiming',
     behavior: [
       '输入毫秒数（数字），返回字符串。三条分支按**严格上限**划分：',

@@ -17,7 +17,7 @@ import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import {
   getAgentRunLedger,
   resetAgentRunLedger,
-} from '../../../src/tools/AgentTool/AgentRunLedger';
+} from '@openliri/tool-agent/AgentTool/AgentRunLedger';
 
 const SID = 'sess-0b';
 

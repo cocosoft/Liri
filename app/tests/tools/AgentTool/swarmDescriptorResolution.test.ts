@@ -20,11 +20,11 @@ import { unlinkSync } from 'fs';
 import {
   AgentTool,
   setAgentToolManager,
-} from '../../../src/tools/AgentTool/AgentTool';
+} from '@openliri/tool-agent/AgentTool/AgentTool';
 import { ToolExecutionStatus } from '../../../src/tools/types/ToolResult';
 import type { Tool } from '../../../src/tools/types/Tool';
-import { getAgentRunStore } from '../../../src/tools/AgentTool/AgentRunStore';
-import { getAgentRunLedger } from '../../../src/tools/AgentTool/AgentRunLedger';
+import { getAgentRunStore } from '@openliri/tool-agent/AgentTool/AgentRunStore';
+import { getAgentRunLedger } from '@openliri/tool-agent/AgentTool/AgentRunLedger';
 import {
   TaskGoalStore,
   setTaskGoalStoreForTest,

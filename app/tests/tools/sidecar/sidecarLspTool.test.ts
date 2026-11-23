@@ -38,7 +38,7 @@ import {
   type LspSidecarRequester,
 } from '../../../src/tools/sidecar/SidecarLspTool';
 import { ToolSidecarSupervisor } from '../../../src/tools/sidecar/ToolSidecarSupervisor';
-import { LSPToolAdapter } from '../../../src/tools/adapters/LSPToolAdapter';
+import { LSPToolAdapter } from '@openliri/tool-code';
 import {
   SIDECAR_IPC_PROTOCOL_VERSION,
   SIDECAR_STARTUP_TYPE,

@@ -1,0 +1,20 @@
+{
+  "name": "@openliri/tool-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liri agent 工具包 —— Agent / Skill / Knowledge / Memory 域：agent / agents_list / skill / skill_list / skill_view / knowledge_save / 记忆工具 + skill 族工具。层归属 app：可依赖 app / service / infra / core；entry / ui 不得依赖本包，包内不得依赖 entry / ui 层（R39）。注册动作仍留 app 的 builtinToolRegistry。",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/tool-agent/index.ts",
+      "import": "./src/tool-agent/index.ts"
+    },
+    "./*": {
+      "types": "./src/tool-agent/*.ts",
+      "import": "./src/tool-agent/*.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p ../../app/tsconfig.json"
+  }
+}

@@ -29,7 +29,7 @@
  * 故以下用例均为「修复前必失败」。
  */
 import { describe, it, expect } from 'bun:test';
-import { ReadProjectFileTool } from '../../src/tools/ReadProjectFileTool/ReadProjectFileTool.js';
+import { ReadProjectFileTool } from '@openliri/tool-workspace';
 import type { ToolUseContext } from '../../src/tools/types/ToolUseContext.js';
 
 const tool = ReadProjectFileTool.create();

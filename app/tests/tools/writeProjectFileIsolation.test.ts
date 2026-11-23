@@ -29,7 +29,7 @@ import { PermissionChecker } from '@openliri/infra/permission/PermissionChecker'
 import { PermissionDecisionType } from '@openliri/infra/permission/types/PermissionDecision';
 import { createProjectStore } from '../../src/workspace/ProjectStore.js';
 import { WorkItemStore } from '../../src/workspace/WorkItemStore.js';
-import { WriteProjectFileTool } from '../../src/tools/WriteProjectFileTool/WriteProjectFileTool.js';
+import { WriteProjectFileTool } from '@openliri/tool-workspace';
 import { ToolLazyWrapper } from '../../src/tools/utils/ToolLazyWrapper.js';
 import type { LazyModuleLoader } from '@openliri/kernel';
 import type { Tool } from '../../src/tools/types/Tool.js';

@@ -18,12 +18,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { AIProvider, ChatResponse } from '@modules/ai';
-import { SubAgentEngine } from '../../src/tools/AgentTool/SubAgentEngine';
-import { createAgentTool } from '../../src/tools/AgentTool/AgentTool';
+import { SubAgentEngine } from '@openliri/tool-agent/AgentTool/SubAgentEngine';
+import { createAgentTool } from '@openliri/tool-agent/AgentTool/AgentTool';
 import {
   getAgentRunLedger,
   resetAgentRunLedger,
-} from '../../src/tools/AgentTool/AgentRunLedger';
+} from '@openliri/tool-agent/AgentTool/AgentRunLedger';
 import { ToolExecutionStatus } from '../../src/tools/types/ToolResult';
 import {
   getDailyBudget,
@@ -166,7 +166,10 @@ describe('T11：子代理计账与闸门（G-2/E）', () => {
     // 该路径的 provider 来自全局 registry（无法在本层单测）⇒ 以源码接线守卫兜底：
     // 若有人删掉这行，子代理的"简单任务"分支将重新绕过日预算。
     const code = readFileSync(
-      join(APP_SRC, 'tools/AgentTool/AgentTool.ts'),
+      join(
+        APP_SRC,
+        '../../packages/tool-agent/src/tool-agent/AgentTool/AgentTool.ts'
+      ),
       'utf-8'
     );
     expect(code).toMatch(/recordDailyBudgetFromUsage\s*\(/);

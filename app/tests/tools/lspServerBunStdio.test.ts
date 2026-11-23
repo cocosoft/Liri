@@ -16,8 +16,8 @@ import { join } from 'node:path';
 import {
   LSPServer,
   type LSPServerConfig,
-} from '../../src/tools/lsp/LSPServer.js';
-import { ServerStatus } from '../../src/tools/lsp/types/index.js';
+} from '@openliri/tool-code/lsp/LSPServer';
+import { ServerStatus } from '@openliri/tool-code/lsp/types/index';
 
 const FIXTURE = join(import.meta.dir, 'fixtures/fakeLspServer.js');
 

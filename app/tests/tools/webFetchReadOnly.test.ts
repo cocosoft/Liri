@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'bun:test';
 
-import { WebFetchTool } from '@modules/tools/WebFetchTool/WebFetchTool';
+import { WebFetchTool } from '@openliri/tool-web';
 import { deriveToolRiskClass } from '@modules/tools/toolRiskClass';
 
 describe('web_fetch：saveToFile 纳入只读判定（G3）', () => {

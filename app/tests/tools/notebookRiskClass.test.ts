@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'bun:test';
 
-import { NotebookToolAdapter } from '@modules/tools/adapters/NotebookToolAdapter';
+import { NotebookToolAdapter } from '@openliri/tool-code';
 import { deriveToolRiskClass } from '@modules/tools/toolRiskClass';
 
 describe('notebook：执行单元格按 shell 分档（G4）', () => {

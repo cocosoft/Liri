@@ -7,9 +7,9 @@
  */
 import { describe, expect, test, beforeAll, afterAll } from 'bun:test';
 import { spawnSync } from 'child_process';
-import { REPLToolImpl } from '../../src/tools/repl/REPLToolImpl.js';
-import { replSessionManager } from '../../src/tools/repl/REPLSessionManager';
-import type { REPLSession } from '../../src/tools/repl/types/REPLTool.js';
+import { REPLToolImpl } from '@openliri/tool-code/repl/REPLToolImpl';
+import { replSessionManager } from '@openliri/tool-code/repl/REPLSessionManager';
+import type { REPLSession } from '@openliri/tool-code/repl/types/REPLTool';
 
 /** 探测 python 可用性 */
 const pythonAvailable = (() => {

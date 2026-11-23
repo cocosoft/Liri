@@ -13,7 +13,7 @@ import {
   DELEGATE_BLOCKED_TOOLS,
   validateToolsetRequest,
   type ToolsetContract,
-} from '../../../src/tools/AgentTool/AgentToolsetContract';
+} from '@openliri/tool-agent/AgentTool/AgentToolsetContract';
 
 /** 父级可见工具（含阻断清单里的 Agent / sessions_yield） */
 const PARENT = [

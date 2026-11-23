@@ -7,7 +7,7 @@
 ## 图片处理
 
 ```typescript
-import { ImageTool } from "./tools/ImageTool/ImageTool.js";
+import { ImageTool } from '@openliri/tool-media';
 
 const tool = new ImageTool();
 

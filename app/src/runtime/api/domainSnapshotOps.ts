@@ -515,7 +515,7 @@ export class DomainSnapshotOps {
         model?: unknown;
       }) => {
         const { createVideoGenerateTool } =
-          await import('@modules/tools/VideoGenerateTool/VideoGenerateTool');
+          await import('@openliri/tool-media');
         const tool = createVideoGenerateTool();
         // 保持原 handler 行为：`async: true` + 空 ctx（原为 `{} as unknown as ToolUseContext`）
         return tool.execute(
@@ -524,8 +524,7 @@ export class DomainSnapshotOps {
         );
       },
       cancelVideoTask: async (taskId: string) => {
-        const { VideoGenerateTool } =
-          await import('@modules/tools/VideoGenerateTool/VideoGenerateTool');
+        const { VideoGenerateTool } = await import('@openliri/tool-media');
         VideoGenerateTool.cancelTask(taskId);
       },
     };

@@ -8,13 +8,13 @@
  * PermissionManager 装配，属另一层职责；此处只锁 PlanTool 自身的编排结果。
  */
 import { describe, expect, it } from 'bun:test';
-import { PlanTool } from '../../src/tools/PlanTool/PlanTool';
+import { PlanTool } from '@openliri/tool-task';
 import type {
   PlanData,
   PlanStep,
   PlanToolInput,
   PlanToolOutput,
-} from '../../src/tools/PlanTool/PlanTool';
+} from '@openliri/tool-task';
 import type {
   ToolResult,
   ToolUseContext,

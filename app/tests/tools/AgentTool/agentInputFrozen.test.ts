@@ -12,7 +12,7 @@
  * 两条用例均为"修复前必失败"型。
  */
 import { describe, test, expect } from 'bun:test';
-import { createAgentTool } from '../../../src/tools/AgentTool/AgentTool';
+import { createAgentTool } from '@openliri/tool-agent/AgentTool/AgentTool';
 
 const CTX = {} as never;
 

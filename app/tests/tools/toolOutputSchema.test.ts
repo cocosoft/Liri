@@ -14,7 +14,7 @@ import { describe, it, expect } from 'bun:test';
 import { z } from 'zod';
 import { validateToolOutputShape } from '@modules/tools/ToolExecutor';
 import type { ToolResult } from '@modules/tools/types/ToolResult';
-import { TaskStopOutputSchema } from '@modules/tools/TaskTool/schemas';
+import { TaskStopOutputSchema } from '@openliri/tool-task/TaskTool/schemas';
 
 const schema = z.object({ count: z.number() });
 

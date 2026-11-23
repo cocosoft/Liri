@@ -13,8 +13,8 @@ import { tmpdir } from 'os';
 import {
   attributeAgentRun,
   type AgentRunStepFact,
-} from '../../../src/tools/AgentTool/runAttribution';
-import { AgentRunStore } from '../../../src/tools/AgentTool/AgentRunStore';
+} from '@openliri/tool-agent/AgentTool/runAttribution';
+import { AgentRunStore } from '@openliri/tool-agent/AgentTool/AgentRunStore';
 
 const STEPS: AgentRunStepFact[] = [
   { stepId: 'tu_1', tool: 'file_read', ok: true },

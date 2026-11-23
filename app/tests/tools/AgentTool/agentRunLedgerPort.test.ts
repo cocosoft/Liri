@@ -15,7 +15,7 @@ import {
   getAgentRunLedger,
   type AgentRunFactsPort,
   type AgentRunLedgerPort,
-} from '../../../src/tools/AgentTool/AgentRunLedger';
+} from '@openliri/tool-agent/AgentTool/AgentRunLedger';
 
 /** 接口声明的全部方法（**契约清单**；漏实现即编译期报错，此处再运行时兜底） */
 const PORT_METHODS: ReadonlyArray<keyof AgentRunLedgerPort> = [

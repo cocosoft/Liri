@@ -29,7 +29,7 @@
 import { describe, it, expect, beforeAll } from 'bun:test';
 
 import { ToolSearchTool } from '../../src/tools/ToolSearchTool/ToolSearchTool';
-import { getSkillRegistryLazy } from '../../src/tools/SkillTool/skillRegistryAccess';
+import { getSkillRegistryLazy } from '@openliri/tool-agent/SkillTool/skillRegistryAccess';
 import { SkillSource, SkillLoadMethod } from '@modules/skills/types';
 import type { Skill } from '@modules/skills/types';
 

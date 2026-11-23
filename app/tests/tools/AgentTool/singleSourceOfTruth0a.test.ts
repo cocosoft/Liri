@@ -20,8 +20,8 @@ import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import {
   getAgentRunLedger,
   resetAgentRunLedger,
-} from '../../../src/tools/AgentTool/AgentRunLedger';
-import { SubAgentEngine } from '../../../src/tools/AgentTool/SubAgentEngine';
+} from '@openliri/tool-agent/AgentTool/AgentRunLedger';
+import { SubAgentEngine } from '@openliri/tool-agent/AgentTool/SubAgentEngine';
 
 const SID = 'sess-0a';
 const OTHER_SID = 'sess-0a-other';

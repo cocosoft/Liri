@@ -17,9 +17,9 @@ import {
   AgentOutcomeLedger,
   getAgentOutcomeLedger,
   resetAgentOutcomeLedgerForTest,
-} from '../../../src/tools/AgentTool/agentOutcomeStats';
-import { AgentLedgerLifecycle } from '../../../src/tools/AgentTool/agentLedgerLifecycle';
-import { getAgentRunLedger } from '../../../src/tools/AgentTool/AgentRunLedger';
+} from '@openliri/tool-agent/AgentTool/agentOutcomeStats';
+import { AgentLedgerLifecycle } from '@openliri/tool-agent/AgentTool/agentLedgerLifecycle';
+import { getAgentRunLedger } from '@openliri/tool-agent/AgentTool/AgentRunLedger';
 
 afterEach(() => {
   resetAgentOutcomeLedgerForTest();

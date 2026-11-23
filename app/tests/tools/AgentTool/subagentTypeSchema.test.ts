@@ -12,13 +12,13 @@ import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import {
   AgentTool,
   refreshAvailableSubagentTypeNames,
-} from '../../../src/tools/AgentTool/AgentTool';
+} from '@openliri/tool-agent/AgentTool/AgentTool';
 import {
   renderSubagentTypeDescription,
   setEnabledRoleNames,
   getEnabledRoleNames,
-} from '../../../src/tools/AgentTool/AgentDescriptorResolver';
-import { BUILTIN_AGENTS } from '../../../src/tools/AgentTool/constants';
+} from '@openliri/tool-agent/AgentTool/AgentDescriptorResolver';
+import { BUILTIN_AGENTS } from '@openliri/tool-agent/AgentTool/constants';
 import { getAgentRoleStore } from '../../../src/workspace/AgentRoleStore';
 
 const BUILTIN_NAMES = Object.keys(BUILTIN_AGENTS);

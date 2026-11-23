@@ -12,11 +12,11 @@
  * 说明：与 `parallelTasks.test.ts` 同法注入 fake 引擎（`Reflect.set`，不使用 any / ts-ignore）。
  */
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
-import { AgentTool } from '../../../src/tools/AgentTool/AgentTool';
+import { AgentTool } from '@openliri/tool-agent/AgentTool/AgentTool';
 import {
   getAgentRunLedger,
   resetAgentRunLedger,
-} from '../../../src/tools/AgentTool/AgentRunLedger';
+} from '@openliri/tool-agent/AgentTool/AgentRunLedger';
 import {
   registerSessionLineage,
   resetSessionLineage,

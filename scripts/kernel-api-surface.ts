@@ -99,6 +99,17 @@ export const CONSUMER_ROOTS = [
   'packages/tool-browser',
   // P4（2026-11-21）：工具运行时支撑迁入 `packages/tool-runtime` 后同理（消费内核 `FeatureFlag`）。
   'packages/tool-runtime',
+  // A/B 档（2026-11-22）：媒体 / 办公工具迁入 `packages/tool-media` · `tool-office` 后同理 ——
+  // 不纳入会把 `DEFAULT_SD_WEBUI_ENDPOINT` 等仅由工具侧消费的内核符号误降为 internal。
+  'packages/tool-media',
+  'packages/tool-office',
+  // H 档（2026-11-23）：Agent/Skill/Knowledge/Memory 工具迁入 `packages/tool-agent` 后同理 ——
+  // 它消费内核 `SystemGraph` / `EventBus` / `requestScope`，不纳入会误判为 internal。
+  'packages/tool-agent',
+  // I 档（2026-11-23）：MCP 工具迁入 `packages/tool-mcp` —— 它消费内核 `feature`。
+  'packages/tool-mcp',
+  // J 档（2026-11-23）：Web/检索工具迁入 `packages/tool-web` —— 其消费面同样需计入。
+  'packages/tool-web',
 ] as const;
 
 /** 从消费方源码文本中提取「引用了哪些内核符号名」 */

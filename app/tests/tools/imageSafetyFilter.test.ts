@@ -12,7 +12,7 @@
  * "一旦接线，返回值必须如实"这一契约。
  */
 import { describe, expect, it } from 'bun:test';
-import { ImageSafetyFilter } from '../../src/tools/ImageGenerateTool/ImageSafetyFilter';
+import { ImageSafetyFilter } from '@openliri/tool-media/ImageGenerateTool/ImageSafetyFilter';
 
 const buffer = Buffer.from('fake-image');
 

@@ -35,7 +35,7 @@
 
 import { afterAll, beforeEach, describe, expect, it, spyOn } from 'bun:test';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { MCPResourceTool } from '../../../src/tools/MCPResourceTool/MCPResourceTool.js';
+import { MCPResourceTool } from '@openliri/tool-mcp';
 import { mcpConnectionManager } from '@openliri/service/services/mcp/MCPConnectionManager';
 import type { ToolUseContext } from '../../../src/tools/types/ToolUseContext.js';
 

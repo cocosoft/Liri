@@ -10,7 +10,7 @@ import {
   trimSummaryWithFooter,
   SUMMARY_HARD_MAX_CHARS,
   SUMMARY_MIN_CHARS,
-} from '../../../src/tools/AgentTool/summaryTrim';
+} from '@openliri/tool-agent/AgentTool/summaryTrim';
 
 /** 造 n 行文本，每行形如 `line-<i>-xxxx` */
 function lines(n: number, pad = 40): string {

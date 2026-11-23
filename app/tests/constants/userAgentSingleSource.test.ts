@@ -22,6 +22,8 @@ const APP = join(import.meta.dir, '..', '..');
 const SRC = join(APP, 'src');
 /** P7（2026-11-01）：`constants` 已迁入 infra 物理包 ⇒ 真源与新增写死点必须同在扫描面 */
 const INFRA_SRC = join(APP, '..', 'packages', 'infra', 'src');
+/** J 档（2026-11-23）：Web/检索工具已迁入 `packages/tool-web` ⇒ 其写死点同样受检 */
+const TOOL_WEB_SRC = join(APP, '..', 'packages', 'tool-web', 'src');
 
 function collectProductionTs(dir: string, out: string[]): void {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -55,7 +57,7 @@ const UA_HEADER_LITERAL =
 /** **有意不治理**的协议伪装 UA（不可合并进产品标识；按**站点**断言，不按文件） */
 const DISGUISE_UA: Array<{ rel: string; site: RegExp; label: string }> = [
   {
-    rel: 'src/tools/WebSearchTool/providers.ts',
+    rel: '../packages/tool-web/src/tool-web/WebSearchTool/providers.ts',
     site: /Mozilla\/5\.0.*Chrome\/120\.0\.0\.0/,
     label: '抓 HTML 的反爬伪装 UA（Chrome）',
   },
@@ -97,6 +99,7 @@ describe('HD-P1-1 · 产品 User-Agent 单一真源', () => {
     const files: string[] = [];
     collectProductionTs(SRC, files);
     collectProductionTs(INFRA_SRC, files);
+    collectProductionTs(TOOL_WEB_SRC, files);
     const hits: string[] = [];
     for (const abs of files) {
       const r = rel(abs);
@@ -131,11 +134,11 @@ describe('HD-P1-1 · 产品 User-Agent 单一真源', () => {
   it('⑤ 14 个消费点均引用真源（不漏改）', () => {
     const consumers = [
       '../packages/service/src/services/api/client.ts',
-      'src/tools/WebFetchTool/utils.ts',
-      'src/tools/WebFetchTool/WebFetchTool.ts',
-      'src/tools/WebSearchTool/WebSearchTool.ts',
-      'src/tools/WebSearchTool/providers.ts',
-      'src/tools/web/WebToolProvider.ts',
+      '../packages/tool-web/src/tool-web/WebFetchTool/utils.ts',
+      '../packages/tool-web/src/tool-web/WebFetchTool/WebFetchTool.ts',
+      '../packages/tool-web/src/tool-web/WebSearchTool/WebSearchTool.ts',
+      '../packages/tool-web/src/tool-web/WebSearchTool/providers.ts',
+      '../packages/tool-web/src/tool-web/web/WebToolProvider.ts',
       '../packages/service/src/services/voice/services/streamSTTProvider.ts',
       'src/cli/updater/GitHubReleaseFetcher.ts',
       'src/chat/services/ImageDownloader.ts',

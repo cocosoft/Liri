@@ -3,10 +3,7 @@
 
 // TaskCreateListTool 空参数校验 + 单次调用数量限制测试
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import {
-  TaskCreateListTool,
-  MAX_TASKS_PER_CALL,
-} from '../../src/tools/TaskOrchestratorTools/TaskOrchestratorTools';
+import { TaskCreateListTool, MAX_TASKS_PER_CALL } from '@openliri/tool-task';
 import { taskRegistry } from '../../src/tasks/TaskRegistry';
 import { pickTaskText } from '../../src/tools/utils/ToolUtils';
 import { ToolExecutor } from '../../src/tools/ToolExecutor';

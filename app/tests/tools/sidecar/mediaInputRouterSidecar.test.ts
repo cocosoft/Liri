@@ -30,7 +30,7 @@
  * - 开关开 + 侧车失败 ⇒ **不静默回落本地 sharp**（fail-closed：返回原图，`shrunk:false`）。
  */
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
-import { ImageInputRouter } from '../../../src/tools/ImageGenerateTool/ImageInputRouter';
+import { ImageInputRouter } from '@openliri/tool-media/ImageGenerateTool/ImageInputRouter';
 
 const ENV_MEDIA = 'FEATURE_TOOL_SIDECAR_MEDIA';
 let saved: string | undefined;

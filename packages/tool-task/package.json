@@ -1,0 +1,20 @@
+{
+  "name": "@openliri/tool-task",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liri task 工具包 —— 任务与调度域：task_list / task_output / task_stop / kanban / cron / sleep / time / monitor / trace_recording / config / plan。层归属 app：可依赖 app / service / infra / core；entry / ui 不得依赖本包，包内不得依赖 entry / ui 层（R37）。注册动作仍留 app 的 builtinToolRegistry。",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/tool-task/index.ts",
+      "import": "./src/tool-task/index.ts"
+    },
+    "./*": {
+      "types": "./src/tool-task/*.ts",
+      "import": "./src/tool-task/*.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p ../../app/tsconfig.json"
+  }
+}

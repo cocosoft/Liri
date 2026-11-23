@@ -1,0 +1,20 @@
+{
+  "name": "@openliri/tool-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liri workspace 工具包 —— 工作区/文件系统域：enter_worktree / exit_worktree / create_project / read_project_file / write_project_file / read_vfs / write_vfs / list_vfs / stat_vfs + vfs/worktree 两个族工具。层归属 app：可依赖 app / service / infra / core；entry / ui 不得依赖本包，包内不得依赖 entry / ui 层（R38）。注册动作仍留 app 的 builtinToolRegistry。",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/tool-workspace/index.ts",
+      "import": "./src/tool-workspace/index.ts"
+    },
+    "./*": {
+      "types": "./src/tool-workspace/*.ts",
+      "import": "./src/tool-workspace/*.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p ../../app/tsconfig.json"
+  }
+}

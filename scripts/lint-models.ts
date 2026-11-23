@@ -117,8 +117,9 @@ const IGNORE_PATH_FRAGMENTS = [
   'ai/prompts/ModelGuidance.ts',
   // 模型属性阈值表（token budget，DB 无字段，白名单声明）
   'tokenBudget/UnifiedTokenTracker.ts',
-  // D 层本地/固定能力
+  // D 层本地/固定能力（A 档下沉：`@openliri/tool-media` 内同口径）
   'tools/ImageGenerateTool/providers/ProviderCapability.ts',
+  'tool-media/src/tool-media/ImageGenerateTool/providers/ProviderCapability.ts',
   // 音频格式 opus（与 Claude 无关）
   'services/voice/',
   // 渠道/协议类型、MCP、配置字段、CLAUDE.md 生态兼容

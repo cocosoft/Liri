@@ -513,7 +513,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
         '300_000',
       ],
       [
-        'src/tools/ImageGenerateTool/ImageGenerationCache.ts',
+        '../packages/tool-media/src/tool-media/ImageGenerateTool/ImageGenerationCache.ts',
         'IMAGE_GENERATION_CACHE_TTL_MS',
         '3600 * 1000',
       ],
@@ -640,7 +640,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
         '10000',
       ],
       [
-        'src/tools/ImageGenerateTool/ImageGenerationCache.ts',
+        '../packages/tool-media/src/tool-media/ImageGenerateTool/ImageGenerationCache.ts',
         'IMAGE_GENERATION_CACHE_MAX_ENTRIES',
         '100',
       ],
@@ -854,7 +854,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
         '5 * 60 * 1000',
       ],
       [
-        'src/tools/CanvasTool/CanvasTool.ts',
+        '../packages/tool-media/src/tool-media/CanvasTool.ts',
         'CANVAS_CLEANUP_INTERVAL_MS',
         '5 * 60 * 1000',
       ],
@@ -899,9 +899,9 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(read('src/channels/routing/messageRouterContract.ts')).toContain(
       'STREAM_IDLE_TIMEOUT_MS'
     );
-    expect(read('src/tools/notebook/NotebookToolImpl.ts')).toContain(
-      'REPL_IDLE_TIMEOUT_MS'
-    );
+    expect(
+      read('../packages/tool-code/src/tool-code/notebook/NotebookToolImpl.ts')
+    ).toContain('REPL_IDLE_TIMEOUT_MS');
     // 裸 `IDLE_TIMEOUT_MS`（auth-code-listener，另一标识符）非本键 ⇒ 有意未动
     expect(
       read('../packages/infra/src/system/auth/auth-code-listener.ts')
@@ -1446,9 +1446,9 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       'src/infrastructure/http/handlers/chat-handlers.ts',
       'src/ai/modelRouter.ts',
       'src/session/key/LegacyKeyAdapter.ts',
-      'src/tools/VideoGenerateTool/VideoGenerateTool.ts',
-      'src/tools/ImageGenerateTool/ImageGenerationRouter.ts',
-      'src/tools/ImageGenerateTool/ImageGenerateTool.ts',
+      '../packages/tool-media/src/tool-media/VideoGenerateTool/VideoGenerateTool.ts',
+      '../packages/tool-media/src/tool-media/ImageGenerateTool/ImageGenerationRouter.ts',
+      '../packages/tool-media/src/tool-media/ImageGenerateTool/ImageGenerateTool.ts',
     ];
     for (const rel of consumers) {
       const src = read(rel);
@@ -1795,13 +1795,15 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
   });
 
   test('B5-2-53：`AGENT_TYPES` ×2 已合一到真源（`BUILTIN_AGENTS` 的键；CLI 两命令改引用，取值/顺序一字未改）', () => {
-    const constants = read('src/tools/AgentTool/constants.ts');
+    const constants = read(
+      '../packages/tool-agent/src/tool-agent/AgentTool/constants.ts'
+    );
     expect(constants).toContain(
       'export const AGENT_TYPES = Object.keys(BUILTIN_AGENTS);'
     );
     const barrel = read('src/tools/index.ts');
     expect(barrel).toContain(
-      "export { AGENT_TYPES } from './AgentTool/constants';"
+      "export { AGENT_TYPES } from '@openliri/tool-agent';"
     );
     for (const rel of [
       'src/commands/tools/ai/agent.ts',
@@ -1992,9 +1994,9 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(read('../packages/infra/src/constants/xml.ts')).not.toMatch(
       /(^|[^_A-Za-z])const FORK_BOILERPLATE_TAG\s*=/
     );
-    expect(read('src/tools/AgentTool/ForkSubagent.ts')).toContain(
-      "export const FORK_BOILERPLATE_TAG = '[fork-subagent]';"
-    );
+    expect(
+      read('../packages/tool-agent/src/tool-agent/AgentTool/ForkSubagent.ts')
+    ).toContain("export const FORK_BOILERPLATE_TAG = '[fork-subagent]';");
   });
 
   test('B5-2-68：`DEFAULT_MODEL_SENTINEL` 为**跨包契约常量**（门禁登记豁免 + 三方逐字同值守卫）', () => {

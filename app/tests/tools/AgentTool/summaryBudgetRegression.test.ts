@@ -14,7 +14,7 @@ import {
   SUMMARY_MIN_CHARS,
   SUMMARY_HEAD_RATIO,
   type SummaryBudgetInput,
-} from '../../../src/tools/AgentTool/summaryTrim';
+} from '@openliri/tool-agent/AgentTool/summaryTrim';
 import {
   evaluateSummaryCharBudget,
   SUMMARY_HARD_MAX_CHARS as POLICY_HARD_MAX,

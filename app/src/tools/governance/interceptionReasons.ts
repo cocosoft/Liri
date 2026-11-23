@@ -34,7 +34,7 @@ export const INTERCEPTION_REASONS: readonly InterceptionReasonSpec[] = [
   {
     code: 'ssrf_blocked',
     domain: 'network',
-    sources: ['app/src/tools/WebFetchTool/WebFetchTool.ts'],
+    sources: ['packages/tool-web/src/tool-web/WebFetchTool/WebFetchTool.ts'],
   },
   {
     code: 'tool_gate_disabled',
@@ -82,7 +82,7 @@ export const INTERCEPTION_REASONS: readonly InterceptionReasonSpec[] = [
     domain: 'policy',
     sources: [
       'app/src/tools/ToolManager.ts',
-      'app/src/tools/PlanTool/PlanTool.ts',
+      'packages/tool-task/src/tool-task/PlanTool/PlanTool.ts',
       'app/src/runtime/api/sessionAgentOps.ts',
     ],
   },
@@ -91,7 +91,7 @@ export const INTERCEPTION_REASONS: readonly InterceptionReasonSpec[] = [
     domain: 'policy',
     sources: [
       'app/src/tools/ToolManager.ts',
-      'app/src/tools/PlanTool/PlanTool.ts',
+      'packages/tool-task/src/tool-task/PlanTool/PlanTool.ts',
       'app/src/runtime/api/sessionAgentOps.ts',
     ],
   },

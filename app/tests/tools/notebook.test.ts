@@ -18,15 +18,15 @@ import { randomUUID } from 'crypto';
 
 import { NotebookImpl } from '@openliri/tool-office';
 import { CodeCellImpl, MarkdownCellImpl } from '@openliri/tool-office';
-import { NotebookManager } from '../../src/tools/notebook/NotebookManager.js';
+import { NotebookManager } from '@openliri/tool-code/notebook/NotebookManager';
 import { CellExecutionState, type CodeCell } from '@openliri/tool-office';
-import { NotebookToolImpl } from '../../src/tools/notebook/NotebookToolImpl.js';
-import { REPLToolImpl } from '../../src/tools/repl/REPLToolImpl.js';
-import { REPLSessionStatus } from '../../src/tools/repl/types/REPLTool.js';
-import { replSessionManager } from '../../src/tools/repl/REPLSessionManager';
-import { NotebookToolAdapter } from '../../src/tools/adapters/NotebookToolAdapter.js';
+import { NotebookToolImpl } from '@openliri/tool-code/notebook/NotebookToolImpl';
+import { REPLToolImpl } from '@openliri/tool-code/repl/REPLToolImpl';
+import { REPLSessionStatus } from '@openliri/tool-code/repl/types/REPLTool';
+import { replSessionManager } from '@openliri/tool-code/repl/REPLSessionManager';
+import { NotebookToolAdapter } from '@openliri/tool-code';
 import { FileRegistry } from '@openliri/service/services/file/FileRegistry';
-import { notebookManager } from '../../src/tools/notebook/NotebookManager.js';
+import { notebookManager } from '@openliri/tool-code/notebook/NotebookManager';
 import { JupyterNotebookConverter } from '@openliri/tool-office';
 import { notebookCommand } from '../../src/commands/tools/dev/notebook.js';
 

@@ -40,8 +40,8 @@ import { readdirSync, readFileSync, type Dirent } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'bun:test';
 
-/** 受检目录（MCP 相关源码面） */
-const SCAN_DIRS = ['services/mcp', 'mcp', 'tools/MCPResourceTool'];
+/** 受检目录（MCP 相关源码面；`tools/MCPResourceTool` 已于 I 档迁入 packages/tool-mcp） */
+const SCAN_DIRS = ['services/mcp', 'mcp'];
 
 /**
  * 禁止形态（判据限定为"**SDK 客户端接收者**或 **`as any/unknown` cast**" —— 避免误伤
@@ -92,6 +92,8 @@ describe('SDK 客户端 API 形状守卫（C-1 防回流）', () => {
     ...walk(join(pkgServiceDir, 'services/mcp')),
     // P32：增强层 `mcp`（MCPTool 等）已迁入 packages/service —— 继续受检
     ...walk(join(pkgServiceDir, 'mcp')),
+    // I 档（2026-11-23）：`tools/MCPResourceTool` 迁入 packages/tool-mcp —— 继续受检
+    ...walk(join(import.meta.dir, '../../../packages/tool-mcp/src/tool-mcp')),
   ];
 
   it('受检规模符合预期（防止扫描路径写错导致空集通过）', () => {

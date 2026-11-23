@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'bun:test';
 
-import { resolveProjectIdentity } from '../../src/tools/CreateProjectTool/projectName';
+import { resolveProjectIdentity } from '@openliri/tool-workspace';
 
 const yes = (): boolean => true;
 const no = (): boolean => false;

@@ -20,7 +20,7 @@ import {
   normalizePriority,
   type KanbanCard,
   type KanbanPort,
-} from '../../src/tools/KanbanTool/KanbanTool';
+} from '@openliri/tool-task';
 import { deriveToolRiskClass } from '../../src/tools/toolRiskClass';
 
 /** 内存替身：模拟端口（仅测试用，生产走 SQLite） */

@@ -22,9 +22,9 @@
  */
 
 import { describe, test, expect, beforeAll } from 'bun:test';
-import { VideoGenerateTool } from '../../src/tools/VideoGenerateTool/VideoGenerateTool';
-import { VideoGenerationRouter } from '../../src/tools/VideoGenerateTool/VideoGenerationRouter';
-import { RegistryVideoProvider } from '../../src/tools/VideoGenerateTool/providers/RegistryVideoProvider';
+import { VideoGenerateTool } from '@openliri/tool-media';
+import { VideoGenerationRouter } from '@openliri/tool-media/VideoGenerateTool/VideoGenerationRouter';
+import { RegistryVideoProvider } from '@openliri/tool-media/VideoGenerateTool/providers/RegistryVideoProvider';
 import type { AIProvider } from '@modules/ai';
 import { syncDBProvidersToRegistry } from '../../src/ai/providers/ProviderSyncService';
 import { ModelRouter } from '../../src/ai/modelRouter';

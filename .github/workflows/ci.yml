@@ -246,6 +246,41 @@ jobs:
       if: matrix.os == 'ubuntu-latest'
       run: bun run lint:tool-desktop
 
+    # D 档（2026-11-22）：代码理解域拆包到 packages/tool-code 后同理补覆盖。
+    - name: "Run tool-code package linter (D 档：packages/tool-code 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:tool-code
+
+    # J 档（2026-11-23）：Web/检索域拆包到 packages/tool-web 后同理补覆盖。
+    - name: "Run tool-web package linter (J 档：packages/tool-web 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:tool-web
+
+    # I 档（2026-11-23）：MCP 域拆包到 packages/tool-mcp 后同理补覆盖。
+    - name: "Run tool-mcp package linter (I 档：packages/tool-mcp 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:tool-mcp
+
+    # H 档（2026-11-23）：Agent/Skill/Knowledge/Memory 域拆包到 packages/tool-agent 后同理补覆盖。
+    - name: "Run tool-agent package linter (H 档：packages/tool-agent 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:tool-agent
+
+    # E 档（2026-11-22）：会话与协作域拆包到 packages/tool-session 后同理补覆盖。
+    - name: "Run tool-session package linter (E 档：packages/tool-session 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:tool-session
+
+    # F 档（2026-11-22）：任务与调度域拆包到 packages/tool-task 后同理补覆盖。
+    - name: "Run tool-task package linter (F 档：packages/tool-task 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:tool-task
+
+    # G 档（2026-11-23）：工作区/文件系统域拆包到 packages/tool-workspace 后同理补覆盖。
+    - name: "Run tool-workspace package linter (G 档：packages/tool-workspace 覆盖)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:tool-workspace
+
     # P1（2026-11-14）：context-engine 拆包到 packages/context-engine 后同理补覆盖。
     - name: "Run context-engine package linter (P1：packages/context-engine 覆盖)"
       if: matrix.os == 'ubuntu-latest'

@@ -2,11 +2,11 @@
 import { Box, Text } from '@modules/ink';
 
 /**
- * 渲染所需的**显示投影**类型：单一来源在 app 侧 `tools/AgentTool/types.ts`
+ * 渲染所需的**显示投影**类型：单一来源在 `packages/tool-agent` 的 `AgentTool/types.ts`
  * （2026-10-01 子批 A：原先它内联在本 UI 文件里 ⇒ `tools`(app) -> `ink`(ui) 倒挂）。
  * 经 `types` 子入口引用 —— ui -> app 合法，且 `types` 段对 R03-002 豁免。
  */
-import type { AgentDisplayOutput as AgentRenderOutput } from '@modules/tools/AgentTool/types';
+import type { AgentDisplayOutput as AgentRenderOutput } from '@openliri/tool-agent';
 
 export function renderToolUseMessage(
   input: Partial<{ description: string; subagent_type: string; name: string }>,

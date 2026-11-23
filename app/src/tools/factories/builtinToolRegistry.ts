@@ -24,109 +24,130 @@ import { PowerShellTool } from '../PowerShellTool/PowerShellTool';
 import { FileReadTool } from '../FileReadTool/FileReadTool';
 import { FileWriteTool } from '../FileWriteTool/FileWriteTool';
 import { FileEditTool } from '../FileEditTool/FileEditTool';
-import { FileConvertTool } from '../FileConvertTool/FileConvertTool';
 import { GrepTool } from '../GrepTool/GrepTool';
 import { GlobTool } from '../search/GlobTool';
-import { WebFetchTool } from '../WebFetchTool/WebFetchTool';
-import { WebSearchTool } from '../WebSearchTool/WebSearchTool';
+// J 档（2026-11-23）：Web/检索域已下沉 `@openliri/tool-web`
+import { WebFetchTool } from '@openliri/tool-web';
+import { WebSearchTool } from '@openliri/tool-web';
 // ── 代码理解（LSP / REPL / Notebook） ──
-import { LSPToolAdapter } from '../adapters/LSPToolAdapter';
-import { REPLToolAdapter } from '../adapters/REPLToolAdapter';
-import { NotebookToolAdapter } from '../adapters/NotebookToolAdapter';
-// ── 配置 / 任务 / 调度 ──
-import { ConfigTool } from '../ConfigTool/ConfigTool';
-import { TodoWriteTool } from '../TodoWriteTool/TodoWriteTool';
-import { TaskStopTool } from '../TaskTool/TaskStopTool';
+// D 档（2026-11-22）：代码理解域已下沉 `@openliri/tool-code`
 import {
+  LSPToolAdapter,
+  REPLToolAdapter,
+  NotebookToolAdapter,
+} from '@openliri/tool-code';
+// ── 配置 / 任务 / 调度 ──
+// F 档（2026-11-22）：任务与调度域已下沉 `@openliri/tool-task`
+import {
+  ConfigTool,
+  TaskStopTool,
   TaskCreateListTool,
   TaskUpdateStatusTool,
   TaskGetListTool,
-} from '../TaskOrchestratorTools/TaskOrchestratorTools';
-// P4b（2026-10-16）：`task_output` 原为影子工具（零 loader）⇒ 接线（见 P4a 评估 §2.2(1)）
-import { TaskOutputTool } from '../TaskOutputTool/TaskOutputTool';
-import { CronCreateTool } from '../ChronosTool/CronCreateTool';
-import { CronDeleteTool } from '../ChronosTool/CronDeleteTool';
-import { CronListTool } from '../ChronosTool/CronListTool';
-import { CronStopTool } from '../ChronosTool/CronStopTool';
-// Q-18（2026-10-23）：`kanban` 由影子工具接线（读写 SQLite `kanban_cards`，与 UI/HTTP 同源）
-import { KanbanTool } from '../KanbanTool/KanbanTool';
+  TaskOutputTool,
+  CronCreateTool,
+  CronDeleteTool,
+  CronListTool,
+  CronStopTool,
+  KanbanTool,
+  MonitorTool,
+  TraceRecordingTool,
+  SleepTool,
+  createSleepForTool,
+  createSleepUntilTool,
+  TimeTool,
+  PlanTool,
+} from '@openliri/tool-task';
+import { TodoWriteTool } from '../TodoWriteTool/TodoWriteTool';
 // ── Agent / Skill / 知识 ──
-import { AgentTool } from '../AgentTool/AgentTool';
-// Q-18（2026-10-23）：`agents_list` 由影子工具接线（只读活跃代理投影，与 /v1/agents/control 同源）
-import { AgentsListTool } from '../AgentsListTool/AgentsListTool';
-import { SkillTool } from '../SkillTool/SkillTool';
-import { SkillListTool } from '../SkillTool/SkillListTool';
-import { SkillViewTool } from '../SkillTool/SkillViewTool';
-import { KnowledgeSaveTool } from '../KnowledgeSaveTool/KnowledgeSaveTool';
+// H 档（2026-11-23）：Agent/Skill/Knowledge/Memory 域已下沉 `@openliri/tool-agent`
+import {
+  AgentTool,
+  // Q-18（2026-10-23）：`agents_list` 由影子工具接线（只读活跃代理投影，与 /v1/agents/control 同源）
+  AgentsListTool,
+  SkillTool,
+  SkillListTool,
+  SkillViewTool,
+  KnowledgeSaveTool,
+} from '@openliri/tool-agent';
 // ── 交互 / 会话 / 桌面 ──
 import { AskUserQuestionTool } from '../AskUserQuestionTool/AskUserQuestionTool';
 import { BriefTool } from '../BriefTool/BriefTool';
 import { SaveConversationTool } from '../SaveConversationTool/SaveConversationTool';
-import { SessionsTool } from '../SessionsTool/SessionsTool';
-import { SessionsYieldTool } from '../SessionsYieldTool/SessionsYieldTool';
-import { ClipboardTool } from '../ClipboardTool/ClipboardTool';
-import { DocGenerateTool, createPDFTool } from '@openliri/tool-office';
-import { MonitorTool } from '../MonitorTool/MonitorTool.js';
-import { TraceRecordingTool } from '../TraceRecordingTool/TraceRecordingTool.js';
-import { SleepTool } from '../SleepTool/SleepTool.js';
-import { CodeRunnerTool } from '../CodeRunner/CodeRunnerTool.js';
+// E 档（2026-11-22）：会话与协作域已下沉 `@openliri/tool-session`
 import {
-  createSleepForTool,
-  createSleepUntilTool,
-} from '../SelfWakeTool/SelfWakeTool';
+  SessionsTool,
+  SessionsYieldTool,
+  ChannelTool,
+  BroadcastTool,
+  SendMessageTool,
+  TeamCreateTool,
+  TeamDeleteTool,
+  ListPeersTool,
+  TungstenTool,
+} from '@openliri/tool-session';
+import { ClipboardTool } from '../ClipboardTool/ClipboardTool';
+import {
+  DocGenerateTool,
+  createPDFTool,
+  FileConvertTool,
+} from '@openliri/tool-office';
+import { CodeRunnerTool } from '../CodeRunner/CodeRunnerTool.js';
 import { createComputerUseTool } from '@openliri/tool-desktop';
 // ── 网络 / 浏览器 / 计划 ──
 import { BrowserTool, BrowserVisionTool } from '@openliri/tool-browser';
-import { PlanTool } from '../PlanTool/PlanTool';
 import { ToolSearchTool } from '../ToolSearchTool/ToolSearchTool';
-import { TungstenTool } from '../TungstenTool/TungstenTool';
 // ── 通道 / 团队 ──
-import { ChannelTool } from '../ChannelTool/ChannelTool';
-import { BroadcastTool } from '../BroadcastTool/BroadcastTool';
-import { SendMessageTool } from '../SendMessageTool/SendMessageTool';
-import { TeamCreateTool } from '../TeamCreateTool/TeamCreateTool';
-import { TeamDeleteTool } from '../TeamDeleteTool/TeamDeleteTool';
-import { ListPeersTool } from '../ListPeersTool/ListPeersTool';
+// （已并入上方 `@openliri/tool-session` 导入）
 // ── 工作区 / 项目文件 / VFS ──
-import { EnterWorktreeTool } from '../EnterWorktreeTool/EnterWorktreeTool';
-import { ExitWorktreeTool } from '../ExitWorktreeTool/ExitWorktreeTool';
-import { CreateProjectTool } from '../CreateProjectTool/CreateProjectTool';
-import { ReadProjectFileTool } from '../ReadProjectFileTool/ReadProjectFileTool';
-import { WriteProjectFileTool } from '../WriteProjectFileTool/WriteProjectFileTool';
-import { ReadVfsTool } from '../ReadVfsTool/ReadVfsTool';
-import { ListVfsTool } from '../ListVfsTool/ListVfsTool';
-import { StatVfsTool } from '../StatVfsTool/StatVfsTool';
-import { WriteVfsTool } from '../WriteVfsTool/WriteVfsTool';
+// G 档（2026-11-23）：工作区 / VFS 域已下沉 `@openliri/tool-workspace`
+import {
+  EnterWorktreeTool,
+  ExitWorktreeTool,
+  CreateProjectTool,
+  ReadProjectFileTool,
+  WriteProjectFileTool,
+  ReadVfsTool,
+  ListVfsTool,
+  StatVfsTool,
+  WriteVfsTool,
+} from '@openliri/tool-workspace';
 // ── 媒体 ──
-import { ImageTool } from '../ImageTool/ImageTool';
-import { ImageAnalysisTool } from '../ImageAnalysisTool/ImageAnalysisTool';
-import { ImageGenerateTool } from '../ImageGenerateTool/ImageGenerateTool';
-import { ImageSvgTool } from '../ImageSvgTool/ImageSvgTool';
-import { ImageDisplayTool } from '../ImageDisplayTool/ImageDisplayTool';
-import { VideoTool } from '../VideoTool/VideoTool';
-import { VideoAnalysisTool } from '../VideoAnalysisTool/VideoAnalysisTool';
-import { VideoGenerateTool } from '../VideoGenerateTool/VideoGenerateTool';
-import { VideoDisplayTool } from '../VideoDisplayTool/VideoDisplayTool';
-import { AudioPlayTool } from '../AudioPlayTool/AudioPlayTool';
-import { MusicTool } from '../MusicTool/MusicTool';
-// Q-18（2026-10-23）：`tts` 由影子工具接线（真实 voiceService；与 VoiceOutputTool 的唯一归属）
-import { createTTSTool } from '../TTSTool/TTSTool';
-import { CanvasTool } from '../CanvasTool/CanvasTool';
+// A 档（2026-11-22）：模型面媒体编辑 / 分析工具已下沉 `@openliri/tool-media`
+import {
+  ImageTool,
+  ImageSvgTool,
+  ImageDisplayTool,
+  ImageGenerateTool,
+  ImageAnalysisTool,
+  VideoTool,
+  VideoAnalysisTool,
+  VideoDisplayTool,
+  VideoGenerateTool,
+  MusicTool,
+  AudioPlayTool,
+  CanvasTool,
+  createTTSTool,
+} from '@openliri/tool-media';
 // ── MCP（三方工具面） ──
 import { MCPTool } from '@openliri/service/mcp/MCPTool';
-import { MCPResourceTool } from '../MCPResourceTool/MCPResourceTool';
+// I 档（2026-11-23）：MCP 资源/授权工具已下沉 `@openliri/tool-mcp`
 // Q-18（2026-10-23）：`mcp_auth` 由影子工具接线（经 mcpAuthManager；受 MCP_OAUTH 门控）
-import { McpAuthTool } from '../McpAuthTool/McpAuthTool';
+import { MCPResourceTool, McpAuthTool } from '@openliri/tool-mcp';
 // ── 门控 / 守卫 / KAIROS 委托 ──
 import { isToolEnabled } from '../utils/ToolFeatureFlags';
 import { guardToolCreation } from './toolCreationGuard.js';
-// ── P1（2026-10-30）：同资源族合并工具（vfs / sleep / skill / cron / worktree / task_list） ──
-import { createVfsFamilyTool } from '../families/VfsFamilyTool';
-import { createSleepFamilyTool } from '../families/SleepFamilyTool';
-import { createSkillFamilyTool } from '../families/SkillFamilyTool';
-import { createCronFamilyTool } from '../families/CronFamilyTool';
-import { createWorktreeFamilyTool } from '../families/WorktreeFamilyTool';
-import { createTaskListFamilyTool } from '../families/TaskListFamilyTool';
+// ── P1（2026-10-30）：同资源族合并工具（skill / vfs / worktree / sleep / cron / task_list 均已下沉对应 tool-* 包） ──
+import { createSkillFamilyTool } from '@openliri/tool-agent';
+import {
+  createVfsFamilyTool,
+  createWorktreeFamilyTool,
+} from '@openliri/tool-workspace';
+import {
+  createSleepFamilyTool,
+  createCronFamilyTool,
+  createTaskListFamilyTool,
+} from '@openliri/tool-task';
 import {
   createPushNotificationTool as buildPushNotificationTool,
   createSubscribePRTool as buildSubscribePRTool,

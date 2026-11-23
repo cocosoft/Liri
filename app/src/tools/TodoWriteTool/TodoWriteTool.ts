@@ -13,7 +13,7 @@ import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolParam, ToolCallProgress } from '../types/Tool';
 import { pickTaskText } from '../utils/ToolUtils';
 import { feature } from '@openliri/kernel';
-import { VERIFICATION_AGENT_TYPE } from '../AgentTool/constants';
+import { VERIFICATION_AGENT_TYPE } from '@openliri/tool-agent';
 import { Database } from '@openliri/infra/external';
 import { resolveDbPath, ensureDir } from '@openliri/infra/environment';
 import { dirname } from 'path';

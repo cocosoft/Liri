@@ -14,17 +14,17 @@ import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import {
   AgentTool,
   setAgentToolManager,
-} from '../../../src/tools/AgentTool/AgentTool';
+} from '@openliri/tool-agent/AgentTool/AgentTool';
 import { ToolExecutionStatus } from '../../../src/tools/types/ToolResult';
 import type { Tool } from '../../../src/tools/types/Tool';
 import { globalEventBus } from '@openliri/kernel/events/EventBus.js';
 import { OrchestrationEventType } from '@modules/agent';
-import { getAgentRunStore } from '../../../src/tools/AgentTool/AgentRunStore';
+import { getAgentRunStore } from '@openliri/tool-agent/AgentTool/AgentRunStore';
 import {
   setSpawnPaused,
   resetSpawnPause,
   isSpawnPaused,
-} from '../../../src/tools/AgentTool/spawnPause';
+} from '@openliri/tool-agent/AgentTool/spawnPause';
 
 /** fake 引擎入参（只声明本测试用到的字段；实参多出的字段可安全忽略） */
 interface EngineStubParams {

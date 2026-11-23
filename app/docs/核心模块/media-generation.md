@@ -58,7 +58,7 @@ const result = await videoTool.execute({
 ## 音乐生成
 
 ```typescript
-import { MusicGenerateTool } from "./tools/MusicGenerateTool/MusicGenerateTool.js";
+import { MusicGenerateTool } from '@openliri/tool-media';
 
 const musicTool = new MusicGenerateTool();
 
@@ -83,7 +83,7 @@ const result = await musicTool.execute({
 ## 语音合成 (TTS)
 
 ```typescript
-import { TTSTool } from "./tools/TTSTool/TTSTool.js";
+import { TTSTool } from '@openliri/tool-media';
 
 const tts = new TTSTool();
 

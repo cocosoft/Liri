@@ -21,12 +21,12 @@ import {
   setAgentToolManager,
   filterToolPool,
   resolveDeniedTools,
-} from '../../../src/tools/AgentTool/AgentTool';
+} from '@openliri/tool-agent/AgentTool/AgentTool';
 import {
   resolveAgentDescriptor,
   type AgentDescriptorDeps,
-} from '../../../src/tools/AgentTool/AgentDescriptorResolver';
-import { VERIFICATION_AGENT_DEFINITION } from '../../../src/tools/AgentTool/strategies/VerificationStrategy';
+} from '@openliri/tool-agent/AgentTool/AgentDescriptorResolver';
+import { VERIFICATION_AGENT_DEFINITION } from '@openliri/tool-agent/AgentTool/strategies/VerificationStrategy';
 import { ToolExecutionStatus } from '../../../src/tools/types/ToolResult';
 import type { Tool } from '../../../src/tools/types/Tool';
 // 漂移守卫判据：生成物（与 tests/tools/toolNameLists.test.ts 同一事实源）

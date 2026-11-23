@@ -42,7 +42,7 @@ import {
 import {
   AgentTool,
   setAgentToolManager,
-} from '../src/tools/AgentTool/AgentTool';
+} from '@openliri/tool-agent';
 import { ToolFactory } from '../src/tools/ToolFactory';
 import {
   getAllBuiltinToolLoaders,

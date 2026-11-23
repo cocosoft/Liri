@@ -6,7 +6,7 @@
  * 消息文件，于是每次启动崩溃恢复都报「重算结果为空，疑消息文件丢失」（08:54:47）。
  */
 import { describe, expect, it } from 'bun:test';
-import { SessionsTool } from '../../src/tools/SessionsTool/SessionsTool';
+import { SessionsTool } from '@openliri/tool-session';
 
 interface GatewayRecorder {
   initialized: number;

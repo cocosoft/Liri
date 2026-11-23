@@ -21,7 +21,7 @@ import {
 import { runWithToolDeadline } from './utils/toolDeadline';
 import { guardShieldedToolCall } from './shieldGuard';
 import { ToolFactory } from './ToolFactory';
-import { setAgentToolManager } from './AgentTool/AgentTool';
+import { setAgentToolManager } from '@openliri/tool-agent';
 import { ToolRegistry, getToolRegistry } from './ToolRegistry';
 import { profileCheckpoint } from '@openliri/infra/performance/StartupProfiler';
 import { optimizedExecuteTool } from './utils/OptimizedToolManagerUtils.js';

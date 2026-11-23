@@ -632,7 +632,7 @@
 {"id":"TOOLGOV-S2-2","k":"notes","i":3,"c":"toolCancellation.test.ts` 打桩 fetch / 假 SDK client，断言「取消 ⇒ 捕获到的 signal.aborted === true」。e2eVerified=false。"}
 {"id":"TOOLGOV-S2-2","k":"code#0","i":0,"c":"packages/service/src/mcp/MCPTool.ts"}
 {"id":"TOOLGOV-S2-2","k":"code#1","i":0,"c":"packages/service/src/services/mcp/McpToolWrapper.ts"}
-{"id":"TOOLGOV-S2-2","k":"code#2","i":0,"c":"app/src/tools/WebFetchTool/WebFetchTool.ts"}
+{"id":"TOOLGOV-S2-2","k":"code#2","i":0,"c":"packages/tool-web/src/tool-web/WebFetchTool/WebFetchTool.ts"}
 {"id":"TOOLGOV-S2-2","k":"tests#0","i":0,"c":"app/tests/tools/toolCancellation.test.ts"}
 {"id":"TOOLGOV-S2-6","k":"title","i":0,"c":"工具治理 S2-6：工具调用可观测性补全（统一指标 + Tool-Use Context Entropy）"}
 {"id":"TOOLGOV-S2-6","k":"source","i":0,"c":"工具治理方案-20261011 §4 阶段 2 与 §4 观测项（google A4 + 第 3 批 N4）"}
@@ -914,7 +914,7 @@
 {"id":"TOOLGOV-LSP-TIMEOUT","k":"notes","i":1,"c":"LSP_REQUEST_TIMEOUT_MS = 30_000`（口径对齐 `@modules/lsp`）；`sendRequest` 加超时（超时即 `delete` pending 并 reject）；响应到达 `clearTimeout`；`shutdown()` 关闭握手改 **best-effort**（超时不阻断 `stop()`/子进程回收）；"}
 {"id":"TOOLGOV-LSP-TIMEOUT","k":"notes","i":2,"c":"构造函数新增可选 `requestTimeoutMs`（默认 30s，仅测试注入短值，不改生产调用）。③ **测试** `app/tests/tools/lspRequestTimeout.test.ts` **3 例**（常量=30s / `initialize` 超时 reject / `sendRequest` 连续超时），以桩打 `"}
 {"id":"TOOLGOV-LSP-TIMEOUT","k":"notes","i":3,"c":"LSPServer.start/send`（不 spawn、从不回包）⇒ 离线、确定。e2eVerified=false（未接真实 language server 端到端）。"}
-{"id":"TOOLGOV-LSP-TIMEOUT","k":"code#0","i":0,"c":"app/src/tools/lsp/LSPClient.ts"}
+{"id":"TOOLGOV-LSP-TIMEOUT","k":"code#0","i":0,"c":"packages/tool-code/src/tool-code/lsp/LSPClient.ts"}
 {"id":"TOOLGOV-LSP-TIMEOUT","k":"tests#0","i":0,"c":"app/tests/tools/lspRequestTimeout.test.ts"}
 {"id":"TOOLGOV-LSP-BUN-STDIO","k":"title","i":0,"c":"工具治理 阶段 2：`lsp` 工具在 bun 下起不来（`LSPServer.start()` 调 `stdin.setEncoding` 抛错）—— 已修"}
 {"id":"TOOLGOV-LSP-BUN-STDIO","k":"source","i":0,"c":"dev_docs/20261012/重型工具侧车化-盘点清单-20261012.md（前置小修过程中实测发现并修复，2026-10-12）"}
@@ -924,7 +924,7 @@
 {"id":"TOOLGOV-LSP-BUN-STDIO","k":"notes","i":2,"c":"status=ERROR` ⇒ `lsp` 工具起不来（默认关 `LSP=false`、且**无任何测试** ⇒ 长期潜伏）。③ **修复**：**移除 `this.process.stdin.setEncoding('utf8')`**（`stdin` 仅用于写入 `send()`，无需解码），保留 `stdout/stderr.setEncoding`（"}
 {"id":"TOOLGOV-LSP-BUN-STDIO","k":"notes","i":3,"c":"实测 bun 支持）⇒ `start()` 恢复正常。④ **测试** `app/tests/tools/lspServerBunStdio.test.ts` **2 例**（真实子进程 `app/tests/tools/fixtures/fakeLspServer.js` 按 LSP 帧回包）：`start()` 不抛且 `status=RUNNING`；"}
 {"id":"TOOLGOV-LSP-BUN-STDIO","k":"notes","i":4,"c":"`send()` 写入 + `handleOutput` 帧解析**端到端**（请求/响应 id 回显）。e2eVerified=false（夹具为自制假 LSP，未接真实 language server）。"}
-{"id":"TOOLGOV-LSP-BUN-STDIO","k":"code#0","i":0,"c":"app/src/tools/lsp/LSPServer.ts"}
+{"id":"TOOLGOV-LSP-BUN-STDIO","k":"code#0","i":0,"c":"packages/tool-code/src/tool-code/lsp/LSPServer.ts"}
 {"id":"TOOLGOV-LSP-BUN-STDIO","k":"tests#0","i":0,"c":"app/tests/tools/lspServerBunStdio.test.ts"}
 {"id":"TEST-GUARD-TOOLREGISTRY-FLAKY","k":"title","i":0,"c":"测试守卫可靠性修复：`toolRegistrySingleSource` 全仓源扫描的 flaky 超时（3× 全扫 → 缓存 + 预筛）"}
 {"id":"TEST-GUARD-TOOLREGISTRY-FLAKY","k":"source","i":0,"c":"2026-10-12 执行《工具治理方案》阶段 2 过程中发现的**既有** flaky（`bun test tests/tools/` = 747 pass / 1 fail）"}
@@ -1326,8 +1326,8 @@
 {"id":"TOOLGOV-SIDECAR-S5","k":"code#1","i":0,"c":"app/src/tools/sidecar/mediaSidecarLifecycle.ts"}
 {"id":"TOOLGOV-SIDECAR-S5","k":"code#2","i":0,"c":"app/src/tools/sidecar/mediaCapabilities.ts"}
 {"id":"TOOLGOV-SIDECAR-S5","k":"code#3","i":0,"c":"app/src/tools/sidecar/SidecarMediaAnalyzer.ts"}
-{"id":"TOOLGOV-SIDECAR-S5","k":"code#4","i":0,"c":"app/src/tools/ImageAnalysisTool/ImageAnalysisTool.ts"}
-{"id":"TOOLGOV-SIDECAR-S5","k":"code#5","i":0,"c":"app/src/tools/ImageGenerateTool/ImageInputRouter.ts"}
+{"id":"TOOLGOV-SIDECAR-S5","k":"code#4","i":0,"c":"packages/tool-media/src/tool-media/ImageAnalysisTool.ts"}
+{"id":"TOOLGOV-SIDECAR-S5","k":"code#5","i":0,"c":"packages/tool-media/src/tool-media/ImageGenerateTool/ImageInputRouter.ts"}
 {"id":"TOOLGOV-SIDECAR-S5","k":"tests#0","i":0,"c":"app/tests/tools/sidecar/mediaSidecarLifecycle.test.ts"}
 {"id":"TOOLGOV-SIDECAR-S5","k":"tests#1","i":0,"c":"app/tests/tools/sidecar/mediaSidecarFrames.test.ts"}
 {"id":"TOOLGOV-SIDECAR-S5","k":"tests#2","i":0,"c":"app/tests/tools/sidecar/mediaSidecarL2Worker.test.ts"}
@@ -1879,7 +1879,7 @@
 {"id":"TOOLGOV-TG2-C2-JOB-SUSPEND","k":"code#1","i":0,"c":"packages/kernel/src/core/spi/ToolJobSuspendService.ts"}
 {"id":"TOOLGOV-TG2-C2-JOB-SUSPEND","k":"code#2","i":0,"c":"app/src/tools/sidecar/mediaSidecar.ts"}
 {"id":"TOOLGOV-TG2-C2-JOB-SUSPEND","k":"code#3","i":0,"c":"app/src/tools/sidecar/SidecarMediaAnalyzer.ts"}
-{"id":"TOOLGOV-TG2-C2-JOB-SUSPEND","k":"code#4","i":0,"c":"app/src/tools/ImageAnalysisTool/ImageAnalysisTool.ts"}
+{"id":"TOOLGOV-TG2-C2-JOB-SUSPEND","k":"code#4","i":0,"c":"packages/tool-media/src/tool-media/ImageAnalysisTool.ts"}
 {"id":"TOOLGOV-TG2-C2-JOB-SUSPEND","k":"code#5","i":0,"c":"app/src/entrypoints/spiWiring.ts"}
 {"id":"TOOLGOV-TG2-C2-JOB-SUSPEND","k":"code#6","i":0,"c":"packages/query/src/query/budgetSuspend.ts"}
 {"id":"TOOLGOV-TG2-C2-JOB-SUSPEND","k":"code#7","i":0,"c":"app/tests/tools/fixtures/jobSupervisorChild.ts"}
@@ -2110,11 +2110,11 @@
 {"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"notes","i":15,"c":"第三方对 UA 的接受度）；③ 未收敛 §5 `N10`/`N11`（有意）。"}
 {"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#0","i":0,"c":"packages/infra/src/constants/common.ts"}
 {"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#1","i":0,"c":"packages/service/src/services/api/client.ts"}
-{"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#2","i":0,"c":"app/src/tools/WebFetchTool/utils.ts"}
-{"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#3","i":0,"c":"app/src/tools/WebFetchTool/WebFetchTool.ts"}
-{"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#4","i":0,"c":"app/src/tools/WebSearchTool/WebSearchTool.ts"}
-{"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#5","i":0,"c":"app/src/tools/WebSearchTool/providers.ts"}
-{"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#6","i":0,"c":"app/src/tools/web/WebToolProvider.ts"}
+{"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#2","i":0,"c":"packages/tool-web/src/tool-web/WebFetchTool/utils.ts"}
+{"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#3","i":0,"c":"packages/tool-web/src/tool-web/WebFetchTool/WebFetchTool.ts"}
+{"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#4","i":0,"c":"packages/tool-web/src/tool-web/WebSearchTool/WebSearchTool.ts"}
+{"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#5","i":0,"c":"packages/tool-web/src/tool-web/WebSearchTool/providers.ts"}
+{"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#6","i":0,"c":"packages/tool-web/src/tool-web/web/WebToolProvider.ts"}
 {"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#7","i":0,"c":"packages/service/src/services/voice/services/streamSTTProvider.ts"}
 {"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#8","i":0,"c":"app/src/cli/updater/GitHubReleaseFetcher.ts"}
 {"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#9","i":0,"c":"app/src/chat/services/ImageDownloader.ts"}
@@ -2660,7 +2660,7 @@
 {"id":"GATE-S8-HARDCODE-REPORT","k":"notes","i":4,"c":"实存在**）；③ `app/package.json` 增 4 个 script（`PYAPP_PROJECT_DIR=.. bun run ../scripts/lint-X.ts`，与既有 `lint:*` 同型）。**首轮真实发现（证据）**：① `lint:failmsg-refs` 抓到**悬空引用** —— `R07-004`（**报错文本**×"}
 {"id":"GATE-S8-HARDCODE-REPORT","k":"notes","i":5,"c":"2）· `R07-002`（**报错文本**×2）· `R07-001` · `R05-007` · `AR-2`（其余在注释内）⇒ 正是 §2.10①「规范悬空」那类缺陷（**门禁指向不存在的真源**）；② `lint:consts` 报多处**同值 host 跨文件**（`http://127.0.0.1` 出现于 **6 文件** · `"}
 {"id":"GATE-S8-HARDCODE-REPORT","k":"notes","i":6,"c":"https://gitee.com` 2 · `https://www.bing.com` 2 · `localhost:11434` 4 …）；③ `lint:endpoints` 报 host/端口字面量（`client/src/config/providerPresets.ts` **24 处** · `"}
-{"id":"GATE-S8-HARDCODE-REPORT","k":"notes","i":7,"c":"app/src/tools/WebFetchTool/ssrf.ts` 9 处 …）；④ `lint:locale` 报 `toLocale*` 写死 locale **11 处**（`app/src` **9 处**：`commands/builtin/memory/Memory.ts` · `commands/cron/Cron.ts` · `"}
+{"id":"GATE-S8-HARDCODE-REPORT","k":"notes","i":7,"c":"packages/tool-web/src/tool-web/WebFetchTool/ssrf.ts` 9 处 …）；④ `lint:locale` 报 `toLocale*` 写死 locale **11 处**（`app/src` **9 处**：`commands/builtin/memory/Memory.ts` · `commands/cron/Cron.ts` · `"}
 {"id":"GATE-S8-HARDCODE-REPORT","k":"notes","i":8,"c":"commands/usagestats/usagestats.ts` · `query/dailyBudgetSnapshot.ts`（`en-US`）· `tools/DocGenerateTool` · `tools/RecallMemoryTool` · `tools/SaveConversationTool`×2 · `"}
 {"id":"GATE-S8-HARDCODE-REPORT","k":"notes","i":9,"c":"ui/components/MessageBubble.tsx`；`client/src` **2 处**：`components/usage/DailyBudgetPanel.tsx`×2（`en-US`））—— **本门禁即刻暴露了 `HD-P1-2 A9` 客户端片未覆盖的 `app/src` 侧同类点**（A9 的口径只要求「`"}
 {"id":"GATE-S8-HARDCODE-REPORT","k":"notes","i":10,"c":"DEFAULT_LOCALE`/`LanguageManager` 一致」，未含这些 CLI/工具侧的展示格式化）⇒ **如实登记为后续片**。**验证**：① 4 把门禁**均 exit 0**（仅上报）且输出上述真实发现；② `bun run lint:scripts`（eslint 扫 `scripts/`）**0 error / 28 "}
@@ -2763,7 +2763,7 @@
 {"id":"HARDCODE-HDP2-5-APP-LOCALE","k":"code#3","i":0,"c":"app/src/commands/cron/Cron.ts"}
 {"id":"HARDCODE-HDP2-5-APP-LOCALE","k":"code#4","i":0,"c":"app/src/commands/usagestats/usagestats.ts"}
 {"id":"HARDCODE-HDP2-5-APP-LOCALE","k":"code#5","i":0,"c":"packages/tool-office/src/tool-office/DocGenerateTool.ts"}
-{"id":"HARDCODE-HDP2-5-APP-LOCALE","k":"code#6","i":0,"c":"app/src/tools/RecallMemoryTool/RecallMemoryTool.ts"}
+{"id":"HARDCODE-HDP2-5-APP-LOCALE","k":"code#6","i":0,"c":"packages/tool-agent/src/tool-agent/RecallMemoryTool/RecallMemoryTool.ts"}
 {"id":"HARDCODE-HDP2-5-APP-LOCALE","k":"code#7","i":0,"c":"app/src/tools/SaveConversationTool/SaveConversationTool.ts"}
 {"id":"HARDCODE-HDP2-5-APP-LOCALE","k":"code#8","i":0,"c":"app/src/ui/components/MessageBubble.tsx"}
 {"id":"HARDCODE-HDP2-5-APP-LOCALE","k":"code#9","i":0,"c":"packages/infra/src/chronos/cron.ts"}
@@ -3153,7 +3153,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#4","i":0,"c":"packages/infra/src/memory/FrozenSnapshotService.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#5","i":0,"c":"packages/infra/src/media/image/TempFileManager.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#6","i":0,"c":"packages/infra/src/permission/ApprovedCommandRegistry.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#7","i":0,"c":"app/src/tools/ImageGenerateTool/ImageGenerationCache.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#7","i":0,"c":"packages/tool-media/src/tool-media/ImageGenerateTool/ImageGenerationCache.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#8","i":0,"c":"packages/service/src/services/file/FileStatsService.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#9","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#10","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
@@ -3232,7 +3232,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-4-MAX-CACHE-SIZE","k":"code#0","i":0,"c":"packages/infra/src/constants/common.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-4-MAX-CACHE-SIZE","k":"code#1","i":0,"c":"app/src/ink/ink/line-width-cache.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-4-MAX-CACHE-SIZE","k":"code#2","i":0,"c":"packages/tokenBudget/src/tokenBudget/ModelContextCache.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-4-MAX-CACHE-SIZE","k":"code#3","i":0,"c":"app/src/tools/ImageGenerateTool/ImageGenerationCache.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-4-MAX-CACHE-SIZE","k":"code#3","i":0,"c":"packages/tool-media/src/tool-media/ImageGenerateTool/ImageGenerationCache.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-4-MAX-CACHE-SIZE","k":"code#4","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-4-MAX-CACHE-SIZE","k":"code#5","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-4-MAX-CACHE-SIZE","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -3391,7 +3391,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-11-CLEANUP-INTERVAL-MS","k":"notes","i":10,"c":" B5-2 **第十一项**。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-11-CLEANUP-INTERVAL-MS","k":"code#0","i":0,"c":"packages/infra/src/chronos/maintenance/cleanup.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-11-CLEANUP-INTERVAL-MS","k":"code#1","i":0,"c":"packages/infra/src/media/image/TempFileManager.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-11-CLEANUP-INTERVAL-MS","k":"code#2","i":0,"c":"app/src/tools/CanvasTool/CanvasTool.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-11-CLEANUP-INTERVAL-MS","k":"code#2","i":0,"c":"packages/tool-media/src/tool-media/CanvasTool.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-11-CLEANUP-INTERVAL-MS","k":"code#3","i":0,"c":"packages/infra/src/permission/ApprovedCommandRegistry.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-11-CLEANUP-INTERVAL-MS","k":"code#4","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-11-CLEANUP-INTERVAL-MS","k":"code#5","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
@@ -3644,9 +3644,9 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#3","i":0,"c":"app/src/ai/models/orphanModels.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#4","i":0,"c":"app/src/infrastructure/http/handlers/chat-handlers.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#5","i":0,"c":"packages/service/src/session/key/LegacyKeyAdapter.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#6","i":0,"c":"app/src/tools/VideoGenerateTool/VideoGenerateTool.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#7","i":0,"c":"app/src/tools/ImageGenerateTool/ImageGenerationRouter.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#8","i":0,"c":"app/src/tools/ImageGenerateTool/ImageGenerateTool.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#6","i":0,"c":"packages/tool-media/src/tool-media/VideoGenerateTool/VideoGenerateTool.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#7","i":0,"c":"packages/tool-media/src/tool-media/ImageGenerateTool/ImageGenerationRouter.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#8","i":0,"c":"packages/tool-media/src/tool-media/ImageGenerateTool/ImageGenerateTool.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#9","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#10","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -4163,13 +4163,13 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"reopenWhen","i":0,"c":"① 若 `BUILTIN_AGENTS` 新增/删除内置类型，CLI 的 `--type` 校验与帮助文本会**自动**跟随（这正是本项的目的）；若某次不希望跟随（如需保留旧类型做兼容），须显式引入各自的兼容白名单并说明理由；② 若 CLI 要支持**运行时注册**的自定义 Agent 类型（当前不支持，见 `"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"reopenWhen","i":1,"c":"commands/tools/ai/agents.ts` 头注），List 来源应改读解析链（内置 + DB 角色 + 运行时）而非本真源；③ 若 `tools` 桶的导出面被治理收缩，需把该导出迁到与之匹配的真源文件。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"notes","i":0,"c":"① **判据**：两处内联数组**取值与顺序完全相同**（`general, explore, plan, verification, code-guide, statusline-setup`）⇒ 属**同值同事实**（B5-2 惯例：合一，不消歧）。② **真源定位（CS01）**：`"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"notes","i":1,"c":"app/src/tools/AgentTool/constants.ts` 的 `BUILTIN_AGENTS` 是内置 Agent 定义真源，其**键即这 6 个类型名、顺序一致**，且已被 `AgentTool.ts` 以 `Object.keys(BUILTIN_AGENTS)` 复用（内置类型名口径）⇒ 不再另抄一份名单，改为 `export "}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"notes","i":1,"c":"packages/tool-agent/src/tool-agent/AgentTool/constants.ts` 的 `BUILTIN_AGENTS` 是内置 Agent 定义真源，其**键即这 6 个类型名、顺序一致**，且已被 `AgentTool.ts` 以 `Object.keys(BUILTIN_AGENTS)` 复用（内置类型名口径）⇒ 不再另抄一份名单，改为 `export "}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"notes","i":2,"c":"const AGENT_TYPES = Object.keys(BUILTIN_AGENTS);`。③ **接线**：经 `app/src/tools/index.ts` 桶 `export { AGENT_TYPES } from './AgentTool/constants';`，两处 CLI（`commands/tools/ai/agent.ts`、`"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"notes","i":3,"c":"agents.ts`）删除本地 `const AGENT_TYPES = [...] as const` 并 `import { AGENT_TYPES } from '@modules/tools'`（沿用其既有桶 import 约定，避免跨模块深路径）。④ **运行时取值核对（一字未改）**：以 `bun -e` 直读真源打印，输出 `general,"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"notes","i":4,"c":"explore,plan,verification,code-guide,statusline-setup`。类型影响：由 `as const` 元组变为 `string[]`，`agents.ts` 原有的 `as unknown as (typeof AGENT_TYPES)[number]` 断言继续编译通过。⑤ 守卫：`"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"notes","i":5,"c":"sameNameConstsB2.test.ts` 新增 `B5-2-53`（断言真源推导式、桶导出、两处 CLI 均无本地同名定义且引用桶）。⑥ 棘轮：`同名常量:AGENT_TYPES` 由 2 归零（基线 199→198 键）。⑦ 验证：`tsc` exit 0；**76 例全绿**；6 门禁 + `lint:no-module-mock` + `"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"notes","i":6,"c":"lint:size` 全 exit 0（含 `lint:arch` 对桶新增导出面的检查：错误 0、警告仍为存量 5 条）。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"code#0","i":0,"c":"app/src/tools/AgentTool/constants.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"code#0","i":0,"c":"packages/tool-agent/src/tool-agent/AgentTool/constants.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"code#1","i":0,"c":"app/src/tools/index.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"code#2","i":0,"c":"app/src/commands/tools/ai/agent.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"code#3","i":0,"c":"app/src/commands/tools/ai/agents.ts"}
@@ -4313,7 +4313,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE","k":"reopenWhen","i":0,"c":"① **回滚路径**：本删除落**独立提交** `e464d0655`（1 file, -1），`git revert e464d0655` 即可整笔回滚（CD06）；② 若日后 fork 子代理要改用 XML 包裹标签（当前活实现既作 `[fork-subagent]` 检测标记、又作包裹标签），应在 `ForkSubagent.ts` 内明确区分「检测标"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE","k":"reopenWhen","i":1,"c":"记」与「包裹标签」两个名，勿再回到常量文件抄一份；③ 若 `constants/xml.ts` 里其它 `*_TAG` 出现同类漂移，按同判据（同名同义异值 ⇒ 删死副本）处理。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE","k":"notes","i":0,"c":"① **判据（为何删除而非消歧）**：两处**同名、同义、异值** —— `app/src/constants/xml.ts` = `'fork-boilerplate'`（全仓**仅声明处**出现一次：`fork-boilerplate` 字符串在整仓搜索中仅命中该行 ⇒ 死副本）；`"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE","k":"notes","i":1,"c":"app/src/tools/AgentTool/ForkSubagent.ts` = `'[fork-subagent]'`（**活实现**：用于 `content.includes(...)` 检测 fork 会话、写入开场提示、并以 `<tag>` 形式包裹系统提示，共 4 处消费）。⇒ 同一语义旋钮的两份定义、其中一份从未接线且取值已废弃 ⇒ 按域改名"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE","k":"notes","i":1,"c":"packages/tool-agent/src/tool-agent/AgentTool/ForkSubagent.ts` = `'[fork-subagent]'`（**活实现**：用于 `content.includes(...)` 检测 fork 会话、写入开场提示、并以 `<tag>` 形式包裹系统提示，共 4 处消费）。⇒ 同一语义旋钮的两份定义、其中一份从未接线且取值已废弃 ⇒ 按域改名"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE","k":"notes","i":2,"c":"会把「漂移」合法化 ⇒ 删死副本。② **CD01–CD06 六步核查**：(CD01) 静态 0 importer + 字符串 `fork-boilerplate` 全仓仅 1 处（即其声明），无动态拼接/配置注册；(CD02/CD03) 无构建/插件/DI/反射入口；(CD04) 无测试引用（既有测试引用的是 `ForkSubagent` 侧同名）；("}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE","k":"notes","i":3,"c":"CD05) 无注册入口可摘（本身未接线）；(CD06) 独立提交 `e464d0655` + revert 可复原。③ 守卫：新增 `B5-2-67`（断言 `xml.ts` 已无该名、`ForkSubagent.ts` 活值 `'[fork-subagent]'` 仍在）。④ 棘轮：基线键由 2 归零。⑤ 验证：app `tsc` exit 0；**110"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE","k":"notes","i":4,"c":" 例全绿**；`lint:consts` / `lint:arch` / `lint:unref` 全 exit 0。"}
@@ -5859,7 +5859,7 @@
 {"id":"TOOL-READ-OUTPUT-FALLBACK-FASTPATH-UI","k":"title","i":0,"c":"U-23 余：裸名回读 output/ 兜底 + fast-path 判据设置 UI"}
 {"id":"TOOL-READ-OUTPUT-FALLBACK-FASTPATH-UI","k":"source","i":0,"c":"dev_docs/dailys/20261001/pending-tasks-consolidated-20261001.md T-④02 / T-②05"}
 {"id":"TOOL-READ-OUTPUT-FALLBACK-FASTPATH-UI","k":"notes","i":0,"c":"读侧仅根缺失且单段时回退 output/（根优先）；UI 写 config.fastPath，默认值仍由后端单一事实源兜底。"}
-{"id":"TOOL-READ-OUTPUT-FALLBACK-FASTPATH-UI","k":"code#0","i":0,"c":"app/src/tools/ReadProjectFileTool/ReadProjectFileTool.ts"}
+{"id":"TOOL-READ-OUTPUT-FALLBACK-FASTPATH-UI","k":"code#0","i":0,"c":"packages/tool-workspace/src/tool-workspace/ReadProjectFileTool/ReadProjectFileTool.ts"}
 {"id":"TOOL-READ-OUTPUT-FALLBACK-FASTPATH-UI","k":"code#1","i":0,"c":"client/src/components/settings/RouterConfigPanel.tsx"}
 {"id":"TOOL-READ-OUTPUT-FALLBACK-FASTPATH-UI","k":"code#2","i":0,"c":"client/src/i18n/locales/zh/settings.ts"}
 {"id":"TOOL-READ-OUTPUT-FALLBACK-FASTPATH-UI","k":"code#3","i":0,"c":"client/src/i18n/locales/en/settings.ts"}
@@ -6017,7 +6017,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"title","i":0,"c":"U-20/B5-2-86：验证代理类型 / 用户配置路径 / VFS 默认值 / 语音重连延迟"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"notes","i":0,"c":"VERIFICATION_AGENT_TYPE 同模块内同值 ⇒ 收敛到 AgentTool/constants；auth 的 CONFIG_FILE 是绝对路径 ⇒ USER_CONFIG_PATH；两个 VFS 驱动的列表上限/挂载 scheme 按驱动命名；Gemini 与 OpenAI 实时适配器重连延迟按适配器加前缀；基线 141→135。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#0","i":0,"c":"app/src/tools/AgentTool/strategies/VerificationStrategy.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#0","i":0,"c":"packages/tool-agent/src/tool-agent/AgentTool/strategies/VerificationStrategy.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#1","i":0,"c":"packages/infra/src/utils/auth.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#2","i":0,"c":"packages/vfs/src/vfs/drivers/DevDocsDriver.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#3","i":0,"c":"packages/vfs/src/vfs/drivers/McpResourcesDriver.ts"}
@@ -6195,8 +6195,8 @@
 {"id":"U22-AGENTTOOL-SWARM","k":"title","i":0,"c":"U-22/AgentTool：外移 swarm 批次路径（runSwarmPath）与 worker executor 适配器（buildSwarmExecutor）"}
 {"id":"U22-AGENTTOOL-SWARM","k":"source","i":0,"c":"dev_docs/20261017/U-22-文件尺寸到期风险处置计划-20261017.md §2（AgentTool S1）/§4"}
 {"id":"U22-AGENTTOOL-SWARM","k":"notes","i":0,"c":"runSwarmPath（461 行：批次目标建行/取消注册与父级桥接/per-task 描述符/单一派生源汇总/目标绑定/摘要预算/输出裁剪/工具结果）与 buildSwarmExecutor（251 行：类别→工具集 memo、定义侧禁用项合取、空池与解析失败 fail-closed、逐任务台账）外移到 tools/AgentTool/swarmPath.ts，经 SwarmPathDeps 注入（toolName/ledger/pool/engine/继承池/描述符解析）。resolveDeniedTools 与 SwarmTaskDescriptor/SwarmToolDefinition 随迁，AgentTool 保留 re-export（测试导入路径零改动）。宿主保留 runSwarmPath/buildSwarmExecutor 薄转发 + swarmPathDeps()。日志文案/事件载荷/取消语义/汇总格式逐字未变。"}
-{"id":"U22-AGENTTOOL-SWARM","k":"code#0","i":0,"c":"app/src/tools/AgentTool/swarmPath.ts"}
-{"id":"U22-AGENTTOOL-SWARM","k":"code#1","i":0,"c":"app/src/tools/AgentTool/AgentTool.ts"}
+{"id":"U22-AGENTTOOL-SWARM","k":"code#0","i":0,"c":"packages/tool-agent/src/tool-agent/AgentTool/swarmPath.ts"}
+{"id":"U22-AGENTTOOL-SWARM","k":"code#1","i":0,"c":"packages/tool-agent/src/tool-agent/AgentTool/AgentTool.ts"}
 {"id":"U22-AGENTTOOL-SWARM","k":"code#2","i":0,"c":"scripts/layer-exceptions.json"}
 {"id":"U22-REACTLOOP-INTERACTION","k":"title","i":0,"c":"U-22/ReActToolLoop S1/S2：外移 question 交互链路（登记/等待心跳/结算）与终止输出映射"}
 {"id":"U22-REACTLOOP-INTERACTION","k":"source","i":0,"c":"dev_docs/20261017/U-22-文件尺寸到期风险处置计划-20261017.md §2（ReActToolLoop S1/S2）/§4"}
@@ -6730,7 +6730,7 @@
 {"id":"SUBAGENT-ROUND-BREAKER","k":"notes","i":0,"c":"① 阈值改引用 ReActLoop 常量（invalid 3 / blocked 2）；② executeToolCall 的 ok 反映 result.success，并透传 failureKind；③ finalize 透传熔断终态 lastError"}
 {"id":"SUBAGENT-ROUND-BREAKER","k":"code#0","i":0,"c":"packages/query/src/query/ReActLoop.ts"}
 {"id":"SUBAGENT-ROUND-BREAKER","k":"code#1","i":0,"c":"packages/query/src/query/index.ts"}
-{"id":"SUBAGENT-ROUND-BREAKER","k":"code#2","i":0,"c":"app/src/tools/AgentTool/SubAgentEngine.ts"}
+{"id":"SUBAGENT-ROUND-BREAKER","k":"code#2","i":0,"c":"packages/tool-agent/src/tool-agent/AgentTool/SubAgentEngine.ts"}
 {"id":"SUBAGENT-ROUND-BREAKER","k":"tests#0","i":0,"c":"app/tests/tools/AgentTool/subAgentCircuitBreaker.test.ts"}
 {"id":"SANDBOX-PERMISSION-HOT-RELOAD","k":"title","i":0,"c":"改沙箱级别即时生效（刷新默认工作区权限位）"}
 {"id":"SANDBOX-PERMISSION-HOT-RELOAD","k":"source","i":0,"c":"排查计划 §11.2 P1-2（第三重断点：运行期改级别不更新已有工作区）"}
@@ -6822,8 +6822,8 @@
 {"id":"PROJECT-NAME-AS-PATH","k":"source","i":0,"c":"app.log 2026-10-27T08:59:53Z 路径越界 6 次 + project.json 的 name 为路径前缀"}
 {"id":"PROJECT-NAME-AS-PATH","k":"reopenWhen","i":0,"c":"再现项目 name 含路径分隔符、或 sandboxPath 与用户指定目录不一致"}
 {"id":"PROJECT-NAME-AS-PATH","k":"notes","i":0,"c":"resolveProjectIdentity：路径形态名称 ⇒ 标题取目录名；该目录存在 ⇒ 直接作为项目 sandboxPath；目录不存在则只净化标题，不猜路径"}
-{"id":"PROJECT-NAME-AS-PATH","k":"code#0","i":0,"c":"app/src/tools/CreateProjectTool/projectName.ts"}
-{"id":"PROJECT-NAME-AS-PATH","k":"code#1","i":0,"c":"app/src/tools/CreateProjectTool/CreateProjectTool.ts"}
+{"id":"PROJECT-NAME-AS-PATH","k":"code#0","i":0,"c":"packages/tool-workspace/src/tool-workspace/CreateProjectTool/projectName.ts"}
+{"id":"PROJECT-NAME-AS-PATH","k":"code#1","i":0,"c":"packages/tool-workspace/src/tool-workspace/CreateProjectTool/CreateProjectTool.ts"}
 {"id":"PROJECT-NAME-AS-PATH","k":"tests#0","i":0,"c":"app/tests/tools/createProjectIdentity.test.ts"}
 {"id":"TOOL-TRIM-ERROR-LOCK-MOCK","k":"title","i":0,"c":"取回工具被任务裁剪 + 全局 ERROR 自锁 + 会话工具造假数据"}
 {"id":"TOOL-TRIM-ERROR-LOCK-MOCK","k":"source","i":0,"c":"app.log 2026-10-27T08:54–09:20Z（工具未登记类别 / error→busy / sess_001 消息文件丢失）"}
@@ -6831,7 +6831,7 @@
 {"id":"TOOL-TRIM-ERROR-LOCK-MOCK","k":"notes","i":0,"c":"FIX-12 注入移到 filterToolsByTask 之后；FIX-13 删掉 SessionsTool 建 sess_001 的分支；FIX-14 启动复位遗留 ERROR + markAppError 幂等"}
 {"id":"TOOL-TRIM-ERROR-LOCK-MOCK","k":"code#0","i":0,"c":"app/src/chat/orchestrator/streamMessageFlow.ts"}
 {"id":"TOOL-TRIM-ERROR-LOCK-MOCK","k":"code#1","i":0,"c":"packages/infra/src/state/app/AppLifecycle.ts"}
-{"id":"TOOL-TRIM-ERROR-LOCK-MOCK","k":"code#2","i":0,"c":"app/src/tools/SessionsTool/SessionsTool.ts"}
+{"id":"TOOL-TRIM-ERROR-LOCK-MOCK","k":"code#2","i":0,"c":"packages/tool-session/src/tool-session/SessionsTool/SessionsTool.ts"}
 {"id":"TOOL-TRIM-ERROR-LOCK-MOCK","k":"tests#0","i":0,"c":"app/tests/chat/orchestrator/sessionLookupInjection.test.ts"}
 {"id":"TOOL-TRIM-ERROR-LOCK-MOCK","k":"tests#1","i":0,"c":"app/tests/state/app/appLifecycle.test.ts"}
 {"id":"TOOL-TRIM-ERROR-LOCK-MOCK","k":"tests#2","i":0,"c":"app/tests/tools/sessionsToolInit.test.ts"}
@@ -7122,7 +7122,7 @@
 {"id":"IMAGE-AFTER-GEN-NOT-REVIEWED","k":"source","i":0,"c":"功能缺口 P3（用户 2026-10-31 裁定「先如实标注未审核」）：ImageSafetyFilter.afterGenerate 原只复用 prompt 关键词检查即返回 {passed:true}（TODO: 接入第三方内容审核 API）"}
 {"id":"IMAGE-AFTER-GEN-NOT-REVIEWED","k":"reopenWhen","i":0,"c":"接入真实审核器（第三方 SDK 或 ModelRouter moderation 能力）时，改为 reviewed:true 并按审核结论返回"}
 {"id":"IMAGE-AFTER-GEN-NOT-REVIEWED","k":"notes","i":0,"c":"SafetyCheckResult 新增 reviewed?: boolean（缺省=未知，不得视为已审核）；afterGenerate 三条路径均带 reviewed:false + 明确 reason（禁用 / 未配置审核能力 / prompt 命中黑名单）。如实记录：该方法当前零生产调用方（生成后审核整体未接线），用例锁的是\"一旦接线必须如实\"契约。"}
-{"id":"IMAGE-AFTER-GEN-NOT-REVIEWED","k":"code#0","i":0,"c":"app/src/tools/ImageGenerateTool/ImageSafetyFilter.ts"}
+{"id":"IMAGE-AFTER-GEN-NOT-REVIEWED","k":"code#0","i":0,"c":"packages/tool-media/src/tool-media/ImageGenerateTool/ImageSafetyFilter.ts"}
 {"id":"IMAGE-AFTER-GEN-NOT-REVIEWED","k":"tests#0","i":0,"c":"app/tests/tools/imageSafetyFilter.test.ts"}
 {"id":"IO-REPEAT-ONLY-RULE","k":"title","i":0,"c":"IO 循环判据改为「只拦同一目标重复」：两目标交替交回 pingPong，消除探索误终止"}
 {"id":"IO-REPEAT-ONLY-RULE","k":"source","i":0,"c":"真机 app.log（2026-10-31，6k 行内 8 次）：[IO_CYCLE] 2 个文件交替 = output/** 与 01_work/**（两个不同目录的正常探索）、C:/…/workspace 与 .（同一目录两种写法）"}
@@ -7815,7 +7815,7 @@
 {"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"code#4","i":0,"c":"app/src/runtime/tenantPurge.ts"}
 {"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"code#5","i":0,"c":"app/src/infrastructure/http/handlers/trace-handlers.ts"}
 {"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"code#6","i":0,"c":"app/src/commands/builtin/trace-recording/TraceRecording.ts"}
-{"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"code#7","i":0,"c":"app/src/tools/TraceRecordingTool/TraceRecordingTool.ts"}
+{"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"code#7","i":0,"c":"packages/tool-task/src/tool-task/TraceRecordingTool/TraceRecordingTool.ts"}
 {"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"code#8","i":0,"c":"app/tsconfig.json"}
 {"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"code#9","i":0,"c":"packages/infra/package.json"}
 {"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"tests#0","i":0,"c":"app/tests/integration/trace-recording.test.ts"}

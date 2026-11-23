@@ -1,0 +1,220 @@
+/**
+ * create_project 工具
+ *
+ * 允许 AI 在对话中直接创建项目，用户说"帮我建一个XX项目"时调用。
+ * 复用 ProjectStore.create() 的统一底层。
+ *
+ * MIT License - Copyright (c) 2026 Liri
+ */
+
+import type { Tool } from '@openliri/infra/utils/toolContract/Tool';
+import { createToolResult } from '@openliri/infra/utils/toolContract/ToolResult';
+import type { ToolUseContext } from '@openliri/infra/utils/toolContract/ToolUseContext';
+import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
+import { SpanStatusCode } from '@opentelemetry/api';
+import { handleError } from '@openliri/infra/error';
+import { resolveDataDir } from '@openliri/infra/environment';
+import { createProjectStore } from '@modules/workspace/ProjectStore';
+import { WorkItemStore } from '@modules/workspace/WorkItemStore';
+import { register } from '@modules/workspaces/WorkspaceRegistry.js';
+import { existsSync, mkdirSync, statSync, writeFileSync } from 'fs';
+import { join } from 'path';
+import { resolveProjectIdentity } from './projectName.js';
+
+const logger = getLogger('tools:create_project');
+
+// P4-1: Store 单例化 — 避免每次 execute 都 new
+let _workItemStore: WorkItemStore | null = null;
+let _projectStore: ReturnType<typeof createProjectStore> | null = null;
+function getStores() {
+  if (!_workItemStore || !_projectStore) {
+    const dataDir = resolveDataDir();
+    _workItemStore = new WorkItemStore(dataDir);
+    _projectStore = createProjectStore(dataDir, _workItemStore);
+  }
+  return { projectStore: _projectStore };
+}
+
+export class CreateProjectTool {
+  static create(): Tool {
+    return {
+      name: 'create_project',
+      description:
+        '创建一个新项目，用于跟踪复杂任务。当用户明确表达"创建项目/管理任务/追踪进度"意图时调用。',
+      params: [
+        {
+          name: 'name',
+          type: 'string',
+          description: '项目名称',
+          required: true,
+        },
+        {
+          name: 'description',
+          type: 'string',
+          description: '项目描述（可选，AI 自动从对话摘要）',
+          required: false,
+        },
+      ],
+      aliases: ['new_project'],
+      searchHint: 'create project workspace new',
+      isEnabled: () => true,
+      /** PR-0：对象字面量实现无 `getRiskClass()` ⇒ 显式声明风险（lint:tool-risk 规则 3） */
+      riskClass: 'write',
+      isReadOnly: () => false,
+      isDestructive: () => false,
+      isConcurrencySafe: () => true,
+
+      execute: async (
+        input: Record<string, unknown>,
+        context: ToolUseContext
+      ) => {
+        const otel = getOTelTracing();
+        const span = otel.startSpan('CreateProjectTool.execute');
+        try {
+          // FIX-11（2026-10-27）：名称可能是**路径**（真机：`【E:\PY\Documents\CODES\PY_APP\`）。
+          // 解析出可用的目录 ⇒ 直接当沙箱根，标题改用目录名；否则只净化标题。
+          // #22（2026-10-30）：缺名 ⇒ 交给清洗器回落「项目 YYYY-MM-DD HH:mm」，
+          // 不再固定写成「未命名项目」（多个项目无法区分）。
+          const resolved = resolveProjectIdentity(String(input.name || ''), {
+            isDirectory: (p) => {
+              try {
+                return existsSync(p) && statSync(p).isDirectory();
+              } catch {
+                return false;
+              }
+            },
+          });
+          const name = resolved.name;
+          const description = String(input.description || '');
+          // P0-D 配套: 优先取会话真实 workspaceId（项目模块下 = projectId，由 ChatManager
+          // 工具上下文注入），fallback 到 sessionId/'default' — 此前固定用 sessionId 导致
+          // AI 建的项目挂错 workspace、前端 projects 列表不可见
+          const injectedWorkspaceId = (
+            context.options as Record<string, unknown> | undefined
+          )?.workspaceId as string | undefined;
+          const workspaceId =
+            injectedWorkspaceId || context.sessionId || 'default';
+
+          const { projectStore } = getStores();
+
+          const project = projectStore.create({
+            workspaceId,
+            name,
+            description,
+            // FIX-11：名称是已存在目录 ⇒ 用它作沙箱根（否则维持默认 LiriProjects/<id>）
+            ...(resolved.sandboxPath
+              ? { sandboxPath: resolved.sandboxPath }
+              : {}),
+          });
+          if (resolved.sandboxPath) {
+            logger.info(
+              'create_project: 名称是已存在目录，直接作为项目沙箱根',
+              {
+                sandboxPath: resolved.sandboxPath,
+                projectId: project.id,
+                displayName: name,
+              }
+            );
+          }
+
+          // P0-E（2026-08-14）：create_project 创建的项目注册为 workspace + 写入 .workspace.json，
+          // 使 GET /v1/workspaces 能列出 → 前端 /projects 列表显示项目名称（此前项目只存 ProjectStore，
+          // 前端 worktrees/workspaceList 均不可见，用户反馈"项目管理模块看不到项目名称"）
+          const sandboxPath = project.sandboxPath;
+          if (sandboxPath) {
+            try {
+              if (!existsSync(sandboxPath)) {
+                mkdirSync(sandboxPath, { recursive: true });
+              }
+              const metaPath = join(sandboxPath, '.workspace.json');
+              writeFileSync(
+                metaPath,
+                JSON.stringify(
+                  {
+                    id: project.id,
+                    name,
+                    description,
+                    createdAt: project.createdAt,
+                    updatedAt: project.updatedAt,
+                  },
+                  null,
+                  2
+                ),
+                'utf-8'
+              );
+              await register(name, sandboxPath);
+            } catch (err) {
+              // 注册失败不影响项目创建（项目数据已在 ProjectStore）
+              void handleError(err, {
+                module: 'tools:create_project',
+                action: 'registerWorkspace',
+              });
+            }
+          }
+
+          span.setAttribute('projectId', project.id);
+
+          logger.info('项目已创建', {
+            projectId: project.id,
+            name,
+            workspaceId,
+          });
+
+          span.setStatus({ code: SpanStatusCode.OK });
+          return createToolResult(
+            JSON.stringify({
+              projectId: project.id,
+              name: project.name,
+              sandboxPath: project.sandboxPath,
+            }),
+            {
+              newMessages: [
+                {
+                  role: 'assistant' as const,
+                  content: `项目「${name}」已创建。右侧面板会自动跟踪进度。`,
+                },
+              ],
+            }
+          );
+        } catch (error) {
+          span.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: String(error),
+          });
+          void handleError(error, {
+            module: 'tools:create_project',
+            action: 'execute',
+          });
+          const msg = error instanceof Error ? error.message : '未知错误';
+          logger.error('创建项目失败', { error: msg });
+          return createToolResult(null, {
+            newMessages: [
+              {
+                role: 'assistant' as const,
+                content: `创建项目失败: ${msg}`,
+              },
+            ],
+          });
+        } finally {
+          span.end();
+        }
+      },
+
+      getInfo: function () {
+        return {
+          name: this.name,
+          description: this.description,
+          params: this.params,
+          aliases: this.aliases,
+          enabled: this.isEnabled(),
+          readOnly: this.isReadOnly(),
+          destructive: this.isDestructive?.() || false,
+          concurrencySafe: this.isConcurrencySafe(),
+          deferred: false,
+          alwaysLoad: true,
+          interruptBehavior: 'block' as const,
+        };
+      },
+    };
+  }
+}

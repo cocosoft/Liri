@@ -18,7 +18,7 @@ import { join } from 'node:path';
 
 import { describeUnusableSpawnCwd } from '@openliri/infra/utils/cwd';
 import { CliRunner } from '../../src/agent/cli-runner/index';
-import { REPLToolImpl } from '../../src/tools/repl/REPLToolImpl';
+import { REPLToolImpl } from '@openliri/tool-code/repl/REPLToolImpl';
 
 function missingDir(): string {
   return join(tmpdir(), `liri-no-such-cwd-${Date.now()}-${Math.random()}`);

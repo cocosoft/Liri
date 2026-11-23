@@ -1,6 +1,6 @@
 {
-  "note": "工具执行入口台账（P0，2026-11-22；G6 取证完成 2026-11-22）。凡 app/src/** 里出现 `tool.execute(` 或 `xxxTool.execute(` 的文件都必须在此登记；新增文件或出现次数变化 ⇒ lint:tool-governance 失败。status：centralized=位于统一执行链（ToolRegistry / ToolExecutor / ToolManager）；authorized=本处显式调用授权函数；caller-authorized=本处不授权、由调用方在 execute 前完成授权（authorizedBy 写明调用方与函数）；scoped-readonly=只调用固定只读工具；unreachable=静态取证无生产调用方（note 写明证据，接入前必须补授权）；needs-review=尚未取证。",
-  "scanRoots": ["src"],
+  "note": "工具执行入口台账（P0，2026-11-22；G6 取证完成 2026-11-22）。凡 `scanRoots` 覆盖范围内出现 `tool.execute(` 或 `xxxTool.execute(` 的文件都必须在此登记；新增文件或出现次数变化 ⇒ lint:tool-governance 失败。status：centralized=位于统一执行链（ToolRegistry / ToolExecutor / ToolManager）；authorized=本处显式调用授权函数；caller-authorized=本处不授权、由调用方在 execute 前完成授权（authorizedBy 写明调用方与函数）；scoped-readonly=只调用固定只读工具；unreachable=静态取证无生产调用方（note 写明证据，接入前必须补授权）；needs-review=尚未取证。",
+  "scanRoots": ["src", "../packages/tool-task/src", "../packages/tool-agent/src"],
   "entries": [
     {
       "file": "src/plugins/bundled/MediaPlugin.ts",
@@ -58,14 +58,14 @@
       "note": "固定只读工具调用；不接受模型指定工具名（stepArtifacts.ts:80-91）。"
     },
     {
-      "file": "src/tools/AgentTool/SubAgentEngine.ts",
+      "file": "../packages/tool-agent/src/tool-agent/AgentTool/SubAgentEngine.ts",
       "status": "authorized",
       "authorizedBy": "authorizeToolCall（SubAgentEngine.ts:898-908）",
       "occurrences": 1,
       "note": "G6（2026-11-22）：ask/deny 均不执行；工具池由 allowedTools 收窄（AgentTool.ts:908-931），只能收窄不能扩权。"
     },
     {
-      "file": "src/tools/PlanTool/PlanTool.ts",
+      "file": "../packages/tool-task/src/tool-task/PlanTool/PlanTool.ts",
       "status": "authorized",
       "authorizedBy": "authorizeToolCall（tool 分支 :600-608；command 分支 2026-11-22 补齐）",
       "occurrences": 2,

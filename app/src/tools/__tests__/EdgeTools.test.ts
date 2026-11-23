@@ -7,7 +7,7 @@
  * 且 `TaskTool/TaskStorage.ts` 的唯一消费者就是它 ⇒ 该测试此前在**测死代码**。
  */
 import { describe, it, expect } from 'bun:test';
-import { CronCreateTool } from '../ChronosTool/CronCreateTool';
+import { CronCreateTool } from '@openliri/tool-task';
 
 describe('CronCreateTool 边缘校验', () => {
   const tool = CronCreateTool.create();

@@ -15,17 +15,17 @@ import { join } from 'node:path';
 
 import { TOOL_NAMES } from '@openliri/infra/constants/toolNames.generated';
 import type { Tool } from '../../../src/tools/types/Tool';
-import { AgentToolPool } from '../../../src/tools/AgentTool/agentToolPool';
+import { AgentToolPool } from '@openliri/tool-agent/AgentTool/agentToolPool';
 import { AgentRoleStore } from '../../../src/workspace/AgentRoleStore';
-import { resolveAgentDescriptor } from '../../../src/tools/AgentTool/AgentDescriptorResolver';
+import { resolveAgentDescriptor } from '@openliri/tool-agent/AgentTool/AgentDescriptorResolver';
 import {
   ROUTER_ROLE_ID,
   ROUTER_ROLE_TOOL_NAMES,
   ROUTER_AGENT_DEFINITION,
   findToolsOutsideRole,
   isToolAllowedByRole,
-} from '../../../src/tools/AgentTool/routerRole';
-import { getBuiltinAllowedTools } from '../../../src/tools/AgentTool/builtinAgentDefinitions';
+} from '@openliri/tool-agent/AgentTool/routerRole';
+import { getBuiltinAllowedTools } from '@openliri/tool-agent/AgentTool/builtinAgentDefinitions';
 
 /** 参考实现 → Liri 的四个动作（与 `routerRole.ts` 的映射注释同源） */
 const EXPECTED_ROUTER_TOOLS = [

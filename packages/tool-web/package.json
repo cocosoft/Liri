@@ -1,0 +1,20 @@
+{
+  "name": "@openliri/tool-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liri web 工具包 —— Web/检索域：web_fetch（SSRF 防护 / 预批准清单 / 正文抽取）/ web_search（多供应商检索）/ WebToolProvider（可插拔抓取器）。层归属 app：可依赖 app / service / infra / core；entry / ui 不得依赖本包，包内不得依赖 entry / ui 层（R41）。注册动作仍留 app 的 builtinToolRegistry。",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/tool-web/index.ts",
+      "import": "./src/tool-web/index.ts"
+    },
+    "./*": {
+      "types": "./src/tool-web/*.ts",
+      "import": "./src/tool-web/*.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p ../../app/tsconfig.json"
+  }
+}

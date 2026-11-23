@@ -20,7 +20,7 @@ import { getToolRegistry } from '../ToolRegistry';
 // 2026-10-11：检索面须排除**有意归档**工具（见 `execute()` 内注释）
 import { ARCHIVED_MISC_TOOLS } from '../toolCategories';
 import { readToolVisibilityOverrides } from '../toolVisibilityOverrides';
-import { getSkillRegistryLazy } from '../SkillTool/skillRegistryAccess';
+import { getSkillRegistryLazy } from '@openliri/tool-agent';
 // 2026-11-07（方案 §6.4）：把命中工具记到会话级「已发现」集 ⇒ 下一轮补进工具定义
 import { recordDiscoveredTools } from '../discoveredTools';
 import { getLogger } from '@openliri/infra/monitoring';

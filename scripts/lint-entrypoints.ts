@@ -36,6 +36,9 @@ const SCAN_ROOTS: string[] = process.env.ENTRYPOINTS_SCAN_ROOT
       // （`routing/messageRouter.ts`）仍在登记表里 —— 不纳入扫描面会被判成"登记漂移"
       // （AR-3：门禁不得因搬目录而失焦）。
       resolve(repoRoot, 'packages/channels/src'),
+      // H 档（2026-11-23）：`tools/AgentTool` 迁入 `packages/tool-agent` 后，其子代理工具执行
+      // 入口（`SubAgentEngine.executeToolCall`）仍在登记表里 —— 不纳入扫描面会被判成"登记漂移"。
+      resolve(repoRoot, 'packages/tool-agent/src'),
     ];
 
 interface Pattern {

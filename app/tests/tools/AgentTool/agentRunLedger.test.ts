@@ -13,7 +13,7 @@ import {
   AgentRunLedger,
   canTransition,
   isTerminalStatus,
-} from '../../../src/tools/AgentTool/AgentRunLedger';
+} from '@openliri/tool-agent/AgentTool/AgentRunLedger';
 
 function makeLedger(cap?: number): AgentRunLedger {
   return cap === undefined ? new AgentRunLedger() : new AgentRunLedger(cap);

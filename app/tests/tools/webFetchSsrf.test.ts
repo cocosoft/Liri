@@ -30,11 +30,8 @@
  */
 import { describe, it, expect, afterEach } from 'bun:test';
 import * as dns from 'node:dns';
-import {
-  checkSsrf,
-  describeSsrfBlock,
-} from '../../src/tools/WebFetchTool/ssrf';
-import { WebFetchTool } from '../../src/tools/WebFetchTool/WebFetchTool';
+import { checkSsrf, describeSsrfBlock } from '@openliri/tool-web';
+import { WebFetchTool } from '@openliri/tool-web';
 
 const ORIG_RESOLVE4 = dns.promises.resolve4;
 

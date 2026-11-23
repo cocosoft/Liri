@@ -184,17 +184,17 @@
       "reason": "token 预算控制器档位（与 daily-budget 的 BudgetMode 非同一物，后者已登记）"
     },
     {
-      "file": "app/src/tools/AgentTool/SkillLifecycleManager.ts",
+      "file": "packages/tool-agent/src/tool-agent/AgentTool/SkillLifecycleManager.ts",
       "exportName": "SkillLifecycleState",
       "reason": "工具内技能生命周期（工具局部实现），非跨域编排状态机"
     },
     {
-      "file": "app/src/tools/lsp/types/index.ts",
+      "file": "packages/tool-code/src/tool-code/lsp/types/index.ts",
       "exportName": "ServerStatus",
       "reason": "LSP 服务端进程态（工具局部）"
     },
     {
-      "file": "app/src/tools/lsp/types/LSPTypes.ts",
+      "file": "packages/tool-code/src/tool-code/lsp/types/LSPTypes.ts",
       "exportName": "ServerStatus",
       "reason": "同上（LSP 类型契约中的同义枚举，两文件并存属工具局部实现）"
     },
@@ -214,7 +214,7 @@
       "reason": "同上（Notebook 契约中的同义枚举，工具局部实现）"
     },
     {
-      "file": "app/src/tools/repl/types/REPLTool.ts",
+      "file": "packages/tool-code/src/tool-code/repl/types/REPLTool.ts",
       "exportName": "REPLSessionStatus",
       "reason": "REPL 工具会话态（工具局部）"
     },

@@ -31,7 +31,7 @@
  */
 import { describe, it, expect, afterEach, spyOn } from 'bun:test';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { WebFetchTool } from '../../src/tools/WebFetchTool/WebFetchTool.js';
+import { WebFetchTool } from '@openliri/tool-web';
 import { McpToolWrapper } from '@openliri/service/services/mcp/McpToolWrapper';
 import { MCPTool } from '@openliri/service/mcp/MCPTool.js';
 import { mcpConnectionManager } from '@openliri/service/services/mcp/MCPConnectionManager';

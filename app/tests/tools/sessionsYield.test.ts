@@ -8,10 +8,7 @@
  * - 参数面：无实现的假参数已移除（防回退）
  */
 import { describe, test, expect } from 'bun:test';
-import {
-  SessionsYieldTool,
-  buildYieldResult,
-} from '../../src/tools/SessionsYieldTool/SessionsYieldTool';
+import { SessionsYieldTool, buildYieldResult } from '@openliri/tool-session';
 import {
   isSuccessfulYieldResult,
   YIELD_RESULT_STATUS,

@@ -32,10 +32,7 @@
  *        绝不返回半截段（真实 PDF 各页长度差异极大，让模型猜 limit 会白跑一轮）。
  */
 import { describe, expect, test } from 'bun:test';
-import {
-  FileConvertTool,
-  shapeMarkdownResult,
-} from '../../src/tools/FileConvertTool/FileConvertTool';
+import { FileConvertTool, shapeMarkdownResult } from '@openliri/tool-office';
 import { MAX_TOOL_RESULT_CHARS } from '@modules/query';
 
 const FILE = 'C:\\tmp\\paper.pdf';

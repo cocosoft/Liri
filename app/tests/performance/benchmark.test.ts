@@ -9,7 +9,7 @@
 import { describe, it, expect, beforeAll } from 'bun:test';
 import { performance } from 'perf_hooks';
 
-import { NotebookToolImpl } from '../../src/tools/notebook/NotebookToolImpl';
+import { NotebookToolImpl } from '@openliri/tool-code/notebook/NotebookToolImpl';
 
 /**
  * OAuthAuth 已重构迁移（2026-08），下方 benchmark 块整体 describe.skip 不执行。

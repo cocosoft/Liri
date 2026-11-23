@@ -15,7 +15,7 @@
 import { describe, test, expect } from 'bun:test';
 import { LazyModuleLoader } from '@openliri/kernel';
 import { ToolLazyWrapper } from '../../src/tools/utils/ToolLazyWrapper';
-import { AgentTool } from '../../src/tools/AgentTool/AgentTool';
+import { AgentTool } from '@openliri/tool-agent/AgentTool/AgentTool';
 import { resolveAgentToolInstance } from '../../src/tools/utils/resolveAgentToolInstance';
 import type { Tool, ToolInfo } from '../../src/tools/types/Tool';
 

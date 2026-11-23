@@ -20,7 +20,7 @@ import {
   PROCESS_START_TOLERANCE_MS,
   currentOwnerIdentity,
   readProcessStartTime,
-} from '../../../src/tools/AgentTool/AgentRunStore';
+} from '@openliri/tool-agent/AgentTool/AgentRunStore';
 
 const createdPaths: string[] = [];
 const openedStores: AgentRunStore[] = [];

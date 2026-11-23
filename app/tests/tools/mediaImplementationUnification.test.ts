@@ -15,7 +15,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { videoProcessor } from '@openliri/infra/media/video/VideoProcessor';
-import { ImageTool } from '../../src/tools/ImageTool/ImageTool';
+import { ImageTool } from '@openliri/tool-media';
 
 const APP_DIR = resolve(import.meta.dir, '../..');
 const REPO_DIR = resolve(APP_DIR, '..');
@@ -25,10 +25,10 @@ const read = (relative: string): string =>
 
 /** 模型面媒体工具（都必须走 infra 单例） */
 const MODEL_FACE_TOOLS = [
-  'app/src/tools/ImageTool/ImageTool.ts',
-  'app/src/tools/ImageAnalysisTool/ImageAnalysisTool.ts',
-  'app/src/tools/VideoTool/VideoTool.ts',
-  'app/src/tools/MusicTool/MusicTool.ts',
+  'packages/tool-media/src/tool-media/ImageTool.ts',
+  'packages/tool-media/src/tool-media/ImageAnalysisTool.ts',
+  'packages/tool-media/src/tool-media/VideoTool.ts',
+  'packages/tool-media/src/tool-media/MusicTool.ts',
 ] as const;
 
 const SINGLETON_BY_CLASS = {
@@ -49,14 +49,14 @@ describe('媒体实现统一：模型面不得自建处理器实例', () => {
 
   it('四个模型面工具都能解析到对应单例名', () => {
     const expected: Array<[string, string]> = [
-      ['app/src/tools/ImageTool/ImageTool.ts', 'imageProcessor'],
+      ['packages/tool-media/src/tool-media/ImageTool.ts', 'imageProcessor'],
       [
-        'app/src/tools/ImageAnalysisTool/ImageAnalysisTool.ts',
+        'packages/tool-media/src/tool-media/ImageAnalysisTool.ts',
         'imageProcessor',
       ],
-      ['app/src/tools/VideoTool/VideoTool.ts', 'videoProcessor'],
-      ['app/src/tools/VideoTool/VideoTool.ts', 'ffmpegWrapper'],
-      ['app/src/tools/MusicTool/MusicTool.ts', 'ffmpegWrapper'],
+      ['packages/tool-media/src/tool-media/VideoTool.ts', 'videoProcessor'],
+      ['packages/tool-media/src/tool-media/VideoTool.ts', 'ffmpegWrapper'],
+      ['packages/tool-media/src/tool-media/MusicTool.ts', 'ffmpegWrapper'],
     ];
     for (const [file, singleton] of expected) {
       expect(read(file)).toMatch(new RegExp(`\\b${singleton}\\b`));
@@ -71,7 +71,7 @@ describe('媒体实现统一：video 的 trim / convert 收口在 VideoProcessor
   });
 
   it('VideoTool 不再自己拼 ffmpeg 参数（交给 videoProcessor）', () => {
-    const source = read('app/src/tools/VideoTool/VideoTool.ts');
+    const source = read('packages/tool-media/src/tool-media/VideoTool.ts');
     // `-c copy` 只应出现在 VideoProcessor 里；工具层出现即为"第二份实现"回潮
     expect(source).not.toContain("'-c', 'copy'");
     expect(source).toMatch(/videoProcessor\.trim\(/);
@@ -111,7 +111,7 @@ describe('媒体实现统一：水印选项集对齐（image ↔ media_image_wat
   });
 
   it('两边都把 opacity 透传给 ImageProcessor', () => {
-    expect(read('app/src/tools/ImageTool/ImageTool.ts')).toMatch(
+    expect(read('packages/tool-media/src/tool-media/ImageTool.ts')).toMatch(
       /opacity:\s*params\.watermarkOpacity/
     );
     expect(

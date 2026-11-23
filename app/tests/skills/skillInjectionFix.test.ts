@@ -15,7 +15,7 @@ import {
   SkillLoadMethod,
   type Skill,
 } from '@modules/skills/types';
-import { SkillTool } from '../../src/tools/SkillTool/SkillTool';
+import { SkillTool } from '@openliri/tool-agent/SkillTool/SkillTool';
 import { ToolLazyWrapper } from '../../src/tools/utils/ToolLazyWrapper';
 import { LazyModuleLoader } from '@openliri/kernel';
 import { truncateApiMessages } from '../../src/chat/services/context/contextTruncation';

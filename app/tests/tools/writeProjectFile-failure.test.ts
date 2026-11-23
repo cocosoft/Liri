@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect } from 'bun:test';
-import { WriteProjectFileTool } from '../../src/tools/WriteProjectFileTool/WriteProjectFileTool.js';
+import { WriteProjectFileTool } from '@openliri/tool-workspace';
 import type { ToolUseContext } from '../../src/tools/types/ToolUseContext.js';
 
 const tool = WriteProjectFileTool.create();

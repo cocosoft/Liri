@@ -123,7 +123,21 @@ export type BoundaryRule =
   // P4 续（2026-11-21）：tool-runtime 物理包（`packages/tool-runtime`）边界专用号
   | 'R33'
   // P4 续（2026-11-21）：tool-desktop 物理包（`packages/tool-desktop`）边界专用号
-  | 'R34';
+  | 'R34'
+  // D 档（2026-11-22）：tool-code 物理包（`packages/tool-code`）边界专用号
+  | 'R35'
+  // E 档（2026-11-22）：tool-session 物理包（`packages/tool-session`）边界专用号
+  | 'R36'
+  // F 档（2026-11-22）：tool-task 物理包（`packages/tool-task`）边界专用号
+  | 'R37'
+  // G 档（2026-11-23）：tool-workspace 物理包（`packages/tool-workspace`）边界专用号
+  | 'R38'
+  // H 档（2026-11-23）：tool-agent 物理包（`packages/tool-agent`）边界专用号
+  | 'R39'
+  // I 档（2026-11-23）：tool-mcp 物理包（`packages/tool-mcp`）边界专用号
+  | 'R40'
+  // J 档（2026-11-23）：tool-web 物理包（`packages/tool-web`）边界专用号
+  | 'R41';
 
 /** 单条规则的检查结论 */
 export interface BoundaryReport {

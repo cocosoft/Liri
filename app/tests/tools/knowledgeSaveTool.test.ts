@@ -31,8 +31,8 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { KnowledgeSaveTool } from '../../src/tools/KnowledgeSaveTool/KnowledgeSaveTool';
-import { SkillViewTool } from '../../src/tools/SkillTool/SkillViewTool';
+import { KnowledgeSaveTool } from '@openliri/tool-agent/KnowledgeSaveTool/KnowledgeSaveTool';
+import { SkillViewTool } from '@openliri/tool-agent/SkillTool/SkillViewTool';
 
 describe('knowledge_save 核心工具', () => {
   const baseDir = mkdtempSync(join(tmpdir(), 'knowledge-save-test-'));

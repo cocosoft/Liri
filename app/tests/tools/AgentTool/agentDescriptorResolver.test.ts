@@ -11,7 +11,7 @@ import { describe, test, expect } from 'bun:test';
 import {
   resolveAgentDescriptor,
   type AgentDescriptorDeps,
-} from '../../../src/tools/AgentTool/AgentDescriptorResolver';
+} from '@openliri/tool-agent/AgentTool/AgentDescriptorResolver';
 
 const BUILTINS = ['general', 'explore', 'plan', 'verification'];
 

@@ -1,0 +1,236 @@
+/**
+ * read_project_file 工具
+ *
+ * 在项目 sandbox 中读取文件。AI 在项目上下文中使用此工具读取用户放入项目文件夹的文件。
+ * 路径安全校验：仅允许读取 sandboxPath 内的文件，防止路径穿越。
+ *
+ * MIT License - Copyright (c) 2026 Liri
+ */
+
+import type { Tool } from '@openliri/infra/utils/toolContract/Tool';
+import {
+  createToolResult,
+  ErrorLevel,
+} from '@openliri/infra/utils/toolContract/ToolResult';
+import {
+  failProjectTool,
+  projectIdMissingMessage,
+  projectNotFoundMessage,
+} from '@modules/tools/projectToolGuidance';
+import type { ToolUseContext } from '@openliri/infra/utils/toolContract/ToolUseContext';
+import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
+import { SpanStatusCode } from '@opentelemetry/api';
+import { handleError } from '@openliri/infra/error';
+import { resolveDataDir } from '@openliri/infra/environment';
+import { createProjectStore } from '@modules/workspace/ProjectStore';
+import { WorkItemStore } from '@modules/workspace/WorkItemStore';
+import { readFileSync, existsSync, realpathSync, statSync } from 'fs';
+import { resolve, join, normalize } from 'path';
+
+const logger = getLogger('tools:read_project_file');
+
+// P4-1: Store 单例化
+let _workItemStore: WorkItemStore | null = null;
+let _projectStore: ReturnType<typeof createProjectStore> | null = null;
+function getStores() {
+  if (!_workItemStore || !_projectStore) {
+    const dataDir = resolveDataDir();
+    _workItemStore = new WorkItemStore(dataDir);
+    _projectStore = createProjectStore(dataDir, _workItemStore);
+  }
+  return { projectStore: _projectStore };
+}
+
+/**
+ * 仅测试：清空惰性 store 单例，使 `LIRI_DATA_DIR` / 数据目录覆盖在**同进程多测试文件**下生效。
+ * （单例首次构造后不再重读路径 ⇒ 批量运行时后者会沿用先者的数据目录。）
+ */
+export function resetReadProjectFileStoresForTest(): void {
+  _workItemStore = null;
+  _projectStore = null;
+}
+
+export class ReadProjectFileTool {
+  static create(): Tool {
+    return {
+      name: 'read_project_file',
+      description:
+        '读取项目文件夹中的文件内容。传入项目 ID 和相对路径，返回文件内容。仅允许读取项目 sandbox 内的文件。',
+      params: [
+        {
+          name: 'projectId',
+          type: 'string',
+          description: '项目 ID',
+          required: true,
+        },
+        {
+          name: 'relativePath',
+          type: 'string',
+          description: '相对于项目文件夹的文件路径',
+          required: true,
+        },
+      ],
+      aliases: ['read_project'],
+      isEnabled: () => true,
+      /** PR-0：对象字面量实现无 `getRiskClass()` ⇒ 显式声明风险（lint:tool-risk 规则 3） */
+      riskClass: 'read',
+      isReadOnly: () => true,
+      isDestructive: () => false,
+      isConcurrencySafe: () => true,
+
+      execute: async (
+        input: Record<string, unknown>,
+        _context: ToolUseContext
+      ) => {
+        const otel = getOTelTracing();
+        const span = otel.startSpan('ReadProjectFileTool.execute');
+        try {
+          const projectId = String(input.projectId || '');
+          const relativePath = String(input.relativePath || '');
+
+          span.setAttribute('projectId', projectId);
+
+          if (!projectId || !relativePath) {
+            span.setStatus({ code: SpanStatusCode.OK });
+            // W2/M1（2026-09-25）：缺参时**落 error 字段**（此前只写 newMessages ⇒ 与 O1-3 修的
+            // write 侧同型：失败不可判定）+ 给出可执行出路（禁止在工作区瞎搜、禁止顶替）。
+            return failProjectTool(
+              projectIdMissingMessage(),
+              ErrorLevel.RECOVERABLE
+            );
+          }
+
+          const { projectStore } = getStores();
+
+          const project = projectStore.get(projectId);
+          if (!project) {
+            span.setStatus({ code: SpanStatusCode.OK });
+            return failProjectTool(
+              projectNotFoundMessage(projectId),
+              ErrorLevel.RECOVERABLE
+            );
+          }
+
+          const sandboxPath = project.sandboxPath;
+          if (!sandboxPath) {
+            span.setStatus({ code: SpanStatusCode.OK });
+            // P2-1（2026-11-05 真机复现）：此前只写 `newMessages`、`data=null` 且无 `error`
+            // ⇒ 被判成 `empty-success`（模型看到「执行成功，无输出」）。实机：
+            // `POST /v1/tools/read_project_file/execute`（项目无 sandboxPath）返回
+            // `{success:true,data:null,result:null,error:null}` ⇒ 必须走统一失败构造。
+            return failProjectTool(
+              `项目 ${projectId} 未配置文件夹路径，无法读取文件: ${relativePath}`,
+              ErrorLevel.RECOVERABLE
+            );
+          }
+
+          // 路径安全校验：resolve + normalize + realpath
+          let rawPath = resolve(sandboxPath, normalize(relativePath));
+          // U-23（2026-10-17）：单段交付类名回读兜底 —— 写侧会把无目录前缀的交付文件落入
+          // `output/`（`WriteProjectFileTool.isDeliverablePath`），读侧此前只查项目根 ⇒
+          // 裸名回读恒 not-found。仅当"根处不存在 + 单段路径"才回退，最终仍经 realpath 越界校验。
+          if (!existsSync(rawPath) && !/[\\/]/.test(relativePath)) {
+            const outputPath = resolve(
+              sandboxPath,
+              'output',
+              normalize(relativePath)
+            );
+            if (existsSync(outputPath)) rawPath = outputPath;
+          }
+          if (!existsSync(rawPath)) {
+            span.setStatus({ code: SpanStatusCode.OK });
+            return createToolResult(
+              JSON.stringify({ error: '文件不存在', path: relativePath }),
+              {
+                newMessages: [
+                  {
+                    role: 'assistant' as const,
+                    content: `文件不存在: ${relativePath}`,
+                  },
+                ],
+              }
+            );
+          }
+
+          const realPath = realpathSync(rawPath);
+          const realSandbox = realpathSync(sandboxPath);
+          // P2-1（2026-11-05 真机复现）：**项目根自身视为「在范围内」**（与写侧
+          // `WriteProjectFileTool.isInsideSandbox` 同口径，此前读侧漏了这一项）。
+          // 旧判据只认 `realSandbox + '\\'` 前缀 ⇒ `relativePath='.'` 命中「越界」分支，
+          // 而该分支又只写 `newMessages`（`error` 缺省）⇒ 被判成 `empty-success`：
+          // 真机 `read_project_file{relativePath:"."}` 回执 =「执行成功，无输出」。
+          const insideSandbox =
+            realPath === realSandbox ||
+            realPath.startsWith(realSandbox + '\\') ||
+            realPath.startsWith(realSandbox + '/');
+          if (!insideSandbox) {
+            span.setStatus({ code: SpanStatusCode.OK });
+            // 安全拒绝**必须是失败**：此前返回 null 结果 + 无 error ⇒ 模型把"越界被拒"读成成功。
+            return failProjectTool(
+              `安全拒绝：文件路径超出项目文件夹范围: ${relativePath}`,
+              ErrorLevel.RECOVERABLE
+            );
+          }
+
+          // P2-2（2026-11-04，《运行态问题排查与修复方案》）：**读前判目录**。
+          // 真机实测 `read_project_file` 对目录调用 ⇒ `EISDIR: illegal operation on a
+          // directory, read`（裸系统错误，模型只能重复同一调用）。此处给出可执行出路：
+          // 目录内容要用 glob / list，而不是"再读一次"。
+          if (statSync(realPath).isDirectory()) {
+            span.setStatus({ code: SpanStatusCode.OK });
+            return failProjectTool(
+              `这是一个目录，不是文件: ${relativePath}\n` +
+                '请改用 glob / list 查看目录内容，或指定目录下的具体文件后重试（不要重复对目录调用本工具）。',
+              ErrorLevel.RECOVERABLE
+            );
+          }
+
+          const content = readFileSync(realPath, 'utf-8');
+          const MAX_SIZE = 50 * 1024; // 50KB 限制
+          const truncated =
+            content.length > MAX_SIZE
+              ? content.slice(0, MAX_SIZE) +
+                `\n\n... (文件过大，已截断，完整大小: ${content.length} 字节)`
+              : content;
+
+          span.setStatus({ code: SpanStatusCode.OK });
+          return createToolResult(truncated);
+        } catch (error) {
+          span.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: String(error),
+          });
+          void handleError(error, {
+            module: 'tools:read_project_file',
+            action: 'execute',
+          });
+          const msg = error instanceof Error ? error.message : '未知错误';
+          logger.error('读取项目文件失败', { error: msg });
+          return createToolResult(null, {
+            newMessages: [
+              { role: 'assistant' as const, content: `读取文件失败: ${msg}` },
+            ],
+          });
+        } finally {
+          span.end();
+        }
+      },
+
+      getInfo: function () {
+        return {
+          name: this.name,
+          description: this.description,
+          params: this.params,
+          aliases: this.aliases,
+          enabled: this.isEnabled(),
+          readOnly: this.isReadOnly(),
+          destructive: this.isDestructive?.() || false,
+          concurrencySafe: this.isConcurrencySafe(),
+          deferred: false,
+          alwaysLoad: true,
+          interruptBehavior: 'block' as const,
+        };
+      },
+    };
+  }
+}

@@ -15,7 +15,7 @@ import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import {
   AgentTool,
   setAgentToolManager,
-} from '../../../src/tools/AgentTool/AgentTool';
+} from '@openliri/tool-agent/AgentTool/AgentTool';
 import { ToolExecutionStatus } from '../../../src/tools/types/ToolResult';
 import type { Tool } from '../../../src/tools/types/Tool';
 import { getTaskConcurrencyLimits } from '../../../src/tasks/limits';

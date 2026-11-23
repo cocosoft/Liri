@@ -44,8 +44,7 @@ const projectId = 'proj_t614_readback';
 const prevLiriDataDir = process.env.LIRI_DATA_DIR;
 process.env.LIRI_DATA_DIR = dataDir;
 
-const { WriteProjectFileTool } =
-  await import('../../src/tools/WriteProjectFileTool/WriteProjectFileTool.js');
+const { WriteProjectFileTool } = await import('@openliri/tool-workspace');
 
 const tool = WriteProjectFileTool.create();
 const ctx = {} as never;

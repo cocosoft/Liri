@@ -17,7 +17,7 @@ import {
 } from '@openliri/tool-media';
 import { MCPTool } from '@openliri/service/mcp/MCPTool';
 
-import { KnowledgeSaveTool } from '../../src/tools/KnowledgeSaveTool/KnowledgeSaveTool';
+import { KnowledgeSaveTool } from '@openliri/tool-agent/KnowledgeSaveTool/KnowledgeSaveTool';
 
 describe('F10：写同资源工具串行执行', () => {
   it('media_delete 不可并发', () => {

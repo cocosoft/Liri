@@ -36,10 +36,10 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ReadVfsTool } from '../../src/tools/ReadVfsTool/ReadVfsTool.js';
-import { ListVfsTool } from '../../src/tools/ListVfsTool/ListVfsTool.js';
-import { StatVfsTool } from '../../src/tools/StatVfsTool/StatVfsTool.js';
-import { WriteVfsTool } from '../../src/tools/WriteVfsTool/WriteVfsTool.js';
+import { ReadVfsTool } from '@openliri/tool-workspace';
+import { ListVfsTool } from '@openliri/tool-workspace';
+import { StatVfsTool } from '@openliri/tool-workspace';
+import { WriteVfsTool } from '@openliri/tool-workspace';
 import type { ToolUseContext } from '../../src/tools/types/ToolUseContext.js';
 import { DevDocsDriver } from '@modules/vfs/drivers/DevDocsDriver.js';
 import { vfsMountRegistry } from '@modules/vfs/VfsMountRegistry.js';

@@ -18,7 +18,7 @@ import {
   AgentTool,
   setAgentToolManager,
   resetAgentToolManager,
-} from '../../../src/tools/AgentTool/AgentTool';
+} from '@openliri/tool-agent/AgentTool/AgentTool';
 import { getToolRegistry } from '../../../src/tools/ToolRegistry';
 import type { Tool } from '../../../src/tools/types/Tool';
 

@@ -3,8 +3,8 @@
  * 验证执行逻辑、类型安全、UI 渲染方法
  */
 import { describe, it, expect } from 'bun:test';
-import { CanvasTool, createCanvasTool } from '../CanvasTool';
-import type { CanvasOperation } from '../CanvasTool';
+import { CanvasTool, createCanvasTool } from '@openliri/tool-media';
+import type { CanvasOperation } from '@openliri/tool-media';
 
 describe('CanvasTool', () => {
   it('应正确创建实例', () => {

@@ -299,6 +299,62 @@ const TOOL_RUNTIME_PACKAGE_SRC = process.env['TOOL_RUNTIME_PACKAGE_SRC']
 const TOOL_DESKTOP_PACKAGE_SRC = process.env['TOOL_DESKTOP_PACKAGE_SRC']
   ? resolve(process.env['TOOL_DESKTOP_PACKAGE_SRC'])
   : join(REPO_ROOT, 'packages', 'tool-desktop', 'src');
+/**
+ * D 档（2026-11-22）：tool-code 物理包根（R35 扫描面）。
+ *
+ * 层归属仍是 app（`modules-to-layers.json`），与前述 app 层包同口径。
+ */
+const TOOL_CODE_PACKAGE_SRC = process.env['TOOL_CODE_PACKAGE_SRC']
+  ? resolve(process.env['TOOL_CODE_PACKAGE_SRC'])
+  : join(REPO_ROOT, 'packages', 'tool-code', 'src');
+/**
+ * E 档（2026-11-22）：tool-session 物理包根（R36 扫描面）。
+ *
+ * 层归属仍是 app（`modules-to-layers.json`），与前述 app 层包同口径。
+ */
+const TOOL_SESSION_PACKAGE_SRC = process.env['TOOL_SESSION_PACKAGE_SRC']
+  ? resolve(process.env['TOOL_SESSION_PACKAGE_SRC'])
+  : join(REPO_ROOT, 'packages', 'tool-session', 'src');
+/**
+ * F 档（2026-11-22）：tool-task 物理包根（R37 扫描面）。
+ *
+ * 层归属仍是 app（`modules-to-layers.json`），与前述 app 层包同口径。
+ */
+const TOOL_TASK_PACKAGE_SRC = process.env['TOOL_TASK_PACKAGE_SRC']
+  ? resolve(process.env['TOOL_TASK_PACKAGE_SRC'])
+  : join(REPO_ROOT, 'packages', 'tool-task', 'src');
+/**
+ * G 档（2026-11-23）：tool-workspace 物理包根（R38 扫描面）。
+ *
+ * 层归属仍是 app（`modules-to-layers.json`），与前述 app 层包同口径。
+ */
+const TOOL_WORKSPACE_PACKAGE_SRC = process.env['TOOL_WORKSPACE_PACKAGE_SRC']
+  ? resolve(process.env['TOOL_WORKSPACE_PACKAGE_SRC'])
+  : join(REPO_ROOT, 'packages', 'tool-workspace', 'src');
+/**
+ * H 档（2026-11-23）：tool-agent 物理包根（R39 扫描面）。
+ *
+ * 层归属仍是 app（`modules-to-layers.json`），与前述 app 层包同口径。
+ */
+const TOOL_AGENT_PACKAGE_SRC = process.env['TOOL_AGENT_PACKAGE_SRC']
+  ? resolve(process.env['TOOL_AGENT_PACKAGE_SRC'])
+  : join(REPO_ROOT, 'packages', 'tool-agent', 'src');
+/**
+ * I 档（2026-11-23）：tool-mcp 物理包根（R40 扫描面）。
+ *
+ * 层归属仍是 app（`modules-to-layers.json`），与前述 app 层包同口径。
+ */
+const TOOL_MCP_PACKAGE_SRC = process.env['TOOL_MCP_PACKAGE_SRC']
+  ? resolve(process.env['TOOL_MCP_PACKAGE_SRC'])
+  : join(REPO_ROOT, 'packages', 'tool-mcp', 'src');
+/**
+ * J 档（2026-11-23）：tool-web 物理包根（R41 扫描面）。
+ *
+ * 层归属仍是 app（`modules-to-layers.json`），与前述 app 层包同口径。
+ */
+const TOOL_WEB_PACKAGE_SRC = process.env['TOOL_WEB_PACKAGE_SRC']
+  ? resolve(process.env['TOOL_WEB_PACKAGE_SRC'])
+  : join(REPO_ROOT, 'packages', 'tool-web', 'src');
 const LAYERS_FILE = process.env['INFRA_LAYERS']
   ? resolve(process.env['INFRA_LAYERS'])
   : join(REPO_ROOT, 'scripts', 'modules-to-layers.json');
@@ -761,6 +817,77 @@ function main(): number {
     );
   }
 
+  // R35 扫描面：tool-code 物理包（D 档，2026-11-22；未建包时为空数组）
+  const toolCodePackageFiles: SourceFile[] = [];
+  if (
+    existsSync(TOOL_CODE_PACKAGE_SRC) &&
+    statSync(TOOL_CODE_PACKAGE_SRC).isDirectory()
+  ) {
+    collect(TOOL_CODE_PACKAGE_SRC, toolCodePackageFiles, TOOL_CODE_PACKAGE_SRC);
+  }
+
+  // R36 扫描面：tool-session 物理包（E 档，2026-11-22；未建包时为空数组）
+  const toolSessionPackageFiles: SourceFile[] = [];
+  if (
+    existsSync(TOOL_SESSION_PACKAGE_SRC) &&
+    statSync(TOOL_SESSION_PACKAGE_SRC).isDirectory()
+  ) {
+    collect(
+      TOOL_SESSION_PACKAGE_SRC,
+      toolSessionPackageFiles,
+      TOOL_SESSION_PACKAGE_SRC
+    );
+  }
+
+  // R37 扫描面：tool-task 物理包（F 档，2026-11-22；未建包时为空数组）
+  const toolTaskPackageFiles: SourceFile[] = [];
+  if (
+    existsSync(TOOL_TASK_PACKAGE_SRC) &&
+    statSync(TOOL_TASK_PACKAGE_SRC).isDirectory()
+  ) {
+    collect(TOOL_TASK_PACKAGE_SRC, toolTaskPackageFiles, TOOL_TASK_PACKAGE_SRC);
+  }
+
+  // R38 扫描面：tool-workspace 物理包（G 档，2026-11-23；未建包时为空数组）
+  const toolWorkspacePackageFiles: SourceFile[] = [];
+  if (
+    existsSync(TOOL_WORKSPACE_PACKAGE_SRC) &&
+    statSync(TOOL_WORKSPACE_PACKAGE_SRC).isDirectory()
+  ) {
+    collect(
+      TOOL_WORKSPACE_PACKAGE_SRC,
+      toolWorkspacePackageFiles,
+      TOOL_WORKSPACE_PACKAGE_SRC
+    );
+  }
+
+  // R39 扫描面：tool-agent 物理包（H 档，2026-11-23；未建包时为空数组）
+  const toolAgentPackageFiles: SourceFile[] = [];
+  if (
+    existsSync(TOOL_AGENT_PACKAGE_SRC) &&
+    statSync(TOOL_AGENT_PACKAGE_SRC).isDirectory()
+  ) {
+    collect(TOOL_AGENT_PACKAGE_SRC, toolAgentPackageFiles, TOOL_AGENT_PACKAGE_SRC);
+  }
+
+  // R40 扫描面：tool-mcp 物理包（I 档，2026-11-23；未建包时为空数组）
+  const toolMcpPackageFiles: SourceFile[] = [];
+  if (
+    existsSync(TOOL_MCP_PACKAGE_SRC) &&
+    statSync(TOOL_MCP_PACKAGE_SRC).isDirectory()
+  ) {
+    collect(TOOL_MCP_PACKAGE_SRC, toolMcpPackageFiles, TOOL_MCP_PACKAGE_SRC);
+  }
+
+  // R41 扫描面：tool-web 物理包（J 档，2026-11-23；未建包时为空数组）
+  const toolWebPackageFiles: SourceFile[] = [];
+  if (
+    existsSync(TOOL_WEB_PACKAGE_SRC) &&
+    statSync(TOOL_WEB_PACKAGE_SRC).isDirectory()
+  ) {
+    collect(TOOL_WEB_PACKAGE_SRC, toolWebPackageFiles, TOOL_WEB_PACKAGE_SRC);
+  }
+
   const commonFiles = infraFiles.filter((f) => f.path.startsWith('common/'));
   const utilsFiles = infraFiles.filter((f) => f.path.startsWith('utils/'));
 
@@ -1029,13 +1156,76 @@ function main(): number {
       packageLayer: 'app',
       forbiddenLayers: APP_LAYER_PACKAGE_FORBIDDEN_TARGET_LAYERS,
     }),
+    compareInfraPackageBoundary({
+      packageFiles: toolCodePackageFiles,
+      appFiles: allSrcFiles,
+      layerOf: layers,
+      rule: 'R35',
+      packageName: 'tool-code',
+      packageLayer: 'app',
+      forbiddenLayers: APP_LAYER_PACKAGE_FORBIDDEN_TARGET_LAYERS,
+    }),
+    compareInfraPackageBoundary({
+      packageFiles: toolSessionPackageFiles,
+      appFiles: allSrcFiles,
+      layerOf: layers,
+      rule: 'R36',
+      packageName: 'tool-session',
+      packageLayer: 'app',
+      forbiddenLayers: APP_LAYER_PACKAGE_FORBIDDEN_TARGET_LAYERS,
+    }),
+    compareInfraPackageBoundary({
+      packageFiles: toolTaskPackageFiles,
+      appFiles: allSrcFiles,
+      layerOf: layers,
+      rule: 'R37',
+      packageName: 'tool-task',
+      packageLayer: 'app',
+      forbiddenLayers: APP_LAYER_PACKAGE_FORBIDDEN_TARGET_LAYERS,
+    }),
+    compareInfraPackageBoundary({
+      packageFiles: toolWorkspacePackageFiles,
+      appFiles: allSrcFiles,
+      layerOf: layers,
+      rule: 'R38',
+      packageName: 'tool-workspace',
+      packageLayer: 'app',
+      forbiddenLayers: APP_LAYER_PACKAGE_FORBIDDEN_TARGET_LAYERS,
+    }),
+    compareInfraPackageBoundary({
+      packageFiles: toolAgentPackageFiles,
+      appFiles: allSrcFiles,
+      layerOf: layers,
+      rule: 'R39',
+      packageName: 'tool-agent',
+      packageLayer: 'app',
+      forbiddenLayers: APP_LAYER_PACKAGE_FORBIDDEN_TARGET_LAYERS,
+    }),
+    compareInfraPackageBoundary({
+      packageFiles: toolMcpPackageFiles,
+      appFiles: allSrcFiles,
+      layerOf: layers,
+      rule: 'R40',
+      packageName: 'tool-mcp',
+      packageLayer: 'app',
+      forbiddenLayers: APP_LAYER_PACKAGE_FORBIDDEN_TARGET_LAYERS,
+    }),
+    compareInfraPackageBoundary({
+      packageFiles: toolWebPackageFiles,
+      appFiles: allSrcFiles,
+      layerOf: layers,
+      rule: 'R41',
+      packageName: 'tool-web',
+      packageLayer: 'app',
+      forbiddenLayers: APP_LAYER_PACKAGE_FORBIDDEN_TARGET_LAYERS,
+    }),
     compareInfraCycles(
       findInfraCycleMembers(buildInfraEdges(infraFiles), infraModules),
       loadCycleBaseline()
     ),
   ];
 
-  console.log('=== infra 层边界契约门禁（R1–R34）===');
+  console.log('=== infra 层边界契约门禁（R1–R41）===');
   console.log(
     `infra 模块 ${infraModules.length} 个（无目录 ${missing.length}）· 生产源文件 ${infraFiles.length} 个` +
       ` · common ${commonFiles.length} / utils ${utilsFiles.length}` +
@@ -1061,7 +1251,7 @@ function main(): number {
     );
     return 1;
   }
-  console.log('\n✅ 合规（R1–R34 无未登记违规）');
+  console.log('\n✅ 合规（R1–R41 无未登记违规）');
   return 0;
 }
 

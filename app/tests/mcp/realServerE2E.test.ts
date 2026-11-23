@@ -43,11 +43,11 @@ import { mcpConnectionManager } from '@openliri/service/services/mcp/MCPConnecti
 import { McpToolWrapper } from '@openliri/service/services/mcp/McpToolWrapper';
 import type { ScopedMcpServerConfig } from '@openliri/service/services/mcp/types';
 import { MCPTool, type MCPToolParams } from '@openliri/service/mcp/MCPTool.js';
-import { MCPResourceTool } from '../../src/tools/MCPResourceTool/MCPResourceTool.js';
-import { ListVfsTool } from '../../src/tools/ListVfsTool/ListVfsTool.js';
-import { ReadVfsTool } from '../../src/tools/ReadVfsTool/ReadVfsTool.js';
-import { StatVfsTool } from '../../src/tools/StatVfsTool/StatVfsTool.js';
-import { WriteVfsTool } from '../../src/tools/WriteVfsTool/WriteVfsTool.js';
+import { MCPResourceTool } from '@openliri/tool-mcp';
+import { ListVfsTool } from '@openliri/tool-workspace';
+import { ReadVfsTool } from '@openliri/tool-workspace';
+import { StatVfsTool } from '@openliri/tool-workspace';
+import { WriteVfsTool } from '@openliri/tool-workspace';
 import type { ToolUseContext } from '../../src/tools/types/ToolUseContext.js';
 import type { ToolResult } from '../../src/tools/types/ToolResult.js';
 import { McpResourcesDriver } from '@modules/vfs/drivers/McpResourcesDriver.js';

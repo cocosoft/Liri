@@ -14,10 +14,10 @@ import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import {
   AgentTool,
   setAgentToolManager,
-} from '../../../src/tools/AgentTool/AgentTool';
+} from '@openliri/tool-agent/AgentTool/AgentTool';
 import { ToolExecutionStatus } from '../../../src/tools/types/ToolResult';
-import { getAgentRunStore } from '../../../src/tools/AgentTool/AgentRunStore';
-import { getAgentRunLedger } from '../../../src/tools/AgentTool/AgentRunLedger';
+import { getAgentRunStore } from '@openliri/tool-agent/AgentTool/AgentRunStore';
+import { getAgentRunLedger } from '@openliri/tool-agent/AgentTool/AgentRunLedger';
 
 describe('接线层 seam（N15）：解析 fail-closed 的台账/落盘闭环', () => {
   beforeEach(() => {

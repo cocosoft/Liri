@@ -1,0 +1,117 @@
+/**
+ * Cron列表工具 - 接入新 CronJobStore
+ */
+
+import { Tool } from '@openliri/infra/utils/toolContract/Tool';
+import { ToolUseContext } from '@openliri/infra/utils/toolContract/ToolUseContext';
+import { ToolUtils } from '@modules/tools/utils/ToolUtils';
+import { CronListOutputJsonSchema } from './schemas';
+
+import { getLogger } from '@openliri/infra/monitoring';
+const logger = getLogger('tools:ChronosTool:CronListTool');
+
+export class CronListTool {
+  static create(): Tool {
+    return {
+      name: 'cron_list',
+      description: 'List all active cron/scheduled tasks',
+      /** U-03（2026-10-19）：模型可见出参结构（按实际出口写，zod 契约已删） */
+      outputJsonSchema: CronListOutputJsonSchema,
+      params: [],
+      aliases: ['cron_jobs', 'list_cron', 'scheduled', 'tasks'],
+      searchTips: ['cron', 'list', 'jobs', 'scheduled', 'tasks'],
+      isEnabled: () => true,
+      /** PR-0：对象字面量实现无 `getRiskClass()` ⇒ 显式声明风险（lint:tool-risk 规则 3） */
+      riskClass: 'read',
+      isReadOnly: () => true,
+      isDestructive: () => false,
+      isConcurrencySafe: () => true,
+      validateInput: () => ({ result: true }),
+      checkPermissions: async () => ({ behavior: 'allow' as const }),
+      execute: async (_input, _context) => {
+        const startTime = Date.now();
+        try {
+          const { CronJobStore } =
+            await import('@modules/tasks/cron/CronJobStore');
+          const { resolveDbPath } = await import('@openliri/infra/environment');
+          const store = new CronJobStore(resolveDbPath());
+          await store.init();
+          const jobs = await store.loadJobs();
+          await store.close();
+
+          const list = jobs.map((j) => ({
+            id: j.id,
+            name: j.name,
+            schedule: j.schedule?.display || j.schedule?.expr || '',
+            prompt: j.prompt || '',
+            enabled: j.enabled,
+            state: j.state,
+            nextRunAt: j.nextRunAt || undefined,
+            lastRunAt: j.lastRunAt || undefined,
+            silent: j.silent || false,
+          }));
+
+          const executionTime = ToolUtils.calculateExecutionTime(startTime);
+          const output =
+            list.length === 0
+              ? 'No scheduled tasks.'
+              : list
+                  .map((j) => {
+                    const status = j.enabled
+                      ? j.state === 'running'
+                        ? ' [running]'
+                        : ' [active]'
+                      : ' [disabled]';
+                    const next = j.nextRunAt
+                      ? ` | next: ${new Date(j.nextRunAt).toLocaleString()}`
+                      : '';
+                    const silent = j.silent ? ' (silent)' : '';
+                    return `${j.id}: "${j.name}" — ${j.schedule}${status}${next}${silent}\n  ${j.prompt}`;
+                  })
+                  .join('\n\n');
+
+          return ToolUtils.createSuccessResult(
+            { jobs: list, count: list.length },
+            {
+              executionTime,
+              output,
+              toolName: 'cron_list',
+              executionId: ToolUtils.generateExecutionId('cron_list'),
+              timestamp: Date.now(),
+            }
+          );
+        } catch (error) {
+          const executionTime = ToolUtils.calculateExecutionTime(startTime);
+          return ToolUtils.createFailureResult(
+            error instanceof Error ? error.message : 'Unknown error',
+            {
+              executionTime,
+              errorOutput: error instanceof Error ? error.stack || '' : '',
+              toolName: 'cron_list',
+              executionId: ToolUtils.generateExecutionId('cron_list'),
+              timestamp: Date.now(),
+            }
+          );
+        }
+      },
+      getInfo: function () {
+        return {
+          name: this.name,
+          description: this.description,
+          params: this.params,
+          aliases: this.aliases,
+          searchTips: this.searchTips,
+          enabled: true,
+          readOnly: true,
+          destructive: false,
+          concurrencySafe: true,
+          // U-03（2026-10-19）：模型可见出参结构进注册快照（懒加载未解包也能下发）
+          outputJsonSchema: this.outputJsonSchema,
+          deferred: false,
+          alwaysLoad: false,
+          interruptBehavior: 'block' as const,
+        };
+      },
+    };
+  }
+}

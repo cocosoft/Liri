@@ -9,13 +9,13 @@
  */
 import { afterEach, describe, expect, it } from 'bun:test';
 
-import { FamilyTool } from '../../src/tools/families/familyTool';
-import { createVfsFamilyTool } from '../../src/tools/families/VfsFamilyTool';
-import { createSleepFamilyTool } from '../../src/tools/families/SleepFamilyTool';
-import { createSkillFamilyTool } from '../../src/tools/families/SkillFamilyTool';
-import { createCronFamilyTool } from '../../src/tools/families/CronFamilyTool';
-import { createWorktreeFamilyTool } from '../../src/tools/families/WorktreeFamilyTool';
-import { createTaskListFamilyTool } from '../../src/tools/families/TaskListFamilyTool';
+import { FamilyTool } from '@openliri/tool-task';
+import { createVfsFamilyTool } from '@openliri/tool-workspace';
+import { createSleepFamilyTool } from '@openliri/tool-task';
+import { createSkillFamilyTool } from '@openliri/tool-agent';
+import { createCronFamilyTool } from '@openliri/tool-task';
+import { createWorktreeFamilyTool } from '@openliri/tool-workspace';
+import { createTaskListFamilyTool } from '@openliri/tool-task';
 import { applyAliasInputDefaults } from '../../src/tools/utils/ToolUtils';
 import {
   getBuiltinToolLoaders,

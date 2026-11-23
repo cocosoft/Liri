@@ -16,11 +16,11 @@ import {
   AgentsListTool,
   shapeAgentsList,
   type AgentEntry,
-} from '../../src/tools/AgentsListTool/AgentsListTool';
+} from '@openliri/tool-agent';
 import {
   resetSpawnPause,
   setSpawnPaused,
-} from '../../src/tools/AgentTool/spawnPause';
+} from '@openliri/tool-agent/AgentTool/spawnPause';
 import { deriveToolRiskClass } from '../../src/tools/toolRiskClass';
 
 const RAW: AgentEntry[] = [

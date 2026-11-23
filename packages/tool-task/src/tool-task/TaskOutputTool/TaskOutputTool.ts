@@ -1,0 +1,374 @@
+import { TOOL_NAME_CONSTANTS } from '@openliri/infra/constants';
+/**
+ * 任务输出工具
+ * 获取运行中或已完成任务的输出
+ * 参考CC源码 cc_code/backend/tools/TaskOutputTool/TaskOutputTool.tsx 实现
+ */
+
+import { readFile } from 'fs/promises';
+import { BaseTool } from '@openliri/tool-base';
+import type {
+  ToolResult,
+  ToolUseContext,
+  ToolParam,
+  ToolCallProgress,
+  ToolValidationResult,
+} from '@openliri/infra/utils/toolContract';
+import { createToolResult } from '@openliri/infra/utils/toolContract/ToolResult';
+import { taskRegistry } from '@modules/tasks';
+import { TaskStatus, isTerminalTaskStatus } from '@modules/tasks/types';
+import { TaskOutputOutputSchema, TaskOutputOutputJsonSchema } from './schemas';
+import type { BaseTask } from '@modules/tasks';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
+
+import { getLogger } from '@openliri/infra/monitoring';
+const logger = getLogger('tools:TaskOutputTool:TaskOutputTool');
+
+/**
+ * 任务输出数据类型
+ */
+export interface TaskOutputData {
+  task_id: string;
+  task_type: string;
+  status: string;
+  description: string;
+  output: string;
+  exitCode?: number | null;
+  error?: string;
+  prompt?: string;
+  result?: string;
+}
+
+/**
+ * 任务输出工具输入类型
+ */
+export interface TaskOutputToolInput {
+  task_id: string;
+  block?: boolean;
+  timeout?: number;
+}
+
+/**
+ * 任务输出工具输出类型
+ */
+export interface TaskOutputToolOutput {
+  retrieval_status: 'success' | 'timeout' | 'not_ready';
+  task: TaskOutputData | null;
+}
+
+/**
+ * 等待任务完成
+ * @param taskId 任务ID
+ * @param timeoutMs 超时时间（毫秒）
+ * @param abortSignal 中止信号
+ * @returns 完成后的任务实例，超时返回当前状态
+ */
+async function waitForTaskCompletion(
+  taskId: string,
+  timeoutMs: number,
+  abortSignal?: AbortSignal
+): Promise<BaseTask | null> {
+  const startTime = Date.now();
+
+  while (Date.now() - startTime < timeoutMs) {
+    if (abortSignal?.aborted) {
+      throw new AppError(
+        'Aborted',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
+    }
+
+    const task = taskRegistry.getTask(taskId);
+    if (!task) return null;
+
+    if (isTerminalTaskStatus(task.status)) return task;
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  return taskRegistry.getTask(taskId) ?? null;
+}
+
+/**
+ * 从任务中提取输出数据
+ * 根据任务类型提取不同的输出信息
+ * @param task 任务实例
+ * @returns 任务输出数据
+ */
+async function getTaskOutputData(task: BaseTask): Promise<TaskOutputData> {
+  const state = task.taskState;
+  const progress = task.getProgress();
+  let output = '';
+
+  if (state.outputFile) {
+    try {
+      output = await readFile(state.outputFile, 'utf-8');
+    } catch {
+      output = '';
+    }
+  }
+
+  if (!output) {
+    const progressParts: string[] = [];
+    if (progress.toolUseCount > 0) {
+      progressParts.push(`Tool uses: ${progress.toolUseCount}`);
+    }
+    if (progress.tokenCount > 0) {
+      progressParts.push(`Tokens: ${progress.tokenCount}`);
+    }
+    if (progress.lastActivity) {
+      progressParts.push(`Last activity: ${progress.lastActivity.toolName}`);
+    }
+    if (progressParts.length > 0) {
+      output = `(${progressParts.join(', ')})`;
+    }
+  }
+
+  const baseOutput: TaskOutputData = {
+    task_id: state.id,
+    task_type: state.type,
+    status: state.status,
+    description: state.description,
+    output,
+    error: state.error,
+  };
+
+  if (state.type === 'local_bash') {
+    const bashState = state as any;
+    return {
+      ...baseOutput,
+      exitCode: bashState.result?.code ?? null,
+    };
+  }
+
+  if (state.type === 'local_agent' || state.type === 'remote_agent') {
+    const agentState = state as any;
+    return {
+      ...baseOutput,
+      prompt: agentState.prompt || agentState.command,
+      result: agentState.result?.output || baseOutput.output,
+    };
+  }
+
+  return baseOutput;
+}
+
+/**
+ * 任务输出工具
+ * 允许获取正在运行或已完成任务的输出、状态和详细数据
+ * 支持阻塞模式等待任务完成
+ */
+export class TaskOutputTool extends BaseTool<
+  TaskOutputToolInput,
+  TaskOutputToolOutput
+> {
+  name = TOOL_NAME_CONSTANTS.task_output;
+
+  /**
+   * 出参契约（P1-3 A 档；2026-09-29 **T6 批次 1b 接线**）。
+   *
+   * 该 schema **早已存在却零消费者**。本次实测出口 7 处 `createToolResult` 的 `data`
+   * 均为 `{retrieval_status, task}`（`:255/274/288/317/328/337/345`）——
+   * `retrieval_status ∈ {'success','not_ready','timeout'}`（`:290-292` 等，全在枚举内）、
+   * `task: TaskOutputData | null`，而 `TaskOutputData`（`:28-38`，9 字段）与
+   * `schemas.ts` 的 `TaskOutputDataSchema`（`:28-38`）**逐字段一致** ⇒ 接线。
+   */
+  outputSchema = TaskOutputOutputSchema;
+  /** U-03（2026-10-19）：模型可见出参结构 */
+  override outputJsonSchema = TaskOutputOutputJsonSchema;
+  description = '按其 ID 获取运行中或已完成任务的输出';
+
+  params: ToolParam[] = [
+    {
+      name: 'task_id',
+      type: 'string',
+      description: '要获取输出的任务 ID',
+      required: true,
+    },
+    {
+      name: 'block',
+      type: 'boolean',
+      description: '是否等待任务完成',
+      required: false,
+      default: true,
+    },
+    {
+      name: 'timeout',
+      type: 'number',
+      description: '最长等待时间（毫秒，0-600000）',
+      required: false,
+      default: 30000,
+    },
+  ];
+
+  override aliases = ['get_task_output', 'read_task_output'];
+  override searchHint = 'get task output logs read';
+  override maxResultSizeChars = 100000;
+
+  override isReadOnly(): boolean {
+    return true;
+  }
+
+  override isDestructive(): boolean {
+    return false;
+  }
+
+  override isConcurrencySafe(): boolean {
+    return true;
+  }
+
+  override interruptBehavior(): 'cancel' | 'block' {
+    return 'cancel';
+  }
+
+  override validateInput(input: TaskOutputToolInput): ToolValidationResult {
+    if (!input.task_id || typeof input.task_id !== 'string') {
+      return {
+        result: false,
+        message: 'task_id is required and must be a string',
+        errorCode: 1,
+      };
+    }
+    return { result: true };
+  }
+
+  override userFacingName(input?: Partial<TaskOutputToolInput>): string {
+    const taskId = input?.task_id || '';
+    if (taskId) return `Task Output: ${taskId}`;
+    return this.name;
+  }
+
+  override getToolUseSummary(
+    input?: Partial<TaskOutputToolInput>
+  ): string | null {
+    const taskId = input?.task_id || '';
+    if (taskId) return `Get output for task ${taskId}`;
+    return null;
+  }
+
+  override getActivityDescription(
+    input?: Partial<TaskOutputToolInput>
+  ): string | null {
+    const taskId = input?.task_id || '';
+    if (taskId) return `Getting output for task ${taskId}`;
+    return null;
+  }
+
+  override toAutoClassifierInput(input: TaskOutputToolInput): unknown {
+    return input.task_id;
+  }
+
+  async execute(
+    input: TaskOutputToolInput,
+    context: ToolUseContext,
+    onProgress?: ToolCallProgress<any>
+  ): Promise<ToolResult<TaskOutputToolOutput>> {
+    const validation = this.validateInput(input);
+    if (!validation.result) {
+      return createToolResult(
+        {
+          retrieval_status: 'not_ready' as const,
+          task: null,
+        },
+        {
+          success: false,
+          error: validation.message || 'Validation failed',
+        }
+      );
+    }
+
+    const { task_id } = input;
+    const block = input.block !== false;
+    const timeout = Math.min(Math.max(input.timeout || 30000, 0), 600000);
+
+    try {
+      const task = taskRegistry.getTask(task_id);
+      if (!task) {
+        return createToolResult(
+          {
+            retrieval_status: 'not_ready' as const,
+            task: null,
+          },
+          {
+            success: false,
+            error: `No task found with ID: ${task_id}`,
+          }
+        );
+      }
+
+      if (!block) {
+        const output = await getTaskOutputData(task);
+        return createToolResult(
+          {
+            retrieval_status: isTerminalTaskStatus(task.status)
+              ? 'success'
+              : 'not_ready',
+            task: output,
+          },
+          { success: true }
+        );
+      }
+
+      if (onProgress) {
+        onProgress({
+          toolUseID: `task-output-waiting-${Date.now()}`,
+          data: {
+            type: 'waiting_for_task',
+            taskDescription: task.taskState.description,
+            taskType: task.taskState.type,
+          },
+        });
+      }
+
+      const completedTask = await waitForTaskCompletion(
+        task_id,
+        timeout,
+        context.abortController?.signal
+      );
+
+      if (!completedTask) {
+        return createToolResult(
+          {
+            retrieval_status: 'timeout' as const,
+            task: null,
+          },
+          { success: false, error: `Task ${task_id} not found after wait` }
+        );
+      }
+
+      const taskStatus = completedTask.status;
+      if (!isTerminalTaskStatus(taskStatus)) {
+        return createToolResult(
+          {
+            retrieval_status: 'timeout' as const,
+            task: await getTaskOutputData(completedTask),
+          },
+          { success: true }
+        );
+      }
+
+      return createToolResult(
+        {
+          retrieval_status: 'success' as const,
+          task: await getTaskOutputData(completedTask),
+        },
+        { success: true }
+      );
+    } catch (error: unknown) {
+      return createToolResult(
+        {
+          retrieval_status: 'timeout' as const,
+          task: null,
+        },
+        {
+          success: false,
+          error: `Failed to get task output: ${error instanceof Error ? error.message : String(error)}`,
+        }
+      );
+    }
+  }
+}
+
+export default TaskOutputTool;

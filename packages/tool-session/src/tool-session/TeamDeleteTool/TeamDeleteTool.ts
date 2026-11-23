@@ -1,0 +1,261 @@
+import { TOOL_NAME_CONSTANTS } from '@openliri/infra/constants';
+/**
+ * 团队删除工具
+ * 用于解散swarm团队并清理
+ * 参考CC源码 cc_code/backend/tools/TeamDeleteTool/TeamDeleteTool.ts 实现
+ */
+
+import { BaseTool } from '@openliri/tool-base';
+import {
+  ToolResult,
+  createToolResult,
+} from '@openliri/infra/utils/toolContract/ToolResult';
+import { ToolUseContext } from '@openliri/infra/utils/toolContract/ToolUseContext';
+import type { ToolCallProgress } from '@openliri/infra/utils/toolContract/Tool';
+import { getTeammateManager } from '@modules/subagent/TeammateManager';
+import { join } from 'path';
+import { unlinkSync, existsSync, readFileSync } from 'fs';
+import { resolveDataSubDir } from '@openliri/infra/environment';
+import { getLogger } from '@openliri/infra/monitoring';
+import { handleError } from '@openliri/infra/error';
+import { configManager } from '@openliri/infra/config';
+import { TeamDeleteOutputSchema, TeamDeleteOutputJsonSchema } from './schemas';
+
+const logger = getLogger('tools:teamDelete');
+
+/**
+ * 团队删除输入
+ */
+export interface TeamDeleteInput {
+  /**
+   * 要删除的团队名称
+   */
+  team_name: string;
+
+  /**
+   * 是否强制删除（即使团队中有活跃的teammates）
+   */
+  force?: boolean;
+}
+
+/**
+ * 团队删除输出
+ */
+export interface TeamDeleteOutput {
+  success: boolean;
+  message: string;
+  team_name: string;
+  terminated_teammates?: string[];
+}
+
+/**
+ * 团队删除工具
+ */
+export class TeamDeleteTool extends BaseTool<
+  TeamDeleteInput,
+  TeamDeleteOutput
+> {
+  /**
+   * 工具名称
+   */
+  // D-04（2026-10-03）：PascalCase → snake_case（与 D-37 同口径；详见 spec `team-tool-name-snake-case.md`）
+  name = TOOL_NAME_CONSTANTS.team_delete;
+
+  /**
+   * 出参契约（P1-3 A 档；2026-09-29 **T6 批次 4a 接线**）。
+   *
+   * 该 schema **早已存在却零消费者**。实测 4 处出口的 `data` 全是
+   * `{success, message, team_name, terminated_teammates?}`（仅成功分支带第 4 键）⇒ 与 schema
+   * （`terminated_teammates` 为**可选**）**完全相符** ⇒ 接线。
+   */
+  outputSchema = TeamDeleteOutputSchema;
+  /** U-03（2026-10-19）：模型可见出参结构 */
+  override outputJsonSchema = TeamDeleteOutputJsonSchema;
+
+  /**
+   * 工具描述
+   */
+  description = '解散一个swarm团队并清理相关资源。';
+
+  /**
+   * 工具参数
+   */
+  params = [
+    {
+      name: 'team_name',
+      type: 'string',
+      description: '要删除的团队名称',
+      required: true,
+    },
+    {
+      name: 'force',
+      type: 'boolean',
+      description: '是否强制删除（即使团队中有活跃的teammates）',
+      required: false,
+      default: false,
+    },
+  ];
+
+  override searchHint = 'delete a swarm team';
+
+  override maxResultSizeChars = 100_000;
+
+  override shouldDefer = true;
+
+  private teamDir: string;
+
+  constructor() {
+    super();
+    this.teamDir = resolveDataSubDir('teams');
+  }
+
+  override isEnabled(): boolean {
+    return configManager.env('ENABLE_TEAMMATE') !== 'false'; // 默认启用
+  }
+
+  override isDestructive(): boolean {
+    return true;
+  }
+
+  override isConcurrencySafe(): boolean {
+    return false;
+  }
+
+  /**
+   * 生成团队文件路径
+   */
+  private getTeamFilePath(teamName: string): string {
+    return join(this.teamDir, `${teamName}.json`);
+  }
+
+  /**
+   * 执行团队删除
+   */
+  async execute(
+    input: TeamDeleteInput,
+    _context: ToolUseContext,
+    _onProgress?: ToolCallProgress
+  ): Promise<ToolResult<TeamDeleteOutput>> {
+    const { team_name, force = false } = input;
+
+    // 验证输入
+    if (!team_name || team_name.trim().length === 0) {
+      return createToolResult(
+        {
+          success: false,
+          message: 'team_name is required',
+          team_name: '',
+        },
+        {
+          newMessages: [
+            {
+              role: 'system',
+              content: '错误: team_name 是必需的',
+            },
+          ],
+        }
+      );
+    }
+
+    const teamFilePath = this.getTeamFilePath(team_name);
+
+    // 检查团队是否存在
+    if (!existsSync(teamFilePath)) {
+      return createToolResult(
+        {
+          success: false,
+          message: `Team "${team_name}" does not exist`,
+          team_name,
+        },
+        {
+          newMessages: [
+            {
+              role: 'system',
+              content: `团队 "${team_name}" 不存在`,
+            },
+          ],
+        }
+      );
+    }
+
+    try {
+      // 读取团队文件
+      const teamFile = JSON.parse(readFileSync(teamFilePath, 'utf8'));
+      const terminatedTeammates: string[] = [];
+
+      // 终止所有teammates
+      const manager = getTeammateManager();
+      const activeTeammates = manager.getActiveTeammates();
+
+      for (const teammate of activeTeammates) {
+        try {
+          await manager.killTeammate(teammate.id);
+          terminatedTeammates.push(teammate.name);
+        } catch (error) {
+          await handleError(error, {
+            module: 'tools:teamDelete',
+            action: 'terminateTeammate',
+          });
+        }
+      }
+
+      // 删除团队文件
+      unlinkSync(teamFilePath);
+
+      return createToolResult(
+        {
+          success: true,
+          message: `Team "${team_name}" has been deleted`,
+          team_name,
+          terminated_teammates: terminatedTeammates,
+        },
+        {
+          newMessages: [
+            {
+              role: 'system',
+              content: `团队 "${team_name}" 已删除。终止了 ${terminatedTeammates.length} 个 teammate(s)`,
+            },
+          ],
+        }
+      );
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      return createToolResult(
+        {
+          success: false,
+          message: `Failed to delete team: ${errorMessage}`,
+          team_name,
+        },
+        {
+          newMessages: [
+            {
+              role: 'system',
+              content: `删除团队失败: ${errorMessage}`,
+            },
+          ],
+        }
+      );
+    }
+  }
+
+  override userFacingName(): string {
+    return '删除团队';
+  }
+
+  override getActivityDescription(
+    input?: Partial<TeamDeleteInput>
+  ): string | null {
+    if (input?.team_name) {
+      return `删除团队 ${input.team_name}`;
+    }
+    return '删除团队';
+  }
+}
+
+/**
+ * 创建团队删除工具实例
+ */
+export function createTeamDeleteTool(): TeamDeleteTool {
+  return new TeamDeleteTool();
+}

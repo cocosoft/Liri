@@ -19,7 +19,7 @@
 import { getLogger } from '@openliri/infra/monitoring';
 import { getToolRegistry } from '../ToolRegistry';
 import { resolveToolInstanceByName } from '../toolInstanceResolver';
-import type { AgentTool } from '../AgentTool/AgentTool';
+import type { AgentTool } from '@openliri/tool-agent';
 
 const logger = getLogger('tools:resolveAgentTool');
 

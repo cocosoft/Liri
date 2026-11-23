@@ -630,7 +630,10 @@ class ArchitectureLinter {
         continue;
       if (
         file.includes('tools\\TTSTool\\TTSTool.ts') ||
-        file.includes('tools/TTSTool/TTSTool.ts')
+        file.includes('tools/TTSTool/TTSTool.ts') ||
+        // A 档（2026-11-22）：TTSTool 下沉 `@openliri/tool-media` 后同口径豁免
+        file.includes('tool-media\\src\\tool-media\\TTSTool.ts') ||
+        file.includes('tool-media/src/tool-media/TTSTool.ts')
       )
         continue;
 
@@ -1054,6 +1057,8 @@ class ArchitectureLinter {
       'services\\voice\\services\\sttRegistry.ts',
       'services\\voice\\services\\ttsProvider.ts',
       'tools\\ImageGenerateTool\\ImageGenerationCache.ts',
+      // A 档（2026-11-22）：ImageGenerateTool 下沉 `@openliri/tool-media` 后同口径豁免
+      'tool-media\\src\\tool-media\\ImageGenerateTool\\ImageGenerationCache.ts',
       'tools\\utils\\OptimizedToolManagerUtils.ts',
       'workspace\\LiriConfigManager.ts',
       // 2026-08-29 R03-001 治理（B 类）：已 @deprecated 的 ConfigManager 变体，待移除

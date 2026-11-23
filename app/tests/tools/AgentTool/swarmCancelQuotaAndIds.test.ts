@@ -22,16 +22,16 @@ import { randomUUID } from 'crypto';
 import {
   AgentTool,
   setAgentToolManager,
-} from '../../../src/tools/AgentTool/AgentTool';
+} from '@openliri/tool-agent/AgentTool/AgentTool';
 import {
   getAgentRunLedger,
   resetAgentRunLedger,
-} from '../../../src/tools/AgentTool/AgentRunLedger';
-import { getAgentRunStore } from '../../../src/tools/AgentTool/AgentRunStore';
+} from '@openliri/tool-agent/AgentTool/AgentRunLedger';
+import { getAgentRunStore } from '@openliri/tool-agent/AgentTool/AgentRunStore';
 import {
   swarmBatchRegistrySize,
   resetSwarmBatchRegistry,
-} from '../../../src/tools/AgentTool/swarmBatchRegistry';
+} from '@openliri/tool-agent/AgentTool/swarmBatchRegistry';
 import { ToolExecutionStatus } from '../../../src/tools/types/ToolResult';
 import type { Tool, ToolUseContext } from '../../../src/tools/types/Tool';
 

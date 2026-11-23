@@ -1,0 +1,20 @@
+{
+  "name": "@openliri/tool-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liri mcp 工具包 —— MCP 域：mcp_resource（资源/提示面，经 McpResourcesDriver + SDK）/ mcp_auth（OAuth 授权闸）。层归属 app：可依赖 app / service / infra / core；entry / ui 不得依赖本包，包内不得依赖 entry / ui 层（R40）。注册动作仍留 app 的 builtinToolRegistry。",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/tool-mcp/index.ts",
+      "import": "./src/tool-mcp/index.ts"
+    },
+    "./*": {
+      "types": "./src/tool-mcp/*.ts",
+      "import": "./src/tool-mcp/*.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p ../../app/tsconfig.json"
+  }
+}

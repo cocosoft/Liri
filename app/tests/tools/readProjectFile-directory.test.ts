@@ -24,7 +24,7 @@ const prevLiriDataDir = process.env.LIRI_DATA_DIR;
 process.env.LIRI_DATA_DIR = dataDir;
 
 const { ReadProjectFileTool, resetReadProjectFileStoresForTest } =
-  await import('../../src/tools/ReadProjectFileTool/ReadProjectFileTool.js');
+  await import('@openliri/tool-workspace');
 
 const tool = ReadProjectFileTool.create();
 const ctx = {} as never;

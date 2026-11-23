@@ -1,0 +1,613 @@
+import { TOOL_NAME_CONSTANTS } from '@openliri/infra/constants';
+/**
+ * WebFetch 工具
+ *
+ * 提供网页内容获取功能
+ * 使用系统内置的 fetch API (Node.js 18+)
+ */
+
+import { z } from 'zod';
+import { BaseTool } from '@openliri/tool-base';
+import { ToolTag } from '@openliri/infra/utils/toolContract/Tool';
+import type {
+  ToolResult,
+  ToolUseContext,
+  ToolParam,
+  ToolCallProgress,
+  InterruptBehavior,
+  ToolValidationResult,
+} from '@openliri/infra/utils/toolContract';
+import { createToolResult } from '@openliri/infra/utils/toolContract/ToolResult';
+import { buildUserAgent } from '@openliri/infra/constants';
+import {
+  resolveDownloadsDir,
+  resolveInboundDir,
+} from '@openliri/infra/environment';
+import { sanitizeFileName } from '@openliri/service/services/file/fileNaming';
+import { writeFile, mkdir } from 'fs/promises';
+import { join } from 'path';
+import { v4 as uuidv4 } from 'uuid';
+
+import { getLogger } from '@openliri/infra/monitoring';
+import { handleError } from '@openliri/infra/error';
+import { checkSsrf, describeSsrfBlock } from './ssrf.js';
+// P3-2（2026-11-15）：正文读取/截断外移（纯 IO，含单测 `tests/tools/webFetchResponse.test.ts`）
+import { readResponseContent } from './webFetchResponse.js';
+import {
+  describeOutboundFailure,
+  outboundFetch,
+} from '@openliri/infra/utils/outboundFetch';
+const logger = getLogger('tools:WebFetchTool:WebFetchTool');
+
+/** 手动重定向最多跳数（对标 RemoteSkillHubAdapter httpGetText 的 3 跳限制） */
+const MAX_REDIRECT_HOPS = 3;
+/** 需要手动跟随并逐跳 SSRF 校验的状态码 */
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+
+/**
+ * WebFetch 输入模式
+ */
+const WebFetchInputSchema = z.strictObject({
+  url: z
+    .string()
+    .url('URL格式无效')
+    .min(1, 'URL不能为空')
+    .describe('要获取内容的URL'),
+  method: z
+    .enum(['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'])
+    .optional()
+    .default('GET')
+    .describe('HTTP请求方法'),
+  headers: z.record(z.string()).optional().default({}).describe('HTTP请求头'),
+  body: z.string().optional().describe('POST/PUT请求体'),
+  timeout: z
+    .number()
+    .int()
+    .positive()
+    .max(120000)
+    .optional()
+    .default(30000)
+    .describe('超时时间（毫秒）'),
+  maxContentLength: z
+    .number()
+    .int()
+    .positive()
+    .max(5000000)
+    .optional()
+    .default(500000)
+    .describe('最大内容长度（字符数）'),
+});
+
+export class WebFetchTool extends BaseTool {
+  name = TOOL_NAME_CONSTANTS.web_fetch;
+  description = '从 URL 获取内容。用于检索网页内容、API 响应或其他 HTTP 资源。';
+
+  /** U-03（2026-10-19）：模型可见出参结构 */
+  override outputJsonSchema = WEB_FETCH_OUTPUT_JSON_SCHEMA;
+
+  override tags = [ToolTag.NETWORK, ToolTag.READ];
+
+  params: ToolParam[] = [
+    {
+      name: 'url',
+      type: 'string',
+      description: '要获取内容的 URL',
+      required: true,
+      default: '',
+    },
+    {
+      name: 'method',
+      type: 'string',
+      description: '使用的 HTTP 方法',
+      required: false,
+      default: 'GET',
+    },
+    {
+      name: 'headers',
+      type: 'object',
+      description: '要发送的 HTTP 请求头',
+      required: false,
+      default: {},
+    },
+    {
+      name: 'body',
+      type: 'string',
+      description: 'POST/PUT 请求的请求体',
+      required: false,
+      default: '',
+    },
+    {
+      name: 'timeout',
+      type: 'number',
+      description: '超时时间（毫秒）',
+      required: false,
+      default: 30000,
+    },
+    {
+      name: 'maxContentLength',
+      type: 'number',
+      description: '最大内容长度（字符数）',
+      required: false,
+      default: 500000,
+    },
+    {
+      name: 'saveToFile',
+      type: 'boolean',
+      description: '将抓取内容保存到文件并注册到文件系统',
+      required: false,
+      default: false,
+    },
+  ];
+
+  override aliases = ['fetch', 'curl', 'wget', 'http_get'];
+  override searchHint = 'Fetch content from a URL';
+  override maxResultSizeChars = 500000;
+
+  constructor() {
+    super();
+  }
+
+  override validateInput(input: any): ToolValidationResult {
+    const result = WebFetchInputSchema.safeParse(input);
+    if (!result.success) {
+      const errors = result.error.issues
+        .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+        .join('; ');
+      return { result: false, message: `WebFetch输入验证失败: ${errors}` };
+    }
+    return { result: true };
+  }
+
+  override isReadOnly(input?: Record<string, unknown>): boolean {
+    // P1（2026-11-22，G3）：`saveToFile` 会写 downloads 目录并注册 FileRegistry
+    // ⇒ 该形态**不是**只读。此前只看 method（GET + saveToFile 仍返回 true），
+    // 被 `deriveToolRiskClass` 派生为 read（自动放行），与"read 不改状态"契约冲突。
+    if (input?.saveToFile === true) return false;
+    const method = (input?.method as string)?.toUpperCase() || 'GET';
+    return ['GET', 'HEAD', 'OPTIONS'].includes(method);
+  }
+
+  override isConcurrencySafe(input?: Record<string, unknown>): boolean {
+    return this.isReadOnly(input);
+  }
+
+  override interruptBehavior(): InterruptBehavior {
+    return 'cancel';
+  }
+
+  override getPath(input: Record<string, unknown>): string {
+    return (input?.url as string) || '';
+  }
+
+  override async execute(
+    input: Record<string, unknown>,
+    context: ToolUseContext,
+    onProgress?: ToolCallProgress<any>
+  ): Promise<ToolResult> {
+    const startTime = Date.now();
+
+    try {
+      const url = input.url as string;
+      const method = (input.method as string)?.toUpperCase() || 'GET';
+      const headers = (input.headers as Record<string, string>) || {};
+      const body = input.body as string | undefined;
+      const timeout = (input.timeout as number) || 30000;
+      const maxContentLength = (input.maxContentLength as number) || 500000;
+
+      if (!url) {
+        return createToolResult('url is required', {
+          newMessages: [
+            {
+              role: 'system',
+              content: 'Error: url is required',
+            },
+          ],
+        });
+      }
+
+      if (!this.isValidUrl(url)) {
+        return createToolResult('Invalid URL format', {
+          newMessages: [
+            {
+              role: 'system',
+              content: 'Error: Invalid URL format',
+            },
+          ],
+        });
+      }
+
+      // SSRF 防护（对标 Hermes url_safety）：云元数据/内网/回环/链路本地地址一律拦截
+      const ssrfResult = await checkSsrf(url);
+      if (ssrfResult.blocked) {
+        logger.warn('WebFetch 被 SSRF 拦截', {
+          url,
+          reason: ssrfResult.reason,
+        });
+        onProgress?.({
+          toolUseID: context.toolUseId || 'web-fetch-tool',
+          data: {
+            type: 'web_fetch',
+            url,
+            method,
+            error: `SSRF 拦截: ${ssrfResult.reason}`,
+            isRunning: false,
+            isComplete: true,
+          },
+        });
+        return createToolResult(describeSsrfBlock(ssrfResult), {
+          // P2-2（2026-11-22，G7）：拦截事件带**机器可读 reason 码**（登记于
+          // `tools/governance/interceptionReasons.ts`，由 lint:tool-interception-reasons 对账）
+          metadata: { reason: 'ssrf_blocked' },
+          newMessages: [
+            {
+              role: 'system',
+              content: `Error: URL blocked by SSRF protection: ${ssrfResult.reason}`,
+            },
+          ],
+        });
+      }
+
+      // 报告开始执行
+      onProgress?.({
+        toolUseID: context.toolUseId || 'web-fetch-tool',
+        data: {
+          type: 'web_fetch',
+          url,
+          method,
+          isRunning: true,
+          isComplete: false,
+        },
+      });
+
+      const fetchOptions: RequestInit = {
+        method,
+        headers: {
+          'User-Agent': buildUserAgent('WebFetch'),
+          Accept:
+            'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5',
+          ...headers,
+        },
+      };
+
+      if (body && ['POST', 'PUT', 'PATCH'].includes(method)) {
+        fetchOptions.body = body;
+        if (!headers['Content-Type']) {
+          fetchOptions.headers = {
+            ...fetchOptions.headers,
+            'Content-Type': 'application/json',
+          };
+        }
+      }
+
+      const response = await this.fetchWithRedirectGuard(
+        url,
+        fetchOptions,
+        timeout,
+        // S2-2（2026-10-11，G15）：上下文取消信号（用户取消 ⇒ 在途 HTTP 请求即中断）
+        // 2026-11-09：非流式 chat 路径没有会话级取消源（`abortController` 为 undefined）⇒
+        // 与 bash / powershell 等同款可选链；否则 web_fetch 在该路径直接抛
+        // 「undefined is not an object (evaluating 'context.abortController.signal')」
+        context.abortController?.signal
+      );
+
+      const status = response.status;
+      const statusText = response.statusText;
+
+      if (!response.ok && status !== 304) {
+        const errorBody = await response.text().catch(() => '');
+        // 报告执行错误
+        onProgress?.({
+          toolUseID: context.toolUseId || 'web-fetch-tool',
+          data: {
+            type: 'web_fetch',
+            url,
+            method,
+            error: `HTTP ${status} ${statusText}: ${errorBody.substring(0, 500)}`,
+            isRunning: false,
+            isComplete: true,
+          },
+        });
+
+        return createToolResult(
+          `HTTP ${status} ${statusText}: ${errorBody.substring(0, 500)}`,
+          {
+            newMessages: [
+              {
+                role: 'system',
+                content: `Error: Failed to fetch ${url}: ${status} ${statusText}`,
+              },
+            ],
+          }
+        );
+      }
+
+      // P3-2（2026-11-15）：正文读取/截断外移为纯 IO 函数（`webFetchResponse.ts`，含单测）
+      const { content, contentType } = await readResponseContent(
+        response,
+        maxContentLength
+      );
+
+      const responseHeaders: Record<string, string> = {};
+      response.headers.forEach((value, key) => {
+        responseHeaders[key] = value;
+      });
+
+      const result: WebFetchResult = {
+        url,
+        status,
+        statusText,
+        headers: responseHeaders,
+        content,
+        contentLength: content.length,
+        contentType,
+      };
+
+      // 报告执行完成
+      onProgress?.({
+        toolUseID: context.toolUseId || 'web-fetch-tool',
+        data: {
+          type: 'web_fetch',
+          url,
+          method,
+          status,
+          isRunning: false,
+          isComplete: true,
+        },
+      });
+
+      // 若开启 saveToFile，保存到 downloads 目录并注册到 FileRegistry
+      const saveToFile = input.saveToFile as boolean;
+      if (saveToFile && content.length > 0) {
+        this.saveToFileAndRegister(url, content, contentType, startTime).catch(
+          () => {}
+        );
+      }
+
+      return createToolResult(result, {
+        newMessages: [
+          {
+            role: 'system',
+            content: `Successfully fetched content from ${url} in ${Date.now() - startTime}ms`,
+          },
+        ],
+      });
+    } catch (error) {
+      const isAbort = error instanceof Error && error.name === 'AbortError';
+      if (isAbort) {
+        // S2-2（2026-10-11，G15）：区分「用户取消」与「超时」—— 二者同为 `AbortError`，但语义
+        // 不同（取消由 `context.abortController` 触发）。原实现一律报"超时" ⇒ 误导用户
+        // （用户主动取消却被告知超时）。文案随响应语言规范保持英文（与既有该工具文案一致）。
+        const canceled = context.abortController?.signal.aborted ?? false;
+        const message = canceled
+          ? 'Request canceled'
+          : `Request timed out after ${input.timeout || 30000}ms`;
+        onProgress?.({
+          toolUseID: context.toolUseId || 'web-fetch-tool',
+          data: {
+            type: 'web_fetch',
+            error: message,
+            isRunning: false,
+            isComplete: true,
+          },
+        });
+
+        return createToolResult(message, {
+          newMessages: [
+            {
+              role: 'system',
+              content: `Error: ${message}`,
+            },
+          ],
+        });
+      }
+
+      // 报告执行错误
+      // 2026-11-03：通道不可达时附上生效代理来源，避免把"代理没生效"读成"站点不存在"
+      const msg =
+        describeOutboundFailure(error) ??
+        (error instanceof Error ? error.message : String(error));
+      onProgress?.({
+        toolUseID: context.toolUseId || 'web-fetch-tool',
+        data: {
+          type: 'web_fetch',
+          error: msg,
+          isRunning: false,
+          isComplete: true,
+        },
+      });
+
+      return createToolResult(msg, {
+        newMessages: [
+          {
+            role: 'system',
+            content: `Error: ${msg}`,
+          },
+        ],
+      });
+    }
+  }
+
+  /**
+   * 验证 URL 格式
+   */
+  private isValidUrl(url: string): boolean {
+    try {
+      const parsed = new URL(url);
+      return ['http:', 'https:'].includes(parsed.protocol);
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * SSRF 防护的 fetch：重定向手动处理，逐跳校验目标 URL。
+   *
+   * fetch 默认 redirect: 'follow' 会静默跟随任意跳转——公共 URL 302 到
+   * 内网/云元数据（169.254.169.254 等）即被打穿。改为 manual 后每跳
+   * 重新执行 checkSsrf，再校验通过才继续（对标 Hermes _ssrf_redirect_guard）。
+   */
+  private async fetchWithRedirectGuard(
+    url: string,
+    options: RequestInit,
+    timeoutMs: number,
+    externalSignal?: AbortSignal
+  ): Promise<Response> {
+    const timeoutController = new AbortController();
+    const timeoutId = setTimeout(() => timeoutController.abort(), timeoutMs);
+    // S2-2（2026-10-11，G15）：**接上下文取消信号** —— 原实现自建 controller 仅做超时 ⇒
+    // 用户取消后底层请求仍继续。现用 `AbortSignal.any` 合并「超时」与「上下文取消」
+    //（任一触发即中断；`AbortSignal.any` 在本仓已被多个 provider/query 模块使用）。
+    const signal = externalSignal
+      ? AbortSignal.any([timeoutController.signal, externalSignal])
+      : timeoutController.signal;
+    try {
+      let currentUrl = url;
+      for (let hop = 0; hop <= MAX_REDIRECT_HOPS; hop++) {
+        // 2026-11-03：经统一出站层（继承 env / Windows 系统代理），不再裸调 fetch
+        const response = await outboundFetch(currentUrl, {
+          ...options,
+          signal,
+          redirect: 'manual',
+        });
+        if (!REDIRECT_STATUSES.has(response.status)) {
+          return response;
+        }
+        // 排空重定向响应体，释放连接（undici 要求）
+        await response.text().catch(() => {});
+        const location = response.headers.get('location');
+        if (!location) break;
+        const nextUrl = new URL(location, currentUrl).href;
+        const redirectCheck = await checkSsrf(nextUrl);
+        if (redirectCheck.blocked) {
+          throw new Error(`重定向目标被 SSRF 拦截：${redirectCheck.reason}`);
+        }
+        currentUrl = nextUrl;
+      }
+      throw new Error(`重定向次数超过限制（最多 ${MAX_REDIRECT_HOPS} 跳）`);
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  override toAutoClassifierInput(input: Record<string, unknown>): unknown {
+    return {
+      url: input.url,
+      method: input.method || 'GET',
+    };
+  }
+
+  /**
+   * 检查是否为读取命令
+   */
+  override isSearchOrReadCommand(input: Record<string, unknown>): {
+    isSearch: boolean;
+    isRead: boolean;
+    isList?: boolean;
+  } {
+    return { isSearch: false, isRead: true };
+  }
+
+  /**
+   * 将获取的内容保存到 downloads 目录并注册到 FileRegistry
+   */
+  private async saveToFileAndRegister(
+    url: string,
+    content: string,
+    contentType: string,
+    startTime: number
+  ): Promise<void> {
+    try {
+      const downloadsDir = resolveDownloadsDir();
+      await mkdir(downloadsDir, { recursive: true });
+
+      // 从 URL 提取文件名
+      const urlObj = new URL(url);
+      let fileName =
+        urlObj.pathname.split('/').filter(Boolean).pop() || 'index';
+      if (!fileName.includes('.')) {
+        const ext = contentType.includes('json')
+          ? '.json'
+          : contentType.includes('html')
+            ? '.html'
+            : contentType.includes('xml')
+              ? '.xml'
+              : '.txt';
+        fileName += ext;
+      }
+      // 添加时间戳前缀防重名
+      const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const safeName = `${ts}_${sanitizeFileName(fileName)}`;
+      const filePath = join(downloadsDir, safeName);
+
+      await writeFile(filePath, content, 'utf-8');
+
+      // 注册到 FileRegistry
+      const { FileRegistry } =
+        await import('@openliri/service/services/file/FileRegistry');
+      const { FileSource } =
+        await import('@openliri/service/services/file/types');
+      const registry = FileRegistry.getInstance();
+      await registry.initDatabase();
+      await registry.registerFile({
+        originalName: fileName,
+        content,
+        source: FileSource.TOOL_DOWNLOAD,
+        sourceId: url,
+        description: `WebFetch 下载: ${url}`,
+        mimeType: contentType,
+        storeZone: 'inbound',
+      });
+    } catch (err) {
+      handleError(err, { module: 'tools:webFetch', action: 'registerFile' });
+    }
+  }
+}
+
+export interface WebFetchResult {
+  url: string;
+  status: number;
+  statusText: string;
+  headers: Record<string, string>;
+  content: string;
+  contentLength: number;
+  contentType: string;
+}
+
+/**
+ * U-03（2026-10-19）：模型可见出参结构（下发为 `output_schema`），与 `WebFetchResult` 对齐。
+ * 注意：失败分支返回**字符串**（错误文本），本结构只描述成功载荷。
+ */
+const WEB_FETCH_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    url: { type: 'string', description: '实际请求的 URL' },
+    status: { type: 'number', description: 'HTTP 状态码' },
+    statusText: { type: 'string', description: 'HTTP 状态文本' },
+    headers: {
+      type: 'object',
+      additionalProperties: { type: 'string' },
+      description: '响应头（键值均为字符串）',
+    },
+    content: { type: 'string', description: '响应正文（已按格式转换）' },
+    contentLength: { type: 'number', description: '正文长度（字符数）' },
+    contentType: { type: 'string', description: '响应 Content-Type' },
+  },
+  required: [
+    'url',
+    'status',
+    'statusText',
+    'headers',
+    'content',
+    'contentLength',
+    'contentType',
+  ],
+};
+
+/**
+ * 创建WebFetch工具实例
+ * @returns WebFetch工具实例
+ */
+export function createWebFetchTool(): WebFetchTool {
+  return new WebFetchTool();
+}

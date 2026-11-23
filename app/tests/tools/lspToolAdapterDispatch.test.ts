@@ -17,7 +17,7 @@ import { describe, expect, it } from 'bun:test';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { LSPToolAdapter } from '../../src/tools/adapters/LSPToolAdapter';
+import { LSPToolAdapter } from '@openliri/tool-code';
 import type { ToolUseContext } from '../../src/tools/types/ToolUseContext';
 
 const ctx = {} as ToolUseContext;

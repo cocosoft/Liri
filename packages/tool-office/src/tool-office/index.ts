@@ -13,6 +13,7 @@
 
 export * from './DocGenerateTool';
 export * from './PDFTool';
+export * from './FileConvertTool';
 export * from './converter';
 export * from './notebook/types';
 export * from './notebook/JupyterNotebookConverter';

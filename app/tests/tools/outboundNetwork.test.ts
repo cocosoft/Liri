@@ -22,7 +22,11 @@ import {
   redactProxyUrl,
 } from '@openliri/infra/utils/outboundFetch';
 
-const TOOLS_DIR = join(import.meta.dir, '../../src/tools');
+/** J 档（2026-11-23）：Web/检索工具已迁入 `packages/tool-web`（本用例的受检面随之迁移） */
+const TOOLS_DIR = join(
+  import.meta.dir,
+  '../../../packages/tool-web/src/tool-web'
+);
 
 const savedEnv: Record<string, string | undefined> = {};
 const ENV_KEYS = [

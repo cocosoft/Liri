@@ -94,11 +94,11 @@ afterEach(() => {
 
 // 动态导入
 const { VoiceInputTool } =
-  await import('../../src/tools/VoiceInputTool/VoiceInputTool');
+  await import('@openliri/tool-media/VoiceInputTool/VoiceInputTool');
 const { validateVoiceInputInput } =
-  await import('../../src/tools/VoiceInputTool/schemas');
+  await import('@openliri/tool-media/VoiceInputTool/schemas');
 const { VOICE_INPUT_TOOL_NAME, VOICE_INPUT_DESCRIPTION, VOICE_INPUT_ALIASES } =
-  await import('../../src/tools/VoiceInputTool/constants');
+  await import('@openliri/tool-media/VoiceInputTool/constants');
 
 // ============================================================
 // schemas 验证函数测试

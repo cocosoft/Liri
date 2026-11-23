@@ -12,7 +12,7 @@ import {
   buildSwarmFailureReason,
   deriveSwarmObjective,
   formatSwarmProgressMessage,
-} from '../../../src/tools/AgentTool/swarmPath';
+} from '@openliri/tool-agent/AgentTool/swarmPath';
 
 const task = (id: string, description: string) => ({
   id,

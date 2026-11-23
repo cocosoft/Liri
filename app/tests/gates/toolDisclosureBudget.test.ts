@@ -37,7 +37,7 @@ import { TOOL_NAMES_COUNT } from '@openliri/infra/constants/toolNames.generated'
 import {
   setEnabledRoleNames,
   getEnabledRoleNames,
-} from '../../src/tools/AgentTool/AgentDescriptorResolver';
+} from '@openliri/tool-agent/AgentTool/AgentDescriptorResolver';
 import {
   getBuildVariantFlags,
   resetBuildVariantFlags,

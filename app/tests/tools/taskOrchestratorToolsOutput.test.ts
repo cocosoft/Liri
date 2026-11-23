@@ -16,12 +16,12 @@ import {
   TaskCreateListTool,
   TaskGetListTool,
   TaskUpdateStatusTool,
-} from '../../src/tools/TaskOrchestratorTools/TaskOrchestratorTools';
+} from '@openliri/tool-task';
 import {
   CreateTaskListOutputSchema,
   GetTaskListOutputSchema,
   UpdateTaskStatusOutputSchema,
-} from '../../src/tools/TaskOrchestratorTools/schemas';
+} from '@openliri/tool-task/TaskOrchestratorTools/schemas';
 import { taskRegistry } from '../../src/tasks/TaskRegistry';
 import {
   ToolExecutor,

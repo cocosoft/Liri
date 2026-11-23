@@ -14,8 +14,8 @@ import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import type { AIProvider, ChatResponse } from '@modules/ai';
 import { AgentEventType } from '../../../src/agent/events/types';
 import { globalEventBus } from '@openliri/kernel/events/EventBus.js';
-import { resetAgentRunLedger } from '../../../src/tools/AgentTool/AgentRunLedger';
-import { SubAgentEngine } from '../../../src/tools/AgentTool/SubAgentEngine';
+import { resetAgentRunLedger } from '@openliri/tool-agent/AgentTool/AgentRunLedger';
+import { SubAgentEngine } from '@openliri/tool-agent/AgentTool/SubAgentEngine';
 
 /**
  * 假供应商：**首轮**请求一个**不存在的**工具（`executeToolCall` 对缺失工具返回

@@ -19,7 +19,7 @@ import { findToolByName } from '../../src/tools/types/Tool';
 import type { Tool } from '../../src/tools/types/Tool';
 import { ToolRegistry } from '../../src/tools/ToolRegistry';
 import { TodoWriteTool } from '../../src/tools/TodoWriteTool/TodoWriteTool';
-import { VideoGenerateTool } from '../../src/tools/VideoGenerateTool/VideoGenerateTool';
+import { VideoGenerateTool } from '@openliri/tool-media';
 
 /** 别名持有者（其别名与他人真实名相同 —— 即本次缺陷形态） */
 const ALIAS_HOLDER = {

@@ -75,7 +75,7 @@
       "notes": "每次委派新建独立会话并跑一次非流式对话轮（走模型路由/工具/权限/成本）；**无 executionId**、不参与 ownership/fencing。默认关（A2A_ENABLED）。"
     },
     {
-      "file": "app/src/tools/AgentTool/SubAgentEngine.ts",
+      "file": "packages/tool-agent/src/tool-agent/AgentTool/SubAgentEngine.ts",
       "patterns": ["subagent.toolExecute"],
       "label": "子代理工具执行（SubAgentEngine.executeToolCall）",
       "status": "gap",

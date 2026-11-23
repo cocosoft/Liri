@@ -250,7 +250,7 @@ export {
 // 全仓**零消费者**（唯一对外口就是这一行转发，无人取用其符号），且活路径已有等价安全面
 // （`SandboxSecurityChecker` 危险命令检查 / `PathGuard` 越界路径 / `permission` 权限决策）
 // ⇒ 整模块删除（同 N-29 处置 `tools/policy/*` 的判据）。
-export * from './web';
+export * from '@openliri/tool-web';
 export * from './version';
 
 // 2026-10-23（R03-002 收敛）：必填参数校验由长程任务链复用 —— 统一经模块出口导出，
@@ -451,14 +451,14 @@ export {
   // P4b（2026-10-16）：`toolProfile` 写入口的边界校验（HTTP handler 走动态导入本 barrel）
   isKnownToolProfileTag,
 } from './toolProfile';
-export { checkSsrf, describeSsrfBlock } from './WebFetchTool/ssrf';
+export { checkSsrf, describeSsrfBlock } from '@openliri/tool-web';
 export { ImageUrlHelper } from './ImageUrlHelper';
 export { ParallelExecutor } from './executor/ParallelExecutor';
 export { ToolCallPartitioner } from './orchestration/Partitioner';
-export { SubAgentEngine, getSubAgentEngine } from './AgentTool/SubAgentEngine';
+export { SubAgentEngine, getSubAgentEngine } from '@openliri/tool-agent';
 // 内置 Agent 类型名真源（= `BUILTIN_AGENTS` 的键）：CLI `agent`/`agents` 命令复用同一份名单
-export { AGENT_TYPES } from './AgentTool/constants';
-export type { SkillDefinition } from './SkillTool/types';
+export { AGENT_TYPES } from '@openliri/tool-agent';
+export type { SkillDefinition } from '@openliri/tool-agent';
 
 // 2026-10-02 R02-002 收敛：ToolSearchOutput 数据契约唯一落点（zod 推导）
 export type { ToolSearchOutput } from './ToolSearchTool/schemas';
@@ -471,30 +471,30 @@ export { BashTool } from './bash/BashTool';
 export { createPowerShellTool } from './PowerShellTool/PowerShellTool';
 export { GlobTool } from './search/GlobTool';
 export { GrepTool } from './GrepTool/GrepTool';
-export { createWebSearchTool } from './WebSearchTool/WebSearchTool';
-export { createWebFetchTool } from './WebFetchTool/WebFetchTool';
-export { TimeTool } from './TimeTool/TimeTool';
+export { createWebSearchTool } from '@openliri/tool-web';
+export { createWebFetchTool } from '@openliri/tool-web';
+export { TimeTool } from '@openliri/tool-task';
 export {
   AgentTool,
   refreshAvailableSubagentTypeNames,
-} from './AgentTool/AgentTool';
+} from '@openliri/tool-agent';
 // T8（2026-09-21）：运行台账只读查询端点需要读磁盘台账 ⇒ 经模块出口暴露（避免子目录直连导入）
-export { AgentRunStore, getAgentRunStore } from './AgentTool/AgentRunStore';
-export type { AgentRunRow } from './AgentTool/AgentRunStore';
+export { AgentRunStore, getAgentRunStore } from '@openliri/tool-agent';
+export type { AgentRunRow } from '@openliri/tool-agent';
 // R6（2026-09-22）：AgentTool 真身解析（穿透 ToolLazyWrapper + 能力判定）——
 // 控制面与命令层三处入口共用同一判据，避免"三份 instanceof 副本"再次漂移
 export { resolveAgentToolInstance } from './utils/resolveAgentToolInstance';
-export { CuratorScheduler } from './AgentTool/CuratorScheduler';
-export { SkillLifecycleManager } from './AgentTool/SkillLifecycleManager';
-export { notebookManager } from './notebook/NotebookManager';
+export { CuratorScheduler } from '@openliri/tool-agent';
+export { SkillLifecycleManager } from '@openliri/tool-agent';
+export { notebookManager } from '@openliri/tool-code';
 export { toolCacheManager } from './cache/ToolCacheManager';
 export { createToolScheduler } from './scheduler/ToolScheduler';
-export { getVideoTaskPersistence } from './VideoGenerateTool/VideoTaskPersistence';
-export { getMediaTemplates } from './VideoGenerateTool/MediaTemplates';
+export { getVideoTaskPersistence } from '@openliri/tool-media';
+export { getMediaTemplates } from '@openliri/tool-media';
 export { configureCodeRunner } from './CodeRunner/CodeRunnerTool';
 export { getConverterEngine, FileTypeDetector } from '@openliri/tool-office';
-export { VERIFICATION_AGENT_DEFINITION } from './AgentTool/strategies/VerificationStrategy';
-export { STATUSLINE_SETUP_AGENT_DEFINITION } from './AgentTool/strategies/StatuslineStrategy';
+export { VERIFICATION_AGENT_DEFINITION } from '@openliri/tool-agent';
+export { STATUSLINE_SETUP_AGENT_DEFINITION } from '@openliri/tool-agent';
 export type {
   ConversionResult,
   FileInfo,
@@ -502,20 +502,17 @@ export type {
 } from '@openliri/tool-office';
 
 // 2026-08-30 R03-002 收敛：工具子路径统一出口
-export { CanvasTool } from './CanvasTool/CanvasTool';
-export { ImageGenerateTool } from './ImageGenerateTool/ImageGenerateTool';
-export { ImageAnalysisTool } from './ImageAnalysisTool/ImageAnalysisTool';
-export {
-  CuratorReviewScope,
-  curatorReviewScope,
-} from './AgentTool/CuratorReviewScope';
+export { CanvasTool } from '@openliri/tool-media';
+export { ImageGenerateTool } from '@openliri/tool-media';
+export { ImageAnalysisTool } from '@openliri/tool-media';
+export { CuratorReviewScope, curatorReviewScope } from '@openliri/tool-agent';
 export type {
   ExtendedReviewResult,
   FileReviewTarget,
   MemoryReviewTarget,
   ConfigReviewTarget,
   CuratorScopeConfig,
-} from './AgentTool/CuratorReviewScope';
+} from '@openliri/tool-agent';
 export type {
   ToolCall as RepairToolCall,
   ChatMessage as RepairChatMessage,
@@ -530,5 +527,5 @@ export {
   isSpawnPaused,
   getSpawnPauseState,
   resetSpawnPause,
-} from './AgentTool/spawnPause';
-export type { SpawnPauseState } from './AgentTool/spawnPause';
+} from '@openliri/tool-agent';
+export type { SpawnPauseState } from '@openliri/tool-agent';

@@ -1914,7 +1914,7 @@
       "code": [
         "packages/service/src/mcp/MCPTool.ts",
         "packages/service/src/services/mcp/McpToolWrapper.ts",
-        "app/src/tools/WebFetchTool/WebFetchTool.ts"
+        "packages/tool-web/src/tool-web/WebFetchTool/WebFetchTool.ts"
       ],
       "tests": [
         "app/tests/tools/toolCancellation.test.ts"
@@ -2585,7 +2585,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/tools/lsp/LSPClient.ts"
+        "packages/tool-code/src/tool-code/lsp/LSPClient.ts"
       ],
       "tests": [
         "app/tests/tools/lspRequestTimeout.test.ts"
@@ -2611,7 +2611,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/tools/lsp/LSPServer.ts"
+        "packages/tool-code/src/tool-code/lsp/LSPServer.ts"
       ],
       "tests": [
         "app/tests/tools/lspServerBunStdio.test.ts"
@@ -3313,8 +3313,8 @@
         "app/src/tools/sidecar/mediaSidecarLifecycle.ts",
         "app/src/tools/sidecar/mediaCapabilities.ts",
         "app/src/tools/sidecar/SidecarMediaAnalyzer.ts",
-        "app/src/tools/ImageAnalysisTool/ImageAnalysisTool.ts",
-        "app/src/tools/ImageGenerateTool/ImageInputRouter.ts"
+        "packages/tool-media/src/tool-media/ImageAnalysisTool.ts",
+        "packages/tool-media/src/tool-media/ImageGenerateTool/ImageInputRouter.ts"
       ],
       "tests": [
         "app/tests/tools/sidecar/mediaSidecarLifecycle.test.ts",
@@ -3995,7 +3995,7 @@
         "packages/kernel/src/core/spi/ToolJobSuspendService.ts",
         "app/src/tools/sidecar/mediaSidecar.ts",
         "app/src/tools/sidecar/SidecarMediaAnalyzer.ts",
-        "app/src/tools/ImageAnalysisTool/ImageAnalysisTool.ts",
+        "packages/tool-media/src/tool-media/ImageAnalysisTool.ts",
         "app/src/entrypoints/spiWiring.ts",
         "packages/query/src/query/budgetSuspend.ts",
         "app/tests/tools/fixtures/jobSupervisorChild.ts"
@@ -4287,11 +4287,11 @@
       "code": [
         "packages/infra/src/constants/common.ts",
         "packages/service/src/services/api/client.ts",
-        "app/src/tools/WebFetchTool/utils.ts",
-        "app/src/tools/WebFetchTool/WebFetchTool.ts",
-        "app/src/tools/WebSearchTool/WebSearchTool.ts",
-        "app/src/tools/WebSearchTool/providers.ts",
-        "app/src/tools/web/WebToolProvider.ts",
+        "packages/tool-web/src/tool-web/WebFetchTool/utils.ts",
+        "packages/tool-web/src/tool-web/WebFetchTool/WebFetchTool.ts",
+        "packages/tool-web/src/tool-web/WebSearchTool/WebSearchTool.ts",
+        "packages/tool-web/src/tool-web/WebSearchTool/providers.ts",
+        "packages/tool-web/src/tool-web/web/WebToolProvider.ts",
         "packages/service/src/services/voice/services/streamSTTProvider.ts",
         "app/src/cli/updater/GitHubReleaseFetcher.ts",
         "app/src/chat/services/ImageDownloader.ts",
@@ -5157,7 +5157,7 @@
         "app/src/commands/cron/Cron.ts",
         "app/src/commands/usagestats/usagestats.ts",
         "packages/tool-office/src/tool-office/DocGenerateTool.ts",
-        "app/src/tools/RecallMemoryTool/RecallMemoryTool.ts",
+        "packages/tool-agent/src/tool-agent/RecallMemoryTool/RecallMemoryTool.ts",
         "app/src/tools/SaveConversationTool/SaveConversationTool.ts",
         "app/src/ui/components/MessageBubble.tsx",
         "packages/infra/src/chronos/cron.ts",
@@ -5634,7 +5634,7 @@
         "packages/infra/src/memory/FrozenSnapshotService.ts",
         "packages/infra/src/media/image/TempFileManager.ts",
         "packages/infra/src/permission/ApprovedCommandRegistry.ts",
-        "app/src/tools/ImageGenerateTool/ImageGenerationCache.ts",
+        "packages/tool-media/src/tool-media/ImageGenerateTool/ImageGenerationCache.ts",
         "packages/service/src/services/file/FileStatsService.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
@@ -5736,7 +5736,7 @@
         "packages/infra/src/constants/common.ts",
         "app/src/ink/ink/line-width-cache.ts",
         "packages/tokenBudget/src/tokenBudget/ModelContextCache.ts",
-        "app/src/tools/ImageGenerateTool/ImageGenerationCache.ts",
+        "packages/tool-media/src/tool-media/ImageGenerateTool/ImageGenerationCache.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
@@ -5954,7 +5954,7 @@
       "code": [
         "packages/infra/src/chronos/maintenance/cleanup.ts",
         "packages/infra/src/media/image/TempFileManager.ts",
-        "app/src/tools/CanvasTool/CanvasTool.ts",
+        "packages/tool-media/src/tool-media/CanvasTool.ts",
         "packages/infra/src/permission/ApprovedCommandRegistry.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
@@ -6588,9 +6588,9 @@
         "app/src/ai/models/orphanModels.ts",
         "app/src/infrastructure/http/handlers/chat-handlers.ts",
         "packages/service/src/session/key/LegacyKeyAdapter.ts",
-        "app/src/tools/VideoGenerateTool/VideoGenerateTool.ts",
-        "app/src/tools/ImageGenerateTool/ImageGenerationRouter.ts",
-        "app/src/tools/ImageGenerateTool/ImageGenerateTool.ts",
+        "packages/tool-media/src/tool-media/VideoGenerateTool/VideoGenerateTool.ts",
+        "packages/tool-media/src/tool-media/ImageGenerateTool/ImageGenerationRouter.ts",
+        "packages/tool-media/src/tool-media/ImageGenerateTool/ImageGenerateTool.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
@@ -7641,7 +7641,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/tools/AgentTool/constants.ts",
+        "packages/tool-agent/src/tool-agent/AgentTool/constants.ts",
         "app/src/tools/index.ts",
         "app/src/commands/tools/ai/agent.ts",
         "app/src/commands/tools/ai/agents.ts"
@@ -7651,7 +7651,7 @@
       ],
       "changelog": [],
       "reopenWhen": "① 若 `BUILTIN_AGENTS` 新增/删除内置类型，CLI 的 `--type` 校验与帮助文本会**自动**跟随（这正是本项的目的）；若某次不希望跟随（如需保留旧类型做兼容），须显式引入各自的兼容白名单并说明理由；② 若 CLI 要支持**运行时注册**的自定义 Agent 类型（当前不支持，见 `com…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES）",
-      "notes": "① **判据**：两处内联数组**取值与顺序完全相同**（`general, explore, plan, verification, code-guide, statusline-setup`）⇒ 属**同值同事实**（B5-2 惯例：合一，不消歧）。② **真源定位（CS01）**：`app/src/tools/…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES）"
+      "notes": "① **判据**：两处内联数组**取值与顺序完全相同**（`general, explore, plan, verification, code-guide, statusline-setup`）⇒ 属**同值同事实**（B5-2 惯例：合一，不消歧）。② **真源定位（CS01）**：`packages/tool-…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES）"
     },
     {
       "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS",
@@ -8023,7 +8023,7 @@
       ],
       "changelog": [],
       "reopenWhen": "① **回滚路径**：本删除落**独立提交** `e464d0655`（1 file, -1），`git revert e464d0655` 即可整笔回滚（CD06）；② 若日后 fork 子代理要改用 XML 包裹标签（当前活实现既作 `[fork-subagent]` 检测标记、又作包裹标签），应在 `ForkS…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE）",
-      "notes": "① **判据（为何删除而非消歧）**：两处**同名、同义、异值** —— `app/src/constants/xml.ts` = `'fork-boilerplate'`（全仓**仅声明处**出现一次：`fork-boilerplate` 字符串在整仓搜索中仅命中该行 ⇒ 死副本）；`app/src/tools/A…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE）"
+      "notes": "① **判据（为何删除而非消歧）**：两处**同名、同义、异值** —— `app/src/constants/xml.ts` = `'fork-boilerplate'`（全仓**仅声明处**出现一次：`fork-boilerplate` 字符串在整仓搜索中仅命中该行 ⇒ 死副本）；`packages/tool-a…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE）"
     },
     {
       "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-68-MODEL-SENTINEL-CONTRACT",
@@ -10507,7 +10507,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/tools/ReadProjectFileTool/ReadProjectFileTool.ts",
+        "packages/tool-workspace/src/tool-workspace/ReadProjectFileTool/ReadProjectFileTool.ts",
         "client/src/components/settings/RouterConfigPanel.tsx",
         "client/src/i18n/locales/zh/settings.ts",
         "client/src/i18n/locales/en/settings.ts"
@@ -11146,7 +11146,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/tools/AgentTool/strategies/VerificationStrategy.ts",
+        "packages/tool-agent/src/tool-agent/AgentTool/strategies/VerificationStrategy.ts",
         "packages/infra/src/utils/auth.ts",
         "packages/vfs/src/vfs/drivers/DevDocsDriver.ts",
         "packages/vfs/src/vfs/drivers/McpResourcesDriver.ts",
@@ -11765,8 +11765,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/tools/AgentTool/swarmPath.ts",
-        "app/src/tools/AgentTool/AgentTool.ts",
+        "packages/tool-agent/src/tool-agent/AgentTool/swarmPath.ts",
+        "packages/tool-agent/src/tool-agent/AgentTool/AgentTool.ts",
         "scripts/layer-exceptions.json"
       ],
       "tests": [],
@@ -13521,7 +13521,7 @@
       "code": [
         "packages/query/src/query/ReActLoop.ts",
         "packages/query/src/query/index.ts",
-        "app/src/tools/AgentTool/SubAgentEngine.ts"
+        "packages/tool-agent/src/tool-agent/AgentTool/SubAgentEngine.ts"
       ],
       "tests": [
         "app/tests/tools/AgentTool/subAgentCircuitBreaker.test.ts"
@@ -13833,8 +13833,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/tools/CreateProjectTool/projectName.ts",
-        "app/src/tools/CreateProjectTool/CreateProjectTool.ts"
+        "packages/tool-workspace/src/tool-workspace/CreateProjectTool/projectName.ts",
+        "packages/tool-workspace/src/tool-workspace/CreateProjectTool/CreateProjectTool.ts"
       ],
       "tests": [
         "app/tests/tools/createProjectIdentity.test.ts"
@@ -13862,7 +13862,7 @@
       "code": [
         "app/src/chat/orchestrator/streamMessageFlow.ts",
         "packages/infra/src/state/app/AppLifecycle.ts",
-        "app/src/tools/SessionsTool/SessionsTool.ts"
+        "packages/tool-session/src/tool-session/SessionsTool/SessionsTool.ts"
       ],
       "tests": [
         "app/tests/chat/orchestrator/sessionLookupInjection.test.ts",
@@ -14834,7 +14834,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/tools/ImageGenerateTool/ImageSafetyFilter.ts"
+        "packages/tool-media/src/tool-media/ImageGenerateTool/ImageSafetyFilter.ts"
       ],
       "tests": [
         "app/tests/tools/imageSafetyFilter.test.ts"
@@ -16572,7 +16572,7 @@
         "app/src/runtime/tenantPurge.ts",
         "app/src/infrastructure/http/handlers/trace-handlers.ts",
         "app/src/commands/builtin/trace-recording/TraceRecording.ts",
-        "app/src/tools/TraceRecordingTool/TraceRecordingTool.ts",
+        "packages/tool-task/src/tool-task/TraceRecordingTool/TraceRecordingTool.ts",
         "app/tsconfig.json",
         "packages/infra/package.json"
       ],

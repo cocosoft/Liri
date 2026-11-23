@@ -17,7 +17,7 @@ import {
   McpAuthTool,
   type McpAuthManagerLike,
   type McpServerManagerLike,
-} from '../../src/tools/McpAuthTool/McpAuthTool';
+} from '@openliri/tool-mcp';
 import { deriveOAuthConfig } from '@openliri/service/services/mcp/auth/deriveOAuthConfig';
 import { deriveToolRiskClass } from '../../src/tools/toolRiskClass';
 import type { MCPServerConfig } from '@openliri/service/services/mcp/types';

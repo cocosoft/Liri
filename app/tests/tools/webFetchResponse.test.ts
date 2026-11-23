@@ -7,7 +7,7 @@
  * 覆盖此前只能整体跑工具才能验证的三条判据：JSON 美化、文本原样、超长截断（含原始长度标注）。
  */
 import { describe, it, expect } from 'bun:test';
-import { readResponseContent } from '@modules/tools/WebFetchTool/webFetchResponse';
+import { readResponseContent } from '@openliri/tool-web/WebFetchTool/webFetchResponse';
 
 /** 构造一个最小响应（`readResponseContent` 只需 headers/json/text） */
 function makeResponse(body: string, contentType?: string): Response {

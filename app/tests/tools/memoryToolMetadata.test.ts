@@ -9,10 +9,10 @@
  * 本用例锁住：只读判据 + 显式效果声明（`idempotent` / `sideEffect`）。
  */
 import { describe, expect, it } from 'bun:test';
-import { MemoryGetTool } from '../../src/tools/memory/MemoryGetTool';
-import { MemoryTool } from '../../src/tools/memory/MemoryTool';
+import { MemoryGetTool } from '@openliri/tool-agent/memory/MemoryGetTool';
+import { MemoryTool } from '@openliri/tool-agent/memory/MemoryTool';
 import type { MemoryManagerImpl } from '@openliri/infra/memory/MemoryManager';
-import type { SearchTool } from '../../src/tools/memory/SearchTool';
+import type { SearchTool } from '@openliri/tool-agent/memory/SearchTool';
 
 // 只测元数据，不触达依赖 —— 用最小替身即可
 const searchToolStub = {} as SearchTool;

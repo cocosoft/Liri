@@ -13,8 +13,8 @@
  */
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import type { AIProvider, ChatResponse } from '@modules/ai';
-import { SubAgentEngine } from '../../../src/tools/AgentTool/SubAgentEngine';
-import { resetAgentRunLedger } from '../../../src/tools/AgentTool/AgentRunLedger';
+import { SubAgentEngine } from '@openliri/tool-agent/AgentTool/SubAgentEngine';
+import { resetAgentRunLedger } from '@openliri/tool-agent/AgentTool/AgentRunLedger';
 import type { Tool } from '../../../src/tools/types/Tool';
 
 const SID = 'sess-p21';

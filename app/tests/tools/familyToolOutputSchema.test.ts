@@ -14,14 +14,14 @@
  */
 
 import { describe, expect, it } from 'bun:test';
-import { createCronFamilyTool } from '../../src/tools/families/CronFamilyTool.js';
-import { createWorktreeFamilyTool } from '../../src/tools/families/WorktreeFamilyTool.js';
-import { createTaskListFamilyTool } from '../../src/tools/families/TaskListFamilyTool.js';
-import { createSleepFamilyTool } from '../../src/tools/families/SleepFamilyTool.js';
-import { createSkillFamilyTool } from '../../src/tools/families/SkillFamilyTool.js';
-import { createVfsFamilyTool } from '../../src/tools/families/VfsFamilyTool.js';
-import { mergeFamilyOutput } from '../../src/tools/families/familyTool.js';
-import type { FamilyMember } from '../../src/tools/families/familyTool.js';
+import { createCronFamilyTool } from '@openliri/tool-task';
+import { createWorktreeFamilyTool } from '@openliri/tool-workspace';
+import { createTaskListFamilyTool } from '@openliri/tool-task';
+import { createSleepFamilyTool } from '@openliri/tool-task';
+import { createSkillFamilyTool } from '@openliri/tool-agent';
+import { createVfsFamilyTool } from '@openliri/tool-workspace';
+import { mergeFamilyOutput } from '@openliri/tool-task';
+import type { FamilyMember } from '@openliri/tool-task';
 
 type Schema = Record<string, unknown>;
 const props = (s: Schema | undefined): Record<string, unknown> =>

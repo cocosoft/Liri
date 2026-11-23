@@ -13,7 +13,7 @@ import { describe, expect, it } from 'bun:test';
 
 import { deriveFromLegacyEffects } from '../../src/tools/toolCapability';
 import { BaseTool } from '../../src/tools/BaseTool';
-import { WebFetchTool } from '../../src/tools/WebFetchTool/WebFetchTool';
+import { WebFetchTool } from '@openliri/tool-web';
 import { findToolsMissingCapability } from '../../scripts/lint-tool-schema';
 
 const NONE = { idempotent: true, sideEffect: 'none' } as const;

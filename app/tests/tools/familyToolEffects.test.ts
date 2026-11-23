@@ -21,11 +21,11 @@ import {
   isBlockedForUntrustedOrigin,
   TOOL_EFFECTS,
 } from '../../src/tools/toolEffects.js';
-import { createCronFamilyTool } from '../../src/tools/families/CronFamilyTool.js';
-import { createTaskListFamilyTool } from '../../src/tools/families/TaskListFamilyTool.js';
-import { createVfsFamilyTool } from '../../src/tools/families/VfsFamilyTool.js';
-import { createSkillFamilyTool } from '../../src/tools/families/SkillFamilyTool.js';
-import type { FamilyTool } from '../../src/tools/families/familyTool.js';
+import { createCronFamilyTool } from '@openliri/tool-task';
+import { createTaskListFamilyTool } from '@openliri/tool-task';
+import { createVfsFamilyTool } from '@openliri/tool-workspace';
+import { createSkillFamilyTool } from '@openliri/tool-agent';
+import type { FamilyTool } from '@openliri/tool-task';
 
 const families: Array<[string, FamilyTool]> = [
   ['cron', createCronFamilyTool()],

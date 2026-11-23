@@ -100,6 +100,10 @@ export const DEFAULT_SOURCE_DIRS: readonly string[] = [
   'app/src/chat',
   'packages/query/src/query',
   'app/src/tools',
+  // H 档（2026-11-23）：`tools/AgentTool` 迁入 `packages/tool-agent` 后，其纯函数候选
+  // （如 `agentDisplay.ts` 的 `formatAgentTiming`）仍需可被发现 —— 否则对应 A7 规格的
+  // "资格线"前提会因搬目录而消失（AR-3：门禁不得因搬目录而失焦）。
+  'packages/tool-agent/src/tool-agent/AgentTool',
 ];
 
 /** 扫描时跳过的目录名 */

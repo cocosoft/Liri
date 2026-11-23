@@ -12,7 +12,7 @@ import {
   validateLocation,
   validatePosition,
   validateRange,
-} from '../../src/tools/lsp/validation';
+} from '@openliri/tool-code/lsp/validation';
 
 const pos = { line: 0, character: 3 };
 const range = { start: pos, end: { line: 2, character: 0 } };

@@ -42,7 +42,7 @@ import {
   SidecarLspTool,
   SIDECAR_LSP_LANDLOCK_APPLICABILITY,
 } from '../../../src/tools/sidecar/SidecarLspTool';
-import { LSPToolAdapter } from '../../../src/tools/adapters/LSPToolAdapter';
+import { LSPToolAdapter } from '@openliri/tool-code';
 import { getBuiltinToolLoaders } from '../../../src/tools/utils/ToolManagerUtils';
 import {
   createToolRegistry,

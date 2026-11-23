@@ -1,0 +1,20 @@
+{
+  "name": "@openliri/tool-session",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liri session 工具包 —— 会话与协作域：sessions / sessions_yield / send_message / broadcast / channel / team_create / team_delete / list_peers / tungsten。层归属 app：可依赖 app / service / infra / core；entry / ui 不得依赖本包，包内不得依赖 entry / ui 层（R36）。注册动作仍留 app 的 builtinToolRegistry。",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/tool-session/index.ts",
+      "import": "./src/tool-session/index.ts"
+    },
+    "./*": {
+      "types": "./src/tool-session/*.ts",
+      "import": "./src/tool-session/*.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p ../../app/tsconfig.json"
+  }
+}

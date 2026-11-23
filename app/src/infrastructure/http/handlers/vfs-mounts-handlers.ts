@@ -40,6 +40,8 @@ import { handleError } from '@openliri/infra/error';
 import { mcpConnectionManager } from '@openliri/service/services/mcp/MCPConnectionManager';
 import { readBody, json } from './handler-utils';
 import type { VfsConfig, VfsMountConfigEntry } from '@openliri/infra/config';
+// 2026-11-24（R00-003 下沉）：生效计划推导在 infra（service 层可静态引用）
+import { buildMountPlan } from '@openliri/infra/config/vfsMountPlan';
 
 const logger = getLogger('http:vfsMounts');
 
@@ -171,10 +173,9 @@ export async function handleGetVfsMounts(
     //  `dev_docs/error_repairs/预存错误与待处理问题.md`「VFS 桶循环依赖 TDZ」。）
     const { vfsMountRegistry } =
       await import('@modules/vfs/VfsMountRegistry.js');
-    const { buildMountPlan } =
-      await import('../../../entrypoints/vfsWiring.js');
 
     // 复用 buildMountPlan 推导"生效计划"（禁止复制其推导逻辑）
+    // 2026-11-24（R00-003 下沉）：纯推导已移到 infra ⇒ 顶部静态引用（原动态导入 entrypoints）
     const plan = buildMountPlan(configManager.getValue<VfsConfig>('vfs'));
 
     const mounts: VfsMountView[] = [];
@@ -242,8 +243,7 @@ export async function handlePutVfsMounts(
     configManager.setConfigValue('vfs', { mounts } satisfies VfsConfig);
 
     // warnings 复用 buildMountPlan 的跳过口径（与 GET 同源，禁止另行复制推导）
-    const { buildMountPlan } =
-      await import('../../../entrypoints/vfsWiring.js');
+    // 2026-11-24（R00-003 下沉）：同 GET —— 静态引用 infra，不再动态导入 entrypoints。
     const warnings = [
       ...buildMountPlan({ mounts } satisfies VfsConfig).warnings,
     ];

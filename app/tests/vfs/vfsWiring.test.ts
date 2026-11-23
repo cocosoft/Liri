@@ -33,10 +33,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import {
-  buildMountPlan,
-  registerVfsMounts,
-} from '../../src/entrypoints/vfsWiring.js';
+import { registerVfsMounts } from '../../src/entrypoints/vfsWiring.js';
+// 2026-11-24（R00-003 下沉）：纯推导 `buildMountPlan` 唯一事实源在 infra
+import { buildMountPlan } from '@openliri/infra/config/vfsMountPlan';
 import {
   ConfigManager,
   getConfigManager,

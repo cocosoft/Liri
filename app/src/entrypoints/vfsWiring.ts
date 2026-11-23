@@ -37,82 +37,10 @@
 
 import { getLogger } from '@openliri/infra/monitoring';
 import type { VfsConfig } from '@openliri/infra/config';
+// 2026-11-24（R00-003 下沉）：纯推导已移到 infra `config/vfsMountPlan`（service 层 handler 需静态引用）
+import { buildMountPlan } from '@openliri/infra/config/vfsMountPlan';
 
 const logger = getLogger('vfs:wiring');
-
-/**
- * 从配置构建的挂载计划（`buildMountPlan` 纯函数产物）。
- *
- * `warnings` 不在此处打印（保持纯函数可单测）—— 由 `registerVfsMounts` 逐条记 WARN。
- */
-export interface VfsMountPlan {
-  /** 是否注册 `dev_docs` 挂载点 */
-  readonly registerDevDocs: boolean;
-  /**
-   * `mcp` 挂载点的允许服务器清单：
-   * - `null` ⇒ **不注册** `mcp`（显式配置了 `mounts` 但无有效 mcp 条目）；
-   * - `undefined` ⇒ 注册且**不限定** server（未配置 `vfs` 时的既有行为）；
-   * - 数组 ⇒ 注册且仅允许清单内 server。
-   */
-  readonly mcpAllowedServers: readonly string[] | null | undefined;
-  /** 被跳过的配置条目说明（装配面据此记 WARN，**不**静默降级） */
-  readonly warnings: readonly string[];
-}
-
-/**
- * 从 `vfs` 配置构建挂载计划（**纯函数**，便于单测）。
- *
- * - 未配置（无 `vfs` 段，或 `mounts` 缺省）⇒ **保持现状**：`dev_docs` + `mcp`（不限 server）；
- * - 已配置 `mounts` ⇒ **严格按清单**：未知 scheme / `mcp` 缺 `server` ⇒ 跳过 + WARN。
- */
-export function buildMountPlan(vfs: VfsConfig | undefined): VfsMountPlan {
-  const mounts = vfs?.mounts;
-  // 未配置 ⇒ 行为零变更（不破坏既有只读试点）
-  if (!mounts) {
-    return {
-      registerDevDocs: true,
-      mcpAllowedServers: undefined,
-      warnings: [],
-    };
-  }
-
-  const warnings: string[] = [];
-  let registerDevDocs = false;
-  const mcpServers: string[] = [];
-
-  for (const entry of mounts) {
-    // 配置来自用户 JSON ⇒ 运行时按 string 校验（类型联合不阻止非法值）
-    const scheme: string = entry.scheme;
-    if (scheme !== 'dev_docs' && scheme !== 'mcp') {
-      warnings.push(
-        `vfs.mounts 中的未知 scheme "${String(entry.scheme)}"，已跳过该条目`
-      );
-      continue;
-    }
-    // `enabled` 缺省视为 true；显式 false ⇒ 用户主动停用，静默跳过
-    if (entry.enabled === false) continue;
-
-    if (scheme === 'dev_docs') {
-      registerDevDocs = true;
-      continue;
-    }
-
-    // scheme === 'mcp'：必须有非空 server
-    const server = typeof entry.server === 'string' ? entry.server.trim() : '';
-    if (!server) {
-      warnings.push('vfs.mounts 中的 mcp 条目缺少 server，已跳过该条目');
-      continue;
-    }
-    mcpServers.push(server);
-  }
-
-  return {
-    registerDevDocs,
-    // 允许清单为空 ⇒ 不注册 mcp（不回退为"不限 server"）
-    mcpAllowedServers: mcpServers.length > 0 ? mcpServers : null,
-    warnings,
-  };
-}
 
 /**
  * 注册 VFS 挂载点（按 `~/.pyapp/config.json` 的 `vfs` 段）。

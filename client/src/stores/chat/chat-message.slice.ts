@@ -28,7 +28,10 @@ import type {
 import { sendMessageImpl } from "./chat-message-send";
 import { streamMessageImpl } from "./chat-message-stream";
 import { setMessagesImpl } from "./chat-message-set-messages";
-import { clearToolResultCache } from "./chat-message-shared";
+import {
+  clearToolResultCache,
+  markApprovalResolvedInMessages,
+} from "./chat-message-shared";
 import {
   regenerateMessageImpl,
   retryFromErrorImpl,
@@ -355,6 +358,18 @@ export const createMessageSlice: StateCreator<
         return;
       }
       setMessagesImpl(messageSet, messageGet, [...current, ...messages]);
+    },
+
+    /**
+     * 2026-11-24（真机 `session_mwrf18pu00456e0f2b`）：审批提交成功后**立即**在本地落定该卡。
+     *
+     * 只改结构化字段（CS02）：卡块 `pending → replied`；工具卡清掉 `pendingApproval / inboxId`
+     * ⇒ `hasPendingApproval` 立刻停止判"在等审批"，不再等 SSE 回刷。
+     * 纯逻辑见 `markApprovalResolvedInMessages`。
+     */
+    markApprovalResolved: (inboxId: string) => {
+      const resolved = markApprovalResolvedInMessages(get().messages, inboxId);
+      if (resolved.changed) set({ messages: resolved.messages });
     },
 
     setHasOlder: (hasOlder: boolean) => {

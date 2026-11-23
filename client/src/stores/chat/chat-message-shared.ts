@@ -319,6 +319,62 @@ export function hasPendingApproval(
   return false;
 }
 
+/**
+ * 2026-11-24（真机 `session_mwrf18pu00456e0f2b`）：审批提交成功后，把该卡在消息里**就地落定**。
+ *
+ * 现场：用户点「批准」后后端已 `replied`，但 store 里的合成块仍是 `pending`
+ * ⇒ `hasPendingApproval`（任务卡 / 状态栏）在整个续跑期间继续显示「等待审批」，
+ * 直到 SSE `inbox:update` 回刷才可能纠正（长回合 / 刷新竞态下会一直挂着）。
+ *
+ * 只改结构化字段（CS02）：卡块 `pending → replied`；对应工具卡清掉 `pendingApproval / inboxId`
+ * （就地审批按钮随之收起）。返回新数组 + 是否有改动（无改动 ⇒ 调用方不触发 set，避免无谓重渲染）。
+ */
+export function markApprovalResolvedInMessages<
+  M extends { blocks?: MessageBlock[] },
+>(
+  messages: ReadonlyArray<M>,
+  inboxId: string,
+): { messages: M[]; changed: boolean } {
+  if (!inboxId) return { messages: [...messages], changed: false };
+  let changed = false;
+  const next = messages.map((message) => {
+    let blockChanged = false;
+    const blocks = (message.blocks ?? []).map((block) => {
+      if (
+        block.type === "inbox" &&
+        block.inboxData?.inboxId === inboxId &&
+        block.inboxData.status === "pending"
+      ) {
+        blockChanged = true;
+        return {
+          ...block,
+          inboxData: { ...block.inboxData, status: "replied" as const },
+        };
+      }
+      if (
+        block.type === "tool_call" &&
+        block.toolCall?.inboxId === inboxId &&
+        block.toolCall.pendingApproval === true
+      ) {
+        blockChanged = true;
+        return {
+          ...block,
+          toolCall: {
+            ...block.toolCall,
+            pendingApproval: undefined,
+            inboxId: undefined,
+          },
+        };
+      }
+      return block;
+    });
+    if (!blockChanged) return message;
+    changed = true;
+    return { ...message, blocks };
+  });
+  return { messages: next, changed };
+}
+
 /** 清理全量工具结果缓存（setMessages 加载新会话前调用，防止内存泄漏） */
 export function clearToolResultCache(): void {
   toolResultFullCache.clear();

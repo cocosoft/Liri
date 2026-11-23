@@ -26,6 +26,7 @@ import {
   dedupeToolCallBlocks,
   hasPendingApproval,
   hasPendingApprovalCard,
+  markApprovalResolvedInMessages,
   parseApprovalSignal,
   preferToolResult,
   resolveApprovalFlags,
@@ -452,5 +453,74 @@ describe("collectApprovalInboxIds / resolvedApprovalInboxIds（2026-11-17）", (
     }>;
     expect(resolvedApprovalInboxIds(second).has("z")).toBe(true);
     expect(resolvedApprovalInboxIds(second).has("a")).toBe(false);
+  });
+});
+
+/**
+ * 2026-11-24（真机 `session_mwrf18pu00456e0f2b`）：用户点「批准」后，store 里的合成块仍是
+ * `pending` ⇒ 续跑期间 `hasPendingApproval` 一直判"在等审批"。本函数负责就地落定。
+ */
+describe("markApprovalResolvedInMessages（审批提交后即时对账）", () => {
+  const inbox = (
+    inboxId: string,
+    status: "pending" | "replied" | "expired",
+  ): MessageBlock =>
+    ({
+      id: `blk_${inboxId}_${status}`,
+      type: "inbox",
+      content: "",
+      inboxData: {
+        inboxId,
+        type: "approval",
+        title: "x",
+        content: "",
+        status,
+        actions: [],
+      },
+    }) as MessageBlock;
+
+  const toolPending = (inboxId: string): MessageBlock =>
+    ({
+      id: `blk_tool_${inboxId}`,
+      type: "tool_call",
+      content: "bash",
+      toolCallId: "call-1",
+      toolCall: {
+        id: "call-1",
+        name: "bash",
+        arguments: {},
+        pendingApproval: true,
+        inboxId,
+      },
+    }) as MessageBlock;
+
+  it("卡块 pending → replied，工具卡清掉等待标记；hasPendingApproval 立即转 false", () => {
+    const messages = [
+      { role: "assistant", blocks: [inbox("box-1", "pending"), toolPending("box-1")] },
+    ] as Array<{ role?: string; blocks?: MessageBlock[] }>;
+    expect(hasPendingApproval(messages)).toBe(true);
+
+    const { messages: next, changed } = markApprovalResolvedInMessages(
+      messages,
+      "box-1",
+    );
+    expect(changed).toBe(true);
+
+    const blocks = next[0].blocks ?? [];
+    expect(blocks[0].inboxData?.status).toBe("replied");
+    expect(blocks[1].toolCall?.pendingApproval).toBeUndefined();
+    expect(blocks[1].toolCall?.inboxId).toBeUndefined();
+    expect(hasPendingApproval(next)).toBe(false);
+  });
+
+  it("非目标 inboxId / 已是终态 ⇒ 不改动（避免无谓重渲染）", () => {
+    const messages = [
+      { role: "assistant", blocks: [inbox("box-2", "pending")] },
+    ] as Array<{ role?: string; blocks?: MessageBlock[] }>;
+    expect(markApprovalResolvedInMessages(messages, "other").changed).toBe(false);
+    const replied = [
+      { role: "assistant", blocks: [inbox("box-2", "replied")] },
+    ] as Array<{ role?: string; blocks?: MessageBlock[] }>;
+    expect(markApprovalResolvedInMessages(replied, "box-2").changed).toBe(false);
   });
 });

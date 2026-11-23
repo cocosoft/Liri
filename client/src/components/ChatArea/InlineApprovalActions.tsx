@@ -21,6 +21,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { http } from "../../services/httpClient";
 import { useToastStore } from "../../stores/toastStore";
+import { useChatStore } from "../../stores/chat";
 import {
   inboxReplyNotAppliedReason,
   isInboxReplyApplied,
@@ -115,6 +116,8 @@ export default function InlineApprovalActions({ inboxId }: Props) {
         return;
       }
       setDone(value);
+      // 2026-11-24：审批已落定 ⇒ 立即在本地纠正卡/工具卡的等待态（不等 SSE 回刷）
+      useChatStore.getState().markApprovalResolved(inboxId);
       addToast("success", t(TIER_LABEL_KEYS[value]));
     } catch (e) {
       addToast("error", e instanceof Error ? e.message : t("common.failed"));

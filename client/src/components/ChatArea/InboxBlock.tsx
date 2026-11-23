@@ -10,6 +10,7 @@ import type { InboxBlockData } from "../../types";
 import { http } from "../../services/httpClient";
 import { sseService } from "../../services/sseService";
 import { useToastStore } from "../../stores/toastStore";
+import { useChatStore } from "../../stores/chat";
 import {
   inboxReplyNotAppliedReason,
   isInboxReplyApplied,
@@ -175,6 +176,11 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
       }
       const count = (res.data as { resolved?: string[] }).resolved?.length ?? 0;
       setStatus("replied");
+      // 2026-11-24：批量审批已落定 ⇒ 逐条在本地纠正等待态（不等 SSE 回刷）
+      for (const resolvedId of (res.data as { resolved?: string[] }).resolved ??
+        []) {
+        useChatStore.getState().markApprovalResolved(resolvedId);
+      }
       addToast("success", t("chat.inboxApproveAllToast", { count }));
       onResolved?.();
       // 续跑完成由后端 `session:continued` 驱动刷新（与单卡批准同源）
@@ -207,6 +213,8 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
         return;
       }
       setStatus("replied");
+      // 2026-11-24：审批已落定 ⇒ 立即在本地纠正等待态（不等 SSE 回刷）
+      useChatStore.getState().markApprovalResolved(data.inboxId);
       const label = REPLY_LABEL_KEYS[reply]
         ? t(REPLY_LABEL_KEYS[reply])
         : t("chat.reply");

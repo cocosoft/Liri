@@ -82,6 +82,14 @@ export interface MessageSlice {
    * 与 `setMessages` 的区别：保留已加载的更早历史与分页游标，不整表替换。
    */
   mergeRefreshedMessages: (messages: Message[]) => void;
+  /**
+   * 2026-11-24（真机 `session_mwrf18pu00456e0f2b`）：审批提交成功后**立即**在本地把该卡落定。
+   *
+   * 后端已 `replied`，但 store 里的合成块仍是 `pending` ⇒ `hasPendingApproval`
+   * （任务卡 / 状态栏）在整个续跑期间持续显示「等待审批」。按 `inboxId` 就地纠正，
+   * 不依赖 SSE `inbox:update` 回刷的时序（长回合 / 刷新竞态下会一直挂着）。
+   */
+  markApprovalResolved: (inboxId: string) => void;
   sendMessage: (
     content: string,
     sessionId?: string,

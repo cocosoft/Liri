@@ -211,6 +211,9 @@ export async function resolveInboxApproval(
   await applyRejectionSideEffects(current, reply, selectedOption, options);
   await recordApprovalDecision(current, reply, selectedOption);
   await resumePdcaIfApplicable(current, reply, selectedOption);
+  // 2026-11-24（真机 `session_mwrf18pu00456e0f2b`）：审批已落定 ⇒ 会话不再"等用户操作"。
+  // 不能只靠续跑去复位状态：续跑可能被在飞守卫延后（有界 120s）甚至不启动。
+  await releaseSessionAfterApproval(current);
 
   // 通知旁路（企业审批镜像据此取消自身请求）
   for (const listener of resolvedListeners) {
@@ -869,6 +872,62 @@ export async function abortPdcaAfterExpiry(item: InboxItem): Promise<void> {
       taskId,
       inboxId: item.id,
       error: String(err),
+    });
+  }
+}
+
+/**
+ * 2026-11-24（真机 `session_mwrf18pu00456e0f2b`）：审批**已落定** ⇒ 会话立刻退出「等待审批」。
+ *
+ * 背景（用户原话：「命令审批不是已经提交了吗？为什么还处在待审批状态？该问题多次发生。」）：
+ * `requires_action` 的语义是"**等用户操作**"，用户处理完最后一张卡后该状态即不成立。
+ * 但原实现只在两处收回：
+ *   ① `resumeStream` 的 `resumeSession`（可能先被在飞守卫延后 120s，或根本没启动）；
+ *   ② 审批**过期**时的 `convergeSessionAfterApprovalExpiry`。
+ * ⇒ 批准成功、放行缓存已写入，侧栏/状态栏仍可能长时间显示「待审批」。
+ *
+ * 口径与过期收口**完全一致**（同一 `pending` 判据）：
+ * - 同会话仍有 pending 审批 ⇒ 不收回（还有其他卡可处理）；
+ * - PDCA 步骤卡（`source='pdca'` / `metadata.pdcaTaskId`）⇒ 不在此处理（由编排器收口）；
+ * - 只改持久化状态 + 广播 `session:meta_updated`（前端据此刷新徽标）；**不执行、不重放工具**。
+ */
+export async function releaseSessionAfterApproval(
+  item: InboxItem
+): Promise<void> {
+  if (!item.sessionId || item.type !== 'approval') return;
+  if (item.source === 'pdca' || typeof item.metadata?.pdcaTaskId === 'string') {
+    return;
+  }
+
+  try {
+    const remaining = await inboxManager.list({
+      sessionId: item.sessionId,
+      status: INBOX_STATUS_PENDING,
+      limit: 1,
+    });
+    if (remaining.total > 0) return;
+
+    const gateway = getRuntimeCoreApi()?.chatManager?.getSessionGateway?.();
+    if (!gateway) return;
+    const stored = await gateway.getSession(item.sessionId);
+    if (!stored || stored.status !== SessionStatus.REQUIRES_ACTION) return;
+
+    stored.status = SessionStatus.ACTIVE;
+    await gateway.updateSession(stored);
+    logger.info('审批已落定：会话状态收回 active', {
+      sessionId: item.sessionId,
+      inboxId: item.id,
+    });
+
+    const { broadcastEvent } = await import(
+      '@modules/infrastructure/http/handlers/handler-utils'
+    );
+    broadcastEvent('session:meta_updated', { id: item.sessionId });
+  } catch (err) {
+    await handleError(err, {
+      module: 'runtime:inboxApproval',
+      action: 'releaseSessionAfterApproval',
+      context: { sessionId: item.sessionId, inboxId: item.id },
     });
   }
 }

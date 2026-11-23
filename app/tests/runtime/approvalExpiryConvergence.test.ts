@@ -28,8 +28,11 @@ import type { InboxItem } from '@openliri/service/runtime/InboxManager';
 const dataDir = mkdtempSync(join(tmpdir(), 'approval-expiry-converge-'));
 process.env.LIRI_DATA_DIR = dataDir;
 
-const { convergeSessionAfterApprovalExpiry, reconcileStuckApprovalSessions } =
-  await import('@openliri/service/runtime/inboxApproval');
+const {
+  convergeSessionAfterApprovalExpiry,
+  reconcileStuckApprovalSessions,
+  releaseSessionAfterApproval,
+} = await import('@openliri/service/runtime/inboxApproval');
 const { normalizeApprovalTtlMs, APPROVAL_TTL_MS } =
   await import('@openliri/service/runtime/InboxManager');
 const { registerRuntimeCoreApiProvider } =
@@ -164,6 +167,50 @@ describe('convergeSessionAfterApprovalExpiry：过期 ⇒ 持久化状态收回 
         source: 'permission',
         metadata: { kind: 'workspace-scope', targetPath: 'e:/tmp' },
       })
+    );
+
+    expect(state.updates).toEqual([]);
+  });
+});
+
+describe('releaseSessionAfterApproval：审批已落定 ⇒ 立刻退出「等待审批」（2026-11-24）', () => {
+  it('requires_action 且同会话无其他 pending 审批 ⇒ 收回 active', async () => {
+    const state = stubGateway([
+      { id: 'sess-expiry-1', status: SessionStatus.REQUIRES_ACTION },
+    ]);
+
+    await releaseSessionAfterApproval(
+      expiredApprovalItem({ status: 'replied' })
+    );
+
+    expect(state.updates).toEqual([
+      { id: 'sess-expiry-1', status: SessionStatus.ACTIVE },
+    ]);
+  });
+
+  it('PDCA 步骤卡 ⇒ 不在本函数收口（由编排器负责）', async () => {
+    const state = stubGateway([
+      { id: 'sess-expiry-1', status: SessionStatus.REQUIRES_ACTION },
+    ]);
+
+    await releaseSessionAfterApproval(
+      expiredApprovalItem({
+        status: 'replied',
+        source: 'pdca',
+        metadata: { pdcaTaskId: 'pdca-1', stepId: 'step-1' },
+      })
+    );
+
+    expect(state.updates).toEqual([]);
+  });
+
+  it('已是 active ⇒ 幂等不重复落盘', async () => {
+    const state = stubGateway([
+      { id: 'sess-expiry-1', status: SessionStatus.ACTIVE },
+    ]);
+
+    await releaseSessionAfterApproval(
+      expiredApprovalItem({ status: 'replied' })
     );
 
     expect(state.updates).toEqual([]);

@@ -177,6 +177,16 @@ export interface CoreApiAppDeps {
   createAutoCompactService: () => unknown;
   /** ai 的全局 embedding 管理器（同步门面用） */
   globalEmbeddingManager: unknown;
+  /**
+   * 命令端口工厂（2026-11-24，R00-003 收口）：`commands` 域实现留在 app 层，由**入口层组合根**注入。
+   *
+   * 原先 `DomainSnapshotOps.getCommandsOpsPort()` 内部 `await import('@modules/commands')` /
+   * `.../CommandExecutor.js` —— 属 service → app 的动态跨层引用（静态正则看不见）。
+   * 现改为与 `chatManager` / `toolManager` 同一手法：组合根注入，service 侧只调端口。
+   *
+   * @param chatManager 会话管理器（`brief` 等会话级命令经 `context.chatManager` 取本会话消息）
+   */
+  commandsOps: (chatManager?: unknown) => CommandsOpsPort;
 }
 
 let _registeredAppDeps: CoreApiAppDeps | undefined;
@@ -749,7 +759,8 @@ export class CoreAPIImpl implements CoreAPI {
   }
 
   async getCommandsOpsPort(): Promise<CommandsOpsPort> {
-    return this.domainSnapshotOps.getCommandsOpsPort(this.chatManager);
+    // 2026-11-24（R00-003 收口）：实现由组合根注入（见 `CoreApiAppDeps.commandsOps`）
+    return this.appDeps.commandsOps(this.chatManager);
   }
 
   async getWorkspaceOpsPort(): Promise<WorkspaceOpsPort> {

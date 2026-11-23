@@ -79,6 +79,24 @@ export async function registerCoreApiAppDeps(): Promise<void> {
     getCheckpointService,
     createAutoCompactService: () => new AutoCompactService(),
     globalEmbeddingManager,
+    // 2026-11-24（R00-003 收口）：`commands` 域实现留在本层（入口 → app 合法），
+    // service 侧只经端口调用；此前由 `DomainSnapshotOps` 内部动态导入 app 层。
+    commandsOps: (chatManager) => ({
+      listCommands: async () => {
+        const { getCommandManager } = await import('@modules/commands');
+        return getCommandManager().getAllCommands();
+      },
+      executeCommand: async (command: string, sessionId?: string) => {
+        const { commandExecutor } =
+          await import('@modules/commands/executor/CommandExecutor.js');
+        // 2026-10-22：会话级命令需要 `context.sessionId` + `context.chatManager`
+        // （如 brief 取本会话消息）；未传时保持旧的"空 context"调用形态。
+        const context: Parameters<typeof commandExecutor.execute>[1] = {};
+        if (sessionId) context.sessionId = sessionId;
+        if (chatManager) context.chatManager = chatManager as never;
+        return commandExecutor.execute(command, context);
+      },
+    }),
   });
 
   // P26-1 §9.2（D6=B，2026-10-07）：跨会话抢占 = **中止并丢弃**被抢占会话的流。

@@ -54,6 +54,11 @@ beforeAll(() => {
     getCheckpointService: () => ({}),
     createAutoCompactService: () => ({}),
     globalEmbeddingManager: {},
+    // 2026-11-24（R00-003 收口）：命令端口改为组合根注入（桩忠实于契约，本用例不触达命令面）
+    commandsOps: () => ({
+      listCommands: async () => [],
+      executeCommand: async () => ({}),
+    }),
   } as never);
 });
 

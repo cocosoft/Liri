@@ -81,6 +81,11 @@ setCoreApiAppDeps({
   getCheckpointService: () => ({}),
   createAutoCompactService: () => ({}),
   globalEmbeddingManager: {},
+  // 2026-11-24（R00-003 收口）：命令端口改为组合根注入；本用例不触达命令面 ⇒ 空实现即可
+  commandsOps: () => ({
+    listCommands: async () => [],
+    executeCommand: async () => ({}),
+  }),
 });
 
 const FALLBACK_TEXT =

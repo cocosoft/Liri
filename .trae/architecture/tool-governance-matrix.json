@@ -403,9 +403,9 @@
       },
       "sandboxLevel": "none",
       "risk": {
-        "declared": null,
+        "declared": "read",
         "derived": "read",
-        "source": "derived:effects"
+        "source": "declared:static"
       },
       "readOnly": true,
       "destructive": false,
@@ -1363,9 +1363,9 @@
       },
       "sandboxLevel": "none",
       "risk": {
-        "declared": null,
+        "declared": "read",
         "derived": "read",
-        "source": "derived:effects"
+        "source": "declared:static"
       },
       "readOnly": true,
       "destructive": false,

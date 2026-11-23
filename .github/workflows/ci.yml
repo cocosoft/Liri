@@ -723,6 +723,10 @@ jobs:
     - name: Tool governance gate (matrix + execution entrypoints)
       working-directory: app
       run: |
+        # 2026-11-23：`lint:tool-risk` 此前**只定义、从未被 `ci`/本工作流调用** ⇒ 存量
+        # 2 例「非 BaseTool 未声明 riskClass」长期无人看守（code_analysis / recall_memory）。
+        # 现并入本 job（与矩阵同源，均需实例化工具）。
+        bun run lint:tool-risk
         bun run lint:tool-governance
         bun run lint:tool-interception-reasons
 

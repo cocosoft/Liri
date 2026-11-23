@@ -72,7 +72,7 @@
 |---|---|---|---|---|---|---|---|---|
 | `agents_list` | none | none | — / read / derived:effects | yes | — | — | — | pass |
 | `audio_play` | none | none | — / read / derived:effects | yes | — | — | — | pass |
-| `code_analysis` | none | none | — / read / derived:effects | yes | — | — | yes | pass |
+| `code_analysis` | none | none | read / read / declared:static | yes | — | — | yes | pass |
 | `cron` | local(op) | none | read / read / declared:dynamic | yes | — | — | — | pass |
 | `file_convert` | none | none | — / read / derived:effects | yes | — | — | — | pass |
 | `file_read` | none | none | — / read / derived:effects | yes | Infinity | — | — | pass |
@@ -84,7 +84,7 @@
 | `mcp_resource` | none | none | — / read / derived:effects | yes | 100000 | — | — | pass |
 | `pdf` | local | none | read / read / declared:dynamic | yes | — | — | — | pass |
 | `read_project_file` | none | none | read / read / declared:static | yes | — | — | yes | pass |
-| `recall_memory` | none | none | — / read / derived:effects | yes | — | — | yes | pass |
+| `recall_memory` | none | none | read / read / declared:static | yes | — | — | yes | pass |
 | `task_list` | local(op) | none | read / read / declared:dynamic | yes | — | — | — | pass |
 | `task_output` | none | none | — / read / derived:effects | yes | 100000 | — | — | pass |
 | `tool_search` | none | none | — / read / derived:effects | yes | 100000 | — | — | pass |

@@ -83,6 +83,8 @@ export class RecallMemoryTool {
       aliases: ['memory', 'recall', 'remember'],
       searchHint: 'memory recall remember search memory',
       isEnabled: () => true,
+      /** PR-0：对象字面量实现无 `getRiskClass()` ⇒ 显式声明风险（lint:tool-risk 规则 3） */
+      riskClass: 'read' as const,
       isReadOnly: () => true,
       isDestructive: () => false,
       isConcurrencySafe: () => true,

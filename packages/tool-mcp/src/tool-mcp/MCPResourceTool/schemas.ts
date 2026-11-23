@@ -43,6 +43,32 @@ export type MCPResourceInput = z.infer<typeof MCPResourceInputSchema>;
 export type MCPResourceOutput = z.infer<typeof MCPResourceOutputSchema>;
 
 /**
+ * U-03（2026-11-23）：`mcp_resource` 的**模型可见出参结构**（JSON Schema），
+ * 与 `MCPResourceOutputSchema` 逐字段对齐（`content` / `prompt` 为任意结构，不虚构子字段）。
+ */
+export const MCPResourceOutputJsonSchema: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    success: { type: 'boolean', description: '操作是否成功' },
+    resources: {
+      type: 'array',
+      items: { type: 'object' },
+      description: '资源列表（list_resources）',
+    },
+    content: { description: '资源内容（read_resource；结构随资源类型变化）' },
+    prompts: {
+      type: 'array',
+      items: { type: 'object' },
+      description: '提示词列表（list_prompts）',
+    },
+    prompt: { description: '提示词内容（get_prompt；结构随提示词定义变化）' },
+    message: { type: 'string', description: '操作消息' },
+    error: { type: 'string', description: '错误信息' },
+  },
+  required: ['success'],
+};
+
+/**
  * 验证 MCPResourceTool 输入
  */
 export function validateMCPResourceInput(input: unknown) {

@@ -86,12 +86,68 @@ export interface MCPToolParams {
 }
 
 /**
+ * U-03（2026-11-23）：`mcp_tool` 的**模型可见出参结构**。
+ *
+ * `data` 按 action 分支变化：
+ * - `list_servers` ⇒ `{servers, message}`
+ * - `connect` ⇒ `{server, connected}`
+ * - `list_tools` ⇒ `{tools: [{name, description?}]}`
+ * - `call` ⇒ SDK 原始结果（`{content, isError, structuredContent?}`，不虚构子字段）
+ * - 失败分支 ⇒ `data: null`（无载荷不校验）
+ *
+ * 各分支没有共同字段 ⇒ 根级不设 `required`。
+ */
+const MCP_TOOL_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  description:
+    'data 随 action 变化：list_servers 给 servers/message；connect 给 server/connected；' +
+    'list_tools 给 tools；call 给 MCP SDK 原始结果（content/isError 等）',
+  properties: {
+    servers: {
+      type: 'array',
+      items: { type: 'string' },
+      description: '已配置的 MCP 服务器名（list_servers）',
+    },
+    message: { type: 'string', description: '操作消息（list_servers）' },
+    server: { type: 'string', description: '服务器名（connect）' },
+    connected: { type: 'boolean', description: '是否连接成功（connect）' },
+    tools: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: '工具名' },
+          description: { type: 'string', description: '工具说明' },
+        },
+        required: ['name'],
+      },
+      description: 'MCP 服务器暴露的工具列表（list_tools）',
+    },
+    content: {
+      type: 'array',
+      items: { type: 'object' },
+      description: 'MCP 工具返回的内容块（call）',
+    },
+    isError: {
+      type: 'boolean',
+      description: 'MCP 工具是否报告错误（call）',
+    },
+    structuredContent: {
+      type: 'object',
+      description: 'MCP 工具的结构化返回（call，服务端提供时）',
+    },
+  },
+};
+
+/**
  * MCPTool
  */
 export const MCPTool: Tool = {
   name: 'mcp_tool',
   description:
     'Connect to MCP (Model Context Protocol) servers and use external tools. Supports stdio, SSE, WebSocket, and HTTP transports.',
+  /** U-03（2026-11-23）：模型可见出参结构（按 action 分支变化） */
+  outputJsonSchema: MCP_TOOL_OUTPUT_JSON_SCHEMA,
   params: [
     {
       name: 'action',
@@ -150,6 +206,8 @@ export const MCPTool: Tool = {
       alwaysLoad: false,
       interruptBehavior: 'block' as const,
       maxResultSizeChars: 10000,
+      // U-03（2026-11-23）：出参结构进快照
+      outputJsonSchema: this.outputJsonSchema,
     };
   },
   userFacingName: function (input?: Partial<Record<string, unknown>>): string {

@@ -1713,3 +1713,104 @@ describe('第二十二批工具出参结构（U-03，2026-11-23）', () => {
     expect(schemaOf(byName.get('lsp')!).output_schema).toEqual(declared);
   });
 });
+
+/**
+ * 第二十三批（2026-11-23，P2 收口）：其余 12 个工具的出参结构补齐。
+ *
+ * 9 个工具的 `data` 恒为文本（正文 / JSON 文本 / 回执 / 列表渲染）⇒ 标量 `string`；
+ * 3 个工具（computer_use / mcp_tool / mcp_resource）按 action 分支并集声明为对象。
+ */
+describe('第二十三批工具出参结构（U-03，2026-11-23）', () => {
+  const tools = loadTools(new ToolFactory(), getAllBuiltinToolLoaders());
+  const byName = new Map(tools.map((t) => [t.name, t]));
+
+  function declaredOf(name: string): Record<string, unknown> | undefined {
+    const tool = byName.get(name);
+    return tool?.getInfo?.().outputJsonSchema ?? tool?.outputJsonSchema;
+  }
+
+  const STRING_TOOLS = [
+    'agent',
+    'ask_user_question',
+    'bash',
+    'powershell',
+    'save_conversation',
+    'tungsten',
+    'create_project',
+    'read_project_file',
+    'write_project_file',
+  ];
+
+  it('9 个文本出口工具：均声明标量 string 且原样下发', () => {
+    for (const name of STRING_TOOLS) {
+      const declared = declaredOf(name);
+      expect({ name, declared: Boolean(declared) }).toEqual({
+        name,
+        declared: true,
+      });
+      expect({ name, type: declared!.type }).toEqual({ name, type: 'string' });
+      expect(declared!.properties).toBeUndefined();
+      expect({
+        name,
+        delivered: schemaOf(byName.get(name)!).output_schema,
+      }).toEqual({
+        name,
+        delivered: declared!,
+      });
+    }
+  });
+
+  it('computer_use：按 action 分支并集，无根级 required', () => {
+    const declared = declaredOf('computer_use')!;
+    expect(declared.type).toBe('object');
+    expect(declared.required).toBeUndefined();
+    const keys = Object.keys(declared.properties as Record<string, unknown>);
+    for (const key of [
+      'format',
+      'width',
+      'height',
+      'path',
+      'content',
+      'apps',
+      'displays',
+      'x',
+      'scaleFactor',
+    ]) {
+      expect({ key, present: keys.includes(key) }).toEqual({
+        key,
+        present: true,
+      });
+    }
+  });
+
+  it('mcp_resource：success 恒在，其余按 action 可选（与 zod 对齐）', () => {
+    const declared = declaredOf('mcp_resource')!;
+    expect(declared.type).toBe('object');
+    expect(Object.keys(declared.properties as object).sort()).toEqual([
+      'content',
+      'error',
+      'message',
+      'prompt',
+      'prompts',
+      'resources',
+      'success',
+    ]);
+    expect(declared.required).toEqual(['success']);
+  });
+
+  it('mcp_tool：按 action 分支并集，无根级 required', () => {
+    const declared = declaredOf('mcp_tool')!;
+    expect(declared.type).toBe('object');
+    expect(declared.required).toBeUndefined();
+    expect(Object.keys(declared.properties as object).sort()).toEqual([
+      'connected',
+      'content',
+      'isError',
+      'message',
+      'server',
+      'servers',
+      'structuredContent',
+      'tools',
+    ]);
+  });
+});

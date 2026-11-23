@@ -945,6 +945,19 @@ export class PowerShellTool extends BaseTool {
    */
   override maxResultSizeChars = 100000;
 
+  /**
+   * U-03（2026-11-23）：模型可见出参结构。
+   * `data` 为**字符串**（成功 = `createSuccessResult(output)`；失败分支 `data` 为 undefined）。
+   * 上方 `PowerShellOutputSchema` 描述的是内层 `runPowerShellCommand()` 的
+   * `{output, executionTime, exitCode}`，**不是**工具出口（与 `bash` 同型的契约漂移）⇒
+   * 这里按真实出口声明标量，不复用它。
+   */
+  override outputJsonSchema = {
+    type: 'string',
+    description:
+      '命令输出（stdout；有 stderr 时以 [stderr] 段追加）；空输出给结构化提示；失败为可诊断错误说明',
+  };
+
   params: ToolParam[] = [
     {
       name: 'command',

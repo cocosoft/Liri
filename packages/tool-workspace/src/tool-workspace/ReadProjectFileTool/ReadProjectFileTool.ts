@@ -56,6 +56,16 @@ export class ReadProjectFileTool {
       name: 'read_project_file',
       description:
         '读取项目文件夹中的文件内容。传入项目 ID 和相对路径，返回文件内容。仅允许读取项目 sandbox 内的文件。',
+      /**
+       * U-03（2026-11-23）：模型可见出参结构。
+       * `data` 成功为**文件正文**（>50KB 截断）；文件不存在时同样是 JSON 文本
+       * （`{error:'文件不存在', path}`）⇒ 恒为字符串；其余失败分支传 `null`（无载荷不校验）。
+       */
+      outputJsonSchema: {
+        type: 'string',
+        description:
+          '文件正文（超过 50KB 时截断并标注原始大小）；文件不存在时为 JSON 文本 {error, path}',
+      },
       params: [
         {
           name: 'projectId',
@@ -229,6 +239,8 @@ export class ReadProjectFileTool {
           deferred: false,
           alwaysLoad: true,
           interruptBehavior: 'block' as const,
+          // U-03（2026-11-23）：出参结构进快照
+          outputJsonSchema: this.outputJsonSchema,
         };
       },
     };

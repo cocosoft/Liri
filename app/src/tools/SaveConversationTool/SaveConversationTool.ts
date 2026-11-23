@@ -31,6 +31,15 @@ export class SaveConversationTool extends BaseTool<SaveConversationInput> {
 
   override tags = [ToolTag.WRITE];
 
+  /**
+   * U-03（2026-11-23）：模型可见出参结构 —— `data` 恒为字符串
+   * （成功 = 「已保存到 <路径>」+ 摘要全文；失败 = 错误说明）。
+   */
+  override outputJsonSchema = {
+    type: 'string',
+    description: '保存回执（含落盘路径）与摘要正文；失败为错误说明',
+  };
+
   params: ToolParam[] = [
     {
       name: 'sessionId',

@@ -304,6 +304,79 @@ export class ComputerUseTool extends BaseTool {
   override alwaysLoad = true;
 
   /**
+   * U-03（2026-11-23）：模型可见出参结构。
+   * `data` 按 action 分支变化；**多数输入类动作（点击/按键/拖动等）没有 `data`**
+   * （结果在 `output` 文本里）⇒ 根级不设 `required`，只列各分支实际出现的字段。
+   */
+  override outputJsonSchema = {
+    type: 'object',
+    description:
+      'data 随 action 变化：screenshot 给截图元数据；getMousePos 给坐标；getClipboard 给内容；' +
+      'getWindows / getAllDisplays 给列表；getFrontmostWindow 给应用信息；' +
+      'getDisplaySize 给几何；其余动作无 data（结果在 output 文本）',
+    properties: {
+      format: { type: 'string', description: '截图格式（screenshot）' },
+      width: {
+        type: 'number',
+        description: '宽（screenshot / getDisplaySize）',
+      },
+      height: {
+        type: 'number',
+        description: '高（screenshot / getDisplaySize）',
+      },
+      size: { type: 'number', description: '截图字节数（screenshot）' },
+      path: {
+        type: 'string',
+        description: '截图落盘路径（screenshot；落盘失败时缺省）',
+      },
+      analyzed: {
+        type: 'boolean',
+        description: '是否已做视觉分析（screenshot）',
+      },
+      analysis: { type: 'string', description: '视觉分析文本（screenshot）' },
+      region: {
+        type: 'object',
+        description: '缩放截图的区域 {x, y, width, height}（zoom）',
+      },
+      content: { type: 'string', description: '剪贴板文本（getClipboard）' },
+      length: { type: 'number', description: '剪贴板文本长度（getClipboard）' },
+      apps: {
+        type: 'array',
+        items: { type: 'object' },
+        description: '运行中的窗口/应用（getWindows）',
+      },
+      count: {
+        type: 'number',
+        description: '列表条数（getWindows / getAllDisplays）',
+      },
+      displays: {
+        type: 'array',
+        items: { type: 'object' },
+        description: '显示器信息（getAllDisplays）',
+      },
+      x: {
+        type: 'number',
+        description: '坐标 X（getMousePos / getDisplaySize）',
+      },
+      y: {
+        type: 'number',
+        description: '坐标 Y（getMousePos / getDisplaySize）',
+      },
+      scaleFactor: {
+        type: 'number',
+        description: '显示缩放（getDisplaySize）',
+      },
+      name: { type: 'string', description: '应用名（getFrontmostWindow）' },
+      pid: { type: 'number', description: '进程 ID（getFrontmostWindow）' },
+      id: { type: 'string', description: '显示器 ID（getAllDisplays）' },
+      isPrimary: {
+        type: 'boolean',
+        description: '是否主显示器（getAllDisplays）',
+      },
+    },
+  };
+
+  /**
    * 获取桌面自动化适配器实例
    */
   private getAdapter(): ComputerUseAdapter {

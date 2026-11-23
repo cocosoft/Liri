@@ -41,6 +41,16 @@ export class CreateProjectTool {
       name: 'create_project',
       description:
         '创建一个新项目，用于跟踪复杂任务。当用户明确表达"创建项目/管理任务/追踪进度"意图时调用。',
+      /**
+       * U-03（2026-11-23）：模型可见出参结构。
+       * `data` 是 `JSON.stringify({projectId, name, sandboxPath})` ⇒ 标量 string；
+       * 失败分支传 `null`（无载荷不校验，沿用 P1-3 A 档约定）。
+       */
+      outputJsonSchema: {
+        type: 'string',
+        description:
+          'JSON 文本：{projectId, name, sandboxPath}（失败分支无 data，原因在 output/newMessages）',
+      },
       params: [
         {
           name: 'name',
@@ -213,6 +223,8 @@ export class CreateProjectTool {
           deferred: false,
           alwaysLoad: true,
           interruptBehavior: 'block' as const,
+          // U-03（2026-11-23）：出参结构进快照
+          outputJsonSchema: this.outputJsonSchema,
         };
       },
     };

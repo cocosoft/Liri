@@ -96,6 +96,18 @@ export class AskUserQuestionTool extends BaseTool {
 
   override tags = [ToolTag.AI];
 
+  /**
+   * U-03（2026-11-23）：模型可见出参结构。
+   * `data` 是 `JSON.stringify(AskUserQuestionResult)`（questionId/question/answers/timestamp/
+   * questionType）⇒ 标量 string（与 `send_message` 同型，不臆造对象结构）；
+   * 未拿到回答时走失败分支（`error` 承载原因、无 `data`）。
+   */
+  override outputJsonSchema = {
+    type: 'string',
+    description:
+      'JSON 文本：{questionId, question, answers[], timestamp, questionType}（未拿到回答时为失败分支，无 data）',
+  };
+
   params: ToolParam[] = [
     {
       name: 'question',

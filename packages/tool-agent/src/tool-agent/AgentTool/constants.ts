@@ -16,6 +16,16 @@ export const AGENT_TOOL_NAME = 'agent';
 export const LEGACY_AGENT_TOOL_NAME = 'Task';
 
 /**
+ * U-03（2026-11-23）：`agent` 的模型可见出参结构 —— `data` 恒为字符串
+ * （子代理最终答复 / 后台派工回执；失败分支 `data: null`，无载荷不校验）。
+ */
+export const AGENT_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'string',
+  description:
+    '子代理的最终答复文本；后台派工为「任务已启动」回执；失败分支无 data',
+};
+
+/**
  * 验证Agent类型
  */
 export const VERIFICATION_AGENT_TYPE = 'verification';

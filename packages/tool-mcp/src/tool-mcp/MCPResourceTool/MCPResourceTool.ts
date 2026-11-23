@@ -30,7 +30,10 @@ const logger = getLogger('tools:mcpResource');
 import { mcpConnectionManager } from '@openliri/service/services/mcp/MCPConnectionManager';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { McpResourcesDriver, type VfsEntry } from '@modules/vfs';
-import { MCPResourceOutputSchema } from './schemas';
+import {
+  MCPResourceOutputJsonSchema,
+  MCPResourceOutputSchema,
+} from './schemas';
 
 /**
  * MCP 资源驱动实例（**惰性单例**）。
@@ -111,6 +114,9 @@ export class MCPResourceTool extends BaseTool<
    * **1 必填 + 6 可选**字段之内；失败分支在 **ToolResult 层自带 `success: false`** ⇒ 命中豁免、不参与校验。
    */
   outputSchema = MCPResourceOutputSchema;
+
+  /** U-03（2026-11-23）：模型可见出参结构（与 zod 契约逐字段对齐） */
+  override outputJsonSchema = MCPResourceOutputJsonSchema;
   description =
     '列出并读取已连接 MCP（Model Context Protocol）服务器的资源和提示词';
   override tags = [ToolTag.NETWORK];

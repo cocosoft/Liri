@@ -25,6 +25,7 @@ import { ToolUseContext } from '@openliri/infra/utils/toolContract/ToolUseContex
 import { WorkspaceGit } from '@modules/workspaces/WorkspaceGit';
 import {
   AGENT_TOOL_NAME,
+  AGENT_OUTPUT_JSON_SCHEMA,
   LEGACY_AGENT_TOOL_NAME,
   BUILTIN_AGENTS,
 } from './constants';
@@ -338,6 +339,9 @@ export class AgentTool implements Tool {
   /** 工具别名（2026-11-23：`LEGACY_AGENT_TOOL_NAME` 即 `'Task'`，去掉重复项） */
   readonly aliases?: string[] = [LEGACY_AGENT_TOOL_NAME, 'SubAgent'];
 
+  /** U-03：模型可见出参结构（见 constants.ts） */
+  readonly outputJsonSchema = AGENT_OUTPUT_JSON_SCHEMA;
+
   /** 搜索提示 */
   readonly searchHint?: string = 'create agent task subagent';
 
@@ -411,9 +415,7 @@ export class AgentTool implements Tool {
     void refreshAvailableSubagentTypeNames();
   }
 
-  /**
-   * 获取工具信息
-   */
+  /** 获取工具信息 */
   getInfo(): ToolInfo {
     return {
       name: this.name,
@@ -428,26 +430,22 @@ export class AgentTool implements Tool {
       alwaysLoad: false,
       interruptBehavior: 'block',
       tags: [ToolTag.AGENT],
+      // U-03（2026-11-23）：出参结构进快照（懒加载未解包时模型也能看到）
+      outputJsonSchema: this.outputJsonSchema,
     };
   }
 
-  /**
-   * 检查工具是否启用
-   */
+  /** 检查工具是否启用 */
   isEnabled(): boolean {
     return true;
   }
 
-  /**
-   * 检查工具是否只读
-   */
+  /** 检查工具是否只读 */
   isReadOnly(_input?: Record<string, unknown>): boolean {
     return false;
   }
 
-  /**
-   * 检查工具是否有破坏性
-   */
+  /** 检查工具是否有破坏性 */
   isDestructive(_input?: Record<string, unknown>): boolean {
     return false;
   }

@@ -216,6 +216,16 @@ export class WriteProjectFileTool {
         '0 输出 token，无截断与内存爆炸风险。',
       // 条件必填（2026-11-23）：content 与 source_file 至少给一个（否则写出空文件）
       requiredAnyOf: [['content'], ['source_file']],
+      /**
+       * U-03（2026-11-23）：模型可见出参结构。
+       * `data` 是 `JSON.stringify({path, sandboxPath, size, verified, readBackBytes})`
+       * （写后回读校验的证据）⇒ 标量 string；失败分支传 `null`（无载荷不校验）。
+       */
+      outputJsonSchema: {
+        type: 'string',
+        description:
+          'JSON 文本：{path, sandboxPath, size, verified, readBackBytes}（写后回读校验证据；失败分支无 data）',
+      },
       params: [
         {
           name: 'projectId',
@@ -546,6 +556,8 @@ export class WriteProjectFileTool {
           deferred: false,
           alwaysLoad: true,
           interruptBehavior: 'block' as const,
+          // U-03（2026-11-23）：出参结构进快照
+          outputJsonSchema: this.outputJsonSchema,
         };
       },
     };

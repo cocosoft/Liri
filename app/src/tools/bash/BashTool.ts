@@ -216,6 +216,17 @@ export class BashTool extends BaseTool {
    */
   outputSchema = z.string();
 
+  /**
+   * U-03（2026-11-23）：模型可见出参结构 —— 与 `outputSchema` 同口径。
+   * `data` **恒为字符串**（stdout + 追加的 stderr / 错误说明）；上方注释已说明
+   * `{stdout,stderr,exitCode}` 是**内层执行器**的返回，不是工具出口。
+   */
+  override outputJsonSchema = {
+    type: 'string',
+    description:
+      '命令输出（stdout；有 stderr 时追加 stderr 段）；失败为错误说明（含退出码/stdout 摘要）',
+  };
+
   /** 是否为 Windows 平台 */
   private isWindows = process.platform === 'win32';
 

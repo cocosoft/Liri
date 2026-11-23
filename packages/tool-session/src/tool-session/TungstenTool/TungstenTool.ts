@@ -157,6 +157,16 @@ export class TungstenTool implements Tool {
   /** 工具别名（2026-11-23：去掉与真名相同的 `tungsten` 自别名） */
   aliases = ['terminal', 'session'];
 
+  /**
+   * U-03（2026-11-23）：模型可见出参结构。
+   * 实测出口：成功分支均为**文本回执**（建/切/列出会话的渲染文本）；失败分支传 `null`
+   * （无载荷不校验，沿用 P1-3 A 档约定）。
+   */
+  outputJsonSchema: Record<string, unknown> = {
+    type: 'string',
+    description: '会话操作回执文本或会话列表渲染文本；失败分支无 data',
+  };
+
   /** 搜索提示 */
   searchHint = 'Manage terminal sessions';
 
@@ -200,6 +210,8 @@ export class TungstenTool implements Tool {
       alwaysLoad: false,
       interruptBehavior: 'block' as const,
       maxResultSizeChars: 10000,
+      // U-03（2026-11-23）：出参结构进快照（懒加载未解包时模型也能看到）
+      outputJsonSchema: this.outputJsonSchema,
     };
   }
 

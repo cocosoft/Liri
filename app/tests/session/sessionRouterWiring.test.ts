@@ -59,6 +59,10 @@ beforeAll(() => {
       listCommands: async () => [],
       executeCommand: async () => ({}),
     }),
+    knowledgeDocsProvider: {
+      buildIndex: async () => [],
+      clearCache: async () => {},
+    },
   } as never);
 });
 

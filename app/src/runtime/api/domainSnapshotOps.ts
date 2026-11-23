@@ -192,27 +192,8 @@ export class DomainSnapshotOps {
   }
 
   // ---- 知识库文档（HTTP 等 service 侧消费；见 CoreAPI 声明处沿革 D-88）----
-
-  async buildKnowledgeDocsIndex(): Promise<
-    Array<{
-      relativePath: string;
-      content?: string | undefined;
-      title?: string | undefined;
-      source?: string | undefined;
-      category?: string | undefined;
-      tags?: string[] | undefined;
-    }>
-  > {
-    const { knowledgeDocsProvider } =
-      await import('@modules/docs/FileDocsProvider');
-    return knowledgeDocsProvider.buildIndex();
-  }
-
-  async clearKnowledgeDocsCache(): Promise<void> {
-    const { knowledgeDocsProvider } =
-      await import('@modules/docs/FileDocsProvider');
-    knowledgeDocsProvider.clearCache();
-  }
+  // 2026-11-24（R00-003 收口）：buildKnowledgeDocsIndex / clearKnowledgeDocsCache 已移入
+  // `CoreAPIImpl` 并经组合根注入的惰性门面取值（`CoreApiAppDeps.knowledgeDocsProvider`）。
 
   // ---- 第三方技能适配器（HTTP 等 service 侧消费；见 CoreAPI 声明处沿革 D-90）----
 

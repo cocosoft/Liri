@@ -187,6 +187,17 @@ export interface CoreApiAppDeps {
    * @param chatManager 会话管理器（`brief` 等会话级命令经 `context.chatManager` 取本会话消息）
    */
   commandsOps: (chatManager?: unknown) => CommandsOpsPort;
+  /**
+   * 知识库文档 provider 的**惰性门面**（2026-11-24，R00-003 收口）。
+   *
+   * 原先 `DomainSnapshotOps.buildKnowledgeDocsIndex()` / `clearKnowledgeDocsCache()` 内部
+   * `await import('@modules/docs/FileDocsProvider')` —— service → app 的动态跨层引用。
+   * 现将取值下沉为注入：组合根以**每次调用再 import** 的方式实现，保持原有的惰性时机。
+   */
+  knowledgeDocsProvider: {
+    buildIndex(): ReturnType<CoreAPI['buildKnowledgeDocsIndex']>;
+    clearCache(): Promise<void>;
+  };
 }
 
 let _registeredAppDeps: CoreApiAppDeps | undefined;
@@ -594,11 +605,12 @@ export class CoreAPIImpl implements CoreAPI {
       tags?: string[] | undefined;
     }>
   > {
-    return this.domainSnapshotOps.buildKnowledgeDocsIndex();
+    // 2026-11-24（R00-003 收口）：经注入的惰性门面取值（见 `CoreApiAppDeps.knowledgeDocsProvider`）
+    return this.appDeps.knowledgeDocsProvider.buildIndex();
   }
 
   async clearKnowledgeDocsCache(): Promise<void> {
-    return this.domainSnapshotOps.clearKnowledgeDocsCache();
+    return this.appDeps.knowledgeDocsProvider.clearCache();
   }
 
   async getClawHubSkillAdapter() {

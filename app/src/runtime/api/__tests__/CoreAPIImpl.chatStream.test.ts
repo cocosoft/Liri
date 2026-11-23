@@ -86,6 +86,10 @@ setCoreApiAppDeps({
     listCommands: async () => [],
     executeCommand: async () => ({}),
   }),
+  knowledgeDocsProvider: {
+    buildIndex: async () => [],
+    clearCache: async () => {},
+  },
 });
 
 const FALLBACK_TEXT =

@@ -97,6 +97,20 @@ export async function registerCoreApiAppDeps(): Promise<void> {
         return commandExecutor.execute(command, context);
       },
     }),
+    // 2026-11-24（R00-003 收口）：知识库文档 provider 的惰性门面 —— 每次调用再 import，
+    // 与原先 `DomainSnapshotOps` 内动态导入的时机/语义一致（不提前拉起重依赖）。
+    knowledgeDocsProvider: {
+      buildIndex: async () => {
+        const { knowledgeDocsProvider } =
+          await import('@modules/docs/FileDocsProvider');
+        return knowledgeDocsProvider.buildIndex();
+      },
+      clearCache: async () => {
+        const { knowledgeDocsProvider } =
+          await import('@modules/docs/FileDocsProvider');
+        knowledgeDocsProvider.clearCache();
+      },
+    },
   });
 
   // P26-1 §9.2（D6=B，2026-10-07）：跨会话抢占 = **中止并丢弃**被抢占会话的流。

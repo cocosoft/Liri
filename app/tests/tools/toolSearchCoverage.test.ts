@@ -37,6 +37,8 @@ import { searchToolsWithKeywords } from '../../src/tools/ToolSearchTool/ToolSear
 import { describeHiddenReasons } from '../../src/tools/ToolSearchTool/ToolSearchTool';
 import { truncateToolDescription } from '../../src/tools/ToolSearchTool/ToolSearchTool';
 import { createVfsFamilyTool } from '@openliri/tool-workspace';
+import { createWorktreeFamilyTool } from '@openliri/tool-workspace';
+import { createSkillFamilyTool } from '@openliri/tool-agent';
 import { WriteProjectFileTool } from '@openliri/tool-workspace';
 import { TodoWriteTool } from '../../src/tools/TodoWriteTool/TodoWriteTool';
 import { getToolRegistry } from '../../src/tools/ToolRegistry';
@@ -175,8 +177,8 @@ describe('tool_search 可解释性（2026-11-23 回归清单）', () => {
     expect(detail).toBeDefined();
     expect(typeof detail!.description).toBe('string');
     expect(Array.isArray(detail!.requiredParams)).toBe(true);
-    expect(typeof detail!.visible).toBe('boolean');
-    expect(Array.isArray(detail!.hiddenReasons)).toBe(true);
+    expect(typeof detail!.autoDisclosed).toBe('boolean');
+    expect(Array.isArray(detail!.notAutoDisclosedReasons)).toBe(true);
   });
 
   it('清单 3：未注册名返回结构化 reason（不再只有空数组）', async () => {
@@ -269,6 +271,58 @@ describe('tool_search 可解释性（2026-11-23 回归清单）', () => {
     expect(taskFiltered).not.toBe(disclosure);
   });
 
+  /**
+   * 会话复测（P3，2026-11-23）：字段 `visible` 被模型读成"能不能用"，与
+   * "直接按名调用"的提示自相矛盾 ⇒ 已正名为 `autoDisclosed`，并由提示语显式区分
+   * 「仅不自动下发（仍可按名调用）」与「按名也不可用」。
+   */
+  it('P3（2026-11-23）：未自动下发提示区分「仍可按名调用」与「按名也不可用」', () => {
+    const stillCallable = describeHiddenReasons(['not-in-default-disclosure'], {
+      callableByName: true,
+    });
+    expect(stillCallable).toContain('仍可按名');
+
+    const blocked = describeHiddenReasons(['user-off'], {
+      callableByName: false,
+    });
+    expect(blocked).toContain('按名调用同样不可用');
+  });
+
+  /**
+   * 会话复测（P1，2026-11-23）：中文自然语言查询 `生成一张图片` 曾返回空
+   * （工具名/描述以英文为主）⇒ 中文意图词桥接后应命中 `image_generate`
+   * （探针名含 image/generate 词元，description 刻意不含中文，避免假通过）。
+   */
+  it('P1（2026-11-23）：中文意图词桥接 —— 生成一张图片 命中 image_generate', async () => {
+    const out = await run('生成一张图片');
+    expect(out.matches).toContain('image_generate');
+  });
+
+  /** 会话复测（P2，2026-11-23）：关键词裸空不再是"零诊断" */
+  it('P2（2026-11-23）：关键词无命中 ⇒ reason=no_keyword_match + hint', async () => {
+    const out = await run('xyz_abc_zzz');
+    expect(out.matches).toEqual([]);
+    expect(out.reason).toBe('no_keyword_match');
+    expect((out.hint ?? '').length).toBeGreaterThan(0);
+    expect(out.hint).toContain('select:');
+  });
+
+  /**
+   * 会话复测（P4，2026-11-23）：族工具成员的单组必填须透出为「按 op 条件必填」，
+   * 否则 `requiredParams: []` 会让模型漏传 `name`/`slug`/`path`。
+   */
+  it('P4（2026-11-23）：族工具按 op 的必填透出（vfs / worktree / skill）', () => {
+    expect(createVfsFamilyTool().getInfo().requiredAnyOfByOp?.read).toEqual([
+      ['path'],
+    ]);
+    expect(
+      createWorktreeFamilyTool().getInfo().requiredAnyOfByOp?.enter
+    ).toEqual([['slug']]);
+    expect(createSkillFamilyTool().getInfo().requiredAnyOfByOp?.run).toEqual([
+      ['name'],
+    ]);
+  });
+
   /** 会话打磨项：描述截断 200 → 360，且优先在句/分句边界收口 */
   it('P3（2026-11-23）：描述截断 360，优先边界收口，短文本原样', () => {
     expect(truncateToolDescription('短描述')).toBe('短描述');
@@ -289,8 +343,8 @@ describe('tool_search 可解释性（2026-11-23 回归清单）', () => {
     const detail = out.details?.[0];
     expect(detail?.name).toBe(PROBE_NAME);
     // 探针是运行期注入名（不在声明面）⇒ 可见性按"已注册即可见"处理，原因为空
-    expect(detail?.visible).toBe(true);
-    expect(detail?.hiddenReasons).toEqual([]);
+    expect(detail?.autoDisclosed).toBe(true);
+    expect(detail?.notAutoDisclosedReasons).toEqual([]);
   });
 
   it('遗留项：项目/图像工具在工厂表与 loader 清单中真实登记', () => {

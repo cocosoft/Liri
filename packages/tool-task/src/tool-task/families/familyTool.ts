@@ -148,6 +148,19 @@ export class FamilyTool extends BaseTool {
     this.aliases = aliases;
     this.aliasInputDefaults = aliasInputDefaults;
 
+    // 2026-11-23（会话复测 P4）：成员的单组必填 ⇒ 按 op 的条件必填**元数据**。
+    // 只进 `getInfo()` 快照供 `tool_search` 展示（运行期校验仍由成员 `required` 在
+    // execute 前完成，避免双轨校验改变既有报错文案）。
+    const requiredByOp: Record<string, ReadonlyArray<readonly string[]>> = {};
+    for (const member of options.members) {
+      if (member.required && member.required.length > 0) {
+        requiredByOp[member.key] = [[...member.required]];
+      }
+    }
+    if (Object.keys(requiredByOp).length > 0) {
+      this.requiredAnyOfByOp = requiredByOp;
+    }
+
     this.params = [
       {
         name: options.discriminator,

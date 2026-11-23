@@ -30,6 +30,8 @@ import {
   type ToolVisibilityReport,
 } from '../toolVisibilityReport';
 import { LEGACY_ALIAS_TOOL_NAMES } from '../toolNameConstants';
+// 2026-11-23（会话复测 P1）：中文意图词 → 英文词元检索桥
+import { bridgeChineseTerms } from './keywordBridge';
 import { getSkillRegistryLazy } from '@openliri/tool-agent';
 // 2026-11-07（方案 §6.4）：把命中工具记到会话级「已发现」集 ⇒ 下一轮补进工具定义
 import { recordDiscoveredTools } from '../discoveredTools';
@@ -198,7 +200,14 @@ export async function searchToolsWithKeywords(
     requiredTerms.length > 0
       ? [...requiredTerms, ...optionalTerms]
       : queryTerms;
-  const termPatterns = compileTermPatterns(allScoringTerms);
+  // 2026-11-23（会话复测 P1）：中文意图词 → 英文词元（`生成一张图片` ⇒ generate/image）。
+  // 扩展词只按**可选词**参与评分，不改变必需词前置过滤。
+  const bridgedTerms = bridgeChineseTerms(allScoringTerms);
+  const scoringTerms =
+    bridgedTerms.length > 0
+      ? [...allScoringTerms, ...bridgedTerms]
+      : allScoringTerms;
+  const termPatterns = compileTermPatterns(scoringTerms);
 
   // 预过滤匹配所有必需词的工具
   if (requiredTerms.length > 0) {
@@ -230,8 +239,8 @@ export async function searchToolsWithKeywords(
   // 2026-11-23（会话复测）：泛词抑制 —— 逐词 df 超阈值 ⇒ 该词不能单独决定命中
   const candidateTotal = Math.max(candidateTools.length, 1);
   const genericTerms = new Set<string>();
-  if (allScoringTerms.length > 1) {
-    for (const term of allScoringTerms) {
+  if (scoringTerms.length > 1) {
+    for (const term of scoringTerms) {
       const pattern = termPatterns.get(term);
       if (!pattern) continue;
       const df = candidateTools.filter(
@@ -246,7 +255,7 @@ export async function searchToolsWithKeywords(
     let score = 0;
     let specificScore = 0;
     let coverage = 0;
-    for (const term of allScoringTerms) {
+    for (const term of scoringTerms) {
       const pattern = termPatterns.get(term);
       if (!pattern) continue;
       const delta = scoreTermAgainstTool(tool, term, pattern);
@@ -326,10 +335,8 @@ const OP_PARAM_NAMES: ReadonlySet<string> = new Set(['op', 'mode', 'action']);
  * 白名单收窄）。原始 reason 码保留给机器判定，这里给人/模型可读的解释。
  */
 const HIDDEN_REASON_TEXT: Readonly<Record<string, string>> = {
-  'not-in-task-whitelist':
-    '当前任务类别的白名单不含该工具类别（换任务类型或直接按名调用）',
-  'not-in-default-disclosure':
-    '类别允许，但不在 AC-16 默认披露白名单（预算收窄；可直接按名/select 调用）',
+  'not-in-task-whitelist': '当前任务类别的白名单不含该工具类别',
+  'not-in-default-disclosure': '不在 AC-16 默认披露白名单（预算收窄）',
   'not-in-minimal-surface': '当前工具面档位为 minimal（仅 L0 核心可见）',
   'user-off': '用户在工具设置里显式关闭',
   'feature-gate-off': '对应功能开关关闭',
@@ -337,9 +344,28 @@ const HIDDEN_REASON_TEXT: Readonly<Record<string, string>> = {
   conditional: '已声明但当前未注册（条件门控 / 未接线）',
 };
 
+/**
+ * 这些原因下**按名调用同样不可用**（其余原因只表示"本轮不自动下发"，
+ * 仍可经 select / 按名调用）—— 2026-11-23（会话复测 P3）：提示语必须区分两者，
+ * 否则模型会把"预算收窄"误读成"工具不可用"而绕路。
+ */
+const NON_CALLABLE_REASONS: ReadonlySet<string> = new Set([
+  'archived',
+  'feature-gate-off',
+  'user-off',
+  'conditional',
+]);
+
 /** 把可见性 reason 码翻译成中文解释（未知码原样保留） */
-export function describeHiddenReasons(reasons: readonly string[]): string {
-  return reasons.map((r) => HIDDEN_REASON_TEXT[r] ?? r).join('；');
+export function describeHiddenReasons(
+  reasons: readonly string[],
+  opts: { callableByName?: boolean } = {}
+): string {
+  const text = reasons.map((r) => HIDDEN_REASON_TEXT[r] ?? r).join('；');
+  if (opts.callableByName === undefined || reasons.length === 0) return text;
+  return `${text}（${
+    opts.callableByName ? '仍可按名 / select 直接调用' : '按名调用同样不可用'
+  }）`;
 }
 
 /** 命中工具的可读详情（描述截断 + 必填参数 + 条件必填 + 族工具判别字段 + 本轮可见性） */
@@ -351,7 +377,10 @@ function buildToolDetail(
   const report = visibility.get(tool.name);
   const raw = info.description ?? '';
   const reasons = (report?.reasons ?? []).filter((r) => r !== 'mandatory');
-  const visible = report ? report.effective === 'visible' : true;
+  // 2026-11-23（会话复测 P3）：字段语义正名 —— 它只表示"本轮是否**自动下发**"，
+  // 不代表"能否调用"（预算收窄/任务裁剪时仍可按名调用）。
+  const autoDisclosed = report ? report.effective === 'visible' : true;
+  const callableByName = !reasons.some((r) => NON_CALLABLE_REASONS.has(r));
   const params = info.params ?? [];
   // 2026-11-23（会话复测）：族工具的 discriminator `required: false`（兼容旧名调用）
   // ⇒ requiredParams 为空。显式带出判别字段与取值，避免模型"不知道该怎么调"。
@@ -387,9 +416,15 @@ function buildToolDetail(
           },
         }
       : {}),
-    visible,
-    hiddenReasons: visible ? [] : reasons,
-    ...(visible ? {} : { hiddenHint: describeHiddenReasons(reasons) }),
+    autoDisclosed,
+    notAutoDisclosedReasons: autoDisclosed ? [] : reasons,
+    ...(autoDisclosed
+      ? {}
+      : {
+          notAutoDisclosedHint: describeHiddenReasons(reasons, {
+            callableByName,
+          }),
+        }),
   };
 }
 
@@ -860,6 +895,21 @@ export class ToolSearchTool extends BaseTool<
       .map((d) => `${d.name}（${d.reason}${d.hint ? `：${d.hint}` : ''}）`)
       .join('；');
 
+    // 2026-11-23（会话复测 P2）：关键词**裸空**也要给 reason/hint（与 select: 分支对等）。
+    // 现场：搜 `xyz_abc_zzz` 只回 `matches: []`，模型无法区分"工具不存在"与"关键词不对"
+    // ⇒ 反复换词直至死循环。诊断已知名字时优先沿用其 reason（如 alias / declared_unregistered）。
+    const keywordMissReason =
+      matches.length === 0
+        ? (keywordDiagnostics[0]?.reason ?? 'no_keyword_match')
+        : undefined;
+    const keywordMissHint =
+      matches.length === 0
+        ? `${
+            keywordDiagnostics[0]?.hint ??
+            '没有工具名/描述命中这些关键词；可改用 select:<工具名> 精确查找，或使用工具的英文名/更具体的词'
+          }${keywordHint}`
+        : undefined;
+
     return createToolResult(
       {
         matches,
@@ -870,6 +920,8 @@ export class ToolSearchTool extends BaseTool<
         ...(keywordDiagnostics.length > 0
           ? { diagnostics: keywordDiagnostics }
           : {}),
+        ...(keywordMissReason ? { reason: keywordMissReason } : {}),
+        ...(keywordMissHint ? { hint: keywordMissHint } : {}),
       },
       {
         newMessages: [

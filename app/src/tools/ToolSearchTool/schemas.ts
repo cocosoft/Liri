@@ -54,18 +54,25 @@ export const ToolSearchDetailSchema = z.object({
     })
     .optional()
     .describe('族工具的判别字段与合法取值（缺省 = 非族工具）'),
-  visible: z
+  /**
+   * 2026-11-23（会话复测 P3）：原名 `visible` 被误读为"能否调用"⇒ 正名为
+   * `autoDisclosed`：只表示**本轮是否自动下发**（预算/任务裁剪影响自动下发，
+   * 但多数情况下仍可按名/select 调用；具体见 `notAutoDisclosedHint`）。
+   */
+  autoDisclosed: z
     .boolean()
     .describe(
-      '按默认任务面（default）判定是否在可用清单内；与具体轮次可能不同——不可见 ≠ 不可调用（select 选中后可直接调用）'
+      '是否在本轮自动下发的工具清单中；false ≠ 不可调用（预算/任务裁剪时仍可按名调用，见 notAutoDisclosedHint）'
     ),
-  hiddenReasons: z
+  notAutoDisclosedReasons: z
     .array(z.string())
-    .describe('默认任务面下不可见的原因（可见时为空数组）'),
-  hiddenHint: z
+    .describe('未自动下发的原因码（自动下发时为空数组）'),
+  notAutoDisclosedHint: z
     .string()
     .optional()
-    .describe('不可见原因的中文解释（可见时缺省）'),
+    .describe(
+      '未自动下发原因的中文解释，并明确「是否仍可按名调用」（自动下发时缺省）'
+    ),
 });
 
 /** 未命中项的**结构化原因**（`tool_search` 空结果不再"零诊断"） */
@@ -104,12 +111,14 @@ export const ToolSearchOutputSchema = z.object({
   diagnostics: z
     .array(ToolSearchDiagnosticSchema)
     .optional()
-    .describe('未命中项的结构化原因（仅 select: 分支）'),
+    .describe('未命中项的结构化原因（select: 与关键词分支共用）'),
   reason: z
     .string()
     .optional()
-    .describe('单名 select 未命中时的主原因（等价 diagnostics[0].reason）'),
-  hint: z.string().optional().describe('单名 select 未命中时的主处置建议'),
+    .describe(
+      '未命中的主原因：select: 分支等价 diagnostics[0].reason；关键词分支无已知名时固定为 no_keyword_match'
+    ),
+  hint: z.string().optional().describe('未命中的主处置建议'),
 });
 
 export type ToolSearchInput = z.infer<typeof ToolSearchInputSchema>;
@@ -183,33 +192,34 @@ export const ToolSearchOutputJsonSchema: Record<string, unknown> = {
             },
             required: ['name', 'values'],
           },
-          visible: {
+          autoDisclosed: {
             type: 'boolean',
             description:
-              '按默认任务面（default）判定是否在可用清单内；与具体轮次可能不同——不可见 ≠ 不可调用（select 选中后可直接调用）',
+              '是否在本轮自动下发的工具清单中；false ≠ 不可调用（预算/任务裁剪时仍可按名调用，见 notAutoDisclosedHint）',
           },
-          hiddenReasons: {
+          notAutoDisclosedReasons: {
             type: 'array',
             items: { type: 'string' },
-            description: '默认任务面下不可见的原因（可见时为空数组）',
+            description: '未自动下发的原因码（自动下发时为空数组）',
           },
-          hiddenHint: {
+          notAutoDisclosedHint: {
             type: 'string',
-            description: '不可见原因的中文解释（可见时缺省）',
+            description:
+              '未自动下发原因的中文解释，并明确「是否仍可按名调用」（自动下发时缺省）',
           },
         },
         required: [
           'name',
           'description',
           'requiredParams',
-          'visible',
-          'hiddenReasons',
+          'autoDisclosed',
+          'notAutoDisclosedReasons',
         ],
       },
     },
     diagnostics: {
       type: 'array',
-      description: '未命中项的结构化原因（仅 select: 分支）',
+      description: '未命中项的结构化原因（select: 与关键词分支共用）',
       items: {
         type: 'object',
         properties: {
@@ -234,11 +244,12 @@ export const ToolSearchOutputJsonSchema: Record<string, unknown> = {
     },
     reason: {
       type: 'string',
-      description: '单名 select 未命中时的主原因（等价 diagnostics[0].reason）',
+      description:
+        '未命中的主原因：select: 分支等价 diagnostics[0].reason；关键词分支无已知名时固定为 no_keyword_match',
     },
     hint: {
       type: 'string',
-      description: '单名 select 未命中时的主处置建议',
+      description: '未命中的主处置建议',
     },
   },
   required: ['matches', 'query', 'total_deferred_tools', 'deferredToolNames'],

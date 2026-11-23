@@ -426,6 +426,17 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
    */
   outputSchema = z.string();
 
+  /**
+   * U-03（2026-11-23）：模型可见出参结构 —— 与 `outputSchema` 同口径。
+   * 成功分支恒为文本回执（列表渲染 / 操作结果）；失败分支传 `null`（**无载荷不校验**，
+   * 沿用 P1-3 A 档约定）。
+   */
+  override outputJsonSchema = {
+    type: 'string',
+    description:
+      '待办列表渲染文本或操作回执（失败分支无 data，错误经 error/metadata 返回）',
+  };
+
   /** 工具描述 */
   override description =
     '管理待办事项列表以跟踪任务。创建、更新和完成待办事项。' +

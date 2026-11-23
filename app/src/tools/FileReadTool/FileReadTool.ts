@@ -274,6 +274,16 @@ export class FileReadTool extends BaseTool {
    */
   outputSchema = z.string();
 
+  /**
+   * U-03（2026-11-23）：模型可见出参结构 —— 与 `outputSchema` 同口径，`data` 恒为字符串
+   * （文件正文 / 二进制转换后的 Markdown / 错误说明走同一通道）。
+   */
+  override outputJsonSchema = {
+    type: 'string',
+    description:
+      '文件正文（offset/limit 生效时带行号）；二进制文件为转换后的 Markdown；失败为错误说明',
+  };
+
   params: ToolParam[] = [
     {
       name: 'file_path',

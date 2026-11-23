@@ -15,6 +15,7 @@ import { ToolTag } from '@openliri/infra/utils/toolContract/Tool';
 import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 import { LSPToolImpl } from '../lsp/LSPToolImpl.js';
+import { LSP_OUTPUT_JSON_SCHEMA } from './schemas.js';
 import {
   Position,
   CompletionItem,
@@ -220,6 +221,9 @@ export class LSPToolAdapter implements Tool {
    * 最大结果大小
    */
   maxResultSizeChars = 10000;
+
+  /** U-03（2026-11-23）：模型可见出参结构（按 action 分支变化，见 `schemas.ts`） */
+  outputJsonSchema = LSP_OUTPUT_JSON_SCHEMA;
 
   /**
    * LSP工具实例
@@ -557,6 +561,8 @@ export class LSPToolAdapter implements Tool {
       interruptBehavior: this.interruptBehavior(),
       maxResultSizeChars: this.maxResultSizeChars,
       tags: [ToolTag.CODE],
+      // U-03（2026-11-23）：出参结构进快照（懒加载未解包时模型也能看到）
+      outputJsonSchema: this.outputJsonSchema,
     };
   }
 

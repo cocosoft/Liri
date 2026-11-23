@@ -14,6 +14,7 @@ import type { ToolResult } from '@openliri/infra/utils/toolContract/ToolResult';
 import { ToolTag } from '@openliri/infra/utils/toolContract/Tool';
 import { REPLToolImpl } from '../repl/REPLToolImpl.js';
 import type { REPLSession } from '../repl/types/index.js';
+import { REPL_OUTPUT_JSON_SCHEMA } from './schemas.js';
 
 import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:adapters:REPLToolAdapter');
@@ -156,6 +157,9 @@ export class REPLToolAdapter implements Tool {
    * 最大结果大小
    */
   maxResultSizeChars = 10000;
+
+  /** U-03（2026-11-23）：模型可见出参结构（按 action 分支变化，见 `schemas.ts`） */
+  outputJsonSchema = REPL_OUTPUT_JSON_SCHEMA;
 
   /**
    * REPL工具实例
@@ -317,6 +321,8 @@ export class REPLToolAdapter implements Tool {
       interruptBehavior: this.interruptBehavior(),
       maxResultSizeChars: this.maxResultSizeChars,
       tags: [ToolTag.CODE],
+      // U-03（2026-11-23）：出参结构进快照（懒加载未解包时模型也能看到）
+      outputJsonSchema: this.outputJsonSchema,
     };
   }
 

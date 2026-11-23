@@ -43,6 +43,7 @@ import type {
 import type { ToolUseContext } from '../types/ToolUseContext';
 import type { ToolResult } from '../types/ToolResult';
 import { ToolTag } from '../types/Tool';
+import { LSP_OUTPUT_JSON_SCHEMA } from '@openliri/tool-code';
 import { maybeStartLspSidecar } from './toolSidecarLifecycle';
 
 /**
@@ -181,6 +182,9 @@ export class SidecarLspTool implements Tool {
   alwaysLoad = false;
   maxResultSizeChars = 10000;
 
+  /** U-03（2026-11-23）：模型可见出参结构（与内置 `LSPToolAdapter` 同源声明） */
+  outputJsonSchema = LSP_OUTPUT_JSON_SCHEMA;
+
   private readonly provideSupervisor: LspSupervisorProvider;
 
   constructor(provideSupervisor: LspSupervisorProvider = maybeStartLspSidecar) {
@@ -316,6 +320,8 @@ export class SidecarLspTool implements Tool {
       interruptBehavior: this.interruptBehavior(),
       maxResultSizeChars: this.maxResultSizeChars,
       tags: [ToolTag.CODE],
+      // U-03（2026-11-23）：出参结构进快照（懒加载未解包时模型也能看到）
+      outputJsonSchema: this.outputJsonSchema,
     };
   }
 

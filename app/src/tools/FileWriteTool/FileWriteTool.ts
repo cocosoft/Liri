@@ -202,6 +202,16 @@ export class FileWriteTool extends BaseTool {
    */
   override sandboxLevel = 'file-io' as const;
 
+  /**
+   * U-03（2026-11-23）：模型可见出参结构。
+   * 实测出口：成功为 `File written/appended to successfully: <绝对路径>`，
+   * 失败为错误说明 —— `data` **恒为字符串**（`createToolResult(<string>, …)`）。
+   */
+  override outputJsonSchema = {
+    type: 'string',
+    description: '写入回执（含实际写入的绝对路径）；失败为错误说明',
+  };
+
   params: ToolParam[] = [
     {
       name: 'file_path',

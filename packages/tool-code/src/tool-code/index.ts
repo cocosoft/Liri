@@ -20,6 +20,10 @@ export { LSPToolAdapter } from './adapters/LSPToolAdapter';
 export { REPLToolAdapter } from './adapters/REPLToolAdapter';
 export { NotebookToolAdapter } from './adapters/NotebookToolAdapter';
 export {
+  LSP_OUTPUT_JSON_SCHEMA,
+  REPL_OUTPUT_JSON_SCHEMA,
+} from './adapters/schemas';
+export {
   CodeRunnerTool,
   createCodeRunnerTool,
   configureCodeRunner,

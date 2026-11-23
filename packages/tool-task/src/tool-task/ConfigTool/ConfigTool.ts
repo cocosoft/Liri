@@ -32,6 +32,24 @@ export class ConfigTool extends BaseTool<ConfigToolInput> {
 
   override tags = [ToolTag.SYSTEM];
 
+  /**
+   * U-03（2026-11-23）：模型可见出参结构。
+   * 实测出口：成功 `{success:true, output}`（`get` 为读到的配置值，任意类型；
+   * `set`/`delete`/`list` 为回执文本），失败 `{success:false, error}`。
+   */
+  override outputJsonSchema = {
+    type: 'object',
+    properties: {
+      success: { type: 'boolean', description: '是否成功' },
+      output: {
+        description:
+          'get：读到的配置值（任意类型）；set/delete：操作回执；list：JSON 文本化的全部配置',
+      },
+      error: { type: 'string', description: '失败原因（失败分支）' },
+    },
+    required: ['success'],
+  };
+
   params: ToolParam[] = [
     {
       name: 'action',

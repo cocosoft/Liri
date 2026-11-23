@@ -8,6 +8,11 @@
  */
 import { describe, expect, it } from 'bun:test';
 import { ToolRegistry } from '../../src/tools/ToolRegistry';
+import { ToolFactory } from '../../src/tools/ToolFactory';
+import {
+  getAllBuiltinToolLoaders,
+  loadTools,
+} from '../../src/tools/utils/ToolManagerUtils';
 import { CodeAnalysisTool } from '../../src/tools/CodeAnalysisTool/CodeAnalysisTool';
 import { CodeAnalysisOutputSchema } from '../../src/tools/CodeAnalysisTool/schemas';
 import { GrepTool } from '../../src/tools/GrepTool/GrepTool';
@@ -1628,5 +1633,83 @@ describe('第二十一批工具出参结构（U-03）', () => {
     expect(declared.type).toBe('string');
     expect(declared.properties).toBeUndefined();
     expect(schemaOf(tool).output_schema.type).toBe('string');
+  });
+});
+
+/**
+ * 第二十二批（2026-11-23，P2）：核心工具出参结构补齐。
+ *
+ * 判据取**完整声明面**（`getAllBuiltinToolLoaders()`，含条件工具 —— `lsp` / `repl`
+ * 受功能开关门控、默认装配面不含）⇒ 断言的是"声明是否齐全"，
+ * 且不需要新增实现类 import（避免触发 support-levels 的 core 升级）。
+ */
+describe('第二十二批工具出参结构（U-03，2026-11-23）', () => {
+  const tools = loadTools(new ToolFactory(), getAllBuiltinToolLoaders());
+  const byName = new Map(tools.map((t) => [t.name, t]));
+
+  function declaredOf(name: string): Record<string, unknown> | undefined {
+    const tool = byName.get(name);
+    return tool?.getInfo?.().outputJsonSchema ?? tool?.outputJsonSchema;
+  }
+
+  it('六个核心工具均声明了 outputJsonSchema', () => {
+    for (const name of [
+      'file_read',
+      'file_write',
+      'lsp',
+      'repl',
+      'config',
+      'todo_write',
+    ]) {
+      expect({ name, declared: Boolean(declaredOf(name)) }).toEqual({
+        name,
+        declared: true,
+      });
+    }
+  });
+
+  it('file_read / file_write / todo_write：data 恒为字符串 ⇒ 标量声明', () => {
+    for (const name of ['file_read', 'file_write', 'todo_write']) {
+      const declared = declaredOf(name)!;
+      expect({ name, type: declared.type }).toEqual({ name, type: 'string' });
+      expect(declared.properties).toBeUndefined();
+      expect(schemaOf(byName.get(name)!).output_schema.type).toBe('string');
+    }
+  });
+
+  it('config：success 恒在；output 按 action 变化、error 仅失败分支', () => {
+    const declared = declaredOf('config')!;
+    expect(declared.type).toBe('object');
+    expect(Object.keys(declared.properties as object).sort()).toEqual([
+      'error',
+      'output',
+      'success',
+    ]);
+    expect(declared.required).toEqual(['success']);
+    expect(schemaOf(byName.get('config')!).output_schema).toEqual(declared);
+  });
+
+  it('repl：分支并集（无根级 required）', () => {
+    const declared = declaredOf('repl')!;
+    expect(declared.type).toBe('object');
+    expect(Object.keys(declared.properties as object).sort()).toEqual([
+      'error',
+      'executionTime',
+      'exitCode',
+      'language',
+      'languages',
+      'output',
+      'sessionId',
+      'success',
+    ]);
+    expect(declared.required).toBeUndefined();
+  });
+
+  it('lsp：原始结果随 action 变化 ⇒ 顶层对象、不虚构字段', () => {
+    const declared = declaredOf('lsp')!;
+    expect(declared.type).toBe('object');
+    expect(declared.properties).toEqual({});
+    expect(typeof declared.description).toBe('string');
+    expect(schemaOf(byName.get('lsp')!).output_schema).toEqual(declared);
   });
 });

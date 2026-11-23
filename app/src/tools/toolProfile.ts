@@ -20,7 +20,12 @@
  */
 
 import { getLogger } from '@openliri/infra/monitoring';
+// 2026-11-24（R00-003 下沉）：能力**标签取值**的唯一事实源在 infra `utils/contracts/`（service 层 handler 需静态引用）
+import { isKnownToolProfileTag } from '@openliri/infra/utils/contracts/toolProfileTags';
+import type { ToolProfileTag } from '@openliri/infra/utils/contracts/toolProfileTags';
 import type { ToolCategory } from './toolCategories';
+
+export { isKnownToolProfileTag } from '@openliri/infra/utils/contracts/toolProfileTags';
 
 const logger = getLogger('tools:profile');
 
@@ -29,33 +34,26 @@ const logger = getLogger('tools:profile');
  *
  * ⚠️ 只登记**有真实依据**的能力（下两条均被 `google ai 建议.md` 点名）；凭想象扩充即造需求。
  */
-export const TOOL_PROFILE_CATEGORIES: Record<string, readonly ToolCategory[]> =
-  {
-    /** 媒体面：图像生成/分析、视频生成/分析、音频·PDF·二维码·媒体元数据 */
-    media: ['image', 'video', 'media'],
-    /** 开发面：代码/LSP/git（`shell` 已在 chat/default 保底集内 ⇒ 此处不重复追加） */
-    coding: ['code'],
-  };
+export const TOOL_PROFILE_CATEGORIES: Record<
+  ToolProfileTag,
+  readonly ToolCategory[]
+> = {
+  /** 媒体面：图像生成/分析、视频生成/分析、音频·PDF·二维码·媒体元数据 */
+  media: ['image', 'video', 'media'],
+  /** 开发面：代码/LSP/git（`shell` 已在 chat/default 保底集内 ⇒ 此处不重复追加） */
+  coding: ['code'],
+};
 
 /** 已告警的未知标签（一次性告警；避免长任务每轮重复告警） */
 const warnedUnknownTags = new Set<string>();
 
 /**
- * 是否为**已登记**的能力标签（P4b，2026-10-16：`toolProfile` 写入口的边界校验用）。
- *
- * 单一事实源 = `TOOL_PROFILE_CATEGORIES` 的键集（不另写清单）；消费者 = HTTP handler
- * （`PATCH /v1/sessions/{id}/meta` 的 `tool_profile` 字段）—— 该文件既有的
- * `isWorkMode` 同口径：**非法值 → 400，不静默忽略**（静默忽略正是本项要修的根因：
- * 原先 handler 有字段白名单，`toolProfile` 不在其中 ⇒ 传了也被丢掉且无任何提示）。
- */
-export function isKnownToolProfileTag(tag: string): boolean {
-  return Object.prototype.hasOwnProperty.call(TOOL_PROFILE_CATEGORIES, tag);
-}
-
-/**
  * 解析会话 profile 能力标签 → 追加的**工具类别**（去重）。
  *
  * 未登记标签 ⇒ **忽略 + 一次性告警**（不阻断主链路，亦**不臆造**类别）。空 / 未声明 ⇒ `[]`。
+ *
+ * 2026-11-24：登记判据改用 infra 的 `isKnownToolProfileTag()`（类型守卫）⇒
+ * 映射表以 `Record<ToolProfileTag, …>` 声明，标签表与本表**两侧不一致即编译期报错**。
  */
 export function resolveToolProfileCategories(
   profile?: readonly string[]
@@ -64,8 +62,7 @@ export function resolveToolProfileCategories(
 
   const categories = new Set<ToolCategory>();
   for (const tag of profile) {
-    const mapped = TOOL_PROFILE_CATEGORIES[tag];
-    if (!mapped) {
+    if (!isKnownToolProfileTag(tag)) {
       if (!warnedUnknownTags.has(tag)) {
         warnedUnknownTags.add(tag);
         logger.warn(
@@ -75,7 +72,7 @@ export function resolveToolProfileCategories(
       }
       continue;
     }
-    for (const c of mapped) categories.add(c);
+    for (const c of TOOL_PROFILE_CATEGORIES[tag]) categories.add(c);
   }
   return [...categories];
 }

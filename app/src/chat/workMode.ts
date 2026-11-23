@@ -29,15 +29,16 @@
  *     在后端无任何读取点，客户端发了也无人校验，属"空投"，比未实现更难发现）；
  *  ② **模式 → 系统提示片段**：`plan` 追加"只规划、不产出最终交付物"的要求；
  *     `do` 与未提供时**原样返回**（现行为不变，Spec §5.3）。
+ *
+ * 2026-11-24（R00-003 下沉）：① 的**取值与校验**唯一事实源已移到
+ * `@openliri/infra/utils/contracts/workMode` —— service 层 handler 需要它，而静态 import app 会倒挂
+ * （此前只能 `await import('@modules/chat')`）。本模块保留 ②，并从 infra **原样转出**
+ * `isWorkMode` / `WorkMode`，使 `chat` 模块出口与既有单测路径不变。
  */
+import type { WorkMode } from '@openliri/infra/utils/contracts/workMode';
 
-/** 工作模式（取值与后端会话 metadata 一致，勿改名） */
-export type WorkMode = 'plan' | 'do';
-
-/** 取值校验（用于 HTTP 边界等外部输入） */
-export function isWorkMode(value: unknown): value is WorkMode {
-  return value === 'plan' || value === 'do';
-}
+export { isWorkMode } from '@openliri/infra/utils/contracts/workMode';
+export type { WorkMode } from '@openliri/infra/utils/contracts/workMode';
 
 /** `plan` 模式追加的系统提示片段 */
 export const PLAN_MODE_PROMPT = [

@@ -30,6 +30,10 @@ import { MessageRole } from '@modules/session/types/message';
 // —— 原经 `@modules/chat`(app) 取值构成 1 条 `infrastructure(service) -> chat(app)` 倒挂；
 // 改指 infra ⇒ `service -> infra` **合法**（该边消失）。其类型阻断（`Message` / `LiriEventType`）已由 B11 迁 `session/types/` 解除。
 import { dedupeMessagesToolCallBlocks } from '@openliri/infra/utils/chatBlocks';
+// 2026-11-24（R00-003 下沉）：`work_mode` / `tool_profile` 的取值契约移到 infra
+// ⇒ 本文件不再动态导入 `@modules/chat` / `@modules/tools`（两条 service→app 盲区边消失）。
+import { isWorkMode } from '@openliri/infra/utils/contracts/workMode';
+import { isKnownToolProfileTag } from '@openliri/infra/utils/contracts/toolProfileTags';
 import type { LiriEventType } from '@modules/session/types/events';
 import {
   deriveSessionStats,
@@ -1244,20 +1248,19 @@ export async function handleUpdateSessionMeta(
 
     // 2026-10-04：plan/do 工作模式切换（输入区开关）——边界校验 fail loud，与
     // chat-handlers 的 work_mode 校验同一套语义（非法值 → 400，不静默忽略）。
-    // chat 归属 app 层、本文件属 service 层 ⇒ 动态导入避免 service -> app 静态倒挂。
-    const { isWorkMode } = await import('@modules/chat');
+    // 2026-11-24：取值契约在 infra（`utils/workMode`）⇒ 静态引用，不再动态导入 app。
     if (data.work_mode !== undefined && !isWorkMode(data.work_mode)) {
       sendBadRequest(res, 'work_mode must be "plan" | "do"');
       return;
     }
 
     // P4b（2026-10-16）：tool_profile 边界校验 —— 必须是字符串数组，且每个标签**已登记**
-    // （`isKnownToolProfileTag` 的单一事实源 = `tools/toolProfile.ts` 的映射表键集，不另写清单）。
+    // （`isKnownToolProfileTag` 的单一事实源 = infra `utils/toolProfileTags` 的标签表；app 侧映射表
+    // 以 `Record<ToolProfileTag, …>` 声明 ⇒ 两侧不一致会编译期报错）。
     // 同 work_mode 口径：非法值 → 400，**不静默忽略** —— 静默忽略正是本项要修的根因：
     // 此前本 handler 的字段白名单里没有 toolProfile ⇒ 传了也被丢掉、且无任何提示，
     // 于是 `session.metadata.toolProfile` 成了「只有读方、没有写方」的休眠入口（TG-4 不可用）。
-    // 动态导入避免 service -> app 静态倒挂（同 isWorkMode）。
-    const { isKnownToolProfileTag } = await import('@modules/tools');
+    // 2026-11-24：标签表在 infra（`utils/toolProfileTags`）⇒ 静态引用（同 work_mode）。
     if (data.tool_profile !== undefined) {
       if (
         !Array.isArray(data.tool_profile) ||

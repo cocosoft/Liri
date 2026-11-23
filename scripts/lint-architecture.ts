@@ -4343,7 +4343,10 @@ class ArchitectureLinter {
     let directCtor = 0;
     for (const file of this.allFiles) {
       if (skipFile(file)) continue;
-      const content = readFileSync(file, 'utf-8');
+      // 2026-11-23：先**剥离注释**再匹配（`stripComments` 保留换行 ⇒ 行号不变）。
+      // 否则"文档里写一条 `new Logger({...})` 示例"会被当成真实构造 —— 实测
+      // `monitoring/logs/config/LogConfig.ts` 仅在注释中提及即被判 1 处（假阳性）。
+      const content = this.stripComments(readFileSync(file, 'utf-8'));
       newLoggerRe.lastIndex = 0;
       let m: RegExpExecArray | null;
       let reported = 0;

@@ -665,6 +665,7 @@ const m = createModule('module:sub');     // 一行获得 logger + error(action)
 - 自定义配置形态（自定义 `level` / `redact` / `source` 等）属存量回退清单，由 lint:arch R11-001 warning 追踪，需人工确认后迁移
 - 唯一例外：`monitoring/logs/Logger.ts` 本身（getLogger/createLogger 实现）
 - 配套 lint：`bun run lint:arch` → R11-001（每文件最多报 5 条 warning）
+- 匹配前**先剥离注释**（保留换行，行号不变）⇒ 文档/注释里**提及** `new Logger(` 不算违规，只有真实构造才计（2026-11-23 修正 `LogConfig.ts` 假阳性）
 
 ### R11-002 [MUST] 新模块可观测性接入必须走 createModule()
 

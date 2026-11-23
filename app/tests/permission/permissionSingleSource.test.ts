@@ -1,12 +1,14 @@
 /**
- * `lint:permission-single-source` 自证（P2-2 / P2-3，2026-11-03；R1 扩展 2026-11-17）。
+ * `lint:permission-single-source` 自证（P2-2 / P2-3，2026-11-03；R1 扩展 2026-11-17；
+ * ⑤ 审批可执行性契约 2026-11-24）。
  *
  * 立论同 `gateParity.test.ts`：门禁"跑绿了"不等于"真的会报"。
- * 本文件钉死四件事：
- *   ① 真实仓库：单一来源 + 工具规则 HTTP 写入口唯一（exit 0）；
+ * 本文件钉死五件事：
+ *   ① 真实仓库：单一来源 + 工具规则 HTTP 写入口唯一 + 审批产生点均接终局预检（exit 0）；
  *   ② 负向对照：非规范文件再写一份危险表 / 只读目录 / 废弃常量 ⇒ exit 1 并点名；
  *   ③ 负向对照：HTTP 层出现 `tool_rules.json` 或第二个 `/v1/permissions/rules` 路由 ⇒ exit 1；
- *   ④ 解析失败（扫描目录缺失）⇒ exit 1，不得静默当作通过。
+ *   ④ 解析失败（扫描目录缺失）⇒ exit 1，不得静默当作通过；
+ *   ⑤ 负向对照：bash 工具新增未登记的 `requireApproval` 出口、或丢掉预检接线 ⇒ exit 1。
  */
 import { describe, it, expect, afterAll } from 'bun:test';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -45,6 +47,27 @@ function fixture(dupSource: string, relPath = 'app/src/dup.ts'): string {
   const target = join(dir, ...relPath.split('/'));
   mkdirSync(dirname(target), { recursive: true });
   writeFileSync(target, dupSource);
+  return dir;
+}
+
+/**
+ * 多文件夹具：`files` = 相对仓库根的路径 → 内容（用于 ⑤ 的 BashTool/门禁双文件联动）。
+ * 仍建 `packages/infra/src/index.ts` 占位以满足"扫描到源文件"。
+ */
+function fixtureFiles(files: Record<string, string>): string {
+  const dir = mkdtempSync(join(tmpdir(), 'liri-permission-single-source-'));
+  temps.push(dir);
+  mkdirSync(join(dir, 'app', 'src'), { recursive: true });
+  mkdirSync(join(dir, 'packages', 'infra', 'src'), { recursive: true });
+  writeFileSync(
+    join(dir, 'packages', 'infra', 'src', 'index.ts'),
+    'export {};\n'
+  );
+  for (const [relPath, content] of Object.entries(files)) {
+    const target = join(dir, ...relPath.split('/'));
+    mkdirSync(dirname(target), { recursive: true });
+    writeFileSync(target, content);
+  }
   return dir;
 }
 
@@ -129,6 +152,61 @@ const READ_ONLY_BASES = READ_ONLY_BASE_COMMANDS;
       `export function isRulesRoute(url: string) {\n  return url === '/v1/permissions/rules';\n}\n`,
       'app/src/infrastructure/http/handlers/permission-handlers.ts'
     );
+    const r = run(dir);
+    expect(r.status).toBe(0);
+  });
+
+  // ─── ⑤ 审批可执行性契约（2026-11-24）────────────────────────────────────────
+
+  it('负向对照：bash 工具新增未登记的 requireApproval 出口 ⇒ exit 1 并点名', () => {
+    const dir = fixture(
+      `export const ask = { requireApproval: true };\n`,
+      'app/src/tools/bash/NewAsk.ts'
+    );
+    const r = run(dir);
+    expect(r.status).toBe(1);
+    expect(r.out).toContain('NewAsk.ts');
+    expect(r.out).toContain('未登记审批终局预检');
+  });
+
+  it('负向对照：BashTool 丢掉审批终局预检引用 ⇒ exit 1', () => {
+    const dir = fixture(
+      `export const execute = () => null;\n`,
+      'app/src/tools/bash/BashTool.ts'
+    );
+    const r = run(dir);
+    expect(r.status).toBe(1);
+    expect(r.out).toContain('BashTool.ts');
+    expect(r.out).toContain('审批终局预检');
+  });
+
+  it('负向对照：预检未委托 checkWhitelistAndSandbox ⇒ exit 1（预检与真实路径必须同源）', () => {
+    const dir = fixtureFiles({
+      'app/src/tools/bash/bashSecurityGate.ts': [
+        'export const ask = { requireApproval: true };',
+        'export function checkApprovalWouldBeBlocked() {',
+        '  return null;',
+        '}',
+        '',
+      ].join('\n'),
+    });
+    const r = run(dir);
+    expect(r.status).toBe(1);
+    expect(r.out).toContain('必须委托 checkWhitelistAndSandbox');
+  });
+
+  it('合法形态：ask 出口已登记 + 预检委托真实硬拦截 ⇒ exit 0', () => {
+    const dir = fixtureFiles({
+      'app/src/tools/bash/bashSecurityGate.ts': [
+        'export const ask = { requireApproval: true };',
+        'export function checkApprovalWouldBeBlocked() {',
+        '  return checkWhitelistAndSandbox();',
+        '}',
+        '',
+      ].join('\n'),
+      'app/src/tools/bash/BashTool.ts':
+        "import { checkApprovalWouldBeBlocked } from './bashSecurityGate';\nexport const run = () => checkApprovalWouldBeBlocked();\n",
+    });
     const r = run(dir);
     expect(r.status).toBe(0);
   });

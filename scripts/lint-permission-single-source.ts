@@ -14,6 +14,9 @@
  *   ② 非规范文件出现 ≥3 条危险命令字面量（`'rm -rf'` / `'mkfs'` …）⇒ 疑似第二份危险表。
  *   ③ 非规范文件出现 ≥6 条只读命令字面量（`'ls'` / `'cat'` …）⇒ 疑似第二份只读目录。
  *   ②③ 的**刻意分层**（CD07 纵深防御 / 不同用途词表）必须进 `ALLOWLIST` 且理由非空。
+ *   ④ 工具规则（A 体系）的 HTTP 写入口唯一（`/v1/permissions/rules`）。
+ *   ⑤ **审批可执行性契约**（2026-11-24）：bash 工具的每个 `requireApproval: true` 产生点
+ *      必须由 `BashTool` 的审批终局预检兜底，且预检必须委托真实的硬拦截函数。
  *   任何扫描输入缺失 / 读取失败 ⇒ exit 1（不得静默降级为「0 违规」）。
  *
  * 用法：`bun run scripts/lint-permission-single-source.ts`（CI / `bun run ci` 均调用）
@@ -198,6 +201,28 @@ function stripComments(text: string): string {
     .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
 }
 
+// ─── ⑤ 审批可执行性契约（2026-11-24）──────────────────────────────────────────
+//
+// 真机 `session_mwrf18pu00456e0f2b`：`for %f in (...) do @echo ...` 先被 ask 层判"可确认"
+// 并提交审批卡（文案承诺「批准后可继续执行」），用户批准后重放却被硬拦截④（基命令白名单
+// `for` 不在允许列表）否决 ⇒ 审批空转、用户以为"审批没生效"。
+// 根因是 ask 层与硬拦截层对"可审批性"口径不一致。契约：**审批卡只在批准后真能执行时出现**。
+// 判据（仅在对应文件存在时生效，便于单测夹具构造最小树）：
+//   ⑤a bash 工具目录下出现 `requireApproval: true` 的文件必须在 ASK_SITE_PREFLIGHT 登记；
+//   ⑤b `BashTool.ts` 必须引用 `checkApprovalWouldBeBlocked`（预检接线）；
+//   ⑤c `bashSecurityGate.ts` 的 `checkApprovalWouldBeBlocked` 函数体必须调用
+//       `checkWhitelistAndSandbox`（保证预检 = 批准后的真实硬拦截路径）。
+const BASH_TOOLS_DIR = 'app/src/tools/bash/';
+const BASH_TOOL_FILE = 'app/src/tools/bash/BashTool.ts';
+const BASH_GATE_FILE = 'app/src/tools/bash/bashSecurityGate.ts';
+/** 已登记的审批产生点 → 其终局预检的实现位置（新增产生点必须同批接入预检并登记） */
+const ASK_SITE_PREFLIGHT: Record<string, string> = {
+  [BASH_GATE_FILE]: 'BashTool.approvalPreflight',
+  'app/src/tools/bash/powerShellWrapper.ts': 'BashTool.approvalPreflight',
+};
+const ASK_SITE_RE = /requireApproval\s*:\s*true/;
+const PREFLIGHT_NAME = 'checkApprovalWouldBeBlocked';
+
 /** 递归收集 `.ts`（排除 `.test.ts` / `node_modules`） */
 function walk(dir: string, out: string[]): void {
   for (const entry of readdirSync(dir)) {
@@ -277,6 +302,42 @@ for (const file of files) {
     }
   }
 
+  // ⑤ 审批可执行性契约（2026-11-24）：审批卡只在"批准后真能执行"时出现
+  if (rel.startsWith(BASH_TOOLS_DIR)) {
+    if (ASK_SITE_RE.test(text) && !ASK_SITE_PREFLIGHT[rel]) {
+      violations.push(
+        `${rel}: 出现 requireApproval 出口但未登记审批终局预检 —— 新的 ask 产生点必须在 ${BASH_TOOL_FILE} 里经 ${PREFLIGHT_NAME} 预检，并登记到 ASK_SITE_PREFLIGHT`
+      );
+    }
+    if (rel === BASH_TOOL_FILE && !text.includes(PREFLIGHT_NAME)) {
+      violations.push(
+        `${rel}: 必须经 ${PREFLIGHT_NAME} 做审批终局预检（否则会重新出现"批准后仍被硬拦截"的空转审批卡）`
+      );
+    }
+    if (rel === BASH_GATE_FILE) {
+      const decl = `export function ${PREFLIGHT_NAME}`;
+      const start = text.indexOf(decl);
+      if (start < 0) {
+        violations.push(
+          `${rel}: 缺 ${PREFLIGHT_NAME}（审批终局预检的唯一实现）`
+        );
+      } else {
+        // 函数签名里的参数类型对象也以 `\n}` 收尾 ⇒ 不能按首个 `\n}` 截断，
+        // 取到下一个顶层 `export` 之前（函数体一定在其中）。
+        const nextExport = text.indexOf('\nexport ', start + decl.length);
+        const body = text.slice(
+          start,
+          nextExport > start ? nextExport : text.length
+        );
+        if (!body.includes('checkWhitelistAndSandbox(')) {
+          violations.push(
+            `${rel}: ${PREFLIGHT_NAME} 必须委托 checkWhitelistAndSandbox（预检与批准后的真实硬拦截路径同源）`
+          );
+        }
+      }
+    }
+  }
+
   // ① 同名常量在非规范文件里以字面集合声明
   for (const m of text.matchAll(DECLARATION_RE)) {
     const name = m[1]!;
@@ -333,10 +394,13 @@ if (violations.length > 0) {
   console.error(
     '   处置：把清单收敛到规范文件；确属刻意分层（CD07）则在 ALLOWLIST 登记且理由非空。'
   );
+  console.error(
+    '   审批可执行性：bash 工具的每个 requireApproval 出口都必须登记并接 checkApprovalWouldBeBlocked 预检。'
+  );
   process.exit(1);
 }
 
 console.log(
-  `✅ [permission-single-source] 扫描 ${files.length} 个源文件：危险表 / 只读目录各仅一份、工具规则 HTTP 写入口唯一（豁免 ${Object.keys(ALLOWLIST).length} 处，均带理由）`
+  `✅ [permission-single-source] 扫描 ${files.length} 个源文件：危险表 / 只读目录各仅一份、工具规则 HTTP 写入口唯一、审批产生点均接终局预检（豁免 ${Object.keys(ALLOWLIST).length} 处，均带理由）`
 );
 process.exit(0);

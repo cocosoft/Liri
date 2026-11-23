@@ -41,6 +41,9 @@ const PERMISSIVE = [
   'ARTISTIC-2.0',
   'BSL-1.0',
   'MIT-0',
+  // 2026-11-23：SIL Open Font License（字体专用宽松许可；@fontsource-* 依赖常见）
+  'OFL-1.1',
+  'SIL-OFL-1.1',
 ];
 /** 传染性 / 需复核（copyleft）许可片段。MPL 为弱 copyleft ⇒ 归入需复核。 */
 const COPYLEFT = [
@@ -56,6 +59,62 @@ const COPYLEFT = [
 ];
 
 type Verdict = 'permissive' | 'copyleft' | 'unknown';
+
+/**
+ * 2026-11-23：**已复核接受**台账（把"非阻断报告"升级为真正的门禁）。
+ *
+ * 背景：本脚本此前默认 exit 0（仅报告），若接进 CI 也只是"永远绿"的空转门禁。
+ * 现支持 `--fail-on=copyleft,unknown` 阻断，但**只阻断未登记的依赖**；
+ * 已人工复核并接受的条目写入 `.trae/architecture/license-allowlist.json`（必须写理由）。
+ *
+ * 键支持**前缀通配**（`@img/sharp-*` / `lightningcss-*`）：同一包的各平台预编译产物
+ * 许可相同，逐个列出会在异构 CI 上因"平台差异"误报（Linux 安装的是 linux 变体）。
+ */
+const LICENSE_ALLOWLIST_PATH = join(
+  ROOT,
+  '.trae',
+  'architecture',
+  'license-allowlist.json'
+);
+
+interface LicenseAllowlist {
+  packages?: Record<string, { reason?: string }>;
+}
+
+function loadLicenseAllowlist(): Record<string, string> {
+  if (!existsSync(LICENSE_ALLOWLIST_PATH)) return {};
+  try {
+    const raw = JSON.parse(
+      readFileSync(LICENSE_ALLOWLIST_PATH, 'utf-8')
+    ) as LicenseAllowlist;
+    const out: Record<string, string> = {};
+    for (const [pattern, entry] of Object.entries(raw.packages ?? {})) {
+      const reason =
+        typeof entry?.reason === 'string' ? entry.reason.trim() : '';
+      if (reason) out[pattern] = reason;
+    }
+    return out;
+  } catch (error) {
+    console.error(
+      `❌ 许可证台账无法解析：${LICENSE_ALLOWLIST_PATH}\n  ${String(error)}`
+    );
+    process.exit(1);
+  }
+}
+
+/** 精确名或前缀通配（`xxx-*`）命中已接受台账 */
+function findAllowlistReason(
+  name: string,
+  allowlist: Record<string, string>
+): string | undefined {
+  if (allowlist[name]) return allowlist[name];
+  for (const [pattern, reason] of Object.entries(allowlist)) {
+    if (pattern.endsWith('*') && name.startsWith(pattern.slice(0, -1))) {
+      return reason;
+    }
+  }
+  return undefined;
+}
 
 interface Pkg {
   name: string;
@@ -149,24 +208,55 @@ function main(): void {
   const pkgs: Pkg[] = [];
   for (const rel of SCAN_DIRS) pkgs.push(...collectFrom(join(ROOT, rel)));
 
-  const copyleft = pkgs.filter((p) => p.verdict === 'copyleft');
-  const unknown = pkgs.filter((p) => p.verdict === 'unknown');
-  const permissiveCount = pkgs.length - copyleft.length - unknown.length;
+  const allowlist = loadLicenseAllowlist();
+  const copyleftAll = pkgs.filter((p) => p.verdict === 'copyleft');
+  const unknownAll = pkgs.filter((p) => p.verdict === 'unknown');
+  const permissiveCount = pkgs.length - copyleftAll.length - unknownAll.length;
 
-  console.log('=== R12 依赖许可证合规扫描（离线，非阻断）===');
+  const accepted: Pkg[] = [];
+  const copyleft: Pkg[] = [];
+  const unknown: Pkg[] = [];
+  for (const p of [...copyleftAll, ...unknownAll]) {
+    if (findAllowlistReason(p.name, allowlist)) accepted.push(p);
+    else if (p.verdict === 'copyleft') copyleft.push(p);
+    else unknown.push(p);
+  }
+
+  console.log('=== R12 依赖许可证合规扫描（离线）===');
   console.log(`扫描目录: ${SCAN_DIRS.join(' · ')}`);
   console.log(
-    `依赖总数 ${pkgs.length} · permissive ${permissiveCount} · copyleft ${copyleft.length} · unknown ${unknown.length}`
+    `依赖总数 ${pkgs.length} · permissive ${permissiveCount} · ` +
+      `已复核接受 ${accepted.length} · copyleft(未接受) ${copyleft.length} · unknown(未接受) ${unknown.length}`
   );
 
+  if (accepted.length > 0) {
+    console.log('\n--- 已复核接受（台账登记）---');
+    for (const p of accepted) {
+      console.log(
+        `  ${p.name}@${p.version}  ${p.license || '(无声明)'}  ⇒ ${findAllowlistReason(p.name, allowlist)}`
+      );
+    }
+  }
   if (copyleft.length > 0) {
-    console.log('\n--- 需复核（copyleft）---');
+    console.log('\n--- 需复核（copyleft，未登记）---');
     for (const p of copyleft)
       console.log(`  ${p.name}@${p.version}  ${p.license}`);
   }
   if (unknown.length > 0) {
-    console.log('\n--- 无声明 / 未知许可（unknown）---');
+    console.log('\n--- 无声明 / 未知许可（unknown，未登记）---');
     for (const p of unknown) console.log(`  ${p.name}@${p.version}`);
+  }
+
+  // 台账陈旧条目只**告警**不阻断：依赖按平台安装（sharp / lightningcss 的 linux/darwin
+  // 变体不会同时存在），跨平台 CI 上"本机未安装"是正常现象。
+  const installedNames = new Set(pkgs.map((p) => p.name));
+  const stale = Object.keys(allowlist).filter(
+    (pattern) => !pattern.endsWith('*') && !installedNames.has(pattern)
+  );
+  if (stale.length > 0) {
+    console.warn(
+      `\n⚠️ 台账条目在本机未安装（跨平台属正常，勿据此删条目）：${stale.join(', ')}`
+    );
   }
 
   const shouldFail =
@@ -178,8 +268,11 @@ function main(): void {
     );
   console.log(
     shouldFail
-      ? '\n❌ 命中 --fail-on 条件（分级收紧）'
-      : '\n✅ 扫描完成（非阻断：仅报告；可用 --fail-on=copyleft,unknown 收紧）'
+      ? '\n❌ 命中 --fail-on 条件：存在**未登记**的 copyleft/unknown 依赖（补台账需写明复核理由）'
+      : '\n✅ 扫描完成' +
+          (failOn?.length
+            ? '（fail-on 已启用：未登记的 copyleft/unknown 会阻断）'
+            : '（非阻断：仅报告；可用 --fail-on=copyleft,unknown 收紧）')
   );
   process.exit(shouldFail ? 1 : 0);
 }

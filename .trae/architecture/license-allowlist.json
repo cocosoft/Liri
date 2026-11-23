@@ -1,0 +1,20 @@
+{
+  "note": "依赖许可证「已复核接受」台账（R12 门禁，lint:license --fail-on=copyleft,unknown）。键 = 包名，支持前缀通配（如 @img/sharp-*：同一包各平台预编译产物许可相同，逐个列出会在异构 CI 误报）。值 = 复核理由（必须非空）。口径：只登记**已核对许可事实并接受**的 copyleft/unknown 依赖；新出现的同类依赖会直接阻断，须复核后在此登记。",
+  "packages": {
+    "@img/sharp-*": {
+      "reason": "sharp 预编译二进制：Apache-2.0 AND LGPL-3.0-or-later；以动态链接库方式使用，未修改其源码、未与项目代码静态链接、未单独再分发库本体。"
+    },
+    "lightningcss": {
+      "reason": "MPL-2.0（文件级弱 copyleft）：仅构建期作为打包依赖使用，未修改其源码。"
+    },
+    "lightningcss-*": {
+      "reason": "MPL-2.0 平台预编译二进制：与 lightningcss 同源同许可，仅构建期使用、未修改。"
+    },
+    "duck": {
+      "reason": "package.json 的 license 字段写作「BSD」（非 SPDX 精确值）；已核对包内 LICENSE 文本为 BSD-2-Clause（无「Neither the name」条款）。"
+    },
+    "khroma": {
+      "reason": "package.json 未声明 license 字段；已核对包内 LICENSE 文本为 MIT（Copyright 2019-present Fabio Spampinato, Andrew Maney）。"
+    }
+  }
+}

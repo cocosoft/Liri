@@ -104,6 +104,9 @@ export const DEFAULT_SOURCE_DIRS: readonly string[] = [
   // （如 `agentDisplay.ts` 的 `formatAgentTiming`）仍需可被发现 —— 否则对应 A7 规格的
   // "资格线"前提会因搬目录而消失（AR-3：门禁不得因搬目录而失焦）。
   'packages/tool-agent/src/tool-agent/AgentTool',
+  // H 档收尾（2026-11-23）：`tools/LSPTool/formatters.ts` 孤儿纯函数（零运行时 import）
+  // 随域归位到 `packages/tool-code/src/tool-code/lsp` —— 三条 A7 规格仍需可被发现。
+  'packages/tool-code/src/tool-code/lsp',
 ];
 
 /** 扫描时跳过的目录名 */

@@ -399,7 +399,7 @@ export const sourceTaskSpecs: SourceTaskSpec[] = [
   {
     id: 'src-truncate-symbol-name',
     name: 'A7 派生：按上限截断过长的符号名',
-    sourcePath: 'app/src/tools/LSPTool/formatters.ts',
+    sourcePath: 'packages/tool-code/src/tool-code/lsp/formatters.ts',
     exportName: 'truncateSymbolName',
     behavior: [
       '输入符号名与最大长度（默认 60），返回不超过该长度的字符串。',
@@ -698,7 +698,7 @@ export const sourceTaskSpecs: SourceTaskSpec[] = [
   {
     id: 'src-format-location',
     name: 'A7 派生：LSP 位置格式化',
-    sourcePath: 'app/src/tools/LSPTool/formatters.ts',
+    sourcePath: 'packages/tool-code/src/tool-code/lsp/formatters.ts',
     exportName: 'formatLocation',
     behavior: [
       '输入 `{ file, line, column?, text }`，返回单行字符串。',
@@ -728,7 +728,7 @@ export const sourceTaskSpecs: SourceTaskSpec[] = [
   {
     id: 'src-format-definition',
     name: 'A7 派生：LSP 定义格式化',
-    sourcePath: 'app/src/tools/LSPTool/formatters.ts',
+    sourcePath: 'packages/tool-code/src/tool-code/lsp/formatters.ts',
     exportName: 'formatDefinition',
     behavior: [
       '输入 `{ file, line, column?, text }`，返回两行字符串。',

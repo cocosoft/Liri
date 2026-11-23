@@ -46,7 +46,7 @@ import {
   type LandlockHelperRunner,
 } from '../../src/tools/bash/bashLandlockExec.js';
 import { buildLandlockArgv } from '@modules/sandbox/landlock/runWithLandlock';
-import { buildBunLandlockPolicy } from '../../src/tools/CodeRunner/LinuxSandboxRunner.js';
+import { buildBunLandlockPolicy } from '@openliri/tool-code/CodeRunner/LinuxSandboxRunner';
 import {
   DEFAULT_LANDLOCK_CONFIG,
   type LandlockCapability,

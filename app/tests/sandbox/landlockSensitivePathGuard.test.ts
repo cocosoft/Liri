@@ -29,7 +29,7 @@ import {
   setUserDataDirOverride,
 } from '@openliri/infra/environment';
 import { buildBashLandlockPolicy } from '../../src/tools/bash/bashLandlockExec';
-import { buildBunLandlockPolicy } from '../../src/tools/CodeRunner/LinuxSandboxRunner';
+import { buildBunLandlockPolicy } from '@openliri/tool-code/CodeRunner/LinuxSandboxRunner';
 import type { LandlockFsRule } from '@modules/sandbox/landlock/types';
 
 const CWD = '/w';

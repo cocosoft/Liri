@@ -72,6 +72,8 @@ const TOOL_CATEGORY_ENTRIES = {
   create_project: 'code',
   // 2026-10-08（同上）：`code_run`（CodeRunnerTool，多语言代码执行）此前未登记 ⇒ 同风险。
   code_run: 'code',
+  // 2026-11-23：`code_analysis` 接线（只读静态分析，默认关；类别与能力包同 `code`）
+  code_analysis: 'code',
 
   // ── search 搜索（含技能发现/加载：tool_search 同链） ──
   grep: 'search',
@@ -872,7 +874,7 @@ export const CAPABILITY_PACKS: Readonly<
     summary: '代码智能 / 交互式 REPL / 多语言执行',
     defaultIn: ['full'],
     risk: 'high',
-    tools: ['lsp', 'repl', 'code_run'],
+    tools: ['lsp', 'repl', 'code_run', 'code_analysis'],
   },
 };
 

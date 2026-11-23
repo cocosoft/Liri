@@ -419,12 +419,12 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
         '30_000',
       ],
       [
-        'src/tools/CodeRunner/CrossPlatformRunner.ts',
+        '../packages/tool-code/src/tool-code/CodeRunner/CrossPlatformRunner.ts',
         'CROSS_PLATFORM_RUNNER_DEFAULT_TIMEOUT_MS',
         '60_000',
       ],
       [
-        'src/tools/CodeRunner/CodeRunnerTool.ts',
+        '../packages/tool-code/src/tool-code/CodeRunner/CodeRunnerTool.ts',
         'CODE_RUNNER_TOOL_DEFAULT_TIMEOUT_MS',
         '60_000',
       ],

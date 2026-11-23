@@ -8,11 +8,11 @@
     "providerSurfaceTokens": 1500
   },
   "targetMet": false,
-  "totalToolCount": 69,
+  "totalToolCount": 70,
   "disclosureCount": 13,
   "structuralTokens": 2396,
   "providerSurfaceTokens": 1512,
-  "sourceDescriptionChars": 3673,
+  "sourceDescriptionChars": 3824,
   "disclosureNames": [
     "agent",
     "ask_user_question",

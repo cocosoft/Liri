@@ -267,7 +267,7 @@
       },
       "code": [
         "packages/infra/src/security/decision.ts",
-        "app/src/tools/CodeRunner/staticValidation.ts"
+        "packages/tool-code/src/tool-code/CodeRunner/staticValidation.ts"
       ],
       "tests": [
         "app/tests/security/securityVerdict.test.ts"
@@ -5567,8 +5567,8 @@
         "packages/sandbox/src/sandbox/SandboxManager.ts",
         "packages/service/src/session/lock/PrioritySessionLock.ts",
         "packages/service/src/services/mcp/transports/StreamableHttpTransport.ts",
-        "app/src/tools/CodeRunner/CrossPlatformRunner.ts",
-        "app/src/tools/CodeRunner/CodeRunnerTool.ts",
+        "packages/tool-code/src/tool-code/CodeRunner/CrossPlatformRunner.ts",
+        "packages/tool-code/src/tool-code/CodeRunner/CodeRunnerTool.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
@@ -12635,8 +12635,8 @@
         "packages/sandbox/src/sandbox/index.ts",
         "packages/sandbox/src/sandbox/landlock/config.ts",
         "app/src/tools/bash/bashLandlockExec.ts",
-        "app/src/tools/CodeRunner/MacOSSandboxRunner.ts",
-        "app/src/tools/CodeRunner/LinuxSandboxRunner.ts"
+        "packages/tool-code/src/tool-code/CodeRunner/MacOSSandboxRunner.ts",
+        "packages/tool-code/src/tool-code/CodeRunner/LinuxSandboxRunner.ts"
       ],
       "tests": [
         "app/tests/sandbox/macosSandboxPolicy.test.ts",
@@ -12726,8 +12726,8 @@
         "packages/sandbox/src/sandbox/helperBinDir.ts",
         "packages/sandbox/src/sandbox/landlock/helperPaths.ts",
         "packages/sandbox/src/sandbox/index.ts",
-        "app/src/tools/CodeRunner/WindowsSandboxRunner.ts",
-        "app/src/tools/CodeRunner/LinuxSandboxRunner.ts",
+        "packages/tool-code/src/tool-code/CodeRunner/WindowsSandboxRunner.ts",
+        "packages/tool-code/src/tool-code/CodeRunner/LinuxSandboxRunner.ts",
         "app/scripts/build-win-sandbox.ts",
         "app/scripts/verify-win-sandbox.ts",
         "app/package.json",
@@ -17467,7 +17467,7 @@
         "app/src/infrastructure/http/handlers/permission-rbac-handlers.ts",
         "app/src/commands/builtin/permissions/rbac.ts",
         "app/src/chat/services/ToolExecutionService.ts",
-        "app/src/tools/CodeRunner/CodeRunnerTool.ts",
+        "packages/tool-code/src/tool-code/CodeRunner/CodeRunnerTool.ts",
         "app/tests/permission/fineGrainedDecisionChain.test.ts",
         "app/tests/commands/permissionsModeCommand.test.ts",
         "app/tests/http/permissionRbacHandler.test.ts",

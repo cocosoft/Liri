@@ -3,8 +3,8 @@
   "locale": "zh-CN",
   "generatedBy": "app/scripts/export-tool-params.ts",
   "counts": {
-    "tools": 69,
-    "params": 379
+    "tools": 70,
+    "params": 384
   },
   "params": {
     "agent.allowedTools": "逗号分隔的工具名，表示子代理允许使用哪些工具。若为空，则所有工具均可用。",
@@ -73,6 +73,11 @@
     "clipboard.action": "Clipboard operation: read (get content) or write (set content)",
     "clipboard.content": "Content to write to clipboard (required for write action)",
     "clipboard.full": "Read full clipboard content without truncation (only for read action)",
+    "code_analysis.analysisType": "分析类型: structure, complexity, dependencies, quality",
+    "code_analysis.extensions": "文件扩展名过滤",
+    "code_analysis.maxFiles": "最大分析文件数",
+    "code_analysis.recursive": "是否递归分析",
+    "code_analysis.target": "分析目标路径",
     "code_run.code": "TypeScript 编排代码。不允许任何 import。使用 globalThis.__liriRuntime。",
     "code_run.language": "语言（默认：ts）",
     "code_run.round": "轮次标记（仅用于日志，无状态）",

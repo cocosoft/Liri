@@ -29,7 +29,7 @@ import type {
 } from '@modules/sandbox/landlock/types';
 import type { SandboxPermissions } from '@modules/sandbox/SandboxTypes';
 import { buildBashLandlockPolicy } from '../../src/tools/bash/bashLandlockExec';
-import { buildBunLandlockPolicy } from '../../src/tools/CodeRunner/LinuxSandboxRunner';
+import { buildBunLandlockPolicy } from '@openliri/tool-code/CodeRunner/LinuxSandboxRunner';
 
 function policy(over: Partial<LandlockPolicy> = {}): LandlockPolicy {
   const fs: LandlockFsRule[] = [{ path: '/work', allow: ['read'] }];

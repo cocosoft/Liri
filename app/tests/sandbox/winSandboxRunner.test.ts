@@ -9,8 +9,8 @@ import { describe, expect, it } from 'bun:test';
 import {
   classifyWinSandboxDenial,
   runCodeRunnerWithWindowsSandbox,
-} from '../../src/tools/CodeRunner/WindowsSandboxRunner';
-import type { CodeRunnerExecOptions } from '../../src/tools/CodeRunner/CrossPlatformRunner';
+} from '@openliri/tool-code/CodeRunner/WindowsSandboxRunner';
+import type { CodeRunnerExecOptions } from '@openliri/tool-code/CodeRunner/CrossPlatformRunner';
 import type { LandlockConfig } from '@modules/sandbox/landlock/config';
 
 const opts = {

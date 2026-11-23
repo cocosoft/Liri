@@ -29,7 +29,7 @@
 | 面 | 总数 | core | community |
 |---|---:|---:|---:|
 | 消息通道 | 27 | 26 | 0 |
-| 内建工具 | 69 | 47 | 22 |
+| 内建工具 | 70 | 47 | 23 |
 
 ## 消息通道
 
@@ -79,6 +79,7 @@
 | `canvas` | core | `app/tests/tools/canvasTool.test.ts`（测试文件名） | write · pass |
 | `channel` | core | `app/tests/channels/ChannelContract.test.ts`（测试文件名） | external · pass |
 | `clipboard` | community | —（无专属测试） | write · pass |
+| `code_analysis` | community | —（无专属测试） | read · pass |
 | `code_run` | core | `app/tests/tools/codeRunnerLandlockConfig.test.ts`（测试文件名） | shell · pass |
 | `computer_use` | core | `app/tests/tools/computerUseGovernance.test.ts`（测试文件名） | external · pass |
 | `config` | core | `app/tests/config/ConfigLayers.test.ts`（测试文件名） | write · pass |

@@ -13,8 +13,8 @@ import { describe, expect, it } from 'bun:test';
 
 import type { ChildProcess } from 'node:child_process';
 
-import { runRpcChildProcess } from '../../src/tools/CodeRunner/CrossPlatformRunner';
-import { CodeRunnerBridge } from '../../src/tools/CodeRunner/RuntimeBridge';
+import { runRpcChildProcess } from '@openliri/tool-code/CodeRunner/CrossPlatformRunner';
+import { CodeRunnerBridge } from '@openliri/tool-code/CodeRunner/RuntimeBridge';
 
 function makeBridge(): CodeRunnerBridge {
   return new CodeRunnerBridge({

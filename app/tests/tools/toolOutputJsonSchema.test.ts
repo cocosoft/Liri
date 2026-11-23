@@ -70,7 +70,7 @@ import { MusicGenerateTool, VideoGenerateTool } from '@openliri/tool-media';
 import { VoiceOutputTool, VoiceOutputOutputSchema } from '@openliri/tool-media';
 import { BrowserVisionTool } from '@openliri/tool-browser';
 import { VideoAnalysisTool } from '@openliri/tool-media';
-import { CodeRunnerTool } from '../../src/tools/CodeRunner/CodeRunnerTool';
+import { CodeRunnerTool } from '@openliri/tool-code/CodeRunner/CodeRunnerTool';
 import { ChannelTool } from '@openliri/tool-session';
 import { TraceRecordingTool } from '@openliri/tool-task';
 import { VideoTool, MusicTool } from '@openliri/tool-media';

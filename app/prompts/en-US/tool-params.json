@@ -3,8 +3,8 @@
   "locale": "en-US",
   "generatedBy": "manual translation (C-3b, 2026-10-18)",
   "counts": {
-    "tools": 69,
-    "params": 379
+    "tools": 70,
+    "params": 384
   },
   "params": {
     "agent.allowedTools": "Comma-separated tool names that the subagent is allowed to use. If empty, all tools are available.",
@@ -73,6 +73,11 @@
     "clipboard.action": "Clipboard operation: read (get content) or write (set content)",
     "clipboard.content": "Content to write to clipboard (required for write action)",
     "clipboard.full": "Read full clipboard content without truncation (only for read action)",
+    "code_analysis.analysisType": "Analysis type: structure, complexity, dependencies, quality",
+    "code_analysis.extensions": "File extension filter",
+    "code_analysis.maxFiles": "Maximum number of files to analyze",
+    "code_analysis.recursive": "Whether to analyze recursively",
+    "code_analysis.target": "Target path to analyze",
     "code_run.code": "TypeScript orchestration code. No imports are allowed. Use globalThis.__liriRuntime.",
     "code_run.language": "Language (default: ts)",
     "code_run.round": "Round marker (for logging only, no state)",

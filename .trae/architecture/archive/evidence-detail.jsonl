@@ -62,7 +62,7 @@
 {"id":"PLAN-P0-3","k":"source","i":0,"c":"dev_docs/20261010/升级优化方案-20261010.md §3"}
 {"id":"PLAN-P0-3","k":"reopenWhen","i":0,"c":"修改深扫降级策略 / CODE_RUN_DEEP_SCAN_STRICT 默认值时"}
 {"id":"PLAN-P0-3","k":"code#0","i":0,"c":"packages/infra/src/security/decision.ts"}
-{"id":"PLAN-P0-3","k":"code#1","i":0,"c":"app/src/tools/CodeRunner/staticValidation.ts"}
+{"id":"PLAN-P0-3","k":"code#1","i":0,"c":"packages/tool-code/src/tool-code/CodeRunner/staticValidation.ts"}
 {"id":"PLAN-P0-3","k":"tests#0","i":0,"c":"app/tests/security/securityVerdict.test.ts"}
 {"id":"PLAN-P0-3","k":"changelog#0","i":0,"c":"v0.4.76"}
 {"id":"PLAN-P0-4","k":"title","i":0,"c":"方案 P0-4：UNKNOWN 副作用重放守卫 + 可重试性分级"}
@@ -3101,8 +3101,8 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#4","i":0,"c":"packages/sandbox/src/sandbox/SandboxManager.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#5","i":0,"c":"packages/service/src/session/lock/PrioritySessionLock.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#6","i":0,"c":"packages/service/src/services/mcp/transports/StreamableHttpTransport.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#7","i":0,"c":"app/src/tools/CodeRunner/CrossPlatformRunner.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#8","i":0,"c":"app/src/tools/CodeRunner/CodeRunnerTool.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#7","i":0,"c":"packages/tool-code/src/tool-code/CodeRunner/CrossPlatformRunner.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#8","i":0,"c":"packages/tool-code/src/tool-code/CodeRunner/CodeRunnerTool.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#9","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#10","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -6426,8 +6426,8 @@
 {"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"code#5","i":0,"c":"packages/sandbox/src/sandbox/index.ts"}
 {"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"code#6","i":0,"c":"packages/sandbox/src/sandbox/landlock/config.ts"}
 {"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"code#7","i":0,"c":"app/src/tools/bash/bashLandlockExec.ts"}
-{"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"code#8","i":0,"c":"app/src/tools/CodeRunner/MacOSSandboxRunner.ts"}
-{"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"code#9","i":0,"c":"app/src/tools/CodeRunner/LinuxSandboxRunner.ts"}
+{"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"code#8","i":0,"c":"packages/tool-code/src/tool-code/CodeRunner/MacOSSandboxRunner.ts"}
+{"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"code#9","i":0,"c":"packages/tool-code/src/tool-code/CodeRunner/LinuxSandboxRunner.ts"}
 {"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"tests#0","i":0,"c":"app/tests/sandbox/macosSandboxPolicy.test.ts"}
 {"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"tests#1","i":0,"c":"app/tests/sandbox/bashMacOSSandboxGate.test.ts"}
 {"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"changelog#0","i":0,"c":"macOS 兜底沙箱（写隔离）：sandbox-exec 接入 bash/code_run，复用 landlock 开关，不可用即拒绝"}
@@ -6450,8 +6450,8 @@
 {"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#6","i":0,"c":"packages/sandbox/src/sandbox/helperBinDir.ts"}
 {"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#7","i":0,"c":"packages/sandbox/src/sandbox/landlock/helperPaths.ts"}
 {"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#8","i":0,"c":"packages/sandbox/src/sandbox/index.ts"}
-{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#9","i":0,"c":"app/src/tools/CodeRunner/WindowsSandboxRunner.ts"}
-{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#10","i":0,"c":"app/src/tools/CodeRunner/LinuxSandboxRunner.ts"}
+{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#9","i":0,"c":"packages/tool-code/src/tool-code/CodeRunner/WindowsSandboxRunner.ts"}
+{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#10","i":0,"c":"packages/tool-code/src/tool-code/CodeRunner/LinuxSandboxRunner.ts"}
 {"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#11","i":0,"c":"app/scripts/build-win-sandbox.ts"}
 {"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#12","i":0,"c":"app/scripts/verify-win-sandbox.ts"}
 {"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#13","i":0,"c":"app/package.json"}
@@ -8335,7 +8335,7 @@
 {"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"code#9","i":0,"c":"app/src/infrastructure/http/handlers/permission-rbac-handlers.ts"}
 {"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"code#10","i":0,"c":"app/src/commands/builtin/permissions/rbac.ts"}
 {"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"code#11","i":0,"c":"app/src/chat/services/ToolExecutionService.ts"}
-{"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"code#12","i":0,"c":"app/src/tools/CodeRunner/CodeRunnerTool.ts"}
+{"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"code#12","i":0,"c":"packages/tool-code/src/tool-code/CodeRunner/CodeRunnerTool.ts"}
 {"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"code#13","i":0,"c":"app/tests/permission/fineGrainedDecisionChain.test.ts"}
 {"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"code#14","i":0,"c":"app/tests/commands/permissionsModeCommand.test.ts"}
 {"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"code#15","i":0,"c":"app/tests/http/permissionRbacHandler.test.ts"}

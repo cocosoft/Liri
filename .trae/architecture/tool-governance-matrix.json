@@ -3,9 +3,9 @@
   "generatedBy": "app/scripts/gen-tool-governance.ts",
   "note": "由 gen:tool-governance 生成，勿手改；矩阵是派生结论的快照，不是新的事实源。",
   "counts": {
-    "total": 69,
-    "runtime": 60,
-    "pass": 69,
+    "total": 70,
+    "runtime": 61,
+    "pass": 70,
     "acceptedGap": 0,
     "gap": 0,
     "riskUndeclared": 0
@@ -386,6 +386,36 @@
       "checkPermissionsOverridden": false,
       "getPath": true,
       "getPathOverridden": false,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "code_analysis",
+      "pack": "code",
+      "category": "code",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "none",
+        "idempotent": true,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "read",
+        "source": "derived:effects"
+      },
+      "readOnly": true,
+      "destructive": false,
+      "concurrencySafe": true,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": true,
+      "checkPermissionsOverridden": true,
+      "getPath": false,
+      "getPathOverridden": true,
       "resolveFileIoRoot": false,
       "gaps": [],
       "acceptedBy": null,

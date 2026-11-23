@@ -491,7 +491,7 @@ export { toolCacheManager } from './cache/ToolCacheManager';
 export { createToolScheduler } from './scheduler/ToolScheduler';
 export { getVideoTaskPersistence } from '@openliri/tool-media';
 export { getMediaTemplates } from '@openliri/tool-media';
-export { configureCodeRunner } from './CodeRunner/CodeRunnerTool';
+export { configureCodeRunner } from '@openliri/tool-code';
 export { getConverterEngine, FileTypeDetector } from '@openliri/tool-office';
 export { VERIFICATION_AGENT_DEFINITION } from '@openliri/tool-agent';
 export { STATUSLINE_SETUP_AGENT_DEFINITION } from '@openliri/tool-agent';

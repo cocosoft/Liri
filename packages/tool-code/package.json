@@ -2,7 +2,7 @@
   "name": "@openliri/tool-code",
   "version": "0.1.0",
   "private": true,
-  "description": "Liri code 工具包 —— 代码理解域：LSP（客户端/服务器/符号检索/引用/悬停/调用层级）、REPL 会话、Notebook（Jupyter 单元执行）+ 三个工具适配器。层归属 app：可依赖 app / service / infra / core；entry / ui 不得依赖本包，包内不得依赖 entry / ui 层（R35）。注册动作仍留 app 的 builtinToolRegistry。",
+  "description": "Liri code 工具包 —— 代码理解域：LSP（客户端/服务器/符号检索/引用/悬停/调用层级）、REPL 会话、Notebook（Jupyter 单元执行）、三个工具适配器 + CodeRunner（code_run 多语言沙箱执行，默认关）。层归属 app：可依赖 app / service / infra / core；entry / ui 不得依赖本包，包内不得依赖 entry / ui 层（R35）。注册动作仍留 app 的 builtinToolRegistry。",
   "type": "module",
   "exports": {
     ".": {

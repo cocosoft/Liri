@@ -92,7 +92,9 @@ import {
   createPDFTool,
   FileConvertTool,
 } from '@openliri/tool-office';
-import { CodeRunnerTool } from '../CodeRunner/CodeRunnerTool.js';
+import { CodeRunnerTool } from '@openliri/tool-code';
+// 2026-11-23：`code_analysis` 接线（默认关，受 CODE_ANALYSIS 门控；见 ToolManagerUtils）
+import { CodeAnalysisTool } from '../CodeAnalysisTool/CodeAnalysisTool';
 import { createComputerUseTool } from '@openliri/tool-desktop';
 // ── 网络 / 浏览器 / 计划 ──
 import { BrowserTool, BrowserVisionTool } from '@openliri/tool-browser';
@@ -218,6 +220,7 @@ export const BUILTIN_TOOL_FACTORIES = {
     guardToolCreation('create_sleep_tool', () => new SleepTool()),
   createCodeRunnerTool: () =>
     guardToolCreation('create_code_runner_tool', () => new CodeRunnerTool()),
+  createCodeAnalysisTool: () => new CodeAnalysisTool(),
   createMonitorTool: () =>
     guardToolCreation('create_monitor_tool', () => new MonitorTool()),
   createTraceRecordingTool: () =>

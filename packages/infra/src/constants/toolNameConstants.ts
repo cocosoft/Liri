@@ -40,6 +40,7 @@ export const TOOL_NAME_CONSTANTS = {
   canvas: 'canvas',
   channel: 'channel',
   clipboard: 'clipboard',
+  code_analysis: 'code_analysis',
   code_run: 'code_run',
   computer_use: 'computer_use',
   config: 'config',

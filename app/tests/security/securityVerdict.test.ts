@@ -13,7 +13,7 @@ import {
   verdictFromBehavior,
   verdictFromScanStatus,
 } from '@openliri/infra/security/decision';
-import { validateCodeRunnerCode } from '../../src/tools/CodeRunner/staticValidation.js';
+import { validateCodeRunnerCode } from '@openliri/tool-code/CodeRunner/staticValidation';
 
 describe('security/decision · 统一四态词汇', () => {
   it('既有三态 SecurityBehavior → 统一四态（确定映射，不产生 INDETERMINATE）', () => {

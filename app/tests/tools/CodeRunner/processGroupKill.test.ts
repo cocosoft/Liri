@@ -27,7 +27,7 @@ import { spawn, execFileSync } from 'child_process';
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { twoPhaseKill } from '../../../src/tools/CodeRunner/CrossPlatformRunner';
+import { twoPhaseKill } from '@openliri/tool-code/CodeRunner/CrossPlatformRunner';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 

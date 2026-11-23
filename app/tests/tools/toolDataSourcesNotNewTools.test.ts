@@ -135,6 +135,11 @@ const NEW_TOOL_REGISTRY: Readonly<Record<string, string>> = {
     '合并 enter_worktree/exit_worktree（同一工作树状态机；实现复用原两个工具）',
   task_list:
     '合并 create_task_list/get_task_list/update_task_status（同一 taskRegistry；实现复用原三个工具）',
+  // 2026-11-23：code_analysis 接线（默认关，受 CODE_ANALYSIS 门控）。
+  // 它不是"新数据源"：分析对象是本地代码树，结果直接回给模型，既无 VFS 挂载点语义，
+  // 也不宜经 MCP 转手（MCP 侧无对应只读能力）。
+  code_analysis:
+    '内置只读静态分析（结构/复杂度/依赖/质量），对象是本地代码树而非可挂载数据源；不挂 VFS、不经 MCP，且默认关（CODE_ANALYSIS=false）',
 };
 
 /** 判据（纯函数，供真实门禁与**负向自证**共用）：返回"非基线且未登记理由"的新工具名 */

@@ -1,7 +1,7 @@
 # 工具治理矩阵（自动生成）
 
 > 由 `bun run gen:tool-governance` 生成，**请勿手改**。规范见 `.trae/specs/tool-security-governance-plan.md`。
-> 实测工具 **69** 个 · pass 69 · accepted-gap 0 · gap 0
+> 实测工具 **70** 个 · pass 70 · accepted-gap 0 · gap 0
 
 ## shell（4）
 
@@ -66,12 +66,13 @@
 | `worktree` | local | none | write / write / declared:dynamic | no | — | — | — | pass |
 | `write_project_file` | local | file-io | write / write / declared:static | no | — | — | yes | pass |
 
-## read（21）
+## read（22）
 
 | 工具 | effects | sandbox | risk（声明 / 派生 / 来源） | 只读 | 上限 | 指纹 | 自定义权限 | verdict |
 |---|---|---|---|---|---|---|---|---|
 | `agents_list` | none | none | — / read / derived:effects | yes | — | — | — | pass |
 | `audio_play` | none | none | — / read / derived:effects | yes | — | — | — | pass |
+| `code_analysis` | none | none | — / read / derived:effects | yes | — | — | yes | pass |
 | `cron` | local(op) | none | read / read / declared:dynamic | yes | — | — | — | pass |
 | `file_convert` | none | none | — / read / derived:effects | yes | — | — | — | pass |
 | `file_read` | none | none | — / read / derived:effects | yes | Infinity | — | — | pass |

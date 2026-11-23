@@ -3,7 +3,7 @@
   "locale": "zh-CN",
   "generatedBy": "app/scripts/export-tool-descriptions.ts",
   "counts": {
-    "tools": 69
+    "tools": 70
   },
   "descriptions": {
     "agent": "创建一个专用子代理来执行特定任务",
@@ -18,6 +18,7 @@
     "canvas": "Create and manipulate visual canvases. Supports drawing shapes (rect, circle, line, path), text, image import, and exporting to PNG/JPEG/WebP/SVG. Use when the user asks to create a diagram, draw on an image, add text annotations, or build a visual composition. Use create to start, then chain draw/text, and export to produce the final image.\n\nElements structure (each element in the \"elements\" array):\n  - type: \"rect\"|\"circle\"|\"line\"|\"text\"|\"image\"|\"path\" (required)\n  - x, y: position coordinates (required, number)\n  - width, height: for rect/image (optional, number)\n  - radius: for circle (optional, number)\n  - fillColor, strokeColor: CSS color values (optional)\n  - strokeWidth: line width (optional, number)\n  - text: text content for text elements (optional)\n  - fontSize: font size for text (optional, number, default 16)\n  - opacity: 0.0-1.0 (optional)\n  - points: array of {x,y} for line/path elements (optional)\nExample: { type: \"rect\", x: 10, y: 20, width: 100, height: 50, fillColor: \"#4A90D9\" }",
     "channel": "Unified channel management tool. List, connect, disconnect channels, check status, health, and view logs.",
     "clipboard": "Read or write system clipboard content. Supports text operations across Windows, macOS, and Linux.",
+    "code_analysis": "分析代码结构、质量和依赖关系",
     "code_run": "在受限沙箱中执行 TypeScript 编排代码。代码不得包含任何 import/require 语句；能力通过全局 __liriRuntime API（callTool/readContext/writeOutput/emitEvent/done）提供。完成时调用 __liriRuntime.done(result)。用于复杂的多步骤任务。",
     "computer_use": "Desktop automation tool supporting Windows, macOS and Linux. Supports screenshot, mouse control, keyboard input, clipboard access, and window/application management.",
     "config": "Manage application configuration",

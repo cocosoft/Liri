@@ -84,21 +84,42 @@ interface NativeJsAstScan {
   error?: string;
 }
 
-interface NativeJsAstModule {
+export interface NativeJsAstModule {
   scanJsCalls(code: string): NativeJsAstScan | null;
 }
 
 let nativeJsAst: NativeJsAstModule | null | undefined;
 
-/** 懒加载原生模块；不可用（未构建/平台缺库）⇒ 返回 null（调用方降级跳过） */
+/**
+ * 原生 JS AST 扫描器**注入点**（2026-11-23，随 `CodeRunner` 迁入 `packages/tool-code`）。
+ *
+ * 本包不再 `require` app 根的原生绑定（R41：包内禁止相对路径逃逸）——与 P6/P25 同口径反转依赖：
+ * 包内只留端口，实现在 app 启动期（`bootstrap/preflight`）注入。未注入 / 注入器返回 null
+ * ⇒ 按既有口径降级跳过（不静默假装已扫描）。
+ */
+let nativeJsAstLoader: (() => NativeJsAstModule | null) | null = null;
+
+/** 注入原生 JS AST 扫描器加载器（app 启动期接线；`undefined` 复位懒加载缓存） */
+export function setNativeJsAstLoader(
+  loader: () => NativeJsAstModule | null
+): void {
+  nativeJsAstLoader = loader;
+  nativeJsAst = undefined;
+}
+
+/** 懒加载原生模块；不可用（未构建/平台缺库/未注入）⇒ 返回 null（调用方降级跳过） */
 function getNativeJsAst(): NativeJsAstModule | null {
   if (nativeJsAst === undefined) {
-    try {
-      const native = require('../../../native') as NativeJsAstModule | null;
-      nativeJsAst =
-        native && typeof native.scanJsCalls === 'function' ? native : null;
-    } catch {
+    if (!nativeJsAstLoader) {
       nativeJsAst = null;
+    } else {
+      try {
+        const native = nativeJsAstLoader();
+        nativeJsAst =
+          native && typeof native.scanJsCalls === 'function' ? native : null;
+      } catch {
+        nativeJsAst = null;
+      }
     }
   }
   return nativeJsAst;

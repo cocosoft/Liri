@@ -234,6 +234,8 @@ function buildBuiltinToolLoaders(
 
     // Code Mode（code_run，默认关闭——CODE_MODE=false 时不注册）
     cond(coreFeature('CODE_MODE'), byKey('createCodeRunnerTool')),
+    // code_analysis（默认关闭——CODE_ANALYSIS=false 时不注册；2026-11-23 接线）
+    cond(coreFeature('CODE_ANALYSIS'), byKey('createCodeAnalysisTool')),
 
     // 团队与消息工具 (工厂方法内部进行特性开关检查)
     byKey('createSendMessageTool'),

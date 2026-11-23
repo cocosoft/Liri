@@ -78,6 +78,8 @@ export const TOOL_EFFECTS: Record<ToolName, ToolEffect> = {
   canvas: LOCAL,
   channel: EXTERNAL,
   clipboard: LOCAL,
+  // 2026-11-23：`code_analysis` 接线 —— 只读静态分析（structure/complexity/dependencies/quality）
+  code_analysis: NONE,
   code_run: EXTERNAL,
   computer_use: EXTERNAL,
   config: LOCAL,

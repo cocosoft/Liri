@@ -67,6 +67,10 @@ import { SessionManager } from '@modules/session/SessionManager';
 import { getModelPricing } from '@openliri/infra/cost/ModelPricing';
 import type { NativeLib } from '../../native';
 import { RuleManager } from '@openliri/infra/permission';
+import {
+  setNativeJsAstLoader,
+  type NativeJsAstModule,
+} from '@openliri/tool-code';
 
 const logger = getLogger('main');
 
@@ -195,6 +199,16 @@ export function wireUtilsDeps(): void {
       const native = require('../../native') as NativeLib | null;
       if (!native || typeof native.closeStructure !== 'function') return null;
       return (code: string, lang: string) => native.closeStructure(code, lang);
+    } catch {
+      return null;
+    }
+  });
+  // 2026-11-23：CodeRunner 的 JS AST 深扫原生桥（随其迁入 packages/tool-code 后同口径注入；
+  // 未构建/ABI 不匹配 ⇒ 返回 null，包内按既有口径降级并如实标注 scanStatus）
+  setNativeJsAstLoader(() => {
+    try {
+      const native = require('../../native') as NativeJsAstModule | null;
+      return native && typeof native.scanJsCalls === 'function' ? native : null;
     } catch {
       return null;
     }

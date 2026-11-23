@@ -23,7 +23,7 @@ import {
   TIER1_TOOL_WHITELIST,
   TIER2_TOOL_WHITELIST,
   whitelistForTier,
-} from '../../src/tools/CodeRunner/CodeRunnerTool';
+} from '@openliri/tool-code/CodeRunner/CodeRunnerTool';
 import { getToolRegistry } from '../../src/tools/ToolRegistry';
 import type { Tool, ToolParam } from '../../src/tools/types';
 

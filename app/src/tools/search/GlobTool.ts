@@ -27,7 +27,8 @@ const logger = getLogger('tools:search:GlobTool');
 
 export class GlobTool extends BaseTool {
   name = TOOL_NAME_CONSTANTS.glob;
-  description = '查找匹配指定模式的文件';
+  description =
+    '查找匹配指定模式的文件（按路径模式，不列目录内容）。**递归要显式写 `**/`**：pattern 不含 `**/` 时只在 path 当层匹配（`*.ts` 不递归，`**/*.ts` 才递归）。不确定目录里有什么时，先用 `**/*` 或 `*` 探测，再按名精确匹配。';
 
   override tags = [ToolTag.FILE, ToolTag.READ];
 

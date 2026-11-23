@@ -140,6 +140,11 @@ const NEW_TOOL_REGISTRY: Readonly<Record<string, string>> = {
   // 也不宜经 MCP 转手（MCP 侧无对应只读能力）。
   code_analysis:
     '内置只读静态分析（结构/复杂度/依赖/质量），对象是本地代码树而非可挂载数据源；不挂 VFS、不经 MCP，且默认关（CODE_ANALYSIS=false）',
+  // 2026-11-23：recall_memory 接线（系统提示词已引用该能力，此前只有实现未注册）。
+  // 它不是"新数据源"：检索对象是会话/全局记忆（已在 DB 与 memory.md 中），
+  // 无对应 VFS scheme，也不宜经 MCP 转手。
+  recall_memory:
+    '记忆召回（会话记忆 / 全局长期记忆），只读检索既有记忆数据，不引入新数据源；不挂 VFS、不经 MCP',
 };
 
 /** 判据（纯函数，供真实门禁与**负向自证**共用）：返回"非基线且未登记理由"的新工具名 */

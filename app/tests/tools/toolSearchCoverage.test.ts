@@ -35,8 +35,11 @@ import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
 import { ToolSearchTool } from '../../src/tools/ToolSearchTool/ToolSearchTool';
 import { getToolRegistry } from '../../src/tools/ToolRegistry';
 import { ARCHIVED_MISC_TOOLS } from '../../src/tools/toolCategories';
+import { BUILTIN_TOOL_FACTORIES } from '../../src/tools/factories/builtinToolRegistry';
+import { getBuiltinToolFactoryKeys } from '../../src/tools/utils/ToolManagerUtils';
 import type { Tool } from '../../src/tools/types/Tool';
 import type { ToolUseContext } from '../../src/tools/types/ToolUseContext';
+import type { ToolSearchOutput } from '../../src/tools/ToolSearchTool/schemas';
 
 /** 单 token 名 ⇒ 关键词命中 `parsed.parts.includes(term)`（最高权重路径） */
 const PROBE_NAME = 'zzzprobetool';
@@ -96,6 +99,91 @@ describe('tool_search 检索覆盖面（2026-10-11）', () => {
       expect(await search('computer')).not.toContain(ARCHIVED_NAME);
     } finally {
       archivedSet.delete(ARCHIVED_NAME);
+    }
+  });
+});
+
+/**
+ * 2026-11-23：会话 `session_mwrf18pu00456e0f2b` 的回归清单（1/2/3/7/8 + 两条遗留项）。
+ *
+ * 现场痛点：`tool_search` 只回名字、空结果零诊断、旧名与裁剪对模型不可见。
+ */
+async function run(query: string): Promise<ToolSearchOutput> {
+  const r = await new ToolSearchTool().execute({ query }, ctx);
+  return r.data as ToolSearchOutput;
+}
+
+/** 在**真实工具名**上验证多词召回（缺失时注入同名探针，避免依赖加载顺序） */
+const MULTI_WORD_PROBES = ['doc_generate', 'pdf', 'image_generate'] as const;
+const injectedProbes: string[] = [];
+
+beforeAll(() => {
+  for (const name of MULTI_WORD_PROBES) {
+    if (!registry.getTool(name)) {
+      registry.registerTool(fakeTool(name, `${name} probe`));
+      injectedProbes.push(name);
+    }
+  }
+});
+
+afterAll(() => {
+  for (const name of injectedProbes) registry.unregisterTool(name);
+});
+
+describe('tool_search 可解释性（2026-11-23 回归清单）', () => {
+  it('清单 1：多词查询 `doc_generate pdf image_generate` 三者全部命中', async () => {
+    const out = await run('doc_generate pdf image_generate');
+    for (const name of MULTI_WORD_PROBES) {
+      expect(out.matches).toContain(name);
+    }
+  });
+
+  it('清单 2：命中项带 description + 必填参数（details）', async () => {
+    const out = await run(PROBE_NAME);
+    const detail = out.details?.find((d) => d.name === PROBE_NAME);
+    expect(detail).toBeDefined();
+    expect(typeof detail!.description).toBe('string');
+    expect(Array.isArray(detail!.requiredParams)).toBe(true);
+    expect(typeof detail!.visible).toBe('boolean');
+    expect(Array.isArray(detail!.hiddenReasons)).toBe(true);
+  });
+
+  it('清单 3：未注册名返回结构化 reason（不再只有空数组）', async () => {
+    const out = await run('select:zzz_no_such_tool_xyz');
+    expect(out.matches).toEqual([]);
+    expect(out.reason).toBe('not_registered');
+    expect(out.diagnostics?.[0]?.reason).toBe('not_registered');
+    expect(out.diagnostics?.[0]?.hint?.length ?? 0).toBeGreaterThan(0);
+  });
+
+  it('清单 8：旧名（alias-only）不返回可用结果，但解释为 alias', async () => {
+    const out = await run('select:read_vfs');
+    expect(out.matches).toEqual([]);
+    expect(out.reason).toBe('alias');
+    expect(out.hint).toContain('vfs');
+  });
+
+  it('清单 7：命中项带本轮可见性与不可见原因（裁剪可解释）', async () => {
+    const out = await run('select:' + PROBE_NAME);
+    const detail = out.details?.[0];
+    expect(detail?.name).toBe(PROBE_NAME);
+    // 探针是运行期注入名（不在声明面）⇒ 可见性按"已注册即可见"处理，原因为空
+    expect(detail?.visible).toBe(true);
+    expect(detail?.hiddenReasons).toEqual([]);
+  });
+
+  it('遗留项：项目/图像工具在工厂表与 loader 清单中真实登记', () => {
+    const keys = new Set<string>(getBuiltinToolFactoryKeys());
+    const factories = BUILTIN_TOOL_FACTORIES as Record<string, unknown>;
+    for (const key of [
+      'createProjectTool',
+      'createReadProjectFileTool',
+      'createWriteProjectFileTool',
+      'createImageTool',
+      'createRecallMemoryTool',
+    ]) {
+      expect(typeof factories[key]).toBe('function');
+      expect(keys.has(key)).toBe(true);
     }
   });
 });

@@ -196,6 +196,8 @@ const TOOL_CATEGORY_ENTRIES = {
   // ── knowledge 知识库（保存/搜索/管理） ──
   // 注：`knowledge_save` 在内置常量表；其余 `knowledge_*` 为运行期注册 ⇒ 见 RUNTIME_TOOL_CATEGORIES。
   knowledge_save: 'knowledge',
+  // 2026-11-23：`recall_memory` 接线（只读召回；与 knowledge_save 同域）
+  recall_memory: 'knowledge',
 
   // ── mcp 三方 MCP 工具 ──
   // N-44：静态名归入 'mcp'；**动态名**（`McpToolWrapper` 的 `${server}__${tool}`）由
@@ -857,10 +859,11 @@ export const CAPABILITY_PACKS: Readonly<
     flag: 'TOOL_PACK_KNOWLEDGE',
     // 运行期注册的 `knowledge_search|write|delete|import|export|restore|snapshots` 无法在此静态枚举
     // （见 `RUNTIME_TOOL_CATEGORIES`）；它们不受本包门控约束（现状不变）。
-    summary: '知识库保存（运行期 knowledge_* 见 RUNTIME_TOOL_CATEGORIES）',
+    summary:
+      '知识库保存 / 记忆召回（运行期 knowledge_* 见 RUNTIME_TOOL_CATEGORIES）',
     defaultIn: ['full'],
     risk: 'write',
-    tools: ['knowledge_save'],
+    tools: ['knowledge_save', 'recall_memory'],
   },
   web: {
     flag: 'TOOL_PACK_WEB',

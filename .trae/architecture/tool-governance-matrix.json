@@ -3,9 +3,9 @@
   "generatedBy": "app/scripts/gen-tool-governance.ts",
   "note": "由 gen:tool-governance 生成，勿手改；矩阵是派生结论的快照，不是新的事实源。",
   "counts": {
-    "total": 70,
-    "runtime": 61,
-    "pass": 70,
+    "total": 71,
+    "runtime": 62,
+    "pass": 71,
     "acceptedGap": 0,
     "gap": 0,
     "riskUndeclared": 0
@@ -1336,6 +1336,36 @@
         "declared": "read",
         "derived": "read",
         "source": "declared:static"
+      },
+      "readOnly": true,
+      "destructive": false,
+      "concurrencySafe": true,
+      "maxResultSizeChars": null,
+      "approvalFingerprint": false,
+      "checkPermissions": false,
+      "checkPermissionsOverridden": true,
+      "getPath": false,
+      "getPathOverridden": true,
+      "resolveFileIoRoot": false,
+      "gaps": [],
+      "acceptedBy": null,
+      "verdict": "pass"
+    },
+    {
+      "name": "recall_memory",
+      "pack": "knowledge",
+      "category": "knowledge",
+      "runtimeRegistered": true,
+      "effects": {
+        "sideEffect": "none",
+        "idempotent": true,
+        "discriminator": null
+      },
+      "sandboxLevel": "none",
+      "risk": {
+        "declared": null,
+        "derived": "read",
+        "source": "derived:effects"
       },
       "readOnly": true,
       "destructive": false,

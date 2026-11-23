@@ -3,7 +3,7 @@
   "locale": "en-US",
   "generatedBy": "manual translation (T2 tool descriptions)",
   "counts": {
-    "tools": 70
+    "tools": 71
   },
   "descriptions": {
     "agent": "Create a dedicated sub-agent to perform a specific task.",
@@ -50,6 +50,7 @@
     "plan": "Create, manage, and execute plans.",
     "powershell": "Execute PowerShell commands on Windows. Use for Windows-specific administration, registry operations, and system management.",
     "read_project_file": "Read file contents in a project folder. Pass the project ID and a relative path; returns the file content. Only files inside the project sandbox can be read.",
+    "recall_memory": "Query memory: with session context it searches memories related to the current session; without session context it searches global long-term memory (dream distillations, cross-session PDCA conclusions, etc.). Use when you need to revisit user preferences, past conclusions, or project knowledge.",
     "repl": "Interactive programming environment supporting multiple languages.",
     "save_conversation": "Save a conversation summary to a file. Use when the user wants to save or record the current conversation.",
     "send_message": "Send a message to another agent",
@@ -63,7 +64,7 @@
     "team_create": "Create a new multi-agent swarm team to coordinate multiple agents on a task.",
     "team_delete": "Disband a swarm team and clean up related resources.",
     "todo_write": "Manage a to-do list to track tasks. Create, update, and complete to-do items. Before the final answer, mark completed items as completed and explain any unfinished ones; do not end while an item is still in_progress.",
-    "tool_search": "Search for tools. When the tool you need is not in the current tool list (lazy-loaded, or hidden by this turn's task filtering), use this tool to search by keyword or \"select:<tool_name>\".",
+    "tool_search": "Search for tools. When the tool you need is not in the current tool list (lazy-loaded, or hidden by this turn's task filtering), use this tool to search by keyword or \"select:<tool_name>\". Matches include description and required params; misses return a reason (not_registered / declared_unregistered / archived / capability_gated / feature_gate_off / task_filtered / alias) plus a suggested next step.",
     "trace_recording": "Query AI API call traces and statistics. Retrieve recording status, stats, recent calls, and export trace data.",
     "tts": "Convert text to speech using neural voices. Supports multiple languages and voices for generating spoken audio output.",
     "tungsten": "Manage terminal sessions (Tungsten). Create, list, switch, and manage interactive terminal sessions.",

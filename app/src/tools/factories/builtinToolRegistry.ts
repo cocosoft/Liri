@@ -140,7 +140,7 @@ import { MCPResourceTool, McpAuthTool } from '@openliri/tool-mcp';
 import { isToolEnabled } from '../utils/ToolFeatureFlags';
 import { guardToolCreation } from './toolCreationGuard.js';
 // ── P1（2026-10-30）：同资源族合并工具（skill / vfs / worktree / sleep / cron / task_list 均已下沉对应 tool-* 包） ──
-import { createSkillFamilyTool } from '@openliri/tool-agent';
+import { createSkillFamilyTool, RecallMemoryTool } from '@openliri/tool-agent';
 import {
   createVfsFamilyTool,
   createWorktreeFamilyTool,
@@ -266,6 +266,8 @@ export const BUILTIN_TOOL_FACTORIES = {
   createProjectTool: () => CreateProjectTool.create(),
   createReadProjectFileTool: () => ReadProjectFileTool.create(),
   createWriteProjectFileTool: () => WriteProjectFileTool.create(),
+  // 2026-11-23：记忆召回 —— 系统提示词已引用该能力，此前只有实现未注册
+  createRecallMemoryTool: () => RecallMemoryTool.create(),
   createReadVfsTool: () => ReadVfsTool.create(),
   createListVfsTool: () => ListVfsTool.create(),
   createStatVfsTool: () => StatVfsTool.create(),

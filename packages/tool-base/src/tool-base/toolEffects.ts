@@ -121,6 +121,8 @@ export const TOOL_EFFECTS: Record<ToolName, ToolEffect> = {
   pdf: LOCAL,
   powershell: EXTERNAL,
   read_project_file: NONE,
+  // 2026-11-23：记忆召回 —— 只读查询（会话记忆 / 全局长期记忆）
+  recall_memory: NONE,
   repl: LOCAL,
   save_conversation: LOCAL,
   // 2026-10-20（U-03 收口）：`send_message` 随 flag 默认开启进入生效面 ⇒ 必须显式声明。

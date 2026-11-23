@@ -292,6 +292,8 @@ function buildBuiltinToolLoaders(
     // 项目文件读写工具
     byKey('createReadProjectFileTool'),
     byKey('createWriteProjectFileTool'),
+    // 2026-11-23：记忆召回（系统提示词已引用，此前未注册）
+    byKey('createRecallMemoryTool'),
 
     // AI-VFS 系统调用工具：`vfs`（op=read|list|stat|write；旧名保留为 alias）。
     // ⚠️ 挂载点装配在 `entrypoints/vfsWiring.ts`（组合根）—— 未装配时 read/list/stat/write

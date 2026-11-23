@@ -3,7 +3,7 @@
   "locale": "zh-CN",
   "generatedBy": "app/scripts/export-tool-descriptions.ts",
   "counts": {
-    "tools": 70
+    "tools": 71
   },
   "descriptions": {
     "agent": "创建一个专用子代理来执行特定任务",
@@ -29,7 +29,7 @@
     "file_edit": "通过替换文本编辑文件",
     "file_read": "读取文件内容",
     "file_write": "把内容写入文件。当内容已存在于磁盘上（例如其它工具已产出本地文件）时，必须传入 source_file，而不是把完整内容作为字符串复述——这样可避免输出 token 爆炸、JSON 截断与内存膨胀。路径解析：绝对路径按原样使用；**相对路径/纯文件名解析到会话工作目录**（无工作目录时才回退全局输出目录 `~/.pyapp/output/`）。回执会给出**实际写入的绝对路径**——在回复里转述位置时请用它，不要自行改写为 `~/...` 或其它目录。若该文件须归入某项目的交付物，请改用 write_project_file 写入该项目 output/。",
-    "glob": "查找匹配指定模式的文件",
+    "glob": "查找匹配指定模式的文件（按路径模式，不列目录内容）。**递归要显式写 `**/`**：pattern 不含 `**/` 时只在 path 当层匹配（`*.ts` 不递归，`**/*.ts` 才递归）。不确定目录里有什么时，先用 `**/*` 或 `*` 探测，再按名精确匹配。",
     "grep": "基于 ripgrep 的强大搜索工具。在指定目录下搜索特定文本（通过 pattern 参数）。\n\n用法：\n- 精确的符号 / 字符串搜索优先用 grep；条件允许时用它替代终端 grep/rg —— 本工具更快，且遵循 .gitignore。\n- 支持完整正则语法，例如 \"log.*Error\"、\"function\\s+\\w+\"。需要精确匹配时请转义特殊字符，例如 \"functionCall\\(\"\n- 支持按文件类型过滤与上下文行。\n- **关键**：目录必须是绝对路径，不接受相对路径。\n- **关键**：pattern 参数必填，且需在其它参数之前给出。\n- **关键**：目录参数名为 searchPath（也接受别名 path）。传绝对路径，例如 searchPath=/abs/path。\n- headLimit：最大结果行数（默认 200，必须是正整数）。输出被截断时调大 headLimit 可取回更多。\n- 正则必须是合法的 JS 正则语法，否则工具降级为字面量搜索并返回 invalidRegex 提示。使用标准 JS 转义：中文范围用 [\\u4e00-\\u9fa5]，不要用 [\\x{4e00}-\\x{9fa5}]（后者在 JS 正则中非法，会触发降级）。",
     "image": "Edit images with operations: resize, crop, rotate, flip, add watermark, adjust brightness/contrast/saturation, convert format, or grayscale. Use when the user asks to modify or transform an existing image.",
     "image_analysis": "Analyze image content including metadata, colors, OCR text recognition, object detection, visual description (vision), and image similarity. Use when the user asks what is in an image, requests analysis, or needs to compare images. inputPath can be obtained from attachedImages or previous tool results.",
@@ -50,6 +50,7 @@
     "plan": "创建、管理和执行计划",
     "powershell": "在 Windows 系统上执行 PowerShell 命令。用于 Windows 特有的管理、注册表操作和系统管理。",
     "read_project_file": "读取项目文件夹中的文件内容。传入项目 ID 和相对路径，返回文件内容。仅允许读取项目 sandbox 内的文件。",
+    "recall_memory": "查询记忆：有会话上下文时查当前会话相关记忆；无会话上下文时自动检索全局长期记忆（含梦境沉淀、PDCA 复盘等跨会话结论）。需要回顾用户偏好/历史结论/项目沉淀时使用。",
     "repl": "交互式编程环境，支持多种编程语言",
     "save_conversation": "将对话摘要保存到文件。当用户希望保存或记录当前对话时使用。",
     "send_message": "向另一个代理发送消息",
@@ -63,7 +64,7 @@
     "team_create": "创建一个新的多Agent swarm团队，用于协调多个Agent协作完成任务。",
     "team_delete": "解散一个swarm团队并清理相关资源。",
     "todo_write": "管理待办事项列表以跟踪任务。创建、更新和完成待办事项。收尾要求：给出最终答复前，必须把已完成项置为 completed；未做项须显式说明原因；禁止在仍有 in_progress 项时直接结束（否则任务进度会停在半完成状态）。",
-    "tool_search": "搜索工具。当需要使用的工具未出现在当前工具列表中（延迟加载，或因本轮任务裁剪而不可见）时，用此工具按关键词或 \"select:<tool_name>\" 查找。",
+    "tool_search": "搜索工具。当需要使用的工具未出现在当前工具列表中（延迟加载，或因本轮任务裁剪而不可见）时，用此工具按关键词或 \"select:<tool_name>\" 查找。命中项附描述与必填参数；未命中时给出原因（not_registered / declared_unregistered / archived / capability_gated / feature_gate_off / task_filtered / alias）与处置建议。",
     "trace_recording": "查询 AI API 调用追踪记录和统计信息。可获取录制状态、统计数据、最近调用记录，以及导出追踪数据。",
     "tts": "Convert text to speech using neural voices. Supports multiple languages and voices for generating spoken audio output.",
     "tungsten": "Manage terminal sessions (Tungsten). Create, list, switch, and manage interactive terminal sessions.",

@@ -3,8 +3,8 @@
   "locale": "en-US",
   "generatedBy": "manual translation (C-3b, 2026-10-18)",
   "counts": {
-    "tools": 70,
-    "params": 384
+    "tools": 71,
+    "params": 386
   },
   "params": {
     "agent.allowedTools": "Comma-separated tool names that the subagent is allowed to use. If empty, all tools are available.",
@@ -128,7 +128,7 @@
     "file_edit.new_string": "Replacement text",
     "file_edit.old_string": "Text to be replaced",
     "file_edit.replace_all": "Replace all occurrences of old_string (default false)",
-    "file_read.file_id": "FileRegistry ID (takes precedence over file_path; obtain it from a file_list result)",
+    "file_read.file_id": "FileRegistry ID (takes precedence over file_path; produced when a file is registered via file_read / file_write)",
     "file_read.file_path": "File path",
     "file_read.limit": "Maximum number of lines to read",
     "file_read.offset": "Starting line number",
@@ -267,6 +267,8 @@
     "powershell.workingDirectory": "Working directory for the command",
     "read_project_file.projectId": "Project ID",
     "read_project_file.relativePath": "File path relative to the project folder",
+    "recall_memory.limit": "Maximum number of results to return (default 5)",
+    "recall_memory.query": "Search keywords or question used to find related memories",
     "repl.action": "Operation type: start, execute, stop, languages",
     "repl.code": "Code to execute",
     "repl.language": "Programming language",

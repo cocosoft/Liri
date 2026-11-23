@@ -16,10 +16,20 @@ import { ToolSearchOutputSchema, ToolSearchOutputJsonSchema } from './schemas';
 // 字段与本文件原手写 interface/type 一致，`ToolSearchInput` 的 zod 版另含 min/max 约束）
 // ⇒ 此处**仅非导出引用**，不再重复定义（依 §9.2「一个名字一个规范落点」）。
 import type { ToolSearchInput, ToolSearchOutput } from './schemas';
+import type { ToolSearchDetail, ToolSearchDiagnostic } from './schemas';
 import { getToolRegistry } from '../ToolRegistry';
 // 2026-10-11：检索面须排除**有意归档**工具（见 `execute()` 内注释）
-import { ARCHIVED_MISC_TOOLS } from '../toolCategories';
+import {
+  ARCHIVED_MISC_TOOLS,
+  isToolInDisabledCapabilityPack,
+} from '../toolCategories';
 import { readToolVisibilityOverrides } from '../toolVisibilityOverrides';
+// 2026-11-23：空结果/裁剪可解释性 —— 复用可见性报表（CS01），不再各写一套判定
+import {
+  resolveToolVisibilityReport,
+  type ToolVisibilityReport,
+} from '../toolVisibilityReport';
+import { LEGACY_ALIAS_TOOL_NAMES } from '../toolNameConstants';
 import { getSkillRegistryLazy } from '@openliri/tool-agent';
 // 2026-11-07（方案 §6.4）：把命中工具记到会话级「已发现」集 ⇒ 下一轮补进工具定义
 import { recordDiscoveredTools } from '../discoveredTools';
@@ -211,6 +221,124 @@ async function searchToolsWithKeywords(
     .map((item) => item.name);
 }
 
+/** 详情里的描述截断长度（长描述如 `agent` 近 3.5k 字符，全量下发会挤占窗口） */
+const DETAIL_DESCRIPTION_MAX = 200;
+
+/** 合并族的旧名（alias-only）—— 检索结果不展示，但可解释"你查的是旧名" */
+const LEGACY_ALIAS_SET: ReadonlySet<string> = new Set(LEGACY_ALIAS_TOOL_NAMES);
+
+/** 可见性索引（仅解释用；判定仍以 `filterToolsByTask` 同源报表为准） */
+function buildVisibilityIndex(
+  overrides: ReturnType<typeof readToolVisibilityOverrides>
+): Map<string, ToolVisibilityReport> {
+  const index = new Map<string, ToolVisibilityReport>();
+  for (const entry of resolveToolVisibilityReport({ overrides })) {
+    index.set(entry.name, entry);
+  }
+  return index;
+}
+
+/** 命中工具的可读详情（描述截断 + 必填参数 + 本轮可见性） */
+function buildToolDetail(
+  tool: Tool,
+  visibility: Map<string, ToolVisibilityReport>
+): ToolSearchDetail {
+  const report = visibility.get(tool.name);
+  const raw = tool.description ?? '';
+  const reasons = (report?.reasons ?? []).filter((r) => r !== 'mandatory');
+  const visible = report ? report.effective === 'visible' : true;
+  return {
+    name: tool.name,
+    description:
+      raw.length <= DETAIL_DESCRIPTION_MAX
+        ? raw
+        : `${raw.slice(0, DETAIL_DESCRIPTION_MAX)}…`,
+    requiredParams: (tool.params ?? [])
+      .filter((p) => p.required)
+      .map((p) => p.name),
+    visible,
+    hiddenReasons: visible ? [] : reasons,
+  };
+}
+
+/**
+ * 未命中项的**结构化诊断**（2026-11-23）。
+ *
+ * 回应实测痛点：`select:` 空结果只回 `matches: []`，模型无法区分
+ * 「不存在 / 归档 / 能力包关闭 / 任务裁剪 / 旧名」⇒ 反复换词搜索。
+ * 原因判定尽量复用既有事实源（归档集 / 能力包 / 可见性报表），不新增手写清单。
+ */
+function diagnoseMissingTool(
+  name: string,
+  visibility: Map<string, ToolVisibilityReport>,
+  overrides: ReturnType<typeof readToolVisibilityOverrides>
+): ToolSearchDiagnostic {
+  if (ARCHIVED_MISC_TOOLS.has(name) && overrides[name] !== 'on') {
+    return {
+      name,
+      reason: 'archived',
+      hint: '该工具被有意归档（默认对模型不可见）；确需使用可在工具设置中显式开启',
+    };
+  }
+  if (LEGACY_ALIAS_SET.has(name)) {
+    return {
+      name,
+      reason: 'alias',
+      hint: '这是工具族合并后的旧名（alias-only），不再单独注册；请改用族名（vfs / sleep / skill / cron / worktree / task_list）并传 op',
+    };
+  }
+  if (isToolInDisabledCapabilityPack(name)) {
+    return {
+      name,
+      reason: 'capability_gated',
+      hint: '该工具所属能力包当前关闭；在工具设置中启用对应能力包后可用',
+    };
+  }
+  const report = visibility.get(name);
+  if (!report) {
+    return {
+      name,
+      reason: 'not_registered',
+      hint: '声明面中不存在此名（确认拼写；不确定名字时改用关键词检索）',
+    };
+  }
+  const reasons = report.reasons;
+  if (reasons.includes('feature-gate-off')) {
+    return {
+      name,
+      reason: 'feature_gate_off',
+      hint: '对应功能开关处于关闭状态（如 BROWSER / COMPUTER_USE）；开启并重启后可用',
+    };
+  }
+  if (reasons.includes('conditional')) {
+    return {
+      name,
+      reason: 'declared_unregistered',
+      hint: '该工具已声明但当前未注册（条件门控 / 未接线）；可改用等价能力或反馈给维护者',
+    };
+  }
+  if (
+    reasons.some(
+      (r) =>
+        r === 'not-in-task-whitelist' ||
+        r === 'not-in-default-disclosure' ||
+        r === 'not-in-minimal-surface' ||
+        r === 'user-off'
+    )
+  ) {
+    return {
+      name,
+      reason: 'task_filtered',
+      hint: '工具已注册，但不在当前（默认）披露面；select 选中后可直接调用',
+    };
+  }
+  return {
+    name,
+    reason: 'not_registered',
+    hint: '声明面中不存在此名（确认拼写；不确定名字时改用关键词检索）',
+  };
+}
+
 /**
  * 工具搜索工具
  * 支持关键词搜索和直接选择（"select:<tool_name>"）
@@ -247,7 +375,7 @@ export class ToolSearchTool extends BaseTool<
    * 现覆盖全量已注册工具（含被本轮任务类别裁剪掉的内置工具），描述须与真实覆盖面一致。
    */
   description =
-    '搜索工具。当需要使用的工具未出现在当前工具列表中（延迟加载，或因本轮任务裁剪而不可见）时，用此工具按关键词或 "select:<tool_name>" 查找。';
+    '搜索工具。当需要使用的工具未出现在当前工具列表中（延迟加载，或因本轮任务裁剪而不可见）时，用此工具按关键词或 "select:<tool_name>" 查找。命中项附描述与必填参数；未命中时给出原因（not_registered / declared_unregistered / archived / capability_gated / feature_gate_off / task_filtered / alias）与处置建议。';
 
   override tags = [ToolTag.READ];
 
@@ -343,6 +471,9 @@ export class ToolSearchTool extends BaseTool<
     const searchableTools = allTools.filter(
       (t) => !ARCHIVED_MISC_TOOLS.has(t.name) || overrides[t.name] === 'on'
     );
+    // 2026-11-23：可见性索引（解释"为什么不在本轮清单里"）—— 惰性到真正需要时才建，
+    // 但两个分支都要用，这里统一建一次。
+    const visibility = buildVisibilityIndex(overrides);
 
     // 检查直接选择前缀
     const selectMatch = query.match(/^select:(.+)$/i);
@@ -353,12 +484,21 @@ export class ToolSearchTool extends BaseTool<
         .filter(Boolean);
 
       const found: string[] = [];
+      const diagnostics: ToolSearchDiagnostic[] = [];
       for (const toolName of requested) {
         const tool = findToolByName(searchableTools, toolName);
-        if (tool && !found.includes(tool.name)) {
-          found.push(tool.name);
+        if (tool) {
+          if (!found.includes(tool.name)) found.push(tool.name);
+        } else {
+          diagnostics.push(
+            diagnoseMissingTool(toolName, visibility, overrides)
+          );
         }
       }
+      const details = found
+        .map((name) => searchableTools.find((t) => t.name === name))
+        .filter((t): t is Tool => Boolean(t))
+        .map((t) => buildToolDetail(t, visibility));
 
       // A 项（2026-08-30）：未命中时给出候选提示——模型反复换词搜索同一目标
       //（如 select:skills_list 连续 40+ 轮全空）是工具死循环的放大器。返回
@@ -384,11 +524,21 @@ export class ToolSearchTool extends BaseTool<
           hintList.length > 0 ? `；可用工具示例: ${hintList.join(', ')}` : '';
       }
 
+      // 2026-11-23：单名未命中 ⇒ 顶层直接给 `reason` / `hint`（与 diagnostics[0] 同源）
+      const singleMiss =
+        requested.length === 1 && diagnostics.length === 1
+          ? diagnostics[0]
+          : undefined;
+      const diagText = diagnostics
+        .map((d) => `${d.name}（${d.reason}${d.hint ? `：${d.hint}` : ''}）`)
+        .join('；');
+
       // 2026-11-07（方案 §6.4）：记到会话级「已发现」集（`skill:` 引导项除外 —— 它们不是工具）
       recordDiscoveredTools(context.sessionId, found);
       logger.info('tool_search:discovered', {
         sessionId: context.sessionId ?? null,
         found,
+        diagnostics: diagnostics.map((d) => `${d.name}:${d.reason}`),
       });
 
       return createToolResult(
@@ -397,6 +547,10 @@ export class ToolSearchTool extends BaseTool<
           query,
           total_deferred_tools: deferredTools.length,
           deferredToolNames: deferredTools.map((t) => t.name),
+          ...(details.length > 0 ? { details } : {}),
+          ...(diagnostics.length > 0 ? { diagnostics } : {}),
+          ...(singleMiss ? { reason: singleMiss.reason } : {}),
+          ...(singleMiss?.hint ? { hint: singleMiss.hint } : {}),
         },
         {
           newMessages: [
@@ -404,8 +558,8 @@ export class ToolSearchTool extends BaseTool<
               role: 'system',
               content:
                 found.length > 0
-                  ? `已选择工具: ${found.join(', ')}`
-                  : `未找到匹配的工具: ${requested.join(', ')}${hint}`,
+                  ? `已选择工具: ${found.join(', ')}${diagText ? `；未命中: ${diagText}` : ''}`
+                  : `未找到匹配的工具: ${requested.join(', ')}${diagText ? ` —— ${diagText}` : ''}${hint}`,
             },
           ],
         }
@@ -461,6 +615,14 @@ export class ToolSearchTool extends BaseTool<
       }
     }
 
+    // 2026-11-23：命中工具带出**描述 + 必填参数 + 本轮可见性** —— 模型无需再逐名
+    // 试调即可判断"是不是我要的工具"（回应「tool_search 只回名字」的实测痛点）。
+    // `matches` 里混有 `skill:<name>` 引导项（非工具）⇒ 详情只按真实工具名映射。
+    const details = toolMatches
+      .map((name) => searchableTools.find((t) => t.name === name))
+      .filter((t): t is Tool => Boolean(t))
+      .map((t) => buildToolDetail(t, visibility));
+
     // 2026-11-07（方案 §6.4）：只登记**真实工具名**（`matches` 里还混有 `skill:` 引导项）
     recordDiscoveredTools(context.sessionId, toolMatches);
     logger.info('tool_search:discovered', {
@@ -474,6 +636,7 @@ export class ToolSearchTool extends BaseTool<
         query,
         total_deferred_tools: deferredTools.length,
         deferredToolNames: deferredTools.map((t) => t.name),
+        ...(details.length > 0 ? { details } : {}),
       },
       {
         newMessages: [

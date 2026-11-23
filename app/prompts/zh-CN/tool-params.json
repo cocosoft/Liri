@@ -3,8 +3,8 @@
   "locale": "zh-CN",
   "generatedBy": "app/scripts/export-tool-params.ts",
   "counts": {
-    "tools": 70,
-    "params": 384
+    "tools": 71,
+    "params": 386
   },
   "params": {
     "agent.allowedTools": "逗号分隔的工具名，表示子代理允许使用哪些工具。若为空，则所有工具均可用。",
@@ -128,7 +128,7 @@
     "file_edit.new_string": "替换后的文本",
     "file_edit.old_string": "要被替换的文本",
     "file_edit.replace_all": "替换 old_string 的所有匹配项（默认 false）",
-    "file_read.file_id": "FileRegistry ID（优先于 file_path 使用，可从 file_list 结果中获取）",
+    "file_read.file_id": "FileRegistry ID（优先于 file_path 使用；由 file_read / file_write 注册后产生）",
     "file_read.file_path": "文件路径",
     "file_read.limit": "最多读取的行数",
     "file_read.offset": "起始行号",
@@ -267,6 +267,8 @@
     "powershell.workingDirectory": "命令的工作目录",
     "read_project_file.projectId": "项目 ID",
     "read_project_file.relativePath": "相对于项目文件夹的文件路径",
+    "recall_memory.limit": "返回结果数量上限（默认 5）",
+    "recall_memory.query": "搜索关键词或问题，用于查找相关记忆",
     "repl.action": "操作类型：start, execute, stop, languages",
     "repl.code": "要执行的代码",
     "repl.language": "编程语言",

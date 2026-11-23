@@ -51,6 +51,7 @@ export const TOOL_NAMES = [
   'plan',
   'powershell',
   'read_project_file',
+  'recall_memory',
   'repl',
   'save_conversation',
   'send_message',
@@ -83,4 +84,4 @@ export const TOOL_NAMES = [
 export type ToolName = (typeof TOOL_NAMES)[number];
 
 /** 生成时的工具名总数（门禁守卫用：与真实清单不符 ⇒ 需重新生成） */
-export const TOOL_NAMES_COUNT = 70;
+export const TOOL_NAMES_COUNT = 71;

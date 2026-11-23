@@ -83,6 +83,8 @@ export const TOOL_NAME_CONSTANTS = {
   powershell: 'powershell',
   read_project_file: 'read_project_file',
   read_vfs: 'read_vfs',
+  // 2026-11-23：接线（系统提示词已引用该能力，此前只有实现未注册）
+  recall_memory: 'recall_memory',
   repl: 'repl',
   save_conversation: 'save_conversation',
   send_message: 'send_message',

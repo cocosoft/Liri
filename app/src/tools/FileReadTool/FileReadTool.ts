@@ -285,7 +285,7 @@ export class FileReadTool extends BaseTool {
       name: 'file_id',
       type: 'string',
       description:
-        'FileRegistry ID（优先于 file_path 使用，可从 file_list 结果中获取）',
+        'FileRegistry ID（优先于 file_path 使用；由 file_read / file_write 注册后产生）',
       required: false,
     },
     {

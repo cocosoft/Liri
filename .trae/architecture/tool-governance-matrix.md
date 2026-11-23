@@ -1,7 +1,7 @@
 # 工具治理矩阵（自动生成）
 
 > 由 `bun run gen:tool-governance` 生成，**请勿手改**。规范见 `.trae/specs/tool-security-governance-plan.md`。
-> 实测工具 **70** 个 · pass 70 · accepted-gap 0 · gap 0
+> 实测工具 **71** 个 · pass 71 · accepted-gap 0 · gap 0
 
 ## shell（4）
 
@@ -66,7 +66,7 @@
 | `worktree` | local | none | write / write / declared:dynamic | no | — | — | — | pass |
 | `write_project_file` | local | file-io | write / write / declared:static | no | — | — | yes | pass |
 
-## read（22）
+## read（23）
 
 | 工具 | effects | sandbox | risk（声明 / 派生 / 来源） | 只读 | 上限 | 指纹 | 自定义权限 | verdict |
 |---|---|---|---|---|---|---|---|---|
@@ -84,6 +84,7 @@
 | `mcp_resource` | none | none | — / read / derived:effects | yes | 100000 | — | — | pass |
 | `pdf` | local | none | read / read / declared:dynamic | yes | — | — | — | pass |
 | `read_project_file` | none | none | read / read / declared:static | yes | — | — | yes | pass |
+| `recall_memory` | none | none | — / read / derived:effects | yes | — | — | yes | pass |
 | `task_list` | local(op) | none | read / read / declared:dynamic | yes | — | — | — | pass |
 | `task_output` | none | none | — / read / derived:effects | yes | 100000 | — | — | pass |
 | `tool_search` | none | none | — / read / derived:effects | yes | 100000 | — | — | pass |

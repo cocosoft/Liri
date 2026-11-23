@@ -1,13 +1,9 @@
 {
   "version": 1,
   "recordedAt": "2026-10-31",
-  "note": "infra 层边界契约门禁白名单（R1–R5）。每条必须写明理由；理由缺失本身即违规。R2/R3 为清零目标：条目消失时门禁提示清理。2026-10-31：R2/R3/R4 存量已清零（BashPermission 改注入评估器、calibrateContextWindow 上移 app、common/utils 四组同名实现去重、Option→CommandOption 与 ValidationResult→ToolValidationResult 改名）；R5 仅包装本体。规范见 .trae/specs/infra-layer-boundary-contract.md §5/§8。",
-  "topLevelIo": [
-    {
-      "path": "utils/env.ts",
-      "reason": "env 模块是 process.env 的唯一再导出点（读值仍经 getEnv / isEnvTruthy）；顶层只持有引用、不触发求值。迁走需同批改全部消费方，属独立变更。"
-    }
-  ],
+  "note": "infra 层边界契约门禁白名单（R1–R5）。每条必须写明理由；理由缺失本身即违规。R1–R4 现均为清零状态：R2/R3/R4 于 2026-10-31 清零（BashPermission 改注入评估器、calibrateContextWindow 上移 app、common/utils 四组同名实现去重、Option→CommandOption 与 ValidationResult→ToolValidationResult 改名）；R1 于 2026-11-23 清零（原唯一条目 `utils/env.ts` 经全仓取证零消费者，已删除该残留兼容层）。R2/R3 为清零目标：条目消失时门禁提示清理。规范见 .trae/specs/infra-layer-boundary-contract.md §5/§8。",
+  "topLevelIo": [],
+
   "approvalOrchestration": [],
   "dynamicInfraToApp": [],
   "commonUtilsDuplicates": [],

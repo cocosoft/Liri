@@ -131,7 +131,7 @@ infra 禁止依赖：entry、ui、app、service
 | 不得裸 `process.env` | ✅ 已检查 | `lint:arch` 的 Config/Env 检查（当前 0 处 / 0 文件） |
 | 不得自建 Logger | ✅ R11-001 | 只允许 `loggerFacade` |
 | 生命周期 disposer / LIFO | ✅ 规则 + 既有断言 | `project_rules §1.16` |
-| **"模块顶层不做 I/O"** | ✅ `lint:infra` R1 | AST 判定（函数 / 类体内不算）；存量 1 处 `utils/env.ts` 已登记 |
+| **"模块顶层不做 I/O"** | ✅ `lint:infra` R1 | AST 判定（函数 / 类体内不算）；**存量已清零**（2026-11-23：原唯一登记项 `utils/env.ts` 经全仓取证零消费者，作为残留兼容层删除；消费方实际用的是 `utils/envUtils.ts` / `utils/envAccess.ts`） |
 | **审批编排不得下沉** | ✅ `lint:infra` R2 | `security/**`、`permission/**` 运行时不得引用上层；**存量已清零**（`BashPermission` 改注入评估器） |
 | **infra → app 动态导入** | ✅ `lint:infra` R3（白名单清零） | **存量已清零**（0 条，2026-10-31）；后续新增即红，条目消失即提示清理 |
 | **common / utils 重复检测** | ✅ `lint:infra` R4 | 同名导出（含命名空间内导出）；**存量已清零**（4 组去重 + 3 组改名，白名单为空） |

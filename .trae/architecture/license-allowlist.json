@@ -15,6 +15,9 @@
     },
     "khroma": {
       "reason": "package.json 未声明 license 字段；已核对包内 LICENSE 文本为 MIT（Copyright 2019-present Fabio Spampinato, Andrew Maney）。"
+    },
+    "postcss-values-parser": {
+      "reason": "MPL-2.0（文件级弱 copyleft）；已核对包内 LICENSE 文本为 Mozilla Public License 2.0。来源链 madge → dependency-tree → precinct → detective-postcss，全部为 devDependency：仅本机/CI 做循环依赖静态分析，不随产品分发、未修改其源码、未与项目代码静态链接。"
     }
   }
 }

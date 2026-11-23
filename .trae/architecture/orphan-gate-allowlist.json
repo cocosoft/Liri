@@ -17,7 +17,6 @@
     "lint:kernel:baseline": "写基线模式（lint:kernel 门禁本体已在 ci 执行）。",
     "lint:kernel-api:write": "写基线模式（lint:kernel-api 门禁本体已在 ci 执行）。",
     "lint:unref:list": "列表模式（lint:unref 门禁本体已在 ci 执行）。",
-    "check:circular": "已人工验证通过，但单次约 78s 且依赖 npx 联网下载 madge；待把 madge 固化为 devDependency 后再接入 CI。",
     "audit:complexity": "复杂度审计（只读分析工具），非周期性门禁；复杂度门禁本体为 lint:complexity。",
     "prompts:export": "提示词资源导出器（T2 资源链维护用），产物由 prompts:check 校验。",
     "params:export": "工具参数描述导出器，产物由 params:check 校验。",

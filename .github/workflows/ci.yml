@@ -563,16 +563,10 @@ jobs:
 
     - name: Check circular dependencies (baseline at most 0)
       # 2026-10-19：断环收口 24 → 0（类型/契约下沉，零运行时变化）⇒ 棘轮收紧到 0，只减不增。
-      run: |
-        OUTPUT=$(npx madge --circular --extensions ts,tsx src/ 2>&1) || true
-        echo "$OUTPUT"
-        COUNT=$(echo "$OUTPUT" | grep -oP 'Found \K\d+' || echo "0")
-        echo "Found $COUNT circular dependencies"
-        if [ "$COUNT" -gt 0 ]; then
-          echo "FAIL: Circular dependency count ($COUNT) exceeds baseline (0)"
-          exit 1
-        fi
-        echo "PASS: No circular dependencies"
+      # 2026-11-23：`madge` 已固化为 `app` 的 devDependency（不再 `npx` 联网下载），且改用与本地
+      # `bun run ci` **同一个** `check:circular` 脚本 —— madge 发现环即 exit 1。原写法
+      # `OUTPUT=$(npx … ) || true` + 解析失败默认 `COUNT=0`，一旦 npx 不可用就会**假绿**（AR-3）。
+      run: bun run check:circular
 
     - name: Run architecture compliance check
       working-directory: .

@@ -63,6 +63,12 @@ beforeAll(() => {
       buildIndex: async () => [],
       clearCache: async () => {},
     },
+    dreamOps: {
+      listCycles: async () => ({}),
+      queryCycles: async () => ({ cycles: [], stats: {} }),
+      getCycle: async () => null,
+      readMetrics: async () => null,
+    },
   } as never);
 });
 

@@ -27,6 +27,36 @@ afterAll(() => {
 const { getDreamCycleDb } = await import('@modules/dream/DreamCycleDb');
 const { handleDreamCycleAnalytics } =
   await import('../../src/infrastructure/http/handlers/memory-handlers');
+// 2026-11-24（R00-003 收口）：dream 端点改为经 `CoreApiAppDeps.dreamOps` 取值
+// （service 层不再动态导入 app）⇒ 直调 handler 的契约测试须先装配**同一份**门面实现。
+// 其余字段给最小忠实桩（同 `CoreAPIImpl.chatStream.test.ts` 的口径），避免同进程后续用例
+// 命中"app 层依赖未注入"。
+const { setCoreApiAppDeps } = await import('@modules/runtime/api/CoreAPIImpl');
+const { createDreamOpsFacade } =
+  await import('../../src/entrypoints/coreApiAppDepsFacades');
+setCoreApiAppDeps({
+  chatManager: {},
+  toolManager: { getInner: () => ({}) },
+  converterEngine: {},
+  fileTypeDetector: {},
+  router: {
+    resolveDefault: () => '',
+    resolveWithPhase: () => null,
+    resolveChat: async () => '',
+  },
+  getCheckpointService: () => ({}),
+  createAutoCompactService: () => ({}),
+  globalEmbeddingManager: {},
+  commandsOps: () => ({
+    listCommands: async () => [],
+    executeCommand: async () => ({}),
+  }),
+  knowledgeDocsProvider: {
+    buildIndex: async () => [],
+    clearCache: async () => {},
+  },
+  dreamOps: createDreamOpsFacade(),
+} as never);
 
 function createRes(): {
   res: http.ServerResponse;

@@ -198,6 +198,19 @@ export interface CoreApiAppDeps {
     buildIndex(): ReturnType<CoreAPI['buildKnowledgeDocsIndex']>;
     clearCache(): Promise<void>;
   };
+  /**
+   * 梦境（dream）运维的**惰性门面**（2026-11-24，R00-003 收口）。
+   *
+   * 原先 `DomainSnapshotOps` 的 4 个 dream 方法各自 `await import('@modules/dream/<叶子>')`
+   * —— service → app 的动态跨层引用（按叶子导入以避开整条桶面）。现由组合根注入同样的
+   * 叶子级惰性实现：**每次调用再 import**，HTTP 路径的加载面与缓存时机不变。
+   */
+  dreamOps: {
+    listCycles(params: unknown): Promise<object>;
+    queryCycles(filter: unknown): Promise<{ cycles: unknown; stats: unknown }>;
+    getCycle(cycleId: string): Promise<unknown | null>;
+    readMetrics(): Promise<unknown | null>;
+  };
 }
 
 let _registeredAppDeps: CoreApiAppDeps | undefined;
@@ -574,7 +587,8 @@ export class CoreAPIImpl implements CoreAPI {
     endTime?: number;
     sortOrder?: 'asc' | 'desc';
   }): Promise<object> {
-    return this.domainSnapshotOps.listDreamCycles(params);
+    // 2026-11-24（R00-003 收口）：经注入的 dream 惰性门面（见 `CoreApiAppDeps.dreamOps`）
+    return this.appDeps.dreamOps.listCycles(params);
   }
 
   async queryDreamCycles(filter: {
@@ -584,15 +598,15 @@ export class CoreAPIImpl implements CoreAPI {
     status?: string;
     limit?: number;
   }): Promise<{ cycles: unknown; stats: unknown }> {
-    return this.domainSnapshotOps.queryDreamCycles(filter);
+    return this.appDeps.dreamOps.queryCycles(filter);
   }
 
   async getDreamCycle(cycleId: string): Promise<unknown | null> {
-    return this.domainSnapshotOps.getDreamCycle(cycleId);
+    return this.appDeps.dreamOps.getCycle(cycleId);
   }
 
   async readDreamMetrics(): Promise<unknown | null> {
-    return this.domainSnapshotOps.readDreamMetrics();
+    return this.appDeps.dreamOps.readMetrics();
   }
 
   async buildKnowledgeDocsIndex(): Promise<

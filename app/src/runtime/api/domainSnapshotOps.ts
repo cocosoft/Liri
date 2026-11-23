@@ -149,47 +149,8 @@ export class DomainSnapshotOps {
   }
 
   // ---- 梦境（HTTP 等 service 侧消费；见 CoreAPI 声明处沿革 D-87）----
-  // 2026-11-14（dream 迁入 packages/dream）：改 `@modules/dream/<叶子>` 按需动态导入 ——
-  // 走桶会把 engine/scheduler/unified cycle 整条面拉进 HTTP 路径；叶子键已登记 canonicalEntryKeys。
-
-  async listDreamCycles(params: {
-    page: number;
-    pageSize: number;
-    triggerSource?: string;
-    status?: string;
-    startTime?: number;
-    endTime?: number;
-    sortOrder?: 'asc' | 'desc';
-  }): Promise<object> {
-    const dreamPersistence = await import('@modules/dream/DreamPersistence');
-    return new dreamPersistence.DreamPersistence().listCycles(params);
-  }
-
-  async queryDreamCycles(filter: {
-    from?: number;
-    to?: number;
-    triggerSource?: string;
-    status?: string;
-    limit?: number;
-  }): Promise<{ cycles: unknown; stats: unknown }> {
-    const { getDreamCycleDb } = await import('@modules/dream/DreamCycleDb');
-    const db = await getDreamCycleDb();
-    const [cycles, stats] = await Promise.all([
-      db.queryCycles(filter),
-      db.aggregateCycles(filter),
-    ]);
-    return { cycles, stats };
-  }
-
-  async getDreamCycle(cycleId: string): Promise<unknown | null> {
-    const dreamPersistence = await import('@modules/dream/DreamPersistence');
-    return new dreamPersistence.DreamPersistence().getCycle(cycleId);
-  }
-
-  async readDreamMetrics(): Promise<unknown | null> {
-    const { readMetrics } = await import('@modules/dream/DreamMetrics');
-    return readMetrics();
-  }
+  // 2026-11-24（R00-003 收口）：4 个 dream 方法已移入 `CoreAPIImpl`，经组合根注入的
+  // 叶子级惰性门面取值（`CoreApiAppDeps.dreamOps`）—— 保留"按叶子导入"的加载面不变。
 
   // ---- 知识库文档（HTTP 等 service 侧消费；见 CoreAPI 声明处沿革 D-88）----
   // 2026-11-24（R00-003 收口）：buildKnowledgeDocsIndex / clearKnowledgeDocsCache 已移入

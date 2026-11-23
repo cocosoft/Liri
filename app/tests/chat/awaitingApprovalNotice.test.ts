@@ -19,6 +19,7 @@ import {
   ensureAwaitingApprovalNotice,
   hasPriorApprovalNoticeThisTurn,
 } from '../../src/chat/orchestrator/awaitingApprovalNotice';
+import { clearAwaitingApprovalTurnMarkers } from '../../src/chat/terminationOutput';
 import type { Message } from '@modules/session/types/message.js';
 
 function notice(id: string): Message {
@@ -164,5 +165,64 @@ describe('ensureAwaitingApprovalNotice', () => {
 
     expect(written).toBeDefined();
     expect(persisted).toHaveLength(1);
+  });
+});
+
+/**
+ * 2026-11-24（真机 `session_mwrf18pu00456e0f2b`）：审批通过后的续跑必须把上一轮
+ * 「因等待审批收尾」的标记与正文提示一起清掉，否则会话被反复写回 `requires_action`。
+ */
+describe('clearAwaitingApprovalTurnMarkers（续跑清理陈旧审批标记）', () => {
+  it('metadata + 顶层标记与正文提示一并清除，其它字段保持', () => {
+    const { message, changed } = clearAwaitingApprovalTurnMarkers({
+      role: 'assistant',
+      content: `正文\n\n${AWAITING_APPROVAL_NOTICE}`,
+      finishReason: 'awaiting_approval',
+      terminationReason: 'awaiting_approval',
+      metadata: {
+        finishReason: 'awaiting_approval',
+        terminationReason: 'awaiting_approval',
+        model: 'm-1',
+      },
+    });
+
+    expect(changed).toBe(true);
+    expect(message.content).toBe('正文');
+    expect(message.finishReason).toBeUndefined();
+    expect(message.terminationReason).toBeUndefined();
+    expect(message.metadata?.finishReason).toBeUndefined();
+    expect(message.metadata?.terminationReason).toBeUndefined();
+    expect(message.metadata?.model).toBe('m-1');
+  });
+
+  it('text 块里的提示同样剥离', () => {
+    const { message, changed } = clearAwaitingApprovalTurnMarkers({
+      role: 'assistant',
+      content: '',
+      metadata: { finishReason: 'awaiting_approval' },
+      blocks: [
+        { type: 'text', content: `正文\n\n${AWAITING_APPROVAL_NOTICE}` },
+        { type: 'tool_call', content: 'bash' },
+      ],
+    });
+
+    expect(changed).toBe(true);
+    const blocks = message.blocks as Array<{
+      type?: string;
+      content?: unknown;
+    }>;
+    expect(blocks[0].content).toBe('正文');
+    // 非 text 块原样保留
+    expect(blocks[1]).toEqual({ type: 'tool_call', content: 'bash' });
+  });
+
+  it('无审批标记 / 无提示 ⇒ changed=false（不产生多余写盘）', () => {
+    const { changed } = clearAwaitingApprovalTurnMarkers({
+      role: 'assistant',
+      content: '正常回复',
+      finishReason: 'stop',
+      metadata: { finishReason: 'stop' },
+    });
+    expect(changed).toBe(false);
   });
 });

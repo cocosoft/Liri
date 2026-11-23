@@ -19,7 +19,10 @@ import { getLogger } from '@openliri/infra/monitoring';
 import type { TerminationReason } from '@modules/query';
 import type { GoalTurnReason } from '@modules/tasks';
 // 2026-11-12：审批等待提示文案上移到 `@shared/types`（前端渲染期剥离，唯一来源）
-import { AWAITING_APPROVAL_NOTICE } from '@shared/types';
+import {
+  AWAITING_APPROVAL_NOTICE,
+  stripAwaitingApprovalNotice,
+} from '@shared/types';
 // BUG-E 第二轮复验（2026-10-27）：可见性判定需先剥离 `<think>`（与终稿校验同源，CS01）
 import { stripThinkResponseTags } from './services/context/thinkTags.js';
 
@@ -99,6 +102,84 @@ function hasTrailingApprovalNotice(
     return content.trimEnd().endsWith(AWAITING_APPROVAL_NOTICE);
   }
   return false;
+}
+
+/** 清理「等待审批收尾」标记所需的最小消息形状 */
+export interface ApprovalTurnMarkerMessage {
+  content?: unknown;
+  blocks?: unknown;
+  finishReason?: unknown;
+  terminationReason?: unknown;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * 2026-11-24（真机 `session_mwrf18pu00456e0f2b`）：**审批通过后的续跑不是"本轮因等待审批收尾"**，
+ * 但上一轮挂在**同一条助手消息**上的 `awaiting_approval` 标记会被后续流程当成"当前收尾原因"：
+ *   ① `ChatMessagePersistence.syncConversationState` 每次落这条消息都把会话写回 `requires_action`
+ *      ⇒ 续跑进行中侧栏仍显示「待审批」；
+ *   ② 前端 `hasPendingApproval` 的末条兜底同样命中 ⇒ 任务卡/状态栏显示「等待审批」；
+ *   ③ 气泡正文里的「⏸ 有工具调用正在等待你的审批…」提示残留。
+ * 故续跑开始时用本函数把该标记与提示一并清掉（纯函数，返回新对象 + 是否有改动）。
+ *
+ * 只动 `awaiting_approval` 这一个取值（CS02：结构化字段判定，不比对文案片段）。
+ */
+export function clearAwaitingApprovalTurnMarkers<
+  T extends ApprovalTurnMarkerMessage,
+>(message: T): { message: T; changed: boolean } {
+  const next: ApprovalTurnMarkerMessage = { ...message };
+  let changed = false;
+
+  if (next.finishReason === AWAITING_APPROVAL_FINISH_REASON) {
+    delete next.finishReason;
+    changed = true;
+  }
+  if (next.terminationReason === AWAITING_APPROVAL_FINISH_REASON) {
+    delete next.terminationReason;
+    changed = true;
+  }
+
+  const meta = next.metadata;
+  if (
+    meta &&
+    (meta.finishReason === AWAITING_APPROVAL_FINISH_REASON ||
+      meta.terminationReason === AWAITING_APPROVAL_FINISH_REASON)
+  ) {
+    const rest = { ...meta };
+    delete rest.finishReason;
+    delete rest.terminationReason;
+    next.metadata = rest;
+    changed = true;
+  }
+
+  if (typeof next.content === 'string') {
+    const stripped = stripAwaitingApprovalNotice(next.content);
+    if (stripped !== next.content) {
+      next.content = stripped;
+      changed = true;
+    }
+  }
+
+  if (Array.isArray(next.blocks)) {
+    let blocksChanged = false;
+    const blocks = (
+      next.blocks as Array<{ type?: unknown; content?: unknown }>
+    ).map((block) => {
+      if (block?.type !== 'text' || typeof block.content !== 'string') {
+        return block;
+      }
+      const stripped = stripAwaitingApprovalNotice(block.content);
+      if (stripped === block.content) return block;
+      blocksChanged = true;
+      return { ...block, content: stripped };
+    });
+    if (blocksChanged) {
+      next.blocks = blocks;
+      changed = true;
+    }
+  }
+
+  return { message: next as T, changed };
 }
 
 /**

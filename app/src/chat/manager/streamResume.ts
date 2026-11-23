@@ -55,6 +55,8 @@ import { notifySessionMetaUpdated } from '../services/sessionMetaBroadcast';
 import { stripThinkResponseTags } from '../services/context/thinkTags';
 import { repairImageUrls } from '../services/ChatHelper';
 import { stripBareExploration } from '../services/bareExplorationStripper';
+// 2026-11-24（真机 session_mwrf18pu00456e0f2b）：续跑时清除上一轮「因等待审批收尾」的陈旧标记
+import { clearAwaitingApprovalTurnMarkers } from '../terminationOutput';
 import type { MessageService } from '../services/MessageService.js';
 import type { PendingInteractionEntry } from '@openliri/infra/utils/pendingInteractions';
 // 2026-11-06（审批根因簇 P0-1）：识别「等待审批」的 tool_call —— 批准后必须重放
@@ -113,6 +115,14 @@ export interface StreamResumeDeps {
   messageService: MessageService;
   /** 消息落盘（宿主 `_addAndPersistMessage`） */
   addAndPersistMessage: (sessionId: string, message: Message) => Promise<void>;
+  /**
+   * 2026-11-24：**只写消息行、不追加事件**的落盘入口（清理陈旧审批标记后回写）。
+   *
+   * 为什么不用 `addAndPersistMessage`：它会把消息再转一遍事件（`appendEventsForMessage`），
+   * 对已落盘的同一条消息可能重复写入 `tool/result` 事件；本场景只改 `metadata`/正文提示，
+   * 事件层事实（上一轮确实因审批收尾）必须保持不变。
+   */
+  persistMessage: (sessionId: string, message: Message) => Promise<void>;
   /**
    * N-6（2026-11-06 真机）：续跑轮实时写 `assistant/tool_call` 事件。
    *
@@ -247,6 +257,27 @@ async function rebuildRemainingToolCalls(params: {
   return { accumulatedContent, remainingToolCalls, stillWaitingApproval };
 }
 
+/**
+ * 2026-11-24（真机 `session_mwrf18pu00456e0f2b`）：把**末条助手消息**上「上一轮因等待审批收尾」的
+ * 陈旧标记清掉（原地替换元素，返回新对象；无改动 ⇒ `null`）。
+ *
+ * 现场：用户批准后，续跑写回的是**同一条**助手消息，`metadata.finishReason='awaiting_approval'`
+ * 一直留着 ⇒ 后续每次落该消息都把会话写回 `requires_action`（侧栏「待审批」），前端末条兜底
+ * 也一直判"在等审批"。续跑即"用户已处理"，该标记不再是事实（原因详见
+ * `clearAwaitingApprovalTurnMarkers` 头注）。
+ */
+function resetStaleApprovalTurn(messages: Message[]): Message | null {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (msg.role !== 'assistant') continue;
+    const cleared = clearAwaitingApprovalTurnMarkers(msg);
+    if (!cleared.changed) return null;
+    messages[i] = cleared.message;
+    return cleared.message;
+  }
+  return null;
+}
+
 export class ChatStreamResume {
   constructor(private readonly deps: StreamResumeDeps) {}
 
@@ -367,6 +398,29 @@ export class ChatStreamResume {
           awaitingApprovalIds,
           isAwaitingUserApproval: deps.isAwaitingUserApproval,
         });
+
+      // 2026-11-24：**审批确已落定**（没有仍被未处理审批卡挡住的调用）才清掉上一轮挂在
+      // 末条助手消息上的 `awaiting_approval` 收尾标记 —— 否则续跑期间会话会被反复写回
+      // `requires_action`（侧栏「待审批」）。仍在等审批时保留标记与提示，界面继续如实显示等待。
+      // 只回写消息行（不追加事件）：事件层"上一轮确实因审批收尾"是历史事实，不改写。
+      if (stillWaitingApproval === 0) {
+        const staleApprovalTurn = resetStaleApprovalTurn(session.messages);
+        if (staleApprovalTurn) {
+          try {
+            await deps.persistMessage(sessionId, staleApprovalTurn);
+            logger.info('续跑：已清除上一轮「等待审批」收尾标记', {
+              sessionId,
+              messageId: staleApprovalTurn.id,
+            });
+          } catch (e) {
+            // @ignore-catch — 清理失败不阻断续跑（内存已清，下一次落盘会带上）
+            logger.warn('续跑：清理陈旧审批标记落盘失败', {
+              sessionId,
+              error: e instanceof Error ? e.message : String(e),
+            });
+          }
+        }
+      }
 
       if (remainingToolCalls.length === 0) {
         if (stillWaitingApproval > 0) {

@@ -81,6 +81,8 @@ import {
   type InboxChannelBinding,
 } from '@openliri/service/runtime/InboxManager';
 import type { MessageService } from '../services/MessageService.js';
+// 2026-11-24：续跑清理陈旧审批标记后的"只写消息行"回写
+import { persistChatMessage } from '../services/ChatHelper.js';
 import type { SessionAccessFacade } from '../services/SessionAccessFacade';
 import { SessionLifecycleManager } from '../services/SessionLifecycleManager.js';
 import { ResumeCoordinator } from '../services/ResumeCoordinator.js';
@@ -847,6 +849,9 @@ export function wireChatFacades(host: FacadeWiringHost): void {
     messageService: host.messageService,
     addAndPersistMessage: (sid, msg) =>
       host._msgPersist.addAndPersistMessage(sid, msg),
+    // 2026-11-24：清理陈旧审批标记后的回写（只写消息行，不追加事件）
+    persistMessage: (sid, msg) =>
+      persistChatMessage(host.sessionGateway, sid, msg),
     // N-6（2026-11-06）：续跑轮实时写 assistant/tool_call 事件（回放能生成工具卡）
     appendStreamEvent: (sid, event) => host.appendStreamEvent(sid, event),
     // 2026-11-12：续跑轮 turn 编号取自事件日志最大 turn（与流式主路径同源，避免编号回退）。

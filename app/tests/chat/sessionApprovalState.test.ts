@@ -9,6 +9,7 @@
  */
 import { describe, expect, it } from 'bun:test';
 import { resolveSessionStateAfterMessage } from '../../src/chat/manager/messagePersistence';
+import { clearAwaitingApprovalTurnMarkers } from '../../src/chat/terminationOutput';
 import { DataSessionStatus } from '@modules/session/types/session';
 import type { Message } from '@modules/session/types/message';
 
@@ -201,6 +202,37 @@ describe('resolveSessionStateAfterMessage（P1-2 / N-3）', () => {
     ).toBeNull();
     expect(
       resolveSessionStateAfterMessage(user(), DataSessionStatus.ENDED)
+    ).toBeNull();
+  });
+});
+
+/**
+ * 2026-11-24（真机 `session_mwrf18pu00456e0f2b`）：用户批准后，续跑写回的是**同一条**助手消息；
+ * 若 `awaiting_approval` 收尾标记留在上面，任何后续落盘都会把会话写回 `requires_action`
+ * ⇒ 续跑进行中侧栏仍显示「待审批」。根治点 = 续跑开始即清除该标记（`streamResume`）。
+ */
+describe('续跑清除审批收尾标记 ⇒ 不再被写回 requires_action（2026-11-24）', () => {
+  it('对照：未清除时，同一条消息的再次落盘仍判 requires_action', () => {
+    expect(
+      resolveSessionStateAfterMessage(
+        assistant('awaiting_approval'),
+        DataSessionStatus.ACTIVE
+      )
+    ).toBe(DataSessionStatus.REQUIRES_ACTION);
+  });
+
+  it('清除标记后 ⇒ 收敛判定不再命中（null）', () => {
+    const cleared = clearAwaitingApprovalTurnMarkers({
+      role: 'assistant' as Message['role'],
+      content: '',
+      metadata: { finishReason: 'awaiting_approval' },
+    });
+    expect(cleared.changed).toBe(true);
+    expect(
+      resolveSessionStateAfterMessage(
+        cleared.message as Probe,
+        DataSessionStatus.ACTIVE
+      )
     ).toBeNull();
   });
 });

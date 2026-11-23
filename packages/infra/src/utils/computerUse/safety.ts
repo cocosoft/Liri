@@ -17,11 +17,18 @@
  *
  * 只读纯函数，便于单测（不触碰真实桌面）。
  */
+import { ErrorSeverity, ValidationError } from '@openliri/infra/error';
 
-/** 入参非法（注入尝试 / 类型不符 / 超出范围）——调用方应转成工具失败，不得静默放行 */
-export class UnsafeComputerInputError extends Error {
+/**
+ * 入参非法（注入尝试 / 类型不符 / 超出范围）——调用方应转成工具失败，不得静默放行。
+ *
+ * 2026-11-23（R01-002）：原直接 `extends Error` ⇒ 绕过统一错误层（分类 / 严重度 /
+ * 错误码 / 脱敏与追踪关联）。改为继承 `ValidationError`（`AppError` 子类，语义同为
+ * 入参校验失败）⇒ 保留 `instanceof UnsafeComputerInputError` 语义，同时进入统一错误链。
+ */
+export class UnsafeComputerInputError extends ValidationError {
   constructor(message: string) {
-    super(message);
+    super(message, ErrorSeverity.MEDIUM, 'UNSAFE_COMPUTER_INPUT');
     this.name = 'UnsafeComputerInputError';
   }
 }

@@ -96,15 +96,6 @@ describe('P1 工具可见性报表', () => {
     }
   });
 
-  it('归档集（browser / computer_use）⇒ archived 且不可见', () => {
-    for (const name of ARCHIVED_MISC_TOOLS) {
-      const entry = byName.get(name);
-      expect(entry).toBeDefined();
-      expect(entry!.reasons).toContain('archived');
-      expect(entry!.effective).toBe('hidden');
-    }
-  });
-
   it('恒保留集 ⇒ 可见且原因为 mandatory（即便类别不在白名单）', () => {
     for (const name of getMandatoryTools()) {
       const entry = byName.get(name);

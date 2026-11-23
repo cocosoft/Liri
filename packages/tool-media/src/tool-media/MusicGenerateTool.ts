@@ -112,6 +112,15 @@ export class MusicGenerateTool extends BaseTool {
   /** U-03（2026-10-19）：模型可见出参结构（music 对象 + 入参回显） */
   override outputJsonSchema = MUSIC_GENERATE_OUTPUT_JSON_SCHEMA;
 
+  /**
+   * PR-4（影子工具，2026-11-23）：**显式风险声明**。
+   *
+   * `music_generate` 当前未接入真实 provider（`shadowToolDispositions` = awaiting-provider），
+   * 但一旦接线即「调用外部生成服务 + 落盘音频」⇒ 静态风险按 `external` 声明，
+   * 不依赖 `TOOL_EFFECTS`（该表只覆盖已注册的 ToolName）。
+   */
+  override riskClass = 'external' as const;
+
   params: ToolParam[] = [
     {
       name: 'prompt',

@@ -150,6 +150,7 @@ export function findToolsMissingCapability(
     const declaresCapability =
       /getCapability\s*\(/.test(text) ||
       /\bcapability\s*:/.test(text) ||
+      /\briskClass\s*[:=]/.test(text) ||
       // 2026-10-20：同时接受**字段初始化器**写法（`override sandboxLevel = 'execution' as const`）
       // —— `extends BaseTool` 的工具以 `=` 声明，原判据只认 `:` ⇒ `bash` / `powershell` /
       // `code_run` 三个**已显式声明**的类被误判为"缺声明"（判据漏检，非工具缺失）。

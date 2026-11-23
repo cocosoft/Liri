@@ -294,6 +294,11 @@ export const ALL_BUILTIN_TOOLS_CATEGORIZED: MissingBuiltinToolCategory extends n
  * 2026-11-21：`browser` / `computer_use` **已解除归档**（改为功能开关控制可见性，
  * 见 browser-use-and-computer-use-completion.md P1/P2）⇒ 当前为空集；保留机制本身，
  * 供未来需要"永久不可见"的工具使用。
+ *
+ * 2026-11-23（复查）：**空集不是缺陷**，机制由两处守卫覆盖 ——
+ * ① `tests/tools/toolNameLists.test.ts`：`misc` 类工具集合必须**恰好**等于本集合（防新工具
+ *   被顺手扔进 misc 而静默消失）；② `tests/tools/toolSearchCoverage.test.ts`：临时注入归档名
+ * 验证"检索面排除归档项"仍生效（防机制空转）。新增条目必须有明确理由。
  */
 export const ARCHIVED_MISC_TOOLS: ReadonlySet<string> = new Set([]);
 

@@ -1814,3 +1814,32 @@ describe('第二十三批工具出参结构（U-03，2026-11-23）', () => {
     ]);
   });
 });
+
+/**
+ * 出参结构**覆盖棘轮**（2026-11-23，P2 收口后的防回退）。
+ *
+ * P2 已把**完整声明面**（`getAllBuiltinToolLoaders()`）上所有缺 `outputJsonSchema` 的工具补齐
+ * （实测 69 个工具、缺失 0）。本用例把「零缺失」冻结成硬约束：
+ * **新增工具漏声明 ⇒ 失败**，避免再次退化成"所有工具对模型都长一个样"。
+ *
+ * 若确有工具必须暂不声明（例如结果完全动态），应先在评审中说明理由并把该工具加入
+ * 显式白名单（与其它门禁的 acceptedGap 同口径），而不是让断言永远放行。
+ */
+describe('出参结构覆盖棘轮（2026-11-23）', () => {
+  it('完整声明面上每个工具都必须声明 outputJsonSchema', () => {
+    const tools = loadTools(new ToolFactory(), getAllBuiltinToolLoaders());
+    // 防空转（恒真守卫）：声明面必须真的非空
+    expect(tools.length).toBeGreaterThan(50);
+
+    const missing = tools
+      .filter((tool) => {
+        const declared =
+          tool.getInfo?.().outputJsonSchema ?? tool.outputJsonSchema;
+        return declared === undefined;
+      })
+      .map((tool) => tool.name)
+      .sort();
+
+    expect(missing).toEqual([]);
+  });
+});

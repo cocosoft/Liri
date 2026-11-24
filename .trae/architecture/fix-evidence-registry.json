@@ -1,7 +1,7 @@
 {
   "$comment": "修复证据登记（生成物）：改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts；stages/flags 判据见 scripts/lint-fix-evidence.ts。",
   "version": 1,
-  "updatedAt": "2026-11-24T13:10:57.851Z",
+  "updatedAt": "2026-11-24T13:20:17.168Z",
   "stages": [
     "discovered",
     "fixed",
@@ -17569,6 +17569,32 @@
       "changelog": [],
       "reopenWhen": "刷新后「查看详情」点不动，或兜底 taskId 又取到子阶段（全文见 archive/evidence-detail.jsonl#PDCA-THREE-SURFACES-P2D）",
       "notes": "① available 由持久化 pdca_workflow 卡片兜底（active 恒 false）；② 无 taskId 时按 sessionId 调 /v1/pdca/list，pickRootTaskId 优先主链；③ 无任务不造假。e2e：真实自动升级后 reload 点「查看详情」抽屉可开，taskId=pdca_mwupjxor。"
+    },
+    {
+      "id": "PDCA-ABORT-NOT-RUNNING-P2E",
+      "title": "PDCA abort 在无在飞编排器时就地收口（原 409 not_running 导致任务永久显示运行中）",
+      "source": ".trae/specs/frontend-task-tools-governance.md §6 批次 16（P2-E）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/infrastructure/http/handlers/pdca-handlers.ts"
+      ],
+      "tests": [
+        "app/tests/http/pdca-abort-not-running.contract.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "点中止后任务再次长期显示运行中，或终态事件未广播（全文见 archive/evidence-detail.jsonl#PDCA-ABORT-NOT-RUNNING-P2E）",
+      "notes": "not_running 分支改就地写 abort checkpoint（abortedBy=user_abort）+ 仅有 workItemId 时同步归属 + 广播 pdca:stage:complete(cancelled)，返回 200 checkpointOnly；已终态仍 409。真实端点未复验（原样本已被启动扫描收口）。"
     }
   ]
 }

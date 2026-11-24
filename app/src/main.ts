@@ -1769,6 +1769,13 @@ export async function launch(options: LaunchOptions): Promise<void> {
             await import('./tasks/lro/stageApproval.js');
           await settleStageApproval(input);
         });
+        // P2-E（2026-11-24）：abort 在「无在飞编排器」时就地落终态后，广播终态事件
+        // （服务层不依赖 tasks 域 ⇒ 事件名/状态词由 tasks 侧封装，入口只做装配）。
+        const { setPdcaAbortSettledHook } =
+          await import('./infrastructure/http/handlers/pdca-handlers.js');
+        const { notifyPdcaAbortSettled } =
+          await import('./tasks/PdcaLiveEvents.js');
+        setPdcaAbortSettledHook(notifyPdcaAbortSettled);
         onInboxItemsExpired((item) => {
           // 批次 5（2026-11-24）：子阶段被中止后，**当场**收口阶段链父检查点
           // （旧实现只 abort 子任务 ⇒ 父链停在 stage_awaiting_approval，等到下次重启

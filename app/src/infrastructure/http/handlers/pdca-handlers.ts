@@ -49,6 +49,29 @@ import type {
 const logger = getLogger('pdca:handlers');
 
 /**
+ * 中止已落终态的通知钩子（P2-E，2026-11-24）。
+ *
+ * ⚠️ **为什么用 hook 而不是直接 import**：`infrastructure`（service 层）不允许依赖
+ * `tasks`（app 层）—— R00-001 实测阻断「infrastructure (service) → tasks (app)」。
+ * 与 `setStageApprovalHandler` 同法：服务层只声明"落定后通知"，事件名与载荷由入口装配。
+ */
+export interface PdcaAbortSettledInput {
+  taskId: string;
+  planId?: string;
+  sessionId?: string;
+  message: string;
+}
+
+type PdcaAbortSettledHook = (input: PdcaAbortSettledInput) => void;
+
+let _onAbortSettled: PdcaAbortSettledHook = () => {};
+
+/** 入口（`main.ts`）装配：广播 `pdca:stage:complete(cancelled)`，让前端徽标/抽屉进入终态 */
+export function setPdcaAbortSettledHook(hook: PdcaAbortSettledHook): void {
+  _onAbortSettled = hook;
+}
+
+/**
  * 步骤决策的合法取值（与 `tasks/PlanReview` 的 `ReviewDecision` 同源）。
  *
  * 2026-11-07（真机 `pdca_mw6f842k`）：`POST /v1/pdca/:id/step/:stepId/decide` 原先直接
@@ -813,7 +836,7 @@ function deriveCheckpointProgress(steps: Array<Record<string, unknown>>):
  * 语义：
  * - 无检查点 ⇒ 404；
  * - 已终态 ⇒ 409 `already_terminal`（不重复中止）；
- * - 内存里没有在飞编排器（进程重启后）⇒ 409 `not_running`（此时任务已无循环可停）；
+ * - 内存里没有在飞编排器（进程重启后）⇒ **就地落终态**并广播（P2-E，见下）；
  * - 成功 ⇒ 调用 `orchestrator.abort()` 并落 `phase/status=abort, abortedBy=user_abort`。
  */
 export async function handlePdcaAbortTask(
@@ -845,14 +868,39 @@ export async function handlePdcaAbortTask(
 
     const orchestrator = await port.getPdcaOrchestrator(taskId);
     if (!orchestrator?.abort) {
-      res.writeHead(409, { 'Content-Type': 'application/json' });
+      /**
+       * P2-E（2026-11-24，真机 `pdca_mwupjxor`）：内存里没有在飞编排器 **不等于** 可以把
+       * 任务晾在"运行中"。原实现直接回 409 `not_running`，而 checkpoint 仍是
+       * `phase=running/status=started` ⇒ 用户点中止后任务一直显示运行中，直到下次启动
+       * 扫描按 `startup_scan` 收口（与"用户主动中止"的真实原因也不一致）。
+       *
+       * 现口径：无循环可停 ⇒ **就地落终态**（`abortedBy=user_abort`）+ 同步 workitem +
+       * 广播 `pdca:stage:complete(cancelled)`（前端徽标/抽屉据此进入终态），响应标注
+       * `checkpointOnly`。
+       * 不发会话回执：无编排器即无 `onTaskMessage` 通道；且 `emitPdcaInterruptedReceipts`
+       * 对 `user_abort` 的文案是「用户拒绝」（阶段审批语境），此处是主动中止，语义不符。
+       */
+      const abortedCk = buildAbortedCheckpoint(ck, 'user_abort');
+      await port.writePdcaCheckpoint(taskId, abortedCk);
+      if (ck.workItemId) {
+        await port.syncPdcaWorkItemStatus(taskId, 'abort');
+      }
+      _onAbortSettled({
+        taskId,
+        planId: typeof ck.planId === 'string' ? ck.planId : undefined,
+        sessionId: typeof ck.sessionId === 'string' ? ck.sessionId : undefined,
+        message: '用户中止',
+      });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
-          error: 'not_running',
+          ok: true,
           taskId,
-          hint: '当前进程没有该任务的在飞编排器（进程重启后已无循环可停）',
+          phase: 'abort',
+          checkpointOnly: true,
         })
       );
+      broadcastEvent('pdca:aborted', { taskId });
       return;
     }
 

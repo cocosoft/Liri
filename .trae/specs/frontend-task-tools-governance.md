@@ -470,3 +470,27 @@
 
 清理：临时 spec 删除；3 个测试会话 `batch-delete`；`%TEMP%` 下生成的 a/b/c.txt 删除；后端 current 切回原会话。
 （主链 checkpoint 在 abort 后返回 `409 not_running`：内存已无编排器 ⇒ 无在飞循环，残留由下次启动扫描按 `startup_scan` 收口。）
+
+### 批次 16（P2-E）已落地：abort 在无在飞编排器时就地收口
+
+**问题（P2-D 端到端实测派生）**：`POST /v1/pdca/:id/abort` 在内存里取不到编排器时直接回
+`409 not_running`，而 checkpoint 仍是 `phase=running/status=started`（真机 `pdca_mwupjxor`）
+⇒ 用户在 UI 点中止后任务一直显示运行中，直到下次重启被启动扫描收口；且真实原因
+（用户主动中止）被记成 `startup_scan`。
+
+| 项 | 结果 |
+|---|---|
+| 就地落终态 | `not_running` 分支改为 `writePdcaCheckpoint(buildAbortedCheckpoint(ck,'user_abort'))`（`phase/status=abort` + `abortedBy/abortedAt`） |
+| 归属同步 | 仅当 `ck.workItemId` 存在时 `syncPdcaWorkItemStatus(taskId,'abort')`（不制造伪归属） |
+| 前端收口 | `notifyPdcaAbortSettled`（tasks 侧，经 `setPdcaAbortSettledHook` 由 `main.ts` 装配）广播 `pdca:stage:complete(status=cancelled)` ⇒ 徽标/抽屉进入终态；另保留 `pdca:aborted`。**不直连 import tasks**（R00-001 实测拦截 `infrastructure (service) → tasks (app)`） |
+| 响应 | `200 { ok, taskId, phase:'abort', checkpointOnly:true }`（调用方可区分"只落盘收口"） |
+| 不发回执 | 无编排器即无 `onTaskMessage` 通道；且 `emitPdcaInterruptedReceipts` 的 `user_abort` 文案是「用户拒绝」（审批拒绝语境），与主动中止不符 |
+| 不变 | 无检查点 ⇒ 404；已终态 ⇒ 409 `already_terminal` |
+
+验证：
+- 新增 `app/tests/http/pdca-abort-not-running.contract.test.ts` 5 例（就地收口 / 无 workItem 不同步 / 已终态 409 不写盘 / 无检查点 404 / 有编排器走既有路径）。
+- app `bun run typecheck` 通过；`bun test tests/http tests/tasks` → **1768 pass / 0 fail**（226 文件）。
+
+**如实边界**：修复后**未**在真实端点复验 —— 原样本 `pdca_mwupjxor` 已被重启后的启动扫描收口
+（现 `phase=failed`，abort 返回 409 `already_terminal`）；「无编排器 + 非终态」只存在于单进程内的
+时间窗，重启即被扫描消灭 ⇒ 无干净样本，按单测锁定。

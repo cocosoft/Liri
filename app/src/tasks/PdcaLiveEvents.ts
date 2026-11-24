@@ -124,3 +124,33 @@ export async function emitPdcaLiveEvent(
     // @ignore-catch — 事件广播失败不影响任务执行（CS03）
   }
 }
+
+/** PDCA 实时事件的「已取消」状态词（**唯一来源**，避免调用方裸写状态字面量） */
+export const PDCA_LIVE_STATUS_CANCELLED: PdcaLiveData['status'] = 'cancelled';
+
+/**
+ * P2-E（2026-11-24）：abort 在「无在飞编排器」时就地收口后的终态广播。
+ *
+ * 服务层（`infrastructure`）不依赖 `tasks` 域 —— 由入口 `main.ts` 把它装配进
+ * `setPdcaAbortSettledHook`，事件名/状态词因此只在本文件出现一次。
+ */
+export function notifyPdcaAbortSettled(input: {
+  taskId: string;
+  planId?: string;
+  sessionId?: string;
+  message: string;
+}): void {
+  void emitPdcaLiveEvent(
+    'pdca:stage:complete',
+    {
+      taskId: input.taskId,
+      planId: input.planId,
+      sessionId: input.sessionId,
+    },
+    {
+      stage: 'execute',
+      status: PDCA_LIVE_STATUS_CANCELLED,
+      message: input.message,
+    }
+  );
+}

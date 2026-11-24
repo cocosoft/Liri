@@ -27,6 +27,11 @@ import { handleError } from '@openliri/infra/error/handleError';
 export interface DreamEnginePort {
   start(): Promise<void>;
   stop(): Promise<void>;
+  /**
+   * 手动触发一轮梦境（可选：未提供 = 该实现不支持手动触发，调用方须如实报错而非静默回退）
+   * @returns true = 本轮已执行（终态见周期记录 / SSE）；false = 已有周期在运行
+   */
+  triggerDream?(source?: string): Promise<boolean>;
 }
 
 /**
@@ -243,4 +248,21 @@ export function stopBackgroundHousekeeping(): void {
 
 export function isBackgroundHousekeepingRunning(): boolean {
   return isRunning;
+}
+
+/**
+ * 手动触发一轮梦境（与 cron / 空闲触发同一条引擎管线）
+ *
+ * 2026-11-25：`POST /v1/memory/dream` 此前直调 `runMemoryDream` ⇒ 不写 `dream_cycles`、
+ * 不发 `dream:cycle:completed` ⇒ 周期列表与伙伴经验都不更新（口径分裂）。
+ * 现统一经引擎触发，由引擎负责持久化 + SSE 广播；引擎未启动时必须如实报错。
+ *
+ * @returns 'not_running' = 引擎未注入/未启动；'busy' = 已有周期在运行；'started' = 本轮已执行
+ */
+export async function triggerManualDream(): Promise<
+  'not_running' | 'busy' | 'started'
+> {
+  if (!dreamEngine?.triggerDream) return 'not_running';
+  const started = await dreamEngine.triggerDream('manual');
+  return started ? 'started' : 'busy';
 }

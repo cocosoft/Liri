@@ -221,9 +221,11 @@
     ],
     "busy": [
       "app/src/agent/models/types.ts",
+      "app/src/infrastructure/http/handlers/memory-handlers.ts",
       "app/src/ink/ink/hooks/use-tab-status.ts",
       "app/src/tasks/selfwake/WakeStore.ts",
-      "packages/channels/src/channels/routing/messageRouter.ts"
+      "packages/channels/src/channels/routing/messageRouter.ts",
+      "packages/infra/src/chronos/maintenance/ChronosBackgroundHousekeeping.ts"
     ],
     "CANCEL_REQUESTED": [
       "packages/service/src/execution/ExecutionManager.ts",
@@ -1291,6 +1293,7 @@
       "client/src/components/views/MediaPage.tsx",
       "client/src/components/views/ModelPage.tsx",
       "client/src/constants/planStatus.ts",
+      "client/src/hooks/useBuddyNotification.ts",
       "client/src/hooks/useVideoTaskPolling.ts",
       "client/src/i18n/locales/en/workspace.ts",
       "client/src/services/chatService.ts",
@@ -2360,7 +2363,6 @@
       "packages/infra/src/memory/consolidation/MemoryDreamService.ts",
       "packages/infra/src/memory/MemoryManager.ts",
       "packages/infra/src/memory/retrievers/MemoryRetriever.ts",
-      "packages/infra/src/memory/stores/MemoryStore.ts",
       "packages/infra/src/monitoring/alerts/AlertBridge.ts",
       "packages/infra/src/monitoring/integration/SystemMonitor.ts",
       "packages/infra/src/performance/SlowOperations.ts",
@@ -2454,8 +2456,8 @@
       "packages/service/src/execution/ExecutionStore.ts"
     ]
   },
-  "reason": "FSZ-006 拆分：过期扫描逐字外迁到 runtime/inbox/expireScan.ts，expired 出现点随文件移动（inboxApproval 机器已在目录登记）",
-  "generatedAt": "2026-11-24T14:38:01.358Z",
+  "reason": "P0-1/P0-2 梦境接线：HTTP 手动触发结果 busy（进行中）+ 周期收尾 status=failed 的前端消费点，均为既有状态词汇的合法新出现点",
+  "generatedAt": "2026-11-24T19:02:25.465Z",
   "valueOwners": {
     "QUEUED": [
       "execution"

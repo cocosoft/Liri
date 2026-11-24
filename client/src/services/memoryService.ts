@@ -286,31 +286,16 @@ const memoryService = {
     URL.revokeObjectURL(url);
   },
 
-  /** 触发 LLM 记忆精炼 (Dream) */
-  async triggerDream(): Promise<{
-    groupsProcessed: number;
-    originalCount: number;
-    refinedCount: number;
-    details: Array<{
-      type: string;
-      original: number;
-      refined: number;
-      mergedPairs: number;
-    }>;
-  }> {
+  /**
+   * 触发一轮梦境
+   *
+   * 2026-11-25：后端改走 `DreamEngine` 管线（写 `dream_cycles` + 广播 `dream:cycle:completed`），
+   * 故返回值改为「是否已执行」，处理结果经周期列表 / SSE 呈现。
+   */
+  async triggerDream(): Promise<{ triggered: boolean; source: string }> {
     const response = await http.post<{
       success: boolean;
-      result: {
-        groupsProcessed: number;
-        originalCount: number;
-        refinedCount: number;
-        details: Array<{
-          type: string;
-          original: number;
-          refined: number;
-          mergedPairs: number;
-        }>;
-      };
+      result: { triggered: boolean; source: string };
     }>(ENDPOINTS.memory.dream);
     return response.result;
   },

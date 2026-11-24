@@ -1,44 +1,47 @@
-import { useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback } from "react";
 import { sseService } from "../services/sseService";
 import { sendNotification, ensurePermission } from "../utils/notifications";
 import i18n from "../i18n";
 
 const NOTIFICATION_ICON = "🐣";
 
-const DREAM_MESSAGE_KEYS: Record<string, string> = {
-  "dream:started": "dream.notifyStarted",
-  "dream:completed": "dream.notifyCompleted",
-  "dream:failed": "dream.notifyFailed",
-};
+/**
+ * 梦境周期收尾事件（唯一发布方：`UnifiedDreamCycle` 周期收尾广播）
+ *
+ * 2026-11-25：此前订阅 `"dream"` —— 全仓无该事件的发布方（订阅空转）。
+ * 现改为与实际发布方一致：payload `{ cycleId, status, sessionsProcessed,
+ * memoriesCreated, insights, xp }`，`status` ∈ completed | partial | failed。
+ */
+const DREAM_CYCLE_COMPLETED_EVENT = "dream:cycle:completed";
 
 export function useBuddyNotification(): void {
-  const hasPermission = useRef(false);
+  const handleDreamCycleCompleted = useCallback(
+    (data: Record<string, unknown>) => {
+      const status = typeof data.status === "string" ? data.status : "";
+      const cycleId = typeof data.cycleId === "string" ? data.cycleId : "";
+      const insights = Array.isArray(data.insights) ? data.insights : [];
+      const firstInsight = insights.find(
+        (item): item is string => typeof item === "string" && item.length > 0,
+      );
 
-  const handleDreamEvent = useCallback((data: Record<string, unknown>) => {
-    const eventType = data.type as string;
-    const summary = data.summary as string;
-    const taskId = data.taskId as string;
+      const title = i18n.t(
+        status === "failed" ? "dream.notifyFailed" : "dream.notifyCompleted",
+      );
+      const body =
+        firstInsight ?? i18n.t("dream.notifyTask", { id: cycleId.slice(0, 8) });
 
-    if (!eventType || !taskId) return;
-
-    const dreamKey = DREAM_MESSAGE_KEYS[eventType];
-    const title = dreamKey
-      ? i18n.t(dreamKey)
-      : i18n.t("dream.notifyBuddyEvent");
-    const body =
-      summary || i18n.t("dream.notifyTask", { id: taskId.slice(0, 8) });
-
-    sendNotification(title, body, { icon: NOTIFICATION_ICON });
-  }, []);
+      sendNotification(title, body, { icon: NOTIFICATION_ICON });
+    },
+    [],
+  );
 
   useEffect(() => {
     ensurePermission();
-    hasPermission.current = Notification.permission === "granted";
 
-    sseService.on("dream", handleDreamEvent);
+    sseService.on(DREAM_CYCLE_COMPLETED_EVENT, handleDreamCycleCompleted);
 
     return () => {
-      sseService.off("dream", handleDreamEvent);
+      sseService.off(DREAM_CYCLE_COMPLETED_EVENT, handleDreamCycleCompleted);
     };
-  }, [handleDreamEvent]);
+  }, [handleDreamCycleCompleted]);
 }

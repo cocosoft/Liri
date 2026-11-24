@@ -493,19 +493,49 @@ export async function handleConsolidateMemories(
 }
 
 /**
- * POST /v1/memory/dream — 触发 LLM 驱动的记忆精炼
+ * POST /v1/memory/dream — 手动触发一轮梦境
+ *
+ * 2026-11-25：改经 `DreamEngine.triggerDream()`（与 cron / 空闲触发同一管线），
+ * 确保写 `dream_cycles` + 广播 `dream:cycle:completed`（伙伴经验随之增长）。
+ * 引擎未启动 / 已有周期在运行 ⇒ 明确报错，不静默回退到只精炼记忆。
  */
 export async function handleDreamMemories(
   req: http.IncomingMessage,
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const mm = await getMemoryManager();
-    const { runMemoryDream } =
-      await import('@openliri/infra/memory/consolidation/MemoryDreamService');
-    const result = await runMemoryDream(mm);
+    const { triggerManualDream } =
+      await import('@openliri/infra/chronos/maintenance/ChronosBackgroundHousekeeping');
+    const outcome = await triggerManualDream();
+
+    if (outcome === 'not_running') {
+      res.writeHead(503, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          success: false,
+          error: '梦境引擎未启动（后台维护未运行），本次未执行梦境',
+        })
+      );
+      return;
+    }
+    if (outcome === 'busy') {
+      res.writeHead(409, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          success: false,
+          error: '梦境周期正在进行中，请稍后再试',
+        })
+      );
+      return;
+    }
+
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true, result }));
+    res.end(
+      JSON.stringify({
+        success: true,
+        result: { triggered: true, source: 'manual' },
+      })
+    );
   } catch (err) {
     sendError(res, err);
   }

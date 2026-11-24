@@ -726,9 +726,9 @@ body `{ objective?: string（trim 非空）, tokenBudget?: number（正有限数
 | DELETE | `/v1/memory` | ✅ | `memoryService.deleteAll` |
 | POST | `/v1/memory/create-from-file` | ✅ | `fileService.saveToMemory` |
 | DELETE | `/v1/memory/{id}` | ✅ | `memoryService.delete` |
-| POST | `/v1/memory/dream` | ✅ | 无前端调用方（存量补录：手动触发梦境） |
-| GET | `/v1/memory/dream/cycles` | ✅ | 无前端调用方（存量补录：JSON 周期列表） |
-| GET | `/v1/memory/dream/cycles/{cycleId}` | ✅ | 无前端调用方（存量补录：周期详情） |
+| POST | `/v1/memory/dream` | ✅ | `memoryService.triggerDream`（`memoryStore` / `MemoryPage` / `LiriPage`）；2026-11-25 起经 `DreamEngine` 管线，200=已执行、409=周期进行中、503=引擎未启动 |
+| GET | `/v1/memory/dream/cycles` | ✅ | `memoryService.getDreamCycles`（`DreamLogTab` / `DreamCycleDetail` / `useDreamSessionIds`） |
+| GET | `/v1/memory/dream/cycles/{cycleId}` | ✅ | `memoryService.getDreamCycle`（`DreamCycleDetail`） |
 | GET | `/v1/memory/dream/cycles/analytics` | ✅ | 无前端调用方（2026-09-03 新增：DB 镜像分析视图，列表 + stats；参数 from/to/triggerSource/status/limit 语义见 dev_docs/dailys/20260903/3-4-梦境周期HTTP查询端点-设计方案-20260903.md） |
 
 ### §3.27 文件系统 API

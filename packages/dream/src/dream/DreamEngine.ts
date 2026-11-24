@@ -67,9 +67,10 @@ export class DreamEngine {
     this.cycle = new UnifiedDreamCycle(this.persistence);
 
     // 注册触发回调
-    this.scheduler.setTriggerCallback((source: DreamTriggerSource) =>
-      this.executeDreamCycle(source)
-    );
+    this.scheduler.setTriggerCallback(async (source: DreamTriggerSource) => {
+      // 调度器（cron / idle）只关心"跑完"，执行结果由周期记录 / SSE 体现
+      await this.executeDreamCycle(source);
+    });
   }
 
   /** 启动梦境引擎 */
@@ -109,10 +110,14 @@ export class DreamEngine {
     return this.scheduler.getIdleDetector();
   }
 
-  /** 手动触发梦境 */
-  async triggerDream(source: DreamTriggerSource = 'manual'): Promise<void> {
+  /**
+   * 手动触发梦境
+   * @returns true = 本轮已执行（含执行后失败，终态见周期记录）；
+   *          false = 已有周期在运行（DREAM_CYCLE_BUSY，本轮跳过）
+   */
+  async triggerDream(source: DreamTriggerSource = 'manual'): Promise<boolean> {
     logger.info(`[DreamEngine] 手动触发梦境（来源: ${source}）`);
-    await this.executeDreamCycle(source);
+    return await this.executeDreamCycle(source);
   }
 
   /** 中断当前梦境 */
@@ -127,7 +132,7 @@ export class DreamEngine {
    * 执行完整梦境周期（五阶段管线）
    * 通过 UnifiedDreamCycle 统一编排 Gather → Analyze → Generate → Write → Index。
    */
-  private async executeDreamCycle(source: DreamTriggerSource): Promise<void> {
+  private async executeDreamCycle(source: DreamTriggerSource): Promise<boolean> {
     // 阶段标签：整轮梦境是"周期后台任务"里最可能与阻塞共变的路径（§8.9）
     return withPhase('dream:executeDreamCycle', () =>
       this._executeDreamCycleImpl(source)
@@ -136,7 +141,7 @@ export class DreamEngine {
 
   private async _executeDreamCycleImpl(
     source: DreamTriggerSource
-  ): Promise<void> {
+  ): Promise<boolean> {
     // §十 阶段 C：以状态机表达后台任务运行态（替代手写 this.cycle.isRunning 布尔守卫）
     const sm = getBackgroundTaskStateMachine('dream');
     if (sm.getState() === BackgroundTaskState.RUNNING) {
@@ -149,7 +154,7 @@ export class DreamEngine {
         status: 'cycle already running',
         metadata: { triggerSource: source },
       });
-      return;
+      return false;
     }
     sm.transition(BackgroundTaskState.RUNNING, 'cycle start');
 
@@ -174,7 +179,7 @@ export class DreamEngine {
       if (errMsg === 'DREAM_CYCLE_BUSY') {
         logger.info('[DreamEngine] 梦境周期已在运行，拒绝触发');
         // 保持 RUNNING：状态机由真正在跑的周期负责推进到终态，这里不抢占
-        return;
+        return false;
       }
 
       logger.error(
@@ -230,5 +235,7 @@ export class DreamEngine {
       cycleId: record?.cycleId,
       success,
     });
+
+    return true;
   }
 }

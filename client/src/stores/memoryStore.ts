@@ -76,15 +76,8 @@ interface MemoryStore {
 
   // Dream
   triggerDream: () => Promise<{
-    groupsProcessed: number;
-    originalCount: number;
-    refinedCount: number;
-    details: Array<{
-      type: string;
-      original: number;
-      refined: number;
-      mergedPairs: number;
-    }>;
+    triggered: boolean;
+    source: string;
   } | null>;
 }
 

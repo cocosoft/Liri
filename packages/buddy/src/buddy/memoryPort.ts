@@ -8,12 +8,10 @@
 
 /** 单条记忆摘要（buddy 侧只读展示所需的最小字段） */
 export interface BuddyMemoryDigest {
-  /** 记忆名称（`Memory.metadata.name`） */
+  /** 记忆名称（`MEMORY.md` 索引条目标题） */
   name: string;
-  /** 记忆描述（`Memory.metadata.description`） */
+  /** 记忆描述（索引条目的一行钩子） */
   description: string;
-  /** 更新时间（毫秒） */
-  updatedAt: number;
 }
 
 /** 记忆读取端口 */

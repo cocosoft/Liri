@@ -135,8 +135,9 @@ body 优先取 `insights[0]`，回退复用既有 `dream.notifyTask`（不新增
 **落地细节**：新增 `packages/buddy/src/buddy/memoryPort.ts`（`BuddyMemoryDigest` / `BuddyMemoryPort`
 + `setBuddyMemoryPort` / `getBuddyMemoryPort`）；`InteractionManager` 仅在 `talk` 动作读取
 「最近一条真实记忆」并追加一句回忆（未注入 / 无记忆 ⇒ **不追加、不伪造**，其余动作零读取）；
-`entrypoints/init.ts` 在后台维护启动同一处注入 app 侧实现（数据源 `MemoryManager.getAllMemories()`
-按 `updatedAt` 倒序取 N）。回归用例：`app/tests/buddy/buddyMemoryPort.test.ts`（3 例）。
+`entrypoints/init.ts` 在后台维护启动同一处注入 app 侧实现：数据源 = `MEMORY.md` 索引头部
+（`readMemoryIndexEntries`，与系统提示注入同源，**不逐条读记忆文件**）。回归用例：
+`app/tests/buddy/buddyMemoryPort.test.ts`（3 例）、`app/tests/memory/memoryIndexEntries.test.ts`（3 例）。
 
 > 顺查发现并已修复（2026-11-25，独立提交）：输入框把原文本当 `action` 提交，未知 action 会在
 > `pickRandom` 抛错 ⇒ `execute()` 入口归一（非动作词汇按 `talk`）；回归用例

@@ -176,6 +176,60 @@ export function buildMemoryIndexSection(opts?: {
 }
 
 /**
+ * 索引条目（供提示词之外的消费方复用，如伙伴记忆回响 P2-1）
+ */
+export interface MemoryIndexEntry {
+  /** 标题（`- [标题](file.md)`） */
+  name: string;
+  /** 一行钩子（`— hook`，可能为空） */
+  hook: string;
+}
+
+/** 索引条目解析：`- [标题](file.md) — 一行钩子` */
+const INDEX_ENTRY_PARSE = /^\s*-\s*\[(.*?)\]\(([^)]*)\)\s*(?:—\s*(.*))?\s*$/;
+
+/**
+ * 读取长期记忆索引的头部条目（P2-1，2026-11-25）
+ *
+ * 与 `buildMemoryIndexSection` **同源**（`<memoryDir>/global/MEMORY.md`），只读索引
+ * 头部而不是逐条读记忆文件 ⇒ 供交互类轻量消费方（如伙伴 `talk` 回响）使用。
+ * 文件缺失 / 为空 / 无条目 ⇒ 空数组（不伪造条目）。
+ */
+export function readMemoryIndexEntries(opts?: {
+  /** 记忆根目录（默认 `resolveMemoryDir()`）；索引位于其 `global/` 子目录 */
+  memoryDir?: string;
+  /** 最多返回多少条（默认索引注入行上限；≤0 ⇒ 空数组） */
+  limit?: number;
+}): MemoryIndexEntry[] {
+  const limit = opts?.limit ?? MAX_ENTRYPOINT_LINES;
+  if (limit <= 0) return [];
+
+  const root = opts?.memoryDir ?? resolveMemoryDir();
+  const entrypointPath = join(root, GLOBAL_MEMORY_SUBDIR, ENTRYPOINT_NAME);
+
+  let raw = '';
+  try {
+    if (!existsSync(entrypointPath)) return [];
+    raw = readFileSync(entrypointPath, 'utf-8');
+  } catch (err) {
+    handleError(err, {
+      module: 'memory:prompt',
+      action: 'readMemoryIndexEntries',
+    });
+    return [];
+  }
+
+  const entries: MemoryIndexEntry[] = [];
+  for (const line of raw.split('\n')) {
+    const match = INDEX_ENTRY_PARSE.exec(line);
+    if (!match) continue;
+    entries.push({ name: match[1].trim(), hook: (match[3] ?? '').trim() });
+    if (entries.length >= limit) break;
+  }
+  return entries;
+}
+
+/**
  * 确保记忆目录存在
  */
 export function ensureMemoryDirExists(memoryDir: string): void {

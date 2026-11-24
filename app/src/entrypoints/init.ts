@@ -520,24 +520,18 @@ async function startDeferredPrefetches(): Promise<void> {
           registerShutdownHandler(() => stopBackgroundHousekeeping());
 
           // P2-1（2026-11-25 `.trae/specs/dream-buddy-wiring.md`）：伙伴读记忆端口。
-          // 显式注入（未注入 ⇒ 伙伴不引用记忆）；数据源 = MemoryManager 的真实记忆，
-          // 不做隐式全局单例、不伪造记忆。
+          // 显式注入（未注入 ⇒ 伙伴不引用记忆）；数据源 = 长期记忆索引头部
+          // （`MEMORY.md`，与系统提示注入同源），不做隐式全局单例、不伪造记忆。
           const { setBuddyMemoryPort } =
             await import('@modules/buddy/memoryPort');
-          const { getMemoryManager } =
-            await import('@openliri/infra/memory/MemoryManager');
+          const { readMemoryIndexEntries } =
+            await import('@openliri/infra/memory');
           setBuddyMemoryPort({
-            getRecentMemories: async (limit) => {
-              const memories = await getMemoryManager().getAllMemories();
-              return memories
-                .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
-                .slice(0, limit)
-                .map((m) => ({
-                  name: m.metadata.name,
-                  description: m.metadata.description,
-                  updatedAt: m.updatedAt.getTime(),
-                }));
-            },
+            getRecentMemories: async (limit) =>
+              readMemoryIndexEntries({ limit }).map((entry) => ({
+                name: entry.name,
+                description: entry.hook,
+              })),
           });
 
           logger.info('Chronos 后台维护已启动（梦境定时任务 + 周期性清理）');

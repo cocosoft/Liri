@@ -33,7 +33,6 @@ describe('伙伴读记忆端口（P2-1）', () => {
           {
             name: '偏好',
             description: '用户偏好 TypeScript',
-            updatedAt: Date.now(),
           },
         ];
       },

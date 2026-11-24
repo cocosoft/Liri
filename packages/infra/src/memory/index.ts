@@ -115,6 +115,9 @@ export {
 } from './MemoryTruncation';
 // P0-1（2026-11-25）：长期记忆顶层索引注入段（系统提示只读 MEMORY.md 头部）
 export { buildMemoryIndexSection } from './services/MemoryPromptBuilder';
+// P2-1（2026-11-25）：索引头部条目读取（供伙伴记忆回响等轻量消费方复用同一索引）
+export { readMemoryIndexEntries } from './services/MemoryPromptBuilder';
+export type { MemoryIndexEntry } from './services/MemoryPromptBuilder';
 export type { TruncationResult } from './MemoryTruncation';
 export { getMemoryFreshness } from './MemoryFreshness';
 export { isAutoMemoryEnabled, getAutoMemPath } from './AutoMemory';

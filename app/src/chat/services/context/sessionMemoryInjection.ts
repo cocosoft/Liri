@@ -20,6 +20,38 @@ export const DEFAULT_SESSION_MEMORY_MAX_TOKENS = 1500;
 /** 配置键：会话记忆注入预算（tokens） */
 export const SESSION_MEMORY_MAX_TOKENS_KEY = 'memory.injection.maxTokens';
 
+/** 配置键：项目级「记忆用途」（P2-2，2026-11-25；如 coding / research / customer-support） */
+export const MEMORY_PURPOSE_KEY = 'memory.purpose';
+
+/**
+ * 解析「记忆用途」（会话级覆盖项目级）：
+ * `session.metadata.memoryPurpose` > `config.json#memory.purpose` > 空（不注入）。
+ */
+export function resolveMemoryPurpose(
+  sessionMetadata?: Record<string, unknown>
+): string {
+  const fromSession = sessionMetadata?.memoryPurpose;
+  if (typeof fromSession === 'string' && fromSession.trim()) {
+    return fromSession.trim();
+  }
+  const configured = configManager.getValue<string>(MEMORY_PURPOSE_KEY, '');
+  return typeof configured === 'string' ? configured.trim() : '';
+}
+
+/**
+ * 构建「记忆用途」段（P2-2）：只告诉模型"记忆用来干什么"，**不预设硬规则**
+ * （如"只记失败"会伤害强模型表现，见方案 A5）。空用途 ⇒ 空串（零注入）。
+ */
+export function buildMemoryPurposeSection(purpose: string): string {
+  const trimmed = purpose.trim();
+  if (!trimmed) return '';
+  return [
+    '## 记忆用途',
+    `- 本会话/项目的记忆主要用于：${trimmed}`,
+    '- 只记录与该用途相关的长期事实、规则与陷阱；与用途无关的运行时细节不要写入记忆。',
+  ].join('\n');
+}
+
 export interface SessionMemoryInjection {
   /** 注入正文（full = 原文；index = 超预算后的索引） */
   text: string;

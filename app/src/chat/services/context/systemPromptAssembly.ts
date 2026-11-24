@@ -26,7 +26,11 @@ import {
 import type { MemorySessionContext } from '@openliri/infra/memory/types/SessionContext';
 // P0-1（2026-11-25）：长期记忆顶层索引段（只读 MEMORY.md 头部）
 import { buildMemoryIndexSection } from '@openliri/infra/memory';
-import type { SessionMemoryInjection } from './sessionMemoryInjection';
+import {
+  buildMemoryPurposeSection,
+  resolveMemoryPurpose,
+  type SessionMemoryInjection,
+} from './sessionMemoryInjection';
 import type { ImageContextService } from '../ImageContextService';
 
 // P1-3: Skills as User Message injection (not System Prompt, avoids breaking cache_control prefix)
@@ -299,6 +303,22 @@ export async function assembleContextualSystemPrompt(
         'memoryIndex',
         () => memoryIndexText,
         '长期记忆顶层索引（MEMORY.md，维护期重建）'
+      )
+    );
+  }
+  // P2-2（2026-11-25）：记忆用途 —— 会话级（`metadata.memoryPurpose`）优先于项目配置
+  // （`config.json#memory.purpose`）；都为空 ⇒ 零注入。
+  const memoryPurposeSection = buildMemoryPurposeSection(
+    resolveMemoryPurpose(
+      session.metadata as Record<string, unknown> | undefined
+    )
+  );
+  if (memoryPurposeSection) {
+    extraDynamicSections.push(
+      DANGEROUS_uncachedSystemPromptSection(
+        'memoryPurpose',
+        () => memoryPurposeSection,
+        '记忆用途随会话/项目配置变化'
       )
     );
   }

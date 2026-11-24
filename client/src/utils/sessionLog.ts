@@ -76,6 +76,18 @@ export function extractToolCalls(messages: Message[]): ToolCallRecord[] {
         existing.error = tc.error;
       }
       if (tc.status) existing.status = tc.status;
+      /**
+       * 2026-11-24（状态口径统一）：审批标记此前**从未拷贝**到记录里
+       * ⇒ `LogTab` 的 `record.pendingApproval` 恒为 undefined（待审批分支是死代码）。
+       * 终态（completed/failed）显式清除，避免旧 flag 漂到已完成记录上。
+       */
+      if (tc.pendingApproval === true) {
+        existing.pendingApproval = true;
+        if (tc.inboxId) existing.inboxId = tc.inboxId;
+      } else if (tc.status === "completed" || tc.status === "failed") {
+        existing.pendingApproval = undefined;
+        existing.inboxId = undefined;
+      }
       return;
     }
     setCount++;
@@ -88,6 +100,8 @@ export function extractToolCalls(messages: Message[]): ToolCallRecord[] {
       messageId,
       error: tc.error,
       _hasFullResult: !!(tc as { _hasFullResult?: boolean })._hasFullResult,
+      pendingApproval: tc.pendingApproval === true || undefined,
+      inboxId: tc.inboxId,
     });
   };
 
@@ -350,11 +364,11 @@ export function buildLogEventsFromEvents(events: LiriEvent[]): LogEvent[] {
           : undefined;
         // G6：审批等待结果是**结构化信号**（`{ pendingApproval: true, inboxId }`），
         // 不是"已完成"——投影为待审批态，避免面板把它当成成功执行。
+        // 2026-11-24（状态口径统一）：终态结果必须**清除**旧标记，否则批准后
+        // 面板会一直显示「等待审批」（与 `updateToolCallResult` 同一缺陷模式）。
         const approval = parseApprovalSignal(d.result);
-        if (approval) {
-          merged.pendingApproval = true;
-          if (approval.inboxId) merged.inboxId = approval.inboxId;
-        }
+        merged.pendingApproval = approval ? true : undefined;
+        merged.inboxId = approval?.inboxId;
         logEvents[idx] = {
           ...prev,
           status: merged.status,

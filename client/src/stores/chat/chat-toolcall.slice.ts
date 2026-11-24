@@ -217,20 +217,25 @@ export class ChronologicalBlockBuilder {
         existing.toolCall?.result ||
         (pendingResult ? { success: true, data: pendingResult } : undefined);
       // J-2.2: 替换块对象（新引用）使 ChatMessage memo 比较器可感知 pendingApproval 等变化
+      // 2026-11-24（状态口径统一）：待审批不是终态 —— 缺省状态取 running，
+      // 避免出现 `status='completed'` 与 `pendingApproval=true` 并存的矛盾组合。
+      const mergedPendingApproval =
+        existing.toolCall?.pendingApproval === true ||
+        toolCall.pendingApproval === true ||
+        pendingResult?.pendingApproval === true;
       this.blocks[existingIdx] = {
         ...existing,
         toolCall: {
           ...toolCall,
           arguments: mergedArgs,
-          status: toolCall.status || ("completed" as const),
+          status:
+            toolCall.status ||
+            (mergedPendingApproval ? "running" : "completed"),
           result: toolCall.result || existingResult,
           // 失败原因保留：tool_end 失败块携带 error，避免被后续 chunk 覆盖丢失
           error: toolCall.error || existing.toolCall?.error,
           // P2-2: 审批等待信号可能先于 tool_call 块到达（tool_completed → pendingResults）
-          pendingApproval:
-            existing.toolCall?.pendingApproval ||
-            toolCall.pendingApproval ||
-            pendingResult?.pendingApproval === true,
+          pendingApproval: mergedPendingApproval || undefined,
           // U-06-5: Inbox 项 id（就地审批入口）随审批信号透传
           inboxId:
             existing.toolCall?.inboxId ||
@@ -255,11 +260,16 @@ export class ChronologicalBlockBuilder {
       }
     } else {
       // 若存在待处理结果，直接注入到新创建的 toolCall 中
+      // 2026-11-24（状态口径统一）：待审批 ⇒ 状态缺省取 running，避免 completed + pending 并存
+      const isPending =
+        toolCall.pendingApproval === true ||
+        pendingResult?.pendingApproval === true;
       const toolCallWithResult = pendingResult
         ? {
             ...toolCall,
             result: { success: true, data: pendingResult },
-            pendingApproval: pendingResult.pendingApproval === true,
+            status: toolCall.status || (isPending ? "running" : undefined),
+            pendingApproval: isPending || undefined,
             // U-06-5: 审批信号先到（tool_completed → pendingResults）时同样透传 Inbox 项 id
             inboxId:
               typeof pendingResult.inboxId === "string"

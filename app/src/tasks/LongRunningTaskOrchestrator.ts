@@ -21,6 +21,8 @@ import { modelRouter } from '@modules/ai';
 import { taskOrchestrator } from './TaskOrchestrator';
 import { emitPdcaLiveEvent } from './PdcaLiveEvents';
 import type { Plan, PlanStep } from './TaskOrchestrator';
+// P2-1（2026-11-24，R09-013）：计划状态转移审计（唯一入口）
+import { auditPlanStatusChange } from './plan/planStatusAudit';
 import { parsePlanDraft } from './planOutputParser';
 import type { PlanDraft } from './planOutputParser';
 import {
@@ -649,6 +651,7 @@ export class LongRunningTaskOrchestrator {
 
     await this.setPhase('execute');
     const plan = taskOrchestrator.getPlan(this.planId)!;
+    auditPlanStatusChange(plan, 'running', 'lro_execute_all_steps');
     plan.status = 'running';
 
     // D2（M3，2026-08-13）：无依赖步骤批次并行（依赖 step.dependsOn 拓扑分组）
@@ -1704,6 +1707,7 @@ export class LongRunningTaskOrchestrator {
       ? taskOrchestrator.getPlan(this.planId)
       : undefined;
     if (plan) {
+      auditPlanStatusChange(plan, 'aborted', 'lro_abort');
       plan.status = 'aborted';
       plan.completedAt = plan.completedAt ?? new Date().toISOString();
       taskOrchestrator['savePlan']?.(plan);

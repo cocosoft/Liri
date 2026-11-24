@@ -15,6 +15,8 @@ import {
 } from '@openliri/infra/error';
 import type { Plan } from '../TaskOrchestrator';
 import { PLAN_STATUS_FAILED } from '../TaskOrchestrator';
+// P2-1（2026-11-24，R09-013）：计划状态转移审计（唯一入口）
+import { auditPlanStatusChange } from '../plan/planStatusAudit';
 
 export function stopPlanWithError(input: {
   plan: Plan;
@@ -29,6 +31,7 @@ export function stopPlanWithError(input: {
   details?: Record<string, unknown>;
   action: string;
 }): void {
+  auditPlanStatusChange(input.plan, PLAN_STATUS_FAILED, input.code);
   input.plan.status = PLAN_STATUS_FAILED;
   input.plan.completedAt = new Date().toISOString();
   input.savePlan(input.plan);

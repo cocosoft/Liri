@@ -31,6 +31,8 @@ import {
   PLAN_ACCEPTANCE_REJECTED,
 } from '../TaskOrchestrator';
 import type { Plan } from '../TaskOrchestrator';
+// P2-1（2026-11-24，R09-013）：计划状态转移审计（唯一入口）
+import { auditPlanStatusChange } from '../plan/planStatusAudit';
 import { readPdcaCheckpoint, writePdcaCheckpoint } from '../PdcaWorkItemBridge';
 import {
   isGoalEvaluateEnabled,
@@ -147,6 +149,7 @@ export async function runGoalConvergenceGate(
     // `status=completed` 与 `acceptance=pending` 自相矛盾：① 前端"待验收"徽标
     // （条件为 `running && pending`）永不命中；② 计划终态语义与回执「待验收」冲突。
     // 与设计 §3/§4-2「计划保持 running」一致（开关开才走本分支 ⇒ 默认行为不变）。
+    auditPlanStatusChange(plan, PLAN_STATUS_RUNNING, 'goal_pending_acceptance');
     plan.status = PLAN_STATUS_RUNNING;
     delete plan.completedAt;
     taskOrchestrator['savePlan']?.(plan);
@@ -177,6 +180,7 @@ export async function runGoalConvergenceGate(
     reason: goalConv.reason,
     confidence: goalConv.confidence,
   });
+  auditPlanStatusChange(plan, PLAN_STATUS_FAILED, 'goal_not_converged');
   plan.status = PLAN_STATUS_FAILED;
   plan.completedAt = new Date().toISOString();
   taskOrchestrator['savePlan']?.(plan);

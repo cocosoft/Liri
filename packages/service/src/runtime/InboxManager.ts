@@ -43,6 +43,8 @@ import { isPanelActionable, toInboxMetadata } from '@openliri/infra/attention';
 import { MS_PER_HOUR, MS_PER_MINUTE } from '@openliri/infra/constants';
 // 2026-11-21（P1-2 剩余项）：审批卡 TTL 可由配置键覆盖（默认 30 分钟，零行为变更）
 import { configManager } from '@openliri/infra/config';
+// P2-1（2026-11-24，R09-013）：审批状态转移落 `state/transition` 审计
+import { emitStateTransitionAudit } from '@openliri/infra/state/engine/stateTransitionAudit';
 
 const logger = getLogger('runtime:inbox');
 
@@ -1001,10 +1003,13 @@ export class InboxManager {
         );
       });
 
+      const from = item.status;
       item.status = 'replied';
       item.reply = reply;
       item.updatedAt = now;
       item.repliedAt = now;
+      // P2-1（R09-013）：pending|processing → replied（UPDATE 已生效）。
+      this.auditStatusChange(item.sessionId, item.id, from, 'replied', 'inbox_reply');
 
       otel.endSpan(span, SpanStatusCode.OK);
       void this._auditLog(id, 'replied', 'user', `Reply: ${reply}`, {
@@ -1426,6 +1431,22 @@ export class InboxManager {
 
     // 通知渠道：已过期的审批项（按行归属身份投递，租户库下不会串到别人）
     for (const { item, ownerKey } of expired) {
+      // P2-1（R09-013）：批量过期按条落审计 —— 仅当**选中行数与生效行数一致**才逐条落，
+      // 否则无法确定哪几行真的过期（并发改态）⇒ 不猜，只留痕（CS06）。
+      if (count === expired.length) {
+        this.auditStatusChange(
+          item.sessionId,
+          item.id,
+          item.status,
+          'expired',
+          'inbox_expired_ttl'
+        );
+      } else if (count > 0) {
+        logger.warn('审批 TTL 过期存在并发变更，跳过本条转移审计', {
+          selected: expired.length,
+          changed: count,
+        });
+      }
       const emit = async (): Promise<void> => {
         // SSE 推送过期状态到前端
         void broadcastEvent('inbox:update', {
@@ -1695,6 +1716,8 @@ export class InboxManager {
   /** 重置审批项状态为 pending（用于审批撤销） */
   async resetStatus(id: string, status: InboxItemStatus): Promise<boolean> {
     const db = await this.getDb();
+    // P2-1（R09-013）：先取改态前的 status/sessionId（UPDATE 生效后据此落审计）。
+    const before = await this.get(id).catch(() => null);
     return new Promise<boolean>((resolve, reject) => {
       db.run(
         `UPDATE inbox_items SET status = ?, reply = NULL, replied_at = NULL, updated_at = ?
@@ -1708,8 +1731,38 @@ export class InboxManager {
     }).then(async (result) => {
       if (result) {
         await this._auditLog(id, 'undone', 'user:web', 'Approval undone');
+        if (before && before.status !== status) {
+          this.auditStatusChange(
+            before.sessionId,
+            id,
+            before.status,
+            status,
+            'inbox_undo'
+          );
+        }
       }
       return result;
+    });
+  }
+
+  /**
+   * P2-1（2026-11-24，R09-013）：审批卡状态转移审计。
+   *
+   * 只在**真实 UPDATE 生效后**调用；`sessionId` 缺失 ⇒ 无会话可挂 ⇒ 如实不落。
+   */
+  private auditStatusChange(
+    sessionId: string | undefined,
+    inboxId: string,
+    from: string,
+    to: InboxItemStatus,
+    reason: string
+  ): void {
+    emitStateTransitionAudit(sessionId, {
+      machine: 'inboxApproval',
+      from,
+      to,
+      reason,
+      subjectId: inboxId,
     });
   }
 
@@ -1847,7 +1900,24 @@ export class InboxManager {
       );
     });
 
-    for (const item of dismissed) this._notifyTerminalListeners(item);
+    for (const item of dismissed) {
+      // P2-1（R09-013）：pending|processing → dismissed（仅当选中=生效才逐条落，并发改态则不猜）。
+      if (count === dismissed.length) {
+        this.auditStatusChange(
+          sessionId,
+          item.id,
+          item.status,
+          'dismissed',
+          'inbox_dismiss_session'
+        );
+      } else if (count > 0) {
+        logger.warn('审批批量 dismiss 存在并发变更，跳过本条转移审计', {
+          selected: dismissed.length,
+          changed: count,
+        });
+      }
+      this._notifyTerminalListeners(item);
+    }
     return count;
   }
 
@@ -1861,7 +1931,28 @@ export class InboxManager {
     if (ids.length === 0) return 0;
     const db = await this.getDb();
     const placeholders = ids.map(() => '?').join(',');
-    return new Promise<number>((resolve, reject) => {
+    // P2-1（R09-013）：先取"将被过期"的行（含 sessionId），供 UPDATE 生效后逐条落审计。
+    const before = await new Promise<
+      Array<{ id: string; sessionId: string; status: InboxItemStatus }>
+    >((resolve, reject) => {
+      db.all(
+        `SELECT id, session_id, status FROM inbox_items
+          WHERE id IN (${placeholders}) AND status = 'pending' AND owner_key = ?`,
+        [...ids, this.owner()],
+        (err: Error | null, rows: Record<string, unknown>[]) => {
+          if (err) reject(err);
+          else
+            resolve(
+              (rows ?? []).map((r) => ({
+                id: String(r.id),
+                sessionId: String(r.session_id ?? ''),
+                status: String(r.status) as InboxItemStatus,
+              }))
+            );
+        }
+      );
+    });
+    const count = await new Promise<number>((resolve, reject) => {
       db.run(
         `UPDATE inbox_items SET status = 'expired', updated_at = ?
          WHERE id IN (${placeholders}) AND status = 'pending' AND owner_key = ?`,
@@ -1872,6 +1963,27 @@ export class InboxManager {
         }
       );
     });
+    if (count > 0) {
+      if (count === before.length) {
+        for (const row of before) {
+          this.auditStatusChange(
+            row.sessionId,
+            row.id,
+            row.status,
+            'expired',
+            'inbox_expire_by_ids'
+          );
+        }
+      } else {
+        // 并发窗口：选中后被别处改态（如用户回复）⇒ 无法确定哪几行真的过期
+        // ⇒ **不猜**，只留痕（CS06：空/不确定不编造）。
+        logger.warn('审批批量过期存在并发变更，跳过本条转移审计', {
+          selected: before.length,
+          changed: count,
+        });
+      }
+    }
+    return count;
   }
 
   /**

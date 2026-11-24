@@ -52,6 +52,8 @@ import { emitPdcaLiveEvent } from './PdcaLiveEvents.js';
 import { writePdcaCheckpoint } from './PdcaWorkItemBridge.js';
 import { goalMetricsService } from './db/GoalMetricsService.js';
 import type { Plan, PlanProgress } from './TaskOrchestrator.js';
+// P2-1（2026-11-24，R09-013）：计划状态转移审计（唯一入口）
+import { auditPlanStatusChange } from './plan/planStatusAudit';
 import type { AIProvider } from '@modules/ai/providers/AIProvider.js';
 import {
   scheduleTopoBatches,
@@ -798,6 +800,7 @@ export class PlanDrivenLoop {
         }
       }
       if (changed || plan.status === 'running' || plan.status === 'pending') {
+        auditPlanStatusChange(plan, 'aborted', 'pdl_user_abort');
         plan.status = 'aborted';
         plan.completedAt = new Date().toISOString();
         (

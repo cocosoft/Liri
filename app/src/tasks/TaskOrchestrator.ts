@@ -51,6 +51,11 @@ import { getLogger } from '@openliri/infra/monitoring';
 import { getOTelTracing } from '@openliri/infra/monitoring/otel/OTelTracing';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@openliri/infra/error';
+// P2-1（2026-11-24，R09-013）：计划状态转移落 `state/transition` 审计（唯一入口）
+import {
+  auditPlanCreated,
+  auditPlanStatusChange,
+} from './plan/planStatusAudit';
 const logger = getLogger('tasks:TaskOrchestrator');
 
 /**
@@ -375,6 +380,7 @@ export class TaskOrchestrator implements ISnapshotCapable {
               stepStatuses: plan.steps.map((s) => s.status),
             }
           );
+          auditPlanStatusChange(plan, 'aborted', 'ghost_plan_recovery');
           plan.status = 'aborted';
           plan.completedAt = plan.completedAt ?? new Date().toISOString();
           this.savePlan(plan);
@@ -549,6 +555,7 @@ export class TaskOrchestrator implements ISnapshotCapable {
     // 全部静默 no-op（步骤状态、checkpoint、进度、审查、恢复全线失真）。
     this.buildStepIndex(plan);
     this.savePlan(plan);
+    auditPlanCreated(plan, 'plan_created');
 
     // 发射计划开始事件
     safePublish(OrchEvent.PLAN_START, {
@@ -748,6 +755,7 @@ export class TaskOrchestrator implements ISnapshotCapable {
     if (!step) return undefined;
 
     step.status = 'running';
+    auditPlanStatusChange(plan, 'running', 'step_running');
     plan.status = 'running';
     // 2026-11-13：重新执行 ⇒ 清除"等待审批"子态（恢复后不得继续挂着暂停标记）
     if (plan.paused) plan.paused = false;
@@ -901,6 +909,7 @@ export class TaskOrchestrator implements ISnapshotCapable {
     const step = plan.steps.find((s) => s.id === stepId);
     if (!step) return undefined;
     plan.paused = true;
+    auditPlanStatusChange(plan, 'running', 'awaiting_approval');
     plan.status = 'running';
     step.result = reason;
     this.savePlan(plan);
@@ -978,6 +987,11 @@ export class TaskOrchestrator implements ISnapshotCapable {
     if (!settled) return false;
     if (plan.status === 'aborted') return true;
     const allAchieved = plan.steps.every((s) => s.status === 'completed');
+    auditPlanStatusChange(
+      plan,
+      allAchieved ? 'completed' : 'failed',
+      'plan_settled'
+    );
     plan.status = allAchieved ? 'completed' : 'failed';
     plan.completedAt = new Date().toISOString();
     return true;
@@ -1014,6 +1028,7 @@ export class TaskOrchestrator implements ISnapshotCapable {
       }
     }
 
+    auditPlanStatusChange(plan, 'aborted', 'user_abort');
     plan.status = 'aborted';
     plan.completedAt = new Date().toISOString();
     this.savePlan(plan);

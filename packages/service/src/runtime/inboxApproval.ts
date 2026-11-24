@@ -14,6 +14,8 @@
 
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
+// P2-1（2026-11-24，R09-013）：CAS 抢锁 / 回滚也属真实转移 ⇒ 落 `state/transition` 审计
+import { emitStateTransitionAudit } from '@openliri/infra/state/engine/stateTransitionAudit';
 // 2026-11-21：命令级免审批的 `contentPattern` 生成下沉到 infra（解释器 ⇒ 精确匹配）
 import {
   buildCommandContentPattern,
@@ -57,6 +59,22 @@ import type { RuntimePdcaOrchestratorPort } from './api/coreApiProvider.js';
 import { resumePdcaOnce } from './resumeSingleFlight.js';
 
 const logger = getLogger('runtime:inboxApproval');
+
+/** P2-1（2026-11-24，R09-013）：审批卡转移审计（`sessionId` 缺失 ⇒ 如实不落） */
+function auditInboxTransition(
+  item: InboxItem,
+  from: string,
+  to: string,
+  reason: string
+): void {
+  emitStateTransitionAudit(item.sessionId, {
+    machine: 'inboxApproval',
+    from,
+    to,
+    reason,
+    subjectId: item.id,
+  });
+}
 
 /** 审批解析结局（HTTP 层据此映射状态码/响应体） */
 export type InboxApprovalOutcome =
@@ -220,6 +238,7 @@ export async function resolveInboxApproval(
     INBOX_STATUS_PROCESSING
   );
   if (!locked) return { kind: 'concurrent_conflict' };
+  auditInboxTransition(current, INBOX_STATUS_PENDING, INBOX_STATUS_PROCESSING, 'inbox_cas_lock');
 
   const updated = await inboxManager.reply(id, reply, selectedOption);
   if (!updated) {
@@ -237,6 +256,13 @@ export async function resolveInboxApproval(
           id,
           reply,
         });
+      } else {
+        auditInboxTransition(
+          current,
+          INBOX_STATUS_PROCESSING,
+          INBOX_STATUS_PENDING,
+          'inbox_rollback_after_failure'
+        );
       }
     } catch (rollbackErr) {
       await handleError(rollbackErr, {

@@ -624,7 +624,9 @@ src/<module>/
 > **治理总纲（2026-11-24）**：R09-007…R09-013 的判据、五层模型与分批路线见
 > [`.trae/specs/state-machine-governance.md`](../specs/state-machine-governance.md)。
 > P0-1 起，目录条目必填 `owner` / `persistence` / `terminalStates`；`persistence !== 'memory' | 'none'`
-> 的机器必须声明 `reconcile`（启动对账证据）。**规则正文仍在评审中**：本处只放指针，避免规则双源。
+> 的机器必须声明 `reconcile`（启动对账证据）；P2-1 起同一批机器还必须声明 `audit`
+> （`session-event` 带事件名与发射点证据 / `exempt` 带理由），由 `tests/state/stateAuditCoverage.test.ts` 校验。
+> **规则正文仍在评审中**：本处只放指针，避免规则双源。
 
 ---
 

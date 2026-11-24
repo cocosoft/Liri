@@ -14,6 +14,10 @@
 import { getLogger } from '@openliri/infra/monitoring';
 import { ToolExecutionStatus } from '@openliri/infra/utils/toolContract/ToolResult';
 import { resolveApprovalFingerprint } from '@openliri/infra/permission';
+// P2-1（2026-11-24，R09-013）：工具执行瞬态转移落 `state/transition` 审计
+import { emitStateTransitionAudit } from '@openliri/infra/state/engine/stateTransitionAudit';
+// 转移起点走 toolCall 机唯一事实源常量（不在业务文件裸写 'running'）
+import { TOOL_CALL_INITIAL_STATUS } from '@openliri/service/execution';
 import type {
   ApprovalScope,
   ApprovalSnapshot,
@@ -83,6 +87,16 @@ export async function resolveToolApprovalOutcome(
       (ToolExecutionStatus.REQUIRES_APPROVAL as string);
   if (!needsApproval) return null;
 
+  // P2-1（R09-013）：瞬态机第一次转移（running → requires_approval）。
+  // 取值走枚举成员 / 注入常量（`stateMachineHygiene` 禁止裸字面量）。
+  emitStateTransitionAudit(toolCall.sessionId, {
+    machine: 'toolExecutionTransient',
+    from: TOOL_CALL_INITIAL_STATUS,
+    to: String(ToolExecutionStatus.REQUIRES_APPROVAL),
+    reason: 'tool_require_approval',
+    subjectId: toolCall.id,
+  });
+
   const approvalReason = (toolResult as { approvalReason?: string })
     .approvalReason;
   // S1-1：若工具在结果 metadata 中声明了审批作用域（如 BashTool 的 cwd/env/平台），
@@ -130,6 +144,14 @@ export async function resolveToolApprovalOutcome(
     approvalSnapshot
   );
   if (submitted) {
+    // P2-1（R09-013）：第二次转移（requires_approval → awaiting_approval，审批卡已落成）。
+    emitStateTransitionAudit(toolCall.sessionId, {
+      machine: 'toolExecutionTransient',
+      from: String(ToolExecutionStatus.REQUIRES_APPROVAL),
+      to: deps.awaitingApprovalStatus,
+      reason: 'approval_card_submitted',
+      subjectId: toolCall.id,
+    });
     return {
       toolCallId: toolCall.id,
       toolName: toolCall.name,

@@ -150,6 +150,13 @@ export const LIRI_EVENT_NAMES = [
   'approval/presented',
   'approval/decided',
   'approval/recorded',
+  // ─── 状态机转移审计（P2-1 / R09-013，2026-11-24） ───
+  // 立项理由 = **可重建**：除 execution / goal / 工作流已有专用事件外，其余持久化机器
+  // （sessionState / toolCall / selfWake / inboxApproval / plan / effectQueue …）的转移
+  // 此前只有 logger 文本或业务表 ⇒ 会话结束后无法按序重建状态演进。
+  // log-only（不入消息 surface，与 `agent/recovery` / `session/wake` 同口径）；
+  // ⚠️ 如实边界：状态**不直接进入模型请求** ⇒ **非** `project_rules §1.6` 红线所迫。
+  'state/transition',
 ] as const;
 
 /** 会话事件名（联合类型）——两端事件名联合均由此派生 */

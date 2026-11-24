@@ -116,6 +116,8 @@ const ALL_SESSION_EVENT_TYPES = [
   'approval/presented',
   'approval/decided',
   'approval/recorded',
+  // ─── 状态机转移审计（P2-1 / R09-013，2026-11-24；log-only） ───
+  'state/transition',
 ] as const satisfies readonly LiriEventType[];
 
 /**

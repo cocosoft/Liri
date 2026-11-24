@@ -1287,4 +1287,29 @@ export interface LiriEventMap {
      */
     scopeKind: 'once' | 'session' | 'task' | 'always';
   };
+
+  // ─── 状态机转移审计（P2-1 / R09-013，2026-11-24） ───
+  /**
+   * 持久化状态机的**通用转移审计**（log-only，不进消息 surface）。
+   *
+   * 立项理由 = **可重建**：除 execution / goal / 工作流已有专用事件外，其余持久化机器
+   * （sessionState / toolCall / selfWake / inboxApproval / plan / effectQueue …）的转移
+   * 此前只有 logger 文本或业务表，会话结束后无法按序重建"这次运行里状态怎么演进"。
+   *
+   * 机器 id 取 `packages/infra/src/state/engine/stateMachineCatalog.ts` 的 `id`（闭集由目录保证）；
+   * `from` / `to` 取该条目 `states` 的取值（不在此重复声明词表）。
+   * ⚠️ 如实边界：状态**不直接进入模型请求** ⇒ **非** `project_rules §1.6` 红线所迫。
+   */
+  'state/transition': {
+    /** 目录机器 id（如 `sessionState` / `inboxApproval` / `plan`） */
+    machine: string;
+    /** 转移前状态（首次创建时为 `null`） */
+    from: string | null;
+    /** 转移后状态 */
+    to: string;
+    /** 触发原因（有则记；自由文本，仅用于排查） */
+    reason?: string;
+    /** 实体标识（taskId / planId / wakeId / inboxItemId / toolCallId 等） */
+    subjectId?: string;
+  };
 }

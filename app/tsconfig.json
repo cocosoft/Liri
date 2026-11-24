@@ -441,6 +441,15 @@
       "@openliri/service/execution/*": [
         "../../packages/service/src/execution/*"
       ],
+      "@openliri/service/session": [
+        "../../packages/service/src/session/index.ts"
+      ],
+      "@openliri/service/session.js": [
+        "../../packages/service/src/session/index.ts"
+      ],
+      "@openliri/service/session/*": [
+        "../../packages/service/src/session/*"
+      ],
       "@shared/*": ["../../shared/*"]
     }
   },

@@ -671,6 +671,15 @@ export interface LiriEventMap {
      */
     scopeKind: "once" | "session" | "task" | "always";
   };
+  // ─── 状态机转移审计（P2-1 / R09-013，2026-11-24；镜像 app 侧同名字段，勿单端改） ───
+  // log-only：不参与消息 surface 派生。
+  "state/transition": {
+    machine: string;
+    from: string | null;
+    to: string;
+    reason?: string;
+    subjectId?: string;
+  };
 }
 
 // ─── 事件结构 ───────────────────────────────────

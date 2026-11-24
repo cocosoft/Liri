@@ -14,12 +14,15 @@ import { StaleExecutionError } from './errors';
 import { ExecutionLease } from './ExecutionLease';
 import type { ExecutionStore } from './ExecutionStore';
 import { emitExecutionEvent } from './eventSink';
+// P2-1（2026-11-24，R09-013）：工具调用状态转移落 `state/transition` 审计（sink 未注入⇒如实不落）
+import { emitStateTransitionAudit } from '@openliri/infra/state/engine/stateTransitionAudit';
 // 阶段 4（2026-10-12）：四原语**只读投影**（原生状态 → PREPARED/RUNNING/SUSPENDED/SETTLED 的带外广播）
 import { publishExecutionProjection } from './executionProjection';
 // P2-3（2026-11-04）：工具失败分类（唯一取值表在 infra）
 import type { ToolFailureKind } from '@openliri/infra/utils/toolContract/ToolResult';
 import {
   TOOL_CALL_UNKNOWN_STATUS,
+  TOOL_CALL_INITIAL_STATUS,
   canTransition,
   isActiveStatus,
   isTerminalStatus,
@@ -101,6 +104,13 @@ export class ExecutionManager {
     if (!store) return true;
     try {
       await store.recordToolCall(executionId, toolCallId, toolName);
+      this.auditToolCall(
+        executionId,
+        toolCallId,
+        null,
+        TOOL_CALL_INITIAL_STATUS,
+        'tool_start'
+      );
       return true;
     } catch (err) {
       logger.warn('execution beginToolCall 落盘失败（拒绝保证）', {
@@ -151,6 +161,15 @@ export class ExecutionManager {
         error,
         failureKind
       )
+      .then(() => {
+        this.auditToolCall(
+          executionId,
+          toolCallId,
+          TOOL_CALL_INITIAL_STATUS,
+          status,
+          'settle'
+        );
+      })
       .catch((err: unknown) =>
         logger.warn('execution tool_call settle failed（观测面失败仅留痕）', {
           executionId,
@@ -186,6 +205,13 @@ export class ExecutionManager {
         error,
         failureKind
       );
+      this.auditToolCall(
+        executionId,
+        toolCallId,
+        TOOL_CALL_INITIAL_STATUS,
+        status,
+        'settle'
+      );
     } catch (err) {
       logger.warn('execution endToolCall 落盘失败（观测面失败仅留痕）', {
         executionId,
@@ -193,6 +219,27 @@ export class ExecutionManager {
         error: String(err),
       });
     }
+  }
+
+  /**
+   * P2-1（2026-11-24，R09-013）：`toolCall` 转移审计。
+   *
+   * 会话维度取自执行记录（`records`）；记录缺失 ⇒ 无 session ⇒ 如实不落。
+   */
+  private auditToolCall(
+    executionId: ExecutionId,
+    toolCallId: string,
+    from: string | null,
+    to: string,
+    reason: string
+  ): void {
+    emitStateTransitionAudit(this.records.get(executionId)?.sessionId, {
+      machine: 'toolCall',
+      from,
+      to,
+      reason,
+      subjectId: toolCallId,
+    });
   }
 
   /**
@@ -516,6 +563,14 @@ export class ExecutionManager {
         const calls = await store.listToolCalls(rec.executionId);
         for (const call of calls) {
           if (call.status === TOOL_CALL_UNKNOWN_STATUS) {
+            // P2-1（R09-013）：恢复期判决也是一次真实转移（running → unknown）。
+            emitStateTransitionAudit(rec.sessionId, {
+              machine: 'toolCall',
+              from: TOOL_CALL_INITIAL_STATUS,
+              to: TOOL_CALL_UNKNOWN_STATUS,
+              reason: 'recovery_stale',
+              subjectId: call.toolCallId,
+            });
             unknownToolCalls.push({
               executionId: rec.executionId,
               sessionId: rec.sessionId,

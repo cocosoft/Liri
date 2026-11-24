@@ -21,6 +21,8 @@ import {
   STEP_STATUS_PENDING,
 } from '../TaskOrchestrator';
 import { validatePlanAdmission } from '../planAdmission';
+// P2-1（2026-11-24，R09-013）：计划状态转移审计（唯一入口）
+import { auditPlanStatusChange } from '../plan/planStatusAudit';
 import { shouldStopForPendingApproval } from './stepSuspension';
 import { budgetStopped } from './failureRecovery';
 
@@ -34,7 +36,12 @@ export interface RoundGuardDeps {
 export const ROUND_STOP_EXTERNAL = 'round_stop:external';
 
 /** 落失败终态（与循环内原写法一致：status/completedAt + 持久化）。 */
-function markPlanFailed(plan: Plan, deps: RoundGuardDeps): void {
+function markPlanFailed(
+  plan: Plan,
+  deps: RoundGuardDeps,
+  reason: string
+): void {
+  auditPlanStatusChange(plan, PLAN_STATUS_FAILED, reason);
   plan.status = PLAN_STATUS_FAILED;
   plan.completedAt = new Date().toISOString();
   deps.savePlan(plan);
@@ -51,7 +58,7 @@ export function rejectUnadmittedPlan(
   const admission = validatePlanAdmission(plan, { maxSteps });
   if (admission.ok) return null;
 
-  markPlanFailed(plan, deps);
+  markPlanFailed(plan, deps, 'admission_rejected');
   void handleError(
     new AppError(
       `计划未通过准入校验：${admission.reason}`,
@@ -112,7 +119,7 @@ export function enforceMaxIterations(
   );
   if (hasRetry || iterations < maxIterations) return null;
 
-  markPlanFailed(plan, deps);
+  markPlanFailed(plan, deps, 'max_iterations');
   void handleError(
     new AppError(
       'PDCA exceeded max iterations, forced abort',

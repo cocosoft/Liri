@@ -1,6 +1,6 @@
 # 状态机治理整体方案（2026-11-24）
 
-> **状态**：🟡 实施中 —— **P0 / P1 / P2-2 已完成**；仅剩 P2-1（审计与观测，含事件契约变更）
+> **状态**：✅ 已完成 —— **P0 / P1 / P2-1 / P2-2 全部落地**（2026-11-24）
 > **定位**：本文件是 Liri **状态机治理总纲**，接替已缺失的 `dev_docs/20261012/状态机规范管理方案-20261012.md`
 > （该目录当前**不存在**，但 `fix-evidence-registry.json` 仍有两处指向它 —— 见 G8）。
 > **已完成基线**：13 条具体缺陷的修复见 [state-machine-defect-remediation.md](./state-machine-defect-remediation.md)
@@ -147,7 +147,7 @@ interface StateMachineEntry {
 | **R09-010** | MUST | 进入终态必须执行收尾（清瞬态标记 / 停 timer / 释放幂等键）：由目录 `terminalStates` + 代码内 `finalize` 调用点断言；无收尾需求须在目录 note 说明 | 先测试覆盖（按机器），P2 再考虑静态门禁 |
 | **R09-011** | MUST | 同一概念只允许一个派生实现：`scripts/state-derivations.json` 中 `concept` 唯一，`implementation` 真实导出；消费方不得自写判据（代码评审 + grep 门禁） | 新脚本 `lint-state-derivations.ts`（低风险、只查重） |
 | **R09-012** | SHOULD | 跨端词汇必须对齐：`crossEnd.clientFile` 的状态集合 ⊆ 目录 `states`（投影允许子集）；不一致即告警→阻断 | 新测试 `stateCrossEndParity.test.ts` |
-| **R09-013** | SHOULD | 可恢复机器（`persistence!=='none'`）的每次转移必须落结构化事件（或目录登记豁免理由） | P2 起按机器逐步接入；先 warning |
+| **R09-013** | SHOULD | 可恢复机器（`persistence!=='none'`）的每次转移必须落结构化事件（或目录登记豁免理由） | P2-1 已落地：目录 `audit` 字段 + `stateAuditCoverage.test.ts`（session-event 的 evidence 真实可查 / exempt 理由非空） |
 
 ---
 
@@ -226,11 +226,12 @@ interface StateMachineEntry {
 ### P2-1 审计与观测
 
 **改动**
-- 明确"可恢复机器转移落事件"的载荷约定（新增事件类型须按 `project_rules §1.6` 三处同批登记）。
-- 逐步接入：`plan` / `goals` / `pdca` / `effects` 的终态与重试落 `session/*` 审计事件；不要求高频中间态。
-- `GET /v1/state/all` 覆盖复核：所有 Registry 实例可见（R09-005 已有，补一次端到端断言）。
+- 新增通用会话事件 `state/transition`（`shared/events/eventNames.ts` + 后端载荷/登记清单 + 客户端载荷镜像，按 `project_rules §1.6` 同批登记）。
+- 新增 infra 端口 `stateTransitionAudit.ts`（纯数据记录 + 注入式 sink），由 `service/session/stateTransitionEvents.ts` 适配成事件，宿主 `hostWiring` 注入追加器。
+- 目录新增 `audit` 声明（`session-event` 带 `event` + `evidence` / `exempt` 带 `reason`）：已接入 6 台（`state/transition`：toolCall / toolExecutionTransient / sessionState / selfWake / inboxApproval / plan）+ 3 台复用既有专用事件（execution / goal / workflowStopReason），其余按证据豁免。
+- 新增门禁 `app/tests/state/stateAuditCoverage.test.ts`（R09-013）。
 
-**验收**：任一历史会话可按 `seq` 重建"转到终态的原因"。
+**验收**：持久化机器逐台有审计结论；`state/transition` 机器的 `evidence` 指向真实发射点（文件存在 + 符号出现）。
 
 ---
 
@@ -251,14 +252,14 @@ interface StateMachineEntry {
 |---|---|---|---|
 | R09-006 定义登记 | lint:arch error | ✅ 已有 | 不动 |
 | 豁免清单自洽 | bun test | ✅ 已有 | P0-1 自动覆盖 |
-| 目录字段完整性（R09-007） | bun test | ❌ | P0-1 |
-| 转移表自洽（R09-008） | bun test | ❌ | P0-2 |
-| 启动对账证据（R09-009） | lint:arch error | ❌ | P1-1 |
-| 终态收尾（R09-010） | 逐机测试 → 静态 | ❌ | P1-1 |
-| 派生唯一（R09-011） | 新脚本 | ❌ | P1-3 |
-| 跨端一致性（R09-012） | client test | ❌ | P1-2 |
-| 转移审计（R09-013） | 事件断言 | ❌ | P2-1 |
-| 状态字面量棘轮 | lint:state-ratchet | ✅ 仅后端 | P1-2 扩前端 |
+| 目录字段完整性（R09-007） | bun test | ✅ | P0-1 |
+| 转移表自洽（R09-008） | bun test | ✅ | P0-2 |
+| 启动对账证据（R09-009） | bun test（后续可并入门禁） | ✅ | P1-1 |
+| 终态收尾（R09-010） | 逐机测试 → 静态 | ❌ | P1-1（样板已锁定，静态门禁未做） |
+| 派生唯一（R09-011） | bun test（登记表查重） | ✅ | P1-3 |
+| 跨端一致性（R09-012） | bun test | ✅ | P1-2 |
+| 转移审计（R09-013） | bun test（目录 `audit` + 证据锚点） | ✅ | P2-1 |
+| 状态字面量棘轮 | lint:state-ratchet | ✅（含 `client/src`） | P1-2 |
 | 目录 ↔ 锚点比对 | bun test | ✅ 已有 | 扩展字段后沿用 |
 
 ---
@@ -319,6 +320,7 @@ interface StateMachineEntry {
 | 2026-11-24 | **P1-2 实施完成**：`lint:state-ratchet` 扫描根加入 `client/src`（基线 +481 行收编存量）；新增 `shared/stateVocabulary.ts`（toolCall / task 两项）与 R09-012 跨端一致性测试 | AI |
 | 2026-11-24 | **P1-3 实施完成**：新增 `scripts/state-derivations.json` 与 R09-011 测试，登记 tool/approval/wait/pdca 四个派生判据（concept 与实现均唯一、锚点真实导出） | AI |
 | 2026-11-24 | **P2-2 实施完成**：基线升级 v2（`reason` / `generatedAt` / `valueOwners`，`--update` 强制 `--reason`）；新增只读巡检脚本 `scripts/state-governance-report.ts`（支持 `--check`） | AI |
+| 2026-11-24 | **P2-1 实施完成**：新增 `state/transition` 事件（三处登记 + 客户端载荷镜像）· infra 注入式审计端口 + service 适配 + 宿主编织 · 目录 `audit` 声明（6 台接入 / 3 台复用既有事件 / 其余按证据豁免）· R09-013 覆盖门禁 | AI |
 
 ---
 
@@ -450,3 +452,34 @@ interface StateMachineEntry {
 - `inboxApproval` / `plan` 仍无 `transitionRules`（手写机，转移分散在 CAS/UPDATE 与编排器）⇒ 未纳入 R09-008 的动态校验面。
 
 **验证**：`bun test tests/state tests/gates/stateLiteralRatchet.test.ts` → **171 pass / 0 fail**；`bun run typecheck` 通过；`lint:state-ratchet` 通过；`state-governance-report --check` 通过。
+
+---
+
+## §19 P2-1 实施记录（2026-11-24）
+
+**已落地**
+
+| 项 | 结果 |
+|---|---|
+| 新事件 | `state/transition`（log-only）：`machine` / `from` / `to` / `reason?` / `subjectId?`；按 §1.6 三处同批登记（`LIRI_EVENT_NAMES` · `LiriEventMap` · `ALL_SESSION_EVENT_TYPES`）+ 客户端载荷镜像 |
+| 审计端口 | `packages/infra/src/state/engine/stateTransitionAudit.ts`：纯数据记录 + 注入式 sink（`setStateTransitionAuditSink` / `emitStateTransitionAudit`），未注入 ⇒ 如实不落 |
+| 事件适配 | `packages/service/src/session/stateTransitionEvents.ts`：把端口适配为会话事件（`seq: 0` 交追加器原子分配），宿主 `hostWiring` 注入 `appendStreamEvent` |
+| 目录声明 | 新字段 `audit`（`session-event{event,evidence}` / `exempt{reason}`）；`persistence !== 'none'` 共 17 台全部有结论 |
+| 接入（6 台 `state/transition`） | `toolCall`（ExecutionManager `begin/end/settle/recover`）· `toolExecutionTransient`（`toolApprovalOutcome`）· `sessionState`（`SessionStateMachine` 的引擎 `onTransition`，覆盖 Bridge/ChatManager 全部入口）· `selfWake`（`WakeStore.updateEntry` + 批量扫描/启动复位）· `inboxApproval`（`reply`/TTL 过期/批量 dismiss/`expireByIds`/撤销/`resolveInboxApproval` CAS 与回滚）· `plan`（统一入口 `plan/planStatusAudit.ts`，覆盖 9 处写入 + 创建） |
+| 复用既有事件（3 台） | `execution`（`execution/status_changed`）· `goal`（`goal/status_changed`）· `workflowStopReason`（`assistant/workflow_run_end` 含 `stopReason`） |
+| 豁免（8 台，均带理由） | `budgetMode`（读时计算、无会话）· `dedupProcess`（会话创建前）· `appState`（全局 + SSE/快照）· `appInstall`（无生产写点）· `task`（无 sessionId，已有本地审计表/jsonl）· `effectQueue`（队列无 session 列）· `stream`（实例无 sessionId，引擎可订阅）· `backgroundTask`（全局后台机） |
+| 新门禁 | `app/tests/state/stateAuditCoverage.test.ts`（R09-013）：持久化机必有 `audit`；`session-event` 事件名 ∈ `LIRI_EVENT_NAMES` 且 `evidence` 文件存在、符号出现；`exempt` 理由 > 10 字符；防空跑（≥12 台有声明、≥3 台走 `state/transition`） |
+
+**口径说明（如实）**
+
+- 方案 §6 原写"`plan` / `goals` / `pdca` / `effects` 终态与重试落 `session/*` 审计事件"：`goals` 已有专用事件（不重复造）；`effects`（effectQueue）与 `pdca` 中的 `stepVerdict` 无独立会话维度/持久状态 ⇒ 目录登记豁免并写明依据；`plan` 全量接入。
+- 被豁免的不是"忘了做"，而是**没有可挂的会话维度或已有等价审计**；每条的 `reason` 均给出具体事实（字段缺失 / 写入点不存在 / 已有本地审计）。
+- `plan` 的 9 处写入**没有**合并成 setter 重构（外科手术式修改），只在赋值前加一行 `auditPlanStatusChange`；`from` 由该函数读取旧值，`from === to` 不落事件。
+
+**遗留**
+
+- `selfWake` 的 `due` 态全仓无写入点（目录已登记但实际只用 `pending`）—— 属既有事实，后续可在目录 note 标注或收敛状态集。
+- `inboxApproval` 的 `tryUpdateStatus` 是通用 CAS API（测试直调），生产路径的审计落在 `resolveInboxApproval`；若将来新增生产调用方，需同步补审计。
+- `@deprecated` 死代码仍在观察期（同上批，按 CD05/CD06 删除）。
+
+**验证**：app 全量 `bun test` → **13829 pass / 42 skip / 0 fail**（1642 文件）；client `vitest run` → **1125 pass**（158 文件）；`bun run typecheck` 与 client `tsc --noEmit` 通过；改动文件 ESLint 通过；`lint:state-ratchet` 通过；`state-governance-report --check` 通过（转移审计 **17/17**，session-event 9 / exempt 8）。

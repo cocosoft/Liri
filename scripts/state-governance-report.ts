@@ -16,7 +16,7 @@
  */
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { join, relative, resolve, sep } from 'node:path';
+import { join, resolve } from 'node:path';
 import {
   BOUNDARY_STATE_MACHINES,
   STATE_MACHINES,
@@ -97,6 +97,15 @@ const persistentWithReconcile = persistent.filter(
   (m) => m.reconcile && m.reconcile.strategy !== 'none'
 ).length;
 
+// P2-1（2026-11-24，R09-013）：审计声明覆盖（`persistence !== 'none'` 的机器）
+const auditable = STATE_MACHINES.filter((m) => m.persistence !== 'none');
+const auditedSessionEvent = auditable.filter(
+  (m) => m.audit?.mode === 'session-event'
+).length;
+const auditedExempt = auditable.filter(
+  (m) => m.audit?.mode === 'exempt'
+).length;
+
 const baselineFiles = baseline?.files ?? {};
 const baselineValues = Object.keys(baselineFiles);
 const baselinePairs = baselineValues.reduce(
@@ -110,9 +119,7 @@ const ghostFiles = [
 
 const derivationsList = derivations?.derivations ?? [];
 const concepts = derivationsList.map((d) => d.concept ?? '');
-const dupConcepts = concepts.filter(
-  (c, i) => c && concepts.indexOf(c) !== i
-);
+const dupConcepts = concepts.filter((c, i) => c && concepts.indexOf(c) !== i);
 
 const deprecatedClient = scanDeprecated('client/src');
 const deprecatedApp = scanDeprecated('app/src');
@@ -122,6 +129,7 @@ const lines = [
   `目录：${STATE_MACHINES.length} 台 + 边界 ${BOUNDARY_STATE_MACHINES.length} 台`,
   `  · 治理字段缺失：owner ${missingOwner} / persistence ${missingPersistence} / terminalStates ${missingTerminal}`,
   `  · 持久化机器：${persistent.length} 台，其中声明对账 ${persistentWithReconcile} 台`,
+  `  · 转移审计：${auditedSessionEvent + auditedExempt}/${auditable.length}（session-event ${auditedSessionEvent} / exempt ${auditedExempt}）`,
   `基线：v${baseline?.version ?? '?'}（${baseline?.reason ? 'reason ✓' : 'reason ✗'}）`,
   `  · 值 ${baselineValues.length} / 文件对 ${baselinePairs}`,
   `  · 幽灵值 ${ghostValues.length}${ghostValues.length ? `（${ghostValues.slice(0, 5).join(', ')}）` : ''}`,
@@ -140,13 +148,18 @@ if (missingOwner || missingPersistence || missingTerminal) {
 if (persistent.length !== persistentWithReconcile) {
   problems.push('存在未声明对账的持久化机器');
 }
+if (auditedSessionEvent + auditedExempt !== auditable.length) {
+  problems.push('存在未声明审计的持久化机器');
+}
 if (ghostValues.length > 0) problems.push('基线含幽灵值（不在词汇表）');
 if (ghostFiles.length > 0) problems.push('基线含幽灵文件（不存在）');
 if (dupConcepts.length > 0) problems.push('派生登记存在重复 concept');
 
 if (checkMode) {
   if (problems.length > 0) {
-    console.error(`❌ 巡检发现 ${problems.length} 类问题：${problems.join('；')}`);
+    console.error(
+      `❌ 巡检发现 ${problems.length} 类问题：${problems.join('；')}`
+    );
     process.exit(1);
   }
   console.log('✅ 巡检通过');

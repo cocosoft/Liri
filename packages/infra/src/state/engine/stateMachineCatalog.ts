@@ -87,6 +87,20 @@ export interface StateMachineEntry {
   };
   /** 消费该状态的派生实现（可选；治理方案 R09-011 的目标登记面） */
   derivedViews?: readonly string[];
+  /**
+   * 转移审计声明（治理方案 R09-013 / P2-1，`persistence !== 'none'` 时必填）：
+   * - `session-event`：每次转移落结构化会话事件（`event` 为事件名；`state/transition` 为通用审计）；
+   * - `exempt`：**不落**会话事件，必须写明理由（无会话维度 / 已有本地审计 / 无真实写点等）。
+   */
+  audit?:
+    | {
+        mode: 'session-event';
+        event: string;
+        /** 发射点证据：`文件#符号`（R09-013 门禁校验文件存在且符号出现） */
+        evidence?: string;
+        note?: string;
+      }
+    | { mode: 'exempt'; reason: string };
   /** 前端对应实现（可选；治理方案 R09-012 的跨端对齐面） */
   crossEnd?: { clientFile: string; mapping: 'identical' | 'projection' };
   /** 补充说明（同名不同物 / 双事实源等） */
@@ -132,6 +146,11 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
       strategy: 'heartbeat-rescan',
       evidence: 'packages/service/src/execution/ExecutionManager.ts#recover',
     },
+    audit: {
+      mode: 'session-event',
+      event: 'execution/status_changed',
+      evidence: 'packages/service/src/execution/ExecutionManager.ts#emitStatus',
+    },
     derivedViews: [
       'packages/service/src/execution/executionProjection.ts#projectExecutionStatus',
     ],
@@ -156,6 +175,11 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
       strategy: 'heartbeat-rescan',
       evidence: 'packages/service/src/execution/ExecutionManager.ts#recover',
     },
+    audit: {
+      mode: 'session-event',
+      event: 'state/transition',
+      evidence: 'packages/service/src/execution/ExecutionManager.ts#auditToolCall',
+    },
     crossEnd: {
       clientFile: 'client/src/stores/chat/toolOutcome.ts',
       mapping: 'projection',
@@ -177,6 +201,11 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
       strategy: 'startup-reset',
       evidence: 'packages/query/src/query/DailyBudgetManager.ts#restore',
     },
+    audit: {
+      mode: 'exempt',
+      reason:
+        '模式按当日用量**读时计算**（`_computeState`），不落盘、无独立写点；全局单机无会话维度，已有日志 + `alert:triggered` 告警出口。',
+    },
     note: '**已于 2026-10-12 去重（阶段 1.3 隐患修复）**：单一事实源 = `dailyBudgetSnapshot.ts:31`（`export type`）；`DailyBudgetManager.ts` 已改为 `import type`（不再本地重声明）；前端镜像 `client/src/services/usageService.ts:113` 改名 `DailyBudgetMode`。',
   },
   {
@@ -193,6 +222,11 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
     reconcile: {
       strategy: 'ttl-sweep',
       evidence: 'packages/channels/src/channels/dedup/index.ts#configureDedup',
+    },
+    audit: {
+      mode: 'exempt',
+      reason:
+        '去重发生在**会话创建之前**（键 `channelId:senderId:messageId`），无 sessionId 可挂；残留由 TTL sweep 回收。',
     },
     note: '有导出数组 `MESSAGE_PROCESSING_STATES`（现定义于 `channels/dedup/types.ts`，由 `index.ts` 重导出），但该模块同时构建 DedupStore（导入即触 DB）⇒ **不在测试中动态载入**，取值经源码阅读取证。',
   },
@@ -219,6 +253,11 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
       evidence:
         'app/src/tasks/goal/goalStartupResume.ts#resolveStartupGoalResume',
     },
+    audit: {
+      mode: 'session-event',
+      event: 'goal/status_changed',
+      evidence: 'app/src/tasks/goal/GoalEvents.ts#emitGoalStatusChanged',
+    },
     note: '定义在 `shared/types`（`:26`），经 `app/src/types/goal.ts:17` 再导出；同目录另有**同名不同物** `goalSettlementTypes.ts:22`（批次落定结果，见 `BOUNDARY_STATE_MACHINES`）。',
   },
   {
@@ -235,6 +274,12 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
     reconcile: {
       strategy: 'none',
       evidence: 'app/src/modules/workflow/types.ts#WorkflowRunResult',
+    },
+    audit: {
+      mode: 'session-event',
+      event: 'assistant/workflow_run_end',
+      evidence: 'app/src/modules/workflow/WorkflowRunEvents.ts#toRunEnd',
+      note: 'run 结束事件的载荷已含 `stopReason`（`WorkflowRunEvents.ts`）。',
     },
     note: '同文件另有步骤级 `WorkflowStepOutcome`（`:144`，3 值不同）—— 属不同粒度，未合并。',
   },
@@ -259,6 +304,11 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
       evidence:
         'packages/infra/src/state/app/AppLifecycle.ts#restoreFromSnapshot',
     },
+    audit: {
+      mode: 'exempt',
+      reason:
+        '全局单机状态（MACHINE_ID=`app`），无会话维度；转移已由 SSE `app:state` 广播 + 快照落盘（`persistSnapshot`）。',
+    },
     note: '**同名不同物**：`app/src/appState/AppState.ts:145` 另有 `interface AppState`（zustand 存储接口），勿混。',
   },
   {
@@ -275,6 +325,11 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
     reconcile: {
       strategy: 'none',
       evidence: 'app/src/appState/AppState.ts#AppInstallStatus',
+    },
+    audit: {
+      mode: 'exempt',
+      reason:
+        '无生产写入点（仅类型 + zustand 默认值），不存在可审计的转移实现。',
     },
     note: '**已于 2026-10-12 抽为命名类型（阶段 1.3 隐患修复）**：`export type AppInstallStatus`（`AppState.ts`），原 `:253`/`:259` 两处内联重复已消除。',
   },
@@ -302,6 +357,12 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
     reconcile: {
       strategy: 'startup-reset',
       evidence: 'app/src/chat/services/SessionStateBridge.ts#SessionStateBridge',
+    },
+    audit: {
+      mode: 'session-event',
+      event: 'state/transition',
+      evidence:
+        'packages/infra/src/state/session/SessionStateMachine.ts#SessionStateMachine',
     },
     note: '**阶段 3（2026-10-12）8 态 → 3 态收敛（用户裁定）**：旧 `SessionState` 8 态枚举与 `toSimplifiedState()` 已删除（前者零消费者、后者失输入类型）；折叠映射 = `IDLE/COMPLETED/ARCHIVED/ABORTED→idle`、`RUNNING→running`、`REQUIRES_ACTION/PAUSED/ERROR→requires_action`。**无终态**（`idle` 可再 `start()` ⇒ 生命周期成环，`isTerminal()` 恒 `false`）。历史事实源（活）：`ChatManager:3184/3338` · `ChatOrchestrator:754/1166` · `SessionStateBridge`（`init.ts:479-490` 已接线）。`packages/service/src/session/models/SessionState.ts:44` 另有**同名不同物**（类 + `SESSION_STATES` 集合），见 `BOUNDARY_STATE_MACHINES`。',
   },
@@ -337,6 +398,11 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
       strategy: 'startup-reset',
       evidence: 'app/src/tasks/TaskRegistry.ts#recoverRunningTasksAfterRestart',
     },
+    audit: {
+      mode: 'exempt',
+      reason:
+        '`TaskState` 无 sessionId（仅可选 `metadata.sessionKey`，生产未写入）；转移已落 TaskRegistry 本地审计（`task_audit` 表 + `audit.jsonl`，含 from/to/reason）。',
+    },
     note: '**同名不同物**：`app/src/components/TaskListV2.tsx:9` 另有 6 态 UI 词汇表（含 `ALL_TASK_STATUSES`），见 `BOUNDARY_STATE_MACHINES`。',
   },
   {
@@ -354,6 +420,12 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
       strategy: 'none',
       evidence:
         'packages/infra/src/utils/toolContract/ToolResult.ts#ToolExecutionStatus',
+    },
+    audit: {
+      mode: 'session-event',
+      event: 'state/transition',
+      evidence:
+        'app/src/chat/services/toolApprovalOutcome.ts#resolveToolApprovalOutcome',
     },
     note: '按方案阶段 2.3 裁断：**工具执行瞬态**，**不进** `ToolCallStatus` 持久化枚举。**已于 2026-10-12 消除裸字面量（阶段 1.3 隐患修复）**：`awaiting_approval` 唯一事实源 = `ToolExecutionService.ts` 的 `TRANSIENT_AWAITING_APPROVAL` 常量（原 2 处裸字面量已替换）；`requires_approval` 唯一事实源 = `ToolExecutionStatus.REQUIRES_APPROVAL`（`ToolResult.ts:12`，原比较处的裸字符串已替换）。',
   },
@@ -397,6 +469,11 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
       evidence:
         'app/src/tasks/selfwake/SelfWakeService.ts#recoverOverdueWakes',
     },
+    audit: {
+      mode: 'session-event',
+      event: 'state/transition',
+      evidence: 'app/src/tasks/selfwake/WakeStore.ts#updateEntry',
+    },
     note: '2026-11-24（批次 2 / A3）登记：转移实现集中在 `WakeStore`（`tryMarkFiring` / `requeueAfterFailure` / `expireStale` / `recoverStaleFiring`）。`pending|due` = 待触发（`pendingWake` 投影只认这两态）；`firing` = 单进程 CAS 中间态（防 tick 重扫与短时 timer 双续跑，崩溃后启动期复位）；`fired|failed|expired` = 终态（`gc` 按 `firedAt/failedAt/expiredAt` 裁剪）。',
   },
   {
@@ -424,6 +501,11 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
       strategy: 'ttl-sweep',
       evidence: 'app/src/tasks/effects/EffectQueue.ts#claimOne',
     },
+    audit: {
+      mode: 'exempt',
+      reason:
+        '队列表**无 session 列**（`payload` 仅可选 `channelSessionId`，非一等维度）；转移由陈旧窗口重领（`claimOne`）恢复，属队列机械态而非业务状态。',
+    },
     note: 'P38（2026-11-02）：`effect_pending → effect_attempting → effect_settled | effect_failed`。`effect_attempting` 只在原子领取后出现（崩溃后由陈旧窗口重领，`restored=1` 标记"可能已发出"）；`later` **不是状态**（只前移 due，回 pending）；连续失败达每类上限（`reply` 8，其余 `FAILURES_BEFORE_ERROR`=3）才进入 failed。取值带 `effect_` 前缀：`pending/settled/failed` 是跨域通用词，直接登记会把 chat/query/utils 既有 `settled` 出现点一并划入词汇表（与 P33 的 `step_` 同款教训）。',
   },
   {
@@ -442,6 +524,11 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
       evidence:
         'packages/service/src/runtime/inboxApproval.ts#reconcileStuckApprovalSessions',
     },
+    audit: {
+      mode: 'session-event',
+      event: 'state/transition',
+      evidence: 'packages/service/src/runtime/InboxManager.ts#auditStatusChange',
+    },
     note: '2026-11-24（P0-2 补登记，P0-1 遗漏）：`pending → processing`（CAS 抢锁）→ `replied | expired | dismissed`；`processing` 超时 10min 由过期扫描回收，落地失败回滚 `pending`（批次 1 / A1）。状态用**单数常量**（`INBOX_STATUS_*`）而非 `*_STATUSES` 数组 ⇒ 不被 R09-006 捕获，属"只漏报"盲区。',
   },
   {
@@ -459,6 +546,11 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
       strategy: 'startup-rescan',
       evidence:
         'app/src/tasks/plan/planStartupResume.ts#resolveStartupPlanResume',
+    },
+    audit: {
+      mode: 'session-event',
+      event: 'state/transition',
+      evidence: 'app/src/tasks/plan/planStatusAudit.ts#auditPlanStatusChange',
     },
     note: '2026-11-24（P0-2 补登记）：`status` 为类型联合（`TaskOrchestrator.ts:163`），另有两个**正交子态**：`paused`（`running` 的等待审批子态，布尔）与 `acceptance`（`pending/accepted/rejected`，见 `pending-acceptance-state-machine.md`）—— 均不并入本状态集，避免词义混叠。',
   },
@@ -485,6 +577,11 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
     reconcile: {
       strategy: 'none',
       evidence: 'packages/service/src/streaming/Stream.ts#Stream',
+    },
+    audit: {
+      mode: 'exempt',
+      reason:
+        '`Stream` 实例不持有 sessionId（service 流式管道，宿主按 streamId 关联）；转移经引擎 `onStateChange` 可订阅，宿主侧已有流式事件兜底。',
     },
     note: '2026-11-24（P0-1）从豁免升级为登记：引擎实例由 `Stream` 创建（`Stream.ts:59,247`），进程内状态、不跨重启 ⇒ 无启动对账。**已知漂移**：`types.ts:282-293` 的 `StreamStateTransition` 类型联合缺 `ERROR→STREAMING`，而规则表允许 —— 由 R09-008（P0-2）校验规则表自洽并推动对齐。',
   },
@@ -516,6 +613,11 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
       strategy: 'none',
       evidence:
         'packages/infra/src/state/background/BackgroundTaskStateMachine.ts#getBackgroundTaskStateMachine',
+    },
+    audit: {
+      mode: 'exempt',
+      reason:
+        '进程内后台任务机（DreamEngine 等经 Registry 复用），实例无会话维度；运行结果由各任务自身事件/日志记录。',
     },
     note: '2026-11-24（P0-1）从豁免升级为登记：实例经 `StateMachineRegistry` 注册（DreamEngine 等消费），进程内运行态；`skipped` 非终态（可回 `running`/`idle`）；`completed`/`failed` 也允许回到 `running`（下一轮）⇒ 按出度无终态。',
   },

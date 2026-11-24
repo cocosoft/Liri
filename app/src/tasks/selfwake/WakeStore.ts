@@ -19,6 +19,8 @@ import { join, basename } from 'path';
 import type { WakeEntry } from './types';
 import { cg3DataDir, cg3Log } from '../cg3Env';
 import { handleError } from '@openliri/infra/error';
+// P2-1（2026-11-24，R09-013）：自唤醒状态转移落 `state/transition` 审计
+import { emitStateTransitionAudit } from '@openliri/infra/state/engine/stateTransitionAudit';
 
 export class WakeStore {
   private dir: string;
@@ -138,9 +140,21 @@ export class WakeStore {
         const entries: WakeEntry[] = JSON.parse(readFileSync(path, 'utf-8'));
         const entry = entries.find((e) => e.id === wakeId);
         if (!entry) return null;
+        const before = entry.status;
         const { value, changed } = fn(entry);
         if (changed !== false)
           writeFileSync(path, JSON.stringify(entries, null, 2));
+        // P2-1（R09-013）：**一次转移一处审计** —— 所有单条变更都经本函数，
+        // 故在此统一按"写前/写后状态差异"落事件（未变更不落）。
+        if (entry.status !== before) {
+          emitStateTransitionAudit(sessionId, {
+            machine: 'selfWake',
+            from: before,
+            to: entry.status,
+            reason: 'wake_store_update',
+            subjectId: wakeId,
+          });
+        }
         return value;
       });
     } catch (err) {
@@ -246,10 +260,19 @@ export class WakeStore {
               typeof e.expiresAt === 'number' &&
               e.expiresAt <= now
             ) {
+              const from = e.status;
               e.status = 'expired';
               e.expiredAt = now;
               expired += 1;
               changed = true;
+              // P2-1（R09-013）：批量扫描不经 `updateEntry` ⇒ 在此按条落审计。
+              emitStateTransitionAudit(sid, {
+                machine: 'selfWake',
+                from,
+                to: 'expired',
+                reason: 'wake_expired',
+                subjectId: e.id,
+              });
             }
           }
           if (changed) writeFileSync(path, JSON.stringify(entries, null, 2));
@@ -290,6 +313,14 @@ export class WakeStore {
               delete e.firingAt;
               recovered += 1;
               changed = true;
+              // P2-1（R09-013）：启动期复位同样是一次真实转移（firing → pending）。
+              emitStateTransitionAudit(sid, {
+                machine: 'selfWake',
+                from: 'firing',
+                to: 'pending',
+                reason: 'startup_recover_firing',
+                subjectId: e.id,
+              });
             }
           }
           if (changed) writeFileSync(path, JSON.stringify(entries, null, 2));

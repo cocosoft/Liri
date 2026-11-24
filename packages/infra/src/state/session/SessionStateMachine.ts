@@ -11,6 +11,7 @@
  */
 
 import { StateMachine } from '../engine/StateMachine';
+import { emitStateTransitionAudit } from '../engine/stateTransitionAudit';
 import { SESSION_TRANSITIONS } from './types';
 import type { RequiresActionDetails, SimplifiedSessionState } from './types';
 
@@ -30,6 +31,17 @@ export class SessionStateMachine extends StateMachine<SimplifiedSessionState> {
       // 关键转移只打 debug）。阶段 3 归并：旧 `[ERROR, PAUSED]` 二者在 3 态下**同为**
       // `requires_action` ⇒ 收敛为单值（"需要人介入"即关键态）。
       criticalStates: ['requires_action'],
+      // P2-1（2026-11-24，R09-013）：本机构成全仓会话状态机实例（Bridge / ChatManager 等），
+      // 转移审计放在**引擎钩子**而非各调用方 ⇒ 一处覆盖全部入口；sink 未注入 ⇒ 如实不落。
+      onTransition: (record) => {
+        emitStateTransitionAudit(sessionId, {
+          machine: 'sessionState',
+          from: record.from,
+          to: record.to,
+          reason: record.reason,
+          subjectId: sessionId,
+        });
+      },
     });
   }
 

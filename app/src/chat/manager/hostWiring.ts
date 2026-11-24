@@ -31,6 +31,9 @@ import {
   setExecutionEventSink,
   setSessionOwnerLoader,
 } from '@openliri/service/execution';
+// P2-1（2026-11-24，治理方案 R09-013）：状态机转移审计落盘 —— 各层机器只 import infra 的
+// 纯数据端口（`emitStateTransitionAudit`），适配成 `state/transition` 会话事件在此注入。
+import { setStateTransitionEventAppender } from '@openliri/service/session/stateTransitionEvents';
 // P36-b（2026-11-02）：会话持有者的读侧投影（读 `ticket_assignments`；service 不反向依赖 app）
 import { resolveSessionOwner } from '../ownership/resolveSessionOwner';
 import {
@@ -105,6 +108,11 @@ export function installHostWiring(ports: HostWiringPorts): void {
   // —— 同上手法的唯一写入出口（`execution/status_changed` / `execution/recovery`）。
   // `execution` 模块不持有会话事件日志 ⇒ 经注入避免反向依赖；未注入 ⇒ 如实不落。
   setExecutionEventSink((sid, event) => ports.appendStreamEvent(sid, event));
+  // P2-1（2026-11-24，治理方案 R09-013）：状态机转移审计 —— 同上手法（`state/transition`）。
+  // 仅在目录 `audit.mode = 'session-event'` 的机器上发射；未注入 ⇒ 如实不落。
+  setStateTransitionEventAppender((sid, event) =>
+    ports.appendStreamEvent(sid, event)
+  );
   // P36-b（2026-11-02）：消息归属的持有者读取端口 —— 同上手法：`execution`（service）不读
   // app 的派工表，由宿主注入「最新 running 派工」投影（未注入 ⇒ 一律 none，行为等于改造前）。
   // P33（2026-11-02）：会话**当前无人持有**时，对已结束且带 Mandate 的工作项做唤醒前重校验

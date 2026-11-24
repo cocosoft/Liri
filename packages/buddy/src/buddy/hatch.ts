@@ -17,6 +17,7 @@ import {
   getCompanion,
   roll,
 } from './companion';
+import { broadcastBuddyEvent, BUDDY_HATCHED_EVENT } from './events';
 import type { Companion, CompanionBones, Species, StatName } from './types';
 
 const logger = getLogger('buddy:hatch');
@@ -133,6 +134,13 @@ export function ensureCompanionHatched(): Companion | undefined {
     name: stored.name,
     species: bones.species,
     personality: stored.personality,
+  });
+  // 实时通知前端：伙伴快照由 null → 有值（打开着的伙伴页可立即刷新）
+  broadcastBuddyEvent(BUDDY_HATCHED_EVENT, {
+    name: stored.name,
+    species: bones.species,
+    personality: stored.personality,
+    hatchedAt: stored.hatchedAt,
   });
   return buildCompanionFromStored(stored, bones);
 }

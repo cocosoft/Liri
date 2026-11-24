@@ -231,3 +231,11 @@ A 之外的后续项：**B** = dream→buddy 事件断点（见 §7.1，已实�
 > 不用模型。真机验证：写入 `{name:'阿兔兔', personality:'毒舌又跳脱'}`、二次调用 `{same:true}`、
 > HTTP 快照 `personality/hatchedAt` 均有值（验证后已恢复 config）。用例：
 > `app/tests/buddy/companionHatch.test.ts`。
+
+### 7.3 实时推送（2026-11-25，用户拍板）
+
+- 新增 `packages/buddy/src/buddy/events.ts`：统一广播 `buddy:hatched` / `buddy:growth`（SSE 不可用时静默忽略）；
+- `ensureCompanionHatched()` 成功写 config 后广播 `buddy:hatched`（快照 null → 有值）；
+- `DreamGrowthTracker` 在梦境完成 / 任务完成 / 互动后广播 `buddy:growth`（含派生等级视图）；
+- 前端 `buddyStore` 改为订阅这两个事件并**重新拉取** `/v1/buddy/companion` 与 `/stats`（不再本地累加，也不再单独监听 `dream:cycle:completed`）；
+- 真机抓包：`POST /v1/buddy/interact` 后收到 `event: buddy:growth` → `{"source":"interaction","totalExperience":73,"level":1,"experience":73,"experienceToNext":100}`（与响应 `companion.experience=73` 一致）。

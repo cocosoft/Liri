@@ -85,12 +85,14 @@ export const useBuddyStore = create<BuddyStore>((set) => ({
   },
 }));
 
-// ── 梦境完成 → 以服务端真源刷新伙伴快照与统计（2026-11-25 契约收口 A） ──
-// 经验/等级由后端 `buddy-growth.json` 记账（与 /v1/buddy/companion、/stats 同源）；
-// 前端不再本地累加（旧实现基于服务端并不存在的 experience 字段，会算出 NaN）。
-sseService.on("dream:cycle:completed", () => {
+// ── 伙伴实时状态：孵化 / 成长（经验·等级）由服务端广播（2026-11-25） ──
+// 经验/等级真源 = `buddy-growth.json`；前端只做「收到事件 → 重新拉快照与统计」，
+// 不再本地累加（旧实现基于服务端并不存在的 experience 字段，会算出 NaN）。
+const refreshBuddyFromServer = (): void => {
   const state = useBuddyStore.getState();
-  if (!state.companion) return;
   void state.loadBuddy();
   void state.loadStats();
-});
+};
+
+sseService.on("buddy:hatched", refreshBuddyFromServer);
+sseService.on("buddy:growth", refreshBuddyFromServer);

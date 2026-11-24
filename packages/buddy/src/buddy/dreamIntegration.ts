@@ -29,6 +29,8 @@ const logger = getLogger('BuddyDream');
 import { ifNotificationsEnabled } from './conditional';
 import { getCompanion } from './companion';
 import { ensureCompanionHatched } from './hatch';
+import { broadcastBuddyEvent, BUDDY_GROWTH_EVENT } from './events';
+import { resolveBuddyLevel } from './level';
 import type { Companion } from './types';
 import { addDreamLogEntry } from './dreamLogStore';
 
@@ -102,6 +104,15 @@ export class DreamGrowthTracker {
     });
   }
 
+  /** 广播成长事件（经验/等级变化 ⇒ 前端实时刷新伙伴快照与统计） */
+  private emitGrowth(source: 'dream' | 'task' | 'interaction'): void {
+    broadcastBuddyEvent(BUDDY_GROWTH_EVENT, {
+      source,
+      totalExperience: this.experience,
+      ...resolveBuddyLevel(this.experience),
+    });
+  }
+
   /** 将当前状态落盘（fire-and-forget，失败仅记录） */
   private async persist(): Promise<void> {
     const state: GrowthState = {
@@ -148,6 +159,7 @@ export class DreamGrowthTracker {
     }
     this.lastCompletedDate = today;
     void this.persist();
+    this.emitGrowth('dream');
   }
 
   /**
@@ -183,6 +195,7 @@ export class DreamGrowthTracker {
     this.totalTaskExp += exp;
     this.experience += exp;
     void this.persist();
+    this.emitGrowth('task');
   }
 
   /**
@@ -196,6 +209,7 @@ export class DreamGrowthTracker {
     this.interactionCount++;
     this.experience += INTERACTION_XP;
     await this.persist();
+    this.emitGrowth('interaction');
   }
 
   /**

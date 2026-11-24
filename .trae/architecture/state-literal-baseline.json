@@ -29,6 +29,7 @@
       "app/src/tasks/PlanDrivenLoop.ts",
       "app/src/tasks/types.ts",
       "client/src/components/ChatArea/ChatMessage.tsx",
+      "client/src/constants/planStatus.ts",
       "client/src/services/chatService.ts",
       "client/src/services/planService.ts",
       "client/src/stores/chat/chat-message-set-messages.ts",
@@ -439,6 +440,7 @@
       "client/src/components/views/office/DayView.tsx",
       "client/src/components/views/office/OfficeCalendarPage.tsx",
       "client/src/components/views/ProjectsPage.tsx",
+      "client/src/constants/planStatus.ts",
       "client/src/constants/taskStatus.ts",
       "client/src/hooks/useVideoTaskPolling.ts",
       "client/src/services/agentService.ts",
@@ -1287,6 +1289,7 @@
       "client/src/components/views/media/TaskCard.tsx",
       "client/src/components/views/MediaPage.tsx",
       "client/src/components/views/ModelPage.tsx",
+      "client/src/constants/planStatus.ts",
       "client/src/hooks/useVideoTaskPolling.ts",
       "client/src/i18n/locales/en/workspace.ts",
       "client/src/services/chatService.ts",
@@ -1806,6 +1809,7 @@
       "client/src/components/views/office/CalendarAddDialog.tsx",
       "client/src/components/views/office/OfficeCalendarPage.tsx",
       "client/src/components/views/PlansPage.tsx",
+      "client/src/constants/planStatus.ts",
       "client/src/services/agentService.ts",
       "client/src/services/planService.ts",
       "client/src/services/videoService.ts",
@@ -2014,6 +2018,7 @@
       "client/src/components/views/PlansPage.tsx",
       "client/src/components/views/SemanticIndexPage.tsx",
       "client/src/components/views/WechatQrCard.tsx",
+      "client/src/constants/planStatus.ts",
       "client/src/hooks/useVideoTaskPolling.ts",
       "client/src/services/chatService.ts",
       "client/src/services/llamaService.ts",
@@ -2039,7 +2044,6 @@
       "client/src/types/session.ts",
       "client/src/utils/planRestore.ts",
       "client/src/utils/sessionLog.ts",
-      "client/src/utils/toolHumanSummary.ts",
       "packages/channels/src/channels/wechat/cli-manager.ts",
       "packages/evals/src/evals/online/turnQuality.ts",
       "packages/evals/src/evals/online/types.ts",
@@ -2451,8 +2455,8 @@
       "packages/service/src/execution/ExecutionStore.ts"
     ]
   },
-  "reason": "P2-2 基线升级 v2（归属元数据 + 强制理由）；本次仅结构迁移，不新增收编项",
-  "generatedAt": "2026-11-24T06:18:16.236Z",
+  "reason": "批次 4：planStatus.ts 收敛 PlansPage/PlansPanel 共用的计划状态展示映射，取值与 stateMachineCatalog#plan 已登记状态一致（pending/running/completed/failed/aborted）",
+  "generatedAt": "2026-11-24T08:35:05.351Z",
   "valueOwners": {
     "QUEUED": [
       "execution"

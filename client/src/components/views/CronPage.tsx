@@ -241,9 +241,9 @@ function CronPage() {
       )}
 
       <div className="max-w-5xl mx-auto p-6">
-        {/* 运行中任务卡片 */}
+        {/* 运行中任务卡片（批次 4：与下方 CronStatsGrid 同源，不再自行取数） */}
         <div className="mb-4">
-          <RunningTasksCard />
+          <RunningTasksCard tasks={tasks} />
         </div>
 
         {/* 调度器状态栏 */}

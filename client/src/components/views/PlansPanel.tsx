@@ -6,6 +6,8 @@ import type { Plan } from "../../services/planService";
 import { handleClientError } from "../../utils/handleError";
 import DAGView from "./DAGView";
 import { SkeletonCard } from "../common/Skeleton";
+// 批次 4（2026-11-24）：计划状态展示的单一事实源（与 PlansPage 共用）
+import { getPlanStatusStyle } from "../../constants/planStatus";
 
 // 计划/流程数据接口
 interface PlanFlowItem {
@@ -105,14 +107,12 @@ export default function PlansPanel({ projectId }: { projectId?: string }) {
           <div className="space-y-2">
             {plans.map((plan) => {
               const isExpanded = expandedPlanId === plan.id;
-              const statusColors: Record<string, string> = {
-                pending: "bg-gray-400",
-                running: "bg-blue-500",
-                completed: "bg-green-500",
-                failed: "bg-red-500",
-                aborted: "bg-orange-500",
-              };
-              const dotColor = statusColors[plan.status] || "bg-gray-400";
+              // 批次 4：计划状态样式收敛到单一事实源（原两处各维护一份，且这里漏翻译）
+              const statusStyle = getPlanStatusStyle(plan.status);
+              const dotColor = statusStyle?.dotColor ?? "bg-gray-400";
+              const statusLabel = statusStyle
+                ? t(statusStyle.labelKey)
+                : plan.status;
 
               return (
                 <div key={plan.id}>
@@ -140,7 +140,7 @@ export default function PlansPanel({ projectId }: { projectId?: string }) {
                     </div>
                     <div className={`text-xs mt-1 ${textSecondary}`}>
                       {t("plans.stepsLabel", { count: plan.steps.length })} ·{" "}
-                      {plan.status}
+                      {statusLabel}
                     </div>
                   </button>
 

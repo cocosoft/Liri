@@ -3,55 +3,37 @@ import type { ProgressData } from "../../types";
 import { getToolDisplayName } from "../../utils/toolHumanSummary";
 // 2026-11-24（批次 5 / C2）：步骤状态图标/颜色的单一事实源（`done` 由 helper 归一）
 import { getTaskStatusStyle } from "../../constants/taskStatus";
+// 批次 4（2026-11-24）：执行阶段文案/图标的单一事实源（与 StatusFloatBar 共用）
+import { getExecutionPhaseStyle } from "../../constants/executionPhase";
 
 interface ProgressCardProps {
   data: ProgressData;
 }
-
-const PHASE_LABELS: Record<
-  ProgressData["phase"],
-  { icon: string; labelKey: string }
-> = {
-  analyzing: { icon: "\u{1F50D}", labelKey: "chat.phaseAnalyzing" },
-  designing: { icon: "\u{1F3D7}\uFE0F", labelKey: "chat.phaseDesigning" },
-  implementing: { icon: "\u{1F527}", labelKey: "chat.phaseImplementing" },
-  verifying: { icon: "\u2705", labelKey: "chat.phaseVerifying" },
-  presenting: { icon: "\u{1F4CB}", labelKey: "chat.phasePresenting" },
-};
-
-/** 2026-11-24（批次 5 / C2）：步骤状态图标/颜色收敛到 `constants/taskStatus` */
 
 /** 滚动区高度上限（px）——命令过多时内部滚动，不撑高页面 */
 const STEPS_MAX_HEIGHT = 176; // max-h-44
 
 /**
  * 进度卡片组件
- * 渲染 AI 执行阶段的进度信息：阶段名 + 进度条 + 步骤列表 + 当前描述
+ * 渲染 AI 执行阶段的进度信息：阶段名 + 已完成工具数 + 步骤列表 + 当前描述
+ *
+ * 口径（批次 4，2026-11-24）：后端心跳的 `progress` 是**已完成工具调用数**
+ * （`streamMessageToolLoop.buildExecutionPhaseChunk`），不是百分比。
+ * 旧实现把它当 `%` 直接显示（37 次调用 ⇒ "37%"）并与"已执行 N 项"重复 ⇒
+ * 现只显示计数，不再渲染百分比进度条（没有分母就不谎报比例）。
  *
  * 高度治理：步骤列表随命令累积只增不减，若不加限制会把页面撑得很高，
  * 因此步骤区设固定高度上限 + overflow-y 滚动。
  */
 export default function ProgressCard({ data }: ProgressCardProps) {
   const { t } = useTranslation();
-  const {
-    phase,
-    progress,
-    description,
-    steps,
-    currentStep,
-    totalSteps,
-    truncated,
-  } = data;
-  const phaseInfo = PHASE_LABELS[phase];
+  const { phase, progress, description, steps, currentStep, truncated } = data;
+  const phaseStyle = getExecutionPhaseStyle(phase);
   // 未识别阶段回退显示后端原始枚举值（不编造文案）
-  const phaseIcon = phaseInfo?.icon ?? "\u{1F4CC}";
-  const phaseLabel = phaseInfo ? t(phaseInfo.labelKey) : phase;
-  // BUG-1 修复（2026-08-23）：后端 execution_phase.progress 语义为"累计完成工具数"
-  // （无总计划数分母，无法换算 0-100 百分比），此处 clamp 兜底防溢出（>100% 撑破容器）
-  // 与 NaN 污染。见 dev_docs/20260823/会话标题生成问题-排查报告-20260823.md BUG-1。
-  const clampedProgress = Number.isFinite(progress)
-    ? Math.min(100, Math.max(0, progress))
-    : 0;
+  const phaseIcon = phaseStyle?.icon ?? "\u{1F4CC}";
+  const phaseLabel = phaseStyle ? t(phaseStyle.labelKey) : phase;
+  // 已完成工具调用数（后端心跳语义；缺失/非法 ⇒ 0）
+  const executedCount = Number.isFinite(progress) ? Math.max(0, progress) : 0;
 
   return (
     <div className="my-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 overflow-hidden shadow-sm">
@@ -64,49 +46,38 @@ export default function ProgressCard({ data }: ProgressCardProps) {
           </span>
         </div>
         <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 ml-2">
-          {clampedProgress}%
+          {t("chat.progressExecutedCount", {
+            count: executedCount,
+            defaultValue: "已执行 {{count}} 项",
+          })}
         </span>
-      </div>
-
-      {/* 进度条 */}
-      <div className="px-3 pt-2 pb-1">
-        <div className="w-full h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-blue-500 rounded-full transition-all duration-300 ease-out"
-            style={{ width: `${clampedProgress}%` }}
-          />
-        </div>
       </div>
 
       {/* 步骤列表：高度上限 + 滚动（防止命令过多撑高页面） */}
       {steps.length > 0 && (
         <div className="px-3 py-2">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-              {t("chat.progressExecutedCount", {
-                count: totalSteps ?? steps.length,
-                defaultValue: "已执行 {{count}} 项",
-              })}
-            </span>
-            {truncated ? (
-              <span
-                className="text-[10px] text-gray-400 dark:text-gray-500"
-                title={t(
-                  "chat.progressTruncatedHint",
-                  "更早的记录已折叠，仅保留最近若干条以减少传输",
-                )}
-              >
-                {t("chat.progressOnlyRecent", {
-                  count: steps.length,
-                  defaultValue: "仅展示最近 {{count}} 条",
-                })}
-              </span>
-            ) : steps.length > 6 ? (
-              <span className="text-[10px] text-gray-400 dark:text-gray-500">
-                {t("chat.progressScrollable", "可滚动查看")}
-              </span>
-            ) : null}
-          </div>
+          {(truncated || steps.length > 6) && (
+            <div className="flex items-center justify-end mb-1">
+              {truncated ? (
+                <span
+                  className="text-[10px] text-gray-400 dark:text-gray-500"
+                  title={t(
+                    "chat.progressTruncatedHint",
+                    "更早的记录已折叠，仅保留最近若干条以减少传输",
+                  )}
+                >
+                  {t("chat.progressOnlyRecent", {
+                    count: steps.length,
+                    defaultValue: "仅展示最近 {{count}} 条",
+                  })}
+                </span>
+              ) : (
+                <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                  {t("chat.progressScrollable", "可滚动查看")}
+                </span>
+              )}
+            </div>
+          )}
           <div
             className="space-y-1 overflow-y-auto pr-1 [scrollbar-width:thin] [scrollbar-color:rgba(148,163,184,0.4)_transparent]"
             style={{ maxHeight: STEPS_MAX_HEIGHT }}

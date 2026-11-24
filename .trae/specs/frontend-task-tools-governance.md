@@ -123,22 +123,27 @@
 ### 批次 3：中断回执的归因与事实（本批实施）
 
 **改动**：`emitPdcaInterruptedReceipts` 按 `abortedBy` 分口径，并在阶段链回执中补：
-已完成阶段数 / 总阶段数、产物已保留、以及"当前无可自动续跑的阶段链入口"的如实说明（不承诺 `/goal approve stage` 可用）。
+已完成阶段数 / 总阶段数、产物已保留；批次 5 起追加可用入口 `/goal resume stage <taskId>`
+（阶段链收口后仍可续跑，已完成阶段不重跑）。
 
 **验收**：`orphan_scan` 不再播报"进程重启"；阶段链回执照实给出 `N/M 阶段完成`。
 
-### 批次 4：面板职责收敛（方案，后续批次）
+### 批次 4：面板职责收敛（本批实施）
 
-1. **定义三层归属**：会话内过程（ToolExecutionGroup）→ 会话内任务（TaskCard/PdcaWorkflowCard）→ 跨会话列表（PlansPage/WorkItems/Kanban/RunningTasks）。
-2. 合并重复入口：`RunningTasksCard` 与 `WorkItemCockpit` 同源展示；`PlansPage` 与 `KanbanBoard` 明确"计划 vs 执行看板"。
-3. 统一状态词汇：全部复用 `deriveToolOutcome` / `deriveGroupOutcome` / `taskStatus` 常量，不再各自映射。
-4. 统一"进度"口径：任务级只显示 Step/Stage 进度；过程级只显示批次 1 的语义统计。
+1. **定义三层归属**：
+   - 会话内**过程**（`ToolExecutionGroup`）：只说"这一轮做了什么"（批次 1 语义统计），不承载任务级进度；
+   - 会话内**任务**（`TaskCard` / `PdcaWorkflowCard` / 抽屉详情）：只说 Step / Stage 进度（分子分母都是步骤或阶段）；
+   - **跨会话列表**（`PlansPage` / `PlansPanel` / `WorkItems` / `Kanban` / `CronPage`）：只做入口与状态筛选，不重复"过程"信息。
+2. 合并重复入口：`RunningTasksCard` 不再自取 `GET /v1/cron`、不再自带统计网格（与 `CronStatsGrid` 同页重复且计数口径互相矛盾），改为由 `CronPage` 传入同一份 `tasks`，只保留列表。
+3. 统一状态词汇/展示：新增 `client/src/constants/planStatus.ts`（`PlansPage`/`PlansPanel` 共用，并修掉 `PlansPanel` 直出英文枚举）与 `client/src/constants/executionPhase.ts`（`ProgressCard`/`StatusFloatBar` 共用）；任务状态沿用既有 `constants/taskStatus.ts`。
+4. 统一"进度"口径：`ProgressCard` 不再把后端心跳的**已完成工具数**当百分比显示（旧实现 37 次调用 ⇒ "37%"），只显示"已执行 N 项"。
 
-### 批次 5：阶段链收口后可续跑（方案，需产品裁定）
+### 批次 5：阶段链收口后可续跑（本批实施）
 
-- 选项 A：`abortPdcaAfterExpiry` 识别 `stages[]` 并写入 `abortedBy='approval_expired'`（收口更及时，但仍不可续跑）。
-- 选项 B（推荐）：新增 `StageOrchestrator.resumeAfterAbort()` + `/goal resume stage <taskId>`，允许"已完成阶段不重跑、回到待审批阶段重新出卡"。
-- 无论 A/B，都要求过期时**立即**给会话一条结论（避免用户等到下次重启才知道）。
+- **过期当场收口**（选项 A 的落地形态）：新增 `app/src/tasks/lro/stageChainExpiry.ts`，审批卡过期 ⇒ 子任务 abort 后，若父链停在 `stage_awaiting_approval` 则**当场**写 `abort` + `abortedBy='approval_expired'`，并立即发回执（不再等下次启动被孤儿扫描收口）。
+- **收口后续跑**（选项 B）：新增 `StageOrchestrator.resumeAfterAbort()` + `/goal resume stage <taskId>`：
+  已完成阶段不重跑；停在审批门的阶段回到审批门（随后 `/goal approve stage`）；被中断在半途的 `running` 阶段回落 `pending` 重跑。
+- `abortedBy` 取值收敛到 `app/src/tasks/lro/abortAttribution.ts`（`startup_scan` / `orphan_scan` / `approval_expired` / `user_abort`），回执与续跑判据同源。
 
 ---
 
@@ -183,6 +188,36 @@
 - app：`bun test tests/chat tests/session` → **1644 pass / 0 fail**；`tests/tasks/longRunningRootFix.test.ts` 全绿；`bun run typecheck` 通过；改动文件 ESLint 0 error。
 - client：`vitest run` → **1127 pass / 0 fail**（159 文件）；`tsc --noEmit` 通过；改动文件 ESLint 0 error。
 
+### 批次 4 已落地
+
+| 项 | 结果 |
+|---|---|
+| 三层归属 | 过程（`ToolExecutionGroup`）= 语义统计；会话内任务（`TaskCard`/`PdcaWorkflowCard`）= Step/Stage 进度；跨会话列表 = 入口与状态筛选（见 §4 批次 4 第 1 条） |
+| 重复入口 | `RunningTasksCard` 改为受控组件（`tasks` 由 `CronPage` 传入）：删除自取 `GET /v1/cron`、删除与 `CronStatsGrid` 重复且口径矛盾的统计网格（`idle` 曾把 `error` 重复计入） |
+| 计划状态 | 新增 `client/src/constants/planStatus.ts`；`PlansPage`/`PlansPanel` 共用；修掉 `PlansPanel` 直出英文枚举（`pending` 圆点由灰改黄，与 `PlansPage` 语义一致） |
+| 执行阶段 | 新增 `client/src/constants/executionPhase.ts`；`ProgressCard`/`StatusFloatBar` 共用（原各一份） |
+| 进度口径 | `ProgressCard` 删除"百分比进度条"：后端 `progress` 是**已完成工具数**（无分母），旧实现 37 次调用显示 "37%" |
+| 测试 | `client/src/constants/__tests__/panelStatus.test.ts`（两表完整性 + 未知值返回 `undefined`） |
+
+### 批次 5 已落地
+
+| 项 | 结果 |
+|---|---|
+| 当场收口 | 新增 `app/src/tasks/lro/stageChainExpiry.ts`：卡片过期 ⇒ 子任务 abort 后，父链若停在 `stage_awaiting_approval` 立即写 `abort` + `abortedBy='approval_expired'` 并当场发回执 |
+| 入口接线 | `abortPdcaAfterExpiry` 返回 taskId；`main.ts` 的 `onInboxItemsExpired` 继续调 `closeOutStageChainAfterApprovalExpiry`（跨层动作留在 entry） |
+| 续跑能力 | `StageOrchestrator.resumeAfterAbort()`：只接受 `phase='abort'`；已完成阶段不重跑；审批门阶段回到审批门；半途 `running` 阶段回落 `pending` |
+| 续跑入口 | `/goal resume stage <taskId>`（`Goal.ts`），并更新帮助文案；`persist()` 同步写 `status` 派生值并在恢复时清除 `abortedBy/abortedAt` |
+| 归因唯一 | 新增 `app/src/tasks/lro/abortAttribution.ts`（`startup_scan`/`orphan_scan`/`approval_expired`/`user_abort` + `isApprovalExpiryAbort`）；回执与续跑判据同源 |
+| 阶段链回执 | 统一改为「已完成阶段的产物仍保留，可 `/goal resume stage <taskId>` 续跑（已完成阶段不重跑）」 |
+| 测试 | `stageOrchestrator.test.ts` 增 3 例（审批门恢复不重跑 / 半途阶段重跑 / 非 abort 抛错）；新增 `stageChainExpiry.test.ts` 4 例（后缀反解 / 当场收口+回执 / running 不收口 / 幂等） |
+
+### 验证（批次 4/5）
+
+- app：`bun test tests/tasks` 全绿；`bun run typecheck` 通过。
+- client：`tsc --noEmit` 通过；`vitest run` 全绿。
+- 门禁：`lint:state-ratchet` / `lint:consts` / ESLint 通过。
+
 ### 后续（未实施）
 
-- 批次 4（面板职责收敛）与批次 5（阶段链收口后续跑）需产品裁定，见 §4。
+- `PlansPage` 目前**未挂路由**（`/plans` 已重定向），仍在测试中被引用；是否删除需按 `code-deletion.md` CD01–CD06 另行取证后再动。
+- `PdcaWorkflowCard`（消息内）/ 浮动栏 PDCA 徽标 / 抽屉 `PdcaPipeline` 三处并存：属于"摘要 / 指示器 / 详情"三个粒度，本批未合并。

@@ -1,60 +1,22 @@
 /**
- * RunningTasksCard — 运行中任务状态卡片
+ * RunningTasksCard — 运行中任务列表（批次 4 职责收敛，2026-11-24）
  *
- * 从 ToolPanel 抽取，供 CronPage 和 TaskCenterPage 页面内使用。
- * 展示运行中任务列表 + 任务统计网格。
+ * 收敛前的两个问题（`frontend-task-tools-governance.md` §6）：
+ * 1. 自己再发一次 `GET /v1/cron`（CronPage 已有同一份数据）⇒ 同页同源双请求；
+ * 2. 自带一套统计网格（`idle = enabled && status !== 'running'`）⇒ `error` 任务被
+ *    同时计入「待机」与「异常」，而「总数」又含未启用任务 ⇒ 四项之和 ≠ 总数。
+ *
+ * 现口径：
+ * - **数据来源**：由宿主页（CronPage）传入 `tasks`，本组件不再取数；
+ * - **统计口径**：只保留 `CronStatsGrid` 一处（按 status 分区），本组件只列任务。
  */
 
-import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { CronTask } from "../types";
-import { cronService } from "../services/backgroundTaskService";
 
-// ─── 子组件 ───────────────────────────────────────
-
-/** 任务统计网格 */
-function TaskStatsGrid({ tasks }: { tasks: CronTask[] }) {
-  const { t } = useTranslation();
-  const running = tasks.filter((t) => t.enabled && t.status === "running");
-  const idle = tasks.filter((t) => t.enabled && t.status !== "running");
-  const errorCount = tasks.filter((t) => t.status === "error").length;
-
-  return (
-    <div className="grid grid-cols-4 gap-2 text-center text-xs">
-      <div className="bg-gray-50 dark:bg-gray-800 rounded p-2">
-        <span className="block text-lg font-bold text-gray-900 dark:text-white">
-          {tasks.length}
-        </span>
-        <span className="text-gray-500 dark:text-gray-400">
-          {t("tasks.total")}
-        </span>
-      </div>
-      <div className="bg-gray-50 dark:bg-gray-800 rounded p-2">
-        <span className="block text-lg font-bold text-green-600">
-          {running.length}
-        </span>
-        <span className="text-gray-500 dark:text-gray-400">
-          {t("tasks.running")}
-        </span>
-      </div>
-      <div className="bg-gray-50 dark:bg-gray-800 rounded p-2">
-        <span className="block text-lg font-bold text-yellow-600">
-          {idle.length}
-        </span>
-        <span className="text-gray-500 dark:text-gray-400">
-          {t("tasks.standby")}
-        </span>
-      </div>
-      <div className="bg-gray-50 dark:bg-gray-800 rounded p-2">
-        <span className="block text-lg font-bold text-red-600">
-          {errorCount}
-        </span>
-        <span className="text-gray-500 dark:text-gray-400">
-          {t("tasks.abnormal")}
-        </span>
-      </div>
-    </div>
-  );
+interface RunningTasksCardProps {
+  /** 与 CronPage 同源的任务列表（不再自取） */
+  tasks: CronTask[];
 }
 
 /** 运行中任务列表 */
@@ -120,55 +82,24 @@ function RunningTasksList({ tasks }: { tasks: CronTask[] }) {
 
 // ─── 主组件 ───────────────────────────────────────
 
-export default function RunningTasksCard() {
+export default function RunningTasksCard({ tasks }: RunningTasksCardProps) {
   const { t } = useTranslation();
-  const [tasks, setTasks] = useState<CronTask[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let mounted = true;
-    cronService
-      .list()
-      .then((data) => {
-        if (mounted) {
-          setTasks(data);
-          setLoading(false);
-        }
-      })
-      .catch(() => {
-        if (mounted) setLoading(false);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
-        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-24 mb-2" />
-        <div className="h-8 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />
-      </div>
-    );
-  }
+  const runningCount = tasks.filter(
+    (task) => task.enabled && task.status === "running",
+  ).length;
 
   return (
     <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg">
       <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">
         <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
           {t("tasks.runningTasks")}
-          {tasks.filter((t) => t.enabled && t.status === "running").length >
-            0 && (
-            <span className="ml-2 text-xs text-blue-500">
-              ({tasks.filter((t) => t.enabled && t.status === "running").length}
-              )
-            </span>
+          {runningCount > 0 && (
+            <span className="ml-2 text-xs text-blue-500">({runningCount})</span>
           )}
         </h3>
       </div>
-      <div className="p-4 space-y-4">
+      <div className="p-4">
         <RunningTasksList tasks={tasks} />
-        <TaskStatsGrid tasks={tasks} />
       </div>
     </div>
   );

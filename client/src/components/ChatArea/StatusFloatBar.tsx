@@ -23,14 +23,8 @@ import {
 } from "../../stores/chat/chat-message-shared";
 // 2026-11-24（批次 5 / C2）：任务状态图标/颜色的单一事实源
 import { getTaskStatusStyle } from "../../constants/taskStatus";
-
-const PHASE_LABELS: Record<string, string> = {
-  analyzing: "chat.phaseAnalyzing",
-  designing: "chat.phaseDesigning",
-  implementing: "chat.phaseImplementing",
-  verifying: "chat.phaseVerifying",
-  presenting: "chat.phasePresenting",
-};
+// 批次 4（2026-11-24）：执行阶段文案的单一事实源（与 ProgressCard 共用）
+import { getExecutionPhaseStyle } from "../../constants/executionPhase";
 
 /** 2026-11-24（批次 5 / C2）：状态图标/颜色收敛到 `constants/taskStatus`（含 skipped） */
 
@@ -367,8 +361,8 @@ export default function StatusFloatBar({
     if (isUploading) return t("chat.uploading");
     if (isSending && !isStreaming) return t("chat.sending");
     if (executionPhase?.phase) {
-      const phaseLabel =
-        t(PHASE_LABELS[executionPhase.phase]) || executionPhase.phase;
+      const phaseKey = getExecutionPhaseStyle(executionPhase.phase)?.labelKey;
+      const phaseLabel = phaseKey ? t(phaseKey) : executionPhase.phase;
       return executionPhase.description
         ? `${phaseLabel} ${executionPhase.description}`
         : phaseLabel;

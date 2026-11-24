@@ -6,6 +6,8 @@ import PdcaPipeline from "../Agent/PdcaPipeline";
 import KanbanBoard from "../Agent/KanbanBoard";
 import { SkeletonCard } from "../common/Skeleton";
 import { useSessionStore } from "../../stores/sessionStore";
+// 批次 4（2026-11-24）：计划状态展示的单一事实源（与 PlansPanel 共用）
+import { getPlanStatusStyle } from "../../constants/planStatus";
 
 type TabId = "plans" | "pdca" | "kanban";
 
@@ -98,21 +100,7 @@ function PlansView() {
     load();
   };
 
-  const statusColor: Record<string, string> = {
-    pending: "text-yellow-600 dark:text-yellow-400",
-    running: "text-blue-600 dark:text-blue-400",
-    completed: "text-green-600 dark:text-green-400",
-    failed: "text-red-600 dark:text-red-400",
-    aborted: "text-gray-500 dark:text-gray-400",
-  };
-
-  const statusText: Record<string, string> = {
-    pending: t("plans.pending"),
-    running: t("plans.running"),
-    completed: t("plans.completed"),
-    failed: t("plans.failed"),
-    aborted: t("plans.aborted"),
-  };
+  // 批次 4：计划状态展示收敛到单一事实源（原 PlansPage / PlansPanel 各一份）
 
   if (loading) {
     return (
@@ -173,9 +161,14 @@ function PlansView() {
                 </div>
                 <div className="flex items-center gap-2 ml-3">
                   <span
-                    className={`text-xs font-medium ${statusColor[plan.status] || ""}`}
+                    className={`text-xs font-medium ${
+                      getPlanStatusStyle(plan.status)?.textColor ?? ""
+                    }`}
                   >
-                    {statusText[plan.status] || plan.status}
+                    {(() => {
+                      const style = getPlanStatusStyle(plan.status);
+                      return style ? t(style.labelKey) : plan.status;
+                    })()}
                   </span>
                   {plan.status === "pending" && (
                     <button

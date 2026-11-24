@@ -529,6 +529,9 @@ export class MemoryManagerImpl
       opts?.chunkPairs
     );
 
+    const removedIds = new Set(
+      result.duplicates.flatMap((group) => group.slice(1))
+    );
     if (result.totalRemoved > 0) {
       logger.info(`记忆维护：发现 ${result.totalRemoved} 条重复记忆`, {
         total: input.length,
@@ -541,6 +544,19 @@ export class MemoryManagerImpl
         }
       }
       await this.retriever.saveIndex();
+    }
+
+    // P0-1（2026-11-25）：重建顶层索引 `MEMORY.md` —— 注入层只读该文件（≤200 行）。
+    // 放在去重之后：索引反映的是**最终存活集合**。失败不阻断维护（下一轮空闲期再试）。
+    try {
+      await this.store.updateMemoryIndex(
+        all.filter((m) => !removedIds.has(m.id))
+      );
+    } catch (err) {
+      await handleError(err, {
+        module: 'memory:memoryManager',
+        action: 'updateMemoryIndex',
+      });
     }
 
     // U3（2026-10-06，`.trae/specs/memory-conflict-detection.md`）：冲突检测接线。
@@ -1006,6 +1022,24 @@ export class MemoryManagerImpl
       if (expired.length > 0 || archived > 0) {
         await this.retriever.saveIndex();
         await this.saveRelationGraph();
+      }
+
+      // P0-1（2026-11-25）：启动期 / 每 6 小时的清理顺带刷新顶层索引 ——
+      // 保证注入层在"首次空闲维护"之前就有可读索引（空态仍零注入）。
+      // 复用同一份 `allMemories` 快照（不重复扫盘）。
+      const goneIds = new Set(expired);
+      if (!MEMORY_RETENTION_DRY_RUN) {
+        for (const id of evictions) goneIds.add(id);
+      }
+      try {
+        await this.store.updateMemoryIndex(
+          allMemories.filter((m) => !goneIds.has(m.id))
+        );
+      } catch (err) {
+        await handleError(err, {
+          module: 'memory:memoryManager',
+          action: 'updateMemoryIndex',
+        });
       }
 
       logger.info(`清理了 ${expired.length} 条过期记忆`, {

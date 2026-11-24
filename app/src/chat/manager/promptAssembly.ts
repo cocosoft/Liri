@@ -26,6 +26,7 @@
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { ToolAwareClient } from '@modules/ai';
 import { assembleContextualSystemPrompt } from '../services/context/systemPromptAssembly';
+import { buildSessionMemoryInjection } from '../services/context/sessionMemoryInjection';
 import type { ImageContextService } from '../services/ImageContextService';
 import type { SessionAccessFacade } from '../services/SessionAccessFacade';
 import type { ModelInputSnapshot } from '../services/RequestSnapshotService';
@@ -81,11 +82,12 @@ export class ChatPromptAssembly {
       currentMessage,
       promptClient,
       this.deps.getImageContextService(),
+      // P0-1（2026-11-25）：注入预算 —— 预算内原文，超预算降级为索引 + 召回提示
       (sessionId: string) =>
-        this.deps
-          .getSessionAccess()
-          .getMemoryManager()
-          .getMemoryContext(sessionId),
+        buildSessionMemoryInjection(
+          this.deps.getSessionAccess().getMemoryManager(),
+          sessionId
+        ),
       // TR-12-B（2026-09-22）：系统提示词逐段快照 → "模型当时看到的提示词"可重建（§1.6）
       (sections, contents, mode) => {
         void this.deps.recordModelInputSnapshot(session.id, {

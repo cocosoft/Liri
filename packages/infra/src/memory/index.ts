@@ -113,6 +113,8 @@ export {
   MAX_MEMORY_LINES,
   MAX_MEMORY_BYTES,
 } from './MemoryTruncation';
+// P0-1（2026-11-25）：长期记忆顶层索引注入段（系统提示只读 MEMORY.md 头部）
+export { buildMemoryIndexSection } from './services/MemoryPromptBuilder';
 export type { TruncationResult } from './MemoryTruncation';
 export { getMemoryFreshness } from './MemoryFreshness';
 export { isAutoMemoryEnabled, getAutoMemPath } from './AutoMemory';

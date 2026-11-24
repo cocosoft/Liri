@@ -5,7 +5,8 @@
  */
 
 import { join } from 'path';
-import { resolveProjectRoot } from '@openliri/infra/environment';
+import { resolveMemoryDir } from '@openliri/infra/environment';
+import { configManager } from '@openliri/infra/config';
 import { readFileSync, existsSync, mkdirSync } from 'fs';
 import {
   MEMORY_FRONTMATTER_EXAMPLE,
@@ -36,17 +37,28 @@ export interface EntrypointTruncation {
   wasByteTruncated: boolean;
 }
 
+/** 截断上限覆盖（缺省即上面的默认常量；供配置键 `memory.index.*` 使用） */
+export interface EntrypointLimits {
+  maxLines?: number;
+  maxBytes?: number;
+}
+
 /**
  * 截断MEMORY.md内容到行和字节限制
  */
-export function truncateEntrypointContent(raw: string): EntrypointTruncation {
+export function truncateEntrypointContent(
+  raw: string,
+  limits: EntrypointLimits = {}
+): EntrypointTruncation {
+  const maxLines = limits.maxLines ?? MAX_ENTRYPOINT_LINES;
+  const maxBytes = limits.maxBytes ?? MAX_ENTRYPOINT_BYTES;
   const trimmed = raw.trim();
   const contentLines = trimmed.split('\n');
   const lineCount = contentLines.length;
   const byteCount = Buffer.byteLength(trimmed, 'utf-8');
 
-  const wasLineTruncated = lineCount > MAX_ENTRYPOINT_LINES;
-  const wasByteTruncated = byteCount > MAX_ENTRYPOINT_BYTES;
+  const wasLineTruncated = lineCount > maxLines;
+  const wasByteTruncated = byteCount > maxBytes;
 
   if (!wasLineTruncated && !wasByteTruncated) {
     return {
@@ -59,19 +71,19 @@ export function truncateEntrypointContent(raw: string): EntrypointTruncation {
   }
 
   let truncated = wasLineTruncated
-    ? contentLines.slice(0, MAX_ENTRYPOINT_LINES).join('\n')
+    ? contentLines.slice(0, maxLines).join('\n')
     : trimmed;
 
-  if (Buffer.byteLength(truncated, 'utf-8') > MAX_ENTRYPOINT_BYTES) {
-    const cutAt = truncated.lastIndexOf('\n', MAX_ENTRYPOINT_BYTES);
-    truncated = truncated.slice(0, cutAt > 0 ? cutAt : MAX_ENTRYPOINT_BYTES);
+  if (Buffer.byteLength(truncated, 'utf-8') > maxBytes) {
+    const cutAt = truncated.lastIndexOf('\n', maxBytes);
+    truncated = truncated.slice(0, cutAt > 0 ? cutAt : maxBytes);
   }
 
   const reason =
     wasByteTruncated && !wasLineTruncated
-      ? `${byteCount} 字节（上限 ${MAX_ENTRYPOINT_BYTES}）—— 索引条目过长`
+      ? `${byteCount} 字节（上限 ${maxBytes}）—— 索引条目过长`
       : wasLineTruncated && !wasByteTruncated
-        ? `${lineCount} 行（上限 ${MAX_ENTRYPOINT_LINES}）`
+        ? `${lineCount} 行（上限 ${maxLines}）`
         : `${lineCount} 行、${byteCount} 字节`;
 
   return {
@@ -81,6 +93,76 @@ export function truncateEntrypointContent(raw: string): EntrypointTruncation {
     wasLineTruncated,
     wasByteTruncated,
   };
+}
+
+/** 全局记忆子目录（与 `MemoryStoreImpl` 的 `global/` 一致） */
+const GLOBAL_MEMORY_SUBDIR = 'global';
+
+/** 索引条目行：`- [标题](file.md) — 一行钩子` */
+const INDEX_ENTRY_LINE = /^\s*-\s*\[[^\]]*\]\([^)]*\)/;
+
+function countIndexEntries(text: string): number {
+  return text.split('\n').filter((line) => INDEX_ENTRY_LINE.test(line)).length;
+}
+
+function readIndexLimit(key: string, fallback: number): number {
+  const value = configManager.getValue<number>(key, fallback);
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+    ? value
+    : fallback;
+}
+
+/**
+ * 构建「长期记忆顶层索引」系统段（P0-1，2026-11-25）。
+ *
+ * 对齐 Anthropic《The components of agent memory》A8：注入层必须小 —— 只注入
+ * `MEMORY.md` 的头部（默认 200 行 / 25KB），其余靠 `recall_memory` 按需检索；
+ * 尾部固定给出「总数 + 召回提示」兜底，避免索引变小后模型"不知道还有记忆"。
+ *
+ * - 索引文件位置：`<memoryDir>/global/MEMORY.md`（与 `MemoryStoreImpl.getMemoryIndexPath()` 同源）；
+ * - 文件不存在 / 为空 / 无条目 ⇒ 返回空串（空态零注入）；
+ * - 上限可通过配置键 `memory.index.maxLines` / `memory.index.maxBytes` 覆盖。
+ */
+export function buildMemoryIndexSection(opts?: {
+  /** 记忆根目录（默认 `resolveMemoryDir()`）；索引位于其 `global/` 子目录 */
+  memoryDir?: string;
+  maxLines?: number;
+  maxBytes?: number;
+}): string {
+  const root = opts?.memoryDir ?? resolveMemoryDir();
+  const entrypointPath = join(root, GLOBAL_MEMORY_SUBDIR, ENTRYPOINT_NAME);
+
+  let raw = '';
+  try {
+    if (existsSync(entrypointPath)) {
+      raw = readFileSync(entrypointPath, 'utf-8');
+    }
+  } catch (err) {
+    handleError(err, {
+      module: 'memory:prompt',
+      action: 'readMemoryIndex',
+    });
+    return '';
+  }
+
+  const totalEntries = countIndexEntries(raw);
+  if (!raw.trim() || totalEntries === 0) return '';
+
+  const truncated = truncateEntrypointContent(raw, {
+    maxLines:
+      opts?.maxLines ?? readIndexLimit('memory.index.maxLines', MAX_ENTRYPOINT_LINES),
+    maxBytes:
+      opts?.maxBytes ?? readIndexLimit('memory.index.maxBytes', MAX_ENTRYPOINT_BYTES),
+  });
+  const shownEntries = countIndexEntries(truncated.content);
+  const recallHint =
+    '需要细节时用 recall_memory 检索（未直接可见时先 tool_search 查找 recall_memory）';
+  const totalLine =
+    shownEntries < totalEntries
+      ? `- 共 ${totalEntries} 条长期记忆；上面只载入最近 ${shownEntries} 条。${recallHint}。`
+      : `- 共 ${totalEntries} 条长期记忆。${recallHint}。`;
+
+  return ['## 长期记忆索引', '', truncated.content.trim(), '', totalLine].join('\n');
 }
 
 /**
@@ -210,7 +292,9 @@ export function buildMemoryPrompt(params: {
  * 构建自动记忆提示
  */
 export function buildAutoMemoryPrompt(): string {
-  const memoryDir = join(resolveProjectRoot(), 'memory');
+  // P0-1（2026-11-25）：真实条目目录是 `<data>/memory/global`（MemoryStoreImpl），
+  // 原实现指向 `<项目根>/memory` ⇒ 永远读不到索引（空提示）。
+  const memoryDir = join(resolveMemoryDir(), GLOBAL_MEMORY_SUBDIR);
   return buildMemoryPrompt({ displayName: '自动记忆', memoryDir });
 }
 
@@ -224,7 +308,7 @@ export class MemoryPromptBuilder {
    * @returns 系统提示文本
    */
   buildSystemPrompt(memoryDir?: string): string {
-    const dir = memoryDir || join(resolveProjectRoot(), 'memory');
+    const dir = memoryDir || join(resolveMemoryDir(), GLOBAL_MEMORY_SUBDIR);
     return buildMemoryPrompt({
       displayName: '持久记忆',
       memoryDir: dir,

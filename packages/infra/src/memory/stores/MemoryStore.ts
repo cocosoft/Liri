@@ -110,6 +110,11 @@ export function validateMemoryPath(
   }
 }
 
+/** 索引行压缩：单行、去掉会破坏 Markdown 链接的方括号 */
+function toIndexLine(text: string): string {
+  return text.replace(/\s+/g, ' ').replace(/[\[\]]/g, '').trim();
+}
+
 /**
  * 记忆存储后端接口
  * 在默认文件存储之外，支持注册替代存储后端（如数据库、向量存储等）
@@ -152,8 +157,11 @@ export interface MemoryStore {
   // 读取记忆索引
   readMemoryIndex(): Promise<string>;
 
-  // 更新记忆索引
-  updateMemoryIndex(): Promise<void>;
+  /**
+   * 更新记忆索引（MEMORY.md）。
+   * @param memories 可选的既有快照 —— 传入时不再重新扫盘（供已持有全量列表的维护路径复用）
+   */
+  updateMemoryIndex(memories?: Memory[]): Promise<void>;
 
   // 导出记忆为Markdown文件
   exportMemoryAsMarkdown(id: string, exportDir?: string): Promise<string>;
@@ -1044,67 +1052,41 @@ export class MemoryStoreImpl implements MemoryStore {
   /**
    * 更新记忆索引
    */
-  async updateMemoryIndex(): Promise<void> {
+  async updateMemoryIndex(snapshot?: Memory[]): Promise<void> {
     await this.ensureMemoryDirExists();
 
-    // 获取所有记忆
-    const memoryIds = await this.listMemories();
-
-    // 读取所有记忆详情
-    const memories: Memory[] = [];
-    for (const id of memoryIds) {
-      const memory = await this.readMemory(id);
-      if (memory) {
-        memories.push(memory);
+    // 维护路径可传既有快照（避免重复扫盘）；否则自行读取全量
+    const memories: Memory[] = snapshot ? [...snapshot] : [];
+    if (!snapshot) {
+      const memoryIds = await this.listMemories();
+      for (const id of memoryIds) {
+        const memory = await this.readMemory(id);
+        if (memory) memories.push(memory);
       }
     }
 
     // 按更新时间排序（最新的在前）
     memories.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
 
-    // 构建索引内容
-    let indexContent = '# Memory Index\n\n';
-    indexContent += 'This file contains an index of all memories.\n\n';
-    indexContent += '## Statistics\n\n';
-    indexContent += `- Total memories: ${memories.length}\n`;
-
-    // 按类型统计
-    const typeStats: Record<string, number> = {};
+    // P0-1（2026-11-25）：改为**紧凑索引**（每条一行）。原实现每条记忆占 8+ 行，
+    // 200 行上限只能装下约 25 条；而注入层（`buildMemoryIndexSection`）读的正是本文件。
+    const lines = [
+      '# Memory Index',
+      '',
+      '> 自动生成，勿手改。每行 `- [标题](文件.md) — 一行钩子`；注入层只载入头部约 200 行。',
+      '',
+      `共 ${memories.length} 条。`,
+    ];
     for (const memory of memories) {
-      const type = memory.metadata.type || 'unknown';
-      typeStats[type] = (typeStats[type] || 0) + 1;
+      const title = toIndexLine(memory.metadata.name || memory.id);
+      const hook = toIndexLine(
+        memory.metadata.description || memory.content || ''
+      ).slice(0, 120);
+      lines.push(`- [${title}](${memory.id}.md)${hook ? ` — ${hook}` : ''}`);
     }
 
-    indexContent += '- Memories by type:\n';
-    for (const [type, count] of Object.entries(typeStats)) {
-      indexContent += `  - ${type}: ${count}\n`;
-    }
-
-    indexContent += '\n## Memories\n\n';
-
-    // 为每个记忆添加索引项
-    for (const memory of memories) {
-      indexContent += `### ${memory.metadata.name}\n`;
-      indexContent += `- **ID**: ${memory.id}\n`;
-      indexContent += `- **Type**: ${memory.metadata.type || 'unknown'}\n`;
-      indexContent += `- **Created**: ${memory.createdAt.toISOString()}\n`;
-      indexContent += `- **Updated**: ${memory.updatedAt.toISOString()}\n`;
-      if (memory.metadata.description) {
-        indexContent += `- **Description**: ${memory.metadata.description}\n`;
-      }
-      if (memory.metadata.tags && memory.metadata.tags.length > 0) {
-        indexContent += `- **Tags**: ${memory.metadata.tags.join(', ')}\n`;
-      }
-      if (memory.metadata.priority) {
-        indexContent += `- **Priority**: ${memory.metadata.priority}\n`;
-      }
-      indexContent += `- **File**: [${memory.id}.md](${memory.id}.md)\n`;
-      indexContent += '\n';
-    }
-
-    // 写入索引文件
-    const indexPath = this.getMemoryIndexPath();
-    await fs.writeFile(indexPath, indexContent);
+    // 原子写：注入层每轮都读该文件，避免截断时读到半份索引
+    await this.atomicWrite(this.getMemoryIndexPath(), lines.join('\n') + '\n');
   }
 
   /**

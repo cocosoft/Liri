@@ -24,6 +24,9 @@ import {
   setCurrentKnowledgeDomain,
 } from '@openliri/service/services/prompt/KnowledgePromptProvider';
 import type { MemorySessionContext } from '@openliri/infra/memory/types/SessionContext';
+// P0-1（2026-11-25）：长期记忆顶层索引段（只读 MEMORY.md 头部）
+import { buildMemoryIndexSection } from '@openliri/infra/memory';
+import type { SessionMemoryInjection } from './sessionMemoryInjection';
 import type { ImageContextService } from '../ImageContextService';
 
 // P1-3: Skills as User Message injection (not System Prompt, avoids breaking cache_control prefix)
@@ -183,7 +186,11 @@ export async function assembleContextualSystemPrompt(
   currentMessage: string | undefined,
   llmClient: { getProviderId(): string; getBaseUrl?(): string } | undefined,
   imageContextService: ImageContextService,
-  getMemoryContext?: (sessionId: string) => string,
+  /**
+   * 会话记忆注入内容（P0-1，2026-11-25）：由 `buildSessionMemoryInjection` 产出 ——
+   * 预算内为原文，超预算为索引；空 text ⇒ 不注入。
+   */
+  getSessionMemory?: (sessionId: string) => SessionMemoryInjection,
   /**
    * TR-12-B（2026-09-22）：逐段解析结果透出（含实际 mode），供
    * `RequestSnapshotService` 落"模型输入快照" —— 让"模型当时看到的系统提示词"
@@ -234,14 +241,24 @@ export async function assembleContextualSystemPrompt(
   // P0-1（提示词分层治理）：旁路内容注册为动态段（cacheBreak=true），随统一组装进入
   // stable/dynamic 分区与 SystemPromptReport——不再在组装后游离手工拼接（曾破坏
   // 前缀缓存且统计不到 token）。
+  const sessionMemory = getSessionMemory?.(session.id);
   const memorySectionText = (() => {
-    if (!getMemoryContext) return '';
-    const memoryContent = getMemoryContext(session.id);
-    if (!memoryContent || memoryContent.length === 0) return '';
+    if (!sessionMemory || sessionMemory.text.length === 0) return '';
+    // P0-1（2026-11-25）：超预算 ⇒ 只注入索引 + 召回提示（此时"无需 recall_memory"的
+    // 旧注意项必须撤掉，否则与降级语义相反）。
+    if (sessionMemory.mode === 'index') {
+      return [
+        '## 会话记忆（自动维护）',
+        sessionMemory.text,
+        '',
+        '**使用规则**：',
+        '- 不要凭印象补全未检索到的细节',
+      ].join('\n');
+    }
     return [
       '## 会话记忆（自动维护）',
       '以下是从本会话中自动提取的关键信息，用于保持长对话上下文连续性：',
-      memoryContent,
+      sessionMemory.text,
       '',
       '**使用规则**：',
       '- 优先信任此记忆中的"决策记录"和"文件变更"，它们是已确认的事实',
@@ -269,6 +286,18 @@ export async function assembleContextualSystemPrompt(
         () =>
           `## 当前会话目标\n你正在协助用户完成以下任务。对话中可能包含较早的无关话题，请以当前目标为准：\n\n${currentGoalText}`,
         '每轮随用户消息提取，动态变化'
+      )
+    );
+  }
+  // P0-1（2026-11-25）：长期记忆顶层索引 —— 只注入 `MEMORY.md` 头部（默认 200 行 / 25KB），
+  // 其余靠 recall_memory 按需检索；索引缺失/为空/无条目 ⇒ 空串 ⇒ 零注入。
+  const memoryIndexText = buildMemoryIndexSection();
+  if (memoryIndexText) {
+    extraDynamicSections.push(
+      DANGEROUS_uncachedSystemPromptSection(
+        'memoryIndex',
+        () => memoryIndexText,
+        '长期记忆顶层索引（MEMORY.md，维护期重建）'
       )
     );
   }

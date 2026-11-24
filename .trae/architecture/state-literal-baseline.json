@@ -1152,6 +1152,7 @@
       "packages/service/src/bridge/api/BridgeApi.ts",
       "packages/service/src/runtime/api/approvalBlockSelection.ts",
       "packages/service/src/runtime/api/sessionMessagesRead.ts",
+      "packages/service/src/runtime/inbox/expireScan.ts",
       "packages/service/src/runtime/inboxApproval.ts",
       "packages/service/src/runtime/NotificationPersistence.ts",
       "packages/service/src/session/types/UnifiedMessage.ts"
@@ -2453,8 +2454,8 @@
       "packages/service/src/execution/ExecutionStore.ts"
     ]
   },
-  "reason": "清理已删除的 PlansPage 残留（e50d4f574 删文件未同步基线）；理由与生成时间随之刷新",
-  "generatedAt": "2026-11-24T14:24:57.703Z",
+  "reason": "FSZ-006 拆分：过期扫描逐字外迁到 runtime/inbox/expireScan.ts，expired 出现点随文件移动（inboxApproval 机器已在目录登记）",
+  "generatedAt": "2026-11-24T14:38:01.358Z",
   "valueOwners": {
     "QUEUED": [
       "execution"

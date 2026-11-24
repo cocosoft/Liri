@@ -206,7 +206,7 @@
 
 1. **A2 否决（未改代码）**：PDCA 已有启动对账 `scanAndAbortStalePdcaTasks`（`app/src/infrastructure/http/handlers/pdca-handlers.ts`，`app/src/main.ts` 启动调用）⇒ 「放弃后永久卡死」路径不可达；仅在批次 1 中保留 A4/A5 的恢复口径加固，未新增"进程内兜底"（避免误杀仍在推进的任务）。
 2. **A4 的 `pendingInboxItems` 同步清空未做**：`addPendingInboxItem` 全仓零调用者（检查点从未写入该数组）⇒ 无可清空的写入点；改为恢复前**实时查库**复查（`bootstrap.ts#countLivePendingApprovals`）。是否"接线或删除"该 API 属独立立项（涉及 CD01–CD07）。
-3. **R04-001 例外**：`InboxManager.ts` 由 1999 → 2068 行，按规则登记 `FSZ-006`（`scripts/layer-exceptions.json`，含拆分计划与 2026-12-31 到期）。
+3. **R04-001 例外**：`InboxManager.ts` 由 1999 → 2068 行，按规则登记 `FSZ-006`（`scripts/layer-exceptions.json`，含拆分计划与 2026-12-31 到期）。**2026-11-24 已按该计划完成拆分**（2181 → 1960 行），例外已删除。
 4. **状态机目录登记**：批次 2 新增 `selfWake` 条目（`packages/infra/src/state/engine/stateMachineCatalog.ts`）并重生成实参基线；`firing/expired` 等词汇因此进入棘轮观测面。
 5. **`firing` 崩溃残留**：方案未列，实施时补了启动期 `recoverStaleFiring()`（否则 CAS 中间态无人复位，唤醒永久丢失）。
 6. **重试耗尽**：`session/wake` 载荷是闭集，未扩事件类型；耗尽时仍记 `resume_failed`，`error` 前缀 `exhausted(3):` 以区分"已放弃"。
@@ -215,7 +215,7 @@
 
 - **DocWorkflow「等待确认」语义**（§5 #6）：仍需产品裁定（改为「进行中」还是补等待信号），本批未动文案。
 - **死代码删除**：`extractToolCalls` / `buildLogEvents` / `resolveGroupStatus` 已于 2026-11-24 按 CD05/CD06 **两段式删除**（`771854de7` 摘入口 → 后续独立提交删实现），证据见 [state-machine-governance.md](./state-machine-governance.md) §20。
-- **`FSZ-006`**：InboxManager 拆分计划到期前需落地（或按同口径续期）。
+- **`FSZ-006`**：~~InboxManager 拆分计划到期前需落地（或按同口径续期）~~ **已完成（2026-11-24）**：按登记计划分两步外迁「终态监听 + 过期精确计数 + 行映射/状态审计」与「过期扫描」到 `packages/service/src/runtime/inbox/`，宿主只留端口与委派；`InboxManager.ts` 1960 行（≤2000），例外条目已从 `scripts/layer-exceptions.json` 删除。
 
 ### §9.4 验证
 

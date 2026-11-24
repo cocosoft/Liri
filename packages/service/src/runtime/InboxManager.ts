@@ -21,9 +21,7 @@ import {
   getRequestPrincipal,
   getRequestPrincipalKey,
   isLocalPrincipal,
-  principalFromKey,
   principalKeyOf,
-  runWithPrincipal,
 } from '@openliri/kernel/identity/requestScope.js';
 import { registerScopedResource } from '@openliri/kernel/identity/scopedResources.js';
 import { getSessionOwner } from '@openliri/service/execution';
@@ -43,8 +41,13 @@ import { isPanelActionable, toInboxMetadata } from '@openliri/infra/attention';
 import { MS_PER_HOUR, MS_PER_MINUTE } from '@openliri/infra/constants';
 // 2026-11-21（P1-2 剩余项）：审批卡 TTL 可由配置键覆盖（默认 30 分钟，零行为变更）
 import { configManager } from '@openliri/infra/config';
-// P2-1（2026-11-24，R09-013）：审批状态转移落 `state/transition` 审计
-import { emitStateTransitionAudit } from '@openliri/infra/state/engine/stateTransitionAudit';
+// 2026-11-24（FSZ-006 拆分）：过期扫描 / 终态监听 / 行映射 / 状态审计外迁到 `./inbox/*`
+// （宿主只保留端口与委派；判据、审计、投递语义逐字未改）
+import { expireOnDb, type ExpireScanPorts } from './inbox/expireScan.js';
+import { notifyInboxTerminal } from './inbox/terminalListeners.js';
+import { mapInboxRow } from './inbox/rowMapper.js';
+import { auditInboxStatusChange } from './inbox/stateAudit.js';
+import { countExpiredApprovalsOn } from './inbox/expiredCount.js';
 
 const logger = getLogger('runtime:inbox');
 
@@ -154,8 +157,10 @@ export const APPROVAL_EXPIRE_INTERVAL_MS = MS_PER_MINUTE * 2;
  * 之后的**中间态**。进程在"已抢锁、未落 reply"之间崩溃/失败时，卡会永久停在 `processing`
  * —— 既不在原 `pending` 过期口径内，也不可再回复（卡永久不可处理）。
  * 按 `updated_at` 兜底：超过该阈值仍未落定的 `processing` 卡视为过期。
+ *
+ * 实现随过期扫描外迁（FSZ-006）；此处转发保持公开 API 不变。
  */
-export const PROCESSING_STALE_TIMEOUT_MS = MS_PER_MINUTE * 10;
+export { PROCESSING_STALE_TIMEOUT_MS } from './inbox/expirePolicy.js';
 
 /**
  * 工具审批卡 TTL 的配置键（2026-11-21，P1-2 剩余项）。只覆盖**工具审批**（工作区访问申请仍固定
@@ -176,14 +181,6 @@ export function resolveApprovalTtlMs(): number {
     configManager.getValue<unknown>(APPROVAL_TTL_CONFIG_KEY)
   );
 }
-
-/**
- * 「工作区访问申请」的 SQL 判据。
- *
- * 与 `_requestWorkspaceScopeApproval` 写入的 `metadata.kind = 'workspace-scope'` 同源；
- * 用 LIKE 而非 `json_extract` 是因为过期清理走的是 `sqlite3` 回调接口，不保证 JSON1 扩展可用。
- */
-const WORKSPACE_SCOPE_PREDICATE = `COALESCE(metadata,'') LIKE '%"workspace-scope"%'`;
 
 export interface InboxItem {
   id: string;
@@ -211,20 +208,14 @@ export interface InboxItem {
 }
 
 /**
- * 2026-11-07（隐藏缺陷）：审批卡过期的**旁路监听器**。
+ * 2026-11-07（隐藏缺陷）：审批卡过期的**旁路监听器**（2026-11-24 随 FSZ-006 外迁）。
  *
  * 过期只改状态 + 广播时，PDCA 步骤卡对应的任务会永久停在
  * `stage_awaiting_approval`（卡已不可回复）⇒ 会话幂等键被 `findExistingTask` 锁死。
  * 监听器由入口层（`main.ts`）注册，用于把"过期"收口成任务终态。
+ * 注册表与分发实现见 `./inbox/terminalListeners.ts`；此处转发保持公开 API 不变。
  */
-type InboxExpiredListener = (item: InboxItem) => void;
-const expiredListeners = new Set<InboxExpiredListener>();
-
-/** 订阅"审批卡已过期"（返回取消订阅函数） */
-export function onInboxItemsExpired(fn: InboxExpiredListener): () => void {
-  expiredListeners.add(fn);
-  return () => expiredListeners.delete(fn);
-}
+export { onInboxItemsExpired } from './inbox/terminalListeners.js';
 
 /**
  * P37（2026-11-02）：结构化注意力载荷（可选）。
@@ -273,6 +264,14 @@ export class InboxManager {
    * 用户永远看不到卡片、也无处批准）。排队后两张卡都会落库。
    */
   private submitChain: Promise<unknown> = Promise.resolve();
+  /**
+   * 过期扫描端口（2026-11-24 FSZ-006 外迁）：卡片块回填依赖 SessionGateway，属宿主私有能力
+   * ⇒ 以回调注入；扫描模块（`./inbox/expireScan`）因此无需回头 import 宿主运行时（无环）。
+   */
+  private readonly expirePorts: ExpireScanPorts = {
+    syncBlockStatuses: (sessionId, updates) =>
+      this._syncInboxBlockStatuses(sessionId, updates),
+  };
 
   constructor(dbPath?: string) {
     this.explicitPath = dbPath !== undefined;
@@ -703,7 +702,7 @@ export class InboxManager {
         );
       }
     );
-    return row ? this._mapRow(row) : null;
+    return row ? mapInboxRow(row) : null;
   }
 
   /**
@@ -1009,7 +1008,7 @@ export class InboxManager {
       item.updatedAt = now;
       item.repliedAt = now;
       // P2-1（R09-013）：pending|processing → replied（UPDATE 已生效）。
-      this.auditStatusChange(item.sessionId, item.id, from, 'replied', 'inbox_reply');
+      auditInboxStatusChange(item.sessionId, item.id, from, 'replied', 'inbox_reply');
 
       otel.endSpan(span, SpanStatusCode.OK);
       void this._auditLog(id, 'replied', 'user', `Reply: ${reply}`, {
@@ -1078,7 +1077,7 @@ export class InboxManager {
         );
       }
     );
-    return row ? this._mapRow(row) : null;
+    return row ? mapInboxRow(row) : null;
   }
 
   /** 列出 Inbox 项 */
@@ -1136,7 +1135,7 @@ export class InboxManager {
       }
     );
 
-    return { items: rows.map((r) => this._mapRow(r)), total: countRow.cnt };
+    return { items: rows.map((r) => mapInboxRow(r)), total: countRow.cnt };
   }
 
   /** 获取待处理数量 */
@@ -1241,7 +1240,12 @@ export class InboxManager {
     maxAgeMs: number,
     workspaceMaxAgeMs?: number
   ): Promise<number> {
-    return this._expireOnDb(await this.getDb(), maxAgeMs, workspaceMaxAgeMs);
+    return expireOnDb(
+      await this.getDb(),
+      maxAgeMs,
+      workspaceMaxAgeMs,
+      this.expirePorts
+    );
   }
 
   /**
@@ -1260,11 +1264,21 @@ export class InboxManager {
   ): Promise<number> {
     let total = 0;
     if (this.db)
-      total += await this._expireOnDb(this.db, maxAgeMs, workspaceMaxAgeMs);
+      total += await expireOnDb(
+        this.db,
+        maxAgeMs,
+        workspaceMaxAgeMs,
+        this.expirePorts
+      );
     for (const db of this.scopedDbs.values()) {
       // 租户库：过期是**跨用户**维护动作（不按当前身份过滤）；事件按行内 owner_key
-      // 回落到各自身份（见 `_expireOnDb`），避免把别人的审批状态推给本地连接。
-      total += await this._expireOnDb(db, maxAgeMs, workspaceMaxAgeMs);
+      // 回落到各自身份（见 `expireOnDb`），避免把别人的审批状态推给本地连接。
+      total += await expireOnDb(
+        db,
+        maxAgeMs,
+        workspaceMaxAgeMs,
+        this.expirePorts
+      );
     }
     return total;
   }
@@ -1273,8 +1287,8 @@ export class InboxManager {
    * A3（2026-11-05）：归档回收 —— 删除 `created_at < cutoffMs` 的**终态**条目
    * （`replied` / `expired` / `dismissed`），覆盖所有已打开的分区库。
    *
-   * 为什么需要：`_expireOnDb` 只把 pending 置为 `expired`，**从不删行** ⇒ 实测 991 条里
-   * 934 条终态永久占库。`pending` / `processing` 是活动态，任何情况下都不按龄删除。
+   * 为什么需要：`expireOnDb`（`./inbox/expireScan`）只把 pending 置为 `expired`，**从不删行**
+   * ⇒ 实测 991 条里 934 条终态永久占库。`pending` / `processing` 是活动态，任何情况下都不按龄删除。
    *
    * 调用方：制品保留调度器（`ArtifactRetention`，5 分钟节拍，30 天口径）。
    */
@@ -1289,7 +1303,7 @@ export class InboxManager {
     return total;
   }
 
-  /** 终态行回收的单一实现（连接由调用方给，语义同 `_expireOnDb`） */
+  /** 终态行回收的单一实现（连接由调用方给，语义同 `./inbox/expireScan` 的 `expireOnDb`） */
   private async _purgeOnDb(db: Database, cutoffMs: number): Promise<number> {
     const deleted = await new Promise<number>((resolve, reject) => {
       db.run(
@@ -1320,210 +1334,20 @@ export class InboxManager {
   }
 
   /**
-   * 2026-11-24（批次 1 / A5）：审批卡进入**不可回复终态**（过期 / 级联关闭）时的统一收口回调。
-   *
-   * 抽成单一实现的原因：`dismissBySession` 此前只改状态、不触达监听器 ⇒ 关联 PDCA 不走
-   * `abortPdcaAfterExpiry`，任务停在 `stage_awaiting_approval` 占住会话幂等键。
-   */
-  private _notifyTerminalListeners(item: InboxItem): void {
-    for (const listener of expiredListeners) {
-      try {
-        listener(item);
-      } catch (err) {
-        logger.warn('审批终态回调失败', {
-          inboxId: item.id,
-          status: item.status,
-          error: String(err),
-        });
-      }
-    }
-  }
-
-  /**
    * 2026-11-24（批次 1 / A5）：某会话在 `afterMs` 之后进入 `expired` 的审批卡**精确计数**。
    *
-   * 为什么需要：调用方曾用 `list({ limit: 5 }).some(...)` 判"上次审批已过期"——
-   * 结果集按 `created_at` 截断，一条"创建很早但最近才过期"的卡会被漏掉（误判为可续跑）。
-   * `updated_at` 即进入终态的时刻（`_expireOnDb` / `expireByIds` 均刷新它）。
+   * 实现外迁到 `./inbox/expiredCount`（FSZ-006）；此处保留同名方法（调用方与测试的既有入口）。
    */
   async countExpiredApprovalsAfter(
     sessionId: string,
     afterMs: number
   ): Promise<number> {
-    const db = await this.getDb();
-    const row = await new Promise<{ cnt: number }>((resolve, reject) => {
-      db.get(
-        `SELECT COUNT(*) as cnt FROM inbox_items
-          WHERE session_id = ? AND status = 'expired' AND type = 'approval'
-            AND updated_at > ? AND owner_key = ?`,
-        [sessionId, afterMs, this.owner()],
-        (err: Error | null, row: { cnt: number }) => {
-          if (err) reject(err);
-          else resolve(row);
-        }
-      );
-    });
-    return row.cnt;
-  }
-
-  /** 过期清理的单一实现（连接由调用方给，避免再走 `getDb()` 的当前身份语义） */
-  private async _expireOnDb(
-    db: Database,
-    maxAgeMs: number,
-    workspaceMaxAgeMs?: number
-  ): Promise<number> {
-    const cutoff = Date.now() - maxAgeMs;
-    // 工作区访问申请用**独立**（更长）的 TTL；未显式给出时与工具审批同口径（向后兼容）。
-    const workspaceCutoff = Date.now() - (workspaceMaxAgeMs ?? maxAgeMs);
-    // 两种 TTL 合成一条 WHERE：工作区申请看 workspaceCutoff，其余看 cutoff。
-    // 2026-11-24（批次 1 / A1）：额外覆盖"抢锁后卡死"的 `processing`（按 updated_at 判龄），
-    // 否则 `reply` 写失败/进程中断留下的卡既不可回复也不会被回收。
-    const processingCutoff = Date.now() - PROCESSING_STALE_TIMEOUT_MS;
-    const expireWhere = `(
-        (status = 'pending' AND (
-          (${WORKSPACE_SCOPE_PREDICATE} AND created_at < ?)
-          OR (NOT (${WORKSPACE_SCOPE_PREDICATE}) AND created_at < ?)
-        ))
-        OR (status = 'processing' AND updated_at < ?)
-      )`;
-    const expireParams = [workspaceCutoff, cutoff, processingCutoff];
-
-    // 先查询将要过期的项（获取 channelSessionId 用于通知）+ 归属键（用于事件投递身份）
-    const expired = await new Promise<
-      Array<{ item: InboxItem; ownerKey?: string }>
-    >((resolve, reject) => {
-      db.all(
-        `SELECT * FROM inbox_items WHERE ${expireWhere}`,
-        expireParams,
-        (err: Error | null, rows: Record<string, unknown>[]) => {
-          if (err) reject(err);
-          else
-            resolve(
-              (rows ?? []).map((r) => ({
-                item: this._mapRow(r),
-                ownerKey:
-                  typeof r.owner_key === 'string' ? r.owner_key : undefined,
-              }))
-            );
-        }
-      );
-    });
-
-    const count = await new Promise<number>((resolve, reject) => {
-      db.run(
-        `UPDATE inbox_items SET status = 'expired', updated_at = ?
-          WHERE ${expireWhere}`,
-        [Date.now(), ...expireParams],
-        function (this: { changes: number }, err: Error | null) {
-          if (err) reject(err);
-          else {
-            if (this.changes > 0)
-              logger.info('Expired inbox items', {
-                count: this.changes,
-                ttlMs: maxAgeMs,
-                workspaceTtlMs: workspaceMaxAgeMs ?? maxAgeMs,
-              });
-            resolve(this.changes);
-          }
-        }
-      );
-    });
-
-    // 通知渠道：已过期的审批项（按行归属身份投递，租户库下不会串到别人）
-    for (const { item, ownerKey } of expired) {
-      // P2-1（R09-013）：批量过期按条落审计 —— 仅当**选中行数与生效行数一致**才逐条落，
-      // 否则无法确定哪几行真的过期（并发改态）⇒ 不猜，只留痕（CS06）。
-      if (count === expired.length) {
-        this.auditStatusChange(
-          item.sessionId,
-          item.id,
-          item.status,
-          'expired',
-          'inbox_expired_ttl'
-        );
-      } else if (count > 0) {
-        logger.warn('审批 TTL 过期存在并发变更，跳过本条转移审计', {
-          selected: expired.length,
-          changed: count,
-        });
-      }
-      const emit = async (): Promise<void> => {
-        // SSE 推送过期状态到前端
-        void broadcastEvent('inbox:update', {
-          id: item.id,
-          status: 'expired',
-          sessionId: item.sessionId,
-        });
-
-        if (item.channelSessionId) {
-          try {
-            const { notifyExpired } =
-              await import('@modules/channels/bridge/inboxChannelReply.js');
-            await notifyExpired(item);
-          } catch (err) {
-            logger.warn('Expired notification failed', {
-              inboxId: item.id,
-              channelSessionId: item.channelSessionId,
-              error: String(err),
-            });
-          }
-        }
-      };
-
-      const principal = ownerKey ? principalFromKey(ownerKey) : null;
-      if (principal) await runWithPrincipal(principal, emit);
-      else await emit();
-
-      // 2026-11-07：旁路监听（入口层据此收口 PDCA 等依赖"卡可回复"的状态机）
-      this._notifyTerminalListeners(item);
-    }
-
-    // P3-1（2026-11-06）：把 expired 写回会话卡片块（全历史可追溯）。
-    // 按「归属身份 + 会话」归组：同一会话只读一次消息，避免逐条回填放大 I/O。
-    const expiredGroups = new Map<
-      string,
-      { ownerKey?: string; sessionId: string; inboxIds: string[] }
-    >();
-    for (const { item, ownerKey } of expired) {
-      if (!item.sessionId) continue;
-      const key = `${ownerKey ?? ''}|${item.sessionId}`;
-      const group = expiredGroups.get(key) ?? {
-        ownerKey,
-        sessionId: item.sessionId,
-        inboxIds: [],
-      };
-      group.inboxIds.push(item.id);
-      expiredGroups.set(key, group);
-    }
-    for (const group of expiredGroups.values()) {
-      const sync = (): Promise<void> =>
-        this._syncInboxBlockStatuses(
-          group.sessionId,
-          group.inboxIds.map((inboxId) => ({ inboxId, status: 'expired' }))
-        );
-      const principal = group.ownerKey
-        ? principalFromKey(group.ownerKey)
-        : null;
-      if (principal) await runWithPrincipal(principal, sync);
-      else await sync();
-    }
-
-    // 清理已过期项的关联记录
-    try {
-      await new Promise<void>((resolve, reject) => {
-        db.run(
-          `DELETE FROM session_inbox_map WHERE inbox_item_id IN (SELECT id FROM inbox_items WHERE status = 'expired')`,
-          (err: Error | null) => {
-            if (err) reject(err);
-            else resolve();
-          }
-        );
-      });
-    } catch (err) {
-      logger.warn('session_inbox_map cleanup failed', { error: String(err) });
-    }
-
-    return count;
+    return countExpiredApprovalsOn(
+      await this.getDb(),
+      sessionId,
+      afterMs,
+      this.owner()
+    );
   }
 
   /**
@@ -1732,7 +1556,7 @@ export class InboxManager {
       if (result) {
         await this._auditLog(id, 'undone', 'user:web', 'Approval undone');
         if (before && before.status !== status) {
-          this.auditStatusChange(
+          auditInboxStatusChange(
             before.sessionId,
             id,
             before.status,
@@ -1742,27 +1566,6 @@ export class InboxManager {
         }
       }
       return result;
-    });
-  }
-
-  /**
-   * P2-1（2026-11-24，R09-013）：审批卡状态转移审计。
-   *
-   * 只在**真实 UPDATE 生效后**调用；`sessionId` 缺失 ⇒ 无会话可挂 ⇒ 如实不落。
-   */
-  private auditStatusChange(
-    sessionId: string | undefined,
-    inboxId: string,
-    from: string,
-    to: InboxItemStatus,
-    reason: string
-  ): void {
-    emitStateTransitionAudit(sessionId, {
-      machine: 'inboxApproval',
-      from,
-      to,
-      reason,
-      subjectId: inboxId,
     });
   }
 
@@ -1804,30 +1607,6 @@ export class InboxManager {
     }
   }
 
-  private _mapRow(row: Record<string, unknown>): InboxItem {
-    return {
-      id: row.id as string,
-      sessionId: row.session_id as string,
-      type: row.type as InboxItemType,
-      title: row.title as string,
-      message: row.message as string,
-      status: row.status as InboxItemStatus,
-      reply: row.reply as string | undefined,
-      options: row.options ? JSON.parse(row.options as string) : undefined,
-      offlineCapable: Boolean(row.offline_capable),
-      source: row.source as string,
-      metadata: row.metadata ? JSON.parse(row.metadata as string) : undefined,
-      createdAt: row.created_at as number,
-      updatedAt: row.updated_at as number,
-      repliedAt: row.replied_at as number | undefined,
-      channelId: (row.channel_id as string) || undefined,
-      channelSessionId: (row.channel_session_id as string) || undefined,
-      channelConversationId:
-        (row.channel_conversation_id as string) || undefined,
-      traceId: (row.trace_id as string) || undefined,
-    };
-  }
-
   /** 记录 Inbox 项与渠道会话的关联 */
   async linkSession(sessionId: string, inboxItemId: string): Promise<void> {
     const db = await this.getDb();
@@ -1861,7 +1640,7 @@ export class InboxManager {
         );
       }
     );
-    return rows.map((r) => this._mapRow(r));
+    return rows.map((r) => mapInboxRow(r));
   }
 
   /**
@@ -1882,7 +1661,7 @@ export class InboxManager {
         [sessionId, this.owner()],
         (err: Error | null, rows: Record<string, unknown>[]) => {
           if (err) reject(err);
-          else resolve((rows ?? []).map((r) => this._mapRow(r)));
+          else resolve((rows ?? []).map((r) => mapInboxRow(r)));
         }
       );
     });
@@ -1903,7 +1682,7 @@ export class InboxManager {
     for (const item of dismissed) {
       // P2-1（R09-013）：pending|processing → dismissed（仅当选中=生效才逐条落，并发改态则不猜）。
       if (count === dismissed.length) {
-        this.auditStatusChange(
+        auditInboxStatusChange(
           sessionId,
           item.id,
           item.status,
@@ -1916,7 +1695,7 @@ export class InboxManager {
           changed: count,
         });
       }
-      this._notifyTerminalListeners(item);
+      notifyInboxTerminal(item);
     }
     return count;
   }
@@ -1966,7 +1745,7 @@ export class InboxManager {
     if (count > 0) {
       if (count === before.length) {
         for (const row of before) {
-          this.auditStatusChange(
+          auditInboxStatusChange(
             row.sessionId,
             row.id,
             row.status,

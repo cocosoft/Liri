@@ -298,7 +298,7 @@ MMR 需查询向量与候选两两相似度（N² 次嵌入），仅在显式开
 | **团队记忆模拟实现** | ✅ 已标注 | `TeamMemorySyncServiceImpl` 标 `@deprecated` + `readonly simulated = true` + 构造期 `process.emitWarning`；日志统一加 `(simulated)`，`syncTeamMemory` 明确"未传输任何数据"；**保留**不删（`code-deletion.md` CD07：团队能力属运行时/配置驱动面） |
 | **记忆来源与新鲜度** | ✅ 已标注 | 注入层统一提示"来自记忆库，**可能已过期**；与当前代码/用户说法冲突时以当前事实为准"：`memoryIndex` 段尾行、会话记忆原文模式与降级索引模式各一处 |
 | **eval 常态化** | ⏳ 未做 | 依赖跨会话任务级评测集；当前仅有确定性用例（注入预算/检索/治理/压缩/校验） |
-| **团队记忆真实同步** | ⏳ 单独立项 | 需服务端、鉴权、冲突消解与审计；不在本方案内 |
+| **团队记忆真实同步** | 📄 已立项（待评审） | 方案见 [team-memory-sync.md](./team-memory-sync.md)：服务端契约 / Bearer+团队隔离 / etag 增量 / 默认 manual 冲突 / 密钥扫描 fail-closed / 四阶段路线 |
 
 ### 8.7 P2-2 记忆用途与学习闭环（Phase 3，部分）
 

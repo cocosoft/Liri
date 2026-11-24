@@ -159,7 +159,16 @@ interface DreamProgress {
   touchedPaths: string[];
 }
 
-let runner: ((context: unknown) => Promise<void>) | null = null;
+/** `executeAutoDream` 运行选项 */
+export interface AutoDreamRunOptions {
+  /**
+   * 手动触发（用户在 UI 明确请求"现在做梦"）⇒ 跳过 `minHours` / 扫描节流 / `minSessions` 门槛。
+   * 自动触发（cron / 空闲）不传，保持原有节流语义。
+   */
+  force?: boolean;
+}
+
+let runner: ((context: unknown) => Promise<boolean>) | null = null;
 let lastSessionScanAt = 0;
 let currentAbortController: AbortController | null = null;
 
@@ -270,11 +279,14 @@ function isDreamTask(task: unknown): task is DreamTask {
 export async function initAutoDream(): Promise<void> {
   lastSessionScanAt = 0;
 
-  runner = async function runAutoDream(context: unknown) {
+  runner = async function runAutoDream(context: unknown): Promise<boolean> {
     const cfg = getAutoDreamConfig();
-    const force = false;
+    // 2026-11-25（dream-buddy-wiring.md 方案 B）：手动触发可强制本轮整合，
+    // 否则 minHours / 扫描节流 / minSessions 任一命中都会静默跳过 —— 周期完成但
+    // DREAM_* 不发，伙伴梦境日志与统计永远看不到这次梦。
+    const force = (context as AutoDreamRunOptions | undefined)?.force === true;
 
-    if (!force && !isGateOpen()) return;
+    if (!force && !isGateOpen()) return false;
 
     let lastAt: number;
     try {
@@ -285,7 +297,7 @@ export async function initAutoDream(): Promise<void> {
         action: 'readLastConsolidatedAt',
       });
       logger.warn('读取上次整合时间失败', { error: (e as Error).message });
-      return;
+      return false;
     }
 
     const hoursSince = (Date.now() - lastAt) / 3_600_000;
@@ -295,7 +307,7 @@ export async function initAutoDream(): Promise<void> {
         minHours: cfg.minHours,
         reason: 'last_consolidation_too_recent',
       });
-      return;
+      return false;
     }
 
     const sinceScanMs = Date.now() - lastSessionScanAt;
@@ -304,7 +316,7 @@ export async function initAutoDream(): Promise<void> {
         sinceScanSec: Math.round(sinceScanMs / 1000),
         reason: 'session_scan_throttled',
       });
-      return;
+      return false;
     }
     lastSessionScanAt = Date.now();
 
@@ -317,7 +329,7 @@ export async function initAutoDream(): Promise<void> {
         action: 'listSessionsTouchedSince',
       });
       logger.warn('列出会话失败', { error: (e as Error).message });
-      return;
+      return false;
     }
 
     // 不再排除当前会话 — 用户正在聊的内容也应参与梦境整合
@@ -329,7 +341,7 @@ export async function initAutoDream(): Promise<void> {
         minSessions: cfg.minSessions,
         reason: 'not_enough_sessions',
       });
-      return;
+      return false;
     }
 
     let priorMtime: number | null;
@@ -341,9 +353,9 @@ export async function initAutoDream(): Promise<void> {
         action: 'tryAcquireLock',
       });
       logger.warn('获取锁失败', { error: (e as Error).message });
-      return;
+      return false;
     }
-    if (priorMtime === null) return;
+    if (priorMtime === null) return false;
 
     logger.info('开始自动整合', {
       hoursSince: hoursSince.toFixed(1),
@@ -492,13 +504,24 @@ ${sessionLines}`;
         timestamp: Date.now(),
       });
     }
+
+    // 已真正执行过一轮整合（成功/失败都算"这次梦发生了"）
+    return true;
   };
 }
 
-export async function executeAutoDream(context?: unknown): Promise<void> {
-  if (runner) {
-    await runner(context || {});
-  }
+/**
+ * 执行一轮自动整合（AutoDream）
+ *
+ * @returns true = 本轮**真正跑了**（无论成功/失败，均会 emit `DREAM_*`）；
+ *          false = 被门槛/节流/锁跳过，或引擎未初始化 ⇒ **没有**任何 `DREAM_*` 事件。
+ *          调用方（`UnifiedDreamCycle`）据此补发周期级事件，避免伙伴侧永远看不到这次梦。
+ */
+export async function executeAutoDream(
+  context?: unknown
+): Promise<boolean> {
+  if (!runner) return false;
+  return runner(context || {});
 }
 
 export function abortAutoDream(): void {

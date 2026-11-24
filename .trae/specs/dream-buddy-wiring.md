@@ -196,4 +196,11 @@ body 优先取 `insights[0]`，回退复用既有 `dream.notifyTask`（不新增
 | `/stats` 硬编码 0 | 改读 `buddy-growth.json`：`interactions` / `dreamsCompleted` / `totalXp` 与等级同源 |
 | 前端本地算经验 | `buddyStore` 收到 `dream:cycle:completed` 改为**刷新** companion/stats（删除会算出 NaN 的本地累加） |
 
-遗留（未在 A 内）：**B** = `AutoDream` 的 `force=false` / `minHours` / 节流 / `minSessions` 使周期完成但 `DREAM_*` 不发（dream→buddy 日志断点）；**C** = 前端对缺失字段的显示降级（A 已消除该前提）。
+A 之外的后续项：**B** = dream→buddy 事件断点（见 §7.1，已实施）；**C** = 前端缺失字段显示降级（A 已消除该前提，不再需要）。
+
+### 7.1 方案 B：dream → buddy 事件断点（✅ 已实施 2026-11-25）
+
+- `AutoDream.executeAutoDream(context?)` 改返回 `boolean`（true = 本轮**真正执行**并已 emit `DREAM_*`；false = 被 `minHours` / 10min 节流 / `minSessions` / 锁 / 未初始化跳过）；
+- 新增 `AutoDreamRunOptions.force`：`UnifiedDreamCycle` 在**手动触发**（`source==='manual'`）时传 `{ force: true }`，跳过三道时间/数量门槛；
+- `UnifiedDreamCycle` 在 `false` 时补发周期级 `SystemEvents.DREAM_COMPLETED`（taskId = cycleId，摘要来自周期统计）⇒ 伙伴梦境日志/统计与周期一一对应，不再"周期完成、伙伴无感"；
+- 回归用例：`app/tests/dream/autoDreamSkipSignal.test.ts`（未初始化 ⇒ false，调用方据此补发）。

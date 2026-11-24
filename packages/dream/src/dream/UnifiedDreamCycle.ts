@@ -240,7 +240,22 @@ export class UnifiedDreamCycle {
       });
 
       try {
-        await executeAutoDream();
+        // 方案 B（2026-11-25）：手动触发强制本轮整合（跳过 AutoDream 的 4h/节流/会话数门槛）；
+        // AutoDream 被跳过时它不会发 DREAM_*，而本周期照常完成 ⇒ 在这里补发周期级事件，
+        // 保证伙伴梦境日志/统计与梦境周期一致（不再"周期完成、伙伴无感"）。
+        const autoDreamRan = await executeAutoDream({
+          force: source === 'manual',
+        });
+        if (!autoDreamRan) {
+          globalEventBus.publish(SystemEvents.DREAM_COMPLETED, {
+            type: 'dream:completed',
+            taskId: cycleId,
+            summary: `梦境周期完成：整理 ${sessionsProcessed} 条会话，产出 ${insights.length} 条洞察`,
+            sessionsCount: sessionsProcessed,
+            insightsGenerated: insights.length,
+            timestamp: Date.now(),
+          });
+        }
       } catch (e) {
         errors.push(`AutoDream 执行失败: ${String(e)}`);
         void handleError(e, {

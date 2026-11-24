@@ -1,6 +1,6 @@
 # 状态机缺漏修复方案（2026-11-24）
 
-> **状态**：🟡 待确认（确认后再实施；确认时只需勾选 `§3` 的批次）
+> **状态**：✅ 已实施（5 批全部落地，见 §9；剩余 2 项待拍板见 §5 #5/#6 与 §9.3）
 > **来源**：三路并行审查 —— 后端（app/packages）、前端 store（client/src/stores）、展示层派生（components/utils/hooks）
 > **范围**：Liri 会话 / 工具 / 审批 / 唤醒 / 任务卡 / 编排等状态机
 > **原则**：先复核证据 → 单批实施 → 单测 + 真机复核 → 独立提交（遵循 `code-deletion.md` CD05/CD06）
@@ -185,3 +185,40 @@
 | 日期 | 变更 | 作者 |
 |---|---|---|
 | 2026-11-24 | 初版：三路审查汇总 + 5 批修复方案 + 待拍板事项 | AI |
+| 2026-11-24 | 5 批全部实施并独立提交（§9）；补充实施偏差与遗留项 | AI |
+
+---
+
+## §9 实施记录（2026-11-24）
+
+### §9.1 提交清单（每批独立提交）
+
+| 批次 | 提交 | 内容 |
+|---|---|---|
+| 方案 | `1b6adde31` | 本文件落盘 |
+| 1 | `68c1fc74f` | A1 processing 回滚 + 过期扫描覆盖 processing；A4 断点恢复实时复查；A5 过期审批精确计数 + dismiss 终态回调 |
+| 2 | `1bfa21fa0` | A3 selfwake 状态机补全（CAS / 失败重试 / expiresAt / 启动复位）；登记 `selfWake` 状态机目录 |
+| 3 | `160a4b864` | B1 挂起 TTL + 挂起即结算运行态；B2 流式中刷新不回退正文、不清运行态 |
+| 4 | `5ed4acb50` | B3 工具结果态单一派生（`toolOutcome`）；B4 `isAwaitingApprovalTurn`；B5 流结束迁移 running；B6 acceptance 透传 + upsert 合并 |
+| 5 | `d421db59f` | C1 档位单一来源（`inboxReplyTiers`）；C2 状态展示表收敛（`constants/taskStatus`）；C3 死代码 `@deprecated` + PDCA 终态停脉冲 |
+
+### §9.2 实施偏差（如实记录）
+
+1. **A2 否决（未改代码）**：PDCA 已有启动对账 `scanAndAbortStalePdcaTasks`（`app/src/infrastructure/http/handlers/pdca-handlers.ts`，`app/src/main.ts` 启动调用）⇒ 「放弃后永久卡死」路径不可达；仅在批次 1 中保留 A4/A5 的恢复口径加固，未新增"进程内兜底"（避免误杀仍在推进的任务）。
+2. **A4 的 `pendingInboxItems` 同步清空未做**：`addPendingInboxItem` 全仓零调用者（检查点从未写入该数组）⇒ 无可清空的写入点；改为恢复前**实时查库**复查（`bootstrap.ts#countLivePendingApprovals`）。是否"接线或删除"该 API 属独立立项（涉及 CD01–CD07）。
+3. **R04-001 例外**：`InboxManager.ts` 由 1999 → 2068 行，按规则登记 `FSZ-006`（`scripts/layer-exceptions.json`，含拆分计划与 2026-12-31 到期）。
+4. **状态机目录登记**：批次 2 新增 `selfWake` 条目（`packages/infra/src/state/engine/stateMachineCatalog.ts`）并重生成实参基线；`firing/expired` 等词汇因此进入棘轮观测面。
+5. **`firing` 崩溃残留**：方案未列，实施时补了启动期 `recoverStaleFiring()`（否则 CAS 中间态无人复位，唤醒永久丢失）。
+6. **重试耗尽**：`session/wake` 载荷是闭集，未扩事件类型；耗尽时仍记 `resume_failed`，`error` 前缀 `exhausted(3):` 以区分"已放弃"。
+
+### §9.3 遗留 / 待产品确认
+
+- **DocWorkflow「等待确认」语义**（§5 #6）：仍需产品裁定（改为「进行中」还是补等待信号），本批未动文案。
+- **死代码删除**：`extractToolCalls` / `buildLogEvents` / `resolveGroupStatus` 已标 `@deprecated`，观察期后按 CD05/CD06 独立删除。
+- **`FSZ-006`**：InboxManager 拆分计划到期前需落地（或按同口径续期）。
+
+### §9.4 验证
+
+- `app`：`bun test` 全量 **13794 pass / 0 fail**（1637 文件）；`bun run typecheck` 通过；`lint:consts` / `lint:state-ratchet` 通过。
+- `client`：`vitest run` 全量 **1125 pass / 0 fail**（158 文件）；`tsc --noEmit` 通过；ESLint 通过。
+- 新增测试：`inboxApprovalReplyRollback` / `selfWakeLifecycle` / `toolOutcome` / `planTaskStoreUpsert` / `inboxReplyTiers` / `taskStatus`。

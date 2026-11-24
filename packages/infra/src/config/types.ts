@@ -475,7 +475,12 @@ export interface GlobalConfig {
   /** 伙伴配置 */
   companion?: {
     name: string;
+    /** 伙伴个性设定（历史字段；读取时作为 `personality` 的回退） */
     soul: string;
+    /** 伙伴个性（2026-11-25 形状收口：与 `Companion.personality` 对齐；缺省回退 `soul`） */
+    personality?: string;
+    /** 孵化时间（ms）；缺省按 0 处理（2026-11-25 形状收口） */
+    hatchedAt?: number;
   };
   /** 伙伴是否静音 */
   companionMuted?: boolean;

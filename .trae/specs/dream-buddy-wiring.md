@@ -222,5 +222,8 @@ A 之外的后续项：**B** = dream→buddy 事件断点（见 §7.1，已实�
 | 记忆回响（P2-1） | `talk` 返回 `… — It recalls: 状态机治理核心原则…`（读 `MEMORY.md` 索引头部）✅ |
 
 > 验证用的伙伴是**临时注入 config**，验证后已恢复原 config（`companion` 回到 `null`）。
-> 顺带发现（未修，已登记台账）：仓库内**没有写入 `config.companion` 的孵化路径**，且 config 形状
-> `{ name, soul }` 与 `Companion` 的 `personality/hatchedAt` 不一致（真孵化后前端会缺这两个字段）。
+> **形状不一致已修（2026-11-25）**：config 为 `{ name, soul }` 而 `Companion` 需要
+> `personality/hatchedAt` ⇒ 新增 `buildCompanionFromStored()` 显式映射（`soul → personality`、
+> `hatchedAt` 缺省 0）；真机复验 `personality=好奇但务实 / hatchedAt=0`，用例
+> `app/tests/buddy/companionShape.test.ts`。
+> **仍未修（另立）**：仓库内没有写入 `config.companion` 的孵化路径（伙伴只能手改配置产生）。

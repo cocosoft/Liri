@@ -35,11 +35,15 @@ export type { AttributeDistribution } from './attributes';
 export {
   getCompanion,
   getCompanionSnapshot,
+  buildCompanionFromStored,
   roll,
   rollWithSeed,
   companionUserId,
 } from './companion';
-export type { BuddyCompanionSnapshot } from './companion';
+export type {
+  BuddyCompanionSnapshot,
+  StoredCompanionConfig,
+} from './companion';
 // 2026-11-25 契约收口 A：等级视图由累计经验派生（唯一真源 = buddy-growth.json）
 export { resolveBuddyLevel, XP_PER_LEVEL_STEP } from './level';
 export type { BuddyLevelView } from './level';

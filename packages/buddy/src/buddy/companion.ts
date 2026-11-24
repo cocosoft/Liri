@@ -1,6 +1,7 @@
 declare const Bun: { hash: (s: string) => bigint };
 
 import { getGlobalConfig } from '@openliri/infra/config';
+import type { GlobalConfig } from '@openliri/infra/config';
 import { loadGrowthState } from './growthPersistence';
 import { resolveBuddyLevel } from './level';
 import {
@@ -121,6 +122,30 @@ export function companionUserId(): string {
   return config.oauthAccount?.accountUuid ?? config.internal?.userID ?? 'anon';
 }
 
+/** config 中的伙伴条目（`GlobalConfig.companion`，旧形状只有 name/soul） */
+export type StoredCompanionConfig = NonNullable<GlobalConfig['companion']>;
+
+/**
+ * 由 config 条目 + 骨骼组装 `Companion`（2026-11-25 形状收口）
+ *
+ * 历史 config 只有 `{ name, soul }`，而 `Companion` 需要 `personality` / `hatchedAt`；
+ * 直接展开会让前端拿到 `undefined`。这里显式映射：
+ * - `personality` = `personality ?? soul`（旧配置的个性设定就是个性）
+ * - `hatchedAt` = `hatchedAt ?? 0`（缺省按未记录处理，不伪造时间）
+ */
+export function buildCompanionFromStored(
+  stored: StoredCompanionConfig,
+  bones: CompanionBones
+): Companion {
+  return {
+    name: stored.name,
+    personality: stored.personality || stored.soul || '',
+    hatchedAt: stored.hatchedAt ?? 0,
+    // bones last：旧格式 config 里残留的骨骼字段必须被覆盖
+    ...bones,
+  };
+}
+
 // Regenerate bones from userId, merge with stored soul. Bones never persist
 // so species renames and SPECIES-array edits can't break stored companions,
 // and editing config.companion can't fake a rarity.
@@ -128,8 +153,7 @@ export function getCompanion(): Companion | undefined {
   const stored = getGlobalConfig().companion;
   if (!stored) return undefined;
   const { bones } = roll(companionUserId());
-  // bones last so stale bones fields in old-format configs get overridden
-  return { ...stored, ...bones } as unknown as Companion;
+  return buildCompanionFromStored(stored, bones);
 }
 
 /** 伙伴快照：骨骼/灵魂 + 由累计经验派生的等级视图（`/v1/buddy/*` 统一契约） */

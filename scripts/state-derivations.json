@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "note": "状态派生判据登记表（治理方案 R09-011）。concept 唯一；implementation 必须是真实导出（文件#符号）；新增派生判据前先在此登记，禁止同一概念多处自写判据。",
+  "derivations": [
+    {
+      "concept": "tool.outcome",
+      "owner": "execution",
+      "implementation": "client/src/stores/chat/toolOutcome.ts#deriveToolOutcome",
+      "consumers": [
+        "client/src/components/ChatArea/ToolExecutionGroup.tsx",
+        "client/src/components/ChatArea/ToolCallGroup.tsx",
+        "client/src/components/ChatArea/ToolInlineTags.tsx",
+        "client/src/components/ChatInspector/LogTab.tsx"
+      ],
+      "note": "6 态：pending_approval / running / completed / failed / interrupted / unknown；判定顺序固定，组头与工具卡共用"
+    },
+    {
+      "concept": "approval.session_pending",
+      "owner": "inbox",
+      "implementation": "client/src/stores/chat/chat-message-shared.ts#hasPendingApproval",
+      "consumers": [
+        "client/src/components/ChatArea/TaskCard.tsx",
+        "client/src/components/ChatArea/StatusFloatBar.tsx"
+      ],
+      "note": "三信号：inbox 卡仍 pending / 工具卡 pendingApproval 未落定 / 末条 assistant awaiting_approval"
+    },
+    {
+      "concept": "wait.state",
+      "owner": "chat",
+      "implementation": "client/src/components/ChatArea/useWaitState.ts#deriveWaitState",
+      "consumers": ["client/src/components/ChatArea/StatusFloatBar.tsx"],
+      "note": "unresolved 优先于 pendingWake；无 triggerAt 不伪造倒计时"
+    },
+    {
+      "concept": "pdca.terminal",
+      "owner": "tasks",
+      "implementation": "client/src/components/ChatArea/PdcaActivityStrip.tsx#isTerminalPdcaEvent",
+      "consumers": [
+        "client/src/components/ChatArea/PdcaWorkflowCard.tsx",
+        "client/src/components/ChatArea/usePdcaStartEntry.ts"
+      ],
+      "note": "pdca:stage:complete / fail 为终态，不得再判『编排进行中』"
+    }
+  ]
+}

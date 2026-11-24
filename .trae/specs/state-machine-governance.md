@@ -1,6 +1,6 @@
 # 状态机治理整体方案（2026-11-24）
 
-> **状态**：🟡 实施中 —— **P0-1 / P0-2 / P1-1 / P1-2 已完成**；下一步 P1-3（派生唯一登记）
+> **状态**：🟡 实施中 —— **P0-1 / P0-2 / P1-1 / P1-2 / P1-3 已完成**；下一步 P2-1（审计与观测）
 > **定位**：本文件是 Liri **状态机治理总纲**，接替已缺失的 `dev_docs/20261012/状态机规范管理方案-20261012.md`
 > （该目录当前**不存在**，但 `fix-evidence-registry.json` 仍有两处指向它 —— 见 G8）。
 > **已完成基线**：13 条具体缺陷的修复见 [state-machine-defect-remediation.md](./state-machine-defect-remediation.md)
@@ -317,6 +317,7 @@ interface StateMachineEntry {
 | 2026-11-24 | **P0-2 实施完成**：目录 16 → 18（补 `inboxApproval` / `plan`）、`sessionState` 补 `transitionRules` 锚点、新增 R09-008 转移规则自洽测试（口径修正：不要求终态出度为 0） | AI |
 | 2026-11-24 | **P1-1 实施完成**：新增 R09-009 对账证据契约测试（持久化机 ⇒ 策略非 none + `文件#符号` 真实可查）；`stepVerdict` 按"无独立状态存储"归为 `persistence: none` | AI |
 | 2026-11-24 | **P1-2 实施完成**：`lint:state-ratchet` 扫描根加入 `client/src`（基线 +481 行收编存量）；新增 `shared/stateVocabulary.ts`（toolCall / task 两项）与 R09-012 跨端一致性测试 | AI |
+| 2026-11-24 | **P1-3 实施完成**：新增 `scripts/state-derivations.json` 与 R09-011 测试，登记 tool/approval/wait/pdca 四个派生判据（concept 与实现均唯一、锚点真实导出） | AI |
 
 ---
 
@@ -402,3 +403,19 @@ interface StateMachineEntry {
 **风险（已发生，按预期）**：通用词（`running/completed/pending` 等）进入前端后，基线显著变大；棘轮仍只拦**新增**，存量不追溯。按机器归属与到期收敛留给 P2-2。
 
 **验证**：`bun test tests/state` → **163 pass / 0 fail**（新增 3 条）；`bun run typecheck` 通过；`lint:state-ratchet` 通过。
+
+---
+
+## §17 P1-3 实施记录（2026-11-24）
+
+**已落地**
+
+| 项 | 结果 |
+|---|---|
+| 登记表 | `scripts/state-derivations.json`（version 1）：`tool.outcome` / `approval.session_pending` / `wait.state` / `pdca.terminal` 四项，含 owner / 实现锚点 / 消费方 / 口径说明 |
+| 新门禁 | `app/tests/state/stateDerivations.test.ts`（R09-011）：`concept` 与 `implementation` 均唯一、`文件#符号` 真实导出、`consumers` 文件存在 |
+| 现状说明 | 四项均为既有**单一实现**（本轮 B3/B4 已收敛）；本批只做登记与守卫，**不改业务代码** |
+
+**说明**：方案 §5 原写"新脚本 `lint-state-derivations.ts`"；本批以 bun test 落地（随全量测试执行，零 CI 接线风险），待 P2 再并入 `lint:arch`。
+
+**验证**：`bun test tests/state` → **167 pass / 0 fail**（新增 4 条）；`bun run typecheck` 通过。

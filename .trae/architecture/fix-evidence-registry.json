@@ -17854,6 +17854,28 @@
       "changelog": [],
       "reopenWhen": "统计再次出现结果数 > 调用数，或需要把重放结果彻底拆成独立事件类型（回滚：revert 本提交）",
       "notes": "设计边界：占位（awaiting_approval）与真实结果两条事件**刻意保留**（审计轨迹，发送模型前由 dedupeToolResults 剔除），本项只改统计口径。toolResultCount 改为按 toolCallId 去重（无 id 结果仍如实计数），新增 toolResultReplayCount 暴露额外条数；孤儿判定语义不变。"
+    },
+    {
+      "id": "WORKSPACE-LAYOUT-HINT",
+      "title": "系统提示工作区段附带一级目录，免去「先探一层才知道工程根」",
+      "source": "会话 session_mwurduuh1b0b38db30 复盘（2026-11-24，P3）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": ["app/src/chat/services/context/systemPromptAssembly.ts"],
+      "tests": ["app/tests/chat/MessageContextPipeline.test.ts"],
+      "changelog": [],
+      "reopenWhen": "提示词体积因目录列举显著上升，或模型仍按「仓库根=工程根」猜路径（回滚：revert 本提交）",
+      "notes": "只做确定性事实注入，不硬编码具体项目路径：listTopLevelDirs 读工作区一级目录（排除 node_modules/.git，按名排序，上限 24），失败回落空数组；仅存在显式工作区时注入，另加一行指引“代码主工程不在工作区根时按目录判断，不要按仓库根=工程根的习惯猜路径”。"
     }
   ]
 }

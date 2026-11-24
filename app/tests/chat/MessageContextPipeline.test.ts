@@ -19,8 +19,14 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { describe, expect, test } from 'bun:test';
-import { buildWorkspaceRootSection } from '../../src/chat/services/context/systemPromptAssembly';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import {
+  buildWorkspaceRootSection,
+  listTopLevelDirs,
+} from '../../src/chat/services/context/systemPromptAssembly';
 import {
   windowStartForBudget,
   computePaginationPoint,
@@ -149,6 +155,52 @@ describe('buildWorkspaceRootSection — 聊天链工作区基准提示（2026-11
     expect(text).toContain('C:\\Users\\u\\.pyapp\\workspaces\\s1');
     expect(text).toContain('相对路径基准');
     expect(text).toContain('人工确认');
+  });
+});
+
+/**
+ * 2026-11-24（会话 `session_mwurduuh1b0b38db30` 复盘，P3）：工作区一级目录注入。
+ *
+ * 真机：模型被告知基准是仓库根，但真实工程根是 `app/` ⇒ 每轮先探一层目录，白耗 1–2 轮。
+ */
+describe('工作区一级目录（P3，2026-11-24）', () => {
+  let root = '';
+  beforeAll(() => {
+    root = mkdtempSync(join(tmpdir(), 'liri-ws-layout-'));
+    for (const d of ['app', 'client', 'docs', 'node_modules', '.git']) {
+      mkdirSync(join(root, d));
+    }
+  });
+  afterAll(() => {
+    try {
+      rmSync(root, { recursive: true, force: true });
+    } catch {
+      // @ignore-catch — 清理失败不影响断言
+    }
+  });
+
+  test('listTopLevelDirs：只列目录，排除 node_modules/.git，按名称排序', () => {
+    expect(listTopLevelDirs(root)).toEqual(['app', 'client', 'docs']);
+  });
+
+  test('listTopLevelDirs：目录不存在 ⇒ 空数组（不抛错、不臆造）', () => {
+    expect(listTopLevelDirs(join(root, 'not-exist'))).toEqual([]);
+  });
+
+  test('listTopLevelDirs：limit 生效', () => {
+    expect(listTopLevelDirs(root, 2)).toEqual(['app', 'client']);
+  });
+
+  test('提示段附带一级目录 + 防"仓库根=工程根"误判的指引', () => {
+    const text = buildWorkspaceRootSection('/ws', ['app', 'client']);
+    expect(text).toContain('一级目录');
+    expect(text).toContain('`app`');
+    expect(text).toContain('`client`');
+    expect(text).toContain('不要按"仓库根 = 工程根"的习惯猜路径');
+  });
+
+  test('未提供目录 ⇒ 与旧文案一致（不出现一级目录段）', () => {
+    expect(buildWorkspaceRootSection('/ws')).not.toContain('一级目录');
   });
 });
 

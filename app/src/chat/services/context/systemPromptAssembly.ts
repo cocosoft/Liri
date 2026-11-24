@@ -12,6 +12,7 @@
  * 对外符号与实现逐字搬迁，日志 module 名（`chat:context-pipeline`）不变。
  */
 import { getLogger } from '@openliri/infra/monitoring';
+import { readdirSync } from 'node:fs';
 import type { ChatSession } from '@modules/session/types/session.js';
 import { isLocalLlmEndpoint } from '../ChatHelper';
 // 摘要/目标提取在 `./turnSummary`（本文件组装系统提示时用到目标提取）
@@ -110,20 +111,62 @@ const IMAGE_CHAIN_RULES = `## 图像工具链式操作
 // 已外移到 `./context/contextTruncation`。
 
 /**
+ * 列出工作区根下的**一级目录**（只读事实；失败回落空数组）。
+ *
+ * 2026-11-24（会话 `session_mwurduuh1b0b38db30` 复盘，P3）：模型被告诉"相对路径基准是仓库根"，
+ * 但真实工程根是 `app/`，于是每轮都要先探一层目录（真机白耗 1–2 轮）。一级目录是**确定性事实**，
+ * 直接写进工作区段比让模型自己试更省。
+ *
+ * 过滤 `node_modules` / `.git`（与本任务无关且可能极大）；其余（含 `.trae` 等）照列。
+ * 上限 `limit`（默认 24）防止超宽目录把提示词撑大；按名称排序保证可复现。
+ */
+export function listTopLevelDirs(root: string, limit = 24): string[] {
+  try {
+    return readdirSync(root, { withFileTypes: true })
+      .filter(
+        (d) => d.isDirectory() && d.name !== 'node_modules' && d.name !== '.git'
+      )
+      .map((d) => d.name)
+      .sort((a, b) => a.localeCompare(b))
+      .slice(0, limit);
+  } catch {
+    // @ignore-catch — 目录不可读/不存在 ⇒ 不注入目录事实（不臆造）
+    return [];
+  }
+}
+
+/**
  * 会话工作区提示段（2026-11-10，纯函数）。
  *
  * 聊天链此前**从没告诉模型**相对路径的基准在哪 ⇒ 模型按代码仓习惯写绝对路径，
  * 越界写按策略走确认（真机 demand：2 次 ask 全部来自写到 `E:\…\PY_APP\index.html`）。
  *
+ * 2026-11-24（P3）：可附带**一级目录**（由 {@link listTopLevelDirs} 提供，纯函数便于单测）——
+ * 让模型一次看清目录布局，不必为"代码根在哪"先探一轮。
+ *
  * 空/缺失工作区 ⇒ 空串 ⇒ 不注入（裸会话的 cwd 由运行形态决定，不给出不实基准）。
  */
-export function buildWorkspaceRootSection(workspaceRoot?: string): string {
+export function buildWorkspaceRootSection(
+  workspaceRoot?: string,
+  topLevelDirs?: readonly string[]
+): string {
   if (!workspaceRoot) return '';
-  return [
+  const lines = [
     '## 会话工作区',
     `- 本会话工具的相对路径基准：\`${workspaceRoot}\``,
     '- 新建/修改产物请写在该目录内（用相对路径）；写到该目录之外会触发人工确认或被拒绝。',
-  ].join('\n');
+  ];
+  if (topLevelDirs && topLevelDirs.length > 0) {
+    lines.push(
+      `- 该目录下的一级目录（只读事实，按名称排序）：${topLevelDirs
+        .map((d) => `\`${d}\``)
+        .join('、')}`
+    );
+    lines.push(
+      '- 若代码主工程不在工作区根本身，请按上面的目录判断真实工程根，不要按"仓库根 = 工程根"的习惯猜路径。'
+    );
+  }
+  return lines.join('\n');
 }
 
 /**
@@ -269,8 +312,11 @@ export async function assembleContextualSystemPrompt(
   }
   // 2026-11-10：会话工作区（仅显式工作区时注入）—— 让模型知道相对路径基准，
   // 避免"照代码仓习惯写绝对路径 ⇒ 越界 ⇒ 弹审批"（指标 2 的唯一实证来源）。
+  // 2026-11-24（P3）：附带一级目录，免去"先探一层才知道代码根在哪"。
+  const workspaceRoot = getSessionWorkspacePath?.(session.id);
   const workspaceSection = buildWorkspaceRootSection(
-    getSessionWorkspacePath?.(session.id)
+    workspaceRoot,
+    workspaceRoot ? listTopLevelDirs(workspaceRoot) : undefined
   );
   if (workspaceSection) {
     extraDynamicSections.push(

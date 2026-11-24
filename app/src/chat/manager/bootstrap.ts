@@ -474,6 +474,25 @@ export class ChatBootstrap {
   }
 
   /**
+   * 2026-11-24（批次 1 / A4）：以**收件箱实时状态**复查会话是否仍有待审批卡。
+   *
+   * 检查点里的 `inboxState.pendingInboxItems` 是**写入时的快照**，卡片之后被驳回 / 过期 /
+   * 级联关闭都不会回流更新（该数组仅在 `TAORLoop.reset()` 清空）⇒ 只信快照会让会话
+   * 永不恢复。这里直接查 DB（调用方已在目标身份作用域内，`owner_key` 解析正确）。
+   * 查询异常不外接兜底（本地 SQLite）—— 由外层 `try/catch` 按"单个会话恢复失败"跳过。
+   */
+  private async countLivePendingApprovals(sessionId: string): Promise<number> {
+    const { inboxManager, INBOX_STATUS_PENDING } =
+      await import('@openliri/service/runtime/InboxManager');
+    const { total } = await inboxManager.list({
+      sessionId,
+      status: INBOX_STATUS_PENDING,
+      limit: 1,
+    });
+    return total;
+  }
+
+  /**
    * 用给定的恢复管理器扫一遍并恢复（本地身份传全局 `resumeManager`）。
    *
    * @param scopeLabel 仅用于日志区分身份（`local` / `<tenantId>:<userId>`）
@@ -509,7 +528,14 @@ export class ChatBootstrap {
         // 2026-11-21（真机重启复验）：检查点里仍有**待人工审批**的卡片 ⇒ 不自动续跑。
         // 旧行为：续跑后模型会重新发起同一命令 ⇒ 又生成一张新审批卡（会话越积越多，
         // 用户看到"怎么还有审批"）。审批是显式人工决策，必须等人处理后再继续。
-        const pendingApprovals = cp.inboxState?.pendingInboxItems?.length ?? 0;
+        //
+        // 2026-11-24（批次 1 / A4）：快照**不可作准**（卡进入终态不回写检查点）⇒ 跳过前用
+        // 收件箱实时复查；仅当**确有** pending 卡才跳过，否则放行恢复（自愈）。
+        const checkpointPending = cp.inboxState?.pendingInboxItems?.length ?? 0;
+        const pendingApprovals =
+          checkpointPending > 0
+            ? await this.countLivePendingApprovals(cp.sessionId)
+            : 0;
         if (pendingApprovals > 0) {
           logger.info('Durable Resume: 跳过（检查点仍有待审批，等人工处理）', {
             scope: scopeLabel,
@@ -560,14 +586,13 @@ export class ChatBootstrap {
         taorLoop.resumeFromCheckpoint(cp.id);
 
         // 注入恢复摘要 steering 消息
+        // 2026-11-24（批次 1 / A4）：不再回显检查点快照里的待审批数 —— 走到这里已用**实时**
+        // 收件箱复查确认 pending 为 0，快照数字与事实相反（会让模型误以为还要等人）。
         const summary = [
           '[系统] 会话已从断点恢复。',
           `- 恢复时间点: ${new Date(cp.createdAt).toISOString()}`,
           `- 恢复阶段: ${cp.phase}（消息历史第 ${cp.turnCount} 轮）`,
           `- 恢复策略: ${strategy.reason}`,
-          cp.inboxState
-            ? `- Inbox 关联: ${cp.inboxState.pendingInboxItems.length} 项审批待处理`
-            : '',
         ]
           .filter(Boolean)
           .join('\n');

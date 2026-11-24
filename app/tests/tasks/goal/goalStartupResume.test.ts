@@ -23,6 +23,7 @@ import {
   type StartupResumeScheduler,
 } from '@modules/tasks/goal/goalStartupResume';
 import type { TaskGoal } from '@modules/tasks/goal/TaskGoalStore';
+import { inboxManager } from '@openliri/service/runtime/InboxManager';
 
 /** 固定的"当前时刻"（测试注入，避免真实时钟让"新鲜窗口"漂移） */
 const NOW = 1_800_000_000_000;
@@ -273,6 +274,39 @@ describe('D2+：触发闸门', () => {
     expect(
       await resolveStartupGoalResume({ taskId: taskIdFor('g1', 500), store })
     ).toBeNull();
+  });
+
+  // 批次 1 / A5（2026-11-24）：原实现 `list({ limit: 5 }).some(updatedAt > 目标推进时间)`
+  // 会漏掉"创建早、最近才过期"的卡 ⇒ 误判可续跑。这里锁"改用精确计数"的接线。
+  it('上次审批在目标推进之后才过期 ⇒ 精确计数命中即作废', async () => {
+    const originalList = inboxManager.list;
+    const originalCount = inboxManager.countExpiredApprovalsAfter;
+    try {
+      // 无 pending 卡
+      inboxManager.list = async () => ({ items: [], total: 0 });
+      const store = source([
+        goal({ id: 'g-exp', sessionId: 's-exp', updatedAt: 500 }),
+      ]);
+
+      inboxManager.countExpiredApprovalsAfter = async () => 1;
+      expect(
+        await resolveStartupGoalResume({
+          taskId: taskIdFor('g-exp', 500),
+          store,
+        })
+      ).toBeNull();
+
+      inboxManager.countExpiredApprovalsAfter = async () => 0;
+      expect(
+        await resolveStartupGoalResume({
+          taskId: taskIdFor('g-exp', 500),
+          store,
+        })
+      ).not.toBeNull();
+    } finally {
+      inboxManager.list = originalList;
+      inboxManager.countExpiredApprovalsAfter = originalCount;
+    }
   });
 
   it('终态 / 无会话归属 / 目标不存在 / 非本前缀 ⇒ null', async () => {

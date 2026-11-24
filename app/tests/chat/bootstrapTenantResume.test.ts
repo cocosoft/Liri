@@ -69,6 +69,19 @@ function makeCheckpoint(sessionId: string): TAORCheckpoint {
   };
 }
 
+/** 带"待审批快照"的检查点（模拟旧版本写入、卡之后已进入终态但快照未回流） */
+function makeCheckpointWithPendingInbox(
+  sessionId: string,
+  itemId: string
+): TAORCheckpoint {
+  return {
+    ...makeCheckpoint(sessionId),
+    inboxState: {
+      pendingInboxItems: [{ itemId, source: 'permission', status: 'pending' }],
+    },
+  };
+}
+
 function principalOf(tenantId: string, userId: string): Principal {
   return { tenantId, userId, roles: [] };
 }
@@ -76,11 +89,12 @@ function principalOf(tenantId: string, userId: string): Principal {
 /** 在指定身份分区里落一个检查点（模拟该身份上一次跑到一半就被中断） */
 async function seedCheckpoint(
   principal: Principal,
-  sessionId: string
+  sessionId: string,
+  checkpoint: TAORCheckpoint = makeCheckpoint(sessionId)
 ): Promise<void> {
   await runWithPrincipal(principal, async () => {
     const storage = new DBTAORCheckpointStorage();
-    await storage.save(makeCheckpoint(sessionId));
+    await storage.save(checkpoint);
     storage.close();
   });
 }
@@ -184,6 +198,29 @@ describe('ChatBootstrap：启动期按身份恢复', () => {
     expect(loops.map((l) => l.sessionId)).toEqual(['sess-tenant-boot']);
     expect(loops[0].summary.length).toBe(1);
     expect(loops[0].summary[0]).toContain('会话已从断点恢复');
+  });
+
+  it('检查点快照仍记待审批、但卡已进入终态（实时 pending=0）⇒ 仍恢复（不自锁）', async () => {
+    const tenantId = 'boot-stale';
+    const userStore = new AuthUserStore(join(root, 'users.json'));
+    userStore.addUser('alice', 'pw', 'user', tenantId);
+    __setAuthUserStoreForTest(userStore);
+
+    // 快照里写着 1 张待审批，但收件箱中并不存在该 pending 卡（已驳回/过期/关闭）
+    await seedCheckpoint(
+      principalOf(tenantId, 'alice'),
+      'sess-stale-inbox',
+      makeCheckpointWithPendingInbox('sess-stale-inbox', 'inbox-gone')
+    );
+
+    const loops: Array<{ sessionId: string; summary: string[] }> = [];
+    const { deps } = makeDeps(loops);
+    const internals = new ChatBootstrap(deps) as unknown as BootstrapInternals;
+
+    await internals.resumePendingSessions();
+
+    // 修复前：仅凭快照判定 ⇒ 永久跳过；修复后：实时复查为 0 ⇒ 正常恢复
+    expect(loops.map((l) => l.sessionId)).toEqual(['sess-stale-inbox']);
   });
 
   it('单个身份的分区库打不开 ⇒ 该身份被跳过，其他身份照常恢复', async () => {

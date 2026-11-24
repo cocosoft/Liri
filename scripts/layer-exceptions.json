@@ -19,7 +19,17 @@
       "deprecatedAt": "2026-06-19"
     }
   ],
-  "fileSizeExceptions": [],
+  "fileSizeExceptions": [
+    {
+      "id": "FSZ-006",
+      "ruleId": "R04-001",
+      "file": "packages/service/src/runtime/InboxManager.ts",
+      "targetLines": 2000,
+      "plan": "2026-11-24 批次 1（状态机修复 A1/A5）加入 processing 超时回收与终态收口后 2068 行（原 1999，本就贴着上限）。拆分计划：把「过期扫描 + 终态监听 + 过期精确计数」抽到 runtime/inbox/ 子目录模块（宿主端口注入 db/owner/notify，行为不变），分两步落地：① 先移过期精确计数与终态监听；② 再移过期扫描；达成 ≤2000 即删除本例外，否则按同口径续期",
+      "expiresAt": "2026-12-31",
+      "owner": "@arch-lead"
+    }
+  ],
   "barrelExceptions": [
     {
       "id": "BRL-001",

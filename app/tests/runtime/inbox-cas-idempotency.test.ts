@@ -10,7 +10,10 @@
  */
 
 import { describe, it, expect, beforeEach } from 'bun:test';
-import { InboxManager } from '@openliri/service/runtime/InboxManager';
+import {
+  InboxManager,
+  onInboxItemsExpired,
+} from '@openliri/service/runtime/InboxManager';
 
 describe('InboxManager CAS 幂等（M2-T2.1）', () => {
   let manager: InboxManager;
@@ -139,5 +142,31 @@ describe('InboxManager dismissBySession 级联关闭（M2-T2.2）', () => {
     expect(replied?.status).toBe('replied');
     // 其他会话不受影响
     expect((await manager.get(other.id))?.status).toBe('pending');
+  });
+
+  // 批次 1 / A5（2026-11-24）：级联关闭必须与过期走**同一收口**，否则关联 PDCA
+  // 不触发 `abortPdcaAfterExpiry`，任务停在 stage_awaiting_approval 占住会话幂等键。
+  it('② 级联关闭触发终态回调（与过期同一收口）', async () => {
+    const seen: string[] = [];
+    const off = onInboxItemsExpired((item) => {
+      seen.push(item.id);
+    });
+    try {
+      const p = await manager.submit({
+        sessionId: 'sess-hook',
+        type: 'approval',
+        title: '审批',
+        message: 'm',
+        offlineCapable: true,
+        source: 'pdca',
+        metadata: { taskId: 'pdca_hook' },
+      });
+
+      expect(await manager.dismissBySession('sess-hook')).toBe(1);
+      // 修复前：监听器不被调用 ⇒ seen 为空
+      expect(seen).toEqual([p.id]);
+    } finally {
+      off();
+    }
   });
 });

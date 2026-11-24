@@ -55,6 +55,27 @@ function pendingItem(sessionId: string) {
   };
 }
 
+/** 改 updated_at（判 `processing` 卡龄用；`tryUpdateStatus` 会把它刷成"现在"） */
+async function backdateUpdated(
+  sessionIds: string[],
+  ageMs: number
+): Promise<void> {
+  const db = new Database(join(dataDir, 'app.db'));
+  try {
+    for (const sid of sessionIds) {
+      await new Promise<void>((resolve, reject) => {
+        db.run(
+          'UPDATE inbox_items SET updated_at = ? WHERE session_id = ?',
+          [Date.now() - ageMs, sid],
+          (err: Error | null) => (err ? reject(err) : resolve())
+        );
+      });
+    }
+  } finally {
+    await new Promise<void>((resolve) => db.close(() => resolve()));
+  }
+}
+
 describe('审批过期清理（P3）', () => {
   // 2026-11-07（隐藏缺陷 #1）：过期必须能被入口层观测到 —— PDCA 步骤卡的卡一旦过期
   // 就不可回复，若不收口任务，任务会永久停在 stage_awaiting_approval 并锁死会话幂等键。
@@ -202,5 +223,81 @@ describe('审批过期 TTL 分层（P0-1）', () => {
     await backdate(['s-ws3'], 40 * MIN);
 
     expect(await manager.expireAllScopes(30 * MIN)).toBe(1);
+  });
+});
+
+/**
+ * 批次 1 / A1：`processing` 卡死回收（2026-11-24）
+ *
+ * 现场：审批 CAS（pending→processing）成功后 `reply` 写失败/进程中断 ⇒ 卡永久停在
+ * `processing`；原过期扫描只扫 `pending` ⇒ 既不可回复也不会被回收。
+ */
+describe('processing 超时回收（批次 1 / A1）', () => {
+  const MIN = 60 * 1000;
+
+  it('刚进入 processing ⇒ 不回收；超过 10 分钟未落定 ⇒ 过期', async () => {
+    const item = await manager.submit(pendingItem('s-stuck'));
+    expect(
+      await manager.tryUpdateStatus(item.id, 'pending', 'processing')
+    ).toBe(true);
+
+    // 刚抢锁（updated_at=现在）⇒ 未超时，不动
+    expect(await manager.expireAllScopes(30 * MIN)).toBe(0);
+    expect((await manager.get(item.id))?.status).toBe('processing');
+
+    // 做旧 11 分钟（> PROCESSING_STALE_TIMEOUT_MS=10min）⇒ 由 processing 兜底回收
+    await backdateUpdated(['s-stuck'], 11 * MIN);
+    expect(await manager.expireAllScopes(30 * MIN)).toBe(1);
+    expect((await manager.get(item.id))?.status).toBe('expired');
+  });
+});
+
+/**
+ * 批次 1 / A5：`countExpiredApprovalsAfter` 精确计数（2026-11-24）
+ *
+ * 旧实现用 `list({ limit: 5 }).some(updatedAt > 目标推进时间)`：结果集按 `created_at`
+ * 截断 ⇒ "创建很早、最近才过期"的卡被漏掉（误判可续跑）。
+ */
+describe('过期审批精确计数（批次 1 / A5）', () => {
+  /** 直接改某条卡的 updated_at（模拟"进入终态"的不同时刻） */
+  async function setUpdatedAt(id: string, value: number): Promise<void> {
+    const db = new Database(join(dataDir, 'app.db'));
+    try {
+      await new Promise<void>((resolve, reject) => {
+        db.run(
+          'UPDATE inbox_items SET updated_at = ? WHERE id = ?',
+          [value, id],
+          (err: Error | null) => (err ? reject(err) : resolve())
+        );
+      });
+    } finally {
+      await new Promise<void>((resolve) => db.close(() => resolve()));
+    }
+  }
+
+  it('超过 5 张过期卡时，仍能精确统计"目标推进之后才过期"的卡', async () => {
+    const sessionId = 's-count';
+    const items = [];
+    for (let i = 0; i < 6; i++) {
+      const item = await manager.submit(pendingItem(sessionId));
+      await manager.tryUpdateStatus(item.id, 'pending', 'expired');
+      items.push(item);
+    }
+
+    // 5 张在"目标推进"之前就过期，1 张（若按 created_at 取最新 5 条会被截掉的）在其后过期
+    const goalTime = Date.now();
+    for (const item of items.slice(1)) {
+      await setUpdatedAt(item.id, goalTime - 1_000);
+    }
+    await setUpdatedAt(items[0]!.id, goalTime + 1_000);
+
+    // 精确计数命中那 1 张；`limit:5 + some()` 会漏掉（这正是旧实现的缺陷）
+    expect(await manager.countExpiredApprovalsAfter(sessionId, goalTime)).toBe(
+      1
+    );
+    // 边界：阈值之后无卡 ⇒ 0
+    expect(
+      await manager.countExpiredApprovalsAfter(sessionId, goalTime + 2_000)
+    ).toBe(0);
   });
 });

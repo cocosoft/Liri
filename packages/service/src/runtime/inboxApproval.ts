@@ -222,7 +222,31 @@ export async function resolveInboxApproval(
   if (!locked) return { kind: 'concurrent_conflict' };
 
   const updated = await inboxManager.reply(id, reply, selectedOption);
-  if (!updated) return { kind: 'update_failed' };
+  if (!updated) {
+    // 2026-11-24（批次 1 / A1）：CAS 已把卡锁到 `processing`，但落地失败（如并发删除）。
+    // 若不回滚，卡会永久停在 `processing` —— 既不可回复，也不在原过期扫描（仅 pending）内。
+    // best-effort 回滚；**回滚失败必须留痕**（不吞），由 processing 超时扫描兜底。
+    try {
+      const rolledBack = await inboxManager.tryUpdateStatus(
+        id,
+        INBOX_STATUS_PROCESSING,
+        INBOX_STATUS_PENDING
+      );
+      if (!rolledBack) {
+        logger.error('审批落地失败且回滚 processing→pending 未生效', {
+          id,
+          reply,
+        });
+      }
+    } catch (rollbackErr) {
+      await handleError(rollbackErr, {
+        module: 'runtime:inboxApproval',
+        action: 'rollbackProcessingAfterReplyFailed',
+        context: { id, reply },
+      });
+    }
+    return { kind: 'update_failed' };
+  }
 
   await applyApprovalSideEffects(current, reply, selectedOption, options);
   await applyRejectionSideEffects(current, reply, selectedOption, options);

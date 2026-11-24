@@ -147,6 +147,13 @@ export const APPROVAL_TTL_MS = MS_PER_MINUTE * 30;
 export const WORKSPACE_SCOPE_TTL_MS = MS_PER_HOUR * 24;
 /** 过期扫描周期（保持不变） */
 export const APPROVAL_EXPIRE_INTERVAL_MS = MS_PER_MINUTE * 2;
+/**
+ * 2026-11-24（批次 1 / A1）：`processing` 是 CAS 抢锁（`tryUpdateStatus`，会刷新 `updated_at`）
+ * 之后的**中间态**。进程在"已抢锁、未落 reply"之间崩溃/失败时，卡会永久停在 `processing`
+ * —— 既不在原 `pending` 过期口径内，也不可再回复（卡永久不可处理）。
+ * 按 `updated_at` 兜底：超过该阈值仍未落定的 `processing` 卡视为过期。
+ */
+export const PROCESSING_STALE_TIMEOUT_MS = MS_PER_MINUTE * 10;
 
 /**
  * 工具审批卡 TTL 的配置键（2026-11-21，P1-2 剩余项）。只覆盖**工具审批**（工作区访问申请仍固定
@@ -1307,6 +1314,53 @@ export class InboxManager {
     return deleted;
   }
 
+  /**
+   * 2026-11-24（批次 1 / A5）：审批卡进入**不可回复终态**（过期 / 级联关闭）时的统一收口回调。
+   *
+   * 抽成单一实现的原因：`dismissBySession` 此前只改状态、不触达监听器 ⇒ 关联 PDCA 不走
+   * `abortPdcaAfterExpiry`，任务停在 `stage_awaiting_approval` 占住会话幂等键。
+   */
+  private _notifyTerminalListeners(item: InboxItem): void {
+    for (const listener of expiredListeners) {
+      try {
+        listener(item);
+      } catch (err) {
+        logger.warn('审批终态回调失败', {
+          inboxId: item.id,
+          status: item.status,
+          error: String(err),
+        });
+      }
+    }
+  }
+
+  /**
+   * 2026-11-24（批次 1 / A5）：某会话在 `afterMs` 之后进入 `expired` 的审批卡**精确计数**。
+   *
+   * 为什么需要：调用方曾用 `list({ limit: 5 }).some(...)` 判"上次审批已过期"——
+   * 结果集按 `created_at` 截断，一条"创建很早但最近才过期"的卡会被漏掉（误判为可续跑）。
+   * `updated_at` 即进入终态的时刻（`_expireOnDb` / `expireByIds` 均刷新它）。
+   */
+  async countExpiredApprovalsAfter(
+    sessionId: string,
+    afterMs: number
+  ): Promise<number> {
+    const db = await this.getDb();
+    const row = await new Promise<{ cnt: number }>((resolve, reject) => {
+      db.get(
+        `SELECT COUNT(*) as cnt FROM inbox_items
+          WHERE session_id = ? AND status = 'expired' AND type = 'approval'
+            AND updated_at > ? AND owner_key = ?`,
+        [sessionId, afterMs, this.owner()],
+        (err: Error | null, row: { cnt: number }) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+    return row.cnt;
+  }
+
   /** 过期清理的单一实现（连接由调用方给，避免再走 `getDb()` 的当前身份语义） */
   private async _expireOnDb(
     db: Database,
@@ -1317,11 +1371,17 @@ export class InboxManager {
     // 工作区访问申请用**独立**（更长）的 TTL；未显式给出时与工具审批同口径（向后兼容）。
     const workspaceCutoff = Date.now() - (workspaceMaxAgeMs ?? maxAgeMs);
     // 两种 TTL 合成一条 WHERE：工作区申请看 workspaceCutoff，其余看 cutoff。
-    const expireWhere = `status = 'pending' AND (
-        (${WORKSPACE_SCOPE_PREDICATE} AND created_at < ?)
-        OR (NOT (${WORKSPACE_SCOPE_PREDICATE}) AND created_at < ?)
+    // 2026-11-24（批次 1 / A1）：额外覆盖"抢锁后卡死"的 `processing`（按 updated_at 判龄），
+    // 否则 `reply` 写失败/进程中断留下的卡既不可回复也不会被回收。
+    const processingCutoff = Date.now() - PROCESSING_STALE_TIMEOUT_MS;
+    const expireWhere = `(
+        (status = 'pending' AND (
+          (${WORKSPACE_SCOPE_PREDICATE} AND created_at < ?)
+          OR (NOT (${WORKSPACE_SCOPE_PREDICATE}) AND created_at < ?)
+        ))
+        OR (status = 'processing' AND updated_at < ?)
       )`;
-    const expireParams = [workspaceCutoff, cutoff];
+    const expireParams = [workspaceCutoff, cutoff, processingCutoff];
 
     // 先查询将要过期的项（获取 channelSessionId 用于通知）+ 归属键（用于事件投递身份）
     const expired = await new Promise<
@@ -1394,16 +1454,7 @@ export class InboxManager {
       else await emit();
 
       // 2026-11-07：旁路监听（入口层据此收口 PDCA 等依赖"卡可回复"的状态机）
-      for (const listener of expiredListeners) {
-        try {
-          listener(item);
-        } catch (err) {
-          logger.warn('过期回调失败', {
-            inboxId: item.id,
-            error: String(err),
-          });
-        }
-      }
+      this._notifyTerminalListeners(item);
     }
 
     // P3-1（2026-11-06）：把 expired 写回会话卡片块（全历史可追溯）。
@@ -1768,7 +1819,22 @@ export class InboxManager {
    */
   async dismissBySession(sessionId: string): Promise<number> {
     const db = await this.getDb();
-    return new Promise<number>((resolve, reject) => {
+    // 2026-11-24（批次 1 / A5）：先取将被关闭的项，用于**终态回调**（UPDATE 后无法区分
+    // 本次关闭了哪些）；与过期路径同一收口，否则关联 PDCA 不触发 abort 而卡死任务。
+    const dismissed = await new Promise<InboxItem[]>((resolve, reject) => {
+      db.all(
+        `SELECT * FROM inbox_items
+         WHERE session_id = ? AND status IN ('pending', 'processing')
+           AND owner_key = ?`,
+        [sessionId, this.owner()],
+        (err: Error | null, rows: Record<string, unknown>[]) => {
+          if (err) reject(err);
+          else resolve((rows ?? []).map((r) => this._mapRow(r)));
+        }
+      );
+    });
+
+    const count = await new Promise<number>((resolve, reject) => {
       db.run(
         `UPDATE inbox_items SET status = 'dismissed', updated_at = ?
          WHERE session_id = ? AND status IN ('pending', 'processing')
@@ -1780,6 +1846,9 @@ export class InboxManager {
         }
       );
     });
+
+    for (const item of dismissed) this._notifyTerminalListeners(item);
+    return count;
   }
 
   /**

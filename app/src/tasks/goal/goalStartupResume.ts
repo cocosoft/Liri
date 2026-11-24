@@ -238,7 +238,7 @@ export async function resolveStartupGoalResume(params: {
   // 2026-11-21（真机重启复验）：会话仍有**待人工审批**的卡片 ⇒ 本次唤醒作废。
   // 旧行为：goal 唤醒注入 continue_goal ⇒ 模型重发同一命令 ⇒ 又生成一张审批卡
   // （session_mw458fpp3ea32a050e 重启后连续新增卡）。审批是显式人工决策，先等人。
-  const { inboxManager, INBOX_STATUS_PENDING, INBOX_STATUS_EXPIRED } =
+  const { inboxManager, INBOX_STATUS_PENDING } =
     await import('@openliri/service/runtime/InboxManager');
   const pendingApprovals = await inboxManager.list({
     sessionId: goal.sessionId,
@@ -257,17 +257,17 @@ export async function resolveStartupGoalResume(params: {
   // 2026-11-21（真机复验·D6「过期只降级，不自动重放」）：上次审批卡**过期且未决策**
   // （过期时刻晚于目标最后一次推进）⇒ 本次唤醒作废；否则 continue_goal 会让模型
   // 重放同一命令，再生成一张卡（重启 → 重放 → 审批的死循环）。
-  const expiredApprovals = await inboxManager.list({
-    sessionId: goal.sessionId,
-    status: INBOX_STATUS_EXPIRED,
-    type: 'approval',
-    limit: 5,
-  });
-  if (expiredApprovals.items.some((item) => item.updatedAt > goal.updatedAt)) {
+  // 2026-11-24（批次 1 / A5）：原 `limit:5 + .some()` 会漏掉"创建早、最近才过期"的卡
+  // ⇒ 误判为可续跑；改精确计数（`updated_at` = 进入终态时刻）。
+  const expiredSinceProgress = await inboxManager.countExpiredApprovalsAfter(
+    goal.sessionId,
+    goal.updatedAt
+  );
+  if (expiredSinceProgress > 0) {
     logger.info('goal 启动续接跳过：上次审批已过期且未决策（不自动重放）', {
       goalId: goal.id,
       sessionId: goal.sessionId,
-      expiredApprovals: expiredApprovals.items.length,
+      expiredApprovals: expiredSinceProgress,
     });
     return null;
   }

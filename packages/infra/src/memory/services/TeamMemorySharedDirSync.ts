@@ -219,6 +219,45 @@ export interface TeamConflictCandidate {
   sharedHash: string | null;
 }
 
+/** 人工取舍方向（Phase 3-lite） */
+export type TeamConflictResolution = 'keep_local' | 'keep_shared';
+
+/**
+ * 人工采纳冲突的一侧（Phase 3-lite，2026-11-25）。
+ *
+ * - `keep_local`：本地 → 共享目录（覆盖共享侧）；
+ * - `keep_shared`：共享目录 → 本地（覆盖本地侧）；
+ * - 两侧文件必须都存在；**采纳的源内容仍要过密钥扫描**（fail-closed）。
+ *
+ * 只在人工明确调用时执行（不做自动消解，沿用既有裁定）。
+ */
+export async function resolveTeamConflict(params: {
+  id: string;
+  teamDir: string;
+  sharedDir: string;
+  resolution: TeamConflictResolution;
+}): Promise<boolean> {
+  const { id, teamDir, sharedDir, resolution } = params;
+  const localFile = join(teamDir, `${id}.md`);
+  const sharedFile = join(sharedDir, `${id}.md`);
+  if (!existsSync(localFile) || !existsSync(sharedFile)) return false;
+
+  const [from, to] =
+    resolution === 'keep_local'
+      ? [localFile, sharedFile]
+      : [sharedFile, localFile];
+
+  const raw = await fs.readFile(from, 'utf-8');
+  if (scanMemoryContent(matter(raw).content).hasSecrets) {
+    logger.warn('团队记忆冲突取舍被拒（源内容命中密钥）', { id, resolution });
+    return false;
+  }
+
+  await writeFileAtomic(to, raw);
+  logger.info('团队记忆冲突已人工取舍', { id, resolution });
+  return true;
+}
+
 async function fileHash(filePath: string): Promise<string | null> {
   try {
     const raw = await fs.readFile(filePath, 'utf-8');

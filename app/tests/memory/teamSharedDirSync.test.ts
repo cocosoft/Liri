@@ -19,6 +19,7 @@ import {
   buildTeamConflictCandidates,
   pullTeamMemoriesFromSharedDir,
   pushTeamMemoriesToSharedDir,
+  resolveTeamConflict,
 } from '@openliri/infra/memory/services/TeamMemorySharedDirSync';
 
 const createdDirs: string[] = [];
@@ -198,5 +199,76 @@ describe('pushTeamMemoriesToSharedDir（Phase 2）', () => {
     expect(report.rejectedSecrets).toContain('l3');
     expect(report.uploaded).toBe(0);
     expect(existsSync(join(shared, 'l3.md'))).toBe(false);
+  });
+});
+
+describe('resolveTeamConflict（Phase 3-lite：人工取舍）', () => {
+  it('keep_local ⇒ 覆盖共享侧；keep_shared ⇒ 覆盖本地侧', async () => {
+    const { shared, local } = makeDirs();
+    writeFileSync(join(local, 'r1.md'), memFile('r1', '本地版本'), 'utf-8');
+    writeFileSync(join(shared, 'r1.md'), memFile('r1', '远端版本'), 'utf-8');
+
+    expect(
+      await resolveTeamConflict({
+        id: 'r1',
+        teamDir: local,
+        sharedDir: shared,
+        resolution: 'keep_local',
+      })
+    ).toBe(true);
+    expect(readFileSync(join(shared, 'r1.md'), 'utf-8')).toContain('本地版本');
+
+    writeFileSync(join(shared, 'r1.md'), memFile('r1', '远端版本2'), 'utf-8');
+    expect(
+      await resolveTeamConflict({
+        id: 'r1',
+        teamDir: local,
+        sharedDir: shared,
+        resolution: 'keep_shared',
+      })
+    ).toBe(true);
+    expect(readFileSync(join(local, 'r1.md'), 'utf-8')).toContain('远端版本2');
+  });
+
+  it('采纳源命中密钥 ⇒ 拒绝（fail-closed）且两侧不变', async () => {
+    const { shared, local } = makeDirs();
+    writeFileSync(
+      join(local, 'r2.md'),
+      memFile(
+        'r2',
+        '-----BEGIN RSA PRIVATE KEY-----\nMIIEexample\n-----END RSA PRIVATE KEY-----'
+      ),
+      'utf-8'
+    );
+    writeFileSync(
+      join(shared, 'r2.md'),
+      memFile('r2', '远端干净版本'),
+      'utf-8'
+    );
+
+    const ok = await resolveTeamConflict({
+      id: 'r2',
+      teamDir: local,
+      sharedDir: shared,
+      resolution: 'keep_local',
+    });
+
+    expect(ok).toBe(false);
+    expect(readFileSync(join(shared, 'r2.md'), 'utf-8')).toContain(
+      '远端干净版本'
+    );
+  });
+
+  it('一侧缺失 ⇒ 返回 false', async () => {
+    const { shared, local } = makeDirs();
+    writeFileSync(join(local, 'r3.md'), memFile('r3', '仅本地'), 'utf-8');
+    expect(
+      await resolveTeamConflict({
+        id: 'r3',
+        teamDir: local,
+        sharedDir: shared,
+        resolution: 'keep_local',
+      })
+    ).toBe(false);
   });
 });

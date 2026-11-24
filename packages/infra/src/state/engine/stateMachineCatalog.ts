@@ -51,12 +51,52 @@ export interface StateMachineEntry {
   verifyRef?: StateMachineVerifyRef;
   /** 是否有集中的转移函数（单一转移事实源） */
   hasTransitionFn: boolean;
+  /**
+   * 责任域（**模块名**，不写个人）。2026-11-24 治理方案 R09-007 起必填。
+   */
+  owner: string;
+  /**
+   * 状态落盘方式（治理方案 R09-007 起必填）：
+   * `memory` = 进程内，不跨重启；`json-file` / `sqlite` = 持久化。
+   */
+  persistence: 'none' | 'memory' | 'json-file' | 'sqlite';
+  /**
+   * 转移规则表锚点（可选）。有导出规则表的机器必须给出 —— R09-008 会载入并校验
+   * 「键集合 = `states`、目标 ⊆ `states`」。手写机（转移集中在 CAS/UPDATE 函数里）可缺省，
+   * 但须在 note 写明集中实现位置。
+   */
+  transitionRules?: { module: string; exportName: string };
+  /**
+   * 终态集合（治理方案 R09-007 起必填）：进入后不应再转移；无终态写 `[]`。
+   */
+  terminalStates: readonly string[];
+  /**
+   * 重启对账策略（`persistence !== 'none'` 时必填，R09-009）：
+   * `none` 仅用于无恢复动作的机器（须在 note 说明理由）。
+   */
+  reconcile?: {
+    strategy:
+      | 'none'
+      | 'ttl-sweep'
+      | 'startup-reset'
+      | 'startup-rescan'
+      | 'cas-requeue'
+      | 'heartbeat-rescan';
+    /** 证据锚点：`文件#函数/类` */
+    evidence: string;
+  };
+  /** 消费该状态的派生实现（可选；治理方案 R09-011 的目标登记面） */
+  derivedViews?: readonly string[];
+  /** 前端对应实现（可选；治理方案 R09-012 的跨端对齐面） */
+  crossEnd?: { clientFile: string; mapping: 'identical' | 'projection' };
   /** 补充说明（同名不同物 / 双事实源等） */
   note?: string;
 }
 
 /**
- * **已取证登记**（阶段 1.3 完成：9 台机器 + 1 套简化状态，取值逐项与源码核对）。
+ * **已取证登记**（阶段 1.3 完成；2026-11-24 治理方案 P0-1 扩为 **16 台**：
+ * 补齐 `stream` / `backgroundTask` 两台已接入引擎、此前只在豁免清单的机器，并为全部条目
+ * 增加 `owner` / `persistence` / `terminalStates` / `reconcile` 等治理字段）。
  */
 export const STATE_MACHINES: readonly StateMachineEntry[] = [
   {
@@ -81,6 +121,20 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
       anchor: 'array',
     },
     hasTransitionFn: true,
+    owner: 'execution',
+    persistence: 'sqlite',
+    transitionRules: {
+      module: 'packages/service/src/execution/types.ts',
+      exportName: 'EXECUTION_TRANSITIONS',
+    },
+    terminalStates: ['CANCELLED', 'COMPLETED', 'FAILED', 'STALE'],
+    reconcile: {
+      strategy: 'heartbeat-rescan',
+      evidence: 'packages/service/src/execution/ExecutionManager.ts#recover',
+    },
+    derivedViews: [
+      'packages/service/src/execution/executionProjection.ts#projectExecutionStatus',
+    ],
   },
   {
     id: 'toolCall',
@@ -95,6 +149,18 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
       anchor: 'array',
     },
     hasTransitionFn: true,
+    owner: 'execution',
+    persistence: 'sqlite',
+    terminalStates: ['completed', 'failed', 'unknown'],
+    reconcile: {
+      strategy: 'heartbeat-rescan',
+      evidence: 'packages/service/src/execution/ExecutionManager.ts#recover',
+    },
+    crossEnd: {
+      clientFile: 'client/src/stores/chat/toolOutcome.ts',
+      mapping: 'projection',
+    },
+    note: '转移集中在 `ExecutionStore.settleToolCall` / `ExecutionManager.recover`（手写机，无规则表）—— 恢复期把副作用不可知的调用结算为 `unknown`（P0-4）。',
   },
   {
     id: 'budgetMode',
@@ -104,6 +170,13 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
     states: ['normal', 'report_only', 'locked'],
     verification: 'source-read',
     hasTransitionFn: false,
+    owner: 'query',
+    persistence: 'json-file',
+    terminalStates: [],
+    reconcile: {
+      strategy: 'startup-reset',
+      evidence: 'packages/query/src/query/DailyBudgetManager.ts#restore',
+    },
     note: '**已于 2026-10-12 去重（阶段 1.3 隐患修复）**：单一事实源 = `dailyBudgetSnapshot.ts:31`（`export type`）；`DailyBudgetManager.ts` 已改为 `import type`（不再本地重声明）；前端镜像 `client/src/services/usageService.ts:113` 改名 `DailyBudgetMode`。',
   },
   {
@@ -114,6 +187,13 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
     states: ['RECEIVED', 'ADMITTED', 'REJECTED'],
     verification: 'source-read',
     hasTransitionFn: false,
+    owner: 'channels',
+    persistence: 'sqlite',
+    terminalStates: ['ADMITTED', 'REJECTED'],
+    reconcile: {
+      strategy: 'ttl-sweep',
+      evidence: 'packages/channels/src/channels/dedup/index.ts#configureDedup',
+    },
     note: '有导出数组 `MESSAGE_PROCESSING_STATES`（现定义于 `channels/dedup/types.ts`，由 `index.ts` 重导出），但该模块同时构建 DedupStore（导入即触 DB）⇒ **不在测试中动态载入**，取值经源码阅读取证。',
   },
   {
@@ -131,6 +211,14 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
     ],
     verification: 'source-read',
     hasTransitionFn: false,
+    owner: 'tasks',
+    persistence: 'sqlite',
+    terminalStates: ['completed', 'budget_limited', 'failed', 'cancelled'],
+    reconcile: {
+      strategy: 'startup-rescan',
+      evidence:
+        'app/src/tasks/goal/goalStartupResume.ts#resolveStartupGoalResume',
+    },
     note: '定义在 `shared/types`（`:26`），经 `app/src/types/goal.ts:17` 再导出；同目录另有**同名不同物** `goalSettlementTypes.ts:22`（批次落定结果，见 `BOUNDARY_STATE_MACHINES`）。',
   },
   {
@@ -141,6 +229,13 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
     states: ['completed', 'cancelled', 'error'],
     verification: 'source-read',
     hasTransitionFn: false,
+    owner: 'workflow',
+    persistence: 'memory',
+    terminalStates: ['completed', 'cancelled', 'error'],
+    reconcile: {
+      strategy: 'none',
+      evidence: 'app/src/modules/workflow/types.ts#WorkflowRunResult',
+    },
     note: '同文件另有步骤级 `WorkflowStepOutcome`（`:144`，3 值不同）—— 属不同粒度，未合并。',
   },
   {
@@ -156,6 +251,14 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
       anchor: 'enum',
     },
     hasTransitionFn: true,
+    owner: 'app-state',
+    persistence: 'json-file',
+    terminalStates: [],
+    reconcile: {
+      strategy: 'startup-reset',
+      evidence:
+        'packages/infra/src/state/app/AppLifecycle.ts#restoreFromSnapshot',
+    },
     note: '**同名不同物**：`app/src/appState/AppState.ts:145` 另有 `interface AppState`（zustand 存储接口），勿混。',
   },
   {
@@ -166,6 +269,13 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
     states: ['pending', 'installing', 'installed', 'failed'],
     verification: 'source-read',
     hasTransitionFn: false,
+    owner: 'app-state',
+    persistence: 'memory',
+    terminalStates: ['installed', 'failed'],
+    reconcile: {
+      strategy: 'none',
+      evidence: 'app/src/appState/AppState.ts#AppInstallStatus',
+    },
     note: '**已于 2026-10-12 抽为命名类型（阶段 1.3 隐患修复）**：`export type AppInstallStatus`（`AppState.ts`），原 `:253`/`:259` 两处内联重复已消除。',
   },
   {
@@ -182,6 +292,13 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
       anchor: 'objectKeys',
     },
     hasTransitionFn: true,
+    owner: 'session',
+    persistence: 'memory',
+    terminalStates: [],
+    reconcile: {
+      strategy: 'startup-reset',
+      evidence: 'app/src/chat/services/SessionStateBridge.ts#SessionStateBridge',
+    },
     note: '**阶段 3（2026-10-12）8 态 → 3 态收敛（用户裁定）**：旧 `SessionState` 8 态枚举与 `toSimplifiedState()` 已删除（前者零消费者、后者失输入类型）；折叠映射 = `IDLE/COMPLETED/ARCHIVED/ABORTED→idle`、`RUNNING→running`、`REQUIRES_ACTION/PAUSED/ERROR→requires_action`。**无终态**（`idle` 可再 `start()` ⇒ 生命周期成环，`isTerminal()` 恒 `false`）。历史事实源（活）：`ChatManager:3184/3338` · `ChatOrchestrator:754/1166` · `SessionStateBridge`（`init.ts:479-490` 已接线）。`packages/service/src/session/models/SessionState.ts:44` 另有**同名不同物**（类 + `SESSION_STATES` 集合），见 `BOUNDARY_STATE_MACHINES`。',
   },
   {
@@ -205,6 +322,17 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
       anchor: 'enum',
     },
     hasTransitionFn: true,
+    owner: 'tasks',
+    persistence: 'sqlite',
+    transitionRules: {
+      module: 'packages/infra/src/state/task/TaskStateMachine.ts',
+      exportName: 'TASK_TRANSITIONS',
+    },
+    terminalStates: ['completed', 'failed', 'killed', 'lost'],
+    reconcile: {
+      strategy: 'startup-reset',
+      evidence: 'app/src/tasks/TaskRegistry.ts#recoverRunningTasksAfterRestart',
+    },
     note: '**同名不同物**：`app/src/components/TaskListV2.tsx:9` 另有 6 态 UI 词汇表（含 `ALL_TASK_STATUSES`），见 `BOUNDARY_STATE_MACHINES`。',
   },
   {
@@ -215,6 +343,14 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
     states: ['requires_approval', 'awaiting_approval'],
     verification: 'source-read',
     hasTransitionFn: false,
+    owner: 'execution',
+    persistence: 'memory',
+    terminalStates: [],
+    reconcile: {
+      strategy: 'none',
+      evidence:
+        'packages/infra/src/utils/toolContract/ToolResult.ts#ToolExecutionStatus',
+    },
     note: '按方案阶段 2.3 裁断：**工具执行瞬态**，**不进** `ToolCallStatus` 持久化枚举。**已于 2026-10-12 消除裸字面量（阶段 1.3 隐患修复）**：`awaiting_approval` 唯一事实源 = `ToolExecutionService.ts` 的 `TRANSIENT_AWAITING_APPROVAL` 常量（原 2 处裸字面量已替换）；`requires_approval` 唯一事实源 = `ToolExecutionStatus.REQUIRES_APPROVAL`（`ToolResult.ts:12`，原比较处的裸字符串已替换）。',
   },
   {
@@ -230,6 +366,18 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
       anchor: 'array',
     },
     hasTransitionFn: false,
+    owner: 'tasks',
+    persistence: 'sqlite',
+    terminalStates: [
+      'step_done',
+      'step_blocked',
+      'step_partial',
+      'step_unverified',
+    ],
+    reconcile: {
+      strategy: 'none',
+      evidence: 'app/src/tasks/stepVerdict.ts#parseStepVerdict',
+    },
     note: '2026-11-02 新增：编排步骤的**目标达成判定**（与 `PlanStep.status` 正交 —— 前者是"目标是否达成"，后者是"执行到哪一步"）。来源是步骤产出末行的结构化标记，**不对自然语言做关键词匹配**（CS02）。`step_unverified` = 未提供标记，既有计划沿用 completed 口径但**不计入"执行完成"播报**。取值带 `step_` 前缀：`done/blocked/partial` 是跨域通用词，直接登记会把 dream/sandbox/compaction 等既有出现点一并划入词汇表。',
   },
   {
@@ -240,6 +388,14 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
     states: ['pending', 'due', 'firing', 'fired', 'failed', 'expired'],
     verification: 'source-read',
     hasTransitionFn: true,
+    owner: 'tasks',
+    persistence: 'json-file',
+    terminalStates: ['fired', 'failed', 'expired'],
+    reconcile: {
+      strategy: 'startup-rescan',
+      evidence:
+        'app/src/tasks/selfwake/SelfWakeService.ts#recoverOverdueWakes',
+    },
     note: '2026-11-24（批次 2 / A3）登记：转移实现集中在 `WakeStore`（`tryMarkFiring` / `requeueAfterFailure` / `expireStale` / `recoverStaleFiring`）。`pending|due` = 待触发（`pendingWake` 投影只认这两态）；`firing` = 单进程 CAS 中间态（防 tick 重扫与短时 timer 双续跑，崩溃后启动期复位）；`fired|failed|expired` = 终态（`gc` 按 `firedAt/failedAt/expiredAt` 裁剪）。',
   },
   {
@@ -260,7 +416,71 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
       anchor: 'array',
     },
     hasTransitionFn: false,
+    owner: 'tasks',
+    persistence: 'sqlite',
+    terminalStates: ['effect_settled', 'effect_failed'],
+    reconcile: {
+      strategy: 'ttl-sweep',
+      evidence: 'app/src/tasks/effects/EffectQueue.ts#claimOne',
+    },
     note: 'P38（2026-11-02）：`effect_pending → effect_attempting → effect_settled | effect_failed`。`effect_attempting` 只在原子领取后出现（崩溃后由陈旧窗口重领，`restored=1` 标记"可能已发出"）；`later` **不是状态**（只前移 due，回 pending）；连续失败达每类上限（`reply` 8，其余 `FAILURES_BEFORE_ERROR`=3）才进入 failed。取值带 `effect_` 前缀：`pending/settled/failed` 是跨域通用词，直接登记会把 chat/query/utils 既有 `settled` 出现点一并划入词汇表（与 P33 的 `step_` 同款教训）。',
+  },
+  {
+    id: 'stream',
+    title: '流生命周期状态机（StreamState）',
+    kind: 'persistent',
+    sourceFile: 'packages/service/src/streaming/types.ts',
+    states: ['idle', 'streaming', 'paused', 'completed', 'error', 'cancelled'],
+    verification: 'runtime-import',
+    verifyRef: {
+      module: 'packages/service/src/streaming/types.ts',
+      exportName: 'StreamState',
+      anchor: 'enum',
+    },
+    hasTransitionFn: true,
+    owner: 'streaming',
+    persistence: 'memory',
+    transitionRules: {
+      module: 'packages/service/src/streaming/StreamStateMachine.ts',
+      exportName: 'STREAM_TRANSITIONS',
+    },
+    terminalStates: ['completed', 'error', 'cancelled'],
+    reconcile: {
+      strategy: 'none',
+      evidence: 'packages/service/src/streaming/Stream.ts#Stream',
+    },
+    note: '2026-11-24（P0-1）从豁免升级为登记：引擎实例由 `Stream` 创建（`Stream.ts:59,247`），进程内状态、不跨重启 ⇒ 无启动对账。**已知漂移**：`types.ts:282-293` 的 `StreamStateTransition` 类型联合缺 `ERROR→STREAMING`，而规则表允许 —— 由 R09-008（P0-2）校验规则表自洽并推动对齐。',
+  },
+  {
+    id: 'backgroundTask',
+    title: '后台任务状态机（BackgroundTaskState）',
+    kind: 'persistent',
+    sourceFile:
+      'packages/infra/src/state/background/BackgroundTaskStateMachine.ts',
+    states: ['idle', 'running', 'skipped', 'completed', 'failed'],
+    verification: 'runtime-import',
+    verifyRef: {
+      module:
+        'packages/infra/src/state/background/BackgroundTaskStateMachine.ts',
+      exportName: 'BackgroundTaskState',
+      anchor: 'enum',
+    },
+    hasTransitionFn: true,
+    owner: 'background-tasks',
+    persistence: 'memory',
+    transitionRules: {
+      module:
+        'packages/infra/src/state/background/BackgroundTaskStateMachine.ts',
+      exportName: 'BACKGROUND_TASK_TRANSITIONS',
+    },
+    // 规则表允许 completed/failed 再回 running/idle（下一轮）⇒ 出度非 0，按引擎口径**无终态**
+    terminalStates: [],
+    reconcile: {
+      strategy: 'none',
+      evidence:
+        'packages/infra/src/state/background/BackgroundTaskStateMachine.ts#getBackgroundTaskStateMachine',
+    },
+    note: '2026-11-24（P0-1）从豁免升级为登记：实例经 `StateMachineRegistry` 注册（DreamEngine 等消费），进程内运行态；`skipped` 非终态（可回 `running`/`idle`）；`completed`/`failed` 也允许回到 `running`（下一轮）⇒ 按出度无终态。',
   },
 ];
 

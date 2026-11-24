@@ -1,6 +1,6 @@
 # 状态机治理整体方案（2026-11-24）
 
-> **状态**：🟡 待确认（只出方案，未改代码；确认后按 §6 分批实施）
+> **状态**：🟡 实施中 —— **P0-1 已完成**（目录补全 + 治理字段 + 文档归位）；P0-2 起待确认
 > **定位**：本文件是 Liri **状态机治理总纲**，接替已缺失的 `dev_docs/20261012/状态机规范管理方案-20261012.md`
 > （该目录当前**不存在**，但 `fix-evidence-registry.json` 仍有两处指向它 —— 见 G8）。
 > **已完成基线**：13 条具体缺陷的修复见 [state-machine-defect-remediation.md](./state-machine-defect-remediation.md)
@@ -108,7 +108,7 @@ interface StateMachineEntry {
   transitionRules?: { module: string; exportName: string };  // 规则表锚点（手写机可缺省）
   terminalStates?: readonly string[];                        // 终态集合（可从规则表推导后固化）
   reconcile?: {
-    strategy: 'none' | 'ttl-sweep' | 'startup-reset' | 'cas-requeue' | 'heartbeat-rescan';
+    strategy: 'none' | 'ttl-sweep' | 'startup-reset' | 'startup-rescan' | 'cas-requeue' | 'heartbeat-rescan';
     evidence: string;                                         // 启动调用点文件#函数
   };
   derivedViews?: readonly string[];                            // 消费该状态的派生实现
@@ -313,3 +313,28 @@ interface StateMachineEntry {
 | 日期 | 变更 | 作者 |
 |---|---|---|
 | 2026-11-24 | 初版：现状取证（G1–G10）+ 五层目标模型 + R09-007…013 提案 + 7 批实施路线 + 门禁/验收/风险 | AI |
+| 2026-11-24 | **P0-1 实施完成**：目录 14 → 16（补 `stream` / `backgroundTask`，删除对应豁免）、全部条目补治理字段、导出 `STREAM_TRANSITIONS` / `EXECUTION_TRANSITIONS`、R09-007 断言入测试、证据登记 `source` 改指本文件 | AI |
+
+---
+
+## §13 P0-1 实施记录（2026-11-24）
+
+**已落地**
+
+| 项 | 结果 |
+|---|---|
+| 目录条目 | 14 → **16**（新增 `stream`、`backgroundTask`，均含 `transitionRules` 锚点） |
+| 治理字段 | 16 台全部补 `owner` / `persistence` / `terminalStates`；持久化机补 `reconcile`（含证据锚点） |
+| 规则表可见性 | `STREAM_TRANSITIONS`（原文件内常量）与 `EXECUTION_TRANSITIONS`（原 `TRANSITIONS`，改名避免与 `connectionMonitor` 同名）已导出，无行为变更 |
+| 豁免清单 | 删除 `BackgroundTaskState` / `packages/service/src/streaming/types.ts#StreamState` 两条（保留 `app/src/chat/streaming/AdvancedStreamingProcessor.ts#StreamState` —— 另一台局部枚举） |
+| 文档归位 | `fix-evidence-registry.json` 两处 `source` 从缺失的 `dev_docs/20261012/...` 改为本文件（并注明原文档缺失） |
+| 门禁 | `tests/state/stateMachineCatalog.test.ts` 新增 R09-007 三条断言（字段必填 / 持久化机必须有 reconcile / 规则表锚点可载入） |
+| 基线 | `state-literal-baseline.json` 因新增 `streaming` / `skipped` 词汇重新收编（+52/−9） |
+
+**新发现（P0-2 处理，未纳入 P0-1 范围）**
+
+1. **`inboxApproval` 未登记**：`pending/processing/replied/expired/dismissed` 是真实持久化机器（`inbox_items` 表 + CAS + 启动对账 `reconcileStuckApprovalSessions`），但既不在目录、也未被 R09-006 捕获（状态用单数常量而非 `*_STATUSES` 数组）。
+2. **计划生命周期（`Plan.status`）未登记**：`pending-acceptance-state-machine.md` 已描述验收子态，但目录无 `plan` 条目。
+3. **R04-001 本地口径**：从 `app/` 目录运行 `lint:arch` 时，`InboxManager.ts` 的 `FSZ-006` 例外不生效（相对路径带 `..`）；从仓库根运行正常。属预存调用路径问题，建议单独立项修 `relOf` 归一化。
+
+**验证**：`bun test tests/state tests/execution tests/streaming` → **310 pass / 0 fail**；`bun run typecheck` 通过；`lint:state-ratchet` 通过；仓库根 `lint:arch` 仅剩 R00-003 warning（预存）。

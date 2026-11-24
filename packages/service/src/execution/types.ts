@@ -33,7 +33,11 @@ export type ExecutionStatus = (typeof EXECUTION_STATUSES)[number];
  * - `CANCEL_REQUESTED` 只能走向 `CANCELLED`（确认）或 `STALE`（被顶替）；
  *   未被确认的底层执行"晚到完成"不得把状态改回 `COMPLETED`（fencing）。
  */
-const TRANSITIONS: Record<ExecutionStatus, readonly ExecutionStatus[]> = {
+// 2026-11-24（治理方案 P0-1）：导出规则表作为**可校验锚点**（原文件内常量，无行为变更）
+export const EXECUTION_TRANSITIONS: Record<
+  ExecutionStatus,
+  readonly ExecutionStatus[]
+> = {
   QUEUED: ['RUNNING', 'CANCELLED', 'FAILED'],
   RUNNING: ['WAITING_USER', 'CANCEL_REQUESTED', 'COMPLETED', 'FAILED', 'STALE'],
   WAITING_USER: [
@@ -57,7 +61,7 @@ export function canTransition(
   to: ExecutionStatus
 ): boolean {
   if (from === to) return false;
-  return TRANSITIONS[from].includes(to);
+  return EXECUTION_TRANSITIONS[from].includes(to);
 }
 
 /** 终态判定 */

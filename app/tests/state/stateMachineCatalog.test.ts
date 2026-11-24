@@ -94,4 +94,50 @@ describe('状态机定义目录（阶段 1 / 1.3）', () => {
   it('未登记 id ⇒ undefined（不臆造条目）', () => {
     expect(findStateMachine('not-exist')).toBeUndefined();
   });
+
+  // 2026-11-24（治理方案 P0-1 / R09-007）：治理字段必填，缺失即红
+  it('R09-007：owner / persistence / terminalStates 必填且合法', () => {
+    for (const m of STATE_MACHINES) {
+      expect(m.owner.trim().length, `${m.id} 缺 owner`).toBeGreaterThan(0);
+      expect(
+        ['none', 'memory', 'json-file', 'sqlite'],
+        `${m.id} persistence 非法`
+      ).toContain(m.persistence);
+      expect(Array.isArray(m.terminalStates), `${m.id} 缺 terminalStates`).toBe(
+        true
+      );
+      // 终态必须来自状态全集（不臆造状态）
+      for (const t of m.terminalStates) {
+        expect([...m.states], `${m.id} 终态 ${t} 不在 states 内`).toContain(t);
+      }
+    }
+  });
+
+  it('R09-007：持久化机器必须声明重启对账策略（memory 除外）', () => {
+    for (const m of STATE_MACHINES) {
+      if (m.persistence === 'memory' || m.persistence === 'none') continue;
+      expect(
+        m.reconcile,
+        `${m.id} 为持久化机器但未声明 reconcile`
+      ).toBeDefined();
+      expect(
+        m.reconcile?.evidence.trim().length ?? 0,
+        `${m.id} 的 reconcile 缺证据锚点`
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  it('R09-007：transitionRules 锚点指向可载入的真实导出', async () => {
+    for (const m of STATE_MACHINES) {
+      const ref = m.transitionRules;
+      if (!ref) continue;
+      const mod = (await import(
+        pathToFileURL(join(REPO_ROOT, ref.module)).href
+      )) as Record<string, unknown>;
+      expect(
+        typeof mod[ref.exportName] === 'object' && mod[ref.exportName] !== null,
+        `${m.id} 的规则表锚点不存在：${ref.module}#${ref.exportName}`
+      ).toBe(true);
+    }
+  });
 });

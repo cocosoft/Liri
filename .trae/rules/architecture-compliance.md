@@ -621,6 +621,11 @@ src/<module>/
 - **产物归属**：定义目录 = `packages/infra/src/state/engine/stateMachineCatalog.ts`（P13 起在 infra 包）；豁免清单 = `scripts/state-machine-allowlist.json`
 - ⚠️ **局限（如实）**：仅识别 **`enum` / `as const`(Set) 数组**两类有运行时锚点的形态；`type X = 'a' | 'b'` 类型联合与内联字面量**不在**门禁范围（全仓逾 150 处，逐一豁免即"噪音门禁"）⇒ 该类由目录的 `source-read` 条目 + `tests/state/stateMachineCatalog.test.ts` 人工取证覆盖。**只漏报、不误报。**
 
+> **治理总纲（2026-11-24）**：R09-007…R09-013 的判据、五层模型与分批路线见
+> [`.trae/specs/state-machine-governance.md`](../specs/state-machine-governance.md)。
+> P0-1 起，目录条目必填 `owner` / `persistence` / `terminalStates`；`persistence !== 'memory' | 'none'`
+> 的机器必须声明 `reconcile`（启动对账证据）。**规则正文仍在评审中**：本处只放指针，避免规则双源。
+
 ---
 
 ## R10 模块统一管理（MUST）

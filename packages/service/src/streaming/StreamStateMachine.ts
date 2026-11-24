@@ -18,7 +18,8 @@ import { StreamState } from './types';
  * 状态转换规则表
  * 定义哪些转换是合法的，使用 TransitionRules<StreamState> 格式
  */
-const STREAM_TRANSITIONS: TransitionRules<StreamState> = {
+// 2026-11-24（治理方案 P0-1）：导出规则表作为**可校验锚点**（原文件内常量，无行为变更）
+export const STREAM_TRANSITIONS: TransitionRules<StreamState> = {
   [StreamState.IDLE]: [StreamState.STREAMING],
   [StreamState.STREAMING]: [
     StreamState.PAUSED,

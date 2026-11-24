@@ -2869,7 +2869,7 @@
     {
       "id": "FSM-CATALOG-P1",
       "title": "状态机规范管理 阶段 1：状态机**定义目录**（`StateMachineCatalog`）+ 目录↔源码**防漂移**断言",
-      "source": "dev_docs/20261012/状态机规范管理方案-20261012.md §3 阶段 1（2026-10-12）",
+      "source": ".trae/specs/state-machine-governance.md §2（2026-11-24 重新落盘；原 dev_docs/20261012/状态机规范管理方案-20261012.md 已缺失）",
       "stages": {
         "discovered": true,
         "fixed": true,
@@ -2895,7 +2895,7 @@
     {
       "id": "FSM-CATALOG-HYGIENE",
       "title": "状态机规范管理 阶段 1.3 配套：消除取证暴露的 **3 项隐患**（命名类型 / 瞬态常量 / 去双事实源）+ 源码守卫",
-      "source": "dev_docs/20261012/状态机规范管理方案-20261012.md §4 阶段 1.3（取证隐患，2026-10-12）",
+      "source": ".trae/specs/state-machine-governance.md §2（2026-11-24 重新落盘；原 dev_docs/20261012/状态机规范管理方案-20261012.md 已缺失）",
       "stages": {
         "discovered": true,
         "fixed": true,

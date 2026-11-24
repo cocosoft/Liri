@@ -7,7 +7,6 @@ import { useChatStore } from "../../stores/chat";
 import {
   getToolDisplayName,
   getToolHumanSummary,
-  resolveGroupStatus,
 } from "../../utils/toolHumanSummary";
 import GroupStatusLine from "./GroupStatusLine";
 // 2026-11-17：`resolvedApprovalInboxIds` —— 审批已落定（已处理/已过期）的调用不再计入「等待审批」
@@ -15,6 +14,11 @@ import {
   getToolResultFull,
   resolvedApprovalInboxIds,
 } from "../../stores/chat/chat-message-shared";
+// 2026-11-24（批次 4 / B3）：工具结果态**单一派生**（组头/工具卡/行内/日志面板同源）
+import {
+  deriveGroupOutcome,
+  deriveToolOutcome,
+} from "../../stores/chat/toolOutcome";
 import { createLogger } from "@/utils/logger";
 
 const logger = createLogger("components:toolExecutionGroup");
@@ -85,20 +89,6 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
   /** 2026-11-17：已处理/已过期审批的 inboxId（按数组引用缓存，全组只算一次） */
   const messages = useChatStore((s) => s.messages);
   const resolvedApprovalIds = resolvedApprovalInboxIds(messages);
-  /** 该工具调用是否仍**有效等待审批**（残留标记 + 已落定卡 ⇒ false） */
-  const isUnresolvedPending = useMemo(
-    () =>
-      (block: MessageBlock): boolean => {
-        const tc = block.toolCall;
-        if (tc?.pendingApproval !== true) return false;
-        const inboxId = tc.inboxId;
-        if (typeof inboxId === "string" && resolvedApprovalIds.has(inboxId)) {
-          return false;
-        }
-        return true;
-      },
-    [resolvedApprovalIds],
-  );
 
   /** P0-5 日志：流式状态切换边界（流式中工具卡片渲染频率监控，每 complete→streaming 边沿记录） */
   const isGroupStreaming = useMemo(
@@ -138,40 +128,19 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
   }, [blocks, t]);
 
   /**
-   * 2026-11-24：组内是否存在**没有任何终态**的调用（既非 completed/failed，
-   * 也非 running / 待审批）—— 典型是「审批卡已处理/已过期，但后端未再写工具结果」
-   * 的残留调用。原实现把这种组当成 completed（✅），聚合行却写成「0/2 执行中」，
-   * 组头自相矛盾；这里显式识别，按「已中断」如实展示。
+   * 2026-11-24（批次 4 / B3）：组头状态由**单一派生**给出。
+   *
+   * 原实现三套判据（`resolveGroupStatus` + `isUnresolvedPending` + `hasUnfinishedCalls`）
+   * ⇒ 同一调用在组头与工具卡可得出不同结论。现统一走 `deriveGroupOutcome`：
+   * 审批已落定 / 无终态 ⇒ `interrupted`（按「已中断」如实展示，不谎报完成或执行中）。
    */
-  const hasUnfinishedCalls = useMemo(
-    () =>
-      blocks.some((b) => {
-        if (b.type !== "tool_call" || !b.toolCall) return false;
-        if (isUnresolvedPending(b)) return false;
-        const status = b.toolCall.status;
-        return (
-          status !== "completed" &&
-          status !== "failed" &&
-          status !== "running" &&
-          !b.isStreaming
-        );
-      }),
-    [blocks, isUnresolvedPending],
-  );
-
   const status = useMemo(() => {
-    // #29（2026-10-30）：全组聚合（原实现取第一块 ⇒ 已完成组仍显示执行中/待审批）
-    const raw = resolveGroupStatus(blocks);
-    // 2026-11-17：组内「等待审批」全部已落定（卡已处理/已过期）⇒ 不再把整组标成待审批
-    if (
-      raw === "pending_approval" &&
-      !blocks.some((b) => isUnresolvedPending(b))
-    ) {
-      return hasUnfinishedCalls ? "interrupted" : "executing";
-    }
-    if (raw === "completed" && hasUnfinishedCalls) return "interrupted";
-    return raw;
-  }, [blocks, isUnresolvedPending, hasUnfinishedCalls]);
+    const raw = deriveGroupOutcome(blocks, {
+      resolvedInboxIds: resolvedApprovalIds,
+    });
+    // 展示层词汇：running / empty ⇒ executing（与既有 statusConfig 默认分支一致）
+    return raw === "running" || raw === "empty" ? "executing" : raw;
+  }, [blocks, resolvedApprovalIds]);
 
   const statusConfig = useMemo(() => {
     switch (status) {
@@ -289,14 +258,16 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
       }
       const stat = groups.get(name)!;
       stat.total++;
-      // 2026-11-13：待审批不是完成 —— 否则组头写「已执行 N 个工具调用 · N/N」，
-      // 用户在审批暂停期间读成"跑完了"。
-      // 2026-11-17：审批已落定（已处理/已过期）的调用不再计入待审批。
-      if (isUnresolvedPending(b)) stat.pending++;
-      else if (b.toolCall?.status === "completed") stat.completed++;
-      else if (b.toolCall?.status === "running" || b.isStreaming)
-        stat.running++;
-      else if (b.toolCall?.status === "failed") stat.failed++;
+      // 2026-11-24（批次 4 / B3）：与组头/工具卡同一派生（待审批不算完成，
+      // 无终态计入 interrupted —— 既不谎报完成，也不谎报执行中）
+      const outcome = deriveToolOutcome(b.toolCall, {
+        isStreaming: b.isStreaming,
+        resolvedInboxIds: resolvedApprovalIds,
+      });
+      if (outcome === "pending_approval") stat.pending++;
+      else if (outcome === "completed") stat.completed++;
+      else if (outcome === "running") stat.running++;
+      else if (outcome === "failed") stat.failed++;
     }
 
     // 汇总总调用数与失败数（不局限于单一工具类型）
@@ -324,7 +295,7 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
       interrupted: total - completed - failed - running - pending,
       allDone: completed + failed === total && pending === 0,
     };
-  }, [blocks, isUnresolvedPending]);
+  }, [blocks, resolvedApprovalIds]);
 
   /** P1-6 修复：status 块按 toolCallId 去重（消除 CS02 正则解析） */
   const filteredBlocks = useMemo(() => {

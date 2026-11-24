@@ -16,6 +16,8 @@ import { useChatStore } from "../../stores/chat";
 import { getToolResultFull } from "../../stores/chat/chat-message.slice";
 // 2026-11-17：审批已落定（已处理/已过期）时收起工具卡的等待徽标与就地审批按钮
 import { resolvedApprovalInboxIds } from "../../stores/chat/chat-message-shared";
+// 2026-11-24（批次 4 / B3）：工具结果态**单一派生**（与组头 / 行内 / 日志面板同源）
+import { deriveToolOutcome } from "../../stores/chat/toolOutcome";
 import {
   getToolDisplayName,
   getToolHumanSummary,
@@ -155,13 +157,13 @@ function ToolCallGroup({
    * 点下去只会得到「已过期」。按 `inboxId` 与该卡的实际状态对账：已落定则不再按等待渲染。
    */
   const messages = useChatStore((s) => s.messages);
-  const approvalResolved =
-    toolCall.pendingApproval === true &&
-    typeof toolCall.inboxId === "string" &&
-    resolvedApprovalInboxIds(messages).has(toolCall.inboxId);
+  /** 2026-11-24（批次 4 / B3）：结果态统一派生（待审批 / 执行中 / 完成 / 失败 / 中断 / 未知） */
+  const outcome = deriveToolOutcome(toolCall, {
+    isStreaming,
+    resolvedInboxIds: resolvedApprovalInboxIds(messages),
+  });
   /** 仍有效的「等待审批」态（残留标记已落定 ⇒ false） */
-  const awaitingApproval =
-    toolCall.pendingApproval === true && !approvalResolved;
+  const awaitingApproval = outcome === "pending_approval";
 
   useEffect(() => {
     const wasStreaming = prevStreaming.current;
@@ -172,18 +174,17 @@ function ToolCallGroup({
     }
   }, [isStreaming, variant, isMediaDisplay]);
 
-  const statusIcon = isStreaming
-    ? "\u23F3"
-    : awaitingApproval
-      ? "\u23F3"
-      : toolCall.status === "completed"
-        ? "\u2705"
-        : toolCall.status === "failed"
-          ? "\u274C"
-          : // 2026-11-24：审批已落定但没有终态结果 ⇒ 中断（而非"未知工具"扳手图标）
-            toolCall.approvalStatus
-            ? "\u23F8"
-            : "\u{1F527}";
+  // 2026-11-24（批次 4 / B3）：图标按**派生结果态**取，不再各自解释 status
+  const statusIcon =
+    outcome === "completed"
+      ? "\u2705"
+      : outcome === "failed"
+        ? "\u274C"
+        : outcome === "interrupted"
+          ? "\u23F8"
+          : outcome === "unknown"
+            ? "\u{1F527}"
+            : "\u23F3";
 
   /** P2-2: 审批等待态徽标（区别于失败红色）；审批已落定 ⇒ 不再显示 */
   const pendingBadge = awaitingApproval ? (

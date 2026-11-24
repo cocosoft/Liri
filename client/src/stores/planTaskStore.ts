@@ -39,8 +39,13 @@ export const usePlanTaskStore = create<PlanTaskState>()((set, get) => ({
     logger.debug(
       `[upsert] planId=${planId} title="${data.title}" status=${data.status} tasks=${data.tasks.length} existed=${!!prev}`,
     );
+    // 2026-11-24（批次 4 / B6）：**合并**而非整体覆盖 —— 后到的广播若未携带某个可选字段
+    // （如 `acceptance`），不应把已有值抹掉（原实现 `[planId]: data` 会静默丢字段）。
     set((s) => ({
-      tasks: { ...s.tasks, [planId]: data },
+      tasks: {
+        ...s.tasks,
+        [planId]: prev ? { ...prev, ...data } : data,
+      },
     }));
     // #3 修复：task_card 到达后补发竞态期间缓存的任务更新（step_progress 先到场景）
     const buf = get().pendingUpdates[planId];

@@ -38,7 +38,10 @@ import {
   ensureTextBlockFromContent,
 } from "../../stores/chat";
 import { useShallow } from "zustand/shallow";
-import { dedupeToolCallBlocks } from "../../stores/chat/chat-message-shared";
+import {
+  dedupeToolCallBlocks,
+  isAwaitingApprovalTurn,
+} from "../../stores/chat/chat-message-shared";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useRootStore } from "../../stores/root-store";
 import { sessionService } from "../../services/sessionService";
@@ -1410,10 +1413,14 @@ function AssistantMessage({
   // 结构化 `awaiting_approval` 轮次，正文为空是**正常**的（内容由工具卡/审批卡承载），
   // 不得落进下方 H-FIX-2「生成中断」兜底 —— 否则「思考 → 调工具审批」的正常轮次会被
   // 误标成「该回复生成中断，未完成最终输出」。
+  // 2026-11-24（批次 4 / B4）：`awaiting_approval` 改用**单一判据**
+  // （`isAwaitingApprovalTurn` 覆盖顶层与 `metadata` 两处落盘形态）——
+  // 原实现只认顶层 `terminationReason`，持久化形状在 metadata 时漏判 ⇒ 浮动栏说
+  // 「等待审批」、正文却插「生成中断」。
   const isNormalToolFinish =
     message.finishReason === "tool_use" ||
     message.finishReason === "stop" ||
-    message.terminationReason === "awaiting_approval";
+    isAwaitingApprovalTurn(message);
   // 2026-11-03 P1：主循环终止原因（`turn/end.terminationReason`）→ 可见徽标。
   // - `completed` / 缺失 ⇒ 不显示（正常收尾，不制造噪音）
   // - 用户/系统中止已由上方「该回复已中断」覆盖 ⇒ 不重复

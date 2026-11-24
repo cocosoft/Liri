@@ -137,8 +137,16 @@ sseService.on("plan:task_card", (data: Record<string, unknown>) => {
   const title = (data.title as string) || "任务分解";
   const tasks = (data.tasks as TaskCardTask[]) || [];
   const status = (data.status as TaskCardData["status"]) || "executing";
+  // 2026-11-24（批次 4 / B6）：透传验收子态 —— 原实现只取 title/tasks/status ⇒
+  // 后端广播的 `acceptance='pending'` 被丢弃，「待验收」徽标实时不出现（刷历史才有）。
+  const acceptance = data.acceptance as TaskCardData["acceptance"] | undefined;
 
-  const taskCard: TaskCardData = { title, tasks, status };
+  const taskCard: TaskCardData = {
+    title,
+    tasks,
+    status,
+    ...(acceptance ? { acceptance } : {}),
+  };
   // #8 修复：拷贝数组，避免直接修改 SSE 事件原始数据（脏副作用）
   // BUG-5 修复（2026-08-23）：尊重后端各任务自带的 status，不再无条件把第一步
   // 强制置为 in_progress——恢复/重放场景下后端已完成的第一步会被错误回退。

@@ -544,6 +544,10 @@ export type ToolGroupStatus =
  *
  * 口径（自上而下短路）：有**正在执行** ⇒ running；否则有**待审批** ⇒ pending_approval；
  * 否则有**失败** ⇒ failed；否则 completed。待审批块**不计入 running**（2026-11-13）。
+ *
+ * @deprecated 2026-11-24（批次 4 / B3）：生产消费已统一为 `stores/chat/toolOutcome.ts`
+ * 的 `deriveGroupOutcome`（判据同源，含 `interrupted`）。本函数**仅测试引用**，观察期后删除
+ * （CD05/CD06：先标注、后删除）。
  */
 export function resolveGroupStatus(
   blocks: ReadonlyArray<{

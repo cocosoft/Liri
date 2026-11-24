@@ -22,6 +22,8 @@ import { useChatInspectorStore } from "../../stores/chatInspectorStore";
 import { useModelSwitchStore } from "../../stores/modelSwitchStore";
 import { getToolDisplayName } from "../../utils/toolHumanSummary";
 import { getToolResultFull } from "../../stores/chat/chat-message.slice";
+// 2026-11-24（批次 4 / B3）：工具结果态**单一派生**（与组头/工具卡/行内标签同源）
+import { deriveToolOutcome } from "../../stores/chat/toolOutcome";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useTrajectoryStore } from "../../stores/chat/trajectoryStore";
 import {
@@ -128,33 +130,36 @@ function ToolRowImpl({
   const displayName = getToolDisplayName(record.name);
   const hasArgs = record.arguments && Object.keys(record.arguments).length > 0;
   const hasResult = record.result !== undefined && record.result !== null;
-  const isFailed = record.status === "failed";
   // 全链路修复①（2026-08-23）：提问工具（ask_user_question）无 result 是"等待回答"
   // 语义（协议契约，非执行中）——不显示"进行中"，避免误导为挂起的运行任务
   const isWaitingAnswer =
     record.name === "ask_user_question" && record.status === "running";
-  // G6（2026-11-03）：审批等待（`awaiting_approval` 结果）——不是"进行中"也不是"已完成"，
-  // 必须单独显示，否则用户不知道卡在等自己批准。
-  const isPendingApproval = record.pendingApproval === true;
   // G7（2026-11-03）：本卡合并了多条原始 `tool/result` ⇒ 卡片自述条数（与横幅的"原始错误数"互补）
   const rawResultCount = record.rawResultCount ?? 0;
-  // 全链路修复②（2026-08-23）：无 result 的工具调用是"已中断"（非"进行中"）——
-  // canceled 事件终态（B-3）或历史回放中无完成事件（running 且非流式）
-  const isInterrupted =
-    record.status === "canceled" ||
-    (record.status === "running" && !isWaitingAnswer && !isStreaming);
+  // 2026-11-24（批次 4 / B3）：与组头/工具卡同一派生（待审批 / 执行中 / 完成 / 失败 / 中断）。
+  // 原实现自带两套补充判据（`pendingApproval` 单独分支 + `running && !isStreaming` 中断），
+  // 与工具卡/组头结论不一致。`isStreaming` 如实传入：流已结束仍 running ⇒ 中断。
+  const outcome = isWaitingAnswer
+    ? "running"
+    : deriveToolOutcome(record, { isStreaming });
+  const isFailed = outcome === "failed";
+  const isPendingApproval = outcome === "pending_approval";
+  const isInterrupted = outcome === "interrupted";
   const errorText = extractError(record);
-  const icon = isPendingApproval
-    ? "⏳"
-    : isWaitingAnswer
-      ? "🗣"
-      : isInterrupted
-        ? "⏸"
-        : record.status === "running"
-          ? "🔄"
-          : isFailed
-            ? "❌"
-            : "✅";
+  const icon =
+    outcome === "pending_approval"
+      ? "⏳"
+      : isWaitingAnswer
+        ? "🗣"
+        : outcome === "interrupted"
+          ? "⏸"
+          : outcome === "running"
+            ? "🔄"
+            : outcome === "failed"
+              ? "❌"
+              : outcome === "unknown"
+                ? "❔"
+                : "✅";
 
   const handleCopy = useCallback(() => {
     let text: string;
@@ -194,10 +199,7 @@ function ToolRowImpl({
             {t("chat.pendingApproval")}
           </span>
         )}
-        {record.status === "running" &&
-          !isWaitingAnswer &&
-          !isPendingApproval &&
-          !isInterrupted && (
+        {outcome === "running" && !isWaitingAnswer && !isPendingApproval && (
           <span className="ml-auto text-blue-500 animate-pulse shrink-0 text-[10px]">
             {t("chatInspector.statusRunning")}
           </span>
@@ -229,14 +231,14 @@ function ToolRowImpl({
           {t("chatInspector.pendingApprovalHint")}
         </p>
       )}
-      {record.status === "completed" && hasResult && !isPendingApproval && (
+      {outcome === "completed" && hasResult && (
         <ClampedBody
           label={t("chatInspector.resultLabel")}
           text={summarizeResult(record.result)}
           noClamp={isFailed}
         />
       )}
-      {record.status === "completed" && !hasResult && (
+      {outcome === "completed" && !hasResult && (
         <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">
           {t("chatInspector.toolCompletedNoResult")}
         </p>
@@ -247,7 +249,7 @@ function ToolRowImpl({
         </div>
       )}
       <div className="flex gap-1 mt-1">
-        {record.status === "completed" && hasResult && (
+        {outcome === "completed" && hasResult && (
           <button
             onClick={handleCopy}
             className="px-1.5 py-0.5 rounded text-[10px] text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"

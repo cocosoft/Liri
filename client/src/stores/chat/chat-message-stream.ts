@@ -827,10 +827,27 @@ export async function streamMessageImpl(
     }
 
     // P3-1: 流完整性检查 — 检测未完成的 tool_call 块，标记中断状态
+    //
+    // 2026-11-24（批次 4 / B5）：原来**只追加提示**、块状态仍留 `running` ⇒ 工具卡持续
+    // 转圈（归一化只发生在重新加载历史时）。这里就地清 `status`（`deriveToolOutcome`
+    // 据此判 `interrupted`，与组头/日志面板同源）；待审批块除外 —— `pendingApproval=true`
+    // 是合法的非终态，由审批卡承载。
     const incompleteToolCalls = finalBlocks.filter(
-      (b) => b.type === "tool_call" && b.toolCall?.status === "running",
+      (b) =>
+        b.type === "tool_call" &&
+        b.toolCall?.status === "running" &&
+        b.toolCall?.pendingApproval !== true,
     );
     if (incompleteToolCalls.length > 0) {
+      const incompleteIds = new Set(incompleteToolCalls.map((b) => b.id));
+      finalBlocks = finalBlocks.map((b) => {
+        if (!incompleteIds.has(b.id) || !b.toolCall) return b;
+        return {
+          ...b,
+          isStreaming: false,
+          toolCall: { ...b.toolCall, status: undefined },
+        };
+      });
       const names = incompleteToolCalls
         .map((b) => b.toolCall?.name)
         .filter(Boolean)

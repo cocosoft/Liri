@@ -17,6 +17,10 @@ import {
   getToolHumanSummary,
 } from "../../utils/toolHumanSummary";
 import ToolExecutionGroup from "./ToolExecutionGroup";
+// 2026-11-24（批次 4 / B3/B6）：工具结果态**单一派生**（含"审批已落定/中断"，不再一律 ✓）
+import { deriveToolOutcome } from "../../stores/chat/toolOutcome";
+import { resolvedApprovalInboxIds } from "../../stores/chat/chat-message-shared";
+import { useChatStore } from "../../stores/chat";
 
 interface ToolInlineTagsProps {
   blocks: MessageBlock[];
@@ -26,6 +30,9 @@ function ToolInlineTags({ blocks }: ToolInlineTagsProps) {
   const { t } = useTranslation();
   const toolCalls = blocks.filter((b) => b.type === "tool_call" && b.toolCall);
   const statusBlocks = blocks.filter((b) => b.type === "status");
+  /** 2026-11-24（批次 4 / B3）：已落定审批的 inboxId（全列表只算一次） */
+  const messages = useChatStore((s) => s.messages);
+  const resolvedApprovalIds = resolvedApprovalInboxIds(messages);
   // 当前展开的工具 block id（同一时间只展开一个，避免气泡被工具卡片撑爆）
   const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null);
 
@@ -40,9 +47,25 @@ function ToolInlineTags({ blocks }: ToolInlineTagsProps) {
           const tc = b.toolCall!;
           const displayName = getToolDisplayName(tc.name);
           const summary = getToolHumanSummary(tc);
-          const isRunning = b.isStreaming || tc.status === "running";
-          const isFailed = tc.status === "failed";
-          const icon = isRunning ? "🔄" : isFailed ? "✗" : "✓";
+          const outcome = deriveToolOutcome(tc, {
+            isStreaming: b.isStreaming,
+            resolvedInboxIds: resolvedApprovalIds,
+          });
+          const isRunning = outcome === "running";
+          const isFailed = outcome === "failed";
+          const isPendingOrInterrupted =
+            outcome === "pending_approval" || outcome === "interrupted";
+          const icon = isRunning
+            ? "🔄"
+            : isFailed
+              ? "✗"
+              : outcome === "pending_approval"
+                ? "⏳"
+                : outcome === "interrupted"
+                  ? "⏸"
+                  : outcome === "unknown"
+                    ? "🔧"
+                    : "✓";
           const argsText = tc.arguments
             ? JSON.stringify(tc.arguments)
             : undefined;
@@ -57,18 +80,19 @@ function ToolInlineTags({ blocks }: ToolInlineTagsProps) {
                   ? t("chat.clickCollapseDetail", "点击收起详情")
                   : // P2（2026-10-29）：摘要被 `truncate` 截断后原先无处可看全文（原 title 只有参数 JSON）
                     // ⇒ 悬停提示里补上完整摘要（有参数时两段一起显示）。
-                    [summary, argsText]
-                      .filter(Boolean)
-                      .join("\n\n") ||
+                    [summary, argsText].filter(Boolean).join("\n\n") ||
                     t("chat.clickViewDetail", "点击查看详情")
               }
               onClick={() => toggleExpand(b.id)}
               className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] leading-none border cursor-pointer transition-colors ${
                 isFailed
                   ? "bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800 text-red-500 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/60"
-                  : isExpanded
-                    ? "bg-blue-50 dark:bg-blue-950/40 border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400"
-                    : "bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                  : isPendingOrInterrupted
+                    ? // 待审批 / 已中断 = 未落定，用琥珀色区分「不是成功也不是失败」
+                      "bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-950/60"
+                    : isExpanded
+                      ? "bg-blue-50 dark:bg-blue-950/40 border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400"
+                      : "bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
               }`}
             >
               <span>{icon}</span>

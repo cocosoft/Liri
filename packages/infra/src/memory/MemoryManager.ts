@@ -53,6 +53,7 @@ import { writeFileAtomic } from '@openliri/infra/utils/atomicFileWrite';
 import { MemoryConsolidator } from './consolidation/MemoryConsolidator';
 import { rebuildMemoryWiki } from './services/MemoryWikiService';
 import {
+  buildTeamConflictCandidates,
   pullTeamMemoriesFromSharedDir,
   pushTeamMemoriesToSharedDir,
 } from './services/TeamMemorySharedDirSync';
@@ -665,6 +666,26 @@ export class MemoryManagerImpl
             join(teamDir, 'push-report.json'),
             JSON.stringify(
               { generatedAt: new Date().toISOString(), ...pushReport },
+              null,
+              2
+            ) + '\n'
+          );
+
+          // Phase 3-lite：冲突候选（只供审阅，不自动改写任一侧）
+          const candidates = await buildTeamConflictCandidates({
+            teamDir,
+            sharedDir,
+            pullConflicts: report.conflicts,
+            pushConflicts: pushReport.conflicts,
+          });
+          await writeFileAtomic(
+            join(teamDir, 'conflicts.json'),
+            JSON.stringify(
+              {
+                generatedAt: new Date().toISOString(),
+                total: candidates.length,
+                candidates,
+              },
               null,
               2
             ) + '\n'

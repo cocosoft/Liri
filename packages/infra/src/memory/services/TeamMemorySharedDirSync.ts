@@ -13,6 +13,7 @@
  */
 
 import { promises as fs, existsSync } from 'fs';
+import { createHash } from 'crypto';
 import { basename, join } from 'path';
 import matter from 'gray-matter';
 import { writeFileAtomic } from '@openliri/infra/utils/atomicFileWrite';
@@ -204,4 +205,63 @@ export async function pushTeamMemoriesToSharedDir(params: {
   });
 
   return report;
+}
+
+/** 冲突候选（manual 语义：只供审阅，不自动改写任何一侧） */
+export interface TeamConflictCandidate {
+  id: string;
+  /** 在哪些方向被发现（`pull` = 远端与本地不同；`push` = 本地与远端不同） */
+  directions: string[];
+  localFile: string;
+  sharedFile: string;
+  /** 两侧内容 hash（缺失 = 该侧文件不存在） */
+  localHash: string | null;
+  sharedHash: string | null;
+}
+
+async function fileHash(filePath: string): Promise<string | null> {
+  try {
+    const raw = await fs.readFile(filePath, 'utf-8');
+    return createHash('sha256').update(raw).digest('hex');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 汇总拉/推两个方向的冲突为**审阅候选**（Phase 3-lite，2026-11-25）。
+ * 只读取两侧文件计算 hash，不修改任何文件。
+ */
+export async function buildTeamConflictCandidates(params: {
+  teamDir: string;
+  sharedDir: string;
+  pullConflicts: string[];
+  pushConflicts: string[];
+}): Promise<TeamConflictCandidate[]> {
+  const { teamDir, sharedDir } = params;
+  const directions = new Map<string, Set<string>>();
+  const add = (ids: string[], direction: string): void => {
+    for (const id of ids) {
+      const set = directions.get(id) ?? new Set<string>();
+      set.add(direction);
+      directions.set(id, set);
+    }
+  };
+  add(params.pullConflicts, 'pull');
+  add(params.pushConflicts, 'push');
+
+  const candidates: TeamConflictCandidate[] = [];
+  for (const id of [...directions.keys()].sort()) {
+    const localFile = join(teamDir, `${id}.md`);
+    const sharedFile = join(sharedDir, `${id}.md`);
+    candidates.push({
+      id,
+      directions: [...(directions.get(id) ?? [])].sort(),
+      localFile,
+      sharedFile,
+      localHash: await fileHash(localFile),
+      sharedHash: await fileHash(sharedFile),
+    });
+  }
+  return candidates;
 }

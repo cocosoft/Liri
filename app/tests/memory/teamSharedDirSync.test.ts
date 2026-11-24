@@ -16,6 +16,7 @@ import {
 import { tmpdir } from 'os';
 import { join } from 'path';
 import {
+  buildTeamConflictCandidates,
   pullTeamMemoriesFromSharedDir,
   pushTeamMemoriesToSharedDir,
 } from '@openliri/infra/memory/services/TeamMemorySharedDirSync';
@@ -157,6 +158,25 @@ describe('pushTeamMemoriesToSharedDir（Phase 2）', () => {
     expect(report.uploaded).toBe(0);
     expect(report.conflicts).toContain('l2');
     expect(readFileSync(join(shared, 'l2.md'), 'utf-8')).toContain('远端版本');
+  });
+
+  it('冲突候选：合并拉/推两向并给出两侧 hash（只读）', async () => {
+    const { shared, local } = makeDirs();
+    writeFileSync(join(local, 'c1.md'), memFile('c1', '本地版本'), 'utf-8');
+    writeFileSync(join(shared, 'c1.md'), memFile('c1', '远端版本'), 'utf-8');
+    writeFileSync(join(local, 'c2.md'), memFile('c2', '仅本地'), 'utf-8');
+
+    const candidates = await buildTeamConflictCandidates({
+      teamDir: local,
+      sharedDir: shared,
+      pullConflicts: ['c1'],
+      pushConflicts: ['c1', 'c2'],
+    });
+
+    expect(candidates.map((c) => c.id)).toEqual(['c1', 'c2']);
+    expect(candidates[0].directions).toEqual(['pull', 'push']);
+    expect(candidates[0].localHash).not.toBe(candidates[0].sharedHash);
+    expect(candidates[1].sharedHash).toBeNull();
   });
 
   it('本地命中密钥 ⇒ 拒发（fail-closed）', async () => {

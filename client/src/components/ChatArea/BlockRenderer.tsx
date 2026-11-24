@@ -7,7 +7,7 @@
  * - tool_call → ToolCallBlock
  * - question → QuestionBlock
  * - task_decomposition / todo → TaskCard
- * - progress → ProgressCard
+ * - progress → 不再渲染（ProgressCard 已下线，2026-11-24）
  * - deliverable → DeliverableCard
  * - diff → DiffBlock
  * - text / default → MarkdownRenderer
@@ -21,7 +21,6 @@ import StatusBlock from "./StatusBlock";
 import ToolCallGroup from "./ToolCallGroup";
 import QuestionBlock from "./QuestionBlock";
 import TaskCard from "./TaskCard";
-import ProgressCard from "./ProgressCard";
 import DeliverableCard from "./DeliverableCard";
 import DiffBlock from "./DiffBlock";
 import DiagnosticBlock from "./DiagnosticBlock";
@@ -41,7 +40,6 @@ const MISSING_DATA_LABEL_KEYS: Record<string, string> = {
   tool_call: "chat.toolCall",
   question: "chat.blockTypeQuestion",
   task: "chat.blockTypeTask",
-  progress: "chat.blockTypeProgress",
   deliverable: "chat.blockTypeDeliverable",
   diff: "chat.blockTypeDiff",
   inbox: "chat.blockTypeInbox",
@@ -194,10 +192,15 @@ function BlockRenderer({
       }
       return <MissingDataFallback type="task" block={block} />;
     case "progress":
-      if (block.progressData) {
-        return <ProgressCard data={block.progressData} />;
-      }
-      return <MissingDataFallback type="progress" block={block} />;
+      /**
+       * 2026-11-24（删除 ProgressCard，用户裁定「简化前端显示内容」）：`progress` 块不再渲染。
+       *
+       * ⚠️ **必须保留 case 并显式返回 null** —— 落到 `default` 会渲染 `block.content`
+       * （即 `progressData.description`），等于把下线的面板换成一行裸文本。
+       * 数据层（流式 `addProgress` / 事件派生 `deriveConversationBlocks`）本批**不动**：
+       * 后端事件契约未变，只摘渲染入口（`code-deletion.md` CD05）。
+       */
+      return null;
     case "deliverable":
       if (block.deliverableData) {
         return <DeliverableBlock data={block.deliverableData} />;

@@ -1,7 +1,7 @@
 {
   "$comment": "修复证据登记（生成物）：改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts；stages/flags 判据见 scripts/lint-fix-evidence.ts。",
   "version": 1,
-  "updatedAt": "2026-11-24T12:23:45.879Z",
+  "updatedAt": "2026-11-24T13:10:57.851Z",
   "stages": [
     "discovered",
     "fixed",
@@ -17554,7 +17554,7 @@
         "designed": true,
         "coded": true,
         "unitTested": true,
-        "e2eVerified": false
+        "e2eVerified": true
       },
       "code": [
         "client/src/components/ChatArea/usePdcaEntry.ts",
@@ -17563,11 +17563,12 @@
       ],
       "tests": [
         "client/src/components/ChatArea/__tests__/usePdcaEntry.test.ts",
-        "client/src/components/ChatArea/__tests__/pdcaEntry.test.ts"
+        "client/src/components/ChatArea/__tests__/pdcaEntry.test.ts",
+        "client/src/services/__tests__/planService.pickRootTaskId.test.ts"
       ],
       "changelog": [],
-      "reopenWhen": "刷新后消息卡「查看详情」再次点不动，或历史卡片被误判成进行中（全文见 archive/evidence-detail.jsonl#PDCA-THREE-SURFACES-P2D）",
-      "notes": "① resolvePdcaEntry 增 hasPersistedCard：无实时事件时 available 由消息内持久化 pdca_workflow 卡片兜底，active 恒 false；② usePdcaEntry 读 chat store 判卡片，缺失 taskId 时按 sessionId 调 /v1/pdca/list 取最近真实任务；③ 无任务不造假，抽屉显示既有「本轮无任务快照」。"
+      "reopenWhen": "刷新后「查看详情」点不动，或兜底 taskId 又取到子阶段（全文见 archive/evidence-detail.jsonl#PDCA-THREE-SURFACES-P2D）",
+      "notes": "① available 由持久化 pdca_workflow 卡片兜底（active 恒 false）；② 无 taskId 时按 sessionId 调 /v1/pdca/list，pickRootTaskId 优先主链；③ 无任务不造假。e2e：真实自动升级后 reload 点「查看详情」抽屉可开，taskId=pdca_mwupjxor。"
     }
   ]
 }

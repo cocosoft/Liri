@@ -448,13 +448,25 @@
 |---|---|
 | available 兜底 | `resolvePdcaEntry` 增 `hasPersistedCard`：无实时事件时 `available = hasPersistedCard`，`active` 恒 `false`（历史卡片不是运行态） |
 | 卡片判据 | `usePdcaEntry` 读 `useChatStore.messages`，判当前会话是否含 `pdca_workflow` 块（selector 返回 boolean，稳定） |
-| taskId 兜底 | 新增 `pdcaService.latestTaskIdForSession(sessionId)`（`POST /v1/pdca/list { sessionId, limit: 1 }`，真实数据）；仅在 `available` 且事件无 taskId 时请求 |
+| taskId 兜底 | 新增 `pdcaService.latestTaskIdForSession(sessionId)`（`POST /v1/pdca/list { sessionId, limit: 10 }` → `pickRootTaskId` **优先主链**）；仅在 `available` 且事件无 taskId 时请求 |
 | 不造假 | 后端无任务 ⇒ taskId 仍为空，抽屉显示既有「本轮无任务快照，以下为事件流」 |
 
 验证：
-- 单测：`pdcaEntry` 增 1 例（无事件 + 卡片 ⇒ `available=true, active=false`）；新增 `usePdcaEntry.test.ts` 3 例（事件优先不请求 / 卡片存在时用后端 taskId 兜底 / 无 PDCA 不请求）。
-- 真实 API：`POST /v1/pdca/list { sessionId, limit:1 }` 返回 `pdca_mwu9tgyc`（sessionId 过滤生效）。
-- client `tsc --noEmit` 通过；`vitest run` 全量 **1142 pass / 0 fail**（163 文件）；改动文件 ESLint 0 error。
+- 单测：`pdcaEntry` 增 1 例（无事件 + 卡片 ⇒ `available=true, active=false`）；新增 `usePdcaEntry.test.ts` 3 例（事件优先不请求 / 卡片存在时用后端 taskId 兜底 / 无 PDCA 不请求）；新增 `planService.pickRootTaskId.test.ts` 3 例（优先主链 / 仅子阶段时回退真实值 / 空列表 NULL）。
+- 真实 API：`POST /v1/pdca/list { sessionId, limit:10 }` 返回真实任务；新增 `pickRootTaskId` 优先主链（见下）。
+- client `tsc --noEmit` 通过；`vitest run` 全量 **1145 pass / 0 fail**（164 文件）；改动文件 ESLint 0 error。
 
-**如实边界**：该场景要有**真实持久化卡片**才能端到端复现；本机当前无含 `pdca_workflow` 块的历史会话
-（`/v1/pdca/start` 不写卡，只有自动启动路径写）⇒ 端到端未覆盖，由上述单测锁定。
+**端到端已于同日补齐（真实自动升级），见下表。**
+
+**P2-D 端到端验证（2026-11-24，真实自动升级）**
+
+| 步骤 | 结果 |
+|---|---|
+| 触发条件 | 升级闸门四条同时成立：长任务信号 / 裸会话 / 非 Code Mode / **用户消息 ≥2**；故先发一条普通消息，再发「只建 6 个 todo、不执行」 |
+| 真实升级 | 后端出现 PDCA 任务（子阶段 `pdca_mwupjxor_requirement` + 主链 `pdca_mwupjxor`）；立即 abort 子阶段 |
+| 持久化 | 该会话 `GET /v1/sessions/:id/messages` 中确含 `{type:'pdca_workflow', pdcaWorkflowData:{...}}` 块（非内存态） |
+| 刷新后入口 | `reload()` 后事件流为空，卡片仍在 ⇒ 点「查看详情」抽屉可打开（`p2d-e2e-2-drawer-after-reload.png`） |
+| 收尾修正 | 兜底 taskId 原先取列表首条 = 子阶段（`_requirement`，无步骤快照）⇒ 新增 `pickRootTaskId` 优先主链；e2e 断言抽屉 taskId 精确为 `pdca_mwupjxor` 且不含子阶段 |
+
+清理：临时 spec 删除；3 个测试会话 `batch-delete`；`%TEMP%` 下生成的 a/b/c.txt 删除；后端 current 切回原会话。
+（主链 checkpoint 在 abort 后返回 `409 not_running`：内存已无编排器 ⇒ 无在飞循环，残留由下次启动扫描按 `startup_scan` 收口。）

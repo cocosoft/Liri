@@ -176,6 +176,23 @@ export interface PdcaListResult {
   offset: number;
 }
 
+/**
+ * 从列表里挑**主链** taskId（批次 15 / P2-D 收尾）。
+ *
+ * 主链形如 `pdca_<base36>`；阶段链的子阶段任务会追加 `_<phase>` 后缀
+ * （如 `pdca_mwupjxor_requirement`）—— 子阶段没有步骤快照，`PdcaPipeline` 只能显示空态。
+ * 列表按最近活动倒序，子阶段往往更靠前 ⇒ 必须显式挑主链；没有主链时回退首条真实 taskId
+ * （**不造假**，宁可显示空态也不编 id）。
+ */
+export function pickRootTaskId(items: { taskId?: string }[]): string | null {
+  for (const it of items) {
+    const id = it.taskId;
+    if (!id) continue;
+    if (id.startsWith("pdca_") && id.split("_").length === 2) return id;
+  }
+  return items.find((it) => it.taskId)?.taskId ?? null;
+}
+
 export const pdcaService = {
   /** 获取 PDCA 列表摘要；传入 projectId 时按项目过滤（1-5 P1，语义对齐后端 projectId 过滤器） */
   list: async (projectId?: string): Promise<PdcaListResult> => {
@@ -206,17 +223,17 @@ export const pdcaService = {
    *
    * 聊天页刷新后 `orchestrationStore`（内存事件流）为空，消息里的 `pdca_workflow`
    * 卡片仍在 —— 此时「查看详情」需要**真实** taskId 才能显示进度详情。
-   * 后端 `/v1/pdca/list` 支持 `sessionId` 过滤，取首条（已按最近活动倒序）。
+   * 后端 `/v1/pdca/list` 支持 `sessionId` 过滤，取前若干条后由 `pickRootTaskId`
+   * 优先挑主链（子阶段没有步骤快照）。
    * 无任务 / 请求失败 ⇒ `null`（不造假；抽屉退化为仅事件流）。
    */
   latestTaskIdForSession: async (sessionId: string): Promise<string | null> => {
     try {
       const res = await http.post<PdcaListResult>(ENDPOINTS.pdca.list, {
         sessionId,
-        limit: 1,
+        limit: 10,
       });
-      const first = res && Array.isArray(res.items) ? res.items[0] : undefined;
-      return first?.taskId ?? null;
+      return pickRootTaskId(Array.isArray(res?.items) ? res.items : []);
     } catch {
       return null;
     }

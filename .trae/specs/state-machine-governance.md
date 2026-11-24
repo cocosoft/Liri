@@ -1,6 +1,6 @@
 # 状态机治理整体方案（2026-11-24）
 
-> **状态**：🟡 实施中 —— **P0-1 已完成**（目录补全 + 治理字段 + 文档归位）；P0-2 起待确认
+> **状态**：🟡 实施中 —— **P0-1 / P0-2 已完成**（目录补全 + 治理字段 + 转移规则自洽门禁）；P1 起待确认
 > **定位**：本文件是 Liri **状态机治理总纲**，接替已缺失的 `dev_docs/20261012/状态机规范管理方案-20261012.md`
 > （该目录当前**不存在**，但 `fix-evidence-registry.json` 仍有两处指向它 —— 见 G8）。
 > **已完成基线**：13 条具体缺陷的修复见 [state-machine-defect-remediation.md](./state-machine-defect-remediation.md)
@@ -142,7 +142,7 @@ interface StateMachineEntry {
 | ID | 级别 | 判据 | 门禁实现 |
 |---|---|---|---|
 | **R09-007** | MUST | 目录条目必填 `owner` / `persistence` / `terminalStates`（`persistence!=='none'` 时还必须有 `reconcile`） | 扩展 `stateMachineCatalog.test.ts`（纯数据断言） |
-| **R09-008** | MUST | 登记的转移规则自洽：键集合 = `states` 集合；每个目标 ∈ `states`；`terminalStates` ⊆ 出度为 0 的集合 | 新测试 `stateMachineTransitions.test.ts`（动态载入规则表） |
+| **R09-008** | MUST | 登记的转移规则自洽：① 键集合 = `states`；② 每个目标 ∈ `states`；③ **非终态**至少有一条出边。**口径修正（P0-2 实测）**：不要求"终态出度为 0" —— `task` / `stream` / `backgroundTask` 显式 `isTerminal` 且允许终态复位/重试回初始态 | 新测试 `stateMachineTransitions.test.ts`（动态载入规则表） |
 | **R09-009** | MUST | `persistence !== 'none'` ⇒ `reconcile.strategy !== 'none'`，且 `evidence` 指向真实启动调用点（文件存在 + 函数名出现） | 扩展 `lint-architecture.ts`（新检查项，失败 error） |
 | **R09-010** | MUST | 进入终态必须执行收尾（清瞬态标记 / 停 timer / 释放幂等键）：由目录 `terminalStates` + 代码内 `finalize` 调用点断言；无收尾需求须在目录 note 说明 | 先测试覆盖（按机器），P2 再考虑静态门禁 |
 | **R09-011** | MUST | 同一概念只允许一个派生实现：`scripts/state-derivations.json` 中 `concept` 唯一，`implementation` 真实导出；消费方不得自写判据（代码评审 + grep 门禁） | 新脚本 `lint-state-derivations.ts`（低风险、只查重） |
@@ -314,6 +314,7 @@ interface StateMachineEntry {
 |---|---|---|
 | 2026-11-24 | 初版：现状取证（G1–G10）+ 五层目标模型 + R09-007…013 提案 + 7 批实施路线 + 门禁/验收/风险 | AI |
 | 2026-11-24 | **P0-1 实施完成**：目录 14 → 16（补 `stream` / `backgroundTask`，删除对应豁免）、全部条目补治理字段、导出 `STREAM_TRANSITIONS` / `EXECUTION_TRANSITIONS`、R09-007 断言入测试、证据登记 `source` 改指本文件 | AI |
+| 2026-11-24 | **P0-2 实施完成**：目录 16 → 18（补 `inboxApproval` / `plan`）、`sessionState` 补 `transitionRules` 锚点、新增 R09-008 转移规则自洽测试（口径修正：不要求终态出度为 0） | AI |
 
 ---
 
@@ -338,3 +339,28 @@ interface StateMachineEntry {
 3. **R04-001 本地口径**：从 `app/` 目录运行 `lint:arch` 时，`InboxManager.ts` 的 `FSZ-006` 例外不生效（相对路径带 `..`）；从仓库根运行正常。属预存调用路径问题，建议单独立项修 `relOf` 归一化。
 
 **验证**：`bun test tests/state tests/execution tests/streaming` → **310 pass / 0 fail**；`bun run typecheck` 通过；`lint:state-ratchet` 通过；仓库根 `lint:arch` 仅剩 R00-003 warning（预存）。
+
+---
+
+## §14 P0-2 实施记录（2026-11-24）
+
+**已落地**
+
+| 项 | 结果 |
+|---|---|
+| 目录条目 | 16 → **18**：补 `inboxApproval`（`pending/processing/replied/expired/dismissed`）与 `plan`（`pending/running/completed/failed/aborted`） |
+| 规则表锚点 | `sessionState` 补 `SESSION_TRANSITIONS` ⇒ 目前 5 台机器受 R09-008 校验（execution / sessionState / task / stream / backgroundTask） |
+| 新门禁 | `app/tests/state/stateMachineTransitions.test.ts`：键集合 = `states`、目标 ⊆ `states`、非终态有出边；并断言"至少覆盖 4 台"防锚点失效空跑 |
+| 基线 | `state-literal-baseline.json` 因 `processing` / `replied` / `dismissed` / `aborted` 词汇收编（+68/−8） |
+
+**口径修正（如实）**
+
+- 方案 §5 原写"`terminalStates` ⊆ 出度为 0 的集合"，P0-2 实测**不成立**：`TaskStatus` 允许 `completed→running` 等重试边；`StreamStateMachine` / `BackgroundTaskStateMachine` 也显式传 `isTerminal` 且终态可复位到 `idle`。
+- 改为**非终态必须有出边**（"活着的死胡同"），终态允许复位/重试边；已在 §5 R09-008 与测试文件头注明。
+
+**遗留（转入 P1）**
+
+- `inboxApproval` / `plan` 的 `transitionRules` 仍缺省（手写机，转移分散在 CAS/UPDATE 与编排器）⇒ 目录 note 已写明集中实现位置；是否补规则表待 P1-1 评估。
+- `processing` / `dismissed` 等通用词进入词汇表后，棘轮噪声上升 —— 由 P2-2「按机器归属 + 到期」收敛。
+
+**验证**：`bun test tests/state` → **15 pass / 0 fail**（新增 6 条）；`bun run typecheck` 通过；`lint:state-ratchet` 通过。

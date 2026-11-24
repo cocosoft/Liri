@@ -294,6 +294,10 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
     hasTransitionFn: true,
     owner: 'session',
     persistence: 'memory',
+    transitionRules: {
+      module: 'packages/infra/src/state/session/types.ts',
+      exportName: 'SESSION_TRANSITIONS',
+    },
     terminalStates: [],
     reconcile: {
       strategy: 'startup-reset',
@@ -424,6 +428,42 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
       evidence: 'app/src/tasks/effects/EffectQueue.ts#claimOne',
     },
     note: 'P38（2026-11-02）：`effect_pending → effect_attempting → effect_settled | effect_failed`。`effect_attempting` 只在原子领取后出现（崩溃后由陈旧窗口重领，`restored=1` 标记"可能已发出"）；`later` **不是状态**（只前移 due，回 pending）；连续失败达每类上限（`reply` 8，其余 `FAILURES_BEFORE_ERROR`=3）才进入 failed。取值带 `effect_` 前缀：`pending/settled/failed` 是跨域通用词，直接登记会把 chat/query/utils 既有 `settled` 出现点一并划入词汇表（与 P33 的 `step_` 同款教训）。',
+  },
+  {
+    id: 'inboxApproval',
+    title: '收件箱审批状态机（InboxItemStatus）',
+    kind: 'persistent',
+    sourceFile: 'packages/service/src/runtime/InboxManager.ts',
+    states: ['pending', 'processing', 'replied', 'expired', 'dismissed'],
+    verification: 'source-read',
+    hasTransitionFn: true,
+    owner: 'inbox',
+    persistence: 'sqlite',
+    terminalStates: ['replied', 'expired', 'dismissed'],
+    reconcile: {
+      strategy: 'startup-rescan',
+      evidence:
+        'packages/service/src/runtime/inboxApproval.ts#reconcileStuckApprovalSessions',
+    },
+    note: '2026-11-24（P0-2 补登记，P0-1 遗漏）：`pending → processing`（CAS 抢锁）→ `replied | expired | dismissed`；`processing` 超时 10min 由过期扫描回收，落地失败回滚 `pending`（批次 1 / A1）。状态用**单数常量**（`INBOX_STATUS_*`）而非 `*_STATUSES` 数组 ⇒ 不被 R09-006 捕获，属"只漏报"盲区。',
+  },
+  {
+    id: 'plan',
+    title: '计划生命周期（Plan.status）',
+    kind: 'persistent',
+    sourceFile: 'app/src/tasks/TaskOrchestrator.ts',
+    states: ['pending', 'running', 'completed', 'failed', 'aborted'],
+    verification: 'source-read',
+    hasTransitionFn: false,
+    owner: 'tasks',
+    persistence: 'sqlite',
+    terminalStates: ['completed', 'failed', 'aborted'],
+    reconcile: {
+      strategy: 'startup-rescan',
+      evidence:
+        'app/src/tasks/plan/planStartupResume.ts#resolveStartupPlanResume',
+    },
+    note: '2026-11-24（P0-2 补登记）：`status` 为类型联合（`TaskOrchestrator.ts:163`），另有两个**正交子态**：`paused`（`running` 的等待审批子态，布尔）与 `acceptance`（`pending/accepted/rejected`，见 `pending-acceptance-state-machine.md`）—— 均不并入本状态集，避免词义混叠。',
   },
   {
     id: 'stream',

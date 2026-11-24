@@ -2,6 +2,53 @@
   "version": 1,
   "note": "状态字面量棘轮基线：value → 已报备出现文件（app/src）。只拦增量，不追溯。",
   "files": {
+    "aborted": [
+      "app/src/agent/AgentTelemetry.ts",
+      "app/src/agent/events/OrchestrationEvents.ts",
+      "app/src/agent/harness/index.ts",
+      "app/src/agent/ResultClassifier.ts",
+      "app/src/ai/providers/ModelFetcher.ts",
+      "app/src/chat/ChatManager.ts",
+      "app/src/chat/launchers/PdcaLauncher.ts",
+      "app/src/chat/orchestrator/ChatOrchestrator.ts",
+      "app/src/chat/reactEventsToChunks.ts",
+      "app/src/chat/ReActToolLoop.ts",
+      "app/src/chat/services/ChatHelper.ts",
+      "app/src/chat/terminationOutput.ts",
+      "app/src/commands/tasks/tasks.ts",
+      "app/src/commands/tools/ai/agent.ts",
+      "app/src/promptSuggestion/PromptSuggestion.ts",
+      "app/src/promptSuggestion/Speculation.ts",
+      "app/src/tasks/BackgroundAgentTask.ts",
+      "app/src/tasks/evolution/badcaseAttribution.ts",
+      "app/src/tasks/LongRunningTaskOrchestrator.ts",
+      "app/src/tasks/lro/failureRecovery.ts",
+      "app/src/tasks/lro/pureDecisions.ts",
+      "app/src/tasks/lro/terminalHooks.ts",
+      "app/src/tasks/plan/planPreviewSelection.ts",
+      "app/src/tasks/PlanDrivenLoop.ts",
+      "app/src/tasks/types.ts",
+      "packages/channels/src/channels/routing/channelErrorClass.ts",
+      "packages/evals/src/evals/online/deriveTurnSignals.ts",
+      "packages/evals/src/evals/online/types.ts",
+      "packages/infra/src/error/api/APISceneClassifier.ts",
+      "packages/kernel/src/core/abortReason.ts",
+      "packages/kernel/src/core/data-models.ts",
+      "packages/query/src/query/QueryEngine.ts",
+      "packages/query/src/query/ReActLoop.ts",
+      "packages/query/src/query/RunLogger.ts",
+      "packages/query/src/query/StopHooks.ts",
+      "packages/query/src/query/taor/helpers.ts",
+      "packages/query/src/query/taor/stopHooks.ts",
+      "packages/query/src/query/TAORLoop.ts",
+      "packages/query/src/query/TrackedTool.ts",
+      "packages/service/src/session/types/eventPayloads.ts",
+      "packages/service/src/session/types/UnifiedSession.ts",
+      "packages/service/src/voice/STTStreamServer.ts",
+      "packages/tool-agent/src/tool-agent/AgentTool/SubAgentEngine.ts",
+      "packages/tool-office/src/tool-office/notebook/types/index.ts",
+      "packages/tool-office/src/tool-office/notebook/types/NotebookTool.ts"
+    ],
     "active": [
       "app/src/agent/utils/TeamHelper.ts",
       "app/src/chat/models/types.ts",
@@ -176,7 +223,6 @@
       "app/src/tasks/PdcaLiveEvents.ts",
       "app/src/tasks/PlanDrivenLoop.ts",
       "app/src/tasks/PlanReview.ts",
-      "app/src/tasks/TaskOrchestrator.ts",
       "app/src/tasks/TaskRegistry.ts",
       "app/src/workspace/TaskStore.ts",
       "app/src/workspace/types.ts",
@@ -299,7 +345,6 @@
       "app/src/tasks/PlanReview.ts",
       "app/src/tasks/StageOrchestrator.ts",
       "app/src/tasks/TaskListView.ts",
-      "app/src/tasks/TaskOrchestrator.ts",
       "app/src/tasks/TaskRegistry.ts",
       "app/src/tasks/types.ts",
       "app/src/tools/bash/bashLandlockExec.ts",
@@ -399,6 +444,12 @@
       "app/src/ai/providers/FALProvider.ts",
       "app/src/ai/providers/OpenAIProvider.ts",
       "packages/service/src/execution/ExecutionManager.ts"
+    ],
+    "dismissed": [
+      "app/src/hooks/usePrStatus.ts",
+      "app/src/infrastructure/http/handlers/notification-handlers.ts",
+      "packages/governance/src/governance/RuleSuggestionEngine.ts",
+      "packages/service/src/runtime/NotificationPersistence.ts"
     ],
     "due": [
       "app/src/components/StatusLine.tsx",
@@ -895,7 +946,6 @@
       "packages/service/src/runtime/api/approvalBlockSelection.ts",
       "packages/service/src/runtime/api/sessionMessagesRead.ts",
       "packages/service/src/runtime/inboxApproval.ts",
-      "packages/service/src/runtime/InboxManager.ts",
       "packages/service/src/runtime/NotificationPersistence.ts",
       "packages/service/src/session/types/UnifiedMessage.ts"
     ],
@@ -990,7 +1040,6 @@
       "app/src/tasks/selfwake/WakeStore.ts",
       "app/src/tasks/StageOrchestrator.ts",
       "app/src/tasks/swarm/AgentSwarm.ts",
-      "app/src/tasks/TaskOrchestrator.ts",
       "app/src/tasks/TaskRegistry.ts",
       "app/src/tasks/ticketAssignmentStore.ts",
       "app/src/tasks/ticketStage.ts",
@@ -1273,7 +1322,6 @@
       "packages/service/src/runtime/acp/server.ts",
       "packages/service/src/runtime/acp/types.ts",
       "packages/service/src/runtime/api/sessionMessagesRead.ts",
-      "packages/service/src/runtime/InboxManager.ts",
       "packages/service/src/runtime/NotificationPersistence.ts",
       "packages/service/src/services/BridgeChronosIntegration.ts",
       "packages/service/src/services/voice/services/audioPlayer.ts",
@@ -1386,7 +1434,6 @@
       "app/src/tasks/selfwake/WakeStore.ts",
       "app/src/tasks/StageOrchestrator.ts",
       "app/src/tasks/TaskListView.ts",
-      "app/src/tasks/TaskOrchestrator.ts",
       "app/src/tasks/TaskRegistry.ts",
       "app/src/tasks/ticketAssignmentStore.ts",
       "app/src/tasks/ticketStage.ts",
@@ -1435,7 +1482,6 @@
       "packages/service/src/runtime/api/toolsPorts.ts",
       "packages/service/src/runtime/api/workspaceOpsPorts.ts",
       "packages/service/src/runtime/coordinator.ts",
-      "packages/service/src/runtime/InboxManager.ts",
       "packages/service/src/services/mcp/MCPConnectionManager.ts",
       "packages/service/src/services/mcp/types/index.ts",
       "packages/service/src/session/ExecutionPhaseTracker.ts",
@@ -1453,6 +1499,15 @@
       "packages/tool-task/src/tool-task/SelfWakeTool/SelfWakeTool.ts",
       "packages/tool-task/src/tool-task/TaskOrchestratorTools/schemas.ts"
     ],
+    "processing": [
+      "app/src/context/VoiceContext.tsx",
+      "app/src/hooks/useVoice.ts",
+      "app/src/tasks/cron/DeliveryQueue.ts",
+      "packages/channels/src/channels/GatewaySessionTracer.ts",
+      "packages/infra/src/common/types.ts",
+      "packages/service/src/session/types/message/enums.ts",
+      "packages/service/src/voice/WakeWordEngine.ts"
+    ],
     "QUEUED": [
       "packages/service/src/execution/ExecutionManager.ts"
     ],
@@ -1461,6 +1516,12 @@
     ],
     "REJECTED": [
       "packages/channels/src/channels/dedup/index.ts"
+    ],
+    "replied": [
+      "app/src/infrastructure/http/handlers/inbox-handlers.ts",
+      "packages/query/src/query/TAORLoop.ts",
+      "packages/service/src/runtime/api/approvalBlockSelection.ts",
+      "packages/service/src/session/types/UnifiedMessage.ts"
     ],
     "report_only": [
       "packages/query/src/query/DailyBudgetManager.ts"
@@ -1533,7 +1594,6 @@
       "app/src/tasks/PlanDrivenLoop.ts",
       "app/src/tasks/PlanReview.ts",
       "app/src/tasks/StageOrchestrator.ts",
-      "app/src/tasks/TaskOrchestrator.ts",
       "app/src/tasks/ticketAssignmentStore.ts",
       "app/src/tasks/ticketStage.ts",
       "app/src/tasks/types.ts",

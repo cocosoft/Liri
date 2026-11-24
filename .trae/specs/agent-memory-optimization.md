@@ -1,7 +1,7 @@
 # Liri 记忆系统优化方案（草案 · 2026-11-25）
 
 > 来源：Anthropic《The components of agent memory》（2026-11-06，本地 HTML 已读）+ 本仓记忆子系统实测取证。
-> 状态：**Phase 1 已实施**（P0-1 全部 + P0-2 的 1–3 项；P0-2-4 字段留待 Phase 3）；**Phase 2 已完成**（P1-1/P1-2 见 §8.3–8.4）；**Phase 3 进行中**（P2-1 Promote/Validate/Represent 见 §8.5；P3 处置见 §8.6；P2-2 记忆用途见 §8.7）。落地时按阶段拆独立提交，遵循 `code-deletion.md` CD05（先接线、再观察、后删旧路）。
+> 状态：**Phase 1 已实施**（P0-1 全部 + P0-2 的 1–3 项；P0-2-4 字段留待 Phase 3）；**Phase 2 已完成**（P1-1/P1-2 见 §8.3–8.4）；**Phase 3 进行中**（P2-1 见 §8.5；P3 处置见 §8.6；P2-2 记忆用途见 §8.7；eval 基线见 §8.8）。落地时按阶段拆独立提交，遵循 `code-deletion.md` CD05（先接线、再观察、后删旧路）。
 > 相关既有裁定：`.trae/specs/memory-conflict-detection.md`（冲突**不自动改写**）、`.trae/specs/dead-code-and-unwired-items-rulings.md`（未接线项不得当作既有能力）。
 
 ---
@@ -306,6 +306,19 @@ MMR 需查询向量与候选两两相似度（N² 次嵌入），仅在显式开
 | **记忆用途** | ✅ 已落地 | 解析优先级：`session.metadata.memoryPurpose` > `config.json#memory.purpose` > 空；非空才注入 `memoryPurpose` 段（只给软引导："只记录与该用途相关的长期事实/规则/陷阱"），**不预设**"只记失败"等硬规则（对齐 A5）；空 ⇒ 零注入 |
 | 规则笔记 schema | ⏳ 未做 | `rule / whyTrue / evidenceSeqs / traps / testedAt` 需写入方（工具或提示）与读取方（evaluator）**同批**落地，避免只写不读的 schema |
 | 失败→理论→验证→规则闭环 | ⏳ 未做 | 依赖规则笔记 schema 与 evaluator |
+
+### 8.8 P3-1 记忆 eval 基线（确定性，2026-11-25）
+
+新增 `app/tests/memory/eval/memoryEval.test.ts`，用临时目录跑**真实组件**（不 mock 检索/治理）：
+
+| 指标 | 用例 |
+|---|---|
+| 跨会话事实召回 | 3 条记忆 + 查询 ⇒ 已知事实进入 top-K |
+| 新旧事实纠正 | 60 天前的旧分支 vs 今天的新分支 ⇒ 新事实排前 |
+| 重复抑制 | 两条同文条目 ⇒ 空闲维护去重后仅剩 1 条 |
+| token 成本 | ④a 会话记忆超预算降级为索引且体积受控；④b 索引层 200 行截断；④c 检索条数受 limit 约束 |
+
+**未纳入**：注入遵循度（需真实模型在环，不在确定性基线里冒充通过）。
 
 ---
 

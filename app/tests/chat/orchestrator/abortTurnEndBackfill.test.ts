@@ -12,12 +12,21 @@
  *
  * 客户端无需改：`ChatMessage` 的中断判据本就是 `finishReason ∈ {canceled, abort}`。
  */
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it, beforeEach } from 'bun:test';
 import { ChatOrchestrator } from '../../../src/chat/orchestrator/ChatOrchestrator.js';
 import { createTestHost, createTestSession, sleep } from './helpers.js';
 import type { LiriEvent } from '@modules/session/types/events.js';
+import {
+  __resetTurnEndRegistry,
+  markTurnEnded,
+} from '../../../src/chat/turnEndRegistry.js';
 
 const SESSION_ID = 'abort-turn-end';
+
+/** 每个用例隔离单写者登记（全局 Map 按 sessionId 复用） */
+beforeEach(() => {
+  __resetTurnEndRegistry();
+});
 
 /** 收集 `host.appendStreamEvent` 收到的事件（turn/start、turn/end 等） */
 function collectEvents(): {
@@ -94,5 +103,32 @@ describe('中止补齐 turn/end（切会话杀长任务后不再呈现假空闲�
     expect((ends[0]!.data as { finishReason?: string }).finishReason).toBe(
       'stop'
     );
+  });
+
+  it('该 turn 已由其它写者闭合（实测 awaiting_approval 场景）⇒ 兜底不再补 canceled', async () => {
+    const session = createTestSession({ id: SESSION_ID });
+    const { events, hook } = collectEvents();
+    const host = createTestHost({
+      session,
+      llmChunks: [{ content: 'a' }, { content: 'b' }],
+      appendStreamEvent: hook as never,
+    });
+    const orch = new ChatOrchestrator({ host });
+
+    const gen = orch.streamMessage('hi', { sessionId: SESSION_ID });
+    for (let i = 0; i < 50; i++) {
+      if (events.some((e) => e.type === 'turn/start')) break;
+      const r = await gen.next();
+      if (r.done) break;
+    }
+    expect(events.some((e) => e.type === 'turn/start')).toBe(true);
+
+    // 先登记"该 turn 已闭合"（等价管理层 finalize 已写 turn/end）
+    markTurnEnded(SESSION_ID, 1);
+    await gen.return(undefined as never);
+    await sleep(50);
+
+    // 兜底不得再写第二条（否则前端把"等待审批"显示成"生成中断"）
+    expect(turnEnds(events).length).toBe(0);
   });
 });

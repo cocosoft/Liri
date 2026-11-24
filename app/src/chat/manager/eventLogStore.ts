@@ -39,6 +39,8 @@ import {
   isLocalPrincipal,
 } from '@openliri/kernel/identity/requestScope.js';
 import { join } from 'path';
+// 2026-11-24（批次 2）：turn/end 单写者登记下沉为叶子模块（与编排器兜底共用）
+import { hasTurnEnded, markTurnEnded } from '../turnEndRegistry';
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
@@ -82,9 +84,6 @@ export interface SessionLookupResult {
 export class ChatEventLogStore {
   /** per-session `EventLogStorage` 实例缓存（key = `${worktreeHash}:${sessionId}`） */
   private _eventLogCache: Map<string, EventLogStorage> = new Map();
-
-  /** Fix2：`turn/end` 单写者幂等登记（sessionId → 已写 end 的 turn 集合） */
-  private _endedTurnsBySession = new Map<string, Set<number>>();
 
   constructor(private readonly deps: ChatEventLogStoreDeps) {}
 
@@ -190,22 +189,16 @@ export class ChatEventLogStore {
   /**
    * Fix2（2026-09-05）：登记某会话的 `turn/end` 已写（幂等去重依据）。
    *
-   * 任何写者（`streamMessageFlow` / finalize）追加成功都登记，供 finalize 去重，
-   * 杜绝同一 turn 双 end。
+   * 2026-11-24（批次 2）：登记下沉到叶子模块 `chat/turnEndRegistry` —— 编排器兜底
+   * `finalizeStreamFlow` 与本类共用同一份登记，杜绝"管理层写完、兜底再写 canceled"。
    */
   markTurnEnded(sessionId: string, turn: number): void {
-    if (turn <= 0) return;
-    let set = this._endedTurnsBySession.get(sessionId);
-    if (!set) {
-      set = new Set<number>();
-      this._endedTurnsBySession.set(sessionId, set);
-    }
-    set.add(turn);
+    markTurnEnded(sessionId, turn);
   }
 
   /** Fix2：该会话的指定 turn 是否已写 turn/end */
   hasTurnEnded(sessionId: string, turn: number): boolean {
-    return this._endedTurnsBySession.get(sessionId)?.has(turn) ?? false;
+    return hasTurnEnded(sessionId, turn);
   }
 
   /** 首次使用前的 eventLog 就绪（懒建 + 旧数据迁移；`appendStreamEvent` 同款逻辑收敛复用） */

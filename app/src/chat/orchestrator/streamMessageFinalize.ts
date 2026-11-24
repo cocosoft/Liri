@@ -27,6 +27,8 @@ import type { ChatOrchestratorHost } from './ChatOrchestratorHost.js';
 import type { PreparedStream } from './streamMessagePrepare.js';
 import { releaseStreamOwnership } from './streamMessageOwnership.js';
 import { savePlainTextCheckpoint } from './plainTextCheckpointSave.js';
+// 2026-11-24（批次 2）：兜底补写前查跨层单写者登记（与 ChatEventLogStore 共用）
+import { hasTurnEnded } from '../turnEndRegistry';
 import type {
   EmitFailureTrace,
   StreamAppendResult,
@@ -112,6 +114,11 @@ export async function finalizeStreamFlow(
   // ⚠ 顺序：必须放在既有清理之后 —— 上面几步是**资源释放**，不可因 append 失败而跳过；
   // append 自身失败只 warn（与非阻断口径一致，CS03）。
   if (!turnTrace.started || turnTrace.ended) return;
+  const turn =
+    turnTrace.turnNo > 0 ? turnTrace.turnNo : host.toolRoundCount + 1;
+  // 2026-11-24（批次 2）：该 turn 已由其它写者闭合（管理层 finalize / 工具轮次补写）⇒ 不再补 canceled。
+  // 否则"terminationReason=awaiting_approval"会被紧随其后的 canceled 覆盖，前端显示"生成中断"。
+  if (hasTurnEnded(session.id, turn)) return;
   try {
     await emitEvent({
       type: 'turn/end',
@@ -119,7 +126,7 @@ export async function finalizeStreamFlow(
       time: Date.now(),
       sessionId: session.id,
       data: {
-        turn: turnTrace.turnNo > 0 ? turnTrace.turnNo : host.toolRoundCount + 1,
+        turn,
         finishReason: 'canceled',
       },
     });

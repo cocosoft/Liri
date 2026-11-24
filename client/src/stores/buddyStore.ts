@@ -85,36 +85,12 @@ export const useBuddyStore = create<BuddyStore>((set) => ({
   },
 }));
 
-// ── 梦境完成 → 伙伴经验自动增长 ──
-sseService.on("dream:cycle:completed", (data) => {
-  const xp = (data.xp as number) ?? 0;
-  if (xp <= 0) return;
+// ── 梦境完成 → 以服务端真源刷新伙伴快照与统计（2026-11-25 契约收口 A） ──
+// 经验/等级由后端 `buddy-growth.json` 记账（与 /v1/buddy/companion、/stats 同源）；
+// 前端不再本地累加（旧实现基于服务端并不存在的 experience 字段，会算出 NaN）。
+sseService.on("dream:cycle:completed", () => {
   const state = useBuddyStore.getState();
-  const companion = state.companion;
-  const stats = state.stats;
-  if (!companion) return;
-
-  // 更新伙伴经验
-  const newExp = companion.experience + xp;
-  let newLevel = companion.level;
-  let remainingExp = companion.experienceToNext - xp;
-  while (remainingExp <= 0) {
-    newLevel++;
-    remainingExp += companion.experienceToNext * 2;
-  }
-  useBuddyStore.setState({
-    companion: {
-      ...companion,
-      experience: newExp,
-      level: newLevel,
-      experienceToNext: companion.experienceToNext,
-    },
-    stats: stats
-      ? {
-          ...stats,
-          dreamsCompleted: stats.dreamsCompleted + 1,
-          totalXp: stats.totalXp + xp,
-        }
-      : stats,
-  });
+  if (!state.companion) return;
+  void state.loadBuddy();
+  void state.loadStats();
 });

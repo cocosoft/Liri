@@ -456,9 +456,9 @@ body `{ objective?: string（trim 非空）, tokenBudget?: number（正有限数
 
 | 方法 | 路径 | 后端状态 | 前端调用方 |
 |------|------|----------|-----------|
-| GET | `/v1/buddy/companion` | ✅ | 无前端调用方 |
-| POST | `/v1/buddy/interact` | ✅ | 无前端调用方 |
-| GET | `/v1/buddy/stats` | ✅ | 无前端调用方 |
+| GET | `/v1/buddy/companion` | ✅ | `buddyService.getBuddy`（`buddyStore.loadBuddy`）；返回伙伴快照：骨骼/灵魂 + `level`/`experience`/`experienceToNext`（由 `buddy-growth.json` 累计经验派生） |
+| POST | `/v1/buddy/interact` | ✅ | `buddyService.interact`（`buddyStore.interact`）；返回 `{ companion, message, statChanges }`（2026-11-25 契约收口） |
+| GET | `/v1/buddy/stats` | ✅ | `buddyService.getStats`；`interactions`/`dreamsCompleted`/`totalXp` 均读 `buddy-growth.json`（与 companion 同源） |
 | GET | `/v1/buddy/dreams` | ✅ | `dreamService.getDreamLogs` |
 | GET | `/v1/background/status` | ✅ | `backgroundStatusService.getStatus`（运行状况面板） |
 | GET | `/v1/state/all` | ✅ | `backgroundStatusService.getStateAll`（运行状况面板 · 应用状态区，§十 阶段 D） |

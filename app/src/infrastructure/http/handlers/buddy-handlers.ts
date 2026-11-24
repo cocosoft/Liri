@@ -62,15 +62,32 @@ export async function handleBuddyInteract(
     const companion = await buddyOps.getBuddyCompanion();
     if (!companion) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ message: '暂无 Buddy', statChanges: {} }));
+      // 契约形状保持一致（companion 为 null = 暂无伙伴）
+      res.end(
+        JSON.stringify({
+          companion: null,
+          message: '暂无 Buddy',
+          statChanges: {},
+        })
+      );
       return;
     }
     const result = await buddyOps.executeBuddyInteraction(companion, action);
+    // 2026-11-25 契约收口 A：HTTP 契约 = { companion, message, statChanges }
+    // （此前原样回传 InteractionResult ⇒ 前端 result.companion 为 undefined，交互后伙伴"消失"）
+    const updated = await buddyOps.getBuddyCompanion();
+    const message = typeof result.response === 'string' ? result.response : '';
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(result));
+    res.end(
+      JSON.stringify({
+        companion: updated,
+        message,
+        statChanges: result.statChanges,
+      })
+    );
     ctx.broadcastEvent('buddy:interacted', {
       action,
-      result: result.response,
+      result: message,
     });
   } catch (err) {
     ctx.sendError(res, err);
@@ -79,23 +96,28 @@ export async function handleBuddyInteract(
 
 /**
  * 处理获取 Buddy 统计数据请求
+ *
+ * 2026-11-25 契约收口 A：改读成长状态（`buddy-growth.json`，与伙伴等级/经验同一真源）；
+ * 原实现 `interactions`/`totalXp` 硬编码 0，且与 /companion 的口径分叉。
  */
 export async function handleGetBuddyStats(
   ctx: HandlerCtx,
   req: http.IncomingMessage,
   res: http.ServerResponse
 ): Promise<void> {
+  const num = (v: unknown): number =>
+    typeof v === 'number' && Number.isFinite(v) ? v : 0;
   try {
-    const dreamStats = await (
+    const growth = await (
       await getCoreAPI().getBuddyOpsPort()
-    ).getBuddyDreamStats();
+    ).loadBuddyGrowthState();
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(
       JSON.stringify({
-        interactions: 0,
-        dreamsCompleted: dreamStats.totalCompleted,
-        totalXp: 0,
+        interactions: num(growth.interactionCount),
+        dreamsCompleted: num(growth.totalCompleted),
+        totalXp: num(growth.experience),
       })
     );
   } catch {

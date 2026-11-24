@@ -32,7 +32,17 @@ export type { AttributeDistribution } from './attributes';
 // 含 `CompanionSprite` · `useBuddyNotification` · `isBuddyTeaserWindow` · `isBuddyLive` · `findBuddyTriggerPositions`。
 // ⇒ **不再从本桶转出**（app 桶转发 ui 会造出 `app -> ui` 倒挂）。实测本桶**零跨模块消费方**
 // （全仓无 `from '@modules/buddy'`）⇒ 删除这些转出**无破坏面**；新落点经 `@modules/ui` 桶出口消费（见 ui/index.ts）。
-export { getCompanion, roll, rollWithSeed, companionUserId } from './companion';
+export {
+  getCompanion,
+  getCompanionSnapshot,
+  roll,
+  rollWithSeed,
+  companionUserId,
+} from './companion';
+export type { BuddyCompanionSnapshot } from './companion';
+// 2026-11-25 契约收口 A：等级视图由累计经验派生（唯一真源 = buddy-growth.json）
+export { resolveBuddyLevel, XP_PER_LEVEL_STEP } from './level';
+export type { BuddyLevelView } from './level';
 export { companionIntroText, getCompanionIntroAttachment } from './prompt';
 export { renderSprite, renderFace, spriteFrameCount } from './sprites';
 export {
@@ -108,6 +118,7 @@ export {
   DreamGrowthTracker,
   DREAM_EVENT,
   recordUserSession,
+  recordBuddyInteraction,
 } from './dreamIntegration';
 export type {
   DreamEvent,

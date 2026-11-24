@@ -112,17 +112,24 @@ export function createBuddyOpsFacade(): () => BuddyOpsPort {
     const dreamLogStore = async () => import('@modules/buddy/dreamLogStore');
 
     return {
-      getBuddyCompanion: async () => (await buddyModule()).getCompanion(),
+      // 2026-11-25 契约收口 A：返回「伙伴快照」（骨骼/灵魂 + 由累计经验派生的
+      // level/experience/experienceToNext）⇒ 前端不再出现 undefined/NaN
+      getBuddyCompanion: async () =>
+        (await buddyModule()).getCompanionSnapshot(),
       executeBuddyInteraction: async (companion: unknown, action: string) => {
-        const { InteractionManager } = await buddyModule();
+        const { InteractionManager, recordBuddyInteraction } =
+          await buddyModule();
         const manager = new InteractionManager();
         // companion 为 getBuddyCompanion 回传的**真对象** ⇒ 边界收窄；
         // action 原为字面量联合（原码直接透传）⇒ 边界收窄；
         // 返回值以 Record 暴露（调用方需展开/JSON）⇒ 同上（app interface 无隐式索引签名）
-        return (await manager.execute(
+        const result = (await manager.execute(
           companion as never,
           action as never
         )) as never;
+        // 服务端记账（互动次数 + 经验）——与梦境/任务同一真源（buddy-growth.json）
+        await recordBuddyInteraction();
+        return result;
       },
       // 下列 4 处同样以 Record 暴露（调用方展开 / 仅 JSON）⇒ 边界收窄
       getBuddyDreamStats: async () =>

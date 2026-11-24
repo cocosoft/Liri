@@ -1,6 +1,8 @@
 declare const Bun: { hash: (s: string) => bigint };
 
 import { getGlobalConfig } from '@openliri/infra/config';
+import { loadGrowthState } from './growthPersistence';
+import { resolveBuddyLevel } from './level';
 import {
   type Companion,
   type CompanionBones,
@@ -128,4 +130,25 @@ export function getCompanion(): Companion | undefined {
   const { bones } = roll(companionUserId());
   // bones last so stale bones fields in old-format configs get overridden
   return { ...stored, ...bones } as unknown as Companion;
+}
+
+/** 伙伴快照：骨骼/灵魂 + 由累计经验派生的等级视图（`/v1/buddy/*` 统一契约） */
+export interface BuddyCompanionSnapshot extends Companion {
+  level: number;
+  experience: number;
+  experienceToNext: number;
+}
+
+/**
+ * 取伙伴快照（2026-11-25 契约收口 A）
+ *
+ * 等级/经验**不单独持久化**：真源 = `buddy-growth.json` 的累计经验，
+ * 经 `resolveBuddyLevel()` 派生 ⇒ 前端直接展示，不再出现 undefined/NaN。
+ * 未孵化 ⇒ `null`（与旧 `getCompanion()` 语义一致）。
+ */
+export async function getCompanionSnapshot(): Promise<BuddyCompanionSnapshot | null> {
+  const companion = getCompanion();
+  if (!companion) return null;
+  const growth = await loadGrowthState();
+  return { ...companion, ...resolveBuddyLevel(growth.experience) };
 }

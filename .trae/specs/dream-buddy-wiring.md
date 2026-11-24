@@ -170,7 +170,6 @@ body 优先取 `insights[0]`，回退复用既有 `dream.notifyTask`（不新增
 ---
 
 ## 6. 证据索引
-
 - 梦境引擎/调度：`packages/dream/src/dream/DreamEngine.ts:89-90`、`DreamScheduler.ts:43`、`types.ts:61-65`
 - 周期编排/广播：`packages/dream/src/dream/UnifiedDreamCycle.ts:243,404,523,716-718`
 - HTTP：`app/src/infrastructure/http/handlers/routes/memory-files-routes.ts:189-207`；
@@ -182,3 +181,19 @@ body 优先取 `insights[0]`，回退复用既有 `dream.notifyTask`（不新增
   `MemoryPage.tsx:42,500`、`DreamLogTab.tsx:70`、`DreamCycleDetail.tsx:51`、
   `BuddyDreamDetail.tsx:22-24`、`useBuddyNotification.ts:38`、`buddyStore.ts:89`
 - 契约：`.trae/docs/api-spec.md:732`（analytics 无前端调用）
+
+---
+
+## 7. 闭环复查与契约收口（2026-11-25，方案 A）
+
+复查结论：主干已通，但 `/v1/buddy/*` 与前端契约不一致、梦境→伙伴存在静默跳过。本轮**先修契约**（方案 A）：
+
+| 项 | 修复 |
+|---|---|
+| 伙伴等级/经验无真源 | `GrowthState` 新增 `experience` / `interactionCount`（`buddy-growth.json`，唯一真源）；`packages/buddy/src/buddy/level.ts` 的 `resolveBuddyLevel()` 派生 `level/experience/experienceToNext`（L 级区间 = L×100） |
+| `/companion` 缺字段 | `getCompanionSnapshot()` = 骨骼/灵魂 + 派生等级视图；app 门面 `getBuddyCompanion` 改用它 |
+| `/interact` 响应错形 | HTTP 层统一返回 `{ companion, message, statChanges }`；门面在交互成功后 `recordBuddyInteraction()`（互动次数 + 经验服务端记账） |
+| `/stats` 硬编码 0 | 改读 `buddy-growth.json`：`interactions` / `dreamsCompleted` / `totalXp` 与等级同源 |
+| 前端本地算经验 | `buddyStore` 收到 `dream:cycle:completed` 改为**刷新** companion/stats（删除会算出 NaN 的本地累加） |
+
+遗留（未在 A 内）：**B** = `AutoDream` 的 `force=false` / `minHours` / 节流 / `minSessions` 使周期完成但 `DREAM_*` 不发（dream→buddy 日志断点）；**C** = 前端对缺失字段的显示降级（A 已消除该前提）。

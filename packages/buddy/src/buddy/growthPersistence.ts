@@ -24,6 +24,13 @@ export interface GrowthState {
   totalTaskExp: number;
   /** 用户对话轮数（每轮用户对话递增，与梦境整理会话数 totalSessions 双计数并存） */
   userSessions: number;
+  /**
+   * 累计经验（2026-11-25 契约收口 A）：梦境 / 任务 / 互动都累加到此，
+   * 等级与进度由 `resolveBuddyLevel(experience)` 派生 —— **唯一真源**
+   */
+  experience: number;
+  /** 伙伴互动次数（/v1/buddy/interact 成功次数，供 /v1/buddy/stats 展示） */
+  interactionCount: number;
 }
 
 export function createEmptyGrowthState(): GrowthState {
@@ -37,6 +44,8 @@ export function createEmptyGrowthState(): GrowthState {
     taskCompletionCount: 0,
     totalTaskExp: 0,
     userSessions: 0,
+    experience: 0,
+    interactionCount: 0,
   };
 }
 
@@ -62,6 +71,8 @@ export async function loadGrowthState(): Promise<GrowthState> {
       taskCompletionCount: Number(parsed.taskCompletionCount) || 0,
       totalTaskExp: Number(parsed.totalTaskExp) || 0,
       userSessions: Number(parsed.userSessions) || 0,
+      experience: Number(parsed.experience) || 0,
+      interactionCount: Number(parsed.interactionCount) || 0,
     };
   } catch (e) {
     // 文件不存在或损坏 → 从空状态开始

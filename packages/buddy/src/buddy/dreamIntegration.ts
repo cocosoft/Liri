@@ -41,6 +41,13 @@ export const DREAM_EVENT = 'buddy:dream';
  * 记录梦境完成情况，检测里程碑并触发 Buddy 成长联动
  * 状态持久化到 ~/.pyapp/data/buddy-growth.json（重启不丢失）
  */
+/** 梦境经验：每条整理会话（与唯一真源共同决定等级进度） */
+const DREAM_XP_PER_SESSION = 10;
+/** 梦境经验：每条洞察 */
+const DREAM_XP_PER_INSIGHT = 5;
+/** 单次伙伴互动经验 */
+const INTERACTION_XP = 1;
+
 export class DreamGrowthTracker {
   private totalCompleted = 0;
   private totalSessions = 0;
@@ -56,12 +63,22 @@ export class DreamGrowthTracker {
   /** 任务累计经验值 */
   private totalTaskExp = 0;
 
-  private initialized = false;
+  /** 累计经验（梦境/任务/互动统一累加；等级由 `resolveBuddyLevel` 派生） */
+  private experience = 0;
+  /** 伙伴互动次数 */
+  private interactionCount = 0;
 
-  /** 从持久层加载状态（幂等，启动时调用一次） */
+  private initPromise: Promise<void> | null = null;
+
+  /** 从持久层加载状态（幂等，启动时调用一次；并发调用共享同一 Promise） */
   async init(): Promise<void> {
-    if (this.initialized) return;
-    this.initialized = true;
+    if (!this.initPromise) {
+      this.initPromise = this.load();
+    }
+    return this.initPromise;
+  }
+
+  private async load(): Promise<void> {
     const state = await loadGrowthState();
     this.totalCompleted = state.totalCompleted;
     this.totalSessions = state.totalSessions;
@@ -72,11 +89,14 @@ export class DreamGrowthTracker {
     this.taskCompletionCount = state.taskCompletionCount;
     this.totalTaskExp = state.totalTaskExp;
     this.userSessions = state.userSessions;
+    this.experience = state.experience;
+    this.interactionCount = state.interactionCount;
     logger.info('成长状态已加载', {
       totalCompleted: this.totalCompleted,
       totalSessions: this.totalSessions,
       userSessions: this.userSessions,
       totalTaskExp: this.totalTaskExp,
+      experience: this.experience,
       achievements: this.unlockedAchievements.size,
     });
   }
@@ -93,6 +113,8 @@ export class DreamGrowthTracker {
       taskCompletionCount: this.taskCompletionCount,
       totalTaskExp: this.totalTaskExp,
       userSessions: this.userSessions,
+      experience: this.experience,
+      interactionCount: this.interactionCount,
     };
     await saveGrowthState(state);
   }
@@ -104,6 +126,10 @@ export class DreamGrowthTracker {
     this.totalCompleted++;
     this.totalSessions += event.sessionsCount;
     this.totalInsights += event.insightsGenerated;
+    // 经验 = 会话数 × 10 + 洞察数 × 5（等级/进度由累计经验派生）
+    this.experience +=
+      event.sessionsCount * DREAM_XP_PER_SESSION +
+      event.insightsGenerated * DREAM_XP_PER_INSIGHT;
 
     const today = new Date().toISOString().slice(0, 10);
     if (this.lastCompletedDate) {
@@ -154,6 +180,17 @@ export class DreamGrowthTracker {
   recordTaskCompletion(source: string, exp: number): void {
     this.taskCompletionCount++;
     this.totalTaskExp += exp;
+    this.experience += exp;
+    void this.persist();
+  }
+
+  /**
+   * 记录一次伙伴互动（宠物/喂食/玩耍/对话/夸奖）
+   * 互动次数与经验均由服务端记账，前端只读快照
+   */
+  recordInteraction(): void {
+    this.interactionCount++;
+    this.experience += INTERACTION_XP;
     void this.persist();
   }
 
@@ -272,6 +309,16 @@ interface AchievementMilestone {
 }
 
 const growthTracker = new DreamGrowthTracker();
+
+/**
+ * 记录一次伙伴互动（`/v1/buddy/interact` 成功路径调用）
+ *
+ * 先 `await init()`：避免"状态尚未加载就落盘"把既有成长清零（init 幂等且并发共享）。
+ */
+export async function recordBuddyInteraction(): Promise<void> {
+  await growthTracker.init();
+  growthTracker.recordInteraction();
+}
 
 // ==================== 消息生成 ====================
 

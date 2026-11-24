@@ -1,6 +1,6 @@
 # 状态机治理整体方案（2026-11-24）
 
-> **状态**：🟡 实施中 —— **P0-1 / P0-2 已完成**（目录补全 + 治理字段 + 转移规则自洽门禁）；P1 起待确认
+> **状态**：🟡 实施中 —— **P0-1 / P0-2 / P1-1 已完成**；**P1-2（前端纳管）需用户确认**（§11-Q2）
 > **定位**：本文件是 Liri **状态机治理总纲**，接替已缺失的 `dev_docs/20261012/状态机规范管理方案-20261012.md`
 > （该目录当前**不存在**，但 `fix-evidence-registry.json` 仍有两处指向它 —— 见 G8）。
 > **已完成基线**：13 条具体缺陷的修复见 [state-machine-defect-remediation.md](./state-machine-defect-remediation.md)
@@ -315,6 +315,7 @@ interface StateMachineEntry {
 | 2026-11-24 | 初版：现状取证（G1–G10）+ 五层目标模型 + R09-007…013 提案 + 7 批实施路线 + 门禁/验收/风险 | AI |
 | 2026-11-24 | **P0-1 实施完成**：目录 14 → 16（补 `stream` / `backgroundTask`，删除对应豁免）、全部条目补治理字段、导出 `STREAM_TRANSITIONS` / `EXECUTION_TRANSITIONS`、R09-007 断言入测试、证据登记 `source` 改指本文件 | AI |
 | 2026-11-24 | **P0-2 实施完成**：目录 16 → 18（补 `inboxApproval` / `plan`）、`sessionState` 补 `transitionRules` 锚点、新增 R09-008 转移规则自洽测试（口径修正：不要求终态出度为 0） | AI |
+| 2026-11-24 | **P1-1 实施完成**：新增 R09-009 对账证据契约测试（持久化机 ⇒ 策略非 none + `文件#符号` 真实可查）；`stepVerdict` 按"无独立状态存储"归为 `persistence: none` | AI |
 
 ---
 
@@ -364,3 +365,20 @@ interface StateMachineEntry {
 - `processing` / `dismissed` 等通用词进入词汇表后，棘轮噪声上升 —— 由 P2-2「按机器归属 + 到期」收敛。
 
 **验证**：`bun test tests/state` → **15 pass / 0 fail**（新增 6 条）；`bun run typecheck` 通过；`lint:state-ratchet` 通过。
+
+---
+
+## §15 P1-1 实施记录（2026-11-24）
+
+**已落地**
+
+| 项 | 结果 |
+|---|---|
+| 新门禁 | `app/tests/state/stateReconcileContract.test.ts`（R09-009）：12 台持久化机器逐一断言——`reconcile.strategy !== 'none'`、证据格式 `文件#符号`、文件存在且符号真实出现（防陈旧/编造锚点） |
+| 防空跑 | 断言"至少覆盖 5 台持久化机器"，避免筛选条件失效后全绿（AR-3） |
+| 样板契约 | 测试锁定 3 个终态收尾样板文件存在：审批回滚 / 唤醒重试 / 工具态派生（只查存在，不重复实现） |
+| 字段修正 | `stepVerdict` 由 `persistence: sqlite` 改为 `none`：它是步骤产出的解析标记（随计划落盘），**无独立状态存储与恢复动作** |
+
+**说明**：R09-009 在方案 §5 原写"扩展到 `lint-architecture.ts`"；实际先以 **bun test** 落地（零 CI 接线风险、可直接跑），待 P2 再并入 `lint:arch` 硬门禁。
+
+**验证**：`bun test tests/state` → **160 pass / 0 fail**（新增 14 条）；`bun run typecheck` 通过。

@@ -147,6 +147,14 @@ export interface MemoryMetadata {
    * 取代的旧记忆 ID（新记忆设置）
    */
   supersedes?: string;
+
+  /**
+   * 最后一次"被证据确认"的时间（P2-1 Validate，2026-11-25）。
+   *
+   * 缺省 = 从未验证（向前兼容）；由空闲期 Validate 阶段在原始会话记录中找到同文时写入。
+   * **不**用于自动改写正文（只作为新鲜度信号，供索引排序/后续 Promote 使用）。
+   */
+  verifiedAt?: Date;
 }
 
 /**
@@ -181,5 +189,6 @@ export function createMemoryMetadata(
     deprecatedBy: data.deprecatedBy,
     deprecatedAt: data.deprecatedAt,
     supersedes: data.supersedes,
+    verifiedAt: data.verifiedAt,
   };
 }

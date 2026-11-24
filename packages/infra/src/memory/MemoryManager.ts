@@ -215,6 +215,36 @@ const CONFLICT_SAMPLE_LIMIT = 5;
 /** 冲突候选落盘上限（P0-2，2026-11-25）：只保留前 N 条，避免大库把候选文件撑大 */
 const MAX_CONFLICT_CANDIDATES = 200;
 
+/** Validate 单次采样上限（P2-1，2026-11-25）：空闲期不做过重扫描 */
+const MAX_VALIDATION_SAMPLES = 5;
+
+/** 证据探测最小长度（过短的 probe 容易误判） */
+const MIN_VALIDATION_PROBE_LENGTH = 8;
+
+/** 原始会话证据条目（最小结构，避免 infra 依赖会话层类型） */
+export interface MemoryEvidenceEntry {
+  role?: string;
+  content?: unknown;
+}
+
+/**
+ * 原始会话证据提供者（P2-1 Validate，2026-11-25）：由 app 侧注入
+ * （经会话网关 `searchTranscript`），infra 不直连会话层。
+ */
+export type MemoryEvidenceProvider = (
+  sessionId: string,
+  query: string
+) => Promise<MemoryEvidenceEntry[]>;
+
+let evidenceProvider: MemoryEvidenceProvider | null = null;
+
+/** 注册/清除证据提供者（`null` = 关闭 Validate 阶段） */
+export function setMemoryEvidenceProvider(
+  provider: MemoryEvidenceProvider | null
+): void {
+  evidenceProvider = provider;
+}
+
 /** 保留上限报告的候选条数上限（只供审阅，避免报告文件随库规模线性膨胀） */
 const MAX_RETENTION_REPORT_CANDIDATES = 200;
 
@@ -560,6 +590,10 @@ export class MemoryManagerImpl
       }
       await this.retriever.saveIndex();
     }
+
+    // P2-1 Validate（2026-11-25）：仅当 app 侧注入证据提供者时运行；
+    // 放在索引重建**之前** ⇒ 新确认的条目立即参与"价值排序"。
+    await this.validateMemories(all);
 
     // P0-1（2026-11-25）：重建顶层索引 `MEMORY.md` —— 注入层只读该文件（≤200 行）。
     // 放在去重之后：索引反映的是**最终存活集合**。失败不阻断维护（下一轮空闲期再试）。
@@ -1161,6 +1195,91 @@ export class MemoryManagerImpl
         module: 'memory:memoryManager',
         action: 'writeConflictCandidates',
       });
+    }
+  }
+
+  /**
+   * Validate 阶段（P2-1，2026-11-25）：抽样"有来源会话、尚未验证"的记忆，
+   * 在原始会话记录中查找**同文证据**；命中即写 `metadata.verifiedAt`（**不改写正文**）。
+   *
+   * 精度边界（如实）：会话检索是"包含 probe"的精确子串匹配 ⇒ 只有**逐字引用原文**的记忆
+   * 才会被确认；摘要式记忆通常保持"未验证"。未命中**不**标记 stale（避免误伤），
+   * 结果只落 `validation-report.json` 供观测。
+   */
+  private async validateMemories(memories: Memory[]): Promise<void> {
+    if (!evidenceProvider) return;
+
+    const candidates = memories
+      .filter((m) => m.metadata.sessionId && !m.metadata.verifiedAt)
+      .sort((a, b) => a.updatedAt.getTime() - b.updatedAt.getTime())
+      .slice(0, MAX_VALIDATION_SAMPLES);
+    if (candidates.length === 0) return;
+
+    const verifiedIds: string[] = [];
+    const unverifiedIds: string[] = [];
+
+    for (const memory of candidates) {
+      const probe = (memory.content || '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 60);
+      if (probe.length < MIN_VALIDATION_PROBE_LENGTH) continue;
+
+      try {
+        const entries = await evidenceProvider(memory.metadata.sessionId!, probe);
+        const matched = entries.some((entry) => {
+          const text =
+            typeof entry.content === 'string'
+              ? entry.content
+              : JSON.stringify(entry.content ?? '');
+          return text.includes(probe);
+        });
+        if (!matched) {
+          unverifiedIds.push(memory.id);
+          continue;
+        }
+        memory.metadata.verifiedAt = new Date();
+        await this.store.saveMemory(memory);
+        this.retriever.updateIndex(memory);
+        verifiedIds.push(memory.id);
+      } catch (err) {
+        await handleError(err, {
+          module: 'memory:memoryManager',
+          action: 'validateMemory',
+        });
+      }
+    }
+
+    if (verifiedIds.length > 0 || unverifiedIds.length > 0) {
+      logger.info(
+        `记忆验证：抽样 ${candidates.length} 条，确认 ${verifiedIds.length} 条`,
+        {
+          sampled: candidates.length,
+          verified: verifiedIds.length,
+          unverified: unverifiedIds.length,
+        }
+      );
+      try {
+        await writeFileAtomic(
+          join(this.storeDir, 'validation-report.json'),
+          JSON.stringify(
+            {
+              generatedAt: new Date().toISOString(),
+              sampled: candidates.length,
+              verified: verifiedIds.length,
+              verifiedIds,
+              unverifiedIds,
+            },
+            null,
+            2
+          ) + '\n'
+        );
+      } catch (err) {
+        await handleError(err, {
+          module: 'memory:memoryManager',
+          action: 'writeValidationReport',
+        });
+      }
     }
   }
 

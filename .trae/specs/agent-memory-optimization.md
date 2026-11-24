@@ -1,7 +1,7 @@
 # Liri 记忆系统优化方案（草案 · 2026-11-25）
 
 > 来源：Anthropic《The components of agent memory》（2026-11-06，本地 HTML 已读）+ 本仓记忆子系统实测取证。
-> 状态：**Phase 1 已实施**（P0-1 全部 + P0-2 的 1–3 项；P0-2-4 字段留待 Phase 3）；**Phase 2 已完成**（P1-1/P1-2 见 §8.3–8.4）；**Phase 3 进行中**（P2-1 Promote-lite 已落地，见 §8.5）。落地时按阶段拆独立提交，遵循 `code-deletion.md` CD05（先接线、再观察、后删旧路）。
+> 状态：**Phase 1 已实施**（P0-1 全部 + P0-2 的 1–3 项；P0-2-4 字段留待 Phase 3）；**Phase 2 已完成**（P1-1/P1-2 见 §8.3–8.4）；**Phase 3 进行中**（P2-1 Promote-lite + Validate-lite 已落地；Represent 未做，见 §8.5）。落地时按阶段拆独立提交，遵循 `code-deletion.md` CD05（先接线、再观察、后删旧路）。
 > 相关既有裁定：`.trae/specs/memory-conflict-detection.md`（冲突**不自动改写**）、`.trae/specs/dead-code-and-unwired-items-rulings.md`（未接线项不得当作既有能力）。
 
 ---
@@ -226,7 +226,9 @@ Liri 的记忆"三件套"（文件存储 / 混合检索 / 梦境巩固）都已�
 | 冲突候选 | `runMaintenancePass` → `conflict-candidates.json` | 结构化候选（id 双方/类型/subject/confidence/detectedAt），**不自动改写** |
 | 真压缩 | `SessionMemoryManager._compactMemoryFile` | 改为结构化抽取：决策/待办/摘要**全保留**；其余按类型各留最近 15 条，总量预算 60 |
 
-**明确未做（P0-2-4，延后到 Phase 3）**：`confidence / verifiedAt / sourceEventSeqs / accessCount` 字段的写入与持久化。理由：当前无消费者，属"未接线项"（`dead-code-and-unwired-items-rulings.md`）；Phase 3 的 Validate/Promote 才真正读取它们，届时同批加字段 + frontmatter 读写 + 用例。
+**P0-2-4 字段（部分落地，2026-11-25）**：`verifiedAt` 已加入 `MemoryMetadata` 并完成 frontmatter
+读写（消费者 = P2-1 Validate 写入 + Promote 排序）。`confidence / sourceEventSeqs / accessCount`
+仍未引入 —— 当前无消费者，按"未接线项不得当作能力"延后。
 
 ### 8.3 P1-1 向量持久化（Phase 2）
 
@@ -276,12 +278,15 @@ MMR 需查询向量与候选两两相似度（N² 次嵌入），仅在显式开
 | 阶段 | 状态 | 落地 |
 |---|---|---|
 | **Promote（上提）** | ✅ **lite 已落地** | `updateMemoryIndex` 排序改为「置顶 → importance 降序 → updatedAt 降序」，且**已过期（`expiresAt` 已到）条目不上榜** ⇒ 注入层 200 行窗口优先装高价值条目 |
-| Validate（纠错） | ⏳ 未做 | 需"笔记 ↔ 证据（transcript/events）"的访问缝；infra 侧 dream 服务拿不到会话网关，需 app 注入证据端口 |
+| Validate（纠错） | ✅ **lite 已落地** | app 侧注入证据提供者（`setMemoryEvidenceProvider` → 会话网关 `searchTranscript`）；空闲期抽样 ≤5 条"有来源会话、未验证"记忆，命中同文即写 `metadata.verifiedAt`（**不改写正文**），结果落 `validation-report.json`；未命中不标记 stale |
 | Consolidate（合并） | 既有（不改） | 空闲期相似度去重 + 类型化归并已存在（`runMaintenancePass`） |
 | Represent（表示） | ⏳ 未做 | wiki 主题页 + 链接完整性二遍 + 体积上限（≤源记忆总量 × 1.2） |
 
-**如实边界**：Promote-lite 只用 `isPinned / importance / updatedAt`，**尚未**使用 `accessCount / confidence`
-（P0-2-4 字段仍延后——无消费者前不提前写 schema）；"下降层留链接"随 Represent 一起做。
+**如实边界**：
+- Validate 的精度受会话检索能力限制：`searchTranscript` 是"包含 probe"的精确子串匹配 ⇒
+  **只有逐字引用原文**的记忆才会被确认，摘要式记忆通常保持"未验证"（不误伤、不自动改写）。
+- Promote 现用 `isPinned / importance / verifiedAt / updatedAt`；`confidence / sourceEventSeqs / accessCount`
+  仍未引入（无消费者前不提前写 schema）。"下降层留链接"随 Represent 一起做。
 
 ---
 

@@ -612,13 +612,43 @@ async function startDeferredPrefetches(): Promise<void> {
       // 注册记忆查询提供者（MemorySummarizer → MemoryQueryProvider 适配）+ 启动老化清理
       (async () => {
         try {
-          const { getMemoryManager } =
+          const { getMemoryManager, setMemoryEvidenceProvider } =
             await import('@openliri/infra/memory/MemoryManager');
           const { MemorySummarizer } =
             await import('@openliri/infra/memory/services/MemorySummarizer');
           const { setMemoryQueryProvider, getCurrentSessionContext } =
             await import('@openliri/service/services/prompt/MemoryPromptProvider');
           const memoryManager = getMemoryManager();
+
+          // P2-1 Validate（2026-11-25）：注入会话证据提供者 —— infra 不直连会话层，
+          // 这里用惰性解析（空闲期才真正调用，届时 ChatManager/网关已就绪）。
+          try {
+            setMemoryEvidenceProvider(async (sessionId, query) => {
+              const { getCoreAPI } =
+                await import('@modules/runtime/api/CoreAPIImpl.js');
+              const results = await getCoreAPI()
+                .getChatManager()
+                .getSessionGateway()
+                .searchTranscript(sessionId, query);
+              return results.flatMap((result) =>
+                result.entries.map((entry) => {
+                  const candidate = entry as {
+                    role?: string;
+                    content?: unknown;
+                  };
+                  return {
+                    role: candidate.role,
+                    content: candidate.content,
+                  };
+                })
+              );
+            });
+          } catch (error) {
+            logger.warning('注册记忆证据提供者失败（Validate 阶段将跳过）', {
+              error,
+            });
+          }
+
           const summarizer = new MemorySummarizer(memoryManager);
           setMemoryQueryProvider({
             async getMemorySummaries(limit?: number) {

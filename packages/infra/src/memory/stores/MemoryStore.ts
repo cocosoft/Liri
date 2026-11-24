@@ -352,6 +352,10 @@ export class MemoryStoreImpl implements MemoryStore {
                 frontmatter.deprecatedAt = memory.metadata.deprecatedAt;
               if (memory.metadata.supersedes)
                 frontmatter.supersedes = memory.metadata.supersedes;
+              // P2-1 Validate（2026-11-25）：证据确认时间（缺省 = 从未验证）
+              if (memory.metadata.verifiedAt)
+                frontmatter.verifiedAt =
+                  memory.metadata.verifiedAt.toISOString();
 
               const validatedContent = this.validateMarkdownContent(
                 memory.content
@@ -879,6 +883,7 @@ export class MemoryStoreImpl implements MemoryStore {
           deprecatedBy: data.deprecatedBy,
           deprecatedAt: data.deprecatedAt,
           supersedes: data.supersedes,
+          verifiedAt: data.verifiedAt ? new Date(data.verifiedAt) : undefined,
         }),
         createdAt: new Date(data.createdAt),
         updatedAt: new Date(data.updatedAt),
@@ -1080,6 +1085,11 @@ export class MemoryStoreImpl implements MemoryStore {
       const importanceDiff =
         (b.metadata.importance ?? 0.5) - (a.metadata.importance ?? 0.5);
       if (importanceDiff !== 0) return importanceDiff;
+      // P2-1 Validate 的产物：被证据确认过的条目优先（未验证 ⇒ 0）
+      const verifiedDiff =
+        (b.metadata.verifiedAt?.getTime() ?? 0) -
+        (a.metadata.verifiedAt?.getTime() ?? 0);
+      if (verifiedDiff !== 0) return verifiedDiff;
       return b.updatedAt.getTime() - a.updatedAt.getTime();
     });
 
@@ -1089,7 +1099,7 @@ export class MemoryStoreImpl implements MemoryStore {
       '# Memory Index',
       '',
       '> 自动生成，勿手改。每行 `- [标题](文件.md) — 一行钩子`；注入层只载入头部约 200 行。',
-      '> 排序：置顶 → 重要度降序 → 更新时间降序；已过期条目不上榜。',
+      '> 排序：置顶 → 重要度降序 → 证据确认 → 更新时间降序；已过期条目不上榜。',
       '',
       `共 ${active.length} 条。`,
     ];

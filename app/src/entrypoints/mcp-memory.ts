@@ -228,10 +228,24 @@ export async function startMemoryMCPServer(): Promise<void> {
             if (!query || typeof query !== 'string') {
               throw new Error('memory_search 需要字符串参数 query');
             }
-            const results = await memoryManager.getRelevantMemories(
+            // P1-2（2026-11-25）：与 `recall_memory` 共用同一检索实现（scope=global）
+            const { searchMemory } =
+              await import('@modules/tools/memorySearchService.js');
+            const { hits } = await searchMemory({
+              scope: 'global',
               query,
-              limit
-            );
+              limit,
+            });
+            const results = hits.map((hit) => ({
+              id: hit.id ?? '',
+              content: hit.content,
+              metadata: {
+                type: hit.type,
+                name: hit.name,
+                sessionId: hit.sessionId,
+                tags: hit.tags,
+              },
+            }));
             return {
               content: [
                 {

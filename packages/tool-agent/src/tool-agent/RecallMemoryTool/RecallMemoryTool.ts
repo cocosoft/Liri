@@ -4,9 +4,9 @@
  * 让 AI 在需要时按需查询会话记忆，而非预加载全部记忆到系统提示词。
  * 对应三层对话响应架构优化中的"外脑不用当内脑"原则。
  *
- * P1-2（2026-11-25）：新增 `scope` / `type` 参数 —— 此前"有会话上下文时**只能**查会话记忆，
- * 无会话上下文时**只能**查全局"，主 Agent 无法主动跨会话检索；现在可显式选择
- * `session | global | all`，默认 `auto` 保持旧行为。
+ * P1-2（2026-11-25）：新增 `scope` / `type` 参数；**收集逻辑**收敛到
+ * `app/src/tools/memorySearchService.ts#searchMemory`（MCP `memory_search` 共用同一实现），
+ * 本工具只负责参数归一与结果格式化。
  */
 
 import { Tool } from '@openliri/infra/utils/toolContract/Tool';
@@ -14,44 +14,37 @@ import { createToolResult } from '@openliri/infra/utils/toolContract/ToolResult'
 import type { ToolUseContext } from '@openliri/infra/utils/toolContract/ToolUseContext';
 import { ToolUtils } from '@modules/tools/utils/ToolUtils';
 
-import { getLogger } from '@openliri/infra/monitoring';
 import { DEFAULT_LOCALE } from '@openliri/infra/constants';
-const logger = getLogger('tools:RecallMemoryTool:RecallMemoryTool');
 
-/** 3-2：全局记忆命中的最小接口（Memory 子集） */
-interface GlobalMemoryHit {
-  content: string;
-  createdAt: Date;
-  metadata?: { source?: string; sessionId?: string; type?: string };
-}
-
-/** 会话记忆命中（`SessionMemoryManager.searchMemory` 的 MemoryItem 子集） */
-interface SessionMemoryItemLike {
-  content?: string;
-  type?: string;
-  timestamp?: string;
-}
-
-/** 会话记忆能力（窄接口，便于单测注入） */
+/** 会话记忆能力（窄接口；与统一服务侧结构一致，便于注入桩） */
 export interface SessionMemoryLike {
   searchMemory(
     sessionId: string,
     query: string,
     topK?: number
-  ): Promise<SessionMemoryItemLike[]>;
+  ): Promise<Array<{ content?: string; type?: string; timestamp?: string }>>;
   getMemoryContext(sessionId: string): string;
 }
 
-/** 全局记忆能力（窄接口，便于单测注入） */
+/** 全局记忆能力（窄接口） */
 export interface GlobalMemoryLike {
   getRelevantMemories(
     query: string,
     limit?: number
-  ): Promise<GlobalMemoryHit[]>;
+  ): Promise<
+    Array<{
+      content: string;
+      createdAt: Date;
+      metadata?: {
+        source?: string;
+        sessionId?: string;
+        type?: string;
+        name?: string;
+        tags?: string[];
+      };
+    }>
+  >;
 }
-
-/** 检索范围（P1-2） */
-export type RecallScope = 'auto' | 'session' | 'global' | 'all';
 
 /** 可注入依赖（缺省走真实实现；单测注入桩以避免模块级 mock） */
 export interface RecallMemoryDeps {
@@ -59,46 +52,14 @@ export interface RecallMemoryDeps {
   resolveGlobalMemory?: () => Promise<GlobalMemoryLike | null>;
 }
 
-/**
- * 3-2（2026-09-03）：全局记忆 manager 惰性单例——复用共享 MemoryManagerImpl
- * （避免每调用 new 实例的多实例检索索引竞态；T-①07 T1-5 起统一走 `@openliri/infra/memory`
- * `getMemoryManager()` 进程内共享工厂）。
- */
-let _globalMemoryManager: GlobalMemoryLike | null = null;
-async function resolveGlobalMemoryManager(): Promise<GlobalMemoryLike | null> {
-  if (!_globalMemoryManager) {
-    try {
-      const { getMemoryManager } = await import('@openliri/infra/memory');
-      _globalMemoryManager = getMemoryManager();
-    } catch (err) {
-      logger.warn('全局记忆 manager 初始化失败，回退会话内召回', {
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-  }
-  return _globalMemoryManager;
-}
-
-/** 默认会话记忆解析（app 会话引导层的同步单例） */
-async function resolveSessionMemoryManager(): Promise<SessionMemoryLike> {
-  const { getSessionMemoryManager } = await import(
-    '@modules/session/bootstrap/SessionSystemBootstrap.js'
-  );
-  return getSessionMemoryManager();
-}
+/** 检索范围（P1-2） */
+export type RecallScope = 'auto' | 'session' | 'global' | 'all';
 
 /** 归一化 scope（非法值 ⇒ auto，保持旧行为） */
 function normalizeScope(value: unknown): RecallScope {
   return value === 'session' || value === 'global' || value === 'all'
     ? value
     : 'auto';
-}
-
-/** 一条召回结果（内部结构） */
-interface RecallHit {
-  content: string;
-  timestamp: string;
-  source?: string;
 }
 
 /**
@@ -113,11 +74,6 @@ const RECALL_MEMORY_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
 
 export class RecallMemoryTool {
   static create(deps: RecallMemoryDeps = {}): Tool {
-    const resolveSession =
-      deps.resolveSessionMemory ?? resolveSessionMemoryManager;
-    const resolveGlobal =
-      deps.resolveGlobalMemory ?? resolveGlobalMemoryManager;
-
     return {
       name: 'recall_memory',
       description:
@@ -174,145 +130,39 @@ export class RecallMemoryTool {
         const requestedScope = normalizeScope(input.scope);
         const sessionId =
           (context as { sessionId?: string })?.sessionId || '';
-        const scope: RecallScope =
-          requestedScope === 'auto'
-            ? sessionId
-              ? 'session'
-              : 'global'
-            : requestedScope;
 
         try {
-          const collected: RecallHit[] = [];
-          const fallbackReasons: string[] = [];
-          const addUnique = (hits: RecallHit[]): void => {
-            for (const hit of hits) {
-              if (collected.length >= limit) break;
-              if (collected.some((existing) => existing.content === hit.content)) {
-                continue;
-              }
-              collected.push(hit);
-            }
-          };
+          // P1-2：统一检索服务（与 MCP `memory_search` 同一实现）
+          const { searchMemory } = await import(
+            '@modules/tools/memorySearchService.js'
+          );
+          const { scope, hits, fallbackReasons } = await searchMemory(
+            {
+              scope: requestedScope,
+              query,
+              sessionId,
+              type: typeFilter,
+              limit,
+            },
+            deps
+          );
 
-          if (!query) {
-            // 无查询词：仅会话上下文可返回"全部记忆上下文"（既有语义）
-            if ((scope === 'session' || scope === 'all') && sessionId) {
-              const mm = await resolveSession();
-              const ctx = mm.getMemoryContext(sessionId);
-              if (ctx) {
-                collected.push({ content: ctx, timestamp: '', source: 'session' });
-              }
-            } else {
-              return createToolResult(
-                '请提供 query 以检索记忆（无查询词时只能返回当前会话的全部记忆上下文）。',
-                {
-                  newMessages: [
-                    {
-                      role: 'system',
-                      content: 'recall_memory 需要 query 才能检索。',
-                    },
-                  ],
-                }
-              );
-            }
-          } else {
-            // ① 会话记忆
-            if (scope === 'session' || scope === 'all') {
-              if (!sessionId) {
-                fallbackReasons.push('no-session-context');
-              } else {
-                try {
-                  const mm = await resolveSession();
-                  const items = await mm.searchMemory(
-                    sessionId,
-                    query,
-                    typeFilter ? limit * 3 : limit
-                  );
-                  addUnique(
-                    items
-                      .filter((item) => !typeFilter || item.type === typeFilter)
-                      .map((item) => ({
-                        content: item.content || '',
-                        timestamp: item.timestamp || '',
-                        source: 'session',
-                      }))
-                  );
-                } catch (err) {
-                  fallbackReasons.push('session-search-failed');
-                  logger.warn('会话记忆检索失败', {
-                    sessionId,
-                    error: err instanceof Error ? err.message : String(err),
-                  });
-                }
-              }
-            }
-
-            // ② 全局长期记忆
-            if (scope === 'global' || scope === 'all') {
-              const mm = await resolveGlobal();
-              if (!mm) {
-                fallbackReasons.push('global-manager-unavailable');
-              } else {
-                try {
-                  const memories = await mm.getRelevantMemories(
-                    query,
-                    typeFilter ? limit * 3 : limit
-                  );
-                  addUnique(
-                    memories
-                      .filter(
-                        (m) =>
-                          !typeFilter ||
-                          (m.metadata as { type?: string } | undefined)
-                            ?.type === typeFilter
-                      )
-                      .map((m) => ({
-                        content: m.content || '',
-                        timestamp: m.createdAt
-                          ? m.createdAt.toISOString()
-                          : '',
-                        source:
-                          (m.metadata?.source as string | undefined) ||
-                          (m.metadata?.sessionId
-                            ? `session:${m.metadata.sessionId}`
-                            : 'global'),
-                      }))
-                  );
-                } catch (err) {
-                  fallbackReasons.push('global-search-failed');
-                  logger.warn('全局记忆检索失败', {
-                    error: err instanceof Error ? err.message : String(err),
-                  });
-                }
-              }
-            }
-          }
-
-          // P1-2：回退/零命中结构化观测（模型可见面只给结论，细节在日志）
-          logger.info('recall_memory 检索完成', {
-            requestedScope,
-            scope,
-            type: typeFilter || undefined,
-            count: collected.length,
-            fallbackReasons,
-          });
-
-          if (collected.length === 0) {
-            const hint = fallbackReasons.includes('no-session-context')
-              ? '未找到相关记忆（当前无会话上下文；可用 scope="global" 检索全局长期记忆）。'
-              : fallbackReasons.includes('global-manager-unavailable')
-                ? '全局记忆暂不可用，未找到相关记忆。'
-                : scope === 'global'
-                  ? '未找到全局相关记忆。'
-                  : '未找到相关记忆。';
+          if (hits.length === 0) {
+            const hint = fallbackReasons.includes('query-required')
+              ? '请提供 query 以检索记忆（无查询词时只能返回当前会话的全部记忆上下文）。'
+              : fallbackReasons.includes('no-session-context')
+                ? '未找到相关记忆（当前无会话上下文；可用 scope="global" 检索全局长期记忆）。'
+                : fallbackReasons.includes('global-manager-unavailable')
+                  ? '全局记忆暂不可用，未找到相关记忆。'
+                  : scope === 'global'
+                    ? '未找到全局相关记忆。'
+                    : '未找到相关记忆。';
             return createToolResult(hint, {
-              newMessages: [
-                { role: 'system', content: hint },
-              ],
+              newMessages: [{ role: 'system', content: hint }],
             });
           }
 
-          const formatted = collected
+          const formatted = hits
             .map((r, i) => {
               const meta = [
                 r.source ? `来源:${r.source}` : '',
@@ -338,7 +188,7 @@ export class RecallMemoryTool {
             newMessages: [
               {
                 role: 'system',
-                content: `已从${scopeLabel}记忆中找到 ${collected.length} 条相关记录（耗时 ${executionTime}ms）。`,
+                content: `已从${scopeLabel}记忆中找到 ${hits.length} 条相关记录（耗时 ${executionTime}ms）。`,
               },
             ],
           });

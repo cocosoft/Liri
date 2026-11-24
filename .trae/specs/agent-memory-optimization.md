@@ -254,10 +254,15 @@ MMR 需查询向量与候选两两相似度（N² 次嵌入），仅在显式开
 | 回退观测 | `logger.info('recall_memory 检索完成')` | 结构化 `fallbackReasons`：`no-session-context` / `session-search-failed` / `global-manager-unavailable` / `global-search-failed` |
 | 可测性 | `RecallMemoryTool.create(deps?)` | 可选注入会话/全局解析器（缺省走真实实现）⇒ 单测无需模块级 mock |
 
+**统一服务（2026-11-25 第二批）**：收集逻辑已收敛到 `app/src/tools/memorySearchService.ts#searchMemory` ——
+`recall_memory` 与 MCP `memory_search` 共用（MCP 固定 `scope=global`，展示层格式不变）；
+服务返回 `{scope, hits, fallbackReasons}`，`hits` 跨源统一（含 `id/name/tags/sessionId` 供展示层使用）。
+
 **未做（如实）**：
-- **统一服务收敛**：MCP `memory_search`（`app/src/entrypoints/mcp-memory.ts`）与 `MemoryTool` 仍各自调用 infra
-  `getRelevantMemories`，尚未抽成单一 `searchMemory({scope,...})` 服务；
-- **transcript 兜底**：记忆零命中时尚未回退到 `events.jsonl`（返回 seq 引用）。
+- `MemoryTool`（`packages/tool-agent/.../memory/MemoryTool.ts`）走 `SearchTool.advancedSearch`
+  （tags / sortBy 等另一套能力），**未**并入本服务；
+- **transcript 兜底**：记忆零命中时尚未回退到 `events.jsonl`（返回 seq 引用）—— 工具层当前
+  无可达的会话网关/事件日志入口（`SessionSystemBootstrap` 只暴露会话记忆/状态），需先补访问缝。
 
 **明确未做（P0-2-4，延后到 Phase 3）**：`confidence / verifiedAt / sourceEventSeqs / accessCount` 字段的写入与持久化。理由：当前无消费者，属"未接线项"（`dead-code-and-unwired-items-rulings.md`）；Phase 3 的 Validate/Promote 才真正读取它们，届时同批加字段 + frontmatter 读写 + 用例。
 

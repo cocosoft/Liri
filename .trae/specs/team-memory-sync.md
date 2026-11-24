@@ -1,7 +1,7 @@
 # 团队记忆真实同步 · 立项方案（草案 · 2026-11-25）
 
 > 来源：`agent-memory-optimization.md` §8.6（团队记忆当前为模拟/未接线实现，需单独立项）。
-> 状态：**待评审**（Phase 0 门禁已实现，见 §5.1；Phase 1+ 待未决问题拍板后再动）。
+> 状态：**待评审**（Phase 0 门禁 + Phase 1 共享目录拉取已实现，见 §5.1；Phase 2 双向/冲突审阅待 §8 后三项拍板）。
 > 约束：默认关闭、默认不自动覆盖（沿用 `memory-conflict-detection.md` 裁定）、
 > 密钥扫描 fail-closed、按阶段独立提交（`code-deletion.md` CD05/CD06）。
 
@@ -143,7 +143,7 @@
 | 阶段 | 范围 | 门禁/验收 | 备注 |
 |---|---|---|---|
 | **Phase 0** | 接线开关 + `NOT_CONFIGURED` + 传输层骨架（不联网也能通过） | 默认关时行为零变更；未配置时状态明确；单测 | ✅ 已实现（2026-11-25） |
-| **Phase 1** | 单向拉取（远端→本地，只读合并）+ cursor 续传 | 重复拉取幂等；重启后不重头；密钥扫描拒绝上行 | 不写远端 |
+| **Phase 1** | 单向拉取（远端→本地，只读合并）+ 幂等 | 重复拉取幂等；冲突不覆盖；密钥 fail-closed | ✅ 已实现（共享目录版，2026-11-25） |
 | **Phase 2** | 双向增量 + `If-Match` 409 + manual 候选 | 冲突产候选、正文不变；并发写不丢数据 | 光标 + etag 双保险 |
 | **Phase 3** | 审阅入口（CLI/设置页）+ 审计报表 | 人工可采纳/忽略候选；审计可查 | UI 单独评估 |
 
@@ -157,6 +157,15 @@
 - 配置键：`memory.teamSync.enabled`（默认 `false`）/ `serverUrl` / `teamId` / `intervalSec`（默认 300）。
 - app `init.ts`：仅当 `enabled === true` 时解析配置并启动 `defaultTeamMemorySyncService`。
 - 用例：`app/tests/memory/teamMemorySyncGate.test.ts`（NOT_CONFIGURED / start 不启动 / 配置解析）。
+
+**Phase 1（2026-11-25，共享目录版）**
+- 服务：`pullTeamMemoriesFromSharedDir({sharedDir, localDir})`（`TeamMemorySharedDirPull.ts`）——
+  远端新 id 导入、同 id 同文跳过（幂等）、同 id 异文**只记冲突不覆盖**、命中密钥拒收。
+- 配置键：`memory.teamSync.sharedDir`（与 `enabled` 同时满足才执行）；本地目标 = `resolveTeamMemoryDir()`。
+- 接线：`runMaintenancePass()` 空闲期执行，报告落 `<team-memory>/pull-report.json`。
+- 用例：`app/tests/memory/teamSharedDirPull.test.ts`（导入/幂等/冲突不覆盖/密钥拒收/目录不可读）。
+- 如实边界：团队记忆**不进入系统提示与 `recall_memory` 的 global 范围**（独立目录、独立访问级别）；
+  本阶段不含上传与真实网络。
 
 ---
 
@@ -191,8 +200,13 @@
 
 ## 8. 未决问题（需拍板）
 
-1. **服务端归属**：自建（本仓后端）/ 复用现有协作设施 / 只做"共享目录"同步？
-2. **身份来源**：本机身份（`LOCAL_PRINCIPAL`）还是登录租户（`<tenant>:<user>`）？
+**已拍板（2026-11-25）**
+
+1. **服务端归属** = **共享目录同步**（Phase 1 先做，本阶段不走网络；自建 HTTP 服务/复用协作设施后置）。
+2. **身份来源** = **本机身份**（`ownerKey` 不参与共享目录阶段；网络阶段再引入租户身份）。
+
+**仍待拍板（Phase 2 前）**
+
 3. **加密责任端**：客户端加密（服务端只见密文）还是依赖服务端 + TLS？
 4. **冲突默认策略**：确认 `manual`（建议）还是允许 `local_wins` 灰度？
 5. **共享边界**：是否允许跨团队共享单条记忆（建议先不允许）。

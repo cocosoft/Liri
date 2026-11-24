@@ -1,0 +1,122 @@
+/**
+ * 团队记忆共享目录单向拉取（Phase 1，2026-11-25）单测。
+ *
+ * 规格：`.trae/specs/team-memory-sync.md` §5（Phase 1）
+ * 覆盖：新 id 导入 · 幂等跳过 · 同 id 冲突不覆盖 · 密钥 fail-closed。
+ */
+import { afterEach, describe, expect, it } from 'bun:test';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import { pullTeamMemoriesFromSharedDir } from '@openliri/infra/memory/services/TeamMemorySharedDirPull';
+
+const createdDirs: string[] = [];
+
+function makeDirs(): { shared: string; local: string } {
+  const root = mkdtempSync(join(tmpdir(), 'team-shared-pull-'));
+  createdDirs.push(root);
+  const shared = join(root, 'shared');
+  const local = join(root, 'local');
+  mkdirSync(shared, { recursive: true });
+  mkdirSync(local, { recursive: true });
+  return { shared, local };
+}
+
+function memFile(id: string, content: string): string {
+  return [
+    '---',
+    `id: ${id}`,
+    `name: ${id}`,
+    'type: decision',
+    '---',
+    '',
+    content,
+    '',
+  ].join('\n');
+}
+
+afterEach(() => {
+  while (createdDirs.length > 0) {
+    const dir = createdDirs.pop();
+    if (!dir) continue;
+    try {
+      rmSync(dir, { recursive: true, force: true });
+    } catch {
+      // 清理失败不影响断言
+    }
+  }
+});
+
+describe('pullTeamMemoriesFromSharedDir（Phase 1）', () => {
+  it('远端新 id ⇒ 导入本地；重复拉取幂等', async () => {
+    const { shared, local } = makeDirs();
+    writeFileSync(join(shared, 'm1.md'), memFile('m1', '团队决策 A'), 'utf-8');
+
+    const first = await pullTeamMemoriesFromSharedDir({
+      sharedDir: shared,
+      localDir: local,
+    });
+    expect(first.scanned).toBe(1);
+    expect(first.imported).toBe(1);
+    expect(existsSync(join(local, 'm1.md'))).toBe(true);
+
+    const second = await pullTeamMemoriesFromSharedDir({
+      sharedDir: shared,
+      localDir: local,
+    });
+    expect(second.imported).toBe(0);
+    expect(second.skippedIdentical).toBe(1);
+  });
+
+  it('同 id 内容不同 ⇒ 只记冲突，不覆盖本地', async () => {
+    const { shared, local } = makeDirs();
+    writeFileSync(join(shared, 'm2.md'), memFile('m2', '远端版本'), 'utf-8');
+    writeFileSync(join(local, 'm2.md'), memFile('m2', '本地版本'), 'utf-8');
+
+    const report = await pullTeamMemoriesFromSharedDir({
+      sharedDir: shared,
+      localDir: local,
+    });
+
+    expect(report.imported).toBe(0);
+    expect(report.conflicts).toContain('m2');
+    expect(readFileSync(join(local, 'm2.md'), 'utf-8')).toContain('本地版本');
+  });
+
+  it('命中密钥 ⇒ 拒收该条（fail-closed），不写入本地', async () => {
+    const { shared, local } = makeDirs();
+    writeFileSync(
+      join(shared, 'm3.md'),
+      memFile(
+        'm3',
+        '-----BEGIN RSA PRIVATE KEY-----\nMIIEexample\n-----END RSA PRIVATE KEY-----'
+      ),
+      'utf-8'
+    );
+
+    const report = await pullTeamMemoriesFromSharedDir({
+      sharedDir: shared,
+      localDir: local,
+    });
+
+    expect(report.rejectedSecrets).toContain('m3');
+    expect(report.imported).toBe(0);
+    expect(existsSync(join(local, 'm3.md'))).toBe(false);
+  });
+
+  it('共享目录不可读 ⇒ 记错误、不抛', async () => {
+    const { local } = makeDirs();
+    const report = await pullTeamMemoriesFromSharedDir({
+      sharedDir: join(local, 'missing'),
+      localDir: local,
+    });
+    expect(report.errors.length).toBeGreaterThan(0);
+  });
+});

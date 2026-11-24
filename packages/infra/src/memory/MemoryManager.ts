@@ -1,4 +1,8 @@
-import { ensureDir, resolveDataDir } from '@openliri/infra/environment';
+import {
+  ensureDir,
+  resolveDataDir,
+  resolveTeamMemoryDir,
+} from '@openliri/infra/environment';
 import { configManager } from '@openliri/infra/config';
 import type { Memory, MemoryStats } from './types/Memory';
 import { createMemory } from './types/Memory';
@@ -48,6 +52,8 @@ import { memoryRelationGraph } from './utils/MemoryRelationGraph';
 import { writeFileAtomic } from '@openliri/infra/utils/atomicFileWrite';
 import { MemoryConsolidator } from './consolidation/MemoryConsolidator';
 import { rebuildMemoryWiki } from './services/MemoryWikiService';
+import { pullTeamMemoriesFromSharedDir } from './services/TeamMemorySharedDirPull';
+import { isTeamMemorySyncEnabled } from './services/TeamMemorySyncService';
 import {
   MemoryConflictDetector,
   type ConflictResult,
@@ -623,6 +629,35 @@ export class MemoryManagerImpl
           module: 'memory:memoryManager',
           action: 'rebuildMemoryWiki',
         });
+      }
+    }
+
+    // Phase 1（2026-11-25）：团队记忆共享目录单向拉取（默认关；只读合并、不覆盖、密钥 fail-closed）
+    if (isTeamMemorySyncEnabled()) {
+      const sharedDir = (
+        configManager.getValue<string>('memory.teamSync.sharedDir', '') ?? ''
+      ).trim();
+      if (sharedDir) {
+        const teamDir = resolveTeamMemoryDir();
+        try {
+          const report = await pullTeamMemoriesFromSharedDir({
+            sharedDir,
+            localDir: teamDir,
+          });
+          await writeFileAtomic(
+            join(teamDir, 'pull-report.json'),
+            JSON.stringify(
+              { generatedAt: new Date().toISOString(), ...report },
+              null,
+              2
+            ) + '\n'
+          );
+        } catch (err) {
+          await handleError(err, {
+            module: 'memory:memoryManager',
+            action: 'pullTeamMemoriesFromSharedDir',
+          });
+        }
       }
     }
 

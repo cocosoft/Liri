@@ -1101,8 +1101,18 @@ export interface EventSessionStats {
   assistantMessageCount: number;
   /** 工具调用发起数（assistant/tool_call） */
   toolCallCount: number;
-  /** 工具结果数（tool/result） */
+  /**
+   * **被应答的**工具调用数（按 `toolCallId` 去重）。
+   *
+   * 2026-11-24（会话 `session_mwurduuh1b0b38db30`）：审批链路会为同一调用先后落两条
+   * `tool/result`（`awaiting_approval` 占位 → 批准后真实结果）。事件日志**刻意保留两条**
+   * 作为审计轨迹（见 `resumeMessageOrder.dedupeToolResults` 头注：只在发送模型前剔除），
+   * 故此处按调用去重，避免出现「264 次调用 / 265 条结果」的假异常；
+   * 额外条数见 {@link toolResultReplayCount}。
+   */
   toolResultCount: number;
+  /** 重放产生的**额外**结果条数（同一 `toolCallId` 的第 2..n 条；审计可见、统计不重复计） */
+  toolResultReplayCount: number;
   /** 工具取消数（tool/canceled） */
   toolCanceledCount: number;
   /** 工具调用无终态数（孤儿：已发起但无 result/canceled） */
@@ -1177,6 +1187,7 @@ export function deriveSessionStats(events: LiriEvent[]): EventSessionStats {
     assistantMessageCount: 0,
     toolCallCount: 0,
     toolResultCount: 0,
+    toolResultReplayCount: 0,
     toolCanceledCount: 0,
     toolOrphanCount: 0,
     turnCount: 0,
@@ -1188,6 +1199,10 @@ export function deriveSessionStats(events: LiriEvent[]): EventSessionStats {
   // 已进入终态的工具调用 id（tool/result 或 tool/canceled）→ 孤儿数反推
   const terminalToolCallIds = new Set<string>();
   const toolCallIds = new Set<string>();
+  // 2026-11-24：结果按调用去重（审批重放的占位+真实结果 = 同一调用应答两次）
+  const toolResultCallIds = new Set<string>();
+  let toolResultEvents = 0;
+  let toolResultUnkeyed = 0;
 
   for (const ev of events) {
     switch (ev.type) {
@@ -1212,9 +1227,15 @@ export function deriveSessionStats(events: LiriEvent[]): EventSessionStats {
         }
         break;
       case 'tool/result': {
-        stats.toolResultCount++;
+        toolResultEvents++;
         const d = ev.data as { toolCallId?: string };
-        if (d.toolCallId) terminalToolCallIds.add(d.toolCallId);
+        if (d.toolCallId) {
+          terminalToolCallIds.add(d.toolCallId);
+          toolResultCallIds.add(d.toolCallId);
+        } else {
+          // 无 id 的结果仍如实计数（不静默丢弃）；但无法参与去重
+          toolResultUnkeyed++;
+        }
         break;
       }
       case 'tool/canceled': {
@@ -1238,6 +1259,16 @@ export function deriveSessionStats(events: LiriEvent[]): EventSessionStats {
         break;
     }
   }
+
+  // 2026-11-24（会话 session_mwurduuh1b0b38db30）：结果计数按**调用**去重 ——
+  // 审批占位（awaiting_approval）与批准后真实结果共享同一 toolCallId，事件日志刻意
+  // 保留两条作审计轨迹（只在发送模型前由 `dedupeToolResults` 剔除）⇒ 这里计 1 条，
+  // 多出的条数单独暴露为 toolResultReplayCount。
+  stats.toolResultCount = toolResultCallIds.size + toolResultUnkeyed;
+  stats.toolResultReplayCount = Math.max(
+    0,
+    toolResultEvents - toolResultCallIds.size - toolResultUnkeyed
+  );
 
   // 孤儿数：已发起但无终态
   for (const id of toolCallIds) {

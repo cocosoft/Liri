@@ -17829,6 +17829,31 @@
       "changelog": [],
       "reopenWhen": "工具结果再次出现外层引号/字面量 \\r\\n，或对象型出参不再被 JSON 化（回滚：revert 本提交）",
       "notes": "真机：265 条结果中 134 条外层带引号 + 字面 \\r\\n（bash 36/44、file_read 97/99）。根因：toToolResultRawText 与 createToolResultMessage 对字符串载荷也 JSON.stringify。新增 toolResultPayloadText（字符串直通；其它 JSON 化；undefined 保持）并两处复用；对象/空容器/empty-success 语义不变。events/UI 走消息 content 同一收口，一并修复。"
+    },
+    {
+      "id": "APPROVAL-REPLAY-STATS-DEDUP",
+      "title": "审批重放的重复 tool/result 在统计口径按调用去重（事件仍保留审计轨迹）",
+      "source": "会话 session_mwurduuh1b0b38db30 复盘（2026-11-24，P2）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/service/src/session/storage/EventMessageDeriver.ts",
+        "client/src/services/trajectoryService.ts"
+      ],
+      "tests": ["app/tests/session/sessionStatsReplayDedup.test.ts"],
+      "changelog": [],
+      "reopenWhen": "统计再次出现结果数 > 调用数，或需要把重放结果彻底拆成独立事件类型（回滚：revert 本提交）",
+      "notes": "设计边界：占位（awaiting_approval）与真实结果两条事件**刻意保留**（审计轨迹，发送模型前由 dedupeToolResults 剔除），本项只改统计口径。toolResultCount 改为按 toolCallId 去重（无 id 结果仍如实计数），新增 toolResultReplayCount 暴露额外条数；孤儿判定语义不变。"
     }
   ]
 }

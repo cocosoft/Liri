@@ -66,7 +66,10 @@ export interface EventSessionStats {
   userMessageCount: number;
   assistantMessageCount: number;
   toolCallCount: number;
+  /** 被应答的工具调用数（同一调用多条结果只计一次） */
   toolResultCount: number;
+  /** 重放产生的额外结果条数（审批占位 → 批准后真实结果；可选，兼容旧后端） */
+  toolResultReplayCount?: number;
   toolCanceledCount: number;
   toolOrphanCount: number;
   turnCount: number;

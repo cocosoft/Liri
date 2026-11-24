@@ -99,7 +99,6 @@ const TARGET_FILES = [
   "src/components/views/media/TemplateCarousel.tsx",
   "src/components/views/image/ImageGallery.tsx",
   "src/components/views/MediaPage.tsx",
-  "src/components/views/PlansPage.tsx",
   "src/components/ChatArea/ChatInput.tsx",
   "src/components/ChatArea/WorkflowRunCard.tsx",
   "src/components/ChatArea/ImageToolResult/ImageDisplayResult.tsx",

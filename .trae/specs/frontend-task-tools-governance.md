@@ -424,3 +424,15 @@
 **P2-C 验证**：client `tsc --noEmit` 通过；`vitest run` 全量 **1138 pass / 0 fail**（162 文件）；改动文件 ESLint 0 error。
 
 **批次 14 收口**：三面职责 = 消息卡「摘要」/ 浮动栏徽标「指示器」/ 抽屉「唯一详情」；百分比与计数只在抽屉；消息卡与徽标不再重复进度；终态三面均可达。
+
+**端到端验证（2026-11-24，真实后端 18990 + 真实前端 1420）**
+
+| 步骤 | 结果 |
+|---|---|
+| 触发 | `POST /v1/pdca/start`（只读描述）真实建任务；`/v1/events` 实收 `pdca:stage:phase` / `pdca:stage:complete`（SSE 直连探针 25s 内 4 条） |
+| 进行中形态 | 浮动栏左侧「PDCA 编排进行中」+ 徽标「📊 PDCA 编排」带蓝点（`pdca-e2e-1-active.png`） |
+| 详情面 | 点徽标 ⇒ 抽屉「PDCA 编排面板 / 唯一进度详情 / taskId / 总体进度 % / ✅🔄⏳❌ / 步骤 / 实时事件流」（`pdca-e2e-2-drawer.png`） |
+| 终态 | 本轮失败收口（`PDCA_GOAL_NOT_CONVERGED`）后抽屉**仍可达**（`pdca-e2e-3-terminal.png`）；浮动栏整体收起 ⇒ 终态徽标不常驻（符合 P2-B 设计） |
+| 未覆盖 | 消息卡（`pdca_workflow` 块）只由**自动启动路径**写入，`/v1/pdca/start` 不写 ⇒ 该面由 3 个组件单测覆盖；终态「查看结果」徽标形态同由单测覆盖 |
+
+副作用与清理：真实执行未改工作区（`git status` 仅临时 e2e spec）；临时 spec 已删除；测试会话已 `batch-delete`；后端 current 已切回原会话。截图落在 `client/test-results/`（gitignore，不入库）。

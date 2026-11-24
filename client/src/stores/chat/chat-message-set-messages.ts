@@ -10,6 +10,7 @@ import type {
   FilePreview,
   GroupedToolResult,
 } from "@/types";
+import { readGroupedToolResults } from "@/utils/groupedToolResults";
 import { addFilePathsFromBlocks } from "./chat-file.slice";
 import {
   generateGroupId,
@@ -188,13 +189,16 @@ function attachToolResultsToBlocks(
 }
 
 /**
- * 2026-11-24：连续「孤儿工具结果」合并为一条消息。
+ * 2026-11-24：把「孤儿工具结果」收敛成折叠组消息。
  *
  * 无事件日志的存量会话里，assistant 的 `tool_calls` 常常只留下其中一步，
  * 后续 `role=tool` 结果找不到调用定义（真机 `session_mwr473pd502e995dd1`：
  * 113 条结果里 98 条无主）。逐条渲染会把一屏铺成几十个「工具返回」气泡
  * ⇒ 这里把**连续**结果合并成一条消息（`metadata.groupedToolResults`），
- * 由 `ToolResultGroup` 折叠渲染。单条结果保持原样（`ToolResultMessage`）。
+ * 由 `ToolResultGroup` 折叠渲染。
+ *
+ * 单条也算一组（本轮用户要求）：不再保留"独立结果卡片"，
+ * 统一为一行组头（单条展开即见正文，见 `ToolResultGroup` 的单条分支）。
  *
  * 判据只看结构化字段 `metadata.groupedToolResults`（禁止文案匹配，CS02）。
  */
@@ -211,37 +215,68 @@ function coalesceConsecutiveToolResults(messages: Message[]): Message[] {
       end++;
     }
     const run = messages.slice(i, end + 1);
-    if (run.length === 1) {
-      out.push(msg);
-    } else {
-      const results: GroupedToolResult[] = run.map((m) => ({
-        id: m.id,
-        toolCallId: m.toolCallId,
-        content: typeof m.content === "string" ? m.content : "",
-        timestamp: m.timestamp,
-        isError:
-          m.metadata?.isError === true ||
-          m.metadata?.toolResultState === "error",
-        securityIntercepted: m.metadata?.securityIntercepted === true,
-        reason:
-          typeof m.metadata?.reason === "string"
-            ? m.metadata.reason
-            : undefined,
-      }));
-      out.push({
-        ...run[0],
-        // 合成 id：稳定且不与单条结果冲突（虚拟列表 key / 搜索高亮用）
-        id: `tool-group-${run[0].id}`,
-        content: "",
-        metadata: {
-          ...(run[0].metadata ?? {}),
-          groupedToolResults: results,
-        },
-      });
-    }
+    const results: GroupedToolResult[] = run.map((m) => ({
+      id: m.id,
+      toolCallId: m.toolCallId,
+      content: typeof m.content === "string" ? m.content : "",
+      timestamp: m.timestamp,
+      isError:
+        m.metadata?.isError === true || m.metadata?.toolResultState === "error",
+      securityIntercepted: m.metadata?.securityIntercepted === true,
+      reason:
+        typeof m.metadata?.reason === "string" ? m.metadata.reason : undefined,
+    }));
+    out.push({
+      ...run[0],
+      // 合成 id：稳定且不与单条结果冲突（虚拟列表 key / 搜索高亮用）
+      id: `tool-group-${run[0].id}`,
+      content: "",
+      metadata: {
+        ...(run[0].metadata ?? {}),
+        groupedToolResults: results,
+      },
+    });
     i = end;
   }
   return out;
+}
+
+/**
+ * 2026-11-24：把已合并的「工具返回组」消息还原为逐条 `role=tool` 消息。
+ *
+ * `setMessagesImpl` 会被**重复调用**（切换会话、加载更早分页时整表重算），
+ * 而上一轮的结果已经是 `metadata.groupedToolResults` 形态（`content` 被清空）。
+ * 若不还原，重复处理会把组当成一条空内容结果 ⇒ 正文丢失。
+ * 本函数保证幂等：输入原样消息时零开销（不命中直接返回原数组）。
+ */
+function expandGroupedToolResults(messages: Message[]): Message[] {
+  if (!messages.some((m) => m.role === "tool" && m.content === "")) {
+    return messages;
+  }
+  const expanded: Message[] = [];
+  for (const m of messages) {
+    const grouped = readGroupedToolResults(m);
+    if (m.role !== "tool" || grouped.length === 0) {
+      expanded.push(m);
+      continue;
+    }
+    for (const g of grouped) {
+      expanded.push({
+        id: g.id,
+        role: "tool",
+        content: g.content,
+        timestamp: g.timestamp ?? m.timestamp,
+        session_id: m.session_id,
+        toolCallId: g.toolCallId,
+        metadata: {
+          ...(g.securityIntercepted ? { securityIntercepted: true } : {}),
+          ...(g.reason ? { reason: g.reason } : {}),
+          ...(g.isError ? { isError: true, toolResultState: "error" } : {}),
+        },
+      });
+    }
+  }
+  return expanded;
 }
 
 /**
@@ -254,6 +289,8 @@ export function setMessagesImpl(
   get: MessageGet,
   messages: Message[],
 ): void {
+  // 幂等：把上一轮已合并的工具返回组还原为逐条结果（见 expandGroupedToolResults）
+  messages = expandGroupedToolResults(messages);
   // 会话切换锁：挂起流式写入，防止 loadSessions 覆盖流式数据
   switchState.lock = true;
 

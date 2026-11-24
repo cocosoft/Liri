@@ -45,4 +45,28 @@ describe("ToolResultGroup（2026-11-24）", () => {
     expect(secondRow!.getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByText(/附加说明/)).toBeTruthy();
   });
+
+  it("单条结果：展开组头即见正文（不打第二层折叠）", () => {
+    render(
+      <ToolResultGroup
+        results={[
+          {
+            id: "t1",
+            toolCallId: "call_abc12345",
+            content: "单条结果正文",
+          },
+        ]}
+      />,
+    );
+
+    expect(
+      screen.getByText(String(i18n.t("chat.toolReturnGroup", { count: 1 }))),
+    ).toBeTruthy();
+    // 单条时组头直接带调用 id
+    expect(screen.getByText("#abc12345")).toBeTruthy();
+    expect(screen.queryByText(/单条结果正文/)).toBeNull();
+
+    fireEvent.click(screen.getAllByRole("button")[0]);
+    expect(screen.getByText(/单条结果正文/)).toBeTruthy();
+  });
 });

@@ -70,6 +70,11 @@ function ToolResultGroup({ results }: ToolResultGroupProps) {
             </span>
           )}
         </span>
+        {items.length === 1 && items[0].toolCallId && (
+          <span className="shrink-0 text-[10px] text-gray-400 dark:text-gray-500">
+            #{items[0].toolCallId.slice(-8)}
+          </span>
+        )}
         <span className="ml-auto shrink-0 text-[10px]">
           {collapsed ? "\u25B6" : "\u25BC"}
         </span>
@@ -77,75 +82,87 @@ function ToolResultGroup({ results }: ToolResultGroupProps) {
 
       {!collapsed && (
         <div className="border-t border-gray-400/[0.1] px-2 py-1.5">
-          <div className="mb-1 flex items-center justify-between px-1 text-[10px] text-gray-500 dark:text-gray-400">
-            <span>
-              {t("chat.toolReturnGroupHint", {
-                count: items.length,
-                defaultValue: "共 {{count}} 条 · 点击任一行展开结果",
-              })}
-            </span>
-          </div>
-          <div className="flex flex-col gap-0.5">
-            {items.map((item, idx) => {
-              const isExpanded = expandedId === item.id;
-              const isLast = idx === items.length - 1;
-              const railColor = item.isError
-                ? "bg-red-400"
-                : "bg-gray-300 dark:bg-gray-600";
-              return (
-                <div key={item.id} className="flex gap-1.5">
-                  <div className="flex flex-col items-center w-3 shrink-0 pt-1">
-                    <div
-                      className={`w-1.5 h-1.5 rounded-full shrink-0 ${railColor}`}
-                    />
-                    <div
-                      className={`w-px flex-1 min-h-[10px] ${railColor} ${isLast ? "opacity-30" : "opacity-70"}`}
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0 pb-0.5">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setExpandedId((prev) =>
-                          prev === item.id ? null : item.id,
-                        )
-                      }
-                      aria-expanded={isExpanded}
-                      className="flex w-full items-center gap-1 text-left text-[11px] leading-relaxed text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-200"
-                    >
-                      <span className="shrink-0 font-medium">
-                        {t("chat.toolReturn", "工具返回")}
-                      </span>
-                      {item.toolCallId && (
-                        <span className="shrink-0 text-gray-400 dark:text-gray-500">
-                          #{item.toolCallId.slice(-8)}
-                        </span>
-                      )}
-                      {item.securityIntercepted && (
-                        <span className="shrink-0 text-orange-500 dark:text-orange-400">
-                          ⚠️
-                        </span>
-                      )}
-                      <span className="min-w-0 flex-1 truncate text-gray-400 dark:text-gray-500">
-                        {firstLine(item.decoded)}
-                      </span>
-                      <span className="ml-auto shrink-0 text-[9px] opacity-60">
-                        {isExpanded ? "▲" : "▼"}
-                      </span>
-                    </button>
-                    {isExpanded && (
-                      <div className="mt-0.5 mb-1 max-h-[320px] overflow-y-auto rounded bg-gray-50 dark:bg-gray-900/50 p-2 border border-gray-200 dark:border-gray-700">
-                        <MarkdownRenderer
-                          content={item.decoded}
-                          onPreviewFile={readFileToPreview}
+          {items.length === 1 ? (
+            // 单条：展开组头即见正文（少一层点击，避免"为一条结果套两级折叠"）
+            <div className="max-h-[320px] overflow-y-auto rounded bg-gray-50 dark:bg-gray-900/50 p-2 border border-gray-200 dark:border-gray-700">
+              <MarkdownRenderer
+                content={items[0].decoded}
+                onPreviewFile={readFileToPreview}
+              />
+            </div>
+          ) : (
+            <>
+              <div className="mb-1 flex items-center justify-between px-1 text-[10px] text-gray-500 dark:text-gray-400">
+                <span>
+                  {t("chat.toolReturnGroupHint", {
+                    count: items.length,
+                    defaultValue: "共 {{count}} 条 · 点击任一行展开结果",
+                  })}
+                </span>
+              </div>
+              <div className="flex flex-col gap-0.5">
+                {items.map((item, idx) => {
+                  const isExpanded = expandedId === item.id;
+                  const isLast = idx === items.length - 1;
+                  const railColor = item.isError
+                    ? "bg-red-400"
+                    : "bg-gray-300 dark:bg-gray-600";
+                  return (
+                    <div key={item.id} className="flex gap-1.5">
+                      <div className="flex flex-col items-center w-3 shrink-0 pt-1">
+                        <div
+                          className={`w-1.5 h-1.5 rounded-full shrink-0 ${railColor}`}
+                        />
+                        <div
+                          className={`w-px flex-1 min-h-[10px] ${railColor} ${isLast ? "opacity-30" : "opacity-70"}`}
                         />
                       </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                      <div className="flex-1 min-w-0 pb-0.5">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedId((prev) =>
+                              prev === item.id ? null : item.id,
+                            )
+                          }
+                          aria-expanded={isExpanded}
+                          className="flex w-full items-center gap-1 text-left text-[11px] leading-relaxed text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-200"
+                        >
+                          <span className="shrink-0 font-medium">
+                            {t("chat.toolReturn", "工具返回")}
+                          </span>
+                          {item.toolCallId && (
+                            <span className="shrink-0 text-gray-400 dark:text-gray-500">
+                              #{item.toolCallId.slice(-8)}
+                            </span>
+                          )}
+                          {item.securityIntercepted && (
+                            <span className="shrink-0 text-orange-500 dark:text-orange-400">
+                              ⚠️
+                            </span>
+                          )}
+                          <span className="min-w-0 flex-1 truncate text-gray-400 dark:text-gray-500">
+                            {firstLine(item.decoded)}
+                          </span>
+                          <span className="ml-auto shrink-0 text-[9px] opacity-60">
+                            {isExpanded ? "▲" : "▼"}
+                          </span>
+                        </button>
+                        {isExpanded && (
+                          <div className="mt-0.5 mb-1 max-h-[320px] overflow-y-auto rounded bg-gray-50 dark:bg-gray-900/50 p-2 border border-gray-200 dark:border-gray-700">
+                            <MarkdownRenderer
+                              content={item.decoded}
+                              onPreviewFile={readFileToPreview}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

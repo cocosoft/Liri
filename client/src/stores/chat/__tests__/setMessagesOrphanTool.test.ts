@@ -144,7 +144,11 @@ describe("setMessagesImpl — 孤儿 tool 结果保留（N-48）", () => {
 
     const tools = h.messages().filter((m) => m.role === "tool");
     expect(tools).toHaveLength(1);
-    expect(tools[0].content).toBe("second");
+    const grouped = tools[0].metadata?.groupedToolResults as Array<{
+      content: string;
+    }>;
+    expect(grouped).toHaveLength(1);
+    expect(grouped[0].content).toBe("second");
   });
 
   it("分页窗口从一轮中间开始（页内无 user）⇒ 边界工具结果不渲染", () => {
@@ -289,7 +293,7 @@ describe("setMessagesImpl — 存量投影：重建回填 + 孤儿收敛（2026-
     ]);
   });
 
-  it("单条孤儿结果不合并（保持 ToolResultMessage 原渲染）", () => {
+  it("单条孤儿结果同样收敛为折叠组消息（本轮：不再保留独立结果卡片）", () => {
     const h = harness();
     h.run([
       msg({ id: "u1", role: "user", content: "hi", timestamp: 1000 }),
@@ -304,8 +308,41 @@ describe("setMessagesImpl — 存量投影：重建回填 + 孤儿收敛（2026-
 
     const tools = h.messages().filter((m) => m.role === "tool");
     expect(tools).toHaveLength(1);
-    expect(tools[0].id).toBe("t1");
-    expect(tools[0].metadata?.groupedToolResults).toBeUndefined();
+    expect(tools[0].id).toBe("tool-group-t1");
+    const grouped = tools[0].metadata?.groupedToolResults as Array<{
+      id: string;
+    }>;
+    expect(grouped.map((g) => g.id)).toEqual(["t1"]);
+  });
+
+  it("重复 setMessages（加载更早分页整表重算）不丢结果", () => {
+    const h = harness();
+    h.run([
+      msg({ id: "u1", role: "user", content: "hi", timestamp: 1000 }),
+      msg({
+        id: "t1",
+        role: "tool",
+        toolCallId: "call_1",
+        timestamp: 2000,
+        content: "第一条",
+      }),
+      msg({
+        id: "t2",
+        role: "tool",
+        toolCallId: "call_2",
+        timestamp: 3000,
+        content: "第二条",
+      }),
+    ]);
+    // loadOlderMessages 会把已合并的列表再喂回 setMessagesImpl
+    h.run(h.messages());
+
+    const tools = h.messages().filter((m) => m.role === "tool");
+    expect(tools).toHaveLength(1);
+    const grouped = tools[0].metadata?.groupedToolResults as Array<{
+      content: string;
+    }>;
+    expect(grouped.map((g) => g.content)).toEqual(["第一条", "第二条"]);
   });
 });
 

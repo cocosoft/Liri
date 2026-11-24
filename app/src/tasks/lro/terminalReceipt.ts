@@ -37,6 +37,7 @@ import { readPdcaCheckpoint } from '../PdcaWorkItemBridge';
 // 批次 5（2026-11-24）：abortedBy 取值与归因判据的唯一事实源
 import {
   ABORTED_BY_STARTUP_SCAN,
+  ABORTED_BY_USER_ABORT,
   isApprovalExpiryAbort,
 } from './abortAttribution.js';
 
@@ -463,7 +464,9 @@ export function emitPdcaInterruptedReceipts(
     const abortedBy = String(ck.abortedBy ?? ABORTED_BY_STARTUP_SCAN);
     const cause = isApprovalExpiryAbort(abortedBy)
       ? '审批卡已过期未处理'
-      : '进程重启';
+      : abortedBy === ABORTED_BY_USER_ABORT
+        ? '用户拒绝'
+        : '进程重启';
     const kept =
       steps > 0
         ? `${steps} 步计划已保留`

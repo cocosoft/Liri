@@ -117,6 +117,34 @@ describe('阶段链审批过期当场收口（批次 5）', () => {
     }
   });
 
+  it('入参是**父链 ID**（阶段审批卡携带的形态）⇒ 同样收口', async () => {
+    const receipts = captureReceipts();
+    try {
+      await writePdcaCheckpoint('pdca_expiry_parent', {
+        taskId: 'pdca_expiry_parent',
+        sessionId: 's-expiry-parent',
+        phase: 'stage_awaiting_approval',
+        status: 'started',
+        stages: [
+          { id: 'requirement', status: 'awaiting_approval' },
+          { id: 'design', status: 'pending' },
+        ],
+      });
+
+      const parentId =
+        await closeOutStageChainAfterApprovalExpiry('pdca_expiry_parent');
+
+      expect(parentId).toBe('pdca_expiry_parent');
+      const ck = await readPdcaCheckpoint('pdca_expiry_parent');
+      expect(ck?.phase).toBe('abort');
+      expect(ck?.abortedBy).toBe('approval_expired');
+      expect(receipts).toHaveLength(1);
+      expect(receipts[0]?.text).toContain('审批卡已过期未处理');
+    } finally {
+      setPdcaReceiptSink(undefined);
+    }
+  });
+
   it('非阶段子任务 / 已是终态 ⇒ 幂等跳过（不重复发回执）', async () => {
     const receipts = captureReceipts();
     try {

@@ -24,6 +24,12 @@ import { taskOrchestrator } from './TaskOrchestrator.js';
 import { PLAN_STATUS_FAILED } from './TaskOrchestrator.js';
 // 批次 5（2026-11-24）：相位常量（阶段链 record.phase 与 PDCA phase 是两套词汇）
 import { PDCA_PHASE_ABORT } from './phases.js';
+// P0（2026-11-24）：阶段审批接入收件箱卡（此前只有 checkpoint ⇒ 重启必被判孤儿）
+import {
+  expireStageApprovalCard,
+  openStageApprovalCard,
+  type OpenStageApprovalInput,
+} from './lro/stageApproval.js';
 import type { LongRunningTaskOrchestrator } from './LongRunningTaskOrchestrator.js';
 // P1（2026-11-10）：阶段交付物的结构化投影（纯函数；不再把步骤描述当产物下传）
 import {
@@ -71,6 +77,13 @@ export interface StageRecord {
   pdcaTaskId: string;
   /** 本阶段产物（下一阶段输入基线） */
   artifact?: string;
+  /**
+   * P0（2026-11-24）：本阶段审批门的 Inbox 卡 ID。
+   *
+   * 有此字段 ⇒ 重启后不重复建卡；启动扫描也能凭"收件箱仍有 pending 卡"判定任务可续跑
+   *（此前阶段审批无卡 ⇒ 必然被判孤儿收口，见 `frontend-task-tools-governance.md` §3.3）。
+   */
+  approvalInboxId?: string;
 }
 
 /** 阶段链父级相位（批次 5：`abort` = 孤儿扫描 / 审批过期收口后的终态，可经 resumeAfterAbort 重建） */
@@ -193,6 +206,15 @@ export interface StageOrchestratorDeps {
     stage: StageRecord,
     chain: StageChainRecord
   ) => Promise<StageRunnerResult>;
+  /**
+   * 阶段审批卡的读写端口（可选；缺省走收件箱实现）。
+   *
+   * 单测注入替身 ⇒ 不触真实收件箱库；生产调用方无需传。
+   */
+  cardIO?: {
+    open: (input: OpenStageApprovalInput) => Promise<string | null>;
+    expire: (inboxId?: string) => Promise<void>;
+  };
 }
 
 /** 成本护栏配置（D4） */
@@ -395,8 +417,9 @@ export class StageOrchestrator {
     for (const stage of this.record.stages) {
       if (stage.status === 'completed') continue;
       if (stage.status === 'awaiting_approval') {
-        // 审批门：等用户 approve，停在这里
+        // 审批门：等用户 approve，停在这里（确保收件箱有卡，重启后仍可发现）
         this.record.phase = 'stage_awaiting_approval';
+        await this.ensureStageApprovalCard(stage);
         await this.persist();
         return this.record;
       }
@@ -431,6 +454,7 @@ export class StageOrchestrator {
         if (result.paused) {
           stage.status = 'awaiting_approval';
           this.record.phase = 'stage_awaiting_approval';
+          await this.ensureStageApprovalCard(stage);
           await this.persist();
           return this.record;
         }
@@ -470,6 +494,7 @@ export class StageOrchestrator {
 
       if (stage.status === 'awaiting_approval') {
         this.record.phase = 'stage_awaiting_approval';
+        await this.ensureStageApprovalCard(stage);
         await this.persist();
         return this.record;
       }
@@ -481,6 +506,34 @@ export class StageOrchestrator {
     this.record.deliveryManifest = this.buildDeliveryManifest();
     await this.persist();
     return this.record;
+  }
+
+  /**
+   * 确保当前审批门在收件箱有**可回复的卡**（P0，2026-11-24）。
+   *
+   * - 已建过（checkpoint 带 `approvalInboxId`）⇒ 不重复建：重启后旧卡仍是用户可点的入口，
+   *   也是启动扫描判定"任务可续跑"的唯一依据（`collectPendingPdcaTaskIds`）；
+   * - 建卡失败 ⇒ 退回旧行为（仅 checkpoint 等待），不阻断阶段链。
+   */
+  private async ensureStageApprovalCard(stage: StageRecord): Promise<void> {
+    if (stage.approvalInboxId) return;
+    const inboxId = await this.cardIO.open({
+      taskId: this.record.taskId,
+      sessionId: this.record.sessionId,
+      stageId: stage.id,
+      stageName: stage.name,
+    });
+    if (inboxId) stage.approvalInboxId = inboxId;
+  }
+
+  /** 阶段审批卡读写（生产走收件箱；单测注入替身） */
+  private get cardIO(): NonNullable<StageOrchestratorDeps['cardIO']> {
+    return (
+      this.deps.cardIO ?? {
+        open: (input: OpenStageApprovalInput) => openStageApprovalCard(input),
+        expire: (inboxId?: string) => expireStageApprovalCard(inboxId),
+      }
+    );
   }
 
   /** D6（M8）：打包交付清单（各阶段产物 + 总 tokens + 验收标记 pending） */
@@ -545,7 +598,11 @@ export class StageOrchestrator {
     const pending = this.record.stages.find(
       (s) => s.status === 'awaiting_approval'
     );
-    if (pending) pending.status = 'completed';
+    if (pending) {
+      pending.status = 'completed';
+      // P0：批准后把卡置过期（不再可回复），避免收件箱残留"待审批"
+      await this.cardIO.expire(pending.approvalInboxId);
+    }
     this.record.phase = 'running';
     await this.persist();
     return this.run();
@@ -579,6 +636,9 @@ export class StageOrchestrator {
     if (awaiting) {
       this.record.currentStage = awaiting.id;
       this.record.phase = 'stage_awaiting_approval';
+      // 收口时旧卡已被置过期 ⇒ 重新出一张可点的卡（阶段产物仍在，不重跑）
+      awaiting.approvalInboxId = undefined;
+      await this.ensureStageApprovalCard(awaiting);
       await this.persist();
       return this.record;
     }

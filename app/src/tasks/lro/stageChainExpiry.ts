@@ -50,15 +50,22 @@ export function resolveParentStageChainId(taskId: string): string | null {
 /**
  * 审批卡过期后收口阶段链父检查点；返回被收口的父链 taskId（无需收口 ⇒ `null`）。
  *
+ * 入参可以是**子阶段** ID（`<父链>_<stageId>`）或**父链** ID —— 阶段审批卡（P0，2026-11-24）
+ * 直接携带父链 ID，故两种形态都要支持。
+ *
  * 幂等：父链已是终态（含已 abort）⇒ 直接跳过，不重复发回执。
  */
 export async function closeOutStageChainAfterApprovalExpiry(
-  childTaskId: string
+  stageOrParentTaskId: string
 ): Promise<string | null> {
-  const parentId = resolveParentStageChainId(childTaskId);
+  const direct = await readPdcaCheckpoint(stageOrParentTaskId);
+  const isParentChain = Array.isArray(direct?.stages);
+  const parentId = isParentChain
+    ? stageOrParentTaskId
+    : resolveParentStageChainId(stageOrParentTaskId);
   if (!parentId) return null;
   try {
-    const ck = await readPdcaCheckpoint(parentId);
+    const ck = isParentChain ? direct : await readPdcaCheckpoint(parentId);
     if (!ck || !Array.isArray(ck.stages)) return null;
     const phase = ck.phase as string | undefined;
     if (phase !== undefined && PDCA_TERMINAL_PHASES.has(phase)) return null;
@@ -76,7 +83,7 @@ export async function closeOutStageChainAfterApprovalExpiry(
     emitPdcaInterruptedReceipts([aborted]);
     logger.info('审批卡过期 ⇒ 阶段链已当场收口', {
       parentId,
-      childTaskId,
+      sourceTaskId: stageOrParentTaskId,
       phase,
     });
     return parentId;
@@ -84,7 +91,7 @@ export async function closeOutStageChainAfterApprovalExpiry(
     // @ignore-catch — 收口属补充动作，失败不得影响子任务中止
     logger.warn('审批卡过期后收口阶段链失败（不影响子任务中止）', {
       parentId,
-      childTaskId,
+      sourceTaskId: stageOrParentTaskId,
       error: String(err),
     });
     return null;

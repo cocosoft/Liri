@@ -1760,7 +1760,15 @@ export async function launch(options: LaunchOptions): Promise<void> {
           abortPdcaAfterExpiry,
           convergeSessionAfterApprovalExpiry,
           reconcileStuckApprovalSessions,
+          setStageApprovalHandler,
         } = await import('@openliri/service/runtime/inboxApproval');
+        // P0（2026-11-24）：阶段审批卡（父链）落定 ⇒ app 侧阶段链续跑/中止。
+        // 服务层不依赖 tasks 域（R00-001），处理器在入口装配。
+        setStageApprovalHandler(async (input) => {
+          const { settleStageApproval } =
+            await import('./tasks/lro/stageApproval.js');
+          await settleStageApproval(input);
+        });
         onInboxItemsExpired((item) => {
           // 批次 5（2026-11-24）：子阶段被中止后，**当场**收口阶段链父检查点
           // （旧实现只 abort 子任务 ⇒ 父链停在 stage_awaiting_approval，等到下次重启

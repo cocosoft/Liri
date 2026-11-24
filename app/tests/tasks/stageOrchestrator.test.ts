@@ -38,6 +38,11 @@ const deps = (calls: string[], tokens = 10) => ({
     calls.push(stage.id);
     return { artifact: `产物-${stage.id}`, tokens };
   },
+  // P0：单测不触真实收件箱（真实卡读写由 stageApproval 的集成用例覆盖）
+  cardIO: {
+    open: async () => null,
+    expire: async () => {},
+  },
 });
 
 describe('StageOrchestrator — 2 阶段链（D1/M7）', () => {
@@ -116,6 +121,7 @@ describe('StageOrchestrator — 2 阶段链（D1/M7）', () => {
           calls.push(stage.id);
           return { artifact: `产物-${stage.id}`, tokens: 10, paused: true };
         },
+        cardIO: { open: async () => null, expire: async () => {} },
       },
       undefined,
       undefined,
@@ -523,6 +529,94 @@ describe('批次 5 — 阶段链收口后续跑（resumeAfterAbort）', () => {
       deps([])
     );
     await expect(orch.resumeAfterAbort()).rejects.toThrow();
+  });
+});
+
+describe('P0 — 阶段审批接入收件箱卡（可发现 / 可回复）', () => {
+  it('停在审批门 ⇒ 建卡并把 inboxId 落进 checkpoint；批准后卡置过期', async () => {
+    const opened: Array<{
+      taskId: string;
+      sessionId: string;
+      stageId: string;
+      stageName: string;
+    }> = [];
+    const expired: string[] = [];
+    const orch = StageOrchestrator.create(
+      'stage-card-1',
+      '开发结算模块',
+      's-card-1',
+      {
+        runStage: async () => ({ artifact: 'PRD', tokens: 1 }),
+        cardIO: {
+          open: async (input) => {
+            opened.push(input);
+            return 'inbox-1';
+          },
+          expire: async (id) => {
+            if (id) expired.push(id);
+          },
+        },
+      }
+    );
+
+    const status = await orch.run();
+    expect(status.phase).toBe('stage_awaiting_approval');
+    expect(opened).toEqual([
+      {
+        taskId: 'stage-card-1',
+        sessionId: 's-card-1',
+        stageId: 'requirement',
+        stageName: '需求分析',
+      },
+    ]);
+
+    // 卡 ID 随 checkpoint 落盘（重启/启动扫描据此判定"可续跑"）
+    const ck = await readPdcaCheckpoint('stage-card-1');
+    const stages = ck?.stages as Array<{ approvalInboxId?: string }>;
+    expect(stages[0]?.approvalInboxId).toBe('inbox-1');
+
+    await orch.resumeAfterApproval();
+    expect(expired).toEqual(['inbox-1']);
+  });
+
+  it('重启恢复：checkpoint 已带卡 ⇒ 不重复建卡（旧卡仍是可点入口）', async () => {
+    await StageOrchestrator.create('stage-card-2', '开发结算模块', 's-card-2', {
+      runStage: async () => ({ artifact: 'PRD', tokens: 1 }),
+      cardIO: { open: async () => 'inbox-2', expire: async () => {} },
+    }).run();
+
+    const reopened: unknown[] = [];
+    const restored = await StageOrchestrator.fromCheckpoint('stage-card-2', {
+      runStage: async () => ({ artifact: 'PRD', tokens: 1 }),
+      cardIO: {
+        open: async (input) => {
+          reopened.push(input);
+          return 'inbox-dup';
+        },
+        expire: async () => {},
+      },
+    });
+    await restored!.run();
+
+    expect(reopened).toEqual([]);
+  });
+
+  it('建卡失败（null）⇒ 阶段链照常停在审批门（退回旧行为，不阻断）', async () => {
+    const orch = StageOrchestrator.create(
+      'stage-card-3',
+      '开发结算模块',
+      's-card-3',
+      {
+        runStage: async () => ({ artifact: 'PRD', tokens: 1 }),
+        cardIO: { open: async () => null, expire: async () => {} },
+      }
+    );
+
+    const status = await orch.run();
+    expect(status.phase).toBe('stage_awaiting_approval');
+    const ck = await readPdcaCheckpoint('stage-card-3');
+    const stages = ck?.stages as Array<{ approvalInboxId?: string }>;
+    expect(stages[0]?.approvalInboxId).toBeUndefined();
   });
 });
 

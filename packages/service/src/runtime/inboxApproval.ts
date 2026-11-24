@@ -928,6 +928,30 @@ async function expireSiblingStepCards(item: InboxItem): Promise<void> {
 }
 
 /**
+ * 阶段审批落定的**继承接点**（P0，2026-11-24）。
+ *
+ * 为什么需要：`metadata.approvalKind='stage'` 的卡指向**阶段链父检查点**（`stages[]`），
+ * 父链没有顶层步骤 ⇒ 不能按 LRO 编排器 `resumeAfterApproval` 续跑（会误建实例/空跑）。
+ * 真正的续跑实现在 app 侧 `StageOrchestrator`；服务层只负责把"批准/拒绝"这一事实转交，
+ * 由入口层（`main.ts`）注册处理器（跨层动作留在 entry，R00-001）。
+ */
+export type StageApprovalHandler = (input: {
+  taskId: string;
+  sessionId: string;
+  /** `true` = 批准；`false` = 拒绝（app 侧写 abort 终态 + 回执） */
+  approved: boolean;
+}) => Promise<void>;
+
+let stageApprovalHandler: StageApprovalHandler | undefined;
+
+/** 注册阶段审批处理器（传 `undefined` 摘除；测试用） */
+export function setStageApprovalHandler(
+  handler: StageApprovalHandler | undefined
+): void {
+  stageApprovalHandler = handler;
+}
+
+/**
  * 2026-11-07（隐藏缺陷 #1）：审批卡**过期** ⇒ 终止其对应的 PDCA 任务。
  *
  * 卡已不可回复，任务却停在 `stage_awaiting_approval`（`pendingApproval>0`）⇒
@@ -948,6 +972,16 @@ export async function abortPdcaAfterExpiry(
         ? item.metadata.pdcaTaskId
         : undefined;
   if (!taskId) return undefined;
+  // P0（2026-11-24）：**阶段审批卡**（`approvalKind='stage'`）指向阶段链父检查点，
+  // 不能按 LRO 编排器 abort（会误建/误写父链的 LRO 实例）。交给入口层
+  // `closeOutStageChainAfterApprovalExpiry` 写 `abortedBy='approval_expired'` 并当场发回执。
+  if (item.metadata?.approvalKind === 'stage') {
+    logger.warn('阶段审批卡过期 ⇒ 交由入口层收口阶段链', {
+      taskId,
+      inboxId: item.id,
+    });
+    return taskId;
+  }
   try {
     const coreApi = getRuntimeCoreApi();
     const port = await coreApi?.getTaskOpsPort?.();
@@ -1186,6 +1220,23 @@ async function resumePdcaIfApplicable(
         : undefined;
   const sessionId = item.sessionId;
   if (!taskId || !sessionId) return;
+
+  // P0（2026-11-24）：阶段审批卡（父链）走 app 侧 `StageOrchestrator`；不能按 LRO 续跑。
+  if (item.metadata?.approvalKind === 'stage') {
+    if (!stageApprovalHandler) {
+      logger.warn('阶段审批已落定但未注册阶段链处理器（无法续跑）', {
+        taskId,
+        inboxId: item.id,
+      });
+      return;
+    }
+    await stageApprovalHandler({
+      taskId,
+      sessionId,
+      approved: isApprovalReply(reply, selectedOption),
+    });
+    return;
+  }
 
   try {
     // 2026-11-07 真机：此前把方法**取出后再调用**（`const getTaskOpsPort = coreApi?.getTaskOpsPort;

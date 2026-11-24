@@ -114,7 +114,10 @@
 真正杀死任务的是 14:33 的启动扫描（`orphan_scan`）。
 
 > **部分缓解（批次 6）**：暂停提示现在会带 `/goal approve stage <taskId>`（不再只让人"去编排面板找"）。
-> **根因未消除**：阶段审批仍然没有卡，重启扫描仍会把它判孤儿。
+> **已修（批次 8）**：阶段审批接入收件箱卡（`source='pdca'` + `metadata.approvalKind='stage'`，
+> `inboxId` 随 checkpoint 落盘）⇒ 启动扫描的"待审批 ⇒ 收件箱有 pending 卡"判据对阶段审批重新成立；
+> 批准/拒绝经 `setStageApprovalHandler`（入口装配）分流到 `settleStageApproval`；卡过期走
+> `abortPdcaAfterExpiry` → `closeOutStageChainAfterApprovalExpiry`（已支持父链 ID），归因 `approval_expired`。
 
 ### §3.4 触发级根因：只读问答被升级成"长任务"，且任务描述为空
 
@@ -285,17 +288,28 @@
 | 契约 | **不改转移表**：`idle → requires_action` 仍非法；`SessionStateMachine.test.ts` 的"idle 时 pause 应抛出"继续绿 |
 | 测试 | 新增 `tests/state/session/pauseForApproval.test.ts`（5 例：idle 归一后 requires_action / running 只暂停一次 / requires_action 幂等 / 调用顺序 start→pause / 负向对照"直接 pause 仍抛"） |
 
+### 批次 8（P0 阶段审批卡）已落地
+
+| 项 | 结果 |
+|---|---|
+| 建卡 | 新增 `app/src/tasks/lro/stageApproval.ts`：进入审批门时提交 `type='approval'`、`source='pdca'`、`options=['approve','deny']` 的卡；`metadata = { taskId(父链), approvalKind:'stage', stageId, sourceModule:'stage_chain' }` |
+| 落盘 | `StageRecord.approvalInboxId` 随 checkpoint 持久化 ⇒ 重启不重复建卡，且启动扫描能凭 pending 卡判定"可续跑" |
+| 关闭 | `resumeAfterApproval` 批准后 `expireByIds`（只改状态 + 审计，**不触达过期监听器**，避免把正在推进的链再收口一次） |
+| 落定分流 | 服务层 `resumePdcaIfApplicable` 遇 `approvalKind='stage'` 走 `setStageApprovalHandler`（`main.ts` 装配）；批准 ⇒ `StageOrchestrator.resumeAfterApproval()`，拒绝 ⇒ 写 `abort(user_abort)` + 回执 |
+| 过期 | `abortPdcaAfterExpiry` 对阶段卡**不再走 LRO abort**，直接回传父链 ID；`closeOutStageChainAfterApprovalExpiry` 支持父链 ID 入参，写 `abortedBy='approval_expired'` 并当场发回执 |
+| 归因 | `emitPdcaInterruptedReceipts` 增 `user_abort → 用户拒绝`（不再一律说"进程重启"） |
+| 测试 | `stageOrchestrator.test.ts` 增 3 例（建卡+落盘+批准关卡 / 恢复不重复建卡 / 建卡失败不阻断）；新增 `stageApproval.test.ts`（拒绝 ⇒ abort(user_abort)+回执；非阶段链不改写）；`stageChainExpiry.test.ts` 增父链 ID 用例 |
+
 ### 后续（未实施，按 §3 根因排序）
 
 0. **P1｜定位"机器为何停在 `idle`"**（批次 7 已把抛错降级为归一日志）：依据
    `会话状态机 pause 前归一（idle → running）` 的 warn 频次与上下文，回溯是哪条路径提前
    `finish/complete`（或未 `start`）；确认后再决定是否从源头修正。
-1. **P0｜阶段审批必须有"卡"**：`stage_awaiting_approval` 目前无 Inbox 卡 ⇒ 启动扫描的"无 pending 卡即孤儿"判据
-   必然把它判死（§3.3）。二选一：
-   - A（推荐）：阶段审批也建 Inbox 卡（复用 TTL / 通知 / `onInboxItemsExpired`），让"待审批 ⇒ 有卡"重新成立；
-   - B：`scanAndAbortStalePdcaTasks` 对**阶段链**的 `stage_awaiting_approval` 不写 abort，改为保留 + 可选通知。
-2. **P1｜长任务信号区分"只读调查"**：本会话 34 轮全是 grep/file_read/glob ⇒ 建议信号增加"本回合存在写类工具或未完成 todo"
+1. **P1｜长任务信号区分"只读调查"**：本会话 34 轮全是 grep/file_read/glob ⇒ 建议信号增加"本回合存在写类工具或未完成 todo"
    这一必要条件（仅轮次不够）。
+2. **P2｜停机期间过期的阶段卡**：卡在进程停机时到期 ⇒ 重启扫描仍按 `orphan_scan` 收口
+   （语义同为"审批卡已过期"，且已可 `/goal resume stage` 续跑）；如需完全消除，可让扫描对
+   "有 `approvalInboxId` 但卡已过期"的阶段链直接写 `approval_expired`。
 3. **P2｜双份会话状态机实例**：`ChatManager`（`SessionRuntimeState`）与 `SessionStateBridge` 各持一份
    `SessionStateMachine`，合并/收敛前先确认 `session:activated` 等生命周期事件是否还有人发布。
 4. **P2｜`PlansPage` 未挂路由**（`/plans` 已重定向），仍在测试中被引用；是否删除需按 `code-deletion.md` CD01–CD06 另行取证。

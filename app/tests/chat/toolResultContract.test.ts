@@ -44,8 +44,10 @@ describe('工具结果三态契约', () => {
     expect(classifyToolResult({ result: false })).toBe('success');
   });
 
-  it('成功有输出 ⇒ 原样透传（不套标记）', () => {
-    expect(valueOf(toolResult({ result: 'hello' }))).toBe('"hello"');
+  it('成功有输出 ⇒ 原样透传（字符串不套引号，对象仍 JSON 化）', () => {
+    // 2026-11-24（会话 session_mwurduuh1b0b38db30）：字符串载荷直通 —— 原实现会变成 '"hello"'
+    expect(valueOf(toolResult({ result: 'hello' }))).toBe('hello');
+    expect(valueOf(toolResult({ result: 'a\r\nb' }))).toBe('a\r\nb');
     expect(valueOf(toolResult({ result: { a: 1 } }))).toBe('{"a":1}');
   });
 

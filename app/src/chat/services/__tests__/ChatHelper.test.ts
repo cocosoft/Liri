@@ -597,13 +597,17 @@ describe('ChatHelper — toToolResultRawText', () => {
   });
 
   it('falsy 但**非空载荷** ⇒ 保留真实值（原 truthiness 判定会误替换为 "{}"）', () => {
-    expect(toToolResultRawText('', null)).toBe('""');
+    // 2026-11-24：字符串直通（不再 JSON.stringify）⇒ 空串就是空串，不再变成 '""'
+    expect(toToolResultRawText('', null)).toBe('');
     expect(toToolResultRawText(0, null)).toBe('0');
     expect(toToolResultRawText(false, null)).toBe('false');
   });
 
-  it('对象 ⇒ JSON 文本；字符串 ⇒ 保持既有 stringify 行为（本项不改）', () => {
+  it('对象 ⇒ JSON 文本；字符串 ⇒ **直通**（不再多套引号/转义）', () => {
     expect(toToolResultRawText({ a: 1 }, null)).toBe('{"a":1}');
-    expect(toToolResultRawText('ok', null)).toBe('"ok"');
+    expect(toToolResultRawText('ok', null)).toBe('ok');
+    // 真机形态（session_mwurduuh1b0b38db30）：换行/CRLF 保持真实字符，而不是字面量 \\r\\n
+    expect(toToolResultRawText('1:a\r\n2:b', null)).toBe('1:a\r\n2:b');
+    expect(toToolResultRawText('1:a\r\n2:b', null)).not.toContain('\\r\\n');
   });
 });

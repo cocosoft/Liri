@@ -42,3 +42,19 @@ export function classifyToolResult(
   }
   return 'success';
 }
+
+/**
+ * 工具载荷 → 文本（**单一实现**）：字符串**直通**，其余 JSON 化。
+ *
+ * 2026-11-24（会话 `session_mwurduuh1b0b38db30` 复盘）：原实现对**字符串**载荷也
+ * `JSON.stringify` ⇒ 纯文本出参被再套一层引号、`\r\n` 变成**字面量** `\\r\\n`
+ * （模型读到 `"1:.bun-cache\r\n2:.bun..."`，不可读且体积约翻倍；真机 265 条结果里
+ * 134 条是该形态，bash 36/44、file_read 97/99）。结构化出参（对象/数组）仍 JSON 化。
+ *
+ * `undefined` 保持 `undefined`（`JSON.stringify(undefined)` 的既有语义）——
+ * 空值判定由调用方（`classifyToolResult` / `toToolResultRawText`）负责，不在本函数臆造 `'{}'`。
+ */
+export function toolResultPayloadText(payload: unknown): string | undefined {
+  if (typeof payload === 'string') return payload;
+  return JSON.stringify(payload);
+}

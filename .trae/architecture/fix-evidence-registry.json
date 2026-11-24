@@ -17800,6 +17800,35 @@
       "changelog": [],
       "reopenWhen": "续跑期间再次出现浮动栏缺失，或 session:resumed 被其它路径复用造成误唤醒（回滚：revert 本两项提交）",
       "notes": "根因：批准后自动续跑期间没有客户端 SSE；useWaitState 只在 waiting/remoteStreaming 时轮询，turn 结束即刻停 ⇒ 续跑 62s 无运行态。修法：后端首个 chunk 且 controller 已注册时广播 session:resumed；前端命中当前会话即 nudgeRuntimeProbe ⇒ 立即重拉 /streaming 并转入后台运行轮询。"
+    },
+    {
+      "id": "TOOL-RESULT-STRING-PASSTHROUGH",
+      "title": "工具结果字符串载荷直通，消除二次 JSON 编码（模型/事件/前端同源）",
+      "source": "会话 session_mwurduuh1b0b38db30 复盘（2026-11-24）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/chat/services/toolResultContract.ts",
+        "app/src/chat/services/ChatHelper.ts",
+        "app/src/chat/services/MessageService.ts"
+      ],
+      "tests": [
+        "app/src/chat/services/__tests__/ChatHelper.test.ts",
+        "app/tests/chat/toolResultContract.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "工具结果再次出现外层引号/字面量 \\r\\n，或对象型出参不再被 JSON 化（回滚：revert 本提交）",
+      "notes": "真机：265 条结果中 134 条外层带引号 + 字面 \\r\\n（bash 36/44、file_read 97/99）。根因：toToolResultRawText 与 createToolResultMessage 对字符串载荷也 JSON.stringify。新增 toolResultPayloadText（字符串直通；其它 JSON 化；undefined 保持）并两处复用；对象/空容器/empty-success 语义不变。events/UI 走消息 content 同一收口，一并修复。"
     }
   ]
 }

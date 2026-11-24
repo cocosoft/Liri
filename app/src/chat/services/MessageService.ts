@@ -25,6 +25,7 @@ import { getLogger } from '@openliri/infra/monitoring';
 import {
   EMPTY_SUCCESS_TOOL_RESULT_TEXT,
   classifyToolResult,
+  toolResultPayloadText,
 } from './toolResultContract';
 
 const logger = getLogger('chat:messageService');
@@ -479,7 +480,11 @@ export class MessageServiceImpl implements MessageService {
   ): Message {
     // 把 error 显式注入 content，确保 LLM 看到工具失败原因
     // （避免 LLM 把"空 result"误判为成功，默默切换方案）
-    let resultJson = JSON.stringify(toolResult.result);
+    // 2026-11-24（会话 `session_mwurduuh1b0b38db30`）：**字符串直通**（与模型请求侧
+    // `toToolResultRawText` 同一实现）。原 `JSON.stringify(result)` 会给纯文本再套引号、
+    // 把 `\r\n` 转义成字面量 ⇒ 本函数是「落盘 + 回灌模型」的单一收口，一处修好三面（事件 /
+    // 模型 / 前端卡片）同时生效；对象型结构化出参仍 JSON 化。
+    let resultJson = toolResultPayloadText(toolResult.result);
     // G-8（2026-10-18）：**工具回传**输出护栏接入点（评审门禁 §2-#1①）。
     // 本函数是工具结果「落盘 + 回灌模型」的单一收口（ReAct 串行/并发路径、
     // ChatManager 非循环路径均经此）⇒ 打码后文本同时进入 events.jsonl 与后续
@@ -543,7 +548,9 @@ export class MessageServiceImpl implements MessageService {
         : `${errorPrefix}\n\n---\n\n${resultJson}`
       : tristate === 'empty-success'
         ? EMPTY_SUCCESS_TOOL_RESULT_TEXT
-        : resultJson;
+        : // 空串兜底：`toolResultPayloadText` 对 `undefined`（函数/symbol 等不可序列化值）
+          // 仍返回 undefined；此时三态已判为 empty-success，正常不会走到这里
+          (resultJson ?? '');
 
     const content: ContentBlock[] = [
       {

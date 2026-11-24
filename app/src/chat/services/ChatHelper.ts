@@ -29,6 +29,9 @@ import type { SessionGateway } from '@modules/session';
 import { SessionStateMachine } from '@openliri/infra/state/session/SessionStateMachine';
 import { getAIModelManager } from '@modules/ai';
 import { TOOL_RESULT_MAX_LENGTH } from '@openliri/infra/utils/toolResultLimits';
+// 2026-11-24：工具载荷 → 文本的单一实现（字符串直通）在契约模块，供本文件与
+// `MessageService.createToolResultMessage` 共用（CS01：不留第二份 stringify 口径）
+import { toolResultPayloadText } from './toolResultContract';
 // BUG-C 第二轮复验（2026-10-27）：HTTP 未指定模型时填的是占位哨兵，预算归一须排除
 import { DEFAULT_MODEL_SENTINEL } from '@openliri/infra/constants/common';
 
@@ -392,8 +395,7 @@ export async function resolveEffectiveTurnModel(params: {
  * `''` / `0` / `false` 一并误判为"无载荷"并替换成 `'{}'` ⇒ 模型看到 `{}` 而非真实空值。
  * 此处收敛为**单一实现**（两处共用），并只把 `undefined` / `null` 视为无载荷。
  *
- * ⚠️ **不在本项范围**：对**字符串**载荷同样 `JSON.stringify` 这一既有行为**保持不动**
- * （它是"字符串出参在模型侧被多套一层引号/转义"的来源，属框架级话题，另立项）。
+ * 2026-11-24：字符串载荷改为**直通**（见 {@link toolResultPayloadText}），不再二次引号/转义。
  */
 export function toToolResultRawText(
   payload: unknown,
@@ -402,7 +404,7 @@ export function toToolResultRawText(
   if (payload === undefined || payload === null) {
     return error || '{}';
   }
-  return JSON.stringify(payload);
+  return toolResultPayloadText(payload) ?? String(payload);
 }
 
 /**

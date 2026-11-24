@@ -2,7 +2,6 @@ import { fork, ChildProcess } from 'child_process';
 import path from 'path';
 import { EventEmitter } from 'events';
 import { getLogger } from '@openliri/infra/monitoring';
-import { resolveProjectRoot } from '@openliri/infra/environment';
 import type { ManagedProcess } from '@openliri/infra/daemon';
 
 const logger = getLogger('chronos:autoDream:dreamAgentExecutor');
@@ -87,14 +86,11 @@ export class DreamAgentExecutor extends EventEmitter implements ManagedProcess {
   }
 
   private execute(): Promise<DreamExecutionResult> {
-    const workerPath = path.join(
-      resolveProjectRoot(),
-      'app',
-      'src',
-      'chronos',
-      'autoDream',
-      'consolidationWorker.js'
-    );
+    // 2026-11-25（E2E 实测）：原路径硬编码 `app/src/chronos/autoDream/consolidationWorker.js`
+    // ——包迁移后该文件已不存在（只剩 `packages/infra/.../consolidationWorker.ts`），
+    // fork 恒定 `worker exited with code 1` ⇒ 每轮 AutoDream 都失败、伙伴只会收到 dream:failed。
+    // 改为与本模块同目录的 TS worker（bun 的 fork 直接执行 .ts）。
+    const workerPath = path.join(import.meta.dir, 'consolidationWorker.ts');
     const startTime = Date.now();
     const maxDuration = DEFAULT_MAX_DURATION_MS;
 

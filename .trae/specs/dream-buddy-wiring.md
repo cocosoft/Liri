@@ -206,3 +206,15 @@ A 之外的后续项：**B** = dream→buddy 事件断点（见 §7.1，已实�
   `SystemEvents.DREAM_COMPLETED` / `DREAM_FAILED`（taskId = cycleId，摘要取周期最终统计）⇒ 伙伴日志/统计与周期一一对应，
   失败周期不会被提前误记为"完成"；
 - 回归用例：`app/tests/dream/autoDreamSkipSignal.test.ts`（未初始化 ⇒ false，调用方据此补发）。
+
+### 7.2 真机 E2E 记录（2026-11-25，本地 `bun --watch` 后端）
+
+| 步骤 | 结果 |
+|---|---|
+| 基线 | `dream/cycles.total=101` 而 `/v1/buddy/dreams.total=0` ⇒ 复现"周期完成、伙伴无感" |
+| 首次 `POST /v1/memory/dream` | 返回 `{triggered:true,source:'manual'}`（P0-1 生效）；周期 `manual/completed`；伙伴日志新增 `dream:started` + `dream:failed`（`worker exited with code 1`） |
+| 根因 | `DreamAgentExecutor` 硬编码 `app/src/chronos/autoDream/consolidationWorker.js` —— 包迁移后不存在 ⇒ 每次 AutoDream 必失败 |
+| 修复 | worker 路径改为同目录 `path.join(import.meta.dir, 'consolidationWorker.ts')`（bun 的 fork 直接执行 TS） |
+| 复测 | 伙伴日志新增 `dream:completed`（14 洞察 / 1 文件）；`/v1/buddy/stats` = `{dreamsCompleted:1,totalXp:70}`（14×5，服务端真源） |
+
+未覆盖：当前环境无伙伴（`/v1/buddy/companion=null`），`level/experience` 字段与交互路径待孵化后验证。

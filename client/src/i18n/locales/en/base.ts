@@ -842,7 +842,7 @@ const enBase = {
     toastDeliverableSaved: "Saved to deliverables",
     toastDeliverableFailed: "Failed to save deliverable, please retry",
     compactFailed: "Context compaction failed",
-    // ---- P2-1 i18n migration (2026-09-27): QuestionBlock / SessionContextMenu / TaskCard / ProgressCard ----
+    // ---- P2-1 i18n migration (2026-09-27): QuestionBlock / SessionContextMenu / TaskCard ----
     // QuestionBlock
     questionDefaultHeader: "Please select an option",
     questionAnswered: "Your answer:",
@@ -886,12 +886,6 @@ const enBase = {
     taskCancelled: "Cancelled",
     taskBlocked: "Blocked",
     taskSkipped: "Skipped",
-    // ProgressCard
-    progressExecutedCount: "{{count}} executed",
-    progressOnlyRecent: "Showing only the most recent {{count}}",
-    progressTruncatedHint:
-      "Earlier records are collapsed; only recent entries are kept to reduce transfer",
-    progressScrollable: "Scroll to view",
     // ---- P2-1 i18n migration batch 2 (2026-09-27) ----
     // DeliverableCard
     workModeNotReady: "Workbench is not ready yet",
@@ -1223,7 +1217,6 @@ const enBase = {
     blockDataMissing: "{{type}} data missing",
     blockTypeQuestion: "Question",
     blockTypeTask: "Task",
-    blockTypeProgress: "Progress",
     blockTypeDeliverable: "Deliverable",
     blockTypeDiff: "Diff",
     blockTypeInbox: "Inbox",

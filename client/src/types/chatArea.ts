@@ -9,7 +9,6 @@ import type { MessageBlock, ToolCall } from "./message";
 import type {
   TaskCardData,
   QuestionData,
-  ProgressData,
   DeliverableData,
   DiffData,
 } from "./message";
@@ -96,11 +95,6 @@ export interface QuestionBlockProps {
   questionData: QuestionData;
   sessionId?: string;
   onResponse?: (content: string) => void;
-}
-
-/** ProgressCard Props */
-export interface ProgressCardProps {
-  data: ProgressData;
 }
 
 /** DeliverableCard Props */

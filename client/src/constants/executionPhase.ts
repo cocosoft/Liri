@@ -2,8 +2,9 @@
  * 执行阶段（analyzing/designing/implementing/verifying/presenting）展示 ——
  * **单一事实源**（批次 4，2026-11-24）。
  *
- * 缺口：`ProgressCard` 与 `StatusFloatBar` 各维护一份阶段 → 文案映射
- * （前者还多一份图标），新增阶段时容易只改一处。
+ * 缺口（已收口）：原 `ProgressCard` 与 `StatusFloatBar` 各维护一份阶段 → 文案映射
+ * （前者还多一份图标），新增阶段时容易只改一处；`ProgressCard` 已下线（2026-11-24）⇒
+ * 现由 `StatusFloatBar` 单点使用。
  *
  * 口径：取值来自 `ProgressData["phase"]`；未登记取值 ⇒ 调用方回退显示原始枚举值
  * （不编造文案，见 CS06）。

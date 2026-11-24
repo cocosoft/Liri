@@ -807,7 +807,7 @@ const zhBase = {
     toastDeliverableSaved: "已沉淀到成果区",
     toastDeliverableFailed: "沉淀失败，请重试",
     compactFailed: "上下文压缩失败",
-    // ---- P2-1 i18n 全量迁移（2026-09-27）：QuestionBlock / SessionContextMenu / TaskCard / ProgressCard ----
+    // ---- P2-1 i18n 全量迁移（2026-09-27）：QuestionBlock / SessionContextMenu / TaskCard ----
     // QuestionBlock（交互问答块）
     questionDefaultHeader: "请选择一个选项",
     questionAnswered: "您已回答：",
@@ -847,11 +847,6 @@ const zhBase = {
     taskCancelled: "已取消",
     taskBlocked: "等待依赖",
     taskSkipped: "已跳过",
-    // ProgressCard（执行进度卡）
-    progressExecutedCount: "已执行 {{count}} 项",
-    progressOnlyRecent: "仅展示最近 {{count}} 条",
-    progressTruncatedHint: "更早的记录已折叠，仅保留最近若干条以减少传输",
-    progressScrollable: "可滚动查看",
     // ---- P2-1 i18n 全量迁移 第2批（2026-09-27）----
     // DeliverableCard（交付物卡）
     workModeNotReady: "工作界面暂未就绪",
@@ -1170,7 +1165,6 @@ const zhBase = {
     blockDataMissing: "{{type}}数据缺失",
     blockTypeQuestion: "问题",
     blockTypeTask: "任务",
-    blockTypeProgress: "进度",
     blockTypeDeliverable: "交付物",
     blockTypeDiff: "差异",
     blockTypeInbox: "收件箱",

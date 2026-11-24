@@ -1,7 +1,7 @@
 /**
  * 任务/步骤状态 → 图标 / 颜色 / 文案键 —— **单一事实源**（批次 5 / C2，2026-11-24）。
  *
- * 缺口：同一套状态词汇在 5 处各维护一份表（`TaskCard` / `StatusFloatBar` /
+ * 缺口（已收口，2026-11-24）：同一套状态词汇曾在 5 处各维护一份表（`TaskCard` / `StatusFloatBar` /
  * `ProgressCard` / `DAGFullScreen` / `DAGMiniMap`）⇒ 新增状态（如 `skipped`）时
  * 总有一两处漏改（真机：被跳过任务在 Mini 面板显示 `?`）。
  *
@@ -21,7 +21,7 @@ export interface TaskStatusStyle {
   labelKey: string;
 }
 
-/** 任务状态展示样式（TaskCard / StatusFloatBar / ProgressCard 共用） */
+/** 任务状态展示样式（TaskCard / StatusFloatBar 共用） */
 export const TASK_STATUS_STYLES: Record<TaskStatusCode, TaskStatusStyle> = {
   pending: { icon: "○", color: "text-gray-400", labelKey: "chat.taskPending" },
   in_progress: {

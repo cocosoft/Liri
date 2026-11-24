@@ -5,7 +5,7 @@
  * 批次 4（2026-11-24）：面板展示常量的完整性守卫。
  *
  * 缺口：同一套词汇在两处各维护一份（`PlansPage`/`PlansPanel` 的计划状态、
- * `ProgressCard`/`StatusFloatBar` 的执行阶段）⇒ 新增取值时容易只改一处。
+ * `StatusFloatBar` 的执行阶段）⇒ 新增取值时容易只改一处。
  * 本用例锁住"每个取值都有颜色/文案键"，并验证未登记取值不加臆造。
  */
 import { describe, expect, it } from "vitest";

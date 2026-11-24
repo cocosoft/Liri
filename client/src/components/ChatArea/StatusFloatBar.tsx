@@ -23,7 +23,7 @@ import {
 } from "../../stores/chat/chat-message-shared";
 // 2026-11-24（批次 5 / C2）：任务状态图标/颜色的单一事实源
 import { getTaskStatusStyle } from "../../constants/taskStatus";
-// 批次 4（2026-11-24）：执行阶段文案的单一事实源（与 ProgressCard 共用）
+// 批次 4（2026-11-24）：执行阶段文案的单一事实源（ProgressCard 已下线，现仅此处消费）
 import { getExecutionPhaseStyle } from "../../constants/executionPhase";
 // 批次 14 P2-B（2026-11-24）：PDCA 入口徽标（进行中 / 终态两形态；点击开合抽屉）
 import PdcaEntryBadge from "./PdcaEntryBadge";

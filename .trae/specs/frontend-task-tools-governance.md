@@ -519,3 +519,28 @@
 **如实边界（抽屉级 e2e 未完成）**：该 e2e 需要"会话里有持久化 `pdca_workflow` 卡片"；
 本次两次真实自动升级**均未写该快照块**（会话 5 条消息、pdcaBlockCount=0）⇒ 无法从卡片打开抽屉，
 前端视图由组件单测锁定。"升级未写快照"已另行记录到预存问题文档（非本批修复范围）。
+
+### 批次 18：下线 `ProgressCard`（用户裁定「简化前端显示内容」）
+
+删除取证（`code-deletion.md` CD01–CD06）：
+
+- **CD01 静态/动态引用**：`ProgressCard` 唯一消费者是 `BlockRenderer`（import + `case "progress"`）；
+  全仓无 `import()`/`lazy()` 动态引用；`ProgressCardProps` 类型零引用。
+- **CD02 数据来源**：`progress` 块由**流式**（`chat-toolcall.slice.addProgress`）与**事件派生**
+  （`deriveConversationBlocks`）产生，后端 `Stream.ts` / `EventMessageDeriver` 契约不变
+  ⇒ 本批**只摘渲染入口，不动数据层**（避免改后端契约）。
+- **CD03**：无 DI / 反射 / 外部协议入口（纯 React 展示组件）。
+- **CD04**：无构建变体 / feature flag / 运行模式差异；新增 `blockRendererProgress.test.tsx` 锁"渲染为空"。
+- **CD05 顺序**：① 先摘入口 `98aebca21`（`case "progress": return null`，保留 case 防止回落到
+  default 渲染 `content`；Vite 模块请求 200 验证无编译错）→ ② 本提交删实现。
+- **CD06 回滚**：`git revert <本提交> 98aebca21`，或从 `98aebca21^` 取回 `ProgressCard.tsx`。
+
+删除清单：`ProgressCard.tsx`、`ProgressCardProps`、i18n 5 键（`progressExecutedCount` /
+`progressOnlyRecent` / `progressTruncatedHint` / `progressScrollable` / `blockTypeProgress`）、
+4 处注释订正（`taskStatus` / `executionPhase` / `panelStatus.test` / `StatusFloatBar`）。
+
+**保留（记录 reopen 条件）**：`ProgressData` 类型、`MessageBlock.progressData`、`addProgress`、
+`deriveConversationBlocks` 的 progress 派生 —— 这些是"仍生成但不再渲染"的数据路径；
+若后续确认前端无需消费，可另开批次按 CD05 摘除（届时需同步后端 `progress` chunk 契约）。
+
+验证：client `tsc --noEmit` 通过；`vitest run` **1147 pass / 0 fail**（166 文件）；改动文件 ESLint 0 error。

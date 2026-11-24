@@ -491,6 +491,7 @@
 - 新增 `app/tests/http/pdca-abort-not-running.contract.test.ts` 5 例（就地收口 / 无 workItem 不同步 / 已终态 409 不写盘 / 无检查点 404 / 有编排器走既有路径）。
 - app `bun run typecheck` 通过；`bun test tests/http tests/tasks` → **1768 pass / 0 fail**（226 文件）。
 
-**如实边界**：修复后**未**在真实端点复验 —— 原样本 `pdca_mwupjxor` 已被重启后的启动扫描收口
-（现 `phase=failed`，abort 返回 409 `already_terminal`）；「无编排器 + 非终态」只存在于单进程内的
-时间窗，重启即被扫描消灭 ⇒ 无干净样本，按单测锁定。
+**真实端点复验（2026-11-24，真实自动升级）**：新会话 → 两条消息（轮次闸 + 只建 6 个 todo 不执行）
+触发阶段链；对主链 `pdca_mwuqoove` 调 `POST /v1/pdca/:id/abort` ⇒ **`200 { checkpointOnly: true }`**
+（旧实现此处 `409 not_running`），随后 `GET /v1/pdca/:id` 的 `phase=abort`；DB `pdca_checkpoints`
+主链与子阶段均为 `abort/abort`。测试会话已 `batch-delete`，current 已切回原会话。

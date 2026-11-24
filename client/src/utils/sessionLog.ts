@@ -45,6 +45,9 @@ export interface ToolCallRecord {
  * Map<toolCallId, record> 提供 O(1) 查找，替代原线性 find（O(n²) → O(n)）。
  * 跨消息合并依赖全局视角（消息级 tool_calls / blocks / tool 角色消息分散在不同消息），
  * per-message 增量缓存会破坏该合并，故保持全量派生 + Map 索引（2026-08-19，见计划 P0）。
+ *
+ * @deprecated 2026-11-24（批次 5 / C3）：**无生产消费者**（`LogTab` 已改用
+ * `buildLogEventsFromEvents`，仅本文件测试引用）。按 CD05/CD06 先标注观察，后续单独删除。
  */
 export function extractToolCalls(messages: Message[]): ToolCallRecord[] {
   const start = performance.now();
@@ -200,6 +203,9 @@ function toolEvent(msg: Message, rec: ToolCallRecord): LogEvent {
 /**
  * 把消息归一化为会话日志事件流（thinking / tool / system 混排的时序流）。
  * 事件 key 稳定，streaming 状态切换只更新该行不重排。
+ *
+ * @deprecated 2026-11-24（批次 5 / C3）：**无生产消费者**（R-3 起 `LogTab` 改消费
+ * `buildLogEventsFromEvents`，仅本文件测试引用）。按 CD05/CD06 先标注观察，后续单独删除。
  */
 export function buildLogEvents(messages: Message[]): LogEvent[] {
   const events: LogEvent[] = [];

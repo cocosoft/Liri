@@ -11,54 +11,17 @@ import {
 import "@xyflow/react/dist/style.css";
 import dagre from "dagre";
 import type { TaskCardTask } from "../../types";
+// 2026-11-24（批次 5 / C2）：DAG 节点配色与状态图标的单一事实源（与 DAGFullScreen 共用）
+import {
+  DAG_STATUS_COLORS,
+  getTaskStatusStyle,
+} from "../../constants/taskStatus";
 
 interface DAGMiniMapProps {
   tasks: TaskCardTask[];
   height?: number;
   onExpand?: () => void;
 }
-
-const STATUS_COLORS: Record<
-  TaskCardTask["status"],
-  { bg: string; border: string; text: string }
-> = {
-  pending: {
-    bg: "var(--status-pending-bg)",
-    border: "var(--status-pending-border)",
-    text: "var(--status-pending-text)",
-  },
-  in_progress: {
-    bg: "var(--status-running-bg)",
-    border: "var(--status-running-border)",
-    text: "var(--status-running-text)",
-  },
-  completed: {
-    bg: "var(--status-done-bg)",
-    border: "var(--color-success-strong)",
-    text: "var(--status-done-text)",
-  },
-  failed: {
-    bg: "var(--color-error-bg)",
-    border: "var(--color-error)",
-    text: "var(--color-error-strong)",
-  },
-  // S3 修复：cancelled 独立终态色（橙色"已取消"）
-  cancelled: {
-    bg: "var(--status-cancelled-bg)",
-    border: "var(--status-cancelled-border)",
-    text: "var(--status-cancelled-text)",
-  },
-  blocked: {
-    bg: "var(--status-blocked-bg)",
-    border: "var(--status-cancelled-border)",
-    text: "var(--status-cancelled-text)",
-  },
-  skipped: {
-    bg: "var(--status-skipped-bg)",
-    border: "var(--status-skipped-border)",
-    text: "var(--status-pending-text)",
-  },
-};
 
 /** 用 Dagre 布局算法计算节点位置 */
 function layoutNodes(tasks: TaskCardTask[]): { nodes: Node[]; edges: Edge[] } {
@@ -88,17 +51,9 @@ function layoutNodes(tasks: TaskCardTask[]): { nodes: Node[]; edges: Edge[] } {
 
   const nodes: Node[] = tasks.map((task) => {
     const pos = g.node(task.id);
-    const colors = STATUS_COLORS[task.status] || STATUS_COLORS.pending;
-    const icon =
-      task.status === "completed"
-        ? "✓"
-        : task.status === "in_progress"
-          ? "⟳"
-          : task.status === "failed"
-            ? "✗"
-            : task.status === "blocked"
-              ? "⏸"
-              : "";
+    const colors = DAG_STATUS_COLORS[task.status] || DAG_STATUS_COLORS.pending;
+    // 2026-11-24（批次 5 / C2）：图标与其它展示面同源（原实现自带一套条件链）
+    const icon = getTaskStatusStyle(task.status).icon;
 
     return {
       id: task.id,

@@ -6,38 +6,15 @@ import { useChatStore } from "../../stores/chat";
 import { hasPendingApproval } from "../../stores/chat/chat-message-shared";
 import DAGMiniMap from "./DAGMiniMap";
 import DAGFullScreen from "./DAGFullScreen";
+// 2026-11-24（批次 5 / C2）：状态图标/颜色/文案键的单一事实源
+import { TASK_STATUS_STYLES } from "../../constants/taskStatus";
 
 interface TaskCardProps {
   data: TaskCardData;
 }
 
-const STATUS_CONFIG: Record<
-  TaskCardTask["status"],
-  { icon: string; color: string; labelKey: string }
-> = {
-  pending: { icon: "○", color: "text-gray-400", labelKey: "chat.taskPending" },
-  in_progress: {
-    icon: "⟳",
-    color: "text-blue-500 animate-spin inline-block",
-    labelKey: "chat.executing",
-  },
-  completed: {
-    icon: "✓",
-    color: "text-green-500",
-    labelKey: "chat.completed",
-  },
-  failed: { icon: "✗", color: "text-red-500", labelKey: "chat.failed" },
-  // S3 修复（2026-08-23）：cancelled 独立终态（用户中止），橙色区别于 failed
-  cancelled: {
-    icon: "⏹",
-    color: "text-orange-500",
-    labelKey: "chat.taskCancelled",
-  },
-  blocked: { icon: "⏸", color: "text-orange-400", labelKey: "chat.taskBlocked" },
-  // T5 修复：后端 todo-types.ts 存在 skipped 状态，此前无映射时
-  // cfg 回退到 pending，被跳过的任务错误显示"○ 等待中"
-  skipped: { icon: "↷", color: "text-gray-400", labelKey: "chat.taskSkipped" },
-};
+/** 2026-11-24（批次 5 / C2）：本表已收敛到 `constants/taskStatus`（别名保留调用点不动） */
+const STATUS_CONFIG = TASK_STATUS_STYLES;
 
 function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
@@ -155,16 +132,17 @@ export default function TaskCard({ data }: TaskCardProps) {
                   {t("chat.allCompleted", "全部完成")}
                 </span>
               )}
-              {(status === "done" || status === "paused") && !isAllCompleted && (
-                <span className="text-xs px-2 py-0.5 bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded-full">
-                  {failed > 0
-                    ? t("chat.taskEndedWithFailed", {
-                        count: failed,
-                        defaultValue: "已结束（{{count}} 失败）",
-                      })
-                    : t("chat.taskEnded", "已结束")}
-                </span>
-              )}
+              {(status === "done" || status === "paused") &&
+                !isAllCompleted && (
+                  <span className="text-xs px-2 py-0.5 bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded-full">
+                    {failed > 0
+                      ? t("chat.taskEndedWithFailed", {
+                          count: failed,
+                          defaultValue: "已结束（{{count}} 失败）",
+                        })
+                      : t("chat.taskEnded", "已结束")}
+                  </span>
+                )}
               {/* G5-D4：已执行待验收 —— 不能显示成普通"执行中/已完成" */}
               {isPendingAcceptance && (
                 <span className="text-xs px-2 py-0.5 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-full">
@@ -279,7 +257,10 @@ export default function TaskCard({ data }: TaskCardProps) {
                 <span>
                   {t("chat.taskViewGraph", {
                     nodes: tasks.filter((t) => t.dependsOn.length > 0).length,
-                    edges: tasks.reduce((sum, t) => sum + t.dependsOn.length, 0),
+                    edges: tasks.reduce(
+                      (sum, t) => sum + t.dependsOn.length,
+                      0,
+                    ),
                     defaultValue:
                       "查看依赖关系图（{{nodes}} 个节点, {{edges}} 条边）",
                   })}

@@ -21,6 +21,8 @@ import {
   collectApprovalInboxIds,
   hasPendingApproval,
 } from "../../stores/chat/chat-message-shared";
+// 2026-11-24（批次 5 / C2）：任务状态图标/颜色的单一事实源
+import { getTaskStatusStyle } from "../../constants/taskStatus";
 
 const PHASE_LABELS: Record<string, string> = {
   analyzing: "chat.phaseAnalyzing",
@@ -30,25 +32,7 @@ const PHASE_LABELS: Record<string, string> = {
   presenting: "chat.phasePresenting",
 };
 
-const STATUS_ICONS: Record<string, string> = {
-  pending: "◌",
-  in_progress: "→",
-  completed: "✓",
-  failed: "✗",
-  cancelled: "⏹",
-  blocked: "⊘",
-  // P2-8（2026-09-27 审计）：原缺 `skipped` ⇒ 被跳过任务在 Mini 面板显示 "?"
-  skipped: "⏭",
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  pending: "text-gray-400",
-  in_progress: "text-blue-500",
-  completed: "text-green-500",
-  failed: "text-red-500",
-  cancelled: "text-orange-500",
-  blocked: "text-yellow-500",
-};
+/** 2026-11-24（批次 5 / C2）：状态图标/颜色收敛到 `constants/taskStatus`（含 skipped） */
 
 /**
  * 任务进度显示组件
@@ -120,11 +104,14 @@ function TaskMiniPanel({
 
           {data.tasks.map((task) => (
             <div key={task.id} className="flex items-center gap-2 text-xs">
-              <span
-                className={`${STATUS_COLORS[task.status] || "text-gray-400"} font-mono w-4 text-center`}
-              >
-                {STATUS_ICONS[task.status] || "?"}
-              </span>
+              {(() => {
+                const style = getTaskStatusStyle(task.status);
+                return (
+                  <span className={`${style.color} font-mono w-4 text-center`}>
+                    {style.icon}
+                  </span>
+                );
+              })()}
               <span className="text-gray-600 dark:text-gray-300 flex-1 truncate">
                 {task.name}
               </span>

@@ -26,12 +26,21 @@ import {
   inboxReplyNotAppliedReason,
   isInboxReplyApplied,
 } from "./inboxReplyResult";
+// 2026-11-24（批次 5 / C1）：档位文案与分类的唯一事实源（与 `InboxBlock` 共用）
+import {
+  INBOX_REPLY_DANGER,
+  INBOX_REPLY_LABEL_KEYS,
+  isInboxReplyApproveLike,
+} from "./inboxReplyTiers";
 
 interface Props {
   inboxId: string;
 }
 
-/** 档位顺序（与后端 options 取值一致；后端未声明 ⇒ 只回退到 approve/deny） */
+/**
+ * 展示顺序（仅用于排序；**不是**可选项白名单）。
+ * 后端 `options` 才是档位唯一来源，清单外的新档位照样渲染（回退后端值/原值）。
+ */
 const TIER_ORDER = [
   "approve",
   "approve_session",
@@ -46,35 +55,25 @@ const TIER_ORDER = [
   "allowlist_tool",
   "deny",
   "reject",
-] as const;
+];
 
-type TierReply = (typeof TIER_ORDER)[number];
+const DEFAULT_TIERS = ["approve", "deny"];
 
-const TIER_LABEL_KEYS: Record<TierReply, string> = {
-  approve: "chat.inboxReplyApprove",
-  approve_session: "chat.inboxReplyApproveSession",
-  approve_task: "chat.inboxReplyApproveTask",
-  allowlist_call: "chat.inboxReplyAllowAlways",
-  allowlist_command: "chat.inboxReplyAllowCommand",
-  allowlist_workspace_command: "chat.inboxReplyAllowWorkspaceCommand",
-  allowlist_tool_session: "chat.inboxReplyAllowToolSession",
-  allowlist_tool: "chat.inboxReplyAllowTool",
-  deny: "chat.inboxReplyReject",
-  reject: "chat.inboxReplyReject",
-};
-
-const DEFAULT_TIERS: TierReply[] = ["approve", "deny"];
-
-function isTierReply(value: string): value is TierReply {
-  return (TIER_ORDER as readonly string[]).includes(value);
+/** 按已知顺序排序（未登记的新档位排在末尾，保持后端给出的相对顺序） */
+function orderTiers(tiers: string[]): string[] {
+  const rank = (v: string): number => {
+    const idx = TIER_ORDER.indexOf(v);
+    return idx < 0 ? TIER_ORDER.length : idx;
+  };
+  return [...tiers].sort((a, b) => rank(a) - rank(b));
 }
 
 export default function InlineApprovalActions({ inboxId }: Props) {
   const { t } = useTranslation();
   const addToast = useToastStore((s) => s.addToast);
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState<TierReply | null>(null);
-  const [tiers, setTiers] = useState<TierReply[]>(DEFAULT_TIERS);
+  const [done, setDone] = useState<string | null>(null);
+  const [tiers, setTiers] = useState<string[]>(DEFAULT_TIERS);
 
   // 档位以后端声明为准（读取失败 ⇒ 保持 approve/deny 兜底，不擅自增加档位）
   useEffect(() => {
@@ -87,10 +86,12 @@ export default function InlineApprovalActions({ inboxId }: Props) {
         if (cancelled || !res.ok) return;
         const raw = res.data?.options;
         if (!Array.isArray(raw)) return;
+        // 批次 5 / C1：**不再按前端白名单过滤** —— 后端新增档位时，就地入口与审批卡
+        // 同时出现（此前清单外的档位在此处被静默丢弃）。
         const offered = raw.filter(
-          (v): v is TierReply => typeof v === "string" && isTierReply(v),
+          (v): v is string => typeof v === "string" && v.length > 0,
         );
-        if (offered.length > 0) setTiers(offered);
+        if (offered.length > 0) setTiers(orderTiers(offered));
       } catch {
         // 读取档位失败不影响「本次批准/拒绝」主路径
       }
@@ -100,7 +101,7 @@ export default function InlineApprovalActions({ inboxId }: Props) {
     };
   }, [inboxId]);
 
-  const reply = async (value: TierReply) => {
+  const reply = async (value: string) => {
     if (busy || done) return;
     setBusy(true);
     try {
@@ -121,7 +122,8 @@ export default function InlineApprovalActions({ inboxId }: Props) {
       setDone(value);
       // 2026-11-24：审批已落定 ⇒ 立即在本地纠正卡/工具卡的等待态（不等 SSE 回刷）
       useChatStore.getState().markApprovalResolved(inboxId);
-      addToast("success", t(TIER_LABEL_KEYS[value]));
+      const labelKey = INBOX_REPLY_LABEL_KEYS[value];
+      addToast("success", labelKey ? t(labelKey) : value);
     } catch (e) {
       addToast("error", e instanceof Error ? e.message : t("common.failed"));
     } finally {
@@ -132,10 +134,7 @@ export default function InlineApprovalActions({ inboxId }: Props) {
   if (done) {
     return (
       <span className="inline-flex items-center gap-1 text-[10px] text-green-500">
-        {done === "approve" ||
-        done === "approve_session" ||
-        done === "approve_task" ||
-        done.startsWith("allowlist_")
+        {isInboxReplyApproveLike(done)
           ? `✅ ${t("chat.inboxHandled")}`
           : `✕ ${t("chat.inboxReplyReject")}`}
       </span>
@@ -148,12 +147,13 @@ export default function InlineApprovalActions({ inboxId }: Props) {
     <>
       <span className="inline-flex flex-wrap items-center gap-1.5">
         {tiers.map((tier) => {
-          const danger = tier === "deny" || tier === "reject";
+          const danger = INBOX_REPLY_DANGER.has(tier);
           const className = danger
             ? "px-2 py-0.5 rounded text-[10px] font-medium bg-red-500/15 text-red-400 hover:bg-red-500/25 disabled:opacity-50 transition-colors"
             : tier === "approve"
               ? "px-2 py-0.5 rounded text-[10px] font-medium bg-green-500/15 text-green-400 hover:bg-green-500/25 disabled:opacity-50 transition-colors"
               : "px-2 py-0.5 rounded text-[10px] font-medium bg-gray-500/15 text-gray-300 hover:bg-gray-500/25 disabled:opacity-50 transition-colors";
+          const labelKey = INBOX_REPLY_LABEL_KEYS[tier];
           return (
             <button
               key={tier}
@@ -167,7 +167,8 @@ export default function InlineApprovalActions({ inboxId }: Props) {
               }
               className={className}
             >
-              {t(TIER_LABEL_KEYS[tier])}
+              {/* 未登记的新档位：如实显示后端值（不静默丢弃，CS06） */}
+              {labelKey ? t(labelKey) : tier}
             </button>
           );
         })}

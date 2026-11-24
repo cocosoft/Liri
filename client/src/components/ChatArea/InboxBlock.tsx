@@ -16,6 +16,11 @@ import {
   inboxReplyNotAppliedReason,
   isInboxReplyApplied,
 } from "./inboxReplyResult";
+// 2026-11-24（批次 5 / C1）：档位文案与分类的唯一事实源（与就地审批共用）
+import {
+  INBOX_REPLY_LABEL_KEYS,
+  isInboxReplyApproveLike,
+} from "./inboxReplyTiers";
 
 interface Props {
   data: InboxBlockData;
@@ -42,22 +47,6 @@ const TYPE_LABEL_KEYS: Record<string, string> = {
   approval: "chat.inboxTypeApproval",
   question: "chat.inboxTypeQuestion",
   authorization: "chat.inboxTypeAuthorization",
-};
-
-/** 按钮文案 i18n 键（未登记的 reply 回退后端 label，CS06） */
-const REPLY_LABEL_KEYS: Record<string, string> = {
-  approve: "chat.inboxReplyApprove",
-  approve_session: "chat.inboxReplyApproveSession",
-  // P2（2026-11-04，§3.3）：本任务都允许（仅长程任务进行中出现）
-  approve_task: "chat.inboxReplyApproveTask",
-  allowlist_call: "chat.inboxReplyAllowAlways",
-  allowlist_tool: "chat.inboxReplyAllowTool",
-  // 2026-11-24：本会话内「该工具都允许」（不落持久化规则，会话结束失效）
-  allowlist_tool_session: "chat.inboxReplyAllowToolSession",
-  allowlist_command: "chat.inboxReplyAllowCommand",
-  allowlist_workspace_command: "chat.inboxReplyAllowWorkspaceCommand",
-  reject: "chat.inboxReplyReject",
-  deny: "chat.inboxReplyReject",
 };
 
 /** 按钮样式映射 */
@@ -218,8 +207,8 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
       setStatus("replied");
       // 2026-11-24：审批已落定 ⇒ 立即在本地纠正等待态（不等 SSE 回刷）
       useChatStore.getState().markApprovalResolved(data.inboxId);
-      const label = REPLY_LABEL_KEYS[reply]
-        ? t(REPLY_LABEL_KEYS[reply])
+      const label = INBOX_REPLY_LABEL_KEYS[reply]
+        ? t(INBOX_REPLY_LABEL_KEYS[reply])
         : t("chat.reply");
       addToast("success", t("chat.inboxRepliedToast", { label }));
       onResolved?.();
@@ -228,15 +217,8 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
       // inbox-handlers 已 fire-and-forget 触发续跑（checkpoint/resume 优先，无检查点
       // 时从 events.jsonl 尾部重建未完成 turn）。前端只做"触发 + 展示"：
       // 不再查询检查点、不再轮询、不再降级 sendMessage 重发。
-      const isApproveLike =
-        reply === "approve" ||
-        reply === "approve_session" ||
-        reply === "approve_task" ||
-        reply === "allowlist_call" ||
-        reply === "allowlist_tool" ||
-        reply === "allowlist_tool_session" ||
-        reply === "allowlist_command" ||
-        reply === "allowlist_workspace_command";
+      // 2026-11-24（批次 5 / C1）：放行类判定收敛到单一实现（后端新增档位不再漏判）
+      const isApproveLike = isInboxReplyApproveLike(reply);
       // U-06-4（2026-10-19）：续跑完成由后端广播 `session:continued`，
       // 刷新由 useNotificationSSE 统一处理；此处只维护"续跑中"提示，
       // 不再固定 sleep 3s 后全量重拉（绕过游标且与真实完成时间无关）。
@@ -362,8 +344,8 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
         {isPending &&
           data.actions.map((action) => {
             const s = ACTION_STYLE[action.style] || ACTION_STYLE.secondary;
-            const label = REPLY_LABEL_KEYS[action.reply]
-              ? t(REPLY_LABEL_KEYS[action.reply])
+            const label = INBOX_REPLY_LABEL_KEYS[action.reply]
+              ? t(INBOX_REPLY_LABEL_KEYS[action.reply])
               : action.label;
             return (
               <button

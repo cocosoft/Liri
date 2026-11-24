@@ -1,6 +1,8 @@
 import { useTranslation } from "react-i18next";
 import type { ProgressData } from "../../types";
 import { getToolDisplayName } from "../../utils/toolHumanSummary";
+// 2026-11-24（批次 5 / C2）：步骤状态图标/颜色的单一事实源（`done` 由 helper 归一）
+import { getTaskStatusStyle } from "../../constants/taskStatus";
 
 interface ProgressCardProps {
   data: ProgressData;
@@ -17,21 +19,7 @@ const PHASE_LABELS: Record<
   presenting: { icon: "\u{1F4CB}", labelKey: "chat.phasePresenting" },
 };
 
-const STEP_STATUS_ICONS: Record<string, string> = {
-  pending: "\u25CB",
-  in_progress: "\u27F3",
-  done: "\u2713",
-  failed: "\u2717",
-};
-
-const STEP_STATUS_COLORS: Record<string, string> = {
-  pending: "text-gray-400",
-  in_progress: "text-blue-500",
-  done: "text-green-500",
-  failed: "text-red-500",
-  // S3 修复（2026-08-23）：cancelled 独立终态色（橙色"已取消"）
-  cancelled: "text-orange-500",
-};
+/** 2026-11-24（批次 5 / C2）：步骤状态图标/颜色收敛到 `constants/taskStatus` */
 
 /** 滚动区高度上限（px）——命令过多时内部滚动，不撑高页面 */
 const STEPS_MAX_HEIGHT = 176; // max-h-44
@@ -131,11 +119,14 @@ export default function ProgressCard({ data }: ProgressCardProps) {
                 key={`${idx}-${step.name}`}
                 className="flex items-center gap-2 text-xs"
               >
-                <span
-                  className={`flex-shrink-0 ${STEP_STATUS_COLORS[step.status] || "text-gray-400"}`}
-                >
-                  {STEP_STATUS_ICONS[step.status] || "\u25CB"}
-                </span>
+                {(() => {
+                  const style = getTaskStatusStyle(step.status);
+                  return (
+                    <span className={`flex-shrink-0 ${style.color}`}>
+                      {style.icon}
+                    </span>
+                  );
+                })()}
                 <span
                   className={`truncate ${
                     step.status === "in_progress"

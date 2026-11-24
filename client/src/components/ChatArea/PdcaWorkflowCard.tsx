@@ -40,6 +40,7 @@ import {
   STAGE_META,
   PROGRESS_EVENT_TYPES,
   findLatestEvent,
+  isTerminalPdcaEvent,
   metaLabel,
   textOf,
   type StageMeta,
@@ -110,6 +111,8 @@ export default function PdcaWorkflowCard({
         primary={info.primary}
         statusText={statusText}
         failed={info.failed}
+        // 2026-11-24（批次 5 / C3）：终态事件（complete/fail）不再渲染运行脉冲
+        active={!isTerminalPdcaEvent(liveEv)}
       />
     );
   }
@@ -148,17 +151,24 @@ function LivePdcaCard({
   primary,
   statusText,
   failed,
+  active,
 }: {
   evMeta?: StageMeta;
   primary: string;
   statusText: string;
   failed: boolean;
+  /** 编排是否仍在进行（终态事件 ⇒ false：只显示静态点，不再脉冲） */
+  active: boolean;
 }): ReactNode {
   const { t } = useTranslation();
   const meta = evMeta ?? FALLBACK_META;
   return (
     <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/90 dark:bg-gray-800/90 border border-gray-200/60 dark:border-gray-700/60 shadow-sm">
-      <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse shrink-0" />
+      <span
+        className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+          active ? "bg-blue-400 animate-pulse" : "bg-gray-400"
+        }`}
+      />
       <span
         className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${meta.capsule}`}
       >

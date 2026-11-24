@@ -1,7 +1,7 @@
 # Liri 记忆系统优化方案（草案 · 2026-11-25）
 
 > 来源：Anthropic《The components of agent memory》（2026-11-06，本地 HTML 已读）+ 本仓记忆子系统实测取证。
-> 状态：**Phase 1 已实施**（P0-1 全部 + P0-2 的 1–3 项；P0-2-4 字段留待 Phase 3）；**Phase 2 进行中**（P1-1 向量持久化 + 检索参数接线已落地，见 §8.3）。落地时按阶段拆独立提交，遵循 `code-deletion.md` CD05（先接线、再观察、后删旧路）。
+> 状态：**Phase 1 已实施**（P0-1 全部 + P0-2 的 1–3 项；P0-2-4 字段留待 Phase 3）；**Phase 2 进行中**（P1-1 已完成；P1-2 参数面已落地，统一服务/兜底未做，见 §8.3–8.4）。落地时按阶段拆独立提交，遵循 `code-deletion.md` CD05（先接线、再观察、后删旧路）。
 > 相关既有裁定：`.trae/specs/memory-conflict-detection.md`（冲突**不自动改写**）、`.trae/specs/dead-code-and-unwired-items-rulings.md`（未接线项不得当作既有能力）。
 
 ---
@@ -243,6 +243,21 @@ Liri 的记忆"三件套"（文件存储 / 混合检索 / 梦境巩固）都已�
 `applyRankingAdjustments`（时序衰减 → MMR → 类型配额）。三者**默认全关**，全关时原样返回（不重排）
 ⇒ 零行为变更。类型配额键 = `metadata.type`（`query.typeQuota`，达到配额跳过、不回填）。
 MMR 需查询向量与候选两两相似度（N² 次嵌入），仅在显式开启且嵌入可用时执行。
+
+### 8.4 P1-2 检索入口参数面（Phase 2，进行中）
+
+| 项 | 落点 | 要点 |
+|---|---|---|
+| `scope` | `RecallMemoryTool` 新增参数 | `auto`（默认，保持旧行为）/ `session` / `global` / `all`；`global` 让主 Agent 在**有会话上下文时**也能跨会话检索 |
+| `type` | 同上 | 按记忆类型过滤（会话项 `type`、全局长库 `metadata.type`），过滤时请求 `limit*3` 再截断 |
+| `all` 合并 | 同上 | 会话在前、全局在后，按 `content` 去重，总数受 `limit` 约束 |
+| 回退观测 | `logger.info('recall_memory 检索完成')` | 结构化 `fallbackReasons`：`no-session-context` / `session-search-failed` / `global-manager-unavailable` / `global-search-failed` |
+| 可测性 | `RecallMemoryTool.create(deps?)` | 可选注入会话/全局解析器（缺省走真实实现）⇒ 单测无需模块级 mock |
+
+**未做（如实）**：
+- **统一服务收敛**：MCP `memory_search`（`app/src/entrypoints/mcp-memory.ts`）与 `MemoryTool` 仍各自调用 infra
+  `getRelevantMemories`，尚未抽成单一 `searchMemory({scope,...})` 服务；
+- **transcript 兜底**：记忆零命中时尚未回退到 `events.jsonl`（返回 seq 引用）。
 
 **明确未做（P0-2-4，延后到 Phase 3）**：`confidence / verifiedAt / sourceEventSeqs / accessCount` 字段的写入与持久化。理由：当前无消费者，属"未接线项"（`dead-code-and-unwired-items-rulings.md`）；Phase 3 的 Validate/Promote 才真正读取它们，届时同批加字段 + frontmatter 读写 + 用例。
 

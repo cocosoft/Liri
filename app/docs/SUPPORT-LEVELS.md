@@ -29,7 +29,7 @@
 | 面 | 总数 | core | community |
 |---|---:|---:|---:|
 | 消息通道 | 27 | 26 | 0 |
-| 内建工具 | 71 | 47 | 24 |
+| 内建工具 | 71 | 48 | 23 |
 
 ## 消息通道
 
@@ -111,7 +111,7 @@
 | `plan` | core | `app/tests/core/planDrivenLoop.test.ts`（测试文件名） | write · pass |
 | `powershell` | core | `app/tests/tools/powerShellStringPrefixCommands.test.ts`（测试文件名） | shell · pass |
 | `read_project_file` | core | `app/tests/tools/readProjectFile-directory.test.ts`（测试文件名） | read · pass |
-| `recall_memory` | community | —（无专属测试） | read · pass |
+| `recall_memory` | core | `app/tests/tools/recallMemoryScope.test.ts`（测试文件名） | read · pass |
 | `repl` | core | `app/tests/chat/replyEffort.test.ts`（测试文件名） | shell · pass |
 | `save_conversation` | community | —（无专属测试） | write · pass |
 | `send_message` | community | —（无专属测试） | external · pass |

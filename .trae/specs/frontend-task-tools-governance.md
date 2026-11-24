@@ -325,12 +325,28 @@
 | 兜底保留 | 批次 7 的 `pauseForApproval` 不动：即便将来又有入口漏 start，最低也只是打 warn 后归一，不再抛错中断 |
 | 测试 | 新增 `tests/chat/orchestrator/streamSessionMachineStart.test.ts`（2 例）：流式回合后历史含 `idle->running` 且 `pause` 不抛；负向对照"未 start 直接 pause 仍抛"证明修复点在入口而非放松转移表 |
 
-### 后续（未实施，按 §3 根因排序）
+### 批次 11（P2 停机期间过期卡的归因）已落地
 
-0. **P2｜停机期间过期的阶段卡**：卡在进程停机时到期 ⇒ 重启扫描仍按 `orphan_scan` 收口
-   （语义同为"审批卡已过期"，且已可 `/goal resume stage` 续跑）；如需完全消除，可让扫描对
-   "有 `approvalInboxId` 但卡已过期"的阶段链直接写 `approval_expired`。
+| 项 | 结果 |
+|---|---|
+| 判据 | 启动扫描的孤儿分支：检查点带 `stages[].approvalInboxId`（阶段审批卡确实建过）却不在 pending ⇒ 归因写 `approval_expired`，否则维持 `orphan_scan` |
+| 效果 | 回执文案从"进程重启"变为"审批卡已过期未处理"（与当场过期同口径），续跑入口仍是 `/goal resume stage <taskId>` |
+| 测试 | `pdca-checkpoint-liveness.contract.test.ts` 增 1 例（带 `approvalInboxId` 的待审批链 ⇒ `abortedBy='approval_expired'`） |
+
+### 批次 12（P2 删除死入口）已落地
+
+删除取证（`code-deletion.md` CD01–CD06）：
+- **静态引用**：`PlansPage.tsx` 仅被其测试文件引用；`KanbanBoard.tsx` 仅被 `PlansPage` 引用；全仓**无** `import()` / `lazy()` 动态引用。
+- **路由**：`/plans` 早已重定向到 `/cron`，`routes/index.tsx` 无任何 `PlansPage` 引用（无路由即无运行时消费者）。
+- **构建/测试**：删除 `PlansPage.tsx` + `KanbanBoard.tsx` + `PlansPage.pdcaStart.test.tsx`，并同步 `i18nLiteralRatchet.test.ts` 的清单（该清单要求文件存在）。
+
+保留：`PlansPanel`（ProjectsPage 在用）与 `constants/planStatus.ts`（PlansPanel 在用）。
+
+### 后续（未实施）
+
 1. **P2｜双份会话状态机实例**：`ChatManager`（`SessionRuntimeState`）与 `SessionStateBridge` 各持一份
-   `SessionStateMachine`，合并/收敛前先确认 `session:activated` 等生命周期事件是否还有人发布。
-2. **P2｜`PlansPage` 未挂路由**（`/plans` 已重定向），仍在测试中被引用；是否删除需按 `code-deletion.md` CD01–CD06 另行取证。
-3. **P2｜PDCA 三面并存**（消息卡 / 浮动栏徽标 / 抽屉）：属"摘要 / 指示器 / 详情"三个粒度，本批未合并。
+   `SessionStateMachine`，而 `session:activated/paused/...` 只有订阅方、**无发布方** ⇒ 桥接那份是死轨。
+   收敛需先裁定"生命周期事件是否保留"：若保留须补发布方并改为单一实例；若不保留则按 CD01–CD06
+   整体摘除 `SessionStateBridge` 的机器段（本批未动，避免误删运行时依赖）。
+2. **P2｜PDCA 三面并存**（消息卡 / 浮动栏徽标 / 抽屉）：属"摘要 / 指示器 / 详情"三个粒度，
+   合并涉及产品形态裁定（保留哪几面、入口收敛到哪），本批未动。

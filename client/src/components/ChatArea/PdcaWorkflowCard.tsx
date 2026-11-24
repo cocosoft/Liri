@@ -20,12 +20,16 @@
 // SOFTWARE.
 
 /**
- * PdcaWorkflowCard — PDCA 自动启动的聊天正文内嵌进度卡片（P2-A，2026-09-17）。
+ * PdcaWorkflowCard — PDCA 自动启动的聊天正文内嵌卡片（P2-A，2026-09-17）。
  *
  * 取代原"输入区活动条"（PdcaActivityStrip）的聊天正文呈现：以富块形式内嵌在
  * 助手消息流中，展示「已启动 PDCA 任务规划」快照（decision / stage / status）。
- * 实时阶段进度（plan→execute→review→decide）由 orchestrationStore 订阅
- * pdca:* 事件按 sessionId 刷新当前胶囊；无实时事件时回落持久化快照（pdcaWorkflowData）。
+ *
+ * 批次 14（P2-A，2026-11-24）三处收敛 —— 本卡只做**摘要**，详情一律去抽屉：
+ *  1. **不显示进度百分比 / 计数**（硬规则 1：本卡走 SSE、抽屉走 REST，两源同显必漂移）；
+ *  2. **实时覆盖只作用于该会话最后一张卡**（历史卡只渲染自己的持久化快照，
+ *     原实现用"会话最新事件"覆盖所有卡 ⇒ 老卡跟着最新一轮进度变，串台）；
+ *  3. 提供「查看详情」入口 ⇒ 打开抽屉（`usePdcaDrawerStore`，与浮动栏徽标共用同一开合态）。
  *
  * 复用：STAGE_META / DECISION_META / FALLBACK_META / textOf / findLatestEvent /
  * PROGRESS_EVENT_TYPES（PdcaActivityStrip 导出，避免逻辑复制）。
@@ -34,6 +38,8 @@ import { useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useOrchestrationStore } from "@/stores/orchestrationStore";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useChatStore } from "@/stores/chat";
+import { usePdcaDrawerStore } from "@/stores/pdcaDrawerStore";
 import type { PdcaWorkflowProgressData } from "@/types/message";
 import {
   FALLBACK_META,
@@ -66,10 +72,15 @@ function snapshotMetaOf(data: PdcaWorkflowProgressData): StageMeta {
 }
 
 /**
- * 实时阶段进度覆盖：当前会话仍有活跃 pdca:* 进度事件时，以该事件主导
- * 阶段胶囊与状态文案（与 PdcaActivityStrip 同源逻辑）。
+ * 实时阶段进度覆盖：**仅该会话最后一张 PDCA 卡**接受实时事件覆盖。
+ *
+ * 硬规则 2：历史卡绑定自己的快照时刻 —— 同一会话多轮 PDCA 时，若所有卡都取
+ * "会话最新事件"，老卡会跟着最新一轮的进度变（串台）。
  */
-function useLiveProgress(sessionId: string): {
+function useLiveProgress(
+  sessionId: string,
+  enabled: boolean,
+): {
   ev?: Parameters<typeof textOf>[0];
   hasLive: boolean;
 } {
@@ -77,34 +88,65 @@ function useLiveProgress(sessionId: string): {
   const latest = useOrchestrationStore((s) => s.latest);
   // P2-4（2026-09-27 审计）：原在 hook 体内直调（每次渲染都算）⇒ useMemo 化
   const ev = useMemo(
-    () => findLatestEvent(timeline, latest, sessionId, PROGRESS_EVENT_TYPES),
-    [timeline, latest, sessionId],
+    () =>
+      enabled
+        ? findLatestEvent(timeline, latest, sessionId, PROGRESS_EVENT_TYPES)
+        : null,
+    [timeline, latest, sessionId, enabled],
   );
   return { ev: ev ?? undefined, hasLive: Boolean(ev) };
 }
 
+/** 本卡是否为当前会话的**最后一张** PDCA 卡（纯读 chat store；结果稳定为 boolean） */
+function useIsLatestPdcaCard(blockId?: string): boolean {
+  return useChatStore((s) => {
+    if (!blockId) return false;
+    for (let i = s.messages.length - 1; i >= 0; i--) {
+      const blocks = s.messages[i].blocks ?? [];
+      for (let j = blocks.length - 1; j >= 0; j--) {
+        if (blocks[j].type === "pdca_workflow") return blocks[j].id === blockId;
+      }
+    }
+    return false;
+  });
+}
+
+/** 「查看详情」：打开抽屉（唯一详情来源），与浮动栏徽标共用同一开合态 */
+function DetailsButton(): ReactNode {
+  const { t } = useTranslation();
+  const setOpen = usePdcaDrawerStore((s) => s.setOpen);
+  return (
+    <button
+      type="button"
+      onClick={() => setOpen(true)}
+      className="shrink-0 text-[10px] text-blue-600 dark:text-blue-400 hover:underline"
+    >
+      {t("chat.pdcaViewDetails")}
+    </button>
+  );
+}
+
 /** PDCA 内嵌卡片：快照 + 实时进度 */
 export default function PdcaWorkflowCard({
+  blockId,
   sessionId,
   data,
 }: {
+  /** 块 ID：用于判定"是否为最后一张卡"（历史卡不接实时事件） */
+  blockId?: string;
   sessionId?: string;
   data?: PdcaWorkflowProgressData;
 }): ReactNode {
   const { t } = useTranslation();
   const currentSessionId = useSessionStore((s) => s.currentSession?.id);
   const sid = sessionId ?? currentSessionId ?? "";
-  const { ev: liveEv, hasLive } = useLiveProgress(sid);
+  const isLatest = useIsLatestPdcaCard(blockId);
+  const { ev: liveEv, hasLive } = useLiveProgress(sid, isLatest);
 
   // 实时事件主导：阶段胶囊 + 状态文案走 PDCA 事件文本（与活动条一致）
   if (hasLive && liveEv) {
     const info = textOf(liveEv);
-    const statusText = [
-      info.statusKey ? t(info.statusKey) : info.statusLiteral,
-      info.percent,
-    ]
-      .filter(Boolean)
-      .join(" · ");
+    const statusText = info.statusKey ? t(info.statusKey) : info.statusLiteral;
     return (
       <LivePdcaCard
         evMeta={info.failed ? FALLBACK_META : undefined}
@@ -141,6 +183,8 @@ export default function PdcaWorkflowCard({
           </div>
         )}
       </div>
+      {/* 批次 14（P2-A）：详情入口 —— 百分比 / 计数 / 步骤明细只在抽屉 */}
+      <DetailsButton />
     </div>
   );
 }
@@ -189,6 +233,8 @@ function LivePdcaCard({
           {statusText}
         </span>
       )}
+      {/* 批次 14（P2-A）：详情入口 —— 本卡不再显示进度百分比 */}
+      <DetailsButton />
     </div>
   );
 }

@@ -72,25 +72,30 @@ export function isTerminalPdcaEvent(ev: PdcaLiveEventPayload): boolean {
 }
 
 /**
- * N-3：会话的 PDCA 入口判定（纯函数；`usePdcaEntry` 与单测共用）。
+ * N-3 + 批次 14（P2-A）：会话的 PDCA 入口判定（纯函数；`usePdcaEntry` 与单测共用）。
  *
- * `visible` 只表示"编排**仍在进行**"：最新事件是终态（完成/失败/中止）⇒ 隐藏入口，
- * 避免浮动栏与徽标永久显示「PDCA 编排进行中」。终态的详情仍可从消息内
- * `PdcaWorkflowCard` 查看（它独立消费事件，不受本判定影响）。
+ * 同一事件源拆成两个判据（不新增第二份匹配逻辑）：
+ * - `active`：编排**仍在进行**（最新事件非终态）⇒ 浮动栏徽标常驻 / 「PDCA 编排进行中」；
+ * - `available`：该会话**有 PDCA 可看**（含终态）⇒ 抽屉可渲染 / 消息卡「查看详情」可用。
+ *
+ * 原实现只给 `visible = 有事件 && 非终态`：终态后徽标消失、抽屉因 `visible=false`
+ * 永久不可达 —— 而「抽屉是唯一进度详情来源」在终态必须仍然成立（批次 14 硬规则 3）。
  */
 export function resolvePdcaEntry(
   timeline: PdcaLiveEventPayload[],
   latest: Record<string, PdcaLiveEventPayload>,
-  sessionId: string | undefined
-): { visible: boolean; taskId?: string } {
-  if (!sessionId) return { visible: false };
+  sessionId: string | undefined,
+): { active: boolean; available: boolean; taskId?: string } {
+  if (!sessionId) return { active: false, available: false };
   const ev = findLatestEvent(timeline, latest, sessionId, [
     ...PROGRESS_EVENT_TYPES,
     AUTO_LAUNCHED_TYPE,
   ]);
+  if (!ev) return { active: false, available: false };
   return {
-    visible: !!ev && !isTerminalPdcaEvent(ev),
-    taskId: ev?.taskId ?? ev?.planId ?? undefined,
+    active: !isTerminalPdcaEvent(ev),
+    available: true,
+    taskId: ev.taskId ?? ev.planId ?? undefined,
   };
 }
 
@@ -177,20 +182,20 @@ export function stageMetaOf(ev: PdcaLiveEventPayload): StageMeta {
   return FALLBACK_META;
 }
 
-/** 主文本：当前步骤 > 工具摘要 > message；状态文案（含 percent），失败标红
+/** 主文本：当前步骤 > 工具摘要 > message；状态文案，失败标红
  *  导出：PdcaWorkflowCard 复用
  *  状态文案返回**文案键** `statusKey`（由渲染处 t()），未登记状态回退后端原值
- *  `statusLiteral`（CS06，不臆造映射）。 */
+ *  `statusLiteral`（CS06，不臆造映射）。
+ *  ⚠️ **不返回进度百分比**：百分比与计数只允许出现在抽屉的 `PdcaPipeline`
+ *  （批次 14 硬规则 1 —— 消息卡走 SSE、抽屉走 REST，两源同显必漂移）。 */
 export function textOf(ev: PdcaLiveEventPayload): {
   primary: string;
   statusKey: string;
   statusLiteral: string;
-  percent: string;
   failed: boolean;
 } {
   const d = ev.data ?? {};
   const status = (d.status as string | undefined) ?? "";
-  const percent = typeof d.percent === "number" ? `${d.percent}%` : "";
   const primary =
     (d.currentStep as string | undefined) ??
     (d.toolSummary as string | undefined) ??
@@ -220,7 +225,6 @@ export function textOf(ev: PdcaLiveEventPayload): {
     primary,
     statusKey,
     statusLiteral: statusKey ? "" : status,
-    percent,
     failed,
   };
 }

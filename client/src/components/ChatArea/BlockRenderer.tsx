@@ -227,6 +227,7 @@ function BlockRenderer({
       if (block.pdcaWorkflowData) {
         return (
           <PdcaWorkflowCard
+            blockId={block.id}
             sessionId={sessionId}
             data={block.pdcaWorkflowData}
           />

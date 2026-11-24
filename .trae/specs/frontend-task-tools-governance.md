@@ -350,7 +350,51 @@
 - **读取方**：桥接自建的 `SessionStateMachine` 实例只在自己内部读写，外部从不读取（真实状态由 `ChatManager/SessionRuntimeState` 与持久化 `session.state` 承担）。
 - **处置**：删除 `SessionStateBridge.ts` + `init.ts` 装配块；`stateMachineCatalog` 的 `reconcile.evidence` 改指真实持有处 `sessionRuntimeState.ts#SessionRuntimeState`；证据登记移除该文件路径；`types.ts` / `SessionStateMachine.ts` 的历史注释同步订正。
 
-### 后续（未实施）
+### 批次 14（P2-A 已落地 · P2-B/C 未实施）：PDCA 三面职责收敛
 
-1. **P2｜PDCA 三面并存**（消息卡 / 浮动栏徽标 / 抽屉）：属"摘要 / 指示器 / 详情"三个粒度，
-   合并涉及产品形态裁定（保留哪几面、入口收敛到哪），本批未动。
+**结论：三面全部保留，不合并、不删除。** 三者容器不同（消息流 / 输入区 / 展开面板）、
+信息粒度不同，合并会让任一场景缺信息。只按「摘要 / 指示器 / 详情」钉死各自边界。
+
+| 面 | 容器 | 粒度 | 显示 | 禁止显示 | 交互 |
+|---|---|---|---|---|---|
+| `PdcaWorkflowCard` | 消息流（每条 `pdca_workflow` 一块） | 单次启动的**当时快照** | 阶段胶囊 + 一句结论（auto-launched / decision / message）+ 终态结果 | 百分比、四类计数、步骤明细 | 「查看详情」→ 打开抽屉 |
+| `StatusFloatBar` 徽标 | 输入区上方 | 会话级**指示器** | 静态标签「PDCA 编排」+ 状态点（进行中蓝脉冲 / 等待审批琥珀 / 终态灰）；左侧状态文案仍由 `getStatusText` 承担 | 百分比、计数、阶段明细 | 点击 ↔ 抽屉 |
+| `ChatPdcaDrawer` | 输入区上方展开面板 | **唯一详情** | `PdcaPipeline`（百分比 + ✅🔄⏳❌ + 步骤/阶段明细 + 审计）+ `OrchestrationLivePanel` 事件流 | — | 关闭 |
+
+**三条硬规则**
+
+1. **百分比与计数只许出现在抽屉**（`PdcaPipeline`）。理由：消息卡的 percent 来自 SSE
+   `data.percent`，抽屉的 percent 来自 REST `pdcaService.getStatus()` —— 两个数据源同一时刻
+   可能不一致，同一进度两处显示必漂移（与批次 4「删 ProgressCard 百分比」同源）。
+2. **消息卡绑定自己的快照时刻**。现状 `useLiveProgress(sid)` 取「会话最新事件」覆盖**所有**历史卡
+   ⇒ 老的 `pdca_workflow` 卡会跟着最新一轮进度变（串台）。修法：仅该会话**最后一张**卡接受实时
+   覆盖，其余卡只渲染持久化快照。
+3. **抽屉必须在终态也可达**。现状 `resolvePdcaEntry` 的 `visible = 有事件 && !终态`
+   ⇒ 编排一结束徽标消失、抽屉 `visible=false` 永不渲染，「唯一详情源」在终态不可达。
+   修法：判据拆为 `active`（进行中，驱动徽标常驻与「PDCA 编排进行中」）与
+   `available`（有 PDCA 可看，含终态，驱动抽屉渲染 + 消息卡「查看详情」）；终态徽标降级为
+   「查看结果」。状态词一律由 `isTerminalPdcaEvent` 派生，不新增第二份判据。
+
+**不做**：不删任一面；不把百分比搬到消息卡/浮动栏；不新增第二份事件匹配或入口判据
+（继续 `findLatestEvent` / `resolvePdcaEntry`）。
+
+**落地批次**
+
+| 批次 | 范围 | 验收 |
+|---|---|---|
+| P2-A ✅ | 消息卡去 `percent`；加「查看详情」；实时覆盖仅作用于最后一卡；`resolvePdcaEntry` 拆 `active`/`available`（「查看详情」依赖它才在终态可用，故并入本批） | 单测：卡文本不含 `%`；历史卡不随最新事件变；终态 `available=true` |
+| P2-B | 徽标加状态点（进行中蓝脉冲 / 等待审批琥珀 / 终态灰）；终态徽标降级「查看结果」（写 `chat.pdcaViewResult`） | 组件断言：进行中/终态两种徽标形态 |
+| P2-C | 抽屉标题区标注「唯一进度详情」；无 taskId 时只显示事件流（当前已按 `taskId &&` 跳过 `PdcaPipeline`） | 终态点「查看详情」⇒ 抽屉渲染；百分比仅出现在抽屉 |
+
+**P2-A 实施记录（已落地）**
+
+| 项 | 结果 |
+|---|---|
+| 去百分比 | `textOf` 删除 `percent` 字段（无消费者）；`LivePdcaCard` 状态文案只拼状态词 ⇒ 消息卡不再出现 `42%` |
+| 防串台 | 新增 `useIsLatestPdcaCard(blockId)`：仅该会话**最后一张** `pdca_workflow` 卡接受实时事件覆盖；历史卡只渲染持久化快照（`BlockRenderer` 传 `blockId`） |
+| 详情入口 | 新增 `client/src/stores/pdcaDrawerStore.ts`（open/toggle/close）；`DetailsButton` 与浮动栏徽标共用同一开合态；`ChatArea` 删本地 `pdcaOpen` state |
+| 判据拆分 | `resolvePdcaEntry` 返回 `{active, available, taskId}`：徽标用 `active`（进行中）、抽屉用 `available`（含终态）；`usePdcaStartEntry` 改 `!active`（终态后可再发起） |
+| i18n | 新增 `chat.pdcaViewDetails`（zh「查看详情」/ en「View details」） |
+| 测试 | 新增 `pdcaWorkflowCard.test.tsx` 3 例（历史卡不串台 / 最后一张接实时但不含 `%` / 点详情开抽屉）；`pdcaEntry.test.ts` 改到新契约（终态 `available=true`） |
+
+**P2-A 验证**：client `tsc --noEmit` 通过；`vitest run` 全量 **1131 pass / 0 fail**（160 文件）；改动文件 ESLint 0 error；`lint:license` / `lint:locale` / `lint:state-ratchet` / `lint:consts` 全 PASS。

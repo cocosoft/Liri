@@ -1198,6 +1198,7 @@ const zhBase = {
     pdcaModeStageChain: "经典阶段链（复杂/危险任务）",
     pdcaModeResearch: "研究模式（候选生成 + 对抗评审）",
     pdcaAutoLaunched: "已自动创建项目并启动任务规划",
+    pdcaViewDetails: "查看详情",
     // SessionHeader（导出件元信息 / 截断标注 / 耗时 / Token 统计行）
     exportDefaultTitle: "会话导出",
     exportMetaSessionId: "会话 ID：`{{id}}`",

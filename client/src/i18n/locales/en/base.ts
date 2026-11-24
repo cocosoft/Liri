@@ -1251,6 +1251,7 @@ const enBase = {
     pdcaModeResearch:
       "Research mode (candidate generation + adversarial review)",
     pdcaAutoLaunched: "Project auto-created · task planning started",
+    pdcaViewDetails: "View details",
     // SessionHeader (exported metadata / truncation note / duration / token stats line)
     exportDefaultTitle: "Session Export",
     exportMetaSessionId: "Session ID: `{{id}}`",

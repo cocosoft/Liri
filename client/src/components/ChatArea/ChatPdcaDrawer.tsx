@@ -27,7 +27,9 @@
  * 现本组件**只负责展开态面板**：
  *   - 可见性与 taskId 取自 `usePdcaEntry()` —— 与浮动栏徽标**共用同一判据**，禁止第二份
  *     （沿用原注释约定：与 PdcaActivityStrip 共用 findLatestEvent / 事件类型白名单，避免漂移）；
- *   - 展开/收起由 `ChatArea` 提升为 `open` state 经 props 传入（浮动栏徽标触发）。
+ *     批次 14（P2-A）起用 `available`（含终态）：抽屉是**唯一进度详情来源**，
+ *     编排结束后仍须可达（终态结果、审计、事件流都在这里）；
+ *   - 展开/收起由 `usePdcaDrawerStore` 承载（浮动栏徽标与消息卡「查看详情」两个入口共用）。
  *
  * 展开态：内嵌 PdcaPipeline（taskId，步骤/阶段详情，REST 轮询）+
  *   OrchestrationLivePanel（sessionId 过滤的 pdca:* 实时事件流）。
@@ -49,10 +51,10 @@ export default function ChatPdcaDrawer({
   onClose?: () => void;
 }) {
   const { t } = useTranslation();
-  const { visible, taskId } = usePdcaEntry();
+  const { available, taskId } = usePdcaEntry();
   const currentSessionId = useSessionStore((s) => s.currentSession?.id);
 
-  if (!visible || !open || !currentSessionId) return null;
+  if (!available || !open || !currentSessionId) return null;
 
   return (
     <div className="w-full px-3 pb-1">

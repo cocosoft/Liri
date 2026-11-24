@@ -46,6 +46,8 @@ import ChatPdcaDrawer from "./ChatPdcaDrawer";
 import ChatInput from "./ChatInput";
 // UI 期 UI-2（2026-09-23 修复计划 §十）：PDCA 入口判据（浮动栏徽标 + 展开面板共用同一来源）
 import { usePdcaEntry } from "./usePdcaEntry";
+// 批次 14（P2-A）：抽屉开合提升为单例 store —— 浮动栏徽标与消息卡「查看详情」共用
+import { usePdcaDrawerStore } from "@/stores/pdcaDrawerStore";
 // 「用编排推进（启动 PDCA）」入口：未完成 todo + 尚无进行中 PDCA 时的判据与动作
 import { usePdcaStartEntry } from "./usePdcaStartEntry";
 import { ContextWatermark } from "../chat/ContextWatermark";
@@ -124,7 +126,10 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
   // UI 期 UI-1/UI-2（2026-09-23 修复计划 §十）：零碎信息统一到浮动栏
   // —— 入口徽标在 StatusFloatBar；展开态在此提升（供 ChatPdcaDrawer 使用）
   const pdca = usePdcaEntry();
-  const [pdcaOpen, setPdcaOpen] = useState(false);
+  // 批次 14（P2-A）：开合状态从本地 state 提升到 store（消息卡「查看详情」也要能打开）
+  const pdcaOpen = usePdcaDrawerStore((s) => s.open);
+  const togglePdcaDrawer = usePdcaDrawerStore((s) => s.toggle);
+  const closePdcaDrawer = usePdcaDrawerStore((s) => s.close);
   // 「用编排推进」入口：未完成 todo 且尚无进行中 PDCA 时可见（点击调用 POST /v1/pdca/start）
   const pdcaStart = usePdcaStartEntry();
   const backendRunning = useBackendStore((s) => s.status.running);
@@ -470,14 +475,13 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
     createSession(t("chat.newSession")).catch(() => {});
   };
 
-  /** UI 期 UI-2（2026-09-23）：PDCA 面板展开/收起（入口徽标在浮动栏，状态提升到此处）。
+  /** UI 期 UI-2（2026-09-23）：PDCA 面板展开/收起（入口徽标在浮动栏，状态在 store）。
    *  保留原走查打点（原实现在折叠态入口的 onClick 内），供"一闪而过"时在日志留证。 */
   const handleTogglePdca = () => {
-    const next = !pdcaOpen;
-    logger.info(next ? "PDCA 编排面板展开" : "PDCA 编排面板收起", {
+    logger.info(pdcaOpen ? "PDCA 编排面板收起" : "PDCA 编排面板展开", {
       sessionId: currentSession?.id,
     });
-    setPdcaOpen(next);
+    togglePdcaDrawer();
   };
 
   /** 点击入门提示卡片时发送预设消息 */
@@ -996,7 +1000,8 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
           sessionId={currentSession?.id}
           wait={wait}
           pdca={{
-            visible: pdca.visible,
+            // 批次 14（P2-A）：徽标只在"进行中"常驻（终态不再谎报运行态）
+            visible: pdca.active,
             open: pdcaOpen,
             onToggle: handleTogglePdca,
           }}
@@ -1011,7 +1016,7 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
         <ChatPdcaDrawer
           fluid={fluid}
           open={pdcaOpen}
-          onClose={() => setPdcaOpen(false)}
+          onClose={closePdcaDrawer}
         />
 
         {/* 语音会话状态指示器（录音/转录/播放） */}

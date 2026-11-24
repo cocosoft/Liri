@@ -96,7 +96,8 @@ export function usePdcaStartEntry(): {
   }, [sessionId, starting, unfinished, card, t]);
 
   return {
-    visible: unfinished.length > 0 && !pdca.visible,
+    // 批次 14（P2-A）：判据改 `active`（进行中）—— 终态后允许再次发起编排
+    visible: unfinished.length > 0 && !pdca.active,
     count: unfinished.length,
     starting,
     start,

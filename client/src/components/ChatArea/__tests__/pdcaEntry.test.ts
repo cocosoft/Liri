@@ -5,8 +5,11 @@
  * N-3（2026-11-06 真机）：PDCA 入口判定的**终态收敛**回归锁。
  *
  * 真机：`PLAN_PARSE_FAILED` 之后浮动栏永久显示「PDCA 编排进行中」——
- * `usePdcaEntry().visible` 只判"有没有最新事件"，终态（complete/fail）同样算命中。
+ * 原 `visible` 只判"有没有最新事件"，终态（complete/fail）同样算命中。
  * 现口径：最新事件是终态 ⇒ 不再算"进行中"。
+ *
+ * 批次 14（P2-A，2026-11-24）：判据拆成 `active`（进行中）与 `available`（有 PDCA 可看，
+ * 含终态）。终态后徽标收起，但抽屉（唯一进度详情来源）仍须可达。
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -33,33 +36,38 @@ function ev(
 }
 
 describe("resolvePdcaEntry — PDCA 入口/进行中判定（N-3）", () => {
-  it("进行中的事件 ⇒ visible=true 且带 taskId", () => {
+  it("进行中的事件 ⇒ active/available 均 true 且带 taskId", () => {
     const started = ev("pdca:auto_launched", { time: 10 });
     expect(resolvePdcaEntry([started], {}, SID)).toEqual({
-      visible: true,
+      active: true,
+      available: true,
       taskId: "task-n3",
     });
     const phase = ev("pdca:stage:phase", { time: 20 });
     expect(resolvePdcaEntry([started, phase], {}, SID)).toEqual({
-      visible: true,
+      active: true,
+      available: true,
       taskId: "task-n3",
     });
   });
 
-  it("最新是终态（complete / fail）⇒ visible=false（不再谎报进行中）", () => {
+  it("最新是终态（complete / fail）⇒ active=false 但 available=true（抽屉仍可达）", () => {
     const started = ev("pdca:auto_launched", { time: 10 });
     expect(
-      resolvePdcaEntry([started, ev("pdca:stage:complete", { time: 30 })], {}, SID)
-        .visible
-    ).toBe(false);
+      resolvePdcaEntry(
+        [started, ev("pdca:stage:complete", { time: 30 })],
+        {},
+        SID
+      )
+    ).toEqual({ active: false, available: true, taskId: "task-n3" });
     expect(
       resolvePdcaEntry(
         [started, ev("pdca:stage:fail", { time: 31 })],
         {},
         SID
-      ).visible
+      ).active
     ).toBe(false);
-    // 终态后又有新一轮开始 ⇒ 重新可见
+    // 终态后又有新一轮开始 ⇒ 重新算进行中
     expect(
       resolvePdcaEntry(
         [
@@ -69,16 +77,18 @@ describe("resolvePdcaEntry — PDCA 入口/进行中判定（N-3）", () => {
         ],
         {},
         SID
-      ).visible
+      ).active
     ).toBe(true);
   });
 
-  it("只认当前会话；无会话 ⇒ false", () => {
+  it("只认当前会话；无会话 / 无事件 ⇒ 双 false", () => {
     expect(
       resolvePdcaEntry([ev("pdca:auto_launched", { sessionId: "other" })], {}, SID)
-        .visible
-    ).toBe(false);
-    expect(resolvePdcaEntry([], {}, undefined).visible).toBe(false);
+    ).toEqual({ active: false, available: false });
+    expect(resolvePdcaEntry([], {}, undefined)).toEqual({
+      active: false,
+      available: false,
+    });
   });
 
   it("终态类型判定（镜像后端 PdcaLiveEvents）", () => {

@@ -1,7 +1,7 @@
 # 团队记忆真实同步 · 立项方案（草案 · 2026-11-25）
 
 > 来源：`agent-memory-optimization.md` §8.6（团队记忆当前为模拟/未接线实现，需单独立项）。
-> 状态：**待评审**（Phase 0 门禁 + Phase 1 共享目录拉取已实现，见 §5.1；Phase 2 双向/冲突审阅待 §8 后三项拍板）。
+> 状态：**待评审**（Phase 0 门禁 + Phase 1 拉取 + Phase 2 推送（共享目录版）已实现，见 §5.1；网络版与冲突审阅待 §8 后三项拍板）。
 > 约束：默认关闭、默认不自动覆盖（沿用 `memory-conflict-detection.md` 裁定）、
 > 密钥扫描 fail-closed、按阶段独立提交（`code-deletion.md` CD05/CD06）。
 
@@ -144,7 +144,7 @@
 |---|---|---|---|
 | **Phase 0** | 接线开关 + `NOT_CONFIGURED` + 传输层骨架（不联网也能通过） | 默认关时行为零变更；未配置时状态明确；单测 | ✅ 已实现（2026-11-25） |
 | **Phase 1** | 单向拉取（远端→本地，只读合并）+ 幂等 | 重复拉取幂等；冲突不覆盖；密钥 fail-closed | ✅ 已实现（共享目录版，2026-11-25） |
-| **Phase 2** | 双向增量 + `If-Match` 409 + manual 候选 | 冲突产候选、正文不变；并发写不丢数据 | 光标 + etag 双保险 |
+| **Phase 2** | 双向增量 + `If-Match` 409 + manual 候选 | 冲突产候选、正文不变；并发写不丢数据 | ✅ 共享目录版已实现（拉取+推送，异文只记冲突）；网络版待 §8 后三项拍板 |
 | **Phase 3** | 审阅入口（CLI/设置页）+ 审计报表 | 人工可采纳/忽略候选；审计可查 | UI 单独评估 |
 
 每阶段独立提交；`memory.teamSync.enabled` 默认关，观察期后再开。
@@ -167,7 +167,11 @@
 - **检索接线（2026-11-25 追加）**：`recall_memory` 新增 `scope="team"` —— 统一服务
   `memorySearchService` 的 `resolveTeamMemory` 对团队目录复用 `MemoryRetrieverImpl`（无嵌入走关键词）；
   `all` 顺序 = 会话 → 团队 → 全局。团队记忆仍**不进系统提示**（不写 `MEMORY.md`）。
-- 如实边界：团队记忆是独立目录/独立访问级别；本阶段不含上传与真实网络。
+- **Phase 2（2026-11-25，共享目录版）**：`pushTeamMemoriesToSharedDir({localDir, sharedDir})` 与拉取镜像 ——
+  本地新 id 上传、同文跳过、异文**只记冲突不覆盖**、命中密钥**拒发**；维护期先拉后推，
+  报告分别落 `<team-memory>/pull-report.json` / `push-report.json`。
+  用例：`app/tests/memory/teamSharedDirSync.test.ts`（拉取 4 + 推送 3）。
+- 如实边界：团队记忆是独立目录/独立访问级别；共享目录版不含真实网络（网络版 Phase 2 待 §8 后三项拍板）。
 
 ---
 

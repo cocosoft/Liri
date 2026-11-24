@@ -52,7 +52,10 @@ import { memoryRelationGraph } from './utils/MemoryRelationGraph';
 import { writeFileAtomic } from '@openliri/infra/utils/atomicFileWrite';
 import { MemoryConsolidator } from './consolidation/MemoryConsolidator';
 import { rebuildMemoryWiki } from './services/MemoryWikiService';
-import { pullTeamMemoriesFromSharedDir } from './services/TeamMemorySharedDirPull';
+import {
+  pullTeamMemoriesFromSharedDir,
+  pushTeamMemoriesToSharedDir,
+} from './services/TeamMemorySharedDirSync';
 import { isTeamMemorySyncEnabled } from './services/TeamMemorySyncService';
 import {
   MemoryConflictDetector,
@@ -648,6 +651,20 @@ export class MemoryManagerImpl
             join(teamDir, 'pull-report.json'),
             JSON.stringify(
               { generatedAt: new Date().toISOString(), ...report },
+              null,
+              2
+            ) + '\n'
+          );
+
+          // Phase 2：推送本地团队记忆到共享目录（镜像语义：异文只记冲突、不覆盖）
+          const pushReport = await pushTeamMemoriesToSharedDir({
+            localDir: teamDir,
+            sharedDir,
+          });
+          await writeFileAtomic(
+            join(teamDir, 'push-report.json'),
+            JSON.stringify(
+              { generatedAt: new Date().toISOString(), ...pushReport },
               null,
               2
             ) + '\n'

@@ -1,5 +1,5 @@
 /**
- * 团队记忆 · 共享目录单向拉取（Phase 1，2026-11-25）
+ * 团队记忆 · 共享目录同步（Phase 1 拉取 / Phase 2 推送，2026-11-25）
  *
  * 决策（2026-11-25 用户拍板）：
  * - 服务端归属 = **共享目录**（同步盘/同机目录），本阶段不走网络；
@@ -19,7 +19,7 @@ import { writeFileAtomic } from '@openliri/infra/utils/atomicFileWrite';
 import { getLogger } from '@openliri/infra/monitoring';
 import { scanMemoryContent } from '../scanners/MemorySecretScanner';
 
-const logger = getLogger('memory:teamSharedDirPull');
+const logger = getLogger('memory:teamSharedDirSync');
 
 export interface SharedDirPullReport {
   scanned: number;
@@ -105,6 +105,98 @@ export async function pullTeamMemoriesFromSharedDir(params: {
     sharedDir,
     scanned: report.scanned,
     imported: report.imported,
+    skippedIdentical: report.skippedIdentical,
+    conflicts: report.conflicts.length,
+    rejectedSecrets: report.rejectedSecrets.length,
+    errors: report.errors.length,
+  });
+
+  return report;
+}
+
+export interface SharedDirPushReport {
+  scanned: number;
+  uploaded: number;
+  skippedIdentical: number;
+  /** 同 id 但内容不同（**未覆盖**远端） */
+  conflicts: string[];
+  /** 命中密钥而拒发 */
+  rejectedSecrets: string[];
+  errors: string[];
+}
+
+/**
+ * 把本地团队记忆推送到共享目录（Phase 2，2026-11-25）。
+ *
+ * 与拉取镜像的语义：远端新 id ⇒ 上传；同文 ⇒ 跳过（幂等）；异文 ⇒ **只记冲突、不覆盖**；
+ * 命中密钥 ⇒ **拒发**（fail-closed）。
+ */
+export async function pushTeamMemoriesToSharedDir(params: {
+  localDir: string;
+  sharedDir: string;
+}): Promise<SharedDirPushReport> {
+  const { localDir, sharedDir } = params;
+  const report: SharedDirPushReport = {
+    scanned: 0,
+    uploaded: 0,
+    skippedIdentical: 0,
+    conflicts: [],
+    rejectedSecrets: [],
+    errors: [],
+  };
+
+  await fs.mkdir(sharedDir, { recursive: true });
+
+  let files: string[];
+  try {
+    files = (await fs.readdir(localDir)).filter((f) => f.endsWith('.md'));
+  } catch (err) {
+    report.errors.push(
+      `本地团队目录不可读: ${err instanceof Error ? err.message : String(err)}`
+    );
+    logger.warn('团队记忆本地目录不可读', { localDir });
+    return report;
+  }
+
+  for (const file of files) {
+    report.scanned += 1;
+    try {
+      const raw = await fs.readFile(join(localDir, file), 'utf-8');
+      const parsed = matter(raw);
+      const id =
+        (typeof parsed.data.id === 'string' && parsed.data.id) ||
+        basename(file, '.md');
+
+      // 安全：上行前命中密钥 ⇒ 拒发（fail-closed）
+      if (scanMemoryContent(parsed.content).hasSecrets) {
+        report.rejectedSecrets.push(id);
+        continue;
+      }
+
+      const remotePath = join(sharedDir, `${id}.md`);
+      if (existsSync(remotePath)) {
+        const remoteRaw = await fs.readFile(remotePath, 'utf-8');
+        if (normalize(remoteRaw) === normalize(raw)) {
+          report.skippedIdentical += 1;
+        } else {
+          report.conflicts.push(id);
+        }
+        continue;
+      }
+
+      await writeFileAtomic(remotePath, raw);
+      report.uploaded += 1;
+    } catch (err) {
+      report.errors.push(
+        `${file}: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+  }
+
+  logger.info('团队记忆共享目录推送完成', {
+    sharedDir,
+    scanned: report.scanned,
+    uploaded: report.uploaded,
     skippedIdentical: report.skippedIdentical,
     conflicts: report.conflicts.length,
     rejectedSecrets: report.rejectedSecrets.length,

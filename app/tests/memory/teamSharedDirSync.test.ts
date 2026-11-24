@@ -15,7 +15,10 @@ import {
 } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { pullTeamMemoriesFromSharedDir } from '@openliri/infra/memory/services/TeamMemorySharedDirPull';
+import {
+  pullTeamMemoriesFromSharedDir,
+  pushTeamMemoriesToSharedDir,
+} from '@openliri/infra/memory/services/TeamMemorySharedDirSync';
 
 const createdDirs: string[] = [];
 
@@ -118,5 +121,62 @@ describe('pullTeamMemoriesFromSharedDir（Phase 1）', () => {
       localDir: local,
     });
     expect(report.errors.length).toBeGreaterThan(0);
+  });
+});
+
+describe('pushTeamMemoriesToSharedDir（Phase 2）', () => {
+  it('本地新 id ⇒ 上传；重复推送幂等', async () => {
+    const { shared, local } = makeDirs();
+    writeFileSync(join(local, 'l1.md'), memFile('l1', '本地团队决策'), 'utf-8');
+
+    const first = await pushTeamMemoriesToSharedDir({
+      localDir: local,
+      sharedDir: shared,
+    });
+    expect(first.uploaded).toBe(1);
+    expect(existsSync(join(shared, 'l1.md'))).toBe(true);
+
+    const second = await pushTeamMemoriesToSharedDir({
+      localDir: local,
+      sharedDir: shared,
+    });
+    expect(second.uploaded).toBe(0);
+    expect(second.skippedIdentical).toBe(1);
+  });
+
+  it('同 id 内容不同 ⇒ 只记冲突，不覆盖远端', async () => {
+    const { shared, local } = makeDirs();
+    writeFileSync(join(local, 'l2.md'), memFile('l2', '本地版本'), 'utf-8');
+    writeFileSync(join(shared, 'l2.md'), memFile('l2', '远端版本'), 'utf-8');
+
+    const report = await pushTeamMemoriesToSharedDir({
+      localDir: local,
+      sharedDir: shared,
+    });
+
+    expect(report.uploaded).toBe(0);
+    expect(report.conflicts).toContain('l2');
+    expect(readFileSync(join(shared, 'l2.md'), 'utf-8')).toContain('远端版本');
+  });
+
+  it('本地命中密钥 ⇒ 拒发（fail-closed）', async () => {
+    const { shared, local } = makeDirs();
+    writeFileSync(
+      join(local, 'l3.md'),
+      memFile(
+        'l3',
+        '-----BEGIN RSA PRIVATE KEY-----\nMIIEexample\n-----END RSA PRIVATE KEY-----'
+      ),
+      'utf-8'
+    );
+
+    const report = await pushTeamMemoriesToSharedDir({
+      localDir: local,
+      sharedDir: shared,
+    });
+
+    expect(report.rejectedSecrets).toContain('l3');
+    expect(report.uploaded).toBe(0);
+    expect(existsSync(join(shared, 'l3.md'))).toBe(false);
   });
 });

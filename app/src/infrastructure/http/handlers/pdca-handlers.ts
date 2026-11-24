@@ -182,7 +182,7 @@ async function findExistingTask(sessionId: string): Promise<string | null> {
  */
 function buildAbortedCheckpoint(
   ck: Record<string, unknown>,
-  abortedBy: 'startup_scan' | 'orphan_scan' | 'user_abort'
+  abortedBy: 'startup_scan' | 'orphan_scan' | 'approval_expired' | 'user_abort'
 ): Record<string, unknown> {
   return {
     ...ck,
@@ -191,6 +191,21 @@ function buildAbortedCheckpoint(
     abortedBy,
     abortedAt: new Date().toISOString(),
   };
+}
+
+/**
+ * 该检查点是否**建过**阶段审批卡（`stages[].approvalInboxId`）。
+ *
+ * 用于孤儿收口的归因：有卡却不在 pending ⇒ 卡已过期（`approval_expired`）；
+ * 从未建卡（旧任务 / 纯工具审批）⇒ 泛化孤儿（`orphan_scan`）。
+ */
+function hasStageApprovalCard(ck: Record<string, unknown>): boolean {
+  const stages = ck.stages;
+  if (!Array.isArray(stages)) return false;
+  return stages.some(
+    (s) =>
+      typeof (s as { approvalInboxId?: unknown }).approvalInboxId === 'string'
+  );
 }
 
 /**
@@ -281,7 +296,13 @@ export async function scanAndAbortStalePdcaTasks(): Promise<{
         resumable.push({ taskId, phase });
         continue;
       }
-      const orphanCk = buildAbortedCheckpoint(ck, 'orphan_scan');
+      const orphanCk = buildAbortedCheckpoint(
+        ck,
+        // P2（2026-11-24）：阶段审批卡确实建过（`stages[].approvalInboxId`）却已不在 pending
+        // ⇒ 真实原因是"审批卡已过期未处理"，而不是泛化的孤儿/崩溃。归因如实写 approval_expired，
+        // 回执文案随之变成「审批卡已过期未处理」。
+        hasStageApprovalCard(ck) ? 'approval_expired' : 'orphan_scan'
+      );
       await taskOps.writePdcaCheckpoint(taskId, orphanCk);
       abortedCheckpoints.push(orphanCk);
       if (ck.workItemId) {

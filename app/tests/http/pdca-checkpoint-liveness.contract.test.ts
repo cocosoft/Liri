@@ -245,6 +245,33 @@ describe('启动扫描：`status IS NULL` 不再被静默跳过', () => {
     expect(patch?.abortedBy).toBe('orphan_scan');
   });
 
+  test('待审批 + 阶段审批卡已建过（approvalInboxId）但不在 pending ⇒ 归因 approval_expired', async () => {
+    // P2（2026-11-24）：卡在进程停机期间过期 —— 真实原因是"审批卡已过期未处理"，
+    // 不应再播报泛化的 orphan_scan（回执文案会变成"审批卡已过期未处理"）。
+    checkpoints.set('pdca_stage_card_expired', {
+      taskId: 'pdca_stage_card_expired',
+      sessionId: 'sess-scan',
+      phase: 'stage_awaiting_approval',
+      status: 'started',
+      stages: [
+        {
+          id: 'requirement',
+          status: 'awaiting_approval',
+          approvalInboxId: 'inbox-1',
+        },
+        { id: 'design', status: 'pending' },
+      ],
+    });
+
+    const result = await scanAndAbortStalePdcaTasks();
+
+    expect(result.aborted).toBe(1);
+    const patch = written.find(
+      (w) => w.taskId === 'pdca_stage_card_expired'
+    )?.patch;
+    expect(patch?.abortedBy).toBe('approval_expired');
+  });
+
   test('待审批 + 卡已过期（不在 pending 列表）⇒ 视为孤儿', async () => {
     checkpoints.set('pdca_expired_card', {
       taskId: 'pdca_expired_card',

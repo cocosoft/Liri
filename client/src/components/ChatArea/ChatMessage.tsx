@@ -1497,6 +1497,8 @@ function AssistantMessage({
         },
       });
     },
+    // 2026-11-24（批次 1）：过程组需要消息级流式状态 —— 执行中不得显示终态图标
+    isStreaming,
   );
 
   return (
@@ -1691,6 +1693,7 @@ function renderBlocksWithGroups(
   sessionId?: string,
   knownFilePaths?: string[],
   onQuestionResponse?: (content: string) => void,
+  messageIsStreaming?: boolean,
 ): React.ReactNode[] {
   const result: React.ReactNode[] = [];
   let i = 0;
@@ -1790,6 +1793,7 @@ function renderBlocksWithGroups(
         <ToolExecutionGroup
           key={`tool-group-${firstBlockId || groupKey || i}`}
           blocks={toolBlocks}
+          isStreaming={messageIsStreaming}
         />,
       );
     } else {

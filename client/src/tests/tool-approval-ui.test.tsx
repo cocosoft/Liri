@@ -125,8 +125,12 @@ describe("ToolExecutionGroup 阶段树（2026-11-24）", () => {
     render(<ToolExecutionGroup blocks={blocks} />);
 
     const header = screen.getAllByRole("button")[0];
+    // 2026-11-24（批次 1）：组头改为**语义统计**（glob ⇒ 搜索），不再显示"N 步"
     expect(header.textContent).toContain(
-      String(i18n.t("chat.processStage", { count: 2 })),
+      String(i18n.t("chat.processStageLabel")),
+    );
+    expect(header.textContent).toContain(
+      String(i18n.t("chat.processStatsSearches", { count: 1 })),
     );
     // 折叠态：思考节点与正文都不渲染
     expect(screen.queryByText(i18n.t("chat.thoughtProcess"))).toBeNull();
@@ -139,6 +143,76 @@ describe("ToolExecutionGroup 阶段树（2026-11-24）", () => {
 
     fireEvent.click(thinkingRow.closest("button")!);
     expect(document.querySelector("pre")?.textContent).toContain("第二行细节");
+  });
+});
+
+describe("ToolExecutionGroup 语义统计与执行中图标（2026-11-24 · 批次 1）", () => {
+  function tc(
+    id: string,
+    name: string,
+    args: Record<string, unknown>,
+    status: string,
+    isStreaming?: boolean,
+  ): MessageBlock {
+    return {
+      id: `blk-${id}`,
+      type: "tool_call",
+      content: "",
+      isStreaming,
+      toolCall: {
+        id,
+        name,
+        arguments: args,
+        status: status as ToolCall["status"],
+      },
+    };
+  }
+
+  it("组头显示编辑/读取/搜索/命令语义统计（不再显示工具调用数）", () => {
+    const blocks: MessageBlock[] = [
+      tc("c1", "file_read", { file_path: "/a.ts" }, "completed"),
+      tc("c2", "file_read", { file_path: "/a.ts" }, "completed"),
+      tc("c3", "grep", { pattern: "x" }, "completed"),
+      tc("c4", "bash", { command: "ls" }, "completed"),
+    ];
+    render(<ToolExecutionGroup blocks={blocks} />);
+    const header = screen.getAllByRole("button")[0];
+    expect(header.textContent).toContain(
+      String(i18n.t("chat.processStatsReadFiles", { count: 1 })),
+    );
+    expect(header.textContent).toContain(
+      String(i18n.t("chat.processStatsSearches", { count: 1 })),
+    );
+    expect(header.textContent).toContain(
+      String(i18n.t("chat.processStatsCommands", { count: 1 })),
+    );
+    // 旧口径已移除
+    expect(header.textContent).not.toContain(
+      String(i18n.t("chat.toolCallsCount", { count: 4 })),
+    );
+  });
+
+  it("同组仍有 running 工具 ⇒ 显示进行中脉冲，不显示失败/完成图标", () => {
+    const blocks: MessageBlock[] = [
+      tc("f1", "bash", { command: "false" }, "failed"),
+      tc("r1", "file_read", { file_path: "/a.ts" }, "running"),
+    ];
+    render(<ToolExecutionGroup blocks={blocks} />);
+    const header = screen.getAllByRole("button")[0];
+    expect(header.querySelector(".animate-pulse")).toBeTruthy();
+    expect(header.textContent).not.toContain("❌");
+    expect(header.textContent).not.toContain("✅");
+  });
+
+  it("消息级 isStreaming 兜底：块未带 isStreaming 的 running 仍判执行中", () => {
+    const blocks: MessageBlock[] = [
+      tc("f2", "bash", { command: "false" }, "failed"),
+      tc("r2", "file_read", { file_path: "/b.ts" }, "running", undefined),
+    ];
+    render(<ToolExecutionGroup blocks={blocks} isStreaming />);
+    const header = screen.getAllByRole("button")[0];
+    expect(header.querySelector(".animate-pulse")).toBeTruthy();
+    expect(header.textContent).not.toContain("❌");
   });
 });
 

@@ -20,11 +20,23 @@ import {
   deriveToolOutcome,
 } from "../../stores/chat/toolOutcome";
 import { createLogger } from "@/utils/logger";
+// 2026-11-24（前端任务面板治理 · 批次 1）：过程组语义统计（编辑/读取/搜索/命令）
+import {
+  hasProcessStats,
+  summarizeProcessTools,
+} from "../../utils/processStats";
 
 const logger = createLogger("components:toolExecutionGroup");
 
 interface ToolExecutionGroupProps {
   blocks: MessageBlock[];
+  /**
+   * 所属消息是否仍在流式生成。
+   *
+   * 2026-11-24（用户反馈）：过程组只要**还在执行**，就不能显示 ✅/❌ 终态图标；
+   * 同时作为工具态派生的 `isStreaming` 兜底（历史/消息级 `tool_call` 块不带该字段）。
+   */
+  isStreaming?: boolean;
 }
 
 /**
@@ -82,7 +94,7 @@ function ThinkingRow({
   );
 }
 
-function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
+function ToolExecutionGroup({ blocks, isStreaming }: ToolExecutionGroupProps) {
   const { t } = useTranslation();
   // P0-5 修复：精准 selector 订阅，避免每个 chunk 触发工具卡片重渲染
   const readFileToPreview = useChatStore((s) => s.readFileToPreview);
@@ -90,10 +102,26 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
   const messages = useChatStore((s) => s.messages);
   const resolvedApprovalIds = resolvedApprovalInboxIds(messages);
 
+  /**
+   * 2026-11-24（批次 1）：把**消息级流式**作为块级 `isStreaming` 的兜底。
+   *
+   * 历史加载 / 消息级 `tool_call` 的块不带 `isStreaming` ⇒ 原派生会把"仍在跑"判成
+   * `interrupted`，再叠加同组失败态就误显示 ❌。这里统一补齐，不改变显式 `false`。
+   */
+  const effectiveBlocks = useMemo(
+    () =>
+      isStreaming === undefined
+        ? blocks
+        : blocks.map((b) =>
+            b.isStreaming === undefined ? { ...b, isStreaming } : b,
+          ),
+    [blocks, isStreaming],
+  );
+
   /** P0-5 日志：流式状态切换边界（流式中工具卡片渲染频率监控，每 complete→streaming 边沿记录） */
   const isGroupStreaming = useMemo(
-    () => blocks.some((b) => b.isStreaming),
-    [blocks],
+    () => effectiveBlocks.some((b) => b.isStreaming),
+    [effectiveBlocks],
   );
   const prevGroupStreamingRef = useRef(isGroupStreaming);
   useEffect(() => {
@@ -136,12 +164,18 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
    * 审批已落定 / 无终态 ⇒ `interrupted`（按「已中断」如实展示，不谎报完成或执行中）。
    */
   const status = useMemo(() => {
-    const raw = deriveGroupOutcome(blocks, {
+    const raw = deriveGroupOutcome(effectiveBlocks, {
       resolvedInboxIds: resolvedApprovalIds,
     });
     // 展示层词汇：running / empty ⇒ executing（与既有 statusConfig 默认分支一致）
     return raw === "running" || raw === "empty" ? "executing" : raw;
-  }, [blocks, resolvedApprovalIds]);
+  }, [effectiveBlocks, resolvedApprovalIds]);
+
+  /**
+   * 2026-11-24（批次 1）：只要**仍在执行**（块流式或聚合态 = running），图标一律是进行中脉冲。
+   * 禁止在运行中显示 ✅/❌/⏸（用户反馈：执行中的过程组出现已完成/失败图标）。
+   */
+  const showRunningIcon = isGroupStreaming || status === "executing";
 
   const statusConfig = useMemo(() => {
     switch (status) {
@@ -227,7 +261,7 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
 
   /** 聚合统计：对同组工具调用进行计数，折叠态展示凝练总结（"已执行 N 个工具调用"） */
   const aggregateStats = useMemo(() => {
-    const toolCalls = blocks.filter(
+    const toolCalls = effectiveBlocks.filter(
       (b) => b.type === "tool_call" && b.toolCall,
     );
     // 关键修复（2026-08-23）：阈值从 3 降到 2 —— 2 个及以上工具调用
@@ -296,15 +330,15 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
       interrupted: total - completed - failed - running - pending,
       allDone: completed + failed === total && pending === 0,
     };
-  }, [blocks, resolvedApprovalIds]);
+  }, [effectiveBlocks, resolvedApprovalIds]);
 
   /** P1-6 修复：status 块按 toolCallId 去重（消除 CS02 正则解析） */
   const filteredBlocks = useMemo(() => {
-    return blocks.filter((block, idx) => {
+    return effectiveBlocks.filter((block, idx) => {
       if (block.type !== "status") return true;
       if (idx === 0) return true;
 
-      const prev = blocks[idx - 1];
+      const prev = effectiveBlocks[idx - 1];
       if (prev?.type === "status") {
         // P1-6：优先按 toolCallId 去重（数据模型已有字段）
         const prevToolId = prev.toolCallId;
@@ -328,9 +362,9 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
 
       return true;
     });
-  }, [blocks]);
+  }, [effectiveBlocks]);
 
-  /** 阶段内的思考块与工具调用数（组头展示「过程 · N 步 / M 个工具调用 · K 次思考」） */
+  /** 阶段内的思考块与工具调用数 */
   const thinkingBlocks = useMemo(
     () => filteredBlocks.filter((b) => b.type === "thinking" && b.content),
     [filteredBlocks],
@@ -342,65 +376,111 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
     [filteredBlocks],
   );
 
+  /**
+   * 2026-11-24（前端任务面板治理 · 批次 1）：组头语义统计。
+   *
+   * 用户要的是"做了什么"（编辑/读取/搜索/命令），而不是"N 步 / N 个工具调用 / N 次思考"。
+   */
+  const processStats = useMemo(
+    () =>
+      summarizeProcessTools(
+        filteredBlocks
+          .filter((b) => b.type === "tool_call" && b.toolCall)
+          .map((b) => b.toolCall),
+      ),
+    [filteredBlocks],
+  );
+  const showProcessStats = hasProcessStats(processStats);
+
+  /** 语义统计展示片段（零值段省略；顺序 = 编辑 → 读取 → 搜索 → 命令） */
+  const statSegments = useMemo(() => {
+    const items: string[] = [];
+    if (processStats.editedFiles > 0) {
+      items.push(
+        t("chat.processStatsEditedFiles", {
+          count: processStats.editedFiles,
+          defaultValue: "编辑 {{count}} 个文件",
+        }),
+      );
+    }
+    if (processStats.readFiles > 0) {
+      items.push(
+        t("chat.processStatsReadFiles", {
+          count: processStats.readFiles,
+          defaultValue: "读取 {{count}} 个文件",
+        }),
+      );
+    }
+    if (processStats.searches > 0) {
+      items.push(
+        t("chat.processStatsSearches", {
+          count: processStats.searches,
+          defaultValue: "搜索 {{count}} 次",
+        }),
+      );
+    }
+    if (processStats.commands > 0) {
+      items.push(
+        t("chat.processStatsCommands", {
+          count: processStats.commands,
+          defaultValue: "执行 {{count}} 条命令",
+        }),
+      );
+    }
+    return items;
+  }, [processStats, t]);
+
   return (
     <div className="border border-gray-400/20 rounded-[10px] overflow-hidden mb-1">
       <button
         onClick={() => setCollapsed(!collapsed)}
         className="flex items-center gap-1.5 px-2.5 py-1 bg-gray-400/[0.05] w-full cursor-pointer text-gray-600 dark:text-[#a9b1d6] text-[12px] text-left"
       >
-        {/* 状态图标 */}
+        {/* 状态图标：仍在执行 ⇒ 一律进行中脉冲（不在运行中显示 ✅/❌/⏸） */}
         <span className="text-sm shrink-0 flex items-center">
-          {blocks.some((b) => b.isStreaming) ? (
+          {showRunningIcon ? (
             <span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-300 animate-pulse" />
           ) : (
             statusConfig.icon
           )}
         </span>
 
-        {/* 工具名称 + 参数摘要（阶段态：过程步数 + 工具/思考计数；聚合态：凝练总结 + 完成数；单工具态：工具名 + 摘要） */}
+        {/* 组头文案：过程态/聚合态优先展示**语义统计**（编辑/读取/搜索/命令）；单工具态保留工具名 + 摘要 */}
         <span className="font-semibold text-gray-800 dark:text-gray-200 shrink overflow-hidden text-ellipsis whitespace-nowrap min-w-0">
-          {hasThinking ? (
+          {hasThinking || aggregateStats ? (
             <>
-              {t("chat.processStage", {
-                count: filteredBlocks.length,
-                defaultValue: "过程 · {{count}} 步",
-              })}
+              {t("chat.processStageLabel", { defaultValue: "过程" })}
               <span className="font-normal text-xs text-gray-400 ml-1">
-                {" · "}
-                {toolCallCount > 0 &&
-                  t("chat.toolCallsCount", {
-                    count: toolCallCount,
-                    defaultValue: "{{count}} 个工具调用",
-                  })}
-                {toolCallCount > 0 && " · "}
-                {t("chat.progress.thinking", {
-                  count: thinkingBlocks.length,
-                  defaultValue: "{{count}} 次思考",
-                })}
-              </span>
-            </>
-          ) : aggregateStats ? (
-            <>
-              {/* 凝练总结话语：如 "✅ 已执行 2 个工具调用" / "2 个工具调用 (1/2)" */}
-              {aggregateStats.allDone && !aggregateStats.failed
-                ? t("chat.toolCallsExecutedCount", {
-                    count: aggregateStats.total,
-                    defaultValue: "已执行 {{count}} 个工具调用",
-                  })
-                : t("chat.toolCallsCount", {
-                    count: aggregateStats.total,
-                    defaultValue: "{{count}} 个工具调用",
-                  })}
-              <span className="font-normal text-xs text-gray-400 ml-1">
-                {/* #29：补分隔符 —— 原实现直接拼成「118 个工具调用107/118」，两段粘在一起 */}
-                {" · "}
-                {aggregateStats.completed}/{aggregateStats.total}
-                {aggregateStats.failed > 0 && (
+                {showProcessStats ? (
+                  <> · {statSegments.join(" · ")}</>
+                ) : (
+                  <>
+                    {hasThinking && (
+                      <>
+                        {" · "}
+                        {t("chat.progress.thinking", {
+                          count: thinkingBlocks.length,
+                          defaultValue: "{{count}} 次思考",
+                        })}
+                      </>
+                    )}
+                    {toolCallCount > 0 && (
+                      <>
+                        {" · "}
+                        {t("chat.toolCallsCount", {
+                          count: toolCallCount,
+                          defaultValue: "{{count}} 个工具调用",
+                        })}
+                      </>
+                    )}
+                  </>
+                )}
+                {aggregateStats?.failed ? (
                   <span className="text-red-500 dark:text-red-400 ml-1">
                     ({aggregateStats.failed} {t("chat.failed")})
                   </span>
-                )}
-                {!aggregateStats.allDone && (
+                ) : null}
+                {aggregateStats && !aggregateStats.allDone && (
                   <span className="text-amber-600 dark:text-amber-400/80 ml-1">
                     {status === "pending_approval" || aggregateStats.pending > 0
                       ? t("chat.pendingApproval")

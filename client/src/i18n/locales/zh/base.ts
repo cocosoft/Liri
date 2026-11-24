@@ -891,6 +891,12 @@ const zhBase = {
     // ToolExecutionGroup（工具执行分组）
     toolCallsExecutedCount: "已执行 {{count}} 个工具调用",
     toolCallsCount: "{{count}} 个工具调用",
+    // 2026-11-24（前端任务面板治理 · 批次 1）：过程组语义统计
+    processStageLabel: "过程",
+    processStatsEditedFiles: "编辑 {{count}} 个文件",
+    processStatsReadFiles: "读取 {{count}} 个文件",
+    processStatsSearches: "搜索 {{count}} 次",
+    processStatsCommands: "执行 {{count}} 条命令",
     itemsCount: "{{count}} 项",
     // ---- P2-1 i18n 全量迁移 第3批（2026-09-27）----
     // DAGMiniMap / DAGFullScreen（任务依赖关系图）

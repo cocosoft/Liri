@@ -930,6 +930,12 @@ const enBase = {
     // ToolExecutionGroup
     toolCallsExecutedCount: "{{count}} tool calls executed",
     toolCallsCount: "{{count}} tool calls",
+    // 2026-11-24 (frontend task panel governance · batch 1): semantic process stats
+    processStageLabel: "Process",
+    processStatsEditedFiles: "{{count}} files edited",
+    processStatsReadFiles: "{{count}} files read",
+    processStatsSearches: "{{count}} searches",
+    processStatsCommands: "{{count}} commands run",
     itemsCount: "{{count}} items",
     // ---- P2-1 i18n migration batch 3 (2026-09-27) ----
     // DAGMiniMap / DAGFullScreen (task dependency graph)

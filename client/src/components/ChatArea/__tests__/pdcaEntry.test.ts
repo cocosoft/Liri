@@ -12,10 +12,7 @@
  * 含终态）。终态后徽标收起，但抽屉（唯一进度详情来源）仍须可达。
  */
 import { describe, expect, it } from "vitest";
-import {
-  resolvePdcaEntry,
-  isTerminalPdcaEvent,
-} from "../PdcaActivityStrip";
+import { resolvePdcaEntry, isTerminalPdcaEvent } from "../PdcaActivityStrip";
 import type { PdcaLiveEventPayload } from "@/stores/orchestrationStore";
 
 const SID = "session-n3";
@@ -57,15 +54,12 @@ describe("resolvePdcaEntry — PDCA 入口/进行中判定（N-3）", () => {
       resolvePdcaEntry(
         [started, ev("pdca:stage:complete", { time: 30 })],
         {},
-        SID
-      )
+        SID,
+      ),
     ).toEqual({ active: false, available: true, taskId: "task-n3" });
     expect(
-      resolvePdcaEntry(
-        [started, ev("pdca:stage:fail", { time: 31 })],
-        {},
-        SID
-      ).active
+      resolvePdcaEntry([started, ev("pdca:stage:fail", { time: 31 })], {}, SID)
+        .active,
     ).toBe(false);
     // 终态后又有新一轮开始 ⇒ 重新算进行中
     expect(
@@ -76,16 +70,32 @@ describe("resolvePdcaEntry — PDCA 入口/进行中判定（N-3）", () => {
           ev("pdca:stage:start", { time: 40 }),
         ],
         {},
-        SID
-      ).active
+        SID,
+      ).active,
     ).toBe(true);
   });
 
   it("只认当前会话；无会话 / 无事件 ⇒ 双 false", () => {
     expect(
-      resolvePdcaEntry([ev("pdca:auto_launched", { sessionId: "other" })], {}, SID)
+      resolvePdcaEntry(
+        [ev("pdca:auto_launched", { sessionId: "other" })],
+        {},
+        SID,
+      ),
     ).toEqual({ active: false, available: false });
     expect(resolvePdcaEntry([], {}, undefined)).toEqual({
+      active: false,
+      available: false,
+    });
+  });
+
+  it("P2-D：无实时事件但消息里有持久化卡片 ⇒ available=true、active=false", () => {
+    expect(resolvePdcaEntry([], {}, SID, true)).toEqual({
+      active: false,
+      available: true,
+    });
+    // 无卡片则不可看
+    expect(resolvePdcaEntry([], {}, SID, false)).toEqual({
       active: false,
       available: false,
     });

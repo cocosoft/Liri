@@ -436,3 +436,25 @@
 | 未覆盖 | 消息卡（`pdca_workflow` 块）只由**自动启动路径**写入，`/v1/pdca/start` 不写 ⇒ 该面由 3 个组件单测覆盖；终态「查看结果」徽标形态同由单测覆盖 |
 
 副作用与清理：真实执行未改工作区（`git status` 仅临时 e2e spec）；临时 spec 已删除；测试会话已 `batch-delete`；后端 current 已切回原会话。截图落在 `client/test-results/`（gitignore，不入库）。
+
+### 批次 15（P2-D）已落地：刷新后「查看详情」不再失效
+
+**问题（端到端验证派生）**：`resolvePdcaEntry` 的唯一数据源是 `orchestrationStore`（内存，SSE 写入）。
+聊天页刷新后 store 为空，但消息里持久化的 `pdca_workflow` 卡片仍在 ⇒ 卡片有「查看详情」，
+抽屉却因 `available=false` 不渲染 ⇒ **死按钮**。`replay()` 只在项目页调用
+（`ProjectsPage.tsx:487`），聊天页没有历史回放。
+
+| 项 | 结果 |
+|---|---|
+| available 兜底 | `resolvePdcaEntry` 增 `hasPersistedCard`：无实时事件时 `available = hasPersistedCard`，`active` 恒 `false`（历史卡片不是运行态） |
+| 卡片判据 | `usePdcaEntry` 读 `useChatStore.messages`，判当前会话是否含 `pdca_workflow` 块（selector 返回 boolean，稳定） |
+| taskId 兜底 | 新增 `pdcaService.latestTaskIdForSession(sessionId)`（`POST /v1/pdca/list { sessionId, limit: 1 }`，真实数据）；仅在 `available` 且事件无 taskId 时请求 |
+| 不造假 | 后端无任务 ⇒ taskId 仍为空，抽屉显示既有「本轮无任务快照，以下为事件流」 |
+
+验证：
+- 单测：`pdcaEntry` 增 1 例（无事件 + 卡片 ⇒ `available=true, active=false`）；新增 `usePdcaEntry.test.ts` 3 例（事件优先不请求 / 卡片存在时用后端 taskId 兜底 / 无 PDCA 不请求）。
+- 真实 API：`POST /v1/pdca/list { sessionId, limit:1 }` 返回 `pdca_mwu9tgyc`（sessionId 过滤生效）。
+- client `tsc --noEmit` 通过；`vitest run` 全量 **1142 pass / 0 fail**（163 文件）；改动文件 ESLint 0 error。
+
+**如实边界**：该场景要有**真实持久化卡片**才能端到端复现；本机当前无含 `pdca_workflow` 块的历史会话
+（`/v1/pdca/start` 不写卡，只有自动启动路径写）⇒ 端到端未覆盖，由上述单测锁定。

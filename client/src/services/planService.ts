@@ -201,6 +201,27 @@ export const pdcaService = {
     }
   },
 
+  /**
+   * 会话最近一条 PDCA 任务 ID（批次 14 P2-D）。
+   *
+   * 聊天页刷新后 `orchestrationStore`（内存事件流）为空，消息里的 `pdca_workflow`
+   * 卡片仍在 —— 此时「查看详情」需要**真实** taskId 才能显示进度详情。
+   * 后端 `/v1/pdca/list` 支持 `sessionId` 过滤，取首条（已按最近活动倒序）。
+   * 无任务 / 请求失败 ⇒ `null`（不造假；抽屉退化为仅事件流）。
+   */
+  latestTaskIdForSession: async (sessionId: string): Promise<string | null> => {
+    try {
+      const res = await http.post<PdcaListResult>(ENDPOINTS.pdca.list, {
+        sessionId,
+        limit: 1,
+      });
+      const first = res && Array.isArray(res.items) ? res.items[0] : undefined;
+      return first?.taskId ?? null;
+    } catch {
+      return null;
+    }
+  },
+
   /** 启动 PDCA */
   start: async (
     description: string,

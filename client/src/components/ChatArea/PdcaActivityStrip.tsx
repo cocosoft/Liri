@@ -72,11 +72,14 @@ export function isTerminalPdcaEvent(ev: PdcaLiveEventPayload): boolean {
 }
 
 /**
- * N-3 + 批次 14（P2-A）：会话的 PDCA 入口判定（纯函数；`usePdcaEntry` 与单测共用）。
+ * N-3 + 批次 14（P2-A/P2-D）：会话的 PDCA 入口判定（纯函数；`usePdcaEntry` 与单测共用）。
  *
  * 同一事件源拆成两个判据（不新增第二份匹配逻辑）：
  * - `active`：编排**仍在进行**（最新事件非终态）⇒ 浮动栏徽标常驻 / 「PDCA 编排进行中」；
- * - `available`：该会话**有 PDCA 可看**（含终态）⇒ 抽屉可渲染 / 消息卡「查看详情」可用。
+ * - `available`：该会话**有 PDCA 可看** ⇒ 抽屉可渲染 / 消息卡「查看详情」可用。
+ *   两个来源：实时事件（含终态）**或**消息里持久化的 `pdca_workflow` 卡片
+ *   （`hasPersistedCard`，P2-D）—— 刷新页面后内存事件流为空，但卡片仍在，
+ *   入口不能退化成死按钮。
  *
  * 原实现只给 `visible = 有事件 && 非终态`：终态后徽标消失、抽屉因 `visible=false`
  * 永久不可达 —— 而「抽屉是唯一进度详情来源」在终态必须仍然成立（批次 14 硬规则 3）。
@@ -85,13 +88,17 @@ export function resolvePdcaEntry(
   timeline: PdcaLiveEventPayload[],
   latest: Record<string, PdcaLiveEventPayload>,
   sessionId: string | undefined,
+  hasPersistedCard = false,
 ): { active: boolean; available: boolean; taskId?: string } {
   if (!sessionId) return { active: false, available: false };
   const ev = findLatestEvent(timeline, latest, sessionId, [
     ...PROGRESS_EVENT_TYPES,
     AUTO_LAUNCHED_TYPE,
   ]);
-  if (!ev) return { active: false, available: false };
+  if (!ev) {
+    // 无实时事件：只凭持久化卡片判"可看"；**不得**据此判进行中（历史卡片不是运行态）
+    return { active: false, available: hasPersistedCard };
+  }
   return {
     active: !isTerminalPdcaEvent(ev),
     available: true,

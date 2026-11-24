@@ -13,11 +13,16 @@
  */
 
 import { getLogger } from '@openliri/infra/monitoring';
+import { resolveTeamMemoryDir } from '@openliri/infra/environment';
+import { MemoryRetrieverImpl } from '@openliri/infra/memory/retrievers/MemoryRetriever';
 
 const logger = getLogger('tools:memory-search');
 
-/** 检索范围（`auto` = 有会话上下文则 session，否则 global） */
-export type MemorySearchScope = 'auto' | 'session' | 'global' | 'all';
+/**
+ * 检索范围（`auto` = 有会话上下文则 session，否则 global）。
+ * `team` = 团队记忆目录（Phase 1 共享目录拉取的落地内容，独立于个人记忆）。
+ */
+export type MemorySearchScope = 'auto' | 'session' | 'team' | 'global' | 'all';
 
 /** 一条检索命中（跨源统一结构） */
 export interface MemorySearchHit {
@@ -73,7 +78,7 @@ export interface MemorySearchOutcome {
   /**
    * 回退原因（结构化观测）：
    * `query-required` / `no-session-context` / `session-search-failed` /
-   * `global-manager-unavailable` / `global-search-failed` /
+   * `team-search-failed` / `global-manager-unavailable` / `global-search-failed` /
    * `transcript-fallback`（已回退到原始会话记录）/ `transcript-no-hits` /
    * `transcript-unavailable` / `transcript-search-failed`
    */
@@ -110,9 +115,27 @@ export interface GlobalMemorySource {
   >;
 }
 
+/** 团队记忆能力（窄接口；Phase 1 共享目录内容，独立目录） */
+export interface TeamMemorySource {
+  search(
+    query: string,
+    limit?: number
+  ): Promise<
+    Array<{
+      content: string;
+      timestamp: string;
+      type?: string;
+      name?: string;
+      tags?: string[];
+      id?: string;
+    }>
+  >;
+}
+
 /** 可注入依赖（缺省走真实实现；单测注入桩） */
 export interface MemorySearchDeps {
   resolveSessionMemory?: () => Promise<SessionMemorySource>;
+  resolveTeamMemory?: () => Promise<TeamMemorySource>;
   resolveGlobalMemory?: () => Promise<GlobalMemorySource | null>;
   /** transcript 兜底检索（缺省经 `getCoreAPI()` 取会话网关） */
   searchTranscript?: TranscriptSearcher;
@@ -138,6 +161,34 @@ async function resolveSessionMemoryManager(): Promise<SessionMemorySource> {
   const { getSessionMemoryManager } =
     await import('@modules/session/bootstrap/SessionSystemBootstrap.js');
   return getSessionMemoryManager();
+}
+
+let teamRetrieverCache: { dir: string; retriever: MemoryRetrieverImpl } | null =
+  null;
+
+/**
+ * 默认团队记忆检索（Phase 1）：对团队目录复用同一个 `MemoryRetrieverImpl`
+ * （无嵌入时自动走关键词路径）；目录变更时重建实例。
+ */
+async function resolveTeamMemorySource(): Promise<TeamMemorySource> {
+  const dir = resolveTeamMemoryDir();
+  if (!teamRetrieverCache || teamRetrieverCache.dir !== dir) {
+    teamRetrieverCache = { dir, retriever: new MemoryRetrieverImpl(dir) };
+  }
+  const retriever = teamRetrieverCache.retriever;
+  return {
+    async search(query, limit) {
+      const memories = await retriever.hybridSearch(query, limit);
+      return memories.map((m) => ({
+        content: m.content ?? '',
+        timestamp: m.updatedAt.toISOString(),
+        ...(m.metadata.type ? { type: m.metadata.type } : {}),
+        ...(m.metadata.name ? { name: m.metadata.name } : {}),
+        ...(m.metadata.tags ? { tags: m.metadata.tags } : {}),
+        id: m.id,
+      }));
+    },
+  };
 }
 
 /**
@@ -212,6 +263,7 @@ export async function searchMemory(
 
   const resolveSession =
     deps.resolveSessionMemory ?? resolveSessionMemoryManager;
+  const resolveTeam = deps.resolveTeamMemory ?? resolveTeamMemorySource;
   const resolveGlobal = deps.resolveGlobalMemory ?? resolveGlobalMemoryManager;
 
   const hits: MemorySearchHit[] = [];
@@ -267,6 +319,32 @@ export async function searchMemory(
           error: err instanceof Error ? err.message : String(err),
         });
       }
+    }
+  }
+
+  // ①b 团队记忆（Phase 1 共享目录；独立目录，不混入个人记忆）
+  if (scope === 'team' || scope === 'all') {
+    try {
+      const team = await resolveTeam();
+      const items = await team.search(query, typeFilter ? limit * 3 : limit);
+      addUnique(
+        items
+          .filter((item) => !typeFilter || item.type === typeFilter)
+          .map((item) => ({
+            content: item.content || '',
+            timestamp: item.timestamp || '',
+            source: 'team',
+            ...(item.type ? { type: item.type } : {}),
+            ...(item.name ? { name: item.name } : {}),
+            ...(item.tags ? { tags: item.tags } : {}),
+            ...(item.id ? { id: item.id } : {}),
+          }))
+      );
+    } catch (err) {
+      fallbackReasons.push('team-search-failed');
+      logger.warn('团队记忆检索失败', {
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 

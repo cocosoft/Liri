@@ -253,7 +253,7 @@ MMR 需查询向量与候选两两相似度（N² 次嵌入），仅在显式开
 
 | 项 | 落点 | 要点 |
 |---|---|---|
-| `scope` | `RecallMemoryTool` 新增参数 | `auto`（默认，保持旧行为）/ `session` / `global` / `all`；`global` 让主 Agent 在**有会话上下文时**也能跨会话检索 |
+| `scope` | `RecallMemoryTool` 新增参数 | `auto`（默认，保持旧行为）/ `session` / `team`（团队记忆，共享目录）/ `global` / `all`；`global` 让主 Agent 在**有会话上下文时**也能跨会话检索 |
 | `type` | 同上 | 按记忆类型过滤（会话项 `type`、全局长库 `metadata.type`），过滤时请求 `limit*3` 再截断 |
 | `all` 合并 | 同上 | 会话在前、全局在后，按 `content` 去重，总数受 `limit` 约束 |
 | 回退观测 | `logger.info('recall_memory 检索完成')` | 结构化 `fallbackReasons`：`no-session-context` / `session-search-failed` / `global-manager-unavailable` / `global-search-failed` |

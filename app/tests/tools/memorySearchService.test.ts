@@ -121,6 +121,55 @@ describe('searchMemory（统一服务）', () => {
     expect(out.hits[0].content).toBe('SESSION-CONTEXT');
   });
 
+  it('scope=team ⇒ 只查团队记忆', async () => {
+    const deps: MemorySearchDeps = {
+      resolveTeamMemory: async () => ({
+        search: async () => [
+          { content: 'T 团队决策', type: 'decision', timestamp: '', id: 't1' },
+        ],
+      }),
+    };
+    const out = await searchMemory(
+      { query: 'x', sessionId: 's1', scope: 'team' },
+      deps
+    );
+    expect(out.scope).toBe('team');
+    expect(out.hits.map((h) => h.content)).toEqual(['T 团队决策']);
+    expect(out.hits[0].source).toBe('team');
+  });
+
+  it('scope=all ⇒ 会话 → 团队 → 全局', async () => {
+    const deps: MemorySearchDeps = {
+      resolveSessionMemory: async () => ({
+        searchMemory: async () => [{ content: 'S 决策', type: 'decision' }],
+        getMemoryContext: () => '',
+      }),
+      resolveTeamMemory: async () => ({
+        search: async () => [
+          { content: 'T 决策', type: 'decision', timestamp: '' },
+        ],
+      }),
+      resolveGlobalMemory: async () => ({
+        getRelevantMemories: async () => [
+          {
+            content: 'G 决策',
+            createdAt: new Date(0),
+            metadata: { type: 'decision' },
+          },
+        ],
+      }),
+    };
+    const out = await searchMemory(
+      { query: 'x', sessionId: 's1', scope: 'all' },
+      deps
+    );
+    expect(out.hits.map((h) => h.content)).toEqual([
+      'S 决策',
+      'T 决策',
+      'G 决策',
+    ]);
+  });
+
   it('记忆零命中 + transcript 可用 ⇒ 回退为原始记录引用（含 seq/role）', async () => {
     const deps: MemorySearchDeps = {
       resolveSessionMemory: async () => ({

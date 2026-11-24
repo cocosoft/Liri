@@ -88,6 +88,20 @@ describe('recall_memory scope/type（P1-2）', () => {
     expect(text).toContain('SESSION-CONTEXT');
   });
 
+  it('scope=team ⇒ 查团队记忆（source=team）', async () => {
+    const tool = RecallMemoryTool.create({
+      resolveTeamMemory: async () => ({
+        search: async () => [
+          { content: 'T 团队记录', timestamp: '', type: 'decision' },
+        ],
+      }),
+    });
+    const result = await tool.execute({ query: '部署', scope: 'team' }, CTX);
+    const text = String(result.data ?? '');
+    expect(text).toContain('T 团队记录');
+    expect(text).toContain('来源:team');
+  });
+
   it('记忆零命中 + transcript ⇒ 回退提示与事件引用', async () => {
     const tool = RecallMemoryTool.create({
       resolveSessionMemory: async () => ({

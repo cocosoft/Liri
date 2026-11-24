@@ -269,7 +269,7 @@
     "read_project_file.relativePath": "File path relative to the project folder",
     "recall_memory.limit": "Maximum number of results to return (default 5)",
     "recall_memory.query": "Search keywords or question used to find related memories",
-    "recall_memory.scope": "Search scope: auto=session memory when session context exists, otherwise global (default); session=current session only; global=long-term global memory (cross-session); all=session and global merged",
+    "recall_memory.scope": "Search scope: auto=session memory when session context exists, otherwise global (default); session=current session only; team=team memory (shared directory); global=long-term global memory (cross-session); all=session, team and global merged",
     "recall_memory.type": "Optional: filter by memory type (e.g. decision / user_fact / session_summary); omit to disable filtering",
     "repl.action": "Operation type: start, execute, stop, languages",
     "repl.code": "Code to execute",

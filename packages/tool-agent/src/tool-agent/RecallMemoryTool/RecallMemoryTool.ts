@@ -58,6 +58,22 @@ export interface TranscriptEntryLike {
 export interface RecallMemoryDeps {
   resolveSessionMemory?: () => Promise<SessionMemoryLike>;
   resolveGlobalMemory?: () => Promise<GlobalMemoryLike | null>;
+  /** 团队记忆检索（Phase 1 共享目录；缺省走真实团队目录） */
+  resolveTeamMemory?: () => Promise<{
+    search(
+      query: string,
+      limit?: number
+    ): Promise<
+      Array<{
+        content: string;
+        timestamp: string;
+        type?: string;
+        name?: string;
+        tags?: string[];
+        id?: string;
+      }>
+    >;
+  }>;
   /** transcript 兜底检索（记忆零命中时） */
   searchTranscript?: (
     sessionId: string,
@@ -65,12 +81,15 @@ export interface RecallMemoryDeps {
   ) => Promise<Array<{ entries: TranscriptEntryLike[] }>>;
 }
 
-/** 检索范围（P1-2） */
-export type RecallScope = 'auto' | 'session' | 'global' | 'all';
+/** 检索范围（P1-2；`team` 为团队记忆目录） */
+export type RecallScope = 'auto' | 'session' | 'team' | 'global' | 'all';
 
 /** 归一化 scope（非法值 ⇒ auto，保持旧行为） */
 function normalizeScope(value: unknown): RecallScope {
-  return value === 'session' || value === 'global' || value === 'all'
+  return value === 'session' ||
+    value === 'team' ||
+    value === 'global' ||
+    value === 'all'
     ? value
     : 'auto';
 }
@@ -90,7 +109,7 @@ export class RecallMemoryTool {
     return {
       name: 'recall_memory',
       description:
-        '查询记忆。默认（auto）有会话上下文时查当前会话、否则查全局长期记忆；可用 scope 显式选择 session/global/all（global 含梦境沉淀、PDCA 复盘等跨会话结论）。需要回顾用户偏好/历史结论/项目沉淀时使用。',
+        '查询记忆。默认（auto）有会话上下文时查当前会话、否则查全局长期记忆；可用 scope 显式选择 session/team/global/all（global 含梦境沉淀、PDCA 复盘等跨会话结论；team 为团队记忆）。需要回顾用户偏好/历史结论/项目沉淀时使用。',
       outputJsonSchema: RECALL_MEMORY_OUTPUT_JSON_SCHEMA,
       params: [
         {
@@ -110,10 +129,10 @@ export class RecallMemoryTool {
           name: 'scope',
           type: 'string',
           description:
-            '检索范围：auto=有会话上下文时查会话、否则查全局（默认）；session=仅当前会话；global=全局长期记忆（可跨会话）；all=会话与全局合并',
+            '检索范围：auto=有会话上下文时查会话、否则查全局（默认）；session=仅当前会话；team=团队记忆（共享目录）；global=全局长期记忆（可跨会话）；all=会话、团队与全局合并',
           required: false,
           default: 'auto',
-          enum: ['auto', 'session', 'global', 'all'],
+          enum: ['auto', 'session', 'team', 'global', 'all'],
         },
         {
           name: 'type',

@@ -164,8 +164,10 @@
 - 配置键：`memory.teamSync.sharedDir`（与 `enabled` 同时满足才执行）；本地目标 = `resolveTeamMemoryDir()`。
 - 接线：`runMaintenancePass()` 空闲期执行，报告落 `<team-memory>/pull-report.json`。
 - 用例：`app/tests/memory/teamSharedDirPull.test.ts`（导入/幂等/冲突不覆盖/密钥拒收/目录不可读）。
-- 如实边界：团队记忆**不进入系统提示与 `recall_memory` 的 global 范围**（独立目录、独立访问级别）；
-  本阶段不含上传与真实网络。
+- **检索接线（2026-11-25 追加）**：`recall_memory` 新增 `scope="team"` —— 统一服务
+  `memorySearchService` 的 `resolveTeamMemory` 对团队目录复用 `MemoryRetrieverImpl`（无嵌入走关键词）；
+  `all` 顺序 = 会话 → 团队 → 全局。团队记忆仍**不进系统提示**（不写 `MEMORY.md`）。
+- 如实边界：团队记忆是独立目录/独立访问级别；本阶段不含上传与真实网络。
 
 ---
 

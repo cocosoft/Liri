@@ -6,12 +6,14 @@
  * （前者还多一份图标），新增阶段时容易只改一处；`ProgressCard` 已下线（2026-11-24）⇒
  * 现由 `StatusFloatBar` 单点使用。
  *
- * 口径：取值来自 `ProgressData["phase"]`；未登记取值 ⇒ 调用方回退显示原始枚举值
+ * 口径：取值与后端 `execution_phase.phase` 一致；未登记取值 ⇒ 调用方回退显示原始枚举值
  * （不编造文案，见 CS06）。
+ *
+ * 批次 19（2026-11-24）：原写作 `ProgressData["phase"]`，但该展示块类型已下线
+ * ⇒ 改为自洽联合，避免领域取值依赖已删除的展示类型。
  */
-import type { ProgressData } from "../types";
-
-export type ExecutionPhaseCode = ProgressData["phase"];
+export type ExecutionPhaseCode =
+  "analyzing" | "designing" | "implementing" | "verifying" | "presenting";
 
 export interface ExecutionPhaseStyle {
   /** 图标（纯文本/emoji） */

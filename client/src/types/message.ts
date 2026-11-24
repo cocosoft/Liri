@@ -142,7 +142,6 @@ export interface MessageBlock {
   groupId?: string;
   taskCard?: TaskCardData;
   questionData?: QuestionData;
-  progressData?: ProgressData;
   deliverableData?: DeliverableData;
   diffData?: DiffData;
   inboxData?: InboxBlockData;
@@ -232,22 +231,8 @@ export interface TaskCardTask {
   durationMs?: number;
 }
 
-/** 进度数据——由 ExecutionPhaseTracker 推送的流式进度信息 */
-export interface ProgressData {
-  phase:
-    "analyzing" | "designing" | "implementing" | "verifying" | "presenting";
-  progress: number; // 0-100
-  description: string;
-  steps: {
-    name: string;
-    status: "pending" | "in_progress" | "done" | "failed";
-  }[];
-  /** 完整步骤数（后端截断前），用于显示真实计数 */
-  totalSteps?: number;
-  /** 后端是否截断了旧步骤（仅保留最近 N 条） */
-  truncated?: boolean;
-  currentStep: string;
-}
+/** 2026-11-24（批次 19）：`ProgressData` / `progress` 块已下线（用户裁定简化前端显示）；
+ *  后端 `assistant/progress` 事件契约保留，前端不再派生/渲染该块。 */
 
 /** 交付物数据——AI 完成工作后推送的文件变更列表 */
 export interface DeliverableData {

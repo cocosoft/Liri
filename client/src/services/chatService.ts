@@ -150,7 +150,6 @@ export interface StreamChunk {
     truncated?: boolean;
     currentStep?: string;
   };
-  progressData?: import("../types").ProgressData;
   deliverableData?: import("../types").DeliverableData;
   diffData?: import("../types").DiffData;
   docWorkflowData?: import("../types").DocWorkflowProgressData;
@@ -1088,7 +1087,8 @@ export const chatService = {
             ) {
               // AB-9 补全：主链路内联解析此前缺 execution_phase 分支（resume 的 parseSseChunk 有），
               // 心跳 SSE 的 delta.content='正在执行工具' 落入下方通用文本分支 → 作为正文泄漏。
-              // 此处还原为 execution_phase chunk，processChunk 走 addProgress（进度卡），不进入正文。
+              // 此处还原为 execution_phase chunk，processChunk 只更新浮动栏执行阶段
+              // （progress 块已下线，2026-11-24），不进入正文。
               yield {
                 type: "execution_phase",
                 content: chunk.choices?.[0]?.delta?.content || "",

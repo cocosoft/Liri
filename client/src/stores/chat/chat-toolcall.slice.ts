@@ -9,7 +9,6 @@ import {
   ToolCall,
   TaskCardData,
   TaskCardTask,
-  ProgressData,
   DocWorkflowProgressData,
 } from "../../types";
 import type { Message } from "../../types";
@@ -518,36 +517,6 @@ export class ChronologicalBlockBuilder {
         todoBlockCount: this.blocks.filter((b) => b.type === "todo").length,
       });
     }
-  }
-
-  /**
-   * 添加或更新进度块
-   * 流式传输中，同一次执行的进度块会被更新而非重复追加
-   */
-  addProgress(progressData: ProgressData): void {
-    // 按 phase 查找已有的进度块（同一次执行中同一 phase 不会重复出现）
-    const idx = this.blocks.findIndex(
-      (b) =>
-        b.type === "progress" && b.progressData?.phase === progressData.phase,
-    );
-    if (idx !== -1) {
-      // AB-6 修复：替换为新块对象（含 dirty），进度条实时刷新
-      this.replaceBlockAt(idx, {
-        ...this.blocks[idx],
-        progressData,
-        content: progressData.description,
-      });
-      return;
-    }
-    this.blocks.push({
-      id: generateBlockId(),
-      type: "progress",
-      content: progressData.description,
-      progressData,
-      isStreaming: true,
-      groupId: this.currentGroupId,
-    });
-    this.markBlocksDirty();
   }
 
   /**

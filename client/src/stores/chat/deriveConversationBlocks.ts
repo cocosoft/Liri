@@ -584,55 +584,11 @@ function handleEvent(
     }
 
     case "assistant/progress": {
-      ensureCurrent(state, event, sessionId, assistantMessageId);
-      const data = event.data as {
-        phase:
-          | "analyzing"
-          | "designing"
-          | "implementing"
-          | "verifying"
-          | "presenting";
-        progress: number;
-        description: string;
-        steps: Array<{
-          name: string;
-          status: "pending" | "in_progress" | "done" | "failed";
-        }>;
-        totalSteps?: number;
-        truncated?: boolean;
-        currentStep: string;
-      };
-      const progressData: MessageBlock["progressData"] = {
-        phase: data.phase,
-        progress: data.progress,
-        description: data.description,
-        steps: data.steps,
-        totalSteps: data.totalSteps,
-        truncated: data.truncated,
-        currentStep: data.currentStep,
-      };
-      // 关键修复（2026-08-23）：按 phase 去重 —— 同一次执行中同一 phase 的 progress 心跳
-      // （execution_phase 高频心跳）应更新已有块而非重复 push，否则会堆积海量 process block。
-      // 对齐旧版 ChronologicalBlockBuilder.addProgress 的 findIndex+replace 语义。
-      const idx = state.current!.blocks!.findIndex(
-        (b) => b.type === "progress" && b.progressData?.phase === data.phase,
-      );
-      if (idx !== -1) {
-        state.current!.blocks![idx] = {
-          ...state.current!.blocks![idx],
-          progressData,
-          content: data.description,
-        };
-      } else {
-        state.current!.blocks!.push({
-          id: generateBlockId(),
-          type: "progress",
-          content: data.description,
-          progressData,
-          isStreaming: false,
-          groupId: state.currentGroupId,
-        });
-      }
+      /**
+       * 2026-11-24（批次 19）：`progress` 块已下线（用户裁定简化前端显示）。
+       * 事件本身仍留在事件日志（后端契约不变），重放时**跳过派生**，
+       * 不再产生永不渲染的块；保留 case 防止落入 default 被当作正文。
+       */
       break;
     }
 

@@ -544,3 +544,21 @@
 若后续确认前端无需消费，可另开批次按 CD05 摘除（届时需同步后端 `progress` chunk 契约）。
 
 验证：client `tsc --noEmit` 通过；`vitest run` **1147 pass / 0 fail**（166 文件）；改动文件 ESLint 0 error。
+
+### 批次 19：清理 `ProgressData` 前端数据路径
+
+在前批"下线 ProgressCard"之后，继续清理"仍生成但永不渲染"的前端路径（CD01–CD06）：
+
+| 项 | 结果 |
+|---|---|
+| 死方法 | `chat-toolcall.slice.addProgress` 全仓**零调用**（`execution_phase` 分支现只更新 `executionPhase`）⇒ 删除，并移除 `ProgressData` import |
+| 事件重放 | `deriveConversationBlocks` 的 `case "assistant/progress"` 改为**跳过派生**（保留 case 防落入 default 当正文）；事件仍留日志 |
+| 类型 | 删除 `ProgressData` 接口、`MessageBlock.progressData`、`types/index.ts` 导出、`chatService` 的 `progressData?` 字段 |
+| 领域取值解耦 | `ExecutionPhaseCode` 原为 `ProgressData["phase"]`（依赖已删类型）⇒ 改为自洽联合（与后端 `execution_phase.phase` 一致） |
+| 保留 | `execution_phase` chunk 链路（驱动浮动栏执行阶段）；`BlockRenderer` 的 `case "progress"` 返回 null（旧数据防御） |
+
+**保留（后端侧，未改）**：`assistant/progress` 事件契约与 `EventMessageDeriver` 的块派生仍在（`packages/service`）——
+前端已不声明/不渲染该块，仅存冗余数据；彻底清除需独立批次并评估历史回放与数据迁移，不在本批。
+
+验证：client `tsc --noEmit` 通过；`vitest run` **1147 pass / 0 fail**（166 文件）；改动文件 ESLint 0 error。
+回滚：`git revert <本提交>`（类型与派生逻辑均在本提交内）。

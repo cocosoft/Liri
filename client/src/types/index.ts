@@ -33,7 +33,6 @@ export type {
   ToolCall,
   TaskCardData,
   TaskCardTask,
-  ProgressData,
   DeliverableData,
   DiffData,
   InboxBlockData,

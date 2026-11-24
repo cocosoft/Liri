@@ -35,6 +35,7 @@ import {
   preferToolResult,
   resolveApprovalFlags,
   resolvedApprovalInboxIds,
+  collectApprovalInboxIds,
   stripStaleApprovalNotice,
   MAX_INLINE_RESULT_LENGTH,
 } from "./chat-message-shared";
@@ -676,6 +677,51 @@ export function setMessagesImpl(
     for (const msg of enhancedMessages) {
       if (msg.role === "assistant" && msg.blocks) {
         msg.blocks = stripProtocolTagsInBlocks(msg.blocks);
+      }
+    }
+
+    /**
+     * 2026-11-24（审批状态单一口径）：页内审批卡**已落定**时，就地清掉对应工具卡的
+     * `pendingApproval/inboxId` 与「等待」状态（status 置空 ⇒ 组头按「已中断」）。
+     *
+     * 此前这一步只存在于展示层（`ToolCallGroup` / `ToolExecutionGroup` 各自按
+     * `resolvedApprovalInboxIds` 打补丁），而 `setMessages` 合并阶段仍会把
+     * 「已处理/已过期」的调用写成 `pendingApproval + status=running` ⇒
+     * 任务卡 / 浮动栏 / 会话日志等其它消费方仍可能读到"等待审批"。
+     * 现在在**数据源**统一归一，展示层只做防御性兜底。
+     * （页内没有卡的情形由 `reconcileResolvedToolApprovals` 异步向后端回查。）
+     */
+    const inPageResolved = collectApprovalInboxIds(enhancedMessages).resolved;
+    if (inPageResolved.size > 0) {
+      let cleared = 0;
+      for (const msg of enhancedMessages) {
+        if (!msg.blocks?.length) continue;
+        msg.blocks = msg.blocks.map((block) => {
+          const tc = block.type === "tool_call" ? block.toolCall : undefined;
+          if (
+            !tc ||
+            tc.pendingApproval !== true ||
+            typeof tc.inboxId !== "string" ||
+            !inPageResolved.has(tc.inboxId)
+          ) {
+            return block;
+          }
+          cleared++;
+          return {
+            ...block,
+            toolCall: {
+              ...tc,
+              pendingApproval: undefined,
+              inboxId: undefined,
+              status: undefined,
+            },
+          };
+        });
+      }
+      if (cleared > 0) {
+        logger.info("[setMessages] 页内审批已落定 ⇒ 清除工具卡等待标记", {
+          count: cleared,
+        });
       }
     }
 

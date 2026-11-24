@@ -408,6 +408,63 @@ describe("setMessagesImpl — 存量投影：重建回填 + 孤儿收敛（2026-
     });
     expect(http.get).toHaveBeenCalledWith("/v1/inbox/inbox-1");
   });
+
+  it("页内审批卡已落定 ⇒ 工具卡 pendingApproval/status 归一", () => {
+    const h = harness();
+    h.run([
+      msg({ id: "u1", role: "user", content: "hi", timestamp: 1000 }),
+      msg({
+        id: "a1",
+        role: "assistant",
+        content: "",
+        timestamp: 1500,
+        blocks: [
+          {
+            id: "b1",
+            type: "tool_call",
+            content: "bash",
+            toolCallId: "call_1",
+            toolCall: {
+              id: "call_1",
+              name: "bash",
+              arguments: {},
+              status: "running",
+              pendingApproval: true,
+              inboxId: "box-1",
+            },
+          },
+        ],
+      } as never),
+      msg({
+        id: "a2",
+        role: "assistant",
+        content: "已处理",
+        timestamp: 1600,
+        blocks: [
+          { id: "b2", type: "text", content: "已处理" },
+          {
+            id: "b3",
+            type: "inbox",
+            content: "",
+            inboxData: {
+              inboxId: "box-1",
+              type: "approval",
+              status: "replied",
+            },
+          },
+        ],
+      } as never),
+    ]);
+
+    const toolCall = h
+      .messages()
+      .flatMap((m) => m.blocks ?? [])
+      .find((b) => b.type === "tool_call")?.toolCall;
+    expect(toolCall?.pendingApproval).toBeUndefined();
+    expect(toolCall?.inboxId).toBeUndefined();
+    // 没有终态结果 ⇒ 状态置空，组头按「已中断」渲染
+    expect(toolCall?.status).toBeUndefined();
+  });
 });
 
 /**

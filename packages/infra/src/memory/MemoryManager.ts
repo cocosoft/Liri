@@ -47,6 +47,7 @@ import type { MemoryProvider } from './MemoryProvider';
 import { memoryRelationGraph } from './utils/MemoryRelationGraph';
 import { writeFileAtomic } from '@openliri/infra/utils/atomicFileWrite';
 import { MemoryConsolidator } from './consolidation/MemoryConsolidator';
+import { rebuildMemoryWiki } from './services/MemoryWikiService';
 import {
   MemoryConflictDetector,
   type ConflictResult,
@@ -606,6 +607,23 @@ export class MemoryManagerImpl
         module: 'memory:memoryManager',
         action: 'updateMemoryIndex',
       });
+    }
+
+    // P2-1 Represent（2026-11-25）：重建 wiki 表示层（按类型分组 + 链接完整性 + 体积上限）。
+    // 门禁：`memory.wiki.enabled`（默认 true）；内容未变不重写。
+    if (configManager.getValue<boolean>('memory.wiki.enabled', true) === true) {
+      try {
+        const report = await rebuildMemoryWiki(
+          this.storeDir,
+          all.filter((m) => !removedIds.has(m.id))
+        );
+        logger.info('记忆表示层已重建', { ...report });
+      } catch (err) {
+        await handleError(err, {
+          module: 'memory:memoryManager',
+          action: 'rebuildMemoryWiki',
+        });
+      }
     }
 
     // U3（2026-10-06，`.trae/specs/memory-conflict-detection.md`）：冲突检测接线。

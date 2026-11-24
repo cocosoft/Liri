@@ -1,7 +1,7 @@
 # Liri 记忆系统优化方案（草案 · 2026-11-25）
 
 > 来源：Anthropic《The components of agent memory》（2026-11-06，本地 HTML 已读）+ 本仓记忆子系统实测取证。
-> 状态：**Phase 1 已实施**（P0-1 全部 + P0-2 的 1–3 项；P0-2-4 字段留待 Phase 3）；**Phase 2 已完成**（P1-1/P1-2 见 §8.3–8.4）；**Phase 3 进行中**（P2-1 Promote-lite + Validate-lite 已落地；Represent 未做，见 §8.5）。落地时按阶段拆独立提交，遵循 `code-deletion.md` CD05（先接线、再观察、后删旧路）。
+> 状态：**Phase 1 已实施**（P0-1 全部 + P0-2 的 1–3 项；P0-2-4 字段留待 Phase 3）；**Phase 2 已完成**（P1-1/P1-2 见 §8.3–8.4）；**Phase 3 进行中**（P2-1 Promote/Validate/Represent 已落地，见 §8.5）。落地时按阶段拆独立提交，遵循 `code-deletion.md` CD05（先接线、再观察、后删旧路）。
 > 相关既有裁定：`.trae/specs/memory-conflict-detection.md`（冲突**不自动改写**）、`.trae/specs/dead-code-and-unwired-items-rulings.md`（未接线项不得当作既有能力）。
 
 ---
@@ -280,13 +280,15 @@ MMR 需查询向量与候选两两相似度（N² 次嵌入），仅在显式开
 | **Promote（上提）** | ✅ **lite 已落地** | `updateMemoryIndex` 排序改为「置顶 → importance 降序 → updatedAt 降序」，且**已过期（`expiresAt` 已到）条目不上榜** ⇒ 注入层 200 行窗口优先装高价值条目 |
 | Validate（纠错） | ✅ **lite 已落地** | app 侧注入证据提供者（`setMemoryEvidenceProvider` → 会话网关 `searchTranscript`）；空闲期抽样 ≤5 条"有来源会话、未验证"记忆，命中同文即写 `metadata.verifiedAt`（**不改写正文**），结果落 `validation-report.json`；未命中不标记 stale |
 | Consolidate（合并） | 既有（不改） | 空闲期相似度去重 + 类型化归并已存在（`runMaintenancePass`） |
-| Represent（表示） | ⏳ 未做 | wiki 主题页 + 链接完整性二遍 + 体积上限（≤源记忆总量 × 1.2） |
+| Represent（表示） | ✅ **已落地** | `MemoryWikiService.rebuildMemoryWiki`：`<memory>/global/wiki/` 下按**记忆类型**生成主题页 + `INDEX.md`；**链接完整性**（目标文件不存在则不写该链接，`droppedLinks` 计数）+ 二遍清理（只删首行为生成标记的旧页，用户手写文件不动）；**体积上限** = `max(源正文 × 1.2, 4KB)`，超出则退化为无钩子并标 `truncated`；维护期重建、内容未变不重写；门禁 `memory.wiki.enabled`（默认 true） |
 
 **如实边界**：
 - Validate 的精度受会话检索能力限制：`searchTranscript` 是"包含 probe"的精确子串匹配 ⇒
   **只有逐字引用原文**的记忆才会被确认，摘要式记忆通常保持"未验证"（不误伤、不自动改写）。
 - Promote 现用 `isPinned / importance / verifiedAt / updatedAt`；`confidence / sourceEventSeqs / accessCount`
-  仍未引入（无消费者前不提前写 schema）。"下降层留链接"随 Represent 一起做。
+  仍未引入（无消费者前不提前写 schema）。
+- Represent 产出的 wiki **不进入系统提示**（注入仍只读 `MEMORY.md`，见 §8.1）：它是浏览/后续 dreaming 的
+  表示层；"链接完整性"由生成时校验 + 生成标记清理共同保证，不额外引入死链修复任务。
 
 ---
 

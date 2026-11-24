@@ -69,6 +69,11 @@ export interface MemorySearchConfig {
     };
     mmr?: MMRConfig;
     temporalDecay?: TemporalDecayConfig;
+    /**
+     * 按记忆类型（`metadata.type`）的 top-K 配额（P1-1，2026-11-25）。
+     * 缺省 / 空对象 ⇒ 不限（零行为变更）；达到配额的条目被跳过（不回收补位）。
+     */
+    typeQuota?: Record<string, number>;
   };
   cache: {
     enabled: boolean;
@@ -1269,9 +1274,25 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
     const resultLimit = limit ?? this.searchConfig.query.maxResults;
     const hybridConfig = this.searchConfig.query.hybrid;
     const keywordResults = await this.retrieve(query, resultLimit * 2);
+    /** 按排名归一化关键词分（与原实现逐字一致） */
+    const normalizedKeywordScore = (index: number): number =>
+      keywordResults.length > 1 ? 1 - index / (keywordResults.length - 1) : 1;
 
     if (!hybridConfig?.enabled) {
-      return keywordResults.slice(0, resultLimit);
+      // P1-1（2026-11-25）：关键词模式同样应用 decay / mmr / typeQuota；
+      // 三者默认关闭 ⇒ 与原实现（直接 slice）逐字一致。
+      const ranked: SimilarMemoryResult[] = keywordResults.map(
+        (memory, index) => ({
+          memory,
+          similarity: normalizedKeywordScore(index),
+        })
+      );
+      const adjusted = await this.applyRankingAdjustments(
+        ranked,
+        query,
+        resultLimit
+      );
+      return adjusted.slice(0, resultLimit).map((r) => r.memory);
     }
 
     let semanticResults: SimilarMemoryResult[] = [];
@@ -1292,9 +1313,10 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
 
     for (let i = 0; i < keywordResults.length; i++) {
       const mem = keywordResults[i];
-      const normalized =
-        keywordResults.length > 1 ? 1 - i / (keywordResults.length - 1) : 1;
-      scoreMap.set(mem.id, { memory: mem, keywordScore: normalized });
+      scoreMap.set(mem.id, {
+        memory: mem,
+        keywordScore: normalizedKeywordScore(i),
+      });
     }
 
     const semanticScoreMap = new Map<string, number>();
@@ -1329,6 +1351,78 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
     }
 
     scoredResults.sort((a, b) => b.score - a.score);
-    return scoredResults.slice(0, resultLimit).map((c) => c.memory);
+    const adjusted = await this.applyRankingAdjustments(
+      scoredResults.map(({ memory, score }) => ({
+        memory,
+        similarity: score,
+      })),
+      query,
+      resultLimit
+    );
+    return adjusted.slice(0, resultLimit).map((r) => r.memory);
+  }
+
+  /**
+   * 应用可选的排序调整（P1-1，2026-11-25）：时序衰减 → MMR → 类型配额。
+   *
+   * 三者默认关闭；**全关时原样返回**（不重排）⇒ 与旧行为逐字一致。
+   * 说明：`applyMMR` 需要查询向量且候选两两相似度（N² 次嵌入），只在显式开启时执行，
+   * 且查询向量取不到（嵌入服务不可用）时跳过。
+   */
+  private async applyRankingAdjustments(
+    ranked: SimilarMemoryResult[],
+    query: string,
+    limit: number
+  ): Promise<SimilarMemoryResult[]> {
+    const { temporalDecay, mmr, typeQuota } = this.searchConfig.query;
+    let adjusted = ranked;
+
+    if (temporalDecay?.enabled) {
+      MemoryRetrieverImpl.applyTemporalDecay(adjusted, temporalDecay);
+      adjusted = [...adjusted].sort((a, b) => b.similarity - a.similarity);
+    }
+
+    if (mmr?.enabled) {
+      const queryEmb = (await this.embedPort?.embedOne(query)) ?? [];
+      if (queryEmb.length > 0) {
+        adjusted = await MemoryRetrieverImpl.applyMMR(
+          adjusted,
+          queryEmb,
+          mmr.lambda,
+          limit
+        );
+      }
+    }
+
+    if (typeQuota && Object.keys(typeQuota).length > 0) {
+      adjusted = this.applyTypeQuota(adjusted, typeQuota, limit);
+    }
+
+    return adjusted;
+  }
+
+  /**
+   * 按类型配额截断（配额键 = `metadata.type`）。
+   * 达到配额的条目**跳过**（不回填）⇒ 最终条数可能少于 limit。
+   */
+  private applyTypeQuota(
+    ranked: SimilarMemoryResult[],
+    quota: Record<string, number>,
+    limit: number
+  ): SimilarMemoryResult[] {
+    const used = new Map<string, number>();
+    const out: SimilarMemoryResult[] = [];
+    for (const item of ranked) {
+      if (out.length >= limit) break;
+      const type = item.memory.metadata.type;
+      const cap = quota[type];
+      if (cap !== undefined) {
+        const count = used.get(type) ?? 0;
+        if (count >= cap) continue;
+        used.set(type, count + 1);
+      }
+      out.push(item);
+    }
+    return out;
   }
 }

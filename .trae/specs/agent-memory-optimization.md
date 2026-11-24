@@ -1,7 +1,7 @@
 # Liri 记忆系统优化方案（草案 · 2026-11-25）
 
 > 来源：Anthropic《The components of agent memory》（2026-11-06，本地 HTML 已读）+ 本仓记忆子系统实测取证。
-> 状态：**Phase 1 已实施**（P0-1 全部 + P0-2 的 1–3 项；P0-2-4 字段留待 Phase 3）；**Phase 2 进行中**（P1-1 向量持久化已落地，见 §8.3）。落地时按阶段拆独立提交，遵循 `code-deletion.md` CD05（先接线、再观察、后删旧路）。
+> 状态：**Phase 1 已实施**（P0-1 全部 + P0-2 的 1–3 项；P0-2-4 字段留待 Phase 3）；**Phase 2 进行中**（P1-1 向量持久化 + 检索参数接线已落地，见 §8.3）。落地时按阶段拆独立提交，遵循 `code-deletion.md` CD05（先接线、再观察、后删旧路）。
 > 相关既有裁定：`.trae/specs/memory-conflict-detection.md`（冲突**不自动改写**）、`.trae/specs/dead-code-and-unwired-items-rulings.md`（未接线项不得当作既有能力）。
 
 ---
@@ -237,7 +237,12 @@ Liri 的记忆"三件套"（文件存储 / 混合检索 / 梦境巩固）都已�
 | 观测 | `getVectorCacheSize()` | 进程内向量缓存条数 |
 
 **说明**：`memory_vectors` 表与 `load/save/deleteMemoryVector` 原已存在但零消费者（见 §2），本项是**接线**而非新造。
-`memory.search` 配置（hybrid 权重 / minScore / mmr / temporalDecay）已由 `loadMemorySearchConfig()` 读取；其中 mmr / temporalDecay 仍未被 `hybridSearch` 使用（默认关），属 P1-1 剩余项。
+`memory.search` 配置（hybrid 权重 / minScore / mmr / temporalDecay / typeQuota）由 `loadMemorySearchConfig()` 读取。
+
+**检索参数接线（P1-1-2，2026-11-25）**：`hybridSearch` 两条路径（纯关键词 / 混合）统一走
+`applyRankingAdjustments`（时序衰减 → MMR → 类型配额）。三者**默认全关**，全关时原样返回（不重排）
+⇒ 零行为变更。类型配额键 = `metadata.type`（`query.typeQuota`，达到配额跳过、不回填）。
+MMR 需查询向量与候选两两相似度（N² 次嵌入），仅在显式开启且嵌入可用时执行。
 
 **明确未做（P0-2-4，延后到 Phase 3）**：`confidence / verifiedAt / sourceEventSeqs / accessCount` 字段的写入与持久化。理由：当前无消费者，属"未接线项"（`dead-code-and-unwired-items-rulings.md`）；Phase 3 的 Validate/Promote 才真正读取它们，届时同批加字段 + frontmatter 读写 + 用例。
 

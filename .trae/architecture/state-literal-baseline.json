@@ -1808,7 +1808,6 @@
       "client/src/components/views/MediaPage.tsx",
       "client/src/components/views/office/CalendarAddDialog.tsx",
       "client/src/components/views/office/OfficeCalendarPage.tsx",
-      "client/src/components/views/PlansPage.tsx",
       "client/src/constants/planStatus.ts",
       "client/src/services/agentService.ts",
       "client/src/services/planService.ts",
@@ -2015,7 +2014,6 @@
       "client/src/components/views/media/TaskCard.tsx",
       "client/src/components/views/MediaPage.tsx",
       "client/src/components/views/office/OfficeCalendarPage.tsx",
-      "client/src/components/views/PlansPage.tsx",
       "client/src/components/views/SemanticIndexPage.tsx",
       "client/src/components/views/WechatQrCard.tsx",
       "client/src/constants/planStatus.ts",
@@ -2455,8 +2453,8 @@
       "packages/service/src/execution/ExecutionStore.ts"
     ]
   },
-  "reason": "批次 4：planStatus.ts 收敛 PlansPage/PlansPanel 共用的计划状态展示映射，取值与 stateMachineCatalog#plan 已登记状态一致（pending/running/completed/failed/aborted）",
-  "generatedAt": "2026-11-24T08:35:05.351Z",
+  "reason": "清理已删除的 PlansPage 残留（e50d4f574 删文件未同步基线）；理由与生成时间随之刷新",
+  "generatedAt": "2026-11-24T14:24:57.703Z",
   "valueOwners": {
     "QUEUED": [
       "execution"

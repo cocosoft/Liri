@@ -1,7 +1,7 @@
 # 梦境 × 前端 × 伙伴系统 · 接线排查与修复方案（2026-11-25）
 
 > 来源：用户提问「前后端梦境模块是否连通？伙伴系统是否与梦境连接？」+ 全仓只读取证。
-> 状态：**阶段 A/B/C 已实施（2026-11-25：P0-1/P0-2/P0-3/P1-1/P1-2/P1-3）**；阶段 D（P2-1 伙伴读记忆）待另立 spec。
+> 状态：**全部阶段 A/B/C/D 已实施（2026-11-25：P0-1/P0-2/P0-3/P1-1/P1-2/P1-3/P2-1）**。
 > 约束：不新建第二套梦境/伙伴实现；删除类动作遵循 `code-deletion.md`（先摘入口 → 观察 → 再删）。
 
 ---
@@ -127,10 +127,19 @@ body 优先取 `insights[0]`，回退复用既有 `dream.notifyTask`（不新增
 （`/liri` 的「梦境日志」页签即 `DreamLogTab`，能力不丢）；`navRegistry` 移除重复的 `wb-dream`
 工作台入口；`DreamPage.tsx` 按 CD05 先摘入口并标 `@deprecated` 观察，暂不删除。
 
-### P2-1 伙伴读记忆（设计，不在本轮）
+### P2-1 伙伴读记忆 —— ✅ 已实施（2026-11-25）
 
 - 新增显式端口 `BuddyMemoryPort`（读会话/全局记忆摘要），由 app 组合根注入伙伴；
   不做隐式全局单例，避免再次"看起来已连"。
+
+**落地细节**：新增 `packages/buddy/src/buddy/memoryPort.ts`（`BuddyMemoryDigest` / `BuddyMemoryPort`
++ `setBuddyMemoryPort` / `getBuddyMemoryPort`）；`InteractionManager` 仅在 `talk` 动作读取
+「最近一条真实记忆」并追加一句回忆（未注入 / 无记忆 ⇒ **不追加、不伪造**，其余动作零读取）；
+`entrypoints/init.ts` 在后台维护启动同一处注入 app 侧实现（数据源 `MemoryManager.getAllMemories()`
+按 `updatedAt` 倒序取 N）。回归用例：`app/tests/buddy/buddyMemoryPort.test.ts`（3 例）。
+
+> 顺查发现（已登记台账、非本次修复）：输入框把原文本当 `action` 提交，未知 action 会在
+> `pickRandom` 抛错；记忆回响已在 `talk` 按钮路径生效。
 
 ---
 
@@ -141,7 +150,7 @@ body 优先取 `insights[0]`，回退复用既有 `dream.notifyTask`（不新增
 | **A（本轮，✅ 已完成 2026-11-25）** | P0-1 + P0-2 | 手动 dream 后 `dream_cycles` 有记录 + SSE 广播；伙伴通知订阅名一致；`typecheck` + 相关测试 |
 | B（✅ 已完成 2026-11-25） | P0-3 + P1-1 标注 | 伙伴梦境详情展示真实数据；空转文件标注完成 |
 | C（✅ 已完成 2026-11-25） | P1-2 + P1-3 | 文档口径一致；导航唯一 |
-| D | P2-1 设计落地 | 伙伴可读记忆（另立 spec 细化） |
+| D（✅ 已完成 2026-11-25） | P2-1 设计落地 | 伙伴可读记忆（显式端口注入，talk 引用真实记忆） |
 
 每阶段独立提交；不在同一提交混入删除与功能。
 

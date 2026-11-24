@@ -1,4 +1,5 @@
 import type { Companion, StatName } from './types';
+import { getBuddyMemoryPort } from './memoryPort';
 
 export type InteractionAction = 'pet' | 'feed' | 'play' | 'talk' | 'compliment';
 
@@ -72,6 +73,27 @@ function pickRandom<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+/** talk 时引用的记忆条数（只做"一句回忆"，不做记忆面板） */
+const MAX_MEMORY_ECHOES = 1;
+/** 回忆句最大字符数（避免长描述灌进交互气泡） */
+const MAX_ECHO_CHARS = 60;
+
+/**
+ * talk 交互的「记忆回响」（P2-1，2026-11-25）
+ *
+ * 端口由 app 组合根注入（`setBuddyMemoryPort`）；未注入 / 无记忆 / 描述为空
+ * ⇒ `null`（**不伪造记忆**，行为与接线前一致）。
+ */
+async function buildMemoryEcho(): Promise<string | null> {
+  const port = getBuddyMemoryPort();
+  if (!port) return null;
+  const [memory] = await port.getRecentMemories(MAX_MEMORY_ECHOES);
+  if (!memory) return null;
+  const summary = (memory.description || memory.name).trim();
+  if (!summary) return null;
+  return `It recalls: ${summary.slice(0, MAX_ECHO_CHARS)}`;
+}
+
 export class InteractionManager {
   private histories = new Map<string, InteractionEntry[]>();
   private readonly maxHistoryPerCompanion = 100;
@@ -81,7 +103,12 @@ export class InteractionManager {
     action: InteractionAction
   ): Promise<InteractionResult> {
     const timestamp = Date.now();
-    const response = pickRandom(RESPONSES[action]);
+    const baseResponse = pickRandom(RESPONSES[action]);
+    // P2-1：talk 时引用一条真实记忆（端口未注入 ⇒ 不追加）
+    const memoryEcho = action === 'talk' ? await buildMemoryEcho() : null;
+    const response = memoryEcho
+      ? `${baseResponse} — ${memoryEcho}`
+      : baseResponse;
     const statChanges = { ...STAT_EFFECTS[action] };
     const affectionChange =
       action === 'compliment' ? 3 : action === 'pet' ? 2 : 1;

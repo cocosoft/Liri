@@ -114,3 +114,7 @@ export type {
   DreamEventType,
   DreamEventCallback,
 } from '@openliri/infra/chronos';
+
+// ==================== 记忆端口（P2-1，伙伴读记忆） ====================
+export { setBuddyMemoryPort, getBuddyMemoryPort } from './memoryPort';
+export type { BuddyMemoryDigest, BuddyMemoryPort } from './memoryPort';

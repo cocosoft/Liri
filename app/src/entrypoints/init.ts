@@ -518,6 +518,28 @@ async function startDeferredPrefetches(): Promise<void> {
             },
           });
           registerShutdownHandler(() => stopBackgroundHousekeeping());
+
+          // P2-1（2026-11-25 `.trae/specs/dream-buddy-wiring.md`）：伙伴读记忆端口。
+          // 显式注入（未注入 ⇒ 伙伴不引用记忆）；数据源 = MemoryManager 的真实记忆，
+          // 不做隐式全局单例、不伪造记忆。
+          const { setBuddyMemoryPort } =
+            await import('@modules/buddy/memoryPort');
+          const { getMemoryManager } =
+            await import('@openliri/infra/memory/MemoryManager');
+          setBuddyMemoryPort({
+            getRecentMemories: async (limit) => {
+              const memories = await getMemoryManager().getAllMemories();
+              return memories
+                .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+                .slice(0, limit)
+                .map((m) => ({
+                  name: m.metadata.name,
+                  description: m.metadata.description,
+                  updatedAt: m.updatedAt.getTime(),
+                }));
+            },
+          });
+
           logger.info('Chronos 后台维护已启动（梦境定时任务 + 周期性清理）');
         } catch (error) {
           logger.debug('Chronos 后台维护启动失败（非关键）', { error });

@@ -4,10 +4,13 @@
  * ## 阶段 3（状态机规范管理方案，2026-10-12）：8 态 → 3 态收敛
  *
  * **取证结论（回仓，非推断）**：旧 8 态 `SessionState` 枚举**不是**遗留死码 —— 它是**活事实源**：
- *   - `chat/ChatManager.ts:3184`（`.start('processUserInput')`）· `:3338`（`.finish('工具执行完成')`）
- *   - `chat/orchestrator/ChatOrchestrator.ts:754`（`.start('sendMessage')`）· `:1166`（`.finish(...)`）
- *   - `chat/services/SessionStateBridge.ts`（**已在 `entrypoints/init.ts:479-490` 接线**）按
- *     `session:activated/paused/resumed/archived/error` 分别调 `.start/.pause/.resume/.complete/.error`
+ *   - `chat/ChatManager.ts`（`SessionRuntimeState` 取/建机器；`start/finish` 经薄转发）
+ *   - `chat/orchestrator/ChatOrchestrator.ts`（`sendMessage` 的 `start/finish`）
+ *   - `chat/orchestrator/streamMessagePrepare.ts`（流式 `start`）· `chat/manager/streamFinalize.ts`（`pause/finish`）
+ *
+ * 2026-11-24（P2 死轨摘除）：原 `chat/services/SessionStateBridge.ts` 已删除 —— 它订阅的
+ * `session:activated/paused/resumed/archived/error` 在全仓**只有订阅方、无发布方**，
+ * 且其另建的机器实例从不被读取（CD01–CD06 取证见 `frontend-task-tools-governance.md` §6）。
  *
  * ⇒ 依**用户裁定（2026-10-12）执行 8→3 收敛**。**如实记录降级代价**（折叠映射，与 Phase 1 既定的
  * `toSimplifiedState()` 逐值一致）：

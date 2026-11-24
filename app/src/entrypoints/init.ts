@@ -478,22 +478,11 @@ async function startDeferredPrefetches(): Promise<void> {
         }
       })(),
 
-      // 初始化 SessionStateBridge：将 SessionLifecycleEventBus 桥接到 SessionStateService
-      (async () => {
-        try {
-          const { getGlobalEventBus } =
-            await import('@modules/session/lifecycle/SessionLifecycleEventBus.js');
-          const { SessionStateBridge } =
-            await import('../chat/services/SessionStateBridge.js');
-          const bridge = new SessionStateBridge(getGlobalEventBus());
-          bridge.connect();
-          logger.info('SessionStateBridge 已连接: 生命周期事件 → 会话状态服务');
-        } catch (error) {
-          logger.warning('SessionStateBridge 初始化失败，流量不受影响', {
-            error,
-          });
-        }
-      })(),
+      // 2026-11-24（P2 死轨摘除，CD01–CD06 取证）：原 `SessionStateBridge` 装配已删除 ——
+      // 它订阅的 `session:activated/paused/resumed/archived/error` 在全仓**只有订阅方、
+      // 无任何发布方**（生产零 emit），且它另建的 `SessionStateMachine` 实例与
+      // `ChatManager`（`SessionRuntimeState`）各持一份、从不被读取 ⇒ 属死轨。
+      // 真实生命周期由 `ChatManager` 的 start/finish/pause 单点驱动。
 
       // 启动 Chronos 后台维护（梦境定时任务 + 周期性清理）
       // 2026-10-01 D-169（装配反转）：梦境引擎与 buddy 域集成原由 chronos(infra) 主动

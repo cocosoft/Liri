@@ -92,7 +92,7 @@ export class SessionStateMachine extends StateMachine<SimplifiedSessionState> {
    * 完成：`running → idle`（旧 `COMPLETED` 折叠目标）
    *
    * ⚠️ 3 态下与 `finish()` **同义**（均回 `idle`）。保留两个入口是为了不打散既有调用方
-   * （`SessionStateBridge` 用 `complete()`、`ChatManager`/`ChatOrchestrator` 用 `finish()`）。
+   * （生产用 `finish()`；`complete()` 保留给归档/审批过期等语义化调用与测试）。
    */
   complete(reason?: string): boolean {
     return this.transition('idle', reason);
@@ -129,7 +129,7 @@ export class SessionStateMachine extends StateMachine<SimplifiedSessionState> {
 
   // 说明（阶段 3）：旧 `archive()`（`COMPLETED → ARCHIVED`）**已删除** ——
   //   ① 3 态下 `ARCHIVED` 折叠为 `idle`，与 `complete()/abort()` **无区分**（无独立目标态）；
-  //   ② 生产**零调用者**（`SessionStateBridge` 的 `session:archived` 分支本就调 `complete()`）。
+  //   ② 生产**零调用者**（此前的归档分支已随 `SessionStateBridge` 于 2026-11-24 摘除）。
   //   回滚路径：见 `dev_docs/20261012/状态机规范管理方案-20261012.md` §4 阶段 3。
 
   // ============================================================

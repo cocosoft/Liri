@@ -356,7 +356,9 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
     terminalStates: [],
     reconcile: {
       strategy: 'startup-reset',
-      evidence: 'app/src/chat/services/SessionStateBridge.ts#SessionStateBridge',
+      // 2026-11-24（P2）：原指向 `SessionStateBridge`（无事件发布方的死轨）⇒ 改为**真实**持有
+      // 机器实例的唯一处（`ChatManager` 经 `SessionRuntimeState` 取/建）。
+      evidence: 'app/src/chat/manager/sessionRuntimeState.ts#SessionRuntimeState',
     },
     audit: {
       mode: 'session-event',
@@ -364,7 +366,7 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
       evidence:
         'packages/infra/src/state/session/SessionStateMachine.ts#SessionStateMachine',
     },
-    note: '**阶段 3（2026-10-12）8 态 → 3 态收敛（用户裁定）**：旧 `SessionState` 8 态枚举与 `toSimplifiedState()` 已删除（前者零消费者、后者失输入类型）；折叠映射 = `IDLE/COMPLETED/ARCHIVED/ABORTED→idle`、`RUNNING→running`、`REQUIRES_ACTION/PAUSED/ERROR→requires_action`。**无终态**（`idle` 可再 `start()` ⇒ 生命周期成环，`isTerminal()` 恒 `false`）。历史事实源（活）：`ChatManager:3184/3338` · `ChatOrchestrator:754/1166` · `SessionStateBridge`（`init.ts:479-490` 已接线）。`packages/service/src/session/models/SessionState.ts:44` 另有**同名不同物**（类 + `SESSION_STATES` 集合），见 `BOUNDARY_STATE_MACHINES`。',
+    note: '**阶段 3（2026-10-12）8 态 → 3 态收敛（用户裁定）**：旧 `SessionState` 8 态枚举与 `toSimplifiedState()` 已删除（前者零消费者、后者失输入类型）；折叠映射 = `IDLE/COMPLETED/ARCHIVED/ABORTED→idle`、`RUNNING→running`、`REQUIRES_ACTION/PAUSED/ERROR→requires_action`。**无终态**（`idle` 可再 `start()` ⇒ 生命周期成环，`isTerminal()` 恒 `false`）。历史事实源（活）：`ChatManager`（`SessionRuntimeState` 取/建机器）· `ChatOrchestrator.sendMessage`（`start/finish`）· `streamMessagePrepare`（流式 `start`）· `streamFinalize`（`pause/finish`）。2026-11-24：原 `SessionStateBridge` 按 CD01–CD06 摘除（其订阅的生命周期事件全仓无发布方，实例从不被读取）。`packages/service/src/session/models/SessionState.ts:44` 另有**同名不同物**（类 + `SESSION_STATES` 集合），见 `BOUNDARY_STATE_MACHINES`。',
   },
   {
     id: 'task',

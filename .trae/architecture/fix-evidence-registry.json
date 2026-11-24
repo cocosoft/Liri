@@ -1,7 +1,7 @@
 {
   "$comment": "修复证据登记（生成物）：改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts；stages/flags 判据见 scripts/lint-fix-evidence.ts。",
   "version": 1,
-  "updatedAt": "2026-11-24T11:14:26.842Z",
+  "updatedAt": "2026-11-24T11:25:04.560Z",
   "stages": [
     "discovered",
     "fixed",
@@ -3033,7 +3033,6 @@
         "packages/infra/src/state/index.ts",
         "packages/infra/src/state/engine/stateMachineCatalog.ts",
         "app/src/chat/services/EventNotificationService.ts",
-        "app/src/chat/services/SessionStateBridge.ts",
         "packages/service/src/session/models/SessionState.ts"
       ],
       "tests": [

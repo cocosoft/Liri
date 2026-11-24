@@ -291,7 +291,7 @@
 | 项 | 结果 |
 |---|---|
 | 归一策略 | 新增 `app/src/chat/services/sessionMachineGuards.ts#pauseForApproval`：机器在 `idle` ⇒ 先 `start()` 归一到 `running` 再 `pause()`；返回"是否归一"供调用方留痕 |
-| 接线 | `facadeWiring` 的 `pauseSessionMachine` 改走该函数，归一发生时打 `warn`（`sessionId` / `reason`）；`SessionStateBridge` 的 `session:paused` 分支同法（其机器实例只靠事件驱动，天然停在 idle） |
+| 接线 | `facadeWiring` 的 `pauseSessionMachine` 改走该函数，归一发生时打 `warn`（`sessionId` / `reason`）；`SessionStateBridge` 的 `session:paused` 分支同法（该桥接已于批次 13 摘除） |
 | 契约 | **不改转移表**：`idle → requires_action` 仍非法；`SessionStateMachine.test.ts` 的"idle 时 pause 应抛出"继续绿 |
 | 测试 | 新增 `tests/state/session/pauseForApproval.test.ts`（5 例：idle 归一后 requires_action / running 只暂停一次 / requires_action 幂等 / 调用顺序 start→pause / 负向对照"直接 pause 仍抛"） |
 
@@ -342,11 +342,15 @@
 
 保留：`PlansPanel`（ProjectsPage 在用）与 `constants/planStatus.ts`（PlansPanel 在用）。
 
+### 批次 13（P2 摘除桥接死轨）已落地
+
+删除取证（`code-deletion.md` CD01–CD06）：
+- **静态引用**：仅 `entrypoints/init.ts` 一处动态 `import('../chat/services/SessionStateBridge.js')`；无类型/值导入。
+- **事件发布方**：`session:activated / paused / resumed / archived / error` 全仓**只有订阅方**，无任何生产 `emit/publish`（仅测试夹具构造过一条）⇒ 桥接永不被驱动。
+- **读取方**：桥接自建的 `SessionStateMachine` 实例只在自己内部读写，外部从不读取（真实状态由 `ChatManager/SessionRuntimeState` 与持久化 `session.state` 承担）。
+- **处置**：删除 `SessionStateBridge.ts` + `init.ts` 装配块；`stateMachineCatalog` 的 `reconcile.evidence` 改指真实持有处 `sessionRuntimeState.ts#SessionRuntimeState`；证据登记移除该文件路径；`types.ts` / `SessionStateMachine.ts` 的历史注释同步订正。
+
 ### 后续（未实施）
 
-1. **P2｜双份会话状态机实例**：`ChatManager`（`SessionRuntimeState`）与 `SessionStateBridge` 各持一份
-   `SessionStateMachine`，而 `session:activated/paused/...` 只有订阅方、**无发布方** ⇒ 桥接那份是死轨。
-   收敛需先裁定"生命周期事件是否保留"：若保留须补发布方并改为单一实例；若不保留则按 CD01–CD06
-   整体摘除 `SessionStateBridge` 的机器段（本批未动，避免误删运行时依赖）。
-2. **P2｜PDCA 三面并存**（消息卡 / 浮动栏徽标 / 抽屉）：属"摘要 / 指示器 / 详情"三个粒度，
+1. **P2｜PDCA 三面并存**（消息卡 / 浮动栏徽标 / 抽屉）：属"摘要 / 指示器 / 详情"三个粒度，
    合并涉及产品形态裁定（保留哪几面、入口收敛到哪），本批未动。

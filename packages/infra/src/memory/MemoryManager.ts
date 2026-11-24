@@ -372,7 +372,8 @@ export class MemoryManagerImpl
     this.relationGraphPath = join(memoryDir, 'memory-relation-graph.json');
     this.store = new MemoryStoreImpl(memoryDir);
     this.scanner = new MemoryScannerImpl();
-    this.retriever = new MemoryRetrieverImpl(memoryDir);
+    // P1-1（2026-11-25）：把存储作为向量持久化端口注入检索器（SQLite `memory_vectors`）
+    this.retriever = new MemoryRetrieverImpl(memoryDir, undefined, this.store);
     this.promptService = new MemoryPromptService(
       this as unknown as MemoryManager
     );

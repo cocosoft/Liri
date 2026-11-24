@@ -149,6 +149,34 @@ export function loadMemorySearchConfig(): MemorySearchConfig {
 }
 
 /**
+ * 向量持久化端口（P1-1，2026-11-25）。
+ *
+ * 复用 `MemoryStoreImpl` 既有 SQLite `memory_vectors` 能力（`loadVectorIndex` /
+ * `saveMemoryVector` / `deleteMemoryVector` 早已实现但零消费者）。检索器只依赖这个
+ * 窄端口 ⇒ 单测可注入桩，且不必让检索器直接持有存储实例。
+ */
+export interface MemoryVectorPersistencePort {
+  loadVectorIndex(): Promise<
+    Record<
+      string,
+      {
+        vector: number[];
+        model: string;
+        timestamp: string;
+        model_version?: string;
+      }
+    >
+  >;
+  saveMemoryVector(
+    memoryId: string,
+    vector: number[],
+    model: string,
+    modelVersion?: string
+  ): Promise<void>;
+  deleteMemoryVector(memoryId: string): Promise<void>;
+}
+
+/**
  * 相似搜索结果
  */
 export interface SimilarMemoryResult {
@@ -265,13 +293,23 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
   private prefetchQueue?: MemoryPrefetchQueue;
 
   /**
+   * 向量持久化端口（P1-1）：缺省 ⇒ 向量仅留在进程内（旧行为）
+   */
+  private readonly vectorPersistence?: MemoryVectorPersistencePort;
+
+  /** 向量恢复的在途/已完成 Promise（保证"等它加载完"的调用方真能等到） */
+  private vectorsLoadPromise: Promise<void> | null = null;
+
+  /**
    * 构造函数
    * @param memoryDir 记忆目录路径
    * @param searchConfig 可选的搜索配置（默认使用 MEMORY_SEARCH_DEFAULTS）
+   * @param vectorPersistence 可选的向量持久化端口（缺省 ⇒ 不落库，零行为变更）
    */
   constructor(
     memoryDir: string = path.join(resolveDataDir(), 'memory'),
-    searchConfig?: MemorySearchConfig
+    searchConfig?: MemorySearchConfig,
+    vectorPersistence?: MemoryVectorPersistencePort
   ) {
     this.memoryDir = memoryDir;
     this.indexFilePath = path.join(memoryDir, 'memory-index.json');
@@ -279,11 +317,70 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
     this.memoryIndex = new Map();
     this.stemMap = new Map();
     this.searchConfig = searchConfig ?? loadMemorySearchConfig();
+    this.vectorPersistence = vectorPersistence;
 
     // 尝试加载索引
     this.loadIndex().catch(() => {
       // 加载失败时不做处理，后续会重新构建
     });
+
+    // P1-1：异步恢复向量（失败只记日志，检索回落到"按需重算"）
+    void this.loadPersistedVectors();
+  }
+
+  /**
+   * 从持久层恢复向量缓存（幂等；P1-1，2026-11-25）。
+   *
+   * 只填充**缓存未命中**的条目：进程内已算出的向量优先（避免旧模型向量覆盖新结果）。
+   * 模型是否匹配由使用侧判定（`cached.model === currentModel`）⇒ 模型切换后自动重算。
+   */
+  loadPersistedVectors(): Promise<void> {
+    if (!this.vectorPersistence) return Promise.resolve();
+    if (!this.vectorsLoadPromise) {
+      this.vectorsLoadPromise = this.doLoadPersistedVectors();
+    }
+    return this.vectorsLoadPromise;
+  }
+
+  private async doLoadPersistedVectors(): Promise<void> {
+    try {
+      const persisted = await this.vectorPersistence!.loadVectorIndex();
+      let loaded = 0;
+      for (const [id, entry] of Object.entries(persisted)) {
+        if (this.vectorCache.has(id)) continue;
+        this.vectorCache.set(id, { vector: entry.vector, model: entry.model });
+        loaded += 1;
+      }
+      if (loaded > 0) {
+        logger.info('记忆向量已从 SQLite 恢复', { loaded });
+      }
+    } catch (error) {
+      // 失败不阻断检索：后续命中路径会按需重算并重新写库
+      await handleError(error, {
+        module: 'memory:retriever',
+        action: 'load_persisted_vectors',
+      });
+    }
+  }
+
+  /** 当前进程内向量缓存条数（观测用） */
+  getVectorCacheSize(): number {
+    return this.vectorCache.size;
+  }
+
+  /**
+   * 把新算出的向量写回持久层（fire-and-forget；失败不影响检索）。
+   */
+  private persistVector(memoryId: string, vector: number[], model: string): void {
+    if (!this.vectorPersistence) return;
+    this.vectorPersistence
+      .saveMemoryVector(memoryId, vector, model)
+      .catch((error: unknown) => {
+        logger.warn('记忆向量落库失败（不影响检索）', {
+          memoryId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
   }
 
   /**
@@ -412,10 +509,11 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
     } | null;
     if (!em) return;
     const emb = await em.embedOne(textToEmbed);
-    this.vectorCache.set(itemId, {
-      vector: Array.from(emb),
-      model: await this.getEmbeddingModelName(),
-    });
+    const vector = Array.from(emb);
+    const model = await this.getEmbeddingModelName();
+    this.vectorCache.set(itemId, { vector, model });
+    // P1-1（2026-11-25）：写回持久层 —— 重启后无需重算
+    if (vector.length > 0) this.persistVector(itemId, vector, model);
   }
 
   /**
@@ -620,10 +718,19 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
    * @param memoryId 记忆ID
    */
   removeFromIndex(memoryId: string): void {
-    const memory = this.memoryIndex.get(memoryId);
-    if (memory) {
-      this.memoryIndex.delete(memoryId);
-      // 这里可以添加清理词干映射的逻辑，但为了简单起见暂时省略
+    this.memoryIndex.delete(memoryId);
+    // P1-1（2026-11-25）：同步清掉进程内向量与持久层行 —— 否则删除/归档后，
+    // 旧向量会在重启时被恢复（同 id 重建时会命中过期向量）。
+    this.vectorCache.delete(memoryId);
+    if (this.vectorPersistence) {
+      this.vectorPersistence
+        .deleteMemoryVector(memoryId)
+        .catch((error: unknown) => {
+          logger.warn('记忆向量删除失败（不影响主流程）', {
+            memoryId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
     }
   }
 
@@ -1098,6 +1205,8 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
       } else {
         vector = (await this.embedPort?.embedOne(textToEmbed)) ?? [];
         this.vectorCache.set(item.id, { vector, model: currentModel });
+        // P1-1（2026-11-25）：写回持久层；空向量 = 嵌入不可用 ⇒ 不落库
+        if (vector.length > 0) this.persistVector(item.id, vector, currentModel);
       }
 
       const similarity = this.cosineSimilarity(queryEmb, vector);

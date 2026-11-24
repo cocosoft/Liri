@@ -1,7 +1,7 @@
 # Liri 记忆系统优化方案（草案 · 2026-11-25）
 
 > 来源：Anthropic《The components of agent memory》（2026-11-06，本地 HTML 已读）+ 本仓记忆子系统实测取证。
-> 状态：**Phase 1 已实施**（P0-1 全部 + P0-2 的 1–3 项；P0-2-4 字段留待 Phase 3，见 §8）。落地时按阶段拆独立提交，遵循 `code-deletion.md` CD05（先接线、再观察、后删旧路）。
+> 状态：**Phase 1 已实施**（P0-1 全部 + P0-2 的 1–3 项；P0-2-4 字段留待 Phase 3）；**Phase 2 进行中**（P1-1 向量持久化已落地，见 §8.3）。落地时按阶段拆独立提交，遵循 `code-deletion.md` CD05（先接线、再观察、后删旧路）。
 > 相关既有裁定：`.trae/specs/memory-conflict-detection.md`（冲突**不自动改写**）、`.trae/specs/dead-code-and-unwired-items-rulings.md`（未接线项不得当作既有能力）。
 
 ---
@@ -225,6 +225,19 @@ Liri 的记忆"三件套"（文件存储 / 混合检索 / 梦境巩固）都已�
 | 保留上限开关 | `memory.retention.enforce`（默认 `false` = dry-run） | dry-run 也落 `retention-report.json`（limit/total/overflow/enforced/archived/candidates） |
 | 冲突候选 | `runMaintenancePass` → `conflict-candidates.json` | 结构化候选（id 双方/类型/subject/confidence/detectedAt），**不自动改写** |
 | 真压缩 | `SessionMemoryManager._compactMemoryFile` | 改为结构化抽取：决策/待办/摘要**全保留**；其余按类型各留最近 15 条，总量预算 60 |
+
+### 8.3 P1-1 向量持久化（Phase 2）
+
+| 项 | 落点 | 要点 |
+|---|---|---|
+| 端口 | `MemoryVectorPersistencePort`（`MemoryRetriever.ts`） | 检索器只依赖窄端口；生产由 `MemoryStoreImpl`（SQLite `memory_vectors`）注入 ⇒ 单测可注入桩 |
+| 启动恢复 | `MemoryRetrieverImpl.loadPersistedVectors()` | 构造期异步恢复（幂等、共享同一 Promise）；只填**缓存未命中**条目，模型不匹配由使用侧判 `cached.model === currentModel` ⇒ 自动重算 |
+| 写入 | `persistVector()`（预取 / 相似度搜索两条计算路径） | 只写新算出的非空向量（fire-and-forget，失败只记 warn，不影响检索） |
+| 删除 | `removeFromIndex()` | 同步清进程内缓存 + 删除持久行（避免删除/归档后旧向量被恢复） |
+| 观测 | `getVectorCacheSize()` | 进程内向量缓存条数 |
+
+**说明**：`memory_vectors` 表与 `load/save/deleteMemoryVector` 原已存在但零消费者（见 §2），本项是**接线**而非新造。
+`memory.search` 配置（hybrid 权重 / minScore / mmr / temporalDecay）已由 `loadMemorySearchConfig()` 读取；其中 mmr / temporalDecay 仍未被 `hybridSearch` 使用（默认关），属 P1-1 剩余项。
 
 **明确未做（P0-2-4，延后到 Phase 3）**：`confidence / verifiedAt / sourceEventSeqs / accessCount` 字段的写入与持久化。理由：当前无消费者，属"未接线项"（`dead-code-and-unwired-items-rulings.md`）；Phase 3 的 Validate/Promote 才真正读取它们，届时同批加字段 + frontmatter 读写 + 用例。
 

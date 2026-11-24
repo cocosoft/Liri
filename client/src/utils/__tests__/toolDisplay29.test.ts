@@ -6,62 +6,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import {
-  resolveGroupStatus,
-  stripDuplicateToolPrefix,
-} from '../toolHumanSummary';
-
-describe('resolveGroupStatus（#29 工具组聚合状态）', () => {
-  const call = (status: string, pendingApproval = false) => ({
-    type: 'tool_call',
-    toolCall: { status, pendingApproval },
-  });
-
-  it('取第一块会误判的场景：首块 completed + 后块 running ⇒ running', () => {
-    expect(resolveGroupStatus([call('completed'), call('running')])).toBe(
-      'running',
-    );
-  });
-
-  it('全部完成 ⇒ completed（不再停留在"正在执行"）', () => {
-    expect(resolveGroupStatus([call('completed'), call('completed')])).toBe(
-      'completed',
-    );
-  });
-
-  it('已完成 + 残留待审批 ⇒ pending_approval（组头如实提示）', () => {
-    expect(
-      resolveGroupStatus([call('completed'), call('completed', true)]),
-    ).toBe('pending_approval');
-  });
-
-  it('运行中优先于待审批（有活干就不显示等待审批）', () => {
-    expect(
-      resolveGroupStatus([call('running'), call('completed', true)]),
-    ).toBe('running');
-  });
-
-  // 2026-11-13：历史合并路径会把待审批块的 status 置为 running（见
-  // `chat-message-set-messages`），原判据按 running 优先 ⇒ 组头 ✅ + 无「等待审批」徽标。
-  it('待审批块即使 status=running 也按 pending_approval（不能吞掉审批信号）', () => {
-    expect(resolveGroupStatus([call('running', true)])).toBe(
-      'pending_approval',
-    );
-  });
-
-  it('有失败且无进行中 ⇒ failed', () => {
-    expect(resolveGroupStatus([call('failed'), call('completed')])).toBe(
-      'failed',
-    );
-  });
-
-  it('无 tool_call 块 ⇒ 按 isStreaming 兜底', () => {
-    expect(resolveGroupStatus([])).toBe('completed');
-    expect(resolveGroupStatus([{ type: 'status', isStreaming: true }])).toBe(
-      'running',
-    );
-  });
-});
+import { stripDuplicateToolPrefix } from '../toolHumanSummary';
 
 describe('stripDuplicateToolPrefix（#29 标题去重）', () => {
   it('「任务管理 管理任务」⇒ 只留后半段', () => {

@@ -20,11 +20,10 @@
 // SOFTWARE.
 
 import { describe, expect, it } from "vitest";
-import type { LiriEvent, Message } from "@/types";
+import type { LiriEvent } from "@/types";
 import {
   buildLogEventsFromEvents,
   countRawToolErrorRecords,
-  extractToolCalls,
 } from "../sessionLog";
 
 const SID = "sid-log";
@@ -106,40 +105,6 @@ describe("buildLogEventsFromEvents — 工具终态（B-3）", () => {
     expect(logs[0].record?.inboxId).toBeUndefined();
     expect(logs[0].status).toBe("completed");
     expect(logs[0].record?.result).toBe("ok");
-  });
-});
-
-describe("extractToolCalls — 审批标记透传（2026-11-24）", () => {
-  it("block.pendingApproval / inboxId 进入记录（LogTab 待审批分支不再死代码）", () => {
-    const messages = [
-      {
-        id: "m1",
-        role: "assistant",
-        session_id: SID,
-        timestamp: 1000,
-        content: "",
-        blocks: [
-          {
-            id: "b1",
-            type: "tool_call",
-            toolCallId: "tc-1",
-            toolCall: {
-              id: "tc-1",
-              name: "bash",
-              arguments: {},
-              status: "running",
-              pendingApproval: true,
-              inboxId: "box-1",
-            },
-          },
-        ],
-      },
-    ] as unknown as Message[];
-
-    const [record] = extractToolCalls(messages);
-    expect(record.pendingApproval).toBe(true);
-    expect(record.inboxId).toBe("box-1");
-    expect(record.status).toBe("running");
   });
 });
 

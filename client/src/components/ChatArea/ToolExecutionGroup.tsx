@@ -32,15 +32,16 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
   const resolvedApprovalIds = resolvedApprovalInboxIds(messages);
   /** 该工具调用是否仍**有效等待审批**（残留标记 + 已落定卡 ⇒ false） */
   const isUnresolvedPending = useMemo(
-    () => (block: MessageBlock): boolean => {
-      const tc = block.toolCall;
-      if (tc?.pendingApproval !== true) return false;
-      const inboxId = tc.inboxId;
-      if (typeof inboxId === "string" && resolvedApprovalIds.has(inboxId)) {
-        return false;
-      }
-      return true;
-    },
+    () =>
+      (block: MessageBlock): boolean => {
+        const tc = block.toolCall;
+        if (tc?.pendingApproval !== true) return false;
+        const inboxId = tc.inboxId;
+        if (typeof inboxId === "string" && resolvedApprovalIds.has(inboxId)) {
+          return false;
+        }
+        return true;
+      },
     [resolvedApprovalIds],
   );
 
@@ -83,6 +84,28 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
     return t("chat.toolExecution");
   }, [blocks, t]);
 
+  /**
+   * 2026-11-24：组内是否存在**没有任何终态**的调用（既非 completed/failed，
+   * 也非 running / 待审批）—— 典型是「审批卡已处理/已过期，但后端未再写工具结果」
+   * 的残留调用。原实现把这种组当成 completed（✅），聚合行却写成「0/2 执行中」，
+   * 组头自相矛盾；这里显式识别，按「已中断」如实展示。
+   */
+  const hasUnfinishedCalls = useMemo(
+    () =>
+      blocks.some((b) => {
+        if (b.type !== "tool_call" || !b.toolCall) return false;
+        if (isUnresolvedPending(b)) return false;
+        const status = b.toolCall.status;
+        return (
+          status !== "completed" &&
+          status !== "failed" &&
+          status !== "running" &&
+          !b.isStreaming
+        );
+      }),
+    [blocks, isUnresolvedPending],
+  );
+
   const status = useMemo(() => {
     // #29（2026-10-30）：全组聚合（原实现取第一块 ⇒ 已完成组仍显示执行中/待审批）
     const raw = resolveGroupStatus(blocks);
@@ -91,10 +114,11 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
       raw === "pending_approval" &&
       !blocks.some((b) => isUnresolvedPending(b))
     ) {
-      return "executing";
+      return hasUnfinishedCalls ? "interrupted" : "executing";
     }
+    if (raw === "completed" && hasUnfinishedCalls) return "interrupted";
     return raw;
-  }, [blocks, isUnresolvedPending]);
+  }, [blocks, isUnresolvedPending, hasUnfinishedCalls]);
 
   const statusConfig = useMemo(() => {
     switch (status) {
@@ -112,6 +136,13 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
         };
       case "failed":
         return { icon: "\u{274C}", label: t("chat.failed"), color: "#f7768e" };
+      case "interrupted":
+        // 2026-11-24：审批已落定但调用没有终态结果 ⇒ 不再谎报「已完成 / 执行中」
+        return {
+          icon: "\u{23F8}",
+          label: t("chat.interrupted", "已中断"),
+          color: "#e6c384",
+        };
       default:
         return {
           icon: "\u{23F3}",
@@ -235,6 +266,9 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
       running,
       failed,
       pending,
+      // 2026-11-24：既非完成/失败，也非运行/待审批 ⇒ 这些调用其实没有终态
+      // （审批已落定后后端未再写结果），不能计入完成率，也不能谎报"执行中"
+      interrupted: total - completed - failed - running - pending,
       allDone: completed + failed === total && pending === 0,
     };
   }, [blocks, isUnresolvedPending]);
@@ -275,7 +309,7 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
     <div className="border border-gray-400/20 rounded-[10px] overflow-hidden mb-1">
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="flex items-center gap-1.5 px-2.5 py-1 bg-gray-400/[0.05] w-full cursor-pointer text-[#a9b1d6] text-[12px] text-left"
+        className="flex items-center gap-1.5 px-2.5 py-1 bg-gray-400/[0.05] w-full cursor-pointer text-gray-600 dark:text-[#a9b1d6] text-[12px] text-left"
       >
         {/* 状态图标 */}
         <span className="text-sm shrink-0 flex items-center">
@@ -287,7 +321,7 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
         </span>
 
         {/* 工具名称 + 参数摘要（聚合态：凝练总结 + 完成数；单工具态：工具名 + 摘要） */}
-        <span className="font-semibold text-gray-200 shrink overflow-hidden text-ellipsis whitespace-nowrap min-w-0">
+        <span className="font-semibold text-gray-800 dark:text-gray-200 shrink overflow-hidden text-ellipsis whitespace-nowrap min-w-0">
           {aggregateStats ? (
             <>
               {/* 凝练总结话语：如 "✅ 已执行 2 个工具调用" / "2 个工具调用 (1/2)" */}
@@ -305,16 +339,19 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
                 {" · "}
                 {aggregateStats.completed}/{aggregateStats.total}
                 {aggregateStats.failed > 0 && (
-                  <span className="text-red-400 ml-1">
+                  <span className="text-red-500 dark:text-red-400 ml-1">
                     ({aggregateStats.failed} {t("chat.failed")})
                   </span>
                 )}
                 {!aggregateStats.allDone && (
-                  <span className="text-amber-400/80 ml-1">
-                    {status === "pending_approval" ||
-                    aggregateStats.pending > 0
+                  <span className="text-amber-600 dark:text-amber-400/80 ml-1">
+                    {status === "pending_approval" || aggregateStats.pending > 0
                       ? t("chat.pendingApproval")
-                      : t("chat.executing", "执行中")}
+                      : aggregateStats.running > 0
+                        ? t("chat.executing", "执行中")
+                        : aggregateStats.interrupted > 0
+                          ? t("chat.interrupted", "已中断")
+                          : t("chat.executing", "执行中")}
                   </span>
                 )}
               </span>
@@ -341,7 +378,7 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
 
         {/* 错误信息 */}
         {status === "failed" && errorMessage && (
-          <span className="text-[11px] text-red-400 truncate max-w-[200px] shrink">
+          <span className="text-[11px] text-red-500 dark:text-red-400 truncate max-w-[200px] shrink">
             {errorMessage}
           </span>
         )}
@@ -357,7 +394,7 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
           {innerCollapsed ? (
             <button
               onClick={() => setInnerCollapsed(false)}
-              className="block w-full px-2.5 py-1 bg-transparent text-gray-400 text-xs cursor-pointer text-left"
+              className="block w-full px-2.5 py-1 bg-transparent text-gray-500 dark:text-gray-400 text-xs cursor-pointer text-left"
             >
               📋 {t("chat.expandDetail")} (
               {t("chat.itemsCount", {

@@ -54,7 +54,9 @@ function formatArgumentsNatural(
         key={key}
         className="flex flex-wrap gap-0.5 items-baseline text-[10px] leading-relaxed"
       >
-        <span className="text-[#7aa2f7] font-medium shrink-0">{label}:</span>
+        <span className="text-blue-600 dark:text-[#7aa2f7] font-medium shrink-0">
+          {label}:
+        </span>
         {isFilePathKey && onPreviewFile && typeof value === "string" ? (
           <a
             href="#"
@@ -62,12 +64,12 @@ function formatArgumentsNatural(
               e.preventDefault();
               onPreviewFile(value);
             }}
-            className="text-[#7aa2f7] underline cursor-pointer"
+            className="text-blue-600 dark:text-[#7aa2f7] underline cursor-pointer"
           >
             {formattedValue}
           </a>
         ) : (
-          <span className="text-gray-200 break-words whitespace-pre-wrap">
+          <span className="text-gray-700 dark:text-gray-200 break-words whitespace-pre-wrap">
             {formattedValue}
           </span>
         )}
@@ -90,23 +92,23 @@ function ToolResultJson({ result }: { result: unknown }) {
   const [copied, setCopied] = useState(false);
   if (jsonStr.length <= MAX_RESULT_JSON_LENGTH) {
     return (
-      <pre className="m-0 whitespace-pre-wrap break-words text-[10px] leading-relaxed text-[#a9b1d6] font-mono bg-black/15 p-1 rounded max-h-[200px] overflow-y-auto">
+      <pre className="m-0 whitespace-pre-wrap break-words text-[10px] leading-relaxed text-gray-700 dark:text-[#a9b1d6] font-mono bg-gray-100 dark:bg-black/15 p-1 rounded max-h-[200px] overflow-y-auto">
         {jsonStr}
       </pre>
     );
   }
   return (
     <div className="text-[10px]">
-      <div className="text-amber-400 mb-1">
+      <div className="text-amber-600 dark:text-amber-400 mb-1">
         {t("chat.resultTooLarge", {
           kb: (jsonStr.length / 1024).toFixed(0),
           defaultValue: "⚠️ 结果过大（{{kb}} KB），截断显示",
         })}
       </div>
-      <pre className="m-0 whitespace-pre-wrap break-words text-[10px] leading-relaxed text-[#a9b1d6] font-mono bg-black/15 p-1 rounded max-h-[200px] overflow-y-auto">
+      <pre className="m-0 whitespace-pre-wrap break-words text-[10px] leading-relaxed text-gray-700 dark:text-[#a9b1d6] font-mono bg-gray-100 dark:bg-black/15 p-1 rounded max-h-[200px] overflow-y-auto">
         {jsonStr.slice(0, 3000)}
       </pre>
-      <div className="text-amber-500 mt-1 flex items-center gap-2 flex-wrap">
+      <div className="text-amber-600 dark:text-amber-500 mt-1 flex items-center gap-2 flex-wrap">
         <span>
           {t("chat.remainingChars", {
             count: (jsonStr.length - 3000).toLocaleString(),
@@ -158,7 +160,8 @@ function ToolCallGroup({
     typeof toolCall.inboxId === "string" &&
     resolvedApprovalInboxIds(messages).has(toolCall.inboxId);
   /** 仍有效的「等待审批」态（残留标记已落定 ⇒ false） */
-  const awaitingApproval = toolCall.pendingApproval === true && !approvalResolved;
+  const awaitingApproval =
+    toolCall.pendingApproval === true && !approvalResolved;
 
   useEffect(() => {
     const wasStreaming = prevStreaming.current;
@@ -211,7 +214,7 @@ function ToolCallGroup({
     <>
       {toolCall.arguments && Object.keys(toolCall.arguments).length > 0 && (
         <div className="mb-0.5">
-          <div className="text-[10px] font-semibold text-[#565f89] uppercase tracking-wider mb-0.5">
+          <div className="text-[10px] font-semibold text-gray-500 dark:text-[#565f89] uppercase tracking-wider mb-0.5">
             {t("chat.parameters")}
           </div>
           <div className="flex flex-col gap-0.5">
@@ -224,14 +227,14 @@ function ToolCallGroup({
       )}
       {toolCall.result !== undefined && (
         <div>
-          <div className="text-[10px] font-semibold text-[#565f89] uppercase tracking-wider mb-0.5">
+          <div className="text-[10px] font-semibold text-gray-500 dark:text-[#565f89] uppercase tracking-wider mb-0.5">
             {t("chat.result")}
           </div>
           {isMediaTool ? (
             <ImageToolResult toolCall={toolCall} />
           ) : showFullResult && toolCall._hasFullResult ? (
             <div>
-              <div className="text-[10px] text-amber-400 mb-1">
+              <div className="text-[10px] text-amber-600 dark:text-amber-400 mb-1">
                 {t("chat.expandedFullResult", {
                   count:
                     typeof toolCall.result === "string"
@@ -243,7 +246,7 @@ function ToolCallGroup({
                   defaultValue: "✅ 已展开完整结果（{{count}} 字符）",
                 })}
               </div>
-              <pre className="m-0 whitespace-pre-wrap break-words text-[10px] leading-relaxed text-[#a9b1d6] font-mono bg-black/15 p-2 rounded max-h-[400px] overflow-y-auto">
+              <pre className="m-0 whitespace-pre-wrap break-words text-[10px] leading-relaxed text-gray-700 dark:text-[#a9b1d6] font-mono bg-gray-100 dark:bg-black/15 p-2 rounded max-h-[400px] overflow-y-auto">
                 {typeof toolCall.result === "string"
                   ? toolCall.result +
                     "\n\n" +
@@ -252,7 +255,7 @@ function ToolCallGroup({
               </pre>
               <button
                 onClick={() => setShowFullResult(false)}
-                className="mt-1 text-[10px] text-amber-400 hover:text-amber-300 underline"
+                className="mt-1 text-[10px] text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 underline"
               >
                 ▲ {t("chat.collapse")}
               </button>
@@ -266,7 +269,7 @@ function ToolCallGroup({
               {toolCall._hasFullResult && (
                 <button
                   onClick={() => setShowFullResult(true)}
-                  className="mt-1 text-[10px] text-amber-400 hover:text-amber-300 underline"
+                  className="mt-1 text-[10px] text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 underline"
                 >
                   ▼ {t("chat.expandFullResult")}
                 </button>
@@ -285,18 +288,15 @@ function ToolCallGroup({
       <div className="tool-call-inline">
         <button
           onClick={handleToggle}
-          className="flex items-center gap-2 px-2 py-1 w-full text-left text-[12px] cursor-pointer transition-colors hover:bg-gray-400/[0.05]"
+          className="flex items-center gap-2 px-2 py-1 w-full text-left text-[12px] cursor-pointer transition-colors hover:bg-gray-400/[0.05] text-gray-600 dark:text-[#a9b1d6]"
           style={{
             background: "transparent",
             border: "none",
-            color: "#a9b1d6",
           }}
         >
           <span className="shrink-0">{statusIcon}</span>
           {pendingBadge}
-          <span className="min-w-0 truncate">
-            {summary || displayName}
-          </span>
+          <span className="min-w-0 truncate">{summary || displayName}</span>
           {isStreaming && (
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-300 animate-pulse shrink-0" />
           )}
@@ -322,16 +322,16 @@ function ToolCallGroup({
     <div className="border border-gray-400/20 rounded-lg overflow-hidden mb-0">
       <button
         onClick={handleToggle}
-        className="flex items-center gap-1 px-2 py-0.5 w-full cursor-pointer text-[#a9b1d6] text-[12px] text-left"
+        className="flex items-center gap-1 px-2 py-0.5 w-full cursor-pointer text-gray-600 dark:text-[#a9b1d6] text-[12px] text-left"
         style={{ background: "rgba(128, 128, 128, 0.05)", border: "none" }}
       >
         <span>{statusIcon}</span>
         {pendingBadge}
-        <span className="flex-1 font-medium text-gray-200 overflow-hidden text-ellipsis whitespace-nowrap min-w-0">
+        <span className="flex-1 font-medium text-gray-800 dark:text-gray-200 overflow-hidden text-ellipsis whitespace-nowrap min-w-0">
           {displayName}
         </span>
         {summary && (
-          <span className="text-[#565f89] text-[11px] overflow-hidden text-ellipsis whitespace-nowrap max-w-[160px] shrink">
+          <span className="text-gray-500 dark:text-[#565f89] text-[11px] overflow-hidden text-ellipsis whitespace-nowrap max-w-[160px] shrink">
             {summary}
           </span>
         )}

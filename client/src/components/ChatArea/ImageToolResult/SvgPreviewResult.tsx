@@ -144,16 +144,16 @@ export default function SvgPreviewResult({ data }: Props) {
           />
         </div>
       ) : (
-        <pre className="m-0 whitespace-pre-wrap break-words text-[10px] leading-relaxed text-[#a9b1d6] font-mono bg-black/15 p-2 rounded max-h-[300px] overflow-y-auto">
+        <pre className="m-0 whitespace-pre-wrap break-words text-[10px] leading-relaxed text-gray-700 dark:text-[#a9b1d6] font-mono bg-gray-100 dark:bg-black/15 p-2 rounded max-h-[300px] overflow-y-auto">
           {rawSvg}
         </pre>
       )}
 
       {/* 控制栏 */}
-      <div className="flex flex-wrap items-center gap-2 text-[10px] text-gray-400">
+      <div className="flex flex-wrap items-center gap-2 text-[10px] text-gray-500 dark:text-gray-400">
         <button
           onClick={() => setShowCode(!showCode)}
-          className="text-[#7aa2f7] hover:underline cursor-pointer bg-transparent border-0 p-0"
+          className="text-blue-600 dark:text-[#7aa2f7] hover:underline cursor-pointer bg-transparent border-0 p-0"
         >
           {showCode ? t("image.showPreview") : t("image.showCode")}
         </button>

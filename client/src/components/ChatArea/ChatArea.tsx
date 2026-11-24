@@ -682,139 +682,147 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
           </button>
         </div>
       )}
-      <div ref={containerRef} className="flex-1 min-h-0 overflow-y-auto">
-        <div ref={contentRef}>
-          {/* 错误提示（1.10-4：删除文档流重复渲染，保留底部绝对定位浮层版本，始终可见） */}
+      {/*
+        2026-11-24：消息区单独包一层 relative 容器，供「回到底部」按钮锚定。
+        原实现按钮锚在 ChatArea 根节点（`absolute bottom-28`），而根节点底部还有
+        状态浮动栏 / 等待提示 / 输入区等可变高度区块 ⇒ 按钮会压在输入框右上角。
+        锚到消息区自身后，与输入区高度解耦。
+      */}
+      <div className="relative flex flex-1 flex-col min-h-0">
+        <div ref={containerRef} className="flex-1 min-h-0 overflow-y-auto">
+          <div ref={contentRef}>
+            {/* 错误提示（1.10-4：删除文档流重复渲染，保留底部绝对定位浮层版本，始终可见） */}
 
-          {/* P2-6: 中止恢复提示 */}
-          {recoverySessionId && (
-            <div className="m-4 p-4 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-xl flex items-start gap-3">
-              <span className="text-amber-500 dark:text-amber-400 flex-shrink-0 mt-0.5 text-lg">
-                ⏸
-              </span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">
-                  {t("chat.abortRecoveryTitle")}
-                </p>
-                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                  {t("chat.abortRecoveryDesc")}
-                </p>
-                <div className="flex items-center gap-2 mt-3">
-                  <button
-                    onClick={() => resumeRecovery(recoverySessionId)}
-                    className="text-xs px-3 py-1.5 rounded bg-amber-500 text-white hover:bg-amber-600 transition-colors font-medium"
-                  >
-                    {t("chat.abortRecoveryResume")}
-                  </button>
-                  <button
-                    onClick={dismissRecovery}
-                    className="text-xs px-3 py-1.5 rounded bg-amber-100 dark:bg-amber-800/50 text-amber-600 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-700/50 transition-colors"
-                  >
-                    {t("chat.abortRecoveryDismiss")}
-                  </button>
-                </div>
-              </div>
-              <button
-                onClick={dismissRecovery}
-                className="text-amber-400 hover:text-amber-600 dark:hover:text-amber-200 flex-shrink-0"
-                title={t("common.close")}
-              >
-                ✕
-              </button>
-            </div>
-          )}
-
-          {/* 阶段2: 断连挂起提示 */}
-          {currentSid && pausedInfo && (
-            <div className="m-4 p-4 bg-sky-50 dark:bg-sky-900/30 border border-sky-200 dark:border-sky-800 rounded-xl flex items-start gap-3">
-              <span className="text-sky-500 dark:text-sky-400 flex-shrink-0 mt-0.5 text-lg">
-                📡
-              </span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-sky-800 dark:text-sky-200 font-medium">
-                  {pausedInfo.phase === "recovering"
-                    ? t("chat.pausedStreamRecovering")
-                    : t("chat.pausedStreamTitle")}
-                </p>
-                <p className="text-xs text-sky-600 dark:text-sky-400 mt-1">
-                  {t("chat.pausedStreamDesc")}
-                </p>
-                <div className="flex items-center gap-2 mt-3">
-                  <button
-                    onClick={() => resumeStream(currentSid)}
-                    className="text-xs px-3 py-1.5 rounded bg-sky-500 text-white hover:bg-sky-600 transition-colors font-medium"
-                  >
-                    {t("chat.pausedStreamResume")}
-                  </button>
-                  <button
-                    onClick={() => abortPausedStream(currentSid)}
-                    className="text-xs px-3 py-1.5 rounded bg-sky-100 dark:bg-sky-800/50 text-sky-600 dark:text-sky-300 hover:bg-sky-200 dark:hover:bg-sky-700/50 transition-colors"
-                  >
-                    {t("chat.pausedStreamAbandon")}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <ErrorBoundary
-            fallback={
-              <div className="flex items-center justify-center min-h-[400px] p-8">
-                <div className="text-center">
-                  <p className="text-gray-500 mb-4">
-                    {t("chat.messageListLoadError")}
+            {/* P2-6: 中止恢复提示 */}
+            {recoverySessionId && (
+              <div className="m-4 p-4 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-xl flex items-start gap-3">
+                <span className="text-amber-500 dark:text-amber-400 flex-shrink-0 mt-0.5 text-lg">
+                  ⏸
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">
+                    {t("chat.abortRecoveryTitle")}
                   </p>
-                  <button
-                    onClick={() => window.location.reload()}
-                    className="px-4 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-                  >
-                    {t("chat.refreshPage")}
-                  </button>
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                    {t("chat.abortRecoveryDesc")}
+                  </p>
+                  <div className="flex items-center gap-2 mt-3">
+                    <button
+                      onClick={() => resumeRecovery(recoverySessionId)}
+                      className="text-xs px-3 py-1.5 rounded bg-amber-500 text-white hover:bg-amber-600 transition-colors font-medium"
+                    >
+                      {t("chat.abortRecoveryResume")}
+                    </button>
+                    <button
+                      onClick={dismissRecovery}
+                      className="text-xs px-3 py-1.5 rounded bg-amber-100 dark:bg-amber-800/50 text-amber-600 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-700/50 transition-colors"
+                    >
+                      {t("chat.abortRecoveryDismiss")}
+                    </button>
+                  </div>
+                </div>
+                <button
+                  onClick={dismissRecovery}
+                  className="text-amber-400 hover:text-amber-600 dark:hover:text-amber-200 flex-shrink-0"
+                  title={t("common.close")}
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
+            {/* 阶段2: 断连挂起提示 */}
+            {currentSid && pausedInfo && (
+              <div className="m-4 p-4 bg-sky-50 dark:bg-sky-900/30 border border-sky-200 dark:border-sky-800 rounded-xl flex items-start gap-3">
+                <span className="text-sky-500 dark:text-sky-400 flex-shrink-0 mt-0.5 text-lg">
+                  📡
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-sky-800 dark:text-sky-200 font-medium">
+                    {pausedInfo.phase === "recovering"
+                      ? t("chat.pausedStreamRecovering")
+                      : t("chat.pausedStreamTitle")}
+                  </p>
+                  <p className="text-xs text-sky-600 dark:text-sky-400 mt-1">
+                    {t("chat.pausedStreamDesc")}
+                  </p>
+                  <div className="flex items-center gap-2 mt-3">
+                    <button
+                      onClick={() => resumeStream(currentSid)}
+                      className="text-xs px-3 py-1.5 rounded bg-sky-500 text-white hover:bg-sky-600 transition-colors font-medium"
+                    >
+                      {t("chat.pausedStreamResume")}
+                    </button>
+                    <button
+                      onClick={() => abortPausedStream(currentSid)}
+                      className="text-xs px-3 py-1.5 rounded bg-sky-100 dark:bg-sky-800/50 text-sky-600 dark:text-sky-300 hover:bg-sky-200 dark:hover:bg-sky-700/50 transition-colors"
+                    >
+                      {t("chat.pausedStreamAbandon")}
+                    </button>
+                  </div>
                 </div>
               </div>
-            }
-          >
-            <ChatMessageList
-              messages={messages}
-              isStreaming={isStreaming}
-              sessionUsage={sessionUsage}
-              hasSession={!!currentSession}
-              sessionTitle={currentSession?.title}
-              // P0-2：渲染层一致性校验用（消息区与侧栏高亮对齐）
-              currentSessionId={currentSession?.id}
-              // W3：虚拟滚动需要滚动容器引用（滚动容器在 ChatArea，overflow-y-auto）
-              scrollRef={containerRef}
-              onCreateSession={handleCreateSession}
-              onSendMessage={handleSendMessage}
-            />
-          </ErrorBoundary>
-        </div>
-      </div>
+            )}
 
-      {/* 回到底部按钮：复用已有样式，检测 isUserScrolledUp 后渐显，移动端避开 MobileBottomNav */}
-      {isUserScrolledUp && showScrollButton && (
-        <button
-          onClick={() => scrollToBottom()}
-          aria-label={t("chat.scrollToBottom")}
-          role="button"
-          className="absolute bottom-28 right-6 z-10 w-10 h-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full shadow-lg flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-all max-md:bottom-32 opacity-80 hover:opacity-100"
-          title={t("chat.scrollToBottom")}
-        >
-          <svg
-            className="w-5 h-5 text-gray-500 dark:text-gray-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+            <ErrorBoundary
+              fallback={
+                <div className="flex items-center justify-center min-h-[400px] p-8">
+                  <div className="text-center">
+                    <p className="text-gray-500 mb-4">
+                      {t("chat.messageListLoadError")}
+                    </p>
+                    <button
+                      onClick={() => window.location.reload()}
+                      className="px-4 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                    >
+                      {t("chat.refreshPage")}
+                    </button>
+                  </div>
+                </div>
+              }
+            >
+              <ChatMessageList
+                messages={messages}
+                isStreaming={isStreaming}
+                sessionUsage={sessionUsage}
+                hasSession={!!currentSession}
+                sessionTitle={currentSession?.title}
+                // P0-2：渲染层一致性校验用（消息区与侧栏高亮对齐）
+                currentSessionId={currentSession?.id}
+                // W3：虚拟滚动需要滚动容器引用（滚动容器在 ChatArea，overflow-y-auto）
+                scrollRef={containerRef}
+                onCreateSession={handleCreateSession}
+                onSendMessage={handleSendMessage}
+              />
+            </ErrorBoundary>
+          </div>
+        </div>
+
+        {/* 回到底部按钮：锚定消息区（不压输入区），检测 isUserScrolledUp 后渐显 */}
+        {isUserScrolledUp && showScrollButton && (
+          <button
+            onClick={() => scrollToBottom()}
+            aria-label={t("chat.scrollToBottom")}
+            role="button"
+            className="absolute bottom-4 right-6 z-10 w-10 h-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full shadow-lg flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-all max-md:bottom-6 opacity-80 hover:opacity-100"
+            title={t("chat.scrollToBottom")}
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 14l-7 7m0 0l-7-7m7 7V3"
-            />
-          </svg>
-        </button>
-      )}
+            <svg
+              className="w-5 h-5 text-gray-500 dark:text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 14l-7 7m0 0l-7-7m7 7V3"
+              />
+            </svg>
+          </button>
+        )}
+      </div>
 
       {/* 轮次导航器 —— P1-6a：轮数取**后端总量**（与 header 同源），已加载部分按尾锚定编号 */}
       <RoundNavigator

@@ -27,10 +27,10 @@ function GroupStatusLine({
   const isCompleted = status !== undefined && COMPLETED_STATUSES.has(status);
 
   const textColor = isRunning
-    ? "text-amber-300"
+    ? "text-amber-600 dark:text-amber-300"
     : isCompleted
-      ? "text-green-400"
-      : "text-blue-400";
+      ? "text-green-600 dark:text-green-400"
+      : "text-blue-600 dark:text-blue-400";
 
   return (
     <div className="flex items-center gap-1 px-1 py-0.5 text-xs">

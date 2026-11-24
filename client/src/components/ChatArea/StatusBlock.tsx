@@ -45,13 +45,15 @@ function StatusBlock({
   return (
     <div style={styles.container}>
       <div style={styles.header}>
-        <span style={styles.icon}>{icon}</span>
+        <span className="text-[10px] shrink-0 text-gray-500 dark:text-[#565f89]">
+          {icon}
+        </span>
         <span
-          style={{
-            ...styles.text,
-            color: isRunning || isCompacting ? "#e6c384" : "#7aa2f7",
-            fontStyle: isRunning || isCompacting ? "italic" : "normal",
-          }}
+          className={`flex-1 text-left ${
+            isRunning || isCompacting
+              ? "italic text-amber-600 dark:text-[#e6c384]"
+              : "text-blue-600 dark:text-[#7aa2f7]"
+          }`}
         >
           {content}
         </span>
@@ -76,11 +78,6 @@ const styles: Record<string, React.CSSProperties> = {
     width: "100%",
     fontSize: "11px",
   },
-  icon: {
-    fontSize: "10px",
-    color: "#565f89",
-    flexShrink: 0,
-  },
   dot: {
     display: "inline-block",
     width: "6px",
@@ -88,10 +85,6 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: "50%",
     background: "#e6c384",
     ...STYLES.pulseDot,
-  },
-  text: {
-    flex: 1,
-    textAlign: "left",
   },
 };
 

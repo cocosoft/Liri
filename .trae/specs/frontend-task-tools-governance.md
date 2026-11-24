@@ -350,7 +350,7 @@
 - **读取方**：桥接自建的 `SessionStateMachine` 实例只在自己内部读写，外部从不读取（真实状态由 `ChatManager/SessionRuntimeState` 与持久化 `session.state` 承担）。
 - **处置**：删除 `SessionStateBridge.ts` + `init.ts` 装配块；`stateMachineCatalog` 的 `reconcile.evidence` 改指真实持有处 `sessionRuntimeState.ts#SessionRuntimeState`；证据登记移除该文件路径；`types.ts` / `SessionStateMachine.ts` 的历史注释同步订正。
 
-### 批次 14（P2-A 已落地 · P2-B/C 未实施）：PDCA 三面职责收敛
+### 批次 14（P2-A/P2-B 已落地 · P2-C 未实施）：PDCA 三面职责收敛
 
 **结论：三面全部保留，不合并、不删除。** 三者容器不同（消息流 / 输入区 / 展开面板）、
 信息粒度不同，合并会让任一场景缺信息。只按「摘要 / 指示器 / 详情」钉死各自边界。
@@ -383,7 +383,7 @@
 | 批次 | 范围 | 验收 |
 |---|---|---|
 | P2-A ✅ | 消息卡去 `percent`；加「查看详情」；实时覆盖仅作用于最后一卡；`resolvePdcaEntry` 拆 `active`/`available`（「查看详情」依赖它才在终态可用，故并入本批） | 单测：卡文本不含 `%`；历史卡不随最新事件变；终态 `available=true` |
-| P2-B | 徽标加状态点（进行中蓝脉冲 / 等待审批琥珀 / 终态灰）；终态徽标降级「查看结果」（写 `chat.pdcaViewResult`） | 组件断言：进行中/终态两种徽标形态 |
+| P2-B ✅ | 徽标抽为 `PdcaEntryBadge`：进行中「PDCA 编排」+ 蓝脉冲 / 终态「查看结果」+ 灰点；`terminal` **不参与**浮动栏常驻判据；等待审批仍由左侧主状态点承担（会话级，避免第二份判据） | 组件断言：两形态文案/点样式；点击只开合抽屉且不冒泡 |
 | P2-C | 抽屉标题区标注「唯一进度详情」；无 taskId 时只显示事件流（当前已按 `taskId &&` 跳过 `PdcaPipeline`） | 终态点「查看详情」⇒ 抽屉渲染；百分比仅出现在抽屉 |
 
 **P2-A 实施记录（已落地）**
@@ -398,3 +398,16 @@
 | 测试 | 新增 `pdcaWorkflowCard.test.tsx` 3 例（历史卡不串台 / 最后一张接实时但不含 `%` / 点详情开抽屉）；`pdcaEntry.test.ts` 改到新契约（终态 `available=true`） |
 
 **P2-A 验证**：client `tsc --noEmit` 通过；`vitest run` 全量 **1131 pass / 0 fail**（160 文件）；改动文件 ESLint 0 error；`lint:license` / `lint:locale` / `lint:state-ratchet` / `lint:consts` 全 PASS。
+
+**P2-B 实施记录（已落地）**
+
+| 项 | 结果 |
+|---|---|
+| 组件抽取 | 新增 `client/src/components/ChatArea/PdcaEntryBadge.tsx`：`active` ⇒「PDCA 编排」+ 蓝脉冲点；终态 ⇒「查看结果」+ 静态灰点；两形态点击都只开合抽屉且 `stopPropagation` |
+| 判据来源 | `ChatArea` 传 `visible: pdca.active` + `terminal: pdca.available && !pdca.active`（同一 `resolvePdcaEntry` 派生，无新增匹配逻辑） |
+| 不常驻 | `terminal` **不进入**浮动栏常驻判据（`keepVisible`/渲染闸门）：只在浮动栏因其它原因显示时降级出现，避免"跑过 PDCA 的会话永久挂一条浮动栏" |
+| 等待审批 | **不从徽标表达**：该状态是会话级（`hasPendingApproval` 含非 PDCA 审批），已由左侧主状态点（琥珀）与文案承担；徽标再判一次会与左侧矛盾 |
+| i18n | 新增 `chat.pdcaViewResult` / `chat.pdcaViewResultHint`（zh/en） |
+| 测试 | 新增 `pdcaEntryBadge.test.tsx` 3 例（进行中形态 / 终态形态 / 点击只开合且不冒泡） |
+
+**P2-B 验证**：client `tsc --noEmit` 通过；`vitest run` 全量 **1134 pass / 0 fail**（161 文件）；改动文件 ESLint 0 error；四个门禁 PASS（同上）。

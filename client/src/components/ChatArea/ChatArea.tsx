@@ -1002,6 +1002,8 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
           pdca={{
             // 批次 14（P2-A）：徽标只在"进行中"常驻（终态不再谎报运行态）
             visible: pdca.active,
+            // 批次 14（P2-B）：终态但仍有 PDCA 可看 ⇒ 徽标降级「查看结果」
+            terminal: pdca.available && !pdca.active,
             open: pdcaOpen,
             onToggle: handleTogglePdca,
           }}

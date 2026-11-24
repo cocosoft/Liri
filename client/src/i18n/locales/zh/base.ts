@@ -440,6 +440,8 @@ const zhBase = {
     // UI 期 UI-2（2026-09-23）：PDCA 编排入口徽标（原为独占一行的"📊 PDCA 编排详情"）
     pdcaBadge: "PDCA 编排",
     pdcaBadgeHint: "展开 / 收起 PDCA 编排面板",
+    pdcaViewResult: "查看结果",
+    pdcaViewResultHint: "本轮编排已结束，展开查看结果与事件流",
     pdcaIdle: "PDCA 编排进行中",
     // 「用编排推进」入口（存在未完成 todo 且尚无进行中 PDCA 时展示）
     pdcaSuggest: "任务较多？用编排分步推进",

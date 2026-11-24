@@ -25,6 +25,8 @@ import {
 import { getTaskStatusStyle } from "../../constants/taskStatus";
 // 批次 4（2026-11-24）：执行阶段文案的单一事实源（与 ProgressCard 共用）
 import { getExecutionPhaseStyle } from "../../constants/executionPhase";
+// 批次 14 P2-B（2026-11-24）：PDCA 入口徽标（进行中 / 终态两形态；点击开合抽屉）
+import PdcaEntryBadge from "./PdcaEntryBadge";
 
 /** 2026-11-24（批次 5 / C2）：状态图标/颜色收敛到 `constants/taskStatus`（含 skipped） */
 
@@ -145,8 +147,14 @@ export default function StatusFloatBar({
   fluid?: boolean;
   /** 当前会话 id —— 心跳按会话分键（多会话并行时不得用别的会话的心跳作证） */
   sessionId?: string;
-  /** UI-2（2026-09-23）：PDCA 编排徽标（可见性/展开态由 ChatArea 与 usePdcaEntry 提供） */
-  pdca?: { visible: boolean; open: boolean; onToggle: () => void };
+  /** UI-2（2026-09-23）：PDCA 编排徽标（可见性/展开态由 ChatArea 与 usePdcaEntry 提供）
+   *  批次 14 P2-B：`terminal` = 本轮已结束但该会话仍有 PDCA 可看 ⇒ 徽标降级为「查看结果」 */
+  pdca?: {
+    visible: boolean;
+    open: boolean;
+    onToggle: () => void;
+    terminal?: boolean;
+  };
   /** 「用编排推进（启动 PDCA）」入口（判据/动作由 ChatArea 与 usePdcaStartEntry 提供）：
    *  仅"存在未完成 todo 且尚无进行中 PDCA"时可见，与徽标互斥 */
   orchestrate?: {
@@ -385,6 +393,14 @@ export default function StatusFloatBar({
 
   const statusText = getStatusText();
 
+  /**
+   * 批次 14 P2-B：徽标两形态都显示 —— 进行中（`visible`，同时是浮动栏常驻判据之一）
+   * 或本轮已结束但该会话仍有 PDCA 可看（`terminal` ⇒ 降级「查看结果」）。
+   * ⚠️ `terminal` **不参与常驻判据**（见上方渲染闸门），否则每个跑过 PDCA 的会话
+   * 都会永久挂一条浮动栏。
+   */
+  const showPdcaBadge = Boolean(pdca && (pdca.visible || pdca.terminal));
+
   return (
     <div className="w-full relative">
       <div
@@ -521,25 +537,14 @@ export default function StatusFloatBar({
               </button>
             )}
 
-            {/* UI-2：PDCA 编排徽标（点击展开/收起；stopPropagation 避免误触任务面板） */}
-            {pdca?.visible && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  pdca.onToggle();
-                }}
-                aria-expanded={pdca.open}
-                aria-label={t("chat.pdcaBadge")}
-                title={t("chat.pdcaBadgeHint")}
-                className={`shrink-0 flex items-center gap-1 px-2 py-0.5 text-xs rounded-md transition-colors ${
-                  pdca.open
-                    ? "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300"
-                    : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-                }`}
-              >
-                <span>📊</span>
-                <span>{t("chat.pdcaBadge")}</span>
-              </button>
+            {/* UI-2：PDCA 编排徽标（进行中 / 终态两形态；stopPropagation 避免误触任务面板）
+                批次 14 P2-B：渲染收敛到 `PdcaEntryBadge`（状态点 + 文案由 active 决定） */}
+            {showPdcaBadge && pdca && (
+              <PdcaEntryBadge
+                active={pdca.visible}
+                open={pdca.open}
+                onToggle={pdca.onToggle}
+              />
             )}
 
             {/* 任务进度展开指示 —— P2-5：由纯 svg 改为真按钮，

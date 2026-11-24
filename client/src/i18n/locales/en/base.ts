@@ -453,6 +453,9 @@ const enBase = {
     // UI 期 UI-2（2026-09-23）：PDCA 编排入口徽标
     pdcaBadge: "PDCA",
     pdcaBadgeHint: "Expand / collapse the PDCA orchestration panel",
+    pdcaViewResult: "View result",
+    pdcaViewResultHint:
+      "This orchestration round has ended — expand to view results and events",
     pdcaIdle: "PDCA orchestration in progress",
     // "Advance with orchestration" entry (shown when unfinished todos exist and no PDCA is running)
     pdcaSuggest: "Many tasks? Advance with orchestration",

@@ -1,7 +1,7 @@
 {
   "$comment": "修复证据登记（生成物）：改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts；stages/flags 判据见 scripts/lint-fix-evidence.ts。",
   "version": 1,
-  "updatedAt": "2026-11-24T13:38:15.425Z",
+  "updatedAt": "2026-11-24T13:50:12.877Z",
   "stages": [
     "discovered",
     "fixed",
@@ -17595,6 +17595,35 @@
       "changelog": [],
       "reopenWhen": "点中止后任务再次长期显示运行中，或终态事件未广播（全文见 archive/evidence-detail.jsonl#PDCA-ABORT-NOT-RUNNING-P2E）",
       "notes": "not_running 分支就地写 abort checkpoint（abortedBy=user_abort）+ 仅有 workItemId 时同步归属 + tasks 侧 notifyPdcaAbortSettled 经 hook 由 main 装配广播终态，返回 200 checkpointOnly；已终态仍 409。真实复验：主链 pdca_mwuqoove abort ⇒ 200 checkpointOnly + phase=abort。"
+    },
+    {
+      "id": "PDCA-STAGE-CHAIN-DETAIL-P2F",
+      "title": "PDCA 阶段链详情：后端读模型透出 stages + 抽屉渲染阶段列表（原为「无步骤快照」空态）",
+      "source": ".trae/specs/frontend-task-tools-governance.md §6 批次 17（P2-F）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/infrastructure/http/handlers/pdca-handlers.ts",
+        "client/src/services/planService.ts",
+        "client/src/components/Agent/PdcaPipeline.tsx"
+      ],
+      "tests": [
+        "app/tests/http/pdca-status-stages.contract.test.ts",
+        "client/src/components/Agent/__tests__/pdcaPipelineStages.test.tsx"
+      ],
+      "changelog": [],
+      "reopenWhen": "抽屉对阶段链再次只显示「无步骤快照」，或 stages 字段被改写为非原样结构（全文见 archive/evidence-detail.jsonl#PDCA-STAGE-CHAIN-DETAIL-P2F）",
+      "notes": "读模型原样透出 stages/currentStage（无则不返回、不伪造 plan）；前端无 plan 但有 stages 时渲染 StageChainView（id 原样、审批门标记、currentStage 高亮）。真实接口已返回 stages=3。抽屉级 e2e 未完成：两次自动升级均未写 pdca_workflow 快照（已记预存问题）。"
     }
   ]
 }

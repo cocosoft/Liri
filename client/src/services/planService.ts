@@ -137,12 +137,24 @@ export const planService = {
 
 /* ========== PDCA 管理 ========== */
 
+/** 阶段链的单阶段摘要（后端 checkpoint **原样透出**；存在 `approvalInboxId` = 该阶段有审批门卡） */
+export interface PdcaStageSummary {
+  id: string;
+  status: string;
+  approvalInboxId?: string;
+  [key: string]: unknown;
+}
+
 export interface PdcaStatus {
   taskId: string;
   planId: string;
   phase: string;
   description: string;
   plan?: Plan;
+  /** P2-F：阶段链进度（无 `plan` 时展示；仅 checkpoint 回退路径返回） */
+  stages?: PdcaStageSummary[];
+  /** P2-F：当前阶段 id（与 `stages[].id` 对应） */
+  currentStage?: string;
   progress?: {
     total: number;
     pending: number;

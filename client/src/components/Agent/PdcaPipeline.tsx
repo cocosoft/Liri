@@ -4,6 +4,7 @@ import { httpLegacy as http } from "../../services/httpClient";
 import { handleClientError } from "../../utils/handleError";
 import {
   pdcaService,
+  type PdcaStageSummary,
   type PdcaStatus as PdcaServiceStatus,
   type Plan as PlanServicePlan,
   type PlanStep as PlanServiceStep,
@@ -167,12 +168,43 @@ export default function PdcaPipeline({ taskId }: PdcaPipelineProps) {
     );
   }
 
-  if (!status || !status.plan) {
+  if (!status) {
+    return (
+      <div className="space-y-3">
+        <div className="text-center py-4">
+          <p className="text-xs text-gray-400">{t("agent.noAgents")}</p>
+          <button
+            onClick={load}
+            className="mt-2 text-xs text-blue-600 hover:text-blue-800"
+          >
+            {t("common.refresh")}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  /**
+   * P2-F（2026-11-24，真机 `pdca_mwupjxor`）：阶段链任务没有 `plan.steps`，
+   * 进度在 `stages[]` 里。原实现直接落到「无步骤快照」空态 ⇒ 抽屉（唯一详情来源）
+   * 对阶段链等于没有详情。现按 stages 渲染阶段列表与审批门标记。
+   */
+  if (!status.plan) {
+    const stages = status.stages ?? [];
+    if (stages.length > 0) {
+      return (
+        <StageChainView
+          stages={stages}
+          currentStage={status.currentStage}
+          onRefresh={load}
+        />
+      );
+    }
     return (
       <div className="space-y-3">
         <div className="text-center py-4">
           <p className="text-xs text-gray-400">
-            {status && status.source === "checkpoint"
+            {status.source === "checkpoint"
               ? t("agent.noStepSnapshot")
               : t("agent.noAgents")}
           </p>
@@ -447,6 +479,78 @@ export default function PdcaPipeline({ taskId }: PdcaPipelineProps) {
       {/* 刷新 */}
       <button
         onClick={load}
+        className="w-full text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 py-0.5"
+      >
+        {t("common.refresh")}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * 阶段链视图（P2-F，2026-11-24）。
+ *
+ * 阶段链（`StageOrchestrator`）没有顶层 `plan.steps`，进度在 `stages[]`
+ * （`id` / `status` / `approvalInboxId`）。这里**只读原样渲染**：
+ * 阶段名用其 id（不做硬编码中文映射 —— 阶段集合是配置驱动的，CS02），
+ * 状态词复用 `STATUS_TEXT`；`currentStage` 高亮；有审批门卡标「待审批」。
+ */
+function StageChainView({
+  stages,
+  currentStage,
+  onRefresh,
+}: {
+  stages: PdcaStageSummary[];
+  currentStage?: string;
+  onRefresh: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+          {t("agent.stageChain")}
+        </span>
+        <span className="text-[10px] text-gray-400">
+          {t("agent.stagesCount", { count: stages.length })}
+        </span>
+      </div>
+      <div className="space-y-1.5">
+        {stages.map((stage, i) => (
+          <div
+            key={stage.id}
+            className={`flex items-center gap-2 px-2.5 py-1.5 border rounded ${
+              stage.id === currentStage
+                ? "border-blue-300 dark:border-blue-700 bg-blue-50/50 dark:bg-blue-900/20"
+                : "border-gray-200 dark:border-gray-700"
+            }`}
+          >
+            <span className="w-4 h-4 flex items-center justify-center rounded-full border border-gray-300 dark:border-gray-600 text-[9px] text-gray-500 shrink-0">
+              {i + 1}
+            </span>
+            <span
+              className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                STATUS_COLOR[stage.status] || "bg-gray-300"
+              }`}
+            />
+            <span className="flex-1 min-w-0 truncate text-xs text-gray-700 dark:text-gray-300 font-mono">
+              {stage.id}
+            </span>
+            {stage.approvalInboxId && (
+              <span className="shrink-0 text-[9px] px-1 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                {t("agent.stageAwaitingApproval")}
+              </span>
+            )}
+            <span className="shrink-0 text-[10px] text-gray-500 dark:text-gray-400">
+              {STATUS_TEXT[stage.status]
+                ? t(STATUS_TEXT[stage.status])
+                : stage.status}
+            </span>
+          </div>
+        ))}
+      </div>
+      <button
+        onClick={onRefresh}
         className="w-full text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 py-0.5"
       >
         {t("common.refresh")}

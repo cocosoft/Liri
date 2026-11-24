@@ -1306,6 +1306,9 @@ const enKnowledge = {
     decisionEscalate: "⚠ Escalate",
     noStepSnapshot:
       "This task has no step snapshot (stage chain / pending approval)",
+    stageChain: "Stage chain",
+    stagesCount: "Stages ({{count}})",
+    stageAwaitingApproval: "Pending approval",
     overallProgress: "Overall progress",
     workspace: "Workspace",
     stepsCount: "Steps ({{count}})",

@@ -495,3 +495,27 @@
 触发阶段链；对主链 `pdca_mwuqoove` 调 `POST /v1/pdca/:id/abort` ⇒ **`200 { checkpointOnly: true }`**
 （旧实现此处 `409 not_running`），随后 `GET /v1/pdca/:id` 的 `phase=abort`；DB `pdca_checkpoints`
 主链与子阶段均为 `abort/abort`。测试会话已 `batch-delete`，current 已切回原会话。
+
+### 批次 17（P2-F）已落地：阶段链详情不再空态
+
+**问题（P2-D/P2-E 实测派生）**：抽屉对阶段链任务显示「该任务无步骤快照（阶段链/待审批）」。
+根因在**后端读模型**：`buildCheckpointStatusView` 只认顶层 `steps`，而 `StageOrchestrator`
+把进度写在 `stages[]`（checkpoint 原始数据确有 `stages`）⇒ 前端根本拿不到该字段。
+
+| 项 | 结果 |
+|---|---|
+| 后端透出 | `buildCheckpointStatusView` **原样透出** `stages` + `currentStage`（无 stages 时省略，旧数据行为不变；不据此伪造 `plan`） |
+| 前端类型 | `PdcaStatus` 增 `stages?: PdcaStageSummary[]` / `currentStage?: string` |
+| 阶段链视图 | `PdcaPipeline` 在无 `plan` 但有 `stages` 时渲染 `StageChainView`：序号 + 状态点 + 阶段 id + 审批门「待审批」+ 状态词；`currentStage` 高亮 |
+| 不硬编码 | 阶段名用其 id（阶段集合配置驱动，CS02），不做中文映射；状态词复用 `STATUS_TEXT` |
+| i18n | 新增 `agent.stageChain` / `agent.stagesCount` / `agent.stageAwaitingApproval`（zh/en） |
+
+验证：
+- 后端 contract 2 例（带 stages ⇒ 透出 + 不伪造 plan；无 stages ⇒ 字段缺省）。
+- 前端 1 例（无 plan + stages ⇒ 渲染阶段链、不显示空态）。
+- 真实接口：`GET /v1/pdca/pdca_mwupjxor` 现返回 `stages=3` / `currentStage=requirement`。
+- client `tsc --noEmit` 通过；`vitest run` **1146 pass**（165 文件）；app `bun test tests/http` **537 pass**。
+
+**如实边界（抽屉级 e2e 未完成）**：该 e2e 需要"会话里有持久化 `pdca_workflow` 卡片"；
+本次两次真实自动升级**均未写该快照块**（会话 5 条消息、pdcaBlockCount=0）⇒ 无法从卡片打开抽屉，
+前端视图由组件单测锁定。"升级未写快照"已另行记录到预存问题文档（非本批修复范围）。

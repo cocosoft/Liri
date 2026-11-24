@@ -1072,6 +1072,17 @@ function buildCheckpointStatusView(
     baseProgress && typeof rec.loopIteration === 'number'
       ? { ...baseProgress, iteration: rec.loopIteration }
       : baseProgress;
+  /**
+   * P2-F（2026-11-24，真机 `pdca_mwupjxor`）：阶段链（`StageOrchestrator`）把进度放在
+   * 顶层 `stages[]`，本读模型此前只认 `steps` ⇒ 前端拿到"无步骤快照"空态，
+   * 「唯一详情来源」对阶段链等于没有详情。这里**原样透出** `stages`/`currentStage`
+   * （不改结构、不推导新字段）；无 stages 时省略（旧数据行为不变）。
+   */
+  const rawStages = rec.stages;
+  const stages =
+    Array.isArray(rawStages) && rawStages.length > 0
+      ? (rawStages as Array<Record<string, unknown>>)
+      : undefined;
   return {
     taskId,
     planId: (rec.planId as string) ?? '',
@@ -1080,6 +1091,9 @@ function buildCheckpointStatusView(
     description: (rec.description as string) ?? '',
     plan,
     progress,
+    ...(stages
+      ? { stages, currentStage: rec.currentStage as string | undefined }
+      : {}),
     workItemId: rec.workItemId,
     workspaceId: rec.workspaceId,
     projectId: rec.projectId,

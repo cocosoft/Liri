@@ -5,9 +5,9 @@
  *
  * 覆盖：
  * - 已装配唤醒执行器 ⇒ fire 真正调用它（携带 sessionId / kind / taskId）
- * - 未装配 ⇒ 不抛错、保持 fired（可观测降级，不静默）
+ * - 未装配 ⇒ 不抛错，条目录回 `pending`（批次 2：不再先落 fired 吞掉唤醒）
  * - 未知 wakeId ⇒ 不抛错且不触发执行器
- * - 执行器返回失败 ⇒ 不抛错（由 fire 内部 warn 处理）
+ * - 执行器返回失败 ⇒ 不抛错，条目录回 `pending`（`attempts+1`）
  */
 import {
   describe,
@@ -100,7 +100,7 @@ describe('SelfWakeService.fire —— 真正唤醒会话（N-26）', () => {
     service.destroy();
   });
 
-  it('未装配执行器 ⇒ 不抛错且状态仍标记为 fired（可观测降级）', async () => {
+  it('未装配执行器 ⇒ 不抛错，条目回 pending 留待重试（批次 2：不再假装已唤醒）', async () => {
     const service = new SelfWakeService(new WakeStore(), LONG_TICK);
     const sessionId = 'test-fire-absent';
     const entry = await service.sleepFor(sessionId, 'task-2', 80_000);
@@ -109,7 +109,10 @@ describe('SelfWakeService.fire —— 真正唤醒会话（N-26）', () => {
     await service.fire(entry.id); // 不应抛错
 
     const reloaded = await new WakeStore().load(sessionId);
-    expect(reloaded.find((e) => e.id === entry.id)?.status).toBe('fired');
+    const saved = reloaded.find((e) => e.id === entry.id);
+    // 修复前：标记 fired（唤醒被静默吞掉，且 tick 不再重扫）；现在回 pending 等接线后重试
+    expect(saved?.status).toBe('pending');
+    expect(saved?.attempts).toBe(1);
     service.destroy();
   });
 
@@ -127,7 +130,7 @@ describe('SelfWakeService.fire —— 真正唤醒会话（N-26）', () => {
     service.destroy();
   });
 
-  it('执行器返回失败 ⇒ 不抛错（由 fire 内部记录告警）', async () => {
+  it('执行器返回失败 ⇒ 不抛错，条目录回 pending 且 attempts=1', async () => {
     const service = new SelfWakeService(new WakeStore(), LONG_TICK);
     const sessionId = 'test-fire-fail';
     const entry = await service.sleepFor(sessionId, 'task-3', 80_000);
@@ -135,6 +138,13 @@ describe('SelfWakeService.fire —— 真正唤醒会话（N-26）', () => {
     setSelfWakeResumeHandler(async () => ({ ok: false, error: 'boom' }));
 
     await service.fire(entry.id); // 不应抛错
+
+    const saved = (await new WakeStore().load(sessionId)).find(
+      (e) => e.id === entry.id
+    );
+    expect(saved?.status).toBe('pending');
+    expect(saved?.attempts).toBe(1);
+    expect(saved?.lastError).toBe('boom');
     service.destroy();
   });
 });

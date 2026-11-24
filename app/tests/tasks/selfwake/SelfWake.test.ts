@@ -222,17 +222,25 @@ describe('SelfWake', () => {
       expect(entry.eventKey).toBe('file_changed');
     });
 
-    it('fire marks entry as fired', async () => {
+    it('fire 续跑成功 ⇒ 状态落 fired', async () => {
+      const { setSelfWakeResumeHandler } =
+        await import('../../../src/tasks/selfwake/SelfWakeService');
       const store = new WakeStore();
       const svc = new SelfWakeService(store, 300_000);
       const sessionId = 'svc-test-5';
       const taskId = randomUUID();
 
-      const entry = await svc.sleepFor(sessionId, taskId, 30);
-      await svc.fire(entry.id);
+      // 批次 2 / A3：`fired` 只在**续跑成功后**写；未装配执行器会回 pending
+      setSelfWakeResumeHandler(async () => ({ ok: true }));
+      try {
+        const entry = await svc.sleepFor(sessionId, taskId, 30);
+        await svc.fire(entry.id);
 
-      const loaded = await store.load(sessionId);
-      expect(loaded[0].status).toBe('fired');
+        const loaded = await store.load(sessionId);
+        expect(loaded[0].status).toBe('fired');
+      } finally {
+        setSelfWakeResumeHandler(null);
+      }
     });
 
     it('getDueWakes returns only due entries', async () => {
@@ -240,8 +248,15 @@ describe('SelfWake', () => {
       const svc = new SelfWakeService(store, 300_000);
 
       // Create a fired entry (should not appear in due list)
+      const { setSelfWakeResumeHandler } =
+        await import('../../../src/tasks/selfwake/SelfWakeService');
+      setSelfWakeResumeHandler(async () => ({ ok: true }));
       const firedEntry = await svc.sleepFor('s1', randomUUID(), 30);
-      await svc.fire(firedEntry.id);
+      try {
+        await svc.fire(firedEntry.id);
+      } finally {
+        setSelfWakeResumeHandler(null);
+      }
 
       // Create a pending entry with past triggerAt
       const pastEntry = await svc.sleepFor('s2', randomUUID(), 86400);
@@ -311,7 +326,15 @@ describe('SelfWake', () => {
       const sooner = await svc.sleepFor(sessionId, 't', 60); // triggerAt = now + 60s
       const noTriggerAt = await svc.wakeOnJob(sessionId, 't', 'job-1'); // 无 triggerAt
       const fired = await svc.sleepFor(sessionId, 't', 300);
-      await svc.fire(fired.id);
+      // 批次 2 / A3：没有执行器时 fire 会把条目录回 pending ⇒ 用成功执行器制造 fired
+      const { setSelfWakeResumeHandler } =
+        await import('../../../src/tasks/selfwake/SelfWakeService');
+      setSelfWakeResumeHandler(async () => ({ ok: true }));
+      try {
+        await svc.fire(fired.id);
+      } finally {
+        setSelfWakeResumeHandler(null);
+      }
 
       const pending = await svc.getPendingBySession(sessionId);
       expect(pending.map((e) => e.id)).toEqual([

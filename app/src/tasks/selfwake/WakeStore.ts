@@ -117,26 +117,192 @@ export class WakeStore {
     return this.wakeToSession.get(wakeId);
   }
 
+  /**
+   * 在文件锁内对**单条**唤醒项做读-改-写（`changed !== false` 才落盘）。
+   *
+   * 未命中（索引/文件/条目任一缺失）⇒ `null`；读写异常 ⇒ `handleError` 后 `null`。
+   * 抽出的原因：批次 2 新增 `tryMarkFiring` / `requeueAfterFailure` / `markFired`
+   * 三处都是同一形态，避免各自复制锁与异常处理。
+   */
+  private async updateEntry<T>(
+    wakeId: string,
+    fn: (entry: WakeEntry) => { value: T; changed?: boolean }
+  ): Promise<T | null> {
+    const sid = await this.resolveSessionId(wakeId);
+    if (!sid) return null;
+    const sessionId: string = sid;
+    try {
+      return await this.withLock(sessionId, async () => {
+        const path = this.filePath(sessionId);
+        if (!existsSync(path)) return null;
+        const entries: WakeEntry[] = JSON.parse(readFileSync(path, 'utf-8'));
+        const entry = entries.find((e) => e.id === wakeId);
+        if (!entry) return null;
+        const { value, changed } = fn(entry);
+        if (changed !== false)
+          writeFileSync(path, JSON.stringify(entries, null, 2));
+        return value;
+      });
+    } catch (err) {
+      await handleError(err, {
+        module: 'tasks:selfwake',
+        action: 'updateWakeEntry',
+        context: { wakeId },
+      });
+      return null;
+    }
+  }
+
   /** 原子标记 fired：读→改→写（幂等：已是 fired 则不重复写） */
   async markFired(wakeId: string): Promise<void> {
-    const sid = await this.resolveSessionId(wakeId);
-    if (!sid) return;
-    const sessionId: string = sid;
-    await this.withLock(sessionId, async () => {
-      try {
-        const path = this.filePath(sessionId);
-        if (!existsSync(path)) return;
-        const entries: WakeEntry[] = JSON.parse(readFileSync(path, 'utf-8'));
-        const idx = entries.findIndex((e) => e.id === wakeId);
-        if (idx >= 0 && entries[idx].status !== 'fired') {
-          entries[idx].status = 'fired';
-          entries[idx].firedAt = Date.now();
-          writeFileSync(path, JSON.stringify(entries, null, 2));
-        }
-      } catch (err) {
-        handleError(err, { module: 'tasks:selfwake', action: 'markFired' });
-      }
+    await this.updateEntry(wakeId, (entry) => {
+      if (entry.status === 'fired') return { value: undefined, changed: false };
+      entry.status = 'fired';
+      entry.firedAt = Date.now();
+      return { value: undefined };
     });
+  }
+
+  /**
+   * 2026-11-24（批次 2 / A3）：CAS 抢锁 `pending|due → firing`。
+   *
+   * 为什么必须 CAS：同一到期条目会被 **cron tick 重扫**与**短时 timer** 两条路径同时
+   * `fire()` ⇒ 双续跑（会话被推进两轮）。只有抢到 `firing` 的一方继续；其余返回 `busy`。
+   *
+   * 顺带收口"已到期"的条目：`expiresAt <= now` ⇒ 直接置 `expired`（不续跑）。
+   */
+  async tryMarkFiring(
+    wakeId: string
+  ): Promise<'acquired' | 'busy' | 'not_pending' | 'missing'> {
+    const result = await this.updateEntry(wakeId, (entry) => {
+      if (entry.status === 'firing')
+        return { value: 'busy' as const, changed: false };
+      if (entry.status !== 'pending' && entry.status !== 'due')
+        return { value: 'not_pending' as const, changed: false };
+      const now = Date.now();
+      if (typeof entry.expiresAt === 'number' && entry.expiresAt <= now) {
+        entry.status = 'expired';
+        entry.expiredAt = now;
+        return { value: 'not_pending' as const };
+      }
+      entry.status = 'firing';
+      entry.firingAt = now;
+      return { value: 'acquired' as const };
+    });
+    return result ?? 'missing';
+  }
+
+  /**
+   * 2026-11-24（批次 2 / A3）：续跑失败 ⇒ `firing → pending`（`attempts+1`）；
+   * 达到 `maxAttempts` ⇒ 转 `failed`（不再无限重试，`lastError` 可查）。
+   *
+   * 只有仍处于 `firing`（本次抢锁方持有）才生效 ⇒ 不会覆盖别人已推进的状态。
+   */
+  async requeueAfterFailure(
+    wakeId: string,
+    error: string,
+    maxAttempts = 3
+  ): Promise<'pending' | 'failed' | 'missing' | 'ignored'> {
+    const result = await this.updateEntry(wakeId, (entry) => {
+      if (entry.status !== 'firing')
+        return { value: 'ignored' as const, changed: false };
+      const attempts = (entry.attempts ?? 0) + 1;
+      entry.attempts = attempts;
+      entry.lastError = error;
+      delete entry.firingAt;
+      if (attempts >= maxAttempts) {
+        entry.status = 'failed';
+        entry.failedAt = Date.now();
+        return { value: 'failed' as const };
+      }
+      entry.status = 'pending';
+      return { value: 'pending' as const };
+    });
+    return result ?? 'missing';
+  }
+
+  /**
+   * 2026-11-24（批次 2 / A3）：把 `pending|due` 且 `expiresAt` 已过的条目置 `expired`（返回条数）。
+   *
+   * 只对**外部条件类**（`completion` / `event`）写入 `expiresAt`：它们没有 `triggerAt`，
+   * 触发源缺失时永不 due —— 过期扫描是它们唯一的收敛路径。
+   */
+  async expireStale(now = Date.now()): Promise<number> {
+    let expired = 0;
+    const files = existsSync(this.dir)
+      ? readdirSync(this.dir).filter((f) => f.endsWith('.json'))
+      : [];
+    for (const f of files) {
+      const sid = basename(f, '.json');
+      await this.withLock(sid, async () => {
+        try {
+          const path = this.filePath(sid);
+          if (!existsSync(path)) return;
+          const entries: WakeEntry[] = JSON.parse(readFileSync(path, 'utf-8'));
+          let changed = false;
+          for (const e of entries) {
+            if (
+              (e.status === 'pending' || e.status === 'due') &&
+              typeof e.expiresAt === 'number' &&
+              e.expiresAt <= now
+            ) {
+              e.status = 'expired';
+              e.expiredAt = now;
+              expired += 1;
+              changed = true;
+            }
+          }
+          if (changed) writeFileSync(path, JSON.stringify(entries, null, 2));
+        } catch (err) {
+          await handleError(err, {
+            module: 'tasks:selfwake',
+            action: 'expireStaleWakes',
+            context: { sessionId: sid },
+          });
+        }
+      });
+    }
+    return expired;
+  }
+
+  /**
+   * 2026-11-24（批次 2 / A3）：启动期把崩溃残留的 `firing` 复位为 `pending`（返回条数）。
+   *
+   * 单进程假定：`firing` 只可能由**本进程**持有；进程重启后残留者必然不会再被推进，
+   * 若不复位就永远停在中间态（既不续跑、也不在等待投影里）—— 与 Inbox `processing` 同构。
+   */
+  async recoverStaleFiring(): Promise<number> {
+    let recovered = 0;
+    const files = existsSync(this.dir)
+      ? readdirSync(this.dir).filter((f) => f.endsWith('.json'))
+      : [];
+    for (const f of files) {
+      const sid = basename(f, '.json');
+      await this.withLock(sid, async () => {
+        try {
+          const path = this.filePath(sid);
+          if (!existsSync(path)) return;
+          const entries: WakeEntry[] = JSON.parse(readFileSync(path, 'utf-8'));
+          let changed = false;
+          for (const e of entries) {
+            if (e.status === 'firing') {
+              e.status = 'pending';
+              delete e.firingAt;
+              recovered += 1;
+              changed = true;
+            }
+          }
+          if (changed) writeFileSync(path, JSON.stringify(entries, null, 2));
+        } catch (err) {
+          await handleError(err, {
+            module: 'tasks:selfwake',
+            action: 'recoverStaleFiringWakes',
+            context: { sessionId: sid },
+          });
+        }
+      });
+    }
+    return recovered;
   }
 
   /** 获取所有 pending/due 状态的唤醒条目 */
@@ -179,10 +345,15 @@ export class WakeStore {
     return results;
   }
 
-  /** 清理 fired 超过 maxAgeMs 的条目 */
+  /** 清理**终态**（`fired` / `failed` / `expired`）超过 maxAgeMs 的条目 */
   async gc(maxAgeMs = 24 * 3600_000): Promise<number> {
     let cleaned = 0;
     const cutoff = Date.now() - maxAgeMs;
+    /** 终态进入时刻（批次 2 新增 `failed`/`expired` 后按各自时间戳裁剪） */
+    const terminalAt = (e: WakeEntry): number =>
+      e.firedAt ?? e.failedAt ?? e.expiredAt ?? 0;
+    const isTerminal = (e: WakeEntry): boolean =>
+      e.status === 'fired' || e.status === 'failed' || e.status === 'expired';
     const files = existsSync(this.dir)
       ? readdirSync(this.dir).filter((f) => f.endsWith('.json'))
       : [];
@@ -194,7 +365,7 @@ export class WakeStore {
           if (!existsSync(path)) return;
           const entries: WakeEntry[] = JSON.parse(readFileSync(path, 'utf-8'));
           const kept = entries.filter(
-            (e) => e.status !== 'fired' || (e.firedAt && e.firedAt > cutoff)
+            (e) => !isTerminal(e) || terminalAt(e) > cutoff
           );
           if (kept.length < entries.length) {
             cleaned += entries.length - kept.length;

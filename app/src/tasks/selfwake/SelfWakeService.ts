@@ -9,7 +9,9 @@ import { randomUUID } from 'crypto';
 import type { WakeEntry } from './types';
 import { WakeKind } from './types';
 import { WakeStore } from './WakeStore';
-import { recordSelfWake } from './SelfWakeAudit';
+import { recordSelfWake, type SelfWakeAuditOutcome } from './SelfWakeAudit';
+// 2026-11-24（批次 2 / A3）：外部条件类唤醒 TTL 与重试上限（阈值集中 `defaults.ts`）
+import { MAX_FIRE_ATTEMPTS, WAKE_EXTERNAL_TTL_MS } from './defaults';
 import { cg3Log } from '../cg3Env';
 import { handleError } from '@openliri/infra/error';
 
@@ -136,6 +138,8 @@ export class SelfWakeService {
       taskId,
       jobId,
       createdAt: Date.now(),
+      // 批次 2 / A3：无触发源时不再永久 pending（24h 后由 expireStale 收敛为 expired）
+      expiresAt: Date.now() + WAKE_EXTERNAL_TTL_MS,
     };
     await this.appendEntry(entry);
     cg3Log('tasks:selfwake', 'info', 'wakeOnJob', {
@@ -161,6 +165,8 @@ export class SelfWakeService {
       taskId,
       eventKey,
       createdAt: Date.now(),
+      // 批次 2 / A3：同 `wakeOnJob` —— 事件永不到达时 24h 后收敛为 expired
+      expiresAt: Date.now() + WAKE_EXTERNAL_TTL_MS,
     };
     await this.appendEntry(entry);
     cg3Log('tasks:selfwake', 'info', 'wakeOnEvent', {
@@ -172,8 +178,17 @@ export class SelfWakeService {
     return entry;
   }
 
-  /** 获取到期应唤醒的条目（由 CronScheduler.extra_tick 调用） */
+  /**
+   * 获取到期应唤醒的条目（由 CronScheduler.extra_tick 调用）。
+   *
+   * 批次 2 / A3：扫描前先收口 `expiresAt` 已过的条目 —— 这是 `completion` / `event`
+   * **唯一**的收敛路径（它们没有 `triggerAt`，永远进不了 `getDueWakes` 的结果集）。
+   */
   async getDueWakes(): Promise<WakeEntry[]> {
+    const expired = await this.wakeStore.expireStale();
+    if (expired > 0) {
+      cg3Log('tasks:selfwake', 'info', 'expireStale', { count: expired });
+    }
     return this.wakeStore.getDueWakes();
   }
 
@@ -198,11 +213,23 @@ export class SelfWakeService {
    * ⇒ `GET /v1/sessions/:id/streaming` 持续回 `pendingWake` ⇒ 前端「⏳ 等待中」常驻
    * （任务早已完成也照样显示）。
    *
-   * 只认 `kind='timer'`：`completion` / `event` 等的是外部条件（job / connector 事件），
-   * 与时间无关，过期判定不适用。是否真的续跑由执行器自行二次校验
-   * （`goal-startup` / `plan-startup` 均"陈旧即作废"），故补触发不会造成重复推进。
+   * **补触发**只认 `kind='timer'`：`completion` / `event` 等的是外部条件（job / connector
+   * 事件），没有触发源就不该续跑；它们由 `expiresAt`（批次 2）在到期时收敛为 `expired`。
+   * 是否真的续跑由执行器自行二次校验（`goal-startup` / `plan-startup` 均"陈旧即作废"），
+   * 故补触发不会造成重复推进。
    */
   async recoverOverdueWakes(now = Date.now()): Promise<number> {
+    // 批次 2 / A3：先把崩溃残留的 `firing` 复位（单进程假定，重启后无人会推进它），
+    // 再收口 `expiresAt` 已过的条目 —— 两件都必须在"取待触发列表"之前完成，
+    // 否则残留 `firing` 既不续跑、也不在等待投影里（永久中间态）。
+    const resetFiring = await this.wakeStore.recoverStaleFiring();
+    const expired = await this.wakeStore.expireStale(now);
+    if (resetFiring > 0 || expired > 0) {
+      cg3Log('tasks:selfwake', 'info', 'recoverNormalized', {
+        resetFiring,
+        expired,
+      });
+    }
     const all = await this.wakeStore.getAllPending();
     const overdue = all.filter(
       (e) =>
@@ -231,14 +258,17 @@ export class SelfWakeService {
   }
 
   /**
-   * 标记已触发，并**真正唤醒会话**。
+   * 触发一条唤醒并**真正唤醒会话**。
    *
-   * 阶段 A（N-26 修复）：原实现只 `markFired`（"空唤醒"—— 对外表现为已唤醒，
-   * 实际会话不会继续，与 `sessions_yield` 旧桩同属"假能力"家族）。现改为：
-   * 解析条目 → 标记 fired → 调用装配的唤醒执行器（默认由 `ChatManager` 装配，
-   * 内部消费一次 `streamMessage` 让会话续跑）。
+   * 阶段 A（N-26）：原实现只 `markFired`（"空唤醒"）。本版（批次 2 / A3）改为
+   * **先 CAS 抢锁 → 执行续跑 → 成功才落 `fired`**：
    *
-   * 未装配执行器时保持 fired 并记 warn（可观测，不静默丢唤醒）。
+   * - 修复前序「先 `markFired` 再续跑」⇒ 续跑失败也记为已唤醒，唤醒被**静默吞掉**
+   *   （且 tick 不再重扫，没有第二次机会）。
+   * - 现在失败回 `pending`（`attempts+1`），下次 tick 自动重试；累计 `MAX_FIRE_ATTEMPTS`
+   *   次仍失败 ⇒ 转 `failed` 并留 `lastError`（不再无限重试，状态可观测）。
+   * - 并发 `fire()`（cron tick 重扫 + 短时 timer）由 `tryMarkFiring` 的
+   *   `pending|due → firing` CAS 互斥，只有一方能续跑。
    */
   async fire(wakeId: string): Promise<void> {
     // 清理短时 timer
@@ -249,20 +279,36 @@ export class SelfWakeService {
     }
 
     const entry = await this._findEntry(wakeId);
-    if (entry && entry.status === 'fired') {
-      // 幂等：已触发过 ⇒ 不再续跑（防 tick 重扫 / 重复 fire 造成双续跑）
-      cg3Log('tasks:selfwake', 'info', 'fire:already_fired', { wakeId });
-      return;
-    }
-    await this.wakeStore.markFired(wakeId);
-    cg3Log('tasks:selfwake', 'info', 'fired', { wakeId });
-
     if (!entry) {
       // 事件信封的 `sessionId` 必填，而此分支拿不到 `sessionId` ⇒ 无法落 `session/wake`
       // （见 `eventPayloads.ts` 的 `session/wake` 注释）；保持日志可观测。
       cg3Log('tasks:selfwake', 'warn', 'fire:entry_not_found', { wakeId });
       return;
     }
+    if (
+      entry.status === 'fired' ||
+      entry.status === 'firing' ||
+      entry.status === 'failed' ||
+      entry.status === 'expired'
+    ) {
+      // 幂等 / 终态：已触发过、正在触发、或已失败/过期 ⇒ 不再续跑
+      cg3Log('tasks:selfwake', 'info', 'fire:skipped_terminal', {
+        wakeId,
+        status: entry.status,
+      });
+      return;
+    }
+
+    // CAS 抢锁：并发 fire（tick 重扫 + 短时 timer）只允许一方继续
+    const acquired = await this.wakeStore.tryMarkFiring(wakeId);
+    if (acquired !== 'acquired') {
+      cg3Log('tasks:selfwake', 'info', 'fire:cas_skipped', {
+        wakeId,
+        result: acquired,
+      });
+      return;
+    }
+
     if (!selfWakeResumeHandler) {
       cg3Log('tasks:selfwake', 'warn', 'fire:resume_handler_absent', {
         wakeId,
@@ -270,13 +316,12 @@ export class SelfWakeService {
         kind: entry.kind,
       });
       // T-⑥12：可判定节点入事件（log-only 审计，可回放）——"发出但无人接"同样要留痕
-      await recordSelfWake({
-        sessionId: entry.sessionId,
+      await this._requeueAfterFailure(
         wakeId,
-        kind: entry.kind,
-        taskId: entry.taskId,
-        outcome: 'handler_absent',
-      });
+        entry,
+        'resume handler absent',
+        'handler_absent'
+      );
       return;
     }
 
@@ -295,43 +340,77 @@ export class SelfWakeService {
           sessionId: entry.sessionId,
           error,
         });
-        await recordSelfWake({
-          sessionId: entry.sessionId,
-          wakeId,
-          kind: entry.kind,
-          taskId: entry.taskId,
-          outcome: 'resume_failed',
-          error,
-        });
-      } else {
-        cg3Log('tasks:selfwake', 'info', 'fire:resumed', {
-          wakeId,
-          sessionId: entry.sessionId,
-          kind: entry.kind,
-        });
-        await recordSelfWake({
-          sessionId: entry.sessionId,
-          wakeId,
-          kind: entry.kind,
-          taskId: entry.taskId,
-          outcome: 'resumed',
-        });
+        await this._requeueAfterFailure(wakeId, entry, error, 'resume_failed');
+        return;
       }
+
+      // 续跑成功后才落终态（顺序不可颠倒：先 fired 会让失败唤回被静默吞掉）
+      await this.wakeStore.markFired(wakeId);
+      cg3Log('tasks:selfwake', 'info', 'fire:resumed', {
+        wakeId,
+        sessionId: entry.sessionId,
+        kind: entry.kind,
+      });
+      await recordSelfWake({
+        sessionId: entry.sessionId,
+        wakeId,
+        kind: entry.kind,
+        taskId: entry.taskId,
+        outcome: 'resumed',
+      });
     } catch (err) {
       cg3Log('tasks:selfwake', 'error', 'fire:resume_threw', {
         wakeId,
         error: String(err),
       });
       // 执行器抛错 ⇒ 会话未继续，与 `resume_failed` 同类
-      await recordSelfWake({
-        sessionId: entry.sessionId,
+      await this._requeueAfterFailure(
         wakeId,
-        kind: entry.kind,
-        taskId: entry.taskId,
-        outcome: 'resume_failed',
-        error: String(err),
-      });
+        entry,
+        String(err),
+        'resume_failed'
+      );
     }
+  }
+
+  /**
+   * 2026-11-24（批次 2 / A3）：续跑失败收口 —— 回 `pending` 重试，或达上限转 `failed`。
+   *
+   * 审计仍用既有 `resume_failed` / `handler_absent`（`session/wake` 载荷是闭集，
+   * 不为本批次扩事件类型）；耗尽重试时把原因写进 `error` 字段，可区分"本次失败"与"已放弃"。
+   */
+  private async _requeueAfterFailure(
+    wakeId: string,
+    entry: WakeEntry,
+    error: string,
+    outcome: SelfWakeAuditOutcome
+  ): Promise<void> {
+    const next = await this.wakeStore.requeueAfterFailure(
+      wakeId,
+      error,
+      MAX_FIRE_ATTEMPTS
+    );
+    const exhausted = next === 'failed';
+    cg3Log(
+      'tasks:selfwake',
+      exhausted ? 'error' : 'warn',
+      exhausted ? 'fire:retry_exhausted' : 'fire:requeued',
+      {
+        wakeId,
+        sessionId: entry.sessionId,
+        attempts: (entry.attempts ?? 0) + 1,
+        next,
+        error,
+      }
+    );
+    await recordSelfWake({
+      sessionId: entry.sessionId,
+      wakeId,
+      kind: entry.kind,
+      taskId: entry.taskId,
+      outcome,
+      error: exhausted ? `exhausted(${MAX_FIRE_ATTEMPTS}): ${error}` : error,
+    });
   }
 
   /** 按 wakeId 反查条目（sessionId 由 WakeStore 的内存索引提供） */

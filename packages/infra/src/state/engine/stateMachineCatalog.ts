@@ -233,6 +233,16 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
     note: '2026-11-02 新增：编排步骤的**目标达成判定**（与 `PlanStep.status` 正交 —— 前者是"目标是否达成"，后者是"执行到哪一步"）。来源是步骤产出末行的结构化标记，**不对自然语言做关键词匹配**（CS02）。`step_unverified` = 未提供标记，既有计划沿用 completed 口径但**不计入"执行完成"播报**。取值带 `step_` 前缀：`done/blocked/partial` 是跨域通用词，直接登记会把 dream/sandbox/compaction 等既有出现点一并划入词汇表。',
   },
   {
+    id: 'selfWake',
+    title: '自唤醒状态机（SelfWake）',
+    kind: 'persistent',
+    sourceFile: 'app/src/tasks/selfwake/types.ts',
+    states: ['pending', 'due', 'firing', 'fired', 'failed', 'expired'],
+    verification: 'source-read',
+    hasTransitionFn: true,
+    note: '2026-11-24（批次 2 / A3）登记：转移实现集中在 `WakeStore`（`tryMarkFiring` / `requeueAfterFailure` / `expireStale` / `recoverStaleFiring`）。`pending|due` = 待触发（`pendingWake` 投影只认这两态）；`firing` = 单进程 CAS 中间态（防 tick 重扫与短时 timer 双续跑，崩溃后启动期复位）；`fired|failed|expired` = 终态（`gc` 按 `firedAt/failedAt/expiredAt` 裁剪）。',
+  },
+  {
     id: 'effectQueue',
     title: '统一 effects 队列条目状态（4 值）',
     kind: 'persistent',

@@ -42,6 +42,8 @@ process.env.LIRI_DATA_DIR = testDataDir;
 
 const { createCg3Services, getCg3SelfWakeService } =
   await import('../../src/tasks/Cg3Bootstrap');
+const { setSelfWakeResumeHandler } =
+  await import('../../src/tasks/selfwake/SelfWakeService');
 const { resolvePendingWake } =
   await import('../../src/infrastructure/http/handlers/sessionWaitFields');
 
@@ -118,7 +120,13 @@ describe('resolvePendingWake（会话待触发唤醒只读字段）', () => {
     const sessionId = 'pending-wake-fired';
 
     const entry = await selfWake!.sleepFor(sessionId, 'task-1', 60);
-    await selfWake!.fire(entry.id);
+    // 批次 2 / A3：`fired` 只在续跑成功后写 ⇒ 这里装配一个成功执行器制造终态
+    setSelfWakeResumeHandler(async () => ({ ok: true }));
+    try {
+      await selfWake!.fire(entry.id);
+    } finally {
+      setSelfWakeResumeHandler(null);
+    }
 
     expect(await resolvePendingWake(sessionId)).toBeUndefined();
   });

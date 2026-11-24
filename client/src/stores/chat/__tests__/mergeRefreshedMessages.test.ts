@@ -59,6 +59,67 @@ describe("mergeRefreshedMessages — 增量刷新（U-05 残余）", () => {
     expect(state.oldestSeq).toBe(1);
   });
 
+  // 2026-11-24（批次 3 / B2）：流式中刷新不得回退正文、不得清空运行态字段
+  it("流式中：同 id 的后端旧快照不覆盖本地进行中消息，且保留运行态字段", () => {
+    const local = msg("a1", "assistant", "本地进行中正文（更长）", 2);
+    useTestChatStore.setState({
+      messages: [msg("u1", "user", "问题", 1), local],
+      hasOlder: false,
+      oldestSeq: null,
+      isStreaming: true,
+      streamingStatus: "正在生成回复",
+      executionPhase: {
+        phase: "implementing",
+        progress: 0.5,
+        description: "执行工具",
+      },
+    });
+
+    useTestChatStore
+      .getState()
+      .mergeRefreshedMessages([msg("a1", "assistant", "后端旧快照", 2)]);
+
+    const state = useTestChatStore.getState();
+    // 本地进行中内容不被旧快照覆盖（修复前 Phase 1.5 保留后出现的后端版本 ⇒ 正文回退）
+    expect(state.messages[1].content).toContain("本地进行中正文");
+    expect(state.messages[1].content).not.toContain("后端旧快照");
+    // 流式中不得清空状态栏/阶段提示（修复前无条件置空 ⇒ 闪断）
+    expect(state.streamingStatus).toBe("正在生成回复");
+    expect(state.executionPhase).toEqual({
+      phase: "implementing",
+      progress: 0.5,
+      description: "执行工具",
+    });
+  });
+
+  it("流式结束后：同 id 以后端为准（终态快照可覆盖）", () => {
+    useTestChatStore.setState({
+      messages: [
+        msg("u1", "user", "问题", 1),
+        msg("a1", "assistant", "本地", 2),
+      ],
+      hasOlder: false,
+      oldestSeq: null,
+      isStreaming: false,
+      streamingStatus: "正在生成回复",
+      executionPhase: {
+        phase: "implementing",
+        progress: 0.5,
+        description: "执行工具",
+      },
+    });
+
+    useTestChatStore
+      .getState()
+      .mergeRefreshedMessages([msg("a1", "assistant", "后端最终", 2)]);
+
+    const state = useTestChatStore.getState();
+    expect(state.messages[1].content).toContain("后端最终");
+    // 不在流式 ⇒ 正常回到空闲态
+    expect(state.streamingStatus).toBe("");
+    expect(state.executionPhase).toBeNull();
+  });
+
   it("当前列表为空 ⇒ 等价整表加载（首屏/空会话刷新）", () => {
     useTestChatStore.setState({
       messages: [],

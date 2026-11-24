@@ -50,6 +50,8 @@ import {
 
 // P1-6（2026-11-06）：挂起流自动重试的退避序列（有界 + 可中止）
 import { nextAutoResumeDelay } from "../../utils/autoResumeBackoff";
+// 批次 3 / B1（2026-11-24）：挂起流存活上限（阈值集中 defaults.ts）
+import { PAUSED_STREAM_TTL_MS } from "./defaults";
 
 const logger = createLogger("stores:chat:message");
 
@@ -169,6 +171,33 @@ export const createMessageSlice: StateCreator<
         }
       }, AUTO_RESUME_POLL_MS);
     }
+  }
+
+  /**
+   * 2026-11-24（批次 3 / B1）：清理**超时**的挂起流（仅切会话时调用，保留有效挂起）。
+   *
+   * 背景：`pausedStreams` 此前无 TTL、切会话也不清理 ⇒ 后端已重启 / 会话已结束的挂起项
+   * 永久留在内存里，并持续触发 `/health` 轮询。这里对超过 `PAUSED_STREAM_TTL_MS` 的项
+   * 中止 controller 并解除挂起等待者（与 `abortPausedStream` 同口径，避免幽灵流泄漏）。
+   */
+  function pruneStalePausedStreams(): void {
+    const paused = get().pausedStreams;
+    const ids = Object.keys(paused);
+    if (ids.length === 0) return;
+    const cutoff = Date.now() - PAUSED_STREAM_TTL_MS;
+    const stale = ids.filter((sid) => paused[sid].since <= cutoff);
+    if (stale.length === 0) return;
+    for (const sid of stale) {
+      paused[sid].controller?.abort();
+      resolveResumeWaiter(sid);
+    }
+    const next = { ...paused };
+    for (const sid of stale) delete next[sid];
+    set({ pausedStreams: next });
+    logger.warn("pruneStalePausedStreams: 挂起流超时已清理", {
+      sessions: stale,
+      ttlMs: PAUSED_STREAM_TTL_MS,
+    });
   }
 
   return {
@@ -342,6 +371,8 @@ export const createMessageSlice: StateCreator<
     },
 
     setMessages: (messages: Message[]) => {
+      // 批次 3 / B1：切会话时只清**超时**的挂起流（有效挂起保留，等后端恢复自动续传）
+      pruneStalePausedStreams();
       // BUG F2：整表加载（切换会话/全量刷新）才清空旧缓存；增量拼接（加载更早）不得清，
       // 否则已加载消息的完整工具结果会失效（U-05）。
       clearToolResultCache();
@@ -357,7 +388,21 @@ export const createMessageSlice: StateCreator<
         setMessagesImpl(messageSet, messageGet, messages);
         return;
       }
-      setMessagesImpl(messageSet, messageGet, [...current, ...messages]);
+      // 2026-11-24（批次 3 / B2）：流式中后端快照可能**落后于本地**（写前持久化是批量落盘），
+      // 而 `setMessagesImpl` 的 Phase 1.5 去重保留**后出现**的同 id 版本 ⇒ 刷新结果会覆盖
+      // 本地进行中消息（正文回退/闪断）。流式中同 id 一律本地优先；流结束后再按后端为准。
+      let refreshed = messages;
+      if (get().isStreaming) {
+        const localIds = new Set(current.map((m) => m.id));
+        const before = messages.length;
+        refreshed = messages.filter((m) => !localIds.has(m.id));
+        if (refreshed.length !== before) {
+          logger.info("[mergeRefreshedMessages] 流式中跳过同 id 的后端旧快照", {
+            skipped: before - refreshed.length,
+          });
+        }
+      }
+      setMessagesImpl(messageSet, messageGet, [...current, ...refreshed]);
     },
 
     /**
@@ -448,6 +493,11 @@ export const createMessageSlice: StateCreator<
         // ⇒ UI 永久卡在「AI 正在生成回复」。此修复与上方注释"挂起流从全局 isStreaming
         // 推导中排除"的**原意一致**（原实现漏写）。
         isStreaming: Object.keys(nextControllers).length > 0,
+        // 2026-11-24（批次 3 / B1）：挂起即结算**全部运行态**字段，不只 `isStreaming`。
+        // 原实现漏了 `isSending` / `executionPhase` ⇒ 挂起后输入被当作"仍在发送"、
+        // 阶段提示残留（切走后仍显示上一轮的"正在执行工具"）。
+        isSending: false,
+        executionPhase: null,
         // N8-3：状态栏文案同步（避免与 Banner"已暂停"并存矛盾；恢复后由流式链路重置）
         streamingStatus: i18n.t("chat.stream.pausedStatus"),
         pausedStreams: {

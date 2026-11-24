@@ -877,13 +877,17 @@ export function setMessagesImpl(
         primaryKey: allHaveSeq ? "firstEventSeq" : "timestamp",
       });
     }
+    // 2026-11-24（批次 3 / B2）：流式中**保留运行态字段** —— 本函数也会被事件驱动的
+    // 增量刷新（`mergeRefreshedMessages`）调用，原实现无条件清空 `streamingStatus` /
+    // `executionPhase` ⇒ 流式中来一次 inbox 刷新，状态栏/阶段提示就闪断一次。
+    // 只有不在流式时才回到空闲态（切会话/历史加载的正常收尾仍生效）。
+    const streamingNow = get().isStreaming;
     set({
       // 2026-11-24：连续孤儿工具结果合并为一条（`ToolResultGroup` 折叠渲染），
       // 避免存量会话一屏几十个「工具返回」气泡。
       messages: coalesceConsecutiveToolResults(sortedMessages),
       sessionFiles: sessionFilesList,
-      streamingStatus: "",
-      executionPhase: null,
+      ...(streamingNow ? {} : { streamingStatus: "", executionPhase: null }),
     });
 
     // 释放会话切换锁后刷新暂存的流式 chunk

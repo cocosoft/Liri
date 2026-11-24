@@ -22,6 +22,7 @@ import {
 import { continueGenerationImpl } from "../stores/chat/chat-message-actions";
 import { connectionMonitor } from "../services/connectionMonitor";
 import { resolveResumeWaiter } from "../services/streamPause";
+import { PAUSED_STREAM_TTL_MS } from "../stores/chat/defaults";
 
 vi.mock("../services/connectionMonitor", () => ({
   connectionMonitor: {
@@ -120,6 +121,75 @@ describe("N8-1: 挂起自动恢复（<30s 最短掉线场景轮询兜底）", ()
     await vi.advanceTimersByTimeAsync(10000); // 首个轮询 tick 发现无挂起 → clearInterval
     expect(mockHealthCheckOnce).not.toHaveBeenCalled();
     expect(useTestChatStore.getState().pausedStreams["sess-3"]).toBeUndefined();
+  });
+});
+
+// 2026-11-24（批次 3 / B1）：运行态残留与挂起 TTL
+describe("B1: 挂起结算运行态 + 切会话清理超时挂起", () => {
+  beforeEach(() => {
+    mockResolveResumeWaiter.mockReset();
+    mockResolveResumeWaiter.mockReturnValue(true);
+    useTestChatStore.setState({
+      pausedStreams: {},
+      streamControllers: {},
+      isStreaming: false,
+      isSending: false,
+      executionPhase: null,
+      streamingStatus: "",
+    });
+  });
+
+  it("挂起即结算运行态字段（isSending / executionPhase / streamingStatus）", () => {
+    useTestChatStore.setState({
+      streamControllers: { "sess-settle": new AbortController() },
+      isStreaming: true,
+      isSending: true,
+      executionPhase: {
+        phase: "implementing",
+        progress: 0.3,
+        description: "执行工具",
+      },
+      streamingStatus: "生成中",
+    });
+
+    useTestChatStore.getState().pauseStream("sess-settle");
+
+    const s = useTestChatStore.getState();
+    expect(s.isStreaming).toBe(false);
+    // 修复前只重算 isStreaming ⇒ 挂起后仍被当作"正在发送"
+    expect(s.isSending).toBe(false);
+    expect(s.executionPhase).toBeNull();
+    expect(s.streamingStatus).not.toBe("生成中");
+  });
+
+  it("切会话只清超时的挂起流（有效挂起保留并继续等待）", () => {
+    const staleController = new AbortController();
+    const freshController = new AbortController();
+    const now = Date.now();
+    useTestChatStore.setState({
+      pausedStreams: {
+        "sess-stale": {
+          since: now - PAUSED_STREAM_TTL_MS - 1000,
+          phase: "waiting",
+          controller: staleController,
+        },
+        "sess-fresh": {
+          since: now,
+          phase: "waiting",
+          controller: freshController,
+        },
+      },
+    });
+
+    useTestChatStore.getState().setMessages([]);
+
+    const paused = useTestChatStore.getState().pausedStreams;
+    expect(paused["sess-stale"]).toBeUndefined();
+    expect(paused["sess-fresh"]).toBeDefined();
+    // 超时项要中止 controller 并解除等待者（避免幽灵流泄漏）
+    expect(staleController.signal.aborted).toBe(true);
+    expect(freshController.signal.aborted).toBe(false);
+    expect(mockResolveResumeWaiter).toHaveBeenCalledWith("sess-stale");
   });
 });
 

@@ -17,7 +17,10 @@ import type { WaitState } from "./useWaitState";
 // 2026-11-18（用户反馈「看不出你在运行，以为挂了」）：运行秒表 + 后端心跳年龄 + 停滞判定
 import { useRunClock } from "../../hooks/useRunClock";
 // 2026-11-13：等待审批是会话级状态（审批卡 / 工具卡 / 收尾标记三处信号，结构化判定）
-import { hasPendingApproval } from "../../stores/chat/chat-message-shared";
+import {
+  collectApprovalInboxIds,
+  hasPendingApproval,
+} from "../../stores/chat/chat-message-shared";
 
 const PHASE_LABELS: Record<string, string> = {
   analyzing: "chat.phaseAnalyzing",
@@ -214,6 +217,15 @@ export default function StatusFloatBar({
     () => hasPendingApproval(messages),
     [messages],
   );
+  /**
+   * 2026-11-24：本会话已落定的审批数 —— >0 时说明当前待审批是**又一张新卡**
+   * （批准后模型继续执行会继续申请），用它区分文案，避免误读成"上一张没生效"。
+   * selector 返回原始值 ⇒ 流式 chunk 不会造成本组件额外重渲染。
+   */
+  const resolvedApprovalCount = useMemo(
+    () => collectApprovalInboxIds(messages).resolved.size,
+    [messages],
+  );
   const keepVisible =
     isActive || isWaiting || pendingApproval || remoteStreaming;
   /**
@@ -334,7 +346,12 @@ export default function StatusFloatBar({
     // UI-2：空闲但仍有活跃 PDCA ⇒ 以"编排进行中"常驻；不得沿用"正在生成"（会谎报运行态）
     if (!isActive) {
       // 2026-11-13：等待审批优先于一切空闲文案（含旧任务卡的「已完成 x/y」）
-      if (pendingApproval) return t("chat.taskPaused");
+      // 2026-11-24：已有审批落定后仍待审批 ⇒ 说明是**新的**请求（换一条命令继续申请），
+      // 文案明确标出，避免被读成"刚才那次批准没生效"
+      if (pendingApproval)
+        return resolvedApprovalCount > 0
+          ? t("chat.taskPausedNew")
+          : t("chat.taskPaused");
       // 等待态（2026-09-27）：**已确认在等**（后端 yieldState/pendingWake）⇒ 不得回落成
       // "正在生成 / 编排进行中"等谎报文案（原实现即因此显示成"答完了"）
       if (isWaiting) return waitText();

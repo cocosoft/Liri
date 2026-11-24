@@ -91,7 +91,10 @@ export async function isCommandApproved(
         hashCommandForExecution(command),
         undefined,
         taskId
-      ) || registry.isCommandNameApproved(sessionId, command, taskId)
+      ) ||
+      registry.isCommandNameApproved(sessionId, command, taskId) ||
+      // 2026-11-24：本会话内「该工具都允许」——不同命令也不再视为"等待审批"
+      registry.isToolAllowedForSession(sessionId, toolName)
     );
   } catch {
     // registry 不可用时按未批准处理，不影响安全底线（ask 仍会提交卡片）

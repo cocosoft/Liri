@@ -40,7 +40,7 @@ describe('P1：审批卡唯一构造点', () => {
     expect(afterExecute.approvalId).not.toBe(beforeDecision.approvalId);
   });
 
-  it('命令类工具 ⇒ 五档选项（仅这次 / 命令级 / 本工作区永久信任 / 工具级 / 拒绝）', () => {
+  it('命令类工具 ⇒ 六档选项（仅这次 / 命令级 / 本工作区 / 本会话工具级 / 工具级 / 拒绝）', () => {
     const card = buildToolApprovalCard({
       toolOrName: 'bash',
       input: { command: 'ls' },
@@ -50,6 +50,7 @@ describe('P1：审批卡唯一构造点', () => {
       'approve',
       'allowlist_command',
       'allowlist_workspace_command',
+      'allowlist_tool_session',
       'allowlist_tool',
       'deny',
     ]);
@@ -118,7 +119,7 @@ describe('P1：审批卡唯一构造点', () => {
  * `buildApprovalOptions`（唯一真源），下面锁死四类判定。
  */
 describe('P0：审批卡选项唯一真源 buildApprovalOptions', () => {
-  it('命令类 + 有命令文本 ⇒ 四档 + 拒绝', () => {
+  it('命令类 + 有命令文本 ⇒ 六档 + 拒绝', () => {
     expect(
       buildApprovalOptions({
         toolName: 'bash',
@@ -129,6 +130,7 @@ describe('P0：审批卡选项唯一真源 buildApprovalOptions', () => {
       'approve',
       'allowlist_command',
       'allowlist_workspace_command',
+      'allowlist_tool_session',
       'allowlist_tool',
       'deny',
     ]);

@@ -376,6 +376,15 @@ const SUBCOMMAND_BASES = new Set([
 
 export class ApprovedCommandRegistry {
   private store = new Map<string, Map<string, ApprovalEntry>>();
+  /**
+   * 2026-11-24：本会话内「整个工具」放行（`allowlist_tool_session`）。
+   *
+   * 与 `store` 的区别：`store` 以**命令哈希**为键（换个写法就不命中），这里以**工具名**为键
+   * —— 模型连续用不同的 `bun -e "…"` 探测时，一次授权即可覆盖本会话内该工具的后续调用。
+   * 仅内存、随 `clearSession`（会话结束）或进程退出失效；不落持久化规则。
+   * 只豁免"重复弹审批卡"，硬拦截（危险命令/路径/沙箱）仍照常执行（由调用方保证）。
+   */
+  private sessionToolAllows = new Map<string, Set<string>>();
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
   private ttlMs: number;
 
@@ -555,10 +564,7 @@ export class ApprovedCommandRegistry {
       // 多租户 P3：命令名级放行同样按归属过滤
       if (!canAccessOwnerKey(entry.ownerKey)) continue;
       // P2：任务档条目只在该任务内参与命令名级放行
-      if (
-        entry.scopeKind === 'task' &&
-        (!taskId || entry.taskId !== taskId)
-      ) {
+      if (entry.scopeKind === 'task' && (!taskId || entry.taskId !== taskId)) {
         continue;
       }
       if (
@@ -576,8 +582,36 @@ export class ApprovedCommandRegistry {
     return false;
   }
 
+  /**
+   * 2026-11-24：记录「本会话内该工具都允许」（`allowlist_tool_session`）。
+   *
+   * 用户每换一条命令就重新弹卡时，点一次本档位即可止住同类循环；只影响"是否再弹审批卡"，
+   * 硬拦截层（危险命令 / 路径越界 / 沙箱）仍逐条执行。
+   */
+  allowToolForSession(sessionId: string, toolName: string): void {
+    if (!sessionId || !toolName) return;
+    let set = this.sessionToolAllows.get(sessionId);
+    if (!set) {
+      set = new Set();
+      this.sessionToolAllows.set(sessionId, set);
+    }
+    set.add(toolName);
+    logger.info('本会话工具级放行已写入', { sessionId, toolName });
+  }
+
+  /** 该工具在本会话内是否已整体放行（会话结束 / `clearSession` 即失效） */
+  isToolAllowedForSession(
+    sessionId: string | undefined,
+    toolName: string
+  ): boolean {
+    if (!sessionId || !toolName) return false;
+    return this.sessionToolAllows.get(sessionId)?.has(toolName) === true;
+  }
+
   /** 清除某会话的批准记录（只清**当前身份可见**的条目；本地身份 ⇒ 与改造前一致全清） */
   clearSession(sessionId: string): void {
+    // 2026-11-24：会话级工具放行同属会话生命周期 —— 一并回收
+    this.sessionToolAllows.delete(sessionId);
     const sessionMap = this.store.get(sessionId);
     if (!sessionMap) return;
     for (const [hash, entry] of sessionMap) {

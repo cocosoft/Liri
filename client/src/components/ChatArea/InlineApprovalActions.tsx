@@ -41,6 +41,8 @@ const TIER_ORDER = [
   "allowlist_command",
   // G3（2026-11-14）：本工作区永久信任（精确命令 + 工作区作用域）
   "allowlist_workspace_command",
+  // 2026-11-24：本会话内「该工具都允许」（内存放行，会话结束失效）
+  "allowlist_tool_session",
   "allowlist_tool",
   "deny",
   "reject",
@@ -55,6 +57,7 @@ const TIER_LABEL_KEYS: Record<TierReply, string> = {
   allowlist_call: "chat.inboxReplyAllowAlways",
   allowlist_command: "chat.inboxReplyAllowCommand",
   allowlist_workspace_command: "chat.inboxReplyAllowWorkspaceCommand",
+  allowlist_tool_session: "chat.inboxReplyAllowToolSession",
   allowlist_tool: "chat.inboxReplyAllowTool",
   deny: "chat.inboxReplyReject",
   reject: "chat.inboxReplyReject",

@@ -58,7 +58,7 @@ describe('P1：命令级放行规则（contentPattern）对命令原文生效', 
 });
 
 describe('P1：命令类工具的审批档位（powershell 与 bash 同口径）', () => {
-  it('powershell 携带命令文本 ⇒ 五档（含命令级 + 本工作区永久信任 + 工具级）', () => {
+  it('powershell 携带命令文本 ⇒ 六档（含命令级 + 本工作区 + 本会话工具级 + 工具级）', () => {
     const card = buildToolApprovalCard({
       toolOrName: 'powershell',
       input: { command: 'Get-ChildItem -Recurse' },
@@ -68,6 +68,7 @@ describe('P1：命令类工具的审批档位（powershell 与 bash 同口径）
       'approve',
       'allowlist_command',
       'allowlist_workspace_command',
+      'allowlist_tool_session',
       'allowlist_tool',
       'deny',
     ]);

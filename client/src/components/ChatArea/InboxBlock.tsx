@@ -11,6 +11,7 @@ import { http } from "../../services/httpClient";
 import { sseService } from "../../services/sseService";
 import { useToastStore } from "../../stores/toastStore";
 import { useChatStore } from "../../stores/chat";
+import { collectApprovalInboxIds } from "../../stores/chat/chat-message-shared";
 import {
   inboxReplyNotAppliedReason,
   isInboxReplyApplied,
@@ -51,6 +52,8 @@ const REPLY_LABEL_KEYS: Record<string, string> = {
   approve_task: "chat.inboxReplyApproveTask",
   allowlist_call: "chat.inboxReplyAllowAlways",
   allowlist_tool: "chat.inboxReplyAllowTool",
+  // 2026-11-24：本会话内「该工具都允许」（不落持久化规则，会话结束失效）
+  allowlist_tool_session: "chat.inboxReplyAllowToolSession",
   allowlist_command: "chat.inboxReplyAllowCommand",
   allowlist_workspace_command: "chat.inboxReplyAllowWorkspaceCommand",
   reject: "chat.inboxReplyReject",
@@ -231,6 +234,7 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
         reply === "approve_task" ||
         reply === "allowlist_call" ||
         reply === "allowlist_tool" ||
+        reply === "allowlist_tool_session" ||
         reply === "allowlist_command" ||
         reply === "allowlist_workspace_command";
       // U-06-4（2026-10-19）：续跑完成由后端广播 `session:continued`，
@@ -264,6 +268,17 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
   const isPending = status === "pending";
   const isExpired = status === "expired";
   const isUrgent = data.priority === "urgent";
+  /**
+   * 2026-11-24（用户实测「审批后还是显示待审批」）：这张待处理卡是不是**又一次**新请求。
+   *
+   * 批准后旧卡会立刻变「已处理」，但模型紧接着换一条命令又会新建一张卡；两张卡标题相同、
+   * 状态栏文案也相同 ⇒ 看起来像"批准没生效"。这里按已落定的审批数给新卡打标，
+   * 让用户一眼看出"上一张已处理，这是新的请求"。
+   * 说明：选用**原始值** selector（number），避免流式 chunk 期间无谓重渲染。
+   */
+  const priorResolvedApprovalCount = useChatStore(
+    (s) => collectApprovalInboxIds(s.messages).resolved.size,
+  );
   // P0-1（2026-11-04）：同一指纹的审批请求被合并了几次（后端回填，仅 >1 时显示 `×N`）
   const mergedCount =
     typeof data.dedupCount === "number" && data.dedupCount > 1
@@ -301,6 +316,17 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
             {t("chat.urgent")}
           </span>
         )}
+        {/* 2026-11-24：继已处理审批之后的**新**请求（避免误读成"上一张没生效"） */}
+        {isPending && priorResolvedApprovalCount > 0 && (
+          <span
+            className="inline-flex shrink-0 items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+            title={t("chat.inboxNewApprovalRequestHint", {
+              count: priorResolvedApprovalCount,
+            })}
+          >
+            {t("chat.inboxNewApprovalRequest")}
+          </span>
+        )}
         <span className="truncate text-sm font-medium text-gray-800 dark:text-gray-200">
           {data.title}
         </span>
@@ -331,8 +357,8 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
         </p>
       )}
 
-      {/* 操作按钮 */}
-      <div className="flex items-center gap-2">
+      {/* 操作按钮（2026-11-24：档位增至 6 个 ⇒ 允许换行，避免窄卡片横向溢出） */}
+      <div className="flex flex-wrap items-center gap-2">
         {isPending &&
           data.actions.map((action) => {
             const s = ACTION_STYLE[action.style] || ACTION_STYLE.secondary;

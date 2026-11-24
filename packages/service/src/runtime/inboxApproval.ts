@@ -138,6 +138,23 @@ function isWorkspaceCommandAllowReply(
 }
 
 /**
+ * 2026-11-24：「本会话内该工具都允许」——按**工具名**放行（内存，随会话清理）。
+ *
+ * 与 `approve_session` 的区别：后者按命令哈希放行（同一条命令不再重复问），
+ * 本档位覆盖本会话内该工具的**所有**命令 —— 模型连续换写法探测时只批一次。
+ * 不写持久化规则；硬拦截（危险命令 / 路径 / 沙箱）仍在执行层逐条生效。
+ */
+function isSessionToolAllowReply(
+  reply: string,
+  selectedOption?: string
+): boolean {
+  return (
+    reply === 'allowlist_tool_session' ||
+    selectedOption === 'allowlist_tool_session'
+  );
+}
+
+/**
  * PR-2：按回复值解析放行缓存档位（`approve_session` ⇒ 不过期；`approve_task` ⇒ 仅本任务）。
  *
  * P2-4（2026-11-07）：缺省档返回 `APPROVAL_SCOPE_COMMAND_TTL`（字面量 `'once'`）——
@@ -335,7 +352,8 @@ export async function resolveInboxApprovalsBatch(params: {
   // PDCA 步骤卡的拒绝仍由 `resumePdcaIfApplicable` 走 abort ⇒ 不进本条件。
   const isDenyReply = reply === 'deny' || selectedOption === 'deny';
   const chatResumeNeeded =
-    hasChatResumeTarget && (isApprovalReply(reply, selectedOption) || isDenyReply);
+    hasChatResumeTarget &&
+    (isApprovalReply(reply, selectedOption) || isDenyReply);
   const pdcaResumeNeeded =
     hasPdcaResumeTarget && isApprovalReply(reply, selectedOption);
   if (chatResumeNeeded || pdcaResumeNeeded) {
@@ -541,6 +559,23 @@ async function applyApprovalSideEffects(
     const commandLevel =
       reply === 'allowlist_command' || selectedOption === 'allowlist_command';
     await persistAllowlistRule(current, commandLevel);
+  }
+  // 2026-11-24：「本会话内，此工具都允许」——按工具名写内存放行（随会话清理）
+  if (isSessionToolAllowReply(reply, selectedOption)) {
+    const toolName =
+      typeof current.metadata?.toolName === 'string'
+        ? current.metadata.toolName
+        : '';
+    if (toolName) {
+      getApprovedCommandRegistry().allowToolForSession(
+        current.sessionId,
+        toolName
+      );
+    } else {
+      logger.warn('「本会话工具级放行」缺少工具名，已跳过', {
+        sessionId: current.sessionId,
+      });
+    }
   }
   // G3（2026-11-14）：命令级「本工作区永久信任」—— 精确命令 + 工作区作用域
   if (isWorkspaceCommandAllowReply(reply, selectedOption)) {
@@ -919,9 +954,8 @@ export async function releaseSessionAfterApproval(
       inboxId: item.id,
     });
 
-    const { broadcastEvent } = await import(
-      '@modules/infrastructure/http/handlers/handler-utils'
-    );
+    const { broadcastEvent } =
+      await import('@modules/infrastructure/http/handlers/handler-utils');
     broadcastEvent('session:meta_updated', { id: item.sessionId });
   } catch (err) {
     await handleError(err, {
@@ -961,20 +995,16 @@ export async function convergeSessionAfterApprovalExpiry(
   if (remaining.total > 0) return;
 
   const toolCallId =
-    typeof metadata.toolCallId === 'string'
-      ? metadata.toolCallId
-      : undefined;
+    typeof metadata.toolCallId === 'string' ? metadata.toolCallId : undefined;
   if (toolCallId) {
     const { markToolCallDenied } = await import('@openliri/infra/permission');
     markToolCallDenied(item.sessionId, toolCallId);
   }
 
-  const { getGlobalEventBus } = await import(
-    '../session/lifecycle/SessionLifecycleEventBus.js'
-  );
-  const { createSessionLifecycleEvent } = await import(
-    '../session/lifecycle/SessionLifecycleEvent.js'
-  );
+  const { getGlobalEventBus } =
+    await import('../session/lifecycle/SessionLifecycleEventBus.js');
+  const { createSessionLifecycleEvent } =
+    await import('../session/lifecycle/SessionLifecycleEvent.js');
   getGlobalEventBus().emit(
     createSessionLifecycleEvent('session:approval_expired', item.sessionId, {
       reason: '审批已过期（未执行）',
@@ -1023,9 +1053,8 @@ export async function convergeSessionAfterApprovalExpiry(
     });
   }
 
-  const { broadcastEvent } = await import(
-    '@modules/infrastructure/http/handlers/handler-utils'
-  );
+  const { broadcastEvent } =
+    await import('@modules/infrastructure/http/handlers/handler-utils');
   broadcastEvent('session:approval_expired', {
     id: item.sessionId,
     sessionId: item.sessionId,
@@ -1467,4 +1496,3 @@ async function persistWorkspaceCommandRule(current: {
     sessionId: current.sessionId,
   });
 }
-

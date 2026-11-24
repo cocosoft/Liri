@@ -10,6 +10,7 @@ import { describe, expect, it } from 'bun:test';
 import {
   APPROVAL_BLOCK_LOOKBACK_MS,
   APPROVAL_BLOCK_MAX_RESOLVED,
+  collectPresentPendingInboxIds,
   mergeApprovalBlocks,
   refreshPresentApprovalBlocks,
   resolveApprovalHostIndex,
@@ -272,5 +273,32 @@ describe('mergeApprovalBlocks（按 id 去重 + 升序）', () => {
       [item('a', 'expired', 3000), item('b', 'pending', 2000)]
     );
     expect(merged.map((i) => i.id)).toEqual(['a', 'b']);
+  });
+});
+
+/**
+ * 2026-11-24（真机 `session_mwpj4amge75a67ec4f`：审批已处理/已过期，重启后仍「待审批」）：
+ * 追加式投影里残留的 pending 卡必须能被识别出来，供读路径按 id 回查后端真实状态。
+ */
+describe('collectPresentPendingInboxIds（陈旧 pending 卡识别）', () => {
+  it('只收集 inbox 块且落盘态为 pending 的 id（去重）', () => {
+    const ids = collectPresentPendingInboxIds([
+      {
+        blocks: [
+          { type: 'inbox', inboxData: { inboxId: 'a', status: 'pending' } },
+          { type: 'inbox', inboxData: { inboxId: 'a', status: 'pending' } },
+          { type: 'inbox', inboxData: { inboxId: 'b', status: 'replied' } },
+          // 非 inbox 块即使带 inboxData 也不参与
+          { type: 'tool_call', inboxData: { inboxId: 'c', status: 'pending' } },
+        ],
+      },
+      { blocks: undefined },
+      {
+        blocks: [
+          { type: 'inbox', inboxData: { inboxId: 'd', status: 'pending' } },
+        ],
+      },
+    ]);
+    expect(ids.sort()).toEqual(['a', 'd']);
   });
 });

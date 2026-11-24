@@ -864,6 +864,8 @@ const enBase = {
     taskEnded: "Ended",
     taskEndedWithFailed: "Ended ({{count}} failed)",
     taskPaused: "⏸ Waiting for approval (needs your feedback)",
+    // 2026-11-24: an approval was already handled, so this is a NEW request
+    taskPausedNew: "⏸ New approval request (needs your feedback)",
     taskPendingAcceptance:
       "⏸ Pending acceptance ({{completed}}/{{total}} completed)",
     taskWaitingDeps: "Waiting: {{names}}",
@@ -1015,6 +1017,8 @@ const enBase = {
     inboxReplyApprove: "Run once",
     inboxReplyReject: "Reject",
     inboxReplyAllowTool: "Never ask for this tool",
+    // 2026-11-24: whole-tool allow for this session only (in-memory; cleared when the session ends)
+    inboxReplyAllowToolSession: "Allow this tool for this session",
     inboxReplyAllowCommand: "Never ask for this command",
     inboxReplyAllowWorkspaceCommand:
       "Always trust this command in this workspace",
@@ -1034,6 +1038,10 @@ const enBase = {
     // P0-1 (2026-11-04): how many identical approval requests were merged into this card (×N)
     inboxMergedCountHint:
       "The same request was merged {{count}} times (handle it once)",
+    // 2026-11-24: after an approval is handled the model may ask again — label the new card
+    inboxNewApprovalRequest: "New approval request",
+    inboxNewApprovalRequestHint:
+      "{{count}} earlier approval(s) were already handled; this is a new request issued as the model continues (not a stale card).",
     inboxRepliedToast: "Done: {{label}}",
     // P1-1 (2026-11-06): batch approval — approve all pending cards of this session at once
     inboxApproveAll: "Approve all ({{count}})",

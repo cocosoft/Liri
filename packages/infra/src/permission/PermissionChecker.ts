@@ -733,8 +733,7 @@ export class PermissionChecker {
       }
 
       // P2（§3.3）：任务档审批 —— 优先用上下文显式声明，其次按会话活跃任务兜底解析
-      const taskId =
-        context.taskId ?? getActiveTaskId(sessionId);
+      const taskId = context.taskId ?? getActiveTaskId(sessionId);
 
       // P1（2026-11-04）：审批卡**唯一的构造点**（与执行后路径共用，见
       // `toolApprovalSubmission.ts`）。指纹 / 选项 / 文案 / metadata / 审计①段都在那里，
@@ -788,6 +787,13 @@ export class PermissionChecker {
             sessionId,
             typeof input.command === 'string' ? input.command : '',
             taskId
+          )) ||
+        // 2026-11-24：本会话内「该工具都允许」（`allowlist_tool_session`）——
+        // 模型连续换写法时不再每条都建卡；仅 shell 工具、且硬拦截仍在执行层生效
+        (isShellToolName(toolName) &&
+          getApprovedCommandRegistry().isToolAllowedForSession(
+            sessionId,
+            toolName
           ))
       ) {
         logger.info('放行缓存已命中，跳过审批卡提交', {

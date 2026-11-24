@@ -55,7 +55,7 @@ export interface SharedSession {
 // ============================================================
 
 /** 消息角色 */
-export type SharedMessageRole = "user" | "assistant" | "system" | "tool";
+export type SharedMessageRole = 'user' | 'assistant' | 'system' | 'tool';
 
 /** Token 消耗统计 */
 export interface SharedTokenUsage {
@@ -79,7 +79,7 @@ export interface SharedToolCallStatus {
   toolName: string;
   progress: number;
   message: string;
-  status: "running" | "completed" | "failed";
+  status: 'running' | 'completed' | 'failed';
 }
 
 /** 基础消息 — 两端共用的核心字段 */
@@ -104,11 +104,11 @@ export interface SharedStreamStats {
 
 /** Stream 状态枚举 */
 export type SharedStreamState =
-  | "idle"
-  | "streaming"
-  | "paused"
-  | "question"
-  | "done";
+  | 'idle'
+  | 'streaming'
+  | 'paused'
+  | 'question'
+  | 'done';
 
 // ============================================================
 // 模型 (Model) 相关类型
@@ -131,7 +131,7 @@ export type {
   STTResult,
   ProviderInfo,
   VoiceSession,
-} from "./voice-types";
+} from './voice-types';
 
 // ============================================================
 // 状态块 statusType 契约（前后端唯一事实来源）
@@ -141,8 +141,8 @@ export {
   STATUS_TYPE,
   TRANSIENT_STATUS_TYPES,
   isTransientStatusType,
-} from "./status-types";
-export type { SharedStatusType } from "./status-types";
+} from './status-types';
+export type { SharedStatusType } from './status-types';
 
 // ============================================================
 // 目标域词表（goal）契约（前后端唯一事实来源）
@@ -153,7 +153,7 @@ export type {
   TaskGoalUpdateReason,
   GoalDeviationSeverity,
   GoalTemplateKind,
-} from "./goal-types";
+} from './goal-types';
 
 // ============================================================
 // 工具可见性契约（tool-visibility）—— P1/P2/P3 工具治理（前后端唯一事实来源）
@@ -168,7 +168,7 @@ export type {
   SharedShadowToolReason,
   SharedShadowToolDisposition,
   SharedToolVisibilityEntry,
-} from "./tool-visibility";
+} from './tool-visibility';
 
 // ============================================================
 // 审批等待收尾提示（双端共用文案 + 前端渲染期剥离）
@@ -176,5 +176,8 @@ export type {
 
 export {
   AWAITING_APPROVAL_NOTICE,
+  AWAITING_APPROVAL_FINISH_REASON,
+  clearAwaitingApprovalTurnMarkers,
   stripAwaitingApprovalNotice,
-} from "./approval-notice";
+} from './approval-notice';
+export type { ApprovalTurnMarkerMessage } from './approval-notice';

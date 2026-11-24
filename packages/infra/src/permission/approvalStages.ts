@@ -166,6 +166,9 @@ export function isApprovalExecutable(state: ApprovalChainState): boolean {
 export const APPROVAL_REPLY_TO_DECISION = {
   approve: 'allow_once',
   approve_session: 'allow_session',
+  // 2026-11-24：本会话内「整个工具」都允许（连续多个不同命令时只批一次）；
+  // 与 approve_session（同一条命令不重复问）不同，按 **工具名** 而非命令哈希放行。
+  allowlist_tool_session: 'allow_session',
   // P2（2026-11-04，§3.3）：本任务都允许（仅长程任务进行中下发该选项）
   approve_task: 'allow_task',
   allowlist_call: 'allow_always',

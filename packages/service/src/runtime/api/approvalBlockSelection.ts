@@ -32,7 +32,9 @@ export interface ApprovalBlockItemShape {
  * 选出应合成到消息 blocks 的审批项：pending 全量 + 窗口内 resolved，
  * 按 `createdAt` 升序（与创建顺序一致），并去重。
  */
-export function selectApprovalItemsForBlocks<T extends ApprovalBlockItemShape>(params: {
+export function selectApprovalItemsForBlocks<
+  T extends ApprovalBlockItemShape,
+>(params: {
   pending: readonly T[];
   /** 该会话的审批项（建议按 createdAt 倒序传入；本函数会自行排序） */
   recent: readonly T[];
@@ -114,6 +116,35 @@ export interface ApprovalHostMessageLike {
   role?: string;
   timestamp?: number;
   blocks?: unknown;
+}
+
+/**
+ * 2026-11-24（真机 `session_mwpj4amge75a67ec4f`：审批已处理/已过期，重启后仍显示「待审批」）：
+ * 消息里**落盘态仍是 `pending`** 的审批块 id。
+ *
+ * 为什么需要：`messages.jsonl` 是追加式投影，历史卡片可能残留提交时的 `pending`；
+ * 而 `selectApprovalItemsForBlocks` 只覆盖「窗口内终态 / 绑定了 toolCallId 的终态」——
+ * 更早的卡（无 toolCallId、又超窗口）永远不会被刷新 ⇒ 前端 `hasPendingApproval`
+ * 一直读到 pending 块，会话就永久"等待审批"。
+ * 调用方据此按 id 回查后端真实状态（见 `sessionMessagesRead._attachPendingApprovalBlocks`）。
+ */
+export function collectPresentPendingInboxIds(
+  messages: ReadonlyArray<ApprovalBlockMessageLike>
+): string[] {
+  const ids = new Set<string>();
+  for (const msg of messages) {
+    if (!Array.isArray(msg.blocks)) continue;
+    for (const raw of msg.blocks as Array<{
+      type?: unknown;
+      inboxData?: { inboxId?: unknown; status?: unknown };
+    }>) {
+      if (raw?.type !== 'inbox') continue;
+      if (raw.inboxData?.status !== 'pending') continue;
+      const id = raw.inboxData?.inboxId;
+      if (typeof id === 'string' && id) ids.add(id);
+    }
+  }
+  return [...ids];
 }
 
 /** 审批块归属判据 */

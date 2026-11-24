@@ -91,14 +91,18 @@ export interface ToolApprovalCard {
 const INPUT_PREVIEW_MAX_CHARS = 300;
 
 /**
- * 审批卡**选项集**的唯一真源（P0 三档 + 拒绝）。
+ * 审批卡**选项集**的唯一真源（命令类：本次 / 命令级 / 本工作区 / 本会话工具级 / 工具级 / 拒绝）。
  *
  * 2026-11-08（第三十八轮，真机 `pdca_mw7l43fu`）：LRO 步骤审批卡此前自己写死
  * `['approve','approve_session','deny']` —— P0 收敛后这条路径没跟上（用户看不到
  * 命令级/工具级，只能选已被移除的"本会话都允许"）。抽成本函数供两处共用：
- * - 有命令文本 ⇒ 仅这次 / 命令级 / 工具级 / 拒绝；
+ * - 有命令文本 ⇒ 仅这次 / 命令级 / 本工作区 / 本会话工具级 / 工具级 / 拒绝；
  * - `EXTERNAL` ⇒ 仅本次 / 拒绝（外部副作用不提供永久放行）；
  * - 其余 ⇒ 仅这次 / 同工具+同参数指纹 / 拒绝（非命令类没有"命令"这一层）。
+ *
+ * 2026-11-24（用户实测「审批后又是一张新卡」）：命令类补 `allowlist_tool_session`
+ * —— 模型连续换写法执行同一类命令时，一次点击即可覆盖本会话内该工具的后续审批
+ * （仅内存、随会话清理；持久化工具级仍是 `allowlist_tool`）。
  */
 export function buildApprovalOptions(params: {
   toolName: string;
@@ -107,13 +111,17 @@ export function buildApprovalOptions(params: {
 }): string[] {
   const { toolName, risk } = params;
   const command = params.command ?? '';
-  const isCommandTool = isCommandToolName(toolName) && command.trim().length > 0;
+  const isCommandTool =
+    isCommandToolName(toolName) && command.trim().length > 0;
   return isCommandTool
     ? [
         'approve',
         'allowlist_command',
         // G3（2026-11-14）：命令级「本工作区永久信任」—— 精确命令 + 工作区作用域
         'allowlist_workspace_command',
+        // 2026-11-24：本会话内「整个工具」都允许 —— 连续多条不同命令时只批一次
+        // （模型逐条探测/调试时不再每条都弹卡；会话结束即失效，不落持久化规则）
+        'allowlist_tool_session',
         'allowlist_tool',
         'deny',
       ]
@@ -138,7 +146,8 @@ export function buildToolApprovalCard(
   const command = typeof input.command === 'string' ? input.command : '';
   // P1（2026-11-07）：命令类工具扩到 powershell/pwsh（入参同样是 command 文本）。
   // 无命令文本 ⇒ 不给「命令级」档（否则 contentPattern 为空会退化成**整工具**放行）。
-  const isCommandTool = isCommandToolName(toolName) && command.trim().length > 0;
+  const isCommandTool =
+    isCommandToolName(toolName) && command.trim().length > 0;
   const risk = resolveRiskClass(toolOrName, input);
 
   const approvalFingerprint = resolveApprovalFingerprint(toolOrName, input);

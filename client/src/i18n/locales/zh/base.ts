@@ -828,6 +828,8 @@ const zhBase = {
     taskEnded: "已结束",
     taskEndedWithFailed: "已结束（{{count}} 失败）",
     taskPaused: "⏸ 等待审批（需要你的反馈）",
+    // 2026-11-24：已有审批落定后仍待审批 ⇒ 这是**新的**请求（模型继续执行又申请）
+    taskPausedNew: "⏸ 新的审批请求（需要你的反馈）",
     taskPendingAcceptance: "⏸ 待验收（已完成 {{completed}}/{{total}}）",
     taskWaitingDeps: "等待: {{names}}",
     taskViewGraph: "查看依赖关系图（{{nodes}} 个节点, {{edges}} 条边）",
@@ -975,6 +977,8 @@ const zhBase = {
     inboxReplyApprove: "仅这次执行",
     inboxReplyReject: "拒绝",
     inboxReplyAllowTool: "以后整个工具免审批",
+    // 2026-11-24：本会话内该工具整体放行（内存，会话结束失效；模型换命令不再逐条弹卡）
+    inboxReplyAllowToolSession: "本会话内，此工具都允许",
     inboxReplyAllowCommand: "以后这个命令免审批",
     inboxReplyAllowWorkspaceCommand: "本工作区永久信任此命令",
     // PR-2（2026-10-23）：四档审批 —— 本会话都允许 / 始终允许（工具+参数指纹）
@@ -992,6 +996,10 @@ const zhBase = {
       "批准后会自动接着执行，无需重发消息；拒绝则停止该调用并让模型改道。",
     // P0-1（2026-11-04）：同指纹审批被合并的次数（卡片右上角显示 ×N）
     inboxMergedCountHint: "同一请求已被合并 {{count}} 次（只需处理一次）",
+    // 2026-11-24：批准旧卡后模型继续执行会再申请 —— 新卡打标，避免误读成"上一张没生效"
+    inboxNewApprovalRequest: "新的审批请求",
+    inboxNewApprovalRequestHint:
+      "此前已有 {{count}} 个审批处理完毕；本次是模型继续执行时新发起的审批（不是上一张没生效）。",
     inboxRepliedToast: "已{{label}}",
     // P1-1（2026-11-06）：批量审批 —— 同一会话多张待审批卡一次批准
     inboxApproveAll: "全部批准（{{count}} 项）",

@@ -54,6 +54,8 @@ import {
   type SessionRoundSummariesResult,
 } from './roundSummaries';
 import { LRUCache } from '@openliri/infra/utils/cache';
+// 2026-11-24：读消息时清理陈旧的 `awaiting_approval` 收尾标记（会话已无待审批项）
+import { clearAwaitingApprovalTurnMarkers } from '@shared/types';
 import type { LiriEvent } from '@modules/session/types/events';
 import type { SessionManager } from '@modules/session/types/session';
 import type {
@@ -81,6 +83,8 @@ import {
   selectApprovalItemsForBlocks,
   // 2026-11-17：窗口外但绑定了 toolCallId 的已处理项也要合成（否则工具卡残留"等待审批"）
   selectResolvedApprovalsLinkedToToolCalls,
+  // 2026-11-24：消息里落盘态仍是 pending 的块按 id 回查真实状态（历史老卡永不刷新的缺口）
+  collectPresentPendingInboxIds,
 } from './approvalBlockSelection';
 
 const logger = getLogger('runtime:api:CoreAPIImpl');
@@ -735,8 +739,7 @@ export class SessionMessagesRead {
     messages: UnifiedMessage[]
   ): Promise<void> {
     try {
-      const { inboxManager } =
-        await import('../InboxManager');
+      const { inboxManager } = await import('../InboxManager');
       // 直查 inbox_items.session_id（而非 JOIN session_inbox_map）：
       // Web 提交的审批项无 channelSessionId 不写 map 表，getBySession 会漏掉。
       const pendingQuery = inboxManager.list({
@@ -758,6 +761,38 @@ export class SessionMessagesRead {
         .filter((m) => m.role === 'assistant')
         .pop();
       if (!lastAssistant) return;
+
+      // 2026-11-24（真机 `session_mwpj4amge75a67ec4f`：审批已处理/已过期，重启后仍「待审批」）：
+      // 会话已**没有**待审批项，但投影里的末条助手仍带 `awaiting_approval` 收尾标记 ⇒ 前端
+      // `hasPendingApproval` 的末条兜底命中，状态栏/任务卡永久显示「等待审批」。
+      // 读时把该标记与提示文案一并清掉（只认结构化字段，CS02）。
+      if (pendingItems.length === 0) {
+        const cleared = clearAwaitingApprovalTurnMarkers(
+          lastAssistant as unknown as {
+            content?: unknown;
+            blocks?: unknown;
+            finishReason?: unknown;
+            terminationReason?: unknown;
+            metadata?: Record<string, unknown>;
+          }
+        );
+        if (cleared.changed) {
+          const target = lastAssistant as unknown as Record<string, unknown>;
+          delete target.finishReason;
+          delete target.terminationReason;
+          if (cleared.message.metadata === undefined) delete target.metadata;
+          else target.metadata = cleared.message.metadata;
+          target.content = cleared.message.content;
+          target.blocks = cleared.message.blocks;
+          logger.info(
+            'attachPendingApprovalBlocks: 清理陈旧的 awaiting_approval 收尾标记',
+            {
+              sessionId,
+              messageId: (lastAssistant as { id?: string }).id,
+            }
+          );
+        }
+      }
 
       // 锚点 = 最后一条 assistant 消息时间（缺省 now）；窗口覆盖长回合内的全部卡片
       const anchorMs =
@@ -784,12 +819,51 @@ export class SessionMessagesRead {
         pendingCount: pendingItems.length,
         resolvedCount,
       });
-      if (selected.length === 0) return;
+
+      // 2026-11-24（真机 `session_mwpj4amge75a67ec4f`：审批已处理/已过期，重启后仍「待审批」）：
+      // `messages.jsonl` 是追加式投影，历史卡片可能永远停留在提交时的 `pending`；而上面的
+      // 选择器只覆盖「窗口内终态 / 绑定 toolCallId 的终态」⇒ 更早的老卡（无 toolCallId 且超窗口）
+      // 永远不会被刷新，前端 `hasPendingApproval` 就一直读到 pending 块。
+      // 这里按**消息中实际存在的 pending 块 id** 精确回查真实状态；查不到（已删除）按 expired 展示。
+      const selectedIds = new Set(selected.map((i) => i.id));
+      const stalePendingIds = collectPresentPendingInboxIds(messages).filter(
+        (id) => !selectedIds.has(id)
+      );
+      const staleStatuses: Array<{
+        id: string;
+        status: string;
+        createdAt: number;
+      }> = [];
+      if (stalePendingIds.length > 0) {
+        const looked = await Promise.all(
+          stalePendingIds.map((id) => inboxManager.get(id).catch(() => null))
+        );
+        looked.forEach((item, index) => {
+          staleStatuses.push({
+            id: stalePendingIds[index],
+            status: item?.status ?? 'expired',
+            createdAt: item?.createdAt ?? 0,
+          });
+        });
+        logger.info(
+          'attachPendingApprovalBlocks: 陈旧 pending 卡按后端状态对齐',
+          {
+            sessionId,
+            staleCount: staleStatuses.length,
+            refreshed: staleStatuses.filter((s) => s.status !== 'pending')
+              .length,
+          }
+        );
+      }
+      if (selected.length === 0 && staleStatuses.length === 0) return;
 
       // P3-1（2026-11-06）：审批终态会由 InboxManager 写回**原位置的**卡片块
       // ⇒ 已存在的块只就地刷新状态（保持它在历史里的位置），不再重复合成到最后一条消息；
       // 只有从未落过块的项（提交期注入被流式覆盖 / 老会话）才补合成。
-      const { missing } = refreshPresentApprovalBlocks(messages, selected);
+      const { missing } = refreshPresentApprovalBlocks(messages, [
+        ...selected,
+        ...staleStatuses,
+      ]);
       const missingIds = new Set(missing);
 
       const missingItems = selected.filter((item) => missingIds.has(item.id));

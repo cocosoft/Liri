@@ -332,6 +332,11 @@ export class BashTool extends BaseTool {
     source: 'registry' | 'rule' | 'none';
   }> {
     const hash = hashCommandForExecution(command);
+    // 2026-11-24：本会话内「该工具都允许」（`allowlist_tool_session`）⇒ 不再重复弹卡。
+    // 仅豁免 ask 交互；危险命令 / 路径 / 沙箱等硬拦截仍由下方安全层逐条执行。
+    if (this.approvedRegistry.isToolAllowedForSession(sessionId, 'bash')) {
+      return { hash, bypassAsk: true, source: 'registry' };
+    }
     const registryHit = this.approvedRegistry.isApproved(
       sessionId || '',
       hash,

@@ -1,7 +1,8 @@
 # Liri 记忆系统优化方案（草案 · 2026-11-25）
 
 > 来源：Anthropic《The components of agent memory》（2026-11-06，本地 HTML 已读）+ 本仓记忆子系统实测取证。
-> 状态：**Phase 1 已实施**（P0-1 全部 + P0-2 的 1–3 项；P0-2-4 字段留待 Phase 3）；**Phase 2 已完成**（P1-1/P1-2 见 §8.3–8.4）；**Phase 3 进行中**（P2-1 见 §8.5；P3 处置见 §8.6；P2-2 记忆用途见 §8.7；eval 基线见 §8.8）。落地时按阶段拆独立提交，遵循 `code-deletion.md` CD05（先接线、再观察、后删旧路）。
+> 状态：**实施完成（2026-11-25）** —— P0-1/P0-2(1–3)/P1-1/P1-2/P2-1/P2-2(用途)/P3 均已落地，逐项见 §8.1–§8.8；
+> 明确未做项与原因见 §8.6（团队真实同步）、§8.7（规则笔记闭环）、§8.8（注入遵循度，需模型在环）。落地时按阶段拆独立提交，遵循 `code-deletion.md` CD05（先接线、再观察、后删旧路）。
 > 相关既有裁定：`.trae/specs/memory-conflict-detection.md`（冲突**不自动改写**）、`.trae/specs/dead-code-and-unwired-items-rulings.md`（未接线项不得当作既有能力）。
 
 ---
@@ -319,6 +320,23 @@ MMR 需查询向量与候选两两相似度（N² 次嵌入），仅在显式开
 | token 成本 | ④a 会话记忆超预算降级为索引且体积受控；④b 索引层 200 行截断；④c 检索条数受 limit 约束 |
 
 **未纳入**：注入遵循度（需真实模型在环，不在确定性基线里冒充通过）。
+
+### 8.9 配置键与未做清单（收口，2026-11-25）
+
+| 配置键 | 默认 | 作用 |
+|---|---|---|
+| `memory.injection.maxTokens` | 1500 | 会话记忆注入预算；超限降级为索引 |
+| `memory.index.maxLines` / `memory.index.maxBytes` | 200 / 25000 | 顶层索引（`MEMORY.md`）注入上限 |
+| `memory.retention.enforce` | `false` | 保留上限真归档；`false` = dry-run（仍落报告） |
+| `memory.wiki.enabled` | `true` | 维护期重建 wiki 表示层 |
+| `memory.purpose` | 空 | 记忆用途（软引导）；会话 `metadata.memoryPurpose` 优先 |
+
+**未做（需先定范围，非技术阻塞）**：
+- 规则笔记 schema（`rule/whyTrue/evidenceSeqs/traps/testedAt`）与"失败→理论→验证→规则"闭环 ——
+  需写入方（工具/提示）与读取方（evaluator）**同批**落地；
+- 团队记忆真实同步（服务端、鉴权、冲突消解、审计）；
+- 注入遵循度评测（需真实模型在环）；
+- `MemoryTool` 的 `advancedSearch`（tags/sortBy）并入统一检索服务。
 
 ---
 

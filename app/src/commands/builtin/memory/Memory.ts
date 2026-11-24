@@ -65,6 +65,14 @@ const memoryCommand = {
       return this.showStatus();
     }
 
+    // 团队记忆：审阅冲突 / 人工取舍（Phase 3-lite）
+    if (trimmed === 'team' || trimmed.startsWith('team ')) {
+      return await this.teamCommand(
+        trimmed.slice(4).trim(),
+        trimmed.includes('--json')
+      );
+    }
+
     const useJson = trimmed.includes('--json');
     const cleanArgs = trimmed.replace(/--json\s*/g, '').trim();
 
@@ -123,6 +131,9 @@ const memoryCommand = {
         '  /memory --delete <name>    - 删除记忆文件',
         '  /memory <name>             - 显示指定记忆文件',
         '  /memory status             - 显示记忆系统状态',
+        '  /memory team               - 列出团队记忆同步冲突候选',
+        '  /memory team keep-local <id>  - 采纳本地版本（覆盖共享侧）',
+        '  /memory team keep-shared <id> - 采纳共享版本（覆盖本地）',
         '  /memory --json             - 以 JSON 格式输出概览',
         '  /memory help               - 显示本帮助',
         '',
@@ -146,6 +157,82 @@ const memoryCommand = {
         `记忆文件数: ${status.fileCount}`,
         `总大小: ${status.totalSize}`,
         `目录存在: ${status.dirExists ? '是' : '否'}`,
+      ].join('\n'),
+    };
+  },
+
+  /**
+   * 团队记忆审阅入口（Phase 3-lite）：列出 `conflicts.json` 候选，或人工取舍。
+   * `dirs` 仅用于单测注入（缺省走真实目录/配置）。
+   */
+  async teamCommand(
+    args: string,
+    useJson: boolean,
+    dirs?: { teamDir: string; sharedDir: string }
+  ) {
+    const { resolveTeamMemoryDir } =
+      await import('@openliri/infra/environment');
+    const { resolveTeamConflict } =
+      await import('@openliri/infra/memory/services/TeamMemorySharedDirSync');
+    const teamDir = dirs?.teamDir ?? resolveTeamMemoryDir();
+    const sharedDir =
+      dirs?.sharedDir ??
+      (
+        configManager.getValue<string>('memory.teamSync.sharedDir', '') ?? ''
+      ).trim();
+
+    const [action, id] = args.split(/\s+/);
+    if (action === 'keep-local' || action === 'keep-shared') {
+      if (!id || !sharedDir) {
+        return {
+          success: false,
+          message:
+            '用法: /memory team keep-local|keep-shared <id>（需先配置 memory.teamSync.sharedDir）',
+        };
+      }
+      const ok = await resolveTeamConflict({
+        id,
+        teamDir,
+        sharedDir,
+        resolution: action === 'keep-local' ? 'keep_local' : 'keep_shared',
+      });
+      return {
+        success: ok,
+        message: ok
+          ? `已采纳 ${action}: ${id}`
+          : `采纳失败（${id} 不存在于两侧，或源内容命中密钥）`,
+      };
+    }
+
+    const conflictsPath = join(teamDir, 'conflicts.json');
+    let payload: {
+      total?: number;
+      candidates?: Array<{ id: string; directions?: string[] }>;
+    } = {};
+    try {
+      payload = JSON.parse(await readFile(conflictsPath, 'utf-8'));
+    } catch {
+      payload = {};
+    }
+    if (useJson) {
+      return { success: true, message: JSON.stringify(payload, null, 2) };
+    }
+    const candidates = payload.candidates ?? [];
+    if (candidates.length === 0) {
+      return {
+        success: true,
+        message: `团队记忆无待处理冲突（${conflictsPath}）`,
+      };
+    }
+    return {
+      success: true,
+      message: [
+        '团队记忆冲突候选:',
+        ...candidates.map(
+          (c) => `  - ${c.id} [${(c.directions ?? []).join('/')}]`
+        ),
+        '',
+        '采纳: /memory team keep-local|keep-shared <id>',
       ].join('\n'),
     };
   },

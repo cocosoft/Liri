@@ -130,7 +130,8 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
   /**
    * 2026-11-24（批次 4 / B3）：组头状态由**单一派生**给出。
    *
-   * 原实现三套判据（`resolveGroupStatus` + `isUnresolvedPending` + `hasUnfinishedCalls`）
+   * 原实现三套判据（`resolveGroupStatus` / `isUnresolvedPending` / `hasUnfinishedCalls`；
+   * `resolveGroupStatus` 已于 2026-11-24 随死代码清理删除）
    * ⇒ 同一调用在组头与工具卡可得出不同结论。现统一走 `deriveGroupOutcome`：
    * 审批已落定 / 无终态 ⇒ `interrupted`（按「已中断」如实展示，不谎报完成或执行中）。
    */

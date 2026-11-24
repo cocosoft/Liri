@@ -214,7 +214,7 @@
 ### §9.3 遗留 / 待产品确认
 
 - **DocWorkflow「等待确认」语义**（§5 #6）：仍需产品裁定（改为「进行中」还是补等待信号），本批未动文案。
-- **死代码删除**：`extractToolCalls` / `buildLogEvents` / `resolveGroupStatus` 已标 `@deprecated`，观察期后按 CD05/CD06 独立删除。
+- **死代码删除**：`extractToolCalls` / `buildLogEvents` / `resolveGroupStatus` 已于 2026-11-24 按 CD05/CD06 **两段式删除**（`771854de7` 摘入口 → 后续独立提交删实现），证据见 [state-machine-governance.md](./state-machine-governance.md) §20。
 - **`FSZ-006`**：InboxManager 拆分计划到期前需落地（或按同口径续期）。
 
 ### §9.4 验证

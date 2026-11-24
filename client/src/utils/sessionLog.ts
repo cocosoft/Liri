@@ -2,19 +2,18 @@
  * Session Log — 会话日志共享模块（CS01 归一化）
  *
  * 会话日志面板（LogTab）使用：
- * - extractToolCalls：从 messages 提取工具调用记录（blocks 优先 + upsert 合并）
- * - buildLogEvents：把消息归一化为会话日志事件流（thinking / tool / system）
+ * - buildLogEventsFromEvents：以事件流为准构建会话日志（thinking / text / tool / system）
  * - summarizeResult / extractError：结果人性化摘要与错误提取
+ *
+ * 2026-11-24（P2-2 死代码清理 / CD06）：已删除无生产消费者的 `extractToolCalls` /
+ * `buildLogEvents`（消息投影重建路径），事件流路径为唯一实现。
  */
 
-import type { LiriEvent, Message, ToolCall } from "../types";
+import type { LiriEvent, ToolCall } from "../types";
 import { getToolDisplayName, getToolHumanSummary } from "./toolHumanSummary";
 // G6（2026-11-03）：审批等待信号复用 U-06-5 的**唯一**结构化解析（CS01，禁止另写字符串匹配）
 import { parseApprovalSignal } from "../stores/chat/chat-message-shared";
-import { createLogger } from "./logger";
 import i18n from "../i18n";
-
-const logger = createLogger("chat:sessionLog");
 
 // ─── 工具调用记录 ─────────────────────────────────
 
@@ -38,119 +37,6 @@ export interface ToolCallRecord {
   inboxId?: string;
   /** G7（2026-11-03）：本卡合并了多少条原始 `tool/result`（面板卡片是合并视图） */
   rawResultCount?: number;
-}
-
-/**
- * 从消息列表中提取（并合并）全部工具调用记录。
- * Map<toolCallId, record> 提供 O(1) 查找，替代原线性 find（O(n²) → O(n)）。
- * 跨消息合并依赖全局视角（消息级 tool_calls / blocks / tool 角色消息分散在不同消息），
- * per-message 增量缓存会破坏该合并，故保持全量派生 + Map 索引（2026-08-19，见计划 P0）。
- *
- * @deprecated 2026-11-24（批次 5 / C3）：**无生产消费者**（`LogTab` 已改用
- * `buildLogEventsFromEvents`，仅本文件测试引用）。按 CD05/CD06 先标注观察，后续单独删除。
- */
-export function extractToolCalls(messages: Message[]): ToolCallRecord[] {
-  const start = performance.now();
-  // Map 保持插入顺序，与返回数组顺序一致
-  const recordMap = new Map<string, ToolCallRecord>();
-  let setCount = 0; // 新建记录数
-  let mergeCount = 0; // 合并补齐记录数
-  logger.info("extractToolCalls: Map 构建开始", {
-    messages: messages.length,
-  });
-
-  /** 插入或合并记录：blocks 中的 tool_call 携带完整 result，优先补齐到已存在的消息级记录 */
-  const upsert = (tc: ToolCall, messageId?: string) => {
-    const existing = recordMap.get(tc.id);
-    if (existing) {
-      mergeCount++;
-      // 消息级 tool_calls 通常无 result，blocks 中才有完整结果 → 合并补齐
-      if (existing.result === undefined && tc.result !== undefined) {
-        existing.result = tc.result;
-      }
-      if (
-        existing._hasFullResult === undefined &&
-        (tc as { _hasFullResult?: boolean })._hasFullResult
-      ) {
-        existing._hasFullResult = true;
-      }
-      // 失败原因合并补齐（tool_end 失败块携带 error，消息级 tool_calls 通常无）
-      if (existing.error === undefined && tc.error) {
-        existing.error = tc.error;
-      }
-      if (tc.status) existing.status = tc.status;
-      /**
-       * 2026-11-24（状态口径统一）：审批标记此前**从未拷贝**到记录里
-       * ⇒ `LogTab` 的 `record.pendingApproval` 恒为 undefined（待审批分支是死代码）。
-       * 终态（completed/failed）显式清除，避免旧 flag 漂到已完成记录上。
-       */
-      if (tc.pendingApproval === true) {
-        existing.pendingApproval = true;
-        if (tc.inboxId) existing.inboxId = tc.inboxId;
-      } else if (tc.status === "completed" || tc.status === "failed") {
-        existing.pendingApproval = undefined;
-        existing.inboxId = undefined;
-      }
-      return;
-    }
-    setCount++;
-    recordMap.set(tc.id, {
-      id: tc.id,
-      name: tc.name,
-      arguments: tc.arguments || {},
-      result: tc.result,
-      status: tc.status || "completed",
-      messageId,
-      error: tc.error,
-      _hasFullResult: !!(tc as { _hasFullResult?: boolean })._hasFullResult,
-      pendingApproval: tc.pendingApproval === true || undefined,
-      inboxId: tc.inboxId,
-    });
-  };
-
-  for (const msg of messages) {
-    // 路径 1：blocks 中的 tool_call（含完整参数/结果/状态，优先）
-    if (msg.blocks) {
-      for (const block of msg.blocks) {
-        if (block.type === "tool_call" && block.toolCall) {
-          const tc = block.toolCall;
-          upsert(
-            {
-              ...tc,
-              status:
-                tc.status || (block.isStreaming ? "running" : "completed"),
-            },
-            msg.id,
-          );
-        }
-      }
-    }
-    // 路径 2：消息级 tool_calls（blocks 缺失时的兜底）
-    if (msg.tool_calls) {
-      for (const tc of msg.tool_calls) {
-        upsert(tc, msg.id);
-      }
-    }
-    // 路径 3：tool 角色消息补充结果
-    if (msg.role === "tool" && msg.toolCallId) {
-      const existing = recordMap.get(msg.toolCallId);
-      if (existing && existing.result === undefined) {
-        existing.result = msg.content;
-        existing.status = "completed";
-      }
-    }
-  }
-
-  const elapsed = performance.now() - start;
-  logger.info("extractToolCalls: Map 构建完成", {
-    messages: messages.length,
-    recordCount: recordMap.size,
-    setCount,
-    mergeCount,
-    elapsedMs: Number(elapsed.toFixed(3)),
-  });
-
-  return Array.from(recordMap.values());
 }
 
 // ─── 会话日志事件 ─────────────────────────────────
@@ -189,79 +75,12 @@ function toolEventTitle(rec: ToolCallRecord): string {
   return summary ? `${name} — ${summary}` : name;
 }
 
-function toolEvent(msg: Message, rec: ToolCallRecord): LogEvent {
-  return {
-    key: `tool-${rec.id}`,
-    kind: "tool",
-    time: msg.timestamp,
-    status: rec.status,
-    title: toolEventTitle(rec),
-    record: rec,
-  };
-}
-
-/**
- * 把消息归一化为会话日志事件流（thinking / tool / system 混排的时序流）。
- * 事件 key 稳定，streaming 状态切换只更新该行不重排。
- *
- * @deprecated 2026-11-24（批次 5 / C3）：**无生产消费者**（R-3 起 `LogTab` 改消费
- * `buildLogEventsFromEvents`，仅本文件测试引用）。按 CD05/CD06 先标注观察，后续单独删除。
- */
-export function buildLogEvents(messages: Message[]): LogEvent[] {
-  const events: LogEvent[] = [];
-  const toolRecords = extractToolCalls(messages);
-  const recordById = new Map(toolRecords.map((r) => [r.id, r]));
-  const emittedTools = new Set<string>();
-
-  for (const msg of messages) {
-    if (msg.blocks) {
-      for (const block of msg.blocks) {
-        if (block.type === "thinking" && block.content) {
-          events.push({
-            key: `thinking-${block.id}`,
-            kind: "thinking",
-            time: msg.timestamp,
-            title: firstLine(block.content),
-            content: block.content,
-          });
-        } else if (block.type === "status" && block.content) {
-          events.push({
-            key: `status-${block.id}`,
-            kind: "system",
-            time: msg.timestamp,
-            title: firstLine(block.content),
-            content: block.content,
-          });
-        } else if (block.type === "tool_call" && block.toolCall) {
-          const rec = recordById.get(block.toolCall.id);
-          if (rec && !emittedTools.has(rec.id)) {
-            emittedTools.add(rec.id);
-            events.push(toolEvent(msg, rec));
-          }
-        }
-      }
-    }
-    // 消息级 tool_calls 兜底（blocks 缺失）
-    if (msg.tool_calls) {
-      for (const tc of msg.tool_calls) {
-        const rec = recordById.get(tc.id);
-        if (rec && !emittedTools.has(rec.id)) {
-          emittedTools.add(rec.id);
-          events.push(toolEvent(msg, rec));
-        }
-      }
-    }
-  }
-
-  return events;
-}
-
 // ─── 事件流 → 会话日志（R-3：LogTab 消费事件流） ───
 
 /**
  * R-3（2026-08-23）：从事件流（LiriEvent[]，seq 升序）构建会话日志事件。
- * 替代 buildLogEvents（从 messages 投影重建）——事件流保留精确 seq 序、
- * 流式实时性与工具终态（assistant/tool_call → tool/result 配对）。
+ * 事件流保留精确 seq 序、流式实时性与工具终态（assistant/tool_call → tool/result 配对）；
+ * 2026-11-24 起它是**唯一实现**（消息投影重建路径已按 CD06 删除）。
  *
  * 不可变更新：tool/result 到达时**替换**对应 LogEvent 引用（React.memo 依赖
  * 引用变化触发重渲染），工具行状态 running → completed/failed 实时刷新。

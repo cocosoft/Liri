@@ -532,56 +532,6 @@ export function stripDuplicateToolPrefix(
   return rest.replace(/^[\s:：\-—–]+/, "");
 }
 
-/** 工具组聚合状态（#29：由**全部** tool_call 块推导，而非取第一块） */
-export type ToolGroupStatus =
-  "completed" | "running" | "pending_approval" | "failed";
-
-/**
- * #29（2026-10-30）：工具组状态 = 全组聚合，不再"取第一条调用的状态"。
- *
- * 真机症状：已完成的组仍显示「正在执行命令」/ 组头是 ✅ 但文案是进行中 / 已完成消息下
- * 还挂着「⏳ 等待审批」。根因是原实现 `for (block) return block.toolCall.status` 只看第一块。
- *
- * 口径（自上而下短路）：有**正在执行** ⇒ running；否则有**待审批** ⇒ pending_approval；
- * 否则有**失败** ⇒ failed；否则 completed。待审批块**不计入 running**（2026-11-13）。
- *
- * @deprecated 2026-11-24（批次 4 / B3）：生产消费已统一为 `stores/chat/toolOutcome.ts`
- * 的 `deriveGroupOutcome`（判据同源，含 `interrupted`）。本函数**仅测试引用**，观察期后删除
- * （CD05/CD06：先标注、后删除）。
- */
-export function resolveGroupStatus(
-  blocks: ReadonlyArray<{
-    type: string;
-    isStreaming?: boolean;
-    toolCall?: { status?: string; pendingApproval?: boolean };
-  }>,
-): ToolGroupStatus {
-  let hasTool = false;
-  let anyRunning = false;
-  let anyPending = false;
-  let anyFailed = false;
-
-  for (const block of blocks) {
-    if (block.type !== "tool_call") continue;
-    hasTool = true;
-    const tc = block.toolCall;
-    // 2026-11-13：待审批块**不算运行中**（历史合并路径会把它的 status 置为 running）
-    // ⇒ 否则"有活干就不显示等待审批"会把唯一的待审批块吞掉，组头显示 ✅/执行中。
-    if (tc?.pendingApproval) {
-      anyPending = true;
-      continue;
-    }
-    if (tc?.status === "running" || block.isStreaming) anyRunning = true;
-    if (tc?.status === "failed") anyFailed = true;
-  }
-
-  if (anyRunning) return "running";
-  if (anyPending) return "pending_approval";
-  if (anyFailed) return "failed";
-  if (hasTool) return "completed";
-  return blocks.some((b) => b.isStreaming) ? "running" : "completed";
-}
-
 // ============================================================
 // 内部辅助函数
 // ============================================================

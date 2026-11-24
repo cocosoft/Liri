@@ -240,7 +240,7 @@ interface StateMachineEntry {
 **改动**
 - 基线结构升级：`{version: 2, machines: {machineId: {values, files}}, unowned: []}`；`--update` 要求 `--reason`（写入基线 note）。
 - 新增季度巡检脚本（只读）：目录覆盖率、未登记新增、持久化机对账覆盖、派生重复、跨端不一致、死代码 `@deprecated` 到期。
-- 清理观察期结束的死代码（`extractToolCalls` / `buildLogEvents` / `resolveGroupStatus`，按 CD05/CD06）。
+- 清理观察期结束的死代码（`extractToolCalls` / `buildLogEvents` / `resolveGroupStatus`，按 CD05/CD06）——**已完成**（§20）。
 
 **验收**：巡检报告可作为发布前 checklist 的一节。
 
@@ -321,6 +321,7 @@ interface StateMachineEntry {
 | 2026-11-24 | **P1-3 实施完成**：新增 `scripts/state-derivations.json` 与 R09-011 测试，登记 tool/approval/wait/pdca 四个派生判据（concept 与实现均唯一、锚点真实导出） | AI |
 | 2026-11-24 | **P2-2 实施完成**：基线升级 v2（`reason` / `generatedAt` / `valueOwners`，`--update` 强制 `--reason`）；新增只读巡检脚本 `scripts/state-governance-report.ts`（支持 `--check`） | AI |
 | 2026-11-24 | **P2-1 实施完成**：新增 `state/transition` 事件（三处登记 + 客户端载荷镜像）· infra 注入式审计端口 + service 适配 + 宿主编织 · 目录 `audit` 声明（6 台接入 / 3 台复用既有事件 / 其余按证据豁免）· R09-013 覆盖门禁 | AI |
+| 2026-11-24 | **P2-2 遗留清理完成**：按 CD05/CD06 两段式删除 `extractToolCalls` / `buildLogEvents` / `resolveGroupStatus`（先摘测试入口 `771854de7`，再删实现） | AI |
 
 ---
 
@@ -448,7 +449,7 @@ interface StateMachineEntry {
 
 **遗留**
 
-- `@deprecated` 死代码（`extractToolCalls` / `buildLogEvents` / `resolveGroupStatus` 等）仍在观察期，删除须按 `code-deletion.md` CD05/CD06 走"先摘入口 → 确认无消费者 → 独立提交"。
+- `@deprecated` 死代码（`extractToolCalls` / `buildLogEvents` / `resolveGroupStatus`）已按 CD05/CD06 删除，见 §20。
 - `inboxApproval` / `plan` 仍无 `transitionRules`（手写机，转移分散在 CAS/UPDATE 与编排器）⇒ 未纳入 R09-008 的动态校验面。
 
 **验证**：`bun test tests/state tests/gates/stateLiteralRatchet.test.ts` → **171 pass / 0 fail**；`bun run typecheck` 通过；`lint:state-ratchet` 通过；`state-governance-report --check` 通过。
@@ -480,6 +481,34 @@ interface StateMachineEntry {
 
 - `selfWake` 的 `due` 态全仓无写入点（目录已登记但实际只用 `pending`）—— 属既有事实，后续可在目录 note 标注或收敛状态集。
 - `inboxApproval` 的 `tryUpdateStatus` 是通用 CAS API（测试直调），生产路径的审计落在 `resolveInboxApproval`；若将来新增生产调用方，需同步补审计。
-- `@deprecated` 死代码仍在观察期（同上批，按 CD05/CD06 删除）。
+- `@deprecated` 死代码（`extractToolCalls` / `buildLogEvents` / `resolveGroupStatus`）已按 CD05/CD06 删除，见 §20。
 
 **验证**：app 全量 `bun test` → **13829 pass / 42 skip / 0 fail**（1642 文件）；client `vitest run` → **1125 pass**（158 文件）；`bun run typecheck` 与 client `tsc --noEmit` 通过；改动文件 ESLint 通过；`lint:state-ratchet` 通过；`state-governance-report --check` 通过（转移审计 **17/17**，session-event 9 / exempt 8）。
+
+---
+
+## §20 P2-2 遗留清理：死代码删除（2026-11-24，CD05/CD06）
+
+**删除对象**（均为 client 端"消息投影重建"旧路径，生产消费已统一到事件流 / `deriveGroupOutcome`）：
+
+| 符号 | 位置 | 替代实现 |
+|---|---|---|
+| `extractToolCalls` | `client/src/utils/sessionLog.ts` | `buildLogEventsFromEvents`（事件流） |
+| `buildLogEvents` | 同上 | 同上 |
+| `resolveGroupStatus`（+ `ToolGroupStatus`） | `client/src/utils/toolHumanSummary.ts` | `stores/chat/toolOutcome.ts#deriveGroupOutcome` |
+
+**CD01–CD04 核查结论（删除依据）**
+
+- **CD01 静态 / 动态 / 配置**：全仓 `grep` 三个符号，除定义与注释外仅命中**自身测试**；`import(` / `require(` 动态载入 0 处；无字符串注册（无配置键 / 表驱动 key）。`packages/evals` 的同名 `extractToolCalls` 是**另一实现**（trace 解析），不在本删除范围。
+- **CD02 构建 / 插件 / 运行时发现**：client 单入口（web/desktop 共用同一 `src`），无按名加载；两文件均不在插件 / 通道 / 技能注册表，`utils/` 无 barrel `index.ts` 再导出。
+- **CD03 DI / 反射 / 外部协议**：纯函数工具，无装饰器 / `resolve<T>()` / HTTP 路由 / IPC 命令引用。
+- **CD04 测试 / 变体 / 运行模式**：仅 3 个测试文件引用（`sessionLog.test.ts` 1 例、`toolDisplay29.test.ts` 6 例、`session-log-error.test.ts` 4 例）；CLI/REPL/MCP/DAEMON 均为后端，不消费 client 工具函数。
+
+**执行顺序（CD05 两段式）**
+
+1. `771854de7 test(client): 摘除 @deprecated 死派生的最后引用（CD05 第一步）`：移除三处测试入口；`extractError`（活代码）改为直接构造 `ToolCallRecord` 直测，**保留覆盖**。
+2. 本提交：删除实现体 + 清理因删除而孤立的 `toolEvent` / `logger` / `Message` 等引用；同步更新两文件头注与 `ToolExecutionGroup` 的历史注释。
+
+**回滚路径（CD06）**：删除集中在极少数文件，`git revert` 本提交即可完整复原；入口摘除提交可单独 revert（回滚后仅测试恢复，不影响运行）。
+
+**验证**：client `tsc --noEmit` 通过；client `vitest run` → **1118 pass / 0 fail**（158 文件，较清理前 1125 减少 7 例——均为被删死路径的专属用例）；改动文件 ESLint 0 error。

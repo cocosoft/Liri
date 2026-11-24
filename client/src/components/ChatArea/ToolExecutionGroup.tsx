@@ -23,6 +23,61 @@ interface ToolExecutionGroupProps {
   blocks: MessageBlock[];
 }
 
+/**
+ * 思考行 —— 阶段树里的一个节点。
+ *
+ * 2026-11-24（用户反馈：以正文为准，思考与工具调用合并进树）：
+ * 思考块原先是独立卡片（每条一行标题），与工具组头交替出现把阶段切碎。
+ * 现在作为树中一行：默认只显示标题 + 首行摘要，点击展开完整思考内容。
+ */
+function ThinkingRow({
+  content,
+  isStreaming,
+}: {
+  content: string;
+  isStreaming?: boolean;
+}) {
+  const { t } = useTranslation();
+  const [expanded, setExpanded] = useState(false);
+  const preview = useMemo(() => {
+    const firstLine =
+      content
+        .split("\n")
+        .map((line) => line.trim())
+        .find((line) => line.length > 0) ?? "";
+    return firstLine.length > 80 ? `${firstLine.slice(0, 80)}…` : firstLine;
+  }, [content]);
+
+  return (
+    <div className="min-w-0">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+        className="flex w-full items-center gap-1 text-left text-[11px] leading-relaxed text-gray-600 dark:text-[#a9b1d6] hover:text-gray-800 dark:hover:text-gray-200"
+      >
+        <span className="shrink-0">💭</span>
+        <span className="shrink-0 font-medium text-amber-700 dark:text-[#c0b88a]">
+          {isStreaming ? t("chat.thinking") : t("chat.thoughtProcess")}
+        </span>
+        {preview && (
+          <span className="min-w-0 flex-1 truncate text-gray-400 dark:text-gray-500">
+            {preview}
+          </span>
+        )}
+        <span className="ml-auto shrink-0 text-[9px] opacity-60">
+          {expanded ? "▲" : "▼"}
+        </span>
+      </button>
+      {expanded && (
+        <pre className="mt-0.5 mb-1 max-h-[240px] overflow-y-auto whitespace-pre-wrap break-words rounded bg-gray-100 dark:bg-black/15 p-1.5 text-[10px] leading-relaxed text-gray-700 dark:text-[#c0b88a]">
+          {content}
+        </pre>
+      )}
+    </div>
+  );
+}
+
 function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
   const { t } = useTranslation();
   // P0-5 修复：精准 selector 订阅，避免每个 chunk 触发工具卡片重渲染
@@ -303,6 +358,18 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
     });
   }, [blocks]);
 
+  /** 阶段内的思考块与工具调用数（组头展示「过程 · N 步 / M 个工具调用 · K 次思考」） */
+  const thinkingBlocks = useMemo(
+    () => filteredBlocks.filter((b) => b.type === "thinking" && b.content),
+    [filteredBlocks],
+  );
+  const hasThinking = thinkingBlocks.length > 0;
+  const toolCallCount = useMemo(
+    () =>
+      filteredBlocks.filter((b) => b.type === "tool_call" && b.toolCall).length,
+    [filteredBlocks],
+  );
+
   return (
     <div className="border border-gray-400/20 rounded-[10px] overflow-hidden mb-1">
       <button
@@ -318,9 +385,29 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
           )}
         </span>
 
-        {/* 工具名称 + 参数摘要（聚合态：凝练总结 + 完成数；单工具态：工具名 + 摘要） */}
+        {/* 工具名称 + 参数摘要（阶段态：过程步数 + 工具/思考计数；聚合态：凝练总结 + 完成数；单工具态：工具名 + 摘要） */}
         <span className="font-semibold text-gray-800 dark:text-gray-200 shrink overflow-hidden text-ellipsis whitespace-nowrap min-w-0">
-          {aggregateStats ? (
+          {hasThinking ? (
+            <>
+              {t("chat.processStage", {
+                count: filteredBlocks.length,
+                defaultValue: "过程 · {{count}} 步",
+              })}
+              <span className="font-normal text-xs text-gray-400 ml-1">
+                {" · "}
+                {toolCallCount > 0 &&
+                  t("chat.toolCallsCount", {
+                    count: toolCallCount,
+                    defaultValue: "{{count}} 个工具调用",
+                  })}
+                {toolCallCount > 0 && " · "}
+                {t("chat.progress.thinking", {
+                  count: thinkingBlocks.length,
+                  defaultValue: "{{count}} 次思考",
+                })}
+              </span>
+            </>
+          ) : aggregateStats ? (
             <>
               {/* 凝练总结话语：如 "✅ 已执行 2 个工具调用" / "2 个工具调用 (1/2)" */}
               {aggregateStats.allDone && !aggregateStats.failed
@@ -442,7 +529,9 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
                   ? "bg-blue-400"
                   : blockStatus === "failed"
                     ? "bg-red-400"
-                    : "bg-gray-300 dark:bg-gray-600";
+                    : block.type === "thinking" && block.isStreaming
+                      ? "bg-amber-400"
+                      : "bg-gray-300 dark:bg-gray-600";
 
               return (
                 <div key={block.id} className="flex gap-1.5">
@@ -462,6 +551,11 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
                         toolCall={block.toolCall}
                         isStreaming={block.isStreaming}
                         variant="inline"
+                      />
+                    ) : block.type === "thinking" ? (
+                      <ThinkingRow
+                        content={block.content}
+                        isStreaming={block.isStreaming}
                       />
                     ) : block.type === "status" ? (
                       <GroupStatusLine

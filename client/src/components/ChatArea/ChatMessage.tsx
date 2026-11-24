@@ -1599,10 +1599,19 @@ function buildFallbackBlocks(message: Message): MessageBlock[] {
 }
 
 /**
- * 判断 block 是否为工具执行相关类型
+ * 判断 block 是否属于「过程」块（思考 / 状态 / 工具调用）。
+ *
+ * 2026-11-24（用户反馈：以正文为准，思考与工具调用同一阶段内合并进树）：
+ * 原实现只把 status / tool_call 视为过程块，思考块会把阶段切开 ——
+ * 真实会话（`session_mwrf18pu00456e0f2b`）里一轮就有 20+ 个「思考」标题
+ * 与 20+ 个工具组头交替出现。现在思考也并入同一阶段，由树统一收起。
  */
-function isToolRelatedBlock(block: MessageBlock): boolean {
-  return block.type === "status" || block.type === "tool_call";
+function isProcessBlock(block: MessageBlock): boolean {
+  return (
+    block.type === "thinking" ||
+    block.type === "status" ||
+    block.type === "tool_call"
+  );
 }
 
 /**
@@ -1645,14 +1654,17 @@ function isHighRiskToolBlock(block: MessageBlock): boolean {
 }
 
 /**
- * 将 blocks 中的连续工具相关 blocks 按 groupId 分组：
+ * 将 blocks 中的连续「过程」块（思考 / 状态 / 工具调用）合并为一棵可收缩的树：
  * - 普通工具组 → ToolInlineTags 行内小标签（P2，详细过程移右侧会话日志）
- * - 审批等待组 → ToolExecutionGroup（保留琥珀徽标 + 审批交互）
+ * - 含思考 / 审批等待 / 高风险工具的组 → ToolExecutionGroup（多级树 + 审批交互）
  * - 纯 status / 多媒体展示 → 直接渲染 BlockRenderer
  * groupId 由 ChronologicalBlockBuilder 在流式构建时分配，
  * 或由 rebuildBlocksFromContent 在重建时分配，
  * 确保同一逻辑组（文本→工具调用→状态）始终共享相同 groupId，避免割裂。
  * 向后兼容：旧数据无 groupId 时回退到 toolCallId 分组。
+ *
+ * 2026-11-24：分组边界由「文本/思考」改为「正文等非过程块」——同一阶段内
+ * 思考与工具调用共用一个组头，正文保持原样独立渲染（以正文为准）。
  */
 function renderBlocksWithGroups(
   blocks: MessageBlock[],
@@ -1681,7 +1693,7 @@ function renderBlocksWithGroups(
   while (i < blocks.length) {
     const block = blocks[i];
 
-    if (!isToolRelatedBlock(block)) {
+    if (!isProcessBlock(block)) {
       result.push(renderBlock(block));
       i++;
       continue;
@@ -1691,11 +1703,9 @@ function renderBlocksWithGroups(
     const groupKey = getGroupKey(block);
 
     /**
-     * 2026-11-24（用户反馈：命令执行是一张张独立卡片，想收进多级树）：
-     * 原实现要求相邻工具块 `groupId` 相同才归为一组，而大量会话里每个 tool_call
-     * 自成一组 ⇒ 一屏出现 100+ 个「终端命令 — 已执行命令…」卡片头，无法整体收起。
-     * 现改为把**连续的工具相关块**归入同一组（遇到文本/思考等非工具块才断开），
-     * 由 `ToolExecutionGroup` 渲染为「组 → 每条调用 → 参数/结果」的多级树。
+     * 2026-11-24（用户反馈：以正文为准，思考与工具调用同阶段合并进树）：
+     * 把**连续的过程块**（思考 / 状态 / 工具调用）归入同一组，遇到正文等
+     * 非过程块才断开，由 `ToolExecutionGroup` 渲染为「组 → 每条步骤 → 详情」的树。
      * 多媒体展示类单独成组（图片/视频必须直接可见，不能混进折叠树）。
      */
     const isMediaBlock = (b: MessageBlock): boolean =>
@@ -1706,7 +1716,7 @@ function renderBlocksWithGroups(
     } else {
       while (
         i < blocks.length &&
-        isToolRelatedBlock(blocks[i]) &&
+        isProcessBlock(blocks[i]) &&
         !isMediaBlock(blocks[i])
       ) {
         toolBlocks.push(blocks[i]);
@@ -1753,7 +1763,9 @@ function renderBlocksWithGroups(
     );
     // 高风险工具组：副作用大（写文件/Bash/MCP 等），默认走完整卡片让用户能直接看到 args/result
     const hasHighRiskTool = toolBlocks.some(isHighRiskToolBlock);
-    if (hasPendingApproval || hasHighRiskTool) {
+    // 含思考的组：思考行只能落在树里（ToolInlineTags 不渲染思考块，降级会丢内容）
+    const hasThinking = toolBlocks.some((b) => b.type === "thinking");
+    if (hasPendingApproval || hasHighRiskTool || hasThinking) {
       result.push(
         <ToolExecutionGroup
           key={`tool-group-${firstBlockId || groupKey || i}`}

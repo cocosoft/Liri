@@ -96,6 +96,52 @@ describe("ToolExecutionGroup 分组等待审批态（J-2.2）", () => {
   });
 });
 
+describe("ToolExecutionGroup 阶段树（2026-11-24）", () => {
+  /**
+   * 同一阶段内的思考与工具调用合并为一棵树：
+   * 折叠态只有一行「过程 · N 步」，展开后思考作为树中的一个节点（可再展开全文）。
+   */
+  it("思考 + 工具调用同组 → 单行组头，展开后思考是树节点", () => {
+    const blocks: MessageBlock[] = [
+      {
+        id: "blk-think",
+        type: "thinking",
+        content: "先确认当前实现\n第二行细节",
+        isStreaming: false,
+      },
+      {
+        id: "blk-tool",
+        type: "tool_call",
+        content: "",
+        isStreaming: false,
+        toolCall: {
+          id: "t5",
+          name: "glob",
+          arguments: { pattern: "*.ts" },
+          status: "completed",
+        },
+      },
+    ];
+    render(<ToolExecutionGroup blocks={blocks} />);
+
+    const header = screen.getAllByRole("button")[0];
+    expect(header.textContent).toContain(
+      String(i18n.t("chat.processStage", { count: 2 })),
+    );
+    // 折叠态：思考节点与正文都不渲染
+    expect(screen.queryByText(i18n.t("chat.thoughtProcess"))).toBeNull();
+
+    fireEvent.click(header);
+    const thinkingRow = screen.getByText(i18n.t("chat.thoughtProcess"));
+    expect(thinkingRow).toBeTruthy();
+    // 思考行默认只显示首行摘要，完整内容在 <pre> 里
+    expect(document.querySelector("pre")).toBeNull();
+
+    fireEvent.click(thinkingRow.closest("button")!);
+    expect(document.querySelector("pre")?.textContent).toContain("第二行细节");
+  });
+});
+
 describe("ToolCallGroup 就地审批（U-06-5）", () => {
   afterEach(() => {
     vi.restoreAllMocks();

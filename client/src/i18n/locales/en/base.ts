@@ -676,7 +676,9 @@ const enBase = {
     collapseDetail: "Collapse Detail",
     // 2026-11-24: tool group multi-level tree (group → each call → args/result)
     toolTreeHint: "{{count}} items",
-    toolTreeHintAction: "Click any row to expand parameters / result",
+    toolTreeHintAction: "Click any row to expand details",
+    // 2026-11-24: stage header when thinking + tool calls are merged into one tree
+    processStage: "Process · {{count}} steps",
     diagnosticTitle: "Diagnostics",
     sessionSettings: "Session Settings",
     clearHistory: "Clear History",

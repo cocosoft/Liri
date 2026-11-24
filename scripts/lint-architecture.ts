@@ -1130,8 +1130,11 @@ class ArchitectureLinter {
 
       if (lines > MAX_FILE_LINES) {
         const relPath = relative(process.cwd(), file);
-        // R04-001 豁免：已登记 fileSizeExceptions 的文件不阻断
-        if (this.isFileSizeExempt(relPath)) continue;
+        // R04-001 豁免：判定路径必须相对**仓库根**（AR-2），`relPath` 仅用于展示。
+        // 修因（2026-11-24）：此前用 cwd 相对路径判定 ⇒ 从 `app/` 运行时得到
+        // `../packages/service/...`，已登记例外（如 FSZ-006 `InboxManager.ts`）查不中，
+        // 同一文件在仓库根运行却通过（口径随 cwd 漂移）。
+        if (this.isFileSizeExempt(relative(this.projectDir, file))) continue;
         this.violations.push({
           ruleId: 'R04-001',
           severity: 'error',

@@ -343,7 +343,7 @@ interface StateMachineEntry {
 
 1. **`inboxApproval` 未登记**：`pending/processing/replied/expired/dismissed` 是真实持久化机器（`inbox_items` 表 + CAS + 启动对账 `reconcileStuckApprovalSessions`），但既不在目录、也未被 R09-006 捕获（状态用单数常量而非 `*_STATUSES` 数组）。
 2. **计划生命周期（`Plan.status`）未登记**：`pending-acceptance-state-machine.md` 已描述验收子态，但目录无 `plan` 条目。
-3. **R04-001 本地口径**：从 `app/` 目录运行 `lint:arch` 时，`InboxManager.ts` 的 `FSZ-006` 例外不生效（相对路径带 `..`）；从仓库根运行正常。属预存调用路径问题，建议单独立项修 `relOf` 归一化。
+3. ~~**R04-001 本地口径**：从 `app/` 目录运行 `lint:arch` 时，`InboxManager.ts` 的 `FSZ-006` 例外不生效（相对路径带 `..`）；从仓库根运行正常。~~ **已修（2026-11-24）**：`checkFileSize` 的豁免判定路径改由 `this.projectDir`（仓库根）归一（AR-2），展示路径仍用 cwd 相对；`app/` 与仓库根两处运行均为 `错误: 0`（仅剩 R00-003 warning）。
 
 **验证**：`bun test tests/state tests/execution tests/streaming` → **310 pass / 0 fail**；`bun run typecheck` 通过；`lint:state-ratchet` 通过；仓库根 `lint:arch` 仅剩 R00-003 warning（预存）。
 

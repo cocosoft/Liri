@@ -34,7 +34,28 @@ export interface MemorySearchHit {
   tags?: string[];
   /** 全局记忆关联的会话 id（若有） */
   sessionId?: string;
+  /** transcript 兜底：消息角色（user / assistant） */
+  role?: string;
+  /**
+   * transcript 兜底：消息写盘时刻的会话事件 seq（`UnifiedMessage.lastEventSeq`）。
+   * 供"原始事件引用"定位；缺失则该条只按 id/时间引用。
+   */
+  seq?: number;
 }
+
+/** transcript 条目最小结构（与 `UnifiedMessage` 对齐；注解条目不参与兜底） */
+export interface TranscriptEntryLike {
+  role?: string;
+  content?: unknown;
+  timestamp?: number;
+  lastEventSeq?: number;
+}
+
+/** transcript 检索能力（注入桩或真实网关适配） */
+export type TranscriptSearcher = (
+  sessionId: string,
+  query: string
+) => Promise<Array<{ entries: TranscriptEntryLike[] }>>;
 
 export interface MemorySearchOptions {
   scope?: MemorySearchScope;
@@ -52,7 +73,9 @@ export interface MemorySearchOutcome {
   /**
    * 回退原因（结构化观测）：
    * `query-required` / `no-session-context` / `session-search-failed` /
-   * `global-manager-unavailable` / `global-search-failed`
+   * `global-manager-unavailable` / `global-search-failed` /
+   * `transcript-fallback`（已回退到原始会话记录）/ `transcript-no-hits` /
+   * `transcript-unavailable` / `transcript-search-failed`
    */
   fallbackReasons: string[];
 }
@@ -91,6 +114,8 @@ export interface GlobalMemorySource {
 export interface MemorySearchDeps {
   resolveSessionMemory?: () => Promise<SessionMemorySource>;
   resolveGlobalMemory?: () => Promise<GlobalMemorySource | null>;
+  /** transcript 兜底检索（缺省经 `getCoreAPI()` 取会话网关） */
+  searchTranscript?: TranscriptSearcher;
 }
 
 let _globalMemoryManager: GlobalMemorySource | null = null;
@@ -113,6 +138,52 @@ async function resolveSessionMemoryManager(): Promise<SessionMemorySource> {
   const { getSessionMemoryManager } =
     await import('@modules/session/bootstrap/SessionSystemBootstrap.js');
   return getSessionMemoryManager();
+}
+
+/**
+ * 默认 transcript 检索：经 `getCoreAPI()` 取会话网关（`SessionGateway.searchTranscript`）。
+ * 工具运行期 CoreAPI 已初始化；MCP 无会话上下文时不会走到该分支。
+ */
+async function resolveTranscriptSearcher(): Promise<TranscriptSearcher | null> {
+  try {
+    const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl.js');
+    return async (sessionId, query) => {
+      const results = await getCoreAPI()
+        .getChatManager()
+        .getSessionGateway()
+        .searchTranscript(sessionId, query);
+      // 把 `TranscriptEntry`（含无 role 的注解）压成最小结构后再交给服务
+      return results.map((result) => ({
+        entries: result.entries.map((entry) => {
+          const candidate = entry as {
+            role?: string;
+            content?: unknown;
+            timestamp?: number;
+            lastEventSeq?: number;
+          };
+          return {
+            role: candidate.role,
+            content: candidate.content,
+            timestamp: candidate.timestamp,
+            lastEventSeq: candidate.lastEventSeq,
+          };
+        }),
+      }));
+    };
+  } catch (err) {
+    logger.warn('会话 transcript 检索不可用（跳过兜底）', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return null;
+  }
+}
+
+/** 条目内容压成单行摘要（≤160 字符） */
+function transcriptSnippet(content: unknown): string {
+  const text =
+    typeof content === 'string' ? content : JSON.stringify(content ?? '');
+  const oneLine = text.replace(/\s+/g, ' ').trim();
+  return oneLine.length > 160 ? `${oneLine.slice(0, 160)}…` : oneLine;
 }
 
 function normalizeLimit(value: number | undefined): number {
@@ -232,6 +303,52 @@ export async function searchMemory(
       } catch (err) {
         fallbackReasons.push('global-search-failed');
         logger.warn('全局记忆检索失败', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+  }
+
+  // ③ transcript 兜底（P1-2）：仅"会话相关范围 + 记忆零命中"时，回退到原始会话记录
+  if (
+    hits.length === 0 &&
+    sessionId &&
+    (scope === 'session' || scope === 'all')
+  ) {
+    const searchTranscript =
+      deps.searchTranscript ?? (await resolveTranscriptSearcher());
+    if (!searchTranscript) {
+      fallbackReasons.push('transcript-unavailable');
+    } else {
+      try {
+        const results = await searchTranscript(sessionId, query);
+        const entries = (results ?? []).flatMap((r) => r.entries ?? []);
+        for (const entry of entries) {
+          if (hits.length >= limit) break;
+          // 注解条目（无 role）不参与兜底
+          if (typeof entry.role !== 'string') continue;
+          const snippet = transcriptSnippet(entry.content);
+          if (!snippet) continue;
+          hits.push({
+            content: snippet,
+            timestamp:
+              typeof entry.timestamp === 'number'
+                ? new Date(entry.timestamp).toISOString()
+                : '',
+            source: 'transcript',
+            role: entry.role,
+            ...(typeof entry.lastEventSeq === 'number'
+              ? { seq: entry.lastEventSeq }
+              : {}),
+          });
+        }
+        fallbackReasons.push(
+          hits.length > 0 ? 'transcript-fallback' : 'transcript-no-hits'
+        );
+      } catch (err) {
+        fallbackReasons.push('transcript-search-failed');
+        logger.warn('transcript 兜底检索失败', {
+          sessionId,
           error: err instanceof Error ? err.message : String(err),
         });
       }

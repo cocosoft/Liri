@@ -87,4 +87,35 @@ describe('recall_memory scope/type（P1-2）', () => {
     const text = await run({}, CTX);
     expect(text).toContain('SESSION-CONTEXT');
   });
+
+  it('记忆零命中 + transcript ⇒ 回退提示与事件引用', async () => {
+    const tool = RecallMemoryTool.create({
+      resolveSessionMemory: async () => ({
+        searchMemory: async () => [],
+        getMemoryContext: () => '',
+      }),
+      searchTranscript: async () => [
+        {
+          entries: [
+            {
+              role: 'user',
+              content: '原始记录内容',
+              timestamp: 1_700_000_000_000,
+              lastEventSeq: 7,
+            },
+          ],
+        },
+      ],
+    });
+    const result = await tool.execute({ query: '部署' }, CTX);
+    const text = String(result.data ?? '');
+    expect(text).toContain('来源:transcript');
+    expect(text).toContain('事件#7');
+    expect(text).toContain('原始记录内容');
+
+    const messages = (
+      result as unknown as { newMessages?: Array<{ content?: string }> }
+    ).newMessages;
+    expect(messages?.[0]?.content ?? '').toContain('回退到原始会话记录');
+  });
 });

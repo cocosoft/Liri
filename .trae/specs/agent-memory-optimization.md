@@ -258,11 +258,16 @@ MMR 需查询向量与候选两两相似度（N² 次嵌入），仅在显式开
 `recall_memory` 与 MCP `memory_search` 共用（MCP 固定 `scope=global`，展示层格式不变）；
 服务返回 `{scope, hits, fallbackReasons}`，`hits` 跨源统一（含 `id/name/tags/sessionId` 供展示层使用）。
 
+**transcript 兜底（2026-11-25 第三批）**：服务在「会话相关范围 + 记忆零命中」时回退到
+`SessionGateway.searchTranscript`（经 `getCoreAPI()` 懒取，工具运行期已初始化；MCP 无会话上下文不触发）。
+命中以 `source=transcript` + `role` + `seq` 返回；`seq` 取 `UnifiedMessage.lastEventSeq`
+（**消息写盘时刻的会话事件 seq**，不是"该条消息的精确事件 seq"）；内容压成 ≤160 字符单行。
+回退原因新增 `transcript-fallback` / `transcript-no-hits` / `transcript-unavailable` / `transcript-search-failed`。
+
 **未做（如实）**：
 - `MemoryTool`（`packages/tool-agent/.../memory/MemoryTool.ts`）走 `SearchTool.advancedSearch`
   （tags / sortBy 等另一套能力），**未**并入本服务；
-- **transcript 兜底**：记忆零命中时尚未回退到 `events.jsonl`（返回 seq 引用）—— 工具层当前
-  无可达的会话网关/事件日志入口（`SessionSystemBootstrap` 只暴露会话记忆/状态），需先补访问缝。
+- transcript 兜底目前只在 `recall_memory` 生效（MCP `memory_search` 无会话上下文，不涉及）。
 
 **明确未做（P0-2-4，延后到 Phase 3）**：`confidence / verifiedAt / sourceEventSeqs / accessCount` 字段的写入与持久化。理由：当前无消费者，属"未接线项"（`dead-code-and-unwired-items-rulings.md`）；Phase 3 的 Validate/Promote 才真正读取它们，届时同批加字段 + frontmatter 读写 + 用例。
 

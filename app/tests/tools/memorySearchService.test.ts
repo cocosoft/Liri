@@ -120,4 +120,69 @@ describe('searchMemory（统一服务）', () => {
     expect(out.hits).toHaveLength(1);
     expect(out.hits[0].content).toBe('SESSION-CONTEXT');
   });
+
+  it('记忆零命中 + transcript 可用 ⇒ 回退为原始记录引用（含 seq/role）', async () => {
+    const deps: MemorySearchDeps = {
+      resolveSessionMemory: async () => ({
+        searchMemory: async () => [],
+        getMemoryContext: () => '',
+      }),
+      searchTranscript: async () => [
+        {
+          entries: [
+            {
+              role: 'user',
+              content: '部署前要先跑门禁',
+              timestamp: 1_700_000_000_000,
+              lastEventSeq: 42,
+            },
+            { role: 'assistant', content: { text: '收到' } },
+          ],
+        },
+      ],
+    };
+    const out = await searchMemory(
+      { query: '门禁', sessionId: 's1', scope: 'session' },
+      deps
+    );
+    expect(out.hits).toHaveLength(2);
+    expect(out.hits[0].source).toBe('transcript');
+    expect(out.hits[0].role).toBe('user');
+    expect(out.hits[0].seq).toBe(42);
+    expect(out.fallbackReasons).toContain('transcript-fallback');
+  });
+
+  it('transcript 有入口但零匹配 ⇒ transcript-no-hits', async () => {
+    const deps: MemorySearchDeps = {
+      resolveSessionMemory: async () => ({
+        searchMemory: async () => [],
+        getMemoryContext: () => '',
+      }),
+      searchTranscript: async () => [{ entries: [] }],
+    };
+    const out = await searchMemory(
+      { query: '门禁', sessionId: 's1', scope: 'session' },
+      deps
+    );
+    expect(out.hits).toEqual([]);
+    expect(out.fallbackReasons).toContain('transcript-no-hits');
+  });
+
+  it('transcript 检索抛错 ⇒ transcript-search-failed（不向上抛）', async () => {
+    const deps: MemorySearchDeps = {
+      resolveSessionMemory: async () => ({
+        searchMemory: async () => [],
+        getMemoryContext: () => '',
+      }),
+      searchTranscript: async () => {
+        throw new Error('boom');
+      },
+    };
+    const out = await searchMemory(
+      { query: '门禁', sessionId: 's1', scope: 'session' },
+      deps
+    );
+    expect(out.hits).toEqual([]);
+    expect(out.fallbackReasons).toContain('transcript-search-failed');
+  });
 });

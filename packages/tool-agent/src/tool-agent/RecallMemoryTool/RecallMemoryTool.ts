@@ -46,10 +46,23 @@ export interface GlobalMemoryLike {
   >;
 }
 
+/** transcript 条目最小结构（与统一服务侧一致） */
+export interface TranscriptEntryLike {
+  role?: string;
+  content?: unknown;
+  timestamp?: number;
+  lastEventSeq?: number;
+}
+
 /** 可注入依赖（缺省走真实实现；单测注入桩以避免模块级 mock） */
 export interface RecallMemoryDeps {
   resolveSessionMemory?: () => Promise<SessionMemoryLike>;
   resolveGlobalMemory?: () => Promise<GlobalMemoryLike | null>;
+  /** transcript 兜底检索（记忆零命中时） */
+  searchTranscript?: (
+    sessionId: string,
+    query: string
+  ) => Promise<Array<{ entries: TranscriptEntryLike[] }>>;
 }
 
 /** 检索范围（P1-2） */
@@ -154,9 +167,11 @@ export class RecallMemoryTool {
                 ? '未找到相关记忆（当前无会话上下文；可用 scope="global" 检索全局长期记忆）。'
                 : fallbackReasons.includes('global-manager-unavailable')
                   ? '全局记忆暂不可用，未找到相关记忆。'
-                  : scope === 'global'
-                    ? '未找到全局相关记忆。'
-                    : '未找到相关记忆。';
+                  : fallbackReasons.includes('transcript-no-hits')
+                    ? '未找到相关记忆（原始会话记录中也没有匹配内容）。'
+                    : scope === 'global'
+                      ? '未找到全局相关记忆。'
+                      : '未找到相关记忆。';
             return createToolResult(hint, {
               newMessages: [{ role: 'system', content: hint }],
             });
@@ -166,6 +181,8 @@ export class RecallMemoryTool {
             .map((r, i) => {
               const meta = [
                 r.source ? `来源:${r.source}` : '',
+                r.role ? `角色:${r.role}` : '',
+                typeof r.seq === 'number' ? `事件#${r.seq}` : '',
                 r.timestamp
                   ? new Date(r.timestamp).toLocaleString(DEFAULT_LOCALE)
                   : '',
@@ -184,11 +201,14 @@ export class RecallMemoryTool {
                 ? '全局'
                 : '会话与全局';
 
+          const hasTranscript = hits.some((h) => h.source === 'transcript');
           return createToolResult(formatted, {
             newMessages: [
               {
                 role: 'system',
-                content: `已从${scopeLabel}记忆中找到 ${hits.length} 条相关记录（耗时 ${executionTime}ms）。`,
+                content: hasTranscript
+                  ? `记忆无命中，已回退到原始会话记录：${hits.length} 条引用（耗时 ${executionTime}ms）。`
+                  : `已从${scopeLabel}记忆中找到 ${hits.length} 条相关记录（耗时 ${executionTime}ms）。`,
               },
             ],
           });

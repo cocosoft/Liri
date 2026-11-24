@@ -30,9 +30,10 @@ export const LIRI_EVENT_NAMES = [
   'assistant/tool_call',
   'tool/result',
   'tool/canceled',
-  // ─── 富块（M4-1-a 扩展，覆盖 question/todo/progress/doc_workflow/status） ───
+  // ─── 富块（M4-1-a 扩展，覆盖 question/todo/doc_workflow/status） ───
+  // 2026-11-24：`assistant/progress` 已下线（`progress` 块删除后无派生/渲染消费者，
+  // 事件仅由客户端聚合器本地生成、无落盘生产者）⇒ 从唯一事实源移除。
   'assistant/status',
-  'assistant/progress',
   'assistant/question',
   'assistant/todo',
   'assistant/doc_workflow',

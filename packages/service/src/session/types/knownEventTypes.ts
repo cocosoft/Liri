@@ -43,7 +43,6 @@ const ALL_SESSION_EVENT_TYPES = [
   'tool/canceled',
   // ─── 富块 ───
   'assistant/status',
-  'assistant/progress',
   'assistant/question',
   'assistant/todo',
   'assistant/doc_workflow',

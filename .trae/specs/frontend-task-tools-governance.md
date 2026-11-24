@@ -562,3 +562,40 @@
 
 验证：client `tsc --noEmit` 通过；`vitest run` **1147 pass / 0 fail**（166 文件）；改动文件 ESLint 0 error。
 回滚：`git revert <本提交>`（类型与派生逻辑均在本提交内）。
+
+### 批次 20：清理 `assistant/progress` 后端契约与派生（批次 19 的保留项）
+
+批次 19 留在后端侧的"冗余数据路径"本批清除；`execution_phase` chunk 链路保留（驱动浮动栏）。
+
+删除取证（`code-deletion.md` CD01–CD06）：
+
+- **CD01 静态/动态引用**：`assistant/progress` 全仓 6 处——发射（client 聚合器 `case "execution_phase"`）、
+  前端载荷、shared 事件名、`knownEventTypes` 登记、服务层载荷、`EventMessageDeriver` 清单 + 派生分支。
+  无 `import()`/字符串拼接动态引用；无 `LiriEvent<'assistant/progress'>` 类型引用。
+- **CD02 构建/插件/运行时发现**：不在 `ModuleDefinitions` / 通道 / 工具注册表内；唯一"发现"入口是
+  `KNOWN_SESSION_EVENT_TYPES`（事件名三处同批同步），移除后文件末穷尽断言与 `eventTypeParity` 均通过。
+- **CD03 DI / 反射 / 外部协议**：无 HTTP 路由 / IPC / webhook 入口；仅事件日志 schema。
+- **CD04 测试 / 变体 / 运行模式**：无测试断言该事件或 `progressData` 块（`blockRendererProgress.test.tsx`
+  只锁 `progress` 块渲染为 null 的**旧投影防御**）；无 feature flag / 构建变体差异；
+  `CLI|REPL|MCP|DAEMON|TEST` 均无该类型生产者。聚合器用例"空 `execution_phase` 不产生事件"仍成立。
+- **CD05 顺序**：先摘**发射**（聚合器分支）→ 再摘**派生**（`EventMessageDeriver` 清单 + case）→
+  最后删**契约**（shared / 双端载荷 / 登记）。三者同批提交，因已先证"无生产者、无消费者"。
+- **CD06 回滚**：`git revert <本提交>`（契约/发射/派生同在此提交内，可整块恢复）。
+
+**历史事件兼容结论**：`Grep 'assistant/progress' app/src` = 0 ⇒ 后端**从未**把该类型写入
+`events.jsonl`（仅客户端聚合器进程内生成，供轨迹面板/实时派生）；`execution_phase` 后端只产
+SSE chunk。因此移除登记后**不存在**历史日志被 `assertEventReadable` 判为未知而跳过的存量；
+即便个别旧日志含有该类型，读取端按既有"逐事件跳过 + 告警"处理，不影响正文/工具块。
+旧 `messages.jsonl` 投影中已存在的 `progress` 块由 `BlockRenderer` 的 `case "progress": return null`
+兜底（`MessageBlock.type` 保留该字面量，仅防御旧数据）。
+
+删除清单：`shared/events/eventNames.ts` 事件名、`client/src/types/events.ts` 与
+`packages/service/src/session/types/eventPayloads.ts` 载荷、`knownEventTypes.ts` 登记、
+`EventMessageDeriver` 的 `RICH_BLOCK_TYPES` 项与派生 case、聚合器 `execution_phase` 事件发射、
+前端 `deriveConversationBlocks` 的跳过分支（类型联合收缩后不再合法）、`CoreAPI` 的
+`progressData?: ProgressBlockData` 字段与 `ProgressBlockData` 接口（零消费者）。
+
+验证：client `tsc --noEmit` 通过；`vitest run` 全量通过；app `bun run typecheck` 通过；
+`bun test tests/chat/eventTypeParity.test.ts tests/session` 通过；门禁
+`lint:fix-evidence` / `lint:evidence-linewidth` / `lint:consts` / `lint:state-ratchet` 均 PASS。
+回滚：`git revert <本提交>`。

@@ -849,32 +849,6 @@ export interface LiriEventMap {
   };
 
   /**
-   * 执行进度卡片（ExecutionPhaseTracker 推送）
-   * 与前端 ProgressData 结构保持一致，便于直接映射到 block.progressData
-   */
-  'assistant/progress': {
-    phase:
-      | 'analyzing'
-      | 'designing'
-      | 'implementing'
-      | 'verifying'
-      | 'presenting';
-    /** 0-100 */
-    progress: number;
-    description: string;
-    steps: Array<{
-      name: string;
-      status: 'pending' | 'in_progress' | 'done' | 'failed';
-    }>;
-    /** 完整步骤数（后端截断前），用于真实计数展示 */
-    totalSteps?: number;
-    /** 是否截断了旧步骤 */
-    truncated?: boolean;
-    /** 当前进行中的步骤名 */
-    currentStep: string;
-  };
-
-  /**
    * 用户提问卡片（ask_user_question 工具触发）
    * 与前端 QuestionData 结构一致。
    */

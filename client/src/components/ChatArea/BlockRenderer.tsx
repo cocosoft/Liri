@@ -196,9 +196,9 @@ function BlockRenderer({
        * 2026-11-24（删除 ProgressCard，用户裁定「简化前端显示内容」）：`progress` 块不再渲染。
        *
        * ⚠️ **必须保留 case 并显式返回 null** —— 落到 `default` 会渲染 `block.content`
-       * （即 `progressData.description`），等于把下线的面板换成一行裸文本。
-       * 数据层（流式 `addProgress` / 事件派生 `deriveConversationBlocks`）本批**不动**：
-       * 后端事件契约未变，只摘渲染入口（`code-deletion.md` CD05）。
+       * （旧投影里的 `progressData.description`），等于把下线的面板换成一行裸文本。
+       * 数据层（流式 `addProgress` / 事件派生）与后端事件契约已于同批批次 20 移除；
+       * 本 case 只兜底**历史投影**中已存在的 `progress` 块（`code-deletion.md` CD05）。
        */
       return null;
     case "deliverable":

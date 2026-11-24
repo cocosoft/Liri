@@ -280,13 +280,27 @@ describe("EventBasedStreamAggregator — M3-1", () => {
     expect(messages[0].content).toBe("第一段第二段");
   });
 
-  it("非截断 usage、空 execution_phase、normal 水位不产生事件", () => {
+  it("非截断 usage、execution_phase、normal 水位不产生事件", () => {
     agg.init([], SID);
     // 1) usage 无 finishReason=length → 不产生事件
     agg.appendChunk(chunk("usage", "", { usage: undefined }));
     expect(agg.getEvents().length).toBe(0);
     // 2) execution_phase 缺 executionPhase 载荷 → 跳过
     agg.appendChunk(chunk("execution_phase", ""));
+    expect(agg.getEvents().length).toBe(0);
+    // 2b) 2026-11-24（批次 20）：带载荷也不再派生 assistant/progress 事件
+    //     （该事件/进度块已下线，execution_phase 只驱动浮动栏状态）
+    agg.appendChunk(
+      chunk("execution_phase", "", {
+        executionPhase: {
+          phase: "implementing",
+          progress: 40,
+          description: "正在写入",
+          steps: [{ name: "写入", status: "in_progress" }],
+          currentStep: "写入",
+        },
+      }),
+    );
     expect(agg.getEvents().length).toBe(0);
     // 3) context_state 水位 severity=normal → 不进事件流
     agg.appendChunk(

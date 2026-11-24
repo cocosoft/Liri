@@ -17682,6 +17682,41 @@
       "changelog": [],
       "reopenWhen": "需要恢复执行进度块，或 ExecutionPhaseCode 再次耦合展示块类型（全文见 archive/evidence-detail.jsonl#PROGRESS-DATA-PATH-RETIREMENT）",
       "notes": "addProgress 零调用 ⇒ 删除；重放 case 跳过派生（保留 case 防当正文）；删 ProgressData/MessageBlock.progressData/导出/chatService 字段；ExecutionPhaseCode 改自洽联合。后端 EventMessageDeriver 派生未改（已在 spec 记录），故 testVerified 记 false。"
+    },
+    {
+      "id": "PROGRESS-EVENT-CONTRACT-RETIREMENT",
+      "title": "移除 assistant/progress 事件契约与后端派生（批次 19 保留项）",
+      "source": ".trae/specs/frontend-task-tools-governance.md §6 批次 20",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "shared/events/eventNames.ts",
+        "client/src/types/events.ts",
+        "client/src/stores/chat/streaming/EventBasedStreamAggregator.ts",
+        "client/src/stores/chat/deriveConversationBlocks.ts",
+        "packages/service/src/session/types/eventPayloads.ts",
+        "packages/service/src/session/types/knownEventTypes.ts",
+        "packages/service/src/session/storage/EventMessageDeriver.ts",
+        "app/src/runtime/api/CoreAPI.ts"
+      ],
+      "tests": [
+        "app/tests/chat/eventTypeParity.test.ts",
+        "app/tests/session/EventMessageDeriver.test.ts",
+        "client/src/stores/chat/streaming/__tests__/EventBasedStreamAggregator.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "需要恢复执行进度块/事件回放，或 ExecutionPhaseTracker 重新下发 progress 事件（回滚：revert 本提交）",
+      "notes": "CD01-CD06：先摘发射（聚合器）→ 摘派生（EventMessageDeriver）→ 删契约（shared/双端载荷/登记）。Grep app/src = 0 ⇒ 无落盘生产者，历史 events.jsonl 无该类型；旧投影 progress 块由 BlockRenderer 返回 null 兜底。CoreAPI 的 progressData/ProgressBlockData 零消费者同批删除。"
     }
   ]
 }

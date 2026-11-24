@@ -331,19 +331,6 @@ export interface LiriEventMap {
     /** 结构化水位数据（statusType='watermark' 时存在，P1-3：替代内容正则解析） */
     watermark?: { pct: number; severity: "warn" | "compact" };
   };
-  "assistant/progress": {
-    phase:
-      "analyzing" | "designing" | "implementing" | "verifying" | "presenting";
-    progress: number;
-    description: string;
-    steps: Array<{
-      name: string;
-      status: "pending" | "in_progress" | "done" | "failed";
-    }>;
-    totalSteps?: number;
-    truncated?: boolean;
-    currentStep: string;
-  };
   "assistant/question": {
     questionId: string;
     question: string;

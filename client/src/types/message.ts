@@ -231,8 +231,9 @@ export interface TaskCardTask {
   durationMs?: number;
 }
 
-/** 2026-11-24（批次 19）：`ProgressData` / `progress` 块已下线（用户裁定简化前端显示）；
- *  后端 `assistant/progress` 事件契约保留，前端不再派生/渲染该块。 */
+/** 2026-11-24（批次 19/20）：`ProgressData` / `progress` 块已下线（用户裁定简化前端显示）；
+ *  后端 `assistant/progress` 事件契约与派生同批移除，`MessageBlock.type` 保留 `"progress"`
+ *  仅为历史投影旧数据防御（渲染期返回 null）。 */
 
 /** 交付物数据——AI 完成工作后推送的文件变更列表 */
 export interface DeliverableData {

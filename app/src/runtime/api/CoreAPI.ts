@@ -233,8 +233,6 @@ export interface ChatStreamChunk {
   todoData?: TodoBlockData;
   /** 仅在 type='execution_phase' 时存在：执行阶段数据 */
   executionPhase?: ExecutionPhaseData;
-  /** 进度数据（ProgressData 格式） */
-  progressData?: ProgressBlockData;
   /** 交付物数据（DeliverableData 格式） */
   deliverableData?: DeliverableBlockData;
   /** diff 数据 */
@@ -320,15 +318,6 @@ export interface ExecutionPhaseData {
   /** 是否因超长被截断（仅保留最近 N 条，见 ToolLoopRunner.MAX_HEARTBEAT_STEPS） */
   truncated?: boolean;
   currentStep?: string;
-}
-
-/** 进度块数据 */
-export interface ProgressBlockData {
-  steps: {
-    name: string;
-    status: 'pending' | 'in_progress' | 'done' | 'failed';
-  }[];
-  currentStep: string;
 }
 
 /** 交付物块数据 */

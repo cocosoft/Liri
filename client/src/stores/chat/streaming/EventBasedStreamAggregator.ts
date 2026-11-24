@@ -382,40 +382,6 @@ export class EventBasedStreamAggregator {
         break;
       }
 
-      case "execution_phase": {
-        if (chunk.executionPhase) {
-          if (!this.turnStarted) this.startTurn();
-          const ep = chunk.executionPhase;
-          this.appendEvent({
-            type: "assistant/progress",
-            data: {
-              phase:
-                (ep.phase as
-                  | "analyzing"
-                  | "designing"
-                  | "implementing"
-                  | "verifying"
-                  | "presenting") || "analyzing",
-              progress: ep.progress || 0,
-              description: ep.description || "",
-              steps: (
-                (ep.steps as Array<{
-                  name: string;
-                  status: "pending" | "in_progress" | "done" | "failed";
-                }>) || []
-              ).map((s) => ({
-                name: s.name,
-                status: s.status,
-              })),
-              totalSteps: ep.totalSteps,
-              truncated: ep.truncated,
-              currentStep: ep.currentStep || "",
-            },
-          });
-        }
-        break;
-      }
-
       case "question": {
         if (chunk.questionData) {
           if (!this.turnStarted) this.startTurn();
@@ -557,8 +523,9 @@ export class EventBasedStreamAggregator {
         break;
       }
 
-      // 其他 chunk 类型：
-      // - progress 已并入 execution_phase 分支
+      // 其他 chunk 类型（含 `execution_phase`）：
+      // - `execution_phase` 只驱动浮动栏执行阶段（`processChunk`），**不进事件日志**
+      //   （2026-11-24：`assistant/progress` 事件与 `progress` 块已下线，用户裁定简化显示）
       default:
         break;
     }

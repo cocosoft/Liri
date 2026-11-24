@@ -177,7 +177,6 @@ export interface CompactionRange {
 /** 富块事件类型（无 messageId，按事件流归属最近 assistant 消息） */
 const RICH_BLOCK_TYPES = new Set<LiriEventType>([
   'assistant/status',
-  'assistant/progress',
   'assistant/question',
   'assistant/todo',
   'assistant/doc_workflow',
@@ -328,7 +327,6 @@ function isInternalTransitionStatus(
 /**
  * C-2：把富块事件转换为 block 追加到目标消息的 blocks（对齐前端聚合器）：
  * - status：过滤 compaction（context/compaction 分支处理）+ 内部过渡态 + 连续重复去重
- * - progress：按 phase 去重更新（心跳不堆块）
  * - question / doc_workflow：直接 push
  * - todo：write 全量新建 + update 增量合并（对齐前端 write/update 规则）
  * - truncation：text 块 + content 累加
@@ -357,41 +355,6 @@ function applyRichBlock(ev: LiriEvent, agg: Aggregated): void {
         ...(data.toolCallId ? { toolCallId: data.toolCallId as string } : {}),
         ...(data.watermark ? { watermark: data.watermark } : {}),
       });
-      break;
-    }
-    case 'assistant/progress': {
-      const phase = data.phase as string;
-      const progressData = {
-        phase,
-        progress: data.progress,
-        description: data.description,
-        steps: data.steps,
-        ...(data.totalSteps !== undefined
-          ? { totalSteps: data.totalSteps }
-          : {}),
-        ...(data.truncated !== undefined ? { truncated: data.truncated } : {}),
-        currentStep: data.currentStep,
-      };
-      // 按 phase 去重：同一 phase 的心跳更新已有块（对齐前端 findIndex+replace）
-      const idx = blocks.findIndex(
-        (b) =>
-          b.type === 'progress' &&
-          (b.progressData as { phase?: string } | undefined)?.phase === phase
-      );
-      if (idx !== -1) {
-        blocks[idx] = {
-          ...blocks[idx],
-          progressData,
-          content: (data.description as string) ?? '',
-        };
-      } else {
-        blocks.push({
-          id: `blk_${ev.seq}`,
-          type: 'progress',
-          content: (data.description as string) ?? '',
-          progressData,
-        });
-      }
       break;
     }
     case 'assistant/question': {

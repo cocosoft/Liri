@@ -583,15 +583,6 @@ function handleEvent(
       break;
     }
 
-    case "assistant/progress": {
-      /**
-       * 2026-11-24（批次 19）：`progress` 块已下线（用户裁定简化前端显示）。
-       * 事件本身仍留在事件日志（后端契约不变），重放时**跳过派生**，
-       * 不再产生永不渲染的块；保留 case 防止落入 default 被当作正文。
-       */
-      break;
-    }
-
     case "assistant/question": {
       ensureCurrent(state, event, sessionId, assistantMessageId);
       const data = event.data as {

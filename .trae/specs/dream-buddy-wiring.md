@@ -216,5 +216,11 @@ A 之外的后续项：**B** = dream→buddy 事件断点（见 §7.1，已实�
 | 根因 | `DreamAgentExecutor` 硬编码 `app/src/chronos/autoDream/consolidationWorker.js` —— 包迁移后不存在 ⇒ 每次 AutoDream 必失败 |
 | 修复 | worker 路径改为同目录 `path.join(import.meta.dir, 'consolidationWorker.ts')`（bun 的 fork 直接执行 TS） |
 | 复测 | 伙伴日志新增 `dream:completed`（14 洞察 / 1 文件）；`/v1/buddy/stats` = `{dreamsCompleted:1,totalXp:70}`（14×5，服务端真源） |
+| 伙伴快照（临时注入 `config.companion` 验证） | `/v1/buddy/companion` 返回 `level:1, experience:70, experienceToNext:100`（由 XP 派生）✅ |
+| 交互契约 | `POST /interact` → `{companion, message, statChanges}`；`stats` 变为 `{interactions:1, dreamsCompleted:1, totalXp:71}` ✅ |
+| 竞态（实测发现并修复） | 首次交互返回的 `experience` 慢 1（`persist` fire-and-forget）⇒ `recordInteraction()` 改为 `await` 落盘；复测 `71 → 72` 与 `stats.totalXp` 一致 |
+| 记忆回响（P2-1） | `talk` 返回 `… — It recalls: 状态机治理核心原则…`（读 `MEMORY.md` 索引头部）✅ |
 
-未覆盖：当前环境无伙伴（`/v1/buddy/companion=null`），`level/experience` 字段与交互路径待孵化后验证。
+> 验证用的伙伴是**临时注入 config**，验证后已恢复原 config（`companion` 回到 `null`）。
+> 顺带发现（未修，已登记台账）：仓库内**没有写入 `config.companion` 的孵化路径**，且 config 形状
+> `{ name, soul }` 与 `Companion` 的 `personality/hatchedAt` 不一致（真孵化后前端会缺这两个字段）。

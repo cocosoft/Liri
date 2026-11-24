@@ -186,12 +186,15 @@ export class DreamGrowthTracker {
 
   /**
    * 记录一次伙伴互动（宠物/喂食/玩耍/对话/夸奖）
-   * 互动次数与经验均由服务端记账，前端只读快照
+   * 互动次数与经验均由服务端记账，前端只读快照。
+   *
+   * ⚠️ 必须 `await` 落盘：`/v1/buddy/interact` 在同一次请求里随后读取快照，
+   * fire-and-forget 会让返回的 `experience/level` 慢一次互动（2026-11-25 实测）。
    */
-  recordInteraction(): void {
+  async recordInteraction(): Promise<void> {
     this.interactionCount++;
     this.experience += INTERACTION_XP;
-    void this.persist();
+    await this.persist();
   }
 
   /**
@@ -317,7 +320,7 @@ const growthTracker = new DreamGrowthTracker();
  */
 export async function recordBuddyInteraction(): Promise<void> {
   await growthTracker.init();
-  growthTracker.recordInteraction();
+  await growthTracker.recordInteraction();
 }
 
 // ==================== 消息生成 ====================

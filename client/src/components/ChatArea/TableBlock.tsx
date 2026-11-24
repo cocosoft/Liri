@@ -33,37 +33,72 @@ function TableBlock({ content, renderText }: TableBlockProps) {
   const rows = content.split("\n");
   if (rows.length < 2) return null;
 
-  const headers = splitCells(rows[0]);
-  const separator = rows[1];
-  const dataRows = rows.slice(2);
+  /** 分隔行判据（GFM：`-` 至少 1 个，可带两侧对齐冒号，如 `---` / `:--` / `--:` / `:-:`） */
+  const isSeparatorRow = (line: string): boolean => {
+    const cells = splitCells(line);
+    return (
+      cells.length > 0 && cells.every((cell) => /^:?-+:?$/.test(cell.trim()))
+    );
+  };
 
-  const alignments = splitCells(separator).map((cell) => {
-    if (cell.startsWith(":") && cell.endsWith(":")) return "center" as const;
-    if (cell.startsWith(":")) return "left" as const;
-    if (cell.endsWith(":")) return "right" as const;
-    return "left" as const;
-  });
+  /**
+   * 2026-11-24（真机 `session_mwnk5d52a7c243b662`）：
+   * 模型偶尔把标题和表头写在同一行（`##一、xxx|列A|列B` 紧跟 `|---|---|`）——
+   * 解析器只能从分隔行开始识别表格，于是 `---` 被当成了表头渲染。
+   * 现按分隔行位置判断：分隔行在第 2 行 ⇒ 正常表头；在第 1 行 ⇒ **无表头**表格
+   * （不再把 `---` 显示成列名）；没有分隔行 ⇒ 第 1 行当表头，其余全部作为数据
+   * （原实现会吞掉第 2 行）。
+   */
+  // 只有前两行出现的分隔行才算分隔行；更靠后的 `---` 行视为普通数据
+  const separatorIdx = isSeparatorRow(rows[1])
+    ? 1
+    : isSeparatorRow(rows[0])
+      ? 0
+      : -1;
+  // 无分隔行时仍把首行当表头（否则整块首行会丢失；解析器把任意连续 `|…|` 行都归为表格）
+  const hasHeader = separatorIdx !== 0;
+  const headers = hasHeader ? splitCells(rows[0]) : [];
+  const dataRows = rows.slice(separatorIdx >= 0 ? separatorIdx + 1 : 1);
+
+  const alignments =
+    separatorIdx >= 0
+      ? splitCells(rows[separatorIdx]).map((cell) => {
+          if (cell.startsWith(":") && cell.endsWith(":"))
+            return "center" as const;
+          if (cell.startsWith(":")) return "left" as const;
+          if (cell.endsWith(":")) return "right" as const;
+          return "left" as const;
+        })
+      : [];
+
+  const columnCount =
+    headers.length > 0 ? headers.length : splitCells(dataRows[0] ?? "").length;
 
   return (
     <table className="w-full border-collapse my-4">
-      <thead>
-        <tr className="bg-gray-100 dark:bg-gray-700">
-          {headers.map((header, idx) => (
-            <th
-              key={idx}
-              className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-left"
-              style={{ textAlign: alignments[idx] }}
-            >
-              <span>{renderText(header.trim())}</span>
-            </th>
-          ))}
-        </tr>
-      </thead>
+      {hasHeader && (
+        <thead>
+          <tr className="bg-gray-100 dark:bg-gray-700">
+            {headers.map((header, idx) => (
+              <th
+                key={idx}
+                className="border border-gray-300 dark:border-gray-600 px-4 py-2 text-left"
+                style={{ textAlign: alignments[idx] }}
+              >
+                <span>{renderText(header.trim())}</span>
+              </th>
+            ))}
+          </tr>
+        </thead>
+      )}
       <tbody>
         {dataRows.map((row, rowIdx) => {
           const rawCells = splitCells(row);
-          // P0-5 配套：按表头列数补齐，保证各行栅格一致（空单元格保留后仍需对齐列宽）
-          const cells = headers.map((_, i) => rawCells[i] ?? "");
+          // P0-5 配套：按列数补齐，保证各行栅格一致（空单元格保留后仍需对齐列宽）
+          const cells = Array.from(
+            { length: columnCount },
+            (_, i) => rawCells[i] ?? "",
+          );
           return (
             <tr
               key={rowIdx}

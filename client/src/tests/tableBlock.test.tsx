@@ -75,4 +75,22 @@ describe("TableBlock（P0-5）", () => {
     expect(cells[1].textContent).toBe("");
     expect(cells[2].textContent).toBe("");
   });
+
+  // 2026-11-24（真机 `session_mwnk5d52a7c243b662`）：模型把标题与表头写在同一行，
+  // 解析器只能从分隔行开始识别表格 ⇒ `---` 曾被当成表头渲染。现在按无表头表格处理。
+  it("分隔行位于首行 ⇒ 无表头，且不把 `---` 渲染成列名", () => {
+    const content = ["|---|---|", "| 甲 | 乙 |", "| 丙 | 丁 |"].join("\n");
+    render(<TableBlock content={content} renderText={renderText} />);
+    expect(screen.queryAllByRole("columnheader")).toHaveLength(0);
+    const cells = screen.getAllByRole("cell");
+    expect(cells).toHaveLength(4);
+    expect(cells.map((c) => c.textContent)).toEqual(["甲", "乙", "丙", "丁"]);
+  });
+
+  it("缺少分隔行 ⇒ 首行作表头，其余行全部作为数据（不吞掉第 2 行）", () => {
+    const content = ["| a | b |", "| 1 | 2 |", "| 3 | 4 |"].join("\n");
+    render(<TableBlock content={content} renderText={renderText} />);
+    expect(screen.getAllByRole("columnheader")).toHaveLength(2);
+    expect(screen.getAllByRole("cell")).toHaveLength(4);
+  });
 });

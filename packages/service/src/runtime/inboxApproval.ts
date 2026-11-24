@@ -1337,6 +1337,50 @@ const triggerResumeAfterApproval = createResumeCoalescer((sid) =>
   runResumeOnce(sid)
 );
 
+/**
+ * 默认 SSE 广播实现（动态取 app 层广播器 —— service 不得静态依赖 app，R00-001）。
+ */
+async function defaultResumeBroadcast(
+  event: string,
+  data?: Record<string, unknown>
+): Promise<void> {
+  const { broadcastEvent } =
+    await import('@modules/infrastructure/http/handlers/handler-utils');
+  await broadcastEvent(event, data);
+}
+
+/**
+ * 广播「审批触发的续跑**已启动**」（SSE `session:resumed`）。
+ *
+ * 2026-11-24（会话 `session_mwurduuh1b0b38db30`）：批准后后端自动续跑时，**客户端没有
+ * SSE 连接**（批准前那条 chatStream 已在 `awaiting_approval` 收尾）⇒ 前端浮动栏无从得知
+ * "会话又开始运行"，整段续跑（实测 62s）期间状态条消失。启动即广播；此时
+ * `resumeStream` 已注册 abortController，`GET /v1/sessions/:id/streaming` 必为 true。
+ *
+ * 与 `session:continued`（**完成**后广播）配对：本条只表达"开始"，不刷新消息。
+ * 导出便于单测注入 `broadcast`；广播失败只留痕，不影响续跑本身。
+ */
+export async function broadcastResumeStarted(
+  sessionId: string,
+  broadcast: (
+    event: string,
+    data?: Record<string, unknown>
+  ) => void | Promise<void> = defaultResumeBroadcast
+): Promise<void> {
+  try {
+    await broadcast('session:resumed', {
+      id: sessionId,
+      sessionId,
+      reason: 'approval_resume',
+    });
+  } catch (e) {
+    logger.warn('续跑启动 SSE 广播失败', {
+      sessionId,
+      error: (e as Error)?.message ?? String(e),
+    });
+  }
+}
+
 /** 单轮续跑（原有实现；合并由 `resumeCoalescer` 负责） */
 async function runResumeOnce(sessionId: string): Promise<void> {
   let resumed = false;
@@ -1362,10 +1406,21 @@ async function runResumeOnce(sessionId: string): Promise<void> {
 
     // checkpointId 由 resumeStream 内部取最新自动检查点（参数仅兼容保留）
     const gen = chatManager.resumeStream(sessionId, '');
+    let resumeAnnounced = false;
     for await (const _chunk of gen) {
       if (!resumed) {
         resumed = true;
         logger.info('审批后自动续跑已启动', { sessionId });
+      }
+      // 用 `isSessionStreaming` 确认"controller 已注册"再广播：`resumeStream` 在首个
+      // yield 之前完成注册；唯一的注册前 yield 是「无可用检查点」早退（controller 未建，
+      // 此处查得 false）⇒ 不会把失败早退谎报成"已启动"（CS06）。
+      if (
+        !resumeAnnounced &&
+        (chatManager.isSessionStreaming?.(sessionId) ?? false)
+      ) {
+        resumeAnnounced = true;
+        await broadcastResumeStarted(sessionId);
       }
     }
     logger.info('审批后自动续跑完成', { sessionId, resumed });

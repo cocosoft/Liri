@@ -17767,6 +17767,39 @@
       "changelog": [],
       "reopenWhen": "需要扩展 POSIX→cmd 映射表，或提示误报（把 POSIX shell 的 command not found 当 cmd 场景）（回滚：revert 本提交）",
       "notes": "只认 cmd 专属报错文案（not recognized as an internal or external command / 不是内部或外部命令）；从报错原文紧邻词取 token（不取命令首 token，兼容 `… | head -3` 的管道末段）；POSIX shell 的 command not found 不提示。"
+    },
+    {
+      "id": "SESSION-RESUMED-HUD",
+      "title": "审批后续跑启动广播 session:resumed，浮动栏不再整段消失",
+      "source": "会话 session_mwurduuh1b0b38db30 复盘（2026-11-24）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/service/src/runtime/inboxApproval.ts",
+        "client/src/hooks/useNotificationSSE.ts",
+        "client/src/components/ChatArea/useWaitState.ts",
+        "client/src/components/ChatArea/ChatArea.tsx",
+        "client/src/stores/chat/chat-message.slice.ts",
+        "client/src/stores/chat/chat-message.types.ts"
+      ],
+      "tests": [
+        "app/tests/runtime/inboxApprovalResumeBroadcast.test.ts",
+        "client/src/tests/useWaitState.test.ts",
+        "client/src/hooks/__tests__/useNotificationSSEWiring.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "续跑期间再次出现浮动栏缺失，或 session:resumed 被其它路径复用造成误唤醒（回滚：revert 本两项提交）",
+      "notes": "根因：批准后自动续跑期间没有客户端 SSE；useWaitState 只在 waiting/remoteStreaming 时轮询，turn 结束即刻停 ⇒ 续跑 62s 无运行态。修法：后端首个 chunk 且 controller 已注册时广播 session:resumed；前端命中当前会话即 nudgeRuntimeProbe ⇒ 立即重拉 /streaming 并转入后台运行轮询。"
     }
   ]
 }

@@ -193,6 +193,31 @@ describe("useWaitState（轮询策略）", () => {
     expect(result.current.seconds).toBeGreaterThanOrEqual(2);
   });
 
+  it("运行态探测信号递增 ⇒ 立即重拉并转入后台运行轮询（session:resumed）", async () => {
+    mocks.getSessionRuntimeStatus.mockResolvedValueOnce({ streaming: false });
+    const { result, rerender } = renderHook(
+      ({ nonce }) => useWaitState("s11", false, nonce),
+      { initialProps: { nonce: 0 } },
+    );
+    await act(async () => {});
+    expect(mocks.getSessionRuntimeStatus).toHaveBeenCalledTimes(1);
+    expect(result.current.remoteStreaming).toBe(false);
+
+    // 审批后续跑启动：后端广播 session:resumed ⇒ 上游递增探测信号
+    mocks.getSessionRuntimeStatus.mockResolvedValue({ streaming: true });
+    await act(async () => {
+      rerender({ nonce: 1 });
+    });
+    expect(mocks.getSessionRuntimeStatus).toHaveBeenCalledTimes(2);
+    expect(result.current.remoteStreaming).toBe(true);
+
+    // 命中后台运行后继续按 WAIT_POLL_MS 轮询（直到后端停下）
+    await act(async () => {
+      vi.advanceTimersByTime(WAIT_POLL_MS);
+    });
+    expect(mocks.getSessionRuntimeStatus).toHaveBeenCalledTimes(3);
+  });
+
   it("取数失败 ⇒ 不抛错、回落为非等待态（明细由 handleClientError 上报）", async () => {
     mocks.getSessionRuntimeStatus.mockRejectedValue(new Error("network down"));
 

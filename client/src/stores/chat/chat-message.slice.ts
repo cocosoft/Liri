@@ -209,6 +209,7 @@ export const createMessageSlice: StateCreator<
     isInputBlocked: false,
     isStreaming: false,
     streamingStatus: "",
+    runtimeProbeNonce: 0,
     executionPhase: null,
     error: null,
     errorCode: null,
@@ -467,6 +468,11 @@ export const createMessageSlice: StateCreator<
 
     resumeRecovery: (sessionId: string) => {
       resumeRecoveryImpl(messageSet, messageGet, sessionId);
+    },
+
+    // 2026-11-24：运行态探测信号（审批后续跑启动等"后端在跑但本页无 SSE"的场景）
+    nudgeRuntimeProbe: () => {
+      set({ runtimeProbeNonce: get().runtimeProbeNonce + 1 });
     },
 
     // 只读接入正在后台运行的这一轮（2026-11-18，Spec `.trae/specs/stream-attach.md`）

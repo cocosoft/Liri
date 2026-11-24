@@ -52,4 +52,18 @@ describe("useNotificationSSE：session:meta_updated 订阅", () => {
     expect(body).not.toContain("permission_mode");
     expect(body).not.toContain("work_mode");
   });
+
+  it("session:resumed（审批后续跑启动）⇒ 递增运行态探测信号，注册与解绑成对", () => {
+    expect(src).toMatch(
+      /sseService\.on\("session:resumed", onSessionResumed\)/,
+    );
+    expect(src).toMatch(
+      /sseService\.off\("session:resumed", onSessionResumed\)/,
+    );
+    expect(src).toMatch(/const onSessionResumed = \(data: unknown\): void =>/);
+    // 只对当前打开会话生效（多会话并行时不误唤醒别的会话的运行态）
+    expect(src).toContain("currentSessionId !== id");
+    // 只递增探测信号，不在此处刷新消息（正文以落盘为准）
+    expect(src).toContain("nudgeRuntimeProbe()");
+  });
 });

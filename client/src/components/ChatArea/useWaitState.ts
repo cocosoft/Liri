@@ -121,6 +121,14 @@ export function deriveWaitState(
 export function useWaitState(
   sessionId?: string,
   isStreaming = false,
+  /**
+   * 运行态探测信号（2026-11-24）：递增 ⇒ **立即重拉一次**。
+   *
+   * 用途：审批通过后后端自动续跑，期间本页没有 SSE 连接；后端在续跑启动时广播
+   * `session:resumed` ⇒ 上游递增本值 ⇒ 这里立刻拉一次 `/streaming`，命中
+   * `streaming=true` 后 `remoteStreaming` 成立并继续轮询（否则要等续跑结束才知道）。
+   */
+  probeNonce = 0,
 ): WaitState {
   const [status, setStatus] = useState<SessionRuntimeStatus | undefined>(
     undefined,
@@ -164,7 +172,7 @@ export function useWaitState(
       cancelled = true;
       if (timerId !== undefined) window.clearTimeout(timerId);
     };
-  }, [sessionId, isStreaming]);
+  }, [sessionId, isStreaming, probeNonce]);
 
   const derived = deriveWaitState(status, isStreaming);
   // 后端在跑、本页未接入（deriveWaitState 的等待态与它互斥：前者要求本地不在流式中，

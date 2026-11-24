@@ -110,6 +110,9 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
     };
   }, [isDailyLimitExceeded, isSuspended]);
   const isStreaming = useChatStore((s) => s.isStreaming);
+  // 2026-11-24（会话 session_mwurduuh1b0b38db30）：后端续跑启动（session:resumed）时递增 ⇒
+  // 立即重拉运行态，浮动栏不再等续跑结束才出现。
+  const runtimeProbeNonce = useChatStore((s) => s.runtimeProbeNonce);
   // P1-6a（D8 = 统一到总量 + 尾锚定）：轮次导航器需要分页状态与"加载更早"动作
   // ——与 ChatMessageList 同源（CS01 不另立实现）
   const hasOlder = useChatStore((s) => s.hasOlder);
@@ -278,7 +281,7 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
   // 等待态可见性（2026-09-27 Spec `wait-state-visibility.md` D3/D5）：**单一拉取点** ——
   // 本组件统一订阅会话等待态（含低频轮询）后下传，避免 YieldNoticeBar 与 StatusFloatBar
   // 各自请求同一端点；`waiting` 文案由浮动栏承载，`unresolved` 仍走独立提示条。
-  const wait = useWaitState(currentSid, isStreaming);
+  const wait = useWaitState(currentSid, isStreaming, runtimeProbeNonce);
 
   /** 诊断：会话变化时记录 */
   useEffect(() => {

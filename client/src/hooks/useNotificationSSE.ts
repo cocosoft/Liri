@@ -14,11 +14,14 @@
  * - P1（2026-11-04）: 监听 session:meta_updated，会话元数据（workMode / approvalMode /
  *   permissionMode / toolProfile…）变更后单条重取，补齐跨窗口/标签页回填
  *   （此前该广播**无任何订阅方**，另一端改完配置本端界面停留在旧值）。
+ * - 2026-11-24: 监听 session:resumed（审批后续跑**启动**）⇒ 递增运行态探测信号，
+ *   让 `useWaitState` 立即重拉 `/streaming`，浮动栏不再等续跑结束才出现。
  */
 
 import { useEffect } from "react";
 import { useNotificationStore } from "../stores/notificationStore";
 import { useRootStore } from "../stores/root-store";
+import { useChatStore } from "../stores/chat";
 import { sessionService } from "../services/sessionService";
 import { chatCoordinator } from "../stores/chat/chatCoordinator";
 import { sseService } from "../services/sseService";
@@ -114,6 +117,21 @@ export function useNotificationSSE() {
     const onSessionContinued = (data: unknown): void =>
       refreshSessionIfActive((data as { id?: string }).id);
 
+    /**
+     * 2026-11-24（会话 `session_mwurduuh1b0b38db30`）：审批后续跑**启动**广播。
+     *
+     * 续跑期间没有客户端 SSE 连接（批准前那条 chatStream 已收尾），前端此前要等
+     * `session:continued`（**完成**）才知道会话跑过 ⇒ 浮动栏整段消失。这里只递增运行态
+     * 探测信号（`useWaitState` 立即拉 `/streaming` 并转入后台运行轮询），
+     * **不刷新消息**（正文以落盘为准，避免与续跑写入竞态）。
+     */
+    const onSessionResumed = (data: unknown): void => {
+      const id = (data as { id?: string }).id;
+      if (!id) return;
+      if (useRootStore.getState().currentSessionId !== id) return;
+      useChatStore.getState().nudgeRuntimeProbe();
+    };
+
     // 2026-11-11（P4）：历史消息的读时覆盖 / 编辑完成后端广播 → 命中当前会话则重拉消息
     // （否则界面停留在旧气泡，只能手动刷新）
     const onMessagesUpdated = (data: unknown): void =>
@@ -173,6 +191,7 @@ export function useNotificationSSE() {
     sseService.on("inbox:new", onInboxNew);
     sseService.on("inbox:update", onInboxUpdate);
     sseService.on("session:continued", onSessionContinued);
+    sseService.on("session:resumed", onSessionResumed);
     sseService.on("session:meta_updated", onSessionMetaUpdated);
     sseService.on("messages:updated", onMessagesUpdated);
     sseService.on("system:sleep_detected", onSleepDetected);
@@ -191,6 +210,7 @@ export function useNotificationSSE() {
       sseService.off("inbox:new", onInboxNew);
       sseService.off("inbox:update", onInboxUpdate);
       sseService.off("session:continued", onSessionContinued);
+      sseService.off("session:resumed", onSessionResumed);
       sseService.off("session:meta_updated", onSessionMetaUpdated);
       sseService.off("messages:updated", onMessagesUpdated);
       sseService.off("system:sleep_detected", onSleepDetected);

@@ -24,6 +24,15 @@ export interface MessageSlice {
   isStreaming: boolean;
   /** 流式响应实时状态文本，用于 ChatInput 状态栏显示 */
   streamingStatus: string;
+  /**
+   * 运行态探测信号（2026-11-24）：递增即触发 `useWaitState` **立即重拉**会话运行态。
+   *
+   * 为什么需要：审批通过后后端自动续跑，期间**没有客户端 SSE 连接**（批准前那条 chatStream
+   * 已收尾）。后端在续跑启动时广播 `session:resumed`，`useNotificationSSE` 收到即调用
+   * `nudgeRuntimeProbe()` ⇒ 浮动栏立即恢复「在后台运行」并继续轮询；否则要等续跑**结束**
+   * 的 `session:continued` 才知道（真机实测中间 62 秒界面没有任何运行态）。
+   */
+  runtimeProbeNonce: number;
   /** 按会话记录是否有待回答的 question 块（P2-3：多会话并行互不串扰） */
   hasPendingQuestion: Record<string, boolean>;
   /** 执行阶段追踪数据，由后端 ExecutionPhaseTracker 通过流式事件推送 */
@@ -163,6 +172,9 @@ export interface MessageSlice {
   dismissRecovery: () => void;
   /** P2-6: 用户确认恢复 — 关闭提示并继续之前被中止的会话 */
   resumeRecovery: (sessionId: string) => void;
+
+  /** 运行态探测信号 +1（消费方见 `runtimeProbeNonce`） */
+  nudgeRuntimeProbe: () => void;
   /**
    * 只读接入本会话正在后台运行的这一轮（2026-11-18，Spec `.trae/specs/stream-attach.md` §6）。
    * 只写状态类字段 + 结束后增量刷新消息；不另建渲染管线、不发送消息。

@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "note": "状态字面量棘轮基线：value → 已报备出现文件（app/src）。只拦增量，不追溯。",
+  "version": 2,
+  "note": "状态字面量棘轮基线：value → 已报备出现文件（app/src + packages/*/src + client/src）。只拦增量，不追溯。",
   "files": {
     "aborted": [
       "app/src/agent/AgentTelemetry.ts",
@@ -2449,6 +2449,196 @@
     ],
     "WAITING_USER": [
       "packages/service/src/execution/ExecutionStore.ts"
+    ]
+  },
+  "reason": "P2-2 基线升级 v2（归属元数据 + 强制理由）；本次仅结构迁移，不新增收编项",
+  "generatedAt": "2026-11-24T06:18:16.236Z",
+  "valueOwners": {
+    "QUEUED": [
+      "execution"
+    ],
+    "RUNNING": [
+      "execution"
+    ],
+    "WAITING_USER": [
+      "execution"
+    ],
+    "CANCEL_REQUESTED": [
+      "execution"
+    ],
+    "CANCELLED": [
+      "execution"
+    ],
+    "COMPLETED": [
+      "execution"
+    ],
+    "FAILED": [
+      "execution"
+    ],
+    "STALE": [
+      "execution"
+    ],
+    "running": [
+      "backgroundTask",
+      "plan",
+      "sessionState",
+      "task",
+      "toolCall"
+    ],
+    "completed": [
+      "backgroundTask",
+      "goal",
+      "plan",
+      "stream",
+      "task",
+      "toolCall",
+      "workflowStopReason"
+    ],
+    "failed": [
+      "appInstall",
+      "backgroundTask",
+      "goal",
+      "plan",
+      "selfWake",
+      "task",
+      "toolCall"
+    ],
+    "unknown": [
+      "toolCall"
+    ],
+    "normal": [
+      "budgetMode"
+    ],
+    "report_only": [
+      "budgetMode"
+    ],
+    "locked": [
+      "budgetMode"
+    ],
+    "RECEIVED": [
+      "dedupProcess"
+    ],
+    "ADMITTED": [
+      "dedupProcess"
+    ],
+    "REJECTED": [
+      "dedupProcess"
+    ],
+    "active": [
+      "goal"
+    ],
+    "blocked": [
+      "goal",
+      "task"
+    ],
+    "budget_limited": [
+      "goal"
+    ],
+    "cancelled": [
+      "goal",
+      "stream",
+      "workflowStopReason"
+    ],
+    "error": [
+      "appState",
+      "stream",
+      "workflowStopReason"
+    ],
+    "idle": [
+      "appState",
+      "backgroundTask",
+      "sessionState",
+      "stream"
+    ],
+    "busy": [
+      "appState"
+    ],
+    "paused": [
+      "appState",
+      "stream"
+    ],
+    "pending": [
+      "appInstall",
+      "inboxApproval",
+      "plan",
+      "selfWake",
+      "task"
+    ],
+    "installing": [
+      "appInstall"
+    ],
+    "installed": [
+      "appInstall"
+    ],
+    "requires_action": [
+      "sessionState"
+    ],
+    "killed": [
+      "task"
+    ],
+    "lost": [
+      "task"
+    ],
+    "requires_approval": [
+      "toolExecutionTransient"
+    ],
+    "awaiting_approval": [
+      "toolExecutionTransient"
+    ],
+    "step_done": [
+      "stepVerdict"
+    ],
+    "step_blocked": [
+      "stepVerdict"
+    ],
+    "step_partial": [
+      "stepVerdict"
+    ],
+    "step_unverified": [
+      "stepVerdict"
+    ],
+    "due": [
+      "selfWake"
+    ],
+    "firing": [
+      "selfWake"
+    ],
+    "fired": [
+      "selfWake"
+    ],
+    "expired": [
+      "inboxApproval",
+      "selfWake"
+    ],
+    "effect_pending": [
+      "effectQueue"
+    ],
+    "effect_attempting": [
+      "effectQueue"
+    ],
+    "effect_settled": [
+      "effectQueue"
+    ],
+    "effect_failed": [
+      "effectQueue"
+    ],
+    "processing": [
+      "inboxApproval"
+    ],
+    "replied": [
+      "inboxApproval"
+    ],
+    "dismissed": [
+      "inboxApproval"
+    ],
+    "aborted": [
+      "plan"
+    ],
+    "streaming": [
+      "stream"
+    ],
+    "skipped": [
+      "backgroundTask"
     ]
   }
 }

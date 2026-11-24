@@ -18,6 +18,8 @@
 
 /** 目录条目的最小结构（避免核心反向依赖 catalog 模块；边界条目无 states） */
 export interface StateMachineCatalogLike {
+  /** 机器 id（P2-2 起用于基线归属元数据；边界条目可缺省） */
+  id?: string;
   states?: readonly string[];
   /** 事实源文件（repo 相对 POSIX 路径，如 `app/src/execution/types.ts`） */
   sourceFile: string;
@@ -36,11 +38,25 @@ export interface StateLiteralHit {
   file: string;
 }
 
-/** 棘轮基线（`value → files[]`，value 字典序 / files 内字典序，保证 diff 稳定） */
+/**
+ * 棘轮基线（`value → files[]`，value 字典序 / files 内字典序，保证 diff 稳定）。
+ *
+ * v2（P2-2，2026-11-24）新增**归属与审计元数据**（`files` 仍是 diff 的唯一事实源，
+ * 保证 v1 → v2 迁移不改变门禁行为）：
+ * - `reason`：本次 `--update` 的收编理由（必填，防"随手刷新基线"）；
+ * - `generatedAt`：生成时刻（ISO）；
+ * - `valueOwners`：值 → 拥有该值的机器 id（来自目录，供巡检/归属排查）。
+ */
 export interface StateLiteralBaseline {
   version: number;
   note?: string;
   files: Record<string, string[]>;
+  /** v2：收编理由（`--update --reason "<text>"` 写入） */
+  reason?: string;
+  /** v2：生成时刻（ISO 8601） */
+  generatedAt?: string;
+  /** v2：值 → 机器 id（归属元数据，不参与 diff） */
+  valueOwners?: Record<string, string[]>;
 }
 
 /** 从目录条目收集状态词汇表（多台机器同名取值自动去重） */
@@ -53,6 +69,26 @@ export function collectVocabulary(
     for (const s of m.states) set.add(s);
   }
   return set;
+}
+
+/**
+ * 值 → 机器 id 归属表（v2 基线元数据，不参与 diff）。
+ *
+ * 同一值可被多台机器共用（如 `pending`），按机器 id 升序去重。
+ */
+export function toValueOwners(
+  machines: readonly StateMachineCatalogLike[]
+): Record<string, string[]> {
+  const owners: Record<string, string[]> = {};
+  for (const m of machines) {
+    if (!m.id || !m.states) continue;
+    for (const s of m.states) {
+      const list = (owners[s] ??= []);
+      if (!list.includes(m.id)) list.push(m.id);
+    }
+  }
+  for (const key of Object.keys(owners)) owners[key].sort();
+  return owners;
 }
 
 /**

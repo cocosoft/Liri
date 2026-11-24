@@ -12,9 +12,10 @@
  * - **只拦增量**：现存合法出现点全部收编基线，不追溯清理（与 lint:complexity / lint:fn-size
  *   同哲学）；基线已消失的出现点提示下调以锁定成果。
  *
- * 用法：`bun run lint:state-ratchet`（CI）／`bun run ../scripts/lint-state-literal-ratchet.ts --update`（重生成基线）。
+ * 用法：`bun run lint:state-ratchet`（CI）／
+ * `bun run ../scripts/lint-state-literal-ratchet.ts --update --reason "<收编理由>"`（重生成基线；P2-2 起理由必填）。
  * 负向自证：`STATE_LITERAL_REPO_ROOT` / `STATE_LITERAL_BASELINE` 可覆盖（供测试注入）。
- * 退出码：0 = 未新增；1 = 有未报备新增（或基线非法）。
+ * 退出码：0 = 未新增；1 = 有未报备新增（或基线非法）；2 = `--update` 缺 `--reason`。
  */
 
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -33,6 +34,7 @@ import {
   dedupeHits,
   diffBaseline,
   toBaselineFiles,
+  toValueOwners,
   type ScannedFile,
   type StateLiteralBaseline,
 } from './stateLiteralRatchetCore';
@@ -88,15 +90,35 @@ const hits = collectHits(collectFiles(), vocabulary, whitelist);
 
 const wantUpdate = process.argv.includes('--update');
 if (wantUpdate) {
+  // P2-2（2026-11-24）：`--update` 必须带理由（防"随手刷新基线"把纪律洗掉）
+  const reasonArg = process.argv.find((a) => a.startsWith('--reason='));
+  const reasonIdx = process.argv.indexOf('--reason');
+  const reason = (
+    reasonArg?.slice('--reason='.length) ??
+    (reasonIdx >= 0 ? (process.argv[reasonIdx + 1] ?? '') : '')
+  ).trim();
+  if (!reason) {
+    console.error(
+      '❌ `--update` 必须带 `--reason "<收编理由>"`（写明为什么这些新出现点是合法的）。'
+    );
+    console.error(
+      '   例：`bun run ../scripts/lint-state-literal-ratchet.ts --update --reason "P1-2 前端纳入扫描面，收编存量"`'
+    );
+    process.exit(2);
+  }
   const baseline: StateLiteralBaseline = {
-    version: 1,
-    note: '状态字面量棘轮基线：value → 已报备出现文件（app/src）。只拦增量，不追溯。',
+    version: 2,
+    note: '状态字面量棘轮基线：value → 已报备出现文件（app/src + packages/*/src + client/src）。只拦增量，不追溯。',
     files: toBaselineFiles(hits),
+    reason,
+    generatedAt: new Date().toISOString(),
+    valueOwners: toValueOwners(STATE_MACHINES),
   };
   writeFileSync(BASELINE, `${JSON.stringify(baseline, null, 2)}\n`);
   console.log(
     `✅ 基线已重生成: ${BASELINE}（value 种类 ${Object.keys(baseline.files).length}）`
   );
+  console.log(`   理由: ${reason}`);
   process.exit(0);
 }
 
@@ -117,8 +139,13 @@ try {
   console.error(`基线 JSON 解析失败: ${String(err)}`);
   process.exit(1);
 }
-if (base.version !== 1 || typeof base.files !== 'object') {
-  console.error('基线缺少 version/files 字段');
+// v1（旧）与 v2（P2-2 起，带 reason/generatedAt/valueOwners）都接受；diff 只看 files
+if ((base.version !== 1 && base.version !== 2) || typeof base.files !== 'object') {
+  console.error('基线缺少受支持的 version（1|2）/ files 字段');
+  process.exit(1);
+}
+if (base.version === 2 && !base.reason?.trim()) {
+  console.error('v2 基线缺少 reason 字段（--update 必须带理由）');
   process.exit(1);
 }
 

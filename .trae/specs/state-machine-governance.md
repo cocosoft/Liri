@@ -1,6 +1,6 @@
 # 状态机治理整体方案（2026-11-24）
 
-> **状态**：🟡 实施中 —— **P0-1 / P0-2 / P1-1 / P1-2 / P1-3 已完成**；下一步 P2-1（审计与观测）
+> **状态**：🟡 实施中 —— **P0 / P1 / P2-2 已完成**；仅剩 P2-1（审计与观测，含事件契约变更）
 > **定位**：本文件是 Liri **状态机治理总纲**，接替已缺失的 `dev_docs/20261012/状态机规范管理方案-20261012.md`
 > （该目录当前**不存在**，但 `fix-evidence-registry.json` 仍有两处指向它 —— 见 G8）。
 > **已完成基线**：13 条具体缺陷的修复见 [state-machine-defect-remediation.md](./state-machine-defect-remediation.md)
@@ -318,6 +318,7 @@ interface StateMachineEntry {
 | 2026-11-24 | **P1-1 实施完成**：新增 R09-009 对账证据契约测试（持久化机 ⇒ 策略非 none + `文件#符号` 真实可查）；`stepVerdict` 按"无独立状态存储"归为 `persistence: none` | AI |
 | 2026-11-24 | **P1-2 实施完成**：`lint:state-ratchet` 扫描根加入 `client/src`（基线 +481 行收编存量）；新增 `shared/stateVocabulary.ts`（toolCall / task 两项）与 R09-012 跨端一致性测试 | AI |
 | 2026-11-24 | **P1-3 实施完成**：新增 `scripts/state-derivations.json` 与 R09-011 测试，登记 tool/approval/wait/pdca 四个派生判据（concept 与实现均唯一、锚点真实导出） | AI |
+| 2026-11-24 | **P2-2 实施完成**：基线升级 v2（`reason` / `generatedAt` / `valueOwners`，`--update` 强制 `--reason`）；新增只读巡检脚本 `scripts/state-governance-report.ts`（支持 `--check`） | AI |
 
 ---
 
@@ -419,3 +420,33 @@ interface StateMachineEntry {
 **说明**：方案 §5 原写"新脚本 `lint-state-derivations.ts`"；本批以 bun test 落地（随全量测试执行，零 CI 接线风险），待 P2 再并入 `lint:arch`。
 
 **验证**：`bun test tests/state` → **167 pass / 0 fail**（新增 4 条）；`bun run typecheck` 通过。
+
+---
+
+## §18 P2-2 实施记录（2026-11-24）
+
+**已落地**
+
+| 项 | 结果 |
+|---|---|
+| 基线 v2 | `StateLiteralBaseline` 新增 `reason` / `generatedAt` / `valueOwners`；**`files` 仍是 diff 的唯一事实源**，因此 v1 → v2 迁移**不改变门禁行为**（纯元数据增量） |
+| `--update` 强制理由 | 缺 `--reason "<收编理由>"` ⇒ **exit 2**（支持 `--reason=…` 与 `--reason …` 两种写法）；v2 基线缺 `reason` 在加载时 exit 1；v1 基线仍兼容加载 |
+| 归属元数据 | `toValueOwners()` 生成「值 → 拥有该值的机器 id」，供巡检/归属排查；**不参与 diff** |
+| 只读巡检 | `scripts/state-governance-report.ts`：输出目录条目 / 字段缺失 / 持久化与对账覆盖 / 基线健康（版本·理由·幽灵值·幽灵文件）/ 派生登记 / 跨端对齐 / `@deprecated` 存量；`--check` 有问题即 exit 1 |
+| 基线迁移 | 以 `--update --reason "P2-2 基线升级 v2（归属元数据 + 强制理由）；本次仅结构迁移，不新增收编项"` 迁移，`files` 内容不变（44 值 / 2360 文件对） |
+| 测试适配 | `app/tests/gates/stateLiteralRatchet.test.ts` 基线健康断言改为接受 v1\|v2，v2 追加断言 `reason` / `generatedAt` / `valueOwners` 非空 |
+
+**口径修正（如实）**
+
+- 方案 §6 原写"**基线按 `machineId` 分组**"：**未采用**。同一取值被多台机器共用（`pending` / `running` / `completed` 等），按机器分组会让同一 (value, file) 在多组重复登记，diff 噪声与维护成本上升。改为**值 → 机器归属映射**（`valueOwners`）达成同一目的（归属可查），`files` 保持单层结构。
+- 方案 §6 原写"**新增条目带 `expiresAt`**"：**本批未引入**。到期日缺真实决定方（谁定？依据什么？），引入只会产生人肉维护的空日期 ⇒ 属"无场景的机制"（CS03）。待出现真实废弃计划时，按 `reason` + 目录 note 记录，再评估是否加机器可读到期字段。
+- 通用词噪声的实际收敛点是**归属可查 + 巡检可见**（`valueOwners` + `state-governance-report`），而非拆分基线文件。
+
+**巡检基线（2026-11-24 实跑）**：目录 18 台（+边界 6）、字段缺失 0、持久化 11 台**全部**有对账证据、基线 v2（`reason` 存在）、值 44 / 文件对 2360、幽灵值 0 / 幽灵文件 0、派生登记 4、跨端对齐 2、`@deprecated` client 14 处 / 6 文件 + app 30 处 / 16 文件、`--check` 通过。
+
+**遗留**
+
+- `@deprecated` 死代码（`extractToolCalls` / `buildLogEvents` / `resolveGroupStatus` 等）仍在观察期，删除须按 `code-deletion.md` CD05/CD06 走"先摘入口 → 确认无消费者 → 独立提交"。
+- `inboxApproval` / `plan` 仍无 `transitionRules`（手写机，转移分散在 CAS/UPDATE 与编排器）⇒ 未纳入 R09-008 的动态校验面。
+
+**验证**：`bun test tests/state tests/gates/stateLiteralRatchet.test.ts` → **171 pass / 0 fail**；`bun run typecheck` 通过；`lint:state-ratchet` 通过；`state-governance-report --check` 通过。

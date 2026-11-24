@@ -90,7 +90,13 @@ describe('状态字面量棘轮 · 纯核心（负向自证）', () => {
     const base = JSON.parse(
       readFileSync(BASELINE_PATH, 'utf8')
     ) as StateLiteralBaseline;
-    expect(base.version).toBe(1);
+    // P2-2：v2 起带 reason / generatedAt / valueOwners；v1 仍兼容
+    expect([1, 2]).toContain(base.version);
+    if (base.version === 2) {
+      expect((base.reason ?? '').trim().length).toBeGreaterThan(0);
+      expect((base.generatedAt ?? '').trim().length).toBeGreaterThan(0);
+      expect(Object.keys(base.valueOwners ?? {}).length).toBeGreaterThan(0);
+    }
     const values = Object.keys(base.files);
     expect(values.length).toBeGreaterThan(0);
 

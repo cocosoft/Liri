@@ -11,6 +11,7 @@
 import { describe, expect, it } from 'bun:test';
 import {
   buildCmdBuiltinHint,
+  buildPosixOnCmdHint,
   isCommandNotFoundError,
 } from '../../src/tools/bash/cmdBuiltinHint.js';
 
@@ -82,5 +83,76 @@ describe('P2-2：命令未找到证据判定（提示的误报边界）', () => 
       false
     );
     expect(isCommandNotFoundError(undefined, '')).toBe(false);
+  });
+});
+
+describe('反向：POSIX 命令写在 cmd.exe 上（2026-11-24 会话复盘）', () => {
+  const CMD_MSG =
+    "'pwd' is not recognized as an internal or external command,\noperable program or batch file.";
+
+  it('win32 + cmd 专属文案 + pwd ⇒ 给 cd', () => {
+    const hint = buildPosixOnCmdHint('pwd', {
+      platform: 'win32',
+      message: CMD_MSG,
+    });
+    expect(hint).toContain('「pwd」');
+    expect(hint).toContain('cd');
+    expect(hint).toContain('cmd.exe');
+  });
+
+  it('管道末段的 head 也能识别（真机 seq=143 形态：首 token 是 cd/dir）', () => {
+    const hint = buildPosixOnCmdHint(
+      'cd /d E:\\proj && dir /b docs 2>nul | head -3',
+      {
+        platform: 'win32',
+        message:
+          "'head' is not recognized as an internal or external command, operable program or batch file.",
+      }
+    );
+    expect(hint).toContain('「head」');
+    expect(hint).toContain('Get-Content');
+  });
+
+  it('命令里带引号路径时，仍取紧邻报错文案的词（不误取路径片段）', () => {
+    const hint = buildPosixOnCmdHint('cd /d "E:\\proj\\app" && pwd', {
+      platform: 'win32',
+      message:
+        'Command failed: cd /d "E:\\proj\\app" && pwd\n' +
+        "'pwd' is not recognized as an internal or external command",
+    });
+    expect(hint).toContain('「pwd」');
+  });
+
+  it('POSIX shell 的 command not found ⇒ 空串（方向判断不误伤）', () => {
+    expect(
+      buildPosixOnCmdHint('pwd', {
+        platform: 'win32',
+        message: 'sh: pwd: command not found',
+      })
+    ).toBe('');
+  });
+
+  it('非 win32 ⇒ 空串', () => {
+    expect(
+      buildPosixOnCmdHint('pwd', { platform: 'linux', message: CMD_MSG })
+    ).toBe('');
+  });
+
+  it('不在表内的命令 ⇒ 空串（不编造等价写法）', () => {
+    expect(
+      buildPosixOnCmdHint('foo --bar', {
+        platform: 'win32',
+        message: "'foo' is not recognized as an internal or external command",
+      })
+    ).toBe('');
+  });
+
+  it('中文 cmd 文案（不是内部或外部命令）同样命中', () => {
+    expect(
+      buildPosixOnCmdHint('ls', {
+        platform: 'win32',
+        message: "'ls' 不是内部或外部命令，也不是可运行的程序或批处理文件。",
+      })
+    ).toContain('dir');
   });
 });

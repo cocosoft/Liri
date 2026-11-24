@@ -17742,6 +17742,31 @@
       "changelog": [],
       "reopenWhen": "dir 无匹配被误判（含把权限拒绝洗成无匹配），或 && 提示文案需要调整（回滚：revert 本提交）",
       "notes": "判据收窄：exit=1 + stdout/stderr 双空 + 末段 dir + 含 2>nul + 无其它输出重定向 + 目标目录经 fs 探测存在 + 命令不含 &&；否则维持失败。两条提示只补事实（stderr 被吞 / && 短路），不改安全与失败判定。"
+    },
+    {
+      "id": "BASH-POSIX-ON-CMD-HINT",
+      "title": "cmd.exe 上误用 POSIX 命令时给出等价写法提示（反向 shell 提示）",
+      "source": "会话 session_mwurduuh1b0b38db30 复盘（2026-11-24）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tools/bash/cmdBuiltinHint.ts",
+        "app/src/tools/bash/BashTool.ts"
+      ],
+      "tests": ["app/tests/tools/cmdBuiltinHint.test.ts"],
+      "changelog": [],
+      "reopenWhen": "需要扩展 POSIX→cmd 映射表，或提示误报（把 POSIX shell 的 command not found 当 cmd 场景）（回滚：revert 本提交）",
+      "notes": "只认 cmd 专属报错文案（not recognized as an internal or external command / 不是内部或外部命令）；从报错原文紧邻词取 token（不取命令首 token，兼容 `… | head -3` 的管道末段）；POSIX shell 的 command not found 不提示。"
     }
   ]
 }

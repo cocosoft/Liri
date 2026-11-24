@@ -35,7 +35,11 @@ import {
 import type { ExecOptions } from 'child_process';
 import { analyzeBashCommandType, isSilentBashCommand } from './BashSemantics';
 // P2-2（2026-11-04）：cmd 内置命令 → 等价命令提示（仅"命令未找到"证据成立时生效）
-import { buildCmdBuiltinHint, isCommandNotFoundError } from './cmdBuiltinHint';
+import {
+  buildCmdBuiltinHint,
+  buildPosixOnCmdHint,
+  isCommandNotFoundError,
+} from './cmdBuiltinHint';
 import { hasExistingSearchFileTarget, isSearchNoMatch } from './searchNoMatch';
 import { isPathNotFound } from './pathNotFound';
 // 2026-11-24（会话 session_mwurduuh1b0b38db30 复盘）：`dir` 无匹配（exit 1 + `2>nul` 吞诊断）
@@ -739,6 +743,9 @@ export class BashTool extends BaseTool {
     const cmdHint = buildCmdBuiltinHint(executedCommand, {
       commandNotFound: isCommandNotFoundError(exitCode, rawMsg),
     });
+    // 2026-11-24（会话 session_mwurduuh1b0b38db30）：反方向 —— 在 cmd.exe 上写 POSIX 命令
+    // （`pwd` / `… | head -3`）没有出路信息，模型只能换写法重试。只认 cmd 专属"未找到"文案。
+    const posixHint = buildPosixOnCmdHint(executedCommand, { message: rawMsg });
     // 2026-11-24（会话 session_mwurduuh1b0b38db30）：两条**只补事实**的提示 ——
     // ① `2>nul` 吞掉 stderr ⇒ 无法区分无匹配/权限错误；② `&&` 前段非 0 会跳过其后所有段。
     // 均不改判定（真失败照旧失败），只避免模型把"未执行/无输出"读成"不存在"。
@@ -755,6 +762,7 @@ export class BashTool extends BaseTool {
       (detail ? `${rawMsg}\n（${detail}）` : rawMsg) +
       enoentHint +
       cmdHint +
+      posixHint +
       suppressedHint +
       andChainHint;
 

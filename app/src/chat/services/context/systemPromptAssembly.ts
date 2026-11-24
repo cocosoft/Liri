@@ -266,6 +266,7 @@ export async function assembleContextualSystemPrompt(
       '- 不要重复记忆中已有的信息，除非用户明确要求',
       '',
       '**注意**：以下信息来自 memory.md，**无需使用 recall_memory 工具查询**——这些信息已经自动注入到此提示词中。',
+      '记忆可能已过期；与当前代码/用户说法冲突时，以当前事实为准。',
     ].join('\n');
   })();
 

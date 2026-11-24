@@ -58,6 +58,8 @@ describe('buildSessionMemoryInjection', () => {
     expect(result.text).toContain('决策记录：2 条');
     expect(result.text).toContain('文件变更：1 条');
     expect(result.text).toContain('recall_memory');
+    // P3-3：降级索引同样标注"可能已过期"
+    expect(result.text).toContain('可能已过期');
     // 不截断正文，也不搬运正文
     expect(result.text).not.toContain('很长的流水账内容');
   });

@@ -46,8 +46,23 @@ export interface TeamMemorySyncService {
 
 /**
  * 团队记忆同步服务实现
+ *
+ * @deprecated **模拟实现，未接线，不产生任何真实网络同步**（P3-1 处置，2026-11-25）。
+ * 各方法用 `setTimeout` 伪造延迟并返回成功，团队库始终为空数组。
+ * 真实同步与冲突消解需单独立项（见 `.trae/specs/agent-memory-optimization.md` §8.6）。
+ * 保留本实现仅为不打断既有引用/测试；**不得**把它当作"团队记忆同步"能力。
  */
 export class TeamMemorySyncServiceImpl implements TeamMemorySyncService {
+  /** 明确标记：本实现不做真实同步（供调用方/观测识别） */
+  readonly simulated = true;
+
+  constructor() {
+    process.emitWarning(
+      'TeamMemorySyncServiceImpl 是模拟实现（无真实同步），请勿当作团队记忆同步能力',
+      'DeprecationWarning'
+    );
+  }
+
   /**
    * 同步状态
    */
@@ -69,7 +84,7 @@ export class TeamMemorySyncServiceImpl implements TeamMemorySyncService {
    */
   async syncTeamMemory(): Promise<boolean> {
     try {
-      logger.info('[TeamMemorySync] Starting sync...');
+      logger.info('[TeamMemorySync] (simulated) Starting sync...');
 
       // 模拟同步过程
       await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -80,7 +95,9 @@ export class TeamMemorySyncServiceImpl implements TeamMemorySyncService {
       this.syncState.pendingSync = [];
       this.syncState.failedSync = [];
 
-      logger.info('[TeamMemorySync] Sync completed successfully');
+      logger.info(
+        '[TeamMemorySync] (simulated) Sync completed — 未传输任何数据'
+      );
       return true;
     } catch (error) {
       void handleError(error, {
@@ -120,7 +137,7 @@ export class TeamMemorySyncServiceImpl implements TeamMemorySyncService {
   ): Promise<boolean> {
     try {
       logger.info(
-        `[TeamMemorySync] Resolving conflict for memory ${memoryId} with resolution: ${resolution}`
+        `[TeamMemorySync] (simulated) Resolving conflict for memory ${memoryId} with resolution: ${resolution}`
       );
 
       // 模拟冲突解决过程
@@ -157,7 +174,7 @@ export class TeamMemorySyncServiceImpl implements TeamMemorySyncService {
    */
   async shareMemoryToTeam(memoryId: string): Promise<boolean> {
     try {
-      logger.info(`[TeamMemorySync] Sharing memory ${memoryId} to team`);
+      logger.info(`[TeamMemorySync] (simulated) Sharing memory ${memoryId}`);
 
       // 模拟分享过程
       await new Promise((resolve) => setTimeout(resolve, 500));
@@ -182,7 +199,7 @@ export class TeamMemorySyncServiceImpl implements TeamMemorySyncService {
    */
   async getMemoryFromTeam(memoryId: string): Promise<Memory | null> {
     try {
-      logger.info(`[TeamMemorySync] Getting memory ${memoryId} from team`);
+      logger.info(`[TeamMemorySync] (simulated) Getting memory ${memoryId}`);
 
       // 模拟获取过程
       await new Promise((resolve) => setTimeout(resolve, 500));

@@ -72,6 +72,8 @@ describe('buildMemoryIndexSection', () => {
     expect(section).toContain('- [用户偏好](a.md) — 偏好中文回答');
     expect(section).toContain('共 2 条长期记忆');
     expect(section).toContain('recall_memory');
+    // P3-3：来源与新鲜度标注（记忆可能过期）
+    expect(section).toContain('可能已过期');
   });
 
   it('超出 maxLines ⇒ 截断并如实提示"只载入 N 条"', () => {

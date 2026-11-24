@@ -94,6 +94,7 @@ export function buildSessionMemoryInjection(
       : ['- （结构化条目不可用，请用 recall_memory 检索）']),
     '',
     '需要具体条目时用 recall_memory 检索（未直接可见时先用 tool_search 查找 recall_memory）。',
+    '索引来自记忆库（可能已过期）；与当前事实冲突时以当前为准。',
   ].join('\n');
 
   return { text, mode: 'index', itemCount: items.length };

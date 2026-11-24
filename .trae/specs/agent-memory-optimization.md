@@ -1,7 +1,7 @@
 # Liri 记忆系统优化方案（草案 · 2026-11-25）
 
 > 来源：Anthropic《The components of agent memory》（2026-11-06，本地 HTML 已读）+ 本仓记忆子系统实测取证。
-> 状态：**Phase 1 已实施**（P0-1 全部 + P0-2 的 1–3 项；P0-2-4 字段留待 Phase 3）；**Phase 2 已完成**（P1-1/P1-2 见 §8.3–8.4）；**Phase 3 进行中**（P2-1 Promote/Validate/Represent 已落地，见 §8.5）。落地时按阶段拆独立提交，遵循 `code-deletion.md` CD05（先接线、再观察、后删旧路）。
+> 状态：**Phase 1 已实施**（P0-1 全部 + P0-2 的 1–3 项；P0-2-4 字段留待 Phase 3）；**Phase 2 已完成**（P1-1/P1-2 见 §8.3–8.4）；**Phase 3 进行中**（P2-1 Promote/Validate/Represent 已落地，见 §8.5；P3 团队记忆标注 + 新鲜度提示见 §8.6）。落地时按阶段拆独立提交，遵循 `code-deletion.md` CD05（先接线、再观察、后删旧路）。
 > 相关既有裁定：`.trae/specs/memory-conflict-detection.md`（冲突**不自动改写**）、`.trae/specs/dead-code-and-unwired-items-rulings.md`（未接线项不得当作既有能力）。
 
 ---
@@ -289,6 +289,15 @@ MMR 需查询向量与候选两两相似度（N² 次嵌入），仅在显式开
   仍未引入（无消费者前不提前写 schema）。
 - Represent 产出的 wiki **不进入系统提示**（注入仍只读 `MEMORY.md`，见 §8.1）：它是浏览/后续 dreaming 的
   表示层；"链接完整性"由生成时校验 + 生成标记清理共同保证，不额外引入死链修复任务。
+
+### 8.6 P3 处置（Phase 3，2026-11-25）
+
+| 项 | 状态 | 落地 |
+|---|---|---|
+| **团队记忆模拟实现** | ✅ 已标注 | `TeamMemorySyncServiceImpl` 标 `@deprecated` + `readonly simulated = true` + 构造期 `process.emitWarning`；日志统一加 `(simulated)`，`syncTeamMemory` 明确"未传输任何数据"；**保留**不删（`code-deletion.md` CD07：团队能力属运行时/配置驱动面） |
+| **记忆来源与新鲜度** | ✅ 已标注 | 注入层统一提示"来自记忆库，**可能已过期**；与当前代码/用户说法冲突时以当前事实为准"：`memoryIndex` 段尾行、会话记忆原文模式与降级索引模式各一处 |
+| **eval 常态化** | ⏳ 未做 | 依赖跨会话任务级评测集；当前仅有确定性用例（注入预算/检索/治理/压缩/校验） |
+| **团队记忆真实同步** | ⏳ 单独立项 | 需服务端、鉴权、冲突消解与审计；不在本方案内 |
 
 ---
 

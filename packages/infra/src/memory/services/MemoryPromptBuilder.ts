@@ -161,8 +161,18 @@ export function buildMemoryIndexSection(opts?: {
     shownEntries < totalEntries
       ? `- 共 ${totalEntries} 条长期记忆；上面只载入最近 ${shownEntries} 条。${recallHint}。`
       : `- 共 ${totalEntries} 条长期记忆。${recallHint}。`;
+  // P3-3（2026-11-25）：来源与新鲜度标注 —— 记忆可能过期，冲突时以当前事实为准
+  const freshnessNote =
+    '- 以上来自记忆库（**可能已过期**）；与当前代码/用户说法冲突时，以当前事实为准。';
 
-  return ['## 长期记忆索引', '', truncated.content.trim(), '', totalLine].join('\n');
+  return [
+    '## 长期记忆索引',
+    '',
+    truncated.content.trim(),
+    '',
+    totalLine,
+    freshnessNote,
+  ].join('\n');
 }
 
 /**

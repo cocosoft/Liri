@@ -20,6 +20,8 @@ import type {
 } from "../../services/chatService";
 import { handleClientError } from "@/utils/handleError";
 import { createLogger } from "@/utils/logger";
+// 2026-11-24：审批信号的统一解析（终态清除 / 占位置位）
+import { resolveApprovalFlags } from "./chat-message-shared";
 // 状态块 statusType 契约（CS02）：判据的单一事实来源，双端共用
 import { isTransientStatusType } from "@shared/types";
 
@@ -315,6 +317,16 @@ export class ChronologicalBlockBuilder {
       const block = this.blocks[idx];
       const toolCall = block.toolCall;
       if (!toolCall) return;
+      /**
+       * 2026-11-24（用户实测：审批通过、工具已执行完成，浮动栏仍显示「等待审批」）：
+       * 原实现只在 `resultData.pendingApproval === true` 时**置位**，终态结果
+       * **从不清理**旧的 `pendingApproval / inboxId` ⇒ `hasPendingApproval` 永久命中
+       * （页内没有已落定审批卡可对账时更明显）。
+       * 现与 `deriveConversationBlocks` / `setMessages` 合并路径同口径：
+       * 终态结果一律清除审批标记（CS02：只认结构化信号）。
+       */
+      const approvalFlags = resolveApprovalFlags(resultData);
+      const isAwaiting = approvalFlags.pendingApproval === true;
       // J-2.2: 替换块对象（新引用）触发缓存重建，使 ChatMessage memo 比较器能感知
       // 原地修改（pendingApproval/result）——P2-3 缓存数组引用不变会让 memo 跳过重渲染
       this.blocks[idx] = {
@@ -323,20 +335,13 @@ export class ChronologicalBlockBuilder {
           ...toolCall,
           result: { success: true, data: resultData },
           // P0-3（2026-08-14）：tool_completed 到达即视为完成，状态置 completed。
-          // 修复分组头永远显示"⏳ 执行中"（原实现只写 result/isStreaming，不更新 status）。
-          // 审批等待态保持原状态（由 pendingApproval 标记驱动，非字符串匹配 CS02）。
-          status:
-            resultData.pendingApproval === true ? toolCall.status : "completed",
-          // P2-2: 结构化审批等待信号 → 置 pendingApproval 标记（CS02：状态判断用持久化标记，非字符串匹配）
-          pendingApproval:
-            resultData.pendingApproval === true
-              ? true
-              : toolCall.pendingApproval,
-          // U-06-5: Inbox 项 id（就地审批入口）
-          inboxId:
-            typeof resultData.inboxId === "string"
-              ? resultData.inboxId
-              : toolCall.inboxId,
+          // 审批占位（awaiting_approval）不是终态 ⇒ 保持原状态（由 pendingApproval 驱动）。
+          status: isAwaiting ? toolCall.status : "completed",
+          pendingApproval: approvalFlags.pendingApproval,
+          // U-06-5: Inbox 项 id（就地审批入口）；终态结果随 pendingApproval 一起清空
+          inboxId: isAwaiting
+            ? (approvalFlags.inboxId ?? toolCall.inboxId)
+            : undefined,
         },
         isStreaming: false,
       };

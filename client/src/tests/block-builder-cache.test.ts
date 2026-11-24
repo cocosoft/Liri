@@ -133,6 +133,42 @@ describe("审批等待态 pendingApproval 透传（J-2.2 回归）", () => {
     expect(tcBlock!.toolCall!.pendingApproval).toBe(true);
     expect(tcBlock!.toolCall!.status).toBe("completed");
   });
+
+  /**
+   * 2026-11-24（用户实测：工具审批后浮动状态栏仍显示「等待审批」）：
+   * 审批通过、同一调用返回真实终态结果时，必须清掉旧的 pendingApproval / inboxId，
+   * 否则 `hasPendingApproval` 会永久命中（页内没有已落定审批卡可对账时更明显）。
+   */
+  it("审批后返回真实终态结果 → 清除 pendingApproval / inboxId 并置 completed", () => {
+    const b = new ChronologicalBlockBuilder();
+    const tcId = "call_t4";
+
+    b.addToolCall({
+      id: tcId,
+      name: "bash",
+      arguments: { command: "sudo whoami" },
+      status: "running",
+    });
+    b.updateToolCallResult(tcId, {
+      status: "awaiting_approval",
+      pendingApproval: true,
+      inboxId: "box-1",
+    });
+    let tcBlock = b
+      .getBlocks()
+      .find((blk) => blk.type === "tool_call" && blk.toolCall?.id === tcId);
+    expect(tcBlock!.toolCall!.pendingApproval).toBe(true);
+    expect(tcBlock!.toolCall!.inboxId).toBe("box-1");
+
+    // 用户批准后工具续跑，返回真实结果（无 pendingApproval）
+    b.updateToolCallResult(tcId, { output: "done" });
+    tcBlock = b
+      .getBlocks()
+      .find((blk) => blk.type === "tool_call" && blk.toolCall?.id === tcId);
+    expect(tcBlock!.toolCall!.pendingApproval).toBeUndefined();
+    expect(tcBlock!.toolCall!.inboxId).toBeUndefined();
+    expect(tcBlock!.toolCall!.status).toBe("completed");
+  });
 });
 
 describe("ChronologicalBlockBuilder 增量快照缓存（P2-3）", () => {

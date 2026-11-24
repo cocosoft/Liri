@@ -85,7 +85,11 @@
 - 现状：批次 2 已让兜底**不再写第二条**（`hasTurnEnded` 单写者）；批次 7 在**调用侧**归一
   （`pauseForApproval`：idle ⇒ 先 `start()` 再 `pause()`，并打 warn 观测频次），转移表契约不变
   （`idle → requires_action` 仍是非法边，由 `SessionStateMachine.test.ts` 锁定）。
-  "机器为何停在 `idle`"仍未定位，但已从"抛错中断"降级为"可观测的归一日志"。
+- **根因已定位并修复（批次 10）**：`ChatManager.streamMessage` 已委托 `ChatOrchestrator.streamMessage`，
+  而后者只有非流式 `sendMessage` 调 `start()`；流式准备阶段（`prepareStream`）**从未 start**
+  ⇒ 机器恒停在 `idle`。现于 `prepareStream` 内对称调用
+  `host.getSessionMachine(session.id).start('streamMessage')`，`pause()` 回到合法边
+  `running → requires_action`；批次 7 的归一只作为兜底保留。
 
 ### §3.2 回执归因错误 + 引导错误
 
@@ -312,15 +316,21 @@
 | 单一事实源 | 读类名单下沉到 `packages/infra/src/constants/toolKinds.ts`（chat 与 `query/tool-constants` 共用；app 侧禁止直接 import `query`） |
 | 测试 | `longTaskRouting.test.ts` 增"file_read / grep / glob 各耗满基础档 ⇒ 不给 /goal start"；原 G3 用例改用非读类工具（`bash`）以继续验证轮次分支；`toolNameLists.test.ts` 仍守卫清单取值 |
 
+### 批次 10（P1 idle 根因）已落地
+
+| 项 | 结果 |
+|---|---|
+| 根因 | 流式链路 `ChatManager.streamMessage → ChatOrchestrator.streamMessage → prepareStream` 从未把会话状态机置为 `running`（只有非流式 `sendMessage` 调过 `start()`；旧 `ChatStreamSetup.prepare` 的 `startProcessing` 已不在流式路径上） |
+| 修复 | `prepareStream` 在拿到 session 后立即 `host.getSessionMachine(session.id).start('streamMessage')`（与非流式对称）；收口仍由 `_finalizeStreamMessage` 的 `pause/finish` 负责，`running → requires_action` 恢复为合法边 |
+| 兜底保留 | 批次 7 的 `pauseForApproval` 不动：即便将来又有入口漏 start，最低也只是打 warn 后归一，不再抛错中断 |
+| 测试 | 新增 `tests/chat/orchestrator/streamSessionMachineStart.test.ts`（2 例）：流式回合后历史含 `idle->running` 且 `pause` 不抛；负向对照"未 start 直接 pause 仍抛"证明修复点在入口而非放松转移表 |
+
 ### 后续（未实施，按 §3 根因排序）
 
-0. **P1｜定位"机器为何停在 `idle`"**（批次 7 已把抛错降级为归一日志）：依据
-   `会话状态机 pause 前归一（idle → running）` 的 warn 频次与上下文，回溯是哪条路径提前
-   `finish/complete`（或未 `start`）；确认后再决定是否从源头修正。
-1. **P2｜停机期间过期的阶段卡**：卡在进程停机时到期 ⇒ 重启扫描仍按 `orphan_scan` 收口
+0. **P2｜停机期间过期的阶段卡**：卡在进程停机时到期 ⇒ 重启扫描仍按 `orphan_scan` 收口
    （语义同为"审批卡已过期"，且已可 `/goal resume stage` 续跑）；如需完全消除，可让扫描对
    "有 `approvalInboxId` 但卡已过期"的阶段链直接写 `approval_expired`。
-2. **P2｜双份会话状态机实例**：`ChatManager`（`SessionRuntimeState`）与 `SessionStateBridge` 各持一份
+1. **P2｜双份会话状态机实例**：`ChatManager`（`SessionRuntimeState`）与 `SessionStateBridge` 各持一份
    `SessionStateMachine`，合并/收敛前先确认 `session:activated` 等生命周期事件是否还有人发布。
-3. **P2｜`PlansPage` 未挂路由**（`/plans` 已重定向），仍在测试中被引用；是否删除需按 `code-deletion.md` CD01–CD06 另行取证。
-4. **P2｜PDCA 三面并存**（消息卡 / 浮动栏徽标 / 抽屉）：属"摘要 / 指示器 / 详情"三个粒度，本批未合并。
+2. **P2｜`PlansPage` 未挂路由**（`/plans` 已重定向），仍在测试中被引用；是否删除需按 `code-deletion.md` CD01–CD06 另行取证。
+3. **P2｜PDCA 三面并存**（消息卡 / 浮动栏徽标 / 抽屉）：属"摘要 / 指示器 / 详情"三个粒度，本批未合并。

@@ -66,6 +66,12 @@ export async function prepareStream(
   // P2-3.5: 流式消息预处理
   const ctx = await host._prepareStreamSession(content, options);
   const session = ctx.session;
+  // P1 根因修复（2026-11-24，真机 `session_mwq5ookl21aa28ea96`）：**流式入口必须把会话状态机
+  // 置为 running**。此前只有旧 `ChatStreamSetup.prepare` 的 `startProcessing` 做过，而
+  // `ChatManager.streamMessage` 已委托本编排器 ⇒ 机器一直停在 `idle`，等待审批收尾的
+  // `pause()` 抛 `idle → requires_action`（兜底再写 `turn/end{canceled}`，前端显示"已中断"）。
+  // 与非流式 `ChatOrchestrator.sendMessage` 的 `start('sendMessage')` 对称。
+  host.getSessionMachine(session.id).start('streamMessage');
   // 1.6：流式开始时间（落盘 startedAt，导出显示开始时间+耗时）
   const streamStartedAt = new Date();
 

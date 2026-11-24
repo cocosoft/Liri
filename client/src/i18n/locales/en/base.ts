@@ -912,6 +912,9 @@ const enBase = {
     securityIntercepted: "Security blocked",
     securityPolicyBlocked: "Blocked by security policy",
     toolReturn: "Tool return",
+    // ToolResultGroup (collapsible tree for consecutive orphan tool results, 2026-11-24)
+    toolReturnGroup: "Tool returns · {{count}}",
+    toolReturnGroupHint: "{{count}} items · click a row to expand",
     securityReasonPathSafety: "Path safety check",
     securityReasonDangerousCommand: "Dangerous command detection",
     securityReasonDangerousPattern: "Dangerous command pattern",

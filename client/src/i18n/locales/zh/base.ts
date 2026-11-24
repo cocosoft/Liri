@@ -874,6 +874,9 @@ const zhBase = {
     securityIntercepted: "安全拦截",
     securityPolicyBlocked: "安全策略拦截",
     toolReturn: "工具返回",
+    // ToolResultGroup（连续孤儿工具结果的折叠树，2026-11-24）
+    toolReturnGroup: "工具返回 · {{count}} 次",
+    toolReturnGroupHint: "共 {{count}} 条 · 点击任一行展开结果",
     securityReasonPathSafety: "路径安全检查",
     securityReasonDangerousCommand: "危险命令检测",
     securityReasonDangerousPattern: "危险命令模式",

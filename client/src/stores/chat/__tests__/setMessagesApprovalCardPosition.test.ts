@@ -103,7 +103,13 @@ describe("setMessagesImpl — 合并助手气泡的时序键（N-14）", () => {
     ]);
 
     const out = h.messages();
-    expect(out.map((m) => m.id)).toEqual(["u1", "t1", "t2", "a1"]);
+    // 2026-11-24：连续孤儿工具结果已合并为一条消息（`tool-group-t1`），
+    // 但仍排在合并后的助手气泡之前 —— N-14 的时序契约不变：审批卡留在底部最后。
+    expect(out.map((m) => m.id)).toEqual(["u1", "tool-group-t1", "a1"]);
+    const toolGroup = out[1];
+    expect(
+      (toolGroup.metadata?.groupedToolResults as unknown[] | undefined)?.length,
+    ).toBe(2);
     const merged = out[out.length - 1];
     expect(merged.lastEventSeq).toBe(5);
     expect(merged.timestamp).toBe(5000);

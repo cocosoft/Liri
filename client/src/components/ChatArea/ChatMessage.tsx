@@ -20,6 +20,8 @@ import ToolInlineTags from "./ToolInlineTags";
 import WatermarkTag from "./WatermarkTag";
 import { useVirtualScroll } from "./VirtualScrollContext";
 import ToolResultMessage from "./ToolResultMessage";
+import ToolResultGroup from "./ToolResultGroup";
+import { readGroupedToolResults } from "../../utils/groupedToolResults";
 import BlockRenderer from "./BlockRenderer";
 import { isMediaDisplayToolName } from "../../utils/toolHumanSummary";
 // P0-4（2026-11-05）：后台任务消息标记（与导出侧共用同一读取实现）
@@ -315,6 +317,11 @@ const ChatMessageMemo = memo(
     const isDark = configTheme === "dark";
     const isUser = message.role === "user";
     const isTool = message.role === "tool";
+    /** 2026-11-24：连续孤儿工具结果（setMessages 合并态）—— 走折叠树渲染 */
+    const groupedToolResults = useMemo(
+      () => (message.role === "tool" ? readGroupedToolResults(message) : []),
+      [message],
+    );
     // P0-4（2026-11-05）：后台任务消息（PDCA 等）与用户会话共用 sessionId —— 加徽标区分来源
     const taskTag = readTaskMessageTag(message.metadata);
 
@@ -685,7 +692,13 @@ const ChatMessageMemo = memo(
                 />
               </div>
             ) : isTool ? (
-              <ToolResultMessage message={message} />
+              // 2026-11-24：连续孤儿工具结果已在 setMessages 合并为一条消息，
+              // 这里按结构化 metadata 分流到折叠树；单条仍走原「工具返回」渲染。
+              groupedToolResults.length > 0 ? (
+                <ToolResultGroup results={groupedToolResults} />
+              ) : (
+                <ToolResultMessage message={message} />
+              )
             ) : (
               <AssistantMessage message={message} isStreaming={isStreaming} />
             )}

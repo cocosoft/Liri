@@ -25,6 +25,7 @@ export type {
 export { categorizeEvent, isLiriEvent } from "./events";
 export type {
   AttachedImage,
+  GroupedToolResult,
   Message,
   MessageBlock,
   QuestionOption,

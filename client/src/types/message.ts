@@ -10,6 +10,25 @@ export interface AttachedImage {
   size: number;
 }
 
+/**
+ * 2026-11-24：连续「孤儿工具结果」合并后的单条记录。
+ *
+ * 存量会话（无事件日志）里 assistant 的 `tool_calls` 往往不全，部分 `role=tool`
+ * 结果找不到对应调用定义。连续多条这类结果在 `setMessages` 阶段合并为**一条**消息
+ * （`metadata.groupedToolResults`），由 `ToolResultGroup` 渲染成可收缩的树，
+ * 避免一屏几十个「工具返回」气泡。
+ */
+export interface GroupedToolResult {
+  id: string;
+  toolCallId?: string;
+  /** 工具结果原文（未解码的持久化信封） */
+  content: string;
+  timestamp?: number;
+  isError?: boolean;
+  securityIntercepted?: boolean;
+  reason?: string;
+}
+
 export interface Message {
   id: string;
   role: "user" | "assistant" | "system" | "tool";

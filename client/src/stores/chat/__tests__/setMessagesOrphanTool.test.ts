@@ -205,6 +205,111 @@ describe("setMessagesImpl — 孤儿 tool 结果保留（N-48）", () => {
 });
 
 /**
+ * 2026-11-24（真机 `session_mwr473pd502e995dd1`，无事件日志的存量会话）：
+ * ① 无 blocks 的 assistant 走重建路径时也必须回填工具结果（原实现只在"已有 blocks"
+ *    分支注入 ⇒ 能配对的工具卡也显示「已中断 0/N」且看不到结果）；
+ * ② 连续孤儿工具结果收敛为一条消息（`metadata.groupedToolResults`），
+ *    由 `ToolResultGroup` 折叠渲染，避免一屏几十个「工具返回」气泡。
+ */
+describe("setMessagesImpl — 存量投影：重建回填 + 孤儿收敛（2026-11-24）", () => {
+  it("无 blocks 的 assistant：重建出的工具块回填结果与终态", () => {
+    const h = harness();
+    h.run([
+      msg({ id: "u1", role: "user", content: "读文件", timestamp: 1000 }),
+      msg({
+        id: "a1",
+        role: "assistant",
+        content: "读取中",
+        timestamp: 1500,
+        tool_calls: [
+          {
+            id: "call_1",
+            type: "function",
+            function: { name: "file_read", arguments: "{}" },
+          },
+        ] as never,
+      }),
+      msg({
+        id: "t1",
+        role: "tool",
+        toolCallId: "call_1",
+        timestamp: 2000,
+        content: '[{"type":"tool_result","value":"hello"}]',
+      }),
+    ]);
+
+    const out = h.messages();
+    // 结果已被消费 ⇒ 不再单独成消息
+    expect(out.some((m) => m.role === "tool")).toBe(false);
+    const block = out
+      .find((m) => m.role === "assistant")
+      ?.blocks?.find((b) => b.type === "tool_call");
+    expect(block?.toolCall?.result).toContain("hello");
+    expect(block?.toolCall?.status).toBe("completed");
+  });
+
+  it("连续孤儿结果合并为一条消息，单条结果保持原样", () => {
+    const h = harness();
+    h.run([
+      msg({ id: "u1", role: "user", content: "hi", timestamp: 1000 }),
+      msg({
+        id: "t1",
+        role: "tool",
+        toolCallId: "call_1",
+        timestamp: 2000,
+        content: '{"a":1}',
+      }),
+      msg({
+        id: "t2",
+        role: "tool",
+        toolCallId: "call_2",
+        timestamp: 3000,
+        content: '{"b":2}',
+      }),
+      msg({
+        id: "t3",
+        role: "tool",
+        toolCallId: "call_3",
+        timestamp: 4000,
+        content: '{"c":3}',
+      }),
+      msg({ id: "u2", role: "user", content: "继续", timestamp: 5000 }),
+    ]);
+
+    const tools = h.messages().filter((m) => m.role === "tool");
+    expect(tools).toHaveLength(1);
+    expect(tools[0].id).toBe("tool-group-t1");
+    const grouped = tools[0].metadata?.groupedToolResults as Array<{
+      toolCallId?: string;
+    }>;
+    expect(grouped.map((g) => g.toolCallId)).toEqual([
+      "call_1",
+      "call_2",
+      "call_3",
+    ]);
+  });
+
+  it("单条孤儿结果不合并（保持 ToolResultMessage 原渲染）", () => {
+    const h = harness();
+    h.run([
+      msg({ id: "u1", role: "user", content: "hi", timestamp: 1000 }),
+      msg({
+        id: "t1",
+        role: "tool",
+        toolCallId: "call_1",
+        timestamp: 2000,
+        content: '{"a":1}',
+      }),
+    ]);
+
+    const tools = h.messages().filter((m) => m.role === "tool");
+    expect(tools).toHaveLength(1);
+    expect(tools[0].id).toBe("t1");
+    expect(tools[0].metadata?.groupedToolResults).toBeUndefined();
+  });
+});
+
+/**
  * 2026-11-12（真机 `session_mwd7ywosc43b5503e3`）：用户在审批卡点「拒绝」后，
  * 续跑写入的终态失败结果必须把工具卡标成 `failed`。
  * 修复前：合并只回填 result/pendingApproval，`status` 沿用流式留下的 `completed`

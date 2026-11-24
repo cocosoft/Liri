@@ -14,6 +14,7 @@ import { ErrorBoundary } from "../common/ErrorBoundary";
 import { shouldShowDateSeparator, formatDateLabel } from "./dateUtils";
 import { VirtualScrollProvider } from "./VirtualScrollContext";
 import { getMessageSearchText } from "../../utils/messageText";
+import { readGroupedToolResults } from "../../utils/groupedToolResults";
 // 2026-10-22：后端命令入口（`brief` → 2026-10-23 起合并为 `insights report`）
 import { runCommand } from "../../services/commandService";
 import SessionInsightsModal from "./SessionInsightsModal";
@@ -569,7 +570,11 @@ export default function ChatMessageList({
       const id = matchedIds[index];
       if (!id) return;
       // W3：虚拟列表下离屏消息不在 DOM，按消息索引 scrollToIndex（替代 querySelectorAll）
-      const msgIndex = messages.findIndex((m) => m.id === id);
+      // 2026-11-24：连续孤儿工具结果合并成一条消息 ⇒ 命中其原始 id 时也要跳到该消息
+      const msgIndex = messages.findIndex(
+        (m) =>
+          m.id === id || readGroupedToolResults(m).some((r) => r.id === id),
+      );
       if (msgIndex >= 0) {
         virtualizer.scrollToIndex(msgIndex, { align: "center" });
       }
@@ -926,10 +931,16 @@ export default function ChatMessageList({
           {virtualizer.getVirtualItems().map((virtualRow) => {
             const message = messages[virtualRow.index];
             const i = virtualRow.index;
-            const isMatched = matchedSet.has(message.id);
+            const isMatched =
+              matchedSet.has(message.id) ||
+              // 合并后的工具结果消息：命中其原始 id 也算（2026-11-24）
+              readGroupedToolResults(message).some((r) => matchedSet.has(r.id));
             const isCurrentMatch =
               matchedIds.length > 0 &&
-              matchedIds[currentMatchIndex] === message.id;
+              (matchedIds[currentMatchIndex] === message.id ||
+                readGroupedToolResults(message).some(
+                  (r) => r.id === matchedIds[currentMatchIndex],
+                ));
             const hasReplies = repliedIdSet.has(message.id);
 
             return (

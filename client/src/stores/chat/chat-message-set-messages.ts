@@ -4,7 +4,12 @@
  * 从 chat-message.slice.ts 拆出（R04-001 文件行数限制治理）。
  * setMessages：加载历史消息时重建 blocks 结构（tool 结果合并 / 连续 assistant 合并 / groupId 迁移）。
  */
-import type { Message, MessageBlock, FilePreview } from "@/types";
+import type {
+  Message,
+  MessageBlock,
+  FilePreview,
+  GroupedToolResult,
+} from "@/types";
 import { addFilePathsFromBlocks } from "./chat-file.slice";
 import {
   generateGroupId,
@@ -126,6 +131,119 @@ function isTerminalAssistantFragment(message: Message): boolean {
   );
 }
 
+interface ToolResultEntry {
+  content: string;
+  isError: boolean;
+}
+
+/**
+ * 把工具结果注入 `tool_call` 块（结果摘要 / 终态 / 就地审批标记）。
+ *
+ * 2026-11-24（真机 `session_mwr473pd502e995dd1`，无事件日志的存量会话）：
+ * 原实现只在「assistant 已有 blocks」分支注入；无 blocks 的存量消息走
+ * `rebuildBlocksFromContent` 重建后**从不注入** ⇒ 能配对的工具卡也只剩参数、
+ * 组头显示「已中断 0/N」，而结果无法显示。现两条路径共用本函数，行为一致。
+ */
+function attachToolResultsToBlocks(
+  blocks: MessageBlock[],
+  toolResultsByCallId: ReadonlyMap<string, ToolResultEntry>,
+): { blocks: MessageBlock[]; hasMergedResult: boolean } {
+  let hasMergedResult = false;
+  const mergedBlocks = blocks.map((b) => {
+    const block = normalizeLoadedBlock(b);
+    if (
+      block.type === "tool_call" &&
+      block.toolCall?.id &&
+      toolResultsByCallId.has(block.toolCall.id)
+    ) {
+      const fullResultEntry = toolResultsByCallId.get(block.toolCall.id)!;
+      const fullResult = fullResultEntry.content;
+      hasMergedResult = true;
+      // U-06-5：审批等待结果带 pendingApproval + inboxId ⇒ 工具卡片就地审批
+      // 2026-11-12：终态结果须**清除**该标记（否则批准后同一调用既显示"已处理"的
+      // Inbox 卡、又保留"等待审批 + 批准/拒绝"的工具卡 ⇒ 两张卡）
+      const approvalFlags = resolveApprovalFlags(fullResult);
+      const isAwaiting = approvalFlags.pendingApproval === true;
+      // 只注入截断摘要到 block，全量结果通过 getToolResultFull() 按需获取
+      block.toolCall = {
+        ...block.toolCall,
+        result: truncateResult(fullResult),
+        _hasFullResult:
+          fullResult.length > MAX_INLINE_RESULT_LENGTH || undefined,
+        pendingApproval: approvalFlags.pendingApproval,
+        inboxId: approvalFlags.inboxId,
+        status: isAwaiting
+          ? // 2026-11-12：待审批不是终态 —— 沿用落盘态可能已是 "completed"，
+            // 会把副标题写成「已写入：…」而徽标仍是「⏳ 等待审批」（真机
+            // `session_mwd9bnoyc7e3051cde`）。统一按进行中渲染（正在…）。
+            "running"
+          : fullResultEntry.isError
+            ? "failed"
+            : "completed",
+      };
+    }
+    return block;
+  });
+  return { blocks: mergedBlocks, hasMergedResult };
+}
+
+/**
+ * 2026-11-24：连续「孤儿工具结果」合并为一条消息。
+ *
+ * 无事件日志的存量会话里，assistant 的 `tool_calls` 常常只留下其中一步，
+ * 后续 `role=tool` 结果找不到调用定义（真机 `session_mwr473pd502e995dd1`：
+ * 113 条结果里 98 条无主）。逐条渲染会把一屏铺成几十个「工具返回」气泡
+ * ⇒ 这里把**连续**结果合并成一条消息（`metadata.groupedToolResults`），
+ * 由 `ToolResultGroup` 折叠渲染。单条结果保持原样（`ToolResultMessage`）。
+ *
+ * 判据只看结构化字段 `metadata.groupedToolResults`（禁止文案匹配，CS02）。
+ */
+function coalesceConsecutiveToolResults(messages: Message[]): Message[] {
+  const out: Message[] = [];
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+    if (msg.role !== "tool") {
+      out.push(msg);
+      continue;
+    }
+    let end = i;
+    while (end + 1 < messages.length && messages[end + 1].role === "tool") {
+      end++;
+    }
+    const run = messages.slice(i, end + 1);
+    if (run.length === 1) {
+      out.push(msg);
+    } else {
+      const results: GroupedToolResult[] = run.map((m) => ({
+        id: m.id,
+        toolCallId: m.toolCallId,
+        content: typeof m.content === "string" ? m.content : "",
+        timestamp: m.timestamp,
+        isError:
+          m.metadata?.isError === true ||
+          m.metadata?.toolResultState === "error",
+        securityIntercepted: m.metadata?.securityIntercepted === true,
+        reason:
+          typeof m.metadata?.reason === "string"
+            ? m.metadata.reason
+            : undefined,
+      }));
+      out.push({
+        ...run[0],
+        // 合成 id：稳定且不与单条结果冲突（虚拟列表 key / 搜索高亮用）
+        id: `tool-group-${run[0].id}`,
+        content: "",
+        metadata: {
+          ...(run[0].metadata ?? {}),
+          groupedToolResults: results,
+        },
+      });
+    }
+    i = end;
+  }
+  return out;
+}
+
 /**
  * 加载历史消息时为 assistant 消息重建 blocks 结构
  * 确保 AssistantMessage 组件能正确分组渲染（text / tool_call 等）
@@ -154,10 +272,6 @@ export function setMessagesImpl(
     // 同时缓存全量结果到缓存，block 中只存截断摘要
     // 2026-11-12：`isError` 一并带出 —— 续跑轮（如"用户拒绝"）的终态失败必须落到工具卡
     // 状态上，否则卡面仍显示"已执行"（真机 `session_mwd7ywosc43b5503e3`）
-    interface ToolResultEntry {
-      content: string;
-      isError: boolean;
-    }
     const toolResultsByCallId = new Map<string, ToolResultEntry>();
     const filteredMessages: Message[] = [];
     /**
@@ -361,44 +475,8 @@ export function setMessagesImpl(
         hasMeaningfulContentBlocks(msg.blocks)
       ) {
         // 先处理已有 blocks：合并工具结果 + 迁移 groupId
-        let hasMergedResult = false;
-        const mergedBlocks = msg.blocks.map((b) => {
-          const block = normalizeLoadedBlock(b);
-          if (
-            block.type === "tool_call" &&
-            block.toolCall?.id &&
-            toolResultsByCallId.has(block.toolCall.id)
-          ) {
-            const fullResultEntry = toolResultsByCallId.get(block.toolCall.id)!;
-            const fullResult = fullResultEntry.content;
-            hasMergedResult = true;
-            // U-06-5：审批等待结果带 pendingApproval + inboxId ⇒ 工具卡片就地审批
-            // 2026-11-12：终态结果须**清除**该标记（否则批准后同一调用既显示"已处理"的
-            // Inbox 卡、又保留"等待审批 + 批准/拒绝"的工具卡 ⇒ 两张卡）
-            const approvalFlags = resolveApprovalFlags(fullResult);
-            // 2026-11-12：终态结果同时决定卡片状态（失败/成功），不能沿用流式留下的
-            // "completed"（续跑轮的工具结果由本合并写入，真机 `session_mwd7ywosc43b5503e3`）
-            const isAwaiting = approvalFlags.pendingApproval === true;
-            // 只注入截断摘要到 block，全量结果通过 getToolResultFull() 按需获取
-            block.toolCall = {
-              ...block.toolCall,
-              result: truncateResult(fullResult),
-              _hasFullResult:
-                fullResult.length > MAX_INLINE_RESULT_LENGTH || undefined,
-              pendingApproval: approvalFlags.pendingApproval,
-              inboxId: approvalFlags.inboxId,
-              status: isAwaiting
-                ? // 2026-11-12：待审批不是终态 —— 沿用落盘态可能已是 "completed"，
-                  // 会把副标题写成「已写入：…」而徽标仍是「⏳ 等待审批」（真机
-                  // `session_mwd9bnoyc7e3051cde`）。统一按进行中渲染（正在…）。
-                  "running"
-                : fullResultEntry.isError
-                  ? "failed"
-                  : "completed",
-            };
-          }
-          return block;
-        });
+        const { blocks: mergedBlocks, hasMergedResult } =
+          attachToolResultsToBlocks(msg.blocks, toolResultsByCallId);
 
         if (hasMergedResult) {
           const merged = { ...msg, blocks: mergedBlocks };
@@ -437,8 +515,18 @@ export function setMessagesImpl(
         };
       }
 
-      const newBlocks = rebuildBlocksFromContent(msg);
-      return { ...msg, blocks: newBlocks, tool_calls: undefined };
+      // 2026-11-24：重建出的 tool_call 块同样要回填工具结果 —— 否则无 blocks 的
+      // 存量会话里，能配对的工具卡也只剩参数、组头显示「已中断 0/N」。
+      const rebuilt = rebuildBlocksFromContent(msg);
+      const { blocks: rebuiltWithResults } = attachToolResultsToBlocks(
+        rebuilt,
+        toolResultsByCallId,
+      );
+      return {
+        ...msg,
+        blocks: rebuiltWithResults,
+        tool_calls: undefined,
+      };
     });
 
     // 2026-09-27 真机排查：存量 messages.jsonl 的 blocks 在写入路径擦洗上线前落盘，
@@ -603,7 +691,9 @@ export function setMessagesImpl(
       });
     }
     set({
-      messages: sortedMessages,
+      // 2026-11-24：连续孤儿工具结果合并为一条（`ToolResultGroup` 折叠渲染），
+      // 避免存量会话一屏几十个「工具返回」气泡。
+      messages: coalesceConsecutiveToolResults(sortedMessages),
       sessionFiles: sessionFilesList,
       streamingStatus: "",
       executionPhase: null,

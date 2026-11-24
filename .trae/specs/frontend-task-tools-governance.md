@@ -82,8 +82,10 @@
   finalize 在等待审批分支直接 `pause()`（目标 `requires_action`），一旦机器当前为 `idle` 即**非法**。
   抛错发生在 `turn/end{awaiting_approval}` 已写入之后 ⇒ 兜底再写一条 `canceled`。
 - 影响：事件派生取最后一条 end ⇒ 前端把"等待审批"显示成"生成中断/已取消"；同时该轮 `finishReason=error`。
-- 现状：批次 2 已让兜底**不再写第二条**（`hasTurnEnded` 单写者）；但**非法转移本身未消除**
-  （机器为何停在 `idle` 仍待定位：候选为"本轮未经 `startProcessing`/已被提前 complete"/"双实例"）。
+- 现状：批次 2 已让兜底**不再写第二条**（`hasTurnEnded` 单写者）；批次 7 在**调用侧**归一
+  （`pauseForApproval`：idle ⇒ 先 `start()` 再 `pause()`，并打 warn 观测频次），转移表契约不变
+  （`idle → requires_action` 仍是非法边，由 `SessionStateMachine.test.ts` 锁定）。
+  "机器为何停在 `idle`"仍未定位，但已从"抛错中断"降级为"可观测的归一日志"。
 
 ### §3.2 回执归因错误 + 引导错误
 
@@ -274,17 +276,27 @@
 | 暂停提示 | `formatPdcaTerminalNotice` 新增 `taskId`；阶段审批提示改为「请在编排面板确认后继续，或执行 `/goal approve stage <taskId>`」（阶段链调用点已传 `taskId`） |
 | 测试 | 新增 `pdcaLaunchEmptyDescription.test.ts`（8 例：取数跳过空串 / 两路皆空不升级 / 回退用户文本 / 空描述不建项目 / launch 出口闸门）；`pdcaTerminalNotice.test.ts` 增 2 例（带 `taskId` 给命令、未传不编造入口） |
 
+### 批次 7（P0 第三项）已落地
+
+| 项 | 结果 |
+|---|---|
+| 归一策略 | 新增 `app/src/chat/services/sessionMachineGuards.ts#pauseForApproval`：机器在 `idle` ⇒ 先 `start()` 归一到 `running` 再 `pause()`；返回"是否归一"供调用方留痕 |
+| 接线 | `facadeWiring` 的 `pauseSessionMachine` 改走该函数，归一发生时打 `warn`（`sessionId` / `reason`）；`SessionStateBridge` 的 `session:paused` 分支同法（其机器实例只靠事件驱动，天然停在 idle） |
+| 契约 | **不改转移表**：`idle → requires_action` 仍非法；`SessionStateMachine.test.ts` 的"idle 时 pause 应抛出"继续绿 |
+| 测试 | 新增 `tests/state/session/pauseForApproval.test.ts`（5 例：idle 归一后 requires_action / running 只暂停一次 / requires_action 幂等 / 调用顺序 start→pause / 负向对照"直接 pause 仍抛"） |
+
 ### 后续（未实施，按 §3 根因排序）
 
-0. **P0｜消除 `idle → requires_action` 非法转移**（§3.1）：定位机器为何停在 `idle`（本轮是否经过
-   `startProcessing`、是否被提前 `complete`、Bridge 与 ChatManager 是否各持一份实例），再决定
-   "pause 前归一（idle⇒start⇒pause）"还是"转移表补 `idle → requires_action`"。当前仅由批次 2 掩盖了第二条
-   `turn/end`，该轮仍以 `finishReason='error'` 收尾且 fallback 正文被丢弃。
+0. **P1｜定位"机器为何停在 `idle`"**（批次 7 已把抛错降级为归一日志）：依据
+   `会话状态机 pause 前归一（idle → running）` 的 warn 频次与上下文，回溯是哪条路径提前
+   `finish/complete`（或未 `start`）；确认后再决定是否从源头修正。
 1. **P0｜阶段审批必须有"卡"**：`stage_awaiting_approval` 目前无 Inbox 卡 ⇒ 启动扫描的"无 pending 卡即孤儿"判据
    必然把它判死（§3.3）。二选一：
    - A（推荐）：阶段审批也建 Inbox 卡（复用 TTL / 通知 / `onInboxItemsExpired`），让"待审批 ⇒ 有卡"重新成立；
    - B：`scanAndAbortStalePdcaTasks` 对**阶段链**的 `stage_awaiting_approval` 不写 abort，改为保留 + 可选通知。
 2. **P1｜长任务信号区分"只读调查"**：本会话 34 轮全是 grep/file_read/glob ⇒ 建议信号增加"本回合存在写类工具或未完成 todo"
    这一必要条件（仅轮次不够）。
-3. **P2｜`PlansPage` 未挂路由**（`/plans` 已重定向），仍在测试中被引用；是否删除需按 `code-deletion.md` CD01–CD06 另行取证。
-4. **P2｜PDCA 三面并存**（消息卡 / 浮动栏徽标 / 抽屉）：属"摘要 / 指示器 / 详情"三个粒度，本批未合并。
+3. **P2｜双份会话状态机实例**：`ChatManager`（`SessionRuntimeState`）与 `SessionStateBridge` 各持一份
+   `SessionStateMachine`，合并/收敛前先确认 `session:activated` 等生命周期事件是否还有人发布。
+4. **P2｜`PlansPage` 未挂路由**（`/plans` 已重定向），仍在测试中被引用；是否删除需按 `code-deletion.md` CD01–CD06 另行取证。
+5. **P2｜PDCA 三面并存**（消息卡 / 浮动栏徽标 / 抽屉）：属"摘要 / 指示器 / 详情"三个粒度，本批未合并。

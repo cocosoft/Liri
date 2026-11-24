@@ -29,6 +29,8 @@ import {
   setDemandAskPersistHook,
   setDemandAutoAnswerNoticeHook,
 } from '../interactionAutoApprove';
+// P0（2026-11-24）：等待审批收口的调用侧归一（idle → running，不改转移表契约）
+import { pauseForApproval } from '../services/sessionMachineGuards';
 import type {
   ToolAwareClient,
   ToolDefinition,
@@ -788,8 +790,18 @@ export function wireChatFacades(host: FacadeWiringHost): void {
       host.getSessionMachine(sid).finish(reason);
     },
     // 2026-11-13：等待审批 ⇒ 状态机 `requires_action`（不是本轮完成）
+    // P0（2026-11-24）：转移表里 idle 只能 → running；而"等待审批"可能在"本轮已被提前收尾
+    // （idle）"之后才判定出来（真机 `session_mwq5ookl21aa28ea96`：pause 抛
+    // IllegalTransitionError ⇒ 兜底补写 turn/end{canceled} ⇒ 前端显示"已中断"）。
+    // 这里先归一（idle → running）再 pause，并留痕观测该路径频次；不改转移表契约。
     pauseSessionMachine: (sid, reason) => {
-      host.getSessionMachine(sid).pause(reason);
+      const machine = host.getSessionMachine(sid);
+      if (pauseForApproval(machine, reason)) {
+        logger.warn('会话状态机 pause 前归一（idle → running）', {
+          sessionId: sid,
+          reason,
+        });
+      }
     },
     // 2026-11-13：出口消息已落盘时，仍需按最新 metadata 收敛会话状态
     syncStateForMessage: (sid, msg) =>

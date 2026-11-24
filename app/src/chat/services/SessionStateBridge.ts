@@ -7,6 +7,8 @@ import type { SessionLifecycleEventBus } from '@modules/session';
 import type { SessionLifecycleEvent } from '@modules/session';
 import type { EventSubscription } from '@openliri/kernel';
 import { SessionStateMachine } from '@openliri/infra/state/session/SessionStateMachine';
+// P0（2026-11-24）：生命周期事件驱动的机器实例同样需要 idle → running 归一
+import { pauseForApproval } from './sessionMachineGuards';
 
 import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('chat:services:SessionStateBridge');
@@ -43,7 +45,9 @@ export class SessionStateBridge {
 
     this.subscriptions.push(
       this.eventBus.on('session:paused', (event: SessionLifecycleEvent) => {
-        this.getSessionMachine(event.sessionId).pause('会话已暂停');
+        // P0（2026-11-24）：与 finalize 同法 —— 本桥接的机器实例只靠生命周期事件驱动，
+        // 未收到 `session:activated` 时仍是 idle；直接 pause 会抛 idle → requires_action。
+        pauseForApproval(this.getSessionMachine(event.sessionId), '会话已暂停');
       })
     );
 

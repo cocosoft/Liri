@@ -53,6 +53,7 @@ import { writeFileAtomic } from '@openliri/infra/utils/atomicFileWrite';
 import { MemoryConsolidator } from './consolidation/MemoryConsolidator';
 import { rebuildMemoryWiki } from './services/MemoryWikiService';
 import {
+  appendTeamSyncHistory,
   buildTeamConflictCandidates,
   pullTeamMemoriesFromSharedDir,
   pushTeamMemoriesToSharedDir,
@@ -690,6 +691,17 @@ export class MemoryManagerImpl
               2
             ) + '\n'
           );
+
+          // Phase 3-lite：同步历史（审计留痕，不参与同步判定）
+          await appendTeamSyncHistory(teamDir, {
+            pulled: report.imported,
+            pushed: pushReport.uploaded,
+            pullConflicts: report.conflicts.length,
+            pushConflicts: pushReport.conflicts.length,
+            rejectedSecrets:
+              report.rejectedSecrets.length + pushReport.rejectedSecrets.length,
+            errors: report.errors.length + pushReport.errors.length,
+          });
         } catch (err) {
           await handleError(err, {
             module: 'memory:memoryManager',

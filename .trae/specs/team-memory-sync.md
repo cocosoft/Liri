@@ -145,7 +145,7 @@
 | **Phase 0** | 接线开关 + `NOT_CONFIGURED` + 传输层骨架（不联网也能通过） | 默认关时行为零变更；未配置时状态明确；单测 | ✅ 已实现（2026-11-25） |
 | **Phase 1** | 单向拉取（远端→本地，只读合并）+ 幂等 | 重复拉取幂等；冲突不覆盖；密钥 fail-closed | ✅ 已实现（共享目录版，2026-11-25） |
 | **Phase 2** | 双向增量 + `If-Match` 409 + manual 候选 | 冲突产候选、正文不变；并发写不丢数据 | ✅ 共享目录版已实现（拉取+推送，异文只记冲突）；网络版待 §8 后三项拍板 |
-| **Phase 3** | 审阅入口（CLI/设置页）+ 审计报表 | 人工可采纳/忽略候选；审计可查 | 部分：候选文件 `conflicts.json` + 可编程取舍 `resolveTeamConflict`（keep_local/keep_shared，源内容仍过密钥扫描）；CLI/设置页与审计报表未做 |
+| **Phase 3** | 审阅入口（CLI/设置页）+ 审计报表 | 人工可采纳/忽略候选；审计可查 | 部分：候选文件 `conflicts.json` + 可编程取舍 `resolveTeamConflict` + 同步历史 `sync-history.jsonl`（保留最近 200 行）；CLI/设置页未做 |
 
 每阶段独立提交；`memory.teamSync.enabled` 默认关，观察期后再开。
 
@@ -174,7 +174,9 @@
 - **Phase 3-lite（2026-11-25）**：维护期把拉/推两向冲突合并为审阅候选，落
   `<team-memory>/conflicts.json`（`id` / `directions` / 两侧文件路径与 sha256）——**只读、不改写任一侧**；
   另提供**可编程取舍** `resolveTeamConflict({id, resolution: keep_local|keep_shared})`：
-  只复制人工选中的一侧，且源内容仍要过密钥扫描（fail-closed）。CLI/设置页审阅入口与审计报表仍未做。
+  只复制人工选中的一侧，且源内容仍要过密钥扫描（fail-closed）。
+  每次维护追加一条审计留痕到 `<team-memory>/sync-history.jsonl`（拉/推条数、冲突数、密钥拒收、错误数；保留最近 200 行）。
+  CLI/设置页审阅入口仍未做。
 - 如实边界：团队记忆是独立目录/独立访问级别；共享目录版不含真实网络（网络版 Phase 2 待 §8 后三项拍板）。
 
 ---

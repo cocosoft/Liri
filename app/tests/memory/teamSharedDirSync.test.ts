@@ -16,6 +16,7 @@ import {
 import { tmpdir } from 'os';
 import { join } from 'path';
 import {
+  appendTeamSyncHistory,
   buildTeamConflictCandidates,
   pullTeamMemoriesFromSharedDir,
   pushTeamMemoriesToSharedDir,
@@ -270,5 +271,28 @@ describe('resolveTeamConflict（Phase 3-lite：人工取舍）', () => {
         resolution: 'keep_local',
       })
     ).toBe(false);
+  });
+});
+
+describe('appendTeamSyncHistory（审计留痕）', () => {
+  it('追加并按上限保留最近 N 行', async () => {
+    const { local } = makeDirs();
+    const base = {
+      pulled: 1,
+      pushed: 0,
+      pullConflicts: 0,
+      pushConflicts: 0,
+      rejectedSecrets: 0,
+      errors: 0,
+    };
+    await appendTeamSyncHistory(local, base, 2);
+    await appendTeamSyncHistory(local, { ...base, pulled: 2 }, 2);
+    await appendTeamSyncHistory(local, { ...base, pulled: 3 }, 2);
+
+    const lines = readFileSync(join(local, 'sync-history.jsonl'), 'utf-8')
+      .split('\n')
+      .filter(Boolean);
+    expect(lines).toHaveLength(2);
+    expect(lines[1]).toContain('"pulled":3');
   });
 });

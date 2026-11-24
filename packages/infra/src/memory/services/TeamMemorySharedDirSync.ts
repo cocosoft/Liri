@@ -207,6 +207,37 @@ export async function pushTeamMemoriesToSharedDir(params: {
   return report;
 }
 
+/** 同步历史记录（审计报表，Phase 3-lite） */
+export interface TeamSyncHistoryRecord {
+  pulled: number;
+  pushed: number;
+  pullConflicts: number;
+  pushConflicts: number;
+  rejectedSecrets: number;
+  errors: number;
+}
+
+/**
+ * 追加一条同步历史到 `<team-memory>/sync-history.jsonl`（保留最近 `maxLines` 行）。
+ * 只做审计留痕，不参与任何同步判定。
+ */
+export async function appendTeamSyncHistory(
+  teamDir: string,
+  record: TeamSyncHistoryRecord,
+  maxLines: number = 200
+): Promise<void> {
+  const file = join(teamDir, 'sync-history.jsonl');
+  let existing = '';
+  try {
+    existing = await fs.readFile(file, 'utf-8');
+  } catch {
+    existing = '';
+  }
+  const line = `${JSON.stringify({ at: new Date().toISOString(), ...record })}\n`;
+  const lines = (existing + line).split('\n').filter((l) => l.trim());
+  await writeFileAtomic(file, lines.slice(-maxLines).join('\n') + '\n');
+}
+
 /** 冲突候选（manual 语义：只供审阅，不自动改写任何一侧） */
 export interface TeamConflictCandidate {
   id: string;

@@ -17717,6 +17717,31 @@
       "changelog": [],
       "reopenWhen": "需要恢复执行进度块/事件回放，或 ExecutionPhaseTracker 重新下发 progress 事件（回滚：revert 本提交）",
       "notes": "CD01-CD06：先摘发射（聚合器）→ 摘派生（EventMessageDeriver）→ 删契约（shared/双端载荷/登记）。Grep app/src = 0 ⇒ 无落盘生产者，历史 events.jsonl 无该类型；旧投影 progress 块由 BlockRenderer 返回 null 兜底。CoreAPI 的 progressData/ProgressBlockData 零消费者同批删除。"
+    },
+    {
+      "id": "BASH-LISTING-NO-MATCH",
+      "title": "dir 无匹配/空目录不再记为执行失败；2>nul 与 && 短路补可观测性提示",
+      "source": "会话 session_mwurduuh1b0b38db30 复盘（2026-11-24）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tools/bash/listingNoMatch.ts",
+        "app/src/tools/bash/BashTool.ts"
+      ],
+      "tests": ["app/tests/tools/bashListingNoMatch.test.ts"],
+      "changelog": [],
+      "reopenWhen": "dir 无匹配被误判（含把权限拒绝洗成无匹配），或 && 提示文案需要调整（回滚：revert 本提交）",
+      "notes": "判据收窄：exit=1 + stdout/stderr 双空 + 末段 dir + 含 2>nul + 无其它输出重定向 + 目标目录经 fs 探测存在 + 命令不含 &&；否则维持失败。两条提示只补事实（stderr 被吞 / && 短路），不改安全与失败判定。"
     }
   ]
 }

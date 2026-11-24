@@ -38,6 +38,13 @@ import { analyzeBashCommandType, isSilentBashCommand } from './BashSemantics';
 import { buildCmdBuiltinHint, isCommandNotFoundError } from './cmdBuiltinHint';
 import { hasExistingSearchFileTarget, isSearchNoMatch } from './searchNoMatch';
 import { isPathNotFound } from './pathNotFound';
+// 2026-11-24（会话 session_mwurduuh1b0b38db30 复盘）：`dir` 无匹配（exit 1 + `2>nul` 吞诊断）
+// 与 `&&` 短路 —— 前者判为事实结果，后者给可观测性提示（均不改安全判定）
+import {
+  buildAndChainHint,
+  buildStderrSuppressedHint,
+  isListingNoMatch,
+} from './listingNoMatch';
 // P1-1（2026-11-06）：检查/测试类命令的非零退出 = 有效证据（不烧熔断 invalid 预算）
 import { isExpectedNonzeroExit } from './exitSemantics';
 // P2-2（2026-11-04）：只读探测被安全门拦截时附"改用 glob / list"的出路提示（**不改判定**）
@@ -664,6 +671,48 @@ export class BashTool extends BaseTool {
         ],
       });
     }
+    // 2026-11-24（会话 session_mwurduuh1b0b38db30 复盘）：**`dir` 无匹配/空目录 ≠ 执行失败**。
+    // 实测 `dir /b /s "...\app\src\*SessionStateMachine*" 2>nul` —— 目标确实没有匹配
+    // （文件实际在 `packages/infra`），cmd 报 `File Not Found` + exit 1，而 `2>nul` 把唯一
+    // 诊断吞掉 ⇒ stdout/stderr 双空；`searchNoMatch`（末段须为检索命令）与 `pathNotFound`
+    // （须有 File Not Found 文案）都不命中 ⇒ 被记成工具失败，模型误判"路径不存在"并反复重试。
+    if (
+      isListingNoMatch({
+        command: executedCommand,
+        exitCode,
+        stdout,
+        stderr,
+        cwd: context?.options?.cwd,
+      })
+    ) {
+      const listingMsg =
+        '列举无匹配（退出码 1；dir 在"没有匹配项/目录为空"时即返回 1，不是执行失败）。' +
+        '注意：命令里的 `2>nul` 丢弃了错误输出，无法完全排除"路径不可访问"——' +
+        '需要确认时去掉 `2>nul`，或改用 glob 工具按名字搜索。';
+      logger.info('bash: listing_no_match', {
+        sessionId: context.sessionId,
+        commandPreview: executedCommandPreview ?? '',
+      });
+      onProgress?.({
+        toolUseID: context.toolUseId || 'bash-tool',
+        data: createBashProgress('', '', 0, false, true),
+      });
+      return ToolUtils.createSuccessResult(listingMsg, {
+        output: listingMsg,
+        errorOutput: '',
+        executionTime,
+        toolName: 'bash',
+        executionId: ToolUtils.generateExecutionId('bash'),
+        timestamp: Date.now(),
+        metadata: { emptyResult: true, listingNoMatch: true },
+        newMessages: [
+          {
+            role: 'system',
+            content: `Command executed successfully in ${executionTime}ms (no match)`,
+          },
+        ],
+      });
+    }
     // 2026-10-31：非 0 退出时**必须**把退出码与 stdout 摘要交回模型。
     // 真机 app.log 单窗口 `bash: execute_error` 120 次，其中大量是
     // `findstr` 无匹配（退出码 1、stdout 为空、stderr 为空）——原消息只有
@@ -690,8 +739,24 @@ export class BashTool extends BaseTool {
     const cmdHint = buildCmdBuiltinHint(executedCommand, {
       commandNotFound: isCommandNotFoundError(exitCode, rawMsg),
     });
+    // 2026-11-24（会话 session_mwurduuh1b0b38db30）：两条**只补事实**的提示 ——
+    // ① `2>nul` 吞掉 stderr ⇒ 无法区分无匹配/权限错误；② `&&` 前段非 0 会跳过其后所有段。
+    // 均不改判定（真失败照旧失败），只避免模型把"未执行/无输出"读成"不存在"。
+    const suppressedHint = buildStderrSuppressedHint({
+      command: executedCommand,
+      exitCode,
+      stderr,
+    });
+    const andChainHint = buildAndChainHint({
+      command: executedCommand,
+      exitCode,
+    });
     const msg =
-      (detail ? `${rawMsg}\n（${detail}）` : rawMsg) + enoentHint + cmdHint;
+      (detail ? `${rawMsg}\n（${detail}）` : rawMsg) +
+      enoentHint +
+      cmdHint +
+      suppressedHint +
+      andChainHint;
 
     // P1-1（2026-11-06，熔断根因簇）：检查/测试类命令的非零退出是**有效结果**。
     // `tsc` / `bun test` / `eslint` 的"未通过"本来就以非零退出表达；旧实现统一按

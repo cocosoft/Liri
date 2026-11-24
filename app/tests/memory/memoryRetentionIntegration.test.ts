@@ -9,7 +9,7 @@
  * 隔离手法（与仓内既有同类测试一致）：临时目录 + 用后删除；**不触碰** `~/.pyapp/data/memory`。
  */
 import { afterEach, describe, expect, it } from 'bun:test';
-import { existsSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -64,7 +64,10 @@ async function seed(dir: string, total: number): Promise<void> {
 function countGlobalMdFiles(dir: string): number {
   const globalDir = join(dir, 'global');
   if (!existsSync(globalDir)) return 0;
-  return readdirSync(globalDir).filter((f) => f.endsWith('.md')).length;
+  // P0-1（2026-11-25）：`MEMORY.md` 是索引（非记忆条目），清理顺带重建 ⇒ 不计入条数
+  return readdirSync(globalDir).filter(
+    (f) => f.endsWith('.md') && f !== 'MEMORY.md'
+  ).length;
 }
 
 describe('D5-B 保留上限：超限分支（隔离库，B-6）', () => {
@@ -107,6 +110,24 @@ describe('D5-B 保留上限：超限分支（隔离库，B-6）', () => {
     // dry-run ⇒ 不移动文件（global/ 下 .md 数量不变）、不建 .trash
     expect(countGlobalMdFiles(dir)).toBe(TOTAL);
     expect(existsSync(join(dir, '.trash'))).toBe(false);
+
+    // P0-2（2026-11-25）：dry-run 也落结构化报告（供审阅，不动文件）
+    const report = JSON.parse(
+      readFileSync(join(dir, 'retention-report.json'), 'utf-8')
+    ) as {
+      limit: number;
+      total: number;
+      overflow: number;
+      enforced: boolean;
+      archived: number;
+      candidates: unknown[];
+    };
+    expect(report.limit).toBe(1000);
+    expect(report.total).toBe(TOTAL);
+    expect(report.overflow).toBe(1);
+    expect(report.enforced).toBe(false);
+    expect(report.archived).toBe(0);
+    expect(report.candidates).toHaveLength(1);
   }, 60_000);
 
   it('库 ≤ 上限 ⇒ 不触发超限分支（无该日志）', async () => {

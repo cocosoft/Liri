@@ -6,7 +6,7 @@
  * 开关/长度过滤 · `runMaintenancePass` 接线后**只记录不改写**。
  */
 import { afterEach, describe, expect, it } from 'bun:test';
-import { mkdtempSync, rmSync } from 'fs';
+import { mkdtempSync, readFileSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { MemoryConflictDetector } from '@openliri/infra/memory/consolidation/MemoryConflictDetector';
@@ -157,6 +157,23 @@ describe('runMaintenancePass 接线（只记录不改写）', () => {
     for (const m of after) {
       expect(beforeById.get(m.id)).toBe(m.content);
     }
+
+    // P0-2（2026-11-25）：冲突候选落盘（结构化、只供审阅，不自动改写）
+    const report = JSON.parse(
+      readFileSync(join(dir, 'conflict-candidates.json'), 'utf-8')
+    ) as {
+      total: number;
+      candidates: Array<{
+        memoryIdA: string;
+        memoryIdB: string;
+        confidence: number;
+      }>;
+    };
+    expect(report.total).toBe(result.conflicts);
+    expect(report.candidates.length).toBeGreaterThanOrEqual(1);
+    expect(report.candidates[0].memoryIdA).toBeTruthy();
+    expect(report.candidates[0].memoryIdB).toBeTruthy();
+    expect(report.candidates[0].confidence).toBeGreaterThan(0);
   });
 
   it('无冲突库 ⇒ conflicts=0 且样本为空', async () => {

@@ -1,4 +1,5 @@
 import { ensureDir, resolveDataDir } from '@openliri/infra/environment';
+import { configManager } from '@openliri/infra/config';
 import type { Memory, MemoryStats } from './types/Memory';
 import { createMemory } from './types/Memory';
 // T-①07（A5 记忆分层收敛）T1-2：声明实现四个窄端口（`memory/ports/MemoryPort.ts`）。
@@ -190,11 +191,18 @@ export interface MemoryManager {
 const MEMORY_MAX_COUNT = 1000;
 
 /**
- * 保留上限的 dry-run 开关（D5-B 首版按方案先只报告、不动文件）。
+ * 保留上限的生效开关（P0-2，2026-11-25）。
  *
- * `true` ⇒ 仅 `logger.info` 报告"将归档哪些/多少条"；确认选择合理后改 `false` 即真归档。
+ * 默认 `false` = dry-run：只报告 + 落 `retention-report.json`，**不移动任何记忆**；
+ * 在 `config.json` 设 `memory.retention.enforce = true` 才真归档到 `.trash`。
  */
-const MEMORY_RETENTION_DRY_RUN = true;
+const MEMORY_RETENTION_ENFORCE_KEY = 'memory.retention.enforce';
+
+function isRetentionEnforced(): boolean {
+  return (
+    configManager.getValue<boolean>(MEMORY_RETENTION_ENFORCE_KEY, false) === true
+  );
+}
 
 /**
  * 冲突样本上限（U3，`.trae/specs/memory-conflict-detection.md` D5）。
@@ -203,6 +211,12 @@ const MEMORY_RETENTION_DRY_RUN = true;
  * ⇒ 大库多报时不会造成日志/返回值膨胀。
  */
 const CONFLICT_SAMPLE_LIMIT = 5;
+
+/** 冲突候选落盘上限（P0-2，2026-11-25）：只保留前 N 条，避免大库把候选文件撑大 */
+const MAX_CONFLICT_CANDIDATES = 200;
+
+/** 保留上限报告的候选条数上限（只供审阅，避免报告文件随库规模线性膨胀） */
+const MAX_RETENTION_REPORT_CANDIDATES = 200;
 
 /** 保留上限的候选字段（与 `Memory` 解耦，便于纯函数单测） */
 export interface EvictionCandidate {
@@ -583,6 +597,9 @@ export class MemoryManagerImpl
         }
       );
     }
+
+    // P0-2（2026-11-25）：冲突候选落盘 —— 结构化、只供审阅，**不自动改写**任何记忆。
+    await this.writeConflictCandidates(found);
 
     return {
       total: input.length,
@@ -985,9 +1002,26 @@ export class MemoryManagerImpl
         this.retriever.removeFromIndex(id);
       }
 
-      // 超限条目**归档**（软停用：移动到 `.trash`）而非物理删除；dry-run 下只报告
+      // 超限条目**归档**（软停用：移动到 `.trash`）而非物理删除；
+      // 未开启 `memory.retention.enforce` 时只报告（P0-2：报告 + 归档预览）。
+      const enforce = isRetentionEnforced();
+      const evictedMemories = allMemories.filter((m) =>
+        evictions.includes(m.id)
+      );
+      const toPreview = (m: Memory): {
+        id: string;
+        type: string;
+        importance: number;
+        ageDays: number;
+      } => ({
+        id: m.id,
+        type: m.metadata.type,
+        importance: m.metadata.importance ?? 0.5,
+        ageDays: Math.round((now.getTime() - m.updatedAt.getTime()) / 86_400_000),
+      });
+
       let archived = 0;
-      if (!MEMORY_RETENTION_DRY_RUN) {
+      if (enforce) {
         for (const id of evictions) {
           if (await this.store.archiveMemory(id)) {
             this.retriever.removeFromIndex(id);
@@ -996,27 +1030,25 @@ export class MemoryManagerImpl
         }
       }
       if (evictions.length > 0) {
-        const preview = allMemories
-          .filter((m) => evictions.includes(m.id))
-          .slice(0, 5)
-          .map((m) => ({
-            id: m.id,
-            type: m.metadata.type,
-            importance: m.metadata.importance ?? 0.5,
-            ageDays: Math.round(
-              (now.getTime() - m.updatedAt.getTime()) / 86_400_000
-            ),
-          }));
         logger.info(
-          MEMORY_RETENTION_DRY_RUN
-            ? `记忆库超限：将归档 ${evictions.length} 条（dry-run，未移动文件）`
-            : `记忆库超限：已归档 ${archived}/${evictions.length} 条`,
+          enforce
+            ? `记忆库超限：已归档 ${archived}/${evictions.length} 条`
+            : `记忆库超限：将归档 ${evictions.length} 条（dry-run，未移动文件）`,
           {
             totalMemories: allMemories.length,
             limit: MEMORY_MAX_COUNT,
-            preview,
+            preview: evictedMemories.slice(0, 5).map(toPreview),
           }
         );
+        await this.writeRetentionReport({
+          total: allMemories.length,
+          overflow: evictions.length,
+          enforce,
+          archived,
+          candidates: evictedMemories
+            .slice(0, MAX_RETENTION_REPORT_CANDIDATES)
+            .map(toPreview),
+        });
       }
 
       if (expired.length > 0 || archived > 0) {
@@ -1028,8 +1060,8 @@ export class MemoryManagerImpl
       // 保证注入层在"首次空闲维护"之前就有可读索引（空态仍零注入）。
       // 复用同一份 `allMemories` 快照（不重复扫盘）。
       const goneIds = new Set(expired);
-      if (!MEMORY_RETENTION_DRY_RUN) {
-        for (const id of evictions) goneIds.add(id);
+      if (enforce) {
+        for (const m of evictedMemories) goneIds.add(m.id);
       }
       try {
         await this.store.updateMemoryIndex(
@@ -1051,6 +1083,83 @@ export class MemoryManagerImpl
     } finally {
       this.isCleaning = false;
       this.lastCleanupAt = Date.now();
+    }
+  }
+
+  /**
+   * 落「保留上限报告」（P0-2，2026-11-25）：供审阅"将归档哪些/多少条"，
+   * **不改写任何记忆**；写入失败不阻断清理（记 handleError，下一轮再写）。
+   */
+  private async writeRetentionReport(input: {
+    total: number;
+    overflow: number;
+    enforce: boolean;
+    archived: number;
+    candidates: Array<{
+      id: string;
+      type: string;
+      importance: number;
+      ageDays: number;
+    }>;
+  }): Promise<void> {
+    const report = {
+      generatedAt: new Date().toISOString(),
+      limit: MEMORY_MAX_COUNT,
+      total: input.total,
+      overflow: input.overflow,
+      enforced: input.enforce,
+      archived: input.archived,
+      candidates: input.candidates,
+    };
+    try {
+      await writeFileAtomic(
+        join(this.storeDir, 'retention-report.json'),
+        JSON.stringify(report, null, 2) + '\n'
+      );
+    } catch (err) {
+      await handleError(err, {
+        module: 'memory:memoryManager',
+        action: 'writeRetentionReport',
+      });
+    }
+  }
+
+  /**
+   * 落「冲突候选」（P0-2，2026-11-25）：结构化候选供人工审阅，
+   * **不自动改写**任何记忆（沿用 `.trae/specs/memory-conflict-detection.md` 裁定）。
+   */
+  private async writeConflictCandidates(
+    conflicts: ConflictResult[]
+  ): Promise<void> {
+    const candidates = conflicts
+      .slice(0, MAX_CONFLICT_CANDIDATES)
+      .map((c, i) => ({
+        conflictId: `${c.memoryIdA}~${c.memoryIdB}#${i}`,
+        memoryIdA: c.memoryIdA,
+        memoryIdB: c.memoryIdB,
+        conflictType: c.conflictType,
+        subject: c.subject,
+        confidence: c.confidence,
+        detectedAt: new Date().toISOString(),
+      }));
+    try {
+      await writeFileAtomic(
+        join(this.storeDir, 'conflict-candidates.json'),
+        JSON.stringify(
+          {
+            generatedAt: new Date().toISOString(),
+            total: conflicts.length,
+            candidates,
+          },
+          null,
+          2
+        ) + '\n'
+      );
+    } catch (err) {
+      await handleError(err, {
+        module: 'memory:memoryManager',
+        action: 'writeConflictCandidates',
+      });
     }
   }
 

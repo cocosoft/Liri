@@ -93,8 +93,14 @@ const DEFAULT_CONFIG: MemoryThresholdConfig = {
 
 const SESSION_MEMORY_FILE = 'memory.md';
 
-/** memory.md 大小上限（bytes），约 2.5K token，超出后触发 LLM 压缩 */
+/** memory.md 大小上限（bytes），约 2.5K token，超出后触发结构化压缩 */
 const MAX_MEMORY_FILE_SIZE = 10_000;
+
+/** 结构化压缩：非规则类每类保留的最近条数（P0-2，2026-11-25） */
+const COMPACT_RECENT_PER_TYPE = 15;
+
+/** 结构化压缩：条目总量预算（规则类优先保留，可能略超） */
+const COMPACT_MAX_ITEMS = 60;
 
 // ============================================================================
 // Markdown 模板
@@ -552,32 +558,64 @@ export class SessionMemoryManager implements SessionMemoryPort {
   }
 
   /**
-   * LLM 压缩 memory.md：保留最近 10 条精确记录，其余压缩为摘要
-   * 降级策略：截断到最近 20 条
+   * 结构化压缩 memory.md（P0-2，2026-11-25）。
+   *
+   * 原实现是"保留最近 20 行"的**截断**：更早的决策/规则/陷阱会一起被丢掉，且不区分类型。
+   * 现改为**按类型抽取**：
+   * - 决策 / 待办 / 会话摘要（规则、陷阱、目标的主要载体）**全部保留**；
+   * - 历史讨论 / 代码引用 / 文件变更各保留最近 `COMPACT_RECENT_PER_TYPE` 条；
+   * - 其余受 `COMPACT_MAX_ITEMS` 总预算约束（规则类优先，故可能略超）。
+   *
+   * 不做 LLM 摘要：本方法在同步路径上被调用（`getSessionMemoryManager()` 不可异步化），
+   * 规则化抽取是无网络依赖、可单测的确定性降级（方案 §4 P0-2-3 的 fallback 分支）。
    */
   private _compactMemoryFile(sessionId: string): void {
     const path = this.getMemoryPath(sessionId);
     try {
-      const content = readFileSync(path, 'utf-8');
-      const lines = content
-        .split('\n')
-        .filter((l) => l.trim() && !l.startsWith('#'));
-      const header = content
-        .split('\n')
-        .filter((l) => l.startsWith('#'))
-        .join('\n');
+      const memory = this.loadMemory(sessionId);
+      if (memory.items.length <= COMPACT_MAX_ITEMS) return;
 
-      if (lines.length <= 20) return; // 还不够大，不需要压缩
+      const originalItems = memory.items.length;
+      const protectedTypes = new Set<MemoryItem['type']>([
+        'decision',
+        'todo',
+        'session_summary',
+      ]);
+      const kept: MemoryItem[] = [];
+      const seen = new Set<string>();
 
-      // 保留最近 20 条，丢弃旧记录
-      const recent = lines.slice(-20);
-      const truncated = header + '\n' + recent.join('\n');
-      writeFileSync(path, truncated, 'utf-8');
+      // ① 规则/陷阱/目标：全部保留（不受预算限制）
+      for (const item of memory.items) {
+        if (!protectedTypes.has(item.type)) continue;
+        const key = `${item.type}:${item.content}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        kept.push(item);
+      }
 
-      logger.info('memory.md 截断压缩完成', {
+      // ② 其余按"越近越先保留"：历史讨论 → 代码引用 → 文件变更
+      for (const type of ['discussion', 'code_reference', 'file_change'] as const) {
+        if (kept.length >= COMPACT_MAX_ITEMS) break;
+        const recent = memory.items
+          .filter((item) => item.type === type)
+          .slice(-COMPACT_RECENT_PER_TYPE);
+        for (const item of recent) {
+          if (kept.length >= COMPACT_MAX_ITEMS) break;
+          const key = `${item.type}:${item.content}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          kept.push(item);
+        }
+      }
+
+      memory.items = kept;
+      memory.updatedAt = new Date().toISOString();
+      writeFileSync(path, this.buildMemoryMarkdown(memory), 'utf-8');
+
+      logger.info('memory.md 结构化压缩完成', {
         sessionId,
-        originalLines: lines.length,
-        keptLines: 20,
+        originalItems,
+        keptItems: kept.length,
       });
     } catch (err) {
       logger.warn('memory.md 压缩失败', { sessionId, error: String(err) });

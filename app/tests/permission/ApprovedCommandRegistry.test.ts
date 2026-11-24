@@ -76,16 +76,12 @@ describe('ApprovedCommandRegistry 放行缓存', () => {
   // 「批准时那条命令的**前缀**」与「**只读**命令（含纯只读串联）」，不再对整个工具无条件放行。
   it('会话级工具放行：仅同前缀 / 只读命令；clearSession 后失效', () => {
     const reg = new ApprovedCommandRegistry(60_000, false);
-    const approved = 'bun -e "console.log(1)"';
+    const approved = 'bun run measure:tool-disclosure';
     reg.allowToolForSession('session-1', 'bash', approved);
 
-    // ① 同前缀（`bun -e`）⇒ 放行
+    // ① 同前缀（`bun run`）⇒ 放行
     expect(
-      reg.isCommandAllowedForSession(
-        'session-1',
-        'bash',
-        'bun -e "console.log(2)"'
-      )
+      reg.isCommandAllowedForSession('session-1', 'bash', 'bun run typecheck')
     ).toBe(true);
     // ② 只读单条 / 纯只读串联 ⇒ 放行（判据复用安全层 checkCompoundReadOnly）
     expect(reg.isCommandAllowedForSession('session-1', 'bash', 'ls -la')).toBe(
@@ -99,7 +95,10 @@ describe('ApprovedCommandRegistry 放行缓存', () => {
       reg.isCommandAllowedForSession('session-1', 'bash', 'rmdir /s /q tmp')
     ).toBe(false);
     expect(
-      reg.isCommandAllowedForSession('session-1', 'bash', 'bun run test')
+      reg.isCommandAllowedForSession('session-1', 'bash', 'bun -e "1"')
+    ).toBe(false);
+    expect(
+      reg.isCommandAllowedForSession('session-1', 'bash', 'bun test')
     ).toBe(false);
     // ④ 其他会话 / 其他工具不受影响
     expect(reg.isCommandAllowedForSession('session-2', 'bash', 'ls')).toBe(
@@ -125,6 +124,48 @@ describe('ApprovedCommandRegistry 放行缓存', () => {
     expect(
       reg.isCommandAllowedForSession('session-1', 'bash', 'bun -e "1"')
     ).toBe(false);
+    reg.dispose();
+  });
+
+  // 2026-11-25（审计加固）：前缀放行不得覆盖「危险基命令 / 转执行包装器 / 内联代码形态」
+  it('P4 加固：危险命令、转执行包装器、内联代码不获得前缀放行', () => {
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    // ① 危险基命令 rm：批准一条后另一条不放行（只认精确 hash）
+    reg.allowToolForSession('s-rm', 'bash', 'rm old.txt');
+    expect(reg.isCommandAllowedForSession('s-rm', 'bash', 'rm other.txt')).toBe(
+      false
+    );
+    // ② 转执行包装器 env：`env rm …` 不得因前缀命中
+    reg.allowToolForSession('s-env', 'bash', 'env FOO=1 echo hi');
+    expect(
+      reg.isCommandAllowedForSession('s-env', 'bash', 'env rm -rf x')
+    ).toBe(false);
+    // ③ 内联代码（powershell -Command / bash -c）
+    reg.allowToolForSession(
+      's-ps',
+      'bash',
+      'powershell -Command "Get-Content a.txt"'
+    );
+    expect(
+      reg.isCommandAllowedForSession(
+        's-ps',
+        'bash',
+        'powershell -Command "Remove-Item x"'
+      )
+    ).toBe(false);
+    reg.allowToolForSession('s-sh', 'bash', 'bash -c "echo hi"');
+    expect(
+      reg.isCommandAllowedForSession('s-sh', 'bash', 'bash -c "rm x"')
+    ).toBe(false);
+    // ④ 大小写保留：批准 `bun run` 后 `BUN run` 不命中（fail-closed）
+    reg.allowToolForSession('s-case', 'bash', 'bun run a');
+    expect(reg.isCommandAllowedForSession('s-case', 'bash', 'BUN run a')).toBe(
+      false
+    );
+    // ⑤ 正常前缀仍生效（回归）
+    expect(reg.isCommandAllowedForSession('s-case', 'bash', 'bun run b')).toBe(
+      true
+    );
     reg.dispose();
   });
 

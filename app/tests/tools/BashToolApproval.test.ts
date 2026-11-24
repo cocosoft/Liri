@@ -107,20 +107,27 @@ describe('BashTool 放行通道（P0-4）', () => {
     reg.dispose();
   });
 
-  // 2026-11-24（用户实测「审批后又是一张新卡」）：本会话内「该工具都允许」按
-  // **命令前缀 + 只读** 放行（P4 收紧），同前缀命令不再触发审批；硬拦截不受影响。
-  it('本会话工具级放行：同前缀命令不再要求审批，硬拦截仍生效', async () => {
+  // 2026-11-24（P4 收紧）/ 2026-11-25（审计加固）：本会话工具级放行只覆盖
+  // 「只读命令」与非内联的**同前缀**命令；内联代码（`bun -e`）只认精确命令。
+  it('本会话工具级放行：只读免审批、内联代码仍要求审批，硬拦截仍生效', async () => {
     const reg = new ApprovedCommandRegistry(60_000, false);
     reg.allowToolForSession('session-1', 'bash', 'bun -e "console.log(0)"');
     const tool = new BashTool(reg);
 
-    // 同前缀（`bun -e`）的非只读命令（默认会走 ask）⇒ 直接执行
-    const allowed = await tool.execute(
+    // ① 内联代码形态**不**获得前缀放行 ⇒ 换一条 `bun -e` 仍需审批
+    const inline = await tool.execute(
       { command: 'bun -e "console.log(\'session-allow-ok\')"' },
       makeContext('session-1')
     );
-    expect(allowed.metadata?.securityIntercepted).not.toBe(true);
-    expect(allowed.success).toBe(true);
+    expect(inline.metadata?.securityIntercepted).toBe(true);
+
+    // ② 只读命令 ⇒ 免审批直接执行
+    const readonly = await tool.execute(
+      { command: 'echo session-readonly-ok' },
+      makeContext('session-1')
+    );
+    expect(readonly.metadata?.securityIntercepted).not.toBe(true);
+    expect(readonly.success).toBe(true);
 
     // 硬拦截不受会话级放行影响：危险命令仍被拦截
     const blocked = await tool.execute(

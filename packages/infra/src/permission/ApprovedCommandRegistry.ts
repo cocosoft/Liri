@@ -76,22 +76,52 @@ const PREFIX_RUNNERS: ReadonlySet<string> = new Set([
   'powershell',
   'pwsh',
   'cmd',
+  // POSIX shell 解释器：`sh script.sh` 取两 token；`sh -c "…"` 命中内联开关 ⇒ 不给前缀
+  'sh',
+  'bash',
+  'zsh',
+  'fish',
+  'dash',
+]);
+
+/** 内联代码开关：这些形态等价于"任意代码执行" ⇒ **不给前缀放行**（只认精确命令 hash） */
+const INLINE_CODE_FLAGS: ReadonlySet<string> = new Set([
+  '-e',
+  '-c',
+  '--eval',
+  '-command',
+  '/c',
+  '/k',
+  '-file',
+  '-encodedcommand',
+  '-enc',
 ]);
 
 /**
  * 取命令的**审批前缀**（P4）。
  *
  * - 常规命令 ⇒ 首个 token（如 `rmdir`）；
- * - 启动器/解释器 ⇒ 首两个 token（`bun run` / `bun -e` / `npx tsc`），避免"批了 `bun run` 就等于
- *   批了 `bun -e`"；
- * - 首 token 含路径/通配（`./x`、`C:\x`、`*.sh`）⇒ `undefined`（不给前缀 ⇒ 只按只读放行，fail-closed）。
+ * - 启动器/解释器 ⇒ 首两个 token（`bun run` / `npx tsc`），避免"批了 `bun run` 就等于批了 `bun -e`"；
+ * - **危险基命令 / 转执行包装器**（见 `NO_PREFIX_BASES`）⇒ `undefined`：与
+ *   `isCommandNameApproved` 同口径，只认**精确 hash**，不得因"批准过一次同类命令"而放大；
+ * - **内联代码形态**（`node -e` / `python -c` / `powershell -Command` / `cmd /c` …）⇒
+ *   `undefined` —— 前缀等价于"任意代码执行"，同样只认精确 hash；
+ * - 首 token 含路径/通配（`./x`、`C:\x`、`*.sh`）⇒ `undefined`（fail-closed）。
+ *
+ * 大小写**保留**（与 `getBaseCommand` / hash 口径一致）：批准 `bun` 后 `BUN` 不命中 ⇒ 多弹一次审批。
  */
 function commandApprovalPrefix(command: string): string | undefined {
   const tokens = command.trim().match(/"[^"]*"|'[^']*'|\S+/g) ?? [];
-  const base = (tokens[0] ?? '').replace(/^["']|["']$/g, '').toLowerCase();
-  if (!/^[a-z][a-z0-9_.-]*$/.test(base)) return undefined;
-  const second = (tokens[1] ?? '').replace(/^["']|["']$/g, '').toLowerCase();
-  if (PREFIX_RUNNERS.has(base) && second && !second.startsWith('/')) {
+  const base = (tokens[0] ?? '').replace(/^["']|["']$/g, '');
+  if (!/^[A-Za-z][A-Za-z0-9_.-]*$/.test(base)) return undefined;
+  const baseLower = base.toLowerCase();
+  if (NO_PREFIX_BASES.has(baseLower)) return undefined;
+  const second = (tokens[1] ?? '').replace(/^["']|["']$/g, '');
+  const secondLower = second.toLowerCase();
+  if (PREFIX_RUNNERS.has(baseLower) && INLINE_CODE_FLAGS.has(secondLower)) {
+    return undefined;
+  }
+  if (PREFIX_RUNNERS.has(baseLower) && second && !second.startsWith('/')) {
     return `${base} ${second}`;
   }
   return base;
@@ -337,6 +367,21 @@ const DANGEROUS_BASE_NAMES = new Set([
   'passwd',
   'chroot',
   'init',
+]);
+
+/**
+ * **不给前缀放行**的基命令：危险命令 + 能"转执行其他命令"的包装器。
+ *
+ * 为什么包装器也要禁：`env rm x` / `xargs rm` / `bash script.sh` 的前缀匹配会把
+ * "批准过一次"放大成"可执行任意同类命令"（审计：2026-11-25）。
+ */
+const NO_PREFIX_BASES: ReadonlySet<string> = new Set([
+  ...DANGEROUS_BASE_NAMES,
+  'env',
+  'xargs',
+  'eval',
+  'exec',
+  'source',
 ]);
 
 /** 提取命令名（首个 token，已规范化），空命令返回空串 */

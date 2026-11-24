@@ -17906,7 +17906,7 @@
       ],
       "changelog": [],
       "reopenWhen": "需要把会话级放行再放宽（如覆盖整个工具），或前缀/只读判据误伤正常命令（回滚：revert 本提交）",
-      "notes": "真机：批一条 bun run 后，rmdir /s /q、cmd /c exit 3 等同类命令也直接免审批。修法：放行记录带批准命令前缀（首 token；bun/npm/node 等启动器取前两 token），判定改为「只读（复用 checkCompoundReadOnly，含纯只读串联）或同前缀」；无命令记录 ⇒ 仅只读（fail-closed）。三处调用点（BashTool / PermissionChecker / toolApproval）同口径；硬拦截与安全层不变。"
+      "notes": "真机：批一条 bun run 后，rmdir /s /q、cmd /c exit 3 等同类命令也直接免审批。修法：放行记录带批准命令前缀（首 token；bun/npm/node 等启动器取前两 token），判定改为「只读（复用 checkCompoundReadOnly，含纯只读串联）或同前缀」；无命令记录 ⇒ 仅只读（fail-closed）。三处调用点（BashTool / PermissionChecker / toolApproval）同口径；硬拦截与安全层不变。2026-11-25 审计加固：危险基命令（rm/del/rmdir/taskkill…）与转执行包装器（env/xargs/eval/exec/source）不给前缀；内联代码形态（node -e / python -c / powershell -Command / cmd /c / bash -c…）不给前缀；前缀比较保留大小写（与 hash 口径一致）。"
     }
   ]
 }

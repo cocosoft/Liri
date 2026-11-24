@@ -674,6 +674,9 @@ const enBase = {
     toolOutput: "Output",
     expandDetail: "Expand Detail",
     collapseDetail: "Collapse Detail",
+    // 2026-11-24: tool group multi-level tree (group → each call → args/result)
+    toolTreeHint: "{{count}} items",
+    toolTreeHintAction: "Click any row to expand parameters / result",
     diagnosticTitle: "Diagnostics",
     sessionSettings: "Session Settings",
     clearHistory: "Clear History",

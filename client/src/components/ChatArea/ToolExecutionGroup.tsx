@@ -62,7 +62,6 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
     }
   }, [isGroupStreaming, blocks]);
   const [collapsed, setCollapsed] = useState(!isGroupStreaming);
-  const [innerCollapsed, setInnerCollapsed] = useState(true);
   const prevStreaming = useRef(false);
 
   useEffect(() => {
@@ -71,7 +70,6 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
 
     if (wasStreaming && !isGroupStreaming) {
       setCollapsed(true);
-      setInnerCollapsed(true);
     }
   }, [isGroupStreaming]);
 
@@ -390,108 +388,99 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
       </button>
 
       {!collapsed && (
-        <div className="border-t border-gray-400/[0.1]">
-          {innerCollapsed ? (
-            <button
-              onClick={() => setInnerCollapsed(false)}
-              className="block w-full px-2.5 py-1 bg-transparent text-gray-500 dark:text-gray-400 text-xs cursor-pointer text-left"
-            >
-              📋 {t("chat.expandDetail")} (
-              {t("chat.itemsCount", {
-                count: blocks.length,
-                defaultValue: "{{count}} 项",
-              })}
-              )
-            </button>
-          ) : (
-            <div className="px-2 py-1 flex flex-col gap-0.5">
-              {/* 时间线连接器：在左侧绘制垂直连接线 */}
-              {filteredBlocks.map((block, idx) => {
-                // P1-5 修复：孤立 tool_call 结果块（无配对 tool_call 但有 content）
-                // 显示为独立结果卡片
-                // 注：MessageBlock 无 tool_result 类型，用 content 非空但 toolCall 缺失判断孤立结果
-                if (
-                  block.type === "tool_call" &&
-                  !block.toolCall &&
-                  block.content
-                ) {
-                  logger.warn("[P1-5] 孤立 tool_call 结果块（无配对调用）", {
-                    blockId: block.id,
-                    contentLength: block.content?.length ?? 0,
-                  });
-                  return (
+        <div className="border-t border-gray-400/[0.1] px-2 py-1.5">
+          {/* 2026-11-24：多级树 —— 组（本行）→ 每条工具调用（可逐行展开）→ 参数/结果。
+              取消原来的"展开详情"中间层（两个折叠按钮叠在一起，用户要点两次）。 */}
+          <div className="mb-1 flex items-center justify-between px-1 text-[10px] text-gray-500 dark:text-gray-400">
+            <span>
+              {t("chat.toolTreeHint", { count: filteredBlocks.length })}
+            </span>
+            <span className="hidden sm:inline">
+              {t("chat.toolTreeHintAction")}
+            </span>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            {/* 树形缩进导轨：左侧竖线 + 每个节点圆点（运行中/失败按状态着色） */}
+            {filteredBlocks.map((block, idx) => {
+              // P1-5 修复：孤立 tool_call 结果块（无配对 tool_call 但有 content）
+              // 显示为独立结果卡片
+              // 注：MessageBlock 无 tool_result 类型，用 content 非空但 toolCall 缺失判断孤立结果
+              if (
+                block.type === "tool_call" &&
+                !block.toolCall &&
+                block.content
+              ) {
+                logger.warn("[P1-5] 孤立 tool_call 结果块（无配对调用）", {
+                  blockId: block.id,
+                  contentLength: block.content?.length ?? 0,
+                });
+                return (
+                  <div
+                    key={block.id}
+                    className="border border-amber-400/30 rounded-[8px] p-2 bg-amber-400/[0.05]"
+                  >
+                    <div className="text-[11px] text-amber-600 dark:text-amber-300 mb-1">
+                      ⚠️{" "}
+                      {t("chat.orphanToolResult", "孤立工具结果（未配对调用）")}
+                    </div>
+                    <MarkdownRenderer
+                      content={block.content}
+                      isStreaming={block.isStreaming}
+                      onPreviewFile={readFileToPreview}
+                    />
+                  </div>
+                );
+              }
+
+              const isLast = idx === filteredBlocks.length - 1;
+              const blockStatus =
+                block.type === "tool_call" && block.toolCall?.status
+                  ? block.toolCall.status
+                  : null;
+              const railColor =
+                blockStatus === "running"
+                  ? "bg-blue-400"
+                  : blockStatus === "failed"
+                    ? "bg-red-400"
+                    : "bg-gray-300 dark:bg-gray-600";
+
+              return (
+                <div key={block.id} className="flex gap-1.5">
+                  {/* 树形导轨：竖线贯穿到子树底部；末端节点收短 */}
+                  <div className="flex flex-col items-center w-3 shrink-0 pt-1">
                     <div
-                      key={block.id}
-                      className="border border-amber-400/30 rounded-[8px] p-2 bg-amber-400/[0.05]"
-                    >
-                      <div className="text-[11px] text-amber-300 mb-1">
-                        ⚠️{" "}
-                        {t(
-                          "chat.orphanToolResult",
-                          "孤立工具结果（未配对调用）",
-                        )}
-                      </div>
+                      className={`w-1.5 h-1.5 rounded-full shrink-0 ${railColor} ${blockStatus === "running" ? "animate-pulse" : ""}`}
+                    />
+                    <div
+                      className={`w-px flex-1 min-h-[10px] ${railColor} ${isLast ? "opacity-30" : "opacity-70"}`}
+                    />
+                  </div>
+                  {/* 内容 */}
+                  <div className="flex-1 min-w-0 pb-0.5">
+                    {block.type === "tool_call" && block.toolCall ? (
+                      <ToolCallGroup
+                        toolCall={block.toolCall}
+                        isStreaming={block.isStreaming}
+                        variant="inline"
+                      />
+                    ) : block.type === "status" ? (
+                      <GroupStatusLine
+                        content={block.content}
+                        isStreaming={block.isStreaming}
+                        status={block.status}
+                      />
+                    ) : (
                       <MarkdownRenderer
                         content={block.content}
                         isStreaming={block.isStreaming}
                         onPreviewFile={readFileToPreview}
                       />
-                    </div>
-                  );
-                }
-
-                const isLast = idx === filteredBlocks.length - 1;
-                const blockStatus =
-                  block.type === "tool_call" && block.toolCall?.status
-                    ? block.toolCall.status
-                    : null;
-                const timelineColor =
-                  blockStatus === "running"
-                    ? "border-blue-400"
-                    : blockStatus === "failed"
-                      ? "border-red-400"
-                      : "border-gray-300 dark:border-gray-600";
-
-                return (
-                  <div key={block.id} className="flex gap-1.5">
-                    {/* 时间线 */}
-                    <div className="flex flex-col items-center w-3 shrink-0 pt-1">
-                      <div
-                        className={`w-2 h-2 rounded-full border-2 ${timelineColor} ${blockStatus === "running" ? "bg-blue-400 animate-pulse" : blockStatus === "failed" ? "bg-red-400" : "bg-gray-300 dark:bg-gray-600"}`}
-                      />
-                      {!isLast && (
-                        <div
-                          className={`w-0.5 flex-1 min-h-[12px] ${timelineColor}`}
-                        />
-                      )}
-                    </div>
-                    {/* 内容 */}
-                    <div className="flex-1 min-w-0">
-                      {block.type === "tool_call" && block.toolCall ? (
-                        <ToolCallGroup
-                          toolCall={block.toolCall}
-                          isStreaming={block.isStreaming}
-                          variant="inline"
-                        />
-                      ) : block.type === "status" ? (
-                        <GroupStatusLine
-                          content={block.content}
-                          isStreaming={block.isStreaming}
-                          status={block.status}
-                        />
-                      ) : (
-                        <MarkdownRenderer
-                          content={block.content}
-                          isStreaming={block.isStreaming}
-                          onPreviewFile={readFileToPreview}
-                        />
-                      )}
-                    </div>
+                    )}
                   </div>
-                );
-              })}
-            </div>
-          )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

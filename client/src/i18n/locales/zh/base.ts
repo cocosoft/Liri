@@ -646,6 +646,9 @@ const zhBase = {
     toolOutput: "输出",
     expandDetail: "展开详情",
     collapseDetail: "收起详情",
+    // 2026-11-24：工具组多级树（组 → 每条调用 → 参数/结果）
+    toolTreeHint: "共 {{count}} 项",
+    toolTreeHintAction: "点击任一行展开参数 / 结果",
     diagnosticTitle: "诊断详情",
     sessionSettings: "会话设置",
     clearHistory: "清空历史",

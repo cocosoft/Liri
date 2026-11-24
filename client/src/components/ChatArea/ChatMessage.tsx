@@ -584,33 +584,34 @@ const ChatMessageMemo = memo(
         {/* 消息气泡 */}
         <div className="flex-1 min-w-0 max-w-[70%]">
           {/* 头部：AI 才显示 agent 标签和被回复标记 */}
-          {!isUser && (message.agentName || hasReplies || taskTag.isTaskMessage) && (
-            <div className="flex items-center gap-2 mb-1">
-              {/* P0-4：后台任务产出徽标（不隐藏消息，只标明来源，避免"答非所问"误读） */}
-              {taskTag.isTaskMessage && (
-                <span
-                  className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 font-medium"
-                  title={t("chat.taskMessageHint", {
-                    taskId: taskTag.taskId ?? "—",
-                  })}
-                >
-                  {t("chat.taskMessageBadge")}
-                </span>
-              )}
-              {/* Agent 名称标签 */}
-              {message.agentName && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 font-medium">
-                  {message.agentName}
-                </span>
-              )}
-              {/* 被回复标记 */}
-              {hasReplies && (
-                <span className="text-[10px] text-blue-500 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full">
-                  {t("chat.hasReplies")}
-                </span>
-              )}
-            </div>
-          )}
+          {!isUser &&
+            (message.agentName || hasReplies || taskTag.isTaskMessage) && (
+              <div className="flex items-center gap-2 mb-1">
+                {/* P0-4：后台任务产出徽标（不隐藏消息，只标明来源，避免"答非所问"误读） */}
+                {taskTag.isTaskMessage && (
+                  <span
+                    className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 font-medium"
+                    title={t("chat.taskMessageHint", {
+                      taskId: taskTag.taskId ?? "—",
+                    })}
+                  >
+                    {t("chat.taskMessageBadge")}
+                  </span>
+                )}
+                {/* Agent 名称标签 */}
+                {message.agentName && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 font-medium">
+                    {message.agentName}
+                  </span>
+                )}
+                {/* 被回复标记 */}
+                {hasReplies && (
+                  <span className="text-[10px] text-blue-500 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full">
+                    {t("chat.hasReplies")}
+                  </span>
+                )}
+              </div>
+            )}
 
           {/* 气泡主体 */}
           <div
@@ -1689,16 +1690,28 @@ function renderBlocksWithGroups(
     const toolBlocks: MessageBlock[] = [];
     const groupKey = getGroupKey(block);
 
-    while (i < blocks.length && isToolRelatedBlock(blocks[i])) {
-      const currentBlock = blocks[i];
-      const currentKey = getGroupKey(currentBlock);
-
-      if (groupKey && currentKey && currentKey !== groupKey) {
-        break;
-      }
-
-      toolBlocks.push(currentBlock);
+    /**
+     * 2026-11-24（用户反馈：命令执行是一张张独立卡片，想收进多级树）：
+     * 原实现要求相邻工具块 `groupId` 相同才归为一组，而大量会话里每个 tool_call
+     * 自成一组 ⇒ 一屏出现 100+ 个「终端命令 — 已执行命令…」卡片头，无法整体收起。
+     * 现改为把**连续的工具相关块**归入同一组（遇到文本/思考等非工具块才断开），
+     * 由 `ToolExecutionGroup` 渲染为「组 → 每条调用 → 参数/结果」的多级树。
+     * 多媒体展示类单独成组（图片/视频必须直接可见，不能混进折叠树）。
+     */
+    const isMediaBlock = (b: MessageBlock): boolean =>
+      b.type === "tool_call" && isMediaDisplayToolName(b.toolCall?.name);
+    if (isMediaBlock(block)) {
+      toolBlocks.push(block);
       i++;
+    } else {
+      while (
+        i < blocks.length &&
+        isToolRelatedBlock(blocks[i]) &&
+        !isMediaBlock(blocks[i])
+      ) {
+        toolBlocks.push(blocks[i]);
+        i++;
+      }
     }
 
     // key 优先用第一个 block 的唯一 id，避免无 groupId 时多个 group 因相同 toolCallId 产生 key 冲突

@@ -262,10 +262,14 @@ function ToolCallGroup({
             </div>
           ) : typeof toolCall.result === "string" ? (
             <div>
-              <MarkdownRenderer
-                content={toolCall.result}
-                onPreviewFile={readFileToPreview}
-              />
+              {/* 2026-11-24（多级树）：结果默认限高，避免展开一条命令就把整屏占满；
+                  内容不丢，可在框内滚动查看 */}
+              <div className="max-h-[240px] overflow-y-auto pr-1">
+                <MarkdownRenderer
+                  content={toolCall.result}
+                  onPreviewFile={readFileToPreview}
+                />
+              </div>
               {toolCall._hasFullResult && (
                 <button
                   onClick={() => setShowFullResult(true)}
@@ -284,11 +288,24 @@ function ToolCallGroup({
   );
 
   if (variant === "inline") {
+    /**
+     * 2026-11-24（多级树）：有参数或结果才可展开 —— 无详情的行不再显示可点的箭头
+     * （原实现每行都带 ▶，点开是空面板，像"坏了"）。
+     */
+    const hasArguments =
+      !!toolCall.arguments && Object.keys(toolCall.arguments).length > 0;
+    const hasDetail = hasArguments || toolCall.result !== undefined;
     return (
       <div className="tool-call-inline">
         <button
-          onClick={handleToggle}
-          className="flex items-center gap-2 px-2 py-1 w-full text-left text-[12px] cursor-pointer transition-colors hover:bg-gray-400/[0.05] text-gray-600 dark:text-[#a9b1d6]"
+          onClick={hasDetail ? handleToggle : undefined}
+          disabled={!hasDetail}
+          title={hasDetail ? undefined : summary || displayName}
+          className={`flex items-center gap-1.5 px-2 py-1 w-full text-left text-[12px] transition-colors text-gray-600 dark:text-[#a9b1d6] ${
+            hasDetail
+              ? "cursor-pointer hover:bg-gray-400/[0.05]"
+              : "cursor-default"
+          }`}
           style={{
             background: "transparent",
             border: "none",
@@ -296,20 +313,27 @@ function ToolCallGroup({
         >
           <span className="shrink-0">{statusIcon}</span>
           {pendingBadge}
-          <span className="min-w-0 truncate">{summary || displayName}</span>
+          <span className="shrink-0 font-medium text-gray-800 dark:text-gray-200">
+            {displayName}
+          </span>
+          {summary && summary !== displayName && (
+            <span className="min-w-0 truncate text-gray-500 dark:text-[#565f89]">
+              — {summary}
+            </span>
+          )}
           {isStreaming && (
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-300 animate-pulse shrink-0" />
           )}
-          <span className="text-[10px] shrink-0 ml-auto">
-            {expanded ? "\u25BC" : "\u25B6"}
-          </span>
+          {hasDetail && (
+            <span className="text-[10px] shrink-0 ml-auto">
+              {expanded ? "\u25BC" : "\u25B6"}
+            </span>
+          )}
         </button>
         {approvalBar}
-        {expanded && (
-          <div
-            className="border-t border-gray-400/[0.1] px-2.5 py-1"
-            style={{ background: "rgba(0,0,0,0.05)" }}
-          >
+        {expanded && hasDetail && (
+          // 第 3 级：参数 / 结果（缩进 + 导轨，视觉上附属于上一条命令）
+          <div className="ml-3 border-l border-gray-300 dark:border-gray-600 pl-2.5 pr-1 py-1">
             {detailContent}
           </div>
         )}

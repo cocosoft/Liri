@@ -28,6 +28,7 @@ import {
 const logger = getLogger('BuddyDream');
 import { ifNotificationsEnabled } from './conditional';
 import { getCompanion } from './companion';
+import { ensureCompanionHatched } from './hatch';
 import type { Companion } from './types';
 import { addDreamLogEntry } from './dreamLogStore';
 
@@ -534,6 +535,9 @@ export function stopDreamIntegration(): void {
  */
 export function recordUserSession(): void {
   growthTracker.recordUserSession();
+  // 2026-11-25（用户拍板）：首条用户消息即自动孵化（与 UI 文案「对话即孵化」一致）；
+  // 已孵化时 `ensureCompanionHatched()` 直接返回既有伙伴（幂等、零写入）。
+  ensureCompanionHatched();
 }
 
 /**

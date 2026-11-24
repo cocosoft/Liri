@@ -226,4 +226,8 @@ A 之外的后续项：**B** = dream→buddy 事件断点（见 §7.1，已实�
 > `personality/hatchedAt` ⇒ 新增 `buildCompanionFromStored()` 显式映射（`soul → personality`、
 > `hatchedAt` 缺省 0）；真机复验 `personality=好奇但务实 / hatchedAt=0`，用例
 > `app/tests/buddy/companionShape.test.ts`。
-> **仍未修（另立）**：仓库内没有写入 `config.companion` 的孵化路径（伙伴只能手改配置产生）。
+> **孵化写入已补（2026-11-25，用户拍板）**：首条用户消息自动孵化（`recordUserSession()` →
+> `ensureCompanionHatched()`，幂等）；命名/个性按确定性骨骼（物种 + 最高两项属性）生成，
+> 不用模型。真机验证：写入 `{name:'阿兔兔', personality:'毒舌又跳脱'}`、二次调用 `{same:true}`、
+> HTTP 快照 `personality/hatchedAt` 均有值（验证后已恢复 config）。用例：
+> `app/tests/buddy/companionHatch.test.ts`。

@@ -133,3 +133,7 @@ export type {
 // ==================== 记忆端口（P2-1，伙伴读记忆） ====================
 export { setBuddyMemoryPort, getBuddyMemoryPort } from './memoryPort';
 export type { BuddyMemoryDigest, BuddyMemoryPort } from './memoryPort';
+
+// ==================== 孵化（2026-11-25：首条用户消息自动孵化） ====================
+export { ensureCompanionHatched, buildHatchProfile } from './hatch';
+export type { HatchProfile } from './hatch';

@@ -86,6 +86,20 @@ describe('P0-5 任务终态回执', () => {
     expect(text).toContain('1/4 阶段完成');
     expect(text).toContain('2 阶段因依赖阻断未执行');
     expect(text).toContain('编排面板确认');
+    // 未传 taskId ⇒ 不凭空给出命令（不编造入口）
+    expect(text).not.toContain('/goal approve stage');
+  });
+
+  it('等阶段审批 + taskId ⇒ 附带可执行的 /goal approve stage 入口', () => {
+    const text = formatPdcaTerminalNotice({
+      awaitingApproval: true,
+      completed: 1,
+      total: 3,
+      unit: '阶段',
+      taskId: 'pdca_demo123',
+    });
+    expect(text).toContain('编排面板确认');
+    expect(text).toContain('/goal approve stage pdca_demo123');
   });
 
   it('等**工具**审批 ⇒ 指向审批卡片（不得让用户去编排面板找入口）', () => {

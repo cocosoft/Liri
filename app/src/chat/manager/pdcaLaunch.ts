@@ -211,14 +211,29 @@ export class PdcaLaunchCoordinator {
       consumedTurns: fact.consumedTurns,
       userMessageCount,
     });
+    // P0（2026-11-24，真机 `session_mwq5ookl21aa28ea96`）：升级描述**不得为空**。
+    // 该轮是只读问答（34 轮 grep/file_read），工具轮把 assistant 消息以 `content=''`
+    // 落盘 ⇒ 旧实现直接拿空串当描述，建出空目标 3 阶段链（2.32M tokens）。
+    // 口径：模型产出优先；为空则回退最近用户文本；两者都空 ⇒ **放弃升级**并留痕。
+    const assistantText = this.deps.isLastAssistantOutputFallback?.(session)
+      ? lastUserContent
+      : this.deps.lastAssistantText(session);
+    const description = assistantText.trim() ? assistantText : lastUserContent;
+    if (!description.trim()) {
+      logger.info('pdca:long_task_signal_skipped', {
+        sessionId: session.id,
+        reason: 'empty_description',
+        pendingTodoCount: fact.pendingTodoCount,
+        consumedTurns: fact.consumedTurns,
+        userMessageCount,
+      });
+      return;
+    }
     await this.escalateViaBareSession({
       session,
       // BUG-A（2026-10-27）：兜底文案是**系统文案**而非模型产出 ⇒ 用用户任务原句作描述
       //（判定走结构化标记，禁止文案匹配 —— CS02）。
-      assistantContent:
-        (this.deps.isLastAssistantOutputFallback?.(session) ?? false)
-          ? lastUserContent
-          : this.deps.lastAssistantText(session),
+      assistantContent: description,
       lastUserContent,
       // LRO-11：信号已证明是长任务 ⇒ 不允许被"消息长度 ≤60"判成单步直执行
       forceDecompose: true,
@@ -259,21 +274,30 @@ export class PdcaLaunchCoordinator {
     forceDecompose?: boolean;
   }): Promise<void> {
     const { session, assistantContent, lastUserContent } = params;
+    // P0（2026-11-24）：空描述**不得**建项目 / 建任务（真机空目标 3 阶段链事故）。
+    // 放在自动建项目之前，避免留下一个无人认领的空项目。
+    const description = assistantContent.trim()
+      ? assistantContent
+      : lastUserContent.trim();
+    if (!description) {
+      logger.info('pdca:bare_session_escalation_skipped', {
+        sessionId: session.id,
+        reason: 'empty_description',
+      });
+      return;
+    }
     // B6：已在执行的 demand 任务 ⇒ 补充需求并入，不建新项目、不重开任务
     if (this._mergeDemandSupplement(session)) return;
     // P2-2（2026-11-06）：短指令（"按计划执行"）时项目名取助手计划的标题，
     // 避免出现「按计划直接执行 全部执行 P0-P6 …」这类拼接式项目名。
-    const goalSummary = buildProjectGoalSummary(
-      lastUserContent,
-      assistantContent
-    );
+    const goalSummary = buildProjectGoalSummary(lastUserContent, description);
     const projectId = await this.autoCreateProject(session, undefined, {
       hasGoal: true,
       deliverables: 1,
       goalSummary,
     });
     if (projectId) {
-      this.maybeLaunch(session, assistantContent, projectId, lastUserContent, {
+      this.maybeLaunch(session, description, projectId, lastUserContent, {
         forceDecompose: params.forceDecompose,
       });
     }
@@ -347,6 +371,19 @@ export class PdcaLaunchCoordinator {
     opts?: { forceDecompose?: boolean }
   ): void {
     const launcher = this.deps.getPdcaLauncher();
+    // P0（2026-11-24）：描述为空不得进入编排（真机空目标 3 阶段链事故）。
+    // 工具型收尾的 `assistantContent` 常为 `''`（S6 既有注释），此处回退最近用户文本；
+    // 两者都空 ⇒ 放弃本次 launch（不建任务、不留空项目）。
+    const description = assistantContent.trim()
+      ? assistantContent
+      : (lastUserContent ?? '').trim();
+    if (!description) {
+      logger.warn('pdca:launch_skip_empty_description', {
+        sessionId: session.id,
+        projectId,
+      });
+      return;
+    }
     // B6：已在执行的 demand 任务 ⇒ 补充需求并入，不重开任务
     if (this._mergeDemandSupplement(session)) return;
     if (this.deps.launchingSessions.has(session.id)) {
@@ -450,12 +487,7 @@ export class PdcaLaunchCoordinator {
           // @ignore-catch — 研究分流 trace 失败不影响编排（CS03）
         });
       launcher!
-        .launchResearch(
-          projectId,
-          assistantContent,
-          session.id,
-          lastUserContent
-        )
+        .launchResearch(projectId, description, session.id, lastUserContent)
         .catch(() => {
           /* 研究模式失败不阻塞消息流 */
         })
@@ -540,7 +572,7 @@ export class PdcaLaunchCoordinator {
     launcher!
       .launch(
         projectId,
-        assistantContent,
+        description,
         session.id,
         lastUserContent || undefined,
         // S3（P1-5 §5 S3）：两层分流决策（复杂度门 + 危险工具 + message 粒度 hash 10%）

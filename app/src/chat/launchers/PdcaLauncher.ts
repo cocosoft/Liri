@@ -156,6 +156,14 @@ export function formatPdcaTerminalNotice(input: {
   error?: string;
   /** 计量单位（步 / 阶段） */
   unit?: string;
+  /**
+   * P0（2026-11-24，真机 `session_mwq5ookl21aa28ea96`）：任务 ID。
+   *
+   * 阶段审批**没有收件箱卡**，只写「请在编排面板确认后继续」会让用户找不到可点入口
+   * （真机即因此一直没人批准，直到重启被判孤儿收口）。带上 ID ⇒ 顺带给出
+   * `/goal approve stage <taskId>` 这条确定可用的命令。
+   */
+  taskId?: string;
 }): string {
   const unit = input.unit ?? '步';
   const progress = `${input.completed}/${input.total} ${unit}完成`;
@@ -171,7 +179,9 @@ export function formatPdcaTerminalNotice(input: {
     if (input.approvalSource === 'tool') {
       return `⏸ 编排任务暂停：等待**工具审批**（${progress}${suffix}）。请在审批卡片（或收件箱）处理后继续；批准后会自动续跑，剩余步骤不会被执行。`;
     }
-    return `⏸ 编排任务暂停：等待阶段审批（${progress}${suffix}）。请在编排面板确认后继续。`;
+    return `⏸ 编排任务暂停：等待阶段审批（${progress}${suffix}）。请在编排面板确认后继续${
+      input.taskId ? `，或执行 /goal approve stage ${input.taskId}` : ''
+    }。`;
   }
   switch (input.outcome ?? 'completed') {
     case 'completed':
@@ -987,6 +997,8 @@ export class PdcaLauncher {
                       : undefined,
                 awaitingApproval:
                   s.phase !== 'completed' && s.phase !== 'failed',
+                // P0：阶段审批无收件箱卡 ⇒ 提示里给出确定可用的命令入口
+                taskId,
                 completed: doneStages,
                 total: s.stages.length,
                 unit: '阶段',

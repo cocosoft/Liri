@@ -143,12 +143,24 @@ export function recentUserText(session: ChatSession, n = 3): string {
     .join('\n');
 }
 
-/** 最近一条 assistant 消息的文本（无则空串 —— 工具型收尾常为空） */
+/**
+ * 最近一条**非空** assistant 消息的文本（无则空串 —— 工具型收尾常为空）。
+ *
+ * P0（2026-11-24，真机 `session_mwq5ookl21aa28ea96`）：工具轮常把 assistant 消息以
+ * `content=''` 落盘（仅承载 tool_calls）。原实现只要求 `typeof content === 'string'`
+ * 就返回 ⇒ "最近一条"可能是空串 ⇒ 长任务信号升级时以**空描述**建项目 + 阶段链
+ * （该任务烧了 2.32M tokens 产出一份无人认领的 PRD）。此处跳过空白文本，
+ * 由调用方回退"最近用户文本"。
+ */
 export function lastAssistantText(session: ChatSession): string {
   const messages = session.messages ?? [];
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i] as unknown as { role?: string; content?: unknown };
-    if (m?.role === 'assistant' && typeof m.content === 'string') {
+    if (
+      m?.role === 'assistant' &&
+      typeof m.content === 'string' &&
+      m.content.trim()
+    ) {
       return m.content;
     }
   }

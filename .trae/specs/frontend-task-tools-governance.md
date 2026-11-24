@@ -111,6 +111,9 @@
 `abortPdcaAfterExpiry` 取不到 taskId 直接返回 ⇒ 它对阶段链**什么也没做**；
 真正杀死任务的是 14:33 的启动扫描（`orphan_scan`）。
 
+> **部分缓解（批次 6）**：暂停提示现在会带 `/goal approve stage <taskId>`（不再只让人"去编排面板找"）。
+> **根因未消除**：阶段审批仍然没有卡，重启扫描仍会把它判孤儿。
+
 ### §3.4 触发级根因：只读问答被升级成"长任务"，且任务描述为空
 
 同一会话还有两个上游缺陷，它们是"为什么会凭空出现一个 3 阶段任务"的原因：
@@ -124,6 +127,9 @@
    无任何"描述为空则不升级"的闸门。证据：requirement 子任务日志 `descPreview: "…任务描述: "`、父检查点 `description=''`。
 
 后果：一个空描述任务消耗 2.32M tokens 产出一份 PRD，随后停在**无卡的审批门**，重启即被判孤儿收口。
+
+> **现状（批次 6 已修）**：`lastAssistantText` 跳过空串；`onLongTaskSignal` / `escalateViaBareSession` /
+> `maybeLaunch` 三层都拒绝空描述（回退用户文本，皆空则放弃升级），见 §6「批次 6」。
 
 ### §3.5 阶段链不可续跑（能力缺口，批次 5 已补）
 
@@ -257,6 +263,17 @@
 - client：`tsc --noEmit` 通过；`vitest run` 全绿。
 - 门禁：`lint:state-ratchet` / `lint:consts` / ESLint 通过。
 
+### 批次 6（P0 前两项）已落地
+
+| 项 | 结果 |
+|---|---|
+| 取数 | `lastAssistantText` 改为**只返回非空正文**（工具轮的 `content=''` 不再被当成"最近结论"） |
+| 升级闸门 | `onLongTaskSignal`：模型产出为空 ⇒ 回退最近用户文本；两者皆空 ⇒ 记 `empty_description` 并**放弃升级** |
+| 单动作入口 | `escalateViaBareSession`：空描述在 `autoCreateProject` **之前**短路 ⇒ 不再留下空项目 |
+| launch 出口 | `maybeLaunch`：`description` 归一（空则回退 `lastUserContent`），两者皆空 ⇒ 不 launch（`pdca:launch_skip_empty_description`） |
+| 暂停提示 | `formatPdcaTerminalNotice` 新增 `taskId`；阶段审批提示改为「请在编排面板确认后继续，或执行 `/goal approve stage <taskId>`」（阶段链调用点已传 `taskId`） |
+| 测试 | 新增 `pdcaLaunchEmptyDescription.test.ts`（8 例：取数跳过空串 / 两路皆空不升级 / 回退用户文本 / 空描述不建项目 / launch 出口闸门）；`pdcaTerminalNotice.test.ts` 增 2 例（带 `taskId` 给命令、未传不编造入口） |
+
 ### 后续（未实施，按 §3 根因排序）
 
 0. **P0｜消除 `idle → requires_action` 非法转移**（§3.1）：定位机器为何停在 `idle`（本轮是否经过
@@ -267,10 +284,7 @@
    必然把它判死（§3.3）。二选一：
    - A（推荐）：阶段审批也建 Inbox 卡（复用 TTL / 通知 / `onInboxItemsExpired`），让"待审批 ⇒ 有卡"重新成立；
    - B：`scanAndAbortStalePdcaTasks` 对**阶段链**的 `stage_awaiting_approval` 不写 abort，改为保留 + 可选通知。
-2. **P0｜升级前校验任务描述非空**（§3.4）：`lastAssistantText` 跳过空串；`onLongTaskSignal` / `escalateViaBareSession`
-   在 `description.trim()===''` 时**放弃升级**并记日志（含 `consumedTurns` / `pendingTodoCount`），避免空任务烧 token。
-3. **P1｜长任务信号区分"只读调查"**：本会话 34 轮全是 grep/file_read/glob ⇒ 建议信号增加"本回合存在写类工具或未完成 todo"
+2. **P1｜长任务信号区分"只读调查"**：本会话 34 轮全是 grep/file_read/glob ⇒ 建议信号增加"本回合存在写类工具或未完成 todo"
    这一必要条件（仅轮次不够）。
-4. **P1｜暂停提示给可执行入口**：`⏸ …请在编排面板确认后继续` 应附带 `/goal approve stage <taskId>`。
-5. **P2｜`PlansPage` 未挂路由**（`/plans` 已重定向），仍在测试中被引用；是否删除需按 `code-deletion.md` CD01–CD06 另行取证。
-6. **P2｜PDCA 三面并存**（消息卡 / 浮动栏徽标 / 抽屉）：属"摘要 / 指示器 / 详情"三个粒度，本批未合并。
+3. **P2｜`PlansPage` 未挂路由**（`/plans` 已重定向），仍在测试中被引用；是否删除需按 `code-deletion.md` CD01–CD06 另行取证。
+4. **P2｜PDCA 三面并存**（消息卡 / 浮动栏徽标 / 抽屉）：属"摘要 / 指示器 / 详情"三个粒度，本批未合并。

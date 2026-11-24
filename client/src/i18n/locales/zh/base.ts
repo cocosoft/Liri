@@ -601,6 +601,9 @@ const zhBase = {
     completed: "已完成",
     failed: "失败",
     pendingApproval: "等待审批",
+    // 2026-11-24：审批已落定但没有终态结果（读历史时按 inbox 回查）
+    approvalExpiredNotExecuted: "审批已过期，该调用未执行",
+    approvalResolvedNoResult: "审批已处理，但本次调用没有执行结果",
     editMessage: "编辑消息",
     copyMessage: "复制消息",
     copyPlainText: "复制纯文本",

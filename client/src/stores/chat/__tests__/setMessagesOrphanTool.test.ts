@@ -37,8 +37,12 @@ vi.mock("../chat-history.slice", () => ({
   setSessionCache: vi.fn(),
   enqueueSaveBlocks: vi.fn(),
 }));
+vi.mock("@/services/httpClient", () => ({
+  http: { get: vi.fn() },
+}));
 
 import { setMessagesImpl } from "../chat-message-set-messages";
+import { http } from "@/services/httpClient";
 
 const SID = "sid-n48";
 
@@ -343,6 +347,66 @@ describe("setMessagesImpl — 存量投影：重建回填 + 孤儿收敛（2026-
       content: string;
     }>;
     expect(grouped.map((g) => g.content)).toEqual(["第一条", "第二条"]);
+  });
+
+  it("分页窗口外的审批卡：按 inbox 真实状态清掉 pendingApproval 残留", async () => {
+    vi.mocked(http.get).mockResolvedValue({
+      ok: true,
+      data: { status: "expired" },
+    } as never);
+    const h = harness();
+    h.run([
+      msg({ id: "u1", role: "user", content: "hi", timestamp: 1000 }),
+      msg({
+        id: "a1",
+        role: "assistant",
+        content: "稍等",
+        timestamp: 1500,
+        tool_calls: [
+          {
+            id: "call_1",
+            type: "function",
+            function: { name: "bash", arguments: "{}" },
+          },
+        ] as never,
+      }),
+      msg({
+        id: "t1",
+        role: "tool",
+        toolCallId: "call_1",
+        timestamp: 2000,
+        content: JSON.stringify([
+          {
+            type: "tool_result",
+            toolCallId: "call_1",
+            value: JSON.stringify({
+              status: "awaiting_approval",
+              pendingApproval: true,
+              inboxId: "inbox-1",
+            }),
+          },
+        ]),
+      }),
+    ]);
+
+    const before = h
+      .messages()
+      .find((m) => m.role === "assistant")
+      ?.blocks?.find((b) => b.type === "tool_call");
+    expect(before?.toolCall?.pendingApproval).toBe(true);
+
+    await vi.waitFor(() => {
+      const after = h
+        .messages()
+        .find((m) => m.role === "assistant")
+        ?.blocks?.find((b) => b.type === "tool_call");
+      expect(after?.toolCall?.pendingApproval).toBeUndefined();
+      // 无终态结果 ⇒ 状态置空（组头按「已中断」渲染，不谎报完成）
+      expect(after?.toolCall?.status).toBeUndefined();
+      // 保留真实状态供工具卡说明"为什么没有结果"
+      expect(after?.toolCall?.approvalStatus).toBe("expired");
+    });
+    expect(http.get).toHaveBeenCalledWith("/v1/inbox/inbox-1");
   });
 });
 

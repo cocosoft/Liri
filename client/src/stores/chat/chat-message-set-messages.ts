@@ -34,10 +34,12 @@ import {
   truncateResult,
   preferToolResult,
   resolveApprovalFlags,
+  resolvedApprovalInboxIds,
   stripStaleApprovalNotice,
   MAX_INLINE_RESULT_LENGTH,
 } from "./chat-message-shared";
 import type { MessageSet, MessageGet } from "./chat-message.types";
+import { http } from "@/services/httpClient";
 import { createLogger } from "@/utils/logger";
 
 const logger = createLogger("stores:chat:message:setMessages");
@@ -277,6 +279,108 @@ function expandGroupedToolResults(messages: Message[]): Message[] {
     }
   }
   return expanded;
+}
+
+/**
+ * 2026-11-24（真机 `session_mwpj4amge75a67ec4f`：审批已处理/已过期，工具组仍显示「等待审批」）：
+ *
+ * 旧轮次的审批占位结果（`{status:'awaiting_approval', pendingApproval:true, inboxId}`）
+ * 会在合并时把工具卡置为待审批。前端原本靠「页面内已合成的 inbox 卡」对账，
+ * 但长会话**分页**只加载最近一页 ⇒ 审批卡在更早的页里，对账集合为空，徽标永久残留。
+ *
+ * 这里按 `toolCall.inboxId` 回查后端真实状态（`GET /v1/inbox/:id`），
+ * 非 pending 即清掉 `pendingApproval` / `inboxId`，并把状态置空 ⇒
+ * 组头按「已中断」如实展示，而不是谎称等待审批。
+ *
+ * 边界：只查页面内仍标 pending 且未被本地 inbox 卡对账的 id，最多 20 个；
+ * 查询失败（网络等）保持原状，不误清真实待审批。
+ */
+async function reconcileResolvedToolApprovals(
+  set: MessageSet,
+  get: MessageGet,
+): Promise<void> {
+  try {
+    const messages: Message[] = get().messages ?? [];
+    const knownResolved = resolvedApprovalInboxIds(messages);
+    const toCheck = new Set<string>();
+    for (const m of messages) {
+      for (const b of m.blocks ?? []) {
+        const tc = b.type === "tool_call" ? b.toolCall : undefined;
+        if (
+          tc?.pendingApproval === true &&
+          typeof tc.inboxId === "string" &&
+          tc.inboxId.length > 0 &&
+          !knownResolved.has(tc.inboxId)
+        ) {
+          toCheck.add(tc.inboxId);
+        }
+      }
+    }
+    const ids = [...toCheck].slice(0, 20);
+    if (ids.length === 0) return;
+
+    const statuses = await Promise.all(
+      ids.map(async (id) => {
+        const res = await http.get<{ status?: string }>(
+          `/v1/inbox/${encodeURIComponent(id)}`,
+        );
+        return { id, status: res.ok ? res.data?.status : undefined };
+      }),
+    );
+    const resolved = new Map<string, "replied" | "expired">();
+    for (const s of statuses) {
+      if (typeof s.status !== "string" || s.status === "pending") continue;
+      resolved.set(s.id, s.status === "expired" ? "expired" : "replied");
+    }
+    if (resolved.size === 0) return;
+
+    let changed = false;
+    const patched = messages.map((m) => {
+      if (!m.blocks?.length) return m;
+      let msgChanged = false;
+      const blocks = m.blocks.map((b) => {
+        const tc = b.type === "tool_call" ? b.toolCall : undefined;
+        if (
+          !tc ||
+          tc.pendingApproval !== true ||
+          !tc.inboxId ||
+          !resolved.has(tc.inboxId)
+        ) {
+          return b;
+        }
+        msgChanged = true;
+        changed = true;
+        return {
+          ...b,
+          toolCall: {
+            ...tc,
+            pendingApproval: undefined,
+            inboxId: undefined,
+            // 没有终态结果：状态置空 ⇒ 组头按「已中断」渲染（不谎报完成/执行中）
+            status: undefined,
+            approvalStatus: resolved.get(tc.inboxId),
+          },
+        };
+      });
+      return msgChanged ? { ...m, blocks } : m;
+    });
+    if (changed) {
+      logger.info("[setMessages] 按后端状态清除陈旧的工具审批占位", {
+        count: resolved.size,
+      });
+      set({ messages: patched });
+    }
+  } catch (e) {
+    // 对账失败不影响历史渲染；保持原状（真实待审批不能误清）
+    handleClientError(
+      e,
+      {
+        module: "stores:chat:message",
+        action: "reconcileResolvedToolApprovals",
+      },
+      "warn",
+    );
+  }
 }
 
 /**
@@ -754,6 +858,10 @@ export function setMessagesImpl(
     // 刷新/重连后 planTaskStore 已清空，回退静态快照会永久"执行中"；
     // 后端 Plan 已持久化，扫描 task_decomposition blocks 的 planId 逐个拉取恢复。
     void restorePlanTasks(enhancedMessages);
+
+    // 2026-11-24：分页窗口外的审批卡无法参与前端对账 ⇒ 回查 inbox 真实状态，
+    // 清掉已处理/已过期调用的 pendingApproval 残留（fire-and-forget）。
+    void reconcileResolvedToolApprovals(set, get);
   } catch (e) {
     // 确保会话切换锁一定释放，防止锁泄漏导致后续流式输出永久阻塞
     switchState.lock = false;

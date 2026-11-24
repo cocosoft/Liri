@@ -160,7 +160,23 @@ export function getToolDisplayName(toolName: string): string {
  * 折叠态只显示这一行摘要，展开态才显示完整参数。
  */
 export function getToolHumanSummary(toolCall: ToolCall): string {
-  return applyStatusTense(buildToolHumanSummary(toolCall), toolCall.status);
+  const summary = buildToolHumanSummary(toolCall);
+  // 2026-11-24（真机 `session_mwpj4amge75a67ec4f`）：审批已落定但没有执行结果时，
+  // 恒用「正在…」会与 ⏸ 已中断自相矛盾（行内文案写「正在执行命令」）。
+  // 改为「动作短语 +（未执行）」，保留"本来要做什么"，不谎报进行中。
+  if (
+    toolCall.approvalStatus &&
+    toolCall.status !== "completed" &&
+    toolCall.status !== "failed"
+  ) {
+    const presentTense = i18n.t("tool.summary.tensePresent");
+    const body =
+      presentTense.length > 0 && summary.startsWith(presentTense)
+        ? summary.slice(presentTense.length)
+        : summary;
+    return `${body}${i18n.t("tool.summary.notExecutedSuffix")}`;
+  }
+  return applyStatusTense(summary, toolCall.status);
 }
 
 /**
@@ -177,7 +193,8 @@ function applyStatusTense(
   status?: ToolCall["status"],
 ): string {
   const presentTense = i18n.t("tool.summary.tensePresent");
-  const hasPresent = presentTense.length > 0 && summary.startsWith(presentTense);
+  const hasPresent =
+    presentTense.length > 0 && summary.startsWith(presentTense);
   const body = hasPresent ? summary.slice(presentTense.length) : summary;
   // 2026-11-12（真机）：失败态不再套过去式「已执行命令…」—— 被拒绝/未执行的调用同样会
   // 落到这里，与卡片上的 ❌ 自相矛盾。改为「动作短语 + （失败）」，既保留"做了什么"，
@@ -517,10 +534,7 @@ export function stripDuplicateToolPrefix(
 
 /** 工具组聚合状态（#29：由**全部** tool_call 块推导，而非取第一块） */
 export type ToolGroupStatus =
-  | "completed"
-  | "running"
-  | "pending_approval"
-  | "failed";
+  "completed" | "running" | "pending_approval" | "failed";
 
 /**
  * #29（2026-10-30）：工具组状态 = 全组聚合，不再"取第一条调用的状态"。

@@ -628,6 +628,10 @@ const enBase = {
     completed: "Completed",
     failed: "Failed",
     pendingApproval: "Awaiting Approval",
+    // 2026-11-24: approval already resolved but the call has no terminal result
+    approvalExpiredNotExecuted: "Approval expired; this call was not executed",
+    approvalResolvedNoResult:
+      "Approval resolved, but this call produced no result",
     editMessage: "Edit Message",
     copyMessage: "Copy Message",
     copyPlainText: "Copy Plain Text",

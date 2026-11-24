@@ -314,6 +314,11 @@ export interface ToolCall {
   pendingApproval?: boolean;
   /** U-06-5: 已提交的 Inbox 项 id —— 工具卡片就地审批（批准/拒绝） */
   inboxId?: string;
+  /**
+   * 2026-11-24：审批已落定但**没有终态结果**时的真实状态（读历史时按 inbox 回查）。
+   * `pendingApproval` 已清空，卡片据此说明"为什么没有结果"，避免占位文案被读成仍在等待。
+   */
+  approvalStatus?: "replied" | "expired";
   /** 标记 result 为截断摘要，全量结果通过 getToolResultFull(id) 获取 */
   _hasFullResult?: boolean;
   /** 工具执行失败原因（status='failed' 时存在，日志面板据此展示失败详情） */

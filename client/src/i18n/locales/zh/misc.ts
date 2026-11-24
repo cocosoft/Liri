@@ -232,6 +232,8 @@ const zhMisc = {
       tensePast: "已",
       // 2026-11-12：失败态摘要后缀（不再套"已执行…"，避免与 ❌/被拒绝矛盾）
       failedSuffix: "（失败）",
+      // 2026-11-24：审批已落定但没有执行结果（避免"正在…"与 ⏸ 已中断矛盾）
+      notExecutedSuffix: "（未执行）",
       searchingCode: "正在搜索代码",
       searchingFiles: "正在搜索文件",
       searchingWeb: "正在网络搜索",

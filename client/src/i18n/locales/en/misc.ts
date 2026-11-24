@@ -244,6 +244,8 @@ const enMisc = {
       tensePast: "",
       // 2026-11-12: suffix for failed summaries (never "executed …" on failure)
       failedSuffix: " (failed)",
+      // 2026-11-24: approval resolved without an execution result
+      notExecutedSuffix: " (not executed)",
       searchingCode: "Searching code",
       searchingFiles: "Searching files",
       searchingWeb: "Searching the web",

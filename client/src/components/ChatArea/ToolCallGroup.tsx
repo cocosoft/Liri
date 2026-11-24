@@ -180,7 +180,10 @@ function ToolCallGroup({
         ? "\u2705"
         : toolCall.status === "failed"
           ? "\u274C"
-          : "\u{1F527}";
+          : // 2026-11-24：审批已落定但没有终态结果 ⇒ 中断（而非"未知工具"扳手图标）
+            toolCall.approvalStatus
+            ? "\u23F8"
+            : "\u{1F527}";
 
   /** P2-2: 审批等待态徽标（区别于失败红色）；审批已落定 ⇒ 不再显示 */
   const pendingBadge = awaitingApproval ? (
@@ -212,6 +215,17 @@ function ToolCallGroup({
   /** 详情面板内容（卡片和行内共用） */
   const detailContent = (
     <>
+      {/* 2026-11-24：审批已落定但没有终态结果 —— 说明为什么没有产物（避免占位文案被读成"仍在等待"） */}
+      {toolCall.approvalStatus && (
+        <div className="mb-1 text-[10px] text-amber-600 dark:text-amber-400">
+          {toolCall.approvalStatus === "expired"
+            ? t("chat.approvalExpiredNotExecuted", "审批已过期，该调用未执行")
+            : t(
+                "chat.approvalResolvedNoResult",
+                "审批已处理，但本次调用没有执行结果",
+              )}
+        </div>
+      )}
       {toolCall.arguments && Object.keys(toolCall.arguments).length > 0 && (
         <div className="mb-0.5">
           <div className="text-[10px] font-semibold text-gray-500 dark:text-[#565f89] uppercase tracking-wider mb-0.5">

@@ -138,8 +138,9 @@ body 优先取 `insights[0]`，回退复用既有 `dream.notifyTask`（不新增
 `entrypoints/init.ts` 在后台维护启动同一处注入 app 侧实现（数据源 `MemoryManager.getAllMemories()`
 按 `updatedAt` 倒序取 N）。回归用例：`app/tests/buddy/buddyMemoryPort.test.ts`（3 例）。
 
-> 顺查发现（已登记台账、非本次修复）：输入框把原文本当 `action` 提交，未知 action 会在
-> `pickRandom` 抛错；记忆回响已在 `talk` 按钮路径生效。
+> 顺查发现并已修复（2026-11-25，独立提交）：输入框把原文本当 `action` 提交，未知 action 会在
+> `pickRandom` 抛错 ⇒ `execute()` 入口归一（非动作词汇按 `talk`）；回归用例
+> `app/tests/buddy/buddyInteractionAction.test.ts`。
 
 ---
 

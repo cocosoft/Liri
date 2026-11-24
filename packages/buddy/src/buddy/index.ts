@@ -19,7 +19,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 export { EnhancedCompanionSystem } from './enhanced';
-export { InteractionManager } from './interactions';
+export { InteractionManager, normalizeInteractionAction } from './interactions';
 export type {
   InteractionAction,
   InteractionResult,

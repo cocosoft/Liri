@@ -52,26 +52,22 @@
  */
 
 import type { ToolName } from '@openliri/infra/constants/toolNames.generated';
+// 2026-11-24（P1）：读类清单下沉到 infra 叶子模块 —— chat 侧（长任务信号）也要用，
+// 而 app 侧禁止直接 import `query` ⇒ 明细单点维护，本文件只做集合投影。
+import {
+  FILE_READ_TOOL_NAMES,
+  READ_TOOL_NAMES,
+  SEARCH_TOOL_NAMES,
+} from '@openliri/infra/constants/toolKinds';
 
 /** 整文件读工具（入参键 = `file_path`） */
-const FILE_READ_TOOL_NAMES = [
-  'file_read',
-  // 2026-11-19（台账「项目文件族不在 IO 循环追踪面」）：项目文件夹读工具此前**不在**本清单
-  // ⇒ `FileIOLoopDetector` 对项目文件的重复读**不追踪**（fail-open）。其路径入参键
-  // `relativePath` 早已在 `PATH_ARG_KEYS`（P0-9），缺的只是本清单的登记。
-  'read_project_file',
-] as const satisfies readonly ToolName[];
 export const FILE_READ_TOOLS = new Set<string>(FILE_READ_TOOL_NAMES);
 
 /** 搜索类读工具（入参键 = `path` / `searchPath`） */
-const SEARCH_TOOL_NAMES = [
-  'glob',
-  'grep',
-] as const satisfies readonly ToolName[];
 export const SEARCH_TOOLS = new Set<string>(SEARCH_TOOL_NAMES);
 
 /** 读类工具并集（供按"是否读文件"统一判定的消费方使用） */
-export const READ_TOOLS = new Set([...FILE_READ_TOOLS, ...SEARCH_TOOLS]);
+export const READ_TOOLS = new Set<string>(READ_TOOL_NAMES);
 
 /** 写类工具名称集合（`notebook` 写 `.ipynb`，入参键 `notebook_path`） */
 const WRITE_TOOL_NAMES = [

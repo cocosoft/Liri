@@ -135,6 +135,9 @@
 
 > **现状（批次 6 已修）**：`lastAssistantText` 跳过空串；`onLongTaskSignal` / `escalateViaBareSession` /
 > `maybeLaunch` 三层都拒绝空描述（回退用户文本，皆空则放弃升级），见 §6「批次 6」。
+> **现状（批次 9 已修）**：轮次条件不再单独触发 —— 本轮已完成的工具**全部**属于读类
+> （`READ_TOOLS`：`file_read` / `read_project_file` / `glob` / `grep`）时视为"只读调查"，不判长任务
+> （todo 分支不受影响），见 §6「批次 9」。
 
 ### §3.5 阶段链不可续跑（能力缺口，批次 5 已补）
 
@@ -300,17 +303,24 @@
 | 归因 | `emitPdcaInterruptedReceipts` 增 `user_abort → 用户拒绝`（不再一律说"进程重启"） |
 | 测试 | `stageOrchestrator.test.ts` 增 3 例（建卡+落盘+批准关卡 / 恢复不重复建卡 / 建卡失败不阻断）；新增 `stageApproval.test.ts`（拒绝 ⇒ abort(user_abort)+回执；非阶段链不改写）；`stageChainExpiry.test.ts` 增父链 ID 用例 |
 
+### 批次 9（P1 只读调查不判长任务）已落地
+
+| 项 | 结果 |
+|---|---|
+| 判据 | `ToolTurnBudget._isLongTaskSignal`：轮次条件追加 `!纯只读调查`；todo 分支（未完成 ≥3）不变 |
+| 只读定义 | 本轮**已完成工具非空且全部** ∈ `READ_TOOLS`（读文件 / 搜索）；空列表不算只读（保持旧判据） |
+| 单一事实源 | 读类名单下沉到 `packages/infra/src/constants/toolKinds.ts`（chat 与 `query/tool-constants` 共用；app 侧禁止直接 import `query`） |
+| 测试 | `longTaskRouting.test.ts` 增"file_read / grep / glob 各耗满基础档 ⇒ 不给 /goal start"；原 G3 用例改用非读类工具（`bash`）以继续验证轮次分支；`toolNameLists.test.ts` 仍守卫清单取值 |
+
 ### 后续（未实施，按 §3 根因排序）
 
 0. **P1｜定位"机器为何停在 `idle`"**（批次 7 已把抛错降级为归一日志）：依据
    `会话状态机 pause 前归一（idle → running）` 的 warn 频次与上下文，回溯是哪条路径提前
    `finish/complete`（或未 `start`）；确认后再决定是否从源头修正。
-1. **P1｜长任务信号区分"只读调查"**：本会话 34 轮全是 grep/file_read/glob ⇒ 建议信号增加"本回合存在写类工具或未完成 todo"
-   这一必要条件（仅轮次不够）。
-2. **P2｜停机期间过期的阶段卡**：卡在进程停机时到期 ⇒ 重启扫描仍按 `orphan_scan` 收口
+1. **P2｜停机期间过期的阶段卡**：卡在进程停机时到期 ⇒ 重启扫描仍按 `orphan_scan` 收口
    （语义同为"审批卡已过期"，且已可 `/goal resume stage` 续跑）；如需完全消除，可让扫描对
    "有 `approvalInboxId` 但卡已过期"的阶段链直接写 `approval_expired`。
-3. **P2｜双份会话状态机实例**：`ChatManager`（`SessionRuntimeState`）与 `SessionStateBridge` 各持一份
+2. **P2｜双份会话状态机实例**：`ChatManager`（`SessionRuntimeState`）与 `SessionStateBridge` 各持一份
    `SessionStateMachine`，合并/收敛前先确认 `session:activated` 等生命周期事件是否还有人发布。
-4. **P2｜`PlansPage` 未挂路由**（`/plans` 已重定向），仍在测试中被引用；是否删除需按 `code-deletion.md` CD01–CD06 另行取证。
-5. **P2｜PDCA 三面并存**（消息卡 / 浮动栏徽标 / 抽屉）：属"摘要 / 指示器 / 详情"三个粒度，本批未合并。
+3. **P2｜`PlansPage` 未挂路由**（`/plans` 已重定向），仍在测试中被引用；是否删除需按 `code-deletion.md` CD01–CD06 另行取证。
+4. **P2｜PDCA 三面并存**（消息卡 / 浮动栏徽标 / 抽屉）：属"摘要 / 指示器 / 详情"三个粒度，本批未合并。

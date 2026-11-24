@@ -31,6 +31,9 @@ import {
   MAX_DYNAMIC_TOOL_TURNS_CAP,
 } from './loopTurnLimits.js';
 import { getLogger } from '@openliri/infra/monitoring';
+// P1（2026-11-24）：读类工具清单（infra 叶子模块，与 query 的 PathGuard 同源）——
+// 长任务信号不把"只读调查"当长任务（真机：34 轮 grep/file_read/glob 被升级成 3 阶段链）。
+import { READ_TOOLS } from '@openliri/infra/constants/toolKinds';
 
 const logger = getLogger('chat:reactToolLoop');
 
@@ -39,6 +42,8 @@ export interface ToolTurnBudgetLoopState {
   pendingTodos: TodoBlockData[];
   toolTurnCount: number;
   hasExternalFetchActivity?: boolean;
+  /** 本段已完成的工具名（长任务信号据此区分"只读调查"） */
+  completedToolNames?: string[];
 }
 
 /** `ToolTurnBudget` 的宿主依赖（全部 getter：宿主状态在 run 期内可变） */
@@ -270,6 +275,12 @@ export class ToolTurnBudget {
    * 长任务信号（G3，2026-09-25，`.trae/specs/long-task-routing.md`）：**客观状态量**判定
    * （未完成 todo 数 ≥ 阈值 **或** 已耗轮次 ≥ 一个基础档），**不做任何文案/字符串匹配**（CS02）。
    *
+   * P1（2026-11-24，真机 `session_mwq5ookl21aa28ea96`）：**轮次条件额外要求本轮不是纯只读调查**。
+   * 该轮 34 次工具全是 `grep`/`file_read`/`glob`（没有一次写入），却因"轮次 ≥ 基础档"被判长任务，
+   * 进而升级出空目标 3 阶段链（2.32M tokens）。现口径：本轮已完成的工具**全部**属于读类
+   * （`READ_TOOLS`）⇒ 轮次不再单独触发信号（"看代码/查资料"不等于"长任务"）；
+   * 未完成 todo 条件不受影响（todo 本身即"计划中的工作"）。
+   *
    * 用途：仅在**收尾**时给出"可改用编排继续"的可执行建议 —— 不做自动切换
    *（既有自动升级通道在消息意图/目标层，已在产品中生效，见 spec §1.1）。
    */
@@ -277,8 +288,19 @@ export class ToolTurnBudget {
     return (
       this._pendingTodoCount() >=
         ToolTurnBudget.LONG_TASK_PENDING_TODO_THRESHOLD ||
-      this._taskConsumedTurns() >= this.deps.getBaseMaxToolTurns()
+      (this._taskConsumedTurns() >= this.deps.getBaseMaxToolTurns() &&
+        !this._isReadOnlyInvestigation())
     );
+  }
+
+  /**
+   * 本轮是否为**纯只读调查**：已完成工具非空，且全部 ∈ `READ_TOOLS`（读文件 / 搜索）。
+   *
+   * 没有任何工具完成（纯文本回合）⇒ `false`（保持旧判据，不误伤"轮次高且无工具"的怪场景）。
+   */
+  private _isReadOnlyInvestigation(): boolean {
+    const names = this.deps.getLoopState().completedToolNames ?? [];
+    return names.length > 0 && names.every((name) => READ_TOOLS.has(name));
   }
 
   /**

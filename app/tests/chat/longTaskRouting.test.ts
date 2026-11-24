@@ -30,6 +30,8 @@ const BASE_TURNS = 6;
 function makeCtx(params: {
   toolRounds: number;
   todoTasks?: Array<{ id: string; name: string; status: string }>;
+  /** 本轮工具名（默认非只读；只读调查回归用 `file_read`/`grep`/`glob`） */
+  toolName?: string;
 }): ToolLoopContext {
   let callCount = 0;
   const nextResponse = (): ChatResponse => {
@@ -41,7 +43,8 @@ function makeCtx(params: {
         tool_calls: [
           {
             id: `tc${callCount}`,
-            name: 'file_read',
+            // 默认用命令类工具（非读类；也避开 file_write 的写循环检测）
+            name: params.toolName ?? 'bash',
             arguments: { n: callCount },
           },
         ],
@@ -128,6 +131,7 @@ const makeInput = () =>
 async function runThenForceMaxTurns(params: {
   toolRounds: number;
   todoTasks?: Array<{ id: string; name: string; status: string }>;
+  toolName?: string;
 }): Promise<string> {
   const loop = new ReActToolLoop(makeCtx(params), makeInput()) as unknown as {
     state: { iteration: number };
@@ -168,6 +172,17 @@ describe('长任务分流（2026-09-25）', () => {
     expect(tip).toContain('/goal start');
     // 与 G1 的单一来源一致（防第二处漂移）
     expect(tip).toContain(PDCA_EXPLICIT_ENTRY.split(' ')[0]);
+  });
+
+  it('P1 只读调查（工具全是 file_read/grep/glob）即便耗满基础档 ⇒ 不给编排建议', async () => {
+    // 真机 `session_mwq5ookl21aa28ea96`：34 次只读工具被判长任务 ⇒ 空目标 3 阶段链（2.32M tokens）
+    for (const toolName of ['file_read', 'grep', 'glob']) {
+      const tip = await runThenForceMaxTurns({
+        toolRounds: BASE_TURNS,
+        toolName,
+      });
+      expect(tip).not.toContain('/goal start');
+    }
   });
 
   it('G3 长任务信号之 todo 分支：未完成 ≥ 3 即触发（此时已耗未满基础档）', async () => {

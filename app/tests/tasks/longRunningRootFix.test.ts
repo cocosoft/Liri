@@ -895,13 +895,25 @@ describe('崩溃遗留可续跑（2026-11-08 真机 pdca_mw7d3dq3）', () => {
           sessionId: 'sess-3',
           stages: [{ id: 'requirement' }, { id: 'design' }, { id: 'delivery' }],
         },
+        // 2026-11-24 真机 `session_mwq5ookl21aa28ea96`：阶段链等待审批，卡过期后被孤儿扫描收口
+        // ⇒ 归因必须是"审批卡已过期未处理"，且如实播报已完成阶段数。
+        {
+          taskId: 'orphan-1',
+          sessionId: 'sess-4',
+          abortedBy: 'orphan_scan',
+          stages: [
+            { id: 'requirement', status: 'completed' },
+            { id: 'design', status: 'awaiting_approval' },
+            { id: 'delivery', status: 'pending' },
+          ],
+        },
       ]);
     } finally {
       setPdcaReceiptSink(undefined);
     }
 
-    expect(receipts).toHaveLength(3);
-    expect(receipts[0]?.text).toContain('因进程重启被中断');
+    expect(receipts).toHaveLength(4);
+    expect(receipts[0]?.text).toContain('因进程重启');
     expect(receipts[0]?.text).toContain('2 步计划已保留');
     expect(receipts[0]?.text).toContain('续跑');
     expect(receipts[1]?.text).toContain('无法自动续跑');
@@ -909,6 +921,11 @@ describe('崩溃遗留可续跑（2026-11-08 真机 pdca_mw7d3dq3）', () => {
     expect(receipts[2]?.text).toContain('3 阶段计划已保留');
     expect(receipts[2]?.text).not.toContain('0 步');
     expect(receipts[2]?.text).not.toContain('无步骤快照，无法自动续跑');
+    // 归因：孤儿收口 ≠ 进程重启；已完成阶段数如实给出
+    expect(receipts[3]?.text).toContain('审批卡已过期未处理');
+    expect(receipts[3]?.text).not.toContain('进程重启');
+    expect(receipts[3]?.text).toContain('1/3 阶段完成');
+    expect(receipts[3]?.text).toContain('产物仍保留');
   });
 });
 

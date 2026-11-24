@@ -445,23 +445,36 @@ export function emitPdcaInterruptedReceipts(
     // 2026-11-18（真机 `session_mwkthat73b80a6724f`）：阶段式计划（`StageOrchestrator`）把进度放在
     // `stages[]` 而非顶层 `steps[]`。旧实现只数 `steps` ⇒ 对一个确有 3 个阶段的计划输出
     // 「0 步计划已保留」—— 既自相矛盾，又误称"无快照"。
-    const stages = Array.isArray(ck.stages) ? ck.stages.length : 0;
+    const stageList = Array.isArray(ck.stages)
+      ? (ck.stages as Array<{ status?: string }>)
+      : [];
+    const stages = stageList.length;
+    const completedStages = stageList.filter(
+      (s) => s.status === STEP_STATUS_COMPLETED
+    ).length;
+    // 2026-11-24（批次 3）：归因必须按 `abortedBy` 区分 —— 旧实现把所有收口都写成"进程重启"，
+    // 真机 `session_mwq5ookl21aa28ea96` 实为**审批卡过期**（`orphan_scan`）。
+    const abortedBy = String(ck.abortedBy ?? 'startup_scan');
+    const cause =
+      abortedBy === 'orphan_scan' ? '审批卡已过期未处理' : '进程重启';
     const kept =
       steps > 0
         ? `${steps} 步计划已保留`
         : stages > 0
-          ? `${stages} 阶段计划已保留`
+          ? `${stages} 阶段计划已保留（${completedStages}/${stages} 阶段完成）`
           : '计划已保留';
     const tail =
       steps > 0
         ? `可 POST /v1/pdca/${taskId}/resume 或 /goal resume 续跑`
         : stages > 0
-          ? '阶段式计划无顶层步骤快照，可用 /goal start 重新发起'
+          ? abortedBy === 'orphan_scan'
+            ? '审批卡已过期，阶段链已收口；已完成阶段的产物仍保留，如需继续请重新发起任务'
+            : '阶段式计划无顶层步骤快照，无法自动续跑；已完成阶段的产物仍保留'
           : '无步骤快照，无法自动续跑';
     emitPdcaReceiptText({
       taskId,
       sessionId: (ck.sessionId as string | undefined) ?? null,
-      text: `⏹ 长程任务因进程重启被中断：${kept}（taskId ${taskId}）；${tail}`,
+      text: `⏹ 长程任务因${cause}已收尾：${kept}（taskId ${taskId}）；${tail}`,
     });
   }
 }

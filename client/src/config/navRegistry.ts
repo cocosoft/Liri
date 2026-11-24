@@ -503,15 +503,6 @@ export const NAV_ENTRIES: NavEntry[] = [
     order: { workbench: 530 },
   },
   {
-    id: "wb-dream",
-    labelKey: "workbench.dream",
-    icon: CloudIcon,
-    path: "/dream",
-    surfaces: ["workbench"],
-    workbenchGroup: "personal",
-    order: { workbench: 540 },
-  },
-  {
     id: "wb-buddy",
     labelKey: "workbench.buddy",
     icon: WaveformIcon,

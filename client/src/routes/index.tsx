@@ -61,7 +61,6 @@ const CouncilAgentRolesPage = lazy(
   () => import("../components/views/CouncilAgentRolesPage"),
 );
 const CronPage = lazy(() => import("../components/views/CronPage"));
-const DreamPage = lazy(() => import("../components/views/DreamPage"));
 const LiriPage = lazy(() => import("../components/views/LiriPage"));
 const LoopPanel = lazy(() => import("../components/views/LoopPanel"));
 const BackgroundStatusPage = lazy(
@@ -360,14 +359,11 @@ export const routes: RouteObject[] = [
     ),
   },
 
-  // 梦境模块 — 已合并到 Liri 页面，保留重定向
+  // 梦境模块 — 已合并到 Liri 页面（梦境日志 = Liri 的「梦境日志」页签）
+  // 2026-11-25（dream-buddy-wiring.md P1-3）：原实现仍渲染独立 DreamPage，与 `/liri` 重复 ⇒ 收敛为重定向
   {
     path: "/dream",
-    element: (
-      <AuthGuard>
-        <DreamPage />
-      </AuthGuard>
-    ),
+    element: <Navigate to="/liri" replace />,
   },
 
   // Liri 统一人格页（替代独立的 /dream 和 /buddy）

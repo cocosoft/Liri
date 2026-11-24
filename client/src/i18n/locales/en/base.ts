@@ -1159,6 +1159,9 @@ const enBase = {
     expandAllImages: "Show all images",
     // ChatPdcaDrawer (panel title + collapse)
     pdcaPanelTitle: "PDCA orchestration panel",
+    pdcaPanelSubtitle: "Single progress source",
+    pdcaNoTaskSnapshot:
+      "No task snapshot for this round — showing the event stream only",
     pdcaPanelCollapse: "Collapse orchestration panel",
     // AudioPlayResult / VideoDisplayResult (empty state)
     noAudioToPlay: "No audio to play",

@@ -1109,6 +1109,8 @@ const zhBase = {
     expandAllImages: "展开全部图片",
     // ChatPdcaDrawer（编排面板标题 + 收起）
     pdcaPanelTitle: "PDCA 编排面板",
+    pdcaPanelSubtitle: "唯一进度详情",
+    pdcaNoTaskSnapshot: "本轮无任务快照，以下为事件流",
     pdcaPanelCollapse: "收起编排面板",
     // AudioPlayResult / VideoDisplayResult（空态）
     noAudioToPlay: "无音频可播放",

@@ -350,7 +350,7 @@
 - **读取方**：桥接自建的 `SessionStateMachine` 实例只在自己内部读写，外部从不读取（真实状态由 `ChatManager/SessionRuntimeState` 与持久化 `session.state` 承担）。
 - **处置**：删除 `SessionStateBridge.ts` + `init.ts` 装配块；`stateMachineCatalog` 的 `reconcile.evidence` 改指真实持有处 `sessionRuntimeState.ts#SessionRuntimeState`；证据登记移除该文件路径；`types.ts` / `SessionStateMachine.ts` 的历史注释同步订正。
 
-### 批次 14（P2-A/P2-B 已落地 · P2-C 未实施）：PDCA 三面职责收敛
+### 批次 14（P2-A/B/C 已落地）：PDCA 三面职责收敛
 
 **结论：三面全部保留，不合并、不删除。** 三者容器不同（消息流 / 输入区 / 展开面板）、
 信息粒度不同，合并会让任一场景缺信息。只按「摘要 / 指示器 / 详情」钉死各自边界。
@@ -384,7 +384,7 @@
 |---|---|---|
 | P2-A ✅ | 消息卡去 `percent`；加「查看详情」；实时覆盖仅作用于最后一卡；`resolvePdcaEntry` 拆 `active`/`available`（「查看详情」依赖它才在终态可用，故并入本批） | 单测：卡文本不含 `%`；历史卡不随最新事件变；终态 `available=true` |
 | P2-B ✅ | 徽标抽为 `PdcaEntryBadge`：进行中「PDCA 编排」+ 蓝脉冲 / 终态「查看结果」+ 灰点；`terminal` **不参与**浮动栏常驻判据；等待审批仍由左侧主状态点承担（会话级，避免第二份判据） | 组件断言：两形态文案/点样式；点击只开合抽屉且不冒泡 |
-| P2-C | 抽屉标题区标注「唯一进度详情」；无 taskId 时只显示事件流（当前已按 `taskId &&` 跳过 `PdcaPipeline`） | 终态点「查看详情」⇒ 抽屉渲染；百分比仅出现在抽屉 |
+| P2-C ✅ | 抽屉标题区标注「唯一进度详情」；无 taskId 时只显示事件流（不造假进度，给如实提示） | 终态点「查看详情」⇒ 抽屉渲染；百分比仅出现在抽屉 |
 
 **P2-A 实施记录（已落地）**
 
@@ -411,3 +411,16 @@
 | 测试 | 新增 `pdcaEntryBadge.test.tsx` 3 例（进行中形态 / 终态形态 / 点击只开合且不冒泡） |
 
 **P2-B 验证**：client `tsc --noEmit` 通过；`vitest run` 全量 **1134 pass / 0 fail**（161 文件）；改动文件 ESLint 0 error；四个门禁 PASS（同上）。
+
+**P2-C 实施记录（已落地）**
+
+| 项 | 结果 |
+|---|---|
+| 定位标注 | 抽屉标题区新增「唯一进度详情」胶囊（`chat.pdcaPanelSubtitle`），明确百分比/计数只在此处 |
+| 无快照 | `taskId` 缺失时不渲染 `PdcaPipeline`（不造假进度），改给一行如实提示（`chat.pdcaNoTaskSnapshot`），事件流照常显示 |
+| 终态可达 | 由 P2-A 的 `available` 判据 + `pdcaDrawerStore` 开合态保证：终态点消息卡「查看详情」⇒ 抽屉渲染（集成用例覆盖） |
+| 测试 | 新增 `pdcaDrawer.test.tsx` 4 例（有 taskId / 无 taskId / 未展开与无 PDCA 不渲染 / 终态点详情驱动抽屉） |
+
+**P2-C 验证**：client `tsc --noEmit` 通过；`vitest run` 全量 **1138 pass / 0 fail**（162 文件）；改动文件 ESLint 0 error。
+
+**批次 14 收口**：三面职责 = 消息卡「摘要」/ 浮动栏徽标「指示器」/ 抽屉「唯一详情」；百分比与计数只在抽屉；消息卡与徽标不再重复进度；终态三面均可达。

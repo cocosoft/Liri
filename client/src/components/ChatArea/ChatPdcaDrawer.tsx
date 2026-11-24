@@ -60,10 +60,14 @@ export default function ChatPdcaDrawer({
     <div className="w-full px-3 pb-1">
       <div className={fluid ? "w-full" : "max-w-3xl mx-auto"}>
         <div className="rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-gray-800/90 shadow-sm overflow-hidden">
-          {/* 面板头部：标题 + 收起 */}
+          {/* 面板头部：标题 + 「唯一进度详情」定位 + taskId + 收起 */}
           <div className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-100 dark:border-gray-700/50">
             <span className="text-[11px] font-medium text-gray-600 dark:text-gray-300">
               📊 {t("chat.pdcaPanelTitle")}
+            </span>
+            {/* 批次 14（P2-C）：本面板是该会话**唯一**的进度详情来源（百分比/计数只在此） */}
+            <span className="shrink-0 px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700/60 text-[10px] text-gray-500 dark:text-gray-400">
+              {t("chat.pdcaPanelSubtitle")}
             </span>
             {taskId && (
               <span className="shrink-0 text-[10px] text-gray-400 dark:text-gray-500 font-mono truncate max-w-[12rem]">
@@ -94,6 +98,12 @@ export default function ChatPdcaDrawer({
 
           {/* 面板主体：步骤管线 + 实时事件流（限高滚动，防撑爆聊天区） */}
           <div className="max-h-[45vh] overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700/40">
+            {/* 批次 14（P2-C）：无任务快照 ⇒ 不造假进度，只如实说明下面看的是事件流 */}
+            {!taskId && (
+              <div className="px-3 py-2 text-[11px] text-gray-400 dark:text-gray-500">
+                {t("chat.pdcaNoTaskSnapshot")}
+              </div>
+            )}
             {taskId && (
               <div className="p-2">
                 <PdcaPipeline taskId={taskId} />

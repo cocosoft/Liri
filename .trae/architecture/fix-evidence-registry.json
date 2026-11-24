@@ -1,7 +1,7 @@
 {
   "$comment": "修复证据登记（生成物）：改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts；stages/flags 判据见 scripts/lint-fix-evidence.ts。",
   "version": 1,
-  "updatedAt": "2026-11-24T11:46:01.578Z",
+  "updatedAt": "2026-11-24T11:51:11.840Z",
   "stages": [
     "discovered",
     "fixed",
@@ -17513,6 +17513,32 @@
       "changelog": [],
       "reopenWhen": "徽标再次在终态谎报进行中，或终态徽标把浮动栏永久钉在屏幕上（全文见 archive/evidence-detail.jsonl#PDCA-THREE-SURFACES-P2B）",
       "notes": "① 徽标抽为 PdcaEntryBadge：active ⇒ 蓝脉冲 +「PDCA 编排」；终态 ⇒ 灰点 +「查看结果」；② terminal 不进入浮动栏常驻判据，只在其已显示时降级出现；③ 等待审批不由徽标表达（会话级，含非 PDCA 审批，左侧主状态点承担）。"
+    },
+    {
+      "id": "PDCA-THREE-SURFACES-P2C",
+      "title": "PDCA 三面职责收敛 P2-C：抽屉标注「唯一进度详情」/ 无快照不造假进度 / 终态可达",
+      "source": ".trae/specs/frontend-task-tools-governance.md §6 批次 14（P2-C）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "client/src/components/ChatArea/ChatPdcaDrawer.tsx"
+      ],
+      "tests": [
+        "client/src/components/ChatArea/__tests__/pdcaDrawer.test.tsx"
+      ],
+      "changelog": [],
+      "reopenWhen": "抽屉再次在 message card / 浮动栏之外出现第二份进度百分比，或无 taskId 时渲染假进度（全文见 archive/evidence-detail.jsonl#PDCA-THREE-SURFACES-P2C）",
+      "notes": "① 标题区加「唯一进度详情」胶囊；② taskId 缺失时不渲染 PdcaPipeline，改如实提示「本轮无任务快照，以下为事件流」；③ 终态可达由 P2-A 的 available + pdcaDrawerStore 保证，集成用例覆盖「点查看详情 ⇒ 抽屉出现」。"
     }
   ]
 }

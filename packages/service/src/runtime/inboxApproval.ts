@@ -934,15 +934,20 @@ async function expireSiblingStepCards(item: InboxItem): Promise<void> {
  * `findExistingTask` 只按"非终态 status"判定 ⇒ **该会话的幂等键永久锁死**
  * （同会话新任务恒返回旧 taskId，与已修的 deny 死锁同型）。
  * 由入口层（`main.ts`）注册到 `onInboxItemsExpired`。
+ *
+ * 2026-11-24（批次 5）：返回被中止的 taskId —— 入口层据此继续收口**阶段链父检查点**
+ * （本层不依赖 app 的 tasks 模块，跨层动作留在 entry，见 R00-001）。
  */
-export async function abortPdcaAfterExpiry(item: InboxItem): Promise<void> {
+export async function abortPdcaAfterExpiry(
+  item: InboxItem
+): Promise<string | undefined> {
   const taskId =
     item.source === 'pdca'
       ? (item.metadata?.taskId as string | undefined)
       : typeof item.metadata?.pdcaTaskId === 'string'
         ? item.metadata.pdcaTaskId
         : undefined;
-  if (!taskId) return;
+  if (!taskId) return undefined;
   try {
     const coreApi = getRuntimeCoreApi();
     const port = await coreApi?.getTaskOpsPort?.();
@@ -959,6 +964,7 @@ export async function abortPdcaAfterExpiry(item: InboxItem): Promise<void> {
       error: String(err),
     });
   }
+  return taskId;
 }
 
 /**

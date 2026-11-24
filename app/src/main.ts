@@ -1762,7 +1762,16 @@ export async function launch(options: LaunchOptions): Promise<void> {
           reconcileStuckApprovalSessions,
         } = await import('@openliri/service/runtime/inboxApproval');
         onInboxItemsExpired((item) => {
-          void abortPdcaAfterExpiry(item);
+          // 批次 5（2026-11-24）：子阶段被中止后，**当场**收口阶段链父检查点
+          // （旧实现只 abort 子任务 ⇒ 父链停在 stage_awaiting_approval，等到下次重启
+          //  才被孤儿扫描收口，并把归因误报为"进程重启"）。
+          void (async () => {
+            const abortedTaskId = await abortPdcaAfterExpiry(item);
+            if (!abortedTaskId) return;
+            const { closeOutStageChainAfterApprovalExpiry } =
+              await import('./tasks/lro/stageChainExpiry.js');
+            await closeOutStageChainAfterApprovalExpiry(abortedTaskId);
+          })();
           // 2026-11-21：普通聊天会话的审批过期 ⇒ 收口到 idle（否则侧栏永久「待审批」）
           void convergeSessionAfterApprovalExpiry(item);
         });

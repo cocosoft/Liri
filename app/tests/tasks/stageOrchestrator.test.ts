@@ -18,6 +18,7 @@ import {
   type StageChainRecord,
 } from '../../src/tasks/StageOrchestrator';
 import { readPdcaCheckpoint } from '../../src/tasks/PdcaWorkItemBridge';
+import { writePdcaCheckpoint } from '../../src/tasks/PdcaWorkItemBridge';
 
 // GAI-3：checkpoint / WorkItem 迁入 app.db（`resolveDbPath()` 读 LIRI_DATA_DIR）
 // ⇒ 隔离临时库，避免污染真实 ~/.pyapp/data/app.db
@@ -434,6 +435,94 @@ describe('StageOrchestrator — 需求追踪贯穿（D3 消费/偏差 2）', () 
     expect(manifest).toBeDefined();
     expect(manifest!.requirementId).toBe('req_abc123def456');
     expect(calls).toEqual(['requirement', 'design']); // delivery 合成阶段
+  });
+});
+
+describe('批次 5 — 阶段链收口后续跑（resumeAfterAbort）', () => {
+  it('停在审批门的阶段 ⇒ 回到审批门，已完成阶段的产物不重跑', async () => {
+    const calls: string[] = [];
+    const orch = StageOrchestrator.create(
+      'stage-abort-1',
+      '开发结算模块',
+      's-abort-1',
+      deps(calls)
+    );
+    await orch.run(); // requirement 完成 → 停在审批门
+    expect(calls).toEqual(['requirement']);
+
+    // 模拟审批卡过期 / 孤儿扫描收口父检查点
+    await writePdcaCheckpoint('stage-abort-1', {
+      phase: 'abort',
+      status: 'abort',
+      abortedBy: 'orphan_scan',
+    });
+
+    const resumedCalls: string[] = [];
+    const restored = await StageOrchestrator.fromCheckpoint(
+      'stage-abort-1',
+      deps(resumedCalls)
+    );
+    expect(restored).not.toBeNull();
+
+    const status = await restored!.resumeAfterAbort();
+    // 回到审批门 ⇒ 不重跑 requirement（产物已产出）
+    expect(resumedCalls).toEqual([]);
+    expect(status.phase).toBe('stage_awaiting_approval');
+    expect(status.stages.find((s) => s.id === 'requirement')?.artifact).toBe(
+      '产物-requirement'
+    );
+
+    // 落盘状态已复位（不再是 abort / 归因已清除）
+    const ck = await readPdcaCheckpoint('stage-abort-1');
+    expect(ck?.phase).toBe('stage_awaiting_approval');
+    expect(ck?.status).toBe('started');
+    expect(ck?.abortedBy).toBeUndefined();
+
+    // 审批后继续：只补跑 design
+    const final = await restored!.resumeAfterApproval();
+    expect(resumedCalls).toEqual(['design']);
+    expect(final.phase).toBe('completed');
+  });
+
+  it('被中断在半途的阶段 ⇒ 回落 pending 重跑（没有可用产物）', async () => {
+    const record = StageOrchestrator.create(
+      'stage-abort-2',
+      '开发结算模块',
+      's-abort-2',
+      deps([])
+    ).getStatus();
+    const requirement = record.stages.find((s) => s.id === 'requirement')!;
+    requirement.status = 'running';
+    record.phase = 'abort';
+    await writePdcaCheckpoint('stage-abort-2', {
+      ...record,
+      phase: 'abort',
+      status: 'abort',
+      abortedBy: 'startup_scan',
+    });
+
+    const calls: string[] = [];
+    const restored = await StageOrchestrator.fromCheckpoint(
+      'stage-abort-2',
+      deps(calls)
+    );
+    const status = await restored!.resumeAfterAbort();
+
+    expect(calls).toEqual(['requirement']);
+    expect(status.phase).toBe('stage_awaiting_approval');
+    expect(status.stages.find((s) => s.id === 'requirement')?.status).toBe(
+      'awaiting_approval'
+    );
+  });
+
+  it('非 abort 相位调用 ⇒ 抛 STAGE_NOT_ABORTED（不得把正常链当收口后恢复）', async () => {
+    const orch = StageOrchestrator.create(
+      'stage-abort-3',
+      'x',
+      's-abort-3',
+      deps([])
+    );
+    await expect(orch.resumeAfterAbort()).rejects.toThrow();
   });
 });
 

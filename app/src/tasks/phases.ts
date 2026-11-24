@@ -113,3 +113,15 @@ export const PDCA_PHASE_FAILED: PdcaPhase = 'failed';
 
 /** 执行/重规划阶段的单值常量（同上口径：避免裸写 `'execute'`） */
 export const PDCA_PHASE_EXECUTE: PdcaPhase = 'execute';
+
+/**
+ * 中止相位常量（2026-11-24，批次 5）。
+ *
+ * 阶段链父检查点被孤儿扫描 / 审批过期收口后 `phase='abort'`；续跑入口
+ * （`StageOrchestrator.resumeAfterAbort`）据此判定"收口后可恢复"。
+ */
+export const PDCA_PHASE_ABORT: PdcaPhase = 'abort';
+
+/** 阶段审批门相位常量（批次 5：阶段链"等审批但卡可能已不可回复"的判据） */
+export const PDCA_PHASE_STAGE_AWAITING_APPROVAL: PdcaPhase =
+  'stage_awaiting_approval';

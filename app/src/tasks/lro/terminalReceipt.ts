@@ -34,6 +34,11 @@ import {
 } from './failureRecovery.js';
 // 2026-11-08：回执里的「可 replan」以检查点为准（与 `/resume` 的 409 判据同源）
 import { readPdcaCheckpoint } from '../PdcaWorkItemBridge';
+// 批次 5（2026-11-24）：abortedBy 取值与归因判据的唯一事实源
+import {
+  ABORTED_BY_STARTUP_SCAN,
+  isApprovalExpiryAbort,
+} from './abortAttribution.js';
 
 const logger = getLogger('tasks:longRunning');
 
@@ -454,9 +459,11 @@ export function emitPdcaInterruptedReceipts(
     ).length;
     // 2026-11-24（批次 3）：归因必须按 `abortedBy` 区分 —— 旧实现把所有收口都写成"进程重启"，
     // 真机 `session_mwq5ookl21aa28ea96` 实为**审批卡过期**（`orphan_scan`）。
-    const abortedBy = String(ck.abortedBy ?? 'startup_scan');
-    const cause =
-      abortedBy === 'orphan_scan' ? '审批卡已过期未处理' : '进程重启';
+    // 批次 5：审批过期**当场**收口记为 `approval_expired`，与孤儿扫描同一归因口径。
+    const abortedBy = String(ck.abortedBy ?? ABORTED_BY_STARTUP_SCAN);
+    const cause = isApprovalExpiryAbort(abortedBy)
+      ? '审批卡已过期未处理'
+      : '进程重启';
     const kept =
       steps > 0
         ? `${steps} 步计划已保留`
@@ -467,9 +474,7 @@ export function emitPdcaInterruptedReceipts(
       steps > 0
         ? `可 POST /v1/pdca/${taskId}/resume 或 /goal resume 续跑`
         : stages > 0
-          ? abortedBy === 'orphan_scan'
-            ? '审批卡已过期，阶段链已收口；已完成阶段的产物仍保留，如需继续请重新发起任务'
-            : '阶段式计划无顶层步骤快照，无法自动续跑；已完成阶段的产物仍保留'
+          ? `已完成阶段的产物仍保留，可 /goal resume stage ${taskId} 续跑（已完成阶段不重跑）`
           : '无步骤快照，无法自动续跑';
     emitPdcaReceiptText({
       taskId,

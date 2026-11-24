@@ -921,11 +921,14 @@ describe('崩溃遗留可续跑（2026-11-08 真机 pdca_mw7d3dq3）', () => {
     expect(receipts[2]?.text).toContain('3 阶段计划已保留');
     expect(receipts[2]?.text).not.toContain('0 步');
     expect(receipts[2]?.text).not.toContain('无步骤快照，无法自动续跑');
+    // 批次 5：阶段链收口后可续跑（已完成阶段不重跑），入口写进回执
+    expect(receipts[2]?.text).toContain('/goal resume stage crash-3');
     // 归因：孤儿收口 ≠ 进程重启；已完成阶段数如实给出
     expect(receipts[3]?.text).toContain('审批卡已过期未处理');
     expect(receipts[3]?.text).not.toContain('进程重启');
     expect(receipts[3]?.text).toContain('1/3 阶段完成');
     expect(receipts[3]?.text).toContain('产物仍保留');
+    expect(receipts[3]?.text).toContain('/goal resume stage orphan-1');
   });
 });
 

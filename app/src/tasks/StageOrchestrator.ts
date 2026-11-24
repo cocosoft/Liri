@@ -22,6 +22,8 @@ import {
 import { taskOrchestrator } from './TaskOrchestrator.js';
 // 计划级失败状态（状态字面量唯一事实源；lint:state-ratchet）
 import { PLAN_STATUS_FAILED } from './TaskOrchestrator.js';
+// 批次 5（2026-11-24）：相位常量（阶段链 record.phase 与 PDCA phase 是两套词汇）
+import { PDCA_PHASE_ABORT } from './phases.js';
 import type { LongRunningTaskOrchestrator } from './LongRunningTaskOrchestrator.js';
 // P1（2026-11-10）：阶段交付物的结构化投影（纯函数；不再把步骤描述当产物下传）
 import {
@@ -71,6 +73,28 @@ export interface StageRecord {
   artifact?: string;
 }
 
+/** 阶段链父级相位（批次 5：`abort` = 孤儿扫描 / 审批过期收口后的终态，可经 resumeAfterAbort 重建） */
+export type StageChainPhase =
+  | 'running'
+  | 'stage_awaiting_approval'
+  | 'completed'
+  | 'failed'
+  | 'abort';
+
+/**
+ * 阶段链相位 → checkpoint.status（与 `pdcaCheckpointStatus` 同口径：非终态 ⇒ `started`）。
+ *
+ * 单独实现的原因：阶段链的 `phase` 词汇（`running` / `stage_awaiting_approval`）不属于
+ * `PdcaPhase`，不能直接复用该映射函数。
+ */
+function stageCheckpointStatus(
+  phase: StageChainPhase
+): 'started' | 'completed' | 'abort' {
+  if (phase === 'abort') return 'abort';
+  if (phase === 'completed') return 'completed';
+  return 'started';
+}
+
 /** 阶段链父级记录（StageChainRecord：LongTaskRecord 实际承载类型） */
 export interface StageChainRecord {
   taskId: string;
@@ -78,7 +102,7 @@ export interface StageChainRecord {
   sessionId: string;
   currentStage: StageId;
   stages: StageRecord[];
-  phase: 'running' | 'stage_awaiting_approval' | 'completed' | 'failed';
+  phase: StageChainPhase;
   /** D4（M4）：跨阶段 token 累计（阶段边界显式回写） */
   totalTokens: number;
   /** D4：成本护栏上限（0 = 不限制） */
@@ -356,6 +380,13 @@ export class StageOrchestrator {
     await writePdcaCheckpoint(this.record.taskId, {
       ...this.record,
       phase: this.record.phase,
+      // 批次 5（2026-11-24）：status 与 phase 联动落盘 —— 收口后经 resumeAfterAbort 恢复时，
+      // 必须把孤儿扫描写的 `status='abort'` 改回活跃值，否则幂等键/启动扫描仍按终态处理。
+      status: stageCheckpointStatus(this.record.phase),
+      // 恢复（非 abort）后清除收口归因，避免旧扫描结论继续被回执/续跑判据读到。
+      ...(this.record.phase === PDCA_PHASE_ABORT
+        ? {}
+        : { abortedBy: undefined, abortedAt: undefined }),
     });
   }
 
@@ -515,6 +546,42 @@ export class StageOrchestrator {
       (s) => s.status === 'awaiting_approval'
     );
     if (pending) pending.status = 'completed';
+    this.record.phase = 'running';
+    await this.persist();
+    return this.run();
+  }
+
+  /**
+   * 批次 5（2026-11-24）：阶段链**收口后**续跑（审批卡过期 / 启动孤儿扫描之后）。
+   *
+   * 与 `resumeAfterApproval` 的分工：
+   * - `resumeAfterApproval` 只接受 `phase='stage_awaiting_approval'`（审批卡还挂着）；
+   * - 本方法只接受 `phase='abort'`，并保证 **已完成阶段不重跑**（`run()` 天然跳过 completed）：
+   *   - 收口前停在审批门的阶段（`awaiting_approval`，产物已产出）⇒ 回到审批门，
+   *     由 `/goal approve stage` 或编排面板继续，**不重新生成产物**；
+   *   - 被中断在半途的 `running` 阶段没有可用产物 ⇒ 回落 `pending` 重新执行。
+   */
+  async resumeAfterAbort(): Promise<StageChainRecord> {
+    if (this.record.phase !== PDCA_PHASE_ABORT) {
+      throw new AppError(
+        'Stage orchestrator is not aborted',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        'STAGE_NOT_ABORTED'
+      );
+    }
+    for (const stage of this.record.stages) {
+      if (stage.status === 'running') stage.status = 'pending';
+    }
+    const awaiting = this.record.stages.find(
+      (s) => s.status === 'awaiting_approval'
+    );
+    if (awaiting) {
+      this.record.currentStage = awaiting.id;
+      this.record.phase = 'stage_awaiting_approval';
+      await this.persist();
+      return this.record;
+    }
     this.record.phase = 'running';
     await this.persist();
     return this.run();

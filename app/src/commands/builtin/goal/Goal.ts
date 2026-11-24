@@ -211,6 +211,78 @@ export default {
       };
     }
 
+    // 批次 5（2026-11-24）：阶段链**收口后**续跑（审批卡过期 / 孤儿扫描把父链标 abort）。
+    //
+    // 与普通 `/goal resume` 的区别：阶段链没有顶层 steps，`resumeFromCheckpoint` 无法重建；
+    // 这里走 `StageOrchestrator.resumeAfterAbort()` —— 已完成阶段不重跑，
+    // 停在审批门的阶段回到审批门（随后用 `/goal approve stage` 继续）。
+    if (rawId === 'stage') {
+      const stageTaskId = args[1];
+      if (!stageTaskId) {
+        return {
+          success: false,
+          type: 'error',
+          error: '请提供阶段链任务ID',
+          message: '用法: /goal resume stage <taskId>',
+        };
+      }
+      try {
+        const { StageOrchestrator, createDefaultStageRunner } =
+          await import('@modules/tasks/StageOrchestrator.js');
+        const stageOrch = await StageOrchestrator.fromCheckpoint(stageTaskId, {
+          runStage: createDefaultStageRunner(),
+        });
+        if (!stageOrch) {
+          return {
+            success: false,
+            type: 'error',
+            error: `任务 ${stageTaskId} 不是阶段链任务`,
+            message: `任务 ${stageTaskId} 不是阶段链任务（无 stages[] checkpoint）。`,
+          };
+        }
+        const status = await stageOrch.resumeAfterAbort();
+        const doneStages = status.stages.filter(
+          (s) => s.status === 'completed'
+        ).length;
+        const next =
+          status.phase === 'stage_awaiting_approval'
+            ? `已回到审批门：用 /goal approve stage ${stageTaskId} 继续`
+            : status.phase === 'completed'
+              ? '阶段链已完成'
+              : status.phase === 'failed'
+                ? '阶段链执行失败'
+                : '阶段链继续执行中';
+        context.onDone?.(`任务 ${stageTaskId} 阶段链已恢复`, {
+          display: 'system',
+        });
+        return {
+          success: true,
+          type: 'text',
+          message:
+            `任务 ${stageTaskId} 阶段链已恢复（phase: ${status.phase}）。\n` +
+            `进度: ${doneStages}/${status.stages.length} 阶段完成。\n${next}`,
+          data: {
+            taskId: stageTaskId,
+            phase: status.phase,
+            completed: doneStages,
+            total: status.stages.length,
+          },
+        };
+      } catch (err) {
+        await handleError(err, {
+          module: 'commands:goal',
+          action: 'resume_stage',
+          context: { taskId: stageTaskId },
+        });
+        return {
+          success: false,
+          type: 'error',
+          error: String(err),
+          message: `任务 ${stageTaskId} 阶段链恢复失败: ${String(err)}`,
+        };
+      }
+    }
+
     const all = await listPdcaCheckpoints();
     const active = all.filter(
       (ck) => !PDCA_TERMINAL_PHASES.has(ck.phase as string)
@@ -403,6 +475,7 @@ export default {
         '/goal list             - 列出进行中的任务（跨重启恢复入口）',
         '/goal start <描述>      - 启动新的 PDCA 任务（计划→执行→检查→总结）',
         '/goal resume <taskId>   - 从 checkpoint 恢复执行（断点续跑）',
+        '/goal resume stage <taskId> - 阶段链收口后续跑（已完成阶段不重跑）',
         '/goal approve <taskId>  - 批准待审批的计划并继续执行',
         '/goal reject <taskId>   - 拒绝并中止任务',
         '/goal help              - 显示此帮助信息',

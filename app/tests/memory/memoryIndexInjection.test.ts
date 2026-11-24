@@ -129,4 +129,46 @@ describe('维护期重建索引（runMaintenancePass → MEMORY.md）', () => {
     expect(entryLines.some((l) => l.includes('[提交流程]('))).toBe(true);
     expect(entryLines.every((l) => l.includes(' — '))).toBe(true);
   });
+
+  it('P2-1：按价值排序（重要度优先），已过期条目不上榜', async () => {
+    const root = makeMemoryRoot();
+    const manager = new MemoryManagerImpl(root);
+
+    await manager.createMemory({
+      content: '低价值的新记忆',
+      metadata: createMemoryMetadata({
+        name: '低价值',
+        type: 'conversation',
+        importance: 0.2,
+      }),
+    });
+    await manager.createMemory({
+      content: '高价值的旧记忆',
+      metadata: createMemoryMetadata({
+        name: '高价值',
+        type: 'decision',
+        importance: 0.9,
+      }),
+    });
+    await manager.createMemory({
+      content: '已过期记忆',
+      metadata: createMemoryMetadata({
+        name: '过期',
+        type: 'conversation',
+        expiresAt: new Date(Date.now() - 86_400_000),
+      }),
+    });
+
+    await manager.runMaintenancePass();
+
+    const index = readFileSync(join(root, 'global', 'MEMORY.md'), 'utf-8');
+    const entryLines = index
+      .split('\n')
+      .filter((line) => line.startsWith('- ['));
+
+    expect(index).toContain('共 2 条');
+    expect(index).not.toContain('[过期](');
+    expect(entryLines[0]).toContain('[高价值](');
+    expect(entryLines[1]).toContain('[低价值](');
+  });
 });

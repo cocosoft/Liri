@@ -1065,8 +1065,23 @@ export class MemoryStoreImpl implements MemoryStore {
       }
     }
 
-    // 按更新时间排序（最新的在前）
-    memories.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+    const now = Date.now();
+    // P2-1 Promote-lite（2026-11-25）：注入层只读头部约 200 行 ⇒
+    // ① 已过期但尚未清理的条目不进索引（索引只描述"仍有效"的记忆）；
+    // ② 顺序 = 置顶 → importance 降序 → updatedAt 降序，让高价值条目优先进入注入窗口。
+    const active = memories.filter(
+      (m) => !m.metadata.expiresAt || new Date(m.metadata.expiresAt).getTime() > now
+    );
+    active.sort((a, b) => {
+      const pinnedDiff =
+        Number(b.metadata.isPinned ?? false) -
+        Number(a.metadata.isPinned ?? false);
+      if (pinnedDiff !== 0) return pinnedDiff;
+      const importanceDiff =
+        (b.metadata.importance ?? 0.5) - (a.metadata.importance ?? 0.5);
+      if (importanceDiff !== 0) return importanceDiff;
+      return b.updatedAt.getTime() - a.updatedAt.getTime();
+    });
 
     // P0-1（2026-11-25）：改为**紧凑索引**（每条一行）。原实现每条记忆占 8+ 行，
     // 200 行上限只能装下约 25 条；而注入层（`buildMemoryIndexSection`）读的正是本文件。
@@ -1074,10 +1089,11 @@ export class MemoryStoreImpl implements MemoryStore {
       '# Memory Index',
       '',
       '> 自动生成，勿手改。每行 `- [标题](文件.md) — 一行钩子`；注入层只载入头部约 200 行。',
+      '> 排序：置顶 → 重要度降序 → 更新时间降序；已过期条目不上榜。',
       '',
-      `共 ${memories.length} 条。`,
+      `共 ${active.length} 条。`,
     ];
-    for (const memory of memories) {
+    for (const memory of active) {
       const title = toIndexLine(memory.metadata.name || memory.id);
       const hook = toIndexLine(
         memory.metadata.description || memory.content || ''

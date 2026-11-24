@@ -119,6 +119,12 @@ export class UnifiedDreamCycle {
     let coldArchived = 0;
     const processedSessionIds: string[] = [];
     const processedKnowledgeFiles: string[] = [];
+    /**
+     * AutoDream 是否真正执行过（false = 被门槛/节流/锁跳过）。
+     * 跳过时本周期不会再收到 `DREAM_*`，需在**周期收尾**按最终状态补发一条，
+     * 否则伙伴日志/统计与梦境周期不一致（方案 B）。
+     */
+    let autoDreamRan = false;
 
     // ──── 检查点 ────
     const checkpointDir = join(resolveDataSubDir('dream'), 'checkpoints');
@@ -240,22 +246,12 @@ export class UnifiedDreamCycle {
       });
 
       try {
-        // 方案 B（2026-11-25）：手动触发强制本轮整合（跳过 AutoDream 的 4h/节流/会话数门槛）；
-        // AutoDream 被跳过时它不会发 DREAM_*，而本周期照常完成 ⇒ 在这里补发周期级事件，
-        // 保证伙伴梦境日志/统计与梦境周期一致（不再"周期完成、伙伴无感"）。
-        const autoDreamRan = await executeAutoDream({
+        // 方案 B（2026-11-25）：手动触发强制本轮整合（跳过 AutoDream 的 4h/节流/会话数门槛）。
+        // AutoDream 被跳过时它不会发 DREAM_* ⇒ 由周期收尾统一补发（见 buildRecord 之后），
+        // 这样补发事件的 status/统计与周期**最终结果**一致（不再提前宣告"完成"）。
+        autoDreamRan = await executeAutoDream({
           force: source === 'manual',
         });
-        if (!autoDreamRan) {
-          globalEventBus.publish(SystemEvents.DREAM_COMPLETED, {
-            type: 'dream:completed',
-            taskId: cycleId,
-            summary: `梦境周期完成：整理 ${sessionsProcessed} 条会话，产出 ${insights.length} 条洞察`,
-            sessionsCount: sessionsProcessed,
-            insightsGenerated: insights.length,
-            timestamp: Date.now(),
-          });
-        }
       } catch (e) {
         errors.push(`AutoDream 执行失败: ${String(e)}`);
         void handleError(e, {
@@ -602,6 +598,26 @@ export class UnifiedDreamCycle {
 
     // 持久化
     await this.persistence.saveCycle(record);
+
+    // 方案 B（2026-11-25）：AutoDream 被门槛/节流/锁跳过时不会有 `DREAM_*`，
+    // 这里按周期**最终状态**补发一条伙伴事件 ⇒ 每次梦都进伙伴日志/统计，
+    // 且失败周期不会被误记为"完成"。
+    if (!autoDreamRan) {
+      const failed = record.status === 'failed';
+      globalEventBus.publish(
+        failed ? SystemEvents.DREAM_FAILED : SystemEvents.DREAM_COMPLETED,
+        {
+          type: failed ? 'dream:failed' : 'dream:completed',
+          taskId: cycleId,
+          summary: failed
+            ? `梦境周期失败：${record.errors[0] ?? '未知错误'}`
+            : `梦境周期完成：整理 ${record.sessionsProcessed} 条会话，产出 ${record.insights.length} 条洞察`,
+          sessionsCount: record.sessionsProcessed,
+          insightsGenerated: record.insights.length,
+          timestamp: Date.now(),
+        }
+      );
+    }
 
     // 3-4（2026-09-03）：SQL 镜像到 app.db dream_cycles（按时间窗/触发源 SQL 可查询）；
     // fire-and-forget，镜像失败由内部 handleError 降级，不阻塞周期收尾

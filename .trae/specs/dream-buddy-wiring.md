@@ -202,5 +202,7 @@ A 之外的后续项：**B** = dream→buddy 事件断点（见 §7.1，已实�
 
 - `AutoDream.executeAutoDream(context?)` 改返回 `boolean`（true = 本轮**真正执行**并已 emit `DREAM_*`；false = 被 `minHours` / 10min 节流 / `minSessions` / 锁 / 未初始化跳过）；
 - 新增 `AutoDreamRunOptions.force`：`UnifiedDreamCycle` 在**手动触发**（`source==='manual'`）时传 `{ force: true }`，跳过三道时间/数量门槛；
-- `UnifiedDreamCycle` 在 `false` 时补发周期级 `SystemEvents.DREAM_COMPLETED`（taskId = cycleId，摘要来自周期统计）⇒ 伙伴梦境日志/统计与周期一一对应，不再"周期完成、伙伴无感"；
+- `UnifiedDreamCycle` 记录 `autoDreamRan`，并在**周期收尾**（`saveCycle` 之后）于 `false` 时按最终状态补发
+  `SystemEvents.DREAM_COMPLETED` / `DREAM_FAILED`（taskId = cycleId，摘要取周期最终统计）⇒ 伙伴日志/统计与周期一一对应，
+  失败周期不会被提前误记为"完成"；
 - 回归用例：`app/tests/dream/autoDreamSkipSignal.test.ts`（未初始化 ⇒ false，调用方据此补发）。

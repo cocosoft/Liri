@@ -1,7 +1,7 @@
 # 梦境 × 前端 × 伙伴系统 · 接线排查与修复方案（2026-11-25）
 
 > 来源：用户提问「前后端梦境模块是否连通？伙伴系统是否与梦境连接？」+ 全仓只读取证。
-> 状态：**阶段 A 已实施（P0-1 + P0-2，2026-11-25）**；阶段 B/C/D 待执行。
+> 状态：**阶段 A/B 已实施（2026-11-25：P0-1/P0-2/P0-3/P1-1）**；阶段 C/D 待执行。
 > 约束：不新建第二套梦境/伙伴实现；删除类动作遵循 `code-deletion.md`（先摘入口 → 观察 → 再删）。
 
 ---
@@ -93,15 +93,24 @@
 桌面通知是独立通道，不构成双重消费。payload 用 `status` 区分 completed/partial/failed，
 body 优先取 `insights[0]`，回退复用既有 `dream.notifyTask`（不新增 i18n key）。
 
-### P0-3 伙伴梦境详情改真实数据
+### P0-3 伙伴梦境详情改真实数据 —— ✅ 已实施（2026-11-25）
 
 - `BuddyDreamDetail` 改用 `/v1/buddy/dreams`（或 `/v1/memory/dream/cycles`）拉取最近记录，
   移除挂载即置空逻辑；空态显示"暂无梦境记录"。
 
-### P1-1 `app/src/tasks/dream/*` 处置（先标注，不删）
+**落地细节**：改用 `/v1/buddy/dreams`（伙伴梦境日志，梦境事件落盘的真实来源；与
+`DreamLogTab` 的执行日志同源但展示口径不同）。移除无数据来源的「心情 / 符号 / 时长」
+虚构字段，改为展示类型（开始/完成/失败）、时间、摘要、会话数与洞察数；加载态复用
+`buddy.loadingDreamLog`，失败经 `handleClientError` 记录后显示空态。
+
+### P1-1 `app/src/tasks/dream/*` 处置（先标注，不删） —— ✅ 已标注（2026-11-25）
 
 - 按 `code-deletion.md`：先确认零构造点（已取证），在本轮**只加 `@deprecated` + 文件头说明**，
   观察期后再删；`init.ts` 心跳空分支同步加注释指向本方案。
+
+**落地细节**：`DreamPhases.ts` / `ForkedDreamExecutor.ts` / `dreamWorker.ts` 三个文件头已加
+`@deprecated` 与"零构造点 / 真实管线为 DreamEngine"说明（`dreamWorker` 为按路径拉起，属 CD01
+动态入口盲区，已在注释中点明）；`init.ts` 心跳 `case 'dream'` 注释指向本方案。**未删除任何代码。**
 
 ### P1-2 analytics 口径
 
@@ -124,7 +133,7 @@ body 优先取 `insights[0]`，回退复用既有 `dream.notifyTask`（不新增
 | 阶段 | 范围 | 验收 |
 |---|---|---|
 | **A（本轮，✅ 已完成 2026-11-25）** | P0-1 + P0-2 | 手动 dream 后 `dream_cycles` 有记录 + SSE 广播；伙伴通知订阅名一致；`typecheck` + 相关测试 |
-| B | P0-3 + P1-1 标注 | 伙伴梦境详情展示真实数据；空转文件标注完成 |
+| B（✅ 已完成 2026-11-25） | P0-3 + P1-1 标注 | 伙伴梦境详情展示真实数据；空转文件标注完成 |
 | C | P1-2 + P1-3 | 文档口径一致；导航唯一 |
 | D | P2-1 设计落地 | 伙伴可读记忆（另立 spec 细化） |
 

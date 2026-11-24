@@ -1,3 +1,10 @@
+/**
+ * @deprecated 2026-11-25（`.trae/specs/dream-buddy-wiring.md` P1-1）：本目录**零构造点**。
+ *
+ * 真实梦境管线为 `packages/dream/src/dream/DreamEngine`（`UnifiedDreamCycle`）；
+ * 本执行器未被任何入口接线（仅被同目录 `DreamPhases` 引用，而后者亦无构造点）。
+ * 按 `code-deletion.md` CD05 先标记观察，暂不删除；观察期后仍无消费者再删。
+ */
 import { fork, ChildProcess } from 'child_process';
 import path from 'path';
 import { EventEmitter } from 'events';

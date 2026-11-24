@@ -1,76 +1,87 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
 import { useBuddyStore } from "../../stores/buddyStore";
+import { dreamService } from "../../services/backgroundTaskService";
+import type { DreamLogEntry } from "../../types";
+import { currentLocale } from "../../utils/format";
+import { handleClientError } from "@/utils/handleError";
 
-interface DreamEntry {
-  id: string;
-  date: string;
-  title: string;
-  content: string;
-  mood: string;
-  duration: number;
-  symbols: string[];
+const DREAM_TYPE_LABELS: Record<string, string> = {
+  "dream:started": "buddy.dreamTypeStarted",
+  "dream:completed": "buddy.dreamTypeCompleted",
+  "dream:failed": "buddy.dreamTypeFailed",
+};
+
+const DREAM_TYPE_ICONS: Record<string, string> = {
+  "dream:started": "🌙",
+  "dream:completed": "✨",
+  "dream:failed": "💤",
+};
+
+/** 伙伴梦境记录条数（最近 N 条） */
+const RECENT_DREAM_LIMIT = 20;
+
+function formatTime(ts: number): string {
+  return new Date(ts).toLocaleString(currentLocale(), {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
+/**
+ * 伙伴梦境详情
+ *
+ * 2026-11-25（P0-3）：此前挂载即 `setDreams([])` —— 页面永远空白。
+ * 现改用 `/v1/buddy/dreams`（伙伴梦境日志，梦境事件落盘的真实来源），
+ * 移除无数据来源的「心情 / 符号 / 时长」虚构字段。
+ */
 function BuddyDreamDetail() {
   const { t } = useTranslation();
   const { companion } = useBuddyStore();
-  const [dreams, setDreams] = useState<DreamEntry[]>([]);
-  const [selectedDream, setSelectedDream] = useState<DreamEntry | null>(null);
+  const [dreams, setDreams] = useState<DreamLogEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedDream, setSelectedDream] = useState<DreamLogEntry | null>(
+    null,
+  );
 
   useEffect(() => {
-    setDreams([]);
+    let cancelled = false;
+    setIsLoading(true);
+    dreamService
+      .getDreamLogs(RECENT_DREAM_LIMIT)
+      .then((res) => {
+        if (!cancelled) setDreams(res.logs);
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        handleClientError(e, {
+          module: "components:BuddyDreamDetail",
+          action: "getDreamLogs",
+        });
+        setDreams([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
-
-  const getMoodEmoji = (mood: string) => {
-    switch (mood) {
-      case "excited":
-        return "🤩";
-      case "peaceful":
-        return "😌";
-      case "adventurous":
-        return "🌟";
-      case "scared":
-        return "😨";
-      case "happy":
-        return "😊";
-      default:
-        return "💭";
-    }
-  };
-
-  const getMoodText = (mood: string) => {
-    switch (mood) {
-      case "excited":
-        return t("buddy.moodExcited");
-      case "peaceful":
-        return t("buddy.moodPeaceful");
-      case "adventurous":
-        return t("buddy.moodAdventurous");
-      case "scared":
-        return t("buddy.moodScared");
-      case "happy":
-        return t("buddy.moodHappy");
-      default:
-        return t("common.unknown");
-    }
-  };
-
-  const formatDuration = (minutes: number, t: TFunction) => {
-    if (minutes < 60) return t("buddy.durationMinutes", { n: minutes });
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return (
-      t("buddy.durationHours", { n: hours }) +
-      (mins > 0 ? t("buddy.durationMinutes", { n: mins }) : "")
-    );
-  };
 
   if (!companion) {
     return (
       <div className="p-4 text-center text-gray-400">
         {t("buddy.noBuddyData")}
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="p-4 text-center text-gray-400 dark:text-gray-500">
+        {t("buddy.loadingDreamLog")}
       </div>
     );
   }
@@ -88,44 +99,32 @@ function BuddyDreamDetail() {
             {t("buddy.backToList")}
           </button>
 
-          <div
-            className={`rounded-lg p-4 mb-4 ${
-              selectedDream.mood === "excited"
-                ? "bg-purple-100 dark:bg-purple-900/20"
-                : selectedDream.mood === "peaceful"
-                  ? "bg-blue-100 dark:bg-blue-900/20"
-                  : "bg-green-100 dark:bg-green-900/20"
-            }`}
-          >
+          <div className="rounded-lg p-4 mb-4 bg-purple-100 dark:bg-purple-900/20">
             <div className="flex items-center justify-between mb-2">
               <span className="text-3xl">
-                {getMoodEmoji(selectedDream.mood)}
+                {DREAM_TYPE_ICONS[selectedDream.type] ?? "💭"}
               </span>
               <span className="text-sm text-gray-500">
-                {selectedDream.date}
+                {formatTime(selectedDream.timestamp)}
               </span>
             </div>
-            <h4 className="text-xl font-medium mb-2">{selectedDream.title}</h4>
+            <h4 className="text-xl font-medium mb-2">
+              {t(
+                DREAM_TYPE_LABELS[selectedDream.type] ??
+                  "buddy.dreamTypeStarted",
+              )}
+            </h4>
             <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
-              {selectedDream.content}
+              {selectedDream.summary}
             </p>
             <div className="flex items-center gap-4 text-xs text-gray-500">
-              <span>⏱ {formatDuration(selectedDream.duration, t)}</span>
               <span>
-                {t("buddy.moodLabel", {
-                  mood: getMoodText(selectedDream.mood),
-                })}
+                {t("buddy.statSessions")}: {selectedDream.sessionsCount}
+              </span>
+              <span>
+                {t("buddy.statInsights")}: {selectedDream.insightsGenerated}
               </span>
             </div>
-            {selectedDream.symbols.length > 0 && (
-              <div className="mt-3 flex gap-2">
-                {selectedDream.symbols.map((symbol, i) => (
-                  <span key={i} className="text-2xl">
-                    {symbol}
-                  </span>
-                ))}
-              </div>
-            )}
           </div>
         </div>
       ) : (
@@ -142,20 +141,26 @@ function BuddyDreamDetail() {
                 className="w-full text-left p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="font-medium">{dream.title}</span>
-                  <span className="text-xl">{getMoodEmoji(dream.mood)}</span>
+                  <span className="font-medium">
+                    {t(
+                      DREAM_TYPE_LABELS[dream.type] ?? "buddy.dreamTypeStarted",
+                    )}
+                  </span>
+                  <span className="text-xl">
+                    {DREAM_TYPE_ICONS[dream.type] ?? "💭"}
+                  </span>
                 </div>
                 <p className="text-xs text-gray-500 truncate">
-                  {dream.content}
+                  {dream.summary}
                 </p>
                 <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
-                  <span>{dream.date}</span>
-                  <span>{formatDuration(dream.duration, t)}</span>
-                  <div className="flex gap-1">
-                    {dream.symbols.slice(0, 3).map((s, i) => (
-                      <span key={i}>{s}</span>
-                    ))}
-                  </div>
+                  <span>{formatTime(dream.timestamp)}</span>
+                  <span>
+                    {t("buddy.statSessions")}: {dream.sessionsCount}
+                  </span>
+                  <span>
+                    {t("buddy.statInsights")}: {dream.insightsGenerated}
+                  </span>
                 </div>
               </button>
             ))

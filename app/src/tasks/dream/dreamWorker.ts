@@ -1,3 +1,11 @@
+/**
+ * @deprecated 2026-11-25（`.trae/specs/dream-buddy-wiring.md` P1-1）：本 worker 由
+ * `ForkedDreamExecutor` 按**路径**拉起（静态引用天然稀疏，属 CD01 动态入口盲区），
+ * 而该执行器本身无构造点 ⇒ 整条链路未被接线。
+ *
+ * 真实梦境管线为 `packages/dream/src/dream/DreamEngine`（`UnifiedDreamCycle`）。
+ * 按 `code-deletion.md` CD05 先标记观察，暂不删除；观察期后仍无消费者再删。
+ */
 import { parentPort } from 'worker_threads';
 import { configManager } from '@openliri/infra/config';
 

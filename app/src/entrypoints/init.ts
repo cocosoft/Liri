@@ -752,7 +752,8 @@ async function startDeferredPrefetches(): Promise<void> {
                   startAutoArchive();
                   return true;
                 case 'dream':
-                  // 记忆整合 — 当前为空操作，后续可接入 MemoryConsolidator
+                  // 记忆整合 — 当前为空操作（2026-11-25 `.trae/specs/dream-buddy-wiring.md` P1-1：
+                  // 真实梦境由 DreamEngine / UnifiedDreamCycle 驱动，本分支不接线；如无需求后续应移除该 case）
                   return true;
                 default:
                   return false;

@@ -344,8 +344,15 @@ export class BashTool extends BaseTool {
   }> {
     const hash = hashCommandForExecution(command);
     // 2026-11-24：本会话内「该工具都允许」（`allowlist_tool_session`）⇒ 不再重复弹卡。
-    // 仅豁免 ask 交互；危险命令 / 路径 / 沙箱等硬拦截仍由下方安全层逐条执行。
-    if (this.approvedRegistry.isToolAllowedForSession(sessionId, 'bash')) {
+    // P4 收紧：只覆盖「批准时那条命令的前缀」与「只读命令（含纯只读串联）」；
+    // 其余命令照旧走审批。硬拦截（危险命令 / 路径 / 沙箱）仍由下方安全层逐条执行。
+    if (
+      this.approvedRegistry.isCommandAllowedForSession(
+        sessionId,
+        'bash',
+        command
+      )
+    ) {
       return { hash, bypassAsk: true, source: 'registry' };
     }
     const registryHit = this.approvedRegistry.isApproved(

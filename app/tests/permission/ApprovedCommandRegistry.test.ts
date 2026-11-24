@@ -72,26 +72,59 @@ describe('ApprovedCommandRegistry 放行缓存', () => {
     reg.dispose();
   });
 
-  // 2026-11-24（用户实测「审批后又是一张新卡」）：模型连续换写法时，
-  // 一次「本会话内此工具都允许」应覆盖该工具的后续不同命令；会话结束即失效。
-  it('会话级工具放行：覆盖不同命令，clearSession 后失效', () => {
+  // 2026-11-24（P4 收紧）：一次「本会话内此工具都允许」只覆盖
+  // 「批准时那条命令的**前缀**」与「**只读**命令（含纯只读串联）」，不再对整个工具无条件放行。
+  it('会话级工具放行：仅同前缀 / 只读命令；clearSession 后失效', () => {
     const reg = new ApprovedCommandRegistry(60_000, false);
-    const cmdA = 'bun -e "console.log(1)"';
-    const cmdB = 'bun -e "console.log(2)"';
-    reg.approve('session-1', hashCommandForExecution(cmdA), cmdA);
-    // 不同命令默认不命中（既有语义不变）
-    expect(reg.isApproved('session-1', hashCommandForExecution(cmdB))).toBe(
+    const approved = 'bun -e "console.log(1)"';
+    reg.allowToolForSession('session-1', 'bash', approved);
+
+    // ① 同前缀（`bun -e`）⇒ 放行
+    expect(
+      reg.isCommandAllowedForSession(
+        'session-1',
+        'bash',
+        'bun -e "console.log(2)"'
+      )
+    ).toBe(true);
+    // ② 只读单条 / 纯只读串联 ⇒ 放行（判据复用安全层 checkCompoundReadOnly）
+    expect(reg.isCommandAllowedForSession('session-1', 'bash', 'ls -la')).toBe(
+      true
+    );
+    expect(
+      reg.isCommandAllowedForSession('session-1', 'bash', 'cd . && ls -la')
+    ).toBe(true);
+    // ③ 不同前缀的非只读命令 ⇒ **不放行**（P4 收紧的核心）
+    expect(
+      reg.isCommandAllowedForSession('session-1', 'bash', 'rmdir /s /q tmp')
+    ).toBe(false);
+    expect(
+      reg.isCommandAllowedForSession('session-1', 'bash', 'bun run test')
+    ).toBe(false);
+    // ④ 其他会话 / 其他工具不受影响
+    expect(reg.isCommandAllowedForSession('session-2', 'bash', 'ls')).toBe(
       false
     );
-    // 会话级工具放行后 ⇒ 该工具任意命令都视为已放行
-    reg.allowToolForSession('session-1', 'bash');
-    expect(reg.isToolAllowedForSession('session-1', 'bash')).toBe(true);
-    // 其他会话 / 其他工具不受影响
-    expect(reg.isToolAllowedForSession('session-2', 'bash')).toBe(false);
-    expect(reg.isToolAllowedForSession('session-1', 'file_write')).toBe(false);
-    // 会话结束 ⇒ 回收
+    expect(
+      reg.isCommandAllowedForSession('session-1', 'file_write', 'ls')
+    ).toBe(false);
+    // ⑤ 会话结束 ⇒ 回收
     reg.clearSession('session-1');
-    expect(reg.isToolAllowedForSession('session-1', 'bash')).toBe(false);
+    expect(reg.isCommandAllowedForSession('session-1', 'bash', 'ls -la')).toBe(
+      false
+    );
+    reg.dispose();
+  });
+
+  it('会话级工具放行：未带批准命令 ⇒ 仅只读放行（fail-closed）', () => {
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    reg.allowToolForSession('session-1', 'bash');
+    expect(reg.isCommandAllowedForSession('session-1', 'bash', 'ls -la')).toBe(
+      true
+    );
+    expect(
+      reg.isCommandAllowedForSession('session-1', 'bash', 'bun -e "1"')
+    ).toBe(false);
     reg.dispose();
   });
 

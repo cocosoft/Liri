@@ -107,14 +107,14 @@ describe('BashTool 放行通道（P0-4）', () => {
     reg.dispose();
   });
 
-  // 2026-11-24（用户实测「审批后又是一张新卡」）：本会话内「该工具都允许」按**工具名**
-  // 放行，模型换一条不同命令也不再触发审批；危险命令的硬拦截不受影响。
-  it('本会话工具级放行：不同命令不再要求审批，硬拦截仍生效', async () => {
+  // 2026-11-24（用户实测「审批后又是一张新卡」）：本会话内「该工具都允许」按
+  // **命令前缀 + 只读** 放行（P4 收紧），同前缀命令不再触发审批；硬拦截不受影响。
+  it('本会话工具级放行：同前缀命令不再要求审批，硬拦截仍生效', async () => {
     const reg = new ApprovedCommandRegistry(60_000, false);
-    reg.allowToolForSession('session-1', 'bash');
+    reg.allowToolForSession('session-1', 'bash', 'bun -e "console.log(0)"');
     const tool = new BashTool(reg);
 
-    // 非只读命令（默认会走 ask）⇒ 会话级工具放行后直接执行
+    // 同前缀（`bun -e`）的非只读命令（默认会走 ask）⇒ 直接执行
     const allowed = await tool.execute(
       { command: 'bun -e "console.log(\'session-allow-ok\')"' },
       makeContext('session-1')

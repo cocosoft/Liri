@@ -93,8 +93,9 @@ export async function isCommandApproved(
         taskId
       ) ||
       registry.isCommandNameApproved(sessionId, command, taskId) ||
-      // 2026-11-24：本会话内「该工具都允许」——不同命令也不再视为"等待审批"
-      registry.isToolAllowedForSession(sessionId, toolName)
+      // 2026-11-24：本会话内「该工具都允许」——P4 收紧：仅同前缀 / 只读命令
+      // 才不算"等待审批"，其余命令仍需审批（与 BashTool / PermissionChecker 同口径）
+      registry.isCommandAllowedForSession(sessionId, toolName, command)
     );
   } catch {
     // registry 不可用时按未批准处理，不影响安全底线（ask 仍会提交卡片）

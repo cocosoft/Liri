@@ -789,11 +789,13 @@ export class PermissionChecker {
             taskId
           )) ||
         // 2026-11-24：本会话内「该工具都允许」（`allowlist_tool_session`）——
-        // 模型连续换写法时不再每条都建卡；仅 shell 工具、且硬拦截仍在执行层生效
+        // P4 收紧：仅当该命令与批准时的**前缀**一致或本身**只读**（含纯只读串联）才跳过建卡；
+        // 其余命令照旧提交审批。硬拦截仍在执行层生效。
         (isShellToolName(toolName) &&
-          getApprovedCommandRegistry().isToolAllowedForSession(
+          getApprovedCommandRegistry().isCommandAllowedForSession(
             sessionId,
-            toolName
+            toolName,
+            typeof input.command === 'string' ? input.command : ''
           ))
       ) {
         logger.info('放行缓存已命中，跳过审批卡提交', {

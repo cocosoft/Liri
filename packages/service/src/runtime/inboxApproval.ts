@@ -610,7 +610,8 @@ async function applyApprovalSideEffects(
       reply === 'allowlist_command' || selectedOption === 'allowlist_command';
     await persistAllowlistRule(current, commandLevel);
   }
-  // 2026-11-24：「本会话内，此工具都允许」——按工具名写内存放行（随会话清理）
+  // 2026-11-24：「本会话内，此工具都允许」——按工具名写内存放行（随会话清理）。
+  // P4 收紧：同时带上**批准时的命令** ⇒ 只放行「同前缀命令 + 只读命令」。
   if (isSessionToolAllowReply(reply, selectedOption)) {
     const toolName =
       typeof current.metadata?.toolName === 'string'
@@ -619,7 +620,10 @@ async function applyApprovalSideEffects(
     if (toolName) {
       getApprovedCommandRegistry().allowToolForSession(
         current.sessionId,
-        toolName
+        toolName,
+        typeof current.metadata?.command === 'string'
+          ? current.metadata.command
+          : undefined
       );
     } else {
       logger.warn('「本会话工具级放行」缺少工具名，已跳过', {

@@ -41,7 +41,61 @@ import {
   canAccessOwnerKey,
   currentOwnerKey,
 } from '@openliri/kernel/identity/requestScope';
+// 2026-11-24（P4）：会话级工具放行的「只读」判据复用安全层唯一实现（单条 + 纯只读串联）
+import { checkCompoundReadOnly } from '../security/compoundReadOnly';
 const logger = getLogger('permission:approvedCommands');
+
+/**
+ * 会话级工具放行的**授权范围**（2026-11-24，P4 收紧）。
+ *
+ * 此前 `allowlist_tool_session` 按工具名无条件放行：批一条 `bun run …` 后，
+ * `rmdir /s /q`、`cmd /c exit 3` 等同类工具命令也全部免审批（真机
+ * `session_mwurduuh1b0b38db30` 实证）。现收窄为：
+ *   - **只读命令**（含"纯只读串联"，判据 = `checkCompoundReadOnly`）⇒ 放行；
+ *   - 其余命令必须与批准时那条命令的**前缀**一致（见 `commandApprovalPrefix`）。
+ */
+interface SessionToolAllow {
+  /** 批准时的命令前缀（首 token；解释器/运行器取前两 token）；缺省 ⇒ 只按只读放行 */
+  prefix?: string;
+}
+
+/** 需要"子命令/开关"共同构成前缀的启动器（`bun run` 与 `bun -e` 不得互相放行） */
+const PREFIX_RUNNERS: ReadonlySet<string> = new Set([
+  'bun',
+  'bunx',
+  'npx',
+  'npm',
+  'pnpm',
+  'yarn',
+  'deno',
+  'node',
+  'python',
+  'python3',
+  'pip',
+  'uv',
+  'powershell',
+  'pwsh',
+  'cmd',
+]);
+
+/**
+ * 取命令的**审批前缀**（P4）。
+ *
+ * - 常规命令 ⇒ 首个 token（如 `rmdir`）；
+ * - 启动器/解释器 ⇒ 首两个 token（`bun run` / `bun -e` / `npx tsc`），避免"批了 `bun run` 就等于
+ *   批了 `bun -e`"；
+ * - 首 token 含路径/通配（`./x`、`C:\x`、`*.sh`）⇒ `undefined`（不给前缀 ⇒ 只按只读放行，fail-closed）。
+ */
+function commandApprovalPrefix(command: string): string | undefined {
+  const tokens = command.trim().match(/"[^"]*"|'[^']*'|\S+/g) ?? [];
+  const base = (tokens[0] ?? '').replace(/^["']|["']$/g, '').toLowerCase();
+  if (!/^[a-z][a-z0-9_.-]*$/.test(base)) return undefined;
+  const second = (tokens[1] ?? '').replace(/^["']|["']$/g, '').toLowerCase();
+  if (PREFIX_RUNNERS.has(base) && second && !second.startsWith('/')) {
+    return `${base} ${second}`;
+  }
+  return base;
+}
 
 /** 批准记录默认 TTL（毫秒）— P0-1: 60s → 5min，匹配"批准→LLM 续跑"真实耗时（实测 75–131s） */
 const APPROVED_COMMAND_TTL_MS = 300_000;
@@ -384,7 +438,16 @@ export class ApprovedCommandRegistry {
    * 仅内存、随 `clearSession`（会话结束）或进程退出失效；不落持久化规则。
    * 只豁免"重复弹审批卡"，硬拦截（危险命令/路径/沙箱）仍照常执行（由调用方保证）。
    */
-  private sessionToolAllows = new Map<string, Set<string>>();
+  /**
+   * 会话级工具放行（`allowlist_tool_session`）：`sessionId → toolName → 授权范围`。
+   *
+   * 2026-11-24（P4）：范围**收紧**（见 {@link SessionToolAllow}）——只覆盖
+   * 「只读命令」与「批准时那条命令的前缀」，不再对整个工具无条件放行。
+   */
+  private sessionToolAllows = new Map<
+    string,
+    Map<string, SessionToolAllow>
+  >();
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
   private ttlMs: number;
 
@@ -585,27 +648,52 @@ export class ApprovedCommandRegistry {
   /**
    * 2026-11-24：记录「本会话内该工具都允许」（`allowlist_tool_session`）。
    *
-   * 用户每换一条命令就重新弹卡时，点一次本档位即可止住同类循环；只影响"是否再弹审批卡"，
-   * 硬拦截层（危险命令 / 路径越界 / 沙箱）仍逐条执行。
+   * P4 收紧：记录**批准命令的前缀**；后续只放行「同前缀命令」与「只读命令」（含纯只读串联）。
+   * 只影响"是否再弹审批卡"，硬拦截层（危险命令 / 路径越界 / 沙箱）仍逐条执行。
+   *
+   * @param command 批准时的命令文本（缺省 ⇒ 仅按只读放行，fail-closed）
    */
-  allowToolForSession(sessionId: string, toolName: string): void {
+  allowToolForSession(
+    sessionId: string,
+    toolName: string,
+    command?: string
+  ): void {
     if (!sessionId || !toolName) return;
-    let set = this.sessionToolAllows.get(sessionId);
-    if (!set) {
-      set = new Set();
-      this.sessionToolAllows.set(sessionId, set);
+    let map = this.sessionToolAllows.get(sessionId);
+    if (!map) {
+      map = new Map();
+      this.sessionToolAllows.set(sessionId, map);
     }
-    set.add(toolName);
-    logger.info('本会话工具级放行已写入', { sessionId, toolName });
+    const prefix = command ? commandApprovalPrefix(command) : undefined;
+    map.set(toolName, { ...(prefix ? { prefix } : {}) });
+    logger.info('本会话工具级放行已写入（仅前缀 + 只读）', {
+      sessionId,
+      toolName,
+      prefix,
+    });
   }
 
-  /** 该工具在本会话内是否已整体放行（会话结束 / `clearSession` 即失效） */
-  isToolAllowedForSession(
+  /**
+   * 该工具在本会话内是否放行**这条命令**（会话结束 / `clearSession` 即失效）。
+   *
+   * 判据（P4，fail-closed）：
+   *   ① 只读命令（单条或纯只读串联，复用 `checkCompoundReadOnly`）⇒ 放行；
+   *   ② 否则命令前缀（`commandApprovalPrefix`）必须与批准时一致；
+   *   ③ 其余 ⇒ 不放行（继续走审批）。
+   */
+  isCommandAllowedForSession(
     sessionId: string | undefined,
-    toolName: string
+    toolName: string,
+    command: string
   ): boolean {
     if (!sessionId || !toolName) return false;
-    return this.sessionToolAllows.get(sessionId)?.has(toolName) === true;
+    const allow = this.sessionToolAllows.get(sessionId)?.get(toolName);
+    if (!allow) return false;
+    const trimmed = (command ?? '').trim();
+    if (!trimmed) return false;
+    if (checkCompoundReadOnly(trimmed).allowed) return true;
+    const prefix = commandApprovalPrefix(trimmed);
+    return !!allow.prefix && !!prefix && prefix === allow.prefix;
   }
 
   /** 清除某会话的批准记录（只清**当前身份可见**的条目；本地身份 ⇒ 与改造前一致全清） */

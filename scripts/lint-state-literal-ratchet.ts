@@ -4,7 +4,8 @@
  *
  * 全仓状态机词汇的唯一事实源 = `packages/infra/src/state/engine/stateMachineCatalog.ts`（P13 起）
  * （`STATE_MACHINES` 逐台登记 + `BOUNDARY_STATE_MACHINES` 同名不同物登记）。本门禁：
- * - 扫描 `app/src` 下的 ts/tsx 源码字符串字面量，取值落在**已登记状态词汇表**内的
+ * - 扫描 `app/src` + `packages/*\/src`（`sourceRoots` 单一事实源）**以及 `client/src`** 下的
+ *   ts/tsx 源码字符串字面量（P1-2 起前端纳入），取值落在**已登记状态词汇表**内的
  *   (value, file) 对必须**已报备**（基线 或 目录事实源 `sourceFile` 豁免）；
  * - **新增未报备** ⇒ 退出码 1（CI 阻断）：要么改用规范枚举/常量，要么先在目录登记再
  *   `--update` 基线；
@@ -49,12 +50,15 @@ const BASELINE = process.env.STATE_LITERAL_BASELINE
 const SKIP_DIRS = new Set(['node_modules', 'dist', '__tests__', 'tests']);
 const EXTS = new Set(['.ts', '.tsx']);
 
-/** 递归收集 app/src 下的源码文件（repo 相对 POSIX 路径） */
+/** 递归收集扫描根（app/src + packages/*\/src + client/src）下的源码文件（repo 相对 POSIX 路径） */
 function collectFiles(): ScannedFile[] {
   const files: ScannedFile[] = [];
   const stack = resolveSourceRootPaths(repoRoot).filter((dir) =>
     existsSync(dir)
   );
+  // P1-2（2026-11-24）：前端状态词汇纳入同一棘轮（此前 `client/src` 完全在扫描面外）
+  const clientSrc = resolve(repoRoot, 'client', 'src');
+  if (existsSync(clientSrc)) stack.push(clientSrc);
   while (stack.length > 0) {
     const dir = stack.pop() as string;
     for (const entry of readdirSync(dir, { withFileTypes: true })) {

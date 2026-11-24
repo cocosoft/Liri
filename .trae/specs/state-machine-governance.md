@@ -1,6 +1,6 @@
 # 状态机治理整体方案（2026-11-24）
 
-> **状态**：🟡 实施中 —— **P0-1 / P0-2 / P1-1 已完成**；**P1-2（前端纳管）需用户确认**（§11-Q2）
+> **状态**：🟡 实施中 —— **P0-1 / P0-2 / P1-1 / P1-2 已完成**；下一步 P1-3（派生唯一登记）
 > **定位**：本文件是 Liri **状态机治理总纲**，接替已缺失的 `dev_docs/20261012/状态机规范管理方案-20261012.md`
 > （该目录当前**不存在**，但 `fix-evidence-registry.json` 仍有两处指向它 —— 见 G8）。
 > **已完成基线**：13 条具体缺陷的修复见 [state-machine-defect-remediation.md](./state-machine-defect-remediation.md)
@@ -201,9 +201,9 @@ interface StateMachineEntry {
 ### P1-2 前端词汇纳管
 
 **改动**
-- `scripts/lint-state-literal-ratchet.ts`：扫描根加入 `client/src`（复用 `sourceRoots` 的扩展：新增可选 `includeClient`，或独立追加根）；首次以 **warning 模式 + `--update` 收编存量**，下一版本转阻断。
-- 新增 `client/src/constants/stateVocabulary.ts`：登记前端使用的状态词汇（tool outcome / wait state / paused phase / task status），并标注对应后端 `machineId`。
-- 新增 `client/src/tests/stateCrossEndParity.test.ts`：`stateVocabulary` 的每个值 ⊆ 对应目录 `states`（投影子集允许）。
+- `scripts/lint-state-literal-ratchet.ts`：扫描根加入 `client/src`（独立追加根）；首次以 `--update` 收编存量（用户已确认，2026-11-24），随后即按"新增即阻断"生效。
+- 新增 `shared/stateVocabulary.ts`：登记前端使用的状态词汇（tool outcome / task status 先行），标注对应后端 `machineId`、改名别名与 UI 独有项；前端经 `@shared/*` 引用，门禁测试读同一份数据（P1-2 实施时从 `client/src/constants/` 上移，避免双源/薄桶）。
+- 新增 `app/tests/state/stateCrossEndParity.test.ts`（与目录测试同处，直接读 `shared/stateVocabulary`）：每个值 ⊆ 对应目录 `states`（投影/UI 独有需声明理由）。
 - 把剩余分散判据收敛到 `toolOutcome.ts` 模式（如 `waitState` 的 `pendingWake` 判定保持单一入口）。
 
 **验收**：client 侧状态字面量纳入棘轮（基线一次性扩大需用户确认，见 §11-Q2）；跨端一致性测试绿。
@@ -316,6 +316,7 @@ interface StateMachineEntry {
 | 2026-11-24 | **P0-1 实施完成**：目录 14 → 16（补 `stream` / `backgroundTask`，删除对应豁免）、全部条目补治理字段、导出 `STREAM_TRANSITIONS` / `EXECUTION_TRANSITIONS`、R09-007 断言入测试、证据登记 `source` 改指本文件 | AI |
 | 2026-11-24 | **P0-2 实施完成**：目录 16 → 18（补 `inboxApproval` / `plan`）、`sessionState` 补 `transitionRules` 锚点、新增 R09-008 转移规则自洽测试（口径修正：不要求终态出度为 0） | AI |
 | 2026-11-24 | **P1-1 实施完成**：新增 R09-009 对账证据契约测试（持久化机 ⇒ 策略非 none + `文件#符号` 真实可查）；`stepVerdict` 按"无独立状态存储"归为 `persistence: none` | AI |
+| 2026-11-24 | **P1-2 实施完成**：`lint:state-ratchet` 扫描根加入 `client/src`（基线 +481 行收编存量）；新增 `shared/stateVocabulary.ts`（toolCall / task 两项）与 R09-012 跨端一致性测试 | AI |
 
 ---
 
@@ -382,3 +383,22 @@ interface StateMachineEntry {
 **说明**：R09-009 在方案 §5 原写"扩展到 `lint-architecture.ts`"；实际先以 **bun test** 落地（零 CI 接线风险、可直接跑），待 P2 再并入 `lint:arch` 硬门禁。
 
 **验证**：`bun test tests/state` → **160 pass / 0 fail**（新增 14 条）；`bun run typecheck` 通过。
+
+---
+
+## §16 P1-2 实施记录（2026-11-24）
+
+**已落地**
+
+| 项 | 结果 |
+|---|---|
+| 棘轮扫描面 | `scripts/lint-state-literal-ratchet.ts` 扫描根加入 `client/src`（与 app/packages 同一词汇表、同一基线） |
+| 存量收编 | 首次纳入新增 **480 处**未报备命中 ⇒ `--update` 收编，基线 +481 行（用户已确认"先收编存量"） |
+| 跨端词汇表 | `shared/stateVocabulary.ts`（零依赖纯数据）：`toolCall` 6 态（`pending_approval→running`、`interrupted→unknown` 投影）· `task` 7 态（`in_progress→running`；`cancelled`/`skipped` 为 UI 独有并附理由） |
+| 新门禁 | `app/tests/state/stateCrossEndParity.test.ts`（R09-012）：机器存在 / 前端文件存在 / 取值可映射或带理由的 UI 独有 |
+
+**口径说明**：方案 §6 原写"新增 `client/src/constants/stateVocabulary.ts`"；实际放在 `shared/stateVocabulary.ts` —— 前端经既有 `@shared/*` 别名引用，门禁测试直接读同一份数据，避免"前端一份、测试一份"的双源。未新增 `client/src/constants/stateVocabulary.ts`（薄桶 re-export 会触发 R07-003 告警）。
+
+**风险（已发生，按预期）**：通用词（`running/completed/pending` 等）进入前端后，基线显著变大；棘轮仍只拦**新增**，存量不追溯。按机器归属与到期收敛留给 P2-2。
+
+**验证**：`bun test tests/state` → **163 pass / 0 fail**（新增 3 条）；`bun run typecheck` 通过；`lint:state-ratchet` 通过。

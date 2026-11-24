@@ -1,0 +1,315 @@
+# 状态机治理整体方案（2026-11-24）
+
+> **状态**：🟡 待确认（只出方案，未改代码；确认后按 §6 分批实施）
+> **定位**：本文件是 Liri **状态机治理总纲**，接替已缺失的 `dev_docs/20261012/状态机规范管理方案-20261012.md`
+> （该目录当前**不存在**，但 `fix-evidence-registry.json` 仍有两处指向它 —— 见 G8）。
+> **已完成基线**：13 条具体缺陷的修复见 [state-machine-defect-remediation.md](./state-machine-defect-remediation.md)
+> （5 批已实施并推送，提交 `1b6adde31`…`3f4805935`）。本方案不重复那些修复，只治理**机制**。
+> **原则**：先取证 → 只对**新增**强约束（棘轮哲学）→ 存量按域迁移；每批独立提交，可单独 revert。
+
+---
+
+## §1 结论与目标
+
+**一句话结论**：Liri 已有"引擎 + 注册中心 + 定义目录 + 两道门禁"的骨架，但治理面仍有三处结构性缺口 ——
+**目录不全**（已接入引擎的机器没有定义条目）、**前端不在扫描面**（前端状态词汇完全无登记/无棘轮）、
+**只治"定义"不治"转移与收尾"**（终态残留、重启对账、派生判据都靠各域自觉）。
+
+**治理目标（均为可验收）**：
+
+| # | 目标 | 现状 | 目标值 |
+|---|---|---|---|
+| ① | 定义目录覆盖所有状态机 | 14 台登记；`StreamStateMachine` / `BackgroundTaskStateMachine` 仅在豁免清单 | 引擎机器与转移规则 100% 登记 |
+| ② | 持久化机器的重启对账可证 | Inbox / SelfWake 已补（本轮），其余无声明 | 每台持久化机器都有 `reconcile` 策略 + 启动调用点 |
+| ③ | 终态不再残留瞬态标记 | 本轮修了 3 处同类（审批 pending / 唤醒 fired / 工具 running） | 终态收尾成为显式契约，可门禁检查 |
+| ④ | 同一概念只有一个派生判据 | `toolOutcome` 已统一；仍有 4+ 处分散判据 | 派生登记表 + 重复即阻断 |
+| ⑤ | 前后端词汇不漂移 | 前端不入扫描面 | 前端词汇登记 + 跨端一致性测试 |
+| ⑥ | 转移可审计 | 仅 Inbox / SelfWake / 投影有事件 | 持久化机器转移落结构化事件（或显式豁免） |
+
+---
+
+## §2 现状盘点（逐项取证）
+
+### §2.1 已有能力（✅ 已亲自核对代码）
+
+| 能力 | 实现 | 证据 |
+|---|---|---|
+| 泛型状态机引擎 | `StateMachine<S>`：规则校验 / 历史 / 快照 / 监听器 / 关键态日志 / `onTransition` | `packages/infra/src/state/engine/StateMachine.ts` |
+| 终态自动推导 | 规则表出度为 0 ⇒ 终态（`computeDefaultTerminal`） | 同上 `:47-59` |
+| 实例注册中心 | `StateMachineRegistry`（register/find/gc，30min 空闲清理） | `state/engine/StateMachineRegistry.ts` |
+| 运行时可观测 | `GET /v1/state/all` 聚合注册实例（R09-005） | `app/src/infrastructure/http/handlers/state-handlers.ts` |
+| 定义目录 | `STATE_MACHINES` 14 台 + `BOUNDARY_STATE_MACHINES` 6 台（同名不同物） | `state/engine/stateMachineCatalog.ts` |
+| 目录 ↔ 源码一致性测试 | 运行时锚点逐项比对 / 锚点自洽 / id 唯一 / sourceFile 存在 | `app/tests/state/stateMachineCatalog.test.ts` |
+| 定义登记硬门禁 | R09-006：`export enum *Status/*State` 与 `const *_STATUSES/*_STATES` 必须登记或显式豁免 | `scripts/lint-architecture.ts#checkStateMachineRegistration` |
+| 豁免清单自洽 | 文件存在 / 符号确由该文件导出 / 带 reason / 键唯一 / 不与目录重叠 | `app/tests/state/stateMachineRegistrationGate.test.ts` |
+| 状态字面量棘轮 | 词汇表取值 × 文件 ⇒ 新增未报备即阻断；`--update` 重生成基线 | `scripts/lint-state-literal-ratchet.ts` |
+| 只读投影（非状态机） | 四原语 `PREPARED/RUNNING/SUSPENDED/SETTLED`，只读、非第二事实源、feature-gated | `state/engine/projectionBroker.ts` |
+| 缺陷修复基线 | 审批 processing / selfwake firing / 工具 running / 挂起流 TTL / 派生统一 | `state-machine-defect-remediation.md` §9 |
+
+### §2.2 结构性局限（本方案要治的）
+
+| ID | 局限 | 证据 | 后果 |
+|---|---|---|---|
+| **G1** | **目录不全**：`StreamStateMachine`（生产使用：`packages/service/src/streaming/Stream.ts:59,247`）与 `BackgroundTaskStateMachine`（`getBackgroundTaskStateMachine` + Registry）都**不在目录**，只在 `scripts/state-machine-allowlist.json` 豁免 | 目录条目清单；allowlist 两行 reason = "运行时实例登记在 Registry" | 目录自称"全仓有哪些状态机"却漏掉两台已接引擎的机器；豁免被当成"不用管" |
+| **G2** | **前端不在扫描面**：`resolveSourceRoots()` 只返回 `app/src` + `packages/*/src`；R09-006 与 `lint:state-literal-ratchet` 均消费它（`lint:arch` 仅对 `client/src` 单独做 store 订阅检查） | `scripts/lib/sourceRoots.ts:34-58`；`lint-architecture.ts:4686-4705` | 前端词汇（`toolOutcome`、`pausedStreams.phase`、`TaskCardTask.status`、`waitState`）无登记、无棘轮、无跨端一致性保证 |
+| **G3** | **转移规则未治理**：目录只有 `hasTransitionFn: boolean`，没有规则表引用、没有终态集合校验 | `stateMachineCatalog.ts:53` | 新增状态忘记加入/移出转移表时无人发现（本轮 5 批中 3 处正是中间态/终态缺失） |
+| **G4** | **终态收尾无契约**：进入终态时"清瞬态标记 / 解监听 / 停定时器"靠各域自觉 | 本轮 A1/B5/A5 三处同类缺陷 | 终态残留会反复复发（审批仍待批、工具仍转圈、唤醒仍等待） |
+| **G5** | **重启对账无契约**：`processing`（Inbox）与 `firing`（SelfWake）各自手写复位/超时；无"持久化机器必须声明 reconcile"的门禁 | `InboxManager.PROCESSING_STALE_TIMEOUT_MS`、`WakeStore.recoverStaleFiring` | 新增持久化机器极易漏掉崩溃残留路径 |
+| **G6** | **派生判据分散**：`hasPendingApproval`（审批）、`deriveWaitState`（等待）、`deriveToolOutcome`（工具）、`isTerminalPdcaEvent`（编排）各在一处，无登记/无重复检测 | 对应文件 | 同一事实被多处解释（本轮 B3/B4 的根因） |
+| **G7** | **审计事件不统一**：`onTransition` 可选、`/v1/state/all` 只覆盖 Registry 实例；Inbox/SelfWake 有专用事件，其余机器无 | `state/engine/types.ts:89`（`onTransition?` 可选）、`state-handlers.ts` | "这次转移为什么发生"无法从持久层重建 |
+| **G8** | **文档真源悬空**：`fix-evidence-registry.json` 两处 `source` 指向 `dev_docs/20261012/状态机规范管理方案-20261012.md`，该目录**不存在** | `fix-evidence-registry.json:2872,2898`；`Test-Path dev_docs/20261012` = False | 治理依据不可追溯；规则引用指向幽灵文件 |
+| **G9** | **棘轮缺归属**：`state-literal-baseline.json` 是"值 → 文件列表"的全局快照，`--update` 一次性纳入所有出现点；无 owner / 无到期 | `lint-state-literal-ratchet.ts:85-97`（本轮 `--update` 实测新增 44 行） | 棘轮逐渐退化为"整体快照"，失去"只拦增量"的约束力 |
+| **G10** | **无转移级测试门禁**：目录测试只比对"状态集合"，不校验规则表键/目标、终态可达性、跨端一致性 | `stateMachineCatalog.test.ts` | 转移表与实际状态集漂移无自动发现 |
+
+---
+
+## §3 目标模型（五层）
+
+```
+L1 定义层   stateMachineCatalog（扩展字段：转移规则/终态/持久化/对账/派生/跨端）
+              │  门禁：R09-006（已有）+ R09-007/008（新增）
+              ▼
+L2 实现层   StateMachine<S>（新机器优先）/ 存量手写机（允许，但必须导出规则表 + 终态判定）
+              │  门禁：R09-008；豁免必须带 reason（已有清单机制）
+              ▼
+L3 派生层   derive* 单一实现（后端：纯函数；前端：toolOutcome 模式）
+              │  门禁：R09-011（派生登记表，重复即阻断）
+              ▼
+L4 收尾层   finalize（终态清瞬态）+ reconcile（启动对账）
+              │  门禁：R09-009（持久化机必须有 reconcile）/ R09-010（终态收尾声明）
+              ▼
+L5 观测层   转移事件 + /v1/state/all + 审计（session/* 事件）
+              │  门禁：R09-013（可恢复机器强制，其余豁免）
+```
+
+**关键裁定（避免过度设计）**：
+
+1. **不要求所有字符串状态都引擎化**。只读投影（四原语）与纯展示派生（图标/文案映射）**不是状态机**，不登记、不引擎化（沿用 `projectionBroker.ts` 头注的既有裁定）。
+2. **存量手写机允许保留**，但必须满足"可枚举 + 可校验"：导出规则表或显式声明 `transitionRules: null` + `terminalStates`。
+3. **前端不是第二事实源**：前端只允许"投影 + 派生"，词汇必须能映射回目录条目的 `states`。
+
+**目录条目扩展（建议形态，纯数据、零依赖）**：
+
+```ts
+interface StateMachineEntry {
+  // 既有
+  id: string;
+  title: string;
+  kind: 'persistent' | 'transient' | 'projection';
+  sourceFile: string;
+  states: readonly string[];
+  verification: 'runtime-import' | 'source-read';
+  verifyRef?: { module: string; exportName: string; anchor: 'array' | 'enum' | 'objectKeys' };
+  hasTransitionFn: boolean;
+  note?: string;
+  // 新增（P0 起必填）
+  owner: string;                 // 责任域（模块名，不写人名）：inbox / selfwake / execution / plan ...
+  persistence: 'none' | 'memory' | 'json-file' | 'sqlite';
+  transitionRules?: { module: string; exportName: string };  // 规则表锚点（手写机可缺省）
+  terminalStates?: readonly string[];                        // 终态集合（可从规则表推导后固化）
+  reconcile?: {
+    strategy: 'none' | 'ttl-sweep' | 'startup-reset' | 'cas-requeue' | 'heartbeat-rescan';
+    evidence: string;                                         // 启动调用点文件#函数
+  };
+  derivedViews?: readonly string[];                            // 消费该状态的派生实现
+  crossEnd?: { clientFile: string; mapping: 'identical' | 'projection' };
+}
+```
+
+---
+
+## §4 缺口 → 动作映射
+
+| 缺口 | 动作 | 落地批次 |
+|---|---|---|
+| G1 目录不全 | 把 `stream` / `backgroundTask` 从豁免升级为目录条目（含规则表锚点） | P0-1 |
+| G2 前端不在扫描面 | ① `state-literal-ratchet` 扫描根加入 `client/src`（先 warning 收编基线）② 新增 `client/src/constants/stateVocabulary.ts` 登记前端词汇 ③ 跨端一致性测试 | P1-2 |
+| G3 转移规则未治理 | 目录扩展 `transitionRules` / `terminalStates`；R09-008 校验"规则表键 = 状态全集、目标 ⊆ 状态全集" | P0-2 |
+| G4 终态收尾无契约 | 新增"终态收尾清单"（清 `pendingApproval` / 解监听 / 停 timer / 释放幂等键）；R09-010 检查目录声明 | P0-2（规则）+ P1-1（样板） |
+| G5 重启对账无契约 | 目录扩展 `reconcile`；R09-009 检查"持久化机必须有非 none 策略 + 启动调用点" | P1-1 |
+| G6 派生判据分散 | `scripts/state-derivations.json` 登记 `{concept, owner, implementation, consumers}`；R09-011 查重 | P1-3 |
+| G7 审计不统一 | 明确"可恢复机器转移必须落事件"，其余显式豁免；补 `state/*` 事件载荷文档 | P2-1 |
+| G8 文档真源悬空 | 本文件作为总纲；修正 `fix-evidence-registry.json` 两处 `source`（改为本文件或恢复归档），并在目录 note 标注 | P0-1 |
+| G9 棘轮缺归属 | 基线按 `machineId` 分组；`--update` 要求 `--reason`；新增条目带 `expiresAt` | P2-2 |
+| G10 无转移级测试 | 扩展 `stateMachineCatalog.test.ts`：规则表自洽 / 终态可达 / 无孤儿状态；跨端一致性测试 | P0-2 / P1-2 |
+
+---
+
+## §5 规则提案（R09-007…R09-013）
+
+> 编号接续现有 R09-001…R09-006（⑥ 不动）；**先落规则文件与测试，门禁再由 warning 升 error**，避免一次性红海。
+
+| ID | 级别 | 判据 | 门禁实现 |
+|---|---|---|---|
+| **R09-007** | MUST | 目录条目必填 `owner` / `persistence` / `terminalStates`（`persistence!=='none'` 时还必须有 `reconcile`） | 扩展 `stateMachineCatalog.test.ts`（纯数据断言） |
+| **R09-008** | MUST | 登记的转移规则自洽：键集合 = `states` 集合；每个目标 ∈ `states`；`terminalStates` ⊆ 出度为 0 的集合 | 新测试 `stateMachineTransitions.test.ts`（动态载入规则表） |
+| **R09-009** | MUST | `persistence !== 'none'` ⇒ `reconcile.strategy !== 'none'`，且 `evidence` 指向真实启动调用点（文件存在 + 函数名出现） | 扩展 `lint-architecture.ts`（新检查项，失败 error） |
+| **R09-010** | MUST | 进入终态必须执行收尾（清瞬态标记 / 停 timer / 释放幂等键）：由目录 `terminalStates` + 代码内 `finalize` 调用点断言；无收尾需求须在目录 note 说明 | 先测试覆盖（按机器），P2 再考虑静态门禁 |
+| **R09-011** | MUST | 同一概念只允许一个派生实现：`scripts/state-derivations.json` 中 `concept` 唯一，`implementation` 真实导出；消费方不得自写判据（代码评审 + grep 门禁） | 新脚本 `lint-state-derivations.ts`（低风险、只查重） |
+| **R09-012** | SHOULD | 跨端词汇必须对齐：`crossEnd.clientFile` 的状态集合 ⊆ 目录 `states`（投影允许子集）；不一致即告警→阻断 | 新测试 `stateCrossEndParity.test.ts` |
+| **R09-013** | SHOULD | 可恢复机器（`persistence!=='none'`）的每次转移必须落结构化事件（或目录登记豁免理由） | P2 起按机器逐步接入；先 warning |
+
+---
+
+## §6 分批实施
+
+> 每批**独立提交**；顺序按依赖；每批完成即跑门禁与全量测试（app `bun test` / client `vitest run`）。
+
+### P0-1 文档归位 + 目录补全 + 字段扩展
+
+**改动**
+- `stateMachineCatalog.ts`：新增 `stream`、`backgroundTask` 两个条目（含 `transitionRules` 锚点：`packages/service/src/streaming/StreamStateMachine.ts#STREAM_TRANSITIONS`、`packages/infra/src/state/background/BackgroundTaskStateMachine.ts#BACKGROUND_TASK_TRANSITIONS`）；为 14 台补齐 `owner` / `persistence` / `terminalStates` / `reconcile` / `derivedViews` / `crossEnd`。
+  - ⚠️ 取证细节：`BACKGROUND_TASK_TRANSITIONS` 已 `export`；`STREAM_TRANSITIONS` 目前是**文件内常量**（`StreamStateMachine.ts:21`），P0-1 需同批补 `export`（纯可见性，无行为变更）。
+- `scripts/state-machine-allowlist.json`：删除上述两条豁免（豁免与目录不重叠 —— 已有测试会校验）。
+- `fix-evidence-registry.json`：两处 `source` 从缺失的 `dev_docs/20261012/...` 改为本文件锚点（或恢复归档，需维护者确认口径）。
+- 本文件落盘并加入 `.trae/rules/architecture-compliance.md` 的 R09 引用（只加指针，不复制正文）。
+
+**测试**：`stateMachineCatalog.test.ts` 扩展字段必填断言；`stateMachineRegistrationGate.test.ts` 保持不变（自动覆盖"豁免不得与目录重叠"）。
+
+**验收**：目录条目数 16（14 + 2）；R09-006 仍 0 error；allowlist 条目数 -2。
+
+**风险/回滚**：纯数据 + 文档，风险低；回滚 = revert 单提交。
+
+---
+
+### P0-2 规则落盘 + 转移自洽测试
+
+**改动**
+- `.trae/rules/architecture-compliance.md`：新增 R09-007…R09-013（含"门禁先行/分级"说明）。
+- 新测试 `app/tests/state/stateMachineTransitions.test.ts`：对所有登记了 `transitionRules` 的机器做 §5 R09-008 三项断言。
+- 对存量手写机（inbox / selfwake / plan / pdca）在目录中登记 `transitionRules: 缺省` + `terminalStates` + note 说明"转移集中在 X 文件的 CAS/状态更新函数"。
+
+**验收**：转移测试全绿；目录无"有规则表却未登记"的机器。
+
+**风险**：手写机规则表缺失 → 只要求登记终态与集中实现位置，不强迫补表（避免大重构）。
+
+---
+
+### P1-1 终态收尾 + 启动对账样板
+
+**改动**
+- 把本轮已验证的两条路径写成**样板契约**（文档 + 测试）：
+  - 终态收尾：`inboxApproval`（终态清 `pendingApproval`）、`selfwake`（成功才 `fired`）、`chat-message-stream`（running → 中断）。
+  - 启动对账：`InboxManager` 的 `processing` 超时、`WakeStore.recoverStaleFiring`、`recoverOverdueWakes`。
+- 新增 `app/tests/state/stateReconcileContract.test.ts`：每个 `persistence!=='none'` 机器的 `reconcile.evidence` 必须指向真实启动调用（文件 + 函数名）。
+- 补齐缺失声明（预期：`plan` / `goals` / `pdca` / `effects` 已有启动扫描，只需登记；`dedup` 为内存态）。
+
+**验收**：R09-009 覆盖 100%；三台真机会话（`session_mwr473pd502e995dd1` / `session_mwpj4amge75a67ec4f` / `session_mwrf18pu00456e0f2b`）无终态残留。
+
+---
+
+### P1-2 前端词汇纳管
+
+**改动**
+- `scripts/lint-state-literal-ratchet.ts`：扫描根加入 `client/src`（复用 `sourceRoots` 的扩展：新增可选 `includeClient`，或独立追加根）；首次以 **warning 模式 + `--update` 收编存量**，下一版本转阻断。
+- 新增 `client/src/constants/stateVocabulary.ts`：登记前端使用的状态词汇（tool outcome / wait state / paused phase / task status），并标注对应后端 `machineId`。
+- 新增 `client/src/tests/stateCrossEndParity.test.ts`：`stateVocabulary` 的每个值 ⊆ 对应目录 `states`（投影子集允许）。
+- 把剩余分散判据收敛到 `toolOutcome.ts` 模式（如 `waitState` 的 `pendingWake` 判定保持单一入口）。
+
+**验收**：client 侧状态字面量纳入棘轮（基线一次性扩大需用户确认，见 §11-Q2）；跨端一致性测试绿。
+
+**风险**：前端存量大、词汇通用（`pending/completed/failed`）→ 基线膨胀。缓解：按 `machineId` 分组、只对新增文件阻断；不追溯清理。
+
+---
+
+### P1-3 派生唯一登记
+
+**改动**
+- 新增 `scripts/state-derivations.json` + `lint-state-derivations.ts`：登记 `{concept, owner, implementation, consumers, note}`，校验 `implementation` 真实导出、`concept` 唯一。
+- 登记现有 4 个：`toolOutcome`（前端）、`hasPendingApproval`（审批）、`deriveWaitState`（等待）、`isTerminalPdcaEvent`（编排）。
+- 替换剩余自写判据（评审 + grep：同一 `pendingApproval === true && ...` 形态不得再新增）。
+
+**验收**：重复概念 = 0；新增判据必须先在登记表落一行。
+
+---
+
+### P2-1 审计与观测
+
+**改动**
+- 明确"可恢复机器转移落事件"的载荷约定（新增事件类型须按 `project_rules §1.6` 三处同批登记）。
+- 逐步接入：`plan` / `goals` / `pdca` / `effects` 的终态与重试落 `session/*` 审计事件；不要求高频中间态。
+- `GET /v1/state/all` 覆盖复核：所有 Registry 实例可见（R09-005 已有，补一次端到端断言）。
+
+**验收**：任一历史会话可按 `seq` 重建"转到终态的原因"。
+
+---
+
+### P2-2 棘轮归属与巡检
+
+**改动**
+- 基线结构升级：`{version: 2, machines: {machineId: {values, files}}, unowned: []}`；`--update` 要求 `--reason`（写入基线 note）。
+- 新增季度巡检脚本（只读）：目录覆盖率、未登记新增、持久化机对账覆盖、派生重复、跨端不一致、死代码 `@deprecated` 到期。
+- 清理观察期结束的死代码（`extractToolCalls` / `buildLogEvents` / `resolveGroupStatus`，按 CD05/CD06）。
+
+**验收**：巡检报告可作为发布前 checklist 的一节。
+
+---
+
+## §7 门禁与测试矩阵
+
+| 检查 | 类型 | 现状 | 目标批次 |
+|---|---|---|---|
+| R09-006 定义登记 | lint:arch error | ✅ 已有 | 不动 |
+| 豁免清单自洽 | bun test | ✅ 已有 | P0-1 自动覆盖 |
+| 目录字段完整性（R09-007） | bun test | ❌ | P0-1 |
+| 转移表自洽（R09-008） | bun test | ❌ | P0-2 |
+| 启动对账证据（R09-009） | lint:arch error | ❌ | P1-1 |
+| 终态收尾（R09-010） | 逐机测试 → 静态 | ❌ | P1-1 |
+| 派生唯一（R09-011） | 新脚本 | ❌ | P1-3 |
+| 跨端一致性（R09-012） | client test | ❌ | P1-2 |
+| 转移审计（R09-013） | 事件断言 | ❌ | P2-1 |
+| 状态字面量棘轮 | lint:state-ratchet | ✅ 仅后端 | P1-2 扩前端 |
+| 目录 ↔ 锚点比对 | bun test | ✅ 已有 | 扩展字段后沿用 |
+
+---
+
+## §8 验收标准（量化）
+
+1. **覆盖率**：所有 `StateMachine` 子类 + 所有 `*_TRANSITIONS` 导出 100% 出现在目录（当前缺 2 台）。
+2. **新增纪律**：新状态机定义未登记 = 0（R09-006 维持）；无 owner/无 reconcile 的持久化机器 = 0。
+3. **恢复性**：三台真机会话重启后无"永久中间态"（`processing` / `firing` / 挂起超 30min / 工具 running）。
+4. **一致**：同一工具调用在组头 / 工具卡 / 行内 / 日志面板结论一致（本轮已验证，纳入回归）。
+5. **跨端**：前端词汇与目录 `states` 不一致 = 0。
+6. **可审计**：持久化机器的终态转移可从 `events.jsonl` 重建。
+
+---
+
+## §9 非目标（明确不做）
+
+- ❌ 不把只读投影（`PREPARED/RUNNING/SUSPENDED/SETTLED`）登记为状态机（既有裁定，见 `projectionBroker.ts` 头注）。
+- ❌ 不强制所有字符串状态引擎化（全仓类型联合 >150 处，逐一迁移属无收益重构）。
+- ❌ 不改任何业务语义（审批档位、风险分级、白名单策略、计划状态取值）。
+- ❌ 不引入跨进程/分布式状态一致性（单进程假定，与 `firing` / `processing` 的复位口径一致）。
+- ❌ 不把状态机目录做成运行时依赖注入容器（保持零依赖纯数据，避免 core←service 倒挂）。
+
+---
+
+## §10 风险与回滚
+
+| 风险 | 缓解 | 回滚 |
+|---|---|---|
+| 规则过重拖慢开发 | 只对**新增**强约束；存量登记即可，不强制迁移引擎 | 单批 revert |
+| 前端棘轮基线一次性膨胀 | 先 warning + `--update` 收编，下一版本转阻断；按机器分组 | 移除 client 扫描根 |
+| 目录字段扩展导致大量文件改动 | P0-1 一次性补 16 台，纯数据 | revert 单提交 |
+| 手写机规则表缺失 → R09-008 无法覆盖 | 允许 `transitionRules` 缺省，只要求终态 + 集中实现位置（note） | 降级为 warning |
+| 文档/证据登记口径变更 | 只改 `source` 指针，保留原文字 | revert |
+
+---
+
+## §11 待拍板（带推荐值）
+
+| # | 事项 | 推荐 | 影响 |
+|---|---|---|---|
+| Q1 | 引擎强制范围 | **新机器 + 有并发/恢复语义的机器**必须用 `StateMachine<S>`；只读投影与纯展示派生不强制 | 决定 R09-001 是否收紧 |
+| Q2 | `client/src` 是否纳入状态字面量棘轮 | **纳入，先 warning 收编基线，下一版本转阻断** | 前端门禁强度 |
+| Q3 | 终态收尾是否统一 `finalize()` 契约 | **统一为可选 `onTerminal` 注册**（不强迫所有机器实现） | P1-1 改动面 |
+| Q4 | 审计事件覆盖范围 | **仅 `persistence!=='none'` 且可恢复的机器强制**，其余目录登记豁免 | 事件量与实现成本 |
+| Q5 | 目录 `owner` 口径 | **按模块域**（inbox/selfwake/execution/plan/…），不写个人 | 责任归属与巡检报告 |
+
+---
+
+## §12 变更记录
+
+| 日期 | 变更 | 作者 |
+|---|---|---|
+| 2026-11-24 | 初版：现状取证（G1–G10）+ 五层目标模型 + R09-007…013 提案 + 7 批实施路线 + 门禁/验收/风险 | AI |

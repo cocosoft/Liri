@@ -22,20 +22,24 @@
 工具名分布：`grep` 160 · `bash` 102 · `file_read` 92 · `glob` 8 · `todo_write` 6 · `skill` 1
 ⇒ **没有任何"编辑文件"类调用**，但组头仍显示"已执行 N 个工具调用 / N 次思考"，与用户实际关心的工作量完全脱节。
 
-### §1.2 中断时间线（实测）
+### §1.2 中断时间线（实测，2026-11-24 复核）
 
 | 时间（本地） | 事件 |
 |---|---|
-| 13:27–13:29 | turn 2 工具循环触发 bash 审批 → `tool/result.awaiting_approval`；`turn/end{turn:2, terminationReason: awaiting_approval}`（seq 847） |
+| 13:27–13:29 | turn 2 工具循环触发 bash 审批 → `tool/result.awaiting_approval`（`inboxId 86c87725…`，**source=permission，无 pdcaTaskId**）；`turn/end{turn:2, terminationReason: awaiting_approval}`（seq 847） |
 | 同一秒 | 又写一条 `turn/end{turn:2, finishReason: 'canceled'}`（seq 848）——**同一轮双终态** |
-| 13:37 | 用户发「请继续」→ turn 3 正常完成 |
-| 14:01 | 审批卡过期（`session.json.metadata.approvalExpiredAt`、`approvalExpiredInboxId`） |
-| 14:33 | 进程重启 → 启动扫描把阶段链父检查点按**孤儿**收口（`abortedBy='orphan_scan'`），并向会话写入一条 assistant/text：`⏹ 长程任务因进程重启被中断：3 阶段计划已保留…可用 /goal start 重新发起`（seq 1737） |
+| 13:37 | 用户发「请继续」→ turn 3 正常完成（此后 turn 4/5 均正常收尾） |
+| 13:45:21 | **turn 5 运行中**触发 `pdca:long_task_signal_escalation`（`consumedTurns=34`、`userMessageCount=4`、`pendingTodoCount=0`）⇒ 自动建项目 `proj_1795499121669_461d51` 并启动 3 阶段链 `pdca_mwu9tgyc`，**任务描述为空**（requirement 子任务日志：`descPreview: "【需求分析】…任务描述: "`） |
+| 13:45–13:54 | requirement 子任务跑完（2 步 / 2.32M tokens，产物 `docs/PRD-req_3afc25b4c355.md`），父链因 `stage_approval` 停在 `stage_awaiting_approval` |
+| 13:54:10 | 系统提示语（`assistant/text`，独立 messageId）插入 turn 5 的流中：`⏸ 编排任务暂停：等待阶段审批（0/3 阶段完成）。请在编排面板确认后继续。`（seq 1718） |
+| 14:01:27 | 13:29 那张 bash 审批卡过期（`session.json.metadata.approvalExpiredAt`） |
+| 14:33:01 | 进程重启 → 启动扫描判定父链为**孤儿**（`stage_awaiting_approval` 但收件箱无 pending 卡）⇒ `phase/status=abort`、`abortedBy='orphan_scan'`，并写入 `⏹ 长程任务因进程重启被中断：3 阶段计划已保留…可用 /goal start 重新发起`（seq 1737） |
 
 阶段链检查点（`pdca_checkpoints`，taskId `pdca_mwu9tgyc`）实测：
-`phase='abort'`、`status='abort'`、`abortedBy='orphan_scan'`；
+`phase='abort'`、`status='abort'`、`abortedBy='orphan_scan'`、`description=''`、`totalTokens=2319167`；
 `stages[0]=requirement` 为 `awaiting_approval` 且**其产物已生成**（PRD 已落盘），`design`/`delivery` 为 `pending`；
 子任务 `pdca_mwu9tgyc_requirement` 为 `completed`。
+收件箱中该会话**只有一条**记录：13:29 的 bash 卡（`status='expired'`）——**阶段审批从未产生卡**。
 
 ---
 
@@ -69,26 +73,62 @@
 ### §3.1 双 `turn/end`（直接导致"已中断/已取消"显示）
 
 - 现象：turn 2 同时有 `terminationReason=awaiting_approval` 与 `finishReason=canceled`。
-- 机制：工具轮次的 `turn/end` 由 `ChatManager._writeTurnEnd` 在消息落盘后写（`streamFinalize.ts:414-469`，已用中央幂等登记 `hasTurnEnded` 去重）；
-  而编排器兜底 `finalizeStreamFlow`（`streamMessageFinalize.ts:107-139`）只检查**内存布尔** `turnTrace.ended`。
-  一旦 `_finalizeStreamMessage` 在写完 `turn/end` 后的后续步骤（状态收敛 / summary / 内存累计 / onComplete / PDCA 钩子）抛错，
-  `turnTrace.ended` 仍为 false ⇒ 兜底再写一条 `canceled`。
-- 影响：事件派生取最后一条 end ⇒ 前端把"等待审批"显示成"生成中断/已取消"。
+- **实测机制**（`~/.pyapp/data/logs/app.log` @ 2026-11-24T05:29:45）：
+  1. `.292` `chat:streamFinalize`：「turn 中止未闭合 ⇒ 补写 turn/end(canceled)」（seq 848，兜底）；
+  2. `.294` `core:api`：`[chatStream] 非法状态转换: idle → requires_action`（`STATE_ILLEGAL_TRANSITION`，high）；
+  3. `.295` `runtime:api:chatStreamOps`：fallback 落盘被抑制 ⇒ `chatStream:完成` 的 `finishReason='error'`、`contentLength=0`。
+- 结构原因：`SESSION_TRANSITIONS`（`packages/infra/src/state/session/types.ts:59`）只允许
+  `idle → running`、`running → {idle, requires_action}`、`requires_action → {running, idle}`；
+  finalize 在等待审批分支直接 `pause()`（目标 `requires_action`），一旦机器当前为 `idle` 即**非法**。
+  抛错发生在 `turn/end{awaiting_approval}` 已写入之后 ⇒ 兜底再写一条 `canceled`。
+- 影响：事件派生取最后一条 end ⇒ 前端把"等待审批"显示成"生成中断/已取消"；同时该轮 `finishReason=error`。
+- 现状：批次 2 已让兜底**不再写第二条**（`hasTurnEnded` 单写者）；但**非法转移本身未消除**
+  （机器为何停在 `idle` 仍待定位：候选为"本轮未经 `startProcessing`/已被提前 complete"/"双实例"）。
 
 ### §3.2 回执归因错误 + 引导错误
 
-- `emitPdcaInterruptedReceipts`（`app/src/tasks/lro/terminalReceipt.ts:439-467`）对**所有** `abortedCheckpoints` 使用固定前缀「因进程重启被中断」，
-  不区分 `abortedBy='startup_scan'`（真崩溃）与 `abortedBy='orphan_scan'`（审批卡过期后无卡可点的收口）。
-- 对阶段链只输出「阶段式计划无顶层步骤快照，可用 /goal start 重新发起」：
-  - 事实正确（阶段链进度在 `stages[]`，`/goal resume` 的 LRO 路径无法重建步骤）；
-  - 但**丢失两个已成立的事实**：已完成阶段数、已完成阶段产物仍保留；用户被引导去"重新发起"，误以为白跑。
-- 触发链：审批过期（14:01）→ 过期回调 `abortPdcaAfterExpiry` 只按 LRO 编排器 `abort()`，**未覆盖阶段链父检查点** ⇒ 父检查点仍 awaiting；
-  → 14:33 重启时被孤儿扫描收口，并按崩溃口径播报。
+- `emitPdcaInterruptedReceipts`（`app/src/tasks/lro/terminalReceipt.ts`）原对**所有** `abortedCheckpoints` 使用固定前缀「因进程重启被中断」，
+  不区分 `abortedBy='startup_scan'`（真崩溃）与 `abortedBy='orphan_scan'`（审批卡过期/无卡可点的收口）。
+- 对阶段链只输出「阶段式计划无顶层步骤快照，可用 /goal start 重新发起」：事实正确，但**丢失两个已成立的事实**
+  （已完成阶段数、已完成阶段产物仍保留），用户被引导去"重新发起"，误以为白跑。
 
-### §3.3 阶段链不可续跑（能力缺口）
+### §3.3 中断的**直接根因**：阶段审批是一个"没有卡的暂停点"
 
-`StageOrchestrator.fromCheckpoint` / `resumeAfterApproval` 存在，但 `resumeAfterApproval` 仅接受 `phase='stage_awaiting_approval'`；
-父检查点被收口为 `abort` 后，`/goal approve stage` 会抛 `STAGE_NOT_AWAITING` ⇒ 目前没有"收口后仍可续跑"的入口。
+时间线（§1.2）显示：父链停下的原因**不是**崩溃，也不是 13:29 那张 bash 卡过期，而是
+**requirement 阶段完成后的 `stage_approval` 审批门**。该审批门与工具审批**不等价**：
+
+| | 工具审批 | 阶段审批 |
+|---|---|---|
+| 载体 | Inbox 卡（`inbox_items`，有 TTL） | 仅 checkpoint（`phase='stage_awaiting_approval'`） |
+| 过期机制 | 有（`onInboxItemsExpired` → `abortPdcaAfterExpiry`） | 无 |
+| 可点入口 | 聊天内审批卡 / 收件箱 | 仅 `/goal approve stage <taskId>` 或"编排面板" |
+| 启动扫描判据 | 收件箱有 pending 卡 ⇒ 可续跑 | **必然无卡** ⇒ 一律判孤儿 |
+
+于是：**任何停在阶段审批门的任务，只要进程重启一次，就会被启动扫描按孤儿强制收口**——
+即使它只是安静地等人审批。真机表现即 seq 1737 的「因进程重启被中断…重新发起」。
+
+附：13:29 那张 bash 卡（`source=permission`，metadata **无 `pdcaTaskId`**）过期时，
+`abortPdcaAfterExpiry` 取不到 taskId 直接返回 ⇒ 它对阶段链**什么也没做**；
+真正杀死任务的是 14:33 的启动扫描（`orphan_scan`）。
+
+### §3.4 触发级根因：只读问答被升级成"长任务"，且任务描述为空
+
+同一会话还有两个上游缺陷，它们是"为什么会凭空出现一个 3 阶段任务"的原因：
+
+1. **升级判据只看轮次与项目上下文**：`shouldEscalateLongTask` = 长任务信号 + **无项目/工作区** + 非 Code Mode + 用户消息 ≥2；
+   而"长任务信号"= 未完成 todo ≥ 阈值 **或** 已耗轮次 ≥ 基础档（本次 `consumedTurns=34`）。
+   本会话 turn 5 是**只读调查**（grep / file_read / glob，无任何写入），仅因轮次超阈值即被判为长任务。
+2. **任务描述取自"最近一条 assistant 文本"，且允许空串**：`onLongTaskSignal` 以
+   `lastAssistantText(session)` 作为 `description`（`pdcaLaunch.ts`），该函数只要求 `typeof content === 'string'`，
+   **不跳过空串**；工具轮常持久化 `content=''` 的 assistant 消息 ⇒ 以 `description=''` 建项目 + 阶段链，
+   无任何"描述为空则不升级"的闸门。证据：requirement 子任务日志 `descPreview: "…任务描述: "`、父检查点 `description=''`。
+
+后果：一个空描述任务消耗 2.32M tokens 产出一份 PRD，随后停在**无卡的审批门**，重启即被判孤儿收口。
+
+### §3.5 阶段链不可续跑（能力缺口，批次 5 已补）
+
+`resumeAfterApproval` 仅接受 `phase='stage_awaiting_approval'`；父检查点被收口为 `abort` 后
+`/goal approve stage` 抛 `STAGE_NOT_AWAITING` ⇒ 收口后无入口（批次 5 增 `resumeAfterAbort` + `/goal resume stage`）。
 
 ---
 
@@ -217,7 +257,20 @@
 - client：`tsc --noEmit` 通过；`vitest run` 全绿。
 - 门禁：`lint:state-ratchet` / `lint:consts` / ESLint 通过。
 
-### 后续（未实施）
+### 后续（未实施，按 §3 根因排序）
 
-- `PlansPage` 目前**未挂路由**（`/plans` 已重定向），仍在测试中被引用；是否删除需按 `code-deletion.md` CD01–CD06 另行取证后再动。
-- `PdcaWorkflowCard`（消息内）/ 浮动栏 PDCA 徽标 / 抽屉 `PdcaPipeline` 三处并存：属于"摘要 / 指示器 / 详情"三个粒度，本批未合并。
+0. **P0｜消除 `idle → requires_action` 非法转移**（§3.1）：定位机器为何停在 `idle`（本轮是否经过
+   `startProcessing`、是否被提前 `complete`、Bridge 与 ChatManager 是否各持一份实例），再决定
+   "pause 前归一（idle⇒start⇒pause）"还是"转移表补 `idle → requires_action`"。当前仅由批次 2 掩盖了第二条
+   `turn/end`，该轮仍以 `finishReason='error'` 收尾且 fallback 正文被丢弃。
+1. **P0｜阶段审批必须有"卡"**：`stage_awaiting_approval` 目前无 Inbox 卡 ⇒ 启动扫描的"无 pending 卡即孤儿"判据
+   必然把它判死（§3.3）。二选一：
+   - A（推荐）：阶段审批也建 Inbox 卡（复用 TTL / 通知 / `onInboxItemsExpired`），让"待审批 ⇒ 有卡"重新成立；
+   - B：`scanAndAbortStalePdcaTasks` 对**阶段链**的 `stage_awaiting_approval` 不写 abort，改为保留 + 可选通知。
+2. **P0｜升级前校验任务描述非空**（§3.4）：`lastAssistantText` 跳过空串；`onLongTaskSignal` / `escalateViaBareSession`
+   在 `description.trim()===''` 时**放弃升级**并记日志（含 `consumedTurns` / `pendingTodoCount`），避免空任务烧 token。
+3. **P1｜长任务信号区分"只读调查"**：本会话 34 轮全是 grep/file_read/glob ⇒ 建议信号增加"本回合存在写类工具或未完成 todo"
+   这一必要条件（仅轮次不够）。
+4. **P1｜暂停提示给可执行入口**：`⏸ …请在编排面板确认后继续` 应附带 `/goal approve stage <taskId>`。
+5. **P2｜`PlansPage` 未挂路由**（`/plans` 已重定向），仍在测试中被引用；是否删除需按 `code-deletion.md` CD01–CD06 另行取证。
+6. **P2｜PDCA 三面并存**（消息卡 / 浮动栏徽标 / 抽屉）：属"摘要 / 指示器 / 详情"三个粒度，本批未合并。

@@ -872,9 +872,9 @@ const enBase = {
     allCompleted: "All completed",
     taskEnded: "Ended",
     taskEndedWithFailed: "Ended ({{count}} failed)",
-    taskPaused: "⏸ Waiting for approval (needs your feedback)",
+    taskPaused: "⏳ Waiting for approval (needs your feedback)",
     // 2026-11-24: an approval was already handled, so this is a NEW request
-    taskPausedNew: "⏸ New approval request (needs your feedback)",
+    taskPausedNew: "⏳ New approval request (needs your feedback)",
     taskPendingAcceptance:
       "⏸ Pending acceptance ({{completed}}/{{total}} completed)",
     taskWaitingDeps: "Waiting: {{names}}",

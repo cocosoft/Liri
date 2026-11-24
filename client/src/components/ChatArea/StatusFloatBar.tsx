@@ -343,15 +343,18 @@ export default function StatusFloatBar({
    * 优先级：executionPhase > streamingStatus > 默认状态
    */
   const getStatusText = (): string => {
+    /**
+     * 2026-11-24（与工具组头口径一致）：审批等待优先于一切 —— 包括流式/阶段文案。
+     * 此前该判断只在 `!isActive` 分支：流未结束时若有调用在等审批，浮动栏仍显示
+     * 「AI 正在生成回复 / 实现中」，而工具组头已显示「⏳ 等待审批」⇒ 两处自相矛盾。
+     */
+    if (pendingApproval) {
+      return resolvedApprovalCount > 0
+        ? t("chat.taskPausedNew")
+        : t("chat.taskPaused");
+    }
     // UI-2：空闲但仍有活跃 PDCA ⇒ 以"编排进行中"常驻；不得沿用"正在生成"（会谎报运行态）
     if (!isActive) {
-      // 2026-11-13：等待审批优先于一切空闲文案（含旧任务卡的「已完成 x/y」）
-      // 2026-11-24：已有审批落定后仍待审批 ⇒ 说明是**新的**请求（换一条命令继续申请），
-      // 文案明确标出，避免被读成"刚才那次批准没生效"
-      if (pendingApproval)
-        return resolvedApprovalCount > 0
-          ? t("chat.taskPausedNew")
-          : t("chat.taskPaused");
       // 等待态（2026-09-27）：**已确认在等**（后端 yieldState/pendingWake）⇒ 不得回落成
       // "正在生成 / 编排进行中"等谎报文案（原实现即因此显示成"答完了"）
       if (isWaiting) return waitText();
@@ -361,7 +364,11 @@ export default function StatusFloatBar({
       // 空闲且仅"用编排推进"入口常驻：左侧不谎报运行态也不与右侧入口文案重复，
       // 未完成进度由 TaskProgress（已完成 x/y）承担
       if (orchestrate?.visible) return "";
-      return t("chat.streamingLabel");
+      /**
+       * 2026-11-24：其余情形浮动栏只是为「进度未收尾」等右侧入口常驻（见渲染闸门），
+       * 左侧没有运行状态可说 —— 原实现回落到「AI 正在生成回复」会谎报运行态。
+       */
+      return "";
     }
     if (runClock.stalled) {
       // 心跳静默超阈值（默认 90s）⇒ 直说"可能已断"，不得继续显示"正在生成"：

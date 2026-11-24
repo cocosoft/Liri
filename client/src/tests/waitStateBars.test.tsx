@@ -171,3 +171,59 @@ describe("YieldNoticeBar —— 职责收敛（2026-09-27）", () => {
     expect(screen.getByText(/未能自动恢复/)).toBeTruthy();
   });
 });
+
+/**
+ * 2026-11-24：浮动栏与工具组头文案一致
+ *
+ * 现场：流未结束时若有调用在等审批，组头显示「⏳ 等待审批」，
+ * 浮动栏却仍显示「AI 正在生成回复 / 实现中」⇒ 两处矛盾。
+ */
+describe("StatusFloatBar —— 与工具组头一致（2026-11-24）", () => {
+  const resetChat = () =>
+    useChatStore.setState({
+      isStreaming: false,
+      isSending: false,
+      messages: [],
+    });
+
+  it("执行中 + 待审批 ⇒ 文案取「等待审批」，不谎报正在生成", () => {
+    resetChat();
+    useChatStore.setState({
+      isStreaming: true,
+      messages: [
+        {
+          id: "a1",
+          role: "assistant",
+          session_id: "s1",
+          timestamp: Date.now(),
+          content: "",
+          blocks: [
+            {
+              id: "b1",
+              type: "inbox",
+              content: "",
+              inboxData: {
+                inboxId: "box-1",
+                type: "approval",
+                status: "pending",
+              },
+            },
+          ],
+        },
+      ] as never,
+    });
+
+    render(<StatusFloatBar />);
+    expect(screen.getByText(/等待审批/)).toBeTruthy();
+    expect(screen.queryByText(/正在生成回复/)).toBeNull();
+    resetChat();
+  });
+
+  it("空闲且无运行/等待态 ⇒ 左侧不显示「正在生成回复」（仅为未收尾入口常驻）", () => {
+    resetChat();
+    const { container } = render(<StatusFloatBar />);
+    // 空闲且无任何常驻理由 ⇒ 渐隐卸载（既有行为）
+    expect(container.querySelector(".opacity-0")).toBeTruthy();
+    expect(screen.queryByText(/正在生成回复/)).toBeNull();
+  });
+});

@@ -835,9 +835,9 @@ const zhBase = {
     allCompleted: "全部完成",
     taskEnded: "已结束",
     taskEndedWithFailed: "已结束（{{count}} 失败）",
-    taskPaused: "⏸ 等待审批（需要你的反馈）",
+    taskPaused: "⏳ 等待审批（需要你的反馈）",
     // 2026-11-24：已有审批落定后仍待审批 ⇒ 这是**新的**请求（模型继续执行又申请）
-    taskPausedNew: "⏸ 新的审批请求（需要你的反馈）",
+    taskPausedNew: "⏳ 新的审批请求（需要你的反馈）",
     taskPendingAcceptance: "⏸ 待验收（已完成 {{completed}}/{{total}}）",
     taskWaitingDeps: "等待: {{names}}",
     taskViewGraph: "查看依赖关系图（{{nodes}} 个节点, {{edges}} 条边）",

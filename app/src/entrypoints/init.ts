@@ -649,6 +649,24 @@ async function startDeferredPrefetches(): Promise<void> {
             });
           }
 
+          // 团队记忆同步（Phase 0，2026-11-25）：默认关；开启且配置 serverUrl 时才启动
+          try {
+            const {
+              defaultTeamMemorySyncService,
+              isTeamMemorySyncEnabled,
+              resolveTeamMemorySyncConfig,
+            } =
+              await import('@openliri/infra/memory/services/TeamMemorySyncService');
+            if (isTeamMemorySyncEnabled()) {
+              defaultTeamMemorySyncService.updateConfig(
+                resolveTeamMemorySyncConfig()
+              );
+              defaultTeamMemorySyncService.start();
+            }
+          } catch (error) {
+            logger.warning('团队记忆同步初始化失败（已跳过）', { error });
+          }
+
           const summarizer = new MemorySummarizer(memoryManager);
           setMemoryQueryProvider({
             async getMemorySummaries(limit?: number) {

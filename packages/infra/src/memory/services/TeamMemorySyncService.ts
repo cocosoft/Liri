@@ -12,6 +12,7 @@ import {
   defaultMemorySecretScanner,
 } from '../scanners/MemorySecretScanner';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
+import { configManager } from '@openliri/infra/config';
 
 const logger = getLogger('memory:services:teamMemorySyncService');
 
@@ -38,6 +39,8 @@ export enum SyncStatus {
   SUCCESS = 'success',
   ERROR = 'error',
   CONFLICT = 'conflict',
+  /** 未配置 `serverUrl`（Phase 0）：明确"不可同步"，**不得**当作成功 */
+  NOT_CONFIGURED = 'not_configured',
 }
 
 /**
@@ -144,6 +147,13 @@ export class TeamMemorySyncService {
       logger.warn('TeamMemorySyncService already running');
       return;
     }
+    // Phase 0：未配置服务端 ⇒ 不启动定时同步（避免"看起来在同步"的假象）
+    if (!this.config.serverUrl) {
+      logger.warn(
+        'TeamMemorySyncService：serverUrl 未配置，不启动自动同步（NOT_CONFIGURED）'
+      );
+      return;
+    }
 
     this.syncTimer = setInterval(() => {
       this.sync().catch((error) => {
@@ -182,6 +192,23 @@ export class TeamMemorySyncService {
         skipped: 0,
         conflicts: [],
         errors: ['Sync already in progress'],
+        duration: 0,
+      };
+    }
+
+    // Phase 0：未配置服务端 ⇒ 显式 NOT_CONFIGURED，且**不发起网络请求**
+    // （`fetchRemoteMemories` 在 serverUrl 为空时会静默返回空表 ⇒ 旧实现会伪造"同步成功"）
+    if (!this.config.serverUrl) {
+      this.status = SyncStatus.NOT_CONFIGURED;
+      this.notifyListeners(this.status);
+      logger.warn('团队记忆同步未配置 serverUrl，跳过（NOT_CONFIGURED）');
+      return {
+        success: false,
+        uploaded: 0,
+        downloaded: 0,
+        skipped: 0,
+        conflicts: [],
+        errors: ['NOT_CONFIGURED: memory.teamSync.serverUrl 未配置'],
         duration: 0,
       };
     }
@@ -677,4 +704,37 @@ export class TeamMemorySyncService {
 /**
  * 导出默认实例
  */
+/**
+ * 是否启用团队记忆同步（Phase 0，2026-11-25）。
+ * 默认 `false` —— 未开启时行为零变更（不启动定时器、不发请求）。
+ */
+export function isTeamMemorySyncEnabled(): boolean {
+  return (
+    configManager.getValue<boolean>('memory.teamSync.enabled', false) === true
+  );
+}
+
+/**
+ * 从 `config.json#memory.teamSync` 解析同步配置。
+ * `serverUrl` 为空 ⇒ 调用方应视为 `NOT_CONFIGURED`（不伪造成功）。
+ */
+export function resolveTeamMemorySyncConfig(): Partial<TeamMemorySyncConfig> {
+  const intervalSec = configManager.getValue<number>(
+    'memory.teamSync.intervalSec',
+    300
+  );
+  const teamId = configManager.getValue<string>(
+    'memory.teamSync.teamId',
+    'default'
+  );
+  return {
+    serverUrl:
+      configManager.getValue<string>('memory.teamSync.serverUrl', '') ?? '',
+    teamId: typeof teamId === 'string' && teamId.trim() ? teamId.trim() : 'default',
+    syncInterval:
+      (typeof intervalSec === 'number' && intervalSec > 0 ? intervalSec : 300) *
+      1000,
+  };
+}
+
 export const defaultTeamMemorySyncService = new TeamMemorySyncService();

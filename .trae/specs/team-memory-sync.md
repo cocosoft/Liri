@@ -1,7 +1,7 @@
 # 团队记忆真实同步 · 立项方案（草案 · 2026-11-25）
 
 > 来源：`agent-memory-optimization.md` §8.6（团队记忆当前为模拟/未接线实现，需单独立项）。
-> 状态：**待评审**（本轮只出方案，不改代码）。
+> 状态：**待评审**（Phase 0 门禁已实现，见 §5.1；Phase 1+ 待未决问题拍板后再动）。
 > 约束：默认关闭、默认不自动覆盖（沿用 `memory-conflict-detection.md` 裁定）、
 > 密钥扫描 fail-closed、按阶段独立提交（`code-deletion.md` CD05/CD06）。
 
@@ -142,12 +142,21 @@
 
 | 阶段 | 范围 | 门禁/验收 | 备注 |
 |---|---|---|---|
-| **Phase 0** | 接线开关 + `NOT_CONFIGURED` + 传输层骨架（不联网也能通过） | 默认关时行为零变更；未配置时状态明确；单测 | 本轮之后第一个提交 |
+| **Phase 0** | 接线开关 + `NOT_CONFIGURED` + 传输层骨架（不联网也能通过） | 默认关时行为零变更；未配置时状态明确；单测 | ✅ 已实现（2026-11-25） |
 | **Phase 1** | 单向拉取（远端→本地，只读合并）+ cursor 续传 | 重复拉取幂等；重启后不重头；密钥扫描拒绝上行 | 不写远端 |
 | **Phase 2** | 双向增量 + `If-Match` 409 + manual 候选 | 冲突产候选、正文不变；并发写不丢数据 | 光标 + etag 双保险 |
 | **Phase 3** | 审阅入口（CLI/设置页）+ 审计报表 | 人工可采纳/忽略候选；审计可查 | UI 单独评估 |
 
 每阶段独立提交；`memory.teamSync.enabled` 默认关，观察期后再开。
+
+### 5.1 实施记录
+
+**Phase 0（2026-11-25）**
+- `SyncStatus.NOT_CONFIGURED`：`serverUrl` 为空时 `sync()` 直接返回失败（不再走"空表 ⇒ 假成功"路径）；
+  `start()` 不启动定时器。
+- 配置键：`memory.teamSync.enabled`（默认 `false`）/ `serverUrl` / `teamId` / `intervalSec`（默认 300）。
+- app `init.ts`：仅当 `enabled === true` 时解析配置并启动 `defaultTeamMemorySyncService`。
+- 用例：`app/tests/memory/teamMemorySyncGate.test.ts`（NOT_CONFIGURED / start 不启动 / 配置解析）。
 
 ---
 

@@ -28,6 +28,19 @@ describe('classifyIntent：意图分类', () => {
     expect(classifyIntent('review and fix the failing test')).toBe('mutate');
   });
 
+  it('多步任务里的「写文件 / 保存 / 生成」也算变更意图（勿被「总结」带成只读）', () => {
+    // 真机 `session_mwwb2nt8807735cdf4`：任务含「写文件」+「最后总结」，
+    // 旧词表只认「写入 / 写进」⇒ 判成只读 ⇒ 第一个 write 就弹审批卡。
+    const multiStep =
+      '在本机当前工作区按顺序完成：1. 用 bash 执行 mkdir .liri-resume2；' +
+      '2. 用 file_write 写文件 .liri-resume2\\note.txt，内容为 auto；最后用一句话总结结果。';
+    expect(classifyIntent(multiStep)).toBe('mutate');
+    expect(classifyIntent('把结果保存到 out.json')).toBe('mutate');
+    expect(classifyIntent('生成一份汇总报表')).toBe('mutate');
+    expect(classifyIntent('export the report to csv')).toBe('mutate');
+    expect(classifyIntent('run file_write for this path')).toBe('mutate');
+  });
+
   it('无关键词 / 过短 ⇒ unknown（不判）', () => {
     expect(classifyIntent('继续')).toBe('unclassified');
     expect(classifyIntent('')).toBe('unclassified');
@@ -89,6 +102,19 @@ describe('detectIntentActionDeviation：偏离判定', () => {
         goalText: '分析并修复这个失败用例',
         toolName: 'file_write',
         input: { path: 'a.ts', content: 'x' },
+      }).deviated
+    ).toBe(false);
+  });
+
+  it('多步任务（含「写文件」+「总结」）⇒ 不偏离（真机回归）', () => {
+    const goalText =
+      '按顺序完成：1. 用 bash 执行 mkdir .liri-resume2；' +
+      '2. 用 file_write 写文件 .liri-resume2\\note.txt，内容为 auto；最后用一句话总结结果。';
+    expect(
+      detectIntentActionDeviation({
+        goalText,
+        toolName: 'file_write',
+        input: { file_path: '.liri-resume2/note.txt', content: 'auto' },
       }).deviated
     ).toBe(false);
   });

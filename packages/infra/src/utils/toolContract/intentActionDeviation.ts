@@ -33,8 +33,13 @@ const READ_ONLY_INTENT_PATTERNS: readonly RegExp[] = [
  * （实测踩中）。宁可漏判，也不要误报。
  */
 const MUTATE_INTENT_PATTERNS: readonly RegExp[] = [
-  /修改|改成|改为|写入|写进|创建|新建|删除|移除|修复|重构|添加|更新|替换|部署|安装|提交|推送|重命名|移动|整理成/,
-  /\b(fix|implement|add|update|remove|delete|create|write|refactor|deploy|install|commit|push|rename|move)\b/i,
+  // 2026-11-25（真机 `session_mwwb2nt8807735cdf4`）：补「写文件 / 保存 / 生成 / 导出 / 建目录」
+  // 这类最常见的中文变更表述。原表只有「写入 / 写进」，而任务里写的是「用 file_write 写文件 X」，
+  // 且同句含「总结」⇒ 被误判为**只读意图**，第一个 write 就弹审批卡（多步任务几乎必中）。
+  // 方向仍遵循「宁漏勿误」：这里只加**明确变更**的词，不加「写」这类会出现在"怎么写"里的裸词。
+  /修改|改成|改为|写入|写进|写文件|写出|写到|保存|生成|导出|落盘|存档|建目录|搭建|创建|新建|删除|移除|修复|重构|添加|更新|替换|部署|安装|提交|推送|重命名|移动|整理成/,
+  // `\bwrite\b` 对 `file_write` **不命中**（`_` 是单词字符，前面没有词边界）⇒ 另收 `file_write` 字面形态
+  /\b(fix|implement|add|update|remove|delete|create|write|save|generate|export|mkdir|touch|refactor|deploy|install|commit|push|rename|move|file_write)\b/i,
 ];
 
 /** shell 命令里的变更动作（读不到命令 ⇒ 不判变更，宁漏勿误） */

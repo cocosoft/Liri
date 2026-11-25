@@ -309,8 +309,8 @@ MMR 需查询向量与候选两两相似度（N² 次嵌入），仅在显式开
 | 项 | 状态 | 落地 |
 |---|---|---|
 | **记忆用途** | ✅ 已落地 | 解析优先级：`session.metadata.memoryPurpose` > `config.json#memory.purpose` > 空；非空才注入 `memoryPurpose` 段（只给软引导："只记录与该用途相关的长期事实/规则/陷阱"），**不预设**"只记失败"等硬规则（对齐 A5）；空 ⇒ 零注入 |
-| 规则笔记 schema | ⏳ 未做 | `rule / whyTrue / evidenceSeqs / traps / testedAt` 需写入方（工具或提示）与读取方（evaluator）**同批**落地，避免只写不读的 schema |
-| 失败→理论→验证→规则闭环 | ⏳ 未做 | 依赖规则笔记 schema 与 evaluator |
+| 规则笔记 schema | ✅ 已落地（2026-11-25） | `MemoryMetadata.ruleNote: {rule, whyTrue?, evidenceSeqs?, traps?, testedAt?}` + frontmatter 往返；写入方 = MCP `memory_write`（提供 `rule` 即落 `ruleNote`，type 记 `rule`）；读取方 = 维护期 `rule-notes-report.json`（完整率 / 字段缺失计数 / 不完整样本 ≤5） |
+| 失败→理论→验证→规则闭环 | ⚠️ 部分（2026-11-25） | 规则+理论=写入方；验证=维护期 Validate 命中同文即写 `ruleNote.testedAt`（与 `verifiedAt` 同批，不改正文）；规则=完整性报告消费。**自动提取侧未接**：`createMemoryExtractionHook` / `createPostSamplingHookManager` 全仓零调用点，且其 `saveToMemory` 传参与 `createMemory` 契约不符（已登记预存错误）⇒ 当前只有 MCP 显式写入一条真实入口 |
 
 ### 8.8 P3-1 记忆 eval 基线（确定性，2026-11-25）
 
@@ -336,8 +336,7 @@ MMR 需查询向量与候选两两相似度（N² 次嵌入），仅在显式开
 | `memory.purpose` | 空 | 记忆用途（软引导）；会话 `metadata.memoryPurpose` 优先 |
 
 **未做（需先定范围，非技术阻塞）**：
-- 规则笔记 schema（`rule/whyTrue/evidenceSeqs/traps/testedAt`）与"失败→理论→验证→规则"闭环 ——
-  需写入方（工具/提示）与读取方（evaluator）**同批**落地；
+- 规则笔记 schema 与「失败→理论→验证→规则」闭环的**自动提取侧**（MCP 显式写入已落地；post-sampling 子系统整体未接线，见预存错误记录）；
 - 团队记忆真实同步（服务端、鉴权、冲突消解、审计）；
 - 注入遵循度评测（需真实模型在环）；
 - `MemoryTool` 的 `advancedSearch`（tags/sortBy）并入统一检索服务。

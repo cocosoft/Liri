@@ -607,6 +607,10 @@ export class MemoryManagerImpl
     // 放在索引重建**之前** ⇒ 新确认的条目立即参与"价值排序"。
     await this.validateMemories(all);
 
+    // P2-2（2026-11-25）：规则笔记完整性报告（「失败→理论→验证→规则」的评估侧）；
+    // 放在 Validate 之后 ⇒ 本轮刚写入的 `testedAt` 立即计入完整率。
+    await this.evaluateRuleNotes(all.filter((m) => !removedIds.has(m.id)));
+
     // P0-1（2026-11-25）：重建顶层索引 `MEMORY.md` —— 注入层只读该文件（≤200 行）。
     // 放在去重之后：索引反映的是**最终存活集合**。失败不阻断维护（下一轮空闲期再试）。
     try {
@@ -1383,7 +1387,11 @@ export class MemoryManagerImpl
           unverifiedIds.push(memory.id);
           continue;
         }
-        memory.metadata.verifiedAt = new Date();
+        const confirmedAt = new Date();
+        memory.metadata.verifiedAt = confirmedAt;
+        // P2-2（2026-11-25）：规则笔记的证据确认同时写 `testedAt`（闭环的"验证"步骤）
+        if (memory.metadata.ruleNote)
+          memory.metadata.ruleNote.testedAt = confirmedAt;
         await this.store.saveMemory(memory);
         this.retriever.updateIndex(memory);
         verifiedIds.push(memory.id);
@@ -1425,6 +1433,87 @@ export class MemoryManagerImpl
           action: 'writeValidationReport',
         });
       }
+    }
+  }
+
+  /**
+   * 规则笔记完整性评估（P2-2，2026-11-25）。
+   *
+   * 读取方：把「失败 → 理论 → 验证 → 规则」的结构化记录汇总成 `rule-notes-report.json`
+   * （总数 / 完整数 / 不完整数 / 各字段缺失计数 / 不完整样本 ≤5）。
+   * 完整 = `rule` + `whyTrue` + `evidenceSeqs`(≥1) + `traps`(≥1) + `testedAt` 均具备。
+   * 无规则笔记时**不写报告**（不伪造空态文件）。
+   */
+  private async evaluateRuleNotes(memories: Memory[]): Promise<void> {
+    const noted = memories.filter((m) => m.metadata.ruleNote);
+    if (noted.length === 0) return;
+
+    const missing = {
+      rule: 0,
+      whyTrue: 0,
+      evidenceSeqs: 0,
+      traps: 0,
+      testedAt: 0,
+    };
+    const incompleteSamples: Array<{
+      id: string;
+      name: string;
+      missing: string[];
+    }> = [];
+    let incompleteCount = 0;
+
+    for (const memory of noted) {
+      const note = memory.metadata.ruleNote as NonNullable<
+        Memory['metadata']['ruleNote']
+      >;
+      const gaps: string[] = [];
+      if (!note.rule?.trim()) gaps.push('rule');
+      if (!note.whyTrue?.trim()) gaps.push('whyTrue');
+      if (!note.evidenceSeqs || note.evidenceSeqs.length === 0)
+        gaps.push('evidenceSeqs');
+      if (!note.traps || note.traps.length === 0) gaps.push('traps');
+      if (!note.testedAt) gaps.push('testedAt');
+      for (const field of gaps) {
+        missing[field as keyof typeof missing] += 1;
+      }
+      if (gaps.length > 0) {
+        incompleteCount += 1;
+        if (incompleteSamples.length < 5) {
+          incompleteSamples.push({
+            id: memory.id,
+            name: memory.metadata.name,
+            missing: gaps,
+          });
+        }
+      }
+    }
+
+    const complete = noted.length - incompleteCount;
+    const report = {
+      generatedAt: new Date().toISOString(),
+      total: noted.length,
+      complete,
+      incomplete: incompleteCount,
+      completenessRate: Number((complete / noted.length).toFixed(3)),
+      missing,
+      incompleteSamples,
+    };
+    logger.info(`规则笔记完整性：${complete}/${noted.length}`, {
+      total: report.total,
+      complete,
+      incomplete: incompleteCount,
+    });
+
+    try {
+      await writeFileAtomic(
+        join(this.storeDir, 'rule-notes-report.json'),
+        JSON.stringify(report, null, 2) + '\n'
+      );
+    } catch (err) {
+      await handleError(err, {
+        module: 'memory:memoryManager',
+        action: 'writeRuleNotesReport',
+      });
     }
   }
 

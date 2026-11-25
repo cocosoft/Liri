@@ -31,6 +31,23 @@ export interface DreamSource {
 export const CURRENT_SCHEMA_VERSION = 2;
 
 /**
+ * 规则笔记（P2-2，2026-11-25）：把「失败 → 理论 → 验证 → 规则」落成结构化记录。
+ *
+ * - `rule` 必填 = 可执行的规则本身；
+ * - `whyTrue` = 理论依据（为什么成立）；
+ * - `evidenceSeqs` = 支持该规则的会话事件 seq；
+ * - `traps` = 已知陷阱 / 反例；
+ * - `testedAt` 由维护期 Validate 在原始会话记录中命中同文时写入（验证步骤）。
+ */
+export interface RuleNote {
+  rule: string;
+  whyTrue?: string;
+  evidenceSeqs?: number[];
+  traps?: string[];
+  testedAt?: Date;
+}
+
+/**
  * 记忆元数据
  */
 export interface MemoryMetadata {
@@ -163,6 +180,12 @@ export interface MemoryMetadata {
    * 只作排序信号（索引 Promote 排序消费），**不**改写正文，也**不**刷新 `updatedAt`。
    */
   accessCount?: number;
+
+  /**
+   * 规则笔记（P2-2，2026-11-25）。缺省 = 普通记忆。
+   * 写入方：MCP `memory_write`（显式规则参数）；读取方：维护期完整性报告 + Validate 写 `testedAt`。
+   */
+  ruleNote?: RuleNote;
 }
 
 /**
@@ -199,5 +222,6 @@ export function createMemoryMetadata(
     supersedes: data.supersedes,
     verifiedAt: data.verifiedAt,
     accessCount: data.accessCount ?? 0,
+    ruleNote: data.ruleNote,
   };
 }

@@ -59,7 +59,7 @@ const MEMORY_TOOLS: Tool[] = [
   {
     name: 'memory_write',
     description:
-      '写入一条长期记忆（持久化到记忆库，供后续跨会话语义检索）。当用户要求你记住某事、或出现值得长期保留的事实/偏好时调用。',
+      '写入一条长期记忆（持久化到记忆库，供后续跨会话语义检索）。当用户要求你记住某事、或出现值得长期保留的事实/偏好时调用。提供 `rule` 时按「规则笔记」写入（rule/whyTrue/evidenceSeqs/traps/testedAt），用于沉淀"失败→理论→验证→规则"的经验。',
     inputSchema: {
       type: 'object',
       properties: {
@@ -68,6 +68,30 @@ const MEMORY_TOOLS: Tool[] = [
           type: 'array',
           items: { type: 'string' },
           description: '标签（可选）',
+        },
+        rule: {
+          type: 'string',
+          description:
+            '规则笔记：可执行的规则本身（提供即落 metadata.ruleNote，type 记为 rule）',
+        },
+        whyTrue: {
+          type: 'string',
+          description: '规则笔记：为什么成立（理论/依据，可选）',
+        },
+        evidenceSeqs: {
+          type: 'array',
+          items: { type: 'number' },
+          description: '规则笔记：支持该规则的会话事件 seq（可选）',
+        },
+        traps: {
+          type: 'array',
+          items: { type: 'string' },
+          description: '规则笔记：已知陷阱 / 反例（可选）',
+        },
+        testedAt: {
+          type: 'string',
+          description:
+            '规则笔记：最近一次验证通过时间（ISO-8601；通常由维护期 Validate 写入）',
         },
       },
       required: ['content'],
@@ -98,6 +122,68 @@ const MEMORY_TOOLS: Tool[] = [
     },
   },
 ];
+
+/** `memory_write` 参数（含可选规则笔记载荷） */
+export interface MemoryWriteArgs {
+  content?: string;
+  tags?: string[];
+  rule?: string;
+  whyTrue?: string;
+  evidenceSeqs?: number[];
+  traps?: string[];
+  testedAt?: string;
+}
+
+/**
+ * 把 `memory_write` 参数转成记忆元数据（P2-2，2026-11-25）。
+ *
+ * 导出供单测直接断言（导入本模块不会启动 MCP Server）。
+ * 提供 `rule` 时写入结构化规则笔记（`metadata.ruleNote`，type 记为 `rule`）；
+ * `testedAt` 不可解析时抛错（避免静默写入坏数据）。
+ */
+export function buildMemoryWriteMetadata(
+  args: MemoryWriteArgs,
+  now: Date = new Date()
+): MemoryMetadata {
+  const content = args.content ?? '';
+  const rule = args.rule?.trim();
+  let ruleNote: MemoryMetadata['ruleNote'];
+
+  if (rule) {
+    let testedAt: Date | undefined;
+    if (args.testedAt !== undefined) {
+      const parsed = new Date(args.testedAt);
+      if (Number.isNaN(parsed.getTime())) {
+        throw new Error('memory_write 的 testedAt 不是合法时间');
+      }
+      testedAt = parsed;
+    }
+    ruleNote = {
+      rule,
+      whyTrue: args.whyTrue?.trim() || undefined,
+      evidenceSeqs: Array.isArray(args.evidenceSeqs)
+        ? args.evidenceSeqs.filter((n) => Number.isFinite(n))
+        : undefined,
+      traps: Array.isArray(args.traps)
+        ? args.traps
+            .filter((t): t is string => typeof t === 'string' && !!t.trim())
+            .map((t) => t.trim())
+        : undefined,
+      testedAt,
+    };
+  }
+
+  return {
+    name: content.length > 40 ? `${content.slice(0, 40)}…` : content,
+    description: rule ? 'MCP 写入的规则笔记' : 'MCP 写入的长期记忆',
+    type: rule ? 'rule' : MemoryType.USER_FACT,
+    createdAt: now,
+    updatedAt: now,
+    tags: args.tags,
+    source: 'mcp',
+    ruleNote,
+  };
+}
 
 /**
  * 格式化 memory_search 召回结果（D-P1，2026-09-02）：
@@ -173,23 +259,12 @@ export async function startMemoryMCPServer(): Promise<void> {
       try {
         switch (name) {
           case 'memory_write': {
-            const { content, tags } = (args ?? {}) as {
-              content?: string;
-              tags?: string[];
-            };
+            const writeArgs = (args ?? {}) as MemoryWriteArgs;
+            const { content } = writeArgs;
             if (!content || typeof content !== 'string') {
               throw new Error('memory_write 需要字符串参数 content');
             }
-            const now = new Date();
-            const metadata: MemoryMetadata = {
-              name: content.length > 40 ? `${content.slice(0, 40)}…` : content,
-              description: 'MCP 写入的长期记忆',
-              type: MemoryType.USER_FACT,
-              createdAt: now,
-              updatedAt: now,
-              tags,
-              source: 'mcp',
-            };
+            const metadata = buildMemoryWriteMetadata(writeArgs);
             const memory = await memoryManager.createMemory({
               content,
               metadata,

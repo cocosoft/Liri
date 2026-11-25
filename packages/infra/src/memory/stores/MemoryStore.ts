@@ -7,6 +7,7 @@ import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { glob } from 'glob';
 import type { Memory } from '../types/Memory';
 import { createMemoryMetadata } from '../types/MemoryMetadata';
+import type { RuleNote } from '../types/MemoryMetadata';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@openliri/infra/monitoring';
@@ -359,6 +360,14 @@ export class MemoryStoreImpl implements MemoryStore {
               // P0-2-4（2026-11-25）：召回次数（缺省 = 0）
               if (memory.metadata.accessCount !== undefined)
                 frontmatter.accessCount = memory.metadata.accessCount;
+              // P2-2（2026-11-25）：规则笔记（testedAt 转 ISO，保证 frontmatter 往返）
+              if (memory.metadata.ruleNote) {
+                const { testedAt, ...rest } = memory.metadata.ruleNote;
+                frontmatter.ruleNote = {
+                  ...rest,
+                  ...(testedAt ? { testedAt: testedAt.toISOString() } : {}),
+                };
+              }
 
               const validatedContent = this.validateMarkdownContent(
                 memory.content
@@ -888,6 +897,14 @@ export class MemoryStoreImpl implements MemoryStore {
           supersedes: data.supersedes,
           verifiedAt: data.verifiedAt ? new Date(data.verifiedAt) : undefined,
           accessCount: data.accessCount,
+          ruleNote: data.ruleNote
+            ? ({
+                ...(data.ruleNote as Record<string, unknown>),
+                testedAt: data.ruleNote.testedAt
+                  ? new Date(data.ruleNote.testedAt)
+                  : undefined,
+              } as RuleNote)
+            : undefined,
         }),
         createdAt: new Date(data.createdAt),
         updatedAt: new Date(data.updatedAt),

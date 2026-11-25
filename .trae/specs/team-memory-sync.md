@@ -111,8 +111,9 @@
 - 授权：调用者必须是 `teamId` 成员；非成员 ⇒ 403。
 - 隔离：服务端每条读都带 `teamId` 过滤（租户库另一层用 `owner_key`），漏过滤即越权。
 - 客户端：`serverUrl` 为空 ⇒ 状态 `NOT_CONFIGURED` 并**明确报错**，**不得**伪造成功（当前模拟实现的反面）。
-- **令牌来源（新增，建议）**：沿用本机凭据文件 `<LIRI_HOME>/credentials.json` 的团队令牌字段
-  （键名 `teamSync.token`，缺失即 `NOT_CONFIGURED`）；**禁止**把令牌写进配置明文或日志。
+- **令牌来源（新增，建议）**：本机凭据库（`<LIRI_HOME>/credentials.json`，经 `CredentialStore`）的
+  `teamSync` 条目（`getCredentialStore().get('teamSync')`）；缺失时不阻断启动，由服务端 401 如实暴露；
+  **禁止**把令牌写进配置明文或日志（`TeamMemorySyncConfig` 不含令牌字段）。
 - **成员校验的数据来源**：服务端主数据（团队表）——本仓不定义团队权限服务，只要求
   "非成员必 403"；客户端不缓存他队数据。
 
@@ -264,13 +265,26 @@
   取舍成功后 `resolveTeamConflict` 把该候选从 `conflicts.json` 移除（避免审阅列表继续展示已处理项）。
 - 如实边界：团队记忆是独立目录/独立访问级别；共享目录版不含真实网络（网络版 Phase 2 待 §8 后三项拍板）。
 
+**Phase 2N-0（2026-11-25，网络版传输层）**
+- `TeamMemorySyncConfig.apiPrefix`（默认 `/teams`）：路径统一为
+  `${serverUrl}${apiPrefix}/${teamId}/memories[...]`，`/v1` 差异只改这一处。
+- Bearer：`setAuthToken(token)`（**不在 config 内**，避免 `getConfig()`/日志带出明文）；
+  app `init.ts` 从 `CredentialStore.get('teamSync')` 注入；缺失不阻断启动，由 401 如实暴露。
+- 错误分类：`classifyTeamMemoryHttpStatus()` → `UNAUTHORIZED/FORBIDDEN/NOT_FOUND/CONFLICT/
+  PRECONDITION_FAILED/PRECONDITION_REQUIRED/RATE_LIMITED/SERVER_ERROR/HTTP_ERROR`，
+  非 2xx 抛 `AppError(errorCode=分类码)`。
+- **fail-closed 修复**：`fetchRemoteMemories` 原把异常吞成"空表"（401/网络故障 ⇒ 伪装远端为空 ⇒
+  可能把本地全量当新增上传）；现记日志后**上抛**，由 `sync()` 记为 `ERROR`。
+- 用例：`app/tests/memory/teamMemorySyncTransport.test.ts`（路径/鉴权头/apiPrefix/401/429/分类表）。
+
+
 ### 5.2 网络版实施拆解（Phase 2N-0 … 2N-5；每步独立提交）
 
 > 前置：§8 的 3 项阻塞决策已拍板；默认 `memory.teamSync.enabled=false`，未配置 `serverUrl` 时行为零变更。
 
 | 步骤 | 范围 | 落点（文件） | 验收 / 门禁 | 回滚 |
 |---|---|---|---|---|
-| **2N-0** | 契约常量 + Bearer + 错误码分类 + 超时/重试（C1/C2；不联网也能过） | `TeamMemorySyncService.ts`（新增 `apiPrefix` 常量与 `authorize` 头）；复用 `withRetry` | 未配置 ⇒ `NOT_CONFIGURED` 零请求；单测用 `fetch` 桩断言请求头/路径 | 独立提交可 revert；开关默认关 |
+| **2N-0** | 契约常量 + Bearer + 错误码分类 + 超时/重试（C1/C2；不联网也能过） | ✅ 已实现（2026-11-25）：`apiPrefix` + `setAuthToken` + `classifyTeamMemoryHttpStatus`；**fetch 失败上抛**（不再吞成空表） | 未配置 ⇒ `NOT_CONFIGURED` 零请求；单测断言路径/鉴权头/401/429 | 独立提交可 revert；开关默认关 |
 | **2N-1** | 拉取分页 + cursor 持久化（C3/C5 拉侧） | 同上 + 新表 `team_memory_sync_state(team_id PK, cursor, etag_json, last_sync_at, last_error)`（仅新增） | cursor=10 ⇒ 只请求 `version>10`；重启从表续传；重复拉取幂等 | 清空表即可全量重拉 |
 | **2N-2** | 推送 `If-Match` + 409/412 ⇒ 冲突候选（C4/C6/C7 推侧） | 同上 + 复用 `TeamMemorySharedDirSync` 的候选结构与 `resolveTeamConflict` | 412/409 ⇒ 候选落 `conflicts.json`；**本地/远端正文均不变**；密钥命中拒发 | 关开关即停；候选可人工放弃 |
 | **2N-3** | 墓碑处理（远端 `deletedAt` ⇒ 本地 `.trash` 归档） | 同上 | 删除可同步；归档不物理删除 | `.trash` 可还原 |
@@ -321,13 +335,13 @@
 1. **服务端归属** = **共享目录同步**（Phase 1 先做，本阶段不走网络；自建 HTTP 服务/复用协作设施后置）。
 2. **身份来源** = **本机身份**（`ownerKey` 不参与共享目录阶段；网络阶段再引入租户身份）。
 
-**仍待拍板（Phase 2N 前，按此顺序阻塞）**
+**按建议默认推进（2026-11-25；用户"继续"授权按建议实施，实施前可随时改判）**
 
-| # | 决策 | 建议默认 | 影响 |
+| # | 决策 | 采用值 | 影响（若改判） |
 |---|---|---|---|
-| 3 | **加密责任端**：客户端加密（服务端只见密文） vs TLS + 服务端可见明文 | **先 TLS + 明文**（`enableEncryption` 保留但默认关） | 选"客户端加密"则 `contentHash` 需按密文算，且服务端无法做 hash 冲突判定 ⇒ 冲突判定移到客户端（方案需改 §3.1） |
-| 4 | **冲突默认策略**：`manual` vs 允许 `local_wins` 灰度 | **`manual`** | 选灰度则 2N-2 需增加"自动覆盖 + 审计"，并放宽"不自动改写"裁定 |
-| 5 | **共享边界**：是否允许跨团队共享单条 | **不允许** | 允许则服务端 `teamId` 过滤需支持 `sharedWith` 列表（越权面扩大） |
+| 3 | **加密责任端** | **TLS + 服务端可见明文**（`enableEncryption` 保留但默认关） | 改"客户端加密" ⇒ `contentHash` 按密文算、冲突判定移到客户端（§3.1 需改） |
+| 4 | **冲突默认策略** | **`manual`**（2N-2 生成候选，不自动覆盖） | 改灰度 ⇒ 2N-2 需加"自动覆盖 + 审计"，并放宽"不自动改写"裁定 |
+| 5 | **共享边界** | **不允许跨团队共享单条** | 改允许 ⇒ 服务端过滤需支持 `sharedWith`（越权面扩大） |
 
 
 ---

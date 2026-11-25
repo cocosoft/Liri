@@ -102,6 +102,49 @@ export interface TeamMemorySyncConfig {
   maxConcurrent: number;
   timeout: number;
   incremental: boolean;
+  /**
+   * 服务端路径前缀（Phase 2N-0，2026-11-25）：默认 `/teams`。
+   * 若部署需要 `/v1` 等前缀，只改这一处（契约见 `team-memory-sync.md` §3.2）。
+   */
+  apiPrefix: string;
+}
+
+/**
+ * HTTP 状态 ⇒ 结构化错误码（Phase 2N-0）。
+ * 客户端按码分支（412/409 走冲突候选），**不做字符串匹配**（CS02）。
+ */
+export type TeamMemoryHttpErrorCode =
+  | 'UNAUTHORIZED'
+  | 'FORBIDDEN'
+  | 'NOT_FOUND'
+  | 'PRECONDITION_REQUIRED'
+  | 'PRECONDITION_FAILED'
+  | 'CONFLICT'
+  | 'RATE_LIMITED'
+  | 'SERVER_ERROR'
+  | 'HTTP_ERROR';
+
+export function classifyTeamMemoryHttpStatus(
+  status: number
+): TeamMemoryHttpErrorCode {
+  switch (status) {
+    case 401:
+      return 'UNAUTHORIZED';
+    case 403:
+      return 'FORBIDDEN';
+    case 404:
+      return 'NOT_FOUND';
+    case 409:
+      return 'CONFLICT';
+    case 412:
+      return 'PRECONDITION_FAILED';
+    case 428:
+      return 'PRECONDITION_REQUIRED';
+    case 429:
+      return 'RATE_LIMITED';
+    default:
+      return status >= 500 ? 'SERVER_ERROR' : 'HTTP_ERROR';
+  }
 }
 
 /**
@@ -118,6 +161,7 @@ const DEFAULT_CONFIG: TeamMemorySyncConfig = {
   maxConcurrent: 5,
   timeout: 30000,
   incremental: true,
+  apiPrefix: '/teams',
 };
 
 /**
@@ -131,6 +175,11 @@ export class TeamMemorySyncService {
   private memoryStates: Map<string, MemorySyncState> = new Map();
   private syncTimer: NodeJS.Timeout | null = null;
   private lastSyncTime: number = 0;
+  /**
+   * Bearer 令牌（Phase 2N-0，2026-11-25）：由 app 侧从 `credentials.json` 注入。
+   * **不放进 `TeamMemorySyncConfig`** —— 避免 `getConfig()`/日志意外带出明文。
+   */
+  private authToken: string | null = null;
   private listeners: Array<(status: SyncStatus, result?: SyncResult) => void> =
     [];
 
@@ -313,24 +362,17 @@ export class TeamMemorySyncService {
       const timeout = setTimeout(() => controller.abort(), this.config.timeout);
 
       const response = await fetch(
-        `${this.config.serverUrl}/teams/${this.config.teamId}/memories`,
+        `${this.config.serverUrl}${this.config.apiPrefix}/${this.config.teamId}/memories`,
         {
           signal: controller.signal,
-          headers: {
-            Accept: 'application/json',
-          },
+          headers: this.buildHeaders(),
         }
       );
 
       clearTimeout(timeout);
 
       if (!response.ok) {
-        throw new AppError(
-          `HTTP ${response.status}: ${response.statusText}`,
-          ErrorCategory.EXECUTION,
-          ErrorSeverity.HIGH,
-          '1000'
-        );
+        throw this.httpError(response.status, response.statusText);
       }
 
       const data = await response.json();
@@ -349,6 +391,9 @@ export class TeamMemorySyncService {
         module: 'memory:services:teamSync',
         action: 'fetch_remote',
       });
+      // Phase 2N-0：**上抛**（fail-closed）—— 旧实现吞错后返回空表，会让 401/网络故障
+      // 伪装成"远端为空"，进而把本地全量当成新增上传。
+      throw error;
     }
 
     return memories;
@@ -511,16 +556,13 @@ export class TeamMemorySyncService {
       }
     }
 
-    const url = `${this.config.serverUrl}/teams/${this.config.teamId}/memories/${memoryId}`;
+    const url = `${this.config.serverUrl}${this.config.apiPrefix}/${this.config.teamId}/memories/${memoryId}`;
     const etag = this.etagCache.get(memoryId);
 
-    const headers: Record<string, string> = {
+    const headers = this.buildHeaders({
       'Content-Type': 'application/json',
-    };
-
-    if (etag) {
-      headers['If-Match'] = etag;
-    }
+      ...(etag ? { 'If-Match': etag } : {}),
+    });
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.config.timeout);
@@ -535,12 +577,7 @@ export class TeamMemorySyncService {
     clearTimeout(timeout);
 
     if (!response.ok) {
-      throw new AppError(
-        `HTTP ${response.status}: ${response.statusText}`,
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        '1000'
-      );
+      throw this.httpError(response.status, response.statusText);
     }
 
     const newEtag = response.headers.get('ETag');
@@ -569,24 +606,17 @@ export class TeamMemorySyncService {
     const timeout = setTimeout(() => controller.abort(), this.config.timeout);
 
     const response = await fetch(
-      `${this.config.serverUrl}/teams/${this.config.teamId}/memories/${memoryId}`,
+      `${this.config.serverUrl}${this.config.apiPrefix}/${this.config.teamId}/memories/${memoryId}`,
       {
         signal: controller.signal,
-        headers: {
-          Accept: 'application/json',
-        },
+        headers: this.buildHeaders(),
       }
     );
 
     clearTimeout(timeout);
 
     if (!response.ok) {
-      throw new AppError(
-        `HTTP ${response.status}: ${response.statusText}`,
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        '1000'
-      );
+      throw this.httpError(response.status, response.statusText);
     }
 
     const data = await response.json();
@@ -675,6 +705,34 @@ export class TeamMemorySyncService {
    */
   setSecretScanner(scanner: MemorySecretScanner): void {
     this.secretScanner = scanner;
+  }
+
+  /**
+   * 设置 Bearer 令牌（Phase 2N-0）；传 `null` 清除。
+   * 令牌缺失时仍可发起请求（服务端应回 401），由同步结果如实呈现，不伪造成功。
+   */
+  setAuthToken(token: string | null): void {
+    this.authToken = token && token.trim() ? token.trim() : null;
+  }
+
+  /** 统一请求头（含 Bearer；令牌永不进日志） */
+  private buildHeaders(extra?: Record<string, string>): Record<string, string> {
+    return {
+      Accept: 'application/json',
+      ...(this.authToken ? { Authorization: `Bearer ${this.authToken}` } : {}),
+      ...(extra ?? {}),
+    };
+  }
+
+  /** HTTP 非 2xx ⇒ 结构化 AppError（errorCode = 分类码） */
+  private httpError(status: number, statusText: string): AppError {
+    const code = classifyTeamMemoryHttpStatus(status);
+    return new AppError(
+      `HTTP ${status} ${code}: ${statusText}`,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      code
+    );
   }
 
   /**

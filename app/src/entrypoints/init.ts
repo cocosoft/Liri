@@ -677,6 +677,19 @@ async function startDeferredPrefetches(): Promise<void> {
               defaultTeamMemorySyncService.updateConfig(
                 resolveTeamMemorySyncConfig()
               );
+              // Phase 2N-0：Bearer 令牌来自本机凭据库（`credentials.json` 的 `teamSync` 条目）；
+              // 缺失时不阻断启动，由服务端 401 如实暴露（不伪造成功）。
+              try {
+                const { getCredentialStore } =
+                  await import('@modules/ai/credentials/CredentialStore');
+                defaultTeamMemorySyncService.setAuthToken(
+                  getCredentialStore().get('teamSync') ?? null
+                );
+              } catch (error) {
+                logger.warning('团队记忆同步令牌读取失败（按未认证请求发送）', {
+                  error,
+                });
+              }
               defaultTeamMemorySyncService.start();
             }
           } catch (error) {

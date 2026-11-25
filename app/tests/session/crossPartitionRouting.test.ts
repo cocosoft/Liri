@@ -308,6 +308,62 @@ describe('A 分区路由：读 / 写 / 删均以实体所在分区为准', () =>
     expect((await storage.getSession(ID))?.status).toBe(SessionStatus.ERROR);
   });
 
+  test('⑩ 分裂：启动期合并把残留副本的缺失产物补进主副本，并软删残留目录', async () => {
+    const fx = mkCrossPartition('xpart-split-consolidate-');
+    // 实体副本（历史分区）：已有非空 memory.md —— 不得被残留副本覆盖
+    fs.writeFileSync(
+      path.join(fx.legacyRoot, ID, 'memory.md'),
+      'KEEPER',
+      'utf-8'
+    );
+    // 残留副本（当前分区）：只有 session.json，外加独有产物（事件日志 / 消息备份）
+    const donorDir = path.join(fx.basePath, ID);
+    fs.mkdirSync(donorDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(donorDir, 'session.json'),
+      JSON.stringify({ ...fx.session, status: SessionStatus.ACTIVE }),
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(donorDir, 'events.jsonl'),
+      '{"seq":1,"type":"turn/start"}\n',
+      'utf-8'
+    );
+    fs.writeFileSync(path.join(donorDir, 'memory.md'), 'DONOR', 'utf-8');
+    fs.writeFileSync(
+      path.join(donorDir, 'messages.jsonl.bak-2026'),
+      'old',
+      'utf-8'
+    );
+
+    const storage = mkStorage(fx);
+    const internals = storage as unknown as {
+      loadAllSessions(): Promise<void>;
+      consolidateDuplicatePartitions(): Promise<void>;
+    };
+    await internals.loadAllSessions();
+    await internals.consolidateDuplicatePartitions();
+
+    // 残留副本独有的产物已补入主副本（否则将随残留目录一起永久不可见）
+    expect(fs.existsSync(path.join(fx.legacyRoot, ID, 'events.jsonl'))).toBe(
+      true
+    );
+    expect(
+      fs.existsSync(path.join(fx.legacyRoot, ID, 'messages.jsonl.bak-2026'))
+    ).toBe(true);
+    // 非空内容不覆盖
+    expect(
+      fs.readFileSync(path.join(fx.legacyRoot, ID, 'memory.md'), 'utf-8')
+    ).toBe('KEEPER');
+    // 残留目录软删进其自己分区的 .trash（可恢复），不再作为幽灵会话存在
+    expect(fs.existsSync(donorDir)).toBe(false);
+    expect(trashEntries(fx.basePath)).toHaveLength(1);
+    // 主副本消息不受影响
+    expect((await storage.getMessages(ID)).map((m) => m.id)).toEqual([
+      'm-legacy-1',
+    ]);
+  });
+
   test('对照组：当前分区会话行为不变（消息写 basePath、删除进 basePath/.trash）', async () => {
     const fx = mkCrossPartition('xpart-control-');
     const storage = mkStorage(fx);

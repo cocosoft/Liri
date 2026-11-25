@@ -1,5 +1,11 @@
 import fs from 'fs/promises';
-import { Dirent, existsSync, readdirSync, statSync } from 'fs';
+import {
+  constants as fsConstants,
+  Dirent,
+  existsSync,
+  readdirSync,
+  statSync,
+} from 'fs';
 import path from 'path';
 
 import { StorageType } from './UnifiedStorage';
@@ -232,6 +238,8 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     }
     await this.purgeExpiredTrash();
     await this.loadAllSessions();
+    // 2026-11-25：分区分裂遗留的重复副本在启动期合并（补缺失产物 → 残留目录软删）
+    await this.consolidateDuplicatePartitions();
     this.initialized = true;
   }
 
@@ -333,6 +341,176 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
       : false;
     if (incomingHasMessages !== existingHasMessages) return incomingHasMessages;
     return incoming.updatedAt > existing.updatedAt;
+  }
+
+  /**
+   * 合并**分区分裂**遗留的重复副本（2026-11-25，真机 `sess-goal-start-1794938528619` / `session_mwpj4amge75a67ec4f`）。
+   *
+   * 背景：同一 sessionId 在多个分区各有一份目录（历史写入路径漂移的产物），其中一份可能只有
+   * `session.json` + `events.jsonl`。路由已按"消息载荷优先"选定实体副本（`partitionRootOf`），
+   * 但残留副本里的产物（事件日志 / 记忆）会**永久不可见**，且删除会话后它会以幽灵会话重现。
+   *
+   * 口径（**只补缺，不覆盖**）：
+   * - `session.json` 不合并（元数据已由 `loadAllSessions` 择优，残留副本的那份是旧值）；
+   * - 缺失或 0 字节的产物才从残留副本补入（`COPYFILE_EXCL` 双保险，永不覆盖非空内容）；
+   * - `events.*` 是**一组**：仅当实体副本没有非空 `events.jsonl` 时整组补入（避免跨日志拼接产生 seq 错乱）；
+   * - `.pid` / `.tmp*` 等瞬时产物跳过；
+   * - 合并后把残留目录软删进**它自己分区**的 `.trash`（误判可恢复，与 `deleteSession` 同策略）。
+   */
+  private async consolidateDuplicatePartitions(): Promise<void> {
+    const roots = [...new Set([this.basePath, ...this.legacyRoots])];
+    if (roots.length < 2) return;
+
+    const idToRoots = new Map<string, string[]>();
+    for (const root of roots) {
+      let entries: Dirent[];
+      try {
+        entries = await fs.readdir(root, { withFileTypes: true });
+      } catch {
+        // @ignore-catch 分区不存在（未创建/已移除）⇒ 该分区无可合并内容
+        continue;
+      }
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const sessionId = entry.name;
+        if (sessionId.startsWith('.') || sessionId === 'pid') continue;
+        const list = idToRoots.get(sessionId);
+        if (list) list.push(root);
+        else idToRoots.set(sessionId, [root]);
+      }
+    }
+
+    let consolidated = 0;
+    let copiedTotal = 0;
+    for (const [sessionId, ownerRoots] of idToRoots) {
+      if (ownerRoots.length < 2) continue;
+      // 实体副本 = 读/写/删所认定的那一份（缓存已由 loadAllSessions 预热）
+      const keeperRoot = this.partitionRootOf(sessionId);
+      if (!keeperRoot) continue;
+      const copied: string[] = [];
+      for (const donorRoot of ownerRoots) {
+        if (donorRoot === keeperRoot) continue;
+        let donorPresent = false;
+        try {
+          donorPresent = existsSync(sessionDir(donorRoot, sessionId));
+        } catch {
+          // sessionDir 对路径越界 id 抛错 ⇒ 该目录名非法，跳过
+        }
+        // 另一个实例（多网关并行初始化）可能已合并 ⇒ 静默跳过，避免 ENOENT 噪音
+        if (!donorPresent) continue;
+        // 安全闸（2026-11-25）：**两侧都有消息载荷** = 真实双份数据，不做自动合并/删除
+        // （拼接消息与事件无法保证顺序一致）⇒ 只告警，留待人工确认。
+        if (this.hasMessagePayload(donorRoot, sessionId)) {
+          logger.warn('分区分裂：两侧均有消息载荷，保留双份不自动合并', {
+            sessionId,
+            keeperRoot,
+            donorRoot,
+          });
+          continue;
+        }
+        copied.push(
+          ...(await this.mergeSessionArtifacts(sessionId, keeperRoot, donorRoot))
+        );
+        await this.moveSessionDirToTrash(donorRoot, sessionId);
+      }
+      consolidated += 1;
+      copiedTotal += copied.length;
+      logger.info('分区分裂副本已合并（残留副本移入其分区 .trash）', {
+        sessionId,
+        keeperRoot,
+        donors: ownerRoots.filter((r) => r !== keeperRoot),
+        copied,
+      });
+    }
+
+    if (consolidated > 0) {
+      logger.info('启动期副本合并完成', { consolidated, copiedFiles: copiedTotal });
+    }
+  }
+
+  /** 把残留副本里**缺失/空**的产物补进实体副本；返回实际补入的文件名（不覆盖任何非空内容） */
+  private async mergeSessionArtifacts(
+    sessionId: string,
+    keeperRoot: string,
+    donorRoot: string
+  ): Promise<string[]> {
+    const keeperDir = sessionDir(keeperRoot, sessionId);
+    const donorDir = sessionDir(donorRoot, sessionId);
+    let names: string[];
+    try {
+      names = await fs.readdir(donorDir);
+    } catch {
+      // @ignore-catch 残留目录已消失 ⇒ 无可合并
+      return [];
+    }
+
+    const keeperHasEvents = await this.hasNonEmptyFile(
+      path.join(keeperDir, 'events.jsonl')
+    );
+    const copied: string[] = [];
+    for (const name of names) {
+      if (name === 'session.json') continue;
+      if (name.endsWith('.pid') || name.startsWith('.tmp')) continue;
+      if (
+        (name === 'events.jsonl' ||
+          name === 'events.tail' ||
+          name === 'events.idx') &&
+        keeperHasEvents
+      ) {
+        // 实体副本已有事件日志 ⇒ 不拼接（跨日志行号/seq 无法对齐，残留事件保留在 .trash）
+        continue;
+      }
+      if (
+        !(await this.shouldCopyArtifact(
+          path.join(keeperDir, name),
+          path.join(donorDir, name)
+        ))
+      ) {
+        continue;
+      }
+      try {
+        await fs.copyFile(
+          path.join(donorDir, name),
+          path.join(keeperDir, name),
+          fsConstants.COPYFILE_EXCL
+        );
+        copied.push(name);
+      } catch (err) {
+        // @ignore-catch 单个产物补入失败不应中断其余产物/其它会话（记录后继续）
+        logger.warn('副本合并：补入产物失败，跳过', {
+          sessionId,
+          name,
+          keeperRoot,
+          donorRoot,
+          error: String(err),
+        });
+      }
+    }
+    return copied;
+  }
+
+  /** 补入判据：实体副本缺失/空，且残留副本该文件**非空** */
+  private async shouldCopyArtifact(
+    keeperPath: string,
+    donorPath: string
+  ): Promise<boolean> {
+    const donor = await this.fileSize(donorPath);
+    if (donor <= 0) return false;
+    return (await this.fileSize(keeperPath)) === 0;
+  }
+
+  private async fileSize(filePath: string): Promise<number> {
+    try {
+      const stat = await fs.stat(filePath);
+      return stat.isFile() ? stat.size : -1;
+    } catch {
+      // @ignore-catch 文件不存在 ⇒ 0（按"缺失"处理，可被补入）
+      return 0;
+    }
+  }
+
+  private async hasNonEmptyFile(filePath: string): Promise<boolean> {
+    return (await this.fileSize(filePath)) > 0;
   }
 
   /**

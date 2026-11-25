@@ -67,6 +67,8 @@ import { SessionManager } from '@modules/session/SessionManager';
 import { getModelPricing } from '@openliri/infra/cost/ModelPricing';
 import type { NativeLib } from '../../native';
 import { RuleManager } from '@openliri/infra/permission';
+// 2026-11-25：工具规则播种（仅启动期接线处执行，测试不触发）
+import { applyToolRuleSeed } from '@openliri/infra/permission/ruleSeed';
 import {
   setNativeJsAstLoader,
   type NativeJsAstModule,
@@ -179,6 +181,14 @@ export function wireDaemonDeps(): void {
  */
 export function wireSecurityDeps(): void {
   setMainPermissionRuleSource(() => new RuleManager().loadRules());
+  // 2026-11-25：**工具规则播种**（换机/重装后恢复"安全窄口"白名单）。
+  // 只补缺失项、不覆盖用户规则、不复活手动删除的旧规则（版本标记在数据目录）。
+  // 仅在本接线函数（生产启动）执行 ⇒ 测试里 `new PermissionManager()` 不会被播种污染。
+  const seedManager = new RuleManager();
+  applyToolRuleSeed({
+    loadRules: () => seedManager.loadRules(),
+    addRule: (rule) => seedManager.addRule(rule),
+  });
   // P25：Bash 安全桥的原生实现也在此注入（security 已迁入 packages/infra，包内不得 require app 的原生绑定）
   wireSecurityNativeBridges();
 }

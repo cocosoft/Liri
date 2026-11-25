@@ -230,7 +230,7 @@ C6 与 C4 推侧（412/409 ⇒ 候选）随 2N-2 解决。**C7（墓碑）随 2N
 | **Phase 0** | 接线开关 + `NOT_CONFIGURED` + 传输层骨架（不联网也能通过） | 默认关时行为零变更；未配置时状态明确；单测 | ✅ 已实现（2026-11-25） |
 | **Phase 1** | 单向拉取（远端→本地，只读合并）+ 幂等 | 重复拉取幂等；冲突不覆盖；密钥 fail-closed | ✅ 已实现（共享目录版，2026-11-25） |
 | **Phase 2** | 双向增量 + `If-Match`（412/409）+ manual 候选 | 冲突产候选、正文不变；并发写不丢数据 | ✅ 共享目录版已实现（拉取+推送，异文只记冲突）；网络版拆解见 §5.2（Phase 2N-0…2N-5），待 §8 三项决策 |
-| **Phase 3** | 审阅入口（CLI/设置页）+ 审计报表 | 人工可采纳/忽略候选；审计可查 | 部分：候选文件 `conflicts.json` + 可编程取舍 `resolveTeamConflict` + 同步历史 `sync-history.jsonl` + CLI `/memory team` + 设置页 `TeamMemoryPanel`（HTTP 三端点）；审计报表未做 |
+| **Phase 3** | 审阅入口（CLI/设置页）+ 审计报表 | 人工可采纳/忽略候选；审计可查 | ✅ 已实现：候选文件 `conflicts.json` + 可编程取舍 `resolveTeamConflict`（含网络候选）+ 同步历史 `sync-history.jsonl` + CLI `/memory team` + 设置页 `TeamMemoryPanel`（HTTP 四端点）；**审计报表随 2N-7 落地**（`/v1/memory/team/audit`） |
 
 每阶段独立提交；`memory.teamSync.enabled` 默认关，观察期后再开。
 
@@ -317,13 +317,15 @@ C6 与 C4 推侧（412/409 ⇒ 候选）随 2N-2 解决。**C7（墓碑）随 2N
 | **2N-4** | 状态机/退避/审计接线（R08-002）+ 设置页状态 | ✅ 已实现（2026-11-25）：`computeTeamMemorySyncRetryDelay`（1×/2×/4×，上限 15min）+ `isRetriableTeamMemorySyncError`（仅 429/5xx/网络错误；401/403 不重试）+ 退避定时器（`stop()`/手动 sync 清理）+ `getLastError()`；每轮结构化日志 + `sync-history.jsonl`。**顺带修冲突检测失效**：列表返回的 etag 只是"观测值"（`observedEtags`），不再覆盖"成功同步基线"（`etagCache`）——原实现把观测值当基线 ⇒ PUT 永远 If-Match 命中、静默覆盖他人修改；"内容已同步"时才采用远端 etag 作基线（人工采纳路径），成功同步后补存基线。**设置页状态已接**：`GET /v1/memory/team/status` 新增 `network` 字段（`teamMemoryNetworkStatus.ts` 投影，不含令牌）+ `TeamMemoryPanel` 展示网络同步状态/团队/最近同步/最近错误（未配置时提示开关） | `SYNCING` 单飞；429 触发 1× 退避；4 类事件齐全 | 开关关 + `stop()` 清定时器 |
 | **2N-5** | 集成测试（本机 `Bun.serve` mock 服务端） | ✅ 已实现（2026-11-25）：`app/tests/memory/teamMemoryNetworkSync.test.ts` —— 契约 §3.2 三端点 + If-Match/412；覆盖 拉取→本地改→412→人工采纳→再推成功 + 401/403/429 各一例。**顺带修复（集成测试暴露）**：① 网络冲突候选原写死全局 `resolveTeamMemoryDir()` ⇒ 自定义/隔离 `localDir` 时错位并污染用户数据目录；现改落 `config.localDir`（与下载/墓碑/审计同源）。② 网络候选在设置页只能看不能处理 ⇒ 新增 `TeamMemorySyncService.resolveNetworkConflict`（`keep_local` 清基线、`keep_shared` 下载落盘）+ 复用 `POST /v1/memory/team/conflicts/resolve` 路由（网络分支不需要 sharedDir）+ 面板对 network 候选显示同一组采纳按钮 | 全链通过；候选落在配置目录；网络冲突可人工采纳（本地/远端两种）；三种鉴权/限流分支如实 ERROR | 测试仅本地，无运行时影响 |
 | **2N-6** | 本地删除同步（软删上行 + 防复活） | ✅ 已实现（2026-11-25）：判据 = **基线有 etag 且本地文件已不存在**；先从未处理列表摘除（防 `remote_only` 复活），再单条 GET 确认：404 ⇒ 清基线；`etag==基线` ⇒ `DELETE`（带 `If-Match`，软删）；远端已变 ⇒ 只记 `direction:'delete'` 候选（manual，不自动删）。`SyncResult` 新增 `deleted`；delete 候选的人工采纳：`keep_local`=确认删除远端（用观测 etag 或省略 If-Match）、`keep_shared`=下载远端到本地 | 本地删除可同步；远端已变不误删；不复活 | 清基线即可恢复"未同步"状态 |
+| **2N-7** | 审计报表（读 `sync-history.jsonl` 聚合 + 设置页展示） | ✅ 已实现（2026-11-25）：`TeamSyncAuditReport.ts`（`readTeamSyncHistory` 坏行跳过/数值收敛 + `buildTeamSyncAuditReport` 汇总 cycles/pulled/pushed/conflicts/rejectedSecrets/errors/lastAt/errorRate/recent）；`GET /v1/memory/team/audit`；`TeamMemoryPanel` 展示汇总。**顺带修复**：`getTeamMemoryStatus` 漏传 `network` 字段（面板此前永远看不到网络同步状态） | 有历史 ⇒ 汇总正确；无历史 ⇒ cycles=0 空报表；坏行不影响其它轮 | 只读聚合，不写历史 |
 
 **本轮（2026-11-25）只落方案**：未新增端点、未改运行时；`serverUrl` 网络分支仍为未接线状态。
 
-> 进度（2026-11-25）：2N-0 … 2N-6 已全部实现（各自独立提交，默认关、未推送）。
+> 进度（2026-11-25）：2N-0 … 2N-7 已全部实现（各自独立提交，默认关、未推送）。
 > 2N-4 的设置页状态：`/v1/memory/team/status` 增加 `network` DTO + `TeamMemoryPanel` 展示（未配置时提示开关）。
 > 2N-3 回归用例：`app/tests/memory/teamMemorySyncTombstone.test.ts`；2N-4：`teamMemorySyncBackoff.test.ts`、
-> `teamMemoryNetworkStatus.test.ts`；2N-5/2N-6：`teamMemoryNetworkSync.test.ts`（`Bun.serve` mock 全链、含删除同步）。
+> `teamMemoryNetworkStatus.test.ts`；2N-5/2N-6：`teamMemoryNetworkSync.test.ts`（`Bun.serve` mock 全链、含删除同步）；
+> 2N-7：`teamSyncAuditReport.test.ts`（聚合/坏行/limit）。
 
 
 ---

@@ -85,6 +85,31 @@ export interface TeamMemoryNetworkStatus {
   lastError: string | null;
 }
 
+/** 单轮同步历史（`sync-history.jsonl`，数值已收敛） */
+export interface TeamSyncAuditEntry {
+  at: string | null;
+  pulled: number;
+  pushed: number;
+  pullConflicts: number;
+  pushConflicts: number;
+  rejectedSecrets: number;
+  errors: number;
+}
+
+/** 团队记忆同步审计报表（2N-7） */
+export interface TeamSyncAuditReport {
+  cycles: number;
+  pulled: number;
+  pushed: number;
+  conflicts: number;
+  rejectedSecrets: number;
+  errors: number;
+  lastAt: string | null;
+  /** 有错误的轮次占比（0..1） */
+  errorRate: number;
+  recent: TeamSyncAuditEntry[];
+}
+
 export interface TeamMemoryStatus {
   configured: boolean;
   sharedDir: string;
@@ -256,7 +281,7 @@ const memoryService = {
     return { results, total: results.length };
   },
 
-  /** 团队记忆同步状态（共享目录版） */
+  /** 团队记忆同步状态（共享目录版 + 网络版） */
   async getTeamMemoryStatus(): Promise<TeamMemoryStatus> {
     const response = await http.get<{
       success: boolean;
@@ -265,6 +290,7 @@ const memoryService = {
       status: TeamMemorySyncStatus;
       lastSyncAt: number | null;
       records: TeamMemorySyncRecordView[];
+      network?: TeamMemoryNetworkStatus;
     }>(ENDPOINTS.memory.teamStatus);
     return {
       configured: response.configured,
@@ -272,7 +298,18 @@ const memoryService = {
       status: response.status,
       lastSyncAt: response.lastSyncAt,
       records: response.records || [],
+      // 修复（2026-11-25）：此前漏传 `network`，面板永远看不到网络同步状态
+      network: response.network,
     };
+  },
+
+  /** 团队记忆同步审计报表（2N-7：只读聚合 sync-history.jsonl） */
+  async getTeamMemoryAudit(): Promise<TeamSyncAuditReport> {
+    const response = await http.get<{
+      success: boolean;
+      report: TeamSyncAuditReport;
+    }>(ENDPOINTS.memory.teamAudit);
+    return response.report;
   },
 
   /** 团队记忆冲突候选（只读；取舍需人工点击） */

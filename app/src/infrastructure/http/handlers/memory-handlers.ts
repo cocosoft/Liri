@@ -691,6 +691,36 @@ export async function handleGetTeamMemoryStatus(
 }
 
 /**
+ * GET /v1/memory/team/audit — 团队记忆同步审计报表（Phase 2N-7，2026-11-25）
+ *
+ * 只读聚合 `<team-memory>/sync-history.jsonl`（共享目录版与网络版每轮各一行）；
+ * 文件缺失 ⇒ 空报表（`cycles=0`），**不伪造**"从未出错"的结论。
+ */
+export async function handleGetTeamSyncAudit(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { defaultTeamMemorySyncService } =
+      await import('@openliri/infra/memory/services/TeamMemorySyncService');
+    const { readTeamSyncHistory, buildTeamSyncAuditReport } =
+      await import('@openliri/infra/memory/services/TeamSyncAuditReport');
+    const records = await readTeamSyncHistory(
+      defaultTeamMemorySyncService.getConfig().localDir
+    );
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        success: true,
+        report: buildTeamSyncAuditReport(records),
+      })
+    );
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
  * GET /v1/memory/team/conflicts — 冲突候选列表（只读，不自动改写任何一侧）
  */
 export async function handleGetTeamConflicts(

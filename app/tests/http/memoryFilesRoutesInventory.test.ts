@@ -44,6 +44,7 @@ const CALL_ORDER = [
   'handleDreamCycleAnalytics',
   'handleGetTeamMemoryStatus',
   'handleGetTeamConflicts',
+  'handleGetTeamSyncAudit',
   'handleResolveTeamConflict',
   'handleUpdateMemory',
   'handleDeleteAllMemories',

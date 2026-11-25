@@ -745,6 +745,11 @@ const enKnowledge = {
     teamNetworkNotConfigured:
       "Network sync is off (configure memory.teamSync.enabled and memory.teamSync.serverUrl)",
     teamStatusIdle: "Idle",
+    teamAuditTitle: "Sync audit",
+    teamAuditCycles: "{{count}} cycles",
+    teamAuditEmpty: "No sync history yet (created after the first sync)",
+    teamAuditPulledPushed: "Pulled {{pulled}} · Pushed {{pushed}}",
+    teamAuditConflictsErrors: "Conflicts {{conflicts}} · Errors {{errors}}",
     weightLabel: "Weight: {{count}}",
     pinnedBadge: "📌 Pinned",
     createdAtLabel: "Created {{date}}",

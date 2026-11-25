@@ -505,6 +505,7 @@ export const ENDPOINTS = {
     teamStatus: "/v1/memory/team/status",
     teamConflicts: "/v1/memory/team/conflicts",
     teamConflictResolve: "/v1/memory/team/conflicts/resolve",
+    teamAudit: "/v1/memory/team/audit",
   },
   monitor: {
     metrics: "/v1/monitor/metrics",

@@ -703,6 +703,11 @@ const zhKnowledge = {
     teamNetworkNotConfigured:
       "未启用网络同步（需配置 memory.teamSync.enabled 与 memory.teamSync.serverUrl）",
     teamStatusIdle: "空闲",
+    teamAuditTitle: "同步审计",
+    teamAuditCycles: "{{count}} 轮",
+    teamAuditEmpty: "暂无同步历史（首次同步后生成）",
+    teamAuditPulledPushed: "拉取 {{pulled}} · 推送 {{pushed}}",
+    teamAuditConflictsErrors: "冲突 {{conflicts}} · 错误 {{errors}}",
     weightLabel: "权重: {{count}}",
     pinnedBadge: "📌 已置顶",
     createdAtLabel: "创建于 {{date}}",

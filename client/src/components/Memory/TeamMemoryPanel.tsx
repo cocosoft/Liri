@@ -5,6 +5,7 @@ import type {
   TeamConflicts,
   TeamConflictResolution,
   TeamMemoryStatus,
+  TeamSyncAuditReport,
 } from "../../services/memoryService";
 import { handleClientError } from "../../utils/handleError";
 import { formatRelativeTime } from "../../utils/format";
@@ -41,6 +42,7 @@ function TeamMemoryPanel({ isDark }: TeamMemoryPanelProps) {
   const { t } = useTranslation();
   const [status, setStatus] = useState<TeamMemoryStatus | null>(null);
   const [conflicts, setConflicts] = useState<TeamConflicts | null>(null);
+  const [audit, setAudit] = useState<TeamSyncAuditReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -48,12 +50,14 @@ function TeamMemoryPanel({ isDark }: TeamMemoryPanelProps) {
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [nextStatus, nextConflicts] = await Promise.all([
+      const [nextStatus, nextConflicts, nextAudit] = await Promise.all([
         memoryService.getTeamMemoryStatus(),
         memoryService.getTeamConflicts(),
+        memoryService.getTeamMemoryAudit(),
       ]);
       setStatus(nextStatus);
       setConflicts(nextConflicts);
+      setAudit(nextAudit);
       setErrorMessage(null);
     } catch (e) {
       handleClientError(e, { module: "memory:team", action: "load" });
@@ -224,6 +228,65 @@ function TeamMemoryPanel({ isDark }: TeamMemoryPanelProps) {
                 >
                   {t("memory.teamNetworkNotConfigured")}
                 </p>
+              )}
+            </div>
+          )}
+
+          {audit && (
+            <div className="pt-2 border-t border-dashed border-gray-500/30 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className={isDark ? "text-gray-400" : "text-gray-600"}>
+                  {t("memory.teamAuditTitle")}
+                </span>
+                <span className={isDark ? "text-gray-200" : "text-gray-800"}>
+                  {t("memory.teamAuditCycles", { count: audit.cycles })}
+                </span>
+              </div>
+              {audit.cycles === 0 ? (
+                <p
+                  className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}
+                >
+                  {t("memory.teamAuditEmpty")}
+                </p>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className={isDark ? "text-gray-400" : "text-gray-600"}>
+                      {t("memory.teamAuditPulledPushed", {
+                        pulled: audit.pulled,
+                        pushed: audit.pushed,
+                      })}
+                    </span>
+                    <span
+                      className={
+                        audit.errors > 0
+                          ? "text-yellow-500"
+                          : isDark
+                            ? "text-gray-200"
+                            : "text-gray-800"
+                      }
+                    >
+                      {t("memory.teamAuditConflictsErrors", {
+                        conflicts: audit.conflicts,
+                        errors: audit.errors,
+                      })}
+                    </span>
+                  </div>
+                  {audit.lastAt && (
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={isDark ? "text-gray-400" : "text-gray-600"}
+                      >
+                        {t("memory.teamLastSync")}
+                      </span>
+                      <span
+                        className={isDark ? "text-gray-200" : "text-gray-800"}
+                      >
+                        {formatRelativeTime(audit.lastAt)}
+                      </span>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}

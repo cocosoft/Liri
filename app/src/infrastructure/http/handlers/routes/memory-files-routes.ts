@@ -51,6 +51,7 @@ import {
   handleGetSyncStatus,
   handleGetTeamConflicts,
   handleGetTeamMemoryStatus,
+  handleGetTeamSyncAudit,
   handleListMemories,
   handleResolveTeamConflict,
   handleSearchMemories,
@@ -215,6 +216,10 @@ async function dispatchMemoryRoutes(
   }
   if (method === 'GET' && url === '/v1/memory/team/conflicts') {
     await handleGetTeamConflicts(req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/memory/team/audit') {
+    await handleGetTeamSyncAudit(req, res);
     return true;
   }
   if (method === 'POST' && url === '/v1/memory/team/conflicts/resolve') {

@@ -15,7 +15,6 @@
 import { getLogger } from '@openliri/infra/monitoring';
 import {
   searchMemory as searchMemoryCore,
-  type GlobalMemorySource,
   type MemorySearchDeps,
   type MemorySearchOptions,
   type MemorySearchOutcome,
@@ -101,6 +100,3 @@ export async function searchMemory(
     ...(transcript ? { searchTranscript: transcript } : {}),
   });
 }
-
-/** 便于调用方按需复用全局记忆端口类型（兼容旧导入） */
-export type AppGlobalMemorySource = GlobalMemorySource;

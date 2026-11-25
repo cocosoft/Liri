@@ -108,6 +108,13 @@ function TeamMemoryPanel({ isDark }: TeamMemoryPanelProps) {
 
   const candidates = conflicts?.candidates ?? [];
   const lastRecord = status?.records[0];
+  // 2N-11：共享目录与网络是两套独立开关 —— 网络-only 时也应展示网络状态/审计/候选
+  const sharedConfigured =
+    status?.sharedConfigured ?? Boolean(status?.sharedDir);
+  const statusLabelKey = sharedConfigured
+    ? STATUS_LABEL_KEYS[status?.status ?? "not_synced"]
+    : (NETWORK_STATUS_LABEL_KEYS[status?.network?.status ?? ""] ??
+      STATUS_LABEL_KEYS[status?.status ?? "not_synced"]);
 
   return (
     <div
@@ -169,20 +176,26 @@ function TeamMemoryPanel({ isDark }: TeamMemoryPanelProps) {
               className={`truncate text-xs ${isDark ? "text-gray-200" : "text-gray-800"}`}
               title={status.sharedDir}
             >
-              {status.sharedDir}
+              {sharedConfigured
+                ? status.sharedDir
+                : t("memory.teamSharedNotConfigured")}
             </span>
           </div>
 
-          <div className="flex items-center justify-between">
-            <span className={isDark ? "text-gray-400" : "text-gray-600"}>
-              {t("memory.teamLastSync")}
-            </span>
-            <span className={isDark ? "text-gray-200" : "text-gray-800"}>
-              {status.lastSyncAt
-                ? formatRelativeTime(new Date(status.lastSyncAt).toISOString())
-                : t("memory.teamNeverSynced")}
-            </span>
-          </div>
+          {sharedConfigured && (
+            <div className="flex items-center justify-between">
+              <span className={isDark ? "text-gray-400" : "text-gray-600"}>
+                {t("memory.teamLastSync")}
+              </span>
+              <span className={isDark ? "text-gray-200" : "text-gray-800"}>
+                {status.lastSyncAt
+                  ? formatRelativeTime(
+                      new Date(status.lastSyncAt).toISOString(),
+                    )
+                  : t("memory.teamNeverSynced")}
+              </span>
+            </div>
+          )}
 
           <div className="flex items-center justify-between">
             <span className={isDark ? "text-gray-400" : "text-gray-600"}>
@@ -197,9 +210,7 @@ function TeamMemoryPanel({ isDark }: TeamMemoryPanelProps) {
                     : "text-gray-800"
               }
             >
-              {STATUS_LABEL_KEYS[status.status]
-                ? t(STATUS_LABEL_KEYS[status.status])
-                : status.status}
+              {statusLabelKey ? t(statusLabelKey) : status.status}
               {candidates.length > 0 ? ` · ${candidates.length}` : ""}
             </span>
           </div>

@@ -722,7 +722,8 @@ const enKnowledge = {
     teamRefresh: "Refresh",
     teamLoading: "Loading…",
     teamNotConfigured:
-      "Shared-directory sync is off (configure memory.teamSync.enabled=true and memory.teamSync.sharedDir)",
+      "Team sync is off (set memory.teamSync.enabled plus a sharedDir or serverUrl)",
+    teamSharedNotConfigured: "Off (network sync only)",
     teamSharedDir: "Shared directory",
     teamLastSync: "Last sync",
     teamNeverSynced: "Never synced",

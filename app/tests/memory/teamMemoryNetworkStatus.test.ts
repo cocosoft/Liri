@@ -5,7 +5,10 @@
  * 有失败 ⇒ lastError 原样透出；成功后 lastError 为 null。
  */
 import { describe, expect, it } from 'bun:test';
-import { buildTeamMemoryNetworkStatus } from '../../src/infrastructure/http/handlers/teamMemoryNetworkStatus';
+import {
+  buildTeamMemoryNetworkStatus,
+  computeTeamMemoryConfigured,
+} from '../../src/infrastructure/http/handlers/teamMemoryNetworkStatus';
 
 function makeSource(overrides: {
   serverUrl?: string;
@@ -58,5 +61,47 @@ describe('buildTeamMemoryNetworkStatus', () => {
     );
     expect(dto.status).toBe('error');
     expect(dto.lastError).toContain('UNAUTHORIZED');
+  });
+});
+
+describe('computeTeamMemoryConfigured（2N-11：共享目录/网络任一可用）', () => {
+  it('总开关关闭 ⇒ 无论配了什么都是未配置', () => {
+    expect(
+      computeTeamMemoryConfigured({
+        enabled: false,
+        sharedDir: 'D:/team',
+        networkConfigured: true,
+      })
+    ).toBe(false);
+  });
+
+  it('网络-only（无 sharedDir）⇒ 已配置（原实现误判为未配置）', () => {
+    expect(
+      computeTeamMemoryConfigured({
+        enabled: true,
+        sharedDir: '',
+        networkConfigured: true,
+      })
+    ).toBe(true);
+  });
+
+  it('共享目录-only ⇒ 已配置', () => {
+    expect(
+      computeTeamMemoryConfigured({
+        enabled: true,
+        sharedDir: 'D:/team',
+        networkConfigured: false,
+      })
+    ).toBe(true);
+  });
+
+  it('两者都空 / sharedDir 仅空白 ⇒ 未配置', () => {
+    expect(
+      computeTeamMemoryConfigured({
+        enabled: true,
+        sharedDir: '   ',
+        networkConfigured: false,
+      })
+    ).toBe(false);
   });
 });

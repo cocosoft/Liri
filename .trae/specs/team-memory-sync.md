@@ -304,7 +304,7 @@ C6 与 C4 推侧（412/409 ⇒ 候选）随 2N-2 解决。**C7（墓碑）随 2N
 
 
 
-### 5.2 网络版实施拆解（Phase 2N-0 … 2N-10；每步独立提交）
+### 5.2 网络版实施拆解（Phase 2N-0 … 2N-11；每步独立提交）
 
 > 前置：§8 的 3 项阻塞决策已拍板；默认 `memory.teamSync.enabled=false`，未配置 `serverUrl` 时行为零变更。
 
@@ -321,15 +321,17 @@ C6 与 C4 推侧（412/409 ⇒ 候选）随 2N-2 解决。**C7（墓碑）随 2N
 | **2N-8** | 手动触发同步 + 冲突候选读取同源 | ✅ 已实现（2026-11-25）：`POST /v1/memory/team/sync`（`handleTriggerTeamSync`；body 可选 `{full}` ⇒ `fullSync()` 清基线全量重同步；400 `NOT_CONFIGURED`/`INVALID_REQUEST`、409 `SYNC_IN_PROGRESS`、200 返回 `SyncResult`）；`TeamMemoryPanel` 新增「立即同步」按钮（仅网络已配置时显示）。**顺带修复（同源读取）**：`GET /v1/memory/team/conflicts` 原只读 `resolveTeamMemoryDir()`，而网络候选写同步器 `config.localDir`（2N-5）⇒ 自定义 `localDir` 时网络候选在设置页不可见、无法采纳；现 `readMergedTeamConflicts` 合并两处并按 id 去重（网络候选优先，与 resolve 入口先判 `source:'network'` 一致） | 手动触发如实返回本轮错误；单飞不并发；自定义 `localDir` 下网络候选可见可采纳；`fullSync` 用于恢复本地误删（不触发删除上行） | 不新增定时器；关开关/不点按钮即零请求 |
 | **2N-9** | 密钥拒发的审计口径（`rejectedSecrets` 不再恒为 0） | ✅ 已实现（2026-11-25）：推送侧密钥命中改抛 `TeamMemorySyncSecretRejectedError`（**独立错误类型**，不用消息字符串判断 —— CS02）；`sync()` 单独计入 `SyncResult.rejected`，**不写 `errors`**（否则整轮被判失败、退避重试也无意义），其余条目继续推送；`sync-history.jsonl` 的 `rejectedSecrets` 改记真实值（原硬编码 0）；设置页审计区块在该值 >0 时显示"密钥拒发 N 条" | 命中密钥 ⇒ 拒发该条 + 其余照常 + 审计可见；`success` 不被单条拒发拉红 | 不改扫描规则；关扫描开关即无拒发 |
 | **2N-10** | CLI 审阅入口与设置页同源 | ✅ 已实现（2026-11-25）：`/memory team` 原只读 `resolveTeamMemoryDir()` 的 `conflicts.json`（2N-8 只修了 HTTP 侧）⇒ 网络候选在 CLI 不可见、`keep-local/keep-shared` 也必然失败（要求两侧文件存在）。现合并读取（`readMergedTeamConflicts`）并在列表标记 `(network)`；网络候选改走同步器新增的 `resolveConflictCandidate`（**HTTP 与 CLI 共用同一判定**，原 handler 里的判来源逻辑下沉到 infra）；`dirs` 注入支持 `networkDir`（单测不触碰真实用户目录） | CLI 能看到并采纳网络候选；两入口判定不分叉 | 不改候选文件格式；无候选时行为不变 |
+| **2N-11** | 设置页"已配置"判定（网络-only 不再被整体隐藏） | ✅ 已实现（2026-11-25）：`GET /v1/memory/team/status` 原 `configured = enabled && sharedDir` ⇒ **只配网络（serverUrl）时被判未配置**，面板渲染"未启用共享目录同步"并把网络状态/审计/候选全部隐藏（「立即同步」按钮虽在外层，信息区仍不可见）。现 `computeTeamMemoryConfigured`：`enabled && (sharedDir 非空 ‖ 网络已配置)`；新增 `sharedConfigured` 字段；面板在共享目录未启用时显示"未启用（仅网络同步）"、状态标签改用网络同步状态；`teamNotConfigured` 文案补全两种启用方式 | 网络-only 配置下设置页可见网络状态/审计/候选并可立即同步；共享目录-only 行为不变 | 只改 DTO 与展示，不改同步行为 |
 
-> 进度（2026-11-25）：2N-0 … 2N-10 已全部实现（各自独立提交，默认关）。
+> 进度（2026-11-25）：2N-0 … 2N-11 已全部实现（各自独立提交，默认关）。
 > 2N-4 的设置页状态：`/v1/memory/team/status` 增加 `network` DTO + `TeamMemoryPanel` 展示（未配置时提示开关）。
 > 2N-3 回归用例：`app/tests/memory/teamMemorySyncTombstone.test.ts`；2N-4：`teamMemorySyncBackoff.test.ts`、
 > `teamMemoryNetworkStatus.test.ts`；2N-5/2N-6：`teamMemoryNetworkSync.test.ts`（`Bun.serve` mock 全链、含删除同步）；
 > 2N-7：`teamSyncAuditReport.test.ts`（聚合/坏行/limit）；2N-8：`teamSharedDirSync.test.ts`（候选合并/去重）
 > 与 `teamMemoryNetworkSync.test.ts`（`fullSync` 恢复本地误删）；2N-9：`teamMemoryNetworkSync.test.ts`
 > （密钥拒发只计 `rejected` + `sync-history.jsonl` 的 `rejectedSecrets` 落值）；2N-10：`memoryTeamCommand.test.ts`
-> （网络候选合并列出 + `(network)` 标记 + `--json` 同源）。
+> （网络候选合并列出 + `(network)` 标记 + `--json` 同源）；2N-11：`teamMemoryNetworkStatus.test.ts`
+> （`computeTeamMemoryConfigured` 四态：总开关关 / 网络-only / 共享目录-only / 两者皆空）。
 
 
 ---

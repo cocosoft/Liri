@@ -12,7 +12,10 @@ import {
 } from './handler-utils';
 import { handleError } from '@openliri/infra/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import { buildTeamMemoryNetworkStatus } from './teamMemoryNetworkStatus';
+import {
+  buildTeamMemoryNetworkStatus,
+  computeTeamMemoryConfigured,
+} from './teamMemoryNetworkStatus';
 // 2026-10-01 D-186（子批 C）：`SandboxPermission` 是 core 叶子 ⇒ 相对直连，消除 `infrastructure -> app`。
 import { SandboxPermission } from '@openliri/kernel/sandboxPermission.js';
 import { LOCAL_SERVICE_HOST } from '@openliri/kernel';
@@ -673,16 +676,24 @@ export async function handleGetTeamMemoryStatus(
     // 网络版同步器：按需导入（默认关；未启用时 configured=false，不发请求）
     const { defaultTeamMemorySyncService } =
       await import('@openliri/infra/memory/services/TeamMemorySyncService');
+    const network = buildTeamMemoryNetworkStatus(defaultTeamMemorySyncService);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(
       JSON.stringify({
         success: true,
-        configured: enabled && Boolean(sharedDir),
+        // 2N-11：共享目录或网络任一可用即为已配置（原判定只看 sharedDir，
+        // 网络-only 配置时设置页会整体显示"未启用"）
+        configured: computeTeamMemoryConfigured({
+          enabled,
+          sharedDir,
+          networkConfigured: network.configured,
+        }),
+        sharedConfigured: enabled && Boolean(sharedDir),
         sharedDir,
         status: mm.getTeamMemorySyncStatus(),
         lastSyncAt: lastSync ? lastSync.getTime() : null,
         records: mm.getTeamMemorySyncRecords(10),
-        network: buildTeamMemoryNetworkStatus(defaultTeamMemorySyncService),
+        network,
       })
     );
   } catch (err) {

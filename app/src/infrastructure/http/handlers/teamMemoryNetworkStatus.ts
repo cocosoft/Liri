@@ -39,3 +39,19 @@ export function buildTeamMemoryNetworkStatus(
     lastError: service.getLastError(),
   };
 }
+
+/**
+ * 团队同步"已配置"判定（Phase 2N-11，2026-11-25）。
+ *
+ * 原实现 = `enabled && sharedDir` ⇒ **只配了网络（serverUrl）时被整体判为未配置**，
+ * 设置页随即渲染"未启用共享目录同步"并把网络状态/审计/候选/「立即同步」全部隐藏。
+ * 现语义：共享目录**或**网络任一可用即为已配置（二者开关相互独立）。
+ */
+export function computeTeamMemoryConfigured(input: {
+  enabled: boolean;
+  sharedDir: string;
+  networkConfigured: boolean;
+}): boolean {
+  if (!input.enabled) return false;
+  return input.sharedDir.trim().length > 0 || input.networkConfigured;
+}

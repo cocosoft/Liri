@@ -681,7 +681,8 @@ const zhKnowledge = {
     teamRefresh: "刷新",
     teamLoading: "加载中…",
     teamNotConfigured:
-      "未启用共享目录同步（需配置 memory.teamSync.enabled=true 与 memory.teamSync.sharedDir）",
+      "未启用团队同步（需配置 memory.teamSync.enabled，并设置 sharedDir 或 serverUrl）",
+    teamSharedNotConfigured: "未启用（仅网络同步）",
     teamSharedDir: "共享目录",
     teamLastSync: "最近同步",
     teamNeverSynced: "从未同步",

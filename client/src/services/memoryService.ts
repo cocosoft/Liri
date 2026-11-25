@@ -127,6 +127,8 @@ export interface TeamSyncRunResult {
 
 export interface TeamMemoryStatus {
   configured: boolean;
+  /** 共享目录版是否已启用（2N-11；旧后端缺省时按 `sharedDir` 非空推断） */
+  sharedConfigured?: boolean;
   sharedDir: string;
   status: TeamMemorySyncStatus;
   lastSyncAt: number | null;
@@ -301,6 +303,7 @@ const memoryService = {
     const response = await http.get<{
       success: boolean;
       configured: boolean;
+      sharedConfigured?: boolean;
       sharedDir: string;
       status: TeamMemorySyncStatus;
       lastSyncAt: number | null;
@@ -309,6 +312,7 @@ const memoryService = {
     }>(ENDPOINTS.memory.teamStatus);
     return {
       configured: response.configured,
+      sharedConfigured: response.sharedConfigured,
       sharedDir: response.sharedDir,
       status: response.status,
       lastSyncAt: response.lastSyncAt,

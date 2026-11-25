@@ -111,6 +111,22 @@ function inProgressSyncResult(): SyncResult {
   };
 }
 
+/** 未配置 `serverUrl` 时的结果（`sync()` / `fullSync()` 共用；**不得**伪造成功）。 */
+function notConfiguredSyncResult(): SyncResult {
+  return {
+    success: false,
+    uploaded: 0,
+    downloaded: 0,
+    skipped: 0,
+    archived: 0,
+    deleted: 0,
+    rejected: 0,
+    conflicts: [],
+    errors: ['NOT_CONFIGURED: memory.teamSync.serverUrl 未配置'],
+    duration: 0,
+  };
+}
+
 /**
  * 服务器记忆条目
  */
@@ -422,18 +438,7 @@ export class TeamMemorySyncService {
       this.status = SyncStatus.NOT_CONFIGURED;
       this.notifyListeners(this.status);
       logger.warn('团队记忆同步未配置 serverUrl，跳过（NOT_CONFIGURED）');
-      return {
-        success: false,
-        uploaded: 0,
-        downloaded: 0,
-        skipped: 0,
-        archived: 0,
-        deleted: 0,
-        rejected: 0,
-        conflicts: [],
-        errors: ['NOT_CONFIGURED: memory.teamSync.serverUrl 未配置'],
-        duration: 0,
-      };
+      return notConfiguredSyncResult();
     }
 
     const startTime = Date.now();
@@ -1850,6 +1855,14 @@ export class TeamMemorySyncService {
     if (this.status === SyncStatus.SYNCING) {
       logger.warn('全量同步被跳过：已有同步在跑');
       return inProgressSyncResult();
+    }
+    // 2N-19：未配置服务端时**不得**清状态 —— 原实现先 `reset()` 再返回 NOT_CONFIGURED，
+    // 等于"没同步却把续传基线删了"（配置修好后从零开始、已同步条目会被重复下载）。
+    if (!this.config.serverUrl) {
+      this.status = SyncStatus.NOT_CONFIGURED;
+      this.notifyListeners(this.status);
+      logger.warn('全量同步被跳过：未配置 serverUrl（NOT_CONFIGURED）');
+      return notConfiguredSyncResult();
     }
     this.etagCache.clear();
     this.observedEtags.clear();

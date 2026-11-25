@@ -635,6 +635,28 @@ describe('团队记忆网络版 2N-5 全链（Bun.serve mock）', () => {
     expect(after.total).toBe(1);
   });
 
+  it('未配置 serverUrl 时 fullSync ⇒ 不清状态（NOT_CONFIGURED）（2N-19）', async () => {
+    const localDir = makeDir('team-net-local-');
+    const dbPath = join(makeDir('team-net-db-'), 'app.db');
+    const store = new TeamMemorySyncStateStore(dbPath);
+    await store.saveProgress('team-net', 5, { 'net-m1': 'e1' });
+
+    const service = new TeamMemorySyncService(
+      { serverUrl: '', teamId: 'team-net', localDir },
+      store
+    );
+    const result = await service.fullSync();
+
+    expect(result.success).toBe(false);
+    expect(result.errors.join(' ')).toContain('NOT_CONFIGURED');
+    expect(service.getStatus()).toBe(SyncStatus.NOT_CONFIGURED);
+
+    // 关键：续传基线仍在（原实现先 reset ⇒ 行被删）
+    const state = await store.get('team-net');
+    expect(state?.cursor).toBe(5);
+    expect(state?.etags['net-m1']).toBe('e1');
+  });
+
   it('同步进行中调用 fullSync ⇒ 不清状态、直接拒绝（2N-17）', async () => {
     const { baseUrl, putRemote } = startServer({ listDelayMs: 200 });
     const localDir = makeDir('team-net-local-');

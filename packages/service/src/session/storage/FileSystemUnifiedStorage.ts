@@ -297,12 +297,42 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
       conflictCount += await this.scanPartition(root);
     }
     if (conflictCount > 0) {
-      // P0'：跨分区重复会话按 updatedAt 取新（评审#3 增量三）
-      logger.warn("P0' 多分区聚合：检测到跨分区重复会话，已按 updatedAt 取新", {
-        partitionCount: roots.length,
-        conflictCount,
-      });
+      // P0'：跨分区重复会话择优（2026-11-25 起与 `partitionRootOf` 同一口径：
+      // 消息载荷优先 → updatedAt 取新 → 根顺序），详见 `shouldReplaceLoadedCopy`
+      logger.warn(
+        "P0' 多分区聚合：检测到跨分区重复会话，已按「消息载荷优先 + updatedAt 取新」合并",
+        {
+          partitionCount: roots.length,
+          conflictCount,
+        }
+      );
     }
+  }
+
+  /**
+   * 跨分区同 id 冲突时是否用**后扫描到的副本**替换已加载条目（2026-11-25）。
+   *
+   * 真机 `sess-goal-start-1794938528619`：basePath 副本（`error` + `failed_stale`，**有消息**）与
+   * 历史分区副本（`active`，只有 `session.json`）`updatedAt` 完全相同 ⇒ 原「updatedAt 取新」在平手时
+   * 由后扫描者覆盖 ⇒ 内存读到 `active` ⇒ 崩溃恢复判 stale 写回 `error` ⇒ 下个网关实例再读到
+   * `active`……**单日重复标记 88 次**（每实例一次，每次一条 WARN + 一次写盘）。
+   *
+   * 判据与 `partitionRootOf` 对齐，保证"读到的副本 = 写入的副本"：
+   * ① 有消息载荷的副本优先；② 同载荷才比 `updatedAt`；③ 平手保留先加载（根顺序，basePath 优先）。
+   */
+  private shouldReplaceLoadedCopy(
+    sessionId: string,
+    existing: UnifiedSession,
+    incoming: UnifiedSession,
+    incomingRoot: string
+  ): boolean {
+    const existingRoot = this.partitionRootCache.get(sessionId);
+    const incomingHasMessages = this.hasMessagePayload(incomingRoot, sessionId);
+    const existingHasMessages = existingRoot
+      ? this.hasMessagePayload(existingRoot, sessionId)
+      : false;
+    if (incomingHasMessages !== existingHasMessages) return incomingHasMessages;
+    return incoming.updatedAt > existing.updatedAt;
   }
 
   /**
@@ -331,13 +361,14 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
         const data = await fs.readFile(filePath, 'utf-8');
         const session: UnifiedSession = JSON.parse(data);
         const existing = this.sessions.get(sessionId);
-        if (existing && existing.updatedAt > session.updatedAt) {
-          // P0'：保留 updatedAt 更新的版本（历史分区可能含更新写入）
+        if (existing) {
           conflicts++;
-          continue;
+          if (!this.shouldReplaceLoadedCopy(sessionId, existing, session, root))
+            continue;
         }
-        if (existing) conflicts++;
         this.sessions.set(sessionId, session);
+        // 记录元数据来源分区：写路径经 `partitionRootOf` 命中该缓存 ⇒ "读到的副本 = 写入的副本"
+        this.partitionRootCache.set(sessionId, root);
       } catch (err) {
         // BUG-07（2026-09-16）：区分"僵尸目录"与"真损坏"。
         // ENOENT（session.json 缺失 = 会话已删/回收站残留）是正常状态，直接跳过；

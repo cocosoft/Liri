@@ -280,6 +280,34 @@ describe('A 分区路由：读 / 写 / 删均以实体所在分区为准', () =>
     expect(trashEntries(fx.basePath)).toHaveLength(1);
   });
 
+  test('⑨ 分裂：启动加载以「有消息载荷」的副本为准（陈旧半份副本不劫持状态）', async () => {
+    const fx = mkCrossPartition('xpart-split-merge-');
+    // 真机形态（`sess-goal-start-1794938528619`）：
+    //   当前分区 = **完整副本**（error + failed_stale，有 messages.jsonl）
+    //   历史分区 = **陈旧半份副本**（active，只有 session.json），两者 updatedAt 完全相同
+    fs.renameSync(path.join(fx.legacyRoot, ID), path.join(fx.basePath, ID));
+    fs.writeFileSync(
+      path.join(fx.basePath, ID, 'session.json'),
+      JSON.stringify({ ...fx.session, status: SessionStatus.ERROR }),
+      'utf-8'
+    );
+    fs.mkdirSync(path.join(fx.legacyRoot, ID), { recursive: true });
+    fs.writeFileSync(
+      path.join(fx.legacyRoot, ID, 'session.json'),
+      JSON.stringify({ ...fx.session, status: SessionStatus.ACTIVE }),
+      'utf-8'
+    );
+    const storage = mkStorage(fx);
+
+    await (
+      storage as unknown as { loadAllSessions(): Promise<void> }
+    ).loadAllSessions();
+
+    // 修复前：平手时"后扫描者覆盖" ⇒ 历史分区半份副本把状态改回 active
+    // ⇒ 崩溃恢复每实例重复判 stale 写回 error（实测单日 88 次）
+    expect((await storage.getSession(ID))?.status).toBe(SessionStatus.ERROR);
+  });
+
   test('对照组：当前分区会话行为不变（消息写 basePath、删除进 basePath/.trash）', async () => {
     const fx = mkCrossPartition('xpart-control-');
     const storage = mkStorage(fx);

@@ -291,6 +291,9 @@ MMR 需查询向量与候选两两相似度（N² 次嵌入），仅在显式开
 **如实边界**：
 - transcript 兜底目前只在 `recall_memory` 生效（MCP `memory_search` 无会话上下文，不涉及）；
 - `MemoryTool` / `MemoryGetTool` / `UnifiedSearchTool` 仍未注册进工具注册表（本次只收口实现，不改注册面）。
+  **2026-11-25（记录 #13）**：三者已按 `code-deletion.md` CD05 标 `@deprecated`（说明"未注册、真实入口为
+  `recall_memory` / MCP `memory_search`"），观察期后再按 CD01–CD06 决定删除或接线；`MemoryTool.name='memory_search'`
+  与 MCP 工具同名，未经评估不得直接注册。
 
 ### 8.5 P2-1 Dreaming v2（Phase 3，进行中）
 

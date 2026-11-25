@@ -1,3 +1,9 @@
+/**
+ * @deprecated 2026-11-25（记录 #13）：**未注册进工具注册表**，全仓零构造点
+ * （`createMemoryGetTool` 仅 barrel 再导出）。读取单条记忆的真实入口为
+ * `RecallMemoryTool`（`recall_memory`，支持 session/team/global/all 范围）。
+ * 按 `code-deletion.md` CD05：先标记观察，本批不删除；观察期后仍无消费者再按 CD01–CD06 处置。
+ */
 import type { Tool } from '@openliri/infra/utils/toolContract/Tool';
 import {
   ToolResult,

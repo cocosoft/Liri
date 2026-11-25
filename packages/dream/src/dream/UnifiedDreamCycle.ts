@@ -330,6 +330,20 @@ export class UnifiedDreamCycle {
         }
       }
 
+      // ── 阶段 1-2 结果：人格/偏好分析（真实观测 → SOUL/USER 纠偏输入）──
+      // 2026-11-25 第 4 批（记录 #2）：原实现把字面 `'{}'` 当分析结果传给
+      // `analyzeSoulAlignment` / `analyzeUserProfileChanges` ⇒ needsUpdate 恒 false、
+      // SOUL/USER 永不更新。现用本轮高价值会话 + 当前 SOUL/USER 生成真实分析；
+      // 无会话片段时不调用模型（零成本），失败/无 provider ⇒ `'{}'`（不更新，不伪造）。
+      let personalityAnalysis = '{}';
+      if (sessionContents.length > 0) {
+        personalityAnalysis = await this.reflector.analyzeWithModel({
+          soul: soulContent,
+          user: userContent,
+          sessionExcerpts: sessionContents,
+        });
+      }
+
       _checkpointPhase = 'generated';
       await this.writeCheckpoint(checkpointPath, {
         cycleId,
@@ -357,7 +371,7 @@ export class UnifiedDreamCycle {
       const txOps: TxOperation[] = [];
       const soulAnalysis = this.reflector.analyzeSoulAlignment(
         soulContent,
-        '{}'
+        personalityAnalysis
       );
       if (
         soulAnalysis.needsUpdate &&
@@ -415,7 +429,7 @@ export class UnifiedDreamCycle {
 
       const userAnalysis = this.reflector.analyzeUserProfileChanges(
         userContent,
-        '{}'
+        personalityAnalysis
       );
       if (
         userAnalysis.needsUpdate &&

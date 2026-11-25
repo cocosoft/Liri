@@ -220,6 +220,13 @@ A 之外的后续项：**B** = dream→buddy 事件断点（见 §7.1，已实�
 > 边界：`dream:skipped` 事件只用于"本轮确实没做梦"（门槛/节流/锁）；**尝试执行但抛错/超时**仍补发 `DREAM_FAILED`。
 > 回归用例：`app/tests/dream/dreamXp.test.ts`、`app/tests/tools/recallMemoryScope.test.ts`（检索失败分支）。
 
+### 7.6 第 4 批（2026-11-25，四模块联调排查 #2 / #13）
+
+| 断点 | 处置 |
+|---|---|
+| SOUL/USER 从不更新 | 阶段 1「LLM 分析」实际从未执行：周期把字面 `'{}'` 传给 `analyzeSoulAlignment` / `analyzeUserProfileChanges` ⇒ `needsUpdate` 恒 false。新增 `PersonalityReflector.analyzeWithModel()`：经 `resolveAiAccess()` → 模型路由 `quick` → `createToolAwareClient().sendMessage()`，输入 = 当前 SOUL/USER + 本轮高价值会话片段（总 ≤12k 字符、单条 ≤3k，`buildPersonalityAnalysisPrompt`），要求**只输出 JSON**（`soul` / `user` 两段）。写入仍受既有阈值：confidence ≥0.8 自动（事务 + 乐观锁），0.5–0.8 写建议文件，<0.5 仅日志。**无会话片段 ⇒ 零模型调用**；无 provider / 调用失败 ⇒ `'{}'`（不更新、不伪造）。用例 `app/tests/dream/personalityAnalysis.test.ts` |
+| 死面/未注册工具 | `MemoryTool` / `MemoryGetTool` / `UnifiedSearchTool` 按 `code-deletion.md` CD05 **标 `@deprecated` 观察**（不注册、本批不删除）：真实入口为 `recall_memory` 与 MCP `memory_search`（共用 `MemorySearchService#searchMemory`）；注意 `MemoryTool.name='memory_search'` 与 MCP 工具同名，未经评估不得直接注册。analytics 端点已在 `api-spec.md` 标「内部端点」；`app/src/tasks/dream/*` 已按 P1-1 标注。 |
+
 ### 7.2 真机 E2E 记录（2026-11-25，本地 `bun --watch` 后端）
 
 | 步骤 | 结果 |

@@ -34,7 +34,79 @@ import {
 import { AtomicWriter } from '@modules/session';
 import { join } from 'path';
 import { getLogger } from '@openliri/infra/monitoring';
+import { resolveAiAccess } from '@openliri/kernel/spi';
 const logger = getLogger('dream:reflect:personality');
+
+/** 人格分析输入 */
+export interface PersonalityAnalysisInput {
+  /** 当前 SOUL.md 内容 */
+  soul: string;
+  /** 当前 USER.md 内容 */
+  user: string;
+  /** 高价值会话片段（调用方已截断；空数组 ⇒ 不调用模型） */
+  sessionExcerpts: string[];
+}
+
+/**
+ * 可注入依赖（缺省走 `resolveAiAccess()`；单测注入桩，避免依赖真实 provider 装配）。
+ */
+export interface PersonalityAnalysisDeps {
+  resolveAi?: () => {
+    getModelRouter(): unknown;
+    getProviderRegistry(): unknown;
+    createToolAwareClient(provider: unknown): unknown;
+  };
+}
+
+/** 人格分析提示词里的会话片段总上限（字符） */
+const MAX_PERSONALITY_EXCERPT_CHARS = 12_000;
+/** 单条会话片段上限（字符） */
+const MAX_SINGLE_EXCERPT_CHARS = 3_000;
+
+/**
+ * 构造人格/偏好分析提示词（导出供单测锁定"真实观测确实进入提示词"）。
+ *
+ * 只要求模型**给出结构化结论**，不在这里做写盘判定；写入仍由
+ * `analyzeSoulAlignment` / `analyzeUserProfileChanges` 的 confidence 阈值把关。
+ */
+export function buildPersonalityAnalysisPrompt(
+  input: PersonalityAnalysisInput
+): string {
+  const excerpts: string[] = [];
+  let used = 0;
+  for (const excerpt of input.sessionExcerpts) {
+    if (used >= MAX_PERSONALITY_EXCERPT_CHARS) break;
+    const piece = excerpt.slice(0, MAX_SINGLE_EXCERPT_CHARS);
+    excerpts.push(piece);
+    used += piece.length;
+  }
+
+  return [
+    '你是人格与偏好分析器。请只依据下面的**真实观测**（SOUL.md、USER.md、最近的会话片段），',
+    '判断是否需要更新「AI 人格（SOUL）」或「用户档案（USER）」。',
+    '',
+    '严格规则：',
+    '1. 证据不足或只是单次偶发表述 ⇒ needsUpdate=false（宁缺毋滥，不要为了"有产出"而编造）；',
+    '2. suggestedPatch 必须是可直接追加到文件末尾的 Markdown 片段（不要重写整份文件）；',
+    '3. confidence 为 0..1 的小数，表示你对"该变更是稳定偏好/事实"的把握；',
+    '4. **只输出 JSON**，不要解释、不要 Markdown 代码围栏。',
+    '',
+    '输出结构：',
+    '{"soul":{"needsUpdate":false,"suggestedPatch":"","reason":"","confidence":0},',
+    ' "user":{"needsUpdate":false,"newPreferences":[],"changedPreferences":[],"suggestedPatch":"","reason":"","confidence":0}}',
+    '',
+    '## 当前 SOUL.md',
+    input.soul.trim() || '（空文件）',
+    '',
+    '## 当前 USER.md',
+    input.user.trim() || '（空文件）',
+    '',
+    '## 最近的会话观测（高价值会话片段）',
+    excerpts.length > 0
+      ? excerpts.map((e, i) => `### 片段 ${i + 1}\n${e}`).join('\n\n')
+      : '（本轮没有可用的会话片段）',
+  ].join('\n');
+}
 
 export interface SoulAlignmentResult {
   needsUpdate: boolean;
@@ -103,6 +175,71 @@ export class PersonalityReflector {
     } catch {
       this.userSnapshotMtime = 0;
       return '';
+    }
+  }
+
+  /**
+   * 用模型生成人格/偏好分析 JSON（供 `analyzeSoulAlignment` /
+   * `analyzeUserProfileChanges` 解析）。
+   *
+   * 修复（2026-11-25 第 4 批）：调用方原先把字面 `'{}'` 当分析结果传入 ⇒
+   * `needsUpdate` 恒 false、SOUL/USER 永不更新（阶段 1「LLM 分析」实际从未执行）。
+   *
+   * 边界（CS03/CS04）：
+   * - 无高价值会话片段 ⇒ 直接返回 `'{}'`（零模型调用、零成本）；
+   * - 无可用 provider / 调用失败 ⇒ 返回 `'{}'`（= 不更新），只记 warn，**不伪造结论**。
+   */
+  async analyzeWithModel(
+    input: PersonalityAnalysisInput,
+    deps: PersonalityAnalysisDeps = {}
+  ): Promise<string> {
+    if (input.sessionExcerpts.length === 0) return '{}';
+
+    try {
+      const ai = (deps.resolveAi ?? resolveAiAccess)() as {
+        getModelRouter(): unknown;
+        getProviderRegistry(): unknown;
+        createToolAwareClient(provider: unknown): unknown;
+      };
+      const router = ai.getModelRouter() as {
+        resolveAsync(role: string): Promise<string | null>;
+      } | null;
+      const registry = ai.getProviderRegistry() as {
+        getByModel(model: string): unknown;
+        getDefaultProvider(): unknown;
+      } | null;
+      // 与 MemoryDreamService 同口径：显式经模型路由取模型，避免默认 provider 的不可控默认模型
+      const model = router ? await router.resolveAsync('quick') : null;
+      const provider =
+        model && registry
+          ? registry.getByModel(model)
+          : registry?.getDefaultProvider();
+      if (!provider) {
+        logger.warn('人格分析：无可用 AI Provider，本轮跳过（不更新 SOUL/USER）');
+        return '{}';
+      }
+
+      const client = ai.createToolAwareClient(provider) as {
+        sendMessage(
+          messages: unknown,
+          options: unknown
+        ): Promise<{ content: string }>;
+      };
+      const response = await client.sendMessage(
+        [
+          {
+            role: 'user',
+            content: buildPersonalityAnalysisPrompt(input),
+          },
+        ],
+        { model, temperature: 0.2, maxTokens: 1600 }
+      );
+      return response.content || '{}';
+    } catch (e) {
+      logger.warn('人格分析调用失败，本轮跳过（不更新 SOUL/USER）', {
+        error: e instanceof Error ? e.message : String(e),
+      });
+      return '{}';
     }
   }
 

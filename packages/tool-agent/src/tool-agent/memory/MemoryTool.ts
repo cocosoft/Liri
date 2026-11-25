@@ -1,4 +1,11 @@
 /**
+ * @deprecated 2026-11-25（记录 #13，`agent-memory-optimization.md` §8.4 如实边界）：
+ * **未注册进工具注册表**，全仓零构造点（`createMemoryTool` 仅 barrel 再导出）。
+ * 真实检索入口为 `RecallMemoryTool`（agent 工具，名 `recall_memory`）与 MCP `memory_search`
+ * ——二者共用 `infra/memory/services/MemorySearchService#searchMemory`，本类属旧实现面。
+ * 按 `code-deletion.md` CD05：**先标记观察，本批不删除**；观察期后仍无消费者再按 CD01–CD06 处置
+ * （注意 `memory_search` 与本类同名 ⇒ 未经评估不得直接注册）。
+ *
  * 记忆工具类
  * 将 SearchTool 封装为标准 Tool 接口，使其可以注册到 ToolRegistry
  */

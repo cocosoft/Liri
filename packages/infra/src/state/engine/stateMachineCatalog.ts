@@ -529,7 +529,8 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
     audit: {
       mode: 'session-event',
       event: 'state/transition',
-      evidence: 'packages/service/src/runtime/InboxManager.ts#auditStatusChange',
+      evidence:
+        'packages/service/src/runtime/inbox/stateAudit.ts#auditInboxStatusChange',
     },
     note: '2026-11-24（P0-2 补登记，P0-1 遗漏）：`pending → processing`（CAS 抢锁）→ `replied | expired | dismissed`；`processing` 超时 10min 由过期扫描回收，落地失败回滚 `pending`（批次 1 / A1）。状态用**单数常量**（`INBOX_STATUS_*`）而非 `*_STATUSES` 数组 ⇒ 不被 R09-006 捕获，属"只漏报"盲区。',
   },

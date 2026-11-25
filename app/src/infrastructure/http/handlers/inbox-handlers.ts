@@ -190,6 +190,18 @@ export async function handleReplyInbox(
 
     // ── 执行回复（审批解析的唯一实现在 `runtime/inboxApproval`，HTTP 只管传输层）──
     const outcome = await resolveInboxApproval(id, reply, selectedOption);
+    // 2026-11-25：回复值与卡片档位不匹配（未知值 / 缺命令文本 / 缺参数指纹）⇒ 400 + applied:false。
+    // 卡片**未被落定**（校验在 CAS 之前），客户端可改选合法档位重试。
+    if (outcome.kind === 'invalid_reply') {
+      otel.endSpan(span, SpanStatusCode.ERROR, 'invalid_reply');
+      sendJSON(res, 400, {
+        id,
+        status: 'invalid_reply',
+        applied: false,
+        message: outcome.reason,
+      });
+      return;
+    }
     if (outcome.kind === 'not_found') {
       otel.endSpan(span, SpanStatusCode.ERROR, 'not_found');
       sendError(res, 'Inbox item not found', 404);

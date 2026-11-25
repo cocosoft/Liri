@@ -85,7 +85,16 @@ export type InboxApprovalOutcome =
   | { kind: 'expired' }
   | { kind: 'already_processed'; previousReply?: string }
   | { kind: 'concurrent_conflict' }
-  | { kind: 'update_failed' };
+  | { kind: 'update_failed' }
+  /**
+   * 2026-11-25：回复值**不予受理**（未知词表 / 缺该档位必需的前置数据）。
+   *
+   * 现场：`allowlist_command` 被回给一张 `file_write` 卡（该卡无 `metadata.command`），
+   * 服务端只校验"reply 非空"就落地，`persistAllowlistRule` 因取不到命令文本把
+   * `contentPattern` 置空 ⇒ 写成**无条件整工具 allow**（放大授权范围）。
+   * 此结局在 CAS 抢锁**之前**返回 ⇒ 卡片保持 pending，可改选合法档位。
+   */
+  | { kind: 'invalid_reply'; reason: string };
 
 /** 审批落定后的旁路监听器（企业审批流据此取消镜像请求，避免两侧同时待批） */
 type ResolvedListener = (inboxId: string, reply: string) => void;
@@ -122,6 +131,56 @@ function isApprovalReply(reply: string, selectedOption?: string): boolean {
     APPROVAL_REPLIES.has(reply) ||
     (selectedOption !== undefined && APPROVAL_REPLIES.has(selectedOption))
   );
+}
+
+/** 拒绝类回复（与 `resolveApprovalDecision` 的 deny 档对齐） */
+const REJECT_REPLIES = new Set(['deny', 'reject']);
+
+/**
+ * 2026-11-25：审批回复的**受理校验**（HTTP / IM / 企业审批流共用，CAS 抢锁前执行）。
+ *
+ * 两条硬约束（均以"放大授权范围"为反例）：
+ *  1. 回复值必须落在文档化词表内 —— 未知值此前会被落定成 `replied`，但既不放行也不拒绝，
+ *     卡片静默失效；
+ *  2. **命令级放行必须有命令文本**：`allowlist_command` / `allowlist_workspace_command`
+ *     缺少 `metadata.command` 时，`persistAllowlistRule` 取不到命令 ⇒ `contentPattern=undefined`
+ *     ⇒ 写成无条件整工具 allow（真机：`file_write` 卡回 `allowlist_command` 即触发）。
+ *     `allowlist_call` 同理要求 `metadata.approvalFingerprintHash`。
+ *
+ * @returns 不予受理的原因；`null` ⇒ 合法
+ */
+function validateApprovalReply(
+  item: InboxItem,
+  reply: string,
+  selectedOption?: string
+): string | null {
+  if (item.type !== 'approval') return null;
+  const values = [reply, selectedOption].filter(
+    (value): value is string => typeof value === 'string' && value.length > 0
+  );
+  for (const value of values) {
+    const known = APPROVAL_REPLIES.has(value) || REJECT_REPLIES.has(value);
+    if (!known) {
+      return `未知的审批回复「${value}」（受理值：${[...Object.keys(APPROVAL_REPLY_TO_DECISION), ...REJECT_REPLIES].join(' / ')}）`;
+    }
+    const hasCommand =
+      typeof item.metadata?.command === 'string' &&
+      item.metadata.command.trim().length > 0;
+    if (
+      (value === 'allowlist_command' ||
+        value === 'allowlist_workspace_command') &&
+      !hasCommand
+    ) {
+      return `「${value}」需要命令文本，本卡未提供；请改选 approve / allowlist_call`;
+    }
+    if (
+      value === 'allowlist_call' &&
+      typeof item.metadata?.approvalFingerprintHash !== 'string'
+    ) {
+      return '「allowlist_call」需要参数指纹，本卡未提供；请改选 approve';
+    }
+  }
+  return null;
 }
 
 function isAllowlistReply(reply: string, selectedOption?: string): boolean {
@@ -231,6 +290,18 @@ export async function resolveInboxApproval(
     return current.status === 'expired'
       ? { kind: 'expired' }
       : { kind: 'already_processed', previousReply: current.reply };
+  }
+  // 2026-11-25：越界/缺前置数据的回复在**抢锁之前**拒绝 ⇒ 卡片保持 pending，可改选合法档位。
+  const invalidReason = validateApprovalReply(current, reply, selectedOption);
+  if (invalidReason) {
+    logger.warn('审批回复不予受理（未落定，卡片保持 pending）', {
+      id,
+      reply,
+      selectedOption,
+      sessionId: current.sessionId,
+      reason: invalidReason,
+    });
+    return { kind: 'invalid_reply', reason: invalidReason };
   }
 
   // 幂等保护：CAS 抢锁（同一审批只允许一方落地）
@@ -1560,28 +1631,74 @@ async function persistFingerprintRule(current: {
 }
 
 /**
+ * 白名单写入的**落点解析**（纯函数，2026-11-25）。
+ *
+ * 反例（真机）：`file_write` 卡回 `allowlist_command`，该卡没有 `metadata.command`
+ * ⇒ 旧实现把 `contentPattern` 置空，落成**无条件整工具 allow**（授权范围被放大）。
+ * 规则：命令级档位必须有命令文本；缺失时若有参数指纹 ⇒ 降级为指纹；都没有 ⇒ 跳过（fail-closed）。
+ */
+export type AllowlistWriteTarget =
+  | { kind: 'tool'; toolName: string }
+  | { kind: 'command'; toolName: string; contentPattern: string }
+  | { kind: 'fingerprint'; toolName: string; inputFingerprint: string }
+  | { kind: 'skip'; reason: 'missing_tool_name' | 'missing_command_and_fingerprint' };
+
+export function resolveAllowlistWriteTarget(
+  metadata: Record<string, unknown> | undefined,
+  commandLevel: boolean
+): AllowlistWriteTarget {
+  const toolName =
+    typeof metadata?.toolName === 'string' ? metadata.toolName.trim() : '';
+  if (!toolName) return { kind: 'skip', reason: 'missing_tool_name' };
+  // 工具级白名单（`allowlist_tool`）是用户显式选择 ⇒ 保持原语义
+  if (!commandLevel) return { kind: 'tool', toolName };
+  const command =
+    typeof metadata?.command === 'string' ? metadata.command.trim() : '';
+  if (command) {
+    return { kind: 'command', toolName, contentPattern: buildCommandContentPattern(command) };
+  }
+  const inputFingerprint =
+    typeof metadata?.approvalFingerprintHash === 'string'
+      ? metadata.approvalFingerprintHash
+      : '';
+  if (inputFingerprint) {
+    return { kind: 'fingerprint', toolName, inputFingerprint };
+  }
+  return { kind: 'skip', reason: 'missing_command_and_fingerprint' };
+}
+
+/**
  * P2-4: 持久化白名单规则到 tool_rules.json（behavior: allow）
  * - 工具级（commandLevel=false）：`{behavior: allow, toolName}` → 该工具整体免审批
  * - 命令前缀级（commandLevel=true）：`{behavior: allow, toolName, contentPattern}` → 仅匹配命令免审批
+ *
+ * 2026-11-25：命令级缺命令文本时**不得**降级为工具级（见 `resolveAllowlistWriteTarget`）。
  */
 async function persistAllowlistRule(
   current: { metadata?: Record<string, unknown>; sessionId?: string },
   commandLevel: boolean
 ): Promise<void> {
   if (await shouldSkipApprovalRuleWrite(current.sessionId)) return;
-  const toolName = current.metadata?.toolName as string | undefined;
-  if (!toolName) {
-    logger.warn('白名单持久化跳过：缺少 toolName', {
+  const target = resolveAllowlistWriteTarget(current.metadata, commandLevel);
+  if (target.kind === 'skip') {
+    logger.warn('白名单持久化跳过（不写整工具放行）', {
+      reason: target.reason,
+      commandLevel,
       sessionId: current.sessionId,
     });
     return;
   }
-  const command =
-    typeof current.metadata?.command === 'string'
-      ? (current.metadata.command as string)
-      : '';
+  if (target.kind === 'fingerprint') {
+    logger.warn('命令级白名单缺少命令文本，改按参数指纹放行（不写整工具放行）', {
+      toolName: target.toolName,
+      sessionId: current.sessionId,
+    });
+    await persistFingerprintRule(current);
+    return;
+  }
+  const { toolName } = target;
   const contentPattern =
-    commandLevel && command ? buildCommandContentPattern(command) : undefined;
+    target.kind === 'command' ? target.contentPattern : undefined;
 
   // 2026-11-25：**危险命令头不得落「前缀」allow**（与 `/v1/permissions/rules` 的
   // `checkAllowGuards` 同一判据）。审批路径此前直接 `ruleManager.addRule`，绕过了该护栏：

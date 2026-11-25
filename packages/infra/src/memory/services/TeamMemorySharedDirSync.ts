@@ -248,6 +248,11 @@ export interface TeamConflictCandidate {
   /** 两侧内容 hash（缺失 = 该侧文件不存在） */
   localHash: string | null;
   sharedHash: string | null;
+  /**
+   * 候选来源（Phase 2N-2，2026-11-25）：`network` = 网络版推送 412/409 产生。
+   * 网络候选**没有本地/远端文件路径**，设置页不提供按文件取舍，需走网络版后续入口。
+   */
+  source?: 'network';
 }
 
 /** 人工取舍方向（Phase 3-lite） */
@@ -279,6 +284,44 @@ export async function readTeamConflictFile(
   } catch {
     return { candidates: [] };
   }
+}
+
+/**
+ * 记录网络版推送冲突候选（Phase 2N-2，2026-11-25）。
+ *
+ * 412/409 时调用：**只写候选，不覆盖任一侧**；同一 id 重复冲突只保留最新一条。
+ * 写入的是与共享目录版**同一个** `conflicts.json`，因此设置页 / CLI 的审阅列表可直接看到。
+ */
+export async function upsertNetworkConflictCandidate(
+  teamDir: string,
+  input: { id: string; localHash: string; remoteHash: string | null }
+): Promise<void> {
+  const existing = await readTeamConflictFile(teamDir);
+  const candidates = (existing.candidates ?? []).filter(
+    (candidate) => candidate.id !== input.id
+  );
+  candidates.push({
+    id: input.id,
+    directions: ['push'],
+    localFile: '',
+    sharedFile: '',
+    localHash: input.localHash,
+    sharedHash: input.remoteHash,
+    source: 'network',
+  });
+  candidates.sort((a, b) => a.id.localeCompare(b.id));
+  await writeFileAtomic(
+    join(teamDir, 'conflicts.json'),
+    JSON.stringify(
+      {
+        generatedAt: existing.generatedAt,
+        total: candidates.length,
+        candidates,
+      },
+      null,
+      2
+    ) + '\n'
+  );
 }
 
 /**

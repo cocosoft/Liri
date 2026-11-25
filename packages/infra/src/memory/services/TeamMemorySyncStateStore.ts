@@ -117,6 +117,26 @@ export class TeamMemorySyncStateStore {
     }
   }
 
+  /** 只更新 etag 映射（保留既有 cursor；推送成功后作为 `If-Match` 基线） */
+  async saveEtags(
+    teamId: string,
+    etags: Record<string, string>
+  ): Promise<void> {
+    const db = await this.open();
+    try {
+      await this.run(
+        db,
+        `INSERT INTO ${SYNC_STATE_TABLE}
+           (team_id, cursor, etags_json, last_sync_at, last_error)
+         VALUES (?, 0, ?, NULL, NULL)
+         ON CONFLICT(team_id) DO UPDATE SET etags_json = excluded.etags_json`,
+        [teamId, JSON.stringify(etags)]
+      );
+    } finally {
+      db.close();
+    }
+  }
+
   /** 记录失败（保留既有 cursor/etags） */
   async saveError(teamId: string, message: string): Promise<void> {
     const db = await this.open();

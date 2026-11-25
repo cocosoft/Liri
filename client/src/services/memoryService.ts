@@ -90,6 +90,8 @@ export interface TeamConflictCandidate {
   sharedFile: string;
   localHash: string | null;
   sharedHash: string | null;
+  /** 候选来源：`network` = 网络版推送 412/409（无两侧文件，暂不支持按文件取舍） */
+  source?: "network";
 }
 
 export type TeamConflictResolution = "keep_local" | "keep_shared";

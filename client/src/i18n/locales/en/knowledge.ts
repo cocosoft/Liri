@@ -737,6 +737,8 @@ const enKnowledge = {
     teamKeepShared: "Use shared",
     teamResolveFailed:
       "Failed: a side is missing or the source content contains secrets",
+    teamNetworkConflictHint:
+      "Network sync conflict: resolve via the network sync entry (recorded here only; neither side is overwritten)",
     weightLabel: "Weight: {{count}}",
     pinnedBadge: "📌 Pinned",
     createdAtLabel: "Created {{date}}",

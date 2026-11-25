@@ -217,6 +217,10 @@
 （`resolveTeamConflict` / CLI `/memory team` / 设置页 `TeamMemoryPanel`）全部沿用共享目录版，
 网络版只替换"搬运层"（文件 ↔ HTTP）。
 
+**解决进度（2026-11-25）**：C1/C2 已随 2N-0 解决；C3/C5（拉侧 cursor/etag 持久化）随 2N-1 解决；
+C6 与 C4 推侧（412/409 ⇒ 候选）随 2N-2 解决。**C7（墓碑）仍待 2N-3**；
+网络候选在设置页只展示、不提供按文件取舍（按钮替换为提示）。
+
 ---
 
 ## 5. 分阶段路线
@@ -286,6 +290,18 @@
 - `sync()` 失败时把原因写入 `last_error`（保留 cursor/etag，下一轮续传）。
 - 用例：`app/tests/memory/teamMemorySyncPagination.test.ts`（两页推进 / 重启续传 / 全量模式 / 失败落库 4 例）。
 
+**Phase 2N-2（2026-11-25，推送与冲突候选）**
+- 本地源：`getLocalMemories()` 读 `config.localDir` 下的 `*.md`（文件名 = id，`etag` = 正文 sha256；
+  与服务端 `contentHash` 同口径，`compareMemories` 优先比 hash，缺失时退回比 etag）。
+- 上传：body `{content, contentHash, accessLevel}`（`accessLevel` 默认 `team`，可配置）；
+  `If-Match` 取持久化/内存 etag；成功响应的新 etag **落库**（`saveEtags`，重启后仍是基线）。
+- 冲突：412/409 ⇒ `TeamMemorySyncConflictError` ⇒ 写 `conflicts.json`
+  （`source:'network'`、`directions:['push']`、两侧 sha256），**只尝试一次、不重试、不覆盖**；
+  有冲突且无错误时状态为 `CONFLICT`。
+- 设置页：网络候选只展示提示文案，不提供"保留本地/采纳共享"按钮（按文件取舍不适用于网络候选）。
+- 用例：`app/tests/memory/teamMemorySyncPush.test.ts`（412 候选与不覆盖 / 成功 etag 落库）。
+
+
 
 
 ### 5.2 网络版实施拆解（Phase 2N-0 … 2N-5；每步独立提交）
@@ -296,7 +312,7 @@
 |---|---|---|---|---|
 | **2N-0** | 契约常量 + Bearer + 错误码分类 + 超时/重试（C1/C2；不联网也能过） | ✅ 已实现（2026-11-25）：`apiPrefix` + `setAuthToken` + `classifyTeamMemoryHttpStatus`；**fetch 失败上抛**（不再吞成空表） | 未配置 ⇒ `NOT_CONFIGURED` 零请求；单测断言路径/鉴权头/401/429 | 独立提交可 revert；开关默认关 |
 | **2N-1** | 拉取分页 + cursor 持久化（C3/C5 拉侧） | ✅ 已实现（2026-11-25）：`TeamMemorySyncStateStore`（新表 `team_memory_sync_state`）+ `cursor/limit` 分页；响应兼容 `{items,nextCursor,hasMore}` 与旧 `{memories}`；etag 落库 | cursor=10 ⇒ 只请求 `version>10`；重启从表续传；重复拉取幂等 | 清空表即可全量重拉 |
-| **2N-2** | 推送 `If-Match` + 409/412 ⇒ 冲突候选（C4/C6/C7 推侧） | 同上 + 复用 `TeamMemorySharedDirSync` 的候选结构与 `resolveTeamConflict` | 412/409 ⇒ 候选落 `conflicts.json`；**本地/远端正文均不变**；密钥命中拒发 | 关开关即停；候选可人工放弃 |
+| **2N-2** | 推送 `If-Match` + 409/412 ⇒ 冲突候选（C4/C6/C7 推侧） | ✅ 已实现（2026-11-25）：本地 `*.md` 读取（hash=etag）+ 上传 body `{content,contentHash,accessLevel}` + `If-Match`；412/409 ⇒ `conflicts.json`（`source:'network'`），状态 `CONFLICT`；成功新 etag 落库 | 412/409 ⇒ 候选落 `conflicts.json`；**本地/远端正文均不变**；密钥命中拒发；只尝试一次不重试 | 关开关即停；候选可人工放弃 |
 | **2N-3** | 墓碑处理（远端 `deletedAt` ⇒ 本地 `.trash` 归档） | 同上 | 删除可同步；归档不物理删除 | `.trash` 可还原 |
 | **2N-4** | 状态机/退避/审计接线（R08-002）+ 设置页状态 | `TeamMemorySyncService.ts` + `TeamMemoryPanel`（status 字段已具备） | `SYNCING` 单飞；429/5xx 退避上限 15min；每轮 4 类事件齐全 | 开关关 + 定时器停 |
 | **2N-5** | 集成测试（本机 `Bun.serve` mock 服务端） | `app/tests/memory/teamMemoryNetworkSync.test.ts` | 拉取→本地改→412→人工采纳→再推 全链通过；401/403/429 各一例 | 测试仅本地，无运行时影响 |

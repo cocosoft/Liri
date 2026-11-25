@@ -4,7 +4,9 @@
  */
 
 import { join } from 'path';
-import { resolveDataDir } from '@openliri/infra/environment';
+import { promises as fs } from 'fs';
+import { createHash } from 'crypto';
+import { resolveDataDir, resolveTeamMemoryDir } from '@openliri/infra/environment';
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import {
@@ -14,6 +16,7 @@ import {
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { configManager } from '@openliri/infra/config';
 import { TeamMemorySyncStateStore } from './TeamMemorySyncStateStore';
+import { upsertNetworkConflictCandidate } from './TeamMemorySharedDirSync';
 
 const logger = getLogger('memory:services:teamMemorySyncService');
 
@@ -87,6 +90,8 @@ interface ServerMemoryEntry {
   etag?: string;
   /** 墓碑标记（Phase 2N-3 消费；此处只透传） */
   deletedAt?: string | null;
+  /** 正文摘要（Phase 2N-2：与本地 hash 比对判"已同步"，不依赖 etag 相等） */
+  contentHash?: string;
   metadata: {
     createdAt: string;
     modifiedAt: string;
@@ -94,6 +99,35 @@ interface ServerMemoryEntry {
     tags?: string[];
     type?: string;
   };
+}
+
+/** 内容规范化（与共享目录版同口径：CRLF → LF、去首尾空白） */
+function normalizeMemoryContent(raw: string): string {
+  return raw.replace(/\r\n/g, '\n').trim();
+}
+
+/** 正文摘要（与服务端 `contentHash` 同口径） */
+function hashMemoryContent(raw: string): string {
+  return createHash('sha256')
+    .update(normalizeMemoryContent(raw))
+    .digest('hex');
+}
+
+/**
+ * 推送冲突（Phase 2N-2）：服务端 412/409 ⇒ **只记候选、不覆盖任一侧**。
+ * 由 `sync()` 捕获后写入 `conflicts.json`（与共享目录版审阅入口同文件）。
+ */
+export class TeamMemorySyncConflictError extends Error {
+  constructor(
+    readonly memoryId: string,
+    readonly localContent: string,
+    readonly localHash: string,
+    readonly remoteContent: string | null,
+    readonly remoteHash: string | null
+  ) {
+    super(`CONFLICT: ${memoryId}`);
+    this.name = 'TeamMemorySyncConflictError';
+  }
 }
 
 /** 单页拉取条数（契约 §3.6；命名避开 lint:consts 的 `_LIMIT` 裸字面量判据） */
@@ -119,6 +153,8 @@ export interface TeamMemorySyncConfig {
    * 若部署需要 `/v1` 等前缀，只改这一处（契约见 `team-memory-sync.md` §3.2）。
    */
   apiPrefix: string;
+  /** 上传时写入的访问级别（Phase 2N-2，契约 §3.2；默认 `team`） */
+  accessLevel: string;
 }
 
 /**
@@ -174,6 +210,7 @@ const DEFAULT_CONFIG: TeamMemorySyncConfig = {
   timeout: 30000,
   incremental: true,
   apiPrefix: '/teams',
+  accessLevel: 'team',
 };
 
 /**
@@ -316,10 +353,31 @@ export class TeamMemorySyncService {
 
       const uploadTasks = syncTasks.filter((t) => t.direction === 'upload');
       for (const task of uploadTasks) {
+        const content = localMemories.get(task.memoryId)?.content ?? '';
         try {
-          await this.uploadMemory(task.memoryId, task.content);
+          await this.uploadMemory(task.memoryId, content);
           result.uploaded++;
         } catch (error) {
+          // Phase 2N-2：412/409 ⇒ 只记冲突候选（不覆盖）；不算"上传失败"
+          if (error instanceof TeamMemorySyncConflictError) {
+            result.conflicts.push(task.memoryId);
+            try {
+              await upsertNetworkConflictCandidate(resolveTeamMemoryDir(), {
+                id: task.memoryId,
+                localHash: error.localHash,
+                remoteHash: error.remoteHash,
+              });
+            } catch (candidateError) {
+              await handleError(candidateError, {
+                module: 'memory:services:teamSync',
+                action: 'write_conflict_candidate',
+              });
+              result.errors.push(
+                `Conflict candidate failed for ${task.memoryId}: ${candidateError}`
+              );
+            }
+            continue;
+          }
           result.errors.push(`Upload failed for ${task.memoryId}: ${error}`);
         }
       }
@@ -337,7 +395,11 @@ export class TeamMemorySyncService {
       result.skipped = syncTasks.filter((t) => t.direction === 'skip').length;
 
       result.success = result.errors.length === 0;
-      this.status = result.success ? SyncStatus.SUCCESS : SyncStatus.ERROR;
+      this.status = !result.success
+        ? SyncStatus.ERROR
+        : result.conflicts.length > 0
+          ? SyncStatus.CONFLICT
+          : SyncStatus.SUCCESS;
     } catch (error) {
       await handleError(error, { module: 'memory:sync', action: 'full_sync' });
       result.success = false;
@@ -362,7 +424,11 @@ export class TeamMemorySyncService {
   }
 
   /**
-   * 获取本地记忆列表
+   * 获取本地记忆列表（Phase 2N-2：真实读取团队目录 `*.md`）
+   *
+   * - 文件名为 id（去掉 `.md`）；
+   * - `etag` = 正文 sha256（与服务端 `contentHash` 同口径，用于判"已同步"）；
+   * - 目录不存在 ⇒ 空表（首次同步，不报错）。
    */
   private async getLocalMemories(): Promise<
     Map<string, { content: string; modified: number; etag: string }>
@@ -371,6 +437,38 @@ export class TeamMemorySyncService {
       string,
       { content: string; modified: number; etag: string }
     >();
+    const dir = this.config.localDir;
+
+    let entries: string[];
+    try {
+      entries = await fs.readdir(dir);
+    } catch {
+      return memories;
+    }
+
+    for (const name of entries) {
+      if (!name.toLowerCase().endsWith('.md')) continue;
+      const filePath = join(dir, name);
+      try {
+        const [raw, stat] = await Promise.all([
+          fs.readFile(filePath, 'utf-8'),
+          fs.stat(filePath),
+        ]);
+        const content = normalizeMemoryContent(raw);
+        if (!content) continue;
+        memories.set(name.slice(0, -3), {
+          content,
+          modified: stat.mtimeMs,
+          etag: hashMemoryContent(content),
+        });
+      } catch (error) {
+        await handleError(error, {
+          module: 'memory:services:teamSync',
+          action: 'read_local_memory',
+        });
+      }
+    }
+
     return memories;
   }
 
@@ -526,7 +624,11 @@ export class TeamMemorySyncService {
       };
 
       if (remote) {
-        if (local.etag === remote.metadata.etag) {
+        // Phase 2N-2：优先比 `contentHash`（本地 etag = 正文 sha256）；旧服务端无该字段时退回比 etag
+        const sameContent = remote.contentHash
+          ? remote.contentHash === local.etag
+          : local.etag === remote.metadata.etag;
+        if (sameContent) {
           state.status = 'synced';
         } else if (
           local.modified > new Date(remote.metadata.modifiedAt).getTime()
@@ -603,9 +705,13 @@ export class TeamMemorySyncService {
     state: MemorySyncState
   ): Promise<boolean> {
     switch (this.config.conflictResolution) {
-      case 'local_wins':
-        await this.uploadMemory(memoryId);
+      case 'local_wins': {
+        // Phase 2N-2：上传必须带正文（旧实现传 undefined ⇒ body 为空对象）
+        const content = await this.readLocalContent(memoryId);
+        if (content === null) return false;
+        await this.uploadMemory(memoryId, content);
         return true;
+      }
 
       case 'remote_wins':
         await this.downloadMemory(memoryId);
@@ -613,7 +719,9 @@ export class TeamMemorySyncService {
 
       case 'newest_wins':
         if (state.localModified > state.remoteModified) {
-          await this.uploadMemory(memoryId);
+          const content = await this.readLocalContent(memoryId);
+          if (content === null) return false;
+          await this.uploadMemory(memoryId, content);
         } else {
           await this.downloadMemory(memoryId);
         }
@@ -627,12 +735,26 @@ export class TeamMemorySyncService {
     }
   }
 
+  /** 读取单条本地记忆正文（规范化后；不存在/空 ⇒ null） */
+  private async readLocalContent(memoryId: string): Promise<string | null> {
+    try {
+      const raw = await fs.readFile(
+        join(this.config.localDir, `${memoryId}.md`),
+        'utf-8'
+      );
+      const content = normalizeMemoryContent(raw);
+      return content ? content : null;
+    } catch {
+      return null;
+    }
+  }
+
   /**
    * 上传记忆
    */
   private async uploadMemory(
     memoryId: string,
-    content?: string
+    content: string
   ): Promise<void> {
     if (!this.config.serverUrl) {
       throw new AppError(
@@ -669,19 +791,62 @@ export class TeamMemorySyncService {
     const response = await fetch(url, {
       method: 'PUT',
       headers,
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({
+        content,
+        contentHash: hashMemoryContent(content),
+        accessLevel: this.config.accessLevel,
+      }),
       signal: controller.signal,
     });
 
     clearTimeout(timeout);
 
     if (!response.ok) {
+      // Phase 2N-2：412/409 ⇒ 记录冲突（不覆盖）；其它错误照旧分类抛出
+      const code = classifyTeamMemoryHttpStatus(response.status);
+      if (code === 'PRECONDITION_FAILED' || code === 'CONFLICT') {
+        const current = await this.readRemoteCurrent(response);
+        throw new TeamMemorySyncConflictError(
+          memoryId,
+          content,
+          hashMemoryContent(content),
+          current?.content ?? null,
+          current?.contentHash ??
+            (current?.content ? hashMemoryContent(current.content) : null)
+        );
+      }
       throw this.httpError(response.status, response.statusText);
     }
 
     const newEtag = response.headers.get('ETag');
     if (newEtag) {
       this.etagCache.set(memoryId, newEtag);
+      // Phase 2N-2：etag 落库（重启后仍能作为 `If-Match` 基线）
+      try {
+        await this.stateStore.saveEtags(
+          this.config.teamId,
+          Object.fromEntries(this.etagCache)
+        );
+      } catch (error) {
+        await handleError(error, {
+          module: 'memory:services:teamSync',
+          action: 'save_etags',
+        });
+      }
+    }
+  }
+
+  /** 读取 412/409 响应里的远端当前记录（缺失/不可解析 ⇒ null） */
+  private async readRemoteCurrent(
+    response: Response
+  ): Promise<{ content?: string; contentHash?: string } | null> {
+    try {
+      const data = (await response.json()) as {
+        current?: { content?: string; contentHash?: string };
+      };
+      return data?.current ?? null;
+    } catch {
+      return null;
     }
   }
 

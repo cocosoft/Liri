@@ -695,6 +695,8 @@ const zhKnowledge = {
     teamKeepLocal: "保留本地",
     teamKeepShared: "采纳共享",
     teamResolveFailed: "操作失败：两侧文件缺失或源内容命中密钥",
+    teamNetworkConflictHint:
+      "网络同步冲突：需在网络版同步入口处理（此处仅记录，不改写任一侧）",
     weightLabel: "权重: {{count}}",
     pinnedBadge: "📌 已置顶",
     createdAtLabel: "创建于 {{date}}",

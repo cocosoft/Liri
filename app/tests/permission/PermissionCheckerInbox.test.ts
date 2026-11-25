@@ -505,7 +505,8 @@ describe('P2-4 白名单按钮（approval options）', () => {
     pm.addRule(PermissionBehavior.ASK, 'bash');
     const result = await pm.checkPermissionForTool(
       'bash',
-      { command: 'net user %username%' },
+      // 2026-11-25：改用非危险命令（`net user` 属危险命令头，已按设计只给 approve/deny）
+      { command: 'git status' },
       { sessionId: 'session-1' }
     );
     expect(result.decision?.behavior).toBe('ask');

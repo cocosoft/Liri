@@ -34,10 +34,6 @@
  */
 import { configManager } from '@openliri/infra/config';
 import { getLogger } from '@openliri/infra/monitoring';
-import {
-  AUTO_MODE_HARD_DENY_TOKENS,
-  DANGEROUS_BASE_COMMANDS,
-} from '@openliri/infra/security/patterns';
 import { isCommandToolName } from '@openliri/infra/utils/toolContract/toolRoles';
 
 import type { RuleManager } from '../RuleManager';
@@ -121,54 +117,14 @@ export function countUserAllowRules(rules: PermissionRule[]): number {
   ).length;
 }
 
-/** 正则元字符：命令头只取「字面前缀」，遇到元字符即停止（不猜正则语义） */
-const REGEX_META = /[\\^$.*+?()[\]{}|]/;
+// 2026-11-25：命令头/危险词表判据下沉到 `commandPatterns`（供审批写入与 registry 共用，
+// 避免 ruleCrud → registry 的反向依赖成环）；此处原地转出，保持既有导出面不变。
+import {
+  extractCommandHead,
+  findDangerousCommandHead,
+} from '../commandPatterns';
+export { extractCommandHead, findDangerousCommandHead } from '../commandPatterns';
 
-/**
- * 从 `contentPattern` 提取**字面命令头**（`^git push .*` ⇒ `git push`）。
- *
- * 局限（如实标注）：正则化写法（`^git\s+push`）或通配开头（`^.*`）无法静态判定命令头
- * ⇒ 返回 `null`，本层不做结论（不假装能判断）。
- */
-export function extractCommandHead(contentPattern: string): string | null {
-  const literal = contentPattern.replace(/^\^/, '').trimStart();
-  if (!literal) return null;
-  const cut = literal.search(REGEX_META);
-  const head = (cut === -1 ? literal : literal.slice(0, cut)).trimEnd();
-  return head || null;
-}
-
-/**
- * 判定 allow 规则的命令头是否命中危险词表（R2b；纯函数）。
- *
- * 复用 `security/patterns` 的**同一份**词表（不复制）：`DANGEROUS_BASE_COMMANDS`
- * 按基础命令名（`mkfs.ext4` ⇒ `mkfs`）与首词比对；`AUTO_MODE_HARD_DENY_TOKENS`
- * 只取命令位令牌（首字符为字母），按「命令头 == 令牌」或「命令头以令牌 + 空格开头」判定。
- */
-export function findDangerousCommandHead(
-  contentPattern: string
-): string | null {
-  const head = extractCommandHead(contentPattern);
-  if (!head) return null;
-  const lowered = head.toLowerCase();
-  const firstWord = lowered.split(/\s+/)[0]!;
-  const baseName = firstWord.split(/[./\\]/)[0]!;
-  if (
-    DANGEROUS_BASE_COMMANDS.has(firstWord) ||
-    DANGEROUS_BASE_COMMANDS.has(baseName)
-  ) {
-    return baseName;
-  }
-  for (const token of AUTO_MODE_HARD_DENY_TOKENS) {
-    const normalized = token.trim().toLowerCase().replace(/\s+/g, ' ');
-    // 只判命令位令牌：`' | '` / `'$('` / `'=rm'` 这类结构令牌不构成命令头
-    if (!/^[a-z][a-z0-9]/.test(normalized)) continue;
-    if (lowered === normalized || lowered.startsWith(`${normalized} `)) {
-      return normalized;
-    }
-  }
-  return null;
-}
 
 /**
  * allow 写入的两道护栏（R2b）：危险命令头禁止建 allow + allow 预算。

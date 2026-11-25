@@ -539,3 +539,48 @@ describe('P2 task 审批作用域', () => {
     }
   });
 });
+
+/**
+ * 2026-11-25 真机 `session_mww2f7qtf0e2b83018`：
+ * 「本会话内，此工具都允许」曾按首 token 取前缀 —— 批一条 `cd "E:\\..." & python -c step1`
+ * 后，`cd "C:\\Temp" & python -c step2` 零审批执行（cd 是壳内建，前缀等价于任意 cd 命令）。
+ * 危险命令（`git push`）同样不得写入会话前缀。
+ */
+describe('会话级工具放行：壳内建/危险命令不写前缀（2026-11-25）', () => {
+  it('cd 复合命令不覆盖其它 cd 复合命令；只读仍放行', () => {
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    reg.allowToolForSession(
+      's-1',
+      'bash',
+      'cd "E:\\PY\\Documents\\CODES\\PY_APP" & python -c "print(1)"'
+    );
+
+    expect(
+      reg.isCommandAllowedForSession(
+        's-1',
+        'bash',
+        'cd "C:\\Temp" & python -c "print(2)"'
+      )
+    ).toBe(false);
+    // 只读命令仍由 session allow 覆盖（既有语义不变）
+    expect(reg.isCommandAllowedForSession('s-1', 'bash', 'dir /b')).toBe(true);
+    reg.dispose();
+  });
+
+  it('git push 不进入会话前缀（--force 不被连带放行）', () => {
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    reg.allowToolForSession('s-1', 'bash', 'git push origin main');
+
+    expect(
+      reg.isCommandAllowedForSession(
+        's-1',
+        'bash',
+        'git push --force origin main'
+      )
+    ).toBe(false);
+    expect(
+      reg.isCommandAllowedForSession('s-1', 'bash', 'git push origin main')
+    ).toBe(false);
+    reg.dispose();
+  });
+});

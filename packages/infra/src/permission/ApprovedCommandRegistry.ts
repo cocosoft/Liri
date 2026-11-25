@@ -43,6 +43,11 @@ import {
 } from '@openliri/kernel/identity/requestScope';
 // 2026-11-24（P4）：会话级工具放行的「只读」判据复用安全层唯一实现（单条 + 纯只读串联）
 import { checkCompoundReadOnly } from '../security/compoundReadOnly';
+// 2026-11-25：壳内建（cd/set/call…）与危险命令**不得**按前缀做会话级放行
+import {
+  SHELL_BUILTIN_COMMAND_HEADS,
+  isDangerousApprovalCommand,
+} from './commandPatterns';
 const logger = getLogger('permission:approvedCommands');
 
 /**
@@ -377,6 +382,9 @@ const DANGEROUS_BASE_NAMES = new Set([
  */
 const NO_PREFIX_BASES: ReadonlySet<string> = new Set([
   ...DANGEROUS_BASE_NAMES,
+  // 2026-11-25（真机 `session_mww2f7qtf0e2b83018`）：壳内建同样禁止前缀放行 ——
+  // `cd "E:\\a" & python -c step1` 批一次后，`cd "C:\\Temp" & python -c step2` 曾零审批执行。
+  ...SHELL_BUILTIN_COMMAND_HEADS,
   'env',
   'xargs',
   'eval',
@@ -709,12 +717,17 @@ export class ApprovedCommandRegistry {
       map = new Map();
       this.sessionToolAllows.set(sessionId, map);
     }
-    const prefix = command ? commandApprovalPrefix(command) : undefined;
+    // 2026-11-25：危险命令（`git push` 等）不写前缀 —— 否则一次「本会话工具级允许」
+    // 会把 `git push origin main` 放大成 `git push --force / --mirror`（同命令头放大）。
+    const dangerous = command ? isDangerousApprovalCommand(command) : false;
+    const prefix =
+      command && !dangerous ? commandApprovalPrefix(command) : undefined;
     map.set(toolName, { ...(prefix ? { prefix } : {}) });
     logger.info('本会话工具级放行已写入（仅前缀 + 只读）', {
       sessionId,
       toolName,
       prefix,
+      dangerous,
     });
   }
 
@@ -736,6 +749,8 @@ export class ApprovedCommandRegistry {
     if (!allow) return false;
     const trimmed = (command ?? '').trim();
     if (!trimmed) return false;
+    // 2026-11-25：危险命令一律不因会话级放行而豁免（只读判据也不适用于它）
+    if (isDangerousApprovalCommand(trimmed)) return false;
     if (checkCompoundReadOnly(trimmed).allowed) return true;
     const prefix = commandApprovalPrefix(trimmed);
     return !!allow.prefix && !!prefix && prefix === allow.prefix;

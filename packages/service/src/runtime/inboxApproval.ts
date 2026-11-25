@@ -36,6 +36,8 @@ import {
   getApprovedCommandRegistry,
   // P2（§3.3）：任务档审批 —— 活跃长程任务解析
   getActiveTaskId,
+  // 2026-11-25：审批生成 allow 规则前复用的危险命令头判据（与 API 写入口同源）
+  findDangerousCommandHead,
   resolveApprovalDecision,
   resolveRecordScope,
   // R3（2026-11-17）：「暂停全部持久化放行」—— 三个审批写入点共用同一开关
@@ -1580,6 +1582,23 @@ async function persistAllowlistRule(
       : '';
   const contentPattern =
     commandLevel && command ? buildCommandContentPattern(command) : undefined;
+
+  // 2026-11-25：**危险命令头不得落「前缀」allow**（与 `/v1/permissions/rules` 的
+  // `checkAllowGuards` 同一判据）。审批路径此前直接 `ruleManager.addRule`，绕过了该护栏：
+  // `git push origin main` 会生成 `^git push.*` ⇒ `--force / --mirror` 全部免审批。
+  // 只拦前缀形态（`^head.*`）：解释器/壳内建的精确规则（`^python -c "…"$`）不会放大，保持原行为。
+  if (contentPattern?.endsWith('.*')) {
+    const dangerous = findDangerousCommandHead(contentPattern);
+    if (dangerous) {
+      logger.warn('审批生成的命令级规则命中危险命令头，跳过持久化（仅本次放行生效）', {
+        toolName,
+        dangerous,
+        contentPattern,
+        sessionId: current.sessionId,
+      });
+      return;
+    }
+  }
 
   const { PermissionManager } =
     await import('@openliri/infra/permission/PermissionManager');

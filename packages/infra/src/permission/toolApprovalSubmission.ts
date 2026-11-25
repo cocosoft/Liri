@@ -22,6 +22,8 @@
 
 import type { SandboxExecutionSignal } from '@openliri/infra/utils/toolContract/Tool';
 import { isCommandToolName } from '@openliri/infra/utils/toolContract/toolRoles';
+// 2026-11-25：危险且会按前缀放大的命令（`git push` 等）不得提供"前缀/会话/工具级"档
+import { isDangerousPrefixAmplifyingCommand } from './commandPatterns.js';
 // R4（2026-11-17）：审批预览与采样共用同一去敏出口（密钥不落 Inbox / 审计）
 import { buildRedactedInputPreview } from '@openliri/infra/security';
 
@@ -113,6 +115,12 @@ export function buildApprovalOptions(params: {
   const command = params.command ?? '';
   const isCommandTool =
     isCommandToolName(toolName) && command.trim().length > 0;
+  // 2026-11-25（真机 session_mww15fnr1f4e56775e 后续复审）：危险命令只给「仅这次 / 拒绝」。
+  // `^git push.*` 这类前缀规则会把 `git push origin main` 放大成 `--force / --mirror`；
+  // 会话级前缀（`git push`）同样放大，故连 `allowlist_tool_session` 一并收回。
+  if (isCommandTool && isDangerousPrefixAmplifyingCommand(command)) {
+    return ['approve', 'deny'];
+  }
   return isCommandTool
     ? [
         'approve',

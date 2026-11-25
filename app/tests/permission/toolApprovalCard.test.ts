@@ -74,6 +74,17 @@ describe('P1：审批卡唯一构造点', () => {
     );
   });
 
+  // 2026-11-25：危险命令不提供任何"永久/会话/前缀"放行档 ——
+  // `^git push.*` 会把 `git push origin main` 放大成 `--force / --mirror`。
+  it('危险命令 ⇒ 仅「这次 / 拒绝」（不给命令级/工作区/会话/工具级）', () => {
+    const card = buildToolApprovalCard({
+      toolOrName: 'bash',
+      input: { command: 'git push origin main' },
+      sessionId: 's',
+    });
+    expect(card.options).toEqual(['approve', 'deny']);
+  });
+
   it('外部发送类工具 ⇒ 不给永久放行选项（仅这次/拒绝）', () => {
     const card = buildToolApprovalCard({
       toolOrName: 'send_email',

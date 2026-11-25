@@ -15,6 +15,11 @@
  * 依赖方向：infra 不依赖 app / service（R00-001）。
  */
 
+import {
+  AUTO_MODE_HARD_DENY_TOKENS,
+  DANGEROUS_BASE_COMMANDS,
+} from '../security/patterns/index.js';
+
 /** 高能力解释器（可执行任意代码；A4 解释器守卫同源） */
 export const HIGH_CAPABILITY_INTERPRETERS: ReadonlySet<string> = new Set([
   'node',
@@ -72,6 +77,36 @@ export function isInterpreterCommandHead(baseCommand: string): boolean {
 }
 
 /**
+ * **壳内建命令**（2026-11-25）：不能按"首 token 前缀"授权。
+ *
+ * 为什么单独一张表：`cd "E:\\a" & python -c "…"` 这类复合命令的首 token 是 `cd`，
+ * 若按前缀授权（`allowlist_tool_session` / `contentPattern=^cd.*`）则等价于
+ * 「本会话放行所有以 cd 开头的命令」——真机 `session_mww2f7qtf0e2b83018` 已验证：
+ * 批一条 `cd "E:\\..." & python -c step1` 后，`cd "C:\\Temp" & python -c step2` 零审批执行。
+ *
+ * 这些命令的共同点：本身不说明执行什么（改 cwd / 改环境 / 间接执行），必须**精确匹配**。
+ */
+export const SHELL_BUILTIN_COMMAND_HEADS: ReadonlySet<string> = new Set([
+  'cd',
+  'chdir',
+  'pushd',
+  'popd',
+  'set',
+  'export',
+  'alias',
+  'unalias',
+  'unset',
+  'call',
+  'start',
+]);
+
+/** 命令头是否属于"不能按前缀授权"的壳内建（入参需已归一化） */
+export function isShellBuiltinCommandHead(baseCommand: string): boolean {
+  if (!baseCommand) return false;
+  return SHELL_BUILTIN_COMMAND_HEADS.has(baseCommand);
+}
+
+/**
  * 命令是否带**内联代码**开关（`-c` / `-e` / `--eval` / `-Command` / `-EncodedCommand`）。
  *
  * 只用于"高能力解释器确认"的灰度判定：`node script.js` / `python -m pytest` 这类
@@ -126,6 +161,8 @@ export function escapeRegExp(s: string): string {
  *
  * - 解释器/壳（`powershell` / `cmd` / `bash` / `python` / `node` …）⇒ **精确匹配**
  *   `^<整条命令>$`：换参数必须重新审批；
+ * - 壳内建（`cd` / `set` / `call` …，见 `SHELL_BUILTIN_COMMAND_HEADS`）⇒ 同样精确匹配
+ *   （2026-11-25：`^cd /d.*` / `^cd.*` 等于放行任意 cd 前缀复合命令）；
  * - 其余命令 ⇒ 保留既有「前 2 token 前缀 + `.*`」口径（与历史行为逐字一致）。
  */
 export function buildCommandContentPattern(command: string): string {
@@ -134,10 +171,95 @@ export function buildCommandContentPattern(command: string): string {
   if (tokens.length === 0) return '';
 
   const head = normalizeCommandHead(extractCommandHeadToken(trimmed));
-  if (isInterpreterCommandHead(head)) {
+  if (isInterpreterCommandHead(head) || isShellBuiltinCommandHead(head)) {
     return `^${escapeRegExp(trimmed)}$`;
   }
 
   const prefix = tokens.slice(0, 2).join(' ');
   return `^${escapeRegExp(prefix)}.*`;
 }
+
+/** 正则元字符：命令头只取「字面前缀」，遇到元字符即停止（不猜正则语义） */
+const REGEX_META = /[\\^$.*+?()[\]{}|]/;
+
+/**
+ * 从 `contentPattern` 提取**字面命令头**（`^git push .*` ⇒ `git push`）。
+ *
+ * 局限（如实标注）：正则化写法（`^git\s+push`）或通配开头（`^.*`）无法静态判定命令头
+ * ⇒ 返回 `null`，本层不做结论（不假装能判断）。
+ */
+export function extractCommandHead(contentPattern: string): string | null {
+  const literal = contentPattern.replace(/^\^/, '').trimStart();
+  if (!literal) return null;
+  const cut = literal.search(REGEX_META);
+  const head = (cut === -1 ? literal : literal.slice(0, cut)).trimEnd();
+  return head || null;
+}
+
+/**
+ * 判定 allow 规则的命令头是否命中危险词表（R2b；纯函数）。
+ *
+ * 复用 `security/patterns` 的**同一份**词表（不复制）：`DANGEROUS_BASE_COMMANDS`
+ * 按基础命令名（`mkfs.ext4` ⇒ `mkfs`）与首词比对；`AUTO_MODE_HARD_DENY_TOKENS`
+ * 只取命令位令牌（首字符为字母），按「命令头 == 令牌」或「命令头以令牌 + 空格开头」判定。
+ *
+ * 2026-11-25：从 `manager/ruleCrud.ts` 迁入本模块 —— 审批生成规则的写入路径
+ * （`inboxApproval.persistAllowlistRule`）与 `ApprovedCommandRegistry` 的会话级放行
+ * 都需要同一判据，而 ruleCrud 反向 import 了 registry（成环），故下沉到无依赖的
+ * `commandPatterns`，由 ruleCrud 转出保持既有导出面。
+ */
+export function findDangerousCommandHead(
+  contentPattern: string
+): string | null {
+  const head = extractCommandHead(contentPattern);
+  if (!head) return null;
+  const lowered = head.toLowerCase();
+  const firstWord = lowered.split(/\s+/)[0]!;
+  const baseName = firstWord.split(/[./\\]/)[0]!;
+  if (
+    DANGEROUS_BASE_COMMANDS.has(firstWord) ||
+    DANGEROUS_BASE_COMMANDS.has(baseName)
+  ) {
+    return baseName;
+  }
+  for (const token of AUTO_MODE_HARD_DENY_TOKENS) {
+    const normalized = token.trim().toLowerCase().replace(/\s+/g, ' ');
+    // 只判命令位令牌：`' | '` / `'$('` / `'=rm'` 这类结构令牌不构成命令头
+    if (!/^[a-z][a-z0-9]/.test(normalized)) continue;
+    if (lowered === normalized || lowered.startsWith(`${normalized} `)) {
+      return normalized;
+    }
+  }
+  return null;
+}
+
+/**
+ * 该命令是否属于"不得以前缀/会话级方式放行"的危险命令（2026-11-25）。
+ *
+ * 用途：审批卡不再为危险命令提供 `allowlist_command` / `allowlist_workspace_command` /
+ * `allowlist_tool_session`；`ApprovedCommandRegistry.allowToolForSession` 也不记录前缀。
+ * 只保留「仅这次 / 拒绝」——单次执行仍由批准缓存放行。
+ */
+export function isDangerousApprovalCommand(command: string): boolean {
+  const trimmed = command.trim();
+  if (!trimmed) return false;
+  return findDangerousCommandHead(`^${escapeRegExp(trimmed)}$`) !== null;
+}
+
+/**
+ * 该命令是否属于「危险 **且** 会按前缀放大」的命令（2026-11-25）。
+ *
+ * 解释器/壳内建即使命中危险词表（如 `node -e`），生成的规则是**精确匹配**、不会放大
+ * ⇒ 仍可提供「以后这个命令免审批」；只有会生成 `^head.*` 前缀规则的命令
+ * （`git push` / `gh pr merge` 等）才收回永久/会话/前缀档位。
+ */
+export function isDangerousPrefixAmplifyingCommand(command: string): boolean {
+  const trimmed = command.trim();
+  if (!trimmed) return false;
+  const head = normalizeCommandHead(extractCommandHeadToken(trimmed));
+  if (isInterpreterCommandHead(head) || isShellBuiltinCommandHead(head)) {
+    return false;
+  }
+  return isDangerousApprovalCommand(trimmed);
+}
+

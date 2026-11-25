@@ -14,6 +14,7 @@ import { describe, expect, it } from 'bun:test';
 
 import {
   buildCommandContentPattern,
+  isDangerousApprovalCommand,
   isInterpreterCommandHead,
   normalizeCommandHead,
 } from '@openliri/infra/permission/commandPatterns';
@@ -99,5 +100,47 @@ describe('buildCommandContentPattern：非解释器保持前缀口径', () => {
   it('前缀规则仍命中同前缀的不同参数', () => {
     const rule = allowRule('bash', buildCommandContentPattern('dir /b'));
     expect(isRuleMatch(rule, 'bash', { command: 'dir /b /ad' })).toBe(true);
+  });
+});
+
+/**
+ * 2026-11-25 真机回归：
+ *  - `cd "E:\\a" & python -c step1` 按前缀授权 ⇒ `cd "C:\\b" & python -c step2` 零审批；
+ *  - 审批路径生成 `^git push.*` ⇒ `git push --force / --mirror` 免审批（API 写入口本已拒绝）。
+ */
+describe('壳内建与危险命令头：不得按前缀授权（2026-11-25）', () => {
+  it.each([
+    ['cd "E:\\a" & python -c "print(1)"', 'cd'],
+    ['chdir /d C:\\Temp', 'chdir'],
+    ['set FOO=1', 'set'],
+    ['call build.bat', 'call'],
+  ])('%s ⇒ 精确匹配（head=%s）', (command: string, _head: string) => {
+    expect(buildCommandContentPattern(command)).toBe(
+      `^${command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`
+    );
+  });
+
+  it('cd 的精确规则不再放行同前缀的其它复合命令', () => {
+    const rule = allowRule(
+      'bash',
+      buildCommandContentPattern('cd "E:\\a" & python -c "print(1)"')
+    );
+    expect(
+      isRuleMatch(rule, 'bash', {
+        command: 'cd "C:\\Temp" & python -c "print(2)"',
+      })
+    ).toBe(false);
+  });
+
+  it('isDangerousApprovalCommand：git push / rm 命中，普通只读不命中', () => {
+    expect(isDangerousApprovalCommand('git push origin main')).toBe(true);
+    expect(isDangerousApprovalCommand('git push --force origin main')).toBe(
+      true
+    );
+    expect(isDangerousApprovalCommand('rm -rf build')).toBe(true);
+    expect(isDangerousApprovalCommand('git status')).toBe(false);
+    expect(
+      isDangerousApprovalCommand('cd "E:\\a" & python -c "print(1)"')
+    ).toBe(false);
   });
 });

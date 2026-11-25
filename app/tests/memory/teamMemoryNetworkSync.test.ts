@@ -72,8 +72,11 @@ function startServer(options: { honorCursor?: boolean } = {}): {
   baseUrl: string;
   memories: Map<string, RemoteMemory>;
   putRemote: (id: string, content: string) => RemoteMemory;
+  /** 让指定 id 的单条 GET 返回 500（2N-13：验证下载失败不推进游标） */
+  failGetIds: Set<string>;
 } {
   const memories = new Map<string, RemoteMemory>();
+  const failGetIds = new Set<string>();
   let etagSeq = 0;
 
   const putRemote = (id: string, content: string): RemoteMemory => {
@@ -142,6 +145,9 @@ function startServer(options: { honorCursor?: boolean } = {}): {
 
       const current = memories.get(id);
       if (req.method === 'GET') {
+        if (failGetIds.has(id)) {
+          return json({ error: { code: 'SERVER_ERROR' } }, 500);
+        }
         if (!current) return json({ error: { code: 'NOT_FOUND' } }, 404);
         return json(
           {
@@ -215,6 +221,7 @@ function startServer(options: { honorCursor?: boolean } = {}): {
     baseUrl: `http://127.0.0.1:${server.port}`,
     memories,
     putRemote,
+    failGetIds,
   };
 }
 
@@ -518,6 +525,28 @@ describe('团队记忆网络版 2N-5 全链（Bun.serve mock）', () => {
     // 第四轮：再次"两边都没变"⇒ 不再上传
     const fourth = await service.sync();
     expect(fourth.uploaded).toBe(0);
+  });
+
+  it('单条下载失败 ⇒ 游标不推进，下一轮仍会重拉该条目（2N-13）', async () => {
+    const { baseUrl, failGetIds, putRemote } = startServer({
+      honorCursor: true,
+    });
+    const localDir = makeDir('team-net-local-');
+    putRemote('net-a', 'A1');
+    putRemote('net-b', 'B1');
+    const service = makeService(baseUrl, localDir, 'tok');
+
+    failGetIds.add('net-b');
+    const first = await service.sync();
+    expect(first.downloaded).toBe(1);
+    expect(first.errors).toHaveLength(1);
+
+    // 传输恢复：游标若已越过 net-b 的 version，本轮列表将为空、条目永久漏拉
+    failGetIds.clear();
+    const second = await service.sync();
+    expect(second.errors).toEqual([]);
+    expect(second.downloaded).toBe(1);
+    expect(readFileSync(join(localDir, 'net-b.md'), 'utf-8').trim()).toBe('B1');
   });
 
   it('fullSync（2N-8 手动全量）⇒ 清基线后重新拉回本地误删的条目', async () => {

@@ -310,6 +310,11 @@ export class TeamMemorySyncService {
    */
   private localBaselines: Map<string, string> = new Map();
   private memoryStates: Map<string, MemorySyncState> = new Map();
+  /**
+   * 本轮拉到的最大 `version`（Phase 2N-13；`-1` = 本轮未完成拉取）。
+   * **不**在 `fetchRemoteMemories` 里直接落库 —— 下载失败时不能推进游标。
+   */
+  private pendingCursor = -1;
   private syncTimer: NodeJS.Timeout | null = null;
   private lastSyncTime: number = 0;
   /** 退避重试定时器（Phase 2N-4；与周期定时器互不替代） */
@@ -432,6 +437,10 @@ export class TeamMemorySyncService {
     this.lastFailureRetriable = false;
     this.status = SyncStatus.SYNCING;
     this.notifyListeners(SyncStatus.SYNCING);
+
+    // 2N-13：本轮游标与下载失败数 —— 只有**整轮拉取应用成功**才推进游标
+    this.pendingCursor = -1;
+    let downloadFailures = 0;
 
     const result: SyncResult = {
       success: true,
@@ -569,6 +578,7 @@ export class TeamMemorySyncService {
           await this.downloadMemory(task.memoryId, task.content);
           result.downloaded++;
         } catch (error) {
+          downloadFailures += 1;
           result.errors.push(`Download failed for ${task.memoryId}: ${error}`);
           if (isRetriableTeamMemorySyncError(error)) {
             this.lastFailureRetriable = true;
@@ -669,6 +679,28 @@ export class TeamMemorySyncService {
         module: 'memory:services:teamSync',
         action: 'save_local_hashes_after_sync',
       });
+    }
+
+    // 2N-13：游标**只在本轮拉取应用成功后**推进（下载失败 ⇒ 保留旧游标）。
+    // 原实现在 `fetchRemoteMemories` 里就落库，且 `saveProgress` 的 cursor 是
+    // `MAX(旧值, 新值)` —— 下载失败也会越过该版本 ⇒ 那些条目永久漏拉。
+    if (
+      this.config.incremental &&
+      this.pendingCursor >= 0 &&
+      downloadFailures === 0
+    ) {
+      try {
+        await this.stateStore.saveProgress(
+          this.config.teamId,
+          this.pendingCursor,
+          Object.fromEntries(this.etagCache)
+        );
+      } catch (error) {
+        await handleError(error, {
+          module: 'memory:services:teamSync',
+          action: 'save_progress_after_sync',
+        });
+      }
     }
 
     this.notifyListeners(this.status, result);
@@ -973,11 +1005,8 @@ export class TeamMemorySyncService {
       }
 
       if (this.config.incremental) {
-        await this.stateStore.saveProgress(
-          teamId,
-          cursor,
-          Object.fromEntries(this.etagCache)
-        );
+        // 2N-13：本轮拉到的最小上限先记内存，**成功应用后再落库**（见 `sync()` 末尾）
+        this.pendingCursor = cursor;
       }
     } catch (error) {
       await handleError(error, {

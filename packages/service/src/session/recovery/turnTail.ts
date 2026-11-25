@@ -52,6 +52,46 @@ export interface TurnTailInfo {
  *   ⇒ 视为未闭合（不得据此收回徽标）；
  * - 最后一条是真实 `turn/end` ⇒ 已闭合，并带回收尾原因。
  */
+/** 尾部扫描窗口（事件条数）。`turn/end` 是每轮最后写入的事件之一 ⇒ 窗口内通常必命中 */
+export const TURN_TAIL_SCAN_WINDOW = 500;
+
+/** 窗口扩张上限（防病态日志拖慢启动；到上限仍无 turn 事件 ⇒ 按未闭合保守处理） */
+export const TURN_TAIL_SCAN_CAP = 100_000;
+
+/** 读事件的最小端口（`EventLogStorage` 天然满足；`types` 沿用事件类型联合） */
+export interface TurnTailSource {
+  getTailSeq(): Promise<number>;
+  read(query: {
+    fromSeq: number;
+    types: Array<'turn/start' | 'turn/end'>;
+  }): Promise<readonly TurnTailEvent[]>;
+}
+
+/**
+ * 从会话事件日志读「尾部 turn 判定」（窗口按 4 倍扩张直至命中 turn 事件或扫到日志开头）。
+ *
+ * 单一实现：崩溃恢复探针（app 层经 `ChatManager` / 网关默认接线）与人工复用同一口径。
+ */
+export async function readTurnTailFromLog(
+  log: TurnTailSource
+): Promise<TurnTailInfo> {
+  const tail = await log.getTailSeq();
+  if (!tail || tail <= 0) return { open: false, hasTurn: false };
+
+  let window = TURN_TAIL_SCAN_WINDOW;
+  for (;;) {
+    const fromSeq = Math.max(1, tail - window);
+    const events = await log.read({
+      fromSeq,
+      types: ['turn/start', 'turn/end'],
+    });
+    if (events.length > 0) return classifyTurnTail(events);
+    if (fromSeq === 1) return { open: false, hasTurn: false };
+    if (window >= TURN_TAIL_SCAN_CAP) return { open: true, hasTurn: true };
+    window *= 4;
+  }
+}
+
 export function classifyTurnTail(
   events: readonly TurnTailEvent[]
 ): TurnTailInfo {

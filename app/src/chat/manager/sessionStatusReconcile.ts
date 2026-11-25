@@ -24,7 +24,7 @@
  */
 
 import { getLogger } from '@openliri/infra/monitoring';
-import { classifyTurnTail } from '@modules/session';
+import { classifyTurnTail, readTurnTailFromLog } from '@modules/session';
 import type {
   EventLogStorage,
   SessionGateway,
@@ -41,12 +41,6 @@ import {
 import { TRANSIENT_AWAITING_APPROVAL } from '../services/ToolExecutionService';
 
 const logger = getLogger('chat:sessionStatusReconcile');
-
-/** 尾部扫描窗口（事件条数）。`turn/end` 是每轮最后写入的事件之一 ⇒ 窗口内通常必命中 */
-const TAIL_SCAN_WINDOW = 500;
-
-/** 窗口扩张上限（防病态日志拖慢启动；到上限仍无 turn 事件 ⇒ 按未闭合保守处理） */
-const TAIL_SCAN_CAP = 100_000;
 
 /** 崩溃恢复写下的元数据标记（只有这两类才值得对账） */
 const CRASH_MARKERS: ReadonlySet<string> = new Set([
@@ -70,35 +64,14 @@ export { classifyTurnTail };
 export type { TurnTailEvent, TurnTailInfo };
 
 /**
- * 读某会话尾部 turn 事件。
- *
- * 窗口从 {@link TAIL_SCAN_WINDOW} 起按 4 倍扩张，直到命中 turn 事件或扫到日志开头 ——
- * 长工具轮次（一轮几百条事件）也能量到"这一轮到底闭合没有"。
- * 扩到 {@link TAIL_SCAN_CAP} 仍无 turn 事件（病态日志）⇒ 保守按"未闭合"处理，
- * 宁可保留徽标也不误收回。
+ * 读某会话尾部 turn 事件（窗口扩张与判据的**唯一实现**在 `@modules/session`
+ * 的 `readTurnTailFromLog`——网关默认探针与本处共用，避免两份窗口逻辑漂移）。
  */
 async function readTurnTail(
   getOrCreateEventLog: (sessionId: string) => EventLogStorage,
   sessionId: string
 ): Promise<TurnTailInfo> {
-  const log = getOrCreateEventLog(sessionId);
-  const tail = await log.getTailSeq();
-  if (!tail || tail <= 0) return { open: false, hasTurn: false };
-
-  let window = TAIL_SCAN_WINDOW;
-  for (;;) {
-    const fromSeq = Math.max(1, tail - window);
-    const events = await log.read({
-      fromSeq,
-      types: ['turn/start', 'turn/end'],
-    });
-    if (events.length > 0) {
-      return classifyTurnTail(events as TurnTailEvent[]);
-    }
-    if (fromSeq === 1) return { open: false, hasTurn: false };
-    if (window >= TAIL_SCAN_CAP) return { open: true, hasTurn: true };
-    window *= 4;
-  }
+  return readTurnTailFromLog(getOrCreateEventLog(sessionId));
 }
 
 /**

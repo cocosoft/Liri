@@ -29,8 +29,16 @@ export type {
 } from './CrashRecoveryManager';
 
 // 2026-11-25：轮次尾部纯判定（崩溃恢复探针与人工复位共用的单一事实源）
-export { classifyTurnTail } from './turnTail';
-export type { TurnTailEvent, TurnTailInfo } from './turnTail';
+export { classifyTurnTail, readTurnTailFromLog } from './turnTail';
+export type {
+  TurnTailEvent,
+  TurnTailInfo,
+  TurnTailSource,
+} from './turnTail';
+// 2026-11-25：崩溃恢复的默认轮次探针（网关构造期默认接线，读到事件日志即判定）
+export { createFileTurnOpenProbe } from './fileTurnOpenProbe';
+export type { FileTurnOpenProbeOptions } from './fileTurnOpenProbe';
+
 // 2026-11-25：人工复位的事件侧收口（`recover-stale` 用；端口注入，零 app 依赖）
 export {
   closeOpenTurnForReset,

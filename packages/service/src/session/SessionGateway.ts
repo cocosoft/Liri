@@ -95,6 +95,7 @@ import {
   CrashRecoveryManager,
   CLEAN_SHUTDOWN_MARKER,
 } from './recovery/CrashRecoveryManager.js';
+import { createGatewayTurnOpenProbe } from './recovery/fileTurnOpenProbe.js';
 import type { CrashRecoveryResult } from './recovery/CrashRecoveryManager.js';
 import type { SessionRebuildStats } from './recovery/RecoveryOrchestrator.js';
 
@@ -276,6 +277,9 @@ export class SessionGateway {
 
     this.crashRecoveryManager = new CrashRecoveryManager({
       storage: this.storage,
+      isTurnOpen: createGatewayTurnOpenProbe(
+        this.config.storageConfig?.basePath
+      ),
     });
 
     if (this.config.keyFactoryConfig) {
@@ -1071,10 +1075,7 @@ export class SessionGateway {
     return this.crashRecoveryManager.markCleanShutdown();
   }
 
-  /**
-   * 2026-11-21：注入「最后一个 turn 仍未闭合」探针（事实源 = 事件日志，见
-   * `app/src/chat/manager/sessionStatusReconcile.ts`）；缺省 ⇒ 沿用旧口径。
-   */
+  /** 注入「最后一个 turn 仍未闭合」探针；构造期已由 `createGatewayTurnOpenProbe` 默认接线，宿主注入优先。 */
   setCrashRecoveryTurnProbe(probe?: (id: string) => boolean | Promise<boolean>): void {
     this.crashRecoveryManager.setTurnOpenProbe(probe);
   }

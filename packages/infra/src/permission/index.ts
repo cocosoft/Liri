@@ -340,6 +340,14 @@ export type {
   RuleImportEntry,
   RuleImportResult,
 } from './manager/ruleCrud';
+// 2026-11-25：审批放行规则巡检（纯分类；CLI 见 `app/scripts/audit-approval-rules.ts`）
+export { auditApprovalRules, classifyApprovalRule } from './approvalRuleAudit';
+export type {
+  ApprovalRuleRiskLevel,
+  AuditedApprovalRule,
+  ApprovalRuleAuditReport,
+  AuditRuleInput,
+} from './approvalRuleAudit';
 // R0（2026-11-17）：权限判定只读模拟（设置页「模拟」；复用真实判定链，不复制匹配逻辑）
 export {
   simulatePermissionDecision,

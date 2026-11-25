@@ -472,10 +472,15 @@ export class UnifiedDreamCycle {
 
       // 自动触发记忆回写
       try {
-        await this.triggerMemoryDream();
+        const memoryResult = await this.triggerMemoryDream();
+        memoriesCreated += memoryResult.created;
+        memoriesRefined += memoryResult.refined;
         insights.push('记忆回写已完成');
       } catch (e) {
         errors.push(`记忆回写失败: ${String(e)}`);
+        // 2026-11-25 修复：与知识雨一致，回写失败 ⇒ 周期状态降为 partial
+        // （原实现仍记 completed，出现"周期完成 + 伙伴加经验 + 记忆未写"的不一致）
+        status = 'partial';
         void handleError(e, {
           module: 'dream:cycle',
           action: 'triggerMemoryDream',
@@ -739,15 +744,22 @@ export class UnifiedDreamCycle {
   }
 
   /** 自动触发记忆回写 (AutoDream → MemoryDreamService) */
-  private async triggerMemoryDream(): Promise<void> {
+  private async triggerMemoryDream(): Promise<{
+    created: number;
+    refined: number;
+  }> {
     try {
       const { getMemoryManager } =
         await import('@openliri/infra/memory/MemoryManager');
       const mm = getMemoryManager();
       const { runMemoryDream } =
         await import('@openliri/infra/memory/consolidation/MemoryDreamService');
-      await runMemoryDream(mm);
-      logger.info('梦境后记忆回写完成');
+      const result = await runMemoryDream(mm);
+      logger.info('梦境后记忆回写完成', {
+        refined: result.refinedCount,
+        knowledgeSynced: result.knowledgeSynced,
+      });
+      return mapMemoryDreamStats(result);
     } catch (e) {
       logger.warn('梦境后记忆回写失败', { error: String(e) });
       void handleError(e, {
@@ -757,4 +769,23 @@ export class UnifiedDreamCycle {
       throw e;
     }
   }
+}
+
+/**
+ * 梦后记忆回写结果 → 周期统计（2026-11-25 修复：此前 `memoriesCreated/memoriesRefined`
+ * 声明后从未自增、`runMemoryDream` 返回值被丢弃 ⇒ 前端日志 / analytics / 伙伴 XP 记忆项恒 0）。
+ *
+ * 口径：`created` = 知识文件同步导入的记忆条数；`refined` = 精炼后写回的条数。
+ */
+export function mapMemoryDreamStats(result: {
+  refinedCount: number;
+  knowledgeSynced: number;
+}): { created: number; refined: number } {
+  const created = Number.isFinite(result.knowledgeSynced)
+    ? Math.max(0, Math.floor(result.knowledgeSynced))
+    : 0;
+  const refined = Number.isFinite(result.refinedCount)
+    ? Math.max(0, Math.floor(result.refinedCount))
+    : 0;
+  return { created, refined };
 }

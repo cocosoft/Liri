@@ -3,9 +3,18 @@
  * 防止多进程同时执行内存整合
  */
 
-import { mkdir, readFile, stat, unlink, utimes, writeFile } from 'fs/promises';
+import {
+  mkdir,
+  readFile,
+  readdir,
+  stat,
+  unlink,
+  utimes,
+  writeFile,
+} from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
+import type { Dirent } from 'fs';
 import {
   resolveMemoryDir,
   resolveSessionsDir,
@@ -125,32 +134,68 @@ export async function rollbackConsolidationLock(
   }
 }
 
+/** 会话分区里**不**是会话的目录（回收站 / pid 占位） */
+const SESSION_SKIP_DIRS = new Set(['.trash', 'pid']);
+/** 判断"会话被触碰"的活动文件（目录 mtime 在文件写入时不更新，故看文件） */
+const SESSION_ACTIVITY_FILES = ['messages.jsonl', 'events.jsonl', 'session.json'];
+
+/**
+ * 列出 `sinceMs` 之后被触碰的会话 id。
+ *
+ * 修复（2026-11-25）：原实现对 `resolveSessionsDir()` **目录**做 `readFile` ⇒ 恒抛错 ⇒ 恒 `[]`
+ * ⇒ AutoDream 的 `minSessions` 门槛永不满足（自动梦永久空转，仅 manual `force` 可达）。
+ * 现按真实布局扫描：`<sessionsDir>/<sessionId>/…`（活动文件 mtime），并兼容旧的 `<id>.json` 文件。
+ */
 export async function listSessionsTouchedSince(
   sinceMs: number
 ): Promise<string[]> {
   const sessionsDir = resolveSessionsDir();
   const candidates: string[] = [];
 
+  let entries: Dirent[];
   try {
-    const entries = await readFile(sessionsDir, 'utf8');
-    const sessionFiles = entries.split('\n').filter((line) => line.trim());
-
-    for (const sessionFile of sessionFiles) {
-      const sessionPath = join(sessionsDir, sessionFile);
-      try {
-        const s = await stat(sessionPath);
-        if (s.mtimeMs > sinceMs) {
-          const sessionId = sessionFile.replace('.json', '');
-          candidates.push(sessionId);
-        }
-      } catch (err) {
-        // Skip non-existent files
-      }
-    }
-  } catch (err) {
-    // Sessions directory doesn't exist
+    entries = await readdir(sessionsDir, { withFileTypes: true });
+  } catch {
+    // 会话目录不存在（首次启动/未产生会话）⇒ 无候选，不报错
+    return [];
   }
 
+  for (const entry of entries) {
+    if (entry.name.startsWith('.')) continue;
+    if (SESSION_SKIP_DIRS.has(entry.name)) continue;
+
+    // 旧布局：`<id>.json` 文件
+    if (entry.isFile()) {
+      if (!entry.name.endsWith('.json')) continue;
+      try {
+        const s = await stat(join(sessionsDir, entry.name));
+        if (s.mtimeMs > sinceMs) candidates.push(entry.name.slice(0, -5));
+      } catch {
+        // 读取期间被删除 ⇒ 跳过
+      }
+      continue;
+    }
+
+    if (!entry.isDirectory()) continue;
+
+    // 新布局：`<sessionId>/…`；任一活动文件晚于基准即视为触碰
+    const sessionPath = join(sessionsDir, entry.name);
+    let touched = false;
+    for (const file of SESSION_ACTIVITY_FILES) {
+      try {
+        const s = await stat(join(sessionPath, file));
+        if (s.mtimeMs > sinceMs) {
+          touched = true;
+          break;
+        }
+      } catch {
+        // 该文件不存在（会话尚未落盘该产物）⇒ 试下一个
+      }
+    }
+    if (touched) candidates.push(entry.name);
+  }
+
+  candidates.sort();
   return candidates;
 }
 

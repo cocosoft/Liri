@@ -501,6 +501,10 @@ export const ENDPOINTS = {
     dream: "/v1/memory/dream",
     dreamCycles: "/v1/memory/dream/cycles",
     dreamCycle: (cycleId: string) => `/v1/memory/dream/cycles/${cycleId}`,
+    // 团队记忆审阅（Phase 3，2026-11-25）
+    teamStatus: "/v1/memory/team/status",
+    teamConflicts: "/v1/memory/team/conflicts",
+    teamConflictResolve: "/v1/memory/team/conflicts/resolve",
   },
   monitor: {
     metrics: "/v1/monitor/metrics",

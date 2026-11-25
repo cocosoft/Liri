@@ -8,6 +8,7 @@ import MemorySearch from "../Memory/MemorySearch";
 import MemoryList from "../Memory/MemoryList";
 import MemoryWeightChart from "../Memory/MemoryWeightChart";
 import MemorySyncingStatus from "../Memory/MemorySyncingStatus";
+import TeamMemoryPanel from "../Memory/TeamMemoryPanel";
 import MemoryCreateDialog from "../Memory/MemoryCreateDialog";
 import { TYPE_LABELS } from "../Memory/memoryConstants";
 import { currentLocale } from "../../utils/format";
@@ -500,6 +501,7 @@ function MemoryPage() {
             onDream={triggerDream}
             dreamBusyMessage={dreamBusyMessage}
           />
+          <TeamMemoryPanel isDark={isDark} />
         </div>
       </div>
 

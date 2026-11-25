@@ -851,6 +851,7 @@
       "client/src/services/chatService.ts",
       "client/src/services/httpClient.ts",
       "client/src/services/llamaService.ts",
+      "client/src/services/memoryService.ts",
       "client/src/services/monitorService.ts",
       "client/src/services/permissionService.ts",
       "client/src/services/semanticService.ts",
@@ -2456,8 +2457,8 @@
       "packages/service/src/execution/ExecutionStore.ts"
     ]
   },
-  "reason": "P0-1/P0-2 梦境接线：HTTP 手动触发结果 busy（进行中）+ 周期收尾 status=failed 的前端消费点，均为既有状态词汇的合法新出现点",
-  "generatedAt": "2026-11-24T19:02:25.465Z",
+  "reason": "团队记忆设置页：client/src/services/memoryService.ts 镜像后端 TeamMemorySyncStatus 枚举值（synced/syncing/conflict/error/not_synced），属接口契约词汇的合法新出现点",
+  "generatedAt": "2026-11-25T01:45:12.677Z",
   "valueOwners": {
     "QUEUED": [
       "execution"

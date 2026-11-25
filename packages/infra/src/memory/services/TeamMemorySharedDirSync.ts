@@ -253,6 +253,34 @@ export interface TeamConflictCandidate {
 /** 人工取舍方向（Phase 3-lite） */
 export type TeamConflictResolution = 'keep_local' | 'keep_shared';
 
+/** `conflicts.json` 文件结构（Phase 3-lite 落盘；CLI 与 HTTP 审阅共用） */
+export interface TeamConflictFile {
+  generatedAt?: string;
+  total?: number;
+  candidates?: TeamConflictCandidate[];
+}
+
+/**
+ * 读取冲突候选文件（只读；缺失/损坏 ⇒ 空结构）
+ *
+ * 提取自 CLI `teamCommand` 的读盘逻辑，供 HTTP 审阅入口复用（单一解析实现）。
+ */
+export async function readTeamConflictFile(
+  teamDir: string
+): Promise<TeamConflictFile> {
+  try {
+    const raw = await fs.readFile(join(teamDir, 'conflicts.json'), 'utf-8');
+    const parsed = JSON.parse(raw) as TeamConflictFile;
+    return {
+      generatedAt: parsed.generatedAt,
+      total: parsed.total,
+      candidates: Array.isArray(parsed.candidates) ? parsed.candidates : [],
+    };
+  } catch {
+    return { candidates: [] };
+  }
+}
+
 /**
  * 人工采纳冲突的一侧（Phase 3-lite，2026-11-25）。
  *
@@ -285,8 +313,37 @@ export async function resolveTeamConflict(params: {
   }
 
   await writeFileAtomic(to, raw);
+  await pruneResolvedCandidate(teamDir, id);
   logger.info('团队记忆冲突已人工取舍', { id, resolution });
   return true;
+}
+
+/**
+ * 取舍成功后把该候选从 `conflicts.json` 移除。
+ *
+ * 缺这一步时审阅列表（CLI / 设置页）会继续展示已处理项，直到下一次同步重建文件 ——
+ * 表现为"点了采纳但列表不变"。文件缺失或无该 id 时不做任何写入。
+ */
+async function pruneResolvedCandidate(
+  teamDir: string,
+  id: string
+): Promise<void> {
+  const existing = await readTeamConflictFile(teamDir);
+  const candidates = existing.candidates ?? [];
+  if (!candidates.some((c) => c.id === id)) return;
+  const remaining = candidates.filter((c) => c.id !== id);
+  await writeFileAtomic(
+    join(teamDir, 'conflicts.json'),
+    JSON.stringify(
+      {
+        generatedAt: existing.generatedAt,
+        total: remaining.length,
+        candidates: remaining,
+      },
+      null,
+      2
+    ) + '\n'
+  );
 }
 
 async function fileHash(filePath: string): Promise<string | null> {

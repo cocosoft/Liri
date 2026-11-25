@@ -58,6 +58,50 @@ export interface MemorySystemStats {
   };
 }
 
+/** 团队记忆同步状态（与后端 `TeamMemorySyncStatus` 枚举同值） */
+export type TeamMemorySyncStatus =
+  | "synced"
+  | "syncing"
+  | "conflict"
+  | "error"
+  | "not_synced";
+
+/** 团队记忆同步记录（`sync-history.jsonl` 末 10 条） */
+export interface TeamMemorySyncRecordView {
+  timestamp: string;
+  status: TeamMemorySyncStatus;
+  syncedMemories: number;
+  error?: string;
+}
+
+export interface TeamMemoryStatus {
+  configured: boolean;
+  sharedDir: string;
+  status: TeamMemorySyncStatus;
+  lastSyncAt: number | null;
+  records: TeamMemorySyncRecordView[];
+}
+
+/** 冲突候选（`conflicts.json`；两侧 hash 缺失 = 该侧文件不存在） */
+export interface TeamConflictCandidate {
+  id: string;
+  directions: string[];
+  localFile: string;
+  sharedFile: string;
+  localHash: string | null;
+  sharedHash: string | null;
+}
+
+export type TeamConflictResolution = "keep_local" | "keep_shared";
+
+export interface TeamConflicts {
+  configured: boolean;
+  sharedDir: string;
+  generatedAt: string | null;
+  total: number;
+  candidates: TeamConflictCandidate[];
+}
+
 export interface MemorySearchParams {
   query: string;
   type?: MemoryType;
@@ -195,6 +239,55 @@ const memoryService = {
       };
     });
     return { results, total: results.length };
+  },
+
+  /** 团队记忆同步状态（共享目录版） */
+  async getTeamMemoryStatus(): Promise<TeamMemoryStatus> {
+    const response = await http.get<{
+      success: boolean;
+      configured: boolean;
+      sharedDir: string;
+      status: TeamMemorySyncStatus;
+      lastSyncAt: number | null;
+      records: TeamMemorySyncRecordView[];
+    }>(ENDPOINTS.memory.teamStatus);
+    return {
+      configured: response.configured,
+      sharedDir: response.sharedDir,
+      status: response.status,
+      lastSyncAt: response.lastSyncAt,
+      records: response.records || [],
+    };
+  },
+
+  /** 团队记忆冲突候选（只读；取舍需人工点击） */
+  async getTeamConflicts(): Promise<TeamConflicts> {
+    const response = await http.get<{
+      success: boolean;
+      configured: boolean;
+      sharedDir: string;
+      generatedAt: string | null;
+      total: number;
+      candidates: TeamConflictCandidate[];
+    }>(ENDPOINTS.memory.teamConflicts);
+    return {
+      configured: response.configured,
+      sharedDir: response.sharedDir,
+      generatedAt: response.generatedAt,
+      total: response.total,
+      candidates: response.candidates || [],
+    };
+  },
+
+  /** 人工采纳冲突的一侧（不自动改写；密钥命中时后端 409） */
+  async resolveTeamConflict(
+    id: string,
+    resolution: TeamConflictResolution,
+  ): Promise<void> {
+    await http.post<{ success: boolean; id: string; resolution: string }>(
+      ENDPOINTS.memory.teamConflictResolve,
+      { id, resolution },
+    );
   },
 
   async getSummary(id: string): Promise<BackendSummary> {

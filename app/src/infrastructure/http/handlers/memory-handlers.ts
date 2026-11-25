@@ -649,6 +649,130 @@ export async function handleDreamCycleDetail(
 }
 
 /**
+ * GET /v1/memory/team/status — 团队记忆同步状态（Phase 3 审阅入口，2026-11-25）
+ *
+ * 数据源：`MemoryManager` 的团队同步状态 + `memory.teamSync.*` 配置（与 CLI 同源）。
+ */
+export async function handleGetTeamMemoryStatus(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const mm = await getMemoryManager();
+    const { configManager } = await import('@openliri/infra/config');
+    const sharedDir = (
+      configManager.getValue<string>('memory.teamSync.sharedDir', '') ?? ''
+    ).trim();
+    const enabled =
+      configManager.getValue<boolean>('memory.teamSync.enabled', false) ===
+      true;
+    const lastSync = mm.getTeamMemoryLastSyncTime();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        success: true,
+        configured: enabled && Boolean(sharedDir),
+        sharedDir,
+        status: mm.getTeamMemorySyncStatus(),
+        lastSyncAt: lastSync ? lastSync.getTime() : null,
+        records: mm.getTeamMemorySyncRecords(10),
+      })
+    );
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
+ * GET /v1/memory/team/conflicts — 冲突候选列表（只读，不自动改写任何一侧）
+ */
+export async function handleGetTeamConflicts(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { resolveTeamMemoryDir } =
+      await import('@openliri/infra/environment');
+    const { readTeamConflictFile } =
+      await import('@openliri/infra/memory/services/TeamMemorySharedDirSync');
+    const { configManager } = await import('@openliri/infra/config');
+    const sharedDir = (
+      configManager.getValue<string>('memory.teamSync.sharedDir', '') ?? ''
+    ).trim();
+    const payload = await readTeamConflictFile(resolveTeamMemoryDir());
+    const candidates = payload.candidates ?? [];
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        success: true,
+        configured: Boolean(sharedDir),
+        sharedDir,
+        generatedAt: payload.generatedAt ?? null,
+        total: payload.total ?? candidates.length,
+        candidates,
+      })
+    );
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
+ * POST /v1/memory/team/conflicts/resolve — 人工采纳冲突的一侧
+ *
+ * body `{ id, resolution: 'keep_local' | 'keep_shared' }`；
+ * 源内容命中密钥时由基础设施层 fail-closed 拒绝（返回 409）。
+ */
+export async function handleResolveTeamConflict(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const body = await readRequestBody(req);
+    const { id, resolution } = JSON.parse(body) as {
+      id?: string;
+      resolution?: string;
+    };
+    if (!id || (resolution !== 'keep_local' && resolution !== 'keep_shared')) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'INVALID_REQUEST' }));
+      return;
+    }
+
+    const { configManager } = await import('@openliri/infra/config');
+    const sharedDir = (
+      configManager.getValue<string>('memory.teamSync.sharedDir', '') ?? ''
+    ).trim();
+    if (!sharedDir) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'NOT_CONFIGURED' }));
+      return;
+    }
+
+    const { resolveTeamMemoryDir } =
+      await import('@openliri/infra/environment');
+    const { resolveTeamConflict } =
+      await import('@openliri/infra/memory/services/TeamMemorySharedDirSync');
+    const ok = await resolveTeamConflict({
+      id,
+      teamDir: resolveTeamMemoryDir(),
+      sharedDir,
+      resolution,
+    });
+    if (!ok) {
+      res.writeHead(409, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'RESOLVE_FAILED' }));
+      return;
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, id, resolution }));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
  * 处理文件打开请求
  * GET /api/file/open?path=<encoded_path>
  * 在 Tauri WebView 中点击文件链接时调用，通过 child_process 在系统默认程序中打开文件

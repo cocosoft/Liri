@@ -145,7 +145,7 @@
 | **Phase 0** | 接线开关 + `NOT_CONFIGURED` + 传输层骨架（不联网也能通过） | 默认关时行为零变更；未配置时状态明确；单测 | ✅ 已实现（2026-11-25） |
 | **Phase 1** | 单向拉取（远端→本地，只读合并）+ 幂等 | 重复拉取幂等；冲突不覆盖；密钥 fail-closed | ✅ 已实现（共享目录版，2026-11-25） |
 | **Phase 2** | 双向增量 + `If-Match` 409 + manual 候选 | 冲突产候选、正文不变；并发写不丢数据 | ✅ 共享目录版已实现（拉取+推送，异文只记冲突）；网络版待 §8 后三项拍板 |
-| **Phase 3** | 审阅入口（CLI/设置页）+ 审计报表 | 人工可采纳/忽略候选；审计可查 | 部分：候选文件 `conflicts.json` + 可编程取舍 `resolveTeamConflict` + 同步历史 `sync-history.jsonl` + CLI 审阅入口 `/memory team`（列出候选 / keep-local / keep-shared / `--json`）；设置页未做 |
+| **Phase 3** | 审阅入口（CLI/设置页）+ 审计报表 | 人工可采纳/忽略候选；审计可查 | 部分：候选文件 `conflicts.json` + 可编程取舍 `resolveTeamConflict` + 同步历史 `sync-history.jsonl` + CLI `/memory team` + 设置页 `TeamMemoryPanel`（HTTP 三端点）；审计报表未做 |
 
 每阶段独立提交；`memory.teamSync.enabled` 默认关，观察期后再开。
 
@@ -177,7 +177,11 @@
   只复制人工选中的一侧，且源内容仍要过密钥扫描（fail-closed）。
   每次维护追加一条审计留痕到 `<team-memory>/sync-history.jsonl`（拉/推条数、冲突数、密钥拒收、错误数；保留最近 200 行）。
   **CLI 审阅入口（2026-11-25）**：`/memory team` 列出冲突候选；`/memory team keep-local|keep-shared <id>`
-  调用 `resolveTeamConflict`；支持 `--json`。设置页审阅入口仍未做。
+  调用 `resolveTeamConflict`；支持 `--json`。
+  **设置页审阅入口（2026-11-25 已做）**：`GET /v1/memory/team/status`（配置/状态/最近同步/最近记录）、
+  `GET /v1/memory/team/conflicts`（候选列表）、`POST /v1/memory/team/conflicts/resolve`（人工取舍）；
+  前端 `MemoryPage` 右列 `TeamMemoryPanel`（未配置提示 / 冲突列表 / 保留本地·采纳共享 / 失败提示）。
+  取舍成功后 `resolveTeamConflict` 把该候选从 `conflicts.json` 移除（避免审阅列表继续展示已处理项）。
 - 如实边界：团队记忆是独立目录/独立访问级别；共享目录版不含真实网络（网络版 Phase 2 待 §8 后三项拍板）。
 
 ---

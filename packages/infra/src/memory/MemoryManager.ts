@@ -1091,6 +1091,21 @@ export class MemoryManagerImpl
     }
   }
 
+  /** 团队记忆同步状态（供设置页 / HTTP 审阅读取） */
+  getTeamMemorySyncStatus(): TeamMemorySyncStatus {
+    return this.teamMemoryService.getSyncStatus();
+  }
+
+  /** 团队记忆最近一次同步时间（无记录 ⇒ null） */
+  getTeamMemoryLastSyncTime(): Date | null {
+    return this.teamMemoryService.getLastSyncTime();
+  }
+
+  /** 团队记忆同步记录（最新在前） */
+  getTeamMemorySyncRecords(limit?: number): TeamMemorySyncRecord[] {
+    return this.teamMemoryService.getSyncRecords(limit);
+  }
+
   /**
    * 清理已过期的记忆
    * 遍历所有记忆，删除 metadata.expiresAt 已到期的记忆

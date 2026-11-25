@@ -301,7 +301,7 @@ MMR 需查询向量与候选两两相似度（N² 次嵌入），仅在显式开
 |---|---|---|
 | **团队记忆模拟实现** | ✅ 已标注 | `TeamMemorySyncServiceImpl` 标 `@deprecated` + `readonly simulated = true` + 构造期 `process.emitWarning`；日志统一加 `(simulated)`，`syncTeamMemory` 明确"未传输任何数据"；**保留**不删（`code-deletion.md` CD07：团队能力属运行时/配置驱动面） |
 | **记忆来源与新鲜度** | ✅ 已标注 | 注入层统一提示"来自记忆库，**可能已过期**；与当前代码/用户说法冲突时以当前事实为准"：`memoryIndex` 段尾行、会话记忆原文模式与降级索引模式各一处 |
-| **eval 常态化** | ⏳ 未做 | 依赖跨会话任务级评测集；当前仅有确定性用例（注入预算/检索/治理/压缩/校验） |
+| **eval 常态化** | ⚠️ 部分（2026-11-25） | 确定性用例已入库（注入预算/检索/治理/压缩/校验）；注入遵循度已落 `packages/evals` 任务（模型在环，手动运行，不进 CI）；跨会话任务级评测集仍未建 |
 | **团队记忆真实同步** | 📄 已立项（待评审） | 方案见 [team-memory-sync.md](./team-memory-sync.md)：服务端契约 / Bearer+团队隔离 / etag 增量 / 默认 manual 冲突 / 密钥扫描 fail-closed / 四阶段路线 |
 
 ### 8.7 P2-2 记忆用途与学习闭环（Phase 3，部分）
@@ -323,7 +323,14 @@ MMR 需查询向量与候选两两相似度（N² 次嵌入），仅在显式开
 | 重复抑制 | 两条同文条目 ⇒ 空闲维护去重后仅剩 1 条 |
 | token 成本 | ④a 会话记忆超预算降级为索引且体积受控；④b 索引层 200 行截断；④c 检索条数受 limit 约束 |
 
-**未纳入**：注入遵循度（需真实模型在环，不在确定性基线里冒充通过）。
+**注入遵循度（模型在环，2026-11-25 已落地为独立 eval 任务，不进 CI）**：
+`packages/evals/src/evals/tasks/memory-injection.ts`（id `memory-injection-adherence`）——
+沙箱 `<LIRI_DATA_DIR>/memory/global/MEMORY.md` 预置"最后一行必须写 `EVAL_MEMO_RULE`"的规则，
+再用无关任务（写一行问候语）观察是否遵循；判分 = L1 环境终态（文件最后一行），不看模型自述。
+运行：`bun run eval -- --model=<模型名> --k=4 --task=memory-injection-adherence`。
+任务定义自检见 `app/tests/memory/memoryInjectionEvalTask.test.ts`（不需要模型）。
+
+**未纳入确定性基线**：注入遵循度必须真实模型在环，不在 `memoryEval.test.ts` 里冒充通过。
 
 ### 8.9 配置键与未做清单（收口，2026-11-25）
 
@@ -339,7 +346,7 @@ MMR 需查询向量与候选两两相似度（N² 次嵌入），仅在显式开
 **未做（需先定范围，非技术阻塞）**：
 - 规则笔记 schema 与「失败→理论→验证→规则」闭环的**自动提取侧调优**（已接线且默认关；开启后的精度/去重仍需真机观察）；
 - 团队记忆真实同步（服务端、鉴权、冲突消解、审计）；
-- 注入遵循度评测（需真实模型在环）；
+- 注入遵循度评测的**真机取数与基线**（任务已落地，需配模型跑 `--task=memory-injection-adherence`）；
 - `MemoryTool` 的 `advancedSearch`（tags/sortBy）并入统一检索服务。
 
 ---

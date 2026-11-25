@@ -731,7 +731,7 @@ body `{ objective?: string（trim 非空）, tokenBudget?: number（正有限数
 | GET | `/v1/memory/dream/cycles` | ✅ | `memoryService.getDreamCycles`（`DreamLogTab` / `DreamCycleDetail` / `useDreamSessionIds`） |
 | GET | `/v1/memory/dream/cycles/{cycleId}` | ✅ | `memoryService.getDreamCycle`（`DreamCycleDetail`） |
 | GET | `/v1/memory/dream/cycles/analytics` | ✅ | **内部端点**：无前端调用方（2026-09-03 新增：DB 镜像分析视图，列表 + stats；参数 from/to/triggerSource/status/limit 语义见 dev_docs/dailys/20260903/3-4-梦境周期HTTP查询端点-设计方案-20260903.md） |
-| GET | `/v1/memory/team/status` | ✅ | `memoryService.getTeamMemoryStatus`（`TeamMemoryPanel`）；返回 `configured`（`memory.teamSync.enabled && sharedDir` 非空）、`sharedDir`、`status`（synced/syncing/conflict/error/not_synced）、`lastSyncAt`、`records`（最新在前，≤10） |
+| GET | `/v1/memory/team/status` | ✅ | `memoryService.getTeamMemoryStatus`（`TeamMemoryPanel`）；返回 `configured`（`memory.teamSync.enabled && sharedDir` 非空）、`sharedDir`、`status`（synced/syncing/conflict/error/not_synced）、`lastSyncAt`、`records`（最新在前，≤10）；**`network`**（2026-11-25，2N-4 设置页状态）：`{configured, teamId, status(idle/syncing/success/conflict/error/not_configured), lastSyncAt, lastError}`（不含令牌；只读） |
 | GET | `/v1/memory/team/conflicts` | ✅ | `memoryService.getTeamConflicts`（`TeamMemoryPanel`）；只读返回团队目录 `conflicts.json` 的候选（`generatedAt`/`total`/`candidates`），不做任何自动改写 |
 | POST | `/v1/memory/team/conflicts/resolve` | ✅ | `memoryService.resolveTeamConflict`（`TeamMemoryPanel`）；body `{ id, resolution: 'keep_local' \| 'keep_shared' }`；200=已采纳并自候选列表移除；400=`INVALID_REQUEST`/`NOT_CONFIGURED`；409=`RESOLVE_FAILED`（两侧文件缺失或源内容命中密钥，fail-closed） |
 

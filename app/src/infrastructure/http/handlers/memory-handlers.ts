@@ -12,6 +12,7 @@ import {
 } from './handler-utils';
 import { handleError } from '@openliri/infra/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+import { buildTeamMemoryNetworkStatus } from './teamMemoryNetworkStatus';
 // 2026-10-01 D-186（子批 C）：`SandboxPermission` 是 core 叶子 ⇒ 相对直连，消除 `infrastructure -> app`。
 import { SandboxPermission } from '@openliri/kernel/sandboxPermission.js';
 import { LOCAL_SERVICE_HOST } from '@openliri/kernel';
@@ -652,7 +653,8 @@ export async function handleDreamCycleDetail(
 /**
  * GET /v1/memory/team/status — 团队记忆同步状态（Phase 3 审阅入口，2026-11-25）
  *
- * 数据源：`MemoryManager` 的团队同步状态 + `memory.teamSync.*` 配置（与 CLI 同源）。
+ * 数据源：`MemoryManager` 的团队同步状态 + `memory.teamSync.*` 配置（与 CLI 同源）；
+ * `network` 为网络版同步器状态（2N-4 设置页状态，只读；DTO 见 `teamMemoryNetworkStatus.ts`）。
  */
 export async function handleGetTeamMemoryStatus(
   req: http.IncomingMessage,
@@ -668,6 +670,9 @@ export async function handleGetTeamMemoryStatus(
       configManager.getValue<boolean>('memory.teamSync.enabled', false) ===
       true;
     const lastSync = mm.getTeamMemoryLastSyncTime();
+    // 网络版同步器：按需导入（默认关；未启用时 configured=false，不发请求）
+    const { defaultTeamMemorySyncService } =
+      await import('@openliri/infra/memory/services/TeamMemorySyncService');
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(
       JSON.stringify({
@@ -677,6 +682,7 @@ export async function handleGetTeamMemoryStatus(
         status: mm.getTeamMemorySyncStatus(),
         lastSyncAt: lastSync ? lastSync.getTime() : null,
         records: mm.getTeamMemorySyncRecords(10),
+        network: buildTeamMemoryNetworkStatus(defaultTeamMemorySyncService),
       })
     );
   } catch (err) {

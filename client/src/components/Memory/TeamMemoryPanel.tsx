@@ -21,6 +21,16 @@ const STATUS_LABEL_KEYS = {
   not_synced: "memory.teamStatusNotSynced",
 } as const;
 
+/** 网络版同步状态（后端 `SyncStatus`）⇒ 展示用 i18n 键 */
+const NETWORK_STATUS_LABEL_KEYS: Record<string, string> = {
+  idle: "memory.teamStatusIdle",
+  syncing: "memory.teamStatusSyncing",
+  success: "memory.teamStatusSynced",
+  conflict: "memory.teamStatusConflict",
+  error: "memory.teamStatusError",
+  not_configured: "memory.teamStatusNotSynced",
+};
+
 /**
  * 团队记忆审阅面板（共享目录版 Phase 3 设置页入口）。
  *
@@ -157,6 +167,65 @@ function TeamMemoryPanel({ isDark }: TeamMemoryPanelProps) {
 
           {lastRecord?.error && (
             <p className="text-xs text-red-500">{lastRecord.error}</p>
+          )}
+
+          {status.network && (
+            <div className="pt-2 border-t border-dashed border-gray-500/30 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className={isDark ? "text-gray-400" : "text-gray-600"}>
+                  {t("memory.teamNetworkTitle")}
+                </span>
+                <span className={isDark ? "text-gray-200" : "text-gray-800"}>
+                  {status.network.configured
+                    ? NETWORK_STATUS_LABEL_KEYS[status.network.status]
+                      ? t(NETWORK_STATUS_LABEL_KEYS[status.network.status])
+                      : status.network.status
+                    : t("memory.teamStatusNotSynced")}
+                </span>
+              </div>
+              {status.network.configured ? (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={isDark ? "text-gray-400" : "text-gray-600"}
+                    >
+                      {t("memory.teamNetworkTeamId")}
+                    </span>
+                    <span
+                      className={`text-xs ${isDark ? "text-gray-200" : "text-gray-800"}`}
+                    >
+                      {status.network.teamId}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={isDark ? "text-gray-400" : "text-gray-600"}
+                    >
+                      {t("memory.teamLastSync")}
+                    </span>
+                    <span className={isDark ? "text-gray-200" : "text-gray-800"}>
+                      {status.network.lastSyncAt
+                        ? formatRelativeTime(
+                            new Date(status.network.lastSyncAt).toISOString(),
+                          )
+                        : t("memory.teamNeverSynced")}
+                    </span>
+                  </div>
+                  {status.network.lastError && (
+                    <p className="text-xs text-red-500">
+                      {t("memory.teamNetworkLastError")}:{" "}
+                      {status.network.lastError}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p
+                  className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}
+                >
+                  {t("memory.teamNetworkNotConfigured")}
+                </p>
+              )}
+            </div>
           )}
 
           <div className="pt-2 border-t border-dashed border-gray-500/30 space-y-2">

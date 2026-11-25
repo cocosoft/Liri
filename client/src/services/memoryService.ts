@@ -74,12 +74,25 @@ export interface TeamMemorySyncRecordView {
   error?: string;
 }
 
+/** 网络版团队记忆同步状态（2N-4 设置页状态；只读，不含令牌） */
+export interface TeamMemoryNetworkStatus {
+  /** `serverUrl` 已配置（网络版启用条件） */
+  configured: boolean;
+  teamId: string;
+  /** 后端 `SyncStatus`：idle / syncing / success / conflict / error / not_configured */
+  status: string;
+  lastSyncAt: number | null;
+  lastError: string | null;
+}
+
 export interface TeamMemoryStatus {
   configured: boolean;
   sharedDir: string;
   status: TeamMemorySyncStatus;
   lastSyncAt: number | null;
   records: TeamMemorySyncRecordView[];
+  /** 网络版同步状态（后端 2N-4 新增；旧后端缺省） */
+  network?: TeamMemoryNetworkStatus;
 }
 
 /** 冲突候选（`conflicts.json`；两侧 hash 缺失 = 该侧文件不存在） */

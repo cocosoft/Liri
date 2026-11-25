@@ -739,6 +739,12 @@ const enKnowledge = {
       "Failed: a side is missing or the source content contains secrets",
     teamNetworkConflictHint:
       "Network sync conflict: resolve via the network sync entry (recorded here only; neither side is overwritten)",
+    teamNetworkTitle: "Network sync",
+    teamNetworkTeamId: "Team",
+    teamNetworkLastError: "Last error",
+    teamNetworkNotConfigured:
+      "Network sync is off (configure memory.teamSync.enabled and memory.teamSync.serverUrl)",
+    teamStatusIdle: "Idle",
     weightLabel: "Weight: {{count}}",
     pinnedBadge: "📌 Pinned",
     createdAtLabel: "Created {{date}}",

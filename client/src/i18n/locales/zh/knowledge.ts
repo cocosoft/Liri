@@ -697,6 +697,12 @@ const zhKnowledge = {
     teamResolveFailed: "操作失败：两侧文件缺失或源内容命中密钥",
     teamNetworkConflictHint:
       "网络同步冲突：需在网络版同步入口处理（此处仅记录，不改写任一侧）",
+    teamNetworkTitle: "网络同步",
+    teamNetworkTeamId: "团队",
+    teamNetworkLastError: "最近错误",
+    teamNetworkNotConfigured:
+      "未启用网络同步（需配置 memory.teamSync.enabled 与 memory.teamSync.serverUrl）",
+    teamStatusIdle: "空闲",
     weightLabel: "权重: {{count}}",
     pinnedBadge: "📌 已置顶",
     createdAtLabel: "创建于 {{date}}",

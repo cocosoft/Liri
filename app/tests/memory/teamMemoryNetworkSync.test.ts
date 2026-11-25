@@ -449,6 +449,40 @@ describe('团队记忆网络版 2N-5 全链（Bun.serve mock）', () => {
     expect(service.getLastError() ?? '').toContain('RATE_LIMITED');
   });
 
+  it('本地命中密钥 ⇒ 只拒发该条，不计入 errors，审计 rejectedSecrets（2N-9）', async () => {
+    const { baseUrl, memories } = startServer();
+    const localDir = makeDir('team-net-local-');
+    // `sk-proj-` 命中 openai-project-key 规则（见 MemorySecretScanner）
+    writeFileSync(
+      join(localDir, 'net-secret.md'),
+      'sk-proj-ABCDEFGHIJKLMNOPQRSTUVWXYZ0123\n',
+      'utf-8'
+    );
+    writeFileSync(join(localDir, 'net-ok.md'), 'plain content\n', 'utf-8');
+    const service = makeService(baseUrl, localDir, 'tok');
+
+    const result = await service.sync();
+
+    // 拒发算"策略性拒发"，不算同步失败：其余条目照常上传
+    expect(result.rejected).toBe(1);
+    expect(result.errors).toEqual([]);
+    expect(result.uploaded).toBe(1);
+    expect(result.success).toBe(true);
+    expect(memories.has('net-secret')).toBe(false);
+    expect(memories.has('net-ok')).toBe(true);
+
+    // 审计口径：`rejectedSecrets` 不再恒为 0
+    const lines = readFileSync(join(localDir, 'sync-history.jsonl'), 'utf-8')
+      .trim()
+      .split('\n');
+    const last = JSON.parse(lines[lines.length - 1]) as {
+      rejectedSecrets?: number;
+      errors?: number;
+    };
+    expect(last.rejectedSecrets).toBe(1);
+    expect(last.errors).toBe(0);
+  });
+
   it('fullSync（2N-8 手动全量）⇒ 清基线后重新拉回本地误删的条目', async () => {
     const { baseUrl, putRemote } = startServer();
     const localDir = makeDir('team-net-local-');

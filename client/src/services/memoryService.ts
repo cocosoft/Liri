@@ -118,6 +118,8 @@ export interface TeamSyncRunResult {
   skipped: number;
   archived: number;
   deleted: number;
+  /** 推送被密钥扫描拒发的条数（2N-9；不计入 errors） */
+  rejected: number;
   conflicts: string[];
   errors: string[];
   duration: number;

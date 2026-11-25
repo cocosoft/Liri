@@ -304,7 +304,7 @@ C6 与 C4 推侧（412/409 ⇒ 候选）随 2N-2 解决。**C7（墓碑）随 2N
 
 
 
-### 5.2 网络版实施拆解（Phase 2N-0 … 2N-8；每步独立提交）
+### 5.2 网络版实施拆解（Phase 2N-0 … 2N-9；每步独立提交）
 
 > 前置：§8 的 3 项阻塞决策已拍板；默认 `memory.teamSync.enabled=false`，未配置 `serverUrl` 时行为零变更。
 
@@ -319,15 +319,17 @@ C6 与 C4 推侧（412/409 ⇒ 候选）随 2N-2 解决。**C7（墓碑）随 2N
 | **2N-6** | 本地删除同步（软删上行 + 防复活） | ✅ 已实现（2026-11-25）：判据 = **基线有 etag 且本地文件已不存在**；先从未处理列表摘除（防 `remote_only` 复活），再单条 GET 确认：404 ⇒ 清基线；`etag==基线` ⇒ `DELETE`（带 `If-Match`，软删）；远端已变 ⇒ 只记 `direction:'delete'` 候选（manual，不自动删）。`SyncResult` 新增 `deleted`；delete 候选的人工采纳：`keep_local`=确认删除远端（用观测 etag 或省略 If-Match）、`keep_shared`=下载远端到本地 | 本地删除可同步；远端已变不误删；不复活 | 清基线即可恢复"未同步"状态 |
 | **2N-7** | 审计报表（读 `sync-history.jsonl` 聚合 + 设置页展示） | ✅ 已实现（2026-11-25）：`TeamSyncAuditReport.ts`（`readTeamSyncHistory` 坏行跳过/数值收敛 + `buildTeamSyncAuditReport` 汇总 cycles/pulled/pushed/conflicts/rejectedSecrets/errors/lastAt/errorRate/recent）；`GET /v1/memory/team/audit`；`TeamMemoryPanel` 展示汇总。**顺带修复**：`getTeamMemoryStatus` 漏传 `network` 字段（面板此前永远看不到网络同步状态） | 有历史 ⇒ 汇总正确；无历史 ⇒ cycles=0 空报表；坏行不影响其它轮 | 只读聚合，不写历史 |
 | **2N-8** | 手动触发同步 + 冲突候选读取同源 | ✅ 已实现（2026-11-25）：`POST /v1/memory/team/sync`（`handleTriggerTeamSync`；body 可选 `{full}` ⇒ `fullSync()` 清基线全量重同步；400 `NOT_CONFIGURED`/`INVALID_REQUEST`、409 `SYNC_IN_PROGRESS`、200 返回 `SyncResult`）；`TeamMemoryPanel` 新增「立即同步」按钮（仅网络已配置时显示）。**顺带修复（同源读取）**：`GET /v1/memory/team/conflicts` 原只读 `resolveTeamMemoryDir()`，而网络候选写同步器 `config.localDir`（2N-5）⇒ 自定义 `localDir` 时网络候选在设置页不可见、无法采纳；现 `readMergedTeamConflicts` 合并两处并按 id 去重（网络候选优先，与 resolve 入口先判 `source:'network'` 一致） | 手动触发如实返回本轮错误；单飞不并发；自定义 `localDir` 下网络候选可见可采纳；`fullSync` 用于恢复本地误删（不触发删除上行） | 不新增定时器；关开关/不点按钮即零请求 |
+| **2N-9** | 密钥拒发的审计口径（`rejectedSecrets` 不再恒为 0） | ✅ 已实现（2026-11-25）：推送侧密钥命中改抛 `TeamMemorySyncSecretRejectedError`（**独立错误类型**，不用消息字符串判断 —— CS02）；`sync()` 单独计入 `SyncResult.rejected`，**不写 `errors`**（否则整轮被判失败、退避重试也无意义），其余条目继续推送；`sync-history.jsonl` 的 `rejectedSecrets` 改记真实值（原硬编码 0）；设置页审计区块在该值 >0 时显示"密钥拒发 N 条" | 命中密钥 ⇒ 拒发该条 + 其余照常 + 审计可见；`success` 不被单条拒发拉红 | 不改扫描规则；关扫描开关即无拒发 |
 
 **本轮（2026-11-25）只落方案**：未新增端点、未改运行时；`serverUrl` 网络分支仍为未接线状态。
 
-> 进度（2026-11-25）：2N-0 … 2N-8 已全部实现（各自独立提交，默认关）。
+> 进度（2026-11-25）：2N-0 … 2N-9 已全部实现（各自独立提交，默认关）。
 > 2N-4 的设置页状态：`/v1/memory/team/status` 增加 `network` DTO + `TeamMemoryPanel` 展示（未配置时提示开关）。
 > 2N-3 回归用例：`app/tests/memory/teamMemorySyncTombstone.test.ts`；2N-4：`teamMemorySyncBackoff.test.ts`、
 > `teamMemoryNetworkStatus.test.ts`；2N-5/2N-6：`teamMemoryNetworkSync.test.ts`（`Bun.serve` mock 全链、含删除同步）；
 > 2N-7：`teamSyncAuditReport.test.ts`（聚合/坏行/limit）；2N-8：`teamSharedDirSync.test.ts`（候选合并/去重）
-> 与 `teamMemoryNetworkSync.test.ts`（`fullSync` 恢复本地误删）。
+> 与 `teamMemoryNetworkSync.test.ts`（`fullSync` 恢复本地误删）；2N-9：`teamMemoryNetworkSync.test.ts`
+> （密钥拒发只计 `rejected` + `sync-history.jsonl` 的 `rejectedSecrets` 落值）。
 
 
 ---

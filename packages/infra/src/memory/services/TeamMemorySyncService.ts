@@ -84,6 +84,8 @@ export interface SyncResult {
   archived: number;
   /** 本地删除已同步到远端（软删）的条数（Phase 2N-6） */
   deleted: number;
+  /** 推送被密钥扫描拒发的条数（Phase 2N-9；**不计入** `errors`，其余条目继续） */
+  rejected: number;
   conflicts: string[];
   errors: string[];
   duration: number;
@@ -149,6 +151,24 @@ export class TeamMemorySyncConflictError extends Error {
   ) {
     super(`CONFLICT: ${memoryId}`);
     this.name = 'TeamMemorySyncConflictError';
+  }
+}
+
+/**
+ * 推送被密钥扫描拒绝（Phase 2N-9）：该条**拒发**，其余条目继续。
+ *
+ * 用独立错误类型而非"消息字符串匹配"（CS02）：审计需要把
+ * "密钥拒发"与"传输失败"分开计数（`SyncResult.rejected`）。
+ */
+export class TeamMemorySyncSecretRejectedError extends AppError {
+  constructor(readonly memoryId: string) {
+    super(
+      `Secret scan rejected: ${memoryId}`,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.MEDIUM,
+      'TEAM_SYNC_SECRET_REJECTED'
+    );
+    this.name = 'TeamMemorySyncSecretRejectedError';
   }
 }
 
@@ -367,6 +387,7 @@ export class TeamMemorySyncService {
         skipped: 0,
         archived: 0,
         deleted: 0,
+        rejected: 0,
         conflicts: [],
         errors: ['Sync already in progress'],
         duration: 0,
@@ -386,6 +407,7 @@ export class TeamMemorySyncService {
         skipped: 0,
         archived: 0,
         deleted: 0,
+        rejected: 0,
         conflicts: [],
         errors: ['NOT_CONFIGURED: memory.teamSync.serverUrl 未配置'],
         duration: 0,
@@ -409,6 +431,7 @@ export class TeamMemorySyncService {
       skipped: 0,
       archived: 0,
       deleted: 0,
+      rejected: 0,
       conflicts: [],
       errors: [],
       duration: 0,
@@ -511,6 +534,15 @@ export class TeamMemorySyncService {
             }
             continue;
           }
+          // Phase 2N-9：密钥拒发是该条的策略性拒发（fail-closed），**不计入 errors**
+          // （否则整轮被判失败、退避重试也没有意义）；只计数 + 警告，其余条目继续。
+          if (error instanceof TeamMemorySyncSecretRejectedError) {
+            result.rejected += 1;
+            logger.warn('团队记忆推送被密钥扫描拒绝（拒发该条）', {
+              memoryId: task.memoryId,
+            });
+            continue;
+          }
           result.errors.push(`Upload failed for ${task.memoryId}: ${error}`);
           // Phase 2N-4：429/5xx/网络错误 ⇒ 本轮结束后按退避重试
           if (isRetriableTeamMemorySyncError(error)) {
@@ -569,6 +601,7 @@ export class TeamMemorySyncService {
       downloaded: result.downloaded,
       skipped: result.skipped,
       archived: result.archived,
+      rejected: result.rejected,
       conflicts: result.conflicts.length,
       errors: result.errors.length,
       durationMs: result.duration,
@@ -579,7 +612,7 @@ export class TeamMemorySyncService {
         pushed: result.uploaded,
         pullConflicts: 0,
         pushConflicts: result.conflicts.length,
-        rejectedSecrets: 0,
+        rejectedSecrets: result.rejected,
         errors: result.errors.length,
       });
     } catch (error) {
@@ -1063,12 +1096,8 @@ export class TeamMemorySyncService {
     if (this.config.enableSecretScan && content) {
       const validation = this.secretScanner.validate(content);
       if (!validation.valid) {
-        throw new AppError(
-          validation.message ?? 'Secret scan failed',
-          ErrorCategory.EXECUTION,
-          ErrorSeverity.HIGH,
-          '1000'
-        );
+        // Phase 2N-9：独立错误类型 ⇒ `sync()` 可如实计入 `result.rejected`（审计口径）
+        throw new TeamMemorySyncSecretRejectedError(memoryId);
       }
     }
 

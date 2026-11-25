@@ -711,6 +711,7 @@ const zhKnowledge = {
     teamSyncNow: "立即同步",
     teamSyncing: "同步中…",
     teamSyncFailed: "同步失败（未配置服务端或鉴权/网络异常）",
+    teamAuditRejected: "密钥拒发 {{count}} 条（未上行，仅本地保留）",
     weightLabel: "权重: {{count}}",
     pinnedBadge: "📌 已置顶",
     createdAtLabel: "创建于 {{date}}",

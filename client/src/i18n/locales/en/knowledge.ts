@@ -753,6 +753,7 @@ const enKnowledge = {
     teamSyncNow: "Sync now",
     teamSyncing: "Syncing…",
     teamSyncFailed: "Sync failed (no server configured, or auth/network error)",
+    teamAuditRejected: "{{count}} secret-rejected (kept local, not uploaded)",
     weightLabel: "Weight: {{count}}",
     pinnedBadge: "📌 Pinned",
     createdAtLabel: "Created {{date}}",

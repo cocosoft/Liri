@@ -307,6 +307,13 @@ function TeamMemoryPanel({ isDark }: TeamMemoryPanelProps) {
                       })}
                     </span>
                   </div>
+                  {audit.rejectedSecrets > 0 && (
+                    <p className="text-xs text-yellow-500">
+                      {t("memory.teamAuditRejected", {
+                        count: audit.rejectedSecrets,
+                      })}
+                    </p>
+                  )}
                   {audit.lastAt && (
                     <div className="flex items-center justify-between">
                       <span

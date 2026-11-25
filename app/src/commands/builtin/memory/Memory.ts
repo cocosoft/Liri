@@ -164,26 +164,70 @@ const memoryCommand = {
   /**
    * 团队记忆审阅入口（Phase 3-lite）：列出 `conflicts.json` 候选，或人工取舍。
    * `dirs` 仅用于单测注入（缺省走真实目录/配置）。
+   *
+   * Phase 2N-10：候选有**两个写入源**（共享目录版 → `teamDir`；网络版 → 同步器
+   * `config.localDir`，见 2N-5）。原实现只读 `teamDir` ⇒ CLI 看不到网络候选、
+   * 也采纳不了（文件取舍要求两侧文件都存在）。现与 HTTP 入口同源：合并读取，
+   * 网络候选走同步器的 `resolveConflictCandidate`（与设置页同一判定）。
    */
   async teamCommand(
     args: string,
     useJson: boolean,
-    dirs?: { teamDir: string; sharedDir: string }
+    dirs?: { teamDir: string; sharedDir: string; networkDir?: string }
   ) {
     const { resolveTeamMemoryDir } =
       await import('@openliri/infra/environment');
-    const { resolveTeamConflict } =
+    const { resolveTeamConflict, readMergedTeamConflicts } =
       await import('@openliri/infra/memory/services/TeamMemorySharedDirSync');
+    const { defaultTeamMemorySyncService } =
+      await import('@openliri/infra/memory/services/TeamMemorySyncService');
     const teamDir = dirs?.teamDir ?? resolveTeamMemoryDir();
     const sharedDir =
       dirs?.sharedDir ??
       (
         configManager.getValue<string>('memory.teamSync.sharedDir', '') ?? ''
       ).trim();
+    // 单测注入时网络目录默认同注入目录，避免读写真实用户数据目录
+    const networkDir =
+      dirs?.networkDir ??
+      (dirs ? teamDir : defaultTeamMemorySyncService.getConfig().localDir);
 
     const [action, id] = args.split(/\s+/);
     if (action === 'keep-local' || action === 'keep-shared') {
-      if (!id || !sharedDir) {
+      if (!id) {
+        return {
+          success: false,
+          message:
+            '用法: /memory team keep-local|keep-shared <id>（需先配置 memory.teamSync.sharedDir）',
+        };
+      }
+      const resolution = action === 'keep-local' ? 'keep_local' : 'keep_shared';
+
+      // 网络候选优先（与 HTTP resolve 入口同一判定；文件候选返回 not_applicable）
+      const outcome =
+        await defaultTeamMemorySyncService.resolveConflictCandidate(
+          id,
+          resolution,
+          networkDir
+        );
+      if (outcome === 'not_configured') {
+        return {
+          success: false,
+          message:
+            '未配置 memory.teamSync.serverUrl，无法采纳网络候选（共享目录版请配置 memory.teamSync.sharedDir）',
+        };
+      }
+      if (outcome === 'not_resolved') {
+        return {
+          success: false,
+          message: `采纳失败: ${id}（id 不安全、远端已变或下载失败）`,
+        };
+      }
+      if (outcome === 'resolved') {
+        return { success: true, message: `已采纳 ${action}: ${id}` };
+      }
+
+      if (!sharedDir) {
         return {
           success: false,
           message:
@@ -194,7 +238,7 @@ const memoryCommand = {
         id,
         teamDir,
         sharedDir,
-        resolution: action === 'keep-local' ? 'keep_local' : 'keep_shared',
+        resolution,
       });
       return {
         success: ok,
@@ -204,16 +248,7 @@ const memoryCommand = {
       };
     }
 
-    const conflictsPath = join(teamDir, 'conflicts.json');
-    let payload: {
-      total?: number;
-      candidates?: Array<{ id: string; directions?: string[] }>;
-    } = {};
-    try {
-      payload = JSON.parse(await readFile(conflictsPath, 'utf-8'));
-    } catch {
-      payload = {};
-    }
+    const payload = await readMergedTeamConflicts([networkDir, teamDir]);
     if (useJson) {
       return { success: true, message: JSON.stringify(payload, null, 2) };
     }
@@ -221,7 +256,7 @@ const memoryCommand = {
     if (candidates.length === 0) {
       return {
         success: true,
-        message: `团队记忆无待处理冲突（${conflictsPath}）`,
+        message: `团队记忆无待处理冲突（${teamDir}）`,
       };
     }
     return {
@@ -229,7 +264,10 @@ const memoryCommand = {
       message: [
         '团队记忆冲突候选:',
         ...candidates.map(
-          (c) => `  - ${c.id} [${(c.directions ?? []).join('/')}]`
+          (c) =>
+            `  - ${c.id} [${(c.directions ?? []).join('/')}]${
+              c.source === 'network' ? ' (network)' : ''
+            }`
         ),
         '',
         '采纳: /memory team keep-local|keep-shared <id>',

@@ -120,4 +120,82 @@ describe('/memory team（Phase 3-lite）', () => {
     const parsed = JSON.parse(result.message) as { total?: number };
     expect(parsed.total).toBe(0);
   });
+
+  it('合并网络目录候选并标记来源（2N-10）', async () => {
+    const dirs = makeDirs();
+    const networkDir = join(dirs.teamDir, 'network');
+    mkdirSync(networkDir, { recursive: true });
+    writeFileSync(
+      join(dirs.teamDir, 'conflicts.json'),
+      JSON.stringify({
+        total: 1,
+        candidates: [{ id: 'c1', directions: ['pull'] }],
+      }),
+      'utf-8'
+    );
+    writeFileSync(
+      join(networkDir, 'conflicts.json'),
+      JSON.stringify({
+        total: 1,
+        candidates: [
+          {
+            id: 'n1',
+            directions: ['push'],
+            localFile: '',
+            sharedFile: '',
+            localHash: 'h1',
+            sharedHash: 'h2',
+            source: 'network',
+          },
+        ],
+      }),
+      'utf-8'
+    );
+
+    const result = await memoryCommand.teamCommand('', false, {
+      ...dirs,
+      networkDir,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.message).toContain('c1');
+    expect(result.message).toContain('n1 [push] (network)');
+  });
+
+  it('--json 也输出合并后的候选（2N-10）', async () => {
+    const dirs = makeDirs();
+    const networkDir = join(dirs.teamDir, 'network');
+    mkdirSync(networkDir, { recursive: true });
+    writeFileSync(
+      join(networkDir, 'conflicts.json'),
+      JSON.stringify({
+        total: 1,
+        candidates: [
+          {
+            id: 'n2',
+            directions: ['push'],
+            localFile: '',
+            sharedFile: '',
+            localHash: 'h1',
+            sharedHash: 'h2',
+            source: 'network',
+          },
+        ],
+      }),
+      'utf-8'
+    );
+
+    const result = await memoryCommand.teamCommand('--json', true, {
+      ...dirs,
+      networkDir,
+    });
+    const parsed = JSON.parse(result.message) as {
+      total?: number;
+      candidates?: Array<{ id: string; source?: string }>;
+    };
+
+    expect(parsed.total).toBe(1);
+    expect(parsed.candidates?.[0]?.id).toBe('n2');
+    expect(parsed.candidates?.[0]?.source).toBe('network');
+  });
 });

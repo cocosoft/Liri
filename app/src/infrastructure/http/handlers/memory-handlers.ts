@@ -852,39 +852,24 @@ export async function handleResolveTeamConflict(
     const { defaultTeamMemorySyncService } =
       await import('@openliri/infra/memory/services/TeamMemorySyncService');
 
-    // 网络候选（2026-11-25，2N-5 修复）：没有本地/远端文件路径，走同步器的人工采纳入口
-    // （与共享目录版共用同一份 `conflicts.json`；网络版不需要 sharedDir 配置）。
-    const networkConfig = defaultTeamMemorySyncService.getConfig();
-    const networkCandidate = (
-      (await sharedDirSync.readTeamConflictFile(networkConfig.localDir))
-        .candidates ?? []
-    ).find((candidate) => candidate.id === id);
-    if (networkCandidate?.source === 'network') {
-      if (!networkConfig.serverUrl) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: 'NOT_CONFIGURED' }));
-        return;
-      }
-      try {
-        const resolved =
-          await defaultTeamMemorySyncService.resolveNetworkConflict(
-            id,
-            resolution
-          );
-        if (!resolved) {
-          res.writeHead(409, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: false, error: 'RESOLVE_FAILED' }));
-          return;
-        }
-      } catch (err) {
-        void handleError(err, {
-          module: 'infrastructure:memoryHandlers',
-          action: 'resolveNetworkTeamConflict',
-        });
-        res.writeHead(409, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: 'RESOLVE_FAILED' }));
-        return;
-      }
+    // 网络候选（2N-5；2N-10 起与 CLI 共用 `resolveConflictCandidate` 判定）：
+    // 没有本地/远端文件路径，走同步器的人工采纳入口（网络版不需要 sharedDir 配置）。
+    const networkOutcome =
+      await defaultTeamMemorySyncService.resolveConflictCandidate(
+        id,
+        resolution
+      );
+    if (networkOutcome === 'not_configured') {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'NOT_CONFIGURED' }));
+      return;
+    }
+    if (networkOutcome === 'not_resolved') {
+      res.writeHead(409, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'RESOLVE_FAILED' }));
+      return;
+    }
+    if (networkOutcome === 'resolved') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({ success: true, id, resolution, source: 'network' })

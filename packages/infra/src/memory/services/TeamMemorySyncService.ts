@@ -22,6 +22,7 @@ import {
 import {
   appendTeamSyncHistory,
   pruneTeamConflictCandidate,
+  readTeamConflictFile,
   upsertNetworkConflictCandidate,
 } from './TeamMemorySharedDirSync';
 
@@ -737,6 +738,43 @@ export class TeamMemorySyncService {
     await pruneTeamConflictCandidate(this.config.localDir, memoryId);
     logger.info('网络团队记忆冲突已人工采纳', { memoryId, resolution });
     return true;
+  }
+
+  /**
+   * 按候选来源采纳一条冲突（Phase 2N-10：设置页与 CLI 共用同一判定）。
+   *
+   * 只有本服务的**网络候选**（`source:'network'`）走这里；共享目录版候选
+   * 仍需按文件取舍（`resolveTeamConflict`）⇒ 返回 `'not_applicable'`，
+   * 由调用方继续处理。原实现把"读候选 + 判来源 + 采纳"写在 HTTP handler 里，
+   * CLI 无从复用 ⇒ 两个入口的判定容易分叉。
+   *
+   * @param conflictsDir 候选文件目录（默认本服务 `localDir`；CLI 单测注入用）
+   * @returns `not_resolved` = 采纳失败（id 不安全 / 远端已变 / 下载失败）
+   */
+  async resolveConflictCandidate(
+    memoryId: string,
+    resolution: 'keep_local' | 'keep_shared',
+    conflictsDir: string = this.config.localDir
+  ): Promise<
+    'resolved' | 'not_applicable' | 'not_configured' | 'not_resolved'
+  > {
+    const payload = await readTeamConflictFile(conflictsDir);
+    const candidate = (payload.candidates ?? []).find(
+      (entry) => entry.id === memoryId
+    );
+    if (candidate?.source !== 'network') return 'not_applicable';
+    if (!this.config.serverUrl) return 'not_configured';
+    try {
+      return (await this.resolveNetworkConflict(memoryId, resolution))
+        ? 'resolved'
+        : 'not_resolved';
+    } catch (error) {
+      await handleError(error, {
+        module: 'memory:services:teamSync',
+        action: 'resolve_conflict_candidate',
+      });
+      return 'not_resolved';
+    }
   }
 
   /**

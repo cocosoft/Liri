@@ -43,6 +43,7 @@ import { buildRequestTimingData } from '../../../src/chat/services/timingEvent';
 import { extractUsage } from '../../../src/ai/tokenizer/UsageExtractor';
 import { TokenBudgetController } from '@modules/tokenBudget/TokenBudgetController';
 import { UnifiedTokenTracker } from '@modules/tokenBudget/UnifiedTokenTracker';
+import { isPlausibleCalibrationFactor } from '@modules/tokenBudget/tokenCalibration';
 
 const MODEL = 'd1-calibration-test';
 /** 固定 overhead（构造注入；测试内可精确复现 EMA 期望值） */
@@ -215,5 +216,44 @@ describe('D1 校准数据源（metric/timing 事件载荷）', () => {
       ALPHA * raw + (1 - ALPHA) * 1.0,
       10
     );
+  });
+
+  it('④ 比值越界（基线与实际输入不成比例）⇒ 只计数、因子不变', async () => {
+    // 真机：内部小请求 baseline≈500 而实测 input≈18k ⇒ raw≈30+，EMA 把因子推到 22，
+    // 之后所有会话的 calibratedTotal 虚高 ⇒ 压缩每轮 trigger 但 applied:false。
+    const tracker = makeTracker();
+    await setupBaseline(tracker);
+    const before = tracker.getCalibrationFactor();
+
+    tracker.recordTimingUsage({ inputTokens: 900_000, outputTokens: 100 });
+
+    expect(tracker.getCalibrationFactor()).toBe(before);
+    const stats = tracker.getCalibrationStats();
+    expect(stats.implausible).toBe(1);
+    expect(stats.applied).toBe(0);
+  });
+
+  it('④ 真实大误差样本（raw≈4.1）仍被接受（区间上限 10 不误杀）', async () => {
+    const tracker = makeTracker();
+    const baseline = await setupBaseline(tracker);
+    const overheadTotal = OVERHEAD.systemPrompt + OVERHEAD.toolDefs;
+
+    tracker.recordTimingUsage({
+      inputTokens: Math.round(4.1 * baseline) + overheadTotal,
+      outputTokens: 60,
+    });
+
+    const stats = tracker.getCalibrationStats();
+    expect(stats.implausible).toBe(0);
+    expect(stats.applied).toBe(1);
+    expect(tracker.getCalibrationFactor()).toBeGreaterThan(1);
+  });
+
+  it('④ 恢复侧：越界的历史因子被判定不可用（回落默认）', () => {
+    expect(isPlausibleCalibrationFactor(1.2)).toBe(true);
+    expect(isPlausibleCalibrationFactor(10)).toBe(true);
+    expect(isPlausibleCalibrationFactor(22.5)).toBe(false);
+    expect(isPlausibleCalibrationFactor(0.1)).toBe(false);
+    expect(isPlausibleCalibrationFactor(Number.NaN)).toBe(false);
   });
 });

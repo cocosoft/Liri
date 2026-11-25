@@ -31,7 +31,11 @@ import {
 import { UNIFIED_THRESHOLDS } from './thresholds';
 import { getCalibrationFactor } from './CalibrationStore';
 // FSZ-162（2026-09-23）：校准与统计逻辑抽至 `./tokenCalibration`（状态仍由本类持有）
-import { applyUsageSample, createCalibrationState } from './tokenCalibration';
+import {
+  applyUsageSample,
+  createCalibrationState,
+  isPlausibleCalibrationFactor,
+} from './tokenCalibration';
 import type { CalibrationHost, CalibrationState } from './tokenCalibration';
 
 // D1（2026-09-23）：**不再**订阅 trace-recording 的 usage（`traces/` 已降级为观测层，
@@ -630,17 +634,19 @@ export class UnifiedTokenTracker {
     }
   }
 
-  /** D1 可观测计数（诊断/单测）：校准样本应用次数与两类缺样本计数 */
+  /** D1 可观测计数（诊断/单测）：校准样本应用次数与各类缺样本计数 */
   getCalibrationStats(): {
     applied: number;
     missingUsage: number;
     missingBaseline: number;
+    implausible: number;
     factor: number;
   } {
     return {
       applied: this.calibration.applied,
       missingUsage: this.calibration.missingUsage,
       missingBaseline: this.calibration.missingBaseline,
+      implausible: this.calibration.implausible,
       factor: this.calibration.factor,
     };
   }
@@ -741,7 +747,16 @@ export class UnifiedTokenTracker {
     }
     // 加载该模型的持久化校准因子（重启后无需从默认重新学习；无记录则用默认 1.2）
     const persisted = getCalibrationFactor(newModel);
-    this.calibration.factor = persisted ?? 1.2;
+    // 2026-11-26：历史被污染的值（如内部小请求样本把因子推到 20+）不得跨重启继续生效
+    if (persisted !== undefined && !isPlausibleCalibrationFactor(persisted)) {
+      logger.warn('unified:校准因子越界，已回落默认 1.2', {
+        model: newModel,
+        persistedFactor: Math.round(persisted * 100) / 100,
+      });
+      this.calibration.factor = 1.2;
+    } else {
+      this.calibration.factor = persisted ?? 1.2;
+    }
     if (persisted) {
       logger.info('unified:calibration loaded from store', {
         model: newModel,

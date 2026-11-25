@@ -23,6 +23,39 @@ const logger = getLogger('tokenBudget:calibration');
 /** EMA 平滑因子：新样本权重 30%（原为 `UnifiedTokenTracker.CALIBRATION_ALPHA`） */
 const CALIBRATION_ALPHA = 0.3;
 
+/**
+ * 单个样本的比值合理区间（2026-11-26，真机 `session_mwwb2nt8807735cdf4`）。
+ *
+ * 现场：内部小请求（如标题/记忆提炼）的估算基线只有 400–600 tokens，而 provider 实测
+ * `inputTokens ≈ 18k`（系统提示 + 工具定义占绝对多数）⇒ raw ≈ 27–40，EMA 把因子从
+ * 1.22 一路推到 22.5；此后 `calibratedTotal = (真实 ~13k + 输出预留) × 22 ≈ 230k`
+ * ⇒ 压缩判定 ratio > 1 ⇒ 每轮 `trigger` 但 `applied:false`（空转）。
+ *
+ * 取值依据：真实样本见过 raw ≈ 4.09（基线 4075 / 实测 16660，见
+ * `.trae/specs/trajectory-single-source-convergence.md` §真实对话实测）⇒ 区间上限取 10；
+ * 污染样本是 25–40（基线 400–700 / 实测 ~18k），二者量级不重叠。
+ * 超出区间说明"基线不代表本次输入"（样本不可用），按 D1「缺数据不猜」处理：
+ * 只计数、不改因子。
+ */
+const MIN_PLAUSIBLE_RAW = 0.1;
+const MAX_PLAUSIBLE_RAW = 10;
+
+/**
+ * 持久化因子的可用区间（2026-11-26）：恢复时越界 ⇒ 视为被污染的历史值，回落默认。
+ * 与 raw 区间同源（因子是 raw 的 EMA，长期应落在同一量级）。
+ */
+const MIN_PLAUSIBLE_FACTOR = 0.25;
+const MAX_PLAUSIBLE_FACTOR = 10;
+
+/** 持久化因子是否可用（越界/非有限 ⇒ false；调用方回落默认 1.2） */
+export function isPlausibleCalibrationFactor(factor: number): boolean {
+  return (
+    Number.isFinite(factor) &&
+    factor >= MIN_PLAUSIBLE_FACTOR &&
+    factor <= MAX_PLAUSIBLE_FACTOR
+  );
+}
+
 /** 校准状态（由宿主持有；本模块只读写它，不拥有生命周期） */
 export interface CalibrationState {
   /** 当前校准因子（1.0 = 未校准；估算值 × 因子 ≈ 真实值） */
@@ -33,11 +66,19 @@ export interface CalibrationState {
   missingUsage: number;
   /** D1 可观测计数：有真实 usage 但无估算基线（或修正后输入 ≤ 0）⇒ 不校准 */
   missingBaseline: number;
+  /** D1 可观测计数：比值越界（基线不代表性 / 模型映射错配）⇒ 不校准 */
+  implausible: number;
 }
 
-/** 初值（与原字段初始化一致：factor=1.0、三个计数为 0） */
+/** 初值（与原字段初始化一致：factor=1.0、计数为 0） */
 export function createCalibrationState(): CalibrationState {
-  return { factor: 1.0, applied: 0, missingUsage: 0, missingBaseline: 0 };
+  return {
+    factor: 1.0,
+    applied: 0,
+    missingUsage: 0,
+    missingBaseline: 0,
+    implausible: 0,
+  };
 }
 
 /**
@@ -59,12 +100,14 @@ export function calibrationStats(state: CalibrationState): {
   applied: number;
   missingUsage: number;
   missingBaseline: number;
+  implausible: number;
   factor: number;
 } {
   return {
     applied: state.applied,
     missingUsage: state.missingUsage,
     missingBaseline: state.missingBaseline,
+    implausible: state.implausible,
     factor: state.factor,
   };
 }
@@ -117,6 +160,21 @@ export function applyUsageSample(
   const raw = correctedInput / baseline;
   if (!isFinite(raw) || raw <= 0) {
     state.missingBaseline++;
+    return;
+  }
+  // 2026-11-26：比值越界 ⇒ 样本不可用（基线不代表性 / 模型映射错配），只计数不改因子。
+  if (raw < MIN_PLAUSIBLE_RAW || raw > MAX_PLAUSIBLE_RAW) {
+    state.implausible++;
+    logger.warn('unified:校准样本比值越界（不校准，保持既有因子）', {
+      raw: Math.round(raw * 100) / 100,
+      inputTokens: input,
+      outputTokens: output,
+      baselineInputTokens: baseline,
+      overheadTokens: overhead,
+      plausibleRange: [MIN_PLAUSIBLE_RAW, MAX_PLAUSIBLE_RAW],
+      model: model || host.currentModel(),
+      implausibleSamples: state.implausible,
+    });
     return;
   }
   const oldFactor = state.factor;

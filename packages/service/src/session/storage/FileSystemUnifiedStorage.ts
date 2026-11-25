@@ -1,5 +1,5 @@
 import fs from 'fs/promises';
-import { Dirent, existsSync, readdirSync } from 'fs';
+import { Dirent, existsSync, readdirSync, statSync } from 'fs';
 import path from 'path';
 
 import { StorageType } from './UnifiedStorage';
@@ -27,6 +27,7 @@ import { AtomicWriter } from '../persistence/AtomicWriter.js';
 import {
   MESSAGE_SEGMENT_MAX_BYTES,
   MESSAGE_SEGMENT_MAX_LINES,
+  MESSAGE_SEGMENT_RE,
   listMessageSegments,
   planMessageSplit,
   segmentFileName,
@@ -117,6 +118,13 @@ function messagesFilePath(basePath: string, sessionId: string): string {
   return path.join(sessionDir(basePath, sessionId), 'messages.jsonl');
 }
 
+/** 分区候选（`partitionRootOf` 的排序输入）：是否有消息载荷 + 元数据新鲜度 */
+interface PartitionCandidate {
+  root: string;
+  hasMessages: boolean;
+  metaMtimeMs: number;
+}
+
 /**
  * M8（2026-10-30，一致性核查）：消息投影的分片唯一实现在 `./messageSegments`
  * （`planMessageSplit` / `listMessageSegments` / `segmentFileName`）。
@@ -183,6 +191,13 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
   private deletedSessionIds: Set<string> = new Set();
   /** P0'（2026-09-18）：历史会话分区目录清单（多分区聚合扫描根，不含 basePath 自身） */
   private legacyRoots: string[] = [];
+  /**
+   * 2026-11-25（真机 `session_mwpj4amge75a67ec4f`）：sessionId → 已解析的分区根。
+   *
+   * 分区路由需要判断"哪一份副本有真实消息"，每次 `readdirSync` 成本高且写路径频繁调用；
+   * 解析一次后缓存，目录消失时自动失效（见 `partitionRootOf`）。
+   */
+  private partitionRootCache = new Map<string, string>();
   /** 多租户 P1：是否自动探测历史分区（租户分区实例为 `false`） */
   private discoverLegacyRoots = true;
 
@@ -232,6 +247,7 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     this.appendCounts.clear();
     this.appendBytes.clear();
     this.duplicateAppendBytes.clear();
+    this.partitionRootCache.clear();
     this.initialized = false;
   }
 
@@ -929,14 +945,86 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
    * （实测单会话被删 **533 次**、`.trash` **7002 项**）。⇒ 读、写、删统一以"实体所在分区"为准。
    */
   private partitionRootOf(sessionId: string): string | null {
-    for (const root of [this.basePath, ...this.legacyRoots]) {
+    // 缓存命中：仅当该分区目录仍在时有效（被软删/物理删 ⇒ 失效重算）
+    const cached = this.partitionRootCache.get(sessionId);
+    if (cached) {
       try {
-        if (existsSync(sessionDir(root, sessionId))) return root;
+        if (existsSync(sessionDir(cached, sessionId))) return cached;
+      } catch {
+        // sessionDir 对路径越界 id 抛错 ⇒ 缓存失效
+      }
+      this.partitionRootCache.delete(sessionId);
+    }
+
+    let best: PartitionCandidate | null = null;
+    let candidateCount = 0;
+    for (const root of [this.basePath, ...this.legacyRoots]) {
+      let dir: string;
+      try {
+        dir = sessionDir(root, sessionId);
       } catch {
         // sessionDir 对路径越界 id 抛错 ⇒ 该 id 非法，视为不存在
+        continue;
+      }
+      if (!existsSync(dir)) continue;
+      candidateCount += 1;
+      const candidate: PartitionCandidate = {
+        root,
+        hasMessages: this.hasMessagePayload(root, sessionId),
+        metaMtimeMs: this.sessionMetaMtimeMs(root, sessionId),
+      };
+      // 排序键：① 有真实消息载荷优先 ② session.json 更新者优先 ③ 根顺序（basePath 优先）
+      if (
+        best === null ||
+        (candidate.hasMessages && !best.hasMessages) ||
+        (candidate.hasMessages === best.hasMessages &&
+          candidate.metaMtimeMs > best.metaMtimeMs)
+      ) {
+        best = candidate;
       }
     }
-    return null;
+    if (best === null) return null;
+
+    this.partitionRootCache.set(sessionId, best.root);
+    // 只在"同一会话在多个分区各有一份目录"（真实分裂）时留痕，避免正常跨分区读取刷日志
+    if (candidateCount > 1 && best.root !== this.basePath) {
+      logger.info('partitionRootOf:会话存在多分区副本,按消息载荷/更新时间为准', {
+        sessionId,
+        chosen: best.root,
+        basePath: this.basePath,
+        candidateCount,
+      });
+    }
+    return best.root;
+  }
+
+  /**
+   * 该分区副本是否持有**真实消息载荷**（活动尾文件 `messages.jsonl` 或任一分片）。
+   *
+   * 2026-11-25（真机 `session_mwpj4amge75a67ec4f`）：同一 sessionId 在两个分区各留一份目录，
+   * 其中一份只有 `session.json`（+ `events.jsonl`），另一份才有消息。原判定只看"目录是否存在"
+   * ⇒ 命中半份副本 ⇒ `loadMessages` ENOENT ⇒ 后续被判僵尸。
+   */
+  private hasMessagePayload(root: string, sessionId: string): boolean {
+    let dir: string;
+    try {
+      dir = sessionDir(root, sessionId);
+      if (existsSync(path.join(dir, 'messages.jsonl'))) return true;
+      return readdirSync(dir).some((name) => MESSAGE_SEGMENT_RE.test(name));
+    } catch {
+      // @ignore-catch 目录不可读/路径非法 ⇒ 视为无载荷（其余候选分区仍可入选）
+      return false;
+    }
+  }
+
+  /** 分区副本 `session.json` 的 mtime（毫秒）；缺失/不可读 ⇒ 0（排序垫底） */
+  private sessionMetaMtimeMs(root: string, sessionId: string): number {
+    try {
+      return statSync(sessionFilePath(root, sessionId)).mtimeMs;
+    } catch {
+      // @ignore-catch 半损副本可能无 session.json ⇒ 不参与"更新者优先"
+      return 0;
+    }
   }
 
   /**
@@ -976,6 +1064,7 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     this.sessions.delete(sessionId);
     this.messages.delete(sessionId);
     this.messageCounts.delete(sessionId);
+    this.partitionRootCache.delete(sessionId);
     this.deletedSessionIds.add(sessionId);
   }
 
@@ -1054,6 +1143,7 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     this.messages.delete(sessionId);
     // H6：软删除同步清理消息计数
     this.messageCounts.delete(sessionId);
+    this.partitionRootCache.delete(sessionId);
 
     // P2-3 修复（2026-09-26）：拦写标记**必须在 rename 之前**置位。
     // 原实现放在 rename 成功之后 ⇒ rename 失败（Windows EPERM：在飞流仍持句柄）时拦写同时失效，
@@ -1064,11 +1154,38 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
 
     // A（2026-09-26）：从**实体所在分区**移入该分区自己的 `.trash`（读/写/删同分区）
     const root = this.rootFor(sessionId);
+    await this.moveSessionDirToTrash(root, sessionId);
+
+    // A2（2026-11-25，真机 `session_mwpj4amge75a67ec4f`）：同一 id 在其它分区还留有副本
+    // （分区漂移时代写出的"只有 session.json"半份目录）⇒ 一并软删。否则用户删除后，
+    // 重启期 `loadAllSessions` 会把残留副本当会话列出 ⇒ 出现"点开无消息"的幽灵会话。
+    for (const partition of new Set([this.basePath, ...this.legacyRoots])) {
+      if (partition === root) continue;
+      let present = false;
+      try {
+        present = existsSync(sessionDir(partition, sessionId));
+      } catch {
+        // sessionDir 对路径越界 id 抛错 ⇒ 该分区无合法副本
+      }
+      if (!present) continue;
+      logger.info(
+        'deleteSession:清理同一会话在其它分区的残留副本（分区漂移产物）',
+        { sessionId, partition }
+      );
+      await this.moveSessionDirToTrash(partition, sessionId);
+    }
+  }
+
+  /**
+   * 把会话目录软删进**指定分区**自己的 `.trash`（P1 第10条：rename 而非物理删除，误删可恢复，
+   * 与 `SessionPruner` / `Supervisor` 的"不物理删除"策略一致；TTL 自动清理见 `purgeExpiredTrash`）。
+   */
+  private async moveSessionDirToTrash(
+    root: string,
+    sessionId: string
+  ): Promise<void> {
     const dir = sessionDir(root, sessionId);
     try {
-      // P1 第10条：软删除——rename 到 .trash/（带时间戳避免同名冲突），
-      // 误删可恢复，不再直接 fs.rm 物理删除（与 SessionPruner/Supervisor 的
-      // "不物理删除"策略对齐）。TTL 自动清理 .trash 留待后续。
       const trashDir = path.join(root, '.trash', `${sessionId}_${Date.now()}`);
       await fs.mkdir(path.dirname(trashDir), { recursive: true });
       await renameToTrashWithRetry(dir, trashDir);

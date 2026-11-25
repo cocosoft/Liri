@@ -105,6 +105,30 @@ function mkCrossPartition(prefix: string, withMessage = true): Fixture {
   return { basePath, legacyRoot, session };
 }
 
+/**
+ * 在 basePath 造"只有 `session.json`、无 `messages.jsonl`"的**半份副本**。
+ *
+ * 2026-11-25 真机 `session_mwpj4amge75a67ec4f` 形态：同一 sessionId 在两个分区各有一份目录，
+ * 当前分区那份只有 `session.json`（+ `events.jsonl`），历史分区才是完整消息。
+ * 半份副本的 `session.json` 反而**更新**（后落盘），用于验证"更晚 ≠ 更完整"。
+ */
+function addHalfCopy(
+  fx: Fixture,
+  overrides: Partial<UnifiedSession> = {}
+): string {
+  const baseDir = path.join(fx.basePath, ID);
+  fs.mkdirSync(baseDir, { recursive: true });
+  const metaPath = path.join(baseDir, 'session.json');
+  fs.writeFileSync(
+    metaPath,
+    JSON.stringify({ ...fx.session, ...overrides }),
+    'utf-8'
+  );
+  const future = new Date(Date.now() + 60_000);
+  fs.utimesSync(metaPath, future, future);
+  return metaPath;
+}
+
 /** 新实例 = 新一轮启动（内存缓存与 `deletedSessionIds` 均为空） */
 function mkStorage(fx: Fixture): FileSystemUnifiedStorage {
   return new FileSystemUnifiedStorage({
@@ -207,6 +231,53 @@ describe('A 分区路由：读 / 写 / 删均以实体所在分区为准', () =>
       fs.readFileSync(path.join(fx.legacyRoot, ID, 'session.json'), 'utf-8')
     ) as UnifiedSession;
     expect(meta.title).toBe('轮次2');
+  });
+
+  test('⑥ 分裂：basePath 的半份副本（仅 session.json）不劫持读取', async () => {
+    const fx = mkCrossPartition('xpart-split-read-');
+    addHalfCopy(fx, { title: '半份副本', metadata: { totalMessages: 0 } });
+    const storage = mkStorage(fx);
+
+    // 修复前：partitionRootOf 只看目录存在 ⇒ 命中 basePath 半份副本 ⇒ loadMessages ENOENT ⇒ []
+    const msgs = await storage.getMessages(ID);
+
+    expect(msgs.map((m) => m.id)).toEqual(['m-legacy-1']);
+    expect(msgs[0].content).toBe('来自历史分区');
+  });
+
+  test('⑦ 分裂：写元数据仍落历史分区，半份副本不被继续写入', async () => {
+    const fx = mkCrossPartition('xpart-split-write-');
+    const halfMetaPath = addHalfCopy(fx, {
+      title: '半份副本',
+      metadata: { totalMessages: 0 },
+    });
+    const storage = mkStorage(fx);
+
+    await storage.updateSession({ ...fx.session, title: '写入后者为准' });
+
+    const legacyMeta = JSON.parse(
+      fs.readFileSync(path.join(fx.legacyRoot, ID, 'session.json'), 'utf-8')
+    ) as UnifiedSession;
+    const halfMeta = JSON.parse(
+      fs.readFileSync(halfMetaPath, 'utf-8')
+    ) as UnifiedSession;
+    expect(legacyMeta.title).toBe('写入后者为准');
+    // 半份副本保持原样（未被当作实体继续写入）
+    expect(halfMeta.title).toBe('半份副本');
+  });
+
+  test('⑧ 分裂：删除时一并清理其它分区的残留副本（不留幽灵会话）', async () => {
+    const fx = mkCrossPartition('xpart-split-delete-');
+    addHalfCopy(fx, { metadata: { totalMessages: 0 } });
+    const storage = mkStorage(fx);
+
+    await storage.deleteSession(ID);
+
+    // 完整副本与其半份副本都被软删，重启后不会再被当成会话列出
+    expect(fs.existsSync(path.join(fx.legacyRoot, ID))).toBe(false);
+    expect(fs.existsSync(path.join(fx.basePath, ID))).toBe(false);
+    expect(trashEntries(fx.legacyRoot)).toHaveLength(1);
+    expect(trashEntries(fx.basePath)).toHaveLength(1);
   });
 
   test('对照组：当前分区会话行为不变（消息写 basePath、删除进 basePath/.trash）', async () => {

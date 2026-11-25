@@ -24,7 +24,13 @@
  */
 
 import { getLogger } from '@openliri/infra/monitoring';
-import type { EventLogStorage, SessionGateway } from '@modules/session';
+import { classifyTurnTail } from '@modules/session';
+import type {
+  EventLogStorage,
+  SessionGateway,
+  TurnTailEvent,
+  TurnTailInfo,
+} from '@modules/session';
 import { SessionStatus } from '@modules/session/types/UnifiedSession';
 
 import {
@@ -55,59 +61,13 @@ const CRASH_META_KEYS = [
   'lastActivityBeforeCrash',
 ] as const;
 
-/** 结构化事件（只取判定所需字段，便于纯函数单测） */
-export interface TurnTailEvent {
-  type: string;
-  data?: unknown;
-}
-
-export interface TurnTailInfo {
-  /** 最后一个 turn 仍未闭合（`turn/start` 之后无真实 `turn/end`） */
-  open: boolean;
-  /** 尾部窗口内是否读到过 turn 事件（`false` ⇒ 旧会话，从未被轮次包裹） */
-  hasTurn: boolean;
-  /** 真实 `turn/end` 的收尾原因（`open` 时不提供） */
-  finishReason?: string;
-  terminationReason?: string;
-}
-
 /**
- * 判定"最后一个 turn 是否已闭合"（纯函数）。
- *
- * - 最后一条 turn 事件是 `turn/start` ⇒ 未闭合；
- * - 最后一条是 **合成** `turn/end`（`data.synthetic=true`，崩溃恢复补写的 closer）⇒ 该轮实为中断
- *   ⇒ 视为未闭合（不得据此收回徽标）；
- * - 最后一条是真实 `turn/end` ⇒ 已闭合，并带回收尾原因。
+ * 2026-11-25：判定函数已**下沉到 service**（`@modules/session` 的 `classifyTurnTail`）——
+ * 人工复位（runtime 层）与崩溃恢复探针必须同一判据，留在 app 层会造成 `runtime → chat`
+ * 分层违规。此处保留同名 re-export，既有调用点与测试逐字不变。
  */
-export function classifyTurnTail(
-  events: readonly TurnTailEvent[]
-): TurnTailInfo {
-  let last: TurnTailEvent | undefined;
-  for (const event of events) {
-    if (event.type === 'turn/start' || event.type === 'turn/end') last = event;
-  }
-  if (!last) return { open: false, hasTurn: false };
-  if (last.type === 'turn/start') return { open: true, hasTurn: true };
-
-  const data = last.data as
-    | {
-        finishReason?: unknown;
-        terminationReason?: unknown;
-        synthetic?: unknown;
-      }
-    | undefined;
-  if (data?.synthetic === true) return { open: true, hasTurn: true };
-  return {
-    open: false,
-    hasTurn: true,
-    finishReason:
-      typeof data?.finishReason === 'string' ? data.finishReason : undefined,
-    terminationReason:
-      typeof data?.terminationReason === 'string'
-        ? data.terminationReason
-        : undefined,
-  };
-}
+export { classifyTurnTail };
+export type { TurnTailEvent, TurnTailInfo };
 
 /**
  * 读某会话尾部 turn 事件。

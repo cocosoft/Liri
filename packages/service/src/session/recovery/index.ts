@@ -28,6 +28,16 @@ export type {
   CrashRecoveryAction,
 } from './CrashRecoveryManager';
 
+// 2026-11-25：轮次尾部纯判定（崩溃恢复探针与人工复位共用的单一事实源）
+export { classifyTurnTail } from './turnTail';
+export type { TurnTailEvent, TurnTailInfo } from './turnTail';
+// 2026-11-25：人工复位的事件侧收口（`recover-stale` 用；端口注入，零 app 依赖）
+export {
+  closeOpenTurnForReset,
+  MANUAL_RESET_FINISH_REASON,
+} from './manualTurnClose';
+export type { ManualTurnClosePorts } from './manualTurnClose';
+
 // P2-7（2026-09-25）：恢复编排层（端口注入，零业务依赖）
 export { RecoveryOrchestrator } from './RecoveryOrchestrator';
 export type {

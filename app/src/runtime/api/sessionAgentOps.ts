@@ -58,7 +58,11 @@ import type { PermissionMode } from '@openliri/infra/permission';
 import type { ChatManager } from '@modules/chat';
 import type { SessionManager } from '@modules/session/types/session';
 import { DataSessionStatus } from '@modules/session/types/session';
-import { clearStaleRecoveryMarkers } from '@modules/session';
+import { SessionStatus } from '@modules/session/types/UnifiedSession';
+import {
+  clearStaleRecoveryMarkers,
+  closeOpenTurnForReset,
+} from '@modules/session';
 import type { DerivationDiff, LiteSessionSummary } from '@modules/session';
 import type { LiriEvent } from '@modules/session/types/events';
 import type {
@@ -751,6 +755,10 @@ export class SessionAgentOps {
    * 启动期强杀留下的 `crashRecovery=failed_stale` 只有在会话下次被使用时才自愈；
    * 本方法提供显式入口：清恢复标记 + 内存状态 ERROR→ACTIVE（判据与
    * `clearStaleRecoveryMarkers` 同源，真实业务失败不受影响）。
+   *
+   * 2026-11-25 补：复位同时把残留的**未闭合轮次**以非合成 `turn/end` 正式闭合
+   * （见 `ChatManager.closeOpenTurnsForReset`）——否则崩溃恢复补的 `synthetic` closer
+   * 仍被探针判为"未闭合"，下次硬重启会把会话再标回 `failed_stale`（复位不持久）。
    */
   async recoverStaleSession(sessionId: string): Promise<boolean> {
     const gateway = this.deps.getChatManager().getSessionGateway();
@@ -758,6 +766,38 @@ export class SessionAgentOps {
       gateway.getStorage(),
       sessionId
     );
+    // 2026-11-25：复位要**持久** —— 崩溃恢复补的 closer 带 `synthetic: true`，探针仍判
+    // 该轮未闭合 ⇒ 只清标记会在下次硬重启被再次判 stale。
+    // 因此无论本次是否清到标记，都把残留未闭合轮次正式闭合（**非合成** `turn/end`）：
+    // 幂等（无未闭合轮次 ⇒ 0），在飞轮次由存储层跳过（不给正在跑的轮次伪造收尾）。
+    const chat = this.deps.getChatManager();
+    let closed = 0;
+    // 在飞会话不伪造收尾（正在跑的轮次由运行态自己写真实 turn/end）
+    if (!chat.isSessionStreaming(sessionId)) {
+      closed = await closeOpenTurnForReset({
+        sessionId,
+        getTailSeq: () => chat.getStreamTailSeq(sessionId),
+        read: (query) => chat.readSessionEvents(sessionId, query),
+        append: (event) => chat.appendStreamEvent(sessionId, event),
+      });
+    }
+    if (closed > 0) {
+      logger.info('会话复位：已正式闭合未完成轮次（reset_by_user）', {
+        sessionId,
+        closed,
+      });
+    }
+    // 状态收敛：崩溃恢复写下的两种落败态都回 `active`
+    // （`clearStaleRecoveryMarkers` 只把 failed_stale+ERROR 复位；`recovered_paused` 需在此收口，
+    //  否则"轮次已正式闭合"的会话仍挂"已暂停"徽标）
+    const stored = await gateway.getSession(sessionId);
+    if (
+      stored &&
+      (stored.status === SessionStatus.PAUSED ||
+        stored.status === SessionStatus.ERROR)
+    ) {
+      await gateway.updateSession({ ...stored, status: SessionStatus.ACTIVE });
+    }
     const session = this.deps.getSessionManager().getSession(sessionId);
     if (session) {
       const metadata = session.metadata as Record<string, unknown> | undefined;
@@ -766,7 +806,10 @@ export class SessionAgentOps {
         delete metadata.crashedAt;
         delete metadata.lastActivityBeforeCrash;
       }
-      if (session.state === DataSessionStatus.ERROR) {
+      if (
+        session.state === DataSessionStatus.ERROR ||
+        session.state === DataSessionStatus.PAUSED
+      ) {
         session.state = DataSessionStatus.ACTIVE;
       }
       this.deps.getSessionManager().updateSession?.(session);

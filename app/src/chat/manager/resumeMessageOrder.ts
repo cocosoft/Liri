@@ -14,6 +14,9 @@
  * 找不到 owner 的 `tool` 消息对模型无意义（也必然 400），直接剔除。
  */
 
+// 2026-11-25：声明取值时统一归一到 OpenAI 形状 —— 兼容 TAOR 落盘的 `{id,name,arguments}`
+import { normalizeToolCallDeclarations } from '../utils/toolCallDeclarations.js';
+
 /** 参与排序的最小消息形状（与 `apiMessages` 结构兼容） */
 export interface OrderableChatMessage {
   role?: string;
@@ -181,11 +184,11 @@ export function declaredToolCallsOf(message: {
 }): Array<Record<string, unknown>> | undefined {
   const fromMeta = message.metadata?.tool_calls;
   if (Array.isArray(fromMeta) && fromMeta.length > 0) {
-    return fromMeta as Array<Record<string, unknown>>;
+    return normalizeToolCallDeclarations(fromMeta);
   }
   const fromTop = message.tool_calls;
   if (Array.isArray(fromTop) && fromTop.length > 0) {
-    return fromTop as Array<Record<string, unknown>>;
+    return normalizeToolCallDeclarations(fromTop);
   }
   return undefined;
 }

@@ -308,6 +308,13 @@ export class ChatStreamResume {
     // 2026-11-12：续跑轮 turn 包裹状态（0 = 未开启）。开启后必须在 finally 收尾，
     // 否则崩溃恢复会把它当成"未闭合 turn"并合成 canceled ⇒ 前端把正常续跑标成「已中断」。
     let resumeTurnNo = 0;
+    /**
+     * 2026-11-25（真机 `session_mww15fnr1f4e56775e`）：续跑注册的 abortController 必须在**所有出口**
+     * 回收。原实现只在 `_finalizeStreamMessage` 删除；而续跑在「剩余调用重建」阶段抛错
+     * （`TypeError: tc.function.arguments`）时根本走不到 finalize ⇒ controller 泄漏
+     * ⇒ `isSessionStreaming()` 恒 true ⇒ 之后每次审批的 `waitForSessionIdle` 都等满 120s 并静默放弃。
+     */
+    let streamAbortController: AbortController | undefined;
     let resumeFinishReason:
       | 'stop'
       | 'length'
@@ -378,7 +385,7 @@ export class ChatStreamResume {
       await notifySessionMetaUpdated(sessionId);
 
       // 2. 创建新的 streamAbortController
-      const streamAbortController = new AbortController();
+      streamAbortController = new AbortController();
       deps.sessionAbortControllers.set(sessionId, streamAbortController);
 
       // 3. 找到最后一条含 tool_calls 的 assistant 消息，提取剩余工具
@@ -744,6 +751,14 @@ export class ChatStreamResume {
         } catch {
           // @ignore-catch — 收尾事件失败不阻断（CS03）
         }
+      }
+      // 2026-11-25：controller 回收（identity 守卫，避免误删后续新流注册的 controller）。
+      // 放在 `mutex.release()` 之前：本方法的进程内状态全部收口后，才允许下一轮进入。
+      if (
+        streamAbortController &&
+        deps.sessionAbortControllers.get(sessionId) === streamAbortController
+      ) {
+        deps.sessionAbortControllers.delete(sessionId);
       }
       mutex.release();
     }

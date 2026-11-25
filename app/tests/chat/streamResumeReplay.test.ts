@@ -35,11 +35,12 @@ function makeSession(messages: Msg[]): unknown {
   };
 }
 
-function makeResume(opts: {
+function makeResumeWithDeps(opts: {
   messages: Msg[];
   completedToolCallIds: string[];
-  awaiting?: (id: string) => boolean;
-}): ChatStreamResume {
+  awaiting?: (id: string) => boolean | Promise<boolean>;
+}): { resume: ChatStreamResume; controllers: Map<string, AbortController> } {
+  const controllers = new Map<string, AbortController>();
   const deps = {
     sessionMutexes: new Map(),
     resumeSessionState: async () => {},
@@ -52,11 +53,19 @@ function makeResume(opts: {
       generatorState: { toolTurnCount: 0, llmCallCount: 0 },
     }),
     getOrLoadSession: async () => makeSession(opts.messages),
-    sessionAbortControllers: new Map(),
+    sessionAbortControllers: controllers,
     isAwaitingUserApproval: async (call: { id: string }) =>
-      opts.awaiting ? opts.awaiting(call.id) : false,
+      opts.awaiting ? await opts.awaiting(call.id) : false,
   } as never;
-  return new ChatStreamResume(deps);
+  return { resume: new ChatStreamResume(deps), controllers };
+}
+
+function makeResume(opts: {
+  messages: Msg[];
+  completedToolCallIds: string[];
+  awaiting?: (id: string) => boolean | Promise<boolean>;
+}): ChatStreamResume {
+  return makeResumeWithDeps(opts).resume;
 }
 
 async function collect(
@@ -112,5 +121,77 @@ describe('ChatStreamResume.resume 剩余调用重建（P3-2 外移前特征化�
     expect(String(status?.content)).toContain('仍在等待审批');
     expect(String(status?.content)).toContain('1 个工具未落定');
     expect(String(status?.content)).not.toContain('任务已全部完成');
+  });
+});
+
+/**
+ * 2026-11-25 真机 `session_mww15fnr1f4e56775e` 回归：
+ *  ① TAOR 落盘的声明是内部形状 `{id,name,arguments}`，续跑侧曾直接读 `tc.function.arguments`
+ *     ⇒ `TypeError: undefined is not an object` ⇒ 审批后自动续跑失败；
+ *  ② 失败路径未回收 abortController ⇒ `isSessionStreaming()` 恒 true ⇒ 后续审批等满 120s 被丢弃。
+ */
+describe('ChatStreamResume：声明形状兼容与 abortController 回收（2026-11-25）', () => {
+  const internalShapeMessage = (id: string): Msg => ({
+    role: 'assistant',
+    content: '',
+    // TAOR 内部形状：无 type / 无 function 包裹，arguments 是对象
+    metadata: {
+      tool_calls: [{ id, name: 'bash', arguments: { command: 'echo hi' } }],
+    },
+  });
+
+  it('内部形状的待审批调用：不再抛 TypeError，如实进入等待审批分支', async () => {
+    const status = await firstStatus({
+      messages: [internalShapeMessage('c1')],
+      completedToolCallIds: [],
+      awaiting: () => true,
+    });
+
+    expect(String(status?.content)).toContain('仍在等待审批');
+    expect(String(status?.content)).toContain('1 个工具未落定');
+  });
+
+  it('续跑抛错 ⇒ abortController 已回收（不再永久 streaming）', async () => {
+    const { resume, controllers } = makeResumeWithDeps({
+      messages: [internalShapeMessage('c1')],
+      completedToolCallIds: [],
+      // 让错误发生在 controller 注册之后（剩余调用重建阶段）
+      awaiting: () => {
+        throw new Error('boom');
+      },
+    });
+
+    await expect(
+      collect(
+        resume.resume('sess-resume-seam', 'ck-1') as AsyncGenerator<
+          unknown,
+          unknown,
+          unknown
+        >
+      )
+    ).rejects.toThrow('boom');
+    expect(controllers.size).toBe(0);
+  });
+
+  it('正常完成（无剩余调用）同样回收 abortController', async () => {
+    const { resume, controllers } = makeResumeWithDeps({
+      messages: [
+        {
+          role: 'assistant',
+          content: 'done',
+          tool_calls: [makeToolCall('c1')],
+        },
+      ],
+      completedToolCallIds: ['c1'],
+    });
+
+    await collect(
+      resume.resume('sess-resume-seam', 'ck-1') as AsyncGenerator<
+        unknown,
+        unknown,
+        unknown
+      >
+    );
+    expect(controllers.size).toBe(0);
   });
 });

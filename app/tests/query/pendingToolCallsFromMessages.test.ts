@@ -103,4 +103,37 @@ describe('extractPendingToolCallsFromMessages（F1）', () => {
     ).toEqual([]);
     expect(extractPendingToolCallsFromMessages([assistant([])])).toEqual([]);
   });
+
+  it('⑤ 兼容 TAOR 内部形状 {id,name,arguments}（不再读 tc.function.*）', () => {
+    // 2026-11-25 真机 `session_mww15fnr1f4e56775e`：历史消息里两种声明形状并存，
+    // 旧实现直接 `tc.function.name` ⇒ TypeError。
+    const messages = [
+      {
+        role: 'assistant',
+        content: '',
+        tool_calls: [
+          {
+            id: 'tc-internal-obj',
+            name: 'bash',
+            arguments: { command: 'echo hi' },
+          },
+          { id: 'tc-internal-str', name: 'grep', arguments: '{"pattern":"a"}' },
+        ],
+      },
+    ] as unknown as ChatMessage[];
+
+    const pending = extractPendingToolCallsFromMessages(messages);
+
+    expect(pending).toHaveLength(2);
+    expect(pending.find((p) => p.toolCallId === 'tc-internal-obj')).toEqual({
+      toolCallId: 'tc-internal-obj',
+      toolName: 'bash',
+      args: { command: 'echo hi' },
+    });
+    expect(pending.find((p) => p.toolCallId === 'tc-internal-str')).toEqual({
+      toolCallId: 'tc-internal-str',
+      toolName: 'grep',
+      args: { pattern: 'a' },
+    });
+  });
 });

@@ -56,6 +56,55 @@ export function mergeToolCallDeclarations(
   return out;
 }
 
+/**
+ * 把任意落盘/内存中的声明**归一**为 OpenAI 形状（`{id,type:'function',function:{name,arguments}}`）。
+ *
+ * 为什么需要（2026-11-25 真机 `session_mww15fnr1f4e56775e`）：TAOR 适配器把内部
+ * `{id,name,arguments}` 形状原样写入 `metadata.tool_calls`，而首轮/流式路径写的是 OpenAI 形状
+ * ⇒ 同一会话的消息文件里两种形状并存。续跑侧（`declaredToolCallsOf` →
+ * `rebuildRemainingToolCalls`）只认 `tc.function.arguments` ⇒ 命中内部形状时抛
+ * `TypeError: undefined is not an object`，审批后自动续跑失败。
+ *
+ * 归一只做**形状补齐**（不改语义）：`arguments` 统一字符串化，缺失字段补空串；
+ * 已是 OpenAI 形状的条目逐字保留（幂等）。
+ */
+export function normalizeToolCallDeclarations(
+  declarations: readonly unknown[] | undefined
+): ToolCallDeclaration[] {
+  if (!Array.isArray(declarations)) return [];
+  return declarations.map((raw) => {
+    const entry = (raw ?? {}) as Record<string, unknown>;
+    const fn =
+      entry['function'] && typeof entry['function'] === 'object'
+        ? (entry['function'] as Record<string, unknown>)
+        : undefined;
+    if (fn) {
+      return {
+        id: typeof entry['id'] === 'string' ? entry['id'] : '',
+        type: 'function',
+        function: {
+          name: typeof fn['name'] === 'string' ? fn['name'] : '',
+          arguments:
+            typeof fn['arguments'] === 'string'
+              ? fn['arguments']
+              : JSON.stringify(fn['arguments'] ?? {}),
+        },
+      };
+    }
+    return {
+      id: typeof entry['id'] === 'string' ? entry['id'] : '',
+      type: 'function',
+      function: {
+        name: typeof entry['name'] === 'string' ? entry['name'] : '',
+        arguments:
+          typeof entry['arguments'] === 'string'
+            ? entry['arguments']
+            : JSON.stringify(entry['arguments'] ?? {}),
+      },
+    };
+  });
+}
+
 /** provider 响应 → `metadata.tool_calls` 形态（arguments 字符串化） */
 export function toToolCallDeclarations(
   calls: readonly ResponseToolCallLike[]

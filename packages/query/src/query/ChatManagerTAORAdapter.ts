@@ -46,6 +46,53 @@ import {
 const logger = getLogger('query:chatManagerTAORAdapter');
 
 /**
+ * 统一 assistant 声明的**落盘形状**（2026-11-25 真机 `session_mww15fnr1f4e56775e`）。
+ *
+ * TAOR 循环内部的 `msg.tool_calls` 是 `{id,name,arguments}`（`ParsedToolCall` 形状），
+ * 而首轮/流式路径落盘的是 OpenAI `{id,type:'function',function:{name,arguments}}`。
+ * 原实现把内部形状原样写进 `metadata.tool_calls` ⇒ 同一会话的消息文件里两种形状并存，
+ * 续跑侧只认 `tc.function.arguments` ⇒ 审批后自动续跑抛 TypeError。
+ *
+ * 本函数只补形状、不改语义：`arguments` 统一字符串化，缺字段补空串；已是 OpenAI 形状的
+ * 条目**逐字保留**（幂等，避免二次改写）。
+ */
+export function toPersistedToolCallDeclarations(
+  calls: readonly unknown[]
+): Array<Record<string, unknown>> {
+  return calls.map((raw) => {
+    const entry = (raw ?? {}) as Record<string, unknown>;
+    const fn =
+      entry['function'] && typeof entry['function'] === 'object'
+        ? (entry['function'] as Record<string, unknown>)
+        : undefined;
+    if (fn) {
+      return {
+        id: typeof entry['id'] === 'string' ? entry['id'] : '',
+        type: 'function',
+        function: {
+          name: typeof fn['name'] === 'string' ? fn['name'] : '',
+          arguments:
+            typeof fn['arguments'] === 'string'
+              ? fn['arguments']
+              : JSON.stringify(fn['arguments'] ?? {}),
+        },
+      };
+    }
+    return {
+      id: typeof entry['id'] === 'string' ? entry['id'] : '',
+      type: 'function',
+      function: {
+        name: typeof entry['name'] === 'string' ? entry['name'] : '',
+        arguments:
+          typeof entry['arguments'] === 'string'
+            ? entry['arguments']
+            : JSON.stringify(entry['arguments'] ?? {}),
+      },
+    };
+  });
+}
+
+/**
  * 安全序列化（第三轮复查，对齐 ReActToolLoop 遗漏 3）：
  * ToolResult.result 类型为 unknown，工具可返回任意结构；循环引用/BigInt 会抛
  * TypeError → 被 executeTools 的 catch 误报"工具失败"并可能触发级联中止。
@@ -665,7 +712,16 @@ export function createChatManagerTAORDeps(
           // 无主，回放时被 `MessageProjector` 剥离，模型实际看不到这些工具输出。
           if (!visible && !hasDeclarations) continue;
           ctx.persistMessage(ctx.sessionId, visible, 'assistant', undefined, {
-            ...(hasDeclarations ? { tool_calls: msg.tool_calls } : {}),
+            // 2026-11-25：**统一落盘形状** —— TAOR 的 `msg.tool_calls` 是内部
+            // `{id,name,arguments}`，原样写入会让同一会话的 `metadata.tool_calls`
+            // 出现 OpenAI 形状/内部形状并存（续跑侧 `tc.function.arguments` 抛 TypeError）。
+            ...(hasDeclarations
+              ? {
+                  tool_calls: toPersistedToolCallDeclarations(
+                    msg.tool_calls ?? []
+                  ),
+                }
+              : {}),
           });
           persistedFingerprints.add(fp);
           persisted++;

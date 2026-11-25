@@ -44,14 +44,23 @@ export function extractPendingToolCallsFromMessages(
     const m = messages[i];
     if (m.role === 'user') break;
     if (m.role === 'assistant' && m.tool_calls) {
-      for (const tc of m.tool_calls) {
-        if (!answered.has(tc.id)) {
-          pending.push({
-            toolCallId: tc.id,
-            toolName: tc.function.name,
-            args: parseToolArgs(tc.function.arguments),
-          });
-        }
+      for (const raw of m.tool_calls) {
+        // 2026-11-25：兼容两种声明形状 —— OpenAI `{function:{name,arguments}}`
+        // 与 TAOR 内部 `{name,arguments}`（历史落盘可能两者并存）。
+        const tc = raw as unknown as {
+          id?: string;
+          function?: { name?: string; arguments?: unknown };
+          name?: string;
+          arguments?: unknown;
+        };
+        if (!tc.id || answered.has(tc.id)) continue;
+        const name = tc.function?.name ?? tc.name ?? '';
+        const rawArgs = tc.function ? tc.function.arguments : tc.arguments;
+        pending.push({
+          toolCallId: tc.id,
+          toolName: name,
+          args: typeof rawArgs === 'string' ? parseToolArgs(rawArgs) : rawArgs,
+        });
       }
     }
   }

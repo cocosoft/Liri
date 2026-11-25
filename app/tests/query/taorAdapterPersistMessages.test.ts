@@ -101,4 +101,39 @@ describe('TAOR persistMessages 的声明落盘契约', () => {
     expect(persisted).toHaveLength(1);
     expect(persisted[0].content).toBe('最终答案');
   });
+
+  it('TAOR 内部形状 {id,name,arguments} 落盘时归一为 OpenAI 形状', async () => {
+    // 2026-11-25 真机 `session_mww15fnr1f4e56775e`：内部形状原样落盘 ⇒ 续跑侧
+    // `tc.function.arguments` 抛 TypeError。落盘侧必须统一形状。
+    const { deps, persisted } = makeDeps();
+    await deps.persistMessages(
+      [
+        {
+          role: 'assistant',
+          content: '',
+          tool_calls: [
+            {
+              id: 'call_internal',
+              name: 'bash',
+              arguments: { command: 'echo hi' },
+            },
+          ],
+        } as unknown as ChatMessage,
+      ],
+      new AbortController().signal
+    );
+
+    expect(persisted).toHaveLength(1);
+    const declarations = persisted[0].metadata?.tool_calls as Array<
+      Record<string, unknown>
+    >;
+    expect(declarations).toHaveLength(1);
+    expect(declarations[0]['id']).toBe('call_internal');
+    expect(declarations[0]['type']).toBe('function');
+    expect(declarations[0]['name']).toBeUndefined();
+    expect(declarations[0]['function']).toEqual({
+      name: 'bash',
+      arguments: '{"command":"echo hi"}',
+    });
+  });
 });

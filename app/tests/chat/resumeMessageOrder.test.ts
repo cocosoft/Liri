@@ -9,6 +9,7 @@
  */
 import { describe, expect, it } from 'bun:test';
 import {
+  declaredToolCallsOf,
   dedupeToolResults,
   isReplayedToolResult,
   orderToolResultsAfterOwners,
@@ -235,5 +236,66 @@ describe('dedupeToolResults（N-15）', () => {
       { role: 'tool', content: '普通输出B' },
     ];
     expect(dedupeToolResults(msgs)).toBe(msgs);
+  });
+});
+
+/**
+ * 2026-11-25 真机 `session_mww15fnr1f4e56775e`：TAOR 落盘的声明是内部形状
+ * `{id,name,arguments}`，续跑侧读 `tc.function.arguments` ⇒ TypeError。
+ * `declaredToolCallsOf` 是声明取值的唯一入口，须在此归一。
+ */
+describe('declaredToolCallsOf：声明形状归一（2026-11-25）', () => {
+  it('内部形状 ⇒ 归一为 OpenAI 形状（arguments 字符串化）', () => {
+    const out = declaredToolCallsOf({
+      metadata: {
+        tool_calls: [
+          { id: 'c1', name: 'bash', arguments: { command: 'echo hi' } },
+        ],
+      },
+    });
+
+    expect(out).toEqual([
+      {
+        id: 'c1',
+        type: 'function',
+        function: { name: 'bash', arguments: '{"command":"echo hi"}' },
+      },
+    ]);
+  });
+
+  it('已是 OpenAI 形状 ⇒ 幂等保留', () => {
+    const out = declaredToolCallsOf({
+      metadata: {
+        tool_calls: [
+          {
+            id: 'c2',
+            type: 'function',
+            function: { name: 'grep', arguments: '{"pattern":"a"}' },
+          },
+        ],
+      },
+    });
+
+    expect(out).toEqual([
+      {
+        id: 'c2',
+        type: 'function',
+        function: { name: 'grep', arguments: '{"pattern":"a"}' },
+      },
+    ]);
+  });
+
+  it('顶层 tool_calls（事件派生消息）同样归一', () => {
+    const out = declaredToolCallsOf({
+      tool_calls: [
+        { id: 'c3', name: 'file_read', arguments: { file_path: 'a' } },
+      ],
+    });
+
+    expect(out?.[0]).toMatchObject({
+      id: 'c3',
+      type: 'function',
+      function: { name: 'file_read', arguments: '{"file_path":"a"}' },
+    });
   });
 });

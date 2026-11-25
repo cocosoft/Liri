@@ -146,3 +146,21 @@ export type {
   MemorySearchProvider,
   UnifiedSearchResult,
 } from './services/UnifiedSearchService';
+// P1-2 / P2-2（2026-11-25）：记忆检索统一实现（会话/团队/全局 + 高级检索）
+export {
+  searchMemory,
+  advancedSearchMemories,
+} from './services/MemorySearchService';
+export type {
+  MemorySearchScope,
+  MemorySearchHit,
+  MemorySearchOptions,
+  MemorySearchOutcome,
+  MemorySearchDeps,
+  SessionMemorySource,
+  GlobalMemorySource,
+  TeamMemorySource,
+  TranscriptEntryLike,
+  TranscriptSearcher,
+  AdvancedMemorySearchOptions,
+} from './services/MemorySearchService';

@@ -271,10 +271,16 @@ MMR 需查询向量与候选两两相似度（N² 次嵌入），仅在显式开
 （**消息写盘时刻的会话事件 seq**，不是"该条消息的精确事件 seq"）；内容压成 ≤160 字符单行。
 回退原因新增 `transcript-fallback` / `transcript-no-hits` / `transcript-unavailable` / `transcript-search-failed`。
 
-**未做（如实）**：
-- `MemoryTool`（`packages/tool-agent/.../memory/MemoryTool.ts`）走 `SearchTool.advancedSearch`
-  （tags / sortBy 等另一套能力），**未**并入本服务；
-- transcript 兜底目前只在 `recall_memory` 生效（MCP `memory_search` 无会话上下文，不涉及）。
+**下沉 infra（2026-11-25，P2-2 收口）**：唯一实现移入
+`packages/infra/src/memory/services/MemorySearchService.ts` —— `searchMemory`（会话/团队/全局）
+与 `advancedSearchMemories`（tags/type/日期/priority + createdAt|updatedAt 排序）同处一模块；
+`app/src/tools/memorySearchService.ts` 退化为**适配层**（只注入会话记忆与 transcript 兜底）。
+`recall_memory` 直接动态导入 infra（不再跨层动态引用 app）；`MemoryTool` 走
+`SearchToolImpl.advancedSearch` 委托同一实现，旧的"全量读盘 + 内存过滤"重复实现已删除。
+
+**如实边界**：
+- transcript 兜底目前只在 `recall_memory` 生效（MCP `memory_search` 无会话上下文，不涉及）；
+- `MemoryTool` / `MemoryGetTool` / `UnifiedSearchTool` 仍未注册进工具注册表（本次只收口实现，不改注册面）。
 
 ### 8.5 P2-1 Dreaming v2（Phase 3，进行中）
 
@@ -346,8 +352,7 @@ MMR 需查询向量与候选两两相似度（N² 次嵌入），仅在显式开
 **未做（需先定范围，非技术阻塞）**：
 - 规则笔记 schema 与「失败→理论→验证→规则」闭环的**自动提取侧调优**（已接线且默认关；开启后的精度/去重仍需真机观察）；
 - 团队记忆真实同步（服务端、鉴权、冲突消解、审计）；
-- 注入遵循度评测的**真机取数与基线**（任务已落地，需配模型跑 `--task=memory-injection-adherence`）；
-- `MemoryTool` 的 `advancedSearch`（tags/sortBy）并入统一检索服务。
+- 注入遵循度评测的**真机取数与基线**（任务已落地，需配模型跑 `--task=memory-injection-adherence`）。
 
 ---
 

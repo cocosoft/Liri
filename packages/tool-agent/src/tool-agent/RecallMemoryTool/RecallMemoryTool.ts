@@ -5,7 +5,7 @@
  * 对应三层对话响应架构优化中的"外脑不用当内脑"原则。
  *
  * P1-2（2026-11-25）：新增 `scope` / `type` 参数；**收集逻辑**收敛到
- * `app/src/tools/memorySearchService.ts#searchMemory`（MCP `memory_search` 共用同一实现），
+ * `@openliri/infra/memory#searchMemory`（infra 唯一实现；MCP `memory_search` 共用），
  * 本工具只负责参数归一与结果格式化。
  */
 
@@ -160,14 +160,11 @@ export class RecallMemoryTool {
         const typeFilter =
           typeof input.type === 'string' ? input.type.trim() : '';
         const requestedScope = normalizeScope(input.scope);
-        const sessionId =
-          (context as { sessionId?: string })?.sessionId || '';
+        const sessionId = (context as { sessionId?: string })?.sessionId || '';
 
         try {
-          // P1-2：统一检索服务（与 MCP `memory_search` 同一实现）
-          const { searchMemory } = await import(
-            '@modules/tools/memorySearchService.js'
-          );
+          // P1-2：统一检索服务（infra 唯一实现；与 MCP `memory_search` 共用）
+          const { searchMemory } = await import('@openliri/infra/memory');
           const { scope, hits, fallbackReasons } = await searchMemory(
             {
               scope: requestedScope,

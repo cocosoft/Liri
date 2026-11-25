@@ -1,5 +1,10 @@
 import type { Memory } from '@openliri/infra/memory/types/Memory';
 import { MemoryManagerImpl } from '@openliri/infra/memory/MemoryManager';
+import {
+  advancedSearchMemories,
+  type AdvancedMemorySearchOptions,
+  type MemorySearchDeps,
+} from '@openliri/infra/memory';
 
 /**
  * 搜索工具接口
@@ -20,35 +25,11 @@ export interface SearchTool {
 
 /**
  * 高级搜索选项
+ *
+ * P2-2（2026-11-25）：**下沉为 infra 唯一实现的选项**（`advancedSearchMemories`），
+ * 本文件不再自带过滤/排序逻辑。
  */
-export interface AdvancedSearchOptions {
-  // 搜索关键词
-  query?: string;
-
-  // 标签
-  tags?: string[];
-
-  // 记忆类型
-  type?: string;
-
-  // 开始时间
-  startDate?: Date;
-
-  // 结束时间
-  endDate?: Date;
-
-  // 优先级
-  priority?: string;
-
-  // 排序方式
-  sortBy?: 'createdAt' | 'updatedAt' | 'relevance';
-
-  // 排序方向
-  sortOrder?: 'asc' | 'desc';
-
-  // 限制返回数量
-  limit?: number;
-}
+export type AdvancedSearchOptions = AdvancedMemorySearchOptions;
 
 /**
  * 搜索工具实现
@@ -67,13 +48,18 @@ export class SearchToolImpl implements SearchTool {
     this.memoryManager = memoryManager;
   }
 
+  /** 复用注入的 manager 作为全局记忆端口（高级检索的唯一实现消费它） */
+  private deps(): MemorySearchDeps {
+    return { resolveGlobalMemory: async () => this.memoryManager };
+  }
+
   /**
    * 搜索记忆
    * @param query 搜索关键词
    * @returns 匹配的记忆列表
    */
   async search(query: string): Promise<Memory[]> {
-    return this.memoryManager.getRelevantMemories(query);
+    return advancedSearchMemories({ query, limit: 5 }, this.deps());
   }
 
   /**
@@ -82,10 +68,7 @@ export class SearchToolImpl implements SearchTool {
    * @returns 匹配的记忆列表
    */
   async searchByTag(tag: string): Promise<Memory[]> {
-    const allMemories = await this.memoryManager.getAllMemories();
-    return allMemories.filter(
-      (memory) => memory.metadata.tags && memory.metadata.tags.includes(tag)
-    );
+    return advancedSearchMemories({ tags: [tag] }, this.deps());
   }
 
   /**
@@ -94,88 +77,16 @@ export class SearchToolImpl implements SearchTool {
    * @returns 匹配的记忆列表
    */
   async searchByType(type: string): Promise<Memory[]> {
-    const allMemories = await this.memoryManager.getAllMemories();
-    return allMemories.filter((memory) => memory.metadata.type === type);
+    return advancedSearchMemories({ type }, this.deps());
   }
 
   /**
-   * 高级搜索
+   * 高级搜索（P2-2：委托 infra `advancedSearchMemories`，不再自带一套过滤/排序）
    * @param options 搜索选项
    * @returns 匹配的记忆列表
    */
   async advancedSearch(options: AdvancedSearchOptions): Promise<Memory[]> {
-    let memories = await this.memoryManager.getAllMemories();
-
-    // 应用过滤条件
-    if (options.query) {
-      const relevantMemories = await this.memoryManager.getRelevantMemories(
-        options.query,
-        100
-      );
-      const relevantIds = new Set(relevantMemories.map((m) => m.id));
-      memories = memories.filter((m) => relevantIds.has(m.id));
-    }
-
-    if (options.tags && options.tags.length > 0) {
-      memories = memories.filter(
-        (memory) =>
-          memory.metadata.tags &&
-          options.tags!.every((tag) => memory.metadata.tags!.includes(tag))
-      );
-    }
-
-    if (options.type) {
-      memories = memories.filter(
-        (memory) => memory.metadata.type === options.type
-      );
-    }
-
-    if (options.startDate) {
-      memories = memories.filter(
-        (memory) => memory.createdAt >= options.startDate!
-      );
-    }
-
-    if (options.endDate) {
-      memories = memories.filter(
-        (memory) => memory.createdAt <= options.endDate!
-      );
-    }
-
-    if (options.priority) {
-      memories = memories.filter(
-        (memory) => memory.metadata.priority === options.priority
-      );
-    }
-
-    // 应用排序
-    if (options.sortBy) {
-      memories.sort((a, b) => {
-        let comparison = 0;
-
-        switch (options.sortBy) {
-          case 'createdAt':
-            comparison = a.createdAt.getTime() - b.createdAt.getTime();
-            break;
-          case 'updatedAt':
-            comparison = a.updatedAt.getTime() - b.updatedAt.getTime();
-            break;
-          case 'relevance':
-            // 相关性排序需要更复杂的算法，这里简化处理
-            comparison = 0;
-            break;
-        }
-
-        return options.sortOrder === 'desc' ? -comparison : comparison;
-      });
-    }
-
-    // 应用限制
-    if (options.limit) {
-      memories = memories.slice(0, options.limit);
-    }
-
-    return memories;
+    return advancedSearchMemories(options, this.deps());
   }
 
   /**

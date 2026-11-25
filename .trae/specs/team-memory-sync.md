@@ -314,14 +314,15 @@ C6 与 C4 推侧（412/409 ⇒ 候选）随 2N-2 解决。**C7（墓碑）随 2N
 | **2N-1** | 拉取分页 + cursor 持久化（C3/C5 拉侧） | ✅ 已实现（2026-11-25）：`TeamMemorySyncStateStore`（新表 `team_memory_sync_state`）+ `cursor/limit` 分页；响应兼容 `{items,nextCursor,hasMore}` 与旧 `{memories}`；etag 落库 | cursor=10 ⇒ 只请求 `version>10`；重启从表续传；重复拉取幂等 | 清空表即可全量重拉 |
 | **2N-2** | 推送 `If-Match` + 409/412 ⇒ 冲突候选（C4/C6/C7 推侧） | ✅ 已实现（2026-11-25）：本地 `*.md` 读取（hash=etag）+ 上传 body `{content,contentHash,accessLevel}` + `If-Match`；412/409 ⇒ `conflicts.json`（`source:'network'`），状态 `CONFLICT`；成功新 etag 落库 | 412/409 ⇒ 候选落 `conflicts.json`；**本地/远端正文均不变**；密钥命中拒发；只尝试一次不重试 | 关开关即停；候选可人工放弃 |
 | **2N-3** | 墓碑处理（远端 `deletedAt` ⇒ 本地 `.trash` 归档） | ✅ 已实现（2026-11-25）：墓碑在 `compareMemories` **之前**摘除两侧条目（防 remote_only 反复下载 / local_only 复活）；本地 `<id>.md` 移到 `<localDir>/.trash/<id>.<ts>.md`；失败留 `<id>.deleted` 标记（下轮重试、期间不参与同步）。**顺带补全下载落盘**：`downloadMemory` 原只取 etag 属假成功，现按单条 GET 的 `content` 原子写入（缺正文 ⇒ `DOWNLOAD_CONTENT_MISSING` 报错）；远端 id 落盘前做路径安全校验（`UNSAFE_MEMORY_ID`） | 删除可同步；归档不物理删除；下载真实落盘；路径穿越被拒 | `.trash` 可还原 |
-| **2N-4** | 状态机/退避/审计接线（R08-002）+ 设置页状态 | `TeamMemorySyncService.ts` + `TeamMemoryPanel`（status 字段已具备） | `SYNCING` 单飞；429/5xx 退避上限 15min；每轮 4 类事件齐全 | 开关关 + 定时器停 |
-| **2N-5** | 集成测试（本机 `Bun.serve` mock 服务端） | `app/tests/memory/teamMemoryNetworkSync.test.ts` | 拉取→本地改→412→人工采纳→再推 全链通过；401/403/429 各一例 | 测试仅本地，无运行时影响 |
+| **2N-4** | 状态机/退避/审计接线（R08-002）+ 设置页状态 | ✅ 已实现（2026-11-25，除设置页）：`computeTeamMemorySyncRetryDelay`（1×/2×/4×，上限 15min）+ `isRetriableTeamMemorySyncError`（仅 429/5xx/网络错误；401/403 不重试）+ 退避定时器（`stop()`/手动 sync 清理）+ `getLastError()`；每轮结构化日志 + `sync-history.jsonl`。**顺带修冲突检测失效**：列表返回的 etag 只是"观测值"（`observedEtags`），不再覆盖"成功同步基线"（`etagCache`）——原实现把观测值当基线 ⇒ PUT 永远 If-Match 命中、静默覆盖他人修改；"内容已同步"时才采用远端 etag 作基线（人工采纳路径），成功同步后补存基线。**设置页状态未接**：旧 `/v1/memory/sync-status` 已 410，需新端点（另立） | `SYNCING` 单飞；429 触发 1× 退避；4 类事件齐全 | 开关关 + `stop()` 清定时器 |
+| **2N-5** | 集成测试（本机 `Bun.serve` mock 服务端） | ✅ 已实现（2026-11-25）：`app/tests/memory/teamMemoryNetworkSync.test.ts` —— 契约 §3.2 三端点 + If-Match/412；覆盖 拉取→本地改→412→人工采纳→再推成功 + 401/403/429 各一例 | 全链通过；三种鉴权/限流分支如实 ERROR | 测试仅本地，无运行时影响 |
 
 **本轮（2026-11-25）只落方案**：未新增端点、未改运行时；`serverUrl` 网络分支仍为未接线状态。
 
-> 进度（2026-11-25）：2N-0 / 2N-1 / 2N-2 / 2N-3 已实现（各自独立提交，默认关、未推送）；
-> 2N-4（状态机/退避/审计 + 设置页状态）与 2N-5（`Bun.serve` 集成测试）未做。
-> 2N-3 回归用例：`app/tests/memory/teamMemorySyncTombstone.test.ts`（墓碑归档/无本地文件/下载落盘/缺正文/路径穿越）。
+> 进度（2026-11-25）：2N-0 / 2N-1 / 2N-2 / 2N-3 / 2N-4 / 2N-5 已实现（各自独立提交，默认关、未推送）。
+> **2N-4 的"设置页状态"未接**（旧 `/v1/memory/sync-status` 为 410，需要新端点 + 客户端展示，另立一项）。
+> 2N-3 回归用例：`app/tests/memory/teamMemorySyncTombstone.test.ts`；2N-4：`teamMemorySyncBackoff.test.ts`；
+> 2N-5：`teamMemoryNetworkSync.test.ts`（`Bun.serve` mock 全链）。
 
 
 ---

@@ -16,8 +16,13 @@ import {
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { configManager } from '@openliri/infra/config';
 import { writeFileAtomic } from '@openliri/infra/utils/atomicFileWrite';
-import { TeamMemorySyncStateStore } from './TeamMemorySyncStateStore';
-import { upsertNetworkConflictCandidate } from './TeamMemorySharedDirSync';
+import {
+  TeamMemorySyncStateStore,
+} from './TeamMemorySyncStateStore';
+import {
+  appendTeamSyncHistory,
+  upsertNetworkConflictCandidate,
+} from './TeamMemorySharedDirSync';
 
 const logger = getLogger('memory:services:teamMemorySyncService');
 
@@ -148,6 +153,8 @@ export class TeamMemorySyncConflictError extends Error {
 const TEAM_SYNC_PAGE_SIZE = 100;
 /** 分页保护：单次同步最多翻页数（防服务端游标异常导致死循环） */
 const MAX_PAGES = 50;
+/** 退避上限（契约 §3.7：1×/2×/4×，上限 15 分钟） */
+const MAX_RETRY_BACKOFF = 15 * 60 * 1000;
 
 /**
  * 团队记忆同步器配置
@@ -228,6 +235,35 @@ const DEFAULT_CONFIG: TeamMemorySyncConfig = {
 };
 
 /**
+ * 该错误是否值得退避重试（契约 §3.4/§3.7）。
+ *
+ * 仅 `429` / `5xx` / 网络错误（fetch 抛错、超时）重试；其余 4xx（401/403/428…）
+ * 属"重试也不会好"的授权/契约问题 ⇒ 不做自动重试。
+ */
+export function isRetriableTeamMemorySyncError(error: unknown): boolean {
+  if (error instanceof AppError) {
+    return error.code === 'RATE_LIMITED' || error.code === 'SERVER_ERROR';
+  }
+  return true;
+}
+
+/**
+ * 退避间隔（契约 §3.7）：失败第 1 次 = 1×同步间隔，第 2 次 = 2×，第 3 次及以后 = 4×；
+ * 上限 15 分钟。
+ */
+export function computeTeamMemorySyncRetryDelay(
+  consecutiveFailures: number,
+  intervalMs: number
+): number {
+  const attempt = Math.min(Math.max(1, Math.floor(consecutiveFailures)), 3);
+  const base =
+    Number.isFinite(intervalMs) && intervalMs > 0
+      ? intervalMs
+      : DEFAULT_CONFIG.syncInterval;
+  return Math.min(base * 2 ** (attempt - 1), MAX_RETRY_BACKOFF);
+}
+
+/**
  * 团队记忆同步器
  */
 export class TeamMemorySyncService {
@@ -235,9 +271,23 @@ export class TeamMemorySyncService {
   private status: SyncStatus = SyncStatus.IDLE;
   private secretScanner: MemorySecretScanner;
   private etagCache: Map<string, string> = new Map();
+  /**
+   * 本页列表**观测到**的远端 etag（2N-4）。
+   * 与 `etagCache`（**成功同步基线**）严格区分：观测值只用于"从未同步过的条目"
+   * 首次推送的 `If-Match`，绝不覆盖已有基线（否则冲突检测失效）。
+   */
+  private observedEtags: Map<string, string> = new Map();
   private memoryStates: Map<string, MemorySyncState> = new Map();
   private syncTimer: NodeJS.Timeout | null = null;
   private lastSyncTime: number = 0;
+  /** 退避重试定时器（Phase 2N-4；与周期定时器互不替代） */
+  private retryTimer: NodeJS.Timeout | null = null;
+  /** 连续失败次数（成功清零；用于 1×/2×/4× 退避） */
+  private consecutiveFailures = 0;
+  /** 最近一次失败原因（ERROR 状态保留，供诊断/设置页读取） */
+  private lastError: string | null = null;
+  /** 本轮失败是否属可重试（429/5xx/网络错误） */
+  private lastFailureRetriable = false;
   /**
    * Bearer 令牌（Phase 2N-0，2026-11-25）：由 app 侧从 `credentials.json` 注入。
    * **不放进 `TeamMemorySyncConfig`** —— 避免 `getConfig()`/日志意外带出明文。
@@ -294,6 +344,10 @@ export class TeamMemorySyncService {
       clearInterval(this.syncTimer);
       this.syncTimer = null;
     }
+    if (this.retryTimer) {
+      clearTimeout(this.retryTimer);
+      this.retryTimer = null;
+    }
     logger.info('TeamMemorySyncService stopped');
   }
 
@@ -334,6 +388,12 @@ export class TeamMemorySyncService {
     }
 
     const startTime = Date.now();
+    // Phase 2N-4：新一轮开始 ⇒ 取消待执行的退避重试、重置本轮可重试标记
+    if (this.retryTimer) {
+      clearTimeout(this.retryTimer);
+      this.retryTimer = null;
+    }
+    this.lastFailureRetriable = false;
     this.status = SyncStatus.SYNCING;
     this.notifyListeners(SyncStatus.SYNCING);
 
@@ -440,6 +500,10 @@ export class TeamMemorySyncService {
             continue;
           }
           result.errors.push(`Upload failed for ${task.memoryId}: ${error}`);
+          // Phase 2N-4：429/5xx/网络错误 ⇒ 本轮结束后按退避重试
+          if (isRetriableTeamMemorySyncError(error)) {
+            this.lastFailureRetriable = true;
+          }
         }
       }
 
@@ -450,6 +514,9 @@ export class TeamMemorySyncService {
           result.downloaded++;
         } catch (error) {
           result.errors.push(`Download failed for ${task.memoryId}: ${error}`);
+          if (isRetriableTeamMemorySyncError(error)) {
+            this.lastFailureRetriable = true;
+          }
         }
       }
 
@@ -466,6 +533,8 @@ export class TeamMemorySyncService {
       result.success = false;
       result.errors.push(`Sync failed: ${error}`);
       this.status = SyncStatus.ERROR;
+      // Phase 2N-4：只有 429/5xx/网络错误才值得退避重试
+      this.lastFailureRetriable = isRetriableTeamMemorySyncError(error);
       // Phase 2N-1：失败原因落库（保留既有 cursor/etag，便于下一轮续传）
       try {
         await this.stateStore.saveError(this.config.teamId, String(error));
@@ -479,9 +548,96 @@ export class TeamMemorySyncService {
 
     result.duration = Date.now() - startTime;
     this.lastSyncTime = Date.now();
+
+    // ── Phase 2N-4：审计（R08-002）—— 每轮一条结构化日志 + `sync-history.jsonl` 留痕 ──
+    logger.info('团队记忆同步完成', {
+      teamId: this.config.teamId,
+      status: this.status,
+      uploaded: result.uploaded,
+      downloaded: result.downloaded,
+      skipped: result.skipped,
+      archived: result.archived,
+      conflicts: result.conflicts.length,
+      errors: result.errors.length,
+      durationMs: result.duration,
+    });
+    try {
+      await appendTeamSyncHistory(this.config.localDir, {
+        pulled: result.downloaded,
+        pushed: result.uploaded,
+        pullConflicts: 0,
+        pushConflicts: result.conflicts.length,
+        rejectedSecrets: 0,
+        errors: result.errors.length,
+      });
+    } catch (error) {
+      await handleError(error, {
+        module: 'memory:services:teamSync',
+        action: 'append_sync_history',
+      });
+    }
+
+    // 失败 ⇒ 保留 lastError 并按退避安排重试（成功清零；不可重试错误不自动重试）
+    if (result.success) {
+      this.consecutiveFailures = 0;
+      this.lastError = null;
+    } else {
+      this.consecutiveFailures += 1;
+      this.lastError = result.errors[0] ?? 'unknown sync error';
+      this.scheduleRetry();
+    }
+
+    // 2N-4：把本轮"成功下载/推送/已同步"得到的基线 etag 一并落库
+    // （`fetchRemoteMemories` 里的 saveProgress 早于下载，下载得到的基线需要在这里补存）
+    try {
+      await this.stateStore.saveEtags(
+        this.config.teamId,
+        Object.fromEntries(this.etagCache)
+      );
+    } catch (error) {
+      await handleError(error, {
+        module: 'memory:services:teamSync',
+        action: 'save_etags_after_sync',
+      });
+    }
+
     this.notifyListeners(this.status, result);
 
     return result;
+  }
+
+  /**
+   * 安排一次退避重试（Phase 2N-4）。
+   *
+   * 仅当本轮失败属 429/5xx/网络错误；跳过的条件：
+   * - 已有待执行的重试（单飞）；
+   * - 不可重试（401/403/428/412…）—— 重试也不会好，等下一个周期。
+   */
+  private scheduleRetry(): void {
+    if (this.retryTimer || !this.lastFailureRetriable) return;
+    const delay = computeTeamMemorySyncRetryDelay(
+      this.consecutiveFailures,
+      this.config.syncInterval
+    );
+    logger.info('团队记忆同步失败，安排退避重试', {
+      failures: this.consecutiveFailures,
+      delayMs: delay,
+    });
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null;
+      this.sync().catch((error) => {
+        void handleError(error, {
+          module: 'memory:sync',
+          action: 'retry_sync',
+        });
+      });
+    }, delay);
+    this.retryTimer.unref?.();
+  }
+
+  /** 最近一次失败原因（无失败 ⇒ null；供诊断/设置页读取） */
+  getLastError(): string | null {
+    return this.lastError;
   }
 
   /**
@@ -620,8 +776,11 @@ export class TeamMemorySyncService {
         for (const entry of entries) {
           if (!entry?.id) continue;
           memories.set(entry.id, entry);
-          const etag = entry.metadata?.etag ?? entry.etag;
-          if (etag) this.etagCache.set(entry.id, etag);
+          // 2026-11-25（2N-4）：列表返回的 etag 只记到 `observedEtags`，**不**刷新基线
+          // `etagCache` —— 把"当前远端版本"当基线会让随后 PUT 永远 If-Match 命中，
+          // 冲突检测失效（静默覆盖他人修改）。基线只来自"成功下载/推送"或"内容已同步"。
+          const observed = entry.metadata?.etag ?? entry.etag;
+          if (observed) this.observedEtags.set(entry.id, observed);
           const version = Number(entry.version ?? 0);
           if (Number.isFinite(version) && version > maxVersion) {
             maxVersion = version;
@@ -696,6 +855,10 @@ export class TeamMemorySyncService {
           : local.etag === remote.metadata.etag;
         if (sameContent) {
           state.status = 'synced';
+          // 内容已一致 ⇒ 采用远端 etag 作为下一次推送的 `If-Match` 基线
+          // （人工采纳远端后，再改再推才能成功；内容相同 ⇒ 采用基线不会丢数据）
+          const remoteEtag = remote.metadata?.etag ?? remote.etag;
+          if (remoteEtag) this.etagCache.set(memoryId, remoteEtag);
         } else if (
           local.modified > new Date(remote.metadata.modifiedAt).getTime()
         ) {
@@ -844,7 +1007,9 @@ export class TeamMemorySyncService {
     }
 
     const url = `${this.config.serverUrl}${this.config.apiPrefix}/${this.config.teamId}/memories/${memoryId}`;
-    const etag = this.etagCache.get(memoryId);
+    // 基线优先；从未同步过（无基线）时退回"本次列表观测到"的 etag（首次创建可缺省）
+    const etag =
+      this.etagCache.get(memoryId) ?? this.observedEtags.get(memoryId);
 
     const headers = this.buildHeaders({
       'Content-Type': 'application/json',
@@ -872,6 +1037,10 @@ export class TeamMemorySyncService {
       const code = classifyTeamMemoryHttpStatus(response.status);
       if (code === 'PRECONDITION_FAILED' || code === 'CONFLICT') {
         const current = await this.readRemoteCurrent(response);
+        // 2026-11-25（2N-4）：**故意不**在 412 时刷新 `etagCache` 基线 ——
+        // 否则下一个自动周期会把本地直接覆盖远端（违背 manual"不自动覆盖"裁定）。
+        // 人工采纳路径：本地内容改成与远端一致 ⇒ 下轮 `compareMemories` 判 `synced` 并
+        // 采用远端 etag 作基线 ⇒ 再改再推即可成功。
         throw new TeamMemorySyncConflictError(
           memoryId,
           content,
@@ -887,6 +1056,7 @@ export class TeamMemorySyncService {
     const newEtag = response.headers.get('ETag');
     if (newEtag) {
       this.etagCache.set(memoryId, newEtag);
+      this.observedEtags.set(memoryId, newEtag);
       // Phase 2N-2：etag 落库（重启后仍能作为 `If-Match` 基线）
       try {
         await this.stateStore.saveEtags(
@@ -905,10 +1075,14 @@ export class TeamMemorySyncService {
   /** 读取 412/409 响应里的远端当前记录（缺失/不可解析 ⇒ null） */
   private async readRemoteCurrent(
     response: Response
-  ): Promise<{ content?: string; contentHash?: string } | null> {
+  ): Promise<{
+    content?: string;
+    contentHash?: string;
+    etag?: string;
+  } | null> {
     try {
       const data = (await response.json()) as {
-        current?: { content?: string; contentHash?: string };
+        current?: { content?: string; contentHash?: string; etag?: string };
       };
       return data?.current ?? null;
     } catch {
@@ -987,6 +1161,7 @@ export class TeamMemorySyncService {
     const newEtag = response.headers.get('ETag') || data.etag || data.metadata?.etag;
     if (newEtag) {
       this.etagCache.set(memoryId, newEtag);
+      this.observedEtags.set(memoryId, newEtag);
     }
   }
 
@@ -1196,6 +1371,7 @@ export class TeamMemorySyncService {
    */
   async fullSync(): Promise<SyncResult> {
     this.etagCache.clear();
+    this.observedEtags.clear();
     this.memoryStates.clear();
     return this.sync();
   }

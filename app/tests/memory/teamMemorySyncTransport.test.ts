@@ -5,6 +5,9 @@
  * 覆盖：路径前缀（apiPrefix）· Bearer 头 · 401/403/429 分类上抛（fail-closed，不再吞成"空表"）。
  */
 import { afterEach, describe, expect, it } from 'bun:test';
+import { mkdtempSync, rmSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import {
   classifyTeamMemoryHttpStatus,
   SyncStatus,
@@ -12,6 +15,7 @@ import {
 } from '@openliri/infra/memory/services/TeamMemorySyncService';
 
 const originalFetch = globalThis.fetch;
+const createdDirs: string[] = [];
 
 interface CapturedRequest {
   url: string;
@@ -42,12 +46,25 @@ function installFetch(
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
+  while (createdDirs.length > 0) {
+    const dir = createdDirs.pop();
+    if (!dir) continue;
+    try {
+      rmSync(dir, { recursive: true, force: true });
+    } catch {
+      // 清理失败不影响断言
+    }
+  }
 });
 
 function makeService(apiPrefix?: string): TeamMemorySyncService {
+  // Phase 2N-4：审计会写 `sync-history.jsonl` ⇒ 必须给临时目录，不得写进用户数据目录
+  const localDir = mkdtempSync(join(tmpdir(), 'team-sync-transport-'));
+  createdDirs.push(localDir);
   return new TeamMemorySyncService({
     serverUrl: 'http://srv.test',
     teamId: 'team-a',
+    localDir,
     ...(apiPrefix ? { apiPrefix } : {}),
   });
 }

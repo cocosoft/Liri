@@ -48,19 +48,25 @@ interface ListCall {
   limit: string | null;
 }
 
-/** 列表接口按 cursor 返回两页；单条接口返回固定条目 */
+/** 列表接口按 cursor 返回两页；单条接口按 id 返回对应 etag（下载后成为基线） */
 function installPagingFetch(): ListCall[] {
   const calls: ListCall[] = [];
   globalThis.fetch = (async (input: string | URL | Request) => {
     const url = new URL(typeof input === 'string' ? input : String(input));
     const isList = url.pathname.endsWith('/memories');
     if (!isList) {
+      // 2N-4 起基线 etag 来自"成功下载"的响应 ⇒ 单条接口按 id 回对应 etag
+      const id = decodeURIComponent(url.pathname.split('/').pop() ?? '');
+      const etag = id === 'b' ? 'e2' : 'e1';
       return new Response(
         JSON.stringify({
-          content: 'single',
-          metadata: { createdAt: '', modifiedAt: '', etag: 'e1' },
+          content: id === 'b' ? 'B' : 'A',
+          metadata: { createdAt: '', modifiedAt: '', etag },
         }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', ETag: etag },
+        }
       );
     }
     const cursor = url.searchParams.get('cursor');

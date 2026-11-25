@@ -592,6 +592,49 @@ describe('团队记忆网络版 2N-5 全链（Bun.serve mock）', () => {
     expect(memories.get('net-d1')?.deletedAt).toBeTruthy();
   });
 
+  it('冲突自然消解 ⇒ 网络候选被清理，文件候选不受影响（2N-18）', async () => {
+    const { baseUrl, putRemote } = startServer();
+    const localDir = makeDir('team-net-local-');
+    putRemote('net-m1', 'REMOTE-V1');
+    const service = makeService(baseUrl, localDir, 'tok');
+    await service.sync();
+
+    // 制造 412 ⇒ 网络候选
+    writeFileSync(join(localDir, 'net-m1.md'), 'LOCAL-EDIT\n', 'utf-8');
+    putRemote('net-m1', 'REMOTE-V2');
+    const conflicted = await service.sync();
+    expect(conflicted.conflicts).toContain('net-m1');
+
+    // 同文件里再放一条文件型候选：清理只能删网络候选
+    const file = JSON.parse(
+      readFileSync(join(localDir, 'conflicts.json'), 'utf-8')
+    ) as { candidates: Array<Record<string, unknown>> };
+    file.candidates.push({
+      id: 'net-file',
+      directions: ['pull'],
+      localFile: join(localDir, 'net-file.md'),
+      sharedFile: join(localDir, 'net-file.md'),
+      localHash: 'a',
+      sharedHash: 'b',
+    });
+    writeFileSync(
+      join(localDir, 'conflicts.json'),
+      JSON.stringify({ ...file, total: file.candidates.length }, null, 2),
+      'utf-8'
+    );
+
+    // 本地改成与远端一致 ⇒ 下一轮判 synced（冲突已自然消解）
+    writeFileSync(join(localDir, 'net-m1.md'), 'REMOTE-V2\n', 'utf-8');
+    const next = await service.sync();
+    expect(next.conflicts).toEqual([]);
+
+    const after = JSON.parse(
+      readFileSync(join(localDir, 'conflicts.json'), 'utf-8')
+    ) as { total: number; candidates: Array<{ id: string; source?: string }> };
+    expect(after.candidates.map((c) => c.id)).toEqual(['net-file']);
+    expect(after.total).toBe(1);
+  });
+
   it('同步进行中调用 fullSync ⇒ 不清状态、直接拒绝（2N-17）', async () => {
     const { baseUrl, putRemote } = startServer({ listDelayMs: 200 });
     const localDir = makeDir('team-net-local-');

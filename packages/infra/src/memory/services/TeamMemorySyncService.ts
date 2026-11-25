@@ -21,6 +21,7 @@ import {
 } from './TeamMemorySyncStateStore';
 import {
   appendTeamSyncHistory,
+  pruneNetworkConflictCandidates,
   pruneTeamConflictCandidate,
   readTeamConflictFile,
   upsertNetworkConflictCandidate,
@@ -594,6 +595,28 @@ export class TeamMemorySyncService {
       }
 
       result.skipped = syncTasks.filter((t) => t.direction === 'skip').length;
+
+      // 2N-18：本轮已判"内容一致"的条目若还挂在网络候选里 ⇒ 清理（冲突已自然消解）。
+      // 只清网络候选；文件型候选由共享目录版每轮重建/人工取舍管理。
+      const resolvedIds = Array.from(this.memoryStates.values())
+        .filter((state) => state.status === 'synced')
+        .map((state) => state.memoryId);
+      if (resolvedIds.length > 0) {
+        try {
+          const pruned = await pruneNetworkConflictCandidates(
+            this.config.localDir,
+            resolvedIds
+          );
+          if (pruned > 0) {
+            logger.info('团队记忆已消解的网络候选已清理', { pruned });
+          }
+        } catch (error) {
+          await handleError(error, {
+            module: 'memory:services:teamSync',
+            action: 'prune_resolved_candidates',
+          });
+        }
+      }
 
       result.success = result.errors.length === 0;
       this.status = !result.success

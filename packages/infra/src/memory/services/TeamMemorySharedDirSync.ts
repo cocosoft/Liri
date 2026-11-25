@@ -443,6 +443,45 @@ export async function pruneTeamConflictCandidate(
 }
 
 /**
+ * 批量清理**网络候选**（Phase 2N-18，2026-11-25）。
+ *
+ * 场景：推送 412 生成候选后，冲突可能**自然消解**（例如用户把本地改成与远端一致，
+ * 或他人已采纳本地内容）。原实现只在"人工采纳"时移除候选 ⇒ 已消解的冲突永远挂在
+ * 审阅列表里，误点「保留本地」还会把旧内容推上去。
+ *
+ * 只删 `source:'network'` 的条目 —— 文件型候选由共享目录版每轮重建/取舍管理。
+ * @returns 实际移除条数（无变化不写盘）
+ */
+export async function pruneNetworkConflictCandidates(
+  teamDir: string,
+  ids: string[]
+): Promise<number> {
+  if (ids.length === 0) return 0;
+  const existing = await readTeamConflictFile(teamDir);
+  const candidates = existing.candidates ?? [];
+  const target = new Set(ids);
+  const remaining = candidates.filter(
+    (candidate) =>
+      !(candidate.source === 'network' && target.has(candidate.id))
+  );
+  const removed = candidates.length - remaining.length;
+  if (removed === 0) return 0;
+  await writeFileAtomic(
+    join(teamDir, 'conflicts.json'),
+    JSON.stringify(
+      {
+        generatedAt: existing.generatedAt,
+        total: remaining.length,
+        candidates: remaining,
+      },
+      null,
+      2
+    ) + '\n'
+  );
+  return removed;
+}
+
+/**
  * 取舍成功后把该候选从 `conflicts.json` 移除。
  *
  * 缺这一步时审阅列表（CLI / 设置页）会继续展示已处理项，直到下一次同步重建文件 ——

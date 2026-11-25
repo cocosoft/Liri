@@ -13,6 +13,8 @@ import {
 } from '@openliri/service/services/extractMemories';
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
+import { createMemoryMetadata } from '@openliri/infra/memory/types/MemoryMetadata';
+import { configManager } from '@openliri/infra/config';
 
 const logger = getLogger('MemoryExtractionHook');
 
@@ -253,17 +255,71 @@ async function saveToMemory(
   }
 
   try {
-    const memory = {
-      type: 'tool_use',
-      toolName: block.name,
-      input: block.input,
-      sessionId,
-      timestamp: Date.now(),
-    };
+    // P2-2 修复（2026-11-25）：原实现传 `{type:'tool_use', toolName, input, …}`，
+    // 与 `createMemory({content, metadata})` 契约不符 ⇒ 接线后必然在 saveMemory 处失败。
+    const input = (block?.input ?? {}) as Record<string, unknown>;
+    const content =
+      typeof input.content === 'string' && input.content.trim()
+        ? input.content
+        : JSON.stringify(input);
+    const memoryType = typeof input.type === 'string' ? input.type : 'tool_use';
 
-    await memoryManager.createMemory(memory);
+    const metadata = createMemoryMetadata({
+      name:
+        typeof input.title === 'string' && input.title.trim()
+          ? input.title
+          : content.slice(0, 40),
+      description: '从对话中自动提取',
+      type: memoryType,
+      tags: ['auto-extracted'],
+      sessionId,
+      importance:
+        typeof input.confidence === 'number' ? input.confidence : undefined,
+    });
+
+    await memoryManager.createMemory({ content, metadata });
   } catch (error) {
     logger.error('Failed to save memory:', { error });
     void handleError(error, { module: 'hooks:memory', action: 'saveToMemory' });
+  }
+}
+
+/**
+ * 轮末自动提取记忆（P2-2 接线，2026-11-25）。
+ *
+ * 门禁：配置 `memory.autoExtract.enabled`（**默认 false**）—— 默认不改变既有行为；
+ * 开启后每轮结束按文本信号提取（`ExtractMemories` 正则提取器）并写入长期记忆。
+ *
+ * 如实边界：输入只有用户/助手文本（不含 `tool_use` 块）⇒ 只走文本信号提取，
+ * 工具块提取分支需要完整消息体，当前调用点拿不到。
+ * 失败只记日志（自动提取不阻断对话）。
+ */
+export async function maybeExtractTurnMemories(
+  input: { userContent: string; assistantContent: string; sessionId: string },
+  deps?: { enabled?: boolean; memoryManager?: any }
+): Promise<void> {
+  const enabled =
+    deps?.enabled ??
+    configManager.getValue<boolean>('memory.autoExtract.enabled', false) ===
+      true;
+  if (!enabled) return;
+
+  try {
+    const memoryManager =
+      deps?.memoryManager ??
+      (await import('@openliri/infra/memory')).getMemoryManager();
+    const hook = createMemoryExtractionHook(memoryManager);
+    await hook({
+      messages: [
+        { role: 'user', content: input.userContent },
+        { role: 'assistant', content: input.assistantContent },
+      ],
+      toolUseContext: { sessionId: input.sessionId },
+    } as unknown as PostSamplingHookContext);
+  } catch (error) {
+    await handleError(error, {
+      module: 'hooks:memory',
+      action: 'maybeExtractTurnMemories',
+    });
   }
 }

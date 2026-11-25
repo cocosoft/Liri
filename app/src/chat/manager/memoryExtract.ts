@@ -33,6 +33,24 @@ export async function extractMemoryFromChat(
   assistantContent: string,
   sessionId: string
 ): Promise<void> {
+  // P2-2（2026-11-25）：轮末自动提取记忆（默认关闭，`memory.autoExtract.enabled` 开启）。
+  // 懒加载 hooks 出口避免 chat↔hooks 循环依赖；fire-and-forget，失败只记日志、不阻断对话收尾。
+  void (async () => {
+    try {
+      const { maybeExtractTurnMemories } = await import('@modules/hooks');
+      await maybeExtractTurnMemories({
+        userContent,
+        assistantContent,
+        sessionId,
+      });
+    } catch (err) {
+      await handleError(err, {
+        module: 'chat:manager',
+        action: 'autoExtractMemories',
+      });
+    }
+  })();
+
   try {
     const { getMemoryManager } = await import('@openliri/infra/memory');
     const mm = getMemoryManager();

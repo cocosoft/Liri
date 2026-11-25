@@ -107,4 +107,6 @@ export { ToolHookManager } from './managers/ToolHookManager';
 export { PostSamplingHookManager } from './managers/PostSamplingHookManager';
 export { createPostSamplingHookManager } from './managers/PostSamplingHookManager';
 export { createPostCallSummaryHook } from './postSampling/PostCallSummaryHook';
+// P2-2（2026-11-25）：轮末自动提取入口（默认关闭，`memory.autoExtract.enabled` 开启）
+export { maybeExtractTurnMemories } from './postSampling/MemoryExtractionHook';
 export { initHooksCommand } from './cli/hooks';

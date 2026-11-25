@@ -19,8 +19,19 @@ interface CacheEntry {
   timestamp: number;
 }
 
-/** 默认缓存 TTL：60 秒 */
-const DAILY_COST_CACHE_TTL_MS = 60_000;
+/**
+ * 缓存 TTL（**安全网**，不是新鲜度来源）。
+ *
+ * 新鲜度由写路径保证：`cost/index.ts` 的 `COST_RECORDED` 订阅者在落库后立即
+ * `getDailyCostCache().invalidate()` ⇒ 有新成本就一定重算。
+ *
+ * 2026-11-26（真机 263k 行 / 23.5 万次请求）：该聚合走覆盖索引仍要扫全部 `owner_key`
+ * 行并建临时 B-Tree，实测 **210–240ms 同步阻塞事件循环**；前端 Footer 每 5s 轮询
+ * `/v1/usage/cost/summary`，旧 TTL=60s ⇒ 空闲时也**每分钟**触发一次全量扫描
+ * （日志 `sqlite3:慢查询 all` 每分钟一条）。既然写路径已精确失效，TTL 只需兜底
+ * 绕过失效的写入面 ⇒ 放宽到 5 分钟（空闲扫描降 5 倍，数据最多滞后一个 TTL）。
+ */
+const DAILY_COST_CACHE_TTL_MS = 5 * 60_000;
 
 class DailyCostCache {
   private cache: CacheEntry | null = null;

@@ -146,13 +146,8 @@ function collectMatchedRules(
     if (rule && !out.some((r) => r.id === rule.id)) out.push(rule);
   };
 
-  if (mode === 'auto') {
-    push(deps.ruleManager.getDenyRuleForTool(toolName, ruleContext));
-    push(deps.ruleManager.getAskRuleForTool(toolName, ruleContext));
-    push(deps.ruleManager.toolAlwaysAllowedRule(toolName, ruleContext));
-    return out;
-  }
-
+  // 2026-11-25：auto 档与 default 档**同序**（工具级 → call 级；deny → ask → allow）——
+  // `handleAuto` 已补 call 级规则，模拟若仍只收工具级会让"命中规则"一栏与真实判定不一致。
   for (const behavior of [
     PermissionBehavior.DENY,
     PermissionBehavior.ASK,

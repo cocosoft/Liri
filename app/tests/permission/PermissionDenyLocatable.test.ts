@@ -37,8 +37,9 @@ describe('PermissionManager 规则拒绝（LRO-09 步骤 2）', () => {
   it('所有 deny 出口统一走 `denyByRule`（不允许再各自拼文案）', () => {
     expect(DENY).toContain('export function denyByRule(');
     const calls = HANDLERS.match(/denyByRule\(/g) ?? [];
-    // 7 处调用（default 2 + auto 1 + dontAsk 2 + plan 2，2026-11-11 补齐档位等价性）
-    expect(calls.length).toBe(7);
+    // 8 处调用（default 2 + auto 2 + dontAsk 2 + plan 2）
+    // 2026-11-25：auto 档补 call 级 deny（内容级规则与 default 档对齐）
+    expect(calls.length).toBe(8);
     // 不允许再出现旧的裸构造（只带 source、不带 ruleId）—— 三个实现文件与本体逐一检查
     for (const src of [DENY, HANDLERS, SCOPE, MANAGER]) {
       expect(src).not.toContain(

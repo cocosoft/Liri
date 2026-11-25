@@ -58,6 +58,8 @@ function makeDeps(
       getDenyRuleForTool: () => undefined,
       getAskRuleForTool: () => undefined,
       toolAlwaysAllowedRule: () => undefined,
+      // 2026-11-25：auto 档新增 call 级规则查询（内容级 deny / ask / allow）
+      getMatchingRule: () => undefined,
     },
     denialTracker: {
       trackSuccess: () => {},

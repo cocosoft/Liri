@@ -503,9 +503,47 @@ export interface ModeHandlerDeps {
       if (cmdDecision) return cmdDecision;
     }
 
+    // 2026-11-25（真机 `cargo` 每命令一卡）：**call 级规则在 auto 档同样生效**。
+    //
+    // 原实现 auto 档只查**工具级**规则（`toolMatchesRule` 明确排除 `contentPattern`）⇒
+    // 用户在设置页/审批卡加的内容级 allow（如 `^cargo build.*`）在 auto 档**静默失效**，
+    // 命令仍被分类器判"未收录 ⇒ ask"（实测 `cargo build` / `cargo test` 每条都弹卡）。
+    // 与 `handleDefault` 保持同一顺序（deny 先于一切 ask/allow，见 LRO-D1），
+    // 指纹摘要与审批落盘同源。
+    const approvalFingerprint = hashApprovalFingerprint(
+      resolveApprovalFingerprint(toolOrName, input)
+    );
+    const matchOptions = { fingerprint: approvalFingerprint };
+
+    const matchingDenyRule = deps.ruleManager.getMatchingRule(
+      toolName,
+      input,
+      PermissionBehavior.DENY,
+      ruleContext,
+      matchOptions
+    );
+    if (matchingDenyRule) {
+      deps.denialTracker.trackDenial(toolName, context.sessionId);
+      return denyByRule(toolName, matchingDenyRule, approvalFingerprint);
+    }
+
     const askRule = deps.ruleManager.getAskRuleForTool(toolName, ruleContext);
     if (askRule) {
       return createAskDecision(`Asked by rule from ${askRule.source}`, askRule);
+    }
+
+    const matchingAskRule = deps.ruleManager.getMatchingRule(
+      toolName,
+      input,
+      PermissionBehavior.ASK,
+      ruleContext,
+      matchOptions
+    );
+    if (matchingAskRule) {
+      return createAskDecision(
+        `Asked by rule from ${matchingAskRule.source}`,
+        matchingAskRule
+      );
     }
 
     // RBAC ask：排在工具级 ask 之后、allow 之前（ask 不越过 allow）
@@ -527,6 +565,23 @@ export interface ModeHandlerDeps {
       return createAllowDecision(
         `Allowed by rule from ${allowRule.source}`,
         allowRule
+      );
+    }
+
+    // 2026-11-25：call 级 allow（内容模式 / 指纹）—— 与 `handleDefault` 同口径，
+    // 让"这条命令始终允许"在 auto 档也真正免审批（此前只对工具级规则生效）。
+    const matchingAllowRule = deps.ruleManager.getMatchingRule(
+      toolName,
+      input,
+      PermissionBehavior.ALLOW,
+      ruleContext,
+      matchOptions
+    );
+    if (matchingAllowRule) {
+      deps.denialTracker.trackSuccess(toolName, context.sessionId);
+      return createAllowDecision(
+        `Allowed by rule from ${matchingAllowRule.source}`,
+        matchingAllowRule
       );
     }
 

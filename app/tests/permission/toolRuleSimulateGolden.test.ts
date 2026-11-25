@@ -198,9 +198,10 @@ const GOLDEN_CASES: GoldenCase[] = [
     matchedRules: 1,
   },
   {
-    // 基线事实（R0 已记录）：auto 档**只读工具级规则**，内容级规则在 default 档生效。
-    // 这条样例钉住该差异 —— 若哪天 auto 开始读内容级规则，必须显式更新并说明。
-    name: 'auto：内容级 deny 不参与（只读短路仍放行）',
+    // 2026-11-25（口径变更，显式更新）：auto 档**开始读内容级规则** —— 原基线是
+    // "auto 只读工具级规则"，导致用户加的 `contentPattern` allow 在 auto 档静默失效
+    // （真机：`cargo build` / `cargo test` 每条都弹审批）；内容级 deny 同批对齐（deny 先于一切）。
+    name: 'auto：内容级 deny 参与（先于只读短路）',
     mode: 'auto',
     toolName: 'bash',
     command: 'git status',
@@ -211,9 +212,9 @@ const GOLDEN_CASES: GoldenCase[] = [
         contentPattern: '^git status',
       },
     ],
-    expected: 'allow',
-    reasonIncludes: 'Read-only command on allowlist: git',
-    matchedRules: 0,
+    expected: 'deny',
+    reasonIncludes: 'Denied by rule from',
+    matchedRules: 1,
   },
   {
     name: 'default：内容级 deny',

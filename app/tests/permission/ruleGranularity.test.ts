@@ -112,8 +112,9 @@ describe('LRO-D1：指纹规则不得参与「整体工具」匹配', () => {
     expect(MODE_HANDLERS_SRC).toContain('hashApprovalFingerprint(');
     expect(MODE_HANDLERS_SRC).toContain('resolveApprovalFingerprint(');
     const calls = MODE_HANDLERS_SRC.match(/getMatchingRule\(/g) ?? [];
-    // default 2 + auto 0 + dontAsk 2 + plan 2（2026-11-11：档位等价性补齐）
-    expect(calls.length).toBe(6);
+    // default 2 + auto 3 + dontAsk 2 + plan 2
+    // 2026-11-25：auto 档补 call 级 deny / ask / allow（与 default 档口径对齐）
+    expect(calls.length).toBe(9);
     const forwarded = MODE_HANDLERS_SRC.match(/matchOptions/g) ?? [];
     // 每个调用点各自定义并透传 ⇒ 至少 6 处（含定义）
     expect(forwarded.length).toBeGreaterThanOrEqual(6);

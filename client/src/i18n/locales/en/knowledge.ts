@@ -738,7 +738,7 @@ const enKnowledge = {
     teamResolveFailed:
       "Failed: a side is missing or the source content contains secrets",
     teamNetworkConflictHint:
-      "Network sync conflict: resolve via the network sync entry (recorded here only; neither side is overwritten)",
+      "Network sync conflict: resolving applies via the sync engine (keep local = next push overwrites remote; keep shared = download remote to local)",
     teamNetworkTitle: "Network sync",
     teamNetworkTeamId: "Team",
     teamNetworkLastError: "Last error",

@@ -362,6 +362,18 @@ export async function resolveTeamConflict(params: {
 }
 
 /**
+ * 从 `conflicts.json` 移除指定候选（供**网络版**人工采纳后调用）。
+ *
+ * 与共享目录版共用同一审阅列表（`conflicts.json`），文件缺失/无该 id ⇒ 不写。
+ */
+export async function pruneTeamConflictCandidate(
+  teamDir: string,
+  id: string
+): Promise<void> {
+  await pruneResolvedCandidate(teamDir, id);
+}
+
+/**
  * 取舍成功后把该候选从 `conflicts.json` 移除。
  *
  * 缺这一步时审阅列表（CLI / 设置页）会继续展示已处理项，直到下一次同步重建文件 ——

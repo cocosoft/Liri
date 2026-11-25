@@ -21,6 +21,7 @@ import {
 } from './TeamMemorySyncStateStore';
 import {
   appendTeamSyncHistory,
+  pruneTeamConflictCandidate,
   upsertNetworkConflictCandidate,
 } from './TeamMemorySharedDirSync';
 
@@ -641,6 +642,50 @@ export class TeamMemorySyncService {
   /** 最近一次失败原因（无失败 ⇒ null；供诊断/设置页读取） */
   getLastError(): string | null {
     return this.lastError;
+  }
+
+  /**
+   * 人工采纳网络冲突（2026-11-25，2N-5 修复）。
+   *
+   * 背景：网络候选（`source:'network'`）没有本地/远端文件路径，原设置页只能展示提示、
+   * 用户无法处理。现由本方法落地两种取舍，**都不自动改写**（仅在用户显式点击后执行）：
+   *
+   * - `keep_local`：删除该条的 **etag 基线**（内存 + 落库）⇒ 下一次推送用列表观测到的
+   *   远端 etag 作 `If-Match`（语义 = "在刚读到的版本上覆盖"）⇒ 本地内容胜出；
+   * - `keep_shared`：下载远端正文到本地（`downloadMemory` 同时刷新基线）⇒ 远端胜出。
+   *
+   * 两者成功后都会把候选从 `conflicts.json` 移除（否则审阅列表一直挂着已处理项）。
+   *
+   * @returns 是否成功（不安全 id / 本地文件缺失 ⇒ false；下载失败会抛错由调用方映射）
+   */
+  async resolveNetworkConflict(
+    memoryId: string,
+    resolution: 'keep_local' | 'keep_shared'
+  ): Promise<boolean> {
+    if (!isSafeMemorySyncId(memoryId)) return false;
+
+    if (resolution === 'keep_local') {
+      const local = await this.readLocalContent(memoryId);
+      if (local === null) return false;
+      this.etagCache.delete(memoryId);
+      try {
+        await this.stateStore.saveEtags(
+          this.config.teamId,
+          Object.fromEntries(this.etagCache)
+        );
+      } catch (error) {
+        await handleError(error, {
+          module: 'memory:services:teamSync',
+          action: 'save_etags_after_resolve',
+        });
+      }
+    } else {
+      await this.downloadMemory(memoryId);
+    }
+
+    await pruneTeamConflictCandidate(this.config.localDir, memoryId);
+    logger.info('网络团队记忆冲突已人工采纳', { memoryId, resolution });
+    return true;
   }
 
   /**

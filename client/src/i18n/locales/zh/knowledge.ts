@@ -696,7 +696,7 @@ const zhKnowledge = {
     teamKeepShared: "采纳共享",
     teamResolveFailed: "操作失败：两侧文件缺失或源内容命中密钥",
     teamNetworkConflictHint:
-      "网络同步冲突：需在网络版同步入口处理（此处仅记录，不改写任一侧）",
+      "网络同步冲突：采纳后由同步器落地（保留本地=下次推送覆盖远端；采纳共享=下载远端到本地）",
     teamNetworkTitle: "网络同步",
     teamNetworkTeamId: "团队",
     teamNetworkLastError: "最近错误",

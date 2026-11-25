@@ -256,14 +256,14 @@ function TeamMemoryPanel({ isDark }: TeamMemoryPanelProps) {
                   >
                     {candidate.directions.join(" / ")}
                   </div>
-                  {candidate.source === "network" ? (
+                  {candidate.source === "network" && (
                     <p
-                      className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}
+                      className={`text-[11px] mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
                     >
                       {t("memory.teamNetworkConflictHint")}
                     </p>
-                  ) : (
-                    <div className="flex gap-2">
+                  )}
+                  <div className="flex gap-2">
                     <button
                       onClick={() =>
                         void handleResolve(candidate.id, "keep_local")
@@ -294,8 +294,7 @@ function TeamMemoryPanel({ isDark }: TeamMemoryPanelProps) {
                     >
                       {t("memory.teamKeepShared")}
                     </button>
-                    </div>
-                  )}
+                  </div>
                 </div>
               ))
             )}

@@ -263,6 +263,70 @@ describe('团队记忆网络版 2N-5 全链（Bun.serve mock）', () => {
     expect(memories.get('net-m1')?.content.trim()).toBe('LOCAL-V3');
   });
 
+  /** 制造一次网络冲突（拉取 → 本地改 → 远端并发改 ⇒ 412） */
+  async function makeConflict(baseUrl: string, localDir: string) {
+    const service = makeService(baseUrl, localDir, 'tok');
+    await service.sync();
+    writeFileSync(join(localDir, 'net-m1.md'), 'LOCAL-EDIT\n', 'utf-8');
+    return service;
+  }
+
+  it('人工采纳 keep_local ⇒ 清除基线 + 候选移除，下次推送覆盖远端', async () => {
+    const { baseUrl, memories, putRemote } = startServer();
+    const localDir = makeDir('team-net-local-');
+    putRemote('net-m1', 'REMOTE-V1');
+    const service = await makeConflict(baseUrl, localDir);
+
+    putRemote('net-m1', 'REMOTE-V2');
+    const conflicted = await service.sync();
+    expect(conflicted.conflicts).toContain('net-m1');
+
+    const resolved = await service.resolveNetworkConflict(
+      'net-m1',
+      'keep_local'
+    );
+    expect(resolved).toBe(true);
+
+    const pushed = await service.sync();
+    expect(pushed.uploaded).toBe(1);
+    expect(pushed.conflicts).toEqual([]);
+    expect(memories.get('net-m1')?.content.trim()).toBe('LOCAL-EDIT');
+
+    const candidates = JSON.parse(
+      readFileSync(join(localDir, 'conflicts.json'), 'utf-8')
+    ) as { candidates: Array<{ id: string }> };
+    expect(candidates.candidates.some((c) => c.id === 'net-m1')).toBe(false);
+  });
+
+  it('人工采纳 keep_shared ⇒ 远端正文落本地 + 候选移除', async () => {
+    const { baseUrl, memories, putRemote } = startServer();
+    const localDir = makeDir('team-net-local-');
+    putRemote('net-m1', 'REMOTE-V1');
+    const service = await makeConflict(baseUrl, localDir);
+
+    putRemote('net-m1', 'REMOTE-V2');
+    const conflicted = await service.sync();
+    expect(conflicted.conflicts).toContain('net-m1');
+
+    const resolved = await service.resolveNetworkConflict(
+      'net-m1',
+      'keep_shared'
+    );
+    expect(resolved).toBe(true);
+    expect(readFileSync(join(localDir, 'net-m1.md'), 'utf-8').trim()).toBe(
+      'REMOTE-V2'
+    );
+
+    const next = await service.sync();
+    expect(next.conflicts).toEqual([]);
+    expect(memories.get('net-m1')?.content).toBe('REMOTE-V2');
+
+    const candidates = JSON.parse(
+      readFileSync(join(localDir, 'conflicts.json'), 'utf-8')
+    ) as { candidates: Array<{ id: string }> };
+    expect(candidates.candidates.some((c) => c.id === 'net-m1')).toBe(false);
+  });
+
   it('401（无令牌）⇒ ERROR + lastError，不上抛', async () => {
     const { baseUrl } = startServer();
     const service = makeService(baseUrl, makeDir('team-net-local-'));

@@ -238,6 +238,17 @@ describe('团队记忆网络版 2N-5 全链（Bun.serve mock）', () => {
     );
     expect(memories.get('net-m1')?.content).toBe('REMOTE-V2');
 
+    // 候选落在**本服务配置的**团队目录（隔离目录），不写用户真实数据目录
+    const candidates = JSON.parse(
+      readFileSync(join(localDir, 'conflicts.json'), 'utf-8')
+    ) as { candidates: Array<{ id: string; source?: string }> };
+    expect(
+      candidates.candidates.some(
+        (candidate) =>
+          candidate.id === 'net-m1' && candidate.source === 'network'
+      )
+    ).toBe(true);
+
     // ④ 人工采纳：本地内容改成与远端一致（下轮判 synced ⇒ 采用远端 etag 作新基线）
     writeFileSync(join(localDir, 'net-m1.md'), 'REMOTE-V2\n', 'utf-8');
     const adopted = await service.sync();

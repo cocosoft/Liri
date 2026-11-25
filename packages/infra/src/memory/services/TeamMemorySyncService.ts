@@ -6,7 +6,7 @@
 import { join } from 'path';
 import { promises as fs } from 'fs';
 import { createHash } from 'crypto';
-import { resolveDataDir, resolveTeamMemoryDir } from '@openliri/infra/environment';
+import { resolveDataDir } from '@openliri/infra/environment';
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import {
@@ -483,7 +483,10 @@ export class TeamMemorySyncService {
           if (error instanceof TeamMemorySyncConflictError) {
             result.conflicts.push(task.memoryId);
             try {
-              await upsertNetworkConflictCandidate(resolveTeamMemoryDir(), {
+              // 2026-11-25（2N-5 修复）：候选必须落在**本服务配置的**团队目录
+              // （`config.localDir`，与下载/墓碑/审计同源）；原实现写死
+              // `resolveTeamMemoryDir()` ⇒ 自定义 localDir 时候选错位，隔离测试还会污染用户目录。
+              await upsertNetworkConflictCandidate(this.config.localDir, {
                 id: task.memoryId,
                 localHash: error.localHash,
                 remoteHash: error.remoteHash,

@@ -16,7 +16,6 @@ import {
 } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { resolveTeamMemoryDir } from '@openliri/infra/environment';
 import {
   SyncStatus,
   TeamMemorySyncService,
@@ -157,9 +156,10 @@ describe('团队记忆同步 Phase 2N-2 推送', () => {
       1
     );
 
-    // 候选落 conflicts.json（与共享目录版同一审阅入口）
+    // 候选落本服务配置的团队目录（`config.localDir`）下的 conflicts.json
+    // （2026-11-25 修复：原实现写死全局 `resolveTeamMemoryDir()`，隔离测试会污染用户目录）
     const conflicts = JSON.parse(
-      readFileSync(join(resolveTeamMemoryDir(), 'conflicts.json'), 'utf-8')
+      readFileSync(join(localDir, 'conflicts.json'), 'utf-8')
     ) as {
       candidates: Array<{
         id: string;

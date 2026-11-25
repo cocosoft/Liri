@@ -766,11 +766,48 @@ export class TeamMemorySyncService {
       const local = await this.readLocalContent(memoryId);
       if (local === null) {
         // 本地已删除的冲突（`direction:'delete'`）：保留本地 = 确认删除远端（软删）。
-        // 用"本次列表观测到的 etag"作 If-Match（没有就不带——用户已显式确认删除）。
-        const outcome = await this.deleteRemoteMemory(
-          memoryId,
-          this.observedEtags.get(memoryId) ?? null
-        );
+        // 2N-15：`observedEtags` 只在内存里 —— 重启后为空，而契约 §3.4 规定
+        // 缺 `If-Match` 的 DELETE 返回 428 ⇒ 原实现"省略 If-Match"**必然失败**。
+        // 现改为现取一次远端 etag；同时要求远端未被再次修改（与候选记录的
+        // `sharedHash` 一致），否则交回人工（不删未见过的版本）。
+        let etag = this.observedEtags.get(memoryId) ?? null;
+        if (!etag) {
+          const response = await this.fetchRemoteSingle(memoryId);
+          if (!response) {
+            // 远端已不存在 ⇒ 目的已达成（无需删除）
+            await pruneTeamConflictCandidate(this.config.localDir, memoryId);
+            this.etagCache.delete(memoryId);
+            this.localBaselines.delete(memoryId);
+            logger.info('网络团队记忆冲突已人工采纳（远端已不存在）', {
+              memoryId,
+              resolution,
+            });
+            return true;
+          }
+          const data = (await response.json()) as {
+            content?: unknown;
+            contentHash?: string;
+            etag?: string;
+            metadata?: { etag?: string };
+          };
+          const currentHash =
+            data.contentHash ??
+            (typeof data.content === 'string'
+              ? hashMemoryContent(data.content)
+              : null);
+          const candidateHash = await this.readCandidateSharedHash(memoryId);
+          if (candidateHash && currentHash && candidateHash !== currentHash) {
+            // 远端在候选生成后又变了 ⇒ 不删（manual：不改写未见过的内容）
+            return false;
+          }
+          etag =
+            response.headers.get('ETag') ??
+            data.etag ??
+            data.metadata?.etag ??
+            null;
+          if (etag) this.observedEtags.set(memoryId, etag);
+        }
+        const outcome = await this.deleteRemoteMemory(memoryId, etag);
         if (outcome === 'conflict') return false;
       }
       this.etagCache.delete(memoryId);
@@ -800,6 +837,22 @@ export class TeamMemorySyncService {
     await pruneTeamConflictCandidate(this.config.localDir, memoryId);
     logger.info('网络团队记忆冲突已人工采纳', { memoryId, resolution });
     return true;
+  }
+
+  /**
+   * 候选里记录的远端正文 hash（Phase 2N-15；缺失 ⇒ null）。
+   *
+   * 删除确认前用它判断"远端在候选生成后有没有再变" —— 变了就不删，
+   * 交回人工重新审视（manual 语义：不处理没看过的版本）。
+   */
+  private async readCandidateSharedHash(
+    memoryId: string
+  ): Promise<string | null> {
+    const payload = await readTeamConflictFile(this.config.localDir);
+    const candidate = (payload.candidates ?? []).find(
+      (entry) => entry.id === memoryId
+    );
+    return candidate?.sharedHash ?? null;
   }
 
   /**

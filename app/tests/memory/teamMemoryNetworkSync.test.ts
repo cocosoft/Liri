@@ -166,7 +166,11 @@ function startServer(options: { honorCursor?: boolean } = {}): {
       if (req.method === 'DELETE') {
         if (!current) return json({ error: { code: 'NOT_FOUND' } }, 404);
         const ifMatch = req.headers.get('if-match');
-        if (ifMatch && ifMatch !== current.etag) {
+        // 契约 §3.4：非首次创建的 DELETE 缺 `If-Match` ⇒ 428
+        if (!ifMatch) {
+          return json({ error: { code: 'PRECONDITION_REQUIRED' } }, 428);
+        }
+        if (ifMatch !== current.etag) {
           return json(
             {
               error: { code: 'ETAG_MISMATCH' },
@@ -228,10 +232,11 @@ function startServer(options: { honorCursor?: boolean } = {}): {
 function makeService(
   baseUrl: string,
   localDir: string,
-  token?: string
+  token?: string,
+  dbPath?: string
 ): TeamMemorySyncService {
   const store = new TeamMemorySyncStateStore(
-    join(makeDir('team-net-db-'), 'app.db')
+    dbPath ?? join(makeDir('team-net-db-'), 'app.db')
   );
   const service = new TeamMemorySyncService(
     { serverUrl: baseUrl, teamId: 'team-net', localDir },
@@ -547,6 +552,36 @@ describe('团队记忆网络版 2N-5 全链（Bun.serve mock）', () => {
     expect(second.errors).toEqual([]);
     expect(second.downloaded).toBe(1);
     expect(readFileSync(join(localDir, 'net-b.md'), 'utf-8').trim()).toBe('B1');
+  });
+
+  it('删除候选跨重启采纳：无观测 etag 时现取（不再 428）（2N-15）', async () => {
+    const { baseUrl, memories, putRemote } = startServer({ honorCursor: true });
+    const localDir = makeDir('team-net-local-');
+    const dbPath = join(makeDir('team-net-db-'), 'app.db');
+    putRemote('net-d1', 'REMOTE-V1');
+
+    const first = makeService(baseUrl, localDir, 'tok', dbPath);
+    await first.sync();
+    expect(readFileSync(join(localDir, 'net-d1.md'), 'utf-8').trim()).toBe(
+      'REMOTE-V1'
+    );
+
+    // 本地删除 + 远端并发改 ⇒ 只记 delete 候选（不自动删）
+    rmSync(join(localDir, 'net-d1.md'));
+    putRemote('net-d1', 'REMOTE-V2');
+    const conflicted = await first.sync();
+    expect(conflicted.conflicts).toContain('net-d1');
+    expect(memories.get('net-d1')?.deletedAt).toBeNull();
+
+    // 模拟重启：新实例（内存 `observedEtags` 为空），共享同一状态库
+    const second = makeService(baseUrl, localDir, 'tok', dbPath);
+    const resolved = await second.resolveNetworkConflict(
+      'net-d1',
+      'keep_local'
+    );
+
+    expect(resolved).toBe(true);
+    expect(memories.get('net-d1')?.deletedAt).toBeTruthy();
   });
 
   it('fullSync（2N-8 手动全量）⇒ 清基线后重新拉回本地误删的条目', async () => {

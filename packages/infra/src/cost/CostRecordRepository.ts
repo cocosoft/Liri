@@ -28,6 +28,13 @@ const logger = getLogger('cost:recordRepository');
 
 export const COST_RECORDS_TABLE = 'cost_records';
 export const COST_SESSION_SUMMARY_TABLE = 'session_cost_summaries';
+/**
+ * 每日 × 模型预聚合（2026-11-26）：把「扫 26 万行 + 临时 B-Tree」的概览查询
+ * 降为读一张小表（行数 ≈ 天数 × 模型数）。写入路径增量维护，删除路径标记脏后重建。
+ */
+export const COST_DAILY_ROLLUP_TABLE = 'cost_daily_rollup';
+/** 每个 owner 的汇总表构建状态（缺行 ⇒ 脏，下次读取时从 cost_records 重建） */
+export const COST_ROLLUP_STATE_TABLE = 'cost_rollup_state';
 
 /**
  * 成本记录
@@ -263,6 +270,50 @@ export class CostRecordRepository {
     await new Promise<void>((resolve, reject) => {
       this.db?.run(
         `
+        CREATE TABLE IF NOT EXISTS ${COST_DAILY_ROLLUP_TABLE} (
+          owner_key TEXT NOT NULL,
+          day_index INTEGER NOT NULL,
+          model TEXT NOT NULL,
+          cost_usd REAL NOT NULL DEFAULT 0,
+          input_tokens INTEGER NOT NULL DEFAULT 0,
+          output_tokens INTEGER NOT NULL DEFAULT 0,
+          cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+          cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
+          requests INTEGER NOT NULL DEFAULT 0,
+          PRIMARY KEY (owner_key, day_index, model)
+        )
+      `,
+        (err: Error | null) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
+        }
+      );
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      this.db?.run(
+        `
+        CREATE TABLE IF NOT EXISTS ${COST_ROLLUP_STATE_TABLE} (
+          owner_key TEXT PRIMARY KEY,
+          rebuilt_at INTEGER NOT NULL
+        )
+      `,
+        (err: Error | null) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
+        }
+      );
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      this.db?.run(
+        `
         CREATE TABLE IF NOT EXISTS ${COST_SESSION_SUMMARY_TABLE} (
           session_id TEXT NOT NULL,
           total_cost_usd REAL DEFAULT 0,
@@ -384,6 +435,15 @@ export class CostRecordRepository {
         cacheReadTokens,
         cacheCreationTokens,
         model: params.model,
+      });
+
+      // 2026-11-26：每日 × 模型预聚合增量维护（与插入同一把锁内 ⇒ 不会与删除/重建交错）
+      await this.bumpDailyRollupUnlocked(timestamp, params.model, {
+        costUSD: params.costUSD,
+        inputTokens: params.inputTokens,
+        outputTokens: params.outputTokens,
+        cacheReadTokens,
+        cacheCreationTokens,
       });
     });
 
@@ -737,6 +797,9 @@ export class CostRecordRepository {
           }
         );
       });
+
+      // 2026-11-26：删除后预聚合必然失真 ⇒ 置脏，下次读取时从 cost_records 重建一次
+      await this.markDailyRollupDirtyUnlocked();
     });
   }
 
@@ -921,12 +984,18 @@ export class CostRecordRepository {
   // ============================================================
 
   /**
-   * **一次扫描**产出「按天 + 按模型」聚合，供成本概览在应用层派生各时间窗口（C3-3，2026-11-04）。
+   * 「按天 + 按模型」聚合，供成本概览在应用层派生各时间窗口（C3-3，2026-11-04）。
    *
    * 为什么要有它：概览此前对同一张表跑 4 次 `getAggregatedCosts`（每次 2 条 SQL）+ 1 次
    * 按天聚合 = **9 次全表扫**（20 万行），打开一次页面就把 SQLite 串行队列压满并触发
-   * `慢查询` 告警。这里只扫一次（命中覆盖索引 `idx_cost_records_agg`，不回表），
-   * 今日 / 近 7 天 / 近 30 天 / 全量 与 Top 供应商都由调用方按 `dayIndex` 切分。
+   * `慢查询` 告警。
+   *
+   * 2026-11-26（真机 26.3 万行）：即使命中覆盖索引，**一次全量聚合仍要 210–240ms 同步执行**；
+   * 前端 Footer 每 5s 轮询概览 ⇒ 缓存一过期就阻塞事件循环。现改为读**预聚合表**
+   * `cost_daily_rollup`（行数 ≈ 天数 × 模型数）：
+   *  - 写入：`recordCost` 在同一把锁内增量 upsert；
+   *  - 删除：`deleteSessionRecords` 只把 owner 标记为脏；
+   *  - 脏 / 首次 / 旧库：本方法内**一次性**从 `cost_records` 全量重建（即原查询），之后都是小表读。
    *
    * `dayIndex` = `floor(timestamp / 一天)`（UTC 日桶）。**窗口按日界对齐**：调用方用
    * `dayIndex >= todayIndex - 6` 表示"近 7 天"，与趋势图同一口径。
@@ -934,46 +1003,184 @@ export class CostRecordRepository {
   async getDailyModelAggregatedCosts(): Promise<DailyModelCost[]> {
     await this.initDatabase();
 
-    const rows = await new Promise<unknown[]>((resolve, reject) => {
-      this.db?.all(
-        `SELECT
-          CAST(timestamp / ${MS_PER_DAY} AS INTEGER) as day_index,
+    return this.dbMutex.run(async () => {
+      await this.ensureDailyRollupUnlocked();
+
+      const rows = await new Promise<unknown[]>((resolve, reject) => {
+        this.db?.all(
+          `SELECT
+            day_index,
+            model,
+            cost_usd as cost,
+            input_tokens,
+            output_tokens,
+            cache_read_tokens,
+            cache_creation_tokens,
+            requests
+          FROM ${COST_DAILY_ROLLUP_TABLE}
+          WHERE owner_key = ?
+          ORDER BY day_index ASC`,
+          [this.owner()],
+          (err: Error | null, rows: unknown[]) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve(rows || []);
+            }
+          }
+        );
+      });
+
+      return rows.map((r) => {
+        const row = r as Record<string, unknown>;
+        return {
+          dayIndex: Number(row.day_index),
+          model: String(row.model ?? ''),
+          cost: Number(row.cost),
+          inputTokens: Number(row.input_tokens),
+          outputTokens: Number(row.output_tokens),
+          cacheReadTokens: Number(row.cache_read_tokens),
+          cacheCreationTokens: Number(row.cache_creation_tokens),
+          requests: Number(row.requests),
+        };
+      });
+    });
+  }
+
+  /**
+   * 增量累加一行预聚合（调用方必须已持有 `dbMutex`，且与 `cost_records` 插入同批）。
+   */
+  private async bumpDailyRollupUnlocked(
+    timestamp: number,
+    model: string,
+    delta: {
+      costUSD: number;
+      inputTokens: number;
+      outputTokens: number;
+      cacheReadTokens: number;
+      cacheCreationTokens: number;
+    }
+  ): Promise<void> {
+    const dayIndex = Math.floor(timestamp / MS_PER_DAY);
+    await new Promise<void>((resolve, reject) => {
+      this.db?.run(
+        `INSERT INTO ${COST_DAILY_ROLLUP_TABLE}
+          (owner_key, day_index, model, cost_usd, input_tokens, output_tokens,
+           cache_read_tokens, cache_creation_tokens, requests)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+        ON CONFLICT(owner_key, day_index, model) DO UPDATE SET
+          cost_usd = cost_usd + excluded.cost_usd,
+          input_tokens = input_tokens + excluded.input_tokens,
+          output_tokens = output_tokens + excluded.output_tokens,
+          cache_read_tokens = cache_read_tokens + excluded.cache_read_tokens,
+          cache_creation_tokens = cache_creation_tokens + excluded.cache_creation_tokens,
+          requests = requests + 1`,
+        [
+          this.owner(),
+          dayIndex,
           model,
-          COALESCE(SUM(cost_usd), 0) as cost,
-          COALESCE(SUM(input_tokens), 0) as input_tokens,
-          COALESCE(SUM(output_tokens), 0) as output_tokens,
-          COALESCE(SUM(cache_read_tokens), 0) as cache_read_tokens,
-          COALESCE(SUM(cache_creation_tokens), 0) as cache_creation_tokens,
-          COUNT(*) as requests
-        FROM ${COST_RECORDS_TABLE}
-        WHERE owner_key = ?
-        GROUP BY day_index, model
-        ORDER BY day_index ASC`,
-        [this.owner()],
-        (err: Error | null, rows: unknown[]) => {
+          delta.costUSD,
+          delta.inputTokens,
+          delta.outputTokens,
+          delta.cacheReadTokens,
+          delta.cacheCreationTokens,
+        ],
+        (err: Error | null) => {
           if (err) {
             reject(err);
           } else {
-            resolve(rows || []);
+            resolve();
           }
         }
       );
     });
+  }
 
-    return rows.map((r) => {
-      const row = r as Record<string, unknown>;
-      return {
-        dayIndex: Number(row.day_index),
-        model: String(row.model ?? ''),
-        cost: Number(row.cost),
-        inputTokens: Number(row.input_tokens),
-        outputTokens: Number(row.output_tokens),
-        cacheReadTokens: Number(row.cache_read_tokens),
-        cacheCreationTokens: Number(row.cache_creation_tokens),
-        requests: Number(row.requests),
-      };
+  /**
+   * 标记某个 owner 的预聚合为脏（删除路径调用，调用方必须已持有 `dbMutex`）。
+   *
+   * 不做逐行回减：删除是低频路径，且删行后「按天/模型」的分布不可由会话摘要精确还原
+   * ⇒ 下一次读取时从 `cost_records` 全量重建一次（见 `ensureDailyRollupUnlocked`）。
+   */
+  private async markDailyRollupDirtyUnlocked(): Promise<void> {
+    await new Promise<void>((resolve, reject) => {
+      this.db?.run(
+        `DELETE FROM ${COST_ROLLUP_STATE_TABLE} WHERE owner_key = ?`,
+        [this.owner()],
+        (err: Error | null) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
+        }
+      );
     });
   }
+
+  /**
+   * 确保预聚合表对当前 owner 可用（缺状态行 ⇒ 脏 / 首次 / 旧库升级 ⇒ 从 `cost_records` 重建）。
+   *
+   * 重建只发生一次：此后写入增量累加、删除置脏，读取都是小表扫描。
+   */
+  private async ensureDailyRollupUnlocked(): Promise<void> {
+    const built = await new Promise<boolean>((resolve, reject) => {
+      this.db?.get(
+        `SELECT 1 as ok FROM ${COST_ROLLUP_STATE_TABLE} WHERE owner_key = ?`,
+        [this.owner()],
+        (err: Error | null, row?: Record<string, unknown>) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(!!row);
+          }
+        }
+      );
+    });
+    if (built) return;
+
+    await new Promise<void>((resolve, reject) => {
+      this.db?.run(
+        `DELETE FROM ${COST_DAILY_ROLLUP_TABLE} WHERE owner_key = ?`,
+        [this.owner()],
+        (err: Error | null) => (err ? reject(err) : resolve())
+      );
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      this.db?.run(
+        `INSERT INTO ${COST_DAILY_ROLLUP_TABLE}
+          (owner_key, day_index, model, cost_usd, input_tokens, output_tokens,
+           cache_read_tokens, cache_creation_tokens, requests)
+        SELECT owner_key,
+               CAST(timestamp / ${MS_PER_DAY} AS INTEGER) AS day_index,
+               model,
+               COALESCE(SUM(cost_usd), 0),
+               COALESCE(SUM(input_tokens), 0),
+               COALESCE(SUM(output_tokens), 0),
+               COALESCE(SUM(cache_read_tokens), 0),
+               COALESCE(SUM(cache_creation_tokens), 0),
+               COUNT(*)
+        FROM ${COST_RECORDS_TABLE}
+        WHERE owner_key = ?
+        GROUP BY day_index, model`,
+        [this.owner()],
+        (err: Error | null) => (err ? reject(err) : resolve())
+      );
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      this.db?.run(
+        `INSERT OR REPLACE INTO ${COST_ROLLUP_STATE_TABLE} (owner_key, rebuilt_at)
+         VALUES (?, ?)`,
+        [this.owner(), Date.now()],
+        (err: Error | null) => (err ? reject(err) : resolve())
+      );
+    });
+
+    logger.info('cost:每日汇总表已构建', { owner: this.owner() });
+  }
+
 
   /**
    * 按 UTC 日界聚合每日成本数据

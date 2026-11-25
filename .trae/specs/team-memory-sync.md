@@ -304,7 +304,7 @@ C6 与 C4 推侧（412/409 ⇒ 候选）随 2N-2 解决。**C7（墓碑）随 2N
 
 
 
-### 5.2 网络版实施拆解（Phase 2N-0 … 2N-13；每步独立提交）
+### 5.2 网络版实施拆解（Phase 2N-0 … 2N-14；每步独立提交）
 
 > 前置：§8 的 3 项阻塞决策已拍板；默认 `memory.teamSync.enabled=false`，未配置 `serverUrl` 时行为零变更。
 
@@ -324,8 +324,9 @@ C6 与 C4 推侧（412/409 ⇒ 候选）随 2N-2 解决。**C7（墓碑）随 2N
 | **2N-11** | 设置页"已配置"判定（网络-only 不再被整体隐藏） | ✅ 已实现（2026-11-25）：`GET /v1/memory/team/status` 原 `configured = enabled && sharedDir` ⇒ **只配网络（serverUrl）时被判未配置**，面板渲染"未启用共享目录同步"并把网络状态/审计/候选全部隐藏（「立即同步」按钮虽在外层，信息区仍不可见）。现 `computeTeamMemoryConfigured`：`enabled && (sharedDir 非空 ‖ 网络已配置)`；新增 `sharedConfigured` 字段；面板在共享目录未启用时显示"未启用（仅网络同步）"、状态标签改用网络同步状态；`teamNotConfigured` 文案补全两种启用方式 | 网络-only 配置下设置页可见网络状态/审计/候选并可立即同步；共享目录-only 行为不变 | 只改 DTO 与展示，不改同步行为 |
 | **2N-12** | 增量拉取下的本地正文基线（避免每轮重复上行） | ✅ 已实现（2026-11-25）：契约 §3.6 的列表是**增量**（`version > cursor`）⇒ 未变的远端条目不在本轮列表里，原 `compareMemories` 一律把它们判成 `local_only` ⇒ **每轮把未变条目重复 PUT**（version 空转、审计 `pushed` 虚高）。现新增本地正文基线（`team_memory_sync_state.local_hashes_json`，旧表自动补列）：远端缺席 + 有 etag 基线 + 本地 hash 与基线一致 ⇒ `synced`（跳过）；本地 hash 变了 ⇒ `local_newer`（推送，`If-Match` 仍是上次基线，远端若已变则 412 转人工）。基线在下载/推送/一致时更新，并与 etag 一并落库；`resolveNetworkConflict`、墓碑、本地删除同步同步维护 | 增量服务端下稳定后每轮 `uploaded=0`；本地编辑仍推一次；不改变冲突语义 | 表仅新增一列（默认 `{}`）；清空该表即回到旧行为（多推一次后自动收敛） |
 | **2N-13** | 游标只在整轮拉取应用成功后推进（下载失败不丢条目） | ✅ 已实现（2026-11-25）：原实现在 `fetchRemoteMemories` 结束时就 `saveProgress`，而该方法的 cursor 是 `MAX(旧值, 新值)` ⇒ **单条下载失败也会越过该版本**，该条目下一轮不再出现在增量列表里 ⇒ 永久漏拉（只剩 `errors` 留痕，无法自愈）。现改为：拉取只把游标记到内存（`pendingCursor`），`sync()` 末尾在**无下载失败**时落库；失败则保留旧游标，下一轮重拉同一批（已下载条目因内容一致判 `synced`，不会重复写） | 下载失败后恢复 ⇒ 漏拉条目自动补齐；成功轮次行为不变 | 不推进游标只是"多拉一次"，幂等安全 |
+| **2N-14** | `conflicts.json` 双写互不抹除（共享目录版 vs 网络版） | ✅ 已实现（2026-11-25）：两版共用同一个 `conflicts.json`（默认同目录），共享目录版每轮用本轮扫描结果**整文件覆写** ⇒ 网络候选（412/409）在每个共享目录周期被抹掉（用户来不及采纳、审计失真）。现写入前经 `preserveNetworkConflictCandidates` 合并：保留磁盘上的网络候选，**同 id 以网络候选为准**（与审阅入口先判 `source:'network'` 的顺序一致，避免"按 A 的来源判、按 B 的方式改"）；文件候选仍按本轮扫描刷新 | 两版同开时网络候选持久可见可采纳；单开任一版行为不变 | 纯合并逻辑，不新增文件/不改变格式 |
 
-> 进度（2026-11-25）：2N-0 … 2N-13 已全部实现（各自独立提交，默认关）。
+> 进度（2026-11-25）：2N-0 … 2N-14 已全部实现（各自独立提交，默认关）。
 > 2N-4 的设置页状态：`/v1/memory/team/status` 增加 `network` DTO + `TeamMemoryPanel` 展示（未配置时提示开关）。
 > 2N-3 回归用例：`app/tests/memory/teamMemorySyncTombstone.test.ts`；2N-4：`teamMemorySyncBackoff.test.ts`、
 > `teamMemoryNetworkStatus.test.ts`；2N-5/2N-6：`teamMemoryNetworkSync.test.ts`（`Bun.serve` mock 全链、含删除同步）；
@@ -336,7 +337,7 @@ C6 与 C4 推侧（412/409 ⇒ 候选）随 2N-2 解决。**C7（墓碑）随 2N
 > （`computeTeamMemoryConfigured` 四态：总开关关 / 网络-only / 共享目录-only / 两者皆空）；
 > 2N-12：`teamMemoryNetworkSync.test.ts`（`Bun.serve` 按 `version>cursor` 增量：未变不重复上传、
 > 本地改后推一次、再回到稳定态）；2N-13：`teamMemoryNetworkSync.test.ts`（单条 GET 500 ⇒ 游标不推进、
-> 恢复后下一轮补齐）。
+> 恢复后下一轮补齐）；2N-14：`teamSharedDirSync.test.ts`（写前合并保留网络候选、同 id 网络优先）。
 
 
 ---

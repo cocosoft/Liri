@@ -322,6 +322,34 @@ export async function readMergedTeamConflicts(
 }
 
 /**
+ * 写 `conflicts.json` 前与磁盘上的**网络候选**合并（Phase 2N-14，2026-11-25）。
+ *
+ * 背景：共享目录版每轮用 `buildTeamConflictCandidates` 的结果**整文件覆写**
+ * `conflicts.json`，而网络版（412/409）也写同一个文件（默认同目录）⇒
+ * 每个共享目录周期都会把网络候选**抹掉**（用户来不及采纳，审计也失真）。
+ *
+ * 合并规则与审阅入口一致：**同 id 以网络候选为准**（网络候选的采纳走
+ * `resolveNetworkConflict`，文件候选走两侧文件取舍；混用会导致"按 A 的来源判、
+ * 按 B 的方式改"）。
+ *
+ * @param candidates 本轮文件扫描产出的候选
+ */
+export async function preserveNetworkConflictCandidates(
+  teamDir: string,
+  candidates: TeamConflictCandidate[]
+): Promise<TeamConflictCandidate[]> {
+  const existing = await readTeamConflictFile(teamDir);
+  const networkCandidates = (existing.candidates ?? []).filter(
+    (candidate) => candidate.source === 'network'
+  );
+  const networkIds = new Set(networkCandidates.map((candidate) => candidate.id));
+  return [
+    ...candidates.filter((candidate) => !networkIds.has(candidate.id)),
+    ...networkCandidates,
+  ].sort((a, b) => a.id.localeCompare(b.id));
+}
+
+/**
  * 记录网络版推送冲突候选（Phase 2N-2，2026-11-25）。
  *
  * 412/409 时调用：**只写候选，不覆盖任一侧**；同一 id 重复冲突只保留最新一条。

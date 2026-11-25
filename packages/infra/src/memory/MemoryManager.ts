@@ -55,6 +55,7 @@ import { rebuildMemoryWiki } from './services/MemoryWikiService';
 import {
   appendTeamSyncHistory,
   buildTeamConflictCandidates,
+  preserveNetworkConflictCandidates,
   pullTeamMemoriesFromSharedDir,
   pushTeamMemoriesToSharedDir,
 } from './services/TeamMemorySharedDirSync';
@@ -718,12 +719,16 @@ export class MemoryManagerImpl
           );
 
           // Phase 3-lite：冲突候选（只供审阅，不自动改写任一侧）
-          const candidates = await buildTeamConflictCandidates({
+          // 2N-14：整文件覆写前先合并磁盘上的网络候选（否则每轮抹掉 412/409 候选）
+          const candidates = await preserveNetworkConflictCandidates(
             teamDir,
-            sharedDir,
-            pullConflicts: report.conflicts,
-            pushConflicts: pushReport.conflicts,
-          });
+            await buildTeamConflictCandidates({
+              teamDir,
+              sharedDir,
+              pullConflicts: report.conflicts,
+              pushConflicts: pushReport.conflicts,
+            })
+          );
           await writeFileAtomic(
             join(teamDir, 'conflicts.json'),
             JSON.stringify(

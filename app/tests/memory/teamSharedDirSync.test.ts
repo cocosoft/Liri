@@ -18,6 +18,7 @@ import { join } from 'path';
 import {
   appendTeamSyncHistory,
   buildTeamConflictCandidates,
+  preserveNetworkConflictCandidates,
   pullTeamMemoriesFromSharedDir,
   pushTeamMemoriesToSharedDir,
   readMergedTeamConflicts,
@@ -360,5 +361,75 @@ describe('readMergedTeamConflicts（2N-8：两处候选同源读取）', () => {
 
     expect(merged.candidates?.map((c) => c.id)).toEqual(['x']);
     expect(merged.total).toBe(1);
+  });
+});
+
+describe('preserveNetworkConflictCandidates（2N-14：整文件覆写不抹掉网络候选）', () => {
+  it('保留磁盘上的网络候选；同 id 以网络候选为准', async () => {
+    const { local: teamDir, shared } = makeDirs();
+    writeFileSync(
+      join(teamDir, 'conflicts.json'),
+      JSON.stringify({
+        generatedAt: '2026-11-25T02:00:00.000Z',
+        total: 2,
+        candidates: [
+          {
+            id: 'n1',
+            directions: ['push'],
+            localFile: '',
+            sharedFile: '',
+            localHash: 'h1',
+            sharedHash: 'h2',
+            source: 'network',
+          },
+          {
+            id: 'c1',
+            directions: ['pull'],
+            localFile: join(teamDir, 'c1.md'),
+            sharedFile: join(shared, 'c1.md'),
+            localHash: 'a',
+            sharedHash: 'b',
+          },
+        ],
+      }),
+      'utf-8'
+    );
+
+    const merged = await preserveNetworkConflictCandidates(teamDir, [
+      {
+        id: 'c1',
+        directions: ['pull'],
+        localFile: join(teamDir, 'c1.md'),
+        sharedFile: join(shared, 'c1.md'),
+        localHash: 'a2',
+        sharedHash: 'b2',
+      },
+      {
+        id: 'n1',
+        directions: ['pull', 'push'],
+        localFile: join(teamDir, 'n1.md'),
+        sharedFile: join(shared, 'n1.md'),
+        localHash: 'z',
+        sharedHash: 'z2',
+      },
+      {
+        id: 'c2',
+        directions: ['push'],
+        localFile: join(teamDir, 'c2.md'),
+        sharedFile: join(shared, 'c2.md'),
+        localHash: 'c',
+        sharedHash: 'd',
+      },
+    ]);
+
+    expect(merged.map((candidate) => candidate.id)).toEqual(['c1', 'c2', 'n1']);
+    // 同 id `n1`：网络候选优先（与审阅入口的判定顺序一致）
+    const n1 = merged.find((candidate) => candidate.id === 'n1');
+    expect(n1?.source).toBe('network');
+    expect(n1?.localFile).toBe('');
+    // 文件候选按本轮扫描结果刷新
+    expect(merged.find((candidate) => candidate.id === 'c1')?.localHash).toBe(
+      'a2'
+    );
   });
 });

@@ -579,7 +579,7 @@ export async function handleDreamCyclesList(
 /**
  * GET /v1/memory/dream/cycles/analytics — 梦境周期分析视图（DB 镜像：列表 + 全量统计）
  * 参数：from/to（completed_at，ms，非有限数忽略）/ triggerSource（大小写敏感）/
- *       status（非 completed|partial|failed 忽略）/ limit（缺省 50，上限 500，非法回默认）
+ *       status（非 completed|partial|failed|skipped 忽略）/ limit（缺省 50，上限 500，非法回默认）
  */
 export async function handleDreamCycleAnalytics(
   req: http.IncomingMessage,
@@ -601,7 +601,8 @@ export async function handleDreamCycleAnalytics(
       rawStatus !== null &&
       (rawStatus === 'completed' ||
         rawStatus === 'partial' ||
-        rawStatus === 'failed')
+        rawStatus === 'failed' ||
+        rawStatus === 'skipped')
         ? rawStatus
         : undefined;
     const rawLimit = p.get('limit');

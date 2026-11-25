@@ -70,13 +70,20 @@ export const useOperationProgressStore = create<OperationProgressState>(
 
       sseService.on("dream:cycle:completed", (data) => {
         const status = data.status as string;
+        // 2026-11-25 第 3 批：skipped = 本轮未真正整合（门槛/节流/锁跳过）
+        const label =
+          status === "completed"
+            ? "完成"
+            : status === "skipped"
+              ? "已跳过"
+              : "部分完成";
         set((s) => ({
           dreamPhase: null,
           dreamPhasesDone: [],
           operations: upsertOp(
             s.operations,
             "dream",
-            `🌙 梦境${status === "completed" ? "完成" : "部分完成"}`,
+            `🌙 梦境${label}`,
             {
               progress: 1,
             },

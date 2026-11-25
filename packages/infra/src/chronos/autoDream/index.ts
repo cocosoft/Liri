@@ -68,3 +68,9 @@ export type {
   DreamEventType,
   DreamEventCallback,
 } from './AutoDream';
+export {
+  computeDreamXp,
+  DREAM_XP_PER_SESSION,
+  DREAM_XP_PER_INSIGHT,
+} from './dreamXp';
+export type { DreamXpInput } from './dreamXp';

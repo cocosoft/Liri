@@ -107,7 +107,8 @@ export interface DreamTask {
 export type DreamEventType =
   | 'dream:started'
   | 'dream:completed'
-  | 'dream:failed';
+  | 'dream:failed'
+  | 'dream:skipped';
 
 export interface DreamEvent {
   type: DreamEventType;
@@ -409,11 +410,17 @@ ${sessionLines}`;
       timestamp: Date.now(),
     });
 
+    // 2026-11-25 修复：原实现从未给 `currentAbortController` 赋值 ⇒
+    // `abortAutoDream()` / `isAutoDreamRunning()` 恒空转。现每轮真正执行前创建，
+    // 执行结束（成功/失败/异常）即释放。
+    const controller = new AbortController();
+    currentAbortController = controller;
+
     const executor = new DreamAgentExecutor({
       prompt,
       memoryRoot,
       transcriptDir,
-      signal: currentAbortController?.signal,
+      signal: controller.signal,
       onProgress: (pct: number, msg: string) => {
         addDreamTurn(
           taskId,
@@ -439,6 +446,11 @@ ${sessionLines}`;
         duration: 0,
         error: e instanceof Error ? e.message : String(e),
       };
+    } finally {
+      // 执行结束即释放"运行中"标记；其后的收尾（落锁时间/知识雨/事件发射）不再可中止
+      if (currentAbortController === controller) {
+        currentAbortController = null;
+      }
     }
 
     if (result.success) {

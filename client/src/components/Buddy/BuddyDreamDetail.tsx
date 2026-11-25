@@ -10,12 +10,14 @@ const DREAM_TYPE_LABELS: Record<string, string> = {
   "dream:started": "buddy.dreamTypeStarted",
   "dream:completed": "buddy.dreamTypeCompleted",
   "dream:failed": "buddy.dreamTypeFailed",
+  "dream:skipped": "buddy.dreamTypeSkipped",
 };
 
 const DREAM_TYPE_ICONS: Record<string, string> = {
   "dream:started": "🌙",
   "dream:completed": "✨",
   "dream:failed": "💤",
+  "dream:skipped": "⏭️",
 };
 
 /** 伙伴梦境记录条数（最近 N 条） */

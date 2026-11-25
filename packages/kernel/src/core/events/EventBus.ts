@@ -440,9 +440,7 @@ export interface CostRecordedEvent {
   ownerKey?: string;
 }
 
-/**
- * 预定义的系统事件名称
- */
+/** 预定义的系统事件名称 */
 export const SystemEvents = {
   APP_INITIALIZED: 'app:initialized',
   APP_SHUTDOWN: 'app:shutdown',
@@ -483,6 +481,8 @@ export const SystemEvents = {
   DREAM_STARTED: 'dream:started',
   DREAM_COMPLETED: 'dream:completed',
   DREAM_FAILED: 'dream:failed',
+  /** 阈值/节流/锁跳过：只进日志，不计完成与成长 */
+  DREAM_SKIPPED: 'dream:skipped',
 
   BUDDY_GROWTH: 'buddy:growth',
   BUDDY_ACHIEVEMENT: 'buddy:achievement',

@@ -3,7 +3,8 @@
  *
  * 回归点：旧实现返回 `void`，`UnifiedDreamCycle` 无法区分"跑了但失败"与
  * "被 minHours/节流/会话数门槛静默跳过" ⇒ 周期完成但伙伴侧无任何事件。
- * 现在返回 boolean，调用方在 `false` 时补发周期级 `DREAM_COMPLETED`。
+ * 现在返回 boolean，调用方在 `false` 时补发周期级事件（2026-11-25 第 3 批起：
+ * 跳过走 `dream:skipped`，不再伪装成 `dream:completed`）。
  */
 import { describe, expect, it } from 'bun:test';
 import { executeAutoDream } from '@openliri/infra/chronos';

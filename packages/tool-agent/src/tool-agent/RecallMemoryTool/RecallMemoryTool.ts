@@ -177,17 +177,24 @@ export class RecallMemoryTool {
           );
 
           if (hits.length === 0) {
-            const hint = fallbackReasons.includes('query-required')
-              ? '请提供 query 以检索记忆（无查询词时只能返回当前会话的全部记忆上下文）。'
-              : fallbackReasons.includes('no-session-context')
-                ? '未找到相关记忆（当前无会话上下文；可用 scope="global" 检索全局长期记忆）。'
-                : fallbackReasons.includes('global-manager-unavailable')
-                  ? '全局记忆暂不可用，未找到相关记忆。'
-                  : fallbackReasons.includes('transcript-no-hits')
-                    ? '未找到相关记忆（原始会话记录中也没有匹配内容）。'
-                    : scope === 'global'
-                      ? '未找到全局相关记忆。'
-                      : '未找到相关记忆。';
+            // 2026-11-25 第 3 批：检索**失败**≠没有命中。原实现把 `*-failed` 一律渲染成
+            // "未找到相关记忆"，模型会据此认为"确实没有这条记忆"而放弃重试。
+            const failureReasons = fallbackReasons.filter((r) =>
+              r.endsWith('-failed')
+            );
+            const hint = failureReasons.length
+              ? `记忆检索失败（${failureReasons.join(' / ')}）：这是检索异常，**不是**"没有相关记忆"；可稍后重试，或改用其他 scope。`
+              : fallbackReasons.includes('query-required')
+                ? '请提供 query 以检索记忆（无查询词时只能返回当前会话的全部记忆上下文）。'
+                : fallbackReasons.includes('no-session-context')
+                  ? '未找到相关记忆（当前无会话上下文；可用 scope="global" 检索全局长期记忆）。'
+                  : fallbackReasons.includes('global-manager-unavailable')
+                    ? '全局记忆暂不可用，未找到相关记忆。'
+                    : fallbackReasons.includes('transcript-no-hits')
+                      ? '未找到相关记忆（原始会话记录中也没有匹配内容）。'
+                      : scope === 'global'
+                        ? '未找到全局相关记忆。'
+                        : '未找到相关记忆。';
             return createToolResult(hint, {
               newMessages: [{ role: 'system', content: hint }],
             });

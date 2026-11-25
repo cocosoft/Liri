@@ -29,7 +29,7 @@ import { resolveDataSubDir } from '@openliri/infra/environment';
 import { join } from 'path';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { handleError } from '@openliri/infra/error';
-import type { DreamTriggerSource } from './types.js';
+import type { DreamCycleStatus, DreamTriggerSource } from './types.js';
 
 export interface DreamMetricsData {
   /** 累计周期数（按触发源分组） */
@@ -108,7 +108,7 @@ async function writeMetrics(metrics: DreamMetricsData): Promise<void> {
  */
 export async function recordCycleMetrics(params: {
   source: DreamTriggerSource;
-  status: 'completed' | 'partial' | 'failed';
+  status: DreamCycleStatus;
   durationMs: number;
   memoriesCreated: number;
   memoriesRefined: number;
@@ -129,8 +129,8 @@ export async function recordCycleMetrics(params: {
     metrics['dream.cycle.errors_total']++;
   }
 
-  // 成功时间戳
-  if (params.status !== 'failed') {
+  // 成功时间戳（2026-11-25：`skipped` 既非失败也非成功 ⇒ 不刷新"最近成功"）
+  if (params.status === 'completed' || params.status === 'partial') {
     metrics['dream.cycle.last_success_timestamp'] = Date.now();
   }
 

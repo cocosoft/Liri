@@ -28,13 +28,22 @@
  * 阶段 4: Index — 刷新索引、发布事件、通知 Buddy
  */
 
-import type { DreamCycleRecord, DreamTriggerSource } from './types.js';
+import type {
+  DreamCycleRecord,
+  DreamCycleStatus,
+  DreamTriggerSource,
+} from './types.js';
 import { mirrorCycleToDb } from './DreamCycleDb.js';
 import { SessionContentGatherer } from './gather/SessionContentGatherer.js';
 import { KnowledgeScanner } from './gather/KnowledgeScanner.js';
 import { PersonalityReflector } from './reflect/PersonalityReflector.js';
 import { DreamPersistence } from './DreamPersistence.js';
-import { executeAutoDream, runKnowledgeRain } from '@openliri/infra/chronos';
+import {
+  abortAutoDream,
+  computeDreamXp,
+  executeAutoDream,
+  runKnowledgeRain,
+} from '@openliri/infra/chronos';
 import {
   resolveDataSubDir,
   resolveSoulPath,
@@ -92,6 +101,37 @@ export class UnifiedDreamCycle {
     return this.cycleLock !== null;
   }
 
+  /**
+   * 执行 AutoDream 并施加周期超时（2026-11-25 第 3 批）。
+   *
+   * 原实现：`_CYCLE_TIMEOUT_MS` 声明后从未使用 ⇒ 整合卡死时周期无限挂起，且
+   * `abortAutoDream()` 因控制器从未创建而恒空转。现超时即真正中止本轮整合并抛错，
+   * 由调用方按 partial 记录（`errors` 里保留超时原因）。
+   */
+  private async runAutoDream(source: DreamTriggerSource): Promise<boolean> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        executeAutoDream({ force: source === 'manual' }),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => {
+            abortAutoDream();
+            reject(
+              new AppError(
+                `梦境整合超时（${_CYCLE_TIMEOUT_MS}ms），已中止本轮整合`,
+                ErrorCategory.EXECUTION,
+                ErrorSeverity.MEDIUM,
+                'DREAM_TIMEOUT'
+              )
+            );
+          }, _CYCLE_TIMEOUT_MS);
+        }),
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
   // ──── 内部实现 ────
 
   private async _doExecute(
@@ -103,7 +143,7 @@ export class UnifiedDreamCycle {
     const errors: string[] = [];
     const insights: string[] = [];
 
-    let status: 'completed' | 'partial' | 'failed' = 'completed';
+    let status: DreamCycleStatus = 'completed';
 
     // 统计
     let sessionsScanned = 0;
@@ -125,6 +165,11 @@ export class UnifiedDreamCycle {
      * 否则伙伴日志/统计与梦境周期不一致（方案 B）。
      */
     let autoDreamRan = false;
+    /**
+     * 是否**尝试执行**过 AutoDream（区别于"被门槛跳过"）。
+     * true + `autoDreamRan=false` ⇒ 执行抛错/超时（不是跳过）⇒ 补发失败事件。
+     */
+    let autoDreamAttempted = false;
 
     // ──── 检查点 ────
     const checkpointDir = join(resolveDataSubDir('dream'), 'checkpoints');
@@ -249,9 +294,9 @@ export class UnifiedDreamCycle {
         // 方案 B（2026-11-25）：手动触发强制本轮整合（跳过 AutoDream 的 4h/节流/会话数门槛）。
         // AutoDream 被跳过时它不会发 DREAM_* ⇒ 由周期收尾统一补发（见 buildRecord 之后），
         // 这样补发事件的 status/统计与周期**最终结果**一致（不再提前宣告"完成"）。
-        autoDreamRan = await executeAutoDream({
-          force: source === 'manual',
-        });
+        // 2026-11-25 第 3 批：加周期超时（超时 ⇒ 中止 AutoDream，按 partial 记录）。
+        autoDreamAttempted = true;
+        autoDreamRan = await this.runAutoDream(source);
       } catch (e) {
         errors.push(`AutoDream 执行失败: ${String(e)}`);
         void handleError(e, {
@@ -534,8 +579,12 @@ export class UnifiedDreamCycle {
         success: status === 'completed',
       });
       try {
-        const xpGained =
-          sessionsProcessed * 10 + memoriesCreated * 5 + insights.length * 3;
+        // 2026-11-25 第 3 批：XP 与伙伴侧同源（`computeDreamXp` = 会话×10 + 洞察×5）。
+        // 原实现这里是 `会话×10 + 记忆×5 + 洞察×3`，与伙伴成长对同一个梦算出两个数字。
+        const xpGained = computeDreamXp({
+          sessions: sessionsProcessed,
+          insights: insights.length,
+        });
         broadcastEvent('dream:cycle:completed', {
           cycleId,
           status,
@@ -578,6 +627,16 @@ export class UnifiedDreamCycle {
     }
 
     const completedAt = Date.now();
+
+    // 2026-11-25 第 3 批（记录 #10）：AutoDream 被门槛/节流/锁跳过时，本轮**没有真正做梦**。
+    // 原实现让 `status` 停在初值 `completed` 并补发 `DREAM_COMPLETED` ⇒ 伙伴把空转周期
+    // 计入"完成次数"并发经验。现回写为 `skipped`，并补发独立的 `dream:skipped`（只进日志、
+    // 不成长）；尝试过但抛错/超时的周期按失败补发（同样不计完成）。
+    const skippedByGate = !autoDreamRan && !autoDreamAttempted;
+    if (skippedByGate && status === 'completed') {
+      status = 'skipped';
+    }
+
     const record = this.buildRecord(
       cycleId,
       source,
@@ -605,23 +664,34 @@ export class UnifiedDreamCycle {
     await this.persistence.saveCycle(record);
 
     // 方案 B（2026-11-25）：AutoDream 被门槛/节流/锁跳过时不会有 `DREAM_*`，
-    // 这里按周期**最终状态**补发一条伙伴事件 ⇒ 每次梦都进伙伴日志/统计，
-    // 且失败周期不会被误记为"完成"。
+    // 这里按周期**最终状态**补发一条伙伴事件 ⇒ 每次梦都进伙伴日志，
+    // 且失败周期不会被误记为"完成"。第 3 批：跳过走独立 `dream:skipped`
+    // （只进日志、不计完成次数/经验），尝试过但失败的走 `DREAM_FAILED`。
     if (!autoDreamRan) {
-      const failed = record.status === 'failed';
-      globalEventBus.publish(
-        failed ? SystemEvents.DREAM_FAILED : SystemEvents.DREAM_COMPLETED,
-        {
-          type: failed ? 'dream:failed' : 'dream:completed',
-          taskId: cycleId,
-          summary: failed
-            ? `梦境周期失败：${record.errors[0] ?? '未知错误'}`
+      const failed = record.status === 'failed' || autoDreamAttempted;
+      const skipped = !failed && record.status === 'skipped';
+      const eventName = failed
+        ? SystemEvents.DREAM_FAILED
+        : skipped
+          ? SystemEvents.DREAM_SKIPPED
+          : SystemEvents.DREAM_COMPLETED;
+      const eventType = failed
+        ? 'dream:failed'
+        : skipped
+          ? 'dream:skipped'
+          : 'dream:completed';
+      globalEventBus.publish(eventName, {
+        type: eventType,
+        taskId: cycleId,
+        summary: failed
+          ? `梦境周期失败：${record.errors[0] ?? '未知错误'}`
+          : skipped
+            ? `本轮自动整合未执行（门槛/节流跳过）：扫描 ${record.sessionsScanned} 条会话`
             : `梦境周期完成：整理 ${record.sessionsProcessed} 条会话，产出 ${record.insights.length} 条洞察`,
-          sessionsCount: record.sessionsProcessed,
-          insightsGenerated: record.insights.length,
-          timestamp: Date.now(),
-        }
-      );
+        sessionsCount: skipped ? 0 : record.sessionsProcessed,
+        insightsGenerated: skipped ? 0 : record.insights.length,
+        timestamp: Date.now(),
+      });
     }
 
     // 3-4（2026-09-03）：SQL 镜像到 app.db dream_cycles（按时间窗/触发源 SQL 可查询）；
@@ -659,7 +729,7 @@ export class UnifiedDreamCycle {
   private buildRecord(
     cycleId: string,
     source: DreamTriggerSource,
-    status: 'completed' | 'partial' | 'failed',
+    status: DreamCycleStatus,
     snapshotTime: number,
     startedAt: number,
     completedAt: number,

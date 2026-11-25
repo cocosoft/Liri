@@ -1,6 +1,6 @@
 export interface DreamLogEntry {
   id: string;
-  type: "dream:started" | "dream:completed" | "dream:failed";
+  type: "dream:started" | "dream:completed" | "dream:failed" | "dream:skipped";
   taskId: string;
   summary: string;
   sessionsCount: number;

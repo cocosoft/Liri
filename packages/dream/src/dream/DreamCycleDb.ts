@@ -95,6 +95,8 @@ export interface CycleStats {
   completed: number;
   partial: number;
   failed: number;
+  /** 被门槛/节流/锁跳过的周期（2026-11-25：不再计入 completed） */
+  skipped: number;
   byTriggerSource: Record<string, number>;
   /** 仅 completed/partial 行的均值；空均值集 → null */
   avgMemoriesCreated: number | null;
@@ -306,6 +308,7 @@ export class DreamCycleDb {
         completed: 0,
         partial: 0,
         failed: 0,
+        skipped: 0,
         byTriggerSource: {},
         avgMemoriesCreated: null,
       };
@@ -318,6 +321,7 @@ export class DreamCycleDb {
                 SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed,
                 SUM(CASE WHEN status = 'partial' THEN 1 ELSE 0 END) AS partial,
                 SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed,
+                SUM(CASE WHEN status = 'skipped' THEN 1 ELSE 0 END) AS skipped,
                 AVG(CASE WHEN status IN ('completed','partial')
                          THEN memories_created END) AS avg_memories
            FROM dream_cycles
@@ -343,6 +347,7 @@ export class DreamCycleDb {
       completed: (s.completed as number) ?? 0,
       partial: (s.partial as number) ?? 0,
       failed: (s.failed as number) ?? 0,
+      skipped: (s.skipped as number) ?? 0,
       byTriggerSource,
       avgMemoriesCreated:
         s.avg_memories === null || s.avg_memories === undefined

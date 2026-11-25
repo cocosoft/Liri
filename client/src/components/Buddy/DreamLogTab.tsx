@@ -10,12 +10,14 @@ const DREAM_TYPE_LABELS: Record<string, string> = {
   "dream:started": "buddy.dreamTypeStarted",
   "dream:completed": "buddy.dreamTypeCompleted",
   "dream:failed": "buddy.dreamTypeFailed",
+  "dream:skipped": "buddy.dreamTypeSkipped",
 };
 
 const DREAM_TYPE_COLORS: Record<string, string> = {
   "dream:started": "text-blue-500",
   "dream:completed": "text-green-500",
   "dream:failed": "text-red-500",
+  "dream:skipped": "text-gray-400",
 };
 
 const DREAM_TYPE_BG: Record<string, string> = {
@@ -25,6 +27,8 @@ const DREAM_TYPE_BG: Record<string, string> = {
     "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800",
   "dream:failed":
     "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800",
+  "dream:skipped":
+    "bg-gray-50 dark:bg-gray-800/30 border-gray-200 dark:border-gray-700",
 };
 
 interface DreamCycleEntry {
@@ -121,6 +125,8 @@ function DreamLogTab() {
         return "✨";
       case "dream:failed":
         return "💤";
+      case "dream:skipped":
+        return "⏭️";
       default:
         return "🌙";
     }
@@ -134,6 +140,8 @@ function DreamLogTab() {
         return "⚠️";
       case "failed":
         return "❌";
+      case "skipped":
+        return "⏭️";
       default:
         return "🌙";
     }

@@ -10,7 +10,7 @@ const NOTIFICATION_ICON = "🐣";
  *
  * 2026-11-25：此前订阅 `"dream"` —— 全仓无该事件的发布方（订阅空转）。
  * 现改为与实际发布方一致：payload `{ cycleId, status, sessionsProcessed,
- * memoriesCreated, insights, xp }`，`status` ∈ completed | partial | failed。
+ * memoriesCreated, insights, xp }`，`status` ∈ completed | partial | failed | skipped。
  */
 const DREAM_CYCLE_COMPLETED_EVENT = "dream:cycle:completed";
 
@@ -23,6 +23,10 @@ export function useBuddyNotification(): void {
       const firstInsight = insights.find(
         (item): item is string => typeof item === "string" && item.length > 0,
       );
+
+      // 2026-11-25 第 3 批：skipped = 本轮未真正整合（门槛/节流/锁跳过），
+      // 不该发"梦境已完成"的桌面通知（会与伙伴统计"不计完成"不一致）。
+      if (status === "skipped") return;
 
       const title = i18n.t(
         status === "failed" ? "dream.notifyFailed" : "dream.notifyCompleted",

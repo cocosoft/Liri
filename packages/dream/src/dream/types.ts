@@ -67,7 +67,7 @@ export const DEFAULT_DREAM_SCHEDULER_CONFIG: DreamSchedulerConfig = {
 };
 
 /** 梦境周期状态 */
-export type DreamCycleStatus = 'completed' | 'partial' | 'failed';
+export type DreamCycleStatus = 'completed' | 'partial' | 'failed' | 'skipped';
 
 /** 会话摘要（用于 Gather 阶段筛选高价值会话） */
 export interface SessionDigest {

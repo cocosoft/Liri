@@ -679,6 +679,13 @@ export const BOUNDARY_STATE_MACHINES: readonly {
     reason:
       "**同名不同物**：`child.once('error')` 是 Node **事件名**、`registerTool(..., { onConflict: 'error' })` 是**撞名策略选项**（与 `SdkPluginAdapter` 同口径）⇒ 均非状态取值（T25-08 P1）。",
   },
+  {
+    id: 'dreamCycleStatus',
+    title: '梦境周期记录状态（DreamCycleStatus）',
+    sourceFile: 'packages/dream/src/dream/types.ts',
+    reason:
+      '**相邻词汇，不同物**：`completed/partial/failed/skipped` 是**按周期落盘的记录状态**（JSON `cycles/<id>.json` + `dream_cycles` 镜像），无转移规则、无 Registry 实例、无启动对账；≠ `backgroundTask` 运行态机（`skipped` 可回 `running`）。2026-11-25 新增 `skipped`（被门槛/节流/锁跳过，不计完成/经验）⇒ 不合一。',
+  },
 ];
 
 /** 已登记的状态机 id 列表（单点可枚举） */

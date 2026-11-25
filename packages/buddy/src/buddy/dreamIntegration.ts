@@ -10,9 +10,10 @@
  */
 
 import type { DreamEvent } from '@openliri/infra/chronos';
-import { offDreamEvent } from '@openliri/infra/chronos';
+import { computeDreamXp, offDreamEvent } from '@openliri/infra/chronos';
 import type { EventBus } from '@openliri/kernel';
 import { globalEventBus, SystemEvents } from '@openliri/kernel';
+import { handleError } from '@openliri/infra/error';
 import {
   createInfoNotification,
   createAchievementNotification,
@@ -43,11 +44,10 @@ export const DREAM_EVENT = 'buddy:dream';
  * 梦境成长追踪器
  * 记录梦境完成情况，检测里程碑并触发 Buddy 成长联动
  * 状态持久化到 ~/.pyapp/data/buddy-growth.json（重启不丢失）
+ *
+ * 梦境经验公式已收敛到 `@openliri/infra/chronos` 的 `computeDreamXp`
+ * （会话×10 + 洞察×5，与 SSE `dream:cycle:completed` 同源）。
  */
-/** 梦境经验：每条整理会话（与唯一真源共同决定等级进度） */
-const DREAM_XP_PER_SESSION = 10;
-/** 梦境经验：每条洞察 */
-const DREAM_XP_PER_INSIGHT = 5;
 /** 单次伙伴互动经验 */
 const INTERACTION_XP = 1;
 
@@ -133,15 +133,23 @@ export class DreamGrowthTracker {
 
   /**
    * 记录一次梦境完成，更新统计数据并检测里程碑
+   *
+   * 2026-11-25 第 3 批：
+   * - 先 `await init()`：避免"状态尚未加载就落盘"把既有成长清零（init 幂等且并发共享）；
+   * - 先 `await persist()` 再广播：原实现 `void this.persist()` 后立刻 emitGrowth，
+   *   前端收到事件后回拉 `/stats` 可能读到**落盘前**的旧值。
    */
-  recordCompletion(event: DreamEvent): void {
+  async recordCompletion(event: DreamEvent): Promise<void> {
+    await this.init();
+
     this.totalCompleted++;
     this.totalSessions += event.sessionsCount;
     this.totalInsights += event.insightsGenerated;
-    // 经验 = 会话数 × 10 + 洞察数 × 5（等级/进度由累计经验派生）
-    this.experience +=
-      event.sessionsCount * DREAM_XP_PER_SESSION +
-      event.insightsGenerated * DREAM_XP_PER_INSIGHT;
+    // 经验 = 会话数 × 10 + 洞察数 × 5（唯一公式：与 SSE 同源）
+    this.experience += computeDreamXp({
+      sessions: event.sessionsCount,
+      insights: event.insightsGenerated,
+    });
 
     const today = new Date().toISOString().slice(0, 10);
     if (this.lastCompletedDate) {
@@ -158,7 +166,7 @@ export class DreamGrowthTracker {
       this.consecutiveDays = 1;
     }
     this.lastCompletedDate = today;
-    void this.persist();
+    await this.persist();
     this.emitGrowth('dream');
   }
 
@@ -357,6 +365,8 @@ export function formatDreamMessage(event: DreamEvent): string {
       return `🌙 我做了一个小梦，整理了 ${event.sessionsCount} 条会话。${event.summary}`;
     case 'dream:failed':
       return `🌙 我做了个不太好的梦……梦境整合失败了：${event.summary}。下次再试试吧~`;
+    case 'dream:skipped':
+      return `🌙 这轮没有真的做梦（${event.summary}），等你休息时我再整理记忆~`;
   }
 }
 
@@ -394,13 +404,27 @@ export function formatGrowthDialogue(
 
 /**
  * 处理梦境事件的 Buddy 通知反馈
+ *
+ * 2026-11-25 第 3 批：改为 async —— 完成路径需 `await recordCompletion()`
+ * （内部先落盘再广播）。异常在此收口，避免事件总线回调产生未处理 rejection。
  */
-function handleDreamEvent(event: DreamEvent): void {
+async function handleDreamEvent(event: DreamEvent): Promise<void> {
+  try {
+    await handleDreamEventInner(event);
+  } catch (e) {
+    await handleError(e, {
+      module: 'buddy:dreamIntegration',
+      action: 'handleDreamEvent',
+    });
+  }
+}
+
+async function handleDreamEventInner(event: DreamEvent): Promise<void> {
   addDreamLogEntry(event);
   const baseMessage = formatDreamMessage(event);
 
   if (event.type === 'dream:completed') {
-    growthTracker.recordCompletion(event);
+    await growthTracker.recordCompletion(event);
     const stats = growthTracker.getStats();
     const growthMessage = formatGrowthDialogue(event, stats);
     const fullMessage = growthMessage
@@ -440,6 +464,9 @@ function handleDreamEvent(event: DreamEvent): void {
       createInfoNotification('🌙 梦境消息', baseMessage);
     });
     logger.info('梦境事件', { type: event.type, message: baseMessage });
+  } else if (event.type === 'dream:skipped') {
+    // 跳过 ≠ 完成：只进梦境日志（可追溯），不计完成次数/经验、不发桌面通知
+    logger.info('梦境事件', { type: event.type, message: baseMessage });
   } else {
     logger.info('梦境事件', { type: event.type, message: baseMessage });
   }
@@ -474,17 +501,23 @@ export function initBuddyDreamIntegration(bus?: EventBus): void {
   eventBus.subscribe(SystemEvents.DREAM_STARTED, (event: unknown) => {
     const de = event as DreamEvent;
     markProcessed(de.taskId);
-    handleDreamEvent(de);
+    void handleDreamEvent(de);
   });
   eventBus.subscribe(SystemEvents.DREAM_COMPLETED, (event: unknown) => {
     const de = event as DreamEvent;
     markProcessed(de.taskId);
-    handleDreamEvent(de);
+    void handleDreamEvent(de);
   });
   eventBus.subscribe(SystemEvents.DREAM_FAILED, (event: unknown) => {
     const de = event as DreamEvent;
     markProcessed(de.taskId);
-    handleDreamEvent(de);
+    void handleDreamEvent(de);
+  });
+  // 2026-11-25 第 3 批：被门槛/节流/锁跳过的周期 —— 只进日志，不计完成次数/经验
+  eventBus.subscribe(SystemEvents.DREAM_SKIPPED, (event: unknown) => {
+    const de = event as DreamEvent;
+    markProcessed(de.taskId);
+    void handleDreamEvent(de);
   });
 
   // 兼容路径：旧 DREAM_EVENT 通道（用于尚未迁移的发布者）
@@ -492,7 +525,7 @@ export function initBuddyDreamIntegration(bus?: EventBus): void {
     const de = event as DreamEvent;
     if (isAlreadyProcessed(de.taskId)) return;
     markProcessed(de.taskId);
-    handleDreamEvent(de);
+    void handleDreamEvent(de);
   });
 
   logger.info('梦境集成已初始化');

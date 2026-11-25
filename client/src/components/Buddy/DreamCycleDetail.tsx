@@ -95,6 +95,12 @@ function DreamCycleDetail({ cycleId, isDark, onClose }: DreamCycleDetailProps) {
             {t("buddy.statusFailed")}
           </span>
         );
+      case "skipped":
+        return (
+          <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-800/40 dark:text-gray-400">
+            {t("buddy.statusSkipped")}
+          </span>
+        );
       default:
         return null;
     }

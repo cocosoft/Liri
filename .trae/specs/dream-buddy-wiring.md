@@ -207,6 +207,19 @@ A 之外的后续项：**B** = dream→buddy 事件断点（见 §7.1，已实�
   失败周期不会被提前误记为"完成"；
 - 回归用例：`app/tests/dream/autoDreamSkipSignal.test.ts`（未初始化 ⇒ false，调用方据此补发）。
 
+### 7.5 第 3 批（2026-11-25，四模块联调排查 #8–#12）
+
+| 断点 | 修复 |
+|---|---|
+| XP 双公式 | 新增唯一事实源 `packages/infra/src/chronos/autoDream/dreamXp.ts`（`computeDreamXp` = 会话×10 + 洞察×5）。伙伴 `DreamGrowthTracker` 与 SSE `dream:cycle:completed.xp` 同源；原 SSE 的 `会话×10+记忆×5+洞察×3` 已删除 |
+| 广播先于落盘 | `recordCompletion()` 改为 async：先 `await init()`（避免未加载即落盘清零），再 `await persist()`，最后 `emitGrowth` |
+| skip 记为 completed | `DreamCycleStatus` 新增 `skipped`；`autoDreamRan=false` 且未尝试执行 ⇒ 周期状态回写 `skipped`，补发**独立** `SystemEvents.DREAM_SKIPPED`（`dream:skipped`）。伙伴只进日志（不计完成次数/经验、不发通知）；周期统计新增 `skipped` 计数；analytics `status` 过滤与客户端标签同步 |
+| 中止/超时未接 | `AutoDream` 每轮执行前创建 `AbortController`（结束即释放）⇒ `abortAutoDream()` / `isAutoDreamRunning()` 真正生效；`UnifiedDreamCycle.runAutoDream()` 用 `_CYCLE_TIMEOUT_MS`（120s）竞速，超时即中止并按 `partial` 记录 |
+| 检索失败当"未找到" | `recall_memory` 把 `*-failed` 的 `fallbackReasons` 单独渲染为「记忆检索失败（…）：不是"没有相关记忆"」，不再一律提示"未找到" |
+
+> 边界：`dream:skipped` 事件只用于"本轮确实没做梦"（门槛/节流/锁）；**尝试执行但抛错/超时**仍补发 `DREAM_FAILED`。
+> 回归用例：`app/tests/dream/dreamXp.test.ts`、`app/tests/tools/recallMemoryScope.test.ts`（检索失败分支）。
+
 ### 7.2 真机 E2E 记录（2026-11-25，本地 `bun --watch` 后端）
 
 | 步骤 | 结果 |

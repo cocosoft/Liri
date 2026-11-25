@@ -66,6 +66,19 @@ describe('recall_memory scope/type（P1-2）', () => {
     expect(text.indexOf('S 决策条目')).toBeLessThan(text.indexOf('G 决策条目'));
   });
 
+  it('检索失败 ⇒ 如实提示"检索失败"而非"未找到"（2026-11-25 第 3 批）', async () => {
+    const tool = RecallMemoryTool.create({
+      resolveSessionMemory: async () => {
+        throw new Error('boom');
+      },
+    });
+    const result = await tool.execute({ query: '部署', scope: 'session' }, CTX);
+    const text = String(result.data ?? '');
+    expect(text).toContain('检索失败');
+    expect(text).toContain('session-search-failed');
+    expect(text).not.toContain('未找到相关记忆');
+  });
+
   it('type 过滤 ⇒ 只保留指定类型', async () => {
     const text = await run(
       { query: '部署', scope: 'all', type: 'decision' },

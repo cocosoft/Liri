@@ -969,7 +969,9 @@ export class MemoryManagerImpl
               candidates: combined.length,
               selected: refined.length,
             });
-            return refined.slice(0, limit);
+            const top = refined.slice(0, limit);
+            await this.recordMemoryAccess(top.map((m) => m.id));
+            return top;
           }
         }
       } catch (err) {
@@ -983,7 +985,32 @@ export class MemoryManagerImpl
       }
     }
 
-    return combined.slice(0, limit);
+    const top = combined.slice(0, limit);
+    await this.recordMemoryAccess(top.map((m) => m.id));
+    return top;
+  }
+
+  /**
+   * 记录一次召回（P0-2-4，2026-11-25）：命中的长期记忆 `accessCount` 自增并落盘。
+   *
+   * 只动 `metadata.accessCount` —— **不**改写正文、**不**刷新 `updatedAt`
+   * （避免污染"最近更新"语义与索引的 updatedAt 排序）。
+   * 由 `getRelevantMemories` 在返回前调用：单条失败只记日志，不影响检索结果。
+   */
+  async recordMemoryAccess(ids: string[]): Promise<void> {
+    for (const id of new Set(ids)) {
+      try {
+        const memory = await this.store.readMemory(id);
+        if (!memory) continue;
+        memory.metadata.accessCount = (memory.metadata.accessCount ?? 0) + 1;
+        await this.store.saveMemory(memory);
+      } catch (err) {
+        await handleError(err, {
+          module: 'memory:memoryManager',
+          action: 'recordMemoryAccess',
+        });
+      }
+    }
   }
 
   /**

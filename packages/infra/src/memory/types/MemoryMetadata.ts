@@ -155,6 +155,14 @@ export interface MemoryMetadata {
    * **不**用于自动改写正文（只作为新鲜度信号，供索引排序/后续 Promote 使用）。
    */
   verifiedAt?: Date;
+
+  /**
+   * 被召回次数（P0-2-4，2026-11-25）。
+   *
+   * 缺省 = 0（向前兼容）；由 `getRelevantMemories` 命中后自增落盘。
+   * 只作排序信号（索引 Promote 排序消费），**不**改写正文，也**不**刷新 `updatedAt`。
+   */
+  accessCount?: number;
 }
 
 /**
@@ -190,5 +198,6 @@ export function createMemoryMetadata(
     deprecatedAt: data.deprecatedAt,
     supersedes: data.supersedes,
     verifiedAt: data.verifiedAt,
+    accessCount: data.accessCount ?? 0,
   };
 }

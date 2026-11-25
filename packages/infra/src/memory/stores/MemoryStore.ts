@@ -356,6 +356,9 @@ export class MemoryStoreImpl implements MemoryStore {
               if (memory.metadata.verifiedAt)
                 frontmatter.verifiedAt =
                   memory.metadata.verifiedAt.toISOString();
+              // P0-2-4（2026-11-25）：召回次数（缺省 = 0）
+              if (memory.metadata.accessCount !== undefined)
+                frontmatter.accessCount = memory.metadata.accessCount;
 
               const validatedContent = this.validateMarkdownContent(
                 memory.content
@@ -884,6 +887,7 @@ export class MemoryStoreImpl implements MemoryStore {
           deprecatedAt: data.deprecatedAt,
           supersedes: data.supersedes,
           verifiedAt: data.verifiedAt ? new Date(data.verifiedAt) : undefined,
+          accessCount: data.accessCount,
         }),
         createdAt: new Date(data.createdAt),
         updatedAt: new Date(data.updatedAt),
@@ -1073,7 +1077,8 @@ export class MemoryStoreImpl implements MemoryStore {
     const now = Date.now();
     // P2-1 Promote-lite（2026-11-25）：注入层只读头部约 200 行 ⇒
     // ① 已过期但尚未清理的条目不进索引（索引只描述"仍有效"的记忆）；
-    // ② 顺序 = 置顶 → importance 降序 → updatedAt 降序，让高价值条目优先进入注入窗口。
+    // ② 顺序 = 置顶 → importance 降序 → accessCount 降序 → verifiedAt 降序 → updatedAt 降序，
+    //    让高价值（越常被召回/越被证据确认）条目优先进入注入窗口。
     const active = memories.filter(
       (m) => !m.metadata.expiresAt || new Date(m.metadata.expiresAt).getTime() > now
     );
@@ -1085,6 +1090,10 @@ export class MemoryStoreImpl implements MemoryStore {
       const importanceDiff =
         (b.metadata.importance ?? 0.5) - (a.metadata.importance ?? 0.5);
       if (importanceDiff !== 0) return importanceDiff;
+      // P0-2-4（2026-11-25）：被召回更多的条目优先（缺省 0）
+      const accessDiff =
+        (b.metadata.accessCount ?? 0) - (a.metadata.accessCount ?? 0);
+      if (accessDiff !== 0) return accessDiff;
       // P2-1 Validate 的产物：被证据确认过的条目优先（未验证 ⇒ 0）
       const verifiedDiff =
         (b.metadata.verifiedAt?.getTime() ?? 0) -
@@ -1099,7 +1108,7 @@ export class MemoryStoreImpl implements MemoryStore {
       '# Memory Index',
       '',
       '> 自动生成，勿手改。每行 `- [标题](文件.md) — 一行钩子`；注入层只载入头部约 200 行。',
-      '> 排序：置顶 → 重要度降序 → 证据确认 → 更新时间降序；已过期条目不上榜。',
+      '> 排序：置顶 → 重要度降序 → 召回次数降序 → 证据确认 → 更新时间降序；已过期条目不上榜。',
       '',
       `共 ${active.length} 条。`,
     ];

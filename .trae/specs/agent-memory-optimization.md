@@ -228,8 +228,10 @@ Liri 的记忆"三件套"（文件存储 / 混合检索 / 梦境巩固）都已�
 | 真压缩 | `SessionMemoryManager._compactMemoryFile` | 改为结构化抽取：决策/待办/摘要**全保留**；其余按类型各留最近 15 条，总量预算 60 |
 
 **P0-2-4 字段（部分落地，2026-11-25）**：`verifiedAt` 已加入 `MemoryMetadata` 并完成 frontmatter
-读写（消费者 = P2-1 Validate 写入 + Promote 排序）。`confidence / sourceEventSeqs / accessCount`
-仍未引入 —— 当前无消费者，按"未接线项不得当作能力"延后。
+读写（消费者 = P2-1 Validate 写入 + Promote 排序）。`accessCount` 已同批闭环（2026-11-25）：
+`getRelevantMemories` 返回前对实际返回条目 `+1` 并落盘（**不改正文、不刷新 `updatedAt`**），
+索引 Promote 排序消费该值。`confidence / sourceEventSeqs` 仍未引入 —— 当前无消费者，
+按"未接线项不得当作能力"延后。
 
 ### 8.3 P1-1 向量持久化（Phase 2）
 
@@ -286,8 +288,10 @@ MMR 需查询向量与候选两两相似度（N² 次嵌入），仅在显式开
 **如实边界**：
 - Validate 的精度受会话检索能力限制：`searchTranscript` 是"包含 probe"的精确子串匹配 ⇒
   **只有逐字引用原文**的记忆才会被确认，摘要式记忆通常保持"未验证"（不误伤、不自动改写）。
-- Promote 现用 `isPinned / importance / verifiedAt / updatedAt`；`confidence / sourceEventSeqs / accessCount`
-  仍未引入（无消费者前不提前写 schema）。
+- Promote 现用 `isPinned / importance / accessCount / verifiedAt / updatedAt`；
+  `confidence / sourceEventSeqs` 仍未引入（无消费者前不提前写 schema）。
+- `accessCount` 只有**索引 Promote 排序**一个消费者；检索重排（时序衰减 / MMR / 类型配额）
+  **尚未**使用它（不把计数当作检索质量信号）。
 - Represent 产出的 wiki **不进入系统提示**（注入仍只读 `MEMORY.md`，见 §8.1）：它是浏览/后续 dreaming 的
   表示层；"链接完整性"由生成时校验 + 生成标记清理共同保证，不额外引入死链修复任务。
 

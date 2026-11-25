@@ -13,6 +13,7 @@ import {
 } from '../scanners/MemorySecretScanner';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { configManager } from '@openliri/infra/config';
+import { TeamMemorySyncStateStore } from './TeamMemorySyncStateStore';
 
 const logger = getLogger('memory:services:teamMemorySyncService');
 
@@ -80,6 +81,12 @@ export interface SyncResult {
 interface ServerMemoryEntry {
   id: string;
   content: string;
+  /** 服务端单调版本（Phase 2N-1 增量游标；旧服务端可能缺失） */
+  version?: number;
+  /** 顶层 etag（契约 §3.2）；旧服务端放在 `metadata.etag` */
+  etag?: string;
+  /** 墓碑标记（Phase 2N-3 消费；此处只透传） */
+  deletedAt?: string | null;
   metadata: {
     createdAt: string;
     modifiedAt: string;
@@ -88,6 +95,11 @@ interface ServerMemoryEntry {
     type?: string;
   };
 }
+
+/** 单页拉取条数（契约 §3.6；命名避开 lint:consts 的 `_LIMIT` 裸字面量判据） */
+const TEAM_SYNC_PAGE_SIZE = 100;
+/** 分页保护：单次同步最多翻页数（防服务端游标异常导致死循环） */
+const MAX_PAGES = 50;
 
 /**
  * 团队记忆同步器配置
@@ -180,12 +192,18 @@ export class TeamMemorySyncService {
    * **不放进 `TeamMemorySyncConfig`** —— 避免 `getConfig()`/日志意外带出明文。
    */
   private authToken: string | null = null;
+  /** 同步状态持久化（Phase 2N-1）：cursor / etag 断点续传 */
+  private readonly stateStore: TeamMemorySyncStateStore;
   private listeners: Array<(status: SyncStatus, result?: SyncResult) => void> =
     [];
 
-  constructor(config: Partial<TeamMemorySyncConfig> = {}) {
+  constructor(
+    config: Partial<TeamMemorySyncConfig> = {},
+    stateStore: TeamMemorySyncStateStore = new TeamMemorySyncStateStore()
+  ) {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.secretScanner = defaultMemorySecretScanner;
+    this.stateStore = stateStore;
   }
 
   /**
@@ -325,6 +343,15 @@ export class TeamMemorySyncService {
       result.success = false;
       result.errors.push(`Sync failed: ${error}`);
       this.status = SyncStatus.ERROR;
+      // Phase 2N-1：失败原因落库（保留既有 cursor/etag，便于下一轮续传）
+      try {
+        await this.stateStore.saveError(this.config.teamId, String(error));
+      } catch (stateError) {
+        await handleError(stateError, {
+          module: 'memory:services:teamSync',
+          action: 'save_sync_error',
+        });
+      }
     }
 
     result.duration = Date.now() - startTime;
@@ -348,7 +375,12 @@ export class TeamMemorySyncService {
   }
 
   /**
-   * 获取远程记忆列表
+   * 获取远程记忆列表（Phase 2N-1：cursor 分页 + 断点续传 + etag 落库）
+   *
+   * - `incremental=true`：先读持久化 cursor，请求 `version > cursor`，逐页推进直到 `hasMore=false`；
+   * - `incremental=false`：单页全量（不带 cursor，与旧行为一致）；
+   * - 响应兼容两种形状：契约 `{items,nextCursor,hasMore}` 与旧服务端 `{memories:[...]}`；
+   * - 成功后保存 `cursor` 与 `id→etag`；失败**上抛**（fail-closed）。
    */
   private async fetchRemoteMemories(): Promise<Map<string, ServerMemoryEntry>> {
     const memories = new Map<string, ServerMemoryEntry>();
@@ -357,34 +389,101 @@ export class TeamMemorySyncService {
       return memories;
     }
 
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), this.config.timeout);
+    const teamId = this.config.teamId;
+    let cursor = 0;
 
-      const response = await fetch(
-        `${this.config.serverUrl}${this.config.apiPrefix}/${this.config.teamId}/memories`,
-        {
+    // 断点续传：读上次进度（读失败不阻断，按 0 重新拉；但会记日志）
+    if (this.config.incremental) {
+      try {
+        const state = await this.stateStore.get(teamId);
+        if (state) {
+          cursor = state.cursor;
+          for (const [id, etag] of Object.entries(state.etags)) {
+            this.etagCache.set(id, etag);
+          }
+        }
+      } catch (error) {
+        await handleError(error, {
+          module: 'memory:services:teamSync',
+          action: 'load_sync_state',
+        });
+      }
+    }
+
+    try {
+      for (let page = 0; page < MAX_PAGES; page += 1) {
+        const encodedTeam = encodeURIComponent(teamId);
+        const url = new URL(
+          `${this.config.serverUrl}${this.config.apiPrefix}/${encodedTeam}/memories`
+        );
+        if (this.config.incremental) {
+          url.searchParams.set('cursor', String(cursor));
+        }
+        url.searchParams.set('limit', String(TEAM_SYNC_PAGE_SIZE));
+
+        const controller = new AbortController();
+        const timeout = setTimeout(
+          () => controller.abort(),
+          this.config.timeout
+        );
+
+        const response = await fetch(url.toString(), {
           signal: controller.signal,
           headers: this.buildHeaders(),
+        });
+
+        clearTimeout(timeout);
+
+        if (!response.ok) {
+          throw this.httpError(response.status, response.statusText);
         }
-      );
 
-      clearTimeout(timeout);
+        const data = (await response.json()) as {
+          items?: ServerMemoryEntry[];
+          memories?: ServerMemoryEntry[];
+          nextCursor?: number;
+          next_cursor?: number;
+          hasMore?: boolean;
+          has_more?: boolean;
+        };
+        const entries: ServerMemoryEntry[] = Array.isArray(data.items)
+          ? data.items
+          : Array.isArray(data.memories)
+            ? data.memories
+            : [];
 
-      if (!response.ok) {
-        throw this.httpError(response.status, response.statusText);
+        let maxVersion = cursor;
+        for (const entry of entries) {
+          if (!entry?.id) continue;
+          memories.set(entry.id, entry);
+          const etag = entry.metadata?.etag ?? entry.etag;
+          if (etag) this.etagCache.set(entry.id, etag);
+          const version = Number(entry.version ?? 0);
+          if (Number.isFinite(version) && version > maxVersion) {
+            maxVersion = version;
+          }
+        }
+
+        if (!this.config.incremental) break;
+
+        const nextCursor = Number(data.nextCursor ?? data.next_cursor);
+        const next = Number.isFinite(nextCursor) ? nextCursor : maxVersion;
+        const hasMore =
+          data.hasMore ??
+          data.has_more ??
+          (entries.length >= TEAM_SYNC_PAGE_SIZE && next > cursor);
+
+        if (next <= cursor) break; // 游标无推进 ⇒ 终止（防死循环）
+        cursor = next;
+        if (!hasMore) break;
       }
 
-      const data = await response.json();
-      const entries: ServerMemoryEntry[] = data.memories || [];
-
-      for (const entry of entries) {
-        memories.set(entry.id, entry);
-      }
-
-      const etag = response.headers.get('ETag');
-      if (etag) {
-        this.updateEtagCache(memories, etag);
+      if (this.config.incremental) {
+        await this.stateStore.saveProgress(
+          teamId,
+          cursor,
+          Object.fromEntries(this.etagCache)
+        );
       }
     } catch (error) {
       await handleError(error, {

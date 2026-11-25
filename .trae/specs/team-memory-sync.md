@@ -277,6 +277,16 @@
   可能把本地全量当新增上传）；现记日志后**上抛**，由 `sync()` 记为 `ERROR`。
 - 用例：`app/tests/memory/teamMemorySyncTransport.test.ts`（路径/鉴权头/apiPrefix/401/429/分类表）。
 
+**Phase 2N-1（2026-11-25，分页与续传）**
+- 新表 `team_memory_sync_state(team_id PK, cursor, etags_json, last_sync_at, last_error)`
+  （`TeamMemorySyncStateStore`，仅新增表；`cursor` 只增不减，失败只写 `last_error` 不动 cursor）。
+- `fetchRemoteMemories`：`cursor/limit=100` 分页循环（上限 50 页防游标异常死循环）；
+  响应兼容契约 `{items,nextCursor,hasMore}` 与旧服务端 `{memories:[...]}`（etag 取 `metadata.etag ?? etag`）；
+  成功后保存 `cursor = maxVersion` 与 `id→etag`；`incremental=false` ⇒ 单页全量、不带 cursor。
+- `sync()` 失败时把原因写入 `last_error`（保留 cursor/etag，下一轮续传）。
+- 用例：`app/tests/memory/teamMemorySyncPagination.test.ts`（两页推进 / 重启续传 / 全量模式 / 失败落库 4 例）。
+
+
 
 ### 5.2 网络版实施拆解（Phase 2N-0 … 2N-5；每步独立提交）
 
@@ -285,7 +295,7 @@
 | 步骤 | 范围 | 落点（文件） | 验收 / 门禁 | 回滚 |
 |---|---|---|---|---|
 | **2N-0** | 契约常量 + Bearer + 错误码分类 + 超时/重试（C1/C2；不联网也能过） | ✅ 已实现（2026-11-25）：`apiPrefix` + `setAuthToken` + `classifyTeamMemoryHttpStatus`；**fetch 失败上抛**（不再吞成空表） | 未配置 ⇒ `NOT_CONFIGURED` 零请求；单测断言路径/鉴权头/401/429 | 独立提交可 revert；开关默认关 |
-| **2N-1** | 拉取分页 + cursor 持久化（C3/C5 拉侧） | 同上 + 新表 `team_memory_sync_state(team_id PK, cursor, etag_json, last_sync_at, last_error)`（仅新增） | cursor=10 ⇒ 只请求 `version>10`；重启从表续传；重复拉取幂等 | 清空表即可全量重拉 |
+| **2N-1** | 拉取分页 + cursor 持久化（C3/C5 拉侧） | ✅ 已实现（2026-11-25）：`TeamMemorySyncStateStore`（新表 `team_memory_sync_state`）+ `cursor/limit` 分页；响应兼容 `{items,nextCursor,hasMore}` 与旧 `{memories}`；etag 落库 | cursor=10 ⇒ 只请求 `version>10`；重启从表续传；重复拉取幂等 | 清空表即可全量重拉 |
 | **2N-2** | 推送 `If-Match` + 409/412 ⇒ 冲突候选（C4/C6/C7 推侧） | 同上 + 复用 `TeamMemorySharedDirSync` 的候选结构与 `resolveTeamConflict` | 412/409 ⇒ 候选落 `conflicts.json`；**本地/远端正文均不变**；密钥命中拒发 | 关开关即停；候选可人工放弃 |
 | **2N-3** | 墓碑处理（远端 `deletedAt` ⇒ 本地 `.trash` 归档） | 同上 | 删除可同步；归档不物理删除 | `.trash` 可还原 |
 | **2N-4** | 状态机/退避/审计接线（R08-002）+ 设置页状态 | `TeamMemorySyncService.ts` + `TeamMemoryPanel`（status 字段已具备） | `SYNCING` 单飞；429/5xx 退避上限 15min；每轮 4 类事件齐全 | 开关关 + 定时器停 |

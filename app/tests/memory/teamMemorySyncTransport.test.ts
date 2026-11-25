@@ -62,7 +62,12 @@ describe('团队记忆同步 Phase 2N-0 传输层', () => {
 
     expect(result.success).toBe(true);
     expect(captured).toHaveLength(1);
-    expect(captured[0].url).toBe('http://srv.test/teams/team-a/memories');
+    const url = new URL(captured[0].url);
+    expect(`${url.origin}${url.pathname}`).toBe(
+      'http://srv.test/teams/team-a/memories'
+    );
+    expect(url.searchParams.get('cursor')).toBe('0');
+    expect(url.searchParams.get('limit')).toBe('100');
     expect(captured[0].headers.Authorization).toBe('Bearer tok-123');
     expect(captured[0].headers.Accept).toBe('application/json');
   });
@@ -82,7 +87,10 @@ describe('团队记忆同步 Phase 2N-0 传输层', () => {
 
     await service.sync();
 
-    expect(captured[0].url).toBe('http://srv.test/v1/teams/team-a/memories');
+    const url = new URL(captured[0].url);
+    expect(`${url.origin}${url.pathname}`).toBe(
+      'http://srv.test/v1/teams/team-a/memories'
+    );
   });
 
   it('401 ⇒ 同步失败并带 UNAUTHORIZED（fail-closed，不再当作"远端为空"）', async () => {

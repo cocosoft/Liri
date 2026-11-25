@@ -23,6 +23,13 @@ function makeStore(): TeamMemorySyncStateStore {
   return new TeamMemorySyncStateStore(join(dir, 'app.db'));
 }
 
+/** 独立的本地团队目录（Phase 2N-3 起下载会真实落盘；不得写进用户数据目录） */
+function makeLocalDir(): string {
+  const dir = mkdtempSync(join(tmpdir(), 'team-sync-page-local-'));
+  createdDirs.push(dir);
+  return dir;
+}
+
 afterEach(() => {
   globalThis.fetch = originalFetch;
   while (createdDirs.length > 0) {
@@ -105,6 +112,7 @@ function makeService(
     {
       serverUrl: 'http://srv.test',
       teamId: 'team-page',
+      localDir: makeLocalDir(),
       incremental,
     },
     store

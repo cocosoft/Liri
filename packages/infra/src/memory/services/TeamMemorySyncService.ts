@@ -15,6 +15,7 @@ import {
 } from '../scanners/MemorySecretScanner';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { configManager } from '@openliri/infra/config';
+import { writeFileAtomic } from '@openliri/infra/utils/atomicFileWrite';
 import { TeamMemorySyncStateStore } from './TeamMemorySyncStateStore';
 import { upsertNetworkConflictCandidate } from './TeamMemorySharedDirSync';
 
@@ -73,6 +74,8 @@ export interface SyncResult {
   uploaded: number;
   downloaded: number;
   skipped: number;
+  /** 远端墓碑（`deletedAt`）触发的本地归档数（Phase 2N-3） */
+  archived: number;
   conflicts: string[];
   errors: string[];
   duration: number;
@@ -111,6 +114,17 @@ function hashMemoryContent(raw: string): string {
   return createHash('sha256')
     .update(normalizeMemoryContent(raw))
     .digest('hex');
+}
+
+/**
+ * 远端 id 落盘前的路径安全检查（Phase 2N-3）。
+ *
+ * 远端 id 属**外部输入**：本地路径由 `${id}.md` 直接拼出，若 id 含 `../` / 路径分隔符
+ * 可写到团队目录之外（且 `.trash` 归档目录也会被撞名）。只允许字母数字开头、
+ * 其后为 `A-Za-z0-9._-`（与 `MemoryStore.validateMemoryId` 同精神）。
+ */
+function isSafeMemorySyncId(id: string): boolean {
+  return /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(id);
 }
 
 /**
@@ -294,6 +308,7 @@ export class TeamMemorySyncService {
         uploaded: 0,
         downloaded: 0,
         skipped: 0,
+        archived: 0,
         conflicts: [],
         errors: ['Sync already in progress'],
         duration: 0,
@@ -311,6 +326,7 @@ export class TeamMemorySyncService {
         uploaded: 0,
         downloaded: 0,
         skipped: 0,
+        archived: 0,
         conflicts: [],
         errors: ['NOT_CONFIGURED: memory.teamSync.serverUrl 未配置'],
         duration: 0,
@@ -326,6 +342,7 @@ export class TeamMemorySyncService {
       uploaded: 0,
       downloaded: 0,
       skipped: 0,
+      archived: 0,
       conflicts: [],
       errors: [],
       duration: 0,
@@ -336,6 +353,50 @@ export class TeamMemorySyncService {
         this.getLocalMemories(),
         this.fetchRemoteMemories(),
       ]);
+
+      // 先重试上轮归档失败的墓碑（标记文件留痕；成功即自愈）
+      for (const pendingId of await this.listTombstoneMarkers()) {
+        try {
+          await this.applyTombstone(pendingId);
+        } catch {
+          // 仍失败 ⇒ 保留标记，下一轮再试
+        }
+      }
+
+      // ── Phase 2N-3：墓碑（远端 `deletedAt`）⇒ 本地归档到 `.trash`（**不物理删除**）──
+      // 必须先摘掉两侧条目：否则墓碑会被判成 `remote_only`（每轮反复下载）或
+      // `local_only`（把已删记忆又推回服务端 = 复活）。归档保留可还原副本。
+      for (const memoryId of Array.from(remoteMemories.keys())) {
+        const entry = remoteMemories.get(memoryId);
+        if (!entry?.deletedAt) continue;
+
+        remoteMemories.delete(memoryId);
+        localMemories.delete(memoryId);
+        this.etagCache.delete(memoryId);
+
+        if (!isSafeMemorySyncId(memoryId)) {
+          result.errors.push(`Unsafe memory id in tombstone: ${memoryId}`);
+          continue;
+        }
+        try {
+          if (await this.applyTombstone(memoryId)) {
+            result.archived++;
+            logger.info('团队记忆墓碑：本地已归档到 .trash', { memoryId });
+          }
+        } catch (error) {
+          // 归档失败 ⇒ 留 `<id>.deleted` 标记：本轮不复活，下一轮自动重试归档
+          try {
+            await this.markPendingTombstone(memoryId);
+          } catch {
+            /* 标记也写不了 ⇒ 仅记错误（下方 errors 已抛给调用方） */
+          }
+          await handleError(error, {
+            module: 'memory:services:teamSync',
+            action: 'archive_tombstone',
+          });
+          result.errors.push(`Archive failed for ${memoryId}: ${error}`);
+        }
+      }
 
       this.compareMemories(localMemories, remoteMemories);
 
@@ -446,8 +507,13 @@ export class TeamMemorySyncService {
       return memories;
     }
 
+    // Phase 2N-3：墓碑归档失败留痕的 id 不再参与同步（否则会被当成 local_only 推回服务端）
+    const pendingTombstones = new Set(await this.listTombstoneMarkers());
+
     for (const name of entries) {
       if (!name.toLowerCase().endsWith('.md')) continue;
+      const memoryId = name.slice(0, -3);
+      if (pendingTombstones.has(memoryId)) continue;
       const filePath = join(dir, name);
       try {
         const [raw, stat] = await Promise.all([
@@ -456,7 +522,7 @@ export class TeamMemorySyncService {
         ]);
         const content = normalizeMemoryContent(raw);
         if (!content) continue;
-        memories.set(name.slice(0, -3), {
+        memories.set(memoryId, {
           content,
           modified: stat.mtimeMs,
           etag: hashMemoryContent(content),
@@ -851,7 +917,12 @@ export class TeamMemorySyncService {
   }
 
   /**
-   * 下载记忆
+   * 下载记忆（Phase 2N-3 补全：**真的落盘**）
+   *
+   * 修复（2026-11-25 第 5 批）：原实现只取 etag、从不写本地文件 ⇒ `result.downloaded++`
+   * 属**假成功**（远端记忆永远到不了本地，墓碑也没有可归档的对象）。
+   * 现按契约 §3.2 单条 GET 的 `content` 原子写入 `<localDir>/<id>.md`；
+   * 正文缺失 ⇒ 抛错（fail-closed，不记为已下载）。
    */
   private async downloadMemory(
     memoryId: string,
@@ -865,30 +936,137 @@ export class TeamMemorySyncService {
         '1000'
       );
     }
+    if (!isSafeMemorySyncId(memoryId)) {
+      throw new AppError(
+        `Unsafe memory id rejected: ${memoryId}`,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.HIGH,
+        'UNSAFE_MEMORY_ID'
+      );
+    }
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.config.timeout);
 
-    const response = await fetch(
-      `${this.config.serverUrl}${this.config.apiPrefix}/${this.config.teamId}/memories/${memoryId}`,
-      {
-        signal: controller.signal,
-        headers: this.buildHeaders(),
-      }
-    );
-
-    clearTimeout(timeout);
+    let response: Response;
+    try {
+      response = await fetch(
+        `${this.config.serverUrl}${this.config.apiPrefix}/${this.config.teamId}/memories/${memoryId}`,
+        {
+          signal: controller.signal,
+          headers: this.buildHeaders(),
+        }
+      );
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (!response.ok) {
       throw this.httpError(response.status, response.statusText);
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as {
+      content?: unknown;
+      etag?: string;
+      metadata?: { etag?: string };
+    };
 
-    const newEtag = response.headers.get('ETag') || data.metadata?.etag;
+    const body =
+      typeof data.content === 'string' ? data.content : (content ?? '');
+    if (!body.trim()) {
+      // 服务端未给正文 ⇒ 不写空文件、不算"已下载"（如实失败，便于排查契约漂移）
+      throw new AppError(
+        `Download missing content (DOWNLOAD_CONTENT_MISSING): ${memoryId}`,
+        ErrorCategory.DATA,
+        ErrorSeverity.MEDIUM,
+        'DOWNLOAD_CONTENT_MISSING'
+      );
+    }
+    await this.writeLocalMemory(memoryId, body);
+
+    const newEtag = response.headers.get('ETag') || data.etag || data.metadata?.etag;
     if (newEtag) {
       this.etagCache.set(memoryId, newEtag);
     }
+  }
+
+  /** 原子写本地记忆（别名与 `getLocalMemories` 同口径：`<id>.md`，正文规范化） */
+  private async writeLocalMemory(
+    memoryId: string,
+    rawContent: string
+  ): Promise<void> {
+    const dir = this.config.localDir;
+    await fs.mkdir(dir, { recursive: true });
+    await writeFileAtomic(
+      join(dir, `${memoryId}.md`),
+      normalizeMemoryContent(rawContent) + '\n'
+    );
+  }
+
+  /**
+   * 墓碑归档（Phase 2N-3）：把本地 `<id>.md` 移到 `<localDir>/.trash/<id>.<ts>.md`。
+   *
+   * **不物理删除**（规格 §5.2 回滚路径 = `.trash` 可还原）。本地不存在 ⇒ 返回 false。
+   * 归档目录名不以 `.md` 结尾 ⇒ 不会被 `getLocalMemories` 扫回来。
+   */
+  private async archiveLocalMemory(memoryId: string): Promise<boolean> {
+    const source = join(this.config.localDir, `${memoryId}.md`);
+    try {
+      await fs.access(source);
+    } catch {
+      return false;
+    }
+
+    const trashDir = join(this.config.localDir, '.trash');
+    await fs.mkdir(trashDir, { recursive: true });
+    const target = join(trashDir, `${memoryId}.${Date.now()}.md`);
+    try {
+      await fs.rename(source, target);
+    } catch {
+      // Windows：跨盘/占用（EPERM/EBUSY）⇒ 复制后删除（保留可还原副本）
+      await fs.copyFile(source, target);
+      await fs.unlink(source);
+    }
+    return true;
+  }
+
+  /** 墓碑失败标记路径：`<localDir>/.trash/<id>.deleted` */
+  private tombstoneMarkerPath(memoryId: string): string {
+    return join(this.config.localDir, '.trash', `${memoryId}.deleted`);
+  }
+
+  /** 读取 `.trash` 下的墓碑标记 id（归档失败留痕；用于跳过上传与下轮重试） */
+  private async listTombstoneMarkers(): Promise<string[]> {
+    try {
+      const names = await fs.readdir(join(this.config.localDir, '.trash'));
+      return names
+        .filter((name) => name.endsWith('.deleted'))
+        .map((name) => name.slice(0, -'.deleted'.length))
+        .filter((id) => isSafeMemorySyncId(id));
+    } catch {
+      return [];
+    }
+  }
+
+  /** 应用墓碑：归档本地文件并清除标记（本地不存在也算已应用） */
+  private async applyTombstone(memoryId: string): Promise<boolean> {
+    const archived = await this.archiveLocalMemory(memoryId);
+    try {
+      await fs.unlink(this.tombstoneMarkerPath(memoryId));
+    } catch {
+      /* 标记本就不存在 */
+    }
+    return archived;
+  }
+
+  /** 归档失败留痕：下一轮重试，且该 id 在此期间不会再被上传（防"复活"） */
+  private async markPendingTombstone(memoryId: string): Promise<void> {
+    await fs.mkdir(join(this.config.localDir, '.trash'), { recursive: true });
+    await fs.writeFile(
+      this.tombstoneMarkerPath(memoryId),
+      new Date().toISOString(),
+      'utf-8'
+    );
   }
 
   /**

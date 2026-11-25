@@ -137,3 +137,14 @@ export type { BuddyMemoryDigest, BuddyMemoryPort } from './memoryPort';
 // ==================== 孵化（2026-11-25：首条用户消息自动孵化） ====================
 export { ensureCompanionHatched, buildHatchProfile } from './hatch';
 export type { HatchProfile } from './hatch';
+
+// ==================== 资料维护（类型 / 名字 / 性格可由用户选择） ====================
+export {
+  updateCompanionProfile,
+  normalizeCompanionProfilePatch,
+} from './profile';
+export type {
+  CompanionProfilePatch,
+  CompanionProfileError,
+  NormalizedCompanionProfile,
+} from './profile';

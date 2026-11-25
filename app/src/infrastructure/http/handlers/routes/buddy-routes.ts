@@ -8,6 +8,7 @@ import {
   handleGetBuddy,
   handleGetBuddyStats,
   handleGetDreamLogs,
+  handleUpdateBuddyCompanion,
 } from '../buddy-handlers';
 
 /** Buddy 只读端点 + 交互端点 + 后台任务状态 */
@@ -22,6 +23,10 @@ export async function dispatchBuddyRoutes(
   }
   if (method === 'POST' && url === '/v1/buddy/interact') {
     await handleBuddyInteract(handlerCtx, req, res);
+    return true;
+  }
+  if (method === 'PATCH' && url === '/v1/buddy/companion') {
+    await handleUpdateBuddyCompanion(handlerCtx, req, res);
     return true;
   }
   if (method === 'GET' && url === '/v1/buddy/stats') {

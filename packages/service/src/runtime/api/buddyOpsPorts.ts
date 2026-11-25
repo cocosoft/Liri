@@ -59,4 +59,11 @@ export interface BuddyOpsPort {
   ): Promise<Record<string, unknown>>;
   /** 原 `loadGrowthState()`（供读 8 个成长字段） */
   loadBuddyGrowthState(): Promise<Record<string, unknown>>;
+  /**
+   * 原 `updateCompanionProfile(patch)`（2026-11-25：伙伴类型 / 名字 / 性格由用户维护）
+   * 返回 `{ok:true, companion}` 或 `{ok:false, error:'INVALID_NAME'|'INVALID_PERSONALITY'|'INVALID_SPECIES'|'NOT_HATCHED'}`
+   */
+  updateBuddyCompanion(
+    patch: Record<string, unknown>
+  ): Promise<Record<string, unknown>>;
 }

@@ -70,4 +70,20 @@ export const buddyService = {
   }> => {
     return http.get(ENDPOINTS.buddy.stats);
   },
+
+  /**
+   * 更新伙伴资料（2026-11-25：类型 / 名字 / 性格由用户维护）
+   * 后端校验失败会抛错（400/404），错误消息含 `INVALID_*` / `NOT_HATCHED`。
+   */
+  updateCompanion: async (patch: {
+    name?: string;
+    personality?: string;
+    species?: string;
+  }): Promise<BuddyCompanion> => {
+    const res = await http.patch<{
+      success: boolean;
+      companion: BuddyCompanion;
+    }>(ENDPOINTS.buddy.companion, patch);
+    return res.companion;
+  },
 };

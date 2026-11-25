@@ -14,10 +14,13 @@ import { broadcastEvent } from '@modules/infrastructure';
 export const BUDDY_HATCHED_EVENT = 'buddy:hatched';
 /** 成长（经验 / 等级）变化 */
 export const BUDDY_GROWTH_EVENT = 'buddy:growth';
+/** 伙伴资料（类型 / 名字 / 性格）更新 */
+export const BUDDY_UPDATED_EVENT = 'buddy:updated';
 
 export type BuddySseEvent =
   | typeof BUDDY_HATCHED_EVENT
-  | typeof BUDDY_GROWTH_EVENT;
+  | typeof BUDDY_GROWTH_EVENT
+  | typeof BUDDY_UPDATED_EVENT;
 
 /** 广播伙伴事件（SSE 不可用时静默忽略） */
 export function broadcastBuddyEvent(

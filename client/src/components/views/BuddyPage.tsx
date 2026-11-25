@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import BuddyAvatar from "../Buddy/BuddyAvatar";
+import BuddyProfileEditor from "../Buddy/BuddyProfileEditor";
 import DreamLogTab from "../Buddy/DreamLogTab";
 import BuddyGame from "../Buddy/BuddyGame";
 import BuddyEvolution from "../Buddy/BuddyEvolution";
@@ -37,6 +38,7 @@ function BuddyPage() {
   } = useBuddyStore();
   const setActivePage = useNavigationStore((s) => s.setActivePage);
   const [message, setMessage] = useState("");
+  const [editingProfile, setEditingProfile] = useState(false);
   const [activeTab, setActiveTab] = useState<
     "overview" | "dreams" | "game" | "evolution" | "dreamDetail"
   >("overview");
@@ -178,6 +180,13 @@ function BuddyPage() {
                     {t("buddy.personality", { name: companion.personality })}
                   </p>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setEditingProfile(true)}
+                  className="mt-3 text-xs px-3 py-1 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300"
+                >
+                  {t("buddy.editProfile")}
+                </button>
               </div>
 
               {/* 经验条 */}
@@ -198,6 +207,13 @@ function BuddyPage() {
                 </div>
               </div>
             </div>
+
+            {editingProfile && (
+              <BuddyProfileEditor
+                companion={companion}
+                onClose={() => setEditingProfile(false)}
+              />
+            )}
 
             {/* 属性面板 */}
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 mb-6">

@@ -25,6 +25,12 @@ interface BuddyStore {
   loadBuddy: (name?: string) => Promise<void>;
   interact: (action: string, name?: string) => Promise<void>;
   loadStats: () => Promise<void>;
+  /** 更新伙伴资料（类型 / 名字 / 性格）；返回是否成功 */
+  updateCompanion: (patch: {
+    name?: string;
+    personality?: string;
+    species?: string;
+  }) => Promise<boolean>;
 }
 
 /**
@@ -83,6 +89,21 @@ export const useBuddyStore = create<BuddyStore>((set) => ({
       set({ error: String(e) });
     }
   },
+
+  updateCompanion: async (patch) => {
+    try {
+      const companion = await buddyService.updateCompanion(patch);
+      set({ companion, error: null });
+      return true;
+    } catch (e) {
+      handleClientError(e, {
+        module: "stores:buddyStore",
+        action: "updateCompanion",
+      });
+      set({ error: String(e) });
+      return false;
+    }
+  },
 }));
 
 // ── 伙伴实时状态：孵化 / 成长（经验·等级）由服务端广播（2026-11-25） ──
@@ -96,3 +117,4 @@ const refreshBuddyFromServer = (): void => {
 
 sseService.on("buddy:hatched", refreshBuddyFromServer);
 sseService.on("buddy:growth", refreshBuddyFromServer);
+sseService.on("buddy:updated", refreshBuddyFromServer);

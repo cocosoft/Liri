@@ -30,4 +30,23 @@ describe('config companion → Companion 形状收口', () => {
     expect(companion.personality).toBe('务实');
     expect(companion.hatchedAt).toBe(123);
   });
+
+  it('用户选择的物种覆盖派生骨骼，其余骨骼保持不变', () => {
+    const companion = buildCompanionFromStored(
+      { name: 'PY', soul: '好奇', species: 'dragon' },
+      bones
+    );
+    expect(companion.species).toBe('dragon');
+    expect(companion.rarity).toBe(bones.rarity);
+    expect(companion.eye).toBe(bones.eye);
+    expect(companion.stats).toEqual(bones.stats);
+  });
+
+  it('非法物种忽略，回退派生骨骼', () => {
+    const companion = buildCompanionFromStored(
+      { name: 'PY', soul: '好奇', species: 'dinosaur' },
+      bones
+    );
+    expect(companion.species).toBe(bones.species);
+  });
 });

@@ -481,6 +481,8 @@ export interface GlobalConfig {
     personality?: string;
     /** 孵化时间（ms）；缺省按 0 处理（2026-11-25 形状收口） */
     hatchedAt?: number;
+    /** 用户选择的伙伴类型（物种 id；缺省按 userId 确定性派生） */
+    species?: string;
   };
   /** 伙伴是否静音 */
   companionMuted?: boolean;

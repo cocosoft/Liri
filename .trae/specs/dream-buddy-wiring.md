@@ -239,3 +239,14 @@ A 之外的后续项：**B** = dream→buddy 事件断点（见 §7.1，已实�
 - `DreamGrowthTracker` 在梦境完成 / 任务完成 / 互动后广播 `buddy:growth`（含派生等级视图）；
 - 前端 `buddyStore` 改为订阅这两个事件并**重新拉取** `/v1/buddy/companion` 与 `/stats`（不再本地累加，也不再单独监听 `dream:cycle:completed`）；
 - 真机抓包：`POST /v1/buddy/interact` 后收到 `event: buddy:growth` → `{"source":"interaction","totalExperience":73,"level":1,"experience":73,"experienceToNext":100}`（与响应 `companion.experience=73` 一致）。
+
+### 7.4 伙伴资料自定义（2026-11-25，用户需求）
+
+- **可维护字段**：类型（物种）/ 名字 / 性格；稀有度、眼睛、帽子、属性仍由 userId 确定性派生（**不接受用户改**，防伪造）；
+- 后端：`config.companion.species` 新增；`buildCompanionFromStored()` 合法物种覆盖派生骨骼；新增
+  `PATCH /v1/buddy/companion`（`updateCompanionProfile`：名字 1–24、性格 ≤120、物种须已登记），
+  成功广播 `buddy:updated`；未孵化 404 `NOT_HATCHED`、校验失败 400 `INVALID_*`；
+- 前端：新增 `BuddyProfileEditor`（18 个物种头像网格 + 名字 + 性格，复用 `BuddyAvatar`），
+  伙伴页与 Liri 人格页均可打开；保存走 `buddyStore.updateCompanion`，其他客户端凭 `buddy:updated` 自动刷新；
+- 真机验收：`PATCH {species:'dragon',name:'小飞',personality:'好奇又勇敢'}` → 读回一致、`rarity` 保持派生（uncommon）；
+  非法物种 → 400；UI：面板 18 个头像、单选高亮、保存/取消可见、控制台零错误；验收后已还原原伙伴（阿兔兔/rabbit）。

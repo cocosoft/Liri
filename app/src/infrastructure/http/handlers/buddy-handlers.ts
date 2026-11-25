@@ -95,6 +95,47 @@ export async function handleBuddyInteract(
 }
 
 /**
+ * 处理更新伙伴资料请求（PATCH /v1/buddy/companion）
+ *
+ * 2026-11-25：伙伴**类型（物种）/ 名字 / 性格**由用户维护（写 config 真源）；
+ * 稀有度/属性仍由 userId 派生，不接受用户改。
+ */
+export async function handleUpdateBuddyCompanion(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const body = await ctx.readRequestBody(req);
+    const patch = JSON.parse(body) as Record<string, unknown>;
+    const result = (await (
+      await getCoreAPI().getBuddyOpsPort()
+    ).updateBuddyCompanion(patch)) as {
+      ok?: boolean;
+      error?: string;
+      companion?: unknown;
+    };
+
+    if (!result?.ok) {
+      const status = result?.error === 'NOT_HATCHED' ? 404 : 400;
+      res.writeHead(status, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          success: false,
+          error: result?.error ?? 'INVALID_PATCH',
+        })
+      );
+      return;
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, companion: result.companion }));
+  } catch (err) {
+    ctx.sendError(res, err);
+  }
+}
+
+/**
  * 处理获取 Buddy 统计数据请求
  *
  * 2026-11-25 契约收口 A：改读成长状态（`buddy-growth.json`，与伙伴等级/经验同一真源）；

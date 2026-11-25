@@ -14,6 +14,7 @@ import {
   RARITY_FLOOR,
   type Rarity,
   SPECIES,
+  type Species,
   STAT_NAMES,
   type StatName,
 } from './types.js';
@@ -125,6 +126,14 @@ export function companionUserId(): string {
 /** config 中的伙伴条目（`GlobalConfig.companion`，旧形状只有 name/soul） */
 export type StoredCompanionConfig = NonNullable<GlobalConfig['companion']>;
 
+/** 是否为合法物种 id（用户可选择伙伴类型，2026-11-25） */
+export function isSpecies(value: unknown): value is Species {
+  return (
+    typeof value === 'string' &&
+    (SPECIES as readonly string[]).includes(value)
+  );
+}
+
 /**
  * 由 config 条目 + 骨骼组装 `Companion`（2026-11-25 形状收口）
  *
@@ -132,18 +141,22 @@ export type StoredCompanionConfig = NonNullable<GlobalConfig['companion']>;
  * 直接展开会让前端拿到 `undefined`。这里显式映射：
  * - `personality` = `personality ?? soul`（旧配置的个性设定就是个性）
  * - `hatchedAt` = `hatchedAt ?? 0`（缺省按未记录处理，不伪造时间）
+ * - `species` = 用户选择值（合法时覆盖派生骨骼；稀有度/属性仍由 userId 确定性派生，防伪造）
  */
 export function buildCompanionFromStored(
   stored: StoredCompanionConfig,
   bones: CompanionBones
 ): Companion {
-  return {
+  const companion: Companion = {
     name: stored.name,
     personality: stored.personality || stored.soul || '',
     hatchedAt: stored.hatchedAt ?? 0,
     // bones last：旧格式 config 里残留的骨骼字段必须被覆盖
     ...bones,
   };
+  return isSpecies(stored.species)
+    ? { ...companion, species: stored.species }
+    : companion;
 }
 
 // Regenerate bones from userId, merge with stored soul. Bones never persist

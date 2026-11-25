@@ -151,6 +151,9 @@ export function createBuddyOpsFacade(): () => BuddyOpsPort {
         (
           await import('@modules/buddy/growthPersistence')
         ).loadGrowthState() as never,
+      // 2026-11-25：伙伴类型 / 名字 / 性格由用户维护（写 config 真源）
+      updateBuddyCompanion: async (patch: Record<string, unknown>) =>
+        (await buddyModule()).updateCompanionProfile(patch as never) as never,
     };
   };
 }

@@ -110,6 +110,19 @@ export interface TeamSyncAuditReport {
   recent: TeamSyncAuditEntry[];
 }
 
+/** 手动触发一轮网络同步的返回（2N-8；字段与后端 `SyncResult` 同值） */
+export interface TeamSyncRunResult {
+  success: boolean;
+  uploaded: number;
+  downloaded: number;
+  skipped: number;
+  archived: number;
+  deleted: number;
+  conflicts: string[];
+  errors: string[];
+  duration: number;
+}
+
 export interface TeamMemoryStatus {
   configured: boolean;
   sharedDir: string;
@@ -128,7 +141,7 @@ export interface TeamConflictCandidate {
   sharedFile: string;
   localHash: string | null;
   sharedHash: string | null;
-  /** 候选来源：`network` = 网络版推送 412/409（无两侧文件，暂不支持按文件取舍） */
+  /** 候选来源：`network` = 网络版推送 412/409（无两侧文件；采纳走后端 `resolveNetworkConflict`） */
   source?: "network";
 }
 
@@ -329,6 +342,20 @@ const memoryService = {
       total: response.total,
       candidates: response.candidates || [],
     };
+  },
+
+  /**
+   * 手动触发一轮网络同步（2N-8）。
+   *
+   * `full=true` ⇒ 清空基线做全量重同步。未配置 `serverUrl` 或已有同步在跑时
+   * 后端返回 400/409，`http` 层按错误上抛（不伪造成功）。
+   */
+  async triggerTeamMemorySync(full = false): Promise<TeamSyncRunResult> {
+    const response = await http.post<{
+      success: boolean;
+      result: TeamSyncRunResult;
+    }>(ENDPOINTS.memory.teamSync, { full });
+    return response.result;
   },
 
   /** 人工采纳冲突的一侧（不自动改写；密钥命中时后端 409） */

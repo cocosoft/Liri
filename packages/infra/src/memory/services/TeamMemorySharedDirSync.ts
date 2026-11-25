@@ -287,6 +287,41 @@ export async function readTeamConflictFile(
 }
 
 /**
+ * 合并多个团队目录的冲突候选（Phase 2N-8，2026-11-25）。
+ *
+ * 背景：共享目录版把候选写在 `resolveTeamMemoryDir()`，网络版写在同步器
+ * `config.localDir`（2N-5 修复）—— 自定义 `localDir` 时二者**不同源**，
+ * 只读一处会让设置页看不到另一处的候选（无法人工采纳）。
+ *
+ * 合并规则：按**入参顺序**去重（同 id 取先出现者），结果按 id 排序；
+ * `generatedAt` 取各文件中最新的一次。
+ *
+ * @param teamDirs 目录顺序即优先级（调用方把"采纳入口优先匹配的来源"放前面）
+ */
+export async function readMergedTeamConflicts(
+  teamDirs: string[]
+): Promise<TeamConflictFile> {
+  const candidates: TeamConflictCandidate[] = [];
+  const seen = new Set<string>();
+  let generatedAt: string | undefined;
+
+  for (const teamDir of teamDirs) {
+    const payload = await readTeamConflictFile(teamDir);
+    if (payload.generatedAt && (!generatedAt || payload.generatedAt > generatedAt)) {
+      generatedAt = payload.generatedAt;
+    }
+    for (const candidate of payload.candidates ?? []) {
+      if (seen.has(candidate.id)) continue;
+      seen.add(candidate.id);
+      candidates.push(candidate);
+    }
+  }
+
+  candidates.sort((a, b) => a.id.localeCompare(b.id));
+  return { generatedAt, total: candidates.length, candidates };
+}
+
+/**
  * 记录网络版推送冲突候选（Phase 2N-2，2026-11-25）。
  *
  * 412/409 时调用：**只写候选，不覆盖任一侧**；同一 id 重复冲突只保留最新一条。

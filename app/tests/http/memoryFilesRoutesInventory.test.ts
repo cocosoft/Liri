@@ -45,6 +45,7 @@ const CALL_ORDER = [
   'handleGetTeamMemoryStatus',
   'handleGetTeamConflicts',
   'handleGetTeamSyncAudit',
+  'handleTriggerTeamSync',
   'handleResolveTeamConflict',
   'handleUpdateMemory',
   'handleDeleteAllMemories',

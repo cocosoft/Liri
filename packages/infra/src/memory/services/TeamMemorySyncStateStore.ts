@@ -137,6 +137,23 @@ export class TeamMemorySyncStateStore {
     }
   }
 
+  /**
+   * 清空某团队的续传状态（cursor + etag 基线 + last_error）。
+   *
+   * 全量重同步入口专用（Phase 2N-8）：`saveProgress` 的 cursor 是
+   * `MAX(旧值, 新值)` **只增不减**，无法用它把游标归零。
+   */
+  async reset(teamId: string): Promise<void> {
+    const db = await this.open();
+    try {
+      await this.run(db, `DELETE FROM ${SYNC_STATE_TABLE} WHERE team_id = ?`, [
+        teamId,
+      ]);
+    } finally {
+      db.close();
+    }
+  }
+
   /** 记录失败（保留既有 cursor/etags） */
   async saveError(teamId: string, message: string): Promise<void> {
     const db = await this.open();

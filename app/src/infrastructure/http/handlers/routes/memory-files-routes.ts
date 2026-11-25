@@ -52,6 +52,7 @@ import {
   handleGetTeamConflicts,
   handleGetTeamMemoryStatus,
   handleGetTeamSyncAudit,
+  handleTriggerTeamSync,
   handleListMemories,
   handleResolveTeamConflict,
   handleSearchMemories,
@@ -220,6 +221,11 @@ async function dispatchMemoryRoutes(
   }
   if (method === 'GET' && url === '/v1/memory/team/audit') {
     await handleGetTeamSyncAudit(req, res);
+    return true;
+  }
+  // 手动触发一轮网络同步（2N-8）：单飞由服务端状态机保证，这里只做入口
+  if (method === 'POST' && url === '/v1/memory/team/sync') {
+    await handleTriggerTeamSync(req, res);
     return true;
   }
   if (method === 'POST' && url === '/v1/memory/team/conflicts/resolve') {

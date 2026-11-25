@@ -20,7 +20,9 @@ import {
   buildTeamConflictCandidates,
   pullTeamMemoriesFromSharedDir,
   pushTeamMemoriesToSharedDir,
+  readMergedTeamConflicts,
   resolveTeamConflict,
+  upsertNetworkConflictCandidate,
 } from '@openliri/infra/memory/services/TeamMemorySharedDirSync';
 
 const createdDirs: string[] = [];
@@ -294,5 +296,69 @@ describe('appendTeamSyncHistory（审计留痕）', () => {
       .filter(Boolean);
     expect(lines).toHaveLength(2);
     expect(lines[1]).toContain('"pulled":3');
+  });
+});
+
+describe('readMergedTeamConflicts（2N-8：两处候选同源读取）', () => {
+  it('合并共享目录与网络目录的候选并按 id 去重', async () => {
+    const { shared, local } = makeDirs();
+    // 共享目录版候选（带两侧文件）
+    writeFileSync(
+      join(shared, 'conflicts.json'),
+      JSON.stringify({
+        generatedAt: '2026-11-25T01:00:00.000Z',
+        total: 1,
+        candidates: [
+          {
+            id: 'a',
+            directions: ['pull'],
+            localFile: join(local, 'a.md'),
+            sharedFile: join(shared, 'a.md'),
+            localHash: 'h1',
+            sharedHash: 'h2',
+          },
+        ],
+      }),
+      'utf-8'
+    );
+    // 网络目录候选（无文件路径）；同 id `a` 应被先出现者覆盖
+    await upsertNetworkConflictCandidate(local, {
+      id: 'a',
+      localHash: 'h1',
+      remoteHash: 'h3',
+    });
+    await upsertNetworkConflictCandidate(local, {
+      id: 'b',
+      localHash: 'h4',
+      remoteHash: 'h5',
+    });
+
+    const merged = await readMergedTeamConflicts([local, shared]);
+
+    expect(merged.candidates?.map((c) => c.id)).toEqual(['a', 'b']);
+    // 顺序即优先级：网络目录在前 ⇒ 同 id 取网络候选
+    expect(merged.candidates?.[0]?.source).toBe('network');
+    expect(merged.candidates?.[1]?.source).toBe('network');
+    expect(merged.total).toBe(2);
+    // generatedAt 取两者中最新（网络候选触发写入时会刷新时间）
+    expect(merged.generatedAt).toBeTruthy();
+  });
+
+  it('目录相同 / 缺失时不重复、不报错', async () => {
+    const { local } = makeDirs();
+    await upsertNetworkConflictCandidate(local, {
+      id: 'x',
+      localHash: 'h1',
+      remoteHash: 'h2',
+    });
+
+    const merged = await readMergedTeamConflicts([
+      local,
+      local,
+      join(local, 'missing'),
+    ]);
+
+    expect(merged.candidates?.map((c) => c.id)).toEqual(['x']);
+    expect(merged.total).toBe(1);
   });
 });

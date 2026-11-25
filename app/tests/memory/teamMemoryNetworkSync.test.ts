@@ -448,4 +448,28 @@ describe('团队记忆网络版 2N-5 全链（Bun.serve mock）', () => {
     expect(service.getStatus()).toBe(SyncStatus.ERROR);
     expect(service.getLastError() ?? '').toContain('RATE_LIMITED');
   });
+
+  it('fullSync（2N-8 手动全量）⇒ 清基线后重新拉回本地误删的条目', async () => {
+    const { baseUrl, putRemote } = startServer();
+    const localDir = makeDir('team-net-local-');
+    putRemote('net-m1', 'REMOTE-V1');
+    const service = makeService(baseUrl, localDir, 'tok');
+
+    await service.sync();
+    expect(readFileSync(join(localDir, 'net-m1.md'), 'utf-8').trim()).toBe(
+      'REMOTE-V1'
+    );
+
+    // 本地误删文件后若走普通 sync，会被判成"本地删除"并软删远端（2N-6）；
+    // fullSync 先清空基线 ⇒ 按 remote_only 重新下载，是恢复入口而非删除入口。
+    rmSync(join(localDir, 'net-m1.md'));
+
+    const result = await service.fullSync();
+
+    expect(result.downloaded).toBe(1);
+    expect(result.deleted).toBe(0);
+    expect(readFileSync(join(localDir, 'net-m1.md'), 'utf-8').trim()).toBe(
+      'REMOTE-V1'
+    );
+  });
 });

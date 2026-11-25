@@ -44,6 +44,7 @@ function TeamMemoryPanel({ isDark }: TeamMemoryPanelProps) {
   const [conflicts, setConflicts] = useState<TeamConflicts | null>(null);
   const [audit, setAudit] = useState<TeamSyncAuditReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -88,6 +89,23 @@ function TeamMemoryPanel({ isDark }: TeamMemoryPanelProps) {
     }
   };
 
+  const handleTriggerSync = async () => {
+    setIsSyncing(true);
+    setErrorMessage(null);
+    try {
+      const result = await memoryService.triggerTeamMemorySync();
+      if (!result.success) {
+        setErrorMessage(result.errors[0] ?? t("memory.teamSyncFailed"));
+      }
+      await load();
+    } catch (e) {
+      handleClientError(e, { module: "memory:team", action: "triggerSync" });
+      setErrorMessage(t("memory.teamSyncFailed"));
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const candidates = conflicts?.candidates ?? [];
   const lastRecord = status?.records[0];
 
@@ -101,19 +119,36 @@ function TeamMemoryPanel({ isDark }: TeamMemoryPanelProps) {
         >
           {t("memory.teamTitle")}
         </h3>
-        <button
-          onClick={() => void load()}
-          disabled={isLoading}
-          className={`px-2 py-1 rounded text-xs transition-colors ${
-            isLoading
-              ? "opacity-50 cursor-not-allowed"
-              : isDark
-                ? "bg-gray-700 hover:bg-gray-600 text-gray-200"
-                : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-          }`}
-        >
-          {isLoading ? t("memory.teamLoading") : t("memory.teamRefresh")}
-        </button>
+        <div className="flex items-center gap-2">
+          {status?.network?.configured && (
+            <button
+              onClick={() => void handleTriggerSync()}
+              disabled={isSyncing || isLoading}
+              className={`px-2 py-1 rounded text-xs transition-colors ${
+                isSyncing || isLoading
+                  ? "opacity-50 cursor-not-allowed"
+                  : isDark
+                    ? "bg-blue-700 hover:bg-blue-600 text-white"
+                    : "bg-blue-500 hover:bg-blue-600 text-white"
+              }`}
+            >
+              {isSyncing ? t("memory.teamSyncing") : t("memory.teamSyncNow")}
+            </button>
+          )}
+          <button
+            onClick={() => void load()}
+            disabled={isLoading}
+            className={`px-2 py-1 rounded text-xs transition-colors ${
+              isLoading
+                ? "opacity-50 cursor-not-allowed"
+                : isDark
+                  ? "bg-gray-700 hover:bg-gray-600 text-gray-200"
+                  : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+            }`}
+          >
+            {isLoading ? t("memory.teamLoading") : t("memory.teamRefresh")}
+          </button>
+        </div>
       </div>
 
       {!status ? (

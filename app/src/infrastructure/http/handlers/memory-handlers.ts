@@ -721,7 +721,66 @@ export async function handleGetTeamSyncAudit(
 }
 
 /**
+ * POST /v1/memory/team/sync — 手动触发一轮网络同步（Phase 2N-8，2026-11-25）
+ *
+ * body（可选）`{ full?: boolean }`：`full=true` ⇒ 清空基线做全量重同步
+ * （与自动周期共用同一状态机，因此同样受"单飞"约束）。
+ *
+ * 状态码：
+ * - 400 `NOT_CONFIGURED`：未配置 `memory.teamSync.serverUrl`（**不伪造成功**）
+ * - 400 `INVALID_REQUEST`：body 不是合法 JSON
+ * - 409 `SYNC_IN_PROGRESS`：已有同步在跑（不排队、不并发覆盖基线）
+ * - 200 `{ success, result }`：已执行完一轮，`result.errors` 如实返回本轮错误
+ */
+export async function handleTriggerTeamSync(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  let full = false;
+  try {
+    const body = await readRequestBody(req);
+    if (body.trim()) {
+      const parsed = JSON.parse(body) as { full?: unknown };
+      full = parsed.full === true;
+    }
+  } catch {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: false, error: 'INVALID_REQUEST' }));
+    return;
+  }
+
+  try {
+    const { defaultTeamMemorySyncService, SyncStatus } =
+      await import('@openliri/infra/memory/services/TeamMemorySyncService');
+    if (!defaultTeamMemorySyncService.getConfig().serverUrl) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'NOT_CONFIGURED' }));
+      return;
+    }
+    if (defaultTeamMemorySyncService.getStatus() === SyncStatus.SYNCING) {
+      res.writeHead(409, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'SYNC_IN_PROGRESS' }));
+      return;
+    }
+
+    const result = full
+      ? await defaultTeamMemorySyncService.fullSync()
+      : await defaultTeamMemorySyncService.sync();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: result.success, result }));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
  * GET /v1/memory/team/conflicts — 冲突候选列表（只读，不自动改写任何一侧）
+ *
+ * Phase 2N-8（2026-11-25）：候选有**两个写入源** —— 共享目录版写
+ * `resolveTeamMemoryDir()`，网络版写同步器 `config.localDir`（2N-5）。
+ * 自定义 `localDir` 时二者不同源，原实现只读前者 ⇒ 网络候选在设置页不可见、
+ * 无法人工采纳。现合并两处并去重（同 id 优先网络候选，与
+ * `handleResolveTeamConflict` 先判 `source:'network'` 的入口顺序一致）。
  */
 export async function handleGetTeamConflicts(
   req: http.IncomingMessage,
@@ -730,19 +789,26 @@ export async function handleGetTeamConflicts(
   try {
     const { resolveTeamMemoryDir } =
       await import('@openliri/infra/environment');
-    const { readTeamConflictFile } =
+    const { readMergedTeamConflicts } =
       await import('@openliri/infra/memory/services/TeamMemorySharedDirSync');
+    const { defaultTeamMemorySyncService } =
+      await import('@openliri/infra/memory/services/TeamMemorySyncService');
     const { configManager } = await import('@openliri/infra/config');
     const sharedDir = (
       configManager.getValue<string>('memory.teamSync.sharedDir', '') ?? ''
     ).trim();
-    const payload = await readTeamConflictFile(resolveTeamMemoryDir());
+    const networkConfig = defaultTeamMemorySyncService.getConfig();
+    const payload = await readMergedTeamConflicts([
+      networkConfig.localDir,
+      resolveTeamMemoryDir(),
+    ]);
     const candidates = payload.candidates ?? [];
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(
       JSON.stringify({
         success: true,
-        configured: Boolean(sharedDir),
+        // 共享目录或网络任一已配置 ⇒ 都可以产生候选（2N-8 合并读取）
+        configured: Boolean(sharedDir) || Boolean(networkConfig.serverUrl),
         sharedDir,
         generatedAt: payload.generatedAt ?? null,
         total: payload.total ?? candidates.length,

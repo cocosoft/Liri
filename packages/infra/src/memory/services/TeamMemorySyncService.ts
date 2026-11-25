@@ -1601,12 +1601,24 @@ export class TeamMemorySyncService {
   }
 
   /**
-   * 强制完全同步
+   * 强制完全同步（Phase 2N-8 手动全量重同步）。
+   *
+   * 必须**同时清持久化进度**（cursor + etag 基线）：`sync()` 会从
+   * `team_memory_sync_state` 读回二者 —— 只清内存时游标仍使列表只返回
+   * `version>cursor`（拉不到历史条目），基线仍让"本地缺失"被判成本地删除
+   * ⇒ 全量重同步会**软删远端**（破坏性），与"恢复入口"的语义相反。
+   *
+   * 清完后：远端条目全部按 `remote_only` 重新下载（本地误删可恢复）；
+   * 推送仍用列表观测到的 etag 作 `If-Match`（见 `uploadMemory` 的基线回退），
+   * 不会因为"没有基线"而静默覆盖他人修改。
+   *
+   * 清状态失败 ⇒ **上抛**（fail-closed）：宁可本轮不同步，也不带着旧基线跑全量。
    */
   async fullSync(): Promise<SyncResult> {
     this.etagCache.clear();
     this.observedEtags.clear();
     this.memoryStates.clear();
+    await this.stateStore.reset(this.config.teamId);
     return this.sync();
   }
 }

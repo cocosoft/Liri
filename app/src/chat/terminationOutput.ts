@@ -136,7 +136,6 @@ export const FAILED_TURN_REASONS: ReadonlySet<string> = new Set([
   'reasoning_error',
   'circuit_breaker',
   'environment_blocked',
-  'no_progress',
   'exploration_fatigue',
   'loop_detected',
 ]);
@@ -146,7 +145,8 @@ export const FAILED_TURN_REASONS: ReadonlySet<string> = new Set([
  * （列表显示"已暂停/可恢复"警告，不伪装成故障）。
  *
  * `empty_output` / `output_budget_exhausted` 都属"直接回复「继续」即可"的形态；
- * `timeout` / `compaction_failed` 只在 `metadata.terminationReason` 出现。
+ * `timeout` / `compaction_failed` 只在 `metadata.terminationReason` 出现；
+ * `no_progress`（无进展熔断）同属可续 —— 详见集合内注释（2026-11-25 语义订正）。
  */
 export const PAUSED_TURN_REASONS: ReadonlySet<string> = new Set([
   'empty_output',
@@ -156,6 +156,11 @@ export const PAUSED_TURN_REASONS: ReadonlySet<string> = new Set([
   'timeout',
   'compaction_failed',
   'system_aborted',
+  // 2026-11-25（真机 `session_mwrf18pu00456e0f2b` 复盘）：**无进展熔断不是故障**。
+  // `no_progress` 是"连续 N 轮同签名工具调用、主动停下防空转"，会话完全可续
+  //（收尾文案本身就在给"指个文件 / 换个说法 / 回复继续"的出路）⇒ 落 `error` 会让侧栏
+  // 显示"本轮出错"，与"我把它叫停了"的真实语义相反。改落 `paused`（可续中断）。
+  'no_progress',
 ]);
 
 /**

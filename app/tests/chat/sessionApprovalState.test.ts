@@ -4,6 +4,7 @@
  * - P1-2：`awaiting_approval` ⇒ `requires_action`（列表显示「待审批」）；
  * - N-3：失败收尾 ⇒ `error`，可续中断 ⇒ `paused`（此前一律不写，`GET /v1/sessions/{id}`
  *   永远是 `active`，与"正在跑"无法区分）；
+ * - 2026-11-25：`no_progress`（无进展熔断）由失败族**移入可续族** ⇒ `paused`（防"叫停"被当成故障）；
  * - 用户重新发言 ⇒ 可重开态回到 `active`（否则徽标永久挂住）；
  * - 正常完成（`stop` / `completed`）**不改**状态。
  */
@@ -65,7 +66,6 @@ describe('resolveSessionStateAfterMessage（P1-2 / N-3）', () => {
       'environment_blocked',
       'internal_error',
       'reasoning_error',
-      'no_progress',
       'loop_detected',
     ]) {
       expect(
@@ -90,6 +90,8 @@ describe('resolveSessionStateAfterMessage（P1-2 / N-3）', () => {
       'max_turns',
       'budget_exhausted',
       'system_aborted',
+      // 2026-11-25：无进展熔断 = 主动停下防空转、会话可续 ⇒ 不再是 `error`
+      'no_progress',
     ]) {
       expect(
         resolveSessionStateAfterMessage(
@@ -98,6 +100,13 @@ describe('resolveSessionStateAfterMessage（P1-2 / N-3）', () => {
         )
       ).toBe(DataSessionStatus.PAUSED);
     }
+    // 幂等：已是 `paused` ⇒ 不重复落盘
+    expect(
+      resolveSessionStateAfterMessage(
+        assistant('no_progress'),
+        DataSessionStatus.PAUSED
+      )
+    ).toBeNull();
     // `timeout` / `compaction_failed` 只落 terminationReason
     expect(
       resolveSessionStateAfterMessage(

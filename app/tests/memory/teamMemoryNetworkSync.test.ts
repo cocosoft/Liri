@@ -68,7 +68,9 @@ function json(
  * `honorCursor=true` ⇒ 列表按契约 §3.6 只返回 `version > cursor` 的条目（增量语义）；
  * 默认返回全量，保持既有用例的"快照"假设。
  */
-function startServer(options: { honorCursor?: boolean } = {}): {
+function startServer(
+  options: { honorCursor?: boolean; listDelayMs?: number } = {}
+): {
   baseUrl: string;
   memories: Map<string, RemoteMemory>;
   putRemote: (id: string, content: string) => RemoteMemory;
@@ -122,6 +124,12 @@ function startServer(options: { honorCursor?: boolean } = {}): {
       const id = parts[3];
 
       if (!id) {
+        // 2N-17：列表延迟（让并发的 fullSync 落在"同步进行中"窗口里）
+        if (options.listDelayMs && options.listDelayMs > 0) {
+          await new Promise((resolve) =>
+            setTimeout(resolve, options.listDelayMs)
+          );
+        }
         const cursorParam = Number(url.searchParams.get('cursor') ?? 0);
         const all = Array.from(memories.values());
         const visible =
@@ -582,6 +590,39 @@ describe('团队记忆网络版 2N-5 全链（Bun.serve mock）', () => {
 
     expect(resolved).toBe(true);
     expect(memories.get('net-d1')?.deletedAt).toBeTruthy();
+  });
+
+  it('同步进行中调用 fullSync ⇒ 不清状态、直接拒绝（2N-17）', async () => {
+    const { baseUrl, putRemote } = startServer({ listDelayMs: 200 });
+    const localDir = makeDir('team-net-local-');
+    const dbPath = join(makeDir('team-net-db-'), 'app.db');
+    const store = new TeamMemorySyncStateStore(dbPath);
+    const service = new TeamMemorySyncService(
+      { serverUrl: baseUrl, teamId: 'team-net', localDir },
+      store
+    );
+    service.setAuthToken('tok');
+    putRemote('net-m1', 'V1');
+
+    await service.sync();
+    const before = await store.get('team-net');
+    expect(before?.etags['net-m1']).toBeTruthy();
+
+    // 让第二轮的列表请求停在延迟里，再并发调用 fullSync
+    const running = service.sync();
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    const rejected = await service.fullSync();
+
+    expect(rejected.success).toBe(false);
+    expect(rejected.errors.join(' ')).toContain('already in progress');
+
+    // 关键：持久化基线未被 reset（原实现会把整行删掉）
+    const during = await store.get('team-net');
+    expect(during).not.toBeNull();
+    expect(during?.etags['net-m1']).toBe(before?.etags['net-m1']);
+
+    const finished = await running;
+    expect(finished.success).toBe(true);
   });
 
   it('fullSync（2N-8 手动全量）⇒ 清基线后重新拉回本地误删的条目', async () => {

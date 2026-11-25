@@ -93,6 +93,24 @@ export interface SyncResult {
 }
 
 /**
+ * 单飞被拒时的结果（`sync()` / `fullSync()` 共用，避免两处字面量漂移）。
+ */
+function inProgressSyncResult(): SyncResult {
+  return {
+    success: false,
+    uploaded: 0,
+    downloaded: 0,
+    skipped: 0,
+    archived: 0,
+    deleted: 0,
+    rejected: 0,
+    conflicts: [],
+    errors: ['Sync already in progress'],
+    duration: 0,
+  };
+}
+
+/**
  * 服务器记忆条目
  */
 interface ServerMemoryEntry {
@@ -394,18 +412,7 @@ export class TeamMemorySyncService {
   async sync(): Promise<SyncResult> {
     if (this.status === SyncStatus.SYNCING) {
       logger.warn('Sync already in progress');
-      return {
-        success: false,
-        uploaded: 0,
-        downloaded: 0,
-        skipped: 0,
-        archived: 0,
-        deleted: 0,
-        rejected: 0,
-        conflicts: [],
-        errors: ['Sync already in progress'],
-        duration: 0,
-      };
+      return inProgressSyncResult();
     }
 
     // Phase 0：未配置服务端 ⇒ 显式 NOT_CONFIGURED，且**不发起网络请求**
@@ -1815,6 +1822,12 @@ export class TeamMemorySyncService {
    * 清状态失败 ⇒ **上抛**（fail-closed）：宁可本轮不同步，也不带着旧基线跑全量。
    */
   async fullSync(): Promise<SyncResult> {
+    // 2N-17：进行中的同步不能被"清状态"打断 —— 原实现先清内存基线并删持久化行，
+    // 再调 `sync()`（被单飞拒绝）⇒ 正在跑的那轮基线凭空消失（结果错乱/重复下载）。
+    if (this.status === SyncStatus.SYNCING) {
+      logger.warn('全量同步被跳过：已有同步在跑');
+      return inProgressSyncResult();
+    }
     this.etagCache.clear();
     this.observedEtags.clear();
     this.memoryStates.clear();

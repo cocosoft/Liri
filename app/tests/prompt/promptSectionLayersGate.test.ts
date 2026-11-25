@@ -71,6 +71,16 @@ describe('提示词段落登记门禁', () => {
     expect(isSectionVisibleIn('__not_declared__', 'full')).toBe(true);
   });
 
+  it('memoryContext 在 conversation/local 可见（桌面聊天与本地模型都注入记忆摘要）', () => {
+    // 2026-11-25 修复：桌面聊天 mode=conversation（本地模型 local）；原未登记 visibleIn
+    // ⇒ getMemorySummaries + 冻结快照整条链路在主流聊天中从不执行。
+    for (const mode of ['full', 'conversation', 'local'] as const) {
+      expect(isSectionVisibleIn('memoryContext', mode)).toBe(true);
+    }
+    // L3 大块不进 minimal（最小存活集）
+    expect(isSectionVisibleIn('memoryContext', 'minimal')).toBe(false);
+  });
+
   it('W2/Y：outputArtifactBoundary 必须含「无项目时向用户索取 + 禁止瞎搜 + 禁止顶替」指引', () => {
     const sec = getRegisteredSections().find(
       (s) => s.name === 'outputArtifactBoundary'

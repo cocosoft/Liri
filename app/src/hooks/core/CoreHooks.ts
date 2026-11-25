@@ -303,8 +303,10 @@ export class CoreHooksRegistry {
       handler: async (context: HookContext): Promise<HookResult> => {
         logger.info('内存保存后 hook 已执行');
 
-        // 更新内存索引
-        await this.updateMemoryIndex(context.data);
+        // 2026-11-25：原 `this.updateMemoryIndex(context.data)` 是 `setTimeout(50)` 空实现，
+        // 却打「内存索引已更新」日志（假成功）。索引重建已收敛到写入侧
+        // （`MemoryManager.markMemoriesChanged()`）⇒ 此处删除该空实现及其调用，
+        // 不再伪造成功信号（`memory.post-save` 当前零发射方，见 `MemoryHookDispatcher` 预留端口）。
 
         // 触发内存同步
         await this.triggerMemorySync();
@@ -550,14 +552,6 @@ export class CoreHooksRegistry {
     }
 
     return optimized;
-  }
-
-  /**
-   * 更新内存索引
-   */
-  private async updateMemoryIndex(data: unknown): Promise<void> {
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    logger.info('内存索引已更新');
   }
 
   /**

@@ -25,7 +25,8 @@
  * 替代 PromptAssembler 中 CORE/CONVERSATION/LOCAL 三套手工白名单 Set：
  * - 每个已登记段声明 layer（L0 系统性约束 / L1 身份人格 / L2 项目会话动态 / L3 检索型大块）
  * - visibleIn 声明段在哪些 PromptMode 可见（默认未登记 = 仅 full——等价旧行为：
- *   Set 之外的注册段只在 full 模式出现，如 projectRules/gitContext/memoryContext 等）
+ *   Set 之外的注册段只在 full 模式出现，如 projectRules/gitContext 等；
+ *   `memoryContext` 已于 2026-11-25 登记 conversation/local 可见）
  * - layer 供后续 P1 预算前置/段级降级链按层决策
  *
  * 新增注册段若需在 full 之外的模式可见，在此登记 visibleIn（消灭"往 Set 加名字"）。
@@ -104,9 +105,15 @@ const SECTION_META = {
   },
   // toolUse 的本地替代段（filter 在 local 模式替换注入，不入白名单）
   localToolUse: { layer: 'L0' },
-  // L3 检索型大块（仅 full 可见，维持现状；预算超限时先于 L2 被降级丢弃）
-  memoryContext: { layer: 'L3' },
-  // T-②06（2026-10-03）：经验自动演化覆盖层（检索型大块，仅 full 可见，同 memoryContext）
+  // L3 检索型大块（预算超限时先于 L2 被降级丢弃）。
+  // 2026-11-25 修复：原**未登记 visibleIn** ⇒ 仅 full 可见，而桌面聊天走 `conversation`
+  // （本地模型 `local`）⇒ 主流聊天从不注入记忆摘要（`getMemorySummaries` 与 1h 冻结快照
+  // 整条链路空转）。现按"会话可见"登记；`minimal` 仍不注入（L3 大块）。
+  memoryContext: {
+    layer: 'L3',
+    visibleIn: ['full', 'conversation', 'local'],
+  },
+  // T-②06（2026-10-03）：经验自动演化覆盖层（检索型大块，仍仅 full 可见）
   promptEvolution: { layer: 'L3' },
   knowledgeContext: { layer: 'L3' },
   knowledgeDigest: { layer: 'L3' },

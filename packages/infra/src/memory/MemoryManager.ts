@@ -72,6 +72,7 @@ import {
   encodePayload,
   decodePayload,
 } from '@openliri/infra/utils/MemoryFileEnvelope';
+import { getFrozenSnapshotService } from './FrozenSnapshotService';
 
 // P2-6: LLM 精选记忆检索
 import {
@@ -351,6 +352,11 @@ export class MemoryManagerImpl
   private cacheWarmupPromise: Promise<void> | null = null;
 
   /**
+   * 顶层索引重建是否已排队（写入后防抖：批量写入只重建一次，见 `markMemoriesChanged`）
+   */
+  private indexRebuildScheduled = false;
+
+  /**
    * 清理/写入并发锁，防止 cleanupExpiredMemories 与 saveMemory 同时执行
    */
   private isCleaning = false;
@@ -479,6 +485,38 @@ export class MemoryManagerImpl
   }
 
   /**
+   * 写入后收口（P0-1 补全，2026-11-25）：冻结快照立即失效 + 合并重建顶层索引。
+   *
+   * 修复的断点：原实现只在维护期/清理期重建 `MEMORY.md`，写入新记忆后到下次空闲维护前，
+   * 注入层（`buildMemoryIndexSection`，每轮读该文件）看不到新条目；同时会话级冻结快照
+   * （1h TTL）会让 `memoryContext` 继续注入旧内容。
+   *
+   * - 冻结失效：同步、零 I/O ⇒ 下一次提示词组装必定重算；
+   * - 索引重建：防抖合并（梦境回写/去重删除等批量写入只重建一次，避免 N 次全量扫盘）。
+   */
+  private markMemoriesChanged(): void {
+    getFrozenSnapshotService().unfreezeAll();
+    if (this.indexRebuildScheduled) return;
+    this.indexRebuildScheduled = true;
+    setTimeout(() => {
+      this.indexRebuildScheduled = false;
+      void this.rebuildTopLevelIndex();
+    }, 200);
+  }
+
+  /** 重建顶层索引 `MEMORY.md`（失败不抛给写入方，下一轮维护/清理会再重建） */
+  private async rebuildTopLevelIndex(): Promise<void> {
+    try {
+      await this.store.updateMemoryIndex();
+    } catch (err) {
+      await handleError(err, {
+        module: 'memory:memoryManager',
+        action: 'updateMemoryIndex',
+      });
+    }
+  }
+
+  /**
    * 创建记忆
    * @param memory 记忆数据
    * @returns 创建的记忆
@@ -547,6 +585,9 @@ export class MemoryManagerImpl
     this.recentSummaryCache = null;
     // @ignore-catch — 摘要缓存异步预热，非关键路径，失败不影响主流程
     this.refreshSummaryCache().catch(() => {});
+
+    // P0-1 补全：写入即失效冻结快照并重建顶层索引（注入层下一轮可读到新条目）
+    this.markMemoriesChanged();
 
     return newMemory;
   }
@@ -840,6 +881,9 @@ export class MemoryManagerImpl
     // @ignore-catch — 摘要缓存异步预热，非关键路径，失败不影响主流程
     this.refreshSummaryCache().catch(() => {});
 
+    // P0-1 补全：更新即失效冻结快照并重建顶层索引
+    this.markMemoriesChanged();
+
     return updatedMemory;
   }
 
@@ -862,6 +906,9 @@ export class MemoryManagerImpl
     this.recentSummaryCache = null;
     // @ignore-catch — 摘要缓存异步预热，非关键路径，失败不影响主流程
     this.refreshSummaryCache().catch(() => {});
+
+    // P0-1 补全：删除即失效冻结快照并重建顶层索引（索引不再列出已删条目）
+    this.markMemoriesChanged();
   }
 
   /**
@@ -886,6 +933,9 @@ export class MemoryManagerImpl
     this.recentSummaryCache = null;
     // @ignore-catch — 摘要缓存异步预热，非关键路径，失败不影响主流程
     this.refreshSummaryCache().catch(() => {});
+
+    // P0-1 补全：批量删除后重建一次顶层索引（空库 ⇒ 索引清空）
+    this.markMemoriesChanged();
 
     return count;
   }

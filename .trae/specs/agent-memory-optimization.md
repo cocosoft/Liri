@@ -216,8 +216,18 @@ Liri 的记忆"三件套"（文件存储 / 混合检索 / 梦境巩固）都已�
 | 配置键 | `memory.index.maxLines` / `memory.index.maxBytes` / `memory.injection.maxTokens` | 默认 200 / 25000 / 1500（对齐文章 A8） |
 
 **如实边界**：
-- `buildMemoryIndexSection` 每轮同步读一次 `MEMORY.md`（≤25KB）；索引由维护期/清理期重建，写入新记忆后到下次重建前索引可能短暂滞后（下一次空闲维护即更新）。
+- `buildMemoryIndexSection` 每轮同步读一次 `MEMORY.md`（≤25KB）。索引重建：**写入后**由
+  `MemoryManager.markMemoriesChanged()` 防抖重建（200ms 合并，批量写入只重建一次），
+  另有维护期/清理期兜底 ⇒ 不再出现"写入后到下次空闲维护前索引滞后"。
 - 段类型：`memoryIndex` 经 `DANGEROUS_uncachedSystemPromptSection` 注册（装配器只接受动态段），未单列 stable 分区 —— 内容本身低频变化，但**不宣称**已获得前缀缓存收益。
+
+**2026-11-25 第 2 批补充**（见 `预存错误与待处理问题.md` 同批次）：
+- `memoryContext` 补登记 `visibleIn: ['full','conversation','local']` —— 原未登记 ⇒ 桌面聊天
+  （`mode=conversation`，本地模型 `local`）从不注入记忆摘要，`getMemorySummaries` +
+  冻结快照链路空转；
+- 写入（create/update/delete/deleteAll）后立即 `unfreezeAll()` —— 冻结快照不再最长 1h 注入旧内容；
+- `CoreHooks.updateMemoryIndex` 空实现（`setTimeout` + 假成功日志）已删除：索引重建收敛到写入侧；
+  `memory.post-save` 事件当前零发射方（`MemoryHookDispatcher` 为预留端口）。
 
 ### 8.2 P0-2 治理闭环（1–3）
 

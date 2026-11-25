@@ -7,7 +7,13 @@
  */
 import { afterEach, describe, expect, it } from 'bun:test';
 import { createHash } from 'crypto';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import {
@@ -27,6 +33,7 @@ interface RemoteMemory {
   version: number;
   etag: string;
   modifiedAt: string;
+  deletedAt: string | null;
 }
 
 const createdDirs: string[] = [];
@@ -73,6 +80,7 @@ function startServer(): {
       version,
       etag: `e${++etagSeq}`,
       modifiedAt: '2020-01-01T00:00:00.000Z',
+      deletedAt: null,
     };
     memories.set(id, memory);
     return memory;
@@ -111,6 +119,7 @@ function startServer(): {
           id: m.id,
           version: m.version,
           contentHash: hash(m.content),
+          deletedAt: m.deletedAt,
           metadata: {
             createdAt: m.modifiedAt,
             modifiedAt: m.modifiedAt,
@@ -135,6 +144,31 @@ function startServer(): {
           },
           200,
           { ETag: current.etag }
+        );
+      }
+
+      if (req.method === 'DELETE') {
+        if (!current) return json({ error: { code: 'NOT_FOUND' } }, 404);
+        const ifMatch = req.headers.get('if-match');
+        if (ifMatch && ifMatch !== current.etag) {
+          return json(
+            {
+              error: { code: 'ETAG_MISMATCH' },
+              current: { id, etag: current.etag },
+            },
+            412
+          );
+        }
+        const tombstone: RemoteMemory = {
+          ...current,
+          version: current.version + 1,
+          etag: `e${++etagSeq}`,
+          deletedAt: '2026-11-25T00:00:00.000Z',
+        };
+        memories.set(id, tombstone);
+        return json(
+          { id, version: tombstone.version, deletedAt: tombstone.deletedAt },
+          200
         );
       }
 
@@ -325,6 +359,57 @@ describe('团队记忆网络版 2N-5 全链（Bun.serve mock）', () => {
       readFileSync(join(localDir, 'conflicts.json'), 'utf-8')
     ) as { candidates: Array<{ id: string }> };
     expect(candidates.candidates.some((c) => c.id === 'net-m1')).toBe(false);
+  });
+
+  it('本地删除 ⇒ 软删远端，且下次拉取不复活（2N-6）', async () => {
+    const { baseUrl, memories, putRemote } = startServer();
+    const localDir = makeDir('team-net-local-');
+    putRemote('net-m1', 'REMOTE-V1');
+    const service = makeService(baseUrl, localDir, 'tok');
+
+    await service.sync();
+    expect(existsSync(join(localDir, 'net-m1.md'))).toBe(true);
+
+    rmSync(join(localDir, 'net-m1.md'));
+    const deleted = await service.sync();
+    expect(deleted.deleted).toBe(1);
+    expect(deleted.errors).toEqual([]);
+    expect(memories.get('net-m1')?.deletedAt).toBeTruthy();
+
+    // 下一轮拉到墓碑：本地无文件 ⇒ 不下载、不复活、无错误
+    const next = await service.sync();
+    expect(next.errors).toEqual([]);
+    expect(existsSync(join(localDir, 'net-m1.md'))).toBe(false);
+  });
+
+  it('本地删除 + 远端已变 ⇒ 只记 delete 候选，确认后软删远端（2N-6）', async () => {
+    const { baseUrl, memories, putRemote } = startServer();
+    const localDir = makeDir('team-net-local-');
+    putRemote('net-m1', 'REMOTE-V1');
+    const service = makeService(baseUrl, localDir, 'tok');
+
+    await service.sync();
+    putRemote('net-m1', 'REMOTE-V2'); // 远端在本地删除前已变化（etag 不再是基线）
+    rmSync(join(localDir, 'net-m1.md'));
+
+    const conflicted = await service.sync();
+    expect(conflicted.deleted).toBe(0);
+    expect(conflicted.conflicts).toContain('net-m1');
+    expect(memories.get('net-m1')?.deletedAt ?? null).toBeNull(); // 未自动删除
+
+    const file = JSON.parse(
+      readFileSync(join(localDir, 'conflicts.json'), 'utf-8')
+    ) as { candidates: Array<{ id: string; directions: string[] }> };
+    expect(file.candidates.find((c) => c.id === 'net-m1')?.directions).toEqual([
+      'delete',
+    ]);
+
+    const resolved = await service.resolveNetworkConflict(
+      'net-m1',
+      'keep_local'
+    );
+    expect(resolved).toBe(true);
+    expect(memories.get('net-m1')?.deletedAt).toBeTruthy();
   });
 
   it('401（无令牌）⇒ ERROR + lastError，不上抛', async () => {

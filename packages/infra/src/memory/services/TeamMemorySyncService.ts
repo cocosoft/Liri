@@ -82,6 +82,8 @@ export interface SyncResult {
   skipped: number;
   /** 远端墓碑（`deletedAt`）触发的本地归档数（Phase 2N-3） */
   archived: number;
+  /** 本地删除已同步到远端（软删）的条数（Phase 2N-6） */
+  deleted: number;
   conflicts: string[];
   errors: string[];
   duration: number;
@@ -364,6 +366,7 @@ export class TeamMemorySyncService {
         downloaded: 0,
         skipped: 0,
         archived: 0,
+        deleted: 0,
         conflicts: [],
         errors: ['Sync already in progress'],
         duration: 0,
@@ -382,6 +385,7 @@ export class TeamMemorySyncService {
         downloaded: 0,
         skipped: 0,
         archived: 0,
+        deleted: 0,
         conflicts: [],
         errors: ['NOT_CONFIGURED: memory.teamSync.serverUrl 未配置'],
         duration: 0,
@@ -404,6 +408,7 @@ export class TeamMemorySyncService {
       downloaded: 0,
       skipped: 0,
       archived: 0,
+      deleted: 0,
       conflicts: [],
       errors: [],
       duration: 0,
@@ -458,6 +463,9 @@ export class TeamMemorySyncService {
           result.errors.push(`Archive failed for ${memoryId}: ${error}`);
         }
       }
+
+      // ── Phase 2N-6：本地删除同步（软删远端；远端已变 ⇒ 转人工候选）──
+      await this.propagateLocalDeletions(localMemories, remoteMemories, result);
 
       this.compareMemories(localMemories, remoteMemories);
 
@@ -666,21 +674,31 @@ export class TeamMemorySyncService {
 
     if (resolution === 'keep_local') {
       const local = await this.readLocalContent(memoryId);
-      if (local === null) return false;
-      this.etagCache.delete(memoryId);
-      try {
-        await this.stateStore.saveEtags(
-          this.config.teamId,
-          Object.fromEntries(this.etagCache)
+      if (local === null) {
+        // 本地已删除的冲突（`direction:'delete'`）：保留本地 = 确认删除远端（软删）。
+        // 用"本次列表观测到的 etag"作 If-Match（没有就不带——用户已显式确认删除）。
+        const outcome = await this.deleteRemoteMemory(
+          memoryId,
+          this.observedEtags.get(memoryId) ?? null
         );
-      } catch (error) {
-        await handleError(error, {
-          module: 'memory:services:teamSync',
-          action: 'save_etags_after_resolve',
-        });
+        if (outcome === 'conflict') return false;
       }
+      this.etagCache.delete(memoryId);
     } else {
       await this.downloadMemory(memoryId);
+    }
+
+    // 基线变化（删基线 / 下载刷新）落库，避免重启后回到旧基线
+    try {
+      await this.stateStore.saveEtags(
+        this.config.teamId,
+        Object.fromEntries(this.etagCache)
+      );
+    } catch (error) {
+      await handleError(error, {
+        module: 'memory:services:teamSync',
+        action: 'save_etags_after_resolve',
+      });
     }
 
     await pruneTeamConflictCandidate(this.config.localDir, memoryId);
@@ -1290,6 +1308,174 @@ export class TeamMemorySyncService {
       new Date().toISOString(),
       'utf-8'
     );
+  }
+
+  /**
+   * 本地删除同步（Phase 2N-6，2026-11-25）。
+   *
+   * 判据：**基线（`etagCache`）里有、本地文件已不存在** ⇒ 用户删除了这条。
+   * 逐条单条 GET 确认远端现状：
+   * - 404 ⇒ 远端已删，清基线；
+   * - 200 且 etag == 基线 ⇒ `DELETE`（软删，带 `If-Match`）；
+   * - 200 但 etag != 基线（远端在此期间被改过）⇒ 只记 `delete` 候选，**不删**（manual 语义）。
+   *
+   * 关键：命中的 id 先从未处理列表（`remoteMemories`）摘除，避免被 `remote_only`
+   * 判成"远端新增"再下载回来（复活）。
+   */
+  private async propagateLocalDeletions(
+    localMemories: Map<
+      string,
+      { content: string; modified: number; etag: string }
+    >,
+    remoteMemories: Map<string, ServerMemoryEntry>,
+    result: SyncResult
+  ): Promise<void> {
+    const candidates = Array.from(this.etagCache.keys()).filter(
+      (memoryId) => !localMemories.has(memoryId) && isSafeMemorySyncId(memoryId)
+    );
+
+    for (const memoryId of candidates) {
+      const baseline = this.etagCache.get(memoryId) ?? null;
+      remoteMemories.delete(memoryId);
+      try {
+        const response = await this.fetchRemoteSingle(memoryId);
+        if (!response) {
+          // 远端已不存在（或早已删除）⇒ 清基线即可
+          this.etagCache.delete(memoryId);
+          continue;
+        }
+        const data = (await response.json()) as {
+          content?: unknown;
+          etag?: string;
+          metadata?: { etag?: string };
+        };
+        const remoteEtag =
+          response.headers.get('ETag') ||
+          data.etag ||
+          data.metadata?.etag ||
+          null;
+
+        if (baseline && remoteEtag && remoteEtag !== baseline) {
+          await this.recordDeleteConflict(memoryId, data.content, result);
+          continue;
+        }
+
+        const outcome = await this.deleteRemoteMemory(memoryId, baseline);
+        if (outcome === 'conflict') {
+          await this.recordDeleteConflict(memoryId, data.content, result);
+          continue;
+        }
+        this.etagCache.delete(memoryId);
+        if (outcome === 'deleted') {
+          result.deleted += 1;
+          logger.info('团队记忆本地删除已同步（软删远端）', { memoryId });
+        }
+      } catch (error) {
+        await handleError(error, {
+          module: 'memory:services:teamSync',
+          action: 'propagate_local_delete',
+        });
+        result.errors.push(`Delete sync failed for ${memoryId}: ${error}`);
+      }
+    }
+  }
+
+  /** 单条 GET（404 ⇒ null；其它非 2xx ⇒ 抛结构化错误） */
+  private async fetchRemoteSingle(memoryId: string): Promise<Response | null> {
+    if (!this.config.serverUrl) return null;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.config.timeout);
+    try {
+      const response = await fetch(
+        `${this.config.serverUrl}${this.config.apiPrefix}/${this.config.teamId}/memories/${memoryId}`,
+        { signal: controller.signal, headers: this.buildHeaders() }
+      );
+      if (response.status === 404) return null;
+      if (!response.ok) {
+        throw this.httpError(response.status, response.statusText);
+      }
+      return response;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  /**
+   * 软删远端（`DELETE`，带 `If-Match` 基线）。
+   * 404 视为"已删"；412/409 ⇒ `conflict`（交人工）；其它非 2xx ⇒ 抛错。
+   */
+  private async deleteRemoteMemory(
+    memoryId: string,
+    etag: string | null
+  ): Promise<'deleted' | 'gone' | 'conflict'> {
+    if (!this.config.serverUrl) {
+      throw new AppError(
+        'Server URL not configured',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
+    }
+    if (!isSafeMemorySyncId(memoryId)) {
+      throw new AppError(
+        `Unsafe memory id rejected: ${memoryId}`,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.HIGH,
+        'UNSAFE_MEMORY_ID'
+      );
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.config.timeout);
+    let response: Response;
+    try {
+      response = await fetch(
+        `${this.config.serverUrl}${this.config.apiPrefix}/${this.config.teamId}/memories/${memoryId}`,
+        {
+          method: 'DELETE',
+          signal: controller.signal,
+          headers: this.buildHeaders(etag ? { 'If-Match': etag } : {}),
+        }
+      );
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    if (response.status === 404) return 'gone';
+    if (!response.ok) {
+      const code = classifyTeamMemoryHttpStatus(response.status);
+      if (code === 'PRECONDITION_FAILED' || code === 'CONFLICT') {
+        return 'conflict';
+      }
+      throw this.httpError(response.status, response.statusText);
+    }
+    return 'deleted';
+  }
+
+  /** 记录"本地已删但远端已变"的冲突候选（不删除、不下载；`direction=delete`） */
+  private async recordDeleteConflict(
+    memoryId: string,
+    remoteContent: unknown,
+    result: SyncResult
+  ): Promise<void> {
+    const remoteHash =
+      typeof remoteContent === 'string'
+        ? hashMemoryContent(remoteContent)
+        : null;
+    result.conflicts.push(memoryId);
+    try {
+      await upsertNetworkConflictCandidate(this.config.localDir, {
+        id: memoryId,
+        localHash: null,
+        remoteHash,
+        direction: 'delete',
+      });
+    } catch (error) {
+      await handleError(error, {
+        module: 'memory:services:teamSync',
+        action: 'write_delete_conflict',
+      });
+    }
   }
 
   /**

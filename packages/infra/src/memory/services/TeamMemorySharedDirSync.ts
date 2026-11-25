@@ -294,7 +294,13 @@ export async function readTeamConflictFile(
  */
 export async function upsertNetworkConflictCandidate(
   teamDir: string,
-  input: { id: string; localHash: string; remoteHash: string | null }
+  input: {
+    id: string;
+    localHash: string | null;
+    remoteHash: string | null;
+    /** 候选方向（默认 `push`；`delete` = 本地删除但远端已变，需人工确认） */
+    direction?: 'push' | 'delete';
+  }
 ): Promise<void> {
   const existing = await readTeamConflictFile(teamDir);
   const candidates = (existing.candidates ?? []).filter(
@@ -302,7 +308,7 @@ export async function upsertNetworkConflictCandidate(
   );
   candidates.push({
     id: input.id,
-    directions: ['push'],
+    directions: [input.direction ?? 'push'],
     localFile: '',
     sharedFile: '',
     localHash: input.localHash,

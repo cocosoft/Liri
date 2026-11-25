@@ -21,7 +21,7 @@
  *      转换失败不备份原文件，保留原 messages.jsonl
  */
 
-import { promises as fs, existsSync, createReadStream } from 'fs';
+import { promises as fs, existsSync, createReadStream, statSync } from 'fs';
 import { join } from 'path';
 import * as readline from 'readline';
 import { resolveLegacySessionsDir } from '@openliri/infra/environment';
@@ -86,6 +86,31 @@ const UNCLOSED_THINKING_END = /^[\s\S]*?<\/(?:RichMediaReference|thinking)>/gi;
 // ─── MessageToEventMigrator ─────────────────────────────────────────────────
 
 /**
+ * 迁移判定（纯函数，2026-11-26）
+ *
+ * 现场：新会话创建时 `messages.jsonl` 是 **0 字节空文件** ⇒ 旧判定「存在且无 events」为真，
+ * 每个新会话都要走一遍迁移，并在日志里打 2–3 条 `messages.jsonl 为空，跳过迁移` 的 warn。
+ * 空文件没有内容可迁 ⇒ 直接判「无需迁移」（KB-MIG-REENTER 的半成品清理也只在有内容时才有意义）。
+ *
+ * @param messagesSize `messages.jsonl` 字节数；`-1` = 读不到 ⇒ 保守判「需要迁移」（保持旧行为）
+ */
+export function shouldMigrateMessages(input: {
+  messagesExists: boolean;
+  messagesSize: number;
+  eventsExists: boolean;
+  backupExists: boolean;
+}): boolean {
+  if (!input.messagesExists) return false;
+  // -1（读不到大小）按"有内容"处理：宁可多跑一次迁移，也不静默跳过真实数据
+  if (input.messagesSize === 0) return false;
+  if (!input.eventsExists) return true;
+  // KB-MIG-REENTER（2026-08-29）：迁移中途崩溃（appendBatch 逐条 appendFile 写一半进程被杀）
+  // → events.jsonl 半成品存在但 messages.jsonl.bak 未备份（备份 = 迁移成功标记）
+  // ⇒ 判定为"未完成迁移"，migrate() 先清理半成品再重来。
+  return !input.backupExists;
+}
+
+/**
  * 旧数据迁移转换器
  *
  * 一个实例对应一个会话的迁移任务。
@@ -120,26 +145,28 @@ export class MessageToEventMigrator {
   /**
    * 检测是否需要迁移
    *
-   * 条件：messages.jsonl 存在 且 events.jsonl 不存在
+   * 条件：messages.jsonl **有内容** 且 events.jsonl 不存在
    * 若 events.jsonl 已存在（已迁移过），即使 messages.jsonl 存在也不迁移
    */
   needsMigration(): boolean {
-    // 主判定：messages.jsonl 存在且 events.jsonl 不存在 → 全新迁移
-    if (existsSync(this.messagesFilePath) && !this.eventLog.exists()) {
-      return true;
+    const size = this.messagesFileSize();
+    return shouldMigrateMessages({
+      messagesExists: size >= 0,
+      messagesSize: size,
+      eventsExists: this.eventLog.exists(),
+      backupExists: existsSync(this.messagesBackupPath),
+    });
+  }
+
+  /**
+   * messages.jsonl 的字节数；不存在 / 读不到 ⇒ `-1`（判定按"需要迁移"保守处理）。
+   */
+  private messagesFileSize(): number {
+    try {
+      return statSync(this.messagesFilePath).size;
+    } catch {
+      return -1;
     }
-    // KB-MIG-REENTER（2026-08-29）：迁移中途崩溃（appendBatch 逐条 appendFile
-    // 写一半进程被杀）→ events.jsonl 半成品存在但 messages.jsonl.bak 未备份
-    // （备份 = 迁移成功标记）→ 判定为"未完成迁移"，migrate() 先清理半成品再重来，
-    // 杜绝该会话后段消息永久停留在未迁移状态（事件流不完整、数据语义断裂）。
-    if (
-      existsSync(this.messagesFilePath) &&
-      this.eventLog.exists() &&
-      !existsSync(this.messagesBackupPath)
-    ) {
-      return true;
-    }
-    return false;
   }
 
   /**
@@ -165,11 +192,20 @@ export class MessageToEventMigrator {
     };
 
     if (!this.needsMigration()) {
-      logger.info('migrator: 无需迁移', {
-        sessionId: this.sessionId,
-        messagesExists: existsSync(this.messagesFilePath),
-        eventsExists: this.eventLog.exists(),
-      });
+      const size = this.messagesFileSize();
+      if (size === 0) {
+        // 新会话的 0 字节文件：没有内容可迁，属稳态 ⇒ debug（避免每会话 2–3 条噪声）
+        logger.debug('migrator: 空会话无需迁移', {
+          sessionId: this.sessionId,
+          eventsExists: this.eventLog.exists(),
+        });
+      } else {
+        logger.info('migrator: 无需迁移', {
+          sessionId: this.sessionId,
+          messagesExists: size >= 0,
+          eventsExists: this.eventLog.exists(),
+        });
+      }
       return result;
     }
 

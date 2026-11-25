@@ -9,7 +9,10 @@
 //   5. tool 有 parentMsgId → 事件 data 携带 messageId + schemaVersion
 
 import { describe, expect, it } from 'bun:test';
-import { MessageToEventMigrator } from '@modules/session/storage/MessageToEventMigrator';
+import {
+  MessageToEventMigrator,
+  shouldMigrateMessages,
+} from '@modules/session/storage/MessageToEventMigrator';
 import { createMessageService } from '../../src/chat/services/MessageService';
 import { MessageStatus } from '@modules/session/types/message/enums';
 import type { Message } from '@modules/session/types/message';
@@ -230,5 +233,60 @@ describe('tool/result failureKind 落盘（P2-3）', () => {
     expect(
       Object.prototype.hasOwnProperty.call(dataOf(events), 'failureKind')
     ).toBe(false);
+  });
+});
+
+/**
+ * 2026-11-26：新会话的 `messages.jsonl` 是 0 字节空文件，旧判定「存在且无 events」为真
+ * ⇒ 每个新会话都要走一遍迁移并打 2–3 条 `messages.jsonl 为空，跳过迁移` 的 warn。
+ */
+describe('shouldMigrateMessages：空文件不再进入迁移（告警噪声根因）', () => {
+  const base = {
+    messagesExists: true,
+    messagesSize: 0,
+    eventsExists: false,
+    backupExists: false,
+  };
+
+  it('messages.jsonl 不存在 ⇒ 不迁移', () => {
+    expect(shouldMigrateMessages({ ...base, messagesExists: false })).toBe(
+      false
+    );
+  });
+
+  it('0 字节空文件（新会话）+ 无 events ⇒ 不迁移（真机回归）', () => {
+    expect(shouldMigrateMessages(base)).toBe(false);
+    // 空文件即便存在半成品 events，也没有内容可迁
+    expect(shouldMigrateMessages({ ...base, eventsExists: true })).toBe(false);
+  });
+
+  it('有内容 + 无 events ⇒ 迁移', () => {
+    expect(shouldMigrateMessages({ ...base, messagesSize: 42 })).toBe(true);
+  });
+
+  it('有内容 + events 已存在 + 有备份（迁移成功标记）⇒ 不迁移', () => {
+    expect(
+      shouldMigrateMessages({
+        ...base,
+        messagesSize: 42,
+        eventsExists: true,
+        backupExists: true,
+      })
+    ).toBe(false);
+  });
+
+  it('有内容 + events 半成品 + 无备份 ⇒ 续迁（KB-MIG-REENTER）', () => {
+    expect(
+      shouldMigrateMessages({
+        ...base,
+        messagesSize: 42,
+        eventsExists: true,
+        backupExists: false,
+      })
+    ).toBe(true);
+  });
+
+  it('读不到文件大小（-1）⇒ 保守判需迁移（不静默跳过真实数据）', () => {
+    expect(shouldMigrateMessages({ ...base, messagesSize: -1 })).toBe(true);
   });
 });

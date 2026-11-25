@@ -15,7 +15,7 @@
  */
 import { readdir, readFile, writeFile, mkdir, stat } from 'fs/promises';
 import { join, dirname } from 'path';
-import { existsSync } from 'fs';
+import { existsSync, type Stats } from 'fs';
 import { LogLevel } from '@openliri/infra/monitoring';
 import { OTelAwareLogger } from '@openliri/infra/monitoring/logs/OTelAwareLogger';
 import { LLMPerformanceMonitor } from '@modules/ai';
@@ -96,6 +96,12 @@ interface CompileState {
       compiledAt: number;
       /** 内容指纹（K5.1：sha1(raw 字节)，用于 mtime 未变时的内容变更检测） */
       digest?: string;
+      /**
+       * K7（2026-11-26）：该 raw 编译产出的页面列表（与 companion `.meta.json`
+       * 内容一致）。增量判定优先读这里 —— 每轮少读 591 个 `.meta.json` 文件。
+       * 缺省（旧状态文件）⇒ 回落读 `.meta.json` 并在此补齐。
+       */
+      pages?: string[];
     }
   >;
 }
@@ -466,20 +472,37 @@ export class KnowledgeCompiler {
     const { force, resolvedModel, compileState, newState, digestFor, result } =
       ctx;
     try {
-      let needsCompile = force || (await this.needsRecompile(rawFile));
+      // K7（2026-11-26）：本轮只 stat 一次 raw（原实现共 stat 2-3 次）
+      const rawStat = await stat(rawFile);
+      const prevState = compileState?.docs[rawFile];
+
+      const verdict = force
+        ? { needsCompile: true, pages: prevState?.pages }
+        : await this.needsRecompile(rawFile, rawStat, prevState?.pages);
+      let needsCompile = verdict.needsCompile;
+      // 本轮已确认的页面列表（快照缺失时由 `.meta.json` 补出，回写快照供下轮复用）
+      const knownPages = verdict.pages ?? prevState?.pages;
+
+      /** 跳过时把 mtime（及已确认的页面列表）落回新快照，避免下轮重复判定 */
+      const recordSkip = (): void => {
+        newState.docs[rawFile] = {
+          mtime: rawStat.mtimeMs,
+          compiledAt: prevState?.compiledAt ?? Date.now(),
+          ...(prevState?.digest ? { digest: prevState.digest } : {}),
+          ...(knownPages ? { pages: knownPages } : {}),
+        };
+      };
 
       // 增量优化：通过编译状态快照跳过 mtime 未变更的文件；
       // K5.1：mtime 一致时再比对内容指纹，内容变但 mtime 未变也触发重编译
       if (!force && !needsCompile) {
-        const rawStat = await stat(rawFile);
-        const prevState = compileState?.docs[rawFile];
         if (prevState && prevState.mtime === rawStat.mtimeMs) {
           if (prevState.digest) {
             const digest = await digestFor(rawFile);
             if (digest === prevState.digest) {
               // 指纹一致 → 内容未变，安全跳过
               result.skipped++;
-              newState.docs[rawFile] = prevState;
+              recordSkip();
               updateCompileProgress(result.compiled + result.skipped);
               return;
             }
@@ -491,30 +514,17 @@ export class KnowledgeCompiler {
           } else {
             // 旧快照无 digest（迁移期）→ 维持原跳过行为，新编译后自动补指纹
             result.skipped++;
-            newState.docs[rawFile] = prevState;
+            recordSkip();
             updateCompileProgress(result.compiled + result.skipped);
             return;
           }
-        } else {
-          // mtime 变更了但 needsRecompile 返回 false（可能编译产物仍更新）
-          // 保守策略：仍需检查，但不需要强制重编译
-          needsCompile = false;
         }
+        // mtime 变更了但 needsRecompile 返回 false（编译产物仍更新）⇒ 落到下方跳过分支
       }
 
       if (!needsCompile) {
         // 记录当前 mtime 到新快照（即使跳过也要记录，避免下次重复判断）
-        try {
-          const rawStat = await stat(rawFile);
-          const prevDoc = compileState?.docs[rawFile];
-          newState.docs[rawFile] = {
-            mtime: rawStat.mtimeMs,
-            compiledAt: prevDoc?.compiledAt ?? Date.now(),
-            ...(prevDoc?.digest ? { digest: prevDoc.digest } : {}),
-          };
-        } catch (_err) {
-          // stat 失败忽略
-        }
+        recordSkip();
         result.skipped++;
         updateCompileProgress(result.compiled + result.skipped);
         return;
@@ -527,16 +537,16 @@ export class KnowledgeCompiler {
       // R4：实际产出页面的源 raw 记录（供原文分块页码索引刷新）
       if (pages.length > 0) result.compiledRaws.push(rawFile);
 
-      // 编译成功，记录到快照（含内容指纹 K5.1）
+      // 编译成功，记录到快照（含内容指纹 K5.1 / 页面列表 K7）
       try {
-        const rawStat = await stat(rawFile);
         newState.docs[rawFile] = {
           mtime: rawStat.mtimeMs,
           compiledAt: Date.now(),
           digest: await digestFor(rawFile),
+          ...(pages.length > 0 ? { pages } : {}),
         };
       } catch (_err) {
-        // stat 失败忽略
+        // 指纹计算失败不影响编译主流程（下次仍会按 mtime 判定）
       }
 
       // K5.2 血缘：doc(raw) → 本次编译页面（幂等；重编译先 purge 再写）
@@ -860,28 +870,47 @@ export class KnowledgeCompiler {
 
   /**
    * 判断是否需要重编译（many-to-many 感知）
-   * 检查 .meta.json 中记录的 pages 列表，任一页面缺失或过时就重编译
+   * 检查页面列表，任一页面缺失或过时就重编译
+   *
+   * K7（2026-11-26）：页面列表优先取编译状态快照里缓存的 `pages`（与 companion
+   * `.meta.json` 同源），未变文件每轮少读一个 `.meta.json`；页面存在性判定由
+   * `existsSync` + `stat` 收敛为单次 `stat`（ENOENT 即缺失）。
+   *
+   * @returns `needsCompile` 是否需要重编译；`pages` 本轮确认到的页面列表
+   *          （供调用方回写快照，下轮免读 `.meta.json`）
    */
-  private async needsRecompile(rawFile: string): Promise<boolean> {
-    const metaFile = `${rawFile}.meta.json`;
-    if (!existsSync(metaFile)) return true;
-
-    try {
-      const metaContent = await readFile(metaFile, 'utf-8');
-      const meta = JSON.parse(metaContent);
-      const pages: string[] = meta.pages;
-      if (!pages || pages.length === 0) return true;
-
-      const rawStat = await stat(rawFile);
-      for (const pagePath of pages) {
-        if (!existsSync(pagePath)) return true;
-        const pageStat = await stat(pagePath);
-        if (rawStat.mtimeMs > pageStat.mtimeMs) return true;
+  private async needsRecompile(
+    rawFile: string,
+    rawStat: Stats,
+    cachedPages?: string[]
+  ): Promise<{ needsCompile: boolean; pages?: string[] }> {
+    let pages: string[] | undefined =
+      cachedPages && cachedPages.length > 0 ? cachedPages : undefined;
+    if (!pages) {
+      const metaFile = `${rawFile}.meta.json`;
+      if (!existsSync(metaFile)) return { needsCompile: true };
+      try {
+        const meta = JSON.parse(await readFile(metaFile, 'utf-8'));
+        const metaPages: unknown = meta.pages;
+        if (!Array.isArray(metaPages)) return { needsCompile: true };
+        pages = metaPages.filter((p): p is string => typeof p === 'string');
+        if (pages.length === 0) return { needsCompile: true };
+      } catch (_err) {
+        return { needsCompile: true };
       }
-      return false;
-    } catch (_err) {
-      return true;
     }
+
+    for (const pagePath of pages) {
+      let pageMtimeMs: number;
+      try {
+        pageMtimeMs = (await stat(pagePath)).mtimeMs;
+      } catch (_err) {
+        // 页面缺失（或不可访问）⇒ 需重编译
+        return { needsCompile: true, pages };
+      }
+      if (rawStat.mtimeMs > pageMtimeMs) return { needsCompile: true, pages };
+    }
+    return { needsCompile: false, pages };
   }
 
   /**

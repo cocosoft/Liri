@@ -308,7 +308,7 @@ MMR 需查询向量与候选两两相似度（N² 次嵌入），仅在显式开
 | **团队记忆模拟实现** | ✅ 已标注 | `TeamMemorySyncServiceImpl` 标 `@deprecated` + `readonly simulated = true` + 构造期 `process.emitWarning`；日志统一加 `(simulated)`，`syncTeamMemory` 明确"未传输任何数据"；**保留**不删（`code-deletion.md` CD07：团队能力属运行时/配置驱动面） |
 | **记忆来源与新鲜度** | ✅ 已标注 | 注入层统一提示"来自记忆库，**可能已过期**；与当前代码/用户说法冲突时以当前事实为准"：`memoryIndex` 段尾行、会话记忆原文模式与降级索引模式各一处 |
 | **eval 常态化** | ⚠️ 部分（2026-11-25） | 确定性用例已入库（注入预算/检索/治理/压缩/校验）；注入遵循度已落 `packages/evals` 任务（模型在环，手动运行，不进 CI）；跨会话任务级评测集仍未建 |
-| **团队记忆真实同步** | 📄 已立项（待评审） | 方案见 [team-memory-sync.md](./team-memory-sync.md)：服务端契约 / Bearer+团队隔离 / etag 增量 / 默认 manual 冲突 / 密钥扫描 fail-closed / 四阶段路线 |
+| **团队记忆真实同步** | 📄 方案已补齐（待评审） | 方案见 [team-memory-sync.md](./team-memory-sync.md)：服务端契约（端点/鉴权/412·409/分页/幂等/墓碑/审计，2026-11-25 补）+ 客户端差距清单（C1–C7）+ 分阶段拆解（Phase 2N-0…2N-5）；共享目录版已实现，网络版**未改运行时**，3 项决策仍待拍板 |
 
 ### 8.7 P2-2 记忆用途与学习闭环（Phase 3，部分）
 

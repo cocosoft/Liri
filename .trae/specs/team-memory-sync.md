@@ -1,7 +1,8 @@
 # 团队记忆真实同步 · 立项方案（草案 · 2026-11-25）
 
 > 来源：`agent-memory-optimization.md` §8.6（团队记忆当前为模拟/未接线实现，需单独立项）。
-> 状态：**待评审**（Phase 0 门禁 + Phase 1 拉取 + Phase 2 推送（共享目录版）已实现，见 §5.1；网络版与冲突审阅待 §8 后三项拍板）。
+> 状态：**待评审**。已实现：Phase 0 门禁 + Phase 1 拉取 + Phase 2 共享目录版 + Phase 3-lite 审阅（见 §5.1）。
+> **网络版服务端契约与实施拆解已补齐（2026-11-25，方案态；本次未改任何运行时、未新增端点）**，见 §3.2–§3.8 / §4.4 / §5.2 / §8。
 > 约束：默认关闭、默认不自动覆盖（沿用 `memory-conflict-detection.md` 裁定）、
 > 密钥扫描 fail-closed、按阶段独立提交（`code-deletion.md` CD05/CD06）。
 
@@ -80,24 +81,29 @@
 | `teamId` | string | 团队隔离键（**所有查询必须带**） |
 | `ownerKey` | string | 写入者（`<tenant>:<user>`，见 `project_rules §1.5`） |
 | `content` | string | 正文（按策略加密后再传） |
-| `contentHash` | string | 正文/元数据摘要（幂等与冲突判定） |
+| `contentHash` | string | `sha256(规范化正文 + 元数据关键字段)`；规范化 = 换行统一 `\n`、去首尾空白（与客户端 `TeamMemorySharedDirSync` 同口径） |
 | `accessLevel` | enum | `public/team/project/private/protected/admin` |
-| `version` | integer | 服务端单调递增（冲突与增量依据） |
-| `updatedAt` | ISO | 客户端更新时间（仅展示/辅助，不用于定序） |
-| `deletedAt` | ISO? | 软删（墓碑，保证删除可同步） |
-| `etag` | string | `version + contentHash` 派生 |
+| `version` | integer | 服务端单调递增（**唯一**定序依据） |
+| `updatedAt` | ISO | 客户端更新时间（仅展示/辅助，**不**用于定序） |
+| `deletedAt` | ISO? | 软删（墓碑；删除必须可同步，不能物理消失） |
+| `etag` | string | `W/"<version>-<contentHash>"`（弱校验器；服务端每次写回新值） |
 
 ### 3.2 端点
 
+**前缀约定**：`{base}` = 配置项 `memory.teamSync.serverUrl`（例：`https://team.example.com`）。
+路径段固定为 `/teams/{teamId}/memories` —— 与**现有客户端**（`TeamMemorySyncService.ts:316/514/572`）一致，
+避免"契约定一套、代码写一套"；前缀若需带 `/v1`，只改客户端**单一常量**（见 §5.2 Phase 2N-0）。
+
 | 方法 | 路径 | 语义 |
 |---|---|---|
-| `GET` | `/v1/team-memory?teamId=&cursor=&limit=` | 增量拉取（`version > cursor`），返回 `{items, nextCursor}` |
-| `GET` | `/v1/team-memory/:id` | 单条读取（含 `etag`） |
-| `PUT` | `/v1/team-memory/:id` | 写入（`If-Match: <etag>`；不匹配 ⇒ **409** + 远端当前记录） |
-| `DELETE` | `/v1/team-memory/:id` | 软删（`If-Match` 同上） |
-| `POST` | `/v1/team-memory/sync` | 批量（可选；单条接口已足够时不做） |
+| `GET` | `{base}/teams/{teamId}/memories?cursor=&limit=` | 增量拉取（`version > cursor`，`limit` 默认 100 / 上限 200），返回 `{items, nextCursor, hasMore}` |
+| `GET` | `{base}/teams/{teamId}/memories/{id}` | 单条读取（含 `etag`）；墓碑同样返回（带 `deletedAt`） |
+| `PUT` | `{base}/teams/{teamId}/memories/{id}` | 写入（`If-Match: <etag>`；首次创建可不带）。**不匹配 ⇒ 412** + 远端当前记录 |
+| `DELETE` | `{base}/teams/{teamId}/memories/{id}` | 软删（写 `deletedAt` + `version+1`；`If-Match` 语义同上） |
+| `POST` | `{base}/teams/{teamId}/memories/sync` | 批量（可选；**默认不做**，单条接口足够） |
 
-**幂等**：同一 `(teamId, id, version)` 重放 ⇒ 直接返回当前记录，不重复写入。
+**幂等**：同一 `(teamId, id, version, contentHash)` 重放 ⇒ 直接返回当前记录（2xx），不重复写、不递增 `version`。
+**删除**：软删后 `GET` 列表仍返回该条（带 `deletedAt`），客户端据此删除本地；物理清理由服务端保留期策略负责。
 
 ### 3.3 鉴权与隔离（fail-closed）
 
@@ -105,6 +111,64 @@
 - 授权：调用者必须是 `teamId` 成员；非成员 ⇒ 403。
 - 隔离：服务端每条读都带 `teamId` 过滤（租户库另一层用 `owner_key`），漏过滤即越权。
 - 客户端：`serverUrl` 为空 ⇒ 状态 `NOT_CONFIGURED` 并**明确报错**，**不得**伪造成功（当前模拟实现的反面）。
+- **令牌来源（新增，建议）**：沿用本机凭据文件 `<LIRI_HOME>/credentials.json` 的团队令牌字段
+  （键名 `teamSync.token`，缺失即 `NOT_CONFIGURED`）；**禁止**把令牌写进配置明文或日志。
+- **成员校验的数据来源**：服务端主数据（团队表）——本仓不定义团队权限服务，只要求
+  "非成员必 403"；客户端不缓存他队数据。
+
+### 3.4 条件请求与错误码（客户端必须能分类）
+
+| 状态码 | 语义 | 客户端处理 |
+|---|---|---|
+| 401 | 令牌缺失/过期 | `ERROR`，提示重新登录；**不重试** |
+| 403 | 非团队成员 | `ERROR`（不重试，不降级为"空团队"） |
+| 404 | 记录不存在（GET 单条） | 视为远端无此条（本地可推） |
+| 412 | `If-Match` 不匹配（远端已变） | **冲突候选**（不覆盖）；拿响应里的远端记录算 hash |
+| 409 | 并发创建同 id 且内容不同 | 同 412：冲突候选 |
+| 428 | PUT/DELETE 缺 `If-Match`（且非首次创建） | `ERROR`（客户端缺陷，应修代码而非重试） |
+| 429 | 限流 | 退避重试（见 §3.7） |
+| 5xx | 服务端故障 | 退避重试；连续失败 ⇒ `ERROR` + `lastError` |
+
+**错误体统一**：`{"error":{"code":"ETAG_MISMATCH","message":"…","current":{…}}}` ——
+`code` 供程序分支，`message` 供人读；`current` 仅 409/412 返回。
+
+### 3.5 请求/响应示例
+
+```json
+// PUT {base}/teams/team-a/memories/m_123   (If-Match: W/"7-ab12")
+{"content":"部署窗口每周二 03:00","contentHash":"ab12…","accessLevel":"team"}
+// 200
+{"id":"m_123","teamId":"team-a","version":8,"etag":"W/\"8-cd34\"","updatedAt":"2026-11-25T08:00:00Z"}
+// 412
+{"error":{"code":"ETAG_MISMATCH","message":"remote version changed","current":{"id":"m_123","version":9,"etag":"W/\"9-ef56\"","content":"…"}}}
+```
+
+```json
+// GET {base}/teams/team-a/memories?cursor=9&limit=100
+{"items":[{"id":"m_123","version":10,"etag":"W/\"10-aa11\"","contentHash":"aa11…","deletedAt":null}],"nextCursor":10,"hasMore":false}
+```
+
+### 3.6 分页与限流
+
+- `cursor` = 上次成功应用的最大 `version`（客户端落盘，见 §4.1-3）；服务端按 `version` 升序返回。
+- `limit` 默认 100、上限 200；超过上限按 200 处理（不报错）。
+- 服务端建议限流：单 token 60 req/min；超限 429 + `Retry-After`。
+
+### 3.7 超时、重试与退避
+
+- 客户端超时沿用 `TeamMemorySyncConfig.timeout`（默认值见实现）。
+- 仅对 **429/5xx/网络错误** 重试：1× → 2× → 4×，上限 15min（与 §4.2 状态机一致）。
+- 4xx（除 429）**不重试**；412/409 走冲突候选而不是重试。
+
+### 3.8 服务端一致性验收清单（供对端实现自检）
+
+- [ ] 所有读写都带 `teamId` 过滤，且校验调用者成员身份（401/403 语义见 §3.4）。
+- [ ] `version` 单调递增；`etag` 由 `version + contentHash` 派生并随写更新。
+- [ ] `If-Match` 不匹配返回 412 且带 `current`；首次创建允许不带 `If-Match`。
+- [ ] 软删写墓碑（`deletedAt` + `version+1`），列表仍可增量拉取到。
+- [ ] 同 `(teamId,id,version,contentHash)` 重放幂等（不重复写/不递增）。
+- [ ] `cursor` 语义 = `version > cursor`；分页 `limit ≤ 200`。
+- [ ] 幂等/冲突/鉴权失败均落审计（`teamId`、`ownerKey`、`id`、`version`、结果码）。
 
 ---
 
@@ -136,6 +200,22 @@
 事件/日志字段统一：`teamId`、`direction`、`uploaded`、`downloaded`、`skipped`、`conflicts`、`durationMs`、`error`。
 落点：`logger`（module `memory:teamSync`）+ 同步记录持久化（`team_memory_sync_log` 表或复用现有记录文件）。
 
+### 4.4 现有客户端与目标契约的差距（实证，Phase 2N 必改点）
+
+| # | 现状（代码事实） | 目标 | 必改文件 |
+|---|---|---|---|
+| C1 | 路径写死 `/teams/{teamId}/memories`（`TeamMemorySyncService.ts:316/514/572`） | 契约同前缀；`/v1` 等差异收敛为**单一常量** | `TeamMemorySyncService.ts` |
+| C2 | 请求**无 `Authorization`** 头 | Bearer（令牌来自 `credentials.json#teamSync.token`） | 同上 |
+| C3 | 列表请求**无 `cursor/limit`**（一次拉全量） | 分页 + cursor 落盘（§4.1-3 的表） | 同上 |
+| C4 | 非 2xx 一律抛通用错误；**无 412/409 分支** | 按 §3.4 分类：412/409 ⇒ 冲突候选 | `TeamMemorySyncService.ts` + `TeamMemorySharedDirSync.ts`（候选格式复用） |
+| C5 | `etagCache` 仅内存（重启丢失） | etag 与 cursor 同表持久化 | 同上 + 新表 |
+| C6 | 上传 body 仅 `{content}` | `{content, contentHash, accessLevel}` | 同上 |
+| C7 | 无墓碑处理（远端删除不可见） | `deletedAt` ⇒ 删本地（`.trash` 归档） | 同上 |
+
+**复用而非重写**：冲突候选文件格式、密钥扫描（`MemorySecretScanner`）、取舍入口
+（`resolveTeamConflict` / CLI `/memory team` / 设置页 `TeamMemoryPanel`）全部沿用共享目录版，
+网络版只替换"搬运层"（文件 ↔ HTTP）。
+
 ---
 
 ## 5. 分阶段路线
@@ -144,7 +224,7 @@
 |---|---|---|---|
 | **Phase 0** | 接线开关 + `NOT_CONFIGURED` + 传输层骨架（不联网也能通过） | 默认关时行为零变更；未配置时状态明确；单测 | ✅ 已实现（2026-11-25） |
 | **Phase 1** | 单向拉取（远端→本地，只读合并）+ 幂等 | 重复拉取幂等；冲突不覆盖；密钥 fail-closed | ✅ 已实现（共享目录版，2026-11-25） |
-| **Phase 2** | 双向增量 + `If-Match` 409 + manual 候选 | 冲突产候选、正文不变；并发写不丢数据 | ✅ 共享目录版已实现（拉取+推送，异文只记冲突）；网络版待 §8 后三项拍板 |
+| **Phase 2** | 双向增量 + `If-Match`（412/409）+ manual 候选 | 冲突产候选、正文不变；并发写不丢数据 | ✅ 共享目录版已实现（拉取+推送，异文只记冲突）；网络版拆解见 §5.2（Phase 2N-0…2N-5），待 §8 三项决策 |
 | **Phase 3** | 审阅入口（CLI/设置页）+ 审计报表 | 人工可采纳/忽略候选；审计可查 | 部分：候选文件 `conflicts.json` + 可编程取舍 `resolveTeamConflict` + 同步历史 `sync-history.jsonl` + CLI `/memory team` + 设置页 `TeamMemoryPanel`（HTTP 三端点）；审计报表未做 |
 
 每阶段独立提交；`memory.teamSync.enabled` 默认关，观察期后再开。
@@ -184,6 +264,22 @@
   取舍成功后 `resolveTeamConflict` 把该候选从 `conflicts.json` 移除（避免审阅列表继续展示已处理项）。
 - 如实边界：团队记忆是独立目录/独立访问级别；共享目录版不含真实网络（网络版 Phase 2 待 §8 后三项拍板）。
 
+### 5.2 网络版实施拆解（Phase 2N-0 … 2N-5；每步独立提交）
+
+> 前置：§8 的 3 项阻塞决策已拍板；默认 `memory.teamSync.enabled=false`，未配置 `serverUrl` 时行为零变更。
+
+| 步骤 | 范围 | 落点（文件） | 验收 / 门禁 | 回滚 |
+|---|---|---|---|---|
+| **2N-0** | 契约常量 + Bearer + 错误码分类 + 超时/重试（C1/C2；不联网也能过） | `TeamMemorySyncService.ts`（新增 `apiPrefix` 常量与 `authorize` 头）；复用 `withRetry` | 未配置 ⇒ `NOT_CONFIGURED` 零请求；单测用 `fetch` 桩断言请求头/路径 | 独立提交可 revert；开关默认关 |
+| **2N-1** | 拉取分页 + cursor 持久化（C3/C5 拉侧） | 同上 + 新表 `team_memory_sync_state(team_id PK, cursor, etag_json, last_sync_at, last_error)`（仅新增） | cursor=10 ⇒ 只请求 `version>10`；重启从表续传；重复拉取幂等 | 清空表即可全量重拉 |
+| **2N-2** | 推送 `If-Match` + 409/412 ⇒ 冲突候选（C4/C6/C7 推侧） | 同上 + 复用 `TeamMemorySharedDirSync` 的候选结构与 `resolveTeamConflict` | 412/409 ⇒ 候选落 `conflicts.json`；**本地/远端正文均不变**；密钥命中拒发 | 关开关即停；候选可人工放弃 |
+| **2N-3** | 墓碑处理（远端 `deletedAt` ⇒ 本地 `.trash` 归档） | 同上 | 删除可同步；归档不物理删除 | `.trash` 可还原 |
+| **2N-4** | 状态机/退避/审计接线（R08-002）+ 设置页状态 | `TeamMemorySyncService.ts` + `TeamMemoryPanel`（status 字段已具备） | `SYNCING` 单飞；429/5xx 退避上限 15min；每轮 4 类事件齐全 | 开关关 + 定时器停 |
+| **2N-5** | 集成测试（本机 `Bun.serve` mock 服务端） | `app/tests/memory/teamMemoryNetworkSync.test.ts` | 拉取→本地改→412→人工采纳→再推 全链通过；401/403/429 各一例 | 测试仅本地，无运行时影响 |
+
+**本轮（2026-11-25）只落方案**：未新增端点、未改运行时；`serverUrl` 网络分支仍为未接线状态。
+
+
 ---
 
 ## 6. 验收与测试基线
@@ -191,12 +287,15 @@
 **单测（临时目录 + fetch stub）**
 1. 未配置 `serverUrl` ⇒ `NOT_CONFIGURED`、零网络请求、不伪造成功。
 2. 增量：cursor=10 ⇒ 只请求 `version>10`；重复同步不重复下载。
-3. `If-Match` 不匹配 ⇒ 409 ⇒ 生成冲突候选文件，本地正文不变。
+3. `If-Match` 不匹配（**412**；兼容 409）⇒ 生成冲突候选文件，本地与远端正文均不变。
 4. 密钥命中 ⇒ 拒发该条 + 审计 + 继续处理其它条（不整批失败）。
 5. 鉴权缺失/非成员 ⇒ 401/403，状态 `ERROR` 带原因。
-6. 重启续传：cursor 从表读回，不从头拉。
+6. 重启续传：cursor/etag 从表读回，不从头拉。
+7. 墓碑：远端 `deletedAt` ⇒ 本地归档到 `.trash`（不物理删除）。
+8. 退避：429/5xx 按 1×/2×/4×（上限 15min）重试；4xx（除 429）不重试。
+9. 幂等：同 `(teamId,id,version,contentHash)` 重放不产生重复写。
 
-**集成（本机）**：临时目录 + 本地 mock HTTP server（`Bun.serve`），跑通 拉取→修改→409→人工采纳 全链。
+**集成（本机）**：临时目录 + 本地 mock HTTP server（`Bun.serve`），跑通 拉取→修改→412→人工采纳→再推 全链。
 
 **明确不在本轮**：服务端实现、真实网络 e2e、团队权限服务。
 
@@ -222,11 +321,14 @@
 1. **服务端归属** = **共享目录同步**（Phase 1 先做，本阶段不走网络；自建 HTTP 服务/复用协作设施后置）。
 2. **身份来源** = **本机身份**（`ownerKey` 不参与共享目录阶段；网络阶段再引入租户身份）。
 
-**仍待拍板（Phase 2 前）**
+**仍待拍板（Phase 2N 前，按此顺序阻塞）**
 
-3. **加密责任端**：客户端加密（服务端只见密文）还是依赖服务端 + TLS？
-4. **冲突默认策略**：确认 `manual`（建议）还是允许 `local_wins` 灰度？
-5. **共享边界**：是否允许跨团队共享单条记忆（建议先不允许）。
+| # | 决策 | 建议默认 | 影响 |
+|---|---|---|---|
+| 3 | **加密责任端**：客户端加密（服务端只见密文） vs TLS + 服务端可见明文 | **先 TLS + 明文**（`enableEncryption` 保留但默认关） | 选"客户端加密"则 `contentHash` 需按密文算，且服务端无法做 hash 冲突判定 ⇒ 冲突判定移到客户端（方案需改 §3.1） |
+| 4 | **冲突默认策略**：`manual` vs 允许 `local_wins` 灰度 | **`manual`** | 选灰度则 2N-2 需增加"自动覆盖 + 审计"，并放宽"不自动改写"裁定 |
+| 5 | **共享边界**：是否允许跨团队共享单条 | **不允许** | 允许则服务端 `teamId` 过滤需支持 `sharedWith` 列表（越权面扩大） |
+
 
 ---
 

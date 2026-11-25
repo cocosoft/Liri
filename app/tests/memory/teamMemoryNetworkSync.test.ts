@@ -63,8 +63,12 @@ function json(
   });
 }
 
-/** 启动 mock 服务端（内存存储；`Authorization` 决定 401/403/429 分支） */
-function startServer(): {
+/** 启动 mock 服务端（内存存储；`Authorization` 决定 401/403/429 分支）
+ *
+ * `honorCursor=true` ⇒ 列表按契约 §3.6 只返回 `version > cursor` 的条目（增量语义）；
+ * 默认返回全量，保持既有用例的"快照"假设。
+ */
+function startServer(options: { honorCursor?: boolean } = {}): {
   baseUrl: string;
   memories: Map<string, RemoteMemory>;
   putRemote: (id: string, content: string) => RemoteMemory;
@@ -115,7 +119,13 @@ function startServer(): {
       const id = parts[3];
 
       if (!id) {
-        const items = Array.from(memories.values()).map((m) => ({
+        const cursorParam = Number(url.searchParams.get('cursor') ?? 0);
+        const all = Array.from(memories.values());
+        const visible =
+          options.honorCursor && Number.isFinite(cursorParam) && cursorParam > 0
+            ? all.filter((m) => m.version > cursorParam)
+            : all;
+        const items = visible.map((m) => ({
           id: m.id,
           version: m.version,
           contentHash: hash(m.content),
@@ -126,7 +136,7 @@ function startServer(): {
             etag: m.etag,
           },
         }));
-        const cursor = Math.max(0, ...items.map((i) => i.version));
+        const cursor = Math.max(0, ...all.map((m) => m.version));
         return json({ items, nextCursor: cursor, hasMore: false });
       }
 
@@ -481,6 +491,33 @@ describe('团队记忆网络版 2N-5 全链（Bun.serve mock）', () => {
     };
     expect(last.rejectedSecrets).toBe(1);
     expect(last.errors).toBe(0);
+  });
+
+  it('增量列表（version>cursor）⇒ 未变条目不再重复上传，本地改后才推（2N-12）', async () => {
+    const { baseUrl, memories, putRemote } = startServer({ honorCursor: true });
+    const localDir = makeDir('team-net-local-');
+    putRemote('net-m1', 'REMOTE-V1');
+    const service = makeService(baseUrl, localDir, 'tok');
+
+    const first = await service.sync();
+    expect(first.downloaded).toBe(1);
+
+    // 第二轮：增量列表为空（远端未变）⇒ 不重复 PUT、远端 version 不涨
+    const second = await service.sync();
+    expect(second.uploaded).toBe(0);
+    expect(second.downloaded).toBe(0);
+    expect(second.skipped).toBe(1);
+    expect(memories.get('net-m1')?.version).toBe(1);
+
+    // 本地编辑 ⇒ 仍会推送（`If-Match` 用上次基线）
+    writeFileSync(join(localDir, 'net-m1.md'), 'LOCAL-EDIT\n', 'utf-8');
+    const third = await service.sync();
+    expect(third.uploaded).toBe(1);
+    expect(memories.get('net-m1')?.content.trim()).toBe('LOCAL-EDIT');
+
+    // 第四轮：再次"两边都没变"⇒ 不再上传
+    const fourth = await service.sync();
+    expect(fourth.uploaded).toBe(0);
   });
 
   it('fullSync（2N-8 手动全量）⇒ 清基线后重新拉回本地误删的条目', async () => {

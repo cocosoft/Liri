@@ -301,6 +301,14 @@ export class TeamMemorySyncService {
    * 首次推送的 `If-Match`，绝不覆盖已有基线（否则冲突检测失效）。
    */
   private observedEtags: Map<string, string> = new Map();
+  /**
+   * `id → 上次同步时的本地正文 hash`（Phase 2N-12）。
+   *
+   * 增量列表只含 `version > cursor` 的条目 ⇒ 未变的远端条目不出现在本轮列表里。
+   * 用它区分"两边都没变"（跳过）与"本地已改"（推送）；缺失（首次/旧数据）按
+   * "本地已改"处理，最多多推一次，随后即被记录。
+   */
+  private localBaselines: Map<string, string> = new Map();
   private memoryStates: Map<string, MemorySyncState> = new Map();
   private syncTimer: NodeJS.Timeout | null = null;
   private lastSyncTime: number = 0;
@@ -463,6 +471,7 @@ export class TeamMemorySyncService {
         remoteMemories.delete(memoryId);
         localMemories.delete(memoryId);
         this.etagCache.delete(memoryId);
+        this.localBaselines.delete(memoryId);
 
         if (!isSafeMemorySyncId(memoryId)) {
           result.errors.push(`Unsafe memory id in tombstone: ${memoryId}`);
@@ -511,6 +520,8 @@ export class TeamMemorySyncService {
         try {
           await this.uploadMemory(task.memoryId, content);
           result.uploaded++;
+          // 2N-12：推送成功后记录本地正文基线（下轮增量看不到该条时据此跳过）
+          this.localBaselines.set(task.memoryId, hashMemoryContent(content));
         } catch (error) {
           // Phase 2N-2：412/409 ⇒ 只记冲突候选（不覆盖）；不算"上传失败"
           if (error instanceof TeamMemorySyncConflictError) {
@@ -647,6 +658,19 @@ export class TeamMemorySyncService {
       });
     }
 
+    // 2N-12：本地正文基线落库（下一轮增量列表看不到未变条目时据此跳过）
+    try {
+      await this.stateStore.saveLocalHashes(
+        this.config.teamId,
+        Object.fromEntries(this.localBaselines)
+      );
+    } catch (error) {
+      await handleError(error, {
+        module: 'memory:services:teamSync',
+        action: 'save_local_hashes_after_sync',
+      });
+    }
+
     this.notifyListeners(this.status, result);
 
     return result;
@@ -718,7 +742,9 @@ export class TeamMemorySyncService {
         if (outcome === 'conflict') return false;
       }
       this.etagCache.delete(memoryId);
+      this.localBaselines.delete(memoryId);
     } else {
+      // `downloadMemory` 会同时刷新本地正文基线（2N-12）
       await this.downloadMemory(memoryId);
     }
 
@@ -727,6 +753,10 @@ export class TeamMemorySyncService {
       await this.stateStore.saveEtags(
         this.config.teamId,
         Object.fromEntries(this.etagCache)
+      );
+      await this.stateStore.saveLocalHashes(
+        this.config.teamId,
+        Object.fromEntries(this.localBaselines)
       );
     } catch (error) {
       await handleError(error, {
@@ -857,6 +887,10 @@ export class TeamMemorySyncService {
           cursor = state.cursor;
           for (const [id, etag] of Object.entries(state.etags)) {
             this.etagCache.set(id, etag);
+          }
+          // 2N-12：本地正文基线（增量列表看不到未变条目时，用它区分"未变"与"本地已改"）
+          for (const [id, hash] of Object.entries(state.localHashes ?? {})) {
+            this.localBaselines.set(id, hash);
           }
         }
       } catch (error) {
@@ -996,12 +1030,25 @@ export class TeamMemorySyncService {
           // （人工采纳远端后，再改再推才能成功；内容相同 ⇒ 采用基线不会丢数据）
           const remoteEtag = remote.metadata?.etag ?? remote.etag;
           if (remoteEtag) this.etagCache.set(memoryId, remoteEtag);
+          // 2N-12：两边内容一致 ⇒ 记录本地正文基线，下一轮不必再推
+          this.localBaselines.set(memoryId, local.etag);
         } else if (
           local.modified > new Date(remote.metadata.modifiedAt).getTime()
         ) {
           state.status = 'local_newer';
         } else {
           state.status = 'remote_newer';
+        }
+      } else if (this.etagCache.has(memoryId)) {
+        // 2N-12：增量列表（`version > cursor`）里没有它 ⇒ 远端自上次同步**未变**。
+        // 本地正文也与上次同步后的基线一致 ⇒ 两边都没变，跳过（原实现判 local_only ⇒ 每轮重复 PUT）。
+        const baselineHash = this.localBaselines.get(memoryId);
+        if (baselineHash && baselineHash === local.etag) {
+          state.status = 'synced';
+          state.remoteEtag = this.etagCache.get(memoryId) ?? null;
+        } else {
+          // 本地已改（或旧数据缺基线）⇒ 推送；`If-Match` 仍是上次基线，远端若已变则 412 转人工
+          state.status = 'local_newer';
         }
       }
 
@@ -1296,6 +1343,8 @@ export class TeamMemorySyncService {
       this.etagCache.set(memoryId, newEtag);
       this.observedEtags.set(memoryId, newEtag);
     }
+    // 2N-12：落盘后的正文即"已同步基线"（与 `getLocalMemories` 的 hash 同口径）
+    this.localBaselines.set(memoryId, hashMemoryContent(body));
   }
 
   /** 原子写本地记忆（别名与 `getLocalMemories` 同口径：`<id>.md`，正文规范化） */
@@ -1409,6 +1458,7 @@ export class TeamMemorySyncService {
         if (!response) {
           // 远端已不存在（或早已删除）⇒ 清基线即可
           this.etagCache.delete(memoryId);
+          this.localBaselines.delete(memoryId);
           continue;
         }
         const data = (await response.json()) as {
@@ -1433,6 +1483,7 @@ export class TeamMemorySyncService {
           continue;
         }
         this.etagCache.delete(memoryId);
+        this.localBaselines.delete(memoryId);
         if (outcome === 'deleted') {
           result.deleted += 1;
           logger.info('团队记忆本地删除已同步（软删远端）', { memoryId });
@@ -1685,6 +1736,7 @@ export class TeamMemorySyncService {
     this.etagCache.clear();
     this.observedEtags.clear();
     this.memoryStates.clear();
+    this.localBaselines.clear();
     await this.stateStore.reset(this.config.teamId);
     return this.sync();
   }

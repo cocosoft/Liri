@@ -18,6 +18,14 @@ export interface TeamMemorySyncState {
   cursor: number;
   /** `id → etag`（推送时作为 `If-Match` 基线） */
   etags: Record<string, string>;
+  /**
+   * `id → 上次同步时的本地正文 hash`（Phase 2N-12）。
+   *
+   * 增量列表只返回 `version > cursor` 的条目 ⇒ 未变的远端条目**不会出现**在
+   * 本轮列表里。没有这份基线就无法区分"两边都没变"（应跳过）与"本地改了"
+   * （应推送）—— 原实现一律判 `local_only` ⇒ 每轮把未变条目重复 PUT。
+   */
+  localHashes: Record<string, string>;
   lastSyncAt: string | null;
   lastError: string | null;
 }
@@ -49,12 +57,22 @@ export class TeamMemorySyncStateStore {
           team_id TEXT PRIMARY KEY,
           cursor INTEGER NOT NULL DEFAULT 0,
           etags_json TEXT NOT NULL DEFAULT '{}',
+          local_hashes_json TEXT NOT NULL DEFAULT '{}',
           last_sync_at TEXT,
           last_error TEXT
         )`,
         (err: Error | null) => (err ? reject(err) : resolve())
       );
     });
+    // 2N-12：旧版本建的表没有 `local_hashes_json` ⇒ 补列（SQLite 的 ADD COLUMN 无 IF NOT EXISTS）
+    const columns = await this.all(db, `PRAGMA table_info(${SYNC_STATE_TABLE})`);
+    if (!columns.some((column) => column.name === 'local_hashes_json')) {
+      await this.run(
+        db,
+        `ALTER TABLE ${SYNC_STATE_TABLE} ADD COLUMN local_hashes_json TEXT NOT NULL DEFAULT '{}'`,
+        []
+      );
+    }
     return db;
   }
 
@@ -64,7 +82,7 @@ export class TeamMemorySyncStateStore {
       const row = await new Promise<Record<string, unknown> | undefined>(
         (resolve, reject) => {
           db.get(
-            `SELECT team_id, cursor, etags_json, last_sync_at, last_error
+            `SELECT team_id, cursor, etags_json, local_hashes_json, last_sync_at, last_error
              FROM ${SYNC_STATE_TABLE} WHERE team_id = ?`,
             [teamId],
             (err: Error | null, result: Record<string, unknown> | undefined) =>
@@ -77,6 +95,7 @@ export class TeamMemorySyncStateStore {
         teamId,
         cursor: Number(row.cursor ?? 0),
         etags: safeParseEtags(row.etags_json),
+        localHashes: safeParseEtags(row.local_hashes_json),
         lastSyncAt:
           typeof row.last_sync_at === 'string' ? row.last_sync_at : null,
         lastError:
@@ -138,6 +157,29 @@ export class TeamMemorySyncStateStore {
   }
 
   /**
+   * 只更新"上次同步时的本地正文 hash"基线（Phase 2N-12；保留 cursor/etags/错误）。
+   */
+  async saveLocalHashes(
+    teamId: string,
+    localHashes: Record<string, string>
+  ): Promise<void> {
+    const db = await this.open();
+    try {
+      await this.run(
+        db,
+        `INSERT INTO ${SYNC_STATE_TABLE}
+           (team_id, cursor, etags_json, local_hashes_json, last_sync_at, last_error)
+         VALUES (?, 0, '{}', ?, NULL, NULL)
+         ON CONFLICT(team_id) DO UPDATE SET
+           local_hashes_json = excluded.local_hashes_json`,
+        [teamId, JSON.stringify(localHashes)]
+      );
+    } finally {
+      db.close();
+    }
+  }
+
+  /**
    * 清空某团队的续传状态（cursor + etag 基线 + last_error）。
    *
    * 全量重同步入口专用（Phase 2N-8）：`saveProgress` 的 cursor 是
@@ -179,6 +221,18 @@ export class TeamMemorySyncStateStore {
     return new Promise<void>((resolve, reject) => {
       db.run(sql, params, (err: Error | null) =>
         err ? reject(err) : resolve()
+      );
+    });
+  }
+
+  /** 查询多行（用于 PRAGMA 表结构自检） */
+  private all(
+    db: Database,
+    sql: string
+  ): Promise<Array<Record<string, unknown>>> {
+    return new Promise<Array<Record<string, unknown>>>((resolve, reject) => {
+      db.all(sql, (err: Error | null, rows: Array<Record<string, unknown>>) =>
+        err ? reject(err) : resolve(rows ?? [])
       );
     });
   }

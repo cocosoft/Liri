@@ -55,3 +55,23 @@ export function computeTeamMemoryConfigured(input: {
   if (!input.enabled) return false;
   return input.sharedDir.trim().length > 0 || input.networkConfigured;
 }
+
+/**
+ * 手动触发同步的前置校验（Phase 2N-16，2026-11-25）。
+ *
+ * 原实现只拦"未配置 serverUrl"与"正在同步"⇒ **总开关关掉后仍能手动触发联网**
+ * （与"默认关 ⇒ 零请求"的裁定不一致）。现按固定顺序判定，返回需要映射为
+ * 400/409 的错误码；`null` = 允许执行。
+ *
+ * `syncing` 由调用方用 `SyncStatus.SYNCING` 判定后传入（不在此处比对状态字符串）。
+ */
+export function resolveTeamSyncTriggerError(input: {
+  enabled: boolean;
+  serverUrl: string;
+  syncing: boolean;
+}): 'NOT_ENABLED' | 'NOT_CONFIGURED' | 'SYNC_IN_PROGRESS' | null {
+  if (!input.enabled) return 'NOT_ENABLED';
+  if (!input.serverUrl.trim()) return 'NOT_CONFIGURED';
+  if (input.syncing) return 'SYNC_IN_PROGRESS';
+  return null;
+}

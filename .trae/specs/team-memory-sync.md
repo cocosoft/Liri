@@ -304,7 +304,7 @@ C6 与 C4 推侧（412/409 ⇒ 候选）随 2N-2 解决。**C7（墓碑）随 2N
 
 
 
-### 5.2 网络版实施拆解（Phase 2N-0 … 2N-15；每步独立提交）
+### 5.2 网络版实施拆解（Phase 2N-0 … 2N-16；每步独立提交）
 
 > 前置：§8 的 3 项阻塞决策已拍板；默认 `memory.teamSync.enabled=false`，未配置 `serverUrl` 时行为零变更。
 
@@ -326,8 +326,9 @@ C6 与 C4 推侧（412/409 ⇒ 候选）随 2N-2 解决。**C7（墓碑）随 2N
 | **2N-13** | 游标只在整轮拉取应用成功后推进（下载失败不丢条目） | ✅ 已实现（2026-11-25）：原实现在 `fetchRemoteMemories` 结束时就 `saveProgress`，而该方法的 cursor 是 `MAX(旧值, 新值)` ⇒ **单条下载失败也会越过该版本**，该条目下一轮不再出现在增量列表里 ⇒ 永久漏拉（只剩 `errors` 留痕，无法自愈）。现改为：拉取只把游标记到内存（`pendingCursor`），`sync()` 末尾在**无下载失败**时落库；失败则保留旧游标，下一轮重拉同一批（已下载条目因内容一致判 `synced`，不会重复写） | 下载失败后恢复 ⇒ 漏拉条目自动补齐；成功轮次行为不变 | 不推进游标只是"多拉一次"，幂等安全 |
 | **2N-14** | `conflicts.json` 双写互不抹除（共享目录版 vs 网络版） | ✅ 已实现（2026-11-25）：两版共用同一个 `conflicts.json`（默认同目录），共享目录版每轮用本轮扫描结果**整文件覆写** ⇒ 网络候选（412/409）在每个共享目录周期被抹掉（用户来不及采纳、审计失真）。现写入前经 `preserveNetworkConflictCandidates` 合并：保留磁盘上的网络候选，**同 id 以网络候选为准**（与审阅入口先判 `source:'network'` 的顺序一致，避免"按 A 的来源判、按 B 的方式改"）；文件候选仍按本轮扫描刷新 | 两版同开时网络候选持久可见可采纳；单开任一版行为不变 | 纯合并逻辑，不新增文件/不改变格式 |
 | **2N-15** | 删除候选跨重启采纳（缺 `If-Match` ⇒ 428） | ✅ 已实现（2026-11-25）：`direction:'delete'` 候选的人工采纳原用**内存** `observedEtags` 作 `If-Match`，"没有就不带"；重启后该表为空，而契约 §3.4 规定非首次创建的 DELETE 缺 `If-Match` ⇒ **428**，导致"确认删除"必然失败。现改为现取一次单条 GET：404 ⇒ 远端已不存在（直接视为完成并清理候选）；否则要求远端 hash 与候选记录的 `sharedHash` 一致（变了 ⇒ 交回人工，不删未见版本），再用**当前** etag 作 `If-Match` 软删 | 重启后仍能确认删除；远端又变时不误删 | 仅多一次单条 GET；不加新状态 |
+| **2N-16** | 手动同步也受总开关约束 | ✅ 已实现（2026-11-25）：`POST /v1/memory/team/sync` 原只拦"未配 serverUrl"与"正在同步" ⇒ **`memory.teamSync.enabled=false` 时仍能手触发联网**（与"默认关 ⇒ 零请求"的裁定矛盾，也是设置页 2N-11 之后"信息区说未启用、按钮却能点"的不一致）。现 `resolveTeamSyncTriggerError` 按 固定顺序 判定 `NOT_ENABLED → NOT_CONFIGURED → SYNC_IN_PROGRESS`（400/400/409），面板按钮同步收敛为 `status.configured && network.configured` | 开关关 ⇒ 手动触发 400 且不发请求；开关开 + 已配置 + 空闲 ⇒ 正常执行 | 仅新增一个前置校验，不改同步流程 |
 
-> 进度（2026-11-25）：2N-0 … 2N-15 已全部实现（各自独立提交，默认关）。
+> 进度（2026-11-25）：2N-0 … 2N-16 已全部实现（各自独立提交，默认关）。
 > 2N-4 的设置页状态：`/v1/memory/team/status` 增加 `network` DTO + `TeamMemoryPanel` 展示（未配置时提示开关）。
 > 2N-3 回归用例：`app/tests/memory/teamMemorySyncTombstone.test.ts`；2N-4：`teamMemorySyncBackoff.test.ts`、
 > `teamMemoryNetworkStatus.test.ts`；2N-5/2N-6：`teamMemoryNetworkSync.test.ts`（`Bun.serve` mock 全链、含删除同步）；
@@ -340,7 +341,8 @@ C6 与 C4 推侧（412/409 ⇒ 候选）随 2N-2 解决。**C7（墓碑）随 2N
 > 本地改后推一次、再回到稳定态）；2N-13：`teamMemoryNetworkSync.test.ts`（单条 GET 500 ⇒ 游标不推进、
 > 恢复后下一轮补齐）；2N-14：`teamSharedDirSync.test.ts`（写前合并保留网络候选、同 id 网络优先）；
 > 2N-15：`teamMemoryNetworkSync.test.ts`（mock 按契约对无 `If-Match` 的 DELETE 返回 428；
-> 删除候选跨重启采纳）。
+> 删除候选跨重启采纳）；2N-16：`teamMemoryNetworkStatus.test.ts`（触发前置校验四态：
+> 开关关 / 未配置 / 同步中 / 允许）。
 
 
 ---

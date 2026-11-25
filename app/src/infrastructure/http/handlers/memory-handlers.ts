@@ -15,6 +15,7 @@ import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import {
   buildTeamMemoryNetworkStatus,
   computeTeamMemoryConfigured,
+  resolveTeamSyncTriggerError,
 } from './teamMemoryNetworkStatus';
 // 2026-10-01 D-186（子批 C）：`SandboxPermission` 是 core 叶子 ⇒ 相对直连，消除 `infrastructure -> app`。
 import { SandboxPermission } from '@openliri/kernel/sandboxPermission.js';
@@ -738,6 +739,7 @@ export async function handleGetTeamSyncAudit(
  * （与自动周期共用同一状态机，因此同样受"单飞"约束）。
  *
  * 状态码：
+ * - 400 `NOT_ENABLED`：总开关 `memory.teamSync.enabled` 未开启（2N-16：开关关 ⇒ 零请求）
  * - 400 `NOT_CONFIGURED`：未配置 `memory.teamSync.serverUrl`（**不伪造成功**）
  * - 400 `INVALID_REQUEST`：body 不是合法 JSON
  * - 409 `SYNC_IN_PROGRESS`：已有同步在跑（不排队、不并发覆盖基线）
@@ -761,16 +763,20 @@ export async function handleTriggerTeamSync(
   }
 
   try {
-    const { defaultTeamMemorySyncService, SyncStatus } =
-      await import('@openliri/infra/memory/services/TeamMemorySyncService');
-    if (!defaultTeamMemorySyncService.getConfig().serverUrl) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: false, error: 'NOT_CONFIGURED' }));
-      return;
-    }
-    if (defaultTeamMemorySyncService.getStatus() === SyncStatus.SYNCING) {
-      res.writeHead(409, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: false, error: 'SYNC_IN_PROGRESS' }));
+    const {
+      defaultTeamMemorySyncService,
+      isTeamMemorySyncEnabled,
+      SyncStatus,
+    } = await import('@openliri/infra/memory/services/TeamMemorySyncService');
+    const triggerError = resolveTeamSyncTriggerError({
+      enabled: isTeamMemorySyncEnabled(),
+      serverUrl: defaultTeamMemorySyncService.getConfig().serverUrl,
+      syncing: defaultTeamMemorySyncService.getStatus() === SyncStatus.SYNCING,
+    });
+    if (triggerError) {
+      const status = triggerError === 'SYNC_IN_PROGRESS' ? 409 : 400;
+      res.writeHead(status, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: triggerError }));
       return;
     }
 

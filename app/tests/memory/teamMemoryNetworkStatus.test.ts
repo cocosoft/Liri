@@ -8,6 +8,7 @@ import { describe, expect, it } from 'bun:test';
 import {
   buildTeamMemoryNetworkStatus,
   computeTeamMemoryConfigured,
+  resolveTeamSyncTriggerError,
 } from '../../src/infrastructure/http/handlers/teamMemoryNetworkStatus';
 
 function makeSource(overrides: {
@@ -103,5 +104,47 @@ describe('computeTeamMemoryConfigured（2N-11：共享目录/网络任一可用�
         networkConfigured: false,
       })
     ).toBe(false);
+  });
+});
+
+describe('resolveTeamSyncTriggerError（2N-16：手动触发也要受总开关约束）', () => {
+  it('总开关关 ⇒ NOT_ENABLED（即便配了 serverUrl、也不在同步中）', () => {
+    expect(
+      resolveTeamSyncTriggerError({
+        enabled: false,
+        serverUrl: 'https://team.example',
+        syncing: false,
+      })
+    ).toBe('NOT_ENABLED');
+  });
+
+  it('未配 serverUrl ⇒ NOT_CONFIGURED', () => {
+    expect(
+      resolveTeamSyncTriggerError({
+        enabled: true,
+        serverUrl: '  ',
+        syncing: false,
+      })
+    ).toBe('NOT_CONFIGURED');
+  });
+
+  it('已有同步在跑 ⇒ SYNC_IN_PROGRESS（单飞）', () => {
+    expect(
+      resolveTeamSyncTriggerError({
+        enabled: true,
+        serverUrl: 'https://team.example',
+        syncing: true,
+      })
+    ).toBe('SYNC_IN_PROGRESS');
+  });
+
+  it('已启用 + 已配置 + 空闲 ⇒ 允许执行', () => {
+    expect(
+      resolveTeamSyncTriggerError({
+        enabled: true,
+        serverUrl: 'https://team.example',
+        syncing: false,
+      })
+    ).toBeNull();
   });
 });

@@ -127,7 +127,7 @@ function TeamMemoryPanel({ isDark }: TeamMemoryPanelProps) {
           {t("memory.teamTitle")}
         </h3>
         <div className="flex items-center gap-2">
-          {status?.network?.configured && (
+          {status?.configured && status.network?.configured && (
             <button
               onClick={() => void handleTriggerSync()}
               disabled={isSyncing || isLoading}

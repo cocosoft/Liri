@@ -178,6 +178,8 @@ export interface EventLogAppendBatchResult {
 // ─── 损坏行拆分恢复 / 快照过滤（大文件拆分 spec §37）：已外迁 `./eventLineParse.ts` ───
 // 宿主**再导出** ⇒ 既有 import 路径不变（`app/scripts/verify-derive.ts` 仍从本文件取 `splitJsonLine`）。
 export { splitJsonLine, filterSnapshotEvents } from './eventLineParse';
+// 2026-11-26：尾部 seq 扫描外移（`./eventLogTailScan`）—— 单条事件可 >64KB，固定窗口会漏掉尾部那条
+import { scanTailMaxSeqFromFile } from './eventLogTailScan';
 
 // ─── EventLogStorage ────────────────────────────────────────────────────────
 
@@ -1921,39 +1923,17 @@ export class EventLogStorage {
     }
   }
 
-  /** A-6：扫描文件尾部恢复真实 tailSeq（读末尾 64KB，流式主扫描失败的兜底） */
+  /**
+   * A-6：扫描文件尾部恢复真实 tailSeq（流式主扫描失败的兜底）。
+   *
+   * 实现外移 `./eventLogTailScan`（2026-11-26）：**单条事件可能远超 64KB**
+   *（`context/model-input` 实测 107,993 字节）⇒ 固定 64KB 窗口会整段落在同一行中间、
+   * 解析不出任何事件 ⇒ 误判 `disk-behind`、快照无谓失效、每次读都回退全量扫盘。
+   */
   private async scanTailForMaxSeq(): Promise<number> {
-    const stat = await fs.stat(this.filePath);
-    if (stat.size === 0) return 0;
-    const tailSize = Math.min(64 * 1024, stat.size);
-    const buf = Buffer.alloc(tailSize);
-    const fd = await fs.open(this.filePath, 'r');
-    try {
-      await fd.read(buf, 0, tailSize, stat.size - tailSize);
-    } finally {
-      await fd.close();
-    }
-    let maxSeq = 0;
-    for (const line of buf.toString('utf-8').split('\n')) {
-      if (!line.trim()) continue;
-      try {
-        const event = JSON.parse(line) as LiriEvent;
-        if (typeof event.seq === 'number' && event.seq > maxSeq)
-          maxSeq = event.seq;
-      } catch {
-        // 损坏行：拆分恢复 seq（2026-08-24 根因修复）
-        for (const obj of splitJsonLine(line)) {
-          if (
-            typeof (obj as { seq?: unknown }).seq === 'number' &&
-            (obj as { seq: number }).seq > maxSeq
-          ) {
-            maxSeq = (obj as { seq: number }).seq;
-          }
-        }
-      }
-    }
-    return maxSeq;
+    return scanTailMaxSeqFromFile(this.filePath);
   }
+
 
   // ─── D4 torn-tail 崩溃修复（大文件拆分 spec §37）：已外迁 `./EventLogRepair.ts` ───
   // 以下 4 个公开方法 + `ensureRepairChecked` 保留为**对外契约入口**（薄委托）；

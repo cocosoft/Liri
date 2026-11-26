@@ -64,7 +64,7 @@ import {
   finishCompileProgress,
   abortCompileProgress,
 } from './CompileProgressTracker';
-import { DIGEST_REVERIFY_INTERVAL_MS } from './defaults';
+import { DIGEST_REVERIFY_INTERVAL_MS, RAW_STAT_CONCURRENCY } from './defaults';
 
 const logger = new OTelAwareLogger({
   module: 'knowledge:compiler',
@@ -453,6 +453,10 @@ export class KnowledgeCompiler {
         return result;
       }
 
+      // K11（2026-11-26）：整轮开始前并发取一次 raw stat 快照
+      // （真机 593 文件：串行 13–16ms ⇒ 并发 32 约 1.1–2.1ms；stat 是纯读操作）
+      const rawStats = await this.prefetchRawStats(rawFiles);
+
       for (const rawFile of rawFiles) {
         await this.processRawFileForCompile(rawFile, {
           force,
@@ -461,6 +465,7 @@ export class KnowledgeCompiler {
           newState,
           digestFor,
           result,
+          rawStat: rawStats.get(rawFile),
         });
       }
 
@@ -514,13 +519,16 @@ export class KnowledgeCompiler {
       newState: CompileState;
       digestFor: (file: string) => Promise<string>;
       result: CompileResult;
+      /** K11：本轮 stat 快照（缺省 ⇒ 本文件单独 stat，测试/其它调用方不受影响） */
+      rawStat?: Stats;
     }
   ): Promise<void> {
     const { force, resolvedModel, compileState, newState, digestFor, result } =
       ctx;
     try {
       // K7（2026-11-26）：本轮只 stat 一次 raw（原实现共 stat 2-3 次）
-      const rawStat = await stat(rawFile);
+      // K11：优先用整轮 stat 快照；快照缺失（文件在拍快照后消失）⇒ 退回单文件 stat
+      const rawStat = ctx.rawStat ?? (await stat(rawFile));
       const prevState = compileState?.docs[rawFile];
 
       const verdict = force
@@ -897,6 +905,36 @@ export class KnowledgeCompiler {
       }
       return false;
     }
+  }
+
+  /**
+   * K11（2026-11-26）：整轮开始前并发 stat 全部 raw，得到本轮统一的 stat 快照。
+   *
+   * 真机 593 文件：串行 13–16 ms ⇒ 并发 32 约 1.1–2.1 ms（`stat` 纯读，只占瞬时句柄）。
+   *
+   * 快照口径的代价：本轮**中途**被改写的文件按快照判定，最多延后一轮被发现
+   * （下一轮 mtime/大小已变，仍会重编译）。stat 失败（快照期间被删）⇒ 不入快照，
+   * 调用方退回单文件 stat，走既有错误路径。
+   */
+  private async prefetchRawStats(files: string[]): Promise<Map<string, Stats>> {
+    const out = new Map<string, Stats>();
+    let cursor = 0;
+    const worker = async (): Promise<void> => {
+      while (cursor < files.length) {
+        const file = files[cursor++];
+        try {
+          out.set(file, await stat(file));
+        } catch (_err) {
+          // 快照期间被删 ⇒ 交给调用方的单文件 stat 兜底
+        }
+      }
+    };
+    await Promise.all(
+      Array.from({ length: Math.min(RAW_STAT_CONCURRENCY, files.length) }, () =>
+        worker()
+      )
+    );
+    return out;
   }
 
   /**

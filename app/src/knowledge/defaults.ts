@@ -31,3 +31,11 @@ export const PROGRESS_BROADCAST_MIN_INTERVAL_MS = 200;
  * 最迟一个周期后才被发现（普通编辑因大小变化仍是立即发现）。
  */
 export const DIGEST_REVERIFY_INTERVAL_MS = 24 * 3600_000;
+
+/**
+ * 编译轮开始时**并行 stat raw 文件**的并发度（K11）。
+ *
+ * 真机 593 个文件：串行 13–16 ms ⇒ 并发 32 约 1.1–2.1 ms。stat 是纯读操作，
+ * 并发度只影响句柄/线程瞬时占用；32 在本机实测已到拐点（再高收益 < 1ms）。
+ */
+export const RAW_STAT_CONCURRENCY = 32;

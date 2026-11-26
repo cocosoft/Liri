@@ -28,6 +28,7 @@
  */
 
 import type http from 'http';
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
 import {
   PermissionBehavior,
@@ -897,10 +898,30 @@ function parseSimulateBody(
 }
 
 /**
+ * 只读探查**真实执行链**使用的权限运行时（`CoreAPIImpl.executeTool` 注入的那个实例）。
+ *
+ * 不为核对去装配它 —— 模拟是只读接口，不能顺手改组合根状态；
+ * 组合根尚未就绪（首条对话前）⇒ 返回 `undefined`，由调用方如实标注"无法核对"。
+ */
+function readRuntimePermissionManager(): unknown {
+  try {
+    // `ChatManager.getPermissionManager()` 刻意声明为 `unknown`（跨层弱类型契约）——
+    // 这里只做**同一性**比较，不需要它的成员类型。
+    return getCoreAPI().getChatManager()?.getPermissionManager?.() ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * 模拟一次权限判定 POST /v1/permissions/rules/simulate（R0，2026-11-17）
  *
  * 只读：**不执行任何工具**，也不写审计/计数；判定复用 `handleAuto` / `handleDefault`
  * 的同一实现（见 `PermissionManager#simulatePermission`）。
+ *
+ * D5（2026-11-26）：响应带 `consistentWithExecution` —— 模拟与真实执行是否读**同一个**
+ * 权限运行时。两者不同 ⇒ 各持一份规则快照，结论可能漂移（2026-11-26 真机 R3/R5/R6）。
+ * `null` = 执行侧尚未装配，无法核对（不谎报一致）。
  *
  * 注：该路径在 `adminWriteRoutes` 的 `/v1/permissions` 前缀下 ⇒ POST 需管理面校验
  * （本机无 Bearer 时既有语义直接放行，桌面端行为不变）。
@@ -928,9 +949,11 @@ export async function handleSimulatePermissionRule(
       return;
     }
 
-    const result = await PermissionManager.getInstance().simulatePermission(
-      parsed.value
-    );
+    const manager = PermissionManager.getInstance();
+    const result = await manager.simulatePermission(parsed.value);
+    const runtimeManager = readRuntimePermissionManager();
+    const consistentWithExecution =
+      runtimeManager === undefined ? null : runtimeManager === manager;
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(
       JSON.stringify({
@@ -942,6 +965,18 @@ export async function handleSimulatePermissionRule(
         // R1.5：B 体系命令黑白名单的结论（区分"A 体系规则拦"还是"命令级策略拦"）
         customRuleVerdict: result.customRuleVerdict,
         evaluated: result.evaluated,
+        consistentWithExecution,
+        ...(consistentWithExecution === false
+          ? {
+              consistencyNote:
+                '模拟与真实执行读的不是同一个权限运行时（规则快照可能不一致），结论仅供参考',
+            }
+          : consistentWithExecution === null
+            ? {
+                consistencyNote:
+                  '执行侧权限运行时尚未装配（首条对话前），无法核对与真实执行的一致性',
+              }
+            : {}),
       })
     );
   } catch (err) {

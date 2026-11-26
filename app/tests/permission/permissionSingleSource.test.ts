@@ -156,8 +156,36 @@ const READ_ONLY_BASES = READ_ONLY_BASE_COMMANDS;
     expect(r.status).toBe(0);
   });
 
-  // ─── ⑤ 审批可执行性契约（2026-11-24）────────────────────────────────────────
+  // ─── ⑥ 权限运行时实例唯一（2026-11-26）────────────────────────────────────
 
+  it('负向对照：生产代码另起权限运行时实例 ⇒ exit 1 并点名', () => {
+    const dir = fixture(
+      `import { createPermissionManager } from '@openliri/infra/permission';\nexport const pm = createPermissionManager();\n`
+    );
+    const r = run(dir);
+    expect(r.status).toBe(1);
+    expect(r.out).toContain('app/src/dup.ts');
+    expect(r.out).toContain('另起权限运行时');
+  });
+
+  it('注释 / 报错文案里提到工厂名不算调用（exit 0）', () => {
+    const dir = fixture(
+      `// 如需独立实例可 createPermissionManager()\nexport const msg = '请用 createPermissionManager() 注入';\n`
+    );
+    const r = run(dir);
+    expect(r.status).toBe(0);
+  });
+
+  it('工厂定义文件自身不误报（exit 0）', () => {
+    const dir = fixture(
+      `export function createPermissionManager() {\n  return {};\n}\n`,
+      'packages/infra/src/permission/PermissionManager.ts'
+    );
+    const r = run(dir);
+    expect(r.status).toBe(0);
+  });
+
+  // ─── ⑤ 审批可执行性契约（2026-11-24）────────────────────────────────────────
   it('负向对照：bash 工具新增未登记的 requireApproval 出口 ⇒ exit 1 并点名', () => {
     const dir = fixture(
       `export const ask = { requireApproval: true };\n`,

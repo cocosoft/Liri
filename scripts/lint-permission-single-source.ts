@@ -17,6 +17,10 @@
  *   ④ 工具规则（A 体系）的 HTTP 写入口唯一（`/v1/permissions/rules`）。
  *   ⑤ **审批可执行性契约**（2026-11-24）：bash 工具的每个 `requireApproval: true` 产生点
  *      必须由 `BashTool` 的审批终局预检兜底，且预检必须委托真实的硬拦截函数。
+ *   ⑥ **权限运行时实例唯一**（2026-11-26）：生产源码不得调用 `createPermissionManager()`
+ *      另起实例 —— 规则 HTTP API（增删查 / simulate）读 `PermissionManager.getInstance()`，
+ *      执行链若另 new 一个，两边各持一份 `tool_rules.json` 快照（仅 30s 惰性轮询刷新）
+ *      ⇒ 「模拟 deny、执行 allow」。需要独立实例的只有测试（`*.test.ts` 不在扫描范围）。
  *   任何扫描输入缺失 / 读取失败 ⇒ exit 1（不得静默降级为「0 违规」）。
  *
  * 用法：`bun run scripts/lint-permission-single-source.ts`（CI / `bun run ci` 均调用）
@@ -201,6 +205,25 @@ function stripComments(text: string): string {
     .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
 }
 
+// ─── ⑥ 权限运行时实例唯一（2026-11-26）───────────────────────────────────────
+//
+// 真机事故：规则 HTTP API（含 simulate）读 `PermissionManager.getInstance()`，而执行链
+// （`CoreAPIImpl.executeTool` → `chatManager.getPermissionManager()`）用的是
+// `createPermissionManager()` 另建的实例 ⇒ 两份规则快照 ⇒ 「模拟 deny、执行 allow」。
+// 判据：可执行代码里出现 `createPermissionManager(` 即违规，唯一例外是工厂自身的定义文件。
+// 注释与字符串字面量里的提及（如 `assertPermissionInjected` 的报错文案）不算调用。
+const PERMISSION_FACTORY_FILE =
+  'packages/infra/src/permission/PermissionManager.ts';
+const PERMISSION_FACTORY_CALL = 'createPermissionManager(';
+
+/** 去掉字符串字面量（含模板串），只留可执行代码 —— ⑥ 只判调用，不判文案里的提及 */
+function stripStrings(text: string): string {
+  return text.replace(
+    /'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|`(?:\\.|[^`\\])*`/g,
+    "''"
+  );
+}
+
 // ─── ⑤ 审批可执行性契约（2026-11-24）──────────────────────────────────────────
 //
 // 真机 `session_mwrf18pu00456e0f2b`：`for %f in (...) do @echo ...` 先被 ask 层判"可确认"
@@ -338,6 +361,16 @@ for (const file of files) {
     }
   }
 
+  // ⑥ 权限运行时实例唯一（2026-11-26）：生产代码不得另起 PermissionManager
+  if (rel !== PERMISSION_FACTORY_FILE) {
+    const code = stripStrings(stripComments(text));
+    if (code.includes(PERMISSION_FACTORY_CALL)) {
+      violations.push(
+        `${rel}: 不得调用 ${PERMISSION_FACTORY_CALL} 另起权限运行时 —— 规则 API（含 simulate）与执行链必须共用 PermissionManager.getInstance()，否则两份规则快照 ⇒ 「模拟 deny、执行 allow」（2026-11-26 真机事故）`
+      );
+    }
+  }
+
   // ① 同名常量在非规范文件里以字面集合声明
   for (const m of text.matchAll(DECLARATION_RE)) {
     const name = m[1]!;
@@ -401,6 +434,6 @@ if (violations.length > 0) {
 }
 
 console.log(
-  `✅ [permission-single-source] 扫描 ${files.length} 个源文件：危险表 / 只读目录各仅一份、工具规则 HTTP 写入口唯一、审批产生点均接终局预检（豁免 ${Object.keys(ALLOWLIST).length} 处，均带理由）`
+  `✅ [permission-single-source] 扫描 ${files.length} 个源文件：危险表 / 只读目录各仅一份、工具规则 HTTP 写入口唯一、审批产生点均接终局预检、权限运行时实例唯一（豁免 ${Object.keys(ALLOWLIST).length} 处，均带理由）`
 );
 process.exit(0);

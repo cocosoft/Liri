@@ -19,16 +19,9 @@
  *    —— 多实例即多份规则快照，simulate 与实际执行必然分叉。
  */
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
-import {
-  mkdtempSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, relative, resolve } from 'node:path';
+import { join } from 'node:path';
 
 import { PermissionManager } from '@openliri/infra/permission/PermissionManager';
 import { RuleManager } from '@openliri/infra/permission/RuleManager';
@@ -355,144 +348,9 @@ describe('S2b：写规则前必须基于该文件的快照（防止整份覆盖�
 });
 
 /**
- * 进程内只允许**一个**权限运行时。
+ * 进程内只允许**一个**权限运行时（2026-11-26 真机根因的守护）。
  *
- * `PermissionManager.getInstance()` 服务规则 HTTP API（增删查 / simulate），执行链若另 new
- * 一个实例，两边的 `RuleManager` 内存快照各自 30s 轮询刷新 ⇒ 写后/删后口径分裂（本次根因）。
- * 因此：生产源码（`app/src`、`packages/&#42;/src`）不得调用 `createPermissionManager()`；
- * 需要独立实例的只有测试（每个用例自建，互不污染）。
+ * 该不变量由 scripts/lint-permission-single-source.ts 判据⑥承载（生产源码除工厂定义外不得调用
+ * createPermissionManager()，负向对照见 permissionSingleSource.test.ts）—— 门禁进 CI，
+ * 比单测里的静态扫描更难被绕过；此处不再重复实现同一判据。
  */
-describe('S0：生产源码不得另起权限运行时实例（单一规则快照）', () => {
-  /** 允许出现 `createPermissionManager(` 的唯一文件：工厂自身的定义处 */
-  const FACTORY_DEFINITION = join(
-    'packages',
-    'infra',
-    'src',
-    'permission',
-    'PermissionManager.ts'
-  );
-
-  const repoRoot = resolve(import.meta.dir, '../../..');
-
-  function listTsFiles(root: string): string[] {
-    const out: string[] = [];
-    const walk = (dirPath: string): void => {
-      for (const entry of readdirSync(dirPath)) {
-        if (entry === 'node_modules' || entry === 'dist') continue;
-        const full = join(dirPath, entry);
-        if (statSync(full).isDirectory()) {
-          walk(full);
-          continue;
-        }
-        if (entry.endsWith('.ts') && !entry.endsWith('.d.ts')) out.push(full);
-      }
-    };
-    walk(root);
-    return out;
-  }
-
-  /**
-   * 去掉注释与字符串字面量，只留可执行代码 —— 否则"注释/文案里提到工厂名"会被误判为调用
-   * （`permissionGate.ts` / `assertPermissionInjected.ts` 都有这类文档句）。
-   */
-  function stripCommentsAndStrings(code: string): string {
-    let out = '';
-    let i = 0;
-    let state: 'code' | 'line' | 'block' | 'single' | 'double' | 'template' =
-      'code';
-    while (i < code.length) {
-      const ch = code[i] as string;
-      const next = code[i + 1];
-      if (state === 'code') {
-        if (ch === '/' && next === '/') {
-          state = 'line';
-          i += 2;
-          continue;
-        }
-        if (ch === '/' && next === '*') {
-          state = 'block';
-          i += 2;
-          continue;
-        }
-        if (ch === "'") {
-          state = 'single';
-          i += 1;
-          continue;
-        }
-        if (ch === '"') {
-          state = 'double';
-          i += 1;
-          continue;
-        }
-        if (ch === '`') {
-          state = 'template';
-          i += 1;
-          continue;
-        }
-        out += ch;
-        i += 1;
-        continue;
-      }
-      if (state === 'line') {
-        if (ch === '\n') {
-          state = 'code';
-          out += ch;
-        }
-        i += 1;
-        continue;
-      }
-      if (state === 'block') {
-        if (ch === '*' && next === '/') {
-          state = 'code';
-          i += 2;
-          continue;
-        }
-        i += 1;
-        continue;
-      }
-      // 字符串内部：转义直接跳过两字符；配对引号回到代码态
-      if (ch === '\\') {
-        i += 2;
-        continue;
-      }
-      if (
-        (state === 'single' && ch === "'") ||
-        (state === 'double' && ch === '"') ||
-        (state === 'template' && ch === '`')
-      ) {
-        state = 'code';
-      }
-      i += 1;
-    }
-    return out;
-  }
-
-  function productionRoots(): string[] {
-    const roots = [join(repoRoot, 'app', 'src')];
-    const packagesDir = join(repoRoot, 'packages');
-    for (const pkg of readdirSync(packagesDir)) {
-      const src = join(packagesDir, pkg, 'src');
-      try {
-        if (statSync(src).isDirectory()) roots.push(src);
-      } catch {
-        // 没有 src 的包（纯文档 / 资源）跳过
-      }
-    }
-    return roots;
-  }
-
-  it('`createPermissionManager()` 只出现在工厂定义处', () => {
-    const hits: string[] = [];
-    for (const root of productionRoots()) {
-      for (const file of listTsFiles(root)) {
-        const code = stripCommentsAndStrings(readFileSync(file, 'utf8'));
-        if (!code.includes('createPermissionManager(')) continue;
-        const relPath = relative(repoRoot, file);
-        if (relPath === FACTORY_DEFINITION) continue;
-        hits.push(relPath);
-      }
-    }
-
-    expect(hits).toEqual([]);
-  });
-});

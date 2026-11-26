@@ -41,8 +41,21 @@ interface CompilerInternals {
   needsRecompile(
     rawFile: string,
     rawStat: Stats,
-    cachedPages?: string[]
-  ): Promise<{ needsCompile: boolean; pages?: string[] }>;
+    cachedPages?: string[],
+    dirCheck?: { observe?: (dir: string) => Promise<number | undefined> }
+  ): Promise<{
+    needsCompile: boolean;
+    pages?: string[];
+    dirMtimes?: Record<string, number>;
+  }>;
+  canSkipPageStats(
+    prevState: DocEntry,
+    rawStat: Stats,
+    ctx: {
+      observeDirMtime?: (dir: string) => Promise<number | undefined>;
+      cachedDirMtimes?: Record<string, number>;
+    }
+  ): Promise<boolean>;
   processRawFileForCompile(rawFile: string, ctx: unknown): Promise<void>;
   compileFile(rawFile: string, model?: string): Promise<string[]>;
 }
@@ -377,5 +390,231 @@ describe('KnowledgeCompiler.processRawFileForCompile：摘要读取按需化（K
     expect(result.skipped).toBe(0);
     // 1 次 = 编译成功写快照时算新指纹；判定阶段（mtime 相同）没有读内容
     expect(digestCalls).toBe(1);
+  });
+});
+
+describe('KnowledgeCompiler.canSkipPageStats — 页面目录 mtime 短路（K12）', () => {
+  /** 造一个「raw 有 2 个页面」的快照条目 + 目录 mtime 桩 */
+  function makeCase() {
+    const { rawFile, pageFile, rawStat } = makeFixture();
+    const knowledgeRoot = join(home, 'knowledge');
+    const dirMtimeMs = statSync(knowledgeRoot).mtimeMs;
+    const prev: DocEntry = {
+      mtime: rawStat.mtimeMs,
+      size: rawStat.size,
+      compiledAt: 1,
+      pages: [pageFile],
+    };
+    return { rawFile, pageFile, rawStat, knowledgeRoot, dirMtimeMs, prev };
+  }
+
+  function internals() {
+    const compiler = new KnowledgeCompiler({} as unknown as AIService);
+    return compiler as unknown as CompilerInternals;
+  }
+
+  it('① raw 未变 + 目录 mtime 与快照一致 ⇒ 可跳过逐页 stat', async () => {
+    const { rawStat, knowledgeRoot, dirMtimeMs, prev } = makeCase();
+
+    const skip = await internals().canSkipPageStats(prev, rawStat, {
+      observeDirMtime: async () => dirMtimeMs,
+      cachedDirMtimes: { [knowledgeRoot]: dirMtimeMs },
+    });
+    expect(skip).toBe(true);
+  });
+
+  it('② raw mtime 变了 ⇒ 不短路（必须逐页比较新旧）', async () => {
+    const { rawStat, knowledgeRoot, dirMtimeMs, prev } = makeCase();
+
+    const skip = await internals().canSkipPageStats(
+      { ...prev, mtime: rawStat.mtimeMs - 1 },
+      rawStat,
+      {
+        observeDirMtime: async () => dirMtimeMs,
+        cachedDirMtimes: { [knowledgeRoot]: dirMtimeMs },
+      }
+    );
+    expect(skip).toBe(false);
+  });
+
+  it('③ raw 大小变了 ⇒ 不短路', async () => {
+    const { rawStat, knowledgeRoot, dirMtimeMs, prev } = makeCase();
+
+    const skip = await internals().canSkipPageStats(
+      { ...prev, size: rawStat.size + 1 },
+      rawStat,
+      {
+        observeDirMtime: async () => dirMtimeMs,
+        cachedDirMtimes: { [knowledgeRoot]: dirMtimeMs },
+      }
+    );
+    expect(skip).toBe(false);
+  });
+
+  it('④ 目录 mtime 与快照不符 ⇒ 不短路', async () => {
+    const { rawStat, knowledgeRoot, prev } = makeCase();
+
+    const skip = await internals().canSkipPageStats(prev, rawStat, {
+      observeDirMtime: async () => 123,
+      cachedDirMtimes: { [knowledgeRoot]: 456 },
+    });
+    expect(skip).toBe(false);
+  });
+
+  it('⑤ 目录不可访问（观测为 undefined）⇒ 不短路', async () => {
+    const { rawStat, knowledgeRoot, dirMtimeMs, prev } = makeCase();
+
+    const skip = await internals().canSkipPageStats(prev, rawStat, {
+      observeDirMtime: async () => undefined,
+      cachedDirMtimes: { [knowledgeRoot]: dirMtimeMs },
+    });
+    expect(skip).toBe(false);
+  });
+
+  it('⑥ 无页面列表 / 无目录快照 / 无观测器 ⇒ 一律不短路（退回逐页 stat）', async () => {
+    const { rawStat, knowledgeRoot, dirMtimeMs, prev } = makeCase();
+    const observeDirMtime = async (): Promise<number | undefined> => dirMtimeMs;
+
+    expect(
+      await internals().canSkipPageStats(
+        { ...prev, pages: undefined },
+        rawStat,
+        {
+          observeDirMtime,
+          cachedDirMtimes: { [knowledgeRoot]: dirMtimeMs },
+        }
+      )
+    ).toBe(false);
+    expect(
+      await internals().canSkipPageStats(prev, rawStat, { observeDirMtime })
+    ).toBe(false);
+    expect(
+      await internals().canSkipPageStats(prev, rawStat, {
+        cachedDirMtimes: { [knowledgeRoot]: dirMtimeMs },
+      })
+    ).toBe(false);
+  });
+});
+
+describe('KnowledgeCompiler：目录短路的写入与行为（K12）', () => {
+  function makeResult() {
+    return {
+      compiled: 0,
+      skipped: 0,
+      errors: [] as string[],
+      totalFound: 1,
+      pagesCreated: 0,
+      compiledFiles: [] as string[],
+      compiledRaws: [] as string[],
+    };
+  }
+
+  it('① 慢路径确认页面全部新鲜 ⇒ 把页面目录 mtime 记入本轮快照', async () => {
+    const { rawFile, pageFile, rawStat } = makeFixture();
+    const knowledgeRoot = join(home, 'knowledge');
+    const prev: DocEntry = {
+      mtime: rawStat.mtimeMs,
+      size: rawStat.size,
+      compiledAt: 1,
+      pages: [pageFile],
+    };
+    const newState = { lastCompileAt: 0, docs: {} as Record<string, DocEntry> };
+    const verifiedDirMtimes: Record<string, number> = {};
+    const result = makeResult();
+
+    const compiler = new KnowledgeCompiler({} as unknown as AIService);
+    const internals = compiler as unknown as CompilerInternals;
+    internals.compileFile = async () => [];
+
+    await internals.processRawFileForCompile.call(compiler, rawFile, {
+      force: false,
+      resolvedModel: 'stub-model',
+      compileState: { lastCompileAt: 0, docs: { [rawFile]: prev } },
+      newState,
+      digestFor: async () => 'stored-digest',
+      result,
+      observeDirMtime: async (dir: string) => statSync(dir).mtimeMs,
+      verifiedDirMtimes,
+    });
+
+    expect(result.skipped).toBe(1);
+    expect(verifiedDirMtimes[knowledgeRoot]).toBe(
+      statSync(knowledgeRoot).mtimeMs
+    );
+  });
+
+  it('② 页面被删但目录 mtime 与快照一致 ⇒ 仍判跳过（已知取舍，锁定行为）', async () => {
+    const { rawFile, pageFile, rawStat } = makeFixture();
+    const knowledgeRoot = join(home, 'knowledge');
+    const prev: DocEntry = {
+      mtime: rawStat.mtimeMs,
+      size: rawStat.size,
+      compiledAt: 1,
+      digest: 'stored-digest',
+      digestCheckedAt: Date.now(),
+      pages: [pageFile],
+    };
+    const cachedDirMtime = statSync(knowledgeRoot).mtimeMs;
+    rmSync(pageFile);
+    const newState = { lastCompileAt: 0, docs: {} as Record<string, DocEntry> };
+    const result = makeResult();
+
+    const compiler = new KnowledgeCompiler({} as unknown as AIService);
+    const internals = compiler as unknown as CompilerInternals;
+    internals.compileFile = async () => [];
+
+    await internals.processRawFileForCompile.call(compiler, rawFile, {
+      force: false,
+      resolvedModel: 'stub-model',
+      compileState: { lastCompileAt: 0, docs: { [rawFile]: prev } },
+      newState,
+      digestFor: async () => 'stored-digest',
+      result,
+      // 目录 mtime 未变（真实场景：页面被原地替换而非删除）⇒ 短路生效、不逐页复核
+      observeDirMtime: async () => cachedDirMtime,
+      cachedDirMtimes: { [knowledgeRoot]: cachedDirMtime },
+      verifiedDirMtimes: {},
+    });
+
+    expect(result.skipped).toBe(1);
+    expect(result.compiled).toBe(0);
+  });
+
+  it('③ 目录 mtime 与快照不符（如页面被删）⇒ 退回逐页复核 ⇒ 判需重编译', async () => {
+    const { rawFile, pageFile, rawStat } = makeFixture();
+    const knowledgeRoot = join(home, 'knowledge');
+    const prev: DocEntry = {
+      mtime: rawStat.mtimeMs,
+      size: rawStat.size,
+      compiledAt: 1,
+      pages: [pageFile],
+    };
+    const newState = { lastCompileAt: 0, docs: {} as Record<string, DocEntry> };
+    const result = makeResult();
+
+    const compiler = new KnowledgeCompiler({} as unknown as AIService);
+    const internals = compiler as unknown as CompilerInternals;
+    let compiledCalls = 0;
+    internals.compileFile = async () => {
+      compiledCalls++;
+      return [];
+    };
+    rmSync(pageFile);
+
+    await internals.processRawFileForCompile.call(compiler, rawFile, {
+      force: false,
+      resolvedModel: 'stub-model',
+      compileState: { lastCompileAt: 0, docs: { [rawFile]: prev } },
+      newState,
+      digestFor: async () => 'stored-digest',
+      result,
+      observeDirMtime: async (dir: string) => statSync(dir).mtimeMs,
+      // 快照里的旧值（页面还在时）与当前目录 mtime 不同 ⇒ 退回逐页 stat
+      cachedDirMtimes: { [knowledgeRoot]: statSync(knowledgeRoot).mtimeMs - 5 },
+      verifiedDirMtimes: {},
+    });
+
+    expect(compiledCalls).toBe(1);
+    expect(result.compiled).toBe(1);
   });
 });

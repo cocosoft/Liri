@@ -151,6 +151,15 @@ interface CompileState {
       pages?: string[];
     }
   >;
+  /**
+   * K12（2026-11-26）：页面所在目录的 mtime 快照（目录 → mtimeMs）。
+   *
+   * 语义：**在该值被写下时**，这些目录内的页面都已确认「存在且不旧于 raw」。
+   * 目录 mtime 未变 ⇒ 目录内没有增/删/改名 ⇒ 页面集合与时间戳未变，可跳过逐页 stat。
+   * 目录 mtime 必须在逐页 stat **之前**观测（保守方向）：其后任何增删改名都会使
+   * 下一轮比对不等 ⇒ 自动退回逐页复核。
+   */
+  pageDirMtimes?: Record<string, number>;
 }
 
 /** lint 错误数棘轮的判定结果（纯函数输出，便于单测） */
@@ -267,6 +276,11 @@ const PAGE_BREAK = '---page-break---';
 const COMPILE_DEFAULT_MAX_TOKENS = 8192;
 /** 编译单次输出 token 硬上限（对齐 ai/MaxOutputRetryHandler 的 maxOutputLimit） */
 const COMPILE_MAX_TOKENS_LIMIT = 64000;
+
+/** K12（2026-11-26）：页面列表涉及的目录（去重，保持出现顺序） */
+function uniqueDirsOf(pages: string[]): string[] {
+  return [...new Set(pages.map((pagePath) => dirname(pagePath)))];
+}
 
 export interface CompileOptions {
   /** 是否强制重编译所有文件，默认 false（仅编译更新的文件） */
@@ -457,6 +471,25 @@ export class KnowledgeCompiler {
       // （真机 593 文件：串行 13–16ms ⇒ 并发 32 约 1.1–2.1ms；stat 是纯读操作）
       const rawStats = await this.prefetchRawStats(rawFiles);
 
+      // K12（2026-11-26）：页面目录 mtime 观测（每目录每轮至多 stat 一次）
+      // 与「本轮已确认」的目录快照（写回状态，供下轮短路）
+      const observedDirMtimes = new Map<string, number>();
+      const observeDirMtime = async (
+        dir: string
+      ): Promise<number | undefined> => {
+        const hit = observedDirMtimes.get(dir);
+        if (hit !== undefined) return hit;
+        try {
+          const mtimeMs = (await stat(dir)).mtimeMs;
+          observedDirMtimes.set(dir, mtimeMs);
+          return mtimeMs;
+        } catch (_err) {
+          // 目录不存在（或不可访问）⇒ 视为「已变化」，退回逐页复核
+          return undefined;
+        }
+      };
+      const verifiedDirMtimes: Record<string, number> = {};
+
       for (const rawFile of rawFiles) {
         await this.processRawFileForCompile(rawFile, {
           force,
@@ -466,7 +499,19 @@ export class KnowledgeCompiler {
           digestFor,
           result,
           rawStat: rawStats.get(rawFile),
+          observeDirMtime,
+          cachedDirMtimes: compileState?.pageDirMtimes,
+          verifiedDirMtimes,
         });
+      }
+
+      // K12：只把本轮真正确认过的目录快照合并回状态（旧值保留 ⇒ 失效由比对负责）
+      const mergedDirMtimes = {
+        ...(compileState?.pageDirMtimes ?? {}),
+        ...verifiedDirMtimes,
+      };
+      if (Object.keys(mergedDirMtimes).length > 0) {
+        newState.pageDirMtimes = mergedDirMtimes;
       }
 
       // 返回本轮编译版本（K5.3：runner/检索/审计标注用）
@@ -521,6 +566,12 @@ export class KnowledgeCompiler {
       result: CompileResult;
       /** K11：本轮 stat 快照（缺省 ⇒ 本文件单独 stat，测试/其它调用方不受影响） */
       rawStat?: Stats;
+      /** K12：页面目录 mtime 观测（缺省 ⇒ 不做目录短路，行为退回逐页 stat） */
+      observeDirMtime?: (dir: string) => Promise<number | undefined>;
+      /** K12：上轮写下的目录 mtime 快照 */
+      cachedDirMtimes?: Record<string, number>;
+      /** K12：本轮确认过的目录快照（调用方合并后写回状态） */
+      verifiedDirMtimes?: Record<string, number>;
     }
   ): Promise<void> {
     const { force, resolvedModel, compileState, newState, digestFor, result } =
@@ -531,9 +582,23 @@ export class KnowledgeCompiler {
       const rawStat = ctx.rawStat ?? (await stat(rawFile));
       const prevState = compileState?.docs[rawFile];
 
+      // K12：目录 mtime 短路 —— 仅当「raw 未变（mtime + size）」才尝试；
+      // 页面目录都未变 ⇒ 页面集合与时间戳未变，跳过逐页 stat。
+      const dirShortCircuit =
+        !force && prevState
+          ? await this.canSkipPageStats(prevState, rawStat, ctx)
+          : false;
+
       const verdict = force
         ? { needsCompile: true, pages: prevState?.pages }
-        : await this.needsRecompile(rawFile, rawStat, prevState?.pages);
+        : dirShortCircuit
+          ? { needsCompile: false, pages: prevState?.pages }
+          : await this.needsRecompile(rawFile, rawStat, prevState?.pages, {
+              observe: ctx.observeDirMtime,
+            });
+      if (verdict.dirMtimes && ctx.verifiedDirMtimes) {
+        Object.assign(ctx.verifiedDirMtimes, verdict.dirMtimes);
+      }
       let needsCompile = verdict.needsCompile;
       // 本轮已确认的页面列表（快照缺失时由 `.meta.json` 补出，回写快照供下轮复用）
       const knownPages = verdict.pages ?? prevState?.pages;
@@ -991,13 +1056,21 @@ export class KnowledgeCompiler {
    * `existsSync` + `stat` 收敛为单次 `stat`（ENOENT 即缺失）。
    *
    * @returns `needsCompile` 是否需要重编译；`pages` 本轮确认到的页面列表
-   *          （供调用方回写快照，下轮免读 `.meta.json`）
+   *          （供调用方回写快照，下轮免读 `.meta.json`）；`dirMtimes` K12 本轮在
+   *          逐页 stat **之前**观测到的页面目录 mtime（确认全部新鲜时回写状态）
    */
   private async needsRecompile(
     rawFile: string,
     rawStat: Stats,
-    cachedPages?: string[]
-  ): Promise<{ needsCompile: boolean; pages?: string[] }> {
+    cachedPages?: string[],
+    dirCheck?: {
+      observe?: (dir: string) => Promise<number | undefined>;
+    }
+  ): Promise<{
+    needsCompile: boolean;
+    pages?: string[];
+    dirMtimes?: Record<string, number>;
+  }> {
     let pages: string[] | undefined =
       cachedPages && cachedPages.length > 0 ? cachedPages : undefined;
     if (!pages) {
@@ -1011,6 +1084,16 @@ export class KnowledgeCompiler {
         if (pages.length === 0) return { needsCompile: true };
       } catch (_err) {
         return { needsCompile: true };
+      }
+    }
+
+    // K12：观测页面目录 mtime —— 必须在逐页 stat **之前**，
+    // 这样「观测之后才发生的增删改名」会让下轮比对不等，自动退回逐页复核（保守方向）。
+    const observedDirs: Record<string, number> = {};
+    if (dirCheck?.observe) {
+      for (const dir of uniqueDirsOf(pages)) {
+        const mtimeMs = await dirCheck.observe(dir);
+        if (mtimeMs !== undefined) observedDirs[dir] = mtimeMs;
       }
     }
 
@@ -1030,7 +1113,51 @@ export class KnowledgeCompiler {
       if (pageMtimeMs === null) return { needsCompile: true, pages };
       if (rawStat.mtimeMs > pageMtimeMs) return { needsCompile: true, pages };
     }
-    return { needsCompile: false, pages };
+    return {
+      needsCompile: false,
+      pages,
+      ...(Object.keys(observedDirs).length > 0
+        ? { dirMtimes: observedDirs }
+        : {}),
+    };
+  }
+
+  /**
+   * K12（2026-11-26）：能否跳过本文件的**逐页 stat**（目录 mtime 短路）。
+   *
+   * 全部满足才短路：
+   *  ① raw 的 mtime 与快照一致，且 size 一致（raw 本身没变 —— 否则必须逐页比较新旧）；
+   *  ② 快照里有页面列表；
+   *  ③ 有上轮的目录 mtime 快照，且本文件**所有**页面所在目录的 mtime 都与之相等。
+   *
+   * 语义依据：目录 mtime 未变 ⇒ 目录内没有增/删/改名；页面被**原地覆盖**时 mtime 只会
+   * 变新（不可能「比 raw 旧」）⇒ 「页面缺失 / 比 raw 旧」都不会在目录 mtime 不变时发生。
+   *
+   * **已知取舍**：把页面**原地**替换成更旧 mtime 的文件（如从备份逐字节拷回并保留
+   * 时间戳）不会被发现，直到 raw 再变或该目录 mtime 变化。真机 3,572 页面的
+   * 逐页 stat 约 22 ms/轮，本短路使其降到 5 个目录 stat（约 0.2 ms）。
+   */
+  private async canSkipPageStats(
+    prevState: CompileState['docs'][string],
+    rawStat: Stats,
+    ctx: {
+      observeDirMtime?: (dir: string) => Promise<number | undefined>;
+      cachedDirMtimes?: Record<string, number>;
+    }
+  ): Promise<boolean> {
+    const { observeDirMtime, cachedDirMtimes } = ctx;
+    if (!observeDirMtime || !cachedDirMtimes) return false;
+    const pages = prevState.pages;
+    if (!pages || pages.length === 0) return false;
+    if (prevState.mtime !== rawStat.mtimeMs) return false;
+    if (prevState.size !== undefined && prevState.size !== rawStat.size)
+      return false;
+    for (const dir of uniqueDirsOf(pages)) {
+      const mtimeMs = await observeDirMtime(dir);
+      if (mtimeMs === undefined || cachedDirMtimes[dir] !== mtimeMs)
+        return false;
+    }
+    return true;
   }
 
   /**

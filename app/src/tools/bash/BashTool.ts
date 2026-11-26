@@ -88,6 +88,8 @@ import {
   completeSecuritySystem,
   stripSensitiveEnv,
   sanitizeCallerEnv,
+  // 2026-11-26（用户裁定）：「非只读命令强制沙箱」的判据 —— 与审批/只读族同一事实源
+  isReadOnlyBashCommand,
 } from '@openliri/infra/security';
 import { feature } from '@openliri/kernel';
 
@@ -1154,14 +1156,20 @@ export class BashTool extends BaseTool {
       ? (execOptions as { maxBuffer: number }).maxBuffer
       : BASH_EXEC_MAX_BUFFER_BYTES;
 
-    // 执行命令（G1-A：**唯一收敛入口**）——`sandbox.landlock.bashEnabled=true` 时在 Landlock
-    // 域内执行；默认关闭 ⇒ 行为与改造前的 `execAsync` 等价，且保留 G1-C 的顾问性提示。
+    // 2026-11-26（用户裁定）：**凡「非只读」命令一律强制进平台沙箱**（不再由 bashEnabled 决定）。
+    // 判定复用安全层的唯一事实源 `isReadOnlyBashCommand`（含只读前缀 / git 只读 / 参数级禁区，
+    // 含 shell operator 的一律按非只读处理）⇒ `python -c …` / `rmdir …` / 写命令都进沙箱；
+    // `dir` / `ls` / `git status` 等只读命令不进（沙箱只隔离"写"，只读无隔离必要）。
+    // 沙箱不可用 ⇒ 降级 plain（保留审批卡）+ `bash: sandbox_required_unavailable` 告警。
+    const std = standardizeCommand(command);
+    const sandboxRequired = !isReadOnlyBashCommand(std.effectiveCommand);
     const { stdout: rawStdout, stderr: rawStderr } = await execBashCommand({
       command,
       cwd: typeof execOptions.cwd === 'string' ? execOptions.cwd : undefined,
       env: mergedEnv,
       timeoutMs: timeout,
       maxBufferChars: maxBuffer,
+      sandboxRequired,
       // R21（2026-10-09）：把会话取消信号接入执行链 ⇒ 取消/中断时强杀**进程树**
       //（否则 shell 与孙进程会继续运行成为孤儿；信号来源见 `ToolUseContext.abortController`）
       ...(context?.abortController?.signal

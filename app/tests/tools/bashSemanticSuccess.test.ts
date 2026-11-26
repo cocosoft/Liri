@@ -59,9 +59,8 @@ describe.skipIf(process.platform !== 'win32')(
     });
 
     it('dir | findstr 无匹配 ⇒ 成功 + searchNoMatch 标记', async () => {
-      // 2026-11-09：原命令在仓库根执行 `dir /b /s /ad` 会**全量递归**（含 node_modules），
-      // 实测 >5s 触发 bun 默认用例超时（确定性失败）。改指向临时空目录：管道、退出码、
-      // 空输出等真机形态不变，耗时恒定。
+      // 2026-11-26：含 `|` 的复合命令按「非只读」强制走 Windows 写隔离（真实 icacls 授权/恢复），
+      // 全量套件并行时排队 + 进程开销可 >5s ⇒ 本用例与延迟无关，放宽到 20s。
       const dir = mkdtempSync(join(tmpdir(), 'bash-nomatch-'));
       try {
         const result = await run(
@@ -73,13 +72,13 @@ describe.skipIf(process.platform !== 'win32')(
       } finally {
         rmSync(dir, { recursive: true, force: true });
       }
-    });
+    }, 20000);
 
     it('对照组：findstr 缺失文件（exit 2）仍判失败（不误伤真失败）', async () => {
       const result = await run('findstr /i x "__f3_no_such_file_9c1f__.txt"');
       expect(result.success).toBe(false);
       expect(result.metadata?.searchNoMatch).toBeUndefined();
       expect(result.metadata?.pathNotFound).toBeUndefined();
-    });
+    }, 20000);
   }
 );

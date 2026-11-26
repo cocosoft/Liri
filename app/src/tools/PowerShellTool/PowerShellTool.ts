@@ -1200,11 +1200,13 @@ export class PowerShellTool extends BaseTool {
       // 2026-11-07（方案 §10.5）：Windows 且 `sandbox.landlock.bashEnabled=true` 时走
       // `win-sandbox-run.exe`（Low IL + 临时完整性标签），与 bash 同一套写隔离；
       // 未启用 / 降级时内部回退到原 `exec('pwsh …')`。
+      // 2026-11-26（用户裁定，与 bash 同口径）：**非只读命令强制写隔离**，不再看该开关。
       const runResult = await runPowerShellCommand({
         invocation,
         cwd: workingDirectory,
         timeoutMs: timeout,
         env: { ...process.env, POWERSHELL_TEAPOT: '1' },
+        sandboxRequired: !this.isReadOnly({ command }),
         ...(context.abortController?.signal
           ? { signal: context.abortController.signal }
           : {}),

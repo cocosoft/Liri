@@ -261,6 +261,8 @@ export interface BashLandlockGate {
     | 'windows-enabled'
     | 'eval-forced'
     | 'eval-forced-fallback'
+    | 'required-sandbox'
+    | 'required-unavailable'
     | 'enabled';
   message?: string;
 }
@@ -282,6 +284,15 @@ export function decideBashLandlockGate(input: {
   macCapability?: MacOSSandboxCapability | null;
   /** P0-4 ②：评测期**请求**强制（见 `sandbox/landlock/config.ts` 的 `ENV_EVAL_BASH_LANDLOCK`） */
   evalForced?: boolean;
+  /**
+   * 2026-11-26（用户裁定）：**危险/需审批命令强制沙箱**。
+   *
+   * 语义：需要人工审批的命令（非只读 / 非白名单 / 非已放行）一律在平台沙箱内执行，
+   * **不受 `sandbox.landlock.bashEnabled` 开关影响**（该开关从此只管辖"普通命令"）。
+   * 沙箱不可用（平台不支持 / helper 缺失 / 能力探测失败）⇒ **降级 plain**（用户裁定：
+   * 降级并保留审批卡，而不是拒绝执行），由调用方记录显式告警。
+   */
+  required?: boolean;
 }): BashLandlockGate {
   const {
     config,
@@ -289,6 +300,7 @@ export function decideBashLandlockGate(input: {
     capability,
     macCapability = null,
     evalForced = false,
+    required = false,
   } = input;
 
   if (!config.enabled) return { mode: 'plain', reason: 'master-off' };
@@ -299,6 +311,23 @@ export function decideBashLandlockGate(input: {
       return { mode: 'landlock', reason: 'eval-forced' };
     }
     return { mode: 'plain', reason: 'eval-forced-fallback' };
+  }
+
+  // 2026-11-26：危险/需审批命令 —— 忽略 bashEnabled，按平台强制；不可用 ⇒ 降级 plain
+  if (required) {
+    if (platform === 'darwin') {
+      return macCapability?.available
+        ? { mode: 'sandbox-exec', reason: 'required-sandbox' }
+        : { mode: 'plain', reason: 'required-unavailable' };
+    }
+    if (platform === 'win32') {
+      // helper 缺失 / icacls 授权失败由调用方按既有路径处理（本判据只负责"走 Windows 沙箱"）
+      return { mode: 'windows-low-il', reason: 'required-sandbox' };
+    }
+    if (platform === 'linux' && capability?.available) {
+      return { mode: 'landlock', reason: 'required-sandbox' };
+    }
+    return { mode: 'plain', reason: 'required-unavailable' };
   }
 
   if (!config.bashEnabled) return { mode: 'plain', reason: 'switch-off' };
@@ -522,6 +551,14 @@ export interface BashExecInput {
   maxBufferChars: number;
   /** R21（2026-10-09）：取消/中止信号（来自 `ToolUseContext.abortController`）⇒ 强杀进程树 */
   signal?: AbortSignal;
+  /**
+   * 2026-11-26（用户裁定）：**危险/需审批命令强制沙箱**。
+   *
+   * 由调用方（BashTool / PowerShellTool）在「本次命令需要人工审批」时置 `true`：
+   * 该命令必须进平台沙箱，`sandbox.landlock.bashEnabled` 开关不再适用；
+   * 沙箱不可用 ⇒ 降级 plain（保留审批卡）并记 `bash: sandbox_required_unavailable` 告警。
+   */
+  sandboxRequired?: boolean;
   deps?: BashExecDeps;
 }
 
@@ -755,7 +792,13 @@ export async function execBashCommand(
 
   // P0-4 ②：评测期强制请求（env 置位；capability 门控在下面的 gate）
   const evalForced = deps.evalForced ?? isEvalBashLandlockForced();
-  if (!config.enabled || (!config.bashEnabled && !evalForced)) {
+  // 2026-11-26（用户裁定）：**危险/需审批命令**（`sandboxRequired`）不受 `bashEnabled` 开关限制
+  // —— 否则开关一关，危险命令批准后就裸跑（真机 `session_mwxejcri608102864c` 实证：
+  // 工作区外写入未被拦）。总开关 `enabled=false` 仍尊重（用户可整体关掉沙箱子系统）。
+  if (
+    !config.enabled ||
+    (!config.bashEnabled && !evalForced && !input.sandboxRequired)
+  ) {
     // G1-C（选项 C）的顾问性提示：能力可用却未接入时 WARN 一次
     await reportBashLandlockGapOnce();
     // P2（2026-11-07）：Windows 上"不开沙箱"是平台约束而非开关问题 —— 一次性说清
@@ -794,12 +837,21 @@ export async function execBashCommand(
     capability,
     macCapability,
     evalForced,
+    required: input.sandboxRequired === true,
   });
 
   // P0-4 ②：评测期强制但能力不可用 ⇒ **回退 plain**（非 refuse）
   if (gate.mode === 'plain') {
     await reportBashLandlockGapOnce();
     reportBashSandboxDegradedOnce({ platform });
+    // 2026-11-26：需审批命令却拿不到沙箱 ⇒ 用户裁定「降级 + 保留审批卡」，但必须留可查证据
+    if (input.sandboxRequired) {
+      logger.warn('bash: sandbox_required_unavailable', {
+        platform,
+        reason: gate.reason,
+        commandPreview,
+      });
+    }
     return runPlainFallback({
       runPlain,
       command: input.command,
@@ -883,6 +935,11 @@ export async function execBashCommand(
     resolveOutputDir(),
     resolveDownloadsDir(),
     resolveTempDir(),
+    // ⚠️ 2026-11-26（真机实测）：**刻意不**默认加入工具链缓存（`~/.bun` / `~/.npm` / `~/.cache`）。
+    // Low IL 要求"执行前打标签、执行后恢复"，而这两个动作在大目录上都按整棵树走 ACL
+    // （实测 `~/.bun` 单次 ≈ 9s ⇒ 每条非只读命令多付 ≈ 18s，`bun test` 的 5s 超时直接爆）。
+    // 需要让 `bun install` / `npm install` 这类命令写缓存的用户，把这些目录加到
+    // `sandbox.landlock.bashExtraWritablePaths`（与 Linux 策略同名的既有配置项）。
     ...config.bashExtraWritablePaths,
   ];
 

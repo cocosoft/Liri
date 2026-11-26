@@ -435,7 +435,9 @@ describe('A4 解释器命令人工确认（灰度开关 BASH_INTERPRETER_GUARD�
       spy.mockRestore();
       reg.dispose();
     }
-  });
+    // 2026-11-26：非只读命令强制走 Windows 写隔离（真实 icacls 授权/恢复），
+    // 全量套件并行时开销可 >5s ⇒ 本用例与耗时无关，放宽到 20s。
+  }, 20000);
 
   it('默认关：解释器命令不受 A4 影响（按既有安全层决策）', async () => {
     const reg = new ApprovedCommandRegistry(60_000, false);

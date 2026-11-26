@@ -194,6 +194,135 @@ describe('P0-4 ②（2026-10-04）：评测期强制 bash 走 Landlock —— ca
   });
 });
 
+// 2026-11-26（用户裁定）：危险/需审批命令**强制沙箱**，不再由 bashEnabled 开关决定；
+// 沙箱不可用 ⇒ 降级 plain（保留审批卡），而不是拒绝执行。
+describe('G1-A: 危险/需审批命令强制沙箱（required）', () => {
+  const AVAILABLE = { available: true, abi: 3 } as unknown as never;
+  const UNAVAILABLE = {
+    available: false,
+    reason: 'helper-missing',
+  } as unknown as never;
+
+  it('开关关闭也强制（linux）⇒ landlock', () => {
+    expect(
+      decideBashLandlockGate({
+        config: cfg({ bashEnabled: false }),
+        platform: 'linux',
+        capability: AVAILABLE,
+        required: true,
+      })
+    ).toEqual({ mode: 'landlock', reason: 'required-sandbox' });
+  });
+
+  it('开关关闭也强制（win32）⇒ windows-low-il', () => {
+    expect(
+      decideBashLandlockGate({
+        config: cfg({ bashEnabled: false }),
+        platform: 'win32',
+        capability: null,
+        required: true,
+      })
+    ).toEqual({ mode: 'windows-low-il', reason: 'required-sandbox' });
+  });
+
+  it('linux 能力不可用 ⇒ 降级 plain（required-unavailable，不 refuse）', () => {
+    expect(
+      decideBashLandlockGate({
+        config: cfg({ bashEnabled: false }),
+        platform: 'linux',
+        capability: UNAVAILABLE,
+        required: true,
+      })
+    ).toEqual({ mode: 'plain', reason: 'required-unavailable' });
+  });
+
+  it('macOS 沙箱不可用 ⇒ 降级 plain（required-unavailable）', () => {
+    expect(
+      decideBashLandlockGate({
+        config: cfg({ bashEnabled: false }),
+        platform: 'darwin',
+        capability: null,
+        macCapability: {
+          available: false,
+          reason: 'no-sandbox-exec',
+        } as unknown as never,
+        required: true,
+      })
+    ).toEqual({ mode: 'plain', reason: 'required-unavailable' });
+  });
+
+  it('总开关关闭（master-off）⇒ 仍 plain（尊重"关掉整个沙箱子系统"）', () => {
+    expect(
+      decideBashLandlockGate({
+        config: cfg({ enabled: false, bashEnabled: false }),
+        platform: 'linux',
+        capability: AVAILABLE,
+        required: true,
+      })
+    ).toEqual({ mode: 'plain', reason: 'master-off' });
+  });
+
+  it('未标记 required ⇒ 仍受 bashEnabled 开关控制（回归护栏）', () => {
+    expect(
+      decideBashLandlockGate({
+        config: cfg({ bashEnabled: false }),
+        platform: 'win32',
+        capability: null,
+        required: false,
+      })
+    ).toEqual({ mode: 'plain', reason: 'switch-off' });
+  });
+
+  it('exec 层：bashEnabled=false + sandboxRequired ⇒ 不进 plain 短路，走沙箱', async () => {
+    const spy = plainSpy();
+    const out = await execBashCommand({
+      command: 'python -c "print(1)"',
+      cwd: '/work/x',
+      env: {},
+      timeoutMs: 1000,
+      maxBufferChars: 1024,
+      sandboxRequired: true,
+      deps: {
+        config: cfg({ bashEnabled: false }),
+        platform: 'linux',
+        detect: async () => AVAILABLE,
+        pathExists: () => true,
+        runHelper: async () => ({
+          stdout: 'sandbox-out',
+          stderr: '',
+          exitCode: 0,
+          timedOut: false,
+        }),
+        runPlain: spy.runPlain,
+      },
+    });
+
+    expect(out).toEqual({ stdout: 'sandbox-out', stderr: '' });
+    // 关键：开关关着也不能走普通路径（否则危险命令批准后裸跑）
+    expect(spy.calls).toEqual([]);
+  });
+
+  it('exec 层：sandboxRequired 但能力不可用 ⇒ 降级 plain（不拒绝）', async () => {
+    const spy = plainSpy();
+    const out = await execBashCommand({
+      command: 'python -c "print(1)"',
+      env: {},
+      timeoutMs: 1000,
+      maxBufferChars: 1024,
+      sandboxRequired: true,
+      deps: {
+        config: cfg({ bashEnabled: false }),
+        platform: 'linux',
+        detect: async () => UNAVAILABLE,
+        runPlain: spy.runPlain,
+      },
+    });
+
+    expect(out).toEqual({ stdout: 'plain-out', stderr: '' });
+    expect(spy.calls).toHaveLength(1);
+  });
+});
+
 describe('G1-A: 策略形状（写权限最小化 + 网络显式放行）', () => {
   const policy = buildBashLandlockPolicy({
     cwd: '/work/x',

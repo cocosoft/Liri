@@ -3,6 +3,8 @@
  *
  * 与 bash **共用同一套**机制：
  *  - 开关：`sandbox.landlock.bashEnabled`（Windows 上「命令执行写隔离」对 bash / powershell 同开同关）；
+ *    ⚠️ 2026-11-26（用户裁定）：**非只读命令**（`sandboxRequired`）**不受该开关约束**，一律走写隔离
+ *    —— 与 `bashLandlockExec.decideBashLandlockGate` 的 `required` 档同口径；
  *  - 授权：`bashWindowsSandbox.runWithWindowsWriteIsolation`（临时降完整性标签 + 授权台账 + WO 进程内复用）；
  *  - 执行：`win-sandbox-run.exe`（Low IL + Job Object）；
  *  - 失败语义：`sandbox.landlock.failClosed` 决定「拒绝」还是「降级普通执行」。
@@ -91,6 +93,11 @@ export interface PowerShellRunInput {
   timeoutMs: number;
   env: NodeJS.ProcessEnv;
   signal?: AbortSignal;
+  /**
+   * 2026-11-26（与 bash 同口径）：**非只读命令强制写隔离**，不再受
+   * `sandbox.landlock.bashEnabled` 约束（该开关从此只管辖"只读命令"——它们不写盘，本来也不进沙箱）。
+   */
+  sandboxRequired?: boolean;
   /** 注入真实 icacls / helper（离线用例不需要改真实 ACL） */
   sandboxDeps?: WindowsWriteIsolationDeps;
 }
@@ -122,14 +129,22 @@ export type PowerShellSandboxAttempt =
 /**
  * 纯判据：powershell 是否应走 Windows 写隔离。
  *
- * 与 bash 门控同口径 —— 仅 Windows 且总开关 / `bashEnabled` 都开；否则维持原 `exec` 行为。
+ * 与 bash 门控同口径：
+ *  - 仅 Windows（非 Windows 没有 pwsh 的写隔离实现 ⇒ 即便 `required` 也只能降级并告警）；
+ *  - 总开关 `sandbox.landlock.enabled` 关闭 ⇒ 尊重（整体关掉沙箱子系统）；
+ *  - `required`（非只读命令）⇒ **忽略 `bashEnabled`**（2026-11-26 用户裁定）。
  */
 export function shouldSandboxPowerShell(input: {
   platform: NodeJS.Platform;
   enabled: boolean;
   bashEnabled: boolean;
+  required?: boolean;
 }): boolean {
-  return input.platform === 'win32' && input.enabled && input.bashEnabled;
+  return (
+    input.platform === 'win32' &&
+    input.enabled &&
+    (input.bashEnabled || input.required === true)
+  );
 }
 
 /** 沙箱相关配置（由调用方从 `readLandlockConfig()` 取，测试可直接构造） */
@@ -235,11 +250,22 @@ export async function runPowerShellCommand(
 ): Promise<PowerShellRunResult> {
   // 复用 bash 的开关：不做第四个 sandbox 开关，避免「命令工具各自一套姿态」
   const config = readLandlockConfig();
-  const attempt = shouldSandboxPowerShell({
+  const required = input.sandboxRequired === true;
+  const sandboxed = shouldSandboxPowerShell({
     platform: process.platform,
     enabled: config.enabled,
     bashEnabled: config.bashEnabled,
-  })
+    required,
+  });
+  if (!sandboxed && required) {
+    // 与 bash 的 `bash: sandbox_required_unavailable` 同口径：用户裁定「降级 + 保留审批卡」，
+    // 但必须留可查证据（否则"危险命令没进沙箱"是完全静默的）
+    logger.warn('powershell: sandbox_required_unavailable', {
+      platform: process.platform,
+      reason: !config.enabled ? 'master-off' : 'platform-unsupported',
+    });
+  }
+  const attempt = sandboxed
     ? await runPowerShellInWindowsSandbox(
         input,
         {

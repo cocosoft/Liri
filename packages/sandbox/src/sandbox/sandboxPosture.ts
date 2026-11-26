@@ -124,14 +124,17 @@ export function describeSandboxPosture(
     openRiskCodes.push('landlock-fail-open');
   }
   if (bashSandboxReason === 'windows-switch-off') {
-    // 2026-11-07（方案 §10）：Windows 已能做 bash **写**隔离，但属显式选择（默认关）：
-    // 执行期间要临时把工作区完整性标签降为 Low，执行后恢复 ⇒ 默认不替用户做主。
+    // 2026-11-07（方案 §10）：Windows 已能做 bash **写**隔离，但属显式选择（默认关）。
+    // 2026-11-26（用户裁定）：非只读命令不再受该开关约束，一律走 Low IL ⇒ 文案据实更正
+    //（旧文案"bash 默认不隔离"已不成立；只读命令不写盘，无需写隔离）。
     openRisks.push(
-      'Windows 上 bash 默认不隔离：打开 sandbox.landlock.bashEnabled 后会以 Low IL 执行，并临时把可写目录的完整性标签降为 Low（执行后恢复；读与网络仍不受限）'
+      'Windows 上 bash 的 Low IL 隔离覆盖**非只读命令**：执行期间临时把可写目录的完整性标签降为 Low，执行后恢复（只读命令直接执行；读与网络仍不受限）'
     );
     openRiskCodes.push('bash-sandbox-windows-opt-in');
   } else if (!landlock.bashEnabled) {
-    openRisks.push('landlock.bashEnabled=false：bash 工具默认不在沙箱内执行');
+    openRisks.push(
+      'landlock.bashEnabled=false：只读命令不隔离；非只读命令在平台能力可用时仍强制进沙箱，不可用时降级普通执行（保留审批）'
+    );
     openRiskCodes.push('landlock-bash-disabled');
   }
 

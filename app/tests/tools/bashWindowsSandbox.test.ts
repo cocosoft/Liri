@@ -641,6 +641,41 @@ describe('§10 execBashCommand：Windows 写隔离接线', () => {
     // 归因不改变「标签必须恢复」
     expect(ctx.icacls.levels.get('C:\\work\\ws')).toBe('Medium');
   });
+
+  it('并发命令共用同一目录：收尾后标签回 Medium（引用计数不残留 Low）', async () => {
+    let runs = 0;
+    const ctx = baseDeps({
+      runWinSandbox: async () => {
+        runs += 1;
+        await new Promise((resolve) => setTimeout(resolve, 30));
+        return {
+          stdout: 'ok',
+          stderr: '',
+          exitCode: 0,
+          timedOut: false,
+          helperFailed: false,
+        };
+      },
+    });
+
+    await Promise.all(
+      ['echo a', 'echo b', 'echo c'].map((command) =>
+        execBashCommand({
+          command,
+          cwd: 'C:\\work\\ws',
+          env: {},
+          timeoutMs: 1000,
+          maxBufferChars: 1024,
+          sandboxRequired: true,
+          deps: ctx.deps,
+        })
+      )
+    );
+
+    expect(runs).toBe(3);
+    // 并发共用同一目录靠引用计数（最后一个释放才恢复）⇒ 收尾后标签必须回 Medium，不能残留 Low
+    expect(ctx.icacls.levels.get('C:\\work\\ws')).toBe('Medium');
+  });
 });
 
 describe('icacls 失败归因（describeIcaclsFailure，2026-11-07）', () => {

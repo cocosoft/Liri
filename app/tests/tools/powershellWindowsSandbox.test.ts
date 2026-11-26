@@ -100,6 +100,37 @@ describe('shouldSandboxPowerShell（门控判据）', () => {
       expect(shouldSandboxPowerShell(gate)).toBe(false);
     }
   });
+
+  // 2026-11-26（用户裁定，与 bash 的 `required` 档同口径）：非只读命令强制写隔离
+  test('required（非只读命令）⇒ 忽略 bashEnabled，仍走写隔离', () => {
+    expect(
+      shouldSandboxPowerShell({
+        platform: 'win32',
+        enabled: true,
+        bashEnabled: false,
+        required: true,
+      })
+    ).toBe(true);
+  });
+
+  test('required 也不越过总开关 / 平台约束（⇒ 降级 plain 并告警）', () => {
+    expect(
+      shouldSandboxPowerShell({
+        platform: 'win32',
+        enabled: false,
+        bashEnabled: false,
+        required: true,
+      })
+    ).toBe(false);
+    expect(
+      shouldSandboxPowerShell({
+        platform: 'linux',
+        enabled: true,
+        bashEnabled: true,
+        required: true,
+      })
+    ).toBe(false);
+  });
 });
 
 describe('buildPowerShellInvocation', () => {

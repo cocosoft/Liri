@@ -1033,7 +1033,6 @@
 {"id":"CHANGOV-INBOUND-DTO-PORT","k":"code#3","i":0,"c":"packages/channels/src/channels/gateway/InboundGatewayPortAdapter.ts"}
 {"id":"CHANGOV-INBOUND-DTO-PORT","k":"tests#0","i":0,"c":"app/tests/channels/inboundGateway.test.ts"}
 {"id":"FSM-CATALOG-P1","k":"title","i":0,"c":"状态机规范管理 阶段 1：状态机**定义目录**（`StateMachineCatalog`）+ 目录↔源码**防漂移**断言"}
-{"id":"FSM-CATALOG-P1","k":"source","i":0,"c":"dev_docs/20261012/状态机规范管理方案-20261012.md §3 阶段 1（2026-10-12）"}
 {"id":"FSM-CATALOG-P1","k":"reopenWhen","i":0,"c":"新增/修改任一域状态机枚举、增删目录条目、或要把「未登记即阻断编译」翻为硬门禁时"}
 {"id":"FSM-CATALOG-P1","k":"notes","i":0,"c":"① **方案订正（重要）**：`state/engine/StateMachineRegistry.ts` 是**运行时实例**注册表（按 id 存实例 / `gc` / `find`），**不是**定义目录 ⇒ 方案 v1.0「把状态机接入 `StateMachineRegistry`」属**类别错误**，已订正为「登记到**定义目录**」。② **落地"}
 {"id":"FSM-CATALOG-P1","k":"notes","i":1,"c":"**：新增 `state/engine/stateMachineCatalog.ts`（**零依赖纯数据 + 只读查询**，避免 `core←service` 倒挂）；查询面 `listStateMachineIds()` / `findStateMachine()`。③ **测试** `"}
@@ -1045,7 +1044,6 @@
 {"id":"FSM-CATALOG-P1","k":"code#0","i":0,"c":"packages/infra/src/state/engine/stateMachineCatalog.ts"}
 {"id":"FSM-CATALOG-P1","k":"tests#0","i":0,"c":"app/tests/state/stateMachineCatalog.test.ts"}
 {"id":"FSM-CATALOG-HYGIENE","k":"title","i":0,"c":"状态机规范管理 阶段 1.3 配套：消除取证暴露的 **3 项隐患**（命名类型 / 瞬态常量 / 去双事实源）+ 源码守卫"}
-{"id":"FSM-CATALOG-HYGIENE","k":"source","i":0,"c":"dev_docs/20261012/状态机规范管理方案-20261012.md §4 阶段 1.3（取证隐患，2026-10-12）"}
 {"id":"FSM-CATALOG-HYGIENE","k":"reopenWhen","i":0,"c":"改应用安装状态 / 工具执行瞬态 / 预算档位 的取值与来源时"}
 {"id":"FSM-CATALOG-HYGIENE","k":"notes","i":0,"c":"① **隐患 1（命名类型）**：应用安装状态原在 `appState/AppState.ts:253` 与 `:259` **两处内联字面量重复** ⇒ 抽出 `export type AppInstallStatus`，两处消费点改引用类型名。② **隐患 2（瞬态常量）**：`awaiting_approval` 原为 `"}
 {"id":"FSM-CATALOG-HYGIENE","k":"notes","i":1,"c":"ToolExecutionService.ts:638/962` 的**裸字面量** ⇒ 抽出模块常量 `TRANSIENT_AWAITING_APPROVAL`；`:936` 的 `=== 'requires_approval'` 裸比较改为 **`ToolExecutionStatus.REQUIRES_APPROVAL` 枚举成员**（`"}
@@ -1133,13 +1131,6 @@
 {"id":"FSM-SESSIONSTATE-P3","k":"notes","i":13,"c":"举，逐数吻合）· `typecheck` 三工程全绿 · `lint:fn-size`/`lint:complexity` 未增长 · `bun test tests/state tests/chat tests/session tests/channels tests/query` **1490 pass / 0 fail**（189 文件）· `"}
 {"id":"FSM-SESSIONSTATE-P3","k":"notes","i":14,"c":"lint:invariants`/`lint:doc-code`/`version:check` 全绿。⑩ **CD05/CD06 遵从（如实）**：**本批改动在提交时应拆为两个提交** —— ①迁移（消费方改走 3 态）②删除（旧枚举/映射函数/`archive()`/不可达兜底）；**回滚路径** = 按证据 `code` 清单整体 `git "}
 {"id":"FSM-SESSIONSTATE-P3","k":"notes","i":15,"c":"revert`（**无 DB 变更、无 wire 变更、无持久化格式变更** ⇒ 可安全恢复）。e2eVerified=false（未做真实长会话的会话状态观测端到端核对）。"}
-{"id":"FSM-SESSIONSTATE-P3","k":"code#0","i":0,"c":"packages/infra/src/state/session/types.ts"}
-{"id":"FSM-SESSIONSTATE-P3","k":"code#1","i":0,"c":"packages/infra/src/state/session/SessionStateMachine.ts"}
-{"id":"FSM-SESSIONSTATE-P3","k":"code#2","i":0,"c":"packages/infra/src/state/index.ts"}
-{"id":"FSM-SESSIONSTATE-P3","k":"code#3","i":0,"c":"packages/infra/src/state/engine/stateMachineCatalog.ts"}
-{"id":"FSM-SESSIONSTATE-P3","k":"code#4","i":0,"c":"app/src/chat/services/EventNotificationService.ts"}
-{"id":"FSM-SESSIONSTATE-P3","k":"code#5","i":0,"c":"app/src/chat/services/SessionStateBridge.ts"}
-{"id":"FSM-SESSIONSTATE-P3","k":"code#6","i":0,"c":"packages/service/src/session/models/SessionState.ts"}
 {"id":"FSM-SESSIONSTATE-P3","k":"tests#0","i":0,"c":"app/tests/state/session/SessionStateMachine.test.ts"}
 {"id":"FSM-SESSIONSTATE-P3","k":"tests#1","i":0,"c":"app/tests/state/stateMachineCatalog.test.ts"}
 {"id":"FSM-PROJECTION-P4","k":"title","i":0,"c":"状态机规范管理 阶段 4：四原语**只读投影** + 异步 Outbound Broker（telemetry-gated，复用 `globalEventBus`）"}
@@ -2178,55 +2169,6 @@
 {"id":"HARDCODE-HDP2-2-BULK-I18N","k":"notes","i":9,"c":"证**：① 棘轮测试 **1 pass / 0 fail**（基线 JSON `total=17`、7 文件；含「清单文件必须存在」与「总量只减不增」双断言）；② **client 全量 566 pass / 0 fail（68 文件）**（含 i18n key parity ⇒ zh/en 双侧齐备）；③ `typecheck`（client）0 错；④ "}
 {"id":"HARDCODE-HDP2-2-BULK-I18N","k":"notes","i":10,"c":"`eslint` 本轮改动文件 0 error / 0 warning。**如实边界**：① **未做真机切 en 走查**（验证停在单元 + 源码守卫）⇒ `e2eVerified=false`；② **剩余 17 处**全属**口径明确不迁**（`logger` / `Error` 参数 · `format.ts` 的 `万` / `千` 单位 · 已 "}
 {"id":"HARDCODE-HDP2-2-BULK-I18N","k":"notes","i":11,"c":"i18n 的默认值多行）⇒ 记入基线；③ ≈35「边界项」（throw 后可上屏）**另立一片**，本片统一登记不治理；④ ≈10 组「数据表」不治理；⑤ 撤回的 6 条 `disable` 对应**存量告警仍在**（本片既不静默、亦未治理）。"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#0","i":0,"c":"client/src/App.tsx"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#1","i":0,"c":"client/src/components/ChatArea/ChatInput.tsx"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#2","i":0,"c":"client/src/components/ChatArea/ImageToolResult/ImageDisplayResult.tsx"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#3","i":0,"c":"client/src/components/ChatArea/ImageToolResult/ImageGenerateResult.tsx"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#4","i":0,"c":"client/src/components/ChatArea/WorkflowRunCard.tsx"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#5","i":0,"c":"client/src/components/Knowledge/shared/utils.ts"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#6","i":0,"c":"client/src/components/Knowledge/useCompilePolling.ts"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#7","i":0,"c":"client/src/components/Knowledge/useKnowledgeBaseList.ts"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#8","i":0,"c":"client/src/components/Terminal/XTermPanel.tsx"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#9","i":0,"c":"client/src/components/VoiceInputButton.tsx"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#10","i":0,"c":"client/src/components/chat/ContextWatermark.tsx"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#11","i":0,"c":"client/src/components/views/DAGView.tsx"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#12","i":0,"c":"client/src/components/views/HomePage.tsx"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#13","i":0,"c":"client/src/components/views/MediaPage.tsx"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#14","i":0,"c":"client/src/components/views/PlansPage.tsx"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#15","i":0,"c":"client/src/components/views/ViewRouter.tsx"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#16","i":0,"c":"client/src/components/views/image/ImageGallery.tsx"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#17","i":0,"c":"client/src/components/views/media/MasonryGallery.tsx"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#18","i":0,"c":"client/src/components/views/media/TemplateCarousel.tsx"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#19","i":0,"c":"client/src/components/views/office/CenterPanel.tsx"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#20","i":0,"c":"client/src/components/views/office/CreateDocModal.tsx"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#21","i":0,"c":"client/src/hooks/useBuddyNotification.ts"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#22","i":0,"c":"client/src/hooks/useVideoTaskPolling.ts"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#23","i":0,"c":"client/src/i18n/locales/en/base.ts"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#24","i":0,"c":"client/src/i18n/locales/en/settings.ts"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#25","i":0,"c":"client/src/i18n/locales/en/knowledge.ts"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#26","i":0,"c":"client/src/i18n/locales/en/workspace.ts"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#27","i":0,"c":"client/src/i18n/locales/en/misc.ts"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#28","i":0,"c":"client/src/i18n/locales/zh/base.ts"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#29","i":0,"c":"client/src/i18n/locales/zh/settings.ts"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#30","i":0,"c":"client/src/i18n/locales/zh/knowledge.ts"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#31","i":0,"c":"client/src/i18n/locales/zh/workspace.ts"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#32","i":0,"c":"client/src/i18n/locales/zh/misc.ts"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#33","i":0,"c":"client/src/services/chatService.ts"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#34","i":0,"c":"client/src/stores/backendStore.ts"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#35","i":0,"c":"client/src/stores/channelStore.ts"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#36","i":0,"c":"client/src/stores/chat/chat-message-actions.ts"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#37","i":0,"c":"client/src/stores/chat/chat-message-shared.ts"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#38","i":0,"c":"client/src/stores/chat/chat-message-stream.ts"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#39","i":0,"c":"client/src/stores/chat/chat-message.slice.ts"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#40","i":0,"c":"client/src/stores/councilStore.ts"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#41","i":0,"c":"client/src/stores/fileStore.ts"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#42","i":0,"c":"client/src/utils/formatValue.ts"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#43","i":0,"c":"client/src/utils/friendlyError.ts"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#44","i":0,"c":"client/src/utils/messageText.ts"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#45","i":0,"c":"client/src/utils/planRestore.ts"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#46","i":0,"c":"client/src/utils/sessionLog.ts"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#47","i":0,"c":"client/src/utils/toolHumanSummary.ts"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#48","i":0,"c":"client/src/tests/fixtures/i18nLiteralBaseline.json"}
 {"id":"HARDCODE-HDP2-2-BULK-I18N","k":"tests#0","i":0,"c":"client/src/tests/i18nLiteralRatchet.test.ts"}
 {"id":"HARDCODE-HDP2-2-ERROR-I18N","k":"title","i":0,"c":"硬编码治理 HD-P2-2 **收尾**：用户可见**错误消息**入 i18n（≈64 处 / 22 文件，53 键）+ 「错误消息不得裸写中文」源码守卫"}
 {"id":"HARDCODE-HDP2-2-ERROR-I18N","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2（HD-P2-2）+ 用户裁定「优先推进 ≈35『throw 后可上屏』边界项」（2026-10-13）"}
@@ -6628,16 +6570,6 @@
 {"id":"PERMISSION-DENY-STRUCTURED-TOOL-RESULT","k":"code#3","i":0,"c":"app/src/chat/services/ToolExecutionService.ts"}
 {"id":"PERMISSION-DENY-STRUCTURED-TOOL-RESULT","k":"tests#0","i":0,"c":"app/tests/permission/ruleSourceAndRemovalHint.test.ts"}
 {"id":"PERMISSION-DENY-STRUCTURED-TOOL-RESULT","k":"tests#1","i":0,"c":"app/tests/chat/toolFailureKindWiring.test.ts"}
-{"id":"PLANS-PAGE-PDCA-START-SESSION","k":"title","i":0,"c":"计划页启动 PDCA 透传 sessionId（不再「点了没反应」）"}
-{"id":"PLANS-PAGE-PDCA-START-SESSION","k":"source","i":0,"c":"2026-10-26 LRO-11 路由矩阵复核（前端入口面）发现：后端 `pdca-handlers.ts#L224-L228` 要求 description+sessionId 必填"}
-{"id":"PLANS-PAGE-PDCA-START-SESSION","k":"reopenWhen","i":0,"c":"若计划页再次「点启动无反应」、前端传空会话、或后端放宽 sessionId 必填：回看 PlansPage.handleStart 与 pdcaService.start；回滚 = revert 3a210decb"}
-{"id":"PLANS-PAGE-PDCA-START-SESSION","k":"notes","i":0,"c":"【根因】计划页调 `pdcaService.start(d)` 未传 sessionId ⇒ `POST /v1/pdca/start` 400；而 `pdcaService.start` 的 catch 吞错返回 null ⇒ 无提示、输入被清空。"}
-{"id":"PLANS-PAGE-PDCA-START-SESSION","k":"notes","i":1,"c":"【改法】`useSessionStore` 取 currentSession.id；无会话 ⇒ 提示 `plans.pdcaNeedSession` 且**不发请求**；返回 null ⇒ 提示 `plans.pdcaStartFailed` 并保留输入；成功才清空。i18n zh/en 同步两键。"}
-{"id":"PLANS-PAGE-PDCA-START-SESSION","k":"notes","i":2,"c":"【验证】3 例组件测试（透传/缺会话/失败）；client typecheck 0、eslint 0、全量 vitest 706 pass（3 文件 7 例在全量并发下超时，单跑 26 pass ⇒ 负载抖动，非回归）。"}
-{"id":"PLANS-PAGE-PDCA-START-SESSION","k":"code#0","i":0,"c":"client/src/components/views/PlansPage.tsx"}
-{"id":"PLANS-PAGE-PDCA-START-SESSION","k":"code#1","i":0,"c":"client/src/i18n/locales/zh/workspace.ts"}
-{"id":"PLANS-PAGE-PDCA-START-SESSION","k":"code#2","i":0,"c":"client/src/i18n/locales/en/workspace.ts"}
-{"id":"PLANS-PAGE-PDCA-START-SESSION","k":"tests#0","i":0,"c":"client/src/components/views/__tests__/PlansPage.pdcaStart.test.tsx"}
 {"id":"INBOX-SCHEMA-MIGRATION-ORDER","k":"title","i":0,"c":"Inbox 迁移顺序缺陷导致审批通道全废"}
 {"id":"INBOX-SCHEMA-MIGRATION-ORDER","k":"source","i":0,"c":"会话 session_mvoqs1ho875ea6b95e / app.log / app.db PRAGMA"}
 {"id":"INBOX-SCHEMA-MIGRATION-ORDER","k":"reopenWhen","i":0,"c":"任一环境日志再现 Inbox unavailable"}
@@ -8344,3 +8276,212 @@
 {"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"tests#1","i":0,"c":"app/tests/commands/permissionsModeCommand.test.ts"}
 {"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"tests#2","i":0,"c":"app/tests/http/permissionRbacHandler.test.ts"}
 {"id":"PERMISSION-RBAC-CHAIN-HARDENING","k":"tests#3","i":0,"c":"app/tests/permission/denyAttribution.test.ts"}
+{"id":"FSM-CATALOG-P1","k":"source","i":0,"c":".trae/specs/state-machine-governance.md §2（2026-11-24 重新落盘；原 dev_docs/20261012/状态机规范管理方案-20261012.md 已缺失）"}
+{"id":"PDCA-THREE-SURFACES-P2A","k":"title","i":0,"c":"PDCA 三面职责收敛 P2-A：消息卡去百分比 / 实时覆盖只作用于最后一张 / 查看详情入口"}
+{"id":"PDCA-THREE-SURFACES-P2A","k":"source","i":0,"c":".trae/specs/frontend-task-tools-governance.md §6 批次 14（P2-A）"}
+{"id":"PDCA-THREE-SURFACES-P2A","k":"reopenWhen","i":0,"c":"再次出现消息卡显示百分比，或多轮 PDCA 时历史卡跟随最新事件"}
+{"id":"PDCA-THREE-SURFACES-P2A","k":"notes","i":0,"c":"① textOf 不再返回 percent（百分比只在抽屉 PdcaPipeline）；② useIsLatestPdcaCard 让实时覆盖只作用于该会话最后一张卡；③ resolvePdcaEntry 拆 active/available（终态仍可打开抽屉）；④ 开合态提升到 pdcaDrawerStore，消息卡「查看详情」与浮动栏徽标共用。"}
+{"id":"PDCA-THREE-SURFACES-P2A","k":"code#0","i":0,"c":"client/src/components/ChatArea/PdcaWorkflowCard.tsx"}
+{"id":"PDCA-THREE-SURFACES-P2A","k":"code#1","i":0,"c":"client/src/components/ChatArea/PdcaActivityStrip.tsx"}
+{"id":"PDCA-THREE-SURFACES-P2A","k":"code#2","i":0,"c":"client/src/components/ChatArea/BlockRenderer.tsx"}
+{"id":"PDCA-THREE-SURFACES-P2A","k":"code#3","i":0,"c":"client/src/components/ChatArea/usePdcaEntry.ts"}
+{"id":"PDCA-THREE-SURFACES-P2A","k":"code#4","i":0,"c":"client/src/components/ChatArea/usePdcaStartEntry.ts"}
+{"id":"PDCA-THREE-SURFACES-P2A","k":"code#5","i":0,"c":"client/src/components/ChatArea/ChatPdcaDrawer.tsx"}
+{"id":"PDCA-THREE-SURFACES-P2A","k":"code#6","i":0,"c":"client/src/components/ChatArea/ChatArea.tsx"}
+{"id":"PDCA-THREE-SURFACES-P2A","k":"code#7","i":0,"c":"client/src/stores/pdcaDrawerStore.ts"}
+{"id":"PDCA-THREE-SURFACES-P2A","k":"tests#0","i":0,"c":"client/src/components/ChatArea/__tests__/pdcaWorkflowCard.test.tsx"}
+{"id":"PDCA-THREE-SURFACES-P2A","k":"tests#1","i":0,"c":"client/src/components/ChatArea/__tests__/pdcaEntry.test.ts"}
+{"id":"PDCA-THREE-SURFACES-P2B","k":"title","i":0,"c":"PDCA 三面职责收敛 P2-B：入口徽标两形态（进行中「PDCA 编排」/ 终态「查看结果」）"}
+{"id":"PDCA-THREE-SURFACES-P2B","k":"source","i":0,"c":".trae/specs/frontend-task-tools-governance.md §6 批次 14（P2-B）"}
+{"id":"PDCA-THREE-SURFACES-P2B","k":"reopenWhen","i":0,"c":"徽标再次在终态谎报进行中，或终态徽标把浮动栏永久钉在屏幕上"}
+{"id":"PDCA-THREE-SURFACES-P2B","k":"notes","i":0,"c":"① 徽标抽为 PdcaEntryBadge：active ⇒ 蓝脉冲 +「PDCA 编排」；终态 ⇒ 灰点 +「查看结果」；② terminal 不进入浮动栏常驻判据，只在其已显示时降级出现；③ 等待审批不由徽标表达（会话级，含非 PDCA 审批，左侧主状态点承担）。"}
+{"id":"PDCA-THREE-SURFACES-P2B","k":"code#0","i":0,"c":"client/src/components/ChatArea/PdcaEntryBadge.tsx"}
+{"id":"PDCA-THREE-SURFACES-P2B","k":"code#1","i":0,"c":"client/src/components/ChatArea/StatusFloatBar.tsx"}
+{"id":"PDCA-THREE-SURFACES-P2B","k":"code#2","i":0,"c":"client/src/components/ChatArea/ChatArea.tsx"}
+{"id":"PDCA-THREE-SURFACES-P2B","k":"tests#0","i":0,"c":"client/src/components/ChatArea/__tests__/pdcaEntryBadge.test.tsx"}
+{"id":"PDCA-THREE-SURFACES-P2C","k":"title","i":0,"c":"PDCA 三面职责收敛 P2-C：抽屉标注「唯一进度详情」/ 无快照不造假进度 / 终态可达"}
+{"id":"PDCA-THREE-SURFACES-P2C","k":"source","i":0,"c":".trae/specs/frontend-task-tools-governance.md §6 批次 14（P2-C）"}
+{"id":"PDCA-THREE-SURFACES-P2C","k":"reopenWhen","i":0,"c":"抽屉再次在 message card / 浮动栏之外出现第二份进度百分比，或无 taskId 时渲染假进度"}
+{"id":"PDCA-THREE-SURFACES-P2C","k":"notes","i":0,"c":"① 标题区加「唯一进度详情」胶囊；② taskId 缺失时不渲染 PdcaPipeline，改如实提示「本轮无任务快照，以下为事件流」；③ 终态可达由 P2-A 的 available + pdcaDrawerStore 保证，集成用例覆盖「点查看详情 ⇒ 抽屉出现」。"}
+{"id":"PDCA-THREE-SURFACES-P2C","k":"code#0","i":0,"c":"client/src/components/ChatArea/ChatPdcaDrawer.tsx"}
+{"id":"PDCA-THREE-SURFACES-P2C","k":"tests#0","i":0,"c":"client/src/components/ChatArea/__tests__/pdcaDrawer.test.tsx"}
+{"id":"PDCA-THREE-SURFACES-P2D","k":"title","i":0,"c":"PDCA 三面 P2-D：聊天页刷新后「查看详情」不再失效（持久化卡片兜底 + 真实 taskId）"}
+{"id":"PDCA-THREE-SURFACES-P2D","k":"source","i":0,"c":".trae/specs/frontend-task-tools-governance.md §6 批次 15（P2-D）"}
+{"id":"PDCA-THREE-SURFACES-P2D","k":"reopenWhen","i":0,"c":"刷新后「查看详情」点不动，或兜底 taskId 又取到子阶段"}
+{"id":"PDCA-THREE-SURFACES-P2D","k":"notes","i":0,"c":"① available 由持久化 pdca_workflow 卡片兜底（active 恒 false）；② 无 taskId 时按 sessionId 调 /v1/pdca/list，pickRootTaskId 优先主链；③ 无任务不造假。e2e：真实自动升级后 reload 点「查看详情」抽屉可开，taskId=pdca_mwupjxor。"}
+{"id":"PDCA-THREE-SURFACES-P2D","k":"code#0","i":0,"c":"client/src/components/ChatArea/usePdcaEntry.ts"}
+{"id":"PDCA-THREE-SURFACES-P2D","k":"code#1","i":0,"c":"client/src/components/ChatArea/PdcaActivityStrip.tsx"}
+{"id":"PDCA-THREE-SURFACES-P2D","k":"code#2","i":0,"c":"client/src/services/planService.ts"}
+{"id":"PDCA-THREE-SURFACES-P2D","k":"tests#0","i":0,"c":"client/src/components/ChatArea/__tests__/usePdcaEntry.test.ts"}
+{"id":"PDCA-THREE-SURFACES-P2D","k":"tests#1","i":0,"c":"client/src/components/ChatArea/__tests__/pdcaEntry.test.ts"}
+{"id":"PDCA-THREE-SURFACES-P2D","k":"tests#2","i":0,"c":"client/src/services/__tests__/planService.pickRootTaskId.test.ts"}
+{"id":"PDCA-ABORT-NOT-RUNNING-P2E","k":"title","i":0,"c":"PDCA abort 在无在飞编排器时就地收口（原 409 not_running 导致任务永久显示运行中）"}
+{"id":"PDCA-ABORT-NOT-RUNNING-P2E","k":"source","i":0,"c":".trae/specs/frontend-task-tools-governance.md §6 批次 16（P2-E）"}
+{"id":"PDCA-ABORT-NOT-RUNNING-P2E","k":"reopenWhen","i":0,"c":"点中止后任务再次长期显示运行中，或终态事件未广播"}
+{"id":"PDCA-ABORT-NOT-RUNNING-P2E","k":"notes","i":0,"c":"not_running 分支就地写 abort checkpoint（abortedBy=user_abort）+ 仅有 workItemId 时同步归属 + tasks 侧 notifyPdcaAbortSettled 经 hook 由 main 装配广播终态，返回 200 checkpointOnly；已终态仍 409。真实复验：主链 "}
+{"id":"PDCA-ABORT-NOT-RUNNING-P2E","k":"notes","i":1,"c":"pdca_mwuqoove abort ⇒ 200 checkpointOnly + phase=abort。"}
+{"id":"PDCA-ABORT-NOT-RUNNING-P2E","k":"code#0","i":0,"c":"app/src/infrastructure/http/handlers/pdca-handlers.ts"}
+{"id":"PDCA-ABORT-NOT-RUNNING-P2E","k":"tests#0","i":0,"c":"app/tests/http/pdca-abort-not-running.contract.test.ts"}
+{"id":"PDCA-STAGE-CHAIN-DETAIL-P2F","k":"title","i":0,"c":"PDCA 阶段链详情：后端读模型透出 stages + 抽屉渲染阶段列表（原为「无步骤快照」空态）"}
+{"id":"PDCA-STAGE-CHAIN-DETAIL-P2F","k":"source","i":0,"c":".trae/specs/frontend-task-tools-governance.md §6 批次 17（P2-F）"}
+{"id":"PDCA-STAGE-CHAIN-DETAIL-P2F","k":"reopenWhen","i":0,"c":"抽屉对阶段链再次只显示「无步骤快照」，或 stages 字段被改写为非原样结构"}
+{"id":"PDCA-STAGE-CHAIN-DETAIL-P2F","k":"notes","i":0,"c":"读模型原样透出 stages/currentStage（无则不返回、不伪造 plan）；前端无 plan 但有 stages 时渲染 StageChainView（id 原样、审批门标记、currentStage 高亮）。真实接口已返回 stages=3。抽屉级 e2e 未完成：两次自动升级均未写 pdca_workflow 快照（已记预存问题）。"}
+{"id":"PDCA-STAGE-CHAIN-DETAIL-P2F","k":"code#0","i":0,"c":"app/src/infrastructure/http/handlers/pdca-handlers.ts"}
+{"id":"PDCA-STAGE-CHAIN-DETAIL-P2F","k":"code#1","i":0,"c":"client/src/services/planService.ts"}
+{"id":"PDCA-STAGE-CHAIN-DETAIL-P2F","k":"code#2","i":0,"c":"client/src/components/Agent/PdcaPipeline.tsx"}
+{"id":"PDCA-STAGE-CHAIN-DETAIL-P2F","k":"tests#0","i":0,"c":"app/tests/http/pdca-status-stages.contract.test.ts"}
+{"id":"PDCA-STAGE-CHAIN-DETAIL-P2F","k":"tests#1","i":0,"c":"client/src/components/Agent/__tests__/pdcaPipelineStages.test.tsx"}
+{"id":"PROGRESS-CARD-RETIREMENT","k":"title","i":0,"c":"下线 ProgressCard（用户裁定简化前端显示）：progress 块不再渲染"}
+{"id":"PROGRESS-CARD-RETIREMENT","k":"source","i":0,"c":".trae/specs/frontend-task-tools-governance.md §6 批次 18"}
+{"id":"PROGRESS-CARD-RETIREMENT","k":"reopenWhen","i":0,"c":"需要恢复执行进度面板，或 progress 块再次被其它视图消费（回滚：revert 本提交 + 98aebca21）"}
+{"id":"PROGRESS-CARD-RETIREMENT","k":"notes","i":0,"c":"CD01-CD06 取证：唯一消费者 BlockRenderer；仅摘渲染入口（case 返回 null，防回落 default 渲染 content），数据层（addProgress/deriveConversationBlocks/ProgressData）保留。删除 ProgressCard.tsx + ProgressCardProps + 5 个 "}
+{"id":"PROGRESS-CARD-RETIREMENT","k":"notes","i":1,"c":"i18n 键。"}
+{"id":"PROGRESS-CARD-RETIREMENT","k":"code#0","i":0,"c":"client/src/components/ChatArea/BlockRenderer.tsx"}
+{"id":"PROGRESS-CARD-RETIREMENT","k":"code#1","i":0,"c":"client/src/types/chatArea.ts"}
+{"id":"PROGRESS-CARD-RETIREMENT","k":"tests#0","i":0,"c":"client/src/components/ChatArea/__tests__/blockRendererProgress.test.tsx"}
+{"id":"PROGRESS-DATA-PATH-RETIREMENT","k":"title","i":0,"c":"清理 ProgressData 前端数据路径（addProgress / 重放派生 / 类型 / 字段）"}
+{"id":"PROGRESS-DATA-PATH-RETIREMENT","k":"source","i":0,"c":".trae/specs/frontend-task-tools-governance.md §6 批次 19"}
+{"id":"PROGRESS-DATA-PATH-RETIREMENT","k":"reopenWhen","i":0,"c":"需要恢复执行进度块，或 ExecutionPhaseCode 再次耦合展示块类型"}
+{"id":"PROGRESS-DATA-PATH-RETIREMENT","k":"notes","i":0,"c":"addProgress 零调用 ⇒ 删除；重放 case 跳过派生（保留 case 防当正文）；删 ProgressData/MessageBlock.progressData/导出/chatService 字段；ExecutionPhaseCode 改自洽联合。后端 EventMessageDeriver 派生未改（已在 spec 记录），故 "}
+{"id":"PROGRESS-DATA-PATH-RETIREMENT","k":"notes","i":1,"c":"testVerified 记 false。"}
+{"id":"PROGRESS-DATA-PATH-RETIREMENT","k":"code#0","i":0,"c":"client/src/stores/chat/chat-toolcall.slice.ts"}
+{"id":"PROGRESS-DATA-PATH-RETIREMENT","k":"code#1","i":0,"c":"client/src/stores/chat/deriveConversationBlocks.ts"}
+{"id":"PROGRESS-DATA-PATH-RETIREMENT","k":"code#2","i":0,"c":"client/src/types/message.ts"}
+{"id":"PROGRESS-DATA-PATH-RETIREMENT","k":"code#3","i":0,"c":"client/src/types/index.ts"}
+{"id":"PROGRESS-DATA-PATH-RETIREMENT","k":"code#4","i":0,"c":"client/src/services/chatService.ts"}
+{"id":"PROGRESS-DATA-PATH-RETIREMENT","k":"code#5","i":0,"c":"client/src/constants/executionPhase.ts"}
+{"id":"PROGRESS-DATA-PATH-RETIREMENT","k":"tests#0","i":0,"c":"client/src/components/ChatArea/__tests__/blockRendererProgress.test.tsx"}
+{"id":"PROGRESS-EVENT-CONTRACT-RETIREMENT","k":"title","i":0,"c":"移除 assistant/progress 事件契约与后端派生（批次 19 保留项）"}
+{"id":"PROGRESS-EVENT-CONTRACT-RETIREMENT","k":"source","i":0,"c":".trae/specs/frontend-task-tools-governance.md §6 批次 20"}
+{"id":"PROGRESS-EVENT-CONTRACT-RETIREMENT","k":"reopenWhen","i":0,"c":"需要恢复执行进度块/事件回放，或 ExecutionPhaseTracker 重新下发 progress 事件（回滚：revert 本提交）"}
+{"id":"PROGRESS-EVENT-CONTRACT-RETIREMENT","k":"notes","i":0,"c":"CD01-CD06：先摘发射（聚合器）→ 摘派生（EventMessageDeriver）→ 删契约（shared/双端载荷/登记）。Grep app/src = 0 ⇒ 无落盘生产者，历史 events.jsonl 无该类型；旧投影 progress 块由 BlockRenderer 返回 null 兜底。CoreAPI 的 "}
+{"id":"PROGRESS-EVENT-CONTRACT-RETIREMENT","k":"notes","i":1,"c":"progressData/ProgressBlockData 零消费者同批删除。"}
+{"id":"PROGRESS-EVENT-CONTRACT-RETIREMENT","k":"code#0","i":0,"c":"shared/events/eventNames.ts"}
+{"id":"PROGRESS-EVENT-CONTRACT-RETIREMENT","k":"code#1","i":0,"c":"client/src/types/events.ts"}
+{"id":"PROGRESS-EVENT-CONTRACT-RETIREMENT","k":"code#2","i":0,"c":"client/src/stores/chat/streaming/EventBasedStreamAggregator.ts"}
+{"id":"PROGRESS-EVENT-CONTRACT-RETIREMENT","k":"code#3","i":0,"c":"client/src/stores/chat/deriveConversationBlocks.ts"}
+{"id":"PROGRESS-EVENT-CONTRACT-RETIREMENT","k":"code#4","i":0,"c":"packages/service/src/session/types/eventPayloads.ts"}
+{"id":"PROGRESS-EVENT-CONTRACT-RETIREMENT","k":"code#5","i":0,"c":"packages/service/src/session/types/knownEventTypes.ts"}
+{"id":"PROGRESS-EVENT-CONTRACT-RETIREMENT","k":"code#6","i":0,"c":"packages/service/src/session/storage/EventMessageDeriver.ts"}
+{"id":"PROGRESS-EVENT-CONTRACT-RETIREMENT","k":"code#7","i":0,"c":"app/src/runtime/api/CoreAPI.ts"}
+{"id":"PROGRESS-EVENT-CONTRACT-RETIREMENT","k":"tests#0","i":0,"c":"app/tests/chat/eventTypeParity.test.ts"}
+{"id":"PROGRESS-EVENT-CONTRACT-RETIREMENT","k":"tests#1","i":0,"c":"app/tests/session/EventMessageDeriver.test.ts"}
+{"id":"PROGRESS-EVENT-CONTRACT-RETIREMENT","k":"tests#2","i":0,"c":"client/src/stores/chat/streaming/__tests__/EventBasedStreamAggregator.test.ts"}
+{"id":"BASH-LISTING-NO-MATCH","k":"title","i":0,"c":"dir 无匹配/空目录不再记为执行失败；2>nul 与 && 短路补可观测性提示"}
+{"id":"BASH-LISTING-NO-MATCH","k":"source","i":0,"c":"会话 session_mwurduuh1b0b38db30 复盘（2026-11-24）"}
+{"id":"BASH-LISTING-NO-MATCH","k":"reopenWhen","i":0,"c":"dir 无匹配被误判（含把权限拒绝洗成无匹配），或 && 提示文案需要调整（回滚：revert 本提交）"}
+{"id":"BASH-LISTING-NO-MATCH","k":"notes","i":0,"c":"判据收窄：exit=1 + stdout/stderr 双空 + 末段 dir + 含 2>nul + 无其它输出重定向 + 目标目录经 fs 探测存在 + 命令不含 &&；否则维持失败。两条提示只补事实（stderr 被吞 / && 短路），不改安全与失败判定。"}
+{"id":"BASH-LISTING-NO-MATCH","k":"code#0","i":0,"c":"app/src/tools/bash/listingNoMatch.ts"}
+{"id":"BASH-LISTING-NO-MATCH","k":"code#1","i":0,"c":"app/src/tools/bash/BashTool.ts"}
+{"id":"BASH-LISTING-NO-MATCH","k":"tests#0","i":0,"c":"app/tests/tools/bashListingNoMatch.test.ts"}
+{"id":"BASH-POSIX-ON-CMD-HINT","k":"title","i":0,"c":"cmd.exe 上误用 POSIX 命令时给出等价写法提示（反向 shell 提示）"}
+{"id":"BASH-POSIX-ON-CMD-HINT","k":"source","i":0,"c":"会话 session_mwurduuh1b0b38db30 复盘（2026-11-24）"}
+{"id":"BASH-POSIX-ON-CMD-HINT","k":"reopenWhen","i":0,"c":"需要扩展 POSIX→cmd 映射表，或提示误报（把 POSIX shell 的 command not found 当 cmd 场景）（回滚：revert 本提交）"}
+{"id":"BASH-POSIX-ON-CMD-HINT","k":"notes","i":0,"c":"只认 cmd 专属报错文案（not recognized as an internal or external command / 不是内部或外部命令）；从报错原文紧邻词取 token（不取命令首 token，兼容 `… | head -3` 的管道末段）；POSIX shell 的 command not found 不提示。"}
+{"id":"BASH-POSIX-ON-CMD-HINT","k":"code#0","i":0,"c":"app/src/tools/bash/cmdBuiltinHint.ts"}
+{"id":"BASH-POSIX-ON-CMD-HINT","k":"code#1","i":0,"c":"app/src/tools/bash/BashTool.ts"}
+{"id":"BASH-POSIX-ON-CMD-HINT","k":"tests#0","i":0,"c":"app/tests/tools/cmdBuiltinHint.test.ts"}
+{"id":"SESSION-RESUMED-HUD","k":"title","i":0,"c":"审批后续跑启动广播 session:resumed，浮动栏不再整段消失"}
+{"id":"SESSION-RESUMED-HUD","k":"source","i":0,"c":"会话 session_mwurduuh1b0b38db30 复盘（2026-11-24）"}
+{"id":"SESSION-RESUMED-HUD","k":"reopenWhen","i":0,"c":"续跑期间再次出现浮动栏缺失，或 session:resumed 被其它路径复用造成误唤醒（回滚：revert 本两项提交）"}
+{"id":"SESSION-RESUMED-HUD","k":"notes","i":0,"c":"根因：批准后自动续跑期间没有客户端 SSE；useWaitState 只在 waiting/remoteStreaming 时轮询，turn 结束即刻停 ⇒ 续跑 62s 无运行态。修法：后端首个 chunk 且 controller 已注册时广播 session:resumed；前端命中当前会话即 nudgeRuntimeProbe ⇒ 立即重拉 "}
+{"id":"SESSION-RESUMED-HUD","k":"notes","i":1,"c":"/streaming 并转入后台运行轮询。"}
+{"id":"SESSION-RESUMED-HUD","k":"code#0","i":0,"c":"packages/service/src/runtime/inboxApproval.ts"}
+{"id":"SESSION-RESUMED-HUD","k":"code#1","i":0,"c":"client/src/hooks/useNotificationSSE.ts"}
+{"id":"SESSION-RESUMED-HUD","k":"code#2","i":0,"c":"client/src/components/ChatArea/useWaitState.ts"}
+{"id":"SESSION-RESUMED-HUD","k":"code#3","i":0,"c":"client/src/components/ChatArea/ChatArea.tsx"}
+{"id":"SESSION-RESUMED-HUD","k":"code#4","i":0,"c":"client/src/stores/chat/chat-message.slice.ts"}
+{"id":"SESSION-RESUMED-HUD","k":"code#5","i":0,"c":"client/src/stores/chat/chat-message.types.ts"}
+{"id":"SESSION-RESUMED-HUD","k":"tests#0","i":0,"c":"app/tests/runtime/inboxApprovalResumeBroadcast.test.ts"}
+{"id":"SESSION-RESUMED-HUD","k":"tests#1","i":0,"c":"client/src/tests/useWaitState.test.ts"}
+{"id":"SESSION-RESUMED-HUD","k":"tests#2","i":0,"c":"client/src/hooks/__tests__/useNotificationSSEWiring.test.ts"}
+{"id":"TOOL-RESULT-STRING-PASSTHROUGH","k":"title","i":0,"c":"工具结果字符串载荷直通，消除二次 JSON 编码（模型/事件/前端同源）"}
+{"id":"TOOL-RESULT-STRING-PASSTHROUGH","k":"source","i":0,"c":"会话 session_mwurduuh1b0b38db30 复盘（2026-11-24）"}
+{"id":"TOOL-RESULT-STRING-PASSTHROUGH","k":"reopenWhen","i":0,"c":"工具结果再次出现外层引号/字面量 \\r\\n，或对象型出参不再被 JSON 化（回滚：revert 本提交）"}
+{"id":"TOOL-RESULT-STRING-PASSTHROUGH","k":"notes","i":0,"c":"真机：265 条结果中 134 条外层带引号 + 字面 \\r\\n（bash 36/44、file_read 97/99）。根因：toToolResultRawText 与 createToolResultMessage 对字符串载荷也 JSON.stringify。新增 toolResultPayloadText（字符串直通；其它 JSON 化；"}
+{"id":"TOOL-RESULT-STRING-PASSTHROUGH","k":"notes","i":1,"c":"undefined 保持）并两处复用；对象/空容器/empty-success 语义不变。events/UI 走消息 content 同一收口，一并修复。"}
+{"id":"TOOL-RESULT-STRING-PASSTHROUGH","k":"code#0","i":0,"c":"app/src/chat/services/toolResultContract.ts"}
+{"id":"TOOL-RESULT-STRING-PASSTHROUGH","k":"code#1","i":0,"c":"app/src/chat/services/ChatHelper.ts"}
+{"id":"TOOL-RESULT-STRING-PASSTHROUGH","k":"code#2","i":0,"c":"app/src/chat/services/MessageService.ts"}
+{"id":"TOOL-RESULT-STRING-PASSTHROUGH","k":"tests#0","i":0,"c":"app/src/chat/services/__tests__/ChatHelper.test.ts"}
+{"id":"TOOL-RESULT-STRING-PASSTHROUGH","k":"tests#1","i":0,"c":"app/tests/chat/toolResultContract.test.ts"}
+{"id":"APPROVAL-REPLAY-STATS-DEDUP","k":"title","i":0,"c":"审批重放的重复 tool/result 在统计口径按调用去重（事件仍保留审计轨迹）"}
+{"id":"APPROVAL-REPLAY-STATS-DEDUP","k":"source","i":0,"c":"会话 session_mwurduuh1b0b38db30 复盘（2026-11-24，P2）"}
+{"id":"APPROVAL-REPLAY-STATS-DEDUP","k":"reopenWhen","i":0,"c":"统计再次出现结果数 > 调用数，或需要把重放结果彻底拆成独立事件类型（回滚：revert 本提交）"}
+{"id":"APPROVAL-REPLAY-STATS-DEDUP","k":"notes","i":0,"c":"设计边界：占位（awaiting_approval）与真实结果两条事件**刻意保留**（审计轨迹，发送模型前由 dedupeToolResults 剔除），本项只改统计口径。toolResultCount 改为按 toolCallId 去重（无 id 结果仍如实计数），新增 toolResultReplayCount 暴露额外条数；孤儿判定语义不变。"}
+{"id":"APPROVAL-REPLAY-STATS-DEDUP","k":"code#0","i":0,"c":"packages/service/src/session/storage/EventMessageDeriver.ts"}
+{"id":"APPROVAL-REPLAY-STATS-DEDUP","k":"code#1","i":0,"c":"client/src/services/trajectoryService.ts"}
+{"id":"APPROVAL-REPLAY-STATS-DEDUP","k":"tests#0","i":0,"c":"app/tests/session/sessionStatsReplayDedup.test.ts"}
+{"id":"WORKSPACE-LAYOUT-HINT","k":"title","i":0,"c":"系统提示工作区段附带一级目录，免去「先探一层才知道工程根」"}
+{"id":"WORKSPACE-LAYOUT-HINT","k":"source","i":0,"c":"会话 session_mwurduuh1b0b38db30 复盘（2026-11-24，P3）"}
+{"id":"WORKSPACE-LAYOUT-HINT","k":"reopenWhen","i":0,"c":"提示词体积因目录列举显著上升，或模型仍按「仓库根=工程根」猜路径（回滚：revert 本提交）"}
+{"id":"WORKSPACE-LAYOUT-HINT","k":"notes","i":0,"c":"只做确定性事实注入，不硬编码具体项目路径：listTopLevelDirs 读工作区一级目录（排除 node_modules/.git，按名排序，上限 24），失败回落空数组；仅存在显式工作区时注入，另加一行指引“代码主工程不在工作区根时按目录判断，不要按仓库根=工程根的习惯猜路径”。"}
+{"id":"WORKSPACE-LAYOUT-HINT","k":"code#0","i":0,"c":"app/src/chat/services/context/systemPromptAssembly.ts"}
+{"id":"WORKSPACE-LAYOUT-HINT","k":"tests#0","i":0,"c":"app/tests/chat/MessageContextPipeline.test.ts"}
+{"id":"APPROVAL-SESSION-SCOPE-TIGHTEN","k":"title","i":0,"c":"会话级工具放行收紧为「命令前缀 + 只读」，不再整工具无条件放行"}
+{"id":"APPROVAL-SESSION-SCOPE-TIGHTEN","k":"source","i":0,"c":"会话 session_mwurduuh1b0b38db30 复盘（2026-11-24，P4）"}
+{"id":"APPROVAL-SESSION-SCOPE-TIGHTEN","k":"reopenWhen","i":0,"c":"需要把会话级放行再放宽（如覆盖整个工具），或前缀/只读判据误伤正常命令（回滚：revert 本提交）"}
+{"id":"APPROVAL-SESSION-SCOPE-TIGHTEN","k":"notes","i":0,"c":"真机：批一条 bun run 后，rmdir /s /q、cmd /c exit 3 同类命令也免审。修法：放行带批准命令前缀（首 token；bun/npm/node 取前两 token），判定为「只读（checkCompoundReadOnly）或同前缀」；无命令记录 ⇒ 仅只读（fail-closed）。2026-11-25 加固：危险基命令、转执行包"}
+{"id":"APPROVAL-SESSION-SCOPE-TIGHTEN","k":"notes","i":1,"c":"装器（env/xargs/eval/exec/source）、内联代码形态（node -e / python -c / cmd /c …）均不给前缀；前缀大小写敏感。"}
+{"id":"APPROVAL-SESSION-SCOPE-TIGHTEN","k":"code#0","i":0,"c":"packages/infra/src/permission/ApprovedCommandRegistry.ts"}
+{"id":"APPROVAL-SESSION-SCOPE-TIGHTEN","k":"code#1","i":0,"c":"packages/infra/src/permission/PermissionChecker.ts"}
+{"id":"APPROVAL-SESSION-SCOPE-TIGHTEN","k":"code#2","i":0,"c":"packages/service/src/runtime/inboxApproval.ts"}
+{"id":"APPROVAL-SESSION-SCOPE-TIGHTEN","k":"code#3","i":0,"c":"app/src/tools/bash/BashTool.ts"}
+{"id":"APPROVAL-SESSION-SCOPE-TIGHTEN","k":"code#4","i":0,"c":"app/src/chat/manager/toolApproval.ts"}
+{"id":"APPROVAL-SESSION-SCOPE-TIGHTEN","k":"tests#0","i":0,"c":"app/tests/permission/ApprovedCommandRegistry.test.ts"}
+{"id":"APPROVAL-SESSION-SCOPE-TIGHTEN","k":"tests#1","i":0,"c":"app/tests/tools/BashToolApproval.test.ts"}
+{"id":"FSM-CATALOG-HYGIENE","k":"source","i":0,"c":".trae/specs/state-machine-governance.md §2（2026-11-24 重新落盘；原 dev_docs/20261012/状态机规范管理方案-20261012.md 已缺失）"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#0","i":0,"c":"client/src/App.tsx"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#1","i":0,"c":"client/src/components/ChatArea/ChatInput.tsx"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#2","i":0,"c":"client/src/components/ChatArea/ImageToolResult/ImageDisplayResult.tsx"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#3","i":0,"c":"client/src/components/ChatArea/ImageToolResult/ImageGenerateResult.tsx"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#4","i":0,"c":"client/src/components/ChatArea/WorkflowRunCard.tsx"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#5","i":0,"c":"client/src/components/Knowledge/shared/utils.ts"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#6","i":0,"c":"client/src/components/Knowledge/useCompilePolling.ts"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#7","i":0,"c":"client/src/components/Knowledge/useKnowledgeBaseList.ts"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#8","i":0,"c":"client/src/components/Terminal/XTermPanel.tsx"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#9","i":0,"c":"client/src/components/VoiceInputButton.tsx"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#10","i":0,"c":"client/src/components/chat/ContextWatermark.tsx"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#11","i":0,"c":"client/src/components/views/DAGView.tsx"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#12","i":0,"c":"client/src/components/views/HomePage.tsx"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#13","i":0,"c":"client/src/components/views/MediaPage.tsx"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#14","i":0,"c":"client/src/components/views/ViewRouter.tsx"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#15","i":0,"c":"client/src/components/views/image/ImageGallery.tsx"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#16","i":0,"c":"client/src/components/views/media/MasonryGallery.tsx"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#17","i":0,"c":"client/src/components/views/media/TemplateCarousel.tsx"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#18","i":0,"c":"client/src/components/views/office/CenterPanel.tsx"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#19","i":0,"c":"client/src/components/views/office/CreateDocModal.tsx"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#20","i":0,"c":"client/src/hooks/useBuddyNotification.ts"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#21","i":0,"c":"client/src/hooks/useVideoTaskPolling.ts"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#22","i":0,"c":"client/src/i18n/locales/en/base.ts"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#23","i":0,"c":"client/src/i18n/locales/en/settings.ts"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#24","i":0,"c":"client/src/i18n/locales/en/knowledge.ts"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#25","i":0,"c":"client/src/i18n/locales/en/workspace.ts"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#26","i":0,"c":"client/src/i18n/locales/en/misc.ts"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#27","i":0,"c":"client/src/i18n/locales/zh/base.ts"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#28","i":0,"c":"client/src/i18n/locales/zh/settings.ts"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#29","i":0,"c":"client/src/i18n/locales/zh/knowledge.ts"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#30","i":0,"c":"client/src/i18n/locales/zh/workspace.ts"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#31","i":0,"c":"client/src/i18n/locales/zh/misc.ts"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#32","i":0,"c":"client/src/services/chatService.ts"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#33","i":0,"c":"client/src/stores/backendStore.ts"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#34","i":0,"c":"client/src/stores/channelStore.ts"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#35","i":0,"c":"client/src/stores/chat/chat-message-actions.ts"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#36","i":0,"c":"client/src/stores/chat/chat-message-shared.ts"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#37","i":0,"c":"client/src/stores/chat/chat-message-stream.ts"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#38","i":0,"c":"client/src/stores/chat/chat-message.slice.ts"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#39","i":0,"c":"client/src/stores/councilStore.ts"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#40","i":0,"c":"client/src/stores/fileStore.ts"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#41","i":0,"c":"client/src/utils/formatValue.ts"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#42","i":0,"c":"client/src/utils/friendlyError.ts"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#43","i":0,"c":"client/src/utils/messageText.ts"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#44","i":0,"c":"client/src/utils/planRestore.ts"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#45","i":0,"c":"client/src/utils/sessionLog.ts"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#46","i":0,"c":"client/src/utils/toolHumanSummary.ts"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","k":"code#47","i":0,"c":"client/src/tests/fixtures/i18nLiteralBaseline.json"}
+{"id":"FSM-SESSIONSTATE-P3","k":"code#0","i":0,"c":"packages/infra/src/state/session/types.ts"}
+{"id":"FSM-SESSIONSTATE-P3","k":"code#1","i":0,"c":"packages/infra/src/state/session/SessionStateMachine.ts"}
+{"id":"FSM-SESSIONSTATE-P3","k":"code#2","i":0,"c":"packages/infra/src/state/index.ts"}
+{"id":"FSM-SESSIONSTATE-P3","k":"code#3","i":0,"c":"packages/infra/src/state/engine/stateMachineCatalog.ts"}
+{"id":"FSM-SESSIONSTATE-P3","k":"code#4","i":0,"c":"app/src/chat/services/EventNotificationService.ts"}
+{"id":"FSM-SESSIONSTATE-P3","k":"code#5","i":0,"c":"packages/service/src/session/models/SessionState.ts"}

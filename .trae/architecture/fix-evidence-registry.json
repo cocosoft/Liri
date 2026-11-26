@@ -17484,7 +17484,7 @@
       ],
       "changelog": [],
       "reopenWhen": "再次出现消息卡显示百分比，或多轮 PDCA 时历史卡跟随最新事件（全文见 archive/evidence-detail.jsonl#PDCA-THREE-SURFACES-P2A）",
-      "notes": "① textOf 不再返回 percent（百分比只在抽屉 PdcaPipeline）；② useIsLatestPdcaCard 让实时覆盖只作用于该会话最后一张卡；③ resolvePdcaEntry 拆 active/available（终态仍可打开抽屉）；④ 开合态提升到 pdcaDrawerStore，消息卡「查看详情」与浮动栏徽标共用。"
+      "notes": "① textOf 不再返回 percent（百分比只在抽屉 PdcaPipeline）；② useIsLatestPdcaCard 让实时覆盖只作用于该会话最后一张卡；③ resolvePdcaEntry 拆 active/available（终态仍可打开抽屉）；④ 开合态提升到 pdcaDrawerStore，消息…（全文见 archive/evidence-detail.jsonl#PDCA-THREE-SURFACES-P2A）"
     },
     {
       "id": "PDCA-THREE-SURFACES-P2B",
@@ -17512,7 +17512,7 @@
       ],
       "changelog": [],
       "reopenWhen": "徽标再次在终态谎报进行中，或终态徽标把浮动栏永久钉在屏幕上（全文见 archive/evidence-detail.jsonl#PDCA-THREE-SURFACES-P2B）",
-      "notes": "① 徽标抽为 PdcaEntryBadge：active ⇒ 蓝脉冲 +「PDCA 编排」；终态 ⇒ 灰点 +「查看结果」；② terminal 不进入浮动栏常驻判据，只在其已显示时降级出现；③ 等待审批不由徽标表达（会话级，含非 PDCA 审批，左侧主状态点承担）。"
+      "notes": "① 徽标抽为 PdcaEntryBadge：active ⇒ 蓝脉冲 +「PDCA 编排」；终态 ⇒ 灰点 +「查看结果」；② terminal 不进入浮动栏常驻判据，只在其已显示时降级出现；③ 等待审批不由徽标表达（会话级，含非 PDCA 审批，左侧主状态点承担）。（全文见 archive/evidence-detail.jsonl#PDCA-THREE-SURFACES-P2B）"
     },
     {
       "id": "PDCA-THREE-SURFACES-P2C",
@@ -17538,7 +17538,7 @@
       ],
       "changelog": [],
       "reopenWhen": "抽屉再次在 message card / 浮动栏之外出现第二份进度百分比，或无 taskId 时渲染假进度（全文见 archive/evidence-detail.jsonl#PDCA-THREE-SURFACES-P2C）",
-      "notes": "① 标题区加「唯一进度详情」胶囊；② taskId 缺失时不渲染 PdcaPipeline，改如实提示「本轮无任务快照，以下为事件流」；③ 终态可达由 P2-A 的 available + pdcaDrawerStore 保证，集成用例覆盖「点查看详情 ⇒ 抽屉出现」。"
+      "notes": "① 标题区加「唯一进度详情」胶囊；② taskId 缺失时不渲染 PdcaPipeline，改如实提示「本轮无任务快照，以下为事件流」；③ 终态可达由 P2-A 的 available + pdcaDrawerStore 保证，集成用例覆盖「点查看详情 ⇒ 抽屉出现」。（全文见 archive/evidence-detail.jsonl#PDCA-THREE-SURFACES-P2C）"
     },
     {
       "id": "PDCA-THREE-SURFACES-P2D",
@@ -17568,7 +17568,7 @@
       ],
       "changelog": [],
       "reopenWhen": "刷新后「查看详情」点不动，或兜底 taskId 又取到子阶段（全文见 archive/evidence-detail.jsonl#PDCA-THREE-SURFACES-P2D）",
-      "notes": "① available 由持久化 pdca_workflow 卡片兜底（active 恒 false）；② 无 taskId 时按 sessionId 调 /v1/pdca/list，pickRootTaskId 优先主链；③ 无任务不造假。e2e：真实自动升级后 reload 点「查看详情」抽屉可开，taskId=pdca_mwupjxor。"
+      "notes": "① available 由持久化 pdca_workflow 卡片兜底（active 恒 false）；② 无 taskId 时按 sessionId 调 /v1/pdca/list，pickRootTaskId 优先主链；③ 无任务不造假。e2e：真实自动升级后 reload 点「查看详情」抽屉可开，taskId=…（全文见 archive/evidence-detail.jsonl#PDCA-THREE-SURFACES-P2D）"
     },
     {
       "id": "PDCA-ABORT-NOT-RUNNING-P2E",
@@ -17594,7 +17594,7 @@
       ],
       "changelog": [],
       "reopenWhen": "点中止后任务再次长期显示运行中，或终态事件未广播（全文见 archive/evidence-detail.jsonl#PDCA-ABORT-NOT-RUNNING-P2E）",
-      "notes": "not_running 分支就地写 abort checkpoint（abortedBy=user_abort）+ 仅有 workItemId 时同步归属 + tasks 侧 notifyPdcaAbortSettled 经 hook 由 main 装配广播终态，返回 200 checkpointOnly；已终态仍 409。真实复验：主链 pdca_mwuqoove abort ⇒ 200 checkpointOnly + phase=abort。"
+      "notes": "not_running 分支就地写 abort checkpoint（abortedBy=user_abort）+ 仅有 workItemId 时同步归属 + tasks 侧 notifyPdcaAbortSettled 经 hook 由 main 装配广播终态，返回 200 checkpointOnly；已终态仍 …（全文见 archive/evidence-detail.jsonl#PDCA-ABORT-NOT-RUNNING-P2E）"
     },
     {
       "id": "PDCA-STAGE-CHAIN-DETAIL-P2F",
@@ -17623,7 +17623,7 @@
       ],
       "changelog": [],
       "reopenWhen": "抽屉对阶段链再次只显示「无步骤快照」，或 stages 字段被改写为非原样结构（全文见 archive/evidence-detail.jsonl#PDCA-STAGE-CHAIN-DETAIL-P2F）",
-      "notes": "读模型原样透出 stages/currentStage（无则不返回、不伪造 plan）；前端无 plan 但有 stages 时渲染 StageChainView（id 原样、审批门标记、currentStage 高亮）。真实接口已返回 stages=3。抽屉级 e2e 未完成：两次自动升级均未写 pdca_workflow 快照（已记预存问题）。"
+      "notes": "读模型原样透出 stages/currentStage（无则不返回、不伪造 plan）；前端无 plan 但有 stages 时渲染 StageChainView（id 原样、审批门标记、currentStage 高亮）。真实接口已返回 stages=3。抽屉级 e2e 未完成：两次自动升级均未写 pdca_work…（全文见 archive/evidence-detail.jsonl#PDCA-STAGE-CHAIN-DETAIL-P2F）"
     },
     {
       "id": "PROGRESS-CARD-RETIREMENT",
@@ -17650,7 +17650,7 @@
       ],
       "changelog": [],
       "reopenWhen": "需要恢复执行进度面板，或 progress 块再次被其它视图消费（回滚：revert 本提交 + 98aebca21）（全文见 archive/evidence-detail.jsonl#PROGRESS-CARD-RETIREMENT）",
-      "notes": "CD01-CD06 取证：唯一消费者 BlockRenderer；仅摘渲染入口（case 返回 null，防回落 default 渲染 content），数据层（addProgress/deriveConversationBlocks/ProgressData）保留。删除 ProgressCard.tsx + ProgressCardProps + 5 个 i18n 键。"
+      "notes": "CD01-CD06 取证：唯一消费者 BlockRenderer；仅摘渲染入口（case 返回 null，防回落 default 渲染 content），数据层（addProgress/deriveConversationBlocks/ProgressData）保留。删除 ProgressCard.tsx + Pro…（全文见 archive/evidence-detail.jsonl#PROGRESS-CARD-RETIREMENT）"
     },
     {
       "id": "PROGRESS-DATA-PATH-RETIREMENT",
@@ -17681,7 +17681,7 @@
       ],
       "changelog": [],
       "reopenWhen": "需要恢复执行进度块，或 ExecutionPhaseCode 再次耦合展示块类型（全文见 archive/evidence-detail.jsonl#PROGRESS-DATA-PATH-RETIREMENT）",
-      "notes": "addProgress 零调用 ⇒ 删除；重放 case 跳过派生（保留 case 防当正文）；删 ProgressData/MessageBlock.progressData/导出/chatService 字段；ExecutionPhaseCode 改自洽联合。后端 EventMessageDeriver 派生未改（已在 spec 记录），故 testVerified 记 false。"
+      "notes": "addProgress 零调用 ⇒ 删除；重放 case 跳过派生（保留 case 防当正文）；删 ProgressData/MessageBlock.progressData/导出/chatService 字段；ExecutionPhaseCode 改自洽联合。后端 EventMessageDeriver 派生未改…（全文见 archive/evidence-detail.jsonl#PROGRESS-DATA-PATH-RETIREMENT）"
     },
     {
       "id": "PROGRESS-EVENT-CONTRACT-RETIREMENT",
@@ -17715,8 +17715,8 @@
         "client/src/stores/chat/streaming/__tests__/EventBasedStreamAggregator.test.ts"
       ],
       "changelog": [],
-      "reopenWhen": "需要恢复执行进度块/事件回放，或 ExecutionPhaseTracker 重新下发 progress 事件（回滚：revert 本提交）",
-      "notes": "CD01-CD06：先摘发射（聚合器）→ 摘派生（EventMessageDeriver）→ 删契约（shared/双端载荷/登记）。Grep app/src = 0 ⇒ 无落盘生产者，历史 events.jsonl 无该类型；旧投影 progress 块由 BlockRenderer 返回 null 兜底。CoreAPI 的 progressData/ProgressBlockData 零消费者同批删除。"
+      "reopenWhen": "需要恢复执行进度块/事件回放，或 ExecutionPhaseTracker 重新下发 progress 事件（回滚：revert 本提交）（全文见 archive/evidence-detail.jsonl#PROGRESS-EVENT-CONTRACT-RETIREMENT）",
+      "notes": "CD01-CD06：先摘发射（聚合器）→ 摘派生（EventMessageDeriver）→ 删契约（shared/双端载荷/登记）。Grep app/src = 0 ⇒ 无落盘生产者，历史 events.jsonl 无该类型；旧投影 progress 块由 BlockRenderer 返回 null 兜底。Core…（全文见 archive/evidence-detail.jsonl#PROGRESS-EVENT-CONTRACT-RETIREMENT）"
     },
     {
       "id": "BASH-LISTING-NO-MATCH",
@@ -17738,10 +17738,12 @@
         "app/src/tools/bash/listingNoMatch.ts",
         "app/src/tools/bash/BashTool.ts"
       ],
-      "tests": ["app/tests/tools/bashListingNoMatch.test.ts"],
+      "tests": [
+        "app/tests/tools/bashListingNoMatch.test.ts"
+      ],
       "changelog": [],
-      "reopenWhen": "dir 无匹配被误判（含把权限拒绝洗成无匹配），或 && 提示文案需要调整（回滚：revert 本提交）",
-      "notes": "判据收窄：exit=1 + stdout/stderr 双空 + 末段 dir + 含 2>nul + 无其它输出重定向 + 目标目录经 fs 探测存在 + 命令不含 &&；否则维持失败。两条提示只补事实（stderr 被吞 / && 短路），不改安全与失败判定。"
+      "reopenWhen": "dir 无匹配被误判（含把权限拒绝洗成无匹配），或 && 提示文案需要调整（回滚：revert 本提交）（全文见 archive/evidence-detail.jsonl#BASH-LISTING-NO-MATCH）",
+      "notes": "判据收窄：exit=1 + stdout/stderr 双空 + 末段 dir + 含 2>nul + 无其它输出重定向 + 目标目录经 fs 探测存在 + 命令不含 &&；否则维持失败。两条提示只补事实（stderr 被吞 / && 短路），不改安全与失败判定。（全文见 archive/evidence-detail.jsonl#BASH-LISTING-NO-MATCH）"
     },
     {
       "id": "BASH-POSIX-ON-CMD-HINT",
@@ -17763,10 +17765,12 @@
         "app/src/tools/bash/cmdBuiltinHint.ts",
         "app/src/tools/bash/BashTool.ts"
       ],
-      "tests": ["app/tests/tools/cmdBuiltinHint.test.ts"],
+      "tests": [
+        "app/tests/tools/cmdBuiltinHint.test.ts"
+      ],
       "changelog": [],
-      "reopenWhen": "需要扩展 POSIX→cmd 映射表，或提示误报（把 POSIX shell 的 command not found 当 cmd 场景）（回滚：revert 本提交）",
-      "notes": "只认 cmd 专属报错文案（not recognized as an internal or external command / 不是内部或外部命令）；从报错原文紧邻词取 token（不取命令首 token，兼容 `… | head -3` 的管道末段）；POSIX shell 的 command not found 不提示。"
+      "reopenWhen": "需要扩展 POSIX→cmd 映射表，或提示误报（把 POSIX shell 的 command not found 当 cmd 场景）（回滚：revert 本提交）（全文见 archive/evidence-detail.jsonl#BASH-POSIX-ON-CMD-HINT）",
+      "notes": "只认 cmd 专属报错文案（not recognized as an internal or external command / 不是内部或外部命令）；从报错原文紧邻词取 token（不取命令首 token，兼容 `… | head -3` 的管道末段）；POSIX shell 的 command not foun…（全文见 archive/evidence-detail.jsonl#BASH-POSIX-ON-CMD-HINT）"
     },
     {
       "id": "SESSION-RESUMED-HUD",
@@ -17798,8 +17802,8 @@
         "client/src/hooks/__tests__/useNotificationSSEWiring.test.ts"
       ],
       "changelog": [],
-      "reopenWhen": "续跑期间再次出现浮动栏缺失，或 session:resumed 被其它路径复用造成误唤醒（回滚：revert 本两项提交）",
-      "notes": "根因：批准后自动续跑期间没有客户端 SSE；useWaitState 只在 waiting/remoteStreaming 时轮询，turn 结束即刻停 ⇒ 续跑 62s 无运行态。修法：后端首个 chunk 且 controller 已注册时广播 session:resumed；前端命中当前会话即 nudgeRuntimeProbe ⇒ 立即重拉 /streaming 并转入后台运行轮询。"
+      "reopenWhen": "续跑期间再次出现浮动栏缺失，或 session:resumed 被其它路径复用造成误唤醒（回滚：revert 本两项提交）（全文见 archive/evidence-detail.jsonl#SESSION-RESUMED-HUD）",
+      "notes": "根因：批准后自动续跑期间没有客户端 SSE；useWaitState 只在 waiting/remoteStreaming 时轮询，turn 结束即刻停 ⇒ 续跑 62s 无运行态。修法：后端首个 chunk 且 controller 已注册时广播 session:resumed；前端命中当前会话即 nudgeRun…（全文见 archive/evidence-detail.jsonl#SESSION-RESUMED-HUD）"
     },
     {
       "id": "TOOL-RESULT-STRING-PASSTHROUGH",
@@ -17827,8 +17831,8 @@
         "app/tests/chat/toolResultContract.test.ts"
       ],
       "changelog": [],
-      "reopenWhen": "工具结果再次出现外层引号/字面量 \\r\\n，或对象型出参不再被 JSON 化（回滚：revert 本提交）",
-      "notes": "真机：265 条结果中 134 条外层带引号 + 字面 \\r\\n（bash 36/44、file_read 97/99）。根因：toToolResultRawText 与 createToolResultMessage 对字符串载荷也 JSON.stringify。新增 toolResultPayloadText（字符串直通；其它 JSON 化；undefined 保持）并两处复用；对象/空容器/empty-success 语义不变。events/UI 走消息 content 同一收口，一并修复。"
+      "reopenWhen": "工具结果再次出现外层引号/字面量 \\r\\n，或对象型出参不再被 JSON 化（回滚：revert 本提交）（全文见 archive/evidence-detail.jsonl#TOOL-RESULT-STRING-PASSTHROUGH）",
+      "notes": "真机：265 条结果中 134 条外层带引号 + 字面 \\r\\n（bash 36/44、file_read 97/99）。根因：toToolResultRawText 与 createToolResultMessage 对字符串载荷也 JSON.stringify。新增 toolResultPayloadText（字…（全文见 archive/evidence-detail.jsonl#TOOL-RESULT-STRING-PASSTHROUGH）"
     },
     {
       "id": "APPROVAL-REPLAY-STATS-DEDUP",
@@ -17850,10 +17854,12 @@
         "packages/service/src/session/storage/EventMessageDeriver.ts",
         "client/src/services/trajectoryService.ts"
       ],
-      "tests": ["app/tests/session/sessionStatsReplayDedup.test.ts"],
+      "tests": [
+        "app/tests/session/sessionStatsReplayDedup.test.ts"
+      ],
       "changelog": [],
-      "reopenWhen": "统计再次出现结果数 > 调用数，或需要把重放结果彻底拆成独立事件类型（回滚：revert 本提交）",
-      "notes": "设计边界：占位（awaiting_approval）与真实结果两条事件**刻意保留**（审计轨迹，发送模型前由 dedupeToolResults 剔除），本项只改统计口径。toolResultCount 改为按 toolCallId 去重（无 id 结果仍如实计数），新增 toolResultReplayCount 暴露额外条数；孤儿判定语义不变。"
+      "reopenWhen": "统计再次出现结果数 > 调用数，或需要把重放结果彻底拆成独立事件类型（回滚：revert 本提交）（全文见 archive/evidence-detail.jsonl#APPROVAL-REPLAY-STATS-DEDUP）",
+      "notes": "设计边界：占位（awaiting_approval）与真实结果两条事件**刻意保留**（审计轨迹，发送模型前由 dedupeToolResults 剔除），本项只改统计口径。toolResultCount 改为按 toolCallId 去重（无 id 结果仍如实计数），新增 toolResultReplayCount…（全文见 archive/evidence-detail.jsonl#APPROVAL-REPLAY-STATS-DEDUP）"
     },
     {
       "id": "WORKSPACE-LAYOUT-HINT",
@@ -17871,11 +17877,15 @@
         "unitTested": true,
         "e2eVerified": false
       },
-      "code": ["app/src/chat/services/context/systemPromptAssembly.ts"],
-      "tests": ["app/tests/chat/MessageContextPipeline.test.ts"],
+      "code": [
+        "app/src/chat/services/context/systemPromptAssembly.ts"
+      ],
+      "tests": [
+        "app/tests/chat/MessageContextPipeline.test.ts"
+      ],
       "changelog": [],
-      "reopenWhen": "提示词体积因目录列举显著上升，或模型仍按「仓库根=工程根」猜路径（回滚：revert 本提交）",
-      "notes": "只做确定性事实注入，不硬编码具体项目路径：listTopLevelDirs 读工作区一级目录（排除 node_modules/.git，按名排序，上限 24），失败回落空数组；仅存在显式工作区时注入，另加一行指引“代码主工程不在工作区根时按目录判断，不要按仓库根=工程根的习惯猜路径”。"
+      "reopenWhen": "提示词体积因目录列举显著上升，或模型仍按「仓库根=工程根」猜路径（回滚：revert 本提交）（全文见 archive/evidence-detail.jsonl#WORKSPACE-LAYOUT-HINT）",
+      "notes": "只做确定性事实注入，不硬编码具体项目路径：listTopLevelDirs 读工作区一级目录（排除 node_modules/.git，按名排序，上限 24），失败回落空数组；仅存在显式工作区时注入，另加一行指引“代码主工程不在工作区根时按目录判断，不要按仓库根=工程根的习惯猜路径”。（全文见 archive/evidence-detail.jsonl#WORKSPACE-LAYOUT-HINT）"
     },
     {
       "id": "APPROVAL-SESSION-SCOPE-TIGHTEN",
@@ -17905,8 +17915,8 @@
         "app/tests/tools/BashToolApproval.test.ts"
       ],
       "changelog": [],
-      "reopenWhen": "需要把会话级放行再放宽（如覆盖整个工具），或前缀/只读判据误伤正常命令（回滚：revert 本提交）",
-      "notes": "真机：批一条 bun run 后，rmdir /s /q、cmd /c exit 3 同类命令也免审。修法：放行带批准命令前缀（首 token；bun/npm/node 取前两 token），判定为「只读（checkCompoundReadOnly）或同前缀」；无命令记录 ⇒ 仅只读（fail-closed）。2026-11-25 加固：危险基命令、转执行包装器（env/xargs/eval/exec/source）、内联代码形态（node -e / python -c / cmd /c …）均不给前缀；前缀大小写敏感。"
+      "reopenWhen": "需要把会话级放行再放宽（如覆盖整个工具），或前缀/只读判据误伤正常命令（回滚：revert 本提交）（全文见 archive/evidence-detail.jsonl#APPROVAL-SESSION-SCOPE-TIGHTEN）",
+      "notes": "真机：批一条 bun run 后，rmdir /s /q、cmd /c exit 3 同类命令也免审。修法：放行带批准命令前缀（首 token；bun/npm/node 取前两 token），判定为「只读（checkCompoundReadOnly）或同前缀」；无命令记录 ⇒ 仅只读（fail-closed）。202…（全文见 archive/evidence-detail.jsonl#APPROVAL-SESSION-SCOPE-TIGHTEN）"
     }
   ]
 }

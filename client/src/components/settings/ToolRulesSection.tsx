@@ -146,6 +146,9 @@ export default function ToolRulesSection({ isDark }: Props) {
    * 这些规则由审批卡「以后这个命令免审批」写入（`persistAllowlistRule(commandLevel=true)`）。
    * 此前本面板只列"整工具"与"同参数指纹"两类，`contentPattern` 规则**既不展示也无法撤销**
    * ⇒ 用户在审批卡上点下的命令级放行，到设置里找不到（与卡片上的"可撤销"承诺不符）。
+   *
+   * D3-A（2026-11-26）：`contentPattern` 的**生效面是全工具**（命令类按 `command` 原文匹配，
+   * 其余工具按参数 JSON 匹配，见 `isRuleMatch`）；本组只是按"带内容模式"归组展示，不代表只对命令类生效。
    */
   const commandRules = useMemo(
     () => rules.filter((r) => !!r.contentPattern),

@@ -1100,7 +1100,7 @@ const enSettings = {
     // P1 (2026-11-07): command-level allowlist (written by the approval card’s “Never ask for this command”)
     toolsRulesCommands: "Remembered commands (command-level) · {{count}}",
     toolsRulesCommandsHint:
-      "Written by the approval card’s “Never ask for this command”: matches a tool + command prefix (only commands sharing that prefix); revoke entries here.",
+      "Written by the approval card’s “Never ask for this command” (tool + command prefix). Content-level rules apply to every tool: command tools match the raw command, other tools match the JSON-serialized arguments. Revoke entries here.",
     toolsRulesCommandsEmpty: "No command-level entries",
     // R3/R5 (2026-11-17): hit statistics / approval group / pause switch / unknown commands / impact preview
     toolsRulesHitCount: "Hit {{count}} times",

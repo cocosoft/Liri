@@ -1050,7 +1050,7 @@ const zhSettings = {
     // P1（2026-11-07）：命令级免审批（审批卡「以后这个命令免审批」写入）
     toolsRulesCommands: "已记住的命令（命令级免审批）· {{count}}",
     toolsRulesCommandsHint:
-      "由审批卡「以后这个命令免审批」写入：工具 + 命令前缀匹配（仅对同一前缀的命令生效）；这里可逐条撤销。",
+      "由审批卡「以后这个命令免审批」写入（工具 + 命令前缀）；内容级规则对全部工具生效：命令类按 command 原文匹配，其余工具按参数 JSON 匹配；这里可逐条撤销。",
     toolsRulesCommandsEmpty: "暂无命令级免审批记录",
     // R3/R5（2026-11-17）：命中统计 / 审批分组 / 暂停开关 / 未收录命令 / 影响预演
     toolsRulesHitCount: "命中 {{count}} 次",

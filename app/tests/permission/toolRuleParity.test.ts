@@ -51,6 +51,8 @@ function toDecision(result: ToolPermissionResult): Decision {
 
 interface ParityCase {
   name: string;
+  /** 权限档（缺省 `default`；`auto` 档同样必须认内容级规则 —— D3 方案 A） */
+  mode?: 'default' | 'auto';
   rule?: {
     behavior: PermissionBehavior;
     toolName: string;
@@ -169,6 +171,51 @@ const PARITY_CASES: ParityCase[] = [
     input: { file_path: 'out.txt', content: 'x' },
     expected: 'allow',
   },
+  // ── D3 方案 A：内容级规则对**全工具**生效，且与档位无关（auto 档同口径）──
+  {
+    name: '组7 auto 档 · 工具级 deny × 非命令类（file_write）',
+    mode: 'auto',
+    rule: { behavior: PermissionBehavior.DENY, toolName: 'file_write' },
+    toolName: 'file_write',
+    input: { file_path: 'out.txt', content: 'x' },
+    expected: 'deny',
+  },
+  {
+    name: '组7 auto 档 · 内容级 deny `.*` × 非命令类（file_write）',
+    mode: 'auto',
+    rule: {
+      behavior: PermissionBehavior.DENY,
+      toolName: 'file_write',
+      contentPattern: '.*',
+    },
+    toolName: 'file_write',
+    input: { file_path: 'out.txt', content: 'x' },
+    expected: 'deny',
+  },
+  {
+    name: '组7 auto 档 · 内容级 ask `.*` × 非命令类（file_read）',
+    mode: 'auto',
+    rule: {
+      behavior: PermissionBehavior.ASK,
+      toolName: 'file_read',
+      contentPattern: '.*',
+    },
+    toolName: 'file_read',
+    input: { file_path: 'out.txt' },
+    expected: 'ask',
+  },
+  {
+    name: '组7 auto 档 · 内容级 deny `.*` × 命令类（bash）',
+    mode: 'auto',
+    rule: {
+      behavior: PermissionBehavior.DENY,
+      toolName: 'bash',
+      contentPattern: '.*',
+    },
+    toolName: 'bash',
+    input: { command: 'echo parity' },
+    expected: 'deny',
+  },
 ];
 
 describe('S0：simulate 与执行的判定必须同源（同一实例、同一规则、同一输入）', () => {
@@ -195,6 +242,7 @@ describe('S0：simulate 与执行的判定必须同源（同一实例、同一�
 
   for (const testCase of PARITY_CASES) {
     it(`${testCase.name} ⇒ simulate 与执行同为 ${testCase.expected}`, async () => {
+      manager.setMode(testCase.mode ?? 'default');
       if (testCase.rule) {
         const rule: PermissionRule = createPermissionRule({
           ...testCase.rule,
@@ -206,7 +254,7 @@ describe('S0：simulate 与执行的判定必须同源（同一实例、同一�
       const simulated = await manager.simulatePermission({
         toolName: testCase.toolName,
         input: testCase.input,
-        mode: 'default',
+        mode: testCase.mode ?? 'default',
       });
       const executed = await manager.checkPermissionForTool(
         testCase.toolName,

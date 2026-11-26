@@ -140,7 +140,10 @@ try {
   process.exit(1);
 }
 // v1（旧）与 v2（P2-2 起，带 reason/generatedAt/valueOwners）都接受；diff 只看 files
-if ((base.version !== 1 && base.version !== 2) || typeof base.files !== 'object') {
+if (
+  (base.version !== 1 && base.version !== 2) ||
+  typeof base.files !== 'object'
+) {
   console.error('基线缺少受支持的 version（1|2）/ files 字段');
   process.exit(1);
 }

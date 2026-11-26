@@ -19,6 +19,10 @@ import {
 } from '../../src/tasks/PdcaWorkItemBridge';
 import { settleStageApproval } from '../../src/tasks/lro/stageApproval';
 import {
+  resetStageOrchestratorFactory,
+  setStageOrchestratorFactory,
+} from '../../src/tasks/lro/stageOrchestratorPort';
+import {
   setPdcaReceiptSink,
   type PdcaReceiptSink,
 } from '../../src/tasks/lro/terminalReceipt';
@@ -28,6 +32,7 @@ process.env.LIRI_DATA_DIR = dataDir;
 
 afterEach(() => {
   setPdcaReceiptSink(undefined);
+  resetStageOrchestratorFactory();
 });
 
 afterAll(async () => {
@@ -98,5 +103,74 @@ describe('settleStageApproval — 拒绝分支', () => {
     const ck = await readPdcaCheckpoint('pdca_plain_task_1');
     // 不是阶段链 ⇒ `fromCheckpoint` 返回 null ⇒ 直接返回（不误写 abort）
     expect(ck?.phase).toBe('execute');
+  });
+});
+
+/**
+ * 2026-11-27：批准分支改经 `stageOrchestratorPort`（断 `StageOrchestrator ↔ stageApproval`
+ * 的 2 节点环，CI `check:circular` 基线为 0）。这里锁住端口的两种落定语义。
+ */
+describe('settleStageApproval — 批准分支经端口', () => {
+  /** 前置判据要求 checkpoint 带 `stages[]`（否则按"非阶段链任务"直接返回） */
+  const seedStageCheckpoint = async (taskId: string, sessionId: string) => {
+    await writePdcaCheckpoint(taskId, {
+      taskId,
+      sessionId,
+      phase: 'stage_awaiting_approval',
+      status: 'started',
+      stages: [
+        { id: 'requirement', status: 'awaiting_approval' },
+        { id: 'design', status: 'pending' },
+      ],
+    });
+  };
+
+  it('工厂已注册 ⇒ 续跑一次（taskId 透传）', async () => {
+    const resumed: string[] = [];
+    setStageOrchestratorFactory(async (taskId) => {
+      return {
+        resumeAfterApproval: async () => {
+          resumed.push(taskId);
+        },
+      };
+    });
+    await seedStageCheckpoint('pdca_stage_approve_1', 's-approve-1');
+
+    await settleStageApproval({
+      taskId: 'pdca_stage_approve_1',
+      sessionId: 's-approve-1',
+      approved: true,
+    });
+
+    expect(resumed).toEqual(['pdca_stage_approve_1']);
+  });
+
+  it('工厂未注册 ⇒ 不抛异常（如实 warn，不谎报已续跑）', async () => {
+    await seedStageCheckpoint('pdca_stage_approve_2', 's-approve-2');
+
+    await expect(
+      settleStageApproval({
+        taskId: 'pdca_stage_approve_2',
+        sessionId: 's-approve-2',
+        approved: true,
+      })
+    ).resolves.toBeUndefined();
+  });
+
+  it('工厂返回 null（非阶段链任务）⇒ 不续跑、不抛异常', async () => {
+    let called = false;
+    setStageOrchestratorFactory(async () => {
+      called = true;
+      return null;
+    });
+    await seedStageCheckpoint('pdca_stage_approve_3', 's-approve-3');
+
+    await settleStageApproval({
+      taskId: 'pdca_stage_approve_3',
+      sessionId: 's-approve-3',
+      approved: true,
+    });
+
+    expect(called).toBe(true);
   });
 });

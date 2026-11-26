@@ -1769,6 +1769,17 @@ export async function launch(options: LaunchOptions): Promise<void> {
             await import('./tasks/lro/stageApproval.js');
           await settleStageApproval(input);
         });
+        // 2026-11-27：阶段链续跑实现经**端口**注册（`stageApproval` 不再直接 import
+        // `StageOrchestrator` —— 那会与它静态 import 形成 2 节点环，CI `check:circular` 长期红）。
+        const { setStageOrchestratorFactory } =
+          await import('./tasks/lro/stageOrchestratorPort.js');
+        const { StageOrchestrator, createDefaultStageRunner } =
+          await import('./tasks/StageOrchestrator.js');
+        setStageOrchestratorFactory((taskId) =>
+          StageOrchestrator.fromCheckpoint(taskId, {
+            runStage: createDefaultStageRunner(),
+          })
+        );
         // P2-E（2026-11-24）：abort 在「无在飞编排器」时就地落终态后，广播终态事件
         // （服务层不依赖 tasks 域 ⇒ 事件名/状态词由 tasks 侧封装，入口只做装配）。
         const { setPdcaAbortSettledHook } =

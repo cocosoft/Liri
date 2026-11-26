@@ -18,6 +18,9 @@ import { readPdcaCheckpoint, writePdcaCheckpoint } from '../PdcaWorkItemBridge';
 import { PDCA_PHASE_ABORT, pdcaCheckpointStatus } from '../phases';
 import { ABORTED_BY_USER_ABORT } from './abortAttribution';
 import { emitPdcaInterruptedReceipts } from './terminalReceipt';
+// 2026-11-27：续跑实现经**端口**注入（原先动态 import `../StageOrchestrator` ⇒ 与它静态
+// import 本模块形成 2 节点环，CI `check:circular` 长期红）。本文件不再引用任何 tasks 实现。
+import { getStageOrchestratorFactory } from './stageOrchestratorPort';
 
 const logger = getLogger('tasks:stageApproval');
 
@@ -99,24 +102,39 @@ export async function expireStageApprovalCard(
 /**
  * 阶段审批落定（入口层注册的回调，服务层 `resumePdcaIfApplicable` 调用）。
  *
- * - 批准 ⇒ `StageOrchestrator.resumeAfterApproval()`（已完成阶段不重跑）；
+ * - 批准 ⇒ 经 `stageOrchestratorPort` 注入的实现续跑（已完成阶段不重跑）；
  * - 拒绝 ⇒ 写 abort 终态并发回执（与"用户中止"同口径，不谎报进程重启）。
+ *
+ * 前置判据（2026-11-27 沿用原 `fromCheckpoint` 口径的等价实现）：checkpoint 无 `stages[]`
+ * ⇒ 不是阶段链任务 ⇒ 两分支都直接返回，**不改写任何检查点**（普通 PDCA 任务的拒绝
+ * 由它自己的收口路径处理）。
  */
 export async function settleStageApproval(input: {
   taskId: string;
   sessionId: string;
   approved: boolean;
 }): Promise<void> {
-  const { StageOrchestrator, createDefaultStageRunner } =
-    await import('../StageOrchestrator');
-  const orchestrator = await StageOrchestrator.fromCheckpoint(input.taskId, {
-    runStage: createDefaultStageRunner(),
-  });
-  if (!orchestrator) {
+  const ck = (await readPdcaCheckpoint(input.taskId)) ?? {};
+  const stages = Array.isArray(ck['stages']) ? ck['stages'] : [];
+  if (stages.length === 0) {
     logger.warn('阶段审批落定：目标不是阶段链任务', { taskId: input.taskId });
     return;
   }
+
   if (input.approved) {
+    const factory = getStageOrchestratorFactory();
+    if (!factory) {
+      // 入口未装配（如单测 / 未注册工厂的宿主）：如实记录，不谎报"已续跑"
+      logger.warn('阶段审批通过但阶段链编排器工厂未注册 ⇒ 未续跑', {
+        taskId: input.taskId,
+      });
+      return;
+    }
+    const orchestrator = await factory(input.taskId);
+    if (!orchestrator) {
+      logger.warn('阶段审批落定：目标不是阶段链任务', { taskId: input.taskId });
+      return;
+    }
     try {
       await orchestrator.resumeAfterApproval();
       logger.info('阶段审批通过 ⇒ 阶段链已续跑', { taskId: input.taskId });
@@ -129,7 +147,6 @@ export async function settleStageApproval(input: {
     return;
   }
 
-  const ck = (await readPdcaCheckpoint(input.taskId)) ?? {};
   const aborted: Record<string, unknown> = {
     ...ck,
     phase: PDCA_PHASE_ABORT,

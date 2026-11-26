@@ -275,7 +275,12 @@ function compoundRejectHint(reason: string): string {
     // 旧文案只提 `>` 与 file_write ⇒ 模型仍反复 `> _out.txt & type _out.txt` / `find /c /v "" < %f` 撞墙。
     return (
       '等价单条写法：直接执行命令即可（工具已捕获完整输出，**不要**用 > / < 重定向）；' +
-      '要把结果落盘用 file_write；要读文件内容用 file_read；只需过滤输出时用 findstr / Select-String'
+      // 2026-11-26（长程真机 session_mwxit4yo1ed382dd8a）：旧文案只说"落盘用 file_write"，
+      // 模型据此以为 file_write 可以写到任意路径（真机里尝试写 ~/.pyapp/attachments 之外的
+      // 用户目录）。file_write 不受命令沙箱约束，但**受工作区边界 + 审批**约束 ⇒ 必须明说边界，
+      // 否则这句提示会被当成"绕过沙箱"的入口。
+      '要把结果落盘用 file_write（仅限工作区 / 受管产物目录；越界写会走人工审批）；' +
+      '要读文件内容用 file_read；只需过滤输出时用 findstr / Select-String'
     );
   }
   if (/变量|命令替换|反引号/.test(reason)) {

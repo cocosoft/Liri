@@ -439,9 +439,11 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
 
   /** 工具描述 */
   override description =
-    '管理待办事项列表以跟踪任务。创建、更新和完成待办事项。' +
-    '收尾要求：给出最终答复前，必须把已完成项置为 completed；未做项须显式说明原因；' +
-    '禁止在仍有 in_progress 项时直接结束（否则任务进度会停在半完成状态）。';
+    // 2026-11-26（长程真机 session_mwxit4yo1ed382dd8a）：模型逐条 update，10 步任务因此多付
+    // 10 次模型往返（占该轮 25 次工具调用的 44%）。write 本就支持"整份清单覆盖"且**保留各项 id**
+    // ⇒ 批量推进只需一条调用。注：总长度与旧文案**等长**（112 字符），不触碰 AC-16 披露预算棘轮。
+    '管理待办事项列表。批量推进多项状态用 action=write 一次提交整份清单（保留原 id），别逐条 update。' +
+    '收尾：最终答复前把已完成项置 completed、未做项说明原因，禁止带 in_progress 结束。';
 
   /** 最大结果大小 */
   override maxResultSizeChars = 10000;

@@ -29,6 +29,25 @@ Orchestrator 只负责驱动循环、执行工具、感知结果，推理决策�
 
 `plan`(只读) → `default`(询问) → `acceptEdits`(自动批准) → `dontAsk`(白名单) → `bypass`(跳过检查)
 
+#### 1.4.1 规则生效面三级 + 单一运行时（2026-11-26，D3-A）
+
+| 级别 | 判据字段 | 生效面 |
+|---|---|---|
+| 工具级 | 无 `contentPattern` 且无 `inputFingerprint` | 整个工具 |
+| 内容级 | 有 `contentPattern` | **全工具**：命令类按 `command` 原文匹配，其余按参数 `JSON.stringify(input)` 匹配（唯一实现 `isRuleMatch`） |
+| 指纹级 | 有 `inputFingerprint` | 仅该参数组合（审批卡「始终允许该命令」） |
+
+- **deny 先于一切 allow**；内容级规则的生效面与档位无关（`default` / `auto` 同口径）。
+- **进程内只允许一个 `PermissionManager`**：规则 HTTP API（增删查 / `simulate`）与真实执行链必须共用
+  `PermissionManager.getInstance()`。另起实例 ⇒ 两份 `tool_rules.json` 快照 ⇒ 「模拟 deny、执行 allow」
+  （2026-11-26 真机事故）。由 `lint:permission-single-source` 判据⑥ 守护（生产源码不得调用
+  `createPermissionManager()`；测试可自建实例）。
+- 规则文件是**整份覆盖写**：`RuleManager` 写前必须先按该文件同步快照（`sourceLoaded` fail-safe），
+  文件读不出来时拒绝覆盖写，不得把未加载实例的空快照写回。
+- 拒绝依据 `denyInfo.matchScope` 三档 `tool` / `content` / `fingerprint`，与上表一一对应。
+- `simulate` 响应的 `consistentWithExecution`：`false` = 模拟与执行读的不是同一运行时（结论不可信）；
+  `null` = 执行侧尚未装配，无法核对。
+
 ### 1.5 模型数据唯一源
 
 - `ModelConfigs.ts` 是唯一数据源

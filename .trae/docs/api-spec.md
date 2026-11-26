@@ -673,7 +673,7 @@ body `{ objective?: string（trim 非空）, tokenBudget?: number（正有限数
 | PUT | `/v1/permissions/rules/{ruleId}` | ✅ | `permissionService.updateRule`（设置页工具级行为变更走单次原子写；只允许改 `behavior` / `contentPattern` + `confirmImpact`；审批规则 403；冲突/重复/损坏/影响预演 409） |
 | DELETE | `/v1/permissions/rules/{ruleId}` | ✅ | `permissionService.deleteRule`（不存在 ⇒ 200 幂等；审批规则删除 = 撤销放行） |
 | GET | `/v1/permissions/rules/health` | ✅ | `permissionService.getRulesHealth`（设置页「检查规则健康」；R0 只读：规则文件 hash/外部修改/损坏/冲突；R5 起含 `ruleHits`（`staleDays/countingSince/observationDays/observationComplete/staleRules[]`，观察期不足 90 天 ⇒ 不报未命中）） |
-| POST | `/v1/permissions/rules/simulate` | ✅ | 无前端调用方（R0 只读模拟：命中规则 + 最终 allow/ask/deny，不执行工具） |
+| POST | `/v1/permissions/rules/simulate` | ✅ | 无前端调用方（R0 只读模拟：命中规则 + 最终 allow/ask/deny，不执行工具；2026-11-26 起带 `consistentWithExecution`（`false` = 模拟与执行非同一运行时，结论不可信；`null` = 执行侧未装配、无法核对）与可选 `consistencyNote`） |
 | GET | `/v1/permissions/rules/export` | ✅ | 无前端调用方（R2b 备份：`{version:1, exportedAt, rules}`，**不含**审批卡生成的指纹 / 工作区信任规则） |
 | POST | `/v1/permissions/rules/import` | ✅ | 无前端调用方（R2b 回灌：body `{rules:[{behavior,toolName,contentPattern?}]}`；先全量校验再落盘，重复跳过、冲突/非法/预算 ⇒ 零写入） |
 | POST | `/v1/permissions/approvals/pause` | ✅ | `permissionService.updateApprovalPause`（设置页开关；body `{enabled:boolean}`=旧形状只改全局，或 `{global?:boolean, sessions?:string[], workspaces?:string[]}` 整体写入 ⇒ `permission.pauseApprovalPersistence`；暂停后审批规则不参与判定、也不再新增，仍可逐条撤销；`sessions`/`workspaces` 只影响命中的会话 / 工作区根（根由服务端归一化后比较）） |
